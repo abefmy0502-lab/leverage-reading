@@ -140,6 +140,7 @@ import { PAYWALL_EVENT, AI_USED_EVENT } from './lib/freeTrial';
 import { AiConsentGate } from './components/AiConsentSheet';
 import { ensureAiConsent } from './lib/aiConsent';
 import { periodKeyFor, fetchUsedMjpy, fetchLotBalance, remainingTokens, allowanceFor as allowanceForPlan, runCostLine, TOKEN_COSTS } from './lib/tokens';
+import { FREE_OCR_PER_MONTH, freeOcrPeriodKey, fetchFreeOcrUsed, freeOcrRemaining } from './lib/freeOcr';
 // 🪙➕ トークンを追加（買い足し）のシート
 const TokenSheet = lazy(() => import('./components/TokenSheet'));
 import { PaywallContext, usePaywall } from './state/PaywallContext';
@@ -6192,15 +6193,24 @@ function PaywallGate() {
   const [lots, setLots] = useState(null);
   const lotsRef = useRef(null);
   // 戻り値: 追加分が前より増えたか（買ったあとの取り直しに使う）。
+  // 📷 無料プランの写真から書き起こし（月 FREE_OCR_PER_MONTH 回・相談のトークンとは別・lib/freeOcr.js）。
+  //    今月使った回数（'freeocr-YYYY-MM' 行の calls）。null＝未確認・読めない・無料プランでない。
+  const [freeOcrUsed, setFreeOcrUsed] = useState(null);
+  const isFreePlan = plan === 'free';
   const refreshTokens = useCallback(async () => {
-    if (!user?.id || !tokenKey) { setUsedMjpy(null); setLots(null); lotsRef.current = null; return false; }
-    const [used, lot] = await Promise.all([fetchUsedMjpy(user.id, tokenKey), fetchLotBalance(user.id)]);
+    if (!user?.id || !tokenKey) { setUsedMjpy(null); setLots(null); lotsRef.current = null; setFreeOcrUsed(null); return false; }
+    const [used, lot, ocrUsed] = await Promise.all([
+      fetchUsedMjpy(user.id, tokenKey),
+      fetchLotBalance(user.id),
+      isFreePlan ? fetchFreeOcrUsed(user.id, freeOcrPeriodKey()) : Promise.resolve(null),
+    ]);
     const grew = (lot?.balance || 0) > (lotsRef.current?.balance || 0);
     lotsRef.current = lot;
     setUsedMjpy(used);
     setLots(lot);
+    setFreeOcrUsed(ocrUsed);
     return grew;
-  }, [user?.id, tokenKey]);
+  }, [user?.id, tokenKey, isFreePlan]);
   useEffect(() => {
     if (loading || !adminChecked) return;
     refreshTokens();
@@ -6228,7 +6238,8 @@ function PaywallGate() {
   }, []);
 
   // アプリの上に重ねて開く有料プランの画面（{ reason, feature }）。いつでも × / 「あとで」で閉じられる。
-  //   reason: 'free_used'（今月の無料のトークンを使い切った）/ 'feature'（プランで使える機能）/
+  //   reason: 'free_used'（今月の無料のトークンを使い切った）/ 'free_ocr_used'（今月の無料の写真から書き起こしを
+  //           使い切った）/ 'feature'（プランで使える機能）/
   //           'grown'（メモが 10 件たまった＝相談の「相談相手が育ってきました」）/ null（プランを見る）
   const [paywall, setPaywall] = useState(null);
   useEffect(() => {
@@ -6271,6 +6282,9 @@ function PaywallGate() {
       freeRemaining: freeMode ? tokensRemaining : null,
       refreshFree: refreshTokens,
       openPaywall,
+      // 📷 無料プランの写真から書き起こし（月 FREE_OCR_PER_MONTH 回）。残りは無料プランのときだけ（それ以外・不明は null）。
+      freeOcrLimit: FREE_OCR_PER_MONTH,
+      freeOcrRemaining: freeMode ? freeOcrRemaining(FREE_OCR_PER_MONTH, freeOcrUsed) : null,
       // プランで使える AI 機能の入口で呼ぶ。無料プランなら有料プランの画面を開いて false。
       requirePlan: (feature = '') => {
         if (!freeMode) return true;
@@ -6278,7 +6292,7 @@ function PaywallGate() {
         return false;
       },
     };
-  }, [plan, freeMode, trialEndsAt, tokenAllowance, tokensRemaining, purchasedTokens, lots?.nextExpiry, canBuyTokens, refreshTokens, subscription?.status]);
+  }, [plan, freeMode, trialEndsAt, tokenAllowance, tokensRemaining, purchasedTokens, lots?.nextExpiry, canBuyTokens, refreshTokens, subscription?.status, freeOcrUsed]);
 
   // Checkout 復帰処理: ?checkout=success なら webhook 反映ラグを吸収するため
   // refresh を数秒間隔で数回リトライ。?checkout=cancel は静かに URL を掃除。

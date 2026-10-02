@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   decideAiAccess, decideFreeReservation, isFreePurpose,
+  freeOcrPerMonth, freeOcrPeriodKey, freeOcrLimitMessage, decideFreeOcrReservation,
   tokenJpy, tokenMjpy, tokensFromMjpy, freeTokens, trialTokens, paidTokens, allowanceFor, fallbackCallsFor,
   periodKeyFor, reserveBudgetMjpy, remainingTokens, meteredCallLimit,
   jstMonthDayLabel, nextMonthFirstLabel, monthlyTokensMessage, trialTokensMessage, planRequiredMessage, limitMessageFor,
@@ -120,6 +121,55 @@ describe('decideAiAccess（フリーミアム）', () => {
   it('isFreePurpose は consult だけ', () => {
     expect(isFreePurpose('consult')).toBe(true);
     expect(isFreePurpose('advisor')).toBe(false);
+  });
+});
+
+describe('📷 無料プランの写真から書き起こし（月 10 回・2026-10-02）', () => {
+  const free = { allowed: false };
+  it('既定は月 10 回・AI_FREE_OCR_PER_MONTH で変えられる（0 でやめる・数字でなければ既定）', () => {
+    expect(freeOcrPerMonth(ENV)).toBe(10);
+    expect(freeOcrPerMonth({ AI_FREE_OCR_PER_MONTH: '5' })).toBe(5);
+    expect(freeOcrPerMonth({ AI_FREE_OCR_PER_MONTH: '0' })).toBe(0);
+    expect(freeOcrPerMonth({ AI_FREE_OCR_PER_MONTH: 'x' })).toBe(10);
+    expect(freeOcrPerMonth({ AI_FREE_OCR_PER_MONTH: '-3' })).toBe(0);
+  });
+  it('契約なしでも ocr は通す（相談のトークンとは別の free_ocr）', () => {
+    expect(decideAiAccess({ entitlement: free, purpose: 'ocr', env: ENV })).toEqual({ allow: true, tier: 'free_ocr' });
+    expect(decideAiAccess({ entitlement: free, purpose: 'ocr', freeOcrLimit: 10, freeOcrUsed: 9, env: ENV })).toEqual({ allow: true, tier: 'free_ocr' });
+  });
+  it('相談のトークンを使い切っていても、書き起こしは別枠で通す', () => {
+    expect(decideAiAccess({ entitlement: free, purpose: 'ocr', freeAllowance: 30, freeUsedMjpy: 9000, env: ENV }).allow).toBe(true);
+  });
+  it('今月の回数を使い切ったら free_ocr_limit_reached', () => {
+    expect(decideAiAccess({ entitlement: free, purpose: 'ocr', freeOcrLimit: 10, freeOcrUsed: 10, env: ENV }))
+      .toEqual({ allow: false, status: 402, errorCode: 'free_ocr_limit_reached' });
+  });
+  it('AI_FREE_OCR_PER_MONTH=0 なら今までどおり plan_required', () => {
+    expect(decideAiAccess({ entitlement: free, purpose: 'ocr', freeOcrLimit: 0, env: ENV }).errorCode).toBe('plan_required');
+    expect(decideAiAccess({ entitlement: free, purpose: 'ocr', env: { AI_FREE_OCR_PER_MONTH: '0' } }).errorCode).toBe('plan_required');
+  });
+  it('ほかの用途（相談以外）は今までどおり plan_required', () => {
+    for (const purpose of ['condense', 'cards_to_summary', 'setup_sheet', 'book_advisor', 'advisor_interview', 'OCR', undefined]) {
+      expect(decideAiAccess({ entitlement: free, purpose, freeOcrLimit: 10, env: ENV }).errorCode).toBe('plan_required');
+    }
+  });
+  it('有料・無料期間・管理者は変わらない（トークン／数えない）', () => {
+    expect(decideAiAccess({ entitlement: { allowed: true }, purpose: 'ocr', freeOcrUsed: 99, env: ENV })).toEqual({ allow: true, tier: 'paid' });
+    expect(decideAiAccess({ entitlement: { allowed: true, trial: true }, purpose: 'ocr', env: ENV })).toEqual({ allow: true, tier: 'trial' });
+    expect(decideAiAccess({ entitlement: { admin: true }, purpose: 'ocr', env: ENV })).toEqual({ allow: true, tier: 'admin' });
+  });
+  it('数えられない（RPC 未適用・障害）ときは通さない（fail-closed）', () => {
+    expect(decideFreeOcrReservation({ usage: { reserved: false, allowed: true } })).toEqual({ allow: false, status: 402, errorCode: 'plan_required' });
+    expect(decideFreeOcrReservation(undefined).allow).toBe(false);
+    expect(decideFreeOcrReservation({ usage: { reserved: true, allowed: false } })).toEqual({ allow: false, status: 402, errorCode: 'free_ocr_limit_reached' });
+    expect(decideFreeOcrReservation({ usage: { reserved: true, allowed: true } })).toEqual({ allow: true });
+  });
+  it('行は freeocr-YYYY-MM（日本時間の月・相談の free- とは別）', () => {
+    expect(freeOcrPeriodKey('2026-10')).toBe('freeocr-2026-10');
+  });
+  it('使い切りの案内（来月 1 日・途中で改行しない）', () => {
+    const now = Date.parse('2026-10-02T03:00:00Z');
+    expect(freeOcrLimitMessage(10, now)).toBe('今月の写真から書き起こしは、ここまでです。11\u2060月\u20601\u2060日に 10 回に戻ります。');
   });
 });
 

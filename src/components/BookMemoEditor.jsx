@@ -562,12 +562,16 @@ export default function BookMemoEditor({
             style={ta}
             maxLength={LIMITS.memoText}
           />
-          <div style={{ marginTop: 'var(--space-2)', display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', alignItems: 'center' }}>
-            <PhotoToTextButton
-              onText={(t) =>
-                setText((prev) => (prev ? `${prev}\n${t}` : t).slice(0, LIMITS.memoText))
-              }
-            />
+          <div style={{ marginTop: 'var(--space-2)', display: 'flex', flexWrap: 'wrap', gap: 'var(--space-3) var(--space-2)', alignItems: 'flex-start' }}>
+            {/* 書き起こすボタンと、その下の「今月の残り N 回」（無料プラン）を 1 つにまとめる。
+                ボタンと残りの行の間は 8・ほかのボタン（凝縮）との間は 12＝近さでどのボタンの行か分かる。 */}
+            <div style={{ display: 'grid', rowGap: 'var(--space-2)', justifyItems: 'start' }}>
+              <PhotoToTextButton
+                onText={(t) =>
+                  setText((prev) => (prev ? `${prev}\n${t}` : t).slice(0, LIMITS.memoText))
+                }
+              />
+            </div>
             {/* ✨ 3行に凝縮 — 長文/OCR を本田流レバレッジメモ化。十分な長さの時だけ出す。 */}
             {text.trim().replace(/\s/g, '').length >= 60 && (
               <button
