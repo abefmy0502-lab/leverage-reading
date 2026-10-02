@@ -43,10 +43,12 @@ const clamp3 = { display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'v
 const metaStyle = { fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 'var(--space-2) 0 0', lineHeight: 1.5 };
 const tocListStyle = {
   listStyle: 'none', margin: 0, padding: '0 0 var(--space-3)',
-  display: 'flex', flexDirection: 'column', gap: 'var(--space-1)',
+  display: 'flex', flexDirection: 'column', gap: 'var(--space-2)',
   fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5,
   overflowWrap: 'anywhere', wordBreak: 'keep-all',
 };
+// 折り返した 2 行目を 1 字下げる（次の項目の頭と見分ける）。
+const tocItemStyle = { paddingLeft: '1em', textIndent: '-1em' };
 const tocSummary = {
   display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)',
   minHeight: 48, fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)', cursor: 'pointer', listStyle: 'none',
@@ -56,7 +58,7 @@ function TocList({ toc, note }) {
   return (
     <>
       <ol style={tocListStyle}>
-        {toc.map((line, i) => <li key={i}>{withPhraseBreaks(line)}</li>)}
+        {toc.map((line, i) => <li key={i} style={tocItemStyle}>{withPhraseBreaks(line)}</li>)}
       </ol>
       {note && <p style={{ ...metaStyle, margin: '0 0 var(--space-3)' }}>{note}</p>}
     </>
