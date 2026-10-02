@@ -122,11 +122,13 @@ const TRIAL_TOKENS_PARTS = [
 ];
 // トークンの目安（1 行）。
 const TOKEN_EXAMPLE = `相談 1 回 約 ${TOKEN_COSTS.consult}・AI 選書 約 ${TOKEN_COSTS.advisor} トークン`;
+// 無料の写真から書き起こしを使い切って開いたとき（free_ocr_used）は、プランで書き起こすといくつ使うかを先に（上限なしとは言わない）。
+const TOKEN_EXAMPLE_OCR = `写真から書き起こし 1 回 約 ${TOKEN_COSTS.photoToText}・相談 1 回 約 ${TOKEN_COSTS.consult} トークン`;
 
 // onlyPlan: 無料のトークンを使い切ったあと（本人の本の表紙を出すとき）はプランの行だけ（主ボタンを近くに）。
 // trial: この人が使える無料期間（「7 日間無料」）。あればプランの行の名前に「（最初の 7 日間は無料）」。
 //   選んだプランに無料期間があるときは下に固定の欄（「最初の 7 日間は無料」＋主ボタン）が言うので渡さない（繰り返さない）。
-function PlanCompare({ onlyPlan = false, trial = '' }) {
+function PlanCompare({ onlyPlan = false, trial = '', example = TOKEN_EXAMPLE }) {
   const rows = onlyPlan ? PLAN_COMPARE.filter((r) => r.name === 'プラン') : PLAN_COMPARE;
   return (
     <section aria-label={onlyPlan ? 'プランでできること' : '無料プランとプランの違い'} style={{ ...card, padding: 0, marginTop: 'var(--space-6)' }}>
@@ -146,7 +148,7 @@ function PlanCompare({ onlyPlan = false, trial = '' }) {
           </p>
         </div>
       ))}
-      <p style={{ ...metaText, padding: 'var(--space-2) var(--space-4) var(--space-3)', borderTop: '1px solid var(--separator)' }}>{TOKEN_EXAMPLE}</p>
+      <p style={{ ...metaText, padding: 'var(--space-2) var(--space-4) var(--space-3)', borderTop: '1px solid var(--separator)' }}>{example}</p>
     </section>
   );
 }
@@ -510,7 +512,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
         )}
 
         {/* 無料プランとプランの違い（トークンの量と、プランで増える機能） */}
-        <PlanCompare onlyPlan={(fromFree || fromGrown) && myBooks.length > 0} trial={showNative && !trial ? anyTrial : ''} />
+        <PlanCompare onlyPlan={(fromFree || fromGrown) && myBooks.length > 0} trial={showNative && !trial ? anyTrial : ''} example={fromFreeOcr ? TOKEN_EXAMPLE_OCR : TOKEN_EXAMPLE} />
 
         {showNative ? (
           <>
