@@ -316,7 +316,10 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
       if (!has) track('tag_suggest_added', { source: tagSource || 'local' });
     } catch (e) {
       setOptimisticTags({ id: savedRow.id, tags: prev }); // 元に戻す
-      toast.error(toMessage(e, has ? 'タグを外せませんでした。' : 'タグを付けられませんでした。'));
+      // 何が失敗したかを必ず先に（「保存しました。」の直後に理由だけが出ると、メモの保存が失敗したように読める）。
+      // 理由は最初の 1 文だけ（390 幅の知らせで 2 行に収める）。
+      const reason = (toMessage(e, '').match(/^[^。]*。/) || [''])[0];
+      toast.error(`${has ? 'タグを外せませんでした。' : 'タグを付けられませんでした。'}${reason}`);
     } finally {
       setTagBusy(null);
     }
