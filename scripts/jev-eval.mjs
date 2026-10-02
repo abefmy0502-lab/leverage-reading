@@ -12,6 +12,7 @@
 //   JEV_API_KEY=… node scripts/jev-eval.mjs   … Jev も呼んでくらべる（1 回 約 ¥0.01〜0.1・全部で ¥3 未満の見込み）
 //   オプション: --task relevance|filing|intent（1 つだけ）/ --json out.json（結果を保存）
 //               --relevance-min 0.5 / --filing-min 0.6（Jev の確率のしきい値）/ --repeat 3（待ち時間を測る回数）
+//               --mock（鍵なしで、偽物の Jev（いつも確率 0.5）を通して配線だけ確かめる。数字に意味は無い）
 //   env: JEV_ENDPOINT / JEV_MODEL（OpenRouter 経由なら JEV_ENDPOINT=https://openrouter.ai/api/v1/systemone
 //        JEV_MODEL=typesafe/jev-1.13 と OpenRouter の鍵）・JEV_MAX_QUESTIONS・JEV_TIMEOUT_MS（評価では既定 5000）
 // 鍵は表示しない・ログに残さない。送るのは fixtures の見本の文だけ（利用者のデータは送らない）。
@@ -40,9 +41,21 @@ const FILING_MIN = Number(opt('filing-min', '0.6'));
 const REPEAT = Math.max(1, Number(opt('repeat', '1')) || 1);
 const load = (f) => JSON.parse(readFileSync(join(FIX, f), 'utf8'));
 
-const KEY = String(process.env.JEV_API_KEY || '').trim();
-const ENV = { ...process.env, JEV_ENABLED: 'true', JEV_TIMEOUT_MS: process.env.JEV_TIMEOUT_MS || '5000' };
+const MOCK = args.includes('--mock');
+const KEY = MOCK ? 'mock' : String(process.env.JEV_API_KEY || '').trim();
+const ENV = { ...process.env, JEV_API_KEY: KEY, JEV_ENABLED: 'true', JEV_TIMEOUT_MS: process.env.JEV_TIMEOUT_MS || '5000' };
 const withJev = !!KEY;
+if (MOCK) {
+  // 偽物の Jev: 送った問いの形どおりに、いつも 0.5（choice は先頭の選択肢）を返す。配線の確認だけ。
+  globalThis.fetch = async (_url, init) => {
+    const { questions } = JSON.parse(init.body);
+    const answers = {};
+    for (const [id, q] of Object.entries(questions)) {
+      answers[id] = q.type === 'choice' ? { type: 'choice', choice: Object.keys(q.criteria)[0], confidence: 0.5 } : { type: 'noul', noul: 0.5 };
+    }
+    return { ok: true, status: 200, json: async () => ({ model: 'mock', answers, usage: { input_tokens: Math.ceil(init.body.length / 2) } }) };
+  };
+}
 
 // 今の決め方（src/lib の本物）を Vite で読み込む（拡張子なしの import・import.meta.env をそのまま使えるように）。
 const vite = await createServer({ root: ROOT, logLevel: 'error', server: { middlewareMode: true, hmr: false }, appType: 'custom', optimizeDeps: { noDiscovery: true, include: [] } });
@@ -101,12 +114,16 @@ async function evalRelevance() {
   const baseMs = [];
   const jevMs = [];
   let jevCost = 0; let jevFails = 0;
+  // どれも当たらない質問（確定申告など）で選んでしまった数
+  let baseNone = 0; let jevNone = 0;
   for (const c of cases) {
+    const none = !c.memos.some((m) => m.relevant);
     const memos = c.memos.map((m, i) => ({ id: `x${i}`, text: m.text, tags: [], created_at: '2026-09-01T00:00:00Z', book: { title: m.book, rating: 0 } }));
     const t0 = performance.now();
     const picked = new Set(ai.pickRelatedMemos(c.question, memos));
     baseMs.push(performance.now() - t0);
     memos.forEach((m, i) => base.push({ y: c.memos[i].relevant, p: picked.has(m) }));
+    if (none) baseNone += picked.size;
     if (withJev) {
       const input = readRelevanceInput({ question: c.question, memos: c.memos.map((m, i) => ({ id: `m${i}`, text: m.text, book: m.book })) });
       // eslint-disable-next-line no-await-in-loop
@@ -114,11 +131,12 @@ async function evalRelevance() {
       jevMs.push(...times); jevCost += cost; jevFails += fails;
       const res = r ? relevanceResult(r.answers, input) : null;
       c.memos.forEach((m, i) => jev.push({ y: m.relevant, p: res ? (res.scores[`m${i}`] ?? 0) >= RELEVANCE_MIN : false, missing: !res }));
+      if (none && res) jevNone += c.memos.filter((_, i) => (res.scores[`m${i}`] ?? 0) >= RELEVANCE_MIN).length;
     }
   }
   return {
-    baseline: { ...binary(base), latencyMs: latencyOf(baseMs.map((x) => Math.round(x * 100) / 100)), costMjpy: 0 },
-    jev: withJev ? { ...binary(jev), latencyMs: latencyOf(jevMs), costMjpy: jevCost, failures: jevFails, threshold: RELEVANCE_MIN } : null,
+    baseline: { ...binary(base), pickedOnNoRelevant: baseNone, latencyMs: latencyOf(baseMs.map((x) => Math.round(x * 100) / 100)), costMjpy: 0 },
+    jev: withJev ? { ...binary(jev), pickedOnNoRelevant: jevNone, latencyMs: latencyOf(jevMs), costMjpy: jevCost, failures: jevFails, threshold: RELEVANCE_MIN } : null,
   };
 }
 
@@ -198,6 +216,7 @@ function printBinary(title, r) {
     const extra = [
       x.exactMatch != null ? `完全一致 ${pct(x.exactMatch)}` : '',
       x.wrongOnNoTag != null ? `合うタグの無いメモにすすめた ${pct(x.wrongOnNoTag)}` : '',
+      x.pickedOnNoRelevant != null ? `当たらない質問で選んだ ${x.pickedOnNoRelevant} 件` : '',
       x.latencyMs?.p50 != null ? `待ち p50 ${x.latencyMs.p50}ms / p95 ${x.latencyMs.p95}ms` : '',
       x.failures ? `失敗 ${x.failures}` : '',
       x.costMjpy ? `原価 ${yen(x.costMjpy)}` : '',
@@ -219,7 +238,7 @@ function printIntent(r) {
 }
 
 try {
-  console.log(`Jev の評価（${withJev ? `Jev あり: ${report.model}` : 'Jev なし: 今の決め方だけ（JEV_API_KEY を入れると Jev もくらべます）'}）`);
+  console.log(`Jev の評価（${MOCK ? '偽物の Jev（--mock）: 配線の確認だけ・数字に意味は無い' : withJev ? `Jev あり: ${report.model}` : 'Jev なし: 今の決め方だけ（JEV_API_KEY を入れると Jev もくらべます）'}）`);
   if (!only || only === 'relevance') { report.tasks.relevance = await evalRelevance(); printBinary('relevance（相談の関係するメモ）', report.tasks.relevance); }
   if (!only || only === 'filing') { report.tasks.filing = await evalFiling(); printBinary('filing（タグの提案・タグ 1 つずつ）', report.tasks.filing); }
   if (!only || only === 'intent') { report.tasks.intent = await evalIntent(); printIntent(report.tasks.intent); }
