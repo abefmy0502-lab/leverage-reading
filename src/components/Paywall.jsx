@@ -657,10 +657,10 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
                   <span style={{ whiteSpace: 'nowrap' }}>無料期間が終わる 24 時間前までに解約すれば、</span><span style={{ whiteSpace: 'nowrap' }}>料金はかかりません。</span>
                 </p>
               )}
-              {/* 先払いの初回価格: いつ払うかをボタンのすぐ下で（「¥9,800 は、始めるときに 1 回のお支払いです。」） */}
+              {/* 先払いの初回価格: いつ・何の分を払うかをボタンのすぐ下で（「¥9,800 は、始めるときに 1 年分をまとめてお支払いします。」） */}
               {!trial && selected.intro?.upfront && priceState === 'ready' && (
                 <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, margin: 'var(--space-2) 0 0', textAlign: 'center' }}>
-                  <span style={{ whiteSpace: 'nowrap' }}>{selected.intro.priceString} は、</span><span style={{ whiteSpace: 'nowrap' }}>始めるときに 1 回のお支払いです。</span>
+                  <span style={{ whiteSpace: 'nowrap' }}>{selected.intro.priceString} は、</span><span style={{ whiteSpace: 'nowrap' }}>始めるときに {selected.intro.span || '1 年'}分をまとめてお支払いします。</span>
                 </p>
               )}
             </div>

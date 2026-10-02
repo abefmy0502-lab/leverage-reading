@@ -89,7 +89,9 @@ export function introPriceLabel(intro, regular = '') {
   const after = reg ? `${afterHead} ${reg}` : '';
   // upfront: 期間の分をはじめに 1 回で払う形（cycles 1）。
   // period: 初回価格の期間の名前（「1 年目」「最初の 3 か月」・自動更新の文で「1 年目の終わり」に使う）。
-  return { head, period, afterHead, after, full: after ? `${head}（${after}）` : head, priceString: intro.priceString, upfront: intro.cycles === 1 };
+  // span: 初回価格の期間の長さ（「1 年」「3 か月」・先払いの「1 年分をまとめてお支払い」に使う）。
+  const span = `${total} ${UNIT_JA[intro.unit]}`;
+  return { head, period, span, afterHead, after, full: after ? `${head}（${after}）` : head, priceString: intro.priceString, upfront: intro.cycles === 1 };
 }
 
 // ストアの 2 つの商品（月額・年額）から、有料プランの画面の文字を作る。

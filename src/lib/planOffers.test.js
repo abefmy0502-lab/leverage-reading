@@ -43,6 +43,8 @@ describe('introPriceLabel（有料の初回価格の書き方）', () => {
     expect(l.head).toBe('1 年目 ¥9,800');
     expect(l.after).toBe('2 年目から ¥12,800');
     expect(l.full).toBe('1 年目 ¥9,800（2 年目から ¥12,800）');
+    expect(l.span).toBe('1 年');
+    expect(l.upfront).toBe(true);
   });
   it('期間ごとの割引は「/月」を添える', () => {
     const l = introPriceLabel({ kind: 'paid', unit: 'MONTH', units: 1, cycles: 3, priceString: '¥980' }, '¥1,480');
