@@ -120,15 +120,16 @@ function walk(dir, out = []) {
 const files = walk(SRC).map((p) => ({ p: p.slice(SRC.length + 1), s: readFileSync(p, 'utf8') }));
 
 describe('AI に送る道は関所の 2 か所だけ', () => {
-  it('/api/claude に fetch するのは lib/ai.js と lib/streamClaude.js だけ', () => {
+  it('/api/claude に fetch するのは lib/ai.js と lib/streamClaude.js（と Jev の lib/jev.js）だけ', () => {
     const senders = files.filter(({ s }) => /fetch\(\s*apiUrl\(\s*['"]\/api\/claude['"]/.test(s) || /fetch\(\s*['"`][^'"`]*\/api\/claude/.test(s)).map(({ p }) => p).sort();
-    expect(senders).toEqual(['lib/ai.js', 'lib/streamClaude.js']);
+    expect(senders).toEqual(['lib/ai.js', 'lib/jev.js', 'lib/streamClaude.js']);
   });
 
-  it('2 か所とも送る前に checkAiConsentForSend を呼ぶ', () => {
-    for (const p of ['lib/ai.js', 'lib/streamClaude.js']) {
+  it('どれも送る前に関所を通る（Jev はシートを出さず、版 2 の同意が無ければ送らない）', () => {
+    const gates = { 'lib/ai.js': 'checkAiConsentForSend(', 'lib/streamClaude.js': 'checkAiConsentForSend(', 'lib/jev.js': 'await jevConsentOk(' };
+    for (const [p, g] of Object.entries(gates)) {
       const s = files.find((f) => f.p === p).s;
-      const gate = s.indexOf('checkAiConsentForSend(');
+      const gate = s.indexOf(g);
       const send = s.search(/fetch\(\s*apiUrl\(\s*['"]\/api\/claude/);
       expect(gate, `${p} に関所がある`).toBeGreaterThan(0);
       expect(gate, `${p} の関所は fetch より前`).toBeLessThan(send);
