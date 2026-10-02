@@ -276,6 +276,8 @@ const rowStyle = {
 };
 
 const oneLine = { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
+// 検索結果の副題（書名に続けて・著者より弱く）。初日クイックスタートの行も同じ。
+export const subtitleStyle = { fontWeight: 400, fontSize: 'var(--text-sub)', color: 'var(--text-3)' };
 
 function ResultRow({ book, existing, onPick, divider }) {
   const statusLabel = existing ? (existing.statusLabel || '本棚') : '';
@@ -303,9 +305,9 @@ function ResultRow({ book, existing, onPick, divider }) {
             }}
           >
             {book.title}
-            {/* 副題は同じ 2 行の中に、細く薄く（同じ書名の本を見分ける・2026-10-02） */}
+            {/* 副題は同じ 2 行の中に、著者より弱く（小さく・細く・薄く。同じ書名の本を見分ける・2026-10-02） */}
             {book.subtitle && (
-              <span style={{ fontWeight: 400, color: 'var(--text-2)' }}>{` ${book.subtitle}`}</span>
+              <span style={subtitleStyle}>{` ${book.subtitle}`}</span>
             )}
           </span>
           {book.author && (
