@@ -7,7 +7,7 @@ import { Plus, Tag, X } from 'lucide-react';
 import { Chip } from './formPrimitives';
 import { withPhraseBreaks } from './TightBubble';
 
-export const TAG_SUGGEST_TITLE = 'このメモに合いそうなタグ';
+export const TAG_SUGGEST_TITLE = 'いま書いたメモに合いそうなタグ';
 
 // 見出しの 1 行の高さ（13 × 1.5）。
 const HEAD_LINE = 'calc(var(--text-meta) * 1.5)';
