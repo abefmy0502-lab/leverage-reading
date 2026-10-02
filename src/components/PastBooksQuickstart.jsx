@@ -146,10 +146,13 @@ function BookRow({ book, on, first, onToggle }) {
       <button type="button" onClick={onToggle} aria-pressed={on} style={rowBtn(first)}>
         <MiniCover book={book} width={COVER_W} />
         <span style={{ flex: 1, minWidth: 0 }}>
-          <span style={{ ...oneLine, fontSize: 'var(--text-body)', fontWeight: 600, lineHeight: 1.4 }}>
-            {book.title}
-            {/* 副題は本を追加の検索結果と同じく、書名に続けて著者より弱く（2026-10-02） */}
-            {book.subtitle && <span style={subtitleStyle}>{` ${book.subtitle}`}</span>}
+          {/* 書名と副題を 1 行に並べ、副題が入りきらないときは副題の側で「…」（副題の色・太さで描く）。
+              書名は縮めない（ただし行より長い書名は行の幅で「…」）。副題は本を追加の検索結果と同じ形（2026-10-02） */}
+          <span style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-1)', minWidth: 0, lineHeight: 1.4 }}>
+            <span style={{ ...oneLine, flexShrink: 0, maxWidth: '100%', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>
+              {book.title}
+            </span>
+            {book.subtitle && <span style={{ ...oneLine, minWidth: 0, ...subtitleStyle }}>{book.subtitle}</span>}
           </span>
           {book.author && (
             <span style={{ ...oneLine, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, marginTop: 'var(--space-1)' }}>
