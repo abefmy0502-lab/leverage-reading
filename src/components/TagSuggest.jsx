@@ -50,8 +50,8 @@ export default function TagSuggest({ suggestions, applied = [], busyTag = null, 
           </button>
         )}
       </div>
-      {/* 見出しの行（× の押せる範囲 44）の下に詰めて並べる。チップ同士は 8（DESIGN §5）。 */}
-      <div role="group" aria-labelledby={titleId} style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', marginTop: 'calc(-1 * var(--space-2))' }}>
+      {/* 見出しの行の下 12（× の押せる範囲 44 とチップの押せる範囲 44 を重ねない）。チップ同士は 8（DESIGN §5）。 */}
+      <div role="group" aria-labelledby={titleId} style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
         {suggestions.map(({ tag }) => {
           const on = applied.includes(tag);
           const busy = busyTag === tag;
