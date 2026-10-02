@@ -444,6 +444,8 @@ body.lp-active {
 }
 .lp-plan-price span { margin-left: var(--space-1); font-size: var(--text-sub); font-weight: 400; color: var(--text-2); }
 .lp-plan-sub { word-break: auto-phrase; margin-top: var(--space-1) !important; color: var(--text-2); font-size: var(--text-sub); line-height: 1.5; }
+/* 創業メンバー価格の条件（金額のすぐ下・本文の色で読ませる） */
+.lp-plan-cond { word-break: auto-phrase; margin-top: var(--space-1) !important; color: var(--text); font-size: var(--text-sub); line-height: 1.5; }
 /* プランに含まれるもの（プランのカードの中・名前の下）。本文より一段小さく、年額・月額の行より上に置く */
 .lp-included { list-style: none; margin: var(--space-3) 0 0; padding: 0; display: grid; gap: var(--space-2); font-size: var(--text-sub); line-height: 1.5; }
 .lp-included li { display: flex; gap: var(--space-2); align-items: flex-start; word-break: auto-phrase; text-wrap: pretty; }

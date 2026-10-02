@@ -643,7 +643,9 @@ export default function Landing() {
                     {OFFER.active ? (
                       <>
                         <p className="lp-plan-price">{OFFER.priceLabel}<span>（税込）</span></p>
-                        <p className="lp-plan-sub">2 年目から ¥12,800 / 年（税込）。{OFFER.endLabel}までに始めた方。</p>
+                        {/* 条件は金額のすぐ下に（誰の・いつの価格か・景表法・2026-10-02 ui-critic）。その次の行に 2 年目からの自動更新。 */}
+                        <p className="lp-plan-cond"><span className="lp-nb">{OFFER.endLabel}</span>までに始めた方の 1 年目（初回特典を使ったことがない Apple ID）</p>
+                        <p className="lp-plan-sub">2 年目から 年額 ¥12,800（税込）で自動更新</p>
                       </>
                     ) : (
                       <>
