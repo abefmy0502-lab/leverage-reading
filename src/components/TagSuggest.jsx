@@ -45,7 +45,7 @@ export default function TagSuggest({ suggestions, applied = [], busyTag = null, 
           {withPhraseBreaks(TAG_SUGGEST_TITLE)}
         </h3>
         {onDismiss && (
-          <button type="button" onClick={onDismiss} aria-label="タグの提案を閉じる" style={{ ...closeBtn, marginTop: `calc((${HEAD_LINE} - 44px) / 2)` }}>
+          <button type="button" onClick={onDismiss} aria-label="合いそうなタグを閉じる" style={{ ...closeBtn, marginTop: `calc((${HEAD_LINE} - 44px) / 2)` }}>
             <X size={18} aria-hidden="true" />
           </button>
         )}

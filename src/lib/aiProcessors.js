@@ -101,7 +101,7 @@ export const JEV_PURPOSE_FEATURE = {
 };
 const TAG_SUGGEST_FEATURE = {
   id: 'tag_suggest',
-  name: 'タグの提案',
+  name: '合いそうなタグ', // 画面の見出し「いま書いたメモに合いそうなタグ」・ヘルプの項目と同じ名前
   sends: '保存したメモの文・書名・自分のタグの名前',
   purposes: ['memo_filing'],
 };
