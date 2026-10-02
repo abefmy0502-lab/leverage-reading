@@ -4,6 +4,7 @@
 // 本番と同じ書式（【結論】…REFS_START/END）で答えるので、画面の流れを確かめられる。
 
 import { SEARCH_CATALOG } from './seed';
+import { demoServerSearch, demoNdlXml } from './demoBookSearch';
 import { questionGist } from '../lib/consultHelpers';
 
 const json = (body, status = 200) =>
@@ -584,6 +585,16 @@ export function installDemoFetch(store) {
       }
       return json({ content: [{ type: 'text', text }], stop_reason: stopReason });
     }
+    if (url.includes('/api/cover') && /[?&]search=/.test(url)) {
+      // 本の検索（2026-10-02・本番は楽天の売上順 → Google → NDL）。&search=fail は失敗（端末の検索に切り替わる）・
+      //   &search=old は「サーバーの検索が無い」（直す前と同じく端末だけで探す・比べる用）。
+      const mode = new URLSearchParams(window.location.search).get('search');
+      await new Promise((r) => setTimeout(r, 300));
+      if (mode === 'fail') return json({ error: 'unavailable', results: [] }, 502);
+      if (mode === 'old') return json({ error: 'お試しモードでは使えません' }, 503);
+      const q = (() => { try { return new URL(url, window.location.origin).searchParams.get('search') || ''; } catch { return ''; } })();
+      return json(demoServerSearch(q));
+    }
     if (url.includes('/api/cover')) {
       // 見本の本の一覧にある本は「実在する」と答える（AI 選書の実在確認で全部が疑わしく見えないように）。
       const params = (() => { try { return new URL(url, window.location.origin).searchParams; } catch { return new URLSearchParams(); } })();
@@ -617,7 +628,7 @@ export function installDemoFetch(store) {
       return json(Array(n).fill(null));
     }
     if (url.includes('ndlsearch.ndl.go.jp') || url.includes('iss.ndl.go.jp')) {
-      return new Response('<?xml version="1.0"?><rss><channel></channel></rss>', {
+      return new Response(demoNdlXml(url), {
         status: 200, headers: { 'Content-Type': 'application/xml' },
       });
     }

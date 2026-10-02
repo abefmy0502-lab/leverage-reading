@@ -221,6 +221,11 @@ const SCREENS = [
   { name: 'library-error', url: '/?dbfail=books&shelf=library' },
   { name: 'library-empty', url: '/?demo=new&shelf=library', steps: [{ css: 'button[aria-label="閉じる"]' }] },
   { name: 'add-book-results', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を追加"]' }, { fill: ['#add-book-query', 'ファクト'] }, { css: 'button:has-text("検索")' }, { wait: 1500 }] },
+  // 本の検索「考え方」（2026-10-02 オーナー報告: 稲盛和夫『考え方』が出ない）。サーバーの検索（楽天の売上順）で
+  //   書名がまるごと同じ本を 1 位に・表紙つき。add-book-kangaekata-old は直す前と同じ端末だけの検索（&search=old）。
+  { name: 'add-book-kangaekata', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を追加"]' }, { fill: ['#add-book-query', '考え方'] }, { css: 'button:has-text("検索")' }, { wait: 1500 }] },
+  { name: 'add-book-kangaekata-author', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を追加"]' }, { fill: ['#add-book-query', '稲盛和夫 考え方'] }, { css: 'button:has-text("検索")' }, { wait: 1500 }] },
+  { name: 'add-book-kangaekata-old', url: '/?search=old', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を追加"]' }, { fill: ['#add-book-query', '考え方'] }, { css: 'button:has-text("検索")' }, { wait: 1500 }] },
   { name: 'add-book-existing', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を追加"]' }, { fill: ['#add-book-query', '1兆ドルコーチ'] }, { css: 'button:has-text("検索")' }, { wait: 1500 }] },
   { name: 'add-book-error', url: '/?search=fail', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を追加"]' }, { fill: ['#add-book-query', 'ファクト'] }, { css: 'button:has-text("検索")' }, { wait: 1500 }] },
   { name: 'book-detail-longmemo', url: '/?demo=longmemo', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { scrollTo: 'h2:has-text("メモ")' }] },
