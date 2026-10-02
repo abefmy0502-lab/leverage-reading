@@ -976,7 +976,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                 {lotRow}
                 <div style={{ ...blockStyle, ...divider }}>
                   <p style={noteStyle}>
-                    無料プランはずっと無料で、AI は相談（<span style={{ whiteSpace: 'nowrap' }}>1 回 約 {TOKEN_COSTS.consult} トークン</span>）と<span style={{ whiteSpace: 'nowrap' }}>写真から書き起こし</span>（<span style={{ whiteSpace: 'nowrap' }}>月 {FREE_OCR_PER_MONTH} 回</span>）。プランは<span style={{ whiteSpace: 'nowrap' }}>毎月 {PAID_TOKENS.toLocaleString()} トークン</span>で、<span style={{ whiteSpace: 'nowrap' }}>すべての AI 機能。</span>
+                    無料プランはずっと無料で、AI は相談（<span style={{ whiteSpace: 'nowrap' }}>1 回 約 {TOKEN_COSTS.consult} トークン</span>）と<span style={{ whiteSpace: 'nowrap' }}>写真から書き起こし</span>（<span style={{ whiteSpace: 'nowrap' }}>毎月 {FREE_OCR_PER_MONTH} 回</span>）。プランは<span style={{ whiteSpace: 'nowrap' }}>毎月 {PAID_TOKENS.toLocaleString()} トークン</span>で、<span style={{ whiteSpace: 'nowrap' }}>すべての AI 機能。</span>
                   </p>
                   <button
                     type="button"
