@@ -495,6 +495,34 @@ function googleBooks(url) {
   return json({ totalItems: items.length, items });
 }
 
+// 🧭 お試しモードの Jev（偽物）。タグ・話題ごとの言葉の手がかり（意味の近さのまね）で確率を決める。
+const JEV_DEMO_PURPOSES = new Set(['memo_relevance', 'memo_filing', 'intent']);
+const JEV_DEMO_TOPICS = {
+  マネジメント: /部下|マネージャー|任せ|チーム|メンバー|1on1|育て|評価/,
+  コミュニケーション: /話|聞|伝え|質問|関心|呼ぶ|1on1/,
+  習慣: /毎日|毎朝|朝|習慣|続け|寝る前/,
+  時間: /時間|予定|カレンダー|バッファ|忙し/,
+  仕事術: /仕事|会議|報告|企画|資料/,
+  思考法: /考え|問い|イシュー|仮説/,
+  読書術: /読|本|メモ|アウトプット/,
+  心理学: /課題|承認|評価|気にし/,
+  キャリア: /キャリア|働き|転職|人生/,
+};
+function demoJevResult(purpose, input) {
+  const topicsOf = (text) => Object.entries(JEV_DEMO_TOPICS).filter(([, re]) => re.test(String(text || ''))).map(([t]) => t);
+  if (purpose === 'memo_filing') {
+    const memoTopics = topicsOf(input.memo);
+    return { probs: (input.tags || []).map((t) => (String(input.memo || '').includes(t) || memoTopics.includes(t) ? 0.88 : 0.08)) };
+  }
+  if (purpose === 'memo_relevance') {
+    const q = topicsOf(input.question);
+    const scores = {};
+    for (const m of input.memos || []) scores[m.id] = topicsOf(m.text).some((t) => q.includes(t)) ? 0.8 : 0.1;
+    return { scores };
+  }
+  return { intent: /どの本|何の本|なんの本|だっけ/.test(String(input.question || '')) ? 'lookup' : 'consult', confidence: 0.8, probabilities: null };
+}
+
 export function installDemoFetch(store) {
   const realFetch = window.fetch.bind(window);
   window.fetch = async (input, init = {}) => {
@@ -514,6 +542,13 @@ export function installDemoFetch(store) {
         return json({ error: { message: 'サーバーで問題が起きました。' } }, 500);
       }
       if (aiMode === 'slow') await wait(60000, signal);
+      // 🧭 Jev（判断のモデル・?jev=1 のときだけアプリが送る）の見本: 言葉の手がかりで「はい」の確率を決める偽物。
+      //   本番（api/_jevRelay.js）と同じく、いつも 200・トークンは数えない。&jev=down で「使えない」（{ jev: null }）。
+      if (JEV_DEMO_PURPOSES.has(payload.purpose)) {
+        await wait(350, signal);
+        if (new URLSearchParams(window.location.search).get('jev') === 'down') return json({ jev: null, reason: 'upstream' });
+        return json({ jev: { result: demoJevResult(payload.purpose, payload.jev || {}), ms: 180 } });
+      }
       // 本番（api/claude.js・api/_aiAccess.js）と同じ決まりをまねる:
       //   契約なし＝無料プラン: 相談（purpose 'consult'）だけ・毎月 30 トークン（'free-YYYY-MM'）。ほかは 402 plan_required
       //   無料期間: 150 トークン（'trial-終わる日'）/ 有料: 毎月 800 トークン（'YYYY-MM'）→ 使い切ったら 429

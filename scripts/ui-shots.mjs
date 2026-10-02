@@ -47,6 +47,13 @@ const EDIT_PHRASE = [{ css: `${EDIT} button:has-text("言葉を入れる")` }, {
 const EDIT_PHRASE_DRAG = { eval: `(() => { const st = document.querySelector('${EDIT} canvas').parentElement; const r = st.getBoundingClientRect(); const x = r.left + r.width / 2; const y0 = r.top + r.height * 0.24; const ev = (type, y) => st.dispatchEvent(new PointerEvent(type, { pointerId: 7, pointerType: 'touch', isPrimary: true, clientX: x, clientY: y, bubbles: true, cancelable: true })); ev('pointerdown', y0); for (let i = 1; i <= 10; i += 1) ev('pointermove', y0 - (r.height * 0.12 * i) / 10); ev('pointerup', y0 - r.height * 0.12); })()` };
 const EDIT_PHRASE_GROW = editWheel({ deltaY: -30, ctrlKey: true }, 0.14);
 
+// 本の詳細でメモを書いて保存し、一覧のいちばん上（保存したあとのカード）まで送る（タグの提案・つながるメモ）。
+const MEMO_SAVED = [
+  { css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button:has-text("メモを書く")' },
+  { fill: ['textarea[aria-label="メモ本文"]', 'よいマネージャーは部下に答えを渡さず、質問で考えてもらう。任せることで人は育つ。'] },
+  { css: '[role=dialog] button:text-is("保存")' }, { wait: 2500 }, { scrollTo: 'h2:has-text("メモ")' },
+];
+
 // 画面の定義: url（お試しモードのシナリオ）と、そこに至る操作。
 const SCREENS = [
   { name: 'home', url: '/' },
@@ -62,6 +69,10 @@ const SCREENS = [
   { name: 'book-memo-sheet', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button:has-text("メモを書く")' }] },
   { name: 'book-detail-bottom', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { scrollBottom: true }] },
   { name: 'book-memo-sheet-more', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button:has-text("メモを書く")' }, { css: 'button:has-text("ページ・写真")' }] },
+  // 🏷 タグの提案（2026-10-02）: メモを書いて保存したあと、一覧の上の「このメモに合いそうなタグ」。?jev=1 は Jev の見本（お試しモードの偽物）。
+  { name: 'book-memo-saved', url: '/', steps: MEMO_SAVED },
+  { name: 'book-memo-saved-jev', url: '/?jev=1', steps: MEMO_SAVED },
+  { name: 'book-memo-saved-tag-on', url: '/', steps: [...MEMO_SAVED, { css: 'section[aria-labelledby="tag-suggest-title"] button[aria-pressed="false"] >> nth=0' }, { wait: 800 }] },
   { name: 'book-detail-done-bottom', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { scrollBottom: true }] },
   { name: 'book-store-sheet', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("この本を買う")' }] },
   { name: 'consult', url: '/', steps: [{ css: nav('相談') }] },
@@ -354,6 +365,8 @@ const SCREENS = [
   //    はじめて AI を使う操作のときに、送る内容と送り先のシートが出る（相談の送信・写真から書き起こす）。
   { name: 'ai-consent-consult', url: '/?consent=none', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { wait: 800 }] },
   { name: 'ai-consent-ocr', url: '/?consent=none', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button:has-text("メモを書く")' }, { css: 'button:has-text("ページ・写真")' }, { upload: ['[role=dialog] input[type=file][accept="image/*"]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 800 }] },
+  // 🧭 Jev を入れたとき（VITE_AI_JEV=on・お試しモードは ?jev=1）の同意のシート: 相談に TypeSafe AI・「タグの提案」の行。
+  { name: 'ai-consent-consult-jev', url: '/?consent=none&jev=1', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { wait: 800 }] },
   { name: 'ai-consent-advisor', url: '/?consent=none', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 800 }] },
   { name: 'ai-consent-plan', url: '/?consent=none', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("LIFE SHIFT")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("編集")' }, { fill: ['textarea[aria-label="この本から得たいこと（必須）"]', '40代からの働き方を考えたい'] }, { css: 'button:has-text("読書計画シートを作")' }, { wait: 800 }] },
   // 「今はやめる」で閉じたあと（送らない・入力欄に相談が残る）

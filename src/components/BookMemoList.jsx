@@ -20,6 +20,9 @@ import { BookOpen, PencilLine, Clock, Quote, Pencil, Copy, Share, Trash2, Sparkl
 import { btnGhost, btnGhostOff, btnLink } from '../styles/ui';
 import MemoLinks from './MemoLinks';
 import { useMemoLinkFinder } from '../hooks/useMemoLinkFinder';
+import TagSuggest from './TagSuggest';
+import { useTagSuggestions } from '../hooks/useTagSuggestions';
+import { track } from '../lib/analytics';
 import { requestOpenMemo } from '../lib/openMemo';
 
 // SPEC §2（2026-09-26）: 「カード｜まとめ」の切替タブと、二段の並び替え・引用チップ・
@@ -288,6 +291,31 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
   const { find: findLinks } = useMemoLinkFinder({ books, enabled: !!saved || openLinkIds.size > 0 });
   const savedLinks = useMemo(() => (saved ? findLinks({ text: saved.text, bookId, memoId: saved.id }) : []), [saved, findLinks, bookId]);
   const linksFor = (m) => (openLinkIds.has(m.id) ? findLinks({ text: m.text, bookId, memoId: m.id }) : null);
+
+  // 🏷 タグの提案（2026-10-02・SPEC §2）: いま保存したメモに、自分のタグから合いそうなものを 1〜3 個。押すと付く・もう一度で外す。
+  //   保存した 1 回ごとに 1 度だけ決める（hooks/useTagSuggestions.js）。× で閉じたら次に保存するまで出さない。
+  const { plan } = usePaywall();
+  const savedRow = saved ? memos.find((m) => m.id === saved.id) || null : null;
+  const thisBook = useMemo(() => (books || []).find((b) => b.id === bookId) || null, [books, bookId]);
+  const { suggestions: tagSuggestions, source: tagSource } = useTagSuggestions({ saved, book: thisBook, current: savedRow?.tags || [], books, plan });
+  const [dismissedTags, setDismissedTags] = useState(null);
+  const [tagBusy, setTagBusy] = useState(null);
+  const toggleSuggestedTag = async (tag) => {
+    if (!savedRow || tagBusy) return;
+    const has = (savedRow.tags || []).includes(tag);
+    const next = has ? savedRow.tags.filter((t) => t !== tag) : [...(savedRow.tags || []), tag];
+    setTagBusy(tag);
+    try {
+      await updateMemo(savedRow.id, { pageNumber: savedRow.pageNumber, text: savedRow.text, photoFile: null, tags: next, removePhotoFlag: false });
+      haptic.light();
+      if (!has) track('tag_suggest_added', { source: tagSource || 'local' });
+    } catch (e) {
+      toast.error(toMessage(e, 'タグを付けられませんでした。'));
+    } finally {
+      setTagBusy(null);
+    }
+  };
+  const showTagSuggest = !!saved && !!savedRow && saved.nonce !== dismissedTags && tagSuggestions.length > 0;
   const openLink = (book, memoId) => {
     if (book?.id) requestOpenMemo(book.id, memoId);
   };
@@ -550,6 +578,18 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
           title="ページ番号付きのメモがまだありません"
           description="メモにページ番号を入れておくと、引用したい一行をここから素早く取り出せます。"
           actions={[{ label: 'すべてのメモを表示', onClick: () => setQuoteOnly(false), variant: 'secondary' }]}
+        />
+      )}
+
+      {/* 🏷 いま保存したメモに合いそうな自分のタグ（一覧のいちばん上・押すと付く・× で閉じる・次に保存するまで） */}
+      {showTagSuggest && visibleMemos.length > 0 && (
+        <TagSuggest
+          suggestions={tagSuggestions}
+          applied={savedRow.tags || []}
+          busyTag={tagBusy}
+          onToggle={toggleSuggestedTag}
+          onDismiss={() => setDismissedTags(saved.nonce)}
+          style={{ marginBottom: 'var(--space-3)' }}
         />
       )}
 
