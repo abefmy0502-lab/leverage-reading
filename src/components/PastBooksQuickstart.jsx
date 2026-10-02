@@ -58,7 +58,7 @@ const POPULAR_BOOKS = [
   ['思考の整理学', '外山滋比古'],
   ['夢をかなえるゾウ', '水野敬也'],
 ].map(([title, author]) => ({ title, author, isbn: '', cover: '', manual: true }));
-const COVER_W = 36; // 一覧の表紙（高さは MiniCover が 1.42 倍で決める）
+const COVER_W = 44; // 一覧の表紙（本を追加の検索結果と同じ 44・高さは MiniCover が 1.42 倍で決める＝62・2026-10-02）
 
 // ---- 画面の骨組み ----------------------------------------------------------
 const overlay = {
