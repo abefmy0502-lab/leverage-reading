@@ -135,6 +135,12 @@ const SCREENS = [
   { name: 'paywall-founding', url: '/?demo=paywall&founding=on', steps: [{ eval: "window.dispatchEvent(new CustomEvent('orime:paywall', { detail: { reason: null } }))" }] },
   { name: 'paywall-grown-founding', url: '/?demo=freegrown&native=1&founding=on', steps: [{ eval: "window.dispatchEvent(new CustomEvent('orime:paywall', { detail: { reason: 'grown' } }))" }] },
   { name: 'consult-trial-nudge-founding', url: '/?demo=freegrown&founding=on', steps: [{ css: nav('相談') }] },
+  // 2026-10-02 ui-critic の追加: 価格の読み込み中・失敗（創業メンバー価格のとき）・大きな文字・使えない人の案内
+  { name: 'paywall-native-founding-loading', url: '/?demo=paywall&native=1&founding=on&trial=7日間無料&price=loading', steps: [{ eval: "window.dispatchEvent(new CustomEvent('orime:paywall', { detail: { reason: null } }))" }] },
+  { name: 'paywall-native-founding-fail', url: '/?demo=paywall&native=1&founding=on&trial=7日間無料&price=fail', steps: [{ eval: "window.dispatchEvent(new CustomEvent('orime:paywall', { detail: { reason: null } }))" }] },
+  { name: 'paywall-native-founding-large-text', url: '/?demo=paywall&native=1&founding=on&trial=7日間無料', steps: [{ eval: "window.dispatchEvent(new CustomEvent('orime:paywall', { detail: { reason: null } }))" }, { eval: () => { document.documentElement.style.fontSize = '23px'; } }, { wait: 500 }, { scrollBottom: true }] },
+  { name: 'paywall-native-founding-xxl-text', url: '/?demo=paywall&native=1&founding=on&trial=7日間無料', steps: [{ eval: "window.dispatchEvent(new CustomEvent('orime:paywall', { detail: { reason: null } }))" }, { eval: () => { document.documentElement.style.fontSize = '40px'; } }, { wait: 500 }] },
+  { name: 'consult-trial-nudge-off', url: '/?demo=freegrown&trial=off', steps: [{ css: nav('相談') }] },
   { name: 'webgate', url: '/?demo=webgate' },
   // 2026-09-27 追加: 生成後・状態別・編集・取り込み
   { name: 'advisor-interview', url: '/', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }] },
@@ -212,6 +218,12 @@ const SCREENS = [
   { name: 'landing-privacy', url: '/?demo=auth', steps: [{ scrollTo: '#lp-privacy' }, { wait: 800 }] },
   { name: 'landing-faq', url: '/?demo=auth', steps: [{ scrollTo: '#lp-faq' }, { wait: 800 }] },
   { name: 'landing-founding', url: '/?demo=auth&founding=on' },
+  // 動きを減らす設定（自動で進まない・右端に「次へ」）・創業メンバー価格の FAQ を開いたところ
+  { name: 'landing-flow-still', url: '/?demo=auth&motion=static', steps: [{ scrollTo: '#lp-flow' }, { wait: 800 }] },
+  { name: 'landing-faq-founding', url: '/?demo=auth&founding=on', steps: [{ scrollTo: '#lp-faq' }, { css: 'summary:has-text("創業メンバー価格とは")' }, { scrollTo: 'summary:has-text("創業メンバー価格とは")' }, { wait: 600 }] },
+  // App Store の URL を入れたとき（VITE_APP_STORE_URL を入れたお試しモードのサーバーで撮る＝ボタンが「無料プランで始める」の押せる形）
+  { name: 'landing-store', url: '/?demo=auth&founding=on' },
+  { name: 'landing-store-pricing', url: '/?demo=auth&founding=on', steps: [{ scrollTo: '#lp-pricing' }, { wait: 800 }] },
   { name: 'landing-offer', url: '/?demo=auth&founding=on', steps: [{ scrollTo: '#lp-offer' }, { wait: 800 }] },
   { name: 'landing-pricing-founding', url: '/?demo=auth&founding=on', steps: [{ scrollTo: '#lp-pricing' }, { wait: 800 }] },
   { name: 'paywall-price-loading', url: '/?demo=paywall&native=1&price=loading', steps: [{ eval: "window.dispatchEvent(new CustomEvent('orime:paywall', { detail: { reason: null } }))" }] },

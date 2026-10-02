@@ -194,7 +194,13 @@ const stickyFooter = {
   padding: 'var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom, 0px))',
   background: 'var(--bg)',
   borderTop: '1px solid var(--separator)',
+  // 大きな文字（Dynamic Type）でも画面の半分までにとどめ、中身を隠し切らない（はみ出す分は欄の中で送る・2026-10-02）。
+  maxHeight: '50dvh',
+  overflowY: 'auto',
 };
+// 下に固定の欄の文の塊。ふだんは塊ごとに次の行へ送り（語の途中で割らない）、大きな文字で 1 行に入らないときだけ塊の中で折り返す
+// （nowrap だと画面の外へはみ出していた・2026-10-02）。
+const chunk = { display: 'inline-block', maxWidth: '100%' };
 // 削除だけはエラー色（DESIGN §5）。ほかの文字ボタンとは行を分ける。
 const dangerLinkStyle = { ...linkStyle, color: 'var(--error)' };
 // 文字ボタンの並び（左端は文字の頭をほかの行とそろえる）。
@@ -267,7 +273,7 @@ function PlanOption({ label, selected, onSelect, placeholder = false, tag = '', 
         {label.intro ? (
           <>
             <span style={billedAmount}>{withTax(label.intro.head)}</span>
-            {label.intro.after && <span style={planNote}>{label.intro.after}</span>}
+            {label.intro.after && <span style={planNote}>{withTax(label.intro.after)}</span>}
           </>
         ) : (
           <span style={billedAmount}>
@@ -622,7 +628,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
                   {/* かっこで包まず「・」で続ける（2026-09-29）。折り返すのは「・」の後だけ（1 行目を「…無料・150 トークン・」まで使い、
                       「最初の 7 日間は無料・」だけの短い 1 行目にしない・2026-09-30）。 */}
                   {trial && [`${trialFirstPhrase(trial)}・`, ...TRIAL_TOKENS_PARTS].map((part) => (
-                    <span key={part} style={{ whiteSpace: 'nowrap' }}>{part}</span>
+                    <span key={part} style={chunk}>{part}</span>
                   ))}
                   {/* 創業メンバー価格（年額を選んでいるとき）: 呼び名と終わる日を小さく 1 行（金額は次の行で強く）。 */}
                   {!trial && selected.intro && plan === 'annual' && foundingNamed && (
@@ -630,7 +636,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
                   )}
                   <span style={{ display: 'block', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>
                     {billedLineParts({ ...selected, trial }).map((part) => (
-                      <span key={part} style={{ whiteSpace: 'nowrap' }}>{part}</span>
+                      <span key={part} style={chunk}>{part}</span>
                     ))}
                   </span>
                 </p>
@@ -655,13 +661,13 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
               {trial && priceState === 'ready' && (
                 <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, margin: 'var(--space-2) 0 0', textAlign: 'center' }}>
                   {/* 「料金はか／かりません」のように語の途中で折り返さない（読点のあとで折る）。 */}
-                  <span style={{ whiteSpace: 'nowrap' }}>無料期間が終わる 24 時間前までに解約すれば、</span><span style={{ whiteSpace: 'nowrap' }}>料金はかかりません。</span>
+                  <span style={chunk}>無料期間が終わる 24 時間前までに解約すれば、</span><span style={chunk}>料金はかかりません。</span>
                 </p>
               )}
               {/* 先払いの初回価格: いつ・何の分を払うかをボタンのすぐ下で（「¥9,800 は、始めるときに 1 年分をまとめてお支払いします。」） */}
               {!trial && selected.intro?.upfront && priceState === 'ready' && (
                 <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, margin: 'var(--space-2) 0 0', textAlign: 'center' }}>
-                  <span style={{ whiteSpace: 'nowrap' }}>{selected.intro.priceString} は、</span><span style={{ whiteSpace: 'nowrap' }}>始めるときに {selected.intro.span || '1 年'}分をまとめてお支払いします。</span>
+                  <span style={chunk}>{selected.intro.priceString} は、</span><span style={chunk}>始めるときに {selected.intro.span || '1 年'}分をまとめてお支払いします。</span>
                 </p>
               )}
             </div>
