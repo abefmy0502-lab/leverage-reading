@@ -17,7 +17,7 @@ import { usePaywall } from '../state/PaywallContext';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { Sparkles, Undo2, Plus, Minus, ChevronRight, X } from 'lucide-react';
-import { btnPrimary, btnPrimaryOff, btnLink, groupTitle } from '../styles/ui';
+import { btnPrimary, btnPrimaryOff, btnGhost, btnLink, groupTitle } from '../styles/ui';
 import { useBlockEdgeSwipe } from '../hooks/useEdgeSwipeBack';
 import { useBackLayer } from '../hooks/useHistoryBack';
 import { closeDelayMs } from '../lib/motion';
@@ -158,24 +158,31 @@ export default function QuickMemoSheet({
   onCreate,
   onOpenFullEditor,
   frequentTags = [], // よく使うタグ（「＋ ページ・写真」の中にチップで並べ、押して付ける・2026-09-29）
-  // 📷 初回ガイドの「本のページを撮る」から来たとき（2026-10-02）: 「＋ ページ・写真」を開いた形で始める
-  //   （写真から書き起こすがすぐ見える）。ページ番号の欄も見えているので、入れたページは保存する。
+  // 📷 初回ガイドの「本のページを撮る」から来たとき（2026-10-02）: 本文が空の間は、入力欄の上に全幅の
+  //   「写真から書き起こす」（副ボタン・ScanText 20）を置く。主ボタンは「保存」のまま。書き起こした（本文が入った）ら、
+  //   いつもの場所（「＋ ページ・写真」の中）に戻る。
   startWithPhoto = false,
 }) {
   ensureKeyframes();
   const [pageNumber, setPageNumber] = useState(defaultPageNumber !== '' ? String(defaultPageNumber) : '');
   const [text, setText] = useState('');
+  // 📷 入力欄の上の「写真から書き起こす」（本のページを撮るから来て、本文がまだ空のあいだだけ）。
+  const photoLead = startWithPhoto && !text.trim();
   const [tags, setTags] = useState([]);
   const toggleTag = (t) => setTags((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
   // ＋ ページ・写真（最初は閉じる＝本文だけを見せる）。
-  const [moreOpen, setMoreOpen] = useState(!!startWithPhoto);
+  const [moreOpen, setMoreOpen] = useState(false);
   // 一度開いたら中身は残す（畳むときも高さを縮める動きで閉じるため・畳んでいる間は visibility: hidden）。
-  const [moreMounted, setMoreMounted] = useState(!!startWithPhoto);
+  const [moreMounted, setMoreMounted] = useState(false);
   // ページ番号を使うか: 「＋ ページ・写真」を開いて欄を見た（＝既定値を確かめた）か、自分で入れたときだけ保存する。
   // 開かずに保存したメモに直前＋1 のページが黙って付き、相談の根拠に誤ったページが載るのを防ぐ（2026-09-27）。
-  const [pageUsed, setPageUsed] = useState(!!startWithPhoto);
+  const [pageUsed, setPageUsed] = useState(false);
   // 写真から書き起こした文を入れたか（保存のときに知らせる＝初日の計測 onboard_path_done の photo だけに使う）。
   const usedPhotoRef = useRef(false);
+  const onPhotoText = (t) => {
+    usedPhotoRef.current = true;
+    setText((prev) => (prev ? `${prev}\n${t}` : t).slice(0, LIMITS.memoText));
+  };
   // ページ番号を自分で触ったか。触っていなければ、既定値（直前＋1）が後から届いたときに
   // 反映する（ホームから開くと、メモ一覧の読み込みより先にシートが開くため）。
   const pageTouchedRef = useRef(false);
@@ -464,6 +471,13 @@ export default function QuickMemoSheet({
         </div>{/* /drag zone (handle + header) */}
 
         <div style={bodyStyle}>
+          {photoLead && (
+            // 入力欄の上の全幅の副ボタン（btnGhost・アイコン 20 は .photo-lead の CSS）。部品は PhotoToTextButton のまま
+            // （今月の残り回数・読み取り中・失敗の案内もこの部品が出す）。
+            <div className="photo-lead">
+              <PhotoToTextButton style={{ ...btnGhost, width: '100%', gap: 'var(--space-2)' }} onText={onPhotoText} />
+            </div>
+          )}
           <div>
             <textarea
               aria-label="メモ本文"
@@ -565,13 +579,13 @@ export default function QuickMemoSheet({
                     style={{ ...inp, width: '100%', textAlign: 'center' }}
                   />
                 </div>
-                <PhotoToTextButton
-                  style={{ minHeight: 48, width: '100%' }}
-                  onText={(t) => {
-                    usedPhotoRef.current = true;
-                    setText((prev) => (prev ? `${prev}\n${t}` : t).slice(0, LIMITS.memoText));
-                  }}
-                />
+                {/* 入力欄の上に出しているあいだは、ここには置かない（同じボタンを 2 つ並べない）。 */}
+                {!photoLead && (
+                  <PhotoToTextButton
+                    style={{ minHeight: 48, width: '100%' }}
+                    onText={onPhotoText}
+                  />
+                )}
               </div>
             )}
             {/* よく使うタグ（選ぶためのチップ・押すと付く／もう一度で外す）。見出し→チップ 8・チップ同士 8（DESIGN §5）。

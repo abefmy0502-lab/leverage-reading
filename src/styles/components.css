@@ -1462,3 +1462,7 @@ details[open] > summary .fold-chevron { transform: rotate(180deg); }
 
 /* AI の答え・計画シートのカード: 最後の要素の下の余白を 0 にして、カードの上下の内側余白をそろえる。 */
 .md-section > :last-child { margin-bottom: 0 !important; }
+
+/* 📷 メモのシートの入力欄の上の「写真から書き起こす」（本のページを撮るから来たとき・QuickMemoSheet・2026-10-02）:
+   全幅の副ボタンなのでアイコンは 20（部品 PhotoToTextButton は 16 で描くので、ここで大きさだけ合わせる）。 */
+.photo-lead > button svg { width: 20px; height: 20px; }
