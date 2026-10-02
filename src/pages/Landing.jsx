@@ -80,12 +80,12 @@ function canUse3D() {
 // 📱 App Store の URL は src/lib/appStore.js に一元化。VITE_APP_STORE_URL が未設定の間は
 // 押せない「近日公開」表示に倒す（プレースホルダー URL で App Store の 404 に落とさない）。
 // loc = 押した場所（header / sticky / hero / flow / offer / pricing / final）。記録と App Store のキャンペーン名に使う。
-function StoreCta({ className, children, tabIndex, loc = 'other' }) {
+function StoreCta({ className, children, tabIndex, hidden = false, loc = 'other' }) {
   if (!isAppStoreLive) {
-    return <span className={`${className} is-soon`} aria-disabled="true">App Store で近日公開</span>;
+    return <span className={`${className} is-soon`} aria-disabled="true" aria-hidden={hidden || undefined}>App Store で近日公開</span>;
   }
   return (
-    <a href={storeUrlFor(loc)} className={className} tabIndex={tabIndex} onClick={() => lpTrack('cta_click', { loc })}>
+    <a href={storeUrlFor(loc)} className={className} tabIndex={tabIndex} aria-hidden={hidden || undefined} onClick={() => lpTrack('cta_click', { loc })}>
       {children}
     </a>
   );
@@ -241,6 +241,8 @@ const DESCRIPTION = '読んだのに覚えていない、行動に移せない�
 export default function Landing() {
   const heroCtaRef = useRef(null);
   const [showSticky, setShowSticky] = useState(false);
+  // ヒーローのボタンが見えている間は、ヘッダーのボタン（広い画面）を隠す＝主ボタンを 2 つ並べない（2026-10-02 ui-critic）。
+  const [heroCtaVisible, setHeroCtaVisible] = useState(true);
   const heroStageRef = useRef(null);
   const heroImgRef = useRef(null);
   const [want3D, setWant3D] = useState(false);
@@ -364,6 +366,10 @@ export default function Landing() {
         return r.bottom > 0 && r.top < vh;
       });
       setShowSticky(!inlineCtaVisible && (el ? el.getBoundingClientRect().bottom < 0 : window.scrollY > 480));
+      if (el) {
+        const hr = el.getBoundingClientRect();
+        setHeroCtaVisible(hr.bottom > 0 && hr.top < vh);
+      }
       const max = document.documentElement.scrollHeight - window.innerHeight;
       const pct = max > 0 ? (window.scrollY / max) * 100 : 100;
       [25, 50, 75, 100].forEach((d) => {
@@ -411,7 +417,14 @@ export default function Landing() {
           </a>
           <nav className="lp-header-nav" aria-label="ヘッダー">
             <a href="/?auth=signin" className="lp-header-login">ログイン</a>
-            <StoreCta className="lp-btn lp-btn-small lp-header-cta" loc="header">{CTA_LABEL}</StoreCta>
+            <StoreCta
+              className={`lp-btn lp-btn-small lp-header-cta${heroCtaVisible ? ' is-hidden' : ''}`}
+              loc="header"
+              tabIndex={heroCtaVisible ? -1 : undefined}
+              hidden={heroCtaVisible}
+            >
+              {CTA_LABEL}
+            </StoreCta>
           </nav>
         </div>
       </header>

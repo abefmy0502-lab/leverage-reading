@@ -550,14 +550,16 @@ body.lp-active {
 
 @media (prefers-reduced-motion: reduce) {
   .lp-hero-canvas, .lp-hero-stage .lp-shot,
-  .lp-sticky, .lp-sticky.is-visible, .lp-faq-mark, .lp-btn, .lp-flow-frame { transition: none; }
+  .lp-sticky, .lp-sticky.is-visible, .lp-faq-mark, .lp-btn, .lp-flow-frame, .lp-header-cta, .lp-header-cta.is-hidden { transition: none; }
   .lp-flow-bar > span.is-run { animation: none; transform: scaleX(1); }
 }
 
 /* ============ タブレット以上 ============ */
 @media (min-width: 768px) {
   .lp-root { --lp-sec: 96px; --lp-gutter: var(--space-8); }
-  .lp-header-cta { display: inline-flex; }
+  .lp-header-cta { display: inline-flex; transition: opacity var(--duration-fast, 150ms) ease, visibility 0s linear 0s; }
+  /* ヒーローのボタンが見えている間は隠す（場所は残して、出入りで「ログイン」が動かないように） */
+  .lp-header-cta.is-hidden { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity var(--duration-fast, 150ms) ease, visibility 0s linear var(--duration-fast, 150ms); }
   .lp-sticky { display: none; }
   .lp-footer { padding-bottom: var(--space-12); }
 
