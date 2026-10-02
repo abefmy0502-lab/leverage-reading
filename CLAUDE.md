@@ -19,7 +19,7 @@
 - **バックエンド**: Supabase (PostgreSQL + Auth + Storage)
 - **AI**: 用途（purpose）ごとに会社とモデルを選ぶ中継（`api/claude.js` → `api/_aiRouting.js` / `api/_providers.js`・`docs/ai-routing.md`・2026-10-01 オーナー要望「バランスよく使ってコストを下げたい」）。相談は Claude Haiku 4.5 固定（オーナー裁定・無料プランも）・AI 選書の推薦は Claude Sonnet 5.5・運営の参謀は OpenAI gpt-5-mini（2026-12-11 に終了→自動で Flash-Lite へ）・AI 選書の聞き返し／読書計画シート（作る・直す）／凝縮／まとめ／写真から書き起こしは Google gemini-3.1-flash-lite（2026-10-01 オーナー要望「質はそこまで変えずにコストを下げる・相談以外もしっかり見て」）。読書計画シートの関連書籍は書誌で確かめ、見つからない本を消して保存（`lib/planRelatedBooks.js`）。相談はキャッシュが効く組み立て（メモ一覧は質問に左右されない芯＝`ai.js` の `selectConsultMemos`・日本時間のその日のうちは同じ文字で 5 分のキャッシュ、指示文は中継が 1 時間のキャッシュ＝`AI_CONSULT_SYSTEM_TTL`、質問に近いメモは芯の後ろ）。本を探す問いはまず自分のメモから（AI なし・`lookupFromMemos`）。1 人・1 か月の AI 原価の見込み 約 ¥146 → 約 ¥79（`docs/ai-routing.md` §3・§7）。答える前の失敗は Claude で 1 回やり直す。鍵が無ければ全部 Claude。OpenAI / Google の応答は Anthropic の SSE・JSON の形に変換するのでアプリ側は変えない
 - **ホスティング**: Vercel
-- **コア機能**: 本管理（4 ステータス）、カード/まとめ 2 モードメモ（写真・タグ・ページ番号・📷 写真から AI 書き起こし）、🔄 振り返りタブ（ランダム想起 + タイムライン + 横断検索）、🎯 行動リスト（本横断 + 完了率 + 期限管理）、🧠 マイ読書脳（自分のメモを根拠にする AI Q&A + 本以外の学びログ）、🤖 AI 選書アドバイザー、📤 一文をシェア（心に残った一文を 1 枚の画像に・写真/紙/夜/表紙の色/透明・メモごとの橙の傍線と付箋・`ShareSheet.jsx` / `lib/shareCard.js`。外部の表紙は許可リストつきの中継 `api/cover-image.js` 経由。SPEC §2-1）、PWA インストール
+- **コア機能**: 本管理（4 ステータス）、カード/まとめ 2 モードメモ（写真・タグ・ページ番号・📷 写真から AI 書き起こし）、🔄 振り返りタブ（ランダム想起 + タイムライン + 横断検索）、🎯 行動リスト（本横断 + 完了率 + 期限管理）、🧠 マイ読書脳（自分のメモを根拠にする AI Q&A + 本以外の学びログ）、🤖 AI 選書アドバイザー、📤 一文をシェア（心に残った一文を 1 枚の画像に・写真/紙/夜/表紙の色/透明・メモごとの橙の傍線と付箋・`ShareSheet.jsx` / `lib/shareCard.js`。外部の表紙は許可リストつきの中継 `api/cover-image.js` 経由。SPEC §2-1）、🔎 本の検索（書名・著者はサーバー `/api/cover?search=`＝`api/_bookSearch.js`: 楽天ブックスの売上順 → Google → NDL・一致の段が先で同じ段の中は人気順＝`api/_bookRank.js`・表紙つき・副題を分ける・著者は「稲盛和夫」の形。失敗・0 件は端末の検索に切り替え・2026-10-02・`docs/book-search.md`）、PWA インストール
 
 ### ナビゲーション構造
 
@@ -406,6 +406,7 @@ want(読みたい) → before(積読) → reading(読書中) → done(読了)
 - 中身は **真偽と HTTP の番号だけ**: `rakutenConfigured`（楽天の 2 つの鍵）/ `rakutenRefererSet`（`RAKUTEN_APP_URL`）/ `googleKeySet`（`GOOGLE_BOOKS_API_KEY`）と、決まった本（ISBN 9784862760852）での各取得元の `status` と `found`（`rakuten` / `ndlSearch` / `ndlTitleToIsbn` / `openbd` / `google` / `ndlThumb` / `openbdImage` / `amazon` / `amazonMedia` / `googleContent` / `openLibrary`）。鍵・利用者の情報・内部の URL は出さない。ほかの `/api/cover` と同じ IP ごとの回数制限・結果は 5 分キャッシュ
 - 読み方: `rakuten.status` 403 → `RAKUTEN_APP_URL` と楽天の「許可された Web サイト」が合っていない／400 → 鍵が違う。`google.status` 429 → `GOOGLE_BOOKS_API_KEY` を入れる。`ndlThumb`・`amazon` の 403・0 はサーバーの IP が弾かれているだけ（端末の `<img>` は読めるので `candidates` で表紙は付く）
 - 1 冊だけ確かめるときは `https://orime.vercel.app/api/cover?title=書名&author=著者`（`{cover, isbn, candidates}`）
+- **本の検索**（本を追加・初日クイックスタート）は同じ JSON の `search`（`status` 200・`found`・`top3`＝稲盛和夫『考え方』が上位 3 冊に入ったか・`sources` の rakuten が `ok`）。1 語だけ試すときは `https://orime.vercel.app/api/cover?search=考え方`。楽天はアプリ ID ごとにおよそ 1 秒 1 回なので、検索はサーバーで 30 分・CDN で 1 時間覚える（`docs/book-search.md` §5・§6）
 - **アプリ側の直し（表紙の確かめ方・起動時の探し直し・壊れた表紙の差し替え）は iOS アプリの出し直しで届く**（アプリの中の画面はアプリに入っている版。`/api/*` だけは Vercel の公開ですぐ変わる）
 
 ## 運用 — フィードバック確認
@@ -435,7 +436,7 @@ update feedback
 
 ## 開発時の注意
 
-- **🧪 お試しモード（開発専用）**: `npm run demo` → http://localhost:5173/ で、Supabase / AI に繋がずにサンプルデータ入りのアプリを操作できる（`src/demo/`。`?demo=new`=新規ユーザー・`?demo=auth`=未ログイン・`?demo=free`=無料プラン（契約なし・相談だけ AI・毎月 30 トークン。相談以外の AI は有料プランの画面が重なる）・`?demo=freeused`=今月の無料のトークンを使い切った・`?demo=freenew`=無料プランの新規ユーザー・`?demo=freegrown`=無料プランでメモが 10 件以上（相談の「相談相手が育ってきました」＝7 日間無料の案内・`&trial=off` で無料期間を使えない人の文。ほかのシナリオではこの案内は出ない）・`?demo=trial`=7 日間無料の途中・`?demo=limit`=今月の 800 トークンを使い切った（`&native=1` で有料プランの画面をネイティブの見た目に）・`?demo=noreading` / `noreadingdone` / `noreadingnone`＝読書中の本が無い（積読あり／読了だけ／候補なし）・既定=半年使い込んだユーザー。AI 選書の実在の判定は `&verify=down`＝どれも確かめられない・`&verify=mixed`＝1 冊だけ確かめられない）。データはメモリのみで再読み込みで初期化。AI はサンプル応答（マイ読書脳だけは入っているメモから質問に近いものを選んで本番と同じ書式で答える）。`lib/supabase.js` の `isDemo` は `import.meta.env.DEV` 限定なので本番バンドルには含まれない。Supabase を使う新しいクエリ（新しい演算子等）を追加したら `src/demo/demoClient.js` の対応範囲も確認する
+- **🧪 お試しモード（開発専用）**: `npm run demo` → http://localhost:5173/ で、Supabase / AI に繋がずにサンプルデータ入りのアプリを操作できる（`src/demo/`。`?demo=new`=新規ユーザー・`?demo=auth`=未ログイン・`?demo=free`=無料プラン（契約なし・相談だけ AI・毎月 30 トークン。相談以外の AI は有料プランの画面が重なる）・`?demo=freeused`=今月の無料のトークンを使い切った・`?demo=freenew`=無料プランの新規ユーザー・`?demo=freegrown`=無料プランでメモが 10 件以上（相談の「相談相手が育ってきました」＝7 日間無料の案内・`&trial=off` で無料期間を使えない人の文。ほかのシナリオではこの案内は出ない）・`?demo=trial`=7 日間無料の途中・`?demo=limit`=今月の 800 トークンを使い切った（`&native=1` で有料プランの画面をネイティブの見た目に）・`?demo=noreading` / `noreadingdone` / `noreadingnone`＝読書中の本が無い（積読あり／読了だけ／候補なし）・既定=半年使い込んだユーザー。AI 選書の実在の判定は `&verify=down`＝どれも確かめられない・`&verify=mixed`＝1 冊だけ確かめられない。本の検索は `&search=old`＝直す前の流れ・`&search=fail`＝失敗・`&search=slow`＝読み込み中のまま）。データはメモリのみで再読み込みで初期化。AI はサンプル応答（マイ読書脳だけは入っているメモから質問に近いものを選んで本番と同じ書式で答える）。`lib/supabase.js` の `isDemo` は `import.meta.env.DEV` 限定なので本番バンドルには含まれない。Supabase を使う新しいクエリ（新しい演算子等）を追加したら `src/demo/demoClient.js` の対応範囲も確認する
 - **IME 変換中の Enter** は `e.nativeEvent.isComposing` で必ず保護する（誤送信防止）
 - **iOS Safari ズーム対策**で `input` / `textarea` / `select` は `font-size: 16px 以上` を維持（共通スタイル `inp` / `ta` を使えば自動）
 - **削除操作は楽観的 UI + Undo パターン**: 即 DB DELETE → スナップショットから 5 秒以内なら restore-on-undo（タイマーベースの遅延削除は禁止 — タブ閉じで取り戻せなくなる）
