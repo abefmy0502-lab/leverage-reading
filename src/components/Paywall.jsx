@@ -22,8 +22,16 @@
 //   プラン名・期間・価格（プランの行）/ 自動更新の条件（ボタン直下の文）/
 //   購入を復元 / 利用規約・プライバシーポリシーへのリンク（文の下の 1 行）。
 //
+// 🌱 創業メンバー価格（2026-10-02・公開から 30 日間）: ストアが年額の初回特典に「先払い・1 年・¥9,800」を返すと、
+//   年額の行は「1 年目 ¥9,800」＋「2 年目から ¥12,800」になり、年額には 7 日間無料を出さない（App Store の初回特典は
+//   1 つの商品に 1 つ）。月額は 7 日間無料のまま。金額の真実はストア（lib/planOffers.js）。「創業メンバー価格」という
+//   呼び名と特典の 1 行は、ストアに初回価格があり、かつ期間中（VITE_FOUNDING_OFFER・lib/foundingOffer.js）のときだけ。
+//   env が on でもストアに初回価格が無ければ（対象外の人・未設定）通常の価格だけ。逆にストアにあって env が off なら、
+//   値段は出して呼び名と特典は出さない。
+//
 // 🧪 表示プレビュー（開発専用）: お試しモードの ?demo=paywall&native=1 でネイティブ版の
 //   見た目をブラウザで撮れる（showNative）。demoScenario は本番では常に null。
+//   &founding=on（ストアの初回価格＋期間中）/ store（ストアの初回価格だけ）/ env（期間中だけ）で創業メンバー価格を確かめる。
 //   プレビュー中は実際の購入・復元（RevenueCat）を一切呼ばない（isNative のときだけ呼ぶ）。
 
 import { useEffect, useState, lazy, Suspense } from 'react';
@@ -52,6 +60,8 @@ import { FREE_TOKENS, PAID_TOKENS, TRIAL_TOKENS, TOKEN_COSTS, monthDayLabelJa } 
 import { FREE_OCR_PER_MONTH } from '../lib/tokenAmounts';
 import { nextResetLabelJa } from '../lib/freeTrial';
 import { normalizeTrialLabel, trialFirstPhrase } from '../lib/trialNudge';
+import { introOfferOf, introPriceLabel, billedLineParts, planCtaLabel, trialPlanOf } from '../lib/planOffers';
+import { readFoundingOffer, devFoundingParam, FOUNDING_NAME } from '../lib/foundingOffer';
 
 // 未契約でもアカウントを削除できるように（App Store 審査 5.1.1(v)）。設定の削除欄をそのまま使う。
 const AccountSettings = lazy(() => import('./AccountSettings'));
@@ -90,7 +100,7 @@ function PriceText({ text }) {
 
 // 開発専用のネイティブ表示プレビュー（本番は demoScenario=null で常に false）。
 function readNativePreview() {
-  if (!['paywall', 'free', 'freeused', 'freegrown'].includes(demoScenario) || typeof window === 'undefined') return { on: false, trial: '', price: '' };
+  if (!['paywall', 'free', 'freeused', 'freegrown'].includes(demoScenario) || typeof window === 'undefined') return { on: false, trial: '', price: '', storeIntro: false };
   const sp = new URLSearchParams(window.location.search);
   // &price=loading / fail で、ストア価格の読み込み中・失敗の表示を確かめられる。
   // 無料プランの人が開く 3 つ（①無料のトークンを使い切った＝freeused ②プランの機能を押した＝free
@@ -99,9 +109,16 @@ function readNativePreview() {
   // &trial=off で使えない人（年額／月額で始める）。paywall（契約なしの一般のプレビュー）は従来どおり無し。
   const t = sp.get('trial');
   const trial = t === 'off' ? '' : normalizeTrialLabel(t || (demoScenario === 'paywall' ? '' : '7日間無料'));
-  return { on: sp.get('native') === '1', trial, price: sp.get('price') || '' };
+  // &founding=on|store: ストアが年額に「先払い・1 年・¥9,800」の初回特典を返したときの表示。
+  const storeIntro = ['on', 'store'].includes(devFoundingParam());
+  return { on: sp.get('native') === '1', trial, price: sp.get('price') || '', storeIntro };
 }
 const preview = readNativePreview();
+// プレビューの年額の初回価格（ストアの introPrice と同じ形から作る）。
+const PREVIEW_ANNUAL_INTRO = introPriceLabel(
+  introOfferOf({ introPrice: { price: 9800, priceString: '¥9,800', periodUnit: 'YEAR', periodNumberOfUnits: 1, cycles: 1 } }),
+  '¥12,800',
+);
 // 見た目の分岐だけに使う。購入・復元の実行可否は必ず isNative で判定する。
 const showNative = isNative || preview.on;
 
@@ -128,6 +145,7 @@ const TOKEN_EXAMPLE_OCR = `写真から書き起こし 1 回 約 ${TOKEN_COSTS.p
 // onlyPlan: 無料のトークンを使い切ったあと（本人の本の表紙を出すとき）はプランの行だけ（主ボタンを近くに）。
 // trial: この人が使える無料期間（「7 日間無料」）。あればプランの行の名前に「（最初の 7 日間は無料）」。
 //   選んだプランに無料期間があるときは下に固定の欄（「最初の 7 日間は無料」＋主ボタン）が言うので渡さない（繰り返さない）。
+//   月額だけに無料期間があるとき（創業メンバー価格のあいだ）も渡さない（プランの行で月額にだけ出す・年額に無料期間があるように読ませない）。
 function PlanCompare({ onlyPlan = false, trial = '', example = TOKEN_EXAMPLE }) {
   const rows = onlyPlan ? PLAN_COMPARE.filter((r) => r.name === 'プラン') : PLAN_COMPARE;
   return (
@@ -196,7 +214,9 @@ const billedAmount = { display: 'block', fontSize: 'var(--text-body)', fontWeigh
 const planNote = { display: 'block', fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-2)', lineHeight: 1.5 };
 
 // placeholder: 価格の読み込み中。本物の行と同じ中身を見えなくして重ね、読み込み後に高さが跳ねないようにする。
-function PlanOption({ label, selected, onSelect, placeholder = false }) {
+// tag: 名前の横の小さな表示（年額の「おすすめ」／創業メンバー価格のあいだは「創業メンバー価格」）。
+// trialNote: この行にだけ無料期間があるとき（「最初の 7 日間は無料」・創業メンバー価格のあいだの月額）。
+function PlanOption({ label, selected, onSelect, placeholder = false, tag = '', trialNote = '' }) {
   const Tag = placeholder ? 'div' : 'button';
   return (
     <Tag
@@ -237,14 +257,23 @@ function PlanOption({ label, selected, onSelect, placeholder = false }) {
       <span style={{ minWidth: 0, visibility: placeholder ? 'hidden' : undefined }}>
         <span style={{ ...planName, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
           {label.name}
-          {/* 年額への後押し: 「おすすめ」と、ストアの実数から計算した割引。 */}
-          {label.save && <span style={recommendTag}>おすすめ</span>}
+          {/* 年額への後押し: 「おすすめ」（創業メンバー価格のあいだはその名前）。 */}
+          {tag && <span style={recommendTag}>{tag}</span>}
         </span>
-        {/* 実際に請求される金額をいちばん強く（審査 3.1.2）。割引は補足として弱く。 */}
-        <span style={billedAmount}>
-          <PriceText text={label.price} />
-        </span>
+        {/* 実際に請求される金額をいちばん強く（審査 3.1.2）。割引は補足として弱く。
+            有料の初回価格（創業メンバー価格）は「1 年目 ¥9,800」を強く、「2 年目から ¥12,800」を補足に。 */}
+        {label.intro ? (
+          <>
+            <span style={billedAmount}>{label.intro.head}</span>
+            {label.intro.after && <span style={planNote}>{label.intro.after}</span>}
+          </>
+        ) : (
+          <span style={billedAmount}>
+            <PriceText text={label.price} />
+          </span>
+        )}
         {label.save && <span style={planNote}>{label.save}</span>}
+        {trialNote && <span style={planNote}>{trialNote}</span>}
       </span>
       {placeholder && (
         <SkeletonBlock height="auto" radius="var(--radius)" style={{ position: 'absolute', inset: 'var(--space-3) var(--space-4)', width: 'auto' }} />
@@ -297,6 +326,8 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
   const [exporting, setExporting] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // 創業メンバー価格の期間か（LP と同じ env・開くたびに読む＝終わる日を過ぎたら出ない）。
+  const [founding] = useState(() => readFoundingOffer());
   // Web のキーボードの Esc で閉じる（アプリの上に重ねて開いたときだけ・2026-09-30）。購入の手続き中・上に設定を
   // 開いている間・ほかのダイアログが上にあるときは閉じない（そちらが Esc を受ける）。
   useEffect(() => {
@@ -315,7 +346,9 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
     showNative
       ? {
         monthly: { ...APP_PLAN_LABELS.monthly, trial: isNative ? '' : preview.trial },
-        annual: { ...APP_PLAN_LABELS.annual, trial: isNative ? '' : preview.trial },
+        annual: (!isNative && preview.storeIntro)
+          ? { ...APP_PLAN_LABELS.annual, trial: '', save: '', intro: PREVIEW_ANNUAL_INTRO }
+          : { ...APP_PLAN_LABELS.annual, trial: isNative ? '' : preview.trial },
       }
       : PLAN_LABELS
   ));
@@ -342,10 +375,15 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
 
   const selected = labels[plan] || labels.annual;
   const trial = normalizeTrialLabel(selected.trial || '');
-  // どちらかのプランに無料期間があれば、比較のプランの行に「（最初の 7 日間は無料）」を出す。
-  const anyTrial = priceState === 'ready' ? normalizeTrialLabel(labels.annual?.trial || labels.monthly?.trial || '') : '';
-  // 下に固定の欄の請求額（「年額 ¥12,800」）。無料期間は同じ欄で言うので、比較の見出しでは繰り返さない。
-  const billedShort = String(selected.price || '').split('（')[0].trim();
+  // 両方のプランに無料期間があれば、比較のプランの行に「（最初の 7 日間は無料）」を出す。
+  // 片方だけ（創業メンバー価格のあいだは月額だけ）のときは、その行にだけ「最初の 7 日間は無料」を出す（年額に無料期間があるように読ませない）。
+  const trialPlan = priceState === 'ready' ? trialPlanOf(labels) : '';
+  const anyTrial = trialPlan === 'both' ? normalizeTrialLabel(labels.annual?.trial || '') : '';
+  const rowTrialNote = (id) => (trialPlan && trialPlan !== 'both' && labels[id]?.trial ? trialFirstPhrase(normalizeTrialLabel(labels[id].trial)) : '');
+  // 創業メンバー価格と呼ぶのは、ストアが年額に有料の初回価格を返し、かつ期間中のときだけ（値段の真実はストア）。
+  const foundingNamed = founding.active && !!labels.annual?.intro;
+  // 年額の行の小さな表示。
+  const annualTag = foundingNamed ? FOUNDING_NAME : 'おすすめ';
 
   // 契約できたときの知らせ。7 日間無料で始まったら「いつまで・何トークン」を言う（2026-09-29）。
   //   終わる日が分からないときは日付を省く。読める長さなので中央の ✓ を少し長めに出す。
@@ -370,11 +408,13 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
       try {
         const now = Date.now();
         const days = trial ? 7 : plan === 'monthly' ? 30 : 365;
+        // 有料の初回価格（創業メンバー価格）で始めた＝period_type 'intro'（有料・無料期間ではない）。
+        const periodType = trial ? 'trial' : selected.intro ? 'intro' : 'normal';
         const periodEnd = new Date(now + days * 86400000).toISOString();
         await supabase.from('subscriptions').upsert({
           user_id: user?.id, status: 'active', provider: 'demo',
           price_id: plan === 'monthly' ? 'orime_monthly' : 'orime_annual',
-          period_type: trial ? 'trial' : 'normal',
+          period_type: periodType,
           current_period_end: periodEnd,
         }, { onConflict: 'user_id' });
         showPurchasedToast(trial ? periodEnd : null, !!trial);
@@ -452,7 +492,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
 
   const ctaLabel = pending
     ? '購入手続き中…'
-    : trial ? `${trial}で試す` : `${selected.name}で始める`;
+    : planCtaLabel({ ...selected, trial });
 
   return (
     <main
@@ -548,10 +588,24 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
                     label={labels[id]}
                     selected={plan === id}
                     onSelect={() => { if (!pending) setPlan(id); }}
+                    tag={id === 'annual' ? annualTag : ''}
+                    trialNote={rowTrialNote(id)}
                   />
                 ))
               )}
             </div>
+            )}
+
+            {/* 創業メンバー価格のあいだ: 特典と、初回特典は 1 つの Apple ID に 1 回であること（App Store の決まり）。 */}
+            {priceState === 'ready' && foundingNamed && (
+              <p style={{ ...metaText, marginTop: 'var(--space-3)' }}>
+                {founding.endLabel}までに年額プランを始めた方は創業メンバーです（開発者への直接の窓口・次に作る機能への投票）。
+              </p>
+            )}
+            {priceState === 'ready' && labels.annual?.intro && labels.monthly?.trial && (
+              <p style={{ ...metaText, marginTop: foundingNamed ? 'var(--space-1)' : 'var(--space-3)' }}>
+                初回特典は 1 つの Apple ID に 1 回です（月額の {normalizeTrialLabel(labels.monthly.trial)}と、年額の {labels.annual.intro.head} は、どちらか一方）。
+              </p>
             )}
 
             {/* 請求額の行＋主ボタンは画面の下に固定（DESIGN §5「下に固定の保存」と同じ形）。
@@ -566,8 +620,14 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
                   {trial && [`${trialFirstPhrase(trial)}・`, ...TRIAL_TOKENS_PARTS].map((part) => (
                     <span key={part} style={{ whiteSpace: 'nowrap' }}>{part}</span>
                   ))}
+                  {/* 創業メンバー価格（年額を選んでいるとき）: 呼び名と終わる日を小さく 1 行（金額は次の行で強く）。 */}
+                  {!trial && selected.intro && plan === 'annual' && foundingNamed && (
+                    <span style={{ display: 'block' }}>{FOUNDING_NAME}（{founding.endLabel}まで）</span>
+                  )}
                   <span style={{ display: 'block', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>
-                    {trial ? 'その後 ' : ''}{billedShort} で自動更新
+                    {billedLineParts({ ...selected, trial }).map((part) => (
+                      <span key={part} style={{ whiteSpace: 'nowrap' }}>{part}</span>
+                    ))}
                   </span>
                 </p>
               )}
@@ -592,6 +652,12 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
                 <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, margin: 'var(--space-2) 0 0', textAlign: 'center' }}>
                   {/* 「料金はか／かりません」のように語の途中で折り返さない（読点のあとで折る）。 */}
                   <span style={{ whiteSpace: 'nowrap' }}>無料期間が終わる 24 時間前までに解約すれば、</span><span style={{ whiteSpace: 'nowrap' }}>料金はかかりません。</span>
+                </p>
+              )}
+              {/* 先払いの初回価格: いつ払うかをボタンのすぐ下で（「¥9,800 は、始めるときに 1 回のお支払いです。」） */}
+              {!trial && selected.intro?.upfront && priceState === 'ready' && (
+                <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, margin: 'var(--space-2) 0 0', textAlign: 'center' }}>
+                  <span style={{ whiteSpace: 'nowrap' }}>{selected.intro.priceString} は、</span><span style={{ whiteSpace: 'nowrap' }}>始めるときに 1 回のお支払いです。</span>
                 </p>
               )}
             </div>
@@ -624,10 +690,14 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
                 >
                   <p style={{ ...planName, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-2)', margin: 0 }}>
                     {labels[id].name}
-                    {id === 'annual' && <span style={recommendTag}>おすすめ</span>}
+                    {id === 'annual' && <span style={recommendTag}>{founding.active ? FOUNDING_NAME : 'おすすめ'}</span>}
                   </p>
                   {/* 金額はネイティブ版と同じく本文の大きさ・600＝いちばん強く（月あたりは補足の文字） */}
                   <p style={{ ...billedAmount, margin: 'var(--space-1) 0 0' }}><PriceText text={labels[id].price} /></p>
+                  {/* Web では本人が初回特典を使えるか分からないので、「初めての方」と条件を添える（金額の真実は App Store）。 */}
+                  {id === 'annual' && founding.active && (
+                    <p style={{ ...planNote, margin: 'var(--space-1) 0 0' }}>{founding.endLabel}までに始めると {founding.priceLabel}（初めての方）</p>
+                  )}
                 </div>
               ))}
             </section>

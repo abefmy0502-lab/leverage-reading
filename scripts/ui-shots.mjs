@@ -125,6 +125,16 @@ const SCREENS = [
   { name: 'paywall', url: '/?demo=paywall', steps: [{ eval: "window.dispatchEvent(new CustomEvent('orime:paywall', { detail: { reason: null } }))" }] },
   { name: 'paywall-native', url: '/?demo=paywall&native=1', steps: [{ eval: "window.dispatchEvent(new CustomEvent('orime:paywall', { detail: { reason: null } }))" }] },
   { name: 'paywall-bottom', url: '/?demo=paywall&native=1', steps: [{ eval: "window.dispatchEvent(new CustomEvent('orime:paywall', { detail: { reason: null } }))" }, { scrollBottom: true }] },
+  // 🌱 創業メンバー価格（2026-10-02）: &founding=on＝ストアが年額に「1 年目 ¥9,800」を返し、かつ期間中（LP の env）。
+  //   store＝ストアの初回価格だけ（期間外）・env＝期間中だけ（ストアに初回価格なし＝対象外の人）。月額は &trial= で 7 日間無料。
+  { name: 'paywall-native-founding', url: '/?demo=paywall&native=1&founding=on&trial=7日間無料', steps: [{ eval: "window.dispatchEvent(new CustomEvent('orime:paywall', { detail: { reason: null } }))" }] },
+  { name: 'paywall-native-founding-bottom', url: '/?demo=paywall&native=1&founding=on&trial=7日間無料', steps: [{ eval: "window.dispatchEvent(new CustomEvent('orime:paywall', { detail: { reason: null } }))" }, { scrollBottom: true }] },
+  { name: 'paywall-native-founding-monthly', url: '/?demo=paywall&native=1&founding=on&trial=7日間無料', steps: [{ eval: "window.dispatchEvent(new CustomEvent('orime:paywall', { detail: { reason: null } }))" }, { css: '[role=radio]:has-text("月額プラン")' }] },
+  { name: 'paywall-native-founding-store-only', url: '/?demo=paywall&native=1&founding=store&trial=7日間無料', steps: [{ eval: "window.dispatchEvent(new CustomEvent('orime:paywall', { detail: { reason: null } }))" }] },
+  { name: 'paywall-native-founding-env-only', url: '/?demo=paywall&native=1&founding=env', steps: [{ eval: "window.dispatchEvent(new CustomEvent('orime:paywall', { detail: { reason: null } }))" }] },
+  { name: 'paywall-founding', url: '/?demo=paywall&founding=on', steps: [{ eval: "window.dispatchEvent(new CustomEvent('orime:paywall', { detail: { reason: null } }))" }] },
+  { name: 'paywall-grown-founding', url: '/?demo=freegrown&native=1&founding=on', steps: [{ eval: "window.dispatchEvent(new CustomEvent('orime:paywall', { detail: { reason: 'grown' } }))" }] },
+  { name: 'consult-trial-nudge-founding', url: '/?demo=freegrown&founding=on', steps: [{ css: nav('相談') }] },
   { name: 'webgate', url: '/?demo=webgate' },
   // 2026-09-27 追加: 生成後・状態別・編集・取り込み
   { name: 'advisor-interview', url: '/', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }] },
@@ -194,6 +204,16 @@ const SCREENS = [
   { name: 'auth-error', url: '/?demo=auth&auth=signin&authfail=1', steps: [{ fill: ['input[aria-label="メールアドレス"]', 'demo@example.com'] }, { fill: ['input[aria-label="パスワード"]', 'password1'] }, { css: 'button[type=submit]' }, { wait: 800 }] },
   { name: 'landing-bottom', url: '/?demo=auth', steps: [{ scrollBottom: true }, { wait: 800 }] },
   { name: 'landing-pricing', url: '/?demo=auth', steps: [{ scrollTo: '#lp-pricing' }, { wait: 800 }] },
+  // LP の節（2026-10-02 作り直し）: 流れ・比較・シェア・学習に使わない・FAQ。&founding=on で創業メンバー価格の節と印。
+  { name: 'landing-flow', url: '/?demo=auth', steps: [{ scrollTo: '#lp-flow' }, { wait: 1500 }] },
+  { name: 'landing-flow-last', url: '/?demo=auth&motion=static', steps: [{ scrollTo: '#lp-flow' }, { css: '.lp-flow-steps button >> nth=3' }, { wait: 800 }] },
+  { name: 'landing-compare', url: '/?demo=auth', steps: [{ scrollTo: '#lp-compare' }, { wait: 800 }] },
+  { name: 'landing-share', url: '/?demo=auth', steps: [{ scrollTo: '#lp-share' }, { wait: 800 }] },
+  { name: 'landing-privacy', url: '/?demo=auth', steps: [{ scrollTo: '#lp-privacy' }, { wait: 800 }] },
+  { name: 'landing-faq', url: '/?demo=auth', steps: [{ scrollTo: '#lp-faq' }, { wait: 800 }] },
+  { name: 'landing-founding', url: '/?demo=auth&founding=on' },
+  { name: 'landing-offer', url: '/?demo=auth&founding=on', steps: [{ scrollTo: '#lp-offer' }, { wait: 800 }] },
+  { name: 'landing-pricing-founding', url: '/?demo=auth&founding=on', steps: [{ scrollTo: '#lp-pricing' }, { wait: 800 }] },
   { name: 'paywall-price-loading', url: '/?demo=paywall&native=1&price=loading', steps: [{ eval: "window.dispatchEvent(new CustomEvent('orime:paywall', { detail: { reason: null } }))" }] },
   { name: 'paywall-price-fail', url: '/?demo=paywall&native=1&price=fail', steps: [{ eval: "window.dispatchEvent(new CustomEvent('orime:paywall', { detail: { reason: null } }))" }] },
   { name: 'paywall-free-used', url: '/?demo=freeused&native=1', steps: [{ eval: "window.dispatchEvent(new CustomEvent('orime:paywall', { detail: { reason: 'free_used' } }))" }] },

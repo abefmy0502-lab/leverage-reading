@@ -87,7 +87,8 @@ export function introPriceLabel(intro, regular = '') {
   const head = `${period} ${intro.priceString}${per}`;
   const reg = String(regular || '').trim();
   const after = reg ? `${afterHead} ${reg}` : '';
-  return { head, afterHead, after, full: after ? `${head}（${after}）` : head, priceString: intro.priceString };
+  // upfront: 期間の分をはじめに 1 回で払う形（cycles 1）。
+  return { head, afterHead, after, full: after ? `${head}（${after}）` : head, priceString: intro.priceString, upfront: intro.cycles === 1 };
 }
 
 // ストアの 2 つの商品（月額・年額）から、有料プランの画面の文字を作る。
@@ -134,10 +135,14 @@ export function billedShortOf(price = '') {
 //   有料の初回価格 → 「1 年目 ¥9,800、2 年目から 年額 ¥12,800 で自動更新」
 //   どちらも無し   → 「年額 ¥12,800 で自動更新」
 export function billedLine(label = {}) {
+  return billedLineParts(label).join('');
+}
+// 同じ文を、折り返してよい切れ目で分けたもの（画面は塊ごとに nowrap で並べる＝「¥12,800 / で自動更新」と割れない）。
+export function billedLineParts(label = {}) {
   const short = billedShortOf(label.price);
-  if (label.trial) return `その後 ${short} で自動更新`;
-  if (label.intro) return `${label.intro.head}、${label.intro.afterHead} ${short} で自動更新`;
-  return `${short} で自動更新`;
+  if (label.trial) return [`その後 ${short} で自動更新`];
+  if (label.intro) return [`${label.intro.head}、`, `${label.intro.afterHead} ${short} で自動更新`];
+  return [`${short} で自動更新`];
 }
 
 // 主ボタンの文言。無料期間があれば「7 日間無料で試す」、無ければ「年額プランで始める」。
