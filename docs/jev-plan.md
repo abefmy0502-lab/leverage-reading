@@ -88,7 +88,7 @@ null なら今の決め方で続ける
 
 ### 3-4. 同意（App Review 5.1.2(i)）とプライバシー
 
-- アプリの `VITE_AI_JEV=on` のビルドだけ、同意のシートの送り先に TypeSafe AI が加わり（相談＝Anthropic・TypeSafe AI、「タグの提案」の行）、**同意の版が 2** になる（`lib/aiProcessors.js` `buildAiProcessors`）。止めているビルドは版 1 のまま＝使っていない会社のために聞き直さない。
+- アプリの `VITE_AI_JEV=on` のビルドだけ、同意のシートの送り先に TypeSafe AI が加わり（相談＝Anthropic・TypeSafe AI、「合いそうなタグ」の行・凝縮・まとめ・書き起こしは 1 行にまとめてシートの高さを抑えた）、**同意の版が 2** になる（`lib/aiProcessors.js` `buildAiProcessors`）。止めているビルドは版 1 のまま＝使っていない会社のために聞き直さない。
 - Jev は**同意のシートを出さない**。版 2 の同意がある人の分だけ送る（アプリ `lib/jev.js`＋サーバー `X-Orime-Ai-Consent` ≥ 2）。
 - プライバシーポリシー（`/legal/privacy` 第5〜7条）の TypeSafe AI の行も同じビルドでだけ出る（`AI_JEV_ON`）。`legal/privacy.md`・`company/app-store-submission.md` §6-2 にも書いた。
 - AI を使わない機能（メモが答える相談・検索・つながるメモ・共有）は AI なしのまま。タグの提案も、Jev を入れていなければ AI なし。
