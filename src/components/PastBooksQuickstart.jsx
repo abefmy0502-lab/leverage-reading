@@ -32,6 +32,7 @@ import { LIMITS, clamp } from '../lib/limits';
 import { track, EVENTS } from '../lib/analytics';
 import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff, btnLink, input as inputStyle, card, groupTitle } from '../styles/ui';
 import { MiniCover } from './BookCards';
+import { subtitleStyle } from './BookSearchModal';
 import EmptyState from './EmptyState';
 import ErrorMessage from './ErrorMessage';
 import { SkeletonBlock } from './Skeleton';
@@ -145,9 +146,13 @@ function BookRow({ book, on, first, onToggle }) {
       <button type="button" onClick={onToggle} aria-pressed={on} style={rowBtn(first)}>
         <MiniCover book={book} width={COVER_W} />
         <span style={{ flex: 1, minWidth: 0 }}>
-          <span style={{ ...oneLine, fontSize: 'var(--text-body)', fontWeight: 600, lineHeight: 1.4 }}>{book.title}</span>
+          <span style={{ ...oneLine, fontSize: 'var(--text-body)', fontWeight: 600, lineHeight: 1.4 }}>
+            {book.title}
+            {/* 副題は本を追加の検索結果と同じく、書名に続けて著者より弱く（2026-10-02） */}
+            {book.subtitle && <span style={subtitleStyle}>{` ${book.subtitle}`}</span>}
+          </span>
           {book.author && (
-            <span style={{ ...oneLine, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, marginTop: 'var(--space-1)' }}>
+            <span style={{ ...oneLine, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, marginTop: 'var(--space-1)' }}>
               {book.author}
             </span>
           )}
