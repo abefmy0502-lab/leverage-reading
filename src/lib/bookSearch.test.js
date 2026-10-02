@@ -5,7 +5,7 @@
 //   - ISBN はサーバーの検索を通らず、その本だけ
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { searchBooks, searchBooksOnServer, rankLocalResults, clearBookSearchCache } from './bookSearch';
-import { searchBooksByQuery, narrowHintFor } from '../components/BookSearchModal';
+import { searchBooksByQuery, narrowHintFor, rowLabel } from '../components/BookSearchModal';
 
 function resp(status, body) {
   return {
@@ -148,5 +148,16 @@ describe('rankLocalResults / narrowHintFor', () => {
     expect(narrowHintFor('考え方', 5)).toBe('');
     expect(narrowHintFor('考え方 稲盛', 30)).toBe('');
     expect(narrowHintFor('9784479795735', 30)).toBe('');
+  });
+});
+
+describe('rowLabel（行の読み上げ）', () => {
+  const b = { title: '考え方', subtitle: '人生・仕事の結果が変わる', author: '稲盛和夫', publisher: '大和書房', pubYear: '2017' };
+  it('書名＋副題・著者・出版社と年', () => {
+    expect(rowLabel(b)).toBe('『考え方 人生・仕事の結果が変わる』（稲盛和夫、大和書房、2017）を追加');
+  });
+  it('追加済みの本も同じ形に状態を足す', () => {
+    expect(rowLabel(b, '読書中')).toBe('『考え方 人生・仕事の結果が変わる』（稲盛和夫、大和書房、2017）追加済み（読書中）。開く');
+    expect(rowLabel({ title: 'X' })).toBe('『X』を追加');
   });
 });

@@ -279,6 +279,14 @@ const oneLine = { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'now
 // 検索結果の副題（書名に続けて・著者より弱く）。初日クイックスタートの行も同じ。
 export const subtitleStyle = { fontWeight: 400, fontSize: 'var(--text-sub)', color: 'var(--text-3)' };
 
+// 行の読み上げ: 書名＋副題・著者・出版社と年（見えているものをすべて）。追加済みの本も同じ形に状態を足す。
+export function rowLabel(book, statusLabel = null) {
+  const fullTitle = [book.title, book.subtitle].filter(Boolean).join(' ');
+  const desc = [book.author, book.publisher, book.pubYear].filter(Boolean).join('、');
+  const head = `『${fullTitle}』${desc ? `（${desc}）` : ''}`;
+  return statusLabel ? `${head}追加済み（${statusLabel}）。開く` : `${head}を追加`;
+}
+
 function ResultRow({ book, existing, onPick, divider }) {
   const statusLabel = existing ? (existing.statusLabel || '本棚') : '';
   const meta = [book.publisher, book.pubYear].filter(Boolean).join('・');
@@ -287,7 +295,7 @@ function ResultRow({ book, existing, onPick, divider }) {
       <button
         type="button"
         onClick={() => onPick(book, existing ? { isExisting: true, existing: existing.book } : {})}
-        aria-label={existing ? `『${book.title}』追加済み（${statusLabel}）。開く` : `『${book.title}』を追加`}
+        aria-label={rowLabel(book, existing ? statusLabel : null)}
         style={rowStyle}
       >
         {/* 追加済みの本は本棚の表紙（取り直し・手動の表紙を含む）をそのまま出し、本棚と見た目をそろえる。 */}
