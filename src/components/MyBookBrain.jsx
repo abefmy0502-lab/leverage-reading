@@ -131,6 +131,8 @@ const followupChip = { flexShrink: 0, minHeight: 44, padding: 'var(--space-2) va
 const decideChip = { ...followupChip, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' };
 // 「行動を決める」を出すあいだの行（折り返す・間 8 は縦横とも）。
 const followupRowWrap = { ...followupRow, flexWrap: 'wrap', rowGap: 'var(--space-2)' };
+// 選んだ相談例（初日の下書き・DESIGN §5 の操作のチップの選択中＝--accent-soft の面＋--accent の文字 600）。
+const chipPicked = { background: 'var(--accent-soft)', color: 'var(--accent)', fontWeight: 600 };
 const chipStyle = { display: 'block', width: '100%', minHeight: 44, padding: 'var(--space-3)', textAlign: 'left', wordBreak: 'keep-all', overflowWrap: 'anywhere', background: 'var(--fill)', border: 'none', borderRadius: 'var(--radius)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5 };
 // 答え＝読むカード（全幅）。ユーザーの相談は右寄せの --fill 吹き出し。
 const answerCard = { ...cardStyle, wordBreak: 'break-word' };
@@ -571,6 +573,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const [memoStatsFailed, setMemoStatsFailed] = useState(false);
   // 自分のメモの件数（はじめての相談の計測 first_consult_sent に添える・数えている途中は -1）。
   const ownMemoTotalRef = useRef(-1);
+  // 🌱 初日の「相談してみる」で入力欄に入れた相談（2026-10-02・askPreset.from === 'firstDay'）。送るまでは、見出しと
+  //   「たとえば」を出したまま、入れた相談を選んだ状態で見せる（ふだんの下書きは入力欄だけを主役にする）。
+  const [firstDayDraft, setFirstDayDraft] = useState(null);
   const [statsTick, setStatsTick] = useState(0);
   const messagesEndRef = useRef(null);
   // ストリーミング中の AbortController。送信ごとに作り直し、「中止」ボタンで
@@ -991,6 +996,12 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     return buildConsultExamples({ books, memoBookIds, lastConsult, count: 3, memoCount, actions: allActions, freeUsedUp });
   }, [books, scopeIds, memoBookIds, lastConsult, memoStatsLoaded, memoStats, allActions, freeUsedUp]);
 
+  // 初日の下書き: 入れた相談が相談例に無ければ先頭に足す（選んだ状態で見せるため・3 つまで）。
+  const introExamples = useMemo(() => {
+    if (!firstDayDraft || examples.some((e) => e.text === firstDayDraft)) return examples;
+    return [{ text: firstDayDraft, kind: 'draft' }, ...examples].slice(0, 3);
+  }, [examples, firstDayDraft]);
+
   // 💬 メモが答える相談（2026-10-01・lib/memoAnswer.js）: 画面の上だけに相談と答えを置き、自分のメモから一節を選ぶ。
   //   AI は使わない（/api/claude を呼ばない・トークンを使わない）。答えは id の行（memoAnswer）を入れ替える。
   const runMemoAnswerInto = async (answerId, q, bookIds) => {
@@ -1125,6 +1136,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     setBusy(true);
     setAborting(false);
     setInput('');
+    setFirstDayDraft(null);
 
     // 送信ごとに新しい AbortController。「中止」ボタンが abort() する。
     const controller = new AbortController();
@@ -1381,6 +1393,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     // 下書き（すべての本の「相談で探す」・振り返りの「相談で聞く」）は入力欄に入れてカーソルを置く（送らない＝トークンは送ったときだけ）。
     if (askPreset.draft) {
       setInput(askPreset.question);
+      setFirstDayDraft(askPreset.from === 'firstDay' ? askPreset.question : null);
       setTimeout(() => { try { inputRef.current?.focus({ preventScroll: true }); } catch { /* ignore */ } }, 80);
       return;
     }
@@ -1903,23 +1916,34 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                   />
                 )}
                 {/* 入力欄に書いている間は見出しも相談例も出さない（深掘りのチップと同じ決まり・下書きを入れて開いたとき＝
-                    「相談で探す」は困りごとの相談ではないので、主役を入力欄に・2026-09-30）。 */}
-                {!input.trim() && <>
+                    「相談で探す」は困りごとの相談ではないので、主役を入力欄に・2026-09-30）。
+                    ただし初日の「相談してみる」で入れた相談（firstDayDraft）は、見出しと「たとえば」を残し、入れた相談を
+                    選んだ状態で見せる（押すと入力欄に入れ替わる＝送るのは送信を押したとき・2026-10-02）。 */}
+                {(!input.trim() || firstDayDraft) && <>
                 <h2 id="brain-empty-title" style={{ ...headingStyle, marginBottom: 'var(--space-6)' }}>困っていることを、相談してください</h2>
                 <p style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>たとえば</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-                  {examples.map(({ text: q, kind }) => (
+                  {introExamples.map(({ text: q, kind }) => {
+                    const picked = !!firstDayDraft && q === input.trim();
+                    return (
                     <button
                       key={q}
                       type="button"
                       // 「前に相談した…」は、その相談と答えを文脈として渡す（続きとして答える）。
-                      onClick={() => { if (!busy && !outOfTokens) ask(q, kind === 'continue' && lastConsult ? { prior: lastConsult } : {}); }}
+                      // 初日の下書きのあいだは、押すと入力欄に入れるだけ（選ぶ・送らない）。
+                      onClick={() => {
+                        if (busy || outOfTokens) return;
+                        if (firstDayDraft) { setInput(q); requestAnimationFrame(() => { try { inputRef.current?.focus({ preventScroll: true }); } catch { /* ignore */ } }); return; }
+                        ask(q, kind === 'continue' && lastConsult ? { prior: lastConsult } : {});
+                      }}
                       disabled={busy || outOfTokens}
-                      style={{ ...chipStyle, ...(busy || outOfTokens ? { color: 'var(--text-2)', opacity: 1, cursor: 'default' } : null), ...hangIndent(q) }}
+                      aria-pressed={firstDayDraft ? picked : undefined}
+                      style={{ ...chipStyle, ...(picked ? chipPicked : null), ...(busy || outOfTokens ? { color: 'var(--text-2)', opacity: 1, cursor: 'default' } : null), ...hangIndent(q) }}
                     >
                       {withPhraseBreaks(q)}
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
                 </>}
               </section>
@@ -2036,7 +2060,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           <div ref={messagesEndRef} />
           {/* AI 免責注記（App Store 審査ガイドライン対応 + 誠実な期待値設定）。固定表示にすると
               会話の面積を削るので、会話の流れの最後（空の画面・答えの下）に置く。 */}
-          {historyLoaded && !busy && (isEmpty ? (!input.trim() && memoStatsLoaded && (ownMemoTotal > 0 || memoStatsFailed) && !planOut && !freeUsedUp && !(scopeIds.length > 0 && scopeMemoCount === 0)) : (lastIsAssistant && !lastIsMemoAnswer && !visibleMessages[visibleMessages.length - 1]?.notice && !visibleMessages[visibleMessages.length - 1]?.error)) && (
+          {historyLoaded && !busy && (isEmpty ? ((!input.trim() || firstDayDraft) && memoStatsLoaded && (ownMemoTotal > 0 || memoStatsFailed) && !planOut && !freeUsedUp && !(scopeIds.length > 0 && scopeMemoCount === 0)) : (lastIsAssistant && !lastIsMemoAnswer && !visibleMessages[visibleMessages.length - 1]?.notice && !visibleMessages[visibleMessages.length - 1]?.error)) && (
             <p style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', margin: 'var(--space-6) 0 0', lineHeight: 1.5, ...(isEmpty ? null : { marginLeft: ANSWER_COLUMN }) }}>
               AI の回答には誤りが含まれることがあります
             </p>

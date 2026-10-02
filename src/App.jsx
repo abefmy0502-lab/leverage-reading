@@ -731,7 +731,7 @@ function AuthedApp() {
   //   相談を入力欄に入れて相談を開く（送らない＝トークンは送ったときだけ）。from: 'import' | 'ocr'。
   const openConsultDraft = (question, from) => {
     track('try_consult', { from });
-    setAskPreset({ question, nonce: Date.now(), draft: true });
+    setAskPreset({ question, nonce: Date.now(), draft: true, from: 'firstDay' });
     setView('list'); setAiSubTab('brain'); setTab('ai');
   };
   // 🔎 すべての本の検索から「相談で探す」: 相談を開いて入力欄に問いを入れるだけ（送らない＝トークンは送ったときだけ・2026-09-30）。
