@@ -2,7 +2,7 @@
 //
 // メモを早くためてもらい、相談が役に立つところまで育てるため、無料プランでも写真から書き起こしを
 // 1 か月に 10 回使える（相談のトークンは使わない・別枠）。数えて止めるのはサーバー
-// （api/claude.js・api/_aiAccess.js の AI_FREE_OCR_PER_MONTH）。ここは「今月 あと N 回」を出すための写し。
+// （api/claude.js・api/_aiAccess.js の AI_FREE_OCR_PER_MONTH）。ここは「今月の残り N 回」を出すための写し。
 // 真実は ai_usage の period_month='freeocr-YYYY-MM' 行の calls（本人の行だけ読める・RLS）。
 // サーバーの回数を env で変えたら、FREE_OCR_PER_MONTH（tokenAmounts.js）も揃える（tokens.test.js が既定を確かめる）。
 
@@ -25,13 +25,13 @@ export function freeOcrRemaining(limit, usedCalls) {
 }
 
 // ボタンのそばに出す 1 行（無料プランの人だけ）。折り返してよいのは「・」の後だけ（parts を nowrap で並べる）。
-//   残りあり: ['今月 あと 8 回']
-//   0 回:     ['今月 あと 0 回・', '11月1日に戻ります']
+//   残りあり: ['今月の残り 8 回']（相談の「今月の残り N トークン」と同じ言い方）
+//   0 回:     ['今月の残り 0 回・', '11月1日に戻ります']
 //   分からない・無料プランでない: null（出さない）
 export function freeOcrHintParts({ freeMode, remaining, now = new Date() }) {
   if (!freeMode || remaining == null) return null;
-  if (remaining > 0) return [`今月 あと ${remaining} 回`];
-  return ['今月 あと 0 回・', `${nextResetLabelJa(now)}に戻ります`];
+  if (remaining > 0) return [`今月の残り ${remaining} 回`];
+  return ['今月の残り 0 回・', `${nextResetLabelJa(now)}に戻ります`];
 }
 
 // 押したときにどうするか。'pick'（写真を選ぶ）| 'paywall'（今月の分を使い切った＝有料プランの画面）。

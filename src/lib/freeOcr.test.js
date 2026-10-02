@@ -22,14 +22,14 @@ describe('📷 無料プランの写真から書き起こし（画面の写し�
     expect(freeOcrRemaining(10, undefined)).toBe(null);
   });
 
-  it('ボタンのそばの 1 行: 無料プランだけ・残りがあれば「今月 あと N 回」', () => {
-    expect(freeOcrHintParts({ freeMode: true, remaining: 8 })).toEqual(['今月 あと 8 回']);
-    expect(freeOcrHintParts({ freeMode: true, remaining: 1 })).toEqual(['今月 あと 1 回']);
+  it('ボタンのそばの 1 行: 無料プランだけ・残りがあれば「今月の残り N 回」', () => {
+    expect(freeOcrHintParts({ freeMode: true, remaining: 8 })).toEqual(['今月の残り 8 回']);
+    expect(freeOcrHintParts({ freeMode: true, remaining: 1 })).toEqual(['今月の残り 1 回']);
   });
 
   it('0 回: 「◯月1日に戻ります」（日本時間の来月・12 月は 1 月へ）', () => {
     expect(freeOcrHintParts({ freeMode: true, remaining: 0, now: new Date('2026-10-02T03:00:00Z') }))
-      .toEqual(['今月 あと 0 回・', '11月1日に戻ります']);
+      .toEqual(['今月の残り 0 回・', '11月1日に戻ります']);
     expect(freeOcrHintParts({ freeMode: true, remaining: 0, now: new Date('2026-12-15T03:00:00Z') })[1]).toBe('1月1日に戻ります');
     // 日本時間ではもう 11 月（UTC は 10/31）
     expect(freeOcrHintParts({ freeMode: true, remaining: 0, now: new Date('2026-10-31T16:00:00Z') })[1]).toBe('12月1日に戻ります');

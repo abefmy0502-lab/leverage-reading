@@ -9,7 +9,7 @@
 // /api/claude 経由で自動適用。
 //
 // 📷 無料プランでも毎月 10 回使える（2026-10-02・相談のトークンとは別・lib/freeOcr.js）。無料プランの人には
-// ボタンの下に「今月 あと 8 回」を小さく出し、0 回のときは「◯月1日に戻ります」。0 回で押すと有料プランの画面を開く
+// ボタンの下に「今月の残り 8 回」を小さく出し、0 回のときは「◯月1日に戻ります」。0 回で押すと有料プランの画面を開く
 // （プランの機能を押した＝7 日間無料をすすめてよい場面・GLOSSARY ②）。
 
 import { useEffect, useRef, useState } from 'react';
@@ -127,7 +127,7 @@ export default function PhotoToTextButton({ onText, disabled = false, style }) {
       if (e2?.notice) {
         setThumbFile(null);
         if (!/^(この AI 機能は|今月の写真から書き起こし)/.test(e2.message)) toast.info(e2.message);
-        refreshTokens?.(); // 「今月 あと N 回」を取り直す
+        refreshTokens?.(); // 「今月の残り N 回」を取り直す
         return;
       }
       // 理由のあとに次の一歩を短く（理由の文がすでに「お試しください」を含むときは重ねない・2026-09-29 に文を短く）。
