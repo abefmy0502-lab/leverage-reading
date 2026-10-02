@@ -35,9 +35,9 @@ export default function TagSuggest({ suggestions, applied = [], busyTag = null, 
     <section
       aria-labelledby={titleId}
       className="list-item-enter"
-      style={{ background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: '0 var(--space-4) var(--space-3)', ...style }}
+      style={{ background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-3) var(--space-4)', ...style }}
     >
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)', paddingTop: 'var(--space-2)', marginRight: 'calc(-1 * var(--space-3))' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)', marginRight: 'calc(-1 * var(--space-3))' }}>
         <span aria-hidden="true" style={{ display: 'flex', alignItems: 'center', height: HEAD_LINE, flexShrink: 0, color: 'var(--text-2)' }}>
           <Tag size={16} />
         </span>
@@ -45,13 +45,14 @@ export default function TagSuggest({ suggestions, applied = [], busyTag = null, 
           {withPhraseBreaks(TAG_SUGGEST_TITLE)}
         </h3>
         {onDismiss && (
-          <button type="button" onClick={onDismiss} aria-label="合いそうなタグを閉じる" style={{ ...closeBtn, marginTop: `calc((${HEAD_LINE} - 44px) / 2)` }}>
+          <button type="button" onClick={onDismiss} aria-label="合いそうなタグを閉じる" style={{ ...closeBtn, marginTop: `calc((${HEAD_LINE} - 44px) / 2)`, marginBottom: `calc((${HEAD_LINE} - 44px) / 2)` }}>
             <X size={18} aria-hidden="true" />
           </button>
         )}
       </div>
-      {/* 見出しの行の下 12（× の押せる範囲 44 とチップの押せる範囲 44 を重ねない）。チップ同士は 8（DESIGN §5）。 */}
-      <div role="group" aria-labelledby={titleId} style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
+      {/* 見出しの行は文字 1 行の高さ（× の押せる範囲 44 は上下に負の余白で文字の行の中心に）。見出しの下 12＋1（× の押せる範囲の
+          はみ出し 12.25 とチップの押せる範囲を重ねない）。チップ同士は 8（DESIGN §5）。 */}
+      <div role="group" aria-labelledby={titleId} style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', marginTop: 'calc(var(--space-3) + 1px)' }}>
         {suggestions.map(({ tag }) => {
           const on = applied.includes(tag);
           const busy = busyTag === tag;
