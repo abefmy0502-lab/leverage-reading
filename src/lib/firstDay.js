@@ -115,3 +115,12 @@ export function showGrowthPlaceholder(lastCount) {
 }
 
 export const FIRST_DAY_KEYS = KEYS;
+
+// 🚪 サインアウトのとき（hooks/useAuth.js の signOut）: 初日の印と前回のメモの件数を端末から消す。
+//   同じ端末で別のアカウントに替えたとき、前の人の件数で形を出したり、新しい人の「はじめての相談」
+//   「10 件になった」を送り損ねたりしないように。
+export function clearFirstDayDeviceData() {
+  [...Object.values(KEYS), HOME_MEMO_COUNT_KEY].forEach((k) => {
+    try { store()?.removeItem(k); } catch { /* 消せなくても害は小さい */ }
+  });
+}

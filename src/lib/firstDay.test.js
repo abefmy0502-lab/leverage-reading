@@ -12,6 +12,9 @@ import {
   rememberHomeMemoCount,
   lastHomeMemoCount,
   showGrowthPlaceholder,
+  clearFirstDayDeviceData,
+  HOME_MEMO_COUNT_KEY,
+  FIRST_DAY_KEYS,
 } from './firstDay';
 import { TRIAL_NUDGE_MEMOS, shouldShowTrialNudge } from './trialNudge';
 
@@ -136,5 +139,24 @@ describe('ホームの数えている間の形（前回の件数を覚える・2
     rememberHomeMemoCount(NaN);
     rememberHomeMemoCount(-1);
     expect(lastHomeMemoCount()).toBe(5);
+  });
+});
+
+describe('サインアウトで端末の印を消す（clearFirstDayDeviceData）', () => {
+  beforeEach(() => installStorage());
+
+  it('前回の件数と初日の印をすべて消す（ほかのキーは残す）', () => {
+    rememberHomeMemoCount(4);
+    rememberOnboardPath('import');
+    takeOnboardPathDone('import');
+    takeFirstConsult();
+    takeMemosReached(3);
+    localStorage.setItem('onboardingCompleted', 'true');
+    clearFirstDayDeviceData();
+    expect(localStorage.getItem(HOME_MEMO_COUNT_KEY)).toBeNull();
+    for (const k of Object.values(FIRST_DAY_KEYS)) expect(localStorage.getItem(k), k).toBeNull();
+    expect(localStorage.getItem('onboardingCompleted')).toBe('true');
+    // 新しい人の「はじめての相談」はもう一度送れる
+    expect(takeFirstConsult()).toBe(true);
   });
 });

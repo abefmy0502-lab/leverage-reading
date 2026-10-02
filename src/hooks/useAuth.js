@@ -6,6 +6,7 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { unsubscribeFromPush } from '../lib/push';
 import { isNative } from '../lib/iap';
 import { unsubscribeNativePush } from '../lib/nativePush';
+import { clearFirstDayDeviceData } from '../lib/firstDay';
 
 // 🔐 認証状態はアプリ全体で 1 つだけ持つ（AuthProvider）。
 // 以前は useAuth() を呼ぶ約 20 箇所がそれぞれ getSession() と onAuthStateChange を
@@ -80,6 +81,8 @@ async function signOut() {
   // オプトアウト等）は保持。in-memory のメモ/写真キャッシュは AppDataCache 側で
   // onAuthStateChange('SIGNED_OUT') を購読して clearAll される。
   try { window.localStorage.removeItem('bookSearchCache'); } catch { /* ignore */ }
+  // 初日の印（はじめての相談・10 件・選んだ道）と、ホームの前回のメモの件数（lib/firstDay.js・2026-10-02）。
+  try { clearFirstDayDeviceData(); } catch { /* ignore */ }
 }
 
 export function AuthProvider({ children }) {
