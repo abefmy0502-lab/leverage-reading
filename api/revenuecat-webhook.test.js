@@ -77,3 +77,19 @@ describe('契約のイベントは今までどおり', () => {
     expect(up.row.status).toBe('canceled');
   });
 });
+
+describe('契約の履歴（subscription_events）', () => {
+  it('無料期間 → 有料の RENEWAL を 1 件残す（subscriptions も今までどおり）', async () => {
+    const res = mockRes();
+    await handler(post({ id: 'e5', type: 'RENEWAL', period_type: 'NORMAL', is_trial_conversion: true, product_id: 'orime_monthly', app_user_id: UID, expiration_at_ms: Date.now() + 86400000 }), res);
+    expect(res.statusCode).toBe(200);
+    const ev = ops.find((o) => o.table === 'subscription_events' && o.op === 'insert');
+    expect(ev.row).toMatchObject({ user_id: UID, provider: 'revenuecat', source_event_id: 'e5', period_type: 'normal', status: 'active', is_trial_conversion: true });
+    expect(ops.some((o) => o.table === 'subscriptions' && o.op === 'upsert')).toBe(true);
+  });
+  it('追加トークンのイベントは履歴に入れない', async () => {
+    const res = mockRes();
+    await handler(post({ id: 'e6', type: 'NON_RENEWING_PURCHASE', product_id: 'orime_tokens_300', app_user_id: UID, transaction_id: 'tx6', purchased_at_ms: Date.now() }), res);
+    expect(ops.some((o) => o.table === 'subscription_events')).toBe(false);
+  });
+});
