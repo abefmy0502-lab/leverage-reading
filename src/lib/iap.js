@@ -18,6 +18,7 @@
 //    あっても Web を一切壊さない (native 限定) よう防御している。
 
 import { Capacitor } from '@capacitor/core';
+import { savingsLabel, formatFreeTrial, buildStoreLabels, trialPlanOf } from './planOffers';
 
 export const isNative = Capacitor.isNativePlatform();
 
@@ -43,15 +44,8 @@ export const APP_PLAN_LABELS = {
   },
 };
 
-// 「月額プランより N% お得」。どちらも同じストア（同じ通貨）の実数から計算するので、
-// 価格を変えても表示がずれない。差が小さい（5% 未満）ときは出さない。
-export function savingsLabel(monthlyPrice, annualPrice) {
-  const m = Number(monthlyPrice);
-  const a = Number(annualPrice);
-  if (!(m > 0) || !(a > 0)) return '';
-  const pct = Math.floor((1 - a / (m * 12)) * 100);
-  return pct >= 5 ? `月額プランより ${pct}% お得` : '';
-}
+// 価格・初回特典の文字づくり（純粋関数）は planOffers.js。savingsLabel は LP が使うのでここからも出す。
+export { savingsLabel };
 
 let _Purchases = null;
 let _configured = false;
@@ -118,27 +112,13 @@ function pickPackage(offering, plan) {
   );
 }
 
-// RevenueCat の introPrice から「無料トライアル」ラベルを作る。
-// App Store Connect で Introductory Offer（無料）を設定した時だけ非空になる
-// （未設定なら ''＝表示しない＝虚偽表示にならない）。割引イントロ（price>0）は無料扱いしない。
-function formatFreeTrial(product) {
-  const ip = product?.introPrice;
-  if (!ip) return '';
-  const price = Number(ip.price);
-  if (Number.isFinite(price) && price > 0) return ''; // 無料ではない（割引イントロ）
-  const n = Number(ip.periodNumberOfUnits) || 0;
-  const unit = String(ip.periodUnit || '').toUpperCase();
-  if (!n) return '';
-  // 数字と単位の間に空きを入れる（「7 日間無料」・アプリのほかの数字の書き方とそろえる）。
-  const label = unit === 'DAY' ? `${n} 日間`
-    : unit === 'WEEK' ? `${n} 週間`
-      : unit === 'MONTH' ? `${n} ヶ月`
-        : unit === 'YEAR' ? `${n} 年間` : '';
-  return label ? `${label}無料` : '';
-}
+// 無料期間の名前（「7 日間無料」）は planOffers.js の formatFreeTrial（有料の初回価格は無料扱いしない）。
+export { formatFreeTrial };
 
 // 🌱 この人が無料期間（Introductory Offer）を使えるか（相談の「相談相手が育ってきました」用）。
-//   { status: 'eligible', label: '7 日間無料' } … ストアに無料期間があり、まだ使っていない
+//   { status: 'eligible', label: '7 日間無料', plan: 'monthly' } … ストアに無料期間があり、まだ使っていない
+//        plan＝無料期間のあるプラン（'both' | 'annual' | 'monthly'）。創業メンバー価格のあいだは
+//        年額が「1 年目 ¥9,800」なので 'monthly'（相談の案内は「月額プランは 7 日間無料」と書く・2026-10-02）
 //   { status: 'ineligible', label: '' }          … 無料期間が無い・もう使った
 //   { status: 'unknown', label: '' }             … ネイティブでない・読み込めなかった
 // 分からないときは無料期間を約束しない側に倒す（呼び出し側は「プランを見る」の文にする）。
@@ -152,7 +132,7 @@ export async function getIntroOffer(userId) {
     const l = await getStoreLabels(userId);
     if (l?.ok) {
       const label = l.annual?.trial || l.monthly?.trial || '';
-      result = label ? { status: 'eligible', label } : { status: 'ineligible', label: '' };
+      result = label ? { status: 'eligible', label, plan: trialPlanOf(l) } : { status: 'ineligible', label: '' };
     }
   } catch { /* unknown のまま */ }
   if (result.status !== 'unknown') introOfferCache = { userId, result };
@@ -172,25 +152,15 @@ export async function getStoreLabels(userId) {
     const a = pickPackage(offering, 'annual');
     if (!m?.product?.priceString || !a?.product?.priceString) return fallback;
     const eligible = await trialEligibility([m.product, a.product]);
-    return {
-      ok: true,
-      monthly: { ...APP_PLAN_LABELS.monthly, price: `月額 ${m.product.priceString}`, trial: eligible(m.product) ? formatFreeTrial(m.product) : '' },
-      annual: {
-        ...APP_PLAN_LABELS.annual,
-        // 月あたりの額もストアの値から（「年額 ¥12,800（月あたり ¥1,066）」）。
-        price: a.product.pricePerMonthString
-          ? `年額 ${a.product.priceString}（月あたり ${a.product.pricePerMonthString}）`
-          : `年額 ${a.product.priceString}`,
-        save: savingsLabel(m.product.price, a.product.price),
-        trial: eligible(a.product) ? formatFreeTrial(a.product) : '',
-      },
-    };
+    // 無料期間（7 日間無料）と有料の初回価格（創業メンバー価格「1 年目 ¥9,800」）を、プランごとに読む。
+    return buildStoreLabels({ base: APP_PLAN_LABELS, monthly: m.product, annual: a.product, eligible });
   } catch {
     return fallback;
   }
 }
 
-// 無料期間を「使える人」にだけ出す（過去に試用した人に「無料で始める」と出さない）。
+// 初回特典（無料期間・創業メンバー価格）を「使える人」にだけ出す（過去に使った人に「無料で始める」と出さない）。
+// App Store の初回特典は、同じサブスクのグループで 1 つの Apple ID に 1 回（月額の 7 日間無料を使った人は、年額の 1 年目 ¥9,800 も使えない）。
 // 判定できなかったときは出さない側に倒す（誤解を招く表示を避ける）。
 async function trialEligibility(products) {
   try {

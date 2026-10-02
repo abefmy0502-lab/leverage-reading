@@ -37,10 +37,22 @@ export function shouldShowTrialNudge({ plan, memoCount, done, freeUsedUp = false
 
 // 文言。offer はストアから分かった無料期間の名前（「7 日間無料」）。使えないと分かった・
 // 分からないときは空＝無料期間を約束しない文にする。
+// offerPlan は無料期間のあるプラン（'both' | 'annual' | 'monthly'・iap.js の getIntroOffer）。
+//   創業メンバー価格のあいだ（2026-10-02〜・公開から 30 日間）は年額が「1 年目 ¥9,800」で無料期間が無く、
+//   7 日間無料は月額だけ（'monthly'）。そのときは「月額プランは 7 日間無料」と書き、ボタンは「プランを見る」
+//   （有料プランの画面は年額が先に選ばれているので、「7 日間無料で試す」と押して年額が出る食い違いを作らない）。
 // 件数は文に入れない（相談の上部の「メモ・学びなど N 件」と数え方が違い、並ぶと食い違って見えるため）。
 // （呼び出し側が memoCount を渡しても使わない。）
-export function trialNudgeCopy({ offer = '' } = {}) {
+export function trialNudgeCopy({ offer = '', offerPlan = 'both' } = {}) {
   const title = '相談相手が育ってきました';
+  if (offer && offerPlan === 'monthly') {
+    return {
+      title,
+      body: `メモがたまってきました。月額プランは ${offer}で、AI 選書・読書計画シートなど、すべての AI を試せます。`,
+      cta: 'プランを見る',
+      kind: 'trial',
+    };
+  }
   if (offer) {
     return {
       title,
@@ -98,7 +110,8 @@ export function trialFirstPhrase(label) {
 //   plan: PaywallContext の plan（'free' | 'trial' | 'paid' | 'admin'）
 //   priceId: subscriptions.price_id（RevenueCat は product_id・例 orime_annual / orime_monthly）
 //   trialEnd: 無料期間が終わる日の表示（「10月3日」）。分からなければ ''
-// 無料期間の長さは正典（App Store の Introductory Offer＝月額・年額とも 7 日間）。
+// 無料期間の長さは正典（App Store の Introductory Offer＝7 日間）。創業メンバー価格のあいだ（公開から 30 日間）は
+// 月額だけ（年額の初回特典は「1 年目 ¥9,800」）。period_type 'intro'（有料の初回価格）は無料期間ではない（有料）。
 // 月額か年額か分からない契約（Stripe の価格 ID など）は「利用中」とだけ出す。
 export const TRIAL_LABEL = '7 日間無料';
 // 契約の期間（'annual' | 'monthly' | ''）。価格 ID / product_id から読む。分からなければ ''。

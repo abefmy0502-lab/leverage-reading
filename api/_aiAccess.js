@@ -11,7 +11,7 @@
 //     📷 写真から書き起こし（purpose: 'ocr'）だけは別枠で 1 か月 AI_FREE_OCR_PER_MONTH 回（既定 10・行は
 //     'freeocr-YYYY-MM'・2026-10-02）。相談のトークンは使わない。下の「写真から書き起こし」の節。
 //     ほかの AI 機能は 402 plan_required（アプリは有料プランの画面を重ねて開く）。
-//   - 無料期間（App Store の 7 日間無料・period_type 'trial'/'intro'）: すべての AI 機能・
+//   - 無料期間（App Store の 7 日間無料・period_type 'trial'。'intro'＝有料の初回価格は有料・2026-10-02）: すべての AI 機能・
 //     無料期間まるごとで AI_TRIAL_TOKENS（既定 150）。行のキーは 'trial-YYYY-MM-DD'（無料期間が
 //     終わる日・日本時間）＝月をまたいでも増えない。終わる日が分からないときは 'trial-YYYY-MM'。
 //   - 有料: すべての AI 機能・AI_PAID_TOKENS（既定 800 ≈ ¥240。手取り ¥900 を残せる上限 ¥243 の内側）。

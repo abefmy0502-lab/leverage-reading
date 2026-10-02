@@ -1570,18 +1570,27 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   });
   // 無料期間の名前（「7 日間無料」）。'' ＝約束しない文にする。null ＝確かめている途中（まだ出さない＝文が入れ替わらない）。
   const [trialOffer, setTrialOffer] = useState(null);
+  // 無料期間のあるプラン（'both' | 'annual' | 'monthly'）。創業メンバー価格のあいだは 'monthly'（年額は 1 年目 ¥9,800）。
+  const [trialOfferPlan, setTrialOfferPlan] = useState('both');
   useEffect(() => {
     if (!nudgeWanted || trialOffer !== null) return undefined;
     if (hadPlan) { setTrialOffer(''); return undefined; } // 前に契約していた＝無料期間はもう使えない
     if (isDemo) {
       // お試しモード: 使える人として撮る（&trial=off で「使えない人」の文）。
-      const t = new URLSearchParams(window.location.search).get('trial');
+      //   &founding=on|store で、創業メンバー価格のあいだ（7 日間無料は月額だけ）の文。
+      const sp = new URLSearchParams(window.location.search);
+      const t = sp.get('trial');
+      if (['on', 'store'].includes(sp.get('founding'))) setTrialOfferPlan('monthly');
       setTrialOffer(t === 'off' ? '' : normalizeTrialLabel(t || '7日間無料'));
       return undefined;
     }
     let alive = true;
     getIntroOffer(user?.id)
-      .then((r) => { if (alive) setTrialOffer(r.status === 'eligible' ? normalizeTrialLabel(r.label) : ''); })
+      .then((r) => {
+        if (!alive) return;
+        if (r.plan) setTrialOfferPlan(r.plan);
+        setTrialOffer(r.status === 'eligible' ? normalizeTrialLabel(r.label) : '');
+      })
       .catch(() => { if (alive) setTrialOffer(''); });
     return () => { alive = false; };
   }, [nudgeWanted, trialOffer, hadPlan, user?.id]);
@@ -1875,7 +1884,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 )}
                 {showNudge && (
                   <TrialNudgeCard
-                    copy={trialNudgeCopy({ memoCount: ownMemoTotal, offer: trialOffer })}
+                    copy={trialNudgeCopy({ memoCount: ownMemoTotal, offer: trialOffer, offerPlan: trialOfferPlan })}
                     onOpen={() => { closeNudge('tap'); openPaywall('grown'); }}
                     onDismiss={() => closeNudge('dismiss')}
                   />

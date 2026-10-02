@@ -608,7 +608,7 @@ export function installDemoFetch(store) {
       const month = jstNow.toISOString().slice(0, 7);
       const nextFirst = `${(jstNow.getUTCMonth() + 1) % 12 + 1}\u2060月\u20601\u2060日`;
       const sub = store.table('subscriptions').find((r) => r.status === 'active');
-      const tier = !sub ? 'free' : (sub.period_type === 'trial' || sub.period_type === 'intro') ? 'trial' : 'paid';
+      const tier = !sub ? 'free' : sub.period_type === 'trial' ? 'trial' : 'paid';
       // 📷 無料プランの写真から書き起こし: 相談のトークンとは別に、毎月 10 回（'freeocr-YYYY-MM' の calls・2026-10-02）。
       if (tier === 'free' && payload.purpose === 'ocr') {
         const rows = store.table('ai_usage');

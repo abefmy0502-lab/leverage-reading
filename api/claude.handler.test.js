@@ -155,6 +155,22 @@ describe('回数の上限がトークンより先に尽きない', () => {
   });
 });
 
+describe('有料の初回価格（period_type intro＝創業メンバー価格「1 年目 ¥9,800」）は有料として数える', () => {
+  it('intro: 毎月の行（YYYY-MM）・800 トークン（無料期間の 150 にしない）', async () => {
+    stubJson();
+    db.sub = { status: 'active', period_type: 'intro', current_period_end: new Date(Date.now() + 300 * 86400000).toISOString() };
+    await handler(req({ messages: [{ role: 'user', content: 'x' }], max_tokens: 500 }), mockRes());
+    expect(db.rpcArgs.reserve_ai_cost.p_period_month).toMatch(/^\d{4}-\d{2}$/);
+    expect(db.rpcArgs.reserve_ai_usage.p_limit).toBe(800);
+  });
+  it('trial（7 日間無料）は無料期間の行（trial-…）', async () => {
+    stubJson();
+    db.sub = { status: 'active', period_type: 'trial', current_period_end: new Date(Date.now() + 5 * 86400000).toISOString() };
+    await handler(req({ messages: [{ role: 'user', content: 'x' }], max_tokens: 500 }), mockRes());
+    expect(db.rpcArgs.reserve_ai_cost.p_period_month).toMatch(/^trial-/);
+  });
+});
+
 describe('最後の 1 回のはみ出し（追加分なし）も精算に記録する', () => {
   it('799 トークン使った人の最後の 1 回 → settle_token_overflow が呼ばれる', async () => {
     stubJson();

@@ -401,7 +401,8 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
       // ローカル権利を見て isActive=true → App が自動で Paywall を外す。
       track(EVENTS.CHECKOUT_COMPLETED, { plan });
       // 無料期間で始まったか: ストアの答え（periodType）を優先し、取れなければ画面に出した無料期間で判断。
-      const startedTrial = res?.periodType ? /TRIAL|INTRO/i.test(res.periodType) : !!trial;
+      // INTRO は有料の初回価格（創業メンバー価格）＝無料期間ではない（2026-10-02）。
+      const startedTrial = res?.periodType ? /TRIAL/i.test(res.periodType) : !!trial;
       showPurchasedToast(res?.expiresAt || null, startedTrial);
       await onPurchased?.();
       setPending(null);

@@ -4,7 +4,8 @@
 
 -- ── ① subscriptions に「無料期間」を区別する period_type を追加 ──────────────
 -- RevenueCat / App Store の period_type を保持する想定:
---   'trial' / 'intro' = 無料期間（売上0）、'normal'（または null）= 有料。
+--   'trial' = 無料期間（売上0）、'normal'（または null）・'intro'（有料の初回価格＝創業メンバー価格「1 年目 ¥9,800」）= 有料。
+--   （2026-10-02 に 'intro' を有料へ。RevenueCat の period_type は TRIAL＝無料・INTRO＝有料の初回価格。再適用で反映）
 -- Webhook（RevenueCat→subscriptions）がこの列に書けば、ダッシュボードが自動で
 -- 有料と無料期間を分離する。未設定（null）は有料(normal)扱い。
 alter table public.subscriptions
@@ -35,7 +36,7 @@ create policy "ops_tasks_all_own" on public.ops_tasks
 
 -- ── ③ 売上 / 課金（会員内訳：有料 / 無料期間 / 解約。管理者除外） ────────────
 -- active = 有料（status='active' かつ無料期間でない）→ MRR はこれだけで計算。
--- trial  = 無料期間（status='active' かつ period_type が trial/intro）= 売上0。
+-- trial  = 無料期間（status='active' かつ period_type が trial）= 売上0。intro（有料の初回価格）は有料に数える。
 -- canceled = 解約（status が active 以外）→ 会員数に含めない。
 create or replace function public.admin_revenue()
 returns jsonb language plpgsql security definer set search_path = public as $$
@@ -44,10 +45,10 @@ begin
   perform public._require_admin();
   select jsonb_build_object(
     'active', (select count(*) from public.subscriptions
-      where status = 'active' and coalesce(period_type, 'normal') not in ('trial', 'intro')
+      where status = 'active' and coalesce(period_type, 'normal') <> 'trial'
         and user_id not in (select user_id from public.app_admins)),
     'trial', (select count(*) from public.subscriptions
-      where status = 'active' and coalesce(period_type, 'normal') in ('trial', 'intro')
+      where status = 'active' and coalesce(period_type, 'normal') = 'trial'
         and user_id not in (select user_id from public.app_admins)),
     'canceled', (select count(*) from public.subscriptions
       where status is not null and status <> 'active'
@@ -56,7 +57,7 @@ begin
       from (select status, count(*) c from public.subscriptions
         where user_id not in (select user_id from public.app_admins) group by status) t), '{}'::jsonb),
     'expiring_30d', (select count(*) from public.subscriptions
-      where status = 'active' and coalesce(period_type, 'normal') not in ('trial', 'intro')
+      where status = 'active' and coalesce(period_type, 'normal') <> 'trial'
         and current_period_end is not null and current_period_end < now() + interval '30 days'
         and user_id not in (select user_id from public.app_admins))
   ) into result;
