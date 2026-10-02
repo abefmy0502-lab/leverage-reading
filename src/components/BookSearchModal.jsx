@@ -23,6 +23,7 @@ import { searchBooksAdvanced, searchBooksOnServer, rankLocalResults } from '../l
 import { LIMITS } from '../lib/limits';
 import { btnPrimary, btnGhost, input } from '../styles/ui';
 import { MiniCover } from './BookCards';
+import { withPhraseBreaks } from './TightBubble';
 import { SkeletonBlock } from './Skeleton';
 import EmptyState from './EmptyState';
 import ErrorMessage from './ErrorMessage';
@@ -276,8 +277,9 @@ const rowStyle = {
 };
 
 const oneLine = { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
-// 検索結果の副題（書名に続けて・著者より弱く）。初日クイックスタートの行も同じ。
+// 検索結果の副題（書名に続けて）。著者と同じ大きさ・太さで、色だけ弱く（--text-3）。初日クイックスタートの行も同じ。
 export const subtitleStyle = { fontWeight: 400, fontSize: 'var(--text-sub)', color: 'var(--text-3)' };
+const titleInk = { fontWeight: 600, color: 'var(--text)' };
 
 // 行の読み上げ: 書名＋副題・著者・出版社と年（見えているものをすべて）。追加済みの本も同じ形に状態を足す。
 export function rowLabel(book, statusLabel = null) {
@@ -306,16 +308,21 @@ function ResultRow({ book, existing, onPick, divider }) {
           width={44}
         />
         <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+          {/* 書名と副題は文節の切れ目でだけ折り返す（「考／え方」と割らない・BudouX の <wbr>＋keep-all）。
+              2 行で切るときの「…」は箱の文字の形で描かれるので、副題があるときは箱を副題の色・太さにし
+              （書名は中の span で 600/--text）、副題の途中で切れても「…」が書名の太字にならないようにする。 */}
           <span
             style={{
-              fontSize: 'var(--text-body)', fontWeight: 600, lineHeight: 1.3, color: 'var(--text)',
+              fontSize: 'var(--text-body)', lineHeight: 1.3,
               display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+              wordBreak: 'keep-all', overflowWrap: 'anywhere',
+              ...(book.subtitle ? { fontWeight: 400, color: 'var(--text-3)' } : titleInk),
             }}
           >
-            {book.title}
-            {/* 副題は同じ 2 行の中に、著者より弱く（小さく・細く・薄く。同じ書名の本を見分ける・2026-10-02） */}
+            <span style={titleInk}>{withPhraseBreaks(book.title)}</span>
+            {/* 副題は同じ 2 行の中に、著者と同じ大きさ・色だけ弱く（同じ書名の本を見分ける・2026-10-02） */}
             {book.subtitle && (
-              <span style={subtitleStyle}>{` ${book.subtitle}`}</span>
+              <span style={subtitleStyle}>{' '}{withPhraseBreaks(book.subtitle)}</span>
             )}
           </span>
           {book.author && (
