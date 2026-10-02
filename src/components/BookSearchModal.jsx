@@ -289,7 +289,7 @@ export function rowLabel(book, statusLabel = null) {
 
 function ResultRow({ book, existing, onPick, divider }) {
   const statusLabel = existing ? (existing.statusLabel || '本棚') : '';
-  const meta = [book.publisher, book.pubYear].filter(Boolean).join('・');
+  const meta = [book.publisher, book.pubYear].filter(Boolean).join(' · ');
   return (
     <li style={divider ? { borderTop: '1px solid var(--separator)' } : undefined}>
       <button
