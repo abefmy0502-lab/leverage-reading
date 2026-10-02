@@ -59,6 +59,7 @@ export default function TagSuggest({ suggestions, applied = [], busyTag = null, 
             <Chip
               key={tag}
               size="select"
+              shrink
               active={on}
               aria-pressed={on}
               aria-busy={busy || undefined}
@@ -67,7 +68,8 @@ export default function TagSuggest({ suggestions, applied = [], busyTag = null, 
               onClick={() => { if (!busyTag) onToggle?.(tag); }}
             >
               {!on && !busy && <Plus size={14} aria-hidden="true" />}
-              {tag}
+              {/* 長いタグ（50 字まで）は 1 行で … に切る（チップは並びの幅を超えない・Chip の shrink） */}
+              <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tag}</span>
               {on && !busy && <X size={14} aria-hidden="true" />}
               {/* 保存中: 付け外しの印の場所に小さな回る印（チップの幅は変えない） */}
               {busy && <Loader2 size={14} aria-hidden="true" style={{ animation: 'leverage-spin 0.9s linear infinite' }} />}
