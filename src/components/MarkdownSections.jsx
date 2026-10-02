@@ -85,7 +85,8 @@ function stripLeadingEmoji(text) {
 }
 // flat: 本の詳細の畳み（<details>）の中など、すでに面の上にあるときの見た目。
 // 区画に面・枠・内側の余白を付けず、見出しは ui.js の groupTitle と同じ小見出しにする。
-const flatWrap = { ...wrap, gap: 'var(--space-4)' };
+// 区画（見出し＋中身）の間は 24（区画の中の箇条の間 8 より広く＝まとまりが分かる・DESIGN §1・2026-10-02 ui-critic）。
+const flatWrap = { ...wrap, gap: 'var(--space-6)' };
 const flatSectionStyle = { minWidth: 0, maxWidth: '100%' };
 const flatHeadingStyle = { ...groupTitle, margin: '0 0 var(--space-2)', lineHeight: 1.4, overflowWrap: 'anywhere' };
 
@@ -512,7 +513,7 @@ function MarkdownSections({ text, density = 'normal', flat = false, onAddRelated
         const styles = flat ? flatSectionStyle : sectionStyle;
         const related = onAddRelatedBook && isRelatedBooksHeading(s.heading);
         return (
-          <section key={i} className="long-text md-section" style={styles}>
+          <section key={i} className={flat ? 'long-text md-section md-section--flat' : 'long-text md-section'} style={styles}>
             {s.heading && <h3 style={flat ? flatHeadingStyle : headingStyle}>{stripLeadingEmoji(s.heading)}</h3>}
             {renderLines(s.lines, related ? { relatedBooks: true, onAddRelatedBook, addingTitles } : undefined)}
             {related && (
