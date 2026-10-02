@@ -108,6 +108,10 @@ const SCREENS = [
   { name: 'book-detail-before-noinfo', url: '/?info=none', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("LIFE SHIFT")' }] },
   { name: 'book-detail-want-about-loading', url: '/?info=slow', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("チーズはどこへ消えた")', settle: 300 }] },
   { name: 'book-detail-reading-about', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { scrollBottom: true }, { css: 'summary:has-text("この本について")' }, { scrollTo: 'summary:has-text("この本について")' }] },
+  // 読書中で紹介も目次も無い本（畳む見出しを出さない）／目次だけの本（楽天の【目次】）／紹介と目次の取得元が違う本
+  { name: 'book-detail-reading-noinfo', url: '/?info=none', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { scrollBottom: true }] },
+  { name: 'book-detail-want-toc-only', url: '/?info=toconly', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("チーズはどこへ消えた")' }, { css: 'summary:has-text("目次")' }] },
+  { name: 'book-detail-want-mixed-source', url: '/?info=mixed', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("チーズはどこへ消えた")' }, { css: 'summary:has-text("目次")' }, { scrollTo: 'summary:has-text("目次")' }] },
   // MarkdownSections の flat（畳みの中）の区画の間 24 の確認用: 以前の AI 解析を開く
   { name: 'book-detail-before-ai-analysis', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("LIFE SHIFT")' }, { css: 'summary:has-text("以前の AI 解析を見る")' }, { scrollTo: 'summary:has-text("以前の AI 解析を見る")' }] },
   // 読書計画シート（積読でその場で作る）の先頭「この本の概要」と、目次の項目を引いた「重点的に読む箇所」

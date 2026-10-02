@@ -637,7 +637,12 @@ export function installDemoFetch(store) {
       if (params.get('info') === '1') {
         const mode = new URLSearchParams(window.location.search).get('info');
         if (mode === 'slow') await new Promise((r) => setTimeout(r, 3000));
-        const hit = mode === 'none' ? null : DEMO_BOOK_INFO[params.get('isbn') || ''];
+        //   &info=toconly＝目次だけ（楽天の商品説明の【目次】から）／&info=mixed＝紹介は出版社・目次は楽天（取得元が違う）。
+        const base = DEMO_BOOK_INFO[params.get('isbn') || ''];
+        const sampleToc = ['第1章 変化に気づく', '第2章 古いチーズを手放す', '第3章 新しいチーズを探す', '第4章 変化を楽しむ'];
+        let hit = mode === 'none' ? null : base;
+        if (base && mode === 'toconly') hit = { ...base, description: '', source: '', toc: base.toc.length ? base.toc : sampleToc, tocSource: 'rakuten' };
+        if (base && mode === 'mixed') hit = { ...base, source: 'openbd', toc: base.toc.length ? base.toc : sampleToc, tocSource: 'rakuten' };
         return json(hit || { description: '', toc: [], source: '', tocSource: '', pages: 0, pubdate: '', isbn: params.get('isbn') || '' });
       }
       // 実在の判定（?verify=1）は本番と同じく書名がまるごと同じ本だけを「実在」にする（2026-09-30）。
