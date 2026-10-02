@@ -4,9 +4,9 @@
 // （src/lib/bookSearch.js・BookSearchModal.jsx）の両方から使う。外部に出ない純粋な関数だけ。
 // ファイル名が _ で始まるので Vercel のルートにはならない。流れと理由は docs/book-search.md。
 //
-// 並べ方（rankBooks）: 検索語と書名・著者の一致を最優先に、よく売れている順（楽天の売上順の位置・
-// レビュー件数）、ISBN・表紙の有無、新しさ（弱く）を足し、副題だけに語がある本・図書館にしか無い
-// 古い本を下げる。どの語も書名・著者に無い本（説明文だけで当たった本）は、関係する本が十分ある
+// 並べ方（rankBooks）: まず検索語と書名・著者の一致の段（まるごと > 頭 > 途中 > 副題だけ・著者に当たった語）、
+// 同じ段の中で よく売れている順（楽天の売上順の位置・レビュー件数）・ISBN・表紙の有無・新しさ（弱く）、
+// 図書館にしか無い古い本・学術の出版は下げる（段はまたがない）。どの語も書名・著者に無い本（説明文だけで当たった本）は、関係する本が十分ある
 // ときは外す。
 
 // ─── 文字の正規化 ────────────────────────────────────────────────────────
@@ -165,8 +165,11 @@ function tokensOf(query) {
   return String(query || '').normalize('NFKC').trim().split(/\s+/).map(normText).filter(Boolean);
 }
 
-// 1 冊の点数（テストと docs のために外へ出す）。
-export function scoreBook(query, book) {
+// 1 冊の点数を 2 つに分ける（2026-10-02 ui-critic「段が入れ替わらないように」）:
+//   match   = 一致の段（書名の一致の強さ＋著者に当たった語−どこにも無い語）
+//   quality = 同じ段の中の並び（売上順・レビュー・表紙・ISBN・新しさ・図書館だけ・学術の出版）
+//   並べるときは match が先、同じ match の中で quality（＝人気の本が書名の弱い一致で上がりすぎない）。
+export function scoreParts(query, book) {
   const tokens = tokensOf(query);
   const title = book.title || '';
   const core = normText(coreTitleOf(title));
@@ -186,7 +189,7 @@ export function scoreBook(query, book) {
     else titleTokens.push(t);
   }
 
-  let score = 0;
+  let match = 0;
   const titleQ = titleTokens.join('');
   if (titleQ) {
     const hit = (c, f) => {
@@ -198,12 +201,13 @@ export function scoreBook(query, book) {
       if (f.includes(titleQ) || titleTokens.every((t) => f.includes(t))) return W.subtitleOnly;
       return 0;
     };
-    score += Math.max(hit(core, full), hit(coreKana, kana));
+    match += Math.max(hit(core, full), hit(coreKana, kana));
   }
-  score += Math.min(authorTokens.length, 2) * W.authorToken;
+  match += Math.min(authorTokens.length, 2) * W.authorToken;
   const missing = titleTokens.filter((t) => !full.includes(t) && !(kana && kana.includes(t)));
-  score += missing.length * W.missingToken;
+  match += missing.length * W.missingToken;
 
+  let score = 0;
   // よく読まれているか
   if (Number.isFinite(book.salesRank) && book.salesRank >= 0) {
     score += Math.max(0, W.salesMax * (1 - book.salesRank / 30));
@@ -220,7 +224,14 @@ export function scoreBook(query, book) {
   const libraryOnly = sources.length > 0 && sources.every((s) => s === 'ndl');
   if (libraryOnly) score += (!book.isbn || (y && y < 1990)) ? W.libraryOld : W.libraryOnly;
   if (/大学出版|大学.*出版会|学会|研究所|研究会|学術/.test(book.publisher || '')) score += W.academic;
-  return score;
+  return { match, quality: score };
+}
+
+// 1 冊の点数（並べ替えの鍵・テストと docs のために外へ出す）。match を 1000 倍して quality（−36〜+67）を足すので、
+//   match の段は quality では入れ替わらない。
+export function scoreBook(query, book) {
+  const { match, quality } = scoreParts(query, book);
+  return match * 1000 + quality;
 }
 
 // 検索語のどれかが書名（副題・読みを含む）か著者に入っているか（説明文で当たっただけの本を見分ける）。

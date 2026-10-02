@@ -1,7 +1,7 @@
 // 📚 本の検索の並べ方・著者名の整え方・重なりの除き方（api/_bookRank.js・2026-10-02）。
 import { describe, it, expect } from 'vitest';
 import {
-  formatPersonName, formatAuthors, coreTitleOf, splitSubtitle, rankBooks, scoreBook, dedupeBooks, isRelated, yearOf, normText,
+  formatPersonName, formatAuthors, coreTitleOf, splitSubtitle, rankBooks, scoreBook, scoreParts, dedupeBooks, isRelated, yearOf, normText,
 } from './_bookRank.js';
 
 describe('formatPersonName / formatAuthors（著者名）', () => {
@@ -118,6 +118,17 @@ describe('rankBooks（並べ方）', () => {
   it('著者名だけでもその人の本が上', () => {
     const r = rankBooks('稲盛和夫', [{ title: '何か', author: '別の人', isbn: '9784000000007', source: 'rakuten', salesRank: 0 }, INAMORI]);
     expect(r[0]).toBe(INAMORI);
+  });
+  it('一致の段は人気・ISBN・新しさで入れ替わらない（書名に語がある古い本 ＞ 副題だけの新しい本）', () => {
+    const kaikei = { title: '会計の基本的な考え方', author: '見本八郎', publisher: '見本大学出版会', pubYear: '1990', isbn: '', source: 'ndl' };
+    const rstat = { title: 'Rで学ぶマルチレベルモデル', subtitle: '統計の考え方', author: '見本六郎', publisher: '見本書店', pubYear: '2018', isbn: '9784000010050', cover: 'https://x/y.jpg', source: 'ndl' };
+    const r = rankBooks('考え方', [rstat, kaikei]);
+    expect(r.map((b) => b.title)).toEqual(['会計の基本的な考え方', 'Rで学ぶマルチレベルモデル']);
+    expect(scoreParts('考え方', kaikei).match).toBeGreaterThan(scoreParts('考え方', rstat).match);
+    // よく売れている本でも、書名の途中の一致は「まるごと同じ」書名より上に来ない
+    const popular = { title: '仕事の考え方', author: 'A', isbn: '9784000000009', cover: 'https://x/z.jpg', salesRank: 0, reviewCount: 5000, pubYear: '2024', source: 'rakuten' };
+    const plain = { title: '考え方', author: 'B', pubYear: '1965', isbn: '', source: 'ndl' };
+    expect(rankBooks('考え方', [popular, plain])[0]).toBe(plain);
   });
   it('読み（カナ）でも当たる', () => {
     expect(isRelated('かんがえかた', { ...INAMORI, titleKana: 'カンガエカタ' })).toBe(true);
