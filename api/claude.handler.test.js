@@ -14,6 +14,8 @@ function resetDb() {
     costTotal: 0, // この行の cost_mjpy
     rpcArgs: {},
     refunds: 0, // 'refund-YYYY-MM' 行の calls
+    freeOcr: 0, // 'freeocr-YYYY-MM' 行の calls
+    usageFail: false, // reserve_ai_usage が失敗する（RPC 未適用・障害）
   });
   log.length = 0;
 }
@@ -51,8 +53,15 @@ vi.mock('@supabase/supabase-js', () => ({
         db.costTotal += args.p_amount;
         return { data: db.costTotal, error: null };
       }
+      if (name === 'release_ai_usage' && String(args.p_period_month).startsWith('freeocr-')) { db.freeOcr = Math.max(0, db.freeOcr - 1); return { data: db.freeOcr, error: null }; }
       if (name === 'adjust_ai_cost') { db.costTotal = Math.max(0, db.costTotal + args.p_delta); return { data: db.costTotal, error: null }; }
       if (name === 'reserve_ai_usage') {
+        if (db.usageFail) return { data: null, error: { message: 'function reserve_ai_usage does not exist' } };
+        if (String(args.p_period_month).startsWith('freeocr-')) {
+          if (db.freeOcr >= args.p_limit) return { data: -1, error: null };
+          db.freeOcr += 1;
+          return { data: db.freeOcr, error: null };
+        }
         if (String(args.p_period_month).startsWith('refund-')) {
           if (db.refunds >= args.p_limit) return { data: -1, error: null };
           db.refunds += 1;
@@ -440,5 +449,156 @@ describe('相談のキャッシュ（指示文は 1 時間・メモ一覧は 5 �
     // 続きの相談（頭は読み出し＝0.1 倍）は、最初の 1 回よりずっと安い
     const warm = { input_tokens: 1000, cache_creation_input_tokens: 0, cache_read_input_tokens: 9000, output_tokens: 500 };
     expect(cost.costFromUsage('claude-haiku-4-5', warm)).toBeLessThan(cost.costFromUsage('claude-haiku-4-5', usage) / 2);
+  });
+});
+
+// 📷 無料プランの写真から書き起こし（月 10 回・2026-10-02）。
+describe('無料プランの写真から書き起こし（月 AI_FREE_OCR_PER_MONTH 回・相談のトークンとは別）', () => {
+  const jstMonth = () => new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 7);
+  const image = { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: 'QUJD' } };
+  const ocrReq = (content = [image, { type: 'text', text: '書き起こして' }], extra = {}) => req({
+    model: 'claude-haiku-4-5', purpose: 'ocr', max_tokens: 1024, messages: [{ role: 'user', content }], ...extra,
+  });
+  const stubOcrJson = () => {
+    const f = vi.fn(async () => new Response(JSON.stringify({ content: [{ type: 'text', text: '書き起こした一節' }], stop_reason: 'end_turn', usage }), {
+      status: 200, headers: { 'content-type': 'application/json' },
+    }));
+    vi.stubGlobal('fetch', f);
+    return f;
+  };
+  beforeEach(() => { db.sub = null; });
+  afterEach(() => { delete process.env.AI_FREE_OCR_PER_MONTH; });
+
+  it('契約なしでも通す。freeocr-YYYY-MM の行を上限 10 で数え、相談のトークン（原価の予約）には触れない', async () => {
+    const fetchMock = stubOcrJson();
+    const res = mockRes();
+    await handler(ocrReq(), res);
+    expect(res.statusCode).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(db.rpcArgs.reserve_ai_usage).toMatchObject({ p_period_month: `freeocr-${jstMonth()}`, p_limit: 10 });
+    expect(db.rpcArgs.reserve_ai_cost).toBeUndefined();
+    expect(log).not.toContain('rpc:adjust_ai_cost');
+    expect(db.freeOcr).toBe(1);
+  });
+
+  it('出力の上限は 1024 に抑える（改ざんしたアプリが大きくしても）', async () => {
+    const fetchMock = stubOcrJson();
+    await handler(ocrReq(undefined, { max_tokens: 4096 }), mockRes());
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).max_tokens).toBe(1024);
+  });
+
+  it('今月 10 回使ったら 402 free_ocr_limit_reached（AI は呼ばない）', async () => {
+    db.freeOcr = 10;
+    const fetchMock = stubOcrJson();
+    const res = mockRes();
+    await handler(ocrReq(), res);
+    expect(res.statusCode).toBe(402);
+    expect(res.body.error_code).toBe('free_ocr_limit_reached');
+    expect(res.body.error.message).toMatch(/^今月の写真から書き起こしは、ここまでです。/);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('AI_FREE_OCR_PER_MONTH で回数を変えられる・0 なら plan_required', async () => {
+    process.env.AI_FREE_OCR_PER_MONTH = '3';
+    stubOcrJson();
+    await handler(ocrReq(), mockRes());
+    expect(db.rpcArgs.reserve_ai_usage.p_limit).toBe(3);
+    process.env.AI_FREE_OCR_PER_MONTH = '0';
+    const res = mockRes();
+    await handler(ocrReq(), res);
+    expect(res.statusCode).toBe(402);
+    expect(res.body.error_code).toBe('plan_required');
+  });
+
+  it('数えられない（reserve_ai_usage が無い・障害）ときは通さない（fail-closed）', async () => {
+    db.usageFail = true;
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const fetchMock = stubOcrJson();
+    const res = mockRes();
+    await handler(ocrReq(), res);
+    expect(res.statusCode).toBe(402);
+    expect(res.body.error_code).toBe('plan_required');
+    expect(fetchMock).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it('AI が失敗したら、数えた 1 回を返してから応答する', async () => {
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('{"error":{}}', { status: 529, headers: { 'content-type': 'application/json' } })));
+    const res = mockRes();
+    await handler(ocrReq(), res);
+    expect(res.statusCode).toBe(529);
+    expect(db.freeOcr).toBe(0);
+    expect(db.rpcArgs.release_ai_usage).toMatchObject({ p_period_month: `freeocr-${jstMonth()}` });
+    expect(log.indexOf('rpc:release_ai_usage')).toBeLessThan(log.indexOf('respond'));
+    err.mockRestore();
+  });
+
+  it('写真は 1 枚まで・長い文章は 413（無料の枠を汎用の AI にしない）。数えない', async () => {
+    const fetchMock = stubOcrJson();
+    const res = mockRes();
+    await handler(ocrReq([image, image, { type: 'text', text: 'x' }]), res);
+    expect(res.statusCode).toBe(413);
+    const res2 = mockRes();
+    await handler(ocrReq([image, { type: 'text', text: 'あ'.repeat(5000) }]), res2);
+    expect(res2.statusCode).toBe(413);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(db.freeOcr).toBe(0);
+  });
+
+  it('有料はいつもどおりトークン（原価の予約）で数え、freeocr の行は使わない', async () => {
+    db.sub = { status: 'active', period_type: 'normal', current_period_end: new Date(Date.now() + 20 * 86400000).toISOString() };
+    stubOcrJson();
+    await handler(ocrReq(), mockRes());
+    expect(db.rpcArgs.reserve_ai_cost).toBeDefined();
+    expect(db.rpcArgs.reserve_ai_usage.p_period_month).toBe(jstMonth());
+    expect(db.freeOcr).toBe(0);
+  });
+});
+
+describe('🧭 Jev の短い道（purpose が Jev の用途・api/_jevRelay.js）', () => {
+  const jevReq = (headers = {}) => ({
+    method: 'POST',
+    headers: { authorization: 'Bearer t', 'x-orime-ai-consent': '2', ...headers },
+    body: { purpose: 'memo_relevance', jev: { question: '部下が動かない', memos: [{ id: 'm0', text: '任せると人は動く' }, { id: 'm1', text: '朝の習慣' }] } },
+    on() {},
+  });
+  afterEach(() => {
+    for (const k of ['JEV_ENABLED', 'JEV_API_KEY', 'JEV_TASK_MEMO_RELEVANCE']) delete process.env[k];
+  });
+
+  it('スイッチが入っていなければ 200 の { jev: null }・Anthropic を呼ばず・トークンも数えない', async () => {
+    const f = vi.fn();
+    vi.stubGlobal('fetch', f);
+    const res = mockRes();
+    await handler(jevReq(), res);
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual({ jev: null, reason: 'off' });
+    expect(f).not.toHaveBeenCalled();
+    expect(log).not.toContain('rpc:reserve_ai_cost');
+  });
+
+  it('入っていれば Jev に送り、jev-YYYY-MM の行で数えて原価を足す（トークンの行には触れない）', async () => {
+    Object.assign(process.env, { JEV_ENABLED: 'true', JEV_API_KEY: 'jk', JEV_TASK_MEMO_RELEVANCE: 'on' });
+    const f = vi.fn(async () => new Response(JSON.stringify({ answers: { m0: { noul: 0.92 }, m1: { noul: 0.04 } }, usage: { input_tokens: 400 } }), { status: 200, headers: { 'content-type': 'application/json' } }));
+    vi.stubGlobal('fetch', f);
+    vi.spyOn(console, 'info').mockImplementation(() => {});
+    const res = mockRes();
+    await handler(jevReq(), res);
+    expect(String(f.mock.calls[0][0])).toContain('api.typesafe.ai');
+    expect(res.body.jev.result.scores).toEqual({ m0: 0.92, m1: 0.04 });
+    expect(db.rpcArgs.reserve_ai_usage.p_period_month).toMatch(/^jev-\d{4}-\d{2}$/);
+    expect(db.rpcArgs.adjust_ai_cost.p_period_month).toMatch(/^jev-/);
+    expect(log).not.toContain('rpc:reserve_ai_cost');
+  });
+
+  it('同意の版が 2 より古ければ送らない', async () => {
+    Object.assign(process.env, { JEV_ENABLED: 'true', JEV_API_KEY: 'jk', JEV_TASK_MEMO_RELEVANCE: 'on' });
+    const f = vi.fn();
+    vi.stubGlobal('fetch', f);
+    const res = mockRes();
+    await handler(jevReq({ 'x-orime-ai-consent': '1' }), res);
+    expect(res.body).toEqual({ jev: null, reason: 'consent' });
+    expect(f).not.toHaveBeenCalled();
   });
 });

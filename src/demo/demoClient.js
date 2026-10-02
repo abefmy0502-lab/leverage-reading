@@ -11,12 +11,16 @@
 //   - ?demo=auth : 未ログイン状態（ログイン画面・LP の確認用。&authfail=1 でログインが通信エラーになる）
 //   - ?demo=paywall : 購読なし（有料プランの画面の確認用。&native=1 でアプリ版の表示）
 //   - ?demo=free / freeused / freenew : 無料プラン（相談だけ AI・毎月 30 トークン）/ 使い切った / 新規
+//     （無料プランの写真から書き起こしは今月 2 回使った＝あと 8 回。&ocr=used で 10 回を使い切った）
 //   - ?demo=freegrown : 無料プランでメモが 10 件以上（相談の「相談相手が育ってきました」＝7 日間無料の案内。&trial=off で使えない人の文）
 //   - ?demo=trial : 7 日間無料の途中 / ?demo=limit : 今月の 800 トークンを使い切った
 //   - ?demo=tokens : 今月の分を使い切り、追加トークンが残っている（「トークンを追加」はその場で足す）
 //   - ?demo=webgate : ブラウザの一般利用者に出す「アプリでご利用ください」の確認用
 //   - &consent=none : AI に送る内容にまだ同意していない（はじめて AI を使う操作で同意のシートが出る・どのシナリオにも付けられる）
 //     &consent=none&consent=slow で、同意・取り消しの保存が 8 秒かかる（処理中のボタンの確認用）
+//   - &longtag=1 : 「マネジメント」のタグを 50 字の長いタグにする（合いそうなタグのチップがはみ出さないかの確認用）
+//   - &save=slow-memo-update : メモの書き直し（タグを付ける）がなかなか終わらない（保存中のチップの確認用）
+//   - &writefail=book_memos:update : メモの書き直しだけ失敗させる（新しいメモの保存は通る・表:操作）
 // データはメモリ上だけ。再読み込みで初期状態に戻る。
 //
 // supabase-js のうち、このアプリが実際に使う範囲だけを再現する
@@ -25,6 +29,7 @@
 
 import { buildSeed, DEMO_USER_ID } from './seed';
 import { installDemoFetch } from './demoFetch';
+import { demoAdminRpc } from './demoAdmin';
 import { AI_CONSENT_VERSION } from '../lib/aiProcessors';
 
 const clone = (v) => (v == null ? v : JSON.parse(JSON.stringify(v)));
@@ -148,7 +153,9 @@ class Query {
       // &load=memocount: ホームのメモの件数（book_memos の head の数え上げ）だけ遅らせる（育つまでの一行の形の確認用・2026-10-02）。
       || (qs.get('load') === 'memocount' && this.table === 'book_memos' && this.head));
     // &writefail=book_memos: 指定した表への書き込みを失敗させる（保存の失敗の表示の確認用）。
-    if (['insert', 'upsert', 'update'].includes(this.op) && (qs.get('writefail') || '').split(',').includes(this.table)) {
+    //   &writefail=book_memos:update のように「表:操作」で、その操作だけを失敗させる。
+    const writeFails = (qs.get('writefail') || '').split(',');
+    if (['insert', 'upsert', 'update'].includes(this.op) && (writeFails.includes(this.table) || writeFails.includes(`${this.table}:${this.op}`))) {
       return new Promise((r) => setTimeout(r, 300))
         .then(() => ({ data: null, error: { message: 'network error', code: 'demo' }, count: null }))
         .then(resolve, reject);
@@ -167,7 +174,8 @@ class Query {
         .then(resolve, reject);
     }
     // &save=slow: 本の保存がなかなか終わらない（取り込み中の表示の確認用）。書き込みだけ遅らせる。
-    const slowSave = this.op !== 'select' && qs.get('save') === 'slow' && this.table === 'books';
+    const slowSave = (this.op !== 'select' && qs.get('save') === 'slow' && this.table === 'books')
+      || (this.op === 'update' && qs.get('save') === 'slow-memo-update' && this.table === 'book_memos');
     return new Promise((r) => setTimeout(r, slow || slowSave ? 60000 : 40)).then(() => this._exec()).then(resolve, reject);
   }
 
@@ -309,8 +317,13 @@ export function createDemoClient() {
     created_at: new Date(Date.now() - (scenario === 'freenew' ? 600000 : 200 * 86400000)).toISOString(),
   };
 
+  const db = buildSeed(scenario);
+  if (params.get('longtag') === '1') {
+    const LONG = 'マネジメント（部下・チーム・1on1・任せ方・評価・育成のことをまとめておくタグ）'.slice(0, 50);
+    for (const m of db.book_memos || []) if (Array.isArray(m.tags)) m.tags = m.tags.map((t) => (t === 'マネジメント' ? LONG : t));
+  }
   const store = {
-    db: buildSeed(scenario),
+    db,
     session: scenario === 'auth' ? null : makeSession(demoUser),
     files: new Map(),
     table(name) { if (!this.db[name]) this.db[name] = []; return this.db[name]; },
@@ -366,7 +379,13 @@ export function createDemoClient() {
     },
     from: (table) => new Query(store, table),
     rpc: async (name) => {
-      if (name === 'is_app_admin') return { data: false, error: null };
+      // ?admin=1: 運営ダッシュボードを開ける管理者（demoAdmin.js のサンプル）。
+      const isAdminDemo = params.get('admin') === '1';
+      if (name === 'is_app_admin') return { data: isAdminDemo, error: null };
+      if (isAdminDemo) {
+        const hit = demoAdminRpc(name, params);
+        if (hit) return hit;
+      }
       return { data: null, error: { code: 'PGRST202', message: `Could not find the function public.${name}` } };
     },
     storage: {

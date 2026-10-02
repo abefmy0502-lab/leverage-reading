@@ -1466,3 +1466,7 @@ details[open] > summary .fold-chevron { transform: rotate(180deg); }
 /* 📷 メモのシートの入力欄の上の「写真から書き起こす」（本のページを撮るから来たとき・QuickMemoSheet・2026-10-02）:
    全幅の副ボタンなのでアイコンは 20（部品 PhotoToTextButton は 16 で描くので、ここで大きさだけ合わせる）。 */
 .photo-lead > button svg { width: 20px; height: 20px; }
+
+/* 畳みの中（flat）の箇条の間は 12（一覧の gap 8＋ここの 4）。.long-text の li + li の 8 を足すと 16 になり、
+   区画の間（24）との差が小さくなっていた（2026-10-02 ui-critic）。 */
+.md-section--flat li + li { margin-top: var(--space-1); }

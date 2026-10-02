@@ -116,7 +116,7 @@ const BOOK_EXTRAS = {
     current_challenge: 'いまの会社で定年まで働くイメージが持てない',
     hypothesis: '人生を複数のステージで考える視点が身につく',
     book_reason: '長く働く時代の「無形の資産」の育て方を、具体的な事例で考えられるため。',
-    ai_analysis: '## 🧭 この本の核心\n寿命が延びると、教育→仕事→引退の 3 段階では足りなくなる。\n\n## 🔑 キーコンセプト\n- 無形の資産（スキル・健康・人間関係）\n- マルチステージの人生',
+    ai_analysis: '## 🧭 この本の核心\n寿命が延びると、教育→仕事→引退の3段階では足りなくなる。\n\n## 🔑 キーコンセプト\n- 無形の資産（スキル・健康・人間関係）\n- マルチステージの人生',
   },
   '1兆ドルコーチ': {
     ai_strategy: '## 🎯 重点的に読む箇所\n- 第2章 1on1 の進め方\n\n## ⏩ 流し読みでよい箇所\n- 第5章 チームファースト',
@@ -201,6 +201,12 @@ export function buildSeed(scenario) {
     db.subscriptions = [];
     db.ai_usage = [{ user_id: DEMO_USER_ID, period_month: `free-${jstMonth}`, calls: 3, cost_mjpy: 9000 }];
   }
+  // 📷 無料プランの写真から書き起こし（毎月 10 回・'freeocr-YYYY-MM'）。無料プランの人は今月 2 回使った（あと 8 回）。
+  //   &ocr=used: 今月の 10 回を使い切った（「11月1日に戻ります」と、押すと有料プランの画面が開くことの確認用）。
+  if (['free', 'freeused', 'freegrown'].includes(scenario)) {
+    const ocrUsed = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('ocr') === 'used';
+    db.ai_usage = [...(db.ai_usage || []), { user_id: DEMO_USER_ID, period_month: `freeocr-${jstMonth}`, calls: ocrUsed ? 10 : 2, cost_mjpy: 0 }];
+  }
   // ?demo=paywall: 使い込んだデータのまま、購読だけ無い（有料プランの画面の確認用）。
   if (scenario === 'paywall') db.subscriptions = [];
   // ?demo=trial: 7 日間無料の途中（あと 5 日・150 トークンのうち 40 を使った）。
@@ -244,6 +250,14 @@ export function buildSeed(scenario) {
       id: `${bookIds[i]}-t-${tag}`, book_id: bookIds[i], user_id: DEMO_USER_ID, tag_name: tag,
     }));
   });
+
+  // ?demo=planempty: 積読の『LIFE SHIFT』に得たいこと・課題・仮説・シートがまだ無い人
+  //   （積読の「この本について」がカードで出る形の確認用・2026-10-02）。
+  if (scenario === 'planempty') {
+    db.books.forEach((b) => {
+      if (b.title === 'LIFE SHIFT') Object.assign(b, { invest_purpose: '', current_challenge: '', hypothesis: '', ai_strategy: '', ai_analysis: '' });
+    });
+  }
 
   // ?demo=nomemo: 本はあるが、メモも行動もまだ無い人（相談・ホームの「メモ 0 件」の確認用）。
   if (scenario === 'nomemo') return db;
@@ -376,3 +390,24 @@ export const SEARCH_CATALOG = [
   // 本棚にある本（同じ ISBN）。検索結果に「追加済み」が出ることを確かめる用（ui-shots の add-book-existing）。
   ['1兆ドルコーチ', 'エリック・シュミット', '9784478107249', 'ダイヤモンド社', '2019'],
 ];
+
+// 📖 「この本について」（/api/cover?info=1・2026-10-02）の見本。本番は出版社（openBD）・楽天・Google の公開の書誌から取る。
+//   お試し用に短く書いた見本の文（実際の内容紹介の写しではない）。目次の項目も確認用の見本。
+//   LIFE SHIFT＝紹介文＋目次（出版社の内容紹介）／チーズ＝紹介文だけ（楽天）／1兆ドルコーチ＝読書中の畳む見出しの確認用。
+export const DEMO_BOOK_INFO = {
+  '9784492533871': {
+    description: '寿命が延び、多くの人が100年生きる時代には、「教育→仕事→引退」の3つのステージで考える人生設計は成り立たなくなる。\nお金だけでなく、スキル・健康・人間関係といったお金に換えられない資産をどう育てるか。複数のステージを行き来する生き方と、その準備のしかたを、具体的な人物のシナリオで考える。\n働き方・学び直し・家族との時間の使い方を見直したい人に向けた一冊。',
+    toc: ['序章 100年ライフ', '第1章 長い生涯――長寿という贈り物', '第2章 過去の資金計画――教育・仕事・引退モデルの崩壊', '第3章 雇用の未来――機械化・AI後の働き方', '第4章 見えない「資産」――お金に換算できないもの', '第5章 新しいシナリオ――可能性を広げる', '第6章 新しいステージ――選択肢の多様化', '第7章 新しいお金の考え方――必要な資金をどう得るか', '第8章 新しい時間の使い方――自分のリ・クリエーションへ', '第9章 未来の人間関係――私生活はこう変わる', '終章 変革への課題'],
+    source: 'openbd', tocSource: 'openbd', pages: 400, pubdate: '2016-10-21', isbn: '9784492533871',
+  },
+  '9784594025551': {
+    description: '迷路の中で暮らす2匹のネズミと2人の小人。ある日、いつもの場所からチーズが消えた。\n変化をすぐに受け入れて動き出す者と、元に戻るのを待ち続ける者。短い寓話を通して、変化にどう向き合うかを考える。',
+    toc: [],
+    source: 'rakuten', tocSource: '', pages: 0, pubdate: '2000-11', isbn: '9784594025551',
+  },
+  '9784478107249': {
+    description: 'シリコンバレーで多くの経営者を支えたコーチの考え方を、近くで働いた人たちの証言からまとめた本。\n信頼を土台にしたチームづくりと、1対1の対話でメンバーの力を引き出すやり方を描く。',
+    toc: ['はじめに', '第1章 マネジャーの仕事', '第2章 信頼という土台', '第3章 チームが先', '第4章 愛のある関わり方', '第5章 ものさしを持つ'],
+    source: 'openbd', tocSource: 'openbd', pages: 352, pubdate: '2019-11', isbn: '9784478107249',
+  },
+};

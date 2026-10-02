@@ -3,9 +3,12 @@
 // 本格版。委託先 (Supabase / Vercel / Anthropic / Google / OpenAI(運営の分析だけ) / Apple / RevenueCat) と
 // 国外移転を明示。AI 機能ごとの送り先は docs/ai-routing.md（api/_aiRouting.js）と合わせる。決済は App 内課金 (IAP) + RevenueCat (購読状態管理) に整合。
 // 商用化前に弁護士の正式レビューを推奨。
+// 🧭 TypeSafe AI（Jev・判断の補助）の行は、アプリで Jev を入れたとき（VITE_AI_JEV=on＝lib/aiProcessors.js の AI_JEV_ON）だけ出す
+//   （同意のシートの送り先と同じ・2026-10-02・docs/jev-plan.md）。
 
 import LegalLayout from './LegalLayout';
 import { SUPPORT_EMAIL } from '../lib/contact';
+import { AI_JEV_ON } from '../lib/aiProcessors';
 
 export default function PrivacyPage() {
   return (
@@ -13,7 +16,7 @@ export default function PrivacyPage() {
       title="プライバシーポリシー"
       description="Orime のプライバシーポリシー。取得情報・利用目的・委託先・国外移転・AI 連携・データ保管について。"
     >
-      <p className="effective-date">最終更新日:2026年10月1日</p>
+      <p className="effective-date">最終更新日:2026年10月2日</p>
       <p className="effective-date">施行日:2026年5月3日</p>
 
       <p>
@@ -100,6 +103,7 @@ export default function PrivacyPage() {
         <li><strong>Anthropic, PBC(米国):</strong> AI 機能(相談、AI 選書の推薦)の提供</li>
         <li><strong>OpenAI(米国):</strong> 運営者だけが使う運営の分析の補助(集計した数字だけを送り、利用者のメモ・質問・写真などは送りません)</li>
         <li><strong>Google LLC(米国):</strong> AI 機能(読書計画シート、AI 選書の質問づくり、メモの凝縮、メモからまとめ、写真から書き起こし)の提供(Gemini API)</li>
+        {AI_JEV_ON && <li><strong>TypeSafe AI(米国):</strong> AI 機能の判断の補助(相談で関係するメモを選ぶ)。文章は作らず、選択と確率だけを返します(Jev)</li>}
         <li><strong>Apple Inc.(米国):</strong> App Store でのアプリ内課金・決済処理(iOS アプリ)</li>
         <li><strong>RevenueCat, Inc.(米国):</strong> 購読状態(課金ステータス・トランザクション識別子等)の管理</li>
       </ul>
@@ -111,7 +115,7 @@ export default function PrivacyPage() {
       <h2>第6条(国外への個人データの移転)</h2>
       <p>
         前条に定める委託に伴い、ユーザーの個人データは、Supabase, Inc.、Vercel, Inc.、
-        Anthropic, PBC、Google LLC、Apple Inc.、RevenueCat, Inc. 等、
+        Anthropic, PBC、Google LLC、{AI_JEV_ON ? 'TypeSafe AI、' : ''}Apple Inc.、RevenueCat, Inc. 等、
         米国その他の国外に所在する委託先に移転されます。
         米国その他の国における個人情報保護制度は、日本と異なる場合があります。
         委託先の個人情報保護に関する制度については、以下をご参照ください。
@@ -124,16 +128,17 @@ export default function PrivacyPage() {
       <ol>
         <li>本サービスは、AI 機能を使ったときに限り、その機能に必要な情報を、次の AI 事業者の API に送信して答えを作ります。
           <ul>
-            <li><strong>相談:</strong> 質問と、答えの根拠にするメモ・本の情報(書名・著者・評価・読書計画シートの内容等)・行動の記録・これまでの相談 → Anthropic(Claude)</li>
+            <li><strong>相談:</strong> 質問と、答えの根拠にするメモ・本の情報(書名・著者・評価・読書計画シートの内容等。合わせて約 9,000 字まで)・行動の記録・これまでの相談 → Anthropic(Claude)</li>
             <li><strong>AI 選書:</strong> 相談内容と質問への回答・本棚の傾向(読んだ本・評価) → おすすめの本は Anthropic(Claude)、途中の質問づくりは Google(Gemini)</li>
-            <li><strong>読書計画シート(作る・直す):</strong> 書名・著者・この本から得たいこと・よく使うタグ・今のシートと直したい点 → Google(Gemini)</li>
+            <li><strong>読書計画シート(作る・直す):</strong> 書名・著者・この本から得たいこと・よく使うタグ・今のシートと直したい点(あわせて、出版社・書店が公開しているその本の紹介文と目次) → Google(Gemini)</li>
             <li><strong>メモの凝縮・メモからまとめ:</strong> そのメモの本文(まとめは書名とその本のメモ) → Google(Gemini)</li>
             <li><strong>写真から書き起こし:</strong> 撮った本のページの写真 → Google(Gemini)。写真を AI 事業者に送るのは、この機能だけです。</li>
+            {AI_JEV_ON && <li><strong>判断の補助(相談で関係するメモの選択):</strong> 相談の質問と、関係しそうなメモの一節(1 件 160 字まで)・書名 → TypeSafe AI(Jev)。文章は作らず、どのメモが関係するかの判断だけを返します。</li>}
           </ul>
         </li>
         <li>ある AI 事業者が一時的に使えないときは、答えを返すため、同じ内容を Anthropic(Claude)に送ることがあります。</li>
         <li>AI 機能をはじめて使うときに、送信する情報と送信先をアプリ内で示し、同意をいただいてから送信します。同意しない場合、その AI 機能の情報は送信しません(AI を使わない機能はそのまま使えます)。同意は、アプリの設定(プライバシー →「AI へのデータ送信」)からいつでも取り消せます。取り消したあとは、次に AI 機能を使うときに改めて確認します。送信先を変更する場合も、改めて同意をいただきます。</li>
-        <li>送信したデータは、各社の API の規約により、AI モデルの学習には使われません。Anthropic は API 経由のデータを学習に使いません。Google は有料の Gemini API に送られたデータを製品の改善に使わず、当方は有料の API だけを使います。各社は不正利用の監視等のため、送信されたデータを一定期間保存することがあります。</li>
+        <li>送信したデータは、各社の API の規約により、AI モデルの学習には使われません。Anthropic は API 経由のデータを学習に使いません。Google は有料の Gemini API に送られたデータを製品の改善に使わず、当方は有料の API だけを使います。{AI_JEV_ON ? 'TypeSafe AI は、顧客のデータをモデルの学習に使わないと定めています。' : ''}各社は不正利用の監視等のため、送信されたデータを一定期間保存することがあります。</li>
         <li>ユーザーのメモ・質問・写真などを OpenAI に送信することはありません。OpenAI は、運営者だけが使う運営の分析の補助(第5条)に、集計した数字だけを送ります(OpenAI は API のデータを既定で学習に使わず、当方はデータを共有する設定を有効にしていません)。</li>
         <li>送信される情報には、ユーザー個人を直接特定する情報(氏名、メールアドレス、住所等)は含めない設計としています。</li>
         <li>詳細は各社の方針をご参照ください:

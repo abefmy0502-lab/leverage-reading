@@ -29,6 +29,9 @@ const num = (v, d) => {
 //     OpenAI と Google にはキャッシュ書き込みの割増が無いので cw = in。推論（reasoning）のトークンは出力として数える。
 //   Google: gemini-3.1-flash-lite は $0.25 / $1.50（画像の入力も同じ単価・キャッシュ $0.025）。考える分のトークンも出力。
 //   Anthropic のキャッシュ: 書き込みは 5 分＝入力の 1.25 倍・1 時間＝2 倍、読み出しは 0.1 倍（2026-10-01 に確認）。
+//   TypeSafe AI: Jev 1.13（文を書かず、決めた形の答え＝選ぶ・はい/いいえ・点数と確率だけを返す判断のモデル・2026-09-15 発表）は
+//     入力 $0.042 / 100 万トークン・出力は無料（2026-10-02 に公開の資料で確認・docs/jev-plan.md）。キャッシュの割増も無い。
+//     名前は 'jev-1.13'（TypeSafe の 'jev-1.13.0'・OpenRouter の 'typesafe/jev-1.13' も同じ単価で数える＝matchPriceKey）。
 export const PRICES = {
   'claude-sonnet-5-5': { in: 2, cw: 2.5, cw1h: 4, cr: 0.2, out: 10 },
   'claude-sonnet-5': { in: 2, cw: 2.5, cw1h: 4, cr: 0.2, out: 10 },
@@ -37,6 +40,7 @@ export const PRICES = {
   'gpt-5-mini': { in: 0.25, cw: 0.25, cw1h: 0.25, cr: 0.025, out: 2 },
   'gpt-5.4-mini': { in: 0.75, cw: 0.75, cw1h: 0.75, cr: 0.075, out: 4.5 },
   'gemini-3.1-flash-lite': { in: 0.25, cw: 0.25, cw1h: 0.25, cr: 0.025, out: 1.5 },
+  'jev-1.13': { in: 0.042, cw: 0.042, cw1h: 0.042, cr: 0.042, out: 0 },
 };
 // 表に無いモデルは、表の中でいちばん高い値で数える（安全側）。
 const FALLBACK_PRICE = Object.values(PRICES).reduce((m, p) => ({
@@ -50,10 +54,13 @@ export function hasPrice(model) {
 }
 function matchPriceKey(model) {
   if (typeof model !== 'string' || !model) return null;
-  if (PRICES[model]) return model;
+  // OpenRouter などの「会社/モデル」の形（'typesafe/jev-1.13'）は、モデルの名前で数える。
+  const name = model.includes('/') ? model.slice(model.lastIndexOf('/') + 1) : model;
+  if (PRICES[name]) return name;
   let best = null;
   for (const key of Object.keys(PRICES)) {
-    if (model.startsWith(`${key}-`) && (!best || key.length > best.length)) best = key;
+    // 日付つきの版（'-20251001'）と、小さな版（Jev の 'jev-1.13.0'）
+    if ((name.startsWith(`${key}-`) || name.startsWith(`${key}.`)) && (!best || key.length > best.length)) best = key;
   }
   return best;
 }
@@ -102,6 +109,15 @@ export function costFromUsage(model, usage = {}) {
     + (num(usage.output_tokens, 0) * p.out)
   ) / 1e6;
   return toMjpy(usd);
+}
+
+// 🧭 Jev（判断のモデル）の 1 回の原価（mjpy）。出力は無料なので入力のトークンだけ。
+//   inputTokens が分からないとき（応答に usage が無い）は、送った文字数 × 1.2（日本語）で数える（上振れ側）。
+export function jevCostMjpy({ inputTokens, chars = 0, model = 'jev-1.13' } = {}) {
+  const tokens = Number.isFinite(Number(inputTokens)) && Number(inputTokens) >= 0
+    ? Number(inputTokens)
+    : Math.ceil(Math.max(0, num(chars, 0)) * 1.2);
+  return costFromUsage(model, { input_tokens: tokens, output_tokens: 0 });
 }
 
 // 呼ぶ前の見積もり（上振れ側）。入力は文字数 × 1.2 トークン（日本語）＋画像 1 枚 1,600

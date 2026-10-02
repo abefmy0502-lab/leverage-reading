@@ -44,6 +44,10 @@ props は数・真偽・32 字までの短い文字列だけ（本文・書名�
 
 ## 運営の集計（service_role で SQL Editor）
 
+**正式なローンチの数字は `docs/launch-kpis.md`**（`supabase_admin_launch_kpis.sql` の `admin_launch_kpis`）。①「初日に相談」は
+`chat_messages` を正とし、`first_consult_sent` は補助（記録の取りこぼしを拾う）。②「7 日でメモ 10 件」は `book_memos` を正とし、
+`memos_reached_10` は補助。下の SQL は、イベントだけで見るときの目安と、初回ガイドの道ごとの比較用。
+
 ```sql
 -- 登録から 24 時間以内に最初の相談を送った人の割合（直近 30 日に登録した人）
 with u as (

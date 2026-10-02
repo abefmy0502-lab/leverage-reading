@@ -3,7 +3,8 @@
 // マイ読書脳だけは、実際に入っているメモから質問に近いものを選んで
 // 本番と同じ書式（【結論】…REFS_START/END）で答えるので、画面の流れを確かめられる。
 
-import { SEARCH_CATALOG } from './seed';
+import { SEARCH_CATALOG, DEMO_BOOK_INFO } from './seed';
+import { demoServerSearch, demoNdlXml } from './demoBookSearch';
 import { questionGist } from '../lib/consultHelpers';
 
 const json = (body, status = 200) =>
@@ -74,7 +75,7 @@ function parseVoice(userText) {
   return { title: ((block.match(/書名: 『([^』]*)』/) || [])[1] || '').trim(), author: ((block.match(/著者: (.+)/) || [])[1] || '').trim() };
 }
 
-function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null, voice = null, decide = false, lookup = false) {
+function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null, voice = null, decide = false, lookup = false, relatedBlock = '') {
   // 深掘りの短い質問（「もっと具体的に」）でも、直前の相談の話題でメモを選ぶ（本番の retrievalQuery と同じ考え方）。
   const q = bigrams(thread ? `${question} ${thread.lastQuestion}` : question);
   const books = new Map(store.table('books').map((b) => [b.id, b]));
@@ -105,6 +106,9 @@ function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null
       const mb = bigrams(m.text);
       let hit = 0;
       q.forEach((g) => { if (mb.has(g)) hit += 1; });
+      // 本番と同じく「今回の質問にとくに関係がありそうなメモ」（RELATED_MEMOS・Jev を入れたときは Jev が選んだもの）を先に使う。
+      const head = String(m.text || '').replace(/\s+/g, ' ').trim().slice(0, 20);
+      if (relatedBlock && head && relatedBlock.includes(head)) hit += 100;
       return { m, hit };
     })
     .sort((a, b) => b.hit - a.hit || (b.m.created_at || '').localeCompare(a.m.created_at || ''))
@@ -142,7 +146,13 @@ function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null
   // 結論・解釈は、引いたメモに書いてあることだけで組み立てる（メモに無い主張を足さない・2026-09-29）。
   const clip = (t) => { const x = String(t || '').replace(/\s+/g, ' ').trim(); return x.length > 40 ? `${x.slice(0, 40)}…` : x; };
   // 結論には書名・引用のかぎかっこを入れない（出典は「根拠を見る」の中・SPEC §3・本番の BRAIN_SYSTEM と同じ）。
-  const gist = (t) => clip(t).replace(/[「」『』]/g, '').replace(/[。．.]+$/, '');
+  // 「…という考え」に入れる要旨: 最初の 1 文（長ければ 40 字までの最後の読点まで）。文の途中を … で切らない（2026-10-02 ui-critic）。
+  const gist = (t) => {
+    const first = String(t || '').replace(/\s+/g, ' ').replace(/[「」『』]/g, '').split(/[。．！？!?]/)[0].trim();
+    if (first.length <= 40) return first;
+    const cut = first.slice(0, 40).lastIndexOf('、');
+    return cut > 8 ? first.slice(0, cut) : first;
+  };
   const short16 = (t) => { const x = String(t || '').replace(/\s+/g, ' ').replace(/[「」『』]/g, '').split(/[。．.、]/)[0].trim(); return x.length > 16 ? `${x.slice(0, 16)}…` : x; };
   // 🔎 本を探す問い（本番の BOOK_LOOKUP・「…を書いた本はどれ？」）: 本とメモの一節だけ。問いも行動も書かない。
   if (lookup) {
@@ -366,6 +376,49 @@ function perBookBrokenAnswer(block, decide = false) {
   ].join('\n');
 }
 
+// お試しの読書計画シート。目次があればその項目名を「」で引き、無ければ章の名前を挙げない（本番の指示文と同じ決まり）。
+function planSheetAnswer(userText) {
+  const about = (userText.match(/===== 本の紹介（[^）]*） =====\n([\s\S]*?)\n===== 本の紹介ここまで/) || [])[1] || '';
+  const toc = ((userText.match(/===== 目次（データ） =====\n([\s\S]*?)\n===== 目次ここまで/) || [])[1] || '')
+    .split('\n').map((l) => l.replace(/^- /, '').trim()).filter(Boolean);
+  const purpose = ((userText.match(/得たいこと: (.+)/) || [])[1] || '').trim();
+  const pick = (re) => toc.find((l) => re.test(l));
+  const focus = [pick(/資産/), pick(/シナリオ/), pick(/ステージ/)].filter(Boolean).slice(0, 3);
+  const skim = [pick(/資金計画/), pick(/雇用/)].filter(Boolean).slice(0, 2);
+  // 概要は紹介文の写しではなく、著者のいちばんの主張を 1〜2 行（本番の指示文と同じ）。紹介も目次も無ければ節ごと出さない。
+  return [
+    ...(about || toc.length
+      ? ['## 📖 この本の概要', '長く生きる時代には、お金より「見えない資産」を育て、人生のステージを自分で組み替えることが要になる——というのが著者の主張です。', '']
+      : []),
+    '## 🎯 読み方の戦略',
+    `- ${purpose ? `「${purpose}」に引きつけて読む` : '自分の働き方に引きつけて読む'}`,
+    '- 自分の「見えない資産」を書き出しながら読む',
+    '- 次のステージの候補を1つ決めて読み終える',
+    '',
+    '## 📍 重点的に読む箇所（20%）',
+    ...(toc.length
+      ? (focus.length ? focus : toc.slice(1, 3)).map((l) => `- 『${l}』: 得たいことにいちばん近い章`)
+      : ['目次が手に入らないため、章の名前は挙げていません。', '- 人生の段階の分け方を説明している部分', '- 具体的な人物の例が出てくる部分']),
+    '',
+    '## ⏩ 流し読みでOKな箇所',
+    ...(toc.length && skim.length ? skim.map((l) => `- 『${l}』: 数字の細部は流してよい`) : ['- 統計や数字の細部']),
+    '',
+    '## ❓ 注意点・落とし穴',
+    '- 海外の事例は、日本の制度に置き換えて読む',
+    '',
+    '## 💡 期待される変化',
+    '- 5年後の働き方を1行で書ける',
+    '- 学び直しの時間を予定に入れる',
+    '- 人間関係に使う時間を見直す',
+    '',
+    '## 📚 関連書籍',
+    '### 1. 『GRIT やり抜く力』- アンジェラ・ダックワース',
+    '長いステージを走り切る粘り強さを、習慣として育てる考え方が補えます。',
+    '### 2. 『思考の整理学』- 外山滋比古',
+    '学び直しの時間を、自分の考えにまとめる力につなげられます。',
+  ].join('\n');
+}
+
 function aiReply(store, payload, aiMode = '') {
   const last = [...(payload.messages || [])].reverse().find((m) => m.role === 'user');
   const userText = textOf(last?.content);
@@ -376,12 +429,15 @@ function aiReply(store, payload, aiMode = '') {
   const q = userText.match(/QUESTION_START =====\n([\s\S]*?)\n=====/);
   if (q) {
     // 本番は質問に近いメモを RELATED_MEMOS に分けて渡す（MEMOS からは外す）ので、両方を材料にする。
+    const related = (userText.match(/RELATED_MEMOS_START =====\n([\s\S]*?)\n===== RELATED_MEMOS_END/) || [])[1] || '';
     const block = [
       (userText.match(/===== MEMOS_START =====\n([\s\S]*?)\n===== MEMOS_END/) || [])[1] || '',
-      (userText.match(/RELATED_MEMOS_START =====\n([\s\S]*?)\n===== RELATED_MEMOS_END/) || [])[1] || '',
+      related,
     ].filter(Boolean).join('\n\n');
-    return brainAnswer(store, q[1], block, aiMode, parseThread(userText), parseVoice(userText), decide, userText.includes('===== BOOK_LOOKUP ====='));
+    return brainAnswer(store, q[1], block, aiMode, parseThread(userText), parseVoice(userText), decide, userText.includes('===== BOOK_LOOKUP ====='), related);
   }
+  // 📷 写真から書き起こし（本番と同じく、本文だけを返す）。
+  if (payload.purpose === 'ocr') return '成果を上げるには、まず自分の時間がどこに使われているかを知ることから始めなければならない。時間の記録をとり、ムダな仕事を捨て、まとまった時間をつくる。';
   const system = textOf(payload.system);
   // AI 選書: ヒアリング（1 周だけ質問を出し、2 周目で締める）と、おすすめ（本番と同じ JSON ブロック）
   if (system.includes('ヒアリング設計担当')) {
@@ -422,6 +478,8 @@ function aiReply(store, payload, aiMode = '') {
       '## 💬 まとめ', '一冊ずつ、明日できる一歩に変えていきましょう。',
     ].join('\n');
   }
+  // 📖 読書計画シート（2026-10-02）: 本番と同じく、渡された「本の紹介」「目次」だけから概要と重点箇所を書く。
+  if (system.includes('『読書計画シート』を作成')) return planSheetAnswer(userText);
   return [
     '## 💡 お試しモードの応答',
     'これはお試しモードの仮の応答です。本番では、ここに AI の回答が表示されます。',
@@ -495,6 +553,27 @@ function googleBooks(url) {
   return json({ totalItems: items.length, items });
 }
 
+// 🧭 お試しモードの Jev（偽物）。悩みごとの言葉の手がかり（意味の近さのまね）で確率を決める。
+const JEV_DEMO_PURPOSES = new Set(['memo_relevance', 'intent']);
+const JEV_DEMO_CONCERNS = {
+  人を動かす: /部下|メンバー|後輩|マネージャー|1on1|人に動いて|批判|命令|任せ/,
+  抱えすぎ: /抱え|手が回ら|忙し|やらない|断る|持ち帰|バッファ|予定/,
+  会議: /会議|結論|決めて|イシュー/,
+  評価: /評価|承認|人の目|他人の課題|気にな/,
+  忘れる: /忘れ|記憶|見返|アウトプット|話す/,
+};
+function demoJevResult(purpose, input) {
+  if (purpose === 'memo_relevance') {
+    // 相談の悩みごとの手がかり（意味の近さのまね）。「報告」のような語の重なりだけでは選ばない。
+    const concernsOf = (text) => Object.entries(JEV_DEMO_CONCERNS).filter(([, re]) => re.test(String(text || ''))).map(([k]) => k);
+    const q = concernsOf(input.question);
+    const scores = {};
+    for (const m of input.memos || []) scores[m.id] = concernsOf(m.text).some((t) => q.includes(t)) ? 0.82 : 0.08;
+    return { scores };
+  }
+  return { intent: /どの本|何の本|なんの本|だっけ/.test(String(input.question || '')) ? 'lookup' : 'consult', confidence: 0.8, probabilities: null };
+}
+
 export function installDemoFetch(store) {
   const realFetch = window.fetch.bind(window);
   window.fetch = async (input, init = {}) => {
@@ -514,6 +593,13 @@ export function installDemoFetch(store) {
         return json({ error: { message: 'サーバーで問題が起きました。' } }, 500);
       }
       if (aiMode === 'slow') await wait(60000, signal);
+      // 🧭 Jev（判断のモデル・?jev=1 のときだけアプリが送る）の見本: 言葉の手がかりで「はい」の確率を決める偽物。
+      //   本番（api/_jevRelay.js）と同じく、いつも 200・トークンは数えない。&jev=down で「使えない」（{ jev: null }）。
+      if (JEV_DEMO_PURPOSES.has(payload.purpose)) {
+        await wait(250, signal); // 本番の Jev（約 70〜500ms）くらい
+        if (new URLSearchParams(window.location.search).get('jev') === 'down') return json({ jev: null, reason: 'upstream' });
+        return json({ jev: { result: demoJevResult(payload.purpose, payload.jev || {}), ms: 180 } });
+      }
       // 本番（api/claude.js・api/_aiAccess.js）と同じ決まりをまねる:
       //   契約なし＝無料プラン: 相談（purpose 'consult'）だけ・毎月 30 トークン（'free-YYYY-MM'）。ほかは 402 plan_required
       //   無料期間: 150 トークン（'trial-終わる日'）/ 有料: 毎月 800 トークン（'YYYY-MM'）→ 使い切ったら 429
@@ -523,6 +609,18 @@ export function installDemoFetch(store) {
       const nextFirst = `${(jstNow.getUTCMonth() + 1) % 12 + 1}\u2060月\u20601\u2060日`;
       const sub = store.table('subscriptions').find((r) => r.status === 'active');
       const tier = !sub ? 'free' : (sub.period_type === 'trial' || sub.period_type === 'intro') ? 'trial' : 'paid';
+      // 📷 無料プランの写真から書き起こし: 相談のトークンとは別に、毎月 10 回（'freeocr-YYYY-MM' の calls・2026-10-02）。
+      if (tier === 'free' && payload.purpose === 'ocr') {
+        const rows = store.table('ai_usage');
+        let row = rows.find((r) => r.period_month === `freeocr-${month}`);
+        if (!row) { row = { user_id: store.session?.user?.id, period_month: `freeocr-${month}`, calls: 0, cost_mjpy: 0 }; rows.push(row); }
+        if (row.calls >= 10) {
+          return json({ error: { message: `今月の写真から書き起こしは、ここまでです。${nextFirst}に 10 回に戻ります。` }, error_code: 'free_ocr_limit_reached' }, 402);
+        }
+        row.calls += 1;
+        await wait(900, signal);
+        return json({ content: [{ type: 'text', text: aiReply(store, payload, aiMode) }], stop_reason: 'end_turn' });
+      }
       if (tier === 'free' && payload.purpose !== 'consult') {
         return json({ error: { message: 'この AI 機能は、プランでご利用いただけます。' }, error_code: 'plan_required' }, 402);
       }
@@ -584,10 +682,33 @@ export function installDemoFetch(store) {
       }
       return json({ content: [{ type: 'text', text }], stop_reason: stopReason });
     }
+    if (url.includes('/api/cover') && /[?&]search=/.test(url)) {
+      // 本の検索（2026-10-02・本番は楽天の売上順 → Google → NDL）。&search=fail は失敗（端末の検索に切り替わる）・
+      //   &search=old は「サーバーの検索が無い」（直す前と同じく端末だけで探す・比べる用）。
+      //   &search=slow は答えがなかなか返らない（読み込み中の形の確認用）。
+      const mode = new URLSearchParams(window.location.search).get('search');
+      await wait(mode === 'slow' ? 60000 : 300, signal);
+      if (mode === 'fail') return json({ error: 'unavailable', results: [] }, 502);
+      if (mode === 'old') return json({ error: 'お試しモードでは使えません' }, 503);
+      const q = (() => { try { return new URL(url, window.location.origin).searchParams.get('search') || ''; } catch { return ''; } })();
+      return json(demoServerSearch(q));
+    }
     if (url.includes('/api/cover')) {
       // 見本の本の一覧にある本は「実在する」と答える（AI 選書の実在確認で全部が疑わしく見えないように）。
       const params = (() => { try { return new URL(url, window.location.origin).searchParams; } catch { return new URLSearchParams(); } })();
       const title = params.get('title') || '';
+      // 📖 この本について（?info=1・2026-10-02）: 見本の紹介文と目次。&info=none＝どの本も見つからない／&info=slow＝3 秒待つ。
+      if (params.get('info') === '1') {
+        const mode = new URLSearchParams(window.location.search).get('info');
+        if (mode === 'slow') await new Promise((r) => setTimeout(r, 3000));
+        //   &info=toconly＝目次だけ（楽天の商品説明の【目次】から）／&info=mixed＝紹介は出版社・目次は楽天（取得元が違う）。
+        const base = DEMO_BOOK_INFO[params.get('isbn') || ''];
+        const sampleToc = ['第1章 変化に気づく', '第2章 古いチーズを手放す', '第3章 新しいチーズを探す', '第4章 変化を楽しむ'];
+        let hit = mode === 'none' ? null : base;
+        if (base && mode === 'toconly') hit = { ...base, description: '', source: '', toc: base.toc.length ? base.toc : sampleToc, tocSource: 'rakuten' };
+        if (base && mode === 'mixed') hit = { ...base, source: 'openbd', toc: base.toc.length ? base.toc : sampleToc, tocSource: 'rakuten' };
+        return json(hit || { description: '', toc: [], source: '', tocSource: '', pages: 0, pubdate: '', isbn: params.get('isbn') || '' });
+      }
       // 実在の判定（?verify=1）は本番と同じく書名がまるごと同じ本だけを「実在」にする（2026-09-30）。
       if (params.get('verify') === '1') {
         // &verify=down: 検索元がどれも答えない（「確認できませんでした」の確認用）。
@@ -617,7 +738,7 @@ export function installDemoFetch(store) {
       return json(Array(n).fill(null));
     }
     if (url.includes('ndlsearch.ndl.go.jp') || url.includes('iss.ndl.go.jp')) {
-      return new Response('<?xml version="1.0"?><rss><channel></channel></rss>', {
+      return new Response(demoNdlXml(url), {
         status: 200, headers: { 'Content-Type': 'application/xml' },
       });
     }

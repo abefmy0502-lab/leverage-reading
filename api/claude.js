@@ -5,9 +5,11 @@ import {
   decideAiAccess, decideFreeReservation, periodKeyFor, reserveBudgetMjpy, allowanceFor, meteredCallLimit,
   freeTokens, fallbackCallsFor, nextMonthFirstLabel, planRequiredMessage, limitMessageFor, tokenMjpy,
   tokensFromMjpy, noInfoRefundEligible, noInfoRefundLimit, refundPeriodKey,
+  freeOcrPerMonth, freeOcrPeriodKey, freeOcrLimitMessage, decideFreeOcrReservation,
 } from './_aiAccess.js';
 import { lotBalance, effectiveAllowance, shouldSettleOverflow } from './_tokenLots.js';
-import { resolveRoute } from './_aiRouting.js';
+import { resolveRoute, isJevPurpose } from './_aiRouting.js';
+import { handleJevRelay } from './_jevRelay.js';
 import { openRoute, ProviderError } from './_providers.js';
 
 // 応答の前に、精算（adjust_ai_cost / settle_token_overflow）・回数の払い戻しを待つ上限。
@@ -41,6 +43,12 @@ const MAX_TEXT_CHARS = 150_000;
 const FREE_MAX_TEXT_CHARS = 30_000;
 const FREE_MAX_TOKENS = 3000;
 const FREE_MODEL = 'claude-haiku-4-5';
+// 📷 無料プランの写真から書き起こし（月 AI_FREE_OCR_PER_MONTH 回・2026-10-02）の 1 回の大きさ。
+//   アプリは写真 1 枚（長辺 1568px に縮小済み）＋短い指示文（約 300 字）・max_tokens 1024 を送る。
+//   それより大きいもの（写真を何枚も・長い文章）は 413 で断る（無料の枠を汎用の AI として使わせない）。
+const FREE_OCR_MAX_TEXT_CHARS = 2000;
+const FREE_OCR_MAX_IMAGES = 1;
+const FREE_OCR_MAX_TOKENS = 1024;
 
 // system + messages に含まれる文字の総数（画像は数えない）。
 function countTextChars(body) {
@@ -59,6 +67,12 @@ function countTextChars(body) {
   add(body?.system);
   if (Array.isArray(body?.messages)) add(body.messages);
   return n;
+}
+// messages に含まれる画像の数。
+function countImages(body) {
+  return Array.isArray(body?.messages)
+    ? body.messages.reduce((n, m) => n + (Array.isArray(m?.content) ? m.content.filter((c) => c?.type === 'image').length : 0), 0)
+    : 0;
 }
 // 1 リクエストの最大メッセージ数。会話履歴（AI 選書 / マイ読書脳）でも通常 30
 // 前後。汎用 LLM プロキシ悪用で巨大配列を投げられるのを防ぐ安全側の上限。
@@ -628,6 +642,29 @@ export default async function handler(req, res) {
   }
   const userId = userData.user.id;
 
+  // 🧭 Jev（文を書かない判断のモデル・TypeSafe AI）への短い道（2026-10-02・api/_jevRelay.js）。
+  //    文を書く AI の分間の上限・トークンとは別に数える（相談 1 回につき 1 回ついてくるので、相談の 10 回/分を食わないように）。
+  //    返事はいつも 200（使えないときは { jev: null, reason }＝アプリはこれまでの決め方で続ける）。
+  if (isJevPurpose(req.body?.purpose)) {
+    const entJ = await checkEntitlement(userId);
+    const tierJ = entJ.admin ? 'admin' : entJ.allowed ? (entJ.trial ? 'trial' : 'paid') : 'free';
+    const jevAbort = new AbortController();
+    try { req.on?.('close', () => jevAbort.abort()); } catch { /* no-op */ }
+    const out = await handleJevRelay({
+      body: req.body,
+      tier: tierJ,
+      consentVersion: consentVersionFrom(req),
+      userId,
+      monthKey: currentPeriodMonth(),
+      signal: jevAbort.signal,
+      deps: {
+        reserveCall: (periodKey, limit) => reserveMonthlyUsage(userId, limit, periodKey),
+        addCost: (periodKey, mjpy) => adjustCost(userId, periodKey, mjpy),
+      },
+    });
+    return res.status(out.status).json(out.body);
+  }
+
   const rl = checkRateLimit(userId);
   if (!rl.ok) {
     res.setHeader('Retry-After', String(rl.retryAfter));
@@ -656,15 +693,18 @@ export default async function handler(req, res) {
   // 🎁 無料プラン（契約なし）は 💬 相談だけ・月 AI_FREE_TOKENS トークン（'free-YYYY-MM' の行で数える）。
   //    相談以外の AI 機能は 402 plan_required（アプリは有料プランの画面を重ねて開く）。判定は api/_aiAccess.js。
   const monthKey = currentPeriodMonth(); // この 1 回の間は同じ月で数える（月末の日付またぎでずれない）
-  const access = decideAiAccess({ entitlement: ent, purpose: req.body?.purpose, freeAllowance: freeTokens() });
+  // 📷 無料プランの写真から書き起こしは、相談のトークンとは別に 1 か月 AI_FREE_OCR_PER_MONTH 回（'freeocr-YYYY-MM'）。
+  const freeOcrLimit = freeOcrPerMonth();
+  const access = decideAiAccess({ entitlement: ent, purpose: req.body?.purpose, freeAllowance: freeTokens(), freeOcrLimit });
   if (!access.allow) {
     return res.status(access.status).json({
       error: { message: access.errorCode === 'free_limit_reached' ? limitMessageFor('free') : planRequiredMessage() },
       error_code: access.errorCode,
     });
   }
-  const tier = access.tier; // 'admin' | 'paid' | 'trial' | 'free'
+  const tier = access.tier; // 'admin' | 'paid' | 'trial' | 'free' | 'free_ocr'
   const freeCall = tier === 'free';
+  const freeOcrCall = tier === 'free_ocr';
   // 🧭 どの会社のどのモデルで答えるか（api/_aiRouting.js）。無料プランの相談は、いちばん安い Claude に固定
   //    （AI_CONSULT_MODEL の差し替えも効かせない）。Claude 以外が答える前に失敗したら route.claudeModel で 1 回だけやり直す。
   const route = resolveRoute({
@@ -675,10 +715,13 @@ export default async function handler(req, res) {
   if (req.body?.purpose && req.body.purpose !== 'ops_advise' && !consentVersionFrom(req)) {
     console.info(`[ai-consent] no consent header (purpose ${String(req.body.purpose).slice(0, 32)})`);
   }
-  // どの行で数えるか（無料 'free-YYYY-MM'・無料期間 'trial-YYYY-MM-DD'・有料 'YYYY-MM'）。
-  const periodKey = periodKeyFor(tier, { monthKey, periodEnd: ent.periodEnd });
+  // どの行で数えるか（無料 'free-YYYY-MM'・無料の書き起こし 'freeocr-YYYY-MM'・無料期間 'trial-YYYY-MM-DD'・有料 'YYYY-MM'）。
+  const periodKey = freeOcrCall ? freeOcrPeriodKey(monthKey) : periodKeyFor(tier, { monthKey, periodEnd: ent.periodEnd });
   // 使い切ったときの返事（無料は 402＝有料プランの画面を開く。無料期間・有料は 429＝案内だけ）。
   const limitResponse = (code) => {
+    if (freeOcrCall) {
+      return res.status(402).json({ error: { message: freeOcrLimitMessage(freeOcrLimit) }, error_code: 'free_ocr_limit_reached' });
+    }
     if (freeCall) {
       return res.status(402).json({ error: { message: limitMessageFor('free') }, error_code: 'free_limit_reached' });
     }
@@ -704,8 +747,10 @@ export default async function handler(req, res) {
     }
     // 🎁 無料プランの相談は 1 回の大きさをここで小さく抑える（原価を数えられない DB では回数だけで
     //    守るため。改ざんしたアプリから大きな文章を送って原価を膨らませるのを防ぐ）。
-    const textCap = freeCall ? FREE_MAX_TEXT_CHARS : MAX_TEXT_CHARS;
-    if (bodyBytes > MAX_BODY_BYTES || countTextChars(body) > textCap) {
+    const textCap = freeOcrCall ? FREE_OCR_MAX_TEXT_CHARS : freeCall ? FREE_MAX_TEXT_CHARS : MAX_TEXT_CHARS;
+    // 📷 無料の書き起こしは写真 1 枚まで。
+    const tooManyImages = freeOcrCall && countImages(body) > FREE_OCR_MAX_IMAGES;
+    if (bodyBytes > MAX_BODY_BYTES || countTextChars(body) > textCap || tooManyImages) {
       return res.status(413).json({
         error: { message: 'リクエストが大きすぎます。画像のサイズを小さくして再度お試しください。' },
         error_code: 'payload_too_large',
@@ -723,15 +768,15 @@ export default async function handler(req, res) {
   let costResult = { metered: false, allowed: true };
   let lotState = { ok: false, balance: 0, charged: 0 };
   let callLimit = ent.limit;
-  if (tier !== 'admin') {
+  // 📷 無料の書き起こしは回数だけで数える（原価の予約はしない＝相談のトークンにも追加分にも触れない）。
+  if (freeOcrCall) callLimit = freeOcrLimit;
+  if (tier !== 'admin' && !freeOcrCall) {
     const b = req.body || {};
     const estMax = Math.min(
       Number.isFinite(b.max_tokens) ? Math.max(1, Math.floor(b.max_tokens)) : MAX_TOKENS_DEFAULT,
       freeCall ? FREE_MAX_TOKENS : MAX_TOKENS_HARD_CAP,
     );
-    const images = Array.isArray(b.messages)
-      ? b.messages.reduce((n, m) => n + (Array.isArray(m?.content) ? m.content.filter((c) => c?.type === 'image').length : 0), 0)
-      : 0;
+    const images = countImages(b);
     // Claude 以外で答える用途は、失敗して Claude でやり直すときの原価も見込んで、高いほうで予約する（上振れ側）。
     // キャッシュの印より後ろの文字はふつうの入力の単価で数える（印より前は書き込みの単価＝上振れ側・cacheSegments）。
     const segments = cacheSegments(b, { systemTtl: b.purpose === 'consult' ? consultSystemTtl() : '5m' });
@@ -798,6 +843,16 @@ export default async function handler(req, res) {
       return limitResponse('free_limit_reached');
     }
   }
+  if (freeOcrCall) {
+    // 無料の書き起こしも、数えられないとき（RPC 未適用・障害）は通さない（fail-closed）。
+    const fo = decideFreeOcrReservation({ usage });
+    if (!fo.allow) {
+      if (fo.errorCode === 'plan_required') {
+        return res.status(402).json({ error: { message: planRequiredMessage() }, error_code: 'plan_required' });
+      }
+      return limitResponse('free_ocr_limit_reached');
+    }
+  }
   if (!usage.allowed) {
     settleCost(null); // 回数の上限で止めたので、原価の予約も戻す
     await flush();
@@ -823,7 +878,10 @@ export default async function handler(req, res) {
     const requestedTokens = Number.isFinite(body.max_tokens)
       ? Math.max(1, Math.floor(body.max_tokens))
       : MAX_TOKENS_DEFAULT;
-    const maxTokens = Math.min(requestedTokens, freeCall ? FREE_MAX_TOKENS : MAX_TOKENS_HARD_CAP);
+    const maxTokens = Math.min(
+      requestedTokens,
+      freeOcrCall ? FREE_OCR_MAX_TOKENS : freeCall ? FREE_MAX_TOKENS : MAX_TOKENS_HARD_CAP,
+    );
     const wantsStream = body.stream === true;
 
 

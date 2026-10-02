@@ -1,11 +1,13 @@
 // 本の検索（1 つの検索欄）と、その部品。
 //
 // App Store / Apple ブックの検索と同じく、入力欄は 1 つだけ。書名・著者・ISBN の
-// どれを入れても探せるよう、中で次の順に既存の詳細検索（searchBooksAdvanced）へ振り分ける:
-//   1. ISBN（10 桁 / 13 桁。ハイフン・空白・全角数字も可）→ ISBN 検索
-//   2. 書名として検索 → 0 件なら著者として検索
-//   3. それでも 0 件で語が 2 つ以上なら「書名 著者」「著者 書名」の組み合わせで検索
-// 見つかった時点で止めるので、よくある書名検索は 1 回の問い合わせで済む。
+// どれを入れても探せるよう、中で次の順に振り分ける:
+//   1. ISBN（10 桁 / 13 桁。ハイフン・空白・全角数字も可）→ ISBN 検索（その本だけ）
+//   2. サーバーの本の検索（/api/cover?search=・楽天の売上順 → Google → NDL・よく読まれている本・
+//      書名がよく合う本が先・表紙つき・2026-10-02・docs/book-search.md）
+//   3. サーバーが失敗したときだけ、端末だけの詳細検索（searchBooksAdvanced・NDL）: 書名として検索 →
+//      0 件なら著者として → 語が 2 つ以上なら「書名 著者」「著者 書名」の組み合わせ。結果はサーバーと
+//      同じ並べ方（rankLocalResults）に並べ直す（NDL は読みの辞書順で返すため）。
 //
 // ここにある部品（useBookQuerySearch / BookSearchField / BookResultList /
 // BookResultSkeleton）は AddBookModal（本を追加）でも使う。AddBookModal は遅延読み込み
@@ -17,10 +19,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Search, X, Check, ChevronRight, SearchX } from 'lucide-react';
 import { toMessage } from '../lib/errors';
-import { searchBooksAdvanced } from '../lib/bookSearch';
+import { searchBooksAdvanced, searchBooksOnServer, rankLocalResults } from '../lib/bookSearch';
 import { LIMITS } from '../lib/limits';
 import { btnPrimary, btnGhost, input } from '../styles/ui';
 import { MiniCover } from './BookCards';
+import { withPhraseBreaks } from './TightBubble';
 import { SkeletonBlock } from './Skeleton';
 import EmptyState from './EmptyState';
 import ErrorMessage from './ErrorMessage';
@@ -79,6 +82,10 @@ export async function searchBooksByQuery(raw, { signal } = {}) {
   const isbn = isbnFromQuery(q);
   if (isbn) return searchBooksAdvanced({ isbn }, { signal });
 
+  // サーバーの検索（失敗・0 件のときだけ下の端末だけの検索へ）。
+  const server = await searchBooksOnServer(q, { signal });
+  if (server.ok && server.results.length > 0) return { ok: true, results: server.results };
+
   const words = q.split(' ');
   const steps = [[{ title: q }], [{ author: q }]];
   if (words.length >= 2) {
@@ -93,7 +100,7 @@ export async function searchBooksByQuery(raw, { signal } = {}) {
     // eslint-disable-next-line no-await-in-loop
     const responses = await Promise.all(step.map((p) => searchBooksAdvanced(p, { signal })));
     const merged = mergeResults(responses.map((r) => (r.ok ? r.results : [])));
-    if (merged.length > 0) return { ok: true, results: merged };
+    if (merged.length > 0) return { ok: true, results: rankLocalResults(q, merged) };
     failed = failed || responses.find((r) => !r.ok) || null;
   }
   // 途中で失敗した問い合わせがあるなら「0 件」とは言い切れないのでエラーとして返す。
@@ -113,6 +120,7 @@ export function useBookQuerySearch() {
   const [status, setStatus] = useState('idle');
   const [results, setResults] = useState([]);
   const [error, setError] = useState('');
+  const [query, setQuery] = useState('');
   const abortRef = useRef(null);
 
   useEffect(() => () => { try { abortRef.current?.abort(); } catch { /* ignore */ } }, []);
@@ -126,6 +134,7 @@ export function useBookQuerySearch() {
     setStatus('searching');
     setError('');
     setResults([]);
+    setQuery(normalizeBookQuery(raw));
 
     let res;
     try {
@@ -150,7 +159,7 @@ export function useBookQuerySearch() {
     setStatus('results');
   }, []);
 
-  return { status, results, error, run };
+  return { status, results, error, query, run };
 }
 
 // ---------------------------------------------------------------------------
@@ -268,16 +277,28 @@ const rowStyle = {
 };
 
 const oneLine = { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
+// 検索結果の副題（書名に続けて）。著者と同じ大きさ・太さで、色だけ弱く（--text-3）。初日クイックスタートの行も同じ。
+export const subtitleStyle = { fontWeight: 400, fontSize: 'var(--text-sub)', color: 'var(--text-3)' };
+const titleInk = { fontWeight: 600, color: 'var(--text)' };
+
+// 行の読み上げ: 見えているものをすべて＝書名＋副題・著者・出版社と年。追加済みの行は出版社と年の代わりに
+// 「追加済み・状態」を出しているので、書名＋副題・著者に状態を足す。
+export function rowLabel(book, statusLabel = null) {
+  const fullTitle = [book.title, book.subtitle].filter(Boolean).join(' ');
+  const desc = (statusLabel ? [book.author] : [book.author, book.publisher, book.pubYear]).filter(Boolean).join('、');
+  const head = `『${fullTitle}』${desc ? `（${desc}）` : ''}`;
+  return statusLabel ? `${head}追加済み（${statusLabel}）。開く` : `${head}を追加`;
+}
 
 function ResultRow({ book, existing, onPick, divider }) {
   const statusLabel = existing ? (existing.statusLabel || '本棚') : '';
-  const meta = [book.publisher, book.pubYear].filter(Boolean).join('・');
+  const meta = [book.publisher, book.pubYear].filter(Boolean).join(' · ');
   return (
     <li style={divider ? { borderTop: '1px solid var(--separator)' } : undefined}>
       <button
         type="button"
         onClick={() => onPick(book, existing ? { isExisting: true, existing: existing.book } : {})}
-        aria-label={existing ? `『${book.title}』追加済み（${statusLabel}）。開く` : `『${book.title}』を追加`}
+        aria-label={rowLabel(book, existing ? statusLabel : null)}
         style={rowStyle}
       >
         {/* 追加済みの本は本棚の表紙（取り直し・手動の表紙を含む）をそのまま出し、本棚と見た目をそろえる。 */}
@@ -288,13 +309,22 @@ function ResultRow({ book, existing, onPick, divider }) {
           width={44}
         />
         <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+          {/* 書名と副題は文節の切れ目でだけ折り返す（「考／え方」と割らない・BudouX の <wbr>＋keep-all）。
+              2 行で切るときの「…」は箱の文字の形で描かれるので、副題があるときは箱を副題の色・太さにし
+              （書名は中の span で 600/--text）、副題の途中で切れても「…」が書名の太字にならないようにする。 */}
           <span
             style={{
-              fontSize: 'var(--text-body)', fontWeight: 600, lineHeight: 1.3, color: 'var(--text)',
+              fontSize: 'var(--text-body)', lineHeight: 1.3,
               display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+              wordBreak: 'keep-all', overflowWrap: 'anywhere',
+              ...(book.subtitle ? { fontWeight: 400, color: 'var(--text-3)' } : titleInk),
             }}
           >
-            {book.title}
+            <span style={titleInk}>{withPhraseBreaks(book.title)}</span>
+            {/* 副題は同じ 2 行の中に、著者と同じ大きさ・色だけ弱く（同じ書名の本を見分ける・2026-10-02） */}
+            {book.subtitle && (
+              <span style={subtitleStyle}>{' '}{withPhraseBreaks(book.subtitle)}</span>
+            )}
           </span>
           {book.author && (
             <span style={{ ...oneLine, fontSize: 'var(--text-sub)', color: 'var(--text-2)' }}>{book.author}</span>
@@ -317,7 +347,16 @@ function ResultRow({ book, existing, onPick, divider }) {
 // 検索結果の一覧（1 枚のカードに行を並べる・行の間は区切り線）。
 // getExisting(book) が { book, statusLabel } を返すと「追加済み」として表示し、
 // 押すと onPick(book, { isExisting: true, existing }) を呼ぶ。
-export function BookResultList({ results, onPick, getExisting }) {
+// 多いときの案内（語が 1 つで 10 冊以上・ISBN でないとき）。
+const NARROW_HINT_MIN = 10;
+export function narrowHintFor(query, count) {
+  const q = normalizeBookQuery(query);
+  if (!q || isbnFromQuery(q) || q.includes(' ')) return '';
+  return count >= NARROW_HINT_MIN ? '著者名も入れると絞り込めます' : '';
+}
+
+export function BookResultList({ results, onPick, getExisting, query = '' }) {
+  const hint = narrowHintFor(query, results.length);
   const [count, setCount] = useState(INITIAL_DISPLAY);
   useEffect(() => { setCount(INITIAL_DISPLAY); }, [results]);
 
@@ -328,7 +367,7 @@ export function BookResultList({ results, onPick, getExisting }) {
   return (
     <section aria-label="検索結果" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
       <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>
-        {results.length} 件
+        {results.length} 冊
       </p>
       <ul className="list-item-stagger" style={listStyle}>
         {visible.map((b, i) => (
@@ -350,9 +389,10 @@ export function BookResultList({ results, onPick, getExisting }) {
           さらに表示
         </button>
       )}
-      {remaining === 0 && results.length > MAX_DISPLAY && (
+      {/* 絞り込みの案内は、一覧を最後まで見たあとだけ（件数の行には足さない・2026-10-02 ui-critic）。 */}
+      {remaining === 0 && (hint || results.length > MAX_DISPLAY) && (
         <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)', textAlign: 'center' }}>
-          語を足すと絞り込めます
+          著者名も入れると絞り込めます
         </p>
       )}
     </section>
@@ -362,7 +402,7 @@ export function BookResultList({ results, onPick, getExisting }) {
 const skeletonInline = { display: 'inline-block', verticalAlign: 'middle' };
 // 和文の行の高さ（和文の書体の上下の幅）を本物の行とそろえるための、見えない全角スペース 1 字。
 const CJK_STRUT = <span style={{ visibility: 'hidden', marginInlineEnd: '-1em' }}>{'\u3000'}</span>;
-// 読み込み中: 結果の一覧と同じ形のスケルトン（「N 件」の行＋結果 1 行ぶん）。
+// 読み込み中: 結果の一覧と同じ形のスケルトン（「N 冊」の行＋結果 1 行ぶん）。
 // 1 行だけにするのは、結果が 1 件のときに下の「手動で入力する」が
 // 押し下げられてから引き戻される（跳ねる）のを防ぐため（2026-09-29）。
 export function BookResultSkeleton({ rows = 1 }) {
@@ -434,7 +474,7 @@ export function BookSearchStatus({ search, onRetry, onManual, onPick, getExistin
       )}
 
       {status === 'results' && (
-        <BookResultList results={results} onPick={onPick} getExisting={getExisting} />
+        <BookResultList results={results} onPick={onPick} getExisting={getExisting} query={search.query} />
       )}
     </div>
   );

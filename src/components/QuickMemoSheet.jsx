@@ -474,7 +474,8 @@ export default function QuickMemoSheet({
           {photoLead && (
             // 入力欄の上の全幅の副ボタン（btnGhost・アイコン 20 は .photo-lead の CSS）。部品は PhotoToTextButton のまま
             // （今月の残り回数・読み取り中・失敗の案内もこの部品が出す）。
-            <div className="photo-lead">
+            // 1 列のグリッド＝ボタンの下の「今月の残り N 回」（無料プラン）・読み取り中・失敗の案内との間は 8（rowGap）。
+            <div className="photo-lead" style={{ display: 'grid', gridTemplateColumns: '1fr', rowGap: 'var(--space-2)' }}>
               <PhotoToTextButton style={{ ...btnGhost, width: '100%', gap: 'var(--space-2)' }} onText={onPhotoText} />
             </div>
           )}
@@ -558,7 +559,8 @@ export default function QuickMemoSheet({
             <div style={{ minHeight: 0, overflow: 'hidden', padding: 'var(--space-1)', margin: 'calc(-1 * var(--space-1))' }}>
             {moreMounted && (
               // ページ番号（7 × 16 = 112・5 桁が入る幅）と「写真から書き起こす」（残りの幅いっぱい）を 1 行に。
-              <div style={{ display: 'grid', gridTemplateColumns: 'calc(7 * var(--space-4)) 1fr', columnGap: 'var(--space-3)', alignItems: 'end' }}>
+              // その下の行（無料プランの残りの回数・読み取り中・失敗の案内）とは 8 あける（rowGap）。
+              <div style={{ display: 'grid', gridTemplateColumns: 'calc(7 * var(--space-4)) 1fr', columnGap: 'var(--space-3)', rowGap: 'var(--space-2)', alignItems: 'end' }}>
                 <div>
                   <label htmlFor="quick-memo-page" style={fieldLabel}>ページ番号</label>
                   <input

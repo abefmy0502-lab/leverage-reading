@@ -19,9 +19,11 @@ export const PaywallContext = createContext({
   hadPlan: false, // 前にプランを契約していた無料プランの人（無料期間はもう使えない）
   openTokenSheet: noop, // 「トークンを追加」のシートを開く
   refreshTokens: noop, // AI を使ったあとに残りを取り直す（追加分が増えたら true）
+  freeOcrLimit: 10, // 📷 無料プランの写真から書き起こしの 1 か月の回数（lib/freeOcr.js）
+  freeOcrRemaining: null, // 今月の残りの回数（無料プランのときだけ・不明は null）
   freeRemaining: null, // 旧名: 無料プランの残りのトークン
   refreshFree: noop, // 旧名: refreshTokens
-  openPaywall: noop, // 有料プランの画面を開く（reason: 'free_used' | 'feature' | 'grown' | null, feature: 機能の名前）
+  openPaywall: noop, // 有料プランの画面を開く（reason: 'free_used' | 'free_ocr_used' | 'feature' | 'grown' | null, feature: 機能の名前）
   requirePlan: () => true, // プランの AI 機能の入口で呼ぶ。無料プランなら画面を開いて false
 });
 

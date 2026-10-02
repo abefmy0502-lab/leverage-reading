@@ -33,6 +33,7 @@ import { LIMITS, clamp } from '../lib/limits';
 import { track, EVENTS } from '../lib/analytics';
 import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff, btnLink, input as inputStyle, card, groupTitle } from '../styles/ui';
 import { MiniCover } from './BookCards';
+import { subtitleStyle } from './BookSearchModal';
 import EmptyState from './EmptyState';
 import ErrorMessage from './ErrorMessage';
 import { SkeletonBlock } from './Skeleton';
@@ -58,7 +59,7 @@ const POPULAR_BOOKS = [
   ['思考の整理学', '外山滋比古'],
   ['夢をかなえるゾウ', '水野敬也'],
 ].map(([title, author]) => ({ title, author, isbn: '', cover: '', manual: true }));
-const COVER_W = 36; // 一覧の表紙（高さは MiniCover が 1.42 倍で決める）
+const COVER_W = 44; // 一覧の表紙（本を追加の検索結果と同じ 44・高さは MiniCover が 1.42 倍で決める＝62・2026-10-02）
 
 // ---- 画面の骨組み ----------------------------------------------------------
 const overlay = {
@@ -146,9 +147,16 @@ function BookRow({ book, on, first, onToggle }) {
       <button type="button" onClick={onToggle} aria-pressed={on} style={rowBtn(first)}>
         <MiniCover book={book} width={COVER_W} />
         <span style={{ flex: 1, minWidth: 0 }}>
-          <span style={{ ...oneLine, fontSize: 'var(--text-body)', fontWeight: 600, lineHeight: 1.4 }}>{book.title}</span>
+          {/* 書名と副題を 1 行に並べ、副題が入りきらないときは副題の側で「…」（副題の色・太さで描く）。
+              書名は縮めない（ただし行より長い書名は行の幅で「…」）。副題は本を追加の検索結果と同じ形（2026-10-02） */}
+          <span style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-1)', minWidth: 0, lineHeight: 1.4 }}>
+            <span style={{ ...oneLine, flexShrink: 0, maxWidth: '100%', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>
+              {book.title}
+            </span>
+            {book.subtitle && <span style={{ ...oneLine, minWidth: 0, ...subtitleStyle }}>{book.subtitle}</span>}
+          </span>
           {book.author && (
-            <span style={{ ...oneLine, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, marginTop: 'var(--space-1)' }}>
+            <span style={{ ...oneLine, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, marginTop: 'var(--space-1)' }}>
               {book.author}
             </span>
           )}
@@ -465,9 +473,9 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
               {!searching && searchError && (
                 <ErrorMessage
                   title="検索できませんでした"
-                  description="通信状況を確かめて、もう一度お試しください。"
+                  description="通信環境を確認して、もう一度お試しください。"
                   actions={[
-                    { label: 'もう一度', onClick: () => runSearch(searched) },
+                    // やり直しは上の「検索」が受け持つ（同じ操作のボタンを 2 か所に出さない・本を追加とそろえる）。
                     // 検索が落ちていても先へ進めるように（書名だけでも相談相手にできる）。
                     ...(searched ? [{
                       label: titlePicked ? '追加しました' : '書名だけで追加',
@@ -647,7 +655,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
           <div style={{ ...body, paddingTop: 'var(--space-8)' }}>
             <ErrorMessage
               title="本を追加できませんでした"
-              description="通信状況を確かめて、もう一度お試しください。"
+              description="通信環境を確認して、もう一度お試しください。"
               actions={[{ label: 'もう一度', onClick: () => saveAll(picked) }]}
             />
           </div>

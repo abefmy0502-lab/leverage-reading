@@ -5,6 +5,7 @@ describe('isPaywallError', () => {
   it('402 の free_limit_reached / plan_required（と旧名 subscription_required）だけ', () => {
     expect(isPaywallError(402, 'free_limit_reached')).toBe(true);
     expect(isPaywallError(402, 'plan_required')).toBe(true);
+    expect(isPaywallError(402, 'free_ocr_limit_reached')).toBe(true);
     expect(isPaywallError(402, 'subscription_required')).toBe(true);
     expect(isPaywallError(429, 'monthly_budget_exceeded')).toBe(false);
     expect(isPaywallError(402, '')).toBe(false);
@@ -15,6 +16,7 @@ describe('paywallReasonFor', () => {
   it('無料のトークンを使い切った → free_used、それ以外 → feature', () => {
     expect(paywallReasonFor('free_limit_reached')).toBe('free_used');
     expect(paywallReasonFor('plan_required')).toBe('feature');
+    expect(paywallReasonFor('free_ocr_limit_reached')).toBe('free_ocr_used');
     expect(paywallReasonFor('subscription_required')).toBe('feature');
   });
 });
