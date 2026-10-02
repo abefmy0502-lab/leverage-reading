@@ -14,7 +14,7 @@ import { useEffect } from 'react';
 import { Library, ChevronRight, PencilLine, Plus, BookOpen } from 'lucide-react';
 import HomeFirstStep, { useHomeMemoState } from './HomeFirstStep';
 import GrowthMeter from './GrowthMeter';
-import { takeMemosReached } from '../lib/firstDay';
+import { takeMemosReached, growthMeterText } from '../lib/firstDay';
 import { track } from '../lib/analytics';
 import { MiniCover } from './BookCards';
 import { SkeletonBlock } from './Skeleton';
@@ -171,11 +171,18 @@ export default function HomeScreen({
   }, [loading, loadError, memoState.known, memoState.count]);
   return (
     <div style={{ padding: 'var(--space-2) var(--space-4) var(--space-8)', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
-      <h1 style={{ fontSize: 'var(--text-title)', fontWeight: 700, color: 'var(--text)', margin: 0, lineHeight: 1.3 }}>ホーム</h1>
-      {/* 🌱 メモが 1〜9 件の間だけ、題の下 8 に一行（10 件で消える）。カードにせず、点数・バッジにしない（2026-10-02）。 */}
-      {books.length > 0 && memoState.known && (
-        <GrowthMeter memoCount={memoState.count} style={{ marginTop: 'calc(var(--space-2) - var(--space-6))' }} />
-      )}
+      {/* 題と、メモが 1〜9 件の間だけ題の下 8 に出す一行（10 件で消える・カードにせず点数・バッジにしない・2026-10-02）。
+          一行が無いときは題だけ（間 8 は一行があるときだけ）。件数を数えている間は同じ高さの形（あとから差し込んで下を押し下げない）。 */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+        <h1 style={{ fontSize: 'var(--text-title)', fontWeight: 700, color: 'var(--text)', margin: 0, lineHeight: 1.3 }}>ホーム</h1>
+        {books.length > 0 && !memoState.known ? (
+          <span aria-hidden="true" style={{ display: 'flex', alignItems: 'center', height: 'calc(var(--text-meta) * 1.5)' }}>
+            <SkeletonBlock width="56%" height={14} radius="var(--radius-full)" />
+          </span>
+        ) : books.length > 0 && growthMeterText(memoState.count) ? (
+          <GrowthMeter memoCount={memoState.count} />
+        ) : null}
+      </div>
 
       {loading && books.length === 0 ? (
         // 読み込み中は形だけ（既存ユーザーに新規用の「はじめる」カードを一瞬見せない）。
