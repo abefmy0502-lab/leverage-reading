@@ -383,7 +383,7 @@ function aiReply(store, payload, aiMode = '') {
     return brainAnswer(store, q[1], block, aiMode, parseThread(userText), parseVoice(userText), decide, userText.includes('===== BOOK_LOOKUP ====='));
   }
   // 📷 写真から書き起こし（本番と同じく、本文だけを返す）。
-  if (payload.purpose === 'ocr') return '成果を上げるには、まず自分の時間がどこに使われているかを知ることから始めなければならない。';
+  if (payload.purpose === 'ocr') return '成果を上げるには、まず自分の時間がどこに使われているかを知ることから始めなければならない。時間の記録をとり、ムダな仕事を捨て、まとまった時間をつくる。';
   const system = textOf(payload.system);
   // AI 選書: ヒアリング（1 周だけ質問を出し、2 周目で締める）と、おすすめ（本番と同じ JSON ブロック）
   if (system.includes('ヒアリング設計担当')) {

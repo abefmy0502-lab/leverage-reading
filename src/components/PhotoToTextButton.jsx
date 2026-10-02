@@ -44,11 +44,10 @@ const baseStyle = {
 // 読み取り中は薄くせず、枠と文字の色で押せないことを示す（DESIGN §5「押せないボタン」）。
 const offStyle = { border: '1px solid var(--separator)', color: 'var(--text-3)', cursor: 'default', opacity: 1 };
 // 無料プランの残りの回数（付随情報＝--text-3・13 の小さな文字）。グリッドではボタンの列の下に、
-// 折り返す横並び（全画面のメモ）では並んだボタンのあとの行に（order: 1＝「凝縮」とボタンの間で行を割らない）。
+// 折り返す横並び（全画面のメモ）でも書き起こすボタンのすぐ下の行に（「凝縮」はその次の行）。
 const hintStyle = {
   gridColumn: '-2 / -1',
   flexBasis: '100%',
-  order: 1,
   margin: 0, // ボタンとの間（8）は親の行の間（メモを書くシートの rowGap・全画面の gap）で取る
   fontSize: 'var(--text-meta)',
   lineHeight: 1.5,
@@ -163,6 +162,7 @@ export default function PhotoToTextButton({ onText, disabled = false, style }) {
         type="file"
         // capture を付けない: 撮影だけでなく、写真ライブラリからも選べるように（iOS の選択シートが出る）。
         accept="image/*"
+        data-ocr-input=""
         onChange={onFile}
         style={{ display: 'none' }}
       />
