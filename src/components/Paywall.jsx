@@ -4,6 +4,7 @@
 // アプリの上に重ねて開く（App の PaywallGate・いつでも × / 「あとで」で閉じられる）:
 //   reason 'free_used' … 無料のトークンを使い切った（本人の本の表紙を並べる）
 //   reason 'feature'   … プランで使える AI 機能を押した（feature＝機能の名前）
+//   reason 'free_ocr_used' … 今月の無料の写真から書き起こし（月 10 回）を使い切った（2026-10-02・プランの機能を押した扱い）
 //   reason 'grown'     … 自分のメモが 10 件たまった（相談の「相談相手が育ってきました」・本人の本の表紙を並べる）
 //   reason null        … 設定の「プランを見る」
 // 7 日間無料（プランの無料期間）をすすめるのは、この 3 つ（free_used / feature / grown）と設定からだけ
@@ -48,6 +49,8 @@ import ErrorMessage from './ErrorMessage';
 import { SkeletonBlock } from './Skeleton';
 import { TERMS_URL, PRIVACY_URL, SCT_URL } from '../lib/legalLinks';
 import { FREE_TOKENS, PAID_TOKENS, TRIAL_TOKENS, TOKEN_COSTS, monthDayLabelJa } from '../lib/tokens';
+import { FREE_OCR_PER_MONTH } from '../lib/tokenAmounts';
+import { nextResetLabelJa } from '../lib/freeTrial';
 import { normalizeTrialLabel, trialFirstPhrase } from '../lib/trialNudge';
 
 // 未契約でもアカウントを削除できるように（App Store 審査 5.1.1(v)）。設定の削除欄をそのまま使う。
@@ -106,7 +109,8 @@ const showNative = isNative || preview.on;
 // 「無料」だけの見出しにしない（7 日間無料と取り違えないよう「無料プラン（ずっと無料）」・GLOSSARY）。
 const PLAN_COMPARE = [
   // 量の横に「相談なら何回か」を添える（トークンの数だけでは、どれだけ使えるか分からないため・2026-09-29）。
-  { name: '無料プラン（ずっと無料）', amount: `毎月 ${FREE_TOKENS.toLocaleString()} トークン`, scope: `相談だけ・約 ${Math.round(FREE_TOKENS / TOKEN_COSTS.consult).toLocaleString()} 回`, text: 'メモ・記録・振り返り・シェア' },
+  // 写真から書き起こしは無料プランでも月 10 回（トークンとは別・2026-10-02）。
+  { name: '無料プラン（ずっと無料）', amount: `毎月 ${FREE_TOKENS.toLocaleString()} トークン`, scope: `相談 約 ${Math.round(FREE_TOKENS / TOKEN_COSTS.consult).toLocaleString()} 回`, items: [`写真から書き起こし 月 ${FREE_OCR_PER_MONTH} 回`, 'メモ', '記録', '振り返り', 'シェア'] },
   // 機能名は語の途中で折り返さない（「写真から書き起こし」が割れないよう、名前ごとに nowrap で並べる）。
   { name: 'プラン', amount: `毎月 ${PAID_TOKENS.toLocaleString()} トークン`, scope: `相談なら 約 ${Math.round(PAID_TOKENS / TOKEN_COSTS.consult).toLocaleString()} 回`, lead: 'すべての AI：', items: ['AI 選書', '読書計画シート', '写真から書き起こし'] },
 ];
@@ -274,6 +278,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
   }, [reason, user?.id]);
   const fromFree = reason === 'free_used';
   const fromFeature = reason === 'feature';
+  const fromFreeOcr = reason === 'free_ocr_used';
   // メモが 10 件たまって開いたとき（相談の「相談相手が育ってきました」）も、本人の本の表紙を並べる。
   const fromGrown = reason === 'grown';
   // 📊 課金転換率（CVR = purchase÷view）の分母。どこから開いたか（enum だけ）も添える。
@@ -479,10 +484,19 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
         >
           {fromFree
             ? <>この相談相手と、<br />もっと話しませんか</>
-            : fromFeature
-              ? <>{feature || 'この機能'}は、<br />プランで使えます</>
-              : <>読むほど、<br />自分だけの相談相手が育つ</>}
+            : fromFreeOcr
+              ? <>写真から書き起こしを、<br />もっと使いませんか</>
+              : fromFeature
+                ? <>{feature || 'この機能'}は、<br />プランで使えます</>
+                : <>読むほど、<br />自分だけの相談相手が育つ</>}
         </h1>
+        {fromFreeOcr && (
+          // 無料プランの今月の分（月 10 回）を使い切ったことと、戻る日（日本時間の来月 1 日）。
+          <p style={{ ...metaText, fontSize: 'var(--text-sub)', marginTop: 'var(--space-2)' }}>
+            <span style={{ whiteSpace: 'nowrap' }}>今月の {FREE_OCR_PER_MONTH} 回を使い切りました。</span>
+            <span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}に戻ります。</span>
+          </p>
+        )}
 
         {(fromFree || fromGrown) && myBooks.length > 0 && (
           <>

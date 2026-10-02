@@ -201,6 +201,12 @@ export function buildSeed(scenario) {
     db.subscriptions = [];
     db.ai_usage = [{ user_id: DEMO_USER_ID, period_month: `free-${jstMonth}`, calls: 3, cost_mjpy: 9000 }];
   }
+  // 📷 無料プランの写真から書き起こし（毎月 10 回・'freeocr-YYYY-MM'）。無料プランの人は今月 2 回使った（あと 8 回）。
+  //   &ocr=used: 今月の 10 回を使い切った（「11月1日に戻ります」と、押すと有料プランの画面が開くことの確認用）。
+  if (['free', 'freeused', 'freegrown'].includes(scenario)) {
+    const ocrUsed = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('ocr') === 'used';
+    db.ai_usage = [...(db.ai_usage || []), { user_id: DEMO_USER_ID, period_month: `freeocr-${jstMonth}`, calls: ocrUsed ? 10 : 2, cost_mjpy: 0 }];
+  }
   // ?demo=paywall: 使い込んだデータのまま、購読だけ無い（有料プランの画面の確認用）。
   if (scenario === 'paywall') db.subscriptions = [];
   // ?demo=trial: 7 日間無料の途中（あと 5 日・150 トークンのうち 40 を使った）。

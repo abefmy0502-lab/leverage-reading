@@ -28,7 +28,7 @@ import { BUILD_LABEL } from '../lib/buildInfo';
 import { SUPPORT_EMAIL } from '../lib/contact';
 import { isAppStoreLive } from '../lib/appStore';
 import { savingsLabel } from '../lib/iap';
-import { FREE_TOKENS, PAID_TOKENS, TRIAL_TOKENS } from '../lib/tokenAmounts';
+import { FREE_TOKENS, PAID_TOKENS, TRIAL_TOKENS, FREE_OCR_PER_MONTH } from '../lib/tokenAmounts';
 // 無料期間（7 日間無料）の相談のおよその回数（相談 1 回 約 10 トークン＝lib/tokens.js の TOKEN_COSTS.consult。LP を軽くするため tokens.js は読まない）。
 const TRIAL_CONSULTS = Math.round(TRIAL_TOKENS / 10);
 import { normalizeTrialLabel, trialFirstPhrase, trialPeriodOf } from '../lib/trialNudge';
@@ -163,7 +163,7 @@ const FAQ_ITEMS = [
   },
   {
     q: '料金はいくらですか？',
-    a: `無料プラン（ずっと無料）で、メモ・記録・振り返り・シェアが使えます。AI は相談だけ、毎月 ${FREE_TOKENS} トークン（相談 約 3 回）です。プラン（月額 ¥1,480、または年額 ¥12,800・月あたり約 ¥1,066）にすると、相談が毎月 ${PAID_TOKENS} トークン（約 80 回）になり、AI 選書・読書計画シート・写真からの書き起こしも使えます。${TRIAL_NOTE ? `プランは${TRIAL_SENT}です（初めての方だけ）。` : ''}お支払いは App Store（Apple ID）です。`,
+    a: `無料プラン（ずっと無料）で、メモ・記録・振り返り・シェアが使えます。AI は相談が毎月 ${FREE_TOKENS} トークン（約 3 回）、写真から書き起こしが月 ${FREE_OCR_PER_MONTH} 回です。プラン（月額 ¥1,480、または年額 ¥12,800・月あたり約 ¥1,066）にすると、相談が毎月 ${PAID_TOKENS} トークン（約 80 回）になり、AI 選書・読書計画シートも使え、写真からの書き起こしは回数を気にせず使えます。${TRIAL_NOTE ? `プランは${TRIAL_SENT}です（初めての方だけ）。` : ''}お支払いは App Store（Apple ID）です。`,
   },
   ...(TRIAL_NOTE ? [{
     q: '無料期間のあとは、自動で料金がかかりますか？',
@@ -637,7 +637,7 @@ export default function Landing() {
                 <p className="lp-plan-name">無料プラン</p>
                 <p className="lp-plan-price">¥0<span>ずっと無料</span></p>
                 {/* 含まれるものは各カードの中に（別の一覧にすると、どちらのプランの話か分かりにくい） */}
-                <p className="lp-plan-sub">本とメモは、何件でも登録できます。記録・振り返り・シェアも使え、相談は<span style={{ whiteSpace: 'nowrap' }}>毎月 {FREE_TOKENS} トークン</span>（約 3 回）。</p>
+                <p className="lp-plan-sub">本とメモは、何件でも登録できます。記録・振り返り・シェアも使え、相談は<span style={{ whiteSpace: 'nowrap' }}>毎月 {FREE_TOKENS} トークン</span>（約 3 回）、<span style={{ whiteSpace: 'nowrap' }}>写真から書き起こしは</span><span style={{ whiteSpace: 'nowrap' }}>月 {FREE_OCR_PER_MONTH} 回</span>。</p>
               </div>
               <div className="lp-plan">
                 <p className="lp-plan-name"><span>プラン{TRIAL_FIRST && <span className="lp-plan-trial">（{TRIAL_FIRST}）</span>}</span></p>

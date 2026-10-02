@@ -7,6 +7,10 @@
 // 画像は端末側で validateImageFile → downscaleImageForVision で縮小してから
 // 送る（body サイズ・トークン・レイテンシを抑える）。AI 利用量メータリングは
 // /api/claude 経由で自動適用。
+//
+// 📷 無料プランでも毎月 10 回使える（2026-10-02・相談のトークンとは別・lib/freeOcr.js）。無料プランの人には
+// ボタンの下に「今月 あと 8 回」を小さく出し、0 回のときは「◯月1日に戻ります」。0 回で押すと有料プランの画面を開く
+// （プランの機能を押した＝7 日間無料をすすめてよい場面・GLOSSARY ②）。
 
 import { useEffect, useRef, useState } from 'react';
 import { validateImageFile } from '../lib/limits';
@@ -19,6 +23,7 @@ import { useHaptic } from '../hooks/useHaptic';
 import { ScanText } from 'lucide-react';
 import { usePaywall } from '../state/PaywallContext';
 import ErrorMessage from './ErrorMessage';
+import { freeOcrHintParts, freeOcrTapAction } from '../lib/freeOcr';
 
 const baseStyle = {
   minHeight: 44,
@@ -38,6 +43,17 @@ const baseStyle = {
 };
 // 読み取り中は薄くせず、枠と文字の色で押せないことを示す（DESIGN §5「押せないボタン」）。
 const offStyle = { border: '1px solid var(--separator)', color: 'var(--text-3)', cursor: 'default', opacity: 1 };
+// 無料プランの残りの回数（付随情報＝--text-3・13 の小さな文字）。グリッドではボタンの列の下に、
+// 折り返す横並び（全画面のメモ）では並んだボタンのあとの行に（order: 1＝「凝縮」とボタンの間で行を割らない）。
+const hintStyle = {
+  gridColumn: '-2 / -1',
+  flexBasis: '100%',
+  order: 1,
+  margin: 'var(--space-1) 0 0',
+  fontSize: 'var(--text-meta)',
+  lineHeight: 1.5,
+  color: 'var(--text-3)',
+};
 
 export default function PhotoToTextButton({ onText, disabled = false, style }) {
   const inputRef = useRef(null);
@@ -57,12 +73,16 @@ export default function PhotoToTextButton({ onText, disabled = false, style }) {
   const lastFileRef = useRef(null);
   const toast = useToast();
   const haptic = useHaptic();
-  // 写真から書き起こすはプランの機能（フリーミアム）。無料プランなら撮る前に有料プランの画面を開く。
-  const { requirePlan } = usePaywall();
+  // 無料プランは毎月 10 回（今月の分を使い切っていたら、撮る前に有料プランの画面を開く）。
+  const { freeMode, freeOcrRemaining, openPaywall, refreshTokens } = usePaywall();
+  const hint = freeOcrHintParts({ freeMode, remaining: freeOcrRemaining });
 
   const pick = () => {
     if (loading || disabled) return;
-    if (!requirePlan('写真からの書き起こし')) return;
+    if (freeOcrTapAction({ freeMode, remaining: freeOcrRemaining }) === 'paywall') {
+      openPaywall('free_ocr_used', '写真から書き起こし');
+      return;
+    }
     inputRef.current?.click();
   };
 
@@ -104,8 +124,13 @@ export default function PhotoToTextButton({ onText, disabled = false, style }) {
       onText(text);
       toast.success('写真から書き起こしました。');
     } catch (e2) {
-      // トークンの上限は案内として。プランの案内（402）は有料プランの画面が開くので重ねない。
-      if (e2?.notice) { setThumbFile(null); if (!/^この AI 機能は/.test(e2.message)) toast.info(e2.message); return; }
+      // トークンの上限は案内として。プランの案内・無料の回数の使い切り（402）は有料プランの画面が開くので重ねない。
+      if (e2?.notice) {
+        setThumbFile(null);
+        if (!/^(この AI 機能は|今月の写真から書き起こし)/.test(e2.message)) toast.info(e2.message);
+        refreshTokens?.(); // 「今月 あと N 回」を取り直す
+        return;
+      }
       // 理由のあとに次の一歩を短く（理由の文がすでに「お試しください」を含むときは重ねない・2026-09-29 に文を短く）。
       const reason = toMessage(e2, '');
       const message = /お試しください/.test(reason) ? reason : `${reason}もう一度お試しください。`;
@@ -122,12 +147,17 @@ export default function PhotoToTextButton({ onText, disabled = false, style }) {
         onClick={pick}
         disabled={loading || disabled}
         style={{ ...baseStyle, ...style, ...(loading || disabled ? offStyle : { opacity: 1 }) }}
-        aria-label={loading ? '読み取り中…' : '写真から書き起こす（ページの文章をメモに入れる）'}
+        aria-label={loading ? '読み取り中…' : `写真から書き起こす（ページの文章をメモに入れる${hint ? `・${hint.join('')}` : ''}）`}
         aria-busy={loading || undefined}
       >
         <ScanText size={16} aria-hidden="true" />
         {loading ? '読み取り中…' : '写真から書き起こす'}
       </button>
+      {hint && !loading && !failure && (
+        <p style={hintStyle} aria-hidden="true">
+          {hint.map((part) => <span key={part} style={{ whiteSpace: 'nowrap' }}>{part}</span>)}
+        </p>
+      )}
       <input
         ref={inputRef}
         type="file"

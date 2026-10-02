@@ -4,3 +4,5 @@ export const AI_TOKEN_JPY = 0.3;
 export const FREE_TOKENS = 30;
 export const TRIAL_TOKENS = 150;
 export const PAID_TOKENS = 800;
+// 📷 無料プランの写真から書き起こし（1 か月の回数・2026-10-02）。api/_aiAccess.js の AI_FREE_OCR_PER_MONTH の既定と揃える。
+export const FREE_OCR_PER_MONTH = 10;

@@ -382,6 +382,8 @@ function aiReply(store, payload, aiMode = '') {
     ].filter(Boolean).join('\n\n');
     return brainAnswer(store, q[1], block, aiMode, parseThread(userText), parseVoice(userText), decide, userText.includes('===== BOOK_LOOKUP ====='));
   }
+  // 📷 写真から書き起こし（本番と同じく、本文だけを返す）。
+  if (payload.purpose === 'ocr') return '成果を上げるには、まず自分の時間がどこに使われているかを知ることから始めなければならない。';
   const system = textOf(payload.system);
   // AI 選書: ヒアリング（1 周だけ質問を出し、2 周目で締める）と、おすすめ（本番と同じ JSON ブロック）
   if (system.includes('ヒアリング設計担当')) {
@@ -523,6 +525,18 @@ export function installDemoFetch(store) {
       const nextFirst = `${(jstNow.getUTCMonth() + 1) % 12 + 1}\u2060月\u20601\u2060日`;
       const sub = store.table('subscriptions').find((r) => r.status === 'active');
       const tier = !sub ? 'free' : (sub.period_type === 'trial' || sub.period_type === 'intro') ? 'trial' : 'paid';
+      // 📷 無料プランの写真から書き起こし: 相談のトークンとは別に、毎月 10 回（'freeocr-YYYY-MM' の calls・2026-10-02）。
+      if (tier === 'free' && payload.purpose === 'ocr') {
+        const rows = store.table('ai_usage');
+        let row = rows.find((r) => r.period_month === `freeocr-${month}`);
+        if (!row) { row = { user_id: store.session?.user?.id, period_month: `freeocr-${month}`, calls: 0, cost_mjpy: 0 }; rows.push(row); }
+        if (row.calls >= 10) {
+          return json({ error: { message: `今月の写真から書き起こしは、ここまでです。${nextFirst}に 10 回に戻ります。` }, error_code: 'free_ocr_limit_reached' }, 402);
+        }
+        row.calls += 1;
+        await wait(900, signal);
+        return json({ content: [{ type: 'text', text: aiReply(store, payload, aiMode) }], stop_reason: 'end_turn' });
+      }
       if (tier === 'free' && payload.purpose !== 'consult') {
         return json({ error: { message: 'この AI 機能は、プランでご利用いただけます。' }, error_code: 'plan_required' }, 402);
       }
