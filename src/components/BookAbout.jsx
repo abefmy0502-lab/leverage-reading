@@ -161,9 +161,12 @@ export function BookAboutSkeleton({ style }) {
  */
 export function BookAboutFoldSkeleton({ style }) {
   return (
-    <div aria-busy="true" aria-label="この本について（読み込み中）" style={{ ...foldStyle, ...foldSummary, cursor: 'default', ...style }}>
-      この本について
-      <SkeletonBlock width={64} height={12} radius="var(--radius-full)" style={{ marginRight: 'var(--space-1)' }} />
+    // 本物と同じ 2 段（外側＝枠の foldStyle・内側＝48 の行の foldSummary）にして、高さを本物とそろえる。
+    <div role="status" aria-busy="true" style={{ ...foldStyle, ...style }}>
+      <div style={{ ...foldSummary, cursor: 'default' }}>
+        この本について
+        <SkeletonBlock width={64} height={12} radius="var(--radius-full)" style={{ marginRight: 'var(--space-1)' }} />
+      </div>
     </div>
   );
 }
