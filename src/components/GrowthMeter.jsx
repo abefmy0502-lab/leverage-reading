@@ -5,6 +5,7 @@
 // 見た目は相談の答えの下の「あなたのメモ N 件から答えました」と同じ（芽のアイコン 16・--text-3 ＋ 13/--text-2）。
 import { Sprout } from 'lucide-react';
 import { growthMeterText } from '../lib/firstDay';
+import { withPhraseBreaks } from './TightBubble';
 
 export default function GrowthMeter({ memoCount, style }) {
   const text = growthMeterText(memoCount);
@@ -22,7 +23,8 @@ export default function GrowthMeter({ memoCount, style }) {
       <span style={{ display: 'inline-flex', alignItems: 'center', height: '1.5em', flexShrink: 0 }}>
         <Sprout size={16} aria-hidden="true" style={{ color: 'var(--text-3)' }} />
       </span>
-      <span style={{ minWidth: 0 }}>{text}</span>
+      {/* 文節の切れ目でだけ折り返す（BudouX の <wbr>＋keep-all・iOS の Safari は auto-phrase を知らない）。 */}
+      <span style={{ minWidth: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(text)}</span>
     </p>
   );
 }

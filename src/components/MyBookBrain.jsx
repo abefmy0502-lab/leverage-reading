@@ -1717,7 +1717,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           : (ownMemoTotal > 0 ? <><span style={{ whiteSpace: 'nowrap' }}>あなたのメモ {ownMemoTotal} 件</span>{answerVerb}</> : '読んだ本のメモを根拠に答えます')}
         {/* メモが 1〜9 件の間は、答えがメモとともに深くなることを一行で（点数・バッジにしない・2026-10-02）。 */}
         {!headCountPending && growthLine && (
-          <span style={{ display: 'block', textIndent: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums' }}>{growthLine}</span>
+          <span style={{ display: 'block', textIndent: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(growthLine)}</span>
         )}
         {/* 残りのトークン（無料・有料は今月・無料期間は期間まるごと）。管理者・読めないときは出さない。 */}
         {tokensRemaining != null && (
@@ -3021,9 +3021,10 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
         <Sprout size={16} aria-hidden="true" style={{ color: 'var(--text-3)' }} />
       </span>
       <span style={{ minWidth: 0 }}>
-        {evidence && <span style={{ display: 'block' }}>{evidence}</span>}
+        {/* 文節の切れ目でだけ折り返す（「いちば／ん古いのは」のように語の途中で割らない・2026-10-02 ui-critic）。 */}
+        {evidence && <span style={{ display: 'block', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(evidence)}</span>}
         {/* 前の相談から増えたメモ（事実だけ・点数やバッジにしない）。数字は等幅。 */}
-        {growth && <span style={{ display: 'block', fontVariantNumeric: 'tabular-nums' }}>{growth}</span>}
+        {growth && <span style={{ display: 'block', fontVariantNumeric: 'tabular-nums', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(growth)}</span>}
       </span>
     </div>
   ) : null);
