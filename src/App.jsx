@@ -697,6 +697,9 @@ function AuthedApp() {
   //   ふだんのメモのシートを写真の形で開かないように）。
   const [ocrIntentAt, setOcrIntentAt] = useState(null);
   const ocrIntentActive = ocrIntentAt != null && Date.now() - ocrIntentAt < 15 * 60 * 1000;
+  // 最初のメモを保存したあとも、その本の詳細の「この本に相談する」は「相談してみる」と同じ道にする（知らせは 10 秒で消えるので・
+  //   2026-10-02 ui-critic）。{ bookId, at } | null・15 分か、使ったら消える。
+  const [ocrBridge, setOcrBridge] = useState(null);
 
   // 下部ナビでタブを切り替えるときの共通処理。同一セッション内で前回見ていた
   // サブタブが状態に残っていても、入口を「振り返り＝ノート / 相談＝マイ読書脳」に
@@ -733,6 +736,12 @@ function AuthedApp() {
     track('try_consult', { from });
     setAskPreset({ question, nonce: Date.now(), draft: true, from: 'firstDay' });
     setView('list'); setAiSubTab('brain'); setTab('ai');
+  };
+  // 📷 本のページを撮る → 最初のメモ → 「相談してみる」（知らせ・この本に相談する のどちらからでも）。
+  const ocrBridgeActiveFor = (bookId) => !!bookId && (ocrIntentActive || (ocrBridge?.bookId === bookId && Date.now() - ocrBridge.at < 15 * 60 * 1000));
+  const openOcrConsult = (book) => {
+    setOcrBridge(null);
+    openConsultDraft(firstConsultQuestion({ books: [book, ...books.filter((b) => b.id !== book.id)], memoBookIds: new Set([book.id]) }), 'ocr');
   };
   // 🔎 すべての本の検索から「相談で探す」: 相談を開いて入力欄に問いを入れるだけ（送らない＝トークンは送ったときだけ・2026-09-30）。
   const openConsultSearch = (q) => {
@@ -4030,6 +4039,8 @@ function AuthedApp() {
                     <button
                       type="button"
                       onClick={() => {
+                        // 本のページを撮る（初回ガイド）から来た本は、「相談してみる」と同じ（自分のメモから作った相談を入れて開く）。
+                        if (ocrBridgeActiveFor(current.id)) { openOcrConsult(current); return; }
                         setScopePreset({ bookIds: [current.id], nonce: Date.now() });
                         setView('list');
                         setAiSubTab('brain');
@@ -4309,6 +4320,7 @@ function AuthedApp() {
                 const fromOcrPath = ocrIntentActive && !!result;
                 if (fromOcrPath) {
                   setOcrIntentAt(null);
+                  if (current?.id) setOcrBridge({ bookId: current.id, at: Date.now() });
                   if (takeOnboardPathDone('ocr')) track('onboard_path_done', { path: 'ocr', photo: !!payload?.fromPhoto });
                 }
                 // 保存確定の手応え（カード式エディタ経由と体験を揃える）。
@@ -4330,7 +4342,7 @@ function AuthedApp() {
                     duration: 10000,
                     action: {
                       label: '相談してみる',
-                      onClick: () => openConsultDraft(firstConsultQuestion({ books: [book, ...books.filter((b) => b.id !== book.id)], memoBookIds: new Set([book.id]) }), 'ocr'),
+                      onClick: () => openOcrConsult(book),
                     },
                   });
                 } else if (actionText && current?.id) {
