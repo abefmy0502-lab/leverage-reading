@@ -472,7 +472,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
                   title="検索できませんでした"
                   description="通信環境を確認して、もう一度お試しください。"
                   actions={[
-                    { label: 'もう一度', onClick: () => runSearch(searched) },
+                    // やり直しは上の「検索」が受け持つ（同じ操作のボタンを 2 か所に出さない・本を追加とそろえる）。
                     // 検索が落ちていても先へ進めるように（書名だけでも相談相手にできる）。
                     ...(searched ? [{
                       label: titlePicked ? '追加しました' : '書名だけで追加',
