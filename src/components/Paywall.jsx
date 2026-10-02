@@ -148,7 +148,12 @@ function PlanCompare({ onlyPlan = false, trial = '', example = TOKEN_EXAMPLE }) 
           </p>
         </div>
       ))}
-      <p style={{ ...metaText, padding: 'var(--space-2) var(--space-4) var(--space-3)', borderTop: '1px solid var(--separator)' }}>{example}</p>
+      <p style={{ ...metaText, padding: 'var(--space-2) var(--space-4) var(--space-3)', borderTop: '1px solid var(--separator)' }}>
+        {/* 折り返すのは「・」の後だけ（「トー／クン」のように語の途中で割れないよう、まとまりごとに nowrap）。 */}
+        {example.split('・').map((part, i, all) => (
+          <span key={part} style={{ whiteSpace: 'nowrap' }}>{part}{i < all.length - 1 ? '・' : ''}</span>
+        ))}
+      </p>
     </section>
   );
 }
