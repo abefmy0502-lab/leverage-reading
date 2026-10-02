@@ -59,9 +59,9 @@ const paraStyle = {
 };
 // 読書計画シートの「目次が手に入らないため、章の名前は挙げていません。」は AI の本文ではなく注記として
 // 13/--text-3 で見せる（文がそのままのときだけ・言い換えられていれば本文のまま・2026-10-02 ui-critic）。
-const noteParaStyle = { fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, margin: 'var(--space-2) 0' };
+const noteParaStyle = { fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, margin: 'var(--space-2) 0', wordBreak: 'keep-all', overflowWrap: 'anywhere' };
 function renderPara(text, key) {
-  if (String(text || '').trim() === PLAN_NO_TOC_LINE) return <p key={key} style={noteParaStyle}>{PLAN_NO_TOC_LINE}</p>;
+  if (String(text || '').trim() === PLAN_NO_TOC_LINE) return <p key={key} style={noteParaStyle}>{withPhraseBreaks(PLAN_NO_TOC_LINE)}</p>;
   return <p key={key} style={paraStyle}>{renderInline(text)}</p>;
 }
 const listStyle = {

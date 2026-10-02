@@ -9,8 +9,9 @@ describe('MarkdownSections の注記', () => {
     const html = renderToStaticMarkup(
       <MarkdownSections flat text={`## 📍 重点的に読む箇所（20%）\n${PLAN_NO_TOC_LINE}\n本文の段落です。\n- 箇条`} />,
     );
-    expect(html).toMatch(new RegExp(`<p style="[^"]*font-size:var\\(--text-meta\\)[^"]*color:var\\(--text-3\\)[^"]*">${PLAN_NO_TOC_LINE}</p>`));
-    const body = html.split(PLAN_NO_TOC_LINE)[1] || '';
+    const plain = html.replace(/<wbr\s*\/?>/g, '');
+    expect(plain).toMatch(new RegExp(`<p style="[^"]*font-size:var\\(--text-meta\\)[^"]*color:var\\(--text-3\\)[^"]*word-break:keep-all[^"]*">${PLAN_NO_TOC_LINE}</p>`));
+    const body = plain.split(PLAN_NO_TOC_LINE)[1] || '';
     expect(body).toMatch(/<p style="[^"]*font-family:var\(--font-read\)/);
     expect(body.replace(/<[^>]+>/g, '')).toContain('本文の段落です。');
   });
