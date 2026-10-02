@@ -48,7 +48,8 @@ describe('1 回の目安（TOKEN_COSTS）は、ふつうの大きさの実際の
   const cases = [
     ['consult', H, { input_tokens: 11500, cache_read_input_tokens: 1800, output_tokens: 800 }],
     ['consultPerBook', H, { input_tokens: 12500, cache_read_input_tokens: 2200, output_tokens: 1300 }],
-    ['setupSheet', H, { input_tokens: 3500, output_tokens: 1300 }],
+    // 2026-10-02: 本の紹介と目次（最大 約 1,400 トークン）を足した大きさ。
+    ['setupSheet', H, { input_tokens: 4900, output_tokens: 1300 }],
     ['photoToText', H, { input_tokens: 2000, cache_read_input_tokens: 300, output_tokens: 350 }],
     ['cardsToSummary', H, { input_tokens: 2500, cache_read_input_tokens: 300, output_tokens: 500 }],
   ];

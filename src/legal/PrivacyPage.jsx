@@ -13,7 +13,7 @@ export default function PrivacyPage() {
       title="プライバシーポリシー"
       description="Orime のプライバシーポリシー。取得情報・利用目的・委託先・国外移転・AI 連携・データ保管について。"
     >
-      <p className="effective-date">最終更新日:2026年10月1日</p>
+      <p className="effective-date">最終更新日:2026年10月2日</p>
       <p className="effective-date">施行日:2026年5月3日</p>
 
       <p>
@@ -126,7 +126,7 @@ export default function PrivacyPage() {
           <ul>
             <li><strong>相談:</strong> 質問と、答えの根拠にするメモ・本の情報(書名・著者・評価・読書計画シートの内容等)・行動の記録・これまでの相談 → Anthropic(Claude)</li>
             <li><strong>AI 選書:</strong> 相談内容と質問への回答・本棚の傾向(読んだ本・評価) → おすすめの本は Anthropic(Claude)、途中の質問づくりは Google(Gemini)</li>
-            <li><strong>読書計画シート(作る・直す):</strong> 書名・著者・この本から得たいこと・よく使うタグ・今のシートと直したい点 → Google(Gemini)</li>
+            <li><strong>読書計画シート(作る・直す):</strong> 書名・著者・この本から得たいこと・よく使うタグ・今のシートと直したい点(あわせて、出版社・書店が公開しているその本の紹介文と目次) → Google(Gemini)</li>
             <li><strong>メモの凝縮・メモからまとめ:</strong> そのメモの本文(まとめは書名とその本のメモ) → Google(Gemini)</li>
             <li><strong>写真から書き起こし:</strong> 撮った本のページの写真 → Google(Gemini)。写真を AI 事業者に送るのは、この機能だけです。</li>
           </ul>

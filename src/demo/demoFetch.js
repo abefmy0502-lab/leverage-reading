@@ -3,7 +3,7 @@
 // マイ読書脳だけは、実際に入っているメモから質問に近いものを選んで
 // 本番と同じ書式（【結論】…REFS_START/END）で答えるので、画面の流れを確かめられる。
 
-import { SEARCH_CATALOG } from './seed';
+import { SEARCH_CATALOG, DEMO_BOOK_INFO } from './seed';
 import { demoServerSearch, demoNdlXml } from './demoBookSearch';
 import { questionGist } from '../lib/consultHelpers';
 
@@ -367,6 +367,49 @@ function perBookBrokenAnswer(block, decide = false) {
   ].join('\n');
 }
 
+// お試しの読書計画シート。目次があればその項目名を「」で引き、無ければ章の名前を挙げない（本番の指示文と同じ決まり）。
+function planSheetAnswer(userText) {
+  const about = (userText.match(/===== 本の紹介（[^）]*） =====\n([\s\S]*?)\n===== 本の紹介ここまで/) || [])[1] || '';
+  const toc = ((userText.match(/===== 目次（データ） =====\n([\s\S]*?)\n===== 目次ここまで/) || [])[1] || '')
+    .split('\n').map((l) => l.replace(/^- /, '').trim()).filter(Boolean);
+  const purpose = ((userText.match(/得たいこと: (.+)/) || [])[1] || '').trim();
+  const pick = (re) => toc.find((l) => re.test(l));
+  const focus = [pick(/資産/), pick(/シナリオ/), pick(/ステージ/)].filter(Boolean).slice(0, 3);
+  const skim = [pick(/資金計画/), pick(/雇用/)].filter(Boolean).slice(0, 2);
+  // 概要は紹介文の写しではなく、著者のいちばんの主張を 1〜2 行（本番の指示文と同じ）。紹介も目次も無ければ節ごと出さない。
+  return [
+    ...(about || toc.length
+      ? ['## 📖 この本の概要', '長く生きる時代には、お金より「見えない資産」を育て、人生のステージを自分で組み替えることが要になる——というのが著者の主張です。', '']
+      : []),
+    '## 🎯 読み方の戦略',
+    `- ${purpose ? `「${purpose}」に引きつけて読む` : '自分の働き方に引きつけて読む'}`,
+    '- 自分の「見えない資産」を書き出しながら読む',
+    '- 次のステージの候補を1つ決めて読み終える',
+    '',
+    '## 📍 重点的に読む箇所（20%）',
+    ...(toc.length
+      ? (focus.length ? focus : toc.slice(1, 3)).map((l) => `- 『${l}』: 得たいことにいちばん近い章`)
+      : ['目次が手に入らないため、章の名前は挙げていません。', '- 人生の段階の分け方を説明している部分', '- 具体的な人物の例が出てくる部分']),
+    '',
+    '## ⏩ 流し読みでOKな箇所',
+    ...(toc.length && skim.length ? skim.map((l) => `- 『${l}』: 数字の細部は流してよい`) : ['- 統計や数字の細部']),
+    '',
+    '## ❓ 注意点・落とし穴',
+    '- 海外の事例は、日本の制度に置き換えて読む',
+    '',
+    '## 💡 期待される変化',
+    '- 5年後の働き方を1行で書ける',
+    '- 学び直しの時間を予定に入れる',
+    '- 人間関係に使う時間を見直す',
+    '',
+    '## 📚 関連書籍',
+    '### 1. 『GRIT やり抜く力』- アンジェラ・ダックワース',
+    '長いステージを走り切る粘り強さを、習慣として育てる考え方が補えます。',
+    '### 2. 『思考の整理学』- 外山滋比古',
+    '学び直しの時間を、自分の考えにまとめる力につなげられます。',
+  ].join('\n');
+}
+
 function aiReply(store, payload, aiMode = '') {
   const last = [...(payload.messages || [])].reverse().find((m) => m.role === 'user');
   const userText = textOf(last?.content);
@@ -425,6 +468,8 @@ function aiReply(store, payload, aiMode = '') {
       '## 💬 まとめ', '一冊ずつ、明日できる一歩に変えていきましょう。',
     ].join('\n');
   }
+  // 📖 読書計画シート（2026-10-02）: 本番と同じく、渡された「本の紹介」「目次」だけから概要と重点箇所を書く。
+  if (system.includes('『読書計画シート』を作成')) return planSheetAnswer(userText);
   return [
     '## 💡 お試しモードの応答',
     'これはお試しモードの仮の応答です。本番では、ここに AI の回答が表示されます。',
@@ -614,6 +659,18 @@ export function installDemoFetch(store) {
       // 見本の本の一覧にある本は「実在する」と答える（AI 選書の実在確認で全部が疑わしく見えないように）。
       const params = (() => { try { return new URL(url, window.location.origin).searchParams; } catch { return new URLSearchParams(); } })();
       const title = params.get('title') || '';
+      // 📖 この本について（?info=1・2026-10-02）: 見本の紹介文と目次。&info=none＝どの本も見つからない／&info=slow＝3 秒待つ。
+      if (params.get('info') === '1') {
+        const mode = new URLSearchParams(window.location.search).get('info');
+        if (mode === 'slow') await new Promise((r) => setTimeout(r, 3000));
+        //   &info=toconly＝目次だけ（楽天の商品説明の【目次】から）／&info=mixed＝紹介は出版社・目次は楽天（取得元が違う）。
+        const base = DEMO_BOOK_INFO[params.get('isbn') || ''];
+        const sampleToc = ['第1章 変化に気づく', '第2章 古いチーズを手放す', '第3章 新しいチーズを探す', '第4章 変化を楽しむ'];
+        let hit = mode === 'none' ? null : base;
+        if (base && mode === 'toconly') hit = { ...base, description: '', source: '', toc: base.toc.length ? base.toc : sampleToc, tocSource: 'rakuten' };
+        if (base && mode === 'mixed') hit = { ...base, source: 'openbd', toc: base.toc.length ? base.toc : sampleToc, tocSource: 'rakuten' };
+        return json(hit || { description: '', toc: [], source: '', tocSource: '', pages: 0, pubdate: '', isbn: params.get('isbn') || '' });
+      }
       // 実在の判定（?verify=1）は本番と同じく書名がまるごと同じ本だけを「実在」にする（2026-09-30）。
       if (params.get('verify') === '1') {
         // &verify=down: 検索元がどれも答えない（「確認できませんでした」の確認用）。

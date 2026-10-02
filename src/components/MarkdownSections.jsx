@@ -15,6 +15,7 @@ import {
 } from '../lib/amazonLink';
 import { groupTitle } from '../styles/ui';
 import { withPhraseBreaks } from './TightBubble';
+import { PLAN_NO_TOC_LINE } from '../lib/prompts';
 
 // minWidth:0 が肝。flex column の子は既定 min-width:auto なので、中に幅広な
 // 要素（Markdown 表など）があると縮まずページ全体を横にはみ出させる（横スクロール）。
@@ -56,6 +57,13 @@ const paraStyle = {
   // 文節の切れ目でだけ折り返す（BudouX の <wbr>＋keep-all。iOS の Safari は auto-phrase を知らない・2026-09-30）。
   wordBreak: 'keep-all',
 };
+// 読書計画シートの「目次が手に入らないため、章の名前は挙げていません。」は AI の本文ではなく注記として
+// 13/--text-3 で見せる（文がそのままのときだけ・言い換えられていれば本文のまま・2026-10-02 ui-critic）。
+const noteParaStyle = { fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, margin: 'var(--space-2) 0', wordBreak: 'keep-all', overflowWrap: 'anywhere' };
+function renderPara(text, key) {
+  if (String(text || '').trim() === PLAN_NO_TOC_LINE) return <p key={key} style={noteParaStyle}>{withPhraseBreaks(PLAN_NO_TOC_LINE)}</p>;
+  return <p key={key} style={paraStyle}>{renderInline(text)}</p>;
+}
 const listStyle = {
   fontFamily: 'var(--font-read)',
   fontSize: 'var(--text-read)',
@@ -85,7 +93,8 @@ function stripLeadingEmoji(text) {
 }
 // flat: 本の詳細の畳み（<details>）の中など、すでに面の上にあるときの見た目。
 // 区画に面・枠・内側の余白を付けず、見出しは ui.js の groupTitle と同じ小見出しにする。
-const flatWrap = { ...wrap, gap: 'var(--space-4)' };
+// 区画（見出し＋中身）の間は 24（区画の中の箇条の間 8 より広く＝まとまりが分かる・DESIGN §1・2026-10-02 ui-critic）。
+const flatWrap = { ...wrap, gap: 'var(--space-6)' };
 const flatSectionStyle = { minWidth: 0, maxWidth: '100%' };
 const flatHeadingStyle = { ...groupTitle, margin: '0 0 var(--space-2)', lineHeight: 1.4, overflowWrap: 'anywhere' };
 
@@ -313,7 +322,7 @@ function renderLines(lines, opts) {
           </ol>,
         );
       } else {
-        out.push(<p key={i} style={paraStyle}>{renderInline(b.text)}</p>);
+        out.push(renderPara(b.text, i));
       }
     });
     flushPending('end');
@@ -347,7 +356,7 @@ function renderLines(lines, opts) {
         </ol>
       );
     }
-    return <p key={i} style={paraStyle}>{renderInline(b.text)}</p>;
+    return renderPara(b.text, i);
   });
 }
 
@@ -512,7 +521,7 @@ function MarkdownSections({ text, density = 'normal', flat = false, onAddRelated
         const styles = flat ? flatSectionStyle : sectionStyle;
         const related = onAddRelatedBook && isRelatedBooksHeading(s.heading);
         return (
-          <section key={i} className="long-text md-section" style={styles}>
+          <section key={i} className={flat ? 'long-text md-section md-section--flat' : 'long-text md-section'} style={styles}>
             {s.heading && <h3 style={flat ? flatHeadingStyle : headingStyle}>{stripLeadingEmoji(s.heading)}</h3>}
             {renderLines(s.lines, related ? { relatedBooks: true, onAddRelatedBook, addingTitles } : undefined)}
             {related && (

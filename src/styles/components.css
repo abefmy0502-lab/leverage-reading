@@ -1462,3 +1462,6 @@ details[open] > summary .fold-chevron { transform: rotate(180deg); }
 
 /* AI の答え・計画シートのカード: 最後の要素の下の余白を 0 にして、カードの上下の内側余白をそろえる。 */
 .md-section > :last-child { margin-bottom: 0 !important; }
+/* 畳みの中（flat）の箇条の間は 12（一覧の gap 8＋ここの 4）。.long-text の li + li の 8 を足すと 16 になり、
+   区画の間（24）との差が小さくなっていた（2026-10-02 ui-critic）。 */
+.md-section--flat li + li { margin-top: var(--space-1); }

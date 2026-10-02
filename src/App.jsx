@@ -183,6 +183,9 @@ import {
   Tag as IcTag,
 } from 'lucide-react';
 import { useBookMemos } from './hooks/useBookMemos';
+import { useBookInfo } from './hooks/useBookInfo';
+import BookAbout from './components/BookAbout';
+import { loadBookInfo, bookInfoForPrompt, hasBookInfo } from './lib/bookInfo';
 // 🔎 すべての本の検索（書名・著者・タグ＋メモの言葉・2026-09-30）
 import { useLibrarySearch } from './hooks/useLibrarySearch';
 import { LibrarySearchResults, ConsultSearchLink, LibrarySearchHitSkeleton } from './components/LibrarySearchHit';
@@ -2779,25 +2782,38 @@ function AuthedApp() {
     });
   };
   // 読書計画シートを AI で書く（編集画面の「作る」と、本の詳細の「読書計画シートを作る」で共通）。
-  const streamSetupSheet = (src, onChunk) => streamClaude({
-    system: PROMPTS.setupSheet.system,
-    cacheSystem: true,
-    messages: [{
-      role: 'user',
-      content: PROMPTS.setupSheet.user({
-        title: clamp(sanitizeForPrompt(src.title || ''), LIMITS.bookTitle),
-        author: clamp(sanitizeForPrompt(src.author || ''), LIMITS.bookAuthor),
-        analysis: clamp(sanitizeForPrompt(src.aiAnalysis || ''), LIMITS.memoText),
-        purpose: clamp(sanitizeForPrompt(src.investPurpose || ''), LIMITS.memoText),
-        topTags: allTags.slice(0, 3),
-      }),
-    }],
-    // 読書計画シートは「各節 3 行・900 字以内」（prompts.setupSheet）。2048 → 1600（2026-09-27）
-    max_tokens: 1600,
-    model: MODEL_SMART,
-    purpose: 'setup_sheet', // サーバーが用途ごとに安いモデルへ（docs/ai-routing.md・失敗したら Claude）
-    onChunk,
-  });
+  // 📖 材料に本の紹介文と目次（出版社・書店が公開している文・lib/bookInfo.js）を添える（2026-10-02）。
+  //   本の事実は紹介と目次からだけ書かせる（章の名前を作らせない）。本の詳細で読んでいれば控えから即座に。
+  //   取れない・6 秒待っても来ないときは無しで作る（紹介・目次が無い前提の書き方になる）。
+  const streamSetupSheet = async (src, onChunk) => {
+    const info = await Promise.race([
+      loadBookInfo(src).catch(() => null),
+      new Promise((resolve) => { setTimeout(() => resolve(null), 6000); }),
+    ]);
+    const { about, aboutSource, toc } = bookInfoForPrompt(info);
+    return streamClaude({
+      system: PROMPTS.setupSheet.system,
+      cacheSystem: true,
+      messages: [{
+        role: 'user',
+        content: PROMPTS.setupSheet.user({
+          title: clamp(sanitizeForPrompt(src.title || ''), LIMITS.bookTitle),
+          author: clamp(sanitizeForPrompt(src.author || ''), LIMITS.bookAuthor),
+          analysis: clamp(sanitizeForPrompt(src.aiAnalysis || ''), LIMITS.memoText),
+          purpose: clamp(sanitizeForPrompt(src.investPurpose || ''), LIMITS.memoText),
+          topTags: allTags.slice(0, 3),
+          about: sanitizeForPrompt(about),
+          aboutSource,
+          toc: toc.map((l) => sanitizeForPrompt(l)).filter(Boolean),
+        }),
+      }],
+      // 読書計画シートは「各節 3 行・1,000 字以内」（prompts.setupSheet）。2048 → 1600（2026-09-27）
+      max_tokens: 1600,
+      model: MODEL_SMART,
+      purpose: 'setup_sheet', // サーバーが用途ごとに安いモデルへ（docs/ai-routing.md・失敗したら Claude）
+      onChunk,
+    });
+  };
   // 読書計画シートの「関連書籍」を書誌で確かめ、見つからない本を消す（安いモデルで作るため・lib/planRelatedBooks.js）。
   // 確かめている間は「読みたい」ボタンを出さない（aiLoading / planGen のまま）。
   const checkPlanBooks = async (sheet) => {
@@ -2843,6 +2859,10 @@ function AuthedApp() {
   const [planGen, setPlanGen] = useState(null); // { bookId, text } 作っている間だけ
   // その場で作り終えた本の id。できたシートを開いたまま見せる（作ったのに畳まれて見えない、をなくす）。
   const [justMadePlanId, setJustMadePlanId] = useState(null);
+  // 📖 この本について（出版社・書店の紹介文と目次・AI なし・lib/bookInfo.js・2026-10-02）。
+  //   読みたい・積読は書名の下のカード、読書中は下の畳む見出し。読了では出さない（取りにも行かない）。
+  const bookAboutShown = view === 'detail' && ['want', 'before', 'reading'].includes(current?.status);
+  const bookAbout = useBookInfo(current, { enabled: bookAboutShown });
   const runStrategyInPlace = async (book) => {
     if (!book?.id || planGen) return;
     const src = buildFormFromBook(book); // 得たいことが空なら AI 選書の入力で埋まる（編集画面と同じ）
@@ -3697,6 +3717,11 @@ function AuthedApp() {
       current.status === 'want' && current.bookReason && { label: 'AI の選書理由', text: current.bookReason },
     ].filter(Boolean);
     const hasPlanFold = planItems.length > 0 || !!current.aiStrategy;
+    // 読書中の「この本について」の畳む見出し（紹介か目次が見つかった本だけ）。
+    // 読み込み中は同じ形の骨組みの行（読み込んで何も無ければ消える）。
+    const aboutFoldShown = current.status === 'reading' && (hasBookInfo(bookAbout.info) || bookAbout.loading);
+    // 読みたいと、まだ何も書いていない積読はカード。課題・仮説・シートがある積読は畳む見出し（2026-10-02 ui-critic）。
+    const aboutAsCard = current.status === 'want' || (current.status === 'before' && !hasPlanFold);
     // 読書中・読了の画面の下で、直前が「行動」「一番の収穫」なら 24、畳む見出しが続くなら 12。
     const visibleActionCount = (current.actions || []).filter((a) => a.text?.trim() && !isScheduledLater(a)).length;
     const hasHarvestBlock = !!current.roiSummary || (current.status === 'done' && !(current.roiSummary || '').trim());
@@ -3800,6 +3825,13 @@ function AuthedApp() {
     const planBlock = (
       <>
           {/* 積読の「読書計画シートを作る」は、得たいこと・課題・仮説のカードの下（planCta を後ろで出す）。 */}
+          {/* 📖 この本について（読みたい・まだ何も書いていない積読）: 出版社・書店の紹介文 3 行＋目次（畳む）。
+              見つからない本は出さない。読む前に概要を掴んでから、得たいこと・読書計画へ（SPEC §2・2026-10-02）。
+              課題・仮説・シートがある積読は、カードの下の畳む見出しにする（主ボタン「読書を開始する」を最初の画面に残す）。 */}
+          {aboutAsCard && (
+            <BookAbout info={bookAbout.info} loading={bookAbout.loading} variant="card" style={{ marginTop: 'var(--space-6)' }} />
+          )}
+
           {current.status !== 'before' && planCta}
 
           {/* Phase-specific content */}
@@ -3850,6 +3882,10 @@ function AuthedApp() {
           {!isMemoPhase && hasPlanFold && (
           <section style={{ marginTop: 'var(--space-6)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
           {planItems.map((p) => <Card key={p.label} label={p.label} text={p.text} style={{ marginTop: 0 }} />)}
+          {/* 積読で課題・仮説・シートがあるとき: この本についてはカードの下に畳んで置く（間 12）。 */}
+          {current.status === 'before' && (
+            <BookAbout info={bookAbout.info} loading={bookAbout.loading} variant="fold" />
+          )}
           {current.aiStrategy && (
             // その場で作り終えた直後は開いたまま（key を変えて、開いた状態で置き直す）。
             <details id="plan-sheet-fold" key={justMadePlanId === current.id ? 'plan-made' : 'plan'} open={justMadePlanId === current.id || undefined} style={{ ...detailsStyle, marginTop: 0, scrollMarginTop: 'var(--space-16)' }}>
@@ -3872,9 +3908,14 @@ function AuthedApp() {
 
           {current.status === 'before' && planCta}
 
+          {/* 📖 この本について（読書中）: メモが主役なので、読書計画の下に畳んで置く（SPEC §2・2026-10-02）。 */}
+          {aboutFoldShown && (
+            <BookAbout info={bookAbout.info} loading={bookAbout.loading} variant="fold" style={{ marginTop: hasPlanFold ? 'var(--space-3)' : planFoldTop }} />
+          )}
+
           {/* 「AIで本を解析する」は 2026-09-27 に廃止。以前の結果だけ、別の畳む見出しで残す。 */}
           {current.aiAnalysis && (
-            <details style={{ ...detailsStyle, marginTop: hasPlanFold ? 'var(--space-3)' : (isMemoPhase ? planFoldTop : 'var(--space-3)') }}>
+            <details style={{ ...detailsStyle, marginTop: (hasPlanFold || aboutFoldShown) ? 'var(--space-3)' : (isMemoPhase ? planFoldTop : 'var(--space-3)') }}>
               <summary style={summaryStyle}>
                 以前の AI 解析を見る
                 <ChevronDown size={20} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />

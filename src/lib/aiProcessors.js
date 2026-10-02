@@ -48,7 +48,9 @@ export const AI_FEATURES = [
   {
     id: 'setup_sheet',
     name: '読書計画シート',
-    sends: '書名・著者・得たいこと・タグ・直してほしいこと',
+    // 2026-10-02: 本の紹介と目次（出版社・書店が公開している書誌・lib/bookInfo.js）も添える。利用者のデータではなく
+    // 公開の情報で、送り先（Google）も変わらないので AI_CONSENT_VERSION は上げない（版は会社と用途の組み合わせで決まる）。
+    sends: '書名・著者・得たいこと・タグ・本の紹介と目次・直してほしいこと',
     purposes: ['setup_sheet', 'setup_sheet_edit'],
   },
   {
