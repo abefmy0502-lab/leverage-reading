@@ -7,7 +7,8 @@ import {
   tokensFromMjpy, noInfoRefundEligible, noInfoRefundLimit, refundPeriodKey,
 } from './_aiAccess.js';
 import { lotBalance, effectiveAllowance, shouldSettleOverflow } from './_tokenLots.js';
-import { resolveRoute } from './_aiRouting.js';
+import { resolveRoute, isJevPurpose } from './_aiRouting.js';
+import { handleJevRelay } from './_jevRelay.js';
 import { openRoute, ProviderError } from './_providers.js';
 
 // 応答の前に、精算（adjust_ai_cost / settle_token_overflow）・回数の払い戻しを待つ上限。
@@ -627,6 +628,29 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Unauthorized: invalid token' });
   }
   const userId = userData.user.id;
+
+  // 🧭 Jev（文を書かない判断のモデル・TypeSafe AI）への短い道（2026-10-02・api/_jevRelay.js）。
+  //    文を書く AI の分間の上限・トークンとは別に数える（相談 1 回につき 1 回ついてくるので、相談の 10 回/分を食わないように）。
+  //    返事はいつも 200（使えないときは { jev: null, reason }＝アプリはこれまでの決め方で続ける）。
+  if (isJevPurpose(req.body?.purpose)) {
+    const entJ = await checkEntitlement(userId);
+    const tierJ = entJ.admin ? 'admin' : entJ.allowed ? (entJ.trial ? 'trial' : 'paid') : 'free';
+    const jevAbort = new AbortController();
+    try { req.on?.('close', () => jevAbort.abort()); } catch { /* no-op */ }
+    const out = await handleJevRelay({
+      body: req.body,
+      tier: tierJ,
+      consentVersion: consentVersionFrom(req),
+      userId,
+      monthKey: currentPeriodMonth(),
+      signal: jevAbort.signal,
+      deps: {
+        reserveCall: (periodKey, limit) => reserveMonthlyUsage(userId, limit, periodKey),
+        addCost: (periodKey, mjpy) => adjustCost(userId, periodKey, mjpy),
+      },
+    });
+    return res.status(out.status).json(out.body);
+  }
 
   const rl = checkRateLimit(userId);
   if (!rl.ok) {
