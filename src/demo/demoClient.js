@@ -144,7 +144,9 @@ class Query {
     }
     const slow = this.op === 'select' && ((qs.get('load') === 'slow' && ['books', 'book_memos'].includes(this.table))
       || (qs.get('load') === 'chat' && this.table === 'chat_messages')
-      || (qs.get('load') === 'memosearch' && memoSearch));
+      || (qs.get('load') === 'memosearch' && memoSearch)
+      // &load=memocount: ホームのメモの件数（book_memos の head の数え上げ）だけ遅らせる（育つまでの一行の形の確認用・2026-10-02）。
+      || (qs.get('load') === 'memocount' && this.table === 'book_memos' && this.head));
     // &writefail=book_memos: 指定した表への書き込みを失敗させる（保存の失敗の表示の確認用）。
     if (['insert', 'upsert', 'update'].includes(this.op) && (qs.get('writefail') || '').split(',').includes(this.table)) {
       return new Promise((r) => setTimeout(r, 300))

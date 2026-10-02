@@ -9,7 +9,7 @@
 // 「メモ N 件」の数え方は相談・記録と同じ（カード式＋学び＋「この本のまとめ」の入っている本・lib/consultHelpers.js）。
 // 見た目は DESIGN.md のトークンのみ（主ボタンはこの 1 つ）。
 import { useEffect, useMemo, useState } from 'react';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { supabase, isSupabaseConfigured, isDemo } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { useAppDataCache } from '../state/AppDataCache';
 import { peekAllMemoRows } from '../hooks/useAllMemoRows';
@@ -65,6 +65,8 @@ export function useHomeMemoState(books = []) {
   const unknown = cardCount == null && summaryCount === 0 && !!userId && isSupabaseConfigured && bookCount > 0;
   useEffect(() => {
     if (!unknown) return undefined;
+    // お試しモードの &load=memocount（数えている間の形を撮る）では打ち切らない（本番には入らない・isDemo は開発のときだけ）。
+    if (isDemo && new URLSearchParams(window.location.search).get('load') === 'memocount') return undefined;
     const t = setTimeout(() => setTimedOut(true), MEMO_COUNT_WAIT_MS);
     return () => clearTimeout(t);
   }, [unknown]);
