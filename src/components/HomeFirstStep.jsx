@@ -14,7 +14,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useAppDataCache } from '../state/AppDataCache';
 import { peekAllMemoRows } from '../hooks/useAllMemoRows';
 import { countSummaryMemos } from '../lib/consultHelpers';
-import { btnPrimary, card } from '../styles/ui';
+import { btnPrimary, btnLink, card } from '../styles/ui';
 
 // 件数がこれだけ待っても分からなければ「メモあり」として扱う（初回用の案内を、メモのある人に見せない）。
 export const MEMO_COUNT_WAIT_MS = 800;
@@ -79,7 +79,7 @@ export function useHomeMemoState(books = []) {
   return { known: false, hasMemos: true, count: null };
 }
 
-export default function HomeFirstStep({ bookCount = 0, onQuickstart }) {
+export default function HomeFirstStep({ bookCount = 0, onQuickstart, onImport }) {
   if (bookCount === 0 || !onQuickstart) return null;
   return (
     <section aria-labelledby="home-first-step-title" style={card}>
@@ -95,6 +95,13 @@ export default function HomeFirstStep({ bookCount = 0, onQuickstart }) {
       <button type="button" onClick={onQuickstart} style={btnPrimary}>
         読んだ本に一言ずつ残す
       </button>
+      {/* 取り込みは初回ガイドの主な道（2026-10-02 オーナー判断）なので、ここにも脇役の文字ボタンで（本 0 冊のカードと同じ形・
+          文字ボタンの上下の余り（高さ 44）をカードの内側余白と相殺）。開くのは ImportSheet。 */}
+      {onImport && (
+        <div style={{ display: 'flex', justifyContent: 'center', margin: 'var(--space-3) 0 calc(-1 * var(--space-2))' }}>
+          <button type="button" onClick={onImport} style={btnLink}>ほかのアプリから取り込む</button>
+        </div>
+      )}
     </section>
   );
 }
