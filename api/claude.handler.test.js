@@ -553,6 +553,9 @@ describe('無料プランの写真から書き起こし（月 AI_FREE_OCR_PER_MO
     expect(db.rpcArgs.reserve_ai_cost).toBeDefined();
     expect(db.rpcArgs.reserve_ai_usage.p_period_month).toBe(jstMonth());
     expect(db.freeOcr).toBe(0);
+  });
+});
+
 describe('🧭 Jev の短い道（purpose が Jev の用途・api/_jevRelay.js）', () => {
   const jevReq = (headers = {}) => ({
     method: 'POST',
