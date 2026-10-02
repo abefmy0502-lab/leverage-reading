@@ -9,7 +9,7 @@ import { isSchemaError } from '../lib/errors';
 // フリーミアム（2026-09-27〜）: 契約が無くてもアプリは使える（無料プラン）。ここはプランの判定に使う。
 // `isActive = status === 'active'` のみを「有料権利あり」とみなす。
 //   - App Store の Introductory Offer（無料期間）は RevenueCat 経由でも
-//     status='active'（subscriptions.period_type='trial'/'intro' で区別）として
+//     status='active'（subscriptions.period_type='trial' で区別。'intro' は有料の初回価格＝創業メンバー価格）として
 //     届くため、この判定のままトライアル会員も通る。'trialing' という別 status は
 //     使っていない。
 //   - past_due（支払い遅延）を猶予として一時的に許可したい場合は、
