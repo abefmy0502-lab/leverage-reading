@@ -300,17 +300,23 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
   const { suggestions: tagSuggestions, source: tagSource } = useTagSuggestions({ saved, book: thisBook, current: savedRow?.tags || [], books, plan });
   const [dismissedTags, setDismissedTags] = useState(null);
   const [tagBusy, setTagBusy] = useState(null);
+  // 押したらすぐ付いた形にする（楽観的）。保存に失敗したら元に戻して知らせる。{ id, tags } | null
+  const [optimisticTags, setOptimisticTags] = useState(null);
+  const appliedTags = optimisticTags && savedRow && optimisticTags.id === savedRow.id ? optimisticTags.tags : (savedRow?.tags || []);
   const toggleSuggestedTag = async (tag) => {
     if (!savedRow || tagBusy) return;
-    const has = (savedRow.tags || []).includes(tag);
-    const next = has ? savedRow.tags.filter((t) => t !== tag) : [...(savedRow.tags || []), tag];
+    const prev = appliedTags;
+    const has = prev.includes(tag);
+    const next = has ? prev.filter((t) => t !== tag) : [...prev, tag];
+    setOptimisticTags({ id: savedRow.id, tags: next });
     setTagBusy(tag);
+    haptic.light();
     try {
       await updateMemo(savedRow.id, { pageNumber: savedRow.pageNumber, text: savedRow.text, photoFile: null, tags: next, removePhotoFlag: false });
-      haptic.light();
       if (!has) track('tag_suggest_added', { source: tagSource || 'local' });
     } catch (e) {
-      toast.error(toMessage(e, 'タグを付けられませんでした。'));
+      setOptimisticTags({ id: savedRow.id, tags: prev }); // 元に戻す
+      toast.error(toMessage(e, has ? 'タグを外せませんでした。' : 'タグを付けられませんでした。'));
     } finally {
       setTagBusy(null);
     }
@@ -585,7 +591,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
       {showTagSuggest && visibleMemos.length > 0 && (
         <TagSuggest
           suggestions={tagSuggestions}
-          applied={savedRow.tags || []}
+          applied={appliedTags}
           busyTag={tagBusy}
           onToggle={toggleSuggestedTag}
           onDismiss={() => setDismissedTags(saved.nonce)}

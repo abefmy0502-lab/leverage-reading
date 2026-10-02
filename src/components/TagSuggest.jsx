@@ -3,7 +3,7 @@
 // 押すと付く（チップが選んだ形に変わる）・もう一度押すと外す。勝手には付けない。× で閉じる（次に保存するまで出さない）。
 // 見た目はつながるメモ（MemoLinks の 'saved'）と同じカード: 面 --surface・線 --separator・角 12・見出し 13/--text-2・右上に × 44。
 // チップは書く画面のタグ（QuickMemoSheet）と同じ: 付ける前は「＋ タグ」、付けたら「タグ ×」。
-import { Plus, Tag, X } from 'lucide-react';
+import { Loader2, Plus, Tag, X } from 'lucide-react';
 import { Chip } from './formPrimitives';
 import { withPhraseBreaks } from './TightBubble';
 
@@ -16,9 +16,20 @@ const closeBtn = {
   background: 'none', border: 'none', borderRadius: 999, padding: 0, cursor: 'pointer', color: 'var(--text-3)',
 };
 
-// suggestions: [{ tag }] / applied: そのメモにいま付いているタグ / busyTag: 保存中のタグ
+// 保存中のチップの小さな回る印（Spinner.jsx と同じ keyframes・動きを減らす設定では index.css の全体の指定で止まる）。
+const SPIN_ID = '__leverage-spinner-keyframes';
+function ensureSpin() {
+  if (typeof document === 'undefined' || document.getElementById(SPIN_ID)) return;
+  const style = document.createElement('style');
+  style.id = SPIN_ID;
+  style.textContent = '@keyframes leverage-spin { to { transform: rotate(360deg); } }';
+  document.head.appendChild(style);
+}
+
+// suggestions: [{ tag }] / applied: そのメモにいま付いているタグ（押したらすぐ変わる・楽観的）/ busyTag: 保存中のタグ
 export default function TagSuggest({ suggestions, applied = [], busyTag = null, onToggle, onDismiss = null, style = null }) {
   if (!Array.isArray(suggestions) || suggestions.length === 0) return null;
+  ensureSpin();
   const titleId = 'tag-suggest-title';
   return (
     <section
@@ -55,9 +66,11 @@ export default function TagSuggest({ suggestions, applied = [], busyTag = null, 
               // 保存中は押しても何もしない（薄くしない・DESIGN §5 押せないボタン）
               onClick={() => { if (!busyTag) onToggle?.(tag); }}
             >
-              {!on && <Plus size={14} aria-hidden="true" />}
+              {!on && !busy && <Plus size={14} aria-hidden="true" />}
               {tag}
-              {on && <X size={14} aria-hidden="true" />}
+              {on && !busy && <X size={14} aria-hidden="true" />}
+              {/* 保存中: 付け外しの印の場所に小さな回る印（チップの幅は変えない） */}
+              {busy && <Loader2 size={14} aria-hidden="true" style={{ animation: 'leverage-spin 0.9s linear infinite' }} />}
             </Chip>
           );
         })}
