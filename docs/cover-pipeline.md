@@ -1,13 +1,13 @@
 # 表紙の取得 — 流れと、取れない原因（2026-09-30）
 
-「表紙が取得できない」を直すときに、まずここを読む。
+「表紙が取得できない」を直すときに、まずここを読む。本の検索（本を追加の検索欄・`/api/cover?search=`）は `docs/book-search.md`。
 
 ## 1. 流れ（入口 → 解決 → 保存 → 表示）
 
 ```
 入口                                   解決                                  保存・表示
 ────────────────────────────────────  ────────────────────────────────────  ─────────────────────────
-本を追加（検索結果を選ぶ）App.pickBookFromAdd  検索結果の cover（openBD の summary.cover）  books.cover / cover_isbn
+本を追加（検索結果を選ぶ）App.pickBookFromAdd  検索結果の cover（楽天・Google・openBD・2026-10-02〜 book-search.md）  books.cover / cover_isbn
   └ 表紙が無い → findIsbnCandidates → resolveCoverFromCandidates（端末）
 本を手で追加して保存 App.handleSave         findIsbnCandidates → resolveCoverFromCandidates（端末）
 初日クイックスタート / 取り込み / AI 選書 / 関連書籍  resolveCoverInBackground（保存のあと・裏で）
