@@ -536,7 +536,8 @@ export default function QuickMemoSheet({
             <div style={{ minHeight: 0, overflow: 'hidden', padding: 'var(--space-1)', margin: 'calc(-1 * var(--space-1))' }}>
             {moreMounted && (
               // ページ番号（7 × 16 = 112・5 桁が入る幅）と「写真から書き起こす」（残りの幅いっぱい）を 1 行に。
-              <div style={{ display: 'grid', gridTemplateColumns: 'calc(7 * var(--space-4)) 1fr', columnGap: 'var(--space-3)', alignItems: 'end' }}>
+              // その下の行（無料プランの残りの回数・読み取り中・失敗の案内）とは 8 あける（rowGap）。
+              <div style={{ display: 'grid', gridTemplateColumns: 'calc(7 * var(--space-4)) 1fr', columnGap: 'var(--space-3)', rowGap: 'var(--space-2)', alignItems: 'end' }}>
                 <div>
                   <label htmlFor="quick-memo-page" style={fieldLabel}>ページ番号</label>
                   <input

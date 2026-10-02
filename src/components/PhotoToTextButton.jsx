@@ -49,7 +49,7 @@ const hintStyle = {
   gridColumn: '-2 / -1',
   flexBasis: '100%',
   order: 1,
-  margin: 'var(--space-1) 0 0',
+  margin: 0, // ボタンとの間（8）は親の行の間（メモを書くシートの rowGap・全画面の gap）で取る
   fontSize: 'var(--text-meta)',
   lineHeight: 1.5,
   color: 'var(--text-3)',
@@ -170,7 +170,7 @@ export default function PhotoToTextButton({ onText, disabled = false, style }) {
         // 並べ方（グリッド／折り返す横並び）どちらでも、ボタンの下の 1 行ぶんを使う。
         // 読み取り中は写真の右に「写真を読み取っています」。失敗は写真の下に全幅の案内（説明を狭い幅に押し込まない・2026-09-29）。
         // どちらも写真は同じ場所（左上）。
-        <div style={{ gridColumn: '1 / -1', flexBasis: '100%', marginTop: 'var(--space-2)', display: 'flex', flexDirection: loading ? 'row' : 'column', alignItems: loading ? 'flex-start' : 'stretch', gap: loading ? 'var(--space-3)' : 'var(--space-2)' }}>
+        <div style={{ gridColumn: '1 / -1', flexBasis: '100%', marginTop: 0, display: 'flex', flexDirection: loading ? 'row' : 'column', alignItems: loading ? 'flex-start' : 'stretch', gap: loading ? 'var(--space-3)' : 'var(--space-2)' }}>
           {thumbUrl && (
             <img src={thumbUrl} alt={loading ? '読み取っている写真' : '読み取れなかった写真'} style={{ width: 'var(--space-12)', height: 'var(--space-12)', objectFit: 'cover', borderRadius: 'var(--radius)', border: '1px solid var(--separator)', flexShrink: 0 }} />
           )}
