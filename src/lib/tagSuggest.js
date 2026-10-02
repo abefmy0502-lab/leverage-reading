@@ -5,9 +5,12 @@
 //
 // 2 段:
 //   1. 端末の中の決め方（AI なし・トークンを使わない・誰でも）: suggestTagsLocal
-//      - そのタグの言葉がメモの文にそのまま出ている（「習慣」）→ いちばん強い
+//      - そのタグの言葉がメモの文にそのまま出ている（「マネジメント」）→ いちばん強い。ただし 2 文字のタグ（「時間」「習慣」）は
+//        ふつうの言葉としても出る（「同じ時間に」）ので、文に出ているだけではすすめず、似たメモの裏付けと合わせる
 //      - 似たことを書いた自分のメモ（2 文字ずつの切れ端の TF-IDF・lib/memoLinks.js と同じ切り方）の近い 10 件に
-//        付いているタグを、似ている度合いで重みをつけて数える（近いメモの多くに付いているタグ）
+//        付いているタグを、似ている度合いで重みをつけて数える（近いメモの多くに付いているタグ）。
+//        近いメモが 1 件だけ・どれも遠いときに 1 件のタグが 100% にならないよう、似ている度合いの合計が
+//        KNN_SUPPORT に届かないぶんは割り引く（「夕飯はカレー」が「カレンダー」のメモの「時間」に寄らない）
 //      - その本に付けたタグ（本のタグ）は少しだけ足す
 //      見逃すほうを選ぶ（違うタグをすすめると、押す手間より信頼を失う）: 点が LOCAL_MIN 以上だけ
 //   2. Jev（TypeSafe AI の判断のモデル）が使えるとき（VITE_AI_JEV=on・プランの人・版 2 の同意・サーバーのスイッチ）:
@@ -21,7 +24,10 @@ export const TAG_SUGGEST_MAX = 3;
 export const LOCAL_MIN = 0.34; // 近いメモの重みのうち、そのタグが占める割合の下限（文に出ているタグは 1）
 export const KNN = 10; // 近いメモの数
 export const KNN_MIN_SIM = 0.06; // これより遠いメモは数えない
+export const KNN_MIN_SHARED = 2; // ひらがなだけでない切れ端をこれだけ共有するメモだけを近いメモに数える（「カレー」と「カレンダー」の 1 つだけ、は数えない）
 export const BOOK_TAG_PRIOR = 0.12; // 本のタグに足す点
+export const KNN_SUPPORT = 0.25; // そのタグの付いた近いメモの、似ている度合いの合計がこれに届かなければ割り引く
+export const SHORT_TAG_TEXT = 0.3; // 2 文字以下のタグが文に出ているときに足す点（それだけでは LOCAL_MIN に届かない）
 export const JEV_MIN = 0.6;
 export const JEV_MAX_CANDIDATES = 16;
 export const MIN_TEXT_CHARS = 8;
@@ -103,7 +109,10 @@ export function scoreTagsLocal({ text, memoId = null, rows = [], bookTags = [], 
     if (memoId != null && String(d.memo?.id) === String(memoId)) continue;
     if (d.memo?.text === src) continue; // 保存したばかりで id が分からないとき（同じ文は自分）
     const s = cosine(q, d.vec);
-    if (s >= KNN_MIN_SIM) near.push({ d, s });
+    if (s < KNN_MIN_SIM) continue;
+    let shared = 0;
+    for (const g of q.keys()) if (!isKanaBigram(g) && d.vec.has(g)) shared += 1;
+    if (shared >= KNN_MIN_SHARED) near.push({ d, s });
   }
   near.sort((a, b) => b.s - a.s);
   const top = near.slice(0, KNN);
@@ -118,9 +127,12 @@ export function scoreTagsLocal({ text, memoId = null, rows = [], bookTags = [], 
   const bookSet = new Set((bookTags || []).map(cleanTag));
   return tags.map((tag) => {
     const inText = norm.includes(normalizeLinkText(tag));
-    const knn = total > 0 ? (vote.get(tag) || 0) / total : 0;
-    const score = inText ? 1 : Math.min(0.99, knn + (bookSet.has(tag) ? BOOK_TAG_PRIOR : 0));
-    return { tag, score: Math.round(score * 1000) / 1000, why: inText ? 'text' : 'similar', uses: universe.get(tag) || 0 };
+    const longTag = [...tag].length >= 3;
+    const support = vote.get(tag) || 0;
+    const knn = total > 0 ? (support / total) * Math.min(1, support / KNN_SUPPORT) : 0;
+    const similar = knn + (bookSet.has(tag) ? BOOK_TAG_PRIOR : 0);
+    const score = inText && longTag ? 1 : Math.min(0.99, similar + (inText ? SHORT_TAG_TEXT : 0));
+    return { tag, score: Math.round(score * 1000) / 1000, why: inText && longTag ? 'text' : 'similar', uses: universe.get(tag) || 0 };
   }).sort((a, b) => b.score - a.score || b.uses - a.uses);
 }
 

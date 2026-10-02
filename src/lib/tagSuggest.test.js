@@ -17,9 +17,17 @@ describe('自分のタグ', () => {
 });
 
 describe('端末の中の決め方（AI なし）', () => {
-  it('タグの言葉が文に出ていれば、いちばん強い', () => {
-    const r = suggestTagsLocal({ text: '毎朝の習慣にするには、小さく始めて同じ時刻にやる。', rows });
-    expect(r[0]).toMatchObject({ tag: '習慣', why: 'text', score: 1 });
+  it('タグの言葉が文に出ていれば、いちばん強い（3 文字以上のタグ）', () => {
+    const r = suggestTagsLocal({ text: 'コミュニケーションは、聞くことから始まる。', rows });
+    expect(r[0]).toMatchObject({ tag: 'コミュニケーション', why: 'text', score: 1 });
+  });
+
+  it('2 文字のタグ（時間）は、ふつうの言葉として出ただけではすすめない', () => {
+    expect(tagsOf(suggestTagsLocal({ text: '毎朝同じ時間に起きると、一日のリズムが整う。', rows }))).not.toContain('時間');
+  });
+
+  it('近いメモが 1 件だけ・遠いときは、そのタグに寄せない（夕飯はカレー → カレンダーの「時間」）', () => {
+    expect(suggestTagsLocal({ text: '夕飯はカレーだった。', rows })).toEqual([]);
   });
 
   it('似たことを書いたメモに付いているタグをすすめる（人を動かす・1on1 の話 → マネジメント）', () => {

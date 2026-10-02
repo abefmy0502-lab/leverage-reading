@@ -1,0 +1,311 @@
+{
+ "about": "相談の問いの種類（人手のラベル・2026-10-02・60 件）: lookup＝どの本に書いたかを探す / consult＝困りごとの相談 / decide_action＝行動を決めてほしい（会話の続き）/ other＝あいさつ・お礼・関係のないこと。",
+ "labels": [
+  "lookup",
+  "consult",
+  "decide_action",
+  "other"
+ ],
+ "cases": [
+  {
+   "question": "チームの話はどの本だっけ",
+   "label": "lookup",
+   "followUp": false
+  },
+  {
+   "question": "前に読んだ、習慣の本ってなんだったかな",
+   "label": "lookup",
+   "followUp": false
+  },
+  {
+   "question": "「やらないことを決める」って書いてあったのは何の本？",
+   "label": "lookup",
+   "followUp": false
+  },
+  {
+   "question": "質問で人を動かす話、どこで読んだっけ",
+   "label": "lookup",
+   "followUp": false
+  },
+  {
+   "question": "1on1 の進め方が載っていた本を探したい",
+   "label": "lookup",
+   "followUp": false
+  },
+  {
+   "question": "バッファの話をメモした本はどれ？",
+   "label": "lookup",
+   "followUp": false
+  },
+  {
+   "question": "アウトプットの比率の話、どの本に書いてあった？",
+   "label": "lookup",
+   "followUp": false
+  },
+  {
+   "question": "課題の分離って何の本だっけ",
+   "label": "lookup",
+   "followUp": false
+  },
+  {
+   "question": "報告は結論からって書いた本を教えて",
+   "label": "lookup",
+   "followUp": false
+  },
+  {
+   "question": "KPI の話をメモしたのはどの本だったかな",
+   "label": "lookup",
+   "followUp": false
+  },
+  {
+   "question": "名前を覚える話の出典を知りたい",
+   "label": "lookup",
+   "followUp": false
+  },
+  {
+   "question": "90点ルールの本の名前が思い出せない",
+   "label": "lookup",
+   "followUp": false
+  },
+  {
+   "question": "寝る前に3行書くって、どこで読んだ？",
+   "label": "lookup",
+   "followUp": false
+  },
+  {
+   "question": "イシューって言葉が出てきたのは、なんの本だっけ",
+   "label": "lookup",
+   "followUp": false
+  },
+  {
+   "question": "チームファーストの話、どこに書いてあったっけ",
+   "label": "lookup",
+   "followUp": false
+  },
+  {
+   "question": "部下が報告をくれなくて困っています",
+   "label": "consult",
+   "followUp": false
+  },
+  {
+   "question": "会議が長くて結論が出ません",
+   "label": "consult",
+   "followUp": false
+  },
+  {
+   "question": "上司の評価が気になって提案できない",
+   "label": "consult",
+   "followUp": false
+  },
+  {
+   "question": "仕事を抱えすぎて手が回りません",
+   "label": "consult",
+   "followUp": false
+  },
+  {
+   "question": "後輩との関係がぎくしゃくしている",
+   "label": "consult",
+   "followUp": false
+  },
+  {
+   "question": "読んだ本の内容をすぐ忘れてしまう",
+   "label": "consult",
+   "followUp": false
+  },
+  {
+   "question": "チームの雰囲気が悪い気がする",
+   "label": "consult",
+   "followUp": false
+  },
+  {
+   "question": "新しい部署になじめない",
+   "label": "consult",
+   "followUp": false
+  },
+  {
+   "question": "やる気が出ない日が続いている",
+   "label": "consult",
+   "followUp": false
+  },
+  {
+   "question": "人前で話すのが苦手です",
+   "label": "consult",
+   "followUp": false
+  },
+  {
+   "question": "メンバーが自分から動いてくれない",
+   "label": "consult",
+   "followUp": false
+  },
+  {
+   "question": "忙しくて本を読む時間がない",
+   "label": "consult",
+   "followUp": false
+  },
+  {
+   "question": "失敗をいつまでも引きずってしまう",
+   "label": "consult",
+   "followUp": false
+  },
+  {
+   "question": "数字で成果を出せと言われて焦っている",
+   "label": "consult",
+   "followUp": false
+  },
+  {
+   "question": "転職するか迷っている",
+   "label": "consult",
+   "followUp": false
+  },
+  {
+   "question": "じゃあ、明日から何をすればいい？",
+   "label": "decide_action",
+   "followUp": true
+  },
+  {
+   "question": "どうしたらいいですか",
+   "label": "decide_action",
+   "followUp": true
+  },
+  {
+   "question": "行動を決めたい",
+   "label": "decide_action",
+   "followUp": true
+  },
+  {
+   "question": "具体的に何をやればいいか教えて",
+   "label": "decide_action",
+   "followUp": true
+  },
+  {
+   "question": "明日の朝やることを1つ決めて",
+   "label": "decide_action",
+   "followUp": true
+  },
+  {
+   "question": "それなら、まず何から始めればいい？",
+   "label": "decide_action",
+   "followUp": true
+  },
+  {
+   "question": "今週やることを決めたいです",
+   "label": "decide_action",
+   "followUp": true
+  },
+  {
+   "question": "次の1on1でやることを決めたい",
+   "label": "decide_action",
+   "followUp": true
+  },
+  {
+   "question": "で、結局どうすればいいの？",
+   "label": "decide_action",
+   "followUp": true
+  },
+  {
+   "question": "実際に試せる一歩を教えて",
+   "label": "decide_action",
+   "followUp": true
+  },
+  {
+   "question": "やることを1つに絞って",
+   "label": "decide_action",
+   "followUp": true
+  },
+  {
+   "question": "明日の会議でどう動けばいいか決めたい",
+   "label": "decide_action",
+   "followUp": true
+  },
+  {
+   "question": "何をしたらいいか分からないので決めてほしい",
+   "label": "decide_action",
+   "followUp": true
+  },
+  {
+   "question": "具体的な行動にしたい",
+   "label": "decide_action",
+   "followUp": true
+  },
+  {
+   "question": "今日からできることは？",
+   "label": "decide_action",
+   "followUp": true
+  },
+  {
+   "question": "ありがとう",
+   "label": "other",
+   "followUp": false
+  },
+  {
+   "question": "こんにちは",
+   "label": "other",
+   "followUp": false
+  },
+  {
+   "question": "テスト",
+   "label": "other",
+   "followUp": false
+  },
+  {
+   "question": "なるほど、参考になりました",
+   "label": "other",
+   "followUp": false
+  },
+  {
+   "question": "おはようございます",
+   "label": "other",
+   "followUp": false
+  },
+  {
+   "question": "今日の天気は？",
+   "label": "other",
+   "followUp": false
+  },
+  {
+   "question": "あいうえお",
+   "label": "other",
+   "followUp": false
+  },
+  {
+   "question": "了解です",
+   "label": "other",
+   "followUp": false
+  },
+  {
+   "question": "すごい！",
+   "label": "other",
+   "followUp": false
+  },
+  {
+   "question": "おやすみなさい",
+   "label": "other",
+   "followUp": false
+  },
+  {
+   "question": "このアプリの使い方を教えて",
+   "label": "other",
+   "followUp": false
+  },
+  {
+   "question": "はい",
+   "label": "other",
+   "followUp": false
+  },
+  {
+   "question": "OK",
+   "label": "other",
+   "followUp": false
+  },
+  {
+   "question": "わかりました、ありがとうございます",
+   "label": "other",
+   "followUp": false
+  },
+  {
+   "question": "1+1は？",
+   "label": "other",
+   "followUp": false
+  }
+ ]
+}
