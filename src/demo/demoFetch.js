@@ -588,8 +588,9 @@ export function installDemoFetch(store) {
     if (url.includes('/api/cover') && /[?&]search=/.test(url)) {
       // 本の検索（2026-10-02・本番は楽天の売上順 → Google → NDL）。&search=fail は失敗（端末の検索に切り替わる）・
       //   &search=old は「サーバーの検索が無い」（直す前と同じく端末だけで探す・比べる用）。
+      //   &search=slow は答えがなかなか返らない（読み込み中の形の確認用）。
       const mode = new URLSearchParams(window.location.search).get('search');
-      await new Promise((r) => setTimeout(r, 300));
+      await wait(mode === 'slow' ? 60000 : 300, signal);
       if (mode === 'fail') return json({ error: 'unavailable', results: [] }, 502);
       if (mode === 'old') return json({ error: 'お試しモードでは使えません' }, 503);
       const q = (() => { try { return new URL(url, window.location.origin).searchParams.get('search') || ''; } catch { return ''; } })();

@@ -119,4 +119,4 @@
 - **楽天 API の上限**: アプリ ID ごとにおよそ 1 秒 1 回。1 回の検索で楽天を最大 2 回（順番に）呼ぶ。表紙探しと同じ ID を使うので、利用者が増えたら 429 が出やすくなる → サーバーの 30 分の覚え・CDN の 1 時間で同じ語の再検索は楽天を呼ばない。429 のときは Google・NDL で返す（並べ方は同じ・表紙は減る）
 - **iOS アプリ**: 端末側（サーバーの検索を先に呼ぶ・副題・件数の案内・端末の検索の並べ直し・著者名）は **アプリの出し直しで届く**。サーバーの検索（`/api/cover?search=`）は Vercel の公開ですぐ効くが、出し直す前のアプリはそれを呼ばない（今までどおり端末から NDL）
 - 楽天の `BooksTotal` の keyword は説明文にも当たる → 書名・著者に語が無い本は外す（関係する本が 3 冊以上あるとき）
-- お試しモード: `/api/cover?search=` は見本のカタログ（`src/demo/demoBookSearch.js`・表紙は端末で作った絵）。`&search=old` で直す前の流れ（端末から NDL・辞書順の再現）、`&search=fail` で失敗。ui-shots の `add-book-kangaekata` / `add-book-kangaekata-author` / `add-book-kangaekata-old`
+- お試しモード: `/api/cover?search=` は見本のカタログ（`src/demo/demoBookSearch.js`・表紙は端末で作った絵）。`&search=old` で直す前の流れ（端末から NDL・辞書順の再現）、`&search=fail` で失敗、`&search=slow` で読み込み中のまま。ui-shots の `add-book-kangaekata` / `-author` / `-bottom`（一覧の下の絞り込みの案内）/ `-old` / `add-book-loading` / `quickstart-kangaekata` / `quickstart-loading`
