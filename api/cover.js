@@ -17,6 +17,7 @@
 import https from 'node:https';
 import { applyCors } from './_cors.js';
 import { findStrongMatch, strongTitleMatch, authorMatches } from './_bookVerify.js';
+import { getBookInfoCached, bookInfoResponse } from './_bookInfo.js';
 
 // 🔎 実在の判定（?verify=1）のための「検索元が返した本」の記録。表紙探しの流れの途中で
 //    楽天・NDL・Google が返した本（書名・著者・ISBN）を控え、最後に _bookVerify.js で
@@ -692,6 +693,16 @@ export default async function handler(req, res) {
   const author = clean(req.query?.author);
   const isbnIn = cleanIsbn(req.query?.isbn);
   if (!title && !isbnIn) return res.status(400).json({ error: 'title or isbn required' });
+
+  // 📖 この本について（?info=1）: 出版社・書店が公開している紹介文と目次（AI なし・api/_bookInfo.js・2026-10-02）。
+  //    { description, toc, source, tocSource, pages, pubdate, isbn }。見つからなければ空。どこも答えなければ覚えない。
+  if (req.query?.info) {
+    let data = null;
+    try { data = await getBookInfoCached({ isbn: isbnIn, title, author }, { rakutenGet }); } catch (e) { console.warn('[api/cover] info failed:', e && e.message); }
+    const found = !!(data && (data.description || data.toc.length));
+    res.setHeader('Cache-Control', !data?.answered ? 'no-store' : found ? 'public, max-age=86400, s-maxage=604800' : 'public, max-age=0, s-maxage=600');
+    return res.status(200).json(bookInfoResponse(data || {}));
+  }
 
   // 🔎 デバッグ: ?debug=1 で各段階の生の結果を返す（原因切り分け用）。
   // ⚠️ 未認証で誰でも叩け、内部 URL / エラー文言 / API キーの有無（hasKey）が
