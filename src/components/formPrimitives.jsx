@@ -112,7 +112,8 @@ export function Field({ label, sub, children }) {
 //   見た目も高さ 44・15px・余白 8/12（負の余白で押せる範囲を重ねない）。選択中は 600（2026-09-29）。
 const CHIP_HEIGHT = 32;
 const SELECT_CHIP_HEIGHT = 44;
-export function Chip({ active = false, stretch = false, size, onClick, children, ...rest }) {
+// shrink: 長い文字（タグの提案の 50 字のタグなど）でも並びの幅を超えない（中の文字は呼び出し側で … に切る）。
+export function Chip({ active = false, stretch = false, shrink = false, size, onClick, children, ...rest }) {
   const select = size === 'select';
   return (
     <button
@@ -123,6 +124,7 @@ export function Chip({ active = false, stretch = false, size, onClick, children,
         display: "inline-flex", alignItems: "center", minHeight: 44, minWidth: 44, padding: 0,
         background: "none", border: "none", cursor: "pointer", fontFamily: "inherit",
         flex: stretch ? "1 1 0" : "0 0 auto",
+        ...(shrink ? { maxWidth: "100%", minWidth: 0 } : null),
       }}
     >
       <span
@@ -134,6 +136,7 @@ export function Chip({ active = false, stretch = false, size, onClick, children,
           borderRadius: "var(--radius)", fontSize: select ? "var(--text-sub)" : "var(--text-meta)", fontWeight: active ? 600 : 400, whiteSpace: "nowrap",
           background: active ? "var(--accent-soft)" : "var(--fill)",
           color: active ? "var(--accent)" : "var(--text)",
+          ...(shrink ? { maxWidth: "100%", minWidth: 0, boxSizing: "border-box" } : null),
         }}
       >
         {children}

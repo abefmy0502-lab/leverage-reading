@@ -545,7 +545,7 @@ export function installDemoFetch(store) {
       // 🧭 Jev（判断のモデル・?jev=1 のときだけアプリが送る）の見本: 言葉の手がかりで「はい」の確率を決める偽物。
       //   本番（api/_jevRelay.js）と同じく、いつも 200・トークンは数えない。&jev=down で「使えない」（{ jev: null }）。
       if (JEV_DEMO_PURPOSES.has(payload.purpose)) {
-        await wait(350, signal);
+        await wait(120, signal); // 本番の Jev（約 70〜500ms）の速いほう（タグの提案はシートが閉じ終わるまでに答えたときだけ使う）
         if (new URLSearchParams(window.location.search).get('jev') === 'down') return json({ jev: null, reason: 'upstream' });
         return json({ jev: { result: demoJevResult(payload.purpose, payload.jev || {}), ms: 180 } });
       }
