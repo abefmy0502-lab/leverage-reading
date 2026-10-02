@@ -54,13 +54,14 @@ const tocSummary = {
   minHeight: 48, fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)', cursor: 'pointer', listStyle: 'none',
 };
 
-function TocList({ toc, note }) {
+// flush: 下の余白を持たない（畳む見出しの中＝外側の下 16 だけにする。カードの目次の畳みは下 12 を持つ）。
+function TocList({ toc, note, flush = false }) {
   return (
     <>
-      <ol style={tocListStyle}>
+      <ol style={{ ...tocListStyle, ...(flush ? { paddingBottom: 0 } : null) }}>
         {toc.map((line, i) => <li key={i} style={tocItemStyle}>{withPhraseBreaks(line)}</li>)}
       </ol>
-      {note && <p style={{ ...metaStyle, margin: '0 0 var(--space-3)' }}>{note}</p>}
+      {note && <p style={{ ...metaStyle, margin: flush ? 'var(--space-2) 0 0' : '0 0 var(--space-3)' }}>{note}</p>}
     </>
   );
 }
@@ -150,7 +151,7 @@ export default function BookAbout({ info, loading = false, variant = 'card', sty
           {toc.length > 0 && (
             <div>
               <p style={{ ...groupTitle, margin: '0 0 var(--space-2)' }}>目次</p>
-              <TocList toc={toc} note={info.description ? tocNote : meta} />
+              <TocList toc={toc} note={info.description ? tocNote : meta} flush />
             </div>
           )}
         </div>
