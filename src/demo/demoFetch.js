@@ -74,7 +74,7 @@ function parseVoice(userText) {
   return { title: ((block.match(/書名: 『([^』]*)』/) || [])[1] || '').trim(), author: ((block.match(/著者: (.+)/) || [])[1] || '').trim() };
 }
 
-function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null, voice = null, decide = false, lookup = false) {
+function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null, voice = null, decide = false, lookup = false, relatedBlock = '') {
   // 深掘りの短い質問（「もっと具体的に」）でも、直前の相談の話題でメモを選ぶ（本番の retrievalQuery と同じ考え方）。
   const q = bigrams(thread ? `${question} ${thread.lastQuestion}` : question);
   const books = new Map(store.table('books').map((b) => [b.id, b]));
@@ -105,6 +105,9 @@ function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null
       const mb = bigrams(m.text);
       let hit = 0;
       q.forEach((g) => { if (mb.has(g)) hit += 1; });
+      // 本番と同じく「今回の質問にとくに関係がありそうなメモ」（RELATED_MEMOS・Jev を入れたときは Jev が選んだもの）を先に使う。
+      const head = String(m.text || '').replace(/\s+/g, ' ').trim().slice(0, 20);
+      if (relatedBlock && head && relatedBlock.includes(head)) hit += 100;
       return { m, hit };
     })
     .sort((a, b) => b.hit - a.hit || (b.m.created_at || '').localeCompare(a.m.created_at || ''))
@@ -142,7 +145,13 @@ function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null
   // 結論・解釈は、引いたメモに書いてあることだけで組み立てる（メモに無い主張を足さない・2026-09-29）。
   const clip = (t) => { const x = String(t || '').replace(/\s+/g, ' ').trim(); return x.length > 40 ? `${x.slice(0, 40)}…` : x; };
   // 結論には書名・引用のかぎかっこを入れない（出典は「根拠を見る」の中・SPEC §3・本番の BRAIN_SYSTEM と同じ）。
-  const gist = (t) => clip(t).replace(/[「」『』]/g, '').replace(/[。．.]+$/, '');
+  // 「…という考え」に入れる要旨: 最初の 1 文（長ければ 40 字までの最後の読点まで）。文の途中を … で切らない（2026-10-02 ui-critic）。
+  const gist = (t) => {
+    const first = String(t || '').replace(/\s+/g, ' ').replace(/[「」『』]/g, '').split(/[。．！？!?]/)[0].trim();
+    if (first.length <= 40) return first;
+    const cut = first.slice(0, 40).lastIndexOf('、');
+    return cut > 8 ? first.slice(0, cut) : first;
+  };
   const short16 = (t) => { const x = String(t || '').replace(/\s+/g, ' ').replace(/[「」『』]/g, '').split(/[。．.、]/)[0].trim(); return x.length > 16 ? `${x.slice(0, 16)}…` : x; };
   // 🔎 本を探す問い（本番の BOOK_LOOKUP・「…を書いた本はどれ？」）: 本とメモの一節だけ。問いも行動も書かない。
   if (lookup) {
@@ -376,11 +385,12 @@ function aiReply(store, payload, aiMode = '') {
   const q = userText.match(/QUESTION_START =====\n([\s\S]*?)\n=====/);
   if (q) {
     // 本番は質問に近いメモを RELATED_MEMOS に分けて渡す（MEMOS からは外す）ので、両方を材料にする。
+    const related = (userText.match(/RELATED_MEMOS_START =====\n([\s\S]*?)\n===== RELATED_MEMOS_END/) || [])[1] || '';
     const block = [
       (userText.match(/===== MEMOS_START =====\n([\s\S]*?)\n===== MEMOS_END/) || [])[1] || '',
-      (userText.match(/RELATED_MEMOS_START =====\n([\s\S]*?)\n===== RELATED_MEMOS_END/) || [])[1] || '',
+      related,
     ].filter(Boolean).join('\n\n');
-    return brainAnswer(store, q[1], block, aiMode, parseThread(userText), parseVoice(userText), decide, userText.includes('===== BOOK_LOOKUP ====='));
+    return brainAnswer(store, q[1], block, aiMode, parseThread(userText), parseVoice(userText), decide, userText.includes('===== BOOK_LOOKUP ====='), related);
   }
   const system = textOf(payload.system);
   // AI 選書: ヒアリング（1 周だけ質問を出し、2 周目で締める）と、おすすめ（本番と同じ JSON ブロック）
@@ -508,6 +518,13 @@ const JEV_DEMO_TOPICS = {
   心理学: /課題|承認|評価|気にし/,
   キャリア: /キャリア|働き|転職|人生/,
 };
+const JEV_DEMO_CONCERNS = {
+  人を動かす: /部下|メンバー|後輩|マネージャー|1on1|人に動いて|批判|命令|任せ/,
+  抱えすぎ: /抱え|手が回ら|忙し|やらない|断る|持ち帰|バッファ|予定/,
+  会議: /会議|結論|決めて|イシュー/,
+  評価: /評価|承認|人の目|他人の課題|気にな/,
+  忘れる: /忘れ|記憶|見返|アウトプット|話す/,
+};
 function demoJevResult(purpose, input) {
   const topicsOf = (text) => Object.entries(JEV_DEMO_TOPICS).filter(([, re]) => re.test(String(text || ''))).map(([t]) => t);
   if (purpose === 'memo_filing') {
@@ -515,9 +532,11 @@ function demoJevResult(purpose, input) {
     return { probs: (input.tags || []).map((t) => (String(input.memo || '').includes(t) || memoTopics.includes(t) ? 0.88 : 0.08)) };
   }
   if (purpose === 'memo_relevance') {
-    const q = topicsOf(input.question);
+    // 相談の悩みごとの手がかり（意味の近さのまね）。「報告」のような語の重なりだけでは選ばない。
+    const concernsOf = (text) => Object.entries(JEV_DEMO_CONCERNS).filter(([, re]) => re.test(String(text || ''))).map(([k]) => k);
+    const q = concernsOf(input.question);
     const scores = {};
-    for (const m of input.memos || []) scores[m.id] = topicsOf(m.text).some((t) => q.includes(t)) ? 0.8 : 0.1;
+    for (const m of input.memos || []) scores[m.id] = concernsOf(m.text).some((t) => q.includes(t)) ? 0.82 : 0.08;
     return { scores };
   }
   return { intent: /どの本|何の本|なんの本|だっけ/.test(String(input.question || '')) ? 'lookup' : 'consult', confidence: 0.8, probabilities: null };
