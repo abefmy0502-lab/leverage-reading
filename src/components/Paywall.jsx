@@ -61,7 +61,7 @@ import { FREE_TOKENS, PAID_TOKENS, TRIAL_TOKENS, TOKEN_COSTS, monthDayLabelJa } 
 import { FREE_OCR_PER_MONTH } from '../lib/tokenAmounts';
 import { nextResetLabelJa } from '../lib/freeTrial';
 import { normalizeTrialLabel, trialFirstPhrase } from '../lib/trialNudge';
-import { introOfferOf, introPriceLabel, billedLineParts, planCtaLabel, trialPlanOf } from '../lib/planOffers';
+import { introOfferOf, introPriceLabel, billedLineParts, planCtaLabel, trialPlanOf, renewalSentence, webRenewalSentence } from '../lib/planOffers';
 import { readFoundingOffer, devFoundingParam, FOUNDING_NAME } from '../lib/foundingOffer';
 
 // 未契約でもアカウントを削除できるように（App Store 審査 5.1.1(v)）。設定の削除欄をそのまま使う。
@@ -667,7 +667,10 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
 
             {/* 自動更新の条件（3.1.2 必須開示） */}
             <p style={{ ...metaText, marginTop: 'var(--space-3)' }}>
-              お支払いは App Store を通じて行われます。期間終了の24時間前までに解約しない限り、同じ料金で自動更新されます。解約は App Store のアカウント設定からいつでもでき、解約してもメモは残ります。
+              {/* 下に固定の欄（billedLineParts）と同じ値から作る（初回価格・無料期間のときに「同じ料金で」と食い違わない・2026-10-02） */}
+              お支払いは App Store を通じて行われます。{priceState === 'ready'
+                ? renewalSentence({ ...selected, trial })
+                : '期間が終わる 24 時間前までに解約しない限り、選んだプランの料金で自動更新されます。'}解約は App Store のアカウント設定からいつでもでき、解約してもメモは残ります。
             </p>
 
             {/* 購入を復元・利用規約・プライバシーポリシー（3.1.2 必須） */}
@@ -725,7 +728,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
             </div>
 
             <p style={{ ...metaText, marginTop: 'var(--space-3)' }}>
-              ご契約・お支払い・解約は iOS アプリ（App Store）で行います。期間終了前に解約しない限り、同じ料金で自動更新されます。解約してもメモは残ります。
+              ご契約・お支払い・解約は iOS アプリ（App Store）で行います。{webRenewalSentence({ labels, foundingPrice: founding.active ? founding.price : '' })}解約してもメモは残ります。
             </p>
 
             <div style={{ ...linkRow, marginTop: 'var(--space-2)' }}>

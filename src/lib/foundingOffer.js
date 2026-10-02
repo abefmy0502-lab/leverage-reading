@@ -16,7 +16,10 @@
 //   VITE_FOUNDING_PRICE_LABEL            … LP の値段の書き方（既定「1 年目 ¥9,800」）
 // 🧪 開発中だけ ?founding=on（両方）/ env（LP の文言だけ）/ store（ストアの初回価格だけ）/ off で切り替えられる。
 
-export const FOUNDING_DEFAULT_PRICE_LABEL = '1 年目 ¥9,800';
+// 創業メンバー価格の金額（年額プランの 1 年目・税込）。LP・Web 版の文言はここから作る（金額の真実は App Store）。
+export const FOUNDING_PRICE_YEN = 9800;
+export const FOUNDING_PRICE_TEXT = `¥${FOUNDING_PRICE_YEN.toLocaleString('ja-JP')}`;
+export const FOUNDING_DEFAULT_PRICE_LABEL = `1 年目 ${FOUNDING_PRICE_TEXT}`;
 export const FOUNDING_NAME = '創業メンバー価格';
 // 開発中のプレビューで env の終わる日が無いときに使う日（公開 11 月中旬＋30 日の目安）。
 const DEV_DEFAULT_END = '2026-12-15';
@@ -54,6 +57,7 @@ export function foundingOfferState({ flag, end, priceLabel, now = Date.now() } =
     end: Number.isFinite(endTime) ? String(end).trim() : '',
     endLabel,
     priceLabel: String(priceLabel || '').trim() || FOUNDING_DEFAULT_PRICE_LABEL,
+    price: FOUNDING_PRICE_TEXT,
   };
 }
 

@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   savingsLabel, introOfferOf, freeTrialLabel, formatFreeTrial, introPriceLabel,
-  buildStoreLabels, billedLine, billedShortOf, planCtaLabel, trialPlanOf,
+  buildStoreLabels, billedLine, billedLineParts, billedShortOf, planCtaLabel, trialPlanOf,
+  renewalSentence, webRenewalSentence, withTax,
 } from './planOffers';
 
 // RevenueCat の StoreProduct に似せた形。
@@ -116,5 +117,55 @@ describe('billedShortOf / savingsLabel', () => {
     expect(savingsLabel(1480, 12800)).toBe('月額プランより 27% お得');
     expect(savingsLabel(1000, 11800)).toBe('');
     expect(savingsLabel(0, 1)).toBe('');
+  });
+});
+
+describe('renewalSentence（自動更新の条件の 1 文・下に固定の欄と同じ値から）', () => {
+  const founding = buildStoreLabels({ base, monthly: monthly(freeWeek), annual: annual(foundingYear), eligible: all });
+  const normal = buildStoreLabels({ base, monthly: monthly(freeWeek), annual: annual(freeWeek), eligible: all });
+  const none = buildStoreLabels({ base, monthly: monthly(freeWeek), annual: annual(foundingYear), eligible: () => false });
+
+  it('年額・初回価格（創業メンバー価格）: 1 年目の終わり → 2 年目から年額 ¥12,800（税込）', () => {
+    expect(renewalSentence(founding.annual)).toBe('1 年目の終わりの 24 時間前までに解約しない限り、2 年目から年額 ¥12,800（税込）で自動更新されます。');
+    expect(renewalSentence(founding.annual)).not.toMatch(/同じ料金/);
+  });
+  it('月額・7 日間無料: 無料期間のあと月額 ¥1,480（税込）', () => {
+    expect(renewalSentence(founding.monthly)).toBe('無料期間が終わる 24 時間前までに解約しない限り、無料期間のあと月額 ¥1,480（税込）で自動更新されます。');
+  });
+  it('年額・7 日間無料（期間外）: 無料期間のあと年額 ¥12,800（税込）', () => {
+    expect(renewalSentence(normal.annual)).toBe('無料期間が終わる 24 時間前までに解約しない限り、無料期間のあと年額 ¥12,800（税込）で自動更新されます。');
+  });
+  it('初回特典なし: 年額・月額とも、その料金（税込）で', () => {
+    expect(renewalSentence(none.annual)).toBe('期間が終わる 24 時間前までに解約しない限り、年額 ¥12,800（税込）で自動更新されます。');
+    expect(renewalSentence(none.monthly)).toBe('期間が終わる 24 時間前までに解約しない限り、月額 ¥1,480（税込）で自動更新されます。');
+  });
+  it('期間ごとの割引（最初の 3 か月）: その期間の終わり → その後の料金', () => {
+    const intro = introPriceLabel({ kind: 'paid', unit: 'MONTH', units: 1, cycles: 3, priceString: '¥980' }, '¥1,480');
+    expect(renewalSentence({ price: '月額 ¥1,480', intro })).toBe('最初の 3 か月の終わりの 24 時間前までに解約しない限り、その後月額 ¥1,480（税込）で自動更新されます。');
+  });
+  it('既定のラベル（「（税込）」つき）でも二重にしない・円以外には付けない', () => {
+    expect(renewalSentence({ price: '年額 ¥12,800（税込・月あたり約¥1,066）' })).toBe('期間が終わる 24 時間前までに解約しない限り、年額 ¥12,800（税込）で自動更新されます。');
+    expect(renewalSentence({ price: '年額 $79.99' })).toBe('期間が終わる 24 時間前までに解約しない限り、年額 $79.99で自動更新されます。');
+    expect(withTax('1 年目 ¥9,800')).toBe('1 年目 ¥9,800（税込）');
+    expect(withTax('月額 ¥1,480（税込）')).toBe('月額 ¥1,480（税込）');
+  });
+  it('下に固定の欄と同じ金額を使う（食い違わない）', () => {
+    for (const l of [founding.annual, founding.monthly, normal.annual, none.annual]) {
+      const price = billedShortOf(l.price);
+      expect(billedLineParts(l).join('')).toContain(price);
+      expect(renewalSentence(l)).toContain(price);
+    }
+  });
+});
+
+describe('webRenewalSentence（Web 版の価格の一覧の下）', () => {
+  const labels = { monthly: { price: '月額 ¥1,480（税込）' }, annual: { price: '年額 ¥12,800（税込・月あたり約¥1,066）' } };
+  it('期間外: どちらのプランも、その料金で', () => {
+    const s = webRenewalSentence({ labels });
+    expect(s).toBe('期間が終わる 24 時間前までに解約しない限り、月額 ¥1,480（税込）・年額 ¥12,800（税込）の、選んだプランの料金で自動更新されます。');
+    expect(s).not.toMatch(/同じ料金/);
+  });
+  it('創業メンバー価格の期間中: 1 年目の終わり → 2 年目から年額 ¥12,800（税込）も添える', () => {
+    expect(webRenewalSentence({ labels, foundingPrice: '¥9,800' })).toMatch(/年額プランの 1 年目を ¥9,800 で始めたときは、1 年目の終わりの 24 時間前までに解約しない限り、2 年目から年額 ¥12,800（税込）で自動更新されます。$/);
   });
 });

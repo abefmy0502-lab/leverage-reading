@@ -88,7 +88,8 @@ export function introPriceLabel(intro, regular = '') {
   const reg = String(regular || '').trim();
   const after = reg ? `${afterHead} ${reg}` : '';
   // upfront: 期間の分をはじめに 1 回で払う形（cycles 1）。
-  return { head, afterHead, after, full: after ? `${head}（${after}）` : head, priceString: intro.priceString, upfront: intro.cycles === 1 };
+  // period: 初回価格の期間の名前（「1 年目」「最初の 3 か月」・自動更新の文で「1 年目の終わり」に使う）。
+  return { head, period, afterHead, after, full: after ? `${head}（${after}）` : head, priceString: intro.priceString, upfront: intro.cycles === 1 };
 }
 
 // ストアの 2 つの商品（月額・年額）から、有料プランの画面の文字を作る。
@@ -159,4 +160,37 @@ export function trialPlanOf(labels = {}) {
   if (a) return 'annual';
   if (m) return 'monthly';
   return '';
+}
+
+// 円の金額なら「（税込）」を添える（日本の App Store の価格は税込。ほかの通貨には付けない・もう付いていれば付けない）。
+export function withTax(text = '') {
+  const t = String(text || '').trim();
+  if (!t || !/[¥￥]/.test(t) || /税込/.test(t)) return t;
+  return `${t}（税込）`;
+}
+
+// 自動更新の条件の 1 文（審査 3.1.2・ボタンの下の文）。下に固定の欄（billedLineParts）と同じ値から作る
+// （「同じ料金で自動更新」と書くと、初回価格のときに食い違う・2026-10-02 ui-critic）。
+//   有料の初回価格 → 「1 年目の終わりの 24 時間前までに解約しない限り、2 年目から年額 ¥12,800（税込）で自動更新されます。」
+//   無料期間あり   → 「無料期間が終わる 24 時間前までに解約しない限り、無料期間のあと月額 ¥1,480（税込）で自動更新されます。」
+//   どちらも無し   → 「期間が終わる 24 時間前までに解約しない限り、年額 ¥12,800（税込）で自動更新されます。」
+export function renewalSentence(label = {}) {
+  const price = withTax(billedShortOf(label.price));
+  if (label.trial) return `無料期間が終わる 24 時間前までに解約しない限り、無料期間のあと${price}で自動更新されます。`;
+  if (label.intro) {
+    const period = label.intro.period || '初回の期間';
+    return `${period}の終わりの 24 時間前までに解約しない限り、${label.intro.afterHead}${price}で自動更新されます。`;
+  }
+  return `期間が終わる 24 時間前までに解約しない限り、${price}で自動更新されます。`;
+}
+
+// Web 版（価格の一覧だけ・契約は App Store）の自動更新の文。どのプランを選ぶか分からないので、プランごとの条件を並べる。
+//   foundingPrice: 創業メンバー価格の期間中の年額の 1 年目（「¥9,800」）。期間外は ''。
+//   labels: { monthly: { price }, annual: { price } }（billing.js の PLAN_LABELS）
+export function webRenewalSentence({ labels = {}, foundingPrice = '' } = {}) {
+  const monthly = withTax(billedShortOf(labels.monthly?.price));
+  const annual = withTax(billedShortOf(labels.annual?.price));
+  const base = `期間が終わる 24 時間前までに解約しない限り、${monthly}・${annual}の、選んだプランの料金で自動更新されます。`;
+  if (!foundingPrice) return base;
+  return `${base}年額プランの 1 年目を ${foundingPrice} で始めたときは、1 年目の終わりの 24 時間前までに解約しない限り、2 年目から${annual}で自動更新されます。`;
 }
