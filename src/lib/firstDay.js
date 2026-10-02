@@ -24,9 +24,11 @@ export function growthLeft(memoCount) {
 }
 
 // ホーム・相談の上に出す一行（null＝出さない）。点数・バッジ・連続日数にはしない（事実の数だけ）。
-export function growthMeterText(memoCount) {
+// overall: 相談相手を絞っているとき（上の行は絞った本のメモの件数なので、こちらは全体の数だと言う・2026-10-02）。
+export function growthMeterText(memoCount, { overall = false } = {}) {
   const left = growthLeft(memoCount);
-  return left == null ? null : `あと ${left} 件で相談相手が育ちます`;
+  if (left == null) return null;
+  return overall ? `メモ全体で、あと ${left} 件で相談相手が育ちます` : `あと ${left} 件で相談相手が育ちます`;
 }
 
 // はじめての相談の答えの下の一行。AI が挙げた参照からメモが数えられたら、その行（evidence）のまま。

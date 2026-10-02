@@ -33,6 +33,10 @@ describe('相談相手が育つまでの一行（growthMeterText）', () => {
     expect(growthMeterText(9)).toBe('あと 1 件で相談相手が育ちます');
     expect(growthLeft(3)).toBe(7);
   });
+  it('相談相手を絞っているときは「メモ全体で、」と言う（上の行の件数と食い違って見えないように）', () => {
+    expect(growthMeterText(3, { overall: true })).toBe('メモ全体で、あと 7 件で相談相手が育ちます');
+    expect(growthMeterText(12, { overall: true })).toBeNull();
+  });
   it('0 件・10 件以上・分からないときは出さない', () => {
     expect(growthMeterText(0)).toBeNull();
     expect(growthMeterText(10)).toBeNull();

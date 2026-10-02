@@ -1602,7 +1602,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   }, [memoStatsLoaded, memoStatsFailed, ownMemoTotal]);
   // 🌱 「あと N 件で相談相手が育ちます」（メモ 1〜9 件・10 件で消える＝7 日間無料の案内と重ならない）。
   //   相談相手を絞っていても出す。数は自分のメモの全件（育つのはすべてのメモ・2026-10-02 オーナー判断）。
-  const growthLine = memoStatsLoaded && !memoStatsFailed ? growthMeterText(ownMemoTotal) : null;
+  //   絞っているときは上の行が絞った本のメモの件数なので「メモ全体で、あと N 件…」と言う（2026-10-02）。
+  const growthLine = memoStatsLoaded && !memoStatsFailed ? growthMeterText(ownMemoTotal, { overall: scopeIds.length > 0 }) : null;
   // 上部の「〜件から答えます」の数がまだ分からない（数えている途中）。
   const headCountPending = scopeIds.length > 0 ? scopeCountPending : (!!user && isSupabaseConfigured && !memoStatsLoaded);
   // 答え方（まとめて / 本ごとに）は、並べる本が無い 1 冊のときと、メモがまだ無いとき（答える材料が無い）は出さない。
