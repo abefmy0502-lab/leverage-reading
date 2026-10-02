@@ -148,7 +148,7 @@ export function resolveRoute({ purpose, requestedModel, free = false, freeModel 
 // 🧭 Jev（TypeSafe AI の判断のモデル・文を書かず、選ぶ・はい/いいえ・点数と確率だけを返す）の用途（2026-10-02）。
 // 文を書く用途（ROUTES）とは別の表。Claude に切り替えることはなく、失敗・未設定のときはアプリが
 // これまでの決め方（語の重なり・端末の中の計算）で続ける。中継は api/_jevRelay.js・呼び出しは api/_jev.js。
-//   tiers: この用途を使えるプラン（無料プランの AI は相談だけ＝相談の中の memo_relevance / intent だけ）
+//   tiers: この用途を使えるプラン（無料プランの AI は相談だけ。いまの用途はどちらも相談の中の判断なので全員）
 //   feature: 同意のシート（src/lib/aiProcessors.js）のどの機能の送り先に TypeSafe AI を足すか
 // 用途ごとのスイッチは env JEV_TASK_<用途を大文字で>=on（全体のスイッチ JEV_ENABLED と鍵 JEV_API_KEY も要る）。
 // 用途を足したら aiProcessors.js の JEV_PURPOSE_FEATURE にも足して、同意の版（JEV_CONSENT_VERSION）を上げる。
@@ -158,7 +158,8 @@ export const JEV_MODEL = 'jev-1.13';
 export const JEV_ROUTES = {
   memo_relevance: { primary: `${JEV_PROVIDER}:${JEV_MODEL}`, tiers: ['free', 'trial', 'paid', 'admin'], feature: 'consult' },
   intent: { primary: `${JEV_PROVIDER}:${JEV_MODEL}`, tiers: ['free', 'trial', 'paid', 'admin'], feature: 'consult' },
-  memo_filing: { primary: `${JEV_PROVIDER}:${JEV_MODEL}`, tiers: ['trial', 'paid', 'admin'], feature: 'tag_suggest' },
+  // memo_filing（合いそうなタグ）は中継しない: 保存からシートが閉じ終わる 320ms に往復が間に合わないことが多く、使えない答えのために
+  // メモの文を送ることになるため（2026-10-02・docs/jev-plan.md §3-3）。問いの組み立て（api/_jevTasks.js）と評価（scripts/jev-eval.mjs）だけ残す。
 };
 export const JEV_PURPOSES = Object.keys(JEV_ROUTES);
 // Jev に送ってよい同意の版（これより古い同意・同意の版の無い呼び出しは送らない）。

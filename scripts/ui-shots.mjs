@@ -73,9 +73,8 @@ const SCREENS = [
   { name: 'book-memo-sheet', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button:has-text("メモを書く")' }] },
   { name: 'book-detail-bottom', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { scrollBottom: true }] },
   { name: 'book-memo-sheet-more', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button:has-text("メモを書く")' }, { css: 'button:has-text("ページ・写真")' }] },
-  // 🏷 タグの提案（2026-10-02）: メモを書いて保存したあと、一覧の上の「このメモに合いそうなタグ」。?jev=1 は Jev の見本（お試しモードの偽物）。
+  // 🏷 合いそうなタグ（2026-10-02）: メモを書いて保存したあと、一覧の上の「いま書いたメモに合いそうなタグ」（端末の中だけで決める）。
   { name: 'book-memo-saved', url: '/', steps: MEMO_SAVED },
-  { name: 'book-memo-saved-jev', url: '/?jev=1', steps: MEMO_SAVED },
   { name: 'book-memo-saved-tag-on', url: '/', steps: [...MEMO_SAVED, { css: 'section[aria-labelledby="tag-suggest-title"] button[aria-pressed="false"] >> nth=0' }, { wait: 800 }] },
   // 保存中（すぐ付いた形＋小さな回る印）・保存に失敗（元に戻して知らせ）・長いタグ（50 字・… に切る）
   { name: 'book-memo-saved-tag-saving', url: '/?save=slow-memo-update', steps: [...MEMO_SAVED, { css: 'section[aria-labelledby="tag-suggest-title"] button[aria-pressed="false"] >> nth=0' }, { wait: 400 }] },

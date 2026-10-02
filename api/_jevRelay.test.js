@@ -7,7 +7,7 @@ import {
 } from './_jevTasks.js';
 import { resolveJevRoute, JEV_ROUTES, JEV_PURPOSES, JEV_CONSENT_VERSION, isJevPurpose, ROUTES, PURPOSES } from './_aiRouting.js';
 
-const ENV = { JEV_ENABLED: 'true', JEV_API_KEY: 'k', JEV_TASK_MEMO_RELEVANCE: 'on', JEV_TASK_MEMO_FILING: 'on', JEV_TASK_INTENT: 'on' };
+const ENV = { JEV_ENABLED: 'true', JEV_API_KEY: 'k', JEV_TASK_MEMO_RELEVANCE: 'on', JEV_TASK_INTENT: 'on' };
 const memos = (n) => Array.from({ length: n }, (_, i) => ({ id: `m${i}`, text: `メモ${i}の本文。部下に任せると動く。`, book: '1兆ドルコーチ' }));
 
 beforeEach(() => { __resetJevRateForTest(); vi.spyOn(console, 'info').mockImplementation(() => {}); });
@@ -23,11 +23,11 @@ describe('行き先の決まり（resolveJevRoute）', () => {
     expect(ok({ consentVersion: null })).toEqual({ ok: false, reason: 'consent' });
     expect(resolveJevRoute({ purpose: 'consult', tier: 'paid', consentVersion: 2, env: ENV })).toEqual({ ok: false, reason: 'unknown' });
   });
-  it('無料プランは相談の中の判断（memo_relevance / intent）だけ。タグの提案はプランの人だけ', () => {
+  it('相談の中の判断（memo_relevance / intent）は無料プランも。合いそうなタグ（memo_filing）は中継しない', () => {
     expect(ok({ tier: 'free' }).ok).toBe(true);
     expect(resolveJevRoute({ purpose: 'intent', tier: 'free', consentVersion: 2, env: ENV }).ok).toBe(true);
-    expect(resolveJevRoute({ purpose: 'memo_filing', tier: 'free', consentVersion: 2, env: ENV })).toEqual({ ok: false, reason: 'plan' });
-    expect(resolveJevRoute({ purpose: 'memo_filing', tier: 'trial', consentVersion: 2, env: ENV }).ok).toBe(true);
+    expect(resolveJevRoute({ purpose: 'memo_filing', tier: 'paid', consentVersion: 2, env: ENV })).toEqual({ ok: false, reason: 'unknown' });
+    expect(JEV_PURPOSES).toEqual(['memo_relevance', 'intent']);
   });
   it('Jev の用途は文を書く用途（ROUTES）と重ならない・Claude に切り替えない', () => {
     for (const p of JEV_PURPOSES) {
@@ -110,7 +110,7 @@ describe('中継（handleJevRelay）', () => {
     const cases = [
       [{ env: {} }, 'off'],
       [{ consentVersion: 1 }, 'consent'],
-      [{ body: { purpose: 'memo_filing', jev: { memo: 'x', tags: ['a'] } }, tier: 'free' }, 'plan'],
+      [{ body: { purpose: 'memo_filing', jev: { memo: 'x', tags: ['a'] } } }, 'unknown'],
       [{ body: { purpose: 'memo_relevance', jev: { question: '', memos: [] } } }, 'bad_input'],
     ];
     for (const [extra, reason] of cases) {

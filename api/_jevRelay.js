@@ -1,6 +1,6 @@
 // 🧭 アプリ → Jev の中継（api/claude.js の中の短い道・2026-10-02）。名前が _ で始まるので Vercel の関数にはならない。
 //
-// アプリは /api/claude に { purpose: 'memo_relevance' | 'memo_filing' | 'intent', jev: 材料 } を送る。
+// アプリは /api/claude に { purpose: 'memo_relevance' | 'intent', jev: 材料 } を送る。
 // ここで「使ってよいか」を決め（api/_aiRouting.js の resolveJevRoute: スイッチ・用途ごとのスイッチ・プラン・同意の版）、
 // 材料から問いを組み立てて（api/_jevTasks.js）、Jev に決めてもらう（api/_jev.js）。
 //

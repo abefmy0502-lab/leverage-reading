@@ -505,19 +505,8 @@ function googleBooks(url) {
   return json({ totalItems: items.length, items });
 }
 
-// 🧭 お試しモードの Jev（偽物）。タグ・話題ごとの言葉の手がかり（意味の近さのまね）で確率を決める。
-const JEV_DEMO_PURPOSES = new Set(['memo_relevance', 'memo_filing', 'intent']);
-const JEV_DEMO_TOPICS = {
-  マネジメント: /部下|マネージャー|任せ|チーム|メンバー|1on1|育て|評価/,
-  コミュニケーション: /話|聞|伝え|質問|関心|呼ぶ|1on1/,
-  習慣: /毎日|毎朝|朝|習慣|続け|寝る前/,
-  時間: /時間|予定|カレンダー|バッファ|忙し/,
-  仕事術: /仕事|会議|報告|企画|資料/,
-  思考法: /考え|問い|イシュー|仮説/,
-  読書術: /読|本|メモ|アウトプット/,
-  心理学: /課題|承認|評価|気にし/,
-  キャリア: /キャリア|働き|転職|人生/,
-};
+// 🧭 お試しモードの Jev（偽物）。悩みごとの言葉の手がかり（意味の近さのまね）で確率を決める。
+const JEV_DEMO_PURPOSES = new Set(['memo_relevance', 'intent']);
 const JEV_DEMO_CONCERNS = {
   人を動かす: /部下|メンバー|後輩|マネージャー|1on1|人に動いて|批判|命令|任せ/,
   抱えすぎ: /抱え|手が回ら|忙し|やらない|断る|持ち帰|バッファ|予定/,
@@ -526,11 +515,6 @@ const JEV_DEMO_CONCERNS = {
   忘れる: /忘れ|記憶|見返|アウトプット|話す/,
 };
 function demoJevResult(purpose, input) {
-  const topicsOf = (text) => Object.entries(JEV_DEMO_TOPICS).filter(([, re]) => re.test(String(text || ''))).map(([t]) => t);
-  if (purpose === 'memo_filing') {
-    const memoTopics = topicsOf(input.memo);
-    return { probs: (input.tags || []).map((t) => (String(input.memo || '').includes(t) || memoTopics.includes(t) ? 0.88 : 0.08)) };
-  }
   if (purpose === 'memo_relevance') {
     // 相談の悩みごとの手がかり（意味の近さのまね）。「報告」のような語の重なりだけでは選ばない。
     const concernsOf = (text) => Object.entries(JEV_DEMO_CONCERNS).filter(([, re]) => re.test(String(text || ''))).map(([k]) => k);
@@ -564,7 +548,7 @@ export function installDemoFetch(store) {
       // 🧭 Jev（判断のモデル・?jev=1 のときだけアプリが送る）の見本: 言葉の手がかりで「はい」の確率を決める偽物。
       //   本番（api/_jevRelay.js）と同じく、いつも 200・トークンは数えない。&jev=down で「使えない」（{ jev: null }）。
       if (JEV_DEMO_PURPOSES.has(payload.purpose)) {
-        await wait(120, signal); // 本番の Jev（約 70〜500ms）の速いほう（タグの提案はシートが閉じ終わるまでに答えたときだけ使う）
+        await wait(250, signal); // 本番の Jev（約 70〜500ms）くらい
         if (new URLSearchParams(window.location.search).get('jev') === 'down') return json({ jev: null, reason: 'upstream' });
         return json({ jev: { result: demoJevResult(payload.purpose, payload.jev || {}), ms: 180 } });
       }

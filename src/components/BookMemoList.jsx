@@ -294,10 +294,9 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
 
   // 🏷 タグの提案（2026-10-02・SPEC §2）: いま保存したメモに、自分のタグから合いそうなものを 1〜3 個。押すと付く・もう一度で外す。
   //   保存した 1 回ごとに 1 度だけ決める（hooks/useTagSuggestions.js）。× で閉じたら次に保存するまで出さない。
-  const { plan } = usePaywall();
   const savedRow = saved ? memos.find((m) => m.id === saved.id) || null : null;
   const thisBook = useMemo(() => (books || []).find((b) => b.id === bookId) || null, [books, bookId]);
-  const { suggestions: tagSuggestions, source: tagSource } = useTagSuggestions({ saved, book: thisBook, current: savedRow?.tags || [], books, plan });
+  const { suggestions: tagSuggestions, source: tagSource } = useTagSuggestions({ saved, book: thisBook, current: savedRow?.tags || [], books });
   const [dismissedTags, setDismissedTags] = useState(null);
   const [tagBusy, setTagBusy] = useState(null);
   // 押したらすぐ付いた形にする（楽観的）。保存に失敗したら元に戻して知らせる。{ id, tags } | null

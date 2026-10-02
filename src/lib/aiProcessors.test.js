@@ -13,7 +13,7 @@ import {
 const CONSENT_SIGNATURES = {
   1: 'advisor_interview:gemini,book_advisor:anthropic,cards_to_summary:gemini,condense:gemini,consult:anthropic,ocr:gemini,setup_sheet:gemini,setup_sheet_edit:gemini|fallback:anthropic',
   // 2 = 1 ＋ TypeSafe AI（Jev・VITE_AI_JEV=on のときだけ・2026-10-02）
-  2: 'advisor_interview:gemini,book_advisor:anthropic,cards_to_summary:gemini,condense:gemini,consult:anthropic,intent:typesafe,memo_filing:typesafe,memo_relevance:typesafe,ocr:gemini,setup_sheet:gemini,setup_sheet_edit:gemini|fallback:anthropic',
+  2: 'advisor_interview:gemini,book_advisor:anthropic,cards_to_summary:gemini,condense:gemini,consult:anthropic,intent:typesafe,memo_relevance:typesafe,ocr:gemini,setup_sheet:gemini,setup_sheet_edit:gemini|fallback:anthropic',
 };
 
 describe('送り先は api/_aiRouting.js の既定と同じ', () => {
@@ -85,10 +85,10 @@ describe('🧭 Jev を入れたとき（VITE_AI_JEV=on）', () => {
     expect(new Set(listed).size).toBe(listed.length);
   });
 
-  it('画面に出す会社名: 相談は Anthropic・TypeSafe AI、タグの提案は TypeSafe AI だけ', () => {
+  it('画面に出す会社名: 相談は Anthropic・TypeSafe AI（合いそうなタグは端末の中だけ＝行を足さない）', () => {
     expect(providersFor(featureForPurpose('consult', on.features), on.purposeProvider)).toEqual(['Anthropic', 'TypeSafe AI']);
-    expect(providersFor(featureForPurpose('memo_filing', on.features), on.purposeProvider)).toEqual(['TypeSafe AI']);
-    expect(on.features.find((f) => f.id === 'tag_suggest').sends.length).toBeLessThanOrEqual(44);
+    expect(featureForPurpose('memo_filing', on.features)).toBe(null);
+    expect(on.features.length).toBe(off.features.length);
     // 止めているときの表は変わらない
     expect(providersFor(featureForPurpose('consult', off.features), off.purposeProvider)).toEqual(['Anthropic']);
   });
@@ -100,7 +100,7 @@ describe('🧭 Jev を入れたとき（VITE_AI_JEV=on）', () => {
       const m = await import('./aiProcessors');
       expect(m.AI_JEV_ON).toBe(true);
       expect(m.AI_CONSENT_VERSION).toBe(2);
-      expect(m.AI_FEATURES.map((f) => f.id)).toContain('tag_suggest');
+      expect(m.AI_PURPOSE_PROVIDER.memo_relevance).toBe('typesafe');
       const consent = await import('./aiConsent');
       expect(consent.isAiConsentCurrent({ version: 1, at: '2026-10-01T00:00:00.000Z' })).toBe(false);
       expect(consent.isAiConsentCurrent({ version: 2, at: '2026-10-02T00:00:00.000Z' })).toBe(true);

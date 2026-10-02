@@ -11,7 +11,7 @@
 //   4. プライバシーポリシー第 7 条（src/legal/PrivacyPage.jsx・legal/privacy.md）も合わせる
 //
 // 🧭 Jev（TypeSafe AI の判断のモデル・2026-10-02）は、アプリの VITE_AI_JEV=on のときだけ送り先に加わる（buildAiProcessors）。
-//   Jev の用途（memo_relevance / intent / memo_filing）は api/_aiRouting.js の JEV_ROUTES と同じ（テストで確かめる）。
+//   Jev の用途（memo_relevance / intent）は api/_aiRouting.js の JEV_ROUTES と同じ（テストで確かめる）。
 
 // 🧭 Jev（TypeSafe AI の判断のモデル・2026-10-02・docs/jev-plan.md）をアプリで使うか。
 //   VITE_AI_JEV=on のときだけ、送り先に TypeSafe AI を足し、同意の版を 2 にする（止めている間は、使っていない会社のために
@@ -89,17 +89,10 @@ const BASE_PURPOSE_PROVIDER = {
 // 🧭 Jev の用途 → どの機能の送り先に TypeSafe AI を足すか（api/_aiRouting.js の JEV_ROUTES.feature と同じ・テストで確かめる）。
 //   memo_relevance … 相談の質問と、関係しそうなメモの一節（各 160 字まで・30 件まで）＝相談で送るものの一部
 //   intent         … 相談の質問だけ（いまはアプリから送らない・評価だけ）
-//   memo_filing    … 保存したメモの文・書名・自分のタグの名前（タグの提案・プランの人だけ）
+//   合いそうなタグ（タグの提案）は端末の中だけで決める＝TypeSafe AI には送らない（2026-10-02・docs/jev-plan.md §3-3）。
 export const JEV_PURPOSE_FEATURE = {
   memo_relevance: 'consult',
   intent: 'consult',
-  memo_filing: 'tag_suggest',
-};
-const TAG_SUGGEST_FEATURE = {
-  id: 'tag_suggest',
-  name: '合いそうなタグ', // 画面の見出し「いま書いたメモに合いそうなタグ」・ヘルプの項目と同じ名前
-  sends: '保存したメモの文・書名・自分のタグの名前',
-  purposes: ['memo_filing'],
 };
 
 // 送り先の表を組み立てる（jev: TypeSafe AI を足すか）。版は jev なら 2・ほかは 1。
@@ -107,7 +100,6 @@ export function buildAiProcessors({ jev = false } = {}) {
   const features = BASE_FEATURES.map((f) => ({ ...f, purposes: [...f.purposes] }));
   const purposeProvider = { ...BASE_PURPOSE_PROVIDER };
   if (jev) {
-    features.push({ ...TAG_SUGGEST_FEATURE, purposes: [...TAG_SUGGEST_FEATURE.purposes] });
     for (const [purpose, featureId] of Object.entries(JEV_PURPOSE_FEATURE)) {
       const f = features.find((x) => x.id === featureId);
       if (f && !f.purposes.includes(purpose)) f.purposes.push(purpose);
@@ -122,7 +114,7 @@ const BUILT = buildAiProcessors({ jev: AI_JEV_ON });
 // 同意の版。送り先（会社と用途の組み合わせ）が変わったら上げる。
 // 版 1 = AI 選書の聞き返し・読書計画シートも Google（2026-10-01 の 2 回目の振り分け・api/_aiRouting.js）。
 // （OpenAI に送っていた振り分けのときの版はアプリに出していないので、1 のまま書き直した。）
-// 版 2 = 1 に TypeSafe AI（Jev・相談の関係するメモの判断・タグの提案）を足したもの（VITE_AI_JEV=on のときだけ・2026-10-02）。
+// 版 2 = 1 に TypeSafe AI（Jev・相談の関係するメモの判断）を足したもの（VITE_AI_JEV=on のときだけ・2026-10-02）。
 export const AI_CONSENT_VERSION = BUILT.version;
 // 機能ごとに「送るもの」と「送り先」。purposes はアプリが送る用途（purpose）。
 export const AI_FEATURES = BUILT.features;

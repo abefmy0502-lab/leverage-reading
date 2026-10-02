@@ -103,7 +103,7 @@ export default function PrivacyPage() {
         <li><strong>Anthropic, PBC(米国):</strong> AI 機能(相談、AI 選書の推薦)の提供</li>
         <li><strong>OpenAI(米国):</strong> 運営者だけが使う運営の分析の補助(集計した数字だけを送り、利用者のメモ・質問・写真などは送りません)</li>
         <li><strong>Google LLC(米国):</strong> AI 機能(読書計画シート、AI 選書の質問づくり、メモの凝縮、メモからまとめ、写真から書き起こし)の提供(Gemini API)</li>
-        {AI_JEV_ON && <li><strong>TypeSafe AI(米国):</strong> AI 機能の判断の補助(相談で関係するメモを選ぶ、保存したメモに合うタグの提案)。文章は作らず、選択と確率だけを返します(Jev)</li>}
+        {AI_JEV_ON && <li><strong>TypeSafe AI(米国):</strong> AI 機能の判断の補助(相談で関係するメモを選ぶ)。文章は作らず、選択と確率だけを返します(Jev)</li>}
         <li><strong>Apple Inc.(米国):</strong> App Store でのアプリ内課金・決済処理(iOS アプリ)</li>
         <li><strong>RevenueCat, Inc.(米国):</strong> 購読状態(課金ステータス・トランザクション識別子等)の管理</li>
       </ul>
@@ -133,7 +133,7 @@ export default function PrivacyPage() {
             <li><strong>読書計画シート(作る・直す):</strong> 書名・著者・この本から得たいこと・よく使うタグ・今のシートと直したい点 → Google(Gemini)</li>
             <li><strong>メモの凝縮・メモからまとめ:</strong> そのメモの本文(まとめは書名とその本のメモ) → Google(Gemini)</li>
             <li><strong>写真から書き起こし:</strong> 撮った本のページの写真 → Google(Gemini)。写真を AI 事業者に送るのは、この機能だけです。</li>
-            {AI_JEV_ON && <li><strong>判断の補助(関係するメモの選択・合いそうなタグ):</strong> 相談の質問と、関係しそうなメモの一節(1 件 160 字まで)・書名、保存したメモの本文・書名・自分のタグの名前 → TypeSafe AI(Jev)。文章は作らず、どれが関係するか・どのタグが合うかの判断だけを返します。タグの提案はプランをご利用の方だけです。</li>}
+            {AI_JEV_ON && <li><strong>判断の補助(相談で関係するメモの選択):</strong> 相談の質問と、関係しそうなメモの一節(1 件 160 字まで)・書名 → TypeSafe AI(Jev)。文章は作らず、どのメモが関係するかの判断だけを返します。</li>}
           </ul>
         </li>
         <li>ある AI 事業者が一時的に使えないときは、答えを返すため、同じ内容を Anthropic(Claude)に送ることがあります。</li>

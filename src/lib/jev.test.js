@@ -44,9 +44,9 @@ describe('askJev', () => {
 
   it('版 2 の同意が無ければ送らない・同意のシートも出さない', async () => {
     state.version = 1;
-    expect(await askJev('memo_filing', { memo: 'x', tags: ['a'] })).toBe(null);
+    expect(await askJev('memo_relevance', { question: 'q', memos: [] })).toBe(null);
     state.version = null;
-    expect(await askJev('memo_filing', { memo: 'x', tags: ['a'] })).toBe(null);
+    expect(await askJev('memo_relevance', { question: 'q', memos: [] })).toBe(null);
     expect(fetchMock).not.toHaveBeenCalled();
     expect(ensureAiConsent).not.toHaveBeenCalled();
     expect(requestAiConsent).not.toHaveBeenCalled();
