@@ -281,10 +281,11 @@ const oneLine = { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'now
 export const subtitleStyle = { fontWeight: 400, fontSize: 'var(--text-sub)', color: 'var(--text-3)' };
 const titleInk = { fontWeight: 600, color: 'var(--text)' };
 
-// 行の読み上げ: 書名＋副題・著者・出版社と年（見えているものをすべて）。追加済みの本も同じ形に状態を足す。
+// 行の読み上げ: 見えているものをすべて＝書名＋副題・著者・出版社と年。追加済みの行は出版社と年の代わりに
+// 「追加済み・状態」を出しているので、書名＋副題・著者に状態を足す。
 export function rowLabel(book, statusLabel = null) {
   const fullTitle = [book.title, book.subtitle].filter(Boolean).join(' ');
-  const desc = [book.author, book.publisher, book.pubYear].filter(Boolean).join('、');
+  const desc = (statusLabel ? [book.author] : [book.author, book.publisher, book.pubYear]).filter(Boolean).join('、');
   const head = `『${fullTitle}』${desc ? `（${desc}）` : ''}`;
   return statusLabel ? `${head}追加済み（${statusLabel}）。開く` : `${head}を追加`;
 }
