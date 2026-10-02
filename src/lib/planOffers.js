@@ -60,7 +60,7 @@ export function formatFreeTrial(product) {
 const UNIT_JA = { DAY: '日', WEEK: '週間', MONTH: 'か月', YEAR: '年' };
 const PER_JA = { DAY: '日', WEEK: '週', MONTH: '月', YEAR: '年' };
 
-// 有料の初回価格の書き方。regular はその後の通常価格の文字（ストアの priceString「¥12,800」）。
+// 有料の初回価格の書き方。regular は初回の期間のあとの価格の文字（ストアの priceString「¥12,800」）。
 //   1 年・先払い   → { head: '1 年目 ¥9,800', afterHead: '2 年目から', after: '2 年目から ¥12,800',
 //                      full: '1 年目 ¥9,800（2 年目から ¥12,800）' }
 //   3 か月・月ごと → { head: '最初の 3 か月 ¥980/月', afterHead: 'その後', after: 'その後 ¥1,480', … }

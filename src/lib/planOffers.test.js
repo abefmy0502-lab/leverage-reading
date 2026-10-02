@@ -85,7 +85,7 @@ describe('buildStoreLabels（有料プランの画面の価格）', () => {
     expect(planCtaLabel(l.monthly)).toBe('7 日間無料で試す');
   });
 
-  it('初回特典を使えない人（月額の 7 日間無料を使った人など）は通常の価格', () => {
+  it('初回特典を使えない人（月額の 7 日間無料を使った人など）は初回特典の無い価格', () => {
     const l = buildStoreLabels({ base, monthly: monthly(freeWeek), annual: annual(foundingYear), eligible: () => false });
     expect(l.annual.intro).toBeNull();
     expect(l.annual.trial).toBe('');
