@@ -19,7 +19,9 @@
 --   ③ 30 日後も使っている割合 = 登録から 30〜37 日目（30 日後からの 1 週間）に 1 回でも使った人 ÷ 登録から 37 日たった人
 --      使った証拠: analytics_events（何でも）/ book_memos / chat_messages / actions の作成。
 --   ④ 7 日間無料 → 有料の割合 = 無料期間を始めて 8 日たった人のうち、有料に進んだ人
---      無料期間の始まり: subscription_events の period_type が trial / intro の最初の行。
+--      無料期間の始まり: subscription_events の period_type が trial の最初の行。
+--      （'intro' は有料の初回価格＝創業メンバー価格「1 年目 ¥9,800」で、無料期間ではない。分母にも分子の
+--       「無料期間の始まり」にも数えない・2026-10-02。再適用で反映）
 --      有料に進んだ: その後の行で（period_type='normal' かつ status='active'）または is_trial_conversion。
 --      8 日 = 7 日間＋更新の処理の 1 日。サンドボックスは除く。
 --
@@ -62,7 +64,7 @@ begin
       with starts as (
         select e.user_id, min(e.event_at) as trial_at
         from public.subscription_events e
-        where e.period_type in ('trial', 'intro')
+        where e.period_type = 'trial'
           and coalesce(e.environment, 'production') <> 'sandbox'
           and e.user_id not in (select user_id from public.app_admins)
         group by e.user_id

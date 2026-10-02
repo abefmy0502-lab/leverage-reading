@@ -15,6 +15,8 @@
 //
 // 創業メンバー価格（lib/foundingOffer.js）: VITE_FOUNDING_OFFER=on かつ VITE_FOUNDING_OFFER_END（日本時間）の前だけ、
 //   ヒーローの小さな印・創業メンバー価格の節・料金の年額の行・FAQ を出す。終わる日を過ぎると自動で消える。
+//   創業メンバー（特典＝開発者への直接の窓口・次に作る機能への投票）は、期間中にプランを始めた全員（月額・年額・
+//   7 日間無料で始めた人も・2026-10-02 コーディネーター裁定）。¥9,800 は年額だけ。
 //   「先着 N 人」とは書かない（人数の上限は付けない・景表法）。期間中、年額の初回特典は「1 年目 ¥9,800」なので
 //   年額に 7 日間無料は付かない（7 日間無料は月額だけ）。金額の真実は App Store。
 //
@@ -189,11 +191,11 @@ const FAQ_ITEMS = [
   },
   {
     q: '料金はいくらですか？',
-    a: `無料プラン（ずっと無料）で、メモ・記録・振り返り・シェアが使えます。AI は相談が毎月 ${FREE_TOKENS} トークン（相談 約 3 回）、写真から書き起こしが月 ${FREE_OCR_PER_MONTH} 回です。プラン（月額 ¥1,480、または年額 ¥12,800・月あたり約 ¥1,066）にすると、相談が毎月 ${PAID_TOKENS} トークン（約 80 回）になり、AI 選書・読書計画シートも使えます。${OFFER.active ? `${OFFER.endLabel}までは、年額プランの 1 年目が ¥9,800 です（創業メンバー価格）。` : ''}${TRIAL_NOTE ? `${TRIAL_WHO}は${TRIAL_SENT}です（初めての方だけ）。` : ''}お支払いは App Store（Apple ID）です。`,
+    a: `無料プラン（ずっと無料）で、メモ・記録・振り返り・シェアが使えます。AI は相談が毎月 ${FREE_TOKENS} トークン（相談 約 3 回）、写真から書き起こしが毎月 ${FREE_OCR_PER_MONTH} 回です。プラン（月額 ¥1,480、または年額 ¥12,800・月あたり約 ¥1,066）にすると、相談が毎月 ${PAID_TOKENS} トークン（約 80 回）になり、AI 選書・読書計画シートも使えます。${OFFER.active ? `${OFFER.endLabel}までは、年額プランの 1 年目が ¥9,800 です（創業メンバー価格）。` : ''}${TRIAL_NOTE ? `${TRIAL_WHO}は${TRIAL_SENT}です（初めての方だけ）。` : ''}お支払いは App Store（Apple ID）です。`,
   },
   ...(OFFER.active ? [{
     q: `${FOUNDING_NAME}とは何ですか？`,
-    a: `公開から 30 日間（${OFFER.endLabel}まで・日本時間）に年額プランを始めた方の価格です。1 年目は ¥9,800 を始めるときに 1 回お支払いいただき、2 年目からは通常の年額 ¥12,800（税込）で自動更新されます。App Store の初回特典として提供するため、同じ Apple ID でプランの初回特典（月額プランの 7 日間無料など）を使ったことがない方が対象です。人数の上限はありません。期間中に年額プランを始めた方には、開発者への直接の窓口と、次に作る機能への投票をご用意しています。`,
+    a: `公開から 30 日間（${OFFER.endLabel}まで・日本時間）にプランを始めた方は、月額・年額どちらでも（7 日間無料で始めた方も）創業メンバーです。開発者への直接の窓口と、次に作る機能への投票をご用意しています。人数の上限はありません。年額プランなら、1 年目は ¥9,800 を始めるときに 1 回お支払いいただき、2 年目からは通常の年額 ¥12,800（税込）で自動更新されます。この価格は App Store の初回特典なので、同じ Apple ID でプランの初回特典（月額プランの 7 日間無料など）を使ったことがない方が対象です。`,
   }] : []),
   ...(TRIAL_NOTE ? [{
     q: '無料期間のあとは、自動で料金がかかりますか？',
@@ -584,22 +586,23 @@ export default function Landing() {
                 <p className="lp-offer-when">公開から 30 日間・{OFFER.endLabel}（日本時間）まで</p>
                 <h2 className="lp-h2" id="lp-offer-title">{FOUNDING_NAME}</h2>
                 <p>
-                  公開から 30 日間に年額プランを始めた方は、1 年目が ¥9,800 です。2 年目からは通常の年額 ¥12,800（税込）になります。
+                  公開から 30 日間にプランを始めた方は、月額・年額どちらでも創業メンバーです。年額プランなら、1 年目が ¥9,800 です（2 年目からは通常の年額 ¥12,800・税込）。
                 </p>
                 <p>Orime は、阿部文哉がひとりで作っています。最初に使ってくださる方の声で、次の形を決めたいと思っています。</p>
               </div>
               <div className="lp-offer-card">
+                <p className="lp-offer-label">年額プラン</p>
                 <p className="lp-offer-price">{OFFER.priceLabel}<span>（税込）</span></p>
                 <p className="lp-offer-after">2 年目から 年額 ¥12,800（税込）</p>
+                <p className="lp-offer-label lp-offer-label-perks">創業メンバーの特典（月額・年額どちらでも）</p>
                 <ul className="lp-included" aria-label="創業メンバーの特典">
                   <li><Check size={16} strokeWidth={2.4} aria-hidden="true" /><span>開発者への直接の窓口（いただいた要望を優先して読みます）</span></li>
                   <li><Check size={16} strokeWidth={2.4} aria-hidden="true" /><span>次に作る機能への投票</span></li>
-                  <li><Check size={16} strokeWidth={2.4} aria-hidden="true" /><span>プランのすべて（相談が毎月 {PAID_TOKENS} トークン・AI 選書・読書計画シートなど）</span></li>
                 </ul>
                 <div className="lp-cta-block">
                   <StoreCta className="lp-btn lp-btn-large" loc="offer">{CTA_LABEL}</StoreCta>
                   <p className="lp-cta-note">
-                    無料プランで始めて、{OFFER.endLabel}までにアプリの「プランを見る」から年額プランへ。App Store の初回特典なので、同じ Apple ID で初回特典（月額プランの 7 日間無料など）を使ったことがない方が対象です。人数の上限はありません。
+                    無料プランで始めて、{OFFER.endLabel}までにアプリの「プランを見る」からプランへ（7 日間無料で始めた方も創業メンバーです）。年額の ¥9,800 は App Store の初回特典なので、同じ Apple ID で初回特典（月額プランの 7 日間無料など）を使ったことがない方が対象です。人数の上限はありません。
                   </p>
                 </div>
               </div>
@@ -624,7 +627,7 @@ export default function Landing() {
                 <ul className="lp-included" aria-label="無料プランに含まれるもの">
                   <li><Check size={16} strokeWidth={2.4} aria-hidden="true" /><span>本とメモは何件でも。記録・振り返り・シェアも</span></li>
                   <li><Check size={16} strokeWidth={2.4} aria-hidden="true" /><span>相談は<span className="lp-nb">毎月 {FREE_TOKENS} トークン</span>（約 3 回）</span></li>
-                  <li><Check size={16} strokeWidth={2.4} aria-hidden="true" /><span>写真から書き起こし <span className="lp-nb">月 {FREE_OCR_PER_MONTH} 回</span></span></li>
+                  <li><Check size={16} strokeWidth={2.4} aria-hidden="true" /><span>写真から書き起こし <span className="lp-nb">毎月 {FREE_OCR_PER_MONTH} 回</span></span></li>
                 </ul>
               </div>
               <div className="lp-plan">

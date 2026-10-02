@@ -37,6 +37,7 @@ create policy "ops_tasks_all_own" on public.ops_tasks
 -- ── ③ 売上 / 課金（会員内訳：有料 / 無料期間 / 解約。管理者除外） ────────────
 -- active = 有料（status='active' かつ無料期間でない）→ MRR はこれだけで計算。
 -- trial  = 無料期間（status='active' かつ period_type が trial）= 売上0。intro（有料の初回価格）は有料に数える。
+-- founding = active のうち period_type='intro'（創業メンバー価格・内訳。2026-10-02 追加。無い古い定義でもアプリは 0 として動く）。
 -- canceled = 解約（status が active 以外）→ 会員数に含めない。
 create or replace function public.admin_revenue()
 returns jsonb language plpgsql security definer set search_path = public as $$
@@ -46,6 +47,11 @@ begin
   select jsonb_build_object(
     'active', (select count(*) from public.subscriptions
       where status = 'active' and coalesce(period_type, 'normal') <> 'trial'
+        and user_id not in (select user_id from public.app_admins)),
+    -- founding = 有料のうち、有料の初回価格（period_type 'intro'＝創業メンバー価格「1 年目 ¥9,800」）の人。
+    -- active に含まれる（内訳）。ダッシュボードの MRR は、この人数だけ ¥9,800 ÷ 12 で数える（2026-10-02）。
+    'founding', (select count(*) from public.subscriptions
+      where status = 'active' and period_type = 'intro'
         and user_id not in (select user_id from public.app_admins)),
     'trial', (select count(*) from public.subscriptions
       where status = 'active' and coalesce(period_type, 'normal') = 'trial'

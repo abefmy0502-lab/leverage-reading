@@ -48,7 +48,7 @@ alter table public.subscription_events enable row level security;
 -- ポリシー無し＝ authenticated / anon は不可。service_role（RLS バイパス）だけが書く。
 
 -- ── 初回の写し（この SQL を流した時点の subscriptions を 1 人 1 行で残す） ──────────
--- いま無料期間中の人（period_type が trial / intro）は、行を作った時刻（≒無料期間を始めた時刻）を
+-- いま無料期間中の人（period_type が trial。'intro' は有料の初回価格＝創業メンバー価格で無料期間ではない）は、行を作った時刻（≒無料期間を始めた時刻）を
 -- event_at にして「無料期間を始めた」記録になる。これからの RENEWAL で有料に進んだかが分かる。
 -- 有料（normal / null）の人は「前に無料期間があったか」が分からないので、7 日間無料 → 有料の分母には入らない。
 -- period_type / store 列が無い DB（未適用の SQL がある）でも動くように、列の有無を見て組み立てる。

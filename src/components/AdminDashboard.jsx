@@ -32,6 +32,8 @@ import {
 
 // 💰 コストモデル（粗利の概算用）。ここは"目安"。
 const MONTHLY_PRICE_JPY = 1480;     // 月額プランの税込価格（実価格）
+// 創業メンバー価格（年額の初回価格 1 年目 ¥9,800・period_type 'intro'）の月あたり（MRR の概算用・2026-10-02）。
+const FOUNDING_MONTHLY_JPY = Math.round(9800 / 12);
 // App 内課金（App Store / Google Play）の手数料。Apple 小規模事業者プログラム
 // （年間売上 100万USD 未満）適用で 15%。Stripe(Web) は別物だが現状 App 決済が前提。
 const PAYMENT_FEE_RATE = 0.15;
@@ -412,8 +414,10 @@ export default function AdminDashboard({ onClose }) {
     if (error) load(days);
   };
 
-  // 💰 売上・粗利の概算。MRR = 有料会員 × 月額。粗利 = MRR − 決済手数料 − AI原価。
-  const mrr = (revenue?.active || 0) * MONTHLY_PRICE_JPY;
+  // 💰 売上・粗利の概算。MRR = 有料会員 × 月額（創業メンバー価格の人は ¥9,800 ÷ 12）。粗利 = MRR − 決済手数料 − AI原価。
+  //   founding は admin_revenue の内訳（supabase_admin_members_tasks.sql・未適用の古い定義なら 0＝従来どおり）。
+  const foundingPaid = Math.min(revenue?.founding || 0, revenue?.active || 0);
+  const mrr = ((revenue?.active || 0) - foundingPaid) * MONTHLY_PRICE_JPY + foundingPaid * FOUNDING_MONTHLY_JPY;
   const aiCallsThisMonth = ai && ai[0] ? ai[0].calls : 0;
   const aiCostThisMonth = aiCallsThisMonth * AI_COST_PER_CALL_JPY;
   const grossProfit = Math.max(0, Math.round(mrr - mrr * PAYMENT_FEE_RATE - aiCostThisMonth));
@@ -927,7 +931,9 @@ export default function AdminDashboard({ onClose }) {
               <Stat label="解約（累計）" value={revenue?.canceled ?? 0} sub="会員数に含めない" />
             </div>
             <div style={{ ...grid2, marginTop: 10 }}>
-              <Stat label="MRR（概算）" value={`¥${mrr.toLocaleString()}`} sub={`有料 ${revenue?.active ?? 0}人 × ¥${MONTHLY_PRICE_JPY.toLocaleString()}`} />
+              <Stat label="MRR（概算）" value={`¥${mrr.toLocaleString()}`} sub={foundingPaid > 0
+                ? `有料 ${(revenue?.active ?? 0) - foundingPaid}人 × ¥${MONTHLY_PRICE_JPY.toLocaleString()}＋創業 ${foundingPaid}人 × ¥${FOUNDING_MONTHLY_JPY.toLocaleString()}`
+                : `有料 ${revenue?.active ?? 0}人 × ¥${MONTHLY_PRICE_JPY.toLocaleString()}`} />
               <Stat label="30日内に更新期限" value={revenue?.expiring_30d ?? 0} sub="要フォロー" />
             </div>
             <div style={{ ...card, marginTop: 10 }}>

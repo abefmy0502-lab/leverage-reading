@@ -25,7 +25,8 @@
 // 🌱 創業メンバー価格（2026-10-02・公開から 30 日間）: ストアが年額の初回特典に「先払い・1 年・¥9,800」を返すと、
 //   年額の行は「1 年目 ¥9,800」＋「2 年目から ¥12,800」になり、年額には 7 日間無料を出さない（App Store の初回特典は
 //   1 つの商品に 1 つ）。月額は 7 日間無料のまま。金額の真実はストア（lib/planOffers.js）。「創業メンバー価格」という
-//   呼び名と特典の 1 行は、ストアに初回価格があり、かつ期間中（VITE_FOUNDING_OFFER・lib/foundingOffer.js）のときだけ。
+//   呼び名は、ストアに初回価格があり、かつ期間中（VITE_FOUNDING_OFFER・lib/foundingOffer.js）のときだけ。
+//   特典（開発者への直接の窓口・機能への投票）の 1 行は期間中ならいつも（月額・年額・7 日間無料で始めた人も創業メンバー）。
 //   env が on でもストアに初回価格が無ければ（対象外の人・未設定）通常の価格だけ。逆にストアにあって env が off なら、
 //   値段は出して呼び名と特典は出さない。
 //
@@ -126,7 +127,7 @@ const showNative = isNative || preview.on;
 // 「無料」だけの見出しにしない（7 日間無料と取り違えないよう「無料プラン（ずっと無料）」・GLOSSARY）。
 const PLAN_COMPARE = [
   // 量の横に「相談なら何回か」を添える（トークンの数だけでは、どれだけ使えるか分からないため・2026-09-29）。
-  // 写真から書き起こしは無料プランでも月 10 回（トークンとは別・2026-10-02）。
+  // 写真から書き起こしは無料プランでも毎月 10 回（トークンとは別・2026-10-02）。
   { name: '無料プラン（ずっと無料）', amount: `毎月 ${FREE_TOKENS.toLocaleString()} トークン`, scope: `相談 約 ${Math.round(FREE_TOKENS / TOKEN_COSTS.consult).toLocaleString()} 回`, items: [`写真から書き起こし 毎月 ${FREE_OCR_PER_MONTH} 回`, 'メモ', '記録', '振り返り', 'シェア'] },
   // 機能名は語の途中で折り返さない（「写真から書き起こし」が割れないよう、名前ごとに nowrap で並べる）。
   { name: 'プラン', amount: `毎月 ${PAID_TOKENS.toLocaleString()} トークン`, scope: `相談なら 約 ${Math.round(PAID_TOKENS / TOKEN_COSTS.consult).toLocaleString()} 回`, lead: 'すべての AI：', items: ['AI 選書', '読書計画シート', '写真から書き起こし'] },
@@ -596,14 +597,16 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
             </div>
             )}
 
-            {/* 創業メンバー価格のあいだ: 特典と、初回特典は 1 つの Apple ID に 1 回であること（App Store の決まり）。 */}
-            {priceState === 'ready' && foundingNamed && (
+            {/* 創業メンバー（期間中・2026-10-02 コーディネーター裁定）: 特典は期間中にプランを始めた全員（月額・年額・7 日間無料で
+                始めた人も）。¥9,800 は年額だけ。特典は値段の約束ではないので、ストアの初回価格が無くても期間中なら出す。
+                あわせて、初回特典は 1 つの Apple ID に 1 回であること（App Store の決まり）。 */}
+            {priceState === 'ready' && founding.active && (
               <p style={{ ...metaText, marginTop: 'var(--space-3)' }}>
-                {founding.endLabel}までに年額プランを始めた方は創業メンバーです（開発者への直接の窓口・次に作る機能への投票）。
+                {founding.endLabel}までにプランを始めた方は、月額・年額どちらでも創業メンバーです（開発者への直接の窓口・次に作る機能への投票）。
               </p>
             )}
             {priceState === 'ready' && labels.annual?.intro && labels.monthly?.trial && (
-              <p style={{ ...metaText, marginTop: foundingNamed ? 'var(--space-1)' : 'var(--space-3)' }}>
+              <p style={{ ...metaText, marginTop: founding.active ? 'var(--space-1)' : 'var(--space-3)' }}>
                 初回特典は 1 つの Apple ID に 1 回です（月額の {normalizeTrialLabel(labels.monthly.trial)}と、年額の {labels.annual.intro.head} は、どちらか一方）。
               </p>
             )}

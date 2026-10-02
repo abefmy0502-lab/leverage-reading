@@ -78,7 +78,7 @@ const SAMPLES = {
   admin_active_series: () => Array.from({ length: 30 }, (_, i) => ({ d: iso(29 - i).slice(5).replace('-', '/'), active: 10 + ((i * 7) % 30), new_books: (i * 3) % 9 })),
   admin_feature_usage: () => ({ events: { app_open: 1900, memo_added: 820, book_added: 410, ai_used: 360, paywall_viewed: 120, checkout_completed: 14 }, ai_features: { brain: 300, ocr: 40, condense: 20 } }),
   admin_ai_usage: () => [{ month: iso(0).slice(0, 7), calls: 420, users: 60 }],
-  admin_revenue: () => ({ active: 9, trial: 5, canceled: 2, by_status: { active: 14, canceled: 2 }, expiring_30d: 1 }),
+  admin_revenue: () => ({ active: 9, founding: 3, trial: 5, canceled: 2, by_status: { active: 14, canceled: 2 }, expiring_30d: 1 }),
   admin_feedback: () => [],
   admin_get_goal: () => ({ metric: 'paid_users', target: 50, deadline: '2026-12-31' }),
   admin_tickets: () => [],

@@ -407,7 +407,10 @@ body.lp-active {
 .lp-offer-price { font-size: var(--text-title); font-weight: 600; line-height: 1.3; font-variant-numeric: tabular-nums; letter-spacing: 0.01em; }
 .lp-offer-price span { margin-left: var(--space-1); color: var(--text-2); font-size: var(--text-sub); font-weight: 400; }
 .lp-offer-after { margin-top: var(--space-1) !important; color: var(--text-2); font-size: var(--text-sub); }
-.lp-offer-card .lp-included { margin-top: var(--space-4); }
+.lp-offer-card .lp-included { margin-top: var(--space-2); }
+/* 年額の金額と、特典（月額・年額どちらでも）の小さな見出し（押せないので --text-2） */
+.lp-offer-label { color: var(--text-2); font-size: var(--text-sub); font-weight: 600; margin-bottom: var(--space-1) !important; }
+.lp-offer-label-perks { margin-top: var(--space-6) !important; }
 .lp-offer-card .lp-cta-block { margin-top: var(--space-6); }
 
 /* 料金 */
