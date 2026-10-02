@@ -168,7 +168,7 @@ const PRIVACY_POINTS = [
 // FAQ は「申し込みの手前で止まる理由」を書く場所。表示と FAQPage JSON-LD の両方の元。
 const FAQ_ITEMS = [
   {
-    q: 'ChatGPT に聞くのと、何が違いますか？',
+    q: 'ChatGPT とは、何が違いますか？',
     a: 'ChatGPT は、広く一般的な知識から答えます。Orime は、あなたが読んで残したメモと読書の記録を根拠に答え、使ったメモ（本とページ）をいっしょに見せます。最初から答えを決めつけず、あなたの状況を聞いてから、明日やることを一緒に一つ決めます。',
   },
   {
@@ -695,7 +695,7 @@ export default function Landing() {
         <section className="lp-final" aria-labelledby="lp-final">
           <div className="lp-wrap lp-narrow lp-final-inner">
             <h2 className="lp-h2" id="lp-final">
-              <span>今日残した一行が、</span><span>いつかのあなたの</span><span>相談に答える。</span>
+              <span>今日残した一行が、</span><span>一年後のあなたの</span><span>相談に答える。</span>
             </h2>
             <div className="lp-cta-block">
               <div className="lp-cta-row">
@@ -714,7 +714,7 @@ export default function Landing() {
       <footer className="lp-footer" data-build={BUILD_LABEL}>
         <div className="lp-wrap">
           <p className="lp-footer-brand">Orime</p>
-          <p className="lp-footer-op">運営：阿部文哉（個人で開発しています。要望や不具合は {SUPPORT_EMAIL} へ）</p>
+          <p className="lp-footer-op">運営：阿部文哉（個人で開発しています）</p>
           <nav className="lp-footer-links" aria-label="フッター">
             <a href="/legal/terms">利用規約</a>
             <a href="/legal/privacy">プライバシーポリシー</a>
