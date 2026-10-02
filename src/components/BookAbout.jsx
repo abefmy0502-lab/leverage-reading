@@ -102,7 +102,16 @@ function Description({ text, clamp }) {
   const clamped = clamp && !expanded;
   return (
     <>
-      <p ref={ref} style={{ ...descStyle, ...(clamped ? clamp3 : null) }}>{readable(text)}</p>
+      {/* 3 行で切っている間は 1 つのまとまり。開いたとき・畳む見出しの中は、改行ごとに段落にして間を 16 空ける。 */}
+      {clamped ? (
+        <p ref={ref} style={{ ...descStyle, ...clamp3 }}>{readable(text)}</p>
+      ) : (
+        <div ref={ref} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+          {String(text || '').split(/\n+/).map((t) => t.trim()).filter(Boolean).map((t, i) => (
+            <p key={i} style={{ ...descStyle, whiteSpace: 'normal' }}>{readable(t)}</p>
+          ))}
+        </div>
+      )}
       {clamp && (overflows || expanded) && (
         <button
           type="button"

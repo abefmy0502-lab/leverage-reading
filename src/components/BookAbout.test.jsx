@@ -63,4 +63,12 @@ describe('BookAbout', () => {
     expect(html).toContain('3\u2060つ');
     expect(html).toContain('リ\u2060・\u2060ク');
   });
+
+  it('畳む見出しの中の紹介文は改行ごとに段落（3 行で切るカードは 1 つのまとまり）', () => {
+    const info = { ...INFO, description: '一段落目。\n二段落目。\n\n三段落目。' };
+    const fold = renderToStaticMarkup(<BookAbout info={info} variant="fold" />);
+    expect((fold.match(/<p[^>]*font-read[^>]*>/g) || []).length).toBe(3);
+    const card = renderToStaticMarkup(<BookAbout info={info} variant="card" />);
+    expect((card.match(/<p[^>]*font-read[^>]*>/g) || []).length).toBe(1);
+  });
 });
