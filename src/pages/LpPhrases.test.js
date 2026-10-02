@@ -16,3 +16,14 @@ describe('phrasesOf（LP の段落を文節に分ける）', () => {
     expect(parts.some((p) => p.includes('12月15日'))).toBe(true);
   });
 });
+
+describe('phrasesOf と noBreak（折り返さない塊）', () => {
+  it('WORD JOINER・折り返さない空白でつないだ塊は分けない', async () => {
+    const { noBreak } = await import('../lib/foundingOffer');
+    const text = `無料プランで始めて、${noBreak('12月15日')}までに（${noBreak('7 日間無料')}で始めた方も）。`;
+    const parts = phrasesOf(text);
+    expect(parts.join('')).toBe(text);
+    expect(parts.some((p) => p.includes(noBreak('12月15日')))).toBe(true);
+    expect(parts.some((p) => p.includes(noBreak('7 日間無料')))).toBe(true);
+  });
+});

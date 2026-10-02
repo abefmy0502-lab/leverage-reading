@@ -61,9 +61,9 @@ export function foundingOfferState({ flag, end, priceLabel, now = Date.now() } =
   };
 }
 
-// 文の中で折り返させない書き方（「12月15日」の文字の間に WORD JOINER を挟む。見た目は同じ・LP と有料プランの画面で使う）。
+// 文の中で折り返させない書き方（「12月15日」の文字の間に WORD JOINER を挟み、空白は折り返さない空白に。見た目は同じ・LP と有料プランの画面で使う）。
 export function noBreak(text = '') {
-  return [...String(text || '')].join('\u2060');
+  return [...String(text || '')].map((c) => (c === ' ' ? '\u00a0' : c)).join('\u2060');
 }
 
 // 開発中だけの切り替え（?founding=on|env|store|off）。本番は常に null。

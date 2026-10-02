@@ -620,8 +620,8 @@ export default function Landing() {
                 </ul>
                 <div className="lp-cta-block">
                   <StoreCta className="lp-btn lp-btn-large" loc="offer">{CTA_LABEL}</StoreCta>
-                  <p className="lp-cta-note">
-                    無料プランで始めて、<span className="lp-nb">{OFFER.endLabel}</span>までにアプリの「プランを見る」からプランへ（<span className="lp-nb">7 日間無料</span>で始めた方も創業メンバーです）。年額の {FOUNDING_PRICE} は App Store の初回特典なので、同じ Apple ID で初回特典（月額プランの 7 日間無料など）を使ったことがない方が対象です。人数の上限はありません。
+                  <p className="lp-cta-note lp-wbr">
+                    <Phrases>{`無料プランで始めて、${END}までにアプリの「プランを見る」からプランへ（${noBreak('7 日間無料')}で始めた方も創業メンバーです）。年額の ${FOUNDING_PRICE} は App Store の初回特典なので、同じ Apple ID で初回特典（月額プランの 7 日間無料など）を使ったことがない方が対象です。人数の上限はありません。`}</Phrases>
                   </p>
                 </div>
               </div>
@@ -683,15 +683,14 @@ export default function Landing() {
             </div>
             <div className="lp-cta-block">
               <StoreCta className="lp-btn lp-btn-large" loc="pricing">{CTA_LABEL}</StoreCta>
-              <p className="lp-cta-note">
-                アプリは無料でダウンロードできます。
-                {OFFER.active
+              <p className="lp-cta-note lp-wbr">
+                <Phrases>{`アプリは無料でダウンロードできます。${OFFER.active
                   ? `${FOUNDING_NAME}の年額プランは、1 年目の ${FOUNDING_PRICE}（税込）を始めるときにまとめてお支払いいただき、2 年目から年額 ¥12,800（税込）で自動更新されます。${TRIAL_NOTE ? `月額プランは${TRIAL_SENT}で、そのあと月額 ¥1,480（税込）で自動更新されます。無料期間が終わる 24 時間前までに解約すれば、料金はかかりません。` : '月額プランは月額 ¥1,480（税込）で自動更新されます。'}`
                   : TRIAL_NOTE
                     ? `プランは${TRIAL_SENT}で、そのあと選んだプラン（月額 ¥1,480 または年額 ¥12,800・税込）で自動更新されます。無料期間が終わる 24 時間前までに解約すれば、料金はかかりません。`
-                    : 'プランは、選んだプラン（月額 ¥1,480 または年額 ¥12,800・税込）で自動更新されます。'}
+                    : 'プランは、選んだプラン（月額 ¥1,480 または年額 ¥12,800・税込）で自動更新されます。'}`}</Phrases>
                 <br />
-                お支払いは App Store（Apple ID）です。解約はいつでもでき、違約金はありません。解約しても無料プランで使え、メモは残ります。
+                <Phrases>お支払いは App Store（Apple ID）です。解約はいつでもでき、違約金はありません。解約しても無料プランで使え、メモは残ります。</Phrases>
               </p>
             </div>
           </div>
@@ -708,7 +707,8 @@ export default function Landing() {
                     <span>{f.q}</span>
                     <ChevronDown size={20} aria-hidden="true" className="lp-faq-mark" />
                   </summary>
-                  <p>{f.a}</p>
+                  {/* 答えも文節で折り返す（iOS の Safari で語の途中で割れない・2026-10-02 ui-critic） */}
+                  <p className="lp-wbr"><Phrases>{f.a}</Phrases></p>
                 </details>
               ))}
             </div>

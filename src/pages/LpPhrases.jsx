@@ -13,7 +13,9 @@ export function phrasesOf(text) {
   for (const seg of parser.parse(String(text || ''))) {
     // 「12月」「15日…」のように日付が割れたら、前の塊につなぐ。
     const prev = out[out.length - 1];
-    if (prev && /\d+月$/.test(prev) && /^\d+日/.test(seg)) out[out.length - 1] = prev + seg;
+    // 折り返さない印（WORD JOINER・折り返さない空白）の前後では分けない（noBreak の塊を割らない）。
+    if (prev && (/[\u2060\u00a0]$/.test(prev) || /^[\u2060\u00a0]/.test(seg))) out[out.length - 1] = prev + seg;
+    else if (prev && /\d+月$/.test(prev) && /^\d+日/.test(seg)) out[out.length - 1] = prev + seg;
     else if (prev && DATE.test(prev + seg) && /^\d+$/.test(prev)) out[out.length - 1] = prev + seg;
     else out.push(seg);
   }
