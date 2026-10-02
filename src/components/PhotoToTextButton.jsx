@@ -75,10 +75,12 @@ export default function PhotoToTextButton({ onText, disabled = false, style }) {
   // 無料プランは毎月 10 回（今月の分を使い切っていたら、撮る前に有料プランの画面を開く）。
   const { freeMode, freeOcrRemaining, openPaywall, refreshTokens } = usePaywall();
   const hint = freeOcrHintParts({ freeMode, remaining: freeOcrRemaining });
+  // 0 回: 押すと有料プランの画面が開く（読み上げでも先に分かるように）。下の 1 行は付随情報より一段濃く（--text-2）。
+  const usedUp = freeOcrTapAction({ freeMode, remaining: freeOcrRemaining }) === 'paywall';
 
   const pick = () => {
     if (loading || disabled) return;
-    if (freeOcrTapAction({ freeMode, remaining: freeOcrRemaining }) === 'paywall') {
+    if (usedUp) {
       openPaywall('free_ocr_used', '写真から書き起こし');
       return;
     }
@@ -146,14 +148,14 @@ export default function PhotoToTextButton({ onText, disabled = false, style }) {
         onClick={pick}
         disabled={loading || disabled}
         style={{ ...baseStyle, ...style, ...(loading || disabled ? offStyle : { opacity: 1 }) }}
-        aria-label={loading ? '読み取り中…' : `写真から書き起こす（ページの文章をメモに入れる${hint ? `・${hint.join('')}` : ''}）`}
+        aria-label={loading ? '読み取り中…' : `写真から書き起こす（ページの文章をメモに入れる${hint ? `・${hint.join('')}` : ''}${usedUp ? '・押すとプランの案内' : ''}）`}
         aria-busy={loading || undefined}
       >
         <ScanText size={16} aria-hidden="true" />
         {loading ? '読み取り中…' : '写真から書き起こす'}
       </button>
       {hint && !loading && !failure && (
-        <p style={hintStyle} aria-hidden="true">
+        <p style={usedUp ? { ...hintStyle, color: 'var(--text-2)' } : hintStyle} aria-hidden="true">
           {hint.map((part) => <span key={part} style={{ whiteSpace: 'nowrap' }}>{part}</span>)}
         </p>
       )}
