@@ -12,7 +12,8 @@ describe('setupSheet の指示文', () => {
     expect(u).toContain('===== 目次（データ） =====\n- 序章 100年ライフ\n- 第4章 見えない「資産」\n===== 目次ここまで =====');
     expect(u).toContain('## 📖 この本の概要');
     expect(u.indexOf('## 📖 この本の概要')).toBeLessThan(u.indexOf('## 🎯 読み方の戦略'));
-    expect(u).toContain('「目次」の項目名をそのまま「」で引いて');
+    expect(u).toContain('「目次」の項目名をそのまま『』で引いて');
+    expect(u).not.toContain('項目名をそのまま「」で引いて');
     expect(u).not.toContain(PLAN_NO_TOC_LINE);
   });
 
