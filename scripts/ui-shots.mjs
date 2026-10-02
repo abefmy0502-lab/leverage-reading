@@ -77,6 +77,10 @@ const SCREENS = [
   { name: 'book-memo-saved', url: '/', steps: MEMO_SAVED },
   { name: 'book-memo-saved-jev', url: '/?jev=1', steps: MEMO_SAVED },
   { name: 'book-memo-saved-tag-on', url: '/', steps: [...MEMO_SAVED, { css: 'section[aria-labelledby="tag-suggest-title"] button[aria-pressed="false"] >> nth=0' }, { wait: 800 }] },
+  // 保存中（すぐ付いた形＋小さな回る印）・保存に失敗（元に戻して知らせ）・長いタグ（50 字・… に切る）
+  { name: 'book-memo-saved-tag-saving', url: '/?save=slow-memo-update', steps: [...MEMO_SAVED, { css: 'section[aria-labelledby="tag-suggest-title"] button[aria-pressed="false"] >> nth=0' }, { wait: 400 }] },
+  { name: 'book-memo-saved-tag-failed', url: '/?writefail=book_memos:update', steps: [...MEMO_SAVED, { css: 'section[aria-labelledby="tag-suggest-title"] button[aria-pressed="false"] >> nth=0' }, { wait: 900 }] },
+  { name: 'book-memo-saved-long-tag', url: '/?longtag=1', steps: MEMO_SAVED },
   { name: 'book-detail-done-bottom', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { scrollBottom: true }] },
   { name: 'book-store-sheet', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("この本を買う")' }] },
   { name: 'consult', url: '/', steps: [{ css: nav('相談') }] },
