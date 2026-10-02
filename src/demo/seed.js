@@ -188,7 +188,14 @@ export function buildSeed(scenario) {
   };
   const jstMonth = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 7);
   // ?demo=freenew: 新規ユーザーで、契約なし（無料プラン・初回ガイドから）。
-  if (scenario === 'freenew') { db.subscriptions = []; db.ai_usage = []; return db; }
+  //   &ocr=used: 今月の写真から書き起こし 10 回を使い切った新規ユーザー（初回ガイドの「本のページを撮る」で 0 回の確認用・2026-10-02）。
+  if (scenario === 'freenew') {
+    db.subscriptions = [];
+    db.ai_usage = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('ocr') === 'used'
+      ? [{ user_id: DEMO_USER_ID, period_month: `freeocr-${jstMonth}`, calls: 10, cost_mjpy: 0 }]
+      : [];
+    return db;
+  }
   if (scenario === 'new') return db;
   // ?demo=free: 本もメモもある、契約なしの人（無料プラン＝相談だけ AI・毎月 30 トークン）。
   if (scenario === 'free') { db.subscriptions = []; db.ai_usage = []; }
