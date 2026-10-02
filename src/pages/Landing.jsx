@@ -602,7 +602,7 @@ export default function Landing() {
                 <div className="lp-cta-block">
                   <StoreCta className="lp-btn lp-btn-large" loc="offer">{CTA_LABEL}</StoreCta>
                   <p className="lp-cta-note">
-                    無料プランで始めて、{OFFER.endLabel}までにアプリの「プランを見る」からプランへ（7 日間無料で始めた方も創業メンバーです）。年額の ¥9,800 は App Store の初回特典なので、同じ Apple ID で初回特典（月額プランの 7 日間無料など）を使ったことがない方が対象です。人数の上限はありません。
+                    無料プランで始めて、{OFFER.endLabel}までにアプリの「プランを見る」からプランへ（<span className="lp-nb">7 日間無料</span>で始めた方も創業メンバーです）。年額の ¥9,800 は App Store の初回特典なので、同じ Apple ID で初回特典（月額プランの 7 日間無料など）を使ったことがない方が対象です。人数の上限はありません。
                   </p>
                 </div>
               </div>
