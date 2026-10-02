@@ -6,6 +6,8 @@ const UID = '11111111-1111-4111-8111-111111111111';
 const upserts = [];
 let failOn = null; // この列名を含む upsert を「列が無い」で失敗させる
 let nextEvent = null;
+const inserts = [];
+let missingEvents = false; // subscription_events が無い DB
 const sub = {
   id: 'sub_1', customer: 'cus_1', status: 'active', metadata: { user_id: UID },
   current_period_end: Math.floor(Date.now() / 1000) + 30 * 86400, items: { data: [{ price: { id: 'price_m' } }] },
@@ -21,11 +23,17 @@ vi.mock('stripe', () => ({
 }));
 vi.mock('@supabase/supabase-js', () => ({
   createClient: () => ({
-    from: () => {
+    from: (table) => {
       const q = {
         select() { return q; }, eq() { return q; },
         maybeSingle: async () => ({ data: null, error: null }),
-        insert: async () => ({ error: null }),
+        insert: async (row) => {
+          if (table === 'subscription_events' && missingEvents) {
+            return { error: { code: '42P01', message: 'relation "public.subscription_events" does not exist' } };
+          }
+          inserts.push({ table, row });
+          return { error: null };
+        },
         delete() { return q; },
         upsert: async (row) => {
           if (failOn && failOn in row) return { error: { message: `column "${failOn}" of relation "subscriptions" does not exist` } };
@@ -58,7 +66,7 @@ beforeAll(async () => {
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'service';
   ({ default: handler } = await import('./stripe-webhook.js'));
 });
-beforeEach(() => { upserts.length = 0; failOn = null; nextEvent = { id: `evt_${Math.random()}`, type: 'customer.subscription.updated', data: { object: sub } }; });
+beforeEach(() => { upserts.length = 0; inserts.length = 0; missingEvents = false; failOn = null;nextEvent = { id: `evt_${Math.random()}`, type: 'customer.subscription.updated', data: { object: sub } }; });
 
 describe('Stripe の購読 → period_type', () => {
   it('active は有料（normal）として書く（前の無料期間の trial を上書きする）', async () => {
@@ -75,5 +83,24 @@ describe('Stripe の購読 → period_type', () => {
     expect(res.statusCode).toBe(200);
     expect(upserts).toHaveLength(1);
     expect('period_type' in upserts[0]).toBe(false);
+  });
+});
+
+describe('契約の履歴（subscription_events）', () => {
+  it('trialing → active の出来事を 1 件ずつ残す', async () => {
+    const res = mockRes();
+    await handler(req(), res);
+    expect(res.statusCode).toBe(200);
+    const ev = inserts.find((o) => o.table === 'subscription_events');
+    expect(ev.row).toMatchObject({ user_id: UID, provider: 'stripe', status: 'active', period_type: 'normal', product_id: 'price_m' });
+  });
+  it('表が無くても subscriptions は書けて 200', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    missingEvents = true;
+    const res = mockRes();
+    await handler(req(), res);
+    expect(res.statusCode).toBe(200);
+    expect(upserts[0].status).toBe('active');
+    warn.mockRestore();
   });
 });

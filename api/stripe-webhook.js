@@ -31,6 +31,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
+import { stripeSubscriptionEventRow, recordSubscriptionEvent } from './_subscriptionEvents.js';
 
 // Vercel の Node ランタイムにデフォルト bodyParser を切らせる。
 // これにより req は生のストリームとして届き、署名検証に使える。
@@ -230,6 +231,8 @@ export default async function handler(req, res) {
           stripe_customer_id: customerId,
           ...fields,
         });
+        // 📜 契約の履歴（7 日間無料 → 有料の割合用・失敗しても止めない）。
+        if (fields.status) await recordSubscriptionEvent(supabase, stripeSubscriptionEventRow(event, userId, fields));
         break;
       }
 
@@ -262,11 +265,14 @@ export default async function handler(req, res) {
           break;
         }
 
+        const subFields = subscriptionFields(sub);
         await upsertSubscriptionRow(supabase, {
           user_id: userId,
           stripe_customer_id: customerId,
-          ...subscriptionFields(sub),
+          ...subFields,
         });
+        // 📜 契約の履歴（trialing → active の切り替わりを残す・失敗しても止めない）。
+        await recordSubscriptionEvent(supabase, stripeSubscriptionEventRow(event, userId, subFields));
         break;
       }
 
@@ -304,6 +310,7 @@ export default async function handler(req, res) {
           stripe_customer_id: customerId,
           ...fields,
         });
+        await recordSubscriptionEvent(supabase, stripeSubscriptionEventRow(event, userId, fields));
         break;
       }
 

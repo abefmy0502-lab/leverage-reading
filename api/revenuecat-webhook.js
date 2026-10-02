@@ -53,6 +53,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { isTokenPackEvent, isTokenPackProductEvent, tokenCreditFromEvent, tokenRefundFromEvent } from './_tokenLots.js';
 import { timingSafeEqual } from 'node:crypto';
+import { rcSubscriptionEventRow, recordSubscriptionEvent } from './_subscriptionEvents.js';
 
 // 共有シークレットを定数時間で比較する（タイミング攻撃でシークレットを 1 文字ずつ
 // 推測されるのを防ぐ）。長さが違う時点で false だが、長さの差自体が漏れないよう
@@ -356,6 +357,11 @@ export default async function handler(req, res) {
     if (status === 'canceled') patch.canceled_at = new Date().toISOString();
     // 再開したら解約時刻を消す（戻ってきた人を解約に数え続けないように）。
     else if (status === 'active') patch.canceled_at = null;
+
+    // 📜 契約の履歴（7 日間無料 → 有料の割合を数えるため・supabase_subscription_events.sql）。
+    // subscriptions の行は上書きされるので、出来事を 1 件ずつ残す。失敗しても止めない。
+    // 下の「Stripe active 保護」で subscriptions を書かない回も、App Store 側で起きたことなので残す。
+    await recordSubscriptionEvent(supabase, rcSubscriptionEventRow(event, patch));
 
     // 二重 provider(Web=Stripe と IAP=RevenueCat)対策。subscriptions は user_id 1 行
     // なので、RC の expire/cancel イベントが「現在 active な Stripe 購読」を上書きして

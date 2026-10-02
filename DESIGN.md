@@ -187,6 +187,7 @@
 | 押した手応え | 押せるもの（button・`role="button"`・a・summary）は押している間だけ `scale(0.97)`＋不透明度 0.85（index.css の `:active`）。指のときは `:active` が遅れる／付かない端末があるので、JS が指を置いて 3 コマ（約 50ms）で `data-pressed` を付けて同じ見た目にする（8px 動いた・スクロールが始まったら外す・離したら次のコマで外す・最短 90ms は見せる）。押したあとの重い描き替え（すべての本を開く・検索からメモを開く・行動の完了／元に戻す）は `startTransition` で後回しにして、押した形を先に描く（2026-09-29） | `lib/pressFeedback.js`（`mainApp.jsx` で入れる）・index.css・components.css の `[data-pressed]` |
 | ダイアログの出入り | 入りは `.modal`（`scale(0.95)`→1・`--duration-base`・`--ease-spring`）＋`.modal-backdrop`（薄れて出る）。閉じるときは `.modal-exit`／`.modal-backdrop-exit`（少し縮んで薄れる・`--duration-fast`）を見せてから外す。動きを減らす設定ではすぐ閉じる（2026-09-29） | `HelpModal.jsx`（出入り）・`ConfirmDialog.jsx`（入り）・`App.jsx` の `Modal`（入り） |
 | 開いて出す欄（その場で広がる） | 押して出す欄（振り返り › メモの絞り込みの行・メモを書くシートの「＋ ページ・写真」）は、高さを `grid-template-rows: 0fr → 1fr` で `--duration-fast`（200ms）・`--ease-out` で広げる／縮める（一度に押し下げて下が跳ねない）。畳んでいる間は `visibility: hidden`（押せない・読み上げない・縮み終わってから隠す）。入力欄に書いている途中で押すボタンは、入力欄からフォーカスを外さない（`pointerdown`／`mousedown` で `preventDefault`）（2026-09-29） | `Review.jsx`・`QuickMemoSheet.jsx` |
+| 運営の数字のカード（管理者だけ） | 運営ダッシュボードの「ローンチの 4 つの数字」。数字のマスは 2 列のカード（見出し `--text-caption`・値 `--text-title`／700・状態は文字で「目標以上」`--success`／「目標未満」`--warning`（責めない色）／「参考」「データなし」`--text-3`）。週ごとの表は文字 `--text-meta`・列の見出しは 2 行で 390 幅に収め、はみ出すときだけ表の中を横にスクロール（画面は横に動かない）。データが無いときは値を「—」（2026-10-02） | `admin/LaunchKpiCard.jsx` |
 
 - **＋の入口は 1 つ**：同じ操作のボタンを 2 か所に出さない（SPEC の違和感 3）
 - **スワイプ削除の赤い背景**は、カードと同じ角丸の内側に収める（SPEC の違和感 1）。指を離した瞬間に削除して「元に戻す」の知らせを出す。消える動き（左へ滑り出しながら高さを畳む）は見た目の写しが受け持つ（`SwipeableCard` の `ghostOut`・2026-09-30）

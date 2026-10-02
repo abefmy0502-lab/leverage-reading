@@ -47,6 +47,9 @@ const EDIT_PHRASE = [{ css: `${EDIT} button:has-text("言葉を入れる")` }, {
 const EDIT_PHRASE_DRAG = { eval: `(() => { const st = document.querySelector('${EDIT} canvas').parentElement; const r = st.getBoundingClientRect(); const x = r.left + r.width / 2; const y0 = r.top + r.height * 0.24; const ev = (type, y) => st.dispatchEvent(new PointerEvent(type, { pointerId: 7, pointerType: 'touch', isPrimary: true, clientX: x, clientY: y, bubbles: true, cancelable: true })); ev('pointerdown', y0); for (let i = 1; i <= 10; i += 1) ev('pointermove', y0 - (r.height * 0.12 * i) / 10); ev('pointerup', y0 - r.height * 0.12); })()` };
 const EDIT_PHRASE_GROW = editWheel({ deltaY: -30, ctrlKey: true }, 0.14);
 
+// 運営ダッシュボード（全画面の重なり）の中を、sel の要素が上から 130px に来るまで送る。
+const ADMIN_SCROLL = (sel) => `(() => { const box = document.querySelector('[role=dialog][aria-label="運営ダッシュボード"]'); const el = document.querySelector('${sel.replace(/'/g, "\\'")}'); if (!box || !el) return; box.scrollTop += el.getBoundingClientRect().top - box.getBoundingClientRect().top - 130; })()`;
+
 // 画面の定義: url（お試しモードのシナリオ）と、そこに至る操作。
 const SCREENS = [
   { name: 'home', url: '/' },
@@ -455,6 +458,19 @@ const SCREENS = [
   // つながるメモの行を押す → その本のそのメモを開いて示す（開いた先のカードにも逆向きのつながるメモ）
   { name: 'memo-link-open', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を検索"]' }, { fill: ['input[aria-label^="本を検索（"]', '命令'] }, { wait: 800 }, { css: 'button:has-text("命令ではなく") >> nth=0', settle: 1600 }, { css: 'section[aria-label="つながるメモ"] button', settle: 600 }] },
   { name: 'memo-editor-next-link', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("数値化の鬼")' }, { css: 'button:has-text("メモを書く")' }, { css: 'button:has-text("ページ・写真")' }, { css: 'button:has-text("全画面で書く")' }, { fill: ['textarea#memo-body', '頼まれごとはその場で引き受けず、一度持ち帰ってから数字で判断する。'] }, { css: 'button:has-text("保存して次へ")', settle: 1200 }] },
+  // ── 運営ダッシュボード「ローンチの 4 つの数字」（2026-10-02・管理者だけ・?admin=1 は src/demo/demoAdmin.js）
+  // 見出し（または表）を、上に貼りつく見出しとタブの下（上から 130px）に来るまで送る。
+  ...[
+    ['admin-kpis', '/?admin=1', []],
+    ['admin-kpis-table', '/?admin=1', [{ eval: ADMIN_SCROLL('section[aria-labelledby="launch-kpi-title"] table') }]],
+    ['admin-kpis-edit', '/?admin=1', [{ css: 'button[aria-label="目標を変える"]' }]],
+    ['admin-kpis-notrial', '/?admin=1&kpi=notrial', []],
+    ['admin-kpis-empty', '/?admin=1&kpi=empty', []],
+    ['admin-kpis-missing', '/?admin=1&kpi=missing', []],
+  ].map(([name, url, extra]) => ({
+    name, url,
+    steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:has-text("運営ダッシュボード")' }, { wait: 1200 }, { eval: ADMIN_SCROLL('#launch-kpi-title') }, ...extra],
+  })),
 ];
 
 // UI_SHOTS_PROXY=1 で、外への通信（Google Fonts＝共有の「手書き風」の書体など）を HTTPS_PROXY 経由にする
