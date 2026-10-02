@@ -372,16 +372,14 @@ function planSheetAnswer(userText) {
   const toc = ((userText.match(/===== 目次（データ） =====\n([\s\S]*?)\n===== 目次ここまで/) || [])[1] || '')
     .split('\n').map((l) => l.replace(/^- /, '').trim()).filter(Boolean);
   const purpose = ((userText.match(/得たいこと: (.+)/) || [])[1] || '').trim();
-  const firstSentence = (about.split(/(?<=。)/)[0] || '').replace(/\n/g, '');
   const pick = (re) => toc.find((l) => re.test(l));
   const focus = [pick(/資産/), pick(/シナリオ/), pick(/ステージ/)].filter(Boolean).slice(0, 3);
   const skim = [pick(/資金計画/), pick(/雇用/)].filter(Boolean).slice(0, 2);
+  // 概要は紹介文の写しではなく、著者のいちばんの主張を 1〜2 行（本番の指示文と同じ）。紹介も目次も無ければ節ごと出さない。
   return [
-    '## 📖 この本の概要',
     ...(about || toc.length
-      ? [`- ${firstSentence || 'この本の紹介は目次だけです。'}`, '- お金に換えられない資産（スキル・健康・人間関係）を育て、複数のステージを行き来する生き方を考える本です。']
-      : ['この本の紹介と目次が手に入らなかったため、概要は書いていません。']),
-    '',
+      ? ['## 📖 この本の概要', '長く生きる時代には、お金より「見えない資産」を育て、人生のステージを自分で組み替えることが要になる——というのが著者の主張です。', '']
+      : []),
     '## 🎯 読み方の戦略',
     `- ${purpose ? `「${purpose}」に引きつけて読む` : '自分の働き方に引きつけて読む'}`,
     '- 自分の「見えない資産」を書き出しながら読む',

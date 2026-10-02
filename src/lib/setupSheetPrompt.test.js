@@ -1,7 +1,7 @@
 // 📖 読書計画シートの指示文（prompts.setupSheet・2026-10-02）: 本の紹介と目次に基づける・章番号を推測させない。
 import { describe, it, expect } from 'vitest';
 import { PROMPTS } from './prompts';
-import { PLAN_NO_TOC_LINE, PLAN_NO_ABOUT_LINE } from './prompts';
+import { PLAN_NO_TOC_LINE } from './prompts';
 
 const base = { title: 'LIFE SHIFT', author: 'リンダ・グラットン', purpose: '40代からのキャリアを考えたい', topTags: ['キャリア'] };
 
@@ -24,19 +24,27 @@ describe('setupSheet の指示文', () => {
     }
   });
 
-  it('目次が無ければ「章の名前は挙げていません」と書かせ、紹介も無ければ概要は書かない', () => {
+  it('目次が無ければ「章の名前は挙げていません」と書かせ、紹介も無ければ概要の節そのものを書かせない', () => {
     const u = PROMPTS.setupSheet.user(base);
     expect(u).toContain('- 本の紹介: なし（手に入りませんでした）');
     expect(u).toContain('- 目次: なし（手に入りませんでした）');
     expect(u).toContain(PLAN_NO_TOC_LINE);
-    expect(u).toContain(PLAN_NO_ABOUT_LINE);
     expect(u).toContain('章名・章番号を作らない');
+    expect(u).not.toContain('## 📖 この本の概要');
+    expect(u).toContain('「この本の概要」の節は書かない');
+    expect(u).not.toMatch(/概要は書いていません/);
+  });
+
+  it('概要は著者のいちばんの主張を 1〜2 行（紹介文の言い換えにしない）', () => {
+    const u = PROMPTS.setupSheet.user({ ...base, about: '紹介文。', aboutSource: '出版社の内容紹介' });
+    expect(u).toContain('著者のいちばんの主張を 1〜2 行で言い切る（紹介文の言い換え・要約にしない');
+    expect(PROMPTS.setupSheet.system).toContain('紹介文の言い換え・要約・あらすじにしない');
   });
 
   it('紹介だけあって目次が無いとき: 概要は紹介から・章の名前は挙げない', () => {
     const u = PROMPTS.setupSheet.user({ ...base, about: '紹介文。', aboutSource: '楽天ブックスの商品説明' });
     expect(u).toContain('本の紹介（楽天ブックスの商品説明・データ）');
-    expect(u).not.toContain(PLAN_NO_ABOUT_LINE);
+    expect(u).toContain('## 📖 この本の概要');
     expect(u).toContain(PLAN_NO_TOC_LINE);
   });
 
