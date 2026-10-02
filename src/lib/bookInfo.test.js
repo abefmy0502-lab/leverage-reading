@@ -31,7 +31,15 @@ describe('tidyJaSpacing（数と日本語の間の空きを詰める）', () => 
   it('「の 3 つ」「100 年」は詰め、英字の語の間は残す', () => {
     expect(tidyJaSpacing('多くの人が 100 年生きる。の 3 つのステージ')).toBe('多くの人が100年生きる。の3つのステージ');
     expect(tidyJaSpacing('LIFE SHIFT 2 の本')).toBe('LIFE SHIFT 2の本');
-    expect(normalizeBookInfo({ description: '1 対 1 の対話', source: 'openbd', toc: ['第 1 章 はじめに'] })).toMatchObject({ description: '1対1の対話', toc: ['第1章 はじめに'] });
+    expect(normalizeBookInfo({ description: '1 対 1 の対話', source: 'openbd', toc: ['第 1 章 はじめに'] })).toMatchObject({ description: '1対1の対話' });
+  });
+  it('見出しの区切りの空き（「序章 100年ライフ」）は残す・目次の行は元の空きのまま', () => {
+    expect(tidyJaSpacing('序章 100年ライフ')).toBe('序章 100年ライフ');
+    expect(tidyJaSpacing('第1部 2つのステージ')).toBe('第1部 2つのステージ');
+    const n = normalizeBookInfo({ description: '序章 100年ライフから始まる。', source: 'openbd', toc: ['序章 100年ライフ', '第 1 章 はじめに'] });
+    expect(n.description).toBe('序章 100年ライフから始まる。');
+    expect(n.toc).toEqual(['序章 100年ライフ', '第 1 章 はじめに']);
+    expect(bookInfoForPrompt({ ...n }).toc).toEqual(['序章 100年ライフ', '第 1 章 はじめに']);
   });
 });
 
