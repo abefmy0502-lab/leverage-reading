@@ -22,7 +22,11 @@ describe('BookAbout', () => {
     const html = renderToStaticMarkup(<BookAbout info={null} loading variant="card" />);
     expect(html).toContain('aria-busy="true"');
     expect(text(html)).toContain('この本について');
-    expect(renderToStaticMarkup(<BookAbout info={null} loading variant="fold" />)).toBe('');
+    // 畳む見出しの読み込み中は同じ形の押せない行（見出しと骨組み）
+    const fold = renderToStaticMarkup(<BookAbout info={null} loading variant="fold" />);
+    expect(fold).toContain('aria-busy="true"');
+    expect(fold).not.toContain('<details');
+    expect(text(fold)).toContain('この本について');
   });
 
   it('カード: 紹介文・取得元・目次（畳む・項目数）', () => {

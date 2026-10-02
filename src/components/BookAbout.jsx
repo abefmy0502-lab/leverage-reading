@@ -155,8 +155,22 @@ export function BookAboutSkeleton({ style }) {
   );
 }
 
+/**
+ * 畳む見出しの読み込み中: 同じ形の行（押せない div・見出し 17/600・右に中身の一覧の場所の骨組み 64×12）。
+ * 読み込んで紹介も目次も無ければ消える（はじめて開いたときだけ・2 回目からは端末の控えから即座に）。
+ */
+export function BookAboutFoldSkeleton({ style }) {
+  return (
+    <div aria-busy="true" aria-label="この本について（読み込み中）" style={{ ...foldStyle, ...foldSummary, cursor: 'default', ...style }}>
+      この本について
+      <SkeletonBlock width={64} height={12} radius="var(--radius-full)" style={{ marginRight: 'var(--space-1)' }} />
+    </div>
+  );
+}
+
 export default function BookAbout({ info, loading = false, variant = 'card', style }) {
   if (variant === 'card' && loading) return <BookAboutSkeleton style={style} />;
+  if (variant === 'fold' && loading) return <BookAboutFoldSkeleton style={style} />;
   if (!hasBookInfo(info)) return null;
   const toc = info.toc || [];
   const meta = bookInfoMetaLine(info);

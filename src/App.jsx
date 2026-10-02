@@ -3717,7 +3717,8 @@ function AuthedApp() {
     ].filter(Boolean);
     const hasPlanFold = planItems.length > 0 || !!current.aiStrategy;
     // 読書中の「この本について」の畳む見出し（紹介か目次が見つかった本だけ）。
-    const aboutFoldShown = current.status === 'reading' && hasBookInfo(bookAbout.info);
+    // 読み込み中は同じ形の骨組みの行（読み込んで何も無ければ消える）。
+    const aboutFoldShown = current.status === 'reading' && (hasBookInfo(bookAbout.info) || bookAbout.loading);
     // 読みたいと、まだ何も書いていない積読はカード。課題・仮説・シートがある積読は畳む見出し（2026-10-02 ui-critic）。
     const aboutAsCard = current.status === 'want' || (current.status === 'before' && !hasPlanFold);
     // 読書中・読了の画面の下で、直前が「行動」「一番の収穫」なら 24、畳む見出しが続くなら 12。
@@ -3882,7 +3883,7 @@ function AuthedApp() {
           {planItems.map((p) => <Card key={p.label} label={p.label} text={p.text} style={{ marginTop: 0 }} />)}
           {/* 積読で課題・仮説・シートがあるとき: この本についてはカードの下に畳んで置く（間 12）。 */}
           {current.status === 'before' && (
-            <BookAbout info={bookAbout.info} variant="fold" />
+            <BookAbout info={bookAbout.info} loading={bookAbout.loading} variant="fold" />
           )}
           {current.aiStrategy && (
             // その場で作り終えた直後は開いたまま（key を変えて、開いた状態で置き直す）。
@@ -3908,7 +3909,7 @@ function AuthedApp() {
 
           {/* 📖 この本について（読書中）: メモが主役なので、読書計画の下に畳んで置く（SPEC §2・2026-10-02）。 */}
           {aboutFoldShown && (
-            <BookAbout info={bookAbout.info} variant="fold" style={{ marginTop: hasPlanFold ? 'var(--space-3)' : planFoldTop }} />
+            <BookAbout info={bookAbout.info} loading={bookAbout.loading} variant="fold" style={{ marginTop: hasPlanFold ? 'var(--space-3)' : planFoldTop }} />
           )}
 
           {/* 「AIで本を解析する」は 2026-09-27 に廃止。以前の結果だけ、別の畳む見出しで残す。 */}

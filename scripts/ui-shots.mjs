@@ -106,6 +106,9 @@ const SCREENS = [
   { name: 'book-detail-before-about-open', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("LIFE SHIFT")' }, { css: 'summary:has-text("この本について")' }, { scrollTo: 'summary:has-text("この本について")' }] },
   { name: 'book-detail-want-noinfo', url: '/?info=none', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("チーズはどこへ消えた")' }] },
   { name: 'book-detail-before-noinfo', url: '/?info=none', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("LIFE SHIFT")' }] },
+  // 畳む見出しの読み込み中（積読で課題・仮説がある本／読書中）
+  { name: 'book-detail-before-fold-loading', url: '/?info=slow', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("LIFE SHIFT")', settle: 300 }] },
+  { name: 'book-detail-reading-fold-loading', url: '/?info=slow', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")', settle: 200 }, { scrollBottom: true, settle: 300 }] },
   { name: 'book-detail-want-about-loading', url: '/?info=slow', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("チーズはどこへ消えた")', settle: 300 }] },
   { name: 'book-detail-reading-about', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { scrollBottom: true }, { css: 'summary:has-text("この本について")' }, { scrollTo: 'summary:has-text("この本について")' }] },
   // 読書中で紹介も目次も無い本（畳む見出しを出さない）／目次だけの本（楽天の【目次】）／紹介と目次の取得元が違う本
