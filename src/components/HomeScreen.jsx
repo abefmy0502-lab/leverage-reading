@@ -10,11 +10,11 @@
 // （相談は下のタブ「相談」から）。思い出しカードはホームから外し「振り返り」へ（SPEC §1）。
 // 上の行の「写真で共有」は App.jsx の全体ヘッダー（ホーム・振り返り・相談で同じ場所）。
 // 見た目は DESIGN.md のトークンのみ。
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Library, ChevronRight, PencilLine, Plus, BookOpen } from 'lucide-react';
 import HomeFirstStep, { useHomeMemoState } from './HomeFirstStep';
 import GrowthMeter from './GrowthMeter';
-import { takeMemosReached, growthMeterText } from '../lib/firstDay';
+import { takeMemosReached, growthMeterText, rememberHomeMemoCount, lastHomeMemoCount, showGrowthPlaceholder } from '../lib/firstDay';
 import { track } from '../lib/analytics';
 import { MiniCover } from './BookCards';
 import { SkeletonBlock } from './Skeleton';
@@ -169,17 +169,23 @@ export default function HomeScreen({
   useEffect(() => {
     if (!loading && !loadError && memoState.known && takeMemosReached(memoState.count)) track('memos_reached_10', { memos: memoState.count, where: 'home' });
   }, [loading, loadError, memoState.known, memoState.count]);
+  // 前回の件数（開いたときに 1 回だけ読む）。数えている間の形は、前回 1〜9 件だった人にだけ出す。
+  const [lastCount] = useState(lastHomeMemoCount);
+  useEffect(() => {
+    if (memoState.known && memoState.count != null) rememberHomeMemoCount(memoState.count);
+  }, [memoState.known, memoState.count]);
   return (
     <div style={{ padding: 'var(--space-2) var(--space-4) var(--space-8)', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
       {/* 題と、メモが 1〜9 件の間だけ題の下 8 に出す一行（10 件で消える・カードにせず点数・バッジにしない・2026-10-02）。
-          一行が無いときは題だけ（間 8 は一行があるときだけ）。件数を数えている間は同じ高さの形（あとから差し込んで下を押し下げない）。 */}
+          一行が無いときは題だけ（間 8 は一行があるときだけ）。件数を数えている間は、前回 1〜9 件だった人にだけ同じ高さの形
+          （端末に覚えた前回の件数・はじめて開いたときと 0 件・10 件以上の人には出さない＝出してから縮んで跳ねないように）。 */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
         <h1 style={{ fontSize: 'var(--text-title)', fontWeight: 700, color: 'var(--text)', margin: 0, lineHeight: 1.3 }}>ホーム</h1>
-        {books.length > 0 && !memoState.known ? (
+        {books.length > 0 && !memoState.known ? (showGrowthPlaceholder(lastCount) && (
           <span aria-hidden="true" style={{ display: 'flex', alignItems: 'center', height: 'calc(var(--text-meta) * 1.5)' }}>
             <SkeletonBlock width="56%" height={14} radius="var(--radius-full)" />
           </span>
-        ) : books.length > 0 && growthMeterText(memoState.count) ? (
+        )) : books.length > 0 && growthMeterText(memoState.count) ? (
           <GrowthMeter memoCount={memoState.count} />
         ) : null}
       </div>

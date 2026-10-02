@@ -9,6 +9,9 @@ import {
   takeOnboardPathDone,
   takeFirstConsult,
   takeMemosReached,
+  rememberHomeMemoCount,
+  lastHomeMemoCount,
+  showGrowthPlaceholder,
 } from './firstDay';
 import { TRIAL_NUDGE_MEMOS, shouldShowTrialNudge } from './trialNudge';
 
@@ -100,5 +103,34 @@ describe('計測の印（1 回だけ送る）', () => {
     expect(takeMemosReached(null)).toBe(false);
     expect(takeMemosReached(NaN)).toBe(false);
     expect(takeMemosReached(10)).toBe(false); // 少ないのをまだ見ていない
+  });
+});
+
+describe('ホームの数えている間の形（前回の件数を覚える・2026-10-02 ui-critic r2）', () => {
+  beforeEach(() => installStorage());
+
+  it('はじめて開いたとき（覚えていない）は形を出さない', () => {
+    expect(lastHomeMemoCount()).toBeNull();
+    expect(showGrowthPlaceholder(lastHomeMemoCount())).toBe(false);
+  });
+
+  it('前回 1〜9 件なら形を出す・0 件と 10 件以上は出さない', () => {
+    rememberHomeMemoCount(3);
+    expect(lastHomeMemoCount()).toBe(3);
+    expect(showGrowthPlaceholder(lastHomeMemoCount())).toBe(true);
+    rememberHomeMemoCount(0);
+    expect(showGrowthPlaceholder(lastHomeMemoCount())).toBe(false);
+    rememberHomeMemoCount(10);
+    expect(showGrowthPlaceholder(lastHomeMemoCount())).toBe(false);
+    rememberHomeMemoCount(42);
+    expect(showGrowthPlaceholder(lastHomeMemoCount())).toBe(false);
+  });
+
+  it('分からない件数は覚えない（前の値のまま）', () => {
+    rememberHomeMemoCount(5);
+    rememberHomeMemoCount(null);
+    rememberHomeMemoCount(NaN);
+    rememberHomeMemoCount(-1);
+    expect(lastHomeMemoCount()).toBe(5);
   });
 });

@@ -92,4 +92,24 @@ export function takeMemosReached(memoCount) {
   return read(KEYS.below) === '1';
 }
 
+// 🏠 ホームの「数えている間」の形（2026-10-02 ui-critic r2）: 前回のメモの件数を端末に覚えておき、前回の件数で
+//   一行が出ていた人（1〜9 件）にだけ同じ高さの形を出す。0 件・10 件以上の人や、はじめて開いたとき（覚えていない）は
+//   何も出さない（出してから縮むと、下が 28pt ほど跳ね上がるため）。
+export const HOME_MEMO_COUNT_KEY = 'orime-home-memo-count';
+export function rememberHomeMemoCount(count) {
+  const n = Number(count);
+  if (count == null || !Number.isFinite(n) || n < 0) return;
+  write(HOME_MEMO_COUNT_KEY, String(Math.floor(n)));
+}
+export function lastHomeMemoCount() {
+  const v = read(HOME_MEMO_COUNT_KEY);
+  if (v == null || v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+// 数えている間に一行ぶんの形を出すか（前回の件数で一行が出ていたときだけ）。
+export function showGrowthPlaceholder(lastCount) {
+  return growthLeft(lastCount) != null;
+}
+
 export const FIRST_DAY_KEYS = KEYS;

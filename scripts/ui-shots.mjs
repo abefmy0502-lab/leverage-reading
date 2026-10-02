@@ -459,7 +459,8 @@ const SCREENS = [
   //   ホームでメモの件数を数えている間（一行の場所は同じ高さの形）／取り込みの失敗（初回ガイドから）／
   //   はじめての相談で関係するメモが無かった答え（「答えました」の一行は出ない）／下書きで開いた相談で、別の相談例を選んだ／
   //   本のページを撮る → 知らせが消えたあとの「この本に相談する」も同じ道
-  { name: 'home-fewmemos-counting', url: '/?demo=fewmemos&load=memocount' },
+  // 前回 3 件だった人（端末に覚えた件数）が開き直したところ。はじめて開いた人には形を出さない。
+  { name: 'home-fewmemos-counting', url: '/?demo=fewmemos&load=memocount', steps: [{ eval: "localStorage.setItem('orime-home-memo-count', '3')" }, { reload: true }, { wait: 1500 }] },
   { name: 'onboard-import-error', url: '/?demo=freenew', steps: [{ role: '次へ' }, { css: '[role=dialog] button:has-text("ほかのアプリから取り込む")' }, { upload: ['input[type=file]', 'scripts/fixtures/broken.txt'] }, { wait: 1200 }] },
   { name: 'consult-first-noinfo', url: '/?demo=fewmemos&ai=noinfo', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '確定申告のやり方を教えて'] }, { css: 'button[aria-label="送信"]' }, { waitFor: '[aria-label="相談への答え"]:not([aria-busy]) summary, [aria-label="相談への答え"]:not([aria-busy]) p' }, { wait: 800 }] },
   { name: 'onboard-import-consult-pick', url: '/?demo=freenew', steps: [{ role: '次へ' }, { css: '[role=dialog] button:has-text("ほかのアプリから取り込む")' }, { upload: ['input[type=file]', 'scripts/fixtures/booklog.csv'] }, { wait: 1200 }, { css: '[role=dialog] button:has-text("取り込む")' }, { wait: 3000 }, { css: '[role=dialog] button:has-text("相談してみる")' }, { wait: 1500 }, { css: '#brain-empty-title ~ div button[aria-pressed="false"] >> nth=0' }, { wait: 600 }] },
