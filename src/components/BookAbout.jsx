@@ -17,14 +17,16 @@ import { BOOK_INFO_SOURCE_LABELS, bookInfoMetaLine, hasBookInfo } from '../lib/b
 const useIsoLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 // 画面に出す文: 文節の切れ目でだけ折り返す（BudouX の <wbr>＋keep-all）うえで、
-//   - 数と助数詞（「3つ」「100年」「1対1」）の間
+//   - 数と、後ろの助数詞（「3つ」「100年」）の間
+//   - 数の前の決まった字（第・約・対・全・各・計・毎＝「第1章」「約3割」「1対1」）と数の間
+//     （どの字の後ろでも結ぶと「、1対1の」のような長い塊ができ、行の後ろが空いていた・2026-10-02 ui-critic）
 //   - カタカナの中黒（「リ・クリエーション」）の前後
 // には見えない結合文字（U+2060）を入れて、語の途中で折れないようにする（2026-10-02 ui-critic）。
 const WJ = '\u2060';
 export function glueForDisplay(text) {
   return String(text ?? '')
     .replace(/(\d)(?=[^\x00-\x7F\s])/g, `$1${WJ}`)
-    .replace(/([^\x00-\x7F\s])(?=\d)/g, `$1${WJ}`)
+    .replace(/([第約対全各計毎])(?=\d)/g, `$1${WJ}`)
     .replace(/([ァ-ヺー])・(?=[ァ-ヺー])/g, `$1${WJ}・${WJ}`);
 }
 // 結合文字の隣に BudouX が置いた <wbr> は外す（<wbr> は折り返してよい印なので、結合文字より強い）。

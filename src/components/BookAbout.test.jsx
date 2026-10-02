@@ -55,9 +55,12 @@ describe('BookAbout', () => {
   });
 
   it('数と助数詞・カタカナの中黒の途中では折れない（結合文字・隣の <wbr> は外す）', () => {
-    expect(glueForDisplay('の3つの')).toBe('の\u20603\u2060つの');
+    expect(glueForDisplay('の3つの')).toBe('の3\u2060つの');
     expect(glueForDisplay('自分のリ・クリエーション')).toBe('自分のリ\u2060・\u2060クリエーション');
     expect(glueForDisplay('LIFE SHIFT 2')).toBe('LIFE SHIFT 2');
+    // 数の前は決まった字のときだけ結ぶ（読点・助詞の後ろでは折れてよい）
+    expect(glueForDisplay('と、1対1の')).toBe('と、1\u2060対\u20601\u2060の');
+    expect(glueForDisplay('第3章')).toBe('第\u20603\u2060章');
     const html = renderToStaticMarkup(<BookAbout info={{ ...INFO, description: '寿命が延び、多くの人が100年生きる時代には、3つのステージで考える。', toc: ['第8章 新しい時間の使い方——自分のリ・クリエーションへ'] }} variant="fold" />);
     expect(html).not.toMatch(/\u2060<wbr\s*\/?>|<wbr\s*\/?>\u2060/);
     expect(html).toContain('3\u2060つ');
