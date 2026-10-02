@@ -208,7 +208,7 @@ const SCREENS = [
   { name: 'landing-flow', url: '/?demo=auth', steps: [{ scrollTo: '#lp-flow' }, { wait: 1500 }] },
   { name: 'landing-flow-last', url: '/?demo=auth&motion=static', steps: [{ scrollTo: '#lp-flow' }, { css: '.lp-flow-steps button >> nth=3' }, { wait: 800 }] },
   { name: 'landing-compare', url: '/?demo=auth', steps: [{ scrollTo: '#lp-compare' }, { wait: 800 }] },
-  { name: 'landing-share', url: '/?demo=auth', steps: [{ scrollTo: '#lp-share' }, { wait: 800 }] },
+  { name: 'landing-share', url: '/?demo=auth', steps: [{ scrollTo: '#lp-share' }, { wait: 1800 }] },
   { name: 'landing-privacy', url: '/?demo=auth', steps: [{ scrollTo: '#lp-privacy' }, { wait: 800 }] },
   { name: 'landing-faq', url: '/?demo=auth', steps: [{ scrollTo: '#lp-faq' }, { wait: 800 }] },
   { name: 'landing-founding', url: '/?demo=auth&founding=on' },

@@ -8,7 +8,13 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-const EVENTS = new Set(['lp_view', 'cta_click', 'demo_pick', 'demo_ask', 'demo_add', 'scroll_depth', 'faq_open', 'hero_3d']);
+// demo_* は 2026-10-02 まで LP にあった「試しに、相談してみる」の記録（過去の行の読み分けのために残す）。
+// flow_* は相談の流れの 4 枚（LpFlow.jsx）・section_view は節が画面に入った（1 回）・offer_badge は創業メンバー価格の印。
+const EVENTS = new Set([
+  'lp_view', 'cta_click', 'scroll_depth', 'faq_open', 'hero_3d',
+  'flow_view', 'flow_step', 'flow_replay', 'section_view', 'offer_badge',
+  'demo_pick', 'demo_ask', 'demo_add',
+]);
 const LIMIT_PER_MIN = 60;
 const hits = new Map();
 
