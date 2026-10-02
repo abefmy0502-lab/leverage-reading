@@ -62,7 +62,7 @@ export default function TagSuggest({ suggestions, applied = [], busyTag = null, 
               active={on}
               aria-pressed={on}
               aria-busy={busy || undefined}
-              aria-label={on ? `「${tag}」を外す` : `「${tag}」を付ける`}
+              // 名前はタグだけ・付いているかは aria-pressed で伝える（「を付ける」と「押されている」を二重に読ませない）
               // 保存中は押しても何もしない（薄くしない・DESIGN §5 押せないボタン）
               onClick={() => { if (!busyTag) onToggle?.(tag); }}
             >
