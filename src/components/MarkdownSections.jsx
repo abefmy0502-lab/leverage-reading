@@ -15,6 +15,7 @@ import {
 } from '../lib/amazonLink';
 import { groupTitle } from '../styles/ui';
 import { withPhraseBreaks } from './TightBubble';
+import { PLAN_NO_TOC_LINE } from '../lib/prompts';
 
 // minWidth:0 が肝。flex column の子は既定 min-width:auto なので、中に幅広な
 // 要素（Markdown 表など）があると縮まずページ全体を横にはみ出させる（横スクロール）。
@@ -56,6 +57,13 @@ const paraStyle = {
   // 文節の切れ目でだけ折り返す（BudouX の <wbr>＋keep-all。iOS の Safari は auto-phrase を知らない・2026-09-30）。
   wordBreak: 'keep-all',
 };
+// 読書計画シートの「目次が手に入らないため、章の名前は挙げていません。」は AI の本文ではなく注記として
+// 13/--text-3 で見せる（文がそのままのときだけ・言い換えられていれば本文のまま・2026-10-02 ui-critic）。
+const noteParaStyle = { fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, margin: 'var(--space-2) 0' };
+function renderPara(text, key) {
+  if (String(text || '').trim() === PLAN_NO_TOC_LINE) return <p key={key} style={noteParaStyle}>{PLAN_NO_TOC_LINE}</p>;
+  return <p key={key} style={paraStyle}>{renderInline(text)}</p>;
+}
 const listStyle = {
   fontFamily: 'var(--font-read)',
   fontSize: 'var(--text-read)',
@@ -314,7 +322,7 @@ function renderLines(lines, opts) {
           </ol>,
         );
       } else {
-        out.push(<p key={i} style={paraStyle}>{renderInline(b.text)}</p>);
+        out.push(renderPara(b.text, i));
       }
     });
     flushPending('end');
@@ -348,7 +356,7 @@ function renderLines(lines, opts) {
         </ol>
       );
     }
-    return <p key={i} style={paraStyle}>{renderInline(b.text)}</p>;
+    return renderPara(b.text, i);
   });
 }
 
