@@ -45,7 +45,7 @@ import { isAppStoreLive } from '../lib/appStore';
 import { savingsLabel } from '../lib/planOffers';
 import { FREE_TOKENS, PAID_TOKENS, TRIAL_TOKENS, FREE_OCR_PER_MONTH } from '../lib/tokenAmounts';
 import { normalizeTrialLabel, trialFirstPhrase, trialPeriodOf } from '../lib/trialNudge';
-import { readFoundingOffer, FOUNDING_NAME } from '../lib/foundingOffer';
+import { readFoundingOffer, noBreak, FOUNDING_NAME } from '../lib/foundingOffer';
 import Shot from './LpShot';
 import LpFlow from './LpFlow';
 import qrcode from 'qrcode-generator';
@@ -115,6 +115,10 @@ function StoreQr() {
 
 // 🌱 創業メンバー価格（期間中だけ・日本時間の終わる日の翌 0 時で自動で消える）。
 const OFFER = readFoundingOffer();
+// 終わる日（「12月15日」）は文の中で折り返さない。金額（「¥9,800」）は foundingOffer.js の定数 1 つから（2026-10-02 ui-critic）。
+// 画面には「公開から 30 日間」と書かない（公開日がずれても文が嘘にならないよう、終わる日だけを言う）。
+const END = noBreak(OFFER.endLabel);
+const FOUNDING_PRICE = OFFER.price;
 
 // 🎁 プランの無料期間の表記（既定は正典どおり「7 日間無料」）。App Store の Introductory Offer を変えたら
 // env（VITE_TRIAL_NOTE）で合わせる（'off' で出さない）。「7日間無料」のような書き方も「7 日間無料」にそろえる。
@@ -191,11 +195,11 @@ const FAQ_ITEMS = [
   },
   {
     q: '料金はいくらですか？',
-    a: `無料プラン（ずっと無料）で、メモ・記録・振り返り・シェアが使えます。AI は相談が毎月 ${FREE_TOKENS} トークン（相談 約 3 回）、写真から書き起こしが毎月 ${FREE_OCR_PER_MONTH} 回です。プラン（月額 ¥1,480、または年額 ¥12,800・月あたり約 ¥1,066）にすると、相談が毎月 ${PAID_TOKENS} トークン（約 80 回）になり、AI 選書・読書計画シートも使えます。${OFFER.active ? `${OFFER.endLabel}までは、年額プランの 1 年目が ¥9,800 です（創業メンバー価格）。` : ''}${TRIAL_NOTE ? `${TRIAL_WHO}は${TRIAL_SENT}です（初めての方だけ）。` : ''}お支払いは App Store（Apple ID）です。`,
+    a: `無料プラン（ずっと無料）で、メモ・記録・振り返り・シェアが使えます。AI は相談が毎月 ${FREE_TOKENS} トークン（相談 約 3 回）、写真から書き起こしが毎月 ${FREE_OCR_PER_MONTH} 回です。プラン（月額 ¥1,480、または年額 ¥12,800・月あたり約 ¥1,066）にすると、相談が毎月 ${PAID_TOKENS} トークン（約 80 回）になり、AI 選書・読書計画シートも使えます。${OFFER.active ? `${END}までは、年額プランの 1 年目が ${FOUNDING_PRICE}（税込）です（創業メンバー価格）。` : ''}${TRIAL_NOTE ? `${TRIAL_WHO}は${TRIAL_SENT}です（初めての方だけ）。` : ''}お支払いは App Store（Apple ID）です。`,
   },
   ...(OFFER.active ? [{
     q: `${FOUNDING_NAME}とは何ですか？`,
-    a: `公開から 30 日間（${OFFER.endLabel}まで・日本時間）にプランを始めた方は、月額・年額どちらでも（7 日間無料で始めた方も）創業メンバーです。開発者への直接の窓口と、次に作る機能への投票をご用意しています。人数の上限はありません。年額プランなら、1 年目は ¥9,800 を始めるときに 1 回お支払いいただき、2 年目からは年額 ¥12,800（税込）で自動更新されます。この価格は App Store の初回特典なので、同じ Apple ID でプランの初回特典（月額プランの 7 日間無料など）を使ったことがない方が対象です。`,
+    a: `${END}（日本時間）までにプランを始めた方は、月額・年額どちらでも（7 日間無料で始めた方も）創業メンバーです。開発者への直接の窓口と、次に作る機能への投票をご用意しています。人数の上限はありません。年額プランなら、1 年目は ${FOUNDING_PRICE}（税込）を始めるときにまとめてお支払いいただき、2 年目からは年額 ¥12,800（税込）で自動更新されます。この価格は App Store の初回特典なので、同じ Apple ID でプランの初回特典（月額プランの 7 日間無料など）を使ったことがない方が対象です。`,
   }] : []),
   ...(TRIAL_NOTE ? [{
     q: '無料期間のあとは、自動で料金がかかりますか？',
@@ -434,7 +438,7 @@ export default function Landing() {
                 {/* 創業メンバー価格（期間中だけ）: 押すと下の節へ。料金・自動更新の条件は料金の欄で言う。 */}
                 {OFFER.active && (
                   <a className="lp-offer-badge" href="#lp-offer" onClick={() => lpTrack('offer_badge', {})}>
-                    {FOUNDING_NAME}・{OFFER.endLabel}まで
+                    {FOUNDING_NAME}・<span className="lp-nb">{OFFER.endLabel}</span>まで
                   </a>
                 )}
               </div>
@@ -583,10 +587,10 @@ export default function Landing() {
           <section className="lp-sec lp-offer" id="lp-offer" aria-labelledby="lp-offer-title" data-lp-sec="offer">
             <div className="lp-wrap lp-offer-grid">
               <div className="lp-offer-head">
-                <p className="lp-offer-when">公開から 30 日間・{OFFER.endLabel}（日本時間）まで</p>
+                <p className="lp-offer-when"><span className="lp-nb">{OFFER.endLabel}</span>（日本時間）まで</p>
                 <h2 className="lp-h2" id="lp-offer-title">{FOUNDING_NAME}</h2>
                 <p>
-                  公開から 30 日間にプランを始めた方は、月額・年額どちらでも創業メンバーです。年額プランなら、1 年目が ¥9,800（税込）です。2 年目からは年額 ¥12,800（税込）で自動更新されます。
+                  <span className="lp-nb">{OFFER.endLabel}</span>までにプランを始めた方は、月額・年額どちらでも創業メンバーです。年額プランなら、1 年目が {FOUNDING_PRICE}（税込）です。2 年目からは年額 ¥12,800（税込）で自動更新されます。
                 </p>
                 <p>Orime は、阿部文哉がひとりで作っています。最初に使ってくださる方の声で、次の形を決めたいと思っています。</p>
               </div>
@@ -602,7 +606,7 @@ export default function Landing() {
                 <div className="lp-cta-block">
                   <StoreCta className="lp-btn lp-btn-large" loc="offer">{CTA_LABEL}</StoreCta>
                   <p className="lp-cta-note">
-                    無料プランで始めて、{OFFER.endLabel}までにアプリの「プランを見る」からプランへ（<span className="lp-nb">7 日間無料</span>で始めた方も創業メンバーです）。年額の ¥9,800 は App Store の初回特典なので、同じ Apple ID で初回特典（月額プランの 7 日間無料など）を使ったことがない方が対象です。人数の上限はありません。
+                    無料プランで始めて、<span className="lp-nb">{OFFER.endLabel}</span>までにアプリの「プランを見る」からプランへ（<span className="lp-nb">7 日間無料</span>で始めた方も創業メンバーです）。年額の {FOUNDING_PRICE} は App Store の初回特典なので、同じ Apple ID で初回特典（月額プランの 7 日間無料など）を使ったことがない方が対象です。人数の上限はありません。
                   </p>
                 </div>
               </div>
@@ -667,7 +671,7 @@ export default function Landing() {
               <p className="lp-cta-note">
                 アプリは無料でダウンロードできます。
                 {OFFER.active
-                  ? `${FOUNDING_NAME}の年額プランは、1 年目の ¥9,800 を始めるときにお支払いいただき、2 年目から年額 ¥12,800（税込）で自動更新されます。${TRIAL_NOTE ? `月額プランは${TRIAL_SENT}で、そのあと月額 ¥1,480（税込）で自動更新されます。無料期間が終わる 24 時間前までに解約すれば、料金はかかりません。` : '月額プランは月額 ¥1,480（税込）で自動更新されます。'}`
+                  ? `${FOUNDING_NAME}の年額プランは、1 年目の ${FOUNDING_PRICE}（税込）を始めるときにまとめてお支払いいただき、2 年目から年額 ¥12,800（税込）で自動更新されます。${TRIAL_NOTE ? `月額プランは${TRIAL_SENT}で、そのあと月額 ¥1,480（税込）で自動更新されます。無料期間が終わる 24 時間前までに解約すれば、料金はかかりません。` : '月額プランは月額 ¥1,480（税込）で自動更新されます。'}`
                   : TRIAL_NOTE
                     ? `プランは${TRIAL_SENT}で、そのあと選んだプラン（月額 ¥1,480 または年額 ¥12,800・税込）で自動更新されます。無料期間が終わる 24 時間前までに解約すれば、料金はかかりません。`
                     : 'プランは、選んだプラン（月額 ¥1,480 または年額 ¥12,800・税込）で自動更新されます。'}

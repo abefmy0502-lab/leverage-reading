@@ -62,7 +62,7 @@ import { FREE_OCR_PER_MONTH } from '../lib/tokenAmounts';
 import { nextResetLabelJa } from '../lib/freeTrial';
 import { normalizeTrialLabel, trialFirstPhrase } from '../lib/trialNudge';
 import { introOfferOf, introPriceLabel, billedLineParts, planCtaLabel, trialPlanOf, renewalSentence, webRenewalSentence } from '../lib/planOffers';
-import { readFoundingOffer, devFoundingParam, FOUNDING_NAME } from '../lib/foundingOffer';
+import { readFoundingOffer, devFoundingParam, noBreak, FOUNDING_NAME, FOUNDING_PRICE_YEN, FOUNDING_PRICE_TEXT } from '../lib/foundingOffer';
 
 // 未契約でもアカウントを削除できるように（App Store 審査 5.1.1(v)）。設定の削除欄をそのまま使う。
 const AccountSettings = lazy(() => import('./AccountSettings'));
@@ -117,7 +117,7 @@ function readNativePreview() {
 const preview = readNativePreview();
 // プレビューの年額の初回価格（ストアの introPrice と同じ形から作る）。
 const PREVIEW_ANNUAL_INTRO = introPriceLabel(
-  introOfferOf({ introPrice: { price: 9800, priceString: '¥9,800', periodUnit: 'YEAR', periodNumberOfUnits: 1, cycles: 1 } }),
+  introOfferOf({ introPrice: { price: FOUNDING_PRICE_YEN, priceString: FOUNDING_PRICE_TEXT, periodUnit: 'YEAR', periodNumberOfUnits: 1, cycles: 1 } }),
   '¥12,800',
 );
 // 見た目の分岐だけに使う。購入・復元の実行可否は必ず isNative で判定する。
@@ -602,7 +602,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
                 あわせて、初回特典は 1 つの Apple ID に 1 回であること（App Store の決まり）。 */}
             {priceState === 'ready' && founding.active && (
               <p style={{ ...metaText, marginTop: 'var(--space-3)' }}>
-                {founding.endLabel}までにプランを始めた方は、月額・年額どちらでも創業メンバーです（開発者への直接の窓口・次に作る機能への投票）。
+                {noBreak(founding.endLabel)}までにプランを始めた方は、月額・年額どちらでも創業メンバーです（開発者への直接の窓口・次に作る機能への投票）。
               </p>
             )}
             {priceState === 'ready' && labels.annual?.intro && labels.monthly?.trial && (
@@ -625,7 +625,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
                   ))}
                   {/* 創業メンバー価格（年額を選んでいるとき）: 呼び名と終わる日を小さく 1 行（金額は次の行で強く）。 */}
                   {!trial && selected.intro && plan === 'annual' && foundingNamed && (
-                    <span style={{ display: 'block' }}>{FOUNDING_NAME}（{founding.endLabel}まで）</span>
+                    <span style={{ display: 'block' }}>{FOUNDING_NAME}（{noBreak(founding.endLabel)}まで）</span>
                   )}
                   <span style={{ display: 'block', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>
                     {billedLineParts({ ...selected, trial }).map((part) => (
@@ -702,7 +702,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
                   <p style={{ ...billedAmount, margin: 'var(--space-1) 0 0' }}><PriceText text={labels[id].price} /></p>
                   {/* Web では本人が初回特典を使えるか分からないので、「初めての方」と条件を添える（金額の真実は App Store）。 */}
                   {id === 'annual' && founding.active && (
-                    <p style={{ ...planNote, margin: 'var(--space-1) 0 0' }}>{founding.endLabel}までに始めると {founding.priceLabel}（初めての方）</p>
+                    <p style={{ ...planNote, margin: 'var(--space-1) 0 0' }}>{noBreak(founding.endLabel)}までに始めると {founding.priceLabel}（税込・初めての方）</p>
                   )}
                 </div>
               ))}

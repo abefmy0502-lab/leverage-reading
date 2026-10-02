@@ -38,3 +38,17 @@ describe('foundingOfferState（創業メンバー価格を LP に出すか）', 
     expect(foundingOfferState({ flag: 'on', end: '2026-12-15', priceLabel: '  ', now: at('2026-11-20T00:00:00Z') }).priceLabel).toBe('1 年目 ¥9,800');
   });
 });
+
+describe('金額は定数 1 つから・日付は折り返さない', () => {
+  it('FOUNDING_PRICE_TEXT と既定の値段の書き方', async () => {
+    const m = await import('./foundingOffer');
+    expect(m.FOUNDING_PRICE_TEXT).toBe('¥9,800');
+    expect(m.FOUNDING_DEFAULT_PRICE_LABEL).toBe(`1 年目 ${m.FOUNDING_PRICE_TEXT}`);
+    expect(foundingOfferState({ flag: 'on', end: '2026-12-15', now: Date.parse('2026-11-20T00:00:00Z') }).price).toBe('¥9,800');
+  });
+  it('noBreak は文字の間に WORD JOINER を挟むだけ（見た目は同じ）', async () => {
+    const { noBreak } = await import('./foundingOffer');
+    expect(noBreak('12月15日')).toBe('1⁠2⁠月⁠1⁠5⁠日');
+    expect(noBreak('12月15日').replace(/⁠/g, '')).toBe('12月15日');
+  });
+});

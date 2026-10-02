@@ -13,6 +13,7 @@
 // 概況タブのいちばん上は「ローンチの 4 つの数字」（admin/LaunchKpiCard.jsx・docs/launch-kpis.md）。
 
 import { useState, useEffect, useCallback } from 'react';
+import { FOUNDING_PRICE_YEN } from '../lib/foundingOffer';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import {
   X, RefreshCw, Target, ListChecks, Ticket, Users, CreditCard, Cpu, Inbox,
@@ -33,7 +34,7 @@ import {
 // 💰 コストモデル（粗利の概算用）。ここは"目安"。
 const MONTHLY_PRICE_JPY = 1480;     // 月額プランの税込価格（実価格）
 // 創業メンバー価格（年額の初回価格 1 年目 ¥9,800・period_type 'intro'）の月あたり（MRR の概算用・2026-10-02）。
-const FOUNDING_MONTHLY_JPY = Math.round(9800 / 12);
+const FOUNDING_MONTHLY_JPY = Math.round(FOUNDING_PRICE_YEN / 12);
 // App 内課金（App Store / Google Play）の手数料。Apple 小規模事業者プログラム
 // （年間売上 100万USD 未満）適用で 15%。Stripe(Web) は別物だが現状 App 決済が前提。
 const PAYMENT_FEE_RATE = 0.15;
