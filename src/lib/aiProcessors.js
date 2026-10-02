@@ -68,7 +68,7 @@ const BASE_FEATURES = [
   // 凝縮・まとめ・写真から書き起こしは同じ送り先（Google）なので 1 行に（シートの高さ・2026-10-02 ui-critic）。
   {
     id: 'memo',
-    name: '凝縮・まとめ・書き起こし',
+    name: '凝縮・まとめ・写真から書き起こし',
     sends: 'そのメモの文・撮ったページの写真',
     purposes: ['condense', 'cards_to_summary', 'ocr'],
   },

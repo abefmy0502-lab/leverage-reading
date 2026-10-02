@@ -125,6 +125,17 @@ describe('🧭 Jev を入れたとき（VITE_AI_JEV=on）', () => {
     expect(sends).toContain('メモ');
   });
 
+  it('シートに書かない相談の量（約 9,000 字）は、プライバシーポリシー第 7 条（アプリの画面とドラフト）に書いてある', () => {
+    const src = readFileSync(join(__dirname, 'ai.js'), 'utf8');
+    const total = Number((src.match(/const CONSULT_TOTAL_CHARS = (\d+)/) || [])[1]);
+    const amount = `約 ${total.toLocaleString('en-US')} 字まで`;
+    const page = readFileSync(join(__dirname, '..', 'legal', 'PrivacyPage.jsx'), 'utf8');
+    const consultLine = page.split('\n').find((l) => l.includes('<strong>相談:</strong>'));
+    expect(consultLine, 'PrivacyPage.jsx の第 7 条の相談の行').toContain(amount);
+    const draft = readFileSync(join(__dirname, '..', '..', 'legal', 'privacy.md'), 'utf8');
+    expect(draft.split('\n').find((l) => l.startsWith('| Anthropic'))).toContain(amount);
+  });
+
   it('同意のシートは 5 行まで（Jev を入れても 390×844・下の余白 34 でプライバシーポリシーまで見える高さ）', () => {
     expect(buildAiProcessors({ jev: false }).features.length).toBeLessThanOrEqual(5);
     expect(buildAiProcessors({ jev: true }).features.length).toBeLessThanOrEqual(5);
