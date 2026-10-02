@@ -48,6 +48,7 @@ import { normalizeTrialLabel, trialFirstPhrase, trialPeriodOf } from '../lib/tri
 import { readFoundingOffer, noBreak, FOUNDING_NAME } from '../lib/foundingOffer';
 import Shot from './LpShot';
 import LpFlow from './LpFlow';
+import Phrases from './LpPhrases';
 import qrcode from 'qrcode-generator';
 import { lpTrack, lpVariant, storeUrlFor } from '../lib/lpTrack';
 import { inject as injectVercelAnalytics } from '@vercel/analytics';
@@ -469,7 +470,7 @@ export default function Landing() {
               <h2 className="lp-h2" id="lp-flow">
                 <span>悩みから、</span><span>明日の一歩まで。</span>
               </h2>
-              <p>前に読んで残したメモが、困ったときの答えの材料になります。実際の画面で、相談の流れを見てください。</p>
+              <p className="lp-wbr"><Phrases>前に読んで残したメモが、困ったときの答えの材料になります。</Phrases></p>
             </div>
             <LpFlow onEvent={lpTrack} />
             <p className="lp-shot-note">画面は、サンプルのメモを入れた実際のアプリです</p>
@@ -483,7 +484,7 @@ export default function Landing() {
               <h2 className="lp-h2" id="lp-compare">
                 <span>記録でも、</span><span>一般論でもなく。</span>
               </h2>
-              <p>読書の記録も、AI に聞くことも、それぞれに得意なことがあります。Orime が受け持つのは、あなたの読書から答えることです。</p>
+              <p className="lp-wbr"><Phrases>読書の記録も、AI に聞くことも、それぞれに得意なことがあります。Orime が受け持つのは、あなたの読書から答えることです。</Phrases></p>
             </div>
             <table className="lp-cmp">
               <caption className="lp-sr">ブクログ・ChatGPT・Orime の得意なことの違い</caption>
@@ -522,8 +523,8 @@ export default function Landing() {
               <h2 className="lp-h2" id="lp-share">
                 <span>読んだ本を、</span><span>写真で共有。</span>
               </h2>
-              <p>撮った写真に、書名と日付・メモの数、いちばん新しいメモの一文が重なります。読み終えた本なら、やり終えた行動の数も。押すのは「共有する」だけです。</p>
-              <p>写真は端末の中で描き、どこにも送りません。無料プランで使えます。</p>
+              <p className="lp-wbr"><Phrases>撮った写真に、書名と日付・メモの数、いちばん新しいメモの一文が重なります。読み終えた本なら、やり終えた行動の数も。押すのは「共有する」だけです。</Phrases></p>
+              <p className="lp-wbr"><Phrases>写真は端末の中で描き、どこにも送りません。無料プランで使えます。</Phrases></p>
             </div>
             <figure className="lp-share-figure lp-reveal">
               <img
@@ -549,8 +550,8 @@ export default function Landing() {
               <h2 className="lp-h2" id="lp-privacy">
                 <span>メモは、</span><span>AI の学習に</span><span>使われません。</span>
               </h2>
-              <p>
-                相談では、メモを Anthropic 社の API に送って答えを作ります。写真からの書き起こしなど一部は Google 社の有料の API を使います。どの会社も、API で送られたデータを規約で AI の学習に使いません。
+              <p className="lp-wbr">
+                <Phrases>相談では、メモを Anthropic 社の API に送って答えを作ります。写真からの書き起こしなど一部は Google 社の有料の API を使います。どの会社も、API で送られたデータを規約で AI の学習に使いません。</Phrases>
               </p>
             </div>
             <ul className="lp-points">

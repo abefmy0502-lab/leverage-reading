@@ -207,6 +207,9 @@ body.lp-active {
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
+/* 文節で折り返す段落（LpPhrases.jsx が BudouX で文節の切れ目に <wbr> を入れる）。keep-all で文節の中では割らない。
+   auto-phrase だけでは iOS の Safari で効かない（2026-10-02 ui-critic）。1 つの文節が行より長いときだけ anywhere で割る。 */
+.lp-root .lp-wbr { word-break: keep-all; overflow-wrap: anywhere; line-break: strict; }
 /* 語の途中で折り返さない塊 */
 .lp-nb { white-space: nowrap; }
 /* 文字ボタン（相談の流れの「止める」「もう一度見る」） */
