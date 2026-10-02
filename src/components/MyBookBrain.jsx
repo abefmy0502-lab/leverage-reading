@@ -1394,7 +1394,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     if (askPreset.draft) {
       setInput(askPreset.question);
       setFirstDayDraft(askPreset.from === 'firstDay' ? askPreset.question : null);
-      setTimeout(() => { try { inputRef.current?.focus({ preventScroll: true }); } catch { /* ignore */ } }, 80);
+      // カーソルは、下書きが入って入力欄が描き直されたあと（下の effect）で置く（setTimeout の 80ms では、
+      // 相談タブを開く動きの途中で入力欄がまだ無いことがあり、フォーカスの輪が出なかった・2026-10-02 ui-critic）。
+      setDraftFocusNonce(askPreset.nonce);
       return;
     }
     // ホームの相談例「前に相談した「…」、その後どう進める？」なら、その相談と答えを文脈として渡す。
@@ -1403,6 +1405,24 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     ask(askPreset.question, Array.isArray(askPreset.bookIds) ? { bookIds: askPreset.bookIds, ...prior } : prior);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [askPreset?.nonce, historyLoaded]);
+
+  // 下書きを入れて開いたとき: 入力欄が描かれてから（次のフレーム）カーソルを置く。まだ無ければ数フレーム待つ。
+  const [draftFocusNonce, setDraftFocusNonce] = useState(null);
+  useEffect(() => {
+    if (draftFocusNonce == null) return undefined;
+    let raf = 0;
+    let tries = 0;
+    const tryFocus = () => {
+      const el = inputRef.current;
+      if (el && el.isConnected && el.getClientRects().length > 0) {
+        try { el.focus({ preventScroll: true }); el.setSelectionRange?.(el.value.length, el.value.length); } catch { /* ignore */ }
+        return;
+      }
+      if (tries < 30) { tries += 1; raf = requestAnimationFrame(tryFocus); }
+    };
+    raf = requestAnimationFrame(tryFocus);
+    return () => cancelAnimationFrame(raf);
+  }, [draftFocusNonce]);
 
   // 「中止」ボタン: 進行中のストリームを止める。abort 後は streamMyBookBrain が
   // 途中までの内容で正常終了し、ask() の try ブロックがその時点で確定する。
