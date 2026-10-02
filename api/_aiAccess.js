@@ -8,7 +8,9 @@
 // プランと 1 か月に使えるトークン（env で変えられる）:
 //   - 無料（契約なし）: AI は 💬 相談（purpose: 'consult'）だけ・AI_FREE_TOKENS（既定 30＝相談 約 3 回）。
 //     行のキーは 'free-YYYY-MM'（日本時間の月）。数えられないときは使わせない（fail-closed）。
-//     相談以外の AI 機能は 402 plan_required（アプリは有料プランの画面を重ねて開く）。
+//     📷 写真から書き起こし（purpose: 'ocr'）だけは別枠で 1 か月 AI_FREE_OCR_PER_MONTH 回（既定 10・行は
+//     'freeocr-YYYY-MM'・2026-10-02）。相談のトークンは使わない。下の「写真から書き起こし」の節。
+//     ほかの AI 機能は 402 plan_required（アプリは有料プランの画面を重ねて開く）。
 //   - 無料期間（App Store の 7 日間無料・period_type 'trial'/'intro'）: すべての AI 機能・
 //     無料期間まるごとで AI_TRIAL_TOKENS（既定 150）。行のキーは 'trial-YYYY-MM-DD'（無料期間が
 //     終わる日・日本時間）＝月をまたいでも増えない。終わる日が分からないときは 'trial-YYYY-MM'。
@@ -116,16 +118,57 @@ export function remainingTokens(allowanceTokens, usedMjpy, env = process.env) {
   return Math.max(0, allowanceTokens - tokensFromMjpy(usedMjpy, env));
 }
 
+// ───────────────────────────────────────────────────────────────────
+// 📷 写真から書き起こし（purpose: 'ocr'）は、無料プランでも 1 か月に AI_FREE_OCR_PER_MONTH 回
+// （既定 10・0 でやめる・日本時間の月）（2026-10-02 オーナー裁定「写真から書き起こしを無料プランで月 10 回」）。
+// メモを早くためてもらい、相談が役に立つところまで育てるため。1 回 約 ¥0.15（Gemini Flash-Lite）。
+//   - 数えるのは ai_usage の period_month='freeocr-YYYY-MM' 行の calls（reserve_ai_usage を流用・新しい SQL 不要）
+//   - 無料の相談のトークン（'free-YYYY-MM'）は使わない（別の行・原価の予約もしない）
+//   - 数えられない（RPC が無い・障害）ときは使わせない（fail-closed・無料の相談と同じ）
+//   - 使い切ったら 402 free_ocr_limit_reached（アプリは有料プランの画面を重ねて開く）
+//   - 有料・7 日間無料はいつもどおりトークンで、管理者は数えない
+// ───────────────────────────────────────────────────────────────────
+export const FREE_OCR_PURPOSE = 'ocr';
+export function freeOcrPerMonth(env = process.env) {
+  return Math.max(0, Math.floor(num(env.AI_FREE_OCR_PER_MONTH, 10)));
+}
+export function freeOcrPeriodKey(monthKey) {
+  return `freeocr-${monthKey}`;
+}
+// 使い切ったときの案内（有料プランの画面の吹き出しにも使う）。
+export function freeOcrLimitMessage(limit, now = Date.now()) {
+  return `今月の写真から書き起こしは、ここまでです。${nextMonthFirstLabel(now, true)}に ${limit} 回に戻ります。`;
+}
+// 無料の書き起こしの予約（reserve_ai_usage）の結果から、通すかを決める（fail-closed）。
+//   usage: reserveMonthlyUsage の結果 { reserved, allowed }
+export function decideFreeOcrReservation({ usage = {} } = {}) {
+  if (!usage.reserved) return { allow: false, status: 402, errorCode: 'plan_required' };
+  if (!usage.allowed) return { allow: false, status: 402, errorCode: 'free_ocr_limit_reached' };
+  return { allow: true };
+}
+
 // 契約の状態と用途から、この 1 回を通すかを決める。
 //   entitlement: { allowed, admin, trial }（checkEntitlement の結果）
 //   purpose: body.purpose
 //   freeAllowance: 無料のトークン（0 なら無料の AI は無し）
 //   freeUsedMjpy: （分かっていれば）今月使った無料の原価。予約の前は undefined でよい
-// 戻り値: { allow: true, tier: 'admin'|'paid'|'trial'|'free' }
-//        | { allow: false, status: 402, errorCode: 'plan_required'|'free_limit_reached' }
-export function decideAiAccess({ entitlement = {}, purpose, freeAllowance = 30, freeUsedMjpy, env = process.env } = {}) {
+//   freeOcrLimit: 無料の写真から書き起こしの 1 か月の回数（0 ならプランだけ）
+//   freeOcrUsed: （分かっていれば）今月の無料の書き起こしの回数。予約の前は undefined でよい
+// 戻り値: { allow: true, tier: 'admin'|'paid'|'trial'|'free'|'free_ocr' }
+//        | { allow: false, status: 402, errorCode: 'plan_required'|'free_limit_reached'|'free_ocr_limit_reached' }
+export function decideAiAccess({
+  entitlement = {}, purpose, freeAllowance = 30, freeUsedMjpy, freeOcrLimit, freeOcrUsed, env = process.env,
+} = {}) {
   if (entitlement.admin) return { allow: true, tier: 'admin' };
   if (entitlement.allowed) return { allow: true, tier: entitlement.trial ? 'trial' : 'paid' };
+  if (purpose === FREE_OCR_PURPOSE) {
+    const limit = freeOcrLimit === undefined ? freeOcrPerMonth(env) : Math.max(0, Math.floor(num(freeOcrLimit, 0)));
+    if (!(limit > 0)) return { allow: false, status: 402, errorCode: 'plan_required' };
+    if (freeOcrUsed !== undefined && Math.max(0, num(freeOcrUsed, 0)) >= limit) {
+      return { allow: false, status: 402, errorCode: 'free_ocr_limit_reached' };
+    }
+    return { allow: true, tier: 'free_ocr' };
+  }
   if (!isFreePurpose(purpose) || !(freeAllowance > 0)) {
     return { allow: false, status: 402, errorCode: 'plan_required' };
   }
