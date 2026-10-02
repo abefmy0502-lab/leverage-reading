@@ -9,7 +9,8 @@
 //   5. 📩 問い合わせ受信箱 — フィードバックをさばく（ワンタップでチケット化）。
 //
 // データは supabase の SECURITY DEFINER RPC（supabase_admin_metrics.sql /
-// supabase_admin_ops.sql）。RPC 側で is_app_admin() ゲート済み。
+// supabase_admin_ops.sql / supabase_admin_launch_kpis.sql）。RPC 側で is_app_admin() ゲート済み。
+// 概況タブのいちばん上は「ローンチの 4 つの数字」（admin/LaunchKpiCard.jsx・docs/launch-kpis.md）。
 
 import { useState, useEffect, useCallback } from 'react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
@@ -23,6 +24,7 @@ import { opsAdvise } from '../lib/ai';
 import { C, btnPrimary, btnGhost } from '../styles/ui';
 import Spinner from './Spinner';
 import TodayCard from './admin/TodayCard';
+import LaunchKpiCard from './admin/LaunchKpiCard';
 import { DATE_HINT } from '../lib/dateHint';
 import {
   evaluateRules, SALES_MILESTONES, SHIP_CHECKLIST, MIN_N, weekStartISO, monthlyMilestoneNeed,
@@ -187,6 +189,9 @@ export default function AdminDashboard({ onClose }) {
   const [goal, setGoal] = useState(null);
   const [tickets, setTickets] = useState([]);
   const [growth, setGrowth] = useState(null);
+  // 🚀 ローンチの 4 つの数字（supabase_admin_launch_kpis.sql）。missing = RPC が無い。
+  const [launchKpis, setLaunchKpis] = useState(null);
+  const [launchKpisMissing, setLaunchKpisMissing] = useState(false);
   // LTV/CAC 試算の前提（端末ローカルに保存）。月の集客費・想定継続月数。
   const [mktSpend, setMktSpend] = useState(() => { try { return localStorage.getItem('orime-ops-mkt-spend') || ''; } catch { return ''; } });
   const [lifeMonths, setLifeMonths] = useState(() => { try { return localStorage.getItem('orime-ops-life-months') || '12'; } catch { return '12'; } });
@@ -293,7 +298,7 @@ export default function AdminDashboard({ onClose }) {
   const load = useCallback(async (d) => {
     setLoading(true); setErr(''); setWarn('');
     // 各 RPC を独立に扱い、1つ失敗しても他は表示する（graceful degradation）。
-    const [ov, se, us, au, rv, fb, gl, tk, gr] = await Promise.all([
+    const [ov, se, us, au, rv, fb, gl, tk, gr, lk] = await Promise.all([
       supabase.rpc('admin_overview'),
       supabase.rpc('admin_active_series', { p_days: d }),
       supabase.rpc('admin_feature_usage', { p_days: d }),
@@ -303,8 +308,9 @@ export default function AdminDashboard({ onClose }) {
       supabase.rpc('admin_get_goal'),
       supabase.rpc('admin_tickets'),
       supabase.rpc('admin_growth'),
+      supabase.rpc('admin_launch_kpis', { p_weeks: 8 }),
     ]);
-    const all = [ov, se, us, au, rv, fb, gl, tk, gr];
+    const all = [ov, se, us, au, rv, fb, gl, tk, gr, lk];
 
     // 'not authorized' が出るなら管理者でない（全面エラー）。
     if (all.some((r) => r.error?.message === 'not authorized')) {
@@ -329,6 +335,8 @@ export default function AdminDashboard({ onClose }) {
     setGoal(gl.error || !gl.data ? null : { ...gl.data, target: Number(gl.data.target) || 0 });
     setTickets(tk.error ? [] : (tk.data || []));
     setGrowth(gr.error ? null : (gr.data || null));
+    setLaunchKpis(lk.error ? null : (lk.data || null));
+    setLaunchKpisMissing(!!lk.error);
     if (!gl.error && gl.data) { setGMetric(gl.data.metric); setGTarget(String(gl.data.target || '')); setGDeadline(gl.data.deadline || ''); }
 
     // 部分的に失敗したものを警告として可視化（原因切り分け用に実メッセージを出す）。
@@ -337,6 +345,7 @@ export default function AdminDashboard({ onClose }) {
     const notes = [];
     if (opsFailed) notes.push('🎯目標・🎫チケットが読めません → supabase_admin_ops.sql を適用してください');
     if (gr.error) notes.push('📈成長・継続率が読めません → supabase_admin_growth.sql を適用してください');
+    if (lk.error) notes.push('🚀ローンチの 4 つの数字が読めません → supabase_admin_launch_kpis.sql を適用してください');
     if (metricFails.length) notes.push(`一部メトリクスが読めません（${metricFails[0].error?.message || '不明'}）`);
     setWarn(notes.join(' / '));
     setLoading(false);
@@ -556,6 +565,9 @@ export default function AdminDashboard({ onClose }) {
 
             {/* ═══ 概況タブ（前半: 目標） ═══ */}
             {activeTab === 'overview' && (<>
+            {/* ── 🚀 ローンチの 4 つの数字（2026-10-02 オーナー承認・いちばん上） ── */}
+            <LaunchKpiCard data={launchKpis} missing={launchKpisMissing} />
+
             {/* ── 🎯 目標 ── */}
             <p style={sectionTitle}><Target size={15} strokeWidth={2} /> 目標</p>
             <div style={card}>

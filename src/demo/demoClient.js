@@ -25,6 +25,7 @@
 
 import { buildSeed, DEMO_USER_ID } from './seed';
 import { installDemoFetch } from './demoFetch';
+import { demoAdminRpc } from './demoAdmin';
 import { AI_CONSENT_VERSION } from '../lib/aiProcessors';
 
 const clone = (v) => (v == null ? v : JSON.parse(JSON.stringify(v)));
@@ -364,7 +365,13 @@ export function createDemoClient() {
     },
     from: (table) => new Query(store, table),
     rpc: async (name) => {
-      if (name === 'is_app_admin') return { data: false, error: null };
+      // ?admin=1: 運営ダッシュボードを開ける管理者（demoAdmin.js のサンプル）。
+      const isAdminDemo = params.get('admin') === '1';
+      if (name === 'is_app_admin') return { data: isAdminDemo, error: null };
+      if (isAdminDemo) {
+        const hit = demoAdminRpc(name, params);
+        if (hit) return hit;
+      }
       return { data: null, error: { code: 'PGRST202', message: `Could not find the function public.${name}` } };
     },
     storage: {
