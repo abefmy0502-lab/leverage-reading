@@ -245,6 +245,14 @@ export function buildSeed(scenario) {
     }));
   });
 
+  // ?demo=planempty: 積読の『LIFE SHIFT』に得たいこと・課題・仮説・シートがまだ無い人
+  //   （積読の「この本について」がカードで出る形の確認用・2026-10-02）。
+  if (scenario === 'planempty') {
+    db.books.forEach((b) => {
+      if (b.title === 'LIFE SHIFT') Object.assign(b, { invest_purpose: '', current_challenge: '', hypothesis: '', ai_strategy: '', ai_analysis: '' });
+    });
+  }
+
   // ?demo=nomemo: 本はあるが、メモも行動もまだ無い人（相談・ホームの「メモ 0 件」の確認用）。
   if (scenario === 'nomemo') return db;
 

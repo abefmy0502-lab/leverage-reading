@@ -106,6 +106,9 @@ const SCREENS = [
   { name: 'book-detail-before-about-open', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("LIFE SHIFT")' }, { css: 'summary:has-text("この本について")' }, { scrollTo: 'summary:has-text("この本について")' }] },
   { name: 'book-detail-want-noinfo', url: '/?info=none', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("チーズはどこへ消えた")' }] },
   { name: 'book-detail-before-noinfo', url: '/?info=none', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("LIFE SHIFT")' }] },
+  // まだ何も書いていない積読（?demo=planempty）: この本についてはカードの形
+  { name: 'book-detail-before-card', url: '/?demo=planempty', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("LIFE SHIFT")' }] },
+  { name: 'book-detail-before-card-toc-open', url: '/?demo=planempty', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("LIFE SHIFT")' }, { css: 'summary:has-text("目次")' }, { scrollTo: 'summary:has-text("目次")' }] },
   // 畳む見出しの読み込み中（積読で課題・仮説がある本／読書中）
   { name: 'book-detail-before-fold-loading', url: '/?info=slow', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("LIFE SHIFT")', settle: 300 }] },
   { name: 'book-detail-reading-fold-loading', url: '/?info=slow', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")', settle: 200 }, { scrollBottom: true, settle: 300 }] },
