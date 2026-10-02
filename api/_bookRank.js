@@ -144,7 +144,7 @@ export const RANK_WEIGHTS = {
   cover: 10,
   isbn: 6,
   recencyMax: 6,       // 1990 年から 5 年ごとに +1（最大 6）
-  libraryOld: -30,     // 図書館にしか無い古い本（NDL だけ・ISBN なしか 1990 年より前）
+  libraryOld: -20,     // 図書館にしか無い古い本（NDL だけ・ISBN なしか 1990 年より前）
   libraryOnly: -8,     // NDL だけ（売られている記録が無い）
   academic: -8,        // 大学・学会の出版
 };

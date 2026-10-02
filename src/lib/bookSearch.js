@@ -1,4 +1,12 @@
-// Book search — NDL-first to avoid Google Books rate limits.
+// Book search.
+//
+// 2026-10-02: 書名・著者で探すときは、まずサーバーの検索（/api/cover?search=・楽天の売上順 → Google →
+// NDL・api/_bookSearch.js）を使う。サーバーが失敗したとき（通信・502・お試しモードの old）だけ、下の
+// 端末だけの検索（NDL → openBD → Google）に切り替え、結果はサーバーと同じ並べ方（api/_bookRank.js の
+// rankBooks）で並べ、著者名を整える（「稲盛, 和夫, 1932-2022」→「稲盛和夫」）。docs/book-search.md。
+// 以前は NDL の返す順（読みの辞書順の先頭 50 件）をそのまま出していたので、「考え方」で稲盛和夫『考え方』が出なかった。
+//
+// （以下は端末だけの検索の説明）NDL-first to avoid Google Books rate limits.
 //
 // Why this exists: Google Books' anonymous IP quota is ~1000/day. A few
 // active users on the same egress IP (corporate network, Vercel edge) hit
@@ -39,10 +47,16 @@ const firstAuthorForQuery = (author) => {
   return first || a;
 };
 
-const CACHE_KEY = 'bookSearchCache';
+import { apiUrl } from './apiUrl';
+import { rankBooks, formatAuthors } from '../../api/_bookRank.js';
+
+// v2（2026-10-02）: 辞書順のまま・NDL の書き方の著者名で覚えた結果を捨てる。
+const CACHE_KEY = 'bookSearchCache:v2';
 // 7 days. ISBN は不変で、検索クエリも頻繁には変わらないため、長めに置いて
 // 体感速度を上げる。容量制御は CACHE_MAX_ENTRIES が担当。
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+// 「0 件」は 1 日だけ（失敗は覚えない＝setCached を呼ばない）。
+const CACHE_EMPTY_TTL_MS = 24 * 60 * 60 * 1000;
 const CACHE_MAX_ENTRIES = 50;
 
 // ---------- localStorage cache ----------
@@ -74,7 +88,8 @@ function getCached(query) {
   const cache = readCache();
   const entry = cache[keyOf(query)];
   if (!entry) return null;
-  if (Date.now() - entry.timestamp > CACHE_TTL_MS) {
+  const ttl = Array.isArray(entry.results) && entry.results.length === 0 ? CACHE_EMPTY_TTL_MS : CACHE_TTL_MS;
+  if (Date.now() - entry.timestamp > ttl) {
     delete cache[keyOf(query)];
     writeCache(cache);
     return null;
@@ -116,13 +131,15 @@ function isISBN(s) {
 function authorFromNdl(item) {
   // NDL puts the cleanest version in <dc:creator>; <author> often duplicates
   // the same name with role suffix ("加藤, 和彦,加藤和彦 著").
+  // 1 人ずつ本の表記に整えてから「、」でつなぐ（「稲盛, 和夫, 1932-2022」→「稲盛和夫」・
+  // 「Heckel, Paul」「酒井, 邦秀, 1945-」→「Paul Heckel、酒井邦秀」・2026-10-02）。
   const creators = Array.from(item.getElementsByTagName('*'))
     .filter((el) => el.localName === 'creator')
     .map((el) => (el.textContent || '').trim())
     .filter(Boolean);
-  if (creators.length > 0) return creators.join(', ');
+  if (creators.length > 0) return formatAuthors(creators);
   const authorEl = item.getElementsByTagName('author')[0];
-  return (authorEl?.textContent || '').split(',')[0].trim();
+  return formatAuthors((authorEl?.textContent || '').trim());
 }
 
 function isbnFromNdl(item) {
@@ -231,6 +248,7 @@ async function searchNDLRaw(urlParams, { signal } = {}) {
         // ことが今回の根本対策。
         cover: '',
         pages: 0,
+        source: 'ndl',
       };
     })
     .filter((b) => b.title);
@@ -253,7 +271,7 @@ async function batchOpenBD(isbns, { signal } = {}) {
     const isbn = isbns[i];
     map[isbn] = {
       title: item.summary?.title || '',
-      author: item.summary?.author || '',
+      author: formatAuthors(item.summary?.author || ''),
       publisher: item.summary?.publisher || '',
       cover: item.summary?.cover || '',
     };
@@ -277,7 +295,7 @@ async function lookupISBNopenBD(isbn, { signal } = {}) {
     const s = d[0].summary;
     return {
       title: s.title || '',
-      author: s.author || '',
+      author: formatAuthors(s.author || ''), // 「稲盛和夫／著」→「稲盛和夫」
       publisher: s.publisher || '',
       // openBD は summary.cover を持つ本は ~40%。それ以外は空文字に。
       // 推測 URL は入れない (上層 resolveCoverFromCandidates で確定)。
@@ -313,12 +331,14 @@ async function searchGoogleBooks(query, { signal } = {}) {
       const pubMatch = (v.publishedDate || '').match(/(\d{4})/);
       return {
         title: v.title || '',
-        author: (v.authors || []).join(', '),
+        subtitle: v.subtitle || '',
+        author: formatAuthors(v.authors || []),
         publisher: v.publisher || '',
         pubYear: pubMatch ? pubMatch[1] : '',
-        cover: v.imageLinks?.thumbnail || '',
+        cover: String(v.imageLinks?.thumbnail || '').replace(/^http:/i, 'https:'),
         pages: v.pageCount || 0,
         isbn,
+        source: 'google',
       };
     })
     .filter((b) => b.title);
@@ -342,9 +362,9 @@ async function lookupISBNGoogle(isbn, { signal } = {}) {
   if (!v) return null;
   return {
     title: v.title || '',
-    author: (v.authors || []).join(', '),
+    author: formatAuthors(v.authors || []),
     publisher: v.publisher || '',
-    cover: v.imageLinks?.thumbnail || '',
+    cover: String(v.imageLinks?.thumbnail || '').replace(/^http:/i, 'https:'),
     pages: v.pageCount || 0,
     isbn,
   };
@@ -381,11 +401,70 @@ function mergeResults(primary, secondary) {
   return order.map((k) => byKey.get(k));
 }
 
+// ---------- server search (2026-10-02) ----------
+
+const SERVER_SEARCH_TIMEOUT_MS = 10000;
+const str = (v, n = 300) => (typeof v === 'string' ? v.slice(0, n) : '');
+
+// サーバーの本の検索（/api/cover?search=）。{ ok, results } / 失敗は { ok: false }（例外にしない）。
+// 呼び出し側の signal で中断されたときだけ AbortError を投げる。結果は端末に覚えない（サーバーと CDN が覚える・
+// 失敗や 0 件を端末に 7 日残さない）。
+export async function searchBooksOnServer(query, { signal, timeoutMs = SERVER_SEARCH_TIMEOUT_MS } = {}) {
+  const q = String(query || '').normalize('NFKC').replace(/\s+/g, ' ').trim().slice(0, 100);
+  if (!q) return { ok: true, results: [] };
+  const ctrl = new AbortController();
+  const onAbort = () => ctrl.abort();
+  if (signal) {
+    if (signal.aborted) throw Object.assign(new Error('aborted'), { name: 'AbortError' });
+    signal.addEventListener('abort', onAbort, { once: true });
+  }
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const r = await fetch(apiUrl(`/api/cover?search=${encodeURIComponent(q)}`), { signal: ctrl.signal });
+    if (!r.ok) return { ok: false, status: r.status };
+    const d = await r.json();
+    const results = (Array.isArray(d?.results) ? d.results : [])
+      .filter((b) => b && typeof b.title === 'string' && b.title)
+      .map((b) => ({
+        title: str(b.title),
+        subtitle: str(b.subtitle),
+        author: str(b.author),
+        publisher: str(b.publisher, 100),
+        pubdate: str(b.pubdate, 40),
+        pubYear: str(b.pubYear, 4),
+        isbn: /^\d{13}$/.test(String(b.isbn || '')) ? String(b.isbn) : '',
+        // 表紙は https だけ（お試しモードの表紙の絵＝data: は開発中だけ）。
+        cover: /^https:\/\//.test(String(b.cover || '')) || (import.meta.env?.DEV && /^data:image\//.test(String(b.cover || ''))) ? String(b.cover) : '',
+        pages: Number(b.pages) || 0,
+        source: str(b.source, 20),
+      }));
+    return { ok: true, results };
+  } catch (e) {
+    if (signal?.aborted) throw Object.assign(new Error('aborted'), { name: 'AbortError' });
+    return { ok: false, error: e };
+  } finally {
+    clearTimeout(timer);
+    if (signal) signal.removeEventListener('abort', onAbort);
+  }
+}
+
+// 端末だけの検索の結果を、サーバーと同じ並べ方に（著者名も整える）。
+export function rankLocalResults(query, results) {
+  const list = (results || []).map((b) => ({ ...b, author: formatAuthors(b.author || '') }));
+  return rankBooks(query, list);
+}
+
 // ---------- public API ----------
 
 export async function searchBooks(query) {
   const q = (query || '').trim();
   if (!q) return { ok: true, results: [] };
+
+  // 書名・著者はまずサーバーの検索（楽天の売上順・表紙つき）。失敗・0 件なら下の端末だけの検索へ。
+  if (!isISBN(q)) {
+    const server = await searchBooksOnServer(q);
+    if (server.ok && server.results.length > 0) return { ok: true, results: server.results };
+  }
 
   const cached = getCached(q);
   if (cached) return { ok: true, results: cached, cached: true };
@@ -467,14 +546,15 @@ export async function searchBooks(query) {
   }
 
   if (enriched.length > 0) {
-    setCached(q, enriched);
-    return { ok: true, results: enriched };
+    const ranked = rankLocalResults(q, enriched);
+    setCached(q, ranked);
+    return { ok: true, results: ranked };
   }
 
   // NDL returned nothing — try Google Books as a fallback.
   let googleError = null;
   try {
-    const g = await searchGoogleBooks(q);
+    const g = rankLocalResults(q, await searchGoogleBooks(q));
     if (g.length > 0) {
       setCached(q, g);
       return { ok: true, results: g };

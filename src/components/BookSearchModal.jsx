@@ -1,11 +1,13 @@
 // 本の検索（1 つの検索欄）と、その部品。
 //
 // App Store / Apple ブックの検索と同じく、入力欄は 1 つだけ。書名・著者・ISBN の
-// どれを入れても探せるよう、中で次の順に既存の詳細検索（searchBooksAdvanced）へ振り分ける:
-//   1. ISBN（10 桁 / 13 桁。ハイフン・空白・全角数字も可）→ ISBN 検索
-//   2. 書名として検索 → 0 件なら著者として検索
-//   3. それでも 0 件で語が 2 つ以上なら「書名 著者」「著者 書名」の組み合わせで検索
-// 見つかった時点で止めるので、よくある書名検索は 1 回の問い合わせで済む。
+// どれを入れても探せるよう、中で次の順に振り分ける:
+//   1. ISBN（10 桁 / 13 桁。ハイフン・空白・全角数字も可）→ ISBN 検索（その本だけ）
+//   2. サーバーの本の検索（/api/cover?search=・楽天の売上順 → Google → NDL・よく読まれている本・
+//      書名がよく合う本が先・表紙つき・2026-10-02・docs/book-search.md）
+//   3. サーバーが失敗したときだけ、端末だけの詳細検索（searchBooksAdvanced・NDL）: 書名として検索 →
+//      0 件なら著者として → 語が 2 つ以上なら「書名 著者」「著者 書名」の組み合わせ。結果はサーバーと
+//      同じ並べ方（rankLocalResults）に並べ直す（NDL は読みの辞書順で返すため）。
 //
 // ここにある部品（useBookQuerySearch / BookSearchField / BookResultList /
 // BookResultSkeleton）は AddBookModal（本を追加）でも使う。AddBookModal は遅延読み込み
@@ -17,7 +19,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Search, X, Check, ChevronRight, SearchX } from 'lucide-react';
 import { toMessage } from '../lib/errors';
-import { searchBooksAdvanced } from '../lib/bookSearch';
+import { searchBooksAdvanced, searchBooksOnServer, rankLocalResults } from '../lib/bookSearch';
 import { LIMITS } from '../lib/limits';
 import { btnPrimary, btnGhost, input } from '../styles/ui';
 import { MiniCover } from './BookCards';
@@ -79,6 +81,10 @@ export async function searchBooksByQuery(raw, { signal } = {}) {
   const isbn = isbnFromQuery(q);
   if (isbn) return searchBooksAdvanced({ isbn }, { signal });
 
+  // サーバーの検索（失敗・0 件のときだけ下の端末だけの検索へ）。
+  const server = await searchBooksOnServer(q, { signal });
+  if (server.ok && server.results.length > 0) return { ok: true, results: server.results };
+
   const words = q.split(' ');
   const steps = [[{ title: q }], [{ author: q }]];
   if (words.length >= 2) {
@@ -93,7 +99,7 @@ export async function searchBooksByQuery(raw, { signal } = {}) {
     // eslint-disable-next-line no-await-in-loop
     const responses = await Promise.all(step.map((p) => searchBooksAdvanced(p, { signal })));
     const merged = mergeResults(responses.map((r) => (r.ok ? r.results : [])));
-    if (merged.length > 0) return { ok: true, results: merged };
+    if (merged.length > 0) return { ok: true, results: rankLocalResults(q, merged) };
     failed = failed || responses.find((r) => !r.ok) || null;
   }
   // 途中で失敗した問い合わせがあるなら「0 件」とは言い切れないのでエラーとして返す。
@@ -113,6 +119,7 @@ export function useBookQuerySearch() {
   const [status, setStatus] = useState('idle');
   const [results, setResults] = useState([]);
   const [error, setError] = useState('');
+  const [query, setQuery] = useState('');
   const abortRef = useRef(null);
 
   useEffect(() => () => { try { abortRef.current?.abort(); } catch { /* ignore */ } }, []);
@@ -126,6 +133,7 @@ export function useBookQuerySearch() {
     setStatus('searching');
     setError('');
     setResults([]);
+    setQuery(normalizeBookQuery(raw));
 
     let res;
     try {
@@ -150,7 +158,7 @@ export function useBookQuerySearch() {
     setStatus('results');
   }, []);
 
-  return { status, results, error, run };
+  return { status, results, error, query, run };
 }
 
 // ---------------------------------------------------------------------------
@@ -295,6 +303,10 @@ function ResultRow({ book, existing, onPick, divider }) {
             }}
           >
             {book.title}
+            {/* 副題は同じ 2 行の中に、細く薄く（同じ書名の本を見分ける・2026-10-02） */}
+            {book.subtitle && (
+              <span style={{ fontWeight: 400, color: 'var(--text-2)' }}>{` ${book.subtitle}`}</span>
+            )}
           </span>
           {book.author && (
             <span style={{ ...oneLine, fontSize: 'var(--text-sub)', color: 'var(--text-2)' }}>{book.author}</span>
@@ -317,7 +329,16 @@ function ResultRow({ book, existing, onPick, divider }) {
 // 検索結果の一覧（1 枚のカードに行を並べる・行の間は区切り線）。
 // getExisting(book) が { book, statusLabel } を返すと「追加済み」として表示し、
 // 押すと onPick(book, { isExisting: true, existing }) を呼ぶ。
-export function BookResultList({ results, onPick, getExisting }) {
+// 多いときの案内（語が 1 つで 10 冊以上・ISBN でないとき）。
+const NARROW_HINT_MIN = 10;
+export function narrowHintFor(query, count) {
+  const q = normalizeBookQuery(query);
+  if (!q || isbnFromQuery(q) || q.includes(' ')) return '';
+  return count >= NARROW_HINT_MIN ? '著者名も入れると絞り込めます' : '';
+}
+
+export function BookResultList({ results, onPick, getExisting, query = '' }) {
+  const hint = narrowHintFor(query, results.length);
   const [count, setCount] = useState(INITIAL_DISPLAY);
   useEffect(() => { setCount(INITIAL_DISPLAY); }, [results]);
 
@@ -328,7 +349,7 @@ export function BookResultList({ results, onPick, getExisting }) {
   return (
     <section aria-label="検索結果" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
       <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>
-        {results.length} 件
+        {results.length} 件{hint ? `・${hint}` : ''}
       </p>
       <ul className="list-item-stagger" style={listStyle}>
         {visible.map((b, i) => (
@@ -434,7 +455,7 @@ export function BookSearchStatus({ search, onRetry, onManual, onPick, getExistin
       )}
 
       {status === 'results' && (
-        <BookResultList results={results} onPick={onPick} getExisting={getExisting} />
+        <BookResultList results={results} onPick={onPick} getExisting={getExisting} query={search.query} />
       )}
     </div>
   );
