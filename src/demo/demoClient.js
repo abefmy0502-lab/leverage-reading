@@ -18,6 +18,9 @@
 //   - ?demo=webgate : ブラウザの一般利用者に出す「アプリでご利用ください」の確認用
 //   - &consent=none : AI に送る内容にまだ同意していない（はじめて AI を使う操作で同意のシートが出る・どのシナリオにも付けられる）
 //     &consent=none&consent=slow で、同意・取り消しの保存が 8 秒かかる（処理中のボタンの確認用）
+//   - &longtag=1 : 「マネジメント」のタグを 50 字の長いタグにする（合いそうなタグのチップがはみ出さないかの確認用）
+//   - &save=slow-memo-update : メモの書き直し（タグを付ける）がなかなか終わらない（保存中のチップの確認用）
+//   - &writefail=book_memos:update : メモの書き直しだけ失敗させる（新しいメモの保存は通る・表:操作）
 // データはメモリ上だけ。再読み込みで初期状態に戻る。
 //
 // supabase-js のうち、このアプリが実際に使う範囲だけを再現する
@@ -148,7 +151,9 @@ class Query {
       || (qs.get('load') === 'chat' && this.table === 'chat_messages')
       || (qs.get('load') === 'memosearch' && memoSearch));
     // &writefail=book_memos: 指定した表への書き込みを失敗させる（保存の失敗の表示の確認用）。
-    if (['insert', 'upsert', 'update'].includes(this.op) && (qs.get('writefail') || '').split(',').includes(this.table)) {
+    //   &writefail=book_memos:update のように「表:操作」で、その操作だけを失敗させる。
+    const writeFails = (qs.get('writefail') || '').split(',');
+    if (['insert', 'upsert', 'update'].includes(this.op) && (writeFails.includes(this.table) || writeFails.includes(`${this.table}:${this.op}`))) {
       return new Promise((r) => setTimeout(r, 300))
         .then(() => ({ data: null, error: { message: 'network error', code: 'demo' }, count: null }))
         .then(resolve, reject);
@@ -167,7 +172,8 @@ class Query {
         .then(resolve, reject);
     }
     // &save=slow: 本の保存がなかなか終わらない（取り込み中の表示の確認用）。書き込みだけ遅らせる。
-    const slowSave = this.op !== 'select' && qs.get('save') === 'slow' && this.table === 'books';
+    const slowSave = (this.op !== 'select' && qs.get('save') === 'slow' && this.table === 'books')
+      || (this.op === 'update' && qs.get('save') === 'slow-memo-update' && this.table === 'book_memos');
     return new Promise((r) => setTimeout(r, slow || slowSave ? 60000 : 40)).then(() => this._exec()).then(resolve, reject);
   }
 
@@ -309,8 +315,13 @@ export function createDemoClient() {
     created_at: new Date(Date.now() - (scenario === 'freenew' ? 600000 : 200 * 86400000)).toISOString(),
   };
 
+  const db = buildSeed(scenario);
+  if (params.get('longtag') === '1') {
+    const LONG = 'マネジメント（部下・チーム・1on1・任せ方・評価・育成のことをまとめておくタグ）'.slice(0, 50);
+    for (const m of db.book_memos || []) if (Array.isArray(m.tags)) m.tags = m.tags.map((t) => (t === 'マネジメント' ? LONG : t));
+  }
   const store = {
-    db: buildSeed(scenario),
+    db,
     session: scenario === 'auth' ? null : makeSession(demoUser),
     files: new Map(),
     table(name) { if (!this.db[name]) this.db[name] = []; return this.db[name]; },

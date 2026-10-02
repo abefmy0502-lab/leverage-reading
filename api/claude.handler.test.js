@@ -553,5 +553,49 @@ describe('無料プランの写真から書き起こし（月 AI_FREE_OCR_PER_MO
     expect(db.rpcArgs.reserve_ai_cost).toBeDefined();
     expect(db.rpcArgs.reserve_ai_usage.p_period_month).toBe(jstMonth());
     expect(db.freeOcr).toBe(0);
+describe('🧭 Jev の短い道（purpose が Jev の用途・api/_jevRelay.js）', () => {
+  const jevReq = (headers = {}) => ({
+    method: 'POST',
+    headers: { authorization: 'Bearer t', 'x-orime-ai-consent': '2', ...headers },
+    body: { purpose: 'memo_relevance', jev: { question: '部下が動かない', memos: [{ id: 'm0', text: '任せると人は動く' }, { id: 'm1', text: '朝の習慣' }] } },
+    on() {},
+  });
+  afterEach(() => {
+    for (const k of ['JEV_ENABLED', 'JEV_API_KEY', 'JEV_TASK_MEMO_RELEVANCE']) delete process.env[k];
+  });
+
+  it('スイッチが入っていなければ 200 の { jev: null }・Anthropic を呼ばず・トークンも数えない', async () => {
+    const f = vi.fn();
+    vi.stubGlobal('fetch', f);
+    const res = mockRes();
+    await handler(jevReq(), res);
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual({ jev: null, reason: 'off' });
+    expect(f).not.toHaveBeenCalled();
+    expect(log).not.toContain('rpc:reserve_ai_cost');
+  });
+
+  it('入っていれば Jev に送り、jev-YYYY-MM の行で数えて原価を足す（トークンの行には触れない）', async () => {
+    Object.assign(process.env, { JEV_ENABLED: 'true', JEV_API_KEY: 'jk', JEV_TASK_MEMO_RELEVANCE: 'on' });
+    const f = vi.fn(async () => new Response(JSON.stringify({ answers: { m0: { noul: 0.92 }, m1: { noul: 0.04 } }, usage: { input_tokens: 400 } }), { status: 200, headers: { 'content-type': 'application/json' } }));
+    vi.stubGlobal('fetch', f);
+    vi.spyOn(console, 'info').mockImplementation(() => {});
+    const res = mockRes();
+    await handler(jevReq(), res);
+    expect(String(f.mock.calls[0][0])).toContain('api.typesafe.ai');
+    expect(res.body.jev.result.scores).toEqual({ m0: 0.92, m1: 0.04 });
+    expect(db.rpcArgs.reserve_ai_usage.p_period_month).toMatch(/^jev-\d{4}-\d{2}$/);
+    expect(db.rpcArgs.adjust_ai_cost.p_period_month).toMatch(/^jev-/);
+    expect(log).not.toContain('rpc:reserve_ai_cost');
+  });
+
+  it('同意の版が 2 より古ければ送らない', async () => {
+    Object.assign(process.env, { JEV_ENABLED: 'true', JEV_API_KEY: 'jk', JEV_TASK_MEMO_RELEVANCE: 'on' });
+    const f = vi.fn();
+    vi.stubGlobal('fetch', f);
+    const res = mockRes();
+    await handler(jevReq({ 'x-orime-ai-consent': '1' }), res);
+    expect(res.body).toEqual({ jev: null, reason: 'consent' });
+    expect(f).not.toHaveBeenCalled();
   });
 });

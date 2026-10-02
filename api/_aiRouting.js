@@ -16,6 +16,8 @@
 //       AI_ROUTE_OCR=openai:gpt-5.4-mini
 //   モデルは api/_aiCost.js の PRICES にあるものだけ（単価が分からないモデルで原価を数え違えないため）。
 //   AI_ROUTING=off で、すべて今までどおり Claude（緊急時のスイッチ）。
+//
+// 文を書かない判断（Jev・TypeSafe AI）の用途は、この下の JEV_ROUTES（2026-10-02・docs/jev-plan.md）。
 
 import { PRICES } from './_aiCost.js';
 
@@ -140,4 +142,46 @@ export function resolveRoute({ purpose, requestedModel, free = false, freeModel 
   }
   if (!keyFor(target.provider, env)) return claude(route.claude, 'no_key', purpose);
   return { provider: target.provider, model: target.model, claudeModel: route.claude, purpose, reason: 'route' };
+}
+
+// ───────────────────────────────────────────────────────────────────
+// 🧭 Jev（TypeSafe AI の判断のモデル・文を書かず、選ぶ・はい/いいえ・点数と確率だけを返す）の用途（2026-10-02）。
+// 文を書く用途（ROUTES）とは別の表。Claude に切り替えることはなく、失敗・未設定のときはアプリが
+// これまでの決め方（語の重なり・端末の中の計算）で続ける。中継は api/_jevRelay.js・呼び出しは api/_jev.js。
+//   tiers: この用途を使えるプラン（無料プランの AI は相談だけ。いまの用途はどちらも相談の中の判断なので全員）
+//   feature: 同意のシート（src/lib/aiProcessors.js）のどの機能の送り先に TypeSafe AI を足すか
+// 用途ごとのスイッチは env JEV_TASK_<用途を大文字で>=on（全体のスイッチ JEV_ENABLED と鍵 JEV_API_KEY も要る）。
+// 用途を足したら aiProcessors.js の JEV_PURPOSE_FEATURE にも足して、同意の版（JEV_CONSENT_VERSION）を上げる。
+// ───────────────────────────────────────────────────────────────────
+export const JEV_PROVIDER = 'typesafe';
+export const JEV_MODEL = 'jev-1.13';
+export const JEV_ROUTES = {
+  memo_relevance: { primary: `${JEV_PROVIDER}:${JEV_MODEL}`, tiers: ['free', 'trial', 'paid', 'admin'], feature: 'consult' },
+  intent: { primary: `${JEV_PROVIDER}:${JEV_MODEL}`, tiers: ['free', 'trial', 'paid', 'admin'], feature: 'consult' },
+  // memo_filing（合いそうなタグ）は中継しない: 保存からシートが閉じ終わる 320ms に往復が間に合わないことが多く、使えない答えのために
+  // メモの文を送ることになるため（2026-10-02・docs/jev-plan.md §3-3）。問いの組み立て（api/_jevTasks.js）と評価（scripts/jev-eval.mjs）だけ残す。
+};
+export const JEV_PURPOSES = Object.keys(JEV_ROUTES);
+// Jev に送ってよい同意の版（これより古い同意・同意の版の無い呼び出しは送らない）。
+// アプリの VITE_AI_JEV=on のときの AI_CONSENT_VERSION と同じ（src/lib/aiProcessors.test.js で確かめる）。
+export const JEV_CONSENT_VERSION = 2;
+
+export function isJevPurpose(purpose) {
+  return typeof purpose === 'string' && Object.prototype.hasOwnProperty.call(JEV_ROUTES, purpose);
+}
+export function jevTaskEnvName(purpose) {
+  return `JEV_TASK_${String(purpose).toUpperCase()}`;
+}
+
+// この 1 回を Jev に送るか。戻り値 { ok: true } | { ok: false, reason }（reason はログ・アプリへの返事に使う・中身は含めない）
+//   tier: 'free' | 'trial' | 'paid' | 'admin'（api/_aiAccess.js の decideAiAccess と同じ）
+//   consentVersion: アプリが付けた同意の版（X-Orime-Ai-Consent）
+export function resolveJevRoute({ purpose, tier, consentVersion, env = process.env } = {}) {
+  if (!isJevPurpose(purpose)) return { ok: false, reason: 'unknown' };
+  const on = (v) => /^(1|true|on|yes)$/i.test(String(v ?? '').trim());
+  if (!on(env.JEV_ENABLED) || !String(env.JEV_API_KEY || '').trim()) return { ok: false, reason: 'off' };
+  if (!on(env[jevTaskEnvName(purpose)])) return { ok: false, reason: 'task_off' };
+  if (!JEV_ROUTES[purpose].tiers.includes(tier)) return { ok: false, reason: 'plan' };
+  if (!(Number(consentVersion) >= JEV_CONSENT_VERSION)) return { ok: false, reason: 'consent' };
+  return { ok: true };
 }

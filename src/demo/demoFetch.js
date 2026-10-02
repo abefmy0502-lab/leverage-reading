@@ -75,7 +75,7 @@ function parseVoice(userText) {
   return { title: ((block.match(/書名: 『([^』]*)』/) || [])[1] || '').trim(), author: ((block.match(/著者: (.+)/) || [])[1] || '').trim() };
 }
 
-function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null, voice = null, decide = false, lookup = false) {
+function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null, voice = null, decide = false, lookup = false, relatedBlock = '') {
   // 深掘りの短い質問（「もっと具体的に」）でも、直前の相談の話題でメモを選ぶ（本番の retrievalQuery と同じ考え方）。
   const q = bigrams(thread ? `${question} ${thread.lastQuestion}` : question);
   const books = new Map(store.table('books').map((b) => [b.id, b]));
@@ -106,6 +106,9 @@ function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null
       const mb = bigrams(m.text);
       let hit = 0;
       q.forEach((g) => { if (mb.has(g)) hit += 1; });
+      // 本番と同じく「今回の質問にとくに関係がありそうなメモ」（RELATED_MEMOS・Jev を入れたときは Jev が選んだもの）を先に使う。
+      const head = String(m.text || '').replace(/\s+/g, ' ').trim().slice(0, 20);
+      if (relatedBlock && head && relatedBlock.includes(head)) hit += 100;
       return { m, hit };
     })
     .sort((a, b) => b.hit - a.hit || (b.m.created_at || '').localeCompare(a.m.created_at || ''))
@@ -143,7 +146,13 @@ function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null
   // 結論・解釈は、引いたメモに書いてあることだけで組み立てる（メモに無い主張を足さない・2026-09-29）。
   const clip = (t) => { const x = String(t || '').replace(/\s+/g, ' ').trim(); return x.length > 40 ? `${x.slice(0, 40)}…` : x; };
   // 結論には書名・引用のかぎかっこを入れない（出典は「根拠を見る」の中・SPEC §3・本番の BRAIN_SYSTEM と同じ）。
-  const gist = (t) => clip(t).replace(/[「」『』]/g, '').replace(/[。．.]+$/, '');
+  // 「…という考え」に入れる要旨: 最初の 1 文（長ければ 40 字までの最後の読点まで）。文の途中を … で切らない（2026-10-02 ui-critic）。
+  const gist = (t) => {
+    const first = String(t || '').replace(/\s+/g, ' ').replace(/[「」『』]/g, '').split(/[。．！？!?]/)[0].trim();
+    if (first.length <= 40) return first;
+    const cut = first.slice(0, 40).lastIndexOf('、');
+    return cut > 8 ? first.slice(0, cut) : first;
+  };
   const short16 = (t) => { const x = String(t || '').replace(/\s+/g, ' ').replace(/[「」『』]/g, '').split(/[。．.、]/)[0].trim(); return x.length > 16 ? `${x.slice(0, 16)}…` : x; };
   // 🔎 本を探す問い（本番の BOOK_LOOKUP・「…を書いた本はどれ？」）: 本とメモの一節だけ。問いも行動も書かない。
   if (lookup) {
@@ -420,11 +429,12 @@ function aiReply(store, payload, aiMode = '') {
   const q = userText.match(/QUESTION_START =====\n([\s\S]*?)\n=====/);
   if (q) {
     // 本番は質問に近いメモを RELATED_MEMOS に分けて渡す（MEMOS からは外す）ので、両方を材料にする。
+    const related = (userText.match(/RELATED_MEMOS_START =====\n([\s\S]*?)\n===== RELATED_MEMOS_END/) || [])[1] || '';
     const block = [
       (userText.match(/===== MEMOS_START =====\n([\s\S]*?)\n===== MEMOS_END/) || [])[1] || '',
-      (userText.match(/RELATED_MEMOS_START =====\n([\s\S]*?)\n===== RELATED_MEMOS_END/) || [])[1] || '',
+      related,
     ].filter(Boolean).join('\n\n');
-    return brainAnswer(store, q[1], block, aiMode, parseThread(userText), parseVoice(userText), decide, userText.includes('===== BOOK_LOOKUP ====='));
+    return brainAnswer(store, q[1], block, aiMode, parseThread(userText), parseVoice(userText), decide, userText.includes('===== BOOK_LOOKUP ====='), related);
   }
   // 📷 写真から書き起こし（本番と同じく、本文だけを返す）。
   if (payload.purpose === 'ocr') return '成果を上げるには、まず自分の時間がどこに使われているかを知ることから始めなければならない。時間の記録をとり、ムダな仕事を捨て、まとまった時間をつくる。';
@@ -543,6 +553,27 @@ function googleBooks(url) {
   return json({ totalItems: items.length, items });
 }
 
+// 🧭 お試しモードの Jev（偽物）。悩みごとの言葉の手がかり（意味の近さのまね）で確率を決める。
+const JEV_DEMO_PURPOSES = new Set(['memo_relevance', 'intent']);
+const JEV_DEMO_CONCERNS = {
+  人を動かす: /部下|メンバー|後輩|マネージャー|1on1|人に動いて|批判|命令|任せ/,
+  抱えすぎ: /抱え|手が回ら|忙し|やらない|断る|持ち帰|バッファ|予定/,
+  会議: /会議|結論|決めて|イシュー/,
+  評価: /評価|承認|人の目|他人の課題|気にな/,
+  忘れる: /忘れ|記憶|見返|アウトプット|話す/,
+};
+function demoJevResult(purpose, input) {
+  if (purpose === 'memo_relevance') {
+    // 相談の悩みごとの手がかり（意味の近さのまね）。「報告」のような語の重なりだけでは選ばない。
+    const concernsOf = (text) => Object.entries(JEV_DEMO_CONCERNS).filter(([, re]) => re.test(String(text || ''))).map(([k]) => k);
+    const q = concernsOf(input.question);
+    const scores = {};
+    for (const m of input.memos || []) scores[m.id] = concernsOf(m.text).some((t) => q.includes(t)) ? 0.82 : 0.08;
+    return { scores };
+  }
+  return { intent: /どの本|何の本|なんの本|だっけ/.test(String(input.question || '')) ? 'lookup' : 'consult', confidence: 0.8, probabilities: null };
+}
+
 export function installDemoFetch(store) {
   const realFetch = window.fetch.bind(window);
   window.fetch = async (input, init = {}) => {
@@ -562,6 +593,13 @@ export function installDemoFetch(store) {
         return json({ error: { message: 'サーバーで問題が起きました。' } }, 500);
       }
       if (aiMode === 'slow') await wait(60000, signal);
+      // 🧭 Jev（判断のモデル・?jev=1 のときだけアプリが送る）の見本: 言葉の手がかりで「はい」の確率を決める偽物。
+      //   本番（api/_jevRelay.js）と同じく、いつも 200・トークンは数えない。&jev=down で「使えない」（{ jev: null }）。
+      if (JEV_DEMO_PURPOSES.has(payload.purpose)) {
+        await wait(250, signal); // 本番の Jev（約 70〜500ms）くらい
+        if (new URLSearchParams(window.location.search).get('jev') === 'down') return json({ jev: null, reason: 'upstream' });
+        return json({ jev: { result: demoJevResult(payload.purpose, payload.jev || {}), ms: 180 } });
+      }
       // 本番（api/claude.js・api/_aiAccess.js）と同じ決まりをまねる:
       //   契約なし＝無料プラン: 相談（purpose 'consult'）だけ・毎月 30 トークン（'free-YYYY-MM'）。ほかは 402 plan_required
       //   無料期間: 150 トークン（'trial-終わる日'）/ 有料: 毎月 800 トークン（'YYYY-MM'）→ 使い切ったら 429

@@ -11,6 +11,8 @@ import { fetchAllRows } from './fetchAllRows';
 import { verifyAnswerQuotes, decodeQuoteRefs } from './evidenceCheck';
 import { parseAskSection, wantsAction, isBookLookup } from './consultHelpers';
 import { checkAiConsentForSend, AI_CONSENT_HEADER, AI_CONSENT_DECLINED_TEXT } from './aiConsent';
+import { askJev, jevClientOn } from './jev';
+import { relevanceCandidates, relevanceInput, relatedFromScores, JEV_LEXICAL_CANDIDATES } from './consultRelevance';
 
 const DEFAULT_MODEL = MODEL_SMART;
 const DEFAULT_MAX_TOKENS = 1024;
@@ -1225,6 +1227,41 @@ export function pickRelatedMemos(question, pool, { max = 15, budget = 15000, now
   return out;
 }
 
+// 外から渡された「質問に近いメモ」（近い順）を、pickRelatedMemos と同じ件数・字数の上限で切る。
+function capRelated(list, { max, budget }) {
+  const out = [];
+  let used = 0;
+  for (const m of list) {
+    if (out.length >= max) break;
+    const len = Math.min((m.text || '').length, LIMITS.promptMemoExcerpt || 2000) + 120;
+    if (out.length > 0 && used + len > budget) break;
+    used += len;
+    out.push(m);
+  }
+  return out;
+}
+
+// 🧭 Jev（TypeSafe AI の判断のモデル）に「今回の質問にとくに関係がありそうなメモ」を選んでもらう（2026-10-02）。
+//   使えない（スイッチ・同意の版・サーバーの設定・失敗・時間切れ 2.5 秒）ときは null＝今までの pickRelatedMemos。
+//   芯（キャッシュする塊）には触らない。docs/jev-plan.md。
+export async function jevRelatedMemos(searchText, all, { now = Date.now(), ask = askJev, enabled = jevClientOn() } = {}) {
+  if (!enabled || !Array.isArray(all) || all.length === 0) return null;
+  const day = consultDayNow(now);
+  const lexical = pickRelatedMemos(searchText, all, { max: JEV_LEXICAL_CANDIDATES, budget: Infinity, now: day });
+  const byPriority = all
+    .map((m) => ({ m, s: memoPriority(m, day) }))
+    .sort((a, b) => b.s - a.s || String(b.m.created_at || '').localeCompare(String(a.m.created_at || '')))
+    .map((x) => x.m);
+  const candidates = relevanceCandidates({ lexical, byPriority });
+  if (candidates.length === 0) return null;
+  try {
+    const result = await ask('memo_relevance', relevanceInput(searchText, candidates, { clean: sanitizeForPrompt }));
+    return result ? relatedFromScores(candidates, result.scores) : null;
+  } catch {
+    return null;
+  }
+}
+
 // 相談のメモ一覧（キャッシュする芯）の並びの基準の時刻: 日本時間のその日の 0 時。
 // 1 日の間は重要度（新しさの点）が動かない＝同じ日の続けての相談で芯の文字が変わらない（キャッシュが効く）。
 export function consultDayNow(now = Date.now()) {
@@ -1251,7 +1288,9 @@ function rankConsultCore(all, day) {
 //   related: 質問に近いメモ（今までと同じ pickRelatedMemos・近い順）
 //   extra: related のうち芯に入っていないもの（全文で芯の後ろに渡す・CONSULT_EXTRA_CHARS まで）
 //   relatedInCore: related のうち芯にあるもの（芯の後ろには書名と冒頭だけの目印）
-export function selectConsultMemos(searchText, all, { now = Date.now() } = {}) {
+//   related（引数）: 質問に近いメモを外から渡す（Jev が選んだもの・lib/consultRelevance.js）。芯の選び方は変わらない
+//                   （＝キャッシュは効いたまま）。件数・字数の上限は今までと同じ（12 件・CONSULT_RELATED_CHARS）。
+export function selectConsultMemos(searchText, all, { now = Date.now(), related: relatedIn = null } = {}) {
   const day = consultDayNow(now);
   const pool = Array.isArray(all) ? all : [];
   const rankedAll = rankConsultCore(pool, day);
@@ -1266,7 +1305,9 @@ export function selectConsultMemos(searchText, all, { now = Date.now() } = {}) {
     core.push(m);
     used += len;
   }
-  const related = pickRelatedMemos(searchText, pool, { max: 12, budget: CONSULT_RELATED_CHARS, now: day });
+  const related = Array.isArray(relatedIn)
+    ? capRelated(relatedIn.filter((m) => pool.includes(m)), { max: 12, budget: CONSULT_RELATED_CHARS })
+    : pickRelatedMemos(searchText, pool, { max: 12, budget: CONSULT_RELATED_CHARS, now: day });
   const coreSet = new Set(core);
   const extra = [];
   let extraUsed = 0;
@@ -1434,16 +1475,13 @@ async function buildBrainContext({ userId, question, onStage, bookIds, mode = 'f
 
   const scopeIdsForGrowth = Array.isArray(bookIds) ? bookIds.filter(Boolean) : [];
   const growthInfo = { completedActions: 0 };
-  const [{ all: allKnowledge, counts }, growthBlock] = await Promise.all([
-    gatherKnowledgeCached(userId),
-    buildGrowthBlock(userId, {
-      scopeSet: scopeIdsForGrowth.length ? new Set(scopeIdsForGrowth) : null,
-      info: growthInfo,
-      skipQuestions: [...(priorPart ? [prior?.question] : []), ...threadTurns.map((t) => t.question)],
-    }).catch(() => ''),
-  ]);
-  // 歩みに入れた「最近完了した行動」の件数（歩みを作れなかったときは 0）。
-  const completedActions = growthBlock ? growthInfo.completedActions : 0;
+  // 歩みは読み込みを先に始めておき、Jev（関係するメモの判断）と並べて待つ（Jev の分だけ待ちが延びないように）。
+  const growthPromise = buildGrowthBlock(userId, {
+    scopeSet: scopeIdsForGrowth.length ? new Set(scopeIdsForGrowth) : null,
+    info: growthInfo,
+    skipQuestions: [...(priorPart ? [prior?.question] : []), ...threadTurns.map((t) => t.question)],
+  }).catch(() => '');
+  const { all: allKnowledge, counts } = await gatherKnowledgeCached(userId);
 
   // 🎯 相談相手の絞り込み（2026-09-26）: bookIds が空/未指定なら「すべての本＋学びログ」。
   //   指定があればその本のメモ（カード・まとめ）だけを根拠にする。学びログは本に
@@ -1466,6 +1504,8 @@ async function buildBrainContext({ userId, question, onStage, bookIds, mode = 'f
     const picked = pickPerspectiveBooks(searchText, all);
     perbookBooks = picked.length;
     if (picked.length >= 2) {
+      const growthBlock = await growthPromise;
+      const completedActions = growthBlock ? growthInfo.completedActions : 0;
       const used = picked.flatMap((b) => b.memos);
       const booksText = picked
         .map((b) => `◆『${perBookClean(b.title, 80)}』｜${perBookClean(b.author, 60) || '著者不明'}\n${b.memos.map(formatPerBookMemo).join('\n')}`)
@@ -1516,7 +1556,11 @@ async function buildBrainContext({ userId, question, onStage, bookIds, mode = 'f
   //   本を横断するラウンドロビン・その日のうちは同じ文字）。質問に近いメモは芯の後ろに置く。
   //   今までの「質問に近いメモ → 残りを重要度順で埋める（質問ごとに一覧が変わる）」は、一覧が毎回変わって
   //   キャッシュが効かなかった。渡すメモの量（約 9,000 字）と質問に近いメモの選び方は変えていない。
-  const { core: ranked, extra, related } = selectConsultMemos(searchText, all);
+  // 🧭 関係するメモ（質問ごとの塊）は、使えるときだけ Jev に選んでもらう（使えなければ null＝今までの選び方）。
+  const [growthBlock, jevRelated] = await Promise.all([growthPromise, jevRelatedMemos(searchText, all)]);
+  // 歩みに入れた「最近完了した行動」の件数（歩みを作れなかったときは 0）。
+  const completedActions = growthBlock ? growthInfo.completedActions : 0;
+  const { core: ranked, extra, related } = selectConsultMemos(searchText, all, { related: jevRelated });
 
   const stats = {
     memoCount: ranked.length + extra.length,
