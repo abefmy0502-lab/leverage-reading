@@ -47,9 +47,10 @@ const BASE_FEATURES = [
   {
     id: 'consult',
     name: '相談',
-    // 量は lib/ai.js の CONSULT_TOTAL_CHARS（メモと読書準備で約 9,000 字・質問に近いものから）と合わせる。
-    // 件数は字数で決まる（MAX_MEMOS 80 件＋質問に近いメモ最大 12 件の中から、合わせて約 9,000 字まで）ので、字数で言う。
-    sends: '質問、行動と過去の相談、関係するメモ・読書準備（約 9,000 字まで）',
+    // シートで 1 行に収める（390 幅で 13pt は約 25 字・2026-10-02 ui-critic: Jev を入れたときにシートが 85vh を超えた）。
+    // 量（lib/ai.js の CONSULT_TOTAL_CHARS＝メモと読書準備で約 9,000 字）はプライバシーポリシー第 7 条に書く。
+    // 量を書くときは CONSULT_TOTAL_CHARS と同じ数にする（aiProcessors.test.js）。
+    sends: '質問・メモ・読書準備・行動・過去の相談',
     purposes: ['consult'],
   },
   {
@@ -64,17 +65,12 @@ const BASE_FEATURES = [
     sends: '書名・著者・得たいこと・タグ・直してほしいこと',
     purposes: ['setup_sheet', 'setup_sheet_edit'],
   },
+  // 凝縮・まとめ・写真から書き起こしは同じ送り先（Google）なので 1 行に（シートの高さ・2026-10-02 ui-critic）。
   {
     id: 'memo',
-    name: '凝縮・まとめ',
-    sends: 'そのメモの文',
-    purposes: ['condense', 'cards_to_summary'],
-  },
-  {
-    id: 'ocr',
-    name: '写真から書き起こし',
-    sends: '撮った写真だけ',
-    purposes: ['ocr'],
+    name: '凝縮・まとめ・書き起こし',
+    sends: 'そのメモの文・撮ったページの写真',
+    purposes: ['condense', 'cards_to_summary', 'ocr'],
   },
 ];
 

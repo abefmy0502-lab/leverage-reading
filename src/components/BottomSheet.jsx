@@ -148,7 +148,8 @@ export default function BottomSheet({ title, onClose, children, footer, dismissL
           {children}
         </div>
         {footer && (
-          <div style={{ borderTop: '1px solid var(--separator)', padding: 'var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom, 0px))' }}>
+          // data-sheet-footer: ui-shots が iPhone の下の安全域（34）をまねて足す目印（scripts/ui-shots.mjs の SAFE_BOTTOM）。
+          <div data-sheet-footer="" style={{ borderTop: '1px solid var(--separator)', padding: 'var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom, 0px))' }}>
             {footer}
           </div>
         )}

@@ -114,10 +114,20 @@ describe('🧭 Jev を入れたとき（VITE_AI_JEV=on）', () => {
     for (const f of AI_FEATURES) expect([...f.sends].length, f.name).toBeLessThanOrEqual(44);
   });
 
-  it('相談の量の説明は lib/ai.js の上限（約 9,000 字）と同じ', () => {
+  it('相談の量を書くときは lib/ai.js の上限（約 9,000 字）と同じ・送るものは 1 行（25 字まで）', () => {
     const src = readFileSync(join(__dirname, 'ai.js'), 'utf8');
     const total = Number((src.match(/const CONSULT_TOTAL_CHARS = (\d+)/) || [])[1]);
     expect(total).toBeGreaterThan(0);
-    expect(featureForPurpose('consult').sends).toContain(`約 ${total.toLocaleString('en-US')} 字`);
+    const sends = featureForPurpose('consult').sends;
+    const n = sends.match(/約 ([\d,]+) 字/);
+    if (n) expect(n[1]).toBe(total.toLocaleString('en-US'));
+    expect([...sends].length).toBeLessThanOrEqual(25);
+    expect(sends).toContain('メモ');
+  });
+
+  it('同意のシートは 5 行まで（Jev を入れても 390×844・下の余白 34 でプライバシーポリシーまで見える高さ）', () => {
+    expect(buildAiProcessors({ jev: false }).features.length).toBeLessThanOrEqual(5);
+    expect(buildAiProcessors({ jev: true }).features.length).toBeLessThanOrEqual(5);
+    expect(featureForPurpose('ocr').sends).toContain('写真');
   });
 });

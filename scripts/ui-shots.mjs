@@ -54,6 +54,10 @@ const MEMO_SAVED = [
   { css: '[role=dialog] button:text-is("保存")' }, { wait: 2500 }, { scrollTo: 'h2:has-text("メモ")' },
 ];
 
+// iPhone の下の安全域（34pt・ホームインジケータ）をまねる: シートの決定ボタンの欄の下に 34 を足す（Chromium では env() を変えられないため）。
+const SAFE_BOTTOM = { eval: `(() => { const st = document.createElement('style'); st.textContent = '[data-sheet-footer]{padding-bottom:calc(var(--space-3) + 34px) !important}'; document.head.appendChild(st); })()` };
+const CONSENT_CONSULT = [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { wait: 800 }];
+
 // 画面の定義: url（お試しモードのシナリオ）と、そこに至る操作。
 const SCREENS = [
   { name: 'home', url: '/' },
@@ -367,7 +371,12 @@ const SCREENS = [
   { name: 'ai-consent-ocr', url: '/?consent=none', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button:has-text("メモを書く")' }, { css: 'button:has-text("ページ・写真")' }, { upload: ['[role=dialog] input[type=file][accept="image/*"]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 800 }] },
   // 🧭 Jev を入れたとき（?jev=1）の相談: 関係するメモを Jev の見本で選んで答える（画面は今までと同じ・材料の選び方だけが変わる）。
   { name: 'consult-answer-jev', url: '/?jev=1', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { wait: 6000 }] },
-  // 🧭 Jev を入れたとき（VITE_AI_JEV=on・お試しモードは ?jev=1）の同意のシート: 相談に TypeSafe AI・「タグの提案」の行。
+  // 同意のシートを、iPhone の下の安全域 34 をまねて撮る（Jev あり・なし）。プライバシーポリシーの行が決定ボタンの欄に隠れないこと。
+  { name: 'ai-consent-consult-safe', url: '/?consent=none', steps: [...CONSENT_CONSULT, SAFE_BOTTOM, { wait: 300 }] },
+  { name: 'ai-consent-consult-jev-safe', url: '/?consent=none&jev=1', steps: [...CONSENT_CONSULT, SAFE_BOTTOM, { wait: 300 }] },
+  // 「同意して使う」を押したあと、保存を待っている間（&consent=slow＝保存を 8 秒待つ）。
+  { name: 'ai-consent-saving', url: '/?consent=none&consent=slow', steps: [...CONSENT_CONSULT, { css: '[role=dialog] button:has-text("同意して使う")' }, { wait: 400 }] },
+  // 🧭 Jev を入れたとき（VITE_AI_JEV=on・お試しモードは ?jev=1）の同意のシート: 相談に TypeSafe AI・「合いそうなタグ」の行。
   { name: 'ai-consent-consult-jev', url: '/?consent=none&jev=1', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { wait: 800 }] },
   { name: 'ai-consent-advisor', url: '/?consent=none', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 800 }] },
   { name: 'ai-consent-plan', url: '/?consent=none', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("LIFE SHIFT")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("編集")' }, { fill: ['textarea[aria-label="この本から得たいこと（必須）"]', '40代からの働き方を考えたい'] }, { css: 'button:has-text("読書計画シートを作")' }, { wait: 800 }] },
