@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
   normalizeBookInfo, hasBookInfo, bookInfoKey, loadBookInfo, peekBookInfo, bookInfoMetaLine, bookInfoForPrompt,
-  PLAN_ABOUT_MAX, PLAN_TOC_MAX_LINES, _resetBookInfoMemory,
+  PLAN_ABOUT_MAX, PLAN_TOC_MAX_LINES, _resetBookInfoMemory, tidyJaSpacing,
 } from './bookInfo';
 
 const okResp = (body, cc = 'public, max-age=86400') => ({
@@ -24,6 +24,14 @@ describe('normalizeBookInfo', () => {
     expect(hasBookInfo(null)).toBe(false);
     expect(hasBookInfo({ description: '', toc: [] })).toBe(false);
     expect(hasBookInfo({ description: '', toc: ['第1章'] })).toBe(true);
+  });
+});
+
+describe('tidyJaSpacing（数と日本語の間の空きを詰める）', () => {
+  it('「の 3 つ」「100 年」は詰め、英字の語の間は残す', () => {
+    expect(tidyJaSpacing('多くの人が 100 年生きる。の 3 つのステージ')).toBe('多くの人が100年生きる。の3つのステージ');
+    expect(tidyJaSpacing('LIFE SHIFT 2 の本')).toBe('LIFE SHIFT 2の本');
+    expect(normalizeBookInfo({ description: '1 対 1 の対話', source: 'openbd', toc: ['第 1 章 はじめに'] })).toMatchObject({ description: '1対1の対話', toc: ['第1章 はじめに'] });
   });
 });
 

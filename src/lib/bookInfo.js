@@ -41,18 +41,28 @@ export function bookInfoKey(book) {
 
 const str = (v, max) => [...String(v ?? '')].slice(0, max).join('');
 
+/**
+ * 数字と日本語の間の半角の空き（「の 3 つ」「100 年」）を詰める。空きがあると、そこで行が折れて
+ * 「の 3 ／つ」のように数と助数詞が別の行に分かれる（2026-10-02 ui-critic）。英字の語の間の空きは残す。
+ */
+export function tidyJaSpacing(s) {
+  return String(s ?? '')
+    .replace(/(\d)[ \u00a0]+(?=[^\x00-\x7F])/g, '$1')
+    .replace(/([^\x00-\x7F])[ \u00a0]+(?=\d)/g, '$1');
+}
+
 /** サーバーの返事を、画面と AI に渡せる形にそろえる（型と長さを確かめる）。 */
 export function normalizeBookInfo(raw) {
   const r = raw && typeof raw === 'object' ? raw : {};
   const toc = (Array.isArray(r.toc) ? r.toc : [])
-    .map((l) => str(l, 80).trim())
+    .map((l) => tidyJaSpacing(str(l, 80)).trim())
     .filter(Boolean)
     .slice(0, 40);
   const source = Object.prototype.hasOwnProperty.call(BOOK_INFO_SOURCE_LABELS, r.source) ? r.source : '';
   const tocSource = Object.prototype.hasOwnProperty.call(BOOK_INFO_SOURCE_LABELS, r.tocSource) ? r.tocSource : '';
   const pages = Number.isFinite(r.pages) && r.pages > 0 && r.pages < 20000 ? Math.round(r.pages) : 0;
   const pubdate = /^\d{4}(-\d{2}(-\d{2})?)?$/.test(String(r.pubdate || '')) ? String(r.pubdate) : '';
-  const description = source ? str(r.description, 1000).trim() : '';
+  const description = source ? tidyJaSpacing(str(r.description, 1000)).trim() : '';
   return { description, toc, source, tocSource: toc.length ? tocSource : '', pages, pubdate };
 }
 

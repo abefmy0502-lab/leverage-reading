@@ -16,6 +16,29 @@ import { BOOK_INFO_SOURCE_LABELS, bookInfoMetaLine, hasBookInfo } from '../lib/b
 // サーバーで描く（テスト）ときの警告を出さない。
 const useIsoLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
+// 画面に出す文: 文節の切れ目でだけ折り返す（BudouX の <wbr>＋keep-all）うえで、
+//   - 数と助数詞（「3つ」「100年」「1対1」）の間
+//   - カタカナの中黒（「リ・クリエーション」）の前後
+// には見えない結合文字（U+2060）を入れて、語の途中で折れないようにする（2026-10-02 ui-critic）。
+const WJ = '\u2060';
+export function glueForDisplay(text) {
+  return String(text ?? '')
+    .replace(/(\d)(?=[^\x00-\x7F\s])/g, `$1${WJ}`)
+    .replace(/([^\x00-\x7F\s])(?=\d)/g, `$1${WJ}`)
+    .replace(/([ァ-ヺー])・(?=[ァ-ヺー])/g, `$1${WJ}・${WJ}`);
+}
+// 結合文字の隣に BudouX が置いた <wbr> は外す（<wbr> は折り返してよい印なので、結合文字より強い）。
+const readable = (text) => {
+  const parts = withPhraseBreaks(glueForDisplay(text));
+  if (!Array.isArray(parts)) return parts;
+  return parts.filter((p, i) => {
+    if (typeof p === 'string') return true;
+    const prev = parts[i - 1];
+    const next = parts[i + 1];
+    return !((typeof prev === 'string' && prev.endsWith(WJ)) || (typeof next === 'string' && next.startsWith(WJ)));
+  });
+};
+
 const cardStyle = {
   background: 'var(--surface)',
   border: '1px solid var(--separator)',
@@ -59,7 +82,7 @@ function TocList({ toc, note, flush = false }) {
   return (
     <>
       <ol style={{ ...tocListStyle, ...(flush ? { paddingBottom: 0 } : null) }}>
-        {toc.map((line, i) => <li key={i} style={tocItemStyle}>{withPhraseBreaks(line)}</li>)}
+        {toc.map((line, i) => <li key={i} style={tocItemStyle}>{readable(line)}</li>)}
       </ol>
       {note && <p style={{ ...metaStyle, margin: flush ? 'var(--space-2) 0 0' : '0 0 var(--space-3)' }}>{note}</p>}
     </>
@@ -79,7 +102,7 @@ function Description({ text, clamp }) {
   const clamped = clamp && !expanded;
   return (
     <>
-      <p ref={ref} style={{ ...descStyle, ...(clamped ? clamp3 : null) }}>{withPhraseBreaks(text)}</p>
+      <p ref={ref} style={{ ...descStyle, ...(clamped ? clamp3 : null) }}>{readable(text)}</p>
       {clamp && (overflows || expanded) && (
         <button
           type="button"

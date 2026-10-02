@@ -1,9 +1,9 @@
 // 📖 「この本について」の表示（BookAbout.jsx）: 見つからない本では何も出さない・読み込み中は同じ形の骨組み。
 import { describe, it, expect } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
-import BookAbout from './BookAbout';
+import BookAbout, { glueForDisplay } from './BookAbout';
 
-const text = (html) => html.replace(/<wbr\s*\/?>/g, '').replace(/<[^>]+>/g, '');
+const text = (html) => html.replace(/<wbr\s*\/?>/g, '').replace(/<[^>]+>/g, '').replace(/\u2060/g, '');
 const INFO = {
   description: '寿命が延びる時代の人生設計を考える本。',
   toc: ['序章 100年ライフ', '第1章 長い生涯'],
@@ -52,5 +52,15 @@ describe('BookAbout', () => {
     const t = text(renderToStaticMarkup(<BookAbout info={INFO} variant="fold" />));
     expect(t).toContain('この本について');
     expect(t).toContain('紹介・目次');
+  });
+
+  it('数と助数詞・カタカナの中黒の途中では折れない（結合文字・隣の <wbr> は外す）', () => {
+    expect(glueForDisplay('の3つの')).toBe('の\u20603\u2060つの');
+    expect(glueForDisplay('自分のリ・クリエーション')).toBe('自分のリ\u2060・\u2060クリエーション');
+    expect(glueForDisplay('LIFE SHIFT 2')).toBe('LIFE SHIFT 2');
+    const html = renderToStaticMarkup(<BookAbout info={{ ...INFO, description: '寿命が延び、多くの人が100年生きる時代には、3つのステージで考える。', toc: ['第8章 新しい時間の使い方——自分のリ・クリエーションへ'] }} variant="fold" />);
+    expect(html).not.toMatch(/\u2060<wbr\s*\/?>|<wbr\s*\/?>\u2060/);
+    expect(html).toContain('3\u2060つ');
+    expect(html).toContain('リ\u2060・\u2060ク');
   });
 });
