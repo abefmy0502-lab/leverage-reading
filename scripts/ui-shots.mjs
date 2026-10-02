@@ -102,10 +102,11 @@ const SCREENS = [
   { name: 'book-detail-before', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("LIFE SHIFT")' }] },
   // 📖 この本について（2026-10-02）: 紹介文の続き・目次を開く／見つからない本（&info=none）／読み込み中（&info=slow）／読書中の畳む見出し
   { name: 'book-detail-want-about-open', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("チーズはどこへ消えた")' }, { css: 'button:has-text("続きを読む")' }] },
-  { name: 'book-detail-before-about-open', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("LIFE SHIFT")' }, { css: 'button:has-text("続きを読む")' }, { css: 'summary:has-text("目次")' }, { scrollTo: 'summary:has-text("目次")' }] },
+  // 積読で課題・仮説があるときは畳む見出し（主ボタン「読書を開始する」を最初の画面に残す）。開いたところ
+  { name: 'book-detail-before-about-open', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("LIFE SHIFT")' }, { css: 'summary:has-text("この本について")' }, { scrollTo: 'summary:has-text("この本について")' }] },
   { name: 'book-detail-want-noinfo', url: '/?info=none', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("チーズはどこへ消えた")' }] },
   { name: 'book-detail-before-noinfo', url: '/?info=none', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("LIFE SHIFT")' }] },
-  { name: 'book-detail-before-about-loading', url: '/?info=slow', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("LIFE SHIFT")', settle: 300 }] },
+  { name: 'book-detail-want-about-loading', url: '/?info=slow', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("チーズはどこへ消えた")', settle: 300 }] },
   { name: 'book-detail-reading-about', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { scrollBottom: true }, { css: 'summary:has-text("この本について")' }, { scrollTo: 'summary:has-text("この本について")' }] },
   // 読書計画シート（積読でその場で作る）の先頭「この本の概要」と、目次の項目を引いた「重点的に読む箇所」
   { name: 'book-plan-sheet-overview', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("LIFE SHIFT")' }, { css: 'button:text-is("読書計画シートを作る")' }, { waitFor: '#plan-sheet-fold[open]', timeout: 30000 }, { wait: 3000 }, { scrollTo: '#plan-sheet-fold' }] },

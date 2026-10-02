@@ -3718,6 +3718,8 @@ function AuthedApp() {
     const hasPlanFold = planItems.length > 0 || !!current.aiStrategy;
     // 読書中の「この本について」の畳む見出し（紹介か目次が見つかった本だけ）。
     const aboutFoldShown = current.status === 'reading' && hasBookInfo(bookAbout.info);
+    // 読みたいと、まだ何も書いていない積読はカード。課題・仮説・シートがある積読は畳む見出し（2026-10-02 ui-critic）。
+    const aboutAsCard = current.status === 'want' || (current.status === 'before' && !hasPlanFold);
     // 読書中・読了の画面の下で、直前が「行動」「一番の収穫」なら 24、畳む見出しが続くなら 12。
     const visibleActionCount = (current.actions || []).filter((a) => a.text?.trim() && !isScheduledLater(a)).length;
     const hasHarvestBlock = !!current.roiSummary || (current.status === 'done' && !(current.roiSummary || '').trim());
@@ -3821,9 +3823,10 @@ function AuthedApp() {
     const planBlock = (
       <>
           {/* 積読の「読書計画シートを作る」は、得たいこと・課題・仮説のカードの下（planCta を後ろで出す）。 */}
-          {/* 📖 この本について（読みたい・積読）: 出版社・書店の紹介文 3 行＋目次（畳む）。見つからない本は出さない。
-              読む前に概要を掴んでから、得たいこと・読書計画へ（SPEC §2・2026-10-02）。 */}
-          {!isMemoPhase && (
+          {/* 📖 この本について（読みたい・まだ何も書いていない積読）: 出版社・書店の紹介文 3 行＋目次（畳む）。
+              見つからない本は出さない。読む前に概要を掴んでから、得たいこと・読書計画へ（SPEC §2・2026-10-02）。
+              課題・仮説・シートがある積読は、カードの下の畳む見出しにする（主ボタン「読書を開始する」を最初の画面に残す）。 */}
+          {aboutAsCard && (
             <BookAbout info={bookAbout.info} loading={bookAbout.loading} variant="card" style={{ marginTop: 'var(--space-6)' }} />
           )}
 
@@ -3877,6 +3880,10 @@ function AuthedApp() {
           {!isMemoPhase && hasPlanFold && (
           <section style={{ marginTop: 'var(--space-6)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
           {planItems.map((p) => <Card key={p.label} label={p.label} text={p.text} style={{ marginTop: 0 }} />)}
+          {/* 積読で課題・仮説・シートがあるとき: この本についてはカードの下に畳んで置く（間 12）。 */}
+          {current.status === 'before' && (
+            <BookAbout info={bookAbout.info} variant="fold" />
+          )}
           {current.aiStrategy && (
             // その場で作り終えた直後は開いたまま（key を変えて、開いた状態で置き直す）。
             <details id="plan-sheet-fold" key={justMadePlanId === current.id ? 'plan-made' : 'plan'} open={justMadePlanId === current.id || undefined} style={{ ...detailsStyle, marginTop: 0, scrollMarginTop: 'var(--space-16)' }}>
