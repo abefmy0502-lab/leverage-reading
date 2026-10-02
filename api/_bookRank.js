@@ -33,6 +33,17 @@ export function coreTitleOf(title) {
   return (s.split(/\s*[:：|｜〜~／/—–]\s*|\s+/)[0] || s).trim();
 }
 
+// 書名の中の副題を分ける（NDL の「考え方 : 人生・仕事の結果が変わる」・「流儀：考え方」・「X — Y」）。
+//   区切りは「：」「 : 」「 — 」の最初の 1 つ。どちらかが空なら分けない。副題が既にある本には使わない（呼び出し側）。
+export function splitSubtitle(title) {
+  const s = String(title || '').trim();
+  const m = s.match(/^(.+?)(?:：| : | — )(.+)$/);
+  if (!m) return { title: s, subtitle: '' };
+  const t = m[1].trim();
+  const sub = m[2].trim();
+  return t && sub ? { title: t, subtitle: sub } : { title: s, subtitle: '' };
+}
+
 // ─── 著者名 ──────────────────────────────────────────────────────────────
 // 生没年・世紀などの「名前でない」部分（NDL の「稲盛, 和夫, 1932-2022」の 3 つ目）。
 const YEAR_PART = /^(?:\d{1,4}\??(?:年)?\s*[-–]\s*(?:\d{1,4}\??(?:年)?)?|[-–]\s*\d{1,4}|\d{3,4}\??|生年不詳|没年不詳|生没年不詳|fl\.?\s*\d.*|\d{1,2}世紀.*|ca\.\s*\d.*)$/i;

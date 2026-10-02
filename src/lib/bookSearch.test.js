@@ -140,8 +140,8 @@ describe('rankLocalResults / narrowHintFor', () => {
       { title: 'アートディレクターの流儀 : 考え方・つくり方の極意', author: 'Heckel, Paul, 酒井, 邦秀, 1945-', source: 'ndl' },
       { title: '考え方 : 人生・仕事の結果が変わる', author: '稲盛, 和夫, 1932-2022', isbn: '9784479795735', source: 'ndl' },
     ]);
-    expect(r[0].author).toBe('稲盛和夫');
-    expect(r[1].author).toBe('Paul Heckel、酒井邦秀');
+    expect(r[0]).toMatchObject({ title: '考え方', subtitle: '人生・仕事の結果が変わる', author: '稲盛和夫' });
+    expect(r[1]).toMatchObject({ title: 'アートディレクターの流儀', subtitle: '考え方・つくり方の極意', author: 'Paul Heckel、酒井邦秀' });
   });
   it('語が 1 つで 10 冊以上のときだけ「著者名も入れると絞り込めます」', () => {
     expect(narrowHintFor('考え方', 30)).toBe('著者名も入れると絞り込めます');

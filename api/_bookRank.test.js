@@ -1,7 +1,7 @@
 // 📚 本の検索の並べ方・著者名の整え方・重なりの除き方（api/_bookRank.js・2026-10-02）。
 import { describe, it, expect } from 'vitest';
 import {
-  formatPersonName, formatAuthors, coreTitleOf, rankBooks, scoreBook, dedupeBooks, isRelated, yearOf, normText,
+  formatPersonName, formatAuthors, coreTitleOf, splitSubtitle, rankBooks, scoreBook, dedupeBooks, isRelated, yearOf, normText,
 } from './_bookRank.js';
 
 describe('formatPersonName / formatAuthors（著者名）', () => {
@@ -33,6 +33,19 @@ describe('formatPersonName / formatAuthors（著者名）', () => {
     expect(formatAuthors('楠木建/杉浦泰')).toBe('楠木建、杉浦泰');
     expect(formatAuthors('Paul Heckel, Kunihide Sakai')).toBe('Paul Heckel、Kunihide Sakai');
     expect(formatAuthors('')).toBe('');
+  });
+});
+
+describe('splitSubtitle', () => {
+  it('「：」「 : 」「 — 」で書名と副題に分ける', () => {
+    expect(splitSubtitle('考え方 : 人生・仕事の結果が変わる')).toEqual({ title: '考え方', subtitle: '人生・仕事の結果が変わる' });
+    expect(splitSubtitle('アートディレクターの流儀：考え方・つくり方')).toEqual({ title: 'アートディレクターの流儀', subtitle: '考え方・つくり方' });
+    expect(splitSubtitle('Orime — 読書のメモ')).toEqual({ title: 'Orime', subtitle: '読書のメモ' });
+  });
+  it('区切りが無い・片方が空なら分けない', () => {
+    expect(splitSubtitle('考え方')).toEqual({ title: '考え方', subtitle: '' });
+    expect(splitSubtitle('：考え方')).toEqual({ title: '：考え方', subtitle: '' });
+    expect(splitSubtitle('Re:Zero')).toEqual({ title: 'Re:Zero', subtitle: '' });
   });
 });
 

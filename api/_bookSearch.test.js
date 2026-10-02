@@ -82,7 +82,7 @@ describe('parseNdlSearch（NDL の RSS を読む）', () => {
     const books = parseNdlSearch(NDL_XML);
     expect(books).toHaveLength(2);
     expect(books[0].author).toBe('Paul Heckel、酒井邦秀');
-    expect(books[1]).toMatchObject({ author: '稲盛和夫', isbn: '9784479795735', pubYear: '2017', source: 'ndl' });
+    expect(books[1]).toMatchObject({ title: '考え方', subtitle: '人生・仕事の結果が変わる', author: '稲盛和夫', isbn: '9784479795735', pubYear: '2017', source: 'ndl' });
   });
 });
 

@@ -14,7 +14,7 @@
 
 import { rakutenCreds, rakutenGet, rakutenUrl, rakutenItems, rakutenUpscale, rakutenRealImage } from './_rakuten.js';
 import { toIsbn13, extractIsbnsFromXml } from './_coverSources.js';
-import { formatAuthors, yearOf, rankBooks, dedupeBooks, isRelated } from './_bookRank.js';
+import { formatAuthors, yearOf, rankBooks, dedupeBooks, isRelated, splitSubtitle } from './_bookRank.js';
 
 export const SEARCH_MAX_RESULTS = 30;
 const RAKUTEN_HITS = 30;
@@ -153,8 +153,10 @@ export function parseNdlSearch(xml) {
     if (!title) continue;
     const creators = (chunk.match(/<dc:creator[^>]*>([^<]*)<\/dc:creator>/gi) || []).map((c) => decode(c.replace(/<[^>]+>/g, '')));
     const date = tagText(chunk, /<dc:date[^>]*>([^<]*)<\/dc:date>/i) || tagText(chunk, /<dcterms:issued[^>]*>([^<]*)<\/dcterms:issued>/i);
+    const parts = splitSubtitle(clip(title)); // NDL は「書名 : 副題」を 1 つの書名で返す
     out.push({
-      title: clip(title),
+      title: parts.title,
+      subtitle: parts.subtitle,
       author: formatAuthors(creators),
       publisher: clip(decode(tagText(chunk, /<dc:publisher[^>]*>([^<]*)<\/dc:publisher>/i)), 100),
       pubdate: clip(date, 40),

@@ -48,7 +48,7 @@ const firstAuthorForQuery = (author) => {
 };
 
 import { apiUrl } from './apiUrl';
-import { rankBooks, formatAuthors } from '../../api/_bookRank.js';
+import { rankBooks, formatAuthors, splitSubtitle } from '../../api/_bookRank.js';
 
 // v2（2026-10-02）: 辞書順のまま・NDL の書き方の著者名で覚えた結果を捨てる。
 const CACHE_KEY = 'bookSearchCache:v2';
@@ -449,8 +449,13 @@ export async function searchBooksOnServer(query, { signal, timeoutMs = SERVER_SE
 }
 
 // 端末だけの検索の結果を、サーバーと同じ並べ方に（著者名も整える）。
+//   NDL・openBD の「書名 : 副題」は、副題が無いときだけ書名と副題に分ける（行で副題を弱く出せるように）。
 export function rankLocalResults(query, results) {
-  const list = (results || []).map((b) => ({ ...b, author: formatAuthors(b.author || '') }));
+  const list = (results || []).map((b) => ({
+    ...b,
+    ...(b.subtitle ? {} : splitSubtitle(b.title)),
+    author: formatAuthors(b.author || ''),
+  }));
   return rankBooks(query, list);
 }
 
