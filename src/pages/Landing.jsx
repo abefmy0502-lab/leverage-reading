@@ -591,10 +591,10 @@ export default function Landing() {
               <div className="lp-offer-head">
                 <p className="lp-offer-when"><span className="lp-nb">{OFFER.endLabel}</span>（日本時間）まで</p>
                 <h2 className="lp-h2" id="lp-offer-title">{FOUNDING_NAME}</h2>
-                <p>
-                  <span className="lp-nb">{OFFER.endLabel}</span>までにプランを始めた方は、月額・年額どちらでも創業メンバーです。年額プランなら、1 年目が {FOUNDING_PRICE}（税込）です。2 年目からは年額 ¥12,800（税込）で自動更新されます。
+                <p className="lp-wbr">
+                  <Phrases>{`${OFFER.endLabel}までにプランを始めた方は、月額・年額どちらでも創業メンバーです。年額プランなら、1 年目が ${FOUNDING_PRICE}（税込）です。2 年目からは年額 ¥12,800（税込）で自動更新されます。`}</Phrases>
                 </p>
-                <p>Orime は、阿部文哉がひとりで作っています。最初に使ってくださる方の声で、次の形を決めたいと思っています。</p>
+                <p className="lp-wbr"><Phrases>Orime は、阿部文哉がひとりで作っています。最初に使ってくださる方の声で、次の形を決めたいと思っています。</Phrases></p>
               </div>
               <div className="lp-offer-card">
                 <p className="lp-offer-label">年額プラン</p>
