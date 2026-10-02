@@ -732,16 +732,18 @@ function AuthedApp() {
   const navTab = tab === 'books' && libraryFrom === 'record' ? 'review' : tab;
   // 🌱 初日の「相談してみる」（2026-10-02・lib/firstDay.js）: 取り込み・ページを撮る を終えたあと、自分のメモから作った
   //   相談を入力欄に入れて相談を開く（送らない＝トークンは送ったときだけ）。from: 'import' | 'ocr'。
-  const openConsultDraft = (question, from) => {
+  //   bookIds: 相談相手をその本に絞って開く（本の詳細の「この本に相談する」から来たとき）。
+  const openConsultDraft = (question, from, bookIds = null) => {
     track('try_consult', { from });
-    setAskPreset({ question, nonce: Date.now(), draft: true, from: 'firstDay' });
+    setAskPreset({ question, nonce: Date.now(), draft: true, from: 'firstDay', ...(Array.isArray(bookIds) && bookIds.length ? { bookIds } : null) });
     setView('list'); setAiSubTab('brain'); setTab('ai');
   };
   // 📷 本のページを撮る → 最初のメモ → 「相談してみる」（知らせ・この本に相談する のどちらからでも）。
   const ocrBridgeActiveFor = (bookId) => !!bookId && (ocrIntentActive || (ocrBridge?.bookId === bookId && Date.now() - ocrBridge.at < 15 * 60 * 1000));
-  const openOcrConsult = (book) => {
+  //   本の詳細の「この本に相談する」から（scoped）は相談相手をその本に絞る。知らせの「相談してみる」はすべての本のまま。
+  const openOcrConsult = (book, { scoped = false } = {}) => {
     setOcrBridge(null);
-    openConsultDraft(firstConsultQuestion({ books: [book, ...books.filter((b) => b.id !== book.id)], memoBookIds: new Set([book.id]) }), 'ocr');
+    openConsultDraft(firstConsultQuestion({ books: [book, ...books.filter((b) => b.id !== book.id)], memoBookIds: new Set([book.id]) }), 'ocr', scoped ? [book.id] : null);
   };
   // 🔎 すべての本の検索から「相談で探す」: 相談を開いて入力欄に問いを入れるだけ（送らない＝トークンは送ったときだけ・2026-09-30）。
   const openConsultSearch = (q) => {
@@ -4040,7 +4042,7 @@ function AuthedApp() {
                       type="button"
                       onClick={() => {
                         // 本のページを撮る（初回ガイド）から来た本は、「相談してみる」と同じ（自分のメモから作った相談を入れて開く）。
-                        if (ocrBridgeActiveFor(current.id)) { openOcrConsult(current); return; }
+                        if (ocrBridgeActiveFor(current.id)) { openOcrConsult(current, { scoped: true }); return; }
                         setScopePreset({ bookIds: [current.id], nonce: Date.now() });
                         setView('list');
                         setAiSubTab('brain');
