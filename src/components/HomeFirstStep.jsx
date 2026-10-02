@@ -22,7 +22,9 @@ export const MEMO_COUNT_WAIT_MS = 800;
 // 最後に分かったカード式のメモの件数（ログイン中の人ごと）。ホームに戻るたびにスケルトンを出し直さない。
 let lastKnown = { userId: null, count: null };
 
-// ホームの「メモがあるか」。{ known, hasMemos }。
+// ホームの「メモがあるか」。{ known, hasMemos, count }。
+//   count: メモの件数（カード式＋学び＋「この本のまとめ」の入っている本＝相談と同じ数え方）。分からないときは null。
+//   ホームの「あと N 件で相談相手が育ちます」（GrowthMeter・2026-10-02）に使う。
 //   - 「この本のまとめ」の入っている本があれば、その場で hasMemos（数えに行かなくてよい）
 //   - 数え終わる前は known=false（ホームはスケルトン）。MEMO_COUNT_WAIT_MS で打ち切って hasMemos=true
 //   - メモが動いたら（クイックメモ・初日クイックスタートなど）数え直す＝最初のメモを書いたらカードが消える
@@ -67,10 +69,12 @@ export function useHomeMemoState(books = []) {
     return () => clearTimeout(t);
   }, [unknown]);
 
-  if (summaryCount > 0) return { known: true, hasMemos: true };
-  if (cardCount != null) return { known: true, hasMemos: cardCount > 0 };
-  if (!unknown || timedOut) return { known: true, hasMemos: true };
-  return { known: false, hasMemos: true };
+  const count = cardCount != null ? cardCount + summaryCount : null;
+  if (bookCount === 0) return { known: true, hasMemos: false, count: 0 };
+  if (summaryCount > 0) return { known: true, hasMemos: true, count };
+  if (cardCount != null) return { known: true, hasMemos: cardCount > 0, count };
+  if (!unknown || timedOut) return { known: true, hasMemos: true, count: null };
+  return { known: false, hasMemos: true, count: null };
 }
 
 export default function HomeFirstStep({ bookCount = 0, onQuickstart }) {

@@ -2,6 +2,7 @@
 //
 // SPEC.md §1 の構成そのもの。置くのは次のブロックだけ:
 //   1. はじめの一歩（HomeFirstStep・本はあるがメモ 0 件のときだけ）→ 初日クイックスタート
+//      メモが 1〜9 件の間は、同じ場所に静かな一行「あと N 件で相談相手が育ちます」（GrowthMeter・2026-10-02）
 //   2. いま読んでいる本（最大 3 冊・各本に「メモを書く」＝ 1 タップでクイックメモ）
 //   3. すべての本（N 冊）› → ライブラリ画面（検索・絞り込み・並び替えはそちらへ）
 // 本 0 冊のときは「はじめる」カード 1 枚だけ。
@@ -9,8 +10,12 @@
 // （相談は下のタブ「相談」から）。思い出しカードはホームから外し「振り返り」へ（SPEC §1）。
 // 上の行の「写真で共有」は App.jsx の全体ヘッダー（ホーム・振り返り・相談で同じ場所）。
 // 見た目は DESIGN.md のトークンのみ。
+import { useEffect } from 'react';
 import { Library, ChevronRight, PencilLine, Plus, BookOpen } from 'lucide-react';
 import HomeFirstStep, { useHomeMemoState } from './HomeFirstStep';
+import GrowthMeter from './GrowthMeter';
+import { takeMemosReached } from '../lib/firstDay';
+import { track } from '../lib/analytics';
 import { MiniCover } from './BookCards';
 import { SkeletonBlock } from './Skeleton';
 import ErrorMessage from './ErrorMessage';
@@ -160,9 +165,17 @@ export default function HomeScreen({
 }) {
   // メモがあるか（はじめの一歩を出すか）。分かるまではスケルトン（カードを遅れて差し込まない・最大 800ms）。
   const memoState = useHomeMemoState(books);
+  // 📊 memos_reached_10（lib/firstDay.js）: 10 件より少ないのを見たあとで 10 件以上になったら 1 回だけ。
+  useEffect(() => {
+    if (!loading && !loadError && memoState.known && takeMemosReached(memoState.count)) track('memos_reached_10', { memos: memoState.count, where: 'home' });
+  }, [loading, loadError, memoState.known, memoState.count]);
   return (
     <div style={{ padding: 'var(--space-2) var(--space-4) var(--space-8)', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
       <h1 style={{ fontSize: 'var(--text-title)', fontWeight: 700, color: 'var(--text)', margin: 0, lineHeight: 1.3 }}>ホーム</h1>
+      {/* 🌱 メモが 1〜9 件の間だけ、題の下 8 に一行（10 件で消える）。カードにせず、点数・バッジにしない（2026-10-02）。 */}
+      {books.length > 0 && memoState.known && (
+        <GrowthMeter memoCount={memoState.count} style={{ marginTop: 'calc(var(--space-2) - var(--space-6))' }} />
+      )}
 
       {loading && books.length === 0 ? (
         // 読み込み中は形だけ（既存ユーザーに新規用の「はじめる」カードを一瞬見せない）。

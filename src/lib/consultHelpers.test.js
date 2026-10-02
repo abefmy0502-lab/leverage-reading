@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { memoExampleForBook, buildConsultExamples, standaloneAction, stripRelativeDayLead, questionGist, needsSubject, WORRY_EXAMPLES, actionGist, stripScenePrefix, recentReflectedAction, memoSearchQuery, answerStepToAction } from './consultHelpers';
+import { memoExampleForBook, buildConsultExamples, standaloneAction, stripRelativeDayLead, questionGist, needsSubject, WORRY_EXAMPLES, actionGist, stripScenePrefix, recentReflectedAction, memoSearchQuery, answerStepToAction, firstConsultSuggestions, firstConsultQuestion } from './consultHelpers';
 
 describe('答えの一歩を行動の形に（answerStepToAction・2026-09-29）', () => {
   it('す で終わる動詞は「〜す」', () => {
@@ -325,5 +325,38 @@ describe('buildConsultExamples: メモが答える相談（2026-10-01 ui-critic�
     const ex = buildConsultExamples({ ...base, freeUsedUp: true });
     expect(ex.some((e) => e.kind === 'continue')).toBe(false);
     expect(ex.length).toBeGreaterThan(0);
+  });
+});
+
+describe('初日の「相談してみる」に入れておく相談（firstConsultSuggestions / firstConsultQuestion・2026-10-02）', () => {
+  it('メモを書いた本から作った問いを先に、次にその本の困りごと', () => {
+    const books = [
+      { id: 'a', title: 'エッセンシャル思考', status: 'done' },
+      { id: 'b', title: '知らない本', status: 'done' },
+    ];
+    const out = firstConsultSuggestions({ books, memoBookIds: new Set(['a']), memoCount: 1, count: 2 });
+    expect(out[0]).toBe('『エッセンシャル思考』の学びで、明日から使えるものは？');
+    expect(out[1]).toBe('仕事を抱えすぎて手が回りません');
+    expect(firstConsultQuestion({ books, memoBookIds: new Set(['a']), memoCount: 1 })).toBe(out[0]);
+  });
+
+  it('メモの無い本の問いは作らない（取り込みで本だけ入った本など）', () => {
+    const books = [
+      { id: 'a', title: '本だけの本', status: 'done' },
+      { id: 'b', title: 'メモのある本', status: 'reading' },
+    ];
+    const out = firstConsultSuggestions({ books, memoBookIds: ['b'], memoCount: 4, count: 3 });
+    expect(out[0]).toBe('『メモのある本』の学びで、明日から使えるものは？');
+    expect(out.some((t) => t.includes('本だけの本'))).toBe(false);
+  });
+
+  it('「この本のまとめ」だけの本（読書メーターの感想）もメモのある本として問いを作る', () => {
+    const books = [{ id: 'a', title: '感想だけの本', status: 'done', leverageMemo: 'とてもよかった' }];
+    expect(firstConsultQuestion({ books, memoBookIds: new Set(), memoCount: 1 })).toBe('『感想だけの本』の学びで、明日から使えるものは？');
+  });
+
+  it('作れないときは、よくある困りごと（空にしない）', () => {
+    expect(firstConsultQuestion({ books: [], memoBookIds: new Set(), memoCount: 0 })).toBe(WORRY_EXAMPLES[0]);
+    expect(firstConsultSuggestions({ books: [], memoBookIds: null, memoCount: 0, count: 2 })).toEqual(WORRY_EXAMPLES.slice(0, 2));
   });
 });

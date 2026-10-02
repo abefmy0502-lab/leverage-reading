@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { track } from '../lib/analytics';
+import { rememberOnboardPath } from '../lib/firstDay';
 import { BookOpen, MessageCircle, X, ChevronLeft, ChevronDown } from 'lucide-react';
 import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost, btnLink } from '../styles/ui';
 import { withPhraseBreaks } from './TightBubble';
@@ -10,7 +11,7 @@ const STORAGE_KEY = 'onboardingCompleted';
 // スライドは 2 枚だけ（2026-09-29・始めるまでのタップを減らす）:
 //   1. 約束 — 一番の価値「読むほど、自分だけの相談相手が育つ」（CLAUDE.md・2026-09-26 裁定）。
 //      メモ → 相談 → 行動 の流れを本文 1 文にまとめる（旧 2〜4 枚目の中身）。
-//   2. 最初の一歩 — 無料でできる始め方（これまで読んだ本から始める／いま読んでいる本／取り込む）。
+//   2. 最初の一歩 — 無料でできる始め方（2026-10-02: 取り込む／本のページを撮る／読んだ本に一言ずつ残す の順）。
 // 思い出しカード（旧「想起」）は手段なのでここでは触れない（振り返りで出会う）。
 // 文体注意: 引用符強調（"凝縮" 等）とダーシ（——）は翻訳調に見えるため使わない。
 // 本文は 2 行程度まで（DESIGN 原則 6: なくても伝わる補足は置かない）。
@@ -23,8 +24,10 @@ const slides = [
   },
   {
     Icon: BookOpen,
-    title: 'まずは、これまで読んだ本から',
-    body: '覚えていることを一言ずつ。5\u00a0分で、あなたの相談相手ができます。',
+    // 2026-10-02 オーナー承認: 最初の一歩は「取り込む」「ページを撮る」を先に（メモが早くたまる道）。
+    //   読んだ本に一言ずつ残す（初日クイックスタート）は 3 番目。どの道も、終えたら「相談してみる」（lib/firstDay.js）。
+    title: 'まずは、メモを入れるところから',
+    body: 'ブクログ・読書メーター・Kindle の記録や、本のページの写真から始められます。',
   },
 ];
 
@@ -160,7 +163,7 @@ const chipFace = (selected) => ({
   fontWeight: selected ? 600 : 400,
 });
 
-export default function Onboarding({ onClose, onStart, onImport, onStartQuickstart }) {
+export default function Onboarding({ onClose, onStart, onImport, onStartQuickstart, onStartOcr }) {
   const [step, setStep] = useState(0);
   const slide = slides[step];
   const isLast = step === slides.length - 1;
@@ -234,32 +237,39 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
   // Every dismissal path marks the onboarding as completed.
   // The user can re-trigger it explicitly via the "ヘルプ" button
   // (which calls clearOnboardingCompletion before reopening).
+  // 📊 onboard_path: 最後の画面で選んだ道（import / ocr / quickstart）か、選ばずに閉じた（skip）か。
+  //   選んだ道は端末に覚え、その道を終えたとき（onboard_path_done）・はじめての相談（first_consult_sent）に添える。
+  const choosePath = (path) => {
+    rememberOnboardPath(path);
+    track('onboard_path', { path, step: step + 1 });
+  };
   const dismiss = () => {
     markOnboardingCompleted();
+    choosePath('skip');
     onClose?.();
   };
 
-  // 「行動」で締める導線 — 最後のカードの CTA。説明で終わらせず、
-  // 閉じたあと本追加 (AddBookModal) を直接開く。onStart 未配線でも
-  // 単に閉じるだけで壊れない (graceful degradation)。
-  const startAdding = () => {
-    markOnboardingCompleted();
-    onClose?.();
-    onStart?.();
-  };
-
-  // 📥 ブクログ・読書メーター・Kindle から取り込む（無料の最初の一歩・2026-09-27）。
-  // 旧「悩みから AI 選書で探す」は AI 選書がプランの機能になったため差し替え（無料は相談だけ）。
+  // 📥 ブクログ・読書メーター・Kindle から取り込む（主ボタン・2026-10-02）。終えたら「相談してみる」（ImportSheet）。
   const startImport = () => {
     markOnboardingCompleted();
+    choosePath('import');
     onClose?.();
     (onImport || onStart)?.();
   };
 
-  // 📚 これまで読んだ本で相談相手をつくる（初日クイックスタート）。一番の価値
-  // 「自分だけの相談相手」を初日に体験させる主導線（2026-09-26）。未配線なら本追加へ。
+  // 📷 本のページを撮る（2026-10-02）: 本を選ぶ（追加する）→ メモのシートを「写真から書き起こす」が見える形で開く。
+  //   最初のメモを保存したら「相談してみる」（App.jsx）。未配線なら本追加へ。
+  const startOcr = () => {
+    markOnboardingCompleted();
+    choosePath('ocr');
+    onClose?.();
+    (onStartOcr || onStart)?.();
+  };
+
+  // 📚 読んだ本に一言ずつ残す（初日クイックスタート・2026-10-02 に 3 番目へ）。未配線なら本追加へ。
   const startQuickstart = () => {
     markOnboardingCompleted();
+    choosePath('quickstart');
     onClose?.();
     (onStartQuickstart || onStart)?.();
   };
@@ -341,24 +351,23 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
         </div>
 
         {isLast ? (
-          // 最後の画面は主役を 1 つに（DESIGN 原則 2）。主＝これまで読んだ本から始める
-          // （初日に「自分だけの相談相手」を体験する最短路）、副＝いま読んでいる本を追加。
-          // 取り込み（ブクログ・Kindle）は文字ボタンに下げ、「どこで知りましたか」は一番下へ。
+          // 最後の画面は主役を 1 つに（DESIGN 原則 2・2026-10-02 オーナー承認の順）:
+          //   主＝ほかのアプリから取り込む（記録のある人は 1 回でメモがそろう）／副＝本のページを撮る（写真から書き起こす）／
+          //   文字ボタン＝読んだ本に一言ずつ残す（初日クイックスタート）。「どこで知りましたか」は一番下へ。
+          //   どのアプリから取り込めるか（ブクログ・読書メーター・Kindle）は本文と、開いたシートで言う。
           <>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', flexShrink: 0 }}>
-              <button type="button" style={{ ...btnPrimary, flex: 'none', width: '100%' }} onClick={startQuickstart}>
-                これまで読んだ本から始める
+              <button type="button" style={{ ...btnPrimary, flex: 'none', width: '100%' }} onClick={startImport}>
+                ほかのアプリから取り込む
               </button>
-              <button type="button" style={{ ...btnGhost, flex: 'none', width: '100%' }} onClick={startAdding}>
-                いま読んでいる本を追加する
+              <button type="button" style={{ ...btnGhost, flex: 'none', width: '100%' }} onClick={startOcr}>
+                本のページを撮る
               </button>
               {/* 閉じるのは右上の × だけ（同じ操作を 2 か所に出さない・DESIGN §5）。
                   ガイドはヘルプの「使い方を最初から見る」で見直せる。 */}
               <div style={{ display: 'flex', justifyContent: 'center' }}>
-                {/* 1 行に収まる短い名前（ホーム・設定と同じ「ほかのアプリから取り込む」・2026-09-29）。
-                    どのアプリから取り込めるか（ブクログ・読書メーター・Kindle）は、開いたシートで言う。 */}
-                <button type="button" style={{ ...btnLink, textAlign: 'center' }} onClick={startImport}>
-                  ほかのアプリから取り込む
+                <button type="button" style={{ ...btnLink, textAlign: 'center' }} onClick={startQuickstart}>
+                  読んだ本に一言ずつ残す
                 </button>
               </div>
             </div>

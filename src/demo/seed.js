@@ -343,6 +343,17 @@ export function buildSeed(scenario) {
     db.chat_messages.push({ id: `00000000-0000-4000-8000-0000000d${String(i * 2 + 1).padStart(4, '0')}`, user_id: DEMO_USER_ID, role: 'assistant', content: a, refs, created_at: iso(daysAgo, 21) });
   });
 
+  // ?demo=fewmemos: 初日の人（無料プラン・本はあるがメモは 3 件だけ・相談も行動もまだ無い）。
+  //   ホームと相談の「あと N 件で相談相手が育ちます」と、はじめての相談の「あなたのメモ N 件から答えました」の確認用（2026-10-02）。
+  if (scenario === 'fewmemos') {
+    db.subscriptions = [];
+    db.ai_usage = [];
+    db.book_memos = db.book_memos.filter((m) => m.book_id != null).slice(0, 3);
+    db.books.forEach((b) => { b.leverage_memo = ''; });
+    db.chat_messages = [];
+    db.actions = [];
+  }
+
   return db;
 }
 

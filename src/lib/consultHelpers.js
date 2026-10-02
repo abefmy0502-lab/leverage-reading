@@ -377,6 +377,25 @@ export function buildConsultExamples({ books = [], memoBookIds = null, lastConsu
   return out;
 }
 
+// 🌱 初日の「相談してみる」（2026-10-02・lib/firstDay.js）: 取り込み・ページを撮る・読んだ本に一言ずつ残す を
+//   終えたあと、相談の入力欄に入れておく相談（送らない＝トークンは送ったときだけ）。相談例（buildConsultExamples）と
+//   同じ作り方で、いま書いた・取り込んだメモのある本から作った問いを先に（『書名』の学びで…）、次にその本の困りごと、
+//   足りない分はよくある困りごと。前の相談の続き・やってみた行動の次は初日には無いので出さない。
+//   books: メモのある本を先に並べる（呼び出し側）。memoBookIds: メモのある本の id（Set）。
+const FIRST_DAY_ORDER = { book: 0, challenge: 1, worry: 2 };
+export function firstConsultSuggestions({ books = [], memoBookIds = null, memoCount = null, count = 2 } = {}) {
+  const ids = memoBookIds instanceof Set ? memoBookIds : new Set(memoBookIds || []);
+  const list = Array.isArray(books) ? books : [];
+  const examples = buildConsultExamples({ books: list, memoBookIds: ids, memoCount, count: count + 3 })
+    .filter((e) => e.kind in FIRST_DAY_ORDER)
+    .map((e, i) => ({ ...e, i }))
+    .sort((a, b) => (FIRST_DAY_ORDER[a.kind] - FIRST_DAY_ORDER[b.kind]) || (a.i - b.i));
+  return examples.slice(0, Math.max(0, count)).map((e) => e.text);
+}
+export function firstConsultQuestion(args = {}) {
+  return firstConsultSuggestions({ ...args, count: 1 })[0] || WORRY_EXAMPLES[0];
+}
+
 // 「この件」「それ」などで始まる（または中で指す）一歩は、あとで行動の一覧だけを見ても分からない。
 const DEMONSTRATIVE_START = /^(この|その|あの|これ|それ|あれ)/;
 const VAGUE_REF = /(この件|その件|この問題|その問題|この悩み|その悩み|この状況|その状況|このこと|そのこと|それについて|これについて)/;

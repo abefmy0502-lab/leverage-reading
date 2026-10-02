@@ -374,7 +374,8 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
     const primaryStyle = undoing ? btnPrimaryOff : btnPrimary;
     let primary;
     if (any && onAsk) {
-      primary = <button type="button" onClick={() => onAsk()} disabled={undoing} style={primaryStyle}>相談してみる</button>;
+      // 取り込んだメモのある本から作った相談を、相談の入力欄に入れて開く（送らない・App の onAsk・2026-10-02）。
+      primary = <button type="button" onClick={() => onAsk(outcome)} disabled={undoing} style={primaryStyle}>相談してみる</button>;
     } else if (canAddOneLine) {
       primary = <button type="button" onClick={addOneLineClick} disabled={undoing} style={primaryStyle}>覚えている一言を足す（{bare.length}&nbsp;冊）</button>;
     } else {

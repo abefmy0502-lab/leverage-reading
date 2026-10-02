@@ -153,7 +153,8 @@ import BookStoreLinks from './components/BookStoreLinks';
 import { getRakutenLink } from './lib/rakutenLink';
 import { loadNavState, saveNavState } from './lib/navState';
 import { consultCanLeave } from './lib/consultBack';
-import { actionGist } from './lib/consultHelpers';
+import { actionGist, firstConsultQuestion } from './lib/consultHelpers';
+import { takeOnboardPathDone } from './lib/firstDay';
 import { withPhraseBreaks } from './components/TightBubble';
 import {
   BookOpen,
@@ -691,6 +692,11 @@ function AuthedApp() {
   const [showImport, setShowImport] = useState(false); // 📥 ほかのアプリから取り込む
   // クイックスタートをメモ 0 件で終えたとき「メモを書く」→ 本が読み込まれたらその本を開いてメモのシートを出す。
   const [pendingMemoBookId, setPendingMemoBookId] = useState(null);
+  // 📷 初回ガイドの「本のページを撮る」（2026-10-02）: 本を選ぶ（追加する）→ メモのシートを「写真から書き起こす」が
+  //   見える形で開く → 最初のメモを保存したら「相談してみる」。押した時刻（15 分で切れる＝途中でやめた人の、あとの
+  //   ふだんのメモのシートを写真の形で開かないように）。
+  const [ocrIntentAt, setOcrIntentAt] = useState(null);
+  const ocrIntentActive = ocrIntentAt != null && Date.now() - ocrIntentAt < 15 * 60 * 1000;
 
   // 下部ナビでタブを切り替えるときの共通処理。同一セッション内で前回見ていた
   // サブタブが状態に残っていても、入口を「振り返り＝ノート / 相談＝マイ読書脳」に
@@ -721,6 +727,13 @@ function AuthedApp() {
   // 下のタブで選択中に見せるタブ。記録から開いた「すべての本」（と、そこから開いた本）は振り返りの中の
   // 寄り道なので、ホームではなく振り返りを選択中にする（戻る先の「‹ 記録」と合わせる・2026-09-29）。
   const navTab = tab === 'books' && libraryFrom === 'record' ? 'review' : tab;
+  // 🌱 初日の「相談してみる」（2026-10-02・lib/firstDay.js）: 取り込み・ページを撮る を終えたあと、自分のメモから作った
+  //   相談を入力欄に入れて相談を開く（送らない＝トークンは送ったときだけ）。from: 'import' | 'ocr'。
+  const openConsultDraft = (question, from) => {
+    track('try_consult', { from });
+    setAskPreset({ question, nonce: Date.now(), draft: true });
+    setView('list'); setAiSubTab('brain'); setTab('ai');
+  };
   // 🔎 すべての本の検索から「相談で探す」: 相談を開いて入力欄に問いを入れるだけ（送らない＝トークンは送ったときだけ・2026-09-30）。
   const openConsultSearch = (q) => {
     setAskPreset({ question: consultQuestionFor(q), nonce: Date.now(), draft: true });
@@ -1399,6 +1412,13 @@ function AuthedApp() {
     setAddOrigin(tab === 'books' && shelfMode === 'library' ? 'library' : 'home');
     setAddFromSearchQuery(null);
     setAddBookModalOpen(true);
+  };
+
+  // 📷 初回ガイドの「本のページを撮る」: いま読んでいる本を追加する流れ（保存すると本の詳細でメモのシートが開く）に、
+  //   シートを写真の形で開く印を付ける（2026-10-02）。
+  const startOcrPath = () => {
+    setOcrIntentAt(Date.now());
+    openAdd('reading');
   };
 
   // AddBookModal は今や検索結果リストまで内包する 1 画面モーダル。
@@ -2403,7 +2423,12 @@ function AuthedApp() {
     // メモも「この本のまとめ」も無い新しい本（完了画面の「覚えている一言を足す（N 冊）」で一言を足せる）。
     const withRows = new Set(rows.map((r) => r.book_id));
     const bareBooks = newBooks.filter((bk) => noReviewIds.has(bk.id) && !withRows.has(bk.id));
-    return { booksAdded, booksMatched, memosAdded, reviewsAdded, createdBookIds: newBooks.map((b) => b.id), createdMemoIds, statusChanged, bareBooks };
+    // 🌱 完了画面の「相談してみる」で入力欄に入れる相談の材料（メモか「この本のまとめ」が入った本・lib/firstDay.js）。
+    const memoBookIds = [...new Set([...withRows, ...newBooks.filter((bk) => !noReviewIds.has(bk.id)).map((bk) => bk.id)])];
+    const byId = new Map([...booksRef.current, ...newBooks].map((bk) => [bk.id, bk]));
+    const consultBooks = memoBookIds.map((id) => byId.get(id)).filter(Boolean).slice(0, 50);
+    if (memosAdded + reviewsAdded > 0 && takeOnboardPathDone('import')) track('onboard_path_done', { path: 'import', memos: memosAdded + reviewsAdded });
+    return { booksAdded, booksMatched, memosAdded, reviewsAdded, createdBookIds: newBooks.map((b) => b.id), createdMemoIds, statusChanged, bareBooks, memoBookIds, consultBooks };
   };
 
   // 📥 取り込みを取り消す（取り込みの完了画面から）: この取り込みで入れたものだけを消す。
@@ -3625,16 +3650,12 @@ function AuthedApp() {
           setQuickstartSeed(bare);
           setShowQuickstart(true);
         }}
-        // 送らずに相談を開く（入力欄と相談例から自分で選んで送る＝勝手にトークンを使わない・2026-09-29）。
-        onAsk={() => {
+        // 送らずに相談を開く（勝手にトークンを使わない・2026-09-29）。入力欄には、取り込んだメモのある本から作った相談を
+        //   入れておく（2026-10-02・lib/firstDay.js＝送るのは本人が送信を押したとき）。
+        onAsk={(outcome) => {
           setShowImport(false);
-          setView('list');
-          setAiSubTab('brain');
-          setTab('ai');
-          // 相談の入力欄にカーソルを置く（開く動きのあと）。
-          setTimeout(() => {
-            try { document.querySelector('.ai-page textarea')?.focus(); } catch { /* 無くてもよい */ }
-          }, 400);
+          const consultBooks = Array.isArray(outcome?.consultBooks) ? outcome.consultBooks : [];
+          openConsultDraft(firstConsultQuestion({ books: consultBooks, memoBookIds: new Set(outcome?.memoBookIds || []) }), 'import');
         }}
       />
     </Suspense>
@@ -3648,7 +3669,10 @@ function AuthedApp() {
         onSaveBook={saveQuickstartBook}
         // 一言を書いた本が「読みたい・積読」のままだと、本の詳細にメモが出ない → 読了にする
         onMarkRead={(bookId) => applyBookPatchQuiet(bookId, { status: 'done' })}
-        onMemosAdded={() => appCache?.notifyMemosChanged?.()}
+        onMemosAdded={() => {
+          appCache?.notifyMemosChanged?.();
+          if (takeOnboardPathDone('quickstart')) track('onboard_path_done', { path: 'quickstart' });
+        }}
         onAsk={(question) => {
           setShowQuickstart(false);
           setQuickstartSeed(null);
@@ -4265,6 +4289,8 @@ function AuthedApp() {
           <Suspense fallback={<OverlayFallback />}>
             <QuickMemoSheet
               bookTitle={current.title}
+              // 📷 初回ガイドの「本のページを撮る」から来たら「＋ ページ・写真」を開いた形で（写真から書き起こすが見える）。
+              startWithPhoto={ocrIntentActive}
               defaultPageNumber={
                 (() => {
                   const nums = (currentMemoOps.memos || [])
@@ -4275,9 +4301,16 @@ function AuthedApp() {
               }
               // よく使うタグ（この本のメモのタグ → 本棚のタグ）を「＋ ページ・写真」の中にチップで。
               frequentTags={frequentMemoTags(currentMemoOps.memos, allTags)}
-              onClose={() => setQuickMemoOpen(false)}
+              onClose={() => { setQuickMemoOpen(false); setOcrIntentAt(null); }}
               onCreate={async (payload) => {
                 const result = await currentMemoOps.createMemo(payload);
+                // 🌱 初回ガイドの「本のページを撮る」で最初のメモを保存した → 「相談してみる」（2026-10-02・lib/firstDay.js）。
+                //   入力欄に、このメモの本から作った相談を入れて相談を開く（送らない）。
+                const fromOcrPath = ocrIntentActive && !!result;
+                if (fromOcrPath) {
+                  setOcrIntentAt(null);
+                  if (takeOnboardPathDone('ocr')) track('onboard_path_done', { path: 'ocr', photo: !!payload?.fromPhoto });
+                }
                 // 保存確定の手応え（カード式エディタ経由と体験を揃える）。
                 haptic.success();
                 // 🔗 ほかの本で似たことを書いていたら、メモの一覧の上に出す（BookMemoList の savedMemo）。
@@ -4289,7 +4322,18 @@ function AuthedApp() {
                 // 知らせはシートが「閉じている途中」になってから出す（onCreate のあとでシートが閉じ始めるので、
                 // すぐ出すと開いたシートの上＝画面の下端に出てからタブの上へ 160px 跳ねていた・2026-09-30）。
                 afterSheetCloses(() => {
-                if (actionText && current?.id) {
+                if (fromOcrPath && current?.id) {
+                  const book = current;
+                  toast.show({
+                    type: 'success',
+                    message: '保存しました。',
+                    duration: 10000,
+                    action: {
+                      label: '相談してみる',
+                      onClick: () => openConsultDraft(firstConsultQuestion({ books: [book, ...books.filter((b) => b.id !== book.id)], memoBookIds: new Set([book.id]) }), 'ocr'),
+                    },
+                  });
+                } else if (actionText && current?.id) {
                   toast.show({
                     type: 'success',
                     // 「行動に追加」のボタンと並ぶので短く（390 幅で 2 行に折れていた・2026-09-30）。
@@ -4366,7 +4410,7 @@ function AuthedApp() {
             otherwise tapping "アプリ全体の使い方を最初から見る" from the help
             modal here looks like nothing happens until the user navigates
             back to the bookshelf. */}
-        {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={() => openAdd('reading')} onImport={() => setShowImport(true)} onStartQuickstart={() => setShowQuickstart(true)} />}
+        {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={() => openAdd('reading')} onImport={() => setShowImport(true)} onStartQuickstart={() => setShowQuickstart(true)} onStartOcr={startOcrPath} />}
         {quickstartOverlay}
         {importOverlay}
 
@@ -4640,7 +4684,7 @@ function AuthedApp() {
         )}
         {/* Same reason as in the detail view — keep onboarding reachable
             from the edit-screen help modal without requiring a tab switch. */}
-        {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={() => openAdd('reading')} onImport={() => setShowImport(true)} onStartQuickstart={() => setShowQuickstart(true)} />}
+        {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={() => openAdd('reading')} onImport={() => setShowImport(true)} onStartQuickstart={() => setShowQuickstart(true)} onStartOcr={startOcrPath} />}
         {quickstartOverlay}
         {importOverlay}
         <BottomNav
@@ -5334,7 +5378,7 @@ function AuthedApp() {
         )}
       </div>
 
-      {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={() => openAdd('reading')} onImport={() => setShowImport(true)} onStartQuickstart={() => setShowQuickstart(true)} />}
+      {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={() => openAdd('reading')} onImport={() => setShowImport(true)} onStartQuickstart={() => setShowQuickstart(true)} onStartOcr={startOcrPath} />}
         {quickstartOverlay}
         {importOverlay}
 
@@ -5847,7 +5891,7 @@ function AuthedApp() {
       {addBookModalOpen && (
         <Suspense fallback={<OverlayFallback />}>
           <AddBookModal
-            onClose={() => setAddBookModalOpen(false)}
+            onClose={() => { setAddBookModalOpen(false); setOcrIntentAt(null); }}
             onSelect={pickBookFromAdd}
             onManual={openManualFromAdd}
             initialQuery={addFromSearchQuery || ''}
@@ -5858,6 +5902,8 @@ function AuthedApp() {
               if (typeof query === 'string') setAddFromSearchQuery(query);
               openDetail(existing);
               setDetailFromSearchId(existing.id);
+              // 📷 本のページを撮る（初回ガイド）で本棚にある本を選んだら、そのままメモのシート（写真の形）を開く。
+              if (ocrIntentActive && (existing.status === 'reading' || existing.status === 'done')) setQuickMemoOpen(true);
             }}
           />
         </Suspense>

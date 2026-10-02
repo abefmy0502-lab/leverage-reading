@@ -35,6 +35,7 @@ import { nextResetLabelJa } from '../lib/freeTrial';
 import { PAID_TOKENS, TOKEN_COSTS, monthDayLabelJa } from '../lib/tokens';
 import { shouldShowTrialNudge, trialNudgeCopy, isTrialNudgeDone, markTrialNudgeDone, normalizeTrialLabel, trialCancelShortLine } from '../lib/trialNudge';
 import { getIntroOffer } from '../lib/iap';
+import { growthMeterText, firstAnswerEvidence, takeFirstConsult, takeMemosReached, getOnboardPath } from '../lib/firstDay';
 import { buildConsultExamples, standaloneAction, shortTitle, hasSummaryMemo, countSummaryMemos, fmtTokens, consultsLeft, memoSearchQuery, answerStepToAction, stripScenePrefix, selectThreadTurns, isCompletedAnswer, parseAskSection, nextStepChips, wantsAction, isBookLookup, lookupTerm } from '../lib/consultHelpers';
 import LibrarySearchHit from './LibrarySearchHit';
 import { buildSnippet, compileTerms, splitQuery } from '../lib/librarySearch';
@@ -568,6 +569,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const [memoStatsLoaded, setMemoStatsLoaded] = useState(() => !!resumed?.memoStats);
   // メモの件数を数えられなかった（通信断など）。0 件と取り違えて「まだメモがありません」を出さない。
   const [memoStatsFailed, setMemoStatsFailed] = useState(false);
+  // 自分のメモの件数（はじめての相談の計測 first_consult_sent に添える・数えている途中は -1）。
+  const ownMemoTotalRef = useRef(-1);
   const [statsTick, setStatsTick] = useState(0);
   const messagesEndRef = useRef(null);
   // ストリーミング中の AbortController。送信ごとに作り直し、「中止」ボタンで
@@ -1146,6 +1149,11 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         savedUserId = data?.id || null;
         questionAt = data?.created_at || null;
         setMessages((arr) => [...arr, userRow]);
+        // 📊 first_consult_sent（lib/firstDay.js・2026-10-02）: はじめての相談を送った（AI に送る相談だけ・この端末で 1 回）。
+        //   運営は「登録から 24 時間以内に最初の相談」をこれで数える。path＝初回ガイドで選んだ道（無ければ none）。
+        if (!prevAskAt && takeFirstConsult()) {
+          track('first_consult_sent', { memos: ownMemoTotalRef.current, path: getOnboardPath() || 'none', preset: questionText != null });
+        }
       } catch (e) {
         setBusy(false);
         toast.error(toMessage(e, 'メッセージの保存に失敗しました。'));
@@ -1240,8 +1248,11 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       const assistantContent = wasAborted && finalBody !== STOPPED_EMPTY ? `${base}\n\n— ここで中止しました` : base;
       // 答えの下の一行（使ったメモ・前の相談から増えたメモ）と、引用をメモと突き合わせた結果も refs に残す（履歴にも出る）。
       const grown = wasAborted ? 0 : await growthPromise;
+      // 🌱 はじめての相談の答えには、必ず「あなたのメモ N 件から答えました」（2026-10-02・lib/firstDay.js）。
+      //   AI の参照から数えられなかったときも、はじめての相談だけは答えに使ったメモの数で出す（関係するメモが無かった答えは除く）。
+      const evidenceLine = firstAnswerEvidence({ evidence, memoCount, isFirst: !prevAskAt && !opts.skipUserInsert, refunded: !!tokenRefund });
       const persistRefs = wasAborted ? [] : [
-        ...(evidence ? [`${EVIDENCE_PREFIX}${evidence}`] : []),
+        ...(evidenceLine ? [`${EVIDENCE_PREFIX}${evidenceLine}`] : []),
         // 関係するメモが無かった答え（トークンを返した）には、積み重ねの一行を付けない（効いていないので）
         ...(grown > 0 && memoCount > 0 && !tokenRefund ? [`${GROWTH_PREFIX}前の相談から メモ +${grown} 件`] : []),
         ...(Array.isArray(quoteRefs) ? quoteRefs : []),
@@ -1551,6 +1562,13 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // （GLOSSARY）なので、読書メーター等の感想を「この本のまとめ」に取り込んだだけの人も相談できる（2026-09-29 オーナー裁定）。
   // 読書計画だけの人は「これまで読んだ本から始める」へ（相談例の「最近のメモから…」が空振りしないように）。
   const ownMemoTotal = memoStats.cards + memoStats.personal + (memoStats.summaryBooks || 0);
+  ownMemoTotalRef.current = memoStatsLoaded ? ownMemoTotal : -1;
+  // 📊 memos_reached_10（lib/firstDay.js）: 10 件より少ないのを見たあとで 10 件以上になったら 1 回だけ（ホームと同じ印）。
+  useEffect(() => {
+    if (memoStatsLoaded && !memoStatsFailed && takeMemosReached(ownMemoTotal)) track('memos_reached_10', { memos: ownMemoTotal, where: 'consult' });
+  }, [memoStatsLoaded, memoStatsFailed, ownMemoTotal]);
+  // 🌱 「あと N 件で相談相手が育ちます」（メモ 1〜9 件・相談相手を絞っていないときだけ・10 件で消える＝7 日間無料の案内と重ならない）。
+  const growthLine = memoStatsLoaded && !memoStatsFailed && scopeIds.length === 0 ? growthMeterText(ownMemoTotal) : null;
   // 上部の「〜件から答えます」の数がまだ分からない（数えている途中）。
   const headCountPending = scopeIds.length > 0 ? scopeCountPending : (!!user && isSupabaseConfigured && !memoStatsLoaded);
   // 答え方（まとめて / 本ごとに）は、並べる本が無い 1 冊のときと、メモがまだ無いとき（答える材料が無い）は出さない。
@@ -1664,6 +1682,10 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           // 件数は「メモ N 件」＝自分のメモ（カード式＋学び＋この本のまとめ）。ホームの相談カード・初日クイックスタート・
           // 振り返りの記録と同じ数え方・同じ言葉（2026-09-29）。0 件のときは件数を出さない（下の「まだメモがありません」と食い違わないように）。
           : (ownMemoTotal > 0 ? <><span style={{ whiteSpace: 'nowrap' }}>あなたのメモ {ownMemoTotal} 件</span>{answerVerb}</> : '読んだ本のメモを根拠に答えます')}
+        {/* メモが 1〜9 件の間は、答えがメモとともに深くなることを一行で（点数・バッジにしない・2026-10-02）。 */}
+        {!headCountPending && growthLine && (
+          <span style={{ display: 'block', textIndent: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums' }}>{growthLine}</span>
+        )}
         {/* 残りのトークン（無料・有料は今月・無料期間は期間まるごと）。管理者・読めないときは出さない。 */}
         {tokensRemaining != null && (
           <span style={{ display: 'block', textIndent: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>

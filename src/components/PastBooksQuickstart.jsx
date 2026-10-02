@@ -14,7 +14,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import NotifyOptInCard from './NotifyOptInCard';
-import { quickstartWorries, memoExampleForBook, countSummaryMemos, fmtTokens, consultsLeft } from '../lib/consultHelpers';
+import GrowthMeter from './GrowthMeter';
+import { firstConsultSuggestions, memoExampleForBook, countSummaryMemos, fmtTokens, consultsLeft } from '../lib/consultHelpers';
 import { X, Search, SearchX, Check, ChevronLeft, Plus } from 'lucide-react';
 import { usePaywall } from '../state/PaywallContext';
 import { TOKEN_COSTS } from '../lib/tokens';
@@ -197,9 +198,11 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
     ? initialBooks.slice(0, MAX_BOOKS).map((b) => ({ book: b, memo: '', onShelf: true }))
     : [])); // [{ book, memo, onShelf? }]
   const [idx, setIdx] = useState(0);
-  const [summary, setSummary] = useState({ books: [], memos: 0, totalMemos: 0, totalBooks: 0 });
+  const [summary, setSummary] = useState({ books: [], memos: 0, totalMemos: 0, totalBooks: 0, memoBookIds: [] });
   // できあがりの画面の「いま困っていること」（そのまま相談へ送る）
   const [askText, setAskText] = useState('');
+  // 「たとえば」から入れた相談（そのまま送ったかを計測するだけ）
+  const [askedExample, setAskedExample] = useState('');
   const askRef = useRef(null);
   const [saveProgress, setSaveProgress] = useState({ done: 0, total: 0 }); // 保存中の進み具合（冊）
   const memoRef = useRef(null);
@@ -366,7 +369,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
       const { count, error } = await supabase.from('book_memos').select('id', { count: 'exact', head: true }).eq('user_id', user.id);
       if (!error && typeof count === 'number') totalMemos = Math.max(count, memoCount) + countSummaryMemos(books);
     } catch { /* 今回の件数のまま */ }
-    setSummary({ books: savedBooks, memos: memoCount, totalMemos, totalBooks: books.length + newBooks });
+    setSummary({ books: savedBooks, memos: memoCount, totalMemos, totalBooks: books.length + newBooks, memoBookIds: memoCount ? memoRows.map((r) => r.book_id) : [] });
     setStep('done');
   };
 
@@ -667,6 +670,8 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
                 <h1 style={{ ...title, marginTop: 'var(--space-6)' }}>あなたの相談相手が<br />できました</h1>
                 {/* ホームの相談カードと同じ数え方・同じ言葉（あなたの N 冊・メモ M 件） */}
                 <p style={{ ...sub, fontVariantNumeric: 'tabular-nums' }}>あなたの {summary.totalBooks || summary.books.length} 冊・メモ {summary.totalMemos || summary.memos} 件から答えます</p>
+                {/* 🌱 メモが 10 件になるまでは、答えがメモとともに深くなることを一行で（ホーム・相談と同じ・2026-10-02）。 */}
+                <GrowthMeter memoCount={summary.totalMemos || summary.memos} style={{ marginTop: 'var(--space-2)' }} />
               </>
             ) : (
               <>
@@ -707,7 +712,8 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
                     const q = askText.trim();
                     // 空のまま押したら入力欄へ（主ボタンは薄くしない・ホームの相談カードと同じ）
                     if (!q) { askRef.current?.focus(); return; }
-                    track('quickstart_first_consult', { example: false });
+                    track('quickstart_first_consult', { example: askedExample === q });
+                    track('try_consult', { from: 'quickstart' });
                     onAsk?.(q);
                   }}
                 >
@@ -715,10 +721,11 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
                 </button>
                 <p style={{ ...groupTitle, margin: 'var(--space-4) 0 var(--space-2)' }}>たとえば</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-                  {/* えらんだ本の困りごとを先に（AI を使わない・本ごとに決めた 1 つ）。 */}
-                  {quickstartWorries(summary.books, 2).map((q) => (
+                  {/* いま一言を書いた本から作った相談を先に、次にその本の困りごと（AI を使わない・2026-10-02 lib/firstDay.js）。
+                      押すと入力欄に入る（すぐには送らない＝「相談する」を押したときだけ送る）。 */}
+                  {firstConsultSuggestions({ books: summary.books, memoBookIds: new Set(summary.memoBookIds), memoCount: summary.totalMemos, count: 2 }).map((q) => (
                     <button key={q} type="button" style={askChip}
-                      onClick={() => { track('quickstart_first_consult', { example: true }); onAsk?.(q); }}>
+                      onClick={() => { setAskText(q); setAskedExample(q); askRef.current?.focus(); }}>
                       {q}
                     </button>
                   ))}
