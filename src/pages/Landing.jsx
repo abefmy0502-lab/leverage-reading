@@ -425,7 +425,6 @@ export default function Landing() {
             <span>Orime</span>
           </a>
           <nav className="lp-header-nav" aria-label="ヘッダー">
-            <a href="/?auth=signin" className="lp-header-login">ログイン</a>
             <StoreCta
               className={`lp-btn lp-btn-small lp-header-cta${heroCtaVisible ? ' is-hidden' : ''}`}
               loc="header"
@@ -434,6 +433,8 @@ export default function Landing() {
             >
               {CTA_LABEL}
             </StoreCta>
+            {/* ログインはいつも右端（ボタンはその左で出入りする＝出入りしてもログインは動かない） */}
+            <a href="/?auth=signin" className="lp-header-login">ログイン</a>
           </nav>
         </div>
       </header>
