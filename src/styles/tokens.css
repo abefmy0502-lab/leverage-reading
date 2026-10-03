@@ -67,9 +67,13 @@
      390 幅の 1 行に収まるように（2026-10-01 ui-critic）。使い方: min(var(--text-sub), var(--text-bar-max)) */
   --text-bar-max: 20px;
   /* LP（紹介ページ）専用の見出し。画面幅で伸びる。アプリの画面では使わない（DESIGN §2）。
-     タブレット以上の値は下の @media (min-width: 768px) で上書きする */
-  --text-display: clamp(34px, 9vw, 56px);   /* LP の h1 */
-  --text-display-2: clamp(24px, 6.4vw, 38px); /* LP の h2 */
+     タブレット以上の値は下の @media (min-width: 768px) で上書きする。
+     rem で決める（2026-10-03 ui-critic）: px だと文字サイズの設定を最大にしたとき、見出しが本文より小さくなる。
+       ふつうの文字（1rem = 17px）では今までと同じ（390 幅で h1 約 35px・h2 約 25px、上限 56px・38px）。
+       min(…) の 2 つ目＝大きくしすぎない上限（390 幅で h1 は 1 行 6 字・h2 は 7 字ほど＝「相談相手に」を割らない）。
+       ただし本文より小さくはしない（h1 は本文の 1.35 倍・h2 は 1.15 倍が下限＝max(…rem, …vw)） */
+  --text-display: min(clamp(2rem, 0.5rem + 6.8vw, 3.3rem), max(1.35rem, 14vw));        /* LP の h1 */
+  --text-display-2: min(clamp(1.4rem, 0.35rem + 5vw, 2.25rem), max(1.15rem, 12.5vw)); /* LP の h2 */
 
   /* 表紙の色面（本ごとの生成色）の上に載せる文字。明暗で変えない */
   --on-cover: #ffffff;
@@ -374,9 +378,9 @@
   --radius-pill: var(--radius-full);
 }
 
-/* LP の h1 はタブレット以上で伸び方をゆるめる（768px で 40px から始める） */
+/* LP の h1 はタブレット以上で伸び方をゆるめる（768px で 40px から始める・1,100px ほどで上限 56px。rem で決める） */
 @media (min-width: 768px) {
-  :root { --text-display: clamp(40px, 5.2vw, 56px); }
+  :root { --text-display: min(clamp(2.35rem, 0.5rem + 4.1vw, 3.3rem), max(1.35rem, 14vw)); }
 }
 
 /* =========================================================================
