@@ -70,6 +70,19 @@ describe('trialNudgeCopy', () => {
     expect(c.cta).toBe('7 日間無料で試す');
   });
 
+  it('創業メンバー価格のあいだ（7 日間無料は月額だけ）は「月額プランは 7 日間無料」＋「プランを見る」', () => {
+    const c = trialNudgeCopy({ memoCount: 12, offer: '7 日間無料', offerPlan: 'monthly' });
+    expect(c.kind).toBe('trial');
+    expect(c.body).toBe('メモがたまってきました。月額プランは 7 日間無料で、AI 選書・読書計画シートなど、すべての AI を試せます。');
+    // 年額が先に選ばれた画面を開くので、「7 日間無料で試す」とは書かない
+    expect(c.cta).toBe('プランを見る');
+  });
+
+  it('年額にも 7 日間無料があるとき（both / annual）はふだんの文', () => {
+    expect(trialNudgeCopy({ offer: '7 日間無料', offerPlan: 'both' }).cta).toBe('7 日間無料で試す');
+    expect(trialNudgeCopy({ offer: '7 日間無料', offerPlan: 'annual' }).cta).toBe('7 日間無料で試す');
+  });
+
   it('使えない・分からないときは無料期間を約束しない（「プランを見る」）', () => {
     const c = trialNudgeCopy({ memoCount: 10, offer: '' });
     expect(c.kind).toBe('plan');

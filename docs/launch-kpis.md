@@ -54,7 +54,7 @@
 ```
 
 - 材料は **契約の履歴 `subscription_events`**（`supabase_subscription_events.sql`）。`subscriptions` は 1 人 1 行で、有料に進むと同じ行の `period_type` が `trial` → `normal` に上書きされ、あとから分からないため、Webhook が出来事を 1 件ずつ残す
-- 無料期間の始まり = `period_type` が `trial` / `intro` の最初の行
+- 無料期間の始まり = `period_type` が `trial` の最初の行（`intro` は有料の初回価格＝創業メンバー価格「1 年目 ¥9,800」で、無料期間ではないので数えない・2026-10-02）
 - 有料に進んだ = そのあとの行で `period_type='normal'` かつ `status='active'`、または RevenueCat の `is_trial_conversion`
 - 8 日 = 7 日間＋更新の処理の 1 日。サンドボックス（TestFlight・審査）は除く
 - 履歴が無い（SQL 未適用・まだ 1 件も無い）間は **「データなし」**

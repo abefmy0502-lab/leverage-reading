@@ -6283,7 +6283,8 @@ function PaywallGate() {
   const plan = adminBypass
     ? 'admin'
     : (isActive || isSchemaUnappliedError(error))
-      ? ((periodType === 'trial' || periodType === 'intro') ? 'trial' : 'paid')
+      // 'intro' は有料の初回価格（創業メンバー価格）＝有料。無料期間は 'trial' だけ（2026-10-02）。
+      ? (periodType === 'trial' ? 'trial' : 'paid')
       : 'free';
   const trialEndsAt = plan === 'trial' ? (subscription?.currentPeriodEnd || null) : null;
 

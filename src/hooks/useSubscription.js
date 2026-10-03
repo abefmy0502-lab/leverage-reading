@@ -9,7 +9,7 @@ import { isSchemaError } from '../lib/errors';
 // フリーミアム（2026-09-27〜）: 契約が無くてもアプリは使える（無料プラン）。ここはプランの判定に使う。
 // `isActive = status === 'active'` のみを「有料権利あり」とみなす。
 //   - App Store の Introductory Offer（無料期間）は RevenueCat 経由でも
-//     status='active'（subscriptions.period_type='trial'/'intro' で区別）として
+//     status='active'（subscriptions.period_type='trial' で区別。'intro' は有料の初回価格＝創業メンバー価格）として
 //     届くため、この判定のままトライアル会員も通る。'trialing' という別 status は
 //     使っていない。
 //   - past_due（支払い遅延）を猶予として一時的に許可したい場合は、
@@ -58,7 +58,8 @@ const transformSubscription = (row) => {
     status: row.status || null,
     priceId: row.price_id || null,
     currentPeriodEnd: row.current_period_end || null,
-    // 'trial' / 'intro' = 無料期間（7 日間無料）。'normal' / null = 有料。トークンの量と行が変わる。
+    // 'trial' = 無料期間（7 日間無料）。'normal' / null / 'intro'（有料の初回価格＝創業メンバー価格「1 年目 ¥9,800」）= 有料。
+    // トークンの量と行が変わる（2026-10-02 に 'intro' を有料へ）。
     periodType: row.period_type || null,
     createdAt: row.created_at || null,
     updatedAt: row.updated_at || null,

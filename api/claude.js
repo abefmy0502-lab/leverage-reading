@@ -119,7 +119,7 @@ const AI_MONTHLY_CALL_LIMIT = (() => {
 
 // 🎁 7日間無料トライアル/導入価格期間中の AI の回数の上限（原価を数えられない DB での代わり）。
 //   トライアル中は収益ゼロで AI 原価だけが出るため、青天井を防ぐ。subscriptions.period_type が
-//   'trial'/'intro'（無料期間）の時だけ。原価を数えられる DB ではトークン（AI_TRIAL_TOKENS・既定 150）で守り、
+//   'trial'（無料期間）の時だけ（'intro'＝有料の初回価格は有料・2026-10-02）。原価を数えられる DB ではトークン（AI_TRIAL_TOKENS・既定 150）で守り、
 //   この回数は使わない。supabase_ai_cost.sql 未適用の DB では、これと「AI_TRIAL_TOKENS ÷ 10」の小さいほうが
 //   無料期間の上限になる（既定 15 回・2026-09-27 に 40 → 15）。env で可変。
 const AI_TRIAL_CALL_LIMIT = (() => {
@@ -302,7 +302,8 @@ async function checkRevenueCat(userId) {
         const product = sub.subscriptions?.[active.product_identifier] || {};
         value = {
           allowed: true,
-          trial: product.period_type === 'trial' || product.period_type === 'intro',
+          // 'intro' は有料の初回価格（創業メンバー価格「1 年目 ¥9,800」など）＝有料。無料期間は 'trial' だけ（2026-10-02）。
+          trial: product.period_type === 'trial',
           periodEnd: active.expires_date || product.expires_date || null,
         };
       } else {
@@ -361,10 +362,11 @@ async function checkEntitlement(userId) {
     const end = data?.current_period_end ? Date.parse(data.current_period_end) : NaN;
     const expired = Number.isFinite(end) && end < Date.now() - PERIOD_GRACE_MS;
     const allowed = data?.status === 'active' && !expired;
-    // 無料期間（trial/intro）中だけ低い AI 上限を適用。有料（normal/null）は通常上限。
+    // 無料期間（trial）中だけ低い AI 上限を適用。有料（normal/null）と有料の初回価格（intro＝創業メンバー価格の
+    // 「1 年目 ¥9,800」など・2026-10-02）は通常上限（intro を無料期間にすると、1 年間 150 トークンになってしまう）。
     const pt = data?.period_type;
-    const limit = (pt === 'trial' || pt === 'intro') ? AI_TRIAL_CALL_LIMIT : AI_MONTHLY_CALL_LIMIT;
-    if (allowed) return { allowed, limit, trial: pt === 'trial' || pt === 'intro', periodEnd: data?.current_period_end || null };
+    const limit = pt === 'trial' ? AI_TRIAL_CALL_LIMIT : AI_MONTHLY_CALL_LIMIT;
+    if (allowed) return { allowed, limit, trial: pt === 'trial', periodEnd: data?.current_period_end || null };
     // 行が無い・有効でないときは、RevenueCat に直接確認（審査のサンドボックス購入・webhook の遅れ）。
     const rc = await checkRevenueCat(userId);
     if (rc?.allowed) return { allowed: true, limit: rc.trial ? AI_TRIAL_CALL_LIMIT : AI_MONTHLY_CALL_LIMIT, trial: !!rc.trial, periodEnd: rc.periodEnd || null };

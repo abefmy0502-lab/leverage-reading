@@ -99,7 +99,7 @@ describe('decideAiAccess（フリーミアム）', () => {
   it('有料はすべての AI 機能', () => {
     expect(decideAiAccess({ entitlement: { allowed: true }, env: ENV })).toEqual({ allow: true, tier: 'paid' });
   });
-  it('無料期間（trial/intro）もすべての AI 機能', () => {
+  it('無料期間（trial）もすべての AI 機能', () => {
     expect(decideAiAccess({ entitlement: { allowed: true, trial: true }, env: ENV })).toEqual({ allow: true, tier: 'trial' });
   });
   it('契約なし: 相談は無料のトークンで通す（本ごとの答え方も purpose は consult）', () => {

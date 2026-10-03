@@ -349,7 +349,7 @@ export default async function handler(req, res) {
       price_id: event.product_id || null, // RevenueCat の product_id を price_id 相当に格納
       current_period_end: toIsoFromMs(event.expiration_at_ms),
     };
-    // 会員内訳（admin_revenue の trial/intro 集計）用。RC イベントの period_type は
+    // 会員内訳（admin_revenue の trial 集計。intro＝有料の初回価格は有料に数える・2026-10-02）用。RC イベントの period_type は
     // 'TRIAL' | 'INTRO' | 'NORMAL'。未知値/欠落は書かない（既存値を上書きしない）。
     const periodType = typeof event.period_type === 'string' ? event.period_type.toLowerCase() : '';
     if (['trial', 'intro', 'normal'].includes(periodType)) patch.period_type = periodType;

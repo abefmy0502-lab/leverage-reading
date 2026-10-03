@@ -10,6 +10,8 @@
 // - 同じイベントの再送は (provider, source_event_id) の UNIQUE で 1 件にまとまる（23505 は無視）。
 // - 中身は契約の種類と日時だけ（メール・金額・レシートは入れない）。
 
+// 'trial' だけが無料期間（7 日間無料）。'intro' は有料の初回価格（創業メンバー価格「1 年目 ¥9,800」）で、
+// 記録はそのまま残すが、集計（supabase_admin_launch_kpis.sql の 7 日間無料 → 有料）では無料期間に数えない（2026-10-02）。
 const PERIOD_TYPES = ['trial', 'intro', 'normal'];
 
 function clip(v, n = 120) {

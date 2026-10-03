@@ -5,7 +5,7 @@ LP（https://orime.vercel.app の紹介ページ）には、3 種類の計測が
 | 何を | どこで見る | 必要な準備（1 回だけ） |
 |---|---|---|
 | ① 閲覧数・参照元・端末・国 | Vercel → orime → **Analytics** | Vercel の Analytics タブで「Enable」を押す（Hobby は無料枠内） |
-| ② ボタンが押された場所・体験欄・読み進めた深さ・3D ↔ 写真 | Supabase → SQL Editor（下の集計例） | `supabase_lp_events.sql` を SQL Editor で 1 回実行 |
+| ② ボタンが押された場所・相談の流れ（4 枚）・節ごとの到達・読み進めた深さ・3D ↔ 写真・創業メンバー価格 | Supabase → SQL Editor（下の集計例） | `supabase_lp_events.sql` を SQL Editor で 1 回実行 |
 | ③ **実際のダウンロード数**（どのボタンから入手されたか） | App Store Connect → App 分析 → **キャンペーン** | provider token を Vercel の `VITE_APP_STORE_PT` に入れる（下記） |
 
 どれも個人を特定しません（Cookie なし・IP や入力文は保存しない。プライバシーポリシー第 9 条③）。
@@ -21,7 +21,7 @@ App Store Connect では、キャンペーン名ごとに「ページ閲覧数�
 
 キャンペーン名の読み方: `lp_<押した場所>_<ヒーローの表示>`
 
-- 押した場所: `header`（上の帯）/ `hero`（最初の画面）/ `sticky`（スマホの下に固定）/ `demo`（体験欄のあと）/ `pricing`（料金）/ `final`（最後）/ `qr`（PC の QR コード）
+- 押した場所: `header`（上の帯）/ `hero`（最初の画面）/ `sticky`（スマホの下に固定）/ `offer`（創業メンバー価格の節・期間中だけ）/ `pricing`（料金）/ `final`（最後）/ `qr`（PC の QR コード）。`demo`（旧「試しに、相談してみる」のあと）は 2026-10-02 の作り直しで無くなった
 - ヒーローの表示: `3d` / `photo`（訪問者を半々に振り分け。`?hero=3d` / `?hero=photo` で固定して確認できる）
 
 ## ② 集計例（Supabase SQL Editor）
@@ -48,22 +48,34 @@ select props->>'loc' as loc, count(*) from lp_events
 where event = 'cta_click' and created_at > now() - interval '14 days'
 group by 1 order by 2 desc;
 
--- 体験欄: 触った人の割合と、触った人のボタン押下率
+-- 相談の流れ（4 枚・LpFlow.jsx）: 見た人の割合と、手順を押した／もう一度見た人のボタン押下率
+--   flow_view（画面に入った・1 回。props.still=true は動きを減らす設定で自動で進まなかった人）
+--   flow_step（手順を押した・props.i=0..3）／ flow_replay（もう一度見る）
 with v as (select distinct session_id from lp_events where event = 'lp_view' and created_at > now() - interval '14 days'),
-d as (select distinct session_id from lp_events where event in ('demo_ask', 'demo_add') or (event = 'demo_pick' and (props->>'auto') = 'false')),
+f as (select distinct session_id from lp_events where event = 'flow_view'),
+t as (select distinct session_id from lp_events where event in ('flow_step', 'flow_replay')),
 c as (select distinct session_id from lp_events where event = 'cta_click')
 select count(*) as visits,
-       count(d.session_id) as tried_demo,
-       round(100.0 * count(d.session_id) / nullif(count(*), 0), 1) as tried_pct,
-       round(100.0 * count(*) filter (where d.session_id is not null and c.session_id is not null)
-             / nullif(count(d.session_id), 0), 1) as click_rate_if_tried_pct,
-       round(100.0 * count(*) filter (where d.session_id is null and c.session_id is not null)
-             / nullif(count(*) - count(d.session_id), 0), 1) as click_rate_if_not_tried_pct
-from v left join d using (session_id) left join c using (session_id);
+       count(f.session_id) as saw_flow,
+       count(t.session_id) as touched_flow,
+       round(100.0 * count(*) filter (where t.session_id is not null and c.session_id is not null)
+             / nullif(count(t.session_id), 0), 1) as click_rate_if_touched_pct,
+       round(100.0 * count(*) filter (where t.session_id is null and c.session_id is not null)
+             / nullif(count(*) - count(t.session_id), 0), 1) as click_rate_if_not_touched_pct
+from v left join f using (session_id) left join t using (session_id) left join c using (session_id);
 
--- 自由入力が例に当たった割合（外れが多ければ例を増やす）
-select (props->>'match')::boolean as matched, count(*) from lp_events
-where event = 'demo_ask' group by 1;
+-- 節ごとの到達（section_view・節が 4 割見えたら 1 回: flow / compare / share / privacy / offer / pricing）
+select props->>'s' as section, count(distinct session_id) from lp_events
+where event = 'section_view' and created_at > now() - interval '14 days'
+group by 1 order by 2 desc;
+
+-- 創業メンバー価格（期間中）: 出していた訪問（lp_view の props.offer=true）・印を押した・節から App Store へ
+select count(distinct session_id) filter (where event = 'lp_view' and (props->>'offer')::boolean) as visits_with_offer,
+       count(distinct session_id) filter (where event = 'offer_badge') as badge_clicked,
+       count(*) filter (where event = 'cta_click' and props->>'loc' = 'offer') as offer_cta_clicks
+from lp_events where created_at > now() - interval '30 days';
+
+-- （2026-10-02 まで）旧「試しに、相談してみる」は demo_pick / demo_ask / demo_add。過去の行を読むときだけ。
 
 -- どこまで読まれたか
 select props->>'pct' as depth, count(distinct session_id) from lp_events
@@ -87,6 +99,6 @@ group by 1 order by 2 desc;
 ## 判断の目安
 
 - 3D と写真は、**各 300 訪問**くらい集まるまでは結論を出さない（それ未満は偶然の差が大きい）。最終判断は ③ の App 入手数で。
-- 体験欄を触った人の押下率が触らない人より明らかに高ければ、体験欄をさらに上（ヒーローの直後）へ。
+- 相談の流れの手順を押した人の押下率が押さない人より明らかに高ければ、流れの説明（手順の名前）をヒーローに近づける。section_view で比較・共有・学習のどこで離れているかを見る。
 - よく開かれる FAQ の内容は、ヒーローのボタン近くの一言に昇格させる。
 - SNS や note のリンクには `?utm_source=x&utm_campaign=launch` のように付けると、流入元ごとに比べられる。
