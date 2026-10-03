@@ -35,7 +35,7 @@
 //   &founding=on（ストアの初回価格＋期間中）/ store（ストアの初回価格だけ）/ env（期間中だけ）で創業メンバー価格を確かめる。
 //   プレビュー中は実際の購入・復元（RevenueCat）を一切呼ばない（isNative のときだけ呼ぶ）。
 
-import { useEffect, useRef, useState, lazy, Suspense } from 'react';
+import { Fragment, useEffect, useRef, useState, lazy, Suspense } from 'react';
 import { Check, X } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from './Toast';
@@ -681,7 +681,10 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
                   {!compactFooter && leadLine}
                   <span style={{ display: 'block', fontSize: compactFooter ? COMPACT_TEXT : 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>
                     {billedLineParts({ ...selected, trial }).map((part) => (
-                      <span key={part} style={chunk}>{part}</span>
+                      <Fragment key={part}>
+                        <span style={chunk}>{part.trimEnd()}</span>
+                        {part !== part.trimEnd() ? ' ' : null}
+                      </Fragment>
                     ))}
                   </span>
                 </p>

@@ -142,10 +142,12 @@ export function billedLine(label = {}) {
 }
 // 同じ文を、折り返してよい切れ目で分けたもの（画面は塊ごとに nowrap で並べる＝「¥12,800 / で自動更新」と割れない）。
 //   金額は円なら「（税込）」つき（withTax）。「で自動更新」は 1 つの塊（「で自／動更新」と割らない・2026-10-02 ui-critic）。
+//   初回価格の「2 年目から 」は金額と別の塊（文字を最大にしたとき「（税込）」だけが次の行に落ちない・2026-10-03）。
+//   末尾の空白は塊の外に出す（画面側）＝つなげたとき元の 1 文と同じ。
 export function billedLineParts(label = {}) {
   const short = withTax(billedShortOf(label.price));
   if (label.trial) return [`その後 ${short}`, 'で自動更新'];
-  if (label.intro) return [`${withTax(label.intro.head)}、`, `${label.intro.afterHead} ${short}`, 'で自動更新'];
+  if (label.intro) return [`${withTax(label.intro.head)}、`, `${label.intro.afterHead} `, short, 'で自動更新'];
   return [short, 'で自動更新'];
 }
 

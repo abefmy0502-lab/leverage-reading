@@ -346,7 +346,7 @@ const SCREENS = [
   { name: 'review-memo-zero', url: '/?demo=new', steps: [{ css: 'button[aria-label="閉じる"]' }, { css: nav('振り返り') }, { css: 'button[role=tab]:has-text("メモ")' }] },
   { name: 'review-record-zero', url: '/?demo=new', steps: [{ css: 'button[aria-label="閉じる"]' }, { css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }] },
   { name: 'settings-free', url: '/?demo=free', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { scrollTo: 'section[aria-label="プラン・お支払い"], h2:has-text("プラン・お支払い")' }] },
-  { name: 'landing-sticky', url: '/?demo=auth', steps: [{ scrollTo: '#lp-problem' }, { waitFor: '.lp-sticky.is-visible' }, { wait: 400 }] },
+  { name: 'landing-sticky', url: '/?demo=auth', steps: [{ scrollTo: '#lp-flow' }, { waitFor: '.lp-sticky.is-visible' }, { wait: 400 }] },
   { name: 'paywall-trial', url: '/?demo=paywall&native=1&trial=7日間無料', steps: [{ eval: "window.dispatchEvent(new CustomEvent('orime:paywall', { detail: { reason: null } }))" }] },
   { name: 'paywall-free-covers', url: '/?demo=freeused&native=1', steps: [{ css: nav('相談') }, { css: 'button:has-text("プランを見る")' }] },
   { name: 'webgate-confirmed', url: '/?demo=webgate', steps: [{ eval: "sessionStorage.setItem('orime-email-confirmed', 'true')" }, { reload: true }] },
