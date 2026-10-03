@@ -75,14 +75,18 @@ body.lp-active {
 .lp-skip {
   position: absolute;
   left: var(--space-4);
-  top: -64px;
+  /* 自分の高さぶん上に隠す（固定の -64px だと、文字を最大にしたとき下の端がヘッダーの上にのぞく・2026-10-03）。
+     枠線の 1px が端数でのぞかないよう、さらに 4px 上へ */
+  top: 0;
+  transform: translateY(calc(-100% - var(--space-1)));
+  max-width: calc(100% - 2 * var(--space-4));
   z-index: 100;
   padding: var(--space-2) var(--space-4);
   background: var(--surface);
   border: 1px solid var(--separator);
   border-radius: var(--radius);
 }
-.lp-skip:focus { top: var(--space-4); }
+.lp-skip:focus { transform: translateY(var(--space-4)); }
 
 /* ============ 見出し（文節の途中で改行しない） ============ */
 .lp-h1, .lp-h2, .lp-h3 {
