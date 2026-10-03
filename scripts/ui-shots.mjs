@@ -225,6 +225,12 @@ const SCREENS = [
   { name: 'landing-flow-paused', url: '/?demo=auth', steps: [{ scrollTo: '#lp-flow' }, { wait: 1800 }, { css: '.lp-flow-controls button:has-text("止める")' }, { wait: 600 }] },
   { name: 'landing-hero-3d', url: '/?demo=auth&hero=3d', steps: [{ wait: 5000 }] },
   { name: 'landing-xxl-text', url: '/?demo=auth', steps: [{ eval: () => { document.documentElement.style.fontSize = '40px'; } }, { wait: 800 }] },
+  // PC の 1280 幅: ヒーローのボタンが見えている間はヘッダーのボタンを隠し、スクロールしてヒーローのボタンが隠れたら出す
+  // （App Store の URL を入れたサーバーで撮るとボタンが押せる形）
+  { name: 'landing-desktop', url: '/?demo=auth&founding=on', viewport: { width: 1280, height: 800 }, steps: [{ wait: 800 }] },
+  { name: 'landing-desktop-scrolled', url: '/?demo=auth&founding=on', viewport: { width: 1280, height: 800 }, steps: [{ scrollTo: '#lp-flow' }, { wait: 800 }] },
+  // 料金のボタンが見えている間は、ヘッダーのボタンをまた隠す（主ボタンを 2 つ並べない）
+  { name: 'landing-desktop-pricing', url: '/?demo=auth&founding=on', viewport: { width: 1280, height: 800 }, steps: [{ scrollTo: '#lp-pricing' }, { wait: 800 }] },
   { name: 'landing-xxl-pricing', url: '/?demo=auth&founding=on', steps: [{ eval: () => { document.documentElement.style.fontSize = '40px'; } }, { wait: 500 }, { scrollTo: '#lp-pricing' }, { wait: 800 }] },
   // App Store の URL を入れたとき（VITE_APP_STORE_URL を入れたお試しモードのサーバーで撮る＝ボタンが「無料プランで始める」の押せる形）
   { name: 'landing-store', url: '/?demo=auth&founding=on' },
@@ -646,8 +652,11 @@ let failed = 0;
 for (const scheme of ['light', 'dark']) {
   for (const s of targets) {
     // 画面ごとに新しいコンテキスト（前の画面の localStorage＝開いていたタブ等を持ち越さない）。
+    // s.viewport（例 { width: 1280, height: 800 }）があれば広い画面（PC・マウス）で撮る。既定は iPhone の 390 幅。
     const ctx = await browser.newContext({
-      viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true,
+      ...(s.viewport
+        ? { viewport: s.viewport, deviceScaleFactor: 1, isMobile: false, hasTouch: false }
+        : { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }),
       locale: 'ja-JP', colorScheme: scheme,
       ...(process.env.UI_SHOTS_PROXY ? { ignoreHTTPSErrors: true } : {}),
     });

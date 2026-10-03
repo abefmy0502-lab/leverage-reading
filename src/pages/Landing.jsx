@@ -247,6 +247,7 @@ export default function Landing() {
   const heroCtaRef = useRef(null);
   const [showSticky, setShowSticky] = useState(false);
   // ヒーローのボタンが見えている間は、ヘッダーのボタン（広い画面）を隠す＝主ボタンを 2 つ並べない（2026-10-02 ui-critic）。
+  // 本文の中の同じボタン（料金・最後）が見えている間も true（2026-10-03・広い画面のヘッダーは上に付いたまま）。
   const [heroCtaVisible, setHeroCtaVisible] = useState(true);
   const heroStageRef = useRef(null);
   const heroImgRef = useRef(null);
@@ -365,15 +366,18 @@ export default function Landing() {
       const el = heroCtaRef.current;
       // 本文の中の同じボタン（料金・最後）が見えている間は、下の固定ボタンを出さない（同じボタンを 2 つ並べない）。
       const vh = window.innerHeight;
+      // 広い画面ではヘッダーが上に付いたままなので、その下から見えている範囲で数える（ヘッダーの裏のボタンは見えていない）。
+      const top = Math.max(0, document.querySelector('.lp-header')?.getBoundingClientRect().bottom || 0);
       const inlineCtaVisible = Array.from(document.querySelectorAll('.lp-btn')).some((b) => {
         if (b.closest('.lp-sticky, .lp-header') || el?.contains(b)) return false;
         const r = b.getBoundingClientRect();
-        return r.bottom > 0 && r.top < vh;
+        return r.bottom > top && r.top < vh;
       });
       setShowSticky(!inlineCtaVisible && (el ? el.getBoundingClientRect().bottom < 0 : window.scrollY > 480));
       if (el) {
         const hr = el.getBoundingClientRect();
-        setHeroCtaVisible(hr.bottom > 0 && hr.top < vh);
+        // ヘッダーのボタンは、ヒーローのボタンも本文の中の同じボタン（料金・最後）も見えていないときだけ（主ボタンを 2 つ並べない）。
+        setHeroCtaVisible((hr.bottom > top && hr.top < vh) || inlineCtaVisible);
       }
       const max = document.documentElement.scrollHeight - window.innerHeight;
       const pct = max > 0 ? (window.scrollY / max) * 100 : 100;
