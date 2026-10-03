@@ -63,6 +63,7 @@ import { nextResetLabelJa } from '../lib/freeTrial';
 import { normalizeTrialLabel, trialFirstPhrase } from '../lib/trialNudge';
 import { introOfferOf, introPriceLabel, billedLineParts, planCtaLabel, trialPlanOf, renewalSentence, webRenewalSentence, withTax } from '../lib/planOffers';
 import { readFoundingOffer, devFoundingParam, noBreak, FOUNDING_NAME, FOUNDING_PRICE_YEN, FOUNDING_PRICE_TEXT } from '../lib/foundingOffer';
+import Phrases from '../pages/LpPhrases';
 
 // 未契約でもアカウントを削除できるように（App Store 審査 5.1.1(v)）。設定の削除欄をそのまま使う。
 const AccountSettings = lazy(() => import('./AccountSettings'));
@@ -154,7 +155,12 @@ function PlanCompare({ onlyPlan = false, trial = '', example = TOKEN_EXAMPLE }) 
     <section aria-label={onlyPlan ? 'プランでできること' : '無料プランとプランの違い'} style={{ ...card, padding: 0, marginTop: 'var(--space-6)' }}>
       {rows.map((row, i) => (
         <div key={row.name} style={{ padding: 'var(--space-3) var(--space-4)', borderTop: i === 0 ? 'none' : '1px solid var(--separator)' }}>
-          <p style={{ ...groupTitle, margin: 0 }}>{row.name}{row.name === 'プラン' && trial ? `（${trialFirstPhrase(trial)}）` : ''}</p>
+          {/* 名前とかっこの中は別の塊（大きな文字で「無料プラン（ずっと／無料）」とかっこの中で割れない・2026-10-03 ui-critic） */}
+          <p style={{ ...groupTitle, margin: 0 }}>
+            <span style={chunk}>{row.name.split('（')[0]}</span>
+            {row.name.includes('（') && <span style={chunk}>（{row.name.split('（')[1]}</span>}
+            {row.name === 'プラン' && trial && <span style={chunk}>（{trialFirstPhrase(trial)}）</span>}
+          </p>
           <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5 }}>
             <span style={{ whiteSpace: 'nowrap' }}>{row.amount}</span>
             {/* かっこの中は途中で折り返さない（「相談な／ら」のように割れないよう、まとまりで次の行へ）。 */}
@@ -202,6 +208,9 @@ const COMPACT_RATIO = 0.4;
 // 下に固定の欄の文の塊。ふだんは塊ごとに次の行へ送り（語の途中で割らない）、大きな文字で 1 行に入らないときだけ塊の中で折り返す
 // （nowrap だと画面の外へはみ出していた・2026-10-02）。
 const chunk = { display: 'inline-block', maxWidth: '100%' };
+// 文節の切れ目（BudouX の <wbr>）でだけ折り返す注記（LP の .lp-wbr と同じ・iOS の Safari は auto-phrase が効かない）。
+// 1 行より長い文節だけは中で折り返す（はみ出さない）。2026-10-03 ui-critic
+const phraseText = { wordBreak: 'keep-all', overflowWrap: 'anywhere', lineBreak: 'strict' };
 // 削除だけはエラー色（DESIGN §5）。ほかの文字ボタンとは行を分ける。
 const dangerLinkStyle = { ...linkStyle, color: 'var(--error)' };
 // 文字ボタンの並び（左端は文字の頭をほかの行とそろえる）。
@@ -537,7 +546,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
   const noteBelow = trial
     ? <><span style={chunk}>無料期間が終わる 24 時間前までに解約すれば、</span><span style={chunk}>料金はかかりません。</span></>
     : selected.intro?.upfront
-      ? <><span style={chunk}>{selected.intro.priceString} は、</span><span style={chunk}>始めるときに {selected.intro.span || '1 年'}分をまとめてお支払いします。</span></>
+      ? <span style={phraseText}><Phrases>{`${noBreak(selected.intro.priceString)} は、始めるときに ${noBreak(selected.intro.span || '1 年')}分をまとめてお支払いします。`}</Phrases></span>
       : null;
 
   const ctaLabel = pending
@@ -654,13 +663,13 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
                 始めた人も）。¥9,800 は年額だけ。特典は値段の約束ではないので、ストアの初回価格が無くても期間中なら出す。
                 あわせて、初回特典は 1 つの Apple ID に 1 回であること（App Store の決まり）。 */}
             {priceState === 'ready' && founding.active && (
-              <p style={{ ...metaText, marginTop: 'var(--space-3)' }}>
-                {noBreak(founding.endLabel)}までにプランを始めた方は、月額・年額どちらでも創業メンバーです（開発者への直接の窓口・次に作る機能への投票）。
+              <p style={{ ...metaText, ...phraseText, marginTop: 'var(--space-3)' }}>
+                <Phrases>{`${noBreak(founding.endLabel)}までにプランを始めた方は、月額・年額どちらでも創業メンバーです（開発者への直接の窓口・次に作る機能への投票）。`}</Phrases>
               </p>
             )}
             {priceState === 'ready' && labels.annual?.intro && labels.monthly?.trial && (
-              <p style={{ ...metaText, marginTop: founding.active ? 'var(--space-1)' : 'var(--space-3)' }}>
-                初回特典は 1 つの Apple ID に 1 回です（月額の {normalizeTrialLabel(labels.monthly.trial)}と、年額の {labels.annual.intro.head} は、どちらか一方）。
+              <p style={{ ...metaText, ...phraseText, marginTop: founding.active ? 'var(--space-1)' : 'var(--space-3)' }}>
+                <Phrases>{`初回特典は ${noBreak('1 つ')}の ${noBreak('Apple ID')} に ${noBreak('1 回')}です（月額の ${noBreak(normalizeTrialLabel(labels.monthly.trial))}と、年額の ${noBreak(labels.annual.intro.head)} は、どちらか一方）。`}</Phrases>
               </p>
             )}
 
@@ -719,11 +728,13 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
             </div>
 
             {/* 自動更新の条件（3.1.2 必須開示） */}
-            <p style={{ ...metaText, marginTop: 'var(--space-3)' }}>
-              {/* 下に固定の欄（billedLineParts）と同じ値から作る（初回価格・無料期間のときに「同じ料金で」と食い違わない・2026-10-02） */}
-              お支払いは App Store を通じて行われます。{priceState === 'ready'
+            <p style={{ ...metaText, ...phraseText, marginTop: 'var(--space-3)' }}>
+              {/* 下に固定の欄（billedLineParts）と同じ値から作る（初回価格・無料期間のときに「同じ料金で」と食い違わない・2026-10-02）。
+                  文節で折り返す（「行われま／す」「（税／込）」と割れない・2026-10-03） */}
+              <Phrases>{`お支払いは ${noBreak('App Store')} を通じて行われます。${priceState === 'ready'
                 ? renewalSentence({ ...selected, trial })
-                : '期間が終わる 24 時間前までに解約しない限り、選んだプランの料金で自動更新されます。'}解約は App Store のアカウント設定からいつでもでき、解約してもメモは残ります。
+                : '期間が終わる 24 時間前までに解約しない限り、選んだプランの料金で自動更新されます。'}解約は ${noBreak('App Store')} のアカウント設定からいつでもでき、解約してもメモは残ります。`
+                .replace(/(\d) /g, '$1 ') /* 数と単位を離さない（「24／時間前」と割れない） */}</Phrases>
             </p>
 
             {/* 購入を復元・利用規約・プライバシーポリシー（3.1.2 必須） */}
