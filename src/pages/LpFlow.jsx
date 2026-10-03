@@ -105,6 +105,7 @@ export default function LpFlow({ onEvent = () => {} }) {
     onEvent('flow_replay', {});
   };
   const pause = () => { setPlaying(false); setFinished(true); };
+  const resume = () => { setFinished(false); setPlaying(true); onEvent('flow_replay', { from: step }); };
 
   // 止める／もう一度見る／次へ は、進み具合の行の右端（動いている間も見える場所・2026-10-02 ui-critic）。
   let control = null;
@@ -113,6 +114,9 @@ export default function LpFlow({ onEvent = () => {} }) {
     control = step < FLOW_STEPS.length - 1
       ? <button type="button" className="lp-textbtn" onClick={() => pick(step + 1)}>次へ</button>
       : <button type="button" className="lp-textbtn" onClick={() => pick(0)}>最初から</button>;
+  } else if (finished && step < FLOW_STEPS.length - 1) {
+    // 止めた・手順を押したあと（途中）: 今の枚から続きを見る（「もう一度見る」で最初に戻さない・2026-10-02 ui-critic）。
+    control = <button type="button" className="lp-textbtn" onClick={resume}>続きを見る</button>;
   } else if (finished) control = <button type="button" className="lp-textbtn" onClick={replay}>もう一度見る</button>;
 
   return (

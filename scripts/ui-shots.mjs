@@ -221,6 +221,11 @@ const SCREENS = [
   // 動きを減らす設定（自動で進まない・右端に「次へ」）・創業メンバー価格の FAQ を開いたところ
   { name: 'landing-flow-still', url: '/?demo=auth&motion=static', steps: [{ scrollTo: '#lp-flow' }, { wait: 800 }] },
   { name: 'landing-faq-founding', url: '/?demo=auth&founding=on', steps: [{ scrollTo: '#lp-faq' }, { css: 'summary:has-text("創業メンバー価格とは")' }, { scrollTo: 'summary:has-text("創業メンバー価格とは")' }, { wait: 600 }] },
+  // 相談の流れを「止める」で止めたところ／スマホの 3D のヒーロー（明暗）／LP を最大の文字で（2026-10-02 ui-critic）
+  { name: 'landing-flow-paused', url: '/?demo=auth', steps: [{ scrollTo: '#lp-flow' }, { wait: 1800 }, { css: '.lp-flow-controls button:has-text("止める")' }, { wait: 600 }] },
+  { name: 'landing-hero-3d', url: '/?demo=auth&hero=3d', steps: [{ wait: 5000 }] },
+  { name: 'landing-xxl-text', url: '/?demo=auth', steps: [{ eval: () => { document.documentElement.style.fontSize = '40px'; } }, { wait: 800 }] },
+  { name: 'landing-xxl-pricing', url: '/?demo=auth&founding=on', steps: [{ eval: () => { document.documentElement.style.fontSize = '40px'; } }, { wait: 500 }, { scrollTo: '#lp-pricing' }, { wait: 800 }] },
   // App Store の URL を入れたとき（VITE_APP_STORE_URL を入れたお試しモードのサーバーで撮る＝ボタンが「無料プランで始める」の押せる形）
   { name: 'landing-store', url: '/?demo=auth&founding=on' },
   { name: 'landing-store-pricing', url: '/?demo=auth&founding=on', steps: [{ scrollTo: '#lp-pricing' }, { wait: 800 }] },

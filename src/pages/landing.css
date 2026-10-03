@@ -94,7 +94,7 @@ body.lp-active {
   word-break: auto-phrase;
   text-wrap: balance;
 }
-.lp-h1 > span, .lp-h2 > span { display: inline-block; }
+.lp-h1 > span, .lp-h2 > span { display: inline-block; max-width: 100%; }
 .lp-h1 { font-size: var(--text-display); font-weight: 700; line-height: 1.3; } /* 太さ 700 は画面タイトル（h1）だけ */
 .lp-h2 { font-size: var(--text-display-2); line-height: 1.3; margin-bottom: var(--space-6); }
 .lp-h3 { font-size: var(--text-heading); line-height: 1.3; margin-bottom: var(--space-3); }
@@ -210,8 +210,13 @@ body.lp-active {
 /* 文節で折り返す段落（LpPhrases.jsx が BudouX で文節の切れ目に <wbr> を入れる）。keep-all で文節の中では割らない。
    auto-phrase だけでは iOS の Safari で効かない（2026-10-02 ui-critic）。1 つの文節が行より長いときだけ anywhere で割る。 */
 .lp-root .lp-wbr { word-break: keep-all; overflow-wrap: anywhere; line-break: strict; }
-/* 語の途中で折り返さない塊 */
-.lp-nb { white-space: nowrap; }
+/* 語の途中で折り返さない塊（1 行に入るときは塊ごと次の行へ。最大の文字で 1 行より長いときだけ中で折り返す＝はみ出さない） */
+.lp-nb { display: inline-block; max-width: 100%; }
+/* 最大の文字でも横にはみ出さない（2026-10-02 ui-critic）: ヒーローの列は中身の幅で広がらない・ボタンの文字は折り返せる・
+   文節の塊（inline-block）は 1 行を超えない */
+.lp-hero-grid { grid-template-columns: minmax(0, 1fr); }
+.lp-btn { max-width: 100%; white-space: normal; text-align: center; }
+.lp-eyebrow > span, .lp-story > span, .lp-final-inner .lp-cta-note > span, .lp-h3 > span { max-width: 100%; }
 /* 文字ボタン（相談の流れの「止める」「もう一度見る」） */
 .lp-textbtn {
   min-height: 44px;
