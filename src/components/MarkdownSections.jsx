@@ -247,6 +247,14 @@ function renderLines(lines, opts) {
   // next subhead) are absorbed as the description.
   if (opts?.relatedBooks && opts?.onAddRelatedBook) {
     const out = [];
+    // 続けて並ぶカードは 1 つの縦並び（間 12・カード自身には外側の余白を付けない・2026-10-04 ui-critic）。
+    let cards = [];
+    const flushCards = () => {
+      if (cards.length === 0) return;
+      out.push(<div key={`cards-${out.length}`} style={relatedCardsStyle}>{cards}</div>);
+      cards = [];
+    };
+    const push = (node) => { flushCards(); out.push(node); };
     let pending = null; // { book, lines: [] }
     const flushPending = (key) => {
       if (!pending) return;
@@ -257,7 +265,7 @@ function renderLines(lines, opts) {
       if (pending.skip) { pending = null; return; }
       const book = pending.book;
       const description = pending.lines.join('\n').trim();
-      out.push(
+      cards.push(
         <RelatedBookCard
           key={`rel-${key}`}
           book={book}
@@ -277,7 +285,7 @@ function renderLines(lines, opts) {
         } else if (parsed) {
           pending = { book: parsed, lines: [] };
         } else {
-          out.push(<h4 key={i} style={subHeadingStyle}>{renderInline(stripLeadingEmoji(b.text))}</h4>);
+          push(<h4 key={i} style={subHeadingStyle}>{renderInline(stripLeadingEmoji(b.text))}</h4>);
         }
         return;
       }
@@ -289,9 +297,9 @@ function renderLines(lines, opts) {
       }
       // Non-related fallthrough — render normally.
       if (b.type === 'table') {
-        out.push(renderTable(b.rows, i));
+        push(renderTable(b.rows, i));
       } else if (b.type === 'ul') {
-        out.push(
+        push(
           <ul key={i} style={listStyle}>
             {b.items.map((it, j) => (
               <li key={j} style={liStyle}>
@@ -302,7 +310,7 @@ function renderLines(lines, opts) {
           </ul>,
         );
       } else if (b.type === 'ol') {
-        out.push(
+        push(
           <ol key={i} style={listStyle}>
             {b.items.map((it, j) => (
               <li key={j} style={liStyle}>
@@ -313,10 +321,11 @@ function renderLines(lines, opts) {
           </ol>,
         );
       } else {
-        out.push(renderPara(b.text, i));
+        push(renderPara(b.text, i));
       }
     });
     flushPending('end');
+    flushCards();
     return out;
   }
 
@@ -351,12 +360,12 @@ function renderLines(lines, opts) {
   });
 }
 
+const relatedCardsStyle = { display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', margin: 'var(--space-2) 0' };
 const relatedCardStyle = {
   background: 'var(--surface)',
   border: '1px solid var(--separator)',
   borderRadius: 'var(--radius)',
   padding: 'var(--space-3) var(--space-4)',
-  margin: 'var(--space-2) 0',
   display: 'flex',
   flexDirection: 'column',
   gap: 'var(--space-2)',
