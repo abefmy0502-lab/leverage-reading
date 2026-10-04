@@ -111,7 +111,12 @@ function isCondensedSource(sourceType) {
 // due 判定: 未想起なら作成から minAgeDays、想起済なら前回想起 + dueGapDays(recallCount) 経過で due。
 // 既に最近想起した / 定着したメモはプッシュで送らない（due でない = 候補から除外）。
 // 想起済みは、思い出した日（端末の日付・tzOffsetMin＝JST は +540）の 0 時から数える（アプリの recall.js と同じ・2026-10-04）。
-function pickRecallMemo(notes, { now, minAgeDays = 14, seed = 0, tzOffsetMin = 540 } = {}) {
+// AI が書いたもの（本の AI まとめ）は送らない（自分の言葉だけ・アプリの recall.js の isAiWritten と同じ・2026-10-04）。
+const AI_WRITTEN_KINDS = ['ai_summary'];
+export function isAiWrittenNote(n) {
+  return !!n && (AI_WRITTEN_KINDS.includes(n.kind) || AI_WRITTEN_KINDS.includes(n.sourceType) || n.aiWritten === true);
+}
+export function pickRecallMemo(notes, { now, minAgeDays = 14, seed = 0, tzOffsetMin = 540 } = {}) {
   if (!Array.isArray(notes) || notes.length === 0) return null;
   const minAgeMs = minAgeDays * 86400000;
   const off = (Number.isFinite(Number(tzOffsetMin)) && tzOffsetMin !== null && Math.abs(Number(tzOffsetMin)) <= 14 * 60 ? Number(tzOffsetMin) : 540) * 60000;
@@ -120,6 +125,7 @@ function pickRecallMemo(notes, { now, minAgeDays = 14, seed = 0, tzOffsetMin = 5
   const candidates = [];
   for (const n of notes) {
     if (!n || !n.text || !String(n.text).trim()) continue;
+    if (isAiWrittenNote(n)) continue;
     const created = new Date(n.createdAt).getTime();
     if (Number.isNaN(created)) continue;
 

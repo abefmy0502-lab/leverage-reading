@@ -82,9 +82,19 @@ function isCondensedSource(sourceType) {
   return sourceType === 'summary' || sourceType === 'personal';
 }
 
-// 本文が空・作成日が読めないメモは想起の対象外（null）。
+// AI が書いたもの（本の AI まとめ＝books.ai_summary）は思い出しカード・思い出しの通知に出さない。
+// 思い出すのは自分の言葉だけ（2026-10-04 判断）。振り返りの一覧・検索には「AI まとめ」として残る。
+// kind（振り返りの派生ノート）か sourceType（ai.js・通知の行）のどちらかで見分ける。
+export const AI_WRITTEN_KINDS = Object.freeze(['ai_summary']);
+export function isAiWritten(n) {
+  if (!n) return false;
+  return AI_WRITTEN_KINDS.includes(n.kind) || AI_WRITTEN_KINDS.includes(n.sourceType) || n.aiWritten === true;
+}
+
+// 本文が空・作成日が読めない・AI が書いたメモは想起の対象外（null）。
 function isRecallable(n) {
   if (!n || !n.text || !String(n.text).trim()) return false;
+  if (isAiWritten(n)) return false;
   return !Number.isNaN(new Date(n.createdAt).getTime());
 }
 

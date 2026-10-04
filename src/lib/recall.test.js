@@ -19,6 +19,7 @@ import {
   nextDueLabel,
   applyLocalRecall,
   pickExtraMemo,
+  isAiWritten,
 } from './recall.js';
 
 const DAY = 86400000;
@@ -269,5 +270,28 @@ describe('pickExtraMemo（ここまでのあとの「別のメモを見る」）
   it('本文の無いメモしか無ければ null', () => {
     expect(pickExtraMemo([{ id: 'x', text: '', createdAt: iso(DAY) }], { now: NOW })).toBeNull();
     expect(pickExtraMemo([], { now: NOW })).toBeNull();
+  });
+});
+
+// 2026-10-04: 思い出しカードは自分の言葉だけ（AI まとめは出さない）。
+describe('AI が書いたものは思い出しカードに出さない', () => {
+  const ai = { id: 'ai', text: 'AI の要約', createdAt: iso(200 * DAY), kind: 'ai_summary', sourceType: 'synth', synth: true };
+  const mine = { id: 'mine', text: '自分のメモ', createdAt: iso(200 * DAY) };
+  const youngAi = { id: 'yai', text: 'AI の要約', createdAt: iso(2 * DAY), kind: 'ai_summary' };
+  it('isAiWritten は kind と sourceType の両方で見分ける', () => {
+    expect(isAiWritten(ai)).toBe(true);
+    expect(isAiWritten({ sourceType: 'ai_summary' })).toBe(true);
+    expect(isAiWritten(mine)).toBe(false);
+    expect(isAiWritten({ kind: 'leverage_memo' })).toBe(false);
+    expect(isAiWritten(null)).toBe(false);
+  });
+  it('今日のカード・控え・別のメモ・次の日のどれにも出ない', () => {
+    expect(pickRecallMemo([ai], { now: NOW })).toBeNull();
+    for (let seed = 0; seed < 10; seed += 1) expect(pickRecallMemo([ai, mine], { now: NOW, seed }).id).toBe('mine');
+    expect(pickFallbackMemo([youngAi], { now: NOW })).toBeNull();
+    expect(pickExtraMemo([ai], { now: NOW })).toBeNull();
+    expect(pickExtraMemo([ai, mine], { now: NOW, seed: 1 }).id).toBe('mine');
+    expect(noteDueAt(ai)).toBeNull();
+    expect(nextDueAt([youngAi], { now: NOW })).toBeNull();
   });
 });

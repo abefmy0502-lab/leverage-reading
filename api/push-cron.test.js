@@ -161,6 +161,25 @@ describe('pickDeadlineActions / deadlineMessage', () => {
   });
 });
 
+describe('思い出しの通知で選ぶメモ（2026-10-04）', () => {
+  const old = (id, extra = {}) => ({ id, text: `メモ${id}`, createdAt: new Date(NOW - 100 * 86400000).toISOString(), ...extra });
+  it('AI が書いたもの（AI まとめ）は送らない', () => {
+    expect(mod.pickRecallMemo([old('ai', { sourceType: 'ai_summary' })], { now: NOW })).toBeNull();
+    expect(mod.pickRecallMemo([old('ai', { kind: 'ai_summary' })], { now: NOW })).toBeNull();
+    for (let seed = 0; seed < 10; seed += 1) {
+      expect(mod.pickRecallMemo([old('ai', { sourceType: 'ai_summary' }), old('mine')], { now: NOW, seed })?.id).toBe('mine');
+    }
+  });
+  it('夜に答えたメモも、端末の翌朝には出る（思い出した日の 0 時から数える）', () => {
+    // 端末（JST）の 10/3 21:30 に答えた（recall_count 0 ＝ 1 日後）→ 10/4 8:00 JST には出る
+    const answered = Date.UTC(2026, 9, 3, 12, 30);
+    const morning = Date.UTC(2026, 9, 3, 23, 0);
+    const n = old('n', { lastRecalledAt: new Date(answered).toISOString(), recallCount: 0 });
+    expect(mod.pickRecallMemo([n], { now: morning, tzOffsetMin: 540 })?.id).toBe('n');
+    expect(mod.pickRecallMemo([n], { now: Date.UTC(2026, 9, 3, 14, 0), tzOffsetMin: 540 })).toBeNull();
+  });
+});
+
 describe('ガード（思い出しの通知と期限の通知は別々）', () => {
   it('思い出しの通知は 6.5 日たつまで送らない（毎日の Cron でも多くても週に 1 回）', () => {
     expect(mod.recallDue(new Date(NOW - 6 * 86400000).toISOString(), NOW)).toBe(false);

@@ -23,7 +23,7 @@ import PullToRefresh from './PullToRefresh';
 import EmptyState from './EmptyState';
 import Spinner from './Spinner';
 import { SkeletonBlock } from './Skeleton';
-import { relativeJa, recallFraming, pickRecallMemo, pickFallbackMemo, pickExtraMemo, nextDueAt, nextDueLabel, applyLocalRecall, recallPatch, dueGapDays } from '../lib/recall';
+import { isAiWritten, relativeJa, recallFraming, pickRecallMemo, pickFallbackMemo, pickExtraMemo, nextDueAt, nextDueLabel, applyLocalRecall, recallPatch, dueGapDays } from '../lib/recall';
 import { loadRecallLocal, saveRecallLocal } from '../lib/recallLocal';
 import { shouldAskForReview, markReviewAsked, askReviewToast } from '../lib/reviewRequest';
 import { markActivation } from '../lib/activation';
@@ -106,6 +106,7 @@ const KIND_META = {
   invest_purpose:    { Icon: BarChart3,         label: '得たいこと',     color: 'var(--c-brand)' },
   current_challenge: { Icon: AlertTriangle,     label: '現在の課題',     color: 'var(--c-critical)' },
   hypothesis:        { Icon: FlaskConical,      label: '仮説',          color: 'var(--status-want)' },
+  // AI が書いたもの。一覧・検索には「AI まとめ」と分かる名前で出すが、思い出しカードには出さない（recall.js の isAiWritten・2026-10-04）。
   ai_summary:        { Icon: Bot,               label: 'AI まとめ',      color: 'var(--c-ink-3)' },
   roi_summary:       { Icon: Gem,               label: '一番の収穫',     color: 'var(--c-positive)' },
   leverage_memo:     { Icon: FileText,          label: 'まとめメモ',     color: 'var(--c-brand)' },
@@ -674,7 +675,10 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
     () => (randomMemo || allNotes.length === 0 ? '' : nextDueLabel(nextDueAt(allNotes))),
     [randomMemo, allNotes],
   );
-  const recallDone = !randomMemo && allNotes.length > 0;
+  // 思い出しカードに出せるのは自分の言葉だけ（AI まとめは出さない・2026-10-04）。AI まとめしか無い人には
+  // 「ここまでです」も出さない（思い出しカードの区画ごと出さない）。
+  const hasOwnNotes = useMemo(() => allNotes.some((n) => !isAiWritten(n)), [allNotes]);
+  const recallDone = !randomMemo && hasOwnNotes;
   // 「ここまでです」の下の「別のメモを見る」で出す 1 枚（null＝見ていない）。答えのボタンは出さない。
   // 最近思い出したメモはできるだけ避ける（recall.js の pickExtraMemo）。
   const [extraSeed, setExtraSeed] = useState(null);
