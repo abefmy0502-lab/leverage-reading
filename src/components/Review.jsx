@@ -45,7 +45,7 @@ const sectionTitle = { ...groupTitle, margin: '0 0 var(--space-2)' };
 // カード（ui.js card・内側 16）。
 const cardBase = { ...uiCard, padding: 'var(--space-4)' };
 // 絞り込みのメニューを開く文字ボタン（メモ一覧の「ページ順 ▾」と同じ: --accent・15/600・高さ 44）。
-const filterMenuBtn = { display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, minWidth: 0, maxWidth: '45%', padding: '0 var(--space-1)', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-sub)', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' };
+const filterMenuBtn = { display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, minWidth: 0, maxWidth: '100%', padding: '0 var(--space-1)', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-sub)', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' };
 // 行の中の副ボタン（DESIGN §5 btnRow: 高さ 44・15・600）。
 const btnGhost = { ...uiBtnGhost, width: 'auto', minHeight: 44, padding: 'var(--space-2) var(--space-3)', fontSize: 'var(--text-sub)' };
 
@@ -1155,8 +1155,9 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
       {/* ===== 1. 全メモ検索（一番上・SPEC §4）===== 検索中は結果をすぐ下に出し、思い出しカードと月ごとのメモは隠す。 */}
       <section aria-label="メモを検索">
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <div style={{ position: 'relative' }}>
-            <SearchIcon size={18} aria-hidden="true" style={{ position: 'absolute', left: 'var(--space-3)', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)', pointerEvents: 'none' }} />
+          {/* 虫めがねは文字に合わせた大きさ（em）・入力欄の左の余白も同じ em で空ける（文字を大きくしても重ならない・2026-10-04 ui-critic）。 */}
+          <div style={{ position: 'relative', fontSize: uiInput.fontSize }}>
+            <SearchIcon size="1.1em" aria-hidden="true" style={{ position: 'absolute', left: 'var(--space-3)', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)', pointerEvents: 'none' }} />
             {/* type="search" だとブラウザ既定の青い × が出る（トークン外の色）。消すのは下の「クリア」に任せる。 */}
             <input
               type="text"
@@ -1171,7 +1172,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && e.nativeEvent.isComposing) e.preventDefault();
               }}
-              style={{ ...uiInput, paddingLeft: 'calc(var(--space-8) + var(--space-2))' }}
+              style={{ ...uiInput, paddingLeft: 'calc(var(--space-3) + 1.1em + var(--space-2))' }}
             />
           </div>
           {/* 絞り込みは検索欄に触れてから出す（開いた瞬間の画面を、思い出しカードとメモだけにする）。
@@ -1186,18 +1187,19 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
             }}
           >
             <div style={{ minHeight: 0, overflow: 'hidden' }}>
-            <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', paddingTop: 'var(--space-2)' }}>
+            {/* 文字が大きくて 1 行に入らないときは折り返す（「す…」まで縮めない・2026-10-04 ui-critic）。 */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 'var(--space-2)', rowGap: 0, alignItems: 'center', paddingTop: 'var(--space-2)', marginLeft: 'calc(-1 * var(--space-1))' }}>
               {/* 絞り込みは端末のプルダウンではなく、メモ一覧の「ページ順 ▾」と同じ文字のメニュー（押すと ContextMenu）。 */}
               <button
                 type="button"
                 onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setFilterMenu({ kind: 'kind', x: r.left + 110, y: r.bottom + 4 }); }}
                 aria-haspopup="menu"
                 aria-label={`種類で絞り込む（いまは${kindFilter === 'all' ? 'すべての種類' : (KIND_META[kindFilter]?.label || '')}）`}
-                // 文字の左端を検索欄の端（16）にそろえる（左右 4 の内側余白を打ち消す）。
-                style={{ ...filterMenuBtn, marginLeft: 'calc(-1 * var(--space-1))' }}
+                // 文字の左端を検索欄の端（16）にそろえる（左右 4 の内側余白は、行の負の余白で打ち消す＝折り返しても左端がそろう）。
+                style={filterMenuBtn}
               >
                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{kindFilter === 'all' ? 'すべての種類' : (KIND_META[kindFilter]?.label || 'すべての種類')}</span>
-                <ChevronDown size={16} aria-hidden="true" style={{ flexShrink: 0 }} />
+                <ChevronDown size="1em" aria-hidden="true" style={{ flexShrink: 0 }} />
               </button>
               {/* 本の状態での絞り込みは廃止（メモが付くのは読書中・読了の本だけで、選ぶ意味が薄い）。 */}
               {allTags.length > 0 && (
@@ -1209,7 +1211,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                   style={filterMenuBtn}
                 >
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tagFilter ? `#${tagFilter}` : 'すべてのタグ'}</span>
-                  <ChevronDown size={16} aria-hidden="true" style={{ flexShrink: 0 }} />
+                  <ChevronDown size="1em" aria-hidden="true" style={{ flexShrink: 0 }} />
                 </button>
               )}
               <span style={{ flex: 1 }} />
@@ -1332,7 +1334,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                   }}
                   style={{ ...(flipping ? uiBtnGhostOff : uiBtnGhost), width: 'auto', flex: '1 1 0', minWidth: 'max-content', padding: '0 var(--space-3)', whiteSpace: 'nowrap' }}
                 >
-                  <Check size={16} strokeWidth={2.5} aria-hidden="true" />覚えた
+                  <Check size="1em" strokeWidth={2.5} aria-hidden="true" style={{ flexShrink: 0 }} />覚えた
                 </button>
                 {/* 「もう一度」は「もう一度見る」と読めてしまうので、何が起きるか（明日また出る）が分かる名前に（2026-09-29）。 */}
                 <button
@@ -1349,7 +1351,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
             {/* 🔄→🎯 この気づきを行動にするは、カード右上の「…」（と長押し）のメニューへ。追加できたら一言だけ残す。 */}
             {actionAddedId === randomMemo.id && (
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, marginTop: 'var(--space-2)', fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--success)' }}>
-                <Check size={16} aria-hidden="true" />
+                <Check size="1em" aria-hidden="true" style={{ flexShrink: 0 }} />
                 行動に追加しました
               </div>
             )}

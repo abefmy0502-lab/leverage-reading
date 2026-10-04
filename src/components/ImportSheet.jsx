@@ -9,6 +9,7 @@ import { FileUp, BookOpen } from 'lucide-react';
 import BottomSheet from './BottomSheet';
 import { useConfirm } from './ConfirmDialog';
 import ErrorMessage from './ErrorMessage';
+import { withPhraseBreaks } from './TightBubble';
 import { btnPrimary, btnPrimaryOff, btnLink } from '../styles/ui';
 import { decodeImportBytes, parseImportText, summarizeImport, mergeImportResults, importShortfall, planImport, IMPORT_MAX_BYTES, IMPORT_MAX_BOOKS } from '../lib/importers';
 import { track } from '../lib/analytics';
@@ -188,7 +189,7 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
         <p style={{ ...body, fontSize: 'var(--text-meta)', textAlign: 'center' }}>ファイルはこの端末の中で読み取ります。<span style={nowrap}>外には送りません。</span></p>
         <button type="button" onClick={pickFile} style={btnPrimary}>
-          <FileUp size="1.1em" aria-hidden="true" style={{ flexShrink: 0 }} />ファイルを選ぶ
+          <FileUp size="1.1em" aria-hidden="true" style={{ flexShrink: 0 }} /><span style={{ wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('ファイルを選ぶ')}</span>
         </button>
       </div>
     );

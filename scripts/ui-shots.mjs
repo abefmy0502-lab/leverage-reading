@@ -407,6 +407,8 @@ const SCREENS = [
   // 種類の絞り込み（「この本のまとめ」「AI まとめ」・根拠にできる情報の絞り込み）
   { name: 'consult-knowledge-filter', url: '/', steps: [{ css: nav('相談') }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("根拠にできる情報")' }, { css: 'button[aria-label^="種類で絞り込む"], button:has-text("すべての種類")' }] },
   // 思い出しカード（いちばん大きな文字＝覚えた／まだ覚えていないが 2 行に積まれる）
+  // 文字を最大にしたメモの検索（虫めがねが文字と同じ大きさで、入力欄の文字に重ならない・2026-10-04）
+  { name: 'review-memo-search-xxl-text', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("メモ")' }, { eval: () => { document.documentElement.style.fontSize = '40px'; } }, { wait: 500 }, { fill: ['input[placeholder="メモを検索"]', '投資'] }, { wait: 400 }] },
   { name: 'review-memo-xxl-text', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("メモ")' }, { eval: () => { document.documentElement.style.fontSize = '40px'; } }, { wait: 500 }, { eval: () => { [...document.querySelectorAll('h2')].find((h) => h.textContent.includes('思い出しカード'))?.scrollIntoView({ block: 'center' }); } }, { wait: 200 }] },
   { name: 'action-edit-xxl-text', url: '/', steps: [{ css: nav('振り返り') }, { eval: () => { document.documentElement.style.fontSize = '40px'; } }, { wait: 400 }, { css: 'button[aria-label$="」の操作"]' }, { css: 'button:has-text("編集")' }, { wait: 400 }, { scrollBottom: true }] },
   // 文字を最大にしたシート（題と右上の「キャンセル」が割れずに並ぶか・2026-10-04 ui-critic）
