@@ -27,6 +27,7 @@ import PullToRefresh from './PullToRefresh';
 import EmptyState from './EmptyState';
 import ErrorMessage from './ErrorMessage';
 import TightBubble, { withPhraseBreaks } from './TightBubble';
+import { createSendGuard } from '../lib/sendGuard';
 import { SkeletonBlock } from './Skeleton';
 import { X, MessageCircle, History, BookOpenCheck, Target, Check, RotateCw, MoreHorizontal, ChevronLeft, ChevronDown, ChevronRight, PencilLine, ArrowUp, Square, Plus, Minus, Sprout, Trash2 } from 'lucide-react';
 import ContextMenu from './ContextMenu';
@@ -1081,7 +1082,12 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     runMemoAnswerInto(answerId, q, askBookIds);
   };
 
-  const ask = async (questionText, opts = {}) => {
+  // 二重送信の見張り（lib/sendGuard.js）: 送信を素早く 2 回押すと、state の busy が描画に反映される前（メモを探す・
+  //   同意を待つ・保存する間）に 2 回目も通り抜けていた。同期の印で送っている途中を持ち、終わったら外す（2026-10-04）。
+  const sendGuardRef = useRef(null);
+  if (!sendGuardRef.current) sendGuardRef.current = createSendGuard();
+  const ask = (questionText, opts = {}) => sendGuardRef.current.run(() => askOnce(questionText, opts));
+  const askOnce = async (questionText, opts = {}) => {
     if (!user) {
       toast.error('ログインが必要です。');
       return;
@@ -1958,7 +1964,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                     ただし初日の「相談してみる」で入れた相談（firstDayDraft）は、見出しと「たとえば」を残し、入れた相談を
                     選んだ状態で見せる（押すと入力欄に入れ替わる＝送るのは送信を押したとき・2026-10-02）。 */}
                 {(!input.trim() || firstDayDraft) && <>
-                <h2 id="brain-empty-title" style={{ ...headingStyle, marginBottom: 'var(--space-6)' }}>困っていることを、相談してください</h2>
+                <h2 id="brain-empty-title" style={{ ...headingStyle, marginBottom: 'var(--space-6)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('困っていることを、相談してください')}</h2>
                 <p style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>たとえば</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
                   {introExamples.map(({ text: q, kind }) => {
@@ -3449,7 +3455,8 @@ function BarChip({ name, value, active, disabled, onClick }) {
       }}>
         <span style={{ color: 'var(--text-2)', fontWeight: 400, flexShrink: 0 }}>{name}</span>
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</span>
-        <ChevronDown size={16} aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
+        {/* 文字の横のアイコンは em で（文字サイズの設定に合わせて大きくなる・DESIGN §5） */}
+        <ChevronDown size="1.2em" aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
       </span>
     </button>
   );
