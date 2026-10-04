@@ -900,6 +900,8 @@ function AuthedApp() {
   // 新しく本を追加するフォームの「‹ 戻り先」。openAdd を押した場所（'home' / 'library'）と、
   // 検索（AddBookModal）から来たときの検索語（null＝検索を通っていない）。
   const [addOrigin, setAddOrigin] = useState('library');
+  // AI 選書の確認から「書名で探す」へ進んだときの読書準備（課題・得たいこと・選書理由）。本の追加を別の入口から開いたら消す。
+  const advisorSetupRef = useRef(null);
   const [addFromSearchQuery, setAddFromSearchQuery] = useState(null);
   // Carries an initial query from AddBookModal → BookSearchModal so a search
   // typed there auto-runs without re-typing.
@@ -1424,6 +1426,7 @@ function AuthedApp() {
     // 「読書中」にプリセットする。既定の「読みたい」のままだと、CTA の約束
     // （いま読んでいる本 → すぐメモ）に対して状態セレクタの一段が折れる。
     addStatusPresetRef.current = typeof presetStatus === 'string' ? presetStatus : '';
+    advisorSetupRef.current = null;
     setAddOrigin(tab === 'books' && shelfMode === 'library' ? 'library' : 'home');
     setAddFromSearchQuery(null);
     setAddBookModalOpen(true);
@@ -1464,6 +1467,8 @@ function AuthedApp() {
       totalPages: b.pages || 0,
       isbn: b.isbn || '',
       addedVia: 'search',
+      // AI 選書の確認の「書名で探す」から来たときは、読書準備も引き継ぐ（2026-10-04）。
+      ...(addOrigin === 'advisor' && advisorSetupRef.current ? advisorSetupRef.current : {}),
     };
     setForm(seeded);
     setCurrent(null);
@@ -1693,6 +1698,8 @@ function AuthedApp() {
       title: seed?.title || '',
       author: seed?.author || '',
       isbn: seed?.isbn || '',
+      // AI 選書の確認の「手動で入力する」から来たときは、読書準備も引き継ぐ（2026-10-04）。
+      ...(seed?.setup || (addOrigin === 'advisor' && advisorSetupRef.current) || {}),
     });
     setCurrent(null);
     setView('edit');
@@ -5430,7 +5437,8 @@ function AuthedApp() {
                   <BookAdvisor
                     onAddBook={(rec, payload) => addFromAdvisor(rec, payload)}
                     // 確認の候補に目当ての本が無いとき: 書名で探す（検索を開いて自動で探す）／手動で入力する。戻り先は「‹ AI 選書」。
-                    onSearchBook={(q) => { addStatusPresetRef.current = ''; setAddOrigin('advisor'); setAddFromSearchQuery(q || ''); setAddBookModalOpen(true); }}
+                    // 読書準備（課題・得たいこと・選書理由）も渡す（「読みたいに追加」と同じ中身・2026-10-04）。
+                    onSearchBook={(q, setup) => { addStatusPresetRef.current = ''; advisorSetupRef.current = setup || null; setAddOrigin('advisor'); setAddFromSearchQuery(q || ''); setAddBookModalOpen(true); }}
                     onManualBook={(seed) => { addStatusPresetRef.current = ''; setAddOrigin('advisor'); openManualFromAdd(seed); setAddFromSearchQuery(null); }}
                     sessionApi={advisorSessions}
                     books={books}

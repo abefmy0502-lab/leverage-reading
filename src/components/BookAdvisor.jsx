@@ -1023,6 +1023,27 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     next.delete(title);
     return next;
   });
+  // 読書準備の 4 項目は、AI を呼ばずに手元の材料から埋める（2026-09-27・原価の節約）。
+  //   以前は追加のたびに会話を AI で要約していた（本人は AI を頼んでいない＝見えない原価）。
+  //   課題＝最初の相談＋ヒアリングの 1 問目 / 得たいこと＝理想の状態の答え（2026-09-29・lib/advisorText.js）/
+  //   理由＝推薦の「なぜ」＋「この本の核心: …」。どれも本人がその場で見た言葉なので、ずれない。
+  //   仮説は空のまま（推薦の核心は AI の言葉で、本人の仮説ではない＝読む前に自分で書く欄・2026-09-30）。
+  //   確認の「書名で探す」「手動で入力する」から追加するときも同じ中身を渡す（2026-10-04・以前はそちらの道だと空のままだった）。
+  const setupPayloadFor = (rec) => {
+    const setup = advisorSetupFields(
+      lastUserQuery,
+      interviewAnswers.map((x) => ({ q: x?.q, a: clamp(sanitizeForPrompt(String(x?.a || '')), 120) })),
+    );
+    // sourceQuery は「得たいこと」へのプレフィル・「AI 選書で入力した内容に戻す」の元（App.jsx buildFormFromBook /
+    // BookPhases）なので、得たいことと同じ値にする（相談＝課題が得たいことへ戻らないように）。
+    return {
+      sourceQuery: clamp(setup.purpose, 400),
+      investPurpose: clamp(setup.purpose, 400),
+      currentChallenge: clamp(setup.challenge, 400),
+      hypothesis: '',
+      bookReason: clamp([String(rec?.why || '').trim(), rec?.core ? `この本の核心: ${String(rec.core).trim()}` : ''].filter(Boolean).join('\n'), 400),
+    };
+  };
   const proceedAdd = (verifiedRec) => {
     // ここで初めて「追加済み」にする（確認でキャンセルした本は、押す前の見た目のまま）。
     clearChecking(verifiedRec.title);
@@ -1034,25 +1055,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     revealAddedRow(verifiedRec.title);
     // すべての I/O を Promise.resolve().then で次の tick へ。handler 同期維持。
     Promise.resolve().then(async () => {
-      // 読書準備の 4 項目は、AI を呼ばずに手元の材料から埋める（2026-09-27・原価の節約）。
-      //   以前は追加のたびに会話を AI で要約していた（本人は AI を頼んでいない＝見えない原価）。
-      //   課題＝最初の相談＋ヒアリングの 1 問目 / 得たいこと＝理想の状態の答え（2026-09-29・lib/advisorText.js）/
-      //   理由＝推薦の「なぜ」＋「この本の核心: …」。どれも本人がその場で見た言葉なので、ずれない。
-      //   仮説は空のまま（推薦の核心は AI の言葉で、本人の仮説ではない＝読む前に自分で書く欄・2026-09-30）。
-      const setup = advisorSetupFields(
-        lastUserQuery,
-        interviewAnswers.map((x) => ({ q: x?.q, a: clamp(sanitizeForPrompt(String(x?.a || '')), 120) })),
-      );
       try {
-        // sourceQuery は「得たいこと」へのプレフィル・「AI 選書で入力した内容に戻す」の元（App.jsx buildFormFromBook /
-        // BookPhases）なので、得たいことと同じ値にする（相談＝課題が得たいことへ戻らないように）。
-        const saved = await onAddBook(verifiedRec, {
-          sourceQuery: clamp(setup.purpose, 400),
-          investPurpose: clamp(setup.purpose, 400),
-          currentChallenge: clamp(setup.challenge, 400),
-          hypothesis: '',
-          bookReason: clamp([String(verifiedRec.why || '').trim(), verifiedRec.core ? `この本の核心: ${String(verifiedRec.core).trim()}` : ''].filter(Boolean).join('\n'), 400),
-        });
+        const saved = await onAddBook(verifiedRec, setupPayloadFor(verifiedRec));
         // onAddBook (addFromAdvisor) は失敗を内部 catch で握りつぶし null を
         // 返す（throw しない）。falsy を失敗として扱わないと rollback が
         // 一度も発火せず、追加されていないのに「✅ 追加済み」で固まる。
@@ -1144,14 +1148,14 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     const { rec } = confirmAdd;
     setConfirmAdd(null);
     clearChecking(rec.title);
-    onSearchBook?.(rec.title || '');
+    onSearchBook?.(rec.title || '', setupPayloadFor(rec));
   };
   const handleConfirmManual = () => {
     if (!confirmAdd) return;
     const { rec } = confirmAdd;
     setConfirmAdd(null);
     clearChecking(rec.title);
-    onManualBook?.({ title: rec.title || '', author: rec.author || '' });
+    onManualBook?.({ title: rec.title || '', author: rec.author || '', setup: setupPayloadFor(rec) });
   };
 
   // 新メッセージ追加時に最下部へオートスクロール (LINE 挙動)。
