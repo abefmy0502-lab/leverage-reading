@@ -77,12 +77,19 @@ const listStyle = {
   paddingLeft: 0,
   listStyleType: 'none',
   overflowWrap: 'anywhere',
-  wordBreak: 'keep-all',
+  // 箇条書きは文節で止めずにそのまま流す（2026-10-04 ui-critic）。keep-all＋文節の <wbr> だと、行に入りきらない
+  // 文節（「健康・人間関係）」「説明している部分」など 7〜9 字のまとまり）ごと次の行へ送るので、明朝 18 の狭い
+  // 箇条書き（点の分だけ幅が狭い）では 10〜14 字で折り返して右がぎざぎざに空いていた。相談の引用（2026-09-30）と同じく
+  // ふつうの日本語の折り返し（禁則は line-break: strict）に。段落（paraStyle）は今までどおり文節で。
+  wordBreak: 'normal',
+  lineBreak: 'strict',
   display: 'flex',
   flexDirection: 'column',
   gap: 'var(--space-2)',
 };
 const liStyle = { display: 'flex', gap: 'var(--space-2)', alignItems: 'flex-start' };
+// 文の部分は残りの幅いっぱいに（flex の子が中身の幅で縮んで早めに折り返さないように）。
+const liTextStyle = { flex: 1, minWidth: 0 };
 // 「ChatGPT 出力」っぽさを消すための上品な箇条書きマーカー（小さなアクセントの点）。
 const bulletDot = { flexShrink: 0, width: 'var(--space-1)', height: 'var(--space-1)', borderRadius: '50%', background: 'var(--text-3)', marginTop: 'var(--space-3)' };
 const olNumStyle = { flexShrink: 0, minWidth: 'var(--space-4)', color: 'var(--text-3)', fontWeight: 600, fontVariantNumeric: 'tabular-nums' };
@@ -156,7 +163,7 @@ function renderTable(rows, key) {
   );
 }
 
-function renderInline(text) {
+function renderInline(text, { phrase = true } = {}) {
   // Very small inline parser: **bold**
   const parts = [];
   let cursor = 0;
@@ -164,10 +171,12 @@ function renderInline(text) {
   let m;
   let i = 0;
   // 文は文節の切れ目に <wbr> を入れる（段落・箇条書きの keep-all と組で、語の途中で折り返さない・2026-09-30）。
-  const phrased = (str, key) => <span key={key}>{withPhraseBreaks(str)}</span>;
+  //   箇条書き（phrase: false）は <wbr> を入れずにそのまま流す（listStyle の説明）。
+  const brk = (str) => (phrase ? withPhraseBreaks(str) : str);
+  const phrased = (str, key) => <span key={key}>{brk(str)}</span>;
   while ((m = re.exec(text)) !== null) {
     if (m.index > cursor) parts.push(phrased(text.slice(cursor, m.index), `t-${i}`));
-    parts.push(<strong key={`b-${i}`} style={{ color: 'var(--text)', fontWeight: 600 }}>{withPhraseBreaks(m[1])}</strong>);
+    parts.push(<strong key={`b-${i}`} style={{ color: 'var(--text)', fontWeight: 600 }}>{brk(m[1])}</strong>);
     cursor = m.index + m[0].length;
     i += 1;
   }
@@ -304,7 +313,7 @@ function renderLines(lines, opts) {
             {b.items.map((it, j) => (
               <li key={j} style={liStyle}>
                 <span style={bulletDot} aria-hidden="true" />
-                <span>{renderInline(it)}</span>
+                <span style={liTextStyle}>{renderInline(it, { phrase: false })}</span>
               </li>
             ))}
           </ul>,
@@ -315,7 +324,7 @@ function renderLines(lines, opts) {
             {b.items.map((it, j) => (
               <li key={j} style={liStyle}>
                 <span style={olNumStyle} aria-hidden="true">{j + 1}.</span>
-                <span>{renderInline(it)}</span>
+                <span style={liTextStyle}>{renderInline(it, { phrase: false })}</span>
               </li>
             ))}
           </ol>,
@@ -338,7 +347,7 @@ function renderLines(lines, opts) {
           {b.items.map((it, j) => (
             <li key={j} style={liStyle}>
               <span style={bulletDot} aria-hidden="true" />
-              <span>{renderInline(it)}</span>
+              <span style={liTextStyle}>{renderInline(it, { phrase: false })}</span>
             </li>
           ))}
         </ul>
@@ -350,7 +359,7 @@ function renderLines(lines, opts) {
           {b.items.map((it, j) => (
             <li key={j} style={liStyle}>
               <span style={olNumStyle} aria-hidden="true">{j + 1}.</span>
-              <span>{renderInline(it)}</span>
+              <span style={liTextStyle}>{renderInline(it, { phrase: false })}</span>
             </li>
           ))}
         </ol>
