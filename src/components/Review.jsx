@@ -262,7 +262,7 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
     <button
       type="button"
       onClick={(e) => { e.stopPropagation(); if (book) onOpenBook?.(book, memo.id); }}
-      style={{ background: 'none', border: 'none', padding: 0, minHeight: 44, margin: inHeader ? 'calc(-1 * var(--space-3)) 0' : 'calc(-1 * var(--space-2)) 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', cursor: book ? 'pointer' : 'default', fontFamily: 'inherit', textAlign: 'left', display: 'block', minWidth: 0, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', ...(inHeader ? { flex: 1 } : {}) }}
+      style={{ background: 'none', border: 'none', padding: 0, minHeight: 44, margin: inHeader ? 'calc(-1 * var(--space-3)) 0' : 'calc(-1 * var(--space-2)) 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', cursor: book ? 'pointer' : 'default', fontFamily: 'inherit', textAlign: 'left', display: 'block', minWidth: 0, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', ...(inHeader ? { flex: '1 1 0', minWidth: '50%' } : {}) }}
     >
       {/* 1 行目は書名だけ（著者は本の詳細にある・長い書名が著者で切れないように・SPEC §4・2026-09-29）。 */}
       {book?.title || '（本のデータが見つかりません）'}
@@ -290,7 +290,8 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
       } : null)}
       {...(onLongPress && !isSynth ? longPress.bind : {})}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-2)', flexWrap: bookInHeader ? 'nowrap' : 'wrap' }}>
+      {/* 書名は行の半分以上を保つ。文字が大きくて日付・ページが残りに入らないときは、日付が次の行へ回る（書名が「1兆…」まで縮まない・2026-10-04）。 */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', columnGap: 'var(--space-2)', rowGap: 0, flexWrap: 'wrap' }}>
         {bookInHeader ? bookButton(true) : (
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
           {showKind && <span
