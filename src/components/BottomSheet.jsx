@@ -124,10 +124,12 @@ export default function BottomSheet({ title, onClose, children, footer, dismissL
             <div className="lvg-sheet-handle" aria-hidden="true" />
           </div>
           {title && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', minHeight: 44, padding: 'var(--space-1) var(--space-4) var(--space-2)', borderBottom: '1px solid var(--separator)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', columnGap: 'var(--space-3)', rowGap: 0, flexWrap: 'wrap-reverse', minHeight: 44, padding: 'var(--space-1) var(--space-4) var(--space-2)', borderBottom: '1px solid var(--separator)' }}>
               {/* 文字を大きくしたとき: 題は文節の切れ目で折り返し、右の「キャンセル」「完了」は 1 行のまま
-                  （「キャン／セル」と割れていた・2026-10-04）。 */}
-              <h3 style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{typeof title === 'string' ? withPhraseBreaks(title) : title}</h3>
+                  （「キャン／セル」と割れていた・2026-10-04）。題が 9 字ぶんの幅も取れないほど大きいときは、
+                  「キャンセル」「完了」を題の上の行の右へ回し、題は全幅で折り返す（題が 1 行 3〜4 字に縮まない・
+                  wrap-reverse なので回った行が上に来る・ふだんの大きさでは 1 行のまま）。 */}
+              <h3 style={{ flex: '1 1 0', minWidth: 'min(100%, 9em)', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{typeof title === 'string' ? withPhraseBreaks(title) : title}</h3>
               {/* 既定は「完了」（変更がその場で効くシート）。下に決定ボタンがあるシートは
                   dismissLabel="キャンセル" を渡す（決定の入口を 2 つにしない・iOS で「完了」は決定の意味）。 */}
               {/* 閉じられない間（取り込み中など）も場所は残して隠す（見出しの行の高さを変えない）。 */}
@@ -139,7 +141,7 @@ export default function BottomSheet({ title, onClose, children, footer, dismissL
                   aria-hidden={!dismissible || undefined}
                   tabIndex={dismissible ? undefined : -1}
                   // 押せる範囲は 44 のまま、文字の右端を画面の余白 16 にそろえる（右寄せ）。
-                  style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', background: 'none', border: 'none', color: dismissLabel === '完了' ? 'var(--accent)' : 'var(--text-2)', fontSize: 'var(--text-body)', fontWeight: dismissLabel === '完了' ? 600 : 400, cursor: 'pointer', fontFamily: 'inherit', minHeight: 44, minWidth: 44, padding: 0, flexShrink: 0, whiteSpace: 'nowrap', visibility: dismissible ? 'visible' : 'hidden' }}
+                  style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', background: 'none', border: 'none', color: dismissLabel === '完了' ? 'var(--accent)' : 'var(--text-2)', fontSize: 'var(--text-body)', fontWeight: dismissLabel === '完了' ? 600 : 400, cursor: 'pointer', fontFamily: 'inherit', minHeight: 44, minWidth: 44, padding: 0, flexShrink: 0, marginLeft: 'auto', whiteSpace: 'nowrap', visibility: dismissible ? 'visible' : 'hidden' }}
                 >
                   {dismissLabel}
                 </button>

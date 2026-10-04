@@ -140,9 +140,9 @@ const QUICK_DEADLINES = [
 ];
 
 const PRIORITIES = [
-  { v: 'high',   label: (<><ArrowUp size={16} aria-hidden="true" />高</>) },
-  { v: 'medium', label: (<><Minus size={16} aria-hidden="true" />中</>) },
-  { v: 'low',    label: (<><ArrowDown size={16} aria-hidden="true" />低</>) },
+  { v: 'high',   label: (<><ArrowUp size="1em" aria-hidden="true" style={{ flexShrink: 0 }} />高</>) },
+  { v: 'medium', label: (<><Minus size="1em" aria-hidden="true" style={{ flexShrink: 0 }} />中</>) },
+  { v: 'low',    label: (<><ArrowDown size="1em" aria-hidden="true" style={{ flexShrink: 0 }} />低</>) },
 ];
 
 const RECURRENCES = [

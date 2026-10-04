@@ -188,7 +188,7 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
         <p style={{ ...body, fontSize: 'var(--text-meta)', textAlign: 'center' }}>ファイルはこの端末の中で読み取ります。<span style={nowrap}>外には送りません。</span></p>
         <button type="button" onClick={pickFile} style={btnPrimary}>
-          <FileUp size={18} aria-hidden="true" />ファイルを選ぶ
+          <FileUp size="1.1em" aria-hidden="true" style={{ flexShrink: 0 }} />ファイルを選ぶ
         </button>
       </div>
     );
