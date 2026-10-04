@@ -5728,6 +5728,7 @@ function AuthedApp() {
         <Suspense fallback={<Spinner />}>
           <ActionEditModal
             mode="create"
+            bookTitle={books.find((b) => b.id === addActionSheet.bookId)?.title || ''}
             // 相談の答えから来たときは、ほかの「行動に追加」と同じく期限は明日で入れておく（2026-09-30）。
             action={addActionSheet.prefillText
               ? { text: addActionSheet.prefillText, ...(addActionSheet.from === 'consult' ? { deadline: tomorrowLocal() } : null) }

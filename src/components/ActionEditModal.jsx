@@ -157,7 +157,9 @@ const RECURRENCES = [
 // step: 「期限を見直す」で期限を過ぎた行動を順に開くとき { index, total }（見出しを「期限を見直す（2/5）」、
 //   あとがあれば保存ボタンを「保存して次へ」に・2026-09-30）。
 // onSkip: 「期限を見直す」の途中で、この行動は変えずに次へ（step があるときだけ出す・2026-09-30）。
-export default function ActionEditModal({ action, onSave, onClose, onDelete, onSkip, mode = 'edit', step = null }) {
+// bookTitle: どの本の行動か（題の下に『書名』・追加のときは本を選んだすぐあとなので特に・2026-10-04）。無ければ action.bookTitle。
+export default function ActionEditModal({ action, onSave, onClose, onDelete, onSkip, mode = 'edit', step = null, bookTitle = null }) {
+  const shownBookTitle = bookTitle || action?.bookTitle || '';
   const isCreate = mode === 'create';
   // 「期限を見直す」の途中（期限を決め直すのが目的なので、期限の欄にカーソルを置き、ボタンは短い言葉に）。
   const reviewing = !!step;
@@ -262,7 +264,12 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete, onS
     <div style={overlayStyle} role="dialog" aria-modal="true" aria-labelledby={titleId} onClick={() => { if (!busy) requestClose(); }}>
       <div ref={trapRef} style={cardStyle} onClick={(e) => e.stopPropagation()}>
         <div style={headerStyle}>
-          <h2 id={titleId} style={{ fontSize: 'var(--text-body)', color: 'var(--text)', margin: 0, fontWeight: 600, flex: 1 }}>{isCreate ? '行動を追加' : step ? `期限を見直す（${step.index}/${step.total}）` : '行動を編集'}</h2>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h2 id={titleId} style={{ fontSize: 'var(--text-body)', color: 'var(--text)', margin: 0, fontWeight: 600 }}>{isCreate ? '行動を追加' : step ? `期限を見直す（${step.index}/${step.total}）` : '行動を編集'}</h2>
+            {shownBookTitle && (
+              <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>『{shownBookTitle}』</p>
+            )}
+          </div>
           {/* やめる・キャンセルは右上の × 1 か所（下の行は 削除＋保存 だけ・2026-10-01 ui-critic）。 */}
           <button type="button" style={closeBtn} onClick={() => { if (!busy) requestClose(); }} aria-label={reviewing ? '見直しをやめる' : '閉じる'}><X size={20} aria-hidden="true" /></button>
         </div>
@@ -345,7 +352,7 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete, onS
                   type="button"
                   aria-pressed={(recurrence || '') === r.v}
                   onClick={() => setRecurrence(r.v)}
-                  style={{ ...chipBtn((recurrence || '') === r.v), flex: '1 1 auto', whiteSpace: 'nowrap' }}
+                  style={{ ...chipBtn((recurrence || '') === r.v), flex: '1 1 0', minWidth: 'max-content', whiteSpace: 'nowrap' }}
                 >
                   {r.label}
                 </button>
