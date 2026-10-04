@@ -41,7 +41,7 @@ import {
 
 // 本棚ツールバー（シート化）用の共通スタイル。
 const SHELF_CHIP_ORDER = ['reading', 'done', 'before', 'want'];
-const SORT_LABELS = { updated: '更新順', created: '登録順', title: 'タイトル順', rating: '評価順' };
+const SORT_LABELS = { updated: '更新順', created: '登録順', title: '書名順', rating: '評価順' };
 // 状態・フォルダのチップ（DESIGN §5: 見た目は --fill 面・13px・高さ 32、押せる範囲は 44）。
 function ShelfChip({ active, onClick, children, ariaLabel }) {
   return (
@@ -1931,7 +1931,7 @@ function AuthedApp() {
     // 複数 await を含むため、連打すると新規本が二重作成されうる。
     if (savingRef.current) return;
     if (!form.title.trim()) {
-      toast.error(fieldRequiredMessage('タイトル'));
+      toast.error(fieldRequiredMessage('書名'));
       return;
     }
     savingRef.current = true;

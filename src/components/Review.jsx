@@ -1212,7 +1212,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
               enterKeyHint="search"
               maxLength={100}
               placeholder="メモを検索"
-              aria-label="メモ横断検索: 本文・タイトル・著者・タグから探す"
+              aria-label="メモ横断検索: 本文・書名・著者・タグから探す"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onFocus={() => setSearchActive(true)}
