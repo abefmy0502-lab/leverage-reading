@@ -608,6 +608,9 @@ const SCREENS = [
   // 設定: データの初期化の確かめ・アカウント削除を開いたところ
   { name: 'settings-reset-confirm', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:has-text("データをすべて初期化する")' }] },
   { name: 'settings-delete-open', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:has-text("アカウントの削除を開始")' }] },
+  // 過去の AI 選書（押し込まれた画面の形・上の行 1 本）と、その中身
+  { name: 'advisor-history', url: '/', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }, { css: 'button:has-text("時間が足りない")' }, { wait: 1200 }, { css: 'button:has-text("大事な仕事に集中できる")' }, { wait: 8000 }, { css: 'button[aria-label="履歴を見る"]' }, { wait: 800 }] },
+  { name: 'advisor-history-detail', url: '/', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }, { css: 'button:has-text("時間が足りない")' }, { wait: 1200 }, { css: 'button:has-text("大事な仕事に集中できる")' }, { wait: 8000 }, { css: 'button[aria-label="履歴を見る"]' }, { wait: 800 }, { css: 'li button >> nth=0' }, { wait: 800 }] },
   // 根拠にできる情報（日付は「9/29」の形）
   { name: 'consult-knowledge-dates', url: '/', steps: [{ css: nav('相談') }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("根拠にできる情報")' }, { wait: 800 }] },
   // ── 運営ダッシュボード「ローンチの 4 つの数字」（2026-10-02・管理者だけ・?admin=1 は src/demo/demoAdmin.js）
