@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import BookAbout, { glueForDisplay } from './BookAbout';
 
-const text = (html) => html.replace(/<wbr\s*\/?>/g, '').replace(/<[^>]+>/g, '').replace(/\u2060/g, '');
+const text = (html) => html.replace(/<wbr\s*\/?>/g, '').replace(/<[^>]+>/g, '').replace(/\u2060/g, '').replace(/\u00a0|&nbsp;/g, ' ');
 const INFO = {
   description: '寿命が延びる時代の人生設計を考える本。',
   toc: ['序章 100年ライフ', '第1章 長い生涯'],
