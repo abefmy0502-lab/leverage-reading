@@ -25,6 +25,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { toMessage, isSchemaError } from '../lib/errors';
+import ErrorMessage from './ErrorMessage';
 import FeedbackForm from './FeedbackForm';
 import { exportUserDataAsCSV, exportMemosAsMarkdown } from '../lib/exportData';
 import { forceUpdate as forceAppUpdate } from '../lib/swUpdate';
@@ -348,8 +349,8 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
   const [exporting, setExporting] = useState(false);
   const [exportingMd, setExportingMd] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  // 削除の失敗は、押したボタンのすぐ下に残す（消えるトーストだけだと、取り消せない操作の結果を見逃す・2026-10-04）。
-  const [deleteError, setDeleteError] = useState('');
+  // 削除の失敗は、押したボタンのすぐ下に ErrorMessage で残す（消えるトーストだけだと、取り消せない操作の結果を見逃す・2026-10-04）。
+  const [deleteError, setDeleteError] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [confirmText, setConfirmText] = useState('');
@@ -645,7 +646,9 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
     }
   };
 
-  const handleDelete = async () => {
+  // retry: 失敗の「もう一度」から（確かめるダイアログはもう答えてあるので出さない）。
+  const handleDelete = async (opts) => {
+    const retry = opts?.retry === true;
     if (!user || !isSupabaseConfigured) {
       toast.error('ログインが必要です。');
       return;
@@ -654,7 +657,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
       toast.error('確認入力が一致しません。');
       return;
     }
-    const ok = await confirm({
+    const ok = retry || await confirm({
       title: '本当にすべて削除しますか？',
       message:
         '本・メモ・写真・行動・相談の履歴・タグ・AI 選書の履歴など、すべてのデータが完全に削除されます。\n\nログイン情報の完全削除は管理者の最終確認後（通常 7 日以内）に実行されます。この操作は取り消せません。',
@@ -665,7 +668,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
     if (!ok) return;
 
     setDeleting(true);
-    setDeleteError('');
+    setDeleteError(false);
     let storageError = null;
     // 本当の削除失敗（RLS 拒否・接続断など）だけを集める。テーブル/列が無い
     // schema-error は未適用 DB 互換のため握りつぶしてスキップする。
@@ -750,7 +753,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
       // 有効に存在するので「失敗」ではなく成功として先へ進める。
       if (reqError && reqError.code !== '23505') {
         console.error('account_deletion_requests insert failed:', reqError);
-        setDeleteError('削除の受け付けに失敗しました。お手数ですが、下の「お問い合わせ」からご連絡ください。');
+        setDeleteError(true);
         return;
       }
 
@@ -758,7 +761,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
       // （削除リクエストの insert は上で済ませているので、管理者が追って手当て可能）。
       if (dbErrors.length > 0) {
         console.error('account deletion partial failure:', dbErrors);
-        setDeleteError('一部のデータを削除できませんでした。お手数ですが、下の「お問い合わせ」からご連絡ください。');
+        setDeleteError(true);
         return;
       }
 
@@ -767,7 +770,8 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
       try { await signOut(); } catch { /* ignore */ }
       onAfterDelete?.();
     } catch (e) {
-      setDeleteError(toMessage(e, '削除できませんでした。通信の状態を確かめて、もう一度お試しください。'));
+      console.error('account deletion failed:', e);
+      setDeleteError(true);
     } finally {
       setDeleting(false);
     }
@@ -1201,7 +1205,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                             aria-label="削除をキャンセル"
                             // 削除中は押せない見た目（btnGhostOff・薄くしない・DESIGN §5）。
                             style={{ ...(deleting ? btnGhostOff : btnGhost), flex: 1, opacity: 1 }}
-                            onClick={() => { setDeleteOpen(false); setConfirmText(''); setDeleteError(''); }}
+                            onClick={() => { setDeleteOpen(false); setConfirmText(''); setDeleteError(false); }}
                             disabled={deleting}
                           >
                             キャンセル
@@ -1217,10 +1221,15 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                             {deleting ? '削除中…' : '完全に削除'}
                           </button>
                         </div>
-                        {deleteError && (
-                          <p role="alert" style={{ ...rowDescStyle, margin: 0, color: 'var(--error)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-                            {withPhraseBreaks(deleteError)}
-                          </p>
+                        {deleteError && !deleting && (
+                          // ほかの画面の失敗と同じ ErrorMessage（題＋次にすること＋「もう一度」）。中の理由は出さない（toMessage はログだけ）。
+                          <div style={{ marginTop: 'var(--space-1)' }}>
+                            <ErrorMessage
+                              title="削除を受け付けられませんでした"
+                              description="時間をおいてもう一度お試しください。続くときはお問い合わせへ。"
+                              actions={[{ label: 'もう一度', variant: 'secondary', onClick: () => handleDelete({ retry: true }) }]}
+                            />
+                          </div>
                         )}
                       </>
                     );

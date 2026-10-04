@@ -21,6 +21,9 @@ import { isDemo, supabase } from '../lib/supabase';
 import { toMessage } from '../lib/errors';
 import { btnPrimary, btnPrimaryOff } from '../styles/ui';
 
+// 選んだ行（--accent-soft の面）の上の骨組みの棒。
+const skeletonOnAccent = { background: 'linear-gradient(90deg, var(--separator) 0%, var(--accent-soft) 50%, var(--separator) 100%)', backgroundSize: '200% 100%' };
+
 const optionBase = {
   display: 'flex', alignItems: 'center', gap: 'var(--space-3)', width: '100%', minHeight: 44,
   padding: 'var(--space-3) var(--space-4)', textAlign: 'left', borderRadius: 'var(--radius)',
@@ -181,7 +184,9 @@ export default function TokenSheet({ plan, onClose, onPurchased }) {
           // 価格の欄: Web は既定の表示・アプリ版はストアの値だけ（読み込み中は骨組み・取れなければ何も出さない）。
           let price = null;
           if (!showNative) price = prices[p.id] || p.fallbackPrice;
-          else if (priceState === 'loading') price = <SkeletonBlock width={56} height="var(--text-body)" radius="var(--radius)" style={{ display: 'inline-block', verticalAlign: 'middle' }} />;
+          // 選んだ行の --accent-soft の面の上では、棒を --separator に（ふつうの骨組みの色は暗い画面でこの面に溶けて見えない・
+          //   光の流れは --separator ↔ --accent-soft・相談の --fill の箱の上の骨組みと同じ考え・2026-10-04）。
+          else if (priceState === 'loading') price = <SkeletonBlock width={56} height="var(--text-body)" radius="var(--radius)" style={{ display: 'inline-block', verticalAlign: 'middle', ...(on ? skeletonOnAccent : null) }} />;
           else if (priceState === 'ready' && prices[p.id]) price = prices[p.id];
           return (
             <button

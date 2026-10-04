@@ -1859,7 +1859,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 title="過去の相談を読み込めませんでした"
                 // 下のボタン（もう一度）と同じ言葉を重ねない。
                 description="通信の状態を確かめてください。"
-                actions={[{ label: 'もう一度', variant: 'primary', onClick: () => { setHistoryError(false); setHistoryLoaded(false); fetchHistory(); } }]}
+                // ほかの画面の「もう一度」と同じ枠線のボタン（variant: 'secondary'・2026-10-04）。
+                actions={[{ label: 'もう一度', variant: 'secondary', onClick: () => { setHistoryError(false); setHistoryLoaded(false); fetchHistory(); } }]}
               />
             )}
             {/* 戻るは上の「‹ 相談」だけ（同じ操作のボタンを 2 か所に出さない）。 */}
@@ -2368,10 +2369,14 @@ function HistorySkeleton() {
       {[0, 1].map((i) => (
         <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
           <SkeletonBlock width="70%" height={56} radius="var(--radius)" style={{ alignSelf: 'flex-end' }} />
-          <div style={{ ...cardStyle, display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-            <SkeletonBlock width="92%" height={16} radius="var(--radius)" />
-            <SkeletonBlock width="80%" height={16} radius="var(--radius)" />
-            <SkeletonBlock width="56%" height={16} radius="var(--radius)" />
+          {/* 答えは本物と同じ枠（左に相手のアイコンの列 40＝ANSWER_COLUMN の空き → 名前の行 13×1.5 → カード・2026-10-04）。 */}
+          <div style={{ marginLeft: ANSWER_COLUMN, display: 'flex', flexDirection: 'column' }}>
+            <SkeletonBlock width={96} height="calc(var(--text-meta) * 1.5)" radius="var(--radius)" style={{ marginBottom: 'var(--space-1)' }} />
+            <div style={{ ...cardStyle, display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+              <SkeletonBlock width="92%" height={16} radius="var(--radius)" />
+              <SkeletonBlock width="80%" height={16} radius="var(--radius)" />
+              <SkeletonBlock width="56%" height={16} radius="var(--radius)" />
+            </div>
           </div>
         </div>
       ))}

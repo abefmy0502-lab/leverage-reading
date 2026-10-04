@@ -541,11 +541,13 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
     : (selected.intro && plan === 'annual' && foundingNamed)
       ? <span style={{ display: 'block' }}>{FOUNDING_NAME}（{noBreak(founding.endLabel)}まで）</span>
       : null;
-  // 無料期間: 期間中にやめれば払わない（2026-09-29）／先払いの初回価格: いつ・何の分を払うか（2026-10-02）。
+  // 欄に置くのは無料期間の 1 行だけ。創業メンバー価格の 1 行と、大きな文字のときは、スクロールする中身へ（2026-10-04）。
+  const leadInContent = !!leadLine && (compactFooter || !trial);
+  // 無料期間: 期間中にやめれば払わない（2026-09-29）／先払いの初回価格: いつ・何の分を払うか（2026-10-02。1 行に収まる長さ＝「、」「まとめて」を省く・2026-10-04）。
   const noteBelow = trial
     ? <><span style={chunk}>無料期間が終わる 24 時間前までに解約すれば、</span><span style={chunk}>料金はかかりません。</span></>
     : selected.intro?.upfront
-      ? <span style={phraseText}><Phrases>{`${noBreak(selected.intro.priceString)} は、始めるときに ${noBreak(selected.intro.span || '1 年')}分をまとめてお支払いします。`}</Phrases></span>
+      ? <span style={phraseText}><Phrases>{`${noBreak(selected.intro.priceString)} は始めるときに ${noBreak(selected.intro.span || '1 年')}分をお支払いします。`}</Phrases></span>
       : null;
 
   const ctaLabel = pending
@@ -672,11 +674,13 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
               </p>
             )}
 
-            {/* 大きな文字のとき（compactFooter）: 無料期間・創業メンバー価格の 1 行と、ボタンの下の注記は、スクロールする中身（欄のすぐ上）へ。 */}
-            {compactFooter && priceState === 'ready' && (leadLine || noteBelow) && (
+            {/* 大きな文字のとき（compactFooter）: 無料期間・創業メンバー価格の 1 行と、ボタンの下の注記は、スクロールする中身（欄のすぐ上）へ。
+                創業メンバー価格の「創業メンバー価格（◯月◯日まで）」は、ふだんから中身へ（下に固定の欄を 1 行減らし、月額の選択肢を
+                最初の画面に見せる・請求額の行と主ボタンは欄に残す＝審査 3.1.2・2026-10-04）。 */}
+            {priceState === 'ready' && (leadInContent || (compactFooter && noteBelow)) && (
               <div style={{ marginTop: 'var(--space-4)', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5 }}>
-                {leadLine && <p style={{ margin: 0 }}>{leadLine}</p>}
-                {noteBelow && <p style={{ margin: leadLine ? 'var(--space-2) 0 0' : 0, fontSize: 'var(--text-meta)' }}>{noteBelow}</p>}
+                {leadInContent && <p style={{ margin: 0 }}>{leadLine}</p>}
+                {compactFooter && noteBelow && <p style={{ margin: leadInContent ? 'var(--space-2) 0 0' : 0, fontSize: 'var(--text-meta)' }}>{noteBelow}</p>}
               </div>
             )}
 
@@ -686,7 +690,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
               {priceState === 'ready' && (
                 // 実際に請求される金額を、無料期間より弱くしない（3.1.2）。無料期間はプランごと・使える人にだけ。
                 <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, margin: '0 0 var(--space-3)' }}>
-                  {!compactFooter && leadLine}
+                  {!leadInContent && leadLine}
                   <span style={{ display: 'block', fontSize: compactFooter ? COMPACT_TEXT : 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>
                     {billedLineParts({ ...selected, trial }).map((part) => (
                       <Fragment key={part}>
