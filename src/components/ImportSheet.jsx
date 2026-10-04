@@ -220,6 +220,13 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
           {source ? <>{source}：<wbr /></> : null}{countParts.join(KEEP_DOT)}
           {plan.memos > 0 && plan.summaries > 0 && plan.summaries < plan.memos && <><wbr />{haltOpen(`（まとめ\u00a0${plan.summaries}\u00a0件を含む）`)}</>}
         </p>
+        {/* 新しい本は一度に 300 冊まで（本棚にある本は数えない）。残りは取り込んだあと同じファイルをもう一度選ぶ（2026-09-29）。
+            一覧より先に読むよう、見出しのすぐ下に置く（一覧の下だと見落とす・2026-10-04）。 */}
+        {plan.remainingBooks > 0 && (
+          <p role="note" style={body}>
+            {files - unread.length > 1 ? '選んだファイル' : 'ファイル'}には<span style={nowrap}> {fmt(plan.fileBooks)} 冊</span>あります。一度に取り込めるのは<span style={nowrap}> {fmt(IMPORT_MAX_BOOKS)} 冊</span>まで。取り込んだあと同じファイルをもう一度選ぶと、<span style={nowrap}>残りの {fmt(plan.remainingBooks)} 冊を</span>取り込めます。
+          </p>
+        )}
         <ul style={{ ...list, gap: 0 }}>
           {shown.map(({ book: b, memos: n, summary }, i) => (
             <li key={`${b.title}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minHeight: 44, padding: IMPORT_STATUS_LABEL[b.status] ? 'var(--space-2) 0' : 0, borderTop: i ? '1px solid var(--separator)' : 'none' }}>
@@ -266,12 +273,6 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
         {shortfall && (
           <p role="note" style={body}>
             {SHELF_LABEL[shortfall.shelf] || '本棚の本'}は<span style={nowrap}>全 {shortfall.total} 冊</span>です。{files > 1 ? '保存したページ' : 'このファイル'}には <span style={nowrap}>{shortfall.found} 冊</span>。残りのページも保存して選んでください。
-          </p>
-        )}
-        {/* 新しい本は一度に 300 冊まで（本棚にある本は数えない）。残りは取り込んだあと同じファイルをもう一度選ぶ（2026-09-29）。 */}
-        {plan.remainingBooks > 0 && (
-          <p role="note" style={body}>
-            {files - unread.length > 1 ? '選んだファイル' : 'ファイル'}には<span style={nowrap}> {fmt(plan.fileBooks)} 冊</span>あります。一度に取り込めるのは<span style={nowrap}> {fmt(IMPORT_MAX_BOOKS)} 冊</span>まで。取り込んだあと同じファイルをもう一度選ぶと、<span style={nowrap}>残りの {fmt(plan.remainingBooks)} 冊を</span>取り込めます。
           </p>
         )}
         {/* 本が 1 冊も読めなかったファイル（いくつか選んだうちの 1 つが別の形式など）。 */}
