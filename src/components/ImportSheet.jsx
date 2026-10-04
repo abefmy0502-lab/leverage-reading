@@ -335,6 +335,8 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
     // 取り込まずに残した新しい本（一度に 300 冊まで）と、読書メーターの保存していないページの本（2026-09-29）。
     const remaining = planSnap?.remainingBooks || 0;
     const doneShortfall = result ? importShortfall(result) : null;
+    // 別のファイルを選ぶ: 選ぶ画面に戻してからファイルを選ぶ（選ばずに戻っても、選ぶ画面にいる）。
+    const pickAnother = () => { setOutcome(null); setResult(null); setStep('pick'); pickFile(); };
     content = (
       <div role="status" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', padding: 0 }}>
         {error && <ErrorMessage icon={null} title="取り消せませんでした" description={error} />}
@@ -354,8 +356,12 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
         )}
         {/* 保存できなかった本（通信が切れたなど）は黙って減らさず伝える（DESIGN §5「一部だけ失敗の 1 行」＝13/--text-2・面なし）。同じファイルをもう一度選べば、
             取り込めた本・同じメモは二重にならずに残りだけ入る（2026-10-04）。 */}
+        {/* 直す入口は同じ行の右に「もう一度選ぶ」（同じファイルを選べば残りだけ入る・ui-critic 2026-10-04）。 */}
         {outcome.booksFailed > 0 && (
-          <p role="status" style={{ ...body, fontSize: 'var(--text-meta)' }}><span style={nowrap}>{fmt(outcome.booksFailed)} 冊</span>は取り込めませんでした。通信環境を確認して、同じファイルをもう一度選んでください。</p>
+          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 'var(--space-2)' }}>
+            <p style={{ ...body, fontSize: 'var(--text-meta)', flex: '1 1 12em', minWidth: 0 }}><span style={nowrap}>{fmt(outcome.booksFailed)} 冊</span>は取り込めませんでした。<wbr /><span style={nowrap}>通信環境を確認してください。</span></p>
+            <button type="button" onClick={pickAnother} disabled={undoing} style={{ ...btnLink, flexShrink: 0, whiteSpace: 'nowrap' }}>もう一度選ぶ</button>
+          </div>
         )}
         {remaining > 0 && (
           <p style={body}>残りの<span style={nowrap}> {fmt(remaining)} 冊</span>は、同じファイルをもう一度選ぶと取り込めます。</p>
@@ -375,8 +381,6 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
     const bare = (Array.isArray(outcome.bareBooks) ? outcome.bareBooks : []).slice(0, QUICKSTART_MAX_BOOKS);
     const canAddOneLine = bare.length > 0 && !!onAddOneLine;
     const addOneLineClick = () => { track('import_add_one_line', { books: bare.length }); onAddOneLine(bare); };
-    // 別のファイルを選ぶ: 選ぶ画面に戻してからファイルを選ぶ（選ばずに戻っても、選ぶ画面にいる）。
-    const pickAnother = () => { setOutcome(null); setResult(null); setStep('pick'); pickFile(); };
     const primaryStyle = undoing ? btnPrimaryOff : btnPrimary;
     let primary;
     if (any && onAsk) {
