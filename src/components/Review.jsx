@@ -94,21 +94,20 @@ const transformRow = (m) => {
 };
 
 // 知識の種類ごとのアイコン + ラベル + ボーダー色。NoteCard で表示する。
-// 種類バッジの配色は「遊園地の原色」を廃し、ウォームなブランド世界観に統一。
-// ニュートラル茶を基調に、警告＝レンガ / 達成＝苔グリーン / 学び＝ゴールド の
-// 3アクセントだけで意味を出す（本田哲学＝色数を絞る＝洗練）。
+// 種類の名前とアイコン。色は付けない（アイコン 14＋--text-2 の文字・DESIGN §5「表示用ラベル」・
+// 以前あった色の値は使われていない古いトークンだったので外した・2026-10-04）。
 const KIND_META = {
-  card:              { Icon: StickyNote,        label: 'メモ',          color: 'var(--c-ink-2)' },
-  personal:          { Icon: Lightbulb,         label: '学び',          color: 'var(--status-want)' },
-  invest_purpose:    { Icon: BarChart3,         label: '得たいこと',     color: 'var(--c-brand)' },
-  current_challenge: { Icon: AlertTriangle,     label: '現在の課題',     color: 'var(--c-critical)' },
-  hypothesis:        { Icon: FlaskConical,      label: '仮説',          color: 'var(--status-want)' },
+  card:              { Icon: StickyNote,        label: 'メモ' },
+  personal:          { Icon: Lightbulb,         label: '学び' },
+  invest_purpose:    { Icon: BarChart3,         label: '得たいこと' },
+  current_challenge: { Icon: AlertTriangle,     label: '現在の課題' },
+  hypothesis:        { Icon: FlaskConical,      label: '仮説' },
   // AI が書いたもの。一覧・検索には「AI まとめ」と分かる名前で出すが、思い出しカードには出さない（recall.js の isAiWritten・2026-10-04）。
-  ai_summary:        { Icon: Bot,               label: 'AI まとめ',      color: 'var(--c-ink-3)' },
-  roi_summary:       { Icon: Gem,               label: '一番の収穫',     color: 'var(--c-positive)' },
+  ai_summary:        { Icon: Bot,               label: 'AI まとめ' },
+  roi_summary:       { Icon: Gem,               label: '一番の収穫' },
   // 自分で書いた本の総括（books.leverage_memo と、以前の形式の book_memos.source_type='summary'）。本の詳細と同じ名前（2026-10-04）。
-  leverage_memo:     { Icon: FileText,          label: 'この本のまとめ',  color: 'var(--c-brand)' },
-  action_reflection: { Icon: MessageSquareQuote, label: '行動のふりかえり', color: 'var(--c-positive)' },
+  leverage_memo:     { Icon: FileText,          label: 'この本のまとめ' },
+  action_reflection: { Icon: MessageSquareQuote, label: '行動のふりかえり' },
 };
 
 // books から 派生ノート (本フィールド + 行動の振り返り) を生成。
@@ -1231,6 +1230,8 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
 
       {!showingResults && (<>
       {/* ===== 2. 今日の振り返り (random) ===== */}
+      {/* 思い出しカードに出せる自分の言葉が無い（AI まとめだけ）ときは、見出しごと出さない（空の見出しを残さない・2026-10-04）。 */}
+      {(randomMemo || recallDone) && (
       <section>
         {/* 思い出しカード（SPEC §4: メモの一番上に小さく）。見出しは小さなラベルだけ。
             「別のメモを見る」はカードの「…」の中（覚えた／もう一度 ＋ …）。 */}
@@ -1360,6 +1361,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
         {/* 名言はこのタブから撤去 — 想起の主役はユーザー自身の言葉で、毎回の格言は
             それを薄める（名言はスプラッシュ/オンボに残る）。 */}
       </section>
+      )}
 
       {/* ===== 3. タイムライン ===== */}
       {/* メモが 1 件だけのときは思い出しカードと同じメモになるので、月ごとの一覧は出さない
@@ -1369,15 +1371,16 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
         {/* 「メモを追加」（高さ 44）と並ぶので、行の下の余白は付けない（見出しの文字から一覧まで約 8〜12）。
             行の高さ 44 の上側の空き（約 12）ぶん引き上げ、思い出しカードから見出しの文字までを約 24 にそろえる。 */}
         {/* 見出しが無い（メモ 1 件で「メモを追加」だけ）ときは引き上げない＝思い出しカードのボタンに寄って見えないように。 */}
-        <div style={{ display: 'flex', justifyContent: allNotes.length > 1 ? 'space-between' : 'flex-start', alignItems: 'center', marginTop: allNotes.length > 1 ? 'calc(-1 * var(--space-3))' : 0 }}>
-          {allNotes.length > 1 && <h2 style={{ ...sectionTitle, margin: 0 }}>月ごとのメモ</h2>}
+        {/* 文字を大きくして 1 行に収まらないときは「メモを追加」を次の行へ（語の途中で割らない・2026-10-04）。 */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 'var(--space-3)', justifyContent: allNotes.length > 1 ? 'space-between' : 'flex-start', alignItems: 'center', marginTop: allNotes.length > 1 ? 'calc(-1 * var(--space-3))' : 0 }}>
+          {allNotes.length > 1 && <h2 style={{ ...sectionTitle, margin: 0, whiteSpace: 'nowrap' }}>月ごとのメモ</h2>}
           {/* ＋メモを追加 — 旧・最上段の孤立ボタンをここへ（メモ一覧の傍が住処。
               付け先の本＝読書中/読了の本がある時だけ）。 */}
           {onAddNote && hasMemoableBooks && (
             <button
               type="button"
               onClick={onAddNote}
-              style={{ ...btnLink, gap: 'var(--space-1)', ...(allNotes.length > 1 ? { paddingRight: 0 } : { paddingLeft: 0 }) }}
+              style={{ ...btnLink, gap: 'var(--space-1)', whiteSpace: 'nowrap', ...(allNotes.length > 1 ? { paddingRight: 0 } : { paddingLeft: 0 }) }}
             >
               <Plus size={16} strokeWidth={2} aria-hidden="true" />
               メモを追加

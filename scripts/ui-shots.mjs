@@ -324,6 +324,8 @@ const SCREENS = [
   { name: 'action-edit-discard-confirm', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[aria-label$="」の操作"]' }, { css: 'button:has-text("編集")' }, { css: '[role=dialog] button:text-is("来週")' }, { css: '[role=dialog] button[aria-label="閉じる"]' }] },
   { name: 'action-delete-confirm', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[aria-label$="」の操作"]' }, { css: 'button:has-text("編集")' }, { css: '[role=dialog] button:text-is("削除")' }] },
   { name: 'review-action-alldone', url: '/?demo=alldone', steps: [{ css: nav('振り返り') }] },
+  // 思い出しカード（いちばん大きな文字＝覚えた／まだ覚えていないが 2 行に積まれる）
+  { name: 'review-memo-xxl-text', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("メモ")' }, { eval: () => { document.documentElement.style.fontSize = '40px'; } }, { wait: 500 }, { scrollTo: 'h2:has-text("思い出しカード")' }] },
   { name: 'action-edit-xxl-text', url: '/', steps: [{ css: nav('振り返り') }, { eval: () => { document.documentElement.style.fontSize = '40px'; } }, { wait: 400 }, { css: 'button[aria-label$="」の操作"]' }, { css: 'button:has-text("編集")' }, { wait: 400 }, { scrollBottom: true }] },
   { name: 'action-add', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button:has-text("追加")' }, { css: '[role=dialog] button:has-text("1兆ドルコーチ")' }, { wait: 400 }] },
   { name: 'review-memo-menu', url: '/',steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("メモ")' }, { css: 'button[aria-label="このメモの操作"]' }] },
