@@ -1360,7 +1360,8 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                 出す — 出さないと synth は永遠に due のままで想起プールを占拠する
                 （記録は端末ローカル。recordRandomRecall 参照）。 */}
             {recallFraming(randomMemo.createdAt) && (
-              <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-3)' }}>
+              // 2 つは同じ幅で 1 行に。文字を大きくして 1 行に収まらないときは、2 行に積む（はみ出して重なっていた・2026-10-04）。
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-3)', marginTop: 'var(--space-3)' }}>
                 <button
                   type="button"
                   disabled={flipping}
@@ -1375,7 +1376,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                       setTimeout(() => toast.show(askReviewToast()), 5600);
                     }
                   }}
-                  style={{ ...(flipping ? uiBtnGhostOff : uiBtnGhost), width: 'auto', flex: 1, minWidth: 0, padding: '0 var(--space-3)' }}
+                  style={{ ...(flipping ? uiBtnGhostOff : uiBtnGhost), width: 'auto', flex: '1 1 0', minWidth: 'max-content', padding: '0 var(--space-3)', whiteSpace: 'nowrap' }}
                 >
                   <Check size={16} strokeWidth={2.5} aria-hidden="true" />覚えた
                 </button>
@@ -1385,7 +1386,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                   disabled={flipping}
                   onClick={() => { answerRandomRecall(randomMemo, false); }}
                   // 1 行に収める（2 つのボタンを同じ高さに・語の途中で折り返さない）。
-                  style={{ ...(flipping ? uiBtnGhostOff : uiBtnGhost), width: 'auto', flex: 1, minWidth: 0, padding: '0 var(--space-3)', whiteSpace: 'nowrap' }}
+                  style={{ ...(flipping ? uiBtnGhostOff : uiBtnGhost), width: 'auto', flex: '1 1 0', minWidth: 'max-content', padding: '0 var(--space-3)', whiteSpace: 'nowrap' }}
                 >
                   まだ覚えていない
                 </button>
