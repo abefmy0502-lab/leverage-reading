@@ -44,13 +44,21 @@ function hasBottomBar() {
 // 右下に浮いたボタン（本の詳細の「メモを書く」＝data-fab）が見えているときは、その上に浮かべる
 // （保存の知らせが 2 行になってボタンに重なり、押せなくなっていた・2026-09-29）。シートなどが開いている間は、
 // ボタンはその下に隠れているので気にしない。
+// data-toast-above: 下に固定した欄が決定ボタンの欄より高いとき（初日クイックスタートの「選んだ本」の列＋「次へ」）や、
+// タブの上に浮いた新しい版の知らせ（UpdateBanner）は、その上端より上に浮かべる（重なって読めなかった・2026-10-04）。
+// シートが開いている間は、いちばん上のシートの中の印だけを見る。
 function barBottom() {
   if (!hasBottomBar()) return BOTTOM_PLAIN;
-  if (!document.querySelector(OPEN_DIALOG)) {
-    const fab = document.querySelector('[data-fab]');
-    const r = fab ? fab.getBoundingClientRect() : null;
-    if (r && r.height > 0) return `calc(${Math.max(0, Math.round(window.innerHeight - r.top))}px + var(--space-2))`;
+  const dialogs = document.querySelectorAll(OPEN_DIALOG);
+  const marks = dialogs.length
+    ? [...dialogs[dialogs.length - 1].querySelectorAll('[data-toast-above]')]
+    : [...document.querySelectorAll('[data-fab], [data-toast-above]')];
+  let top = Infinity;
+  for (const el of marks) {
+    const r = el.getBoundingClientRect();
+    if (r.height > 0 && r.top < top) top = r.top;
   }
+  if (top < Infinity) return `calc(${Math.max(0, Math.round(window.innerHeight - top))}px + var(--space-2))`;
   return BOTTOM_WITH_BAR;
 }
 

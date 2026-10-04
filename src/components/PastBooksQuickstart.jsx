@@ -554,7 +554,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
             </div>
           </div>
 
-          <div style={footer}>
+          <div style={footer} data-toast-above>
             {picked.length > 0 && (
               <div style={{ display: 'flex', columnGap: 'var(--space-2)', overflowX: 'auto', margin: '0 calc(-1 * var(--space-4)) var(--space-2)', padding: '0 var(--space-4)', scrollbarWidth: 'none' }}>
                 {picked.map((p) => (
@@ -622,7 +622,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
               }}
             />
           </div>
-          <div style={{ ...footer, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+          <div style={{ ...footer, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }} data-toast-above>
             <button type="button" style={current.memo.trim() ? btnPrimary : btnPrimaryOff}
               disabled={!current.memo.trim()} onClick={nextMemo}>
               {idx < picked.length - 1 ? '次の本へ' : '相談相手をつくる'}
@@ -663,7 +663,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
               actions={[{ label: 'もう一度', onClick: () => saveAll(picked) }]}
             />
           </div>
-          <div style={footer}>
+          <div style={footer} data-toast-above>
             <button type="button" style={btnGhost} onClick={onClose}>閉じる</button>
           </div>
         </>
@@ -748,7 +748,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
             {/* 🔔 初日クイックスタートを終えた直後に 1 回だけ（行動に追加の直後と、先に来たほう）。主ボタンは「相談する」なので副ボタンで。 */}
             {summary.memos > 0 && <NotifyOptInCard where="quickstart" primary={false} style={{ marginTop: 'var(--space-8)' }} />}
           </div>
-          <div style={footer}>
+          <div style={footer} data-toast-above>
             {/* 相談例がある時はそちらが主役なので、完了は副ボタン。
                 メモが 0 件なら行き止まりにせず「メモを書く」（1 冊目を開いてメモのシート）を主役に。 */}
             {summary.memos > 0 ? (
