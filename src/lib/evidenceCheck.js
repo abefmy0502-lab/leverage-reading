@@ -118,10 +118,23 @@ function paraphraseOf(line) {
     .trim();
 }
 
+// 「p.25」「(p.25)」「P. 25」を行から外す（メモに無いページを、事実のように見せない）。
+export function stripPageRefs(text) {
+  return String(text || '')
+    .replace(/\s*[（(]\s*[pP]\.?\s*\d+\s*[)）]/g, '')
+    .replace(/(^|[^A-Za-z])[pP]\.\s?\d+/g, '$1')
+    .replace(/[ 　]{2,}/g, ' ')
+    .trim();
+}
+
 // 1 行（参照したメモの 1 項目）を確かめる。
-//   { title, page, status: 'ok' | 'ng' | 'none', memo: 見せるメモの文 | '', line: AI の行（要約のまま見せるとき）,
+//   { title, page, status: 'ok' | 'ng' | 'none' | 'x', memo: 見せるメモの文 | '', line: AI の行（要約のまま見せるとき）,
 //     personal: 学び（本の無いメモ）の行か, date: 一致した学びの記録日 'YYYY-MM-DD' | '' }
 //   学びは書名が無いので、画面では「自分の学び（M月D日）」を見出しにする（2026-09-29）。
+//   'x'（2026-10-04）: 渡したメモに無い本・学び（AI が材料の外から持ち出した参照）。画面には出さない
+//     （それまでは 'none' として AI の文のまま「参照したメモ」に出ていた＝本棚に無い本・作ったページも出ていた）。
+//   ページ（2026-10-04）: 一致したメモのページだけを使う（AI が書いたページではなく）。AI の文のまま見せる行は、
+//     その本のメモに無いページを外す。
 export function verifyRefLine(rawLine, sources) {
   const line = String(rawLine || '').replace(/^\s*(?:[-*・•]|\d+[.)．])\s*/, '').trim();
   const title = titleOf(line);
@@ -137,6 +150,11 @@ export function verifyRefLine(rawLine, sources) {
     createdAt: m?.created_at ? String(m.created_at).slice(0, 10) : '',
   });
   const cands = candidatesFor(line, sources || []);
+  // 渡したメモに無い本・学び → 出さない（'x'）
+  if ((title || personalLine) && cands.length === 0) {
+    return withPersonal({ title, page: null, status: 'x', memo: '', line: '' }, null);
+  }
+  const pageOfMemo = (m) => (m && Number.isFinite(Number(m.page)) && m.page != null ? Number(m.page) : null);
   const quotes = extractQuotes(line);
   if (quotes.length > 0) {
     let matched = null;
@@ -146,9 +164,9 @@ export function verifyRefLine(rawLine, sources) {
       return !!hit;
     });
     if (allOk && matched) {
-      return withPersonal({ title: title || matched.title || '', page: page ?? matched.page ?? null, status: 'ok', memo: clip(matched.text, MEMO_SHOW_MAX), line: '' }, matched);
+      return withPersonal({ title: title || matched.title || '', page: pageOfMemo(matched), status: 'ok', memo: clip(matched.text, MEMO_SHOW_MAX), line: '' }, matched);
     }
-    return withPersonal({ title, page, status: 'ng', memo: '', line: '' }, null);
+    return withPersonal({ title, page: cands.some((s) => pageOfMemo(s) === page) ? page : null, status: 'ng', memo: '', line: '' }, null);
   }
   // 引用の無い要約: 十分に重なるメモ（60% 以上）→ そのメモ。無ければ、ページまで同じメモが 1 件だけならそのメモ。
   const para = paraphraseOf(line);
@@ -159,7 +177,7 @@ export function verifyRefLine(rawLine, sources) {
     if (r > bestScore) { bestScore = r; best = s; }
   });
   if (best && bestScore >= 0.6 && normalizeForMatch(para).length >= 6) {
-    return withPersonal({ title: title || best.title || '', page: page ?? best.page ?? null, status: 'ok', memo: clip(best.text, MEMO_SHOW_MAX), line: '' }, best);
+    return withPersonal({ title: title || best.title || '', page: pageOfMemo(best), status: 'ok', memo: clip(best.text, MEMO_SHOW_MAX), line: '' }, best);
   }
   if (page != null) {
     const byPage = cands.filter((s) => Number(s.page) === page);
@@ -167,7 +185,62 @@ export function verifyRefLine(rawLine, sources) {
       return withPersonal({ title: title || byPage[0].title || '', page, status: 'ok', memo: clip(byPage[0].text, MEMO_SHOW_MAX), line: '' }, byPage[0]);
     }
   }
-  return withPersonal({ title, page, status: 'none', memo: '', line: clip(line, LINE_SHOW_MAX) }, null);
+  // AI の文のまま見せる。その本のメモに無いページは外す（作ったページを事実のように見せない）。
+  const pageKnown = page != null && cands.some((s) => pageOfMemo(s) === page);
+  const shown = page != null && !pageKnown ? stripPageRefs(line) : line;
+  return withPersonal({ title, page: pageKnown ? page : null, status: 'none', memo: '', line: clip(shown, LINE_SHOW_MAX) }, null);
+}
+
+// AI が REFS に挙げた参照（「📚 著者『書名』p.25」「💡 自分の学び (2026-08-15 / 仕事)」）を、
+// 渡したメモと突き合わせて整える（2026-10-04・「もとになった本」・相談相手のアイコン・行動を付ける本に使われる）。
+//   - 渡したメモに無い本の行は消す（AI が材料の外から持ち出した本＝本棚に無い本・歩みにだけ出てくる本）
+//   - 1 行に 2 冊（『』が 2 つ以上）は、渡したメモにある本だけを 1 冊 1 行に分ける
+//   - その本のメモに無いページは外す。学びの日付は、その日に書いた学びが無ければ外す
+//   - 学びの行は、渡したメモに学びが無ければ消す。書名も学びも無い行はそのまま
+// sources が無い（確かめられない）ときはそのまま返す。
+export function groundRefs(refs, sources) {
+  if (!Array.isArray(refs)) return [];
+  if (!Array.isArray(sources) || sources.length === 0) return refs.slice();
+  const books = sources.filter((s) => !s.personal && s.title);
+  const personal = sources.filter((s) => s.personal);
+  const bookFor = (t) => {
+    const n = normTitle(t);
+    if (!n) return null;
+    return books.find((s) => normTitle(s.title) === n) || books.find((s) => normTitle(s.title).includes(n) || n.includes(normTitle(s.title))) || null;
+  };
+  const out = [];
+  refs.forEach((raw) => {
+    const r = String(raw || '').trim();
+    if (!r) return;
+    const titles = [...r.matchAll(/『([^』]+)』/g)].map((m) => m[1].trim()).filter(Boolean);
+    if (titles.length === 0) {
+      if (/自分の学び|学びログ|あなたの学び/.test(r)) {
+        if (personal.length === 0) return;
+        const d = (r.match(/(\d{4}-\d{2}-\d{2})/) || [])[1] || '';
+        const dateOk = !d || personal.some((s) => String(s.created_at || '').startsWith(d));
+        const noDate = r.replace(/\d{4}-\d{2}-\d{2}\s*/, '').replace(/([（(])\s+/, '$1').replace(/\s*[（(]\s*[)）]/, '');
+        out.push(dateOk ? r : noDate);
+        return;
+      }
+      out.push(r);
+      return;
+    }
+    const known = titles.filter((t) => bookFor(t));
+    if (known.length === 0) return;
+    if (titles.length > 1) {
+      // 2 冊を 1 行に混ぜた参照 → 渡したメモにある本だけ、1 冊 1 行（著者・ページは誰のものか分からないので付けない）
+      const lead = (r.match(/^[^\p{L}\p{N}『「(（]+/u) || [''])[0].trim();
+      known.forEach((t) => out.push(`${lead ? `${lead} ` : ''}『${bookFor(t).title}』`));
+      return;
+    }
+    const page = pageOf(r);
+    if (page == null) { out.push(r); return; }
+    const bookTitle = normTitle(bookFor(titles[0]).title);
+    const same = books.filter((s) => normTitle(s.title) === bookTitle);
+    const pageOk = same.some((s) => s.page != null && Number(s.page) === page);
+    out.push(pageOk ? r : stripPageRefs(r));
+  });
+  return [...new Set(out)];
 }
 
 // 答えの本文から、見出し（【…】）ごとの節を取り出す。
@@ -215,8 +288,16 @@ export function verifyAnswerQuotes(body, sources) {
         const quotes = extractQuotes(b[1]);
         if (quotes.length === 0) return;
         const cands = candidatesFor(`『${cur}』`, sources);
-        const ok = quotes.every((q) => cands.some((s) => quoteInMemo(q.text, s.text)));
-        out.push({ k: 'b', t: cur, p: pageOf(b[1]), s: ok ? 'ok' : 'ng', x: '', l: '' });
+        const hits = quotes.map((q) => cands.find((s) => quoteInMemo(q.text, s.text)) || null);
+        const ok = hits.every(Boolean);
+        // ページ（2026-10-04）: 一致したメモのページ（無ければ、その本のメモにあるページのときだけ AI の書いたページ）。
+        //   AI の書いたページが違う・メモに無いときは w: 1（画面は根拠の文からページを外す）。
+        const aiPage = pageOf(b[1]);
+        const memoPage = ok && hits[0] && hits[0].page != null ? Number(hits[0].page) : null;
+        const known = aiPage != null && cands.some((s) => s.page != null && Number(s.page) === aiPage);
+        const p = ok ? memoPage : (known ? aiPage : null);
+        const wrongPage = aiPage != null && aiPage !== p;
+        out.push({ k: 'b', t: cur, p, s: ok ? 'ok' : 'ng', x: '', l: '', ...(wrongPage ? { w: 1 } : null) });
       });
     }
   });

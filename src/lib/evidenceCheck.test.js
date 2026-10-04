@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   normalizeForMatch, quoteInMemo, extractQuotes, verifyRefLine, verifyAnswerQuotes,
-  decodeQuoteRefs, stripQuotes, QUOTE_PREFIX,
+  decodeQuoteRefs, stripQuotes, QUOTE_PREFIX, stripPageRefs, groundRefs,
 } from './evidenceCheck';
 
 const sources = [
@@ -137,5 +137,72 @@ describe('一致したメモの id・本・記録日（本を探す問いの答�
     const body = '【結論】\n『エッセンシャル思考』に書いていました。\n\n【参照した本のメモ】\n- 『エッセンシャル思考』p.64 のメモ：「断る余地が生まれる」';
     const [c] = decodeQuoteRefs(verifyAnswerQuotes(body, sources));
     expect(c).toMatchObject({ k: 'r', s: 'ok', i: 'm-64', b: 'b-e', c: '2026-05-27', p: 64 });
+  });
+});
+
+// 2026-10-04（オーナー「似たような事象が起きないか」）: 渡したメモに無い本・ページを、根拠として見せない。
+describe('渡したメモに無い本・ページ', () => {
+  it('渡したメモに無い本の参照は x（画面に出さない）', () => {
+    const v = verifyRefLine('- 『7つの習慣』(p.88) より: 主体性を発揮する', sources);
+    expect(v.status).toBe('x');
+    expect(v.line).toBe('');
+    expect(verifyRefLine('- 『7つの習慣』より: 「答えを出す前に」', sources).status).toBe('x');
+  });
+  it('学びが渡っていないのに「自分の学び」を挙げたら x', () => {
+    const books = sources.filter((s) => !s.personal);
+    expect(verifyRefLine('- 自分の学び より: 相手の関心軸を聞く', books).status).toBe('x');
+  });
+  it('一致した引用のページは、メモのページ（AI が書いたページではなく）', () => {
+    const v = verifyRefLine('- 『イシューからはじめよ』(p.300) より: 「分析の前にストーリーラインと絵コンテを作る」', sources);
+    expect(v).toMatchObject({ status: 'ok', page: 88 });
+    // ページの無いメモに一致したら、ページは出さない
+    expect(verifyRefLine('- 『嫌われる勇気』p.12 より: 「これは誰の課題？」', sources)).toMatchObject({ status: 'ok', page: null });
+  });
+  it('AI の文のまま見せる行は、その本のメモに無いページを外す', () => {
+    const v = verifyRefLine('- 『イシューからはじめよ』(p.300) より: 考える順番を大事にする', sources);
+    expect(v.status).toBe('none');
+    expect(v.page).toBeNull();
+    expect(v.line).not.toMatch(/p\.300/);
+    expect(v.line).toContain('考える順番');
+  });
+  it('本ごとの根拠: 一致したメモとページが違えば w（画面はページを外す）・p はメモのページ', () => {
+    const pb = [
+      '【結論】', '一点に絞る。', '',
+      '【本ごとの視点】',
+      '◆『イシューからはじめよ』｜安宅和人', '視点：問いを確かめる。', '根拠：p.300「分析の前にストーリーラインと絵コンテを作る」',
+    ].join('\n');
+    const [c] = decodeQuoteRefs(verifyAnswerQuotes(pb, sources));
+    expect(c).toMatchObject({ k: 'b', s: 'ok', p: 88, w: 1 });
+  });
+  it('stripPageRefs', () => {
+    expect(stripPageRefs('『A』(p.25) より: 文')).toBe('『A』 より: 文');
+    expect(stripPageRefs('p.25「引用」')).toBe('「引用」');
+  });
+});
+
+describe('groundRefs（REFS を渡したメモと突き合わせる）', () => {
+  it('渡したメモに無い本の行は消し、メモに無いページは外す', () => {
+    const out = groundRefs([
+      '📚 安宅和人『イシューからはじめよ』p.25',
+      '📚 安宅和人『イシューからはじめよ』p.300',
+      '📚 スティーブン・R・コヴィー『7つの習慣』p.88',
+      '📖 岸見一郎『嫌われる勇気』まとめメモ',
+    ], sources);
+    expect(out).toEqual([
+      '📚 安宅和人『イシューからはじめよ』p.25',
+      '📚 安宅和人『イシューからはじめよ』',
+      '📖 岸見一郎『嫌われる勇気』まとめメモ',
+    ]);
+  });
+  it('1 行に 2 冊は、渡したメモにある本だけ 1 冊 1 行に', () => {
+    expect(groundRefs(['📚 『7つの習慣』または『嫌われる勇気』p.3'], sources)).toEqual(['📚 『嫌われる勇気』']);
+  });
+  it('学び: 学びが渡っていなければ消す・その日の学びが無ければ日付を外す', () => {
+    expect(groundRefs(['💡 自分の学び (2026-01-05 / 仕事)'], sources)).toEqual(['💡 自分の学び (2026-01-05 / 仕事)']);
+    expect(groundRefs(['💡 自分の学び (2025-12-31 / 仕事)'], sources)).toEqual(['💡 自分の学び (/ 仕事)']);
+    expect(groundRefs(['💡 自分の学び (2026-01-05)'], sources.filter((s) => !s.personal))).toEqual([]);
+  });
+  it('渡したメモが無ければそのまま', () => {
+    expect(groundRefs(['📚 『7つの習慣』'], [])).toEqual(['📚 『7つの習慣』']);
   });
 });

@@ -140,10 +140,20 @@ function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null
   // 選んだメモの本の数（学びログは本に数えない）。本が 1 冊だけなら「別々の本で」とは言わない（?demo=onebook）。
   const bookCount = new Set(picked.filter((m) => m.book_id).map((m) => m.book_id)).size;
   // &ai=fabricate: 2 つ目の引用を、メモに無い文にする（「根拠を見る」で見せないことの確認用・evidenceCheck.js）。
-  const quotes = picked.map((m, i) => `- ${label(m).name} のメモ：「${aiMode === 'fabricate' && i === 1 ? '他人の期待を満たすために生きてはいけない' : m.text}」`).join('\n');
+  // &ai=fakeref（2026-10-04）: 1 つ目の引用のページを作り（p.300）、渡していない本（『7つの習慣』）を参照と REFS に足す
+  //   （画面は、渡したメモと合わない参照を出さず、作ったページを外すことの確認用・evidenceCheck.js）。
+  const fakeRef = aiMode === 'fakeref';
+  const nameOf = (m, i) => (fakeRef && i === 0 && m.book_id ? label(m).name.replace(/ p\.\d+$/, '').concat(' p.300') : label(m).name);
+  const quotes = [
+    ...picked.map((m, i) => `- ${nameOf(m, i)} のメモ：「${aiMode === 'fabricate' && i === 1 ? '他人の期待を満たすために生きてはいけない' : m.text}」`),
+    ...(fakeRef ? ['- 『7つの習慣』p.88 のメモ：主体性を発揮して、自分で選んで動く'] : []),
+  ].join('\n');
   // 一歩は、あとで行動の一覧だけを見ても分かる文にする（本番の指示文と同じ・「この件」と書かない）。
   const subject = questionGist(thread ? (thread.firstQuestion || thread.lastQuestion) : question, 20) || 'いまの悩み';
-  const refs = picked.map((m) => `- ${label(m).ref}`).join('\n');
+  const refs = [
+    ...picked.map((m) => `- ${label(m).ref}`),
+    ...(fakeRef ? ['- 📚 スティーブン・R・コヴィー『7つの習慣』p.88'] : []),
+  ].join('\n');
 
   // 結論・解釈は、引いたメモに書いてあることだけで組み立てる（メモに無い主張を足さない・2026-09-29）。
   const clip = (t) => { const x = String(t || '').replace(/\s+/g, ' ').trim(); return x.length > 40 ? `${x.slice(0, 40)}…` : x; };
@@ -315,7 +325,7 @@ const PERBOOK_VIEWS = {
 // decide: 行動を決める回（会話の続きで行動を求めた）だけ行動を 1 つ。それ以外は【あなたに聞きたいこと】で締める（2026-09-30）。
 const PERBOOK_ASK = ['【あなたに聞きたいこと】', '焦りを強く感じるのは、どんなときですか？', '・数字を見たとき', '・人と比べたとき', '・締め切り前'];
 const PERBOOK_ACTION = ['【明日からできる 1 つの行動】', '始業前の 10 分で、次の商談を 1 つだけ選び、「この商談で相手に何を貢献できるか」を 1 行書いてから臨む。'];
-function perBookAnswer(block, decide = false) {
+function perBookAnswer(block, decide = false, aiMode = '') {
   const books = [];
   let cur = null;
   block.split('\n').forEach((line) => {
@@ -337,6 +347,12 @@ function perBookAnswer(block, decide = false) {
       || `『${b.title}』の視点では、メモに残した「${quote(m.text)}」を、いまの悩みに当てはめてみることができます。`;
     return { ...b, view, basis: `${m.page ? `p.${m.page}` : ''}「${quote(m.text)}」`, ref: `📚 ${b.author}『${b.title}』${m.page ? ` p.${m.page}` : ''}` };
   });
+  const givenCount = views.length; // 共通点と違いの「N 冊とも」は渡された本の数
+  // &ai=fakeref（2026-10-04）: 1 冊目の根拠のページを作り（p.300）、渡していない本のカードを足す（画面は出さない・ページを外す）。
+  if (aiMode === 'fakeref' && views.length > 0) {
+    views[0] = { ...views[0], basis: views[0].basis.replace(/^p\.\d+/, '').replace(/^/, 'p.300') };
+    views.push({ title: '7つの習慣', author: 'スティーブン・R・コヴィー', view: '主体性を発揮して、反応する前に自分で選びます。', basis: 'p.88「主体性を発揮する」', ref: '📚 スティーブン・R・コヴィー『7つの習慣』p.88' });
+  }
   return [
     '【結論】',
     '焦りの正体を分けて、いま自分で動かせる一点に集中しましょう。評価や結果は、追いかけるほど遠くなります。',
@@ -344,7 +360,7 @@ function perBookAnswer(block, decide = false) {
     '【本ごとの視点】',
     ...views.flatMap((v) => [`◆『${v.title}』｜${v.author}`, `視点：${v.view}`, `根拠：${v.basis}`, '']),
     '【共通点と違い】',
-    `${views.length} 冊とも「自分で変えられることに力を集める」点で重なります。違うのは入り口で、何を手放すか、誰の課題かを分けるか、相手とどう向き合うかが分かれます。`,
+    `${givenCount} 冊とも「自分で変えられることに力を集める」点で重なります。違うのは入り口で、何を手放すか、誰の課題かを分けるか、相手とどう向き合うかが分かれます。`,
     '',
     ...(decide ? PERBOOK_ACTION : PERBOOK_ASK),
     '',
@@ -430,7 +446,7 @@ function aiReply(store, payload, aiMode = '') {
   const perBook = userText.match(/PERSPECTIVE_BOOKS_START =====\n([\s\S]*?)\n===== PERSPECTIVE_BOOKS_END/);
   // 行動を決める回は、本番と同じくアプリが質問の後ろに ACTION_REQUEST を付ける（ai.js の turnHint）。
   const decide = userText.includes('===== ACTION_REQUEST =====');
-  if (perBook) return aiMode === 'broken' ? perBookBrokenAnswer(perBook[1], decide) : perBookAnswer(perBook[1], decide);
+  if (perBook) return aiMode === 'broken' ? perBookBrokenAnswer(perBook[1], decide) : perBookAnswer(perBook[1], decide, aiMode);
   const q = userText.match(/QUESTION_START =====\n([\s\S]*?)\n=====/);
   if (q) {
     // 本番は質問に近いメモを RELATED_MEMOS に分けて渡す（MEMOS からは外す）ので、両方を材料にする。

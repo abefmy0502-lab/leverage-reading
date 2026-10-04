@@ -39,6 +39,24 @@ export function bookForRef(ref, books) {
     || null;
 }
 
+// AI が書いた書名（『』なし）に当たる本棚の本（2026-10-04・本ごとのカード・もとになった本を本棚の本に限るため）。
+//   まるごと同じ → AI の書名が本棚の書名を含む（副題つき）→ 本棚の書名が AI の書名を含む（AI が副題を落とした・3 字以上）。
+//   空白・記号・全角半角の違いは無視する。
+const normShelf = (t) => {
+  let s = String(t || '');
+  try { s = s.normalize('NFKC'); } catch { /* そのまま */ }
+  return s.toLowerCase().replace(/[\s　、。・:：;；「」『』（）()[\]【】〈〉《》"'“”‘’―—~〜\-_/／|｜!！?？]/g, '');
+};
+export function shelfBookForTitle(title, books) {
+  const t = normShelf(title);
+  if (!t || !Array.isArray(books)) return null;
+  const list = books.filter((b) => b && normShelf(b.title));
+  return list.find((b) => normShelf(b.title) === t)
+    || list.find((b) => t.includes(normShelf(b.title)))
+    || (t.length >= 3 ? list.find((b) => normShelf(b.title).includes(t)) : null)
+    || null;
+}
+
 // 本 1 冊の名前の行「著者『書名』」（書名は副題を外して短く）。
 export function bookPartnerLabel(book) {
   const t = shortTitle(book?.title || '') || String(book?.title || '');
@@ -99,7 +117,8 @@ export function partnerFromRefs(refs, books) {
     if (!byTitle.has(t)) byTitle.set(t, []);
     byTitle.get(t).push(c.s);
   });
-  const failed = [...byTitle].filter(([, ss]) => ss.every((s) => s === 'ng')).map(([t]) => t);
+  // 'x'＝渡したメモに無い本の参照（evidenceCheck.js・2026-10-04）も相手にしない
+  const failed = [...byTitle].filter(([, ss]) => ss.every((s) => s === 'ng' || s === 'x')).map(([t]) => t);
   const found = [];
   let self = false;
   list.forEach((r) => {

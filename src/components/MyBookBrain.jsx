@@ -40,7 +40,7 @@ import { buildConsultExamples, standaloneAction, shortTitle, hasSummaryMemo, cou
 import LibrarySearchHit from './LibrarySearchHit';
 import { buildSnippet, compileTerms, splitQuery } from '../lib/librarySearch';
 import { tomorrowLocal } from '../lib/dates';
-import { QUOTE_PREFIX, decodeQuoteRefs, stripQuotes } from '../lib/evidenceCheck';
+import { QUOTE_PREFIX, decodeQuoteRefs, stripQuotes, stripPageRefs } from '../lib/evidenceCheck';
 import NotifyOptInCard from './NotifyOptInCard';
 import MemoAnswer from './MemoAnswer';
 import { runMemoAnswer } from '../lib/memoAnswerRun';
@@ -62,7 +62,7 @@ const consumePreset = (kind, nonce) => {
 
 import BottomSheet from './BottomSheet';
 import PartnerAvatar, { PartnerRow, PartnerBooksSheet, AVATAR_SIZE, AVATAR_SIZE_SMALL } from './PartnerAvatar';
-import { consultPartner, partnerFromScope, bookForRef, withVoice, decodeVoice, encodeVoice, perbookSummaryPartner, VOICE_PREFIX } from '../lib/consultPartner';
+import { consultPartner, partnerFromScope, bookForRef, shelfBookForTitle, withVoice, decodeVoice, encodeVoice, perbookSummaryPartner, VOICE_PREFIX } from '../lib/consultPartner';
 import { fetchAllRows } from '../lib/fetchAllRows';
 
 // 1 文字も出る前に「止める」を押したときの答え（履歴にもこの文で残る）。
@@ -2757,7 +2757,12 @@ function PerBookCard({ book, streaming, onAsk, askBusy, basisCheck = null, showT
   const cursor = streaming ? <span className="streaming-cursor" aria-hidden="true" /> : null;
   // 根拠の引用がメモと一致しなかったとき（evidenceCheck.js）は、引用を外してページだけ残し、その旨を書く。
   const basisNg = basisCheck?.s === 'ng';
-  const basisRaw = tidyQuotes(String(book.basis || '').replace(/\*\*/g, ''));
+  // その本のメモに無い・一致したメモと違うページ（w・2026-10-04）は根拠の文から外し、一致したメモのページがあればそれに替える
+  // （作ったページを見せない）。
+  const basisRaw0 = tidyQuotes(String(book.basis || '').replace(/\*\*/g, ''));
+  const basisRaw = basisCheck?.w
+    ? `${Number.isFinite(basisCheck.p) ? `p.${basisCheck.p}` : ''}${stripPageRefs(basisRaw0)}`
+    : basisRaw0;
   const basis = basisNg ? stripQuotes(basisRaw) : basisRaw;
   return (
     <article aria-label={`『${book.title}』の視点`} style={cardStyle}>
@@ -2922,7 +2927,9 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
   const actedCount = Math.max(0, parseInt((allRefs.find((r) => String(r).startsWith(ACTED_PREFIX)) || '').slice(ACTED_PREFIX.length), 10) || 0);
   // 引用を実際のメモと突き合わせた結果（無い＝古い答え。そのときは AI の文のまま見せる）
   const quoteChecks = decodeQuoteRefs(allRefs);
-  const refChecks = quoteChecks.filter((c) => c.k === 'r');
+  // 渡したメモに無い本・学びの参照（'x'・2026-10-04）は出さない。照合の結果があるのに全部 'x' なら、AI の文（p.refs）にも戻さない。
+  const refChecksAll = quoteChecks.filter((c) => c.k === 'r');
+  const refChecks = refChecksAll.filter((c) => c.s !== 'x');
   const basisCheckFor = (title) => quoteChecks.find((c) => c.k === 'b' && c.t === title) || null;
   // 「もとになった本」から、引用がすべてメモと一致しなかった本を外す（作った引用の本を根拠として並べない・2026-09-29）。
   //   一致しない引用が 1 つでもあり、同じ本に一致した引用も要約の行も無い本だけを外す。
@@ -2934,13 +2941,16 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
       if (!byTitle.has(t)) byTitle.set(t, []);
       byTitle.get(t).push(c.s);
     });
-    return [...byTitle].filter(([, ss]) => ss.every((x) => x === 'ng')).map(([t]) => t);
+    return [...byTitle].filter(([, ss]) => ss.every((x) => x === 'ng' || x === 'x')).map(([t]) => t);
   })();
+  const shelfLoaded = Array.isArray(books) && books.length > 0;
   const refsList = allRefs.filter((r) => {
     if (isMetaRef(r)) return false;
-    if (failedTitles.length === 0) return true;
     const m = String(r).match(/『([^』]+)』/);
     const t = m ? m[1].trim() : '';
+    // 本棚に無い本の参照は「もとになった本」に出さない（以前の答えにも効く・2026-10-04。新しい答えは ai.js の groundRefs で外してある）
+    if (t && shelfLoaded && !shelfBookForTitle(t, books)) return false;
+    if (failedTitles.length === 0) return true;
     return !t || !failedTitles.some((f) => f === t || f.includes(t) || t.includes(f));
   });
   // 🔎 本を探す問い（「『…』みたいなことを書いた本はどれ？」・2026-09-30）: 照合で一致したメモを、結論のすぐ下に
@@ -3049,7 +3059,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
         <ChevronDown size={20} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
       </summary>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)', paddingBottom: 'var(--space-1)' }}>
-        {refChecks.length > 0 ? (
+        {refChecksAll.length > 0 && refChecks.length === 0 ? null : refChecks.length > 0 ? (
           // 引用を実際のメモと突き合わせた結果（evidenceCheck.js）: 一致したものは保存しているメモの文そのもの、
           // 一致しない引用は見せない（作った引用を「あなたのメモ」として出さない）。
           <div>
@@ -3152,8 +3162,10 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
   }
 
   if (perBook) {
-    const lastBook = (perBook.books || []).length - 1;
-    const hasBooks = (perBook.books || []).length > 0 || !!perBook.booksRaw || !!perBook.booksLead;
+    // 渡していない本（本棚に無い本）のカードは、書き終えたら出さない（AI が材料の外から本を持ち出したとき・2026-10-04）。
+    const perBookBooks = (perBook.books || []).filter((b) => isStreaming || !shelfLoaded || !b.title || shelfBookForTitle(b.title, books));
+    const lastBook = perBookBooks.length - 1;
+    const hasBooks = perBookBooks.length > 0 || !!perBook.booksRaw || !!perBook.booksLead;
     const showFoot = !!(perBook.compare || perBook.action || perBook.question || (!isStreaming && (evidence || refsList.length > 0 || perBook.note || refundNote)));
     return (
       // 本ごとの答えは、結論のカード → 本のカード（1 冊 1 枚）→ 共通点と違い・一歩・根拠のカード。
@@ -3182,8 +3194,8 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
               </PartnerRow>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-                {perBook.books.map((b, i) => {
-                  const shelfBook = b.title ? bookForRef(`『${b.title}』`, books) : null;
+                {perBookBooks.map((b, i) => {
+                  const shelfBook = b.title ? shelfBookForTitle(b.title, books) : null;
                   const bookId = !isStreaming && onAskBook && shelfBook ? shelfBook.id : null;
                   // 本のアイコンと名前（本棚の本と合えばその表紙・著者。合わなければ答えの書名と著者だけ）。
                   const plainPartner = consultPartner({ refs: [`📚 『${shelfBook ? shelfBook.title : b.title}』`], scopeIds: [], books: shelfBook ? [shelfBook] : [{ id: `perbook-${i}`, title: b.title, author: b.author, cover: null }] });

@@ -8,7 +8,7 @@ import { track } from './analytics';
 import { MODEL_SMART, MODEL_FAST } from './models';
 import { apiUrl } from './apiUrl';
 import { fetchAllRows } from './fetchAllRows';
-import { verifyAnswerQuotes, decodeQuoteRefs } from './evidenceCheck';
+import { verifyAnswerQuotes, decodeQuoteRefs, groundRefs } from './evidenceCheck';
 import { parseAskSection, wantsAction, isBookLookup } from './consultHelpers';
 import { checkAiConsentForSend, AI_CONSENT_HEADER, AI_CONSENT_DECLINED_TEXT } from './aiConsent';
 import { askJev, jevClientOn } from './jev';
@@ -362,8 +362,9 @@ ${CONSULT_SECURITY_RULES}
 
 【絶対に守る回答ルール】
 1. 必ず過去の本を引用 — 【参照した本のメモ】と【あなたの状況に合わせた解釈】で「『書名』のメモから引用すると…」のように
-   引用元を明記する。可能なら章番号・ページ番号も含める。ただし【結論】には書名・ページ番号を入れない
-   （結論は短く核心だけ。出典は後ろの【参照した本のメモ】で示す）。
+   引用元を明記する。ページ番号はそのメモにあるときだけ「p.25」の形で含める（章番号・章の名前はメモに無いので書かない）。
+   ただし【結論】には書名・ページ番号を入れない（結論は短く核心だけ。出典は後ろの【参照した本のメモ】で示す）。
+   【参照した本のメモ】と REFS に挙げてよいのは、渡したメモ一覧にある本・学びだけ（歩みにだけ出てくる本・メモの無い本は挙げない）。1 行に本 1 冊。
 2. 一般論禁止 — 「○○することが大切です」のような抽象論は厳禁。
    ユーザーのメモにある言葉・体験を使って答える。
 3. 知識ベースに無いことは正直に — 該当するメモが無い場合は
@@ -478,6 +479,7 @@ REFS_END
 【禁止事項】
 - 一般論で答える
 - 出典不明の情報を持ち出す
+- 渡したメモに無い本・ページ・章を、根拠（【参照した本のメモ】・REFS）に書く（画面は、渡したメモと合わない参照を表示しない）
 - 「私は AI なので分かりません」のような無責任な回答
 - ユーザーのメモ・歩みに無いことを知っているように振る舞う（渡されていない日付・件数・出来事を作らない）
 - 著者本人だと名乗る・メモに無い著者の発言や体験談を作る（実在の人物のなりすまし）
@@ -566,8 +568,9 @@ REFS_END
 
 【禁止事項】
 - 行動を求められていないのに行動を決める・最初の答えで行動を決める
-- 渡されていない本を持ち出す・本の順番を変える
+- 渡されていない本を持ち出す・本の順番を変える（REFS も渡された本だけ・1 行に本 1 冊。画面は渡していない本のカードを表示しない）
 - 著者本人だと名乗る・メモに無い著者の発言や体験談・引用を作る
+- メモに無いページ・章番号を書く
 - 一般論や「頑張ってください」のような抽象的な励ましで終わる
 - ユーザーのメモ・歩みに無いことを知っているように振る舞う`;
 
@@ -1893,7 +1896,10 @@ export async function streamMyBookBrain({ userId, question, onStage, onChunk, si
   // 「あなたのメモ N 件から答えました」は、照合を通った参照だけで数える（一致しなかった引用は外す）。
   let verified = null;
   try { verified = decodeQuoteRefs(quoteRefs); } catch { verified = null; }
-  return { body, refs: parsed.refs, ...ctx.stats, truncated, evidence: evidenceFromRefs(parsed.refs, ctx.sources, Date.now(), verified), quoteRefs, tokenRefund, mode: ctx.mode || 'fused', perbookBooks: ctx.perbookBooks, voice: ctx.voice || null, decide: !!ctx.decide };
+  // REFS は渡したメモと突き合わせてから残す（材料に無い本・メモに無いページを「もとになった本」に出さない・2026-10-04）
+  let refs = parsed.refs;
+  try { refs = groundRefs(parsed.refs, ctx.sources); } catch { refs = parsed.refs; }
+  return { body, refs, ...ctx.stats, truncated, evidence: evidenceFromRefs(refs, ctx.sources, Date.now(), verified), quoteRefs, tokenRefund, mode: ctx.mode || 'fused', perbookBooks: ctx.perbookBooks, voice: ctx.voice || null, decide: !!ctx.decide };
 }
 
 // ============================================================================
