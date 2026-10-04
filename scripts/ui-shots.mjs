@@ -328,6 +328,10 @@ const SCREENS = [
   { name: 'action-edit-discard-confirm', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[aria-label$="」の操作"]' }, { css: 'button:has-text("編集")' }, { css: '[role=dialog] button:text-is("来週")' }, { css: '[role=dialog] button[aria-label="閉じる"]' }] },
   { name: 'action-delete-confirm', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[aria-label$="」の操作"]' }, { css: 'button:has-text("編集")' }, { css: '[role=dialog] button:text-is("削除")' }] },
   { name: 'review-action-alldone', url: '/?demo=alldone', steps: [{ css: nav('振り返り') }] },
+  // 確かめるダイアログの文節の折り返し（初日クイックスタートを途中で閉じる・2026-10-04）
+  { name: 'confirm-quickstart-close', url: '/?demo=new', steps: [{ role: '次へ' }, { css: '[role=dialog] button:has-text("読んだ本に一言ずつ残す")' }, { css: '[role=dialog] button[aria-label^="『イシューからはじめよ』"]' }, { css: '[role=dialog] button[aria-label="閉じる"]' }] },
+  // 種類の絞り込み（「この本のまとめ」「AI まとめ」・根拠にできる情報の絞り込み）
+  { name: 'consult-knowledge-filter', url: '/', steps: [{ css: nav('相談') }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("根拠にできる情報")' }, { css: 'button[aria-label^="種類で絞り込む"], button:has-text("すべての種類")' }] },
   // 思い出しカード（いちばん大きな文字＝覚えた／まだ覚えていないが 2 行に積まれる）
   { name: 'review-memo-xxl-text', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("メモ")' }, { eval: () => { document.documentElement.style.fontSize = '40px'; } }, { wait: 500 }, { scrollTo: 'h2:has-text("思い出しカード")' }] },
   { name: 'action-edit-xxl-text', url: '/', steps: [{ css: nav('振り返り') }, { eval: () => { document.documentElement.style.fontSize = '40px'; } }, { wait: 400 }, { css: 'button[aria-label$="」の操作"]' }, { css: 'button:has-text("編集")' }, { wait: 400 }, { scrollBottom: true }] },

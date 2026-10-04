@@ -53,6 +53,8 @@ const rowStyle = {
 
 const cancelBtnStyle = {
   flex: 1,
+  wordBreak: 'keep-all',
+  overflowWrap: 'anywhere',
   minHeight: 48,
   // 縦に積んだときも文字がボタンの縁に付かないよう、左右にも余白（2026-09-29）。
   padding: 'var(--space-3) var(--space-4)',
@@ -68,6 +70,8 @@ const cancelBtnStyle = {
 
 const confirmBtnStyle = (danger) => ({
   flex: 1,
+  wordBreak: 'keep-all',
+  overflowWrap: 'anywhere',
   minHeight: 48,
   padding: 'var(--space-3) var(--space-4)',
   borderRadius: 'var(--radius)',
@@ -152,7 +156,8 @@ export function ConfirmProvider({ children }) {
             {pending.options.message && <p id="confirm-dialog-message" style={messageStyle}>{typeof pending.options.message === 'string' ? withPhraseBreaks(pending.options.message) : pending.options.message}</p>}
             {/* ボタンの文字が長い（8 字以上）ときは横に並べると語の途中で折り返すので、縦に積む
                 （決める操作を上・やめるを下・iOS のアラートと同じ・2026-09-29）。 */}
-            <div style={Math.max(String(pending.options.confirmLabel).length, String(pending.options.cancelLabel).length) >= 8 ? { ...rowStyle, flexDirection: 'column-reverse' } : rowStyle}>
+            {/* 横に並べたときのボタンの中は 1 行に 6 字ほど（390 幅）。7 字以上は縦に積む（「選んだ本を消／す」と割れていた・2026-10-04）。 */}
+            <div style={Math.max(String(pending.options.confirmLabel).length, String(pending.options.cancelLabel).length) >= 7 ? { ...rowStyle, flexDirection: 'column-reverse' } : rowStyle}>
               <button
                 ref={cancelRef}
                 type="button"
@@ -160,7 +165,7 @@ export function ConfirmProvider({ children }) {
                 onClick={() => finish(false)}
                 autoFocus={!!pending.options.danger}
               >
-                {pending.options.cancelLabel}
+                {withPhraseBreaks(String(pending.options.cancelLabel))}
               </button>
               <button
                 type="button"
@@ -169,7 +174,7 @@ export function ConfirmProvider({ children }) {
                 ref={confirmRef}
                 autoFocus={!pending.options.danger}
               >
-                {pending.options.confirmLabel}
+                {withPhraseBreaks(String(pending.options.confirmLabel))}
               </button>
             </div>
           </div>
