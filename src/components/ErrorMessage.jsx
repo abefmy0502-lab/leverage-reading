@@ -16,6 +16,8 @@
 //                  variant: 'primary' | 'secondary' | 'ghost' (default secondary)
 
 // 主・副ボタンはアプリ共通の 48/17（ui.js の btnPrimary / btnGhost と同じ・2026-09-30）。文字ボタンは控えめな 44/15。
+import { withPhraseBreaks } from './TightBubble';
+
 const variantClass = {
   primary: 'btn btn-primary',
   secondary: 'btn btn-secondary',
@@ -33,7 +35,8 @@ export default function ErrorMessage({
   return (
     <div className={`error-message ${className}`.trim()} role="alert">
       {icon && <div className="error-message-icon" aria-hidden="true">{icon}</div>}
-      {title && <p className="error-message-title">{title}</p>}
+      {/* 題も文節の切れ目でだけ折り返す（iOS の Safari は auto-phrase を知らない・2026-10-04）。 */}
+      {title && <p className="error-message-title" style={typeof title === 'string' ? { wordBreak: 'keep-all', overflowWrap: 'anywhere' } : undefined}>{typeof title === 'string' ? withPhraseBreaks(title) : title}</p>}
       {description && (
         <p className="error-message-description">
           {/* 句読点ごとのまとまりで折り返す（iOS Safari は auto-phrase を知らないので「もう／一度」のように割れる）。 */}

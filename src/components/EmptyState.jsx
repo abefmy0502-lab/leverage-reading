@@ -18,19 +18,26 @@
 // Note: nothing about this is animated by JS — the floating icon is a
 // CSS keyframe and respects prefers-reduced-motion via the global rule.
 
+import { withPhraseBreaks } from './TightBubble';
+
 const variantClass = {
   primary: 'btn btn-primary',
   secondary: 'btn btn-secondary',
   ghost: 'btn btn-ghost',
 };
 
+// 文の題・説明は文節の切れ目（BudouX の <wbr>）でだけ折り返す。CSS の word-break: auto-phrase は
+// iOS の Safari（アプリの WebView）が知らないので、端末では「ここ／までです」のように語の途中で割れていた（2026-10-04）。
+const phraseStyle = { wordBreak: 'keep-all', overflowWrap: 'anywhere' };
+const phrased = (v) => (typeof v === 'string' ? withPhraseBreaks(v) : v);
+
 export default function EmptyState({ icon, title, description, actions = [], tip, titleAs: TitleTag = 'h2', role = 'status' }) {
   return (
     <div className="empty-state" role={role || undefined}>
       {icon && <div className="empty-state-icon" aria-hidden="true">{icon}</div>}
-      {title && <TitleTag className="empty-state-title">{title}</TitleTag>}
+      {title && <TitleTag className="empty-state-title" style={typeof title === 'string' ? phraseStyle : undefined}>{phrased(title)}</TitleTag>}
       {description && (
-        <p className="empty-state-description">{description}</p>
+        <p className="empty-state-description" style={typeof description === 'string' ? phraseStyle : undefined}>{phrased(description)}</p>
       )}
       {actions.length > 0 && (
         <div className="empty-state-actions">
