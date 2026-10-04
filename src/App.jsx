@@ -4106,7 +4106,7 @@ function AuthedApp() {
               <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-2)', marginTop: "var(--space-2)", flexWrap: "wrap" }}>
                 {/* 状態は押せない表示なので面を付けない（DESIGN §5「表示用ラベル」）。 */}
                 <StatusLabel status={current.status} />
-                {current.rating > 0 && <Stars r={current.rating} size={14} />}
+                {current.rating > 0 && <Stars r={current.rating} size="calc(14rem / 17)" />}
               </div>
               {(current.startDate || current.doneDate) && (
                 <p style={{ fontSize: 'var(--text-meta)', color: "var(--text-3)", margin: 'var(--space-2) 0 0' }}>
@@ -4119,7 +4119,7 @@ function AuthedApp() {
           {/* タグも押せない表示＝面なしのアイコン＋文字（DESIGN §5「表示用ラベル」）。 */}
           {current.tags?.length > 0 && (
             <div style={{ display: "flex", alignItems: 'center', flexWrap: "wrap", columnGap: 'var(--space-3)', rowGap: 'var(--space-1)', marginTop: 'var(--space-3)', fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>
-              <IcTag size={14} strokeWidth={1.75} aria-label="タグ" style={{ flexShrink: 0, marginRight: 'calc(-1 * var(--space-2))' }} />
+              <IcTag size="1.1em" strokeWidth={1.75} aria-label="タグ" style={{ flexShrink: 0, marginRight: 'calc(-1 * var(--space-2))' }} />
               {/* 「#」は付けない（タグの印があるので二重になる・メモを書くシートのタグと同じ表記・2026-09-30）。 */}
               {current.tags.map((t, i) => (<span key={i}>{t}</span>))}
             </div>

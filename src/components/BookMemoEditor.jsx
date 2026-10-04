@@ -661,7 +661,7 @@ export default function BookMemoEditor({
               {tags.map((t, i) => (
                 <Chip key={`${t}-${i}`} size="select" active onClick={() => removeTag(i)} aria-label={`「${t}」を削除`}>
                   {t}
-                  <X size={14} aria-hidden="true" />
+                  <X size="0.95em" aria-hidden="true" style={{ flexShrink: 0 }} />
                 </Chip>
               ))}
             </div>
@@ -670,7 +670,7 @@ export default function BookMemoEditor({
             <div style={tagChipRow}>
               {suggestions.map((t) => (
                 <Chip key={t} size="select" onClick={() => addTag(t)} aria-label={`「${t}」を追加`}>
-                  <Plus size={14} aria-hidden="true" />
+                  <Plus size="0.95em" aria-hidden="true" style={{ flexShrink: 0 }} />
                   {t}
                 </Chip>
               ))}

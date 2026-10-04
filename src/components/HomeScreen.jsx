@@ -111,7 +111,7 @@ function ReadingNow({ books, onOpenBook, onWriteMemo, onStartReading, onAddBook,
   const heading = stacked.length ? '次に読む本' : finished.length ? '最近読み終えた本' : 'いま読んでいる本';
   const memoBtn = (b) => (
     <button type="button" onClick={() => onWriteMemo(b)} aria-label={`『${b.title}』にメモを書く`} style={btnRow}>
-      <PencilLine size={16} aria-hidden="true" />メモを書く
+      <PencilLine size="1.1em" aria-hidden="true" style={{ flexShrink: 0 }} />メモを書く
     </button>
   );
   return (
@@ -133,7 +133,7 @@ function ReadingNow({ books, onOpenBook, onWriteMemo, onStartReading, onAddBook,
               onCoverRetry={onCoverRetry}
               action={b.status === 'before' && onStartReading ? (
                 <button type="button" onClick={() => onStartReading(b)} aria-label={`『${b.title}』を読み始める`} style={btnRow}>
-                  <BookOpen size={16} aria-hidden="true" />読み始める
+                  <BookOpen size="1.1em" aria-hidden="true" style={{ flexShrink: 0 }} />読み始める
                 </button>
               ) : memoBtn(b)}
             />
@@ -142,7 +142,7 @@ function ReadingNow({ books, onOpenBook, onWriteMemo, onStartReading, onAddBook,
               文字ボタンの左右 4 を打ち消して、文字の端をカードの端（16）にそろえる。 */}
           <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', columnGap: 'var(--space-4)', margin: 'calc(-1 * var(--space-1)) calc(-1 * var(--space-1)) 0' }}>
             <button type="button" onClick={onAddBook} style={{ ...btnLink, gap: 'var(--space-1)' }}>
-              <Plus size={18} aria-hidden="true" />本を追加
+              <Plus size="1.2em" aria-hidden="true" />本を追加
             </button>
             {reading.length > shown.length && (
               <button type="button" onClick={onSeeAllReading} style={btnLink}>
@@ -236,10 +236,10 @@ export default function HomeScreen({
             onClick={onOpenLibrary}
             style={{ ...card, width: '100%', minHeight: 56, display: 'flex', alignItems: 'center', gap: 'var(--space-3)', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}
           >
-            <Library size={20} aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
+            <Library size="1.2em" aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
             <span style={{ flex: 1, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>すべての本</span>
             <span style={{ fontSize: 'var(--text-sub)', color: 'var(--text-3)' }}>{books.length} 冊</span>
-            <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)' }} />
+            <ChevronRight size="1.2em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
           </button>
         </>
       )}

@@ -23,7 +23,7 @@ export function StatusLabel({ status, style }) {
   const Icon = s.Icon;
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', whiteSpace: 'nowrap', flexShrink: 0, ...style }}>
-      {Icon && <Icon size={14} strokeWidth={1.75} aria-hidden="true" />}
+      {Icon && <Icon size="1.1em" strokeWidth={1.75} aria-hidden="true" style={{ flexShrink: 0 }} />}
       {s.label}
     </span>
   );
@@ -219,7 +219,7 @@ export const SwipeableBookCard = memo(function SwipeableBookCard({ book, index, 
                 省略されても区切りの位置が本ごとにずれないようにする。状態は押せないラベル＝面なし。 */}
             <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-2)', marginTop: 'var(--space-1)', minWidth: 0 }}>
               {showStatus && <StatusLabel status={book.status} />}
-              {book.rating > 0 && <span style={{ flexShrink: 0, display: 'inline-flex' }}><Stars r={book.rating} size={12} /></span>}
+              {book.rating > 0 && <span style={{ flexShrink: 0, display: 'inline-flex' }}><Stars r={book.rating} size="calc(12rem / 17)" /></span>}
               {book.author && (showStatus || book.rating > 0) && <span aria-hidden="true" style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', flexShrink: 0 }}>·</span>}
               {book.author && <span style={{ flex: 1, fontSize: 'var(--text-meta)', color: "var(--text-2)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><Marked segments={highlight?.author} text={book.author} /></span>}
             </div>

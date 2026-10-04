@@ -587,7 +587,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
             style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, padding: '0 0 0 var(--space-2)', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-sub)', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}
           >
             {sortBy === 'page' ? 'ページ順' : '新しい順'}{quoteOnly ? '・ページ番号つき' : ''}
-            <ChevronDown size={16} aria-hidden="true" />
+            <ChevronDown size="1.1em" aria-hidden="true" style={{ flexShrink: 0 }} />
           </button>
         </div>
       )}
