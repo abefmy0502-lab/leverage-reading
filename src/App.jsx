@@ -2654,7 +2654,7 @@ function AuthedApp() {
           track('status_changed', { to: newStatus });
         }
       } catch (error) {
-        toast.error(toMessage(error, 'ステータス変更に失敗しました。'));
+        toast.error(toMessage(error, '状態を変えられませんでした。'));
         // rollback は status 系フィールドのみ（他の並行変更は保持）。画面遷移は
         // ユーザーがこの本を開いたままの時だけ行う（別の本の編集画面を乗っ取らない）。
         mutateBookLocal(book.id, (b) => ({ ...b, ...prev }));
@@ -2690,7 +2690,7 @@ function AuthedApp() {
           const saved = await saveBook(reverted);
           entry.latest = saved || reverted;
         } catch (error) {
-          toast.error(toMessage(error, 'ステータス変更の取り消しに失敗しました。'));
+          toast.error(toMessage(error, '状態を元に戻せませんでした。'));
         }
       });
     };
@@ -4598,7 +4598,7 @@ function AuthedApp() {
                   onClick: async () => {
                     const ok = await confirm({
                       title: `「${prevLabel}」に戻しますか？`,
-                      message: `ステータスを「${prevLabel}」に戻します。メモや行動などのデータは保持されます。`,
+                      message: `状態を「${prevLabel}」に戻します。メモや行動などのデータは保持されます。`,
                       confirmLabel: '戻す',
                       cancelLabel: 'キャンセル',
                     });
@@ -5167,7 +5167,7 @@ function AuthedApp() {
                     maskImage: 'linear-gradient(90deg, #000 90%, transparent 100%)',
                   }}
                   role="group"
-                  aria-label="ステータスで絞り込み"
+                  aria-label="状態で絞り込み"
                 >
                   {/* フォルダで絞っている間だけ、先頭にそのフォルダのチップ（押すと解除）。フォルダの選択は「…」→ 絞り込み。 */}
                   {folderFilter && (
@@ -5543,7 +5543,7 @@ function AuthedApp() {
               : []),
             // 📗 本を開かずにその場でステータス変更（管理の最頻操作を1手に）。
             {
-              label: 'ステータスを変える',
+              label: '状態を変える',
               icon: <IcCheck size={16} aria-hidden="true" />,
               onClick: () => setStatusPickerBook(bookContextMenu.book),
             },
@@ -5804,7 +5804,7 @@ function AuthedApp() {
       {/* 📗 ステータス変更シート（本棚の長押し → ステータスを変える）。
           本を開かずその場で 4 ステータスへ移動。日付補完は setBookStatusQuiet 側。 */}
       {statusPickerBook && (
-        <BottomSheet title="ステータスを変える" onClose={() => setStatusPickerBook(null)}>
+        <BottomSheet title="状態を変える" onClose={() => setStatusPickerBook(null)}>
           <p style={sheetSubtitle}>
             『{statusPickerBook.title}』
           </p>
@@ -5945,7 +5945,7 @@ function AuthedApp() {
             </button>
           )}
         >
-          <p style={sheetLabel}>ステータス</p>
+          <p style={sheetLabel}>状態</p>
           <div style={sheetChips}>
             {[{ key: 'all', label: 'すべて', count: stats.total }, ...SHELF_CHIP_ORDER.map((k) => STATUSES.find((st) => st.key === k)).filter(Boolean).map((s) => ({ key: s.key, label: s.label, count: stats[s.key] || 0 }))].map((s) => (
               <ShelfChip key={s.key} active={statusFilter === s.key} onClick={() => setStatusFilter(s.key)}>
