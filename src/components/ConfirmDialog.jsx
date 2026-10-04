@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
+import { withPhraseBreaks } from './TightBubble';
 
 const ConfirmContext = createContext({ confirm: async () => false });
 
@@ -25,7 +26,10 @@ const cardStyle = {
   fontFamily: "var(--font-app)",
 };
 
+// 題と本文は文節の切れ目でだけ折り返す（「入っていま／せん」と語の途中で割れていた・2026-10-04）。
 const titleStyle = {
+  wordBreak: 'keep-all',
+  overflowWrap: 'anywhere',
   fontSize: 'var(--text-body)',
   color: 'var(--text)',
   fontWeight: 600,
@@ -33,6 +37,8 @@ const titleStyle = {
 };
 
 const messageStyle = {
+  wordBreak: 'keep-all',
+  overflowWrap: 'anywhere',
   fontSize: 'var(--text-sub)',
   color: 'var(--text-2)',
   lineHeight: 1.6,
@@ -140,10 +146,10 @@ export function ConfirmProvider({ children }) {
       {children}
       {pending && (
         // 出るときは、ほかのダイアログと同じ .modal / .modal-backdrop（components.css）。
-        <div className="modal-backdrop" style={overlayStyle} onClick={() => finish(pending.dismissValue)} role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-title">
+        <div className="modal-backdrop" style={overlayStyle} onClick={() => finish(pending.dismissValue)} role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-title" aria-describedby={pending.options.message ? 'confirm-dialog-message' : undefined}>
           <div ref={trapRef} className="modal" style={cardStyle} onClick={(e) => e.stopPropagation()}>
-            <h2 id="confirm-dialog-title" style={titleStyle}>{pending.options.title}</h2>
-            {pending.options.message && <p style={messageStyle}>{pending.options.message}</p>}
+            <h2 id="confirm-dialog-title" style={titleStyle}>{typeof pending.options.title === 'string' ? withPhraseBreaks(pending.options.title) : pending.options.title}</h2>
+            {pending.options.message && <p id="confirm-dialog-message" style={messageStyle}>{typeof pending.options.message === 'string' ? withPhraseBreaks(pending.options.message) : pending.options.message}</p>}
             {/* ボタンの文字が長い（8 字以上）ときは横に並べると語の途中で折り返すので、縦に積む
                 （決める操作を上・やめるを下・iOS のアラートと同じ・2026-09-29）。 */}
             <div style={Math.max(String(pending.options.confirmLabel).length, String(pending.options.cancelLabel).length) >= 8 ? { ...rowStyle, flexDirection: 'column-reverse' } : rowStyle}>
