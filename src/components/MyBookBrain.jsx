@@ -3274,8 +3274,9 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
           </div>
           {/* 8 秒たっても 1 文字も来ないとき（止めるのは入力欄の右のボタン）。形の下に足すので、骨組みは動かさない。 */}
           {slow && (
-            <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>
-              時間がかかっています。もう少しお待ちください
+            // 文節の切れ目でだけ折り返す（「お待ちくだ／さい」と語の途中で切らない・2026-10-04）。
+            <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+              {withPhraseBreaks('時間がかかっています。もう少しお待ちください')}
             </p>
           )}
         </div>
