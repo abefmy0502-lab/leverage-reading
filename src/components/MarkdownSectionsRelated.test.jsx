@@ -19,6 +19,8 @@ describe('MarkdownSections の関連書籍', () => {
     const html = renderToStaticMarkup(<MarkdownSections flat text={SHEET} onAddRelatedBook={() => {}} />);
     const plain = plainOf(html);
     expect(plain).toContain('夢をかなえるゾウ');
+    // 著者は書名の後ろの空白で区切る（左の余白は付けない＝折り返したとき行頭がずれない）
+    expect(html).toMatch(/』 <span style="display:inline-block;text-indent:0;font-size/);
     expect(plain).toContain('小さな目標の立て方');
     expect(plain).not.toContain('SMALL ACTIONS');
     expect(plain).not.toContain('やめる習慣');
