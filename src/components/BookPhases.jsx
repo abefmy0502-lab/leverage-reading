@@ -118,6 +118,15 @@ export function WantPhase({ form, setForm, onSave, saving = false, onSearchOpen,
   const titleErrId = useId();
   const titleInputId = useId();
   const authorInputId = useId();
+  // 「手動で入力する」で開いた（書名がまだ空の）ときは、書名の欄から書き始められるようにする（1 タップ減らす・2026-10-04）。
+  useEffect(() => {
+    if (form.addedVia === 'manual' && !String(form.title || '').trim()) {
+      const t = setTimeout(() => { try { titleRef.current?.focus({ preventScroll: true }); } catch { /* ignore */ } }, 80);
+      return () => clearTimeout(t);
+    }
+    return undefined;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.id]);
   const handleSaveClick = () => {
     if (!canSave) {
       setTitleMissing(true);
