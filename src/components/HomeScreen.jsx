@@ -17,6 +17,7 @@ import GrowthMeter from './GrowthMeter';
 import { takeMemosReached, growthMeterText, rememberHomeMemoCount, lastHomeMemoCount, showGrowthPlaceholder } from '../lib/firstDay';
 import { track } from '../lib/analytics';
 import { MiniCover } from './BookCards';
+import { withPhraseBreaks } from './TightBubble';
 import { SkeletonBlock } from './Skeleton';
 import ErrorMessage from './ErrorMessage';
 import { btnPrimary, btnGhost, btnLink, card } from '../styles/ui';
@@ -72,7 +73,8 @@ function BookRow({ book: b, sub, onOpenBook, onCoverRetry, action }) {
       >
         <MiniCover book={b} width={40} onAutoRetry={onCoverRetry} />
         <span style={{ minWidth: 0 }}>
-          <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.4 }}>{b.title}</span>
+          {/* 書名は文節の切れ目でだけ折り返す（「イシューからは／じめよ」と語の途中で割れていた・2026-10-04）。 */}
+          <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.4, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(b.title)}</span>
           {sub && <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-3)', marginTop: 'var(--space-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sub}</span>}
         </span>
       </button>
