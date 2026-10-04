@@ -27,10 +27,8 @@ import { relativeJa, recallFraming, pickRecallMemo, pickFallbackMemo, pickExtraM
 import { loadRecallLocal, saveRecallLocal } from '../lib/recallLocal';
 import { shouldAskForReview, markReviewAsked, askReviewToast } from '../lib/reviewRequest';
 import { markActivation } from '../lib/activation';
-import { isPushSupported, isPushConfigured, getPermission, subscribeToPush, isIOS, isStandalonePWA } from '../lib/push';
-import { isNativePushCapable, getNativePushPermission, subscribeNativePush } from '../lib/nativePush';
-import { isNative } from '../lib/iap';
-import { btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, btnText as uiBtnText, btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnLink, groupTitle, card as uiCard, input as uiInput } from '../styles/ui';
+import NotifyOptInCard from './NotifyOptInCard';
+import { btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, btnLink, groupTitle, card as uiCard, input as uiInput } from '../styles/ui';
 import {
   Shuffle, CalendarDays, Search as SearchIcon, RotateCw, MessageSquareQuote,
   StickyNote, BookOpen, Lightbulb, BarChart3, AlertTriangle, FlaskConical, Bot, Gem, FileText, Trash2, Target, Check, Plus, ChevronDown, ChevronRight, MoreHorizontal, Pencil, Copy, Share,
@@ -463,57 +461,6 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
   // 想起カードから「→行動にする」したメモ id（直後のボタン表示を ✓ に切替）。
   const [actionAddedId, setActionAddedId] = useState(null);
   const [addingAction, setAddingAction] = useState(false);
-  // 🔔 想起プッシュ通知の aha 直後 opt-in。旗艦の復帰導線が設定モーダル奥・
-  // 既定オフ・オンボ未案内で死蔵していたため、実際に「過去メモが1枚戻ってきた」
-  // 瞬間に一度だけ価値訴求付きで案内する（1回で dismiss を永続化・しつこくしない）。
-  const PUSH_OPTIN_KEY = 'orime-recall-push-optin-v1';
-  const [pushOptInDismissed, setPushOptInDismissed] = useState(() => {
-    try { return localStorage.getItem(PUSH_OPTIN_KEY) === '1'; } catch { return false; }
-  });
-  const [pushBusy, setPushBusy] = useState(false);
-  // aha 直後の opt-in を出してよいか。Web は同期判定できるが、ネイティブ(APNs)は
-  // 権限確認が非同期なので effect で解決する。既定は Web の同期判定。
-  const [pushOptInEligible, setPushOptInEligible] = useState(() =>
-    !isNative && isPushSupported() && isPushConfigured() && getPermission() === 'default',
-  );
-  useEffect(() => {
-    if (!isNative) return undefined;
-    let alive = true;
-    (async () => {
-      try {
-        // ネイティブは「プラグイン利用可 かつ 未許可(prompt)」の時だけ opt-in を出す。
-        const eligible = isNativePushCapable && (await getNativePushPermission()) === 'prompt';
-        if (alive) setPushOptInEligible(eligible);
-      } catch { if (alive) setPushOptInEligible(false); }
-    })();
-    return () => { alive = false; };
-  }, []);
-  const dismissPushOptIn = useCallback(() => {
-    try { localStorage.setItem(PUSH_OPTIN_KEY, '1'); } catch { /* ignore */ }
-    setPushOptInDismissed(true);
-  }, []);
-  const enablePushFromOptIn = useCallback(async () => {
-    if (pushBusy) return;
-    setPushBusy(true);
-    try {
-      const res = isNative
-        ? await subscribeNativePush({ frequency: 'weekly' })
-        : await subscribeToPush({ frequency: 'weekly' });
-      if (res?.ok) {
-        try { haptic.success(); } catch { /* non-critical */ }
-        toast.success('通知をオンにしました');
-        dismissPushOptIn();
-      } else if (res?.reason === 'denied') {
-        toast.info('通知は端末の設定でブロックされています。設定から許可できます。');
-        dismissPushOptIn();
-      } else {
-        toast.error('通知をオンにできませんでした。設定からもう一度お試しください。');
-      }
-    } finally {
-      setPushBusy(false);
-    }
-  }, [pushBusy, haptic, toast, dismissPushOptIn]);
-
   // Analytics: fire once when the Review tab mounts (not per sub-tab switch).
   // Empty dep array → runs exactly once on mount. fire-and-forget, no PII.
   useEffect(() => {
@@ -1402,41 +1349,11 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
             </>)}
           </div>
         )}
-        {/* 🔔 aha 直後の通知 opt-in（初回・1枚戻ってきた時だけ・未許可時のみ） */}
-        {randomMemo && recallFraming(randomMemo.createdAt) && !pushOptInDismissed && pushOptInEligible && (
-          <div
-            style={{ ...cardBase, marginTop: 'var(--space-3)' }}
-          >
-            <p style={{ fontSize: 'var(--text-body)', color: 'var(--text)', margin: 0, lineHeight: 1.5, fontWeight: 600 }}>
-              忘れた頃に、この一行がそっと戻ってきます
-            </p>
-            <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 'var(--space-1) 0 var(--space-3)', lineHeight: 1.6 }}>
-              週に1回ほど、過去のあなたのメモを通知でお届けします（いつでもオフにできます）。
-            </p>
-            <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
-              <button
-                type="button"
-                onClick={enablePushFromOptIn}
-                disabled={pushBusy}
-                style={{ ...(pushBusy ? uiBtnPrimaryOff : uiBtnPrimary), flex: 1, width: 'auto' }}
-              >
-                {pushBusy ? '設定中…' : '通知を受け取る'}
-              </button>
-              <button
-                type="button"
-                onClick={dismissPushOptIn}
-                disabled={pushBusy}
-                style={{ ...uiBtnText, color: 'var(--text-2)', fontWeight: 400, flexShrink: 0 }}
-              >
-                今はしない
-              </button>
-            </div>
-            {!isNative && isIOS() && !isStandalonePWA() && (
-              <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 'var(--space-2) 0 0', lineHeight: 1.5 }}>
-                ※ iPhone / iPad は「ホーム画面に追加」したアプリから開くと通知を使えます。
-              </p>
-            )}
-          </div>
+        {/* 🔔 aha 直後の通知の案内（初回・1 枚戻ってきた時だけ・未許可時のみ）。行動に追加の直後・初日クイックスタートと
+            同じ部品・同じ文（思い出しの通知と行動の期限の両方を言う・DESIGN §5「閉じられる案内カード」・2026-10-04）。
+            以前はここだけ別の文（「週に1回ほど…」・期限の通知を言わない）と別の形（主ボタン＋「今はしない」）だった。 */}
+        {randomMemo && recallFraming(randomMemo.createdAt) && (
+          <NotifyOptInCard where="recall" style={{ marginTop: 'var(--space-3)' }} />
         )}
         {/* 名言はこのタブから撤去 — 想起の主役はユーザー自身の言葉で、毎回の格言は
             それを薄める（名言はスプラッシュ/オンボに残る）。 */}
