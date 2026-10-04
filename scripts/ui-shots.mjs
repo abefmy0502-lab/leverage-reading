@@ -178,6 +178,8 @@ const SCREENS = [
   { name: 'book-plan-sheet-related-messy', url: '/?related=messy', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("LIFE SHIFT")' }, { css: 'button:text-is("読書計画シートを作る")' }, { waitFor: '#plan-sheet-fold[open]', timeout: 30000 }, { wait: 4000 }, { scrollTo: 'h3:has-text("関連書籍")' }] },
   { name: 'book-detail-plan-related-messy', url: '/?related=messy', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { wait: 2500 }, { scrollBottom: true }, { css: 'summary:has-text("読書計画")' }, { scrollTo: 'h3:has-text("関連書籍")' }] },
   // 以前の AI 解析（書誌で確かめていない）に本を挙げる節があっても出さない（2026-10-04）
+  // 以前の AI 解析が関連書籍の節だけ → 畳みごと出さない（いちばん下まで送って確かめる）
+  { name: 'book-detail-old-analysis-only-related', url: '/?related=legacyonly', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("LIFE SHIFT")' }, { scrollBottom: true }] },
   { name: 'book-detail-old-analysis-related', url: '/?related=messy', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("LIFE SHIFT")' }, { scrollBottom: true }, { css: 'summary:has-text("以前の AI 解析")' }, { scrollTo: 'summary:has-text("以前の AI 解析")' }] },
   // 目次に無い章（&ai=fakechapter・2026-10-04）: 書き終えたところで重点的に読む箇所から消す（目次あり／目次なし）
   { name: 'book-plan-sheet-fakechapter', url: '/?ai=fakechapter', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("LIFE SHIFT")' }, { css: 'button:text-is("読書計画シートを作る")' }, { waitFor: '#plan-sheet-fold[open]', timeout: 30000 }, { wait: 3000 }, { scrollTo: 'h3:has-text("重点的に読む箇所")' }] },

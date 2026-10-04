@@ -90,6 +90,7 @@ import { searchBooksFlat as searchBooksAPIFlat } from './lib/bookSearch';
 import { tryCoverForIsbn, verifyBookExists } from './lib/bookCover';
 import { verifyPlanRelatedBooks, hasMalformedRelatedBooks } from './lib/planRelatedBooks';
 import { dropUnknownChapters, focusLinesOf } from './lib/planChapters';
+import { hasVisibleSections } from './lib/markdownSections';
 import { backfillCovers } from './lib/backfillCovers';
 import { enqueueCoverRetry, resolveCoverForBook, canReplaceCover, clearCoverNotFound } from './lib/coverAutoRetry';
 import { MODEL_SMART } from './lib/models';
@@ -3985,7 +3986,8 @@ function AuthedApp() {
           )}
 
           {/* 「AIで本を解析する」は 2026-09-27 に廃止。以前の結果だけ、別の畳む見出しで残す。 */}
-          {current.aiAnalysis && (
+          {/* 本を挙げる節を外すと何も残らないときは、畳みごと出さない（lib/markdownSections.js・2026-10-04） */}
+          {hasVisibleSections(current.aiAnalysis, { hideRelatedBooks: true }) && (
             <details style={{ ...detailsStyle, marginTop: (hasPlanFold || aboutFoldShown) ? 'var(--space-3)' : (isMemoPhase ? planFoldTop : 'var(--space-3)') }}>
               <summary style={summaryStyle}>
                 以前の AI 解析を見る
@@ -4140,7 +4142,7 @@ function AuthedApp() {
             </div>
           ) : null}
           {/* 畳む見出しが続くときは 12（「この本のまとめ」の直後）。 */}
-          {current.aiSummary && (
+          {hasVisibleSections(current.aiSummary, { hideRelatedBooks: true }) && (
             <details style={{ ...detailsStyle, marginTop: isMemoPhase ? 'var(--space-3)' : 'var(--space-6)' }}>
               <summary style={summaryStyle}>
                 以前の AI まとめ

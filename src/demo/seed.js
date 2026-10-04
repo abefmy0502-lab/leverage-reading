@@ -282,6 +282,13 @@ export function buildSeed(scenario) {
     });
   }
 
+  // &related=legacyonly: 以前の AI 解析が関連書籍の節だけの人（畳みごと出さないことの確認用・2026-10-04）
+  if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('related') === 'legacyonly') {
+    db.books.forEach((b) => {
+      if (b.title === 'LIFE SHIFT') b.ai_analysis = '## 📚 関連書籍\n### 1. 『100年時代の人生戦略ノート』- 架空花子\n人生の段階を書き出すワークが付いています。';
+    });
+  }
+
   // ?demo=planempty: 積読の『LIFE SHIFT』に得たいこと・課題・仮説・シートがまだ無い人
   //   （積読の「この本について」がカードで出る形の確認用・2026-10-02）。
   if (scenario === 'planempty') {

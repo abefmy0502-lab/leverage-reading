@@ -20,7 +20,7 @@ import { MiniCover } from './BookCards';
 import { LIMITS } from '../lib/limits';
 import { useBookCover } from '../hooks/useBookCover';
 import { useToast } from './Toast';
-import MarkdownSections from './MarkdownSections';
+import MarkdownSections, { hasVisibleSections } from './MarkdownSections';
 import { DATE_HINT } from '../lib/dateHint';
 import {
   Field, SectionHeader, Stars, TagInput, Chip,
@@ -483,7 +483,8 @@ export function BeforePhase({
 
       {/* 「AIで本を解析する」は 2026-09-27 に廃止（読書計画シートと役割が重なる・原価の節約）。
           以前に解析した本だけ、結果を畳んで残す（相談の材料＝著者の意図として使い続ける）。 */}
-      {form.aiAnalysis && (
+      {/* 本を挙げる節を外すと何も残らないときは、畳みごと出さない（2026-10-04） */}
+      {hasVisibleSections(form.aiAnalysis, { hideRelatedBooks: true }) && (
         <details style={{ ...softBox, padding: '0 var(--space-4)', marginTop: 'var(--space-6)', marginBottom: 0 }}>
           <summary style={foldSummary}>
             以前の AI 解析を見る
