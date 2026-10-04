@@ -1163,7 +1163,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                     {withPhraseBreaks('本・メモ・写真・相談の履歴はすぐ削除され、ログイン情報の完全削除は管理者の最終確認後（通常 7 日以内）に実行されます。この操作は取り消せません。')}
                   </p>
                   <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 0, lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-                    {withPhraseBreaks('確認のため、ご自身のメールアドレス')} <strong style={{ fontWeight: 600, color: 'var(--text)', overflowWrap: 'anywhere', wordBreak: 'break-all' }}>{expectedConfirm}</strong> {withPhraseBreaks('を入力してください。')}
+                    {withPhraseBreaks('確認のため、ご自身のメールアドレス')} <strong style={{ fontWeight: 600, color: 'var(--text)', overflowWrap: 'anywhere' }}>{expectedConfirm}</strong> {withPhraseBreaks('を入力してください。')}
                   </p>
                   <input
                     type="text"
