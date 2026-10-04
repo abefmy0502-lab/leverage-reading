@@ -275,6 +275,12 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
 
   useEffect(() => { track('quickstart_started'); }, []);
   useEffect(() => { if (step === 'memo') memoRef.current?.focus(); }, [step, idx]);
+  // 段階が変わったら、中身は先頭から見せる（前の段階の送った位置が残り、できあがりの表紙の上が隠れていた・2026-10-04 ui-critic）。
+  useEffect(() => {
+    const root = trapRef.current;
+    if (!root) return;
+    root.querySelectorAll('div').forEach((el) => { if (el.scrollTop) el.scrollTop = 0; });
+  }, [step, trapRef]);
 
   // 本棚にすでにある読書中・読了の本（本はあるがメモ 0 件の人向け）。未検索のときだけ出す。
   const shelfBooks = books.filter((b) => b.status === 'done' || b.status === 'reading').slice(0, 8);
