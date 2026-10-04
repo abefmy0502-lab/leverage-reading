@@ -208,8 +208,9 @@ function SettingRow({ title, desc, extra, control, style }) {
         <p style={{ ...rowTitleStyle, flex: 1, minWidth: 0 }}>{title}</p>
         {control}
       </div>
-      {desc && <p style={rowDescStyle}>{desc}</p>}
-      {extra && <p style={{ ...rowDescStyle, marginTop: 'var(--space-2)' }}>{extra}</p>}
+      {/* 説明は文節の切れ目でだけ折り返す（「期限／の日」「でき／ます」と語の途中で切らない・2026-10-04）。 */}
+      {desc && <p style={{ ...rowDescStyle, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{typeof desc === 'string' ? withPhraseBreaks(desc) : desc}</p>}
+      {extra && <p style={{ ...rowDescStyle, marginTop: 'var(--space-2)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{typeof extra === 'string' ? withPhraseBreaks(extra) : extra}</p>}
     </div>
   );
 }
@@ -1157,11 +1158,12 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
                   {/* 詳しい説明は開いてから（閉じた状態は 1 行だけ）。 */}
-                  <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 0, lineHeight: 1.5 }}>
-                    本・メモ・写真・相談の履歴はすぐ削除され、ログイン情報の完全削除は管理者の最終確認後（通常 7 日以内）に実行されます。この操作は取り消せません。
+                  {/* 文節の切れ目でだけ折り返す（「くだ／さい」と語の途中で切らない・2026-10-04）。 */}
+                  <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 0, lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+                    {withPhraseBreaks('本・メモ・写真・相談の履歴はすぐ削除され、ログイン情報の完全削除は管理者の最終確認後（通常 7 日以内）に実行されます。この操作は取り消せません。')}
                   </p>
-                  <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 0, lineHeight: 1.5 }}>
-                    確認のため、ご自身のメールアドレス <strong style={{ fontWeight: 600, color: 'var(--text)', overflowWrap: 'anywhere' }}>{expectedConfirm}</strong> を入力してください。
+                  <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 0, lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+                    {withPhraseBreaks('確認のため、ご自身のメールアドレス')} <strong style={{ fontWeight: 600, color: 'var(--text)', overflowWrap: 'anywhere', wordBreak: 'break-all' }}>{expectedConfirm}</strong> {withPhraseBreaks('を入力してください。')}
                   </p>
                   <input
                     type="text"
