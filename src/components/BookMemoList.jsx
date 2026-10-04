@@ -46,6 +46,9 @@ const summaryTextarea = {
   boxSizing: 'border-box',
 };
 
+// 保存した新しいメモを送るときの下の空き（右下の「メモを書く」48＋12＋16＋「保存しました。」の知らせ 64）。
+const NEW_MEMO_SCROLL_MARGIN = 'calc(var(--fab-h) + var(--space-3) + var(--space-4) + var(--space-16))';
+
 // 絞り込みのメニューの印（選んでいる行は ✓・ほかは同じ幅の空き）。
 const menuCheck = (on) => (on ? <Check size={16} aria-hidden="true" /> : <span aria-hidden="true" style={{ display: 'inline-block', width: 16 }} />);
 
@@ -443,9 +446,41 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
     if (result?.id) {
       setJustAddedId(result.id);
       setTimeout(() => setJustAddedId((cur) => (cur === result.id ? null : cur)), 1600);
+      revealNewMemo(result.id);
     }
     return result;
   };
+
+  // 📍 保存した新しいメモを画面の中まで送る（ページ順ではページの無いメモは一覧の最後に入り、光っても画面の外だった・
+  //   2026-10-04）。並びは変えずに送るだけ。シートが閉じ終わってから（約 250ms）、見えていなければ下の「保存しました。」の
+  //   知らせと右下の「メモを書く」の上まで（scroll-margin）。もう見えていれば動かさない（block: 'nearest'）。
+  const revealNewMemo = (id) => {
+    setTimeout(() => {
+      const el = rootRef.current?.querySelector(`[data-memo-id="${typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(String(id)) : String(id)}"]`);
+      if (!el) return;
+      let reduce = false;
+      try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { /* noop */ }
+      el.style.scrollMarginBottom = NEW_MEMO_SCROLL_MARGIN;
+      try { el.scrollIntoView({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' }); } catch { /* ignore */ }
+    }, 260);
+  };
+
+  // 本の詳細の右下の「メモを書く」（App のメモを書くシート）で保存したメモ（savedMemo）も、一覧に入ったら同じように
+  //   光らせて画面の中まで送る（2026-10-04）。1 回の保存（nonce）につき 1 回だけ。
+  const revealedNonceRef = useRef(null);
+  useEffect(() => {
+    if (!savedMemo || savedMemo.bookId !== bookId || !savedMemo.id || !savedMemo.nonce) return;
+    if (revealedNonceRef.current === savedMemo.nonce) return;
+    if (!memos.some((m) => m.id === savedMemo.id)) return;
+    revealedNonceRef.current = savedMemo.nonce;
+    const id = savedMemo.id;
+    if (quoteOnly && !memos.some((m) => m.id === id && Number.isFinite(m.pageNumber))) setQuoteOnly(false);
+    setJustAddedId(id);
+    // 片付けで消さない（memos が変わるたびにこの effect は走り直すので、ここで clearTimeout すると光が残り続ける）。
+    setTimeout(() => setJustAddedId((cur) => (cur === id ? null : cur)), 1600);
+    revealNewMemo(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [savedMemo?.nonce, savedMemo?.id, bookId, memos]);
 
   const handleUpdate = async (memoId, payload) => {
     const result = await updateMemo(memoId, payload);

@@ -113,6 +113,8 @@ const SCREENS = [
   // 文字サイズを大きくしたとき（30px＝約 1.8 倍）: ホームの行はボタンを書名の下へ・本の詳細の上の行は 1 行・書き起こすは文節で折り返す
   { name: 'home-xl-text', url: '/', steps: [{ eval: () => { document.documentElement.style.fontSize = '30px'; } }, { wait: 500 }] },
   { name: 'book-detail-xl-text', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { eval: () => { document.documentElement.style.fontSize = '30px'; } }, { wait: 500 }] },
+  // ページの無いメモを保存したら、一覧の最後に入ったそのメモまで送って光らせる（2026-10-04）
+  { name: 'book-memo-saved-nopage', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button:has-text("メモを書く")' }, { fill: ['textarea[aria-label="メモ本文"]', 'ページの無いメモ。一覧の最後に入る。'] }, { css: '[role=dialog] button:text-is("保存")', settle: 700 }] },
   // すべての本の表紙の一覧: 文字サイズを大きくしたら 2 列（23px＝約 1.35 倍・2026-10-04）
   { name: 'library-large-text', url: '/', steps: [{ eval: () => { document.documentElement.style.fontSize = '23px'; } }, { wait: 300 }, { css: 'button:has-text("すべての本")' }] },
   { name: 'book-memo-sheet-xl-text', url: '/', steps: [{ eval: () => { document.documentElement.style.fontSize = '30px'; } }, { wait: 300 }, { css: 'button[aria-label$="にメモを書く"]' }, { css: 'button:has-text("ページ・写真")' }] },
