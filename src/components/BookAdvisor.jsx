@@ -46,11 +46,11 @@ import { TabPanelSkeleton } from './lazyParts';
 import { AdvisorNavBar, formatDate as advisorSessionDate } from './AdvisorHistory';
 import ErrorMessage from './ErrorMessage';
 import TightBubble, { withPhraseBreaks } from './TightBubble';
-import { displayUserText, concernOf, interviewPairsOf, advisorSetupFields } from '../lib/advisorText';
+import { displayUserText, concernOf, interviewPairsOf, advisorSetupFields, advisorSetupPayload } from '../lib/advisorText';
 import { usePaywall } from '../state/PaywallContext';
 import { findDuplicateBook } from '../lib/checkDuplicate';
 import { filterProseTitles, proseTitleLists } from '../lib/advisorProse';
-import { dropSummarySection } from '../lib/advisorSummary';
+import { dropSummarySection, introTextOf } from '../lib/advisorSummary';
 import { useEdgeSwipeBack } from '../hooks/useEdgeSwipeBack';
 
 const AdvisorHistoryList = lazy(() => import('./AdvisorHistory').then((m) => ({ default: m.AdvisorHistoryList })));
@@ -99,16 +99,7 @@ const userBubble = { maxWidth: '85%', padding: 'var(--space-3) var(--space-4)', 
 const advisorOptionChipSelected = { background: 'var(--accent-soft)', color: 'var(--accent)', fontWeight: 600 };
 // 推薦カードの購入リンク（Amazon・楽天ブックス）は AdvisorStoreLinks.jsx（過去の AI 選書と共通・2026-10-04）。
 
-// 推薦の前置き（「## 👋 はじめに」＋共感の数行）から、見出し行を落として 1 段落の文にする。
-function introTextOf(md) {
-  if (!md || typeof md !== 'string') return '';
-  return md
-    .split('\n')
-    .filter((l) => !/^#{1,6}\s/.test(l.trim()))
-    .map((l) => l.trim().replace(/^[-*]\s+/, '').replace(/\*\*(.+?)\*\*/g, '$1'))
-    .filter(Boolean)
-    .join('');
-}
+// 推薦の前置きを 1 段落の文にするのは lib/advisorSummary.js の introTextOf（過去の AI 選書と共通・2026-10-04）。
 // 前置き＝本のカードより控えめな 1 段落（15/--text-2）。
 const introText = { fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.6, margin: 0 };
 
@@ -1100,21 +1091,12 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   //   理由＝推薦の「なぜ」＋「この本の核心: …」。どれも本人がその場で見た言葉なので、ずれない。
   //   仮説は空のまま（推薦の核心は AI の言葉で、本人の仮説ではない＝読む前に自分で書く欄・2026-09-30）。
   //   確認の「書名で探す」「手動で入力する」から追加するときも同じ中身を渡す（2026-10-04・以前はそちらの道だと空のままだった）。
-  const setupPayloadFor = (rec) => {
-    const setup = advisorSetupFields(
-      lastUserQuery,
-      interviewAnswers.map((x) => ({ q: x?.q, a: clamp(sanitizeForPrompt(String(x?.a || '')), 120) })),
-    );
-    // sourceQuery は「得たいこと」へのプレフィル・「AI 選書で入力した内容に戻す」の元（App.jsx buildFormFromBook /
-    // BookPhases）なので、得たいことと同じ値にする（相談＝課題が得たいことへ戻らないように）。
-    return {
-      sourceQuery: clamp(setup.purpose, 400),
-      investPurpose: clamp(setup.purpose, 400),
-      currentChallenge: clamp(setup.challenge, 400),
-      hypothesis: '',
-      bookReason: clamp([String(rec?.why || '').trim(), rec?.core ? `この本の核心: ${String(rec.core).trim()}` : ''].filter(Boolean).join('\n'), 400),
-    };
-  };
+  //   中身は lib/advisorText.js の advisorSetupPayload（過去の AI 選書の中身から追加するときも同じ・2026-10-04）。
+  const setupPayloadFor = (rec) => advisorSetupPayload(
+    lastUserQuery,
+    interviewAnswers.map((x) => ({ q: x?.q, a: clamp(sanitizeForPrompt(String(x?.a || '')), 120) })),
+    rec,
+  );
   const proceedAdd = (verifiedRec) => {
     // ここで初めて「追加済み」にする（確認でキャンセルした本は、押す前の見た目のまま）。
     clearChecking(verifiedRec.title);
@@ -1165,7 +1147,14 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       next.add(rec.title);
       return next;
     });
-    // 裏で search → strict match で確認モーダルへ。失敗時はそのまま proceedAdd。
+    verifyThenAdd(rec, { proceed: proceedAdd, cancel: () => clearChecking(rec.title), setup: setupPayloadFor(rec) });
+  };
+
+  // 同じ本かを確かめてから追加へ進む（会話中のカードと過去の AI 選書の中身で共通・2026-10-04）。
+  //   proceed(verifiedRec)＝追加へ進む / cancel()＝押す前の「読みたいに追加」に戻す /
+  //   setup＝確認の「書名で探す」「手動で入力する」へ渡す読書準備。
+  //   裏で search → strict match で確認モーダルへ。失敗時はそのまま proceed。
+  const verifyThenAdd = (rec, { proceed, cancel, setup }) => {
     Promise.resolve().then(async () => {
       try {
         const results = await searchBooksAPIFlat(`${rec.title} ${rec.author || ''}`);
@@ -1175,31 +1164,31 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         if (matched.length === 0) {
           // 該当なし → 旧フローに任せる (addFromAdvisor 内で再 search +
           // bg resolver が title/author から ISBN を探す)
-          proceedAdd(rec);
+          proceed(rec);
           return;
         }
         // 候補が 1 冊だけで、書名も著者も完全に同じ → 確かめるまでもないので、そのまま追加する（2026-09-29）。
         if (matched.length === 1 && isExactMatch(matched[0], rec)) {
-          proceedAdd({ ...rec, isbn: matched[0].isbn || rec.isbn || '', cover: matched[0].cover || '' });
+          proceed({ ...rec, isbn: matched[0].isbn || rec.isbn || '', cover: matched[0].cover || '' });
           return;
         }
         // それ以外 → 視覚確認モーダルへ。「追加済み」は確認して追加したときだけ（キャンセルなら元のまま）。
-        setConfirmAdd({ rec, candidates: matched });
+        setConfirmAdd({ rec, candidates: matched, proceed, cancel, setup });
       } catch {
         // search 失敗時は直接追加へフォールバック
-        proceedAdd(rec);
+        proceed(rec);
       }
     });
   };
 
   const handleConfirmCandidate = (candidate) => {
     if (!confirmAdd) return;
-    const { rec } = confirmAdd;
+    const { rec, proceed } = confirmAdd;
     setConfirmAdd(null);
     // candidate の isbn / cover を rec に焼き込んで「視覚的に確認済み」と
-    // して proceedAdd へ。addFromAdvisor 側はこれを信頼してそのまま保存
+    // して proceed へ。addFromAdvisor 側はこれを信頼してそのまま保存
     // する (再 search なし)。
-    proceedAdd({
+    proceed({
       ...rec,
       isbn: candidate.isbn || rec.isbn || '',
       cover: candidate.cover || '',
@@ -1208,26 +1197,39 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
 
   const handleConfirmCancel = () => {
     if (!confirmAdd) return;
-    const { rec } = confirmAdd;
+    const { cancel } = confirmAdd;
     setConfirmAdd(null);
     // まだ追加していないので、ボタンを押す前の「読みたいに追加」に戻すだけ。
-    clearChecking(rec.title);
+    cancel?.();
   };
   // 候補に目当ての本が無いとき: 書名で探し直す／手動で入力する（App の本の追加へ渡す）。
   const handleConfirmSearch = () => {
     if (!confirmAdd) return;
-    const { rec } = confirmAdd;
+    const { rec, cancel, setup } = confirmAdd;
     setConfirmAdd(null);
-    clearChecking(rec.title);
-    onSearchBook?.(rec.title || '', setupPayloadFor(rec));
+    cancel?.();
+    onSearchBook?.(rec.title || '', setup);
   };
   const handleConfirmManual = () => {
     if (!confirmAdd) return;
-    const { rec } = confirmAdd;
+    const { rec, cancel, setup } = confirmAdd;
     setConfirmAdd(null);
-    clearChecking(rec.title);
-    onManualBook?.({ title: rec.title || '', author: rec.author || '', setup: setupPayloadFor(rec) });
+    cancel?.();
+    onManualBook?.({ title: rec.title || '', author: rec.author || '', setup });
   };
+  // 確認のシート（会話の画面と過去の AI 選書の中身の両方に置く）。
+  const confirmAddModal = confirmAdd ? (
+    <Suspense fallback={<Spinner />}>
+      <AdvisorAddConfirmModal
+        original={confirmAdd.rec}
+        candidates={confirmAdd.candidates}
+        onConfirm={handleConfirmCandidate}
+        onCancel={handleConfirmCancel}
+        onSearchByTitle={onSearchBook ? handleConfirmSearch : undefined}
+        onManual={onManualBook ? handleConfirmManual : undefined}
+      />
+    </Suspense>
+  ) : null;
 
   // 新メッセージ追加時に最下部へオートスクロール (LINE 挙動)。
   useEffect(() => {
@@ -1292,6 +1294,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
               session={selectedSession}
               books={books}
               onAddBook={onAddBook}
+              // 追加の前に同じ本かを確かめる（会話中のカードと同じ「確かめています…」→ 確認のシート・2026-10-04）。
+              verifyBeforeAdd={verifyThenAdd}
               onBookAdded={(bookId) => {
                 // 履歴詳細からの追加もセッションに記録（一覧の「N 冊追加」を正しく）。
                 if (bookId && sessionApi?.available && selectedSession?.id) {
@@ -1304,6 +1308,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
             />
           </Suspense>
         </div>
+        {confirmAddModal}
       </div>
     );
   }
@@ -1863,18 +1868,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         </div>
         );
       })()}
-      {confirmAdd && (
-        <Suspense fallback={<Spinner />}>
-          <AdvisorAddConfirmModal
-            original={confirmAdd.rec}
-            candidates={confirmAdd.candidates}
-            onConfirm={handleConfirmCandidate}
-            onCancel={handleConfirmCancel}
-            onSearchByTitle={onSearchBook ? handleConfirmSearch : undefined}
-            onManual={onManualBook ? handleConfirmManual : undefined}
-          />
-        </Suspense>
-      )}
+      {confirmAddModal}
     </div>
   );
 }

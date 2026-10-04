@@ -27,6 +27,16 @@ export function fmtDateJa(value) {
   return d.getFullYear() === new Date().getFullYear() ? md : `${d.getFullYear()}/${md}`;
 }
 
+// 会話の日時「10月4日 22:38」（今年でなければ「2025年10月4日 22:38」）。過去の相談と過去の AI 選書で同じ書き方
+//   （以前は過去の AI 選書だけ「今日 22:38」「10月4日 22:38」と混ざっていた・2026-10-04）。
+export function fmtDateTimeJa(value, now = new Date()) {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  const year = d.getFullYear() !== now.getFullYear() ? `${d.getFullYear()}年` : '';
+  return `${year}${d.getMonth() + 1}月${d.getDate()}日 ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
 // 繰り返しの行動の「次回分」（表示開始日 scheduledFor がまだ先）かどうか。
 // 行動タブ（useAllActions）と同じ基準で、まだ見せない＝先取りで完了させない。
 export function isScheduledLater(action, now = new Date()) {

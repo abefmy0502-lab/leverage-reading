@@ -22,20 +22,14 @@ import { withPhraseBreaks } from './TightBubble';
 import AdvisorStoreLinks from './AdvisorStoreLinks';
 import { STORE_DISCLOSURE_TEXT } from '../lib/rakutenLink';
 import { btnPrimary, btnGhost, btnGhostOff, btnText, groupTitle } from '../styles/ui';
-import { displayUserText, concernOf, interviewPairsOf, advisorSetupFields } from '../lib/advisorText';
+import { displayUserText, concernOf, interviewPairsOf, advisorSetupPayload } from '../lib/advisorText';
 import { filterProseTitles, proseTitleLists } from '../lib/advisorProse';
-import { dropSummarySection } from '../lib/advisorSummary';
+import { dropSummarySection, introTextOf, splitRecoAnswer } from '../lib/advisorSummary';
+import { fmtDateTimeJa } from '../lib/dates';
 
+// 日時は過去の相談と同じ「10月4日 22:38」（lib/dates.js の fmtDateTimeJa・以前は「今日 22:38」と混ざっていた・2026-10-04）。
 export function formatDate(iso) {
-  if (!iso) return '';
-  const d = new Date(iso);
-  const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(today.getDate() - 1);
-  const t = d.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
-  if (d.toDateString() === today.toDateString()) return `今日 ${t}`;
-  if (d.toDateString() === yesterday.toDateString()) return `昨日 ${t}`;
-  return d.toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' }) + ` ${t}`;
+  return fmtDateTimeJa(iso);
 }
 
 function firstUserContent(messages) {
@@ -110,6 +104,8 @@ const backBtn = { ...btnText, fontSize: 'min(var(--text-body), var(--text-bar-ma
 
 // 読む文章（AI の答え・推薦理由）＝明朝 18・行間 1.6。
 const readText = { fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.6, color: 'var(--text)' };
+// 推薦の前置き＝本のカードより控えめな 1 段落（15/--text-2・見出しもカードも付けない・会話中と同じ）。
+const introText = { fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.6, margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' };
 
 // pushed: 全体の見出しを隠した画面（行が画面の最上部＝ノッチを避ける）。scrolled: 中身を下へ送った（下に線）。
 export function AdvisorNavBar({ backLabel, onBack, title, pushed = false, scrolled = false }) {
@@ -236,7 +232,7 @@ export function AdvisorHistoryList({ sessions, loaded, onSelect, onClose, onDele
 //   小さな見出し＋本文（なぜあなたに＝明朝 18／核心・注目ポイント・目安＝15）→ 全幅の副ボタン「読みたいに追加」
 //   （追加したら同じ箱で「✓ 追加済み」）→ Amazon・楽天ブックスの文字リンク。以前は「なぜあなたに」だけ面つきの箱・
 //   目安は 1 行・追加は幅の狭いボタン・ストアは枠のボタンで、同じ本のカードが画面ごとに違って見えた。
-function RecommendationCard({ book, isAdded, isAdding, onAdd }) {
+function RecommendationCard({ book, index = 0, isAdded, isChecking, onAdd }) {
   return (
     <div
       style={{
@@ -245,12 +241,28 @@ function RecommendationCard({ book, isAdded, isAdding, onAdd }) {
         overflowWrap: 'anywhere',
       }}
     >
-      <p style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, margin: 0, textIndent: '-0.5em' }}>
-        『{book.title}』
-      </p>
-      {book.author && (
-        <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: 'var(--space-1) 0 0' }}>{book.author}</p>
-      )}
+      {/* 上の段は会話中のカードと同じ（表紙＝あれば 52×74・角丸 4 → #番号 → 書名 → 著者）。 */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-3)' }}>
+        {book.cover && (
+          <img
+            src={book.cover}
+            alt=""
+            width="52"
+            loading="lazy"
+            style={{ width: 52, height: 74, objectFit: 'cover', borderRadius: 4, flexShrink: 0, background: 'var(--fill)' }}
+            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+          />
+        )}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 0 }}>#{index + 1}</p>
+          <p style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, margin: 'var(--space-1) 0 0', textIndent: '-0.5em' }}>
+            『{book.title}』
+          </p>
+          {book.author && (
+            <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: 'var(--space-1) 0 0' }}>{book.author}</p>
+          )}
+        </div>
+      </div>
       {/* 実在の検証の結果（会話中のカードと同じ文言・2026-09-30）。確かめた本と、結果を持たない古い会話には出さない。 */}
       {(book._verify === 'unknown' || book._verify === 'suspect') && (
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)', marginTop: 'var(--space-3)', padding: 'var(--space-2) var(--space-3)', background: 'var(--warning-soft)', borderRadius: 'var(--radius)' }}>
@@ -277,6 +289,11 @@ function RecommendationCard({ book, isAdded, isAdding, onAdd }) {
             <Check size={18} aria-hidden="true" style={{ color: 'var(--success)', flexShrink: 0 }} />
             追加済み
           </p>
+        ) : isChecking ? (
+          // 同じ本かを確かめている間（会話中のカードと同じ・確認で追加するまでは「追加済み」にしない）。薄くせず文言で示す。
+          <button type="button" disabled aria-busy="true" style={{ ...btnGhostOff, touchAction: 'manipulation' }}>
+            確かめています…
+          </button>
         ) : (
           <button
             type="button"
@@ -284,13 +301,11 @@ function RecommendationCard({ book, isAdded, isAdding, onAdd }) {
               e.stopPropagation();
               onAdd?.();
             }}
-            disabled={isAdding}
-            aria-busy={isAdding || undefined}
-            // カードの主役の操作なので全幅の副ボタン（48・17/600）。押せない間は薄くせず btnGhostOff。
-            style={{ ...(isAdding ? btnGhostOff : btnGhost), opacity: 1, touchAction: 'manipulation' }}
+            // カードの主役の操作なので全幅の副ボタン（48・17/600）。
+            style={{ ...btnGhost, touchAction: 'manipulation' }}
           >
             <Plus size={18} aria-hidden="true" />
-            {isAdding ? '追加しています…' : '読みたいに追加'}
+            読みたいに追加
           </button>
         )}
         {/* Amazon + 楽天 の両方（会話中のカードと同じ文字リンク）。開示はカード群の下にまとめて出す。 */}
@@ -313,7 +328,7 @@ function RecField({ label, text }) {
   );
 }
 
-export function AdvisorSessionDetail({ session, books, onResume, onNewSession, onClose, onAddBook, onBookAdded }) {
+export function AdvisorSessionDetail({ session, books, onResume, onNewSession, onClose, onAddBook, onBookAdded, verifyBeforeAdd = null }) {
   const messages = useMemo(() => Array.isArray(session?.messages) ? session.messages : [], [session]);
   const recs = useMemo(() => Array.isArray(session?.recommended_books) ? session.recommended_books : [], [session]);
   // AI の文の書名は、実在を確かめたカードの本（_verify==='ok'）と本棚の本だけ残す（会話中と同じ・lib/advisorProse.js）。
@@ -350,59 +365,94 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
     return (lastUser?.content || lastUser?.text || '').toString();
   }, [messages]);
   const lastUserQuery = useMemo(() => concernOf(lastUserRaw), [lastUserRaw]);
-  // 読書準備の分け方は AI 選書の画面と同じ（課題＝相談＋1 問目・得たいこと＝理想の状態の答え・lib/advisorText.js）。
-  const setupFields = useMemo(
-    () => advisorSetupFields(lastUserQuery, interviewPairsOf(lastUserRaw)),
-    [lastUserQuery, lastUserRaw],
-  );
+  // 読書準備は AI 選書の画面と同じ中身（課題＝相談＋1 問目・得たいこと＝理想の状態の答え・仮説は空・
+  //   選書理由＝なぜ＋核心＝lib/advisorText.js の advisorSetupPayload・2026-10-04）。
+  const interviewPairs = useMemo(() => interviewPairsOf(lastUserRaw), [lastUserRaw]);
+  const setupFor = (rec) => advisorSetupPayload(lastUserQuery, interviewPairs, rec);
 
   const recKey = (rec) => {
     const norm = (s) => (s || '').toString().toLowerCase().replace(/\s+/g, '');
     return rec.isbn ? `isbn:${norm(rec.isbn)}` : `ta:${norm(rec.title)}|${norm(rec.author || '')}`;
   };
+  // 同じ本かを確かめている本（会話中のカードと同じ「確かめています…」）。
+  const [checking, setChecking] = useState(() => new Set());
+  const setIn = (setter, key, on) => setter((prev) => {
+    if (prev.has(key) === on) return prev;
+    const next = new Set(prev);
+    if (on) next.add(key); else next.delete(key);
+    return next;
+  });
+
+  // 追加へ進む（確かめたあと）。ここで初めて「追加済み」にし、保存は裏で（失敗したら戻す）。
+  const proceedAdd = (key, verifiedRec) => {
+    setIn(setChecking, key, false);
+    setIn(setLocallyAdded, key, true);
+    Promise.resolve().then(async () => {
+      try {
+        const saved = await onAddBook(verifiedRec, setupFor(verifiedRec));
+        // onAddBook は失敗時に throw せず null を返す契約。falsy は失敗として巻き戻す。
+        if (!saved) { setIn(setLocallyAdded, key, false); return; }
+        // このセッションの added_book_ids に記録（履歴一覧の「N 冊追加」を正しく）。
+        if (saved.id) onBookAdded?.(saved.id);
+      } catch {
+        setIn(setLocallyAdded, key, false);
+      }
+    });
+  };
 
   const handleAdd = (rec) => {
     if (!onAddBook) return;
     const key = recKey(rec);
-    if (locallyAdded.has(key)) return; // 連打ガード
-    // 1. UI 即時反映 — ここで一切 await しない
-    setLocallyAdded((prev) => {
-      const next = new Set(prev);
-      next.add(key);
-      return next;
-    });
-    // 2. 重い処理は完全に背景。Promise.resolve().then で次の tick へ。
-    //    handler は同期で終わる。
-    Promise.resolve().then(async () => {
-      try {
-        const saved = await onAddBook(rec, {
-          sourceQuery: setupFields.purpose.slice(0, 400),
-          investPurpose: setupFields.purpose.slice(0, 400),
-          currentChallenge: setupFields.challenge.slice(0, 400),
-          hypothesis: String(rec.core || '').slice(0, 300),
-          bookReason: rec.why || '',
-        });
-        // onAddBook は失敗時に throw せず null を返す契約。falsy は失敗として巻き戻す。
-        if (!saved) {
-          setLocallyAdded((prev) => {
-            const next = new Set(prev);
-            next.delete(key);
-            return next;
-          });
-          return;
-        }
-        // このセッションの added_book_ids に記録（履歴一覧の「N 冊追加」を正しく）。
-        if (saved.id) onBookAdded?.(saved.id);
-      } catch (e) {
-        // 失敗したらローカル state を巻き戻す → ボタンが復活
-        setLocallyAdded((prev) => {
-          const next = new Set(prev);
-          next.delete(key);
-          return next;
-        });
-      }
-    });
+    if (locallyAdded.has(key) || checking.has(key)) return; // 連打ガード
+    // 会話中のカードと同じ流れ: すぐ「確かめています…」→ 同じ本か確かめる（候補が複数なら確認のシート）→ 追加。
+    if (verifyBeforeAdd) {
+      setIn(setChecking, key, true);
+      verifyBeforeAdd(rec, {
+        proceed: (verified) => proceedAdd(key, verified),
+        cancel: () => setIn(setChecking, key, false),
+        setup: setupFor(rec),
+      });
+      return;
+    }
+    proceedAdd(key, rec);
   };
+
+  // 推薦の答え（本のカードを含む最後の AI の文）は、会話中と同じ順に組み替える:
+  //   前置き（15/--text-2 の 1 段落）→ 本のカード → 読む順番など（SPEC §3-2・2026-10-04）。
+  //   古い会話（答えにブロックが無い）は、今までどおり会話の下にカードを並べる。
+  const recoIdx = useMemo(() => {
+    if (recs.length === 0) return -1;
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const m = messages[i];
+      if (m?.role !== 'user' && splitRecoAnswer(m?.content ?? m?.text ?? '').found) return i;
+    }
+    return -1;
+  }, [messages, recs.length]);
+
+  const recsSection = recs.length > 0 ? (
+    <section style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }} aria-label="提案された本">
+      {recs.map((b, i) => {
+        const key = recKey(b);
+        return (
+          <RecommendationCard
+            key={`${b.title}-${i}`}
+            book={b}
+            index={i}
+            // ローカル即時 set または books 由来の既存判定で「追加済み」表示。
+            isAdded={locallyAdded.has(key) || isBookAdded(b)}
+            isChecking={checking.has(key)}
+            onAdd={() => handleAdd(b)}
+          />
+        );
+      })}
+    </section>
+  ) : null;
+  // 紹介料の注記は AI 選書の画面と同じ 13/--text-3・文節で折り返す。置き場所も会話中と同じ＝読む順番の後ろ（2026-10-04）。
+  const storeDisclosure = recs.length > 0 ? (
+    <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+      {withPhraseBreaks(STORE_DISCLOSURE_TEXT)}
+    </p>
+  ) : null;
 
   return (
     <div style={pageStyle}>
@@ -421,6 +471,22 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
             // assistant メッセージは RECOMMENDATIONS の JSON を剥がして
             // プロセだけにする (永続化フォーマットの都合で生 JSON が混じっているため)
             // 励ましだけの「まとめ」は出さない（会話中のおすすめと同じ・SPEC §3-2）。
+            if (!isUser && i === recoIdx) {
+              // 推薦の答え: 前置き → 本のカード → 読む順番（まとめは出さない）。
+              const parts = splitRecoAnswer(raw);
+              const intro = introTextOf(filterProseTitles(stripRecommendations(parts.before), proseLists));
+              const after = filterProseTitles(dropSummarySection(stripRecommendations(parts.after)), proseLists);
+              return (
+                <div key={i} role="article" aria-label="AI の提案" style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                    {intro && <p style={introText}>{withPhraseBreaks(intro)}</p>}
+                    {recsSection}
+                  </div>
+                  {after && <MarkdownSections text={after} />}
+                  {storeDisclosure}
+                </div>
+              );
+            }
             const text = isUser ? displayUserText(raw) : filterProseTitles(dropSummarySection(stripRecommendations(raw)), proseLists);
             if (!text) return null; // JSON だけのメッセージは非表示
             return isUser ? (
@@ -458,27 +524,15 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
         )}
       </div>
 
-      {recs.length > 0 && (
-        <section style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginTop: 'var(--space-3)' }} aria-labelledby="advisor-history-recs">
-          <h3 id="advisor-history-recs" style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, margin: 0 }}>
+      {/* 古い会話（答えに本のカードの印が無い）は、会話の下に「提案された本」として並べる。 */}
+      {recoIdx < 0 && recs.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginTop: 'var(--space-3)' }}>
+          <h3 style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, margin: 0 }}>
             提案された本
           </h3>
-          {recs.map((b, i) => (
-            <RecommendationCard
-              key={`${b.title}-${i}`}
-              book={b}
-              // ローカル即時 set または books 由来の既存判定で「追加済み」表示。
-              // どちらも同期 read なので button の見た目は次の render で確定する。
-              isAdded={locallyAdded.has(recKey(b)) || isBookAdded(b)}
-              isAdding={false}
-              onAdd={() => handleAdd(b)}
-            />
-          ))}
-          {/* 紹介料の注記は AI 選書の画面と同じ 13/--text-3・文節で折り返す（2026-10-04） */}
-          <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-            {withPhraseBreaks(STORE_DISCLOSURE_TEXT)}
-          </p>
-        </section>
+          {recsSection}
+          {storeDisclosure}
+        </div>
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginTop: 'var(--space-3)' }}>
