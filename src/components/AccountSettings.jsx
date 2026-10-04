@@ -348,6 +348,8 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
   const [exporting, setExporting] = useState(false);
   const [exportingMd, setExportingMd] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  // 削除の失敗は、押したボタンのすぐ下に残す（消えるトーストだけだと、取り消せない操作の結果を見逃す・2026-10-04）。
+  const [deleteError, setDeleteError] = useState('');
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [confirmText, setConfirmText] = useState('');
@@ -663,6 +665,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
     if (!ok) return;
 
     setDeleting(true);
+    setDeleteError('');
     let storageError = null;
     // 本当の削除失敗（RLS 拒否・接続断など）だけを集める。テーブル/列が無い
     // schema-error は未適用 DB 互換のため握りつぶしてスキップする。
@@ -747,7 +750,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
       // 有効に存在するので「失敗」ではなく成功として先へ進める。
       if (reqError && reqError.code !== '23505') {
         console.error('account_deletion_requests insert failed:', reqError);
-        toast.error('削除リクエストの登録に失敗しました。お手数ですがサポートにご連絡ください。');
+        setDeleteError('削除の受け付けに失敗しました。お手数ですが、下の「お問い合わせ」からご連絡ください。');
         return;
       }
 
@@ -755,7 +758,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
       // （削除リクエストの insert は上で済ませているので、管理者が追って手当て可能）。
       if (dbErrors.length > 0) {
         console.error('account deletion partial failure:', dbErrors);
-        toast.error('一部のデータ削除に失敗しました。お手数ですがサポートにご連絡ください。');
+        setDeleteError('一部のデータを削除できませんでした。お手数ですが、下の「お問い合わせ」からご連絡ください。');
         return;
       }
 
@@ -764,7 +767,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
       try { await signOut(); } catch { /* ignore */ }
       onAfterDelete?.();
     } catch (e) {
-      toast.error(toMessage(e, '削除処理に失敗しました。'));
+      setDeleteError(toMessage(e, '削除できませんでした。通信の状態を確かめて、もう一度お試しください。'));
     } finally {
       setDeleting(false);
     }
@@ -907,7 +910,8 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                   {/* 解約したらどうなるか（無料プランで続けられる・メモは消えない）を、解約の案内のすぐ下に（2026-09-29）。 */}
                   {plan === 'trial' && (
                     <p style={{ ...noteStyle, marginBottom: 'var(--space-2)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-                      {withPhraseBreaks(`解約しても無料プラン（ずっと無料・相談は毎月 ${fmtTokens(FREE_TOKENS)} トークン）で使い続けられます。メモは残ります。`)}
+                      {/* 「毎月 30 トークン」は 1 かたまり（「毎月 30／トークン」と割らない・2026-10-04）。 */}
+                      {withPhraseBreaks('解約しても無料プラン（ずっと無料・相談は')}<span style={{ whiteSpace: 'nowrap' }}>毎月 {fmtTokens(FREE_TOKENS)} トークン</span>{withPhraseBreaks('）で使い続けられます。メモは残ります。')}
                     </p>
                   )}
                   {/* 文節の切れ目でだけ折り返す（「でき／ます」と語の途中で切らない・2026-10-04）。 */}
@@ -1158,11 +1162,12 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
                   {/* 詳しい説明は開いてから（閉じた状態は 1 行だけ）。 */}
-                  {/* 文節の切れ目でだけ折り返す（「くだ／さい」と語の途中で切らない・2026-10-04）。 */}
-                  <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 0, lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-                    {withPhraseBreaks('本・メモ・写真・相談の履歴はすぐ削除され、ログイン情報の完全削除は管理者の最終確認後（通常 7 日以内）に実行されます。この操作は取り消せません。')}
+                  {/* 文節の切れ目でだけ折り返す（「くだ／さい」と語の途中で切らない・2026-10-04）。
+                      文字は上の行の説明と同じ 13/--text-2（rowDescStyle）。「本・メモ・写真・相談の履歴が消えます」は上の行で言うので繰り返さない。 */}
+                  <p style={{ ...rowDescStyle, margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+                    {withPhraseBreaks('ログイン情報の完全な削除は、管理者の確認のあと（通常 7 日以内）に行います。この操作は取り消せません。')}
                   </p>
-                  <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 0, lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+                  <p style={{ ...rowDescStyle, margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
                     {withPhraseBreaks('確認のため、ご自身のメールアドレス')} <strong style={{ fontWeight: 600, color: 'var(--text)', overflowWrap: 'anywhere' }}>{expectedConfirm}</strong> {withPhraseBreaks('を入力してください。')}
                   </p>
                   <input
@@ -1194,8 +1199,9 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                           <button
                             type="button"
                             aria-label="削除をキャンセル"
-                            style={{ ...btnGhost, flex: 1 }}
-                            onClick={() => { setDeleteOpen(false); setConfirmText(''); }}
+                            // 削除中は押せない見た目（btnGhostOff・薄くしない・DESIGN §5）。
+                            style={{ ...(deleting ? btnGhostOff : btnGhost), flex: 1, opacity: 1 }}
+                            onClick={() => { setDeleteOpen(false); setConfirmText(''); setDeleteError(''); }}
                             disabled={deleting}
                           >
                             キャンセル
@@ -1211,6 +1217,11 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                             {deleting ? '削除中…' : '完全に削除'}
                           </button>
                         </div>
+                        {deleteError && (
+                          <p role="alert" style={{ ...rowDescStyle, margin: 0, color: 'var(--error)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+                            {withPhraseBreaks(deleteError)}
+                          </p>
+                        )}
                       </>
                     );
                   })()}
