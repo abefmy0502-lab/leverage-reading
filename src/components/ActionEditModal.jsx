@@ -177,13 +177,46 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete, onS
   // 開いている間は左端スワイプ・ブラウザの「戻る」で画面ごと離れない（書きかけの行動を失わない）。
   useBlockEdgeSwipe(true);
 
+  // 書きかけ・直しかけのまま背景・×・Esc で閉じると、書いたことが黙って消えていた（2026-10-04）。
+  //   変えたところがあるときだけ確かめる（メモの書きかけと同じ言葉・ConfirmDialog）。
+  const dirty = text !== (action?.text || '')
+    || deadline !== (action?.deadline || '')
+    || priority !== (action?.priority || 'medium')
+    || (recurrence || '') !== (action?.recurrence || '')
+    || reflection !== (action?.reflection || '');
+  const dirtyRef = useRef(dirty);
+  dirtyRef.current = dirty;
+  const closingRef = useRef(false);
+  const requestClose = async () => {
+    if (busyRef.current || closingRef.current) return;
+    if (!dirtyRef.current) { onClose?.(); return; }
+    closingRef.current = true;
+    const ok = await confirm(isCreate ? {
+      title: '書きかけの行動があります',
+      message: '消すと、元に戻せません。',
+      confirmLabel: '書いたことを消す',
+      cancelLabel: '編集を続ける',
+      danger: true,
+    } : {
+      title: '保存していない変更があります',
+      message: '行動は元のまま残ります',
+      confirmLabel: '直したところを捨てる',
+      cancelLabel: '編集を続ける',
+      danger: true,
+    });
+    closingRef.current = false;
+    if (ok) onClose?.();
+  };
+  const requestCloseRef = useRef(requestClose);
+  requestCloseRef.current = requestClose;
+
   useEffect(() => {
     // IME 変換中の Esc（変換キャンセル）でモーダルごと閉じて下書きを失わない
     // よう isComposing をガード（QuickMemoSheet と同パターン）。
-    const onKey = (e) => { if (e.key === 'Escape' && !e.isComposing && !e.nativeEvent?.isComposing && !busyRef.current) onClose?.(); };
+    const onKey = (e) => { if (e.key === 'Escape' && !e.isComposing && !e.nativeEvent?.isComposing && !busyRef.current) requestCloseRef.current(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, []);
 
   const handleSave = async () => {
     if (busy) return;
@@ -226,12 +259,12 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete, onS
   if (typeof document === 'undefined') return null;
 
   return createPortal(
-    <div style={overlayStyle} role="dialog" aria-modal="true" aria-labelledby={titleId} onClick={() => { if (!busy) onClose?.(); }}>
+    <div style={overlayStyle} role="dialog" aria-modal="true" aria-labelledby={titleId} onClick={() => { if (!busy) requestClose(); }}>
       <div ref={trapRef} style={cardStyle} onClick={(e) => e.stopPropagation()}>
         <div style={headerStyle}>
           <h2 id={titleId} style={{ fontSize: 'var(--text-body)', color: 'var(--text)', margin: 0, fontWeight: 600, flex: 1 }}>{isCreate ? '行動を追加' : step ? `期限を見直す（${step.index}/${step.total}）` : '行動を編集'}</h2>
           {/* やめる・キャンセルは右上の × 1 か所（下の行は 削除＋保存 だけ・2026-10-01 ui-critic）。 */}
-          <button type="button" style={closeBtn} onClick={() => { if (!busy) onClose?.(); }} aria-label={reviewing ? '見直しをやめる' : '閉じる'}><X size={20} aria-hidden="true" /></button>
+          <button type="button" style={closeBtn} onClick={() => { if (!busy) requestClose(); }} aria-label={reviewing ? '見直しをやめる' : '閉じる'}><X size={20} aria-hidden="true" /></button>
         </div>
 
         <div style={bodyStyle}>
@@ -286,7 +319,7 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete, onS
 
           <div>
             <span style={labelStyle} id="ae-priority">優先度</span>
-            <div style={{ display: 'flex', gap: 'var(--space-2)' }} role="group" aria-labelledby="ae-priority">
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }} role="group" aria-labelledby="ae-priority">
               {PRIORITIES.map((p) => (
                 <button
                   key={p.v}
@@ -301,18 +334,23 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete, onS
             </div>
           </div>
 
+          {/* 繰り返しも優先度と同じ操作のチップ（端末のプルダウンを開かずに 1 回で選べる・2026-10-04）。
+              文字を大きくして 1 行に収まらないときは折り返す。 */}
           <div>
-            <label style={labelStyle} htmlFor="ae-rec">繰り返し</label>
-            <select
-              id="ae-rec"
-              value={recurrence || ''}
-              onChange={(e) => setRecurrence(e.target.value)}
-              style={inpStyle}
-            >
+            <span style={labelStyle} id="ae-rec">繰り返し</span>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }} role="group" aria-labelledby="ae-rec">
               {RECURRENCES.map((r) => (
-                <option key={r.v} value={r.v}>{r.label}</option>
+                <button
+                  key={r.v}
+                  type="button"
+                  aria-pressed={(recurrence || '') === r.v}
+                  onClick={() => setRecurrence(r.v)}
+                  style={{ ...chipBtn((recurrence || '') === r.v), flex: '1 1 auto', whiteSpace: 'nowrap' }}
+                >
+                  {r.label}
+                </button>
               ))}
-            </select>
+            </div>
           </div>
 
           {/* ふりかえりは、やり終えた行動だけ（まだの行動に「やってみてどうだったか」は書けない・2026-09-30）。 */}
