@@ -490,11 +490,8 @@ export function BeforePhase({
             <IcChevron size={20} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
           </summary>
           <div style={{ paddingBottom: 'var(--space-4)' }}>
-            <MarkdownSections
-              text={form.aiAnalysis}
-              onAddRelatedBook={aiLoading ? undefined : onAddRelatedBook}
-              addingTitles={addingTitles}
-            />
+            {/* 書誌で確かめていない以前の出力なので、本を挙げる節は出さない（「読みたいに追加」も・2026-10-04） */}
+            <MarkdownSections text={form.aiAnalysis} hideRelatedBooks />
           </div>
         </details>
       )}

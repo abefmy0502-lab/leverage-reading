@@ -502,8 +502,11 @@ function isRelatedBooksHeading(heading) {
 // memo 化: 編集フォームの毎キーストローク（setForm → 親再レンダー）で、不変の
 // text（AI 解析 / 計画シート）に対する数百要素の Markdown ツリー再構築を防ぐ。
 // props はどれも参照安定（text=string / addingTitles=state の Set / handler=useCallback）。
-function MarkdownSections({ text, density = 'normal', flat = false, onAddRelatedBook, addingTitles }) {
-  const sections = useMemo(() => parseSections(text), [text]);
+// hideRelatedBooks: 書誌で確かめていない AI の出力（以前の AI 解析・以前の AI まとめ）では、本を挙げる節
+//   （関連書籍・おすすめの本…）を出さない（実在を確かめていない書名を、本として見せない・2026-10-04）。
+function MarkdownSections({ text, density = 'normal', flat = false, onAddRelatedBook, addingTitles, hideRelatedBooks = false }) {
+  const parsed = useMemo(() => parseSections(text), [text]);
+  const sections = hideRelatedBooks ? parsed.filter((s) => !isRelatedBooksHeading(s.heading)) : parsed;
   if (sections.length === 0) return null;
 
   // If the whole text has no `## ` headings, fall back to a single card.

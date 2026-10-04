@@ -3985,12 +3985,8 @@ function AuthedApp() {
                 <ChevronDown size={20} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
               </summary>
               <div style={{ paddingBottom: 'var(--space-4)' }}>
-                <MarkdownSections
-                  flat
-                  text={current.aiAnalysis}
-                  onAddRelatedBook={addRelatedBookFromAi}
-                  addingTitles={addedRelatedTitles}
-                />
+                {/* 以前の AI 解析は書誌で確かめていないので、本を挙げる節は出さない（「読みたいに追加」も出さない・2026-10-04） */}
+                <MarkdownSections flat text={current.aiAnalysis} hideRelatedBooks />
               </div>
             </details>
           )}
@@ -4144,12 +4140,8 @@ function AuthedApp() {
                 <ChevronDown size={20} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
               </summary>
               <div style={{ paddingBottom: 'var(--space-4)' }}>
-                <MarkdownSections
-                  flat
-                  text={current.aiSummary}
-                  onAddRelatedBook={addRelatedBookFromAi}
-                  addingTitles={addedRelatedTitles}
-                />
+                {/* 以前の AI まとめも書誌で確かめていないので、本を挙げる節は出さない（2026-10-04） */}
+                <MarkdownSections flat text={current.aiSummary} hideRelatedBooks />
               </div>
             </details>
           )}

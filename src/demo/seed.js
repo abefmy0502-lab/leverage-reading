@@ -276,8 +276,9 @@ export function buildSeed(scenario) {
   //   2 冊を混ぜた行・『』の無い行・実在しない本。開くと書誌で確かめて 1 冊の『』の行に直すか消す（App.jsx の repair）。
   if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('related') === 'messy') {
     db.books.forEach((b) => {
-      if (b.title !== '1兆ドルコーチ') return;
-      b.ai_strategy = `${b.ai_strategy}\n\n${DEMO_MESSY_RELATED}`;
+      if (b.title === '1兆ドルコーチ') b.ai_strategy = `${b.ai_strategy}\n\n${DEMO_MESSY_RELATED}`;
+      // 以前の AI 解析（書誌で確かめていない）に本を挙げる節がある人。画面ではこの節を出さない。
+      if (b.title === 'LIFE SHIFT') b.ai_analysis = `${b.ai_analysis}\n\n## 📚 関連書籍\n### 1. 『100年時代の人生戦略ノート』- 架空花子\n人生の段階を書き出すワークが付いています。`;
     });
   }
 

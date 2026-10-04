@@ -25,6 +25,16 @@ describe('MarkdownSections の関連書籍', () => {
     expect(plain).not.toContain('何を続け');
   });
 
+  it('hideRelatedBooks（以前の AI 解析・まとめ＝書誌で確かめていない）: 本を挙げる節を出さない・ほかの節はそのまま', () => {
+    const text = ['## 🧭 この本の核心', '寿命が延びる。', '', '## 📚 関連書籍', '### 1. 『架空の本』- 架空花子', '説明。'].join('\n');
+    const html = renderToStaticMarkup(<MarkdownSections flat text={text} hideRelatedBooks />);
+    const plain = plainOf(html);
+    expect(plain).toContain('寿命が延びる。');
+    expect(plain).not.toContain('関連書籍');
+    expect(plain).not.toContain('架空の本');
+    expect(renderToStaticMarkup(<MarkdownSections flat text={'## 📚 関連書籍\n### 1. 『架空の本』'} hideRelatedBooks />)).toBe('');
+  });
+
   it('『』の無い本の行はカードにしない（「読みたいに追加」を出さない）・本ではない見出しはそのまま', () => {
     const text = [
       '## 📚 関連書籍',
