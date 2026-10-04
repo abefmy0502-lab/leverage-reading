@@ -395,7 +395,9 @@ function RelatedBookCard({ book, description, onAdd, isAdding }) {
       {/* 書名の頭に 📚 を付けない（DESIGN §3: 絵文字をアイコン代わりにしない・2026-10-04 ui-critic）。『 はぶら下げる。 */}
       <p style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', margin: 0, lineHeight: 1.5, textIndent: '-0.5em', overflowWrap: 'anywhere' }}>
         『{book.title}』
-        {book.author && <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', fontWeight: 400 }}> — {book.author}</span>}
+        {/* 「— 著者」はひとまとまり（inline-block）で、入りきらなければ名前ごと次の行へ（大きな文字で名前の途中で割れていた・2026-10-04 ui-critic）。
+            textIndent は書名のぶら下げ用なので打ち消す。 */}
+        {book.author && <span style={{ display: 'inline-block', textIndent: 0, marginLeft: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', fontWeight: 400 }}>— {book.author}</span>}
       </p>
       {description && (
         <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.6, margin: 0, whiteSpace: 'pre-wrap' }}>
