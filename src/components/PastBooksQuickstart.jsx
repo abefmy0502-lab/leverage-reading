@@ -663,9 +663,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
               actions={[{ label: 'もう一度', onClick: () => saveAll(picked) }]}
             />
           </div>
-          <div style={footer} data-toast-above>
-            <button type="button" style={btnGhost} onClick={onClose}>閉じる</button>
-          </div>
+          {/* 閉じる入口は右上の × 1 つ（どの段階でも同じ場所・下に「閉じる」を重ねない・2026-10-04 ui-critic）。 */}
         </>
       )}
 
