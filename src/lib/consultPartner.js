@@ -136,14 +136,16 @@ export function partnerFromRefs(refs, books) {
 }
 
 // 「すべての本」のときに並べる表紙: メモのある本（memoBookIds・無ければ全部）を、表紙のある本 → 新しい順で最大 4 冊。
+//   メモのある本が 1〜3 冊しか無いときは、本棚のほかの本で 4 つまで埋める（名前は「あなたの本棚」なのに表紙 1 枚の
+//   アイコン＝その本 1 冊に見える、を避ける・2026-10-04 ui-critic）。メモのある本が 0 冊なら表紙なし（今までどおり）。
 export function shelfBooks(books, memoBookIds = null, max = GROUP_TILES) {
   const ids = memoBookIds instanceof Set ? memoBookIds : Array.isArray(memoBookIds) ? new Set(memoBookIds) : null;
-  const pool = (Array.isArray(books) ? books : []).filter((b) => b && b.id && String(b.title || '').trim() && (!ids || ids.has(b.id)));
+  const all = (Array.isArray(books) ? books : []).filter((b) => b && b.id && String(b.title || '').trim());
   const when = (b) => String(b.updated_at || b.created_at || '');
-  return [...pool]
-    .sort((a, b) => (Number(!!b.cover) - Number(!!a.cover)) || when(b).localeCompare(when(a)))
-    .slice(0, max)
-    .map(pick);
+  const order = (list) => [...list].sort((a, b) => (Number(!!b.cover) - Number(!!a.cover)) || when(b).localeCompare(when(a)));
+  const withMemo = order(all.filter((b) => !ids || ids.has(b.id)));
+  const fill = ids && withMemo.length > 0 && withMemo.length < max ? order(all.filter((b) => !ids.has(b.id))) : [];
+  return [...withMemo, ...fill].slice(0, max).map(pick);
 }
 
 // 相談相手（scopeIds: [] = すべての本 / [id] = 1 冊 / [id, …] = 選んだ数冊）から。

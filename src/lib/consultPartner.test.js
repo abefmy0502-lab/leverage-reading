@@ -77,6 +77,12 @@ describe('consultPartner（相談相手のアイコン・2026-09-30）', () => {
     expect(partnerFromRefs(['🌱 あなたのメモ 3 件から答えました', '🌿 前の相談から メモ +2 件', '🪙 関係するメモが無かったので', '🎯 2'], BOOKS)).toBeNull();
   });
 
+  it('メモのある本が 1〜3 冊なら、本棚のほかの本で表紙を 4 つまで埋める（「あなたの本棚」のアイコンを 1 冊に見せない）', () => {
+    const p = partnerFromScope({ scopeIds: [], books: BOOKS, memoBookIds: new Set(['b2']) });
+    expect(p.label).toBe(SHELF_LABEL);
+    expect(p.books.map((b) => b.id)).toEqual(['b2', 'b5', 'b1', 'b3']);
+  });
+
   it('本棚にメモのある本が無ければ、表紙の無い「あなたの本棚」', () => {
     const p = partnerFromScope({ scopeIds: [], books: BOOKS, memoBookIds: new Set() });
     expect(p.kind).toBe('group');
