@@ -909,12 +909,13 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                       {withPhraseBreaks(`解約しても無料プラン（ずっと無料・相談は毎月 ${fmtTokens(FREE_TOKENS)} トークン）で使い続けられます。メモは残ります。`)}
                     </p>
                   )}
-                  <p style={noteStyle}>
-                    {isNative
-                      ? '解約・プラン変更は App Store のサブスク設定から。いつでも解約でき、データは保持されます。'
+                  {/* 文節の切れ目でだけ折り返す（「でき／ます」と語の途中で切らない・2026-10-04）。 */}
+                  <p style={{ ...noteStyle, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+                    {withPhraseBreaks(isNative
+                      ? '解約・プラン変更は App Store のサブスクリプションの設定から。いつでも解約でき、データは保持されます。'
                       : subscription?.stripeCustomerId
                         ? '解約・カード変更・請求履歴は下のボタンから。いつでも解約でき、データは保持されます。'
-                        : 'App で購入した場合、解約は iPhone の「設定」→ 名前 →「サブスクリプション」から、いつでもできます。データは保持されます。'}
+                        : 'App で購入した場合、解約は iPhone の「設定」→ 名前 →「サブスクリプション」から、いつでもできます。データは保持されます。')}
                   </p>
                   {isNative ? (
                     <button
