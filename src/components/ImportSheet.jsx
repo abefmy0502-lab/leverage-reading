@@ -348,12 +348,9 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
         </p>
         {/* したことは見出しの 1 行だけ（同じ数を言い直す 2 行目は置かない・2026-09-29）。
             見出しと同じことを言い直す文（「本棚に並べました」など）は置かず、見出しで言えないことだけを 1 文。 */}
-        {!any && (nothingNew || outcome.booksMatched > 0) && (
-        <p style={body}>
-          {!nothingNew && `ほかの ${outcome.booksMatched} 冊は、すでに本棚にあります。`}
-          {/* 「です。」だけが次の行に残らないよう、最後の句はまとめて折り返す。 */}
-          {nothingNew && <>このファイルの本とメモは、<span style={nowrap}>すでに取り込み済みです。</span></>}
-        </p>
+        {/* 何も入らなかったときは見出し「新しく取り込むものはありませんでした」だけ（「すでに取り込み済みです」と言い直さない・2026-10-04）。 */}
+        {!any && !nothingNew && outcome.booksMatched > 0 && (
+        <p style={body}>ほかの<span style={nowrap}> {fmt(outcome.booksMatched)} 冊</span>は、すでに本棚にあります。</p>
         )}
         {/* 保存できなかった本（通信が切れたなど）は黙って減らさず伝える（DESIGN §5「一部だけ失敗の 1 行」＝13/--text-2・面なし）。同じファイルをもう一度選べば、
             取り込めた本・同じメモは二重にならずに残りだけ入る（2026-10-04）。 */}
