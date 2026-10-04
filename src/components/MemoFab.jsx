@@ -21,7 +21,10 @@ function announce() {
 
 // 本の詳細のスクロールする枠の下の余白: ボタンの高さ＋タブとの間（12）＋ゆとり（16）＋セーフエリア。
 // いちばん下のボタンを、いつでもこのボタンの上まで送れる（2026-09-30）。
-export const FAB_CLEARANCE = 'calc(var(--fab-h) + var(--space-3) + var(--space-4) + env(safe-area-inset-bottom, 0px))';
+// ボタンの高さは文字の大きさで変わる（文字最大で 48 を超えて、最後のボタンに重なりかけた・2026-10-04 ui-critic）ので、
+// 出ている間は実際の高さを --fab-live-h に入れる（無ければ --fab-h）。
+export const FAB_CLEARANCE = 'calc(var(--fab-live-h, var(--fab-h)) + var(--space-3) + var(--space-4) + env(safe-area-inset-bottom, 0px))';
+const LIVE_H = '--fab-live-h';
 
 const fabStyle = {
   // ＋記号だけだと何が起きるか分からないので「メモを書く」と文字で言う（SPEC §2）。
@@ -86,6 +89,22 @@ export default function MemoFab({ scrollRef, onClick }) {
   }, [visible]);
   useEffect(() => () => announce(), []);
 
+  // 実際の高さを測って、本の詳細の下の余白（FAB_CLEARANCE）に渡す。外れたら消す（--fab-h に戻る）。
+  const btnRef = useRef(null);
+  useEffect(() => {
+    const el = btnRef.current;
+    const rootStyle = typeof document !== 'undefined' ? document.documentElement.style : null;
+    if (!el || !rootStyle) return undefined;
+    const put = () => {
+      const h = Math.ceil(el.getBoundingClientRect().height);
+      if (h > 0) rootStyle.setProperty(LIVE_H, `${h}px`);
+    };
+    put();
+    let ro = null;
+    if (typeof ResizeObserver === 'function') { ro = new ResizeObserver(put); ro.observe(el); }
+    return () => { if (ro) ro.disconnect(); rootStyle.removeProperty(LIVE_H); };
+  }, [hidden]);
+
   if (hidden) return null;
   return (
     // data-fab: 下の知らせ（Toast）が、このボタンの上に浮かぶための目印。
@@ -93,6 +112,7 @@ export default function MemoFab({ scrollRef, onClick }) {
     <button
       type="button"
       data-fab=""
+      ref={btnRef}
       onClick={onClick}
       style={fabStyle}
     >

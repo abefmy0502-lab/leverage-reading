@@ -47,7 +47,7 @@ const summaryTextarea = {
 };
 
 // 保存した新しいメモを送るときの下の空き（右下の「メモを書く」48＋12＋16＋「保存しました。」の知らせ 64）。
-const NEW_MEMO_SCROLL_MARGIN = 'calc(var(--fab-h) + var(--space-3) + var(--space-4) + var(--space-16))';
+const NEW_MEMO_SCROLL_MARGIN = 'calc(var(--fab-live-h, var(--fab-h)) + var(--space-3) + var(--space-4) + var(--space-16))';
 
 // 絞り込みのメニューの印（選んでいる行は ✓・ほかは同じ幅の空き）。
 const menuCheck = (on) => (on ? <Check size={16} aria-hidden="true" /> : <span aria-hidden="true" style={{ display: 'inline-block', width: 16 }} />);

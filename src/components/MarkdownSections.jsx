@@ -7,16 +7,18 @@
 // Lists (`- ` or `1. ` etc) are rendered as a styled <ul> / <ol>.
 
 import { memo, useMemo } from 'react';
-import { parseRelatedBookLine } from '../lib/planRelatedBooks';
+import { parseRelatedBookHeading, visibleSections, hasVisibleSections } from '../lib/markdownSections';
 import {
   getAmazonSearchLink,
   handleAmazonClick,
   AMAZON_DISCLOSURE_TEXT,
   AMAZON_LINK_REL,
 } from '../lib/amazonLink';
-import { groupTitle } from '../styles/ui';
+import { groupTitle, btnGhost, btnGhostOff, btnLink } from '../styles/ui';
+import { ExternalLink as IcExternal } from 'lucide-react';
+import { SkeletonBlock } from './Skeleton';
 import { withPhraseBreaks } from './TightBubble';
-import { PLAN_NO_TOC_LINE } from '../lib/prompts';
+import { PLAN_NO_TOC_LINE, PLAN_NO_MATCH_LINE } from '../lib/prompts';
 
 // minWidth:0 が肝。flex column の子は既定 min-width:auto なので、中に幅広な
 // 要素（Markdown 表など）があると縮まずページ全体を横にはみ出させる（横スクロール）。
@@ -55,15 +57,20 @@ const paraStyle = {
   whiteSpace: 'pre-wrap',
   // 長い英語タイトル/URL でカードが横にはみ出して「横幅が合わない」現象を防ぐ。
   overflowWrap: 'anywhere',
-  // 文節の切れ目でだけ折り返す（BudouX の <wbr>＋keep-all。iOS の Safari は auto-phrase を知らない・2026-09-30）。
-  wordBreak: 'keep-all',
+  // 段落も箇条書きと同じくふつうの日本語の折り返し（禁則は line-break: strict）でそのまま流す（2026-10-04 ui-critic）。
+  //   以前の keep-all＋文節の <wbr> は、入りきらない文節ごと次の行へ送るので、明朝 18 では右が大きく空いていた。
+  //   最後の行に 1〜2 字だけ残らないよう text-wrap: pretty（対応していないブラウザはふつうの折り返し）。
+  wordBreak: 'normal',
+  lineBreak: 'strict',
+  textWrap: 'pretty',
 };
 // 読書計画シートの「目次が手に入らないため、章の名前は挙げていません。」は AI の本文ではなく注記として
 // 13/--text-3 で見せる（文がそのままのときだけ・言い換えられていれば本文のまま・2026-10-02 ui-critic）。
 const noteParaStyle = { fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, margin: 'var(--space-2) 0', wordBreak: 'keep-all', overflowWrap: 'anywhere' };
 function renderPara(text, key) {
-  if (String(text || '').trim() === PLAN_NO_TOC_LINE) return <p key={key} style={noteParaStyle}>{withPhraseBreaks(PLAN_NO_TOC_LINE)}</p>;
-  return <p key={key} style={paraStyle}>{renderInline(text)}</p>;
+  const t = String(text || '').trim();
+  if (t === PLAN_NO_TOC_LINE || t === PLAN_NO_MATCH_LINE) return <p key={key} style={noteParaStyle}>{withPhraseBreaks(t)}</p>;
+  return <p key={key} style={paraStyle}>{renderInline(text, { phrase: false })}</p>;
 }
 const listStyle = {
   fontFamily: 'var(--font-read)',
@@ -75,12 +82,19 @@ const listStyle = {
   paddingLeft: 0,
   listStyleType: 'none',
   overflowWrap: 'anywhere',
-  wordBreak: 'keep-all',
+  // 箇条書きは文節で止めずにそのまま流す（2026-10-04 ui-critic）。keep-all＋文節の <wbr> だと、行に入りきらない
+  // 文節（「健康・人間関係）」「説明している部分」など 7〜9 字のまとまり）ごと次の行へ送るので、明朝 18 の狭い
+  // 箇条書き（点の分だけ幅が狭い）では 10〜14 字で折り返して右がぎざぎざに空いていた。相談の引用（2026-09-30）と同じく
+  // ふつうの日本語の折り返し（禁則は line-break: strict）に。段落（paraStyle）は今までどおり文節で。
+  wordBreak: 'normal',
+  lineBreak: 'strict',
   display: 'flex',
   flexDirection: 'column',
   gap: 'var(--space-2)',
 };
 const liStyle = { display: 'flex', gap: 'var(--space-2)', alignItems: 'flex-start' };
+// 文の部分は残りの幅いっぱいに（flex の子が中身の幅で縮んで早めに折り返さないように）。
+const liTextStyle = { flex: 1, minWidth: 0, textWrap: 'pretty' };
 // 「ChatGPT 出力」っぽさを消すための上品な箇条書きマーカー（小さなアクセントの点）。
 const bulletDot = { flexShrink: 0, width: 'var(--space-1)', height: 'var(--space-1)', borderRadius: '50%', background: 'var(--text-3)', marginTop: 'var(--space-3)' };
 const olNumStyle = { flexShrink: 0, minWidth: 'var(--space-4)', color: 'var(--text-3)', fontWeight: 600, fontVariantNumeric: 'tabular-nums' };
@@ -154,7 +168,7 @@ function renderTable(rows, key) {
   );
 }
 
-function renderInline(text) {
+function renderInline(text, { phrase = true } = {}) {
   // Very small inline parser: **bold**
   const parts = [];
   let cursor = 0;
@@ -162,10 +176,12 @@ function renderInline(text) {
   let m;
   let i = 0;
   // 文は文節の切れ目に <wbr> を入れる（段落・箇条書きの keep-all と組で、語の途中で折り返さない・2026-09-30）。
-  const phrased = (str, key) => <span key={key}>{withPhraseBreaks(str)}</span>;
+  //   箇条書き（phrase: false）は <wbr> を入れずにそのまま流す（listStyle の説明）。
+  const brk = (str) => (phrase ? withPhraseBreaks(str) : str);
+  const phrased = (str, key) => <span key={key}>{brk(str)}</span>;
   while ((m = re.exec(text)) !== null) {
     if (m.index > cursor) parts.push(phrased(text.slice(cursor, m.index), `t-${i}`));
-    parts.push(<strong key={`b-${i}`} style={{ color: 'var(--text)', fontWeight: 600 }}>{withPhraseBreaks(m[1])}</strong>);
+    parts.push(<strong key={`b-${i}`} style={{ color: 'var(--text)', fontWeight: 600 }}>{brk(m[1])}</strong>);
     cursor = m.index + m[0].length;
     i += 1;
   }
@@ -173,26 +189,7 @@ function renderInline(text) {
   return parts.length ? parts : text;
 }
 
-// "### 1. 『title』- 著者" / "『title』 — 著者" / "『title』" all parse the
-// same way: title in 『』 + an optional author suffix after - / – / — / ・.
-const RELATED_BOOK_RE = /^\s*(?:\d+\.\s*)?『([^』]+)』(?:\s*[-–—・]\s*(.+))?\s*$/;
-// 『』 なしのフォールバック: "### 1. タイトル - 著者" のような番号付き行を本として拾う。
-// 番号プレフィックス必須にして、通常の文や見出しを誤って本扱いしないようにする。
-const RELATED_BOOK_RE_PLAIN = /^\s*\d+\.\s*([^-–—・\n]{2,80}?)(?:\s*[-–—・]\s*(.+))?\s*$/;
-function parseRelatedBookHeading(text) {
-  const raw = text || '';
-  // 1 行に 2 冊を混ぜた行（「『A』関連 または『B』- 著者」）は本のカードにしない（説明ごと出さない・
-  // lib/planRelatedBooks.js が保存の前と開いたときに 1 冊に直すか消す・2026-10-04）。
-  const parsed = parseRelatedBookLine(raw);
-  if (parsed?.malformed) return { skip: true };
-  let m = raw.match(RELATED_BOOK_RE);
-  if (!m) m = raw.match(RELATED_BOOK_RE_PLAIN);
-  if (!m) return null;
-  const title = (m[1] || '').trim().replace(/^『|』$/g, '');
-  const author = (m[2] || '').trim();
-  if (!title) return null;
-  return { title, author };
-}
+// 関連書籍の 1 行の読み方（1 冊と言い切れない行はカードにしない）は lib/markdownSections.js の parseRelatedBookHeading。
 
 function renderLines(lines, opts) {
   // Group consecutive list items into a single <ul> / <ol>.
@@ -260,10 +257,18 @@ function renderLines(lines, opts) {
   flushTable();
 
   // For 関連書籍 sections: each `### N. 『title』- 著者` becomes a card
-  // with an "📚 読みたいに追加" button. Following paragraphs (until the
+  // with a 「読みたいに追加」 button. Following paragraphs (until the
   // next subhead) are absorbed as the description.
   if (opts?.relatedBooks && opts?.onAddRelatedBook) {
     const out = [];
+    // 続けて並ぶカードは 1 つの縦並び（間 12・カード自身には外側の余白を付けない・2026-10-04 ui-critic）。
+    let cards = [];
+    const flushCards = () => {
+      if (cards.length === 0) return;
+      out.push(<div key={`cards-${out.length}`} style={relatedCardsStyle}>{cards}</div>);
+      cards = [];
+    };
+    const push = (node) => { flushCards(); out.push(node); };
     let pending = null; // { book, lines: [] }
     const flushPending = (key) => {
       if (!pending) return;
@@ -274,7 +279,7 @@ function renderLines(lines, opts) {
       if (pending.skip) { pending = null; return; }
       const book = pending.book;
       const description = pending.lines.join('\n').trim();
-      out.push(
+      cards.push(
         <RelatedBookCard
           key={`rel-${key}`}
           book={book}
@@ -294,7 +299,7 @@ function renderLines(lines, opts) {
         } else if (parsed) {
           pending = { book: parsed, lines: [] };
         } else {
-          out.push(<h4 key={i} style={subHeadingStyle}>{renderInline(stripLeadingEmoji(b.text))}</h4>);
+          push(<h4 key={i} style={subHeadingStyle}>{renderInline(stripLeadingEmoji(b.text))}</h4>);
         }
         return;
       }
@@ -306,34 +311,35 @@ function renderLines(lines, opts) {
       }
       // Non-related fallthrough — render normally.
       if (b.type === 'table') {
-        out.push(renderTable(b.rows, i));
+        push(renderTable(b.rows, i));
       } else if (b.type === 'ul') {
-        out.push(
+        push(
           <ul key={i} style={listStyle}>
             {b.items.map((it, j) => (
               <li key={j} style={liStyle}>
                 <span style={bulletDot} aria-hidden="true" />
-                <span>{renderInline(it)}</span>
+                <span style={liTextStyle}>{renderInline(it, { phrase: false })}</span>
               </li>
             ))}
           </ul>,
         );
       } else if (b.type === 'ol') {
-        out.push(
+        push(
           <ol key={i} style={listStyle}>
             {b.items.map((it, j) => (
               <li key={j} style={liStyle}>
                 <span style={olNumStyle} aria-hidden="true">{j + 1}.</span>
-                <span>{renderInline(it)}</span>
+                <span style={liTextStyle}>{renderInline(it, { phrase: false })}</span>
               </li>
             ))}
           </ol>,
         );
       } else {
-        out.push(renderPara(b.text, i));
+        push(renderPara(b.text, i));
       }
     });
     flushPending('end');
+    flushCards();
     return out;
   }
 
@@ -346,7 +352,7 @@ function renderLines(lines, opts) {
           {b.items.map((it, j) => (
             <li key={j} style={liStyle}>
               <span style={bulletDot} aria-hidden="true" />
-              <span>{renderInline(it)}</span>
+              <span style={liTextStyle}>{renderInline(it, { phrase: false })}</span>
             </li>
           ))}
         </ul>
@@ -358,7 +364,7 @@ function renderLines(lines, opts) {
           {b.items.map((it, j) => (
             <li key={j} style={liStyle}>
               <span style={olNumStyle} aria-hidden="true">{j + 1}.</span>
-              <span>{renderInline(it)}</span>
+              <span style={liTextStyle}>{renderInline(it, { phrase: false })}</span>
             </li>
           ))}
         </ol>
@@ -368,58 +374,21 @@ function renderLines(lines, opts) {
   });
 }
 
+// 画面には出さず、読み上げにだけ伝える文字（visually hidden）。
+const srOnly = { position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', whiteSpace: 'nowrap', border: 0 };
+const relatedCardsStyle = { display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', margin: 'var(--space-2) 0' };
 const relatedCardStyle = {
   background: 'var(--surface)',
   border: '1px solid var(--separator)',
   borderRadius: 'var(--radius)',
   padding: 'var(--space-3) var(--space-4)',
-  margin: 'var(--space-2) 0',
   display: 'flex',
   flexDirection: 'column',
   gap: 'var(--space-2)',
 };
-// flex: 1 で 2 ボタンを均等幅、padding を抑えめに、whiteSpace: nowrap で
-// 「Amazon で買 / う」のような縦割れを物理的に防ぐ。minHeight: 44 で
-// iOS HIG のタップ領域を確保。textAlign: center と inline-flex の組合せで
-// ラベルが必ず中央 1 行に収まる。
-const relatedAddBtn = {
-  flex: 1,
-  minWidth: 0,
-  padding: 'var(--space-2) var(--space-3)',
-  borderRadius: 'var(--radius)',
-  border: '1px solid var(--border)',
-  background: 'transparent',
-  color: 'var(--text)',
-  fontSize: 'var(--text-sub)',
-  fontWeight: 600,
-  cursor: 'pointer',
-  fontFamily: 'inherit',
-  minHeight: 44,
-  whiteSpace: 'nowrap',
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: 'var(--space-1)',
-};
-const relatedAmazonBtn = {
-  flex: 1,
-  minWidth: 0,
-  padding: 'var(--space-2) var(--space-3)',
-  borderRadius: 'var(--radius)',
-  background: 'transparent',
-  border: '1px solid var(--border)',
-  color: 'var(--text)',
-  fontSize: 'var(--text-sub)',
-  fontWeight: 600,
-  textDecoration: 'none',
-  fontFamily: 'inherit',
-  minHeight: 44,
-  whiteSpace: 'nowrap',
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: 'var(--space-1)',
-};
+// 「読みたいに追加」は全幅の副ボタン（btnGhost・高さ 48）、Amazon は文字リンク（btnLink＋↗）。
+// AI 選書の推薦カード（BookAdvisor の AdvisorStoreLinks）と同じ組み立て（2026-10-04 ui-critic）。
+const relatedStoreLink = { ...btnLink, gap: 'var(--space-1)', textDecoration: 'none', whiteSpace: 'nowrap', boxSizing: 'border-box' };
 
 function RelatedBookCard({ book, description, onAdd, isAdding }) {
   // 旧 isAdding は「処理中」(短時間で消える) だったが、新実装では
@@ -429,18 +398,20 @@ function RelatedBookCard({ book, description, onAdd, isAdding }) {
   const amazonHref = getAmazonSearchLink(book.title, book.author);
   return (
     <div style={relatedCardStyle}>
-      <p style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', margin: 0, lineHeight: 1.5 }}>
-        📚 『{book.title}』
-        {book.author && <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', fontWeight: 400 }}> — {book.author}</span>}
+      {/* 書名の頭に 📚 を付けない（DESIGN §3: 絵文字をアイコン代わりにしない・2026-10-04 ui-critic）。『 はぶら下げる。 */}
+      <p style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', margin: 0, lineHeight: 1.5, textIndent: '-0.5em', overflowWrap: 'anywhere' }}>
+        『{book.title}』
+        {/* 「— 著者」はひとまとまり（inline-block）で、入りきらなければ名前ごと次の行へ（大きな文字で名前の途中で割れていた・2026-10-04 ui-critic）。
+            textIndent は書名のぶら下げ用なので打ち消す。 */}
+        {/* 同じ行での間は書名の後ろの空白（{' '}）だけ。左の余白を付けると、折り返したとき行頭が 4 右にずれる（2026-10-04 ui-critic）。 */}
+        {book.author && <>{' '}<span style={{ display: 'inline-block', textIndent: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', fontWeight: 400 }}>— {book.author}</span></>}
       </p>
       {description && (
         <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.6, margin: 0, whiteSpace: 'pre-wrap' }}>
           {description}
         </p>
       )}
-      {/* flexWrap を撤去し常に横並び。狭幅でもラベル短縮 + nowrap で
-          縦割れを防ぐ。touch-action: manipulation で iOS の 300ms 遅延も解消 */}
-      <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
         <button
           type="button"
           onClick={(e) => {
@@ -450,68 +421,45 @@ function RelatedBookCard({ book, description, onAdd, isAdding }) {
           }}
           disabled={isAdded}
           aria-label={isAdded ? `『${book.title}』は本棚にあります` : `『${book.title}』を読みたいに追加`}
-          style={{
-            ...relatedAddBtn,
-            background: isAdded ? 'var(--fill)' : relatedAddBtn.background,
-            color: isAdded ? 'var(--text-3)' : relatedAddBtn.color,
-            cursor: isAdded ? 'not-allowed' : 'pointer',
-            touchAction: 'manipulation',
-            pointerEvents: 'auto',
-            position: 'relative',
-            zIndex: 1,
-          }}
+          // 文字が最大でも「追／加」と割れず「読みたいに／追加」で折り返す（文節の <wbr>＋keep-all・2026-10-04 ui-critic）
+          style={{ ...(isAdded ? btnGhostOff : btnGhost), touchAction: 'manipulation', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}
         >
-          {isAdded ? '追加済み' : '読みたいに追加'}
+          {withPhraseBreaks(isAdded ? '追加済み' : '読みたいに追加')}
         </button>
-        <a
-          href={amazonHref}
-          target="_blank"
-          rel={AMAZON_LINK_REL}
-          aria-label={`Amazon で『${book.title}』を購入（外部リンク）`}
-          onClick={(e) => { e.stopPropagation(); handleAmazonClick(e, amazonHref); }}
-          style={{
-            ...relatedAmazonBtn,
-            touchAction: 'manipulation',
-          }}
-        >
-          Amazon
-        </a>
+        {/* 文字の左端をカードの本文にそろえる（btnLink の左右 4 を打ち消す）。 */}
+        <div style={{ display: 'flex', marginLeft: 'calc(-1 * var(--space-1))' }}>
+          <a
+            href={amazonHref}
+            target="_blank"
+            rel={AMAZON_LINK_REL}
+            aria-label={`Amazon で『${book.title}』を見る（外部リンク）`}
+            onClick={(e) => { e.stopPropagation(); handleAmazonClick(e, amazonHref); }}
+            style={{ ...relatedStoreLink, touchAction: 'manipulation' }}
+          >
+            Amazon<IcExternal size={16} aria-hidden="true" />
+          </a>
+        </div>
       </div>
     </div>
   );
 }
 
-function parseSections(text) {
-  if (typeof text !== 'string' || !text.trim()) return [];
-  const sections = [];
-  const lines = text.split('\n');
-  let current = { heading: null, lines: [] };
-  for (const line of lines) {
-    if (/^## /.test(line)) {
-      if (current.heading || current.lines.length) sections.push(current);
-      current = { heading: line.replace(/^## /, '').trim(), lines: [] };
-    } else {
-      current.lines.push(line);
-    }
-  }
-  if (current.heading || current.lines.length) sections.push(current);
-  return sections;
-}
-
-// Heading like "## 📚 関連書籍" / "おすすめの本" / "次に読む" → render
-// each `### N. 『title』- author` as a clickable add card.
-function isRelatedBooksHeading(heading) {
-  if (!heading) return false;
-  // AI の見出しは揺れる（おすすめ書籍 / 次に読むべき本 / あわせて読みたい 等）。
-  // 取りこぼすと「追加」ボタンが出ず "押しても何も起きない" に見えるため広めに拾う。
-  return /関連(書籍|本|する本|図書)|次に読む|次に読むべき|次の(一冊|本)|併読|あわせて読みたい|おすすめ(の本|書籍|図書|の一冊)|参考(書籍|図書|文献)|読むべき本/.test(heading);
-}
+// 節の分け方・関連書籍の見出し・画面に出す節の決まりは lib/markdownSections.js（App.jsx の畳みの出し分けと共通）。
+export { hasVisibleSections };
 
 // memo 化: 編集フォームの毎キーストローク（setForm → 親再レンダー）で、不変の
 // text（AI 解析 / 計画シート）に対する数百要素の Markdown ツリー再構築を防ぐ。
 // props はどれも参照安定（text=string / addingTitles=state の Set / handler=useCallback）。
-function MarkdownSections({ text, density = 'normal', flat = false, onAddRelatedBook, addingTitles }) {
-  const sections = useMemo(() => parseSections(text), [text]);
+// hideRelatedBooks: 書誌で確かめていない AI の出力（以前の AI 解析・以前の AI まとめ）では、本を挙げる節
+//   （関連書籍・おすすめの本…）を出さない（実在を確かめていない書名を、本として見せない・2026-10-04）。
+// 関連書籍の節は、本のカードが 1 枚も出ないなら見出しも Amazon の注記も出さない（2026-10-04 ui-critic・lib/markdownSections.js）。
+// pendingRelated: 書いている途中・書誌で確かめている途中（読書計画シート）。関連書籍の節は、見出しと 2 行の骨組みだけを出す
+//   （確かめる前の書名を小見出しのまま見せない・確かめ終わってカードになる／消える・2026-10-04 ui-critic）。
+function MarkdownSections({ text, density = 'normal', flat = false, onAddRelatedBook, addingTitles, hideRelatedBooks = false, pendingRelated = false }) {
+  const sections = useMemo(
+    () => visibleSections(text, { relatedCards: !!onAddRelatedBook, hideRelatedBooks, pendingRelated }),
+    [text, onAddRelatedBook, hideRelatedBooks, pendingRelated],
+  );
   if (sections.length === 0) return null;
 
   // If the whole text has no `## ` headings, fall back to a single card.
@@ -527,13 +475,21 @@ function MarkdownSections({ text, density = 'normal', flat = false, onAddRelated
     <div style={flat ? flatWrap : wrap}>
       {sections.map((s, i) => {
         const styles = flat ? flatSectionStyle : sectionStyle;
-        const related = onAddRelatedBook && isRelatedBooksHeading(s.heading);
+        const related = onAddRelatedBook && s.related;
         return (
           <section key={i} className={flat ? 'long-text md-section md-section--flat' : 'long-text md-section'} style={styles}>
             {s.heading && <h3 style={flat ? flatHeadingStyle : headingStyle}>{stripLeadingEmoji(s.heading)}</h3>}
-            {renderLines(s.lines, related ? { relatedBooks: true, onAddRelatedBook, addingTitles } : undefined)}
-            {related && (
-              <small style={{ display: 'block', fontSize: 'var(--text-caption)', color: 'var(--text-3)', lineHeight: 1.5, marginTop: 'var(--space-2)' }}>
+            {pendingRelated && s.related ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
+                {/* 骨組みは見た目だけ。読み上げには「本を確かめています」と伝える（2026-10-04 ui-critic） */}
+                <span role="status" style={srOnly}>本を確かめています</span>
+                <SkeletonBlock width="70%" height={16} />
+                <SkeletonBlock width="90%" height={14} />
+              </div>
+            ) : renderLines(s.lines, related ? { relatedBooks: true, onAddRelatedBook, addingTitles } : undefined)}
+            {related && !pendingRelated && (
+              // AI 選書の購入リンクの注記と同じ 13/--text-3（2026-10-04 ui-critic）
+              <small style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, marginTop: 'var(--space-2)' }}>
                 {AMAZON_DISCLOSURE_TEXT}
               </small>
             )}

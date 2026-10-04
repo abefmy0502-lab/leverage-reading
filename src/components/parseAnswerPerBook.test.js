@@ -74,6 +74,13 @@ describe('parseBookViews', () => {
     expect(lead).toBe('3 冊の視点です。');
     expect(books).toHaveLength(1);
   });
+  it('titleDone: 書名の行が書き終わったか（本棚の本か確かめてよいか・2026-10-04）', () => {
+    expect(parseBookViews('◆『嫌われる勇').books[0].titleDone).toBe(false);
+    expect(parseBookViews('◆『嫌われる勇気』').books[0].titleDone).toBe(true);
+    expect(parseBookViews('◆ 7つの習').books[0].titleDone).toBe(false);
+    expect(parseBookViews('◆ 7つの習慣｜コ').books[0].titleDone).toBe(true);
+    expect(parseBookViews('◆ 7つの習慣\n視点：').books[0].titleDone).toBe(true);
+  });
   it('空・壊れた入力でも空配列', () => {
     expect(parseBookViews('').books).toEqual([]);
     expect(parseBookViews(null).books).toEqual([]);

@@ -39,6 +39,24 @@ export function bookForRef(ref, books) {
     || null;
 }
 
+// AI が書いた書名（『』なし）に当たる本棚の本（2026-10-04・本ごとのカード・もとになった本を本棚の本に限るため）。
+//   まるごと同じ → AI の書名が本棚の書名を含む（副題つき）→ 本棚の書名が AI の書名を含む（AI が副題を落とした・3 字以上）。
+//   空白・記号・全角半角の違いは無視する。
+const normShelf = (t) => {
+  let s = String(t || '');
+  try { s = s.normalize('NFKC'); } catch { /* そのまま */ }
+  return s.toLowerCase().replace(/[\s　、。・:：;；「」『』（）()[\]【】〈〉《》"'“”‘’―—~〜\-_/／|｜!！?？]/g, '');
+};
+export function shelfBookForTitle(title, books) {
+  const t = normShelf(title);
+  if (!t || !Array.isArray(books)) return null;
+  const list = books.filter((b) => b && normShelf(b.title));
+  return list.find((b) => normShelf(b.title) === t)
+    || list.find((b) => t.includes(normShelf(b.title)))
+    || (t.length >= 3 ? list.find((b) => normShelf(b.title).includes(t)) : null)
+    || null;
+}
+
 // 本 1 冊の名前の行「著者『書名』」（書名は副題を外して短く）。
 export function bookPartnerLabel(book) {
   const t = shortTitle(book?.title || '') || String(book?.title || '');
@@ -99,7 +117,8 @@ export function partnerFromRefs(refs, books) {
     if (!byTitle.has(t)) byTitle.set(t, []);
     byTitle.get(t).push(c.s);
   });
-  const failed = [...byTitle].filter(([, ss]) => ss.every((s) => s === 'ng')).map(([t]) => t);
+  // 'x'＝渡したメモに無い本の参照（evidenceCheck.js・2026-10-04）も相手にしない
+  const failed = [...byTitle].filter(([, ss]) => ss.every((s) => s === 'ng' || s === 'x')).map(([t]) => t);
   const found = [];
   let self = false;
   list.forEach((r) => {
@@ -117,14 +136,16 @@ export function partnerFromRefs(refs, books) {
 }
 
 // 「すべての本」のときに並べる表紙: メモのある本（memoBookIds・無ければ全部）を、表紙のある本 → 新しい順で最大 4 冊。
+//   メモのある本が 1〜3 冊しか無いときは、本棚のほかの本で 4 つまで埋める（名前は「あなたの本棚」なのに表紙 1 枚の
+//   アイコン＝その本 1 冊に見える、を避ける・2026-10-04 ui-critic）。メモのある本が 0 冊なら表紙なし（今までどおり）。
 export function shelfBooks(books, memoBookIds = null, max = GROUP_TILES) {
   const ids = memoBookIds instanceof Set ? memoBookIds : Array.isArray(memoBookIds) ? new Set(memoBookIds) : null;
-  const pool = (Array.isArray(books) ? books : []).filter((b) => b && b.id && String(b.title || '').trim() && (!ids || ids.has(b.id)));
+  const all = (Array.isArray(books) ? books : []).filter((b) => b && b.id && String(b.title || '').trim());
   const when = (b) => String(b.updated_at || b.created_at || '');
-  return [...pool]
-    .sort((a, b) => (Number(!!b.cover) - Number(!!a.cover)) || when(b).localeCompare(when(a)))
-    .slice(0, max)
-    .map(pick);
+  const order = (list) => [...list].sort((a, b) => (Number(!!b.cover) - Number(!!a.cover)) || when(b).localeCompare(when(a)));
+  const withMemo = order(all.filter((b) => !ids || ids.has(b.id)));
+  const fill = ids && withMemo.length > 0 && withMemo.length < max ? order(all.filter((b) => !ids.has(b.id))) : [];
+  return [...withMemo, ...fill].slice(0, max).map(pick);
 }
 
 // 相談相手（scopeIds: [] = すべての本 / [id] = 1 冊 / [id, …] = 選んだ数冊）から。

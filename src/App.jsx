@@ -93,6 +93,8 @@ import { useBookCover } from './hooks/useBookCover';
 import { searchBooksFlat as searchBooksAPIFlat } from './lib/bookSearch';
 import { tryCoverForIsbn, verifyBookExists } from './lib/bookCover';
 import { verifyPlanRelatedBooks, hasMalformedRelatedBooks } from './lib/planRelatedBooks';
+import { dropUnknownChapters, focusLinesOf } from './lib/planChapters';
+import { hasVisibleSections } from './lib/markdownSections';
 import { backfillCovers } from './lib/backfillCovers';
 import { enqueueCoverRetry, resolveCoverForBook, canReplaceCover, clearCoverNotFound } from './lib/coverAutoRetry';
 import { MODEL_SMART } from './lib/models';
@@ -2865,7 +2867,7 @@ function AuthedApp() {
       new Promise((resolve) => { setTimeout(() => resolve(null), 6000); }),
     ]);
     const { about, aboutSource, toc } = bookInfoForPrompt(info);
-    return streamClaude({
+    const text = await streamClaude({
       system: PROMPTS.setupSheet.system,
       cacheSystem: true,
       messages: [{
@@ -2887,6 +2889,9 @@ function AuthedApp() {
       purpose: 'setup_sheet', // サーバーが用途ごとに安いモデルへ（docs/ai-routing.md・失敗したら Claude）
       onChunk,
     });
+    // 📖 重点的に読む箇所・流し読みから、目次に無い章の名前・番号を含む行を消す（lib/planChapters.js・2026-10-04）
+    //   この本の書名（『LIFE SHIFT』の後半）は章ではないので許す。
+    try { return dropUnknownChapters(text, [...toc, src.title || ''], { noToc: toc.length === 0 }).sheet; } catch { return text; }
   };
   // 読書計画シートの「関連書籍」を書誌で確かめ、見つからない本を消す（安いモデルで作るため・lib/planRelatedBooks.js）。
   // 確かめている間は「読みたい」ボタンを出さない（aiLoading / planGen のまま）。
@@ -3044,7 +3049,10 @@ function AuthedApp() {
       if (targetId) saveStrategyHistory(targetId, prev);
       setStrategyHistoryTick((t) => t + 1);
       // 直したシートもすぐ保存する（作ったときと同じ）。関連書籍は作ったときと同じく確かめる。
-      const checked = await checkPlanBooks(lastText);
+      // 直すときは目次を渡していないので、直す前のシートに無かった章の名前・番号を含む行は消す（lib/planChapters.js・2026-10-04）。
+      let grounded = lastText;
+      try { grounded = dropUnknownChapters(lastText, [...focusLinesOf(prev), form.title || '']).sheet; } catch { grounded = lastText; }
+      const checked = await checkPlanBooks(grounded);
       if (checked !== lastText) setForm((f) => (f && f.id === targetId ? { ...f, aiStrategy: checked } : f));
       persistPlanSheet(targetId, checked, '読書計画シートを直して、保存しました');
     } catch (error) {
@@ -3874,7 +3882,7 @@ function AuthedApp() {
                               <span className="streaming-cursor" style={{ marginLeft: 'var(--space-1)' }} />
                             </p>
                             {/* 書いている途中は関連書籍の「読みたい」ボタンを出さない（BeforePhase と同じ） */}
-                            <MarkdownSections flat text={planGen.text} />
+                            <MarkdownSections flat text={planGen.text} pendingRelated />
                           </div>
                         )}
                       </div>
@@ -4016,19 +4024,16 @@ function AuthedApp() {
           )}
 
           {/* 「AIで本を解析する」は 2026-09-27 に廃止。以前の結果だけ、別の畳む見出しで残す。 */}
-          {current.aiAnalysis && (
+          {/* 本を挙げる節を外すと何も残らないときは、畳みごと出さない（lib/markdownSections.js・2026-10-04） */}
+          {hasVisibleSections(current.aiAnalysis, { hideRelatedBooks: true }) && (
             <details style={{ ...detailsStyle, marginTop: (hasPlanFold || aboutFoldShown) ? 'var(--space-3)' : (isMemoPhase ? planFoldTop : 'var(--space-3)') }}>
               <summary style={summaryStyle}>
                 以前の AI 解析を見る
                 <ChevronDown size={20} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
               </summary>
               <div style={{ paddingBottom: 'var(--space-4)' }}>
-                <MarkdownSections
-                  flat
-                  text={current.aiAnalysis}
-                  onAddRelatedBook={addRelatedBookFromAi}
-                  addingTitles={addedRelatedTitles}
-                />
+                {/* 以前の AI 解析は書誌で確かめていないので、本を挙げる節は出さない（「読みたいに追加」も出さない・2026-10-04） */}
+                <MarkdownSections flat text={current.aiAnalysis} hideRelatedBooks />
               </div>
             </details>
           )}
@@ -4181,19 +4186,15 @@ function AuthedApp() {
             </div>
           ) : null}
           {/* 畳む見出しが続くときは 12（「この本のまとめ」の直後）。 */}
-          {current.aiSummary && (
+          {hasVisibleSections(current.aiSummary, { hideRelatedBooks: true }) && (
             <details style={{ ...detailsStyle, marginTop: isMemoPhase ? 'var(--space-3)' : 'var(--space-6)' }}>
               <summary style={summaryStyle}>
                 以前の AI まとめ
                 <ChevronDown size={20} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
               </summary>
               <div style={{ paddingBottom: 'var(--space-4)' }}>
-                <MarkdownSections
-                  flat
-                  text={current.aiSummary}
-                  onAddRelatedBook={addRelatedBookFromAi}
-                  addingTitles={addedRelatedTitles}
-                />
+                {/* 以前の AI まとめも書誌で確かめていないので、本を挙げる節は出さない（2026-10-04） */}
+                <MarkdownSections flat text={current.aiSummary} hideRelatedBooks />
               </div>
             </details>
           )}

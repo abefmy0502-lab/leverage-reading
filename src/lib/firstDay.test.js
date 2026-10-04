@@ -72,6 +72,10 @@ describe('はじめての相談の「あなたのメモ N 件から答えまし�
     expect(firstAnswerEvidence({ evidence: null, memoCount: 3, isFirst: true, refunded: true })).toBeNull();
     expect(firstAnswerEvidence({ evidence: null, memoCount: 0, isFirst: true })).toBeNull();
   });
+  it('根拠を 1 件も渡したメモで確かめられなかった答え（grounded: false）には、はじめてでも出さない（2026-10-04）', () => {
+    expect(firstAnswerEvidence({ evidence: null, memoCount: 16, isFirst: true, grounded: false })).toBeNull();
+    expect(firstAnswerEvidence({ evidence: null, memoCount: 16, isFirst: true, grounded: true })).toBe('あなたのメモ 16 件から答えました');
+  });
 });
 
 describe('計測の印（1 回だけ送る）', () => {

@@ -3,7 +3,11 @@
 // マイ読書脳だけは、実際に入っているメモから質問に近いものを選んで
 // 本番と同じ書式（【結論】…REFS_START/END）で答えるので、画面の流れを確かめられる。
 
-import { SEARCH_CATALOG, DEMO_BOOK_INFO } from './seed';
+import { SEARCH_CATALOG, DEMO_BOOK_INFO, DEMO_MESSY_RELATED } from './seed';
+
+const fakeChapterMode = () => { const a = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('ai') : ''; return a === 'fakechapter' || a === 'fakechapteronly' ? a : ''; };
+const relatedAllBad = () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('related') === 'allbad';
+const relatedMessy = () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('related') === 'messy';
 import { demoServerSearch, demoNdlXml } from './demoBookSearch';
 import { questionGist } from '../lib/consultHelpers';
 
@@ -138,10 +142,20 @@ function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null
   // 選んだメモの本の数（学びログは本に数えない）。本が 1 冊だけなら「別々の本で」とは言わない（?demo=onebook）。
   const bookCount = new Set(picked.filter((m) => m.book_id).map((m) => m.book_id)).size;
   // &ai=fabricate: 2 つ目の引用を、メモに無い文にする（「根拠を見る」で見せないことの確認用・evidenceCheck.js）。
-  const quotes = picked.map((m, i) => `- ${label(m).name} のメモ：「${aiMode === 'fabricate' && i === 1 ? '他人の期待を満たすために生きてはいけない' : m.text}」`).join('\n');
+  // &ai=fakeref（2026-10-04）: 1 つ目の引用のページを作り（p.300）、渡していない本（『7つの習慣』）を参照と REFS に足す
+  //   （画面は、渡したメモと合わない参照を出さず、作ったページを外すことの確認用・evidenceCheck.js）。
+  const fakeRef = aiMode === 'fakeref';
+  const nameOf = (m, i) => (fakeRef && i === 0 && m.book_id ? label(m).name.replace(/ p\.\d+$/, '').concat(' p.300') : label(m).name);
+  const quotes = [
+    ...picked.map((m, i) => `- ${nameOf(m, i)} のメモ：「${aiMode === 'fabricate' && i === 1 ? '他人の期待を満たすために生きてはいけない' : m.text}」`),
+    ...(fakeRef ? ['- 『7つの習慣』p.88 のメモ：主体性を発揮して、自分で選んで動く'] : []),
+  ].join('\n');
   // 一歩は、あとで行動の一覧だけを見ても分かる文にする（本番の指示文と同じ・「この件」と書かない）。
   const subject = questionGist(thread ? (thread.firstQuestion || thread.lastQuestion) : question, 20) || 'いまの悩み';
-  const refs = picked.map((m) => `- ${label(m).ref}`).join('\n');
+  const refs = [
+    ...picked.map((m) => `- ${label(m).ref}`),
+    ...(fakeRef ? ['- 📚 スティーブン・R・コヴィー『7つの習慣』p.88'] : []),
+  ].join('\n');
 
   // 結論・解釈は、引いたメモに書いてあることだけで組み立てる（メモに無い主張を足さない・2026-09-29）。
   const clip = (t) => { const x = String(t || '').replace(/\s+/g, ' ').trim(); return x.length > 40 ? `${x.slice(0, 40)}…` : x; };
@@ -154,6 +168,25 @@ function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null
     return cut > 8 ? first.slice(0, cut) : first;
   };
   const short16 = (t) => { const x = String(t || '').replace(/\s+/g, ' ').replace(/[「」『』]/g, '').split(/[。．.、]/)[0].trim(); return x.length > 16 ? `${x.slice(0, 16)}…` : x; };
+  // &ai=fakeref-only（2026-10-04）: 参照がどれも渡したメモに無い本（解釈も無い）。画面は参照を出さず、
+  //   ほかに見せるものが無ければ「根拠を見る」ごと出さない（MyBookBrain の showRefChecks）。
+  if (aiMode === 'fakeref-only') {
+    return [
+      '【結論】',
+      `${gist(picked[0].text)}という考えを、いまの状況に 1 つだけ当てはめてみましょう。`,
+      '',
+      '【参照した本のメモ】',
+      '- 『7つの習慣』p.88 のメモ：主体性を発揮して、自分で選んで動く',
+      '- 『最強の報告術』p.12 のメモ：報告は結論から',
+      '',
+      ...askSection(question),
+      '',
+      'REFS_START',
+      '- 📚 スティーブン・R・コヴィー『7つの習慣』p.88',
+      '- 📚 架空太郎『最強の報告術』p.12',
+      'REFS_END',
+    ].join('\n');
+  }
   // 🔎 本を探す問い（本番の BOOK_LOOKUP・「…を書いた本はどれ？」）: 本とメモの一節だけ。問いも行動も書かない。
   if (lookup) {
     const names = [...new Set(picked.filter((m) => m.book_id).slice(0, 2).map((m) => `『${books.get(m.book_id).title}』`))];
@@ -313,7 +346,7 @@ const PERBOOK_VIEWS = {
 // decide: 行動を決める回（会話の続きで行動を求めた）だけ行動を 1 つ。それ以外は【あなたに聞きたいこと】で締める（2026-09-30）。
 const PERBOOK_ASK = ['【あなたに聞きたいこと】', '焦りを強く感じるのは、どんなときですか？', '・数字を見たとき', '・人と比べたとき', '・締め切り前'];
 const PERBOOK_ACTION = ['【明日からできる 1 つの行動】', '始業前の 10 分で、次の商談を 1 つだけ選び、「この商談で相手に何を貢献できるか」を 1 行書いてから臨む。'];
-function perBookAnswer(block, decide = false) {
+function perBookAnswer(block, decide = false, aiMode = '') {
   const books = [];
   let cur = null;
   block.split('\n').forEach((line) => {
@@ -335,6 +368,11 @@ function perBookAnswer(block, decide = false) {
       || `『${b.title}』の視点では、メモに残した「${quote(m.text)}」を、いまの悩みに当てはめてみることができます。`;
     return { ...b, view, basis: `${m.page ? `p.${m.page}` : ''}「${quote(m.text)}」`, ref: `📚 ${b.author}『${b.title}』${m.page ? ` p.${m.page}` : ''}` };
   });
+  // &ai=fakeref（2026-10-04）: 1 冊目の根拠のページを作り（p.300）、渡していない本のカードを足す（画面は出さない・ページを外す）。
+  if (aiMode === 'fakeref' && views.length > 0) {
+    views[0] = { ...views[0], basis: views[0].basis.replace(/^p\.\d+/, '').replace(/^/, 'p.300') };
+    views.push({ title: '7つの習慣', author: 'スティーブン・R・コヴィー', view: '主体性を発揮して、反応する前に自分で選びます。', basis: 'p.88「主体性を発揮する」', ref: '📚 スティーブン・R・コヴィー『7つの習慣』p.88' });
+  }
   return [
     '【結論】',
     '焦りの正体を分けて、いま自分で動かせる一点に集中しましょう。評価や結果は、追いかけるほど遠くなります。',
@@ -342,7 +380,8 @@ function perBookAnswer(block, decide = false) {
     '【本ごとの視点】',
     ...views.flatMap((v) => [`◆『${v.title}』｜${v.author}`, `視点：${v.view}`, `根拠：${v.basis}`, '']),
     '【共通点と違い】',
-    `${views.length} 冊とも「自分で変えられることに力を集める」点で重なります。違うのは入り口で、何を手放すか、誰の課題かを分けるか、相手とどう向き合うかが分かれます。`,
+    // 本番の指示文と同じく冊数は書かない（「N 冊とも」と数えない・2026-10-04）
+    `どの本も「自分で変えられることに力を集める」点で重なります。違うのは入り口で、何を手放すか、誰の課題かを分けるか、相手とどう向き合うかが分かれます。`,
     '',
     ...(decide ? PERBOOK_ACTION : PERBOOK_ASK),
     '',
@@ -356,9 +395,13 @@ function perBookAnswer(block, decide = false) {
 
 // &ai=broken: 「本ごとに」の答えの ◆ の形が崩れた答え（◆ も「視点：」も無い）。
 //   画面は【本ごとの視点】の節をそのまま段落で見せる（SPEC §3・parseAnswer の booksRaw）。
-function perBookBrokenAnswer(block, decide = false) {
+// &ai=brokenfake（2026-10-04）: 崩れた答えに、渡していない本（『7つの習慣』）の段落を混ぜる（画面はその段落を出さない）。
+function perBookBrokenAnswer(block, decide = false, fake = false) {
   const titles = [...block.matchAll(/^◆『([^』]*)』/gm)].map((m) => m[1]).slice(0, 3);
-  const views = titles.map((t) => (PERBOOK_VIEWS[t] || `『${t}』では、メモに残したことを、いまの悩みに当てはめて考えます。`));
+  const views = [
+    ...titles.map((t) => (PERBOOK_VIEWS[t] || `『${t}』では、メモに残したことを、いまの悩みに当てはめて考えます。`)),
+    ...(fake ? ['『7つの習慣』では、反応する前に自分で選ぶことが大切です。'] : []),
+  ];
   return [
     '【結論】',
     '焦りの正体を分けて、いま自分で動かせる一点に集中しましょう。評価や結果は、追いかけるほど遠くなります。',
@@ -366,7 +409,7 @@ function perBookBrokenAnswer(block, decide = false) {
     '【本ごとの視点】',
     ...views.flatMap((v) => [v, '']),
     '【共通点と違い】',
-    `${views.length} 冊とも「自分で変えられることに力を集める」点で重なります。`,
+    'どの本も「自分で変えられることに力を集める」点で重なります。',
     '',
     ...(decide ? PERBOOK_ACTION : PERBOOK_ASK),
     '',
@@ -396,9 +439,12 @@ function planSheetAnswer(userText) {
     '- 次のステージの候補を1つ決めて読み終える',
     '',
     '## 📍 重点的に読む箇所（20%）',
-    ...(toc.length
+    // &ai=fakechapter（2026-10-04）: 目次に無い章を挙げる（画面は書き終えたところで消す・lib/planChapters.js）。
+    // &ai=fakechapteronly: 挙げた章がどれも目次に無い（節は決まった 1 行になる）。
+    ...(fakeChapterMode() === 'fakechapteronly' ? [] : toc.length
       ? (focus.length ? focus : toc.slice(1, 3)).map((l) => `- 『${l}』: 得たいことにいちばん近い章`)
       : ['目次が手に入らないため、章の名前は挙げていません。', '- 人生の段階の分け方を説明している部分', '- 具体的な人物の例が出てくる部分']),
+    ...(fakeChapterMode() ? ['- 『第9章 AI 時代の働き方』: これからの働き方の章', '- 第12章 のケーススタディ'] : []),
     '',
     '## ⏩ 流し読みでOKな箇所',
     ...(toc.length && skim.length ? skim.map((l) => `- 『${l}』: 数字の細部は流してよい`) : ['- 統計や数字の細部']),
@@ -411,11 +457,16 @@ function planSheetAnswer(userText) {
     '- 学び直しの時間を予定に入れる',
     '- 人間関係に使う時間を見直す',
     '',
-    '## 📚 関連書籍',
-    '### 1. 『GRIT やり抜く力』- アンジェラ・ダックワース',
-    '長いステージを走り切る粘り強さを、習慣として育てる考え方が補えます。',
-    '### 2. 『思考の整理学』- 外山滋比古',
-    '学び直しの時間を、自分の考えにまとめる力につなげられます。',
+    // &related=messy: 2 冊を混ぜた行・『』の無い行・実在しない本（書誌で確かめて直すか消すことの確認用・2026-10-04）
+    // &related=allbad: 関連書籍がどれも確かめられない（2 冊混ぜ・実在しない本）→ 節ごと出さない（2026-10-04 ui-critic）
+    ...(relatedAllBad() ? ['## 📚 関連書籍', '### 1. 『SMALL ACTIONS, BIG RESULTS』関連 または『やめない習慣』 - 架空太郎', '続け方が分かります。', '### 2. 1日1行の読書術 - 架空太郎', '毎日少しずつ読めます。'] : []),
+    ...(relatedAllBad() ? [] : relatedMessy() ? DEMO_MESSY_RELATED.split('\n') : [
+      '## 📚 関連書籍',
+      '### 1. 『GRIT やり抜く力』- アンジェラ・ダックワース',
+      '長いステージを走り切る粘り強さを、習慣として育てる考え方が補えます。',
+      '### 2. 『思考の整理学』- 外山滋比古',
+      '学び直しの時間を、自分の考えにまとめる力につなげられます。',
+    ]),
   ].join('\n');
 }
 
@@ -425,7 +476,7 @@ function aiReply(store, payload, aiMode = '') {
   const perBook = userText.match(/PERSPECTIVE_BOOKS_START =====\n([\s\S]*?)\n===== PERSPECTIVE_BOOKS_END/);
   // 行動を決める回は、本番と同じくアプリが質問の後ろに ACTION_REQUEST を付ける（ai.js の turnHint）。
   const decide = userText.includes('===== ACTION_REQUEST =====');
-  if (perBook) return aiMode === 'broken' ? perBookBrokenAnswer(perBook[1], decide) : perBookAnswer(perBook[1], decide);
+  if (perBook) return aiMode === 'broken' || aiMode === 'brokenfake' ? perBookBrokenAnswer(perBook[1], decide, aiMode === 'brokenfake') : perBookAnswer(perBook[1], decide, aiMode);
   const q = userText.match(/QUESTION_START =====\n([\s\S]*?)\n=====/);
   if (q) {
     // 本番は質問に近いメモを RELATED_MEMOS に分けて渡す（MEMOS からは外す）ので、両方を材料にする。
@@ -469,7 +520,17 @@ function aiReply(store, payload, aiMode = '') {
         why: delegate ? `結果から逆算して任せる考え方が、「${delegate}」の手がかりになります。`
           : '結果から逆算して任せる考え方が、ひとりで抱え込まない手がかりになります。',
         core: '終わりから始めて、そこへ到達するためにできる限りのことをする。', focus: '第3章', duration: '3週間で読了、2か月で実践' },
+      // &ai=mixedrec: 書名の欄に 2 冊を混ぜたカード（「A または B」）。画面は 1 冊ずつ確かめて、見つかった 1 冊のカードにする（2026-10-04）。
+      ...(aiMode === 'mixedrec' ? [{ title: '7つの習慣 または やめる習慣', author: 'スティーブン・R・コヴィー',
+        why: '自分で選んで動く「主体性」の考え方が、任せ方の土台になります。',
+        core: '反応する前に、自分で選ぶ。', focus: '主体性の考え方', duration: '3週間で読了、1か月で実践' }] : []),
     ];
+    // &ai=allmixed: どのカードも 2 冊を混ぜた書名で、どれも確かめられない（出せるカードが 0 枚＝ErrorMessage の確認用・2026-10-04）
+    if (aiMode === 'allmixed') {
+      recs.splice(0, recs.length,
+        { title: '時間の使い方の本 または 集中の本', author: '架空太郎', why: '時間の使い方が変わります。', core: '時間を先に押さえる。', focus: '時間の使い方', duration: '2週間で読了' },
+        { title: '任せ方シリーズ', author: '架空花子', why: '任せ方が分かります。', core: '結果から任せる。', focus: '任せ方', duration: '3週間で読了' });
+    }
     return [
       '## 👋 はじめに', 'お話を伺って、時間の使い方と任せ方の両方に効く本を選びました。', '',
       '## 📚 おすすめの本', '', 'RECOMMENDATIONS_START', JSON.stringify(recs, null, 2), 'RECOMMENDATIONS_END', '',
@@ -714,6 +775,8 @@ export function installDemoFetch(store) {
         // &verify=down: 検索元がどれも答えない（「確認できませんでした」の確認用）。
         const mode = new URLSearchParams(window.location.search).get('verify');
         if (mode === 'down') return json({ cover: '', isbn: '', candidates: [], verified: null }, 200);
+        // &verify=slow: 確かめるのに 1 冊 3 秒かかる（確かめている途中の骨組みの確認用・2026-10-04）
+        if (mode === 'slow') await new Promise((r) => setTimeout(r, 3000));
         // &verify=mixed: 1 冊目だけ確かめられない（カードごとの「確認できませんでした」の確認用）。
         if (mode === 'mixed' && title === '大事なことに集中する') return json({ cover: '', isbn: '', candidates: [], verified: null }, 200);
         const exact = title && SEARCH_CATALOG.find(([t]) => t === title);

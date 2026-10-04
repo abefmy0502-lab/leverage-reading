@@ -20,7 +20,7 @@ import { MiniCover } from './BookCards';
 import { LIMITS } from '../lib/limits';
 import { useBookCover } from '../hooks/useBookCover';
 import { useToast } from './Toast';
-import MarkdownSections from './MarkdownSections';
+import MarkdownSections, { hasVisibleSections } from './MarkdownSections';
 import { DATE_HINT } from '../lib/dateHint';
 import {
   Field, SectionHeader, Stars, TagInput, Chip,
@@ -434,14 +434,14 @@ export function BeforePhase({
             読書計画シート
             {aiLoading && <span className="streaming-cursor" aria-hidden="true" style={{ marginLeft: 'var(--space-1)' }} />}
           </p>
-          {/* aiLoading 中は onAddRelatedBook を渡さない — MarkdownSections は
-              「関連書籍」見出しを通常の見出しとして描画し、関連書籍カードと
-              「📚 読みたい」ボタンを出さない。途中の不完全な 『title』 を
-              押されてもデータが壊れない。 */}
+          {/* aiLoading 中（書いている途中・書誌で確かめている途中）は onAddRelatedBook を渡さず、
+              関連書籍の節は見出しと骨組みだけ（pendingRelated・確かめる前の書名を小見出しで見せない・2026-10-04）。
+              途中の不完全な 『title』 を押されてもデータが壊れない。 */}
           <MarkdownSections
             text={form.aiStrategy}
             onAddRelatedBook={aiLoading ? undefined : onAddRelatedBook}
             addingTitles={addingTitles}
+            pendingRelated={aiLoading}
           />
 
           {/* 修正のお願い: 今のシート＋自由文の指示を AI に渡す。1 つ前は端末に残し、元に戻せる。 */}
@@ -494,18 +494,16 @@ export function BeforePhase({
 
       {/* 「AIで本を解析する」は 2026-09-27 に廃止（読書計画シートと役割が重なる・原価の節約）。
           以前に解析した本だけ、結果を畳んで残す（相談の材料＝著者の意図として使い続ける）。 */}
-      {form.aiAnalysis && (
+      {/* 本を挙げる節を外すと何も残らないときは、畳みごと出さない（2026-10-04） */}
+      {hasVisibleSections(form.aiAnalysis, { hideRelatedBooks: true }) && (
         <details style={{ ...softBox, padding: '0 var(--space-4)', marginTop: 'var(--space-6)', marginBottom: 0 }}>
           <summary style={foldSummary}>
             以前の AI 解析を見る
             <IcChevron size={20} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
           </summary>
           <div style={{ paddingBottom: 'var(--space-4)' }}>
-            <MarkdownSections
-              text={form.aiAnalysis}
-              onAddRelatedBook={aiLoading ? undefined : onAddRelatedBook}
-              addingTitles={addingTitles}
-            />
+            {/* 書誌で確かめていない以前の出力なので、本を挙げる節は出さない（「読みたいに追加」も・2026-10-04） */}
+            <MarkdownSections text={form.aiAnalysis} hideRelatedBooks />
           </div>
         </details>
       )}

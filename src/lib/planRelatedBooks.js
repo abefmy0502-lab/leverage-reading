@@ -12,17 +12,35 @@
 //     『』の中の書名を 1 冊ずつ確かめ、見つかった最初の 1 冊だけの行に書き直す（見つからなければ消す）。
 //     画面（MarkdownSections）は崩れた行を本のカードにしない（parseRelatedBookLine の malformed）。
 
-const RELATED_HEADING_RE = /関連(書籍|本|する本|図書)|次に読む|次に読むべき|次の(一冊|本)|併読|あわせて読みたい|おすすめ(の本|書籍|図書|の一冊)|参考(書籍|図書|文献)|読むべき本/;
-const CLEAN_BOOK_RE = /^『([^』]+)』(?:\s*[-–—・]\s*([^『』]+))?$/;
+//   - 『』の無い行（「### 1. 7つの習慣 - スティーブン・R・コヴィー」・2026-10-04）も、1 冊の書名に見える形
+//     （番号つき・書名は 40 字まで・「または」などは候補に分ける）なら「崩れた行」として確かめ、『』の行に直すか消す。
+//     確かめるまでは本のカードにしない（それまでは AI が書いた形のまま「読みたいに追加」が出ていた＝確かめていなかった）。
+//   - 確かめられなかった（通信の失敗など）崩れた行は消さずに残す（画面には出さない・次に開いたときにまた確かめる）。
 
-// 関連書籍の 1 行（### の後ろ）を読む。返り値 { title, author, malformed, candidates } か null（『』が無い）。
+import { splitBookTitle, looksLikeSingleTitle } from './bookItemShape';
+
+// 関連書籍の見出し（「## 📚 関連書籍」「おすすめの本」「次に読む」…）。MarkdownSections の本のカードも同じ見出しで決める。
+export const RELATED_HEADING_RE = /関連(書籍|本|する本|図書)|次に読む|次に読むべき|次の(一冊|本)|併読|あわせて読みたい|おすすめ(の本|書籍|図書|の一冊)|参考(書籍|図書|文献)|読むべき本/;
+const CLEAN_BOOK_RE = /^『([^』]+)』(?:\s*[-–—・]\s*([^『』]+))?$/;
+// 『』の無い行の「書名 - 著者」の区切り（中黒「・」は名前の中に出るので区切りにしない）。
+const PLAIN_SPLIT_RE = /^(.+?)(?:\s+[-–—]\s+|\s*[–—]\s*)(.+)$/;
+
+// 関連書籍の 1 行（### の後ろ）を読む。返り値 { title, author, malformed, candidates, plain? } か null（本の行ではない）。
 //   - きれいな行: 『書名』だけ、または『書名』- 著者 → malformed: false
 //   - 崩れた行: 『』が 2 つ以上・『』の後ろに著者以外の言葉（「関連」「または」「（上）」など）→ malformed: true・
 //     candidates は『』の中の書名（出てきた順）・author は最後の『』の後ろの「- 著者」
+//   - 『』の無い番号つきの行で、1 冊の書名に見えるもの → malformed: true・plain: true（確かめて『』の行に直す）
 export function parseRelatedBookLine(text) {
-  const raw = String(text || '').trim().replace(/^\d+\.\s*/, '');
+  const src = String(text || '').trim();
+  const raw = src.replace(/^\d+\.\s*/, '');
   const titles = [...raw.matchAll(/『([^』]+)』/g)].map((m) => m[1].trim()).filter(Boolean);
-  if (titles.length === 0) return null;
+  if (titles.length === 0) {
+    if (!/^\d+\.\s*/.test(src)) return null; // 番号の無い小見出し（「### 読む順番」など）は本ではない
+    const m = raw.match(PLAIN_SPLIT_RE);
+    const shape = splitBookTitle(m ? m[1] : raw);
+    if (shape.candidates.length === 0 || !shape.candidates.every(looksLikeSingleTitle)) return null;
+    return { title: shape.title, author: m ? m[2].trim() : '', malformed: true, plain: true, candidates: shape.candidates };
+  }
   const clean = raw.match(CLEAN_BOOK_RE);
   if (clean && titles.length === 1) {
     return { title: clean[1].trim(), author: (clean[2] || '').trim(), malformed: false, candidates: [clean[1].trim()] };
@@ -119,13 +137,16 @@ export async function verifyPlanRelatedBooks(sheet, verify, { timeoutMs = 8000 }
     try { return withTimeout(verify({ title, author })); } catch { return Promise.resolve({ exists: null }); }
   };
   // きれいな行は 1 冊を確かめる。崩れた行は『』の中の書名を順に確かめ、見つかった最初の 1 冊を選ぶ。
+  //   どれも「無い」と分かった崩れた行は消す。1 つでも確かめられなかったら（通信の失敗など）消さずに残す
+  //   （画面には出さない・次に開いたときにまた確かめる。オフラインで開いただけで本が消えないように）。
   const results = await Promise.all(entries.map(async (e) => {
     if (!e.malformed) return { exists: (await check(e.title, e.author))?.exists ?? null };
     const rs = await Promise.all(e.candidates.map((t) => check(t, e.author)));
     const k = rs.findIndex((r) => r?.exists === true);
-    return k >= 0 ? { exists: true, pick: e.candidates[k] } : { exists: false };
+    if (k >= 0) return { exists: true, pick: e.candidates[k] };
+    return rs.every((r) => r?.exists === false) ? { exists: false } : { exists: null };
   }));
-  // 崩れた行は、見つかった 1 冊だけの行に書き直す（行の数は変えない）。見つからなければ消す（確かめられなくても）。
+  // 崩れた行は、見つかった 1 冊だけの行に書き直す（行の数は変えない）。見つからなければ消す。
   const lines = text.split('\n');
   const fixed = [];
   entries.forEach((e, i) => {
