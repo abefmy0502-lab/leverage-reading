@@ -123,6 +123,12 @@ const SCREENS = [
   // メールのリンクから戻ったとき（2026-10-04）: 期限切れのリンク／パスワードを決め直す画面（入れ直しのエラーつき）
   // アプリ全体のエラーの画面（?crash=1 は開発中だけ）と、新しい版の知らせ（Web の PWA だけ）
   { name: 'error-boundary', url: '/?crash=1' },
+  // オフラインの一行（&offline=1・2026-10-04）: ホーム／すべての本（上の行が無い画面）／つながったあと（5 秒以上切れていた）
+  { name: 'offline-home', url: '/?offline=1' },
+  { name: 'offline-review', url: '/?offline=1', steps: [{ css: nav('振り返り') }] },
+  { name: 'offline-library', url: '/?offline=1', steps: [{ css: 'button:has-text("すべての本")' }] },
+  { name: 'offline-detail', url: '/?offline=1', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }] },
+  { name: 'offline-reconnected', url: '/?offline=1', steps: [{ wait: 5200 }, { eval: "window.dispatchEvent(new Event('online'))", settle: 300 }] },
   { name: 'update-banner', url: '/', steps: [{ eval: "window.dispatchEvent(new Event('app-update-available'))" }] },
   { name: 'auth-callback-error', url: '/#error=access_denied&error_code=otp_expired' },
   { name: 'auth-recovery', url: '/#access_token=demo&type=recovery' },

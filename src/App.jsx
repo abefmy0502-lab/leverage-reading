@@ -120,6 +120,8 @@ import { isNative } from './lib/iap';
 import { APP_STORE_URL, isAppStoreLive } from './lib/appStore';
 import { initNativePushNav } from './lib/nativePush';
 import UpdateBanner from './components/UpdateBanner';
+import OfflineNotice from './components/OfflineNotice';
+import { useOnline } from './hooks/useOnline';
 import { SkeletonBlock, BookListSkeleton, BookGridSkeleton } from './components/Skeleton';
 import SwipeableCard from './components/SwipeableCard';
 import ContextMenu from './components/ContextMenu';
@@ -538,6 +540,8 @@ const OPEN_SETTINGS_EVENT = 'orime:open-settings';
 
 function AuthedApp() {
   const { signOut, user } = useAuth();
+  // 📶 つながっていない間は、画面の上の行の下に「オフラインです」の一行（OfflineNotice・2026-10-04）。
+  const online = useOnline();
   const appCache = useAppDataCache();
   // 仮想キーボード表示中は BottomNav を消し、入力欄に重ならないようにする。
   // viewport meta の interactive-widget=resizes-content と併用すると iOS
@@ -4033,6 +4037,7 @@ function AuthedApp() {
               </button>
             </div>
         </PushedTopBar>
+        <OfflineNotice />
         <div
           ref={detailScrollRef}
           className="detail-enter"
@@ -4657,6 +4662,7 @@ function AuthedApp() {
               <MoreHorizontal size={22} aria-hidden="true" />
             </button>
         </PushedTopBar>
+        <OfflineNotice />
         {editMenu && (
           <ContextMenu
             x={editMenu.x}
@@ -4878,6 +4884,11 @@ function AuthedApp() {
     </div>
   </header>
    )}
+   {/* オフラインの一行: 上の行の下に。すべての本（上の行が無い）は帯がノッチの下まで受け持つ（下の行の上の余白を詰める）。
+       相談の押し込まれた画面（過去の相談など）は、その画面の上の行が中にあるので出さない（戻ると出る）。 */}
+   {!(tab === "ai" && aiSubTab === 'brain' && consultPushed) && (
+     <OfflineNotice safeTop={tab === "books" && shelfMode === 'library'} />
+   )}
 
       {/* Shell が flex column になったため、ここは flex: 1 / minHeight: 0
           で残りスペースを取る。AI タブは内側で flex column を構成、
@@ -4976,7 +4987,8 @@ function AuthedApp() {
           <PullToRefresh onRefresh={async () => { await refreshBooks(); haptic.light(); }}>
             <div
               style={{
-                padding: "max(env(safe-area-inset-top, 0px), var(--space-2)) var(--space-4) var(--space-3)",
+                // オフラインの一行が上にあるときは、ノッチの分は帯が取るので詰める。
+                padding: online ? "max(env(safe-area-inset-top, 0px), var(--space-2)) var(--space-4) var(--space-3)" : "var(--space-2) var(--space-4) var(--space-3)",
                 display: "flex",
                 flexDirection: "column",
                 gap: 'var(--space-3)',
