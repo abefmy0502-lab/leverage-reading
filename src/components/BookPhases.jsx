@@ -98,8 +98,8 @@ export function WantPhase({ form, setForm, onSave, saving = false, onSearchOpen,
 
   const pickCover = () => fileInputRef.current?.click();
   const clearCover = () => setForm({ ...form, cover: '' });
-  // 表紙の画像が本当に読めたときだけ「削除」を出す（読めない URL だと自動で作った表紙が出るので、
-  // その下に「削除」があると消すものが無いのに赤い文字だけ見える・2026-09-27）。
+  // 表紙の画像が本当に読めたときだけ「外す」を出す（読めない URL だと自動で作った表紙が出るので、
+  // その下に「外す」があると外すものが無いのに文字だけ見える・2026-09-27）。
   const [coverOk, setCoverOk] = useState(false);
   useEffect(() => {
     setCoverOk(false);
@@ -156,10 +156,12 @@ export function WantPhase({ form, setForm, onSave, saving = false, onSearchOpen,
                   type="button"
                   onClick={clearCover}
                   disabled={uploading}
-                  aria-label="表紙写真を削除"
-                  style={{ ...btnText, minHeight: 44, padding: '0 var(--space-2)', fontSize: 'var(--text-sub)', color: 'var(--error)' }}
+                  aria-label="表紙を外す"
+                  // 本を追加の画面で赤い「削除」だと本そのものを消すように読めた。フォームから表紙を外すだけ
+                  // （保存するまで本は変わらない）なので、ふつうの文字ボタン（DESIGN §5・--accent）で「外す」（2026-10-04）。
+                  style={{ ...btnText, minHeight: 44, padding: '0 var(--space-2)', fontSize: 'var(--text-sub)', color: 'var(--accent)' }}
                 >
-                  削除
+                  外す
                 </button>
               )}
             </>
