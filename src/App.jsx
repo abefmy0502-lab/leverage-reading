@@ -648,6 +648,8 @@ function AuthedApp() {
   // サブタブの行を隠す（押し込まれた画面は「‹ 相談」の 1 行だけ・切り替えを 2 段にしない）。
   // MyBookBrain が onPushedViewChange で知らせる。相談タブ・相談サブタブを離れたら戻す。
   const [consultPushed, setConsultPushed] = useState(false);
+  // AI 選書の過去の AI 選書（1）・その中身（2）も同じく押し込まれた画面（BookAdvisor の onPushedViewChange・2026-10-04）。
+  const [advisorPushed, setAdvisorPushed] = useState(0);
   // 📊 記録の「実行した行動」から行動を開いたとき、完了した行動を開いて見せる（押した時刻で毎回区別）。
   const [actionShowDoneNonce, setActionShowDoneNonce] = useState(null);
   // 相談の「行動に追加しました 見る」から来たときに光らせる行動（{ bookId, text, nonce }）。
@@ -860,6 +862,7 @@ function AuthedApp() {
   // 相談タブ・相談サブタブ・一覧画面を離れたら、押し込まれた画面の状態を戻す（戻ったときは会話から）。
   useEffect(() => {
     if (tab !== 'ai' || aiSubTab !== 'brain' || view !== 'list') setConsultPushed(false);
+    if (tab !== 'ai' || aiSubTab !== 'advisor' || view !== 'list') setAdvisorPushed(0);
   }, [tab, aiSubTab, view]);
   const [current, setCurrent] = useState(null);
 
@@ -1079,6 +1082,7 @@ function AuthedApp() {
     depth: (tab === 'books' && shelfMode === 'library' ? 1 : 0)
       + (view === 'detail' ? 1 : view === 'edit' ? (current ? 2 : 1) : 0)
       + (tab === 'ai' && aiSubTab === 'brain' && consultPushed && view === 'list' ? 1 : 0)
+      + (tab === 'ai' && aiSubTab === 'advisor' && view === 'list' ? advisorPushed : 0)
       + (backBlocked ? 1 : 0)
       + backLayers,
     onBack: async () => {
@@ -1096,6 +1100,10 @@ function AuthedApp() {
         return true;
       }
       if (view === 'detail') { leaveDetail(); return true; }
+      if (tab === 'ai' && aiSubTab === 'advisor' && advisorPushed) {
+        window.dispatchEvent(new Event('orime:advisor-back'));
+        return true;
+      }
       if (tab === 'ai' && consultPushed) {
         if (!(await consultCanLeave())) return false; // 書きかけの学びで「編集を続ける」
         window.dispatchEvent(new Event('orime:consult-back'));
@@ -4801,7 +4809,7 @@ function AuthedApp() {
     <Shell>
    {/* すべての本は押し込まれた画面なので、ナビゲーション行（‹ ホーム）1 本だけにする（全体ヘッダーと二段にしない）。 */}
    {/* 相談の押し込まれた画面（過去の相談・学びを書く・根拠にできる情報）も同じく「‹ 相談」の行 1 本だけ。 */}
-   {!(tab === "books" && shelfMode === 'library') && !(tab === "ai" && aiSubTab === 'brain' && consultPushed) && (
+   {!(tab === "books" && shelfMode === 'library') && !(tab === "ai" && aiSubTab === 'brain' && consultPushed) && !(tab === "ai" && aiSubTab === 'advisor' && advisorPushed) && (
    <header
      style={{
        flexShrink: 0,
@@ -5402,7 +5410,7 @@ function AuthedApp() {
           <div key={`tab-${tab}`} className="tab-content ai-page">
             {/* サブタブは名前の幅（相談｜AI 選書）で左に寄せ、同じ行の右端にその画面の操作（相談の 🕒・…／AI 選書の履歴・新規）。
                 上の操作を「サブタブ／アイコンの行／件数の行」と 3 段に積まない（2026-10-01 ui-critic・DESIGN §5）。 */}
-            {!(aiSubTab === 'brain' && consultPushed) && (
+            {!(aiSubTab === 'brain' && consultPushed) && !(aiSubTab === 'advisor' && advisorPushed) && (
             <div className="sub-tabs sub-tabs--fit" style={{ flexShrink: 0 }}>
             <div role="tablist" aria-label="相談のサブタブ" className="sub-tabs__list">
               <button
@@ -5444,6 +5452,7 @@ function AuthedApp() {
                     books={books}
                     onOpenBook={(b) => openDetail(b)}
                     barSlot={aiBarSlot}
+                    onPushedViewChange={setAdvisorPushed}
                   />
                 </Suspense>
               ) : (

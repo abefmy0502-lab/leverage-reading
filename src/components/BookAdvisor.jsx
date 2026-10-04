@@ -41,6 +41,9 @@ import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import MarkdownSections from './MarkdownSections';
 import Spinner from './Spinner';
+import { TabPanelSkeleton } from './lazyParts';
+// 過去の AI 選書の上の行（押し込まれた画面の形）と日付の書き方。行はスクロールの箱の外に置く（2026-10-04）。
+import { AdvisorNavBar, formatDate as advisorSessionDate } from './AdvisorHistory';
 import ErrorMessage from './ErrorMessage';
 import TightBubble, { withPhraseBreaks } from './TightBubble';
 import { displayUserText, concernOf, interviewPairsOf, advisorSetupFields } from '../lib/advisorText';
@@ -179,7 +182,9 @@ let advisorPendingJob = null;
 
 
 // barSlot: App のサブタブ（相談｜AI 選書）の行の右端の要素。履歴・新規のアイコンはそこへ出す（🕒 だけの行を作らない・2026-10-01 ui-critic）。
-export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook, onManualBook, onOpenBook, barSlot = null }) {
+// onPushedViewChange(level): 過去の AI 選書（1）・その中身（2）を開いている間は、親が全体の見出しとサブタブを隠す
+//   （押し込まれた画面は「‹ 戻り先」の行 1 本だけ＝相談の過去の相談と同じ・2026-10-04）。0 で戻す。
+export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook, onManualBook, onOpenBook, barSlot = null, onPushedViewChange = null }) {
   // 🎁 AI 選書はプランの機能（フリーミアム・2026-09-27）。無料プランの人が送ったら、有料プランの画面を
   //    重ねて開く（入力は残す・画面はそのまま見せる）。サーバーも 402 plan_required で止める。
   const { requirePlan, canBuyTokens, openTokenSheet, plan, freeMode, tokensRemaining, purchasedTokens, trialEndsAt } = usePaywall();
@@ -242,13 +247,35 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   const [view, setView] = useState('chat');
   const [selectedSession, setSelectedSession] = useState(null);
   // 履歴・履歴の中身では、左端から右へ払うと 1 段戻る（左上の ‹ と同じ・2026-09-29）。
+  const stepBack = () => {
+    if (view === 'detail') { setSelectedSession(null); setView('history'); }
+    else setView('chat');
+  };
   useEdgeSwipeBack({
     enabled: view === 'history' || view === 'detail',
-    onBack: () => {
-      if (view === 'detail') { setSelectedSession(null); setView('history'); }
-      else setView('chat');
-    },
+    onBack: stepBack,
   });
+  // 押し込まれた画面の深さを親へ（全体の見出し・サブタブを隠す／ブラウザの「戻る」を 1 段ずつ）。離れるときは 0 に戻す。
+  const pushedLevel = view === 'detail' && selectedSession ? 2 : view === 'history' ? 1 : 0;
+  const pushedCbRef = useRef(onPushedViewChange);
+  useEffect(() => { pushedCbRef.current = onPushedViewChange; });
+  useEffect(() => { pushedCbRef.current?.(pushedLevel); }, [pushedLevel]);
+  useEffect(() => () => { pushedCbRef.current?.(0); }, []);
+  // ブラウザ / Android の「戻る」（App の useHistoryBack が知らせる）は「‹」と同じく 1 段戻る。
+  const stepBackRef = useRef(stepBack);
+  useEffect(() => { stepBackRef.current = stepBack; });
+  useEffect(() => {
+    const onBack = () => stepBackRef.current();
+    window.addEventListener('orime:advisor-back', onBack);
+    return () => window.removeEventListener('orime:advisor-back', onBack);
+  }, []);
+  // 過去の AI 選書の中身を下へ送ったら、上の行の下に線（相談と同じ）。画面を切り替えたら戻す。
+  const [pushedScrolled, setPushedScrolled] = useState(false);
+  useEffect(() => { setPushedScrolled(false); }, [view]);
+  const onPushedScroll = (e) => {
+    const s2 = e.currentTarget.scrollTop > 0;
+    if (s2 !== pushedScrolled) setPushedScrolled(s2);
+  };
   // 現在進行中のセッション ID。null なら次回送信時に createSession で新規作成。
   const [currentSessionId, setCurrentSessionId] = useState(() => memo0.currentSessionId || null);
   // 検証が終わった時点の会話 ID（非同期の後で読むので ref でも持つ）。
@@ -1264,9 +1291,10 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   if (view === 'history') {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+        <AdvisorNavBar backLabel="AI 選書" title="過去の AI 選書" onBack={stepBack} pushed={!!onPushedViewChange} scrolled={pushedScrolled} />
         {/* 余白は履歴側が持つ（左右 16 を二重にしない）。 */}
-        <div className="chat-scroll" style={{ padding: 0 }}>
-          <Suspense fallback={<Spinner />}>
+        <div className="chat-scroll" style={{ padding: 0 }} onScroll={onPushedScroll}>
+          <Suspense fallback={<TabPanelSkeleton />}>
             <AdvisorHistoryList
               sessions={sessionApi?.sessions || []}
               loaded={!!sessionApi?.loaded}
@@ -1298,8 +1326,9 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   if (view === 'detail' && selectedSession) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-        <div className="chat-scroll" style={{ padding: 0 }}>
-          <Suspense fallback={<Spinner />}>
+        <AdvisorNavBar backLabel="一覧" title={advisorSessionDate(selectedSession?.created_at)} onBack={stepBack} pushed={!!onPushedViewChange} scrolled={pushedScrolled} />
+        <div className="chat-scroll" style={{ padding: 0 }} onScroll={onPushedScroll}>
+          <Suspense fallback={<TabPanelSkeleton />}>
             <AdvisorSessionDetail
               session={selectedSession}
               books={books}

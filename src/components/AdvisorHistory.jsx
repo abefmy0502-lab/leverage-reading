@@ -17,14 +17,14 @@ import {
 } from 'lucide-react';
 import EmptyState from './EmptyState.jsx';
 import MarkdownSections from './MarkdownSections';
-import Spinner from './Spinner';
+import { SkeletonBlock } from './Skeleton';
 import BookStoreLinks from './BookStoreLinks';
 import { STORE_DISCLOSURE_TEXT } from '../lib/rakutenLink';
 import { btnPrimary, btnGhost, btnGhostOff, btnText } from '../styles/ui';
 import { displayUserText, concernOf, interviewPairsOf, advisorSetupFields } from '../lib/advisorText';
 import { filterProseTitles, proseTitleLists } from '../lib/advisorProse';
 
-function formatDate(iso) {
+export function formatDate(iso) {
   if (!iso) return '';
   const d = new Date(iso);
   const today = new Date();
@@ -96,11 +96,13 @@ const metaItem = { display: 'inline-flex', alignItems: 'center', gap: 'var(--spa
 // 画面の余白（左右 16）。
 const pageStyle = { display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', padding: 'var(--space-2) var(--space-4) var(--space-6)' };
 
-// iOS のナビゲーションバーの形: 左に戻る・中央に題名・右は同じ幅の空き（相談と同じ）。
-const navRow = { display: 'flex', alignItems: 'center', minHeight: 44 };
+// iOS のナビゲーションバーの形: 左に戻る・中央に題名・右は同じ幅の空き（相談の押し込まれた画面と同じ・DESIGN §5）。
+// 2026-10-04: スクロールの箱の外（上）に置き、全体の見出しとサブタブを隠したときはノッチの分をこの行が吸収する。
+//   線は中身を下へ送ったときだけ（太さぶんはいつも取る）。シェブロンの見た目の左端を余白 16 に。
+const navRow = { flexShrink: 0, display: 'flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 52, paddingTop: 'var(--space-1)', paddingBottom: 'var(--space-1)', paddingLeft: 'var(--space-4)', paddingRight: 'var(--space-4)' };
 const navSide = { width: 96, flexShrink: 0 };
-const navTitle = { flex: 1, minWidth: 0, margin: 0, textAlign: 'center', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3 };
-const backBtn = { ...btnText, fontSize: 'var(--text-body)', fontWeight: 400, padding: 'var(--space-2) 0', gap: 'var(--space-1)', lineHeight: 1.3 };
+const navTitle = { flex: 1, minWidth: 0, margin: 0, textAlign: 'center', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
+const backBtn = { ...btnText, fontSize: 'var(--text-body)', fontWeight: 400, padding: 'var(--space-2) 0', marginLeft: 'calc(-1 * var(--space-2))', gap: 0, lineHeight: 1.3, whiteSpace: 'nowrap' };
 
 // 行の中の副ボタン（DESIGN §5 btnRow: 44・15・600）。
 const rowBtn = { ...btnGhost, width: 'auto', minHeight: 44, padding: 'var(--space-2) var(--space-3)', fontSize: 'var(--text-sub)', flexShrink: 0 };
@@ -108,9 +110,17 @@ const rowBtn = { ...btnGhost, width: 'auto', minHeight: 44, padding: 'var(--spac
 // 読む文章（AI の答え・推薦理由）＝明朝 18・行間 1.6。
 const readText = { fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.6, color: 'var(--text)' };
 
-function NavBar({ backLabel, onBack, title }) {
+// pushed: 全体の見出しを隠した画面（行が画面の最上部＝ノッチを避ける）。scrolled: 中身を下へ送った（下に線）。
+export function AdvisorNavBar({ backLabel, onBack, title, pushed = false, scrolled = false }) {
   return (
-    <div style={navRow}>
+    <div
+      style={{
+        ...navRow,
+        borderBottom: `1px solid ${scrolled ? 'var(--separator)' : 'transparent'}`,
+        transition: 'border-color var(--duration-fast) var(--ease-out)',
+        ...(pushed ? { paddingTop: 'max(var(--space-1), env(safe-area-inset-top, 0px))', minHeight: 'calc(52px + env(safe-area-inset-top, 0px))' } : null),
+      }}
+    >
       <div style={navSide}>
         <button type="button" onClick={onBack} style={backBtn}>
           <ChevronLeft size={20} aria-hidden="true" />{backLabel}
@@ -122,13 +132,27 @@ function NavBar({ backLabel, onBack, title }) {
   );
 }
 
+// 一覧の読み込み中＝本物の行と同じ形（題 2 行＋日付の行・枠 --separator のカード 3 枚）。スピナーだけにしない（DESIGN §5）。
+function HistoryListSkeleton() {
+  return (
+    <div role="status" aria-label="読み込み中" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+      {[0, 1, 2].map((i) => (
+        <div key={i} style={{ ...card, cursor: 'default', display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+          <SkeletonBlock width="86%" height="var(--text-body)" />
+          <SkeletonBlock width="48%" height="var(--text-body)" />
+          <SkeletonBlock width="36%" height="var(--text-meta)" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function AdvisorHistoryList({ sessions, loaded, onSelect, onClose, onDelete }) {
   return (
     <div style={pageStyle}>
-      <NavBar backLabel="AI 選書" onBack={onClose} title="履歴" />
-
+      {/* 上の「‹ AI 選書」の行は BookAdvisor がスクロールの箱の外に置く（AdvisorNavBar）。 */}
       {!loaded ? (
-        <Spinner message="読み込み中…" />
+        <HistoryListSkeleton />
       ) : sessions.length === 0 ? (
         <EmptyState
           icon={<History size={32} strokeWidth={1.5} aria-hidden="true" />}
@@ -383,7 +407,7 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
 
   return (
     <div style={pageStyle}>
-      <NavBar backLabel="履歴" onBack={onClose} title={formatDate(session?.created_at)} />
+      {/* 上の「‹ 過去の AI 選書」の行は BookAdvisor がスクロールの箱の外に置く（AdvisorNavBar）。 */}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }} role="region" aria-label="AI 選書の会話">
         {messages.length === 0 ? (
