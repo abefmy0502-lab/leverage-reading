@@ -18,6 +18,7 @@ import { LIMITS } from '../lib/limits';
 import { input as uiInput, btnLink, btnGhostOff, groupTitle as uiGroupTitle } from '../styles/ui';
 import { useAllActions } from '../hooks/useAllActions';
 import { stripInlineMd } from '../lib/text';
+import { completedActionMessage } from '../lib/actionMessages';
 import { track, EVENTS } from '../lib/analytics';
 import EmptyState from './EmptyState';
 import { withPhraseBreaks } from './TightBubble';
@@ -380,8 +381,9 @@ function ReflectCard({ a, value, onChange, onSave, saving, onClose }) {
         {/* 「完了しました」は下の知らせ（元に戻す つき）の 1 か所だけで伝える。ここはどの行動かだけ（2026-09-29）。 */}
         <span className="text-pretty" style={{ minWidth: 0, wordBreak: 'keep-all', overflowWrap: 'break-word', textDecoration: 'line-through' }}>{withPhraseBreaks(stripInlineMd(a.text))}</span>
       </p>
-      <label htmlFor="act-reflection" style={{ display: 'block', margin: 'var(--space-3) 0 var(--space-2)', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>
-        やってみて、どうでしたか？
+      <label htmlFor="act-reflection" style={{ display: 'block', margin: 'var(--space-3) 0 var(--space-2)', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+        {/* 文節の切れ目でだけ折り返す（文字を大きくすると「どうでし／たか？」と割れていた・2026-10-04）。 */}
+        {withPhraseBreaks('やってみて、どうでしたか？')}
       </label>
       <input
         id="act-reflection"
@@ -484,7 +486,7 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
     if (lastToastRef.current) toast.dismiss?.(lastToastRef.current, { skipExpire: true });
     // 「元に戻す」つきは toast.undo にそろえる（完了なので印は ✓・DESIGN §5 トースト・2026-09-30）。
     lastToastRef.current = toast.undo({
-      message: '行動を完了しました',
+      message: completedActionMessage(a),
       duration: TOAST_MS,
       destructive: false,
       success: true, // 印は ✓（完了の知らせ・2026-09-30）

@@ -145,6 +145,7 @@ import { FREE_OCR_PER_MONTH, freeOcrPeriodKey, fetchFreeOcrUsed, freeOcrRemainin
 const TokenSheet = lazy(() => import('./components/TokenSheet'));
 import { PaywallContext, usePaywall } from './state/PaywallContext';
 import { todayLocal, tomorrowLocal, fmtDateJa, isScheduledLater } from './lib/dates';
+import { completedActionMessage } from './lib/actionMessages';
 // 🧩 #9 App.jsx 分割: 本フォーム共通プリミティブと Phase エディタは別ファイルへ抽出。
 import { Stars, inp, btnS } from './components/formPrimitives';
 import { btnGhost, btnGhostOff, btnText, btnPrimary, btnPrimaryOff, btnLink, groupTitle } from './styles/ui';
@@ -3351,10 +3352,8 @@ function AuthedApp() {
       const saved = await saveBook(updated);
       chainEntry.latest = saved || updated;
       syncActionSnapshots(saved || updated);
-      if (becomingDone && updatedAct.recurrence) {
-        const label = updatedAct.recurrence === 'weekly' ? '次週' : '翌月';
-        toast.success(`完了 ✓ ${label}の予定を自動で組みました。`);
-      }
+      // 繰り返しの次回は、完了の知らせ（「完了。次回は来週」＝元に戻すつき）の 1 か所で伝える
+      // （ここで中央の ✓ を重ねると、知らせが 2 つ同時に出ていた・2026-10-04）。
     } catch (error) {
       // rollback: 楽観反映を元に戻す。
       mutateBookLocal(bookId, () => book);
@@ -3488,7 +3487,7 @@ function AuthedApp() {
     if (!target.done && !opts.silent) {
       // 「元に戻す」つきは toast.undo にそろえる（完了なので印は ✓・DESIGN §5 トースト・2026-09-30）。
       toast.undo({
-        message: '行動を完了しました',
+        message: completedActionMessage(target),
         duration: 5000,
         destructive: false,
         success: true, // 印は ✓（完了の知らせ・2026-09-30）
