@@ -15,6 +15,7 @@ import {
   AMAZON_LINK_REL,
 } from '../lib/amazonLink';
 import { groupTitle } from '../styles/ui';
+import { SkeletonBlock } from './Skeleton';
 import { withPhraseBreaks } from './TightBubble';
 import { PLAN_NO_TOC_LINE } from '../lib/prompts';
 
@@ -471,10 +472,12 @@ export { hasVisibleSections };
 // hideRelatedBooks: 書誌で確かめていない AI の出力（以前の AI 解析・以前の AI まとめ）では、本を挙げる節
 //   （関連書籍・おすすめの本…）を出さない（実在を確かめていない書名を、本として見せない・2026-10-04）。
 // 関連書籍の節は、本のカードが 1 枚も出ないなら見出しも Amazon の注記も出さない（2026-10-04 ui-critic・lib/markdownSections.js）。
-function MarkdownSections({ text, density = 'normal', flat = false, onAddRelatedBook, addingTitles, hideRelatedBooks = false }) {
+// pendingRelated: 書いている途中・書誌で確かめている途中（読書計画シート）。関連書籍の節は、見出しと 2 行の骨組みだけを出す
+//   （確かめる前の書名を小見出しのまま見せない・確かめ終わってカードになる／消える・2026-10-04 ui-critic）。
+function MarkdownSections({ text, density = 'normal', flat = false, onAddRelatedBook, addingTitles, hideRelatedBooks = false, pendingRelated = false }) {
   const sections = useMemo(
-    () => visibleSections(text, { relatedCards: !!onAddRelatedBook, hideRelatedBooks }),
-    [text, onAddRelatedBook, hideRelatedBooks],
+    () => visibleSections(text, { relatedCards: !!onAddRelatedBook, hideRelatedBooks, pendingRelated }),
+    [text, onAddRelatedBook, hideRelatedBooks, pendingRelated],
   );
   if (sections.length === 0) return null;
 
@@ -495,8 +498,13 @@ function MarkdownSections({ text, density = 'normal', flat = false, onAddRelated
         return (
           <section key={i} className={flat ? 'long-text md-section md-section--flat' : 'long-text md-section'} style={styles}>
             {s.heading && <h3 style={flat ? flatHeadingStyle : headingStyle}>{stripLeadingEmoji(s.heading)}</h3>}
-            {renderLines(s.lines, related ? { relatedBooks: true, onAddRelatedBook, addingTitles } : undefined)}
-            {related && (
+            {pendingRelated && s.related ? (
+              <div aria-hidden="true" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
+                <SkeletonBlock width="70%" height={16} />
+                <SkeletonBlock width="90%" height={14} />
+              </div>
+            ) : renderLines(s.lines, related ? { relatedBooks: true, onAddRelatedBook, addingTitles } : undefined)}
+            {related && !pendingRelated && (
               <small style={{ display: 'block', fontSize: 'var(--text-caption)', color: 'var(--text-3)', lineHeight: 1.5, marginTop: 'var(--space-2)' }}>
                 {AMAZON_DISCLOSURE_TEXT}
               </small>

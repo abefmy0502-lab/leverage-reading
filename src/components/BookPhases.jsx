@@ -423,14 +423,14 @@ export function BeforePhase({
             読書計画シート
             {aiLoading && <span className="streaming-cursor" aria-hidden="true" style={{ marginLeft: 'var(--space-1)' }} />}
           </p>
-          {/* aiLoading 中は onAddRelatedBook を渡さない — MarkdownSections は
-              「関連書籍」見出しを通常の見出しとして描画し、関連書籍カードと
-              「📚 読みたい」ボタンを出さない。途中の不完全な 『title』 を
-              押されてもデータが壊れない。 */}
+          {/* aiLoading 中（書いている途中・書誌で確かめている途中）は onAddRelatedBook を渡さず、
+              関連書籍の節は見出しと骨組みだけ（pendingRelated・確かめる前の書名を小見出しで見せない・2026-10-04）。
+              途中の不完全な 『title』 を押されてもデータが壊れない。 */}
           <MarkdownSections
             text={form.aiStrategy}
             onAddRelatedBook={aiLoading ? undefined : onAddRelatedBook}
             addingTitles={addingTitles}
+            pendingRelated={aiLoading}
           />
 
           {/* 修正のお願い: 今のシート＋自由文の指示を AI に渡す。1 つ前は端末に残し、元に戻せる。 */}

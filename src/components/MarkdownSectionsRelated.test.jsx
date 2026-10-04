@@ -45,6 +45,16 @@ describe('MarkdownSections の関連書籍', () => {
     expect(only).toBe('');
   });
 
+  it('pendingRelated（書いている途中・確かめている途中）: 関連書籍は見出しと骨組みだけ（書名を小見出しで出さない）', () => {
+    const html = renderToStaticMarkup(<MarkdownSections flat text={SHEET} pendingRelated />);
+    const plain = plainOf(html);
+    expect(plain).toContain('関連書籍');
+    expect(plain).not.toContain('夢をかなえるゾウ');
+    expect(plain).not.toContain('SMALL ACTIONS');
+    expect(html).toContain('skeleton');
+    expect(plain).not.toContain('アソシエイト');
+  });
+
   it('hideRelatedBooks（以前の AI 解析・まとめ＝書誌で確かめていない）: 本を挙げる節を出さない・ほかの節はそのまま', () => {
     const text = ['## 🧭 この本の核心', '寿命が延びる。', '', '## 📚 関連書籍', '### 1. 『架空の本』- 架空花子', '説明。'].join('\n');
     const html = renderToStaticMarkup(<MarkdownSections flat text={text} hideRelatedBooks />);

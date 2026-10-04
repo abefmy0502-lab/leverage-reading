@@ -3843,7 +3843,7 @@ function AuthedApp() {
                               <span className="streaming-cursor" style={{ marginLeft: 'var(--space-1)' }} />
                             </p>
                             {/* 書いている途中は関連書籍の「読みたい」ボタンを出さない（BeforePhase と同じ） */}
-                            <MarkdownSections flat text={planGen.text} />
+                            <MarkdownSections flat text={planGen.text} pendingRelated />
                           </div>
                         )}
                       </div>
