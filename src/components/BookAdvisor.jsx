@@ -1717,7 +1717,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
           })}
           {allUnverifiable && (
             <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, margin: 0 }}>
-              本の実在を確かめられませんでした。購入前に書名を確かめてください
+              本の実在を確かめられませんでした。購入前に書名を確かめてください。
             </p>
           )}
         </div>
