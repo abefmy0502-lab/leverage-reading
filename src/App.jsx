@@ -1552,6 +1552,9 @@ function AuthedApp() {
 
   const removeCoverFor = async (book) => {
     if (!book) return;
+    // 「元に戻す」用に消す前の表紙を覚えておく（自分でアップロードした表紙は取り直しでは戻らないため・2026-10-04）。
+    const before = booksRef.current.find((b) => b.id === book.id) || book;
+    const prevCover = { cover: before.cover || '', coverIsbn: before.coverIsbn ?? null };
     try {
       // coverIsbn='removed' は「ユーザーが意図的に消した」印。自動リトライ
       // (coverAutoRetry) がこれを見て復活させない。手動「取り直す」では
@@ -1565,7 +1568,26 @@ function AuthedApp() {
         const next = saved || updated;
         setCurrent((c) => (c && c.id === next.id ? next : c));
       });
-      toast.success('表紙を削除しました。');
+      // 削除は「元に戻す」つき（DESIGN §5 トースト・ほかの削除と同じ）。
+      toast.undo({
+        message: '表紙を削除しました。',
+        destructive: true,
+        onUndo: async () => {
+          try {
+            await enqueueBookMutation(book.id, async (entry) => {
+              const base = entry.latest || booksRef.current.find((b) => b.id === book.id);
+              if (!base) return; // その間に本が消された
+              const restored = { ...base, ...prevCover };
+              const saved = await saveBook(restored);
+              if (saved) entry.latest = saved;
+              const next = saved || restored;
+              setCurrent((c) => (c && c.id === next.id ? next : c));
+            });
+          } catch (err) {
+            toast.error(toMessage(err, '表紙を元に戻せませんでした'));
+          }
+        },
+      });
     } catch (err) {
       toast.error(toMessage(err, '表紙の削除に失敗しました'));
     }
