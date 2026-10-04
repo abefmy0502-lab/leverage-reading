@@ -2703,8 +2703,10 @@ function AuthedApp() {
       if (opts.progress) planProgressToastRef.current = { bookId: book.id, id };
     } else {
       dismissStatusUndo(book.id);
+      // 「元に戻す」と並ぶので 390 幅で 1 行に収まる短さに（「「読書中」に／変更しました。」と 2 行に折れていた・DESIGN §5 トースト）。
+      const shortDone = { before: '積読に積みました。', reading: '読書中にしました。' };
       statusUndoToastRef.current.set(book.id, toast.undo({
-        message: `「${labels[newStatus] || newStatus}」に変更しました。`,
+        message: shortDone[newStatus] || `「${labels[newStatus] || newStatus}」にしました。`,
         destructive: false, // 状態の変更は消していないので、ゴミ箱ではなく中立の ↶
         onUndo: revert,
       }));
