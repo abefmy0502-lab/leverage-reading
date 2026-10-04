@@ -69,18 +69,30 @@ function BookRow({ book: b, sub, onOpenBook, onCoverRetry, action }) {
         type="button"
         onClick={() => onOpenBook(b)}
         aria-label={`『${b.title}』を開く`}
-        style={{ flex: '1000 1 10rem', minWidth: 0, minHeight: 44, display: 'flex', alignItems: 'center', gap: 'var(--space-3)', background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', color: 'inherit' }}
+        // 書名の列は 7.5rem（約 8 字）＋表紙 40＋間 12。ふだんの大きさでは「メモを書く」と 1 行に並び（324 の行に 180＋12＋128）、
+        // 文字を少しでも大きくしたらボタンを折り返して書名の列を広げる（2026-10-04 ui-critic）。
+        style={{ flex: '1000 1 calc(7.5rem + 52px)', minWidth: 0, minHeight: 44, display: 'flex', alignItems: 'center', gap: 'var(--space-3)', background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', color: 'inherit' }}
       >
         <MiniCover book={b} width={40} onAutoRetry={onCoverRetry} />
         <span style={{ minWidth: 0 }}>
           {/* 書名は文節の切れ目でだけ折り返す（「イシューからは／じめよ」と語の途中で割れていた・2026-10-04）。 */}
-          <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.4, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(b.title)}</span>
+          {/* 1 つの文節が列に入らないときは、語の途中で割らずにその文節を 1 行で … に切る（MiniCover と同じ考え・2026-10-04 ui-critic）。 */}
+          <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.4 }}>{phraseChunks(b.title)}</span>
           {sub && <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-3)', marginTop: 'var(--space-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sub}</span>}
         </span>
       </button>
       {action}
     </div>
   );
+}
+
+// 書名を文節ごとの inline-block に（文節の切れ目でだけ折り返し、列より長い文節は 1 行で … に切る＝語の途中で割らない）。
+function phraseChunks(title) {
+  const parts = withPhraseBreaks(title);
+  const list = (Array.isArray(parts) ? parts : [parts]).filter((p) => typeof p === 'string' && p);
+  return list.map((p, i) => (
+    <span key={i} style={{ display: 'inline-block', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', verticalAlign: 'top' }}>{p}</span>
+  ));
 }
 
 const byUpdated = (a, b) => (b.updated_at || '').localeCompare(a.updated_at || '');
