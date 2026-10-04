@@ -57,6 +57,7 @@ import PullToRefresh from './PullToRefresh';
 import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnLink as uiBtnLink, input as uiInput } from '../styles/ui';
 import { useLongPress } from '../hooks/useLongPress';
 import { fetchAllRows } from '../lib/fetchAllRows';
+import { fmtDateJa } from '../lib/dates';
 
 // 一覧の本文は、読書計画シートなど Markdown で書かれたものも記号を見せずに出す（「## 🎯 …」「- …」）。
 function plainPreview(text) {
@@ -100,12 +101,9 @@ const FILTER_OPTIONS = [
   { value: 'learning', label: '学び' },
 ];
 
-function fmtDate(iso) {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
-}
+// 本の詳細のメモ・振り返りと同じ「9/29」（今年でなければ「2025/9/29」・lib/dates.js の fmtDateJa）。
+// 以前はここだけ「2026/09/29」と年と 0 埋めつきで、同じメモの日付が画面ごとに違って見えた（2026-10-04）。
+const fmtDate = (iso) => fmtDateJa(iso);
 
 function pickCategory(tags) {
   if (!Array.isArray(tags)) return null;
