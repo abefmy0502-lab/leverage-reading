@@ -421,9 +421,10 @@ function RelatedBookCard({ book, description, onAdd, isAdding }) {
           }}
           disabled={isAdded}
           aria-label={isAdded ? `『${book.title}』は本棚にあります` : `『${book.title}』を読みたいに追加`}
-          style={{ ...(isAdded ? btnGhostOff : btnGhost), touchAction: 'manipulation' }}
+          // 文字が最大でも「追／加」と割れず「読みたいに／追加」で折り返す（文節の <wbr>＋keep-all・2026-10-04 ui-critic）
+          style={{ ...(isAdded ? btnGhostOff : btnGhost), touchAction: 'manipulation', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}
         >
-          {isAdded ? '追加済み' : '読みたいに追加'}
+          {withPhraseBreaks(isAdded ? '追加済み' : '読みたいに追加')}
         </button>
         {/* 文字の左端をカードの本文にそろえる（btnLink の左右 4 を打ち消す）。 */}
         <div style={{ display: 'flex', marginLeft: 'calc(-1 * var(--space-1))' }}>

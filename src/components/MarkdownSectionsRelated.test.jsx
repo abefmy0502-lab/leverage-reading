@@ -21,6 +21,8 @@ describe('MarkdownSections の関連書籍', () => {
     expect(plain).toContain('夢をかなえるゾウ');
     // 著者は書名の後ろの空白で区切る（左の余白は付けない＝折り返したとき行頭がずれない）
     expect(html).toMatch(/』 <span style="display:inline-block;text-indent:0;font-size/);
+    // 「読みたいに追加」は文節の切れ目（読みたいに／追加）でだけ折り返す
+    expect(html).toMatch(/word-break:keep-all[^>]*>(?:<[^>]+>)*読みたいに(?:<[^>]+>)*<wbr\/>(?:<[^>]+>)*追加/);
     expect(plain).toContain('小さな目標の立て方');
     expect(plain).not.toContain('SMALL ACTIONS');
     expect(plain).not.toContain('やめる習慣');
