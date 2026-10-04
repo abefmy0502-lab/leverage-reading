@@ -28,12 +28,13 @@ import EmptyState from './EmptyState';
 import ErrorMessage from './ErrorMessage';
 import TightBubble, { withPhraseBreaks } from './TightBubble';
 import { createSendGuard } from '../lib/sendGuard';
+import TokensOutCard, { trialCancelLineStyle } from './TokensOutCard';
 import { SkeletonBlock } from './Skeleton';
 import { X, MessageCircle, History, BookOpenCheck, Target, Check, RotateCw, MoreHorizontal, ChevronLeft, ChevronDown, ChevronRight, PencilLine, ArrowUp, Square, Plus, Minus, Sprout, Trash2 } from 'lucide-react';
 import ContextMenu from './ContextMenu';
 import { usePaywall } from '../state/PaywallContext';
 import { nextResetLabelJa } from '../lib/freeTrial';
-import { PAID_TOKENS, TOKEN_COSTS, monthDayLabelJa } from '../lib/tokens';
+import { TOKEN_COSTS, monthDayLabelJa } from '../lib/tokens';
 import { shouldShowTrialNudge, trialNudgeCopy, isTrialNudgeDone, markTrialNudgeDone, normalizeTrialLabel, trialCancelShortLine } from '../lib/trialNudge';
 import { getIntroOffer } from '../lib/iap';
 import { growthMeterText, firstAnswerEvidence, takeFirstConsult, takeMemosReached, getOnboardPath } from '../lib/firstDay';
@@ -1944,7 +1945,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               />
             ) : planOut ? (
               // 🪙➕ プランの人がトークンを使い切った（SPEC §3）: 押せない相談例は出さず、案内カードを一番上に。
-              <TokensOutCard plan={plan} trialEndLabel={trialEndLabel} cancelLine={trialCancelLine} tokenAllowance={tokenAllowance} onAdd={openTokenSheet} onSearch={searchMemos} />
+              <TokensOutCard plan={plan} trialEndLabel={trialEndLabel} cancelLine={trialCancelLine} tokenAllowance={tokenAllowance} onAdd={openTokenSheet}>
+                {searchMemos && <SearchMemosLink onClick={searchMemos} />}
+              </TokensOutCard>
             ) : (
               <section aria-labelledby={input.trim() ? undefined : 'brain-empty-title'}>
                 {/* 🎁 無料プランで今月のトークンを使い切った（2026-10-01）: 相談はメモから探して答える（メモが答える相談）ので、
@@ -2346,35 +2349,8 @@ function CarryCard({ carry, onCancel }) {
   );
 }
 
-// 🪙➕ プランの人（有料・無料期間）がトークンを使い切って、まだ話していないときの案内カード。
-// 押せない相談例の代わりに、会話の場所の一番上に置く（SPEC §3）。
-// 7 日間無料の「続けないときは M月D日までに解約（無料プランに戻ります）」の小さな 1 行（TokensOutCard・答えの下の「トークンを追加」の下）。
-//   文節の切れ目（<wbr>）でだけ折り返す（「無料プランに／戻ります」と割らない）。
-const trialCancelLineStyle = { margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' };
-function TokensOutCard({ plan, trialEndLabel, cancelLine = '', tokenAllowance, onAdd, onSearch = null }) {
-  const sub = { margin: 'var(--space-1) 0 0', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5 };
-  return (
-    <section aria-label="トークンは、ここまで" style={cardStyle}>
-      <p style={{ margin: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5 }}>
-        {plan === 'trial' ? '無料期間のトークンは、ここまでです' : '今月のトークンは、ここまでです'}
-      </p>
-      {plan !== 'trial' ? (
-        <p style={sub}>
-          <span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}</span>に <span style={{ whiteSpace: 'nowrap' }}>{fmtTokens(tokenAllowance)} トークン</span>に戻ります
-        </p>
-      ) : trialEndLabel ? (
-        <p style={sub}>
-          無料期間が終わる<span style={{ whiteSpace: 'nowrap' }}>{trialEndLabel}</span>から、<span style={{ whiteSpace: 'nowrap' }}>毎月 {fmtTokens(PAID_TOKENS)} トークン使えます。</span>
-        </p>
-      ) : null}
-      <button type="button" onClick={onAdd} style={{ ...(plan === 'trial' ? uiBtnGhost : uiBtnPrimary), marginTop: 'var(--space-3)' }}>
-        トークンを追加
-      </button>
-      {cancelLine && <p style={trialCancelLineStyle}>{withPhraseBreaks(cancelLine)}</p>}
-      {onSearch && <SearchMemosLink onClick={onSearch} />}
-    </section>
-  );
-}
+// 🪙➕ プランの人（有料・無料期間）がトークンを使い切って、まだ話していないときの案内カードは
+//   components/TokensOutCard.jsx（AI 選書と共通・2026-10-04）。押せない相談例の代わりに、会話の場所の一番上に置く（SPEC §3）。
 
 // 🔎 トークンを使い切ったときの脇役の文字ボタン（振り返り › メモを、相談の言葉を入れて開く）。
 function SearchMemosLink({ onClick }) {

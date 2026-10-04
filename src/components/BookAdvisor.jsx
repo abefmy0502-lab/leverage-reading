@@ -33,6 +33,7 @@ import AdvisorStoreLinks from './AdvisorStoreLinks';
 import { nextResetLabelJa } from '../lib/freeTrial';
 import { TOKEN_COSTS, runCostLine, monthDayLabelJa } from '../lib/tokens';
 import { trialCancelShortLine } from '../lib/trialNudge';
+import TokensOutCard from './TokensOutCard';
 import { groupTitle, btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, btnText as uiBtnText, btnLink as uiBtnLink, input as uiInput, card as uiCard } from '../styles/ui';
 import { useAuth } from '../hooks/useAuth';
 import { useHaptic } from '../hooks/useHaptic';
@@ -145,7 +146,7 @@ let advisorPendingJob = null;
 export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook, onManualBook, onOpenBook, barSlot = null, onPushedViewChange = null }) {
   // 🎁 AI 選書はプランの機能（フリーミアム・2026-09-27）。無料プランの人が送ったら、有料プランの画面を
   //    重ねて開く（入力は残す・画面はそのまま見せる）。サーバーも 402 plan_required で止める。
-  const { requirePlan, canBuyTokens, openTokenSheet, plan, freeMode, tokensRemaining, purchasedTokens, trialEndsAt } = usePaywall();
+  const { requirePlan, canBuyTokens, openTokenSheet, plan, freeMode, tokensRemaining, purchasedTokens, trialEndsAt, tokenAllowance } = usePaywall();
   // 送るボタンのそばに 1 回の目安と残り（相談と同じ言い方・無料プランはプランの機能なので出さない・2026-09-29）。
   const costLine = freeMode ? '' : runCostLine({ plan, remaining: tokensRemaining, purchased: purchasedTokens, cost: TOKEN_COSTS.advisor });
   // 生成中にアンマウントされたら進行中のストリームを中断する（コスト・二重セッション対策）。
@@ -1580,25 +1581,21 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
 
       {/* 推薦生成エラー（リトライ可能） */}
       {recoError && !recoLoading && recoNotice && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+        /^(今月のトークン|無料期間のトークン)/.test(recoError) ? (
+          // 🪙➕ トークンを使い切った案内は相談と同じカード（題 → 戻る日 → カードの中に「トークンを追加」→ 解約の期限・
+          //   components/TokensOutCard.jsx・2026-10-04）。追加できない人（無料プラン等）はボタンを出さない。
+          <TokensOutCard
+            plan={plan}
+            trialEndLabel={plan === 'trial' ? monthDayLabelJa(trialEndsAt) : ''}
+            cancelLine={plan === 'trial' ? trialCancelShortLine(trialEndsAt) : ''}
+            tokenAllowance={tokenAllowance}
+            onAdd={canBuyTokens ? openTokenSheet : null}
+          />
+        ) : (
           <p role="status" style={{ ...uiCard, margin: 0, fontSize: 'var(--text-sub)', lineHeight: 1.6, color: 'var(--text)', whiteSpace: 'pre-wrap', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
             {keepDateTogether(recoError)}
           </p>
-          {/* 🪙➕ プランの人がトークンを使い切ったら、案内のすぐ下に「トークンを追加」 */}
-          {canBuyTokens && /^(今月のトークン|無料期間のトークン)/.test(recoError) && (
-            <>
-              {/* 7 日間無料は枠線のボタン＋続けないときの解約の期限（相談の案内と同じ・2026-10-04） */}
-              <button type="button" onClick={openTokenSheet} style={plan === 'trial' ? uiBtnGhost : uiBtnPrimary}>
-                トークンを追加
-              </button>
-              {plan === 'trial' && trialCancelShortLine(trialEndsAt) && (
-                <p style={{ margin: 'calc(-1 * var(--space-1)) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-                  {withPhraseBreaks(trialCancelShortLine(trialEndsAt))}
-                </p>
-              )}
-            </>
-          )}
-        </div>
+        )
       )}
       {recoError && !recoLoading && !recoNotice && (
         // 失敗の文は 1 つの言い方にそろえる（題＋次にすること・内部の文言を見せない・2026-09-29）。
