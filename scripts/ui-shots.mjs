@@ -592,6 +592,24 @@ const SCREENS = [
   { name: 'onboard-ocr-bridge', url: '/?demo=freenew', steps: [{ role: '次へ' }, { css: '[role=dialog] button:has-text("本のページを撮る")' }, { fill: ['#add-book-query', '思考の整理学'] }, { css: 'button:has-text("検索")' }, { wait: 1500 }, { css: 'button:has-text("思考の整理学") >> nth=0' }, { wait: 1200 }, { css: 'button:has-text("保存してメモを書く")' }, { wait: 1500 }, { fill: ['textarea[aria-label="メモ本文"]', '考えは一晩寝かせると、いらないものが落ちて整理される'] }, { css: '[role=dialog] button:text-is("保存")' }, { wait: 11000 }, { css: 'button:has-text("この本に相談する")' }, { wait: 1500 }] },
   { name: 'consult-fewmemos', url: '/?demo=fewmemos', steps: [{ css: nav('相談') }, { wait: 1500 }] },
   { name: 'consult-first-answer', url: '/?demo=fewmemos', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { waitFor: '[aria-label="続けて聞く"] button' }, { wait: 800 }, { scrollBottom: true }] },
+  // ── 2026-10-04 エリア B の点検（相談・AI 選書・プラン・設定）
+  // AI 選書: 質問を考えている途中・本を選んでいる途中に相談のタブへ移って戻る（止めずに作り、戻ったら続き）
+  { name: 'advisor-leave-interview', url: '/', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]', settle: 200 }, { css: 'button[role=tab]:has-text("相談")', settle: 200 }, { css: 'button[role=tab]:has-text("AI 選書")' }, { wait: 3000 }] },
+  { name: 'advisor-leave-reco', url: '/', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }, { css: 'button:has-text("時間が足りない")' }, { wait: 1200 }, { css: 'button:has-text("大事な仕事に集中できる")', settle: 300 }, { css: 'button[role=tab]:has-text("相談")', settle: 200 }, { css: 'button[role=tab]:has-text("AI 選書")', settle: 300 }] },
+  // 7 日間無料でトークンを使い切った AI 選書（枠線の「トークンを追加」＋解約の期限）
+  { name: 'advisor-limit-trial', url: '/?demo=trialout', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }] },
+  // 相談: 8 秒たっても答えが来ない（「時間がかかっています…」・文節で折り返す）
+  { name: 'consult-slow', url: '/?ai=slow', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { wait: 9000 }] },
+  // 大きな文字（最初から大きいまま開く）
+  { name: 'consult-xxl-text', url: '/', steps: [{ eval: () => { document.documentElement.style.fontSize = '28px'; } }, { css: nav('相談') }, { wait: 800 }] },
+  { name: 'advisor-xxl-text', url: '/', steps: [{ eval: () => { document.documentElement.style.fontSize = '28px'; } }, { css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { wait: 800 }] },
+  // トークンを追加（アプリ版・下の安全域 34）
+  { name: 'tokens-sheet-native-safe', url: '/?demo=limit&native=1', steps: [{ css: nav('相談') }, { css: 'button:text-is("トークンを追加")' }, SAFE_BOTTOM, { wait: 600 }] },
+  // 設定: データの初期化の確かめ・アカウント削除を開いたところ
+  { name: 'settings-reset-confirm', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:has-text("データをすべて初期化する")' }] },
+  { name: 'settings-delete-open', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:has-text("アカウントの削除を開始")' }] },
+  // 根拠にできる情報（日付は「9/29」の形）
+  { name: 'consult-knowledge-dates', url: '/', steps: [{ css: nav('相談') }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("根拠にできる情報")' }, { wait: 800 }] },
   // ── 運営ダッシュボード「ローンチの 4 つの数字」（2026-10-02・管理者だけ・?admin=1 は src/demo/demoAdmin.js）
   // 見出し（または表）を、上に貼りつく見出しとタブの下（上から 130px）に来るまで送る。
   ...[
