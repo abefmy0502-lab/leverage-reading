@@ -35,7 +35,7 @@ export default function ErrorMessage({
   return (
     <div className={`error-message ${className}`.trim()} role="alert">
       {icon && <div className="error-message-icon" aria-hidden="true">{icon}</div>}
-      {title && <p className="error-message-title">{title}</p>}
+      {title && <p className="error-message-title">{typeof title === 'string' ? withPhraseBreaks(title) : title}</p>}
       {description && (
         <p className="error-message-description">
           {/* 文節の切れ目（BudouX の <wbr>）でだけ折り返す＋CSS の keep-all（2026-10-04 ui-critic）。

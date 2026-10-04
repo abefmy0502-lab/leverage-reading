@@ -21,3 +21,14 @@ describe('withPhraseBreaks と U+00A0', () => {
     expect(html).toContain('1 回');
   });
 });
+
+describe('決まった言い回しと題', () => {
+  it('「もう一度」の間で割らない', () => {
+    const html = renderToStaticMarkup(<p>{withPhraseBreaks('少し時間をおいて、もう一度お試しください。')}</p>);
+    expect(html).toContain('もう一度');
+  });
+  it('題も文節の切れ目を入れる', () => {
+    const html = renderToStaticMarkup(<ErrorMessage title="実在する本が見つかりませんでした" />);
+    expect(html.match(/error-message-title">([^]*?)<\/p>/)[1]).toContain('<wbr/>');
+  });
+});

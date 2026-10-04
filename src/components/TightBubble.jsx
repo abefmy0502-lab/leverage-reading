@@ -80,6 +80,10 @@ export function phrasePieces(text, { scriptBreaks = false } = {}) {
   return out;
 }
 
+// BudouX が 2 つの文節に分けるが、割ると読みにくい決まった言い回し（「もう／一度」）。前の文節の終わり＋次の文節の頭で見る。
+const GLUED_PHRASES = [['もう', '一度']];
+const isGluedPhrase = (prev, pc) => GLUED_PHRASES.some(([a, b]) => prev.endsWith(a) && pc.startsWith(b));
+
 // 文を文節の切れ目（<wbr>）入りの React ノードにする。改行はそのまま（white-space: pre-wrap）。
 // scriptBreaks: 書名・著者名など、長い 1 文節の中でも文字の種類の切れ目で折り返してよいもの（scriptBreakPieces）。
 export function withPhraseBreaks(text, { scriptBreaks = false } = {}) {
@@ -92,7 +96,7 @@ export function withPhraseBreaks(text, { scriptBreaks = false } = {}) {
   phrasePieces(src, { scriptBreaks }).forEach((pc) => {
     if (pc === '\n') { out.push('\n'); lineStart = true; prev = ''; return; }
     // 折り返さない空き（U+00A0）の前後には切れ目を入れない（「1\u00a0回」「AI\u00a0の」をつないだまま・2026-10-04）。
-    const glued = prev.endsWith('\u00a0') || pc.startsWith('\u00a0');
+    const glued = prev.endsWith('\u00a0') || pc.startsWith('\u00a0') || isGluedPhrase(prev, pc);
     if (!lineStart && !glued) out.push(<wbr key={`w${k++}`} />);
     out.push(pc);
     lineStart = false;
