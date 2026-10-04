@@ -172,8 +172,9 @@ export function AdvisorHistoryList({ sessions, loaded, onSelect, onClose, onDele
                   onClick={() => onSelect(s)}
                   style={card}
                 >
-                  <div style={{ fontSize: 'var(--text-body)', color: 'var(--text)', lineHeight: 1.5, paddingRight: 'var(--space-8)', overflowWrap: 'anywhere' }}>
-                    {head}
+                  {/* 文節の切れ目でだけ折り返す（「足りま／せん」と語の途中で切らない・2026-10-04）。 */}
+                  <div style={{ fontSize: 'var(--text-body)', color: 'var(--text)', lineHeight: 1.5, paddingRight: 'var(--space-8)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+                    {withPhraseBreaks(head)}
                   </div>
                   <div style={meta}>
                     <span>{formatDate(s.created_at)}</span>
