@@ -94,6 +94,26 @@ const SCREENS = [
   { name: 'book-memo-saved-tag-saving', url: '/?save=slow-memo-update', steps: [...MEMO_SAVED, { css: 'section[aria-labelledby="tag-suggest-title"] button[aria-pressed="false"] >> nth=0' }, { wait: 400 }] },
   { name: 'book-memo-saved-tag-failed', url: '/?writefail=book_memos:update', steps: [...MEMO_SAVED, { css: 'section[aria-labelledby="tag-suggest-title"] button[aria-pressed="false"] >> nth=0' }, { wait: 900 }] },
   { name: 'book-memo-saved-long-tag', url: '/?longtag=1', steps: MEMO_SAVED },
+  // ── 2026-10-04 監査（A: ホーム・本の追加・本の詳細・メモ・写真で共有）で確かめた状態
+  // 読了にした直後: 先頭へ戻さず「読了を写真で共有」を知らせとメモを書くの上まで送る・知らせは「読了にしました。」の 1 行
+  { name: 'book-detail-just-done', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("数値化の鬼")' }, { scrollBottom: true }, { css: 'button:has-text("読了にする")' }, { wait: 1200 }] },
+  // 状態を進めたときの知らせ（「積読に積みました。」が元に戻すの横で 1 行）
+  { name: 'book-detail-stacked-toast', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("チーズはどこへ消えた")' }, { css: 'button:has-text("積読に積む")' }, { wait: 600 }] },
+  // 表紙を削除（元に戻すつき）
+  { name: 'book-cover-deleted', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: '[role=menuitem]:has-text("表紙を削除")' }, { wait: 600 }] },
+  // 全画面のメモの編集（タグは本の編集と同じ選ぶチップ・つながるメモ）
+  { name: 'book-memo-editor-tags', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: '[data-memo-id] p >> nth=1' }, { wait: 800 }, { scrollTo: 'label:has-text("タグ")' }] },
+  // メモの「ページ順 ▾」メニュー（✓ と空きだけ）
+  { name: 'book-memo-sort-menu', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { scrollTo: 'h2:has-text("メモ")' }, { css: 'button[aria-haspopup="menu"]:has-text("ページ順")' }] },
+  // すべての本の並び替え・絞り込みのシート（「状態」の見出し）
+  { name: 'library-sort-sheet', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label^="並び替え・絞り込み・表示"]' }, { css: '[role=menuitem]:has-text("並び替え")' }] },
+  { name: 'library-filter-sheet', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label^="並び替え・絞り込み・表示"]' }, { css: '[role=menuitem]:has-text("絞り込み")' }] },
+  // 本を追加の検索から選んだあとのフォーム（表紙の下は「外す」）
+  { name: 'add-book-form-cover', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を追加"]' }, { fill: ['#add-book-query', '考え方'] }, { css: 'button:has-text("検索")' }, { wait: 1500 }, { css: '[role=dialog] li button >> nth=0' }, { wait: 800 }] },
+  // 文字サイズを大きくしたとき（30px＝約 1.8 倍）: ホームの行はボタンを書名の下へ・本の詳細の上の行は 1 行・書き起こすは文節で折り返す
+  { name: 'home-xl-text', url: '/', steps: [{ eval: () => { document.documentElement.style.fontSize = '30px'; } }, { wait: 500 }] },
+  { name: 'book-detail-xl-text', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { eval: () => { document.documentElement.style.fontSize = '30px'; } }, { wait: 500 }] },
+  { name: 'book-memo-sheet-xl-text', url: '/', steps: [{ eval: () => { document.documentElement.style.fontSize = '30px'; } }, { wait: 300 }, { css: 'button[aria-label$="にメモを書く"]' }, { css: 'button:has-text("ページ・写真")' }] },
   { name: 'book-detail-done-bottom', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { scrollBottom: true }] },
   { name: 'book-store-sheet', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("この本を買う")' }] },
   { name: 'consult', url: '/', steps: [{ css: nav('相談') }] },
