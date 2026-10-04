@@ -1088,7 +1088,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       return;
     }
     const q = (questionText ?? input).trim();
-    if (!q || busy) return;
+    // 本を探す問いを自分のメモから探している途中（lookupFromMemos・AI なし）に送信をもう一度押しても、
+    // 同じ相談を AI にも送らない（二重の吹き出し・トークンの無駄づかいになっていた・2026-10-04）。
+    if (!q || busy || lookupBusyRef.current) return;
     // ホームや相談例から渡された相談は、送れないときも入力欄に残す（黙って消えないように）。
     if (outOfTokens && questionText != null) setInput(q);
     // 💬 無料プランで今月のトークンを使い切っていたら、AI を使わずに自分のメモの一節で答える（メモが答える相談・2026-10-01）。
