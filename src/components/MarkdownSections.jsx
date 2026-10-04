@@ -242,7 +242,7 @@ function renderLines(lines, opts) {
   flushTable();
 
   // For 関連書籍 sections: each `### N. 『title』- 著者` becomes a card
-  // with an "📚 読みたいに追加" button. Following paragraphs (until the
+  // with a 「読みたいに追加」 button. Following paragraphs (until the
   // next subhead) are absorbed as the description.
   if (opts?.relatedBooks && opts?.onAddRelatedBook) {
     const out = [];
@@ -411,8 +411,9 @@ function RelatedBookCard({ book, description, onAdd, isAdding }) {
   const amazonHref = getAmazonSearchLink(book.title, book.author);
   return (
     <div style={relatedCardStyle}>
-      <p style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', margin: 0, lineHeight: 1.5 }}>
-        📚 『{book.title}』
+      {/* 書名の頭に 📚 を付けない（DESIGN §3: 絵文字をアイコン代わりにしない・2026-10-04 ui-critic）。『 はぶら下げる。 */}
+      <p style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', margin: 0, lineHeight: 1.5, textIndent: '-0.5em', overflowWrap: 'anywhere' }}>
+        『{book.title}』
         {book.author && <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', fontWeight: 400 }}> — {book.author}</span>}
       </p>
       {description && (
