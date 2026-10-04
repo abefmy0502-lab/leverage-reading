@@ -21,6 +21,9 @@ const PastBooksQuickstart = lazy(() => import('./components/PastBooksQuickstart'
 const ImportSheet = lazy(() => import('./components/ImportSheet'));
 import MemoFab, { FAB_CLEARANCE } from './components/MemoFab';
 // 読了にした直後の本の詳細の下の余白（右下の「メモを書く」＋「読了にしました。」の知らせ 64）。
+// 押し込まれた画面の上の行の「‹ 戻り先」の文字。文字サイズの設定に合わせて大きくなるが、タブの画面の上の行と同じ
+// 上限（--text-bar-max）で止めて 1 行に収める（「‹ すべての／本」と 2 行に割れていた・2026-10-04）。
+const BACK_LABEL_SIZE = 'min(var(--text-body), var(--text-bar-max))';
 const JUST_DONE_CLEARANCE = `calc(${FAB_CLEARANCE} + var(--space-16))`;
 import { frequentMemoTags } from './lib/memoTags';
 const HomeQuickMemo = lazy(() => import('./components/HomeQuickMemo'));
@@ -4016,7 +4019,7 @@ function AuthedApp() {
         <PushedTopBar scrollRef={detailScrollRef}>
             {/* iOS ナビ風: 指が最初に探す左上の戻るは、背景に沈まない重みで。 */}
             {/* 戻るは「すべての本」の ‹ ホーム と同じ形（ChevronLeft 20・間 0・見た目の左端 16・本文サイズ・--accent）。 */}
-            <button onClick={leaveDetail} style={{ display: 'inline-flex', alignItems: 'center', gap: 0, minHeight: 44, padding: '0 var(--space-2) 0 0', marginLeft: BACK_CHEVRON_PULL, background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-body)', fontFamily: 'inherit', cursor: 'pointer' }}>
+            <button onClick={leaveDetail} style={{ display: 'inline-flex', alignItems: 'center', gap: 0, minHeight: 44, padding: '0 var(--space-2) 0 0', marginLeft: BACK_CHEVRON_PULL, background: 'none', border: 'none', color: 'var(--accent)', fontSize: BACK_LABEL_SIZE, whiteSpace: 'nowrap', fontFamily: 'inherit', cursor: 'pointer' }}>
               <ChevronLeft size={20} aria-hidden="true" />{detailBackToSearch ? '検索' : tab === 'review' ? '振り返り' : tab === 'ai' ? (aiSubTab === 'advisor' ? 'AI 選書' : '相談') : shelfMode === 'library' ? 'すべての本' : 'ホーム'}
             </button>
             <div style={{ display: "flex", gap: 'var(--space-1)', marginRight: 'calc(-1 * var(--space-3))' }}>
@@ -4027,7 +4030,8 @@ function AuthedApp() {
                   type="button"
                   onClick={() => openShareCamera({ book: current, from: 'detail' })}
                   aria-label="写真で共有"
-                  style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', padding: '0 var(--space-2)' }}
+                  // 文字はタブの画面の上の行と同じ上限（--text-bar-max）で止め、1 行に（文字サイズを大きくすると「写真で共／有」と割れていた・2026-10-04）。
+                  style={{ ...btnLink, fontSize: 'min(var(--text-sub), var(--text-bar-max))', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', padding: '0 var(--space-2)' }}
                 >
                   <Camera size={22} strokeWidth={1.75} aria-hidden="true" />
                   写真で共有
@@ -4663,7 +4667,7 @@ function AuthedApp() {
                 else leaveNewBookForm();
               }}
               // 詳細画面・すべての本の戻ると同じ形（ChevronLeft 20・間 0・見た目の左端 16）。
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 0, minHeight: 44, padding: '0 var(--space-2) 0 0', marginLeft: BACK_CHEVRON_PULL, background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-body)', fontFamily: 'inherit', cursor: 'pointer' }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 0, minHeight: 44, padding: '0 var(--space-2) 0 0', marginLeft: BACK_CHEVRON_PULL, background: 'none', border: 'none', color: 'var(--accent)', fontSize: BACK_LABEL_SIZE, whiteSpace: 'nowrap', fontFamily: 'inherit', cursor: 'pointer' }}
               aria-label={current ? 'この本に戻る' : undefined}
             >{/* iOS の作法: 戻るは戻り先の画面の名前。編集からはいつも本の詳細へ戻るので「この本」
                 （書名は下の見出しにあるので、上の行で繰り返さない・2026-10-01 オーナー裁定・SPEC §2）。 */}
@@ -5016,7 +5020,7 @@ function AuthedApp() {
                   type="button"
                   onClick={leaveLibrary}
                   // シェブロンの見た目の左端を余白 16 に（相談の ‹ 相談 と同じ形・DESIGN §5「画面上部の 1 行」）。
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 0, minHeight: 44, padding: '0 var(--space-2) 0 0', marginLeft: BACK_CHEVRON_PULL, background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-body)', fontFamily: 'inherit', cursor: 'pointer' }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 0, minHeight: 44, padding: '0 var(--space-2) 0 0', marginLeft: BACK_CHEVRON_PULL, background: 'none', border: 'none', color: 'var(--accent)', fontSize: BACK_LABEL_SIZE, whiteSpace: 'nowrap', fontFamily: 'inherit', cursor: 'pointer' }}
                 >
                   <ChevronLeft size={20} aria-hidden="true" />{libraryFrom === 'record' ? '記録' : 'ホーム'}
                 </button>
