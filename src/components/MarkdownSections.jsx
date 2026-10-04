@@ -57,8 +57,12 @@ const paraStyle = {
   whiteSpace: 'pre-wrap',
   // 長い英語タイトル/URL でカードが横にはみ出して「横幅が合わない」現象を防ぐ。
   overflowWrap: 'anywhere',
-  // 文節の切れ目でだけ折り返す（BudouX の <wbr>＋keep-all。iOS の Safari は auto-phrase を知らない・2026-09-30）。
-  wordBreak: 'keep-all',
+  // 段落も箇条書きと同じくふつうの日本語の折り返し（禁則は line-break: strict）でそのまま流す（2026-10-04 ui-critic）。
+  //   以前の keep-all＋文節の <wbr> は、入りきらない文節ごと次の行へ送るので、明朝 18 では右が大きく空いていた。
+  //   最後の行に 1〜2 字だけ残らないよう text-wrap: pretty（対応していないブラウザはふつうの折り返し）。
+  wordBreak: 'normal',
+  lineBreak: 'strict',
+  textWrap: 'pretty',
 };
 // 読書計画シートの「目次が手に入らないため、章の名前は挙げていません。」は AI の本文ではなく注記として
 // 13/--text-3 で見せる（文がそのままのときだけ・言い換えられていれば本文のまま・2026-10-02 ui-critic）。
@@ -66,7 +70,7 @@ const noteParaStyle = { fontSize: 'var(--text-meta)', color: 'var(--text-3)', li
 function renderPara(text, key) {
   const t = String(text || '').trim();
   if (t === PLAN_NO_TOC_LINE || t === PLAN_NO_MATCH_LINE) return <p key={key} style={noteParaStyle}>{withPhraseBreaks(t)}</p>;
-  return <p key={key} style={paraStyle}>{renderInline(text)}</p>;
+  return <p key={key} style={paraStyle}>{renderInline(text, { phrase: false })}</p>;
 }
 const listStyle = {
   fontFamily: 'var(--font-read)',
@@ -90,7 +94,7 @@ const listStyle = {
 };
 const liStyle = { display: 'flex', gap: 'var(--space-2)', alignItems: 'flex-start' };
 // 文の部分は残りの幅いっぱいに（flex の子が中身の幅で縮んで早めに折り返さないように）。
-const liTextStyle = { flex: 1, minWidth: 0 };
+const liTextStyle = { flex: 1, minWidth: 0, textWrap: 'pretty' };
 // 「ChatGPT 出力」っぽさを消すための上品な箇条書きマーカー（小さなアクセントの点）。
 const bulletDot = { flexShrink: 0, width: 'var(--space-1)', height: 'var(--space-1)', borderRadius: '50%', background: 'var(--text-3)', marginTop: 'var(--space-3)' };
 const olNumStyle = { flexShrink: 0, minWidth: 'var(--space-4)', color: 'var(--text-3)', fontWeight: 600, fontVariantNumeric: 'tabular-nums' };
