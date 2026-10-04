@@ -19,6 +19,7 @@
 //   - &consent=none : AI に送る内容にまだ同意していない（はじめて AI を使う操作で同意のシートが出る・どのシナリオにも付けられる）
 //     &consent=none&consent=slow で、同意・取り消しの保存が 8 秒かかる（処理中のボタンの確認用）
 //   - &longtag=1 : 「マネジメント」のタグを 50 字の長いタグにする（合いそうなタグのチップがはみ出さないかの確認用）
+//   - &purpose=1 : 積読の『LIFE SHIFT』に得たいことを入れる（読書計画シートは無いまま＝「読書を開始する」の確認用・2026-10-04）
 //   - &save=slow-memo-update : メモの書き直し（タグを付ける）がなかなか終わらない（保存中のチップの確認用）
 //   - &writefail=book_memos:update : メモの書き直しだけ失敗させる（新しいメモの保存は通る・表:操作）
 // データはメモリ上だけ。再読み込みで初期状態に戻る。
@@ -321,6 +322,9 @@ export function createDemoClient() {
   if (params.get('longtag') === '1') {
     const LONG = 'マネジメント（部下・チーム・1on1・任せ方・評価・育成のことをまとめておくタグ）'.slice(0, 50);
     for (const m of db.book_memos || []) if (Array.isArray(m.tags)) m.tags = m.tags.map((t) => (t === 'マネジメント' ? LONG : t));
+  }
+  if (params.get('purpose') === '1') {
+    for (const b of db.books || []) if (b.title === 'LIFE SHIFT') b.invest_purpose = '40 代からの働き方の選択肢を持ちたい';
   }
   const store = {
     db,

@@ -4297,7 +4297,9 @@ function AuthedApp() {
                         return;
                       }
                       // 投資目的はあるが読書計画が未作成 → 任意なので警告のみ（AI 解析は 2026-09-27 に廃止）。
-                      if (!current.aiStrategy) {
+                      // 無料プランでは聞かない（読書計画シートはプランの機能。押していない機能を読み始めのたびに
+                      // すすめない＝7 日間無料をすすめるのは自分でプランの機能を押したときだけ・GLOSSARY・2026-10-04）。
+                      if (!current.aiStrategy && !paywallFree) {
                         const ok = await confirm({
                           title: '読書計画シートを作っておきますか？',
                           message:
