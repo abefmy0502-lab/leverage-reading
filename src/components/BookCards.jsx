@@ -67,7 +67,7 @@ export const BookCoverCard = memo(function BookCoverCard({ book, isJustDone, onO
           className="book-cover-placeholder"
           style={{ background: `linear-gradient(135deg, ${from}, ${to})` }}
         >
-          {withPhraseBreaks(book.title)}
+          {withPhraseBreaks(book.title, { scriptBreaks: true })}
         </div>
         {!showPlaceholder && (
           <img
@@ -96,7 +96,7 @@ export const BookCoverCard = memo(function BookCoverCard({ book, isJustDone, onO
         )}
       </div>
       {/* 文節の切れ目でだけ折り返す（「チーズはどこへ消／えた？」と語の途中で割れていた・2026-10-04）。 */}
-      <p className="book-cover-title">{withPhraseBreaks(book.title)}</p>
+      <p className="book-cover-title">{withPhraseBreaks(book.title, { scriptBreaks: true })}</p>
       {/* 著者が無い本も 1 行ぶん空けて、状態の行をとなりのカードとそろえる。 */}
       <p className="book-cover-author" aria-hidden={book.author ? undefined : true}>{book.author || '\u00a0'}</p>
       {/* 状態は表紙に重ねず、著者の下に面なしのラベルで（DESIGN §5「表示用ラベル」）。
@@ -121,7 +121,7 @@ export function MiniCover({ book, width = 44, radius = 4, onAutoRetry }) {
     if (!show) onAutoRetry?.(book, broken && book.cover ? { brokenCover: book.cover } : undefined);
   }, [show, book.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const height = Math.round(width * 1.42); // 一般的な書籍の縦横比
-  const showTitle = width >= 48 && longestPhraseLength(book.title) * 12 <= width - 8 - 2; // 2: 字幅の端数で行からはみ出さない余裕
+  const showTitle = width >= 48 && longestPhraseLength(book.title, { scriptBreaks: true }) * 12 <= width - 8 - 2; // 2: 字幅の端数で行からはみ出さない余裕
   return (
     // 表紙は「本の形」（DESIGN §4 の例外: 角丸 4）。影は使わず、極細の枠で面と分ける（暗い画面でも成立）。
     <div style={{ position: 'relative', width, height, borderRadius: radius, overflow: 'hidden', flexShrink: 0, boxShadow: 'inset 0 0 0 1px var(--separator)' }}>
@@ -140,7 +140,7 @@ export function MiniCover({ book, width = 44, radius = 4, onAutoRetry }) {
         {/* さらに、いちばん長い文節が 1 行に収まる表紙にだけ出す（字 12 × 字数 ≦ 幅 − 内側の余白 8・2026-09-29）。 */}
         {showTitle && (
           <span style={{ display: '-webkit-box', WebkitLineClamp: Math.max(1, Math.floor((height - 8) / 16)), WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-            {withPhraseBreaks(book.title)}
+            {withPhraseBreaks(book.title, { scriptBreaks: true })}
           </span>
         )}
       </div>

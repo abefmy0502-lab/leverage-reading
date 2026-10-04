@@ -7,7 +7,6 @@ import { OPEN_MEMO_EVENT } from './lib/openMemo';
 import { useAppDataCache } from './state/AppDataCache';
 import { streamClaude } from './lib/streamClaude';
 import { PROMPTS } from './lib/prompts';
-import { loadDefaultJapaneseParser } from 'budoux';
 // ⚡ 最初の画面に要らない重い部品は、使うときに読む（Suspense 付きの薄い包み・components/lazyParts.jsx）。
 import { AuthScreen, AuthCallback, BookMemoList, BookSearchModal, BookMemoEditor, ActionList, MarkdownSections, AuthorThankYou, OverlayFallback } from './components/lazyParts';
 import { BookCoverCard, SwipeableBookCard, MiniCover, StatusLabel } from './components/BookCards';
@@ -309,14 +308,9 @@ function HomeLoadingSkeleton() {
 // 書名を文節で折り返す（BudouX）。「1兆ドル／コーチ」のような語の途中の改行を避ける。
 // word-break: keep-all と組み合わせ、文節の切れ目（<wbr>）でだけ折り返す。
 // 英語などで 1 文節が行より長いときは overflow-wrap: anywhere で折る。
-const jaPhraseParser = loadDefaultJapaneseParser();
 function titleWithPhraseBreaks(title) {
-  const text = String(title || '');
-  if (!text) return text;
-  let phrases;
-  try { phrases = jaPhraseParser.parse(text); } catch { return text; }
-  if (!phrases || phrases.length <= 1) return text;
-  return phrases.flatMap((p, i) => (i === 0 ? [p] : [<wbr key={i} />, p]));
+  // 長い 1 文節の中も文字の種類の切れ目（「アウトプット／大全」「エリック・／シュミット」）で折り返してよい（2026-10-04）。
+  return withPhraseBreaks(title, { scriptBreaks: true });
 }
 
 function Card({ label, text, style }) {
@@ -4102,7 +4096,7 @@ function AuthedApp() {
             <div style={{ flex: '1 1 12rem', minWidth: 0 }}>
               {/* 書名＝この画面の主題（28・700）。見出し「メモ」「行動」（20・600）と差をつける。 */}
               <h1 style={{ fontSize: "var(--text-title)", fontWeight: 700, color: "var(--text)", lineHeight: 1.25, margin: 0, overflowWrap: "anywhere", wordBreak: "keep-all", lineBreak: "strict", textWrap: "balance", display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{titleWithPhraseBreaks(current.title)}</h1>
-              {current.author && <p style={{ fontSize: 'var(--text-sub)', color: "var(--text-2)", margin: "var(--space-1) 0 0", wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(current.author)}</p>}
+              {current.author && <p style={{ fontSize: 'var(--text-sub)', color: "var(--text-2)", margin: "var(--space-1) 0 0", wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(current.author, { scriptBreaks: true })}</p>}
               <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-2)', marginTop: "var(--space-2)", flexWrap: "wrap" }}>
                 {/* 状態は押せない表示なので面を付けない（DESIGN §5「表示用ラベル」）。 */}
                 <StatusLabel status={current.status} />

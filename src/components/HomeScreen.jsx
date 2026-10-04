@@ -17,7 +17,7 @@ import GrowthMeter from './GrowthMeter';
 import { takeMemosReached, growthMeterText, rememberHomeMemoCount, lastHomeMemoCount, showGrowthPlaceholder } from '../lib/firstDay';
 import { track } from '../lib/analytics';
 import { MiniCover } from './BookCards';
-import { withPhraseBreaks } from './TightBubble';
+import { phrasePieces } from './TightBubble';
 import { SkeletonBlock } from './Skeleton';
 import ErrorMessage from './ErrorMessage';
 import { btnPrimary, btnGhost, btnLink, card } from '../styles/ui';
@@ -76,7 +76,7 @@ function BookRow({ book: b, sub, onOpenBook, onCoverRetry, action }) {
         <MiniCover book={b} width={40} onAutoRetry={onCoverRetry} />
         <span style={{ minWidth: 0 }}>
           {/* 書名は文節の切れ目でだけ折り返す（「イシューからは／じめよ」と語の途中で割れていた・2026-10-04）。 */}
-          {/* 1 つの文節が列に入らないときは、語の途中で割らずにその文節を 1 行で … に切る（MiniCover と同じ考え・2026-10-04 ui-critic）。 */}
+          {/* 文節・文字の種類の切れ目でだけ折り返す。それでも入らない切れ端だけ … に切る（最後の手段・2026-10-04）。 */}
           <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.4 }}>{phraseChunks(b.title)}</span>
           {sub && <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-3)', marginTop: 'var(--space-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sub}</span>}
         </span>
@@ -86,10 +86,10 @@ function BookRow({ book: b, sub, onOpenBook, onCoverRetry, action }) {
   );
 }
 
-// 書名を文節ごとの inline-block に（文節の切れ目でだけ折り返し、列より長い文節は 1 行で … に切る＝語の途中で割らない）。
+// 書名を切れ端ごとの inline-block に。切れ端は文節、長い文節はその中の文字の種類の切れ目（「アウトプット／大全」）まで分ける。
+// 切れ端の切れ目でだけ折り返し、それでも列より長い切れ端だけ 1 行で … に切る（語の途中では割らない・2026-10-04）。
 function phraseChunks(title) {
-  const parts = withPhraseBreaks(title);
-  const list = (Array.isArray(parts) ? parts : [parts]).filter((p) => typeof p === 'string' && p);
+  const list = phrasePieces(title, { scriptBreaks: true }).filter((p) => p && p !== '\n');
   return list.map((p, i) => (
     <span key={i} style={{ display: 'inline-block', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', verticalAlign: 'top' }}>{p}</span>
   ));
