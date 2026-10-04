@@ -2611,17 +2611,20 @@ export function parseBookViews(text) {
       const rest = h[1].trim();
       let title = '';
       let author = '';
+      // titleDone: 書名が書き終わっている（『』が閉じた・「｜」で著者に進んだ・次の行が来た）＝本棚の本か確かめてよい
+      let titleDone = false;
       const closed = rest.match(/^『([^』]*)』(.*)$/);
-      if (closed) { title = closed[1]; author = closed[2]; }
+      if (closed) { title = closed[1]; author = closed[2]; titleDone = true; }
       else if (rest.startsWith('『')) title = rest.slice(1);
-      else { const [t, ...a] = rest.split(/[｜|]/); title = t; author = a.join(' '); }
+      else { const [t, ...a] = rest.split(/[｜|]/); title = t; author = a.join(' '); titleDone = a.length > 0; }
       author = author.replace(/^[\s｜|／/:：・\-—（(]+/, '').replace(/[)）]\s*$/, '').trim();
-      cur = { title: title.replace(/\*\*/g, '').trim(), author, view: '', basis: '', page: null };
+      cur = { title: title.replace(/\*\*/g, '').trim(), author, view: '', basis: '', page: null, titleDone };
       books.push(cur);
       field = 'view';
       return;
     }
     if (!cur) { lead.push(line); return; }
+    cur.titleDone = true; // 次の行が来た＝書名の行は書き終わった
     const f = line.match(/^(?:[-*・]\s*)?(?:\*\*)?(視点|根拠|引用)(?:\*\*)?\s*[：:]\s*(.*)$/);
     if (f) {
       field = f[1] === '視点' ? 'view' : 'basis';
@@ -3165,8 +3168,14 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
   }
 
   if (perBook) {
-    // 渡していない本（本棚に無い本）のカードは、書き終えたら出さない（AI が材料の外から本を持ち出したとき・2026-10-04）。
-    const perBookBooks = (perBook.books || []).filter((b) => isStreaming || !shelfLoaded || !b.title || shelfBookForTitle(b.title, books));
+    // 渡していない本（本棚に無い本）のカードは出さない（AI が材料の外から本を持ち出したとき・2026-10-04）。
+    //   書いている途中も、◆ の書名の行が書き終わった時点で確かめる（書き終えた瞬間にカードが消えないように・ui-critic）。
+    //   書名を書いている途中のカードは、書き終わるまで出さない（本棚に無い本を一瞬でも見せない）。
+    const perBookBooks = (perBook.books || []).filter((b) => {
+      if (!b.title) return !isStreaming;
+      if (isStreaming && !b.titleDone) return false;
+      return !shelfLoaded || !!shelfBookForTitle(b.title, books);
+    });
     const lastBook = perBookBooks.length - 1;
     const hasBooks = perBookBooks.length > 0 || !!perBook.booksRaw || !!perBook.booksLead;
     const showFoot = !!(perBook.compare || perBook.action || perBook.question || (!isStreaming && (evidence || refsList.length > 0 || perBook.note || refundNote)));
