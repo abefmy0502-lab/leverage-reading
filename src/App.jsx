@@ -1515,7 +1515,7 @@ function AuthedApp() {
     if (!detailCoverUploadRef.current) {
       // eslint-disable-next-line no-console
       console.error('[manual-upload] file input ref is null — input not mounted in current view');
-      toast.error('ファイル選択画面を開けませんでした。本棚から再度お試しください。');
+      toast.error('写真を選ぶ画面を開けませんでした。本の詳細から、もう一度お試しください。');
       return;
     }
     detailCoverUploadRef.current.click();
@@ -1913,7 +1913,7 @@ function AuthedApp() {
     // ボタンは「押したら何が起きるか」を正確に言う（既存本を開くと今の入力は
     // 保存されない。旧: 「📖 既存の本を見る / ← 戻る」で入力破棄が伝わらなかった）。
     const ok = await confirm({
-      title: 'この本は既に本棚にあります',
+      title: 'この本はもう本棚にあります',
       message: `『${existing.title}』は「${statusLabel}」として登録済みです。既存の本を開くと、いま入力中の内容は保存されません。`,
       confirmLabel: '既存の本を開く',
       cancelLabel: 'このまま編集を続ける',
@@ -2103,7 +2103,7 @@ function AuthedApp() {
       // DB 側 UNIQUE 制約に弾かれた場合 (= UI チェックを抜けた競合状況) は
       // 専用メッセージで案内。それ以外は通常のエラー。
       if (isUniqueViolation(error)) {
-        toast.error('この本は既に本棚にあります。');
+        toast.error('この本はもう本棚にあります。');
       } else {
         toast.error(toMessage(error, '保存に失敗しました。もう一度お試しください。'));
       }
@@ -2587,7 +2587,7 @@ function AuthedApp() {
       return saved;
     } catch (error) {
       if (isUniqueViolation(error)) {
-        toast.error('この本は既に本棚にあります。');
+        toast.error('この本はもう本棚にあります。');
       } else {
         toast.error(toMessage(error, '本の追加に失敗しました。'));
       }
@@ -3162,7 +3162,7 @@ function AuthedApp() {
           return next;
         });
         if (isUniqueViolation(error)) {
-          toast.error('この本は既に本棚にあります。');
+          toast.error('この本はもう本棚にあります。');
         } else {
           toast.error(toMessage(error, '本の追加に失敗しました。'));
         }
