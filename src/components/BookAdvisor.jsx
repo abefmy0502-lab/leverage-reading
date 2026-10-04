@@ -42,6 +42,7 @@ import { useConfirm } from './ConfirmDialog';
 import MarkdownSections from './MarkdownSections';
 import Spinner from './Spinner';
 import ErrorMessage from './ErrorMessage';
+import { SkeletonBlock } from './Skeleton';
 import TightBubble, { withPhraseBreaks } from './TightBubble';
 import { displayUserText, concernOf, interviewPairsOf, advisorSetupFields } from '../lib/advisorText';
 import { usePaywall } from '../state/PaywallContext';
@@ -987,6 +988,9 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   //   （同じ「確認できませんでした」をカードごとに並べない）。
   const recoItems = Array.isArray(recommendations?.items) ? recommendations.items : [];
   const allUnverifiable = recommendations?.checked !== false && recoItems.length > 0 && recoItems.every((r) => r?._verify === 'unknown');
+  // 2 冊を混ぜたカード（_alts）を確かめている途中（カード 1 枚ぶんの骨組みを出す）
+  const mixedPending = recommendations?.checked === false && recoItems.length < 5
+    && Array.isArray(recommendations?.pool) && recommendations.pool.some((r) => r && Array.isArray(r._alts) && r._alts.length > 0);
   // 確かめ終わって、出せるカードが 0 枚（ErrorMessage に替える）
   const recoEmpty = !!recommendations && recommendations.checked !== false && recoItems.length === 0;
   const cleanProseTitles = (text) => filterProseTitles(text, proseLists);
@@ -1736,6 +1740,22 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
               </div>
             );
           })}
+          {/* 2 冊を混ぜたカードを確かめている間は、カード 1 枚ぶんの骨組みで場所を取っておく
+              （確かめ終わって 1 冊のカードが後から入っても、下の文が押し下がらない・2026-10-04 ui-critic）。 */}
+          {mixedPending && (
+            <div aria-hidden="true" style={{ ...cardStyle, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+              <SkeletonBlock width={28} height={13} />
+              <SkeletonBlock width="70%" height={22} />
+              <SkeletonBlock width="40%" height={13} />
+              <SkeletonBlock width="30%" height={13} style={{ marginTop: 'var(--space-3)' }} />
+              <SkeletonBlock width="100%" height={18} />
+              <SkeletonBlock width="85%" height={18} />
+              <SkeletonBlock width="30%" height={13} style={{ marginTop: 'var(--space-3)' }} />
+              <SkeletonBlock width="90%" height={15} />
+              <SkeletonBlock width="100%" height={48} radius="var(--radius)" style={{ marginTop: 'var(--space-4)' }} />
+              <SkeletonBlock width={160} height={20} style={{ marginTop: 'var(--space-3)' }} />
+            </div>
+          )}
           {allUnverifiable && (
             <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, margin: 0 }}>
               本の実在を確かめられませんでした。購入前に書名を確かめてください。
