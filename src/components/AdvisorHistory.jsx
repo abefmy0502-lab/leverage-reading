@@ -18,6 +18,7 @@ import {
 import EmptyState from './EmptyState.jsx';
 import MarkdownSections from './MarkdownSections';
 import { SkeletonBlock } from './Skeleton';
+import { withPhraseBreaks } from './TightBubble';
 import BookStoreLinks from './BookStoreLinks';
 import { STORE_DISCLOSURE_TEXT } from '../lib/rakutenLink';
 import { btnPrimary, btnGhost, btnGhostOff, btnText } from '../styles/ui';
@@ -474,9 +475,10 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
               onAdd={() => handleAdd(b)}
             />
           ))}
-          <small style={{ fontSize: 'var(--text-caption)', color: 'var(--text-3)', lineHeight: 1.5 }}>
-            {STORE_DISCLOSURE_TEXT}
-          </small>
+          {/* 紹介料の注記は AI 選書の画面と同じ 13/--text-3・文節で折り返す（2026-10-04） */}
+          <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+            {withPhraseBreaks(STORE_DISCLOSURE_TEXT)}
+          </p>
         </section>
       )}
 
