@@ -34,6 +34,23 @@ describe('phrasePieces / longestPhraseLength', () => {
     expect(phrasePieces('アウトプット大全')).toEqual(['アウトプット大全']);
     expect(longestPhraseLength('アウトプット大全')).toBe(8);
   });
+  it('数字と助数詞の間は折り返さない空白に（「1 つ」「800 トークン」）', () => {
+    expect(phrasePieces('毎日の 1 つを決める').join('')).toBe('毎日の 1\u00a0つを決める');
+    expect(phrasePieces('毎月 800 トークン使えます').join('')).toContain('800\u00a0トークン');
+    // 助数詞でない語の前の空白はそのまま
+    expect(phrasePieces('第 2 部 Amazon').join('')).toBe('第 2 部 Amazon');
+  });
+  it('ダッシュで始まる文節は前の文節に結合文字でつなぐ（— を行頭に置かない・前の空白は落とす）', () => {
+    const pieces = phrasePieces('『時間術大全』 — 毎日の 1 つを決める');
+    expect(pieces.join('')).toBe('『時間術大全』\u2060— 毎日の 1\u00a0つを決める');
+    expect(pieces.some((pc) => /^[ \u00a0\u2060]*—/.test(pc))).toBe(false);
+    // 同じ文節の中の「』 —」も同じ形に
+    expect(phrasePieces('『大事なことに集中する』 — 集中できる時間').join('')).toBe('『大事なことに集中する』\u2060— 集中できる時間');
+    // 英語の「a — b」はそのまま
+    expect(phrasePieces('focus — time').join('')).toBe('focus — time');
+    // 行頭のダッシュ（前が無い）はそのまま
+    expect(phrasePieces('— はじめに')[0].startsWith('—')).toBe(true);
+  });
   it('scriptBreaks ありでは長い文節の中も分ける', () => {
     expect(phrasePieces('アウトプット大全', { scriptBreaks: true })).toEqual(['アウトプット', '大全']);
     expect(longestPhraseLength('アウトプット大全', { scriptBreaks: true })).toBe(6);

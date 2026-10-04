@@ -64,6 +64,17 @@ export function scriptBreakPieces(phrase, minLen = SCRIPT_BREAK_MIN) {
   return merged;
 }
 
+// 数字と助数詞の間の空白（「1 つ」「800 トークン」「2 か月」）は折り返さない空白（U+00A0）に。
+//   keep-all でも普通の空白は折り返しの場所になり、「毎日の 1／つを決める」と割れていた（2026-10-04）。
+const NUM_UNIT_RE = /(\d) (?=(?:トークン|ページ|[回件冊行つ日週分秒時年人度個枚か章歳位点倍円]))/g;
+// ダッシュ（—・–・―）で始まる文節は前の文節に結合文字（U+2060）でつなぐ＝ダッシュを行頭に置かない
+//   （「『時間術大全』／— 毎日の…」と行頭に — が残っていた・2026-10-04）。前の空白は落とす（空白は折り返しの場所になり、
+//   行頭に空白が残るため・』の字の中の余白で間はあく）。ダッシュの後ろでは折り返せる。前の文節だけで 1 行を
+//   埋めるとき（長い書名）は、はみ出さないよう — の前で折り返る（それ以上は割らない）。
+const LEAD_DASH_RE = /^[ \u00a0\u2060]*[—–―]/;
+// 日本語の字・閉じかっこの後ろの「 — 」は、空白を結合文字に替えて前とつなぐ（同じ文節の中でも行頭に置かない・間の見た目をそろえる）。
+const JA_BEFORE_DASH_RE = /([』」）】〉》\u3040-\u30ff\u4e00-\u9fff])[ \u00a0]+(?=[—–―])/g;
+
 // 文節（scriptBreaks のときは長い文節の中の文字の種類の切れ目でも）に分ける。改行は '\n' の要素で残す。
 export function phrasePieces(text, { scriptBreaks = false } = {}) {
   const src = String(text ?? '');
@@ -71,11 +82,17 @@ export function phrasePieces(text, { scriptBreaks = false } = {}) {
   let p = null;
   try { p = getParser(); } catch { p = null; }
   const out = [];
-  src.split('\n').forEach((line, li) => {
+  src.split('\n').forEach((rawLine, li) => {
     if (li > 0) out.push('\n');
+    const line = rawLine.replace(NUM_UNIT_RE, '$1\u00a0').replace(JA_BEFORE_DASH_RE, '$1\u2060');
     let phrases;
     try { phrases = !line ? [] : p ? p.parse(line) : [line]; } catch { phrases = [line]; }
-    phrases.forEach((ph) => { (scriptBreaks ? scriptBreakPieces(ph) : [ph]).forEach((pc) => out.push(pc)); });
+    const joined = [];
+    phrases.forEach((ph) => {
+      if (joined.length && LEAD_DASH_RE.test(ph)) joined[joined.length - 1] += `\u2060${ph.replace(/^[ \u00a0\u2060]+/, '')}`;
+      else joined.push(ph);
+    });
+    joined.forEach((ph) => { (scriptBreaks ? scriptBreakPieces(ph) : [ph]).forEach((pc) => out.push(pc)); });
   });
   return out;
 }
