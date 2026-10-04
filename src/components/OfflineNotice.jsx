@@ -6,7 +6,7 @@
 // DESIGN §5「開いて出す欄」と同じ）。畳んでいる間は visibility: hidden（読み上げない）。
 // 出るときに知らせ（トースト）は出さない。5 秒以上つながっていなかったあとに戻ったら、一度だけ「つながりました」。
 //
-// safeTop: 上に画面の上の行が無い画面（すべての本）で、帯がノッチの下に来るようにセーフエリアを取る。
+// style: 置き場所に合わせた外側の余白（すべての本は「‹ ホーム」の行の下・左右いっぱい・畳んでいる間は行の間の空きを打ち消す）。
 
 import { useEffect, useRef } from 'react';
 import { WifiOff } from 'lucide-react';
@@ -18,7 +18,7 @@ import { withPhraseBreaks } from './TightBubble';
 let offlineSince = null;
 const RECONNECT_TOAST_MIN_MS = 5000;
 
-export default function OfflineNotice({ safeTop = false }) {
+export default function OfflineNotice({ style }) {
   const online = useOnline();
   const toast = useToast();
   const prevOnline = useRef(online);
@@ -46,6 +46,7 @@ export default function OfflineNotice({ safeTop = false }) {
         gridTemplateRows: shown ? '1fr' : '0fr',
         transition: 'grid-template-rows var(--duration-fast) var(--ease-out), visibility 0s linear ' + (shown ? '0s' : 'var(--duration-fast)'),
         visibility: shown ? 'visible' : 'hidden',
+        ...style,
       }}
     >
       <div style={{ minHeight: 0, overflow: 'hidden' }}>
@@ -57,9 +58,7 @@ export default function OfflineNotice({ safeTop = false }) {
             display: 'flex',
             alignItems: 'center',
             gap: 'var(--space-2)',
-            padding: safeTop
-              ? 'calc(var(--space-2) + env(safe-area-inset-top, 0px)) var(--space-4) var(--space-2)'
-              : 'var(--space-2) var(--space-4)',
+            padding: 'var(--space-2) var(--space-4)',
             background: 'var(--fill)',
             color: 'var(--text-2)',
             fontSize: 'var(--text-meta)',

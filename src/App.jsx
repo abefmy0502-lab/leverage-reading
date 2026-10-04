@@ -125,7 +125,6 @@ import { APP_STORE_URL, isAppStoreLive } from './lib/appStore';
 import { initNativePushNav } from './lib/nativePush';
 import UpdateBanner from './components/UpdateBanner';
 import OfflineNotice from './components/OfflineNotice';
-import { useOnline } from './hooks/useOnline';
 import { SkeletonBlock, BookListSkeleton, BookGridSkeleton } from './components/Skeleton';
 import SwipeableCard from './components/SwipeableCard';
 import ContextMenu from './components/ContextMenu';
@@ -541,8 +540,6 @@ const OPEN_SETTINGS_EVENT = 'orime:open-settings';
 
 function AuthedApp() {
   const { signOut, user } = useAuth();
-  // 📶 つながっていない間は、画面の上の行の下に「オフラインです」の一行（OfflineNotice・2026-10-04）。
-  const online = useOnline();
   const appCache = useAppDataCache();
   // 仮想キーボード表示中は BottomNav を消し、入力欄に重ならないようにする。
   // viewport meta の interactive-widget=resizes-content と併用すると iOS
@@ -4936,10 +4933,10 @@ function AuthedApp() {
     </div>
   </header>
    )}
-   {/* オフラインの一行: 上の行の下に。すべての本（上の行が無い）は帯がノッチの下まで受け持つ（下の行の上の余白を詰める）。
+   {/* オフラインの一行: 上の行の下に。すべての本は「‹ ホーム」の行の下（本の詳細と同じ・その画面の中で出す）。
        相談の押し込まれた画面（過去の相談など）は、その画面の上の行が中にあるので出さない（戻ると出る）。 */}
-   {!(tab === "ai" && aiSubTab === 'brain' && consultPushed) && (
-     <OfflineNotice safeTop={tab === "books" && shelfMode === 'library'} />
+   {!(tab === "ai" && aiSubTab === 'brain' && consultPushed) && !(tab === "books" && shelfMode === 'library') && (
+     <OfflineNotice />
    )}
 
       {/* Shell が flex column になったため、ここは flex: 1 / minHeight: 0
@@ -5039,8 +5036,7 @@ function AuthedApp() {
           <PullToRefresh onRefresh={async () => { await refreshBooks(); haptic.light(); }}>
             <div
               style={{
-                // オフラインの一行が上にあるときは、ノッチの分は帯が取るので詰める。
-                padding: online ? "max(env(safe-area-inset-top, 0px), var(--space-2)) var(--space-4) var(--space-3)" : "var(--space-2) var(--space-4) var(--space-3)",
+                padding: "max(env(safe-area-inset-top, 0px), var(--space-2)) var(--space-4) var(--space-3)",
                 display: "flex",
                 flexDirection: "column",
                 gap: 'var(--space-3)',
@@ -5094,6 +5090,9 @@ function AuthedApp() {
                   )}
                 </div>
               </div>
+              {/* 📶 オフラインの一行は「‹ ホーム」の行の下に左右いっぱいで（本の詳細と同じ置き場所・2026-10-04 ui-critic）。
+                  畳んでいる間は行の間の空き（12）を打ち消し、出ているときは上の行にすぐ続ける。 */}
+              <OfflineNotice style={{ margin: 'calc(-1 * var(--space-3)) calc(-1 * var(--space-4)) 0' }} />
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-2)' }}>
                 {/* 記録の「読んだ本」など、状態を決めて記録から開いたときは、その状態を見出しに（「読了 6 冊」）。
                     「すべての本 6 冊」と言いながら読了だけを並べていた食い違いを直す（2026-09-29）。 */}
