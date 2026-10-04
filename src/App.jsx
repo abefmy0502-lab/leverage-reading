@@ -3471,7 +3471,9 @@ function AuthedApp() {
       if (!payload.quiet) toast.success('🎯 行動を追加しました。');
       return true;
     } catch (error) {
-      toast.error(toMessage(error, '行動の追加に失敗しました。'));
+      const msg = toMessage(error, '行動の追加に失敗しました。');
+      // 行動の追加のモーダルから呼ばれたときは、モーダルの中に出す（知らせはモーダルの下に隠れて読めない・2026-10-04）。
+      if (payload.onError) payload.onError(msg); else toast.error(msg);
       return false;
     }
   };
@@ -4665,8 +4667,10 @@ function AuthedApp() {
               action={addActionSheet.prefillText ? { text: addActionSheet.prefillText } : null}
               onClose={() => setAddActionSheet(null)}
               onSave={async (patch) => {
-                const ok = await createActionForBook(addActionSheet.bookId, patch);
+                let error = '';
+                const ok = await createActionForBook(addActionSheet.bookId, { ...patch, onError: (m) => { error = m; } });
                 if (ok) setAddActionSheet(null);
+                else return { error };
               }}
             />
           </Suspense>
@@ -5679,6 +5683,7 @@ function AuthedApp() {
             // 保存失敗時に入力が全損する）。onSave は throw せず正常 resolve するので、
             // ActionEditModal 側は finally で busy を解除して開いたまま待機できる。
             let outcome = 'gone';
+            let failMessage = '';
             const run = enqueueBookMutation(bookId, async (entry) => {
               const book = entry.latest || booksRef.current.find((b) => b.id === bookId);
               if (!book) return;
@@ -5701,7 +5706,9 @@ function AuthedApp() {
                 entry.latest = book;
                 syncActionSnapshots(book);
                 outcome = 'failed';
-                toast.error(toMessage(error, '更新に失敗しました'));
+                failMessage = toMessage(error, '保存できませんでした。');
+                // 「期限を見直す」の途中は次の行動に進んでいるので知らせで。ふだんはモーダルの中に出す（知らせはモーダルの下に隠れる）。
+                if (reviewing) toast.error(failMessage);
               }
             });
             if (reviewing) {
@@ -5710,7 +5717,7 @@ function AuthedApp() {
               return;
             }
             await run;
-            if (outcome === 'failed') return;
+            if (outcome === 'failed') return { error: failMessage };
             openNextReviewAction(cur);
           }}
           // 「期限を見直す」の途中で、この行動は変えずに次へ（2026-09-30）。
@@ -5800,7 +5807,9 @@ function AuthedApp() {
             onSave={async (patch) => {
               // 相談から: 追加できたことは答えの中の「行動に追加しました（期限は明日）見る」で伝える（知らせを重ねない）。
               const fromConsult = addActionSheet.from === 'consult';
-              const ok = await createActionForBook(addActionSheet.bookId, { ...patch, quiet: fromConsult });
+              let error = '';
+              const ok = await createActionForBook(addActionSheet.bookId, { ...patch, quiet: fromConsult, onError: (m) => { error = m; } });
+              if (!ok) return { error };
               if (ok) {
                 addActionSheet.onDone?.(patch?.deadline ?? '', { bookId: addActionSheet.bookId, text: String(patch?.text || '').trim().slice(0, LIMITS.actionText || 500) });
                 setAddActionSheet(null);

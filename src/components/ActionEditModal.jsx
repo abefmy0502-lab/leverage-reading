@@ -18,6 +18,7 @@ import { ArrowUp, Minus, ArrowDown, X } from 'lucide-react';
 import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff, btnLink, groupTitle, input as uiInput } from '../styles/ui';
 import { toLocalYmd } from '../lib/dates';
 import { DATE_HINT } from '../lib/dateHint';
+import { withPhraseBreaks } from './TightBubble';
 
 const overlayStyle = {
   position: 'fixed',
@@ -171,6 +172,9 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete, onS
   const [recurrence, setRecurrence] = useState(action?.recurrence || '');
   const [reflection, setReflection] = useState(action?.reflection || '');
   const [busy, setBusy] = useState(false);
+  // 保存できなかった理由（onSave が { error } を返したとき）。知らせ（Toast）はこのモーダルの下に隠れて読めないので、
+  // 決定ボタンのすぐ上に 1 行で出す（書いた内容はそのまま・メモを書くシートと同じ形・2026-10-04）。
+  const [saveError, setSaveError] = useState('');
   // 保存の在空中にモーダルが閉じて再入力→重複作成される穴を塞ぐ（Escape/背景/×共通）。
   const busyRef = useRef(false);
   useEffect(() => { busyRef.current = busy; }, [busy]);
@@ -228,14 +232,16 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete, onS
       return;
     }
     setBusy(true);
+    setSaveError('');
     try {
-      await onSave({
+      const res = await onSave({
         text: text.trim(),
         deadline: deadline || '',
         priority: priority || 'medium',
         recurrence: recurrence || null,
         reflection: reflection || '',
       });
+      if (res && res.error) setSaveError(res.error);
     } finally {
       setBusy(false);
     }
@@ -379,6 +385,9 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete, onS
           )}
         </div>
 
+        {saveError && (
+          <p role="alert" style={{ margin: 0, padding: 'var(--space-3) var(--space-4)', color: 'var(--error)', fontSize: 'var(--text-sub)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(saveError)}</p>
+        )}
         <div style={footerStyle}>
           {!isCreate && (
           <button

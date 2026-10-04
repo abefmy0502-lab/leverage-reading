@@ -158,6 +158,9 @@ const SCREENS = [
   { name: 'offline-review', url: '/?offline=1', steps: [{ css: nav('振り返り') }] },
   { name: 'offline-library', url: '/?offline=1', steps: [{ css: 'button:has-text("すべての本")' }] },
   { name: 'offline-detail', url: '/?offline=1', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }] },
+  // オフラインで保存を押したとき（&offline=1 のあいだは書き込みが失敗する・書いた内容は残って理由が出る・2026-10-04）
+  { name: 'offline-memo-save', url: '/?offline=1', steps: [{ css: 'button:has-text("メモを書く")' }, { fill: ['textarea', 'オフラインで書いたメモ'] }, { css: '[role=dialog] button:has-text("保存")' }] },
+  { name: 'offline-action-save', url: '/?offline=1', steps: [{ css: nav('振り返り') }, { css: 'button:has-text("追加")' }, { css: '[role=dialog] button:has-text("1兆ドルコーチ")' }, { fill: ['[role=dialog] textarea', 'オフラインで決めた行動'] }, { css: '[role=dialog] button:text-is("追加")' }] },
   { name: 'offline-reconnected', url: '/?offline=1', steps: [{ wait: 5200 }, { eval: "window.dispatchEvent(new Event('online'))", settle: 300 }] },
   { name: 'update-banner', url: '/', steps: [{ eval: "window.dispatchEvent(new Event('app-update-available'))" }] },
   { name: 'auth-callback-error', url: '/#error=access_denied&error_code=otp_expired' },

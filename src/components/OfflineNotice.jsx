@@ -1,6 +1,8 @@
 // 📶 オフラインの一行（2026-10-04・運営判断「静かに」）。
 //
-// つながっていない間だけ、画面の上の行のすぐ下に 1 行:「オフラインです。つながると保存できます。」
+// つながっていない間だけ、画面の上の行のすぐ下に 1 行:「オフラインです。つながるまで保存できません。」
+// 保存は端末にためておいて後で送る仕組みが無い（失敗する）ので、「つながると保存できます」とは言わない。保存を押すと、
+// メモのシート・行動のモーダルは書いた内容を残したまま「ネット接続が切れています。…」を出す（2026-10-04）。
 // 見た目は DESIGN §5「オフラインの一行」: --fill の帯・lucide WifiOff 16・13/--text-2・左右 16。
 // 出入りは高さを grid-template-rows（0fr ⇄ 1fr）で --duration-fast かけて動かす（下が一度に跳ねない・
 // DESIGN §5「開いて出す欄」と同じ）。畳んでいる間は visibility: hidden（読み上げない）。
@@ -68,7 +70,7 @@ export default function OfflineNotice({ style }) {
           }}
         >
           <WifiOff size={16} aria-hidden="true" style={{ flexShrink: 0 }} />
-          <span style={{ minWidth: 0 }}>{withPhraseBreaks('オフラインです。つながると保存できます。')}</span>
+          <span style={{ minWidth: 0 }}>{withPhraseBreaks('オフラインです。つながるまで保存できません。')}</span>
         </p>
       </div>
     </div>
