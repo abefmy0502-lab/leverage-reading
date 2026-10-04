@@ -20,6 +20,8 @@ const LIBRARY_FIRST = 12;
 const PastBooksQuickstart = lazy(() => import('./components/PastBooksQuickstart'));
 const ImportSheet = lazy(() => import('./components/ImportSheet'));
 import MemoFab, { FAB_CLEARANCE } from './components/MemoFab';
+// 読了にした直後の本の詳細の下の余白（右下の「メモを書く」＋「読了にしました。」の知らせ 64）。
+const JUST_DONE_CLEARANCE = `calc(${FAB_CLEARANCE} + var(--space-16))`;
 import { frequentMemoTags } from './lib/memoTags';
 const HomeQuickMemo = lazy(() => import('./components/HomeQuickMemo'));
 import Onboarding, { isOnboardingCompleted, clearOnboardingCompletion } from './components/Onboarding';
@@ -1805,8 +1807,14 @@ function AuthedApp() {
   // detail コンテナをスクロールトップへ戻す。これがないと「読書前」で
   // 下までスクロールした状態のまま「読書中」UI が表示され、画面が下から
   // 始まる症状になる。
+  // 例外: 同じ本を「読了にする」で読書中 → 読了にしたときは、その場に留まる（画面は同じ形のまま・押した場所に
+  //   「読了を写真で共有」を出すため。先頭へ戻すと、出したボタンが画面の外になっていた・2026-10-04）。
+  const prevDetailStatusRef = useRef({ view, id: current?.id, status: current?.status });
   useEffect(() => {
+    const prev = prevDetailStatusRef.current;
+    prevDetailStatusRef.current = { view, id: current?.id, status: current?.status };
     if (view !== 'detail') return;
+    if (prev.view === 'detail' && prev.id === current?.id && prev.status === 'reading' && current?.status === 'done') return;
     if (detailScrollRef.current) {
       try { detailScrollRef.current.scrollTo({ top: 0, behavior: 'auto' }); } catch { /* ignore */ }
     }
@@ -4047,7 +4055,9 @@ function AuthedApp() {
             overscrollBehaviorY: 'contain',
             WebkitOverflowScrolling: 'touch',
             // 下は右下の「メモを書く」の上まで、いちばん下のボタンを送れる分（ボタンの高さ＋12＋16＋セーフエリア・2026-09-30）。
-            padding: `0 var(--space-4) ${FAB_CLEARANCE}`,
+            // 読了にした直後（「読了を写真で共有」を出している間）は、その上の「読了にしました。」の知らせの分（64）も足す
+            // （いちばん下のボタンが知らせの下に隠れていた・2026-10-04）。
+            padding: `0 var(--space-4) ${justDoneId && current && justDoneId === current.id ? JUST_DONE_CLEARANCE : FAB_CLEARANCE}`,
           }}
         >
 
@@ -4220,8 +4230,17 @@ function AuthedApp() {
               <button
                 type="button"
                 className="list-item-enter"
+                // 出たら画面の中まで送る（上に「一番の収穫」のカードが入って押し下げられても、下の「読了にしました。」の
+                // 知らせと右下の「メモを書く」に重ならないように・下の余白は JUST_DONE_CLEARANCE）。
+                ref={(el) => {
+                  if (!el || el.dataset.revealed) return;
+                  el.dataset.revealed = '1';
+                  let reduce = false;
+                  try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { /* noop */ }
+                  requestAnimationFrame(() => { try { el.scrollIntoView({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' }); } catch { /* ignore */ } });
+                }}
                 onClick={() => { setJustDoneId(null); openShareCamera({ book: current, from: 'done' }); }}
-                style={{ ...btnGhost, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)' }}
+                style={{ ...btnGhost, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)', scrollMarginBottom: JUST_DONE_CLEARANCE }}
               >
                 <Camera size={20} aria-hidden="true" />
                 読了を写真で共有
