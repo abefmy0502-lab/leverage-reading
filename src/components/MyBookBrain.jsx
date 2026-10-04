@@ -271,7 +271,10 @@ function LearningInline({ onSaved, onDirtyChange, initialTags = null }) {
     }
     setBusy(true);
     try {
-      const tagsWithCategory = [`@${category}`, ...tags];
+      // タグの欄に書いたまま「追加」を押さずに保存しても、そのタグを落とさない（黙って消えていた・2026-10-04）。
+      const pending = tagInput.trim();
+      const allTags = pending && !tags.includes(pending) ? [...tags, pending] : tags;
+      const tagsWithCategory = [`@${category}`, ...allTags];
       const { error } = await supabase.from('book_memos').insert([
         {
           user_id: user.id,
