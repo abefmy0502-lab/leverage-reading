@@ -1602,8 +1602,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       {recoEmpty && !recoLoading && (recommendations.emptyReason === 'none' ? (
         <ErrorMessage
           icon={null}
-          title="本を確かめられませんでした"
-          description="この相談で、実在を確かめられる本が見つかりませんでした。"
+          title="実在する本が見つかりませんでした"
+          description="条件を変えて、もう一度探してください。"
           actions={[{ label: '別の条件で探す', onClick: resetToConcern, variant: 'primary' }]}
         />
       ) : (
