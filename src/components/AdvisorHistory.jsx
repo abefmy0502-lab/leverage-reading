@@ -23,7 +23,8 @@ import AdvisorStoreLinks from './AdvisorStoreLinks';
 import { STORE_DISCLOSURE_TEXT } from '../lib/rakutenLink';
 import { btnPrimary, btnGhost, btnGhostOff, btnText, groupTitle } from '../styles/ui';
 import { displayUserText, concernOf, interviewPairsOf, advisorSetupFields } from '../lib/advisorText';
-import { filterProseTitles, proseTitleLists, dropSummarySection } from '../lib/advisorProse';
+import { filterProseTitles, proseTitleLists } from '../lib/advisorProse';
+import { dropSummarySection } from '../lib/advisorSummary';
 
 export function formatDate(iso) {
   if (!iso) return '';

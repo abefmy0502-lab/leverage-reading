@@ -48,7 +48,8 @@ import TightBubble, { withPhraseBreaks } from './TightBubble';
 import { displayUserText, concernOf, interviewPairsOf, advisorSetupFields } from '../lib/advisorText';
 import { usePaywall } from '../state/PaywallContext';
 import { findDuplicateBook } from '../lib/checkDuplicate';
-import { filterProseTitles, proseTitleLists, dropSummarySection } from '../lib/advisorProse';
+import { filterProseTitles, proseTitleLists } from '../lib/advisorProse';
+import { dropSummarySection } from '../lib/advisorSummary';
 import { useEdgeSwipeBack } from '../hooks/useEdgeSwipeBack';
 
 const AdvisorHistoryList = lazy(() => import('./AdvisorHistory').then((m) => ({ default: m.AdvisorHistoryList })));
