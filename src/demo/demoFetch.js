@@ -497,6 +497,12 @@ function aiReply(store, payload, aiMode = '') {
         why: '自分で選んで動く「主体性」の考え方が、任せ方の土台になります。',
         core: '反応する前に、自分で選ぶ。', focus: '主体性の考え方', duration: '3週間で読了、1か月で実践' }] : []),
     ];
+    // &ai=allmixed: どのカードも 2 冊を混ぜた書名で、どれも確かめられない（出せるカードが 0 枚＝ErrorMessage の確認用・2026-10-04）
+    if (aiMode === 'allmixed') {
+      recs.splice(0, recs.length,
+        { title: '時間の使い方の本 または 集中の本', author: '架空太郎', why: '時間の使い方が変わります。', core: '時間を先に押さえる。', focus: '時間の使い方', duration: '2週間で読了' },
+        { title: '任せ方シリーズ', author: '架空花子', why: '任せ方が分かります。', core: '結果から任せる。', focus: '任せ方', duration: '3週間で読了' });
+    }
     return [
       '## 👋 はじめに', 'お話を伺って、時間の使い方と任せ方の両方に効く本を選びました。', '',
       '## 📚 おすすめの本', '', 'RECOMMENDATIONS_START', JSON.stringify(recs, null, 2), 'RECOMMENDATIONS_END', '',
@@ -741,6 +747,8 @@ export function installDemoFetch(store) {
         // &verify=down: 検索元がどれも答えない（「確認できませんでした」の確認用）。
         const mode = new URLSearchParams(window.location.search).get('verify');
         if (mode === 'down') return json({ cover: '', isbn: '', candidates: [], verified: null }, 200);
+        // &verify=slow: 確かめるのに 1 冊 3 秒かかる（確かめている途中の骨組みの確認用・2026-10-04）
+        if (mode === 'slow') await new Promise((r) => setTimeout(r, 3000));
         // &verify=mixed: 1 冊目だけ確かめられない（カードごとの「確認できませんでした」の確認用）。
         if (mode === 'mixed' && title === '大事なことに集中する') return json({ cover: '', isbn: '', candidates: [], verified: null }, 200);
         const exact = title && SEARCH_CATALOG.find(([t]) => t === title);

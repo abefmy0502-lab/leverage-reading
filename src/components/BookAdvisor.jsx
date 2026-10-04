@@ -987,6 +987,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   //   （同じ「確認できませんでした」をカードごとに並べない）。
   const recoItems = Array.isArray(recommendations?.items) ? recommendations.items : [];
   const allUnverifiable = recommendations?.checked !== false && recoItems.length > 0 && recoItems.every((r) => r?._verify === 'unknown');
+  // 確かめ終わって、出せるカードが 0 枚（ErrorMessage に替える）
+  const recoEmpty = !!recommendations && recommendations.checked !== false && recoItems.length === 0;
   const cleanProseTitles = (text) => filterProseTitles(text, proseLists);
 
   const isEmpty = messages.length === 0 && !recommendations;
@@ -1585,8 +1587,27 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         })();
       })}
 
+      {/* 確かめ終わって、出せるカードが 1 枚も無いとき（どの本も 1 冊と確かめられなかった・2026-10-04 ui-critic）:
+          前置き・カード・読む順番の代わりに ErrorMessage だけ（「もう一度」で同じ相談を送り直す）。 */}
+      {recoEmpty && !recoLoading && (
+        <ErrorMessage
+          icon={null}
+          title="本を確かめられませんでした"
+          description="少し時間をおいて、もう一度お試しください。"
+          actions={[{
+            label: 'もう一度',
+            onClick: () => {
+              const a = lastRecoArgsRef.current;
+              if (a) generateRecommendations(a.userMsg, a.sourceQuery);
+              else resetToConcern();
+            },
+            variant: 'secondary',
+          }]}
+        />
+      )}
+
       {/* Recommendations — 1 冊 1 カード（理由つき） */}
-      {recommendations && (
+      {recommendations && !recoEmpty && (
         // 3 つのまとまり（前置き＋本のカード → 読む順番 → 注記＋やり直し）。中は 12・間は 24（DESIGN §1）。
         <div ref={recoBlockRef} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)', animation: 'fadeIn .3s', scrollMarginTop: 'var(--space-2)' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
