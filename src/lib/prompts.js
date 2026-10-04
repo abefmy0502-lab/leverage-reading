@@ -35,6 +35,9 @@ const BASE_PERSONA =
 //   どちらも無い本では概要の節そのものを書かせない（AI に「手に入らなかった」と書かせない・2026-10-02 ui-critic）。
 //   全体の長さはほぼ同じ（1,000 字以内）。
 export const PLAN_NO_TOC_LINE = '目次が手に入らないため、章の名前は挙げていません。';
+// 目次はあるが、AI が挙げた章がどれも目次と合わなかったとき（lib/planChapters.js が行を消したあとの決まった 1 行・2026-10-04）。
+// 画面は PLAN_NO_TOC_LINE と同じく注記（13/--text-3）で見せる（MarkdownSections の renderPara）。
+export const PLAN_NO_MATCH_LINE = '目次と合う章が見つからなかったため、章の名前は挙げていません。';
 const setupSheet = {
   system:
     `あなたは読書コンサルタントです。${BASE_PERSONA}\n\n` +

@@ -1,7 +1,7 @@
 // 📖 読書計画シートの重点的に読む箇所・流し読みから、目次に無い章を消す（lib/planChapters.js・2026-10-04）。
 import { describe, it, expect } from 'vitest';
 import { dropUnknownChapters, focusLinesOf } from './planChapters';
-import { PLAN_NO_TOC_LINE } from './prompts';
+import { PLAN_NO_TOC_LINE, PLAN_NO_MATCH_LINE } from './prompts';
 
 const TOC = ['第1章 100年ライフ', '第2章 過去の資金計画', '第3章 見えない資産', '第4章 新しいシナリオ'];
 
@@ -35,12 +35,17 @@ describe('dropUnknownChapters', () => {
     expect(removed).toHaveLength(2);
   });
 
-  it('目次が無い本: 章名を挙げた行は消し、空になった「重点的に読む箇所」は決まった 1 行に・空の流し読みは節ごと消す', () => {
+  it('目次が無い本: 章名を挙げた行は消し、箇条書きが残らない節は決まった 1 行（目次が手に入らない）に', () => {
     const { sheet } = dropUnknownChapters(SHEET, [], { noToc: true });
-    expect(sheet).toContain(`## 📍 重点的に読む箇所（20%）\n${PLAN_NO_TOC_LINE}`);
-    expect(sheet).not.toContain('流し読み');
+    expect(sheet).toContain(`## 📍 重点的に読む箇所（20%）\n${PLAN_NO_TOC_LINE}\n\n## ⏩ 流し読みでOKな箇所\n${PLAN_NO_TOC_LINE}`);
     expect(sheet).not.toContain('第3章');
     expect(sheet).toContain('## 📚 関連書籍');
+  });
+
+  it('目次がある本で、挙げた章がどれも目次と合わない → 決まった 1 行（目次と合う章が見つからなかった）', () => {
+    const s = '## 📍 重点的に読む箇所（20%）\nこの本では次の章が大事です。\n- 『第9章 AI 時代の働き方』: 近い\n- 第12章 のケース\n\n## ❓ 注意点\n- x';
+    const { sheet } = dropUnknownChapters(s, TOC);
+    expect(sheet).toBe(`## 📍 重点的に読む箇所（20%）\n${PLAN_NO_MATCH_LINE}\n\n## ❓ 注意点\n- x`);
   });
 
   it('この本の書名を許す文字列に入れれば、書名の『』は残る', () => {

@@ -6,9 +6,10 @@
 //   本の事実のように見せるので、書き終えたところで、目次（と、直すときは直す前のシート）に無いものを含む行を消す。
 //   - 『…』: 許可する文字列（目次の項目・直す前のシートの行）のどれかに含まれる（または含む・4 字以上）なら残す
 //   - 「第3章」「Part 2」など章の番号: 許可する文字列のどれかに同じ番号があれば残す
-//   - 行を消して中身が空になった節: 目次が無いときの「重点的に読む箇所」は決まった 1 行（PLAN_NO_TOC_LINE）にする・それ以外は節ごと消す
+//   - 行を消して箇条書きが 1 つも残らない節: 中身を決まった 1 行にする（目次が無い本は PLAN_NO_TOC_LINE・目次がある本は
+//     PLAN_NO_MATCH_LINE＝「目次と合う章が見つからなかったため、章の名前は挙げていません。」・画面は注記の見た目・2026-10-04 ui-critic）
 // AI は呼ばない。このモジュールは pure。
-import { PLAN_NO_TOC_LINE } from './prompts';
+import { PLAN_NO_TOC_LINE, PLAN_NO_MATCH_LINE } from './prompts';
 
 const FOCUS_HEADING_RE = /重点的に読む|流し読み|読み飛ばし/;
 const CHAPTER_NUM_RE = /第\s*[0-9０-９一二三四五六七八九十百]+\s*[章部節編]|chapter\s*\d+|part\s*\d+/gi;
@@ -81,10 +82,13 @@ export function dropUnknownChapters(sheet, allowed = [], { noToc = false } = {})
       removed.push(l.trim());
       return false;
     });
-    const hasContent = kept.some((l) => l.trim());
-    if (hasContent) out.push(lines[s.start], ...kept);
-    else if (noToc && /重点的に読む/.test(s.heading)) out.push(lines[s.start], PLAN_NO_TOC_LINE, ...kept);
-    // それ以外の空になった節は、見出しごと消す
+    const removedHere = kept.length < body.length;
+    const hasBullet = kept.some((l) => /^\s*(?:[-*・]|\d+[.)．])\s+/.test(l));
+    if (!removedHere || hasBullet) out.push(lines[s.start], ...kept);
+    else {
+      // 箇条書きが 1 つも残らない → 決まった 1 行だけ（AI の前置きの文も残さない）
+      out.push(lines[s.start], noToc ? PLAN_NO_TOC_LINE : PLAN_NO_MATCH_LINE, '');
+    }
     cursor = s.end;
   });
   while (cursor < lines.length) { out.push(lines[cursor]); cursor += 1; }
