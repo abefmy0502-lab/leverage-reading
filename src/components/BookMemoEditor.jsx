@@ -12,7 +12,8 @@ import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, input as uiInput } from '../styles/ui';
 import { ensureHttps } from '../lib/url';
-import { BookOpen, Sparkles, Undo2, ImagePlus, X } from 'lucide-react';
+import { BookOpen, Sparkles, Undo2, ImagePlus, X, Plus } from 'lucide-react';
+import { Chip } from './formPrimitives';
 import { useBlockEdgeSwipe } from '../hooks/useEdgeSwipeBack';
 import { useBackLayer } from '../hooks/useHistoryBack';
 import MemoLinks from './MemoLinks';
@@ -90,7 +91,7 @@ const inp = { ...uiInput };
 // メモは「読む文章」（DESIGN §2: 明朝 18・行間 1.6）。QuickMemoSheet と同じ。
 const ta = {
   ...inp,
-  resize: 'vertical',
+  resize: 'none', // Web のサイズ変更つまみは iOS の作法にない（メモを書くシートと同じ・2026-10-04）
   minHeight: 200,
   fontFamily: 'var(--font-read)',
   fontSize: 'var(--text-read)',
@@ -144,27 +145,8 @@ const fieldLabel = {
   marginBottom: 'var(--space-2)',
 };
 
-// チップ（DESIGN §5: --fill 面・13px・見た目 32・押せる範囲 44）。
-const tagPill = {
-  fontSize: 'var(--text-meta)',
-  minHeight: 32,
-  padding: '0 0 0 var(--space-3)',
-  borderRadius: 'var(--radius)',
-  background: 'var(--fill)',
-  color: 'var(--text)',
-  display: 'inline-flex',
-  alignItems: 'center',
-};
-
-// 候補のタグ（DESIGN §5 のチップ: 見た目 32、押せる範囲 44 は外側のボタンで取る）。
-const tagSuggestionBtn = {
-  display: 'inline-flex', alignItems: 'center', minHeight: 44, padding: 0,
-  background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-};
-const tagSuggestionFace = {
-  display: 'inline-flex', alignItems: 'center', height: 32, padding: '0 var(--space-3)',
-  borderRadius: 'var(--radius)', background: 'var(--fill)', color: 'var(--text)', fontSize: 'var(--text-meta)',
-};
+// 選ぶためのチップ（44）の並び。行の間・チップ同士の間は 8、チップ→入力欄は 12（formPrimitives の TagInput と同じ）。
+const tagChipRow = { display: 'flex', flexWrap: 'wrap', rowGap: 'var(--space-2)', columnGap: 'var(--space-2)', marginBottom: 'var(--space-3)' };
 
 function blockEnter(e) {
   if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
@@ -671,46 +653,26 @@ export default function BookMemoEditor({
 
         <div>
           <label htmlFor="memo-tag" style={fieldLabel}>タグ（任意）</label>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', marginBottom: tags.length ? 'var(--space-2)' : 0 }}>
-            {tags.map((t, i) => (
-              <span key={`${t}-${i}`} style={tagPill}>
-                {t}
-                <button
-                  type="button"
-                  onClick={() => removeTag(i)}
-                  aria-label={`タグ「${t}」を削除`}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--text-2)',
-                    cursor: 'pointer',
-                    padding: 0,
-                    // 見た目はチップ（32）に収め、押せる範囲は 44×44（DESIGN §6）。
-                    width: 44,
-                    height: 44,
-                    margin: 'calc(-1 * var(--space-2)) 0',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <X size={14} aria-hidden="true" />
-                </button>
-              </span>
-            ))}
-          </div>
+          {/* 本の追加・編集画面のタグ（formPrimitives の TagInput）と同じ形（DESIGN §5「選ぶためのチップ」44・2026-10-04）:
+              付けたもの＝選択中のチップ（--accent-soft・押すと外す）、候補＝「＋ タグ」のチップ（押すと付ける）。
+              打ちかけのタグを保存に含めるため、入力欄の状態はこの画面で持つ（TagInput は使わない）。 */}
+          {tags.length > 0 && (
+            <div style={tagChipRow}>
+              {tags.map((t, i) => (
+                <Chip key={`${t}-${i}`} size="select" active onClick={() => removeTag(i)} aria-label={`「${t}」を削除`}>
+                  {t}
+                  <X size="0.95em" aria-hidden="true" style={{ flexShrink: 0 }} />
+                </Chip>
+              ))}
+            </div>
+          )}
           {suggestions.length > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 'var(--space-2)', marginBottom: 'var(--space-1)' }}>
-              <span style={{ fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-3)' }}>過去のタグ</span>
+            <div style={tagChipRow}>
               {suggestions.map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => addTag(t)}
-                  style={tagSuggestionBtn}
-                >
-                  <span style={tagSuggestionFace}>+ {t}</span>
-                </button>
+                <Chip key={t} size="select" onClick={() => addTag(t)} aria-label={`「${t}」を追加`}>
+                  <Plus size="0.95em" aria-hidden="true" style={{ flexShrink: 0 }} />
+                  {t}
+                </Chip>
               ))}
             </div>
           )}
@@ -732,7 +694,8 @@ export default function BookMemoEditor({
             <button
               type="button"
               onClick={() => addTag()}
-              style={{ ...btnGhost, flex: 'none', padding: '0 var(--space-4)' }}
+              disabled={!tagInput.trim()}
+              style={{ ...(tagInput.trim() ? btnGhost : btnGhostOff), flex: 'none', padding: '0 var(--space-4)' }}
             >
               追加
             </button>

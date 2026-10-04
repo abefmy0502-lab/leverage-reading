@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ScanBarcode, Camera, X } from 'lucide-react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
+import { withPhraseBreaks } from './TightBubble';
 import { findDuplicateBook, STATUS_LABEL } from '../lib/checkDuplicate';
 import { btnPrimary, btnGhost, btnLink } from '../styles/ui';
 import {
@@ -311,7 +312,7 @@ function BarcodeScanner({ onDetect, onClose, onTypeIsbn }) {
         {scanError ? (
           <div style={{ width: '100%', padding: 'var(--space-6) var(--space-4)', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
             <div aria-hidden="true" style={{ display: 'flex', justifyContent: 'center' }}><Camera size={32} /></div>
-            <p role="alert" style={{ margin: '0 0 var(--space-3)', fontSize: 'var(--text-body)', lineHeight: 1.5 }}>{scanError}</p>
+            <p role="alert" style={{ margin: '0 0 var(--space-3)', fontSize: 'var(--text-body)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(scanError)}</p>
             {/* 行き止まり防止: 案内している「ISBN を入力」を、そのまま押せる主ボタンにする。 */}
             <button
               type="button"

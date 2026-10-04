@@ -17,12 +17,13 @@ import GrowthMeter from './GrowthMeter';
 import { takeMemosReached, growthMeterText, rememberHomeMemoCount, lastHomeMemoCount, showGrowthPlaceholder } from '../lib/firstDay';
 import { track } from '../lib/analytics';
 import { MiniCover } from './BookCards';
+import { phrasePieces } from './TightBubble';
 import { SkeletonBlock } from './Skeleton';
 import ErrorMessage from './ErrorMessage';
 import { btnPrimary, btnGhost, btnLink, card } from '../styles/ui';
 
 // DESIGN §5「行の中の小さい副ボタン」（高さ 44・文字 15・600）。
-const btnRow = { ...btnGhost, width: 'auto', flexShrink: 0, padding: 'var(--space-2) var(--space-3)', minHeight: 44, fontSize: 'var(--text-sub)' };
+const btnRow = { ...btnGhost, width: 'auto', flex: '1 0 auto', padding: 'var(--space-2) var(--space-3)', minHeight: 44, fontSize: 'var(--text-sub)' };
 
 const sectionTitle = {
   fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', margin: '0 0 var(--space-3)', lineHeight: 1.3,
@@ -32,6 +33,7 @@ const sectionTitle = {
 const textRow = btnLink;
 
 function StartCard({ onQuickstart, onAddBook, onAdvisor, onImport }) {
+  // 「いま読んでいる本を追加する」なので、この入口だけ状態を読書中にして開く（onAddBook＝読書中のプリセット）。
   return (
     <section aria-labelledby="home-start-title" style={card}>
       {/* 「読むほど、自分だけの相談相手が育つ」はログインと初回ガイドで伝え済み。ここは行動だけを示す（同じことを二度言わない）。 */}
@@ -59,22 +61,38 @@ function StartCard({ onQuickstart, onAddBook, onAdvisor, onImport }) {
 // いま読んでいる本の 1 行（表紙・書名・2 行目・右に副ボタン 1 つ）。読書中の本と、読書中が 0 冊のときの候補で共通。
 function BookRow({ book: b, sub, onOpenBook, onCoverRetry, action }) {
   return (
-    <div style={{ ...card, display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+    // 文字サイズを大きくしたときは、右のボタンを書名の下へ折り返す（横に並べたままだと書名が「数値／化…」と
+    // 2〜3 字で切れて読めなかった・2026-10-04）。ふだんの大きさでは 1 行（書名の欄は 10rem＝170 あれば並ぶ）。
+    // 折り返した行ではボタンが行の幅いっぱいに伸びる（余りはほぼ書名の側へ＝flex-grow 1000:1）。
+    <div style={{ ...card, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--space-3)' }}>
       <button
         type="button"
         onClick={() => onOpenBook(b)}
         aria-label={`『${b.title}』を開く`}
-        style={{ flex: 1, minWidth: 0, minHeight: 44, display: 'flex', alignItems: 'center', gap: 'var(--space-3)', background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', color: 'inherit' }}
+        // 書名の列は 7.5rem（約 8 字）＋表紙 40＋間 12。ふだんの大きさでは「メモを書く」と 1 行に並び（324 の行に 180＋12＋128）、
+        // 文字を少しでも大きくしたらボタンを折り返して書名の列を広げる（2026-10-04 ui-critic）。
+        style={{ flex: '1000 1 calc(7.5rem + 52px)', minWidth: 0, minHeight: 44, display: 'flex', alignItems: 'center', gap: 'var(--space-3)', background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', color: 'inherit' }}
       >
         <MiniCover book={b} width={40} onAutoRetry={onCoverRetry} />
         <span style={{ minWidth: 0 }}>
-          <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.4 }}>{b.title}</span>
+          {/* 書名は文節の切れ目でだけ折り返す（「イシューからは／じめよ」と語の途中で割れていた・2026-10-04）。 */}
+          {/* 文節・文字の種類の切れ目でだけ折り返す。それでも入らない切れ端だけ … に切る（最後の手段・2026-10-04）。 */}
+          <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.4 }}>{phraseChunks(b.title)}</span>
           {sub && <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-3)', marginTop: 'var(--space-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sub}</span>}
         </span>
       </button>
       {action}
     </div>
   );
+}
+
+// 書名を切れ端ごとの inline-block に。切れ端は文節、長い文節はその中の文字の種類の切れ目（「アウトプット／大全」）まで分ける。
+// 切れ端の切れ目でだけ折り返し、それでも列より長い切れ端だけ 1 行で … に切る（語の途中では割らない・2026-10-04）。
+function phraseChunks(title) {
+  const list = phrasePieces(title, { scriptBreaks: true }).filter((p) => p && p !== '\n');
+  return list.map((p, i) => (
+    <span key={i} style={{ display: 'inline-block', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', verticalAlign: 'top' }}>{p}</span>
+  ));
 }
 
 const byUpdated = (a, b) => (b.updated_at || '').localeCompare(a.updated_at || '');
@@ -93,7 +111,7 @@ function ReadingNow({ books, onOpenBook, onWriteMemo, onStartReading, onAddBook,
   const heading = stacked.length ? '次に読む本' : finished.length ? '最近読み終えた本' : 'いま読んでいる本';
   const memoBtn = (b) => (
     <button type="button" onClick={() => onWriteMemo(b)} aria-label={`『${b.title}』にメモを書く`} style={btnRow}>
-      <PencilLine size={16} aria-hidden="true" />メモを書く
+      <PencilLine size="1.1em" aria-hidden="true" style={{ flexShrink: 0 }} />メモを書く
     </button>
   );
   return (
@@ -115,7 +133,7 @@ function ReadingNow({ books, onOpenBook, onWriteMemo, onStartReading, onAddBook,
               onCoverRetry={onCoverRetry}
               action={b.status === 'before' && onStartReading ? (
                 <button type="button" onClick={() => onStartReading(b)} aria-label={`『${b.title}』を読み始める`} style={btnRow}>
-                  <BookOpen size={16} aria-hidden="true" />読み始める
+                  <BookOpen size="1.1em" aria-hidden="true" style={{ flexShrink: 0 }} />読み始める
                 </button>
               ) : memoBtn(b)}
             />
@@ -124,7 +142,7 @@ function ReadingNow({ books, onOpenBook, onWriteMemo, onStartReading, onAddBook,
               文字ボタンの左右 4 を打ち消して、文字の端をカードの端（16）にそろえる。 */}
           <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', columnGap: 'var(--space-4)', margin: 'calc(-1 * var(--space-1)) calc(-1 * var(--space-1)) 0' }}>
             <button type="button" onClick={onAddBook} style={{ ...btnLink, gap: 'var(--space-1)' }}>
-              <Plus size={18} aria-hidden="true" />本を追加
+              <Plus size="1.2em" aria-hidden="true" />本を追加
             </button>
             {reading.length > shown.length && (
               <button type="button" onClick={onSeeAllReading} style={btnLink}>
@@ -160,7 +178,7 @@ export function HomeBlocksSkeleton() {
 
 export default function HomeScreen({
   books = [], loading = false, loadError = null, onRetry,
-  onQuickstart, onAddBook, onAdvisor, onImport,
+  onQuickstart, onAddBook, onAddReadingBook, onAdvisor, onImport,
   onOpenBook, onWriteMemo, onStartReading, onOpenLibrary, onSeeAllReading, onCoverRetry,
 }) {
   // メモがあるか（はじめの一歩を出すか）。分かるまではスケルトン（カードを遅れて差し込まない・最大 800ms）。
@@ -204,7 +222,7 @@ export default function HomeScreen({
           actions={onRetry ? [{ label: 'もう一度', onClick: onRetry, variant: 'primary' }] : []}
         />
       ) : books.length === 0 ? (
-        <StartCard onQuickstart={onQuickstart} onAddBook={onAddBook} onAdvisor={onAdvisor} onImport={onImport} />
+        <StartCard onQuickstart={onQuickstart} onAddBook={onAddReadingBook || onAddBook} onAdvisor={onAdvisor} onImport={onImport} />
       ) : !memoState.known ? (
         <div role="status" aria-busy="true" aria-label="読み込み中" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
           <HomeBlocksSkeleton />
@@ -216,12 +234,15 @@ export default function HomeScreen({
           <button
             type="button"
             onClick={onOpenLibrary}
-            style={{ ...card, width: '100%', minHeight: 56, display: 'flex', alignItems: 'center', gap: 'var(--space-3)', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}
+            style={{ ...card, width: '100%', minHeight: 56, display: 'flex', alignItems: 'center', gap: 'var(--space-3)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-body)', textAlign: 'left' }}
           >
-            <Library size={20} aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
-            <span style={{ flex: 1, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>すべての本</span>
-            <span style={{ fontSize: 'var(--text-sub)', color: 'var(--text-3)' }}>{books.length} 冊</span>
-            <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)' }} />
+            <Library size="1.2em" aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
+            {/* 名前と冊数はそれぞれ割らない。文字が大きくて入りきらないときは冊数のほうが下の行へ回る。 */}
+            <span style={{ flex: 1, minWidth: 0, display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'space-between', columnGap: 'var(--space-3)' }}>
+              <span style={{ whiteSpace: 'nowrap', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>すべての本</span>
+              <span style={{ whiteSpace: 'nowrap', fontSize: 'var(--text-sub)', color: 'var(--text-3)' }}>{books.length} 冊</span>
+            </span>
+            <ChevronRight size="1.2em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
           </button>
         </>
       )}

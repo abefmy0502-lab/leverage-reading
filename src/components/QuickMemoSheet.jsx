@@ -601,9 +601,9 @@ export default function QuickMemoSheet({
                     const on = tags.includes(t);
                     return (
                       <Chip key={t} size="select" active={on} aria-pressed={on} aria-label={on ? `「${t}」を外す` : `「${t}」を付ける`} onClick={() => toggleTag(t)}>
-                        {!on && <Plus size={14} aria-hidden="true" />}
+                        {!on && <Plus size="0.95em" aria-hidden="true" style={{ flexShrink: 0 }} />}
                         {t}
-                        {on && <X size={14} aria-hidden="true" />}
+                        {on && <X size="0.95em" aria-hidden="true" style={{ flexShrink: 0 }} />}
                       </Chip>
                     );
                   })}

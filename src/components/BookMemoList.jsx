@@ -16,7 +16,7 @@ import ContextMenu from './ContextMenu';
 import BookMemoCard from './BookMemoCard';
 import BookMemoEditor from './BookMemoEditor';
 import ShareSheet from './ShareSheet';
-import { BookOpen, PencilLine, Clock, Quote, Pencil, Copy, Share, Trash2, Sparkles, Target, ChevronDown, Check } from 'lucide-react';
+import { BookOpen, PencilLine, Pencil, Copy, Share, Trash2, Sparkles, Target, ChevronDown, Check } from 'lucide-react';
 import { btnGhost, btnGhostOff, btnLink } from '../styles/ui';
 import MemoLinks from './MemoLinks';
 import { useMemoLinkFinder } from '../hooks/useMemoLinkFinder';
@@ -45,6 +45,12 @@ const summaryTextarea = {
   outline: 'none',
   boxSizing: 'border-box',
 };
+
+// 保存した新しいメモを送るときの下の空き（右下の「メモを書く」48＋12＋16＋「保存しました。」の知らせ 64）。
+const NEW_MEMO_SCROLL_MARGIN = 'calc(var(--fab-h) + var(--space-3) + var(--space-4) + var(--space-16))';
+
+// 絞り込みのメニューの印（選んでいる行は ✓・ほかは同じ幅の空き）。
+const menuCheck = (on) => (on ? <Check size={16} aria-hidden="true" /> : <span aria-hidden="true" style={{ display: 'inline-block', width: 16 }} />);
 
 // まとめの保存は副ボタン（詳細画面の主ボタンは「メモを書く」1 つ・DESIGN §0）。
 // 保存中は薄くせず btnGhostOff（DESIGN §5「押せないボタン」）。
@@ -440,9 +446,41 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
     if (result?.id) {
       setJustAddedId(result.id);
       setTimeout(() => setJustAddedId((cur) => (cur === result.id ? null : cur)), 1600);
+      revealNewMemo(result.id);
     }
     return result;
   };
+
+  // 📍 保存した新しいメモを画面の中まで送る（ページ順ではページの無いメモは一覧の最後に入り、光っても画面の外だった・
+  //   2026-10-04）。並びは変えずに送るだけ。シートが閉じ終わってから（約 250ms）、見えていなければ下の「保存しました。」の
+  //   知らせと右下の「メモを書く」の上まで（scroll-margin）。もう見えていれば動かさない（block: 'nearest'）。
+  const revealNewMemo = (id) => {
+    setTimeout(() => {
+      const el = rootRef.current?.querySelector(`[data-memo-id="${typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(String(id)) : String(id)}"]`);
+      if (!el) return;
+      let reduce = false;
+      try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { /* noop */ }
+      el.style.scrollMarginBottom = NEW_MEMO_SCROLL_MARGIN;
+      try { el.scrollIntoView({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' }); } catch { /* ignore */ }
+    }, 260);
+  };
+
+  // 本の詳細の右下の「メモを書く」（App のメモを書くシート）で保存したメモ（savedMemo）も、一覧に入ったら同じように
+  //   光らせて画面の中まで送る（2026-10-04）。1 回の保存（nonce）につき 1 回だけ。
+  const revealedNonceRef = useRef(null);
+  useEffect(() => {
+    if (!savedMemo || savedMemo.bookId !== bookId || !savedMemo.id || !savedMemo.nonce) return;
+    if (revealedNonceRef.current === savedMemo.nonce) return;
+    if (!memos.some((m) => m.id === savedMemo.id)) return;
+    revealedNonceRef.current = savedMemo.nonce;
+    const id = savedMemo.id;
+    if (quoteOnly && !memos.some((m) => m.id === id && Number.isFinite(m.pageNumber))) setQuoteOnly(false);
+    setJustAddedId(id);
+    // 片付けで消さない（memos が変わるたびにこの effect は走り直すので、ここで clearTimeout すると光が残り続ける）。
+    setTimeout(() => setJustAddedId((cur) => (cur === id ? null : cur)), 1600);
+    revealNewMemo(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [savedMemo?.nonce, savedMemo?.id, bookId, memos]);
 
   const handleUpdate = async (memoId, payload) => {
     const result = await updateMemo(memoId, payload);
@@ -485,7 +523,8 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
     const ok = await confirm({
       title: 'このメモを削除しますか？',
       message: memo.photoPath
-        ? '写真も Storage から削除されます。\n（元に戻しても、写真は戻りません）'
+        // 内部の名前（Storage）は見せない。スワイプの確認と同じ文（2026-10-04）。
+        ? '写真もいっしょに削除されます。元に戻しても、写真は戻りません。'
         : '5 秒以内なら「元に戻す」で戻せます。',
       confirmLabel: '削除する',
       cancelLabel: 'キャンセル',
@@ -502,7 +541,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
     if (memo.photoPath) {
       const ok = await confirm({
         title: 'このメモを削除しますか？',
-        message: '写真も削除されます。（元に戻しても、写真は戻りません）',
+        message: '写真もいっしょに削除されます。元に戻しても、写真は戻りません。',
         confirmLabel: '削除する',
         cancelLabel: 'キャンセル',
         danger: true,
@@ -548,7 +587,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
             style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, padding: '0 0 0 var(--space-2)', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-sub)', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}
           >
             {sortBy === 'page' ? 'ページ順' : '新しい順'}{quoteOnly ? '・ページ番号つき' : ''}
-            <ChevronDown size={16} aria-hidden="true" />
+            <ChevronDown size="1.1em" aria-hidden="true" style={{ flexShrink: 0 }} />
           </button>
         </div>
       )}
@@ -583,7 +622,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
       {!loading && memos.length > 0 && quoteOnly && visibleMemos.length === 0 && (
         <EmptyState
           icon={<BookOpen size={32} strokeWidth={1.5} aria-hidden="true" />}
-          title="ページ番号付きのメモがまだありません"
+          title="ページ番号つきのメモはまだありません"
           description="メモにページ番号を入れておくと、引用したい一行をここから素早く取り出せます。"
           actions={[{ label: 'すべてのメモを表示', onClick: () => setQuoteOnly(false), variant: 'secondary' }]}
         />
@@ -665,10 +704,12 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
           x={sortMenu.x}
           y={sortMenu.y}
           onClose={() => setSortMenu(null)}
+          // DESIGN §5「絞り込みのメニュー」: 選んでいる行に ✓、ほかの行は同じ幅の空き（行ごとの絵のアイコンは付けない・
+          // 振り返りの「すべての種類 ▾」と同じ作法・2026-10-04）。「ページ番号つきだけ」はもう一度押すと外れる。
           items={[
-            { label: 'ページ順', icon: sortBy === 'page' ? <Check size={16} aria-hidden="true" /> : <BookOpen size={16} aria-hidden="true" />, onClick: () => setSortBy('page') },
-            { label: '新しい順', icon: sortBy === 'created_desc' ? <Check size={16} aria-hidden="true" /> : <Clock size={16} aria-hidden="true" />, onClick: () => setSortBy('created_desc') },
-            { label: quoteOnly ? 'すべてのメモを表示' : 'ページ番号つきだけ', icon: <Quote size={16} aria-hidden="true" />, onClick: () => setQuoteOnly((v) => !v) },
+            { label: 'ページ順', icon: menuCheck(sortBy === 'page'), onClick: () => setSortBy('page') },
+            { label: '新しい順', icon: menuCheck(sortBy === 'created_desc'), onClick: () => setSortBy('created_desc') },
+            { label: 'ページ番号つきだけ', icon: menuCheck(quoteOnly), onClick: () => setQuoteOnly((v) => !v) },
           ]}
         />
       )}

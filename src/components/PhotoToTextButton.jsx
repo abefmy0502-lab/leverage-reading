@@ -23,6 +23,7 @@ import { useHaptic } from '../hooks/useHaptic';
 import { ScanText } from 'lucide-react';
 import { usePaywall } from '../state/PaywallContext';
 import ErrorMessage from './ErrorMessage';
+import { withPhraseBreaks } from './TightBubble';
 import { freeOcrHintParts, freeOcrTapAction } from '../lib/freeOcr';
 
 const baseStyle = {
@@ -151,8 +152,11 @@ export default function PhotoToTextButton({ onText, disabled = false, style }) {
         aria-label={loading ? '読み取り中…' : `写真から書き起こす（ページの文章をメモに入れる${hint ? `・${hint.join('')}` : ''}${usedUp ? '・押すとプランの案内' : ''}）`}
         aria-busy={loading || undefined}
       >
-        <ScanText size={16} aria-hidden="true" />
-        {loading ? '読み取り中…' : '写真から書き起こす'}
+        {/* アイコンは文字と一緒に大きくなる（1.2em＝ふだん 18・入力欄の上の全幅のボタン（17）では 20）。 */}
+        <ScanText size="1.2em" aria-hidden="true" style={{ flexShrink: 0 }} />
+        {/* 文字サイズを大きくして 2 行になるときも、文節の切れ目でだけ折り返す（「書き起／こす」と割れていた・2026-10-04）。
+            文字は自分の幅だけ取り（flex: 0 1 auto）、2 行になってもアイコンが離れて取り残されないように左寄せ。 */}
+        <span style={{ flex: '0 1 auto', textAlign: 'left', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(loading ? '読み取り中…' : '写真から書き起こす')}</span>
       </button>
       {hint && !loading && !failure && (
         <p style={usedUp ? { ...hintStyle, color: 'var(--text-2)' } : hintStyle} aria-hidden="true">
