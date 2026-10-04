@@ -279,7 +279,9 @@ function ActionRow({ a, completing, swipeable, onCheck, onOpenMenu, onSwipeDelet
     //   期限はまとまりで折り返さない（nowrap）。書名は … で 1 行に切る（下のメタ行）。
     if (label) meta.push(<span key="dl" style={{ whiteSpace: 'nowrap', ...(isOver ? { color: overdue ? 'var(--warning)' : 'var(--text-3)' } : null) }}>{label}</span>);
   }
-  if (a.priority === 'high') meta.push('優先');
+  // 完了した行動は「いつやったか」を出す（優先は、もうやり終えたので出さない・2026-10-04）。
+  if (a.done && a.completedAt && fmtShort(a.completedAt)) meta.push(`完了 ${fmtShort(a.completedAt)}`);
+  if (a.priority === 'high' && !a.done) meta.push('優先');
   if (a.recurrence) meta.push(a.recurrence === 'weekly' ? '毎週' : '毎月');
   if (a.sourcePage) meta.push(`p.${a.sourcePage}`);
 
