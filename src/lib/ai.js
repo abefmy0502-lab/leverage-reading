@@ -8,7 +8,7 @@ import { track } from './analytics';
 import { MODEL_SMART, MODEL_FAST } from './models';
 import { apiUrl } from './apiUrl';
 import { fetchAllRows } from './fetchAllRows';
-import { verifyAnswerQuotes, decodeQuoteRefs, groundRefs } from './evidenceCheck';
+import { verifyAnswerQuotes, decodeQuoteRefs, groundRefs, hasGroundedEvidence } from './evidenceCheck';
 import { parseAskSection, wantsAction, isBookLookup } from './consultHelpers';
 import { checkAiConsentForSend, AI_CONSENT_HEADER, AI_CONSENT_DECLINED_TEXT } from './aiConsent';
 import { askJev, jevClientOn } from './jev';
@@ -1899,7 +1899,9 @@ export async function streamMyBookBrain({ userId, question, onStage, onChunk, si
   // REFS は渡したメモと突き合わせてから残す（材料に無い本・メモに無いページを「もとになった本」に出さない・2026-10-04）
   let refs = parsed.refs;
   try { refs = groundRefs(parsed.refs, ctx.sources); } catch { refs = parsed.refs; }
-  return { body, refs, ...ctx.stats, truncated, evidence: evidenceFromRefs(refs, ctx.sources, Date.now(), verified), quoteRefs, tokenRefund, mode: ctx.mode || 'fused', perbookBooks: ctx.perbookBooks, voice: ctx.voice || null, decide: !!ctx.decide };
+  // grounded: 根拠を 1 件でも渡したメモで確かめられたか（無ければ、はじめての相談でも「メモ N 件から答えました」を付けない）
+  const grounded = hasGroundedEvidence(refs, verified);
+  return { body, refs, grounded, ...ctx.stats, truncated, evidence: evidenceFromRefs(refs, ctx.sources, Date.now(), verified), quoteRefs, tokenRefund, mode: ctx.mode || 'fused', perbookBooks: ctx.perbookBooks, voice: ctx.voice || null, decide: !!ctx.decide };
 }
 
 // ============================================================================

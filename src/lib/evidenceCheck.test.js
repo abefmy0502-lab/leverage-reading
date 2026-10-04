@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   normalizeForMatch, quoteInMemo, extractQuotes, verifyRefLine, verifyAnswerQuotes,
-  decodeQuoteRefs, stripQuotes, QUOTE_PREFIX, stripPageRefs, groundRefs,
+  decodeQuoteRefs, stripQuotes, QUOTE_PREFIX, stripPageRefs, groundRefs, hasGroundedEvidence,
 } from './evidenceCheck';
 
 const sources = [
@@ -204,5 +204,19 @@ describe('groundRefs（REFS を渡したメモと突き合わせる）', () => {
   });
   it('渡したメモが無ければそのまま', () => {
     expect(groundRefs(['📚 『7つの習慣』'], [])).toEqual(['📚 『7つの習慣』']);
+  });
+});
+
+describe('hasGroundedEvidence（根拠を 1 件でも確かめられたか・2026-10-04）', () => {
+  it('REFS が残った・参照が渡したメモの本に当たったら true', () => {
+    expect(hasGroundedEvidence(['📚 『イシューからはじめよ』p.25'], [])).toBe(true);
+    expect(hasGroundedEvidence([], [{ k: 'r', s: 'ok' }])).toBe(true);
+    expect(hasGroundedEvidence([], [{ k: 'r', s: 'none' }])).toBe(true);
+  });
+  it('全部が渡したメモに無い・一致しない引用だけ・何も無いなら false', () => {
+    const refs = groundRefs(['📚 『7つの習慣』p.88', '📚 架空太郎『最強の報告術』'], sources);
+    expect(refs).toEqual([]);
+    expect(hasGroundedEvidence(refs, [{ k: 'r', s: 'x' }, { k: 'r', s: 'ng' }])).toBe(false);
+    expect(hasGroundedEvidence([], [])).toBe(false);
   });
 });

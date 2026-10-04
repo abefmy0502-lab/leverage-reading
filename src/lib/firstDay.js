@@ -34,9 +34,10 @@ export function growthMeterText(memoCount, { overall = false } = {}) {
 // はじめての相談の答えの下の一行。AI が挙げた参照からメモが数えられたら、その行（evidence）のまま。
 // 数えられなかった（参照の書き方がずれた）ときも、はじめての相談だけは、答えに使ったメモの数で出す。
 // 関係するメモが無かった答え（トークンを返した）・メモ 0 件には付けない（盛らない）。
-export function firstAnswerEvidence({ evidence = null, memoCount = 0, isFirst = false, refunded = false } = {}) {
+// 根拠を 1 件も渡したメモで確かめられなかった答え（grounded: false＝参照が全部消えて「根拠を見る」も出ない）にも付けない（2026-10-04）。
+export function firstAnswerEvidence({ evidence = null, memoCount = 0, isFirst = false, refunded = false, grounded = true } = {}) {
   if (evidence) return evidence;
-  if (!isFirst || refunded) return null;
+  if (!isFirst || refunded || grounded === false) return null;
   const n = Math.floor(Number(memoCount) || 0);
   return n > 0 ? `あなたのメモ ${n} 件から答えました` : null;
 }

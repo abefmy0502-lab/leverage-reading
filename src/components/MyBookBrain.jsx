@@ -1206,7 +1206,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     // 🗣 著者の語り口で答えるか（書き始める前に分かる・onStage の voice）。
     let liveVoice = null;
     try {
-      const { body, refs, memoCount, evidence, quoteRefs, tokenRefund, mode: usedMode, perbookBooks, completedActions, voice: usedVoice, decide: usedDecide } = await streamMyBookBrain({
+      const { body, refs, grounded, memoCount, evidence, quoteRefs, tokenRefund, mode: usedMode, perbookBooks, completedActions, voice: usedVoice, decide: usedDecide } = await streamMyBookBrain({
         userId: user.id,
         question: q,
         bookIds: askBookIds,
@@ -1262,7 +1262,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       const grown = wasAborted ? 0 : await growthPromise;
       // 🌱 はじめての相談の答えには、必ず「あなたのメモ N 件から答えました」（2026-10-02・lib/firstDay.js）。
       //   AI の参照から数えられなかったときも、はじめての相談だけは答えに使ったメモの数で出す（関係するメモが無かった答えは除く）。
-      const evidenceLine = firstAnswerEvidence({ evidence, memoCount, isFirst: !prevAskAt && !opts.skipUserInsert, refunded: !!tokenRefund });
+      const evidenceLine = firstAnswerEvidence({ evidence, memoCount, isFirst: !prevAskAt && !opts.skipUserInsert, refunded: !!tokenRefund, grounded });
       const persistRefs = wasAborted ? [] : [
         ...(evidenceLine ? [`${EVIDENCE_PREFIX}${evidenceLine}`] : []),
         // 関係するメモが無かった答え（トークンを返した）には、積み重ねの一行を付けない（効いていないので）

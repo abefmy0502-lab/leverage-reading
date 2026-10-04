@@ -243,6 +243,15 @@ export function groundRefs(refs, sources) {
   return [...new Set(out)];
 }
 
+// 答えの根拠が 1 件でも渡したメモで確かめられたか（2026-10-04 ui-critic）。
+//   refs: groundRefs で突き合わせたあとの REFS・checks: decodeQuoteRefs の結果。
+//   REFS が 1 行でも残った・参照の行が渡したメモの本に当たった（'ok' か AI の要約のまま見せる 'none'）なら true。
+//   全部が渡したメモに無い（'x'）・一致しない引用（'ng'）だけ・何も挙げていない → false（「あなたのメモ N 件から答えました」を付けない）。
+export function hasGroundedEvidence(refs, checks) {
+  if (Array.isArray(refs) && refs.some((r) => String(r || '').trim())) return true;
+  return (Array.isArray(checks) ? checks : []).some((c) => c && (c.s === 'ok' || c.s === 'none'));
+}
+
 // 答えの本文から、見出し（【…】）ごとの節を取り出す。
 function sectionsOf(body) {
   const out = {};
