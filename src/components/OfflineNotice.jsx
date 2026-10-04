@@ -19,6 +19,11 @@ import { withPhraseBreaks } from './TightBubble';
 // 画面を切り替えても（部品が作り直されても）、いつから切れているかは 1 つだけ持つ。
 let offlineSince = null;
 const RECONNECT_TOAST_MIN_MS = 5000;
+const OFFLINE_TEXT = 'オフラインです。つながるまで保存できません。';
+const SR_ONLY = {
+  position: 'absolute', width: 1, height: 1, margin: -1, padding: 0, overflow: 'hidden',
+  clip: 'rect(0 0 0 0)', clipPath: 'inset(50%)', whiteSpace: 'nowrap', border: 0, visibility: 'visible',
+};
 
 export default function OfflineNotice({ style }) {
   const online = useOnline();
@@ -41,8 +46,8 @@ export default function OfflineNotice({ style }) {
   const shown = !online;
   return (
     <div
-      aria-hidden={!shown || undefined}
       style={{
+        position: 'relative',
         flexShrink: 0,
         display: 'grid',
         gridTemplateRows: shown ? '1fr' : '0fr',
@@ -51,9 +56,13 @@ export default function OfflineNotice({ style }) {
         ...style,
       }}
     >
+      {/* 読み上げ: いつもある見えない status に、切れたときだけ文を入れる（入れた瞬間に読まれる）。
+          帯そのものは見た目だけ（aria-hidden）。帯の visibility を切り替えるだけだと、出たときに読まれなかった（2026-10-04 ui-critic）。
+          visibility: visible で、畳んでいる帯（hidden）の中でも読み上げの木に残す。 */}
+      <span role="status" style={SR_ONLY}>{shown ? OFFLINE_TEXT : ''}</span>
       <div style={{ minHeight: 0, overflow: 'hidden' }}>
         <p
-          role="status"
+          aria-hidden="true"
           data-offline-notice=""
           style={{
             margin: 0,
@@ -70,7 +79,7 @@ export default function OfflineNotice({ style }) {
           }}
         >
           <WifiOff size={16} aria-hidden="true" style={{ flexShrink: 0 }} />
-          <span style={{ minWidth: 0 }}>{withPhraseBreaks('オフラインです。つながるまで保存できません。')}</span>
+          <span style={{ minWidth: 0 }}>{withPhraseBreaks(OFFLINE_TEXT)}</span>
         </p>
       </div>
     </div>
