@@ -7,7 +7,6 @@ import { OPEN_MEMO_EVENT } from './lib/openMemo';
 import { useAppDataCache } from './state/AppDataCache';
 import { streamClaude } from './lib/streamClaude';
 import { PROMPTS } from './lib/prompts';
-import { loadDefaultJapaneseParser } from 'budoux';
 // ⚡ 最初の画面に要らない重い部品は、使うときに読む（Suspense 付きの薄い包み・components/lazyParts.jsx）。
 import { AuthScreen, AuthCallback, BookMemoList, BookSearchModal, BookMemoEditor, ActionList, MarkdownSections, AuthorThankYou, OverlayFallback } from './components/lazyParts';
 import { BookCoverCard, SwipeableBookCard, MiniCover, StatusLabel } from './components/BookCards';
@@ -20,6 +19,11 @@ const LIBRARY_FIRST = 12;
 const PastBooksQuickstart = lazy(() => import('./components/PastBooksQuickstart'));
 const ImportSheet = lazy(() => import('./components/ImportSheet'));
 import MemoFab, { FAB_CLEARANCE } from './components/MemoFab';
+// 読了にした直後の本の詳細の下の余白（右下の「メモを書く」＋「読了にしました。」の知らせ 64）。
+// 押し込まれた画面の上の行の「‹ 戻り先」の文字。文字サイズの設定に合わせて大きくなるが、タブの画面の上の行と同じ
+// 上限（--text-bar-max）で止めて 1 行に収める（「‹ すべての／本」と 2 行に割れていた・2026-10-04）。
+const BACK_LABEL_SIZE = 'min(var(--text-body), var(--text-bar-max))';
+const JUST_DONE_CLEARANCE = `calc(${FAB_CLEARANCE} + var(--space-16))`;
 import { frequentMemoTags } from './lib/memoTags';
 const HomeQuickMemo = lazy(() => import('./components/HomeQuickMemo'));
 import Onboarding, { isOnboardingCompleted, clearOnboardingCompletion } from './components/Onboarding';
@@ -36,7 +40,7 @@ import {
 
 // 本棚ツールバー（シート化）用の共通スタイル。
 const SHELF_CHIP_ORDER = ['reading', 'done', 'before', 'want'];
-const SORT_LABELS = { updated: '更新順', created: '登録順', title: 'タイトル順', rating: '評価順' };
+const SORT_LABELS = { updated: '更新順', created: '登録順', title: '書名順', rating: '評価順' };
 // 状態・フォルダのチップ（DESIGN §5: 見た目は --fill 面・13px・高さ 32、押せる範囲は 44）。
 function ShelfChip({ active, onClick, children, ariaLabel }) {
   return (
@@ -307,14 +311,9 @@ function HomeLoadingSkeleton() {
 // 書名を文節で折り返す（BudouX）。「1兆ドル／コーチ」のような語の途中の改行を避ける。
 // word-break: keep-all と組み合わせ、文節の切れ目（<wbr>）でだけ折り返す。
 // 英語などで 1 文節が行より長いときは overflow-wrap: anywhere で折る。
-const jaPhraseParser = loadDefaultJapaneseParser();
 function titleWithPhraseBreaks(title) {
-  const text = String(title || '');
-  if (!text) return text;
-  let phrases;
-  try { phrases = jaPhraseParser.parse(text); } catch { return text; }
-  if (!phrases || phrases.length <= 1) return text;
-  return phrases.flatMap((p, i) => (i === 0 ? [p] : [<wbr key={i} />, p]));
+  // 長い 1 文節の中も文字の種類の切れ目（「アウトプット／大全」「エリック・／シュミット」）で折り返してよい（2026-10-04）。
+  return withPhraseBreaks(title, { scriptBreaks: true });
 }
 
 function Card({ label, text, style }) {
@@ -327,12 +326,14 @@ function Card({ label, text, style }) {
       <p
         style={{
           fontSize: 'var(--text-body)', color: 'var(--text)', lineHeight: 1.5, whiteSpace: 'pre-wrap', margin: 0,
+          // 文節の切れ目でだけ折り返す（「持／てない」「身／につく」と語の途中で割れていた・2026-10-04）。
+          wordBreak: 'keep-all', overflowWrap: 'anywhere',
           ...(isLong && !expanded
             ? { display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }
             : {}),
         }}
       >
-        {text}
+        {withPhraseBreaks(text)}
       </p>
       {isLong && (
         <button
@@ -1513,7 +1514,7 @@ function AuthedApp() {
     if (!detailCoverUploadRef.current) {
       // eslint-disable-next-line no-console
       console.error('[manual-upload] file input ref is null — input not mounted in current view');
-      toast.error('ファイル選択画面を開けませんでした。本棚から再度お試しください。');
+      toast.error('写真を選ぶ画面を開けませんでした。本の詳細から、もう一度お試しください。');
       return;
     }
     detailCoverUploadRef.current.click();
@@ -1550,6 +1551,9 @@ function AuthedApp() {
 
   const removeCoverFor = async (book) => {
     if (!book) return;
+    // 「元に戻す」用に消す前の表紙を覚えておく（自分でアップロードした表紙は取り直しでは戻らないため・2026-10-04）。
+    const before = booksRef.current.find((b) => b.id === book.id) || book;
+    const prevCover = { cover: before.cover || '', coverIsbn: before.coverIsbn ?? null };
     try {
       // coverIsbn='removed' は「ユーザーが意図的に消した」印。自動リトライ
       // (coverAutoRetry) がこれを見て復活させない。手動「取り直す」では
@@ -1563,7 +1567,26 @@ function AuthedApp() {
         const next = saved || updated;
         setCurrent((c) => (c && c.id === next.id ? next : c));
       });
-      toast.success('表紙を削除しました。');
+      // 削除は「元に戻す」つき（DESIGN §5 トースト・ほかの削除と同じ）。
+      toast.undo({
+        message: '表紙を削除しました。',
+        destructive: true,
+        onUndo: async () => {
+          try {
+            await enqueueBookMutation(book.id, async (entry) => {
+              const base = entry.latest || booksRef.current.find((b) => b.id === book.id);
+              if (!base) return; // その間に本が消された
+              const restored = { ...base, ...prevCover };
+              const saved = await saveBook(restored);
+              if (saved) entry.latest = saved;
+              const next = saved || restored;
+              setCurrent((c) => (c && c.id === next.id ? next : c));
+            });
+          } catch (err) {
+            toast.error(toMessage(err, '表紙を元に戻せませんでした'));
+          }
+        },
+      });
     } catch (err) {
       toast.error(toMessage(err, '表紙の削除に失敗しました'));
     }
@@ -1810,8 +1833,14 @@ function AuthedApp() {
   // detail コンテナをスクロールトップへ戻す。これがないと「読書前」で
   // 下までスクロールした状態のまま「読書中」UI が表示され、画面が下から
   // 始まる症状になる。
+  // 例外: 同じ本を「読了にする」で読書中 → 読了にしたときは、その場に留まる（画面は同じ形のまま・押した場所に
+  //   「読了を写真で共有」を出すため。先頭へ戻すと、出したボタンが画面の外になっていた・2026-10-04）。
+  const prevDetailStatusRef = useRef({ view, id: current?.id, status: current?.status });
   useEffect(() => {
+    const prev = prevDetailStatusRef.current;
+    prevDetailStatusRef.current = { view, id: current?.id, status: current?.status };
     if (view !== 'detail') return;
+    if (prev.view === 'detail' && prev.id === current?.id && prev.status === 'reading' && current?.status === 'done') return;
     if (detailScrollRef.current) {
       try { detailScrollRef.current.scrollTo({ top: 0, behavior: 'auto' }); } catch { /* ignore */ }
     }
@@ -1883,7 +1912,7 @@ function AuthedApp() {
     // ボタンは「押したら何が起きるか」を正確に言う（既存本を開くと今の入力は
     // 保存されない。旧: 「📖 既存の本を見る / ← 戻る」で入力破棄が伝わらなかった）。
     const ok = await confirm({
-      title: 'この本は既に本棚にあります',
+      title: 'この本はもう本棚にあります',
       message: `『${existing.title}』は「${statusLabel}」として登録済みです。既存の本を開くと、いま入力中の内容は保存されません。`,
       confirmLabel: '既存の本を開く',
       cancelLabel: 'このまま編集を続ける',
@@ -1901,7 +1930,7 @@ function AuthedApp() {
     // 複数 await を含むため、連打すると新規本が二重作成されうる。
     if (savingRef.current) return;
     if (!form.title.trim()) {
-      toast.error(fieldRequiredMessage('タイトル'));
+      toast.error(fieldRequiredMessage('書名'));
       return;
     }
     savingRef.current = true;
@@ -2073,7 +2102,7 @@ function AuthedApp() {
       // DB 側 UNIQUE 制約に弾かれた場合 (= UI チェックを抜けた競合状況) は
       // 専用メッセージで案内。それ以外は通常のエラー。
       if (isUniqueViolation(error)) {
-        toast.error('この本は既に本棚にあります。');
+        toast.error('この本はもう本棚にあります。');
       } else {
         toast.error(toMessage(error, '保存に失敗しました。もう一度お試しください。'));
       }
@@ -2560,7 +2589,7 @@ function AuthedApp() {
       return saved;
     } catch (error) {
       if (isUniqueViolation(error)) {
-        toast.error('この本は既に本棚にあります。');
+        toast.error('この本はもう本棚にあります。');
       } else {
         toast.error(toMessage(error, '本の追加に失敗しました。'));
       }
@@ -2627,7 +2656,7 @@ function AuthedApp() {
           track('status_changed', { to: newStatus });
         }
       } catch (error) {
-        toast.error(toMessage(error, 'ステータス変更に失敗しました。'));
+        toast.error(toMessage(error, '状態を変えられませんでした。'));
         // rollback は status 系フィールドのみ（他の並行変更は保持）。画面遷移は
         // ユーザーがこの本を開いたままの時だけ行う（別の本の編集画面を乗っ取らない）。
         mutateBookLocal(book.id, (b) => ({ ...b, ...prev }));
@@ -2663,7 +2692,7 @@ function AuthedApp() {
           const saved = await saveBook(reverted);
           entry.latest = saved || reverted;
         } catch (error) {
-          toast.error(toMessage(error, 'ステータス変更の取り消しに失敗しました。'));
+          toast.error(toMessage(error, '状態を元に戻せませんでした。'));
         }
       });
     };
@@ -2681,11 +2710,13 @@ function AuthedApp() {
       clearTimeout(justDoneTimerRef.current);
       justDoneTimerRef.current = setTimeout(() => setJustDoneId(book.id), 400);
       dismissStatusUndo(book.id);
-      statusUndoToastRef.current.set(book.id, toast.show({
-        type: 'success',
-        message: `『${book.title}』を読了にしました。心に残ったことを 1 行メモしておくと、あとで相談に生きます。`,
+      // 「元に戻す」と並ぶ知らせは 390 幅で 1 行に収まる短さに（DESIGN §5 トースト・5 行に折れていた）。
+      // 一言を残す案内は画面の「一番の収穫を 1 行だけ残す」が受け持つ。「元に戻す」つきは toast.undo（完了なので ✓ の印）。
+      statusUndoToastRef.current.set(book.id, toast.undo({
+        message: '読了にしました。',
+        success: true,
         duration: 6500,
-        action: { label: '元に戻す', onClick: revert },
+        onUndo: revert,
       }));
     } else if (opts.message) {
       // 状態の変更はついで（読書計画シートを作るために積読に積んだ等）。「元に戻す」は出さず、何をしているかだけ。
@@ -2696,8 +2727,10 @@ function AuthedApp() {
       if (opts.progress) planProgressToastRef.current = { bookId: book.id, id };
     } else {
       dismissStatusUndo(book.id);
+      // 「元に戻す」と並ぶので 390 幅で 1 行に収まる短さに（「「読書中」に／変更しました。」と 2 行に折れていた・DESIGN §5 トースト）。
+      const shortDone = { before: '積読に積みました。', reading: '読書中にしました。' };
       statusUndoToastRef.current.set(book.id, toast.undo({
-        message: `「${labels[newStatus] || newStatus}」に変更しました。`,
+        message: shortDone[newStatus] || `「${labels[newStatus] || newStatus}」にしました。`,
         destructive: false, // 状態の変更は消していないので、ゴミ箱ではなく中立の ↶
         onUndo: revert,
       }));
@@ -3131,7 +3164,7 @@ function AuthedApp() {
           return next;
         });
         if (isUniqueViolation(error)) {
-          toast.error('この本は既に本棚にあります。');
+          toast.error('この本はもう本棚にあります。');
         } else {
           toast.error(toMessage(error, '本の追加に失敗しました。'));
         }
@@ -4012,7 +4045,7 @@ function AuthedApp() {
         <PushedTopBar scrollRef={detailScrollRef}>
             {/* iOS ナビ風: 指が最初に探す左上の戻るは、背景に沈まない重みで。 */}
             {/* 戻るは「すべての本」の ‹ ホーム と同じ形（ChevronLeft 20・間 0・見た目の左端 16・本文サイズ・--accent）。 */}
-            <button onClick={leaveDetail} style={{ display: 'inline-flex', alignItems: 'center', gap: 0, minHeight: 44, padding: '0 var(--space-2) 0 0', marginLeft: BACK_CHEVRON_PULL, background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-body)', fontFamily: 'inherit', cursor: 'pointer' }}>
+            <button onClick={leaveDetail} style={{ display: 'inline-flex', alignItems: 'center', gap: 0, minHeight: 44, padding: '0 var(--space-2) 0 0', marginLeft: BACK_CHEVRON_PULL, background: 'none', border: 'none', color: 'var(--accent)', fontSize: BACK_LABEL_SIZE, whiteSpace: 'nowrap', fontFamily: 'inherit', cursor: 'pointer' }}>
               <ChevronLeft size={20} aria-hidden="true" />{detailBackToSearch ? '検索' : tab === 'review' ? '振り返り' : tab === 'ai' ? (aiSubTab === 'advisor' ? 'AI 選書' : '相談') : shelfMode === 'library' ? 'すべての本' : 'ホーム'}
             </button>
             <div style={{ display: "flex", gap: 'var(--space-1)', marginRight: 'calc(-1 * var(--space-3))' }}>
@@ -4023,7 +4056,8 @@ function AuthedApp() {
                   type="button"
                   onClick={() => openShareCamera({ book: current, from: 'detail' })}
                   aria-label="写真で共有"
-                  style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', padding: '0 var(--space-2)' }}
+                  // 文字はタブの画面の上の行と同じ上限（--text-bar-max）で止め、1 行に（文字サイズを大きくすると「写真で共／有」と割れていた・2026-10-04）。
+                  style={{ ...btnLink, fontSize: 'min(var(--text-sub), var(--text-bar-max))', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', padding: '0 var(--space-2)' }}
                 >
                   <Camera size={22} strokeWidth={1.75} aria-hidden="true" />
                   写真で共有
@@ -4052,24 +4086,28 @@ function AuthedApp() {
             overscrollBehaviorY: 'contain',
             WebkitOverflowScrolling: 'touch',
             // 下は右下の「メモを書く」の上まで、いちばん下のボタンを送れる分（ボタンの高さ＋12＋16＋セーフエリア・2026-09-30）。
-            padding: `0 var(--space-4) ${FAB_CLEARANCE}`,
+            // 読了にした直後（「読了を写真で共有」を出している間）は、その上の「読了にしました。」の知らせの分（64）も足す
+            // （いちばん下のボタンが知らせの下に隠れていた・2026-10-04）。
+            padding: `0 var(--space-4) ${justDoneId && current && justDoneId === current.id ? JUST_DONE_CLEARANCE : FAB_CLEARANCE}`,
           }}
         >
 
           {/* Book header */}
-          <div style={{ display: "flex", gap: 'var(--space-4)', marginTop: 'var(--space-2)' }}>
+          {/* 文字サイズを大きくしたときは、書名の列を表紙の下へ回す（列の幅 12rem＝ふだん 204 は表紙の横 270 に収まる・
+              大きいと書名が 1 行 3〜4 字に詰まり「1兆ドルコ／ーチ」と割れていた・2026-10-04 ui-critic）。 */}
+          <div style={{ display: "flex", flexWrap: 'wrap', gap: 'var(--space-4)', marginTop: 'var(--space-2)' }}>
             {/* 表紙の選び直し・取り直し・アップロードは「⋯」メニューへ（表紙の下の小さな
                 リンクは 10pt・高さ 32 で DESIGN 基準に届かないため撤去）。 */}
             {/* MiniCover は表紙が読めない（壊れた URL・1×1 のダミー）ときも書名入りの表紙に切り替わる */}
             <MiniCover book={current} width={72} />
-            <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ flex: '1 1 12rem', minWidth: 0 }}>
               {/* 書名＝この画面の主題（28・700）。見出し「メモ」「行動」（20・600）と差をつける。 */}
-              <h1 style={{ fontSize: "var(--text-title)", fontWeight: 700, color: "var(--text)", lineHeight: 1.25, margin: 0, overflowWrap: "anywhere", wordBreak: "keep-all", textWrap: "balance", display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{titleWithPhraseBreaks(current.title)}</h1>
-              {current.author && <p style={{ fontSize: 'var(--text-sub)', color: "var(--text-2)", margin: "var(--space-1) 0 0" }}>{current.author}</p>}
+              <h1 style={{ fontSize: "var(--text-title)", fontWeight: 700, color: "var(--text)", lineHeight: 1.25, margin: 0, overflowWrap: "anywhere", wordBreak: "keep-all", lineBreak: "strict", textWrap: "balance", display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{titleWithPhraseBreaks(current.title)}</h1>
+              {current.author && <p style={{ fontSize: 'var(--text-sub)', color: "var(--text-2)", margin: "var(--space-1) 0 0", wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(current.author, { scriptBreaks: true })}</p>}
               <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-2)', marginTop: "var(--space-2)", flexWrap: "wrap" }}>
                 {/* 状態は押せない表示なので面を付けない（DESIGN §5「表示用ラベル」）。 */}
                 <StatusLabel status={current.status} />
-                {current.rating > 0 && <Stars r={current.rating} size={14} />}
+                {current.rating > 0 && <Stars r={current.rating} size="calc(14rem / 17)" />}
               </div>
               {(current.startDate || current.doneDate) && (
                 <p style={{ fontSize: 'var(--text-meta)', color: "var(--text-3)", margin: 'var(--space-2) 0 0' }}>
@@ -4082,7 +4120,7 @@ function AuthedApp() {
           {/* タグも押せない表示＝面なしのアイコン＋文字（DESIGN §5「表示用ラベル」）。 */}
           {current.tags?.length > 0 && (
             <div style={{ display: "flex", alignItems: 'center', flexWrap: "wrap", columnGap: 'var(--space-3)', rowGap: 'var(--space-1)', marginTop: 'var(--space-3)', fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>
-              <IcTag size={14} strokeWidth={1.75} aria-label="タグ" style={{ flexShrink: 0, marginRight: 'calc(-1 * var(--space-2))' }} />
+              <IcTag size="1.1em" strokeWidth={1.75} aria-label="タグ" style={{ flexShrink: 0, marginRight: 'calc(-1 * var(--space-2))' }} />
               {/* 「#」は付けない（タグの印があるので二重になる・メモを書くシートのタグと同じ表記・2026-09-30）。 */}
               {current.tags.map((t, i) => (<span key={i}>{t}</span>))}
             </div>
@@ -4225,8 +4263,17 @@ function AuthedApp() {
               <button
                 type="button"
                 className="list-item-enter"
+                // 出たら画面の中まで送る（上に「一番の収穫」のカードが入って押し下げられても、下の「読了にしました。」の
+                // 知らせと右下の「メモを書く」に重ならないように・下の余白は JUST_DONE_CLEARANCE）。
+                ref={(el) => {
+                  if (!el || el.dataset.revealed) return;
+                  el.dataset.revealed = '1';
+                  let reduce = false;
+                  try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { /* noop */ }
+                  requestAnimationFrame(() => { try { el.scrollIntoView({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' }); } catch { /* ignore */ } });
+                }}
                 onClick={() => { setJustDoneId(null); openShareCamera({ book: current, from: 'done' }); }}
-                style={{ ...btnGhost, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)' }}
+                style={{ ...btnGhost, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)', scrollMarginBottom: JUST_DONE_CLEARANCE }}
               >
                 <Camera size={20} aria-hidden="true" />
                 読了を写真で共有
@@ -4253,7 +4300,9 @@ function AuthedApp() {
                         return;
                       }
                       // 投資目的はあるが読書計画が未作成 → 任意なので警告のみ（AI 解析は 2026-09-27 に廃止）。
-                      if (!current.aiStrategy) {
+                      // 無料プランでは聞かない（読書計画シートはプランの機能。押していない機能を読み始めのたびに
+                      // すすめない＝7 日間無料をすすめるのは自分でプランの機能を押したときだけ・GLOSSARY・2026-10-04）。
+                      if (!current.aiStrategy && !paywallFree) {
                         const ok = await confirm({
                           title: '読書計画シートを作っておきますか？',
                           message:
@@ -4554,7 +4603,7 @@ function AuthedApp() {
                   onClick: async () => {
                     const ok = await confirm({
                       title: `「${prevLabel}」に戻しますか？`,
-                      message: `ステータスを「${prevLabel}」に戻します。メモや行動などのデータは保持されます。`,
+                      message: `状態を「${prevLabel}」に戻します。メモや行動などのデータは保持されます。`,
                       confirmLabel: '戻す',
                       cancelLabel: 'キャンセル',
                     });
@@ -4649,7 +4698,7 @@ function AuthedApp() {
                 else leaveNewBookForm();
               }}
               // 詳細画面・すべての本の戻ると同じ形（ChevronLeft 20・間 0・見た目の左端 16）。
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 0, minHeight: 44, padding: '0 var(--space-2) 0 0', marginLeft: BACK_CHEVRON_PULL, background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-body)', fontFamily: 'inherit', cursor: 'pointer' }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 0, minHeight: 44, padding: '0 var(--space-2) 0 0', marginLeft: BACK_CHEVRON_PULL, background: 'none', border: 'none', color: 'var(--accent)', fontSize: BACK_LABEL_SIZE, whiteSpace: 'nowrap', fontFamily: 'inherit', cursor: 'pointer' }}
               aria-label={current ? 'この本に戻る' : undefined}
             >{/* iOS の作法: 戻るは戻り先の画面の名前。編集からはいつも本の詳細へ戻るので「この本」
                 （書名は下の見出しにあるので、上の行で繰り返さない・2026-10-01 オーナー裁定・SPEC §2）。 */}
@@ -4707,7 +4756,7 @@ function AuthedApp() {
                     <p style={{ ...groupTitle, margin: '0 0 var(--space-1)' }}>
                       {effectivePhase === 'before' ? '読書計画を編集' : '編集'}
                     </p>
-                    <h1 style={{ fontSize: 'var(--text-title)', fontWeight: 700, color: 'var(--text)', lineHeight: 1.25, margin: 0, overflowWrap: 'anywhere', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{current.title}</h1>
+                    <h1 style={{ fontSize: 'var(--text-title)', fontWeight: 700, color: 'var(--text)', lineHeight: 1.25, margin: 0, overflowWrap: 'anywhere', wordBreak: 'keep-all', lineBreak: 'strict', textWrap: 'balance', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{titleWithPhraseBreaks(current.title)}</h1>
                     <div style={{ marginTop: 'var(--space-2)' }}><StatusLabel status={form.status} /></div>
                   </div>
                 ) : (
@@ -5009,7 +5058,7 @@ function AuthedApp() {
                   type="button"
                   onClick={leaveLibrary}
                   // シェブロンの見た目の左端を余白 16 に（相談の ‹ 相談 と同じ形・DESIGN §5「画面上部の 1 行」）。
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 0, minHeight: 44, padding: '0 var(--space-2) 0 0', marginLeft: BACK_CHEVRON_PULL, background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-body)', fontFamily: 'inherit', cursor: 'pointer' }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 0, minHeight: 44, padding: '0 var(--space-2) 0 0', marginLeft: BACK_CHEVRON_PULL, background: 'none', border: 'none', color: 'var(--accent)', fontSize: BACK_LABEL_SIZE, whiteSpace: 'nowrap', fontFamily: 'inherit', cursor: 'pointer' }}
                 >
                   <ChevronLeft size={20} aria-hidden="true" />{libraryFrom === 'record' ? '記録' : 'ホーム'}
                 </button>
@@ -5130,7 +5179,7 @@ function AuthedApp() {
                     maskImage: 'linear-gradient(90deg, #000 90%, transparent 100%)',
                   }}
                   role="group"
-                  aria-label="ステータスで絞り込み"
+                  aria-label="状態で絞り込み"
                 >
                   {/* フォルダで絞っている間だけ、先頭にそのフォルダのチップ（押すと解除）。フォルダの選択は「…」→ 絞り込み。 */}
                   {folderFilter && (
@@ -5506,7 +5555,7 @@ function AuthedApp() {
               : []),
             // 📗 本を開かずにその場でステータス変更（管理の最頻操作を1手に）。
             {
-              label: 'ステータスを変える',
+              label: '状態を変える',
               icon: <IcCheck size={16} aria-hidden="true" />,
               onClick: () => setStatusPickerBook(bookContextMenu.book),
             },
@@ -5768,7 +5817,7 @@ function AuthedApp() {
       {/* 📗 ステータス変更シート（本棚の長押し → ステータスを変える）。
           本を開かずその場で 4 ステータスへ移動。日付補完は setBookStatusQuiet 側。 */}
       {statusPickerBook && (
-        <BottomSheet title="ステータスを変える" onClose={() => setStatusPickerBook(null)}>
+        <BottomSheet title="状態を変える" onClose={() => setStatusPickerBook(null)}>
           <p style={sheetSubtitle}>
             『{statusPickerBook.title}』
           </p>
@@ -5909,7 +5958,7 @@ function AuthedApp() {
             </button>
           )}
         >
-          <p style={sheetLabel}>ステータス</p>
+          <p style={sheetLabel}>状態</p>
           <div style={sheetChips}>
             {[{ key: 'all', label: 'すべて', count: stats.total }, ...SHELF_CHIP_ORDER.map((k) => STATUSES.find((st) => st.key === k)).filter(Boolean).map((s) => ({ key: s.key, label: s.label, count: stats[s.key] || 0 }))].map((s) => (
               <ShelfChip key={s.key} active={statusFilter === s.key} onClick={() => setStatusFilter(s.key)}>
@@ -5980,7 +6029,9 @@ function AuthedApp() {
                   key={key}
                   type="button"
                   onClick={() => { setSortBy(key); setSortSheetOpen(false); }}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', minHeight: 48, padding: '0 var(--space-1)', background: 'none', border: 'none', borderBottom: i < arr.length - 1 ? '1px solid var(--separator)' : 'none', fontSize: 'var(--text-body)', fontFamily: 'inherit', cursor: 'pointer', color: active ? 'var(--accent)' : 'var(--text)', fontWeight: active ? 600 : 400 }}
+                  aria-pressed={active}
+                  // 文字の左端を見出し・区切り線の左端（シートの余白 16）にそろえる（4 だけ右にずれていた・2026-10-04）。
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', minHeight: 48, padding: 0, background: 'none', border: 'none', borderBottom: i < arr.length - 1 ? '1px solid var(--separator)' : 'none', fontSize: 'var(--text-body)', fontFamily: 'inherit', cursor: 'pointer', color: active ? 'var(--accent)' : 'var(--text)', fontWeight: active ? 600 : 400 }}
                 >
                   {label}
                   {active && <IcCheck size={18} aria-hidden="true" />}

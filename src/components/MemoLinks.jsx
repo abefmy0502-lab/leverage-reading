@@ -41,12 +41,12 @@ export default function MemoLinks({ links, onOpen, onDismiss = null, variant = '
           onClick={() => onOpen?.(first.book, first.hit?.memoId)}
           style={{ flex: 1, minWidth: 0, minHeight: 44, display: 'flex', alignItems: 'center', gap: 'var(--space-2)', background: 'none', border: 'none', padding: 'var(--space-2) 0', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', color: 'var(--text)', fontSize: 'var(--text-sub)', lineHeight: 1.5 }}
         >
-          <Link2 size={16} aria-hidden="true" style={{ flexShrink: 0, color: 'var(--text-2)' }} />
+          <Link2 size="1.1em" aria-hidden="true" style={{ flexShrink: 0, color: 'var(--text-2)' }} />
           {/* 書名を切らずに 2 行まで（文節の切れ目で折り返す）。 */}
           <span style={{ flex: 1, minWidth: 0, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
             {withPhraseBreaks(`似たことを『${first.book.title}』${page}でも書いています`)}
           </span>
-          <ChevronRight size={16} aria-hidden="true" style={{ flexShrink: 0, color: 'var(--text-3)' }} />
+          <ChevronRight size="1.1em" aria-hidden="true" style={{ flexShrink: 0, color: 'var(--text-3)' }} />
         </button>
         {onDismiss && (
           <button type="button" onClick={onDismiss} aria-label="閉じる" style={closeBtn}>
@@ -68,7 +68,7 @@ export default function MemoLinks({ links, onOpen, onDismiss = null, variant = '
             カードの右の余白 16 の角にそろえる）。 */}
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)', paddingTop: 'var(--space-2)', marginRight: 'calc(-1 * var(--space-3))' }}>
           <span aria-hidden="true" style={{ display: 'flex', alignItems: 'center', height: HEAD_LINE, flexShrink: 0, color: 'var(--text-2)' }}>
-            <Link2 size={16} />
+            <Link2 size="1.2em" />
           </span>
           <h3 style={{ flex: 1, minWidth: 0, margin: 0, fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(SAVED_LINKS_TITLE)}</h3>
           {onDismiss && (

@@ -28,6 +28,7 @@ export const phaseDesc = { fontSize: "var(--text-meta)", color: "var(--text-3)",
 const STAR = "★";
 const EMPTY_STAR = "☆";
 
+// size: 数（px）か、文字サイズの設定と一緒に大きくなる rem の式（表示だけの星・"calc(12rem / 17)"＝ふだん 12・2026-10-04）。
 export function Stars({ r, onChange, size = 18 }) {
   // 編集可能な場合は button 化してキーボード / スクリーンリーダーからも操作可能に。
   // 表示専用（onChange なし）は従来どおり装飾 span。
@@ -163,7 +164,7 @@ export function TagInput({ tags, onChange, allTags, placeholder = "タグを追�
           {tags.map((t, i) => (
             <Chip key={t} size="select" active onClick={() => onChange(tags.filter((_, j) => j !== i))} aria-label={`「${t}」を削除`}>
               {t}
-              <X size={14} aria-hidden="true" />
+              <X size="0.95em" aria-hidden="true" style={{ flexShrink: 0 }} />
             </Chip>
           ))}
         </div>
@@ -172,7 +173,7 @@ export function TagInput({ tags, onChange, allTags, placeholder = "タグを追�
         <div style={chipRow}>
           {suggestions.map((t) => (
             <Chip key={t} size="select" onClick={() => add(t)} aria-label={`「${t}」を追加`}>
-              <Plus size={14} aria-hidden="true" />
+              <Plus size="0.95em" aria-hidden="true" style={{ flexShrink: 0 }} />
               {t}
             </Chip>
           ))}

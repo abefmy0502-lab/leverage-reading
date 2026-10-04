@@ -10,6 +10,7 @@
 import { getAmazonLink, handleAmazonClick, AMAZON_LINK_REL } from '../lib/amazonLink';
 import { getRakutenLink, RAKUTEN_LINK_REL, STORE_DISCLOSURE_TEXT } from '../lib/rakutenLink';
 import { ExternalLink } from 'lucide-react';
+import { withPhraseBreaks } from './TightBubble';
 
 // ストアの原色（Amazon オレンジ・楽天クリムゾン）は使わない。アプリの色はニュートラル＋
 // 栗色 1 色だけ（DESIGN.md §3）。外部リンクであることは ↗ アイコンと aria-label で伝える。
@@ -62,7 +63,8 @@ export default function BookStoreLinks({ book, variant = 'compact', showDisclosu
       </div>
       {showDisclosure && (
         // 複数行の注記は左揃え（中央揃えだと行頭がそろわず読みにくい）。
-        <small className="text-pretty" style={{ ...disclosureStyle, textAlign: 'left', paddingBottom: 'var(--space-4)' }}>{STORE_DISCLOSURE_TEXT}</small>
+        // 文節の切れ目でだけ折り返す（「かかりま／せん」のように語の途中で割れていた・2026-10-04）。
+        <small className="text-pretty" style={{ ...disclosureStyle, textAlign: 'left', paddingBottom: 'var(--space-4)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(STORE_DISCLOSURE_TEXT)}</small>
       )}
     </div>
   );

@@ -886,6 +886,10 @@ textarea[aria-invalid="true"]:not(.no-focus-ring):focus {
      align-items: start で各カードが行の最大高に伸びないようにする
      (1 つのカードが大きいと grid のデフォルトでは他も縦に伸びてしまう)。*/
   grid-template-columns: repeat(3, 1fr);
+  /* 文字サイズの設定を大きくしたときは 2 列（2026-10-04）。列の最小の幅を 6rem（ふだん 102・3 列の幅 約 111 より狭い）にし、
+     3 列（幅の 1/3）より多くも、2 列（幅の 1/2）より少なくもしない。ふだんの大きさでは 3 列のまま、
+     ホームのいま読んでいる本の行がボタンを折り返すのとほぼ同じ大きさ（ルートの文字 約 18.5px 以上）から 2 列になる。 */
+  grid-template-columns: repeat(auto-fill, minmax(min(max(6rem, calc((100% - 2 * var(--space-3)) / 3)), calc((100% - var(--space-3)) / 2)), 1fr));
   /* 横は 12、縦（行と行）は 32（書名 2 行ぶんの高さを取るので、段の中の空きより段の間を広く）。 */
   gap: var(--space-8) var(--space-3);
   padding: 0 0 var(--space-6);
@@ -995,7 +999,9 @@ textarea[aria-invalid="true"]:not(.no-focus-ring):focus {
   font-weight: var(--weight-semibold);
   line-height: 1.35;
   letter-spacing: 0.01em;
-  word-break: break-word;
+  /* 文節の切れ目（BookCards.jsx が <wbr> を入れる）でだけ折り返す。1 文節が行より長いときだけ中で折る。 */
+  word-break: keep-all;
+  overflow-wrap: anywhere;
   -webkit-line-clamp: 6;
   -webkit-box-orient: vertical;
   display: -webkit-box;
@@ -1019,7 +1025,9 @@ textarea[aria-invalid="true"]:not(.no-focus-ring):focus {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  word-break: break-word;
+  /* 文節の切れ目（<wbr>）でだけ折り返す（「チーズはどこへ消／えた？」と割れていた・2026-10-04）。 */
+  word-break: keep-all;
+  overflow-wrap: anywhere;
   /* 1 行の書名でも 2 行ぶんの高さを取り、となりのカードと著者・状態の行の位置をそろえる（2026-09-29）。 */
   min-height: calc(2 * 1.4em);
 }
@@ -1465,7 +1473,8 @@ details[open] > summary .fold-chevron { transform: rotate(180deg); }
 
 /* 📷 メモのシートの入力欄の上の「写真から書き起こす」（本のページを撮るから来たとき・QuickMemoSheet・2026-10-02）:
    全幅の副ボタンなのでアイコンは 20（部品 PhotoToTextButton は 16 で描くので、ここで大きさだけ合わせる）。 */
-.photo-lead > button svg { width: 20px; height: 20px; }
+/* 入力欄の上の全幅の「写真から書き起こす」（17 の文字）のアイコンは 1.2em＝20。文字サイズの設定と一緒に大きくなる（2026-10-04）。 */
+.photo-lead > button svg { width: 1.2em; height: 1.2em; }
 
 /* 畳みの中（flat）の箇条の間は 12（一覧の gap 8＋ここの 4）。.long-text の li + li の 8 を足すと 16 になり、
    区画の間（24）との差が小さくなっていた（2026-10-02 ui-critic）。 */
