@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
+import { withPhraseBreaks } from './TightBubble';
 
 const ConfirmContext = createContext({ confirm: async () => false });
 
@@ -38,6 +39,9 @@ const messageStyle = {
   lineHeight: 1.6,
   margin: '0 0 var(--space-6)',
   whiteSpace: 'pre-line',
+  // 文節の切れ目でだけ折り返す（「タグな／ど」「この操／作」と語の途中で切らない・2026-10-04）。
+  wordBreak: 'keep-all',
+  overflowWrap: 'anywhere',
 };
 
 const rowStyle = {
@@ -143,7 +147,7 @@ export function ConfirmProvider({ children }) {
         <div className="modal-backdrop" style={overlayStyle} onClick={() => finish(pending.dismissValue)} role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-title">
           <div ref={trapRef} className="modal" style={cardStyle} onClick={(e) => e.stopPropagation()}>
             <h2 id="confirm-dialog-title" style={titleStyle}>{pending.options.title}</h2>
-            {pending.options.message && <p style={messageStyle}>{pending.options.message}</p>}
+            {pending.options.message && <p style={messageStyle}>{typeof pending.options.message === 'string' ? withPhraseBreaks(pending.options.message) : pending.options.message}</p>}
             {/* ボタンの文字が長い（8 字以上）ときは横に並べると語の途中で折り返すので、縦に積む
                 （決める操作を上・やめるを下・iOS のアラートと同じ・2026-09-29）。 */}
             <div style={Math.max(String(pending.options.confirmLabel).length, String(pending.options.cancelLabel).length) >= 8 ? { ...rowStyle, flexDirection: 'column-reverse' } : rowStyle}>
