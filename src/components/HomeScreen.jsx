@@ -22,7 +22,7 @@ import ErrorMessage from './ErrorMessage';
 import { btnPrimary, btnGhost, btnLink, card } from '../styles/ui';
 
 // DESIGN §5「行の中の小さい副ボタン」（高さ 44・文字 15・600）。
-const btnRow = { ...btnGhost, width: 'auto', flexShrink: 0, padding: 'var(--space-2) var(--space-3)', minHeight: 44, fontSize: 'var(--text-sub)' };
+const btnRow = { ...btnGhost, width: 'auto', flex: '1 0 auto', padding: 'var(--space-2) var(--space-3)', minHeight: 44, fontSize: 'var(--text-sub)' };
 
 const sectionTitle = {
   fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', margin: '0 0 var(--space-3)', lineHeight: 1.3,
@@ -60,12 +60,15 @@ function StartCard({ onQuickstart, onAddBook, onAdvisor, onImport }) {
 // いま読んでいる本の 1 行（表紙・書名・2 行目・右に副ボタン 1 つ）。読書中の本と、読書中が 0 冊のときの候補で共通。
 function BookRow({ book: b, sub, onOpenBook, onCoverRetry, action }) {
   return (
-    <div style={{ ...card, display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+    // 文字サイズを大きくしたときは、右のボタンを書名の下へ折り返す（横に並べたままだと書名が「数値／化…」と
+    // 2〜3 字で切れて読めなかった・2026-10-04）。ふだんの大きさでは 1 行（書名の欄は 10rem＝170 あれば並ぶ）。
+    // 折り返した行ではボタンが行の幅いっぱいに伸びる（余りはほぼ書名の側へ＝flex-grow 1000:1）。
+    <div style={{ ...card, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--space-3)' }}>
       <button
         type="button"
         onClick={() => onOpenBook(b)}
         aria-label={`『${b.title}』を開く`}
-        style={{ flex: 1, minWidth: 0, minHeight: 44, display: 'flex', alignItems: 'center', gap: 'var(--space-3)', background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', color: 'inherit' }}
+        style={{ flex: '1000 1 10rem', minWidth: 0, minHeight: 44, display: 'flex', alignItems: 'center', gap: 'var(--space-3)', background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', color: 'inherit' }}
       >
         <MiniCover book={b} width={40} onAutoRetry={onCoverRetry} />
         <span style={{ minWidth: 0 }}>
