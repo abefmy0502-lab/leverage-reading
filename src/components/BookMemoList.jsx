@@ -82,7 +82,7 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
     if (text.trim()) {
       const ok = await confirm({
         title: 'まとめを生成しますか？',
-        message: '今のまとめメモを、カードから生成した内容で置き換えます。よろしいですか？',
+        message: '今の「この本のまとめ」を、カードから作った内容で置き換えます。よろしいですか？',
         confirmLabel: '生成する',
       });
       if (!ok) return;

@@ -74,7 +74,8 @@ function monthLabel(key) {
 
 const transformRow = (m) => {
   const sourceType = m.source_type || (m.book_id ? 'book' : 'personal');
-  const kind = sourceType === 'personal' ? 'personal' : sourceType === 'summary' ? 'summary' : 'card';
+  // 以前の形式のまとめ（book_memos.source_type='summary'）も、本の詳細と同じ「この本のまとめ」として扱う。
+  const kind = sourceType === 'personal' ? 'personal' : sourceType === 'summary' ? 'leverage_memo' : 'card';
   return {
     id: m.id,
     bookId: m.book_id,
@@ -98,10 +99,6 @@ const transformRow = (m) => {
 // 3アクセントだけで意味を出す（本田哲学＝色数を絞る＝洗練）。
 const KIND_META = {
   card:              { Icon: StickyNote,        label: 'メモ',          color: 'var(--c-ink-2)' },
-  // summary(book_memos.source_type='summary') と leverage_memo(books.leverage_memo)は
-  // どちらも「まとめ」だが別ストレージ。フィルタ/バッジで区別できるよう別ラベルにする
-  // （両方「まとめメモ」だと種類フィルタに同名の選択肢が2つ並び判別不能になっていた）。
-  summary:           { Icon: BookOpen,          label: '本のまとめ',     color: 'var(--c-brand)' },
   personal:          { Icon: Lightbulb,         label: '学び',          color: 'var(--status-want)' },
   invest_purpose:    { Icon: BarChart3,         label: '得たいこと',     color: 'var(--c-brand)' },
   current_challenge: { Icon: AlertTriangle,     label: '現在の課題',     color: 'var(--c-critical)' },
@@ -109,7 +106,8 @@ const KIND_META = {
   // AI が書いたもの。一覧・検索には「AI まとめ」と分かる名前で出すが、思い出しカードには出さない（recall.js の isAiWritten・2026-10-04）。
   ai_summary:        { Icon: Bot,               label: 'AI まとめ',      color: 'var(--c-ink-3)' },
   roi_summary:       { Icon: Gem,               label: '一番の収穫',     color: 'var(--c-positive)' },
-  leverage_memo:     { Icon: FileText,          label: 'まとめメモ',     color: 'var(--c-brand)' },
+  // 自分で書いた本の総括（books.leverage_memo と、以前の形式の book_memos.source_type='summary'）。本の詳細と同じ名前（2026-10-04）。
+  leverage_memo:     { Icon: FileText,          label: 'この本のまとめ',  color: 'var(--c-brand)' },
   action_reflection: { Icon: MessageSquareQuote, label: '行動のふりかえり', color: 'var(--c-positive)' },
 };
 
@@ -224,7 +222,7 @@ function MemoPhoto({ path }) {
 // tapToEdit: カードを押すと、その本のそのメモを編集で開く（月ごとのメモ・本の詳細のメモと同じ所作・2026-09-30）。
 //   本に付いたふつうのメモだけ（学び・まとめなどは本を開く／何もしない）。
 function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeDelete, onLongPress, onOpenMenu, openOnTap = false, tapToEdit = false }) {
-  const kind = memo.kind || (memo.sourceType === 'personal' ? 'personal' : memo.sourceType === 'summary' ? 'summary' : 'card');
+  const kind = memo.kind || (memo.sourceType === 'personal' ? 'personal' : memo.sourceType === 'summary' ? 'leverage_memo' : 'card');
   const meta = KIND_META[kind] || KIND_META.card;
   const isSynth = memo.synth === true;
   const isPersonal = kind === 'personal';

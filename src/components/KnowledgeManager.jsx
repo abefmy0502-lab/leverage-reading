@@ -96,6 +96,8 @@ const FILTER_OPTIONS = [
   { value: 'all', label: 'すべての種類' },
   { value: 'memo', label: 'メモ' },
   { value: 'summary', label: 'まとめ' },
+  // AI が書いたもの（AI まとめ）は自分のまとめと分ける（2026-10-04）。
+  { value: 'ai', label: 'AI まとめ' },
   { value: 'plan', label: '読書計画' },
   { value: 'learning', label: '学び' },
 ];
@@ -120,12 +122,12 @@ function pickCategory(tags) {
 // plan / learning) のグルーピングタグ。
 const KIND_META = {
   card:              { Icon: StickyNote,   label: 'メモ', group: 'memo' },
-  summary:           { Icon: BookOpen,     label: 'まとめメモ',   group: 'summary', column: 'leverage_memo' },
+  summary:           { Icon: BookOpen,     label: 'この本のまとめ', group: 'summary', column: 'leverage_memo' },
   personal:          { Icon: Lightbulb,    label: '学び',         group: 'learning' },
   invest_purpose:    { Icon: Flag,         label: '得たいこと',   group: 'plan',    column: 'invest_purpose' },
   current_challenge: { Icon: AlertTriangle, label: '現在の課題',  group: 'plan',    column: 'current_challenge' },
   hypothesis:        { Icon: FlaskConical, label: '仮説',         group: 'plan',    column: 'hypothesis' },
-  ai_summary:        { Icon: Bot,          label: 'AI まとめ',    group: 'summary', column: 'ai_summary' },
+  ai_summary:        { Icon: Bot,          label: 'AI まとめ',    group: 'ai',      column: 'ai_summary' },
   roi_summary:       { Icon: Gem,          label: '一番の収穫',   group: 'summary', column: 'roi_summary' },
   ai_strategy:       { Icon: MapIcon,      label: '読書計画シート', group: 'plan',   column: 'ai_strategy' },
   // gatherKnowledge が AI コンテキストに含める列は全てここに出す（透明性と
