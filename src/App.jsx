@@ -6016,7 +6016,9 @@ function AuthedApp() {
                   key={key}
                   type="button"
                   onClick={() => { setSortBy(key); setSortSheetOpen(false); }}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', minHeight: 48, padding: '0 var(--space-1)', background: 'none', border: 'none', borderBottom: i < arr.length - 1 ? '1px solid var(--separator)' : 'none', fontSize: 'var(--text-body)', fontFamily: 'inherit', cursor: 'pointer', color: active ? 'var(--accent)' : 'var(--text)', fontWeight: active ? 600 : 400 }}
+                  aria-pressed={active}
+                  // 文字の左端を見出し・区切り線の左端（シートの余白 16）にそろえる（4 だけ右にずれていた・2026-10-04）。
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', minHeight: 48, padding: 0, background: 'none', border: 'none', borderBottom: i < arr.length - 1 ? '1px solid var(--separator)' : 'none', fontSize: 'var(--text-body)', fontFamily: 'inherit', cursor: 'pointer', color: active ? 'var(--accent)' : 'var(--text)', fontWeight: active ? 600 : 400 }}
                 >
                   {label}
                   {active && <IcCheck size={18} aria-hidden="true" />}
