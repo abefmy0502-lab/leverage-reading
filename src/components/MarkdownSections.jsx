@@ -14,7 +14,8 @@ import {
   AMAZON_DISCLOSURE_TEXT,
   AMAZON_LINK_REL,
 } from '../lib/amazonLink';
-import { groupTitle } from '../styles/ui';
+import { groupTitle, btnGhost, btnGhostOff, btnLink } from '../styles/ui';
+import { ExternalLink as IcExternal } from 'lucide-react';
 import { SkeletonBlock } from './Skeleton';
 import { withPhraseBreaks } from './TightBubble';
 import { PLAN_NO_TOC_LINE } from '../lib/prompts';
@@ -360,48 +361,9 @@ const relatedCardStyle = {
   flexDirection: 'column',
   gap: 'var(--space-2)',
 };
-// flex: 1 で 2 ボタンを均等幅、padding を抑えめに、whiteSpace: nowrap で
-// 「Amazon で買 / う」のような縦割れを物理的に防ぐ。minHeight: 44 で
-// iOS HIG のタップ領域を確保。textAlign: center と inline-flex の組合せで
-// ラベルが必ず中央 1 行に収まる。
-const relatedAddBtn = {
-  flex: 1,
-  minWidth: 0,
-  padding: 'var(--space-2) var(--space-3)',
-  borderRadius: 'var(--radius)',
-  border: '1px solid var(--border)',
-  background: 'transparent',
-  color: 'var(--text)',
-  fontSize: 'var(--text-sub)',
-  fontWeight: 600,
-  cursor: 'pointer',
-  fontFamily: 'inherit',
-  minHeight: 44,
-  whiteSpace: 'nowrap',
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: 'var(--space-1)',
-};
-const relatedAmazonBtn = {
-  flex: 1,
-  minWidth: 0,
-  padding: 'var(--space-2) var(--space-3)',
-  borderRadius: 'var(--radius)',
-  background: 'transparent',
-  border: '1px solid var(--border)',
-  color: 'var(--text)',
-  fontSize: 'var(--text-sub)',
-  fontWeight: 600,
-  textDecoration: 'none',
-  fontFamily: 'inherit',
-  minHeight: 44,
-  whiteSpace: 'nowrap',
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: 'var(--space-1)',
-};
+// 「読みたいに追加」は全幅の副ボタン（btnGhost・高さ 48）、Amazon は文字リンク（btnLink＋↗）。
+// AI 選書の推薦カード（BookAdvisor の AdvisorStoreLinks）と同じ組み立て（2026-10-04 ui-critic）。
+const relatedStoreLink = { ...btnLink, gap: 'var(--space-1)', textDecoration: 'none', whiteSpace: 'nowrap', boxSizing: 'border-box' };
 
 function RelatedBookCard({ book, description, onAdd, isAdding }) {
   // 旧 isAdding は「処理中」(短時間で消える) だったが、新実装では
@@ -421,9 +383,7 @@ function RelatedBookCard({ book, description, onAdd, isAdding }) {
           {description}
         </p>
       )}
-      {/* flexWrap を撤去し常に横並び。狭幅でもラベル短縮 + nowrap で
-          縦割れを防ぐ。touch-action: manipulation で iOS の 300ms 遅延も解消 */}
-      <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
         <button
           type="button"
           onClick={(e) => {
@@ -433,32 +393,23 @@ function RelatedBookCard({ book, description, onAdd, isAdding }) {
           }}
           disabled={isAdded}
           aria-label={isAdded ? `『${book.title}』は本棚にあります` : `『${book.title}』を読みたいに追加`}
-          style={{
-            ...relatedAddBtn,
-            background: isAdded ? 'var(--fill)' : relatedAddBtn.background,
-            color: isAdded ? 'var(--text-3)' : relatedAddBtn.color,
-            cursor: isAdded ? 'not-allowed' : 'pointer',
-            touchAction: 'manipulation',
-            pointerEvents: 'auto',
-            position: 'relative',
-            zIndex: 1,
-          }}
+          style={{ ...(isAdded ? btnGhostOff : btnGhost), touchAction: 'manipulation' }}
         >
           {isAdded ? '追加済み' : '読みたいに追加'}
         </button>
-        <a
-          href={amazonHref}
-          target="_blank"
-          rel={AMAZON_LINK_REL}
-          aria-label={`Amazon で『${book.title}』を購入（外部リンク）`}
-          onClick={(e) => { e.stopPropagation(); handleAmazonClick(e, amazonHref); }}
-          style={{
-            ...relatedAmazonBtn,
-            touchAction: 'manipulation',
-          }}
-        >
-          Amazon
-        </a>
+        {/* 文字の左端をカードの本文にそろえる（btnLink の左右 4 を打ち消す）。 */}
+        <div style={{ display: 'flex', marginLeft: 'calc(-1 * var(--space-1))' }}>
+          <a
+            href={amazonHref}
+            target="_blank"
+            rel={AMAZON_LINK_REL}
+            aria-label={`Amazon で『${book.title}』を見る（外部リンク）`}
+            onClick={(e) => { e.stopPropagation(); handleAmazonClick(e, amazonHref); }}
+            style={{ ...relatedStoreLink, touchAction: 'manipulation' }}
+          >
+            Amazon<IcExternal size={16} aria-hidden="true" />
+          </a>
+        </div>
       </div>
     </div>
   );
