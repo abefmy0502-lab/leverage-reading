@@ -23,6 +23,7 @@ import { useHaptic } from '../hooks/useHaptic';
 import { ScanText } from 'lucide-react';
 import { usePaywall } from '../state/PaywallContext';
 import ErrorMessage from './ErrorMessage';
+import { withPhraseBreaks } from './TightBubble';
 import { freeOcrHintParts, freeOcrTapAction } from '../lib/freeOcr';
 
 const baseStyle = {
@@ -152,7 +153,8 @@ export default function PhotoToTextButton({ onText, disabled = false, style }) {
         aria-busy={loading || undefined}
       >
         <ScanText size={16} aria-hidden="true" />
-        {loading ? '読み取り中…' : '写真から書き起こす'}
+        {/* 文字サイズを大きくして 2 行になるときも、文節の切れ目でだけ折り返す（「書き起／こす」と割れていた・2026-10-04）。 */}
+        <span style={{ wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(loading ? '読み取り中…' : '写真から書き起こす')}</span>
       </button>
       {hint && !loading && !failure && (
         <p style={usedUp ? { ...hintStyle, color: 'var(--text-2)' } : hintStyle} aria-hidden="true">
