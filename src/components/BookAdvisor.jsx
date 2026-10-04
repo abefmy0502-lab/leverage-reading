@@ -2,7 +2,7 @@
 // Claude による推薦 → セットアップシート引き継ぎ + 会話履歴。App.jsx から
 // 切り出した自己完結コンポーネント。props: onAddBook / sessionApi / books。
 
-import { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import { Fragment, useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import {
   ArrowUp as IcSend,
@@ -32,7 +32,8 @@ import { searchBooksFlat as searchBooksAPIFlat } from '../lib/bookSearch';
 import { STORE_DISCLOSURE_TEXT, getRakutenLink, RAKUTEN_LINK_REL } from '../lib/rakutenLink';
 import { getAmazonLink, handleAmazonClick, AMAZON_LINK_REL } from '../lib/amazonLink';
 import { nextResetLabelJa } from '../lib/freeTrial';
-import { TOKEN_COSTS, runCostLine } from '../lib/tokens';
+import { TOKEN_COSTS, runCostLine, monthDayLabelJa } from '../lib/tokens';
+import { trialCancelShortLine } from '../lib/trialNudge';
 import { groupTitle, btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, btnText as uiBtnText, btnLink as uiBtnLink, input as uiInput, card as uiCard } from '../styles/ui';
 import { useAuth } from '../hooks/useAuth';
 import { useHaptic } from '../hooks/useHaptic';
@@ -152,7 +153,8 @@ const introText = { fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHei
 // 案内文の「10月1日」を途中で改行させない（サーバーの文に結合文字が無い場合の保険）。
 function keepDateTogether(text) {
   const re = /(\d{1,2}\u2060?月\u2060?\d{1,2}\u2060?日)/;
-  return String(text || '').split(re).map((p, i) => (i % 2 === 1 ? <span key={i} style={{ whiteSpace: 'nowrap' }}>{p}</span> : p));
+  // 日付の外は文節の切れ目でだけ折り返す（「無料期／間」「トーク／ン」と語の途中で切らない・使う側で keep-all・2026-10-04）。
+  return String(text || '').split(re).map((p, i) => (i % 2 === 1 ? <span key={i} style={{ whiteSpace: 'nowrap' }}>{p}</span> : <Fragment key={i}>{withPhraseBreaks(p)}</Fragment>));
 }
 
 const ADVISOR_EXAMPLES = [
@@ -180,7 +182,7 @@ let advisorPendingJob = null;
 export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook, onManualBook, onOpenBook, barSlot = null }) {
   // 🎁 AI 選書はプランの機能（フリーミアム・2026-09-27）。無料プランの人が送ったら、有料プランの画面を
   //    重ねて開く（入力は残す・画面はそのまま見せる）。サーバーも 402 plan_required で止める。
-  const { requirePlan, canBuyTokens, openTokenSheet, plan, freeMode, tokensRemaining, purchasedTokens } = usePaywall();
+  const { requirePlan, canBuyTokens, openTokenSheet, plan, freeMode, tokensRemaining, purchasedTokens, trialEndsAt } = usePaywall();
   // 送るボタンのそばに 1 回の目安と残り（相談と同じ言い方・無料プランはプランの機能なので出さない・2026-09-29）。
   const costLine = freeMode ? '' : runCostLine({ plan, remaining: tokensRemaining, purchased: purchasedTokens, cost: TOKEN_COSTS.advisor });
   // 生成中にアンマウントされたら進行中のストリームを中断する（コスト・二重セッション対策）。
@@ -1592,14 +1594,22 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       {/* 推薦生成エラー（リトライ可能） */}
       {recoError && !recoLoading && recoNotice && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-          <p role="status" style={{ ...uiCard, margin: 0, fontSize: 'var(--text-sub)', lineHeight: 1.6, color: 'var(--text)', whiteSpace: 'pre-wrap' }}>
+          <p role="status" style={{ ...uiCard, margin: 0, fontSize: 'var(--text-sub)', lineHeight: 1.6, color: 'var(--text)', whiteSpace: 'pre-wrap', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
             {keepDateTogether(recoError)}
           </p>
           {/* 🪙➕ プランの人がトークンを使い切ったら、案内のすぐ下に「トークンを追加」 */}
           {canBuyTokens && /^(今月のトークン|無料期間のトークン)/.test(recoError) && (
-            <button type="button" onClick={openTokenSheet} style={uiBtnPrimary}>
-              トークンを追加
-            </button>
+            <>
+              {/* 7 日間無料は枠線のボタン＋続けないときの解約の期限（相談の案内と同じ・2026-10-04） */}
+              <button type="button" onClick={openTokenSheet} style={plan === 'trial' ? uiBtnGhost : uiBtnPrimary}>
+                トークンを追加
+              </button>
+              {plan === 'trial' && trialCancelShortLine(trialEndsAt) && (
+                <p style={{ margin: 'calc(-1 * var(--space-1)) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+                  {withPhraseBreaks(trialCancelShortLine(trialEndsAt))}
+                </p>
+              )}
+            </>
           )}
         </div>
       )}
@@ -1828,7 +1838,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={tokensOut ? (monthOut ? `${nextResetLabelJa()}から探せます` : 'トークンを使い切りました') : 'いまの課題を書いてください'}
+            // 7 日間無料で使い切ったときも、いつからまた探せるかを日付で（相談の「◯月◯日から相談できます」と同じ・2026-10-04）。
+            placeholder={tokensOut ? (monthOut ? `${nextResetLabelJa()}から探せます` : (monthDayLabelJa(trialEndsAt) ? `${monthDayLabelJa(trialEndsAt)}から探せます` : 'トークンを使い切りました')) : 'いまの課題を書いてください'}
             rows={1}
             disabled={interviewLoading || tokensOut}
             maxLength={LIMITS.aiQuestion}
