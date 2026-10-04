@@ -7,7 +7,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useFocusTrap } from '../hooks/useFocusTrap';
-import { toMessage } from '../lib/errors';
+import { toMessage, toSaveMessage } from '../lib/errors';
+import { withPhraseBreaks } from './TightBubble';
 import { LIMITS } from '../lib/limits';
 import PhotoToTextButton from './PhotoToTextButton';
 import { Chip } from './formPrimitives';
@@ -404,7 +405,7 @@ export default function QuickMemoSheet({
       });
       animateClose(); // 保存後も滑って閉じる（出入りの所作を統一）
     } catch (e) {
-      setErrorMsg(toMessage(e, 'メモの保存に失敗しました。'));
+      setErrorMsg(toSaveMessage(e, 'メモの保存に失敗しました。'));
     } finally {
       setBusy(false);
     }
@@ -621,7 +622,7 @@ export default function QuickMemoSheet({
           </div>
 
           {errorMsg && (
-            <p role="alert" style={{ color: 'var(--error)', fontSize: 'var(--text-sub)', lineHeight: 1.5, margin: 0 }}>{errorMsg}</p>
+            <p role="alert" style={{ color: 'var(--error)', fontSize: 'var(--text-sub)', lineHeight: 1.5, margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(errorMsg)}</p>
           )}
         </div>
 

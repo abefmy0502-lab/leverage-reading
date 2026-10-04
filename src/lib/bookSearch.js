@@ -573,7 +573,7 @@ export async function searchBooks(query) {
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
     return {
       ok: false,
-      error: 'ネット接続が切れています。再接続後にお試しください。',
+      error: 'オフラインです。つながってから、もう一度お試しください。',
     };
   }
   if (ndlError && googleError) {

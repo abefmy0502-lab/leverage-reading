@@ -140,7 +140,7 @@ import { useSubscription } from './hooks/useSubscription';
 const Paywall = lazy(() => import('./components/Paywall'));
 import { useToast } from './components/Toast';
 import { useConfirm } from './components/ConfirmDialog';
-import { toMessage, fieldRequiredMessage, isSchemaError } from './lib/errors';
+import { toMessage, toSaveMessage, fieldRequiredMessage, isSchemaError } from './lib/errors';
 import { LIMITS, clamp } from './lib/limits';
 import { ensureHttps } from './lib/url';
 import { PAYWALL_EVENT, AI_USED_EVENT } from './lib/freeTrial';
@@ -3479,7 +3479,7 @@ function AuthedApp() {
       if (!payload.quiet) toast.success('🎯 行動を追加しました。');
       return true;
     } catch (error) {
-      const msg = toMessage(error, '行動の追加に失敗しました。');
+      const msg = toSaveMessage(error, '行動の追加に失敗しました。');
       // 行動の追加のモーダルから呼ばれたときは、モーダルの中に出す（知らせはモーダルの下に隠れて読めない・2026-10-04）。
       if (payload.onError) payload.onError(msg); else toast.error(msg);
       return false;
@@ -5707,7 +5707,7 @@ function AuthedApp() {
                 entry.latest = book;
                 syncActionSnapshots(book);
                 outcome = 'failed';
-                failMessage = toMessage(error, '保存できませんでした。');
+                failMessage = toSaveMessage(error, '保存できませんでした。');
                 // 「期限を見直す」の途中は次の行動に進んでいるので知らせで。ふだんはモーダルの中に出す（知らせはモーダルの下に隠れる）。
                 if (reviewing) toast.error(failMessage);
               }

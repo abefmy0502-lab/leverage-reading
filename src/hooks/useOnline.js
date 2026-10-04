@@ -13,7 +13,7 @@ function demoOffline() {
 
 // 1 回目の判定（お試しの &offline=1 は、'online' の知らせが来るまで有効）。
 let demoForcedOffline = demoOffline();
-// お試しでは navigator.onLine も合わせる（lib/errors.js の「ネット接続が切れています」を本物の端末と同じに出す）。
+// お試しでは navigator.onLine も合わせる（lib/errors.js の「オフラインです。…」を本物の端末と同じに出す）。
 if (demoForcedOffline && typeof navigator !== 'undefined') {
   try { Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => !demoForcedOffline }); } catch { /* ignore */ }
 }

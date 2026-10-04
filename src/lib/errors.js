@@ -105,6 +105,16 @@ function tidyUserMessage(text, fallback) {
   return s || fallback;
 }
 
+// オフラインのときの言葉は、画面の上の帯「オフラインです。つながるまで保存できません。」とそろえる（2026-10-04）。
+export const OFFLINE_MESSAGE = 'オフラインです。つながってから、もう一度お試しください。';
+export const OFFLINE_SAVE_MESSAGE = 'オフラインです。つながってから、もう一度保存してください。';
+const isOffline = () => typeof navigator !== 'undefined' && navigator.onLine === false;
+
+// 保存に失敗したときの言葉（オフラインなら「もう一度保存してください」・ほかは toMessage と同じ）。
+export function toSaveMessage(err, fallback = '保存できませんでした。') {
+  return isOffline() ? OFFLINE_SAVE_MESSAGE : toMessage(err, fallback);
+}
+
 export function toMessage(err, fallback = '予期せぬエラーが発生しました。') {
   return tidyUserMessage(toMessageRaw(err, fallback), tidyUserMessage(fallback, '予期せぬエラーが発生しました。'));
 }
@@ -128,8 +138,8 @@ function toMessageRaw(err, fallback) {
   const isAi = url.includes('anthropic') || url.includes('/api/claude') || url.includes('claude');
 
   // Network-level
-  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-    return '🌐 ネット接続が切れています。つながってから、やり直してください。';
+  if (isOffline()) {
+    return OFFLINE_MESSAGE;
   }
   if (err.name === 'AbortError' || lower.includes('timeout') || lower.includes('timed out')) {
     return '⏱ 処理に時間がかかりすぎました。少し待ってもう一度お試しください。';
