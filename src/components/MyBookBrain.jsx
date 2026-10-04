@@ -3050,7 +3050,10 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
     </div>
   ) : null);
   // 根拠（参照したメモ・解釈・もとになった本）は畳む
-  const renderDetails = (p) => ((p.refs || p.interp || refsList.length > 0 || actedCount > 0) ? (
+  // 参照したメモを出すか: 照合の結果があればそのうち出せるもの（'x' 以外）・結果が無い古い答えは AI の文（p.refs）。
+  //   全部が渡したメモに無い参照（'x'）で、解釈・もとになった本・踏まえたことも無ければ「根拠を見る」ごと出さない（2026-10-04 ui-critic）。
+  const showRefChecks = (p) => (refChecksAll.length > 0 ? refChecks.length > 0 : !!p.refs);
+  const renderDetails = (p) => ((showRefChecks(p) || p.interp || refsList.length > 0 || actedCount > 0) ? (
     <details style={{ marginTop: 'var(--space-3)' }}>
       <summary style={summaryStyle}>
         {/* 見出しは書いたばかりの答えと過去の相談で同じ「根拠を見る」だけ（過去の相談にだけ「（N 冊のメモ）」が付いて
@@ -3059,7 +3062,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
         <ChevronDown size={20} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
       </summary>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)', paddingBottom: 'var(--space-1)' }}>
-        {refChecksAll.length > 0 && refChecks.length === 0 ? null : refChecks.length > 0 ? (
+        {!showRefChecks(p) ? null : refChecks.length > 0 ? (
           // 引用を実際のメモと突き合わせた結果（evidenceCheck.js）: 一致したものは保存しているメモの文そのもの、
           // 一致しない引用は見せない（作った引用を「あなたのメモ」として出さない）。
           <div>
