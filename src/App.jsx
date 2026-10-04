@@ -329,12 +329,14 @@ function Card({ label, text, style }) {
       <p
         style={{
           fontSize: 'var(--text-body)', color: 'var(--text)', lineHeight: 1.5, whiteSpace: 'pre-wrap', margin: 0,
+          // 文節の切れ目でだけ折り返す（「持／てない」「身／につく」と語の途中で割れていた・2026-10-04）。
+          wordBreak: 'keep-all', overflowWrap: 'anywhere',
           ...(isLong && !expanded
             ? { display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }
             : {}),
         }}
       >
-        {text}
+        {withPhraseBreaks(text)}
       </p>
       {isLong && (
         <button
