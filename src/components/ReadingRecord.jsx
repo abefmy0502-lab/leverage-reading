@@ -306,14 +306,24 @@ function Heatmap({ dateStrings, weeks = 16 }) {
       const weekStart = new Date(currentWeekStart);
       weekStart.setDate(currentWeekStart.getDate() - w * 7);
       const days = [];
+      let firstOfMonth = null; // この列に 1 日があれば、その月
       for (let dow = 0; dow < 7; dow += 1) {
         const d = new Date(weekStart);
         d.setDate(weekStart.getDate() + dow);
+        if (d.getDate() === 1) firstOfMonth = d.getMonth();
         days.push(d > today ? null : { key: dayKey(d), count: counts.get(dayKey(d)) || 0 });
       }
-      const m = weekStart.getMonth();
-      out.push({ days, monthLabel: m !== prevMonth ? `${m + 1}月` : '' });
-      prevMonth = m;
+      // 月の名前は、その月の 1 日がある列に出す（月曜の月で決めると、月初めの数日は今月の名前が出なかった・2026-10-04）。
+      // いちばん左の列は 1 日が無くてもその月の名前を出す（すぐ右の列に 1 日があるときは、名前が重なるので出さない）。
+      let m = firstOfMonth;
+      if (m == null && w === weeks - 1) {
+        const next = new Date(weekStart);
+        next.setDate(weekStart.getDate() + 13);
+        const nextHasFirst = next.getDate() <= 7;
+        m = nextHasFirst ? null : weekStart.getMonth();
+      }
+      out.push({ days, monthLabel: m != null && m !== prevMonth ? `${m + 1}月` : '' });
+      if (m != null) prevMonth = m;
     }
     // 「活動があった日数」は表示ウィンドウ内（直近 weeks 週）だけを数える。
     // counts 全体を数えると全履歴の日数になり、aria-label が見た目と食い違う。
