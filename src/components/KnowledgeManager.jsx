@@ -89,7 +89,7 @@ const menuCheck = (on) => (on ? <Check size={16} aria-hidden="true" /> : <span a
 const SORT_OPTIONS = [
   { value: 'newest', label: '新しい順' },
   { value: 'oldest', label: '古い順' },
-  { value: 'title', label: '本のタイトル順' },
+  { value: 'title', label: '本の書名順' },
 ];
 
 // 種類の絞り込み（切り替えを 2 段重ねにしないよう、並び順と同じ 1 行のメニューにする・DESIGN §5）。
@@ -264,7 +264,7 @@ function KnowledgeCard({ item, onEdit, onSwipeDelete, onOpenMenu }) {
         </span>
         {item.book && (
           <span style={{ display: 'block', fontSize: 'var(--text-sub)', color: 'var(--text)', fontWeight: 600, marginTop: 'var(--space-2)', lineHeight: 1.5 }}>
-            {item.book.title || '（タイトル不明）'}
+            {item.book.title || '（書名不明）'}
             {item.book.author && <span style={{ marginLeft: 'var(--space-2)', fontSize: 'var(--text-meta)', color: 'var(--text-3)', fontWeight: 400 }}>{item.book.author}</span>}
           </span>
         )}
@@ -763,7 +763,7 @@ export default function KnowledgeManager({ onChanged, onBooksMutated, onWriteMem
             type="text"
             inputMode="search"
             enterKeyHint="search"
-            placeholder="本文・タイトル・著者・タグ"
+            placeholder="本文・書名・著者・タグ"
             aria-label="根拠にできる情報を検索"
             maxLength={100}
             value={search}

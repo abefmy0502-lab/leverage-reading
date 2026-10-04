@@ -18,37 +18,89 @@ const getParser = () => {
   return parser;
 };
 
-// 文を文節の切れ目（<wbr>）入りの React ノードにする。改行はそのまま（white-space: pre-wrap）。
-export function withPhraseBreaks(text) {
+// ── 文字の種類の切れ目（書名などの長い 1 文節の中で折り返してよい所・2026-10-04）
+// BudouX は「アウトプット大全」「エリック・シュミット」を 1 つの文節にするので、狭い列では語の途中
+// （「アウトプット大／全」）で割れるか、… で切るしかなかった。7 字以上の文節だけ、次の切れ目を足す:
+//   カタカナ↔漢字・英字/数字↔日本語・「・」の後ろ。
+//   ひらがなの前後には足さない（漢字→ひらがなは送りがな「動／かす」、ひらがな→漢字は「やり／抜く」のように語の中で
+//   割れるため。ひらがなの切れ目は BudouX の文節が受け持つ）。ー・記号は前の字の種類に続ける。
+//   2 字に満たない切れ端は隣とまとめる（「1／兆」のような 1 字だけの切れ端を作らない）。
+const SCRIPT_BREAK_MIN = 7;
+function scriptOf(ch) {
+  if (ch === '・' || ch === '･') return 'dot';
+  if (ch === 'ー') return null; // 前の字の種類に続ける
+  if (/[゠-ヿㇰ-ㇿｦ-ﾟ]/.test(ch)) return 'kata';
+  if (/[぀-ゟ]/.test(ch)) return 'hira';
+  if (/[一-鿿㐀-䶿々〆]/.test(ch)) return 'kanji';
+  if (/[A-Za-z0-9０-９Ａ-Ｚａ-ｚ]/.test(ch)) return 'latin';
+  return null; // 記号・空白などは前の字の種類に続ける
+}
+const ALLOWED = new Set(['kata>kanji', 'kanji>kata', 'latin>kata', 'latin>hira', 'latin>kanji', 'kata>latin', 'hira>latin', 'kanji>latin']);
+export function scriptBreakPieces(phrase, minLen = SCRIPT_BREAK_MIN) {
+  const chars = [...String(phrase ?? '')];
+  if (chars.length === 0) return [];
+  if (chars.length < minLen) return [chars.join('')];
+  const pieces = [];
+  let cur = '';
+  let prev = null;
+  let afterDot = false;
+  for (const ch of chars) {
+    const own = scriptOf(ch);
+    const cls = own === 'dot' ? 'dot' : (own || prev);
+    const boundary = cur && cls !== 'dot' && (afterDot || (prev && cls && ALLOWED.has(`${prev}>${cls}`)));
+    if (boundary) { pieces.push(cur); cur = ''; }
+    cur += ch;
+    afterDot = cls === 'dot';
+    if (cls !== 'dot') prev = cls;
+  }
+  if (cur) pieces.push(cur);
+  // 2 字に満たない切れ端は隣とまとめる（先頭は次へ、それ以外は前へ）。
+  const merged = [];
+  pieces.forEach((pc) => {
+    if (merged.length && [...pc].length < 2) merged[merged.length - 1] += pc;
+    else merged.push(pc);
+  });
+  if (merged.length > 1 && [...merged[0]].length < 2) { merged[1] = merged[0] + merged[1]; merged.shift(); }
+  return merged;
+}
+
+// 文節（scriptBreaks のときは長い文節の中の文字の種類の切れ目でも）に分ける。改行は '\n' の要素で残す。
+export function phrasePieces(text, { scriptBreaks = false } = {}) {
   const src = String(text ?? '');
-  if (!src) return src;
-  let p;
-  try { p = getParser(); } catch { return src; }
+  if (!src) return [];
+  let p = null;
+  try { p = getParser(); } catch { p = null; }
   const out = [];
   src.split('\n').forEach((line, li) => {
     if (li > 0) out.push('\n');
     let phrases;
-    try { phrases = line ? p.parse(line) : []; } catch { phrases = [line]; }
-    phrases.forEach((ph, i) => {
-      if (i > 0) out.push(<wbr key={`${li}-${i}`} />);
-      out.push(ph);
-    });
+    try { phrases = !line ? [] : p ? p.parse(line) : [line]; } catch { phrases = [line]; }
+    phrases.forEach((ph) => { (scriptBreaks ? scriptBreakPieces(ph) : [ph]).forEach((pc) => out.push(pc)); });
+  });
+  return out;
+}
+
+// 文を文節の切れ目（<wbr>）入りの React ノードにする。改行はそのまま（white-space: pre-wrap）。
+// scriptBreaks: 書名・著者名など、長い 1 文節の中でも文字の種類の切れ目で折り返してよいもの（scriptBreakPieces）。
+export function withPhraseBreaks(text, { scriptBreaks = false } = {}) {
+  const src = String(text ?? '');
+  if (!src) return src;
+  const out = [];
+  let k = 0;
+  let lineStart = true;
+  phrasePieces(src, { scriptBreaks }).forEach((pc) => {
+    if (pc === '\n') { out.push('\n'); lineStart = true; return; }
+    if (!lineStart) out.push(<wbr key={`w${k++}`} />);
+    out.push(pc);
+    lineStart = false;
   });
   return out;
 }
 
 // いちばん長い文節の字数（その文節が 1 行に収まるかを見積もる・MiniCover の書名など）。
-export function longestPhraseLength(text) {
-  const src = String(text ?? '');
-  if (!src) return 0;
-  let p;
-  try { p = getParser(); } catch { return src.length; }
+export function longestPhraseLength(text, { scriptBreaks = false } = {}) {
   let max = 0;
-  src.split('\n').forEach((line) => {
-    let phrases;
-    try { phrases = line ? p.parse(line) : []; } catch { phrases = [line]; }
-    phrases.forEach((ph) => { max = Math.max(max, [...ph].length); });
-  });
+  phrasePieces(text, { scriptBreaks }).forEach((pc) => { if (pc !== '\n') max = Math.max(max, [...pc].length); });
   return max;
 }
 

@@ -96,7 +96,7 @@ export default function MemoFab({ scrollRef, onClick }) {
       onClick={onClick}
       style={fabStyle}
     >
-      <PencilLine size={18} aria-hidden="true" />メモを書く
+      <PencilLine size="1.1em" aria-hidden="true" style={{ flexShrink: 0 }} />メモを書く
     </button>
   );
 }

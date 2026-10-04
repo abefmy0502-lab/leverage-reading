@@ -66,7 +66,7 @@ const LibrarySearchHit = memo(function LibrarySearchHit({ result, onOpen, onAuto
           <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginTop: 'var(--space-1)', minWidth: 0 }}>
             {showStatus && <StatusLabel status={book.status} />}
             {/* 評価はすべての本のリストの行と同じ（状態 → 評価 · 著者・2026-09-30 ui-critic） */}
-            {showRating && book.rating > 0 && <span style={{ flexShrink: 0, display: 'inline-flex' }}><Stars r={book.rating} size={12} /></span>}
+            {showRating && book.rating > 0 && <span style={{ flexShrink: 0, display: 'inline-flex' }}><Stars r={book.rating} size="calc(12rem / 17)" /></span>}
             {book.author && (showStatus || (showRating && book.rating > 0)) && <span aria-hidden="true" style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', flexShrink: 0 }}>·</span>}
             {book.author && <span style={{ flex: 1, fontSize: 'var(--text-meta)', color: 'var(--text-2)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{book.author}</span>}
           </span>
@@ -177,7 +177,7 @@ export function ConsultSearchLink({ onClick, center = false }) {
       onClick={onClick}
       style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', marginLeft: center ? 0 : 'calc(-1 * var(--space-1))', alignSelf: center ? 'center' : 'flex-start' }}
     >
-      <MessageCircle size={18} aria-hidden="true" />
+      <MessageCircle size="1.2em" aria-hidden="true" style={{ flexShrink: 0 }} />
       相談で探す
     </button>
   );

@@ -39,7 +39,7 @@ export default function TagSuggest({ suggestions, applied = [], busyTag = null, 
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)', marginRight: 'calc(-1 * var(--space-3))' }}>
         <span aria-hidden="true" style={{ display: 'flex', alignItems: 'center', height: HEAD_LINE, flexShrink: 0, color: 'var(--text-2)' }}>
-          <Tag size={16} />
+          <Tag size="1.2em" />
         </span>
         <h3 id={titleId} style={{ flex: 1, minWidth: 0, margin: 0, fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
           {withPhraseBreaks(TAG_SUGGEST_TITLE)}
@@ -68,12 +68,12 @@ export default function TagSuggest({ suggestions, applied = [], busyTag = null, 
               // 保存中は押しても何もしない（薄くしない・DESIGN §5 押せないボタン）
               onClick={() => { if (!busyTag) onToggle?.(tag); }}
             >
-              {!on && !busy && <Plus size={14} aria-hidden="true" style={{ flexShrink: 0 }} />}
+              {!on && !busy && <Plus size="0.95em" aria-hidden="true" style={{ flexShrink: 0 }} />}
               {/* 長いタグ（50 字まで）は 1 行で … に切る（チップは並びの幅を超えない・Chip の shrink） */}
               <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tag}</span>
-              {on && !busy && <X size={14} aria-hidden="true" style={{ flexShrink: 0 }} />}
+              {on && !busy && <X size="0.95em" aria-hidden="true" style={{ flexShrink: 0 }} />}
               {/* 保存中: 付け外しの印の場所に小さな回る印（チップの幅は変えない） */}
-              {busy && <Loader2 size={14} aria-hidden="true" style={{ flexShrink: 0, animation: 'leverage-spin 0.9s linear infinite' }} />}
+              {busy && <Loader2 size="0.95em" aria-hidden="true" style={{ flexShrink: 0, animation: 'leverage-spin 0.9s linear infinite' }} />}
             </Chip>
           );
         })}
