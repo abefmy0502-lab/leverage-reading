@@ -36,8 +36,8 @@ import { AI_CONSENT_VERSION } from '../lib/aiProcessors';
 
 // &offline=1: つながっていない間は書き込みがすべて失敗する（本物の端末と同じ・オフラインで保存したときの表示の確認用）。
 //   window に 'online' の知らせが来たら、つながった状態に戻る（hooks/useOnline.js と同じ決まり）。
-let demoOffline = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('offline') === '1';
-if (typeof window !== 'undefined') window.addEventListener('online', () => { demoOffline = false; });
+//   （本番のバンドルに残らないよう、ここでは何もしない。知らせを聞くのは createDemoClient の中。）
+let demoBackOnline = false;
 
 const clone = (v) => (v == null ? v : JSON.parse(JSON.stringify(v)));
 const uuid = () => (crypto.randomUUID ? crypto.randomUUID()
@@ -164,7 +164,7 @@ class Query {
     // &writefail=book_memos: 指定した表への書き込みを失敗させる（保存の失敗の表示の確認用）。
     //   &writefail=book_memos:update のように「表:操作」で、その操作だけを失敗させる。
     const writeFails = (qs.get('writefail') || '').split(',');
-    if ((demoOffline && this.op !== 'select') || (['insert', 'upsert', 'update'].includes(this.op) && (writeFails.includes(this.table) || writeFails.includes(`${this.table}:${this.op}`)))) {
+    if ((qs.get('offline') === '1' && !demoBackOnline && this.op !== 'select') || (['insert', 'upsert', 'update'].includes(this.op) && (writeFails.includes(this.table) || writeFails.includes(`${this.table}:${this.op}`)))) {
       return new Promise((r) => setTimeout(r, 300))
         .then(() => ({ data: null, error: { message: 'network error', code: 'demo' }, count: null }))
         .then(resolve, reject);
@@ -300,6 +300,9 @@ function makeSession(user) {
 }
 
 export function createDemoClient() {
+  if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+    window.addEventListener('online', () => { demoBackOnline = true; });
+  }
   const params = new URLSearchParams(window.location.search);
   const scenario = params.get('demo') || 'full';
   if (scenario === 'new' || scenario === 'auth' || scenario === 'freenew') {
