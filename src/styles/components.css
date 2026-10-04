@@ -886,6 +886,10 @@ textarea[aria-invalid="true"]:not(.no-focus-ring):focus {
      align-items: start で各カードが行の最大高に伸びないようにする
      (1 つのカードが大きいと grid のデフォルトでは他も縦に伸びてしまう)。*/
   grid-template-columns: repeat(3, 1fr);
+  /* 文字サイズの設定を大きくしたときは 2 列（2026-10-04）。列の最小の幅を 6rem（ふだん 102・3 列の幅 約 111 より狭い）にし、
+     3 列（幅の 1/3）より多くも、2 列（幅の 1/2）より少なくもしない。ふだんの大きさでは 3 列のまま、
+     ホームのいま読んでいる本の行がボタンを折り返すのとほぼ同じ大きさ（ルートの文字 約 18.5px 以上）から 2 列になる。 */
+  grid-template-columns: repeat(auto-fill, minmax(min(max(6rem, calc((100% - 2 * var(--space-3)) / 3)), calc((100% - var(--space-3)) / 2)), 1fr));
   /* 横は 12、縦（行と行）は 32（書名 2 行ぶんの高さを取るので、段の中の空きより段の間を広く）。 */
   gap: var(--space-8) var(--space-3);
   padding: 0 0 var(--space-6);
