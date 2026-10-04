@@ -51,7 +51,7 @@ const header = {
   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
   padding: 'calc(var(--space-2) + env(safe-area-inset-top)) var(--space-2) var(--space-2) var(--space-4)',
   background: 'color-mix(in srgb, var(--bg) 88%, transparent)',
-  backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+  backdropFilter: 'var(--backdrop-blur)', WebkitBackdropFilter: 'var(--backdrop-blur)',
   borderBottom: '1px solid var(--separator)',
 };
 const iconBtn = {
@@ -116,13 +116,13 @@ function RoadmapMarkdown({ text }) {
     const line = raw.replace(/\s+$/, '');
     if (!line.trim()) { out.push(<div key={i} style={{ height: 6 }} />); return; }
     if (line.startsWith('### ')) {
-      out.push(<p key={i} style={{ margin: '14px 0 6px', fontSize: 'var(--text-meta)', fontWeight: 700, color: C.brand }}>{boldify(line.slice(4))}</p>);
+      out.push(<p key={i} style={{ margin: 'var(--space-3) 0 var(--space-2)', fontSize: 'var(--text-meta)', fontWeight: 700, color: C.brand }}>{boldify(line.slice(4))}</p>);
     } else if (line.startsWith('## ')) {
-      out.push(<p key={i} style={{ margin: '16px 0 6px', fontSize: 'var(--text-meta)', fontWeight: 700, color: C.ink, letterSpacing: '0.01em' }}>{boldify(line.slice(3))}</p>);
+      out.push(<p key={i} style={{ margin: 'var(--space-4) 0 var(--space-2)', fontSize: 'var(--text-meta)', fontWeight: 700, color: C.ink, letterSpacing: '0.01em' }}>{boldify(line.slice(3))}</p>);
     } else if (/^[-・]\s/.test(line)) {
-      out.push(<p key={i} style={{ margin: '3px 0 3px 4px', fontSize: 'var(--text-meta)', color: C.ink2, lineHeight: 1.6 }}>{boldify(line.replace(/^[-・]\s/, '• '))}</p>);
+      out.push(<p key={i} style={{ margin: 'var(--space-1) 0 var(--space-1) var(--space-1)', fontSize: 'var(--text-meta)', color: C.ink2, lineHeight: 1.6 }}>{boldify(line.replace(/^[-・]\s/, '• '))}</p>);
     } else {
-      out.push(<p key={i} style={{ margin: '3px 0', fontSize: 'var(--text-meta)', color: C.ink2, lineHeight: 1.7 }}>{boldify(line)}</p>);
+      out.push(<p key={i} style={{ margin: 'var(--space-1) 0', fontSize: 'var(--text-meta)', color: C.ink2, lineHeight: 1.7 }}>{boldify(line)}</p>);
     }
   });
   return <div>{out}</div>;
@@ -132,8 +132,8 @@ function Stat({ label, value, sub }) {
   return (
     <div style={card}>
       <p style={{ margin: 0, fontSize: 'var(--text-caption)', color: C.ink2, fontWeight: 600 }}>{label}</p>
-      <p style={{ margin: '6px 0 0', fontSize: 'var(--text-title)', fontWeight: 700, color: C.ink, lineHeight: 1.1 }}>{value}</p>
-      {sub != null && <p style={{ margin: '4px 0 0', fontSize: 'var(--text-caption)', color: C.ink3 }}>{sub}</p>}
+      <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-title)', fontWeight: 700, color: C.ink, lineHeight: 1.1 }}>{value}</p>
+      {sub != null && <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-caption)', color: C.ink3 }}>{sub}</p>}
     </div>
   );
 }
@@ -143,9 +143,9 @@ function BarList({ data }) {
   if (entries.length === 0) return <p style={{ fontSize: 'var(--text-caption)', color: C.ink3, margin: 0 }}>データなし</p>;
   const max = Math.max(...entries.map(([, v]) => v), 1);
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
       {entries.map(([k, v]) => (
-        <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
           <span style={{ flex: '0 0 38%', fontSize: 'var(--text-caption)', color: C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{k}</span>
           <span style={{ flex: 1, height: 8, background: C.soft, borderRadius: 'var(--radius-full)', overflow: 'hidden' }}>
             <span style={{ display: 'block', height: '100%', width: `${(v / max) * 100}%`, background: C.brand, borderRadius: 'var(--radius-full)' }} />
@@ -162,7 +162,7 @@ function MiniBars({ series }) {
   const max = Math.max(...series.map((d) => d.active), 1);
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 80 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--space-1)', height: 80 }}>
         {series.map((d) => (
           <div key={d.d} title={`${d.d}: ${d.active}人 / 新規本${d.new_books}`}
             style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', height: '100%' }}>
@@ -170,7 +170,7 @@ function MiniBars({ series }) {
           </div>
         ))}
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 'var(--text-caption)', color: C.ink3 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 'var(--space-2)', fontSize: 'var(--text-caption)', color: C.ink3 }}>
         <span>{series[0]?.d}</span><span>{series[series.length - 1]?.d}</span>
       </div>
     </div>
@@ -593,8 +593,8 @@ export default function AdminDashboard({ onClose }) {
             <p style={sectionTitle}><Target size={15} strokeWidth={2} /> 目標</p>
             <div style={card}>
               {editingGoal || !goal ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                  <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
                     {Object.entries(METRIC_LABEL).map(([k, label]) => (
                       <button key={k} type="button" onClick={() => setGMetric(k)}
                         aria-pressed={gMetric === k}
@@ -604,7 +604,7 @@ export default function AdminDashboard({ onClose }) {
                       </button>
                     ))}
                   </div>
-                  <div style={{ display: 'flex', gap: 8 }}>
+                  <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
                     <div style={{ flex: 1 }}>
                       <label style={{ fontSize: 'var(--text-caption)', color: C.ink2, fontWeight: 600 }}>目標値{gMetric === 'mrr' ? '（円）' : '（人）'}</label>
                       <input type="number" inputMode="numeric" value={gTarget} onChange={(e) => setGTarget(e.target.value)} placeholder={gMetric === 'mrr' ? '300000' : '300'} style={inp} />
@@ -614,7 +614,7 @@ export default function AdminDashboard({ onClose }) {
                       <input type="date" value={gDeadline} data-empty={gDeadline ? undefined : DATE_HINT} onChange={(e) => setGDeadline(e.target.value)} style={inp} />
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: 8 }}>
+                  <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
                     <button type="button" onClick={saveGoal} style={{ ...btnPrimary, minHeight: 44 }}>目標を保存</button>
                     {goal && <button type="button" onClick={() => setEditingGoal(false)} style={{ ...btnGhost, minHeight: 44 }}>キャンセル</button>}
                   </div>
@@ -624,13 +624,13 @@ export default function AdminDashboard({ onClose }) {
                   <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
                     <div>
                       <p style={{ margin: 0, fontSize: 'var(--text-caption)', color: C.ink2, fontWeight: 600 }}>{METRIC_LABEL[goal.metric]}</p>
-                      <p style={{ margin: '4px 0 0', fontSize: 'var(--text-title)', fontWeight: 700, color: C.ink, lineHeight: 1.1 }}>
+                      <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-title)', fontWeight: 700, color: C.ink, lineHeight: 1.1 }}>
                         {fmtGoal(goal.metric, goalCurrent)} <span style={{ fontSize: 'var(--text-meta)', color: C.ink3, fontWeight: 600 }}>/ {fmtGoal(goal.metric, goal.target)}</span>
                       </p>
                     </div>
                     <button type="button" onClick={() => setEditingGoal(true)} style={iconBtn} aria-label="目標を編集"><Pencil size={16} /></button>
                   </div>
-                  <div style={{ height: 8, background: C.soft, borderRadius: 'var(--radius-full)', overflow: 'hidden', margin: '12px 0 8px' }}>
+                  <div style={{ height: 8, background: C.soft, borderRadius: 'var(--radius-full)', overflow: 'hidden', margin: 'var(--space-3) 0 var(--space-2)' }}>
                     <div style={{ height: '100%', width: `${goalProgress * 100}%`, background: C.brand, borderRadius: 'var(--radius-full)' }} />
                   </div>
                   <p style={{ margin: 0, fontSize: 'var(--text-caption)', color: C.ink2 }}>
@@ -657,21 +657,21 @@ export default function AdminDashboard({ onClose }) {
                   // 有料が MIN_N.pace 未満の間は % を出さない（1人動くだけで大きく振れて誤誘導するため実数のみ）。
                   const pace = active != null && cur && active >= MIN_N.pace ? Math.round((active / cur[1]) * 100) : null;
                   return (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
                       <div style={{ fontSize: 'var(--text-meta)', color: C.ink }}>
                         現在の有料会員: <b style={{ fontSize: 'var(--text-heading)' }}>{active ?? '—'}</b> 人
                         　/　直近目標（{cur[0]}）: <b>{cur[1]}</b> 人
-                        {pace != null && <span style={{ marginLeft: 8, fontWeight: 700, color: pace >= 80 ? 'var(--success)' : pace >= 40 ? 'var(--warning)' : 'var(--error)' }}>ペース {pace}%</span>}
-                        {pace == null && active != null && cur && <span style={{ marginLeft: 8, fontSize: 'var(--text-caption)', color: C.ink3 }}>（あと {Math.max(0, cur[1] - active)}人。% は有料{MIN_N.pace}人から表示）</span>}
+                        {pace != null && <span style={{ marginLeft: 'var(--space-2)', fontWeight: 700, color: pace >= 80 ? 'var(--success)' : pace >= 40 ? 'var(--warning)' : 'var(--error)' }}>ペース {pace}%</span>}
+                        {pace == null && active != null && cur && <span style={{ marginLeft: 'var(--space-2)', fontSize: 'var(--text-caption)', color: C.ink3 }}>（あと {Math.max(0, cur[1] - active)}人。% は有料{MIN_N.pace}人から表示）</span>}
                       </div>
-                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
+                      <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap', marginTop: 'var(--space-1)' }}>
                         {SALES_MILESTONES.map(([k, v]) => (
-                          <span key={k} style={{ fontSize: 'var(--text-caption)', padding: '3px 8px', borderRadius: 'var(--radius-full)', border: `1px solid ${C.hairlineStrong}`, color: active != null && active >= v ? 'var(--success)' : C.ink2, background: active != null && active >= v ? 'var(--success-soft)' : 'transparent', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+                          <span key={k} style={{ fontSize: 'var(--text-caption)', padding: 'var(--space-1) var(--space-2)', borderRadius: 'var(--radius-full)', border: `1px solid ${C.hairlineStrong}`, color: active != null && active >= v ? 'var(--success)' : C.ink2, background: active != null && active >= v ? 'var(--success-soft)' : 'transparent', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }}>
                             {k}: {v}人{active != null && active >= v ? <Check size="1em" strokeWidth={2.5} aria-label="達成" /> : null}
                           </span>
                         ))}
                       </div>
-                      <p style={{ fontSize: 'var(--text-caption)', color: C.ink3, margin: '4px 0 0' }}>目標線は company/sales-strategy-2026-2027.md §5。改訂したらコードの SALES_MILESTONES も更新。</p>
+                      <p style={{ fontSize: 'var(--text-caption)', color: C.ink3, margin: 'var(--space-1) 0 0' }}>目標線は company/sales-strategy-2026-2027.md §5。改訂したらコードの SALES_MILESTONES も更新。</p>
                     </div>
                   );
                 })()}
@@ -697,21 +697,21 @@ export default function AdminDashboard({ onClose }) {
                 )}
 
                 {rulesPending.length > 0 && (
-                  <p style={{ fontSize: 'var(--text-caption)', color: C.ink3, margin: '10px 2px 0', lineHeight: 1.6 }}>
+                  <p style={{ fontSize: 'var(--text-caption)', color: C.ink3, margin: 'var(--space-2) var(--space-1) 0', lineHeight: 1.6 }}>
                     ⏳ 判定保留 {rulesPending.length} 件（分母不足・収集中）: {rulesPending.map((r) => r.text).join(' / ')}
                   </p>
                 )}
 
                 <p style={sectionTitle}><PenLine size="1em" strokeWidth={2} aria-hidden="true" style={{ flexShrink: 0 }} /> 今週の数字（週の起点: {weekStartISO()}）</p>
                 <div style={card}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)' }}>
                     {SALES_FIELDS.map(([k, label]) => (
-                      <label key={k} style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 'var(--text-caption)', color: C.ink2 }}>
+                      <label key={k} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', fontSize: 'var(--text-caption)', color: C.ink2 }}>
                         {label}
                         <input type="number" inputMode="numeric" min={0} max={9999999} value={salesForm[k] ?? ''} onChange={(e) => setSalesForm((f) => ({ ...f, [k]: e.target.value }))} style={inp} placeholder="—" />
                       </label>
                     ))}
-                    <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 'var(--text-caption)', color: C.ink2 }}>
+                    <label style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', fontSize: 'var(--text-caption)', color: C.ink2 }}>
                       メモ（任意）
                       <input type="text" maxLength={500} value={salesForm.memo ?? ''} onChange={(e) => setSalesForm((f) => ({ ...f, memo: e.target.value }))} style={inp} placeholder="気づき一言" />
                     </label>
@@ -719,7 +719,7 @@ export default function AdminDashboard({ onClose }) {
                   <button type="button" onClick={saveSalesWeek} disabled={salesSaving} style={{ ...(salesSaving ? btnPrimaryOff : btnPrimary), minHeight: 44, marginTop: 'var(--space-3)' }}>
                     {salesSaving ? '保存中…' : '今週の数字を保存'}
                   </button>
-                  <p style={{ fontSize: 'var(--text-caption)', color: C.ink3, margin: '8px 0 0', lineHeight: 1.6 }}>
+                  <p style={{ fontSize: 'var(--text-caption)', color: C.ink3, margin: 'var(--space-2) 0 0', lineHeight: 1.6 }}>
                     出どころ: 新規課金=下の売上欄 / インストール=App Store Connect / LPクリック=note・XのUTM / note PV=noteダッシュボード / Xプロフクリック=Xアナリティクス。日曜の週次レビュー（20分）で入力。
                   </p>
                 </div>
@@ -731,10 +731,10 @@ export default function AdminDashboard({ onClose }) {
                       <table style={{ borderCollapse: 'collapse', fontSize: 'var(--text-caption)', width: '100%', minWidth: 560 }}>
                         <thead>
                           <tr style={{ color: C.ink2, textAlign: 'right' }}>
-                            <th style={{ textAlign: 'left', padding: '4px 6px' }}>週</th>
-                            {SALES_FIELDS.map(([k, label]) => <th key={k} style={{ padding: '4px 6px', fontWeight: 600 }}>{label}</th>)}
-                            <th style={{ padding: '4px 6px', fontWeight: 600 }}>note CTR</th>
-                            <th style={{ padding: '4px 6px', fontWeight: 600 }}>課金率</th>
+                            <th style={{ textAlign: 'left', padding: 'var(--space-1) var(--space-2)' }}>週</th>
+                            {SALES_FIELDS.map(([k, label]) => <th key={k} style={{ padding: 'var(--space-1) var(--space-2)', fontWeight: 600 }}>{label}</th>)}
+                            <th style={{ padding: 'var(--space-1) var(--space-2)', fontWeight: 600 }}>note CTR</th>
+                            <th style={{ padding: 'var(--space-1) var(--space-2)', fontWeight: 600 }}>課金率</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -743,10 +743,10 @@ export default function AdminDashboard({ onClose }) {
                             const cvr = r.installs > 0 && r.new_paid != null ? `${(100 * r.new_paid / r.installs).toFixed(1)}%` : '—';
                             return (
                               <tr key={r.week_start} style={{ color: C.ink, textAlign: 'right', borderTop: `1px solid ${C.hairline}` }}>
-                                <td style={{ textAlign: 'left', padding: '5px 6px', whiteSpace: 'nowrap' }}>{String(r.week_start).slice(5)}〜</td>
-                                {SALES_FIELDS.map(([k]) => <td key={k} style={{ padding: '5px 6px' }}>{r[k] ?? '—'}</td>)}
-                                <td style={{ padding: '5px 6px' }}>{ctr}</td>
-                                <td style={{ padding: '5px 6px' }}>{cvr}</td>
+                                <td style={{ textAlign: 'left', padding: 'var(--space-1) var(--space-2)', whiteSpace: 'nowrap' }}>{String(r.week_start).slice(5)}〜</td>
+                                {SALES_FIELDS.map(([k]) => <td key={k} style={{ padding: 'var(--space-1) var(--space-2)' }}>{r[k] ?? '—'}</td>)}
+                                <td style={{ padding: 'var(--space-1) var(--space-2)' }}>{ctr}</td>
+                                <td style={{ padding: 'var(--space-1) var(--space-2)' }}>{cvr}</td>
                               </tr>
                             );
                           })}
@@ -762,15 +762,15 @@ export default function AdminDashboard({ onClose }) {
             {/* ── 🧠 作戦会議（AI参謀との対話） ── */}
             <p style={sectionTitle}><Brain size={15} strokeWidth={2} /> 作戦会議（AI参謀）</p>
             <div style={card}>
-              <p style={{ margin: '0 0 12px', fontSize: 'var(--text-caption)', color: C.ink2, lineHeight: 1.7 }}>
+              <p style={{ margin: '0 0 var(--space-3)', fontSize: 'var(--text-caption)', color: C.ink2, lineHeight: 1.7 }}>
                 経営・マーケ営業・開発・経理の4頭脳に相談できます。現状の数字とこれまでの文脈を踏まえ、対話で打ち手を一緒に作ります（会話は保存されます）。
               </p>
               {advisorMsgs.length > 0 && (
-                <div role="log" aria-live="polite" style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 }}>
+                <div role="log" aria-live="polite" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
                   {advisorMsgs.map((m) => (
                     <div key={m.id || m.created_at} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
                       <div style={{
-                        maxWidth: '88%', padding: '10px 12px', borderRadius: 'var(--radius-md)', fontSize: 'var(--text-meta)', lineHeight: 1.7,
+                        maxWidth: '88%', padding: 'var(--space-2) var(--space-3)', borderRadius: 'var(--radius-md)', fontSize: 'var(--text-meta)', lineHeight: 1.7,
                         background: m.role === 'user' ? C.brand : C.soft,
                         color: m.role === 'user' ? C.brandInk : C.ink,
                         borderTopRightRadius: m.role === 'user' ? 4 : 14,
@@ -784,7 +784,7 @@ export default function AdminDashboard({ onClose }) {
                   {advisorBusy && <p aria-live="polite" style={{ fontSize: 'var(--text-caption)', color: C.ink3, margin: 0 }}>参謀が検討中…</p>}
                 </div>
               )}
-              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+              <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'flex-end' }}>
                 <textarea
                   value={advisorInput}
                   onChange={(e) => setAdvisorInput(e.target.value)}
@@ -808,10 +808,10 @@ export default function AdminDashboard({ onClose }) {
             {/* ── 🗓 タスク（手動追加のみ。日々の背骨は「今日の台本」が担う） ── */}
             <p style={sectionTitle}><ListChecks size={15} strokeWidth={2} /> タスク（例外事項の置き場）</p>
             <div style={card}>
-              <p style={{ margin: '0 0 10px', fontSize: 'var(--text-caption)', color: C.ink3, lineHeight: 1.6 }}>
+              <p style={{ margin: '0 0 var(--space-2)', fontSize: 'var(--text-caption)', color: C.ink3, lineHeight: 1.6 }}>
                 毎日のルーチンは上の「今日の台本」が正典。ここには台本に無い単発の用事だけを置く。
               </p>
-              <div style={{ display: 'flex', gap: 8, marginBottom: dailyTasks.length ? 12 : 0 }}>
+              <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: dailyTasks.length ? 12 : 0 }}>
                 <input type="text" value={newTaskTitle} maxLength={200}
                   onChange={(e) => setNewTaskTitle(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); addTask(); } }}
@@ -824,13 +824,13 @@ export default function AdminDashboard({ onClose }) {
                 const upcoming = dailyTasks.filter((t) => t.due_date >= todayStr || !t.done).slice(0, 60);
                 if (upcoming.length === 0) return null;
                 return upcoming.map((t) => (
-                  <div key={t.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '5px 0' }}>
+                  <div key={t.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)', padding: 'var(--space-1) 0' }}>
                     <button type="button" onClick={() => toggleTask(t)} aria-label={t.done ? '未完了に戻す' : '完了'}
                       style={{ flex: '0 0 auto', border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, minWidth: 44, minHeight: 44, margin: 'calc(-1 * var(--space-3)) 0 calc(-1 * var(--space-3)) calc(-1 * var(--space-3))', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: t.done ? 'var(--success)' : C.hairlineStrong }}>
                       {t.done ? <Check size={18} /> : <span style={{ display: 'inline-block', width: 16, height: 16, border: `2px solid ${C.hairlineStrong}`, borderRadius: 'var(--radius)' }} />}
                     </button>
                     <span style={{ flex: 1, fontSize: 'var(--text-meta)', color: t.done ? C.ink3 : C.ink, textDecoration: t.done ? 'line-through' : 'none', lineHeight: 1.5 }}>{t.title}</span>
-                    <span style={{ flex: '0 0 auto', fontSize: 'var(--text-caption)', color: C.ink3, marginTop: 2 }}>{t.due_date}</span>
+                    <span style={{ flex: '0 0 auto', fontSize: 'var(--text-caption)', color: C.ink3, marginTop: 'var(--space-1)' }}>{t.due_date}</span>
                   </div>
                 ));
               })()}
@@ -839,21 +839,21 @@ export default function AdminDashboard({ onClose }) {
             {/* ── 🎫 チケット ── */}
             <p style={sectionTitle}>
               <Ticket size={15} strokeWidth={2} /> チケット
-              {openTickets.length > 0 && <span style={{ marginLeft: 4, fontSize: 'var(--text-caption)', fontWeight: 700, color: C.brandInk, background: C.brand, borderRadius: 'var(--radius-full)', padding: '1px 8px' }}>未完 {openTickets.length}</span>}
+              {openTickets.length > 0 && <span style={{ marginLeft: 'var(--space-1)', fontSize: 'var(--text-caption)', fontWeight: 700, color: C.brandInk, background: C.brand, borderRadius: 'var(--radius-full)', padding: 'var(--space-1) var(--space-2)' }}>未完 {openTickets.length}</span>}
             </p>
             {tickets.length === 0 ? (
               <div style={{ ...card, color: C.ink3, fontSize: 'var(--text-meta)' }}>チケットはまだありません。下の「問い合わせ」からバグ/要望をチケット化できます。</div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
                 {tickets.map((t) => (
                   <div key={t.id} style={{ ...card, opacity: (t.status === 'done' || t.status === 'wont_fix') ? 0.6 : 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-2)', flexWrap: 'wrap' }}>
                       <span style={{ fontSize: 'var(--text-caption)', fontWeight: 700 }}>{KIND_LABEL[t.kind] || t.kind}</span>
                       <Flag size={12} color={PRI_COLOR[t.priority]} aria-label={`優先度${PRI_LABEL[t.priority]}`} />
                       <span style={{ fontSize: 'var(--text-caption)', fontWeight: 700, color: t.status === 'open' ? C.critical : C.ink3 }}>{TICKET_STATUS_LABEL[t.status] || t.status}</span>
                     </div>
                     <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: C.ink, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{t.title}</p>
-                    <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-2)', flexWrap: 'wrap' }}>
                       {t.status !== 'in_progress' && t.status !== 'done' && <button type="button" onClick={() => updateTicket(t.id, { status: 'in_progress' })} style={{ ...btnGhost, flex: '0 1 auto', minHeight: 44, padding: '0 var(--space-3)', fontSize: 'var(--text-sub)' }}>対応中</button>}
                       {t.status !== 'done' && <button type="button" onClick={() => updateTicket(t.id, { status: 'done' })} style={{ ...btnGhost, flex: '0 1 auto', minHeight: 44, padding: '0 var(--space-3)', fontSize: 'var(--text-sub)' }}>完了</button>}
                       <button type="button" onClick={() => updateTicket(t.id, { priority: t.priority === 1 ? 2 : 1 })} style={{ ...btnGhost, flex: '0 1 auto', minHeight: 44, padding: '0 var(--space-3)', fontSize: 'var(--text-sub)' }}>{t.priority === 1 ? '優先度↓' : '優先度↑'}</button>
@@ -874,7 +874,7 @@ export default function AdminDashboard({ onClose }) {
             </p>
             <div style={card}>
               {SHIP_CHECKLIST.map((c) => (
-                <div key={c.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '6px 0' }}>
+                <div key={c.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)', padding: 'var(--space-2) 0' }}>
                   <button type="button" onClick={() => toggleShipCheck(c.id)} aria-label={shipChecks[c.id] ? '未完了に戻す' : '完了'}
                     style={{ flex: '0 0 auto', border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, minWidth: 44, minHeight: 44, margin: 'calc(-1 * var(--space-3)) 0 calc(-1 * var(--space-3)) calc(-1 * var(--space-3))', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: shipChecks[c.id] ? 'var(--success)' : C.hairlineStrong }}>
                     {shipChecks[c.id] ? <Check size={18} /> : <span style={{ display: 'inline-block', width: 16, height: 16, border: `2px solid ${C.hairlineStrong}`, borderRadius: 'var(--radius)' }} />}
@@ -887,13 +887,13 @@ export default function AdminDashboard({ onClose }) {
             {/* ── 🔌 計測配線チェック（KPI の土台。イベントが 1 件でも入れば ✅） ── */}
             <p style={sectionTitle}><Activity size={15} strokeWidth={2} /> 計測配線チェック</p>
             <div style={card}>
-              <p style={{ margin: '0 0 10px', fontSize: 'var(--text-caption)', color: C.ink3, lineHeight: 1.6 }}>
+              <p style={{ margin: '0 0 var(--space-2)', fontSize: 'var(--text-caption)', color: C.ink3, lineHeight: 1.6 }}>
                 TestFlight / 実機で操作して、各イベントが届くか確認する（直近{days}日の実カウント）。
               </p>
               {['app_open', 'signup_source', 'book_added', 'memo_added', 'paywall_viewed', 'checkout_started', 'checkout_completed', 'recall_shown', 'push_enabled'].map((ev) => {
                 const n = usage?.events?.[ev] || 0;
                 return (
-                  <div key={ev} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 'var(--text-caption)' }}>
+                  <div key={ev} style={{ display: 'flex', justifyContent: 'space-between', padding: 'var(--space-1) 0', fontSize: 'var(--text-caption)' }}>
                     <span style={{ color: C.ink, fontFamily: 'ui-monospace, monospace' }}>{ev}</span>
                     <span style={{ fontWeight: 700, color: n > 0 ? 'var(--success)' : C.ink3, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }}>{n > 0 ? <><Check size="1em" strokeWidth={2.5} aria-label="届いた" />{n}</> : '0件'}</span>
                   </div>
@@ -902,26 +902,26 @@ export default function AdminDashboard({ onClose }) {
             </div>
 
             {/* ── 🚀 配信開始の切替 ── */}
-            <div style={{ ...card, marginTop: 18 }}>
-              <p style={{ margin: '0 0 8px', fontSize: 'var(--text-caption)', fontWeight: 700, color: C.ink, display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}><Rocket size="1em" strokeWidth={2} aria-hidden="true" style={{ flexShrink: 0 }} />App Store 配信を開始したら</p>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            <div style={{ ...card, marginTop: 'var(--space-4)' }}>
+              <p style={{ margin: '0 0 var(--space-2)', fontSize: 'var(--text-caption)', fontWeight: 700, color: C.ink, display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}><Rocket size="1em" strokeWidth={2} aria-hidden="true" style={{ flexShrink: 0 }} />App Store 配信を開始したら</p>
+              <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'flex-end', flexWrap: 'wrap' }}>
                 <div style={{ flex: 1, minWidth: 150 }}>
                   <label style={{ fontSize: 'var(--text-caption)', color: C.ink2, fontWeight: 600 }}>配信日</label>
                   <input type="date" value={launchDate} data-empty={launchDate ? undefined : DATE_HINT} onChange={(e) => setLaunchDate(e.target.value)} style={inp} />
                 </div>
                 <button type="button" onClick={goLive} style={{ ...btnPrimary, width: 'auto', minHeight: 44 }}>配信中モードに切替</button>
               </div>
-              <p style={{ margin: '8px 0 0', fontSize: 'var(--text-caption)', color: C.ink3, lineHeight: 1.6 }}>切り替えると KPI 計器と if-then 判定が有効になり、W1〜W4 ローンチスプリントが今日の一手に反映されます。</p>
+              <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-caption)', color: C.ink3, lineHeight: 1.6 }}>切り替えると KPI 計器と if-then 判定が有効になり、W1〜W4 ローンチスプリントが今日の一手に反映されます。</p>
             </div>
             </>)}
 
             {activeTab === 'overview' && phase === 'live' && (<>
             {/* ── 期間トグル ＋ メトリクス ── */}
             <p style={sectionTitle}><Users size={15} strokeWidth={2} /> アクティブ人数</p>
-            <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+            <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
               {[7, 30, 90].map((d) => (
                 <button key={d} type="button" onClick={() => setDays(d)}
-                  style={{ flex: 1, padding: '8px 0', borderRadius: 'var(--radius)', fontSize: 'var(--text-caption)', fontWeight: 700, cursor: 'pointer',
+                  style={{ flex: 1, padding: 'var(--space-2) 0', borderRadius: 'var(--radius)', fontSize: 'var(--text-caption)', fontWeight: 700, cursor: 'pointer',
                     border: `1px solid ${days === d ? 'transparent' : C.hairlineStrong}`,
                     background: days === d ? C.brand : 'transparent', color: days === d ? C.brandInk : C.ink2 }}>{d}日</button>
               ))}
@@ -931,12 +931,12 @@ export default function AdminDashboard({ onClose }) {
               <Stat label="WAU" value={overview?.wau ?? 0} />
               <Stat label="MAU" value={overview?.mau ?? 0} />
             </div>
-            <div style={{ ...grid2, marginTop: 10 }}>
+            <div style={{ ...grid2, marginTop: 'var(--space-2)' }}>
               <Stat label="総ユーザー" value={overview?.users_total ?? 0} sub={`新規 +${overview?.new_users_30d ?? 0}（30日）`} />
               <Stat label="新規（7日）" value={`+${overview?.new_users_7d ?? 0}`} />
             </div>
-            <div style={{ ...card, marginTop: 10 }}>
-              <p style={{ margin: '0 0 10px', fontSize: 'var(--text-caption)', color: C.ink2, fontWeight: 600 }}>日次アクティブ（直近{days}日）</p>
+            <div style={{ ...card, marginTop: 'var(--space-2)' }}>
+              <p style={{ margin: '0 0 var(--space-2)', fontSize: 'var(--text-caption)', color: C.ink2, fontWeight: 600 }}>日次アクティブ（直近{days}日）</p>
               <MiniBars series={series} />
             </div>
 
@@ -947,16 +947,16 @@ export default function AdminDashboard({ onClose }) {
               <Stat label="無料期間" value={revenue?.trial ?? 0} sub="トライアル中" />
               <Stat label="解約（累計）" value={revenue?.canceled ?? 0} sub="会員数に含めない" />
             </div>
-            <div style={{ ...grid2, marginTop: 10 }}>
+            <div style={{ ...grid2, marginTop: 'var(--space-2)' }}>
               <Stat label="MRR（概算）" value={`¥${mrr.toLocaleString()}`} sub={foundingPaid > 0
                 ? `有料 ${(revenue?.active ?? 0) - foundingPaid}人 × ¥${MONTHLY_PRICE_JPY.toLocaleString()}＋創業 ${foundingPaid}人 × ¥${FOUNDING_MONTHLY_JPY.toLocaleString()}`
                 : `有料 ${revenue?.active ?? 0}人 × ¥${MONTHLY_PRICE_JPY.toLocaleString()}`} />
               <Stat label="30日内に更新期限" value={revenue?.expiring_30d ?? 0} sub="要フォロー" />
             </div>
-            <div style={{ ...card, marginTop: 10 }}>
+            <div style={{ ...card, marginTop: 'var(--space-2)' }}>
               <p style={{ margin: 0, fontSize: 'var(--text-caption)', color: C.ink2, fontWeight: 600 }}>月次粗利（概算）</p>
-              <p style={{ margin: '6px 0 0', fontSize: 'var(--text-title)', fontWeight: 700, color: C.ink, lineHeight: 1.1 }}>¥{grossProfit.toLocaleString()}</p>
-              <p style={{ margin: '6px 0 0', fontSize: 'var(--text-caption)', color: C.ink3, lineHeight: 1.6 }}>
+              <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-title)', fontWeight: 700, color: C.ink, lineHeight: 1.1 }}>¥{grossProfit.toLocaleString()}</p>
+              <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-caption)', color: C.ink3, lineHeight: 1.6 }}>
                 売上 ¥{mrr.toLocaleString()} − App手数料({(PAYMENT_FEE_RATE * 100).toFixed(0)}%) ¥{Math.round(mrr * PAYMENT_FEE_RATE).toLocaleString()} − AI原価 ¥{aiCostThisMonth.toLocaleString()}（{aiCallsThisMonth}コール×¥{AI_COST_PER_CALL_JPY}）
                 <br />※ App内課金（Apple小規模事業者プログラム 15%）想定の直接原価ベース。人件費・固定費は含みません。係数は実測で調整。
               </p>
@@ -972,11 +972,11 @@ export default function AdminDashboard({ onClose }) {
                   const stepConv = prev != null && prev > 0 ? Math.round((s.n / prev) * 100) : null;
                   return (
                     <div key={s.label} style={{ marginBottom: i < funnel.length - 1 ? 10 : 0 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-caption)', marginBottom: 4 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-caption)', marginBottom: 'var(--space-1)' }}>
                         <span style={{ color: C.ink, fontWeight: 600 }}>{s.label}</span>
                         <span style={{ color: C.ink2 }}>
                           <strong style={{ color: C.ink }}>{s.n}</strong>
-                          {stepConv != null && <span style={{ color: C.ink3, marginLeft: 6 }}>（前段比 {stepConv}%）</span>}
+                          {stepConv != null && <span style={{ color: C.ink3, marginLeft: 'var(--space-2)' }}>（前段比 {stepConv}%）</span>}
                         </span>
                       </div>
                       <div style={{ height: 8, background: C.soft, borderRadius: 'var(--radius-full)', overflow: 'hidden' }}>
@@ -995,12 +995,12 @@ export default function AdminDashboard({ onClose }) {
               <Stat label="D30継続" value={retD30 != null ? `${retD30}%` : '—'} sub={ret ? `${ret.d30_num}/${ret.d30_den}人` : '蓄積中'} />
             </div>
             {(!ret || ret.d1_den === 0) && (
-              <p style={{ margin: '8px 2px 0', fontSize: 'var(--text-caption)', color: C.ink3, lineHeight: 1.6 }}>※ 利用データが貯まると自動で算出されます（登録から日数が経った人が対象）。</p>
+              <p style={{ margin: 'var(--space-2) var(--space-1) 0', fontSize: 'var(--text-caption)', color: C.ink3, lineHeight: 1.6 }}>※ 利用データが貯まると自動で算出されます（登録から日数が経った人が対象）。</p>
             )}
 
             <p style={sectionTitle}><Calculator size={15} strokeWidth={2} /> ユニットエコノミクス（LTV / CAC）</p>
             <div style={card}>
-              <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-3)', flexWrap: 'wrap' }}>
                 <div style={{ flex: 1, minWidth: 130 }}>
                   <label style={{ fontSize: 'var(--text-caption)', color: C.ink2, fontWeight: 600 }}>今月の集客費用（円）</label>
                   <input type="number" inputMode="numeric" value={mktSpend}
@@ -1019,7 +1019,7 @@ export default function AdminDashboard({ onClose }) {
                 <Stat label="CAC" value={cac != null ? `¥${cac.toLocaleString()}` : '—'} sub={newPaidThisMonth > 0 ? `今月有料${newPaidThisMonth}人` : '今月の有料0'} />
                 <Stat label="LTV:CAC" value={ltvCac != null ? `${ltvCac.toFixed(1)}` : '—'} sub="目安 3以上" />
               </div>
-              <p style={{ margin: '10px 2px 0', fontSize: 'var(--text-caption)', color: C.ink3, lineHeight: 1.7 }}>
+              <p style={{ margin: 'var(--space-2) var(--space-1) 0', fontSize: 'var(--text-caption)', color: C.ink3, lineHeight: 1.7 }}>
                 {paybackMonths != null ? `回収期間 約${paybackMonths.toFixed(1)}ヶ月。` : ''}
                 LTV:CAC ≥ 3 / 回収 ≤ 12ヶ月 が健全の目安。集客費は手入力（この端末に保存）。粗利ベースの概算です。
               </p>
@@ -1028,7 +1028,7 @@ export default function AdminDashboard({ onClose }) {
             <p style={sectionTitle}><Cpu size={15} strokeWidth={2} /> AIコスト / API消費</p>
             <div style={card}>
               {ai.length === 0 ? <p style={{ fontSize: 'var(--text-caption)', color: C.ink3, margin: 0 }}>まだ利用がありません。</p> : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
                   {ai.map((m) => (
                     <div key={m.month} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <span style={{ fontSize: 'var(--text-caption)', color: C.ink, fontWeight: 600 }}>{m.month}</span>
@@ -1041,12 +1041,12 @@ export default function AdminDashboard({ onClose }) {
 
             <p style={sectionTitle}><TrendingUp size={15} strokeWidth={2} /> 機能別の利用状況（直近{days}日）</p>
             <div style={card}>
-              <p style={{ margin: '0 0 10px', fontSize: 'var(--text-caption)', color: C.ink2, fontWeight: 600 }}>イベント別</p>
+              <p style={{ margin: '0 0 var(--space-2)', fontSize: 'var(--text-caption)', color: C.ink2, fontWeight: 600 }}>イベント別</p>
               <BarList data={usage?.events} />
             </div>
-            <div style={{ ...grid2, marginTop: 10 }}>
-              <div style={card}><p style={{ margin: '0 0 10px', fontSize: 'var(--text-caption)', color: C.ink2, fontWeight: 600 }}>AI 機能</p><BarList data={usage?.ai_features} /></div>
-              <div style={card}><p style={{ margin: '0 0 10px', fontSize: 'var(--text-caption)', color: C.ink2, fontWeight: 600 }}>本の追加経路</p><BarList data={usage?.book_via} /></div>
+            <div style={{ ...grid2, marginTop: 'var(--space-2)' }}>
+              <div style={card}><p style={{ margin: '0 0 var(--space-2)', fontSize: 'var(--text-caption)', color: C.ink2, fontWeight: 600 }}>AI 機能</p><BarList data={usage?.ai_features} /></div>
+              <div style={card}><p style={{ margin: '0 0 var(--space-2)', fontSize: 'var(--text-caption)', color: C.ink2, fontWeight: 600 }}>本の追加経路</p><BarList data={usage?.book_via} /></div>
             </div>
 
             </>)}
@@ -1069,17 +1069,17 @@ export default function AdminDashboard({ onClose }) {
             {shownFeedback.length === 0 ? (
               <div style={{ ...card, color: C.ink3, fontSize: 'var(--text-meta)' }}>該当する問い合わせはありません。</div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
                 {shownFeedback.map((f) => (
                   <div key={f.id} style={card}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: 'var(--text-caption)', fontWeight: 700, color: C.ink2, background: C.soft, borderRadius: 'var(--radius)', padding: '2px 8px' }}>{CATEGORY_LABEL[f.category] || f.category}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-2)', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 'var(--text-caption)', fontWeight: 700, color: C.ink2, background: C.soft, borderRadius: 'var(--radius)', padding: 'var(--space-1) var(--space-2)' }}>{CATEGORY_LABEL[f.category] || f.category}</span>
                       <span style={{ fontSize: 'var(--text-caption)', fontWeight: 700, color: f.status === 'open' ? C.critical : C.ink3 }}>{FB_STATUS_LABEL[f.status] || f.status}</span>
                       <span style={{ marginLeft: 'auto', fontSize: 'var(--text-caption)', color: C.ink3 }}>{String(f.created_at).slice(0, 10)}</span>
                     </div>
                     <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: C.ink, lineHeight: 1.7, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{f.content}</p>
-                    {(f.name || f.email) && <p style={{ margin: '8px 0 0', fontSize: 'var(--text-caption)', color: C.ink3 }}>{f.name || '（匿名）'}{f.email ? ` · ${f.email}` : ''}</p>}
-                    <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
+                    {(f.name || f.email) && <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-caption)', color: C.ink3 }}>{f.name || '（匿名）'}{f.email ? ` · ${f.email}` : ''}</p>}
+                    <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-2)', flexWrap: 'wrap' }}>
                       <button type="button" onClick={() => ticketize(f.id)} style={{ ...btnGhost, flex: '0 1 auto', minHeight: 44, padding: '0 var(--space-3)', fontSize: 'var(--text-sub)', color: C.brand, fontWeight: 700 }}>チケット化</button>
                       {f.status !== 'in_progress' && <button type="button" onClick={() => triageFb(f.id, 'in_progress')} style={{ ...btnGhost, flex: '0 1 auto', minHeight: 44, padding: '0 var(--space-3)', fontSize: 'var(--text-sub)' }}>対応中</button>}
                       {f.status !== 'resolved' && <button type="button" onClick={() => triageFb(f.id, 'resolved')} style={{ ...btnGhost, flex: '0 1 auto', minHeight: 44, padding: '0 var(--space-3)', fontSize: 'var(--text-sub)' }}>解決</button>}
