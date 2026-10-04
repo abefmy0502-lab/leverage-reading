@@ -1584,7 +1584,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     : [];
   // 同じ相談にもう一度答える（別の角度で／止めた・途中までの答えは「もう一度答えて」）。チップの行の最後に置く。
   // 問いに答えている間（返事の候補がある）は出さない＝チップは「候補＋行動を決める」だけ（2026-09-30 ui-critic）。
-  const regenLabel = !chipRowBase || isBookLookup(lastAsked) || followups.some((c) => c.kind === 'reply') ? '' : lastVisible.content === STOPPED_EMPTY ? 'もう一度答えて' : '別の角度で答えて';
+  // 途中で止めた答え（「— ここで中止しました」で終わる）も「もう一度答えて」（SPEC §3・角度を変えたいのではなく続きが欲しい・2026-10-04）。
+  const stoppedAnswer = !!lastVisible && (lastVisible.content === STOPPED_EMPTY || /— ここで中止しました\s*$/.test(String(lastVisible.content || '')));
+  const regenLabel = !chipRowBase || isBookLookup(lastAsked) || followups.some((c) => c.kind === 'reply') ? '' : stoppedAnswer ? 'もう一度答えて' : '別の角度で答えて';
 
   // 過去の相談: 相談（user）とそれに続く答えを 1 組にして、新しい組から並べる。
   const historyGroups = useMemo(() => {
