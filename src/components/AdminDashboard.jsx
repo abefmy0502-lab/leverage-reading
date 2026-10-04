@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { opsAdvise } from '../lib/ai';
-import { C, btnPrimary, btnGhost } from '../styles/ui';
+import { C, btnPrimary, btnPrimaryOff, btnGhost } from '../styles/ui';
 import Spinner from './Spinner';
 import TodayCard from './admin/TodayCard';
 import LaunchKpiCard from './admin/LaunchKpiCard';
@@ -597,9 +597,9 @@ export default function AdminDashboard({ onClose }) {
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                     {Object.entries(METRIC_LABEL).map(([k, label]) => (
                       <button key={k} type="button" onClick={() => setGMetric(k)}
-                        style={{ padding: '8px 12px', borderRadius: 'var(--radius)', fontSize: 'var(--text-caption)', fontWeight: 600, cursor: 'pointer',
-                          border: `1px solid ${gMetric === k ? 'transparent' : C.hairlineStrong}`,
-                          background: gMetric === k ? C.brand : 'transparent', color: gMetric === k ? C.brandInk : C.ink2 }}>
+                        aria-pressed={gMetric === k}
+                        style={{ minHeight: 44, padding: '0 var(--space-3)', borderRadius: 'var(--radius)', fontSize: 'var(--text-sub)', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', border: 'none',
+                          background: gMetric === k ? 'var(--accent-soft)' : 'var(--fill)', color: gMetric === k ? 'var(--accent)' : 'var(--text-2)' }}>
                         {label}
                       </button>
                     ))}
@@ -716,7 +716,7 @@ export default function AdminDashboard({ onClose }) {
                       <input type="text" maxLength={500} value={salesForm.memo ?? ''} onChange={(e) => setSalesForm((f) => ({ ...f, memo: e.target.value }))} style={inp} placeholder="気づき一言" />
                     </label>
                   </div>
-                  <button type="button" onClick={saveSalesWeek} disabled={salesSaving} style={{ ...btnPrimary, minHeight: 44, marginTop: 12, opacity: salesSaving ? 0.6 : 1 }}>
+                  <button type="button" onClick={saveSalesWeek} disabled={salesSaving} style={{ ...(salesSaving ? btnPrimaryOff : btnPrimary), minHeight: 44, marginTop: 'var(--space-3)' }}>
                     {salesSaving ? '保存中…' : '今週の数字を保存'}
                   </button>
                   <p style={{ fontSize: 'var(--text-caption)', color: C.ink3, margin: '8px 0 0', lineHeight: 1.6 }}>
@@ -795,7 +795,7 @@ export default function AdminDashboard({ onClose }) {
                 />
                 <button type="button" onClick={sendAdvisor} disabled={advisorBusy || !advisorInput.trim()}
                   aria-label="送信"
-                  style={{ flex: '0 0 auto', width: 48, height: 48, borderRadius: 'var(--radius)', border: 'none', background: C.brand, color: C.brandInk, cursor: advisorBusy || !advisorInput.trim() ? 'default' : 'pointer', opacity: advisorBusy || !advisorInput.trim() ? 0.5 : 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                  style={{ ...((advisorBusy || !advisorInput.trim()) ? btnPrimaryOff : btnPrimary), flex: '0 0 auto', width: 48, height: 48, minHeight: 48, padding: 0 }}>
                   <Send size={18} />
                 </button>
               </div>
@@ -817,7 +817,7 @@ export default function AdminDashboard({ onClose }) {
                   onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); addTask(); } }}
                   placeholder="例: 審査リジェクトの返信を書く" style={{ ...inp, flex: 1 }} />
                 <button type="button" onClick={addTask} disabled={taskAdding || !newTaskTitle.trim()}
-                  style={{ ...btnPrimary, width: 'auto', minHeight: 44, padding: '0 16px', opacity: (taskAdding || !newTaskTitle.trim()) ? 0.5 : 1 }}>追加</button>
+                  style={{ ...((taskAdding || !newTaskTitle.trim()) ? btnPrimaryOff : btnPrimary), width: 'auto', minHeight: 44, padding: '0 var(--space-4)' }}>追加</button>
               </div>
               {(() => {
                 const todayStr = todayLocal();
@@ -854,10 +854,10 @@ export default function AdminDashboard({ onClose }) {
                     </div>
                     <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: C.ink, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{t.title}</p>
                     <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
-                      {t.status !== 'in_progress' && t.status !== 'done' && <button type="button" onClick={() => updateTicket(t.id, { status: 'in_progress' })} style={{ ...btnGhost, flex: '0 1 auto', minHeight: 44, padding: '0 var(--space-3)', fontSize: 'var(--text-caption)' }}>対応中</button>}
-                      {t.status !== 'done' && <button type="button" onClick={() => updateTicket(t.id, { status: 'done' })} style={{ ...btnGhost, flex: '0 1 auto', minHeight: 44, padding: '0 var(--space-3)', fontSize: 'var(--text-caption)' }}>完了</button>}
-                      <button type="button" onClick={() => updateTicket(t.id, { priority: t.priority === 1 ? 2 : 1 })} style={{ ...btnGhost, flex: '0 1 auto', minHeight: 44, padding: '0 var(--space-3)', fontSize: 'var(--text-caption)' }}>{t.priority === 1 ? '優先度↓' : '優先度↑'}</button>
-                      {t.status !== 'wont_fix' && t.status !== 'done' && <button type="button" onClick={() => updateTicket(t.id, { status: 'wont_fix' })} style={{ ...btnGhost, flex: '0 1 auto', minHeight: 44, padding: '0 var(--space-3)', fontSize: 'var(--text-caption)', color: C.ink3 }}>却下</button>}
+                      {t.status !== 'in_progress' && t.status !== 'done' && <button type="button" onClick={() => updateTicket(t.id, { status: 'in_progress' })} style={{ ...btnGhost, flex: '0 1 auto', minHeight: 44, padding: '0 var(--space-3)', fontSize: 'var(--text-sub)' }}>対応中</button>}
+                      {t.status !== 'done' && <button type="button" onClick={() => updateTicket(t.id, { status: 'done' })} style={{ ...btnGhost, flex: '0 1 auto', minHeight: 44, padding: '0 var(--space-3)', fontSize: 'var(--text-sub)' }}>完了</button>}
+                      <button type="button" onClick={() => updateTicket(t.id, { priority: t.priority === 1 ? 2 : 1 })} style={{ ...btnGhost, flex: '0 1 auto', minHeight: 44, padding: '0 var(--space-3)', fontSize: 'var(--text-sub)' }}>{t.priority === 1 ? '優先度↓' : '優先度↑'}</button>
+                      {t.status !== 'wont_fix' && t.status !== 'done' && <button type="button" onClick={() => updateTicket(t.id, { status: 'wont_fix' })} style={{ ...btnGhost, flex: '0 1 auto', minHeight: 44, padding: '0 var(--space-3)', fontSize: 'var(--text-sub)', color: C.ink3 }}>却下</button>}
                     </div>
                   </div>
                 ))}
@@ -1056,14 +1056,14 @@ export default function AdminDashboard({ onClose }) {
             {/* ── 📩 問い合わせ受信箱 ── */}
             <p style={sectionTitle}>
               <Inbox size={15} strokeWidth={2} /> 問い合わせ・フィードバック
-              {overview?.feedback_open > 0 && <span style={{ marginLeft: 4, fontSize: 'var(--text-caption)', fontWeight: 700, color: C.brandInk, background: C.brand, borderRadius: 'var(--radius-full)', padding: '1px 8px' }}>未対応 {overview.feedback_open}</span>}
+              {overview?.feedback_open > 0 && <span style={{ marginLeft: 'var(--space-1)', fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-2)' }}>未対応 {overview.feedback_open}</span>}
             </p>
-            <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
               {[['open', '未対応'], ['in_progress', '対応中'], ['resolved', '解決'], ['all', 'すべて']].map(([k, label]) => (
                 <button key={k} type="button" onClick={() => setFbFilter(k)}
-                  style={{ padding: '6px 12px', borderRadius: 'var(--radius-full)', fontSize: 'var(--text-caption)', fontWeight: 600, cursor: 'pointer',
-                    border: `1px solid ${fbFilter === k ? 'transparent' : C.hairlineStrong}`,
-                    background: fbFilter === k ? C.brand : 'transparent', color: fbFilter === k ? C.brandInk : C.ink2 }}>{label}</button>
+                  aria-pressed={fbFilter === k}
+                  style={{ minHeight: 44, padding: '0 var(--space-3)', borderRadius: 'var(--radius)', fontSize: 'var(--text-sub)', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', border: 'none',
+                          background: fbFilter === k ? 'var(--accent-soft)' : 'var(--fill)', color: fbFilter === k ? 'var(--accent)' : 'var(--text-2)' }}>{label}</button>
               ))}
             </div>
             {shownFeedback.length === 0 ? (
@@ -1080,9 +1080,9 @@ export default function AdminDashboard({ onClose }) {
                     <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: C.ink, lineHeight: 1.7, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{f.content}</p>
                     {(f.name || f.email) && <p style={{ margin: '8px 0 0', fontSize: 'var(--text-caption)', color: C.ink3 }}>{f.name || '（匿名）'}{f.email ? ` · ${f.email}` : ''}</p>}
                     <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
-                      <button type="button" onClick={() => ticketize(f.id)} style={{ ...btnGhost, flex: '0 1 auto', minHeight: 44, padding: '0 var(--space-3)', fontSize: 'var(--text-caption)', color: C.brand, fontWeight: 700 }}>チケット化</button>
-                      {f.status !== 'in_progress' && <button type="button" onClick={() => triageFb(f.id, 'in_progress')} style={{ ...btnGhost, flex: '0 1 auto', minHeight: 44, padding: '0 var(--space-3)', fontSize: 'var(--text-caption)' }}>対応中</button>}
-                      {f.status !== 'resolved' && <button type="button" onClick={() => triageFb(f.id, 'resolved')} style={{ ...btnGhost, flex: '0 1 auto', minHeight: 44, padding: '0 var(--space-3)', fontSize: 'var(--text-caption)' }}>解決</button>}
+                      <button type="button" onClick={() => ticketize(f.id)} style={{ ...btnGhost, flex: '0 1 auto', minHeight: 44, padding: '0 var(--space-3)', fontSize: 'var(--text-sub)', color: C.brand, fontWeight: 700 }}>チケット化</button>
+                      {f.status !== 'in_progress' && <button type="button" onClick={() => triageFb(f.id, 'in_progress')} style={{ ...btnGhost, flex: '0 1 auto', minHeight: 44, padding: '0 var(--space-3)', fontSize: 'var(--text-sub)' }}>対応中</button>}
+                      {f.status !== 'resolved' && <button type="button" onClick={() => triageFb(f.id, 'resolved')} style={{ ...btnGhost, flex: '0 1 auto', minHeight: 44, padding: '0 var(--space-3)', fontSize: 'var(--text-sub)' }}>解決</button>}
                     </div>
                   </div>
                 ))}
