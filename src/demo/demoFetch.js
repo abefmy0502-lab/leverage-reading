@@ -417,6 +417,8 @@ function planSheetAnswer(userText) {
     ...(toc.length
       ? (focus.length ? focus : toc.slice(1, 3)).map((l) => `- 『${l}』: 得たいことにいちばん近い章`)
       : ['目次が手に入らないため、章の名前は挙げていません。', '- 人生の段階の分け方を説明している部分', '- 具体的な人物の例が出てくる部分']),
+    // &ai=fakechapter（2026-10-04）: 目次に無い章を挙げる（画面は書き終えたところで消す・lib/planChapters.js）
+    ...(new URLSearchParams(window.location.search).get('ai') === 'fakechapter' ? ['- 『第9章 AI 時代の働き方』: これからの働き方の章', '- 第12章 のケーススタディ'] : []),
     '',
     '## ⏩ 流し読みでOKな箇所',
     ...(toc.length && skim.length ? skim.map((l) => `- 『${l}』: 数字の細部は流してよい`) : ['- 統計や数字の細部']),

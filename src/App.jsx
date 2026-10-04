@@ -89,6 +89,7 @@ import { useBookCover } from './hooks/useBookCover';
 import { searchBooksFlat as searchBooksAPIFlat } from './lib/bookSearch';
 import { tryCoverForIsbn, verifyBookExists } from './lib/bookCover';
 import { verifyPlanRelatedBooks, hasMalformedRelatedBooks } from './lib/planRelatedBooks';
+import { dropUnknownChapters, focusLinesOf } from './lib/planChapters';
 import { backfillCovers } from './lib/backfillCovers';
 import { enqueueCoverRetry, resolveCoverForBook, canReplaceCover, clearCoverNotFound } from './lib/coverAutoRetry';
 import { MODEL_SMART } from './lib/models';
@@ -2827,7 +2828,7 @@ function AuthedApp() {
       new Promise((resolve) => { setTimeout(() => resolve(null), 6000); }),
     ]);
     const { about, aboutSource, toc } = bookInfoForPrompt(info);
-    return streamClaude({
+    const text = await streamClaude({
       system: PROMPTS.setupSheet.system,
       cacheSystem: true,
       messages: [{
@@ -2849,6 +2850,9 @@ function AuthedApp() {
       purpose: 'setup_sheet', // サーバーが用途ごとに安いモデルへ（docs/ai-routing.md・失敗したら Claude）
       onChunk,
     });
+    // 📖 重点的に読む箇所・流し読みから、目次に無い章の名前・番号を含む行を消す（lib/planChapters.js・2026-10-04）
+    //   この本の書名（『LIFE SHIFT』の後半）は章ではないので許す。
+    try { return dropUnknownChapters(text, [...toc, src.title || ''], { noToc: toc.length === 0 }).sheet; } catch { return text; }
   };
   // 読書計画シートの「関連書籍」を書誌で確かめ、見つからない本を消す（安いモデルで作るため・lib/planRelatedBooks.js）。
   // 確かめている間は「読みたい」ボタンを出さない（aiLoading / planGen のまま）。
@@ -3006,7 +3010,10 @@ function AuthedApp() {
       if (targetId) saveStrategyHistory(targetId, prev);
       setStrategyHistoryTick((t) => t + 1);
       // 直したシートもすぐ保存する（作ったときと同じ）。関連書籍は作ったときと同じく確かめる。
-      const checked = await checkPlanBooks(lastText);
+      // 直すときは目次を渡していないので、直す前のシートに無かった章の名前・番号を含む行は消す（lib/planChapters.js・2026-10-04）。
+      let grounded = lastText;
+      try { grounded = dropUnknownChapters(lastText, [...focusLinesOf(prev), form.title || '']).sheet; } catch { grounded = lastText; }
+      const checked = await checkPlanBooks(grounded);
       if (checked !== lastText) setForm((f) => (f && f.id === targetId ? { ...f, aiStrategy: checked } : f));
       persistPlanSheet(targetId, checked, '読書計画シートを直して、保存しました');
     } catch (error) {
