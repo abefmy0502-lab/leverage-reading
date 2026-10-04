@@ -333,9 +333,10 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
             id="onb-title"
             ref={titleRef}
             tabIndex={-1}
-            style={{ fontSize: 'var(--text-heading)', color: 'var(--text)', margin: 0, fontWeight: 600, lineHeight: 1.3, textAlign: 'center', outline: 'none', wordBreak: 'auto-phrase', textWrap: 'balance' }}
+            style={{ fontSize: 'var(--text-heading)', color: 'var(--text)', margin: 0, fontWeight: 600, lineHeight: 1.3, textAlign: 'center', outline: 'none', wordBreak: 'keep-all', overflowWrap: 'anywhere', textWrap: 'balance' }}
           >
-            {slide.title}
+            {/* 題も文節の切れ目でだけ折り返す（auto-phrase は iOS の Safari が知らない・2026-10-04）。 */}
+            {withPhraseBreaks(slide.title)}
           </h2>
           {/* 文節の切れ目（BudouX の <wbr>）でだけ折り返す（「困った／ときに」のように語の途中で割らない・iOS の Safari は auto-phrase を知らない） */}
           <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, textAlign: 'center', margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere', textWrap: 'pretty' }}>
