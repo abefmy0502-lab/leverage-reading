@@ -676,6 +676,9 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
   // 「ここまでです」も出さない（思い出しカードの区画ごと出さない）。
   const hasOwnNotes = useMemo(() => allNotes.some((n) => !isAiWritten(n)), [allNotes]);
   const recallDone = !randomMemo && hasOwnNotes;
+  // 月ごとのメモ: メモが 1 件だけのときは思い出しカードと同じメモになるので出さないが、思い出しカードに
+  // 出ていない（AI まとめだけ・今日の分が終わった）ときは出す（何も見えなくなっていた・2026-10-04 ui-critic）。
+  const showMonthly = allNotes.length > 1 || !randomMemo;
   // 「ここまでです」の下の「別のメモを見る」で出す 1 枚（null＝見ていない）。答えのボタンは出さない。
   // 最近思い出したメモはできるだけ避ける（recall.js の pickExtraMemo）。
   const [extraSeed, setExtraSeed] = useState(null);
@@ -1366,21 +1369,21 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
       {/* ===== 3. タイムライン ===== */}
       {/* メモが 1 件だけのときは思い出しカードと同じメモになるので、月ごとの一覧は出さない
           （「メモを追加」の行は 1 件から出す）。 */}
-      {allNotes.length >= 1 && (allNotes.length > 1 || (onAddNote && hasMemoableBooks)) && (
+      {allNotes.length >= 1 && (showMonthly || (onAddNote && hasMemoableBooks)) && (
       <section>
         {/* 「メモを追加」（高さ 44）と並ぶので、行の下の余白は付けない（見出しの文字から一覧まで約 8〜12）。
             行の高さ 44 の上側の空き（約 12）ぶん引き上げ、思い出しカードから見出しの文字までを約 24 にそろえる。 */}
         {/* 見出しが無い（メモ 1 件で「メモを追加」だけ）ときは引き上げない＝思い出しカードのボタンに寄って見えないように。 */}
         {/* 文字を大きくして 1 行に収まらないときは「メモを追加」を次の行へ（語の途中で割らない・2026-10-04）。 */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 'var(--space-3)', justifyContent: allNotes.length > 1 ? 'space-between' : 'flex-start', alignItems: 'center', marginTop: allNotes.length > 1 ? 'calc(-1 * var(--space-3))' : 0 }}>
-          {allNotes.length > 1 && <h2 style={{ ...sectionTitle, margin: 0, whiteSpace: 'nowrap' }}>月ごとのメモ</h2>}
+        <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 'var(--space-3)', justifyContent: showMonthly ? 'space-between' : 'flex-start', alignItems: 'center', marginTop: showMonthly ? 'calc(-1 * var(--space-3))' : 0 }}>
+          {showMonthly && <h2 style={{ ...sectionTitle, margin: 0, whiteSpace: 'nowrap' }}>月ごとのメモ</h2>}
           {/* ＋メモを追加 — 旧・最上段の孤立ボタンをここへ（メモ一覧の傍が住処。
               付け先の本＝読書中/読了の本がある時だけ）。 */}
           {onAddNote && hasMemoableBooks && (
             <button
               type="button"
               onClick={onAddNote}
-              style={{ ...btnLink, gap: 'var(--space-1)', whiteSpace: 'nowrap', ...(allNotes.length > 1 ? { paddingRight: 0 } : { paddingLeft: 0 }) }}
+              style={{ ...btnLink, gap: 'var(--space-1)', whiteSpace: 'nowrap', ...(showMonthly ? { paddingRight: 0 } : { paddingLeft: 0 }) }}
             >
               <Plus size={16} strokeWidth={2} aria-hidden="true" />
               メモを追加
@@ -1388,7 +1391,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
           )}
         </div>
         {/* 月は素の開閉行（カードの中にカードを入れない＝左端をメモカードとそろえる）。 */}
-        {allNotes.length > 1 && (
+        {showMonthly && (
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           {memosByMonth.map(([key, group]) => {
             const open = expanded.has(key);

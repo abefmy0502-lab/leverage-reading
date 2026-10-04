@@ -95,7 +95,9 @@ const SORT_OPTIONS = [
 const FILTER_OPTIONS = [
   { value: 'all', label: 'すべての種類' },
   { value: 'memo', label: 'メモ' },
-  { value: 'summary', label: 'まとめ' },
+  // カードの種類の名前と同じ「この本のまとめ」（2026-10-04 ui-critic）。読了の「一番の収穫」は別の種類に分ける（まとめと名乗らない）。
+  { value: 'summary', label: 'この本のまとめ' },
+  { value: 'harvest', label: '一番の収穫' },
   // AI が書いたもの（AI まとめ）は自分のまとめと分ける（2026-10-04）。
   { value: 'ai', label: 'AI まとめ' },
   { value: 'plan', label: '読書計画' },
@@ -128,7 +130,7 @@ const KIND_META = {
   current_challenge: { Icon: AlertTriangle, label: '現在の課題',  group: 'plan',    column: 'current_challenge' },
   hypothesis:        { Icon: FlaskConical, label: '仮説',         group: 'plan',    column: 'hypothesis' },
   ai_summary:        { Icon: Bot,          label: 'AI まとめ',    group: 'ai',      column: 'ai_summary' },
-  roi_summary:       { Icon: Gem,          label: '一番の収穫',   group: 'summary', column: 'roi_summary' },
+  roi_summary:       { Icon: Gem,          label: '一番の収穫',   group: 'harvest', column: 'roi_summary' },
   ai_strategy:       { Icon: MapIcon,      label: '読書計画シート', group: 'plan',   column: 'ai_strategy' },
   // gatherKnowledge が AI コンテキストに含める列は全てここに出す（透明性と
   // 除外手段の担保）。選書理由も AI が参照するため、見えない・消せないは NG。
@@ -322,7 +324,7 @@ export default function KnowledgeManager({ onChanged, onBooksMutated, onWriteMem
   const [loading, setLoading] = useState(true);
   const [refreshTick, setRefreshTick] = useState(0);
 
-  // フィルタ: 'all' / KIND_META.group のいずれか ('memo' | 'summary' | 'plan' | 'learning')
+  // フィルタ: 'all' / KIND_META.group のいずれか ('memo' | 'summary' | 'harvest' | 'ai' | 'plan' | 'learning')
   const [filterKind, setFilterKind] = useState('all');
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState('newest'); // newest | oldest | title
