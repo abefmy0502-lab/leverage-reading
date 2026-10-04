@@ -6,6 +6,7 @@
 import { SEARCH_CATALOG, DEMO_BOOK_INFO, DEMO_MESSY_RELATED } from './seed';
 
 const fakeChapterMode = () => { const a = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('ai') : ''; return a === 'fakechapter' || a === 'fakechapteronly' ? a : ''; };
+const relatedAllBad = () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('related') === 'allbad';
 const relatedMessy = () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('related') === 'messy';
 import { demoServerSearch, demoNdlXml } from './demoBookSearch';
 import { questionGist } from '../lib/consultHelpers';
@@ -438,7 +439,9 @@ function planSheetAnswer(userText) {
     '- 人間関係に使う時間を見直す',
     '',
     // &related=messy: 2 冊を混ぜた行・『』の無い行・実在しない本（書誌で確かめて直すか消すことの確認用・2026-10-04）
-    ...(relatedMessy() ? DEMO_MESSY_RELATED.split('\n') : [
+    // &related=allbad: 関連書籍がどれも確かめられない（2 冊混ぜ・実在しない本）→ 節ごと出さない（2026-10-04 ui-critic）
+    ...(relatedAllBad() ? ['## 📚 関連書籍', '### 1. 『SMALL ACTIONS, BIG RESULTS』関連 または『やめない習慣』 - 架空太郎', '続け方が分かります。', '### 2. 1日1行の読書術 - 架空太郎', '毎日少しずつ読めます。'] : []),
+    ...(relatedAllBad() ? [] : relatedMessy() ? DEMO_MESSY_RELATED.split('\n') : [
       '## 📚 関連書籍',
       '### 1. 『GRIT やり抜く力』- アンジェラ・ダックワース',
       '長いステージを走り切る粘り強さを、習慣として育てる考え方が補えます。',
