@@ -18,7 +18,7 @@ import { useFocusTrap } from '../hooks/useFocusTrap';
 import {
   X, RefreshCw, Target, ListChecks, Ticket, Users, CreditCard, Cpu, Inbox,
   BarChart3, TrendingUp, Check, Flag, Pencil, Activity, Calculator,
-  Brain, Send, Rocket,
+  Brain, Send, Rocket, Megaphone, AlertTriangle, PenLine,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { opsAdvise } from '../lib/ai';
@@ -80,14 +80,13 @@ const inp = {
 const METRIC_LABEL = { gross_profit: '月次粗利（概算）', mrr: 'MRR（月次売上）', paid_users: '有料会員数', users: '総ユーザー数' };
 // 🏢 常駐する4部門。各アクションを担当部門に割り当てて「誰の仕事か」を明確にする。
 const DEPT = { CEO: '経営', MKT: 'マーケ営業', ENG: '開発', FIN: '経理' };
-const DEPT_COLOR = { 経営: C.brand, マーケ営業: '#b08a3e', 開発: '#5a7d9a', 経理: '#6b8e6b' };
 const DEPT_ORDER = ['経営', 'マーケ営業', '開発', '経理'];
 const PRI_LABEL = { 1: '高', 2: '中', 3: '低' };
 const PRI_COLOR = { 1: C.critical, 2: C.brand, 3: C.ink3 };
 const CATEGORY_LABEL = { bug: '不具合', feature: '要望', ui: 'UI', question: '質問', thanks: '感謝', other: 'その他' };
 const FB_STATUS_LABEL = { open: '未対応', in_progress: '対応中', resolved: '解決', wont_fix: '却下' };
 const TICKET_STATUS_LABEL = { open: '未着手', in_progress: '対応中', done: '完了', wont_fix: '却下' };
-const KIND_LABEL = { bug: '🐛 バグ', feature: '✨ 要望', task: '📌 タスク' };
+const KIND_LABEL = { bug: 'バグ', feature: '要望', task: 'タスク' };
 
 // ローカル一意 ID（チャットメッセージの React key 用・履歴の uuid と衝突しない）。
 let _uidCounter = 0;
@@ -360,9 +359,9 @@ export default function AdminDashboard({ onClose }) {
     const opsFailed = gl.error || tk.error;
     const metricFails = [ov, se, us, au, rv, fb].filter((r) => r.error);
     const notes = [];
-    if (opsFailed) notes.push('🎯目標・🎫チケットが読めません → supabase_admin_ops.sql を適用してください');
-    if (gr.error) notes.push('📈成長・継続率が読めません → supabase_admin_growth.sql を適用してください');
-    if (lk.error) notes.push('🚀ローンチの 4 つの数字が読めません → supabase_admin_launch_kpis.sql を適用してください');
+    if (opsFailed) notes.push('目標・チケットが読めません → supabase_admin_ops.sql を適用してください');
+    if (gr.error) notes.push('成長・継続率が読めません → supabase_admin_growth.sql を適用してください');
+    if (lk.error) notes.push('ローンチの 4 つの数字が読めません → supabase_admin_launch_kpis.sql を適用してください');
     if (metricFails.length) notes.push(`一部メトリクスが読めません（${metricFails[0].error?.message || '不明'}）`);
     setWarn(notes.join(' / '));
     setLoading(false);
@@ -638,7 +637,7 @@ export default function AdminDashboard({ onClose }) {
                     達成 {Math.round(goalProgress * 100)}%
                     {daysLeft != null && <> ・ 締切まで {daysLeft > 0 ? `${daysLeft}日` : '超過'}</>}
                     {requiredPerWeek > 0 && <> ・ <strong style={{ color: C.brand }}>週 {fmtGoal(goal.metric, requiredPerWeek)} 必要</strong></>}
-                    {goalGap === 0 && <strong style={{ color: '#6b8e6b' }}> ・ 達成！🎉</strong>}
+                    {goalGap === 0 && <strong style={{ color: 'var(--success)' }}> ・ 達成</strong>}
                   </p>
                 </>
               )}
@@ -649,7 +648,7 @@ export default function AdminDashboard({ onClose }) {
             {/* ═══ 参謀タブ（作戦会議 ＋ ロードマップ） ═══ */}
             {/* ═══ 📣 営業タブ — 週次KPI・マイルストーン・警告（戦略のダッシュボード化） ═══ */}
             {activeTab === 'sales' && (<>
-              <p style={sectionTitle}>📣 マイルストーン進捗</p>
+              <p style={sectionTitle}><Megaphone size="1em" strokeWidth={2} aria-hidden="true" style={{ flexShrink: 0 }} /> マイルストーン進捗</p>
               <div style={card}>
                 {(() => {
                   const active = revenue?.active ?? null;
@@ -662,13 +661,13 @@ export default function AdminDashboard({ onClose }) {
                       <div style={{ fontSize: 'var(--text-meta)', color: C.ink }}>
                         現在の有料会員: <b style={{ fontSize: 'var(--text-heading)' }}>{active ?? '—'}</b> 人
                         　/　直近目標（{cur[0]}）: <b>{cur[1]}</b> 人
-                        {pace != null && <span style={{ marginLeft: 8, fontWeight: 700, color: pace >= 80 ? '#6b8e6b' : pace >= 40 ? '#a8842f' : '#b75050' }}>ペース {pace}%</span>}
+                        {pace != null && <span style={{ marginLeft: 8, fontWeight: 700, color: pace >= 80 ? 'var(--success)' : pace >= 40 ? 'var(--warning)' : 'var(--error)' }}>ペース {pace}%</span>}
                         {pace == null && active != null && cur && <span style={{ marginLeft: 8, fontSize: 'var(--text-caption)', color: C.ink3 }}>（あと {Math.max(0, cur[1] - active)}人。% は有料{MIN_N.pace}人から表示）</span>}
                       </div>
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
                         {SALES_MILESTONES.map(([k, v]) => (
-                          <span key={k} style={{ fontSize: 'var(--text-caption)', padding: '3px 8px', borderRadius: 'var(--radius-full)', border: `1px solid ${C.hairlineStrong}`, color: active != null && active >= v ? '#6b8e6b' : C.ink2, background: active != null && active >= v ? 'var(--c-positive-soft, #e2ecd8)' : 'transparent' }}>
-                            {k}: {v}人{active != null && active >= v ? ' ✓' : ''}
+                          <span key={k} style={{ fontSize: 'var(--text-caption)', padding: '3px 8px', borderRadius: 'var(--radius-full)', border: `1px solid ${C.hairlineStrong}`, color: active != null && active >= v ? 'var(--success)' : C.ink2, background: active != null && active >= v ? 'var(--success-soft)' : 'transparent', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+                            {k}: {v}人{active != null && active >= v ? <Check size="1em" strokeWidth={2.5} aria-label="達成" /> : null}
                           </span>
                         ))}
                       </div>
@@ -679,7 +678,7 @@ export default function AdminDashboard({ onClose }) {
               </div>
 
               {salesMissing ? (
-                <div style={{ ...card, borderColor: '#e0cabf' }}>
+                <div style={{ ...card, background: 'var(--warning-soft)', border: 'none' }}>
                   <p style={{ fontSize: 'var(--text-caption)', color: C.ink2, margin: 0, lineHeight: 1.7 }}>
                     週次トラッキングは未セットアップです。Supabase SQL Editor で <b>supabase_ops_sales_metrics.sql</b> を実行すると、このタブで週次KPIの記録と警告判定ができるようになります。
                   </p>
@@ -687,10 +686,10 @@ export default function AdminDashboard({ onClose }) {
               ) : (<>
                 {salesAlerts.length > 0 && (
                   <>
-                    <p style={sectionTitle}>⚠️ 判断ルールに該当</p>
+                    <p style={sectionTitle}><AlertTriangle size="1em" strokeWidth={2} aria-hidden="true" style={{ flexShrink: 0 }} /> 判断ルールに該当</p>
                     {salesAlerts.map((a) => (
-                      <div key={a.id} style={{ ...card, borderColor: a.id.startsWith('gate_') ? '#cfe0c8' : '#e0cabf' }}>
-                        <p style={{ fontSize: 'var(--text-caption)', fontWeight: 700, color: a.id.startsWith('gate_') ? '#4c6b4c' : '#b75050', margin: '0 0 4px' }}>{a.text}</p>
+                      <div key={a.id} style={{ ...card, border: 'none', background: a.id.startsWith('gate_') ? 'var(--success-soft)' : 'var(--error-soft)' }}>
+                        <p style={{ fontSize: 'var(--text-caption)', fontWeight: 700, color: a.id.startsWith('gate_') ? 'var(--success)' : 'var(--error)', margin: '0 0 var(--space-1)' }}>{a.text}</p>
                         <p style={{ fontSize: 'var(--text-caption)', color: C.ink2, margin: 0, lineHeight: 1.6 }}>→ {a.action}</p>
                       </div>
                     ))}
@@ -703,7 +702,7 @@ export default function AdminDashboard({ onClose }) {
                   </p>
                 )}
 
-                <p style={sectionTitle}>✍️ 今週の数字（週の起点: {weekStartISO()}）</p>
+                <p style={sectionTitle}><PenLine size="1em" strokeWidth={2} aria-hidden="true" style={{ flexShrink: 0 }} /> 今週の数字（週の起点: {weekStartISO()}）</p>
                 <div style={card}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                     {SALES_FIELDS.map(([k, label]) => (
@@ -727,7 +726,7 @@ export default function AdminDashboard({ onClose }) {
 
                 {salesRows.length > 0 && (
                   <>
-                    <p style={sectionTitle}>📈 直近8週</p>
+                    <p style={sectionTitle}><TrendingUp size="1em" strokeWidth={2} aria-hidden="true" style={{ flexShrink: 0 }} /> 直近8週</p>
                     <div style={{ ...card, overflowX: 'auto' }}>
                       <table style={{ borderCollapse: 'collapse', fontSize: 'var(--text-caption)', width: '100%', minWidth: 560 }}>
                         <thead>
@@ -827,7 +826,7 @@ export default function AdminDashboard({ onClose }) {
                 return upcoming.map((t) => (
                   <div key={t.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '5px 0' }}>
                     <button type="button" onClick={() => toggleTask(t)} aria-label={t.done ? '未完了に戻す' : '完了'}
-                      style={{ flex: '0 0 auto', border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, minWidth: 44, minHeight: 36, margin: '-8px 0 -8px -12px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: t.done ? '#6b8e6b' : C.hairlineStrong }}>
+                      style={{ flex: '0 0 auto', border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, minWidth: 44, minHeight: 44, margin: 'calc(-1 * var(--space-3)) 0 calc(-1 * var(--space-3)) calc(-1 * var(--space-3))', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: t.done ? 'var(--success)' : C.hairlineStrong }}>
                       {t.done ? <Check size={18} /> : <span style={{ display: 'inline-block', width: 16, height: 16, border: `2px solid ${C.hairlineStrong}`, borderRadius: 'var(--radius)' }} />}
                     </button>
                     <span style={{ flex: 1, fontSize: 'var(--text-meta)', color: t.done ? C.ink3 : C.ink, textDecoration: t.done ? 'line-through' : 'none', lineHeight: 1.5 }}>{t.title}</span>
@@ -855,10 +854,10 @@ export default function AdminDashboard({ onClose }) {
                     </div>
                     <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: C.ink, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{t.title}</p>
                     <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
-                      {t.status !== 'in_progress' && t.status !== 'done' && <button type="button" onClick={() => updateTicket(t.id, { status: 'in_progress' })} style={{ ...btnGhost, flex: '0 1 auto', minHeight: 34, padding: '7px 12px', fontSize: 'var(--text-caption)' }}>対応中</button>}
-                      {t.status !== 'done' && <button type="button" onClick={() => updateTicket(t.id, { status: 'done' })} style={{ ...btnGhost, flex: '0 1 auto', minHeight: 34, padding: '7px 12px', fontSize: 'var(--text-caption)' }}>完了</button>}
-                      <button type="button" onClick={() => updateTicket(t.id, { priority: t.priority === 1 ? 2 : 1 })} style={{ ...btnGhost, flex: '0 1 auto', minHeight: 34, padding: '7px 12px', fontSize: 'var(--text-caption)' }}>{t.priority === 1 ? '優先度↓' : '優先度↑'}</button>
-                      {t.status !== 'wont_fix' && t.status !== 'done' && <button type="button" onClick={() => updateTicket(t.id, { status: 'wont_fix' })} style={{ ...btnGhost, flex: '0 1 auto', minHeight: 34, padding: '7px 12px', fontSize: 'var(--text-caption)', color: C.ink3 }}>却下</button>}
+                      {t.status !== 'in_progress' && t.status !== 'done' && <button type="button" onClick={() => updateTicket(t.id, { status: 'in_progress' })} style={{ ...btnGhost, flex: '0 1 auto', minHeight: 44, padding: '0 var(--space-3)', fontSize: 'var(--text-caption)' }}>対応中</button>}
+                      {t.status !== 'done' && <button type="button" onClick={() => updateTicket(t.id, { status: 'done' })} style={{ ...btnGhost, flex: '0 1 auto', minHeight: 44, padding: '0 var(--space-3)', fontSize: 'var(--text-caption)' }}>完了</button>}
+                      <button type="button" onClick={() => updateTicket(t.id, { priority: t.priority === 1 ? 2 : 1 })} style={{ ...btnGhost, flex: '0 1 auto', minHeight: 44, padding: '0 var(--space-3)', fontSize: 'var(--text-caption)' }}>{t.priority === 1 ? '優先度↓' : '優先度↑'}</button>
+                      {t.status !== 'wont_fix' && t.status !== 'done' && <button type="button" onClick={() => updateTicket(t.id, { status: 'wont_fix' })} style={{ ...btnGhost, flex: '0 1 auto', minHeight: 44, padding: '0 var(--space-3)', fontSize: 'var(--text-caption)', color: C.ink3 }}>却下</button>}
                     </div>
                   </div>
                 ))}
@@ -877,7 +876,7 @@ export default function AdminDashboard({ onClose }) {
               {SHIP_CHECKLIST.map((c) => (
                 <div key={c.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '6px 0' }}>
                   <button type="button" onClick={() => toggleShipCheck(c.id)} aria-label={shipChecks[c.id] ? '未完了に戻す' : '完了'}
-                    style={{ flex: '0 0 auto', border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, minWidth: 44, minHeight: 36, margin: '-8px 0 -8px -12px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: shipChecks[c.id] ? '#6b8e6b' : C.hairlineStrong }}>
+                    style={{ flex: '0 0 auto', border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, minWidth: 44, minHeight: 44, margin: 'calc(-1 * var(--space-3)) 0 calc(-1 * var(--space-3)) calc(-1 * var(--space-3))', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: shipChecks[c.id] ? 'var(--success)' : C.hairlineStrong }}>
                     {shipChecks[c.id] ? <Check size={18} /> : <span style={{ display: 'inline-block', width: 16, height: 16, border: `2px solid ${C.hairlineStrong}`, borderRadius: 'var(--radius)' }} />}
                   </button>
                   <span style={{ flex: 1, fontSize: 'var(--text-meta)', color: shipChecks[c.id] ? C.ink3 : C.ink, textDecoration: shipChecks[c.id] ? 'line-through' : 'none', lineHeight: 1.55 }}>{c.title}</span>
@@ -896,7 +895,7 @@ export default function AdminDashboard({ onClose }) {
                 return (
                   <div key={ev} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 'var(--text-caption)' }}>
                     <span style={{ color: C.ink, fontFamily: 'ui-monospace, monospace' }}>{ev}</span>
-                    <span style={{ fontWeight: 700, color: n > 0 ? '#6b8e6b' : C.ink3 }}>{n > 0 ? `✅ ${n}` : '⚪ 0件'}</span>
+                    <span style={{ fontWeight: 700, color: n > 0 ? 'var(--success)' : C.ink3, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }}>{n > 0 ? <><Check size="1em" strokeWidth={2.5} aria-label="届いた" />{n}</> : '0件'}</span>
                   </div>
                 );
               })}
@@ -904,7 +903,7 @@ export default function AdminDashboard({ onClose }) {
 
             {/* ── 🚀 配信開始の切替 ── */}
             <div style={{ ...card, marginTop: 18 }}>
-              <p style={{ margin: '0 0 8px', fontSize: 'var(--text-caption)', fontWeight: 700, color: C.ink }}>🚀 App Store 配信を開始したら</p>
+              <p style={{ margin: '0 0 8px', fontSize: 'var(--text-caption)', fontWeight: 700, color: C.ink, display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}><Rocket size="1em" strokeWidth={2} aria-hidden="true" style={{ flexShrink: 0 }} />App Store 配信を開始したら</p>
               <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
                 <div style={{ flex: 1, minWidth: 150 }}>
                   <label style={{ fontSize: 'var(--text-caption)', color: C.ink2, fontWeight: 600 }}>配信日</label>
@@ -1081,9 +1080,9 @@ export default function AdminDashboard({ onClose }) {
                     <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: C.ink, lineHeight: 1.7, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{f.content}</p>
                     {(f.name || f.email) && <p style={{ margin: '8px 0 0', fontSize: 'var(--text-caption)', color: C.ink3 }}>{f.name || '（匿名）'}{f.email ? ` · ${f.email}` : ''}</p>}
                     <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
-                      <button type="button" onClick={() => ticketize(f.id)} style={{ ...btnGhost, flex: '0 1 auto', minHeight: 34, padding: '7px 12px', fontSize: 'var(--text-caption)', color: C.brand, fontWeight: 700 }}>🎫 チケット化</button>
-                      {f.status !== 'in_progress' && <button type="button" onClick={() => triageFb(f.id, 'in_progress')} style={{ ...btnGhost, flex: '0 1 auto', minHeight: 34, padding: '7px 12px', fontSize: 'var(--text-caption)' }}>対応中</button>}
-                      {f.status !== 'resolved' && <button type="button" onClick={() => triageFb(f.id, 'resolved')} style={{ ...btnGhost, flex: '0 1 auto', minHeight: 34, padding: '7px 12px', fontSize: 'var(--text-caption)' }}>解決</button>}
+                      <button type="button" onClick={() => ticketize(f.id)} style={{ ...btnGhost, flex: '0 1 auto', minHeight: 44, padding: '0 var(--space-3)', fontSize: 'var(--text-caption)', color: C.brand, fontWeight: 700 }}>チケット化</button>
+                      {f.status !== 'in_progress' && <button type="button" onClick={() => triageFb(f.id, 'in_progress')} style={{ ...btnGhost, flex: '0 1 auto', minHeight: 44, padding: '0 var(--space-3)', fontSize: 'var(--text-caption)' }}>対応中</button>}
+                      {f.status !== 'resolved' && <button type="button" onClick={() => triageFb(f.id, 'resolved')} style={{ ...btnGhost, flex: '0 1 auto', minHeight: 44, padding: '0 var(--space-3)', fontSize: 'var(--text-caption)' }}>解決</button>}
                     </div>
                   </div>
                 ))}

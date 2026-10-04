@@ -24,7 +24,7 @@ export function weekdayScript(dayIdx) {
   if (dayIdx === 0) {
     return [
       { time: '任意', title: 'note 1本（下書き85分＋推敲25分）', mins: 110 },
-      { time: '夜', title: '📣営業タブに今週のKPIを入力', mins: 10 },
+      { time: '夜', title: '営業タブに今週のKPIを入力', mins: 10 },
     ];
   }
   if (dayIdx === 6) {
@@ -157,7 +157,7 @@ export function evaluateRules({ phase, weekly = [], paid = 0, events = {} }) {
 
   // R-凍結ゲート情報（発火ではなく到達通知）。
   freezeGates(paid).forEach((g) => {
-    if (g.unlocked) push(`gate_${g.id}`, 'fired', `🎉 凍結解除: ${g.title}（有料 ${paid}人 ≥ ${g.gate}人）`, 'プレイブックの解凍手順に着手');
+    if (g.unlocked) push(`gate_${g.id}`, 'fired', `凍結解除: ${g.title}（有料 ${paid}人 ≥ ${g.gate}人）`, 'プレイブックの解凍手順に着手');
   });
 
   return out;
@@ -213,7 +213,7 @@ export function todayAction(ctx) {
     if (next) {
       return { headline: next.title, mins: null, why: `出荷チェックリスト（残り ${SHIP_CHECKLIST.filter((c) => !shipChecks[c.id]).length} 件）— 配信が全ての前提`, vetoes, script, source: 'ship' };
     }
-    return { headline: '出荷チェックリスト完了 🎉 審査提出 → 配信日を設定して「配信開始」に切替', mins: null, why: '配信前の準備は完了', vetoes, script, source: 'ship' };
+    return { headline: '出荷チェックリスト完了。審査提出 → 配信日を設定して「配信開始」に切替', mins: null, why: '配信前の準備は完了', vetoes, script, source: 'ship' };
   }
 
   // L1: 観測欠損 — 当週 KPI 未入力のまま日曜夜 or 週越え。
@@ -222,7 +222,7 @@ export function todayAction(ctx) {
   const lastWeekMonday = weekStartISO(new Date(today.getTime() - 7 * 86400000));
   const hasLast = weekly.some((r) => r.week_start === lastWeekMonday);
   if ((dayIdx === 0 && today.getHours() >= 21 && !hasCurrent) || (!hasLast && weekly.length > 0)) {
-    return { headline: '📣 営業タブに今週のKPI 5つを入力する（10分）', mins: 10, why: '観測が欠けると全ての判定が止まる', vetoes, script, source: 'kpi' };
+    return { headline: '営業タブに今週のKPI 5つを入力する（10分）', mins: 10, why: '観測が欠けると全ての判定が止まる', vetoes, script, source: 'kpi' };
   }
 
   // L2: if-then 発火（固定優先順: チャーン > CVR > 想起 > install > 年額 > その他）。
@@ -247,5 +247,5 @@ export function todayAction(ctx) {
 
   // L4: 曜日台本（常に存在）。
   const first = script[0];
-  return { headline: `台本どおり: ${first.title}`, mins: script.reduce((a, s) => a + s.mins, 0), why: '発火中の警告なし。⚪異常なし、台本どおりに', vetoes, script, source: 'script' };
+  return { headline: `台本どおり: ${first.title}`, mins: script.reduce((a, s) => a + s.mins, 0), why: '発火中の警告なし。異常なし、台本どおりに', vetoes, script, source: 'script' };
 }

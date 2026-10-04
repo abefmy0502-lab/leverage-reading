@@ -722,6 +722,10 @@ const SCREENS = [
     ['admin-kpis-notrial', '/?admin=1&kpi=notrial', []],
     ['admin-kpis-empty', '/?admin=1&kpi=empty', []],
     ['admin-kpis-missing', '/?admin=1&kpi=missing', []],
+    // 運営の上の「今日の一手」（スクロールを戻す）・営業タブ・アクションタブ（色はトークン・絵文字なし・2026-10-04）
+    ['admin-top', '/?admin=1', [{ eval: "document.querySelector('[role=dialog][aria-label=\"運営ダッシュボード\"]').scrollTop = 0" }]],
+    ['admin-sales', '/?admin=1', [{ css: '[role=tab]:has-text("営業")' }]],
+    ['admin-action', '/?admin=1', [{ css: '[role=tab]:has-text("アクション")' }]],
   ].map(([name, url, extra]) => ({
     name, url,
     steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:has-text("運営ダッシュボード")' }, { wait: 1200 }, { eval: ADMIN_SCROLL('#launch-kpi-title') }, ...extra],
