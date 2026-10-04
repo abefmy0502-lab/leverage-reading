@@ -110,9 +110,12 @@ function isCondensedSource(sourceType) {
 // notes 要素は { id, text, createdAt, lastRecalledAt?, recallCount?, sourceType?, isMemoRow? }。
 // due 判定: 未想起なら作成から minAgeDays、想起済なら前回想起 + dueGapDays(recallCount) 経過で due。
 // 既に最近想起した / 定着したメモはプッシュで送らない（due でない = 候補から除外）。
-function pickRecallMemo(notes, { now, minAgeDays = 14, seed = 0 } = {}) {
+// 想起済みは、思い出した日（端末の日付・tzOffsetMin＝JST は +540）の 0 時から数える（アプリの recall.js と同じ・2026-10-04）。
+function pickRecallMemo(notes, { now, minAgeDays = 14, seed = 0, tzOffsetMin = 540 } = {}) {
   if (!Array.isArray(notes) || notes.length === 0) return null;
   const minAgeMs = minAgeDays * 86400000;
+  const off = (Number.isFinite(Number(tzOffsetMin)) && tzOffsetMin !== null && Math.abs(Number(tzOffsetMin)) <= 14 * 60 ? Number(tzOffsetMin) : 540) * 60000;
+  const localDayStart = (t) => Math.floor((t + off) / 86400000) * 86400000 - off;
 
   const candidates = [];
   for (const n of notes) {
@@ -125,7 +128,7 @@ function pickRecallMemo(notes, { now, minAgeDays = 14, seed = 0 } = {}) {
     const dueTime =
       lastRecalled == null || Number.isNaN(lastRecalled)
         ? created + minAgeMs
-        : lastRecalled + dueGapDays(count) * 86400000;
+        : localDayStart(lastRecalled) + dueGapDays(count) * 86400000;
     if (now < dueTime) continue; // まだ間隔が来ていない → 除外
 
     const overdueDays = (now - dueTime) / 86400000;
@@ -757,7 +760,7 @@ export default async function handler(req, res) {
 
     // seed は user_id + 当日でばらけさせる（端末間で同じメモ・日替わりで別メモ）。
     const seed = (hashStr(sub.user_id) + Math.floor(now / 86400000)) >>> 0;
-    const memo = pickRecallMemo(notes, { now, seed });
+    const memo = pickRecallMemo(notes, { now, seed, tzOffsetMin: sub.tz_offset_min });
     if (!memo) return 'skipped';
 
     const r = await deliver(sub, {

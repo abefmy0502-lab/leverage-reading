@@ -197,7 +197,16 @@ describe('nextDueAt / nextDueLabel（「今日の思い出しカードは、こ�
     const b = { id: 'b', text: 'b', createdAt: iso(100 * DAY), lastRecalledAt: iso(1 * DAY), recallCount: 2 }; // 7 日後 → あと 6 日
     expect(pickRecallMemo([a, b], { now: NOW })).toBeNull();
     expect(pickFallbackMemo([a, b], { now: NOW })).toBeNull();
-    expect(nextDueAt([a, b], { now: NOW })).toBe(NOW + 2 * DAY);
+    const day0 = new Date(NOW - DAY); day0.setHours(0, 0, 0, 0); day0.setDate(day0.getDate() + 3);
+    expect(nextDueAt([a, b], { now: NOW })).toBe(day0.getTime());
+  });
+  it('夜に答えたメモも、翌日の朝には出る（思い出した日の 0 時から数える）', () => {
+    const night = new Date(2026, 9, 3, 21, 30, 0).getTime(); // 端末の 10/3 21:30 に「まだ覚えていない」
+    const nextMorning = new Date(2026, 9, 4, 8, 0, 0).getTime();
+    const n = { id: 'n', text: 'n', createdAt: new Date(2026, 5, 1).toISOString(), lastRecalledAt: new Date(night).toISOString(), recallCount: 0 };
+    expect(pickRecallMemo([n], { now: nextMorning })?.id).toBe('n');
+    expect(pickRecallMemo([n], { now: new Date(2026, 9, 3, 23, 59, 0).getTime() })).toBeNull();
+    expect(nextDueLabel(nextDueAt([n], { now: night }), night)).toBe('次は明日出します');
   });
   it('もう due なメモは数えない・メモが無ければ null', () => {
     const due = { id: 'd', text: 'd', createdAt: iso(100 * DAY), lastRecalledAt: iso(10 * DAY), recallCount: 1 };

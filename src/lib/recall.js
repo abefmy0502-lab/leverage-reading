@@ -90,13 +90,18 @@ function isRecallable(n) {
 
 // このメモが想起してよくなる時刻（ms）。対象外のメモは null。
 //   - 未想起（lastRecalledAt が無い・読めない）: 作成から minAgeDays 日後
-//   - 想起済: 前回想起から dueGapDays(recallCount) 日後
+//   - 想起済: 前回想起した日（端末の日付）の 0 時から dueGapDays(recallCount) 日後
 export function noteDueAt(n, { minAgeDays = 14 } = {}) {
   if (!isRecallable(n)) return null;
   const created = new Date(n.createdAt).getTime();
   const lastRecalled = n.lastRecalledAt ? new Date(n.lastRecalledAt).getTime() : null;
   if (lastRecalled == null || Number.isNaN(lastRecalled)) return created + minAgeDays * 86400000;
-  return lastRecalled + dueGapDays(n.recallCount || 0) * 86400000;
+  // 思い出した日（端末の日付）の 0 時から数える（2026-10-04）。時刻のまま 24 時間後にすると、夜 21 時に
+  // 「まだ覚えていない」と答えたメモは、知らせが「明日また出します」と言うのに翌朝には出なかった。
+  const d = new Date(lastRecalled);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + dueGapDays(n.recallCount || 0));
+  return d.getTime();
 }
 
 // 「忘れた頃に戻ってくる」想起メモを 1 件選ぶ純関数（間隔反復モデル）。
