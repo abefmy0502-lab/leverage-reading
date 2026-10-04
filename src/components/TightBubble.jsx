@@ -75,6 +75,12 @@ const LEAD_DASH_RE = /^[ \u00a0\u2060]*[—–―]/;
 // 日本語の字・閉じかっこの後ろの「 — 」は、空白を結合文字に替えて前とつなぐ（同じ文節の中でも行頭に置かない・間の見た目をそろえる）。
 const JA_BEFORE_DASH_RE = /([』」）】〉》\u3040-\u30ff\u4e00-\u9fff])[ \u00a0]+(?=[—–―])/g;
 
+// 文節で割らない文（ふつうの日本語の折り返しで流す Markdown の箇条書き・段落など）にも、上の 2 つだけかける
+//   （数と助数詞の間・日本語の後ろの「 — 」）。文字列を返す（<wbr> は入れない・2026-10-04）。
+export function keepUnitsTogether(text) {
+  return String(text ?? '').replace(NUM_UNIT_RE, '$1\u00a0').replace(JA_BEFORE_DASH_RE, '$1\u2060');
+}
+
 // 文節（scriptBreaks のときは長い文節の中の文字の種類の切れ目でも）に分ける。改行は '\n' の要素で残す。
 export function phrasePieces(text, { scriptBreaks = false } = {}) {
   const src = String(text ?? '');

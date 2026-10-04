@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { scriptBreakPieces, phrasePieces, longestPhraseLength } from './TightBubble';
+import { scriptBreakPieces, phrasePieces, longestPhraseLength, keepUnitsTogether } from './TightBubble';
 
 // 書名・著者名の長い 1 文節の中の折り返してよい所（文字の種類の切れ目・2026-10-04）。
 describe('scriptBreakPieces', () => {
@@ -50,6 +50,10 @@ describe('phrasePieces / longestPhraseLength', () => {
     expect(phrasePieces('focus — time').join('')).toBe('focus — time');
     // 行頭のダッシュ（前が無い）はそのまま
     expect(phrasePieces('— はじめに')[0].startsWith('—')).toBe(true);
+  });
+  it('keepUnitsTogether は文字列のまま同じ 2 つだけかける（Markdown の箇条書き用）', () => {
+    expect(keepUnitsTogether('『時間術大全』 — 毎日の 1 つを決める')).toBe('『時間術大全』\u2060— 毎日の 1\u00a0つを決める');
+    expect(keepUnitsTogether('focus — 2 apples')).toBe('focus — 2 apples');
   });
   it('scriptBreaks ありでは長い文節の中も分ける', () => {
     expect(phrasePieces('アウトプット大全', { scriptBreaks: true })).toEqual(['アウトプット', '大全']);
