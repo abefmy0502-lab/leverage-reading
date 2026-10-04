@@ -164,7 +164,16 @@ function ToastItem({ toast, onDismiss, onAction }) {
       {/* 左のアイコンがあるので、文の先頭の絵文字は外す（DESIGN §3-2・中央の ✓ と同じ）。 */}
       {/* 折り返すときは文節の切れ目で（「保存しまし／た。」と切らない・TightBubble と同じ BudouX）。 */}
       {/* 約物（」。、の後ろ・文頭の「の前）の空きを詰める（ボタンと並ぶ短い知らせが 390 幅で 1 行に収まるように・2026-09-30）。 */}
+      {/* quote: 書名など長さの読めない名前。『』で囲み、入りきらない分は … で切って 1 行に収める（ボタンと並ぶ知らせは 1 行・
+          「『数値化の鬼』を／削除しました。」と 2 行に折れていた・2026-10-04 ui-critic）。文の残り（message）は折り返さない。 */}
+      {toast.quote ? (
+        <span style={{ flex: 1, minWidth: 0, display: 'flex', padding: 'var(--space-2) 0', whiteSpace: 'nowrap' }}>
+          <span style={{ minWidth: '2.5em', overflow: 'hidden', textOverflow: 'ellipsis' }}><span style={{ marginLeft: '-0.5em' }}>『</span>{toast.quote}</span>
+          <span style={{ flexShrink: 0 }}>』{stripLeadingEmoji(toast.message)}</span>
+        </span>
+      ) : (
       <span style={{ flex: 1, minWidth: 0, whiteSpace: 'pre-line', wordBreak: 'keep-all', overflowWrap: 'anywhere', padding: 'var(--space-2) 0' }}>{tightenPunct(withPhraseBreaks(stripLeadingEmoji(toast.message)))}</span>
+      )}
       {toast.action && (
         <button type="button" style={actionBtnStyle} onClick={() => onAction(toast)}>
           {toast.action.label}
@@ -304,6 +313,7 @@ export function ToastProvider({ children }) {
         id,
         type,
         message: opts.message,
+        quote: opts.quote || null,
         action: opts.action || null,
         destructive: !!opts.destructive,
         success: !!opts.success,
@@ -351,10 +361,11 @@ export function ToastProvider({ children }) {
     info: (message, opts = {}) => show({ ...opts, type: 'info', message }),
     // destructive: 削除の取り消しならゴミ箱の印。省くと文面（「削除」「消しました」）から決める。
     // success: 完了の取り消し（「行動を完了しました」）なら ✓ の印（2026-09-30）。
-    undo: ({ message, onUndo, onExpire, duration = 5000, destructive, success }) =>
+    undo: ({ message, quote, onUndo, onExpire, duration = 5000, destructive, success }) =>
       show({
         type: 'undo',
         message,
+        quote,
         duration,
         onExpire,
         destructive: typeof destructive === 'boolean' ? destructive : /削除|消しました/.test(String(message || '')),

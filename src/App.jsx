@@ -2227,7 +2227,10 @@ function AuthedApp() {
     // 本の削除→Undo では Storage の写真ファイルを消していないため、
     // photo_path ごと完全復元される（旧「※写真は復元できません」は誤案内だった）。
     toast.undo({
-      message: `『${book.title}』を削除しました。`,
+      // 書名は知らせの中で … で切って 1 行に（quote・DESIGN §5「ボタンと並ぶ知らせは 1 行」）。
+      // 「元に戻す」と × が並ぶと文に使えるのは 390 幅で 11 字ほど。「を削除しました。」まで書くと書名が 2〜3 字しか見えないので「を削除」で止める。
+      quote: book.title,
+      message: 'を削除',
       destructive: true,
       // 取り消されずに閉じたら、写真ファイルも消す（取り消し中は写真ごと戻せるよう残しておく）
       onExpire: removePhotos,
