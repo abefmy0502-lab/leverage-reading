@@ -521,7 +521,8 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
     if (completing.some((c) => c.key === key && c.phase !== 'restore')) { undoComplete(a); return; }
     // 未完了→完了の瞬間だけ計測（PII なし）。
     if (!a.done) { complete(a); return; }
-    onToggleAction?.(a.bookId, a.actionIdx);
+    // 行動そのものを渡す（並びがずれても同じ行動を掴む・2026-10-04）。
+    onToggleAction?.(a.bookId, a.actionIdx, { target: a });
   };
 
   const swipeDelete = (a) => onDeleteAction?.(a.bookId, a.actionIdx, { skipConfirm: true, target: a, undoable: true });
@@ -727,7 +728,7 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
               : { label: '完了にする', icon: <CheckCircle2 size={16} aria-hidden="true" />, onClick: () => onCheck(menu.action) },
             ...(onEditAction ? [{ label: '編集', icon: <Pencil size={16} aria-hidden="true" />, onClick: () => onEditAction(menu.action.bookId, menu.action.actionIdx, menu.action) }] : []),
             { label: '本を開く', icon: <BookOpen size={16} aria-hidden="true" />, onClick: () => { const b = bookOf(menu.action); if (b) onOpenBook?.(b); } },
-            { label: '削除', icon: <Trash2 size={16} aria-hidden="true" />, destructive: true, onClick: () => onDeleteAction?.(menu.action.bookId, menu.action.actionIdx) },
+            { label: '削除', icon: <Trash2 size={16} aria-hidden="true" />, destructive: true, onClick: () => onDeleteAction?.(menu.action.bookId, menu.action.actionIdx, { target: menu.action }) },
           ]}
         />
       )}
