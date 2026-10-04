@@ -15,6 +15,8 @@
 //   className    — 追加のクラス（例: error-message--fill＝置いた場所の高さいっぱいに広げ、中身を上下の真ん中に）
 //                  variant: 'primary' | 'secondary' | 'ghost' (default secondary)
 
+import { withPhraseBreaks } from './TightBubble';
+
 // 主・副ボタンはアプリ共通の 48/17（ui.js の btnPrimary / btnGhost と同じ・2026-09-30）。文字ボタンは控えめな 44/15。
 const variantClass = {
   primary: 'btn btn-primary',
@@ -36,10 +38,10 @@ export default function ErrorMessage({
       {title && <p className="error-message-title">{title}</p>}
       {description && (
         <p className="error-message-description">
-          {/* 句読点ごとのまとまりで折り返す（iOS Safari は auto-phrase を知らないので「もう／一度」のように割れる）。 */}
-          {typeof description === 'string'
-            ? (description.match(/[^、。]+[、。]?|[、。]/g) || []).map((part, i) => <span key={i} style={{ display: 'inline-block' }}>{part}</span>)
-            : description}
+          {/* 文節の切れ目（BudouX の <wbr>）でだけ折り返す＋CSS の keep-all（2026-10-04 ui-critic）。
+              以前の「句読点ごとの inline-block の塊」は、塊が 1 行に入らないと塊の中で変に割れていた（「もう」「一度探してください。」）。
+              数字と助数詞などの U+00A0 はつないだまま（withPhraseBreaks が前後に切れ目を入れない）。 */}
+          {typeof description === 'string' ? withPhraseBreaks(description) : description}
         </p>
       )}
       {actions.length > 0 && (

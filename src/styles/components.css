@@ -787,8 +787,10 @@ textarea[aria-invalid="true"]:not(.no-focus-ring):focus {
   color: var(--text-2);
   line-height: 1.5;
   margin: 0;
-  /* 文節で折り返す（「く／ださい。」のような切れ方をしない）。非対応の端末は通常どおり。 */
-  word-break: auto-phrase;
+  /* 文節で折り返す（部品が文節の切れ目に <wbr> を入れる＋keep-all・iOS の Safari は auto-phrase を知らない）。
+     1 行に入らない長い文節だけは overflow-wrap で割る（2026-10-04）。 */
+  word-break: keep-all;
+  overflow-wrap: anywhere;
   text-wrap: pretty;
 }
 .error-message-actions {

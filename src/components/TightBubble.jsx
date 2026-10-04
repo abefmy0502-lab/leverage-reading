@@ -88,11 +88,15 @@ export function withPhraseBreaks(text, { scriptBreaks = false } = {}) {
   const out = [];
   let k = 0;
   let lineStart = true;
+  let prev = '';
   phrasePieces(src, { scriptBreaks }).forEach((pc) => {
-    if (pc === '\n') { out.push('\n'); lineStart = true; return; }
-    if (!lineStart) out.push(<wbr key={`w${k++}`} />);
+    if (pc === '\n') { out.push('\n'); lineStart = true; prev = ''; return; }
+    // 折り返さない空き（U+00A0）の前後には切れ目を入れない（「1\u00a0回」「AI\u00a0の」をつないだまま・2026-10-04）。
+    const glued = prev.endsWith('\u00a0') || pc.startsWith('\u00a0');
+    if (!lineStart && !glued) out.push(<wbr key={`w${k++}`} />);
     out.push(pc);
     lineStart = false;
+    prev = pc;
   });
   return out;
 }
