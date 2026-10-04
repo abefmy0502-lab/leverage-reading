@@ -52,6 +52,7 @@ describe('MarkdownSections の関連書籍', () => {
     expect(plain).not.toContain('夢をかなえるゾウ');
     expect(plain).not.toContain('SMALL ACTIONS');
     expect(html).toContain('skeleton');
+    expect(html).toMatch(/role="status"[^>]*>本を確かめています</);
     expect(plain).not.toContain('アソシエイト');
   });
 

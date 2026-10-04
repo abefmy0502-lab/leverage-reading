@@ -370,6 +370,8 @@ function renderLines(lines, opts) {
   });
 }
 
+// 画面には出さず、読み上げにだけ伝える文字（visually hidden）。
+const srOnly = { position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', whiteSpace: 'nowrap', border: 0 };
 const relatedCardsStyle = { display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', margin: 'var(--space-2) 0' };
 const relatedCardStyle = {
   background: 'var(--surface)',
@@ -472,7 +474,9 @@ function MarkdownSections({ text, density = 'normal', flat = false, onAddRelated
           <section key={i} className={flat ? 'long-text md-section md-section--flat' : 'long-text md-section'} style={styles}>
             {s.heading && <h3 style={flat ? flatHeadingStyle : headingStyle}>{stripLeadingEmoji(s.heading)}</h3>}
             {pendingRelated && s.related ? (
-              <div aria-hidden="true" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
+                {/* 骨組みは見た目だけ。読み上げには「本を確かめています」と伝える（2026-10-04 ui-critic） */}
+                <span role="status" style={srOnly}>本を確かめています</span>
                 <SkeletonBlock width="70%" height={16} />
                 <SkeletonBlock width="90%" height={14} />
               </div>
