@@ -3283,7 +3283,8 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
           {slow && (
             // 文節の切れ目でだけ折り返す（「お待ちくだ／さい」と語の途中で切らない・2026-10-04）。
             <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-              {withPhraseBreaks('時間がかかっています。もう少しお待ちください')}
+              {/* 折り返すときは「。」のあとで（文ごとのまとまり）。 */}
+              <span style={{ display: 'inline-block' }}>時間がかかっています。</span><span style={{ display: 'inline-block' }}>もう少しお待ちください</span>
             </p>
           )}
         </div>
