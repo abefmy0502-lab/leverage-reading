@@ -466,7 +466,8 @@ function MarkdownSections({ text, density = 'normal', flat = false, onAddRelated
               </div>
             ) : renderLines(s.lines, related ? { relatedBooks: true, onAddRelatedBook, addingTitles } : undefined)}
             {related && !pendingRelated && (
-              <small style={{ display: 'block', fontSize: 'var(--text-caption)', color: 'var(--text-3)', lineHeight: 1.5, marginTop: 'var(--space-2)' }}>
+              // AI 選書の購入リンクの注記と同じ 13/--text-3（2026-10-04 ui-critic）
+              <small style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, marginTop: 'var(--space-2)' }}>
                 {AMAZON_DISCLOSURE_TEXT}
               </small>
             )}
