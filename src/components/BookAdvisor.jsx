@@ -170,10 +170,10 @@ const MAX_INTERVIEW_ROUNDS = 3;
 //   追加した本の詳細を開いて「‹ AI 選書」で戻ったとき、さっきのおすすめのまま戻れるように
 //   （相談の `session` と同じ考え方・2026-09-29）。読み込み中の状態は覚えない。
 const advisorMemory = { uid: null, state: null };
-// 本を選んでいる途中（推薦のストリーム）の控え。画面を離れても止めずに最後まで作り、結果は advisorMemory に書く
-// （原価はもう払っているので捨てない・相談の backgroundAsk と同じ考え・2026-10-04）。
-// { uid, done, promise }。戻ってきた画面は、終わるまで「選んでいます…」を出し、終わったら結果を出す。
-let advisorPendingReco = null;
+// AI に聞いている途中（ヒアリングの質問づくり・本を選ぶ推薦）の控え。画面を離れても止めずに最後まで作り、
+// 結果は advisorMemory に書く（原価はもう払っているので捨てない・相談の backgroundAsk と同じ考え・2026-10-04）。
+// { kind: 'interview' | 'reco', uid, done, promise }。戻ってきた画面は、終わるまで同じ待ちの形を出し、終わったら結果を出す。
+let advisorPendingJob = null;
 
 
 // barSlot: App のサブタブ（相談｜AI 選書）の行の右端の要素。履歴・新規のアイコンはそこへ出す（🕒 だけの行を作らない・2026-10-01 ui-critic）。
@@ -198,7 +198,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       unmountedRef.current = true;
       // 本を選んでいる途中（推薦）は止めない＝離れても最後まで作って advisorMemory に残す（2026-10-04）。
       //   以前はここで止めていたため、ほかのタブへ移って戻るとヒアリングの答えも推薦も消え、トークンだけ減っていた。
-      if (!(advisorPendingReco && !advisorPendingReco.done)) {
+      if (!(advisorPendingJob && !advisorPendingJob.done)) {
         try { activeControllerRef.current?.abort(); } catch { /* noop */ }
       }
     };
@@ -614,28 +614,57 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     if (r && r.checked === false && Array.isArray(r.pool) && r.pool.length > 0) startVerify(r.pool, sessionIdRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  // 本を選んでいる途中で離れて戻ってきた（2026-10-04）: 終わるまで「選んでいます…」を出し、終わったら
-  //   覚えている状態（離れていた間に書かれた結果）をそのまま出す。
+  // AI に聞いている途中で離れて戻ってきた（2026-10-04）: 終わるまで同じ待ちの形（質問を考えています…／
+  //   本を選んでいます…）を出し、終わったら覚えている状態（離れていた間に書かれた結果）をそのまま出す。
+  //   ヒアリングから推薦へ続いたときは、続けて推薦を待つ。
   useEffect(() => {
-    const p = advisorPendingReco;
-    if (!p || p.done || p.uid !== (advisorUser?.id || null)) return;
-    setRecoLoading(true);
-    p.promise.then(() => {
-      if (unmountedRef.current) return;
-      const st = advisorMemory.uid === p.uid ? (advisorMemory.state || {}) : {};
-      if (st.recommendations !== undefined) setRecommendations(st.recommendations);
-      if (st.chatHistory) setChatHistory(st.chatHistory);
-      if (st.lastUserQuery !== undefined) setLastUserQuery(st.lastUserQuery);
-      if (st.messages) setMessages(st.messages);
-      setRecoError(st.recoError || null);
-      setRecoNotice(!!st.recoNotice);
-      if (st.currentSessionId) setCurrentSessionId(st.currentSessionId);
-      setRecoLoading(false);
-      const r = st.recommendations;
-      if (r && r.checked === false && Array.isArray(r.pool) && r.pool.length > 0) startVerify(r.pool, st.currentSessionId || sessionIdRef.current);
-    });
+    const waitJob = () => {
+      const p = advisorPendingJob;
+      if (!p || p.done || p.uid !== (advisorUser?.id || null)) return;
+      if (p.kind === 'reco') setRecoLoading(true);
+      else setInterviewLoading(true);
+      p.promise.then(() => {
+        if (unmountedRef.current) return;
+        const st = advisorMemory.uid === p.uid ? (advisorMemory.state || {}) : {};
+        if (st.interview !== undefined) setInterview(st.interview);
+        if (st.interviewStep !== undefined) setInterviewStep(st.interviewStep);
+        if (st.interviewRound !== undefined) setInterviewRound(st.interviewRound);
+        if (st.interviewAnswers) setInterviewAnswers(st.interviewAnswers);
+        if (st.recommendations !== undefined) setRecommendations(st.recommendations);
+        if (st.chatHistory) setChatHistory(st.chatHistory);
+        if (st.lastUserQuery !== undefined) setLastUserQuery(st.lastUserQuery);
+        if (st.messages) setMessages(st.messages);
+        setRecoError(st.recoError || null);
+        setRecoNotice(!!st.recoNotice);
+        if (st.currentSessionId) setCurrentSessionId(st.currentSessionId);
+        setInterviewLoading(false);
+        setRecoLoading(false);
+        const r = st.recommendations;
+        if (p.kind === 'reco' && r && r.checked === false && Array.isArray(r.pool) && r.pool.length > 0) startVerify(r.pool, st.currentSessionId || sessionIdRef.current);
+        waitJob(); // ヒアリングのあと推薦へ続いていれば、それも待つ
+      });
+    };
+    waitJob();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // AI に聞く処理（ヒアリング・推薦）の始まりに呼ぶ。画面を離れたあとに終わった結果は remember で覚えている状態へ書き、
+  // settle で戻ってきた画面へ知らせる（上の advisorPendingJob・2026-10-04）。
+  const beginJob = (kind) => {
+    let finish = () => {};
+    const job = { kind, uid: advisorUser?.id || null, done: false, promise: new Promise((r) => { finish = r; }) };
+    advisorPendingJob = job;
+    const remember = (patch) => {
+      if (!unmountedRef.current || advisorMemory.uid !== job.uid) return;
+      advisorMemory.state = { ...(advisorMemory.state || {}), ...patch };
+    };
+    const settle = () => {
+      job.done = true;
+      if (advisorPendingJob === job) advisorPendingJob = null;
+      finish();
+    };
+    return { remember, settle };
+  };
 
   // 推薦生成 — ヒアリング完了後（または fallback の直接相談）に bookAdvisor を
   // 1 回ストリーム。userMsg は AI へ渡す本文、sourceQuery は本棚追加時の
@@ -645,6 +674,9 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     // 失敗したときの「もう一度試す」で同じ条件をそのまま送り直せるように控える。
     lastRecoArgsRef.current = { userMsg, sourceQuery };
     const historyBefore = chatHistory;
+    // 離れても止めない（上の advisorPendingJob）。最初の await より前に控える（ヒアリングから続けて呼ばれたとき、
+    // 戻ってきた画面が「ヒアリングが終わった」だけを見て待つのをやめないように）。
+    const { remember, settle: settlePending } = beginJob('reco');
     setRecoError(null);
     setRecoStream('');
     setRecoLoading(true);
@@ -671,21 +703,6 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     // 生成済みの推薦は下の salvage パースで拾える。
     const controller = new AbortController();
     activeControllerRef.current = controller;
-    // 離れても止めない（上の advisorPendingReco）。終わったら結果を advisorMemory に書き、戻ってきた画面へ渡す。
-    let finishPending = () => {};
-    const pending = { uid: advisorUser?.id || null, done: false, promise: new Promise((r) => { finishPending = r; }) };
-    advisorPendingReco = pending;
-    // 画面を離れたあとに終わったら、覚えている状態へ直接書く（戻ってきた画面がそれを出す）。
-    const remember = (patch) => {
-      if (!unmountedRef.current) return;
-      if (advisorMemory.uid !== pending.uid) return;
-      advisorMemory.state = { ...(advisorMemory.state || {}), ...patch };
-    };
-    const settlePending = () => {
-      pending.done = true;
-      if (advisorPendingReco === pending) advisorPendingReco = null;
-      finishPending();
-    };
     let watchdog = null;
     const armWatchdog = () => {
       if (watchdog) clearTimeout(watchdog);
@@ -866,9 +883,11 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     setInterviewStep(0);
     setInterviewRound(1);
     setInterviewLoading(true);
+    // 離れても止めない（ヒアリングの質問も覚えておく・2026-10-04）。
+    const { remember, settle } = beginJob('interview');
     const qs = await runInterviewRound(c, [], 1);
     setInterviewLoading(false);
-    if (qs?.stop) { showLimitNotice(qs.stop); return; }
+    if (qs?.stop) { showLimitNotice(qs.stop); remember({ recoNotice: true, recoError: qs.stop }); settle(); return; }
     if (qs === null || qs.length === 0) {
       // 質問を組めなかった / いきなり done → 相談内容だけで直接推薦（graceful）
       // 注: concern state はまだ反映前なので c を直接渡す。
@@ -876,11 +895,14 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       const compiled =
         `【相談内容】\n${c}\n\n【ヒアリングの回答】\n${lines || '（なし）'}\n\n` +
         `上記を踏まえて、その人に本当に刺さる実在の本を推薦してください。`;
-      generateRecommendations(compiled, c);
+      generateRecommendations(compiled, c); // 推薦の控えを先に作ってから、ヒアリングの控えを終える
+      settle();
       return;
     }
     setInterview(qs);
     setInterviewStep(0);
+    remember({ interview: qs, interviewStep: 0 });
+    settle();
   };
 
   // 質問への回答（選択肢タップ or その他自由入力）。
@@ -908,19 +930,24 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     const nextRound = interviewRound + 1;
     setInterview(null);
     setInterviewLoading(true);
+    // 離れても止めない（次の質問も覚えておく・2026-10-04）。
+    const { remember, settle } = beginJob('interview');
     (async () => {
       const qs = await runInterviewRound(concern, nextAnswers, nextRound);
       setInterviewLoading(false);
-      if (qs?.stop) { showLimitNotice(qs.stop); return; }
+      if (qs?.stop) { showLimitNotice(qs.stop); remember({ recoNotice: true, recoError: qs.stop }); settle(); return; }
       if (qs === null || qs.length === 0) {
-        // done もしくは失敗 → 集めた回答で推薦へ
+        // done もしくは失敗 → 集めた回答で推薦へ（推薦の控えを先に作ってから、ヒアリングの控えを終える）
         proceedToRecommend(nextAnswers);
+        settle();
         return;
       }
       // さらに深掘りラウンドへ
       setInterview(qs);
       setInterviewStep(0);
       setInterviewRound(nextRound);
+      remember({ interview: qs, interviewStep: 0, interviewRound: nextRound });
+      settle();
     })();
   };
 
