@@ -25,6 +25,26 @@ describe('MarkdownSections の関連書籍', () => {
     expect(plain).not.toContain('何を続け');
   });
 
+  it('カードが 1 枚も出ない関連書籍の節（全部が崩れた行・確かめていない『』なしの行）は、見出しも Amazon の注記も出さない', () => {
+    const text = [
+      '## 🎯 読み方の戦略', '- 目的に合わせて読む', '',
+      '## 📚 関連書籍',
+      '### 1. 『SMALL ACTIONS, BIG RESULTS』関連 または『やめる習慣』 - 古川武士',
+      '何を続けるか。',
+      '### 2. 7つの習慣 - スティーブン・R・コヴィー',
+      '主体性。',
+    ].join('\n');
+    const html = renderToStaticMarkup(<MarkdownSections flat text={text} onAddRelatedBook={() => {}} />);
+    const plain = plainOf(html);
+    expect(plain).toContain('目的に合わせて読む');
+    expect(plain).not.toContain('関連書籍');
+    expect(plain).not.toContain('Amazon');
+    expect(plain).not.toContain('アソシエイト');
+    // 関連書籍しか無ければ何も描かない
+    const only = renderToStaticMarkup(<MarkdownSections flat text={'## 📚 関連書籍\n### 1. 7つの習慣 - コヴィー'} onAddRelatedBook={() => {}} />);
+    expect(only).toBe('');
+  });
+
   it('hideRelatedBooks（以前の AI 解析・まとめ＝書誌で確かめていない）: 本を挙げる節を出さない・ほかの節はそのまま', () => {
     const text = ['## 🧭 この本の核心', '寿命が延びる。', '', '## 📚 関連書籍', '### 1. 『架空の本』- 架空花子', '説明。'].join('\n');
     const html = renderToStaticMarkup(<MarkdownSections flat text={text} hideRelatedBooks />);
@@ -40,6 +60,8 @@ describe('MarkdownSections の関連書籍', () => {
       '## 📚 関連書籍',
       '### 1. 7つの習慣 - スティーブン・R・コヴィー',
       '主体性の考え方を補える。',
+      '### 2. 『GRIT やり抜く力』- アンジェラ・ダックワース',
+      '粘り強さ。',
       '### 読む順番',
       'まず実践の本から。',
     ].join('\n');
@@ -47,7 +69,8 @@ describe('MarkdownSections の関連書籍', () => {
     const plain = plainOf(html);
     expect(plain).not.toContain('7つの習慣');
     expect(plain).not.toContain('主体性の考え方');
-    expect(html).not.toContain('読みたいに追加');
+    expect(html).not.toContain('『7つの習慣』を読みたいに追加');
+    expect(html).toContain('『GRIT やり抜く力』を読みたいに追加');
     expect(plain).toContain('読む順番');
     expect(plain).toContain('まず実践の本から。');
   });

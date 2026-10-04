@@ -7,7 +7,7 @@
 // Lists (`- ` or `1. ` etc) are rendered as a styled <ul> / <ol>.
 
 import { memo, useMemo } from 'react';
-import { parseRelatedBookLine, RELATED_HEADING_RE } from '../lib/planRelatedBooks';
+import { parseRelatedBookHeading, visibleSections, hasVisibleSections } from '../lib/markdownSections';
 import {
   getAmazonSearchLink,
   handleAmazonClick,
@@ -173,17 +173,7 @@ function renderInline(text) {
   return parts.length ? parts : text;
 }
 
-// "### 1. 『title』- 著者" / "『title』 — 著者" / "『title』" → 本のカード（行の読み方は lib/planRelatedBooks.js と同じ）。
-// 1 冊と言い切れない行は本のカードにしない（説明ごと出さない・2026-10-04）:
-//   - 1 行に 2 冊を混ぜた行（「『A』関連 または『B』- 著者」）
-//   - 『』の無い番号つきの行（「1. 7つの習慣 - コヴィー」）。以前は確かめずにカードにしていた（RELATED_BOOK_RE_PLAIN）。
-//   どちらも lib/planRelatedBooks.js が保存の前と開いたときに書誌で確かめ、『』の 1 冊の行に直すか消す。
-function parseRelatedBookHeading(text) {
-  const parsed = parseRelatedBookLine(text);
-  if (!parsed) return null;
-  if (parsed.malformed) return { skip: true };
-  return { title: parsed.title, author: parsed.author };
-}
+// 関連書籍の 1 行の読み方（1 冊と言い切れない行はカードにしない）は lib/markdownSections.js の parseRelatedBookHeading。
 
 function renderLines(lines, opts) {
   // Group consecutive list items into a single <ul> / <ol>.
@@ -472,41 +462,20 @@ function RelatedBookCard({ book, description, onAdd, isAdding }) {
   );
 }
 
-function parseSections(text) {
-  if (typeof text !== 'string' || !text.trim()) return [];
-  const sections = [];
-  const lines = text.split('\n');
-  let current = { heading: null, lines: [] };
-  for (const line of lines) {
-    if (/^## /.test(line)) {
-      if (current.heading || current.lines.length) sections.push(current);
-      current = { heading: line.replace(/^## /, '').trim(), lines: [] };
-    } else {
-      current.lines.push(line);
-    }
-  }
-  if (current.heading || current.lines.length) sections.push(current);
-  return sections;
-}
-
-// Heading like "## 📚 関連書籍" / "おすすめの本" / "次に読む" → render
-// each `### N. 『title』- author` as a clickable add card.
-function isRelatedBooksHeading(heading) {
-  if (!heading) return false;
-  // AI の見出しは揺れる（おすすめ書籍 / 次に読むべき本 / あわせて読みたい 等）。
-  // 取りこぼすと「追加」ボタンが出ず "押しても何も起きない" に見えるため広めに拾う。
-  // 書誌で確かめる側（lib/planRelatedBooks.js）と同じ見出しにする（片方だけ広いと、確かめていない本がカードになる）。
-  return RELATED_HEADING_RE.test(heading);
-}
+// 節の分け方・関連書籍の見出し・画面に出す節の決まりは lib/markdownSections.js（App.jsx の畳みの出し分けと共通）。
+export { hasVisibleSections };
 
 // memo 化: 編集フォームの毎キーストローク（setForm → 親再レンダー）で、不変の
 // text（AI 解析 / 計画シート）に対する数百要素の Markdown ツリー再構築を防ぐ。
 // props はどれも参照安定（text=string / addingTitles=state の Set / handler=useCallback）。
 // hideRelatedBooks: 書誌で確かめていない AI の出力（以前の AI 解析・以前の AI まとめ）では、本を挙げる節
 //   （関連書籍・おすすめの本…）を出さない（実在を確かめていない書名を、本として見せない・2026-10-04）。
+// 関連書籍の節は、本のカードが 1 枚も出ないなら見出しも Amazon の注記も出さない（2026-10-04 ui-critic・lib/markdownSections.js）。
 function MarkdownSections({ text, density = 'normal', flat = false, onAddRelatedBook, addingTitles, hideRelatedBooks = false }) {
-  const parsed = useMemo(() => parseSections(text), [text]);
-  const sections = hideRelatedBooks ? parsed.filter((s) => !isRelatedBooksHeading(s.heading)) : parsed;
+  const sections = useMemo(
+    () => visibleSections(text, { relatedCards: !!onAddRelatedBook, hideRelatedBooks }),
+    [text, onAddRelatedBook, hideRelatedBooks],
+  );
   if (sections.length === 0) return null;
 
   // If the whole text has no `## ` headings, fall back to a single card.
@@ -522,7 +491,7 @@ function MarkdownSections({ text, density = 'normal', flat = false, onAddRelated
     <div style={flat ? flatWrap : wrap}>
       {sections.map((s, i) => {
         const styles = flat ? flatSectionStyle : sectionStyle;
-        const related = onAddRelatedBook && isRelatedBooksHeading(s.heading);
+        const related = onAddRelatedBook && s.related;
         return (
           <section key={i} className={flat ? 'long-text md-section md-section--flat' : 'long-text md-section'} style={styles}>
             {s.heading && <h3 style={flat ? flatHeadingStyle : headingStyle}>{stripLeadingEmoji(s.heading)}</h3>}
