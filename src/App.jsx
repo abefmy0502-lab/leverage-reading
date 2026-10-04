@@ -2337,6 +2337,8 @@ function AuthedApp() {
     const items = Array.isArray(result?.books) ? result.books : [];
     let booksAdded = 0;
     let booksMatched = 0;
+    // 保存できなかった新しい本の数（完了の画面で「N 冊は取り込めませんでした」と伝える・黙って減らさない・2026-10-04）。
+    let booksFailed = 0;
     const pending = []; // { bookId, memos }
     const newBooks = [];
     const noReviewIds = new Set(); // 感想・レビューの無い新しい本（メモも無ければ「覚えている一言を足す」の候補）
@@ -2375,6 +2377,7 @@ function AuthedApp() {
           if (target) { booksAdded += 1; newBooks.push(target); if (b.review) reviewsAdded += 1; else noReviewIds.add(target.id); }
         } catch (e) {
           console.warn('[import] book save failed:', e?.message || e);
+          booksFailed += 1;
           target = null;
         }
       }
@@ -2448,7 +2451,7 @@ function AuthedApp() {
     const byId = new Map([...booksRef.current, ...newBooks].map((bk) => [bk.id, bk]));
     const consultBooks = memoBookIds.map((id) => byId.get(id)).filter(Boolean).slice(0, 50);
     if (memosAdded + reviewsAdded > 0 && takeOnboardPathDone('import')) track('onboard_path_done', { path: 'import', memos: memosAdded + reviewsAdded });
-    return { booksAdded, booksMatched, memosAdded, reviewsAdded, createdBookIds: newBooks.map((b) => b.id), createdMemoIds, statusChanged, bareBooks, memoBookIds, consultBooks };
+    return { booksAdded, booksMatched, booksFailed, memosAdded, reviewsAdded, createdBookIds: newBooks.map((b) => b.id), createdMemoIds, statusChanged, bareBooks, memoBookIds, consultBooks };
   };
 
   // 📥 取り込みを取り消す（取り込みの完了画面から）: この取り込みで入れたものだけを消す。

@@ -15,9 +15,10 @@ import { track } from '../lib/analytics';
 
 // 日本語の折り返し: 文節で切る（auto-phrase）＋最後の行に語が 1 つだけ残らない（pretty）。
 // 「」の中や「です。」だけの行ができないように（auto-phrase 非対応の端末は通常の折り返し）。
-const body = { fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.6, margin: 0, textWrap: 'pretty', wordBreak: 'auto-phrase' };
+// 約物の空きを詰める（palt・行の頭の全角かっこが字下げに見えない・2026-10-04 ui-critic）。
+const body = { fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.6, margin: 0, textWrap: 'pretty', wordBreak: 'auto-phrase', fontFeatureSettings: '"palt"' };
 // 見出し（見つかった数・取り込んだ数）。行間は見出しの 1.3・改行は <wbr> と改行しない空白で決める。
-const heading = { margin: 0, fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, wordBreak: 'keep-all', overflowWrap: 'anywhere', textWrap: 'balance' };
+const heading = { margin: 0, fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, wordBreak: 'keep-all', overflowWrap: 'anywhere', textWrap: 'balance', fontFeatureSettings: '"palt"' };
 // 1 語として離したくない部分（「この本のまとめ」など）。
 const nowrap = { whiteSpace: 'nowrap' };
 // 見出しの数の区切り。keep-all でも「・」のあとは改行できてしまうので、前後を単語結合子（U+2060）で
@@ -350,6 +351,11 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
           {/* 「です。」だけが次の行に残らないよう、最後の句はまとめて折り返す。 */}
           {nothingNew && <>このファイルの本とメモは、<span style={nowrap}>すでに取り込み済みです。</span></>}
         </p>
+        )}
+        {/* 保存できなかった本（通信が切れたなど）は黙って減らさず伝える（DESIGN §5「一部だけ失敗の 1 行」＝13/--text-2・面なし）。同じファイルをもう一度選べば、
+            取り込めた本・同じメモは二重にならずに残りだけ入る（2026-10-04）。 */}
+        {outcome.booksFailed > 0 && (
+          <p role="status" style={{ ...body, fontSize: 'var(--text-meta)' }}><span style={nowrap}>{fmt(outcome.booksFailed)} 冊</span>は取り込めませんでした。通信環境を確認して、同じファイルをもう一度選んでください。</p>
         )}
         {remaining > 0 && (
           <p style={body}>残りの<span style={nowrap}> {fmt(remaining)} 冊</span>は、同じファイルをもう一度選ぶと取り込めます。</p>
