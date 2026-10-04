@@ -28,7 +28,7 @@ import { toMessage } from '../lib/errors';
 import { track } from '../lib/analytics';
 import { isStrictMatch, isExactMatch } from '../lib/bookMatch';
 import { verifyBookExists, checkImageExists } from '../lib/bookCover';
-import { normalizeAdvisorRecs, resolveMixedRec, focusText } from '../lib/advisorRecs';
+import { normalizeAdvisorRecs, resolveMixedRec, focusText, emptyReasonOf } from '../lib/advisorRecs';
 import { searchBooksFlat as searchBooksAPIFlat } from '../lib/bookSearch';
 import { STORE_DISCLOSURE_TEXT, getRakutenLink, RAKUTEN_LINK_REL } from '../lib/rakutenLink';
 import { getAmazonLink, handleAmazonClick, AMAZON_LINK_REL } from '../lib/amazonLink';
@@ -549,6 +549,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     if (!Array.isArray(pool) || pool.length === 0) return null;
     const stale = () => unmountedRef.current || verifyGenRef.current !== gen;
     const results = [];
+    // 2 冊を混ぜて 1 冊にできなかったカードの確かめた結果（false＝どの書名も無い・null＝確かめられなかった）
+    const droppedMixed = [];
     const verifyOne = ({ title, author }) => Promise.race([
       verifyBookExists({ title, author }),
       new Promise((res) => { setTimeout(() => res({ exists: null }), 6000); }),
@@ -563,7 +565,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         // 見つからない・確かめられないときは、どの組にも入れない（2 冊を 1 枚のカードで見せない・2026-10-04）。
         // eslint-disable-next-line no-await-in-loop
         const r = await resolveMixedRec(rec, verifyOne, { pause: 250 });
-        if (r.rec._mixed) continue;
+        if (r.rec._mixed) { droppedMixed.push(r.v.exists); continue; }
         rec = r.rec;
         v = r.v;
       } else {
@@ -601,7 +603,9 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     // 1〜2 枚に痩せるため、⚠️警告バッジ付きで残して枚数を維持する（正直に「確認できていない」を見せる方を選ぶ）。
     const solid = [...verified, ...unknown];
     const items = (solid.length >= 3 ? solid : [...solid, ...suspects]).slice(0, 5);
-    setRecommendations((prev) => (prev ? { ...prev, items, checked: true } : prev));
+    // カードが 0 枚のときの言い方: どの書名も「無い」と分かった（'none'）か、確かめられなかった（'unknown'）か
+    const emptyReason = emptyReasonOf(items, droppedMixed);
+    setRecommendations((prev) => (prev ? { ...prev, items, checked: true, emptyReason } : prev));
     return items;
   };
 
@@ -1593,22 +1597,34 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
 
       {/* 確かめ終わって、出せるカードが 1 枚も無いとき（どの本も 1 冊と確かめられなかった・2026-10-04 ui-critic）:
           前置き・カード・読む順番の代わりに ErrorMessage だけ（「もう一度」で同じ相談を送り直す）。 */}
-      {recoEmpty && !recoLoading && (
+      {/* 行き止まりにしない（2026-10-04 ui-critic）: どの書名も実在しないと分かったときは、同じ相談を送り直しても
+          同じなので「別の条件で探す」を主に。確かめられなかった（通信など）ときは「もう一度」＋文字の「別の条件で探す」。 */}
+      {recoEmpty && !recoLoading && (recommendations.emptyReason === 'none' ? (
+        <ErrorMessage
+          icon={null}
+          title="本を確かめられませんでした"
+          description="この相談で、実在を確かめられる本が見つかりませんでした。"
+          actions={[{ label: '別の条件で探す', onClick: resetToConcern, variant: 'primary' }]}
+        />
+      ) : (
         <ErrorMessage
           icon={null}
           title="本を確かめられませんでした"
           description="少し時間をおいて、もう一度お試しください。"
-          actions={[{
-            label: 'もう一度',
-            onClick: () => {
-              const a = lastRecoArgsRef.current;
-              if (a) generateRecommendations(a.userMsg, a.sourceQuery);
-              else resetToConcern();
+          actions={[
+            {
+              label: 'もう一度',
+              onClick: () => {
+                const a = lastRecoArgsRef.current;
+                if (a) generateRecommendations(a.userMsg, a.sourceQuery);
+                else resetToConcern();
+              },
+              variant: 'secondary',
             },
-            variant: 'secondary',
-          }]}
+            { label: '別の条件で探す', onClick: resetToConcern, variant: 'ghost' },
+          ]}
         />
-      )}
+      ))}
 
       {/* Recommendations — 1 冊 1 カード（理由つき） */}
       {recommendations && !recoEmpty && (

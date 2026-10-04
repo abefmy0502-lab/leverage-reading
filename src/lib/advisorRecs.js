@@ -71,3 +71,13 @@ export function focusText(focus) {
   if (!s) return '';
   return CHAPTER_CLAIM_RE.test(s) ? '' : s;
 }
+
+// 確かめ終わってカードが 0 枚のときの言い方（2026-10-04 ui-critic）。
+//   'none'＝外したカードの書名がどれも「無い」と分かった（同じ相談を送り直しても同じ → 別の条件で探す）
+//   'unknown'＝確かめられなかったものがある（通信など → もう一度）。カードがあれば null。
+//   dropped: 外したカードの確かめた結果（exists: true | false | null）
+export function emptyReasonOf(items, dropped) {
+  if (Array.isArray(items) && items.length > 0) return null;
+  const list = Array.isArray(dropped) ? dropped : [];
+  return list.length > 0 && list.every((x) => x === false) ? 'none' : 'unknown';
+}

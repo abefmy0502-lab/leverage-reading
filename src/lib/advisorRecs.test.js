@@ -1,6 +1,6 @@
 // 📚 AI 選書の推薦カードを整える（lib/advisorRecs.js・2026-10-04）。
 import { describe, it, expect, vi } from 'vitest';
-import { normalizeAdvisorRec, normalizeAdvisorRecs, resolveMixedRec, focusText } from './advisorRecs';
+import { normalizeAdvisorRec, normalizeAdvisorRecs, resolveMixedRec, focusText, emptyReasonOf } from './advisorRecs';
 
 describe('normalizeAdvisorRec', () => {
   it('書名の『』を外し、AI が付けた表紙・ISBN を捨てる', () => {
@@ -59,5 +59,14 @@ describe('focusText', () => {
   it('テーマ・場面はそのまま', () => {
     expect(focusText('毎日 1 つ「ハイライト」を決める考え方')).toBe('毎日 1 つ「ハイライト」を決める考え方');
     expect(focusText('')).toBe('');
+  });
+});
+
+describe('emptyReasonOf', () => {
+  it('カードがあれば null・全部「無い」なら none・確かめられないものがあれば unknown', () => {
+    expect(emptyReasonOf([{ title: 'A' }], [false])).toBeNull();
+    expect(emptyReasonOf([], [false, false])).toBe('none');
+    expect(emptyReasonOf([], [false, null])).toBe('unknown');
+    expect(emptyReasonOf([], [])).toBe('unknown');
   });
 });
