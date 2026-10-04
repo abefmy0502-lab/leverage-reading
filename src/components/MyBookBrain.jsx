@@ -3177,7 +3177,12 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
       return !shelfLoaded || !!shelfBookForTitle(b.title, books);
     });
     const lastBook = perBookBooks.length - 1;
-    const hasBooks = perBookBooks.length > 0 || !!perBook.booksRaw || !!perBook.booksLead;
+    // ◆ の形が崩れて本を取り出せなかった答え（booksRaw）も、本棚に無い本の書名を含む行は出さない（確かめていない書名を見せない）。
+    const booksRaw = !perBook.booksRaw ? '' : perBook.booksRaw.split('\n').filter((l) => {
+      const ts = [...l.matchAll(/『([^』\n]+)』/g)].map((m) => m[1].trim()).filter(Boolean);
+      return !shelfLoaded || ts.every((t) => shelfBookForTitle(t, books));
+    }).join('\n').trim();
+    const hasBooks = perBookBooks.length > 0 || !!booksRaw || !!perBook.booksLead;
     const showFoot = !!(perBook.compare || perBook.action || perBook.question || (!isStreaming && (evidence || refsList.length > 0 || perBook.note || refundNote)));
     return (
       // 本ごとの答えは、結論のカード → 本のカード（1 冊 1 枚）→ 共通点と違い・一歩・根拠のカード。
@@ -3200,9 +3205,9 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
               <h3 style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>本ごとの視点</h3>
               {perBook.booksLead && <p style={{ ...readText, margin: '0 0 var(--space-3)' }}>{renderBoldInline(perBook.booksLead)}</p>}
             </PartnerRow>
-            {perBook.booksRaw ? (
+            {booksRaw ? (
               <PartnerRow partner={null}>
-                <div style={answerCard}><div style={readText}><PlainAnswer text={perBook.booksRaw} gap="var(--space-4)" /></div></div>
+                <div style={answerCard}><div style={readText}><PlainAnswer text={booksRaw} gap="var(--space-4)" /></div></div>
               </PartnerRow>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>

@@ -347,7 +347,6 @@ function perBookAnswer(block, decide = false, aiMode = '') {
       || `『${b.title}』の視点では、メモに残した「${quote(m.text)}」を、いまの悩みに当てはめてみることができます。`;
     return { ...b, view, basis: `${m.page ? `p.${m.page}` : ''}「${quote(m.text)}」`, ref: `📚 ${b.author}『${b.title}』${m.page ? ` p.${m.page}` : ''}` };
   });
-  const givenCount = views.length; // 共通点と違いの「N 冊とも」は渡された本の数
   // &ai=fakeref（2026-10-04）: 1 冊目の根拠のページを作り（p.300）、渡していない本のカードを足す（画面は出さない・ページを外す）。
   if (aiMode === 'fakeref' && views.length > 0) {
     views[0] = { ...views[0], basis: views[0].basis.replace(/^p\.\d+/, '').replace(/^/, 'p.300') };
@@ -360,7 +359,8 @@ function perBookAnswer(block, decide = false, aiMode = '') {
     '【本ごとの視点】',
     ...views.flatMap((v) => [`◆『${v.title}』｜${v.author}`, `視点：${v.view}`, `根拠：${v.basis}`, '']),
     '【共通点と違い】',
-    `${givenCount} 冊とも「自分で変えられることに力を集める」点で重なります。違うのは入り口で、何を手放すか、誰の課題かを分けるか、相手とどう向き合うかが分かれます。`,
+    // 本番の指示文と同じく冊数は書かない（「N 冊とも」と数えない・2026-10-04）
+    `どの本も「自分で変えられることに力を集める」点で重なります。違うのは入り口で、何を手放すか、誰の課題かを分けるか、相手とどう向き合うかが分かれます。`,
     '',
     ...(decide ? PERBOOK_ACTION : PERBOOK_ASK),
     '',
@@ -374,9 +374,13 @@ function perBookAnswer(block, decide = false, aiMode = '') {
 
 // &ai=broken: 「本ごとに」の答えの ◆ の形が崩れた答え（◆ も「視点：」も無い）。
 //   画面は【本ごとの視点】の節をそのまま段落で見せる（SPEC §3・parseAnswer の booksRaw）。
-function perBookBrokenAnswer(block, decide = false) {
+// &ai=brokenfake（2026-10-04）: 崩れた答えに、渡していない本（『7つの習慣』）の段落を混ぜる（画面はその段落を出さない）。
+function perBookBrokenAnswer(block, decide = false, fake = false) {
   const titles = [...block.matchAll(/^◆『([^』]*)』/gm)].map((m) => m[1]).slice(0, 3);
-  const views = titles.map((t) => (PERBOOK_VIEWS[t] || `『${t}』では、メモに残したことを、いまの悩みに当てはめて考えます。`));
+  const views = [
+    ...titles.map((t) => (PERBOOK_VIEWS[t] || `『${t}』では、メモに残したことを、いまの悩みに当てはめて考えます。`)),
+    ...(fake ? ['『7つの習慣』では、反応する前に自分で選ぶことが大切です。'] : []),
+  ];
   return [
     '【結論】',
     '焦りの正体を分けて、いま自分で動かせる一点に集中しましょう。評価や結果は、追いかけるほど遠くなります。',
@@ -384,7 +388,7 @@ function perBookBrokenAnswer(block, decide = false) {
     '【本ごとの視点】',
     ...views.flatMap((v) => [v, '']),
     '【共通点と違い】',
-    `${views.length} 冊とも「自分で変えられることに力を集める」点で重なります。`,
+    'どの本も「自分で変えられることに力を集める」点で重なります。',
     '',
     ...(decide ? PERBOOK_ACTION : PERBOOK_ASK),
     '',
@@ -448,7 +452,7 @@ function aiReply(store, payload, aiMode = '') {
   const perBook = userText.match(/PERSPECTIVE_BOOKS_START =====\n([\s\S]*?)\n===== PERSPECTIVE_BOOKS_END/);
   // 行動を決める回は、本番と同じくアプリが質問の後ろに ACTION_REQUEST を付ける（ai.js の turnHint）。
   const decide = userText.includes('===== ACTION_REQUEST =====');
-  if (perBook) return aiMode === 'broken' ? perBookBrokenAnswer(perBook[1], decide) : perBookAnswer(perBook[1], decide, aiMode);
+  if (perBook) return aiMode === 'broken' || aiMode === 'brokenfake' ? perBookBrokenAnswer(perBook[1], decide, aiMode === 'brokenfake') : perBookAnswer(perBook[1], decide, aiMode);
   const q = userText.match(/QUESTION_START =====\n([\s\S]*?)\n=====/);
   if (q) {
     // 本番は質問に近いメモを RELATED_MEMOS に分けて渡す（MEMOS からは外す）ので、両方を材料にする。
