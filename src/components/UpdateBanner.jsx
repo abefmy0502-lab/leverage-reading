@@ -60,9 +60,11 @@ function useInputFocused() {
 
 // 見た目はトークンだけ（2026-10-04）。以前は栗色の帯（アクセントは主ボタン・リンク・選択中だけ＝DESIGN §3-2）・
 // 12px の文字・丸いピル・📦 の絵文字だった。浮いた知らせのカード（--surface＋枠＋--shadow-overlay・角丸 12）にする。
+// 置き場所は下のタブの上（知らせと同じ高さ・2026-10-04 ui-critic）: 上に置くと、上の行の「写真で共有」・？・⚙️ と
+// 画面の題に重なっていた。出るのはホームの一覧（下のタブが出ている画面）だけ。
 const overlayStyle = {
   position: 'fixed',
-  top: 'calc(env(safe-area-inset-top, 0px) + var(--space-2))',
+  bottom: 'calc(var(--tabbar-h) + var(--space-3) + env(safe-area-inset-bottom, 0px))',
   left: 'var(--space-4)',
   right: 'var(--space-4)',
   maxWidth: 420,
@@ -80,7 +82,7 @@ const overlayStyle = {
   boxShadow: 'var(--shadow-overlay)',
   boxSizing: 'border-box',
   fontFamily: 'var(--font-ui)',
-  animation: 'lvg-slide-down 280ms ease both',
+  animation: 'lvg-update-in var(--duration-base) var(--ease-out) both',
 };
 
 const applyBtnStyle = { ...btnLink, whiteSpace: 'nowrap' };
@@ -123,7 +125,7 @@ export default function UpdateBanner({ safe = false }) {
   // 画面上部に必ず固定表示される。view 切替で unmount される心配なし。
   return createPortal(
     <>
-      <style>{`@keyframes lvg-slide-down { from { transform: translateY(-100%); } to { transform: translateY(0); } }`}</style>
+      <style>{`@keyframes lvg-update-in { from { transform: translateY(var(--space-4)); opacity: 0; } to { transform: translateY(0); opacity: 1; } }`}</style>
       <div style={overlayStyle} role="status" aria-live="polite">
         <span style={{ flex: 1, minWidth: 0, padding: 'var(--space-3) 0', fontSize: 'var(--text-sub)', lineHeight: 1.5, color: 'var(--text)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
           {withPhraseBreaks('アプリの新しい版があります')}

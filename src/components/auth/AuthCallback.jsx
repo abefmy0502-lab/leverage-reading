@@ -1,5 +1,12 @@
 import { useEffect, useState } from 'react';
-import { supabase, isSupabaseConfigured } from '../../lib/supabase';
+import { supabase, isSupabaseConfigured, isDemo } from '../../lib/supabase';
+
+// 🧪 お試しモード（開発専用）: &cb=wait＝認証しています…のまま／&cb=timeout＝確かめられなかった画面／
+//   &cb=slow＝パスワードの更新が 8 秒かかる（更新しています…）。本番では isDemo が false なので何もしない。
+const demoCb = () => {
+  if (!isDemo || typeof window === 'undefined') return '';
+  try { return new URLSearchParams(window.location.search).get('cb') || ''; } catch { return ''; }
+};
 import { LIMITS, validatePassword } from '../../lib/limits';
 import { btnPrimary, btnPrimaryOff, input } from '../../styles/ui';
 import { withPhraseBreaks } from '../TightBubble';
@@ -22,9 +29,9 @@ function clearAuthHash() {
 function errorMessage(code) {
   // error_description は Supabase の生の英語文のため表示しない（技術文言を
   // ユーザーに見せない規範）。code → 和文マップ + 安全な汎用文に倒す。
-  if (code === 'otp_expired') return 'リンクの有効期限が切れています。もう一度メールを送信してください。';
-  if (code === 'access_denied') return 'リンクが無効です。お手数ですが、もう一度お試しください。';
-  return 'リンクが無効です。お手数ですが、もう一度お試しください。';
+  // この画面から送り直せないので、できること（ログインの画面から送り直す）を言う（2026-10-04 ui-critic）。
+  if (code === 'otp_expired') return 'リンクの有効期限が切れています。ログイン画面から、もう一度メールを送ってください。';
+  return 'リンクが使えませんでした。ログイン画面から、もう一度お試しください。';
 }
 
 // 見た目はログインの画面（AuthScreen）とそろえる（トークンと ui.js の部品だけ・2026-10-04）。
@@ -66,6 +73,8 @@ export default function AuthCallback({ onDone }) {
 
   useEffect(() => {
     if (hasError || !hasAccessToken) return;
+    if (demoCb() === 'wait') return undefined;
+    if (demoCb() === 'timeout') { setWaiting(false); return undefined; }
     if (!isSupabaseConfigured) {
       clearAuthHash();
       onDone();
@@ -132,6 +141,7 @@ export default function AuthCallback({ onDone }) {
     setPwBusy(true);
     setPwError('');
     try {
+      if (demoCb() === 'slow') await new Promise((r) => setTimeout(r, 8000));
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
       try { window.localStorage.setItem('orime-returning', 'true'); } catch { /* ignore */ }
@@ -169,7 +179,7 @@ export default function AuthCallback({ onDone }) {
               style={input}
             />
             {/* 決まりは placeholder だけに書かず、欄の下に常に出す（DESIGN §5 入力欄）。 */}
-            <p id="cb-pw-hint" style={hintStyle}>パスワードは8文字以上で、英字と数字を含めてください</p>
+            <p id="cb-pw-hint" style={hintStyle}>パスワードは 8&nbsp;文字以上で、英字と数字を含めてください</p>
             {pwError && <p id="cb-pw-error" role="alert" style={errorStyle}>{pwError}</p>}
             {/* 処理中も薄くせず、文言で示す（DESIGN §5 押せないボタン）。 */}
             <button type="submit" disabled={pwBusy} aria-busy={pwBusy || undefined} style={pwBusy ? { ...btnPrimaryOff, width: '100%' } : btn}>

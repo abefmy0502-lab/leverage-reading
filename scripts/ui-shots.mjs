@@ -133,6 +133,10 @@ const SCREENS = [
   { name: 'auth-callback-error', url: '/#error=access_denied&error_code=otp_expired' },
   { name: 'auth-recovery', url: '/#access_token=demo&type=recovery' },
   { name: 'auth-recovery-error', url: '/#access_token=demo&type=recovery', steps: [{ fill: ['input[type=password]', 'abc'] }, { css: 'button[type=submit]' }] },
+  // 読み込み中・待っている状態（2026-10-04 ui-critic）: 認証しています…／確かめられなかった／パスワードを更新しています…／新しい版の知らせ（下のタブの上）
+  { name: 'auth-callback-waiting', url: '/?cb=wait#access_token=demo&type=signup' },
+  { name: 'auth-callback-timeout', url: '/?cb=timeout#access_token=demo&type=signup' },
+  { name: 'auth-recovery-busy', url: '/?cb=slow#access_token=demo&type=recovery', steps: [{ fill: ['input[type=password]', 'readbooks2026'] }, { css: 'button[type=submit]', settle: 500 }] },
   { name: 'add-book', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を追加"]' }] },
   // 有料プランの画面は起動時には出ない（フリーミアム）。設定の「プランを見る」と同じ合図で開く。
   { name: 'paywall', url: '/?demo=paywall', steps: [{ eval: "window.dispatchEvent(new CustomEvent('orime:paywall', { detail: { reason: null } }))" }] },

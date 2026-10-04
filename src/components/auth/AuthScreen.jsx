@@ -113,7 +113,7 @@ function humanizeError(err) {
     return 'このメールアドレスは既に登録されています。';
   }
   if (msg.includes('password should be') || msg.includes('password length')) {
-    return 'パスワードは8文字以上で、英字と数字を含めてください。';
+    return 'パスワードは 8\u00a0文字以上で、英字と数字を含めてください。';
   }
   if (msg.includes('email') && (msg.includes('invalid') || msg.includes('format'))) {
     return 'メールアドレスの形式が正しくありません。';
@@ -434,7 +434,7 @@ export default function AuthScreen() {
           />
         )}
         {mode === 'signup' && (
-          <p id="auth-pw-hint" style={fieldHint}>パスワードは8文字以上で、英字と数字を含めてください</p>
+          <p id="auth-pw-hint" style={fieldHint}>パスワードは 8&nbsp;文字以上で、英字と数字を含めてください</p>
         )}
         {mode === 'signup' && (
           <div style={{ marginBottom: 'var(--space-3)' }}>
