@@ -15,6 +15,7 @@
 import { useEffect, useRef, useState } from 'react';
 import NotifyOptInCard from './NotifyOptInCard';
 import GrowthMeter from './GrowthMeter';
+import { withPhraseBreaks } from './TightBubble';
 import { firstConsultSuggestions, memoExampleForBook, countSummaryMemos, fmtTokens, consultsLeft } from '../lib/consultHelpers';
 import { X, Search, SearchX, Check, ChevronLeft, Plus } from 'lucide-react';
 import { usePaywall } from '../state/PaywallContext';
@@ -86,10 +87,13 @@ const footer = {
 };
 
 // ---- 文字 ------------------------------------------------------------------
+// 題と補足は文節の切れ目でだけ折り返す（文は withPhraseBreaks で <wbr> を入れる）。文字を大きくしたとき
+// 「答え／ます」「こ／と」と語の途中で割れていた（2026-10-04）。
+const phraseWrap = { wordBreak: 'keep-all', overflowWrap: 'anywhere' };
 const title = {
-  fontSize: 'var(--text-title)', fontWeight: 700, color: 'var(--text)', lineHeight: 1.3, margin: 0,
+  fontSize: 'var(--text-title)', fontWeight: 700, color: 'var(--text)', lineHeight: 1.3, margin: 0, ...phraseWrap,
 };
-const sub = { fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, margin: 'var(--space-2) 0 0' };
+const sub = { fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, margin: 'var(--space-2) 0 0', ...phraseWrap };
 const sectionLabel = {
   fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-2)', margin: '0 0 var(--space-2)',
 };
@@ -127,7 +131,7 @@ const chipFace = {
 const askChip = {
   display: 'block', width: '100%', minHeight: 44, padding: 'var(--space-3)', textAlign: 'left',
   background: 'var(--fill)', border: 'none', borderRadius: 'var(--radius)', cursor: 'pointer',
-  fontFamily: 'inherit', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5,
+  fontFamily: 'inherit', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5, ...phraseWrap,
 };
 // 選ぶためのチップ（DESIGN §5: 高さ 44・15px・余白 8/12・選択中は --accent-soft 面＋--accent 文字＋✓）。
 // 選んでも幅を変えない（2026-09-29）: 太さは変えず（400）、先頭のアイコンの場所はいつも取っておく
@@ -419,7 +423,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
       {step === 'pick' && (
         <>
           <div style={body}>
-            <h1 style={title}>これまで読んで、<br />印象に残っている本は？</h1>
+            <h1 style={title}>{withPhraseBreaks('これまで読んで、')}<br />{withPhraseBreaks('印象に残っている本は？')}</h1>
             {/* 1 文にまとめる（SPEC §1-1）。句のまとまりで折り返す（「はじめられ／ます」と割らない） */}
             <p style={sub}>
               <span style={{ display: 'inline-block' }}>{RECOMMENDED_BOOKS}&nbsp;冊ほどがおすすめです</span>
@@ -599,8 +603,8 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
               </div>
             </div>
 
-            <h1 style={{ ...title, marginTop: 'var(--space-6)' }}>この本で、いちばん<br />覚えていることは？</h1>
-            <p style={sub}>うろ覚え・一言で大丈夫です</p>
+            <h1 style={{ ...title, marginTop: 'var(--space-6)' }}>{withPhraseBreaks('この本で、いちばん')}<br />{withPhraseBreaks('覚えていることは？')}</h1>
+            <p style={sub}>{withPhraseBreaks('うろ覚え・一言で大丈夫です')}</p>
             <textarea
               ref={memoRef}
               value={current.memo}
@@ -642,9 +646,9 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
             <SkeletonBlock width="45%" height="var(--text-title)" radius="var(--radius)" />
           </div>
           <p style={sub}>
-            {saveProgress.total > 0
+            {withPhraseBreaks(saveProgress.total > 0
               ? `本棚に入れています（${saveProgress.done} / ${saveProgress.total} 冊）`
-              : '本棚に入れています'}
+              : '本棚に入れています')}
           </p>
         </div>
       )}
@@ -675,9 +679,9 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
             </div>
             {summary.memos > 0 ? (
               <>
-                <h1 style={{ ...title, marginTop: 'var(--space-6)' }}>あなたの相談相手が<br />できました</h1>
+                <h1 style={{ ...title, marginTop: 'var(--space-6)' }}>{withPhraseBreaks('あなたの相談相手が')}<br />{withPhraseBreaks('できました')}</h1>
                 {/* ホームの相談カードと同じ数え方・同じ言葉（あなたの N 冊・メモ M 件） */}
-                <p style={{ ...sub, fontVariantNumeric: 'tabular-nums' }}>あなたの {summary.totalBooks || summary.books.length} 冊・メモ {summary.totalMemos || summary.memos} 件から答えます</p>
+                <p style={{ ...sub, fontVariantNumeric: 'tabular-nums' }}>{withPhraseBreaks(`あなたの ${summary.totalBooks || summary.books.length} 冊・メモ ${summary.totalMemos || summary.memos} 件から答えます`)}</p>
                 {/* 🌱 メモが 10 件になるまでは、答えがメモとともに深くなることを一行で（ホーム・相談と同じ・2026-10-02）。 */}
                 <GrowthMeter memoCount={summary.totalMemos || summary.memos} style={{ marginTop: 'var(--space-2)' }} />
               </>
@@ -685,16 +689,16 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
               <>
                 {/* メモが無いと相談の根拠が無いので「相談相手ができた」とは言わない（正直に）。 */}
                 {/* 取り込みのあとから開いた本は、もう本棚にある（「入れました」とは言わない）。 */}
-                <h1 style={{ ...title, marginTop: 'var(--space-6)' }}>{seeded ? '一言は、あとからでも足せます' : `${summary.books.length} 冊を本棚に入れました`}</h1>
-                <p style={sub}>まだメモがありません</p>
+                <h1 style={{ ...title, marginTop: 'var(--space-6)' }}>{withPhraseBreaks(seeded ? '一言は、あとからでも足せます' : `${summary.books.length} 冊を本棚に入れました`)}</h1>
+                <p style={sub}>{withPhraseBreaks('まだメモがありません')}</p>
               </>
             )}
 
             {summary.memos > 0 && (
               // 最初の相談は、本からの例ではなく「いま困っていること」をそのまま（相談は困りごとから始まる）。
               <section aria-labelledby="qs-ask" style={{ marginTop: 'var(--space-8)' }}>
-                <h2 id="qs-ask" style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, margin: '0 0 var(--space-3)' }}>
-                  いま困っていること
+                <h2 id="qs-ask" style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, margin: '0 0 var(--space-3)', ...phraseWrap }}>
+                  {withPhraseBreaks('いま困っていること')}
                 </h2>
                 {freeMode && freeRemaining > 0 && (
                   // 相談の上部の行と同じ言い方（かっこを付けず「・」でつなぐ・折り返すのは「・」のあとだけ・2026-09-29）。
@@ -734,7 +738,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
                   {firstConsultSuggestions({ books: summary.books, memoBookIds: new Set(summary.memoBookIds), memoCount: summary.totalMemos, count: 2 }).map((q) => (
                     <button key={q} type="button" style={askChip}
                       onClick={() => { setAskText(q); setAskedExample(q); askRef.current?.focus(); }}>
-                      {q}
+                      {withPhraseBreaks(q)}
                     </button>
                   ))}
                 </div>
