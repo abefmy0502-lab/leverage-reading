@@ -18,6 +18,20 @@ const getParser = () => {
   return parser;
 };
 
+// 文節の中の半角の空き（「結論から 3 行で」の「3 行」・「1on1 は」）は、word-break: keep-all でも
+// 折り返しの機会になり「3 ／行で送る」と数と助数詞が割れていた（2026-10-04）。日本語を含む短い文節の
+// 内側の空きだけを、折り返さない空き（U+00A0）にする（文節の頭と終わりの空き・英文だけの文節はそのまま）。
+const CJK = /[぀-ヿ㐀-鿿＀-￯]/;
+const MAX_GLUED_PHRASE = 20;
+export function glueInnerSpaces(phrase) {
+  const s = String(phrase ?? '');
+  if (!s.includes(' ') || !CJK.test(s)) return s;
+  const m = /^(\s*)(.*?)(\s*)$/s.exec(s);
+  const body = m[2];
+  if (!body.includes(' ') || [...body].length > MAX_GLUED_PHRASE) return s;
+  return m[1] + body.replace(/ /g, ' ') + m[3];
+}
+
 // 文を文節の切れ目（<wbr>）入りの React ノードにする。改行はそのまま（white-space: pre-wrap）。
 export function withPhraseBreaks(text) {
   const src = String(text ?? '');
@@ -31,7 +45,7 @@ export function withPhraseBreaks(text) {
     try { phrases = line ? p.parse(line) : []; } catch { phrases = [line]; }
     phrases.forEach((ph, i) => {
       if (i > 0) out.push(<wbr key={`${li}-${i}`} />);
-      out.push(ph);
+      out.push(glueInnerSpaces(ph));
     });
   });
   return out;
