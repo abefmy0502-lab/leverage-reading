@@ -3261,7 +3261,8 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
         {/* 書いている間は、最後のカードの下に「答えを書いています…」（本のカードが順に増えるので、続きがあると分かるように）。
             中止を押したら（stage が消える）すぐに外す。親が role="log" aria-live なので live 領域は重ねない。 */}
         {isStreaming && stage === 'generate' && (
-          <div className="ai-thinking" style={{ alignSelf: 'stretch', marginTop: 'var(--space-3)', position: 'sticky', bottom: 0, background: 'var(--bg)', paddingBlock: 'var(--space-2)' }}>
+          // 左端は本のカードの列（アイコン 32＋間 8＝40）にそろえる（2026-10-04 ui-critic）
+          <div className="ai-thinking" style={{ alignSelf: 'stretch', marginTop: 'var(--space-3)', position: 'sticky', bottom: 0, background: 'var(--bg)', paddingBlock: 'var(--space-2)', paddingLeft: 'var(--space-10)' }}>
             <span className="ai-thinking-dot" aria-hidden="true" />
             <span>{STAGE_LABEL.generate}</span>
           </div>

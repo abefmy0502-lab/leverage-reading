@@ -168,6 +168,25 @@ function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null
     return cut > 8 ? first.slice(0, cut) : first;
   };
   const short16 = (t) => { const x = String(t || '').replace(/\s+/g, ' ').replace(/[「」『』]/g, '').split(/[。．.、]/)[0].trim(); return x.length > 16 ? `${x.slice(0, 16)}…` : x; };
+  // &ai=fakeref-only（2026-10-04）: 参照がどれも渡したメモに無い本（解釈も無い）。画面は参照を出さず、
+  //   ほかに見せるものが無ければ「根拠を見る」ごと出さない（MyBookBrain の showRefChecks）。
+  if (aiMode === 'fakeref-only') {
+    return [
+      '【結論】',
+      `${gist(picked[0].text)}という考えを、いまの状況に 1 つだけ当てはめてみましょう。`,
+      '',
+      '【参照した本のメモ】',
+      '- 『7つの習慣』p.88 のメモ：主体性を発揮して、自分で選んで動く',
+      '- 『最強の報告術』p.12 のメモ：報告は結論から',
+      '',
+      ...askSection(question),
+      '',
+      'REFS_START',
+      '- 📚 スティーブン・R・コヴィー『7つの習慣』p.88',
+      '- 📚 架空太郎『最強の報告術』p.12',
+      'REFS_END',
+    ].join('\n');
+  }
   // 🔎 本を探す問い（本番の BOOK_LOOKUP・「…を書いた本はどれ？」）: 本とメモの一節だけ。問いも行動も書かない。
   if (lookup) {
     const names = [...new Set(picked.filter((m) => m.book_id).slice(0, 2).map((m) => `『${books.get(m.book_id).title}』`))];
