@@ -8,7 +8,6 @@ import {
   ArrowUp as IcSend,
   Check as IcCheck,
   ChevronLeft as IcBack,
-  ExternalLink as IcExternal,
   History as IcHistory,
   MessageSquarePlus as IcNewChat,
   PencilLine as IcPencil,
@@ -29,8 +28,8 @@ import { track } from '../lib/analytics';
 import { isStrictMatch, isExactMatch } from '../lib/bookMatch';
 import { verifyBookExists, checkImageExists } from '../lib/bookCover';
 import { searchBooksFlat as searchBooksAPIFlat } from '../lib/bookSearch';
-import { STORE_DISCLOSURE_TEXT, getRakutenLink, RAKUTEN_LINK_REL } from '../lib/rakutenLink';
-import { getAmazonLink, handleAmazonClick, AMAZON_LINK_REL } from '../lib/amazonLink';
+import { STORE_DISCLOSURE_TEXT } from '../lib/rakutenLink';
+import AdvisorStoreLinks from './AdvisorStoreLinks';
 import { nextResetLabelJa } from '../lib/freeTrial';
 import { TOKEN_COSTS, runCostLine, monthDayLabelJa } from '../lib/tokens';
 import { trialCancelShortLine } from '../lib/trialNudge';
@@ -49,7 +48,7 @@ import TightBubble, { withPhraseBreaks } from './TightBubble';
 import { displayUserText, concernOf, interviewPairsOf, advisorSetupFields } from '../lib/advisorText';
 import { usePaywall } from '../state/PaywallContext';
 import { findDuplicateBook } from '../lib/checkDuplicate';
-import { filterProseTitles, proseTitleLists } from '../lib/advisorProse';
+import { filterProseTitles, proseTitleLists, dropSummarySection } from '../lib/advisorProse';
 import { useEdgeSwipeBack } from '../hooks/useEdgeSwipeBack';
 
 const AdvisorHistoryList = lazy(() => import('./AdvisorHistory').then((m) => ({ default: m.AdvisorHistoryList })));
@@ -96,49 +95,7 @@ const advisorOptionChip = {
 // 相談の吹き出しと同じ: 文字に沿って縮む（TightBubble・最大 85%）・文節の切れ目でだけ折り返す（BudouX の <wbr>＋keep-all・2026-09-29）。
 const userBubble = { maxWidth: '85%', padding: 'var(--space-3) var(--space-4)', borderRadius: 'var(--radius)', background: 'var(--fill)', color: 'var(--text)', fontSize: 'var(--text-body)', lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'keep-all', overflowWrap: 'anywhere', textWrap: 'pretty' };
 const advisorOptionChipSelected = { background: 'var(--accent-soft)', color: 'var(--accent)', fontWeight: 600 };
-// 推薦カードの購入リンク＝文字ボタン（btnLink: --accent・15/600・高さ 44・枠なし）。
-// 主役は「読みたいに追加」なので、ストアは控えめな文字リンクにする（外部リンクは ↗ と aria-label で伝える）。
-const storeLink = { ...uiBtnLink, gap: 'var(--space-1)', textDecoration: 'none', whiteSpace: 'nowrap', boxSizing: 'border-box' };
-
-function AdvisorStoreLinks({ book }) {
-  const title = book?.title || '';
-  const amazon = getAmazonLink(book);
-  const rakuten = getRakutenLink(book);
-  return (
-    // 文字の左端をカードの本文にそろえる（btnLink の左右 4 を打ち消す）。
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-4)', marginLeft: 'calc(-1 * var(--space-1))' }}>
-      <a
-        href={amazon} target="_blank" rel={AMAZON_LINK_REL}
-        onClick={(e) => { e.stopPropagation(); handleAmazonClick(e, amazon); }}
-        aria-label={`Amazon で『${title}』を見る（外部リンク）`}
-        style={storeLink}
-      >
-        Amazon<IcExternal size={16} aria-hidden="true" />
-      </a>
-      <a
-        href={rakuten} target="_blank" rel={RAKUTEN_LINK_REL}
-        onClick={(e) => e.stopPropagation()}
-        aria-label={`楽天ブックス で『${title}』を見る（外部リンク）`}
-        style={storeLink}
-      >
-        楽天ブックス<IcExternal size={16} aria-hidden="true" />
-      </a>
-    </div>
-  );
-}
-
-// 推薦の後ろの文から「## 💬 まとめ」（励ましの一言だけの区画）を取り除く。
-// 読む順番など他の区画は残す。古い応答・履歴の再開にも効くよう表示側で落とす。
-function dropSummarySection(md) {
-  if (!md || typeof md !== 'string') return md || '';
-  const out = [];
-  let dropping = false;
-  for (const raw of md.split('\n')) {
-    if (/^#{1,6}\s/.test(raw.trim())) dropping = /まとめ/.test(raw);
-    if (!dropping) out.push(raw);
-  }
-  return out.join('\n').trim();
-}
+// 推薦カードの購入リンク（Amazon・楽天ブックス）は AdvisorStoreLinks.jsx（過去の AI 選書と共通・2026-10-04）。
 
 // 推薦の前置き（「## 👋 はじめに」＋共感の数行）から、見出し行を落として 1 段落の文にする。
 function introTextOf(md) {

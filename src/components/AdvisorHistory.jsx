@@ -19,11 +19,11 @@ import EmptyState from './EmptyState.jsx';
 import MarkdownSections from './MarkdownSections';
 import { SkeletonBlock } from './Skeleton';
 import { withPhraseBreaks } from './TightBubble';
-import BookStoreLinks from './BookStoreLinks';
+import AdvisorStoreLinks from './AdvisorStoreLinks';
 import { STORE_DISCLOSURE_TEXT } from '../lib/rakutenLink';
-import { btnPrimary, btnGhost, btnGhostOff, btnText } from '../styles/ui';
+import { btnPrimary, btnGhost, btnGhostOff, btnText, groupTitle } from '../styles/ui';
 import { displayUserText, concernOf, interviewPairsOf, advisorSetupFields } from '../lib/advisorText';
-import { filterProseTitles, proseTitleLists } from '../lib/advisorProse';
+import { filterProseTitles, proseTitleLists, dropSummarySection } from '../lib/advisorProse';
 
 export function formatDate(iso) {
   if (!iso) return '';
@@ -105,8 +105,6 @@ const navSide = { width: 96, flexShrink: 0 };
 const navTitle = { flex: 1, minWidth: 0, margin: 0, textAlign: 'center', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
 const backBtn = { ...btnText, fontSize: 'var(--text-body)', fontWeight: 400, padding: 'var(--space-2) 0', marginLeft: 'calc(-1 * var(--space-2))', gap: 0, lineHeight: 1.3, whiteSpace: 'nowrap' };
 
-// 行の中の副ボタン（DESIGN §5 btnRow: 44・15・600）。
-const rowBtn = { ...btnGhost, width: 'auto', minHeight: 44, padding: 'var(--space-2) var(--space-3)', fontSize: 'var(--text-sub)', flexShrink: 0 };
 
 // 読む文章（AI の答え・推薦理由）＝明朝 18・行間 1.6。
 const readText = { fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.6, color: 'var(--text)' };
@@ -231,6 +229,10 @@ export function AdvisorHistoryList({ sessions, loaded, onSelect, onClose, onDele
 // ============================================================================
 // 推薦本カード — 履歴詳細用 (live chat と同じ field 構成 + ストアリンク + 追加 button)
 // ============================================================================
+// 会話中のおすすめのカード（BookAdvisor）と同じ組み立て（2026-10-04）: 書名 20/600 → 著者 → 実在の注意 →
+//   小さな見出し＋本文（なぜあなたに＝明朝 18／核心・注目ポイント・目安＝15）→ 全幅の副ボタン「読みたいに追加」
+//   （追加したら同じ箱で「✓ 追加済み」）→ Amazon・楽天ブックスの文字リンク。以前は「なぜあなたに」だけ面つきの箱・
+//   目安は 1 行・追加は幅の狭いボタン・ストアは枠のボタンで、同じ本のカードが画面ごとに違って見えた。
 function RecommendationCard({ book, isAdded, isAdding, onAdd }) {
   return (
     <div
@@ -240,7 +242,7 @@ function RecommendationCard({ book, isAdded, isAdding, onAdd }) {
         overflowWrap: 'anywhere',
       }}
     >
-      <p style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.4, margin: 0 }}>
+      <p style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, margin: 0, textIndent: '-0.5em' }}>
         『{book.title}』
       </p>
       {book.author && (
@@ -257,23 +259,19 @@ function RecommendationCard({ book, isAdded, isAdding, onAdd }) {
       )}
 
       {book.why && (
-        <div style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3) var(--space-4)', background: 'var(--fill)', borderRadius: 'var(--radius)' }}>
+        <div style={{ marginTop: 'var(--space-3)' }}>
           <p style={fieldLabel}>なぜあなたに</p>
-          <p style={{ ...readText, margin: 'var(--space-1) 0 0' }}>{book.why}</p>
+          <p style={{ ...readText, margin: 'var(--space-1) 0 0' }}>{withPhraseBreaks(book.why)}</p>
         </div>
       )}
       {book.core && <RecField label="この本の核心" text={book.core} />}
       {book.focus && <RecField label="注目ポイント" text={book.focus} />}
-      {book.duration && (
-        <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 'var(--space-3) 0 0' }}>
-          <span style={{ fontWeight: 600 }}>目安</span>　{book.duration}
-        </p>
-      )}
+      {book.duration && <RecField label="目安" text={book.duration} />}
 
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-2)', marginTop: 'var(--space-4)' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 'var(--space-2)', marginTop: 'var(--space-4)' }}>
         {isAdded ? (
-          <p role="status" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, margin: 0, fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--success)' }}>
-            <Check size={16} aria-hidden="true" />
+          <p role="status" style={{ ...btnGhostOff, margin: 0, cursor: 'default', color: 'var(--text-2)' }}>
+            <Check size={18} aria-hidden="true" style={{ color: 'var(--success)', flexShrink: 0 }} />
             追加済み
           </p>
         ) : (
@@ -284,33 +282,30 @@ function RecommendationCard({ book, isAdded, isAdding, onAdd }) {
               onAdd?.();
             }}
             disabled={isAdding}
-            style={{
-              ...rowBtn,
-              cursor: isAdding ? 'wait' : 'pointer',
-              // 押せない間は薄くせず、副ボタンの無効の色（btnGhostOff）で示す。
-              ...(isAdding ? { color: btnGhostOff.color, borderColor: btnGhostOff.borderColor } : null),
-              opacity: 1,
-              touchAction: 'manipulation',
-            }}
+            aria-busy={isAdding || undefined}
+            // カードの主役の操作なので全幅の副ボタン（48・17/600）。押せない間は薄くせず btnGhostOff。
+            style={{ ...(isAdding ? btnGhostOff : btnGhost), opacity: 1, touchAction: 'manipulation' }}
           >
-            <Plus size={16} aria-hidden="true" />
-            {isAdding ? '計画を作成中…' : '読みたいに追加'}
+            <Plus size={18} aria-hidden="true" />
+            {isAdding ? '追加しています…' : '読みたいに追加'}
           </button>
         )}
-        {/* Amazon + 楽天 の両方（会話中のカードと同じ部品）。開示はカード群の下にまとめて出す。 */}
-        <BookStoreLinks book={book} variant="compact" showDisclosure={false} stopPropagation />
+        {/* Amazon + 楽天 の両方（会話中のカードと同じ文字リンク）。開示はカード群の下にまとめて出す。 */}
+        <AdvisorStoreLinks book={book} />
       </div>
     </div>
   );
 }
 
-const fieldLabel = { fontSize: 'var(--text-meta)', fontWeight: 600, color: 'var(--text-2)', margin: 0 };
+// 小さな見出し（DESIGN §5・12/600/--text-2＝ui.js の groupTitle・会話中のカードと同じ）。
+const fieldLabel = { ...groupTitle, margin: 0 };
 
 function RecField({ label, text }) {
   return (
     <div style={{ marginTop: 'var(--space-3)' }}>
       <p style={fieldLabel}>{label}</p>
-      <p style={{ fontSize: 'var(--text-sub)', lineHeight: 1.6, color: 'var(--text)', margin: 'var(--space-1) 0 0' }}>{text}</p>
+      {/* カードは keep-all なので、文節の切れ目（<wbr>）を入れて読点・かっこの位置だけで折り返さないようにする。 */}
+      <p style={{ fontSize: 'var(--text-sub)', lineHeight: 1.6, color: 'var(--text)', margin: 'var(--space-1) 0 0' }}>{withPhraseBreaks(text)}</p>
     </div>
   );
 }
@@ -422,7 +417,8 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
             const raw = (m.content ?? m.text ?? '').toString();
             // assistant メッセージは RECOMMENDATIONS の JSON を剥がして
             // プロセだけにする (永続化フォーマットの都合で生 JSON が混じっているため)
-            const text = isUser ? displayUserText(raw) : filterProseTitles(stripRecommendations(raw), proseLists);
+            // 励ましだけの「まとめ」は出さない（会話中のおすすめと同じ・SPEC §3-2）。
+            const text = isUser ? displayUserText(raw) : filterProseTitles(dropSummarySection(stripRecommendations(raw)), proseLists);
             if (!text) return null; // JSON だけのメッセージは非表示
             return isUser ? (
               // ユーザーの相談＝右寄せの --fill 吹き出し（相談と同じ）。
