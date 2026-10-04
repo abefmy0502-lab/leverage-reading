@@ -114,7 +114,7 @@ function RoadmapMarkdown({ text }) {
   const out = [];
   lines.forEach((raw, i) => {
     const line = raw.replace(/\s+$/, '');
-    if (!line.trim()) { out.push(<div key={i} style={{ height: 6 }} />); return; }
+    if (!line.trim()) { out.push(<div key={i} style={{ height: 'var(--space-2)' }} />); return; }
     if (line.startsWith('### ')) {
       out.push(<p key={i} style={{ margin: 'var(--space-3) 0 var(--space-2)', fontSize: 'var(--text-meta)', fontWeight: 700, color: C.brand }}>{boldify(line.slice(4))}</p>);
     } else if (line.startsWith('## ')) {
@@ -150,7 +150,7 @@ function BarList({ data }) {
           <span style={{ flex: 1, height: 8, background: C.soft, borderRadius: 'var(--radius-full)', overflow: 'hidden' }}>
             <span style={{ display: 'block', height: '100%', width: `${(v / max) * 100}%`, background: C.brand, borderRadius: 'var(--radius-full)' }} />
           </span>
-          <span style={{ flex: '0 0 auto', fontSize: 'var(--text-caption)', fontWeight: 700, color: C.ink, minWidth: 32, textAlign: 'right' }}>{v}</span>
+          <span style={{ flex: '0 0 auto', fontSize: 'var(--text-caption)', fontWeight: 600, color: C.ink, minWidth: 32, textAlign: 'right' }}>{v}</span>
         </div>
       ))}
     </div>
@@ -689,7 +689,7 @@ export default function AdminDashboard({ onClose }) {
                     <p style={sectionTitle}><AlertTriangle size="1em" strokeWidth={2} aria-hidden="true" style={{ flexShrink: 0 }} /> 判断ルールに該当</p>
                     {salesAlerts.map((a) => (
                       <div key={a.id} style={{ ...card, border: 'none', background: a.id.startsWith('gate_') ? 'var(--success-soft)' : 'var(--error-soft)' }}>
-                        <p style={{ fontSize: 'var(--text-caption)', fontWeight: 700, color: a.id.startsWith('gate_') ? 'var(--success)' : 'var(--error)', margin: '0 0 var(--space-1)' }}>{a.text}</p>
+                        <p style={{ fontSize: 'var(--text-caption)', fontWeight: 600, color: a.id.startsWith('gate_') ? 'var(--success)' : 'var(--error)', margin: '0 0 var(--space-1)' }}>{a.text}</p>
                         <p style={{ fontSize: 'var(--text-caption)', color: C.ink2, margin: 0, lineHeight: 1.6 }}>→ {a.action}</p>
                       </div>
                     ))}
@@ -903,7 +903,7 @@ export default function AdminDashboard({ onClose }) {
 
             {/* ── 🚀 配信開始の切替 ── */}
             <div style={{ ...card, marginTop: 'var(--space-4)' }}>
-              <p style={{ margin: '0 0 var(--space-2)', fontSize: 'var(--text-caption)', fontWeight: 700, color: C.ink, display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}><Rocket size="1em" strokeWidth={2} aria-hidden="true" style={{ flexShrink: 0 }} />App Store 配信を開始したら</p>
+              <p style={{ margin: '0 0 var(--space-2)', fontSize: 'var(--text-caption)', fontWeight: 600, color: C.ink, display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}><Rocket size="1em" strokeWidth={2} aria-hidden="true" style={{ flexShrink: 0 }} />App Store 配信を開始したら</p>
               <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'flex-end', flexWrap: 'wrap' }}>
                 <div style={{ flex: 1, minWidth: 150 }}>
                   <label style={{ fontSize: 'var(--text-caption)', color: C.ink2, fontWeight: 600 }}>配信日</label>
@@ -1080,7 +1080,7 @@ export default function AdminDashboard({ onClose }) {
                     <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: C.ink, lineHeight: 1.7, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{f.content}</p>
                     {(f.name || f.email) && <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-caption)', color: C.ink3 }}>{f.name || '（匿名）'}{f.email ? ` · ${f.email}` : ''}</p>}
                     <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-2)', flexWrap: 'wrap' }}>
-                      <button type="button" onClick={() => ticketize(f.id)} style={{ ...btnGhost, flex: '0 1 auto', minHeight: 44, padding: '0 var(--space-3)', fontSize: 'var(--text-sub)', color: C.brand, fontWeight: 700 }}>チケット化</button>
+                      <button type="button" onClick={() => ticketize(f.id)} style={{ ...btnGhost, flex: '0 1 auto', minHeight: 44, padding: '0 var(--space-3)', fontSize: 'var(--text-sub)', color: C.brand, fontWeight: 600 }}>チケット化</button>
                       {f.status !== 'in_progress' && <button type="button" onClick={() => triageFb(f.id, 'in_progress')} style={{ ...btnGhost, flex: '0 1 auto', minHeight: 44, padding: '0 var(--space-3)', fontSize: 'var(--text-sub)' }}>対応中</button>}
                       {f.status !== 'resolved' && <button type="button" onClick={() => triageFb(f.id, 'resolved')} style={{ ...btnGhost, flex: '0 1 auto', minHeight: 44, padding: '0 var(--space-3)', fontSize: 'var(--text-sub)' }}>解決</button>}
                     </div>
