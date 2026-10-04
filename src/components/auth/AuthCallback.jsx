@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { LIMITS, validatePassword } from '../../lib/limits';
+import { btnPrimary, btnPrimaryOff, input } from '../../styles/ui';
+import { withPhraseBreaks } from '../TightBubble';
 
 function parseHashParams() {
   if (typeof window === 'undefined') return {};
@@ -25,30 +27,27 @@ function errorMessage(code) {
   return 'リンクが無効です。お手数ですが、もう一度お試しください。';
 }
 
+// 見た目はログインの画面（AuthScreen）とそろえる（トークンと ui.js の部品だけ・2026-10-04）。
+//   以前は 12〜14px の文字・角丸 10・絵文字の見出し・薄くした押せないボタンが残っていた。
 const wrap = {
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
-  justifyContent: 'center',
+  justifyContent: 'flex-start',
   minHeight: '100vh',
-  padding: 'env(safe-area-inset-top, 0px) max(env(safe-area-inset-right, 0px), 20px) env(safe-area-inset-bottom, 0px) max(env(safe-area-inset-left, 0px), 20px)',
-  textAlign: 'center',
-  fontFamily: "var(--font-app)",
-  color: 'var(--c-ink)',
-  background: 'var(--color-bg)',
+  boxSizing: 'border-box',
+  padding: 'calc(var(--space-16) + env(safe-area-inset-top, 0px)) max(env(safe-area-inset-right, 0px), var(--space-4)) max(env(safe-area-inset-bottom, 0px), var(--space-4)) max(env(safe-area-inset-left, 0px), var(--space-4))',
+  fontFamily: 'var(--font-ui)',
+  color: 'var(--text)',
+  background: 'var(--bg)',
 };
-
-const btn = {
-  marginTop: 18,
-  padding: '12px 24px',
-  background: 'var(--c-brand)',
-  color: 'var(--accent-ink)',
-  border: 'none',
-  borderRadius: 10,
-  cursor: 'pointer',
-  fontFamily: 'inherit',
-  fontSize: 14,
-};
+const inner = { width: '100%', maxWidth: 400, textAlign: 'center' };
+const phrase = { wordBreak: 'keep-all', overflowWrap: 'anywhere' };
+const titleStyle = { fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, margin: '0 0 var(--space-3)', ...phrase };
+const bodyStyle = { fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, margin: '0 0 var(--space-6)', ...phrase };
+const hintStyle = { fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, margin: 'var(--space-1) 0 var(--space-3)', textAlign: 'left' };
+const errorStyle = { fontSize: 'var(--text-meta)', color: 'var(--error)', lineHeight: 1.5, margin: '0 0 var(--space-3)', textAlign: 'left' };
+const btn = { ...btnPrimary, width: '100%' };
 
 export default function AuthCallback({ onDone }) {
   const [initial] = useState(parseHashParams);
@@ -152,32 +151,32 @@ export default function AuthCallback({ onDone }) {
   if (recoveryReady) {
     return (
       <div style={wrap}>
-        <h1 style={{ fontSize: 20, marginBottom: 8 }}>🔑 新しいパスワードを設定</h1>
-        <p style={{ fontSize: 13, color: 'var(--c-ink-2)', lineHeight: 1.8, maxWidth: 360 }}>
-          本人確認ができました。新しいパスワードを入力してください。
-        </p>
-        <form onSubmit={handleSetNewPassword} style={{ width: '100%', maxWidth: 320, marginTop: 14 }}>
-          <input
-            type="password"
-            value={newPassword}
-            onChange={(e) => { setNewPassword(e.target.value); setPwError(''); }}
-            placeholder="新しいパスワード（8文字以上）"
-            autoComplete="new-password"
-            maxLength={LIMITS.password}
-            autoFocus
-            style={{
-              width: '100%', boxSizing: 'border-box', padding: '12px 14px', fontSize: 16,
-              borderRadius: 10, border: '1px solid var(--c-hairline-strong)', fontFamily: 'inherit',
-              background: 'var(--c-card)', color: 'var(--c-ink)',
-            }}
-          />
-          {pwError && (
-            <p style={{ fontSize: 12, color: 'var(--c-critical)', marginTop: 8, lineHeight: 1.6 }}>{pwError}</p>
-          )}
-          <button type="submit" disabled={pwBusy} style={{ ...btn, width: '100%', opacity: pwBusy ? 0.6 : 1 }}>
-            {pwBusy ? '更新中…' : 'パスワードを更新してはじめる'}
-          </button>
-        </form>
+        <div style={inner}>
+          <h1 style={titleStyle}>新しいパスワードを設定</h1>
+          <p style={bodyStyle}>{withPhraseBreaks('本人確認ができました。新しいパスワードを入力してください。')}</p>
+          <form onSubmit={handleSetNewPassword}>
+            <input
+              type="password"
+              value={newPassword}
+              onChange={(e) => { setNewPassword(e.target.value); setPwError(''); }}
+              placeholder="新しいパスワード"
+              aria-label="新しいパスワード"
+              aria-describedby={pwError ? 'cb-pw-hint cb-pw-error' : 'cb-pw-hint'}
+              aria-invalid={pwError ? true : undefined}
+              autoComplete="new-password"
+              maxLength={LIMITS.password}
+              autoFocus
+              style={input}
+            />
+            {/* 決まりは placeholder だけに書かず、欄の下に常に出す（DESIGN §5 入力欄）。 */}
+            <p id="cb-pw-hint" style={hintStyle}>パスワードは8文字以上で、英字と数字を含めてください</p>
+            {pwError && <p id="cb-pw-error" role="alert" style={errorStyle}>{pwError}</p>}
+            {/* 処理中も薄くせず、文言で示す（DESIGN §5 押せないボタン）。 */}
+            <button type="submit" disabled={pwBusy} aria-busy={pwBusy || undefined} style={pwBusy ? { ...btnPrimaryOff, width: '100%' } : btn}>
+              {pwBusy ? '更新しています…' : 'パスワードを更新してはじめる'}
+            </button>
+          </form>
+        </div>
       </div>
     );
   }
@@ -186,36 +185,37 @@ export default function AuthCallback({ onDone }) {
     const message = errorMessage(initial.error_code, initial.error_description);
     return (
       <div style={wrap}>
-        <h1 style={{ fontSize: 20, marginBottom: 12 }}>認証リンクが利用できません</h1>
-        <p style={{ fontSize: 13, color: 'var(--c-ink-2)', lineHeight: 1.8, maxWidth: 360 }}>{message}</p>
-        <p style={{ fontSize: 12, color: 'var(--c-ink-2)', marginTop: 8, lineHeight: 1.7, maxWidth: 360 }}>
-          お手数ですが、もう一度ログイン画面から操作をやり直してください。
-        </p>
-        <button type="button" onClick={handleBackToLogin} style={btn}>
-          ログイン画面に戻る
-        </button>
+        <div style={inner}>
+          <h1 style={titleStyle}>認証リンクが利用できません</h1>
+          <p style={bodyStyle}>{withPhraseBreaks(message)}</p>
+          <button type="button" onClick={handleBackToLogin} style={btn}>
+            ログイン画面に戻る
+          </button>
+        </div>
       </div>
     );
   }
 
   if (waiting) {
     return (
-      <div style={wrap}>
-        <h1 style={{ fontSize: 18, marginBottom: 12 }}>認証中…</h1>
-        <p style={{ fontSize: 13, color: 'var(--c-ink-2)' }}>セッションを確認しています。</p>
+      <div style={wrap} role="status" aria-live="polite">
+        <div style={inner}>
+          <h1 style={titleStyle}>認証しています…</h1>
+          <p style={bodyStyle}>{withPhraseBreaks('少しお待ちください。')}</p>
+        </div>
       </div>
     );
   }
 
   return (
     <div style={wrap}>
-      <h1 style={{ fontSize: 20, marginBottom: 12 }}>認証を確認できませんでした</h1>
-      <p style={{ fontSize: 13, color: 'var(--c-ink-2)', lineHeight: 1.8, maxWidth: 360 }}>
-        セッションの確立に時間がかかっています。ログイン画面からやり直してください。
-      </p>
-      <button type="button" onClick={handleBackToLogin} style={btn}>
-        ログイン画面に戻る
-      </button>
+      <div style={inner}>
+        <h1 style={titleStyle}>認証を確認できませんでした</h1>
+        <p style={bodyStyle}>{withPhraseBreaks('時間がかかっています。ログイン画面からやり直してください。')}</p>
+        <button type="button" onClick={handleBackToLogin} style={btn}>
+          ログイン画面に戻る
+        </button>
+      </div>
     </div>
   );
 }

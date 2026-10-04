@@ -120,6 +120,10 @@ const SCREENS = [
   { name: 'settings', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }] },
   { name: 'auth', url: '/?demo=auth&auth=signin' },
   { name: 'landing', url: '/?demo=auth' },
+  // メールのリンクから戻ったとき（2026-10-04）: 期限切れのリンク／パスワードを決め直す画面（入れ直しのエラーつき）
+  { name: 'auth-callback-error', url: '/#error=access_denied&error_code=otp_expired' },
+  { name: 'auth-recovery', url: '/#access_token=demo&type=recovery' },
+  { name: 'auth-recovery-error', url: '/#access_token=demo&type=recovery', steps: [{ fill: ['input[type=password]', 'abc'] }, { css: 'button[type=submit]' }] },
   { name: 'add-book', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を追加"]' }] },
   // 有料プランの画面は起動時には出ない（フリーミアム）。設定の「プランを見る」と同じ合図で開く。
   { name: 'paywall', url: '/?demo=paywall', steps: [{ eval: "window.dispatchEvent(new CustomEvent('orime:paywall', { detail: { reason: null } }))" }] },
