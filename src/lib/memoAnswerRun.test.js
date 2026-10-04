@@ -72,7 +72,7 @@ describe('メモが答える相談は AI を呼ばない（トークンを使わ
 
   it('相談の画面は、本を探す問いをまずメモから探し、見つからないときだけ AI へ', () => {
     const src = readFileSync(join(here, '../components/MyBookBrain.jsx'), 'utf8');
-    const ask = src.slice(src.indexOf('const ask = async'));
+    const ask = src.slice(src.indexOf('const askOnce = async'));
     const local = ask.indexOf('isBookLookup(q) && !opts.skipUserInsert && await lookupFromMemos(q, opts)) return;');
     const stream = ask.indexOf('await streamMyBookBrain(');
     expect(local).toBeGreaterThan(-1);
@@ -85,7 +85,7 @@ describe('メモが答える相談は AI を呼ばない（トークンを使わ
 
   it('相談の画面は、無料のトークンを使い切ったら AI より先にメモの答えへ分ける', () => {
     const src = readFileSync(join(here, '../components/MyBookBrain.jsx'), 'utf8');
-    const ask = src.slice(src.indexOf('const ask = async'));
+    const ask = src.slice(src.indexOf('const askOnce = async'));
     const branch = ask.indexOf('if (freeUsedUp) { askFromMemos(');
     const stream = ask.indexOf('await streamMyBookBrain(');
     expect(branch).toBeGreaterThan(-1);
