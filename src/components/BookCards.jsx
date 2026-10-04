@@ -67,7 +67,7 @@ export const BookCoverCard = memo(function BookCoverCard({ book, isJustDone, onO
           className="book-cover-placeholder"
           style={{ background: `linear-gradient(135deg, ${from}, ${to})` }}
         >
-          {book.title}
+          {withPhraseBreaks(book.title)}
         </div>
         {!showPlaceholder && (
           <img
@@ -95,7 +95,8 @@ export const BookCoverCard = memo(function BookCoverCard({ book, isJustDone, onO
           />
         )}
       </div>
-      <p className="book-cover-title">{book.title}</p>
+      {/* 文節の切れ目でだけ折り返す（「チーズはどこへ消／えた？」と語の途中で割れていた・2026-10-04）。 */}
+      <p className="book-cover-title">{withPhraseBreaks(book.title)}</p>
       {/* 著者が無い本も 1 行ぶん空けて、状態の行をとなりのカードとそろえる。 */}
       <p className="book-cover-author" aria-hidden={book.author ? undefined : true}>{book.author || '\u00a0'}</p>
       {/* 状態は表紙に重ねず、著者の下に面なしのラベルで（DESIGN §5「表示用ラベル」）。
