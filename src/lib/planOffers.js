@@ -138,16 +138,20 @@ export function billedShortOf(price = '') {
 //   有料の初回価格 → 「1 年目 ¥9,800、2 年目から 年額 ¥12,800 で自動更新」
 //   どちらも無し   → 「年額 ¥12,800 で自動更新」
 export function billedLine(label = {}) {
-  return billedLineParts(label).join('');
+  return billedLineParts(label).join('').replace(/\u00a0/g, ' ').replace(/\u2060/g, '');
 }
 // 同じ文を、折り返してよい切れ目で分けたもの（画面は塊ごとに nowrap で並べる＝「¥12,800 / で自動更新」と割れない）。
 //   金額は円なら「（税込）」つき（withTax）。「で自動更新」は 1 つの塊（「で自／動更新」と割らない・2026-10-02 ui-critic）。
-//   初回価格の「2 年目から 」は金額と別の塊（文字を最大にしたとき「（税込）」だけが次の行に落ちない・2026-10-03）。
-//   末尾の空白は塊の外に出す（画面側）＝つなげたとき元の 1 文と同じ。
+//   初回価格の「2 年目から 年額 ¥12,800（税込）」は 1 つの塊（2026-10-04・以前は「2 年目から」と金額を分けたので、
+//   「2 年目から」だけが行末に残って金額が次の行へ割れていた）。塊の中の語の間は折り返さない空白（U+00A0）にし、
+//   「（税込）」の前には結合文字（U+2060）。文字を最大にして 1 行に入らないときだけ「2 年目から／年額 ¥12,800（税込）」で割る
+//   （「（税込）」だけが落ちない）。
+//   末尾の空白は塊の外に出す（画面側）＝つなげたとき元の 1 文と同じ（billedLine は U+00A0・U+2060 を元に戻す）。
+const keepWords = (t) => String(t || '').replace(/ /g, '\u00a0').replace(/（/g, '\u2060（');
 export function billedLineParts(label = {}) {
   const short = withTax(billedShortOf(label.price));
   if (label.trial) return [`その後 ${short}`, 'で自動更新'];
-  if (label.intro) return [`${withTax(label.intro.head)}、`, `${label.intro.afterHead} `, short, 'で自動更新'];
+  if (label.intro) return [`${withTax(label.intro.head)}、`, `${keepWords(label.intro.afterHead)} ${keepWords(short)}`, 'で自動更新'];
   return [short, 'で自動更新'];
 }
 

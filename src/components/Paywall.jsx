@@ -135,11 +135,10 @@ const PLAN_COMPARE = [
   { name: 'プラン', amount: `毎月 ${PAID_TOKENS.toLocaleString()} トークン`, scope: `相談なら 約 ${Math.round(PAID_TOKENS / TOKEN_COSTS.consult).toLocaleString()} 回`, lead: 'すべての AI：', items: ['AI 選書', '読書計画シート', '写真から書き起こし'] },
 ];
 // 7 日間無料で使えるトークン（期間まるごと・2026-09-29 オーナー裁定で下の固定の欄に出す）。
-// 折り返してよいのは「・」の後だけ（「150 トークン」「相談 約 15 回」は割らない・2026-09-30）。
-const TRIAL_TOKENS_PARTS = [
-  `${TRIAL_TOKENS.toLocaleString('ja-JP')} トークン・`,
-  `相談 約 ${Math.round(TRIAL_TOKENS / TOKEN_COSTS.consult).toLocaleString('ja-JP')} 回`,
-];
+// SPEC §1-3 の書き方「最初の 7 日間は無料（150 トークン・相談 約 15 回）」。かっこの中は 1 かたまり
+// （以前は「…無料・150 トークン・」と「・」で続けたので、行末に「・」が残って次の行へ割れていた・2026-10-04）。
+//   数と単位の間は折り返さない空白（狭い画面でかっこの中を割るときも「・」の後だけ）。
+const TRIAL_TOKENS_NOTE = `（${TRIAL_TOKENS.toLocaleString('ja-JP')}\u00a0トークン・相談\u00a0約\u00a0${Math.round(TRIAL_TOKENS / TOKEN_COSTS.consult).toLocaleString('ja-JP')}\u00a0回）`;
 // トークンの目安（1 行）。
 const TOKEN_EXAMPLE = `相談 1 回 約 ${TOKEN_COSTS.consult}・AI 選書 約 ${TOKEN_COSTS.advisor} トークン`;
 // 無料の写真から書き起こしを使い切って開いたとき（free_ocr_used）は、プランで書き起こすといくつ使うかを先に（上限なしとは言わない）。
@@ -536,9 +535,9 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
 
   // 下に固定の欄の上の 1 行（無料期間の量／創業メンバー価格の呼び名と終わる日）と、ボタンの下の注記。
   //   ふだんは欄の中、大きな文字のとき（compactFooter）はスクロールする中身へ（同じ中身を 1 か所で作る）。
-  // かっこで包まず「・」で続ける（2026-09-29）。折り返すのは「・」の後だけ（2026-09-30）。
+  // 無料期間は「最初の 7 日間は無料」＋「（150 トークン・相談 約 15 回）」の 2 かたまり（SPEC §1-3・2026-10-04）。
   const leadLine = trial
-    ? [`${trialFirstPhrase(trial)}・`, ...TRIAL_TOKENS_PARTS].map((part) => <span key={part} style={chunk}>{part}</span>)
+    ? [trialFirstPhrase(trial), TRIAL_TOKENS_NOTE].map((part) => <span key={part} style={chunk}>{part}</span>)
     : (selected.intro && plan === 'annual' && foundingNamed)
       ? <span style={{ display: 'block' }}>{FOUNDING_NAME}（{noBreak(founding.endLabel)}まで）</span>
       : null;
@@ -691,7 +690,8 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
                   <span style={{ display: 'block', fontSize: compactFooter ? COMPACT_TEXT : 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>
                     {billedLineParts({ ...selected, trial }).map((part) => (
                       <Fragment key={part}>
-                        <span style={chunk}>{part.trimEnd()}</span>
+                        {/* 塊の中は語の途中で割らない（keep-all・「年／額」と割れていた・2026-10-04）。1 行に入らないときは塊の中の空白で。 */}
+                        <span style={{ ...chunk, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{part.trimEnd()}</span>
                         {part !== part.trimEnd() ? ' ' : null}
                       </Fragment>
                     ))}
