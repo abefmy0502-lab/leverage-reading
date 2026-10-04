@@ -4754,7 +4754,7 @@ function AuthedApp() {
                     <p style={{ ...groupTitle, margin: '0 0 var(--space-1)' }}>
                       {effectivePhase === 'before' ? '読書計画を編集' : '編集'}
                     </p>
-                    <h1 style={{ fontSize: 'var(--text-title)', fontWeight: 700, color: 'var(--text)', lineHeight: 1.25, margin: 0, overflowWrap: 'anywhere', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{current.title}</h1>
+                    <h1 style={{ fontSize: 'var(--text-title)', fontWeight: 700, color: 'var(--text)', lineHeight: 1.25, margin: 0, overflowWrap: 'anywhere', wordBreak: 'keep-all', lineBreak: 'strict', textWrap: 'balance', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{titleWithPhraseBreaks(current.title)}</h1>
                     <div style={{ marginTop: 'var(--space-2)' }}><StatusLabel status={form.status} /></div>
                   </div>
                 ) : (
