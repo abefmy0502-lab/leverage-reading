@@ -360,7 +360,15 @@ function Heatmap({ dateStrings, weeks = 16 }) {
           <span key={`dow-${i}`} style={label}>{l}</span>
         ))}
         {cols.map((col, ci) => [
-          <span key={`m-${ci}`} style={{ ...label, overflow: 'visible', width: 0 }}>{col.monthLabel}</span>,
+          // 右の 2 列の月の名前は、列の右端で終わるように右へそろえる（カードの右の余白にはみ出さない・2026-10-04 ui-critic）。
+          <span
+            key={`m-${ci}`}
+            style={ci >= cols.length - 2
+              ? { ...label, overflow: 'visible', width: 0, justifySelf: 'end', display: 'flex', justifyContent: 'flex-end' }
+              : { ...label, overflow: 'visible', width: 0 }}
+          >
+            {col.monthLabel}
+          </span>,
           ...col.days.map((d, di) => (
             <span
               key={`d-${ci}-${di}`}
@@ -535,16 +543,21 @@ export default function ReadingRecord({
         )}
       </section>
 
+      {/* データが無い区画は出さない（SPEC §5-5・2026-10-04: 読了が直近 6 か月に 1 冊も無いのに 0 の棒だけの区画が出ていた）。 */}
+      {footprints.length > 0 && (
       <section style={card}>
         <h3 style={cardTitle}>読書の足あと</h3>
         <Heatmap dateStrings={footprints} weeks={16} />
       </section>
+      )}
 
+      {doneBuckets.some((b) => b.count > 0) && (
       <section style={card}>
         {/* 直近 6 か月だけなので、見出しで範囲を言う（それより前の読了は数に入らない・2026-09-29）。 */}
         <h3 style={cardTitle}>月別の読了（直近 6 か月）</h3>
         <MonthBars buckets={doneBuckets} activeColor="var(--accent)" />
       </section>
+      )}
     </div>
   );
 

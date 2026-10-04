@@ -330,6 +330,8 @@ const SCREENS = [
   { name: 'action-add', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button:has-text("追加")' }, { css: '[role=dialog] button:has-text("1兆ドルコーチ")' }, { wait: 400 }] },
   { name: 'review-memo-menu', url: '/',steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("メモ")' }, { css: 'button[aria-label="このメモの操作"]' }] },
   { name: 'review-record-empty', url: '/?demo=nomemo', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }] },
+  // 一部の区画だけ（読了が 1 冊も無い人＝「月別の読了」は出さない・2026-10-04）
+  { name: 'review-record-partial', url: '/?demo=noreadingnone', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }] },
   { name: 'settings-bottom', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { scrollBottom: true }] },
   { name: 'advisor-loading', url: '/?ai=slow', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 800 }] },
   { name: 'advisor-error', url: '/?ai=fail', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }] },
