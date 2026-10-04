@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { relatedBookEntries, dropRelatedBooks, verifyPlanRelatedBooks } from './planRelatedBooks';
+import { relatedBookEntries, dropRelatedBooks, verifyPlanRelatedBooks, parseRelatedBookLine, hasMalformedRelatedBooks } from './planRelatedBooks';
 
 const SHEET = [
   '## 🎯 読み方の戦略',
@@ -63,5 +63,51 @@ describe('verifyPlanRelatedBooks', () => {
   });
   it('dropRelatedBooks: 何も消さなければそのまま', () => {
     expect(dropRelatedBooks(SHEET, [])).toBe(SHEET);
+  });
+});
+
+// 2026-10-04 オーナー報告: 「### 2. 『SMALL ACTIONS, BIG RESULTS』関連 または『やめる習慣』 - 古川武士」のように
+// 1 行に 2 冊を混ぜた行が、確かめられずに残り、画面にも 2 冊が 1 枚のカードで出ていた。
+describe('崩れた関連書籍の行（2 冊を混ぜた行）', () => {
+  const MIXED = [
+    '## 📚 関連書籍',
+    '### 1. 『夢をかなえるゾウ』- 水野敬也',
+    '小さな目標の立て方を物語で学べる。',
+    '### 2. 『SMALL ACTIONS, BIG RESULTS』関連 または『やめる習慣』 - 古川武士',
+    '何を続け、何をやめるかを判断する視点が得られる。',
+  ].join('\n');
+
+  it('parseRelatedBookLine: きれいな行と崩れた行を見分ける', () => {
+    expect(parseRelatedBookLine('1. 『夢をかなえるゾウ』- 水野敬也')).toEqual({ title: '夢をかなえるゾウ', author: '水野敬也', malformed: false, candidates: ['夢をかなえるゾウ'] });
+    expect(parseRelatedBookLine('『夢をかなえるゾウ』')).toMatchObject({ title: '夢をかなえるゾウ', author: '', malformed: false });
+    const bad = parseRelatedBookLine('2. 『SMALL ACTIONS, BIG RESULTS』関連 または『やめる習慣』 - 古川武士');
+    expect(bad).toMatchObject({ malformed: true, author: '古川武士', candidates: ['SMALL ACTIONS, BIG RESULTS', 'やめる習慣'] });
+    expect(parseRelatedBookLine('1. 『嫌われる勇気』（続編も） - 岸見一郎')).toMatchObject({ malformed: true, candidates: ['嫌われる勇気'] });
+    expect(parseRelatedBookLine('1. タイトルだけ')).toBeNull();
+  });
+
+  it('見つかった 1 冊だけの行に書き直す（ほかの本・説明はそのまま）', async () => {
+    const verify = vi.fn(async ({ title }) => ({ exists: title === 'やめる習慣' || title === '夢をかなえるゾウ' }));
+    const { sheet, removed, fixed } = await verifyPlanRelatedBooks(MIXED, verify);
+    expect(sheet).toContain('### 2. 『やめる習慣』 - 古川武士');
+    expect(sheet).not.toContain('SMALL ACTIONS');
+    expect(sheet).toContain('何を続け、何をやめるか');
+    expect(fixed).toEqual(['やめる習慣']);
+    expect(removed).toEqual([]);
+    expect(hasMalformedRelatedBooks(sheet)).toBe(false);
+  });
+
+  it('どれも見つからなければ（確かめられなくても）その本ごと消す', async () => {
+    const verify = vi.fn(async ({ title }) => (title === '夢をかなえるゾウ' ? { exists: true } : { exists: null }));
+    const { sheet, removed } = await verifyPlanRelatedBooks(MIXED, verify);
+    expect(sheet).not.toContain('やめる習慣');
+    expect(sheet).not.toContain('何を続け');
+    expect(sheet).toContain('### 1. 『夢をかなえるゾウ』');
+    expect(removed).toHaveLength(1);
+  });
+
+  it('hasMalformedRelatedBooks', () => {
+    expect(hasMalformedRelatedBooks(MIXED)).toBe(true);
+    expect(hasMalformedRelatedBooks('## 📚 関連書籍\n### 1. 『夢をかなえるゾウ』- 水野敬也')).toBe(false);
   });
 });

@@ -88,7 +88,7 @@ const AddBookModal = lazy(() => import('./components/AddBookModal'));
 import { useBookCover } from './hooks/useBookCover';
 import { searchBooksFlat as searchBooksAPIFlat } from './lib/bookSearch';
 import { tryCoverForIsbn, verifyBookExists } from './lib/bookCover';
-import { verifyPlanRelatedBooks } from './lib/planRelatedBooks';
+import { verifyPlanRelatedBooks, hasMalformedRelatedBooks } from './lib/planRelatedBooks';
 import { backfillCovers } from './lib/backfillCovers';
 import { enqueueCoverRetry, resolveCoverForBook, canReplaceCover, clearCoverNotFound } from './lib/coverAutoRetry';
 import { MODEL_SMART } from './lib/models';
@@ -2897,6 +2897,35 @@ function AuthedApp() {
   const [justMadePlanId, setJustMadePlanId] = useState(null);
   // 📖 この本について（出版社・書店の紹介文と目次・AI なし・lib/bookInfo.js・2026-10-02）。
   //   読みたい・積読は書名の下のカード、読書中は下の畳む見出し。読了では出さない（取りにも行かない）。
+  // 📚 保存済みの読書計画シートに「1 行に 2 冊を混ぜた関連書籍」（『A』関連 または『B』）があれば、開いたときに
+  //    書誌で確かめて 1 冊の行に直す（見つからなければ消す）・そっと保存する（2026-10-04 オーナー報告）。
+  //    その本・その文につき 1 回だけ。画面はそれまで崩れた行をカードにしない（MarkdownSections）。
+  const repairedSheetsRef = useRef(new Set());
+  const repairBook = view === 'detail' ? current : (view === 'edit' ? form : null);
+  const repairText = repairBook?.aiStrategy || '';
+  const repairId = repairBook?.id || null;
+  useEffect(() => {
+    if (!repairId || !repairText || planGen || aiLoading) return;
+    if (!hasMalformedRelatedBooks(repairText)) return;
+    const key = `${repairId}:${repairText.length}`;
+    if (repairedSheetsRef.current.has(key)) return;
+    repairedSheetsRef.current.add(key);
+    let cancelled = false;
+    (async () => {
+      const fixed = await checkPlanBooks(repairText);
+      if (cancelled || fixed === repairText) return;
+      setCurrent((c) => (c && c.id === repairId && c.aiStrategy === repairText ? { ...c, aiStrategy: fixed } : c));
+      setForm((f) => (f && f.id === repairId && f.aiStrategy === repairText ? { ...f, aiStrategy: fixed } : f));
+      enqueueBookMutation(repairId, async (entry) => {
+        const base = entry.latest || booksRef.current.find((b) => b.id === repairId);
+        if (!base || (base.aiStrategy || '') !== repairText) return; // その間に書き換わっていれば触らない
+        const saved = await saveBook({ ...base, aiStrategy: fixed });
+        if (saved) entry.latest = saved;
+      }).catch(() => { /* 次に開いたときにまた直す */ repairedSheetsRef.current.delete(key); });
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [repairId, repairText, planGen, aiLoading]);
   const bookAboutShown = view === 'detail' && ['want', 'before', 'reading'].includes(current?.status);
   const bookAbout = useBookInfo(current, { enabled: bookAboutShown });
   const runStrategyInPlace = async (book) => {

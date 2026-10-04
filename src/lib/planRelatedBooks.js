@@ -8,11 +8,32 @@
 //   - それ以外の節（読み方の戦略など）には触れない。AI は呼ばない（書誌の検索だけ）
 // 見出し・行の読み方は components/MarkdownSections.jsx の関連書籍カードと同じ。
 
+//   - 1 行に 2 冊を混ぜた行（「『A』関連 または『B』- 著者」・2026-10-04 オーナー報告）は「崩れた行」として、
+//     『』の中の書名を 1 冊ずつ確かめ、見つかった最初の 1 冊だけの行に書き直す（見つからなければ消す）。
+//     画面（MarkdownSections）は崩れた行を本のカードにしない（parseRelatedBookLine の malformed）。
+
 const RELATED_HEADING_RE = /関連(書籍|本|する本|図書)|次に読む|次に読むべき|次の(一冊|本)|併読|あわせて読みたい|おすすめ(の本|書籍|図書|の一冊)|参考(書籍|図書|文献)|読むべき本/;
-const BOOK_RE = /^\s*(?:\d+\.\s*)?『([^』]+)』(?:\s*[-–—・]\s*(.+))?\s*$/;
+const CLEAN_BOOK_RE = /^『([^』]+)』(?:\s*[-–—・]\s*([^『』]+))?$/;
+
+// 関連書籍の 1 行（### の後ろ）を読む。返り値 { title, author, malformed, candidates } か null（『』が無い）。
+//   - きれいな行: 『書名』だけ、または『書名』- 著者 → malformed: false
+//   - 崩れた行: 『』が 2 つ以上・『』の後ろに著者以外の言葉（「関連」「または」「（上）」など）→ malformed: true・
+//     candidates は『』の中の書名（出てきた順）・author は最後の『』の後ろの「- 著者」
+export function parseRelatedBookLine(text) {
+  const raw = String(text || '').trim().replace(/^\d+\.\s*/, '');
+  const titles = [...raw.matchAll(/『([^』]+)』/g)].map((m) => m[1].trim()).filter(Boolean);
+  if (titles.length === 0) return null;
+  const clean = raw.match(CLEAN_BOOK_RE);
+  if (clean && titles.length === 1) {
+    return { title: clean[1].trim(), author: (clean[2] || '').trim(), malformed: false, candidates: [clean[1].trim()] };
+  }
+  const tail = raw.slice(raw.lastIndexOf('』') + 1);
+  const am = tail.match(/[-–—]\s*([^『』]+)$/);
+  return { title: titles[0], author: am ? am[1].trim() : '', malformed: true, candidates: titles.slice(0, 3) };
+}
 
 // シートの行のうち、関連書籍の節の中の本（### の行）とその説明の行の範囲。
-// 返り値: [{ title, author, start, end }]（end は次の ### / ## の行・含まない）
+// 返り値: [{ title, author, malformed, candidates, start, end }]（end は次の ### / ## の行・含まない）
 export function relatedBookEntries(sheet) {
   const lines = String(sheet || '').split('\n');
   const out = [];
@@ -30,8 +51,8 @@ export function relatedBookEntries(sheet) {
     const h3 = line.match(/^###\s+(.*)$/);
     if (h3) {
       close(i);
-      const m = h3[1].match(BOOK_RE);
-      if (m && m[1].trim()) cur = { title: m[1].trim(), author: (m[2] || '').trim(), start: i, end: lines.length };
+      const b = parseRelatedBookLine(h3[1]);
+      if (b) cur = { ...b, start: i, end: lines.length };
     }
   });
   close(lines.length);
@@ -89,15 +110,37 @@ export function dropRelatedBooks(sheet, dropStarts) {
 export async function verifyPlanRelatedBooks(sheet, verify, { timeoutMs = 8000 } = {}) {
   const text = String(sheet || '');
   const entries = relatedBookEntries(text);
-  if (entries.length === 0 || typeof verify !== 'function') return { sheet: text, removed: [] };
+  if (entries.length === 0 || typeof verify !== 'function') return { sheet: text, removed: [], fixed: [] };
   const withTimeout = (p) => new Promise((resolve) => {
     const t = setTimeout(() => resolve({ exists: null }), timeoutMs);
     Promise.resolve(p).then((v) => { clearTimeout(t); resolve(v); }, () => { clearTimeout(t); resolve({ exists: null }); });
   });
-  const results = await Promise.all(entries.map((e) => {
-    try { return withTimeout(verify({ title: e.title, author: e.author })); } catch { return { exists: null }; }
+  const check = (title, author) => {
+    try { return withTimeout(verify({ title, author })); } catch { return Promise.resolve({ exists: null }); }
+  };
+  // きれいな行は 1 冊を確かめる。崩れた行は『』の中の書名を順に確かめ、見つかった最初の 1 冊を選ぶ。
+  const results = await Promise.all(entries.map(async (e) => {
+    if (!e.malformed) return { exists: (await check(e.title, e.author))?.exists ?? null };
+    const rs = await Promise.all(e.candidates.map((t) => check(t, e.author)));
+    const k = rs.findIndex((r) => r?.exists === true);
+    return k >= 0 ? { exists: true, pick: e.candidates[k] } : { exists: false };
   }));
+  // 崩れた行は、見つかった 1 冊だけの行に書き直す（行の数は変えない）。見つからなければ消す（確かめられなくても）。
+  const lines = text.split('\n');
+  const fixed = [];
+  entries.forEach((e, i) => {
+    if (!e.malformed || !results[i].pick) return;
+    const prefix = (lines[e.start].match(/^(###\s+(?:\d+\.\s*)?)/) || ['### '])[0];
+    lines[e.start] = `${prefix}『${results[i].pick}』${e.author ? ` - ${e.author}` : ''}`;
+    fixed.push(results[i].pick);
+  });
+  const rewritten = lines.join('\n');
   const dropped = entries.filter((_, i) => results[i]?.exists === false);
-  if (dropped.length === 0) return { sheet: text, removed: [] };
-  return { sheet: dropRelatedBooks(text, dropped.map((e) => e.start)), removed: dropped.map((e) => e.title) };
+  if (dropped.length === 0) return { sheet: rewritten, removed: [], fixed };
+  return { sheet: dropRelatedBooks(rewritten, dropped.map((e) => e.start)), removed: dropped.map((e) => e.title), fixed };
+}
+
+// シートに崩れた関連書籍の行（2 冊を混ぜた行など）があるか。保存済みのシートを開いたときに直すかどうかに使う。
+export function hasMalformedRelatedBooks(sheet) {
+  return relatedBookEntries(sheet).some((e) => e.malformed);
 }

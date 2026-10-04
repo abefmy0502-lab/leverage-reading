@@ -7,6 +7,7 @@
 // Lists (`- ` or `1. ` etc) are rendered as a styled <ul> / <ol>.
 
 import { memo, useMemo } from 'react';
+import { parseRelatedBookLine } from '../lib/planRelatedBooks';
 import {
   getAmazonSearchLink,
   handleAmazonClick,
@@ -180,6 +181,10 @@ const RELATED_BOOK_RE = /^\s*(?:\d+\.\s*)?『([^』]+)』(?:\s*[-–—・]\s*(.
 const RELATED_BOOK_RE_PLAIN = /^\s*\d+\.\s*([^-–—・\n]{2,80}?)(?:\s*[-–—・]\s*(.+))?\s*$/;
 function parseRelatedBookHeading(text) {
   const raw = text || '';
+  // 1 行に 2 冊を混ぜた行（「『A』関連 または『B』- 著者」）は本のカードにしない（説明ごと出さない・
+  // lib/planRelatedBooks.js が保存の前と開いたときに 1 冊に直すか消す・2026-10-04）。
+  const parsed = parseRelatedBookLine(raw);
+  if (parsed?.malformed) return { skip: true };
   let m = raw.match(RELATED_BOOK_RE);
   if (!m) m = raw.match(RELATED_BOOK_RE_PLAIN);
   if (!m) return null;
@@ -266,6 +271,7 @@ function renderLines(lines, opts) {
       //   アロー関数が外側の pending を参照すると、クリック時には pending が
       //   null になっていて `pending.book` で例外→「押しても本当に無反応」に
       //   なる。各カードごとに book / description をローカル const へ確定捕捉する。
+      if (pending.skip) { pending = null; return; }
       const book = pending.book;
       const description = pending.lines.join('\n').trim();
       out.push(
@@ -283,7 +289,9 @@ function renderLines(lines, opts) {
       if (b.type === 'subhead') {
         const parsed = parseRelatedBookHeading(b.text);
         flushPending(i);
-        if (parsed) {
+        if (parsed?.skip) {
+          pending = { skip: true, lines: [] };
+        } else if (parsed) {
           pending = { book: parsed, lines: [] };
         } else {
           out.push(<h4 key={i} style={subHeadingStyle}>{renderInline(stripLeadingEmoji(b.text))}</h4>);
