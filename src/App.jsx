@@ -4092,15 +4092,17 @@ function AuthedApp() {
         >
 
           {/* Book header */}
-          <div style={{ display: "flex", gap: 'var(--space-4)', marginTop: 'var(--space-2)' }}>
+          {/* 文字サイズを大きくしたときは、書名の列を表紙の下へ回す（列の幅 12rem＝ふだん 204 は表紙の横 270 に収まる・
+              大きいと書名が 1 行 3〜4 字に詰まり「1兆ドルコ／ーチ」と割れていた・2026-10-04 ui-critic）。 */}
+          <div style={{ display: "flex", flexWrap: 'wrap', gap: 'var(--space-4)', marginTop: 'var(--space-2)' }}>
             {/* 表紙の選び直し・取り直し・アップロードは「⋯」メニューへ（表紙の下の小さな
                 リンクは 10pt・高さ 32 で DESIGN 基準に届かないため撤去）。 */}
             {/* MiniCover は表紙が読めない（壊れた URL・1×1 のダミー）ときも書名入りの表紙に切り替わる */}
             <MiniCover book={current} width={72} />
-            <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ flex: '1 1 12rem', minWidth: 0 }}>
               {/* 書名＝この画面の主題（28・700）。見出し「メモ」「行動」（20・600）と差をつける。 */}
-              <h1 style={{ fontSize: "var(--text-title)", fontWeight: 700, color: "var(--text)", lineHeight: 1.25, margin: 0, overflowWrap: "anywhere", wordBreak: "keep-all", textWrap: "balance", display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{titleWithPhraseBreaks(current.title)}</h1>
-              {current.author && <p style={{ fontSize: 'var(--text-sub)', color: "var(--text-2)", margin: "var(--space-1) 0 0" }}>{current.author}</p>}
+              <h1 style={{ fontSize: "var(--text-title)", fontWeight: 700, color: "var(--text)", lineHeight: 1.25, margin: 0, overflowWrap: "anywhere", wordBreak: "keep-all", lineBreak: "strict", textWrap: "balance", display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{titleWithPhraseBreaks(current.title)}</h1>
+              {current.author && <p style={{ fontSize: 'var(--text-sub)', color: "var(--text-2)", margin: "var(--space-1) 0 0", wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(current.author)}</p>}
               <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-2)', marginTop: "var(--space-2)", flexWrap: "wrap" }}>
                 {/* 状態は押せない表示なので面を付けない（DESIGN §5「表示用ラベル」）。 */}
                 <StatusLabel status={current.status} />
