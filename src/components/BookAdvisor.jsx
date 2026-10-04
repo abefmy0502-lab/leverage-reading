@@ -28,6 +28,7 @@ import { toMessage } from '../lib/errors';
 import { track } from '../lib/analytics';
 import { isStrictMatch, isExactMatch } from '../lib/bookMatch';
 import { verifyBookExists, checkImageExists } from '../lib/bookCover';
+import { normalizeAdvisorRecs, resolveMixedRec, focusText } from '../lib/advisorRecs';
 import { searchBooksFlat as searchBooksAPIFlat } from '../lib/bookSearch';
 import { STORE_DISCLOSURE_TEXT, getRakutenLink, RAKUTEN_LINK_REL } from '../lib/rakutenLink';
 import { getAmazonLink, handleAmazonClick, AMAZON_LINK_REL } from '../lib/amazonLink';
@@ -423,7 +424,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         blockEndAbs = cut >= 0 ? s + START.length + cut : text.length;
       }
       const arr = tolerantRecArray(jsonRaw);
-      const parsed = Array.isArray(arr) ? arr.filter((r) => r && typeof r.title === 'string') : null;
+      // 書名の欄に 2 冊を混ぜたカードには _alts を付け、AI が付けた表紙・ISBN は捨てる（lib/advisorRecs.js・2026-10-04）
+      const parsed = Array.isArray(arr) ? normalizeAdvisorRecs(arr) : null;
       if (parsed && parsed.length > 0) recs = parsed; // 最後の valid を保持
       lastEnd = blockEndAbs;
       from = blockEndAbs > s ? blockEndAbs : s + START.length; // 必ず前進
@@ -546,16 +548,29 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     if (!Array.isArray(pool) || pool.length === 0) return null;
     const stale = () => unmountedRef.current || verifyGenRef.current !== gen;
     const results = [];
-    for (const rec of pool) {
+    const verifyOne = ({ title, author }) => Promise.race([
+      verifyBookExists({ title, author }),
+      new Promise((res) => { setTimeout(() => res({ exists: null }), 6000); }),
+    ]);
+    // 古い会話のカードも同じ形に（書名の欄の 2 冊・AI が付けた表紙と ISBN・lib/advisorRecs.js）
+    for (const raw of normalizeAdvisorRecs(pool)) {
       if (stale()) return null; // 再生成/離脱済み — 外部APIをこれ以上叩かない
+      let rec = raw;
       let v = { exists: null };
-      try {
+      if (rec._alts) {
+        // 書名の欄に 2 冊が入っていた（「A または B」など）→ 1 冊ずつ確かめて、見つかった 1 冊のカードにする。
+        // 見つからない・確かめられないときは、どの組にも入れない（2 冊を 1 枚のカードで見せない・2026-10-04）。
         // eslint-disable-next-line no-await-in-loop
-        v = await Promise.race([
-          verifyBookExists({ title: rec.title, author: rec.author, isbn: rec.isbn }),
-          new Promise((res) => { setTimeout(() => res({ exists: null }), 6000); }),
-        ]);
-      } catch { v = { exists: null }; }
+        const r = await resolveMixedRec(rec, verifyOne, { pause: 250 });
+        if (r.rec._mixed) continue;
+        rec = r.rec;
+        v = r.v;
+      } else {
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          v = await verifyOne({ title: rec.title, author: rec.author });
+        } catch { v = { exists: null }; }
+      }
       // 表紙: rec.cover → サーバー cover → candidates を <img> 実在検証で採用。
       let cover = (rec.cover || '').trim();
       // eslint-disable-next-line no-await-in-loop
@@ -729,7 +744,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       // 実在検証＋表紙先読みを回す。ゴースト（実在しない本）は検証後に予備と
       // 差し替えられる。
       const verifyPool = recs.slice(0, 7);
-      const finalList = verifyPool.slice(0, 5);
+      // 書名の欄に 2 冊を混ぜたカード（_alts）は、確かめて 1 冊にするまで出さない（2026-10-04）
+      const finalList = verifyPool.filter((r) => !r._alts).slice(0, 5);
       setRecommendations({
         items: finalList,
         before: prose?.before || '',
@@ -943,10 +959,11 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         }))
         .filter((m) => m.text), // 剥がして空になった吹き出しは出さない
     );
-    const recsList = Array.isArray(s.recommended_books) ? s.recommended_books : [];
+    // 書名の欄に 2 冊を混ぜたカード・AI が付けた表紙と ISBN は、保存済みの会話でも整える（lib/advisorRecs.js・2026-10-04）
+    const recsList = normalizeAdvisorRecs(Array.isArray(s.recommended_books) ? s.recommended_books : []);
     // 実在の検証の結果（_verify）を持たない古い会話は、開いたときに確かめ直す（本文の書名もそれで絞る）。
     const needsCheck = recsList.length > 0 && recsList.some((r) => !r?._verify);
-    setRecommendations(recsList.length > 0 ? { items: recsList, before: '', after: '', pool: recsList, checked: !needsCheck } : null);
+    setRecommendations(recsList.length > 0 ? { items: recsList.filter((r) => !r._alts), before: '', after: '', pool: recsList, checked: !needsCheck } : null);
     if (needsCheck) startVerify(recsList, s.id);
     else verifyGenRef.current += 1; // 前の会話の検証が後から結果を上書きしないように
     // 直近の user 発話を lastUserQuery として復元 → 「読みたいに追加」時の課題（と得たいことの分け方）に使う
@@ -1642,10 +1659,11 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
                     <p style={fieldText}>{rec.core}</p>
                   </div>
                 )}
-                {rec.focus && (
+                {/* 章番号・ページを書いた注目ポイントは出さない（AI は目次を持っていない＝推測・lib/advisorRecs.js の focusText） */}
+                {focusText(rec.focus) && (
                   <div style={{ marginTop: 'var(--space-3)' }}>
                     <p style={fieldLabel}>注目ポイント</p>
-                    <p style={fieldText}>{rec.focus}</p>
+                    <p style={fieldText}>{focusText(rec.focus)}</p>
                   </div>
                 )}
                 {rec.duration && (
