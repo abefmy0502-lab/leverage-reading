@@ -113,6 +113,9 @@ const SCREENS = [
   // 文字サイズを大きくしたとき（30px＝約 1.8 倍）: ホームの行はボタンを書名の下へ・本の詳細の上の行は 1 行・書き起こすは文節で折り返す
   { name: 'home-xl-text', url: '/', steps: [{ eval: () => { document.documentElement.style.fontSize = '30px'; } }, { wait: 500 }] },
   { name: 'book-detail-xl-text', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { eval: () => { document.documentElement.style.fontSize = '30px'; } }, { wait: 500 }] },
+  // 本の詳細の読み込み中（メモ一覧だけ遅い・&load=bookmemos）／手動で入れた本がもう本棚にあるときの確認（2026-10-04 ui-critic）
+  { name: 'book-detail-loading', url: '/?load=bookmemos', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("数値化の鬼")', settle: 500 }] },
+  { name: 'add-book-duplicate-confirm', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を追加"]' }, { css: 'button:has-text("手動で入力する")' }, { fill: ['input[aria-label="書名（必須）"]', '1兆ドルコーチ'] }, { fill: ['input[aria-label="著者（任意）"]', 'エリック・シュミット'] }, { css: 'button:text-is("保存")' }, { wait: 600 }] },
   // 積読の「読書を開始する」（得たいことあり・シートなし）: 無料プランはそのまま読み始める／7 日間無料は「作っておきますか？」（2026-10-04）
   { name: 'book-start-reading-free', url: '/?demo=free&purpose=1', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("LIFE SHIFT")' }, { css: 'button:has-text("読書を開始する")' }, { wait: 600 }] },
   { name: 'book-start-reading-trial', url: '/?demo=trial&purpose=1', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("LIFE SHIFT")' }, { css: 'button:has-text("読書を開始する")' }, { wait: 600 }] },

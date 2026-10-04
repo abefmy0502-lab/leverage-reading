@@ -18,6 +18,7 @@
 //   - ?demo=webgate : ブラウザの一般利用者に出す「アプリでご利用ください」の確認用
 //   - &consent=none : AI に送る内容にまだ同意していない（はじめて AI を使う操作で同意のシートが出る・どのシナリオにも付けられる）
 //     &consent=none&consent=slow で、同意・取り消しの保存が 8 秒かかる（処理中のボタンの確認用）
+//   - &load=bookmemos : 本の詳細のメモ一覧の読み込みだけ遅らせる（本の詳細の読み込み中の確認用）
 //   - &longtag=1 : 「マネジメント」のタグを 50 字の長いタグにする（合いそうなタグのチップがはみ出さないかの確認用）
 //   - &purpose=1 : 積読の『LIFE SHIFT』に得たいことを入れる（読書計画シートは無いまま＝「読書を開始する」の確認用・2026-10-04）
 //   - &save=slow-memo-update : メモの書き直し（タグを付ける）がなかなか終わらない（保存中のチップの確認用）
@@ -105,7 +106,7 @@ class Query {
   delete() { this.op = 'delete'; return this; }
 
   _f(fn) { this.filters.push(fn); return this; }
-  eq(c, v) { return this._f((r) => cmp('eq', r[c], v)); }
+  eq(c, v) { (this.eqCols ||= []).push(c); return this._f((r) => cmp('eq', r[c], v)); }
   neq(c, v) { return this._f((r) => cmp('neq', r[c], v)); }
   gt(c, v) { return this._f((r) => cmp('gt', r[c], v)); }
   gte(c, v) { return this._f((r) => cmp('gte', r[c], v)); }
@@ -152,7 +153,9 @@ class Query {
       || (qs.get('load') === 'chat' && this.table === 'chat_messages')
       || (qs.get('load') === 'memosearch' && memoSearch)
       // &load=memocount: ホームのメモの件数（book_memos の head の数え上げ）だけ遅らせる（育つまでの一行の形の確認用・2026-10-02）。
-      || (qs.get('load') === 'memocount' && this.table === 'book_memos' && this.head));
+      || (qs.get('load') === 'memocount' && this.table === 'book_memos' && this.head)
+      // &load=bookmemos: 本の詳細のメモ一覧（book_id で絞る読み出し）だけ遅らせる（本の詳細の読み込み中の形の確認用・2026-10-04）。
+      || (qs.get('load') === 'bookmemos' && this.table === 'book_memos' && !this.head && (this.eqCols || []).includes('book_id')));
     // &writefail=book_memos: 指定した表への書き込みを失敗させる（保存の失敗の表示の確認用）。
     //   &writefail=book_memos:update のように「表:操作」で、その操作だけを失敗させる。
     const writeFails = (qs.get('writefail') || '').split(',');
