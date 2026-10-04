@@ -2673,11 +2673,13 @@ function AuthedApp() {
       clearTimeout(justDoneTimerRef.current);
       justDoneTimerRef.current = setTimeout(() => setJustDoneId(book.id), 400);
       dismissStatusUndo(book.id);
-      statusUndoToastRef.current.set(book.id, toast.show({
-        type: 'success',
-        message: `『${book.title}』を読了にしました。心に残ったことを 1 行メモしておくと、あとで相談に生きます。`,
+      // 「元に戻す」と並ぶ知らせは 390 幅で 1 行に収まる短さに（DESIGN §5 トースト・5 行に折れていた）。
+      // 一言を残す案内は画面の「一番の収穫を 1 行だけ残す」が受け持つ。「元に戻す」つきは toast.undo（完了なので ✓ の印）。
+      statusUndoToastRef.current.set(book.id, toast.undo({
+        message: '読了にしました。',
+        success: true,
         duration: 6500,
-        action: { label: '元に戻す', onClick: revert },
+        onUndo: revert,
       }));
     } else if (opts.message) {
       // 状態の変更はついで（読書計画シートを作るために積読に積んだ等）。「元に戻す」は出さず、何をしているかだけ。
