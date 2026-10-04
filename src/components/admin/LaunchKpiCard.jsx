@@ -141,7 +141,7 @@ export default function LaunchKpiCard({ data, missing = false }) {
   return (
     <section aria-labelledby="launch-kpi-title" style={{ marginTop: 'var(--space-6)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minHeight: 44 }}>
-        <Rocket size={18} strokeWidth={2} aria-hidden="true" style={{ color: 'var(--accent)', flexShrink: 0 }} />
+        <Rocket size={18} strokeWidth={2} aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
         <h2 id="launch-kpi-title" style={{ margin: 0, flex: 1, fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3 }}>
           ローンチの 4 つの数字
         </h2>

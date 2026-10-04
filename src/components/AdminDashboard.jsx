@@ -12,7 +12,7 @@
 // supabase_admin_ops.sql / supabase_admin_launch_kpis.sql）。RPC 側で is_app_admin() ゲート済み。
 // 概況タブのいちばん上は「ローンチの 4 つの数字」（admin/LaunchKpiCard.jsx・docs/launch-kpis.md）。
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { FOUNDING_PRICE_YEN } from '../lib/foundingOffer';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import {
@@ -181,6 +181,19 @@ function MiniBars({ series }) {
 
 export default function AdminDashboard({ onClose }) {
   const trapRef = useFocusTrap(true); // ♿ Tab をダッシュボード内に閉じ込める
+  // 上に貼りつく題の行の高さ（タブの行をその下に貼りつける＝半分隠れない・2026-10-04 ui-critic）。
+  const headerRef = useRef(null);
+  const [headerH, setHeaderH] = useState(0);
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return undefined;
+    const measure = () => setHeaderH(el.getBoundingClientRect().height);
+    measure();
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
   const [days, setDays] = useState(30);
@@ -532,7 +545,7 @@ export default function AdminDashboard({ onClose }) {
 
   return (
     <div ref={trapRef} style={overlay} role="dialog" aria-modal="true" aria-label="運営ダッシュボード">
-      <div style={header}>
+      <div ref={headerRef} style={header}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <BarChart3 size={20} strokeWidth={1.75} color={C.ink} />
           <span style={{ fontSize: 16, fontWeight: 700, color: C.ink }}>運営の操縦席</span>
@@ -558,12 +571,14 @@ export default function AdminDashboard({ onClose }) {
             <TodayCard phase={phase} launchDate={launchDate} weekly={salesRows} rules={rulesEval} shipChecks={shipChecks} />
 
             {/* タブ: 概況 / 営業 / アクション / 参謀 */}
-            <div style={{ display: 'flex', gap: 6, position: 'sticky', top: 0, padding: '10px 0 12px', background: C.pageBg, zIndex: 1 }}>
-              {[['overview', '📊 概況'], ['sales', '📣 営業'], ['action', '🗓 アクション'], ['advisor', '🧠 参謀']].map(([k, label]) => (
-                <button key={k} type="button" onClick={() => setActiveTab(k)}
-                  style={{ flex: 1, padding: '10px 2px', borderRadius: 12, fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',
-                    border: `1px solid ${activeTab === k ? 'transparent' : C.hairlineStrong}`,
-                    background: activeTab === k ? C.brand : 'transparent', color: activeTab === k ? C.brandInk : C.ink2 }}>
+            {/* 題の行の下に貼りつける（top＝題の行の高さ）。名前は文字だけ・高さ 44・600・トークン（2026-10-04 ui-critic）。
+                選んでいるタブはアプリの切り替え（.sub-tabs）と同じ --accent-soft の面＋--accent の文字。 */}
+            <div role="tablist" aria-label="運営ダッシュボードの表示" style={{ display: 'flex', gap: 'var(--space-2)', position: 'sticky', top: headerH, padding: 'var(--space-2) 0 var(--space-3)', background: 'var(--bg)', zIndex: 1 }}>
+              {[['overview', '概況'], ['sales', '営業'], ['action', 'アクション'], ['advisor', '参謀']].map(([k, label]) => (
+                <button key={k} type="button" role="tab" aria-selected={activeTab === k} onClick={() => setActiveTab(k)}
+                  style={{ flex: 1, minHeight: 44, padding: '0 var(--space-1)', borderRadius: 'var(--radius)', fontSize: 'var(--text-sub)', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap',
+                    border: 'none',
+                    background: activeTab === k ? 'var(--accent-soft)' : 'transparent', color: activeTab === k ? 'var(--accent)' : 'var(--text-2)' }}>
                   {label}
                 </button>
               ))}
