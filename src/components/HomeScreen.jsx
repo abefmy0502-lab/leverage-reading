@@ -237,8 +237,11 @@ export default function HomeScreen({
             style={{ ...card, width: '100%', minHeight: 56, display: 'flex', alignItems: 'center', gap: 'var(--space-3)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-body)', textAlign: 'left' }}
           >
             <Library size="1.2em" aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
-            <span style={{ flex: 1, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>すべての本</span>
-            <span style={{ fontSize: 'var(--text-sub)', color: 'var(--text-3)' }}>{books.length} 冊</span>
+            {/* 名前と冊数はそれぞれ割らない。文字が大きくて入りきらないときは冊数のほうが下の行へ回る。 */}
+            <span style={{ flex: 1, minWidth: 0, display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'space-between', columnGap: 'var(--space-3)' }}>
+              <span style={{ whiteSpace: 'nowrap', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>すべての本</span>
+              <span style={{ whiteSpace: 'nowrap', fontSize: 'var(--text-sub)', color: 'var(--text-3)' }}>{books.length} 冊</span>
+            </span>
             <ChevronRight size="1.2em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
           </button>
         </>
