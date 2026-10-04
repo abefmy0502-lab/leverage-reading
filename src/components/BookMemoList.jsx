@@ -485,7 +485,8 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
     const ok = await confirm({
       title: 'このメモを削除しますか？',
       message: memo.photoPath
-        ? '写真も Storage から削除されます。\n（元に戻しても、写真は戻りません）'
+        // 内部の名前（Storage）は見せない。スワイプの確認と同じ文（2026-10-04）。
+        ? '写真もいっしょに削除されます。元に戻しても、写真は戻りません。'
         : '5 秒以内なら「元に戻す」で戻せます。',
       confirmLabel: '削除する',
       cancelLabel: 'キャンセル',
@@ -502,7 +503,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
     if (memo.photoPath) {
       const ok = await confirm({
         title: 'このメモを削除しますか？',
-        message: '写真も削除されます。（元に戻しても、写真は戻りません）',
+        message: '写真もいっしょに削除されます。元に戻しても、写真は戻りません。',
         confirmLabel: '削除する',
         cancelLabel: 'キャンセル',
         danger: true,
@@ -583,7 +584,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
       {!loading && memos.length > 0 && quoteOnly && visibleMemos.length === 0 && (
         <EmptyState
           icon={<BookOpen size={32} strokeWidth={1.5} aria-hidden="true" />}
-          title="ページ番号付きのメモがまだありません"
+          title="ページ番号つきのメモはまだありません"
           description="メモにページ番号を入れておくと、引用したい一行をここから素早く取り出せます。"
           actions={[{ label: 'すべてのメモを表示', onClick: () => setQuoteOnly(false), variant: 'secondary' }]}
         />
