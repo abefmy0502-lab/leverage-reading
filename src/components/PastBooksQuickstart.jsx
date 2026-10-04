@@ -701,10 +701,11 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
                   {withPhraseBreaks('いま困っていること')}
                 </h2>
                 {freeMode && freeRemaining > 0 && (
-                  // 相談の上部の行と同じ言い方（かっこを付けず「・」でつなぐ・折り返すのは「・」のあとだけ・2026-09-29）。
+                  // 相談の上部の行と同じ形（2026-10-04 ui-critic）: 1 行目「今月の残り N トークン」・2 行目「相談 約 N 回」
+                  // （「・」でつなぐと 390 幅で途中から折り返し、切れる場所が毎回変わる＝相談の MyBookBrain と同じ理由）。
                   <p style={{ ...sub, margin: 'calc(-1 * var(--space-2)) 0 var(--space-3)', fontVariantNumeric: 'tabular-nums' }}>
-                    <span style={{ whiteSpace: 'nowrap' }}>今月の残り {fmtTokens(freeRemaining)} トークン・</span><wbr />
-                    <span style={{ whiteSpace: 'nowrap' }}>相談 約 {consultsLeft(freeRemaining, TOKEN_COSTS.consult)} 回</span>
+                    <span style={{ display: 'block', whiteSpace: 'nowrap' }}>今月の残り {fmtTokens(freeRemaining)} トークン</span>
+                    <span style={{ display: 'block', whiteSpace: 'nowrap' }}>相談 約 {consultsLeft(freeRemaining, TOKEN_COSTS.consult)} 回</span>
                   </p>
                 )}
                 <textarea
