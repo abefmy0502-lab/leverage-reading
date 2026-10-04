@@ -17,6 +17,8 @@ import { useEffect, useReducer, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { applyUpdate } from '../lib/swUpdate';
 import { isNative } from '../lib/iap';
+import { btnLink } from '../styles/ui';
+import { withPhraseBreaks } from './TightBubble';
 
 // ---------------------------------------------------------------------------
 // Module-level state — UpdateBanner が unmount/remount されても更新検知の
@@ -56,52 +58,33 @@ function useInputFocused() {
   return focused;
 }
 
+// 見た目はトークンだけ（2026-10-04）。以前は栗色の帯（アクセントは主ボタン・リンク・選択中だけ＝DESIGN §3-2）・
+// 12px の文字・丸いピル・📦 の絵文字だった。浮いた知らせのカード（--surface＋枠＋--shadow-overlay・角丸 12）にする。
 const overlayStyle = {
   position: 'fixed',
-  top: 'env(safe-area-inset-top, 0px)',
-  left: 0,
-  right: 0,
+  top: 'calc(env(safe-area-inset-top, 0px) + var(--space-2))',
+  left: 'var(--space-4)',
+  right: 'var(--space-4)',
+  maxWidth: 420,
+  margin: '0 auto',
   zIndex: 'var(--z-banner)',
-  background: 'var(--c-brand)',
-  color: 'var(--accent-ink)',
-  padding: '12px 16px',
+  background: 'var(--surface)',
+  color: 'var(--text)',
+  border: '1px solid var(--separator)',
+  borderRadius: 'var(--radius)',
+  padding: '0 var(--space-2) 0 var(--space-4)',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
-  gap: 12,
+  gap: 'var(--space-2)',
   boxShadow: 'var(--shadow-overlay)',
   boxSizing: 'border-box',
-  fontFamily: "var(--font-app)",
+  fontFamily: 'var(--font-ui)',
   animation: 'lvg-slide-down 280ms ease both',
 };
 
-const applyBtnStyle = {
-  padding: '8px 14px',
-  background: 'var(--surface)',
-  color: 'var(--accent)',
-  border: 'none',
-  borderRadius: 999,
-  fontSize: 12,
-  fontWeight: 700,
-  cursor: 'pointer',
-  whiteSpace: 'nowrap',
-  fontFamily: 'inherit',
-  minHeight: 44,
-};
-
-const dismissBtnStyle = {
-  padding: '8px 12px',
-  background: 'transparent',
-  color: 'var(--accent-ink)',
-  border: 'none',
-  borderRadius: 999,
-  fontSize: 12,
-  fontWeight: 600,
-  cursor: 'pointer',
-  whiteSpace: 'nowrap',
-  fontFamily: 'inherit',
-  minHeight: 44,
-};
+const applyBtnStyle = { ...btnLink, whiteSpace: 'nowrap' };
+const dismissBtnStyle = { ...btnLink, color: 'var(--text-2)', fontWeight: 400, whiteSpace: 'nowrap' };
 
 export default function UpdateBanner({ safe = false }) {
   // module-level の更新検知フラグを React state に同期する。
@@ -142,15 +125,12 @@ export default function UpdateBanner({ safe = false }) {
     <>
       <style>{`@keyframes lvg-slide-down { from { transform: translateY(-100%); } to { transform: translateY(0); } }`}</style>
       <div style={overlayStyle} role="status" aria-live="polite">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
-          <span style={{ fontSize: 18, flexShrink: 0 }} aria-hidden="true">📦</span>
-          <span style={{ fontSize: 13, fontWeight: 600, wordBreak: 'keep-all' }}>
-            アプリの新しい版があります
-          </span>
-        </div>
-        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-          <button type="button" style={applyBtnStyle} onClick={handleApply}>今すぐ更新</button>
+        <span style={{ flex: 1, minWidth: 0, padding: 'var(--space-3) 0', fontSize: 'var(--text-sub)', lineHeight: 1.5, color: 'var(--text)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+          {withPhraseBreaks('アプリの新しい版があります')}
+        </span>
+        <div style={{ display: 'flex', flexShrink: 0 }}>
           <button type="button" style={dismissBtnStyle} onClick={() => setDismissed(true)}>後で</button>
+          <button type="button" style={applyBtnStyle} onClick={handleApply}>更新する</button>
         </div>
       </div>
     </>,

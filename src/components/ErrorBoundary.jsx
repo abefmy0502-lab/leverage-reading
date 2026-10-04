@@ -1,6 +1,8 @@
 import React from 'react';
 import { captureError } from '../lib/sentry';
 import { SUPPORT_EMAIL } from '../lib/contact';
+import { btnPrimary, btnGhost, btnLink } from '../styles/ui';
+import { withPhraseBreaks } from './TightBubble';
 
 export default class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -36,100 +38,57 @@ export default class ErrorBoundary extends React.Component {
       const errorTextForReport = encodeURIComponent(String(this.state.error || '').slice(0, 500));
       const mailto = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('【Orime】エラー報告')}&body=${encodeURIComponent('発生した操作: ＿＿＿＿＿＿\n\n参考エラー (任意):\n')}${errorTextForReport}`;
 
+      // 見た目はトークンと ui.js の部品だけ（DESIGN §5 空・エラー・2026-10-04）。以前は 72px の絵文字・
+      // 丸いピルのボタン・12〜14px の文字・説明の重ねがけ（「申し訳ありません」「ご不便を…」）が残っていた。
+      // 題 1 つ＋次の操作の一言＋主ボタン 1 つ（ホームに戻る）・副ボタン（再読み込み）・文字ボタン（報告）。
       return (
         <div
+          role="alert"
           style={{
-            padding: '48px 24px',
-            fontFamily: "var(--font-app)",
-            color: 'var(--c-ink)',
-            background: 'var(--color-bg)',
             minHeight: '100vh',
             boxSizing: 'border-box',
+            padding: 'calc(var(--space-16) + env(safe-area-inset-top, 0px)) max(env(safe-area-inset-right, 0px), var(--space-4)) max(env(safe-area-inset-bottom, 0px), var(--space-4)) max(env(safe-area-inset-left, 0px), var(--space-4))',
+            fontFamily: 'var(--font-ui)',
+            color: 'var(--text)',
+            background: 'var(--bg)',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            justifyContent: 'center',
-            textAlign: 'center',
           }}
         >
-          <div style={{ fontSize: 72, marginBottom: 20, lineHeight: 1 }} aria-hidden="true">😔</div>
-          <h1 style={{ fontSize: 22, margin: '0 0 12px', fontWeight: 700 }}>
-            申し訳ありません
-          </h1>
-          <p style={{ fontSize: 14, color: 'var(--c-ink-soft)', lineHeight: 1.8, margin: '0 0 8px', maxWidth: 360 }}>
-            予期せぬエラーが発生しました。
-          </p>
-          <p style={{ fontSize: 13, color: 'var(--c-ink-2)', lineHeight: 1.8, margin: '0 0 28px', maxWidth: 360 }}>
-            ご不便をおかけして申し訳ございません。<br />
-            お手数ですが、ホームに戻る か 再読み込み をお試しください。
-          </p>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
-            <button
-              onClick={this.handleHome}
-              style={{
-                padding: '12px 24px',
-                background: 'var(--c-brand)',
-                color: 'var(--accent-ink)',
-                border: 'none',
-                borderRadius: 999,
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-                fontSize: 14,
-                fontWeight: 600,
-                minHeight: 44,
-              }}
-            >
-              ホームに戻る
-            </button>
-            <button
-              onClick={this.handleReload}
-              style={{
-                padding: '12px 24px',
-                background: 'transparent',
-                color: 'var(--c-brand)',
-                border: '1px solid var(--c-hairline-strong)',
-                borderRadius: 999,
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-                fontSize: 14,
-                fontWeight: 500,
-                minHeight: 44,
-              }}
-            >
-              再読み込み
-            </button>
+          <div style={{ width: '100%', maxWidth: 400, textAlign: 'center' }}>
+            <h1 style={{ fontSize: 'var(--text-heading)', fontWeight: 600, lineHeight: 1.3, color: 'var(--text)', margin: '0 0 var(--space-3)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+              {withPhraseBreaks('予期せぬエラーが起きました')}
+            </h1>
+            <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, margin: '0 0 var(--space-6)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+              {withPhraseBreaks('ホームに戻るか、読み込み直してください。')}
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+              <button type="button" onClick={this.handleHome} style={btnPrimary}>ホームに戻る</button>
+              <button type="button" onClick={this.handleReload} style={btnGhost}>読み込み直す</button>
+            </div>
+            <a href={mailto} style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginTop: 'var(--space-3)', textDecoration: 'none' }}>
+              このエラーを報告する
+            </a>
+            {isDev && (
+              <pre
+                style={{
+                  fontSize: 'var(--text-caption)',
+                  color: 'var(--error)',
+                  marginTop: 'var(--space-8)',
+                  padding: 'var(--space-3)',
+                  background: 'var(--surface)',
+                  border: '1px solid var(--separator)',
+                  borderRadius: 'var(--radius)',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                  textAlign: 'left',
+                }}
+              >
+                {String(this.state.error)}
+              </pre>
+            )}
           </div>
-          <a
-            href={mailto}
-            style={{
-              marginTop: 24,
-              fontSize: 12,
-              color: 'var(--c-ink-2)',
-              textDecoration: 'underline',
-            }}
-          >
-            このエラーを報告する
-          </a>
-          {isDev && (
-            <pre
-              style={{
-                fontSize: 11,
-                color: 'var(--error)',
-                marginTop: 32,
-                padding: 12,
-                background: 'var(--c-card)',
-                border: '1px solid var(--c-hairline)',
-                borderRadius: 8,
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-word',
-                textAlign: 'left',
-                maxWidth: 520,
-                width: '100%',
-              }}
-            >
-              {String(this.state.error)}
-            </pre>
-          )}
         </div>
       );
     }

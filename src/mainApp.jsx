@@ -12,6 +12,12 @@ import { initNative } from './lib/native';
 import { prefetchAppParts } from './components/lazyParts';
 import { installPressFeedback } from './lib/pressFeedback';
 
+// 🧪 開発中だけ: ?crash=1 でエラーの画面（ErrorBoundary）を出す（撮影・確認用・本番では描かない）。
+function CrashProbe() {
+  if (new URLSearchParams(window.location.search).get('crash') === '1') throw new Error('crash probe (?crash=1)');
+  return null;
+}
+
 export function mount(rootEl) {
   // Sentry はできるだけ早く初期化する — 後段で throw された時に拾えるようにするため。
   // DSN 未設定 / dev モードでは内部で no-op になる。
@@ -27,6 +33,7 @@ export function mount(rootEl) {
   ReactDOM.createRoot(rootEl).render(
     <React.StrictMode>
       <ErrorBoundary>
+        {import.meta.env.DEV ? <CrashProbe /> : null}
         <AuthProvider>
           <AppDataCacheProvider>
             <ToastProvider>

@@ -121,6 +121,9 @@ const SCREENS = [
   { name: 'auth', url: '/?demo=auth&auth=signin' },
   { name: 'landing', url: '/?demo=auth' },
   // メールのリンクから戻ったとき（2026-10-04）: 期限切れのリンク／パスワードを決め直す画面（入れ直しのエラーつき）
+  // アプリ全体のエラーの画面（?crash=1 は開発中だけ）と、新しい版の知らせ（Web の PWA だけ）
+  { name: 'error-boundary', url: '/?crash=1' },
+  { name: 'update-banner', url: '/', steps: [{ eval: "window.dispatchEvent(new Event('app-update-available'))" }] },
   { name: 'auth-callback-error', url: '/#error=access_denied&error_code=otp_expired' },
   { name: 'auth-recovery', url: '/#access_token=demo&type=recovery' },
   { name: 'auth-recovery-error', url: '/#access_token=demo&type=recovery', steps: [{ fill: ['input[type=password]', 'abc'] }, { css: 'button[type=submit]' }] },
