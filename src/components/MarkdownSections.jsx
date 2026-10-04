@@ -17,7 +17,7 @@ import {
 import { groupTitle, btnGhost, btnGhostOff, btnLink } from '../styles/ui';
 import { ExternalLink as IcExternal } from 'lucide-react';
 import { SkeletonBlock } from './Skeleton';
-import { withPhraseBreaks } from './TightBubble';
+import { withPhraseBreaks, keepUnitsTogether } from './TightBubble';
 import { PLAN_NO_TOC_LINE, PLAN_NO_MATCH_LINE } from '../lib/prompts';
 
 // minWidth:0 が肝。flex column の子は既定 min-width:auto なので、中に幅広な
@@ -177,7 +177,8 @@ function renderInline(text, { phrase = true } = {}) {
   let i = 0;
   // 文は文節の切れ目に <wbr> を入れる（段落・箇条書きの keep-all と組で、語の途中で折り返さない・2026-09-30）。
   //   箇条書き（phrase: false）は <wbr> を入れずにそのまま流す（listStyle の説明）。
-  const brk = (str) => (phrase ? withPhraseBreaks(str) : str);
+  //   どちらも数と助数詞（「1 つ」）・「』 —」は割らない（keepUnitsTogether・「毎日の 1／つ」と割れていた・2026-10-04）。
+  const brk = (str) => (phrase ? withPhraseBreaks(str) : keepUnitsTogether(str));
   const phrased = (str, key) => <span key={key}>{brk(str)}</span>;
   while ((m = re.exec(text)) !== null) {
     if (m.index > cursor) parts.push(phrased(text.slice(cursor, m.index), `t-${i}`));

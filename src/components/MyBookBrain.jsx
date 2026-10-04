@@ -27,12 +27,14 @@ import PullToRefresh from './PullToRefresh';
 import EmptyState from './EmptyState';
 import ErrorMessage from './ErrorMessage';
 import TightBubble, { withPhraseBreaks } from './TightBubble';
+import { createSendGuard } from '../lib/sendGuard';
+import TokensOutCard, { trialCancelLineStyle } from './TokensOutCard';
 import { SkeletonBlock } from './Skeleton';
 import { X, MessageCircle, History, BookOpenCheck, Target, Check, RotateCw, MoreHorizontal, ChevronLeft, ChevronDown, ChevronRight, PencilLine, ArrowUp, Square, Plus, Minus, Sprout, Trash2 } from 'lucide-react';
 import ContextMenu from './ContextMenu';
 import { usePaywall } from '../state/PaywallContext';
 import { nextResetLabelJa } from '../lib/freeTrial';
-import { PAID_TOKENS, TOKEN_COSTS, monthDayLabelJa } from '../lib/tokens';
+import { TOKEN_COSTS, monthDayLabelJa } from '../lib/tokens';
 import { shouldShowTrialNudge, trialNudgeCopy, isTrialNudgeDone, markTrialNudgeDone, normalizeTrialLabel, trialCancelShortLine } from '../lib/trialNudge';
 import { getIntroOffer } from '../lib/iap';
 import { growthMeterText, firstAnswerEvidence, takeFirstConsult, takeMemosReached, getOnboardPath } from '../lib/firstDay';
@@ -271,7 +273,10 @@ function LearningInline({ onSaved, onDirtyChange, initialTags = null }) {
     }
     setBusy(true);
     try {
-      const tagsWithCategory = [`@${category}`, ...tags];
+      // タグの欄に書いたまま「追加」を押さずに保存しても、そのタグを落とさない（黙って消えていた・2026-10-04）。
+      const pending = tagInput.trim();
+      const allTags = pending && !tags.includes(pending) ? [...tags, pending] : tags;
+      const tagsWithCategory = [`@${category}`, ...allTags];
       const { error } = await supabase.from('book_memos').insert([
         {
           user_id: user.id,
@@ -1078,7 +1083,12 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     runMemoAnswerInto(answerId, q, askBookIds);
   };
 
-  const ask = async (questionText, opts = {}) => {
+  // 二重送信の見張り（lib/sendGuard.js）: 送信を素早く 2 回押すと、state の busy が描画に反映される前（メモを探す・
+  //   同意を待つ・保存する間）に 2 回目も通り抜けていた。同期の印で送っている途中を持ち、終わったら外す（2026-10-04）。
+  const sendGuardRef = useRef(null);
+  if (!sendGuardRef.current) sendGuardRef.current = createSendGuard();
+  const ask = (questionText, opts = {}) => sendGuardRef.current.run(() => askOnce(questionText, opts));
+  const askOnce = async (questionText, opts = {}) => {
     if (!user) {
       toast.error('ログインが必要です。');
       return;
@@ -1088,7 +1098,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       return;
     }
     const q = (questionText ?? input).trim();
-    if (!q || busy) return;
+    // 本を探す問いを自分のメモから探している途中（lookupFromMemos・AI なし）に送信をもう一度押しても、
+    // 同じ相談を AI にも送らない（二重の吹き出し・トークンの無駄づかいになっていた・2026-10-04）。
+    if (!q || busy || lookupBusyRef.current) return;
     // ホームや相談例から渡された相談は、送れないときも入力欄に残す（黙って消えないように）。
     if (outOfTokens && questionText != null) setInput(q);
     // 💬 無料プランで今月のトークンを使い切っていたら、AI を使わずに自分のメモの一節で答える（メモが答える相談・2026-10-01）。
@@ -1579,7 +1591,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     : [];
   // 同じ相談にもう一度答える（別の角度で／止めた・途中までの答えは「もう一度答えて」）。チップの行の最後に置く。
   // 問いに答えている間（返事の候補がある）は出さない＝チップは「候補＋行動を決める」だけ（2026-09-30 ui-critic）。
-  const regenLabel = !chipRowBase || isBookLookup(lastAsked) || followups.some((c) => c.kind === 'reply') ? '' : lastVisible.content === STOPPED_EMPTY ? 'もう一度答えて' : '別の角度で答えて';
+  // 途中で止めた答え（「— ここで中止しました」で終わる）も「もう一度答えて」（SPEC §3・角度を変えたいのではなく続きが欲しい・2026-10-04）。
+  const stoppedAnswer = !!lastVisible && (lastVisible.content === STOPPED_EMPTY || /— ここで中止しました\s*$/.test(String(lastVisible.content || '')));
+  const regenLabel = !chipRowBase || isBookLookup(lastAsked) || followups.some((c) => c.kind === 'reply') ? '' : stoppedAnswer ? 'もう一度答えて' : '別の角度で答えて';
 
   // 過去の相談: 相談（user）とそれに続く答えを 1 組にして、新しい組から並べる。
   const historyGroups = useMemo(() => {
@@ -1767,7 +1781,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             {/* iOS のナビゲーションバーの形: 左に戻る・中央に題名・右は同じ幅の空き。 */}
             <div style={{ width: 96, flexShrink: 0 }}>
               {/* シェブロンの見た目の左端を余白 16 に揃える（アイコンの内側の空きの分だけ左へ戻す）。 */}
-              <button type="button" onClick={backToChat} style={{ ...uiBtnText, fontSize: 'var(--text-body)', fontWeight: 400, padding: 'var(--space-2) 0', marginLeft: 'calc(-1 * var(--space-2))', gap: 0, lineHeight: 1.3 }}>
+              <button type="button" onClick={backToChat} style={{ ...uiBtnText, fontSize: 'min(var(--text-body), var(--text-bar-max))', whiteSpace: 'nowrap', fontWeight: 400, padding: 'var(--space-2) 0', marginLeft: 'calc(-1 * var(--space-2))', gap: 0, lineHeight: 1.3 }}>
                 <ChevronLeft size={20} aria-hidden="true" />相談
               </button>
             </div>
@@ -1931,7 +1945,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               />
             ) : planOut ? (
               // 🪙➕ プランの人がトークンを使い切った（SPEC §3）: 押せない相談例は出さず、案内カードを一番上に。
-              <TokensOutCard plan={plan} trialEndLabel={trialEndLabel} cancelLine={trialCancelLine} tokenAllowance={tokenAllowance} onAdd={openTokenSheet} onSearch={searchMemos} />
+              <TokensOutCard plan={plan} trialEndLabel={trialEndLabel} cancelLine={trialCancelLine} tokenAllowance={tokenAllowance} onAdd={openTokenSheet}>
+                {searchMemos && <SearchMemosLink onClick={searchMemos} />}
+              </TokensOutCard>
             ) : (
               <section aria-labelledby={input.trim() ? undefined : 'brain-empty-title'}>
                 {/* 🎁 無料プランで今月のトークンを使い切った（2026-10-01）: 相談はメモから探して答える（メモが答える相談）ので、
@@ -1951,7 +1967,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                     ただし初日の「相談してみる」で入れた相談（firstDayDraft）は、見出しと「たとえば」を残し、入れた相談を
                     選んだ状態で見せる（押すと入力欄に入れ替わる＝送るのは送信を押したとき・2026-10-02）。 */}
                 {(!input.trim() || firstDayDraft) && <>
-                <h2 id="brain-empty-title" style={{ ...headingStyle, marginBottom: 'var(--space-6)' }}>困っていることを、相談してください</h2>
+                <h2 id="brain-empty-title" style={{ ...headingStyle, marginBottom: 'var(--space-6)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('困っていることを、相談してください')}</h2>
                 <p style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>たとえば</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
                   {introExamples.map(({ text: q, kind }) => {
@@ -2092,7 +2108,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           {/* AI 免責注記（App Store 審査ガイドライン対応 + 誠実な期待値設定）。固定表示にすると
               会話の面積を削るので、会話の流れの最後（空の画面・答えの下）に置く。 */}
           {historyLoaded && !busy && (isEmpty ? ((!input.trim() || firstDayDraft) && memoStatsLoaded && (ownMemoTotal > 0 || memoStatsFailed) && !planOut && !freeUsedUp && !(scopeIds.length > 0 && scopeMemoCount === 0)) : (lastIsAssistant && !lastIsMemoAnswer && !visibleMessages[visibleMessages.length - 1]?.notice && !visibleMessages[visibleMessages.length - 1]?.error)) && (
-            <p style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', margin: 'var(--space-6) 0 0', lineHeight: 1.5, ...(isEmpty ? null : { marginLeft: ANSWER_COLUMN }) }}>
+            <p style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', marginTop: 'var(--space-6)', marginRight: 0, marginBottom: 0, marginLeft: isEmpty ? 0 : ANSWER_COLUMN, lineHeight: 1.5 }}>
               AI の回答には誤りが含まれることがあります
             </p>
           )}
@@ -2333,35 +2349,8 @@ function CarryCard({ carry, onCancel }) {
   );
 }
 
-// 🪙➕ プランの人（有料・無料期間）がトークンを使い切って、まだ話していないときの案内カード。
-// 押せない相談例の代わりに、会話の場所の一番上に置く（SPEC §3）。
-// 7 日間無料の「続けないときは M月D日までに解約（無料プランに戻ります）」の小さな 1 行（TokensOutCard・答えの下の「トークンを追加」の下）。
-//   文節の切れ目（<wbr>）でだけ折り返す（「無料プランに／戻ります」と割らない）。
-const trialCancelLineStyle = { margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' };
-function TokensOutCard({ plan, trialEndLabel, cancelLine = '', tokenAllowance, onAdd, onSearch = null }) {
-  const sub = { margin: 'var(--space-1) 0 0', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5 };
-  return (
-    <section aria-label="トークンは、ここまで" style={cardStyle}>
-      <p style={{ margin: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5 }}>
-        {plan === 'trial' ? '無料期間のトークンは、ここまでです' : '今月のトークンは、ここまでです'}
-      </p>
-      {plan !== 'trial' ? (
-        <p style={sub}>
-          <span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}</span>に <span style={{ whiteSpace: 'nowrap' }}>{fmtTokens(tokenAllowance)} トークン</span>に戻ります
-        </p>
-      ) : trialEndLabel ? (
-        <p style={sub}>
-          無料期間が終わる<span style={{ whiteSpace: 'nowrap' }}>{trialEndLabel}</span>から、<span style={{ whiteSpace: 'nowrap' }}>毎月 {fmtTokens(PAID_TOKENS)} トークン使えます。</span>
-        </p>
-      ) : null}
-      <button type="button" onClick={onAdd} style={{ ...(plan === 'trial' ? uiBtnGhost : uiBtnPrimary), marginTop: 'var(--space-3)' }}>
-        トークンを追加
-      </button>
-      {cancelLine && <p style={trialCancelLineStyle}>{withPhraseBreaks(cancelLine)}</p>}
-      {onSearch && <SearchMemosLink onClick={onSearch} />}
-    </section>
-  );
-}
+// 🪙➕ プランの人（有料・無料期間）がトークンを使い切って、まだ話していないときの案内カードは
+//   components/TokensOutCard.jsx（AI 選書と共通・2026-10-04）。押せない相談例の代わりに、会話の場所の一番上に置く（SPEC §3）。
 
 // 🔎 トークンを使い切ったときの脇役の文字ボタン（振り返り › メモを、相談の言葉を入れて開く）。
 function SearchMemosLink({ onClick }) {
@@ -3304,8 +3293,10 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
           </div>
           {/* 8 秒たっても 1 文字も来ないとき（止めるのは入力欄の右のボタン）。形の下に足すので、骨組みは動かさない。 */}
           {slow && (
-            <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>
-              時間がかかっています。もう少しお待ちください
+            // 文節の切れ目でだけ折り返す（「お待ちくだ／さい」と語の途中で切らない・2026-10-04）。
+            <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+              {/* 折り返すときは「。」のあとで（文ごとのまとまり）。 */}
+              <span style={{ display: 'inline-block' }}>時間がかかっています。</span><span style={{ display: 'inline-block' }}>もう少しお待ちください</span>
             </p>
           )}
         </div>
@@ -3470,7 +3461,8 @@ function BarChip({ name, value, active, disabled, onClick }) {
       }}>
         <span style={{ color: 'var(--text-2)', fontWeight: 400, flexShrink: 0 }}>{name}</span>
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</span>
-        <ChevronDown size={16} aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
+        {/* 文字の横のアイコンは em で（文字サイズの設定に合わせて大きくなる・DESIGN §5） */}
+        <ChevronDown size="1.2em" aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
       </span>
     </button>
   );

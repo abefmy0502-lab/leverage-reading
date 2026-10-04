@@ -2,13 +2,12 @@
 // Claude による推薦 → セットアップシート引き継ぎ + 会話履歴。App.jsx から
 // 切り出した自己完結コンポーネント。props: onAddBook / sessionApi / books。
 
-import { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import { Fragment, useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import {
   ArrowUp as IcSend,
   Check as IcCheck,
   ChevronLeft as IcBack,
-  ExternalLink as IcExternal,
   History as IcHistory,
   MessageSquarePlus as IcNewChat,
   PencilLine as IcPencil,
@@ -30,10 +29,12 @@ import { isStrictMatch, isExactMatch } from '../lib/bookMatch';
 import { verifyBookExists, checkImageExists } from '../lib/bookCover';
 import { normalizeAdvisorRecs, resolveMixedRec, focusText, emptyReasonOf } from '../lib/advisorRecs';
 import { searchBooksFlat as searchBooksAPIFlat } from '../lib/bookSearch';
-import { STORE_DISCLOSURE_TEXT, getRakutenLink, RAKUTEN_LINK_REL } from '../lib/rakutenLink';
-import { getAmazonLink, handleAmazonClick, AMAZON_LINK_REL } from '../lib/amazonLink';
+import { STORE_DISCLOSURE_TEXT } from '../lib/rakutenLink';
+import AdvisorStoreLinks from './AdvisorStoreLinks';
 import { nextResetLabelJa } from '../lib/freeTrial';
-import { TOKEN_COSTS, runCostLine } from '../lib/tokens';
+import { TOKEN_COSTS, runCostLine, monthDayLabelJa } from '../lib/tokens';
+import { trialCancelShortLine } from '../lib/trialNudge';
+import TokensOutCard from './TokensOutCard';
 import { groupTitle, btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, btnText as uiBtnText, btnLink as uiBtnLink, input as uiInput, card as uiCard } from '../styles/ui';
 import { useAuth } from '../hooks/useAuth';
 import { useHaptic } from '../hooks/useHaptic';
@@ -41,13 +42,17 @@ import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import MarkdownSections from './MarkdownSections';
 import Spinner from './Spinner';
+import { TabPanelSkeleton } from './lazyParts';
+// 過去の AI 選書の上の行（押し込まれた画面の形）と日付の書き方。行はスクロールの箱の外に置く（2026-10-04）。
+import { AdvisorNavBar, formatDate as advisorSessionDate } from './AdvisorHistory';
 import ErrorMessage from './ErrorMessage';
 import { SkeletonBlock } from './Skeleton';
 import TightBubble, { withPhraseBreaks } from './TightBubble';
-import { displayUserText, concernOf, interviewPairsOf, advisorSetupFields } from '../lib/advisorText';
+import { displayUserText, concernOf, interviewPairsOf, advisorSetupFields, advisorSetupPayload } from '../lib/advisorText';
 import { usePaywall } from '../state/PaywallContext';
 import { findDuplicateBook } from '../lib/checkDuplicate';
 import { filterProseTitles, proseTitleLists } from '../lib/advisorProse';
+import { dropSummarySection, introTextOf } from '../lib/advisorSummary';
 import { useEdgeSwipeBack } from '../hooks/useEdgeSwipeBack';
 
 const AdvisorHistoryList = lazy(() => import('./AdvisorHistory').then((m) => ({ default: m.AdvisorHistoryList })));
@@ -94,67 +99,17 @@ const advisorOptionChip = {
 // 相談の吹き出しと同じ: 文字に沿って縮む（TightBubble・最大 85%）・文節の切れ目でだけ折り返す（BudouX の <wbr>＋keep-all・2026-09-29）。
 const userBubble = { maxWidth: '85%', padding: 'var(--space-3) var(--space-4)', borderRadius: 'var(--radius)', background: 'var(--fill)', color: 'var(--text)', fontSize: 'var(--text-body)', lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'keep-all', overflowWrap: 'anywhere', textWrap: 'pretty' };
 const advisorOptionChipSelected = { background: 'var(--accent-soft)', color: 'var(--accent)', fontWeight: 600 };
-// 推薦カードの購入リンク＝文字ボタン（btnLink: --accent・15/600・高さ 44・枠なし）。
-// 主役は「読みたいに追加」なので、ストアは控えめな文字リンクにする（外部リンクは ↗ と aria-label で伝える）。
-const storeLink = { ...uiBtnLink, gap: 'var(--space-1)', textDecoration: 'none', whiteSpace: 'nowrap', boxSizing: 'border-box' };
+// 推薦カードの購入リンク（Amazon・楽天ブックス）は AdvisorStoreLinks.jsx（過去の AI 選書と共通・2026-10-04）。
 
-function AdvisorStoreLinks({ book }) {
-  const title = book?.title || '';
-  const amazon = getAmazonLink(book);
-  const rakuten = getRakutenLink(book);
-  return (
-    // 文字の左端をカードの本文にそろえる（btnLink の左右 4 を打ち消す）。
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-4)', marginLeft: 'calc(-1 * var(--space-1))' }}>
-      <a
-        href={amazon} target="_blank" rel={AMAZON_LINK_REL}
-        onClick={(e) => { e.stopPropagation(); handleAmazonClick(e, amazon); }}
-        aria-label={`Amazon で『${title}』を見る（外部リンク）`}
-        style={storeLink}
-      >
-        Amazon<IcExternal size={16} aria-hidden="true" />
-      </a>
-      <a
-        href={rakuten} target="_blank" rel={RAKUTEN_LINK_REL}
-        onClick={(e) => e.stopPropagation()}
-        aria-label={`楽天ブックス で『${title}』を見る（外部リンク）`}
-        style={storeLink}
-      >
-        楽天ブックス<IcExternal size={16} aria-hidden="true" />
-      </a>
-    </div>
-  );
-}
-
-// 推薦の後ろの文から「## 💬 まとめ」（励ましの一言だけの区画）を取り除く。
-// 読む順番など他の区画は残す。古い応答・履歴の再開にも効くよう表示側で落とす。
-function dropSummarySection(md) {
-  if (!md || typeof md !== 'string') return md || '';
-  const out = [];
-  let dropping = false;
-  for (const raw of md.split('\n')) {
-    if (/^#{1,6}\s/.test(raw.trim())) dropping = /まとめ/.test(raw);
-    if (!dropping) out.push(raw);
-  }
-  return out.join('\n').trim();
-}
-
-// 推薦の前置き（「## 👋 はじめに」＋共感の数行）から、見出し行を落として 1 段落の文にする。
-function introTextOf(md) {
-  if (!md || typeof md !== 'string') return '';
-  return md
-    .split('\n')
-    .filter((l) => !/^#{1,6}\s/.test(l.trim()))
-    .map((l) => l.trim().replace(/^[-*]\s+/, '').replace(/\*\*(.+?)\*\*/g, '$1'))
-    .filter(Boolean)
-    .join('');
-}
+// 推薦の前置きを 1 段落の文にするのは lib/advisorSummary.js の introTextOf（過去の AI 選書と共通・2026-10-04）。
 // 前置き＝本のカードより控えめな 1 段落（15/--text-2）。
 const introText = { fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.6, margin: 0 };
 
 // 案内文の「10月1日」を途中で改行させない（サーバーの文に結合文字が無い場合の保険）。
 function keepDateTogether(text) {
   const re = /(\d{1,2}\u2060?月\u2060?\d{1,2}\u2060?日)/;
-  return String(text || '').split(re).map((p, i) => (i % 2 === 1 ? <span key={i} style={{ whiteSpace: 'nowrap' }}>{p}</span> : p));
+  // 日付の外は文節の切れ目でだけ折り返す（「無料期／間」「トーク／ン」と語の途中で切らない・使う側で keep-all・2026-10-04）。
+  return String(text || '').split(re).map((p, i) => (i % 2 === 1 ? <span key={i} style={{ whiteSpace: 'nowrap' }}>{p}</span> : <Fragment key={i}>{withPhraseBreaks(p)}</Fragment>));
 }
 
 const ADVISOR_EXAMPLES = [
@@ -172,13 +127,19 @@ const MAX_INTERVIEW_ROUNDS = 3;
 //   追加した本の詳細を開いて「‹ AI 選書」で戻ったとき、さっきのおすすめのまま戻れるように
 //   （相談の `session` と同じ考え方・2026-09-29）。読み込み中の状態は覚えない。
 const advisorMemory = { uid: null, state: null };
+// AI に聞いている途中（ヒアリングの質問づくり・本を選ぶ推薦）の控え。画面を離れても止めずに最後まで作り、
+// 結果は advisorMemory に書く（原価はもう払っているので捨てない・相談の backgroundAsk と同じ考え・2026-10-04）。
+// { kind: 'interview' | 'reco', uid, done, promise }。戻ってきた画面は、終わるまで同じ待ちの形を出し、終わったら結果を出す。
+let advisorPendingJob = null;
 
 
 // barSlot: App のサブタブ（相談｜AI 選書）の行の右端の要素。履歴・新規のアイコンはそこへ出す（🕒 だけの行を作らない・2026-10-01 ui-critic）。
-export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook, onManualBook, onOpenBook, barSlot = null }) {
+// onPushedViewChange(level): 過去の AI 選書（1）・その中身（2）を開いている間は、親が全体の見出しとサブタブを隠す
+//   （押し込まれた画面は「‹ 戻り先」の行 1 本だけ＝相談の過去の相談と同じ・2026-10-04）。0 で戻す。
+export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook, onManualBook, onOpenBook, barSlot = null, onPushedViewChange = null }) {
   // 🎁 AI 選書はプランの機能（フリーミアム・2026-09-27）。無料プランの人が送ったら、有料プランの画面を
   //    重ねて開く（入力は残す・画面はそのまま見せる）。サーバーも 402 plan_required で止める。
-  const { requirePlan, canBuyTokens, openTokenSheet, plan, freeMode, tokensRemaining, purchasedTokens } = usePaywall();
+  const { requirePlan, canBuyTokens, openTokenSheet, plan, freeMode, tokensRemaining, purchasedTokens, trialEndsAt, tokenAllowance } = usePaywall();
   // 送るボタンのそばに 1 回の目安と残り（相談と同じ言い方・無料プランはプランの機能なので出さない・2026-09-29）。
   const costLine = freeMode ? '' : runCostLine({ plan, remaining: tokensRemaining, purchased: purchasedTokens, cost: TOKEN_COSTS.advisor });
   // 生成中にアンマウントされたら進行中のストリームを中断する（コスト・二重セッション対策）。
@@ -194,7 +155,11 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     unmountedRef.current = false;
     return () => {
       unmountedRef.current = true;
-      try { activeControllerRef.current?.abort(); } catch { /* noop */ }
+      // 本を選んでいる途中（推薦）は止めない＝離れても最後まで作って advisorMemory に残す（2026-10-04）。
+      //   以前はここで止めていたため、ほかのタブへ移って戻るとヒアリングの答えも推薦も消え、トークンだけ減っていた。
+      if (!(advisorPendingJob && !advisorPendingJob.done)) {
+        try { activeControllerRef.current?.abort(); } catch { /* noop */ }
+      }
     };
   }, []);
 
@@ -234,13 +199,35 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   const [view, setView] = useState('chat');
   const [selectedSession, setSelectedSession] = useState(null);
   // 履歴・履歴の中身では、左端から右へ払うと 1 段戻る（左上の ‹ と同じ・2026-09-29）。
+  const stepBack = () => {
+    if (view === 'detail') { setSelectedSession(null); setView('history'); }
+    else setView('chat');
+  };
   useEdgeSwipeBack({
     enabled: view === 'history' || view === 'detail',
-    onBack: () => {
-      if (view === 'detail') { setSelectedSession(null); setView('history'); }
-      else setView('chat');
-    },
+    onBack: stepBack,
   });
+  // 押し込まれた画面の深さを親へ（全体の見出し・サブタブを隠す／ブラウザの「戻る」を 1 段ずつ）。離れるときは 0 に戻す。
+  const pushedLevel = view === 'detail' && selectedSession ? 2 : view === 'history' ? 1 : 0;
+  const pushedCbRef = useRef(onPushedViewChange);
+  useEffect(() => { pushedCbRef.current = onPushedViewChange; });
+  useEffect(() => { pushedCbRef.current?.(pushedLevel); }, [pushedLevel]);
+  useEffect(() => () => { pushedCbRef.current?.(0); }, []);
+  // ブラウザ / Android の「戻る」（App の useHistoryBack が知らせる）は「‹」と同じく 1 段戻る。
+  const stepBackRef = useRef(stepBack);
+  useEffect(() => { stepBackRef.current = stepBack; });
+  useEffect(() => {
+    const onBack = () => stepBackRef.current();
+    window.addEventListener('orime:advisor-back', onBack);
+    return () => window.removeEventListener('orime:advisor-back', onBack);
+  }, []);
+  // 過去の AI 選書の中身を下へ送ったら、上の行の下に線（相談と同じ）。画面を切り替えたら戻す。
+  const [pushedScrolled, setPushedScrolled] = useState(false);
+  useEffect(() => { setPushedScrolled(false); }, [view]);
+  const onPushedScroll = (e) => {
+    const s2 = e.currentTarget.scrollTop > 0;
+    if (s2 !== pushedScrolled) setPushedScrolled(s2);
+  };
   // 現在進行中のセッション ID。null なら次回送信時に createSession で新規作成。
   const [currentSessionId, setCurrentSessionId] = useState(() => memo0.currentSessionId || null);
   // 検証が終わった時点の会話 ID（非同期の後で読むので ref でも持つ）。
@@ -626,6 +613,57 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     if (r && r.checked === false && Array.isArray(r.pool) && r.pool.length > 0) startVerify(r.pool, sessionIdRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  // AI に聞いている途中で離れて戻ってきた（2026-10-04）: 終わるまで同じ待ちの形（質問を考えています…／
+  //   本を選んでいます…）を出し、終わったら覚えている状態（離れていた間に書かれた結果）をそのまま出す。
+  //   ヒアリングから推薦へ続いたときは、続けて推薦を待つ。
+  useEffect(() => {
+    const waitJob = () => {
+      const p = advisorPendingJob;
+      if (!p || p.done || p.uid !== (advisorUser?.id || null)) return;
+      if (p.kind === 'reco') setRecoLoading(true);
+      else setInterviewLoading(true);
+      p.promise.then(() => {
+        if (unmountedRef.current) return;
+        const st = advisorMemory.uid === p.uid ? (advisorMemory.state || {}) : {};
+        if (st.interview !== undefined) setInterview(st.interview);
+        if (st.interviewStep !== undefined) setInterviewStep(st.interviewStep);
+        if (st.interviewRound !== undefined) setInterviewRound(st.interviewRound);
+        if (st.interviewAnswers) setInterviewAnswers(st.interviewAnswers);
+        if (st.recommendations !== undefined) setRecommendations(st.recommendations);
+        if (st.chatHistory) setChatHistory(st.chatHistory);
+        if (st.lastUserQuery !== undefined) setLastUserQuery(st.lastUserQuery);
+        if (st.messages) setMessages(st.messages);
+        setRecoError(st.recoError || null);
+        setRecoNotice(!!st.recoNotice);
+        if (st.currentSessionId) setCurrentSessionId(st.currentSessionId);
+        setInterviewLoading(false);
+        setRecoLoading(false);
+        const r = st.recommendations;
+        if (p.kind === 'reco' && r && r.checked === false && Array.isArray(r.pool) && r.pool.length > 0) startVerify(r.pool, st.currentSessionId || sessionIdRef.current);
+        waitJob(); // ヒアリングのあと推薦へ続いていれば、それも待つ
+      });
+    };
+    waitJob();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // AI に聞く処理（ヒアリング・推薦）の始まりに呼ぶ。画面を離れたあとに終わった結果は remember で覚えている状態へ書き、
+  // settle で戻ってきた画面へ知らせる（上の advisorPendingJob・2026-10-04）。
+  const beginJob = (kind) => {
+    let finish = () => {};
+    const job = { kind, uid: advisorUser?.id || null, done: false, promise: new Promise((r) => { finish = r; }) };
+    advisorPendingJob = job;
+    const remember = (patch) => {
+      if (!unmountedRef.current || advisorMemory.uid !== job.uid) return;
+      advisorMemory.state = { ...(advisorMemory.state || {}), ...patch };
+    };
+    const settle = () => {
+      job.done = true;
+      if (advisorPendingJob === job) advisorPendingJob = null;
+      finish();
+    };
+    return { remember, settle };
+  };
 
   // 推薦生成 — ヒアリング完了後（または fallback の直接相談）に bookAdvisor を
   // 1 回ストリーム。userMsg は AI へ渡す本文、sourceQuery は本棚追加時の
@@ -635,6 +673,9 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     // 失敗したときの「もう一度試す」で同じ条件をそのまま送り直せるように控える。
     lastRecoArgsRef.current = { userMsg, sourceQuery };
     const historyBefore = chatHistory;
+    // 離れても止めない（上の advisorPendingJob）。最初の await より前に控える（ヒアリングから続けて呼ばれたとき、
+    // 戻ってきた画面が「ヒアリングが終わった」だけを見て待つのをやめないように）。
+    const { remember, settle: settlePending } = beginJob('reco');
     setRecoError(null);
     setRecoStream('');
     setRecoLoading(true);
@@ -660,9 +701,6 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     // streamClaude は abort 時に部分テキストで正常 resolve するため、途中まで
     // 生成済みの推薦は下の salvage パースで拾える。
     const controller = new AbortController();
-    // アンマウント（タブ/サブタブ切替）時に abort できるよう ref に控える。
-    // 放置すると streamClaude と後続の createSession がアンマウント後も走り、
-    // AI コストだけ消費して回答は誰にも見えず、履歴に半端なセッションが増える。
     activeControllerRef.current = controller;
     let watchdog = null;
     const armWatchdog = () => {
@@ -712,11 +750,14 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       });
     } catch (e) {
       const expected = !!(e?.monthlyLimit || e?.paywall || e?.consentDeclined);
+      const errText = expected ? e.message : toMessage(e, '通信エラーが発生しました。もう一度お試しください。');
       setRecoNotice(expected);
-      setRecoError(expected ? e.message : toMessage(e, '通信エラーが発生しました。もう一度お試しください。'));
+      setRecoError(errText);
       setChatHistory(historyBefore); // 答えの無い相談を履歴に残さない（送り直しで二重にならないように）
       setRecoStream('');
       setRecoLoading(false);
+      remember({ recoNotice: expected, recoError: errText, chatHistory: historyBefore });
+      settlePending();
       return;
     } finally {
       if (watchdog) clearTimeout(watchdog);
@@ -728,6 +769,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       setRecoError('通信が途切れました。電波の良い場所でもう一度お試しください。');
       setChatHistory(historyBefore);
       setRecoLoading(false);
+      remember({ recoNotice: false, recoError: '通信が途切れました。電波の良い場所でもう一度お試しください。', chatHistory: historyBefore });
+      settlePending();
       return;
     }
 
@@ -751,15 +794,17 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       const verifyPool = recs.slice(0, 7);
       // 書名の欄に 2 冊を混ぜたカード（_alts）は、確かめて 1 冊にするまで出さない（2026-10-04）
       const finalList = verifyPool.filter((r) => !r._alts).slice(0, 5);
-      setRecommendations({
+      const nextReco = {
         items: finalList,
         before: prose?.before || '',
         after: prose?.after || '',
         // 検証に使う候補（予備を含む）と、検証が終わったか（終わるまで読む順番を出さない）。
         pool: verifyPool,
         checked: false,
-      });
+      };
+      setRecommendations(nextReco);
       setLastUserQuery(concernOf(sourceQuery || safeMsg));
+      remember({ recommendations: nextReco, lastUserQuery: concernOf(sourceQuery || safeMsg) });
       nextRecs = finalList;
       // 🔎 実在検証＋表紙先読み（並列・非ブロッキング）。表示は上で済ませているので
       //    体感は落ちない。検証結果で「実在しない本」を除外/警告し、実在本には
@@ -773,19 +818,20 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         ? prose
         : '提案の生成が途中で途切れてしまいました。お手数ですが、もう一度質問を送ってください。';
       setMessages([{ role: 'assistant', text: visible }]);
+      remember({ messages: [{ role: 'assistant', text: visible }] });
     }
     const nextHistory = [...newHistory, { role: 'assistant', content: finalText }];
     setChatHistory(nextHistory);
+    remember({ chatHistory: nextHistory, recoError: null, recoNotice: false });
     // 推薦カードは既に確定。セッション永続化（ネットワーク往復）を待たずにローディングを
     // 解除して結果を即表示する（永続化は下でバックグラウンド実行。以前はここで待って
     // いたため「本は選び終わっているのにスケルトンのまま」の無駄待ちが数百 ms あった）。
     setRecoStream('');
     setRecoLoading(false);
 
-    // アンマウント後（タブ切替で abort された後）はセッションを作らない —
-    // setCurrentSessionId が no-op になり、戻ってきた UI が別の新規セッションを
-    // 作って履歴に半端な重複が増えるため。
-    if (sessionApi?.available && !unmountedRef.current) {
+    // 画面を離れたあとに終わったときも会話の記録を作り、その id を覚えている状態に書く
+    // （戻ってきた画面が同じ記録を使う＝履歴に重複を作らない・2026-10-04）。
+    if (sessionApi?.available) {
       let sid = currentSessionId;
       try {
         if (!currentSessionId) {
@@ -793,7 +839,11 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
             messages: nextHistory,
             recommendedBooks: nextRecs || [],
           });
-          if (created?.id) { sid = created.id; setCurrentSessionId(created.id); }
+          if (created?.id) {
+            sid = created.id;
+            setCurrentSessionId(created.id);
+            remember({ currentSessionId: created.id });
+          }
         } else {
           const patch = { messages: nextHistory };
           if (nextRecs) patch.recommended_books = nextRecs;
@@ -805,6 +855,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       // 実在の検証が終わったら、確かめた結果つきのカードで履歴を上書きする。
       if (verifyDone) verifyDone.then((items) => persistVerified(sid, items)).catch(() => {});
     }
+    // 戻ってきた画面へ結果を渡す（会話の記録の id まで書いてから＝戻った画面が別の記録を作らない）。
+    settlePending();
   };
 
   // テーマのチップをタップ — AI の良書の棚（テーマ別の推薦）を生成する。
@@ -831,9 +883,11 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     setInterviewStep(0);
     setInterviewRound(1);
     setInterviewLoading(true);
+    // 離れても止めない（ヒアリングの質問も覚えておく・2026-10-04）。
+    const { remember, settle } = beginJob('interview');
     const qs = await runInterviewRound(c, [], 1);
     setInterviewLoading(false);
-    if (qs?.stop) { showLimitNotice(qs.stop); return; }
+    if (qs?.stop) { showLimitNotice(qs.stop); remember({ recoNotice: true, recoError: qs.stop }); settle(); return; }
     if (qs === null || qs.length === 0) {
       // 質問を組めなかった / いきなり done → 相談内容だけで直接推薦（graceful）
       // 注: concern state はまだ反映前なので c を直接渡す。
@@ -841,11 +895,14 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       const compiled =
         `【相談内容】\n${c}\n\n【ヒアリングの回答】\n${lines || '（なし）'}\n\n` +
         `上記を踏まえて、その人に本当に刺さる実在の本を推薦してください。`;
-      generateRecommendations(compiled, c);
+      generateRecommendations(compiled, c); // 推薦の控えを先に作ってから、ヒアリングの控えを終える
+      settle();
       return;
     }
     setInterview(qs);
     setInterviewStep(0);
+    remember({ interview: qs, interviewStep: 0 });
+    settle();
   };
 
   // 質問への回答（選択肢タップ or その他自由入力）。
@@ -873,19 +930,24 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     const nextRound = interviewRound + 1;
     setInterview(null);
     setInterviewLoading(true);
+    // 離れても止めない（次の質問も覚えておく・2026-10-04）。
+    const { remember, settle } = beginJob('interview');
     (async () => {
       const qs = await runInterviewRound(concern, nextAnswers, nextRound);
       setInterviewLoading(false);
-      if (qs?.stop) { showLimitNotice(qs.stop); return; }
+      if (qs?.stop) { showLimitNotice(qs.stop); remember({ recoNotice: true, recoError: qs.stop }); settle(); return; }
       if (qs === null || qs.length === 0) {
-        // done もしくは失敗 → 集めた回答で推薦へ
+        // done もしくは失敗 → 集めた回答で推薦へ（推薦の控えを先に作ってから、ヒアリングの控えを終える）
         proceedToRecommend(nextAnswers);
+        settle();
         return;
       }
       // さらに深掘りラウンドへ
       setInterview(qs);
       setInterviewStep(0);
       setInterviewRound(nextRound);
+      remember({ interview: qs, interviewStep: 0, interviewRound: nextRound });
+      settle();
     })();
   };
 
@@ -1050,6 +1112,18 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     next.delete(title);
     return next;
   });
+  // 読書準備の 4 項目は、AI を呼ばずに手元の材料から埋める（2026-09-27・原価の節約）。
+  //   以前は追加のたびに会話を AI で要約していた（本人は AI を頼んでいない＝見えない原価）。
+  //   課題＝最初の相談＋ヒアリングの 1 問目 / 得たいこと＝理想の状態の答え（2026-09-29・lib/advisorText.js）/
+  //   理由＝推薦の「なぜ」＋「この本の核心: …」。どれも本人がその場で見た言葉なので、ずれない。
+  //   仮説は空のまま（推薦の核心は AI の言葉で、本人の仮説ではない＝読む前に自分で書く欄・2026-09-30）。
+  //   確認の「書名で探す」「手動で入力する」から追加するときも同じ中身を渡す（2026-10-04・以前はそちらの道だと空のままだった）。
+  //   中身は lib/advisorText.js の advisorSetupPayload（過去の AI 選書の中身から追加するときも同じ・2026-10-04）。
+  const setupPayloadFor = (rec) => advisorSetupPayload(
+    lastUserQuery,
+    interviewAnswers.map((x) => ({ q: x?.q, a: clamp(sanitizeForPrompt(String(x?.a || '')), 120) })),
+    rec,
+  );
   const proceedAdd = (verifiedRec) => {
     // ここで初めて「追加済み」にする（確認でキャンセルした本は、押す前の見た目のまま）。
     clearChecking(verifiedRec.title);
@@ -1061,25 +1135,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     revealAddedRow(verifiedRec.title);
     // すべての I/O を Promise.resolve().then で次の tick へ。handler 同期維持。
     Promise.resolve().then(async () => {
-      // 読書準備の 4 項目は、AI を呼ばずに手元の材料から埋める（2026-09-27・原価の節約）。
-      //   以前は追加のたびに会話を AI で要約していた（本人は AI を頼んでいない＝見えない原価）。
-      //   課題＝最初の相談＋ヒアリングの 1 問目 / 得たいこと＝理想の状態の答え（2026-09-29・lib/advisorText.js）/
-      //   理由＝推薦の「なぜ」＋「この本の核心: …」。どれも本人がその場で見た言葉なので、ずれない。
-      //   仮説は空のまま（推薦の核心は AI の言葉で、本人の仮説ではない＝読む前に自分で書く欄・2026-09-30）。
-      const setup = advisorSetupFields(
-        lastUserQuery,
-        interviewAnswers.map((x) => ({ q: x?.q, a: clamp(sanitizeForPrompt(String(x?.a || '')), 120) })),
-      );
       try {
-        // sourceQuery は「得たいこと」へのプレフィル・「AI 選書で入力した内容に戻す」の元（App.jsx buildFormFromBook /
-        // BookPhases）なので、得たいことと同じ値にする（相談＝課題が得たいことへ戻らないように）。
-        const saved = await onAddBook(verifiedRec, {
-          sourceQuery: clamp(setup.purpose, 400),
-          investPurpose: clamp(setup.purpose, 400),
-          currentChallenge: clamp(setup.challenge, 400),
-          hypothesis: '',
-          bookReason: clamp([String(verifiedRec.why || '').trim(), verifiedRec.core ? `この本の核心: ${String(verifiedRec.core).trim()}` : ''].filter(Boolean).join('\n'), 400),
-        });
+        const saved = await onAddBook(verifiedRec, setupPayloadFor(verifiedRec));
         // onAddBook (addFromAdvisor) は失敗を内部 catch で握りつぶし null を
         // 返す（throw しない）。falsy を失敗として扱わないと rollback が
         // 一度も発火せず、追加されていないのに「✅ 追加済み」で固まる。
@@ -1117,7 +1174,14 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       next.add(rec.title);
       return next;
     });
-    // 裏で search → strict match で確認モーダルへ。失敗時はそのまま proceedAdd。
+    verifyThenAdd(rec, { proceed: proceedAdd, cancel: () => clearChecking(rec.title), setup: setupPayloadFor(rec) });
+  };
+
+  // 同じ本かを確かめてから追加へ進む（会話中のカードと過去の AI 選書の中身で共通・2026-10-04）。
+  //   proceed(verifiedRec)＝追加へ進む / cancel()＝押す前の「読みたいに追加」に戻す /
+  //   setup＝確認の「書名で探す」「手動で入力する」へ渡す読書準備。
+  //   裏で search → strict match で確認モーダルへ。失敗時はそのまま proceed。
+  const verifyThenAdd = (rec, { proceed, cancel, setup }) => {
     Promise.resolve().then(async () => {
       try {
         const results = await searchBooksAPIFlat(`${rec.title} ${rec.author || ''}`);
@@ -1127,31 +1191,31 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         if (matched.length === 0) {
           // 該当なし → 旧フローに任せる (addFromAdvisor 内で再 search +
           // bg resolver が title/author から ISBN を探す)
-          proceedAdd(rec);
+          proceed(rec);
           return;
         }
         // 候補が 1 冊だけで、書名も著者も完全に同じ → 確かめるまでもないので、そのまま追加する（2026-09-29）。
         if (matched.length === 1 && isExactMatch(matched[0], rec)) {
-          proceedAdd({ ...rec, isbn: matched[0].isbn || rec.isbn || '', cover: matched[0].cover || '' });
+          proceed({ ...rec, isbn: matched[0].isbn || rec.isbn || '', cover: matched[0].cover || '' });
           return;
         }
         // それ以外 → 視覚確認モーダルへ。「追加済み」は確認して追加したときだけ（キャンセルなら元のまま）。
-        setConfirmAdd({ rec, candidates: matched });
+        setConfirmAdd({ rec, candidates: matched, proceed, cancel, setup });
       } catch {
         // search 失敗時は直接追加へフォールバック
-        proceedAdd(rec);
+        proceed(rec);
       }
     });
   };
 
   const handleConfirmCandidate = (candidate) => {
     if (!confirmAdd) return;
-    const { rec } = confirmAdd;
+    const { rec, proceed } = confirmAdd;
     setConfirmAdd(null);
     // candidate の isbn / cover を rec に焼き込んで「視覚的に確認済み」と
-    // して proceedAdd へ。addFromAdvisor 側はこれを信頼してそのまま保存
+    // して proceed へ。addFromAdvisor 側はこれを信頼してそのまま保存
     // する (再 search なし)。
-    proceedAdd({
+    proceed({
       ...rec,
       isbn: candidate.isbn || rec.isbn || '',
       cover: candidate.cover || '',
@@ -1160,26 +1224,39 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
 
   const handleConfirmCancel = () => {
     if (!confirmAdd) return;
-    const { rec } = confirmAdd;
+    const { cancel } = confirmAdd;
     setConfirmAdd(null);
     // まだ追加していないので、ボタンを押す前の「読みたいに追加」に戻すだけ。
-    clearChecking(rec.title);
+    cancel?.();
   };
   // 候補に目当ての本が無いとき: 書名で探し直す／手動で入力する（App の本の追加へ渡す）。
   const handleConfirmSearch = () => {
     if (!confirmAdd) return;
-    const { rec } = confirmAdd;
+    const { rec, cancel, setup } = confirmAdd;
     setConfirmAdd(null);
-    clearChecking(rec.title);
-    onSearchBook?.(rec.title || '');
+    cancel?.();
+    onSearchBook?.(rec.title || '', setup);
   };
   const handleConfirmManual = () => {
     if (!confirmAdd) return;
-    const { rec } = confirmAdd;
+    const { rec, cancel, setup } = confirmAdd;
     setConfirmAdd(null);
-    clearChecking(rec.title);
-    onManualBook?.({ title: rec.title || '', author: rec.author || '' });
+    cancel?.();
+    onManualBook?.({ title: rec.title || '', author: rec.author || '', setup });
   };
+  // 確認のシート（会話の画面と過去の AI 選書の中身の両方に置く）。
+  const confirmAddModal = confirmAdd ? (
+    <Suspense fallback={<Spinner />}>
+      <AdvisorAddConfirmModal
+        original={confirmAdd.rec}
+        candidates={confirmAdd.candidates}
+        onConfirm={handleConfirmCandidate}
+        onCancel={handleConfirmCancel}
+        onSearchByTitle={onSearchBook ? handleConfirmSearch : undefined}
+        onManual={onManualBook ? handleConfirmManual : undefined}
+      />
+    </Suspense>
+  ) : null;
 
   // 新メッセージ追加時に最下部へオートスクロール (LINE 挙動)。
   useEffect(() => {
@@ -1202,9 +1279,10 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   if (view === 'history') {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+        <AdvisorNavBar backLabel="AI 選書" title="過去の AI 選書" onBack={stepBack} pushed={!!onPushedViewChange} scrolled={pushedScrolled} />
         {/* 余白は履歴側が持つ（左右 16 を二重にしない）。 */}
-        <div className="chat-scroll" style={{ padding: 0 }}>
-          <Suspense fallback={<Spinner />}>
+        <div className="chat-scroll" style={{ padding: 0 }} onScroll={onPushedScroll}>
+          <Suspense fallback={<TabPanelSkeleton />}>
             <AdvisorHistoryList
               sessions={sessionApi?.sessions || []}
               loaded={!!sessionApi?.loaded}
@@ -1236,12 +1314,15 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   if (view === 'detail' && selectedSession) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-        <div className="chat-scroll" style={{ padding: 0 }}>
-          <Suspense fallback={<Spinner />}>
+        <AdvisorNavBar backLabel="一覧" title={advisorSessionDate(selectedSession?.created_at)} onBack={stepBack} pushed={!!onPushedViewChange} scrolled={pushedScrolled} />
+        <div className="chat-scroll" style={{ padding: 0 }} onScroll={onPushedScroll}>
+          <Suspense fallback={<TabPanelSkeleton />}>
             <AdvisorSessionDetail
               session={selectedSession}
               books={books}
               onAddBook={onAddBook}
+              // 追加の前に同じ本かを確かめる（会話中のカードと同じ「確かめています…」→ 確認のシート・2026-10-04）。
+              verifyBeforeAdd={verifyThenAdd}
               onBookAdded={(bookId) => {
                 // 履歴詳細からの追加もセッションに記録（一覧の「N 冊追加」を正しく）。
                 if (bookId && sessionApi?.available && selectedSession?.id) {
@@ -1254,6 +1335,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
             />
           </Suspense>
         </div>
+        {confirmAddModal}
       </div>
     );
   }
@@ -1531,17 +1613,21 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
 
       {/* 推薦生成エラー（リトライ可能） */}
       {recoError && !recoLoading && recoNotice && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-          <p role="status" style={{ ...uiCard, margin: 0, fontSize: 'var(--text-sub)', lineHeight: 1.6, color: 'var(--text)', whiteSpace: 'pre-wrap' }}>
+        /^(今月のトークン|無料期間のトークン)/.test(recoError) ? (
+          // 🪙➕ トークンを使い切った案内は相談と同じカード（題 → 戻る日 → カードの中に「トークンを追加」→ 解約の期限・
+          //   components/TokensOutCard.jsx・2026-10-04）。追加できない人（無料プラン等）はボタンを出さない。
+          <TokensOutCard
+            plan={plan}
+            trialEndLabel={plan === 'trial' ? monthDayLabelJa(trialEndsAt) : ''}
+            cancelLine={plan === 'trial' ? trialCancelShortLine(trialEndsAt) : ''}
+            tokenAllowance={tokenAllowance}
+            onAdd={canBuyTokens ? openTokenSheet : null}
+          />
+        ) : (
+          <p role="status" style={{ ...uiCard, margin: 0, fontSize: 'var(--text-sub)', lineHeight: 1.6, color: 'var(--text)', whiteSpace: 'pre-wrap', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
             {keepDateTogether(recoError)}
           </p>
-          {/* 🪙➕ プランの人がトークンを使い切ったら、案内のすぐ下に「トークンを追加」 */}
-          {canBuyTokens && /^(今月のトークン|無料期間のトークン)/.test(recoError) && (
-            <button type="button" onClick={openTokenSheet} style={uiBtnPrimary}>
-              トークンを追加
-            </button>
-          )}
-        </div>
+        )
       )}
       {recoError && !recoLoading && !recoNotice && (
         // 失敗の文は 1 つの言い方にそろえる（題＋次にすること・内部の文言を見せない・2026-09-29）。
@@ -1785,8 +1871,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
             return after ? <MarkdownSections text={after} /> : null;
           })()}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-          <p style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', lineHeight: 1.5, margin: 0 }}>
-            {STORE_DISCLOSURE_TEXT}
+          <p style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', lineHeight: 1.5, margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+            {withPhraseBreaks(STORE_DISCLOSURE_TEXT)}
           </p>
           {/* やり直しは脇役＝文字ボタン（本のカードの「読みたいに追加」より弱く）。文字の左端を注記にそろえる。 */}
           <button type="button" onClick={resetToConcern} style={{ ...uiBtnLink, gap: 'var(--space-1)', alignSelf: 'flex-start', marginLeft: 'calc(-1 * var(--space-1))' }}>
@@ -1816,7 +1902,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={tokensOut ? (monthOut ? `${nextResetLabelJa()}から探せます` : 'トークンを使い切りました') : 'いまの課題を書いてください'}
+            // 7 日間無料で使い切ったときも、いつからまた探せるかを日付で（相談の「◯月◯日から相談できます」と同じ・2026-10-04）。
+            placeholder={tokensOut ? (monthOut ? `${nextResetLabelJa()}から探せます` : (monthDayLabelJa(trialEndsAt) ? `${monthDayLabelJa(trialEndsAt)}から探せます` : 'トークンを使い切りました')) : 'いまの課題を書いてください'}
             rows={1}
             disabled={interviewLoading || tokensOut}
             maxLength={LIMITS.aiQuestion}
@@ -1856,18 +1943,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         </div>
         );
       })()}
-      {confirmAdd && (
-        <Suspense fallback={<Spinner />}>
-          <AdvisorAddConfirmModal
-            original={confirmAdd.rec}
-            candidates={confirmAdd.candidates}
-            onConfirm={handleConfirmCandidate}
-            onCancel={handleConfirmCancel}
-            onSearchByTitle={onSearchBook ? handleConfirmSearch : undefined}
-            onManual={onManualBook ? handleConfirmManual : undefined}
-          />
-        </Suspense>
-      )}
+      {confirmAddModal}
     </div>
   );
 }

@@ -44,6 +44,9 @@ const messageStyle = {
   lineHeight: 1.6,
   margin: '0 0 var(--space-6)',
   whiteSpace: 'pre-line',
+  // 文節の切れ目でだけ折り返す（「タグな／ど」「この操／作」と語の途中で切らない・2026-10-04）。
+  wordBreak: 'keep-all',
+  overflowWrap: 'anywhere',
 };
 
 const rowStyle = {

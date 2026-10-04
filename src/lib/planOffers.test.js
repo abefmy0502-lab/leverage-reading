@@ -82,7 +82,8 @@ describe('buildStoreLabels（有料プランの画面の価格）', () => {
     // 年額のどの文字にも 7 日間無料が出ない
     expect(JSON.stringify(l.annual)).not.toMatch(/無料/);
     expect(billedLine(l.annual)).toBe('1 年目 ¥9,800（税込）、2 年目から 年額 ¥12,800（税込）で自動更新');
-    expect(billedLineParts(l.annual)).toEqual(['1 年目 ¥9,800（税込）、', '2 年目から ', '年額 ¥12,800（税込）', 'で自動更新']);
+    // 「2 年目から 年額 ¥12,800（税込）」は 1 つの塊（中の語の間は折り返さない空白・2026-10-04）
+    expect(billedLineParts(l.annual)).toEqual(['1 年目 ¥9,800（税込）、', '2\u00a0年目から 年額\u00a0¥12,800\u2060（税込）', 'で自動更新']);
     expect(billedLine(l.annual)).toBe('1 年目 ¥9,800（税込）、2 年目から 年額 ¥12,800（税込）で自動更新');
     expect(planCtaLabel(l.annual)).toBe('年額プランで始める');
     expect(billedLine(l.monthly)).toBe('その後 月額 ¥1,480（税込）で自動更新');
@@ -156,7 +157,7 @@ describe('renewalSentence（自動更新の条件の 1 文・下に固定の欄�
   it('下に固定の欄と同じ金額を使う（食い違わない）', () => {
     for (const l of [founding.annual, founding.monthly, normal.annual, none.annual]) {
       const price = billedShortOf(l.price);
-      expect(billedLineParts(l).join('')).toContain(price);
+      expect(billedLine(l)).toContain(price); // 画面の塊は語の間が U+00A0（billedLine は普通の空白に戻す）
       expect(renewalSentence(l)).toContain(price);
     }
   });

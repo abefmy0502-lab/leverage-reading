@@ -653,6 +653,8 @@ function AuthedApp() {
   // サブタブの行を隠す（押し込まれた画面は「‹ 相談」の 1 行だけ・切り替えを 2 段にしない）。
   // MyBookBrain が onPushedViewChange で知らせる。相談タブ・相談サブタブを離れたら戻す。
   const [consultPushed, setConsultPushed] = useState(false);
+  // AI 選書の過去の AI 選書（1）・その中身（2）も同じく押し込まれた画面（BookAdvisor の onPushedViewChange・2026-10-04）。
+  const [advisorPushed, setAdvisorPushed] = useState(0);
   // 📊 記録の「実行した行動」から行動を開いたとき、完了した行動を開いて見せる（押した時刻で毎回区別）。
   const [actionShowDoneNonce, setActionShowDoneNonce] = useState(null);
   // 相談の「行動に追加しました 見る」から来たときに光らせる行動（{ bookId, text, nonce }）。
@@ -865,6 +867,7 @@ function AuthedApp() {
   // 相談タブ・相談サブタブ・一覧画面を離れたら、押し込まれた画面の状態を戻す（戻ったときは会話から）。
   useEffect(() => {
     if (tab !== 'ai' || aiSubTab !== 'brain' || view !== 'list') setConsultPushed(false);
+    if (tab !== 'ai' || aiSubTab !== 'advisor' || view !== 'list') setAdvisorPushed(0);
   }, [tab, aiSubTab, view]);
   const [current, setCurrent] = useState(null);
 
@@ -905,6 +908,8 @@ function AuthedApp() {
   // 新しく本を追加するフォームの「‹ 戻り先」。openAdd を押した場所（'home' / 'library'）と、
   // 検索（AddBookModal）から来たときの検索語（null＝検索を通っていない）。
   const [addOrigin, setAddOrigin] = useState('library');
+  // AI 選書の確認から「書名で探す」へ進んだときの読書準備（課題・得たいこと・選書理由）。本の追加を別の入口から開いたら消す。
+  const advisorSetupRef = useRef(null);
   const [addFromSearchQuery, setAddFromSearchQuery] = useState(null);
   // Carries an initial query from AddBookModal → BookSearchModal so a search
   // typed there auto-runs without re-typing.
@@ -1082,6 +1087,7 @@ function AuthedApp() {
     depth: (tab === 'books' && shelfMode === 'library' ? 1 : 0)
       + (view === 'detail' ? 1 : view === 'edit' ? (current ? 2 : 1) : 0)
       + (tab === 'ai' && aiSubTab === 'brain' && consultPushed && view === 'list' ? 1 : 0)
+      + (tab === 'ai' && aiSubTab === 'advisor' && view === 'list' ? advisorPushed : 0)
       + (backBlocked ? 1 : 0)
       + backLayers,
     onBack: async () => {
@@ -1099,6 +1105,10 @@ function AuthedApp() {
         return true;
       }
       if (view === 'detail') { leaveDetail(); return true; }
+      if (tab === 'ai' && aiSubTab === 'advisor' && advisorPushed) {
+        window.dispatchEvent(new Event('orime:advisor-back'));
+        return true;
+      }
       if (tab === 'ai' && consultPushed) {
         if (!(await consultCanLeave())) return false; // 書きかけの学びで「編集を続ける」
         window.dispatchEvent(new Event('orime:consult-back'));
@@ -1429,6 +1439,7 @@ function AuthedApp() {
     // 「読書中」にプリセットする。既定の「読みたい」のままだと、CTA の約束
     // （いま読んでいる本 → すぐメモ）に対して状態セレクタの一段が折れる。
     addStatusPresetRef.current = typeof presetStatus === 'string' ? presetStatus : '';
+    advisorSetupRef.current = null;
     setAddOrigin(tab === 'books' && shelfMode === 'library' ? 'library' : 'home');
     setAddFromSearchQuery(null);
     setAddBookModalOpen(true);
@@ -1469,6 +1480,8 @@ function AuthedApp() {
       totalPages: b.pages || 0,
       isbn: b.isbn || '',
       addedVia: 'search',
+      // AI 選書の確認の「書名で探す」から来たときは、読書準備も引き継ぐ（2026-10-04）。
+      ...(addOrigin === 'advisor' && advisorSetupRef.current ? advisorSetupRef.current : {}),
     };
     setForm(seeded);
     setCurrent(null);
@@ -1720,6 +1733,8 @@ function AuthedApp() {
       title: seed?.title || '',
       author: seed?.author || '',
       isbn: seed?.isbn || '',
+      // AI 選書の確認の「手動で入力する」から来たときは、読書準備も引き継ぐ（2026-10-04）。
+      ...(seed?.setup || (addOrigin === 'advisor' && advisorSetupRef.current) || {}),
     });
     setCurrent(null);
     setView('edit');
@@ -4856,7 +4871,7 @@ function AuthedApp() {
     <Shell>
    {/* すべての本は押し込まれた画面なので、ナビゲーション行（‹ ホーム）1 本だけにする（全体ヘッダーと二段にしない）。 */}
    {/* 相談の押し込まれた画面（過去の相談・学びを書く・根拠にできる情報）も同じく「‹ 相談」の行 1 本だけ。 */}
-   {!(tab === "books" && shelfMode === 'library') && !(tab === "ai" && aiSubTab === 'brain' && consultPushed) && (
+   {!(tab === "books" && shelfMode === 'library') && !(tab === "ai" && aiSubTab === 'brain' && consultPushed) && !(tab === "ai" && aiSubTab === 'advisor' && advisorPushed) && (
    <header
      style={{
        flexShrink: 0,
@@ -5465,7 +5480,7 @@ function AuthedApp() {
           <div key={`tab-${tab}`} className="tab-content ai-page">
             {/* サブタブは名前の幅（相談｜AI 選書）で左に寄せ、同じ行の右端にその画面の操作（相談の 🕒・…／AI 選書の履歴・新規）。
                 上の操作を「サブタブ／アイコンの行／件数の行」と 3 段に積まない（2026-10-01 ui-critic・DESIGN §5）。 */}
-            {!(aiSubTab === 'brain' && consultPushed) && (
+            {!(aiSubTab === 'brain' && consultPushed) && !(aiSubTab === 'advisor' && advisorPushed) && (
             <div className="sub-tabs sub-tabs--fit" style={{ flexShrink: 0 }}>
             <div role="tablist" aria-label="相談のサブタブ" className="sub-tabs__list">
               <button
@@ -5500,12 +5515,14 @@ function AuthedApp() {
                   <BookAdvisor
                     onAddBook={(rec, payload) => addFromAdvisor(rec, payload)}
                     // 確認の候補に目当ての本が無いとき: 書名で探す（検索を開いて自動で探す）／手動で入力する。戻り先は「‹ AI 選書」。
-                    onSearchBook={(q) => { addStatusPresetRef.current = ''; setAddOrigin('advisor'); setAddFromSearchQuery(q || ''); setAddBookModalOpen(true); }}
+                    // 読書準備（課題・得たいこと・選書理由）も渡す（「読みたいに追加」と同じ中身・2026-10-04）。
+                    onSearchBook={(q, setup) => { addStatusPresetRef.current = ''; advisorSetupRef.current = setup || null; setAddOrigin('advisor'); setAddFromSearchQuery(q || ''); setAddBookModalOpen(true); }}
                     onManualBook={(seed) => { addStatusPresetRef.current = ''; setAddOrigin('advisor'); openManualFromAdd(seed); setAddFromSearchQuery(null); }}
                     sessionApi={advisorSessions}
                     books={books}
                     onOpenBook={(b) => openDetail(b)}
                     barSlot={aiBarSlot}
+                    onPushedViewChange={setAdvisorPushed}
                   />
                 </Suspense>
               ) : (
