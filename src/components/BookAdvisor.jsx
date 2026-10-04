@@ -170,6 +170,10 @@ const MAX_INTERVIEW_ROUNDS = 3;
 //   追加した本の詳細を開いて「‹ AI 選書」で戻ったとき、さっきのおすすめのまま戻れるように
 //   （相談の `session` と同じ考え方・2026-09-29）。読み込み中の状態は覚えない。
 const advisorMemory = { uid: null, state: null };
+// 本を選んでいる途中（推薦のストリーム）の控え。画面を離れても止めずに最後まで作り、結果は advisorMemory に書く
+// （原価はもう払っているので捨てない・相談の backgroundAsk と同じ考え・2026-10-04）。
+// { uid, done, promise }。戻ってきた画面は、終わるまで「選んでいます…」を出し、終わったら結果を出す。
+let advisorPendingReco = null;
 
 
 // barSlot: App のサブタブ（相談｜AI 選書）の行の右端の要素。履歴・新規のアイコンはそこへ出す（🕒 だけの行を作らない・2026-10-01 ui-critic）。
@@ -192,7 +196,11 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     unmountedRef.current = false;
     return () => {
       unmountedRef.current = true;
-      try { activeControllerRef.current?.abort(); } catch { /* noop */ }
+      // 本を選んでいる途中（推薦）は止めない＝離れても最後まで作って advisorMemory に残す（2026-10-04）。
+      //   以前はここで止めていたため、ほかのタブへ移って戻るとヒアリングの答えも推薦も消え、トークンだけ減っていた。
+      if (!(advisorPendingReco && !advisorPendingReco.done)) {
+        try { activeControllerRef.current?.abort(); } catch { /* noop */ }
+      }
     };
   }, []);
 
@@ -606,6 +614,28 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     if (r && r.checked === false && Array.isArray(r.pool) && r.pool.length > 0) startVerify(r.pool, sessionIdRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  // 本を選んでいる途中で離れて戻ってきた（2026-10-04）: 終わるまで「選んでいます…」を出し、終わったら
+  //   覚えている状態（離れていた間に書かれた結果）をそのまま出す。
+  useEffect(() => {
+    const p = advisorPendingReco;
+    if (!p || p.done || p.uid !== (advisorUser?.id || null)) return;
+    setRecoLoading(true);
+    p.promise.then(() => {
+      if (unmountedRef.current) return;
+      const st = advisorMemory.uid === p.uid ? (advisorMemory.state || {}) : {};
+      if (st.recommendations !== undefined) setRecommendations(st.recommendations);
+      if (st.chatHistory) setChatHistory(st.chatHistory);
+      if (st.lastUserQuery !== undefined) setLastUserQuery(st.lastUserQuery);
+      if (st.messages) setMessages(st.messages);
+      setRecoError(st.recoError || null);
+      setRecoNotice(!!st.recoNotice);
+      if (st.currentSessionId) setCurrentSessionId(st.currentSessionId);
+      setRecoLoading(false);
+      const r = st.recommendations;
+      if (r && r.checked === false && Array.isArray(r.pool) && r.pool.length > 0) startVerify(r.pool, st.currentSessionId || sessionIdRef.current);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 推薦生成 — ヒアリング完了後（または fallback の直接相談）に bookAdvisor を
   // 1 回ストリーム。userMsg は AI へ渡す本文、sourceQuery は本棚追加時の
@@ -640,10 +670,22 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     // streamClaude は abort 時に部分テキストで正常 resolve するため、途中まで
     // 生成済みの推薦は下の salvage パースで拾える。
     const controller = new AbortController();
-    // アンマウント（タブ/サブタブ切替）時に abort できるよう ref に控える。
-    // 放置すると streamClaude と後続の createSession がアンマウント後も走り、
-    // AI コストだけ消費して回答は誰にも見えず、履歴に半端なセッションが増える。
     activeControllerRef.current = controller;
+    // 離れても止めない（上の advisorPendingReco）。終わったら結果を advisorMemory に書き、戻ってきた画面へ渡す。
+    let finishPending = () => {};
+    const pending = { uid: advisorUser?.id || null, done: false, promise: new Promise((r) => { finishPending = r; }) };
+    advisorPendingReco = pending;
+    // 画面を離れたあとに終わったら、覚えている状態へ直接書く（戻ってきた画面がそれを出す）。
+    const remember = (patch) => {
+      if (!unmountedRef.current) return;
+      if (advisorMemory.uid !== pending.uid) return;
+      advisorMemory.state = { ...(advisorMemory.state || {}), ...patch };
+    };
+    const settlePending = () => {
+      pending.done = true;
+      if (advisorPendingReco === pending) advisorPendingReco = null;
+      finishPending();
+    };
     let watchdog = null;
     const armWatchdog = () => {
       if (watchdog) clearTimeout(watchdog);
@@ -692,11 +734,14 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       });
     } catch (e) {
       const expected = !!(e?.monthlyLimit || e?.paywall || e?.consentDeclined);
+      const errText = expected ? e.message : toMessage(e, '通信エラーが発生しました。もう一度お試しください。');
       setRecoNotice(expected);
-      setRecoError(expected ? e.message : toMessage(e, '通信エラーが発生しました。もう一度お試しください。'));
+      setRecoError(errText);
       setChatHistory(historyBefore); // 答えの無い相談を履歴に残さない（送り直しで二重にならないように）
       setRecoStream('');
       setRecoLoading(false);
+      remember({ recoNotice: expected, recoError: errText, chatHistory: historyBefore });
+      settlePending();
       return;
     } finally {
       if (watchdog) clearTimeout(watchdog);
@@ -708,6 +753,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       setRecoError('通信が途切れました。電波の良い場所でもう一度お試しください。');
       setChatHistory(historyBefore);
       setRecoLoading(false);
+      remember({ recoNotice: false, recoError: '通信が途切れました。電波の良い場所でもう一度お試しください。', chatHistory: historyBefore });
+      settlePending();
       return;
     }
 
@@ -730,15 +777,17 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       // 差し替えられる。
       const verifyPool = recs.slice(0, 7);
       const finalList = verifyPool.slice(0, 5);
-      setRecommendations({
+      const nextReco = {
         items: finalList,
         before: prose?.before || '',
         after: prose?.after || '',
         // 検証に使う候補（予備を含む）と、検証が終わったか（終わるまで読む順番を出さない）。
         pool: verifyPool,
         checked: false,
-      });
+      };
+      setRecommendations(nextReco);
       setLastUserQuery(concernOf(sourceQuery || safeMsg));
+      remember({ recommendations: nextReco, lastUserQuery: concernOf(sourceQuery || safeMsg) });
       nextRecs = finalList;
       // 🔎 実在検証＋表紙先読み（並列・非ブロッキング）。表示は上で済ませているので
       //    体感は落ちない。検証結果で「実在しない本」を除外/警告し、実在本には
@@ -752,19 +801,20 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         ? prose
         : '提案の生成が途中で途切れてしまいました。お手数ですが、もう一度質問を送ってください。';
       setMessages([{ role: 'assistant', text: visible }]);
+      remember({ messages: [{ role: 'assistant', text: visible }] });
     }
     const nextHistory = [...newHistory, { role: 'assistant', content: finalText }];
     setChatHistory(nextHistory);
+    remember({ chatHistory: nextHistory, recoError: null, recoNotice: false });
     // 推薦カードは既に確定。セッション永続化（ネットワーク往復）を待たずにローディングを
     // 解除して結果を即表示する（永続化は下でバックグラウンド実行。以前はここで待って
     // いたため「本は選び終わっているのにスケルトンのまま」の無駄待ちが数百 ms あった）。
     setRecoStream('');
     setRecoLoading(false);
 
-    // アンマウント後（タブ切替で abort された後）はセッションを作らない —
-    // setCurrentSessionId が no-op になり、戻ってきた UI が別の新規セッションを
-    // 作って履歴に半端な重複が増えるため。
-    if (sessionApi?.available && !unmountedRef.current) {
+    // 画面を離れたあとに終わったときも会話の記録を作り、その id を覚えている状態に書く
+    // （戻ってきた画面が同じ記録を使う＝履歴に重複を作らない・2026-10-04）。
+    if (sessionApi?.available) {
       let sid = currentSessionId;
       try {
         if (!currentSessionId) {
@@ -772,7 +822,11 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
             messages: nextHistory,
             recommendedBooks: nextRecs || [],
           });
-          if (created?.id) { sid = created.id; setCurrentSessionId(created.id); }
+          if (created?.id) {
+            sid = created.id;
+            setCurrentSessionId(created.id);
+            remember({ currentSessionId: created.id });
+          }
         } else {
           const patch = { messages: nextHistory };
           if (nextRecs) patch.recommended_books = nextRecs;
@@ -784,6 +838,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       // 実在の検証が終わったら、確かめた結果つきのカードで履歴を上書きする。
       if (verifyDone) verifyDone.then((items) => persistVerified(sid, items)).catch(() => {});
     }
+    // 戻ってきた画面へ結果を渡す（会話の記録の id まで書いてから＝戻った画面が別の記録を作らない）。
+    settlePending();
   };
 
   // テーマのチップをタップ — AI の良書の棚（テーマ別の推薦）を生成する。
