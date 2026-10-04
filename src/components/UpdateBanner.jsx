@@ -126,7 +126,8 @@ export default function UpdateBanner({ safe = false }) {
   return createPortal(
     <>
       <style>{`@keyframes lvg-update-in { from { transform: translateY(var(--space-4)); opacity: 0; } to { transform: translateY(0); opacity: 1; } }`}</style>
-      <div style={overlayStyle} role="status" aria-live="polite">
+      {/* data-toast-above: 知らせ（Toast）はこのカードの上に浮かべる（タブの上で重なっていた・2026-10-04）。 */}
+      <div style={overlayStyle} role="status" aria-live="polite" data-toast-above="">
         <span style={{ flex: 1, minWidth: 0, padding: 'var(--space-3) 0', fontSize: 'var(--text-sub)', lineHeight: 1.5, color: 'var(--text)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
           {withPhraseBreaks('アプリの新しい版があります')}
         </span>
