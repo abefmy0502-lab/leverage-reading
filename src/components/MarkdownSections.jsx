@@ -7,7 +7,7 @@
 // Lists (`- ` or `1. ` etc) are rendered as a styled <ul> / <ol>.
 
 import { memo, useMemo } from 'react';
-import { parseRelatedBookLine } from '../lib/planRelatedBooks';
+import { parseRelatedBookLine, RELATED_HEADING_RE } from '../lib/planRelatedBooks';
 import {
   getAmazonSearchLink,
   handleAmazonClick,
@@ -173,25 +173,16 @@ function renderInline(text) {
   return parts.length ? parts : text;
 }
 
-// "### 1. 『title』- 著者" / "『title』 — 著者" / "『title』" all parse the
-// same way: title in 『』 + an optional author suffix after - / – / — / ・.
-const RELATED_BOOK_RE = /^\s*(?:\d+\.\s*)?『([^』]+)』(?:\s*[-–—・]\s*(.+))?\s*$/;
-// 『』 なしのフォールバック: "### 1. タイトル - 著者" のような番号付き行を本として拾う。
-// 番号プレフィックス必須にして、通常の文や見出しを誤って本扱いしないようにする。
-const RELATED_BOOK_RE_PLAIN = /^\s*\d+\.\s*([^-–—・\n]{2,80}?)(?:\s*[-–—・]\s*(.+))?\s*$/;
+// "### 1. 『title』- 著者" / "『title』 — 著者" / "『title』" → 本のカード（行の読み方は lib/planRelatedBooks.js と同じ）。
+// 1 冊と言い切れない行は本のカードにしない（説明ごと出さない・2026-10-04）:
+//   - 1 行に 2 冊を混ぜた行（「『A』関連 または『B』- 著者」）
+//   - 『』の無い番号つきの行（「1. 7つの習慣 - コヴィー」）。以前は確かめずにカードにしていた（RELATED_BOOK_RE_PLAIN）。
+//   どちらも lib/planRelatedBooks.js が保存の前と開いたときに書誌で確かめ、『』の 1 冊の行に直すか消す。
 function parseRelatedBookHeading(text) {
-  const raw = text || '';
-  // 1 行に 2 冊を混ぜた行（「『A』関連 または『B』- 著者」）は本のカードにしない（説明ごと出さない・
-  // lib/planRelatedBooks.js が保存の前と開いたときに 1 冊に直すか消す・2026-10-04）。
-  const parsed = parseRelatedBookLine(raw);
-  if (parsed?.malformed) return { skip: true };
-  let m = raw.match(RELATED_BOOK_RE);
-  if (!m) m = raw.match(RELATED_BOOK_RE_PLAIN);
-  if (!m) return null;
-  const title = (m[1] || '').trim().replace(/^『|』$/g, '');
-  const author = (m[2] || '').trim();
-  if (!title) return null;
-  return { title, author };
+  const parsed = parseRelatedBookLine(text);
+  if (!parsed) return null;
+  if (parsed.malformed) return { skip: true };
+  return { title: parsed.title, author: parsed.author };
 }
 
 function renderLines(lines, opts) {
@@ -504,7 +495,8 @@ function isRelatedBooksHeading(heading) {
   if (!heading) return false;
   // AI の見出しは揺れる（おすすめ書籍 / 次に読むべき本 / あわせて読みたい 等）。
   // 取りこぼすと「追加」ボタンが出ず "押しても何も起きない" に見えるため広めに拾う。
-  return /関連(書籍|本|する本|図書)|次に読む|次に読むべき|次の(一冊|本)|併読|あわせて読みたい|おすすめ(の本|書籍|図書|の一冊)|参考(書籍|図書|文献)|読むべき本/.test(heading);
+  // 書誌で確かめる側（lib/planRelatedBooks.js）と同じ見出しにする（片方だけ広いと、確かめていない本がカードになる）。
+  return RELATED_HEADING_RE.test(heading);
 }
 
 // memo 化: 編集フォームの毎キーストローク（setForm → 親再レンダー）で、不変の

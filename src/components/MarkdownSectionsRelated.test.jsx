@@ -1,4 +1,5 @@
 // 1 行に 2 冊を混ぜた関連書籍の行（「『A』関連 または『B』- 著者」）は本のカードにしない（2026-10-04 オーナー報告）。
+// 『』の無い番号つきの行（「1. 7つの習慣 - コヴィー」）も、書誌で確かめて『』の行に直すまではカードにしない（同日）。
 import { describe, it, expect } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import MarkdownSections from './MarkdownSections';
@@ -11,14 +12,33 @@ const SHEET = [
   '何を続け、何をやめるかを判断する視点が得られる。',
 ].join('\n');
 
+const plainOf = (html) => html.replace(/<wbr\s*\/?>/g, '').replace(/<[^>]+>/g, ' ');
+
 describe('MarkdownSections の関連書籍', () => {
   it('きれいな行はカード・2 冊を混ぜた行は説明ごと出さない', () => {
     const html = renderToStaticMarkup(<MarkdownSections flat text={SHEET} onAddRelatedBook={() => {}} />);
-    const plain = html.replace(/<wbr\s*\/?>/g, '').replace(/<[^>]+>/g, ' ');
+    const plain = plainOf(html);
     expect(plain).toContain('夢をかなえるゾウ');
     expect(plain).toContain('小さな目標の立て方');
     expect(plain).not.toContain('SMALL ACTIONS');
     expect(plain).not.toContain('やめる習慣');
     expect(plain).not.toContain('何を続け');
+  });
+
+  it('『』の無い本の行はカードにしない（「読みたいに追加」を出さない）・本ではない見出しはそのまま', () => {
+    const text = [
+      '## 📚 関連書籍',
+      '### 1. 7つの習慣 - スティーブン・R・コヴィー',
+      '主体性の考え方を補える。',
+      '### 読む順番',
+      'まず実践の本から。',
+    ].join('\n');
+    const html = renderToStaticMarkup(<MarkdownSections flat text={text} onAddRelatedBook={() => {}} />);
+    const plain = plainOf(html);
+    expect(plain).not.toContain('7つの習慣');
+    expect(plain).not.toContain('主体性の考え方');
+    expect(html).not.toContain('読みたいに追加');
+    expect(plain).toContain('読む順番');
+    expect(plain).toContain('まず実践の本から。');
   });
 });

@@ -3,7 +3,9 @@
 // マイ読書脳だけは、実際に入っているメモから質問に近いものを選んで
 // 本番と同じ書式（【結論】…REFS_START/END）で答えるので、画面の流れを確かめられる。
 
-import { SEARCH_CATALOG, DEMO_BOOK_INFO } from './seed';
+import { SEARCH_CATALOG, DEMO_BOOK_INFO, DEMO_MESSY_RELATED } from './seed';
+
+const relatedMessy = () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('related') === 'messy';
 import { demoServerSearch, demoNdlXml } from './demoBookSearch';
 import { questionGist } from '../lib/consultHelpers';
 
@@ -411,11 +413,14 @@ function planSheetAnswer(userText) {
     '- 学び直しの時間を予定に入れる',
     '- 人間関係に使う時間を見直す',
     '',
-    '## 📚 関連書籍',
-    '### 1. 『GRIT やり抜く力』- アンジェラ・ダックワース',
-    '長いステージを走り切る粘り強さを、習慣として育てる考え方が補えます。',
-    '### 2. 『思考の整理学』- 外山滋比古',
-    '学び直しの時間を、自分の考えにまとめる力につなげられます。',
+    // &related=messy: 2 冊を混ぜた行・『』の無い行・実在しない本（書誌で確かめて直すか消すことの確認用・2026-10-04）
+    ...(relatedMessy() ? DEMO_MESSY_RELATED.split('\n') : [
+      '## 📚 関連書籍',
+      '### 1. 『GRIT やり抜く力』- アンジェラ・ダックワース',
+      '長いステージを走り切る粘り強さを、習慣として育てる考え方が補えます。',
+      '### 2. 『思考の整理学』- 外山滋比古',
+      '学び直しの時間を、自分の考えにまとめる力につなげられます。',
+    ]),
   ].join('\n');
 }
 

@@ -83,7 +83,9 @@ describe('崩れた関連書籍の行（2 冊を混ぜた行）', () => {
     const bad = parseRelatedBookLine('2. 『SMALL ACTIONS, BIG RESULTS』関連 または『やめる習慣』 - 古川武士');
     expect(bad).toMatchObject({ malformed: true, author: '古川武士', candidates: ['SMALL ACTIONS, BIG RESULTS', 'やめる習慣'] });
     expect(parseRelatedBookLine('1. 『嫌われる勇気』（続編も） - 岸見一郎')).toMatchObject({ malformed: true, candidates: ['嫌われる勇気'] });
-    expect(parseRelatedBookLine('1. タイトルだけ')).toBeNull();
+    // 『』の無い番号つきの行は、確かめるまで本のカードにしない崩れた行（2026-10-04・下の describe）
+    expect(parseRelatedBookLine('1. タイトルだけ')).toMatchObject({ malformed: true, plain: true, candidates: ['タイトルだけ'] });
+    expect(parseRelatedBookLine('タイトルだけ')).toBeNull();
   });
 
   it('見つかった 1 冊だけの行に書き直す（ほかの本・説明はそのまま）', async () => {
@@ -97,8 +99,8 @@ describe('崩れた関連書籍の行（2 冊を混ぜた行）', () => {
     expect(hasMalformedRelatedBooks(sheet)).toBe(false);
   });
 
-  it('どれも見つからなければ（確かめられなくても）その本ごと消す', async () => {
-    const verify = vi.fn(async ({ title }) => (title === '夢をかなえるゾウ' ? { exists: true } : { exists: null }));
+  it('どれも見つからなければ（どの書名も「無い」と分かれば）その本ごと消す', async () => {
+    const verify = vi.fn(async ({ title }) => ({ exists: title === '夢をかなえるゾウ' }));
     const { sheet, removed } = await verifyPlanRelatedBooks(MIXED, verify);
     expect(sheet).not.toContain('やめる習慣');
     expect(sheet).not.toContain('何を続け');
@@ -106,8 +108,67 @@ describe('崩れた関連書籍の行（2 冊を混ぜた行）', () => {
     expect(removed).toHaveLength(1);
   });
 
+  // 2026-10-04: オフラインで保存済みのシートを開いただけで本が消えないように。画面には出さないまま残し、次に開いたときにまた確かめる。
+  it('確かめられなかった書名があれば、崩れた行は消さずに残す（画面には出さない）', async () => {
+    const verify = vi.fn(async ({ title }) => (title === '夢をかなえるゾウ' ? { exists: true } : { exists: null }));
+    const { sheet, removed } = await verifyPlanRelatedBooks(MIXED, verify);
+    expect(sheet).toBe(MIXED);
+    expect(removed).toEqual([]);
+    expect(hasMalformedRelatedBooks(sheet)).toBe(true);
+  });
+
   it('hasMalformedRelatedBooks', () => {
     expect(hasMalformedRelatedBooks(MIXED)).toBe(true);
     expect(hasMalformedRelatedBooks('## 📚 関連書籍\n### 1. 『夢をかなえるゾウ』- 水野敬也')).toBe(false);
+  });
+});
+
+// 2026-10-04: 『』の無い行（「### 1. 7つの習慣 - スティーブン・R・コヴィー」）は、以前は確かめずに本のカードにしていた
+// （MarkdownSections の RELATED_BOOK_RE_PLAIN）。1 冊の書名に見える行だけを崩れた行として確かめ、『』の行に直すか消す。
+describe('『』の無い関連書籍の行', () => {
+  const PLAIN = [
+    '## 📚 関連書籍',
+    '### 1. 7つの習慣 - スティーブン・R・コヴィー',
+    '主体性の考え方を補える。',
+    '### 2. 1日1行の読書術 - 架空太郎',
+    'それらしい説明。',
+    '### 3. 7つの習慣 または やめる習慣 - 古川武士',
+    '続け方の視点。',
+    '### 4. この本を読み終えたら、次は実践の本で手を動かしましょう。',
+    '本ではない見出しの説明。',
+    '### 読む順番',
+    '番号の無い見出し。',
+  ].join('\n');
+
+  it('parseRelatedBookLine: 番号つきで 1 冊の書名に見える行だけを崩れた行（plain）として読む', () => {
+    expect(parseRelatedBookLine('1. 7つの習慣 - スティーブン・R・コヴィー')).toMatchObject({ title: '7つの習慣', author: 'スティーブン・R・コヴィー', malformed: true, plain: true, candidates: ['7つの習慣'] });
+    expect(parseRelatedBookLine('3. 7つの習慣 または やめる習慣 - 古川武士')).toMatchObject({ malformed: true, candidates: ['7つの習慣 または やめる習慣', '7つの習慣', 'やめる習慣'] });
+    expect(parseRelatedBookLine('1. やめる習慣 関連 — 古川武士')).toMatchObject({ malformed: true, candidates: ['やめる習慣'], author: '古川武士' });
+    // 文・長い見出し・番号の無い見出しは本として扱わない（ふつうの小見出しのまま）
+    expect(parseRelatedBookLine('4. この本を読み終えたら、次は実践の本で手を動かしましょう。')).toBeNull();
+    expect(parseRelatedBookLine('読む順番')).toBeNull();
+  });
+
+  it('見つかった本は『』の行に直し、無い本は消す・本ではない見出しはそのまま', async () => {
+    // 著者も照合する（本番の verifyBookExists と同じ）: 『7つの習慣』はコヴィー、『やめる習慣』は古川武士。
+    const verify = vi.fn(async ({ title, author }) => ({
+      exists: (title === '7つの習慣' && /コヴィー/.test(author)) || (title === 'やめる習慣' && author === '古川武士'),
+    }));
+    const { sheet, fixed, removed } = await verifyPlanRelatedBooks(PLAIN, verify);
+    expect(sheet).toContain('### 1. 『7つの習慣』 - スティーブン・R・コヴィー');
+    expect(sheet).toContain('主体性の考え方を補える。');
+    expect(sheet).not.toContain('架空太郎');
+    expect(sheet).not.toContain('それらしい説明');
+    expect(sheet).toContain('### 2. 『やめる習慣』 - 古川武士');
+    expect(sheet).toContain('### 4. この本を読み終えたら');
+    expect(sheet).toContain('### 読む順番');
+    expect(fixed).toEqual(['7つの習慣', 'やめる習慣']);
+    expect(removed).toEqual(['1日1行の読書術']);
+    expect(hasMalformedRelatedBooks(sheet)).toBe(false);
+  });
+
+  it('hasMalformedRelatedBooks: 『』の無い本の行があれば直す対象', () => {
+    expect(hasMalformedRelatedBooks('## 📚 関連書籍\n### 1. 7つの習慣 - コヴィー')).toBe(true);
+    expect(hasMalformedRelatedBooks('## 📚 関連書籍\n### 読む順番\n説明')).toBe(false);
   });
 });

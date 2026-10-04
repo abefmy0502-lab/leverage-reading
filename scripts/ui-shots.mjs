@@ -170,6 +170,10 @@ const SCREENS = [
   { name: 'book-detail-before-ai-analysis', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("LIFE SHIFT")' }, { css: 'summary:has-text("以前の AI 解析を見る")' }, { scrollTo: 'summary:has-text("以前の AI 解析を見る")' }] },
   // 読書計画シート（積読でその場で作る）の先頭「この本の概要」と、目次の項目を引いた「重点的に読む箇所」
   { name: 'book-plan-sheet-overview', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("LIFE SHIFT")' }, { css: 'button:text-is("読書計画シートを作る")' }, { waitFor: '#plan-sheet-fold[open]', timeout: 30000 }, { wait: 3000 }, { scrollTo: '#plan-sheet-fold' }] },
+  // 📚 崩れた関連書籍（&related=messy・2026-10-04）: 2 冊を混ぜた行・『』の無い行・実在しない本を、書誌で確かめて 1 冊の『』の行に直すか消す。
+  //   作ったばかりのシート（LIFE SHIFT）と、保存済みのシートを開いたとき（1兆ドルコーチ）。
+  { name: 'book-plan-sheet-related-messy', url: '/?related=messy', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("LIFE SHIFT")' }, { css: 'button:text-is("読書計画シートを作る")' }, { waitFor: '#plan-sheet-fold[open]', timeout: 30000 }, { wait: 4000 }, { scrollTo: 'h3:has-text("関連書籍")' }] },
+  { name: 'book-detail-plan-related-messy', url: '/?related=messy', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { wait: 2500 }, { scrollBottom: true }, { css: 'summary:has-text("読書計画")' }, { scrollTo: 'h3:has-text("関連書籍")' }] },
   { name: 'book-plan-sheet-noinfo', url: '/?info=none', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("LIFE SHIFT")' }, { css: 'button:text-is("読書計画シートを作る")' }, { waitFor: '#plan-sheet-fold[open]', timeout: 30000 }, { wait: 3000 }, { scrollTo: '#plan-sheet-fold' }] },
   { name: 'book-edit-reading', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("編集")' }] },
   { name: 'book-edit-before', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("LIFE SHIFT")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("編集")' }] },
