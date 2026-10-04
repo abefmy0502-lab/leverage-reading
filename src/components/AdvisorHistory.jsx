@@ -104,7 +104,8 @@ const pageStyle = { display: 'flex', flexDirection: 'column', gap: 'var(--space-
 const navRow = { flexShrink: 0, display: 'flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 52, paddingTop: 'var(--space-1)', paddingBottom: 'var(--space-1)', paddingLeft: 'var(--space-4)', paddingRight: 'var(--space-4)' };
 const navSide = { width: 96, flexShrink: 0 };
 const navTitle = { flex: 1, minWidth: 0, margin: 0, textAlign: 'center', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
-const backBtn = { ...btnText, fontSize: 'var(--text-body)', fontWeight: 400, padding: 'var(--space-2) 0', marginLeft: 'calc(-1 * var(--space-2))', gap: 0, lineHeight: 1.3, whiteSpace: 'nowrap' };
+// 文字は App の BACK_LABEL_SIZE と同じ上限（文字サイズを最大にしても「‹ AI 選書」を 1 行に・2026-10-04）。
+const backBtn = { ...btnText, fontSize: 'min(var(--text-body), var(--text-bar-max))', fontWeight: 400, padding: 'var(--space-2) 0', marginLeft: 'calc(-1 * var(--space-2))', gap: 0, lineHeight: 1.3, whiteSpace: 'nowrap' };
 
 
 // 読む文章（AI の答え・推薦理由）＝明朝 18・行間 1.6。

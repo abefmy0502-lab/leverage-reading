@@ -1774,7 +1774,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             {/* iOS のナビゲーションバーの形: 左に戻る・中央に題名・右は同じ幅の空き。 */}
             <div style={{ width: 96, flexShrink: 0 }}>
               {/* シェブロンの見た目の左端を余白 16 に揃える（アイコンの内側の空きの分だけ左へ戻す）。 */}
-              <button type="button" onClick={backToChat} style={{ ...uiBtnText, fontSize: 'var(--text-body)', fontWeight: 400, padding: 'var(--space-2) 0', marginLeft: 'calc(-1 * var(--space-2))', gap: 0, lineHeight: 1.3 }}>
+              <button type="button" onClick={backToChat} style={{ ...uiBtnText, fontSize: 'min(var(--text-body), var(--text-bar-max))', whiteSpace: 'nowrap', fontWeight: 400, padding: 'var(--space-2) 0', marginLeft: 'calc(-1 * var(--space-2))', gap: 0, lineHeight: 1.3 }}>
                 <ChevronLeft size={20} aria-hidden="true" />相談
               </button>
             </div>
