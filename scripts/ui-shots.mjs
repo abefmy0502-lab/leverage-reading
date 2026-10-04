@@ -317,6 +317,15 @@ const SCREENS = [
   { name: 'action-edit', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[aria-label$="」の操作"]' }, { css: 'button:has-text("編集")' }, { wait: 400 }] },
   // 期限を見直す（期限を過ぎた行動を 1 つずつ・やめるのは右上の ×）
   { name: 'action-review-deadline', url: '/?demo=overdue', steps: [{ css: nav('振り返り') }, { css: 'button:has-text("期限を見直す")' }, { wait: 400 }] },
+  // 行動の総点検（2026-10-04 ui-critic）: 繰り返しの行動を完了した知らせ（1 つだけ）／書きかけの行動を閉じる確認／
+  // やることがすべて完了／いちばん大きな文字の行動の編集／追加（題の下に『書名』）
+  { name: 'action-recurring-done', url: '/?demo=recurring', steps: [{ css: nav('振り返り') }, { css: 'button[role=checkbox][aria-label="「金曜の夕方に、今週の学びを 3 行で書く」を完了にする"]', settle: 1500 }] },
+  { name: 'action-discard-confirm', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button:has-text("追加")' }, { css: '[role=dialog] button:has-text("1兆ドルコーチ")' }, { fill: ['#ae-text', '朝いちばんに部下に質問する'] }, { css: '[role=dialog] button[aria-label="閉じる"]' }] },
+  { name: 'action-edit-discard-confirm', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[aria-label$="」の操作"]' }, { css: 'button:has-text("編集")' }, { css: '[role=dialog] button:text-is("来週")' }, { css: '[role=dialog] button[aria-label="閉じる"]' }] },
+  { name: 'action-delete-confirm', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[aria-label$="」の操作"]' }, { css: 'button:has-text("編集")' }, { css: '[role=dialog] button:text-is("削除")' }] },
+  { name: 'review-action-alldone', url: '/?demo=alldone', steps: [{ css: nav('振り返り') }] },
+  { name: 'action-edit-xxl-text', url: '/', steps: [{ css: nav('振り返り') }, { eval: () => { document.documentElement.style.fontSize = '40px'; } }, { wait: 400 }, { css: 'button[aria-label$="」の操作"]' }, { css: 'button:has-text("編集")' }, { wait: 400 }, { scrollBottom: true }] },
+  { name: 'action-add', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button:has-text("追加")' }, { css: '[role=dialog] button:has-text("1兆ドルコーチ")' }, { wait: 400 }] },
   { name: 'review-memo-menu', url: '/',steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("メモ")' }, { css: 'button[aria-label="このメモの操作"]' }] },
   { name: 'review-record-empty', url: '/?demo=nomemo', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }] },
   { name: 'settings-bottom', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { scrollBottom: true }] },

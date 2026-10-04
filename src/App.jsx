@@ -3510,7 +3510,7 @@ function AuthedApp() {
         title: '行動を削除しますか？',
         message: 'この行動を、期限とふりかえりも含めて削除します。元に戻せません。',
         confirmLabel: '削除する',
-        cancelLabel: 'キャンセル',
+        cancelLabel: 'やめる',
         danger: true,
       });
       if (!ok) return;

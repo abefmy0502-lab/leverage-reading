@@ -354,6 +354,21 @@ export function buildSeed(scenario) {
       }));
   }
 
+  // ?demo=alldone: やることが全部終わっている人（行動タブの「やることはすべて完了しています」の確認用・2026-10-04）。
+  if (scenario === 'alldone') {
+    db.actions.forEach((x) => { if (!x.done) { x.done = true; x.completed_at = iso(1); x.updated_at = iso(1); } });
+  }
+  // ?demo=recurring: 毎週の行動がある人（完了したときの「完了。次回は来週」の確認用・2026-10-04）。
+  if (scenario === 'recurring') {
+    db.actions.push({
+      id: '00000000-0000-4000-8000-0000000ab001',
+      user_id: DEMO_USER_ID, book_id: bookIds[0], text: '金曜の夕方に、今週の学びを 3 行で書く', done: false, priority: 'medium',
+      deadline: dateOnly(-1), recurrence: 'weekly', source_memo_id: null, source_page: null,
+      reflection: '', completed_at: null, notify_at: null, scheduled_for: null,
+      created_at: iso(7), updated_at: iso(7),
+    });
+  }
+
   // 過去の相談（「過去の相談」の一覧の確認用）。答えは本番と同じ【結論】…の書式。
   const CHATS = [
     [12, '会議で意見を言えないのをどうにかしたい', '【結論】\n最初の 5 分で、ひとことだけ「確認の質問」をしてみましょう。\n\n【明日からできる 1 つの行動】\n次の会議の前に、聞きたいことを 1 つだけメモに書いておく。', ['📚 D・カーネギー『人を動かす』 p.64']],

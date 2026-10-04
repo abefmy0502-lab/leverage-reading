@@ -113,7 +113,7 @@ const chipBtn = (active) => ({
 const footerStyle = {
   flexShrink: 0,
   display: 'flex',
-  gap: 'var(--space-2)',
+  gap: 'var(--space-3)',
   padding: 'var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom, 0px))',
   borderTop: '1px solid var(--separator)',
   background: 'var(--surface)',
@@ -146,7 +146,8 @@ const PRIORITIES = [
 ];
 
 const RECURRENCES = [
-  { v: '',        label: '繰り返さない' },
+  // 見出しが「繰り返し」なので「なし」（3 つを同じ幅に並べる・2026-10-04 ui-critic）。
+  { v: '',        label: 'なし' },
   { v: 'weekly',  label: '毎週' },
   { v: 'monthly', label: '毎月' },
 ];
@@ -201,7 +202,7 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete, onS
       danger: true,
     } : {
       title: '保存していない変更があります',
-      message: '行動は元のまま残ります',
+      message: '行動は元のまま残ります。',
       confirmLabel: '直したところを捨てる',
       cancelLabel: '編集を続ける',
       danger: true,
@@ -246,7 +247,7 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete, onS
       title: '行動を削除しますか？',
       message: '削除した行動は元に戻せません。',
       confirmLabel: '削除する',
-      cancelLabel: 'キャンセル',
+      cancelLabel: 'やめる',
       danger: true,
     });
     if (!ok) return;
@@ -267,7 +268,7 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete, onS
           <div style={{ flex: 1, minWidth: 0 }}>
             <h2 id={titleId} style={{ fontSize: 'var(--text-body)', color: 'var(--text)', margin: 0, fontWeight: 600 }}>{isCreate ? '行動を追加' : step ? `期限を見直す（${step.index}/${step.total}）` : '行動を編集'}</h2>
             {shownBookTitle && (
-              <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>『{shownBookTitle}』</p>
+              <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFeatureSettings: '"palt"' }}>『{shownBookTitle}』</p>
             )}
           </div>
           {/* やめる・キャンセルは右上の × 1 か所（下の行は 削除＋保存 だけ・2026-10-01 ui-critic）。 */}
@@ -352,7 +353,7 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete, onS
                   type="button"
                   aria-pressed={(recurrence || '') === r.v}
                   onClick={() => setRecurrence(r.v)}
-                  style={{ ...chipBtn((recurrence || '') === r.v), flex: '1 1 0', minWidth: 'max-content', whiteSpace: 'nowrap' }}
+                  style={{ ...chipBtn((recurrence || '') === r.v), whiteSpace: 'nowrap' }}
                 >
                   {r.label}
                 </button>
