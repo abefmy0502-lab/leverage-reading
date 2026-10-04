@@ -4914,7 +4914,10 @@ function AuthedApp() {
               onRetry={() => refreshBooks()}
               onQuickstart={() => setShowQuickstart(true)}
               onImport={() => setShowImport(true)}
-              onAddBook={() => openAdd('reading')}
+              // 「＋ 本を追加」の状態は既定の「読みたい」（2026-10-04 オーナー「読みたいがデフォルトでいいのでは？」）。
+              // 「いま読んでいる本を追加する」（本 0 冊のカード）だけは読書中で開く。
+              onAddBook={() => openAdd()}
+              onAddReadingBook={() => openAdd('reading')}
               onAdvisor={() => { setAiSubTab('advisor'); setTab('ai'); }}
               onOpenBook={(b) => openDetail(b)}
               onWriteMemo={(b) => setHomeMemoBook(b)}

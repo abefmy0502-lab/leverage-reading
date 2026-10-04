@@ -32,6 +32,7 @@ const sectionTitle = {
 const textRow = btnLink;
 
 function StartCard({ onQuickstart, onAddBook, onAdvisor, onImport }) {
+  // 「いま読んでいる本を追加する」なので、この入口だけ状態を読書中にして開く（onAddBook＝読書中のプリセット）。
   return (
     <section aria-labelledby="home-start-title" style={card}>
       {/* 「読むほど、自分だけの相談相手が育つ」はログインと初回ガイドで伝え済み。ここは行動だけを示す（同じことを二度言わない）。 */}
@@ -160,7 +161,7 @@ export function HomeBlocksSkeleton() {
 
 export default function HomeScreen({
   books = [], loading = false, loadError = null, onRetry,
-  onQuickstart, onAddBook, onAdvisor, onImport,
+  onQuickstart, onAddBook, onAddReadingBook, onAdvisor, onImport,
   onOpenBook, onWriteMemo, onStartReading, onOpenLibrary, onSeeAllReading, onCoverRetry,
 }) {
   // メモがあるか（はじめの一歩を出すか）。分かるまではスケルトン（カードを遅れて差し込まない・最大 800ms）。
@@ -204,7 +205,7 @@ export default function HomeScreen({
           actions={onRetry ? [{ label: 'もう一度', onClick: onRetry, variant: 'primary' }] : []}
         />
       ) : books.length === 0 ? (
-        <StartCard onQuickstart={onQuickstart} onAddBook={onAddBook} onAdvisor={onAdvisor} onImport={onImport} />
+        <StartCard onQuickstart={onQuickstart} onAddBook={onAddReadingBook || onAddBook} onAdvisor={onAdvisor} onImport={onImport} />
       ) : !memoState.known ? (
         <div role="status" aria-busy="true" aria-label="読み込み中" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
           <HomeBlocksSkeleton />

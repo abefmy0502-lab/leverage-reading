@@ -321,6 +321,8 @@ const SCREENS = [
   { name: 'add-book-results', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を追加"]' }, { fill: ['#add-book-query', 'ファクト'] }, { css: 'button:has-text("検索")' }, { wait: 1500 }] },
   // 本の検索「考え方」（2026-10-02 オーナー報告: 稲盛和夫『考え方』が出ない）。サーバーの検索（楽天の売上順）で
   //   書名がまるごと同じ本を 1 位に・表紙つき。add-book-kangaekata-old は直す前と同じ端末だけの検索（&search=old）。
+  // ホームの「＋ 本を追加」から選んだあとのフォーム（状態の初めの選択は「読みたい」・2026-10-04）
+  { name: 'add-book-form-home', url: '/', steps: [{ css: 'button:has-text("本を追加") >> nth=0' }, { fill: ['#add-book-query', '考え方'] }, { css: 'button:has-text("検索")' }, { wait: 1500 }, { css: '[role=dialog] li button >> nth=0' }, { wait: 800 }] },
   { name: 'add-book-kangaekata', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を追加"]' }, { fill: ['#add-book-query', '考え方'] }, { css: 'button:has-text("検索")' }, { wait: 1500 }] },
   { name: 'add-book-kangaekata-author', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を追加"]' }, { fill: ['#add-book-query', '稲盛和夫 考え方'] }, { css: 'button:has-text("検索")' }, { wait: 1500 }] },
   // 一覧を最後まで出したあとの「著者名も入れると絞り込めます」（一覧の下・2026-10-02 ui-critic）／読み込み中（&search=slow）
