@@ -27,6 +27,7 @@ import Spinner from './Spinner';
 import TodayCard from './admin/TodayCard';
 import LaunchKpiCard from './admin/LaunchKpiCard';
 import { DATE_HINT } from '../lib/dateHint';
+import { todayLocal } from '../lib/dates';
 import {
   evaluateRules, SALES_MILESTONES, SHIP_CHECKLIST, MIN_N, weekStartISO, monthlyMilestoneNeed,
 } from '../lib/playbook';
@@ -224,7 +225,7 @@ export default function AdminDashboard({ onClose }) {
   const goLive = () => {
     // 不可逆の切替なので確認を挟む。配信日は未入力なら今日。
     if (!window.confirm('配信中モードに切り替えますか？（KPI計器と判定ルールが有効になります。元に戻す想定はありません）')) return;
-    const d = launchDate || new Date().toISOString().slice(0, 10);
+    const d = launchDate || todayLocal();
     setLaunchDate(d); setPhase('live');
     try { localStorage.setItem('orime-ops-phase', 'live'); localStorage.setItem('orime-ops-launch-date', d); } catch { /* quota */ }
   };
@@ -519,7 +520,7 @@ export default function AdminDashboard({ onClose }) {
     setTaskAdding(true);
     try {
       const { error } = await supabase.from('ops_tasks')
-        .insert({ due_date: new Date().toISOString().slice(0, 10), dept: '経営', title: title.slice(0, 200) });
+        .insert({ due_date: todayLocal(), dept: '経営', title: title.slice(0, 200) });
       if (!error) { setNewTaskTitle(''); await loadTasks(); }
     } finally { setTaskAdding(false); }
   };
@@ -804,7 +805,7 @@ export default function AdminDashboard({ onClose }) {
                   style={{ ...btnPrimary, width: 'auto', minHeight: 44, padding: '0 16px', opacity: (taskAdding || !newTaskTitle.trim()) ? 0.5 : 1 }}>追加</button>
               </div>
               {(() => {
-                const todayStr = new Date().toISOString().slice(0, 10);
+                const todayStr = todayLocal();
                 const upcoming = dailyTasks.filter((t) => t.due_date >= todayStr || !t.done).slice(0, 60);
                 if (upcoming.length === 0) return null;
                 return upcoming.map((t) => (
