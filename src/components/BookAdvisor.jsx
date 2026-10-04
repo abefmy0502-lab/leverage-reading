@@ -27,6 +27,7 @@ import { toMessage } from '../lib/errors';
 import { track } from '../lib/analytics';
 import { isStrictMatch, isExactMatch } from '../lib/bookMatch';
 import { verifyBookExists, checkImageExists } from '../lib/bookCover';
+import { normalizeAdvisorRecs, resolveMixedRec, focusText, emptyReasonOf } from '../lib/advisorRecs';
 import { searchBooksFlat as searchBooksAPIFlat } from '../lib/bookSearch';
 import { STORE_DISCLOSURE_TEXT } from '../lib/rakutenLink';
 import AdvisorStoreLinks from './AdvisorStoreLinks';
@@ -45,6 +46,7 @@ import { TabPanelSkeleton } from './lazyParts';
 // 過去の AI 選書の上の行（押し込まれた画面の形）と日付の書き方。行はスクロールの箱の外に置く（2026-10-04）。
 import { AdvisorNavBar, formatDate as advisorSessionDate } from './AdvisorHistory';
 import ErrorMessage from './ErrorMessage';
+import { SkeletonBlock } from './Skeleton';
 import TightBubble, { withPhraseBreaks } from './TightBubble';
 import { displayUserText, concernOf, interviewPairsOf, advisorSetupFields, advisorSetupPayload } from '../lib/advisorText';
 import { usePaywall } from '../state/PaywallContext';
@@ -410,7 +412,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         blockEndAbs = cut >= 0 ? s + START.length + cut : text.length;
       }
       const arr = tolerantRecArray(jsonRaw);
-      const parsed = Array.isArray(arr) ? arr.filter((r) => r && typeof r.title === 'string') : null;
+      // 書名の欄に 2 冊を混ぜたカードには _alts を付け、AI が付けた表紙・ISBN は捨てる（lib/advisorRecs.js・2026-10-04）
+      const parsed = Array.isArray(arr) ? normalizeAdvisorRecs(arr) : null;
       if (parsed && parsed.length > 0) recs = parsed; // 最後の valid を保持
       lastEnd = blockEndAbs;
       from = blockEndAbs > s ? blockEndAbs : s + START.length; // 必ず前進
@@ -533,16 +536,31 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     if (!Array.isArray(pool) || pool.length === 0) return null;
     const stale = () => unmountedRef.current || verifyGenRef.current !== gen;
     const results = [];
-    for (const rec of pool) {
+    // 2 冊を混ぜて 1 冊にできなかったカードの確かめた結果（false＝どの書名も無い・null＝確かめられなかった）
+    const droppedMixed = [];
+    const verifyOne = ({ title, author }) => Promise.race([
+      verifyBookExists({ title, author }),
+      new Promise((res) => { setTimeout(() => res({ exists: null }), 6000); }),
+    ]);
+    // 古い会話のカードも同じ形に（書名の欄の 2 冊・AI が付けた表紙と ISBN・lib/advisorRecs.js）
+    for (const raw of normalizeAdvisorRecs(pool)) {
       if (stale()) return null; // 再生成/離脱済み — 外部APIをこれ以上叩かない
+      let rec = raw;
       let v = { exists: null };
-      try {
+      if (rec._alts) {
+        // 書名の欄に 2 冊が入っていた（「A または B」など）→ 1 冊ずつ確かめて、見つかった 1 冊のカードにする。
+        // 見つからない・確かめられないときは、どの組にも入れない（2 冊を 1 枚のカードで見せない・2026-10-04）。
         // eslint-disable-next-line no-await-in-loop
-        v = await Promise.race([
-          verifyBookExists({ title: rec.title, author: rec.author, isbn: rec.isbn }),
-          new Promise((res) => { setTimeout(() => res({ exists: null }), 6000); }),
-        ]);
-      } catch { v = { exists: null }; }
+        const r = await resolveMixedRec(rec, verifyOne, { pause: 250 });
+        if (r.rec._mixed) { droppedMixed.push(r.v.exists); continue; }
+        rec = r.rec;
+        v = r.v;
+      } else {
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          v = await verifyOne({ title: rec.title, author: rec.author });
+        } catch { v = { exists: null }; }
+      }
       // 表紙: rec.cover → サーバー cover → candidates を <img> 実在検証で採用。
       let cover = (rec.cover || '').trim();
       // eslint-disable-next-line no-await-in-loop
@@ -572,7 +590,9 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     // 1〜2 枚に痩せるため、⚠️警告バッジ付きで残して枚数を維持する（正直に「確認できていない」を見せる方を選ぶ）。
     const solid = [...verified, ...unknown];
     const items = (solid.length >= 3 ? solid : [...solid, ...suspects]).slice(0, 5);
-    setRecommendations((prev) => (prev ? { ...prev, items, checked: true } : prev));
+    // カードが 0 枚のときの言い方: どの書名も「無い」と分かった（'none'）か、確かめられなかった（'unknown'）か
+    const emptyReason = emptyReasonOf(items, droppedMixed);
+    setRecommendations((prev) => (prev ? { ...prev, items, checked: true, emptyReason } : prev));
     return items;
   };
 
@@ -772,7 +792,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       // 実在検証＋表紙先読みを回す。ゴースト（実在しない本）は検証後に予備と
       // 差し替えられる。
       const verifyPool = recs.slice(0, 7);
-      const finalList = verifyPool.slice(0, 5);
+      // 書名の欄に 2 冊を混ぜたカード（_alts）は、確かめて 1 冊にするまで出さない（2026-10-04）
+      const finalList = verifyPool.filter((r) => !r._alts).slice(0, 5);
       const nextReco = {
         items: finalList,
         before: prose?.before || '',
@@ -1005,10 +1026,11 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         }))
         .filter((m) => m.text), // 剥がして空になった吹き出しは出さない
     );
-    const recsList = Array.isArray(s.recommended_books) ? s.recommended_books : [];
+    // 書名の欄に 2 冊を混ぜたカード・AI が付けた表紙と ISBN は、保存済みの会話でも整える（lib/advisorRecs.js・2026-10-04）
+    const recsList = normalizeAdvisorRecs(Array.isArray(s.recommended_books) ? s.recommended_books : []);
     // 実在の検証の結果（_verify）を持たない古い会話は、開いたときに確かめ直す（本文の書名もそれで絞る）。
     const needsCheck = recsList.length > 0 && recsList.some((r) => !r?._verify);
-    setRecommendations(recsList.length > 0 ? { items: recsList, before: '', after: '', pool: recsList, checked: !needsCheck } : null);
+    setRecommendations(recsList.length > 0 ? { items: recsList.filter((r) => !r._alts), before: '', after: '', pool: recsList, checked: !needsCheck } : null);
     if (needsCheck) startVerify(recsList, s.id);
     else verifyGenRef.current += 1; // 前の会話の検証が後から結果を上書きしないように
     // 直近の user 発話を lastUserQuery として復元 → 「読みたいに追加」時の課題（と得たいことの分け方）に使う
@@ -1032,6 +1054,11 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   //   （同じ「確認できませんでした」をカードごとに並べない）。
   const recoItems = Array.isArray(recommendations?.items) ? recommendations.items : [];
   const allUnverifiable = recommendations?.checked !== false && recoItems.length > 0 && recoItems.every((r) => r?._verify === 'unknown');
+  // 2 冊を混ぜたカード（_alts）を確かめている途中（カード 1 枚ぶんの骨組みを出す）
+  const mixedPending = recommendations?.checked === false && recoItems.length < 5
+    && Array.isArray(recommendations?.pool) && recommendations.pool.some((r) => r && Array.isArray(r._alts) && r._alts.length > 0);
+  // 確かめ終わって、出せるカードが 0 枚（ErrorMessage に替える）
+  const recoEmpty = !!recommendations && recommendations.checked !== false && recoItems.length === 0;
   const cleanProseTitles = (text) => filterProseTitles(text, proseLists);
 
   const isEmpty = messages.length === 0 && !recommendations;
@@ -1654,8 +1681,39 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         })();
       })}
 
+      {/* 確かめ終わって、出せるカードが 1 枚も無いとき（どの本も 1 冊と確かめられなかった・2026-10-04 ui-critic）:
+          前置き・カード・読む順番の代わりに ErrorMessage だけ（「もう一度」で同じ相談を送り直す）。 */}
+      {/* 行き止まりにしない（2026-10-04 ui-critic）: どの書名も実在しないと分かったときは、同じ相談を送り直しても
+          同じなので「別の条件で探す」を主に。確かめられなかった（通信など）ときは「もう一度」＋文字の「別の条件で探す」。 */}
+      {recoEmpty && !recoLoading && (recommendations.emptyReason === 'none' ? (
+        <ErrorMessage
+          icon={null}
+          title="実在する本が見つかりませんでした"
+          description="条件を変えて、もう一度探してください。"
+          actions={[{ label: '別の条件で探す', onClick: resetToConcern, variant: 'primary' }]}
+        />
+      ) : (
+        <ErrorMessage
+          icon={null}
+          title="本を確かめられませんでした"
+          description="少し時間をおいて、もう一度お試しください。"
+          actions={[
+            {
+              label: 'もう一度',
+              onClick: () => {
+                const a = lastRecoArgsRef.current;
+                if (a) generateRecommendations(a.userMsg, a.sourceQuery);
+                else resetToConcern();
+              },
+              variant: 'secondary',
+            },
+            { label: '別の条件で探す', onClick: resetToConcern, variant: 'ghost' },
+          ]}
+        />
+      ))}
+
       {/* Recommendations — 1 冊 1 カード（理由つき） */}
-      {recommendations && (
+      {recommendations && !recoEmpty && (
         // 3 つのまとまり（前置き＋本のカード → 読む順番 → 注記＋やり直し）。中は 12・間は 24（DESIGN §1）。
         <div ref={recoBlockRef} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)', animation: 'fadeIn .3s', scrollMarginTop: 'var(--space-2)' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
@@ -1728,10 +1786,11 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
                     <p style={fieldText}>{rec.core}</p>
                   </div>
                 )}
-                {rec.focus && (
+                {/* 章番号・ページを書いた注目ポイントは出さない（AI は目次を持っていない＝推測・lib/advisorRecs.js の focusText） */}
+                {focusText(rec.focus) && (
                   <div style={{ marginTop: 'var(--space-3)' }}>
                     <p style={fieldLabel}>注目ポイント</p>
-                    <p style={fieldText}>{rec.focus}</p>
+                    <p style={fieldText}>{focusText(rec.focus)}</p>
                   </div>
                 )}
                 {rec.duration && (
@@ -1783,9 +1842,25 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
               </div>
             );
           })}
+          {/* 2 冊を混ぜたカードを確かめている間は、カード 1 枚ぶんの骨組みで場所を取っておく
+              （確かめ終わって 1 冊のカードが後から入っても、下の文が押し下がらない・2026-10-04 ui-critic）。 */}
+          {mixedPending && (
+            <div aria-hidden="true" style={{ ...cardStyle, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+              <SkeletonBlock width={28} height={13} />
+              <SkeletonBlock width="70%" height={22} />
+              <SkeletonBlock width="40%" height={13} />
+              <SkeletonBlock width="30%" height={13} style={{ marginTop: 'var(--space-3)' }} />
+              <SkeletonBlock width="100%" height={18} />
+              <SkeletonBlock width="85%" height={18} />
+              <SkeletonBlock width="30%" height={13} style={{ marginTop: 'var(--space-3)' }} />
+              <SkeletonBlock width="90%" height={15} />
+              <SkeletonBlock width="100%" height={48} radius="var(--radius)" style={{ marginTop: 'var(--space-4)' }} />
+              <SkeletonBlock width={160} height={20} style={{ marginTop: 'var(--space-3)' }} />
+            </div>
+          )}
           {allUnverifiable && (
             <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, margin: 0 }}>
-              本の実在を確かめられませんでした。購入前に書名を確かめてください
+              本の実在を確かめられませんでした。購入前に書名を確かめてください。
             </p>
           )}
         </div>

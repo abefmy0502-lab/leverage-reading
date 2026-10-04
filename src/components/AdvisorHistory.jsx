@@ -26,6 +26,7 @@ import { displayUserText, concernOf, interviewPairsOf, advisorSetupPayload } fro
 import { filterProseTitles, proseTitleLists } from '../lib/advisorProse';
 import { dropSummarySection, introTextOf, splitRecoAnswer } from '../lib/advisorSummary';
 import { fmtDateTimeJa } from '../lib/dates';
+import { normalizeAdvisorRecs, focusText } from '../lib/advisorRecs';
 
 // 日時は過去の相談と同じ「10月4日 22:38」（lib/dates.js の fmtDateTimeJa・以前は「今日 22:38」と混ざっていた・2026-10-04）。
 export function formatDate(iso) {
@@ -280,7 +281,8 @@ function RecommendationCard({ book, index = 0, isAdded, isChecking, onAdd }) {
         </div>
       )}
       {book.core && <RecField label="この本の核心" text={book.core} />}
-      {book.focus && <RecField label="注目ポイント" text={book.focus} />}
+      {/* 章番号・ページを書いた注目ポイントは出さない（推測・lib/advisorRecs.js）。目安は会話中のカードと同じ小さな見出し＋本文。 */}
+      {focusText(book.focus) && <RecField label="注目ポイント" text={focusText(book.focus)} />}
       {book.duration && <RecField label="目安" text={book.duration} />}
 
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 'var(--space-2)', marginTop: 'var(--space-4)' }}>
@@ -330,7 +332,8 @@ function RecField({ label, text }) {
 
 export function AdvisorSessionDetail({ session, books, onResume, onNewSession, onClose, onAddBook, onBookAdded, verifyBeforeAdd = null }) {
   const messages = useMemo(() => Array.isArray(session?.messages) ? session.messages : [], [session]);
-  const recs = useMemo(() => Array.isArray(session?.recommended_books) ? session.recommended_books : [], [session]);
+  // 書名の欄に 2 冊を混ぜたカードは出さない（「この会話を続ける」で確かめ直して 1 冊にする）・AI が付けた表紙と ISBN は捨てる（2026-10-04）
+  const recs = useMemo(() => normalizeAdvisorRecs(Array.isArray(session?.recommended_books) ? session.recommended_books : []).filter((r) => !r._alts), [session]);
   // AI の文の書名は、実在を確かめたカードの本（_verify==='ok'）と本棚の本だけ残す（会話中と同じ・lib/advisorProse.js）。
   //   確かめた結果を持たない古い会話は、本棚の本以外の書名を出さない（「この会話を続ける」で確かめ直せる）。
   const proseLists = useMemo(() => proseTitleLists(recs, books), [recs, books]);

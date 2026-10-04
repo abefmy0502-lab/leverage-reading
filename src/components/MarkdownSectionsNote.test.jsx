@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import MarkdownSections from './MarkdownSections';
-import { PLAN_NO_TOC_LINE } from '../lib/prompts';
+import { PLAN_NO_TOC_LINE, PLAN_NO_MATCH_LINE } from '../lib/prompts';
 
 describe('MarkdownSections の注記', () => {
   it('目次が無い旨の決まった 1 行は注記の見た目・ほかの本文は明朝のまま', () => {
@@ -14,5 +14,10 @@ describe('MarkdownSections の注記', () => {
     const body = plain.split(PLAN_NO_TOC_LINE)[1] || '';
     expect(body).toMatch(/<p style="[^"]*font-family:var\(--font-read\)/);
     expect(body.replace(/<[^>]+>/g, '')).toContain('本文の段落です。');
+  });
+  it('目次と合う章が無かった旨の決まった 1 行（2026-10-04）も注記の見た目', () => {
+    const html = renderToStaticMarkup(<MarkdownSections flat text={`## 📍 重点的に読む箇所（20%）\n${PLAN_NO_MATCH_LINE}`} />);
+    const plain = html.replace(/<wbr\s*\/?>/g, '');
+    expect(plain).toMatch(new RegExp(`<p style="[^"]*font-size:var\\(--text-meta\\)[^"]*color:var\\(--text-3\\)[^"]*">${PLAN_NO_MATCH_LINE}</p>`));
   });
 });

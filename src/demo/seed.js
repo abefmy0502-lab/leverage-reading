@@ -126,6 +126,20 @@ const BOOK_EXTRAS = {
   },
 };
 
+// &related=messy（2026-10-04）: AI が崩して書いた「関連書籍」。見本の書誌（SEARCH_CATALOG）にある本は
+// 『GRIT やり抜く力』『思考の整理学』『7つの習慣』だけ。読書計画シートを作るとき（demoFetch.js）と保存済みのシートで共通。
+export const DEMO_MESSY_RELATED = [
+  '## 📚 関連書籍',
+  '### 1. 『GRIT やり抜く力』- アンジェラ・ダックワース',
+  '長いステージを走り切る粘り強さを、習慣として育てる考え方が補えます。',
+  '### 2. 『SMALL ACTIONS, BIG RESULTS』関連 または『思考の整理学』 - 外山滋比古',
+  '学び直しの時間を、自分の考えにまとめる力につなげられます。',
+  '### 3. 7つの習慣 - スティーブン・R・コヴィー',
+  '自分で選んで動く「主体性」の考え方を、働き方の見直しに使えます。',
+  '### 4. 1日1行の読書術 - 架空太郎',
+  '毎日少しずつ読み進める方法が分かります。',
+].join('\n');
+
 // [bookIndex | null, page, text, daysAgo, tags, recallCount]
 const MEMOS = [
   [0, 32, '読書は「投資」。1冊から1つでも行動が変われば元は取れる。全部覚えようとしなくていい。', 188, ['読書術'], 2],
@@ -257,6 +271,23 @@ export function buildSeed(scenario) {
       id: `${bookIds[i]}-t-${tag}`, book_id: bookIds[i], user_id: DEMO_USER_ID, tag_name: tag,
     }));
   });
+
+  // &related=messy: 『1兆ドルコーチ』の保存済みの読書計画シートに、崩れた関連書籍がある人（2026-10-04）。
+  //   2 冊を混ぜた行・『』の無い行・実在しない本。開くと書誌で確かめて 1 冊の『』の行に直すか消す（App.jsx の repair）。
+  if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('related') === 'messy') {
+    db.books.forEach((b) => {
+      if (b.title === '1兆ドルコーチ') b.ai_strategy = `${b.ai_strategy}\n\n${DEMO_MESSY_RELATED}`;
+      // 以前の AI 解析（書誌で確かめていない）に本を挙げる節がある人。画面ではこの節を出さない。
+      if (b.title === 'LIFE SHIFT') b.ai_analysis = `${b.ai_analysis}\n\n## 📚 関連書籍\n### 1. 『100年時代の人生戦略ノート』- 架空花子\n人生の段階を書き出すワークが付いています。`;
+    });
+  }
+
+  // &related=legacyonly: 以前の AI 解析が関連書籍の節だけの人（畳みごと出さないことの確認用・2026-10-04）
+  if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('related') === 'legacyonly') {
+    db.books.forEach((b) => {
+      if (b.title === 'LIFE SHIFT') b.ai_analysis = '## 📚 関連書籍\n### 1. 『100年時代の人生戦略ノート』- 架空花子\n人生の段階を書き出すワークが付いています。';
+    });
+  }
 
   // ?demo=planempty: 積読の『LIFE SHIFT』に得たいこと・課題・仮説・シートがまだ無い人
   //   （積読の「この本について」がカードで出る形の確認用・2026-10-02）。

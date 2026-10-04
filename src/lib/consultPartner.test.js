@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { consultPartner, partnerFromRefs, partnerFromScope, shelfBooks, bookPartnerLabel, perbookSummaryPartner, SHELF_LABEL, SELF_LABEL } from './consultPartner';
+import { consultPartner, partnerFromRefs, partnerFromScope, shelfBooks, bookPartnerLabel, perbookSummaryPartner, shelfBookForTitle, SHELF_LABEL, SELF_LABEL } from './consultPartner';
 import { QUOTE_PREFIX } from './evidenceCheck';
 
 const BOOKS = [
@@ -77,6 +77,12 @@ describe('consultPartner（相談相手のアイコン・2026-09-30）', () => {
     expect(partnerFromRefs(['🌱 あなたのメモ 3 件から答えました', '🌿 前の相談から メモ +2 件', '🪙 関係するメモが無かったので', '🎯 2'], BOOKS)).toBeNull();
   });
 
+  it('メモのある本が 1〜3 冊なら、本棚のほかの本で表紙を 4 つまで埋める（「あなたの本棚」のアイコンを 1 冊に見せない）', () => {
+    const p = partnerFromScope({ scopeIds: [], books: BOOKS, memoBookIds: new Set(['b2']) });
+    expect(p.label).toBe(SHELF_LABEL);
+    expect(p.books.map((b) => b.id)).toEqual(['b2', 'b5', 'b1', 'b3']);
+  });
+
   it('本棚にメモのある本が無ければ、表紙の無い「あなたの本棚」', () => {
     const p = partnerFromScope({ scopeIds: [], books: BOOKS, memoBookIds: new Set() });
     expect(p.kind).toBe('group');
@@ -90,5 +96,24 @@ describe('consultPartner（相談相手のアイコン・2026-09-30）', () => {
     expect(perbookSummaryPartner(p).kind).toBe('group');
     const shelf = partnerFromScope({ scopeIds: [], books: BOOKS });
     expect(perbookSummaryPartner(shelf).label).toBe(SHELF_LABEL);
+  });
+});
+
+// 2026-10-04: 本ごとのカード・もとになった本は本棚の本だけ（AI が材料の外から本を持ち出したときに出さない）。
+describe('shelfBookForTitle', () => {
+  it('まるごと同じ・副題つき・副題を落とした書名は本棚の本', () => {
+    expect(shelfBookForTitle('イシューからはじめよ', BOOKS)?.id).toBe('b1');
+    expect(shelfBookForTitle('イシューからはじめよ 知的生産の「シンプルな本質」', BOOKS)?.id).toBe('b1');
+    expect(shelfBookForTitle('エッセンシャル 思考', BOOKS)?.id).toBe('b5');
+    expect(shelfBookForTitle('数値化', BOOKS)?.id).toBe('b3');
+  });
+  it('本棚に無い本・短すぎる書名は null', () => {
+    expect(shelfBookForTitle('7つの習慣', BOOKS)).toBeNull();
+    expect(shelfBookForTitle('鬼', BOOKS)).toBeNull();
+    expect(shelfBookForTitle('', BOOKS)).toBeNull();
+  });
+  it('渡したメモに無い本（x）は相談相手にしない', () => {
+    const refs = ['📚 安宅和人『イシューからはじめよ』p.25', `${QUOTE_PREFIX}${JSON.stringify({ k: 'r', t: 'イシューからはじめよ', s: 'x' })}`];
+    expect(partnerFromRefs(refs, BOOKS)).toBeNull();
   });
 });
