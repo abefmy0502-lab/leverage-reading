@@ -16,7 +16,7 @@ import ContextMenu from './ContextMenu';
 import BookMemoCard from './BookMemoCard';
 import BookMemoEditor from './BookMemoEditor';
 import ShareSheet from './ShareSheet';
-import { BookOpen, PencilLine, Clock, Quote, Pencil, Copy, Share, Trash2, Sparkles, Target, ChevronDown, Check } from 'lucide-react';
+import { BookOpen, PencilLine, Pencil, Copy, Share, Trash2, Sparkles, Target, ChevronDown, Check } from 'lucide-react';
 import { btnGhost, btnGhostOff, btnLink } from '../styles/ui';
 import MemoLinks from './MemoLinks';
 import { useMemoLinkFinder } from '../hooks/useMemoLinkFinder';
@@ -45,6 +45,9 @@ const summaryTextarea = {
   outline: 'none',
   boxSizing: 'border-box',
 };
+
+// 絞り込みのメニューの印（選んでいる行は ✓・ほかは同じ幅の空き）。
+const menuCheck = (on) => (on ? <Check size={16} aria-hidden="true" /> : <span aria-hidden="true" style={{ display: 'inline-block', width: 16 }} />);
 
 // まとめの保存は副ボタン（詳細画面の主ボタンは「メモを書く」1 つ・DESIGN §0）。
 // 保存中は薄くせず btnGhostOff（DESIGN §5「押せないボタン」）。
@@ -666,10 +669,12 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
           x={sortMenu.x}
           y={sortMenu.y}
           onClose={() => setSortMenu(null)}
+          // DESIGN §5「絞り込みのメニュー」: 選んでいる行に ✓、ほかの行は同じ幅の空き（行ごとの絵のアイコンは付けない・
+          // 振り返りの「すべての種類 ▾」と同じ作法・2026-10-04）。「ページ番号つきだけ」はもう一度押すと外れる。
           items={[
-            { label: 'ページ順', icon: sortBy === 'page' ? <Check size={16} aria-hidden="true" /> : <BookOpen size={16} aria-hidden="true" />, onClick: () => setSortBy('page') },
-            { label: '新しい順', icon: sortBy === 'created_desc' ? <Check size={16} aria-hidden="true" /> : <Clock size={16} aria-hidden="true" />, onClick: () => setSortBy('created_desc') },
-            { label: quoteOnly ? 'すべてのメモを表示' : 'ページ番号つきだけ', icon: <Quote size={16} aria-hidden="true" />, onClick: () => setQuoteOnly((v) => !v) },
+            { label: 'ページ順', icon: menuCheck(sortBy === 'page'), onClick: () => setSortBy('page') },
+            { label: '新しい順', icon: menuCheck(sortBy === 'created_desc'), onClick: () => setSortBy('created_desc') },
+            { label: 'ページ番号つきだけ', icon: menuCheck(quoteOnly), onClick: () => setQuoteOnly((v) => !v) },
           ]}
         />
       )}
