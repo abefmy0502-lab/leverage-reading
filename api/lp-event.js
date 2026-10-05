@@ -10,9 +10,13 @@ import { createClient } from '@supabase/supabase-js';
 
 // demo_* は 2026-10-02 まで LP にあった「試しに、相談してみる」の記録（過去の行の読み分けのために残す）。
 // flow_* は相談の流れの 4 枚（LpFlow.jsx）・section_view は節が画面に入った（1 回）・offer_badge は創業メンバー価格の印。
-const EVENTS = new Set([
+// （2026-10-05）waitlist_submit＝公開のお知らせの登録を送った（props.ok・失敗は props.error）／login_click＝ヘッダーの
+// 「ログイン」／footer_link＝フッターのリンク（props.to: terms・privacy・sct・mail）／hero_secondary＝ヒーローの
+// 「15 秒で、相談の流れを見る」。supabase_lp_events.sql の event の CHECK と同じ一覧にする。
+export const EVENTS = new Set([
   'lp_view', 'cta_click', 'scroll_depth', 'faq_open', 'hero_3d',
   'flow_view', 'flow_step', 'flow_replay', 'section_view', 'offer_badge',
+  'waitlist_submit', 'login_click', 'footer_link', 'hero_secondary',
   'demo_pick', 'demo_ask', 'demo_add',
 ]);
 const LIMIT_PER_MIN = 60;
