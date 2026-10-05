@@ -656,7 +656,7 @@ export default function Landing() {
                       <>
                         <p className="lp-plan-price">{OFFER.priceLabel}<span>（税込）</span></p>
                         {/* 条件は金額のすぐ下に（誰の・いつの価格か）。その次の行に 2 年目からの自動更新 */}
-                        <p className="lp-plan-cond lp-wbr"><Phrases>{`${noBreak(OFFER.endLabel)}までに始めた方の${noBreak('1 年目')}。始めるときに${noBreak('1 年分')}をまとめてお支払い（同じ Apple ID で初回特典を使っていない方）`}</Phrases></p>
+                        <p className="lp-plan-cond lp-wbr"><Phrases>{`${noBreak(OFFER.endLabel)}までに始めた方の ${noBreak('1 年目')}。始めるときに ${noBreak('1 年分')}をまとめてお支払い（同じ Apple ID で初回特典を使っていない方）`}</Phrases></p>
                         <p className="lp-plan-sub"><span className="lp-nb">2 年目から</span> <span className="lp-nb">年額 {ANNUAL_TEXT}（税込）</span>で自動更新</p>
                       </>
                     ) : (
