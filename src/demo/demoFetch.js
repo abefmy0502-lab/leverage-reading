@@ -79,7 +79,80 @@ function parseVoice(userText) {
   return { title: ((block.match(/書名: 『([^』]*)』/) || [])[1] || '').trim(), author: ((block.match(/著者: (.+)/) || [])[1] || '').trim() };
 }
 
+// 📸 LP の写真用（&lpshot=1・scripts/lp-shots.mjs だけが使う・2026-10-05）: 「部下が報告をくれない」の相談に、
+//   悩みと噛み合う答えを返す（ふだんのお試しの答えは言葉の重なりでメモを選ぶので、上司への報告のメモが選ばれて話がずれて見えた）。
+//   根拠は「自分の学び」と 2 冊の本＝相手の名前は「2 冊の本と自分の学び」（実在の著者名を話し手に見せない）。
+//   引用はどれも入っているメモの本文そのまま（根拠の照合・evidenceCheck.js を通る）。メモは demoClient.js が足す LP_SHOT_MEMO。
+export const LP_SHOT_MEMO = '部下からの報告が遅いときは、まず自分の頼み方を見直す。「いつまでに・何を」を伝えていなかった。';
+const lpShotOn = () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('lpshot') === '1';
+function lpShotAnswer(store, question, thread, decide) {
+  const topic = `${question} ${thread?.firstQuestion || ''}`;
+  if (!/報告/.test(topic)) return null;
+  const books = store.table('books');
+  const memos = store.table('book_memos');
+  const find = (head) => memos.find((m) => String(m.text || '').startsWith(head));
+  const mine = find(LP_SHOT_MEMO.slice(0, 12));
+  const coach = find('1on1 は仕事の話の前に');
+  const carnegie = find('人に動いてもらうには');
+  if (!mine || !coach || !carnegie) return null;
+  const bookOf = (m) => books.find((b) => b.id === m.book_id);
+  const name = (m) => (m.book_id ? `『${bookOf(m).title}』${m.page_number ? ` p.${m.page_number}` : ''}` : 'あなたの学びログ');
+  const ref = (m) => (m.book_id
+    ? `- 📚 ${bookOf(m).author}『${bookOf(m).title}』${m.page_number ? ` p.${m.page_number}` : ''}`
+    : `- 💡 自分の学び (${String(m.created_at || '').slice(0, 10)})`);
+  const picked = [mine, coach, carnegie];
+  const quotes = picked.map((m) => `- ${name(m)} のメモ：「${m.text}」`).join('\n');
+  const refs = picked.map(ref).join('\n');
+  const tail = ['', '（お試しモードの応答です。本番では AI があなたのメモ全体を読んで答えます）', '', 'REFS_START', refs, 'REFS_END'];
+  const reply = (thread?.replies || []).slice(-1)[0] || '';
+  if (decide) {
+    return [
+      '【結論】',
+      reply ? `「${reply}」の報告に絞って、期限と中身をこちらから先に伝えましょう。` : '期限と中身を、こちらから先に伝えましょう。',
+      '',
+      '【参照した本のメモ】', quotes,
+      '',
+      '【あなたの状況に合わせた解釈】',
+      '自分の学びのとおり、「いつまでに・何を」が伝わっていないと、部下は報告のタイミングを迷います。1on1 の最初に頼んでおけば、命令ではなく相談の形で決められます。',
+      '',
+      '【明日からできる 1 つの行動】',
+      '次の 1on1 の最初に、「会議の前日までに、結論と困っていることを一言で」と頼む。',
+      ...tail,
+    ].join('\n');
+  }
+  if (thread && thread.lastAsked) {
+    return [
+      '【結論】',
+      `「${String(question || '').trim().slice(0, 20)}」に遅れるなら、いつまでに何が要るかが、部下に見えていないのかもしれません。`,
+      '',
+      '【参照した本のメモ】', quotes,
+      '',
+      '【あなたの状況に合わせた解釈】',
+      '自分の学びにある「いつまでに・何を」を先に伝え、『人を動かす』のメモのように「どうすれば間に合いそう？」と質問すると、部下が自分で段取りを決められます。',
+      '',
+      '— （お試しモードの応答です。本番では AI があなたのメモ全体を読んで答えます）',
+      '', 'REFS_START', refs, 'REFS_END',
+    ].join('\n');
+  }
+  return [
+    '【結論】',
+    '報告が来ないのは、部下が「いつまでに・何を」報告すればいいか迷っているからかもしれません。まず、こちらの頼み方から見直してみましょう。',
+    '',
+    '【参照した本のメモ】', quotes,
+    '',
+    '【あなたの状況に合わせた解釈】',
+    '自分の学びに「いつまでに・何を」を伝えていなかった、とあります。『1兆ドルコーチ』の「近況から始める」と、『人を動かす』の「命令ではなく質問で」を合わせると、1on1 で近況を聞いてから「どうすれば報告しやすい？」と聞くのが近道です。',
+    '',
+    ...askSection(question),
+    ...tail,
+  ].join('\n');
+}
+
 function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null, voice = null, decide = false, lookup = false, relatedBlock = '') {
+  if (lpShotOn()) {
+    const shot = lpShotAnswer(store, question, thread, decide);
+    if (shot) return shot;
+  }
   // 深掘りの短い質問（「もっと具体的に」）でも、直前の相談の話題でメモを選ぶ（本番の retrievalQuery と同じ考え方）。
   const q = bigrams(thread ? `${question} ${thread.lastQuestion}` : question);
   const books = new Map(store.table('books').map((b) => [b.id, b]));

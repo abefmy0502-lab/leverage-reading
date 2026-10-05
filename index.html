@@ -15,21 +15,21 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="Orime" />
-  <meta name="description" content="読んだ本が、あなたの相談相手になる。あなたが残した読書メモを根拠に答え、明日やることを一緒に一つ決める読書アプリ" />
+  <meta name="description" content="「あの本に書いてあったはずなのに」をなくす読書メモアプリ。困ったことを相談すると、あなたが残した読書メモから、本とページを添えて答え、明日やることを一つ決めます。ブクログ・Kindle から取り込み可。無料プラン（ずっと無料）で始められます。" />
   <!-- 🔗 SNS シェア時のリッチプレビュー（Open Graph / Twitter Card）。
        LINE / X / Slack 等で URL を貼ったときにブランドカードが出る＝口コミ流入の質が上がる。 -->
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="Orime" />
-  <meta property="og:title" content="Orime｜読んだ本が、あなたの相談相手になる" />
-  <meta property="og:description" content="読んだのに、覚えていない。行動に移せない。Orime は、あなたが残した読書メモを根拠に答え、明日やることを一緒に一つ決める読書アプリです。" />
+  <meta property="og:title" content="Orime｜読んだ本が、あなたの相談相手になる読書メモアプリ" />
+  <meta property="og:description" content="読んだ本が、あなたの相談相手になる。あなたが残した読書メモから、本とページを添えて答え、明日やることを一緒に一つ決める読書アプリです。" />
   <meta property="og:url" content="https://orime.vercel.app/" />
   <meta property="og:image" content="https://orime.vercel.app/og-image.png" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
   <meta property="og:locale" content="ja_JP" />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Orime｜読んだ本が、あなたの相談相手になる" />
-  <meta name="twitter:description" content="読んだのに、覚えていない。行動に移せない。Orime は、あなたが残した読書メモを根拠に答え、明日やることを一緒に一つ決める読書アプリです。" />
+  <meta name="twitter:title" content="Orime｜読んだ本が、あなたの相談相手になる読書メモアプリ" />
+  <meta name="twitter:description" content="読んだ本が、あなたの相談相手になる。あなたが残した読書メモから、本とページを添えて答え、明日やることを一緒に一つ決める読書アプリです。" />
   <meta name="twitter:image" content="https://orime.vercel.app/og-image.png" />
   <link rel="manifest" href="/manifest.json" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
@@ -42,7 +42,8 @@
        レンダーブロッキングで初回表示を大きく遅らせていたため撤去。
        LP / 法務ページの serif 見出しは landing.css/legal.css の OS mincho フォール
        バック(Yu Mincho / Hiragino Mincho ProN)で同等の見た目を保つ（ダウンロード 0）。 -->
-  <title>Orime｜読むほど、自分だけの相談相手が育つ読書アプリ</title>
+  <!-- 題・説明は LP（src/pages/Landing.jsx の TITLE / DESCRIPTION / OG_DESCRIPTION）と同じ言葉にそろえる（2026-10-05） -->
+  <title>Orime｜読んだ本が、あなたの相談相手になる読書メモアプリ</title>
   <!--
     Global styles, design tokens, and animation keyframes live in
     src/index.css (loaded by main.jsx). This block intentionally minimal.

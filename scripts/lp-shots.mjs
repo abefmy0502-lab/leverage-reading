@@ -7,12 +7,17 @@
 //
 // 使い方:
 //   1. 別ターミナルで  npm run demo            （http://localhost:5173）
-//   2. npm run lp:shots                       → LP に載せる全部（answer・flow-*・share）
+//   2. npm run lp:shots                       → LP に載せる全部（answer・flow-*・action・share）
 //      npm run lp:shots -- answer recall      → 絞って撮る
 // 撮る画面: answer（相談の答え・ヒーロー）/ sources（根拠の本）/ memo（メモを書くシート）/
 //           action（行動）/ recall（思い出しカード）/ search（メモの言葉で本を探す）/
 //           flow-worry・flow-memo・flow-ask・flow-action（LP の「悩みから、明日の一歩まで」の 4 コマ・2026-10-02）/
 //           share（写真で共有の画像そのもの＝明暗なし・public/lp/share-card-<540|1080>.webp）
+//
+// 撮り方の決まり（2026-10-05）: どの URL にも &lpshot=1 を付ける。お試しモードが「部下が報告をくれない」の相談に、
+//   悩みと噛み合う答え（根拠は自分の学び＋2 冊の本）を返す（src/demo/demoFetch.js の lpShotAnswer）。
+//   相手の名前は「2 冊の本と自分の学び」になり、実在の著者名が答えの話し手に見えない（LP の画像の決まり）。
+//   書名・著者名は「根拠を見る」の中の書誌として出るだけ。
 
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { chromium } from 'playwright-core';
@@ -31,8 +36,10 @@ const hideDemoNote = (p) => p.evaluate(() => {
     el.style.display = 'none';
   });
 });
-// 画面ごとの開く URL（既定は /）。flow-worry は答えをゆっくり書く設定（?ai=slow）で、書きはじめを撮る。
-const SHOT_URL = { 'flow-worry': '/?ai=slow' };
+// 画面ごとの開く URL（既定は /?lpshot=1）。flow-worry は答えを途中で止める設定（&ai=stall）で、
+// 送った悩みと答えの書きはじめ（結論の数行）が出ている所を撮る（読み込み中の骨組みだけの画面にしない・2026-10-05）。
+const SHOT_URL = { 'flow-worry': '/?lpshot=1&ai=stall' };
+const DEFAULT_URL = '/?lpshot=1';
 const ask = async (p) => {
   await p.locator(nav('相談')).click(); await p.waitForTimeout(800);
   await p.locator('textarea[aria-label="相談したいこと"]').fill('部下が報告をくれなくて困っています');
@@ -93,7 +100,8 @@ const SHOTS = {
     await p.locator(nav('相談')).click(); await p.waitForTimeout(800);
     await p.locator('textarea[aria-label="相談したいこと"]').fill('部下が報告をくれなくて困っています');
     await p.locator('button[aria-label="送信"]').click();
-    await p.waitForTimeout(Number(process.env.FLOW_WORRY_MS || 2500));
+    await p.waitForTimeout(Number(process.env.FLOW_WORRY_MS || 4500));
+    await hideDemoNote(p);
   },
   // 2. あなたのメモの一節が返ってくる（根拠を開いたところ）
   'flow-memo': async (p) => {
@@ -149,7 +157,7 @@ async function shootShareCard(browser) {
   });
   const page = await ctx.newPage();
   try {
-    await page.goto(`${BASE}/`, { waitUntil: 'networkidle' });
+    await page.goto(`${BASE}${DEFAULT_URL}`, { waitUntil: 'networkidle' });
     await page.waitForTimeout(1200);
     await page.locator('h1').first().click().catch(() => {});
     await page.locator('input[data-share-camera]').setInputFiles('scripts/fixtures/share-photo.jpg');
@@ -183,7 +191,7 @@ const encoder = await browser.newPage();
 let failed = 0;
 if (!only.length || only.includes('share')) failed += await shootShareCard(browser);
 // 2026-10-02 の作り直しで LP に載せなくなった画面（ストアの画像などで使うときは名前を指定して撮る）。
-const EXTRA = new Set(['sources', 'memo', 'action', 'recall', 'search']);
+const EXTRA = new Set(['sources', 'memo', 'recall', 'search']);
 for (const [name, steps] of Object.entries(SHOTS)) {
   if (only.length ? !only.includes(name) : EXTRA.has(name)) continue;
   for (const scheme of ['light', 'dark']) {
@@ -193,7 +201,7 @@ for (const [name, steps] of Object.entries(SHOTS)) {
     });
     const page = await ctx.newPage();
     try {
-      await page.goto(`${BASE}${SHOT_URL[name] || '/'}`, { waitUntil: 'networkidle' });
+      await page.goto(`${BASE}${SHOT_URL[name] || DEFAULT_URL}`, { waitUntil: 'networkidle' });
       await page.waitForTimeout(1200);
       await steps(page);
       await page.waitForTimeout(700);

@@ -30,7 +30,7 @@
 // limit/range/single/maybeSingle、埋め込み select、count/head、auth、storage）。
 
 import { buildSeed, DEMO_USER_ID } from './seed';
-import { installDemoFetch } from './demoFetch';
+import { installDemoFetch, LP_SHOT_MEMO } from './demoFetch';
 import { demoAdminRpc } from './demoAdmin';
 import { AI_CONSENT_VERSION } from '../lib/aiProcessors';
 
@@ -333,6 +333,16 @@ export function createDemoClient() {
   if (params.get('longtag') === '1') {
     const LONG = 'マネジメント（部下・チーム・1on1・任せ方・評価・育成のことをまとめておくタグ）'.slice(0, 50);
     for (const m of db.book_memos || []) if (Array.isArray(m.tags)) m.tags = m.tags.map((t) => (t === 'マネジメント' ? LONG : t));
+  }
+  // &lpshot=1: LP の写真用（scripts/lp-shots.mjs）。「部下が報告をくれない」の答えの根拠になる自分の学びを 1 件足す
+  //   （答えは demoFetch.js の lpShotAnswer・2026-10-05）。
+  if (params.get('lpshot') === '1' && Array.isArray(db.book_memos) && db.book_memos.length) {
+    const at = new Date(Date.now() - 20 * 86400000).toISOString();
+    db.book_memos.push({
+      id: '00000000-0000-4000-8000-0000000c9001', user_id: DEMO_USER_ID, book_id: null, source_type: 'personal',
+      page_number: null, text: LP_SHOT_MEMO, photo_path: null, tags: ['マネジメント'],
+      last_recalled_at: null, recall_count: 0, created_at: at, updated_at: at,
+    });
   }
   if (params.get('purpose') === '1') {
     for (const b of db.books || []) if (b.title === 'LIFE SHIFT') b.invest_purpose = '40 代からの働き方の選択肢を持ちたい';

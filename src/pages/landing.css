@@ -1,24 +1,25 @@
 /* ===========================================================================
- * 🌱 Landing Page CSS — Orime（2026-09-26 作り直し版 → 2026-10-02 構成を作り直し）
+ * 🌱 Landing Page CSS — Orime（2026-09-26 作り直し → 2026-10-02 構成 → 2026-10-05 マーケの報告で作り直し）
  *
  * アプリと同じトークン（src/styles/tokens.css）で書く。明暗は端末に従う（アプリと同じ）。
  *   - 色: 背景 --bg / 面 --surface / 文字 --text・--text-2 / 線 --separator
  *         アクセント --accent（栗色・ロゴの色）は「押せるもの」と「最重要の情報」だけ
- *   - 書体: アプリと同じシステム書体（--font-ui = SF / ヒラギノ角ゴ）。見出しは palt で詰める
- *   - 余白: 4pt 基準（4/8/12/16/24/32/48/64/96/128）。節の間はスマホ 64 / タブレット 96 / PC 128
+ *   - 書体: アプリと同じシステム書体（--font-ui）。見出しは palt で詰める
+ *   - 余白: 4pt 基準（4/8/12/16/24/32/48/64）。節の間はスマホ 64 / タブレット --lp-sec-md（96）/ PC --lp-sec-lg（128）
  *   - 文字: アプリのトークン（--text-body 17 / --text-sub 15 / --text-meta 13）。見出しの大きさだけ LP 専用
  *           太さは h1 だけ 700・ほかは 600。行間は UI 1.5・読む段落 1.6
  *   - 角丸: 12（--radius）の 1 種類。影は画面写真だけ
+ *   - 押せる大きさ --tap-min（44）・ボタンの高さ --btn-h（48）
  *   - 動き: 下部の固定ボタンの出入り・相談の流れの 4 枚の切り替え・画像の登場（prefers-reduced-motion で止める）
+ *   - 文字の組み: 段落は BudouX（LpPhrases.jsx）の文節の切れ目でだけ折り返す（.lp-wbr）。「。」は前の塊に入れる
  * =========================================================================== */
 
 .lp-root {
   --lp-sec: var(--space-16);
   --lp-gutter: var(--space-4);
-  /* 下部の固定ボタンの高さ（ボタン 48＋上下 12）。フッターがこの下に隠れないよう余白に足す */
-  --lp-sticky-h: calc(var(--space-12) + 2 * var(--space-3));
-  /* 見出しだけ LP 専用の大きさ（tokens.css の --text-display / --text-display-2・画面幅で伸びる）。
-     本文・補足・付随情報はアプリのトークン */
+  /* ヒーローの 3D のキャンバスを、広い画面で写真の右へどれだけ広げるか（カードが扇状に出る場所・Hero3D の layoutFor と組む） */
+  --lp-canvas-left: 160px;
+  --lp-canvas-extra: 480px;
 }
 
 .lp-root, .lp-root *, .lp-root *::before, .lp-root *::after { box-sizing: border-box; }
@@ -64,26 +65,21 @@ body.lp-active {
 :where(.lp-root) p { line-height: 1.6; }
 .lp-root p + p { margin-top: var(--space-4); }
 .lp-root a { color: inherit; }
-.lp-root :focus-visible {
-  outline: 3px solid var(--accent);
-  outline-offset: 3px;
-  border-radius: var(--radius);
-}
+.lp-root strong { font-weight: 600; }
 
 .lp-wrap {
   width: 100%;
-  max-width: 1080px;
+  max-width: var(--lp-max);
   margin: 0 auto;
   padding: 0 var(--lp-gutter);
 }
 /* 節の左端はすべて同じ位置にそろえ、読む幅だけを中身ごとに絞る */
-.lp-narrow > *, .lp-narrow-wide > * { max-width: 42em; }
+.lp-narrow > * { max-width: 42em; }
 
 .lp-skip {
   position: absolute;
   left: var(--space-4);
-  /* 自分の高さぶん上に隠す（固定の -64px だと、文字を最大にしたとき下の端がヘッダーの上にのぞく・2026-10-03）。
-     枠線の 1px が端数でのぞかないよう、さらに 4px 上へ */
+  /* 自分の高さぶん上に隠す（文字を最大にしても下の端がヘッダーの上にのぞかない）。枠線の 1px が端数でのぞかないよう、さらに 4px 上へ */
   top: 0;
   transform: translateY(calc(-100% - var(--space-1)));
   max-width: calc(100% - 2 * var(--space-4));
@@ -115,28 +111,28 @@ body.lp-active {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 48px;
+  min-height: var(--btn-h);
+  max-width: 100%;
   padding: 0 var(--space-6);
+  border: 0;
   border-radius: var(--radius);
   background: var(--accent);
   color: var(--accent-ink) !important;
+  font: inherit;
   font-size: var(--text-body);
   font-weight: 600;
   line-height: 1.3;
   text-decoration: none;
-  white-space: nowrap;
-  transition: background-color var(--duration-fast, 150ms) ease;
+  /* 最大の文字でも横にはみ出さない（文字は折り返せる） */
+  white-space: normal;
+  text-align: center;
+  cursor: pointer;
+  transition: background-color var(--duration-fast) ease;
 }
 .lp-btn:hover { background: var(--accent-hover); }
 /* ボタンの高さは 48 の 1 種類（DESIGN §5）。大きいボタンは横の余白だけ広げる */
-.lp-btn-large { min-height: 48px; padding: 0 var(--space-8); font-size: var(--text-body); }
-.lp-btn-small { min-height: 44px; padding: 0 var(--space-4); font-size: var(--text-sub); }
-/* App Store の URL が未設定の間（近日公開）: 押せないことが分かる静かな見た目 */
-.lp-btn.is-soon {
-  background: var(--fill);
-  color: var(--text-2) !important;
-  cursor: default;
-}
+.lp-btn-large { padding: 0 var(--space-8); }
+.lp-btn-small { min-height: var(--tap-min); padding: 0 var(--space-4); font-size: var(--text-sub); }
 
 .lp-cta-block { margin-top: var(--space-8); }
 .lp-cta-note {
@@ -147,6 +143,68 @@ body.lp-active {
   font-size: var(--text-sub);
   line-height: 1.5;
 }
+/* ボタンの下の 1 行（取り込めば初日から） */
+.lp-cta-sub { margin-top: var(--space-3) !important; max-width: 30em; color: var(--text-2); font-size: var(--text-sub); line-height: 1.5; }
+/* 文字ボタン（DESIGN §5: --accent・15/600・高さ 44） */
+.lp-hero-links { display: flex; flex-wrap: wrap; gap: 0 var(--space-6); margin-top: var(--space-2); }
+.lp-textlink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--tap-min);
+  color: var(--accent) !important;
+  font-size: var(--text-sub);
+  font-weight: 600;
+  text-decoration: none;
+}
+.lp-textlink svg { flex-shrink: 0; }
+/* 文の中のリンク（FAQ の答え・メール欄の下）。文の中なので高さ 44 は取らない（WCAG 2.5.8 の文中の例外） */
+/* 押せる範囲は 44（上下に広げ、行の高さは負の余白で元のまま） */
+.lp-inline-link, .lp-wl-note a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap-min);
+  margin-block: calc((1.5em - var(--tap-min)) / 2);
+  color: var(--accent) !important;
+  font-weight: 600;
+  text-decoration: none;
+  vertical-align: baseline;
+}
+.lp-inline-link:hover { text-decoration: underline; }
+/* 小さな注記（商標・回数の目安など） */
+.lp-fine { margin-top: var(--space-4) !important; max-width: 42em; color: var(--text-2); font-size: var(--text-meta); line-height: 1.5; }
+
+/* ============ 公開のお知らせの入口（App Store の URL が無い間・LpWaitlist.jsx） ============ */
+.lp-wl { max-width: 30em; }
+.lp-wl.is-center { width: 100%; margin-left: auto; margin-right: auto; text-align: left; }
+.lp-wl-when { margin-bottom: var(--space-3) !important; color: var(--text); font-size: var(--text-sub); font-weight: 600; }
+/* 欄の名前は placeholder だけにせず、欄の上に常に出す（DESIGN §5「入力欄」） */
+.lp-wl-label { display: block; margin-bottom: var(--space-2); color: var(--text-2); font-size: var(--text-sub); font-weight: 600; line-height: 1.5; }
+.lp-wl-row { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.lp-wl-input {
+  flex: 1 1 12em;
+  min-width: 0;
+  min-height: var(--btn-h);
+  padding: 0 var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  /* iOS の Safari が拡大しないよう 16 以上（--text-body） */
+  font-size: var(--text-body);
+}
+.lp-wl-input::placeholder { color: var(--text-3); }
+.lp-wl-input[aria-invalid="true"] { border-color: var(--error) !important; }
+.lp-wl-row .lp-btn { flex: 0 0 auto; }
+.lp-wl-error { margin-top: var(--space-2) !important; color: var(--error); font-size: var(--text-sub); line-height: 1.5; }
+.lp-wl-note { margin-top: var(--space-2) !important; color: var(--text-2); font-size: var(--text-meta); line-height: 1.5; }
+.lp-wl-note a { margin-left: var(--space-1); }
+.lp-wl-done { display: flex; align-items: center; gap: var(--space-2); min-height: var(--btn-h); color: var(--text); font-weight: 600; }
+.lp-wl-done svg { flex-shrink: 0; color: var(--success); }
+.lp-wl-done:focus { outline: none; }
+/* 人には見えない欄（機械の送信よけ） */
+.lp-hp { position: absolute; left: -10000px; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 
 /* ============ ヘッダー ============ */
 .lp-header {
@@ -157,13 +215,13 @@ body.lp-active {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 48px;
+  min-height: var(--btn-h);
 }
 .lp-brand {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  min-height: 44px;
+  min-height: var(--tap-min);
   text-decoration: none;
   font-size: var(--text-heading);
   font-weight: 600;
@@ -176,7 +234,7 @@ body.lp-active {
 .lp-header-login {
   display: inline-flex;
   align-items: center;
-  min-height: 44px;
+  min-height: var(--tap-min);
   padding: 0 var(--space-2);
   /* 押せる範囲の左右の余白ぶん右へ出し、文字の右端をページの端にそろえる */
   margin-right: calc(-1 * var(--space-2));
@@ -188,8 +246,7 @@ body.lp-active {
 .lp-header-cta { display: none; }
 
 /* ============ ヒーロー ============ */
-.lp-lead { word-break: auto-phrase; }
-/* 見出しの上の 1 行（相手の悩み）。押せないので --text-2 */
+/* 見出しの上の 1 行（相手の場面）。押せないので --text-2 */
 .lp-eyebrow {
   margin-bottom: var(--space-4) !important;
   color: var(--text-2);
@@ -197,19 +254,8 @@ body.lp-active {
   font-weight: 600;
   line-height: 1.5;
 }
-.lp-eyebrow > span { display: inline-block; }
-/* 創業メンバー価格の印（期間中だけ・押すと下の節へ）＝文字ボタン（DESIGN §5: --accent・15/600・高さ 44） */
-.lp-offer-badge {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  margin-top: var(--space-2);
-  color: var(--accent) !important;
-  font-size: var(--text-sub);
-  font-weight: 600;
-  text-decoration: none;
-}
-/* 読み上げだけ（表の題など） */
+.lp-eyebrow > span { display: inline-block; max-width: 100%; }
+/* 読み上げだけ */
 .lp-sr {
   position: absolute;
   width: 1px;
@@ -219,18 +265,14 @@ body.lp-active {
   white-space: nowrap;
 }
 /* 文節で折り返す段落（LpPhrases.jsx が BudouX で文節の切れ目に <wbr> を入れる）。keep-all で文節の中では割らない。
-   auto-phrase だけでは iOS の Safari で効かない（2026-10-02 ui-critic）。1 つの文節が行より長いときだけ anywhere で割る。 */
+   auto-phrase だけでは iOS の Safari で効かない。1 つの文節が行より長いときだけ anywhere で割る。 */
 .lp-root .lp-wbr { word-break: keep-all; overflow-wrap: anywhere; line-break: strict; }
 /* 語の途中で折り返さない塊（1 行に入るときは塊ごと次の行へ。最大の文字で 1 行より長いときだけ中で折り返す＝はみ出さない） */
 .lp-nb { display: inline-block; max-width: 100%; }
-/* 最大の文字でも横にはみ出さない（2026-10-02 ui-critic）: ヒーローの列は中身の幅で広がらない・ボタンの文字は折り返せる・
-   文節の塊（inline-block）は 1 行を超えない */
-.lp-hero-grid { grid-template-columns: minmax(0, 1fr); }
-.lp-btn { max-width: 100%; white-space: normal; text-align: center; }
-.lp-eyebrow > span, .lp-story > span, .lp-final-inner .lp-cta-note > span, .lp-h3 > span { max-width: 100%; }
+.lp-story > span, .lp-final-inner .lp-cta-note > span, .lp-h3 > span { max-width: 100%; }
 /* 文字ボタン（相談の流れの「止める」「もう一度見る」） */
 .lp-textbtn {
-  min-height: 44px;
+  min-height: var(--tap-min);
   padding: 0 var(--space-3);
   border: 0;
   background: transparent;
@@ -240,9 +282,10 @@ body.lp-active {
   font-weight: 600;
   cursor: pointer;
 }
-/* スマホ（390×844）でも、最初の画面に相談の答えの画面写真の上半分が入るように詰める */
+/* スマホ（390×844）でも、最初の画面に見出し・補足・入口が入るように詰める */
 .lp-hero { padding: var(--space-8) 0 var(--lp-sec); }
-.lp-hero-grid { display: grid; gap: var(--space-8); }
+/* 最大の文字でも横にはみ出さない: ヒーローの列は中身の幅で広がらない */
+.lp-hero-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-8); }
 .lp-lead {
   margin-top: var(--space-6) !important;
   max-width: 26em;
@@ -251,11 +294,11 @@ body.lp-active {
   color: var(--text);
 }
 .lp-hero-shot { margin: 0; text-align: center; }
-/* 3D の舞台: 写真の上下にカードが出る余白。キャンバスは写真より広く、押す操作は受けない */
-.lp-hero-stage { position: relative; padding: var(--space-12) 0; }
-/* 写真の型（3D を使わないとき）は上の余白を取らない（ボタンと写真の間が空きすぎないように） */
-.lp-hero-stage:not(.is-3d) { padding-top: 0; }
-/* 上は舞台の余白よりさらに 48 広げる（手前に傾いた上のカードの角が、キャンバスの上端で切れていた・2026-09-30）。
+/* 3D の舞台。写真の型は余白を取らない。3D に振り分けた端末だけ、最初から 3D の余白（is-3d-slot）を取っておく
+   （あとから余白が足されて見出しとボタンが跳ねない・2026-10-05・CLS）。is-3d は写真とキャンバスの入れ替えだけ。 */
+.lp-hero-stage { position: relative; }
+.lp-hero-stage.is-3d-slot { padding: var(--space-12) 0; margin-top: var(--space-8); }
+/* キャンバスは写真より広く、押す操作は受けない。上は舞台の余白よりさらに 48 広げる（手前に傾いた上のカードの角が切れないように）。
    3D は写真の中心にそろえて描く（Hero3D の resize）ので、広げても本体の位置は変わらない。 */
 .lp-hero-canvas {
   position: absolute;
@@ -266,14 +309,13 @@ body.lp-active {
   transform: translateX(-50%);
   pointer-events: none;
   opacity: 0;
-  transition: opacity 500ms ease;
+  transition: opacity var(--duration-slow) ease;
 }
-.lp-hero-stage .lp-shot { transition: opacity 500ms ease; }
+.lp-hero-stage .lp-shot { transition: opacity var(--duration-slow) ease; }
 .lp-hero-stage.is-3d .lp-hero-canvas { opacity: 1; }
 .lp-hero-stage.is-3d .lp-shot { opacity: 0; }
-/* 3D のときは上のカードがボタンに触れないよう、舞台をボタンから離す（2026-10-02 ui-critic） */
-.lp-hero-stage.is-3d { margin-top: var(--space-8); }
-.lp-hero-shot figcaption {
+.lp-hero-shot figcaption,
+.lp-media-shot figcaption {
   word-break: auto-phrase;
   margin-top: var(--space-3);
   color: var(--text-2);
@@ -283,7 +325,7 @@ body.lp-active {
 /* 画面写真: 中身が主役。写真にだけ影を付ける */
 .lp-shot {
   display: block;
-  width: min(300px, 72vw);
+  width: min(var(--lp-shot-w), 72vw);
   height: auto;
   margin: 0 auto;
   border: 1px solid var(--separator);
@@ -291,11 +333,39 @@ body.lp-active {
   box-shadow: var(--shadow-overlay);
   background: var(--surface);
 }
+/* まだ読んでいない枚（相談の流れの 3〜4 枚目）の場所取り。写真と同じ縦横の比 */
+.lp-shot-blank { aspect-ratio: 390 / 844; box-shadow: none; }
+
+/* 公式の App Store バッジ（VITE_APP_STORE_BADGE があるときだけ）。高さ 40・周りに高さの 1/4 以上の余白 */
+.lp-badge { display: inline-flex; padding: var(--space-3); margin: calc(-1 * var(--space-3)) 0; }
+.lp-badge img { display: block; height: 40px; width: auto; }
 
 /* ============ 節の共通 ============ */
 .lp-sec { padding: var(--lp-sec) 0; }
 .lp-sec-head { padding: 0; margin: 0 0 var(--space-12); }
 .lp-sec-head p { color: var(--text-2); }
+/* 面の帯（節を交互に分ける） */
+.lp-band { background: var(--surface); border-block: 1px solid var(--separator); }
+/* 左に見出しと文・右に一覧（広い画面） */
+.lp-split { display: grid; gap: var(--space-8); }
+.lp-split-head > p { color: var(--text-2); max-width: 30em; }
+/* 左に見出しと文・右に画像 1 枚（広い画面） */
+.lp-media { display: grid; gap: var(--space-8); }
+.lp-media-text > p { color: var(--text-2); max-width: 30em; }
+.lp-media-shot { margin: 0; text-align: center; }
+
+/* 見出し＋本文の項目（ChatGPT との違い・データの約束・育つ・初日から） */
+.lp-points { list-style: none; margin: 0; padding: 0; }
+.lp-points li { display: flex; gap: var(--space-3); align-items: flex-start; padding: var(--space-4) 0; border-top: 1px solid var(--separator); }
+.lp-points li:last-child { border-bottom: 1px solid var(--separator); }
+.lp-points li > div { flex: 1; min-width: 0; }
+/* 印は状態（完了）ではないので --success にしない */
+.lp-points svg { flex-shrink: 0; margin-top: var(--space-1); color: var(--text-2); }
+.lp-points-title { font-weight: 600; }
+.lp-points li p:not(.lp-points-title) { margin-top: var(--space-1) !important; color: var(--text-2); }
+/* 3 つ並べる（広い画面は横に・文字を大きくすると列が減る） */
+.lp-trio { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 14em), 1fr)); column-gap: var(--space-8); }
+.lp-trio li:last-child { border-bottom: 0; }
 
 /* ② 相談の流れ（LpFlow.jsx）: 4 枚の実画面を重ねて切り替える */
 .lp-flow-sec { background: var(--surface); border-block: 1px solid var(--separator); }
@@ -313,7 +383,7 @@ body.lp-active {
   align-content: start;
   gap: var(--space-2);
   width: 100%;
-  min-height: 44px;
+  min-height: var(--tap-min);
   padding: var(--space-2) 0 0;
   border: 0;
   background: transparent;
@@ -344,107 +414,45 @@ body.lp-active {
 .lp-flow-caption-title { color: var(--text); font-size: var(--text-body); font-weight: 600; line-height: 1.5; }
 .lp-flow-caption-body { color: var(--text-2); font-size: var(--text-sub); line-height: 1.5; }
 .lp-flow-stage { display: grid; margin-top: var(--space-4); }
-.lp-flow-frame { grid-area: 1 / 1; opacity: 0; transition: opacity 400ms ease; }
+.lp-flow-frame { grid-area: 1 / 1; opacity: 0; transition: opacity var(--duration-base) ease; }
 .lp-flow-frame.is-on { opacity: 1; }
 /* 進み具合の行: 手順（4 つの線と番号）＋右端に「止める」などの文字ボタン（いつも同じ場所・高さ 44 を取っておく） */
 .lp-flow-progress { display: flex; align-items: flex-start; gap: var(--space-2); }
 .lp-flow-progress .lp-flow-steps { flex: 1; min-width: 0; }
-.lp-flow-controls { display: flex; justify-content: flex-end; flex-shrink: 0; min-width: 5.5em; min-height: 44px; margin-right: calc(-1 * var(--space-3)); }
+.lp-flow-controls { display: flex; justify-content: flex-end; flex-shrink: 0; min-width: 5.5em; min-height: var(--tap-min); margin-right: calc(-1 * var(--space-3)); }
 .lp-shot-note { margin-top: var(--space-4) !important; color: var(--text-2); font-size: var(--text-meta); text-align: center; }
 
-/* ③ 比較表（ブクログ・ChatGPT・Orime）。Orime の列は色ではなく、文字の濃さと面で示す（アクセントは押せるものだけ） */
-.lp-cmp {
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: fixed;
-  font-size: var(--text-sub);
-  line-height: 1.5;
-}
-.lp-cmp th, .lp-cmp td {
-  padding: var(--space-4) var(--space-3);
-  border-bottom: 1px solid var(--separator);
-  text-align: left;
-  vertical-align: top;
-  word-break: auto-phrase;
-}
-.lp-cmp thead th { vertical-align: bottom; }
-.lp-cmp-name { display: block; color: var(--text-2); font-size: var(--text-meta); font-weight: 600; }
-.lp-cmp-key { display: block; margin-top: var(--space-1); color: var(--text); font-size: var(--text-body); font-weight: 600; line-height: 1.3; }
-.lp-cmp tbody th { width: 16%; color: var(--text-2); font-weight: 600; }
-.lp-cmp td { color: var(--text-2); }
-.lp-cmp .is-us { background: var(--fill); }
-.lp-cmp td.is-us { color: var(--text); font-weight: 600; }
-.lp-cmp-note { margin-top: var(--space-4) !important; max-width: 42em; color: var(--text-2); font-size: var(--text-meta); line-height: 1.5; }
-/* スマホ: 上に 3 つの名前（何が得意か）を並べ、下は項目ごとに 3 行で比べる */
-@media (max-width: 767px) {
-  .lp-cmp, .lp-cmp thead, .lp-cmp tbody, .lp-cmp tr, .lp-cmp th, .lp-cmp td { display: block; }
-  .lp-cmp thead tr { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
-  .lp-cmp thead td { display: none; }
-  .lp-cmp thead th { padding: var(--space-3); border: 1px solid var(--separator); border-radius: var(--radius); background: var(--surface); }
-  .lp-cmp thead th.is-us { border-color: var(--fill); background: var(--fill); }
-  .lp-cmp tbody tr { padding: var(--space-4) 0; border-bottom: 1px solid var(--separator); }
-  .lp-cmp tbody th { width: auto; padding: 0 0 var(--space-2); border: 0; color: var(--text); }
-  .lp-cmp tbody td {
-    display: grid;
-    grid-template-columns: 5.5em minmax(0, 1fr);
-    gap: var(--space-3);
-    padding: var(--space-2) var(--space-3);
-    border: 0;
-  }
-  .lp-cmp tbody td::before { content: attr(data-col); color: var(--text-2); font-size: var(--text-meta); font-weight: 600; line-height: 1.5; padding-top: 2px; }
-  .lp-cmp tbody td.is-us { border-radius: var(--radius); }
-}
-
-/* ④ 写真で共有の見本（アプリが描いた画像そのもの） */
-.lp-share-grid { display: grid; gap: var(--space-8); }
-.lp-share-text p { color: var(--text-2); max-width: 30em; }
-.lp-share-figure { margin: 0; text-align: center; }
+/* ⑦ 写真で共有の見本（アプリが描いた画像そのもの） */
 .lp-share-img {
   display: block;
-  width: min(340px, 80vw);
+  width: min(var(--lp-share-w), 80vw);
   height: auto;
   margin: 0 auto;
   border-radius: var(--radius);
   box-shadow: var(--shadow-overlay);
 }
-.lp-share-figure figcaption { word-break: auto-phrase; margin-top: var(--space-3); color: var(--text-2); font-size: var(--text-meta); }
 
-/* ⑤ AI の学習に使われません・データの約束 */
-.lp-privacy { background: var(--surface); border-block: 1px solid var(--separator); }
-.lp-privacy-grid { display: grid; gap: var(--space-8); }
-.lp-privacy-head > p { color: var(--text-2); max-width: 30em; }
-.lp-points { list-style: none; margin: 0; padding: 0; }
-.lp-points li { display: flex; gap: var(--space-3); align-items: flex-start; padding: var(--space-4) 0; border-top: 1px solid var(--separator); }
-.lp-points li:last-child { border-bottom: 1px solid var(--separator); }
-/* 印は状態（完了）ではないので --success にしない */
-.lp-points svg { flex-shrink: 0; margin-top: var(--space-1); color: var(--text-2); }
-.lp-points-title { font-weight: 600; }
-.lp-points li p:not(.lp-points-title) { margin-top: var(--space-1) !important; color: var(--text-2); }
-
-/* 創業メンバー価格（期間中だけ） */
-.lp-offer-grid { display: grid; gap: var(--space-8); }
-.lp-offer-when { margin-bottom: var(--space-2) !important; color: var(--text-2); font-size: var(--text-sub); font-weight: 600; }
-.lp-offer-head .lp-h2 { margin-bottom: var(--space-4); }
-.lp-offer-head > p:not(.lp-offer-when) { color: var(--text-2); max-width: 30em; }
-.lp-offer-card { padding: var(--space-6) var(--space-4); border: 1px solid var(--separator); border-radius: var(--radius); background: var(--surface); }
-/* 金額がこの節でいちばん大事な情報（見出しより小さく・料金の欄と同じ大きさ） */
-.lp-offer-price { font-size: var(--text-title); font-weight: 600; line-height: 1.3; font-variant-numeric: tabular-nums; letter-spacing: 0.01em; }
-.lp-offer-price span { margin-left: var(--space-1); color: var(--text-2); font-size: var(--text-sub); font-weight: 400; }
-.lp-offer-after { margin-top: var(--space-1) !important; color: var(--text-2); font-size: var(--text-sub); }
-.lp-offer-card .lp-included { margin-top: var(--space-2); }
-/* 年額の金額と、特典（月額・年額どちらでも）の小さな見出し（押せないので --text-2） */
-.lp-offer-label { color: var(--text-2); font-size: var(--text-sub); font-weight: 600; margin-bottom: var(--space-1) !important; }
-.lp-offer-label-perks { margin-top: var(--space-6) !important; }
-.lp-offer-card .lp-cta-block { margin-top: var(--space-6); }
-
-/* 料金 */
-/* 料金は 2 枚だけ（2026-09-28）: 無料プラン（ずっと無料）と、プラン（最初の 7 日間は無料・年額と月額の 2 行） */
+/* ⑨ 料金 */
+/* 創業メンバー価格の帯（期間中だけ・料金の中の 1 枚） */
+.lp-offer {
+  max-width: 42em;
+  margin-bottom: var(--space-6);
+  padding: var(--space-6) var(--space-4);
+  border: 1px solid var(--separator);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.lp-offer > p:not(.lp-offer-title) { color: var(--text-2); font-size: var(--text-sub); line-height: 1.6; }
+.lp-offer-title { margin-bottom: var(--space-2) !important; font-size: var(--text-heading); font-weight: 600; line-height: 1.4; }
+.lp-offer-title > span { color: var(--text-2); font-size: var(--text-sub); font-weight: 400; }
+.lp-offer > p + p { margin-top: var(--space-3); }
+/* 料金は 2 枚（無料プラン（ずっと無料）と、プラン）。広い画面では横に並べる */
 .lp-plan-cards { display: grid; gap: var(--space-3); }
 .lp-plan-trial { font-weight: 400; color: var(--text-2); }
-.lp-plan-rows { margin-top: var(--space-3); display: grid; }
+/* 年額・月額の 2 行（カードが広いときは横に・文字を大きくすると縦に） */
+.lp-plan-rows { margin-top: var(--space-3); display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 13em), 1fr)); column-gap: var(--space-6); }
 .lp-plan-row { padding: var(--space-3) 0; border-top: 1px solid var(--separator); }
-.lp-plan-row:last-child { padding-bottom: 0; }
-.lp-plan-label { display: flex; align-items: center; gap: var(--space-2); color: var(--text-2); font-size: var(--text-sub); }
+.lp-plan-label { display: flex; align-items: center; flex-wrap: wrap; gap: 0 var(--space-2); color: var(--text-2); font-size: var(--text-sub); }
 .lp-plan {
   padding: var(--space-4);
   border: 1px solid var(--separator);
@@ -453,11 +461,7 @@ body.lp-active {
 }
 .lp-plan-name { display: flex; align-items: center; gap: var(--space-2); font-weight: 600; }
 /* 「おすすめ」は押せない表示なので面を付けない（DESIGN §5「表示用ラベル」・アプリの有料プランの画面と同じ） */
-.lp-plan-tag {
-  color: var(--text-2);
-  font-size: var(--text-caption);
-  font-weight: 600;
-}
+.lp-plan-tag { color: var(--text-2); font-size: var(--text-caption); font-weight: 600; }
 .lp-plan-price {
   margin-top: var(--space-2) !important;
   font-size: var(--text-title);
@@ -470,15 +474,15 @@ body.lp-active {
 .lp-plan-sub { word-break: auto-phrase; margin-top: var(--space-1) !important; color: var(--text-2); font-size: var(--text-sub); line-height: 1.5; }
 /* 創業メンバー価格の条件（金額のすぐ下・本文の色で読ませる） */
 .lp-plan-cond { word-break: auto-phrase; margin-top: var(--space-1) !important; color: var(--text); font-size: var(--text-sub); line-height: 1.5; }
-/* プランに含まれるもの（プランのカードの中・名前の下）。本文より一段小さく、年額・月額の行より上に置く */
+/* プランに含まれるもの（カードの中・名前の下）。本文より一段小さく */
 .lp-included { list-style: none; margin: var(--space-3) 0 0; padding: 0; display: grid; gap: var(--space-2); font-size: var(--text-sub); line-height: 1.5; }
 .lp-included li { display: flex; gap: var(--space-2); align-items: flex-start; word-break: auto-phrase; text-wrap: pretty; }
 /* 含まれるもののチェックは状態（完了）ではないので --success にしない */
 .lp-included svg { flex-shrink: 0; margin-top: var(--space-1); color: var(--text-2); }
+.lp-pricing .lp-cta-note { max-width: 42em; }
 
-/* FAQ */
+/* ⑩ FAQ */
 .lp-faq { border-top: 1px solid var(--separator); }
-.lp-pricing .lp-cta-note { max-width: none; }
 .lp-faq-list { border-top: 1px solid var(--separator); }
 .lp-faq-item { border-bottom: 1px solid var(--separator); }
 .lp-faq-item summary {
@@ -486,7 +490,7 @@ body.lp-active {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
-  min-height: 56px;
+  min-height: calc(var(--tap-min) + var(--space-3));
   padding: var(--space-4) 0;
   cursor: pointer;
   list-style: none;
@@ -494,18 +498,18 @@ body.lp-active {
   line-height: 1.5;
 }
 .lp-faq-item summary::-webkit-details-marker { display: none; }
-.lp-faq-mark { flex-shrink: 0; color: var(--text-2); transition: transform var(--duration-fast, 150ms) ease; }
+.lp-faq-mark { flex-shrink: 0; color: var(--text-2); transition: transform var(--duration-fast) ease; }
 .lp-faq-item[open] .lp-faq-mark { transform: rotate(180deg); }
 .lp-faq-item p { padding: 0 0 var(--space-6); color: var(--text-2); }
 
-/* 最終 CTA（ここだけ中央揃え） */
+/* ⑪ 最後の入口（ここだけ中央揃え） */
 .lp-final { padding: var(--lp-sec) 0; background: var(--surface); border-top: 1px solid var(--separator); }
 .lp-final-inner { text-align: center; }
 .lp-final-inner > * { margin-left: auto; margin-right: auto; }
-.lp-final-inner .lp-cta-note { margin-left: auto; margin-right: auto; }
-/* 見出しとボタンは中央、2 行以上になる文（注記・名前の由来）は左ぞろえ（行頭がそろわない中央ぞろえは読みにくい・2026-09-29）。
+.lp-final-inner .lp-cta-row { justify-content: center; }
+/* 見出しとボタンは中央、2 行以上になる文（注記・名前の由来）は左ぞろえ（行頭がそろわない中央ぞろえは読みにくい）。
    箱は中身の幅に縮めて中央に置き、中の文だけ左から組む。 */
-.lp-final-inner .lp-cta-note, .lp-final-inner .lp-story { width: fit-content; max-width: min(24em, 100%); text-align: left; text-wrap: pretty; }
+.lp-final-inner .lp-cta-note, .lp-final-inner .lp-story { width: fit-content; max-width: min(24em, 100%); margin-left: auto; margin-right: auto; text-align: left; text-wrap: pretty; }
 .lp-story > span, .lp-final-inner .lp-cta-note > span { display: inline-block; }
 .lp-story {
   margin: var(--space-12) auto 0 !important;
@@ -533,7 +537,7 @@ body.lp-active {
 .lp-footer-links a {
   display: inline-flex;
   align-items: center;
-  min-height: 44px;
+  min-height: var(--tap-min);
   color: var(--accent) !important;
   font-weight: 600;
   text-decoration: none;
@@ -541,7 +545,7 @@ body.lp-active {
 .lp-footer-copy { margin-top: var(--space-4) !important; }
 .lp-footer-build { margin-top: var(--space-1) !important; color: var(--text-3); font-size: var(--text-meta); }
 
-/* ============ 下部の固定ボタン（スマホ・ヒーローのボタンが外れてから） ============ */
+/* ============ 下部の固定ボタン（公開後・スマホ・ヒーローのボタンが外れてから） ============ */
 .lp-sticky {
   position: fixed;
   left: 0;
@@ -555,12 +559,12 @@ body.lp-active {
   border-top: 1px solid var(--separator);
   transform: translateY(110%);
   visibility: hidden;
-  transition: transform var(--duration-base, 250ms) ease, visibility 0s linear var(--duration-base, 250ms);
+  transition: transform var(--duration-base) ease, visibility 0s linear var(--duration-base);
 }
 .lp-sticky.is-visible {
   transform: none;
   visibility: visible;
-  transition: transform var(--duration-base, 250ms) ease;
+  transition: transform var(--duration-base) ease;
 }
 .lp-sticky .lp-btn { flex: 1; }
 
@@ -572,28 +576,27 @@ body.lp-active {
 
 /* ============ タブレット以上 ============ */
 @media (min-width: 768px) {
-  .lp-root { --lp-sec: 96px; --lp-gutter: var(--space-8); }
-  /* 広い画面にはスマホの下の固定ボタンが無いので、ヘッダーを上に付けたままにする（ヒーローを過ぎたらヘッダーのボタンが出る・2026-10-03）。
+  .lp-root { --lp-sec: var(--lp-sec-md); --lp-gutter: var(--space-8); }
+  /* 広い画面にはスマホの下の固定ボタンが無いので、ヘッダーを上に付けたままにする（ヒーローを過ぎたらヘッダーのボタンが出る）。
      .lp-root は overflow-x: clip（hidden だとスクロールの箱になり sticky が効かない） */
   .lp-header { position: sticky; top: 0; z-index: 50; background: var(--bg); }
-  /* 目次やリンクで飛んだ先の見出しがヘッダーの下に隠れないように */
+  /* リンクで飛んだ先の見出しがヘッダーの下に隠れないように */
   .lp-root [id] { scroll-margin-top: var(--space-16); }
-  .lp-header-cta { display: inline-flex; transition: opacity var(--duration-fast, 150ms) ease, visibility 0s linear 0s; }
+  .lp-header-cta { display: inline-flex; transition: opacity var(--duration-fast) ease, visibility 0s linear 0s; }
   /* ヒーローのボタンが見えている間は隠す（場所は残して、出入りで「ログイン」が動かないように） */
-  .lp-header-cta.is-hidden { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity var(--duration-fast, 150ms) ease, visibility 0s linear var(--duration-fast, 150ms); }
+  .lp-header-cta.is-hidden { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity var(--duration-fast) ease, visibility 0s linear var(--duration-fast); }
   .lp-sticky { display: none; }
-  .lp-footer { padding-bottom: var(--space-12); }
 
   .lp-hero { padding: var(--space-16) 0 var(--lp-sec); }
-  .lp-hero-stage { padding: var(--space-16) 0; }
+  .lp-hero-stage.is-3d-slot { padding: var(--space-16) 0; margin-top: 0; }
   .lp-hero-grid { grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); align-items: center; gap: var(--space-16); }
   .lp-lead { font-size: var(--text-heading); }
-  .lp-shot { width: 300px; }
+  .lp-shot { width: var(--lp-shot-w); }
   /* 本体は列の左寄せ（右にカードが扇状に出る余白を作る） */
   .lp-hero-stage .lp-shot { margin: 0; }
   /* 広い画面: カードは本体の右後ろに出るので、キャンバスを右へ広げる */
-  .lp-hero-canvas { left: -160px; width: calc(100% + 480px); transform: none; }
-  .lp-hero-shot figcaption { width: 300px; }
+  .lp-hero-canvas { left: calc(-1 * var(--lp-canvas-left)); width: calc(100% + var(--lp-canvas-extra)); transform: none; }
+  .lp-hero-shot figcaption { width: var(--lp-shot-w); }
 
   /* 相談の流れ: 左に手順（名前つき）、右に説明と画面写真 */
   .lp-flow { grid-template-columns: minmax(0, 20em) auto; justify-content: start; gap: var(--space-16); align-items: start; }
@@ -610,31 +613,33 @@ body.lp-active {
   .lp-flow-controls { justify-content: flex-start; margin-right: 0; margin-left: calc(-1 * var(--space-3)); }
   .lp-flow-num, .lp-flow-title { font-size: var(--text-body); line-height: 1.5; }
   .lp-flow-title { position: static; width: auto; height: auto; overflow: visible; clip: auto; white-space: normal; font-weight: 600; word-break: auto-phrase; }
-  .lp-flow-main { width: 300px; }
+  .lp-flow-main { width: var(--lp-shot-w); }
   .lp-flow-stage .lp-shot { margin: 0; }
   .lp-shot-note { text-align: left; }
 
-  .lp-share-grid { grid-template-columns: minmax(0, 26em) auto; justify-content: start; gap: var(--space-16); align-items: center; }
-  .lp-privacy-grid, .lp-offer-grid { grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: var(--space-16); align-items: start; }
-  .lp-offer-card { padding: var(--space-8); }
+  .lp-media { grid-template-columns: minmax(0, 26em) auto; justify-content: start; gap: var(--space-16); align-items: center; }
+  .lp-media-shot .lp-shot, .lp-media-shot .lp-share-img { margin: 0; }
+  .lp-media-shot { text-align: left; }
+  .lp-media-shot figcaption { max-width: var(--lp-share-w); }
+  .lp-split { grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: var(--space-16); align-items: start; }
+  .lp-offer { padding: var(--space-6) var(--space-8); }
+}
 
-  .lp-plan-rows { grid-template-columns: 1fr 1fr; column-gap: var(--space-6); }
-  .lp-plan-row:last-child { padding-bottom: var(--space-3); }
-  .lp-cmp { font-size: var(--text-body); }
-  .lp-cmp th, .lp-cmp td { padding: var(--space-4); }
-  .lp-cmp-key { font-size: var(--text-heading); }
+/* 料金のカードを横に並べる（PC・2026-10-05） */
+@media (min-width: 900px) {
+  .lp-plan-cards { grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr); align-items: stretch; gap: var(--space-4); }
+  .lp-plan { padding: var(--space-6); }
 }
 
 @media (min-width: 1100px) {
-  .lp-root { --lp-sec: 128px; }
-  .lp-shot { width: 320px; }
-  .lp-hero-shot figcaption { width: 320px; }
-  .lp-flow-main { width: 320px; }
+  .lp-root { --lp-sec: var(--lp-sec-lg); }
+  .lp-shot { width: var(--lp-shot-w-lg); }
+  .lp-hero-shot figcaption { width: var(--lp-shot-w-lg); }
+  .lp-flow-main { width: var(--lp-shot-w-lg); }
 }
 
 /* ============ PC 向けの QR コード（App Store の URL があるときだけ） ============ */
 .lp-cta-row { display: flex; align-items: center; gap: var(--space-6); flex-wrap: wrap; }
-.lp-final-inner .lp-cta-row { justify-content: center; }
 .lp-qr { display: none; align-items: center; gap: var(--space-3); }
 .lp-qr svg { border-radius: var(--radius); flex-shrink: 0; }
 .lp-qr p { color: var(--text-2); font-size: var(--text-meta); line-height: 1.5; text-align: left; }
@@ -646,7 +651,7 @@ body.lp-active {
 /* ============ 画面写真の登場（奥から手前へ起き上がる・JS が動くときだけ） ============ */
 .lp-motion .lp-reveal {
   opacity: 0;
-  transform: perspective(1200px) rotateY(-14deg) rotateX(6deg) translateY(32px);
-  transition: opacity 700ms ease, transform 900ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  transform: perspective(1200px) rotateY(-14deg) rotateX(6deg) translateY(var(--space-8));
+  transition: opacity var(--duration-slow) ease, transform calc(var(--duration-slow) * 1.8) var(--ease-out-expo);
 }
 .lp-motion .lp-reveal.is-in { opacity: 1; transform: none; }

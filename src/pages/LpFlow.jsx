@@ -7,6 +7,7 @@
 // - 動きを減らす設定では自動で進めない（最初の 1 枚を出し、手順を押すと切り替わる）。止める／もう一度見るボタンあり
 //   （5 秒を超えて動くものは止められること・WCAG 2.2.2）。ボタンは進み具合の行の右端（動いている間も見える）。
 //   説明の読み上げ（aria-live）は手順を押したあとだけ。
+// - 写真は「いまの枚と次の枚」まで読む（見えない 3〜4 枚目がヒーローの写真と回線を取り合わないように・2026-10-05）。
 // - 記録: 画面に入った（flow_view・1 回）／手順を押した（flow_step）／もう一度見た（flow_replay）。
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Shot from './LpShot';
@@ -15,26 +16,26 @@ export const FLOW_STEPS = [
   {
     name: 'flow-worry',
     title: '困っていることを書く',
-    body: '「部下が報告をくれない」。悩みをそのまま送ります。',
-    alt: '相談の画面。「部下が報告をくれなくて困っています」と送り、答えを書きはじめている',
+    body: '「部下が報告をくれない」。整理しなくていいので、そのまま送ります。',
+    alt: '相談の画面。「部下が報告をくれなくて困っています」と送り、答えの結論を書きはじめている',
   },
   {
     name: 'flow-memo',
     title: 'あなたのメモの一節が返る',
-    body: '前に読んで残したメモから、関係する一節を探して答えます。',
-    alt: '答えの「根拠を見る」を開いた画面。『イシューからはじめよ』『1兆ドルコーチ』p.95『数値化の鬼』に残したメモの一節が並ぶ',
+    body: 'どの本の、何ページのメモから答えたかが分かります。',
+    alt: '答えの「根拠を見る」を開いた画面。自分の学びと、『1兆ドルコーチ』p.61・『人を動かす』p.142 に残したメモの一節が並ぶ',
   },
   {
     name: 'flow-ask',
     title: '状況を 1 つ聞き返す',
-    body: '最初から行動を決めつけず、あなたの状況を聞いてから深めます。',
+    body: 'いきなり正解を並べず、あなたの場面を聞いてから深めます。',
     alt: '答えの最後に「あなたに聞きたいこと：報告が遅れるのは、どんな場面が多いですか？」。入力欄の上に「会議の前」「急ぎのとき」「悪い知らせ」「行動を決める」のチップ',
   },
   {
     name: 'flow-action',
     title: '明日やることを 1 つ決める',
-    body: '話しながら決めた一歩は、ボタン 1 つで行動リストに入ります。',
-    alt: '「会議の前」と答えたあとの答え。「明日からできる一歩」と「行動に追加」のボタン',
+    body: '決めた一歩は、ボタン一つで行動リストへ。',
+    alt: '「会議の前」と答えたあとの答え。「明日からできる一歩」に、次の 1on1 の最初に、会議の前日までに結論と困っていることを一言で伝えてもらうよう頼む一歩と、「行動に追加」のボタン',
   },
 ];
 export const FLOW_STEP_MS = 3750; // 4 枚で 15 秒
@@ -56,6 +57,9 @@ export default function LpFlow({ onEvent = () => {} }) {
   const [playing, setPlaying] = useState(false); // 自動で進んでいる
   const [inView, setInView] = useState(false);
   const [finished, setFinished] = useState(false); // 最後まで見た（または止めた）
+  // 写真を読む範囲（いまの枚と次の枚まで。一度読んだ枚はそのまま）。
+  const [reach, setReach] = useState(1);
+  useEffect(() => { setReach((r) => Math.max(r, step + 1)); }, [step]);
   const startedRef = useRef(false);
   const rootRef = useRef(null);
 
@@ -149,7 +153,9 @@ export default function LpFlow({ onEvent = () => {} }) {
         <div className="lp-flow-stage">
           {FLOW_STEPS.map((s, i) => (
             <div key={s.name} className={`lp-flow-frame${i === step ? ' is-on' : ''}`}>
-              <Shot name={s.name} alt={s.alt} hidden={i !== step} />
+              {i <= reach
+                ? <Shot name={s.name} alt={s.alt} hidden={i !== step} />
+                : <div className="lp-shot lp-shot-blank" aria-hidden="true" />}
             </div>
           ))}
         </div>

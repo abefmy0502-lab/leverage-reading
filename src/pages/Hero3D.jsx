@@ -20,10 +20,11 @@ import {
 } from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 
+// （2026-10-05）ヒーローの写真（npm run lp:shots の answer・お試しモードの &lpshot=1）の答えの根拠と同じ 3 件。
 const MEMOS = [
-  { title: 'イシューからはじめよ', page: 'p.25', text: '答えを出す前に、本当に答えるべき問いかを確かめる。' },
-  { title: '1兆ドルコーチ', page: 'p.95', text: 'チームの勝利が最優先。個人の手柄より、チームが勝つ判断をする。' },
-  { title: '数値化の鬼', page: 'p.15', text: '「頑張ります」は計測できない。行動を「数」で決める。' },
+  { title: '自分の学び', page: '', text: '部下からの報告が遅いときは、まず自分の頼み方を見直す。' },
+  { title: '1兆ドルコーチ', page: 'p.61', text: '1on1 は仕事の話の前に、相手の近況から始める。' },
+  { title: '人を動かす', page: 'p.142', text: '命令ではなく質問で。「どうすればうまくいくと思う？」と聞く。' },
 ];
 
 // 寸法（ワールド単位）。画面写真は 780×1688。
@@ -216,9 +217,8 @@ function makeScreenTexture(img) {
   ctx.clip();
   ctx.drawImage(img, 0, 0, c.width, c.height);
   ctx.restore();
-  ctxRoundRect(ctx, 390 - 124, 22, 248, 72, 36);
-  ctx.fillStyle = '#050505';
-  ctx.fill();
+  // （2026-10-05）上端の黒い島（ダイナミックアイランド）は描かない。撮った画面には状態バーが無く、
+  // アプリの上の行（「写真で共有」など）に重なっていた（LP の CRO 点検）。
   const tex = new CanvasTexture(c);
   tex.colorSpace = SRGBColorSpace;
   tex.anisotropy = 8;
@@ -291,6 +291,7 @@ export default function Hero3D({ stageRef, imgRef, onReady, onLost }) {
     phone.add(new Mesh(bodyGeo, metal));
     const front = DEPTH / 2 + BEVEL;
 
+    // 画面のガラス・本体の色は「物の色」（UI の色ではないのでトークンにしない・明暗で本体だけ変える）
     const glass = track(new MeshPhysicalMaterial({ color: 0x07070a, metalness: 0, roughness: 0.08, clearcoat: 1, clearcoatRoughness: 0.05 }));
     const glassGeo = track(new ShapeGeometry(roundedRect(SCREEN_W + BEZEL * 2, SCREEN_H + BEZEL * 2, 0.122), 28));
     const glassMesh = new Mesh(glassGeo, glass);

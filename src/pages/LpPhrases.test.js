@@ -27,3 +27,12 @@ describe('phrasesOf と noBreak（折り返さない塊）', () => {
     expect(parts.some((p) => p.includes(noBreak('7 日間無料')))).toBe(true);
   });
 });
+
+describe('phrasesOf と半角の空白', () => {
+  it('塊の頭に空白を置かない（前の塊の終わりへ）・つなげると元の文', () => {
+    const text = '相談も、無料プランで毎月 約 3 回まで AI が答えます。無料期間が終わる 24 時間前までに。';
+    const parts = phrasesOf(text);
+    expect(parts.join('')).toBe(text);
+    parts.slice(1).forEach((p) => expect(p.startsWith(' ')).toBe(false));
+  });
+});
