@@ -230,7 +230,7 @@ export default function TokenSheet({ plan, onClose, onPurchased }) {
       <p style={{ ...meta, margin: 'var(--space-3) 0 0', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
         {withPhraseBreaks(`${isTrial
           ? `購入から ${TOKEN_LOT_DAYS} 日有効。無料期間のトークンを使い切ったあとに使われます。プランをやめても、期限まで相談に使えます。`
-          : `購入から ${TOKEN_LOT_DAYS} 日有効。その月のトークンを使い切ってから使われます。プランをやめても、期限まで相談に使えます。`}お支払いは App Store を通じて行われます。`)}
+          : `購入から ${TOKEN_LOT_DAYS} 日有効。その月のトークンを使い切ってから使われます。プランをやめても、期限まで相談に使えます。`}お支払いは App Store を通じて行われます。購入後の払い戻しはできません。`)}
       </p>
     </BottomSheet>
   );
