@@ -1,5 +1,7 @@
 # 📣 7月 SNS実投稿テンプレ集（X / Note・たたき台）
 
+> ⚠️ 2026-10-05: マーケ・営業・ローンチの方針と数字は **`company/marketing-strategy-2026-11.md` が正**。この文書は前提（公開日・価格・主役・無料プラン）が古い。投稿文・記事などの素材は使ってよい。
+
 > CEO作成 2026-06-22。運営の顔＝**fumiya**／アプリ＝**Orime（オリメ）**。
 > 上位：`marketing-playbook.md`（5本柱・反AIスロップ・宣伝1:価値9）／`marketing-week1-kit.md`（fumiyaの声・固定ポスト原型）／`sns-sales-plan-july.md`（App Store(IAP)で7/27正式リリース・SNS→LP→即課金・北極星=有料課金者数）／`brand-messaging.md`（核メッセージ・法務ガードレール）。
 >

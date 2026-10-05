@@ -1,5 +1,7 @@
 # 📝 Orime SEO記事 第1弾（5本・publish-ready ドラフト）
 
+> ⚠️ 2026-10-05: マーケ・営業・ローンチの方針と数字は **`company/marketing-strategy-2026-11.md` が正**。この文書は前提（公開日・価格・主役・無料プラン）が古い。投稿文・記事などの素材は使ってよい。
+
 > 作成：fumiya（運営の顔）名義 / SEO・コンテンツ担当 ドラフト。2026-06-22。
 > 戦略根拠＝`sales-strategy-deepdive.md` §10.5（高インテントSEO初弾・5本テーマ）／トーン＝`marketing-playbook.md`・`marketing-week1-kit.md`（反AIスロップ・宣伝1:価値9）／法務＝`brand-messaging.md` §5（成果保証・倍率・損失額の断定をしない）。
 >

@@ -1,5 +1,7 @@
 # 🚀 Orime App Store 正式リリース計画 — 2026-07-27（月）
 
+> ⚠️ 2026-10-05: マーケ・営業・ローンチの方針と数字は **`company/marketing-strategy-2026-11.md` が正**。この文書は前提（公開日・価格・主役・無料プラン）が古い。投稿文・記事などの素材は使ってよい。
+
 > 起草 2026-07-12。**これが 7/27 リリースの単一の真実**（App Store ネイティブ配信・IAP課金）。
 > 旧 `launch-readiness-runbook.md` は Web(Stripe) 先行前提だったため、本書が優先する。
 > SNS実行は `sns-sales-plan-july.md`＋`launch-thread-and-content-july.md`、ASO文面は `aso-store-listing.md`、素材は `assets-checklist-appstore.md` を参照。
