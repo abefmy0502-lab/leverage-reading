@@ -5,8 +5,9 @@ import ReactDOM from 'react-dom/client';
 import ErrorBoundary from './components/ErrorBoundary';
 import Spinner from './components/Spinner';
 import { initSentry } from './lib/sentry';
-import { initNative } from './lib/native';
-import { staticPageRoute } from './lib/staticRoute';
+import { entryRoute } from './lib/staticRoute';
+
+const DEMO = import.meta.env.DEV && import.meta.env.VITE_DEMO === 'true';
 
 const PAGES = {
   lp: lazy(() => import('./pages/Landing')),
@@ -19,7 +20,7 @@ function StaticPage({ route }) {
   // 同じ文書の中で（戻る等で）アプリの URL に変わったら、アプリとして読み直す。
   useEffect(() => {
     const onPop = () => {
-      if (staticPageRoute() !== route) window.location.reload();
+      if (entryRoute({ demo: DEMO }) !== route) window.location.reload();
     };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
@@ -34,7 +35,9 @@ function StaticPage({ route }) {
 
 export function mount(rootEl, route) {
   initSentry();
-  initNative();
+  // iOS アプリ（Capacitor）の中で開いたときだけ、端末の部品（状態バー・キーボード）を整える。
+  // ブラウザで見る LP には要らないので、別ファイルにして読まない（約 15KB・2026-10-05）。
+  if (window.Capacitor?.isNativePlatform?.()) import('./lib/native').then((m) => m.initNative()).catch(() => {});
   ReactDOM.createRoot(rootEl).render(
     <React.StrictMode>
       <ErrorBoundary>

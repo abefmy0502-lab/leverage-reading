@@ -85,25 +85,8 @@ export function markTrialNudgeDone() {
 }
 
 // ── 無料期間の書き方（「7日間無料」→「7 日間無料」・「最初の 7 日間は無料」）──
-// ストア（iap.js）・LP の env（VITE_TRIAL_NOTE）・お試しモードの &trial= から来る文字をそろえる。
-export function normalizeTrialLabel(label) {
-  return String(label || '')
-    .trim()
-    .replace(/(\d+)\s*(日間|週間|ヶ月|か月|カ月|年間)/, '$1 $2');
-}
-
-// 「7 日間無料」→「7 日間」（期間だけ）。「無料」で終わらない書き方は '' を返す（呼び出し側はそのまま使う）。
-export function trialPeriodOf(label) {
-  const s = normalizeTrialLabel(label);
-  const m = s.match(/^(.+?)\s*無料$/);
-  return m ? m[1].trim() : '';
-}
-
-// 「最初の 7 日間は無料」。期間が取り出せないときは元の文（例「お試しあり」）をそのまま返す。
-export function trialFirstPhrase(label) {
-  const period = trialPeriodOf(label);
-  return period ? `最初の ${period}は無料` : normalizeTrialLabel(label);
-}
+// 本体は trialLabel.js（何も import しない＝紹介ページが Supabase を読まずに使える・2026-10-05）。
+export { normalizeTrialLabel, trialPeriodOf, trialFirstPhrase } from './trialLabel';
 
 // ── いまのプランの呼び名（設定の「プラン」の行・GLOSSARY）──
 // 出すのは 無料プラン / 7 日間無料（◯月◯日まで）/ 月額プラン / 年額プラン のどれか 1 つ。

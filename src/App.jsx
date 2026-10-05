@@ -6199,6 +6199,9 @@ function AppShell() {
 //   - ?auth= を明示（LP の CTA / ログインリンク経由＝もう登録/ログインする気）
 //   - PWA standalone（インストール済＝マーケ不要・毎回 LP は煩わしい）
 //   - 'orime-returning' フラグ済（一度 auth 画面に来た既知ユーザー）
+// ⚡ ログインの記録も無い「はじめての人」は、ここまで来る前に main.jsx が LP だけを読んで出す
+//   （lib/staticRoute.js の landingAtRoot・アプリ本体とスプラッシュを待たない・2026-10-05）。ここは、
+//   ログインの記録はあるが切れていた人など、その判定が迷って false にした人のための残りの道。
 function shouldShowMarketingLanding() {
   if (typeof window === 'undefined') return false;
   // ネイティブ(App Store アプリ)内では LP は不要（既にアプリを入手済み。LP は

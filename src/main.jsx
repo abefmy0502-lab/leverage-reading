@@ -1,8 +1,9 @@
 // 🚪 入口。ここはできるだけ小さく保つ（ここに静的 import を足すと、LP でもアプリでも毎回読まれる）。
-// LP・法的ページ（/lp, /legal/*, ?view=lp）はそのページだけを、それ以外はアプリ本体を読む。
+// LP・法的ページ（/lp, /legal/*, ?view=lp）と、`/` に来たはじめての人（ログインの記録が無い・アプリの用事が無い
+// ＝lib/staticRoute.js の landingAtRoot・2026-10-05）はそのページだけを、それ以外はアプリ本体を読む。
 // 本体の起動は mainApp.jsx（Provider の並び・Sentry・ネイティブ初期化）、静的ページは mainStatic.jsx。
 import './index.css';
-import { staticPageRoute } from './lib/staticRoute';
+import { entryRoute } from './lib/staticRoute';
 
 // 🔄 新しい版を公開した直後、開いたままの古い画面が「もう無い部品（assets/*.js）」を
 // 読みに行って画面が真っ白になるのを防ぐ。1 回だけ再読み込みして新しい版に切り替える
@@ -23,7 +24,8 @@ window.addEventListener('vite:preloadError', (event) => {
 document.documentElement.setAttribute('data-dark-ready', '');
 
 const rootEl = document.getElementById('root');
-const route = staticPageRoute();
+// お試しモード（npm run demo）の `/` はアプリを見る場所なので、はじめての人の LP にしない。
+const route = entryRoute({ demo: import.meta.env.DEV && import.meta.env.VITE_DEMO === 'true' });
 // ⚠️ 2 つの import() はオブジェクトの別々の値にしておく。三項演算子や if/else にすると、圧縮で 1 つの
 // 呼び出しにまとめられ、Vite の先読みがアプリ本体の部品まで読んでしまう（LP が重くなる）。
 const ENTRIES = {
