@@ -5,6 +5,10 @@
 // 商用化前に弁護士の正式レビューを推奨。
 // 🧭 TypeSafe AI（Jev・判断の補助）の行は、アプリで Jev を入れたとき（VITE_AI_JEV=on＝lib/aiProcessors.js の AI_JEV_ON）だけ出す
 //   （同意のシートの送り先と同じ・2026-10-02・docs/jev-plan.md）。
+// 公開中の本文はこのファイルが正（legal/privacy.md は旧い下書き。第 7 条の送るものだけは同じに保つ＝aiProcessors.test.js）。
+// 2026-10-04: 第 7 条の AI 選書の送るものを同意のシート（lib/aiProcessors.js の sends）に合わせて「メモの一部」を足した。
+//   紹介ページの「公開の日にメールで知らせる」で預かるメールアドレスの取得・利用目的・保管期間を第 2・3・12 条に足し、
+//   利用目的から送っていない「メールマガジン」を外した。
 
 import LegalLayout from './LegalLayout';
 import { SUPPORT_EMAIL } from '../lib/contact';
@@ -16,7 +20,7 @@ export default function PrivacyPage() {
       title="プライバシーポリシー"
       description="Orime のプライバシーポリシー。取得情報・利用目的・委託先・国外移転・AI 連携・データ保管について。"
     >
-      <p className="effective-date">最終更新日:2026年10月2日</p>
+      <p className="effective-date">最終更新日:2026年10月4日</p>
       <p className="effective-date">施行日:2026年5月3日</p>
 
       <p>
@@ -47,6 +51,11 @@ export default function PrivacyPage() {
             <li>お問い合わせ時に提供される情報</li>
           </ul>
         </li>
+        <li>紹介用 Web ページで、公開のお知らせを希望された方の情報
+          <ul>
+            <li>メールアドレスと、お申し込みの日時(アカウントの登録は不要です。当方のデータベース(委託先である Supabase)に保存します)</li>
+          </ul>
+        </li>
         <li>課金・購読に関する情報
           <ul>
             <li>有料プランの契約状況・購読ステータス、課金履歴</li>
@@ -75,7 +84,8 @@ export default function PrivacyPage() {
         <li>購読状態(課金ステータス)の管理(決済処理は Apple(App Store)が行い、当方はこれを行いません)</li>
         <li>本サービスの改善、新機能の開発、不具合対応</li>
         <li>本サービスに関するお問い合わせへの対応</li>
-        <li>本サービスに関するメールマガジン・お知らせの送信</li>
+        <li>本サービスに関する重要なお知らせの送信</li>
+        <li>公開のお知らせを希望された方への、本サービスの公開日のお知らせの送信(このメールアドレスは、公開のお知らせにだけ使い、ほかのお知らせや広告には使いません)</li>
         <li>利用規約等の変更通知</li>
         <li>統計的データの作成および公開(個人を特定できない形式に限ります)</li>
         <li>その他、上記利用目的に付随する目的</li>
@@ -129,7 +139,7 @@ export default function PrivacyPage() {
         <li>本サービスは、AI 機能を使ったときに限り、その機能に必要な情報を、次の AI 事業者の API に送信して答えを作ります。
           <ul>
             <li><strong>相談:</strong> 質問と、答えの根拠にするメモ・本の情報(書名・著者・評価・読書計画シートの内容等。合わせて約 9,000 字まで)・行動の記録・これまでの相談 → Anthropic(Claude)</li>
-            <li><strong>AI 選書:</strong> 相談内容と質問への回答・本棚の傾向(読んだ本・評価) → おすすめの本は Anthropic(Claude)、途中の質問づくりは Google(Gemini)</li>
+            <li><strong>AI 選書:</strong> 困りごと(相談内容)と聞き返しへの回答・読んだ本(書名・著者・評価)とメモの一部 → おすすめの本は Anthropic(Claude)、途中の質問づくりは Google(Gemini)</li>
             <li><strong>読書計画シート(作る・直す):</strong> 書名・著者・この本から得たいこと・よく使うタグ・今のシートと直したい点(あわせて、出版社・書店が公開しているその本の紹介文と目次) → Google(Gemini)</li>
             <li><strong>メモの凝縮・メモからまとめ:</strong> そのメモの本文(まとめは書名とその本のメモ) → Google(Gemini)</li>
             <li><strong>写真から書き起こし:</strong> 撮った本のページの写真 → Google(Gemini)。写真を AI 事業者に送るのは、この機能だけです。</li>
@@ -181,6 +191,10 @@ export default function PrivacyPage() {
       <p>
         当方は、利用目的の達成に必要な期間に限り、個人情報を保有します。
         アカウント削除後は、法令で保存が義務付けられているものを除き、合理的な期間内に削除します。
+      </p>
+      <p>
+        公開のお知らせのために預かったメールアドレスは、公開のお知らせを送ったあと、遅くとも本サービスの公開から 3 か月以内に削除します。
+        それより前でも、第15条の窓口にご連絡いただければ、すみやかに削除します。
       </p>
 
       <h2>第13条(13歳未満のユーザーについて)</h2>
