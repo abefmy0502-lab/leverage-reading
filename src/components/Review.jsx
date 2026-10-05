@@ -25,7 +25,7 @@ import Spinner from './Spinner';
 import { SkeletonBlock } from './Skeleton';
 import { isAiWritten, relativeJa, recallFraming, pickRecallMemo, pickFallbackMemo, pickExtraMemo, nextDueAt, nextDueLabel, applyLocalRecall, recallPatch, dueGapDays } from '../lib/recall';
 import { loadRecallLocal, saveRecallLocal } from '../lib/recallLocal';
-import { shouldAskForReview, markReviewAsked, askReviewToast } from '../lib/reviewRequest';
+import { shouldAskForReview, markReviewAsked, askForReview } from '../lib/reviewRequest';
 import { markActivation } from '../lib/activation';
 import NotifyOptInCard from './NotifyOptInCard';
 import { btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, btnLink, groupTitle, card as uiCard, input as uiInput } from '../styles/ui';
@@ -1325,11 +1325,11 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                     if (!answerRandomRecall(randomMemo, true)) return;
                     // ⭐️ 初めて「本物の想起に『覚えた』と応えた」直後 = 核心価値を
                     // 体感した感情のピークで、一度だけレビューを依頼する。実メモのみ
-                    // （synth は自分の一行ではないため対象外）。実ストア URL 未設定時
-                    // は no-op（reviewRequest.js 参照）。「◯日後にまた出します」の取り消しの間は出さない。
+                    // （synth は自分の一行ではないため対象外）。iOS は Apple の仕組みだけ（審査 5.6.1）・
+                    // Web は実ストア URL 未設定時は no-op（reviewRequest.js 参照）。「◯日後にまた出します」の取り消しの間は出さない。
                     if (!randomMemo.synth && shouldAskForReview()) {
                       markReviewAsked();
-                      setTimeout(() => toast.show(askReviewToast()), 5600);
+                      setTimeout(() => askForReview(toast), 5600);
                     }
                   }}
                   style={{ ...(flipping ? uiBtnGhostOff : uiBtnGhost), width: 'auto', flex: '1 1 0', minWidth: 'max-content', padding: '0 var(--space-3)', whiteSpace: 'nowrap' }}
