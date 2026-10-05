@@ -86,7 +86,8 @@ function useInputFocused() {
 // 画面の題に重なっていた。出るのはホームの一覧（下のタブが出ている画面）だけ。
 const overlayStyle = {
   position: 'fixed',
-  bottom: 'calc(var(--tabbar-h) + var(--space-3) + env(safe-area-inset-bottom, 0px))',
+  // タブの実際の高さ（--tabbar-live-h・BottomNav が入れる）の上 12。文字を大きくするとタブが高くなり重なっていた（2026-10-05）。
+  bottom: 'calc(var(--tabbar-live-h, var(--tabbar-h)) + var(--space-3) + env(safe-area-inset-bottom, 0px))',
   left: 'var(--space-4)',
   right: 'var(--space-4)',
   maxWidth: 420,
@@ -112,7 +113,8 @@ const overlayStyle = {
 
 const applyBtnStyle = { ...btnLink, whiteSpace: 'nowrap' };
 // 「何が変わった？」: 文の下の行の文字ボタン（押せる範囲 44・文字の左端を文にそろえる）。
-const notesBtnStyle = { ...btnLink, padding: 0, justifyContent: 'flex-start', textAlign: 'left', wordBreak: 'keep-all', overflowWrap: 'anywhere' };
+// 太さは 400（主の「更新する」600 より一段下げる・DESIGN §5）。
+const notesBtnStyle = { ...btnLink, fontWeight: 400, padding: 0, justifyContent: 'flex-start', textAlign: 'left', wordBreak: 'keep-all', overflowWrap: 'anywhere' };
 const dismissBtnStyle = { ...btnLink, color: 'var(--text-2)', fontWeight: 400, whiteSpace: 'nowrap' };
 
 export default function UpdateBanner({ safe = false }) {
@@ -167,9 +169,10 @@ export default function UpdateBanner({ safe = false }) {
     <>
       <style>{`@keyframes lvg-update-in { from { transform: translateY(var(--space-4)); opacity: 0; } to { transform: translateY(0); opacity: 1; } }`}</style>
       {/* data-toast-above: 知らせ（Toast）はこのカードの上に浮かべる（タブの上で重なっていた・2026-10-04）。 */}
-      <div style={overlayStyle} role="status" aria-live="polite" data-toast-above="">
+      <div style={overlayStyle} data-toast-above="">
         <span style={{ flex: '1 1 10em', minWidth: 0, padding: upcoming.length ? 'var(--space-3) 0 0' : 'var(--space-3) 0', fontSize: 'var(--text-sub)', lineHeight: 1.5, color: 'var(--text)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-          <span style={{ display: 'block' }}>{withPhraseBreaks('アプリの新しい版があります')}</span>
+          {/* 読み上げは文だけ（カード全体を status にすると、ボタンの名前まで続けて読まれていた・2026-10-05） */}
+          <span style={{ display: 'block' }} role="status" aria-live="polite">{withPhraseBreaks('アプリの新しい版があります')}</span>
           {upcoming.length > 0 && (
             <button type="button" style={notesBtnStyle} onClick={() => setNotesOpen(true)}>{withPhraseBreaks('何が変わった？')}</button>
           )}

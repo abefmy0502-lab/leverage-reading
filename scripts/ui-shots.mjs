@@ -794,6 +794,12 @@ const SCREENS = [
   { name: 'whatsnew-update-banner', url: '/?update=1&bundle=2026-10-04', steps: [{ waitFor: 'button:has-text("何が変わった？")' }, { wait: 500 }] },
   { name: 'whatsnew-update-banner-plain', url: '/?update=1', steps: [{ waitFor: 'button:has-text("更新する")' }, { wait: 800 }] },
   { name: 'whatsnew-update-sheet', url: '/?update=1&bundle=2026-10-04', steps: [{ css: 'button:has-text("何が変わった？")' }, SAFE_BOTTOM, { wait: 800 }] },
+  // 第 2 回（2026-10-05 ui-critic）: 上の 3 件＋「ほかに N 件」・設定の一覧の文字最大で前の版を開いた形・新しい版が 2 つのときの「何が変わった？」
+  { name: 'whatsnew-after-rest', url: '/?seen=2026-10-03', steps: [{ waitFor: '[role=dialog][aria-label="新しくなったこと"]' }, { scrollTo: '[role=dialog] summary:has-text("ほかに")' }, { wait: 400 }] },
+  { name: 'whatsnew-after-rest-open', url: '/?seen=2026-10-03', steps: [{ waitFor: '[role=dialog][aria-label="新しくなったこと"]' }, { css: '[role=dialog] summary:has-text("ほかに")' }, { scrollTo: '[role=dialog] summary:has-text("ほかに")' }, { wait: 400 }] },
+  { name: 'whatsnew-settings-xl-older-open', url: '/', steps: [{ eval: () => { document.documentElement.style.fontSize = '30px'; } }, { css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:has-text("新しくなったこと")' }, { wait: 600 }, { css: '[role=dialog] summary:has-text("10月4日の更新")' }, { scrollTo: '[role=dialog] summary:has-text("10月4日の更新")' }, { wait: 400 }] },
+  { name: 'whatsnew-update-sheet-multi', url: '/?update=1&bundle=2026-10-03', steps: [{ css: 'button:has-text("何が変わった？")' }, SAFE_BOTTOM, { wait: 600 }, { scrollBottom: true }, { wait: 400 }] },
+  { name: 'whatsnew-update-sheet-xl-text', url: '/?update=1&bundle=2026-10-03', steps: [{ eval: () => { document.documentElement.style.fontSize = '30px'; } }, { css: 'button:has-text("何が変わった？")' }, SAFE_BOTTOM, { wait: 800 }] },
   { name: 'whatsnew-update-banner-xl-text', url: '/?update=1&bundle=2026-10-04', steps: [{ eval: () => { document.documentElement.style.fontSize = '30px'; } }, { waitFor: 'button:has-text("何が変わった？")' }, { wait: 500 }] },
   // ── 運営ダッシュボード「ローンチの 4 つの数字」（2026-10-02・管理者だけ・?admin=1 は src/demo/demoAdmin.js）
   // 見出し（または表）を、上に貼りつく見出しとタブの下（上から 130px）に来るまで送る。

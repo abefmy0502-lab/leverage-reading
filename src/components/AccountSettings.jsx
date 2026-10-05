@@ -1281,7 +1281,13 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
       </div>
 
       {feedbackOpen && <FeedbackForm onClose={() => setFeedbackOpen(false)} />}
-      {whatsNewOpen && <WhatsNewSheet releases={RELEASES} mode="all" layer="dialog" onClose={() => setWhatsNewOpen(false)} />}
+      {/* 設定の外側（背景）を押すと設定を閉じる仕組みに、シートの中のタップが届かないようにする
+          （畳んだ前の版を開こうとしたら設定ごと閉じていた・2026-10-05）。 */}
+      {whatsNewOpen && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <WhatsNewSheet releases={RELEASES} mode="all" layer="dialog" onClose={() => setWhatsNewOpen(false)} />
+        </div>
+      )}
     </div>
   );
 }

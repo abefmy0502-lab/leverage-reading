@@ -30,7 +30,8 @@ const fabStyle = {
   // ＋記号だけだと何が起きるか分からないので「メモを書く」と文字で言う（SPEC §2）。
   position: 'fixed',
   right: 'var(--space-4)',
-  bottom: 'calc(var(--tabbar-h) + var(--space-3) + env(safe-area-inset-bottom, 0px))',
+  // タブの実際の高さ（--tabbar-live-h）の上 12（文字を大きくしてもタブに重ねない・2026-10-05）。
+  bottom: 'calc(var(--tabbar-live-h, var(--tabbar-h)) + var(--space-3) + env(safe-area-inset-bottom, 0px))',
   minHeight: 'var(--fab-h)',
   padding: '0 var(--space-4)',
   borderRadius: 'var(--radius)',

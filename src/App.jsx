@@ -396,8 +396,27 @@ function BottomNav({ tab, setTab, hidden = false }) {
     { key: "review", Icon: RotateCcw, label: "振り返り" },
     { key: "ai", Icon: MessageCircle, label: "相談" },
   ];
+  // 実際の高さ（下の安全域を除く）を --tabbar-live-h に入れる。文字を大きくするとタブが --tabbar-h（66）より高くなり、
+  // その上に浮かべる新しい版の知らせ・知らせ（Toast）・「メモを書く」がタブに重なっていた（2026-10-05 ui-critic）。
+  // 畳んでいる間（キーボード表示中）は 0 なので前の値を残す。外れたら消す（--tabbar-h に戻る）。MemoFab の --fab-live-h と同じやり方。
+  const navRef = useRef(null);
+  useEffect(() => {
+    const el = navRef.current;
+    const rootStyle = typeof document !== 'undefined' ? document.documentElement.style : null;
+    if (!el || !rootStyle) return undefined;
+    const put = () => {
+      const pad = parseFloat(getComputedStyle(el).paddingBottom) || 0;
+      const h = Math.ceil(el.getBoundingClientRect().height - pad);
+      if (h > 0) rootStyle.setProperty('--tabbar-live-h', `${h}px`);
+    };
+    put();
+    let ro = null;
+    if (typeof ResizeObserver === 'function') { ro = new ResizeObserver(put); ro.observe(el); }
+    return () => { if (ro) ro.disconnect(); rootStyle.removeProperty('--tabbar-live-h'); };
+  }, []);
   return (
     <nav
+      ref={navRef}
       className={`bottom-nav${hidden ? ' is-hidden' : ''}`}
       aria-hidden={hidden ? 'true' : undefined}
       style={{

@@ -13,7 +13,7 @@ const NG_WORDS = [
   'タイトル', 'ステータス', 'マイ読書脳', 'アクション', 'タスク', 'お試し', '無料トライアル', 'トライアル',
   '想起', 'セットアップシート', '読書戦略書', '読書前', 'アドバイザー', 'ノート', 'チャット', 'クレジット',
   'コイン', '3行に凝縮', '要約', '無料版', 'フリー', '早期割引', 'ローンチ価格', '先着', '通常価格', '定価',
-  'リマインド', 'ランダム表示', 'テーマレポート',
+  'リマインド', 'ランダム表示', 'テーマレポート', '追加トークン',
 ];
 
 // 技術用語・ファイル名。英字は製品名などの決まった語だけ。
@@ -59,13 +59,16 @@ describe('RELEASES（新しくなったこと）', () => {
     }
   });
 
-  it('これまで・これから・影響・意図 は文（「。」で終える）・意図は 1 文・長すぎない', () => {
+  it('これまで・これから・影響・意図 は文（「。」で終える）・各 60 字・2 文まで・意図は 1 文', () => {
+    // 文の数は「」の中（画面の文言の引用）を除いて数える。
+    const sentences = (t) => (t.replace(/「[^」]*」/g, '「」').match(/。/g) || []).length;
     for (const it of allItems()) {
       for (const f of ['before', 'after', 'impact', 'intent']) {
         expect(it[f].endsWith('。'), `${it._where}.${f} は「。」で終える`).toBe(true);
-        expect([...it[f]].length, `${it._where}.${f} は 120 字まで`).toBeLessThanOrEqual(120);
+        expect([...it[f]].length, `${it._where}.${f}「${it[f]}」は 60 字まで`).toBeLessThanOrEqual(60);
+        expect(sentences(it[f]), `${it._where}.${f}「${it[f]}」は 2 文まで`).toBeLessThanOrEqual(2);
       }
-      expect((it.intent.match(/。/g) || []).length, `${it._where}.intent は 1 文`).toBe(1);
+      expect(sentences(it.intent), `${it._where}.intent は 1 文`).toBe(1);
       expect(it.before, `${it._where} これまでとこれからが同じ`).not.toBe(it.after);
     }
   });

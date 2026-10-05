@@ -27,7 +27,8 @@ const palette = {
 
 // 下のタブバー（またはシートの決定ボタンの欄）が出ているときは、その上に浮かべる（タブを隠さない）。
 // どちらも無い画面（ログイン・キーボード表示中など）は下端から 16。
-const BOTTOM_WITH_BAR = 'calc(var(--tabbar-h) + var(--space-2) + env(safe-area-inset-bottom, 0px))';
+// タブの高さは実際の値（--tabbar-live-h・文字を大きくするとタブが高くなる・BottomNav が入れる）。
+const BOTTOM_WITH_BAR = 'calc(var(--tabbar-live-h, var(--tabbar-h)) + var(--space-2) + env(safe-area-inset-bottom, 0px))';
 const BOTTOM_PLAIN = 'calc(var(--space-4) + env(safe-area-inset-bottom, 0px))';
 // 閉じている途中のシート（data-closing・QuickMemoSheet / 設定）は、もう無いものとして扱う
 // （閉じ終わってから位置が 110px ほど跳ねていた・2026-09-29）。

@@ -6,8 +6,10 @@
 //   - Web の「アプリの新しい版があります」の「何が変わった？」（新しい版の中身・下に「更新する」）
 //
 // 見た目（DESIGN §5「新しくなったこと」）: 版ごとに見出し（20/600「10月5日の更新」）→ 12 → 項目のカード（間 12）。
-// カードの中は 小さな見出し＝どこの（12/600/--text-2）→ 4 → 何が（17/600/--text）→ 8 → ラベル付きの行
-// （15/--text-2・ラベル 600 の幅 4.5 字＋文（間 12・文字が大きいと文はラベルの下へ）・「これまで」「これから」「影響」「意図」・行の間 8）。2 つ目からの版は畳む見出しで畳む。
+// カードの中は どこの（13/600/--text-2）→ 4 → 何が（17/600/--text）→ 8 → ラベル付きの行
+// （15・ラベル 600/--text-2 の幅 4.5 字＋文 400/--text（間 12・文字が大きいと文はラベルの下へ）・「これまで」「これから」「影響」「意図」・行の間 8）。
+// 2 つ目からの版は畳む見出しで畳む。更新したあとに出るシートと「何が変わった？」は、いちばん新しい版の上の 3 件だけを開き、
+// 残りは「ほかに N 件」で畳む（読む量を減らす・項目は大事な順・2026-10-05 ui-critic）。全部開くのは設定の一覧だけ。
 
 import { ChevronDown } from 'lucide-react';
 import BottomSheet from './BottomSheet';
@@ -16,6 +18,21 @@ import { btnPrimary, groupTitle } from '../styles/ui';
 import { releaseHeading } from '../lib/whatsNew';
 
 const wrapText = { wordBreak: 'keep-all', overflowWrap: 'anywhere', lineBreak: 'strict' };
+
+// 句読点・閉じかっこは直前の 1 字とつないで折り返さない（文字を大きくして 1 文節が 1 行に収まらないとき、
+// 語の途中で割る最後の手段＝overflow-wrap が「。」だけを次の行の頭へ送っていた・2026-10-05）。
+const PUNCT_TAIL_RE = /([^\s\u00a0][。、」』）]+)/;
+const nowrap = { whiteSpace: 'nowrap' };
+function phrased(text) {
+  const parts = withPhraseBreaks(text);
+  if (!Array.isArray(parts)) return parts;
+  return parts.map((p, i) => {
+    if (typeof p !== 'string' || !PUNCT_TAIL_RE.test(p)) return p;
+    return p.split(PUNCT_TAIL_RE).filter(Boolean).map((seg, j) => (
+      PUNCT_TAIL_RE.test(seg) && seg.length <= 4 ? <span key={`p${i}-${j}`} style={nowrap}>{seg}</span> : seg
+    ));
+  });
+}
 
 const releaseHeadingStyle = {
   fontSize: 'var(--text-heading)',
@@ -42,7 +59,7 @@ const itemCardStyle = {
   padding: 'var(--space-4)',
 };
 
-const whereStyle = { ...groupTitle, lineHeight: 1.3, ...wrapText };
+const whereStyle = { ...groupTitle, fontSize: 'var(--text-meta)', lineHeight: 1.3, ...wrapText };
 
 const whatStyle = {
   fontSize: 'var(--text-body)',
@@ -68,11 +85,11 @@ const rowStyle = {
   columnGap: 'var(--space-3)',
   fontSize: 'var(--text-sub)',
   lineHeight: 1.6,
-  color: 'var(--text-2)',
 };
 
-const labelStyle = { margin: 0, flex: '0 0 4.5em', fontWeight: 600, whiteSpace: 'nowrap' };
-const valueStyle = { margin: 0, flex: '1 1 10em', minWidth: 0, fontWeight: 400, ...wrapText };
+// ラベルは脇役（--text-2/600）、文が読むもの（--text/400）。
+const labelStyle = { margin: 0, flex: '0 0 4.5em', fontWeight: 600, color: 'var(--text-2)', whiteSpace: 'nowrap' };
+const valueStyle = { margin: 0, flex: '1 1 10em', minWidth: 0, fontWeight: 400, color: 'var(--text)', ...wrapText };
 
 // 2 つ目からの版の畳む見出し（DESIGN §5「畳む見出し」: 高さ 48・--surface＋枠・17/600・右に 13/--text-3 の要約）。
 const foldSummaryStyle = {
@@ -105,12 +122,12 @@ function ReleaseItem({ item }) {
   return (
     <li style={itemCardStyle}>
       <p style={whereStyle}>{withPhraseBreaks(item.where)}</p>
-      <h5 style={whatStyle}>{withPhraseBreaks(item.what)}</h5>
+      <h5 style={whatStyle}>{phrased(item.what)}</h5>
       <dl style={rowsStyle}>
         {ROWS.map(([key, label]) => (
           <div key={key} style={rowStyle}>
             <dt style={labelStyle}>{label}</dt>
-            <dd style={valueStyle}>{withPhraseBreaks(item[key])}</dd>
+            <dd style={valueStyle}>{phrased(item[key])}</dd>
           </div>
         ))}
       </dl>
@@ -118,29 +135,51 @@ function ReleaseItem({ item }) {
   );
 }
 
-function ReleaseItems({ release }) {
+function ItemList({ items, keyPrefix }) {
   return (
     <ul style={itemListStyle}>
-      {release.items.map((item, i) => <ReleaseItem key={`${release.id}-${i}`} item={item} />)}
+      {items.map((item, i) => <ReleaseItem key={`${keyPrefix}-${i}`} item={item} />)}
     </ul>
   );
 }
 
+// open: 開いておく件数（null＝全部）。残りは「ほかに N 件」で畳む。
+function ReleaseItems({ release, open = null }) {
+  const items = release.items;
+  if (!open || items.length <= open) return <ItemList items={items} keyPrefix={release.id} />;
+  const rest = items.slice(open);
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+      <ItemList items={items.slice(0, open)} keyPrefix={release.id} />
+      <details>
+        <summary style={foldSummaryStyle}>
+          <span style={wrapText}>{withPhraseBreaks(`ほかに ${rest.length} 件`)}</span>
+          <ChevronDown size={20} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0, marginLeft: 'auto' }} />
+        </summary>
+        <div style={{ marginTop: 'var(--space-3)' }}>
+          <ItemList items={rest} keyPrefix={`${release.id}-rest`} />
+        </div>
+      </details>
+    </div>
+  );
+}
+
 // releases: 新しい順の版の配列。2 つ目からは畳む（多いと最初の版が下に押し流されるため）。
-export function ReleaseNotesList({ releases }) {
+// openCount: いちばん新しい版で開いておく件数（null＝全部・設定の一覧）。
+export function ReleaseNotesList({ releases, openCount = null }) {
   const list = Array.isArray(releases) ? releases.filter((r) => r && Array.isArray(r.items) && r.items.length) : [];
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
       {list.map((r, i) => (i === 0 ? (
         <section key={r.id} aria-label={releaseHeading(r)}>
           <h4 style={releaseHeadingStyle}>{withPhraseBreaks(releaseHeading(r))}</h4>
-          <ReleaseItems release={r} />
+          <ReleaseItems release={r} open={openCount} />
         </section>
       ) : (
         <details key={r.id}>
           <summary style={foldSummaryStyle}>
             <span style={wrapText}>{withPhraseBreaks(releaseHeading(r))}</span>
-            <span style={foldCountStyle}>{`${r.items.length} 件`}</span>
+            <span style={foldCountStyle}>{`${r.items.length}\u00a0件`}</span>
             <ChevronDown size={20} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
           </summary>
           <div style={{ marginTop: 'var(--space-3)' }}>
@@ -151,6 +190,9 @@ export function ReleaseNotesList({ releases }) {
     </div>
   );
 }
+
+// 更新したあと・「何が変わった？」で開いておく件数。
+export const AUTO_OPEN_ITEMS = 3;
 
 // mode: 'after'（更新したあと・既定）／'all'（設定から）／'upcoming'（Web の新しい版の中身・下に「更新する」）
 export default function WhatsNewSheet({ releases, onClose, mode = 'after', onApply, layer = null }) {
@@ -165,7 +207,7 @@ export default function WhatsNewSheet({ releases, onClose, mode = 'after', onApp
         <button type="button" style={{ ...btnPrimary, width: '100%' }} onClick={onApply}>更新する</button>
       ) : null}
     >
-      <ReleaseNotesList releases={releases} />
+      <ReleaseNotesList releases={releases} openCount={mode === 'all' ? null : AUTO_OPEN_ITEMS} />
     </BottomSheet>
   );
 }
