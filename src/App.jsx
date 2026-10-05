@@ -18,6 +18,7 @@ const QuickMemoSheet = lazy(() => import('./components/QuickMemoSheet'));
 const LIBRARY_FIRST = 12;
 const PastBooksQuickstart = lazy(() => import('./components/PastBooksQuickstart'));
 const ImportSheet = lazy(() => import('./components/ImportSheet'));
+const WhatsNewSheet = lazy(() => import('./components/WhatsNewSheet'));
 import MemoFab, { FAB_CLEARANCE } from './components/MemoFab';
 // 読了にした直後の本の詳細の下の余白（右下の「メモを書く」＋「読了にしました。」の知らせ 64）。
 // 押し込まれた画面の上の行の「‹ 戻り先」の文字。文字サイズの設定に合わせて大きくなるが、タブの画面の上の行と同じ
@@ -126,6 +127,7 @@ import { isNative } from './lib/iap';
 import { APP_STORE_URL, isAppStoreLive } from './lib/appStore';
 import { initNativePushNav } from './lib/nativePush';
 import UpdateBanner from './components/UpdateBanner';
+import { useWhatsNew } from './hooks/useWhatsNew';
 import OfflineNotice from './components/OfflineNotice';
 import { SkeletonBlock, BookListSkeleton, BookGridSkeleton } from './components/Skeleton';
 import SwipeableCard from './components/SwipeableCard';
@@ -3759,6 +3761,15 @@ function AuthedApp() {
     && !bookContextMenu
   );
 
+  // 🆕 更新したあと、はじめて開いたときに 1 回だけ「新しくなったこと」（2026-10-05・hooks/useWhatsNew.js）。
+  // 新しい版の知らせと同じ「ホームが落ち着いたとき」に加えて、初日クイックスタート・取り込み・共有・運営・表紙の直しの間も出さない。
+  // 新規の人（初回ガイドがまだ・本が 0 冊）には出さず、いまの版を見たことにする。
+  const whatsNew = useWhatsNew({
+    ready: !booksLoading && !booksLoadError,
+    isNewUser: () => !isOnboardingCompleted() || books.length === 0,
+    safe: safeForUpdate && !booksLoading && !showQuickstart && !showImport && !shareSheet && !adminOpen && !coverFixForBook,
+  });
+
   // 📚 初日クイックスタート。初回ガイドはどの画面（一覧/詳細/編集）でも出るので、
   // その隣に同じものを置く（下の各 return で {quickstartOverlay} を描画）。
   const importOverlay = showImport ? (
@@ -6110,7 +6121,13 @@ function AuthedApp() {
           ストーン演出は「鬱陶しい」フィードバックにより撤去済み。 */}
       {thanksOpen && <AuthorThankYou onClose={() => setThanksOpen(false)} />}
 
-      <UpdateBanner safe={safeForUpdate} />
+      <UpdateBanner safe={safeForUpdate && !whatsNew.open} />
+
+      {whatsNew.open && (
+        <Suspense fallback={null}>
+          <WhatsNewSheet releases={whatsNew.releases} onClose={whatsNew.close} />
+        </Suspense>
+      )}
 
       <BottomNav tab={navTab} setTab={(t) => { navigateTab(t); if (view !== "list") goList(); }} hidden={keyboardOpen} />
     </Shell>

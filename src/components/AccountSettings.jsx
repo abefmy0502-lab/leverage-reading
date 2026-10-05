@@ -27,6 +27,8 @@ import { useConfirm } from './ConfirmDialog';
 import { toMessage, isSchemaError } from '../lib/errors';
 import ErrorMessage from './ErrorMessage';
 import FeedbackForm from './FeedbackForm';
+import WhatsNewSheet from './WhatsNewSheet';
+import { RELEASES, markReleaseSeen, releaseHeading } from '../lib/whatsNew';
 import { exportUserDataAsCSV, exportMemosAsMarkdown } from '../lib/exportData';
 import { forceUpdate as forceAppUpdate } from '../lib/swUpdate';
 import { useSubscription } from '../hooks/useSubscription';
@@ -355,6 +357,8 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
   const [resetting, setResetting] = useState(false);
   const [confirmText, setConfirmText] = useState('');
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  // 🆕 新しくなったこと（2026-10-05）: 設定の上に重ねて全部の版を見せる。
+  const [whatsNewOpen, setWhatsNewOpen] = useState(false);
   const [updating, setUpdating] = useState(false);
   // フィードバック（入れ子モーダル）を開いている間は、そちらのトラップに譲るため無効化。
   const trapRef = useFocusTrap(!feedbackOpen);
@@ -531,12 +535,12 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
       // フィードバックシートが開いている間は、Escape はシート側に任せる
       // （ここで拾うと設定モーダルごと閉じ、送信中の入力が失われる）。
       // IME 変換中の Esc はガード（変換キャンセルで設定ごと閉じない）。
-      if (e.key === 'Escape' && !feedbackOpen && !e.isComposing && !e.nativeEvent?.isComposing) animateClose();
+      if (e.key === 'Escape' && !feedbackOpen && !whatsNewOpen && !e.isComposing && !e.nativeEvent?.isComposing) animateClose();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onClose, feedbackOpen, closing]);
+  }, [onClose, feedbackOpen, whatsNewOpen, closing]);
 
   const expectedConfirm = (user?.email || 'DELETE').trim();
 
@@ -1084,12 +1088,26 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                 <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
               </button>
             )}
+            {/* 新しくなったこと（2026-10-05）: 版ごとの どこの・何が・これまで → これから・影響・意図。下はいちばん新しい版の日付。 */}
+            {RELEASES.length > 0 && (
+              <button
+                type="button"
+                style={{ ...rowButtonStyle, ...(onOpenHelp ? divider : null) }}
+                onClick={() => { markReleaseSeen(); setWhatsNewOpen(true); }}
+              >
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ ...rowTitleStyle, display: 'block' }}>新しくなったこと</span>
+                  <span style={{ ...rowDescStyle, display: 'block' }}>{releaseHeading(RELEASES[0])}</span>
+                </span>
+                <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+              </button>
+            )}
             {/* 通常は自動更新（autoApply）。困った時の復旧用に顧客語で控えめに置く。
                 書きかけが消える注意は押した後の確認ダイアログで伝える。 */}
             <button
               type="button"
               aria-label="読み込み直す"
-              style={{ ...(updating ? rowButtonBusy : rowButtonStyle), ...(onOpenHelp ? divider : null) }}
+              style={{ ...(updating ? rowButtonBusy : rowButtonStyle), ...(onOpenHelp || RELEASES.length > 0 ? divider : null) }}
               aria-busy={updating || undefined}
               disabled={updating}
               onClick={handleForceUpdate}
@@ -1263,6 +1281,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
       </div>
 
       {feedbackOpen && <FeedbackForm onClose={() => setFeedbackOpen(false)} />}
+      {whatsNewOpen && <WhatsNewSheet releases={RELEASES} mode="all" layer="dialog" onClose={() => setWhatsNewOpen(false)} />}
     </div>
   );
 }

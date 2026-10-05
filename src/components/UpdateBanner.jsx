@@ -12,26 +12,48 @@
 //     画面上部に portal でバナーを表示する。
 //   - 「今すぐ更新」で applyUpdate() → SKIP_WAITING → activate → reload。
 //   - 「後で」で 30 秒間バナーを閉じる (再表示までクールダウン)。
+//   - 「何が変わった？」（2026-10-05）: 新しい版の「新しくなったこと」をサーバーの /release-notes.json から
+//     network-first で読み、アプリに入っている版より新しいものがあるときだけ出す。押すと版ごとの
+//     どこの・何が・これまで → これから・影響・意図 のシート（下に「更新する」）。読めなければ今までどおり。
 
-import { useEffect, useReducer, useState } from 'react';
+import { lazy, Suspense, useEffect, useReducer, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { applyUpdate } from '../lib/swUpdate';
+import { fetchUpcomingReleases, markReleaseSeen } from '../lib/whatsNew';
 import { isNative } from '../lib/iap';
 import { btnLink } from '../styles/ui';
 import { withPhraseBreaks } from './TightBubble';
+
+const WhatsNewSheet = lazy(() => import('./WhatsNewSheet'));
 
 // ---------------------------------------------------------------------------
 // Module-level state — UpdateBanner が unmount/remount されても更新検知の
 // 事実は失われない。ページ全体の生存期間中だけ保持される。
 // ---------------------------------------------------------------------------
 let _updateAvailable = false;
+// 新しい版の「新しくなったこと」（読めた・新しいものがあったときだけ配列が入る）。
+let _upcoming = [];
+let _upcomingRequested = false;
 const _listeners = new Set();
 function notifyListeners() { _listeners.forEach((fn) => { try { fn(); } catch { /* ignore */ } }); }
+
+function loadUpcoming() {
+  if (_upcomingRequested) return;
+  _upcomingRequested = true;
+  fetchUpcomingReleases().then((list) => {
+    if (Array.isArray(list) && list.length) {
+      _upcoming = list;
+      notifyListeners();
+    }
+  }).catch(() => { /* 読めなければ今までどおり */ });
+}
 
 if (typeof window !== 'undefined') {
   window.addEventListener('app-update-available', () => {
     _updateAvailable = true;
     notifyListeners();
+    // ネイティブはストアで更新するのでこのバナー自体が出ない（読みにも行かない）。
+    if (!isNative) loadUpcoming();
   });
 }
 
@@ -76,9 +98,12 @@ const overlayStyle = {
   borderRadius: 'var(--radius)',
   padding: '0 var(--space-2) 0 var(--space-4)',
   display: 'flex',
+  // 文字を大きくして文の欄が 10 字ぶん取れないときは、「後で」「更新する」を文の下の行（右寄せ）へ回す（2026-10-05）。
+  flexWrap: 'wrap',
   alignItems: 'center',
   justifyContent: 'space-between',
-  gap: 'var(--space-2)',
+  columnGap: 'var(--space-2)',
+  rowGap: 0,
   boxShadow: 'var(--shadow-overlay)',
   boxSizing: 'border-box',
   fontFamily: 'var(--font-ui)',
@@ -86,6 +111,8 @@ const overlayStyle = {
 };
 
 const applyBtnStyle = { ...btnLink, whiteSpace: 'nowrap' };
+// 「何が変わった？」: 文の下の行の文字ボタン（押せる範囲 44・文字の左端を文にそろえる）。
+const notesBtnStyle = { ...btnLink, padding: 0, justifyContent: 'flex-start', textAlign: 'left', wordBreak: 'keep-all', overflowWrap: 'anywhere' };
 const dismissBtnStyle = { ...btnLink, color: 'var(--text-2)', fontWeight: 400, whiteSpace: 'nowrap' };
 
 export default function UpdateBanner({ safe = false }) {
@@ -99,6 +126,8 @@ export default function UpdateBanner({ safe = false }) {
 
   const inputFocused = useInputFocused();
   const [dismissed, setDismissed] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
+  const upcoming = _upcoming;
 
   // 「後で」を押したら 30 秒は再表示しない。クールダウン後にまた
   // safe state に戻った時に自然に再表示する。
@@ -112,14 +141,25 @@ export default function UpdateBanner({ safe = false }) {
   // そもそも発火しないが、多層防御として明示的にも封じる（誤案内防止）。
   if (isNative) return null;
   if (!updateAvailable) return null;
-  if (!safe) return null;
-  if (inputFocused) return null;
-  if (dismissed) return null;
   if (typeof document === 'undefined') return null;
 
   const handleApply = () => {
+    // 中身を読んでから更新したなら、更新したあとに同じ「新しくなったこと」をもう一度出さない。
+    if (notesOpen && upcoming[0]?.id) markReleaseSeen(upcoming[0].id);
     try { applyUpdate(); } catch { /* swUpdate handles fallback */ }
   };
+
+  // 「何が変わった？」のシート（開いている間はバナーのカードを隠す）。
+  if (notesOpen) {
+    return (
+      <Suspense fallback={null}>
+        <WhatsNewSheet releases={upcoming} mode="upcoming" onApply={handleApply} onClose={() => setNotesOpen(false)} />
+      </Suspense>
+    );
+  }
+  if (!safe) return null;
+  if (inputFocused) return null;
+  if (dismissed) return null;
 
   // body に portal することで、AuthedApp 内のどこにマウントされていても
   // 画面上部に必ず固定表示される。view 切替で unmount される心配なし。
@@ -128,10 +168,13 @@ export default function UpdateBanner({ safe = false }) {
       <style>{`@keyframes lvg-update-in { from { transform: translateY(var(--space-4)); opacity: 0; } to { transform: translateY(0); opacity: 1; } }`}</style>
       {/* data-toast-above: 知らせ（Toast）はこのカードの上に浮かべる（タブの上で重なっていた・2026-10-04）。 */}
       <div style={overlayStyle} role="status" aria-live="polite" data-toast-above="">
-        <span style={{ flex: 1, minWidth: 0, padding: 'var(--space-3) 0', fontSize: 'var(--text-sub)', lineHeight: 1.5, color: 'var(--text)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-          {withPhraseBreaks('アプリの新しい版があります')}
+        <span style={{ flex: '1 1 10em', minWidth: 0, padding: upcoming.length ? 'var(--space-3) 0 0' : 'var(--space-3) 0', fontSize: 'var(--text-sub)', lineHeight: 1.5, color: 'var(--text)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+          <span style={{ display: 'block' }}>{withPhraseBreaks('アプリの新しい版があります')}</span>
+          {upcoming.length > 0 && (
+            <button type="button" style={notesBtnStyle} onClick={() => setNotesOpen(true)}>{withPhraseBreaks('何が変わった？')}</button>
+          )}
         </span>
-        <div style={{ display: 'flex', flexShrink: 0 }}>
+        <div style={{ display: 'flex', flexShrink: 0, marginLeft: 'auto' }}>
           <button type="button" style={dismissBtnStyle} onClick={() => setDismissed(true)}>後で</button>
           <button type="button" style={applyBtnStyle} onClick={handleApply}>更新する</button>
         </div>

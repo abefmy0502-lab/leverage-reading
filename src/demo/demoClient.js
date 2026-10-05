@@ -23,6 +23,10 @@
 //   - &purpose=1 : 積読の『LIFE SHIFT』に得たいことを入れる（読書計画シートは無いまま＝「読書を開始する」の確認用・2026-10-04）
 //   - &save=slow-memo-update : メモの書き直し（タグを付ける）がなかなか終わらない（保存中のチップの確認用）
 //   - &writefail=book_memos:update : メモの書き直しだけ失敗させる（新しいメモの保存は通る・表:操作）
+//   - &seen=2026-10-03 : 「新しくなったこと」をその版まで見た人（更新したあとのシートが、それより新しい版で出る）。
+//     付けなければ、いまの版を見たことにする（ほかの撮影にシートを重ねない）。新規の人のシナリオは付けても無視
+//   - &update=1 : 「アプリの新しい版があります」を出す（Web の新しい版の知らせ）。&bundle=2026-10-04 を足すと、
+//     アプリに入っている版をその版にして「何が変わった？」（それより新しい版の中身）を出せる
 // データはメモリ上だけ。再読み込みで初期状態に戻る。
 //
 // supabase-js のうち、このアプリが実際に使う範囲だけを再現する
@@ -33,6 +37,7 @@ import { buildSeed, DEMO_USER_ID } from './seed';
 import { installDemoFetch, LP_SHOT_MEMO } from './demoFetch';
 import { demoAdminRpc } from './demoAdmin';
 import { AI_CONSENT_VERSION } from '../lib/aiProcessors';
+import { CURRENT_RELEASE_ID } from '../lib/releaseNotes';
 
 // &offline=1: つながっていない間は書き込みがすべて失敗する（本物の端末と同じ・オフラインで保存したときの表示の確認用）。
 //   window に 'online' の知らせが来たら、つながった状態に戻る（hooks/useOnline.js と同じ決まり）。
@@ -313,7 +318,13 @@ export function createDemoClient() {
       window.localStorage.setItem('onboardingCompleted', 'true');
       window.localStorage.setItem('orime-returning', 'true');
       window.localStorage.setItem('orime-activation-v1', JSON.stringify({ book: true, memo: true, review: true }));
+      // 新しくなったこと: 既定はいまの版まで見た人（&seen=… でその版まで）。
+      window.localStorage.setItem('orime.whatsnew.seen', params.get('seen') || CURRENT_RELEASE_ID);
     } catch { /* ignore */ }
+  }
+  // &update=1: 新しい版の知らせ（UpdateBanner は window の知らせを待っている・読み込みが終わってから送る）。
+  if (params.get('update') === '1') {
+    setTimeout(() => { try { window.dispatchEvent(new Event('app-update-available')); } catch { /* ignore */ } }, 1500);
   }
 
   const demoUser = {

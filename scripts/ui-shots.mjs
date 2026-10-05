@@ -784,6 +784,17 @@ const SCREENS = [
   { name: 'advisor-history-detail', url: '/', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }, { css: 'button:has-text("時間が足りない")' }, { wait: 1200 }, { css: 'button:has-text("大事な仕事に集中できる")' }, { wait: 8000 }, { css: 'button[aria-label="履歴を見る"]' }, { wait: 800 }, { css: 'li button >> nth=0' }, { wait: 800 }] },
   // 根拠にできる情報（日付は「9/29」の形）
   { name: 'consult-knowledge-dates', url: '/', steps: [{ css: nav('相談') }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("根拠にできる情報")' }, { wait: 800 }] },
+  // ── 🆕 新しくなったこと（2026-10-05）: 更新したあとに 1 回だけ出るシート（&seen=… でその版まで見た人）・設定の一覧・新しい版の知らせ
+  { name: 'whatsnew-after', url: '/?seen=2026-10-03', steps: [{ waitFor: '[role=dialog][aria-label="新しくなったこと"]' }, { wait: 600 }] },
+  { name: 'whatsnew-after-scrolled', url: '/?seen=2026-10-03', steps: [{ waitFor: '[role=dialog][aria-label="新しくなったこと"]' }, { scrollBottom: true }, { wait: 400 }] },
+  { name: 'whatsnew-after-older-open', url: '/?seen=2026-10-03', steps: [{ waitFor: '[role=dialog][aria-label="新しくなったこと"]' }, { css: '[role=dialog] summary:has-text("10月4日の更新")' }, { scrollTo: '[role=dialog] summary:has-text("10月4日の更新")' }, { wait: 400 }] },
+  { name: 'whatsnew-after-xl-text', url: '/?seen=2026-10-04', steps: [{ eval: () => { document.documentElement.style.fontSize = '30px'; } }, { waitFor: '[role=dialog][aria-label="新しくなったこと"]' }, { wait: 600 }] },
+  { name: 'whatsnew-settings-row', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { scrollTo: 'button:has-text("ヘルプ・使い方")' }] },
+  { name: 'whatsnew-settings-sheet', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { scrollTo: 'button:has-text("ヘルプ・使い方")' }, { css: 'button:has-text("新しくなったこと")' }, { wait: 600 }] },
+  { name: 'whatsnew-update-banner', url: '/?update=1&bundle=2026-10-04', steps: [{ waitFor: 'button:has-text("何が変わった？")' }, { wait: 500 }] },
+  { name: 'whatsnew-update-banner-plain', url: '/?update=1', steps: [{ waitFor: 'button:has-text("更新する")' }, { wait: 800 }] },
+  { name: 'whatsnew-update-sheet', url: '/?update=1&bundle=2026-10-04', steps: [{ css: 'button:has-text("何が変わった？")' }, SAFE_BOTTOM, { wait: 800 }] },
+  { name: 'whatsnew-update-banner-xl-text', url: '/?update=1&bundle=2026-10-04', steps: [{ eval: () => { document.documentElement.style.fontSize = '30px'; } }, { waitFor: 'button:has-text("何が変わった？")' }, { wait: 500 }] },
   // ── 運営ダッシュボード「ローンチの 4 つの数字」（2026-10-02・管理者だけ・?admin=1 は src/demo/demoAdmin.js）
   // 見出し（または表）を、上に貼りつく見出しとタブの下（上から 130px）に来るまで送る。
   ...[

@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react';
 import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { RELEASES } from './src/lib/releaseNotes.js';
 
 // Sentry を有効にする際、ブラウザに送られるエラーのスタックトレースを
 // 解読できるよう production sourcemap を出力する。Sentry の Releases /
@@ -84,8 +85,34 @@ function smartAppBanner() {
   };
 }
 
+// 🆕 「新しくなったこと」（src/lib/releaseNotes.js）を /release-notes.json として書き出す（2026-10-05）。
+// Web の「アプリの新しい版があります」は古いコードのまま動いているので、新しい版の中身はこの JSON を
+// network-first で読んで見せる（lib/whatsNew.js の fetchUpcomingReleases）。開発中は同じ URL で今のファイルを返す。
+function releaseNotesJson() {
+  const payload = (releases) => JSON.stringify({ version: 1, releases });
+  return {
+    name: 'release-notes-json',
+    configureServer(server) {
+      server.middlewares.use('/release-notes.json', async (_req, res) => {
+        try {
+          const mod = await server.ssrLoadModule('/src/lib/releaseNotes.js');
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.setHeader('Cache-Control', 'no-store');
+          res.end(payload(mod.RELEASES));
+        } catch {
+          res.statusCode = 500;
+          res.end('{}');
+        }
+      });
+    },
+    generateBundle() {
+      this.emitFile({ type: 'asset', fileName: 'release-notes.json', source: payload(RELEASES) });
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), stampServiceWorkerVersion(), siteUrlInHtml(), smartAppBanner()],
+  plugins: [react(), stampServiceWorkerVersion(), siteUrlInHtml(), smartAppBanner(), releaseNotesJson()],
   resolve: {
     alias: [
       // ⚡ Realtime は使っていないので、supabase-js が起動時に作る RealtimeClient を空の部品に替える
