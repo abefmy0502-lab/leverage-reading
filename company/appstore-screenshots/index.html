@@ -98,23 +98,25 @@
 
 <script>
   // ====== ここを編集すると各スライドの中身が変わります ======
-  // 順序・コピーの正典は company/aso-store-listing.md §8（1枚目=マイ読書脳が差別化の核）。
-  // shotN.png との対応: 1=マイ読書脳 2=想起カード 3=メモ編集 4=AI選書 5=行動リスト 6=本棚
-  // 2026-09-26 改訂: 一番の価値「読むほど、自分だけの相談相手が育つ」に合わせて並びとコピーを変更
-  // （正典は company/aso-store-listing.md §8。shotN.png もその表の順に撮り直すこと）。
+  // 順序・コピーの正典は company/aso-store-listing.md §8（1枚目=相談が差別化の核）。
+  // shotN.png との対応: 1=相談の答え 2=相談タブの件数の行と育つまでの一行 3=行動（会話で決める→振り返り›行動）
+  //   4=メモを書く（写真から書き起こす） 5=写真で共有 6=ほかのアプリから取り込む
+  // 2026-10-04 改訂: いまの主役（相談・行動・取り込み・写真で共有）に合わせた。2 枚目は削除済みのホームの相談カードから
+  //   相談タブへ、5 枚目の「凝縮」は写真で共有へ、6 枚目の AI 選書＋料金は取り込みへ。価格はスクショに入れない
+  //   （創業メンバー価格の期間は年額に 7 日間無料が付かず誤解を招く・審査 2.3.7）。効果の言い切り（「忘れない」など）も入れない。
   const SLIDES = [
     { bg:'bg-c', shot:'shot1.png', eyebrow:'ASK YOUR BOOKS',
-      head:'困ったとき、<br><span class="em">読んだ本たちが答えてくれる。</span>', sub:'何冊ものメモをつなげて、あなたに答える。' },
+      head:'困ったとき、<br><span class="em">読んだ本たちが答えてくれる。</span>', sub:'あなたの読書メモから、本とページを添えて。' },
     { bg:'bg-a', shot:'shot2.png', eyebrow:'YOUR OWN ADVISOR',
-      head:'読むほど、<br><span class="em">自分だけの相談相手が育つ。</span>', sub:'メモが増えるほど、答えがあなたらしく。' },
+      head:'読むほど、<br><span class="em">自分だけの相談相手が育つ。</span>', sub:'読書メモが増えるほど、答えがあなたに近づく。' },
     { bg:'bg-b', shot:'shot3.png', eyebrow:'INTO ACTION',
-      head:'答えは、そのまま<br><span class="em">明日の一歩に。</span>', sub:'期限と完了まで、見届ける。' },
+      head:'話しながら、<br><span class="em">明日の一歩を一つ。</span>', sub:'決めた行動は、期限と完了まで見届ける。' },
     { bg:'bg-c', shot:'shot4.png', eyebrow:'JUST ONE LINE',
-      head:'心が動いた一行を、<br><span class="em">残すだけ。</span>', sub:'ページも、写真も、いっしょに。' },
-    { bg:'bg-b', shot:'shot5.png', eyebrow:'CONDENSE',
-      head:'散らばったメモが、<br><span class="em">使える知恵になる。</span>', sub:'忘れかけたメモも、ふいに戻ってくる。' },
-    { bg:'bg-a', shot:'shot6.png', eyebrow:'AI PICKS',
-      head:'次に読む一冊も、<br><span class="em">悩みから選べる。</span>', sub:'7日間無料・月¥1,480／年¥12,800・解約自由' },
+      head:'心が動いた一行を、<br><span class="em">残すだけ。</span>', sub:'紙の本は、ページを撮れば書き起こせる。' },
+    { bg:'bg-b', shot:'shot5.png', eyebrow:'SHARE A PHOTO',
+      head:'読んだ本を、<br><span class="em">写真で共有。</span>', sub:'心に残った一文を、1 枚に重ねて。' },
+    { bg:'bg-a', shot:'shot6.png', eyebrow:'BRING YOUR NOTES',
+      head:'これまでの読書ノートも、<br><span class="em">今日から材料に。</span>', sub:'無料プラン（ずっと無料）で始められます。' },
   ];
 
   const grid = document.getElementById('grid');
