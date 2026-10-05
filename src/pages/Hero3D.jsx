@@ -150,9 +150,11 @@ function makeCardTexture(memo, textInset = 0) {
   const W = 640;
   const INSET = 36; // カードの内側の余白（左右・上下とも同じ）
   const TITLE_TOP = INSET;
-  const BODY_TOP = TITLE_TOP + 64; // 書名（30px）＋ 間
-  const BODY_SIZE = 34;
-  const BODY_LEAD = 54;
+  // 文字の大きさ（2026-10-05）: カードの内側の幅 640 が画面ではおよそ 0.37 倍（写真の幅 300・奥に置いたカード）。
+  // 画面の上で 12px 以上になるよう、書名 36・ページ 34・本文 38 で描く（以前は 30・26・34 で、画面上 9〜10px だった）。
+  const BODY_TOP = TITLE_TOP + 74; // 書名（36px）＋ 間
+  const BODY_SIZE = 38;
+  const BODY_LEAD = 60;
   const c = document.createElement('canvas');
   const ctx = c.getContext('2d');
   const left = PAD + INSET + W * textInset;
@@ -187,15 +189,15 @@ function makeCardTexture(memo, textInset = 0) {
 
   ctx.textBaseline = 'top';
   // 書名は押せる場所ではないので、アクセント色ではなく本文色・600。
-  ctx.font = `600 30px ${FONT}`;
+  ctx.font = `600 36px ${FONT}`;
   ctx.fillStyle = text;
-  const title = wrapLines(ctx, memo.title, innerW - 110, 1)[0];
+  const title = wrapLines(ctx, memo.title, innerW - 130, 1)[0];
   ctx.fillText(title, left, PAD + TITLE_TOP);
   const tw = ctx.measureText(title).width;
   // ページ番号は押せない付随情報なので面を付けず、補足の文字色だけ（DESIGN §5「表示用ラベル」）。
-  ctx.font = `400 26px ${FONT}`;
+  ctx.font = `400 34px ${FONT}`;
   ctx.fillStyle = text2;
-  ctx.fillText(memo.page, left + tw + 16, PAD + TITLE_TOP + 4);
+  ctx.fillText(memo.page, left + tw + 16, PAD + TITLE_TOP + 2);
   ctx.font = bodyFont;
   ctx.fillStyle = text;
   lines.forEach((l, i) => ctx.fillText(l, left, PAD + BODY_TOP + i * BODY_LEAD));

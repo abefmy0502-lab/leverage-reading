@@ -94,3 +94,13 @@ describe('index.html の静的な meta と LP の言葉がそろっている', (
     expect(html).toContain(`<meta name="twitter:description" content="${LP_OG_DESCRIPTION}" />`);
   });
 });
+
+describe('効果を言い切らない（景表法・SPEC §1-4）', () => {
+  const BANNED = ['忘れない', '作り話', '必ず', '絶対', '確実', '唯一', 'No.1', '最強', '誰でも', '成果が出る', '賢くなる', '良くなる', '出てきます'];
+  it('LP の画面の文（Landing.jsx・LpWaitlist.jsx・LpFlow.jsx のコメントを除く）と lpCopy の文', () => {
+    const strip = (src) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/\s\/\/ .*$/gm, '');
+    const files = ['./Landing.jsx', './LpWaitlist.jsx', './LpFlow.jsx'].map((f) => strip(readFileSync(new URL(f, import.meta.url), 'utf8')));
+    const copies = combos.map((c) => allText(buildLpCopy(c)));
+    [...files, ...copies].forEach((t) => BANNED.forEach((w) => expect(t, w).not.toContain(w)));
+  });
+});

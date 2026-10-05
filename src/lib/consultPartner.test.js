@@ -22,11 +22,12 @@ describe('consultPartner（相談相手のアイコン・2026-09-30）', () => {
     expect(bookPartnerLabel(BOOKS[3])).toBe('『人を動かす』');
   });
 
-  it('根拠が数冊なら、グループ（著者が 2 人以上なら「◯◯ ほか N 人」）', () => {
+  it('根拠が数冊なら、グループ（名前は「N 冊の本」・著者の名前を話し手にしない・2026-10-05）', () => {
     const p = consultPartner({ refs: ['📚 安宅和人『イシューからはじめよ』p.25', '📚 エリック・シュミット『1兆ドルコーチ』', '📖 安藤広大『数値化の鬼』まとめメモ'], books: BOOKS });
     expect(p.kind).toBe('group');
     expect(p.books.map((b) => b.id)).toEqual(['b1', 'b2', 'b3']);
-    expect(p.label).toBe('安宅和人 ほか 2 人');
+    expect(p.label).toBe('3 冊の本');
+    expect(p.label).not.toMatch(/ほか|安宅/);
     expect(p.shelf).toBe(false);
   });
 
@@ -70,7 +71,7 @@ describe('consultPartner（相談相手のアイコン・2026-09-30）', () => {
     const some = partnerFromScope({ scopeIds: ['b1', 'b3'], books: BOOKS });
     expect(some.kind).toBe('group');
     expect(some.shelf).toBe(false);
-    expect(some.label).toBe('安宅和人 ほか 1 人');
+    expect(some.label).toBe('2 冊の本');
   });
 
   it('画面用の目印の行（🌱 🌿 🪙 🎯）は根拠に数えない', () => {
@@ -115,5 +116,12 @@ describe('shelfBookForTitle', () => {
   it('渡したメモに無い本（x）は相談相手にしない', () => {
     const refs = ['📚 安宅和人『イシューからはじめよ』p.25', `${QUOTE_PREFIX}${JSON.stringify({ k: 'r', t: 'イシューからはじめよ', s: 'x' })}`];
     expect(partnerFromRefs(refs, BOOKS)).toBeNull();
+  });
+});
+
+describe('数冊と自分の学び（2026-10-05）', () => {
+  it('「N 冊の本と自分の学び」', () => {
+    const p = partnerFromRefs(['📚 安宅和人『イシューからはじめよ』p.25', '📚 エリック・シュミット『1兆ドルコーチ』', '💡 自分の学び (2026-09-01)'], BOOKS);
+    expect(p.label).toBe('2 冊の本と自分の学び');
   });
 });

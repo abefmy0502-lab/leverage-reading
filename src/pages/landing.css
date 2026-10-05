@@ -74,7 +74,7 @@ body.lp-active {
   padding: 0 var(--lp-gutter);
 }
 /* 節の左端はすべて同じ位置にそろえ、読む幅だけを中身ごとに絞る */
-.lp-narrow > * { max-width: 42em; }
+.lp-narrow > * { max-width: 36em; }
 
 .lp-skip {
   position: absolute;
@@ -145,6 +145,8 @@ body.lp-active {
 }
 /* ボタンの下の 1 行（取り込めば初日から） */
 .lp-cta-sub { margin-top: var(--space-3) !important; max-width: 30em; color: var(--text-2); font-size: var(--text-sub); line-height: 1.5; }
+/* 公開前（メールの欄）の下は、欄の注記とくっつかないよう 1 段広く（URL ありのボタンの下は 12 のまま） */
+.lp-wl + .lp-cta-sub { margin-top: var(--space-6) !important; }
 /* 文字ボタン（DESIGN §5: --accent・15/600・高さ 44） */
 .lp-hero-links { display: flex; flex-wrap: wrap; gap: 0 var(--space-6); margin-top: var(--space-2); }
 .lp-textlink {
@@ -172,7 +174,7 @@ body.lp-active {
 }
 .lp-inline-link:hover { text-decoration: underline; }
 /* 小さな注記（商標・回数の目安など） */
-.lp-fine { margin-top: var(--space-4) !important; max-width: 42em; color: var(--text-2); font-size: var(--text-meta); line-height: 1.5; }
+.lp-fine { margin-top: var(--space-4) !important; max-width: 36em; color: var(--text-2); font-size: var(--text-meta); line-height: 1.5; }
 
 /* ============ 公開のお知らせの入口（App Store の URL が無い間・LpWaitlist.jsx） ============ */
 .lp-wl { max-width: 30em; }
@@ -435,7 +437,7 @@ body.lp-active {
 /* ⑨ 料金 */
 /* 創業メンバー価格の帯（期間中だけ・料金の中の 1 枚） */
 .lp-offer {
-  max-width: 42em;
+  max-width: 36em;
   margin-bottom: var(--space-6);
   padding: var(--space-6) var(--space-4);
   border: 1px solid var(--separator);
@@ -479,10 +481,10 @@ body.lp-active {
 .lp-included li { display: flex; gap: var(--space-2); align-items: flex-start; word-break: auto-phrase; text-wrap: pretty; }
 /* 含まれるもののチェックは状態（完了）ではないので --success にしない */
 .lp-included svg { flex-shrink: 0; margin-top: var(--space-1); color: var(--text-2); }
-.lp-pricing .lp-cta-note { max-width: 42em; }
+.lp-pricing .lp-cta-note { max-width: 36em; }
 
 /* ⑩ FAQ */
-.lp-faq { border-top: 1px solid var(--separator); }
+.lp-faq { background: var(--surface); border-block: 1px solid var(--separator); }
 .lp-faq-list { border-top: 1px solid var(--separator); }
 .lp-faq-item { border-bottom: 1px solid var(--separator); }
 .lp-faq-item summary {
@@ -494,7 +496,8 @@ body.lp-active {
   padding: var(--space-4) 0;
   cursor: pointer;
   list-style: none;
-  font-weight: 600;
+  /* 畳む一覧の見出しは 400（DESIGN §5「畳む一覧」） */
+  font-weight: 400;
   line-height: 1.5;
 }
 .lp-faq-item summary::-webkit-details-marker { display: none; }
@@ -503,7 +506,7 @@ body.lp-active {
 .lp-faq-item p { padding: 0 0 var(--space-6); color: var(--text-2); }
 
 /* ⑪ 最後の入口（ここだけ中央揃え） */
-.lp-final { padding: var(--lp-sec) 0; background: var(--surface); border-top: 1px solid var(--separator); }
+.lp-final { padding: var(--lp-sec) 0; background: var(--bg); }
 .lp-final-inner { text-align: center; }
 .lp-final-inner > * { margin-left: auto; margin-right: auto; }
 .lp-final-inner .lp-cta-row { justify-content: center; }
@@ -526,6 +529,7 @@ body.lp-active {
 
 /* フッター */
 .lp-footer {
+  border-top: 1px solid var(--separator);
   padding: var(--space-12) 0 calc(var(--space-12) + env(safe-area-inset-bottom));
   color: var(--text-2);
   font-size: var(--text-sub);
@@ -649,9 +653,9 @@ body.lp-active {
 }
 
 /* ============ 画面写真の登場（奥から手前へ起き上がる・JS が動くときだけ） ============ */
+/* 透明にはしない（傾きだけ・2026-10-05）。画面に入ったと分からないまま（全ページの撮影・古い端末）でも、画像は必ず見える */
 .lp-motion .lp-reveal {
-  opacity: 0;
   transform: perspective(1200px) rotateY(-14deg) rotateX(6deg) translateY(var(--space-8));
-  transition: opacity var(--duration-slow) ease, transform calc(var(--duration-slow) * 1.8) var(--ease-out-expo);
+  transition: transform calc(var(--duration-slow) * 1.8) var(--ease-out-expo);
 }
-.lp-motion .lp-reveal.is-in { opacity: 1; transform: none; }
+.lp-motion .lp-reveal.is-in { transform: none; }

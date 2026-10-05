@@ -108,7 +108,7 @@ const VS_POINTS = [
 // ⑤ 読むほど、あなただけの相談相手が育つ（「良くなる」「賢くなる」と言い切らない）
 const GROW_POINTS = [
   { head: '一行で残す', body: '読みながら、心が動いた一行だけ。紙の本は、ページを撮れば文字に書き起こせます。' },
-  { head: '本と本がつながる', body: 'メモを残すと、別の本で似たことを書いたメモを見せます。1 冊では出てこなかった答えが、つながりから出てきます。' },
+  { head: '本と本がつながる', body: 'メモを残すと、別の本で似たことを書いたメモを見せます。1 冊では気づかなかったことが、つながりから見えてくることもあります。' },
   { head: '頭にも残す', body: '忘れかけたメモが、思い出しカードでもう一度めぐってきます。通知は多くても週に 1 回です。' },
 ];
 
@@ -657,12 +657,12 @@ export default function Landing() {
                         <p className="lp-plan-price">{OFFER.priceLabel}<span>（税込）</span></p>
                         {/* 条件は金額のすぐ下に（誰の・いつの価格か）。その次の行に 2 年目からの自動更新 */}
                         <p className="lp-plan-cond"><span className="lp-nb">{OFFER.endLabel}</span>までに始めた方の 1 年目。始めるときに 1 年分をまとめてお支払い（同じ Apple ID で初回特典を使っていない方）</p>
-                        <p className="lp-plan-sub">2 年目から 年額 {ANNUAL_TEXT}（税込）で自動更新</p>
+                        <p className="lp-plan-sub"><span className="lp-nb">2 年目から</span> <span className="lp-nb">年額 {ANNUAL_TEXT}（税込）</span>で自動更新</p>
                       </>
                     ) : (
                       <>
                         <p className="lp-plan-price">{ANNUAL_TEXT}<span>/ 年（税込）</span></p>
-                        <p className="lp-plan-sub">月あたり約 {PER_MONTH_TEXT}。{SAVE}。</p>
+                        <p className="lp-plan-sub"><span className="lp-nb">月あたり約 {PER_MONTH_TEXT}。</span>{SAVE && <span className="lp-nb">{SAVE}。</span>}</p>
                       </>
                     )}
                   </div>

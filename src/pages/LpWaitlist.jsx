@@ -86,7 +86,7 @@ export default function LpWaitlist({ loc, done, onDone, launch, center = false }
       </div>
       {/* 人には見えない欄（機械の送信よけ）。読み上げ・タブ移動からも外す */}
       <input ref={hpRef} className="lp-hp" type="text" name="website" tabIndex={-1} autoComplete="off" aria-hidden="true" />
-      {error && <p className="lp-wl-error" id={`${id}-err`} role="alert">{error}</p>}
+      {error && <p className="lp-wl-error lp-wbr" id={`${id}-err`} role="alert"><Phrases>{error}</Phrases></p>}
       <p className="lp-wl-note lp-wbr" id={`${id}-note`}><Phrases>{WAITLIST_NOTE}</Phrases><a href="/legal/privacy">プライバシーポリシー</a></p>
     </form>
   );

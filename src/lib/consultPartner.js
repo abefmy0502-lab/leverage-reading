@@ -3,7 +3,9 @@
 //
 //   { kind: 'book' | 'group' | 'self', books: [{ id, title, author, cover }], self: boolean, shelf: boolean, label }
 //     - book  : 1 冊の本から（アイコン＝その本の表紙・名前＝「著者『書名』」・著者が無ければ「『書名』」）
-//     - group : 数冊の本から（アイコン＝表紙を最大 4 つ並べた丸・名前＝「安宅和人 ほか 2 人」／「3 冊の本」）
+//     - group : 数冊の本から（アイコン＝表紙を最大 4 つ並べた丸・名前＝「3 冊の本」／「2 冊の本と自分の学び」）
+//               2026-10-05: 「安宅和人 ほか 2 人」の形をやめた（実在の著者が答えているように見えないように・オーナー判断）。
+//               1 冊の本から（語り口の答えを含む）は今までどおり著者の名前。
 //               shelf: true は「すべての本」に相談しているとき（名前＝「あなたの本棚」）
 //     - self  : 自分の学び（本に結びつかない学びログ）だけから（アイコン＝電球・名前＝「自分の学び」）
 //
@@ -96,8 +98,7 @@ export function encodeVoice(voice) {
 
 function groupLabel(books, self) {
   if (self) return books.length === 1 ? `${bookPartnerLabel(books[0])}と${SELF_LABEL}` : `${books.length} 冊の本と${SELF_LABEL}`;
-  const authors = [...new Set(books.map((b) => String(b.author || '').trim().split(/[,、，]/)[0].trim()).filter(Boolean))];
-  return authors.length >= 2 ? `${authors[0]} ほか ${authors.length - 1} 人` : `${books.length} 冊の本`;
+  return `${books.length} 冊の本`;
 }
 
 function make(books, self, { shelf = false } = {}) {
