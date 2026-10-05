@@ -319,6 +319,7 @@ body.lp-active {
 .lp-hero-shot figcaption,
 .lp-media-shot figcaption {
   word-break: auto-phrase;
+  text-wrap: balance; /* 2 行になったとき（大きな文字のスマホ）に行の長さをそろえる */
   margin-top: var(--space-3);
   color: var(--text-2);
   font-size: var(--text-meta);

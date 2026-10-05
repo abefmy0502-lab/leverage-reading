@@ -25,8 +25,9 @@ describe('buildLpCopy（全部の組み合わせ）', () => {
   });
   it.each(combos.map((c) => [name(c), c]))('%s: 料金の注記に、自動更新のあとの月額の金額がある', (_, cfg) => {
     const c = buildLpCopy(cfg);
-    expect(c.pricingNote[0]).toMatch(/月額 ¥1,480[^。]*税込/);
-    if (cfg.offer.active) expect(c.pricingNote[0]).toContain('2 年目から年額 ¥12,800（税込）で自動更新');
+    const note = c.pricingNote[0].replace(/\u2060/g, '').replace(/\u00a0/g, ' ');
+    expect(note).toMatch(/月額 ¥1,480[^。]*税込/);
+    if (cfg.offer.active) expect(note).toContain('2 年目から年額 ¥12,800（税込）で自動更新');
     if (cfg.trialNote) expect(c.pricingNote[0]).toContain('24 時間前までに解約すれば');
   });
   it.each(combos.map((c) => [name(c), c]))('%s: 使わない言い方（作り話・忘れない・初めての方・先着・通常価格・シェア）が無い', (_, cfg) => {
@@ -115,5 +116,15 @@ describe('「毎月 N 回」を割らない（2026-10-05 第 3 回）', () => {
   });
   it('privacyLead は「記録を Anthropic 社」（空白あり）', () => {
     expect(buildLpCopy({}).privacyLead).toContain('記録を Anthropic 社');
+  });
+});
+
+describe('値段と（税込）を割らない', () => {
+  it('金額と（税込）の間に折り返せる空白が無い', async () => {
+    const c = buildLpCopy(combos.find((x) => x.offer.active));
+    // 検索向けの JSON-LD（faqLd）は文字のまま（つなぎ文字を外す）なので除く
+    const text = JSON.stringify({ pricingNote: c.pricingNote, faq: c.faq });
+    expect(text).not.toMatch(/¥[\d,]+[ \n]?（税込）/);
+    expect(text).toMatch(/¥\u20609\u2060,/);
   });
 });

@@ -620,7 +620,7 @@ export default function Landing() {
             {OFFER.active && (
               <div className="lp-offer" id="lp-offer" data-lp-sec="offer">
                 <p className="lp-offer-title">{FOUNDING_NAME}<span className="lp-nb">（{OFFER.endLabel}（日本時間）まで）</span></p>
-                <p className="lp-wbr"><Phrases>{`${END}までにプランを始めた方は、月額・年額どちらでも創業メンバーです。特典は、開発者への直接の窓口と、次に作る機能への投票。年額プランは、1 年目が ${OFFER.price}（税込）です。`}</Phrases></p>
+                <p className="lp-wbr"><Phrases>{`${END}までにプランを始めた方は、月額・年額どちらでも創業メンバーです。特典は、開発者への直接の窓口と、次に作る機能への投票。年額プランは、1 年目が ${noBreak(`${OFFER.price}（税込）`)}です。`}</Phrases></p>
                 <p className="lp-wbr"><Phrases>{`年額の 1 年目の価格は App Store の初回特典なので、先に月額プランの ${noBreak('7 日間無料')}を使うと、年額の${FOUNDING_NAME}は使えなくなります。人数の上限はありません。`}</Phrases></p>
                 <p className="lp-wbr lp-offer-note"><Phrases>Orime は、阿部文哉がひとりで作っています。最初に使ってくださる方の声で、次の形を決めたいと思っています。</Phrases></p>
               </div>
@@ -656,7 +656,7 @@ export default function Landing() {
                       <>
                         <p className="lp-plan-price">{OFFER.priceLabel}<span>（税込）</span></p>
                         {/* 条件は金額のすぐ下に（誰の・いつの価格か）。その次の行に 2 年目からの自動更新 */}
-                        <p className="lp-plan-cond"><span className="lp-nb">{OFFER.endLabel}</span>までに始めた方の 1 年目。始めるときに 1 年分をまとめてお支払い（同じ Apple ID で初回特典を使っていない方）</p>
+                        <p className="lp-plan-cond lp-wbr"><Phrases>{`${noBreak(OFFER.endLabel)}までに始めた方の${noBreak('1 年目')}。始めるときに${noBreak('1 年分')}をまとめてお支払い（同じ Apple ID で初回特典を使っていない方）`}</Phrases></p>
                         <p className="lp-plan-sub"><span className="lp-nb">2 年目から</span> <span className="lp-nb">年額 {ANNUAL_TEXT}（税込）</span>で自動更新</p>
                       </>
                     ) : (
