@@ -34,6 +34,7 @@ export default function LpWaitlist({ loc, done, onDone, launch, center = false }
   if (done) {
     return (
       <div className={`lp-wl${center ? ' is-center' : ''}`}>
+        {launch && <p className="lp-wl-when lp-wbr"><Phrases>{launch}</Phrases></p>}
         <p className="lp-wl-done" role="status" tabIndex={-1} ref={doneRef}>
           <Check size="1.1em" strokeWidth={2.4} aria-hidden="true" />
           <span>公開の日にお知らせします。</span>
