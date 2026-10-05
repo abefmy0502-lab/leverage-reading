@@ -112,9 +112,8 @@ describe('ロゴは必ず入る（どの組み合わせでも）', () => {
               expect(y + h, label).toBeLessThanOrEqual(r.height);
               // 本の印も一緒に描く
               expect(canvas.calls.some((c) => c.op === 'drawImage' && /-mark$/.test(c.args[0]?.tag || '')), label).toBe(true);
-              // 紙は元の色・ほかは白。写真の上にロゴしか無い（記録の項目を全部隠した）ときは、明るい写真なら元の色
-              const logoOnly = style === 'photo' && layout !== 'quote' && hidden.length >= SHARE_ITEM_KEYS.length;
-              expect(words[0].args[0].tag, label).toBe(style === 'paper' || logoOnly ? 'color-word' : 'white-word');
+              // 紙は元の色・夜・表紙の色・透明は白。写真はロゴの帯の明るさで決める（この偽の写真は真っ白＝元の色）
+              expect(words[0].args[0].tag, label).toBe(style === 'paper' || style === 'photo' ? 'color-word' : 'white-word');
               n += 1;
             }
           }
@@ -176,6 +175,30 @@ describe('ロゴは必ず入る（どの組み合わせでも）', () => {
       drawShareCard(dark, opts({ layout, style: 'photo', hidden: [...SHARE_ITEM_KEYS] }));
       expect(dark.calls.find((c) => c.op === 'drawImage' && isLogoWord(c.args[0])).args[0].tag).toBe('white-word');
       expect(dark.calls.some((c) => c.op === 'fillRect' && c.args[2] === 1080)).toBe(true);
+      photoBright = true;
+    }
+  });
+});
+
+describe('明るい写真では墨の文字・暗い写真では白い文字（第 3 回）', () => {
+  it('真っ白な写真: 記録・数字・一文とも墨の文字（書名・ロゴも）', () => {
+    for (const layout of ['record', 'stats', 'quote']) {
+      photoBright = true;
+      const c = fakeCanvas();
+      drawShareCard(c, opts({ layout, style: 'photo' }));
+      const title = c.calls.find((x) => x.op === 'fillText' && String(x.args[0]).includes('イシューからはじめよ'));
+      expect(title?.fillStyle, layout).toBe('#2b2825');
+      expect(c.calls.find((x) => x.op === 'drawImage' && isLogoWord(x.args[0])).args[0].tag).toBe('color-word');
+    }
+  });
+  it('真っ黒な写真: 白い文字＋白いロゴ', () => {
+    for (const layout of ['record', 'stats', 'quote']) {
+      photoBright = false;
+      const c = fakeCanvas();
+      drawShareCard(c, opts({ layout, style: 'photo' }));
+      const title = c.calls.find((x) => x.op === 'fillText' && String(x.args[0]).includes('イシューからはじめよ'));
+      expect(title?.fillStyle, layout).toBe('#ffffff');
+      expect(c.calls.find((x) => x.op === 'drawImage' && isLogoWord(x.args[0])).args[0].tag).toBe('white-word');
       photoBright = true;
     }
   });

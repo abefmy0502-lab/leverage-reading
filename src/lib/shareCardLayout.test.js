@@ -7,7 +7,9 @@ import {
   buildShareText, shareFilename, coverTone, contrastRatio, photoPlacement, panView, zoomView,
   scrimAlpha, brightLuminance, coverProxyPath, seedFrom, mulberry32, underlineStroke, tabPosition, FORMATS,
   darkLuminance, logoInkOnPhoto, coverWashAlpha, relativeLuminance, blockScrimStops,
+  blockVeilStops, photoInkForBand, veiledLuminance, PHOTO_VEIL_MAX,
 } from './shareCardLayout.js';
+import { mainTitle } from './shareOverlay.js';
 
 const mono = (size = 1) => (s) => Array.from(s).length * size;
 
@@ -166,18 +168,69 @@ describe('scrimAlpha / brightLuminance', () => {
 });
 
 describe('写真の上の幕はまとまりの周りだけ（2026-10-05 第 2 回）', () => {
-  it('上は fade 手前で 0・まとまりの中は a・ロゴは aFoot・下端は aFoot の 6 割・上限 0.82・上から順', () => {
-    const H = 1350;
-    const s = blockScrimStops({ top: 700, bottom: 1100, H, a: 0.9, aFoot: 0.5, logoTop: 1170, logoBottom: 1286, fade: 100 });
-    expect(s[0]).toEqual([700 - H * 0.2, 0]); // fade は画像の高さの 0.2 以上
-    expect(s[1]).toEqual([700, 0.82]);
-    expect(s[2]).toEqual([1100, 0.82]);
-    expect(s[3]).toEqual([1170, 0.5]);
+  it('上は fade 手前で 0・まとまりの中は a・ロゴの帯・下端・上限 0.82・上から順', () => {
+    const H = 1920;
+    // まとまりとロゴの帯が離れているとき（ストーリー）: ロゴは aFoot・下端は aFoot の 6 割
+    const s = blockScrimStops({ top: 600, bottom: 1000, H, a: 0.9, aFoot: 0.5, logoTop: 1540, logoBottom: 1656, fade: 100, format: 'story' });
+    expect(s[0]).toEqual([600 - H * 0.2, 0]); // fade は画像の高さの 0.2 以上
+    expect(s[1]).toEqual([600, 0.82]);
+    expect(s[2]).toEqual([1000, 0.82]);
+    expect(s[3]).toEqual([1540, 0.5]);
     expect(s[5][0]).toBe(H);
     expect(s[5][1]).toBeCloseTo(0.3);
     s.reduce((prev, [y]) => { expect(y).toBeGreaterThanOrEqual(prev); return y; }, -Infinity);
     // 写真の上のほう（まとまりの fade より上）には幕が掛からない
     expect(s[0][0]).toBeGreaterThan(0);
+  });
+  it('まとまりとロゴの帯の間が短いときは谷を作らない・投稿は下端まで同じ濃さ', () => {
+    const H = 1350;
+    const s = blockScrimStops({ top: 700, bottom: 1100, H, a: 0.8, aFoot: 0.3, logoTop: 1170, logoBottom: 1286, fade: 100, format: 'post' });
+    expect(s[3][1]).toBeCloseTo(0.68); // max(aFoot, a × 0.85)
+    expect(s[4][1]).toBeCloseTo(0.68);
+    expect(s[5]).toEqual([H, s[4][1]]); // 投稿はロゴの下で明るく戻さない
+  });
+  it('白い幕の帯（明るい写真）: 上は fade で 0 → veil → 下端の後 f/2 で 0・上限 0.6', () => {
+    const v = blockVeilStops({ top: 700, bottom: 1100, H: 1350, veil: 0.9, fade: 100 });
+    expect(v[1]).toEqual([700, PHOTO_VEIL_MAX]);
+    expect(v[3]).toEqual([1100 + 135, 0]);
+  });
+});
+
+describe('明るい写真の上は墨の文字＋白い幕（第 3 回）', () => {
+  const ink = relativeLuminance([43, 40, 37]); // --share-paper-ink #2b2825
+  const ink2 = relativeLuminance([95, 90, 83]); // --share-paper-ink-2 #5f5a53（いちばん淡い墨）
+  const veilLum = relativeLuminance([244, 239, 230]); // --share-photo-veil
+  const ratio = (a, b) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+  it('明るい写真は墨の文字に。白い幕のあとの暗い部分で、本文・ラベルとも 4.5:1 以上', () => {
+    let darkCount = 0;
+    for (let bright = 0.5; bright <= 1; bright += 0.05) {
+      for (let dark = 0; dark <= bright; dark += 0.01) {
+        const p = photoInkForBand({ bright, dark }, { inkLum: ink2, veilLum });
+        if (p.ink !== 'dark') continue;
+        darkCount += 1;
+        expect(p.veil).toBeGreaterThanOrEqual(0);
+        expect(p.veil).toBeLessThanOrEqual(PHOTO_VEIL_MAX);
+        const after = veiledLuminance(dark, p.veil, veilLum);
+        expect(ratio(after, ink2), `bright=${bright} dark=${dark}`).toBeGreaterThanOrEqual(4.5);
+        expect(ratio(after, ink)).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+    expect(darkCount).toBeGreaterThan(0);
+    expect(photoInkForBand({ bright: 0.95, dark: 0.8 }, { inkLum: ink2, veilLum })).toMatchObject({ ink: 'dark', veil: 0 });
+  });
+  it('暗い写真・明暗の差が大きい写真は、今までどおり白い文字＋黒い幕', () => {
+    expect(photoInkForBand({ bright: 0.3, dark: 0.1 })).toMatchObject({ ink: 'light', scrim: scrimAlpha(0.3) });
+    // 明るい空と暗い机が同じ帯にある（暗い部分が暗すぎて、白い幕 0.6 では届かない）
+    expect(photoInkForBand({ bright: 0.9, dark: 0.05 }).ink).toBe('light');
+  });
+});
+
+describe('副題を除いた書名', () => {
+  it('副題の前で切る（英字の間の空白では切らない）', () => {
+    expect(mainTitle('イシューからはじめよ 知的生産の「シンプルな本質」')).toBe('イシューからはじめよ');
+    expect(mainTitle('GIVE & TAKE 「与える人」こそ成功する時代')).toBe('GIVE & TAKE');
+    expect(mainTitle('思考の整理学')).toBe('思考の整理学');
+    expect(mainTitle('エッセンシャル思考―最少の時間で成果を最大にする')).toBe('エッセンシャル思考');
   });
 });
 

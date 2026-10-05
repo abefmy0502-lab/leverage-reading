@@ -443,19 +443,29 @@ export function scrimAlpha(luminance) {
 //   まとまりの上端の fade 手前 0 → 上端 a → 下端 a → ロゴの上の空き aFoot → ロゴの下 aFoot → 画像の下端 aFoot × 0.6
 // a・aFoot はそれぞれ、まとまり・ロゴの帯の明るさから決めた濃さ（scrimAlpha・上限 0.82）。fade は画像の高さの 0.2 以上。
 // 戻り値: drawScrim に渡す [位置, 濃さ] の並び（位置は上から順）。
-export function blockScrimStops({ top, bottom, H, a, aFoot, logoTop, logoBottom, fade }) {
+// 第 3 回: 投稿 4:5（post）はロゴの下の帯が短いので、下端まで aFoot のまま（ロゴの下で写真が明るく戻る細い帯をなくす）。
+// まとまりとロゴの帯の間が f より短いときは、ロゴの帯の濃さを max(aFoot, a×0.85) にして間に谷を作らない。
+export function blockScrimStops({ top, bottom, H, a, aFoot, logoTop, logoBottom, fade, format = 'story' }) {
   const cap = (v) => Math.min(0.82, Math.max(0, v));
   const f = Math.max(H * 0.2, Number(fade) || 0);
   const lt = Math.max(bottom, logoTop);
   const lb = Math.max(lt, logoBottom);
+  const foot = lt - bottom < f ? Math.max(aFoot, a * 0.85) : aFoot;
   return [
     [top - f, 0],
     [top, cap(a)],
     [bottom, cap(a)],
-    [lt, cap(aFoot)],
-    [lb, cap(aFoot)],
-    [Math.max(lb, H), cap(aFoot * 0.6)],
+    [lt, cap(foot)],
+    [lb, cap(foot)],
+    [Math.max(lb, H), cap(format === 'post' ? foot : foot * 0.6)],
   ];
+}
+
+// 白い幕（明るい写真の上の墨の文字）の帯: まとまりの上端の f 手前で 0 → まとまりの中 veil → 下端から f/2 で 0。
+export function blockVeilStops({ top, bottom, H, veil, fade }) {
+  const f = Math.max(H * 0.2, Number(fade) || 0);
+  const v = Math.min(PHOTO_VEIL_MAX, Math.max(0, veil));
+  return [[top - f, 0], [top, v], [bottom, v], [Math.min(H, bottom + f / 2), 0]];
 }
 
 // 画素の相対輝度の、暗いほうから 15% の値（墨の文字にかかりやすい暗い部分を基準に）。
@@ -472,6 +482,36 @@ export function darkLuminance(pixels) {
 export function logoInkOnPhoto({ bright = 0, dark = 0 } = {}) {
   if (dark >= 0.3) return { logo: 'color', scrim: 0 };
   return { logo: 'white', scrim: scrimAlpha(bright) };
+}
+
+// 相対輝度 ↔ sRGB の値（0〜1・灰色とみなす）。canvas は sRGB の値のまま混ぜるので、幕の濃さはこちらで計算する
+// （白い幕を相対輝度のまま混ぜて見積もると、実際より明るく見積もってしまう）。
+const toSrgb = (L) => (L <= 0.0031308 ? 12.92 * L : 1.055 * L ** (1 / 2.4) - 0.055);
+const toLinear = (s) => (s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4);
+
+// 明るい写真の上の記録・数字・一文の文字の色（2026-10-05 第 3 回 ui-critic「明るい写真が灰色の板になる」）:
+//   まとまりの帯の明るい部分 bright が 0.5 以上（黒い幕なら 0.64 以上が要る写真）で、暗い部分 dark に白い幕
+//   （--share-photo-veil＝紙の色）を 0.6 以下だけ重ねれば、墨の文字（--share-paper-ink）とラベル（--share-paper-ink-2）が
+//   どちらも 4.5:1 以上になるなら → { ink: 'dark', veil: α }（白い幕 α・墨の文字・白い光の影）
+//   それ以外 → { ink: 'light', scrim: scrimAlpha(bright) }（今までどおり白い文字＋黒い幕）
+// α は sRGB の値で混ぜたときに、暗い部分がラベルと 4.5:1 になる濃さ（それより明るければ 0）。上限 0.6。
+// inkLum はラベル（いちばん淡い墨）の相対輝度、veilLum は白い幕の相対輝度。
+export const PHOTO_VEIL_MAX = 0.6;
+export function photoInkForBand({ bright = 0, dark = 0 } = {}, { inkLum = 0.104, veilLum = 0.86 } = {}) {
+  const light = { ink: 'light', scrim: scrimAlpha(bright), veil: 0 };
+  if (bright < 0.5) return light;
+  const target = 4.6 * (inkLum + 0.05) - 0.05; // 幕のあとに要る明るさ（相対輝度・4.5:1 に少し余裕）
+  const s = toSrgb(Math.min(1, Math.max(0, dark)));
+  const sv = toSrgb(veilLum);
+  const st = toSrgb(Math.min(1, target));
+  const need = s >= st ? 0 : (st - s) / Math.max(0.001, sv - s);
+  if (need > PHOTO_VEIL_MAX) return light;
+  return { ink: 'dark', veil: Math.ceil(Math.min(PHOTO_VEIL_MAX, Math.max(0, need)) * 1000) / 1000, scrim: 0 };
+}
+
+// 白い幕 veil を、暗い部分 dark に重ねたあとの明るさ（相対輝度・sRGB の値で混ぜる＝canvas と同じ）。テスト用にも使う。
+export function veiledLuminance(dark, veil, veilLum = 0.86) {
+  return toLinear(veil * toSrgb(veilLum) + (1 - veil) * toSrgb(Math.min(1, Math.max(0, dark))));
 }
 
 // 表紙の色の地に、ぼかした表紙を敷くとき（2026-10-05・写真が無いときの見栄えのよい代わり）、上から重ねる

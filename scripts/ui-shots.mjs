@@ -48,7 +48,9 @@ const EDIT_ZOOM = editWheel({ deltaY: -40, ctrlKey: true });
 const EDIT_PAN = editWheel({ deltaX: 70, deltaY: 110 });
 const editSwitchesOff = (keep) => ({ eval: `(() => { const keep = ${JSON.stringify(keep)}; document.querySelectorAll('${EDIT} [role=switch]').forEach((b) => { if (!keep.includes(b.getAttribute('aria-label')) && b.getAttribute('aria-checked') === 'true') b.click(); }); })()` });
 const EDIT_TITLE_ONLY = editSwitchesOff(['書名']);
-const EDIT_TOP = { eval: `document.querySelectorAll('${EDIT} *').forEach((el) => { el.scrollTop = 0; })` };
+// 編集画面の中の、文字を含むボタンを JS で押す（指で押す位置が、画像の大きさの変化で動いても外れない）。
+const editClick = (sel, text) => ({ eval: `(() => { const b = [...document.querySelectorAll('${EDIT} ${sel}')].find((x) => x.textContent.includes('${text}')); if (b) b.click(); })()` });
+const EDIT_TOP ={ eval: `document.querySelectorAll('${EDIT} *').forEach((el) => { el.scrollTop = 0; })` };
 const EDIT_BLUR = { eval: '(() => { if (document.activeElement) document.activeElement.blur(); })()' };
 const EDIT_PHRASE = [{ css: `${EDIT} button:has-text("言葉を入れる")` }, { fill: [`${EDIT} input[type=text]`, '問いの質が、答えの質を決める。'] }, { wait: 1200 }];
 // 言葉を指で上へ動かす（上から 24% → 12%）。
@@ -619,7 +621,9 @@ const SCREENS = [
   { name: 'share-edit-open', url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT] },
   // 第 2 回（2026-10-05）: 言葉を入れた・帯・入力中（画像が縮む）・数字の重ね方・透明の上の言葉・下の欄を送った（画像の下端の線）。
   { name: 'share-edit-phrase', url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT, ...EDIT_PHRASE, EDIT_BLUR, { wait: 800 }, EDIT_TOP] },
-  { name: 'share-edit-phrase-band', url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT, ...EDIT_PHRASE, { css: `${EDIT} [role=radiogroup][aria-label="言葉の形"] [role=radio]:has-text("白抜きの帯")` }, { wait: 1200 }, EDIT_BLUR, { wait: 800 }, EDIT_TOP] },
+  // 入力欄から外れると画像が大きくなって下の欄が動くので、先に入力欄を外してから（または JS で）押す。
+  { name: 'share-edit-phrase-band', url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT, ...EDIT_PHRASE, EDIT_BLUR, { wait: 800 }, editClick('[role=radiogroup][aria-label="言葉の形"] [role=radio]', '白抜きの帯'), { wait: 1500 }, EDIT_TOP] },
+  { name: 'share-edit-phrase-invert', url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT, ...EDIT_PHRASE, EDIT_BLUR, { wait: 800 }, editClick('button', '文字を黒にする'), { wait: 1500 }, EDIT_TOP] },
   { name: 'share-edit-phrase-focus', url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT, ...EDIT_PHRASE, { wait: 800 }] },
   { name: 'share-edit-stats', url: '/', steps: [...SHARE_CAMERA, shareVariant('数字'), { wait: 1500 }, ...SHARE_EDIT] },
   { name: 'share-edit-phrase-sticker', url: '/', steps: [...SHARE_PAPER, { css: '[role=dialog] [role=radio][aria-label="透明（ステッカー用）"]' }, { wait: 1500 }, ...SHARE_EDIT, ...EDIT_PHRASE, EDIT_BLUR, { wait: 800 }, EDIT_TOP] },

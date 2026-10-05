@@ -25,11 +25,11 @@ import {
   FORMATS, clampLine, fitQuote, wrapBalanced, coverTone, rgbCss,
   photoPlacement, scrimAlpha, brightLuminance, coverProxyPath,
   seedFrom, underlineStroke, tabPosition, coverWashAlpha, relativeLuminance, shareImageType,
-  darkLuminance, logoInkOnPhoto, blockScrimStops,
+  darkLuminance, logoInkOnPhoto, blockScrimStops, photoInkForBand, blockVeilStops,
 } from './shareCardLayout';
 import {
   RECORD_QUOTE_MAX, recordFrame, placeRecordBlock, statColumns, splitStatValue, recordBlockPlan, recordTitleScale, recordTitleMaxLines,
-  applyShareItems, shareVisibility, recordCoverPlacement, logoBox, LOGO_RULES, statsStackPlan, placeStatsStack, statColumnsScale,
+  applyShareItems, shareVisibility, recordCoverPlacement, logoBox, LOGO_RULES, statsStackPlan, placeStatsStack, statColumnsScale, mainTitle,
 } from './shareOverlay';
 import { phraseLayout, phraseMetrics, phraseColors, phraseDisplayText, stickerPhraseReserve } from './sharePhrase';
 import { paletteFor } from './coverPalette';
@@ -518,13 +518,33 @@ function drawCover(ctx, { x, y, w, h, cover, title, theme, fonts, showText = tru
   ctx.restore();
 }
 
+// 書名を maxLines 行に組む。入らなければ副題の前で切った書名（mainTitle）で組み直し、それでも入らなければ
+// 最後の行を … で切る。本の書名は最後まで『』で閉じる（「…『イシューからはじめよ 知的生産の…」で終わらせない・第 3 回）。
+function fitTitleLines(ctx, title, { isBook, width, font, em, maxLines }) {
+  const m = measurer(ctx, font, em);
+  const wrap = (t) => wrapBalanced(isBook ? `『${t}』` : String(t), width, m);
+  const lines = wrap(title);
+  if (lines.length <= maxLines) return lines;
+  if (isBook) {
+    const main = mainTitle(title);
+    if (main && main !== title) {
+      const short = wrap(main);
+      if (short.length <= maxLines) return short;
+    }
+    const close = m('』'); // 書体と字間をここで決める（ellipsize は今の書体で測る）
+    const rest = lines.slice(maxLines - 1).join('').replace(/』$/, '');
+    return [...lines.slice(0, maxLines - 1), `${ellipsize(ctx, rest, width - close)}』`];
+  }
+  m('');
+  return [...lines.slice(0, maxLines - 1), ellipsize(ctx, lines.slice(maxLines - 1).join(''), width)];
+}
+
 // 『書名』（2 行まで）＋ 著者・p.N の組みと高さ。
 function layoutBookLines(ctx, fonts, { title, author, page, width, titleFont, titleSize, metaSize }) {
   ctx.font = titleFont;
   setSpacing(ctx, 0.02, titleSize);
   // title が null のときは書名を隠す（表示する項目・2026-10-01）。
-  let titleLines = title === null ? [] : wrapBalanced(`『${title || '無題'}』`, width, measurer(ctx, titleFont, 0.02));
-  if (titleLines.length > 2) titleLines = [titleLines[0], ellipsize(ctx, `${titleLines[1]}${titleLines.slice(2).join('')}`, width)];
+  const titleLines = title === null ? [] : fitTitleLines(ctx, title || '無題', { isBook: true, width, font: titleFont, em: 0.02, maxLines: 2 });
   const titleLH = Math.round(titleSize * 1.4);
   const authorText = String(author || '').trim();
   const pageText = Number.isFinite(page) && page > 0 ? `p.${page}` : '';
@@ -821,14 +841,15 @@ function drawPhotoOverlay(ctx, o, place) {
   else top = footerTop - 56 - lay.height;
   const bottom = top + lay.height;
 
-  // 幕: 文字の後ろの明るさに合わせて濃さを決める（白い文字と 4.5:1 以上を目安に）。
-  const a = scrimAlpha(bandLuminance(o.photo, place, W, H, top, bottom));
-  const aFoot = scrimAlpha(bandLuminance(o.photo, place, W, H, lb.clearTop, lb.baseline + 8));
-  // 幕は文字の塊の上端（引用符）より手前で決めた濃さに届かせる＝一文の 1 行目から白い文字が読める。
+  // 幕: 記録・数字と同じ（まとまりの周りの帯＋ロゴの帯。明るい写真は白い幕＋墨の文字・第 3 回）。
+  let ink = theme;
+  let foot = theme;
   const fade = H * 0.2;
   if (pos === 'bottom') {
-    drawScrim(ctx, W, H, theme.scrim, [[top - fade, 0], [top - fade * 0.2, a], [H, Math.max(a, aFoot)]]);
+    ({ theme: ink, foot } = drawBlockScrim(ctx, o, place, recordFrame(format), top, bottom));
   } else {
+    const a = scrimAlpha(bandLuminance(o.photo, place, W, H, top, bottom));
+    const aFoot = scrimAlpha(bandLuminance(o.photo, place, W, H, lb.clearTop, lb.baseline + 8));
     const stops = pos === 'top'
       ? [[0, a], [bottom + fade * 0.2, a], [bottom + fade, 0]]
       : [[top - fade, 0], [top - fade * 0.2, a], [bottom + fade * 0.2, a], [bottom + fade, 0]];
@@ -839,15 +860,15 @@ function drawPhotoOverlay(ctx, o, place) {
   // 影のぼかしは canvas の拡大・縮小（transform）に追従しないので、縮めて描くとき（shadowScale）は掛けて合わせる。
   const sb = o.shadowScale || 1;
   ctx.save();
-  ctx.shadowColor = theme.shadow;
+  ctx.shadowColor = ink.shadow;
   ctx.shadowBlur = 18 * sb;
   ctx.shadowOffsetY = 2 * sb;
-  drawOverlay(ctx, fonts, o, L, lay, top, theme);
+  drawOverlay(ctx, fonts, o, L, lay, top, ink);
   ctx.restore();
   ctx.save();
-  ctx.shadowColor = theme.shadow;
+  ctx.shadowColor = foot.shadow;
   ctx.shadowBlur = 14 * sb;
-  drawFooter(ctx, { format, margin: L.margin, logo: o.logo, theme, fonts });
+  drawFooter(ctx, { format, margin: L.margin, logo: o.logo, theme: foot, fonts });
   ctx.restore();
 }
 
@@ -912,10 +933,8 @@ function layoutRecord(ctx, fonts, o, F) {
   const titleFont = `600 ${titleSize}px ${fonts.read}`;
   ctx.font = titleFont;
   setSpacing(ctx, 0.01, titleSize);
-  const tText = rec.title ? (rec.titleIsBook ? `『${rec.title}』` : String(rec.title)) : '';
-  let titleLines = tText ? wrapBalanced(tText, contentW, measurer(ctx, titleFont, 0.01)) : [];
   const maxLines = recordTitleMaxLines({ statsCount: stats.length });
-  if (titleLines.length > maxLines) titleLines = [...titleLines.slice(0, maxLines - 1), ellipsize(ctx, titleLines.slice(maxLines - 1).join(''), contentW)];
+  const titleLines = rec.title ? fitTitleLines(ctx, rec.title, { isBook: !!rec.titleIsBook, width: contentW, font: titleFont, em: 0.01, maxLines }) : [];
   const subFont = `400 ${F.subSize}px ${fonts.ui}`;
   let sub = '';
   if (rec.sub) {
@@ -1076,31 +1095,62 @@ function fitRecord(ctx, o, F) {
 
 // 写真の上の記録・数字の幕: まとまりの周りだけの帯＋ロゴの下（blockScrimStops）。濃さはまとまり・ロゴの帯
 // それぞれの明るさから（白い文字と 4.5:1 以上・上限 0.82）。写真の上部と下端は見せる（灰色の板にしない）。
+// 明るい写真（photoInkForBand が dark）では、黒い幕の代わりに白い幕＋墨の文字（第 3 回）。ロゴと日付は
+// ロゴの帯の判定（logoFooterOnPhoto）のまま。戻り値: { theme（まとまりの色）, foot（ロゴと日付の色） }
 function drawBlockScrim(ctx, o, place, F, top, bottom) {
   const lb = logoBox(F.format);
-  const a = scrimAlpha(bandLuminance(o.photo, place, F.W, F.H, top, bottom));
+  const px = bandPixels(o.photo, place, F.W, F.H, top, bottom);
+  const bright = px && px.length ? brightLuminance(px) : 0.6;
+  const dark = px && px.length ? darkLuminance(px) : 0;
+  const pick = photoInkForBand({ bright, dark }, photoInkLums());
+  if (pick.ink === 'dark') {
+    const veil = cssVar('--share-photo-veil') || '244, 239, 230';
+    if (pick.veil > 0) drawScrim(ctx, F.W, F.H, veil, blockVeilStops({ top, bottom, H: F.H, veil: pick.veil, fade: F.H * 0.22 }));
+    const foot = logoFooterOnPhoto(ctx, { ...o, W: F.W, H: F.H, format: F.format }, place);
+    return { theme: darkInkTheme(o.theme), foot };
+  }
   const aFoot = scrimAlpha(bandLuminance(o.photo, place, F.W, F.H, lb.clearTop, lb.baseline + 8));
   drawScrim(ctx, F.W, F.H, o.theme.scrim, blockScrimStops({
-    top, bottom, H: F.H, a, aFoot, logoTop: lb.clearTop, logoBottom: lb.baseline + Math.round(lb.wordH * 0.6), fade: F.H * 0.22,
+    top, bottom, H: F.H, a: pick.scrim, aFoot, logoTop: lb.clearTop, logoBottom: lb.baseline + Math.round(lb.wordH * 0.6), fade: F.H * 0.22, format: F.format,
   }));
+  return { theme: o.theme, foot: o.theme };
+}
+
+// 明るい写真の上の墨の文字の色（紙の墨・白い光の影）。
+function darkInkTheme(theme) {
+  return {
+    ...theme,
+    ink: cssVar('--share-paper-ink') || '#2b2825',
+    ink2: cssVar('--share-paper-ink-2') || '#5f5a53',
+    ink3: cssVar('--share-paper-ink-2') || '#5f5a53',
+    shadow: cssVar('--share-phrase-glow') || 'rgba(255,255,255,0.6)',
+  };
+}
+
+// photoInkForBand に渡す、ラベル（いちばん淡い墨）と白い幕の相対輝度（トークンから）。
+function photoInkLums() {
+  const ink = parseRgb(cssVar('--share-paper-ink-2') || '#5f5a53');
+  const veil = parseRgb(`rgb(${cssVar('--share-photo-veil') || '244, 239, 230'})`);
+  return { inkLum: ink ? relativeLuminance(ink) : 0.104, veilLum: veil ? relativeLuminance(veil) : 0.86 };
 }
 
 function drawRecordOverlay(ctx, o, place) {
   const F = recordFrame(o.format);
   const { lay, place: at } = fitRecord(ctx, o, F);
   let foot = o.theme;
+  let ink = o.theme;
   if (lay.height <= 0) {
     // 記録の項目を全部隠した: 写真はそのままに、ロゴ（と日付）が読める色・下地にする（ロゴは必ず読める）。
     foot = logoFooterOnPhoto(ctx, o, place);
   } else {
-    drawBlockScrim(ctx, o, place, F, at.top, at.top + lay.height);
+    ({ theme: ink, foot } = drawBlockScrim(ctx, o, place, F, at.top, at.top + lay.height));
   }
   const sb = o.shadowScale || 1;
   ctx.save();
-  ctx.shadowColor = o.theme.shadow;
+  ctx.shadowColor = ink.shadow;
   ctx.shadowBlur = 18 * sb;
   ctx.shadowOffsetY = 2 * sb;
-  drawRecordBlock(ctx, o.fonts, o, F, lay, at.top, o.theme);
+  drawRecordBlock(ctx, o.fonts, o, F, lay, at.top, ink);
   ctx.shadowColor = foot.shadow;
   drawRecordFooter(ctx, { F, baseline: F.footerBaseline, logo: o.logo, theme: foot, fonts: o.fonts, stamp: o.stamp });
   ctx.restore();
@@ -1127,8 +1177,9 @@ function drawRecordPoster(ctx, o) {
   const at = recordCoverPlacement(F, place, { count: covers.length, titleOnly });
   if (at) {
     const { x0, y0, w, h, step } = at;
+    // 重ねるとき（step < w）は、いちばん手前の表紙だけ書名を出す（後ろの表紙の書名が途中で切れて見えない・第 3 回）。
     covers.forEach((c, i) => {
-      drawCover(ctx, { x: x0 + step * i, y: y0 + (covers.length > 1 ? (i % 2) * h * 0.04 : 0), w, h, cover: c.cover, title: c.title, theme, fonts: o.fonts, showText: o.showTitle !== false });
+      drawCover(ctx, { x: x0 + step * i, y: y0 + (covers.length > 1 ? (i % 2) * h * 0.04 : 0), w, h, cover: c.cover, title: c.title, theme, fonts: o.fonts, showText: o.showTitle !== false && (step >= w || i === covers.length - 1) });
     });
   }
   drawRecordBlock(ctx, o.fonts, o, F, lay, place.top, theme);
@@ -1183,9 +1234,7 @@ function layoutStats(ctx, fonts, o, F) {
   const titleFont = `600 ${st.titleSize}px ${fonts.read}`;
   ctx.font = titleFont;
   setSpacing(ctx, 0.01, st.titleSize);
-  const tText = rec.title ? (rec.titleIsBook ? `『${rec.title}』` : String(rec.title)) : '';
-  let titleLines = tText ? wrapBalanced(tText, contentW, measurer(ctx, titleFont, 0.01)) : [];
-  if (titleLines.length > 2) titleLines = [titleLines[0], ellipsize(ctx, titleLines.slice(1).join(''), contentW)];
+  const titleLines = rec.title ? fitTitleLines(ctx, rec.title, { isBook: !!rec.titleIsBook, width: contentW, font: titleFont, em: 0.01, maxLines: 2 }) : [];
   const subFont = `400 ${st.subSize}px ${fonts.ui}`;
   let sub = '';
   if (rec.sub) {
@@ -1267,17 +1316,18 @@ function drawStatsOverlay(ctx, o, place) {
   // 写真の上は、積み方を下に寄せる（写真の上のほうを見せる＝写真が主役・Strava の共有と同じ）。
   const at = placeStatsStack(F, lay.height, { phrase: !!(o.phrase && phraseDisplayText(o.phrase)), align: 'bottom' });
   let foot = o.theme;
+  let ink = o.theme;
   if (lay.height <= 0) {
     foot = logoFooterOnPhoto(ctx, o, place);
   } else {
-    drawBlockScrim(ctx, o, place, F, at.top, at.bottom);
+    ({ theme: ink, foot } = drawBlockScrim(ctx, o, place, F, at.top, at.bottom));
   }
   const sb = o.shadowScale || 1;
   ctx.save();
-  ctx.shadowColor = o.theme.shadow;
+  ctx.shadowColor = ink.shadow;
   ctx.shadowBlur = 18 * sb;
   ctx.shadowOffsetY = 2 * sb;
-  drawStatsBlock(ctx, o.fonts, F, lay, at.top, o.theme, F.W / 2);
+  drawStatsBlock(ctx, o.fonts, F, lay, at.top, ink, F.W / 2);
   ctx.shadowColor = foot.shadow;
   drawRecordFooter(ctx, { F, baseline: F.footerBaseline, logo: o.logo, theme: foot, fonts: o.fonts, stamp: o.stamp });
   ctx.restore();
@@ -1294,7 +1344,7 @@ function drawStatsPoster(ctx, o) {
   if (at.cover) {
     const { x0, y0, w, h, step } = at.cover;
     covers.forEach((c, i) => {
-      drawCover(ctx, { x: x0 + step * i, y: y0 + (covers.length > 1 ? (i % 2) * h * 0.04 : 0), w, h, cover: c.cover, title: c.title, theme, fonts: o.fonts, showText: o.showTitle !== false });
+      drawCover(ctx, { x: x0 + step * i, y: y0 + (covers.length > 1 ? (i % 2) * h * 0.04 : 0), w, h, cover: c.cover, title: c.title, theme, fonts: o.fonts, showText: o.showTitle !== false && (step >= w || i === covers.length - 1) });
     });
   }
   drawStatsBlock(ctx, o.fonts, F, lay, at.top, theme, F.W / 2);

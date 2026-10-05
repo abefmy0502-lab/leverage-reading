@@ -154,6 +154,17 @@ export function monthRecord(books, monthMemos = [], now = new Date()) {
   };
 }
 
+// 副題を除いた書名（長い書名が決まった行数に入らないとき、副題の前で切って』を閉じるため・第 3 回）。
+// 区切りは 全角の空白・日本語の前の半角の空白・―〜：・開き丸括弧。区切りが無ければそのまま。
+//   「イシューからはじめよ 知的生産の「シンプルな本質」」→「イシューからはじめよ」
+//   「GIVE & TAKE 「与える人」こそ成功する時代」→「GIVE & TAKE」（英字の間の空白では切らない）
+export function mainTitle(title) {
+  const t = String(title || '').trim();
+  // eslint-disable-next-line no-control-regex
+  const m = /^(.{2,}?)(?:　|\s+(?=[^\x00-\x7F])|\s*[―—～〜：:]|\s*[（(])/u.exec(t);
+  return m ? m[1].trim() : t;
+}
+
 // 「9月28日」→ [{ text:'9', big:true }, { text:'月', big:false }, …]。数字（と小数点）を大きく、単位を小さく。
 export function splitStatValue(value) {
   const out = [];
