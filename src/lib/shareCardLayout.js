@@ -469,11 +469,14 @@ export function blockVeilStops({ top, bottom, H, veil, fade }) {
 }
 
 // 画素の相対輝度の、暗いほうから 15% の値（墨の文字にかかりやすい暗い部分を基準に）。
-export function darkLuminance(pixels) {
+// q は暗いほうから何割の値か（既定 0.15）。墨の文字に切り替えるかの判定は 0.03（文字の下のごく一部が暗くても読めなくなるので
+// 厳しめに・第 4 回）。
+export function darkLuminance(pixels, q = 0.15) {
   if (!Array.isArray(pixels) || pixels.length === 0) return 0;
   const lums = pixels.map(relLum).sort((a, b) => a - b);
-  return lums[Math.min(lums.length - 1, Math.floor(lums.length * 0.15))];
+  return lums[Math.min(lums.length - 1, Math.floor(lums.length * q))];
 }
+export const PHOTO_INK_DARK_Q = 0.03;
 
 // 写真の上にロゴ（と今日の日付）しか重ねないとき（記録の項目を全部隠した）のロゴの色（2026-10-05・ロゴは必ず読める）:
 //   ロゴの下が明るい写真（暗い部分でも相対輝度 0.3 以上＝焦げ茶の文字と 4.5:1 以上）… 元の色のロゴ・幕なし

@@ -8,9 +8,10 @@ import { SHARE_ITEM_KEYS, LOGO_RULES, bookRecord, logoBox } from './shareOverlay
 import { shareImageType, shareFilename } from './shareCardLayout.js';
 
 // 呼ばれた描画（drawImage・fillText…）を記録する 2D の文脈。文字の幅は「字数 × 文字の大きさ」。
-function fakeCanvas(w = 1, h = 1, { bright = true } = {}) {
+// profile（0〜1 の高さ → 相対輝度）があれば、getImageData はその行の明るさの灰色を返す（写真の明るさの分布）。
+function fakeCanvas(w = 1, h = 1, { bright = true, profile = null } = {}) {
   const calls = [];
-  const state = { font: '16px sans-serif' };
+  const state = { font: '16px sans-serif', globalAlpha: 1 };
   const canvas = { width: w, height: h, calls };
   const sizeOf = () => parseFloat(/(\d+(?:\.\d+)?)px/.exec(state.font)?.[1] || 16);
   const ctx = new Proxy({}, {
@@ -26,9 +27,21 @@ function fakeCanvas(w = 1, h = 1, { bright = true } = {}) {
         };
       }
       // 明るい写真（真っ白）＝白いロゴがいちばん読みにくい場合
-      if (k === 'getImageData') return (x, y, gw, gh) => ({ data: new Uint8ClampedArray(Math.max(1, gw * gh) * 4).fill(bright ? 255 : 0) });
-      if (k === 'createLinearGradient' || k === 'createRadialGradient') return () => ({ addColorStop() {} });
-      return (...args) => { calls.push({ op: k, args, font: state.font, fillStyle: state.fillStyle }); };
+      if (k === 'getImageData') {
+        return (x, y, gw, gh) => {
+          const data = new Uint8ClampedArray(Math.max(1, gw * gh) * 4).fill(bright ? 255 : 0);
+          if (profile) {
+            for (let r = 0; r < gh; r += 1) {
+              const v = Math.round(toSrgb(profile((y + r + 0.5) / Math.max(1, canvas.height))) * 255);
+              for (let c = 0; c < gw; c += 1) { const i = (r * gw + c) * 4; data[i] = v; data[i + 1] = v; data[i + 2] = v; data[i + 3] = 255; }
+            }
+          }
+          return { data };
+        };
+      }
+      if (k === 'createLinearGradient') return (x0, y0, x1, y1) => { const g = { y0, y1, stops: [] }; g.addColorStop = (o, c) => g.stops.push([o, c]); return g; };
+      if (k === 'createRadialGradient') return () => ({ addColorStop() {} });
+      return (...args) => { calls.push({ op: k, args, font: state.font, fillStyle: state.fillStyle, globalAlpha: state.globalAlpha }); };
     },
     set(_, k, v) { state[k] = v; return true; },
   });
@@ -46,11 +59,60 @@ const isLogoWord = (img) => img && (img.tag === 'color-word' || img.tag === 'whi
 
 // 写真の明るさ（document.createElement で作る作業用の canvas が読む画素）。既定は真っ白＝いちばん厳しい明るい写真。
 let photoBright = true;
+let photoProfile = null;
 let savedDocument;
 beforeAll(() => {
   savedDocument = globalThis.document;
-  globalThis.document = { createElement: () => fakeCanvas(1, 1, { bright: photoBright }), documentElement: {} };
+  globalThis.document = { createElement: () => fakeCanvas(1, 1, { bright: photoBright, profile: photoProfile }), documentElement: {} };
 });
+
+// sRGB の値 ↔ 相対輝度（灰色）。
+function toSrgb(L) { return L <= 0.0031308 ? 12.92 * L : 1.055 * L ** (1 / 2.4) - 0.055; }
+function toLinear(s) { return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4; }
+// '#2b2825' / 'rgba(14, 12, 10, 0.5)' / 'rgb(…)' → [r, g, b, a]（0〜1）
+function parseColor(c) {
+  const s = String(c || '').trim();
+  let m = /^#([0-9a-f]{6})$/i.exec(s);
+  if (m) return [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16) / 255).concat(1);
+  m = /^rgba?\(([^)]+)\)$/i.exec(s);
+  if (m) {
+    const p = m[1].split(',').map((x) => parseFloat(x));
+    return [p[0] / 255, p[1] / 255, p[2] / 255, p.length > 3 ? p[3] : 1];
+  }
+  return null;
+}
+const lumOf = ([r, g, b]) => 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
+const over = (top, [r, g, b], alpha = 1) => {
+  const a = top[3] * alpha;
+  return [top[0] * a + r * (1 - a), top[1] * a + g * (1 - a), top[2] * a + b * (1 - a)];
+};
+// 縦のグラデーションの、高さ y の色（止めの間は線形）。
+function gradientAt(g, y) {
+  const span = g.y1 - g.y0 || 1;
+  const f = (y - g.y0) / span;
+  const stops = [...g.stops].sort((p, q) => p[0] - q[0]).map(([o, c]) => [o, parseColor(c)]);
+  if (f <= stops[0][0]) return stops[0][1];
+  for (let i = 1; i < stops.length; i += 1) {
+    if (f <= stops[i][0]) {
+      const [o0, c0] = stops[i - 1];
+      const [o1, c1] = stops[i];
+      const t = o1 === o0 ? 1 : (f - o0) / (o1 - o0);
+      return c0.map((v, j) => v + (c1[j] - v) * t);
+    }
+  }
+  return stops[stops.length - 1][1];
+}
+// 描いたあとの、画像いっぱいの帯（写真＋幕）の高さ y の色。index より前の fillRect（画像いっぱい）だけを重ねる。
+function backgroundAt(calls, index, y, H, profile) {
+  let c = [toSrgb(profile(y / H)), toSrgb(profile(y / H)), toSrgb(profile(y / H))];
+  for (let i = 0; i < index; i += 1) {
+    const k = calls[i];
+    if (k.op !== 'fillRect' || k.args[2] < 1000) continue;
+    const fill = typeof k.fillStyle === 'object' && k.fillStyle?.stops ? gradientAt(k.fillStyle, y) : parseColor(k.fillStyle);
+    if (fill) c = over(fill, c, k.globalAlpha ?? 1);
+  }
+  return c;
+}
 afterAll(() => {
   globalThis.document = savedDocument;
 });
@@ -202,6 +264,53 @@ describe('明るい写真では墨の文字・暗い写真では白い文字（�
       photoBright = true;
     }
   });
+});
+
+describe('描いたあとの重なりで、写真の上の文字は 4.5:1 以上（第 4 回）', () => {
+  // 写真の明るさの分布（上 0 → 下 1 の高さ → 相対輝度）。
+  const PROFILES = {
+    // 明るい写真（白い机）
+    bright: () => 0.9,
+    // 中くらいの写真: 空は明るく、まとまりのあたりは中くらい、ロゴのあたり（机の下のほう）は暗い
+    //（墨の文字に切り替わったまとまりの下の行が、ロゴの黒い幕と重なっていた形）
+    medium: (f) => (f < 0.35 ? 0.75 : f < 0.78 ? 0.6 : 0.1),
+    // 中くらいの写真の逆: まとまりのあたりが暗く、下が明るい
+    mediumInv: (f) => (f < 0.5 ? 0.2 : 0.7),
+    // 暗い写真（夜の部屋）
+    dark: () => 0.03,
+  };
+  const ACCENT = '#df8e17';
+  for (const [name, profile] of Object.entries(PROFILES)) {
+    for (const layout of ['record', 'stats', 'quote']) {
+      for (const format of ['story', 'post']) {
+        it(`${name} × ${layout} × ${format}`, () => {
+          photoProfile = profile;
+          try {
+            const c = fakeCanvas();
+            const r = drawShareCard(c, opts({ layout, format, style: 'photo' }));
+            const texts = c.calls.map((k, i) => ({ k, i })).filter(({ k }) => k.op === 'fillText' && String(k.args[0]).trim() && k.fillStyle !== ACCENT);
+            expect(texts.length).toBeGreaterThan(3);
+            for (const { k, i } of texts) {
+              const size = parseFloat(/(\d+(?:\.\d+)?)px/.exec(k.font)[1]);
+              const baseline = k.args[2];
+              const ink = parseColor(k.fillStyle);
+              // 文字の箱（上は大きさの 0.8・下は 0.2）の中の何か所かで、いちばん悪いコントラスト
+              for (const y of [baseline - size * 0.8, baseline - size * 0.4, baseline, baseline + size * 0.2]) {
+                const bg = backgroundAt(c.calls, i, y, r.height, profile);
+                const fg = over(ink, bg);
+                const lb = lumOf(bg);
+                const lf = lumOf(fg);
+                const ratio = (Math.max(lb, lf) + 0.05) / (Math.min(lb, lf) + 0.05);
+                expect(ratio, `${name} ${layout} ${format} 「${k.args[0]}」 y=${Math.round(y)} ink=${k.fillStyle} bg=${lb.toFixed(3)}`).toBeGreaterThanOrEqual(4.5);
+              }
+            }
+          } finally {
+            photoProfile = null;
+          }
+        });
+      }
+    }
+  }
 });
 
 describe('数字の重ね方', () => {

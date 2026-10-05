@@ -25,7 +25,7 @@ import {
   FORMATS, clampLine, fitQuote, wrapBalanced, coverTone, rgbCss,
   photoPlacement, scrimAlpha, brightLuminance, coverProxyPath,
   seedFrom, underlineStroke, tabPosition, coverWashAlpha, relativeLuminance, shareImageType,
-  darkLuminance, logoInkOnPhoto, blockScrimStops, photoInkForBand, blockVeilStops,
+  darkLuminance, logoInkOnPhoto, blockScrimStops, photoInkForBand, blockVeilStops, PHOTO_INK_DARK_Q,
 } from './shareCardLayout';
 import {
   RECORD_QUOTE_MAX, recordFrame, placeRecordBlock, statColumns, splitStatValue, recordBlockPlan, recordTitleScale, recordTitleMaxLines,
@@ -591,11 +591,17 @@ function drawFooter(ctx, { format, margin, logo, theme, fonts }) {
 // 写真の上にロゴ（と日付）しか重ねないとき（記録の項目を全部隠した）のロゴの下地と色（logoInkOnPhoto）:
 // ロゴの下（ロゴの上の空きから下端・左右いっぱい）が明るい写真なら、幕を掛けずに元の色（焦げ茶）のロゴと墨の日付。
 // そうでなければ白いロゴ＋白と 4.5:1 以上になる黒の幕を下から。戻り値は下の行に使う色の組（theme）。
-function logoFooterOnPhoto(ctx, o, place) {
+// fadeFrom: 黒い幕を暗くし始める位置の下限（墨の文字のまとまりの下端より下から・第 4 回。まとまりに黒い幕を重ねない）。
+function logoPickOnPhoto(o, place) {
+  const b = logoBox(o.format);
+  const px = bandPixels(o.photo, place, o.W, o.H, b.clearTop, b.baseline + 8);
+  return px && px.length ? logoInkOnPhoto({ bright: brightLuminance(px), dark: darkLuminance(px) }) : { logo: 'white', scrim: 0.6 };
+}
+
+function logoFooterOnPhoto(ctx, o, place, { fadeFrom = -Infinity, pick: pick0 = null } = {}) {
   const { W, H } = o;
   const b = logoBox(o.format);
-  const px = bandPixels(o.photo, place, W, H, b.clearTop, b.baseline + 8);
-  const pick = px && px.length ? logoInkOnPhoto({ bright: brightLuminance(px), dark: darkLuminance(px) }) : { logo: 'white', scrim: 0.6 };
+  const pick = pick0 || logoPickOnPhoto(o, place);
   if (pick.logo === 'color') {
     return {
       ...o.theme,
@@ -606,9 +612,13 @@ function logoFooterOnPhoto(ctx, o, place) {
     };
   }
   const fade = H * 0.12;
-  drawScrim(ctx, W, H, o.theme.scrim, [[b.clearTop - fade, 0], [b.clearTop, pick.scrim * 0.85], [H, pick.scrim]]);
+  const from = Math.min(b.clearTop - 1, Math.max(fadeFrom, b.clearTop - fade));
+  drawScrim(ctx, W, H, o.theme.scrim, [[from, 0], [b.clearTop, pick.scrim * 0.85], [H, pick.scrim]]);
   return o.theme;
 }
+
+// 墨の文字のまとまりの下端と、ロゴの黒い幕を立ち上げる場所の間に要る長さ（これより短ければ白い文字＋黒い幕に戻す）。
+export const LOGO_SCRIM_MIN_RISE = 48;
 
 // ---------------------------------------------------------------- 紙・夜・表紙の色
 
@@ -1101,17 +1111,23 @@ function drawBlockScrim(ctx, o, place, F, top, bottom) {
   const lb = logoBox(F.format);
   const px = bandPixels(o.photo, place, F.W, F.H, top, bottom);
   const bright = px && px.length ? brightLuminance(px) : 0.6;
-  const dark = px && px.length ? darkLuminance(px) : 0;
+  const dark = px && px.length ? darkLuminance(px, PHOTO_INK_DARK_Q) : 0;
   const pick = photoInkForBand({ bright, dark }, photoInkLums());
-  if (pick.ink === 'dark') {
+  // photoInkForBand は幕を描く前の明るさで決めるので、ロゴの黒い幕がまとまりに掛からないことも確かめる（第 4 回）:
+  // ロゴの黒い幕はまとまりの下端＋16 より下から暗くし、立ち上げる場所（48）が無ければ白い文字＋黒い幕に戻す。
+  const oF = { ...o, W: F.W, H: F.H, format: F.format };
+  const logoPick = pick.ink === 'dark' ? logoPickOnPhoto(oF, place) : null;
+  const fadeFrom = bottom + 16;
+  const roomForLogoScrim = logoPick && (logoPick.logo === 'color' || lb.clearTop - fadeFrom >= LOGO_SCRIM_MIN_RISE);
+  if (pick.ink === 'dark' && roomForLogoScrim) {
     const veil = cssVar('--share-photo-veil') || '244, 239, 230';
     if (pick.veil > 0) drawScrim(ctx, F.W, F.H, veil, blockVeilStops({ top, bottom, H: F.H, veil: pick.veil, fade: F.H * 0.22 }));
-    const foot = logoFooterOnPhoto(ctx, { ...o, W: F.W, H: F.H, format: F.format }, place);
+    const foot = logoFooterOnPhoto(ctx, oF, place, { fadeFrom, pick: logoPick });
     return { theme: darkInkTheme(o.theme), foot };
   }
   const aFoot = scrimAlpha(bandLuminance(o.photo, place, F.W, F.H, lb.clearTop, lb.baseline + 8));
   drawScrim(ctx, F.W, F.H, o.theme.scrim, blockScrimStops({
-    top, bottom, H: F.H, a: pick.scrim, aFoot, logoTop: lb.clearTop, logoBottom: lb.baseline + Math.round(lb.wordH * 0.6), fade: F.H * 0.22, format: F.format,
+    top, bottom, H: F.H, a: pick.ink === 'dark' ? scrimAlpha(bright) : pick.scrim, aFoot, logoTop: lb.clearTop, logoBottom: lb.baseline + Math.round(lb.wordH * 0.6), fade: F.H * 0.22, format: F.format,
   }));
   return { theme: o.theme, foot: o.theme };
 }
