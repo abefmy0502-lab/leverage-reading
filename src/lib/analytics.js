@@ -151,5 +151,5 @@ export const EVENTS = {
   RECORD_OPENED: 'record_opened', // 振り返り「📊 記録」サブタブの表示
   RECALL_SHOWN: 'recall_shown', // 本物の想起カード表示（当日メモのプレビュー除く）— 初週想起体験率の分子
   ACTION_COMPLETED: 'action_completed',
-  SHARE_CARD: 'share_card', // 一文カードをシェア／保存（props: kind / style / format / via だけ・本文や書名は送らない）
+  SHARE_CARD: 'share_card', // 写真で共有・一文カードをシェア／保存（props: kind（record / stats / line）/ style / format / via だけ・本文や書名は送らない）
 };

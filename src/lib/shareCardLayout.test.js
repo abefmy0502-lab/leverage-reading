@@ -6,6 +6,7 @@ import {
   clampLine, segmentPhrases, wrapBalanced, wrapCost, hasOrphan, fitQuote, orderLineCandidates,
   buildShareText, shareFilename, coverTone, contrastRatio, photoPlacement, panView, zoomView,
   scrimAlpha, brightLuminance, coverProxyPath, seedFrom, mulberry32, underlineStroke, tabPosition, FORMATS,
+  darkLuminance, logoInkOnPhoto, coverWashAlpha, relativeLuminance,
 } from './shareCardLayout.js';
 
 const mono = (size = 1) => (s) => Array.from(s).length * size;
@@ -161,6 +162,35 @@ describe('scrimAlpha / brightLuminance', () => {
   it('明るい画素寄りの輝度', () => {
     expect(brightLuminance([[0, 0, 0], [255, 255, 255]])).toBeCloseTo(1, 2);
     expect(brightLuminance([])).toBe(0);
+  });
+});
+
+describe('ロゴの色（写真の上にロゴしか無いとき）・表紙の色の地の濃さ（2026-10-05）', () => {
+  it('暗い画素寄りの輝度', () => {
+    expect(darkLuminance([[0, 0, 0], [255, 255, 255]])).toBe(0);
+    expect(darkLuminance([[255, 255, 255]])).toBeCloseTo(1, 2);
+    expect(darkLuminance([])).toBe(0);
+  });
+  it('明るい写真は元の色（焦げ茶の文字と 4.5:1 以上）・ほかは白＋幕', () => {
+    expect(logoInkOnPhoto({ bright: 1, dark: 0.9 })).toEqual({ logo: 'color', scrim: 0 });
+    // 焦げ茶（#2b2825）と、元の色を選ぶいちばん暗い写真のコントラスト
+    const ink = relativeLuminance([43, 40, 37]);
+    expect((0.3 + 0.05) / (ink + 0.05)).toBeGreaterThanOrEqual(4.5);
+    const mixed = logoInkOnPhoto({ bright: 0.9, dark: 0.1 });
+    expect(mixed.logo).toBe('white');
+    expect(mixed.scrim).toBe(scrimAlpha(0.9));
+    expect(logoInkOnPhoto({ bright: 0.05, dark: 0 })).toEqual({ logo: 'white', scrim: 0.3 });
+  });
+  it('ぼかした表紙に重ねる色の濃さ: 白い文字と 4.5:1 以上（明るい表紙ほど濃く・最低 0.55）', () => {
+    const bg = 0.08;
+    for (const img of [0, 0.2, 0.5, 0.8, 1]) {
+      const a = coverWashAlpha(img, bg);
+      expect(a).toBeGreaterThanOrEqual(0.55);
+      expect(a).toBeLessThanOrEqual(1);
+      const after = a * bg + (1 - a) * img; // 線形に混ぜた明るさ（sRGB で混ぜる実際はこれより暗い）
+      expect(1.05 / (after + 0.05), `img=${img}`).toBeGreaterThanOrEqual(4.5 - 1e-6);
+    }
+    expect(coverWashAlpha(1, bg)).toBeGreaterThan(coverWashAlpha(0.5, bg));
   });
 });
 

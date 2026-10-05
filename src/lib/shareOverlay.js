@@ -8,7 +8,10 @@
 //   - orderQuoteCandidates / swapQuote / swapQuoteLabel … 重ねる一文（新しい順・1 タップで次へ）
 //   - splitStatValue     … 「9月28日」の数字を大きく、単位を小さく描くための分け方
 //   - recordFrame / placeRecordBlock / recordBlockPlan … 4:5・9:16 の、SNS で切られない範囲（安全な枠）と置き方・組み
-//   - shareItemsFor / applyShareItems / readHiddenItems … 表示する項目（出す・隠す・前の選択を覚える）
+//   - statsStackPlan / placeStatsStack … 「数字」の重ね方（Strava の大きな数字を真ん中に縦に積む・2026-10-05）
+//   - logoBox / LOGO_RULES … Orime のロゴの場所・大きさ・空き（ロゴは必ず入る・2026-10-05）
+//   - shareItemsFor / applyShareItems / readHiddenItems … 表示する項目（出す・隠す・前の選択を覚える。ロゴは項目に無い）
+//   - readSharePrefs / writeSharePrefs / stepVariant … 選んだ重ね方・形を端末に覚える・左右のスワイプで次の重ね方へ
 //   - buildRecordShareText … 共有の文（画像に入れたものだけ）
 //
 // 入れるのは、画面で本人が見ている情報だけ（書名・著者・日付・件数・一文）。名前・メール・タグは入れない。
@@ -18,8 +21,9 @@ import { clampLine, FORMATS } from './shareCardLayout';
 
 // 「記録」に重ねる一文は短く（写真を見せたいので 3 行まで）。
 export const RECORD_QUOTE_MAX = 60;
-// 見せ方は 2 つ: 記録（数字が主役・Strava の記録の形）／一文（メモの一文が主役）。
-export const VARIANTS = ['record', 'quote'];
+// 重ね方（見せ方）は 3 つ（2026-10-05）: 記録（書名と数字の横並び・Strava の記録の形）／数字（大きな数字を真ん中に
+// 縦に積む・Strava の共有の定番の形）／一文（メモの一文が主役）。左右のスワイプでこの順に切り替わる。
+export const VARIANTS = ['record', 'stats', 'quote'];
 // 形は 2 つ: 投稿 4:5 ／ ストーリー 9:16（正方形は選ばせない）。
 export const SHARE_FORMATS = ['post', 'story'];
 
@@ -200,9 +204,9 @@ export function swapQuoteLabel(index, count, allowNone = false) {
   return '別の一文';
 }
 
-// 見せ方の選択肢（一文が無ければ記録だけ）と、最初の見せ方。
-export function availableVariants(hasQuote) {
-  return hasQuote ? ['record', 'quote'] : ['record'];
+// 重ね方の選択肢（数字が 1 つも無ければ「数字」を出さない・一文が無ければ「一文」を出さない）と、最初の見せ方。
+export function availableVariants(hasQuote, hasStats = false) {
+  return VARIANTS.filter((v) => (v === 'quote' ? !!hasQuote : v === 'stats' ? !!hasStats : true));
 }
 export function defaultVariant({ fromMemo = false, hasQuote = false } = {}) {
   return fromMemo && hasQuote ? 'quote' : 'record';
@@ -213,12 +217,35 @@ export function defaultVariant({ fromMemo = false, hasQuote = false } = {}) {
 // 幅 1080 の画像の中で、文字を置いてよい範囲。
 //   ストーリー 9:16 … 上下 約 250 は Instagram の帯（名前・返信欄）がかかるので 270 空ける
 //   投稿 4:5      … プロフィールの一覧は 3:4 に切られる（左右 約 34）ので左右 80 空ける
-// footerBaseline はロゴと日付の基線、wordH はロゴの文字の高さ。
+// footerBaseline はロゴと日付の基線、wordH はロゴの文字の高さ（LOGO_RULES.minWordH 以上）。
 const FRAMES = {
-  story: { margin: 88, safeTop: 270, safeBottom: 1920 - 270, footerBaseline: 1630, wordH: 42, gap: 64 },
-  post: { margin: 80, safeTop: 96, safeBottom: 1350 - 72, footerBaseline: 1262, wordH: 38, gap: 56 },
-  square: { margin: 72, safeTop: 80, safeBottom: 1080 - 64, footerBaseline: 1004, wordH: 34, gap: 48 },
+  story: { margin: 88, safeTop: 270, safeBottom: 1920 - 270, footerBaseline: 1630, wordH: 44, gap: 64 },
+  post: { margin: 80, safeTop: 96, safeBottom: 1350 - 72, footerBaseline: 1262, wordH: 40, gap: 56 },
+  square: { margin: 72, safeTop: 80, safeBottom: 1080 - 64, footerBaseline: 1004, wordH: 36, gap: 48 },
 };
+
+// ---------------------------------------------------------------- ロゴ（必ず入る・2026-10-05 オーナー裁定）
+//
+// 「Orime のロゴはマストで入るようにしてください」。どの重ね方・地・形でも、左下にロゴを必ず描く（隠す項目に無い）。
+// 決まり（幅 1080 の画像の座標）:
+//   - 大きさ … 「Orime」の文字の高さ 36 以上（スマホで縮めて見ても 13pt ほど）。本の印はその 1.28 倍
+//   - 余白   … 左は 72 以上（SNS の一覧で切られる左右 34 より内側）・基線は安全な枠の下端より上
+//   - 空き   … ロゴの上 24 には何も置かない（自分で入れる言葉も、この線より下には動かせない＝言葉でロゴを隠せない）
+//   - 読める … 写真の上は白いロゴ＋影、その下の写真の明るさから幕の濃さを決める（白と 4.5:1 以上・scrimAlpha）。
+//               紙は元の色（焦げ茶）、夜・表紙の色・透明は白。今日の日付を隠しても、ロゴの場所は変わらない
+// 動かせるのは写真と言葉だけ（ロゴは指で動かせない・大きさも変えられない）。
+export const LOGO_RULES = { minWordH: 36, minMargin: 72, clearance: 24 };
+
+// ロゴの箱（文字の高さ wordH・基線 baseline・左端 x・上端 top＝本の印の上端・clearTop＝上の空きの線）。
+// 基線と大きさは形ごとに決まった値（重ね方・地で変えない）。左端だけ、その重ね方の文字の左端にそろえる（margin・72 以上）。
+export function logoBox(format = 'post', { margin } = {}) {
+  const f = recordFrame(format);
+  const wordH = Math.max(LOGO_RULES.minWordH, f.wordH);
+  const x = Math.max(LOGO_RULES.minMargin, Number.isFinite(margin) ? margin : f.margin);
+  const markH = wordH * 1.28;
+  const top = Math.floor(f.footerBaseline - wordH / 2 - markH / 2);
+  return { x, baseline: f.footerBaseline, wordH, top, clearTop: top - LOGO_RULES.clearance };
+}
 
 export function recordFrame(format = 'post') {
   const key = FRAMES[format] ? format : 'post';
@@ -338,38 +365,111 @@ export function statColumns(frame, count) {
   return Array.from({ length: n }, (_, i) => ({ x: frame.margin + width * i, width }));
 }
 
+// ---------------------------------------------------------------- 数字（Strava の大きな数字・2026-10-05）
+//
+// 真ん中に、上から 見出し → 書名 → 著者 → （間）→ 数字（名前は小さく・数字は大きく）を縦に積む（中央そろえ）。
+// 数字は記録と同じもの（3 つまで・0 は出さない）。一文は入れない（数字が主役）。
+// 大きさはストーリーを基準に投稿 0.92 倍（記録と同じ）。
+export function statsStyle(frame) {
+  const k = frame.format === 'story' ? 1 : frame.format === 'post' ? 0.92 : 0.84;
+  const r = (n) => Math.round(n * k);
+  return {
+    kickerSize: r(38),
+    titleSize: r(60),
+    subSize: r(38),
+    labelSize: r(38),
+    valueSize: r(156),
+    unitSize: r(56),
+    titleLH: Math.round(r(60) * 1.32),
+    labelH: Math.round(r(38) * 1.3),
+    statGap: r(44), // 数字と、次の数字の名前の間
+    headGap: r(72), // 書名・著者と、1 つめの数字の間
+  };
+}
+
+// 数字の積み方の組み（隠した項目は場所を取らない）。戻り値: { elements: [{ kind, top, height, index? }], height, style }
+export function statsStackPlan(frame, { hasKicker = false, titleLines = 0, hasSub = false, statsCount = 0 } = {}) {
+  const st = statsStyle(frame);
+  const parts = [];
+  if (hasKicker) parts.push({ kind: 'kicker', height: Math.round(st.kickerSize * 1.35), gapAfter: 12 });
+  if (titleLines > 0) parts.push({ kind: 'title', height: Math.min(2, titleLines) * st.titleLH, gapAfter: 0 });
+  if (hasSub) parts.push({ kind: 'sub', height: Math.round(st.subSize * 1.45), gapBefore: 6, gapAfter: 0 });
+  const n = Math.max(0, Math.min(3, statsCount));
+  for (let i = 0; i < n; i += 1) {
+    parts.push({ kind: 'stat', index: i, height: st.labelH + 4 + st.valueSize, gapBefore: i === 0 ? st.headGap : st.statGap, gapAfter: 0 });
+  }
+  const elements = [];
+  let y = 0;
+  parts.forEach((p, i) => {
+    if (i > 0) y += Math.max(parts[i - 1].gapAfter || 0, p.gapBefore || 0);
+    elements.push({ kind: p.kind, top: y, height: p.height, ...(p.kind === 'stat' ? { index: p.index } : {}) });
+    y += p.height;
+  });
+  return { elements, height: y, style: st };
+}
+
+// 数字の積み方の置き場所: 安全な枠の上端から、ロゴの上（間 gap）までの範囲の真ん中。
+// 言葉を入れたときは下に寄せる（言葉は上のほうに置かれるので重ねない）。
+// coverCount（写真でない地の表紙の数）があれば、表紙＋間＋積み方を 1 つのまとまりとして真ん中に置く
+// （表紙の高さ 200 も取れなければ表紙は出さない）。戻り値: { top, bottom, fits, cover: { x0, y0, w, h, step } | null }
+export function placeStatsStack(frame, blockH, { phrase = false, coverCount = 0 } = {}) {
+  const areaTop = frame.safeTop;
+  const areaBottom = frame.footerTop - frame.gap;
+  const room = areaBottom - areaTop;
+  const fits = blockH <= room;
+  let cover = null;
+  let groupH = blockH;
+  if (coverCount > 0 && !phrase) {
+    const h = Math.round(Math.min(frame.format === 'story' ? 440 : 340, room - blockH - frame.gap));
+    if (h >= 200) {
+      const w = Math.round(h / 1.45);
+      const step = coverCount > 1 ? Math.round(w * 0.62) : 0;
+      const total = w + step * (coverCount - 1);
+      cover = { x0: Math.round((frame.W - total) / 2), y0: 0, w, h, step };
+      groupH = h + frame.gap + blockH;
+    }
+  }
+  const top0 = phrase ? areaBottom - groupH : areaTop + Math.max(0, (room - groupH) / 2);
+  const groupTop = Math.max(areaTop, Math.round(top0));
+  if (cover) cover.y0 = groupTop;
+  const top = cover ? groupTop + cover.h + frame.gap : groupTop;
+  return { top, bottom: top + blockH, fits, cover };
+}
+
 // ---------------------------------------------------------------- 表示する項目（2026-10-01）
 //
 // オーナー要望「人によって読み始めのタイミングを書かなくても良かったり、著者は不要だったり、
 // タイトルだけが良かったりするだろうから調整できるようにしたい」。画像に入れる項目ごとに出す・隠すを選ぶ。
 // 覚えるのは「隠した項目」の名前だけ（新しい項目が増えても最初は出る）。端末の中（localStorage）に。
-// ロゴも隠せる（押しつけのロゴは共有をためらわせる・既定は出す）。
+// ロゴは項目に無い＝隠せない（2026-10-05 オーナー裁定「Orime のロゴはマストで入るように」）。以前に隠した人の
+// 端末に残る 'logo' は、読むときに捨てる（readHiddenItems が SHARE_ITEM_KEYS に無い名前を落とす）。
 
-export const SHARE_ITEM_KEYS = ['status', 'title', 'author', 'date', 'books', 'memos', 'actions', 'quote', 'stamp', 'logo'];
+export const SHARE_ITEM_KEYS = ['status', 'title', 'author', 'date', 'books', 'memos', 'actions', 'quote', 'stamp'];
 export const SHARE_ITEMS_STORAGE_KEY = 'orime.share.hiddenItems';
 
 const STAT_ITEM_LABEL = { books: '読了の冊数', memos: 'メモの数', actions: '実行した行動' };
 
 // いまの 1 枚で選べる項目（中身のある項目だけ・上から画像の順）。戻り値: [{ key, label }]
-//   記録: 状態（今月は年）・書名（今月は「9月の読書」）・著者（今月は読み終えた本）・数字それぞれ・一文・今日の日付・ロゴ
-//   一文: 書名・著者・ロゴ（一文は主役なので隠せない）
+//   記録: 状態（今月は年）・書名（今月は「9月の読書」）・著者（今月は読み終えた本）・数字それぞれ・一文・今日の日付
+//   数字: 記録と同じ（一文は入れないので出さない）
+//   一文: 書名・著者（一文は主役なので隠せない）
+// ロゴは出さない（必ず入る・2026-10-05）。
 export function shareItemsFor({ record = null, variant = 'record', hasQuote = false, hasAuthor = false } = {}) {
   const out = [];
   const book = !!record?.titleIsBook;
-  if (variant === 'record' && record) {
+  if ((variant === 'record' || variant === 'stats') && record) {
     if (record.kicker) out.push({ key: 'status', label: book ? '状態' : '年' });
     if (record.title) out.push({ key: 'title', label: book ? '書名' : `「${record.title}」` });
     if (record.sub) out.push({ key: 'author', label: book ? '著者' : '読み終えた本' });
     for (const st of record.stats || []) {
       if (st?.key) out.push({ key: st.key, label: st.key === 'date' ? st.label : (STAT_ITEM_LABEL[st.key] || st.label) });
     }
-    if (hasQuote) out.push({ key: 'quote', label: '一文' });
+    if (hasQuote && variant === 'record') out.push({ key: 'quote', label: '一文' });
     out.push({ key: 'stamp', label: '今日の日付' });
   } else {
     out.push({ key: 'title', label: '書名' });
     if (hasAuthor) out.push({ key: 'author', label: '著者' });
   }
-  out.push({ key: 'logo', label: 'Orime のロゴ' });
   return out;
 }
 
@@ -388,10 +488,10 @@ export function applyShareItems(record, hidden) {
   };
 }
 
-// 描く側が見るフラグ（記録以外の項目）。
+// 描く側が見るフラグ（記録以外の項目）。ロゴは必ず描くのでフラグは無い。
 export function shareVisibility(hidden) {
   const h = hiddenSet(hidden);
-  return { title: !h.has('title'), author: !h.has('author'), quote: !h.has('quote'), stamp: !h.has('stamp'), logo: !h.has('logo') };
+  return { title: !h.has('title'), author: !h.has('author'), quote: !h.has('quote'), stamp: !h.has('stamp') };
 }
 
 // 前に選んだ「隠した項目」を読む（読めない・壊れている・private ブラウズ＝何も隠さない）。
@@ -414,6 +514,46 @@ export function writeHiddenItems(storage, hidden) {
   } catch {
     return false;
   }
+}
+
+// ---------------------------------------------------------------- 選んだ重ね方・形を覚える（2026-10-05）
+//
+// 次に共有するときも同じ重ね方・形で開く（ストーリーにばかり出す人は毎回切り替えなくてよい）。端末の中だけ。
+// 読めない・壊れている・private ブラウズ＝既定（記録・投稿）。地（写真・紙…）と写真そのものは覚えない。
+export const SHARE_PREFS_STORAGE_KEY = 'orime.share.prefs';
+
+export function readSharePrefs(storage) {
+  try {
+    const raw = storage?.getItem(SHARE_PREFS_STORAGE_KEY);
+    const p = raw ? JSON.parse(raw) : null;
+    return {
+      variant: p && VARIANTS.includes(p.variant) ? p.variant : null,
+      format: p && SHARE_FORMATS.includes(p.format) ? p.format : null,
+    };
+  } catch {
+    return { variant: null, format: null };
+  }
+}
+
+export function writeSharePrefs(storage, patch = {}) {
+  try {
+    const next = { ...readSharePrefs(storage), ...patch };
+    storage?.setItem(SHARE_PREFS_STORAGE_KEY, JSON.stringify({
+      variant: VARIANTS.includes(next.variant) ? next.variant : null,
+      format: SHARE_FORMATS.includes(next.format) ? next.format : null,
+    }));
+    return !!storage;
+  } catch {
+    return false;
+  }
+}
+
+// 左右のスワイプ（dir: 1＝次・-1＝前）で次の重ね方。端では止まる（回り込まない＝いまどこかが分かる）。
+export function stepVariant(variants, current, dir) {
+  const list = Array.isArray(variants) ? variants : [];
+  const i = list.indexOf(current);
+  if (i < 0) return list[0] || current;
+  return list[Math.min(list.length - 1, Math.max(0, i + (dir > 0 ? 1 : -1)))];
 }
 
 // ---------------------------------------------------------------- 共有の文

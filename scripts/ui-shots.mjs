@@ -29,9 +29,18 @@ const nav = (name) => `nav button[aria-label="${name}"]`;
 // 写真で共有の編集画面（2026-10-01）の操作。
 const EDIT = '[role=dialog][aria-label="画像を編集"]';
 const SHARE_CAMERA = [{ css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 2000 }];
-const SHARE_PAPER = [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("画像で共有")' }, { wait: 2000 }];
+// 写真があるときの背景のメニュー「背景：写真 ▾」（2026-10-05 に「写真以外 ▾」から）。
+const SHARE_BG_MENU = '[role=dialog] button[aria-haspopup=menu]:has-text("背景")';
+// 写真で共有のシートの重ね方（見本）を選ぶ。
+const shareVariant = (name) => ({ css: `[role=dialog] [role=radiogroup][aria-label="見せ方"] [role=radio]:has-text("${name}")` });
+// 端末に覚えた共有の設定（重ね方・形・隠した項目）を、開く前に入れておく（2026-10-05）。
+const sharePrefs = (prefs, hidden) => ({ eval: `(() => { localStorage.setItem('orime.share.prefs', ${JSON.stringify(JSON.stringify(prefs))}); ${hidden ? `localStorage.setItem('orime.share.hiddenItems', ${JSON.stringify(JSON.stringify(hidden))});` : ''} })()` });
+const SHARE_ALL_HIDDEN = ['status', 'title', 'author', 'date', 'books', 'memos', 'actions', 'quote', 'stamp', 'logo'];
+// 写真が無いときの既定は、表紙のある本は「表紙の色」（2026-10-05）なので、紙を選び直す。
+const SHARE_PICK_PAPER = { css: '[role=dialog] [role=radiogroup][aria-label="背景"] [role=radio]:has-text("紙")' };
+const SHARE_PAPER = [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("画像で共有")' }, { wait: 2000 }, SHARE_PICK_PAPER, { wait: 1200 }];
 // 撮った写真のシートで、背景を紙に（手書き風の書体は、本の詳細から開くと中継の通信が詰まって撮影の間に読み込めないことがあるため）。
-const SHARE_CAMERA_PAPER = [...SHARE_CAMERA, { css: '[role=dialog] button:has-text("写真以外")' }, { css: '[role=menuitem]:has-text("紙")' }, { wait: 1500 }];
+const SHARE_CAMERA_PAPER = [...SHARE_CAMERA, { css: SHARE_BG_MENU }, { css: '[role=menuitem]:has-text("紙")' }, { wait: 1500 }];
 const SHARE_EDIT = [{ css: '[role=dialog] button:text-is("編集")' }, { wait: 1500 }];
 // 画像の上の (0.5, fy) でホイール（ctrlKey＝トラックパッドでつまむのと同じ）。
 const editWheel = (opts, fy = 0.3) => ({ eval: `(() => { const st = document.querySelector('${EDIT} canvas').parentElement; const r = st.getBoundingClientRect(); st.dispatchEvent(new WheelEvent('wheel', { ...${JSON.stringify(opts)}, clientX: r.left + r.width / 2, clientY: r.top + r.height * ${fy}, bubbles: true, cancelable: true })); })()` });
@@ -39,7 +48,6 @@ const EDIT_ZOOM = editWheel({ deltaY: -40, ctrlKey: true });
 const EDIT_PAN = editWheel({ deltaX: 70, deltaY: 110 });
 const editSwitchesOff = (keep) => ({ eval: `(() => { const keep = ${JSON.stringify(keep)}; document.querySelectorAll('${EDIT} [role=switch]').forEach((b) => { if (!keep.includes(b.getAttribute('aria-label')) && b.getAttribute('aria-checked') === 'true') b.click(); }); })()` });
 const EDIT_TITLE_ONLY = editSwitchesOff(['書名']);
-const EDIT_TITLE_ONLY_LOGO = editSwitchesOff(['書名', 'Orime のロゴ']);
 const EDIT_TOP = { eval: `document.querySelectorAll('${EDIT} *').forEach((el) => { el.scrollTop = 0; })` };
 const EDIT_BLUR = { eval: '(() => { if (document.activeElement) document.activeElement.blur(); })()' };
 const EDIT_PHRASE = [{ css: `${EDIT} button:has-text("言葉を入れる")` }, { fill: [`${EDIT} input[type=text]`, '問いの質が、答えの質を決める。'] }, { wait: 1200 }];
@@ -577,11 +585,33 @@ const SCREENS = [
   { name: 'share-photo-review-action', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[aria-label="写真で共有"]' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 2500 }] },
   { name: 'share-photo-consult', url: '/', steps: [{ css: nav('相談') }, { css: 'button[aria-label="写真で共有"]' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 2500 }] },
   { name: 'share-camera-canceled-consult', url: '/', steps: [{ css: nav('相談') }, { css: 'button[aria-label="写真で共有"]' }, { eval: () => document.querySelector('input[data-share-camera]').dispatchEvent(new Event('cancel')) }, { wait: 2500 }] },
-  // 写真のときの「写真以外 ▾」のメニュー（紙・夜・表紙の色・透明・写真を選び直す）
-  { name: 'share-photo-bgmenu', url: '/', steps: [{ css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 2000 }, { css: '[role=dialog] button:has-text("写真以外")' }, { wait: 600 }] },
-  // 写真があるときに「写真以外 ▾」で紙を選んだ → ボタンは「背景：紙 ▾」
-  { name: 'share-photo-paper', url: '/', steps: [{ css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 2000 }, { css: '[role=dialog] button:has-text("写真以外")' }, { css: '[role=menuitem]:has-text("紙")' }, { wait: 1500 }] },
-  { name: 'share-record-paper', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("画像で共有")' }, { wait: 2000 }] },
+  // 写真のときの「背景：写真 ▾」のメニュー（写真・紙・夜・表紙の色・透明）
+  { name: 'share-photo-bgmenu', url: '/', steps: [{ css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 2000 }, { css: SHARE_BG_MENU }, { wait: 600 }] },
+  // 写真があるときに「背景：写真 ▾」で紙を選んだ → ボタンは「背景：紙 ▾」
+  { name: 'share-photo-paper', url: '/', steps: [{ css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 2000 }, { css: SHARE_BG_MENU }, { css: '[role=menuitem]:has-text("紙")' }, { wait: 1500 }] },
+  // 明るい写真（白い机）・暗い写真（夜の部屋）でもロゴと文字が読めるか（2026-10-05・scripts/fixtures/gen-share-photos.mjs で作った見本）。
+  { name: 'share-photo-bright', url: '/', steps: [{ css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo-bright.jpg'] }, { wait: 2500 }] },
+  { name: 'share-photo-dark', url: '/', steps: [{ css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo-dark.jpg'] }, { wait: 2500 }] },
+  { name: 'share-photo-bright-story', url: '/', steps: [{ css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo-bright.jpg'] }, { wait: 2000 }, { css: '[role=radio][aria-label="ストーリー（9:16）"]' }, { wait: 2000 }] },
+  { name: 'share-photo-bright-edit', url: '/', steps: [{ css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo-bright.jpg'] }, { wait: 2000 }, ...SHARE_EDIT] },
+  // ── 写真で共有をよくする（2026-10-05・ロゴは必ず入る・重ね方 3 つ・選んだ重ね方と形を覚える・撮り直す／アルバム）
+  // 「数字」の重ね方（大きな数字を真ん中に縦に積む）。投稿・ストーリー・明るい写真・暗い写真・紙・表紙の色。
+  { name: 'share-photo-stats', url: '/', steps: [...SHARE_CAMERA, shareVariant('数字'), { wait: 2000 }] },
+  { name: 'share-photo-stats-story', url: '/', steps: [...SHARE_CAMERA, shareVariant('数字'), { wait: 1200 }, { css: '[role=radio][aria-label="ストーリー（9:16）"]' }, { wait: 2000 }] },
+  { name: 'share-photo-stats-bright', url: '/', steps: [{ css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo-bright.jpg'] }, { wait: 2000 }, shareVariant('数字'), { wait: 2000 }] },
+  { name: 'share-photo-stats-dark', url: '/', steps: [{ css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo-dark.jpg'] }, { wait: 2000 }, shareVariant('数字'), { wait: 2000 }] },
+  { name: 'share-stats-paper', url: '/', steps: [...SHARE_CAMERA_PAPER, shareVariant('数字'), { wait: 2000 }] },
+  // プレビューを左に振る＝隣の重ね方（記録 → 数字）。
+  { name: 'share-photo-swipe', url: '/', steps: [...SHARE_CAMERA, { swipe: ['[role=dialog] button[aria-label$="を大きくして編集"]', -140] }, { wait: 2000 }] },
+  // 前に選んだ重ね方・形（数字・ストーリー）で開く。
+  { name: 'share-photo-prefs', url: '/', steps: [sharePrefs({ variant: 'stats', format: 'story' }), ...SHARE_CAMERA, { wait: 500 }] },
+  // 以前に「ロゴを隠す」を選んだ端末で、記録の項目も全部隠した明るい写真 → ロゴは元の色で必ず入る。
+  { name: 'share-photo-logo-only-bright', url: '/', steps: [sharePrefs({ variant: 'record', format: 'post' }, SHARE_ALL_HIDDEN), { css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo-bright.jpg'] }, { wait: 2500 }] },
+  { name: 'share-photo-logo-only-edit', url: '/', steps: [sharePrefs({ variant: 'record', format: 'post' }, SHARE_ALL_HIDDEN), { css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo-bright.jpg'] }, { wait: 2000 }, ...SHARE_EDIT, { scrollBottom: true }] },
+  // 写真が無いとき（カメラをやめた）の既定＝表紙のある本は「表紙の色」（ぼかした表紙を敷いた地）。
+  { name: 'share-nophoto-cover', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("画像で共有")' }, { wait: 2500 }] },
+  { name: 'share-nophoto-cover-stats-story', url: '/', steps: [sharePrefs({ variant: 'stats', format: 'story' }), { css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("画像で共有")' }, { wait: 2500 }] },
+  { name: 'share-record-paper', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("画像で共有")' }, { wait: 2000 }, SHARE_PICK_PAPER, { wait: 1500 }] },
   { name: 'share-done-prompt', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { scrollBottom: true }, { css: 'button:text-is("読了にする")' }, { wait: 7500 }, { scrollBottom: true }] },
   // ── 写真で共有の編集画面（2026-10-01・オーナー要望: 大きな画像で編集・URL を外す・表示する項目・言葉を入れる）。
   //    編集画面は [role=dialog][aria-label="画像を編集"]。写真の拡大・移動はトラックパッドと同じホイールの知らせで動かす
@@ -627,7 +657,7 @@ const SCREENS = [
   { name: 'share-edit-items', url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT, { scrollBottom: true }] },
   { name: 'share-edit-title-only', url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT, EDIT_TITLE_ONLY, { wait: 1200 }, EDIT_TOP] },
   { name: 'share-edit-title-only-items', url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT, EDIT_TITLE_ONLY, { wait: 1200 }, { scrollBottom: true }] },
-  { name: 'share-edit-title-only-paper-story', url: '/', steps: [...SHARE_PAPER, { css: '[role=radio][aria-label="ストーリー（9:16）"]' }, { wait: 1500 }, ...SHARE_EDIT, EDIT_TITLE_ONLY_LOGO, { wait: 1200 }, EDIT_TOP] },
+  { name: 'share-edit-title-only-paper-story', url: '/', steps: [...SHARE_PAPER, { css: '[role=radio][aria-label="ストーリー（9:16）"]' }, { wait: 1500 }, ...SHARE_EDIT, EDIT_TITLE_ONLY, { wait: 1200 }, EDIT_TOP] },
   // 編集を終えてシートに戻ったとき（書名だけの 1 枚がそのまま共有される）
   { name: 'share-edit-title-only-sheet', url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT, EDIT_TITLE_ONLY, { wait: 1000 }, { css: `${EDIT} button:text-is("完了")` }, { wait: 2000 }] },
   { name: 'share-edit-text-input', url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT, ...EDIT_PHRASE] },
@@ -792,6 +822,18 @@ async function run(step, page) {
   if (step.fill) await page.locator(step.fill[0]).first().fill(step.fill[1]);
   if (step.eval) await page.evaluate(step.eval);
   if (step.upload) await page.locator(step.upload[0]).first().setInputFiles(step.upload[1]);
+  // swipe: [要素, 横の距離]。要素の真ん中から横に振る（マウスの押す→動かす→離す＝pointer の知らせ）。
+  if (step.swipe) {
+    const box = await page.locator(step.swipe[0]).first().boundingBox();
+    if (box) {
+      const x = box.x + box.width / 2;
+      const y = box.y + box.height / 2;
+      await page.mouse.move(x, y);
+      await page.mouse.down();
+      await page.mouse.move(x + step.swipe[1], y + 4, { steps: 8 });
+      await page.mouse.up();
+    }
+  }
   if (step.reload) await page.reload({ waitUntil: 'networkidle' });
   // settle: この操作のあとの待ち（既定 900ms）。開いたメモの光（.just-added-card・1.5 秒で薄れる）を写すときは短く。
   await page.waitForTimeout(step.settle ?? 900);

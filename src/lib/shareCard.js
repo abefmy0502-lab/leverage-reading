@@ -8,6 +8,9 @@
 // 下には Orime のロゴだけ（public/logo-lockup.png から、本の印と文字を切り出して横に並べる。
 // 暗い地・写真・透明では白に変え、i の点の橙だけ残す）。サイトの URL は画像に入れない
 // （2026-10-01 オーナー裁定「orime.vercel.app の文字は確実に不要。ロゴのみでOK」・URL は共有の文にだけ）。
+// ロゴは必ず描く（2026-10-05 オーナー裁定「Orime のロゴはマストで入るように」・隠す項目に無い）。場所・大きさ・空きの
+// 決まりは shareOverlay.js の LOGO_RULES / logoBox。写真の上はロゴの下の明るさから幕を決める（drawLogoScrim）。
+// 重ね方は 3 つ: 記録（record）／数字（stats・大きな数字を真ん中に縦に積む）／一文（quote）。
 // 2 つの印（Strava の橙のルートにあたる「読んだ跡」）:
 //   傍線 … 一文の最後の行の下に、橙の手描きの線。メモごとに形が決まっている（メモの id と本文から種を作る）
 //   付箋 … 表紙（写真・透明では白い線の本の印）の右の小口から橙の付箋がはみ出す。
@@ -21,11 +24,12 @@
 import {
   FORMATS, clampLine, fitQuote, wrapBalanced, coverTone, rgbCss,
   photoPlacement, scrimAlpha, brightLuminance, coverProxyPath,
-  seedFrom, underlineStroke, tabPosition,
+  seedFrom, underlineStroke, tabPosition, coverWashAlpha, relativeLuminance, shareImageType,
+  darkLuminance, logoInkOnPhoto,
 } from './shareCardLayout';
 import {
   RECORD_QUOTE_MAX, recordFrame, placeRecordBlock, statColumns, splitStatValue, recordBlockPlan, recordTitleScale, recordTitleMaxLines,
-  applyShareItems, shareVisibility, recordCoverPlacement,
+  applyShareItems, shareVisibility, recordCoverPlacement, logoBox, LOGO_RULES, statsStackPlan, placeStatsStack,
 } from './shareOverlay';
 import { phraseLayout, phraseMetrics, phraseColors, phraseDisplayText, stickerPhraseReserve } from './sharePhrase';
 import { paletteFor } from './coverPalette';
@@ -288,7 +292,10 @@ export function prepareLogo() {
 }
 
 // ロゴ（印＋文字の横組み）を描く。文字の高さ wordH・基線 baseline・左端 x。戻り値は幅。
-function drawLogo(ctx, logo, variant, { x, baseline, wordH, fonts, ink }) {
+// 決まり（LOGO_RULES）より小さく・端に寄せては描かない（どこから呼んでも最小の大きさと余白を守る）。
+function drawLogo(ctx, logo, variant, { x: x0, baseline, wordH: h0, fonts, ink }) {
+  const wordH = Math.max(LOGO_RULES.minWordH, Number(h0) || 0);
+  const x = Math.max(LOGO_RULES.minMargin, Number(x0) || 0);
   const set = logo?.[variant === 'white' ? 'white' : 'color'];
   if (!set) {
     // 代用: 文字だけのロゴ（UI の書体の太字）
@@ -570,35 +577,120 @@ function drawBookLines(ctx, fonts, bl, { x, top, width, titleFont, titleSize, me
   }
 }
 
-// ロゴだけ（URL は入れない・2026-10-01）。
-function drawFooter(ctx, { margin, baseline, wordH, logo, theme, fonts }) {
-  drawLogo(ctx, logo, theme.logo, { x: margin, baseline, wordH, fonts, ink: theme.ink });
+// ロゴだけ（URL は入れない・2026-10-01）。場所と大きさは形ごとに決まった logoBox（重ね方・地で変えない）。
+// 左端だけ、その重ね方の文字の左端（margin）にそろえる。
+function drawFooter(ctx, { format, margin, logo, theme, fonts }) {
+  const b = logoBox(format, { margin });
+  drawLogo(ctx, logo, theme.logo, { x: b.x, baseline: b.baseline, wordH: b.wordH, fonts, ink: theme.ink });
+}
+
+// 写真の上にロゴ（と日付）しか重ねないとき（記録の項目を全部隠した）のロゴの下地と色（logoInkOnPhoto）:
+// ロゴの下（ロゴの上の空きから下端・左右いっぱい）が明るい写真なら、幕を掛けずに元の色（焦げ茶）のロゴと墨の日付。
+// そうでなければ白いロゴ＋白と 4.5:1 以上になる黒の幕を下から。戻り値は下の行に使う色の組（theme）。
+function logoFooterOnPhoto(ctx, o, place) {
+  const { W, H } = o;
+  const b = logoBox(o.format);
+  const px = bandPixels(o.photo, place, W, H, b.clearTop, b.baseline + 8);
+  const pick = px && px.length ? logoInkOnPhoto({ bright: brightLuminance(px), dark: darkLuminance(px) }) : { logo: 'white', scrim: 0.6 };
+  if (pick.logo === 'color') {
+    return {
+      ...o.theme,
+      logo: 'color',
+      ink: cssVar('--share-paper-ink') || '#2b2825',
+      ink2: cssVar('--share-paper-ink-2') || '#5f5a53',
+      shadow: cssVar('--share-phrase-glow') || 'rgba(255,255,255,0.6)',
+    };
+  }
+  const fade = H * 0.12;
+  drawScrim(ctx, W, H, o.theme.scrim, [[b.clearTop - fade, 0], [b.clearTop, pick.scrim * 0.85], [H, pick.scrim]]);
+  return o.theme;
 }
 
 // ---------------------------------------------------------------- 紙・夜・表紙の色
 
+// 写真でない地を塗る。表紙の色は、表紙を大きくぼかして敷き（写真が無いときの見栄えのよい代わり・2026-10-05）、
+// その上に表紙から作った色（白い文字と 7:1）を、白い文字と 4.5:1 以上になる濃さで重ねる（coverWashAlpha）。
+// ぼかしは「ごく小さく縮めてから引き伸ばす」で作る（ctx.filter の無い端末でも同じに見える）。
+function drawGround(ctx, W, H, theme, cover) {
+  ctx.fillStyle = theme.bg;
+  ctx.fillRect(0, 0, W, H);
+  if (theme.key !== 'cover') return;
+  const img = cover?.image;
+  if (img) {
+    try {
+      // 8 幅まで縮めて色の面だけにし（書名の文字の形を残さない）、32 幅で一度なめらかにしてから引き伸ばす。
+      const small = makeCanvas(8, Math.max(8, Math.round(8 * (H / W))));
+      const sctx = small.getContext('2d', { willReadFrequently: true });
+      if (sctx) {
+        // 表紙の真ん中あたりを、画像の比で切り出して縮める。
+        const iw = img.naturalWidth || img.width;
+        const ih = img.naturalHeight || img.height;
+        const s = Math.max(small.width / iw, small.height / ih);
+        sctx.imageSmoothingQuality = 'high';
+        sctx.drawImage(img, (small.width - iw * s) / 2, (small.height - ih * s) / 2, iw * s, ih * s);
+        let lum = 0.5;
+        try {
+          const { data } = sctx.getImageData(0, 0, small.width, small.height);
+          const px = [];
+          for (let i = 0; i < data.length; i += 4) px.push([data[i], data[i + 1], data[i + 2]]);
+          lum = brightLuminance(px);
+        } catch { /* 読めなければ明るい表紙とみなす（濃いめに重ねる） */ }
+        const mid = makeCanvas(32, Math.max(32, Math.round(32 * (H / W))));
+        const mctx = mid.getContext('2d');
+        let src = small;
+        if (mctx) {
+          mctx.imageSmoothingEnabled = true;
+          mctx.imageSmoothingQuality = 'high';
+          mctx.drawImage(small, 0, 0, mid.width, mid.height);
+          src = mid;
+        }
+        ctx.save();
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        // 端がぼけて薄くならないよう、少し大きく敷く。
+        const bleed = W * 0.08;
+        ctx.drawImage(src, -bleed, -bleed, W + bleed * 2, H + bleed * 2);
+        ctx.restore();
+        const bgRgb = parseRgb(theme.bg);
+        ctx.save();
+        ctx.globalAlpha = coverWashAlpha(lum, bgRgb ? relativeLuminance(bgRgb) : 0.1);
+        ctx.fillStyle = theme.bg;
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+      }
+    } catch { /* ぼかしが作れなければ色だけ */ }
+  }
+  // 表紙の色の地は、下に向かってわずかに沈める（平板にしない）。
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, 'rgba(255,255,255,0.06)');
+  g.addColorStop(1, 'rgba(0,0,0,0.22)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+}
+
+// 'rgb(1, 2, 3)' / '#aabbcc' → [r, g, b]（読めなければ null）。
+function parseRgb(css) {
+  const s = String(css || '').trim();
+  let m = /^rgba?\((\d+)[,\s]+(\d+)[,\s]+(\d+)/i.exec(s);
+  if (m) return [Number(m[1]), Number(m[2]), Number(m[3])];
+  m = /^#([0-9a-f]{6})$/i.exec(s);
+  if (m) return [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16));
+  return null;
+}
+
 // 形ごとの寸法。ストーリーは Instagram などの上下の帯（約 250px）に文字をかけない
-// （下の帯は 1920 − 250 ＝ 1670 から。ロゴと URL の基線は 1630）。
-// 著者・ページ・URL は、スマホで縮めて見ても読める大きさ（ストーリー 36・URL 34 以上）。書名はそれより大きく。
+// （下の帯は 1920 − 250 ＝ 1670 から。ロゴの基線は 1630＝どの重ね方も shareOverlay.js の logoBox）。
+// 著者・ページは、スマホで縮めて見ても読める大きさ（ストーリー 36 以上）。書名はそれより大きく。
 const POSTER = {
-  story: { margin: 112, top: 300, bottom: 1460, footerBaseline: 1630, markInk: 76, sizes: [92, 84, 76, 70, 64, 60, 56, 52, 48, 44], coverW: 140, titleSize: 46, metaSize: 36, wordH: 44 },
-  post: { margin: 104, top: 128, bottom: 1110, footerBaseline: 1258, markInk: 60, sizes: [76, 70, 64, 60, 56, 52, 48, 44, 40, 38], coverW: 124, titleSize: 42, metaSize: 35, wordH: 38 },
-  square: { margin: 96, top: 104, bottom: 870, footerBaseline: 1000, markInk: 50, sizes: [68, 62, 56, 52, 48, 44, 40, 36, 34, 32], coverW: 112, titleSize: 40, metaSize: 34, wordH: 34 },
+  story: { margin: 112, top: 300, bottom: 1460, markInk: 76, sizes: [92, 84, 76, 70, 64, 60, 56, 52, 48, 44], coverW: 140, titleSize: 46, metaSize: 36 },
+  post: { margin: 104, top: 128, bottom: 1110, markInk: 60, sizes: [76, 70, 64, 60, 56, 52, 48, 44, 40, 38], coverW: 124, titleSize: 42, metaSize: 35 },
+  square: { margin: 96, top: 104, bottom: 870, markInk: 50, sizes: [68, 62, 56, 52, 48, 44, 40, 36, 34, 32], coverW: 112, titleSize: 40, metaSize: 34 },
 };
 
 function drawPoster(ctx, o) {
   const { W, H, format, theme, fonts, text } = o;
   const L = POSTER[format] || POSTER.story;
-  ctx.fillStyle = theme.bg;
-  ctx.fillRect(0, 0, W, H);
-  if (theme.key === 'cover') {
-    // 表紙の色の地は、下に向かってわずかに沈める（平板にしない）。
-    const g = ctx.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0, 'rgba(255,255,255,0.06)');
-    g.addColorStop(1, 'rgba(0,0,0,0.22)');
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, W, H);
-  }
+  drawGround(ctx, W, H, theme, o.cover);
   const left = L.margin;
   const contentW = W - L.margin * 2;
   const mark = quoteMark(ctx, fonts, L.markInk);
@@ -619,7 +711,7 @@ function drawPoster(ctx, o) {
   y += quoteH + bookGap;
 
   if (showBook) drawPosterBook(ctx, o, L, { left, y, coverH, theme, fonts });
-  if (o.showLogo !== false) drawFooter(ctx, { margin: L.margin, baseline: L.footerBaseline, wordH: L.wordH, logo: o.logo, theme, fonts });
+  drawFooter(ctx, { format, margin: L.margin, logo: o.logo, theme, fonts });
 }
 
 function drawPosterBook(ctx, o, L, { left, y, coverH, theme, fonts }) {
@@ -644,9 +736,9 @@ function bookLineOpts(o, rest) {
 // ---------------------------------------------------------------- 写真
 
 const PHOTO = {
-  story: { margin: 88, safeTop: 270, footerBaseline: 1630, markInk: 50, sizes: [84, 76, 70, 64, 60, 56, 52, 48, 44, 40], maxBlock: 0.5, titleSize: 44, metaSize: 36, wordH: 46 },
-  post: { margin: 80, safeTop: 96, footerBaseline: 1266, markInk: 44, sizes: [72, 66, 60, 56, 52, 48, 44, 40, 36], maxBlock: 0.52, titleSize: 42, metaSize: 35, wordH: 40 },
-  square: { margin: 72, safeTop: 80, footerBaseline: 1008, markInk: 40, sizes: [64, 58, 54, 50, 46, 42, 38, 34, 32], maxBlock: 0.56, titleSize: 40, metaSize: 34, wordH: 36 },
+  story: { margin: 88, safeTop: 270, markInk: 50, sizes: [84, 76, 70, 64, 60, 56, 52, 48, 44, 40], maxBlock: 0.5, titleSize: 44, metaSize: 36 },
+  post: { margin: 80, safeTop: 96, markInk: 44, sizes: [72, 66, 60, 56, 52, 48, 44, 40, 36], maxBlock: 0.52, titleSize: 42, metaSize: 35 },
+  square: { margin: 72, safeTop: 80, markInk: 40, sizes: [64, 58, 54, 50, 46, 42, 38, 34, 32], maxBlock: 0.56, titleSize: 40, metaSize: 34 },
 };
 
 // 文字の塊（引用符・一文・書名・著者）の組み。
@@ -684,8 +776,8 @@ function drawOverlay(ctx, fonts, o, L, lay, top, theme) {
   drawBookLines(ctx, fonts, lay.bl, { x: left + lay.textX, top: y + (rowH - lay.bl.height) / 2, width: lay.contentW - lay.textX, titleFont: lay.titleFont, titleSize: L.titleSize, metaSize: L.metaSize, ink: theme.ink, ink2: theme.ink2, ink3: theme.ink2 });
 }
 
-// 写真の、ある帯（y0〜y1）の明るい部分の輝度。
-function bandLuminance(photo, place, W, H, y0, y1) {
+// 写真の、ある帯（y0〜y1・左右は x0〜x1）の画素（縮めて読む）。読めなければ null。
+function bandPixels(photo, place, W, H, y0, y1, x0 = 0, x1 = W) {
   try {
     const sw = 54;
     const k = sw / W;
@@ -695,14 +787,23 @@ function bandLuminance(photo, place, W, H, y0, y1) {
     ctx.drawImage(photo.source, place.x * k, place.y * k, place.w * k, place.h * k);
     const r0 = Math.max(0, Math.floor(y0 * k));
     const r1 = Math.min(sh, Math.ceil(y1 * k));
-    if (r1 <= r0) return 0.5;
-    const { data } = ctx.getImageData(0, r0, sw, r1 - r0);
+    const c0 = Math.max(0, Math.floor(x0 * k));
+    const c1 = Math.min(sw, Math.ceil(x1 * k));
+    if (r1 <= r0 || c1 <= c0) return null;
+    const { data } = ctx.getImageData(c0, r0, c1 - c0, r1 - r0);
     const px = [];
     for (let i = 0; i < data.length; i += 4) px.push([data[i], data[i + 1], data[i + 2]]);
-    return brightLuminance(px);
+    return px;
   } catch {
-    return 0.6; // 読めないときは明るい写真とみなして濃いめの幕
+    return null;
   }
+}
+
+// 写真の、ある帯（y0〜y1）の明るい部分の輝度。
+function bandLuminance(photo, place, W, H, y0, y1) {
+  const px = bandPixels(photo, place, W, H, y0, y1);
+  if (!px) return 0.6; // 読めないときは明るい写真とみなして濃いめの幕
+  return px.length ? brightLuminance(px) : 0.5;
 }
 
 // 黒の幕（上下どちらかから・または帯）。stops は [位置(0〜H), 濃さ(0〜1)] の並び。
@@ -726,7 +827,8 @@ function drawPhoto(ctx, o) {
 function drawPhotoOverlay(ctx, o, place) {
   const { W, H, format, theme, fonts } = o;
   const L = PHOTO[format] || PHOTO.story;
-  const footerTop = L.footerBaseline - L.wordH * 1.5;
+  const lb = logoBox(format);
+  const footerTop = lb.baseline - lb.wordH * 1.5;
   const pos = o.textPos === 'top' || o.textPos === 'center' ? o.textPos : 'bottom';
   const maxBlockH = H * L.maxBlock;
   const lay = layoutOverlay(ctx, fonts, o, L, maxBlockH);
@@ -738,7 +840,7 @@ function drawPhotoOverlay(ctx, o, place) {
 
   // 幕: 文字の後ろの明るさに合わせて濃さを決める（白い文字と 4.5:1 以上を目安に）。
   const a = scrimAlpha(bandLuminance(o.photo, place, W, H, top, bottom));
-  const aFoot = scrimAlpha(bandLuminance(o.photo, place, W, H, footerTop, L.footerBaseline + 8));
+  const aFoot = scrimAlpha(bandLuminance(o.photo, place, W, H, lb.clearTop, lb.baseline + 8));
   // 幕は文字の塊の上端（引用符）より手前で決めた濃さに届かせる＝一文の 1 行目から白い文字が読める。
   const fade = H * 0.2;
   if (pos === 'bottom') {
@@ -762,7 +864,7 @@ function drawPhotoOverlay(ctx, o, place) {
   ctx.save();
   ctx.shadowColor = theme.shadow;
   ctx.shadowBlur = 14 * sb;
-  if (o.showLogo !== false) drawFooter(ctx, { margin: L.margin, baseline: L.footerBaseline, wordH: L.wordH, logo: o.logo, theme, fonts });
+  drawFooter(ctx, { format, margin: L.margin, logo: o.logo, theme, fonts });
   ctx.restore();
 }
 
@@ -774,10 +876,13 @@ function stickerSize(ctx, o) {
   const lay = layoutOverlay(ctx, o.fonts, { ...o, W: 1080 }, L, 1500);
   const pad = 72;
   const logoGap = 56;
-  const footH = o.showLogo !== false ? logoGap + L.wordH * 1.3 : 0;
+  const footH = logoGap + STICKER_WORD_H * 1.3;
   const top = stickerPhraseTop(ctx, o);
   return { L, lay, pad, logoGap, top, w: 1080, h: Math.round(top + pad + lay.height + footH + pad) };
 }
+
+// 透明（ステッカー）のロゴの文字の高さ（ストーリーと同じ）。
+const STICKER_WORD_H = logoBox('story').wordH;
 
 // 透明の言葉の場所: 言葉があれば、その高さ＋56 を記録・一文の上に足す（言葉は記録に重ねない）。
 function stickerPhraseTop(ctx, o) {
@@ -795,9 +900,9 @@ function drawSticker(ctx, o, size) {
   ctx.shadowBlur = 24;
   ctx.shadowOffsetY = 3;
   drawOverlay(ctx, o.fonts, { ...o, W: 1080 }, L, lay, pad, o.theme);
-  const baseline = pad + lay.height + logoGap + L.wordH;
-  // ロゴだけ（ほかの地と同じ・SPEC §2-1）。
-  if (o.showLogo !== false) drawFooter(ctx, { margin: L.margin, baseline, wordH: L.wordH, logo: o.logo, theme: { ...o.theme, logo: 'white' }, fonts: o.fonts });
+  const baseline = pad + lay.height + logoGap + STICKER_WORD_H;
+  // ロゴだけ（ほかの地と同じ・SPEC §2-1）。透明は下の写真が分からないので、白いロゴ＋濃い影（--share-sticker-shadow）。
+  drawLogo(ctx, o.logo, 'white', { x: L.margin, baseline, wordH: STICKER_WORD_H, fonts: o.fonts, ink: o.theme.ink });
   ctx.restore();
 }
 
@@ -857,28 +962,43 @@ function layoutRecord(ctx, fonts, o, F) {
   return { rec, titleLines, titleLH: plan.titleLH, titleFont, titleSize, sub, subFont, subLH, stats, labelH, contentW, fit, plan, height: plan.height };
 }
 
-function drawStat(ctx, fonts, F, stat, col, top, lay, theme) {
+// 数字（大きく 700）と単位（小さく 600）の幅。k は大きさの倍率。
+function statValueWidth(ctx, fonts, value, { valueSize, unitSize }, k = 1) {
+  return splitStatValue(value).reduce((w, p) => {
+    ctx.font = p.big ? `700 ${Math.round(valueSize * k)}px ${fonts.ui}` : `600 ${Math.round(unitSize * k)}px ${fonts.ui}`;
+    setSpacing(ctx, 0, valueSize);
+    return w + ctx.measureText(p.text).width + (p.big ? 0 : 4);
+  }, 0);
+}
+
+// 数字を描く（左端 x・基線 baseline・倍率 k）。単位は数字の 2 だけ右から。
+function drawStatValue(ctx, fonts, value, { valueSize, unitSize }, k, x0, baseline, ink) {
+  let x = x0;
+  ctx.fillStyle = ink;
+  splitStatValue(value).forEach((p) => {
+    ctx.font = p.big ? `700 ${Math.round(valueSize * k)}px ${fonts.ui}` : `600 ${Math.round(unitSize * k)}px ${fonts.ui}`;
+    setSpacing(ctx, 0, valueSize);
+    ctx.fillText(p.text, x + (p.big ? 0 : 2), baseline);
+    x += ctx.measureText(p.text).width + (p.big ? 0 : 4);
+  });
+}
+
+// 数字の列の大きさの倍率: どれか 1 つでも列に入らなければ、全部を同じだけ縮める（列ごとに大きさが変わると
+// 数字の高さがそろわない＝Strava のように数字の高さと基線をそろえる・2026-10-05）。
+function statsScale(ctx, fonts, F, stats, cols) {
+  const sizes = { valueSize: F.statValueSize, unitSize: F.statUnitSize };
+  // 列の間は 40 以上空ける（「9月28日」と隣の「24件」がくっついて 1 つの数字に見えない）。
+  return stats.reduce((k, st, i) => Math.min(k, (cols[i].width - 40) / Math.max(1, statValueWidth(ctx, fonts, st.value, sizes, 1))), 1);
+}
+
+function drawStat(ctx, fonts, F, stat, col, top, lay, theme, k = 1) {
   ctx.font = `400 ${F.statLabelSize}px ${fonts.ui}`;
   setSpacing(ctx, 0.04, F.statLabelSize);
   ctx.fillStyle = theme.ink2;
   ctx.fillText(ellipsize(ctx, stat.label, col.width - 16), col.x, top + lay.labelH * 0.78);
-  // 数字は大きく（700）・単位は小さく（600）。列に入らなければ全体を縮める。
-  const parts = splitStatValue(stat.value);
-  const widthAt = (k) => parts.reduce((w, p) => {
-    ctx.font = p.big ? `700 ${Math.round(F.statValueSize * k)}px ${fonts.ui}` : `600 ${Math.round(F.statUnitSize * k)}px ${fonts.ui}`;
-    setSpacing(ctx, 0, F.statValueSize);
-    return w + ctx.measureText(p.text).width + (p.big ? 0 : 2);
-  }, 0);
-  const k = Math.min(1, (col.width - 20) / Math.max(1, widthAt(1)));
+  // 数字は大きく（700）・単位は小さく（600）。基線は列どうしでそろえる。
   const baseline = top + lay.labelH + 10 + F.statValueSize * 0.86;
-  let x = col.x;
-  ctx.fillStyle = theme.ink;
-  parts.forEach((p) => {
-    ctx.font = p.big ? `700 ${Math.round(F.statValueSize * k)}px ${fonts.ui}` : `600 ${Math.round(F.statUnitSize * k)}px ${fonts.ui}`;
-    setSpacing(ctx, 0, F.statValueSize);
-    ctx.fillText(p.text, x + (p.big ? 0 : 2), baseline);
-    x += ctx.measureText(p.text).width + (p.big ? 0 : 4);
-  });
+  drawStatValue(ctx, fonts, stat.value, { valueSize: F.statValueSize, unitSize: F.statUnitSize }, k, col.x, baseline, theme.ink);
 }
 
 // recordBlockPlan の組みのとおりに描く（隠した項目は組みに無い＝場所を取らない）。
@@ -922,15 +1042,17 @@ function drawRecordBlock(ctx, fonts, o, F, lay, top, theme) {
       ctx.restore();
     } else if (el.kind === 'stats') {
       const cols = statColumns(F, lay.stats.length);
-      lay.stats.forEach((st, i) => drawStat(ctx, fonts, F, st, cols[i], y, lay, theme));
+      const k = statsScale(ctx, fonts, F, lay.stats, cols);
+      lay.stats.forEach((st, i) => drawStat(ctx, fonts, F, st, cols[i], y, lay, theme, k));
     }
   }
 }
 
-// ロゴ（左）と、右に今日の日付（2026.10.1）。URL は入れない（2026-10-01 オーナー裁定「ロゴのみでOK」）。
-// どちらも「表示する項目」で隠せる。どれも安全な枠（余白 F.margin・基線 F.footerBaseline）の中。
-function drawRecordFooter(ctx, { F, baseline, logo, theme, fonts, stamp, showLogo = true }) {
-  if (showLogo) drawLogo(ctx, logo, theme.logo, { x: F.margin, baseline, wordH: F.wordH, fonts, ink: theme.ink });
+// ロゴ（左・必ず描く）と、右に今日の日付（2026.10.1・「表示する項目」で隠せる）。URL は入れない
+// （2026-10-01 オーナー裁定「ロゴのみでOK」）。どれも安全な枠（余白 F.margin・基線 F.footerBaseline）の中。
+// 日付を隠してもロゴの場所は変わらない（ロゴは左の決まった場所・日付は右に足すだけ）。
+function drawRecordFooter(ctx, { F, baseline, logo, theme, fonts, stamp }) {
+  drawLogo(ctx, logo, theme.logo, { x: F.margin, baseline, wordH: F.wordH, fonts, ink: theme.ink });
   if (!stamp) return;
   ctx.textAlign = 'right';
   ctx.fillStyle = theme.ink2;
@@ -955,19 +1077,24 @@ function fitRecord(ctx, o, F) {
 function drawRecordOverlay(ctx, o, place) {
   const F = recordFrame(o.format);
   const { lay, place: at } = fitRecord(ctx, o, F);
-  // 何も重ねない（全部の項目を隠した）ときは幕も掛けない（写真そのまま）。
-  if (lay.height <= 0 && o.hasFooter === false) return;
-  // 幕: 文字の後ろ（まとまりの上端からロゴまで）の明るさで濃さを決め、上端より手前で届かせる。
-  const a = scrimAlpha(bandLuminance(o.photo, place, F.W, F.H, at.top, F.footerBaseline + 8));
-  const fade = F.H * 0.22;
-  drawScrim(ctx, F.W, F.H, o.theme.scrim, [[at.top - fade, 0], [at.top - fade * 0.2, a], [F.H, Math.min(0.88, a + 0.06)]]);
+  let foot = o.theme;
+  if (lay.height <= 0) {
+    // 記録の項目を全部隠した: 写真はそのままに、ロゴ（と日付）が読める色・下地にする（ロゴは必ず読める）。
+    foot = logoFooterOnPhoto(ctx, o, place);
+  } else {
+    // 幕: 文字の後ろ（まとまりの上端からロゴまで）の明るさで濃さを決め、上端より手前で届かせる。
+    const a = scrimAlpha(bandLuminance(o.photo, place, F.W, F.H, at.top, F.footerBaseline + 8));
+    const fade = F.H * 0.22;
+    drawScrim(ctx, F.W, F.H, o.theme.scrim, [[at.top - fade, 0], [at.top - fade * 0.2, a], [F.H, Math.min(0.88, a + 0.06)]]);
+  }
   const sb = o.shadowScale || 1;
   ctx.save();
   ctx.shadowColor = o.theme.shadow;
   ctx.shadowBlur = 18 * sb;
   ctx.shadowOffsetY = 2 * sb;
   drawRecordBlock(ctx, o.fonts, o, F, lay, at.top, o.theme);
-  drawRecordFooter(ctx, { F, baseline: F.footerBaseline, logo: o.logo, theme: o.theme, fonts: o.fonts, stamp: o.stamp, showLogo: o.showLogo !== false });
+  ctx.shadowColor = foot.shadow;
+  drawRecordFooter(ctx, { F, baseline: F.footerBaseline, logo: o.logo, theme: foot, fonts: o.fonts, stamp: o.stamp });
   ctx.restore();
 }
 
@@ -982,15 +1109,7 @@ function drawRecordPhoto(ctx, o) {
 function drawRecordPoster(ctx, o) {
   const { theme } = o;
   const F = recordFrame(o.format);
-  ctx.fillStyle = theme.bg;
-  ctx.fillRect(0, 0, F.W, F.H);
-  if (theme.key === 'cover') {
-    const g = ctx.createLinearGradient(0, 0, 0, F.H);
-    g.addColorStop(0, 'rgba(255,255,255,0.06)');
-    g.addColorStop(1, 'rgba(0,0,0,0.22)');
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, F.W, F.H);
-  }
+  drawGround(ctx, F.W, F.H, theme, o.cover);
   const { lay, place } = fitRecord(ctx, o, F);
   // 言葉を入れたときは、上の空きは言葉が主役（表紙と重ねない）。
   const covers = o.phrase && phraseDisplayText(o.phrase)
@@ -1005,7 +1124,7 @@ function drawRecordPoster(ctx, o) {
     });
   }
   drawRecordBlock(ctx, o.fonts, o, F, lay, place.top, theme);
-  drawRecordFooter(ctx, { F, baseline: F.footerBaseline, logo: o.logo, theme, fonts: o.fonts, stamp: o.stamp, showLogo: o.showLogo !== false });
+  drawRecordFooter(ctx, { F, baseline: F.footerBaseline, logo: o.logo, theme, fonts: o.fonts, stamp: o.stamp });
 }
 
 // 透明（ステッカー）の記録: 文字の塊とロゴだけ。高さは中身に合わせる。
@@ -1014,7 +1133,7 @@ function recordStickerSize(ctx, o) {
   const lay = layoutRecord(ctx, o.fonts, o, F);
   const pad = 72;
   const logoGap = 64;
-  const footH = o.hasFooter !== false ? logoGap + F.wordH * 1.3 : 0;
+  const footH = logoGap + F.wordH * 1.3;
   const top = stickerPhraseTop(ctx, o);
   return { F, lay, pad, logoGap, top, w: 1080, h: top + Math.max(pad * 2 + 120, Math.round(pad + lay.height + footH + pad)) };
 }
@@ -1028,7 +1147,172 @@ function drawRecordSticker(ctx, o, size) {
   ctx.shadowBlur = 24;
   ctx.shadowOffsetY = 3;
   drawRecordBlock(ctx, o.fonts, o, F, lay, pad, o.theme);
-  drawRecordFooter(ctx, { F, baseline: pad + lay.height + (lay.height > 0 ? logoGap : 0) + F.wordH, logo: o.logo, theme: { ...o.theme, logo: 'white' }, fonts: o.fonts, stamp: o.stamp, showLogo: o.showLogo !== false });
+  drawRecordFooter(ctx, { F, baseline: pad + lay.height + (lay.height > 0 ? logoGap : 0) + F.wordH, logo: o.logo, theme: { ...o.theme, logo: 'white' }, fonts: o.fonts, stamp: o.stamp });
+  ctx.restore();
+}
+
+// ---------------------------------------------------------------- 数字（Strava の大きな数字・2026-10-05）
+//
+// 真ん中に縦に積む（中央そろえ）:
+//   ● 読了                  … 見出し（橙の点＋小さな文字）
+//   『書名』                … 明朝 600・2 行まで
+//   著者
+//      （間）
+//   読み終えた日            … 名前は小さく（UI 400・字間 0.08・ink-2）
+//   9月28日                 … 数字は大きく（UI 700 156・単位 600 56）・3 つの大きさは同じ（いちばん長いものに合わせて縮める）
+//   メモ / 24件 …
+//   Orime のロゴ                        2026.10.5   … 記録と同じ下の行
+// 写真でない地では、真ん中に表紙（今月は 4 冊まで）を積み方の上に置く。言葉を入れたら積み方を下に寄せる。
+
+function layoutStats(ctx, fonts, o, F) {
+  const rec = o.record || { kicker: '', title: '', stats: [] };
+  const stats = (rec.stats || []).slice(0, 3);
+  const plan0 = statsStackPlan(F, { hasKicker: false });
+  const st = plan0.style;
+  const contentW = F.W - F.margin * 2;
+  const titleFont = `600 ${st.titleSize}px ${fonts.read}`;
+  ctx.font = titleFont;
+  setSpacing(ctx, 0.01, st.titleSize);
+  const tText = rec.title ? (rec.titleIsBook ? `『${rec.title}』` : String(rec.title)) : '';
+  let titleLines = tText ? wrapBalanced(tText, contentW, measurer(ctx, titleFont, 0.01)) : [];
+  if (titleLines.length > 2) titleLines = [titleLines[0], ellipsize(ctx, titleLines.slice(1).join(''), contentW)];
+  const subFont = `400 ${st.subSize}px ${fonts.ui}`;
+  let sub = '';
+  if (rec.sub) {
+    ctx.font = subFont;
+    setSpacing(ctx, 0.02, st.subSize);
+    sub = ellipsize(ctx, String(rec.sub), contentW);
+  }
+  const plan = statsStackPlan(F, { hasKicker: !!rec.kicker, titleLines: titleLines.length, hasSub: !!sub, statsCount: stats.length });
+  // 数字の大きさは 3 つで同じ（いちばん長いものが幅に入るまで縮める）。
+  const sizes = { valueSize: st.valueSize, unitSize: st.unitSize };
+  const k = stats.reduce((m, s) => Math.min(m, contentW / Math.max(1, statValueWidth(ctx, fonts, s.value, sizes, 1))), 1);
+  return { rec, stats, st, titleFont, titleLines, subFont, sub, plan, k, contentW, height: plan.height };
+}
+
+function drawStatsBlock(ctx, fonts, F, lay, top, theme, cx) {
+  const { st } = lay;
+  ctx.save();
+  ctx.textAlign = 'left';
+  for (const el of lay.plan.elements) {
+    const y = top + el.top;
+    if (el.kind === 'kicker') {
+      ctx.font = `600 ${st.kickerSize}px ${fonts.ui}`;
+      setSpacing(ctx, 0.08, st.kickerSize);
+      const r = Math.round(st.kickerSize * 0.2);
+      const textW = ctx.measureText(lay.rec.kicker).width;
+      const totalW = r * 2 + 14 + textW;
+      const x0 = cx - totalW / 2;
+      ctx.save();
+      ctx.shadowColor = 'transparent';
+      ctx.fillStyle = theme.accent;
+      ctx.beginPath();
+      ctx.arc(x0 + r, y + el.height * 0.52, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      ctx.fillStyle = theme.ink2;
+      ctx.fillText(lay.rec.kicker, x0 + r * 2 + 14, y + el.height * 0.78);
+    } else if (el.kind === 'title') {
+      ctx.fillStyle = theme.ink;
+      lay.titleLines.forEach((ln, i) => {
+        ctx.font = lay.titleFont;
+        setSpacing(ctx, 0.01, st.titleSize);
+        const w = ctx.measureText(ln).width;
+        ctx.fillText(ln, cx - w / 2, y + i * st.titleLH + st.titleLH * 0.8);
+      });
+    } else if (el.kind === 'sub') {
+      ctx.font = lay.subFont;
+      setSpacing(ctx, 0.02, st.subSize);
+      ctx.fillStyle = theme.ink2;
+      const w = ctx.measureText(lay.sub).width;
+      ctx.fillText(lay.sub, cx - w / 2, y + Math.round(st.subSize * 1.45) * 0.76);
+    } else if (el.kind === 'stat') {
+      const stat = lay.stats[el.index];
+      if (!stat) continue;
+      ctx.font = `400 ${st.labelSize}px ${fonts.ui}`;
+      setSpacing(ctx, 0.08, st.labelSize);
+      ctx.fillStyle = theme.ink2;
+      const label = ellipsize(ctx, stat.label, lay.contentW);
+      const lw = ctx.measureText(label).width;
+      ctx.fillText(label, cx - lw / 2, y + st.labelH * 0.78);
+      const sizes = { valueSize: st.valueSize, unitSize: st.unitSize };
+      const vw = statValueWidth(ctx, fonts, stat.value, sizes, lay.k);
+      drawStatValue(ctx, fonts, stat.value, sizes, lay.k, cx - vw / 2, y + st.labelH + 4 + st.valueSize * 0.86, theme.ink);
+    }
+  }
+  ctx.restore();
+}
+
+function drawStatsPhoto(ctx, o) {
+  const F = recordFrame(o.format);
+  const place = photoPlacement({ pw: o.photo.width, ph: o.photo.height, W: F.W, H: F.H, ...(o.view || {}) });
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(o.photo.source, place.x, place.y, place.w, place.h);
+  drawStatsOverlay(ctx, o, place);
+}
+
+function drawStatsOverlay(ctx, o, place) {
+  const F = recordFrame(o.format);
+  const lay = layoutStats(ctx, o.fonts, o, F);
+  const at = placeStatsStack(F, lay.height, { phrase: !!(o.phrase && phraseDisplayText(o.phrase)) });
+  let foot = o.theme;
+  if (lay.height <= 0) {
+    foot = logoFooterOnPhoto(ctx, o, place);
+  } else {
+    // 幕: 積み方の上端の少し上から下へ。濃さは積み方からロゴまでの明るさで決める（白い文字と 4.5:1 以上）。
+    const a = scrimAlpha(bandLuminance(o.photo, place, F.W, F.H, at.top, F.footerBaseline + 8));
+    const fade = F.H * 0.2;
+    drawScrim(ctx, F.W, F.H, o.theme.scrim, [[at.top - fade, 0], [at.top - fade * 0.15, a], [F.H, Math.min(0.88, a + 0.06)]]);
+  }
+  const sb = o.shadowScale || 1;
+  ctx.save();
+  ctx.shadowColor = o.theme.shadow;
+  ctx.shadowBlur = 18 * sb;
+  ctx.shadowOffsetY = 2 * sb;
+  drawStatsBlock(ctx, o.fonts, F, lay, at.top, o.theme, F.W / 2);
+  ctx.shadowColor = foot.shadow;
+  drawRecordFooter(ctx, { F, baseline: F.footerBaseline, logo: o.logo, theme: foot, fonts: o.fonts, stamp: o.stamp });
+  ctx.restore();
+}
+
+function drawStatsPoster(ctx, o) {
+  const { theme } = o;
+  const F = recordFrame(o.format);
+  drawGround(ctx, F.W, F.H, theme, o.cover);
+  const lay = layoutStats(ctx, o.fonts, o, F);
+  const hasPhrase = !!(o.phrase && phraseDisplayText(o.phrase));
+  const covers = (o.covers && o.covers.length ? o.covers : (o.record?.titleIsBook ? [{ cover: o.cover, title: o.title }] : [])).slice(0, 4);
+  const at = placeStatsStack(F, lay.height, { phrase: hasPhrase, coverCount: covers.length });
+  if (at.cover) {
+    const { x0, y0, w, h, step } = at.cover;
+    covers.forEach((c, i) => {
+      drawCover(ctx, { x: x0 + step * i, y: y0 + (covers.length > 1 ? (i % 2) * h * 0.04 : 0), w, h, cover: c.cover, title: c.title, theme, fonts: o.fonts, showText: o.showTitle !== false });
+    });
+  }
+  drawStatsBlock(ctx, o.fonts, F, lay, at.top, theme, F.W / 2);
+  drawRecordFooter(ctx, { F, baseline: F.footerBaseline, logo: o.logo, theme, fonts: o.fonts, stamp: o.stamp });
+}
+
+function statsStickerSize(ctx, o) {
+  const F = { ...recordFrame('story'), margin: 72 };
+  const lay = layoutStats(ctx, o.fonts, o, F);
+  const pad = 72;
+  const logoGap = 64;
+  const footH = logoGap + F.wordH * 1.3;
+  const top = stickerPhraseTop(ctx, o);
+  return { F, lay, pad, logoGap, top, w: 1080, h: top + Math.max(pad * 2 + 120, Math.round(pad + lay.height + footH + pad)) };
+}
+
+function drawStatsSticker(ctx, o, size) {
+  const { F, lay, logoGap } = size;
+  const pad = size.pad + size.top;
+  ctx.clearRect(0, 0, size.w, size.h);
+  ctx.save();
+  ctx.shadowColor = o.theme.shadow;
+  ctx.shadowBlur = 24;
+  ctx.shadowOffsetY = 3;
+  drawStatsBlock(ctx, o.fonts, F, lay, pad, o.theme, size.w / 2);
+  drawRecordFooter(ctx, { F, baseline: pad + lay.height + (lay.height > 0 ? logoGap : 0) + F.wordH, logo: o.logo, theme: { ...o.theme, logo: 'white' }, fonts: o.fonts, stamp: o.stamp });
   ctx.restore();
 }
 
@@ -1182,22 +1466,25 @@ function drawPhrase(ctx, o, W, H) {
 
 // ---------------------------------------------------------------- 本体
 
-// 表示する項目（隠した項目）を描く材料に当てる。記録は applyShareItems で見出し・書名・著者・数字を外し、
-// 一文・今日の日付・ロゴはフラグで。一文の見せ方は書名・著者・ロゴだけ。
+// 表示する項目（隠した項目）を描く材料に当てる。記録・数字は applyShareItems で見出し・書名・著者・数字を外し、
+// 一文・今日の日付はフラグで。一文の見せ方は書名・著者だけ。ロゴは隠せない（必ず描く・下の行はいつもある）。
 function visibleOpts(opts, layout, text) {
   const vis = shareVisibility(opts.hidden);
-  const isRecord = layout === 'record';
+  const isRecord = layout === 'record' || layout === 'stats';
   const stamp = isRecord && vis.stamp ? (opts.stamp || '') : '';
   return {
     ...opts,
     record: isRecord ? applyShareItems(opts.record, opts.hidden) : opts.record,
-    text: isRecord && !vis.quote ? '' : text,
+    text: layout === 'stats' || (isRecord && !vis.quote) ? '' : text,
     stamp,
-    showLogo: vis.logo,
     showTitle: vis.title,
     showAuthor: vis.author,
-    hasFooter: vis.logo || !!stamp,
+    hasFooter: true,
   };
+}
+
+function normalizeLayout(layout) {
+  return layout === 'record' || layout === 'stats' ? layout : 'quote';
 }
 
 // canvas に描く（同期）。canvas の大きさもここで決める。
@@ -1209,9 +1496,9 @@ function visibleOpts(opts, layout, text) {
 //         phrase（自由に入れる言葉の層 { text, style, x, y, scale, invert }・sharePhrase.js） }
 // 戻り値: { line, width, height }（line は実際に画像に入れた文＝共有の文にも同じものを使う）
 export function drawShareCard(canvas, opts = {}) {
-  const layout = opts.layout === 'record' ? 'record' : 'quote';
-  const { text } = clampLine(opts.line, layout === 'record' ? RECORD_QUOTE_MAX : undefined);
-  if (!text && layout !== 'record') throw new Error('画像にする一文がありません。');
+  const layout = normalizeLayout(opts.layout);
+  const { text } = clampLine(layout === 'stats' ? '' : opts.line, layout === 'record' ? RECORD_QUOTE_MAX : undefined);
+  if (!text && layout === 'quote') throw new Error('画像にする一文がありません。');
   const fonts = opts.fonts || fontStacks();
   let style = opts.style || 'paper';
   if (style === 'photo' && !opts.photo) style = 'night';
@@ -1223,6 +1510,28 @@ export function drawShareCard(canvas, opts = {}) {
     seed: seedFrom(`${opts.seedKey || ''}|${text}`),
     frac: tabPosition(opts.page, opts.totalPages, opts.knownMaxPage),
   };
+
+  if (layout === 'stats') {
+    if (style === 'sticker') {
+      const size = statsStickerSize(ctx, base);
+      if (canvas.width !== size.w || canvas.height !== size.h) { canvas.width = size.w; canvas.height = size.h; }
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+      drawStatsSticker(ctx, base, size);
+      drawPhrase(ctx, { ...base, quoteShown: false }, size.w, size.h);
+      return { line: '', width: size.w, height: size.h };
+    }
+    const F = recordFrame(opts.format);
+    if (canvas.width !== F.W || canvas.height !== F.H) { canvas.width = F.W; canvas.height = F.H; }
+    ctx.clearRect(0, 0, F.W, F.H);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    const o = { ...base, W: F.W, H: F.H, format: F.format };
+    if (style === 'photo') drawStatsPhoto(ctx, o);
+    else drawStatsPoster(ctx, o);
+    drawPhrase(ctx, { ...o, quoteShown: false }, F.W, F.H);
+    return { line: '', width: F.W, height: F.H };
+  }
 
   if (layout === 'record') {
     if (style === 'sticker') {
@@ -1282,9 +1591,10 @@ export function drawShareCard(canvas, opts = {}) {
 // 戻り値: 描けたら true（写真でないとき・準備できないときは false＝呼び出し側で drawShareCard）。
 export function drawPhotoDragFrame(canvas, opts = {}, cache = {}, { targetWidth = 570 } = {}) {
   if (!canvas || !opts.photo || (opts.style && opts.style !== 'photo')) return false;
-  const isRecord = opts.layout === 'record';
-  const { text } = clampLine(opts.line, isRecord ? RECORD_QUOTE_MAX : undefined);
-  if (!text && !isRecord) return false;
+  const layout = normalizeLayout(opts.layout);
+  const isRecord = layout === 'record';
+  const { text } = clampLine(layout === 'stats' ? '' : opts.line, isRecord ? RECORD_QUOTE_MAX : undefined);
+  if (!text && layout === 'quote') return false;
   const fmt = FORMATS[opts.format] ? opts.format : 'story';
   const { w: W, h: H } = FORMATS[fmt];
   const k = Math.min(1, Math.max(0.2, targetWidth / W));
@@ -1295,7 +1605,7 @@ export function drawPhotoDragFrame(canvas, opts = {}, cache = {}, { targetWidth 
   if (cache.key !== key || !cache.layer || cache.photoRef !== opts.photo) {
     const theme = readShareTheme('photo', { tone: opts.cover?.tone, title: opts.title });
     const o = {
-      ...visibleOpts(opts, isRecord ? 'record' : 'quote', text), fonts, theme, style: 'photo', W, H, format: fmt,
+      ...visibleOpts(opts, layout, text), fonts, theme, style: 'photo', W, H, format: fmt,
       seed: seedFrom(`${opts.seedKey || ''}|${text}`),
       frac: tabPosition(opts.page, opts.totalPages, opts.knownMaxPage),
       shadowScale: k,
@@ -1307,9 +1617,10 @@ export function drawPhotoDragFrame(canvas, opts = {}, cache = {}, { targetWidth 
     lctx.textAlign = 'left';
     lctx.textBaseline = 'alphabetic';
     const place0 = photoPlacement({ pw: opts.photo.width, ph: opts.photo.height, W, H, ...(opts.view || {}) });
-    if (isRecord) drawRecordOverlay(lctx, o, place0);
+    if (layout === 'stats') drawStatsOverlay(lctx, o, place0);
+    else if (isRecord) drawRecordOverlay(lctx, o, place0);
     else drawPhotoOverlay(lctx, o, place0);
-    drawPhrase(lctx, { ...o, quoteShown: isRecord ? !!fitRecord(lctx, o, recordFrame(fmt)).lay.fit : true }, W, H);
+    drawPhrase(lctx, { ...o, quoteShown: layout === 'stats' ? false : isRecord ? !!fitRecord(lctx, o, recordFrame(fmt)).lay.fit : true }, W, H);
     // 写真は、動かし始めの大きさの 1.5 倍まで縮めておく（拡大しても粗くなりすぎない・元より大きくはしない）。
     const want = Math.max(cw, Math.round(place0.w * k * 1.5));
     const sk = Math.min(1, want / opts.photo.width);
@@ -1381,10 +1692,12 @@ export function measurePhraseBox(opts = {}, { W, H }) {
   return layoutPhraseOn(ctx, { ...opts, style, fonts: opts.fonts || fontStacks(), format: FORMATS[opts.format] ? opts.format : 'story' }, W, H);
 }
 
-export function canvasToBlob(canvas) {
+// 画像にする（style を渡すと、その地に合った種類＝写真は JPEG・ほかは PNG・shareImageType）。
+export function canvasToBlob(canvas, { style } = {}) {
+  const { type, quality } = shareImageType(style);
   return new Promise((resolve, reject) => {
     try {
-      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('紙・夜など、ほかの色を選ぶか、もう一度お試しください。'))), 'image/png');
+      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('紙・夜など、ほかの色を選ぶか、もう一度お試しください。'))), type, quality);
     } catch (e) {
       reject(e);
     }

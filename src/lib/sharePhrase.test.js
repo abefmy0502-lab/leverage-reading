@@ -6,7 +6,7 @@ import {
   phraseColors, phraseCanInvert, clampScale, PHRASE_MAX, PHRASE_STYLES, PHRASE_SCALE_MAX, PHRASE_SCALE_MIN,
   stickerPhraseReserve, STICKER_PAD, PHRASE_STICKER_GAP,
 } from './sharePhrase.js';
-import { recordFrame } from './shareOverlay.js';
+import { recordFrame, logoBox } from './shareOverlay.js';
 
 // 字数×大きさ（全角のおおよそ）。
 const measureAt = (size) => (s) => Array.from(String(s)).length * size;
@@ -32,16 +32,31 @@ describe('言葉を整える', () => {
 });
 
 describe('言葉を置いてよい範囲（4:5 と 9:16）', () => {
-  it('記録と同じ安全な枠（ストーリーは上下 270・投稿は左右 80）', () => {
+  it('記録と同じ安全な枠（ストーリーは上下 270・投稿は左右 80）・下はロゴの上の空きまで', () => {
     for (const fmt of ['post', 'story']) {
       const f = recordFrame(fmt);
       const fr = phraseFrame({ ...FORMATS[fmt], format: fmt });
       expect(fr.left).toBe(f.margin);
       expect(fr.right).toBe(f.W - f.margin);
       expect(fr.top).toBe(f.safeTop);
-      expect(fr.bottom).toBe(f.safeBottom);
+      expect(fr.bottom).toBe(Math.min(f.safeBottom, logoBox(fmt).clearTop));
+      expect(fr.bottom).toBeLessThan(logoBox(fmt).top);
     }
     expect(phraseFrame({ format: 'story', W: 1080, H: 1920 }).top).toBeGreaterThanOrEqual(250);
+  });
+  it('言葉はどこへ動かしても・どの大きさでもロゴに重ならない（2026-10-05 ロゴは必ず入る）', () => {
+    for (const fmt of ['post', 'story']) {
+      const { W, H } = FORMATS[fmt];
+      const logo = logoBox(fmt);
+      for (const style of PHRASE_STYLES) {
+        for (const scale of [PHRASE_SCALE_MIN, 1, PHRASE_SCALE_MAX]) {
+          for (const y of [0, 0.5, 0.9, 1.2]) {
+            const lay = phraseLayout({ text: '問いの質が、答えの質を決める。いちばん下へ', style, x: 0.2, y, scale }, { W, H, format: fmt, measureAt });
+            expect(lay.y0 + lay.h, `${fmt} ${style} ${scale} ${y}`).toBeLessThanOrEqual(logo.top);
+          }
+        }
+      }
+    }
   });
   it('はみ出す置き方は枠の中へ寄せる', () => {
     const fr = { left: 80, right: 1000, top: 96, bottom: 1278 };

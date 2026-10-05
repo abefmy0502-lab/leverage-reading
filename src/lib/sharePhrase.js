@@ -5,12 +5,12 @@
 // canvas も DOM も触らない純粋関数だけ（テストで確かめられるように）。描くのは shareCard.js の drawPhrase。
 //   - cleanPhrase       … 入れた言葉を整える（空白・改行・80 字まで）
 //   - newPhrase         … 最初の置き方（上のほうの中央・明朝の引用）
-//   - phraseFrame       … 言葉を置いてよい範囲（SNS で切られない安全な枠＝記録と同じ recordFrame・透明は記録の上の言葉の場所だけ）
+//   - phraseFrame       … 言葉を置いてよい範囲（SNS で切られない安全な枠＝記録と同じ recordFrame・下はロゴの上の空きまで・透明は記録の上の言葉の場所だけ）
 //   - phraseLayout      … 大きさ・改行（文節の切れ目で）・箱の位置。枠に入らなければ小さくし、はみ出さない場所に寄せる
 //   - phraseColors      … 文字の色（写真・夜・表紙の色・透明は白、紙は墨。1 タップで入れ替え）
 
 import { wrapBalanced, segmentPhrases } from './shareCardLayout';
-import { recordFrame } from './shareOverlay';
+import { recordFrame, logoBox } from './shareOverlay';
 
 export const PHRASE_MAX = 80;
 export const PHRASE_STYLES = ['mincho', 'bold', 'hand', 'band'];
@@ -70,7 +70,9 @@ export function phraseFrame({ W = 1080, H = 1350, format = 'post', sticker = fal
   const f = recordFrame(format);
   const sx = W / f.W;
   const sy = H / f.H;
-  return { left: f.margin * sx, right: W - f.margin * sx, top: f.safeTop * sy, bottom: f.safeBottom * sy };
+  // 下はロゴの上の空きまで（言葉でロゴを隠せない・2026-10-05「ロゴは必ず入る」）。
+  const bottom = Math.min(f.safeBottom, logoBox(format).clearTop);
+  return { left: f.margin * sx, right: W - f.margin * sx, top: f.safeTop * sy, bottom: bottom * sy };
 }
 
 // 箱（中心 cx, cy・幅 w・高さ h）を枠の中に収める中心。枠より大きければ枠の中央。

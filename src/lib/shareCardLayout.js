@@ -306,13 +306,21 @@ export function buildShareText({ title, line, siteUrl }) {
   return parts.join('\n');
 }
 
+// 書き出す画像の種類（2026-10-05）。幅はどれも 1080（Instagram・X・LINE がそのまま使う幅）。
+//   写真 … JPEG（品質 0.92）。写真は PNG だと 3〜6MB になり、作るのも共有シートに渡すのも遅い。SNS も JPEG に直す
+//   紙・夜・表紙の色 … PNG（平らな色と細い文字がにじまない・大きさも小さい）
+//   透明 … PNG（透明を残せるのは PNG だけ）
+export function shareImageType(style = 'paper') {
+  return style === 'photo' ? { type: 'image/jpeg', quality: 0.92, ext: 'jpg' } : { type: 'image/png', quality: undefined, ext: 'png' };
+}
+
 // 保存するファイル名（書名は入れない＝端末の写真アプリに書名が残らない・記号の問題も避ける）。
 export function shareFilename({ format = 'story', style = 'paper', now = new Date() } = {}) {
   const pad = (n) => String(n).padStart(2, '0');
   const stamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`;
   // 透明（ステッカー）は形の名前も sticker なので、同じ語を 2 回並べない。
   const kind = format === style ? format : `${format}-${style}`;
-  return `orime-${kind}-${stamp}.png`;
+  return `orime-${kind}-${stamp}.${shareImageType(style).ext}`;
 }
 
 // ---------------------------------------------------------------- 表紙の色
@@ -324,6 +332,8 @@ function relLum([r, g, b]) {
   };
   return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
 }
+
+export const relativeLuminance = (rgb) => relLum(rgb);
 
 export function contrastRatio(a, b) {
   const la = relLum(a);
@@ -426,6 +436,32 @@ export function scrimAlpha(luminance) {
   const L = Math.min(1, Math.max(0, Number(luminance) || 0));
   const need = L > 0.18 ? 1 - 0.18 / L : 0;
   return Math.round(Math.min(0.82, Math.max(0.3, need)) * 100) / 100;
+}
+
+// 画素の相対輝度の、暗いほうから 15% の値（墨の文字にかかりやすい暗い部分を基準に）。
+export function darkLuminance(pixels) {
+  if (!Array.isArray(pixels) || pixels.length === 0) return 0;
+  const lums = pixels.map(relLum).sort((a, b) => a - b);
+  return lums[Math.min(lums.length - 1, Math.floor(lums.length * 0.15))];
+}
+
+// 写真の上にロゴ（と今日の日付）しか重ねないとき（記録の項目を全部隠した）のロゴの色（2026-10-05・ロゴは必ず読める）:
+//   ロゴの下が明るい写真（暗い部分でも相対輝度 0.3 以上＝焦げ茶の文字と 4.5:1 以上）… 元の色のロゴ・幕なし
+//   それ以外 … 白いロゴ＋下から黒い幕（明るい部分で白と 4.5:1 以上になる濃さ＝scrimAlpha）
+// 戻り値: { logo: 'color' | 'white', scrim: 0〜0.82 }
+export function logoInkOnPhoto({ bright = 0, dark = 0 } = {}) {
+  if (dark >= 0.3) return { logo: 'color', scrim: 0 };
+  return { logo: 'white', scrim: scrimAlpha(bright) };
+}
+
+// 表紙の色の地に、ぼかした表紙を敷くとき（2026-10-05・写真が無いときの見栄えのよい代わり）、上から重ねる
+// 地の色（相対輝度 bgLum・白い文字と 7:1 に沈めた色）の濃さ。重ねた後の明るさが 0.18 以下（白い文字と 4.5:1 以上）に
+// なるように、ぼかした表紙の明るい部分（imgLum）から決める。最低 0.55（表紙の色が強すぎない）・最大 1。
+export function coverWashAlpha(imgLum, bgLum = 0.1) {
+  const L = Math.min(1, Math.max(0, Number(imgLum) || 0));
+  const B = Math.min(0.18, Math.max(0, Number(bgLum) || 0));
+  const need = L > 0.18 ? (L - 0.18) / Math.max(0.01, L - B) : 0;
+  return Math.round(Math.min(1, Math.max(0.55, need)) * 100) / 100;
 }
 
 // 画素（[r,g,b] の配列）の相対輝度の、明るいほうから 15% の値（白い文字にかかりやすい明るい部分を基準に）。

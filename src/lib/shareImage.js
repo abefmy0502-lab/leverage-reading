@@ -4,7 +4,7 @@
 // 2. iOS アプリ（Capacitor）でファイル共有が無い → @capacitor/filesystem でキャッシュに書き、
 //    @capacitor/share でそのファイルを共有（dynamic import なので Web のバンドルには入らない。
 //    パッケージを足したら `npx cap sync ios` が必要）
-// 3. どちらも無い → PNG をダウンロード（a[download]）
+// 3. どちらも無い → 画像をダウンロード（a[download]）
 //
 // 戻り値: 'shared' | 'saved' | 'cancelled'
 // navigator.share はタップの直後に呼ぶ必要がある（ユーザー操作の有効期間）。画像は先に作っておき、
@@ -56,8 +56,9 @@ async function shareNative(blob, filename, text) {
 const isAbort = (e) => e?.name === 'AbortError' || /abort|cancel/i.test(String(e?.message || ''));
 
 // text は共有シートで画像と一緒に渡す文（アプリによっては使われない）。
+// 画像の種類は blob のまま（写真は JPEG・ほかは PNG＝shareCardLayout の shareImageType）。
 export async function shareImage({ blob, filename, text = '' }) {
-  const file = new File([blob], filename, { type: 'image/png' });
+  const file = new File([blob], filename, { type: blob?.type || 'image/png' });
   let canShareFiles = false;
   try { canShareFiles = !!navigator.canShare?.({ files: [file] }); } catch { canShareFiles = false; }
   if (canShareFiles && navigator.share) {

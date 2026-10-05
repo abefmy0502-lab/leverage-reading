@@ -46,7 +46,7 @@ const styleChip = (on) => ({
   alignItems: 'center',
   justifyContent: 'center',
   width: '100%',
-  minHeight: 44,
+  minHeight: 'var(--tap-min)',
   padding: '0 var(--space-3)',
   borderRadius: 'var(--radius)',
   border: on ? '1px solid var(--border)' : '1px solid var(--separator)',
@@ -62,7 +62,7 @@ const rowStyle = (last) => ({
   display: 'flex',
   alignItems: 'center',
   gap: 'var(--space-3)',
-  minHeight: 48,
+  minHeight: 'var(--btn-h)',
   padding: '0 var(--space-3) 0 var(--space-4)',
   borderBottom: last ? 'none' : '1px solid var(--separator)',
 });
@@ -428,10 +428,10 @@ export default function ShareEditor({
     >
       {/* 上の 1 行: 題名と「完了」（変えたことはその場で効く＝閉じるだけ） */}
       <div style={{ paddingTop: 'env(safe-area-inset-top, 0px)', borderBottom: '1px solid var(--separator)', flexShrink: 0 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'var(--space-16) 1fr var(--space-16)', alignItems: 'center', minHeight: 44, padding: '0 var(--space-4)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'var(--space-16) 1fr var(--space-16)', alignItems: 'center', minHeight: 'var(--tap-min)', padding: '0 var(--space-4)' }}>
           <span aria-hidden="true" />
           <h2 style={{ margin: 0, textAlign: 'center', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>画像を編集</h2>
-          <button type="button" onClick={onClose} style={{ justifySelf: 'end', minHeight: 44, minWidth: 44, padding: 0, background: 'none', border: 'none', color: 'var(--accent)', fontFamily: 'inherit', fontSize: 'var(--text-body)', fontWeight: 600, cursor: 'pointer' }}>
+          <button type="button" onClick={onClose} style={{ justifySelf: 'end', minHeight: 'var(--tap-min)', minWidth: 'var(--tap-min)', padding: 0, background: 'none', border: 'none', color: 'var(--accent)', fontFamily: 'inherit', fontSize: 'var(--text-body)', fontWeight: 600, cursor: 'pointer' }}>
             完了
           </button>
         </div>
@@ -544,9 +544,9 @@ export default function ShareEditor({
                       </button>
                     );
                   })}
-                  {handOk === null && <SkeletonBlock width="100%" height={44} radius="var(--radius)" />}
+                  {handOk === null && <SkeletonBlock width="100%" height="var(--tap-min)" radius="var(--radius)" />}
                 </div>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minHeight: 44 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minHeight: 'var(--tap-min)' }}>
                   <span style={{ fontSize: 'var(--text-sub)', color: 'var(--text)', flexShrink: 0 }}>大きさ</span>
                   <input
                     type="range"
@@ -556,7 +556,7 @@ export default function ShareEditor({
                     value={phrase.scale || 1}
                     onChange={(e) => setPhraseField({ scale: clampScale(e.target.value) })}
                     aria-label="言葉の大きさ"
-                    style={{ flex: 1, minHeight: 44, accentColor: 'var(--accent)' }}
+                    style={{ flex: 1, minHeight: 'var(--tap-min)', accentColor: 'var(--accent)' }}
                   />
                 </label>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: swapLabel ? 'space-between' : 'flex-end', marginLeft: 'calc(-1 * var(--space-1))', marginRight: 'calc(-1 * var(--space-1))' }}>

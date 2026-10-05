@@ -3,19 +3,23 @@
 //
 // 開いた時点で、いちばんよい 1 枚を描き終えておく＝そのまま「共有する」を押すだけ:
 //   写真あり（カメラの入口）… 写真＋記録（書名・著者・読了日／メモの件数／実行した行動）＋いちばん新しいメモの一文
+//                              （重ね方・形は前に選んだもの＝端末に覚える）
+//   写真なし（カメラをやめた・画像で共有）… 表紙がある本は「表紙の色」（ぼかした表紙を敷いた地＋表紙）、無ければ紙
 //   メモから                … 紙＋その一文
 // 変えたいときだけ:
 //   どの本？（ホームから開いたとき）… 今月／読書中・読了の本を 1 タップで切り替え
 //   別の一文                         … 1 タップで次のメモへ（記録では「一文を外す」も）
-//   見せ方                           … 記録／一文（小さな見本を並べる）
+//   重ね方（見せ方）                 … 記録／数字（大きな数字を縦に積む）／一文。小さな見本を押す・プレビューを左右にスワイプ
 //   形                               … 投稿 4:5 ／ ストーリー 9:16（どちらも SNS で切られない範囲に文字を置く）
-//   地                               … 写真（撮り直す・選ぶ）／紙／夜／表紙の色／透明（ステッカー）
+//   地                               … 写真（撮り直す・アルバムから選ぶ）／紙／夜／表紙の色／透明（ステッカー）
+// Orime のロゴはどの 1 枚にも必ず入る（隠せない・2026-10-05 オーナー裁定）。
 // 大きくして直したいとき（2026-10-01）: プレビューを押す／「編集」→ 全画面の編集画面（ShareEditor.jsx）。
 //   写真を指で動かす・拡大、自分の言葉を入れる（形 4 つ・指で動かす・大きさ）、表示する項目のスイッチ。
 //   表示する項目（隠した項目）は端末に覚えて次の共有でも使う。言葉は覚えない（その 1 枚だけ）。
 // 画像に入るのは、本人が画面で見ている情報だけ（書名・著者・日付・件数・一文・入れた言葉・Orime のロゴ）。
 // 写真は端末の中だけで描く（どこにも送らない・アップロードしない）。
-// 選んだ地・形は、アプリを開いている間だけ覚える（写真そのものは覚えない）。
+// 選んだ重ね方・形は端末に覚える（orime.share.prefs）。地はアプリを開いている間だけ（写真そのものは覚えない）。
+// 書き出す画像は幅 1080・写真は JPEG（0.92）・紙や夜・透明は PNG（shareImageType）。
 //
 // props:
 //   book            … 開いた本 { id, title, author, cover, totalPages, status, doneDate, startDate, actions, leverageMemo }
@@ -28,7 +32,7 @@
 //   onClose
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ImagePlus, Shuffle, CalendarDays, ChevronDown, Check, SlidersHorizontal } from 'lucide-react';
+import { ImagePlus, Shuffle, CalendarDays, ChevronDown, Check, SlidersHorizontal, Camera } from 'lucide-react';
 import BottomSheet from './BottomSheet';
 import ErrorMessage from './ErrorMessage';
 import ContextMenu from './ContextMenu';
@@ -52,6 +56,7 @@ import {
   pickShareSubject, subjectChoices, bookRecord, monthRecord, orderQuoteCandidates, quoteText,
   swapQuote, swapQuoteLabel, availableVariants, buildRecordShareText, fmtStamp,
   shareItemsFor, applyShareItems, shareVisibility, readHiddenItems, writeHiddenItems,
+  readSharePrefs, writeSharePrefs, stepVariant,
 } from '../lib/shareOverlay';
 import { phraseDisplayText } from '../lib/sharePhrase';
 import { shareImage, saveImage } from '../lib/shareImage';
@@ -61,9 +66,12 @@ const FORMAT_OPTIONS = [
   { v: 'post', label: '投稿', aria: '投稿（4:5）' },
   { v: 'story', label: 'ストーリー', aria: 'ストーリー（9:16）' },
 ];
-const VARIANT_LABELS = { record: '記録', quote: '一文' };
+const VARIANT_LABELS = { record: '記録', stats: '数字', quote: '一文' };
 const STYLE_LABELS = { photo: '写真', paper: '紙', night: '夜', cover: '表紙の色', sticker: '透明' };
 const BG_OPTIONS = ['paper', 'night', 'cover', 'sticker'];
+const NO_COVER = { image: null, tone: null };
+// プレビューを左右に振ったとみなす距離（これより短い・縦に近い動きは「押した」）。
+const SWIPE_PX = 40;
 
 // 🧪 開発専用（お試しモード）: &share=slow で画像を作っている途中、&share=fail で作れなかったときの表示を撮る。
 // 本番は import.meta.env.DEV=false で常に null。
@@ -71,8 +79,9 @@ const DEMO_SHARE = import.meta.env.DEV && import.meta.env.VITE_DEMO === 'true' &
   ? new URLSearchParams(window.location.search).get('share')
   : null;
 
-// アプリを開いている間だけ覚える（写真そのものは覚えない）。
-const session = { style: 'paper', format: 'post' };
+// 地はアプリを開いている間だけ覚える（写真そのものは覚えない）。null＝まだ選んでいない（自動で決める）。
+// 形は端末にも覚える（readSharePrefs）。端末に書けないときは、ここだけで覚える。
+const session = { style: null, format: 'post' };
 
 // 表示する項目（隠した項目）は端末に覚える（private ブラウズ・保存できない端末では毎回すべて出す）。
 function safeStorage() {
@@ -89,7 +98,7 @@ const THUMB_H = 64;
 const SELECTED_RING = '0 0 0 2px var(--surface), 0 0 0 4px var(--text)';
 // 形の切り替え（投稿／ストーリー）。太さは 600 のまま変えない（選ぶたびに幅が変わって跳ねない）。
 const segBtn = (on) => ({
-  minHeight: 44,
+  minHeight: 'var(--tap-min)',
   padding: '0 var(--space-3)',
   border: 'none',
   borderRadius: 'var(--radius)',
@@ -108,8 +117,8 @@ const swatchLabeledBtn = {
   alignItems: 'center',
   justifyContent: 'center',
   gap: 'var(--space-1)',
-  width: 64,
-  minHeight: 44,
+  width: 'var(--space-16)',
+  minHeight: 'var(--tap-min)',
   padding: 'var(--space-1) 0',
   border: 'none',
   background: 'transparent',
@@ -128,7 +137,7 @@ const photoChip = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: 'var(--space-2)',
-  minHeight: 44,
+  minHeight: 'var(--tap-min)',
   padding: '0 var(--space-3) 0 var(--space-2)',
   borderRadius: 'var(--radius)',
   border: 'none',
@@ -148,7 +157,7 @@ const subjectChip = (on) => ({
   alignItems: 'center',
   gap: 'var(--space-2)',
   flexShrink: 0,
-  minHeight: 44,
+  minHeight: 'var(--tap-min)',
   maxWidth: 200,
   padding: 'var(--space-1) var(--space-3) var(--space-1) var(--space-1)',
   borderRadius: 'var(--radius)',
@@ -168,7 +177,7 @@ const thumbBtn = {
   alignItems: 'center',
   gap: 'var(--space-1)',
   padding: 'var(--space-1)',
-  minWidth: 44,
+  minWidth: 'var(--tap-min)',
   border: 'none',
   background: 'transparent',
   borderRadius: 'var(--radius)',
@@ -260,10 +269,11 @@ export default function ShareSheet({
     [isMonth, books, month.memos, subjectBook, memos, now],
   );
   const candidates = useMemo(() => orderQuoteCandidates(memos, { preferId: initialMemoId }), [memos, initialMemoId]);
-  const variants = availableVariants(candidates.length > 0);
+  const variants = availableVariants(candidates.length > 0, (record.stats || []).length > 0);
 
-  // ---- 見せ方・一文・形・地
-  const [variantPref, setVariantPref] = useState(initialMemoId ? 'quote' : 'record');
+  // ---- 重ね方（見せ方）・一文・形・地。重ね方と形は前に選んだもの（端末に覚える）。メモから開いたときは一文。
+  const prefs = useMemo(() => readSharePrefs(safeStorage()), []);
+  const [variantPref, setVariantPref] = useState(initialMemoId ? 'quote' : (prefs.variant || 'record'));
   const variant = variants.includes(variantPref) ? variantPref : 'record';
   const [quoteIndex, setQuoteIndex] = useState(0);
   // 本を切り替えたら、その本のいちばん新しい一文から。
@@ -281,10 +291,18 @@ export default function ShareSheet({
     [memos, lineBook],
   );
 
-  const [format, setFormatState] = useState(session.format === 'story' ? 'story' : 'post');
-  const [style, setStyleState] = useState(initialPhotoFile ? 'photo' : (session.style === 'photo' ? 'paper' : session.style));
-  const setFormat = (v) => { session.format = v; setFormatState(v); };
+  const [format, setFormatState] = useState(prefs.format || (session.format === 'story' ? 'story' : 'post'));
+  // 地: 'auto'＝まだ選んでいない（写真が無いとき、表紙のある本は表紙の色・無ければ紙。メモから開いたときは紙）。
+  const noPhotoStyle = () => (session.style && session.style !== 'photo' ? session.style : 'auto');
+  const [style, setStyleState] = useState(initialPhotoFile ? 'photo' : noPhotoStyle());
+  const setFormat = (v) => { session.format = v; writeSharePrefs(safeStorage(), { format: v }); setFormatState(v); };
   const setStyle = (v) => { session.style = v; setStyleState(v); };
+  const chooseVariant = (v) => {
+    setVariantPref(v);
+    writeSharePrefs(safeStorage(), { variant: v });
+    if (v === 'quote' && qi < 0) setQuoteIndex(0);
+    haptic.light();
+  };
 
   const [photo, setPhoto] = useState(null); // { source, width, height, thumb }
   const [photoLoading, setPhotoLoading] = useState(!!initialPhotoFile);
@@ -313,7 +331,8 @@ export default function ShareSheet({
     setPhraseState(next);
   };
   const [editorOpen, setEditorOpen] = useState(false);
-  const [assets, setAssets] = useState(null); // { cover, covers, fonts, logo }
+  const [baseAssets, setBaseAssets] = useState(null); // { fonts, logo, ver }
+  const [coverAssets, setCoverAssets] = useState(null); // { key, cover, covers, ver }
   const [status, setStatus] = useState('loading'); // loading | ready | error
   const [error, setError] = useState('');
   const [retry, setRetry] = useState(0);
@@ -322,7 +341,9 @@ export default function ShareSheet({
   const [busy, setBusy] = useState(false);
   const canvasRef = useRef(null);
   const fileRef = useRef(null);
+  const cameraRef = useRef(null);
   const keyRef = useRef('');
+  const styleRef = useRef('paper');
   const blobTimer = useRef(null);
   const drawnLineRef = useRef('');
 
@@ -359,34 +380,57 @@ export default function ShareSheet({
     readPhoto(initialPhotoFile).then((ok) => {
       if (!alive) return;
       setPhotoLoading(false);
-      if (!ok) setStyleState(session.style === 'photo' ? 'paper' : session.style);
+      if (!ok) setStyleState(noPhotoStyle());
     });
     return () => { alive = false; };
   }, [initialPhotoFile]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ---- 表紙・書体・ロゴを準備する（外部の表紙は自前の中継を通す・読めなければ代用表紙）。
-  const coverBook = variant === 'quote' ? lineBook : subjectBook;
-  const monthCoverBooks = isMonth && variant === 'record' ? (record.finishedBooks || []) : [];
-  const coverKey = JSON.stringify([coverBook?.cover || '', coverBook?.title || '', monthCoverBooks.map((b) => b.cover || b.title)]);
+  // ---- 書体・ロゴを準備する（端末の中・すぐ終わる）。
   useEffect(() => {
     let alive = true;
     if (DEMO_SHARE === 'slow') return () => { alive = false; };
     const sample = `${record.title}${record.sub}${record.kicker}${(memos || []).map((m) => m.text || '').join('').slice(0, 1500)}${(record.stats || []).map((s) => s.label + s.value).join('')}`;
-    Promise.all([
-      coverBook ? prepareCover(coverBook).catch(() => ({ image: null, tone: null })) : Promise.resolve({ image: null, tone: null }),
-      Promise.all(monthCoverBooks.map((b) => prepareCover(b).catch(() => ({ image: null, tone: null })).then((c) => ({ cover: c, title: b.title })))),
-      prepareFonts(sample),
-      prepareLogo(),
-    ]).then(([cover, covers, fonts, logo]) => { if (alive) setAssets({ cover, covers, fonts, logo, ver: Date.now() }); });
+    Promise.all([prepareFonts(sample), prepareLogo()])
+      .then(([fonts, logo]) => { if (alive) setBaseAssets({ fonts, logo, ver: Date.now() }); });
     return () => { alive = false; };
-  }, [coverKey, memos?.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [subjectKey, memos?.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ---- 表紙を準備する（外部の表紙は自前の中継を通す・読めなければ代用表紙）。通信なので遅いことがある。
+  // 写真・透明の 1 枚は表紙を描かないので、表紙を待たずに描く（撮ってから重ねた画像が出るまでを短く・2026-10-05）。
+  const coverBook = variant === 'quote' ? lineBook : subjectBook;
+  const monthCoverBooks = isMonth && variant !== 'quote' ? (record.finishedBooks || []) : [];
+  const coverKey = JSON.stringify([coverBook?.cover || '', coverBook?.title || '', monthCoverBooks.map((b) => b.cover || b.title)]);
+  useEffect(() => {
+    let alive = true;
+    if (DEMO_SHARE === 'slow') return () => { alive = false; };
+    Promise.all([
+      coverBook ? prepareCover(coverBook).catch(() => NO_COVER) : Promise.resolve(NO_COVER),
+      Promise.all(monthCoverBooks.map((b) => prepareCover(b).catch(() => NO_COVER).then((c) => ({ cover: c, title: b.title })))),
+    ]).then(([cover, covers]) => { if (alive) setCoverAssets({ key: coverKey, cover, covers, ver: Date.now() }); });
+    return () => { alive = false; };
+  }, [coverKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const coverReady = !!coverAssets && coverAssets.key === coverKey;
 
   // 表紙の色は、表紙のある 1 冊（今月なら読み終えた本があるとき）だけ。本が無い今月の 1 枚では意味が無いので出さない。
   const coverAllowed = !isMonth || (record.finishedBooks || []).length > 0;
-  const effStyle = (style === 'photo' && !photo) || (style === 'cover' && !coverAllowed) ? 'paper' : style;
-  const [bgMenu, setBgMenu] = useState(null); // 写真のときの「写真以外 ▾」のメニューの位置
+  // 地を選んでいないとき（auto）: メモから開いたら紙、表紙の画像がある本は表紙の色（写真が無いときの見栄えのよい代わり）、ほかは紙。
+  const autoStyle = !initialMemoId && !isMonth && coverReady && coverAssets.cover?.image ? 'cover' : 'paper';
+  const wantStyle = style === 'auto' ? autoStyle : style;
+  const effStyle = (wantStyle === 'photo' && !photo) || (wantStyle === 'cover' && !coverAllowed) ? 'paper' : wantStyle;
+  styleRef.current = effStyle;
+  const needCover = effStyle !== 'photo' && effStyle !== 'sticker';
+  const assets = baseAssets
+    ? {
+      ...baseAssets,
+      cover: coverReady ? coverAssets.cover : NO_COVER,
+      covers: coverReady ? coverAssets.covers : [],
+      // 写真・透明は表紙を描かないので、表紙が届いても描き直さない（「共有する」が押せなくならない）。
+      ver: needCover ? `${baseAssets.ver}:${coverReady ? coverAssets.ver : 0}` : `${baseAssets.ver}`,
+    }
+    : null;
+  const [bgMenu, setBgMenu] = useState(null); // 「背景：◯ ▾」のメニューの位置
   const lineText = chosen ? quoteText(chosen.text, variant) : '';
-  const ready0 = !!assets && !memosLoading && !photoLoading;
+  const ready0 = !!assets && (coverReady || !needCover) && !memosLoading && !photoLoading;
   const drawKey = ready0
     ? JSON.stringify([variant, subjectKey, chosen?.id, lineText, chosen?.pageNumber, effStyle, format, photo?.id, view, record.kicker, record.title, record.sub, record.stats, lineBook?.title, lineBook?.author, retry, assets.ver, hidden, phrase])
     : '';
@@ -407,7 +451,7 @@ export default function ShareSheet({
       knownMaxPage,
       seedKey: q?.id || subjectKey,
       cover: assets.cover,
-      covers: v === 'record' ? assets.covers : [],
+      covers: v !== 'quote' ? assets.covers : [],
       fonts: assets.fonts,
       logo: assets.logo,
       style: effStyle,
@@ -438,14 +482,14 @@ export default function ShareSheet({
     }
   }, [drawKey, ready0]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 描いたものを PNG にしておく（共有を押した瞬間に共有シートを開けるように）。
+  // 描いたものを画像にしておく（共有を押した瞬間に共有シートを開けるように）。写真は JPEG・ほかは PNG。
   const scheduleBlob = useCallback((key) => {
     keyRef.current = key;
     clearTimeout(blobTimer.current);
     blobTimer.current = setTimeout(() => {
       const canvas = canvasRef.current;
       if (!canvas) return;
-      canvasToBlob(canvas)
+      canvasToBlob(canvas, { style: styleRef.current })
         .then((blob) => {
           if (keyRef.current !== key) return;
           setCard({ blob, key, line: drawnLineRef.current });
@@ -467,7 +511,7 @@ export default function ShareSheet({
 
   useEffect(() => () => { clearTimeout(blobTimer.current); }, []);
 
-  // ---- 見せ方の見本（記録／一文）。本物の画像を小さく描く（描き終えてから少し待って・指を動かしている間は描かない）。
+  // ---- 重ね方の見本（記録／数字／一文）。本物の画像を小さく描く（描き終えてから少し待って・指を動かしている間は描かない）。
   const thumbRefs = useRef({});
   const thumbKey = drawKey ? JSON.stringify([drawKey, variants]) : '';
   useEffect(() => {
@@ -501,8 +545,34 @@ export default function ShareSheet({
   const getEditorOpts = useCallback(() => cardOpts(), [drawKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const openEditor = () => { if (status === 'ready') { haptic.light(); setEditorOpen(true); } };
 
-  // ---- 写真を選ぶ（シートの中では、撮る・アルバムから選ぶ の両方を選べる＝capture を付けない）
+  // ---- 写真を選ぶ。「アルバム」「写真」は capture なし（iOS は「フォトライブラリ／写真を撮る」を選べる）、
+  // 「撮り直す」は capture あり（すぐカメラ）。どちらも端末の中だけで使う。
   const openPicker = () => { try { fileRef.current?.click(); } catch { /* ignore */ } };
+  const openCamera = () => { try { cameraRef.current?.click(); } catch { /* ignore */ } };
+
+  // ---- プレビューを左右に振ると、隣の重ね方へ（Strava の共有と同じ）。押しただけなら編集画面。
+  const swipeRef = useRef(null);
+  const onPreviewPointerDown = (e) => {
+    swipeRef.current = { x: e.clientX, y: e.clientY, swiped: false };
+    // 指（マウス）がプレビューの外まで振れても、離したことをここで受け取る。
+    try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch { /* ignore */ }
+  };
+  const onPreviewPointerUp = (e) => {
+    const s = swipeRef.current;
+    if (!s) return;
+    const dx = e.clientX - s.x;
+    const dy = e.clientY - s.y;
+    if (Math.abs(dx) >= SWIPE_PX && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      s.swiped = true;
+      const next = stepVariant(variants, variant, dx < 0 ? 1 : -1);
+      if (next !== variant) chooseVariant(next);
+    }
+  };
+  const onPreviewClick = () => {
+    const swiped = swipeRef.current?.swiped;
+    swipeRef.current = null;
+    if (!swiped) openEditor();
+  };
   const onPhotoPicked = async (e) => {
     const file = e.target.files?.[0];
     e.target.value = ''; // 同じ写真をもう一度選べるように
@@ -512,7 +582,7 @@ export default function ShareSheet({
 
   const ready = status === 'ready' && !!card && card.key === drawKey && !busy && !editorOpen;
   const filename = shareFilename({ format: effStyle === 'sticker' ? 'sticker' : format, style: effStyle });
-  const trackProps = (via) => ({ kind: variant === 'record' ? 'record' : 'line', style: effStyle, format: effStyle === 'sticker' ? 'sticker' : format, via, subject: isMonth ? 'month' : 'book', from });
+  const trackProps = (via) => ({ kind: variant === 'quote' ? 'line' : variant, style: effStyle, format: effStyle === 'sticker' ? 'sticker' : format, via, subject: isMonth ? 'month' : 'book', from });
 
   const handleShare = async () => {
     if (!ready) return;
@@ -521,7 +591,7 @@ export default function ShareSheet({
     try {
       // 共有の文は、画像に入れたものと同じ。await を挟まずに共有シートを開く。
       // 隠した項目（書名など）は文にも入れない。
-      const text = variant === 'record'
+      const text = variant !== 'quote'
         ? buildRecordShareText({ record: applyShareItems(record, hidden), quote: card.line, siteUrl: SITE_URL })
         : buildShareText({ title: shareVisibility(hidden).title ? lineBook?.title : '', line: card.line, siteUrl: SITE_URL });
       const result = await shareImage({ blob: card.blob, filename, text });
@@ -550,8 +620,17 @@ export default function ShareSheet({
 
   // 地の見本の色（表紙の色は、そのときの表紙から作った色）。
   const swatchColor = (v) => {
-    try { return readShareTheme(v, { tone: assets?.cover?.tone, title: coverBook?.title || record.title }).bg || 'var(--fill)'; } catch { return 'var(--fill)'; }
+    try { return readShareTheme(v, { tone: coverReady ? coverAssets.cover?.tone : null, title: coverBook?.title || record.title }).bg || 'var(--fill)'; } catch { return 'var(--fill)'; }
   };
+  // 背景のメニュー（写真・紙・夜・表紙の色・透明。印は選んでいる行の ✓ だけ・ほかは同じ幅の空き＝DESIGN §5）。
+  const bgItems = [
+    ...(photo ? ['photo'] : []),
+    ...BG_OPTIONS.filter((v) => v !== 'cover' || coverAllowed),
+  ].map((v) => ({
+    label: STYLE_LABELS[v],
+    icon: effStyle === v ? <Check size={16} aria-hidden="true" /> : <span style={{ width: 'var(--space-4)' }} aria-hidden="true" />,
+    onClick: () => setStyle(v),
+  }));
 
   const aspect = `${dims.w} / ${dims.h}`;
   // 記録で一文を隠した（表示する項目）ときは「別の一文」を出さない（替えても画像が変わらない）。
@@ -580,6 +659,7 @@ export default function ShareSheet({
   return (
     <BottomSheet title={photo ? '写真で共有' : '画像で共有'} onClose={onClose} footer={footer} dismissLabel="キャンセル">
       <input ref={fileRef} type="file" accept="image/*" onChange={onPhotoPicked} style={{ display: 'none' }} aria-hidden="true" tabIndex={-1} />
+      <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={onPhotoPicked} style={{ display: 'none' }} aria-hidden="true" tabIndex={-1} />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
         {/* どの本？（ホームから開いたとき・今月 → 読書中 → 読了） */}
@@ -609,11 +689,15 @@ export default function ShareSheet({
           </div>
         )}
 
-        {/* プレビュー＝外に出る画像そのもの。押すと大きな画像の編集画面（写真を動かす・言葉・表示する項目） */}
+        {/* プレビュー＝外に出る画像そのもの。押すと大きな画像の編集画面（写真を動かす・言葉・表示する項目）。
+            左右に振ると隣の重ね方（記録 → 数字 → 一文）。縦の動きはシートのスクロール・下へ振って閉じるに渡す（pan-y）。 */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-1)' }}>
           <button
             type="button"
-            onClick={openEditor}
+            onClick={onPreviewClick}
+            onPointerDown={onPreviewPointerDown}
+            onPointerUp={onPreviewPointerUp}
+            onPointerCancel={() => { swipeRef.current = null; }}
             aria-label={`${subjectName}の画像（${VARIANT_LABELS[variant]}・${STYLE_LABELS[effStyle]}${effStyle === 'sticker' ? '' : `・${FORMAT_OPTIONS.find((o) => o.v === format)?.aria}`}）を大きくして編集`}
             aria-disabled={status !== 'ready' || undefined}
             style={{
@@ -623,6 +707,7 @@ export default function ShareSheet({
               borderRadius: 'var(--radius)', overflow: 'hidden', boxShadow: 'inset 0 0 0 1px var(--separator)',
               background: effStyle === 'sticker' ? checker(16) : 'var(--fill)',
               cursor: status === 'ready' ? 'zoom-in' : 'default',
+              touchAction: variants.length > 1 ? 'pan-y' : 'auto',
             }}
           >
             <canvas
@@ -677,14 +762,15 @@ export default function ShareSheet({
           </div>
         </div>
 
-        {/* 見せ方（記録／一文の見本）と形（投稿 4:5／ストーリー 9:16） */}
+        {/* 重ね方（記録／数字／一文の見本・プレビューを左右に振っても切り替わる）と形（投稿 4:5／ストーリー 9:16）。
+            見本 3 つと形の切り替えが 390 幅の 1 行に入るよう、見本の間は 4。 */}
         <div style={{ display: 'flex', alignItems: variants.length > 1 ? 'flex-start' : 'center', justifyContent: variants.length > 1 ? 'space-between' : 'flex-start', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
           {variants.length > 1 && (
-            <div role="radiogroup" aria-label="見せ方" style={{ display: 'inline-flex', gap: 'var(--space-2)', marginLeft: 'calc(-1 * var(--space-1))' }}>
+            <div role="radiogroup" aria-label="見せ方" style={{ display: 'inline-flex', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}>
               {variants.map((v) => {
                 const on = v === variant;
                 return (
-                  <button key={v} type="button" role="radio" aria-checked={on} onClick={() => { setVariantPref(v); if (v === 'quote' && qi < 0) setQuoteIndex(0); }} style={thumbBtn}>
+                  <button key={v} type="button" role="radio" aria-checked={on} onClick={() => { if (v !== variant) chooseVariant(v); }} style={thumbBtn}>
                     <canvas
                       ref={(el) => { thumbRefs.current[v] = el; }}
                       width={thumbW * 2}
@@ -700,7 +786,7 @@ export default function ShareSheet({
           )}
           {effStyle !== 'sticker' && (
             // 見本（64＋上下の余白 8）と同じ高さの中で上下の中央に（見本の名前の行に引っぱられない）。
-            <div role="radiogroup" aria-label="画像の形" style={{ display: 'inline-flex', gap: 'var(--space-1)', ...(variants.length > 1 ? { height: THUMB_H + 8, alignItems: 'center' } : {}) }}>
+            <div role="radiogroup" aria-label="画像の形" style={{ display: 'inline-flex', gap: 'var(--space-1)', ...(variants.length > 1 ? { height: `calc(${THUMB_H}px + var(--space-2))`, alignItems: 'center' } : {}) }}>
               {FORMAT_OPTIONS.map((o) => (
                 <button key={o.v} type="button" role="radio" aria-checked={format === o.v} aria-label={o.aria} onClick={() => setFormat(o.v)} style={segBtn(format === o.v)}>
                   {o.label}
@@ -710,42 +796,37 @@ export default function ShareSheet({
           )}
         </div>
 
-        {/* 地。写真があるときは選ぶものを減らす: 行を出さず「写真以外 ▾」のメニュー 1 つ（紙・夜・表紙の色・透明・写真を選び直す）。
-            写真が無いときは「写真を選ぶ」＋紙・夜・表紙の色・透明の見本（2026-09-30 ui-critic）。 */}
+        {/* 地。写真があるときは、撮り直す・アルバムから選ぶを文字ボタンで見せ（メニューの奥に隠さない・2026-10-05）、
+            背景は右の「背景：写真 ▾」のメニュー 1 つ（写真・紙・夜・表紙の色・透明）。
+            写真が無いときは「写真」（撮る・選ぶ）＋紙・夜・表紙の色・透明の見本（2026-09-30 ui-critic）。 */}
         {photo ? (
-          <div style={{ display: 'flex', justifyContent: 'flex-start', paddingBottom: 'var(--space-2)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', flexWrap: 'wrap', paddingBottom: 'var(--space-2)', marginLeft: 'calc(-1 * var(--space-1))', marginRight: 'calc(-1 * var(--space-1))' }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+              <button type="button" onClick={openCamera} style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                <Camera size={18} aria-hidden="true" />
+                撮り直す
+              </button>
+              <button type="button" onClick={openPicker} aria-label="アルバムから選ぶ" style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                <ImagePlus size={18} aria-hidden="true" />
+                アルバム
+              </button>
+            </div>
             <button
               type="button"
               aria-haspopup="menu"
               aria-expanded={!!bgMenu}
-              onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setBgMenu({ x: r.left + 120, y: r.top - 8 }); }}
-              style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}
+              onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setBgMenu({ x: r.right - 8, y: r.top - 8 }); }}
+              style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }}
             >
-              {effStyle === 'photo' ? '写真以外' : `背景：${STYLE_LABELS[effStyle]}`}
+              {`背景：${STYLE_LABELS[effStyle]}`}
               <ChevronDown size={16} aria-hidden="true" />
             </button>
-            {bgMenu && (
-              <ContextMenu
-                x={bgMenu.x}
-                y={bgMenu.y}
-                onClose={() => setBgMenu(null)}
-                items={[
-                  // 印は ✓ だけ（選んでいる行）。ほかの行は同じ幅の空き（DESIGN §5 絞り込みのメニュー）。
-                  { label: STYLE_LABELS.photo, icon: effStyle === 'photo' ? <Check size={16} aria-hidden="true" /> : <span style={{ width: 16 }} aria-hidden="true" />, onClick: () => setStyle('photo') },
-                  ...BG_OPTIONS.filter((v) => v !== 'cover' || coverAllowed).map((v) => ({
-                    label: STYLE_LABELS[v],
-                    icon: effStyle === v ? <Check size={16} aria-hidden="true" /> : <span style={{ width: 16 }} aria-hidden="true" />,
-                    onClick: () => setStyle(v),
-                  })),
-                  { label: '写真を選び直す', icon: <span style={{ width: 16 }} aria-hidden="true" />, onClick: openPicker },
-                ]}
-              />
-            )}
+            {bgMenu && <ContextMenu x={bgMenu.x} y={bgMenu.y} onClose={() => setBgMenu(null)} items={bgItems} />}
           </div>
         ) : (
           <div role="radiogroup" aria-label="背景" style={{ display: 'flex', alignItems: 'center', gap: 0, flexWrap: 'wrap', paddingBottom: 'var(--space-2)' }}>
             {/* 390 幅で見本 4 つと 1 行に収まるよう、見える名前は「写真」（読み上げは「写真を選ぶ」）。 */}
-            <button type="button" onClick={openPicker} aria-label="写真を選ぶ" title="写真を選ぶ" style={photoChip}>
+            <button type="button" onClick={openPicker} aria-label="写真を撮る・選ぶ" title="写真を撮る・選ぶ" style={photoChip}>
               <ImagePlus size={20} aria-hidden="true" style={{ color: 'var(--text-2)' }} />
               写真
             </button>
@@ -754,7 +835,7 @@ export default function ShareSheet({
               // 読み上げと長押しの名前で用途まで言う（2026-09-29）。
               <button key={v} type="button" role="radio" aria-checked={effStyle === v} onClick={() => setStyle(v)} style={swatchLabeledBtn}
                 aria-label={v === 'sticker' ? '透明（ステッカー用）' : undefined} title={v === 'sticker' ? '透明（ステッカー用）' : undefined}>
-                {v === 'cover' && !assets?.cover
+                {v === 'cover' && !coverReady
                   // 表紙を読み込むまでは、表紙の色が分からないので骨組みの丸（代用の色を一瞬出さない）。
                   ? <SkeletonBlock width={28} height={28} radius="var(--radius-full)" style={{ boxShadow: ring(effStyle === v) }} />
                   : <span aria-hidden="true" style={swatchDot(v === 'sticker' ? checker(8) : swatchColor(v), effStyle === v)} />}
