@@ -797,7 +797,11 @@ const SCREENS = [
   // 第 2 回（2026-10-05 ui-critic）: 上の 3 件＋「ほかに N 件」・設定の一覧の文字最大で前の版を開いた形・新しい版が 2 つのときの「何が変わった？」
   { name: 'whatsnew-after-rest', url: '/?seen=2026-10-03', steps: [{ waitFor: '[role=dialog][aria-label="新しくなったこと"]' }, { scrollTo: '[role=dialog] summary:has-text("ほかに")' }, { wait: 400 }] },
   { name: 'whatsnew-after-rest-open', url: '/?seen=2026-10-03', steps: [{ waitFor: '[role=dialog][aria-label="新しくなったこと"]' }, { css: '[role=dialog] summary:has-text("ほかに")' }, { scrollTo: '[role=dialog] summary:has-text("ほかに")' }, { wait: 400 }] },
-  { name: 'whatsnew-settings-xl-older-open', url: '/', steps: [{ eval: () => { document.documentElement.style.fontSize = '30px'; } }, { css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:has-text("新しくなったこと")' }, { wait: 600 }, { css: '[role=dialog] summary:has-text("10月4日の更新")' }, { scrollTo: '[role=dialog] summary:has-text("10月4日の更新")' }, { wait: 400 }] },
+  { name: 'whatsnew-settings-xl-older-open', url: '/', steps: [{ eval: () => { document.documentElement.style.fontSize = '30px'; } }, { css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:has-text("新しくなったこと")' }, { wait: 600 }, { css: '[role=dialog] summary:has-text("10月4日の更新")' },
+    // シートの中を押しても設定が閉じないこと（2026-10-05 に設定ごと閉じていた）: 両方のダイアログが残っていなければ撮影が失敗する
+    { waitFor: '[role=dialog][aria-label="設定"]', timeout: 3000 }, { waitFor: '[role=dialog][aria-label="新しくなったこと"] details[open]', timeout: 3000 },
+    { scrollTo: '[role=dialog] summary:has-text("10月4日の更新")' }, { wait: 400 }] },
+  { name: 'whatsnew-after-rest-xl-text', url: '/?seen=2026-10-03', steps: [{ eval: () => { document.documentElement.style.fontSize = '30px'; } }, { waitFor: '[role=dialog][aria-label="新しくなったこと"]' }, { scrollTo: '[role=dialog] summary:has-text("ほかに")' }, { wait: 400 }] },
   { name: 'whatsnew-update-sheet-multi', url: '/?update=1&bundle=2026-10-03', steps: [{ css: 'button:has-text("何が変わった？")' }, SAFE_BOTTOM, { wait: 600 }, { scrollBottom: true }, { wait: 400 }] },
   { name: 'whatsnew-update-sheet-xl-text', url: '/?update=1&bundle=2026-10-03', steps: [{ eval: () => { document.documentElement.style.fontSize = '30px'; } }, { css: 'button:has-text("何が変わった？")' }, SAFE_BOTTOM, { wait: 800 }] },
   { name: 'whatsnew-update-banner-xl-text', url: '/?update=1&bundle=2026-10-04', steps: [{ eval: () => { document.documentElement.style.fontSize = '30px'; } }, { waitFor: 'button:has-text("何が変わった？")' }, { wait: 500 }] },

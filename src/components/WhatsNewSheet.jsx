@@ -109,6 +109,33 @@ const foldSummaryStyle = {
   cursor: 'pointer',
   listStyle: 'none',
 };
+// 「ほかに N 件」: 版の見出し（枠と面のある畳む見出し）と見分けるため、枠も面も無い文字の行（高さ 44・15/600/--text-2）。
+// 右に残りの項目の「どこの」を 13/--text-3 で（何が畳まれているかを開かずに分かる・2026-10-05 ui-critic 第 3 回）。
+const restSummaryStyle = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 'var(--space-3)',
+  minHeight: 44,
+  padding: 'var(--space-1) 0',
+  boxSizing: 'border-box',
+  fontSize: 'var(--text-sub)',
+  fontWeight: 600,
+  color: 'var(--text-2)',
+  lineHeight: 1.4,
+  cursor: 'pointer',
+  listStyle: 'none',
+};
+// 「ほかに N 件」と どこの を包む行。どこの が 12 字ぶん取れないとき（文字が大きいとき）は下の行へ回す。
+const restLabelWrap = { flex: '1 1 auto', minWidth: 0, display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 'var(--space-3)' };
+const restWhereStyle = {
+  flex: '1 1 12em',
+  minWidth: 0,
+  textAlign: 'right',
+  fontSize: 'var(--text-meta)',
+  fontWeight: 400,
+  color: 'var(--text-3)',
+  ...wrapText,
+};
 const foldCountStyle = { marginLeft: 'auto', fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', whiteSpace: 'nowrap' };
 
 const ROWS = [
@@ -152,9 +179,13 @@ function ReleaseItems({ release, open = null }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
       <ItemList items={items.slice(0, open)} keyPrefix={release.id} />
       <details>
-        <summary style={foldSummaryStyle}>
-          <span style={wrapText}>{withPhraseBreaks(`ほかに ${rest.length} 件`)}</span>
-          <ChevronDown size={20} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0, marginLeft: 'auto' }} />
+        <summary style={restSummaryStyle}>
+          <span style={restLabelWrap}>
+            <span style={{ flexShrink: 0, whiteSpace: 'nowrap' }}>{`ほかに\u00a0${rest.length}\u00a0件`}</span>
+            <span style={restWhereStyle}>{withPhraseBreaks([...new Set(rest.map((it) => it.where))].join('・'))}</span>
+          </span>
+          {/* 大きさは文字に合わせる（em・文字サイズを最大にしても題とつり合う） */}
+          <ChevronDown size="1.1em" aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
         </summary>
         <div style={{ marginTop: 'var(--space-3)' }}>
           <ItemList items={rest} keyPrefix={`${release.id}-rest`} />
@@ -180,7 +211,7 @@ export function ReleaseNotesList({ releases, openCount = null }) {
           <summary style={foldSummaryStyle}>
             <span style={wrapText}>{withPhraseBreaks(releaseHeading(r))}</span>
             <span style={foldCountStyle}>{`${r.items.length}\u00a0件`}</span>
-            <ChevronDown size={20} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+            <ChevronDown size="1.2em" aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
           </summary>
           <div style={{ marginTop: 'var(--space-3)' }}>
             <ReleaseItems release={r} />
