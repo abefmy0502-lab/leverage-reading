@@ -82,3 +82,8 @@ from p group by p.path order by users desc;
 
 D30（30 日後も使っている）と 7 日間無料 → 有料は、運営ダッシュボードの `admin_growth()`（`supabase_admin_growth.sql`）と
 `subscriptions.period_type` で数える（このイベントは使わない）。
+
+## LP（紹介ページ）の記録は別の表
+
+ログインしていない訪問者の記録（`lp_view`・`cta_click`・`section_view`・`waitlist_submit`・`login_click`・`footer_link`・`hero_secondary` など）は `analytics_events` ではなく `lp_events` に入る（`api/lp-event.js`・`supabase_lp_events.sql`）。公開のお知らせの登録そのものは `lp_waitlist`（`api/lp-waitlist.js`）。一覧と集計例は `docs/lp-measurement.md`（2026-10-05）。
+
