@@ -101,7 +101,7 @@ const TESTIMONIALS = [];
 const VS_POINTS = [
   { head: '貼り付けなくていい', body: '読みながら残した一行が、そのまま相談の材料になります。相談のたびに、自分の読書を説明し直す必要はありません。' },
   { head: '本とページで確かめられる', body: '答えには、もとになったメモ（書名とページ）が付きます。' },
-  { head: '無いときは、無いと伝える', body: `関係するメモが見つからないときは、無理に答えを作らず、そう伝えるようにしています。そのときは、トークンを使ったことにしません（毎月 ${NO_INFO_REFUNDS} 回まで）。` },
+  { head: '無いときは、無いと伝える', body: `関係するメモが見つからないときは、無理に答えを作らず、そう伝えるようにしています。そのときは、トークンを使ったことにしません（${noBreak(`毎月 ${NO_INFO_REFUNDS} 回`)}まで）。` },
   { head: '聞き返してから、一歩を決める', body: '最初から行動を決めつけず、あなたの状況を聞いてから、明日やることを一緒に一つ決めます。' },
 ];
 
@@ -115,8 +115,8 @@ const GROW_POINTS = [
 // ⑥ メモがゼロでも、初日から（初日の 3 つの道・SPEC §1-1d）
 const START_POINTS = [
   { head: 'ほかのアプリから取り込む', body: 'ブクログ・読書メーター・Kindle に残したレビュー・感想・ハイライトを、ファイルを選ぶだけで。ファイルの読み取りは端末の中で行い、AI には送りません。' },
-  { head: '読んだ本に、一言ずつ', body: '覚えている一行を書くだけ。うろ覚えで大丈夫です。' },
-  { head: '本のページを撮る', body: `撮ったページを文字に書き起こして、メモにします（無料プランは毎月 ${FREE_OCR_PER_MONTH} 回）。` },
+  { head: '読んだ本に、一言ずつ', body: `覚えている一行を書くだけ。${noBreak('うろ覚え')}で大丈夫です。` },
+  { head: '本のページを撮る', body: `撮ったページを文字に書き起こして、メモにします（無料プランは${noBreak(`毎月 ${FREE_OCR_PER_MONTH} 回`)}）。` },
 ];
 
 // ⑧ データの約束。すべて実装・規約で裏付けのある事実だけ（AI の正しさを保証しない・持ち出しと消去を言い過ぎない）。
@@ -484,7 +484,6 @@ export default function Landing() {
               <p className="lp-wbr"><Phrases>困ったことを書くと、前に読んで残したメモの一節を根拠に答えます。状況を一つ聞き返してから、明日やることを一緒に一つ決めます。</Phrases></p>
             </div>
             <LpFlow onEvent={lpTrack} />
-            <p className="lp-shot-note">画面は、サンプルのメモを入れた実際のアプリです</p>
           </div>
         </section>
 
@@ -500,7 +499,7 @@ export default function Landing() {
             </div>
             <div>
               <PointList items={VS_POINTS} check />
-              <p className="lp-fine">ChatGPT は、OpenAI の商標です。比べているのは主な使い方の違いです（2026 年 10 月時点）。各サービスの機能は、設定やプランで異なります。</p>
+              <p className="lp-fine lp-wbr"><Phrases>ChatGPT は、OpenAI の商標です。比べているのは主な使い方の違いです（2026 年 10 月時点）。各サービスの機能は、設定やプランで異なります。</Phrases></p>
             </div>
           </div>
         </section>
@@ -547,7 +546,7 @@ export default function Landing() {
             <div className="lp-cta-block">
               <Entry loc="start" wl={wl} />
             </div>
-            <p className="lp-fine">ブクログ・読書メーター・Kindle は、各社の商標または登録商標です。</p>
+            <p className="lp-fine lp-wbr"><Phrases>ブクログ・読書メーター・Kindle は、各社の商標または登録商標です。</Phrases></p>
           </div>
         </section>
 
@@ -560,9 +559,10 @@ export default function Landing() {
               </h2>
               <p className="lp-wbr"><Phrases>撮った写真に、書名と日付・メモの数・いちばん新しい一文が重なります。写真は端末の中で描き、どこにも送りません。無料プランで使えます。</Phrases></p>
             </div>
-            <figure className="lp-media-shot lp-reveal">
+            <figure className="lp-media-shot">
+              {/* 傾けて起き上がるのは画像だけ（説明の文は傾けない） */}
               <img
-                className="lp-share-img"
+                className="lp-share-img lp-reveal"
                 src="/lp/share-card-1080.webp"
                 srcSet="/lp/share-card-540.webp 540w, /lp/share-card-1080.webp 1080w"
                 sizes="(min-width: 768px) 340px, 80vw"
@@ -613,7 +613,7 @@ export default function Landing() {
                 {/* 見出しに金額を置かない（月あたりの額を請求額より大きく見せない） */}
                 <span>まずは、</span><span>無料プランで。</span>
               </h2>
-              <p className="lp-wbr"><Phrases>{`本とメモは、ずっと無料です。相談も、無料プランで毎月 約 ${FREE_CONSULTS} 回まで AI が答えます。`}</Phrases></p>
+              <p className="lp-wbr"><Phrases>{`本とメモは、ずっと無料です。相談も、無料プランで${noBreak(`毎月 約 ${FREE_CONSULTS} 回`)}まで AI が答えます。`}</Phrases></p>
             </div>
 
             {/* 創業メンバー価格（期間中だけ・料金の中の帯 1 枚）。「先着」「通常価格」と書かない・差額を書かない */}
@@ -649,7 +649,7 @@ export default function Landing() {
                     <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>無料期間の間は <span className="lp-nb">{TRIAL_TOKENS} トークン</span><span className="lp-nb">（相談 約 {TRIAL_CONSULTS} 回）</span></span></li>
                   )}
                 </ul>
-                <div className="lp-plan-rows">
+                <div className={`lp-plan-rows${OFFER.active ? ' is-founding' : ''}`}>
                   <div className="lp-plan-row">
                     <p className="lp-plan-label">年額プラン<span className="lp-plan-tag">{OFFER.active ? FOUNDING_NAME : 'おすすめ'}</span></p>
                     {OFFER.active ? (
@@ -675,7 +675,7 @@ export default function Landing() {
               </div>
             </div>
             <p className="lp-fine lp-wbr">
-              <Phrases>{`回数は目安です（1 回のトークンは、質問とメモの量で変わります）。使わなかったトークンは翌月に繰り越しません。関係するメモが見つからなかった相談は、トークンを使ったことにしません（毎月 ${NO_INFO_REFUNDS} 回まで）。無料プランに期間の決まりはありません。`}</Phrases>
+              <Phrases>{`回数は目安です（1 回のトークンは、質問とメモの量で変わります）。使わなかったトークンは翌月に繰り越しません。関係するメモが見つからなかった相談は、トークンを使ったことにしません（${noBreak(`毎月 ${NO_INFO_REFUNDS} 回`)}まで）。無料プランに期間の決まりはありません。`}</Phrases>
             </p>
             <div className="lp-cta-block">
               <Entry loc="pricing" wl={wl} />

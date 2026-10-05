@@ -104,3 +104,16 @@ describe('効果を言い切らない（景表法・SPEC §1-4）', () => {
     [...files, ...copies].forEach((t) => BANNED.forEach((w) => expect(t, w).not.toContain(w)));
   });
 });
+
+describe('「毎月 N 回」を割らない（2026-10-05 第 3 回）', () => {
+  it.each(combos.map((c) => [name(c), c]))('%s: 「毎月」のあとに折り返せる空白が無い', (_, cfg) => {
+    // 画面に出す文だけ（検索向けの faqLd は見えない印を外してあるので数えない）
+    const c = buildLpCopy(cfg);
+    const t = [...c.pricingNote, ...c.priceLine, c.privacyLead, ...c.faq.flatMap((f) => [f.q, f.a])].join('\n');
+    expect(t).not.toMatch(/毎月 /);
+    expect(t).toMatch(/毎\u2060月\u2060\u00a0/);
+  });
+  it('privacyLead は「記録を Anthropic 社」（空白あり）', () => {
+    expect(buildLpCopy({}).privacyLead).toContain('記録を Anthropic 社');
+  });
+});

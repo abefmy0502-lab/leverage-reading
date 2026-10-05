@@ -159,6 +159,8 @@ export default function LpFlow({ onEvent = () => {} }) {
             </div>
           ))}
         </div>
+        {/* 注記は写真のすぐ下（広い画面でも写真の列にそろう） */}
+        <p className="lp-shot-note">画面は、サンプルのメモを入れた実際のアプリです</p>
       </div>
     </div>
   );

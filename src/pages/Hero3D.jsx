@@ -162,7 +162,7 @@ function makeCardTexture(memo, textInset = 0) {
   // メモ本文は「読む文章」なので明朝（--font-read）で、UI より 1 段大きく。先に折り返して行数を出す。
   const bodyFont = `400 ${BODY_SIZE}px ${READ_FONT()}`;
   ctx.font = bodyFont;
-  const lines = wrapLines(ctx, memo.text, innerW, 3);
+  const lines = wrapLines(ctx, memo.text, innerW, 4); // 文字を大きくしたので 4 行まで（切らない）
   const H = BODY_TOP + (lines.length - 1) * BODY_LEAD + BODY_SIZE + INSET;
   c.width = W + PAD * 2; // 寸法を変えると描画状態がリセットされるので、ここから描く
   c.height = H + PAD * 2;

@@ -177,7 +177,7 @@ body.lp-active {
 .lp-fine { margin-top: var(--space-4) !important; max-width: 36em; color: var(--text-2); font-size: var(--text-meta); line-height: 1.5; }
 
 /* ============ 公開のお知らせの入口（App Store の URL が無い間・LpWaitlist.jsx） ============ */
-.lp-wl { max-width: 30em; }
+.lp-wl { max-width: 30rem; } /* rem: 最後の節の注記（文字が小さい）と同じ幅の箱にする */
 .lp-wl.is-center { width: 100%; margin-left: auto; margin-right: auto; text-align: left; }
 .lp-wl-when { margin-bottom: var(--space-3) !important; color: var(--text); font-size: var(--text-sub); font-weight: 600; }
 /* 欄の名前は placeholder だけにせず、欄の上に常に出す（DESIGN §5「入力欄」） */
@@ -453,6 +453,7 @@ body.lp-active {
 .lp-plan-trial { font-weight: 400; color: var(--text-2); }
 /* 年額・月額の 2 行（カードが広いときは横に・文字を大きくすると縦に） */
 .lp-plan-rows { margin-top: var(--space-3); display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 13em), 1fr)); column-gap: var(--space-6); }
+.lp-plan-rows.is-founding { grid-template-columns: minmax(0, 1fr); } /* 期間中は年額の条件が長いので縦に */
 .lp-plan-row { padding: var(--space-3) 0; border-top: 1px solid var(--separator); }
 .lp-plan-label { display: flex; align-items: center; flex-wrap: wrap; gap: 0 var(--space-2); color: var(--text-2); font-size: var(--text-sub); }
 .lp-plan {
@@ -512,7 +513,8 @@ body.lp-active {
 .lp-final-inner .lp-cta-row { justify-content: center; }
 /* 見出しとボタンは中央、2 行以上になる文（注記・名前の由来）は左ぞろえ（行頭がそろわない中央ぞろえは読みにくい）。
    箱は中身の幅に縮めて中央に置き、中の文だけ左から組む。 */
-.lp-final-inner .lp-cta-note, .lp-final-inner .lp-story { width: fit-content; max-width: min(24em, 100%); margin-left: auto; margin-right: auto; text-align: left; text-wrap: pretty; }
+/* メール欄（.lp-wl・30em）と同じ箱にして、最後の節の左端を 1 本にそろえる */
+.lp-final-inner .lp-cta-note, .lp-final-inner .lp-story { width: min(30rem, 100%); max-width: min(30rem, 100%); margin-left: auto; margin-right: auto; text-align: left; text-wrap: pretty; }
 .lp-story > span, .lp-final-inner .lp-cta-note > span { display: inline-block; }
 .lp-story {
   margin: var(--space-12) auto 0 !important;
