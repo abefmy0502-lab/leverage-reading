@@ -4,7 +4,7 @@ import { describe, it, expect } from 'vitest';
 import {
   cleanPhrase, newPhrase, phraseFrame, clampPhraseCenter, phraseDisplayText, phraseLayout, phrasePositionFrom,
   phraseColors, phraseCanInvert, clampScale, PHRASE_MAX, PHRASE_STYLES, PHRASE_SCALE_MAX, PHRASE_SCALE_MIN,
-  stickerPhraseReserve, STICKER_PAD, PHRASE_STICKER_GAP,
+  stickerPhraseReserve, STICKER_PAD, PHRASE_STICKER_GAP, balanceLines,
 } from './sharePhrase.js';
 import { recordFrame, logoBox } from './shareOverlay.js';
 
@@ -64,6 +64,39 @@ describe('言葉を置いてよい範囲（4:5 と 9:16）', () => {
     expect(clampPhraseCenter({ cx: 5000, cy: 5000, w: 200, h: 100 }, fr)).toEqual({ cx: 900, cy: 1228 });
     // 枠より大きい箱は枠の中央
     expect(clampPhraseCenter({ cx: 0, cy: 0, w: 2000, h: 100 }, fr).cx).toBe(540);
+  });
+});
+
+describe('読点の後ろで改行する（2026-10-05 第 2 回 ui-critic）', () => {
+  const text = '問いの質が、答えの質を決める。';
+  // 句読点は半分・ひらがなは少し狭い（プロポーショナルの書体に近い幅）。
+  const weighted = (s) => Array.from(s).reduce((w, c) => w + (/[、。]/.test(c) ? 5 : /[ぁ-ん]/.test(c) ? 9 : 10), 0);
+  const mono = (s) => Array.from(s).length * 10;
+  it('節が 1 行に入らない大きさでも、読点を行の途中に残さない（「問いの質が、／答えの質を／決める。」）', () => {
+    expect(balanceLines(text, 60, mono)).toEqual(['問いの質が、', '答えの質を', '決める。']);
+    for (const measure of [mono, weighted]) {
+      for (let w = 52; w <= 130; w += 2) {
+        const lines = balanceLines(text, w, measure);
+        expect(lines.join('')).toBe(text);
+        // 読点は行の終わりにだけ（「質が、答えの」のように行の途中に来ない）
+        expect(lines.some((l) => /、./.test(l)), `${w} ${JSON.stringify(lines)}`).toBe(false);
+        expect(lines.every((l) => measure(l) <= w + 0.5)).toBe(true);
+      }
+    }
+  });
+  it('大きくした言葉（1.8 倍）でも「問いの質が、／答えの質を／決める。」', () => {
+    // 実際の書体（ゴシック 600）で測った 1 字の幅（文字の大きさ 100 のとき）＋字間（行末の字間は数えない）。
+    const W100 = { 問: 100, い: 93, の: 97, 質: 100, が: 98, '、': 50, 答: 100, え: 88, を: 86, 決: 100, め: 97, る: 83, '。': 50, '「': 50, '」': 50 };
+    for (const sp of [0.02, 0.04]) {
+      const measureAt = (size) => (s) => {
+        const chars = Array.from(String(s));
+        return Math.max(0, chars.reduce((w, c) => w + ((W100[c] ?? 100) / 100) * size + size * sp, 0) - size * sp);
+      };
+      for (const style of ['band', 'bold', 'mincho']) {
+        const lay = phraseLayout({ text, style, scale: 1.8 }, { W: 1080, H: 1350, format: 'post', measureAt });
+        expect(lay.lines.some((l) => /、./.test(l)), `${sp} ${style} ${JSON.stringify(lay.lines)}`).toBe(false);
+      }
+    }
   });
 });
 

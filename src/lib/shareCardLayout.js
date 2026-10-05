@@ -438,6 +438,26 @@ export function scrimAlpha(luminance) {
   return Math.round(Math.min(0.82, Math.max(0.3, need)) * 100) / 100;
 }
 
+// 写真の上の記録・数字の幕（2026-10-05 第 2 回 ui-critic「写真が灰色の板にならないように」）:
+// 画像の下半分を全部覆わず、まとまりの周りだけの帯にする。
+//   まとまりの上端の fade 手前 0 → 上端 a → 下端 a → ロゴの上の空き aFoot → ロゴの下 aFoot → 画像の下端 aFoot × 0.6
+// a・aFoot はそれぞれ、まとまり・ロゴの帯の明るさから決めた濃さ（scrimAlpha・上限 0.82）。fade は画像の高さの 0.2 以上。
+// 戻り値: drawScrim に渡す [位置, 濃さ] の並び（位置は上から順）。
+export function blockScrimStops({ top, bottom, H, a, aFoot, logoTop, logoBottom, fade }) {
+  const cap = (v) => Math.min(0.82, Math.max(0, v));
+  const f = Math.max(H * 0.2, Number(fade) || 0);
+  const lt = Math.max(bottom, logoTop);
+  const lb = Math.max(lt, logoBottom);
+  return [
+    [top - f, 0],
+    [top, cap(a)],
+    [bottom, cap(a)],
+    [lt, cap(aFoot)],
+    [lb, cap(aFoot)],
+    [Math.max(lb, H), cap(aFoot * 0.6)],
+  ];
+}
+
 // 画素の相対輝度の、暗いほうから 15% の値（墨の文字にかかりやすい暗い部分を基準に）。
 export function darkLuminance(pixels) {
   if (!Array.isArray(pixels) || pixels.length === 0) return 0;

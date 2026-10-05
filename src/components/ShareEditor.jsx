@@ -95,6 +95,7 @@ export default function ShareEditor({
   const [showBox, setShowBox] = useState(false); // 言葉の箱の点線（動かしている間・入力中・キーボードで選んだとき）
   const [handOk, setHandOk] = useState(null); // 手書き風の書体: null=読み込み中 / true / false（出さない）
   const [inputFocused, setInputFocused] = useState(false);
+  const [scrolled, setScrolled] = useState(false); // 下の欄を送ったか（画像の下端の線）
 
   // ---- Esc はこの画面だけを閉じる（下のシートの Esc まで届かせない）
   useEffect(() => {
@@ -437,11 +438,16 @@ export default function ShareEditor({
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}>
+      <div
+        onScroll={(e) => { const s = e.currentTarget.scrollTop > 0; if (s !== scrolled) setScrolled(s); }}
+        style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}
+      >
         <div style={{ maxWidth: 480, margin: '0 auto', paddingBottom: 'calc(var(--space-8) + env(safe-area-inset-bottom, 0px))' }}>
-          {/* 大きな画像（画面の幅いっぱい・形の比のまま）。下の欄を送っても上に残る（sticky）＝スイッチを
-              切り替えたり言葉を打ったりしながら画像が見える。高さは画面の 48%（入力中は 30%）まで。 */}
-          <div style={{ position: 'sticky', top: 0, zIndex: 1, background: 'var(--bg)', paddingBottom: 'var(--space-2)' }}>
+          {/* 大きな画像（左右 16 の内側・形の比のまま・角丸 12）。下の欄を送っても上に残る（sticky）＝スイッチを
+              切り替えたり言葉を打ったりしながら画像が見える。高さは画面の 48%（入力中は 30%）まで。
+              上の行との間は 12。下の欄を送ったときだけ、下端に --separator の線（重なっていることが分かる）。
+              線の太さぶんはいつも取って、送ったときに高さが変わらない。 */}
+          <div style={{ position: 'sticky', top: 0, zIndex: 1, background: 'var(--bg)', padding: 'var(--space-3) var(--space-4) var(--space-2)', borderBottom: `1px solid ${scrolled ? 'var(--separator)' : 'transparent'}` }}>
           <div
             ref={stageRef}
             onPointerDown={onPointerDown}
@@ -451,6 +457,7 @@ export default function ShareEditor({
             style={{
               position: 'relative', width: `min(100%, calc(${inputFocused ? 30 : 48}dvh * ${size.w} / ${size.h}))`, margin: '0 auto', aspectRatio: aspect,
               background: ground === 'sticker' ? checker(16) : 'var(--fill)',
+              borderRadius: 'var(--radius)',
               touchAction: touchable ? 'none' : 'auto', userSelect: 'none', WebkitUserSelect: 'none',
               cursor: touchable ? 'grab' : 'default', overflow: 'hidden',
             }}
@@ -463,7 +470,7 @@ export default function ShareEditor({
             />
             {status === 'loading' && (
               <div role="status" style={{ position: 'absolute', inset: 0 }} aria-busy="true" aria-label="画像を作っています">
-                <SkeletonBlock width="100%" height="100%" radius="0" />
+                <SkeletonBlock width="100%" height="100%" radius="var(--radius)" />
               </div>
             )}
             {status === 'error' && (
@@ -503,7 +510,7 @@ export default function ShareEditor({
             )}
           </div>
           {hint && (
-            <p style={{ margin: 0, padding: 'var(--space-2) var(--space-4) 0', textAlign: 'center', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all' }}>
+            <p style={{ margin: 0, padding: 'var(--space-2) 0 0', textAlign: 'center', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all' }}>
               {hint.map((h) => <span key={h} style={{ display: 'block' }}>{h}</span>)}
             </p>
           )}

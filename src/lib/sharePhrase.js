@@ -117,6 +117,10 @@ export function balanceLines(text, maxWidth, measure) {
       }
       if (cur) lines.push(cur);
       if (lines.length === best.length && lines.every((l) => measure(l) <= limit + 0.5)) return lines;
+      // 行数が合わないとき（節が 1 行に入らない大きさ）は、節ごとに組んで並べる。行数が増えなければそちら
+      // （「問いの／質が、答えの／質を決める。」→「問いの質が、／答えの質を／決める。」・2026-10-05 第 2 回 ui-critic）。
+      const perClause = clauses.flatMap((c) => wrapBalanced(c, maxWidth, measure));
+      if (perClause.length <= best.length && perClause.every((l) => measure(l) <= maxWidth + 0.5)) return perClause;
     }
   }
   return best;

@@ -78,6 +78,43 @@ const results = await page.evaluate(async ({ photos }) => {
   jobs.push({ name: 'logo-old-hidden-setting', opts: { ...base, layout: 'record', format: 'post', style: 'photo', photo: photo.normal, hidden: ['logo', 'stamp'] } });
   jobs.push({ name: 'logo-phrase-at-bottom', opts: { ...base, layout: 'quote', format: 'post', style: 'photo', photo: photo.bright, phrase: { text: '問いの質が、答えの質を決める。', style: 'band', x: 0.3, y: 1, scale: 1.8 } } });
   jobs.push({ name: 'logo-no-stamp-paper', opts: { ...base, layout: 'stats', format: 'post', style: 'paper', hidden: ['stamp'] } });
+  // ── 端のケース（2026-10-05 第 2 回 ui-critic）
+  // 2 行の長い書名＋数字 3 つ
+  const longBook = { ...book, title: 'イシューからはじめよ 知的生産の「シンプルな本質」と問いの立て方', author: '安宅和人' };
+  const longRec = ov.bookRecord(longBook, memos, new Date(2026, 9, 5));
+  for (const layout of ['record', 'stats']) {
+    for (const format of ['post', 'story']) {
+      jobs.push({ name: `edge-longtitle-${layout}-${format}-photo`, opts: { ...base, layout, format, style: 'photo', photo: photo.normal, record: longRec, title: longBook.title, line: layout === 'record' ? ov.quoteText(base.line, 'record') : base.line } });
+    }
+    jobs.push({ name: `edge-longtitle-${layout}-post-paper`, opts: { ...base, layout, format: 'post', style: 'paper', record: longRec, title: longBook.title, line: layout === 'record' ? ov.quoteText(base.line, 'record') : base.line } });
+  }
+  // 4 桁の数字（1,234 件）
+  const bigRec = { ...record, stats: [{ key: 'date', label: '読み終えた日', value: '12月28日' }, { key: 'memos', label: 'メモ', value: '1,234件' }, { key: 'actions', label: '実行した行動', value: '1件' }] };
+  for (const layout of ['record', 'stats']) {
+    for (const format of ['post', 'story']) {
+      jobs.push({ name: `edge-4digits-${layout}-${format}-photo`, opts: { ...base, layout, format, style: 'photo', photo: photo.dark, record: bigRec, line: '' } });
+    }
+  }
+  // 今月に 3 冊以上読み終えた（「ほか N 冊」・表紙を重ねる）
+  const now = new Date(2026, 9, 20);
+  const monthBooks = ['1兆ドルコーチ', 'イシューからはじめよ', '数値化の鬼', 'エッセンシャル思考', 'GIVE & TAKE'].map((t, i) => ({ id: `mb${i}`, title: t, status: 'done', doneDate: `2026-10-${String(3 + i * 3).padStart(2, '0')}`, actions: i < 2 ? [{ done: true, completedAt: '2026-10-10' }] : [] }));
+  const monthRec = ov.monthRecord(monthBooks, Array.from({ length: 31 }, (_, i) => ({ id: `x${i}`, text: 'm', createdAt: '2026-10-08' })), now);
+  const monthCovers = monthBooks.slice(0, 4).map((b) => ({ cover: { image: null, tone: null }, title: b.title }));
+  for (const [gName, g] of [['photo', { style: 'photo', photo: photo.normal }], ['paper', { style: 'paper' }], ['night', { style: 'night' }]]) {
+    for (const layout of ['record', 'stats']) {
+      jobs.push({ name: `edge-month5-${layout}-story-${gName}`, opts: { ...base, layout, format: 'story', ...g, record: monthRec, covers: monthCovers, title: monthRec.title, line: '', stamp: '2026.10.20' } });
+    }
+  }
+  // 透明＋言葉（言葉は記録の上に場所を取る）
+  const phrase = { text: '問いの質が、答えの質を決める。', style: 'mincho', x: 0.5, y: 0.2, scale: 1 };
+  for (const layout of ['record', 'stats', 'quote']) {
+    jobs.push({ name: `edge-sticker-phrase-${layout}`, opts: { ...base, layout, format: 'story', style: 'sticker', phrase, line: layout === 'record' ? ov.quoteText(base.line, 'record') : base.line } });
+  }
+  // ロゴの画像が読めず、文字の「Orime」で代わりに描いたとき
+  for (const [gName, g] of [['photo-bright', { style: 'photo', photo: photo.bright }], ['paper', { style: 'paper' }], ['night', { style: 'night' }], ['sticker', { style: 'sticker' }]]) {
+    jobs.push({ name: `edge-logo-text-${gName}`, opts: { ...base, layout: 'record', format: 'post', ...g, logo: null, line: ov.quoteText(base.line, 'record') } });
+  }
+  jobs.push({ name: 'edge-logo-text-only-bright', opts: { ...base, layout: 'record', format: 'post', style: 'photo', photo: photo.bright, logo: null, hidden: allHidden } });
   const out = [];
   for (const j of jobs) {
     const cv = document.createElement('canvas');

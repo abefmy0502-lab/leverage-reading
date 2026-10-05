@@ -617,6 +617,13 @@ const SCREENS = [
   //    編集画面は [role=dialog][aria-label="画像を編集"]。写真の拡大・移動はトラックパッドと同じホイールの知らせで動かす
   //    （ctrl＋ホイール＝つまんで拡大・ホイール＝動かす）。言葉の形は「言葉の形」の radiogroup から選ぶ。
   { name: 'share-edit-open', url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT] },
+  // 第 2 回（2026-10-05）: 言葉を入れた・帯・入力中（画像が縮む）・数字の重ね方・透明の上の言葉・下の欄を送った（画像の下端の線）。
+  { name: 'share-edit-phrase', url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT, ...EDIT_PHRASE, EDIT_BLUR, { wait: 800 }, EDIT_TOP] },
+  { name: 'share-edit-phrase-band', url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT, ...EDIT_PHRASE, { css: `${EDIT} [role=radiogroup][aria-label="言葉の形"] [role=radio]:has-text("白抜きの帯")` }, { wait: 1200 }, EDIT_BLUR, { wait: 800 }, EDIT_TOP] },
+  { name: 'share-edit-phrase-focus', url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT, ...EDIT_PHRASE, { wait: 800 }] },
+  { name: 'share-edit-stats', url: '/', steps: [...SHARE_CAMERA, shareVariant('数字'), { wait: 1500 }, ...SHARE_EDIT] },
+  { name: 'share-edit-phrase-sticker', url: '/', steps: [...SHARE_PAPER, { css: '[role=dialog] [role=radio][aria-label="透明（ステッカー用）"]' }, { wait: 1500 }, ...SHARE_EDIT, ...EDIT_PHRASE, EDIT_BLUR, { wait: 800 }, EDIT_TOP] },
+  { name: 'share-edit-scrolled', url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT, { scrollBottom: true }] },
   // ── AI に送る内容の同意（App Review 5.1.2(i)・2026-10-01）。&consent=none＝まだ同意していない人（お試しモードの既定は同意済み）。
   //    はじめて AI を使う操作のときに、送る内容と送り先のシートが出る（相談の送信・写真から書き起こす）。
   { name: 'ai-consent-consult', url: '/?consent=none', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { wait: 800 }] },

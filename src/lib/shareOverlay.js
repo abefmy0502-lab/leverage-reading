@@ -358,11 +358,44 @@ export function recordBaseHeight(frame, { titleLines = 1, hasKicker = true, hasS
   return recordBlockPlan(frame, { titleLines, hasKicker, hasSub, statsCount }).height;
 }
 
-// 数字の列: 3 つまでを等分に並べる（左そろえ）。
-export function statColumns(frame, count) {
+// 数字の列（3 つまで）。widths（各列の中身＝名前と数字の広いほうの幅）を渡すと、中身の幅に合わせて
+// 列の間を等しくする（左端は余白・最後の列の右端は右の余白・2026-10-05 第 2 回 ui-critic「等分だと
+// 『9月28日』と『24件』がくっつき、『2件』の右が空く」）。間は STAT_COL_GAP 以上（入らなければ呼び出し側が縮める）。
+// widths が無ければ等分（左そろえ）。
+export const STAT_COL_GAP = 40;
+export function statColumns(frame, count, widths = null) {
   const n = Math.max(1, Math.min(3, count));
-  const width = (frame.W - frame.margin * 2) / n;
-  return Array.from({ length: n }, (_, i) => ({ x: frame.margin + width * i, width }));
+  const contentW = frame.W - frame.margin * 2;
+  if (!Array.isArray(widths) || widths.length < n || n === 1) {
+    const width = contentW / n;
+    return Array.from({ length: n }, (_, i) => ({ x: frame.margin + width * i, width }));
+  }
+  const ws = widths.slice(0, n).map((w) => Math.max(0, Number(w) || 0));
+  const total = ws.reduce((a, b) => a + b, 0);
+  // 数字が 2 つで中身が短いと、2 つめが右端まで飛んで離れて見える。間は余白の内側の幅の 2 割まで
+  // （そのときだけ最後の列の右端は右の余白より内側）。
+  const gap = Math.max(STAT_COL_GAP, Math.min(contentW * 0.2, (contentW - total) / (n - 1)));
+  let x = frame.margin;
+  return ws.map((w) => {
+    const col = { x, width: w };
+    x += w + gap;
+    return col;
+  });
+}
+
+// 数字の列が入る大きさの倍率（中身の幅の合計＋間 STAT_COL_GAP が余白の内側に入るまで、数字だけを縮める）。
+// labelWidths は名前（縮めない）、valueWidths は倍率 1 の数字の幅。戻り値 0.5〜1。
+export function statColumnsScale(frame, labelWidths, valueWidths) {
+  const n = Math.min(3, valueWidths.length);
+  if (n <= 1) {
+    const avail = frame.W - frame.margin * 2;
+    return Math.max(0.5, Math.min(1, avail / Math.max(1, valueWidths[0] || 1)));
+  }
+  const avail = frame.W - frame.margin * 2 - STAT_COL_GAP * (n - 1);
+  const totalAt = (k) => valueWidths.slice(0, n).reduce((s, v, i) => s + Math.max(labelWidths[i] || 0, v * k), 0);
+  let k = 1;
+  while (k > 0.5 && totalAt(k) > avail) k -= 0.01;
+  return Math.max(0.5, Math.round(k * 100) / 100);
 }
 
 // ---------------------------------------------------------------- 数字（Strava の大きな数字・2026-10-05）
@@ -370,26 +403,28 @@ export function statColumns(frame, count) {
 // 真ん中に、上から 見出し → 書名 → 著者 → （間）→ 数字（名前は小さく・数字は大きく）を縦に積む（中央そろえ）。
 // 数字は記録と同じもの（3 つまで・0 は出さない）。一文は入れない（数字が主役）。
 // 大きさはストーリーを基準に投稿 0.92 倍（記録と同じ）。
-export function statsStyle(frame) {
+// compact（写真の地）は、写真を見せるために詰める（数字 140・間を狭く＝まとまりが画像の半分ほどに収まる・2026-10-05 第 2 回）。
+export function statsStyle(frame, { compact = false } = {}) {
   const k = frame.format === 'story' ? 1 : frame.format === 'post' ? 0.92 : 0.84;
   const r = (n) => Math.round(n * k);
+  const c = (a, b) => r(compact ? b : a);
   return {
-    kickerSize: r(38),
-    titleSize: r(60),
-    subSize: r(38),
-    labelSize: r(38),
-    valueSize: r(156),
-    unitSize: r(56),
-    titleLH: Math.round(r(60) * 1.32),
-    labelH: Math.round(r(38) * 1.3),
-    statGap: r(44), // 数字と、次の数字の名前の間
-    headGap: r(72), // 書名・著者と、1 つめの数字の間
+    kickerSize: c(38, 36),
+    titleSize: c(60, 54),
+    subSize: c(38, 36),
+    labelSize: c(38, 36),
+    valueSize: c(156, 140),
+    unitSize: c(56, 50),
+    titleLH: Math.round(c(60, 54) * 1.32),
+    labelH: Math.round(c(38, 36) * 1.3),
+    statGap: c(44, 24), // 数字と、次の数字の名前の間
+    headGap: c(72, 48), // 書名・著者と、1 つめの数字の間
   };
 }
 
 // 数字の積み方の組み（隠した項目は場所を取らない）。戻り値: { elements: [{ kind, top, height, index? }], height, style }
-export function statsStackPlan(frame, { hasKicker = false, titleLines = 0, hasSub = false, statsCount = 0 } = {}) {
-  const st = statsStyle(frame);
+export function statsStackPlan(frame, { hasKicker = false, titleLines = 0, hasSub = false, statsCount = 0, compact = false } = {}) {
+  const st = statsStyle(frame, { compact });
   const parts = [];
   if (hasKicker) parts.push({ kind: 'kicker', height: Math.round(st.kickerSize * 1.35), gapAfter: 12 });
   if (titleLines > 0) parts.push({ kind: 'title', height: Math.min(2, titleLines) * st.titleLH, gapAfter: 0 });
@@ -409,10 +444,10 @@ export function statsStackPlan(frame, { hasKicker = false, titleLines = 0, hasSu
 }
 
 // 数字の積み方の置き場所: 安全な枠の上端から、ロゴの上（間 gap）までの範囲の真ん中。
-// 言葉を入れたときは下に寄せる（言葉は上のほうに置かれるので重ねない）。
+// 言葉を入れたとき・align: 'bottom'（写真の地＝写真の上のほうを見せる）は下に寄せる（言葉は上のほうに置かれるので重ねない）。
 // coverCount（写真でない地の表紙の数）があれば、表紙＋間＋積み方を 1 つのまとまりとして真ん中に置く
 // （表紙の高さ 200 も取れなければ表紙は出さない）。戻り値: { top, bottom, fits, cover: { x0, y0, w, h, step } | null }
-export function placeStatsStack(frame, blockH, { phrase = false, coverCount = 0 } = {}) {
+export function placeStatsStack(frame, blockH, { phrase = false, coverCount = 0, align = 'center' } = {}) {
   const areaTop = frame.safeTop;
   const areaBottom = frame.footerTop - frame.gap;
   const room = areaBottom - areaTop;
@@ -429,7 +464,7 @@ export function placeStatsStack(frame, blockH, { phrase = false, coverCount = 0 
       groupH = h + frame.gap + blockH;
     }
   }
-  const top0 = phrase ? areaBottom - groupH : areaTop + Math.max(0, (room - groupH) / 2);
+  const top0 = phrase || align === 'bottom' ? areaBottom - groupH : areaTop + Math.max(0, (room - groupH) / 2);
   const groupTop = Math.max(areaTop, Math.round(top0));
   if (cover) cover.y0 = groupTop;
   const top = cover ? groupTop + cover.h + frame.gap : groupTop;

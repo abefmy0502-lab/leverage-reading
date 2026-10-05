@@ -22,7 +22,7 @@ function fakeCanvas(w = 1, h = 1, { bright = true } = {}) {
         return (s) => {
           const size = sizeOf();
           const width = Array.from(String(s)).length * size;
-          return { width, actualBoundingBoxAscent: size * 0.8, actualBoundingBoxDescent: size * 0.2, actualBoundingBoxLeft: 0, actualBoundingBoxRight: width };
+          return { width, actualBoundingBoxAscent: size * 0.8, actualBoundingBoxDescent: size * 0.2, actualBoundingBoxLeft: 0, actualBoundingBoxRight: width * 0.9 };
         };
       }
       // 明るい写真（真っ白）＝白いロゴがいちばん読みにくい場合
@@ -190,6 +190,20 @@ describe('数字の重ね方', () => {
     expect(bigs.length).toBeGreaterThanOrEqual(RECORD.stats.length);
     const sizes = new Set(bigs.map((c) => c.font));
     expect(sizes.size).toBe(1);
+  });
+  it('単位は数字の墨の右端の 2 右に置く（「1件」に空きを作らない）', () => {
+    for (const layout of ['record', 'stats']) {
+      const canvas = fakeCanvas();
+      drawShareCard(canvas, opts({ layout, style: 'paper', record: { ...RECORD, stats: [{ key: 'memos', label: 'メモ', value: '1件' }] } }));
+      const texts = canvas.calls.filter((c) => c.op === 'fillText');
+      const i = texts.findIndex((c) => c.args[0] === '1' && /^700 /.test(c.font));
+      const big = texts[i];
+      const unit = texts[i + 1];
+      expect(unit.args[0]).toBe('件');
+      const size = parseFloat(/(\d+)px/.exec(big.font)[1]);
+      // 偽の書体の墨の右端＝送り幅の 0.9 倍
+      expect(unit.args[1]).toBeCloseTo(big.args[1] + size * 0.9 + 2, 5);
+    }
   });
   it('一文は入れない（共有の文にも入れない）', () => {
     const r = drawShareCard(fakeCanvas(), opts({ layout: 'stats', style: 'photo' }));

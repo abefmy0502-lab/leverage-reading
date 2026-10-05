@@ -7,7 +7,7 @@ import {
   recordFrame, placeRecordBlock, statColumns, buildRecordShareText, recordBaseHeight, fmtMonthDay, fmtStamp, RECORD_QUOTE_MAX,
   recordBlockPlan, recordTitleScale, shareItemsFor, applyShareItems, shareVisibility, readHiddenItems, writeHiddenItems,
   SHARE_ITEMS_STORAGE_KEY, recordCoverPlacement, SHARE_ITEM_KEYS, readSharePrefs, writeSharePrefs, SHARE_PREFS_STORAGE_KEY,
-  stepVariant, logoBox, LOGO_RULES, statsStackPlan, placeStatsStack,
+  stepVariant, logoBox, LOGO_RULES, statsStackPlan, placeStatsStack, statColumnsScale, STAT_COL_GAP,
 } from './shareOverlay.js';
 
 const NOW = new Date(2026, 8, 30, 10, 0, 0); // 2026-09-30
@@ -196,13 +196,34 @@ describe('安全な枠（4:5 と 9:16 で SNS に切られない）', () => {
       expect(withQuote.fits).toBe(true);
     }
   });
-  it('数字の列は余白の内側で等分', () => {
+  it('数字の列は中身の幅に合わせ、列の間を等しく（左右の端は余白・間は 40 以上）', () => {
     const f = recordFrame('post');
-    const cols = statColumns(f, 3);
-    expect(cols).toHaveLength(3);
+    // 幅が分からなければ等分
+    const even = statColumns(f, 3);
+    expect(even).toHaveLength(3);
+    expect(even[0].x).toBe(f.margin);
+    expect(even[2].x + even[2].width).toBeCloseTo(f.W - f.margin);
+    expect(statColumns(f, 5)).toHaveLength(3);
+    // 中身の幅（「9月28日」は広く、「2件」は狭い）
+    const cols = statColumns(f, 3, [300, 160, 220]);
     expect(cols[0].x).toBe(f.margin);
     expect(cols[2].x + cols[2].width).toBeCloseTo(f.W - f.margin);
-    expect(statColumns(f, 5)).toHaveLength(3);
+    const gap1 = cols[1].x - (cols[0].x + cols[0].width);
+    const gap2 = cols[2].x - (cols[1].x + cols[1].width);
+    expect(gap1).toBeCloseTo(gap2);
+    expect(gap1).toBeGreaterThanOrEqual(STAT_COL_GAP);
+    // 2 つで中身が短いときは、間を余白の内側の 2 割までにする（2 つめが右端まで飛ばない）
+    const two = statColumns(f, 2, [280, 100]);
+    expect(two[1].x - (two[0].x + two[0].width)).toBeCloseTo((f.W - f.margin * 2) * 0.2);
+  });
+  it('入らないときは数字だけを縮めて、間 40 を残す', () => {
+    const f = recordFrame('post');
+    const avail = f.W - f.margin * 2;
+    expect(statColumnsScale(f, [200, 80, 230], [300, 160, 120])).toBe(1);
+    const k = statColumnsScale(f, [100, 100, 100], [500, 300, 200]);
+    expect(k).toBeLessThan(1);
+    expect(500 * k + 300 * k + 200 * k + STAT_COL_GAP * 2).toBeLessThanOrEqual(avail + 1);
+    expect(statColumnsScale(f, [0], [2000])).toBe(0.5);
   });
 });
 
@@ -354,6 +375,11 @@ describe('数字の重ね方（大きな数字を縦に積む）', () => {
     // 数字は名前より大きく、記録の数字よりも大きい（Strava の大きな数字）
     expect(p.style.valueSize).toBeGreaterThan(p.style.labelSize * 3);
     expect(p.style.valueSize).toBeGreaterThan(f.statValueSize);
+    // 写真の地（compact）は詰める＝写真を見せる。ストーリーでは画像の半分以下
+    const c = statsStackPlan(f, { hasKicker: true, titleLines: 2, hasSub: true, statsCount: 3, compact: true });
+    expect(c.height).toBeLessThan(p.height);
+    expect(c.height).toBeLessThanOrEqual(f.H / 2);
+    expect(c.style.valueSize).toBeGreaterThan(f.statValueSize);
   });
   it('どの組み合わせでも安全な枠に入り、ロゴの上の空きより上（言葉あり・表紙ありも）', () => {
     for (const fmt of ['post', 'story']) {
@@ -386,6 +412,10 @@ describe('数字の重ね方（大きな数字を縦に積む）', () => {
     expect(low.top).toBeGreaterThan(mid.top);
     expect(low.cover).toBeNull();
     expect(low.bottom).toBe(f.footerTop - f.gap);
+    // 写真の地（align: 'bottom'）は下に寄せて、写真の上のほうを見せる
+    const photo = placeStatsStack(f, h, { align: 'bottom' });
+    expect(photo.bottom).toBe(f.footerTop - f.gap);
+    expect(photo.top).toBeGreaterThan(mid.top);
   });
 });
 

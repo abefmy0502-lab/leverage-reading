@@ -13,7 +13,7 @@
 // 重ね方は 3 つ: 記録（record）／数字（stats・大きな数字を真ん中に縦に積む）／一文（quote）。
 // 2 つの印（Strava の橙のルートにあたる「読んだ跡」）:
 //   傍線 … 一文の最後の行の下に、橙の手描きの線。メモごとに形が決まっている（メモの id と本文から種を作る）
-//   付箋 … 表紙（写真・透明では白い線の本の印）の右の小口から橙の付箋がはみ出す。
+//   付箋 … 表紙の右の小口から橙の付箋がはみ出す（紙・夜・表紙の色の一文だけ。写真・透明は表紙も本の印も描かない）。
 //          その一文が本のどのあたりかを高さで示す（数字は出さない・ページの無いメモには付けない）
 //
 // 色は tokens.css の --share-* を getComputedStyle で読む（canvas は var() を解決できない）。
@@ -25,11 +25,11 @@ import {
   FORMATS, clampLine, fitQuote, wrapBalanced, coverTone, rgbCss,
   photoPlacement, scrimAlpha, brightLuminance, coverProxyPath,
   seedFrom, underlineStroke, tabPosition, coverWashAlpha, relativeLuminance, shareImageType,
-  darkLuminance, logoInkOnPhoto,
+  darkLuminance, logoInkOnPhoto, blockScrimStops,
 } from './shareCardLayout';
 import {
   RECORD_QUOTE_MAX, recordFrame, placeRecordBlock, statColumns, splitStatValue, recordBlockPlan, recordTitleScale, recordTitleMaxLines,
-  applyShareItems, shareVisibility, recordCoverPlacement, logoBox, LOGO_RULES, statsStackPlan, placeStatsStack,
+  applyShareItems, shareVisibility, recordCoverPlacement, logoBox, LOGO_RULES, statsStackPlan, placeStatsStack, statColumnsScale,
 } from './shareOverlay';
 import { phraseLayout, phraseMetrics, phraseColors, phraseDisplayText, stickerPhraseReserve } from './sharePhrase';
 import { paletteFor } from './coverPalette';
@@ -462,22 +462,6 @@ function drawTab(ctx, { rightX, y, h, w, frac, seed, color }) {
   return protrude;
 }
 
-// 写真・透明の地で使う小さな本の印（白い線の本＋橙の付箋）。表紙の代わり。
-function drawBookIcon(ctx, { x, y, w, h, frac, seed, line, accent }) {
-  if (frac != null) drawTab(ctx, { rightX: x + w, y, h, w, frac, seed, color: accent });
-  const lw = Math.max(2.5, w * 0.07);
-  ctx.save();
-  ctx.lineWidth = lw;
-  ctx.strokeStyle = line;
-  roundRectPath(ctx, x + lw / 2, y + lw / 2, w - lw, h - lw, Math.max(3, w * 0.08));
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(x + w * 0.22, y + lw);
-  ctx.lineTo(x + w * 0.22, y + h - lw);
-  ctx.stroke();
-  ctx.restore();
-}
-
 function drawCover(ctx, { x, y, w, h, cover, title, theme, fonts, showText = true }) {
   const r = Math.round(w * 0.035); // 本の形（DESIGN §4 の例外・角丸 4 相当）
   ctx.save();
@@ -748,11 +732,11 @@ function layoutOverlay(ctx, fonts, o, L, maxBlockH) {
   const markGap = Math.round(L.sizes[0] * 0.42);
   const bookGap = Math.round(L.sizes[0] * 0.95); // 傍線の下から書名まで
   const titleFont = `600 ${L.titleSize}px ${fonts.ui}`;
-  // 書名の左に小さな本の印（白い線）と付箋。書名はその分だけ右から始める。
-  const iconH = Math.round(L.titleSize * 1.4 + L.metaSize * 1.5 + 10);
-  const iconW = Math.round(iconH * 0.7);
-  const iconOut = Math.max(12, iconW * 0.24);
-  const textX = iconW + iconOut + 28;
+  // 写真・透明では、書名の左に本の印を描かない（下のロゴの本の印と 2 つ並ぶため・2026-10-05 第 2 回 ui-critic）。
+  // 書名・著者は一文と同じ左端から。付箋（本のどのあたりか）は紙・夜・表紙の色の表紙にだけ付ける。
+  const iconH = 0;
+  const iconW = 0;
+  const textX = 0;
   const showBook = o.showTitle !== false || o.showAuthor !== false;
   const bl = layoutBookLines(ctx, fonts, bookLineOpts(o, { width: contentW - textX, titleFont, titleSize: L.titleSize, metaSize: L.metaSize }));
   const gapBook = showBook ? bookGap : 0;
@@ -771,8 +755,7 @@ function drawOverlay(ctx, fonts, o, L, lay, top, theme) {
   drawQuoteLines(ctx, fonts, lay.fit, left, y, theme.ink, { seed: o.seed, color: theme.accent });
   y += lay.quoteH + lay.bookGap;
   if (!lay.showBook) return;
-  const rowH = Math.max(lay.iconH, lay.bl.height);
-  drawBookIcon(ctx, { x: left, y: y + (rowH - lay.iconH) / 2, w: lay.iconW, h: lay.iconH, frac: o.frac, seed: o.seed, line: theme.ink, accent: theme.accent });
+  const rowH = lay.bl.height;
   drawBookLines(ctx, fonts, lay.bl, { x: left + lay.textX, top: y + (rowH - lay.bl.height) / 2, width: lay.contentW - lay.textX, titleFont: lay.titleFont, titleSize: L.titleSize, metaSize: L.metaSize, ink: theme.ink, ink2: theme.ink2, ink3: theme.ink2 });
 }
 
@@ -962,40 +945,58 @@ function layoutRecord(ctx, fonts, o, F) {
   return { rec, titleLines, titleLH: plan.titleLH, titleFont, titleSize, sub, subFont, subLH, stats, labelH, contentW, fit, plan, height: plan.height };
 }
 
-// 数字（大きく 700）と単位（小さく 600）の幅。k は大きさの倍率。
-function statValueWidth(ctx, fonts, value, { valueSize, unitSize }, k = 1) {
-  return splitStatValue(value).reduce((w, p) => {
-    ctx.font = p.big ? `700 ${Math.round(valueSize * k)}px ${fonts.ui}` : `600 ${Math.round(unitSize * k)}px ${fonts.ui}`;
-    setSpacing(ctx, 0, valueSize);
-    return w + ctx.measureText(p.text).width + (p.big ? 0 : 4);
-  }, 0);
-}
-
-// 数字を描く（左端 x・基線 baseline・倍率 k）。単位は数字の 2 だけ右から。
-function drawStatValue(ctx, fonts, value, { valueSize, unitSize }, k, x0, baseline, ink) {
+// 数字（大きく 700）と単位（小さく 600）を左から並べる。単位は数字の墨の右端（actualBoundingBoxRight）の 2 右から
+// （数字の送り幅で置くと「1」の右に空きができて「1 件」に見えた・2026-10-05 第 2 回 ui-critic）。
+// draw=false なら測るだけ。戻り値は全体の幅。
+function layoutStatValue(ctx, fonts, value, { valueSize, unitSize }, k = 1, { x0 = 0, baseline = 0, draw = false } = {}) {
   let x = x0;
-  ctx.fillStyle = ink;
+  let end = x0;
   splitStatValue(value).forEach((p) => {
     ctx.font = p.big ? `700 ${Math.round(valueSize * k)}px ${fonts.ui}` : `600 ${Math.round(unitSize * k)}px ${fonts.ui}`;
     setSpacing(ctx, 0, valueSize);
-    ctx.fillText(p.text, x + (p.big ? 0 : 2), baseline);
-    x += ctx.measureText(p.text).width + (p.big ? 0 : 4);
+    const m = ctx.measureText(p.text);
+    if (p.big) {
+      if (draw) ctx.fillText(p.text, x, baseline);
+      const inkRight = Number.isFinite(m.actualBoundingBoxRight) && m.actualBoundingBoxRight > 0 ? m.actualBoundingBoxRight : m.width;
+      end = x + inkRight;
+      x = end;
+    } else {
+      if (draw) ctx.fillText(p.text, x + 2, baseline);
+      end = x + 2 + m.width;
+      x = end + 4;
+    }
   });
+  return end - x0;
 }
 
-// 数字の列の大きさの倍率: どれか 1 つでも列に入らなければ、全部を同じだけ縮める（列ごとに大きさが変わると
-// 数字の高さがそろわない＝Strava のように数字の高さと基線をそろえる・2026-10-05）。
-function statsScale(ctx, fonts, F, stats, cols) {
+function statValueWidth(ctx, fonts, value, sizes, k = 1) {
+  return layoutStatValue(ctx, fonts, value, sizes, k);
+}
+
+// 数字を描く（左端 x・基線 baseline・倍率 k）。
+function drawStatValue(ctx, fonts, value, sizes, k, x0, baseline, ink) {
+  ctx.fillStyle = ink;
+  layoutStatValue(ctx, fonts, value, sizes, k, { x0, baseline, draw: true });
+}
+
+// 数字の列: 名前（縮めない）と数字（倍率 1）の幅を測り、入る倍率 k と、中身の幅に合わせて間を等しくした列を決める。
+// 3 つの数字は同じ倍率（数字の高さと基線をそろえる＝Strava の数字の行）。
+function statsRow(ctx, fonts, F, stats) {
   const sizes = { valueSize: F.statValueSize, unitSize: F.statUnitSize };
-  // 列の間は 40 以上空ける（「9月28日」と隣の「24件」がくっついて 1 つの数字に見えない）。
-  return stats.reduce((k, st, i) => Math.min(k, (cols[i].width - 40) / Math.max(1, statValueWidth(ctx, fonts, st.value, sizes, 1))), 1);
+  ctx.font = `400 ${F.statLabelSize}px ${fonts.ui}`;
+  setSpacing(ctx, 0.04, F.statLabelSize);
+  const labelW = stats.map((st) => ctx.measureText(st.label).width);
+  const valueW = stats.map((st) => statValueWidth(ctx, fonts, st.value, sizes, 1));
+  const k = statColumnsScale(F, labelW, valueW);
+  const widths = stats.map((st, i) => Math.max(labelW[i], statValueWidth(ctx, fonts, st.value, sizes, k)));
+  return { k, cols: statColumns(F, stats.length, widths) };
 }
 
 function drawStat(ctx, fonts, F, stat, col, top, lay, theme, k = 1) {
   ctx.font = `400 ${F.statLabelSize}px ${fonts.ui}`;
   setSpacing(ctx, 0.04, F.statLabelSize);
   ctx.fillStyle = theme.ink2;
-  ctx.fillText(ellipsize(ctx, stat.label, col.width - 16), col.x, top + lay.labelH * 0.78);
+  ctx.fillText(ellipsize(ctx, stat.label, Math.max(col.width, F.W - F.margin - col.x) + 1), col.x, top + lay.labelH * 0.78);
   // 数字は大きく（700）・単位は小さく（600）。基線は列どうしでそろえる。
   const baseline = top + lay.labelH + 10 + F.statValueSize * 0.86;
   drawStatValue(ctx, fonts, stat.value, { valueSize: F.statValueSize, unitSize: F.statUnitSize }, k, col.x, baseline, theme.ink);
@@ -1041,8 +1042,7 @@ function drawRecordBlock(ctx, fonts, o, F, lay, top, theme) {
       ctx.fillRect(left, y - 1, lay.contentW, 2);
       ctx.restore();
     } else if (el.kind === 'stats') {
-      const cols = statColumns(F, lay.stats.length);
-      const k = statsScale(ctx, fonts, F, lay.stats, cols);
+      const { k, cols } = statsRow(ctx, fonts, F, lay.stats);
       lay.stats.forEach((st, i) => drawStat(ctx, fonts, F, st, cols[i], y, lay, theme, k));
     }
   }
@@ -1074,6 +1074,17 @@ function fitRecord(ctx, o, F) {
   return { lay, place };
 }
 
+// 写真の上の記録・数字の幕: まとまりの周りだけの帯＋ロゴの下（blockScrimStops）。濃さはまとまり・ロゴの帯
+// それぞれの明るさから（白い文字と 4.5:1 以上・上限 0.82）。写真の上部と下端は見せる（灰色の板にしない）。
+function drawBlockScrim(ctx, o, place, F, top, bottom) {
+  const lb = logoBox(F.format);
+  const a = scrimAlpha(bandLuminance(o.photo, place, F.W, F.H, top, bottom));
+  const aFoot = scrimAlpha(bandLuminance(o.photo, place, F.W, F.H, lb.clearTop, lb.baseline + 8));
+  drawScrim(ctx, F.W, F.H, o.theme.scrim, blockScrimStops({
+    top, bottom, H: F.H, a, aFoot, logoTop: lb.clearTop, logoBottom: lb.baseline + Math.round(lb.wordH * 0.6), fade: F.H * 0.22,
+  }));
+}
+
 function drawRecordOverlay(ctx, o, place) {
   const F = recordFrame(o.format);
   const { lay, place: at } = fitRecord(ctx, o, F);
@@ -1082,10 +1093,7 @@ function drawRecordOverlay(ctx, o, place) {
     // 記録の項目を全部隠した: 写真はそのままに、ロゴ（と日付）が読める色・下地にする（ロゴは必ず読める）。
     foot = logoFooterOnPhoto(ctx, o, place);
   } else {
-    // 幕: 文字の後ろ（まとまりの上端からロゴまで）の明るさで濃さを決め、上端より手前で届かせる。
-    const a = scrimAlpha(bandLuminance(o.photo, place, F.W, F.H, at.top, F.footerBaseline + 8));
-    const fade = F.H * 0.22;
-    drawScrim(ctx, F.W, F.H, o.theme.scrim, [[at.top - fade, 0], [at.top - fade * 0.2, a], [F.H, Math.min(0.88, a + 0.06)]]);
+    drawBlockScrim(ctx, o, place, F, at.top, at.top + lay.height);
   }
   const sb = o.shadowScale || 1;
   ctx.save();
@@ -1167,7 +1175,9 @@ function drawRecordSticker(ctx, o, size) {
 function layoutStats(ctx, fonts, o, F) {
   const rec = o.record || { kicker: '', title: '', stats: [] };
   const stats = (rec.stats || []).slice(0, 3);
-  const plan0 = statsStackPlan(F, { hasKicker: false });
+  // 写真の地は詰める（写真を見せる）。紙・夜・表紙の色・透明はゆったり。
+  const compact = o.style === 'photo';
+  const plan0 = statsStackPlan(F, { hasKicker: false, compact });
   const st = plan0.style;
   const contentW = F.W - F.margin * 2;
   const titleFont = `600 ${st.titleSize}px ${fonts.read}`;
@@ -1183,7 +1193,7 @@ function layoutStats(ctx, fonts, o, F) {
     setSpacing(ctx, 0.02, st.subSize);
     sub = ellipsize(ctx, String(rec.sub), contentW);
   }
-  const plan = statsStackPlan(F, { hasKicker: !!rec.kicker, titleLines: titleLines.length, hasSub: !!sub, statsCount: stats.length });
+  const plan = statsStackPlan(F, { hasKicker: !!rec.kicker, titleLines: titleLines.length, hasSub: !!sub, statsCount: stats.length, compact });
   // 数字の大きさは 3 つで同じ（いちばん長いものが幅に入るまで縮める）。
   const sizes = { valueSize: st.valueSize, unitSize: st.unitSize };
   const k = stats.reduce((m, s) => Math.min(m, contentW / Math.max(1, statValueWidth(ctx, fonts, s.value, sizes, 1))), 1);
@@ -1254,15 +1264,13 @@ function drawStatsPhoto(ctx, o) {
 function drawStatsOverlay(ctx, o, place) {
   const F = recordFrame(o.format);
   const lay = layoutStats(ctx, o.fonts, o, F);
-  const at = placeStatsStack(F, lay.height, { phrase: !!(o.phrase && phraseDisplayText(o.phrase)) });
+  // 写真の上は、積み方を下に寄せる（写真の上のほうを見せる＝写真が主役・Strava の共有と同じ）。
+  const at = placeStatsStack(F, lay.height, { phrase: !!(o.phrase && phraseDisplayText(o.phrase)), align: 'bottom' });
   let foot = o.theme;
   if (lay.height <= 0) {
     foot = logoFooterOnPhoto(ctx, o, place);
   } else {
-    // 幕: 積み方の上端の少し上から下へ。濃さは積み方からロゴまでの明るさで決める（白い文字と 4.5:1 以上）。
-    const a = scrimAlpha(bandLuminance(o.photo, place, F.W, F.H, at.top, F.footerBaseline + 8));
-    const fade = F.H * 0.2;
-    drawScrim(ctx, F.W, F.H, o.theme.scrim, [[at.top - fade, 0], [at.top - fade * 0.15, a], [F.H, Math.min(0.88, a + 0.06)]]);
+    drawBlockScrim(ctx, o, place, F, at.top, at.bottom);
   }
   const sb = o.shadowScale || 1;
   ctx.save();

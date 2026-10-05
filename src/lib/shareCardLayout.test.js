@@ -6,7 +6,7 @@ import {
   clampLine, segmentPhrases, wrapBalanced, wrapCost, hasOrphan, fitQuote, orderLineCandidates,
   buildShareText, shareFilename, coverTone, contrastRatio, photoPlacement, panView, zoomView,
   scrimAlpha, brightLuminance, coverProxyPath, seedFrom, mulberry32, underlineStroke, tabPosition, FORMATS,
-  darkLuminance, logoInkOnPhoto, coverWashAlpha, relativeLuminance,
+  darkLuminance, logoInkOnPhoto, coverWashAlpha, relativeLuminance, blockScrimStops,
 } from './shareCardLayout.js';
 
 const mono = (size = 1) => (s) => Array.from(s).length * size;
@@ -162,6 +162,22 @@ describe('scrimAlpha / brightLuminance', () => {
   it('明るい画素寄りの輝度', () => {
     expect(brightLuminance([[0, 0, 0], [255, 255, 255]])).toBeCloseTo(1, 2);
     expect(brightLuminance([])).toBe(0);
+  });
+});
+
+describe('写真の上の幕はまとまりの周りだけ（2026-10-05 第 2 回）', () => {
+  it('上は fade 手前で 0・まとまりの中は a・ロゴは aFoot・下端は aFoot の 6 割・上限 0.82・上から順', () => {
+    const H = 1350;
+    const s = blockScrimStops({ top: 700, bottom: 1100, H, a: 0.9, aFoot: 0.5, logoTop: 1170, logoBottom: 1286, fade: 100 });
+    expect(s[0]).toEqual([700 - H * 0.2, 0]); // fade は画像の高さの 0.2 以上
+    expect(s[1]).toEqual([700, 0.82]);
+    expect(s[2]).toEqual([1100, 0.82]);
+    expect(s[3]).toEqual([1170, 0.5]);
+    expect(s[5][0]).toBe(H);
+    expect(s[5][1]).toBeCloseTo(0.3);
+    s.reduce((prev, [y]) => { expect(y).toBeGreaterThanOrEqual(prev); return y; }, -Infinity);
+    // 写真の上のほう（まとまりの fade より上）には幕が掛からない
+    expect(s[0][0]).toBeGreaterThan(0);
   });
 });
 
