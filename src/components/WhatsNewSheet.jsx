@@ -116,7 +116,8 @@ const restSummaryStyle = {
   alignItems: 'center',
   gap: 'var(--space-3)',
   minHeight: 44,
-  padding: 'var(--space-1) 0',
+  // 右の内側を版の畳む見出し（内側 12＋枠 1）とそろえ、▾ の列を上下で合わせる
+  padding: 'var(--space-1) calc(var(--space-3) + 1px) var(--space-1) 0',
   boxSizing: 'border-box',
   fontSize: 'var(--text-sub)',
   fontWeight: 600,
@@ -130,7 +131,8 @@ const restLabelWrap = { flex: '1 1 auto', minWidth: 0, display: 'flex', flexWrap
 const restWhereStyle = {
   flex: '1 1 12em',
   minWidth: 0,
-  textAlign: 'right',
+  // 左から読む並び（下の行へ回っても行頭が「ほかに」とそろう）
+  textAlign: 'left',
   fontSize: 'var(--text-meta)',
   fontWeight: 400,
   color: 'var(--text-3)',
@@ -185,7 +187,7 @@ function ReleaseItems({ release, open = null }) {
             <span style={restWhereStyle}>{withPhraseBreaks([...new Set(rest.map((it) => it.where))].join('・'))}</span>
           </span>
           {/* 大きさは文字に合わせる（em・文字サイズを最大にしても題とつり合う） */}
-          <ChevronDown size="1.1em" aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+          <ChevronDown size="1.2em" aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
         </summary>
         <div style={{ marginTop: 'var(--space-3)' }}>
           <ItemList items={rest} keyPrefix={`${release.id}-rest`} />
