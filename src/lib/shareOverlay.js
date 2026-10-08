@@ -5,6 +5,9 @@
 //   - subjectChoices     … シートの「どの本？」の並び（今月 → 読書中 → 最近読み終えた本）
 //   - bookRecord         … 本 1 冊の記録（読了・読書中の日付・メモの件数・実行した行動）
 //   - monthRecord        … 今月の記録（読了の冊数・メモ・実行した行動）
+//   - yearRecord / orderYearQuoteCandidates / isYearWrapSeason / hasFinishedThisYear
+//                        … 今年の読書（12 月だけ・冊数・メモ・行動・いちばん残した一文・2026-10-08）
+//   - shareHashtags      … 共有の文に添えるハッシュタグ（#10月読了本・#2026年の読書。画像には入れない）
 //   - orderQuoteCandidates / swapQuote / swapQuoteLabel … 重ねる一文（新しい順・1 タップで次へ）
 //   - splitStatValue     … 「9月28日」の数字を大きく、単位を小さく描くための分け方
 //   - recordFrame / placeRecordBlock / recordBlockPlan … 4:5・9:16 の、SNS で切られない範囲（安全な枠）と置き方・組み
@@ -18,6 +21,7 @@
 // 連続日数・目標・順位・バッジは入れない（反ゲーミフィケーション）。
 
 import { clampLine, FORMATS } from './shareCardLayout';
+import { isAiWritten } from './recall';
 
 // 「記録」に重ねる一文は短く（写真を見せたいので 3 行まで）。
 export const RECORD_QUOTE_MAX = 60;
@@ -53,6 +57,7 @@ export function fmtStamp(now = new Date()) {
 }
 
 const sameMonth = (d, now) => !!d && d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+const sameYear = (d, now) => !!d && d.getFullYear() === now.getFullYear();
 const timeOf = (v) => {
   const d = parseLocalDate(v);
   return d ? d.getTime() : 0;
@@ -83,9 +88,10 @@ export function hasFinishedThisMonth(books, now = new Date()) {
     .some((b) => b && b.status === 'done' && sameMonth(parseLocalDate(b.doneDate), now));
 }
 
-// シートの「どの本？」の並び: 今月 → 読書中（新しい順）→ 読了（新しい順）。多すぎると選べないので max 冊まで。
+// シートの「どの本？」の並び: 今月 →（12 月だけ）今年 → 読書中（新しい順）→ 読了（新しい順）。多すぎると選べないので max 冊まで。
 // 選んでいる本が範囲の外なら、今月の次に入れて見えるようにする。
-export function subjectChoices(books, { selectedId = null, max = 8 } = {}) {
+// includeYear … 「今年」を出すか（12 月で、今年に読み終えた本が 1 冊以上＝yearChoiceAllowed）。
+export function subjectChoices(books, { selectedId = null, max = 8, includeYear = false } = {}) {
   const list = (Array.isArray(books) ? books : []).filter(isShareable);
   const reading = list.filter((b) => b.status === 'reading').sort((a, b) => recency(b) - recency(a));
   const done = list.filter((b) => b.status === 'done').sort((a, b) => recency(b) - recency(a));
@@ -94,7 +100,28 @@ export function subjectChoices(books, { selectedId = null, max = 8 } = {}) {
     const sel = list.find((b) => b.id === selectedId);
     if (sel) picked = [sel, ...picked.slice(0, max - 1)];
   }
-  return [{ kind: 'month' }, ...picked.map((b) => ({ kind: 'book', bookId: b.id, book: b }))];
+  return [{ kind: 'month' }, ...(includeYear ? [{ kind: 'year' }] : []), ...picked.map((b) => ({ kind: 'book', bookId: b.id, book: b }))];
+}
+
+// ---------------------------------------------------------------- 今年の読書（12 月だけ・2026-10-08）
+//
+// Spotify Wrapped と同じ時期に、1 年を 1 枚で見せる（company/marketing-strategy-2026-11.md §6-3）。
+// 出すのは 12 月（端末の日付の 12/1〜12/31）だけ・今年に読み終えた本が 1 冊以上あるときだけ。
+// 入れるのは 冊数・メモの数・実行した行動の数・読み終えた本の表紙・いちばん残した一文。
+// 連続日数・順位・目標・バッジは入れない（反ゲーミフィケーション）。
+
+export function isYearWrapSeason(now = new Date()) {
+  return now.getMonth() === 11;
+}
+
+export function hasFinishedThisYear(books, now = new Date()) {
+  return (Array.isArray(books) ? books : [])
+    .some((b) => b && b.status === 'done' && sameYear(parseLocalDate(b.doneDate), now));
+}
+
+// 「今年」を選べるか（12 月・今年の読了 1 冊以上）。
+export function yearChoiceAllowed(books, now = new Date()) {
+  return isYearWrapSeason(now) && hasFinishedThisYear(books, now);
 }
 
 // ---------------------------------------------------------------- 記録（数字）
@@ -154,6 +181,39 @@ export function monthRecord(books, monthMemos = [], now = new Date()) {
   };
 }
 
+// 今年の記録（今年に読み終えた本の冊数・今年のメモ・今年に実行した行動）。
+// yearMemos は今年書いたメモ（読める分だけ）。memoCount を渡したら、件数はそちらを使う（読む上限より多い人のため）。
+// 見出しは無し（題の「2026年の読書」が年を言う）。表紙は新しく読み終えた順に 4 冊まで（重ねる部品は今月と同じ）。
+export function yearRecord(books, yearMemos = [], now = new Date(), { memoCount = null } = {}) {
+  const list = Array.isArray(books) ? books : [];
+  const finished = list
+    .filter((b) => b && b.status === 'done' && sameYear(parseLocalDate(b.doneDate), now))
+    .sort((a, b) => timeOf(b.doneDate) - timeOf(a.doneDate));
+  const counted = (Array.isArray(yearMemos) ? yearMemos : [])
+    .filter((m) => (hasText(m) || m?.photoPath) && sameYear(parseLocalDate(m.createdAt || m.created_at), now)).length;
+  const memos = Number.isFinite(memoCount) && memoCount >= 0 ? memoCount : counted;
+  let actionsDone = 0;
+  for (const b of list) {
+    for (const a of (Array.isArray(b?.actions) ? b.actions : [])) {
+      if (a && a.done && sameYear(parseLocalDate(a.completedAt || a.completed_at), now)) actionsDone += 1;
+    }
+  }
+  const stats = [];
+  if (finished.length) stats.push({ key: 'books', label: '読了', value: `${finished.length}冊` });
+  if (memos) stats.push({ key: 'memos', label: 'メモ', value: `${memos}件` });
+  if (actionsDone) stats.push({ key: 'actions', label: '実行した行動', value: `${actionsDone}件` });
+  const titles = finished.slice(0, 2).map((b) => `『${String(b.title || '').trim()}』`).join('');
+  const more = finished.length > 2 ? ` ほか ${finished.length - 2} 冊` : '';
+  return {
+    kicker: '',
+    title: `${now.getFullYear()}年の読書`,
+    titleIsBook: false,
+    sub: finished.length ? `${titles}${more}` : '',
+    stats,
+    finishedBooks: finished.slice(0, 4),
+  };
+}
+
 // 副題を除いた書名（長い書名が決まった行数に入らないとき、副題の前で切って』を閉じるため・第 3 回）。
 // 区切りは 全角の空白・日本語の前の半角の空白・―〜：・開き丸括弧。区切りが無ければそのまま。
 //   「イシューからはじめよ 知的生産の「シンプルな本質」」→「イシューからはじめよ」
@@ -188,6 +248,24 @@ export function orderQuoteCandidates(memos, { preferId = null } = {}) {
     if (i > 0) sorted.unshift(sorted.splice(i, 1)[0]);
   }
   return sorted;
+}
+
+// 今年の「いちばん残した一文」の並び（先頭がいちばん）。AI を使わない・AI が書いたもの（AI まとめ）は入れない。
+//   1. 思い出しカードで「覚えた」を多く押したメモ（recallCount が大きい順）
+//   2. 自分の言葉でしっかり書いたメモ（8 字以上）
+//   3. 同じなら新しい順
+// 「別の一文」はこの順に次へ。
+export const YEAR_QUOTE_MIN_CHARS = 8;
+export function orderYearQuoteCandidates(memos) {
+  const list = (Array.isArray(memos) ? memos : []).filter((m) => hasText(m) && !isAiWritten(m));
+  const recall = (m) => {
+    const n = Number(m.recallCount ?? m.recall_count);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  };
+  const solid = (m) => (Array.from(String(m.text).trim()).length >= YEAR_QUOTE_MIN_CHARS ? 1 : 0);
+  return [...list].sort((a, b) => (recall(b) - recall(a))
+    || (solid(b) - solid(a))
+    || (timeOf(b.createdAt || b.created_at) - timeOf(a.createdAt || a.created_at)));
 }
 
 // 見せ方ごとの一文の長さ（記録は 60 字・一文は 120 字）。
@@ -604,8 +682,16 @@ export function stepVariant(variants, current, dir) {
 
 // ---------------------------------------------------------------- 共有の文
 
-// 画像に入れたものだけ（記録の見出し・書名・一文）＋ #Orime ＋ URL。
-export function buildRecordShareText({ record, quote = '', siteUrl = '' }) {
+// 共有の文に添えるハッシュタグ（画像には入れない・2026-10-08）。X の月末の「#◯月読了本」と 12 月の「今年の読書」に乗る。
+//   今月 … #10月読了本（その月の数字）／今年 … #2026年の読書／本 1 冊 … なし
+export function shareHashtags(kind, now = new Date()) {
+  if (kind === 'month') return [`#${now.getMonth() + 1}月読了本`];
+  if (kind === 'year') return [`#${now.getFullYear()}年の読書`];
+  return [];
+}
+
+// 画像に入れたものだけ（記録の見出し・書名・一文）＋ハッシュタグ（tags・#Orime の前）＋ #Orime ＋ URL。
+export function buildRecordShareText({ record, quote = '', siteUrl = '', tags = [] }) {
   const parts = [];
   // 書名を隠した（表示する項目）ときは文にも入れない（画像に入れたものだけ）。
   if (record && record.title) {
@@ -613,7 +699,8 @@ export function buildRecordShareText({ record, quote = '', siteUrl = '' }) {
   }
   const q = String(quote || '').trim();
   if (q) parts.push(q);
-  parts.push('#Orime');
+  const tagLine = [...(Array.isArray(tags) ? tags : []).filter(Boolean), '#Orime'].join(' ');
+  parts.push(tagLine);
   const url = String(siteUrl || '').trim();
   if (url) parts.push(url);
   return parts.join('\n');

@@ -294,13 +294,14 @@ export function orderLineCandidates(memos, preferId = null) {
 
 // ---------------------------------------------------------------- 共有の文
 
-export function buildShareText({ title, line, siteUrl }) {
+export function buildShareText({ title, line, siteUrl, tags = [] }) {
   const parts = [];
   const t = String(title || '').trim();
   if (t) parts.push(`『${t}』より`);
   const l = String(line || '').trim();
   if (l) parts.push(l);
-  parts.push('#Orime');
+  // 今月・今年の一文は「#10月読了本」などを #Orime の前に（画像には入れない・2026-10-08）。
+  parts.push([...(Array.isArray(tags) ? tags : []).filter(Boolean), '#Orime'].join(' '));
   const url = String(siteUrl || '').trim();
   if (url) parts.push(url);
   return parts.join('\n');

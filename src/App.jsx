@@ -104,7 +104,8 @@ import { saveStrategyHistory, popStrategyHistory, hasStrategyHistory, clearStrat
 const CoverFixModal = lazy(() => import('./components/CoverFixModal'));
 // 📤 一文をシェア（この本の一文を 1 枚の画像に・SPEC §2-1）
 const ShareSheet = lazy(() => import('./components/ShareSheet'));
-import { hasFinishedThisMonth } from './lib/shareOverlay';
+import { hasFinishedThisMonth, yearChoiceAllowed } from './lib/shareOverlay';
+import { appNow } from './lib/appNow';
 const Landing = lazy(() => import('./pages/Landing'));
 const TermsPage = lazy(() => import('./legal/TermsPage'));
 const PrivacyPage = lazy(() => import('./legal/PrivacyPage'));
@@ -4958,7 +4959,11 @@ function AuthedApp() {
           fromHome: true,
           from: tab === 'review' ? 'review' : tab === 'ai' ? 'consult' : 'home',
           // 振り返り › 記録からは、今月に読み終えた本があるときだけ「今月」を選んでおく（無ければいま読んでいる本・2026-10-01）。
-          ...(tab === 'review' && reviewSubTab === 'record' && hasFinishedThisMonth(books) ? { initialSubject: { kind: 'month' } } : {}),
+          // 12 月で今年に読み終えた本があれば「今年」を選んでおく（2026-10-08・今年の読書）。
+          ...(tab === 'review' && reviewSubTab === 'record'
+            ? (yearChoiceAllowed(books, appNow()) ? { initialSubject: { kind: 'year' } }
+              : hasFinishedThisMonth(books, appNow()) ? { initialSubject: { kind: 'month' } } : {})
+            : {}),
         })}
         aria-label="写真で共有"
         // 文字は 15 から設定に合わせて大きくなるが、20 で止める（--text-bar-max・1 行に収める）。アイコンは右の ？・⚙️ と同じ 22。
@@ -5038,6 +5043,8 @@ function AuthedApp() {
               onOpenLibrary={() => startTransition(() => setShelfMode('library'))}
               onSeeAllReading={() => { setStatusFilter('reading'); setShelfMode('library'); }}
               onCoverRetry={triggerCoverAutoRetry}
+              // 月末・12 月の控えめな 1 行「◯月の読書を、1 枚の画像に」→ 写真で共有の「今月」／「今年」（カメラは開かない・2026-10-08）。
+              onShareNudge={(kind) => setShareSheet({ fromHome: true, from: 'home_nudge', initialSubject: { kind } })}
             />
           </PullToRefresh>
         )}

@@ -7,7 +7,7 @@
 //   写真なし（カメラをやめた・画像で共有）… 表紙がある本は「表紙の色」（ぼかした表紙を敷いた地＋表紙）、無ければ紙
 //   メモから                … 紙＋その一文
 // 変えたいときだけ:
-//   どの本？（ホームから開いたとき）… 今月／読書中・読了の本を 1 タップで切り替え
+//   どの本？（ホームから開いたとき）… 今月／（12 月だけ）今年／読書中・読了の本を 1 タップで切り替え
 //   別の一文                         … 1 タップで次のメモへ（記録では「一文を外す」も）
 //   重ね方（見せ方）                 … 記録／数字（大きな数字を縦に積む）／一文。小さな見本を押す・プレビューを左右にスワイプ
 //   形                               … 投稿 4:5 ／ ストーリー 9:16（どちらも SNS で切られない範囲に文字を置く）
@@ -27,12 +27,14 @@
 //   memos           … book のメモ（無ければこのシートで読み込む）
 //   initialMemoId   … 先に選んでおくメモ（メモの「…」→「この一文をシェア」）
 //   initialPhotoFile… カメラで撮った写真（ホーム・本の詳細・読了の入口）
-//   initialSubject  … { kind: 'book', bookId } | { kind: 'month' }（省略時は book、無ければ pickShareSubject）
+//   initialSubject  … { kind: 'book', bookId } | { kind: 'month' } | { kind: 'year' }（省略時は book、無ければ pickShareSubject）
+//                     今年は 12 月で今年の読了が 1 冊以上のときだけ（それ以外は今月にする・2026-10-08）
+// 今月・今年の共有の文には「#10月読了本」「#2026年の読書」を添える（画像には入れない・shareHashtags）。
 //   from            … 計測用の入口の名前（home / review / consult / detail / done / memo / menu）
 //   onClose
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ImagePlus, Shuffle, CalendarDays, ChevronDown, Check, SlidersHorizontal, Camera } from 'lucide-react';
+import { ImagePlus, Shuffle, CalendarDays, CalendarRange, ChevronDown, Check, SlidersHorizontal, Camera } from 'lucide-react';
 import BottomSheet from './BottomSheet';
 import ErrorMessage from './ErrorMessage';
 import ContextMenu from './ContextMenu';
@@ -48,12 +50,14 @@ import { toMessage } from '../lib/errors';
 import { validateImageFile, MAX_IMAGE_BYTES } from '../lib/limits';
 import { track, EVENTS } from '../lib/analytics';
 import { SITE_URL } from '../lib/legalLinks';
+import { appNow } from '../lib/appNow';
 import {
   drawShareCard, canvasToBlob, prepareCover, prepareFonts, prepareLogo, loadPhotoFile, readShareTheme,
 } from '../lib/shareCard';
 import { buildShareText, shareFilename, FORMATS } from '../lib/shareCardLayout';
 import {
-  pickShareSubject, subjectChoices, bookRecord, monthRecord, orderQuoteCandidates, quoteText,
+  pickShareSubject, subjectChoices, bookRecord, monthRecord, yearRecord, yearChoiceAllowed, orderQuoteCandidates,
+  orderYearQuoteCandidates, shareHashtags, quoteText,
   swapQuote, swapQuoteLabel, availableVariants, buildRecordShareText, fmtStamp,
   shareItemsFor, applyShareItems, shareVisibility, readHiddenItems, writeHiddenItems,
   readSharePrefs, writeSharePrefs, stepVariant,
@@ -199,9 +203,9 @@ function monthStartIso(now = new Date()) {
 
 // 今月書いたメモ（今月の数字と一文の候補）。「今月」を選んだときだけ読む。アプリを開いている間は覚えておく。
 const monthMemoCache = new Map();
-function useMonthMemos(enabled) {
+function useMonthMemos(enabled, now) {
   const { user } = useAuth();
-  const key = `${user?.id || ''}|${monthStartIso()}`;
+  const key = `${user?.id || ''}|${monthStartIso(now)}`;
   const [state, setState] = useState(() => monthMemoCache.get(key) || { memos: [], loading: !!enabled });
   useEffect(() => {
     if (!enabled) return undefined;
@@ -215,7 +219,7 @@ function useMonthMemos(enabled) {
         .from('book_memos')
         .select('id, text, book_id, page_number, photo_path, created_at')
         .eq('user_id', user.id)
-        .gte('created_at', monthStartIso())
+        .gte('created_at', monthStartIso(now))
         .order('created_at', { ascending: false })
         .limit(500);
       if (!alive) return;
@@ -231,6 +235,51 @@ function useMonthMemos(enabled) {
   return state;
 }
 
+// 今年書いたメモ（今年の数字と「いちばん残した一文」の候補・2026-10-08）。「今年」を選んだときだけ読む。
+// 一文を決めるのに、思い出しカードで「覚えた」を押した回数（recall_count）も読む。件数は数え上げ（読む上限より多い人のため）。
+// recall_count・source_type の列が無い古い DB では外して読み直す（覚えた回数は 0 として扱う）。
+const YEAR_MEMO_LIMIT = 2000;
+const yearMemoCache = new Map();
+function useYearMemos(enabled, now) {
+  const { user } = useAuth();
+  const year = now.getFullYear();
+  const key = `${user?.id || ''}|${year}`;
+  const [state, setState] = useState(() => yearMemoCache.get(key) || { memos: [], count: null, loading: !!enabled });
+  useEffect(() => {
+    if (!enabled) return undefined;
+    const hit = yearMemoCache.get(key);
+    if (hit) { setState(hit); return undefined; }
+    if (!isSupabaseConfigured || !user?.id) { setState({ memos: [], count: null, loading: false }); return undefined; }
+    let alive = true;
+    setState((s) => ({ ...s, loading: true }));
+    (async () => {
+      const from = new Date(year, 0, 1).toISOString();
+      const to = new Date(year + 1, 0, 1).toISOString();
+      const run = (cols) => supabase
+        .from('book_memos')
+        .select(cols, { count: 'exact' })
+        .eq('user_id', user.id)
+        .gte('created_at', from)
+        .lt('created_at', to)
+        .order('created_at', { ascending: false })
+        .limit(YEAR_MEMO_LIMIT);
+      let res = await run('id, text, book_id, page_number, photo_path, created_at, recall_count, source_type');
+      if (res.error) res = await run('id, text, book_id, page_number, photo_path, created_at');
+      if (!alive) return;
+      const { data, error, count } = res;
+      const memos = error ? [] : (data || []).map((m) => ({
+        id: m.id, text: m.text || '', bookId: m.book_id, pageNumber: m.page_number ?? null, photoPath: m.photo_path || null,
+        createdAt: m.created_at, recallCount: m.recall_count ?? 0, sourceType: m.source_type || null,
+      }));
+      const next = { memos, count: error ? null : (Number.isFinite(count) ? count : null), loading: false };
+      if (!error) yearMemoCache.set(key, next);
+      setState(next);
+    })();
+    return () => { alive = false; };
+  }, [enabled, key, user?.id, year]);
+  return state;
+}
+
 export default function ShareSheet({
   book: bookProp = null,
   books = null,
@@ -243,32 +292,47 @@ export default function ShareSheet({
 }) {
   const toast = useToast();
   const haptic = useHaptic();
-  const now = useMemo(() => new Date(), []);
+  // 端末の日付（お試しモードは &today= で差し替えられる＝lib/appNow.js）。
+  const now = useMemo(() => appNow(), []);
+  // 「今年」は 12 月で、今年に読み終えた本が 1 冊以上あるときだけ（ホームなど本棚を渡された入口だけ）。
+  const yearAllowed = !!books && yearChoiceAllowed(books, now);
 
-  // ---- どの本？（本 1 冊 か 今月）
-  const [subject, setSubject] = useState(() => initialSubject || (bookProp ? { kind: 'book', bookId: bookProp.id } : pickShareSubject(books)));
+  // ---- どの本？（本 1 冊 か 今月 か 今年）
+  const [subject, setSubject] = useState(() => {
+    const s = initialSubject || (bookProp ? { kind: 'book', bookId: bookProp.id } : pickShareSubject(books));
+    return s.kind === 'year' && !yearAllowed ? { kind: 'month' } : s;
+  });
   const choices = useMemo(
-    () => (books ? subjectChoices(books, { selectedId: subject.kind === 'book' ? subject.bookId : null }) : []),
-    [books, subject],
+    () => (books ? subjectChoices(books, { selectedId: subject.kind === 'book' ? subject.bookId : null, includeYear: yearAllowed }) : []),
+    [books, subject, yearAllowed],
   );
   const showSwitcher = choices.length > 1;
   const subjectBook = subject.kind === 'book'
     ? ((bookProp && bookProp.id === subject.bookId) ? bookProp : (books || []).find((b) => b.id === subject.bookId) || null)
     : null;
-  const isMonth = subject.kind === 'month' || !subjectBook;
+  // 本 1 冊でない 1 枚（今月・今年）。period＝'month' | 'year' | null（本 1 冊）。
+  const period = subject.kind === 'year' && yearAllowed ? 'year' : (subject.kind === 'month' || !subjectBook) ? 'month' : null;
+  const isPeriod = !!period;
 
-  // メモ: 開いた本のメモを渡されたらそれを使い、ほかの本はここで読む。今月は今月のメモを読む。
+  // メモ: 開いた本のメモを渡されたらそれを使い、ほかの本はここで読む。今月は今月の、今年は今年のメモを読む。
   const usePropMemos = !!memosProp && !!subjectBook && !!bookProp && subjectBook.id === bookProp.id;
   const loaded = useBookMemos(!usePropMemos && subjectBook ? subjectBook.id : null);
-  const month = useMonthMemos(isMonth);
-  const memos = isMonth ? month.memos : (usePropMemos ? memosProp : loaded.memos);
-  const memosLoading = isMonth ? month.loading : (!usePropMemos && loaded.loading);
+  const month = useMonthMemos(period === 'month', now);
+  const yearM = useYearMemos(period === 'year', now);
+  const memos = period === 'year' ? yearM.memos : period === 'month' ? month.memos : (usePropMemos ? memosProp : loaded.memos);
+  const memosLoading = period === 'year' ? yearM.loading : period === 'month' ? month.loading : (!usePropMemos && loaded.loading);
 
   const record = useMemo(
-    () => (isMonth ? monthRecord(books || [], month.memos, now) : bookRecord(subjectBook, memos, now)),
-    [isMonth, books, month.memos, subjectBook, memos, now],
+    () => (period === 'year'
+      ? yearRecord(books || [], yearM.memos, now, { memoCount: yearM.count })
+      : period === 'month' ? monthRecord(books || [], month.memos, now) : bookRecord(subjectBook, memos, now)),
+    [period, books, month.memos, yearM.memos, yearM.count, subjectBook, memos, now],
   );
-  const candidates = useMemo(() => orderQuoteCandidates(memos, { preferId: initialMemoId }), [memos, initialMemoId]);
+  // 今年は「いちばん残した一文」から（思い出しカードで「覚えた」を押した回数 → しっかり書いた → 新しい順・AI まとめは入れない）。
+  const candidates = useMemo(
+    () => (period === 'year' ? orderYearQuoteCandidates(memos) : orderQuoteCandidates(memos, { preferId: initialMemoId })),
+    [period, memos, initialMemoId],
+  );
   const variants = availableVariants(candidates.length > 0, (record.stats || []).length > 0);
 
   // ---- 重ね方（見せ方）・一文・形・地。重ね方と形は前に選んだもの（端末に覚える）。メモから開いたときは一文。
@@ -277,15 +341,15 @@ export default function ShareSheet({
   const variant = variants.includes(variantPref) ? variantPref : 'record';
   const [quoteIndex, setQuoteIndex] = useState(0);
   // 本を切り替えたら、その本のいちばん新しい一文から。
-  const subjectKey = subject.kind === 'book' ? `b:${subject.bookId}` : 'month';
+  const subjectKey = period || `b:${subject.bookId}`;
   const lastSubjectKey = useRef(subjectKey);
   useEffect(() => {
     if (lastSubjectKey.current !== subjectKey) { lastSubjectKey.current = subjectKey; setQuoteIndex(0); }
   }, [subjectKey]);
   const qi = candidates.length === 0 ? -1 : (variant === 'quote' && quoteIndex < 0 ? 0 : Math.min(quoteIndex, candidates.length - 1));
   const chosen = qi >= 0 ? candidates[qi] : null;
-  // 一文の本（今月の一文は、その一文を書いた本）。
-  const lineBook = chosen && isMonth ? ((books || []).find((b) => b.id === chosen.bookId) || null) : subjectBook;
+  // 一文の本（今月・今年の一文は、その一文を書いた本）。
+  const lineBook = chosen && isPeriod ? ((books || []).find((b) => b.id === chosen.bookId) || null) : subjectBook;
   const knownMaxPage = useMemo(
     () => (memos || []).reduce((mx, m) => (Number.isFinite(m.pageNumber) && (!lineBook || !m.bookId || m.bookId === lineBook.id) ? Math.max(mx, m.pageNumber) : mx), 0),
     [memos, lineBook],
@@ -398,7 +462,7 @@ export default function ShareSheet({
   // ---- 表紙を準備する（外部の表紙は自前の中継を通す・読めなければ代用表紙）。通信なので遅いことがある。
   // 写真・透明の 1 枚は表紙を描かないので、表紙を待たずに描く（撮ってから重ねた画像が出るまでを短く・2026-10-05）。
   const coverBook = variant === 'quote' ? lineBook : subjectBook;
-  const monthCoverBooks = isMonth && variant !== 'quote' ? (record.finishedBooks || []) : [];
+  const monthCoverBooks = isPeriod && variant !== 'quote' ? (record.finishedBooks || []) : [];
   const coverKey = JSON.stringify([coverBook?.cover || '', coverBook?.title || '', monthCoverBooks.map((b) => b.cover || b.title)]);
   useEffect(() => {
     let alive = true;
@@ -411,10 +475,10 @@ export default function ShareSheet({
   }, [coverKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const coverReady = !!coverAssets && coverAssets.key === coverKey;
 
-  // 表紙の色は、表紙のある 1 冊（今月なら読み終えた本があるとき）だけ。本が無い今月の 1 枚では意味が無いので出さない。
-  const coverAllowed = !isMonth || (record.finishedBooks || []).length > 0;
+  // 表紙の色は、表紙のある 1 冊（今月・今年なら読み終えた本があるとき）だけ。本が無い今月の 1 枚では意味が無いので出さない。
+  const coverAllowed = !isPeriod || (record.finishedBooks || []).length > 0;
   // 地を選んでいないとき（auto）: メモから開いたら紙、表紙の画像がある本は表紙の色（写真が無いときの見栄えのよい代わり）、ほかは紙。
-  const autoStyle = !initialMemoId && !isMonth && coverReady && coverAssets.cover?.image ? 'cover' : 'paper';
+  const autoStyle = !initialMemoId && !isPeriod && coverReady && coverAssets.cover?.image ? 'cover' : 'paper';
   const wantStyle = style === 'auto' ? autoStyle : style;
   const effStyle = (wantStyle === 'photo' && !photo) || (wantStyle === 'cover' && !coverAllowed) ? 'paper' : wantStyle;
   styleRef.current = effStyle;
@@ -438,7 +502,7 @@ export default function ShareSheet({
   // 描く材料（書き出す 1 枚・動かしている間の 1 コマ・見本で共通）。
   const cardOpts = (v = variant) => {
     const q = chosen || (v === 'quote' ? candidates[0] : null);
-    const lb = q && isMonth ? ((books || []).find((b) => b.id === q.bookId) || null) : subjectBook;
+    const lb = q && isPeriod ? ((books || []).find((b) => b.id === q.bookId) || null) : subjectBook;
     return {
       layout: v,
       record,
@@ -582,7 +646,7 @@ export default function ShareSheet({
 
   const ready = status === 'ready' && !!card && card.key === drawKey && !busy && !editorOpen;
   const filename = shareFilename({ format: effStyle === 'sticker' ? 'sticker' : format, style: effStyle });
-  const trackProps = (via) => ({ kind: variant === 'quote' ? 'line' : variant, style: effStyle, format: effStyle === 'sticker' ? 'sticker' : format, via, subject: isMonth ? 'month' : 'book', from });
+  const trackProps = (via) => ({ kind: variant === 'quote' ? 'line' : variant, style: effStyle, format: effStyle === 'sticker' ? 'sticker' : format, via, subject: period || 'book', from });
 
   const handleShare = async () => {
     if (!ready) return;
@@ -590,10 +654,11 @@ export default function ShareSheet({
     setBusy(true);
     try {
       // 共有の文は、画像に入れたものと同じ。await を挟まずに共有シートを開く。
-      // 隠した項目（書名など）は文にも入れない。
+      // 隠した項目（書名など）は文にも入れない。今月・今年は「#10月読了本」「#2026年の読書」を添える（画像には入れない）。
+      const tags = shareHashtags(period, now);
       const text = variant !== 'quote'
-        ? buildRecordShareText({ record: applyShareItems(record, hidden), quote: card.line, siteUrl: SITE_URL })
-        : buildShareText({ title: shareVisibility(hidden).title ? lineBook?.title : '', line: card.line, siteUrl: SITE_URL });
+        ? buildRecordShareText({ record: applyShareItems(record, hidden), quote: card.line, siteUrl: SITE_URL, tags })
+        : buildShareText({ title: shareVisibility(hidden).title ? lineBook?.title : '', line: card.line, siteUrl: SITE_URL, tags });
       const result = await shareImage({ blob: card.blob, filename, text });
       if (result !== 'cancelled') track(EVENTS.SHARE_CARD, trackProps(result));
       if (result === 'saved') toast.info('この端末では共有できないため、画像を保存しました。');
@@ -637,7 +702,7 @@ export default function ShareSheet({
   const swapLabel = variant === 'stats' || (variant === 'record' && hidden.includes('quote')) ? null : swapQuoteLabel(qi, candidates.length, variant === 'record');
   const thumbAspect = effStyle === 'sticker' ? 1 : FORMATS[format].w / FORMATS[format].h;
   const thumbW = Math.round(THUMB_H * thumbAspect);
-  const subjectName = isMonth ? `${now.getMonth() + 1}月の読書` : `『${subjectBook?.title || ''}』`;
+  const subjectName = period === 'year' ? `${now.getFullYear()}年の読書` : period === 'month' ? `${now.getMonth() + 1}月の読書` : `『${subjectBook?.title || ''}』`;
 
   const footer = (
     <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
@@ -662,7 +727,7 @@ export default function ShareSheet({
       <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={onPhotoPicked} style={{ display: 'none' }} aria-hidden="true" tabIndex={-1} />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-        {/* どの本？（ホームから開いたとき・今月 → 読書中 → 読了） */}
+        {/* どの本？（ホームから開いたとき・今月 →（12 月だけ）今年 → 読書中 → 読了） */}
         {showSwitcher && (
           <div
             role="radiogroup"
@@ -670,18 +735,21 @@ export default function ShareSheet({
             style={{ display: 'flex', gap: 'var(--space-2)', overflowX: 'auto', scrollSnapType: 'x proximity', margin: 'calc(-1 * var(--space-1)) calc(-1 * var(--space-4))', padding: 'var(--space-1) var(--space-4)', scrollPaddingLeft: 'var(--space-4)', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}
           >
             {choices.map((c) => {
-              const on = c.kind === 'month' ? isMonth : (!isMonth && subjectBook?.id === c.bookId);
+              const on = c.kind === 'book' ? (!isPeriod && subjectBook?.id === c.bookId) : period === c.kind;
               return (
                 <button
-                  key={c.kind === 'month' ? 'month' : c.bookId}
+                  key={c.kind === 'book' ? c.bookId : c.kind}
                   type="button"
                   role="radio"
                   aria-checked={on}
-                  onClick={() => { setSubject(c.kind === 'month' ? { kind: 'month' } : { kind: 'book', bookId: c.bookId }); haptic.light(); }}
-                  style={c.kind === 'month' ? { ...subjectChip(on), paddingLeft: 'var(--space-3)' } : subjectChip(on)}
+                  aria-label={c.kind === 'year' ? `今年（${now.getFullYear()}年の読書）` : undefined}
+                  onClick={() => { setSubject(c.kind === 'book' ? { kind: 'book', bookId: c.bookId } : { kind: c.kind }); haptic.light(); }}
+                  style={c.kind !== 'book' ? { ...subjectChip(on), paddingLeft: 'var(--space-3)' } : subjectChip(on)}
                 >
                   {c.kind === 'month'
                     ? <><CalendarDays size={18} aria-hidden="true" />今月</>
+                    : c.kind === 'year'
+                    ? <><CalendarRange size={18} aria-hidden="true" />今年</>
                     : <><MiniCover book={c.book} width={24} /><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{c.book.title}</span></>}
                 </button>
               );
