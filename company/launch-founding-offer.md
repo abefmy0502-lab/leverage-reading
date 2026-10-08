@@ -25,7 +25,7 @@
 3. 「サブスクリプション価格」の横の **＋ → お試しオファーを作成（Create Introductory Offer）**。
    - **国または地域**: 日本（ほかの国は今までどおり）
    - **開始日**: 公開日（例 2026-11-16）
-   - **終了日**: LP に書く最後の日の **翌日**（例 LP が 12月15日まで → 2026-12-16）。App Store の日付の区切りは日本時間とずれることがあるので、LP の約束より短くならないよう 1 日余らせる（長い分にはお客様の得になるだけ）。画面に出るタイムゾーンを必ず確かめる。
+   - **終了日**: LP に書く最後の日の **翌日**（2026-11-17 公開なら LP は 12月16日まで → **2026-12-17**）。App Store の日付の区切りは日本時間とずれることがあるので、LP の約束より短くならないよう 1 日余らせる（長い分にはお客様の得になるだけ）。画面に出るタイムゾーンを必ず確かめる。
    - **種類**: **前払い（Pay up front）**
    - **期間**: **1 年**
    - **価格**: **¥9,800**
@@ -38,7 +38,7 @@
 | 変数 | 値の例 | 意味 |
 |---|---|---|
 | `VITE_FOUNDING_OFFER` | `on` | 出す（ほかの値・未設定は出さない） |
-| `VITE_FOUNDING_OFFER_END` | `2026-12-15` | LP に書く最後の日（日本時間・この日の 23:59 まで）。無い・読めないと出さない |
+| `VITE_FOUNDING_OFFER_END` | `2026-12-16`（11/17 公開で確定・2026-10-08） | LP に書く最後の日（日本時間・この日の 23:59 まで）。無い・読めないと出さない |
 | `VITE_FOUNDING_PRICE_LABEL` | （未設定） | LP の値段の書き方。既定「1 年目 ¥9,800」 |
 
 - Vercel の Production に入れて、**公開日に出し直す**（VITE_ はビルドのときに埋め込まれる）。
@@ -72,14 +72,14 @@ select f.user_id, u.email, f.started_at, s.status, s.price_id, s.period_type
 from first_start f
 join auth.users u on u.id = f.user_id
 left join subscriptions s on s.user_id = f.user_id
-where f.started_at >= '2026-11-15 15:00+00' and f.started_at < '2026-12-15 15:00+00'  -- 11/16 0:00〜12/16 0:00（日本時間）
+where f.started_at >= '2026-11-16 15:00+00' and f.started_at < '2026-12-16 15:00+00'  -- 11/17 0:00〜12/17 0:00（日本時間）
   and f.user_id not in (select user_id from app_admins)
 order by f.started_at;
 
 -- ② 履歴の表が無いとき: subscriptions の行を作った時刻（1 人 1 行・最初の契約で作られる）で代わりに見る
 select s.user_id, u.email, s.created_at, s.status, s.price_id, s.period_type
 from subscriptions s join auth.users u on u.id = s.user_id
-where s.created_at >= '2026-11-15 15:00+00' and s.created_at < '2026-12-15 15:00+00'
+where s.created_at >= '2026-11-16 15:00+00' and s.created_at < '2026-12-16 15:00+00'
   and s.user_id not in (select user_id from app_admins)
 order by s.created_at;
 ```
