@@ -2431,7 +2431,7 @@ function FirstAnswerTrialCard({ text, onOpen, onDismiss, onSeen = null, style = 
         {/* 狭い画面で 2 行になるときは「、」の後ろで折り返す（「7 日間無料で」と「もっと話す」を離さない）。 */}
         <span style={{ flex: 1, minWidth: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
           {(text.match(/[^、]+、?/g) || [text]).map((part, i) => (
-            <span key={i} style={{ display: 'inline-block' }}>{withPhraseBreaks(part)}</span>
+            <span key={i} style={{ display: 'inline-block' }}>{withPhraseBreaks(part.replace('もっと話す', 'もっと\u2060話す'))}</span>
           ))}
         </span>
         {/* アイコンは文字の大きさに合わせる（15 の文字で 20 相当・DESIGN §5 文字の横のアイコンは em）。 */}

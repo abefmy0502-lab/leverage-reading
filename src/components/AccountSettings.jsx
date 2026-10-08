@@ -984,7 +984,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                       disabled={billingBusy}
                       onClick={handleManageBilling}
                     >
-                      {billingBusy ? '移動中…' : 'サブスクリプションを管理（App Store）'}
+                      {billingBusy ? '移動中…' : 'サブスクリプションを管理（App\u00a0Store）'}
                     </button>
                   ) : subscription?.stripeCustomerId ? (
                     <button

@@ -568,9 +568,12 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
       ? <span style={phraseText}><Phrases>{`${noBreak(selected.intro.priceString)} は始めるときに ${noBreak(selected.intro.span || '1 年')}分をお支払いします。`}</Phrases></span>
       : null;
 
+  // 価格を読めるまでは、年額・月額に依らない中立の文（読み込めた瞬間に別のプランの文へ変わらないように・2026-10-08）
   const ctaLabel = pending
     ? '購入手続き中…'
-    : planCtaLabel({ ...selected, trial });
+    : priceState !== 'ready'
+      ? 'プランを始める'
+      : planCtaLabel({ ...selected, trial });
 
   return (
     <main
