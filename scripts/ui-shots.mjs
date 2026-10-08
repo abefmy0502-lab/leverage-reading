@@ -26,11 +26,28 @@ const outDir = join('ui-shots', label);
 
 const nav = (name) => `nav button[aria-label="${name}"]`;
 
-// AI 選書の聞き取り（2026-10-08）: 書き出しのチップは入力欄に入るだけ → 「答える」で送る → まとめを「合っている」。
+// AI 選書の聞き取り（2026-10-08）: 問いのすぐ下の「自分の言葉で答える」に書き出しを入れて続きを書く → 「答える」→ まとめを「合っている」。
 const ADVISOR_START = [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }];
 const ADVISOR_ANSWER = (chip, more) => [{ css: `[aria-label="書き出しのきっかけ"] button:has-text("${chip}")` }, ...(more ? [{ fill: ['textarea[aria-label="自分の言葉で答える"]', more] }] : []), { css: 'button[aria-label="答える"]' }, { wait: 2500 }];
-const ADVISOR_TO_SUMMARY = [...ADVISOR_ANSWER('大事なことに手が付かない', '大事なことに手が付かない。メールと会議で一日が終わってしまう'), ...ADVISOR_ANSWER('自分の時間を取り戻したい')];
+const ADVISOR_ESCAPE = (label) => ({ css: `[aria-label="うまく答えられないとき"] button:has-text("${label}")` });
+const ADVISOR_TO_SUMMARY = [...ADVISOR_ANSWER('大事なことに限って', '大事なことに限って、メールと会議で一日が終わってしまう'), ...ADVISOR_ANSWER('本当は、', '本当は、夕方に自分の仕事を進める時間がほしい')];
 const ADVISOR_TO_RECO = [...ADVISOR_TO_SUMMARY, { css: 'button:has-text("合っている")' }];
+const ADVISOR_CARE_START = [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事がつらくて、消えたいと思うことがある'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }];
+// 第 2 回（ui-critic）の撮影: 明暗＋文字最大（-xxl）。
+const XXL = { eval: () => { document.documentElement.style.fontSize = '28px'; } };
+const ADVISOR2 = [
+  ['adv2-q1', '/', [...ADVISOR_START]],
+  ['adv2-q2', '/', [...ADVISOR_START, ...ADVISOR_ANSWER('大事なことに限って', '大事なことに限って、メールと会議で一日が終わってしまう')]],
+  ['adv2-off', '/', [...ADVISOR_START, ADVISOR_ESCAPE('どれも少し違う')]],
+  ['adv2-unsure', '/', [...ADVISOR_START, ADVISOR_ESCAPE('まだ言葉にできない'), { wait: 2500 }]],
+  ['adv2-loading', '/?ai=slow', [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 800 }]],
+  ['adv2-fail', '/?ai=fail', [...ADVISOR_START]],
+  ['adv2-summary', '/', [...ADVISOR_START, ...ADVISOR_TO_SUMMARY]],
+  ['adv2-correct', '/', [...ADVISOR_START, ...ADVISOR_TO_SUMMARY, { css: 'button:has-text("少し違う（直す）")' }]],
+  ['adv2-reco', '/', [...ADVISOR_START, ...ADVISOR_TO_SUMMARY, { css: 'button:has-text("少し違う（直す）")' }, { fill: ['textarea[aria-label="違うところを、自分の言葉で"]', '時間というより、頼まれると断れないのがつらい'] }, { css: 'button[aria-label="直して探す"]' }, { wait: 8000 }]],
+  ['adv2-care', '/', [...ADVISOR_CARE_START]],
+  ['adv2-history', '/', [...ADVISOR_START, ...ADVISOR_TO_SUMMARY, { css: 'button:has-text("少し違う（直す）")' }, { fill: ['textarea[aria-label="違うところを、自分の言葉で"]', '時間というより、頼まれると断れないのがつらい'] }, { css: 'button[aria-label="直して探す"]' }, { wait: 8000 }, { css: 'button[aria-label="履歴を見る"]' }, { wait: 800 }, { css: 'li button >> nth=0' }, { wait: 800 }]],
+].flatMap(([name, url, steps]) => [{ name, url, steps }, { name: `${name}-xxl`, url, steps: [XXL, ...steps] }]);
 
 // 写真で共有の編集画面（2026-10-01）の操作。
 const EDIT = '[role=dialog][aria-label="画像を編集"]';
@@ -78,6 +95,7 @@ const CONSENT_CONSULT = [{ css: nav('相談') }, { fill: ['textarea[aria-label="
 
 // 画面の定義: url（お試しモードのシナリオ）と、そこに至る操作。
 const SCREENS = [
+  ...ADVISOR2,
   { name: 'home', url: '/' },
   { name: 'home-new-user', url: '/?demo=new', steps: [{ css: 'button[aria-label="閉じる"]' }] },
   { name: 'library', url: '/', steps: [{ css: 'button:has-text("すべての本")' }] },
@@ -211,9 +229,9 @@ const SCREENS = [
   // 2026-09-27 追加: 生成後・状態別・編集・取り込み
   { name: 'advisor-interview', url: '/', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }] },
   // 聞き取りの作り直し（2026-10-08）: どれも少し違う／まだ言葉にできない／このくらいで探して／受け取ったまとめ／少し違う（直す）
-  { name: 'advisor-interview-off', url: '/', steps: [...ADVISOR_START, { css: '[aria-label="書き出しのきっかけ"] button:has-text("どれも少し違う")' }, { fill: ['textarea[aria-label="どこが違いますか？"]', 'じつは仕事より、家に帰ってからも休めないのがつらい'] }] },
-  { name: 'advisor-interview-unsure', url: '/', steps: [...ADVISOR_START, { css: '[aria-label="書き出しのきっかけ"] button:has-text("まだ言葉にできない")' }, { wait: 2500 }] },
-  { name: 'advisor-interview-second', url: '/', steps: [...ADVISOR_START, ...ADVISOR_ANSWER('大事なことに手が付かない', '大事なことに手が付かない。メールと会議で一日が終わってしまう')] },
+  { name: 'advisor-interview-off', url: '/', steps: [...ADVISOR_START, ADVISOR_ESCAPE('どれも少し違う'), { fill: ['textarea[aria-label="どこが違いますか？"]', 'じつは仕事より、家に帰ってからも休めないのがつらい'] }] },
+  { name: 'advisor-interview-unsure', url: '/', steps: [...ADVISOR_START, ADVISOR_ESCAPE('まだ言葉にできない'), { wait: 2500 }] },
+  { name: 'advisor-interview-second', url: '/', steps: [...ADVISOR_START, ...ADVISOR_ANSWER('大事なことに限って', '大事なことに限って、メールと会議で一日が終わってしまう')] },
   { name: 'advisor-search-now', url: '/', steps: [...ADVISOR_START, { css: 'button:has-text("このくらいで探して")' }] },
   { name: 'advisor-summary', url: '/', steps: [...ADVISOR_START, ...ADVISOR_TO_SUMMARY] },
   { name: 'advisor-summary-correct', url: '/', steps: [...ADVISOR_START, ...ADVISOR_TO_SUMMARY, { css: 'button:has-text("少し違う（直す）")' }, { fill: ['textarea[aria-label="違うところを、自分の言葉で"]', '時間というより、頼まれると断れないのがつらい'] }] },

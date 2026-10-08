@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   MAX_INTERVIEW_QUESTIONS, OPT_OFF, OPT_UNSURE,
-  cleanOptions, parseInterviewStep, interviewChips, applyStarter,
+  cleanOptions, parseInterviewStep, interviewChips, applyStarter, starterText,
   buildPriorQA, spokenAnswers, buildRecoMessage, needsCareLine,
 } from './advisorInterview';
 import { concernOf, interviewPairsOf, confirmedOf, displayUserText, advisorSetupPayload } from './advisorText';
@@ -19,7 +19,10 @@ describe('指示文（advisorInterview）の形', () => {
   });
   it('選択肢は書き出しのきっかけ・誘導しない・逃げ道はアプリが付ける', () => {
     expect(sys).toMatch(/書き出しのきっかけ/);
-    expect(sys).toMatch(/10〜20 字/);
+    expect(sys).toMatch(/8〜20 字/);
+    expect(sys).toMatch(/言い切らず、続きを書きたくなる形で終える/);
+    expect(sys).toMatch(/願望や結論/);
+    expect(sys).toMatch(/引用は省略しない/);
     expect(sys).toMatch(/押し付けない/);
     expect(sys).toContain(OPT_OFF);
     expect(sys).toContain(OPT_UNSURE);
@@ -88,15 +91,28 @@ describe('AI の答え（JSON）の解析', () => {
 });
 
 describe('書き出しのチップを押したときの入力欄', () => {
-  const labels = ['気づくと一日が終わって', '人に頼めない'];
+  const labels = ['気づくと一日が終わるのが', '本当は、'];
+  it('言い切らずに続きを書く余地を作る（末尾に「、」・すでに句読点なら足さない）', () => {
+    expect(starterText('気づくと一日が終わるのが')).toBe('気づくと一日が終わるのが、');
+    expect(starterText('本当は、')).toBe('本当は、');
+    expect(starterText('先週の会議で…')).toBe('先週の会議で…');
+    expect(starterText('')).toBe('');
+  });
   it('空・前のチップの言葉だけなら入れ替える', () => {
-    expect(applyStarter('', '人に頼めない', labels)).toBe('人に頼めない');
-    expect(applyStarter('気づくと一日が終わって', '人に頼めない', labels)).toBe('人に頼めない');
+    expect(applyStarter('', '本当は、', labels)).toBe('本当は、');
+    expect(applyStarter('気づくと一日が終わるのが、', '本当は、', labels)).toBe('本当は、');
+    expect(applyStarter('気づくと一日が終わるのが', '本当は、', labels)).toBe('本当は、');
   });
   it('本人が書いた文は消さずに後ろへ足す（二重には足さない）', () => {
-    expect(applyStarter('会議が多くて', '人に頼めない', labels)).toBe('会議が多くて、人に頼めない');
-    expect(applyStarter('会議が多くて。', '人に頼めない', labels)).toBe('会議が多くて。人に頼めない');
-    expect(applyStarter('会議が多くて、人に頼めない', '人に頼めない', labels)).toBe('会議が多くて、人に頼めない');
+    expect(applyStarter('会議が多くて', '気づくと一日が終わるのが', labels)).toBe('会議が多くて、気づくと一日が終わるのが、');
+    expect(applyStarter('会議が多くて。', '本当は、', labels)).toBe('会議が多くて。本当は、');
+    expect(applyStarter('会議が多くて、本当は、家にいたい', '本当は、', labels)).toBe('会議が多くて、本当は、家にいたい');
+  });
+});
+
+describe('逃げ道は丸ごとの形だけ捨てる', () => {
+  it('「違う部署で」「その他の人が」は書き出しとして残す', () => {
+    expect(cleanOptions(['違う部署で', 'その他の人が', 'どれも少し違う', 'その他（自由入力）', 'わからない'])).toEqual(['違う部署で', 'その他の人が']);
   });
 });
 
@@ -123,7 +139,7 @@ describe('AI に渡す文の組み立て', () => {
     expect(concernOf(msg)).toBe('仕事が回らない');
     expect(interviewPairsOf(msg)).toEqual([{ q: '引っかかっているのは？', a: '大事なことに手が付かない' }, { q: 'どうなりたい？', a: '家族との時間' }]);
     expect(confirmedOf(msg)).toEqual({ summary: '「手が付かない」ということでしょうか。', correction: '本当は断れないのがつらい\nとくに上司に' });
-    expect(displayUserText(msg)).toBe('仕事が回らない\n・大事なことに手が付かない\n・家族との時間\n・本当は断れないのがつらい\nとくに上司に');
+    expect(displayUserText(msg)).toBe('仕事が回らない\n・大事なことに手が付かない\n・家族との時間');
   });
   it('まとめも答えも無いときは節を足さない（以前の形と同じ読み方）', () => {
     const msg = buildRecoMessage({ concern: 'お金の不安', answers: [] });

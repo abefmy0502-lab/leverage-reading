@@ -47,13 +47,12 @@ export function confirmedOf(raw) {
   return { summary: sectionOf(s, '受け取った悩み'), correction: sectionOf(s, '本人の直し（最優先）') };
 }
 
-// 表示用: 相談＋回答（「・」の箇条書き）。本人の直しがあれば最後に（本人の言葉なので）。
+// 表示用: 相談＋回答（「・」の箇条書き）。受け取った悩みと本人の直しは入れない
+//   （過去の AI 選書では会話中と同じく、小見出し「受け取った悩み」と直しの吹き出しを別に出す＝confirmedOf・2026-10-08）。
 export function displayUserText(raw) {
   const s = String(raw || '');
   if (!TEMPLATE.test(s)) return s;
   const answers = interviewPairsOf(s).map((p) => p.a);
-  const { correction } = confirmedOf(s);
-  if (correction) answers.push(correction);
   const c = concernOf(s);
   return answers.length ? `${c}\n${answers.map((a) => `・${a}`).join('\n')}` : c;
 }

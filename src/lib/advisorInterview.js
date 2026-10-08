@@ -21,8 +21,9 @@ const OFF_NOTE = '（選択肢はどれも違う、と自分の言葉で答え�
 const UNSURE_ANSWER = '（まだ言葉にできない）';
 
 // AI が選択肢に入れてしまった逃げ道・その他は捨てる（アプリが付けるので二重にしない）。
-const ESCAPE_OPTION = /どれも|違う|その他|わから|分から|言葉にでき|特にない|とくにない|なんとも|何とも/;
-const OPTION_MAX = 24; // 10〜20 字を頼む。少しはみ出すのは許し、長すぎる文は捨てる。
+// 丸ごとその形のものだけ（「違う部署で」「その他の人が」のような書き出しは捨てない）。
+const ESCAPE_OPTION = /^(どれも(少し)?(違う|ちがう)|(その他|そのほか)(（.*）)?|(よく)?(わからない|分からない|わかりません|分かりません)|まだ言葉にできない|言葉にできない|特にない|とくにない|なんとも言えない|何とも言えない)$/;
+const OPTION_MAX = 24; // 8〜20 字を頼む。少しはみ出すのは許し、長すぎる文は捨てる。
 const QUESTION_MAX = 120;
 const SUMMARY_MAX = 300;
 
@@ -72,14 +73,23 @@ export function interviewChips(step) {
   return [...starts, { kind: 'off', label: OPT_OFF }, { kind: 'unsure', label: OPT_UNSURE }];
 }
 
-// 書き出しのチップを押したときの入力欄の中身。空か、前に押したチップの言葉だけなら入れ替え、
-// 本人が書いた文があれば消さずに後ろへ足す（押しても書いたものは消えない）。
+// 書き出しを入力欄に入れる形: 言い切らずに続きを書く余地を作る（末尾に「、」・すでに句読点や … で終わっていればそのまま）。
+export function starterText(label) {
+  const t = str(label);
+  if (!t) return '';
+  return /[、,，…。！？!?]$/u.test(t) ? t : `${t}、`;
+}
+
+// 書き出しのチップを押したときの入力欄の中身（カーソルは末尾に置く＝呼ぶ側）。
+//   空か、前に押したチップの言葉だけなら入れ替え、本人が書いた文があれば消さずに後ろへ足す（押しても書いたものは消えない）。
 export function applyStarter(current, label, chipLabels = []) {
   const cur = String(current || '');
   const t = cur.trim();
-  if (!t || chipLabels.includes(t)) return label;
-  if (cur.includes(label)) return cur;
-  return `${cur.replace(/\s+$/u, '')}${/[、。,.!?！？]$/u.test(t) ? '' : '、'}${label}`;
+  const next = starterText(label);
+  const isChip = (x) => chipLabels.some((l) => x === str(l) || x === starterText(l));
+  if (!t || isChip(t)) return next;
+  if (cur.includes(str(label))) return cur;
+  return `${cur.replace(/\s+$/u, '')}${/[、。,.!?！？…]$/u.test(t) ? '' : '、'}${next}`;
 }
 
 // AI に渡す「これまでの問いと答え」。answers: [{ q, a, off?, unsure? }]（a は sanitize 済み）。
@@ -118,7 +128,9 @@ export function buildRecoMessage({ concern, answers, summary = '', correction = 
 
 // 🫶 命に関わる深刻な言葉（本人の文に出たときだけ、相談窓口を静かに示す 1 行を出す・AI は使わない）。
 const CARE_WORDS = /死にたい|しにたい|消えたい|きえたい|自殺|自死|いなくなりたい|生きているのがつらい|生きてるのがつらい|生きるのがつらい|生きる意味がない|生きていたくない|リストカット/;
-export const CARE_LINE = 'つらい気持ちが強いときは、ひとりで抱えず、身近な人や、こころの相談窓口（厚生労働省「まもろうよ こころ」）にも話してみてください。';
+export const CARE_LINE = 'つらい気持ちが強いときは、ひとりで抱えず、身近な人や、こころの相談窓口にも話してみてください。';
+// 厚生労働省の相談窓口の案内（電話・SNS の窓口の一覧）。外部リンクで開く。
+export const CARE_LINK = { label: 'まもろうよ こころ（厚生労働省）', url: 'https://www.mhlw.go.jp/mamorouyokokoro/' };
 export function needsCareLine(texts) {
   return (Array.isArray(texts) ? texts : [texts]).some((t) => CARE_WORDS.test(String(t || '')));
 }

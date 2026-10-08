@@ -28,6 +28,20 @@ import { dropSummarySection, introTextOf, splitRecoAnswer } from '../lib/advisor
 import { fmtDateTimeJa } from '../lib/dates';
 import { normalizeAdvisorRecs, focusText } from '../lib/advisorRecs';
 
+// 本人の言葉＝右寄せの --fill 吹き出し（会話中の AI 選書・相談と同じ）。
+const userBubbleStyle = {
+  maxWidth: '85%',
+  padding: 'var(--space-3) var(--space-4)',
+  borderRadius: 'var(--radius)',
+  background: 'var(--fill)',
+  color: 'var(--text)',
+  fontSize: 'var(--text-body)',
+  lineHeight: 1.5,
+  whiteSpace: 'pre-wrap',
+  wordBreak: 'keep-all',
+  overflowWrap: 'anywhere',
+};
+
 // 日時は過去の相談と同じ「10月4日 22:38」（lib/dates.js の fmtDateTimeJa・以前は「今日 22:38」と混ざっていた・2026-10-04）。
 export function formatDate(iso) {
   return fmtDateTimeJa(iso);
@@ -277,7 +291,7 @@ function RecommendationCard({ book, index = 0, isAdded, isChecking, onAdd }) {
       {book.why && (
         <div style={{ marginTop: 'var(--space-3)' }}>
           <p style={fieldLabel}>なぜあなたに</p>
-          <p style={{ ...readText, margin: 'var(--space-1) 0 0' }}>{withPhraseBreaks(book.why)}</p>
+          <p style={{ ...readText, margin: 'var(--space-1) 0 0', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(book.why)}</p>
         </div>
       )}
       {book.core && <RecField label="この本の核心" text={book.core} />}
@@ -494,30 +508,25 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
             }
             const text = isUser ? displayUserText(raw) : filterProseTitles(dropSummarySection(stripRecommendations(raw)), proseLists);
             if (!text) return null; // JSON だけのメッセージは非表示
+            // 確かめた悩み（受け取ったまとめ・本人の直し）は会話中と同じ並び: 相談の吹き出し → 小見出し「受け取った悩み」＋本文 → 直しの吹き出し（2026-10-08）。
+            const conf = isUser ? confirmedOf(raw) : null;
             return isUser ? (
-              // ユーザーの相談＝右寄せの --fill 吹き出し（相談と同じ）。
-              <div
-                key={i}
-                style={{ display: 'flex', justifyContent: 'flex-end' }}
-                role="article"
-                aria-label="あなたの相談"
-              >
-                <div
-                  style={{
-                    maxWidth: '85%',
-                    padding: 'var(--space-3) var(--space-4)',
-                    borderRadius: 'var(--radius)',
-                    background: 'var(--fill)',
-                    color: 'var(--text)',
-                    fontSize: 'var(--text-body)',
-                    lineHeight: 1.5,
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'keep-all',
-                    overflowWrap: 'anywhere',
-                  }}
-                >
-                  {text}
+              <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+                {/* ユーザーの相談＝右寄せの --fill 吹き出し（相談と同じ）。 */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }} role="article" aria-label="あなたの相談">
+                  <div style={userBubbleStyle}>{withPhraseBreaks(text)}</div>
                 </div>
+                {conf?.summary && (
+                  <div role="note" aria-label="受け取った悩み">
+                    <p style={{ ...groupTitle, margin: 0 }}>受け取った悩み</p>
+                    <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.6, margin: 'var(--space-1) 0 0', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(conf.summary)}</p>
+                  </div>
+                )}
+                {conf?.correction && (
+                  <div style={{ display: 'flex', justifyContent: 'flex-end' }} role="article" aria-label="あなたの言葉（直し）">
+                    <div style={userBubbleStyle}>{withPhraseBreaks(conf.correction)}</div>
+                  </div>
+                )}
               </div>
             ) : (
               // AI の提案＝Markdown（見出し・箇条書き）として描画（生の ## を出さない。会話中と同じ）。
