@@ -89,3 +89,29 @@ export function threadTitleOf(group, max = 18) {
   const chars = [...t];
   return chars.length > max ? `${chars.slice(0, max).join('')}…` : t;
 }
+
+/**
+ * いちばん新しく話した相談（会話）→ { group, rootId, question, title, answer, at } か null（2026-10-08 ui-critic）。
+ * 相談例の「前に相談した「…」、その後どう進める？」は、最後の返事（「会議の前」）ではなく、会話のはじめの相談から作る
+ * （threadRootOf と同じ＝続きを相談した会話は元の会話のはじめ）。答えを書き終えたやりとりが無い会話は飛ばす（isDone）。
+ * group は「この続きを相談する」と同じく会話の全体。answer はいちばん新しい書き終えた答え。
+ */
+export function lastConsultThread(messages, { skip = () => false, isDone = () => true } = {}) {
+  const groups = groupConsults(messages, { skip });
+  for (const g of groups) {
+    const answers = g.filter((m, k) => m.role === 'assistant' && k > 0 && g[k - 1].role === 'user' && isDone(m));
+    if (answers.length === 0) continue;
+    const rootId = threadRootOf(g, null);
+    const first = g.find((m) => m.id === rootId) || g.find((m) => m.role === 'user');
+    if (!first) continue;
+    return {
+      group: g,
+      rootId: first.id,
+      question: String(first.content || ''),
+      title: threadTitleOf(g),
+      answer: String(answers[answers.length - 1].content || ''),
+      at: first.createdAt,
+    };
+  }
+  return null;
+}

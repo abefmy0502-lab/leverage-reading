@@ -586,11 +586,16 @@ export function usedLenses(turns) {
 
 // 仕事の相談か（2026-10-08 ui-critic）。相談の文（この会話の相談たち）に仕事の言葉があるか、
 //   相談相手に絞った本のタグ・書名が仕事の本（ビジネス・マネジメント・営業など）なら仕事。どちらも無ければ仕事ではない。
-const WORK_WORDS_RE = /部下|上司|同僚|先輩|後輩|チーム|会社|職場|組織|社員|会議|顧客|お客|取引|商談|営業|売上|案件|プロジェクト|担当|業務|仕事|納期|評価|昇進|転職|残業|クライアント|経営|マネジ|リーダー|報告|プレゼン|キャリア|事業|部署|部長|課長|役員/;
+//   言葉は 2 段: 仕事にしか使わない語（部下・上司・会社・売上…）はそれだけで仕事。学校・部活・家庭でも使う語
+//   （チーム・評価・担当・会議・報告・リーダー・先輩…）は、学校・家庭の言葉（子ども・学校・部活・先生・家族…）が無いときだけ仕事。
+const WORK_STRONG_RE = /部下|上司|同僚|会社|職場|社員|顧客|お客様|取引|商談|営業|売上|案件|プロジェクト|業務|仕事|納期|昇進|転職|残業|クライアント|経営|部署|部長|課長|役員|事業|キャリア|出社|在宅勤務|給料|年収/;
+const WORK_WEAK_RE = /チーム|組織|会議|評価|担当|報告|リーダー|マネジ|プレゼン|先輩|後輩|お客/;
+const PRIVATE_RE = /子ども|子供|息子|娘|学校|部活|クラス|先生|保護者|PTA|受験|家族|家庭|夫|妻|親|友だち|友達|趣味|サークル/;
 const WORK_BOOK_RE = /ビジネス|仕事|マネジメント|マネジャー|マネージャー|リーダー|営業|経営|組織|キャリア|会議|プレゼン|戦略|マーケティング|働き方|チーム|上司|部下/;
 export function isWorkConsult({ texts = [], books = [] } = {}) {
   const t = (Array.isArray(texts) ? texts : [texts]).map((x) => String(x || '')).join(' ');
-  if (WORK_WORDS_RE.test(t)) return true;
+  if (WORK_STRONG_RE.test(t)) return true;
+  if (WORK_WEAK_RE.test(t) && !PRIVATE_RE.test(t)) return true;
   return (Array.isArray(books) ? books : []).some((b) => {
     const tags = [...(Array.isArray(b?.tags) ? b.tags : []), ...(Array.isArray(b?.collections) ? b.collections : [])].join(' ');
     return WORK_BOOK_RE.test(`${tags} ${b?.title || ''}`);

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { encodeThreadRef, decodeThreadRef, isThreadRef, threadRootOf, groupConsults, threadScopeOf, threadTitleOf } from './consultThreads.js';
+import { encodeThreadRef, decodeThreadRef, isThreadRef, threadRootOf, groupConsults, threadScopeOf, threadTitleOf, lastConsultThread } from './consultThreads.js';
 
 const U = (id, at, content = '相談') => ({ id, role: 'user', content, createdAt: at, refs: [] });
 const A = (id, at, refs = [], content = '【結論】\n答え') => ({ id, role: 'assistant', content, createdAt: at, refs });
@@ -69,5 +69,30 @@ describe('threadScopeOf / threadTitleOf', () => {
   it('題は、はじめの相談を 18 字まで', () => {
     expect(threadTitleOf([U('u1', '1', '部下が報告をくれなくて困っています'), A('a1', '2')])).toBe('部下が報告をくれなくて困っています');
     expect(threadTitleOf([U('u1', '1', 'あいうえおかきくけこさしすせそたちつてと')])).toBe('あいうえおかきくけこさしすせそたちつ…');
+  });
+});
+
+describe('lastConsultThread（相談例の「前に相談した「…」」の元）', () => {
+  const conv = [
+    U('u1', '01', '部下が報告をくれなくて困っています'), A('a1', '02', ['🧵 u1']),
+    U('u2', '03', '会議の前'), A('a2', '04', ['🧵 u1']),
+  ];
+  it('最後の返事（「会議の前」）ではなく、会話のはじめの相談から', () => {
+    const c = lastConsultThread(conv);
+    expect(c.question).toBe('部下が報告をくれなくて困っています');
+    expect(c.rootId).toBe('u1');
+    expect(c.title).toBe('部下が報告をくれなくて困っています');
+    // 押したときに開くのは会話の全体
+    expect(c.group.map((m) => m.id)).toEqual(['u1', 'a1', 'u2', 'a2']);
+    expect(c.answer).toContain('答え');
+  });
+  it('続きを相談した会話でも、元の会話のはじめ（いちばん新しく話した会話）', () => {
+    const msgs = [U('x1', '00', '前の別の相談'), A('x2', '00b'), ...conv, U('u3', '05', '相手の反応'), A('a3', '06', ['🧵 u1'])];
+    expect(lastConsultThread(msgs).question).toBe('部下が報告をくれなくて困っています');
+  });
+  it('書き終えた答えが無い会話は飛ばす・画面の上だけのやりとりは入れない', () => {
+    const msgs = [U('x1', '00', '前の別の相談'), A('x2', '00b'), U('u9', '07', '書いている途中'), { id: 'a9', role: 'assistant', content: '', createdAt: '08', streaming: true, refs: [] }];
+    expect(lastConsultThread(msgs, { isDone: (a) => !a.streaming }).question).toBe('前の別の相談');
+    expect(lastConsultThread([{ id: 'memo-q', role: 'user', content: 'x', local: true }], { skip: (m) => !!m.local })).toBeNull();
   });
 });
