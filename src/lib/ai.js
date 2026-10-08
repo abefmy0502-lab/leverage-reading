@@ -1780,12 +1780,12 @@ export async function generateBookBrief({ book, info }) {
   );
   if (typeof result !== 'string') throw new Error('この本で学べることを作れませんでした。');
   if (isClaudeErrorString(result)) {
-    const err = new Error(isAiNoticeString(result) ? result : 'この本で学べることを作れませんでした。少し時間をおいて、もう一度お試しください。');
+    const err = new Error(isAiNoticeString(result) ? result : 'この本で学べることを作れませんでした。少し時間をおいてから押してください。');
     if (isAiNoticeString(result)) err.notice = true;
     throw err;
   }
-  const text = finalizeBrief(isSuspiciousOutput(result) ? '' : result, { toc: cleanToc, title: book?.title || '' });
-  if (!text) throw new Error('この本で学べることを作れませんでした。もう一度お試しください。');
+  const text = finalizeBrief(isSuspiciousOutput(result) ? '' : result, { toc: cleanToc, title: book?.title || '', about: sanitizeForPrompt(about) });
+  if (!text) throw new Error('紹介と目次から、うまくまとめられませんでした。');
   track('ai_used', { feature: 'book_brief' });
   return text;
 }

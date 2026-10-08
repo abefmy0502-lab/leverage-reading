@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { PROMPTS, BRIEF_HEADINGS } from './prompts';
 import {
   hasBriefMaterial, parseBrief, groundBrief, finalizeBrief, formatBrief, isUsableBrief, briefForPrompt,
-  appendHypothesis, readLocalBrief, writeLocalBrief, storedBriefOf, BRIEF_NO_MATERIAL_TEXT, BRIEF_MAX_TOKENS, BRIEF_PROMPT_MAX,
+  appendHypothesis, unknownTermsIn, briefSourceLine, briefLabels, readLocalBrief, writeLocalBrief, storedBriefOf, BRIEF_NO_MATERIAL_TEXT, BRIEF_MAX_TOKENS, BRIEF_PROMPT_MAX,
 } from './bookBrief';
 import { TOKEN_COSTS } from './tokens';
 
@@ -108,6 +108,60 @@ describe('目次に無い章名を消す（groundBrief）', () => {
     const { brief } = groundBrief(parseBrief(many), { toc: [], title: '' });
     expect(brief.learn).toHaveLength(5);
     expect(brief.hypotheses).toHaveLength(3);
+  });
+});
+
+describe('材料に無い数字・語を残さない（2026-10-08 ui-critic 第 2 回）', () => {
+  const about = INFO.description;
+  it('材料に無い数字（「5 年後」「週に 1 回」）は、概要・学べること・仮説の例のどれからも消す', () => {
+    const text = [
+      '## 概要', '100 年生きる時代には 3 つのステージでは足りない。5 年後に差がつく。',
+      '## 学べること', '- 5 年後の働き方の描き方', '- お金に換えられない資産',
+      '## 仮説の例', '- 週に 1 回学び直せば、段階の候補が増えるのでは', '- 資産を書き出せば、選択肢が見えるのでは',
+    ].join('\n');
+    const { brief, removed } = groundBrief(parseBrief(text), { toc: TOC, title: 'LIFE SHIFT', about });
+    expect(brief.summary).toBe('100 年生きる時代には 3 つのステージでは足りない。');
+    expect(brief.learn).toEqual(['お金に換えられない資産']);
+    expect(brief.hypotheses).toEqual(['資産を書き出せば、選択肢が見えるのでは']);
+    expect(removed).toHaveLength(3);
+  });
+
+  it('材料に無いカタカナ語・英字の語（固有の語）は概要と学べることから消す（仮説の例は見立てなので語は見ない）', () => {
+    expect(unknownTermsIn('マルチステージの人生', about)).toEqual(['マルチステージ']);
+    expect(unknownTermsIn('ステージを行き来する', about)).toEqual([]);
+    expect(unknownTermsIn('OKR で目標を立てる', about)).toEqual(['okr']);
+    expect(unknownTermsIn('『第9章 AI 時代』を読む', about)).toEqual([]); // 『章名』は章名の確かめ方で見る
+    expect(unknownTermsIn('チームで試せば', about, { words: false })).toEqual([]);
+    const { brief } = groundBrief(parseBrief('## 概要\n寿命が延びる。\n## 学べること\n- マルチステージの考え方\n- 人生設計\n## 仮説の例\n- チームで話せば変わるのでは'), { toc: TOC, about });
+    expect(brief.learn).toEqual(['人生設計']);
+    expect(brief.hypotheses).toEqual(['チームで話せば変わるのでは']);
+  });
+
+  it('長い文は途中で切らない（概要は文の切れ目・項目は超えたら捨てる）', () => {
+    const long = 'あ'.repeat(100);
+    const { brief } = groundBrief(parseBrief(`## 概要\n${long}。${long}。\n## 学べること\n- ${'い'.repeat(81)}\n- 短い学び`), { toc: [], about: 'あいう' });
+    expect(brief.summary).toBe(`${long}。`);
+    expect(brief.learn).toEqual(['短い学び']);
+  });
+
+  it('指示文: 材料に無い言葉・数字で膨らませない', () => {
+    expect(PROMPTS.bookBrief.system).toContain('材料に無い言葉・数字・例・用語で膨らませない');
+  });
+});
+
+describe('小説・物語は「味わえること」・添え書きは材料に合わせる', () => {
+  it('「## 味わえること」で書かれたら、その見出しのまま保存し、見出しも「この本で味わえること」', () => {
+    const text = finalizeBrief('## 概要\n変化は起きる。\n## 味わえること\n- 寓話の余韻\n## 仮説の例\n- 動けば変わるのでは', { toc: [], about: '変化は起きる。寓話の余韻。' });
+    expect(text).toContain('## 味わえること\n- 寓話の余韻');
+    expect(briefLabels(text)).toEqual({ title: 'この本で味わえること', learn: '味わえること', short: '概要・味わえること' });
+    expect(briefLabels(finalizeBrief(ANSWER, { toc: TOC })).title).toBe('この本で学べること');
+    expect(PROMPTS.bookBrief.system).toContain('## 味わえること');
+  });
+  it('紹介だけ／目次だけ／両方', () => {
+    expect(briefSourceLine(INFO)).toBe('紹介文と目次から AI がまとめました');
+    expect(briefSourceLine({ ...INFO, toc: [] })).toBe('紹介文から AI がまとめました');
+    expect(briefSourceLine({ ...INFO, description: '' })).toBe('目次から AI がまとめました');
+    expect(briefSourceLine(null)).toBe('公開の紹介から AI がまとめました');
   });
 });
 

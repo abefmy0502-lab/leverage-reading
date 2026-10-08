@@ -32,9 +32,9 @@ describe('BookBrief', () => {
   });
 
   it('作ったら中身（概要・学べること・仮説の例・どこから作ったか・作り直す）', () => {
-    const html = renderToStaticMarkup(<BookBrief variant="inCard" text={BRIEF} material onMake={() => {}} />);
+    const html = renderToStaticMarkup(<BookBrief variant="inCard" text={BRIEF} material info={INFO} onMake={() => {}} />);
     const t = text(html);
-    for (const w of ['この本で学べること', '概要', '学べること', '見えない資産', '仮説の例', '紹介と目次から AI がまとめました', '作り直す']) expect(t).toContain(w);
+    for (const w of ['この本で学べること', '概要', '学べること', '見えない資産', '仮説の例', '紹介文と目次から AI がまとめました', '作り直す']) expect(t).toContain(w);
     expect(t).not.toContain(BRIEF_MAKE_LABEL);
   });
 
@@ -51,6 +51,26 @@ describe('BookBrief', () => {
   it('編集画面の畳み: ふだんは閉じる・作った直後は開いたまま', () => {
     expect(renderToStaticMarkup(<BookBrief variant="fold" text={BRIEF} />)).not.toMatch(/<details[^>]* open/);
     expect(renderToStaticMarkup(<BookBrief variant="fold" text={BRIEF} defaultOpen />)).toMatch(/<details[^>]* open/);
+  });
+
+  it('作れなかったときは、ボタンの下に理由と「もう一度作る」', () => {
+    const html = renderToStaticMarkup(<BookBrief variant="make" material error="作れませんでした。" costLine="1 回 約 2 トークン" onMake={() => {}} />);
+    expect(html).toContain('role="alert"');
+    expect(text(html)).toContain('もう一度作る');
+    expect(text(html)).toContain('作れませんでした。');
+  });
+
+  it('紹介を読み込んでいる間は押せないボタン（「作成中…」とは言わない）', () => {
+    const html = renderToStaticMarkup(<BookBrief variant="make" material={false} infoLoading onMake={() => {}} />);
+    expect(html).toContain('disabled');
+    expect(text(html)).toContain(BRIEF_MAKE_LABEL);
+    expect(text(html)).not.toContain('作成中');
+  });
+
+  it('作ったあとの積読の畳み: 見出し＋右に「概要・学べること」・ふだんは閉じる', () => {
+    const html = renderToStaticMarkup(<BookBrief variant="fold" text={BRIEF} info={INFO} />);
+    expect(text(html)).toContain('概要・学べること');
+    expect(html).not.toMatch(/<details[^>]* open/);
   });
 
   it('「この本について」のカードの中、目次の上に入る', () => {

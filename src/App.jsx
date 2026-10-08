@@ -3023,6 +3023,7 @@ function AuthedApp() {
   //   無料プランも使える（相談と同じ無料のトークンから・1 回 約 2 トークン）。
   const [briefGenId, setBriefGenId] = useState(null); // 作っている本の id
   const [briefJustMadeId, setBriefJustMadeId] = useState(null); // いま作った本（編集画面の畳みを開いたまま見せる）
+  const [briefError, setBriefError] = useState(null); // { bookId, message } 作れなかった理由（ボタンの下に 1 行）
   const briefCostLine = runCostLine({ plan: paywallPlan, remaining: paywallTokens, purchased: paywallPurchased, cost: TOKEN_COSTS.bookBrief });
   const makeBookBrief = async (book) => {
     if (!book?.id || briefGenId) return;
@@ -3033,6 +3034,7 @@ function AuthedApp() {
     // 編集画面で得たいことを書いているときは、その言葉に寄せる（保存はしない）。
     const purpose = view === 'edit' && form?.id === bookId ? (form.investPurpose || '') : (book.investPurpose || '');
     setBriefGenId(bookId);
+    setBriefError(null);
     try {
       const text = await generateBookBrief({ book: { ...book, investPurpose: purpose }, info });
       await saveBookBrief(bookId, text);
@@ -3046,13 +3048,42 @@ function AuthedApp() {
         }
       } catch { /* 基準が読めなければそのまま */ }
       setBriefJustMadeId(bookId);
+      toast.success('この本で学べることを作りました');
     } catch (error) {
       // トークンの上限は案内として。プランの案内（402）は有料プランの画面が開くので重ねない。同意をやめたときは何も言わない。
+      // 作れなかったときは、ボタンの下に理由の 1 行（ボタンは「もう一度作る」・2026-10-08 ui-critic）。
       if (error?.notice) { if (!/^(この AI 機能は|AI への送信をやめました)/.test(error.message)) toast.info(error.message); }
-      else toast.error(toMessage(error, 'この本で学べることを作れませんでした。'));
+      else setBriefError({ bookId, message: toMessage(error, 'この本で学べることを作れませんでした。少し時間をおいてから押してください。') });
     } finally {
       setBriefGenId(null);
     }
+  };
+  // 作り直す: トークンを使うので、確かめてから（目安の 1 行を添える・2026-10-08 ui-critic）。
+  const remakeBookBrief = async (book) => {
+    if (!book?.id || briefGenId) return;
+    const ok = await confirm({
+      title: '作り直しますか？',
+      message: `いまの内容は新しい内容に置き換わります。${briefCostLine || `1 回 約 ${TOKEN_COSTS.bookBrief} トークン`}`,
+      confirmLabel: '作り直す',
+      cancelLabel: 'やめる',
+    });
+    if (ok) makeBookBrief(book);
+  };
+  // 仮説の欄へ送る（例を押したあと・入ったことが見えるように画面の真ん中へ）。
+  const revealHypothesisField = () => {
+    setTimeout(() => {
+      try {
+        const el = document.querySelector('textarea[aria-label="仮説"]');
+        if (!el) return;
+        let reduce = false;
+        try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { /* ignore */ }
+        el.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
+      } catch { /* ignore */ }
+    }, 250);
+  };
+  const pickHypothesisInEdit = (h) => {
+    setForm((f) => ({ ...f, hypothesis: appendHypothesis(f.hypothesis, h) }));
+    revealHypothesisField();
   };
   // 本の詳細（積読）で仮説の例を押したとき: 読書計画の編集画面を開いて、仮説の欄に入れる（保存はしない＝書き足して自分で保存）。
   //   編集画面の「保存していない変更」の基準（view が edit になったときの form）より後に入れる＝閉じるときに確かめる。
@@ -3067,6 +3098,7 @@ function AuthedApp() {
     pendingHypothesisRef.current = null;
     setForm((f) => (f && f.id === p.id ? { ...f, hypothesis: appendHypothesis(f.hypothesis, p.text) } : f));
     toast.info('仮説の欄に入れました。書き足して保存できます。');
+    revealHypothesisField();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view]);
   const runStrategyInPlace = async (book) => {
@@ -3953,8 +3985,11 @@ function AuthedApp() {
         making={briefMaking}
         costLine={briefCostLine}
         onMake={() => makeBookBrief(current)}
+        onRemake={() => remakeBookBrief(current)}
         onPickHypothesis={briefPick}
         pickedHypotheses={current.hypothesis || ''}
+        info={bookAbout.info}
+        error={briefError?.bookId === current.id ? briefError.message : ''}
       />
     );
     // 作ってあるのに紹介・目次が今は読めない（通信の失敗など）ときは、カードの代わりに中身だけを出す。
@@ -4069,7 +4104,7 @@ function AuthedApp() {
             <BookAbout info={bookAbout.info} loading={bookAbout.loading} variant="card" style={{ marginTop: 'var(--space-6)' }} briefSlot={briefInCard} />
           )}
           {aboutAsCard && briefWithoutAbout && (
-            <BookBrief variant="section" text={briefText} making={briefMaking} onMake={() => makeBookBrief(current)} onPickHypothesis={briefPick} pickedHypotheses={current.hypothesis || ''} style={{ marginTop: 'var(--space-6)' }} />
+            <BookBrief variant="section" text={briefText} making={briefMaking} onMake={() => makeBookBrief(current)} onRemake={() => remakeBookBrief(current)} onPickHypothesis={briefPick} pickedHypotheses={current.hypothesis || ''} info={bookAbout.info} style={{ marginTop: 'var(--space-6)' }} />
           )}
 
           {current.status !== 'before' && planCta}
@@ -4121,30 +4156,39 @@ function AuthedApp() {
               シートは、あるときだけ畳んで置く。 */}
           {!isMemoPhase && hasPlanFold && (
           <section style={{ marginTop: 'var(--space-6)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-          {/* 📖 この本で学べること（積読・2026-10-08）: 課題・仮説を書いたあとも畳まずに、課題・仮説のカードのすぐ上に
-              1 行の見出し＋中身（概要と学べること。仮説をまだ書いていなければ仮説の例も＝押すと編集画面の仮説の欄へ）。 */}
-          {current.status === 'before' && hasBrief && (
+          {/* 📖 この本で学べること（積読で課題・仮説を書いたあと・2026-10-08 ui-critic 第 2 回）: 課題・仮説のカードのすぐ上（間 12）。
+              まだ無ければ副ボタン「この本で学べることを見る」＋目安の 1 行（AI 選書から足した本は最初から課題・仮説があるので、
+              ここがいちばん多い入口）。作ったあとは畳む見出し（主ボタン「読書を開始する」を 390×844 の最初の画面に残す）。
+              紹介・目次を読み込んでいる間は押せないボタン、見つからない本では何も出さない（紹介が少なすぎる本だけ決まった 1 行）。 */}
+          {current.status === 'before' && (hasBrief ? (
             <BookBrief
-              variant="section"
+              variant="fold"
               text={briefText}
+              material={briefMaterial}
               making={briefMaking}
               onMake={() => makeBookBrief(current)}
+              onRemake={() => remakeBookBrief(current)}
               onPickHypothesis={current.hypothesis ? undefined : briefPick}
               pickedHypotheses={current.hypothesis || ''}
-            />
-          )}
-          {planItems.map((p) => <Card key={p.label} label={p.label} text={p.text} style={{ marginTop: 0 }} />)}
-          {/* 積読で課題・仮説・シートがあるとき: この本についてはカードの下に畳んで置く（間 12）。
-              まだ「この本で学べること」が無ければ、その中に「この本で学べることを見る」。 */}
-          {current.status === 'before' && (
-            <BookAbout
               info={bookAbout.info}
-              loading={bookAbout.loading}
-              variant="fold"
-              briefSlot={hasBrief ? null : (
-                <BookBrief variant="make" text={briefText} material={briefMaterial} making={briefMaking} costLine={briefCostLine} onMake={() => makeBookBrief(current)} />
-              )}
+              style={{ marginTop: 0 }}
             />
+          ) : (bookAbout.loading || hasBookInfo(bookAbout.info)) && (
+            <BookBrief
+              variant="make"
+              text={briefText}
+              material={briefMaterial}
+              infoLoading={bookAbout.loading}
+              making={briefMaking}
+              costLine={briefCostLine}
+              onMake={() => makeBookBrief(current)}
+              error={briefError?.bookId === current.id ? briefError.message : ''}
+            />
+          ))}
+          {planItems.map((p) => <Card key={p.label} label={p.label} text={p.text} style={{ marginTop: 0 }} />)}
+          {/* 積読で課題・仮説・シートがあるとき: この本についてはカードの下に畳んで置く（間 12）。 */}
+          {current.status === 'before' && (
+            <BookAbout info={bookAbout.info} loading={bookAbout.loading} variant="fold" />
           )}
           {current.aiStrategy && (
             // その場で作り終えた直後は開いたまま（key を変えて、開いた状態で置き直す）。
@@ -4912,7 +4956,10 @@ function AuthedApp() {
                         making={briefGenId === form.id}
                         costLine={briefCostLine}
                         onMake={() => makeBookBrief({ ...current, ...form })}
-                        onPickHypothesis={(h) => setForm((f) => ({ ...f, hypothesis: appendHypothesis(f.hypothesis, h) }))}
+                        onRemake={() => remakeBookBrief({ ...current, ...form })}
+                        onPickHypothesis={pickHypothesisInEdit}
+                        info={bookAbout.info}
+                        error={briefError?.bookId === form.id ? briefError.message : ''}
                         pickedHypotheses={form.hypothesis || ''}
                         defaultOpen={briefJustMadeId === form.id}
                         style={{ marginBottom: 'var(--space-6)' }}

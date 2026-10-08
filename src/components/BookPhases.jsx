@@ -383,6 +383,7 @@ export function BeforePhase({
 
       <Field label="現在の課題">
         <textarea
+          aria-label="現在の課題"
           value={form.currentChallenge || ""}
           onChange={(e) => setForm({ ...form, currentChallenge: e.target.value })}
           placeholder="例：初回商談で信頼構築に時間がかかる"
@@ -394,6 +395,7 @@ export function BeforePhase({
 
       <Field label="仮説">
         <textarea
+          aria-label="仮説"
           value={form.hypothesis || ""}
           onChange={(e) => setForm({ ...form, hypothesis: e.target.value })}
           placeholder="例：短時間で信頼を築くフレームワークが学べる"
