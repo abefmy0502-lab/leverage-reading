@@ -199,7 +199,7 @@ import { useBookMemos } from './hooks/useBookMemos';
 import { useBookInfo } from './hooks/useBookInfo';
 import BookAbout from './components/BookAbout';
 import BookBrief from './components/BookBrief';
-import { hasBriefMaterial, storedBriefOf, briefForPrompt, appendHypothesis, isUsableBrief, parseBrief, BRIEF_NO_MATERIAL_TEXT } from './lib/bookBrief';
+import { hasBriefMaterial, storedBriefOf, briefForPrompt, appendHypothesis, isUsableBrief, parseBrief, briefLabels, BRIEF_NO_MATERIAL_TEXT } from './lib/bookBrief';
 import { loadBookInfo, bookInfoForPrompt, hasBookInfo } from './lib/bookInfo';
 // 🔎 すべての本の検索（書名・著者・タグ＋メモの言葉・2026-09-30）
 import { useLibrarySearch } from './hooks/useLibrarySearch';
@@ -3092,7 +3092,8 @@ function AuthedApp() {
   const remakeBookBrief = async (book) => {
     if (!book?.id || briefGenId) return;
     const ok = await confirm({
-      title: '作り直しますか？',
+      // 見出しの名前（この本で学べること／味わえること）に揃える。
+      title: `${briefLabels(storedBriefOf(book)).title}を作り直しますか？`,
       message: `いまの内容は新しい内容に置き換わります。${briefCostLine || `1 回 約 ${TOKEN_COSTS.bookBrief} トークン`}`,
       confirmLabel: '作り直す',
       cancelLabel: 'やめる',
@@ -3107,9 +3108,9 @@ function AuthedApp() {
         if (!el) return;
         let reduce = false;
         try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { /* ignore */ }
+        // 欄は中身の高さまで伸びる（BookPhases の仮説の欄）ので、欄の中は送らない（1 行目を欠かさない）。
+        el.scrollTop = 0;
         el.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
-        // 足した例は欄の最後の行（3 行を超えると欄の中で隠れていた）＝欄の中も最後まで送る。
-        el.scrollTop = el.scrollHeight;
       } catch { /* ignore */ }
     }, 250);
   };

@@ -157,6 +157,9 @@ describe('小説・物語は「味わえること」・添え書きは材料に�
     expect(briefLabels('## 概要\nA。\n## 学べること\n- B').short).toBe('概要・学べること');
     expect(briefLabels(finalizeBrief(ANSWER, { toc: TOC })).title).toBe('この本で学べること');
     expect(PROMPTS.bookBrief.system).toContain('## 味わえること');
+    // 「味わえること」は読み物として楽しむ本だけ（寓話の形の実用書は「学べること」・2026-10-08 ui-critic 第 4 回）
+    expect(PROMPTS.bookBrief.system).toContain('小説・物語・エッセイ（読み物として楽しむ本）だけ');
+    expect(PROMPTS.bookBrief.system).toContain('寓話や物語の形をとった実用書・ビジネス書・自己啓発書は「## 学べること」のまま');
   });
   it('紹介だけ／目次だけ／両方', () => {
     expect(briefSourceLine(INFO)).toBe('紹介文と目次から AI がまとめました');

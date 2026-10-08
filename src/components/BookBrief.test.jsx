@@ -36,6 +36,9 @@ describe('BookBrief', () => {
     const t = text(html);
     for (const w of ['この本で学べること', '概要', '学べること', '見えない資産', '仮説の例', '紹介文と目次から AI がまとめました', '作り直す']) expect(t).toContain(w);
     expect(t).not.toContain(BRIEF_MAKE_LABEL);
+    // 読み上げは見出しの名前に揃える・見える文字は「作り直す」だけ
+    expect(html).toMatch(/aria-label="この本で学べることを作り直す"[^>]*>作り直す</);
+    expect(t).not.toContain('aria-label');
   });
 
   it('仮説の例は、押せるときだけボタン（入っている例は ✓ の読み上げ）', () => {

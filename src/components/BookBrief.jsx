@@ -58,9 +58,9 @@ const pickStyle = {
 const iconSize = '1.2em';
 
 /** 作っている途中の骨組み（AI の文の形・components.css の .ai-skeleton）。 */
-function MakingSkeleton() {
+function MakingSkeleton({ title = BRIEF_TITLE }) {
   return (
-    <div role="status" aria-live="polite" aria-label="この本で学べることを作っています" style={{ marginTop: 'var(--space-3)' }}>
+    <div role="status" aria-live="polite" aria-label={`${title}を作っています`} style={{ marginTop: 'var(--space-3)' }}>
       <div className="ai-skeleton" aria-hidden="true">
         <div className="ai-skeleton-line" style={{ width: '92%' }} />
         <div className="ai-skeleton-line" style={{ width: '80%' }} />
@@ -162,13 +162,15 @@ export function BriefBody({ text, onPickHypothesis, pickedHypotheses = '', compa
             onClick={onRemake}
             disabled={making}
             style={{ ...btnLink, whiteSpace: 'nowrap', marginRight: 'calc(-1 * var(--space-1))', ...(making ? { color: 'var(--text-3)', opacity: 1, cursor: 'default' } : null) }}
+            // 読み上げは見出しの名前（この本で学べること／味わえること）に揃える。
+            aria-label={making ? `${labels.title}を作り直しています` : `${labels.title}を作り直す`}
           >
             {making ? '作り直しています…' : '作り直す'}
           </button>
         )}
       </div>
       {!making && error && <p role="alert" style={{ ...errorStyle, marginTop: 'calc(-1 * var(--space-2))' }}>{withPhraseBreaks(error)}</p>}
-      {making && <MakingSkeleton />}
+      {making && <MakingSkeleton title={labels.title} />}
     </div>
   );
 }
