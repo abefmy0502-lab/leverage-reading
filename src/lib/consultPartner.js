@@ -25,7 +25,8 @@ export const GROUP_TILES = 4;
 
 // 画面用の目印つきの行（使ったメモ・前の相談から・引用の照合・トークン・踏まえた行動）。AI が挙げた根拠ではない。
 export const VOICE_PREFIX = '🗣 ';
-const META_PREFIXES = ['🌱 ', '🌿 ', QUOTE_PREFIX, '🪙 ', '🎯 ', VOICE_PREFIX];
+// 🧵 は同じ会話の目印（lib/consultThreads.js・2026-10-08）。
+const META_PREFIXES = ['🌱 ', '🌿 ', QUOTE_PREFIX, '🪙 ', '🎯 ', VOICE_PREFIX, '🧵 '];
 export const VOICE_SUFFIX = '（本の語り口で・AI）';
 const isMeta = (r) => META_PREFIXES.some((p) => String(r || '').startsWith(p));
 

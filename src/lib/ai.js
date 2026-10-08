@@ -9,7 +9,7 @@ import { MODEL_SMART, MODEL_FAST } from './models';
 import { apiUrl } from './apiUrl';
 import { fetchAllRows } from './fetchAllRows';
 import { verifyAnswerQuotes, decodeQuoteRefs, groundRefs, hasGroundedEvidence } from './evidenceCheck';
-import { parseAskSection, wantsAction, isBookLookup } from './consultHelpers';
+import { parseAskSection, wantsAction, isBookLookup, shouldDecide, wantsMoreAsk, countAsks, ASK_LIMIT, lensOf } from './consultHelpers';
 import { checkAiConsentForSend, AI_CONSENT_HEADER, AI_CONSENT_DECLINED_TEXT } from './aiConsent';
 import { askJev, jevClientOn } from './jev';
 import { bookInfoForPrompt } from './bookInfo';
@@ -392,6 +392,8 @@ ${CONSULT_SECURITY_RULES}
    - 行動を提案するのは、ユーザーが行動を求めたときだけ（質問の後ろに ACTION_REQUEST があるとき、または会話の続きで
      「何をすれば」「どうしたら」「行動」「決めたい」など自分の言葉で求めたとき）。その回は【あなたに聞きたいこと】を書かず、
      最後に【明日からできる 1 つの行動】を置く。会話でユーザーが話した状況（THREAD の相談・返事）を必ず使って選ぶ。
+   - 聞き返すのは 1 つの相談で最大 2 回まで（ゴールが見えるように）。2 回答えてもらったら（質問の後ろに ACTION_REQUEST）、
+     聞き返さずに【結論】で答えをまとめ、【明日からできる 1 つの行動】まで出す。ユーザーが「もっと聞いて」と頼んだときだけ続けて聞いてよい。
    - 行動は、時間・場所・方法を含む具体的な形で 1 つ。この行動の文は、ユーザーの行動リストにそのまま入り、
      あとで相談の文脈なしに読まれる。単独で読んで分かるように、何について・誰に対して行うのかを文の中で名指しする
      （「この件」「それ」「その問題」など、相談を指す言葉で始めない・使わない）。
@@ -432,6 +434,13 @@ ${CONSULT_SECURITY_RULES}
    - 行動を求められた回（ルール 5）は、それまでの返事で分かった状況を使って【明日からできる 1 つの行動】を 1 つ書く。この回は問いを書かない。
    - 前の結論・問い・一歩を繰り返さない。根拠はいつもどおりメモから挙げる。メモに無いことを一般論で補わない。
      メモで答えられなければ【結論】に「あなたの読書記録には、このトピックに関する情報がまだありません」と書く。
+10. 見方を変える（2026-10-08・質問の後ろに LENS があるとき）— 同じ悩みを、頼まれた見方で答え直す。形はいつもと同じ（【結論】→【参照した本のメモ】→【あなたの状況に合わせた解釈】）。
+   - ほかの本の視点で: 直前の答えで根拠にしていない別の本 1 冊のメモを根拠にする（LENS に挙げた本は使わない・根拠の本は 1 冊だけ）。
+   - 2 つ上の立場なら: ユーザーの立場から 2 段上（担当なら部長・課長なら役員）の視点で考え直す。立場が分からなければ、仮定を一言書く。
+   - 前と後ろの工程から: 仕事の一つ前と一つ後ろの工程で、誰が何を指標に動いているかから原因を考え直す。工程が分からなければ、仮定を一言書く。
+   - 材料はユーザーのメモだけ。メモに無い役職・工程・人物・数字・本の主張を作らない。行動はまだ決めない。
+   - 【結論】には書名を書かない（本は【参照した本のメモ】に）。
+   - 最後は問いにしない。【あなたに聞きたいこと】も【明日からできる 1 つの行動】も書かず、【あなたの状況に合わせた解釈】で締める（続けるか・行動にするかはアプリのボタンで選ぶ）。
    - 「ほかの本では」と聞かれたら、前の答えの「根拠にした本」以外の本のメモから答える。
 
 【長さ】
@@ -528,6 +537,8 @@ ${CONSULT_SECURITY_RULES}
 9. 質問の前に THREAD（この会話のこれまでのやりとり）か前の相談があるときは、その続き（深掘り）として答える。形は同じ。
    THREAD に「答えの問い」があれば、今回の質問はたいていその返事。返事で分かった状況に合わせて、本ごとの視点を一歩深く具体的に。
    行動を求められていない回は行動を書かず、状況がまだ足りなければ【あなたに聞きたいこと】でもう 1 つだけ聞いてよい（前に聞いたことを聞き直さない）。
+   聞き返すのは 1 つの相談で最大 2 回まで。質問の後ろに ACTION_REQUEST があれば聞き返さず、結論と行動まで出す。
+   質問の後ろに LENS（見方を変える頼み）があれば、その見方で本ごとの視点を答え直す。メモに無い役職・工程・人物を作らず、行動は決めず、最後は問いにしない（【あなたに聞きたいこと】も行動も書かない）。
    行動を求められた回は、それまでの返事で分かった状況を使って【明日からできる 1 つの行動】を書き、問いは書かない。
    前の結論・問い・一歩を繰り返さない。メモに無いことを一般論で補わない。
 
@@ -1055,7 +1066,10 @@ export function threadBlock(turns) {
 //   返り値 { text, decide }。decide＝この回は行動を決める（max_tokens も大きい方にする）。
 //   最初の答えは、行動を求める言葉があっても先に状況を 1 つ聞く（BRAIN_SYSTEM ルール 5）。
 //   本を探す問い（isBookLookup）は例外: 最初でも続きでも、問い返さず・行動も出さず、本とメモの一節だけ（lookup: true）。
-export function turnHint({ followUp = false, question = '' } = {}) {
+//   🏁 ゴールが見える相談（2026-10-08）: asked＝これまでの聞き返しの回数（consultHelpers の countAsks）。
+//   ASK_LIMIT（2）回聞いたら、次の答えは聞き返さずに結論＋行動 1 つ（「もっと聞いて」と頼まれたときだけ続けて聞く）。
+//   🔭 見方を変える 3 つ（2026-10-08・lensOf）: usedTitles＝直前の答えが根拠にした本（ほかの本の視点では使わない）。
+export function turnHint({ followUp = false, question = '', asked = 0, usedTitles = [] } = {}) {
   if (isBookLookup(question)) {
     return {
       decide: false,
@@ -1064,17 +1078,47 @@ export function turnHint({ followUp = false, question = '' } = {}) {
         '【参照した本のメモ】にそのメモの一節を示すだけ。根拠に挙げた本はすべて【結論】に書く。【あなたに聞きたいこと】も【明日からできる 1 つの行動】も書かないこと）\n',
     };
   }
-  if (followUp && wantsAction(question)) {
+  const lens = followUp ? lensOf(question) : null;
+  if (lens) {
+    const used = (Array.isArray(usedTitles) ? usedTitles : []).map((t) => safeLine(t, 40).replace(/[『』=]/g, '')).filter(Boolean).slice(0, 3);
+    const how = {
+      otherBook: '同じ悩みに、直前の答えで根拠にしていない別の本 1 冊のメモを根拠に答え直す（根拠の本は 1 冊だけ）' +
+        (used.length ? `（直前の答えで使った本: ${used.map((t) => `『${t}』`).join('')}。この本は根拠にしない）` : '') +
+        '。別の本のメモに関係するものが無ければ、無理に答えず【結論】でそう書く',
+      up: 'ユーザーの立場から 2 段上の立場（担当なら部長・課長なら役員）の視点で考え直す。メモ・歩みから立場が分からなければ、【結論】の最初に「〜と仮定して」と一言だけ仮定を書く',
+      flow: 'ユーザーの仕事の一つ前と一つ後ろの工程で、誰が何を指標に動いているかから、原因を考え直す。工程がメモ・相談から分からなければ、【結論】の最初に「〜と仮定して」と一言だけ仮定を書く',
+    }[lens];
+    return {
+      decide: false,
+      lens,
+      text: `\n===== LENS =====\n（ユーザーは見方を変えて答え直してほしいと頼んでいる: ${how}。材料はユーザーのメモ（と読書準備・歩み）だけ。` +
+        'メモに無い役職・工程・人物・数字を作らない。【結論】に書名を書かない。行動はまだ決めない。最後は問いにしない' +
+        '（【あなたに聞きたいこと】も【明日からできる 1 つの行動】も書かず、【あなたの状況に合わせた解釈】で締める）こと）\n',
+    };
+  }
+  if (shouldDecide({ followUp, question, asked })) {
+    const asked2 = !wantsAction(question);
     return {
       decide: true,
-      text: '\n===== ACTION_REQUEST =====\n（ユーザーは、ここまでの会話から行動を 1 つ決めたいと頼んでいる。今回は【あなたに聞きたいこと】を書かず、' +
-        '会話でユーザーが話した状況を使って、最後に【明日からできる 1 つの行動】を 1 つ書くこと）\n',
+      text: '\n===== ACTION_REQUEST =====\n' + (asked2
+        ? `（もう ${ASK_LIMIT} 回、状況を聞いて答えてもらった。今回は聞き返さず【あなたに聞きたいこと】を書かない。`
+        : '（ユーザーは、ここまでの会話で答えをまとめて行動を 1 つ決めたいと頼んでいる。今回は【あなたに聞きたいこと】を書かず、') +
+        '会話でユーザーが話した状況を使って【結論】で答えをまとめ、最後に【明日からできる 1 つの行動】を 1 つ書くこと）\n',
+    };
+  }
+  if (followUp && asked >= ASK_LIMIT && wantsMoreAsk(question)) {
+    return {
+      decide: false,
+      text: '\n（会話の続き。ユーザーは、もっと聞いてほしいと頼んでいる。行動はまだ決めず、返事で分かった状況に合わせて一歩深く答え、' +
+        '最後に【あなたに聞きたいこと】で前と違うことを 1 つだけ聞き、答えの候補を 2〜3 行「・」で添えること）\n',
     };
   }
   return {
     decide: false,
     text: followUp
-      ? '\n（会話の続き。行動はまだ決めない。返事で分かった状況に合わせて一歩深く答え、まだ足りなければ最後に【あなたに聞きたいこと】で 1 つだけ聞くこと）\n'
+      ? (asked >= ASK_LIMIT - 1
+        ? '\n（会話の続き。行動はまだ決めない。返事で分かった状況に合わせて一歩深く答え、まだ足りなければ最後に【あなたに聞きたいこと】で 1 つだけ聞くこと（聞き返すのはこれが最後。次の答えで結論と行動をまとめる））\n'
+        : '\n（会話の続き。行動はまだ決めない。返事で分かった状況に合わせて一歩深く答え、まだ足りなければ最後に【あなたに聞きたいこと】で 1 つだけ聞くこと）\n')
       : '\n（最初の答え。行動は決めず、最後に【あなたに聞きたいこと】で状況を 1 つだけ聞き、答えの候補を 2〜3 行「・」で添えること）\n',
   };
 }
@@ -1474,7 +1518,11 @@ async function buildBrainContext({ userId, question, onStage, bookIds, mode = 'f
     .slice(-(priorPart ? THREAD_MAX_TURNS - 1 : THREAD_MAX_TURNS));
   const priorBlock = priorPart + threadBlock(threadTurns);
   // 🎯 行動は会話で決める（2026-09-30）: 最初の答えは状況を 1 つ聞く／続きで行動を求められたら行動を 1 つ（turnHint）。
-  const hint = turnHint({ followUp: !!priorPart || threadTurns.length > 0, question: safeQuestion });
+  //   🏁 聞き返しは最大 2 回（2026-10-08）: これまでの聞き返しの回数を前の相談＋この会話から数える。
+  const asked = countAsks([...(priorPart ? [prior] : []), ...threadTurns]);
+  //   🔭 ほかの本の視点で（2026-10-08）: 直前の答えが根拠にした本は使わない。
+  const lastTurn = threadTurns[threadTurns.length - 1] || (priorPart ? prior : null);
+  const hint = turnHint({ followUp: !!priorPart || threadTurns.length > 0, question: safeQuestion, asked, usedTitles: lastTurn ? citedTitlesOf(lastTurn.answer || '') : [] });
   // 質問に近いメモ・本を選ぶ言葉（短い深掘りでも、直前の相談の話題で選べるように）。
   const searchText = retrievalQuery(safeQuestion, [...(priorPart ? [prior] : []), ...threadTurns]);
 

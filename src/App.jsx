@@ -5070,6 +5070,9 @@ function AuthedApp() {
    {/* 相談の押し込まれた画面（過去の相談・学びを書く・根拠にできる情報）も同じく「‹ 相談」の行 1 本だけ。 */}
    {!(tab === "books" && shelfMode === 'library') && !(tab === "ai" && aiSubTab === 'brain' && consultPushed) && !(tab === "ai" && aiSubTab === 'advisor' && advisorPushed) && (
    <header
+     // 相談・AI 選書では、キーボードが開いている間この行（ロゴ・写真で共有・？・⚙️）を畳む（上の安全域だけ残す）。
+     // 書いている文と答えに場所を譲る（components.css の .app-top-bar--fold・2026-10-08）。
+     className={tab === "ai" ? "app-top-bar app-top-bar--fold" : "app-top-bar"}
      style={{
        flexShrink: 0,
        padding: "max(env(safe-area-inset-top, 4px), 4px) var(--space-4) var(--space-1)",

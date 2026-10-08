@@ -142,7 +142,7 @@ const reqStyle = { fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--
 const metaStyle = { fontSize: 'var(--text-caption)', fontWeight: 400, color: 'var(--text-3)', margin: 'var(--space-1) var(--space-1) 0' };
 
 const footerStyle = {
-  padding: 'var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom, 0px))',
+  padding: 'var(--space-3) var(--space-4) calc(var(--space-3) + var(--safe-bottom-kb))',
   borderTop: '1px solid var(--separator)',
 };
 

@@ -54,6 +54,7 @@ import { findDuplicateBook } from '../lib/checkDuplicate';
 import { filterProseTitles, proseTitleLists } from '../lib/advisorProse';
 import { dropSummarySection, introTextOf } from '../lib/advisorSummary';
 import { useEdgeSwipeBack } from '../hooks/useEdgeSwipeBack';
+import { useComposerHeight } from '../hooks/useComposerHeight';
 
 const AdvisorHistoryList = lazy(() => import('./AdvisorHistory').then((m) => ({ default: m.AdvisorHistoryList })));
 const AdvisorSessionDetail = lazy(() => import('./AdvisorHistory').then((m) => ({ default: m.AdvisorSessionDetail })));
@@ -278,15 +279,10 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     if (messages.length <= prev) return;
     setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }), 30);
   }, [messages]);
-  // Auto-grow textarea: clamp 60–200px, scroll past 200.
+  // 入力欄は書いた量に合わせて伸びる（空は 1 行 44・5 行を超えたら中を送る＝上限は CSS の max-height・相談と同じ）。
   const inputRef = useRef(null);
-  useEffect(() => {
-    const el = inputRef.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    // 空のときは 1 行（44）。相談の入力欄と同じ高さから伸びる。
-    el.style.height = Math.min(Math.max(el.scrollHeight + 2, 44), 200) + 'px';
-  }, [input]);
+  // 文字の大きさが変わったときも測り直す（hooks/useComposerHeight.js・2026-10-08 ui-critic）。
+  useComposerHeight(inputRef, input, !interview && !interviewLoading && !recoLoading && !recommendations);
 
   // Parse the new richer response: leading prose + JSON recs + trailing prose.
   // 表示用: RECOMMENDATIONS ブロック（マーカー + JSON）を本文から取り除く。
