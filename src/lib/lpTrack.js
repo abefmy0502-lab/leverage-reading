@@ -9,10 +9,10 @@
 // - 公開のお知らせの登録（submitWaitlist）は記録ではなく本人の送信なので、Do Not Track でも送る。
 // 集計のしかたは docs/lp-measurement.md。
 
-import { APP_STORE_URL } from './appStore';
+import { APP_STORE_URL, APP_STORE_PT } from './appStore';
+import { campaignToken, withCampaign } from './storeCampaign';
 
 const DEV = import.meta.env.DEV;
-const PT = (import.meta.env.VITE_APP_STORE_PT || '').trim();
 
 const safe = (fn, fallback = null) => {
   try { return fn(); } catch { return fallback; }
@@ -91,11 +91,10 @@ export function lpTrack(event, props = {}) {
 }
 
 // 押した場所ごとの App Store の URL（provider token があるときだけキャンペーン情報を付ける）。
+// キャンペーン名は lp_<押した場所>_<ヒーローの表示>（lib/storeCampaign.js の決まり・docs/lp-measurement.md）。
 export function storeUrlFor(loc) {
-  if (!PT) return APP_STORE_URL;
-  const ct = `lp_${loc}_${lpVariant()}`.slice(0, 40);
-  const sep = APP_STORE_URL.includes('?') ? '&' : '?';
-  return `${APP_STORE_URL}${sep}pt=${encodeURIComponent(PT)}&ct=${encodeURIComponent(ct)}&mt=8`;
+  if (!APP_STORE_PT) return APP_STORE_URL;
+  return withCampaign(APP_STORE_URL, { pt: APP_STORE_PT, ct: campaignToken('lp', `${loc}_${lpVariant()}`) });
 }
 
 // ✉️ 公開のお知らせの登録（App Store の URL が無い間の入口・api/lp-waitlist.js）。

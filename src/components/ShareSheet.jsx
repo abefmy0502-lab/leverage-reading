@@ -66,6 +66,8 @@ import {
 import { phraseDisplayText } from '../lib/sharePhrase';
 import { withPhraseBreaks } from './TightBubble';
 import { shareImage, saveImage } from '../lib/shareImage';
+import { storeLinkFor } from '../lib/appStore';
+import { shareCampaign } from '../lib/storeCampaign';
 import { btnPrimary, btnPrimaryOff, btnLink } from '../styles/ui';
 
 const FORMAT_OPTIONS = [
@@ -679,10 +681,13 @@ export default function ShareSheet({
       // 共有の文は、画像に入れたものと同じ。await を挟まずに共有シートを開く。
       // 隠した項目（書名など）は文にも入れない。今月・今年は「#10月読了本」「#2026年の読書」を添える（画像には入れない）。
       // 「#◯月読了本」は、その月に読み終えた本があるときだけ（メモだけの月は #Orime だけ・オーナー判断）。
+      // 📊 リンクは、App Store の URL があればキャンペーン名（ct=share_<今月・今年>_<重ね方>）付きの App Store
+      //   （どの共有から入手されたかを数える・lib/storeCampaign.js）。無い間は今までどおり紹介ページ。画像には URL を入れない。
       const tags = shareHashtags(period, now, { finishedCount: (record.finishedBooks || []).length });
+      const link = storeLinkFor(shareCampaign({ variant, period })) || SITE_URL;
       const text = variant !== 'quote'
-        ? buildRecordShareText({ record: applyShareItems(record, hidden), quote: card.line, siteUrl: SITE_URL, tags })
-        : buildShareText({ title: shareVisibility(hidden).title ? lineBook?.title : '', line: card.line, siteUrl: SITE_URL, tags });
+        ? buildRecordShareText({ record: applyShareItems(record, hidden), quote: card.line, siteUrl: link, tags })
+        : buildShareText({ title: shareVisibility(hidden).title ? lineBook?.title : '', line: card.line, siteUrl: link, tags });
       const result = await shareImage({ blob: card.blob, filename, text });
       if (result !== 'cancelled') track(EVENTS.SHARE_CARD, trackProps(result));
       if (result === 'saved') toast.info('この端末では共有できないため、画像を保存しました。');
