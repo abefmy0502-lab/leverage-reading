@@ -6,8 +6,10 @@
 //   reason 'feature'   … プランで使える AI 機能を押した（feature＝機能の名前）
 //   reason 'free_ocr_used' … 今月の無料の写真から書き起こし（毎月 10 回）を使い切った（2026-10-02・② プランの機能を押した扱い）
 //   reason 'grown'     … 自分のメモが 10 件たまった（相談の「相談相手が育ってきました」・本人の本の表紙を並べる）
+//   reason 'first_answer' … はじめての相談の答えのあとの 1 行「この相談相手を、7 日間無料で育てる」（2026-10-08・実験・
+//                       lib/firstAnswerTrial.js。本人の本の表紙を並べる。7 日間無料が月額だけのときは月額を選んで開く）
 //   reason null        … 設定の「プランを見る」
-// 7 日間無料（プランの無料期間）をすすめるのは、この 3 つ（① free_used ／ ② feature・free_ocr_used ／ ③ grown）と設定からだけ
+// 7 日間無料（プランの無料期間）をすすめるのは、この 4 つ（① free_used ／ ② feature・free_ocr_used ／ ③ grown ／ ④ first_answer）と設定からだけ
 // （lib/trialNudge.js）。「無料プラン（ずっと無料）」と「7 日間無料」を取り違えない書き方にする。
 // 無料とプランの違いは 2 行の比較（トークンの量と、プランで増える機能）だけで見せる。
 //
@@ -48,7 +50,7 @@ import {
   restorePurchases,
 } from '../lib/iap';
 import { toMessage } from '../lib/errors';
-import { APP_STORE_URL, isAppStoreLive } from '../lib/appStore';
+import { storeLinkFor, isAppStoreLive } from '../lib/appStore';
 import { exportMemosAsMarkdown } from '../lib/exportData';
 import { track, EVENTS } from '../lib/analytics';
 import { demoScenario, isDemo, supabase, isSupabaseConfigured } from '../lib/supabase';
@@ -103,12 +105,13 @@ function PriceText({ text }) {
 
 // 開発専用のネイティブ表示プレビュー（本番は demoScenario=null で常に false）。
 function readNativePreview() {
-  if (!['paywall', 'free', 'freeused', 'freegrown'].includes(demoScenario) || typeof window === 'undefined') return { on: false, trial: '', price: '', storeIntro: false };
+  if (!['paywall', 'free', 'freeused', 'freegrown', 'fewmemos'].includes(demoScenario) || typeof window === 'undefined') return { on: false, trial: '', price: '', storeIntro: false };
   const sp = new URLSearchParams(window.location.search);
   // &price=loading / fail で、ストア価格の読み込み中・失敗の表示を確かめられる。
   // 無料プランの人が開く 3 つ（①無料のトークンを使い切った＝freeused ②プランの機能を押した＝free
   // ③メモが 10 件たまった＝freegrown）は、GLOSSARY どおり 7 日間無料をすすめる場面なので、
   // 「7 日間無料を使える人」を既定にする（本番はストアの無料期間と本人の資格で決まる・2026-09-29 に ①② も）。
+  // fewmemos（初日の人）は ④ はじめての相談の答えのあと（&trialab=on・lib/firstAnswerTrial.js）の確認用。
   // &trial=off で使えない人（年額／月額で始める）。paywall（契約なしの一般のプレビュー）は従来どおり無し。
   const t = sp.get('trial');
   const trial = t === 'off' ? '' : normalizeTrialLabel(t || (demoScenario === 'paywall' ? '' : '7日間無料'));
@@ -307,7 +310,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
   const toast = useToast();
   const [myBooks, setMyBooks] = useState([]);
   useEffect(() => {
-    if ((reason !== 'free_used' && reason !== 'grown') || !user?.id || !isSupabaseConfigured) return undefined;
+    if (!['free_used', 'grown', 'first_answer'].includes(reason) || !user?.id || !isSupabaseConfigured) return undefined;
     let alive = true;
     (async () => {
       try {
@@ -333,7 +336,8 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
   const fromFeature = reason === 'feature';
   const fromFreeOcr = reason === 'free_ocr_used';
   // メモが 10 件たまって開いたとき（相談の「相談相手が育ってきました」）も、本人の本の表紙を並べる。
-  const fromGrown = reason === 'grown';
+  // はじめての相談の答えのあと（「この相談相手を、7 日間無料で育てる」）も同じ（育てる相手＝メモを書いた本）。
+  const fromGrown = reason === 'grown' || reason === 'first_answer';
   // 📊 課金転換率（CVR = purchase÷view）の分母。どこから開いたか（enum だけ）も添える。
   useEffect(() => { track(EVENTS.PAYWALL_VIEWED, { reason: reason || 'plan' }); }, [reason]);
   // 選んだプラン（年額が既定）。
@@ -421,6 +425,14 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
   // 両方のプランに無料期間があれば、比較のプランの行に「（最初の 7 日間は無料）」を出す。
   // 片方だけ（創業メンバー価格のあいだは月額だけ）のときは、その行にだけ「最初の 7 日間は無料」を出す（年額に無料期間があるように読ませない）。
   const trialPlan = priceState === 'ready' ? trialPlanOf(labels) : '';
+  // 「7 日間無料で育てる」から開いたのに、7 日間無料が月額だけ（創業メンバー価格のあいだ）なら月額を選んで開く
+  //   （年額が選ばれていて「7 日間無料」が見当たらない、を作らない）。選び直しは 1 回だけ（あとは本人の選択のまま）。
+  const pickedForTrialRef = useRef(false);
+  useEffect(() => {
+    if (reason !== 'first_answer' || pickedForTrialRef.current || trialPlan !== 'monthly') return;
+    pickedForTrialRef.current = true;
+    setPlan('monthly');
+  }, [reason, trialPlan]);
   const anyTrial = trialPlan === 'both' ? normalizeTrialLabel(labels.annual?.trial || '') : '';
   const rowTrialNote = (id) => (trialPlan && trialPlan !== 'both' && labels[id]?.trial ? trialFirstPhrase(normalizeTrialLabel(labels[id].trial)) : '');
   // 創業メンバー価格と呼ぶのは、ストアが年額に有料の初回価格を返し、かつ期間中のときだけ（値段の真実はストア）。
@@ -780,7 +792,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
             <div style={stickyFooter}>
               {isAppStoreLive ? (
                 <a
-                  href={APP_STORE_URL}
+                  href={storeLinkFor('web_paywall')}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{ ...btnPrimary, boxSizing: 'border-box', textDecoration: 'none' }}

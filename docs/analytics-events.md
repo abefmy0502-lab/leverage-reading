@@ -83,6 +83,47 @@ from p group by p.path order by users desc;
 D30（30 日後も使っている）と 7 日間無料 → 有料は、運営ダッシュボードの `admin_growth()`（`supabase_admin_growth.sql`）と
 `subscriptions.period_type` で数える（このイベントは使わない）。
 
+## 11 月の公開に向けて足したイベント（2026-10-08・マーケ戦略 §6）
+
+### 🧪 はじめての相談の答えのあとの 7 日間無料（実験・§6-1／§9-2）
+
+| イベント | いつ | props | 送るところ |
+|---|---|---|---|
+| `first_answer_trial` `{action:'eligible'}` | はじめての相談の答えが出きって、カードを出せる条件がそろった（無料プラン・7 日間無料を使える・関係するメモが無かった答えでない・根拠を確かめられた・③ を閉じていない）。**両方の組で送る**＝比べる母数 | `group`: `show`（見せる組）/ `hold`（見せない組） | `MyBookBrain.jsx` |
+| `first_answer_trial` `{action:'shown'}` | 見せる組で、カード「この相談相手を、7 日間無料で育てる」を出した | `group: 'show'` | 同上 |
+| `first_answer_trial` `{action:'tap'}` / `{action:'dismiss'}` | カードを押した（有料プランの画面へ）／× で閉じた | `group: 'show'` | 同上 |
+| `paywall_viewed` `{reason:'first_answer'}` | カードから有料プランの画面を開いた | — | `Paywall.jsx` |
+| `offer_code` `{action:'open'}` | 設定の「コードを使う」を押した（iPhone のアプリだけ・§6-6） | — | `AccountSettings.jsx` |
+
+組はユーザー ID と実験の名前（`first_answer_trial_2026_11`）から決まる（`lib/firstAnswerTrial.js` の `firstAnswerTrialGroup`・どの端末でも同じ）。
+**比べるのは `eligible` を送った人どうし**（`show` と `hold`）。見る数字は戦略 §7 の ⑥ 初日の 7 日間無料の開始率・⑦ 7 日間無料 → 有料・⑧ 継続。
+
+```sql
+-- 組ごとの、当日に 7 日間無料を始めた率と、有料になった率（subscription_events・supabase_subscription_events.sql）
+with e as (
+  select distinct on (user_id) user_id, props->>'group' as grp, created_at as at
+  from analytics_events where event = 'first_answer_trial' and props->>'action' = 'eligible'
+  order by user_id, created_at
+), t as (
+  select user_id, min(event_at) as trial_at from subscription_events
+  where period_type = 'trial' group by user_id
+), c as (
+  select user_id, min(event_at) as paid_at from subscription_events
+  where is_trial_conversion group by user_id
+)
+select e.grp, count(*) as eligible,
+       count(*) filter (where t.trial_at between e.at and e.at + interval '24 hours') as trial_24h,
+       count(*) filter (where c.paid_at is not null) as converted
+from e left join t on t.user_id = e.user_id left join c on c.user_id = e.user_id
+group by e.grp order by e.grp;
+
+-- 見せる組の中で、押した・閉じた・何もしなかった
+select props->>'action' as action, count(distinct user_id) from analytics_events
+where event = 'first_answer_trial' and props->>'group' = 'show' group by 1 order by 2 desc;
+```
+
+> 管理者（`app_admins`）とテスト用アカウントは除いて見る。組の人数は 1 日数人のうちは揺れるので、判断は各組の `eligible` が 100 人ほどたまってから（目安・戦略 §9-2 の判断に使う）。
+
 ## LP（紹介ページ）の記録は別の表
 
 ログインしていない訪問者の記録（`lp_view`・`cta_click`・`section_view`・`waitlist_submit`・`login_click`・`footer_link`・`hero_secondary` など）は `analytics_events` ではなく `lp_events` に入る（`api/lp-event.js`・`supabase_lp_events.sql`）。公開のお知らせの登録そのものは `lp_waitlist`（`api/lp-waitlist.js`）。一覧と集計例は `docs/lp-measurement.md`（2026-10-05）。

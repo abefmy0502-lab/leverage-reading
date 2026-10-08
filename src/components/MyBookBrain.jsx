@@ -37,6 +37,8 @@ import { nextResetLabelJa } from '../lib/freeTrial';
 import { TOKEN_COSTS, monthDayLabelJa } from '../lib/tokens';
 import { shouldShowTrialNudge, trialNudgeCopy, isTrialNudgeDone, markTrialNudgeDone, normalizeTrialLabel, trialCancelShortLine } from '../lib/trialNudge';
 import { getIntroOffer } from '../lib/iap';
+import { firstAnswerTrialGroup, isFirstAnswerTrialMoment, canOfferFirstAnswerTrial, holdGrownNudge, firstAnswerTrialText, isFirstAnswerTrialDone, markFirstAnswerTrialDone } from '../lib/firstAnswerTrial';
+import { shouldAskForReview, markReviewAsked, askForReview } from '../lib/reviewRequest';
 import { growthMeterText, firstAnswerEvidence, takeFirstConsult, takeMemosReached, getOnboardPath } from '../lib/firstDay';
 import { buildConsultExamples, standaloneAction, shortTitle, hasSummaryMemo, countSummaryMemos, fmtTokens, consultsLeft, memoSearchQuery, answerStepToAction, stripScenePrefix, selectThreadTurns, isCompletedAnswer, parseAskSection, nextStepChips, wantsAction, isBookLookup, lookupTerm } from '../lib/consultHelpers';
 import LibrarySearchHit from './LibrarySearchHit';
@@ -536,6 +538,33 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const [busy, setBusy] = useState(false);
   // 🔔 はじめて「行動に追加」した答えの id（その下に、思い出しの通知の案内を 1 回だけ出す）
   const [optinAfterId, setOptinAfterId] = useState(null);
+  // 🧪 はじめての相談の答えのあとの 7 日間無料（lib/firstAnswerTrial.js・2026-10-08・実験）。
+  //   組はユーザー ID から決まる（'show' ＝ 見せる・'hold' ＝ 見せない＝比べる側）。お試しモードは &trialab=on|off のときだけ
+  //   （付けなければ実験に入れない＝ほかの撮影を変えない）。
+  const trialAbGroup = useMemo(() => {
+    if (isDemo) {
+      const v = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('trialab');
+      return v === 'on' ? 'show' : v === 'off' ? 'hold' : null;
+    }
+    return firstAnswerTrialGroup(user?.id);
+  }, [user?.id]);
+  // カードを出す答えの id（その答えの下に 1 回だけ）と、この画面で一度出したか（出した画面では ③ を出さない）。
+  const [firstTrialId, setFirstTrialId] = useState(null);
+  const [firstTrialSeen, setFirstTrialSeen] = useState(false);
+  // 答えが出きったときに読む、そのときの値（askOnce は送ったときの描画の値を持つので ref で最新を読む）。
+  const firstTrialRef = useRef({});
+  // 🎯 相談の答えから行動を追加した直後（2026-10-08・マーケ戦略 §6-5）:
+  //   ①その答えの下に、思い出しの通知の案内を 1 回だけ（NotifyOptInCard）
+  //   ②はじめての 1 回だけ、App Store のレビューを頼む（lib/reviewRequest.js・iOS は Apple の仕組みだけ・一度だけ）。
+  //     「自分の相談から、やることが決まった」＝価値を感じた直後（前は思い出しカードの「覚えた」の直後）。
+  //     追加の印（「行動に追加しました」）が見えてから頼む。
+  const onConsultActionAdded = (answerId) => {
+    setOptinAfterId((cur) => cur || answerId);
+    if (shouldAskForReview()) {
+      markReviewAsked();
+      setTimeout(() => askForReview(toast), 1500);
+    }
+  };
   // 🧠→🎯 回答の行動を、紐づく本の行動リストへ追加。
   const handleAnswerToAction = useCallback(async (bookId, text) => {
     if (!onAddAction || !bookId || !text) return false;
@@ -1291,6 +1320,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       const perbookFallback = askMode === 'perbook' && !!usedMode && usedMode !== 'perbook'
         ? { perbookFallback: perbookBooks === 0 ? 'none' : 'one' }
         : null;
+      // 答えの吹き出しの id（保存できたら履歴の行の id・できなければ書いている間の id のまま）。
+      let answerId = streamingId;
       // 保存（履歴への insert）は「回答の表示」と切り離す。回答生成は成功して
       // いるのに保存だけ失敗した場合、画面の回答をエラー文言で消さない。
       try {
@@ -1301,7 +1332,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           .single();
         if (error) throw error;
         // 楽観的な streaming 行を、永続化された row で差し替える。
-        setMessages((arr) => arr.map((m) => (m.id === streamingId ? { ...transformMessage(data), ...perbookFallback, scopeIds: askBookIds } : m)));
+        const saved = transformMessage(data);
+        answerId = saved.id;
+        setMessages((arr) => arr.map((m) => (m.id === streamingId ? { ...saved, ...perbookFallback, scopeIds: askBookIds } : m)));
       } catch (saveErr) {
         // 表示は確定させたまま（streaming フラグだけ落とす）、保存失敗を控えめに知らせる。
         setMessages((arr) => arr.map((m) =>
@@ -1316,6 +1349,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       //   見えるところまで、会話の欄だけを最小限送る（相談の吹き出しを上端にそろえたままだと、ボタンが画面の下に隠れていた）。
       //   送るのは、書き終えて入力欄の上のチップが出たあと（欄の高さが決まってから）＝答えが出来上がったときの effect。
       if (!wasAborted && (typeof usedDecide === 'boolean' ? usedDecide : expectAction)) revealStepRef.current = true;
+      // 🧪 はじめての相談の答えが出きったら、その下に 1 回だけ 7 日間無料（見せる組だけ・lib/firstAnswerTrial.js）。
+      offerFirstTrialAfter({ id: answerId, isFirst: !prevAskAt && !opts.skipUserInsert, aborted: wasAborted, refunded: !!tokenRefund, grounded, memoCount });
       // AI 応答を正常に得て確定できた時のみ計測 (中止/中断パスは除外、PII なし)。
       if (!wasAborted) {
         track(EVENTS.AI_USED, { feature: 'brain', mode: askMode });
@@ -1628,7 +1663,11 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   //    会話の場所のいちばん上に 1 回だけ、7 日間無料（使えないと分かれば「プランを見る」）をすすめる。
   //    閉じる・押すで二度と出さない。お試しモードでは ?demo=freegrown のときだけ出す（ほかの撮影を変えない）。
   const [nudgeDone, setNudgeDone] = useState(() => isTrialNudgeDone() || (isDemo && demoScenario !== 'freegrown'));
-  const nudgeWanted = view === 'chat' && historyLoaded && !busy && shouldShowTrialNudge({
+  // 🧪 見せる組の人は、はじめての相談を送るまで ③ を出さない（当日の案内は答えのあとの 1 行だけ）。
+  //   答えのあとの 1 行を出した画面でも出さない（同じ日に 2 つすすめない・lib/firstAnswerTrial.js）。
+  const consultedEver = messages.some((m) => m.role === 'user' && !isLocalMsg(m));
+  const nudgeWanted = view === 'chat' && historyLoaded && !busy && !firstTrialSeen
+    && !holdGrownNudge({ group: trialAbGroup, consulted: consultedEver }) && shouldShowTrialNudge({
     plan,
     memoCount: memoStatsLoaded ? ownMemoTotal : null,
     done: nudgeDone,
@@ -1673,6 +1712,52 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     setNudgeDone(true);
     track('trial_nudge', { action, offer: trialOffer ? 'trial' : 'plan' });
   };
+  // 🧪 はじめての相談の答えのあとの 7 日間無料（lib/firstAnswerTrial.js）。
+  //   無料期間の名前（「7 日間無料」）を前もって確かめておく（答えが出きったときにすぐ決められるように）。'' ＝使えない・分からない。
+  //   両方の組で確かめる（見せない組も「出せる条件がそろった」を数える＝比べる母数）。
+  const [firstTrialOffer, setFirstTrialOffer] = useState(null);
+  const firstTrialDone = isFirstAnswerTrialDone(user);
+  useEffect(() => {
+    if (!trialAbGroup || plan !== 'free' || firstTrialOffer !== null || firstTrialDone) return undefined;
+    if (hadPlan) { setFirstTrialOffer(''); return undefined; }
+    if (isDemo) {
+      const t = new URLSearchParams(window.location.search).get('trial');
+      setFirstTrialOffer(t === 'off' ? '' : normalizeTrialLabel(t || '7日間無料'));
+      return undefined;
+    }
+    let alive = true;
+    getIntroOffer(user?.id)
+      .then((r) => { if (alive) setFirstTrialOffer(r.status === 'eligible' ? normalizeTrialLabel(r.label) : ''); })
+      .catch(() => { if (alive) setFirstTrialOffer(''); });
+    return () => { alive = false; };
+  }, [trialAbGroup, plan, hadPlan, firstTrialOffer, firstTrialDone, user?.id]);
+  firstTrialRef.current = { group: trialAbGroup, plan, hadPlan, offer: firstTrialOffer || '',
+    // ③ を閉じた・押した（端末の印）か、この画面で ③ を見た。お試しモードの ③ を隠す決まり（nudgeDone）とは別に、本当の印で見る。
+    otherNudge: isTrialNudgeDone() || nudgeSeenRef.current };
+  const offerFirstTrialAfter = (answer) => {
+    const st = firstTrialRef.current;
+    if (!st.group || !isFirstAnswerTrialMoment(answer)) return;
+    if (!canOfferFirstAnswerTrial({ ...st, done: isFirstAnswerTrialDone(user) })) return;
+    track('first_answer_trial', { action: 'eligible', group: st.group });
+    if (st.group !== 'show') return;
+    markFirstAnswerTrialDone('shown');
+    setFirstTrialSeen(true);
+    setFirstTrialId(answer.id);
+    track('first_answer_trial', { action: 'shown', group: st.group });
+  };
+  const closeFirstTrial = (action) => {
+    markFirstAnswerTrialDone(action);
+    setFirstTrialId(null);
+    track('first_answer_trial', { action, group: 'show' });
+  };
+  const firstTrialCard = (style) => (
+    <FirstAnswerTrialCard
+      text={firstAnswerTrialText(firstTrialOffer || '')}
+      onOpen={() => { closeFirstTrial('tap'); openPaywall('first_answer'); }}
+      onDismiss={() => closeFirstTrial('dismiss')}
+      style={style}
+    />
+  );
   const [moreMenu, setMoreMenu] = useState(null); // { x, y }
   // 💬 数冊の本から答えたときの「相手」の一覧（名前の行・アイコンを押したとき）。
   const [partnerSheet, setPartnerSheet] = useState(null);
@@ -2049,7 +2134,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                   question={m.role === 'assistant' ? precedingQuestion(visibleMessages, i) : ''}
                   onAskBook={askAboutBook}
                   askBusy={busy}
-                  onActionAdded={() => setOptinAfterId((cur) => cur || m.id)}
+                  onActionAdded={() => onConsultActionAdded(m.id)}
                   onOpenActions={onOpenActions}
                   memoBookIds={memoBookIds}
                   onShowPartner={setPartnerSheet}
@@ -2059,6 +2144,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 {/* 🔔 はじめて「行動に追加」した直後に 1 回だけ、思い出しの通知の案内（lib/notifyOptIn.js）。
                     最後の答えのときは、答えの下の文字ボタンの行（別の角度で答えて…）の後ろに出す（答えと操作を離さない・2026-09-29） */}
                 {optinAfterId === m.id && !(answerRowShown && i === visibleMessages.length - 1) && <NotifyOptInCard where="action" />}
+                {/* 🧪 はじめての相談の答えのあとの 7 日間無料（続けて相談したあとも、その答えの下に残す）。 */}
+                {firstTrialId === m.id && !busy && !(answerRowShown && i === visibleMessages.length - 1) && firstTrialCard({ marginLeft: ANSWER_COLUMN })}
               </Fragment>
             ))}
           </div>
@@ -2105,6 +2192,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           {answerRowShown && optinAfterId && optinAfterId === visibleMessages[visibleMessages.length - 1]?.id && (
             <NotifyOptInCard where="action" style={{ marginTop: 'var(--space-6)', marginLeft: ANSWER_COLUMN }} />
           )}
+          {/* 🧪 はじめての相談の答えを読み終えたところ（答えの下の文字ボタンの行の後ろ）に 1 回だけ。 */}
+          {answerRowShown && firstTrialId && firstTrialId === visibleMessages[visibleMessages.length - 1]?.id
+            && firstTrialCard({ marginTop: 'var(--space-6)', marginLeft: ANSWER_COLUMN })}
           <div ref={messagesEndRef} />
           {/* AI 免責注記（App Store 審査ガイドライン対応 + 誠実な期待値設定）。固定表示にすると
               会話の面積を削るので、会話の流れの最後（空の画面・答えの下）に置く。 */}
@@ -2290,6 +2380,44 @@ function TrialNudgeCard({ copy, onOpen, onDismiss }) {
       </p>
       <button type="button" onClick={onOpen} style={{ ...uiBtnPrimary, marginTop: 'var(--space-3)' }}>
         {copy.cta}
+      </button>
+    </section>
+  );
+}
+
+// 🧪 はじめての相談の答えのあとの 7 日間無料（lib/firstAnswerTrial.js・2026-10-08・実験）。
+// 閉じられる 1 行のカード（DESIGN §5「閉じられる 1 行の案内」）: 面は案内カードと同じ・行全体が押せる（右に ›）・右端に ×。
+// 押すと有料プランの画面（reason 'first_answer'）。題を立てない（答えのすぐ下で静かに 1 行）。
+function FirstAnswerTrialCard({ text, onOpen, onDismiss, style = null }) {
+  return (
+    <section
+      aria-label="7 日間無料の案内"
+      style={{ display: 'flex', alignItems: 'center', background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', ...style }}
+    >
+      <button
+        type="button"
+        onClick={onOpen}
+        style={{
+          flex: 1, minWidth: 0, minHeight: 44, display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
+          padding: 'var(--space-3) 0 var(--space-3) var(--space-4)', background: 'none', border: 'none', cursor: 'pointer',
+          textAlign: 'left', color: 'var(--text)', fontSize: 'var(--text-sub)', fontWeight: 600, lineHeight: 1.5, fontFamily: 'inherit',
+        }}
+      >
+        {/* 狭い画面で 2 行になるときは「、」の後ろで折り返す（「7 日間無料で」と「育てる」を離さない）。 */}
+        <span style={{ flex: 1, minWidth: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+          {(text.match(/[^、]+、?/g) || [text]).map((part, i) => (
+            <span key={i} style={{ display: 'inline-block' }}>{withPhraseBreaks(part)}</span>
+          ))}
+        </span>
+        <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+      </button>
+      <button
+        type="button"
+        onClick={onDismiss}
+        aria-label="閉じる"
+        style={{ ...iconBtn, color: 'var(--text-3)', flexShrink: 0, marginRight: 'var(--space-1)' }}
+      >
+        <X size={20} aria-hidden="true" />
       </button>
     </section>
   );

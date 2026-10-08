@@ -505,6 +505,14 @@ const SCREENS = [
   { name: 'tokens-sheet', url: '/?demo=limit', steps: [{ css: nav('相談') }, { css: 'button:has-text("トークンを追加")' }] },
   { name: 'consult-tokens-extra', url: '/?demo=tokens', steps: [{ css: nav('相談') }] },
   { name: 'settings-tokens', url: '/?demo=tokens', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { scrollTo: 'section[aria-label="プラン・お支払い"]' }] },
+  // 🧪 はじめての相談の答えのあとの 7 日間無料（2026-10-08・実験）: 見せる組（&trialab=on）／見せない組（off）／押したあとの有料プランの画面
+  { name: 'consult-first-trial', url: '/?demo=fewmemos&trialab=on', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { waitFor: '[aria-label="続けて聞く"] button' }, { wait: 1200 }, { scrollBottom: true }] },
+  { name: 'consult-first-trial-hold', url: '/?demo=fewmemos&trialab=off', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { waitFor: '[aria-label="続けて聞く"] button' }, { wait: 1200 }, { scrollBottom: true }] },
+  { name: 'consult-first-trial-large-text', url: '/?demo=fewmemos&trialab=on', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { waitFor: '[aria-label="続けて聞く"] button' }, { wait: 1200 }, { eval: () => { document.documentElement.style.fontSize = '23px'; } }, { wait: 500 }, { scrollBottom: true }] },
+  { name: 'paywall-first-answer', url: '/?demo=fewmemos&trialab=on&native=1&founding=on', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { waitFor: '[aria-label="続けて聞く"] button' }, { wait: 1200 }, { css: 'section[aria-label="7 日間無料の案内"] button:has-text("育てる")' }, { wait: 1500 }] },
+  // 🎟 設定の「コードを使う」（iPhone のアプリだけ・お試しは &native=1）
+  { name: 'settings-code', url: '/?demo=free&native=1', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { scrollTo: 'button:has-text("プランを見る")' }] },
+  { name: 'settings-code-paid', url: '/?native=1', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { scrollTo: 'button:has-text("サブスクリプションを管理")' }] },
   // 長さの上限で途中まで（&ai=cut・本文は残し、下に 1 行の案内）
   // ── 一文をシェア（2026-09-27・SPEC §2-1）
   { name: 'share-line', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("画像で共有")' }, { wait: 1500 }] },

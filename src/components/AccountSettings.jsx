@@ -33,7 +33,7 @@ import { exportUserDataAsCSV, exportMemosAsMarkdown } from '../lib/exportData';
 import { forceUpdate as forceAppUpdate } from '../lib/swUpdate';
 import { useSubscription } from '../hooks/useSubscription';
 import { openBillingPortal } from '../lib/billing';
-import { isNative, openManageSubscriptions } from '../lib/iap';
+import { isNative, openManageSubscriptions, canRedeemOfferCode, presentOfferCodeSheet, invalidateCustomerInfo } from '../lib/iap';
 import { usePaywall } from '../state/PaywallContext';
 import { planNameFor, trialRenewalLine, trialCancelNote, trialCancelByTime } from '../lib/trialNudge';
 import { PAID_TOKENS, TOKEN_COSTS, FREE_TOKENS } from '../lib/tokens';
@@ -364,10 +364,44 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
   const trapRef = useFocusTrap(!feedbackOpen);
   // 💳 課金状態。subscriptions 未適用なら subscription=null / isActive=false で
   // 静かに縮退する（useSubscription 側で schema-error を握りつぶす）。
-  const { subscription, isActive, loading: subLoading } = useSubscription();
+  const { subscription, isActive, loading: subLoading, refresh: refreshSub } = useSubscription();
   // 🪙 プランと残りのトークン（PaywallGate が配る）。契約は「プランを見る」→ 有料プランの画面で
   //    （価格・自動更新の条件・復元・規約を 1 か所で見せる＝審査 3.1.2）。
-  const { plan, tokensRemaining, tokenAllowance, openPaywall, purchasedTokens, purchasedExpiresAt, canBuyTokens, openTokenSheet } = usePaywall();
+  const { plan, tokensRemaining, tokenAllowance, openPaywall, purchasedTokens, purchasedExpiresAt, canBuyTokens, openTokenSheet, refreshPlan } = usePaywall();
+  // 🎟 コードを使う（オファーコード・2026-10-08）: iPhone のアプリだけ（lib/iap.js の canRedeemOfferCode）。
+  //   Apple のコード入力の画面を開き、閉じたあとに契約の状態を何度か読み直す（結果は画面から返らないため）。
+  //   お試しモードは &native=1 で行を出す（押しても Apple の画面は開かない）。
+  const showCodeRow = canRedeemOfferCode || (isDemo && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('native') === '1');
+  const [codeBusy, setCodeBusy] = useState(false);
+  const codeTimersRef = useRef([]);
+  useEffect(() => () => codeTimersRef.current.forEach(clearTimeout), []);
+  const handleRedeemCode = async () => {
+    if (codeBusy) return;
+    track('offer_code', { action: 'open' });
+    if (!canRedeemOfferCode) { toast.info('お試しモードでは、コードの入力画面は開きません。'); return; }
+    setCodeBusy(true);
+    try {
+      const opened = await presentOfferCodeSheet(user?.id);
+      if (!opened) { toast.error('この端末では、コードの入力画面を開けませんでした。'); return; }
+      // 使えたかは画面から分からないので、少しずつ間をあけて読み直す（反映は数秒〜数十秒）。
+      codeTimersRef.current.forEach(clearTimeout);
+      codeTimersRef.current = [1500, 5000, 12000, 30000].map((ms) => setTimeout(async () => {
+        await invalidateCustomerInfo();
+        refreshSub?.();
+        refreshPlan?.();
+      }, ms));
+    } catch (e) {
+      toast.error(toMessage(e, 'コードの入力画面を開けませんでした。'));
+    } finally {
+      setCodeBusy(false);
+    }
+  };
+  const codeRow = showCodeRow ? (
+    <button type="button" onClick={handleRedeemCode} disabled={codeBusy} aria-busy={codeBusy || undefined} style={{ ...rowButtonStyle, ...divider }}>
+      <span style={{ ...rowTitleStyle, flex: 1 }}>コードを使う</span>
+      <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+    </button>
+  ) : null;
   // 🪙➕ 追加トークンの行（残りがあるときだけ・いちばん近い期限つき）。
   //    2 行: 量（本文 17）と、その下に右寄せで期限（13）。
   const lotExpiry = purchasedExpiresAt ? dateLabelJa(purchasedExpiresAt) : null;
@@ -1003,6 +1037,8 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                 </div>
               </>
             )}
+            {/* 🎟 コードを使う（iPhone のアプリだけ・契約の有無にかかわらずグループの最後に）。 */}
+            {!subLoading && codeRow}
           </Group>
 
           {/* ── 通知 ── 準備中（鍵が未設定）の間はグループごと出さない。 */}
