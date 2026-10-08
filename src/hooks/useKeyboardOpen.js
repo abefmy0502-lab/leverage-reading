@@ -11,9 +11,15 @@
 //      (visualViewport が動かない or 反応が遅い端末用のフォールバック。
 //       実際にキーボードが上がっていなくても焦点だけで true になり得る
 //       弱点はあるが、UI を畳む方向には間違いなく安全)
-// どちらか一方でも true なら open とみなす。
+//   3) iOS のアプリ（Capacitor）では、キーボードの開く／閉じるの知らせ（lib/native.js の NATIVE_KEYBOARD_EVENT）。
+//      ネイティブのリサイズでは window と visualViewport が一緒に縮むので 1) では分からないため（2026-10-08）。
+//      閉じたと知らされたら、入力欄にカーソルが残っていても閉じたとみなす（ハードウェアキーボードなど）。
+// どれか 1 つでも true なら open とみなす。
 
 import { useEffect, useState } from 'react';
+
+// lib/native.js の NATIVE_KEYBOARD_EVENT と同じ名前（native.js は Capacitor を読み込むので、ここでは文字で持つ）。
+const NATIVE_KEYBOARD_EVENT = 'orime:native-keyboard';
 
 export function useKeyboardOpen(threshold = 100) {
   const [open, setOpen] = useState(false);
@@ -25,8 +31,9 @@ export function useKeyboardOpen(threshold = 100) {
 
     let vvOpen = false;
     let focusOpen = false;
+    let nativeOpen = false;
     const apply = () => {
-      const next = vvOpen || focusOpen;
+      const next = vvOpen || focusOpen || nativeOpen;
       setOpen(next);
     };
 
@@ -68,6 +75,14 @@ export function useKeyboardOpen(threshold = 100) {
       }, 80);
     };
 
+    const onNative = (e) => {
+      const open = !!e?.detail?.open;
+      nativeOpen = open;
+      if (!open) focusOpen = false;
+      apply();
+    };
+    window.addEventListener(NATIVE_KEYBOARD_EVENT, onNative);
+
     if (vvSupported) {
       window.visualViewport.addEventListener('resize', computeVv);
       window.visualViewport.addEventListener('scroll', computeVv);
@@ -83,6 +98,7 @@ export function useKeyboardOpen(threshold = 100) {
       }
       document.removeEventListener('focusin', onFocusIn);
       document.removeEventListener('focusout', onFocusOut);
+      window.removeEventListener(NATIVE_KEYBOARD_EVENT, onNative);
     };
   }, [threshold]);
 

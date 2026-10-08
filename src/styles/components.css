@@ -1143,21 +1143,20 @@ textarea[aria-invalid="true"]:not(.no-focus-ring):focus {
   flex-shrink: 0;
   background: var(--bg);
   /* ホームインジケータ（iPhone）に被らないよう、常時 safe-area を吸収する。 */
-  padding: var(--space-2) var(--space-4) calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
+  /* キーボードが開いている間は 0（--safe-bottom-kb）＝入力欄をキーボードのすぐ上に付ける（2026-10-08。
+     以前はキーボードの上にもホームインジケータの分の空き 約 34 が残っていた）。 */
+  padding: var(--space-2) var(--space-4) calc(var(--space-2) + var(--safe-bottom-kb));
   margin: 0;
   border-top: 1px solid var(--separator);
   display: flex;
   gap: var(--space-2);
   align-items: flex-end;
 }
-/* キーボード開時も同じ safe-area を維持（BottomNav が消えるため）。 */
-body.keyboard-open .ai-input-area {
-  padding-bottom: calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
-}
 .ai-input-area textarea {
   flex: 1;
   min-height: 44px;
-  max-height: 120px;
+  /* 書いた量に合わせて 5 行まで伸び、そこから中を送る（行の高さ 1.5・上下の内側 8・枠 1・2026-10-08）。 */
+  max-height: calc(1.5em * 5 + var(--space-2) * 2 + 2px);
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius);
   /* 入力欄の枠は操作部品のコントラスト 3:1（DESIGN §5・§6） */
@@ -1336,6 +1335,11 @@ body.keyboard-open .bottom-nav {
   padding: 0 !important;
   border-top: none !important;
   pointer-events: none !important;
+}
+/* キーボードが開いている間、相談・AI 選書のサブタブの行（相談｜AI 選書・過去の相談）を畳む。
+   答えと書いている文に場所を譲る（書き終えて閉じれば戻る・2026-10-08）。 */
+body.keyboard-open .ai-page > .sub-tabs {
+  display: none;
 }
 
 /* =========================================================================

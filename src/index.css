@@ -104,6 +104,10 @@ html, body, #root {
   padding: 0;
   overflow: hidden;
 }
+/* キーボードが開いている間は下の安全域を 0 に（tokens.css の --safe-bottom-kb・2026-10-08）。 */
+body.keyboard-open {
+  --safe-bottom-kb: 0px;
+}
 html, body {
   /* 画面の途中から横に払ったときに、ブラウザの「戻る」（Android の Chrome など）が動かないように。
      横だけ止める（縦の引っ張って更新＝PullToRefresh は各一覧の中で自前で動くので影響しない）。

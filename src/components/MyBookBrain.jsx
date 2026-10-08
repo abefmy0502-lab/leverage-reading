@@ -38,6 +38,7 @@ import { TOKEN_COSTS, monthDayLabelJa } from '../lib/tokens';
 import { shouldShowTrialNudge, trialNudgeCopy, isTrialNudgeDone, markTrialNudgeDone, normalizeTrialLabel, trialCancelShortLine } from '../lib/trialNudge';
 import { getIntroOffer } from '../lib/iap';
 import { growthMeterText, firstAnswerEvidence, takeFirstConsult, takeMemosReached, getOnboardPath } from '../lib/firstDay';
+import { composerChrome, answerEndScrollTop, composerHeight, isTouchUi } from '../lib/composerView';
 import { buildConsultExamples, standaloneAction, shortTitle, hasSummaryMemo, countSummaryMemos, fmtTokens, consultsLeft, memoSearchQuery, answerStepToAction, stripScenePrefix, selectThreadTurns, isCompletedAnswer, parseAskSection, nextStepChips, wantsAction, isBookLookup, lookupTerm } from '../lib/consultHelpers';
 import LibrarySearchHit from './LibrarySearchHit';
 import { buildSnippet, compileTerms, splitQuery } from '../lib/librarySearch';
@@ -624,16 +625,22 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // 答えを待つ時間が長いとき（8 秒たっても 1 文字も来ない）に、静かな 1 行を出す（2026-09-29・15 秒 → 8 秒）。
   const [slowWait, setSlowWait] = useState(false);
   const gotTextRef = useRef(false);
-  // Auto-grow textarea: 60px min, 200px max, scrolls past 200.
+  // 入力欄は書いた量に合わせて伸びる（空は 1 行 44・5 行を超えたら中を送る＝上限は CSS の max-height・2026-10-08）。
   const inputRef = useRef(null);
+  // ⌨️ 入力欄にカーソルがある間（2026-10-08）: 深掘りのチップの行と相談相手・答え方の行を隠し、答えと自分の文に場所を譲る。
+  //   以前は「文字が入っている間」だけ隠していたので、カーソルを置いただけの間はチップが出たままだった（オーナーの iPhone）。
+  const [inputFocused, setInputFocused] = useState(false);
+  // 指で使う端末（キーボードが画面に出る）だけ、カーソルがある間に上の行を隠す。マウスの端末は文字がある間だけ（今までどおり）。
+  const touchUi = useMemo(() => isTouchUi(), []);
+  const blurTimerRef = useRef(0);
   // 描く前に高さを合わせる（useEffect だと、送ったあとに「消えた文字の高さのまま 1 回描く → 縮む」で
   // 入力欄が 2 回動いていた）。
   useLayoutEffect(() => {
     const el = inputRef.current;
     if (!el) return;
-    // 空のときは 1 行（44）。書くほど伸び、200 を超えたらスクロール。
     el.style.height = 'auto';
-    el.style.height = Math.min(Math.max(el.scrollHeight + 2, 44), 200) + 'px';
+    const max = parseFloat(getComputedStyle(el).maxHeight);
+    el.style.height = composerHeight({ scrollHeight: el.scrollHeight + 2, max: Number.isFinite(max) ? max : 146 }) + 'px';
   }, [input]);
 
   const historyLatestRef = useRef(null);
@@ -918,6 +925,58 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     if (col) ro.observe(col);
     return () => ro.disconnect();
   }, [view, sizeSpacer]);
+  // ⌨️ 書いている間も、読みたい答えの終わりが見えるように（2026-10-08）。
+  //   カーソルを置いたら最新の答えの終わりまで送る。キーボードが上がって欄が縮んだとき・入力欄が伸びたときは、
+  //   その前に答えの終わりが見えていたときだけ見えたままにする（自分で上へ戻して読んでいる場所は奪わない）。
+  const forceEndUntilRef = useRef(0);
+  const keepAnswerEnd = useCallback((prevClientHeight) => {
+    const el = chatScrollRef.current;
+    const end = messagesEndRef.current;
+    if (!el || !end) return;
+    const endOffset = end.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop;
+    const forced = Date.now() < forceEndUntilRef.current;
+    if (!forced && prevClientHeight != null && endOffset > el.scrollTop + prevClientHeight + 2) return;
+    const top = answerEndScrollTop({ scrollTop: el.scrollTop, clientHeight: el.clientHeight, endOffset, pad: 8 });
+    if (top != null) el.scrollTop = top;
+  }, []);
+  useEffect(() => {
+    if (view !== 'chat' || !inputFocused || typeof ResizeObserver === 'undefined') return undefined;
+    const el = chatScrollRef.current;
+    if (!el) return undefined;
+    let last = el.clientHeight;
+    const ro = new ResizeObserver(() => {
+      const prev = last;
+      last = el.clientHeight;
+      if (last < prev) keepAnswerEnd(prev);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [view, inputFocused, keepAnswerEnd]);
+  const onInputFocus = () => {
+    clearTimeout(blurTimerRef.current);
+    setInputFocused(true);
+    // キーボードが上がりきるまで（iOS で約 0.3 秒）は、縮むたびに答えの終わりへ。
+    forceEndUntilRef.current = Date.now() + 700;
+    requestAnimationFrame(() => keepAnswerEnd(null));
+  };
+  // iOS の WKWebView は、送ったあと・アプリに戻ったときなどに blur → focus を続けて送ることがある。
+  // 少し待って、まだ入力欄から外れていたら戻す（チップが一瞬出て消える・押した指の下に現れるのを防ぐ）。
+  const onInputBlur = () => {
+    clearTimeout(blurTimerRef.current);
+    blurTimerRef.current = setTimeout(() => {
+      if (typeof document !== 'undefined' && document.activeElement === inputRef.current) return;
+      setInputFocused(false);
+    }, 200);
+  };
+  useEffect(() => () => clearTimeout(blurTimerRef.current), []);
+  // 入力補助のバー（∧∨✓）を消したので、会話の何もないところを押したらキーボードを閉じる（押せる部品・文字を選ぶ操作は除く）。
+  const onChatTap = (e) => {
+    if (!inputFocused) return;
+    const t = e.target;
+    if (t && typeof t.closest === 'function' && t.closest('button, a, summary, input, textarea, select, label, [role="button"], [role="link"], [tabindex]')) return;
+    try { if (window.getSelection && String(window.getSelection())) return; } catch { /* ignore */ }
+    inputRef.current?.blur();
+  };
   const prevMsgCountRef = useRef(0);
   const historyHydratedRef = useRef(false);
   const busyRef = useRef(false);
@@ -1087,7 +1146,15 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   //   同意を待つ・保存する間）に 2 回目も通り抜けていた。同期の印で送っている途中を持ち、終わったら外す（2026-10-04）。
   const sendGuardRef = useRef(null);
   if (!sendGuardRef.current) sendGuardRef.current = createSendGuard();
-  const ask = (questionText, opts = {}) => sendGuardRef.current.run(() => askOnce(questionText, opts));
+  const ask = (questionText, opts = {}) => {
+    // ⌨️ 指で使う端末では、入力欄から送ったらキーボードを閉じる（2026-10-08）: 答えを画面いっぱいで読み、
+    //   書き終えたら入力欄の上のチップ（返事の候補・行動を決める）が出る。続けて書くときは入力欄を押す。
+    //   マウスの端末はそのまま（続けて打てる・チップは文字が無ければ出る）。
+    if (questionText == null && input.trim() && !busy && touchUi && typeof document !== 'undefined' && document.activeElement === inputRef.current) {
+      try { inputRef.current.blur(); } catch { /* ignore */ }
+    }
+    return sendGuardRef.current.run(() => askOnce(questionText, opts));
+  };
   const askOnce = async (questionText, opts = {}) => {
     if (!user) {
       toast.error('ログインが必要です。');
@@ -1571,18 +1638,23 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // 「次に聞く」は入力欄の上のこの 1 行にまとめる（2026-09-30 ui-critic: 答えの下の「別の角度で答えて」と 2 か所に割れていた）。
   // 本を探す問いに自分のメモから答えた（AI なし・lookupFromMemos）あとも、AI の答えと同じチップを出す。
   const lastLocalLookup = !!(lastVisible?.memoAnswer?.lookup && lastVisible.memoAnswer.status === 'ready');
-  const chipRowBase = !busy && !outOfTokens && !freeUsedUp && !input.trim()
+  // 書き終えた答えのあと（入力欄の状態を除く）。プレースホルダー（「質問に答える…」）はこちらで決める＝カーソルを置いても変わらない。
+  // チップの行を出すのは、そのうえで入力欄にカーソルも文字も無いとき（composerChrome・2026-10-08）。
+  const chrome = composerChrome({ focused: inputFocused && touchUi, text: input });
+  const answerReady = !busy && !outOfTokens && !freeUsedUp
     && visibleMessages.length >= 2 && visibleMessages[visibleMessages.length - 2]?.role === 'user'
     && lastVisible?.role === 'assistant' && !lastVisible.streaming && !lastVisible.error && !lastVisible.notice && (!lastVisible.memoAnswer || lastLocalLookup) && !isNoInfoAnswer(lastVisible);
-  const showFollowups = chipRowBase && (lastLocalLookup || isCompletedAnswer(lastVisible));
+  const chipRowBase = answerReady && chrome.chips;
+  const answerDone = answerReady && (lastLocalLookup || isCompletedAnswer(lastVisible));
+  const showFollowups = answerDone && chrome.chips;
   // いま送った文と同じチップは出さない（「もっと具体的に」のあとにまた「もっと具体的に」を並べない）。
   const lastAsked = visibleMessages[visibleMessages.length - 2]?.content || '';
   // 🎯 行動は会話で決める（2026-09-30）: 最後の答えが問いで終わっていれば、その候補（返事）→「行動を決める」。
   //   行動を決めた答えのあとは、これまでの深掘りのチップ。次にすることは入力欄の上のこの 1 行だけ（lib/consultHelpers.js）。
-  const lastParsed = showFollowups ? parseAnswer(lastVisible.content) : null;
+  const lastParsed = answerDone ? parseAnswer(lastVisible.content) : null;
   const lastAsksBack = !!lastParsed?.question;
   // 🔎 最後の相談が本を探す問いなら、そのあとのチップは「いまにどう活かす？」「ほかにも書いてた？」だけ（2026-09-30）。
-  const lastLookup = showFollowups && isBookLookup(lastAsked);
+  const lastLookup = answerDone && isBookLookup(lastAsked);
   const lookupFound = lastLookup
     ? (lastLocalLookup ? lastVisible.memoAnswer.groups.length : decodeQuoteRefs(lastVisible.refs || []).filter((c) => c.k === 'r' && c.s === 'ok').length || (lastVisible.refs || []).filter((r) => !isMetaRef(r)).length)
     : 0;
@@ -1911,6 +1983,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             ref={chatScrollRef}
             className="chat-scroll"
             onScroll={onBodyScroll}
+            onClick={onChatTap}
             // サブタブの行の下 12 に「あなたのメモ N 件から答えます」の 1 行（その下は空の画面で 24・会話があるときは 16）。
             style={{ padding: 'var(--space-3) var(--space-4) var(--space-4)' }}
             role="log"
@@ -2163,7 +2236,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               </div>
             )
           )}
-          {/* 相談相手は入力欄のすぐ上（SPEC §3）。 */}
+          {/* 相談相手は入力欄のすぐ上（SPEC §3）。入力欄にカーソルがある間は出さない（答えと自分の文に場所を譲る・2026-10-08）。 */}
+          {chrome.scopeBar && (
           <ScopeBar
             label={scopeLabelFor(scopeIds, books)}
             scoped={scopeIds.length > 0}
@@ -2175,6 +2249,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             // 深掘りのチップを出しているときは、区切り線はチップの上に 1 本だけ（入力欄のまとまりにチップを入れる）。
             noBorder={followups.length > 0 || !!regenLabel}
           />
+          )}
           {modeSheetOpen && (
             <AnswerModeSheet
               value={answerMode}
@@ -2191,12 +2266,14 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               onApply={(ids) => { setScopeIds(ids); setScopeSheetOpen(false); track('brain_scope_set', { count: ids.length }); }}
             />
           )}
-          {/* 区切り線は相談相手の行の上に 1 本だけ（入力欄側の線は消す）。 */}
-          <div className="ai-input-area" style={{ borderTop: 'none' }}>
+          {/* 区切り線は相談相手の行の上に 1 本だけ（入力欄側の線は消す）。相談相手の行を隠している間は入力欄の上に 1 本。 */}
+          <div className="ai-input-area" style={chrome.scopeBar ? { borderTop: 'none' } : undefined}>
             <textarea
               ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
+              onFocus={onInputFocus}
+              onBlur={onInputBlur}
               onKeyDown={(e) => {
                 if (e.nativeEvent.isComposing) return;
                 if (e.key === 'Enter' && (e.shiftKey || e.metaKey || e.ctrlKey)) {
