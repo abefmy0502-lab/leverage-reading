@@ -604,6 +604,10 @@ const SCREENS = [
   { name: 'wrap-sheet-year', url: '/?today=2026-12-03', steps: [{ css: '[data-share-nudge] button:has-text("2026年の読書")' }, { wait: 2500 }] },
   { name: 'wrap-sheet-year-stats', url: '/?today=2026-12-03', steps: [{ css: '[data-share-nudge] button:has-text("2026年の読書")' }, { wait: 2000 }, shareVariant('数字'), { wait: 2000 }] },
   { name: 'wrap-sheet-year-photo', url: '/?today=2026-12-03', steps: [{ css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo-bright.jpg'] }, { wait: 2000 }, { css: '[role=radiogroup][aria-label="どの本を共有するか"] [role=radio]:has-text("今年")' }, { wait: 2500 }] },
+  { name: 'wrap-home-month-xl-text', url: '/?today=2026-11-29', steps: [{ waitFor: '[data-share-nudge]' }, { eval: () => { document.documentElement.style.fontSize = '30px'; } }, { wait: 500 }] },
+  { name: 'wrap-home-dec30', url: '/?today=2026-12-30', steps: [{ waitFor: '[data-share-nudge]' }, { css: '[data-share-nudge] button[aria-label="この案内を閉じる"]' }, { wait: 800 }] },
+  { name: 'wrap-sheet-year-quote', url: '/?today=2026-12-03', steps: [{ css: '[data-share-nudge] button:has-text("2026年の読書")' }, { wait: 2000 }, shareVariant('一文'), { wait: 2000 }] },
+  { name: 'wrap-sheet-year-error', url: '/?today=2026-12-03&share=yearfail', steps: [{ css: '[data-share-nudge] button:has-text("2026年の読書")' }, { wait: 2000 }] },
   { name: 'wrap-sheet-year-review', url: '/?today=2026-12-03', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }, { css: 'button[aria-label="写真で共有"]' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 2500 }] },
   // ── 写真で共有をよくする（2026-10-05・ロゴは必ず入る・重ね方 3 つ・選んだ重ね方と形を覚える・撮り直す／アルバム）
   // 「数字」の重ね方（大きな数字を真ん中に縦に積む）。投稿・ストーリー・明るい写真・暗い写真・紙・表紙の色。

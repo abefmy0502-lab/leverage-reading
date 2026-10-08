@@ -176,15 +176,25 @@ export function wrapCost(lines, measure) {
 // 1 段落を折り返す。行数はいちばん少ないまま、幅を変えた組み方・文の終わりで切る組み方を
 // いくつも作り、wrapCost がいちばん小さいものを選ぶ（行の長さをそろえる＝CSS の text-wrap: balance
 // ＋ 文の切れ目で改行する）。戻り値: { lines, cost }
+// まとまり（文節）を語の途中で切った組み方の悪さ（1 か所ごと）。文字を小さくする重み（SIZE_WEIGHT）で
+// 30% 小さくした分（2.4）より大きい＝収まる大きさの 70% までなら、小さくしてでも語の途中で改行しない
+// （「はできな／い。」と切れていた・2026-10-08 ui-critic）。
+const SPLIT_PENALTY = 6;
+
 function wrapParagraph(text, maxWidth, measure) {
   if (!text) return { lines: [''], cost: 0 };
   const phrases = [];
+  let splits = 0;
   for (const p of segmentPhrases(text)) {
-    if (measure(trimEnd(p)) > maxWidth) phrases.push(...splitLongPhrase(p, maxWidth, measure));
-    else phrases.push(p);
+    if (measure(trimEnd(p)) > maxWidth) {
+      const parts = splitLongPhrase(p, maxWidth, measure);
+      if (parts.length > 1) splits += parts.length - 1;
+      phrases.push(...parts);
+    } else phrases.push(p);
   }
   const base = greedy(phrases, maxWidth, measure);
   if (base.length <= 1) return { lines: base, cost: 0 };
+  const extra = splits * SPLIT_PENALTY;
   // まとまりが 1 行に入らないほど狭めない。
   const lo = Math.max(maxWidth * 0.4, ...phrases.map((p) => measure(trimEnd(p))));
   const seen = new Set();
@@ -204,7 +214,8 @@ function wrapParagraph(text, maxWidth, measure) {
     consider(greedy(phrases, w, measure, 0.3));
     consider(greedy(phrases, w, measure, 0.5));
   }
-  return best || { lines: base, cost: wrapCost(base, measure) };
+  const r = best || { lines: base, cost: wrapCost(base, measure) };
+  return { lines: r.lines, cost: r.cost + extra };
 }
 
 // 段落（明示の改行）ごとに折り返した行と、組み方の悪さの合計。

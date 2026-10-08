@@ -106,6 +106,7 @@ const CoverFixModal = lazy(() => import('./components/CoverFixModal'));
 const ShareSheet = lazy(() => import('./components/ShareSheet'));
 import { hasFinishedThisMonth, yearChoiceAllowed } from './lib/shareOverlay';
 import { appNow } from './lib/appNow';
+import { clearShareMemoCaches } from './lib/shareMemoCache';
 const Landing = lazy(() => import('./pages/Landing'));
 const TermsPage = lazy(() => import('./legal/TermsPage'));
 const PrivacyPage = lazy(() => import('./legal/PrivacyPage'));
@@ -565,6 +566,8 @@ const OPEN_SETTINGS_EVENT = 'orime:open-settings';
 function AuthedApp() {
   const { signOut, user } = useAuth();
   const appCache = useAppDataCache();
+  // 📷 写真で共有の「今月」「今年」のメモの控えは、メモが動いたら捨てる（次に開いたときに読み直す・2026-10-08）。
+  useEffect(() => appCache?.subscribeAnyMemo?.(clearShareMemoCaches), [appCache]);
   // 仮想キーボード表示中は BottomNav を消し、入力欄に重ならないようにする。
   // viewport meta の interactive-widget=resizes-content と併用すると iOS
   // で「BottomNav が押し上げられる」現象が完全になくなる。

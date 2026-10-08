@@ -29,7 +29,7 @@ import {
 } from './shareCardLayout';
 import {
   RECORD_QUOTE_MAX, recordFrame, placeRecordBlock, statColumns, splitStatValue, recordBlockPlan, recordTitleScale, recordTitleMaxLines,
-  applyShareItems, shareVisibility, recordCoverPlacement, logoBox, LOGO_RULES, statsStackPlan, placeStatsStack, statColumnsScale, mainTitle,
+  applyShareItems, shareVisibility, recordCoverPlacement, logoBox, LOGO_RULES, statsStackPlan, placeStatsStack, statColumnsScale, mainTitle, pickSubVariant,
 } from './shareOverlay';
 import { phraseLayout, phraseMetrics, phraseColors, phraseDisplayText, stickerPhraseReserve } from './sharePhrase';
 import { paletteFor } from './coverPalette';
@@ -713,12 +713,19 @@ function drawPoster(ctx, o) {
   // 書名も著者も隠したときは、本の行（表紙＋書名）ごと出さない。
   const showBook = o.showTitle !== false || o.showAuthor !== false;
   const bookGap = showBook ? Math.round(L.sizes[0] * 1.15) : 0; // 傍線の下から本の行まで
-  const fixedH = L.markInk + markGap + bookGap + (showBook ? coverH : 0);
+  // 見出し（今年の一文は「2026」・2026-10-08）。引用符の上に。
+  const kSize = recordFrame(format).kickerSize;
+  const kickerH = o.kicker ? Math.round(kSize * 1.35) + Math.round(L.sizes[0] * 0.5) : 0;
+  const fixedH = kickerH + L.markInk + markGap + bookGap + (showBook ? coverH : 0);
   const fit = layoutQuote(ctx, fonts, text, { maxWidth: contentW, maxHeight: (L.bottom - L.top) - fixedH, sizes: L.sizes, lineHeight: 1.62 });
   const quoteH = fit.lines.length * fit.lineHeight;
   // 目で見た中心（数学の中心より少し上）に置く。
   let y = L.top + Math.max(0, (L.bottom - L.top - fixedH - quoteH) * 0.44);
 
+  if (o.kicker) {
+    drawKicker(ctx, fonts, { x: left, y, h: Math.round(kSize * 1.35), size: kSize, text: o.kicker, theme });
+    y += kickerH;
+  }
   drawQuoteMark(ctx, mark, left, y, theme.accent);
   y += L.markInk + markGap;
   drawQuoteLines(ctx, fonts, fit, left, y, theme.ink, { seed: o.seed, color: theme.accent });
@@ -771,15 +778,22 @@ function layoutOverlay(ctx, fonts, o, L, maxBlockH) {
   const bl = layoutBookLines(ctx, fonts, bookLineOpts(o, { width: contentW - textX, titleFont, titleSize: L.titleSize, metaSize: L.metaSize }));
   const gapBook = showBook ? bookGap : 0;
   const bookH = showBook ? Math.max(iconH, bl.height) : 0;
-  const fixedH = L.markInk + markGap + gapBook + bookH;
+  const kSize = recordFrame(o.format || 'story').kickerSize;
+  const kLine = Math.round(kSize * 1.35);
+  const kickerH = o.kicker ? kLine + Math.round(L.sizes[0] * 0.42) : 0;
+  const fixedH = kickerH + L.markInk + markGap + gapBook + bookH;
   const fit = layoutQuote(ctx, fonts, o.text, { maxWidth: contentW, maxHeight: maxBlockH - fixedH, sizes: L.sizes, lineHeight: 1.55 });
   const quoteH = fit.lines.length * fit.lineHeight;
-  return { mark, markGap, bookGap: gapBook, showBook, titleFont, bl, fit, quoteH, height: fixedH + quoteH, contentW, iconH, iconW, textX };
+  return { mark, markGap, bookGap: gapBook, showBook, titleFont, bl, fit, quoteH, height: fixedH + quoteH, contentW, iconH, iconW, textX, kickerH, kSize, kLine };
 }
 
 function drawOverlay(ctx, fonts, o, L, lay, top, theme) {
   const left = L.margin;
   let y = top;
+  if (o.kicker && lay.kickerH) {
+    drawKicker(ctx, fonts, { x: left, y, h: lay.kLine, size: lay.kSize, text: o.kicker, theme });
+    y += lay.kickerH;
+  }
   drawQuoteMark(ctx, lay.mark, left, y, theme.accent);
   y += L.markInk + lay.markGap;
   drawQuoteLines(ctx, fonts, lay.fit, left, y, theme.ink, { seed: o.seed, color: theme.accent });
@@ -950,7 +964,10 @@ function layoutRecord(ctx, fonts, o, F) {
   if (rec.sub) {
     ctx.font = subFont;
     setSpacing(ctx, 0.02, F.subSize);
-    sub = ellipsize(ctx, String(rec.sub), contentW);
+    // 今月・今年の「『A』『B』 ほか N 冊」は、入らなければ短い書き方へ（冊数を … で切らない・pickSubVariant）。
+    sub = rec.subVariants && rec.subVariants.length
+      ? ellipsize(ctx, pickSubVariant(rec.subVariants, (t) => ctx.measureText(t).width, contentW), contentW)
+      : ellipsize(ctx, String(rec.sub), contentW);
   }
   const subLH = Math.round(F.subSize * 1.45);
   const labelH = Math.round(F.statLabelSize * 1.3);
@@ -1031,6 +1048,23 @@ function drawStat(ctx, fonts, F, stat, col, top, lay, theme, k = 1) {
   drawStatValue(ctx, fonts, stat.value, { valueSize: F.statValueSize, unitSize: F.statUnitSize }, k, col.x, baseline, theme.ink);
 }
 
+// 見出し（「読了」「2026」など）。記録・一文で同じ部品（2026-10-08 第 2 回 ui-critic「今年の一文にも年を」）。
+// h は見出しの行の高さ（大きさ × 1.35）。
+function drawKicker(ctx, fonts, { x, y, h, size, text, theme }) {
+  const r = Math.round(size * 0.2);
+  ctx.save();
+  ctx.shadowColor = 'transparent';
+  ctx.fillStyle = theme.accent;
+  ctx.beginPath();
+  ctx.arc(x + r, y + h * 0.52, r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+  ctx.font = `600 ${size}px ${fonts.ui}`;
+  setSpacing(ctx, 0.08, size);
+  ctx.fillStyle = theme.ink2;
+  ctx.fillText(text, x + r * 2 + 14, y + h * 0.78);
+}
+
 // recordBlockPlan の組みのとおりに描く（隠した項目は組みに無い＝場所を取らない）。
 function drawRecordBlock(ctx, fonts, o, F, lay, top, theme) {
   const left = F.margin;
@@ -1039,19 +1073,7 @@ function drawRecordBlock(ctx, fonts, o, F, lay, top, theme) {
     if (el.kind === 'quote') {
       drawQuoteLines(ctx, fonts, lay.fit, left, y, theme.ink, { seed: o.seed, color: theme.accent });
     } else if (el.kind === 'kicker') {
-      // 見出しの前に橙の点（ロゴの i の点と同じ色・Strava の橙にあたる印）。
-      const r = Math.round(F.kickerSize * 0.2);
-      ctx.save();
-      ctx.shadowColor = 'transparent';
-      ctx.fillStyle = theme.accent;
-      ctx.beginPath();
-      ctx.arc(left + r, y + el.height * 0.52, r, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-      ctx.font = `600 ${F.kickerSize}px ${fonts.ui}`;
-      setSpacing(ctx, 0.08, F.kickerSize);
-      ctx.fillStyle = theme.ink2;
-      ctx.fillText(lay.rec.kicker, left + r * 2 + 14, y + el.height * 0.78);
+      drawKicker(ctx, fonts, { x: left, y, h: el.height, size: F.kickerSize, text: lay.rec.kicker, theme });
     } else if (el.kind === 'title') {
       ctx.fillStyle = theme.ink;
       lay.titleLines.forEach((ln, i) => {
@@ -1256,7 +1278,10 @@ function layoutStats(ctx, fonts, o, F) {
   if (rec.sub) {
     ctx.font = subFont;
     setSpacing(ctx, 0.02, st.subSize);
-    sub = ellipsize(ctx, String(rec.sub), contentW);
+    // 今月・今年の「『A』『B』 ほか N 冊」は、入らなければ短い書き方へ（冊数を … で切らない・pickSubVariant）。
+    sub = rec.subVariants && rec.subVariants.length
+      ? ellipsize(ctx, pickSubVariant(rec.subVariants, (t) => ctx.measureText(t).width, contentW), contentW)
+      : ellipsize(ctx, String(rec.sub), contentW);
   }
   const plan = statsStackPlan(F, { hasKicker: !!rec.kicker, titleLines: titleLines.length, hasSub: !!sub, statsCount: stats.length, compact });
   // 数字の大きさは 3 つで同じ（いちばん長いものが幅に入るまで縮める）。
@@ -1566,6 +1591,7 @@ function normalizeLayout(layout) {
 //         seedKey（傍線の種＝メモの id）, totalPages / knownMaxPage（付箋の高さ）,
 //         layout（'quote'＝一文が主役 / 'record'＝記録が主役）, record（shareOverlay の bookRecord / monthRecord）,
 //         stamp（右下の日付）, covers（今月の表紙の並び [{ cover, title }]）,
+//         kicker（一文の見せ方の見出し・今年は「2026」・2026-10-08）,
 //         hidden（表示する項目で隠した項目の名前の配列・shareOverlay の SHARE_ITEM_KEYS）,
 //         phrase（自由に入れる言葉の層 { text, style, x, y, scale, invert }・sharePhrase.js） }
 // 戻り値: { line, width, height }（line は実際に画像に入れた文＝共有の文にも同じものを使う）

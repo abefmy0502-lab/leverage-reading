@@ -51,13 +51,14 @@ import { validateImageFile, MAX_IMAGE_BYTES } from '../lib/limits';
 import { track, EVENTS } from '../lib/analytics';
 import { SITE_URL } from '../lib/legalLinks';
 import { appNow } from '../lib/appNow';
+import { monthMemoCache, yearMemoCache } from '../lib/shareMemoCache';
 import {
   drawShareCard, canvasToBlob, prepareCover, prepareFonts, prepareLogo, loadPhotoFile, readShareTheme,
 } from '../lib/shareCard';
 import { buildShareText, shareFilename, FORMATS } from '../lib/shareCardLayout';
 import {
   pickShareSubject, subjectChoices, bookRecord, monthRecord, yearRecord, yearChoiceAllowed, orderQuoteCandidates,
-  orderYearQuoteCandidates, shareHashtags, quoteText,
+  orderYearQuoteCandidates, shareHashtags, yearMemoCountFor, quoteText,
   swapQuote, swapQuoteLabel, availableVariants, buildRecordShareText, fmtStamp,
   shareItemsFor, applyShareItems, shareVisibility, readHiddenItems, writeHiddenItems,
   readSharePrefs, writeSharePrefs, stepVariant,
@@ -201,8 +202,8 @@ function monthStartIso(now = new Date()) {
   return new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 }
 
-// 今月書いたメモ（今月の数字と一文の候補）。「今月」を選んだときだけ読む。アプリを開いている間は覚えておく。
-const monthMemoCache = new Map();
+// 今月書いたメモ（今月の数字と一文の候補）。「今月」を選んだときだけ読む。アプリを開いている間は覚えておく
+// （メモが動いたら捨てる＝lib/shareMemoCache.js）。
 function useMonthMemos(enabled, now) {
   const { user } = useAuth();
   const key = `${user?.id || ''}|${monthStartIso(now)}`;
@@ -238,20 +239,23 @@ function useMonthMemos(enabled, now) {
 // 今年書いたメモ（今年の数字と「いちばん残した一文」の候補・2026-10-08）。「今年」を選んだときだけ読む。
 // 一文を決めるのに、思い出しカードで「覚えた」を押した回数（recall_count）も読む。件数は数え上げ（読む上限より多い人のため）。
 // recall_count・source_type の列が無い古い DB では外して読み直す（覚えた回数は 0 として扱う）。
+// 読めなかったときは error（数字の欠けた 1 枚を作らない＝シートは「今年のメモを読み込めませんでした」）。reload で読み直す。
 const YEAR_MEMO_LIMIT = 2000;
-const yearMemoCache = new Map();
 function useYearMemos(enabled, now) {
   const { user } = useAuth();
   const year = now.getFullYear();
   const key = `${user?.id || ''}|${year}`;
-  const [state, setState] = useState(() => yearMemoCache.get(key) || { memos: [], count: null, loading: !!enabled });
+  const [state, setState] = useState(() => yearMemoCache.get(key) || { memos: [], count: null, loading: !!enabled, error: false });
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     if (!enabled) return undefined;
+    // 🧪 お試しモードの &share=yearfail（今年のメモを読めなかったときの表示を撮る）。
+    if (DEMO_SHARE === 'yearfail' && attempt === 0) { setState({ memos: [], count: null, loading: false, error: true }); return undefined; }
     const hit = yearMemoCache.get(key);
     if (hit) { setState(hit); return undefined; }
-    if (!isSupabaseConfigured || !user?.id) { setState({ memos: [], count: null, loading: false }); return undefined; }
+    if (!isSupabaseConfigured || !user?.id) { setState({ memos: [], count: null, loading: false, error: false }); return undefined; }
     let alive = true;
-    setState((s) => ({ ...s, loading: true }));
+    setState((s) => ({ ...s, loading: true, error: false }));
     (async () => {
       const from = new Date(year, 0, 1).toISOString();
       const to = new Date(year + 1, 0, 1).toISOString();
@@ -263,22 +267,29 @@ function useYearMemos(enabled, now) {
         .lt('created_at', to)
         .order('created_at', { ascending: false })
         .limit(YEAR_MEMO_LIMIT);
-      let res = await run('id, text, book_id, page_number, photo_path, created_at, recall_count, source_type');
-      if (res.error) res = await run('id, text, book_id, page_number, photo_path, created_at');
+      let res;
+      try {
+        res = await run('id, text, book_id, page_number, photo_path, created_at, recall_count, source_type');
+        if (res.error) res = await run('id, text, book_id, page_number, photo_path, created_at');
+      } catch (e) {
+        res = { data: null, error: e, count: null };
+      }
       if (!alive) return;
       const { data, error, count } = res;
-      const memos = error ? [] : (data || []).map((m) => ({
+      if (error) { setState({ memos: [], count: null, loading: false, error: true }); return; }
+      const memos = (data || []).map((m) => ({
         id: m.id, text: m.text || '', bookId: m.book_id, pageNumber: m.page_number ?? null, photoPath: m.photo_path || null,
         createdAt: m.created_at, recallCount: m.recall_count ?? 0, sourceType: m.source_type || null,
       }));
-      const next = { memos, count: error ? null : (Number.isFinite(count) ? count : null), loading: false };
-      if (!error) yearMemoCache.set(key, next);
+      const next = { memos, count: Number.isFinite(count) ? count : null, loading: false, error: false };
+      yearMemoCache.set(key, next);
       setState(next);
     })();
     return () => { alive = false; };
-  }, [enabled, key, user?.id, year]);
-  return state;
+  }, [enabled, key, user?.id, year, attempt]);
+  return { ...state, reload: () => setAttempt((n) => n + 1) };
 }
+
 
 export default function ShareSheet({
   book: bookProp = null,
@@ -324,7 +335,7 @@ export default function ShareSheet({
 
   const record = useMemo(
     () => (period === 'year'
-      ? yearRecord(books || [], yearM.memos, now, { memoCount: yearM.count })
+      ? yearRecord(books || [], yearM.memos, now, { memoCount: yearMemoCountFor(yearM.memos, yearM.count) })
       : period === 'month' ? monthRecord(books || [], month.memos, now) : bookRecord(subjectBook, memos, now)),
     [period, books, month.memos, yearM.memos, yearM.count, subjectBook, memos, now],
   );
@@ -494,7 +505,9 @@ export default function ShareSheet({
     : null;
   const [bgMenu, setBgMenu] = useState(null); // 「背景：◯ ▾」のメニューの位置
   const lineText = chosen ? quoteText(chosen.text, variant) : '';
-  const ready0 = !!assets && (coverReady || !needCover) && !memosLoading && !photoLoading;
+  // 今年のメモを読めなかったときは描かない（数字の欠けた 1 枚を共有させない）。
+  const yearError = period === 'year' && !!yearM.error;
+  const ready0 = !!assets && (coverReady || !needCover) && !memosLoading && !photoLoading && !yearError;
   const drawKey = ready0
     ? JSON.stringify([variant, subjectKey, chosen?.id, lineText, chosen?.pageNumber, effStyle, format, photo?.id, view, record.kicker, record.title, record.sub, record.stats, lineBook?.title, lineBook?.author, retry, assets.ver, hidden, phrase])
     : '';
@@ -514,6 +527,8 @@ export default function ShareSheet({
       totalPages: lb?.totalPages,
       knownMaxPage,
       seedKey: q?.id || subjectKey,
+      // 今年の一文には見出し「2026」（記録の見出しと同じ部品・第 2 回 ui-critic）。
+      kicker: period === 'year' && v === 'quote' ? String(now.getFullYear()) : '',
       cover: assets.cover,
       covers: v !== 'quote' ? assets.covers : [],
       fonts: assets.fonts,
@@ -568,10 +583,11 @@ export default function ShareSheet({
 
   // 編集画面を開いている間は、編集画面だけが描く（閉じたら描き直して PNG にする）。
   useEffect(() => {
+    if (yearError) { setStatus('error'); return; }
     if (!drawKey) { setStatus('loading'); return; }
     if (editorOpen) return;
     if (draw()) scheduleBlob(drawKey);
-  }, [drawKey, editorOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [drawKey, editorOpen, yearError]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => () => { clearTimeout(blobTimer.current); }, []);
 
@@ -655,7 +671,8 @@ export default function ShareSheet({
     try {
       // 共有の文は、画像に入れたものと同じ。await を挟まずに共有シートを開く。
       // 隠した項目（書名など）は文にも入れない。今月・今年は「#10月読了本」「#2026年の読書」を添える（画像には入れない）。
-      const tags = shareHashtags(period, now);
+      // 「#◯月読了本」は、その月に読み終えた本があるときだけ（メモだけの月は #Orime だけ・オーナー判断）。
+      const tags = shareHashtags(period, now, { finishedCount: (record.finishedBooks || []).length });
       const text = variant !== 'quote'
         ? buildRecordShareText({ record: applyShareItems(record, hidden), quote: card.line, siteUrl: SITE_URL, tags })
         : buildShareText({ title: shareVisibility(hidden).title ? lineBook?.title : '', line: card.line, siteUrl: SITE_URL, tags });
@@ -792,12 +809,22 @@ export default function ShareSheet({
           {/* 失敗の案内はプレビューと同じ高さの場所に出す（地を変えて描き直せたときに、下の部品が上下に動かない）。 */}
           {status === 'error' && (
             <div style={{ alignSelf: 'stretch', minHeight: PREVIEW_H, display: 'grid' }}>
-              <ErrorMessage
-                className="error-message--fill"
-                title="画像を作れませんでした"
-                description={error && !error.startsWith('画像を作れませんでした') ? error : undefined}
-                actions={[{ label: 'もう一度', onClick: () => { setStatus('loading'); setRetry((n) => n + 1); } }]}
-              />
+              {yearError ? (
+                // 今年のメモを読めなかった（数字の欠けた 1 枚は作らない・「もう一度」で読み直す）。
+                <ErrorMessage
+                  className="error-message--fill"
+                  title="今年のメモを読み込めませんでした"
+                  description="通信環境を確認して、もう一度お試しください。"
+                  actions={[{ label: 'もう一度', onClick: () => { setStatus('loading'); yearM.reload(); } }]}
+                />
+              ) : (
+                <ErrorMessage
+                  className="error-message--fill"
+                  title="画像を作れませんでした"
+                  description={error && !error.startsWith('画像を作れませんでした') ? error : undefined}
+                  actions={[{ label: 'もう一度', onClick: () => { setStatus('loading'); setRetry((n) => n + 1); } }]}
+                />
+              )}
             </div>
           )}
           {/* 別の一文（1 タップで次のメモへ・記録では外すこともできる）と「編集」（大きな画像で直す）。
@@ -832,7 +859,8 @@ export default function ShareSheet({
 
         {/* 重ね方（記録／数字／一文の見本・プレビューを左右に振っても切り替わる）と形（投稿 4:5／ストーリー 9:16）。
             見本 3 つと形の切り替えが 390 幅の 1 行に入るよう、見本の間は 4。 */}
-        <div style={{ display: 'flex', alignItems: variants.length > 1 ? 'flex-start' : 'center', justifyContent: variants.length > 1 ? 'space-between' : 'flex-start', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
+        {/* 今年のメモを読めなかった間は、見本（空になる）を見せない（場所は残す＝読み直せたときに下が動かない）。 */}
+        <div aria-hidden={yearError || undefined} style={{ display: 'flex', alignItems: variants.length > 1 ? 'flex-start' : 'center', justifyContent: variants.length > 1 ? 'space-between' : 'flex-start', gap: 'var(--space-3)', flexWrap: 'wrap', visibility: yearError ? 'hidden' : 'visible' }}>
           {variants.length > 1 && (
             <div role="radiogroup" aria-label="見せ方" style={{ display: 'inline-flex', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}>
               {variants.map((v) => {

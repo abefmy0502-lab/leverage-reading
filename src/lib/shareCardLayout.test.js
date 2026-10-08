@@ -83,6 +83,23 @@ describe('fitQuote', () => {
     expect(r.lines.length * r.lineHeight).toBeLessThanOrEqual(200);
     expect(r.size).toBe(40);
   });
+  it('文節を語の途中で切るより、70% までなら小さくして文節の切れ目で改行する（「はできな／い。」にしない）', () => {
+    const t = '「全部やる」はできない。やらないことを決めることが、いちばん大事な仕事。';
+    const sizes = [96, 92, 88, 84, 80, 76, 72, 68];
+    const r = fitQuote(t, { maxWidth: 860, maxHeight: 1200, sizes, lineHeight: 1.45, measureAt: (size) => mono(size) });
+    const phrases = segmentPhrases(t);
+    // どの行の終わりも文節の終わり＝文節の途中で割れていない
+    let joined = '';
+    const ends = new Set(phrases.map((p) => { joined += p; return joined.trimEnd().length; }));
+    let acc = '';
+    r.lines.slice(0, -1).forEach((l) => { acc += l; expect(ends.has(acc.trimEnd().length), `「${l}」で文節が割れた`).toBe(true); });
+    expect(r.size).toBeGreaterThanOrEqual(96 * 0.7);
+    expect(r.size).toBeLessThan(96);
+  });
+  it('70% より小さくしないと収まらない長い語は、語の途中で切ってでも大きさを保つ', () => {
+    const r = fitQuote('あ'.repeat(30), { maxWidth: 400, maxHeight: 2000, sizes: [40, 36, 32, 28, 24, 20, 16, 12], lineHeight: 1.5, measureAt: (size) => mono(size) });
+    expect(r.size).toBeGreaterThanOrEqual(28);
+  });
   it('どれも収まらなければいちばん小さい大きさ', () => {
     const r = fitQuote('あ'.repeat(120), { maxWidth: 100, maxHeight: 10, sizes: [40, 20], lineHeight: 1.5, measureAt: (size) => mono(size) });
     expect(r.size).toBe(20);

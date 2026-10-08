@@ -2,11 +2,12 @@
 import { describe, it, expect } from 'vitest';
 import {
   isMonthEndWindow, finishedInMonth, monthNudgeEligible, pickShareNudge, needsMonthMemoCount,
-  readNudgeState, markNudgeDone, nudgeText, SHARE_NUDGE_STORAGE_KEY,
+  readNudgeState, markNudgeDone, nudgeText, SHARE_NUDGE_STORAGE_KEY, recordYearShown, yearShowCount, YEAR_NUDGE_MAX_SHOWS,
 } from './shareNudge';
 import {
   isYearWrapSeason, hasFinishedThisYear, yearChoiceAllowed, yearRecord, orderYearQuoteCandidates,
-  shareHashtags, buildRecordShareText, subjectChoices, shareItemsFor,
+  shareHashtags, buildRecordShareText, subjectChoices, shareItemsFor, yearMemoCountFor,
+  finishedSubVariants, pickSubVariant, monthRecord, applyShareItems,
 } from './shareOverlay';
 import { buildShareText } from './shareCardLayout';
 
@@ -15,7 +16,7 @@ const memStorage = () => {
   const m = new Map();
   return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), _m: m };
 };
-const NONE = { month: null, year: null };
+const NONE = { month: null, year: null, yearShows: null };
 
 describe('月末の 3 日間', () => {
   it('31 日の月は 29〜31 日・28 日の 2 月は 26〜28 日・うるう年は 27〜29 日', () => {
@@ -126,6 +127,18 @@ describe('12 月の「今年の読書」', () => {
     expect(rec.sub).toBe('『1兆ドルコーチ』『エッセンシャル思考』 ほか 1 冊');
     expect(yearRecord(books, memos, d(2026, 12, 3), { memoCount: 1234 }).stats[1].value).toBe('1234件');
   });
+  it('件数は読んだメモの数え方とそろえる（上限より多い人だけ、読めなかった分を足す）', () => {
+    const memos = [{ text: 'a' }, { text: ' ' }, { text: '', photoPath: 'p.jpg' }];
+    expect(yearMemoCountFor(memos, 3)).toBeNull(); // 全部読めた＝yearRecord が数える（空のメモは数えない）
+    expect(yearMemoCountFor(memos, null)).toBeNull();
+    expect(yearMemoCountFor(memos, 10)).toBe(2 + 7);
+  });
+  it('1 冊だけ・メモ 0・行動 0 の年も作れる（数字は読了だけ）', () => {
+    const rec = yearRecord([{ id: 'x', title: 'ひとつ', status: 'done', doneDate: '2026-02-01', actions: [] }], [], d(2026, 12, 3));
+    expect(rec.stats).toEqual([{ key: 'books', label: '読了', value: '1冊' }]);
+    expect(rec.sub).toBe('『ひとつ』');
+    expect(rec.subVariants).toEqual(['『ひとつ』', '1 冊']);
+  });
   it('連続日数・順位・目標・バッジは入れない（数字は冊数・メモ・行動だけ）', () => {
     const rec = yearRecord(books, [], d(2026, 12, 3));
     expect(rec.stats.map((s) => s.key)).toEqual(['books', 'actions']);
@@ -137,7 +150,7 @@ describe('12 月の「今年の読書」', () => {
     expect(subjectChoices(list, { includeYear: true }).map((c) => c.kind)).toEqual(['month', 'year', 'book']);
     expect(subjectChoices(list).map((c) => c.kind)).toEqual(['month', 'book']);
   });
-  it('ホームの 1 行は 12 月の今年を先に（閉じたら、その年は月末の 1 行だけ）', () => {
+  it('ホームの 1 行は 12 月は今年だけ（12/30 に今年を閉じたら、今月の 1 行も出さない）', () => {
     const now = d(2026, 12, 30);
     expect(pickShareNudge({ now: d(2026, 12, 3), books, state: NONE })).toEqual({ kind: 'year', text: nudgeText('year', now) });
     expect(nudgeText('year', now)).toBe('2026年の読書を、1 枚の画像に');
@@ -146,8 +159,24 @@ describe('12 月の「今年の読書」', () => {
     markNudgeDone(st, 'year', now);
     const state = readNudgeState(st);
     expect(pickShareNudge({ now: d(2026, 12, 3), books, state })).toBeNull();
-    expect(pickShareNudge({ now, books, state })?.kind).toBe('month');
+    expect(pickShareNudge({ now, books, state })).toBeNull();
+    expect(needsMonthMemoCount({ now, books: [], state: NONE })).toBe(false);
     expect(pickShareNudge({ now: d(2026, 12, 3), books: [books[3]], state: NONE })).toBeNull();
+  });
+  it('今年の 1 行は、触らないまま 3 回出したらもう出さない（次の年はまた数える）', () => {
+    const st = memStorage();
+    const now = d(2026, 12, 5);
+    for (let i = 0; i < YEAR_NUDGE_MAX_SHOWS - 1; i += 1) recordYearShown(st, now);
+    expect(yearShowCount(readNudgeState(st), now)).toBe(2);
+    expect(pickShareNudge({ now, books, state: readNudgeState(st) })?.kind).toBe('year');
+    recordYearShown(st, now);
+    expect(pickShareNudge({ now, books, state: readNudgeState(st) })).toBeNull();
+    // 閉じた印は数えた回数を消さない
+    markNudgeDone(st, 'month', d(2026, 11, 29));
+    expect(yearShowCount(readNudgeState(st), now)).toBe(3);
+    const next = [{ id: 'n', status: 'done', doneDate: '2027-03-01' }];
+    expect(yearShowCount(readNudgeState(st), d(2027, 12, 5))).toBe(0);
+    expect(pickShareNudge({ now: d(2027, 12, 5), books: next, state: readNudgeState(st) })?.kind).toBe('year');
   });
 });
 
@@ -171,9 +200,11 @@ describe('今年の「いちばん残した一文」（AI を使わない）', (
 });
 
 describe('共有の文に添えるハッシュタグ（画像には入れない）', () => {
-  it('今月は「#◯月読了本」・今年は「#2026年の読書」・本 1 冊は無し', () => {
-    expect(shareHashtags('month', d(2026, 11, 29))).toEqual(['#11月読了本']);
-    expect(shareHashtags('month', d(2026, 1, 30))).toEqual(['#1月読了本']);
+  it('今月は読了のある月だけ「#◯月読了本」・今年は「#2026年の読書」・本 1 冊は無し', () => {
+    expect(shareHashtags('month', d(2026, 11, 29), { finishedCount: 1 })).toEqual(['#11月読了本']);
+    expect(shareHashtags('month', d(2026, 1, 30), { finishedCount: 3 })).toEqual(['#1月読了本']);
+    expect(shareHashtags('month', d(2026, 11, 29), { finishedCount: 0 })).toEqual([]);
+    expect(shareHashtags('month', d(2026, 11, 29))).toEqual([]);
     expect(shareHashtags('year', d(2026, 12, 3))).toEqual(['#2026年の読書']);
     expect(shareHashtags(null)).toEqual([]);
   });
@@ -185,5 +216,26 @@ describe('共有の文に添えるハッシュタグ（画像には入れない�
       .toBe('『イシューからはじめよ』より\n問い\n#2026年の読書 #Orime');
     // 渡さなければ今までどおり
     expect(buildRecordShareText({ record: rec })).toBe('11月の読書\n#Orime');
+  });
+});
+
+describe('読み終えた本の行（「ほか N 冊」を … で消さない）', () => {
+  const b = (t) => ({ title: t });
+  it('2 冊＋ほか N 冊 → 1 冊＋ほか N+1 冊 → N 冊', () => {
+    expect(finishedSubVariants([b('A'), b('B'), b('C'), b('D')])).toEqual(['『A』『B』 ほか 2 冊', '『A』 ほか 3 冊', '4 冊']);
+    expect(finishedSubVariants([b('A'), b('B')])).toEqual(['『A』『B』', '『A』 ほか 1 冊', '2 冊']);
+    expect(finishedSubVariants([])).toEqual([]);
+  });
+  it('幅に入る最初のものを選ぶ・どれも入らなければ冊数だけ', () => {
+    const v = finishedSubVariants([b('とても長い書名の本'), b('もう一冊の長い書名'), b('C')]);
+    const m = (t) => Array.from(t).length * 10;
+    expect(pickSubVariant(v, m, 400)).toBe(v[0]);
+    expect(pickSubVariant(v, m, 200)).toBe('『とても長い書名の本』 ほか 2 冊');
+    expect(pickSubVariant(v, m, 50)).toBe('3 冊');
+  });
+  it('今月にも同じ書き方・著者（読み終えた本）を隠したら消える', () => {
+    const rec = monthRecord([{ id: 'a', title: 'A', status: 'done', doneDate: '2026-11-02' }], [], d(2026, 11, 29));
+    expect(rec.subVariants).toEqual(['『A』', '1 冊']);
+    expect(applyShareItems(rec, ['author']).subVariants).toBeNull();
   });
 });

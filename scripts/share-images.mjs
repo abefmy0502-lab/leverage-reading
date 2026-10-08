@@ -118,6 +118,8 @@ const results = await page.evaluate(async ({ photos }) => {
   const yearRec = ov.yearRecord(yearBooks, yearMemos, dec, { memoCount: 184 });
   const yearLine = ov.orderYearQuoteCandidates(yearMemos)[0].text;
   const yearCovers = yearRec.finishedBooks.map((b, i) => ({ cover: i === 0 ? cover : { image: null, tone: null }, title: b.title }));
+  // 一文の本（エッセンシャル思考）の表紙＝その本の代用表紙（見本の緑の表紙は『1兆ドルコーチ』なので使わない・第 2 回）。
+  const quoteCover = { image: null, tone: null };
   const yearGrounds = [
     ['photo', { style: 'photo', photo: photo.normal }],
     ['photo-bright', { style: 'photo', photo: photo.bright }],
@@ -128,7 +130,17 @@ const results = await page.evaluate(async ({ photos }) => {
   for (const layout of ['record', 'stats', 'quote']) {
     for (const format of ['post', 'story']) {
       for (const [gName, g] of yearGrounds) {
-        jobs.push({ name: `year-${layout}-${format}-${gName}`, opts: { ...base, layout, format, ...g, record: yearRec, covers: layout === 'quote' ? [] : yearCovers, title: layout === 'quote' ? yearBooks[3].title : yearRec.title, author: layout === 'quote' ? 'グレッグ・マキューン' : '', line: ov.quoteText(yearLine, layout), page: layout === 'quote' ? 18 : null, stamp: '2026.12.3', seedKey: 'y2' } });
+        jobs.push({ name: `year-${layout}-${format}-${gName}`, opts: { ...base, layout, format, ...g, record: yearRec, cover: layout === 'quote' ? quoteCover : cover, covers: layout === 'quote' ? [] : yearCovers, title: layout === 'quote' ? yearBooks[3].title : yearRec.title, author: layout === 'quote' ? 'グレッグ・マキューン' : '', line: ov.quoteText(yearLine, layout), page: layout === 'quote' ? 18 : null, stamp: '2026.12.3', seedKey: 'y2', kicker: layout === 'quote' ? '2026' : '' } });
+      }
+    }
+  }
+  // 1 冊だけ・メモ 0・行動 0 の年（数字は読了だけ）
+  const oneBook = [{ id: 'o1', title: 'イシューからはじめよ', status: 'done', doneDate: '2026-04-10', actions: [] }];
+  const oneRec = ov.yearRecord(oneBook, [], dec);
+  for (const layout of ['record', 'stats']) {
+    for (const format of ['post', 'story']) {
+      for (const [gName, g] of [['photo-bright', { style: 'photo', photo: photo.bright }], ['paper', { style: 'paper' }]]) {
+        jobs.push({ name: `year-onebook-${layout}-${format}-${gName}`, opts: { ...base, layout, format, ...g, record: oneRec, covers: [{ cover: { image: null, tone: null }, title: oneBook[0].title }], title: oneRec.title, author: '', line: '', stamp: '2026.12.3' } });
       }
     }
   }

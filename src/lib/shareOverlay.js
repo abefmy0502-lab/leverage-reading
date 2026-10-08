@@ -169,16 +169,37 @@ export function monthRecord(books, monthMemos = [], now = new Date()) {
   if (finished.length) stats.push({ key: 'books', label: '読了', value: `${finished.length}冊` });
   if (memoCount) stats.push({ key: 'memos', label: 'メモ', value: `${memoCount}件` });
   if (actionsDone) stats.push({ key: 'actions', label: '実行した行動', value: `${actionsDone}件` });
-  const titles = finished.slice(0, 2).map((b) => `『${String(b.title || '').trim()}』`).join('');
-  const more = finished.length > 2 ? ` ほか ${finished.length - 2} 冊` : '';
+  const subVariants = finishedSubVariants(finished);
   return {
     kicker: String(now.getFullYear()),
     title: `${now.getMonth() + 1}月の読書`,
     titleIsBook: false,
-    sub: finished.length ? `${titles}${more}` : (stats.length ? '' : '読書の記録をはじめました'),
+    sub: finished.length ? subVariants[0] : (stats.length ? '' : '読書の記録をはじめました'),
+    subVariants: finished.length ? subVariants : null,
     stats,
     finishedBooks: finished.slice(0, 4),
   };
+}
+
+// 読み終えた本の行（今月・今年の書名の下）の書き方を、長い順に（2026-10-08 第 2 回 ui-critic「ほか N 冊が … で消える」）。
+//   『A』『B』 ほか N 冊 → 『A』 ほか N+1 冊 → 「N+2 冊」。描く側は幅に入る最初のものを使う（pickSubVariant）＝冊数は切らない。
+export function finishedSubVariants(finished) {
+  const list = Array.isArray(finished) ? finished : [];
+  const n = list.length;
+  if (!n) return [];
+  const t = (b) => `『${String(b?.title || '').trim()}』`;
+  const out = [];
+  if (n >= 2) out.push(`${t(list[0])}${t(list[1])}${n > 2 ? ` ほか ${n - 2} 冊` : ''}`);
+  out.push(n >= 2 ? `${t(list[0])} ほか ${n - 1} 冊` : t(list[0]));
+  out.push(`${n} 冊`);
+  return out;
+}
+
+// 幅に入る最初の書き方（どれも入らなければ最後＝いちばん短いもの）。measure(text) は描く幅。
+export function pickSubVariant(variants, measure, width) {
+  const list = (Array.isArray(variants) ? variants : []).filter(Boolean);
+  if (!list.length) return '';
+  return list.find((v) => measure(v) <= width) || list[list.length - 1];
 }
 
 // 今年の記録（今年に読み終えた本の冊数・今年のメモ・今年に実行した行動）。
@@ -202,16 +223,25 @@ export function yearRecord(books, yearMemos = [], now = new Date(), { memoCount 
   if (finished.length) stats.push({ key: 'books', label: '読了', value: `${finished.length}冊` });
   if (memos) stats.push({ key: 'memos', label: 'メモ', value: `${memos}件` });
   if (actionsDone) stats.push({ key: 'actions', label: '実行した行動', value: `${actionsDone}件` });
-  const titles = finished.slice(0, 2).map((b) => `『${String(b.title || '').trim()}』`).join('');
-  const more = finished.length > 2 ? ` ほか ${finished.length - 2} 冊` : '';
+  const subVariants = finishedSubVariants(finished);
   return {
     kicker: '',
     title: `${now.getFullYear()}年の読書`,
     titleIsBook: false,
-    sub: finished.length ? `${titles}${more}` : '',
+    sub: finished.length ? subVariants[0] : '',
+    subVariants: finished.length ? subVariants : null,
     stats,
     finishedBooks: finished.slice(0, 4),
   };
+}
+
+// 今年のメモの件数（yearRecord と同じ数え方＝本文か写真のあるメモ）。シートが読む上限より多い人だけ、
+// 読めなかった分を数え上げの数から足す（その分は本文の有無が分からないので、そのまま数える）。null＝yearRecord に任せる。
+export function yearMemoCountFor(memos, total) {
+  const list = Array.isArray(memos) ? memos : [];
+  if (!Number.isFinite(total) || total <= list.length) return null;
+  const counted = list.filter((m) => String(m.text || '').trim() || m.photoPath).length;
+  return counted + (total - list.length);
 }
 
 // 副題を除いた書名（長い書名が決まった行数に入らないとき、副題の前で切って』を閉じるため・第 3 回）。
@@ -608,6 +638,7 @@ export function applyShareItems(record, hidden) {
     kicker: h.has('status') ? '' : record.kicker,
     title: h.has('title') ? '' : record.title,
     sub: h.has('author') ? '' : record.sub,
+    subVariants: h.has('author') ? null : (record.subVariants || null),
     stats: (record.stats || []).filter((st) => !h.has(st.key)),
   };
 }
@@ -683,9 +714,10 @@ export function stepVariant(variants, current, dir) {
 // ---------------------------------------------------------------- 共有の文
 
 // 共有の文に添えるハッシュタグ（画像には入れない・2026-10-08）。X の月末の「#◯月読了本」と 12 月の「今年の読書」に乗る。
-//   今月 … #10月読了本（その月の数字）／今年 … #2026年の読書／本 1 冊 … なし
-export function shareHashtags(kind, now = new Date()) {
-  if (kind === 'month') return [`#${now.getMonth() + 1}月読了本`];
+//   今月 … #10月読了本（その月の数字・その月に読み終えた本があるときだけ＝メモだけの月は付けない・オーナー判断）
+//   今年 … #2026年の読書／本 1 冊 … なし
+export function shareHashtags(kind, now = new Date(), { finishedCount = 0 } = {}) {
+  if (kind === 'month') return finishedCount >= 1 ? [`#${now.getMonth() + 1}月読了本`] : [];
   if (kind === 'year') return [`#${now.getFullYear()}年の読書`];
   return [];
 }
