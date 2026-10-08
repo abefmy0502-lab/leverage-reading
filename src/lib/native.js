@@ -42,4 +42,16 @@ export async function initNative() {
   }
 }
 
+// iOS のキーボードの上の入力補助バー（∧ ∨ 完了）を出す／隠す（ネイティブのときだけ・Web では何もしない）。
+// 1 行の入力欄で打っている間だけ隠して、画面を広く使う（写真で共有の言葉・2026-10-08）。失敗しても何もしない。
+export async function setKeyboardAccessoryBar(visible) {
+  if (!Capacitor.isNativePlatform()) return;
+  try {
+    const { Keyboard } = await import('@capacitor/keyboard');
+    await Keyboard.setAccessoryBarVisible({ isVisible: !!visible });
+  } catch {
+    /* 未対応の端末・プラグインが無いビルドでは無視 */
+  }
+}
+
 export default initNative;

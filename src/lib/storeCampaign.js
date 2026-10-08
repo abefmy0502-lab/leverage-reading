@@ -5,7 +5,7 @@
 //   pt は App Store Connect で発行する数字（VITE_APP_STORE_PT）。無ければ ct を付けても数えられないので付けない。
 //
 // キャンペーン名の決まり（docs/lp-measurement.md に一覧）:
-//   share_<種類>   … 写真で共有の画像に添える文（share_record / share_stats / share_quote / share_month_record …）
+//   share_<種類>   … 写真で共有の画像に添える文（share_record / share_stats / share_quote / share_month_record / share_year_record …）
 //   lp_<場所>      … 紹介ページのボタン（lp_hero_3d など・lpTrack.js の storeUrlFor）
 //   note_<記事>    … note の記事に貼るリンク（note_launch など）
 //   partner_<名前> … 発信者・読書会ごとのリンク（partner_nekomachi など）
@@ -51,7 +51,9 @@ export function storeCampaignLink({ url, live, pt = '' }, ct) {
 }
 
 // 写真で共有のキャンペーン名。variant: 'record' | 'stats' | 'quote'（ShareSheet の重ね方）・month: 今月の記録か。
-export function shareCampaign({ variant = 'record', month = false } = {}) {
+// period: 'month'（今月）| 'year'（今年・12 月だけ・2026-10-08）| null（本 1 冊）。month: true は period: 'month' と同じ（前の呼び方）。
+export function shareCampaign({ variant = 'record', month = false, period = null } = {}) {
   const v = ['record', 'stats', 'quote'].includes(variant) ? variant : 'record';
-  return campaignToken('share', month ? `month_${v}` : v);
+  const p = period === 'year' || period === 'month' ? period : (month ? 'month' : null);
+  return campaignToken('share', p ? `${p}_${v}` : v);
 }

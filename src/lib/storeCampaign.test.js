@@ -44,6 +44,9 @@ describe('shareCampaign（写真で共有）', () => {
     expect(shareCampaign({ variant: 'stats' })).toBe('share_stats');
     expect(shareCampaign({ variant: 'quote' })).toBe('share_quote');
     expect(shareCampaign({ variant: 'record', month: true })).toBe('share_month_record');
+    expect(shareCampaign({ variant: 'stats', period: 'month' })).toBe('share_month_stats');
+    expect(shareCampaign({ variant: 'record', period: 'year' })).toBe('share_year_record');
+    expect(shareCampaign({ variant: 'quote', period: null })).toBe('share_quote');
     expect(shareCampaign({ variant: 'unknown' })).toBe('share_record');
   });
 });

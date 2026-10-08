@@ -65,7 +65,7 @@ describe('bookRecord（本 1 冊の数字）', () => {
     expect(r.title).toBe('イシューからはじめよ');
     expect(r.sub).toBe('安宅和人');
     expect(r.stats).toEqual([
-      { key: 'date', label: '読み終えた日', value: '9月28日' },
+      { key: 'date', label: '読み終えた日', value: '9.28' },
       { key: 'memos', label: 'メモ', value: '3件' },
       { key: 'actions', label: '実行した行動', value: '2件' },
     ]);
@@ -73,7 +73,7 @@ describe('bookRecord（本 1 冊の数字）', () => {
   it('読書中: 読みはじめの日。0 の数字は出さない', () => {
     const r = bookRecord({ title: 'X', status: 'reading', startDate: '2026-09-21' }, [], NOW);
     expect(r.kicker).toBe('読書中');
-    expect(r.stats).toEqual([{ key: 'date', label: '読みはじめ', value: '9月21日' }]);
+    expect(r.stats).toEqual([{ key: 'date', label: '読みはじめ', value: '9.21' }]);
   });
   it('去年の日付は年も入れる', () => {
     expect(fmtMonthDay('2025-12-31', NOW)).toBe('2025年12月31日');
@@ -182,12 +182,13 @@ describe('安全な枠（4:5 と 9:16 で SNS に切られない）', () => {
       expect(tooTall.top).toBe(f.safeTop);
     }
   });
-  it('大きくした数字（120）でも、書名 2 行・著者・数字 3 つは安全な枠に入る（一文はその残りにだけ入れる）', () => {
+  it('大きな数字（108）でも、書名 2 行・著者・数字 3 つは安全な枠に入る（一文はその残りにだけ入れる）', () => {
     for (const fmt of ['post', 'story']) {
       const f = recordFrame(fmt);
-      expect(f.statValueSize).toBeGreaterThanOrEqual(fmt === 'story' ? 120 : 110);
-      expect(f.kickerSize).toBeGreaterThanOrEqual(34);
-      expect(f.metaSize).toBeGreaterThanOrEqual(34);
+      // 2026-10-08 の編集デザイン: 見出し・日付は小さく静かに（それでもスマホで読める 27 以上）
+      expect(f.statValueSize).toBeGreaterThanOrEqual(fmt === 'story' ? 108 : 99);
+      expect(f.kickerSize).toBeGreaterThanOrEqual(27);
+      expect(f.metaSize).toBeGreaterThanOrEqual(29);
       const h = recordBaseHeight(f, { titleLines: 2, hasKicker: true, hasSub: true, statsCount: 3 });
       const at = placeRecordBlock(f, h);
       expect(at.fits).toBe(true);
@@ -433,9 +434,9 @@ describe('隠した項目に合わせた組み（高さ・安全な枠）', () =
   });
   it('一文を除いた高さは、これまでの数え方と同じ', () => {
     const f = recordFrame('post');
-    const kickerH = Math.round(f.kickerSize * 1.35) + 10;
+    const kickerH = Math.round(f.kickerSize * 1.35) + 16;
     const titleH = 2 * Math.round(f.titleSize * 1.3);
-    const subH = 6 + Math.round(f.subSize * 1.45);
+    const subH = 10 + Math.round(f.subSize * 1.45);
     const statsH = Math.round(f.statLabelSize * 1.1) * 2 + Math.round(f.statLabelSize * 1.3) + 10 + f.statValueSize;
     expect(recordBaseHeight(f, { titleLines: 2, hasKicker: true, hasSub: true, statsCount: 3 })).toBe(kickerH + titleH + subH + statsH);
   });
