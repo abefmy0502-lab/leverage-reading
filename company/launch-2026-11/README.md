@@ -11,10 +11,11 @@
 | [`calendar.md`](calendar.md) | 10/8〜2/15 の日ごとの逆算カレンダー（担当＝オーナー／Claude） | 毎日（月曜の朝に見直す） |
 | [`featuring-nomination.md`](featuring-nomination.md) | 注目掲載の申請にそのまま入れる文（英語＝提出用・日本語＝控え。説明 1,000 字・補足 500 字の上限内） | **10/9（金）までに提出** |
 | [`testflight-recruit.md`](testflight-recruit.md) | テスター 30 人の募集（X 3 案・DM・頼むこと・5 つの問い） | 10/10〜10/24 |
-| [`x-posts.md`](x-posts.md) | 開発の物語 20 本・公開日のスレッド 7 本・公開後 8 本・#11月読了本・#2026年の読書 ほか | 10/8〜12/31（日付つき） |
+| [`x-posts.md`](x-posts.md) | 開発の物語 20 本・公開日のスレッド 7 本・公開後 8 本・#11月読了本・#2026年の読書・視点の在庫 3 本（§5）ほか | 10/8〜12/31（日付つき） |
 | [`note-drafts/01-import-records-to-advisor.md`](note-drafts/01-import-records-to-advisor.md) | 「ブクログ・読書メーターの記録を“相談相手”に変える方法」全文 | 10/27（火）公開 |
 | [`note-drafts/02-notes-for-people-who-forget.md`](note-drafts/02-notes-for-people-who-forget.md) | 「読んでも忘れる人のための、メモの残し方」全文 | 11/3（火・祝）公開 |
-| [`partner-outreach.md`](partner-outreach.md) | 読書会・講座・Voicy・YouTube への連絡文・オファーコード・PR 表記のお願い・事実のまとめ | 11/4〜11/6 |
+| [`note-drafts/03-読書メモは視点の在庫.md`](note-drafts/03-読書メモは視点の在庫.md) | 「読書メモは『視点の在庫』になる」全文（視点・視野・視座の記事に学んだこと・出典リンクつき） | 11/10（火）公開 |
+| [`partner-outreach.md`](partner-outreach.md) | 読書会・講座・Voicy・YouTube への連絡文・オファーコード・PR 表記のお願い・事実のまとめ・**最優先の note メンバーシップの書き手（§7）** | 11/4〜11/6 |
 | [`line-openchat.md`](line-openchat.md) | 創業メンバーの部屋の名前・説明文・最初の挨拶・ルール・投票のやり方 | 11/10 に作る・11/20 から案内 |
 | [`launch-email.md`](launch-email.md) | 公開の日のメール（件名 3 案・本文・送信者・配信停止・特定電子メール法の確かめ） | **11/17 朝 7:30** |
 | [`screenshots/`](screenshots/) | App Store の画像 30 枚（基本 6 枚＋カスタムプロダクトページ 3 種×3 枚 × 2 つの大きさ） | 10/19（CPP を作る）・予約注文の前 |
@@ -77,9 +78,9 @@ UI_SHOTS_URL=http://localhost:5198 node scripts/appstore-shots.mjs   # 撮る �
 | 10/27（火） | note 01 を公開 |
 | 11/2（月） | 年額プランの初回特典（創業メンバー価格・11/16〜12/17）を作る（`launch-founding-offer.md` §1） |
 | 11/3（火・祝） | note 02 を公開 |
-| 11/4（水） | オファーコードを作る・発信者 3 件に連絡 |
+| 11/4（水） | オファーコードを作る・発信者 3 件に連絡（**最初に note メンバーシップの書き手**＝`partner-outreach.md` §7・note 03 の出典の了解も） |
 | 11/9（月） | 公開のメールの**送信者の住所**を決める（特定電子メール法） |
-| 11/10（火） | LINE オープンチャットを作る |
+| 11/10（火） | LINE オープンチャットを作る・**note 03 を公開**（出典の了解に合わせて名前・リンクを直してから） |
 | 11/12（木） | `VITE_FOUNDING_OFFER=on`・`VITE_FOUNDING_OFFER_END=2026-12-16`（Vercel と iOS） |
 | 11/16（月） | 「Orime」の名前の検索広告を作る（1 日 ¥500） |
 | **11/17（火）** | メール → X のスレッド → note・プロモーションテキストを創業メンバー期間用に・`VITE_APP_STORE_URL` を本番に・検索広告開始 |

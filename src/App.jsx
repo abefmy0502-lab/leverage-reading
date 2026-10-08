@@ -124,7 +124,7 @@ import HomeScreen, { HomeBlocksSkeleton } from './components/HomeScreen';
 import { initServiceWorker } from './lib/swUpdate';
 import { ensurePushSubscription } from './lib/push';
 import { isNative } from './lib/iap';
-import { APP_STORE_URL, isAppStoreLive } from './lib/appStore';
+import { storeLinkFor, isAppStoreLive } from './lib/appStore';
 import { initNativePushNav } from './lib/nativePush';
 import UpdateBanner from './components/UpdateBanner';
 import { useWhatsNew } from './hooks/useWhatsNew';
@@ -6330,7 +6330,7 @@ function WebAppOnlyGate() {
         </p>
         {isAppStoreLive ? (
           <a
-            href={APP_STORE_URL}
+            href={storeLinkFor('web_gate')}
             target="_blank"
             rel="noopener noreferrer"
             style={{ ...btnPrimary, boxSizing: 'border-box', textDecoration: 'none', marginTop: 'var(--space-8)' }}
@@ -6477,7 +6477,8 @@ function PaywallGate() {
   // アプリの上に重ねて開く有料プランの画面（{ reason, feature }）。いつでも × / 「あとで」で閉じられる。
   //   reason: 'free_used'（今月の無料のトークンを使い切った）/ 'free_ocr_used'（今月の無料の写真から書き起こしを
   //           使い切った）/ 'feature'（プランで使える機能）/
-  //           'grown'（メモが 10 件たまった＝相談の「相談相手が育ってきました」）/ null（プランを見る）
+  //           'grown'（メモが 10 件たまった＝相談の「相談相手が育ってきました」）/
+  //           'first_answer'（はじめての相談の答えのあとの 1 行＝lib/firstAnswerTrial.js）/ null（プランを見る）
   const [paywall, setPaywall] = useState(null);
   useEffect(() => {
     // reason: null は「プランを見る」（見出しは一般の価値）。指定が無いときは機能の案内。
@@ -6515,6 +6516,8 @@ function PaywallGate() {
         setTokenSheetOpen(true);
       },
       refreshTokens,
+      // 契約の状態を読み直す（設定の「コードを使う」のあと・オファーコードで始まったプランをすぐ効かせる）。
+      refreshPlan: () => { refresh?.(); refreshTokens?.(); },
       // 旧名（お試しの頃の呼び方）。無料プランの残りのトークン。
       freeRemaining: freeMode ? tokensRemaining : null,
       refreshFree: refreshTokens,
@@ -6529,7 +6532,7 @@ function PaywallGate() {
         return false;
       },
     };
-  }, [plan, freeMode, trialEndsAt, tokenAllowance, tokensRemaining, purchasedTokens, lots?.nextExpiry, canBuyTokens, refreshTokens, subscription?.status, freeOcrUsed]);
+  }, [plan, freeMode, trialEndsAt, tokenAllowance, tokensRemaining, purchasedTokens, lots?.nextExpiry, canBuyTokens, refreshTokens, refresh, subscription?.status, freeOcrUsed]);
 
   // Checkout 復帰処理: ?checkout=success なら webhook 反映ラグを吸収するため
   // refresh を数秒間隔で数回リトライ。?checkout=cancel は静かに URL を掃除。

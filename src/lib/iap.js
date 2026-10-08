@@ -296,6 +296,50 @@ export async function restorePurchases(userId) {
   return Object.keys(active).length > 0;
 }
 
+// 🎟 オファーコード（2026-10-08・マーケ戦略 §6-6）: 協業・創業メンバーの紹介で渡す App Store のコードを入れる画面。
+//   iOS のネイティブで、RevenueCat の鍵があるときだけ（Web・鍵の無いビルドでは設定に行を出さない）。
+//   画面は Apple のもの（RevenueCat の presentCodeRedemptionSheet＝StoreKit のコード入力）。結果は返らないので、
+//   呼び出し側は閉じたあとに購読の状態を何度か読み直す（invalidateCustomerInfo → useSubscription の refresh）。
+export const canRedeemOfferCode = isNative && Capacitor.getPlatform() === 'ios' && !!RC_IOS_KEY;
+
+export async function presentOfferCodeSheet(userId) {
+  if (!canRedeemOfferCode) return false;
+  if (!(await ensureConfigured(userId))) throw new Error('コードの入力画面を開けませんでした。');
+  // 購入・復元と同じく、この人として紐付いていないときは開かない（コードの購読が別の ID に付かないように）。
+  if (userId && _loggedInAs !== userId) {
+    throw new Error('コードの入力画面の準備ができませんでした。通信の良い場所で、もう一度お試しください。');
+  }
+  const Purchases = await loadPurchases();
+  if (!Purchases || typeof Purchases.presentCodeRedemptionSheet !== 'function') return false;
+  await Purchases.presentCodeRedemptionSheet();
+  return true;
+}
+
+// コードの入力画面（Apple の画面）が閉じるのを待つ。開いている間アプリは前面から外れる（inactive）ので、
+// 外れたあと前面に戻ったら閉じたとみなす（@capacitor/app の appStateChange）。分からないまま maxMs が過ぎたら false。
+export async function waitForCodeSheetClosed(maxMs = 180000) {
+  if (!isNative) return false;
+  let App;
+  try { ({ App } = await import('@capacitor/app')); } catch { return false; }
+  return new Promise((resolve) => {
+    let left = false;
+    let handle = null;
+    const done = (v) => { clearTimeout(timer); try { handle?.remove?.(); } catch { /* ignore */ } resolve(v); };
+    const timer = setTimeout(() => done(false), maxMs);
+    Promise.resolve(App.addListener('appStateChange', ({ isActive }) => {
+      if (!isActive) left = true;
+      else if (left) done(true);
+    })).then((h) => { handle = h; }, () => done(false));
+  });
+}
+
+// 端末の購読の状態（RevenueCat の customerInfo）を取り直させる。コードを使ったあとの読み直しの前に呼ぶ。
+export async function invalidateCustomerInfo() {
+  const Purchases = await loadPurchases();
+  if (!Purchases) return;
+  try { await Purchases.invalidateCustomerInfoCache(); } catch { /* 読み直しは続ける */ }
+}
+
 // iOS のサブスク管理 (解約・プラン変更) は App Store のアカウント設定で行う。
 export async function openManageSubscriptions() {
   try {
