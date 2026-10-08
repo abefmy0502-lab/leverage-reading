@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   MAX_INTERVIEW_QUESTIONS, OPT_OFF, OPT_UNSURE,
-  cleanOptions, parseInterviewStep, interviewChips, applyStarter, starterText,
+  cleanOptions, parseInterviewStep, interviewChips, applyStarter, starterText, starterOf, ownWords, onlyStarter,
   buildPriorQA, spokenAnswers, buildRecoMessage, needsCareLine,
 } from './advisorInterview';
 import { concernOf, interviewPairsOf, confirmedOf, displayUserText, advisorSetupPayload } from './advisorText';
@@ -53,7 +53,7 @@ describe('指示文（advisorInterview）の形', () => {
   });
   it('推薦の指示文: 本人の直しを最優先・本人の言葉を「」で引いて結びつける', () => {
     expect(PROMPTS.bookAdvisor.system).toMatch(/本人の直し（最優先）/);
-    expect(PROMPTS.bookAdvisor.system).toMatch(/本人が書いた言葉を「」で 1 か所そのまま引き/);
+    expect(PROMPTS.bookAdvisor.system).toMatch(/本人が書き足した部分）を「」で 1 か所そのまま引き/);
   });
 });
 
@@ -172,5 +172,27 @@ describe('深刻な言葉の見張り', () => {
     expect(needsCareLine(['', null, '死にたい'])).toBe(true);
     expect(needsCareLine(['時間が足りない', '会議が多い'])).toBe(false);
     expect(needsCareLine('しにたい')).toBe(true);
+  });
+});
+
+describe('書き出しを使った答え（AI が引くのは本人が書き足した部分）', () => {
+  const labels = ['本当は、', '大事なことに限って'];
+  it('どの書き出しから始まったか・書き足した言葉', () => {
+    expect(starterOf('本当は、夕方に時間がほしい', labels)).toBe('本当は、');
+    expect(starterOf('大事なことに限って、会議が入る', labels)).toBe('大事なことに限って');
+    expect(starterOf('会議が多い', labels)).toBe('');
+    expect(ownWords('大事なことに限って、会議が入る', '大事なことに限って')).toBe('会議が入る');
+    expect(ownWords('会議が多い', '')).toBe('会議が多い');
+  });
+  it('チップの言葉だけなら送れない', () => {
+    expect(onlyStarter('本当は、', labels)).toBe(true);
+    expect(onlyStarter('大事なことに限って、', labels)).toBe(true);
+    expect(onlyStarter('本当は、夕方に', labels)).toBe(false);
+    expect(onlyStarter('', labels)).toBe(false);
+  });
+  it('AI に渡す文に印を付ける・指示文も書き出しを引かない', () => {
+    const t = buildPriorQA([{ q: 'どうなりたい？', a: '本当は、夕方に時間がほしい', starter: '本当は、' }]);
+    expect(t).toContain('A. 本当は、夕方に時間がほしい\n（書き出し「本当は、」を使った。引くのは、そのあとに本人が書き足した部分）');
+    expect(PROMPTS.advisorInterview.system).toMatch(/書き出しの言葉は引かない/);
   });
 });

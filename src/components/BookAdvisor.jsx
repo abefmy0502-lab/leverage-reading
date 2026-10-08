@@ -47,7 +47,7 @@ import ErrorMessage from './ErrorMessage';
 import { SkeletonBlock } from './Skeleton';
 import TightBubble, { withPhraseBreaks } from './TightBubble';
 import { displayUserText, concernOf, interviewPairsOf, confirmedOf, advisorSetupPayload } from '../lib/advisorText';
-import { MAX_INTERVIEW_QUESTIONS, OPT_UNSURE, OFF_PLACEHOLDER, parseInterviewStep, interviewChips, applyStarter, buildPriorQA, buildRecoMessage, spokenAnswers, needsCareLine, CARE_LINE, CARE_LINK } from '../lib/advisorInterview';
+import { MAX_INTERVIEW_QUESTIONS, OPT_UNSURE, OFF_PLACEHOLDER, parseInterviewStep, interviewChips, applyStarter, starterOf, onlyStarter, buildPriorQA, buildRecoMessage, spokenAnswers, needsCareLine, CARE_LINE, CARE_LINK } from '../lib/advisorInterview';
 import { usePaywall } from '../state/PaywallContext';
 import { findDuplicateBook } from '../lib/checkDuplicate';
 import { filterProseTitles, proseTitleLists } from '../lib/advisorProse';
@@ -95,7 +95,7 @@ const answerChip = {
 // 問いのカードの脇役の文字ボタン（前の問いに戻る・このくらいで探して）。栗色にしない＝--text-2。
 const quietLink = { ...uiBtnLink, color: 'var(--text-2)' };
 // 答えた問い（会話の流れとして残す・いまの問いより控えめ＝15/--text-2）。
-const askedText = { fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.6, margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' };
+const askedText = { fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.6, margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere', textWrap: 'pretty' };
 // いまの問い（17/600・文節で折り返す）。
 const questionText = { fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5, margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' };
 // 「読みたいに追加」後の表示（押せない状態はボタンではなく文字で示す。相談の「行動に追加しました」と同じ）。
@@ -937,12 +937,16 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   const answerQuestion = (raw, { unsure = false, finish = false } = {}) => {
     if (!interview || interviewLoading || askingRef.current) return;
     const a = unsure ? '' : clamp(sanitizeForPrompt(String(raw || '')), LIMITS.advisorAnswer).trim();
-    if (!unsure && !a) return;
+    if (!unsure && (!a || onlyStarter(a, interview.options || []))) return;
     askingRef.current = true;
     try { advisorHaptic.light(); } catch { /* non-critical */ }
     const entry = unsure
       ? { q: interview.question, a: '', unsure: true }
-      : { q: interview.question, a, ...(answerOff ? { off: true } : null) };
+      : (() => {
+        // 書き出しのチップから始まった答えには、その書き出しを覚える（AI が引くのは本人が書き足した部分・2026-10-08 ui-critic）。
+        const starter = starterOf(a, interview.options || []);
+        return { q: interview.question, a, ...(starter ? { starter } : null), ...(answerOff ? { off: true } : null) };
+      })();
     const nextAnswers = [...interviewAnswers, entry];
     const nextTrail = [...interviewTrail, interview];
     setInterviewAnswers(nextAnswers);
@@ -1035,7 +1039,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   //   書きかけの答えがあれば、それも入れてまとめてもらう（1 回だけ AI に聞く）。
   const searchNow = () => {
     if (!interview || interviewLoading || askingRef.current) return;
-    if (answerText.trim()) { answerQuestion(answerText, { finish: true }); return; }
+    if (answerText.trim() && !onlyStarter(answerText, interview.options || [])) { answerQuestion(answerText, { finish: true }); return; }
     if (interview.summary) {
       setSummaryStep({ summary: interview.summary, from: interview });
       setInterview(null);
@@ -1201,9 +1205,9 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         target="_blank"
         rel="noopener noreferrer"
         aria-label={`${CARE_LINK.label}を開く（外部リンク）`}
-        style={{ ...uiBtnLink, gap: 'var(--space-1)', textDecoration: 'none', marginLeft: 'calc(-1 * var(--space-1))' }}
+        style={{ ...uiBtnLink, gap: 0, flexWrap: 'wrap', justifyContent: 'flex-start', textAlign: 'left', textDecoration: 'none', marginLeft: 'calc(-1 * var(--space-1))' }}
       >
-        {CARE_LINK.label}<IcExternal size={16} aria-hidden="true" />
+        {CARE_LINK.name}<span style={{ whiteSpace: 'nowrap' }}>{CARE_LINK.org}<IcExternal size="1em" aria-hidden="true" style={{ marginLeft: 'var(--space-1)', verticalAlign: '-0.125em' }} /></span>
       </a>
     </div>
   );
@@ -1400,14 +1404,16 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     if (!chatScrollRef.current || messages.length === 0) return;
     chatScrollRef.current.scrollTo({ top: chatScrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages.length]);
-  // 新しい問い・受け取ったまとめが出たら、いちばん下（いまの問いと「このくらいで探して」）まで送る（2026-10-08）。
-  //   下の欄（書き出しのチップ＋入力欄）が高くなっても、いまの問いが隠れないように。
-  const stepKey = interview ? `q:${interviewTrail.length}:${interview.question}` : summaryStep ? `s:${correcting ? 1 : 0}` : '';
+  // 新しい問い・受け取ったまとめが出たら、そのカードの先頭まで送る（2026-10-08）。いちばん下へ送ると、
+  //   文字を大きくしたときに問いの文が上へ流れて見えなくなった（ui-critic 第 3 回）。
+  const stepCardRef = useRef(null);
+  const stepKey = interview ? `q:${interviewTrail.length}:${interview.question}` : summaryStep ? 's' : '';
   useEffect(() => {
     if (!stepKey) return;
     const t = setTimeout(() => {
-      const el = chatScrollRef.current;
-      if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+      let reduce = false;
+      try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { /* noop */ }
+      stepCardRef.current?.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
     }, 60);
     return () => clearTimeout(t);
   }, [stepKey]);
@@ -1603,7 +1609,9 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
           description="通信の状態を確かめて、もう一度お試しください。"
           actions={[
             { label: 'もう一度', onClick: retryInterview, variant: 'secondary' },
-            { label: 'このくらいで探して', onClick: searchAfterError, variant: 'ghost' },
+            // 答えがまだ無い（最初の問いで失敗）ときは、相談の言葉だけで探す・最初の入力に戻る も選べる
+            { label: (interviewError.answers || []).length === 0 ? '相談の言葉だけで探す' : 'このくらいで探して', onClick: searchAfterError, variant: 'ghost' },
+            ...((interviewError.answers || []).length === 0 ? [{ label: '最初の入力に戻る', onClick: () => { clearInterview(); setInput(concern); }, variant: 'ghost' }] : []),
           ]}
         />
       )}
@@ -1631,8 +1639,9 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
           );
         };
         return (
-        <div style={advisorWizardCard} role="group" aria-label="AI 選書からの問い" aria-live="polite">
-          <p ref={questionRef} tabIndex={-1} style={{ ...questionText, outline: 'none' }}>{withPhraseBreaks(interview.question)}</p>
+        <div ref={stepCardRef} style={{ ...advisorWizardCard, scrollMarginTop: 'var(--space-4)' }} role="group" aria-label="AI 選書からの問い">
+          {/* 読み上げは問いの文だけ（カード全体を読み直さない） */}
+          <p ref={questionRef} tabIndex={-1} aria-live="polite" style={{ ...questionText, outline: 'none' }}>{withPhraseBreaks(interview.question)}</p>
           <div className="ai-answer-field" style={{ marginTop: 'var(--space-3)' }}>
             <textarea
               ref={answerRef}
@@ -1654,7 +1663,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
               type="button"
               className="send-btn"
               onClick={() => answerQuestion(answerText)}
-              disabled={!answerText.trim() || interviewLoading}
+              // チップの言葉だけでは送れない（続きを書いてから・2026-10-08 ui-critic）
+              disabled={!answerText.trim() || onlyStarter(answerText, interview.options || []) || interviewLoading}
               aria-label="答える"
               title="答える"
             >
@@ -1672,7 +1682,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
           {/* 脇役の 2 つ（--text-2 の文字ボタン・カードで栗色をいちばん強くしない）: 前の問いに戻る／このくらいで探して。 */}
           <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 'var(--space-2)', marginTop: 'var(--space-4)', marginLeft: 'calc(-1 * var(--space-1))' }}>
             <button type="button" onClick={goBackQuestion} style={{ ...quietLink, gap: 'var(--space-1)' }}>
-              <IcBack size={16} aria-hidden="true" />
+              <IcBack size="1em" aria-hidden="true" style={{ flexShrink: 0 }} />
               {interviewTrail.length === 0 ? '最初の入力に戻る' : '前の問いに戻る'}
             </button>
             <button type="button" onClick={searchNow} style={quietLink}>
@@ -1689,7 +1699,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         const text = summaryStep?.summary || confirmed?.summary || '';
         const asking = !!summaryStep && !recoLoading;
         return (
-          <div style={advisorWizardCard} role="group" aria-label="受け取った悩み" aria-live="polite">
+          <div ref={summaryStep ? stepCardRef : undefined} style={{ ...advisorWizardCard, scrollMarginTop: 'var(--space-4)' }} role="group" aria-label="受け取った悩み" aria-live="polite">
             <p style={fieldLabel}>あなたの悩みを、こう受け取りました</p>
             <p style={{ ...readText, margin: 'var(--space-2) 0 0', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(text)}</p>
             {/* 命に関わる言葉があるときは、まとめのすぐ後に相談窓口（15/--text・外部リンク 44）。 */}
@@ -1734,7 +1744,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
             {asking && (
               <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 'var(--space-2)', marginTop: 'var(--space-4)', marginLeft: 'calc(-1 * var(--space-1))' }}>
                 <button type="button" onClick={goBackQuestion} style={{ ...quietLink, gap: 'var(--space-1)' }}>
-                  <IcBack size={16} aria-hidden="true" />
+                  <IcBack size="1em" aria-hidden="true" style={{ flexShrink: 0 }} />
                   {!summaryStep?.from && interviewTrail.length === 0 ? '最初の入力に戻る' : '前の問いに戻る'}
                 </button>
                 {correcting && (
@@ -1907,7 +1917,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
           )}
           {recommendations.before && (() => {
             const intro = introTextOf(cleanProseTitles(recommendations.before));
-            return intro ? <p style={introText}>{intro}</p> : null;
+            return intro ? <p style={{ ...introText, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(intro)}</p> : null;
           })()}
           {recommendations.items.map((rec, i) => {
             const added = addedTitles.has(rec.title);

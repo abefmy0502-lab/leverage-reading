@@ -553,12 +553,26 @@ function demoQuote(t) {
   return clause.length >= 6 ? clause : sentence;
 }
 
+// 「A. …」の答えを、本人が書き足した言葉にする（次の行に「（書き出し「…」を使った…）」があれば、その書き出しを除く＝本番の指示文と同じ・2026-10-08）。
+function demoSpokenAnswers(block) {
+  const lines = String(block || '').split('\n');
+  const out = [];
+  lines.forEach((l, i) => {
+    if (!l.startsWith('A. ')) return;
+    let a = l.slice(3).trim();
+    const st = ((lines[i + 1] || '').match(/^（書き出し「(.+?)」を使った/) || [])[1];
+    if (st && a.startsWith(st)) a = a.slice(st.length).replace(/^[、,\s]+/u, '').trim() || a;
+    out.push(a);
+  });
+  return out;
+}
+
 // 🧭 お試しモードの聞き取り（本番の advisorInterview と同じ JSON の形）。
 //   1 問目＝いちばん引っかかっていること／「まだ言葉にできない」のあと＝最近の場面／2 問目＝本当はどうなりたいか → まとめて止める。
 function demoInterviewStep(userText) {
   const concern = (userText.match(/【ユーザーの相談内容】\n([\s\S]*?)\n\n/) || [])[1]?.trim() || '';
   const qa = (userText.match(/【これまでの問いと答え】\n([\s\S]*?)\n\n【次の問いの番号】/) || [])[1] || '';
-  const answers = qa.split('\n').filter((l) => l.startsWith('A. ')).map((l) => l.slice(3).trim());
+  const answers = demoSpokenAnswers(qa);
   const spoken = answers.filter((a) => a !== '（まだ言葉にできない）');
   const lastUnsure = answers[answers.length - 1] === '（まだ言葉にできない）';
   const over = userText.includes('上限を超えた');
@@ -611,7 +625,7 @@ function aiReply(store, payload, aiMode = '') {
     const chose = (opt) => answers.includes(opt);
     // 本人の直し（最優先）→ 最後の答え → 相談、の順に本人の言葉を「」で引く（本番の指示文と同じ・2026-10-08）。
     const fix = (userText.match(/【本人の直し（最優先）】\n([^\n]+)/) || [])[1] || '';
-    const lastA = (answers.split('\n').filter((l) => !l.includes('（まだ言葉にできない）')).pop() || '').replace(/^A\. /, '');
+    const lastA = demoSpokenAnswers(userText).filter((a) => a !== '（まだ言葉にできない）').pop() || '';
     const said = demoQuote(fix || lastA || (userText.match(/【相談内容】\n([^\n]+)/) || [])[1] || '');
     // 引用した言葉に、この本のやり方がどう効くかを続けて書く（引用と結論をつなげる）。
     const saidWhy = !said ? ''

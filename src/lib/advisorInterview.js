@@ -92,6 +92,35 @@ export function applyStarter(current, label, chipLabels = []) {
   return `${cur.replace(/\s+$/u, '')}${/[、。,.!?！？…]$/u.test(t) ? '' : '、'}${next}`;
 }
 
+// 答えが書き出しのチップから始まっていれば、その書き出し（チップの言葉）を返す。無ければ ''。
+export function starterOf(answer, labels = []) {
+  const a = str(answer);
+  if (!a) return '';
+  let hit = '';
+  for (const l of Array.isArray(labels) ? labels : []) {
+    const lab = str(l);
+    if (!lab) continue;
+    if ((a.startsWith(starterText(lab)) || a.startsWith(lab)) && lab.length > hit.length) hit = lab;
+  }
+  return hit;
+}
+
+// 本人が書き足した言葉（書き出しを除いた残り・頭の読点は落とす）。書き出しが無ければ答えのまま。
+export function ownWords(answer, starter = '') {
+  const a = str(answer);
+  const st = str(starter);
+  if (!st) return a;
+  const rest = a.startsWith(starterText(st)) ? a.slice(starterText(st).length) : a.startsWith(st) ? a.slice(st.length) : a;
+  return rest.replace(/^[、,，\s]+/u, '').trim();
+}
+
+// チップの言葉だけ（何も書き足していない）なら送れない＝続きを書いてもらう（2026-10-08 ui-critic）。
+export function onlyStarter(answer, labels = []) {
+  const a = str(answer);
+  if (!a) return false;
+  return (Array.isArray(labels) ? labels : []).some((l) => a === str(l) || a === starterText(l));
+}
+
 // AI に渡す「これまでの問いと答え」。answers: [{ q, a, off?, unsure? }]（a は sanitize 済み）。
 export function buildPriorQA(answers) {
   return (Array.isArray(answers) ? answers : [])
@@ -100,7 +129,10 @@ export function buildPriorQA(answers) {
       if (x?.unsure) return `Q. ${q}\nA. ${UNSURE_ANSWER}`;
       const a = clamp(oneBlock(x?.a), 400);
       if (!a) return '';
-      return `Q. ${q}\nA. ${a}${x?.off ? `\n${OFF_NOTE}` : ''}`;
+      // 書き出しを使った答えは、その印を付ける（AI が引くのは本人が書き足した部分・書き出しの言葉は引かない）。
+      const st = clamp(str(x?.starter), 40);
+      const starterNote = st ? `\n（書き出し「${st}」を使った。引くのは、そのあとに本人が書き足した部分）` : '';
+      return `Q. ${q}\nA. ${a}${starterNote}${x?.off ? `\n${OFF_NOTE}` : ''}`;
     })
     .filter(Boolean)
     .join('\n');
@@ -130,7 +162,8 @@ export function buildRecoMessage({ concern, answers, summary = '', correction = 
 const CARE_WORDS = /死にたい|しにたい|消えたい|きえたい|自殺|自死|いなくなりたい|生きているのがつらい|生きてるのがつらい|生きるのがつらい|生きる意味がない|生きていたくない|リストカット/;
 export const CARE_LINE = 'つらい気持ちが強いときは、ひとりで抱えず、身近な人や、こころの相談窓口にも話してみてください。';
 // 厚生労働省の相談窓口の案内（電話・SNS の窓口の一覧）。外部リンクで開く。
-export const CARE_LINK = { label: 'まもろうよ こころ（厚生労働省）', url: 'https://www.mhlw.go.jp/mamorouyokokoro/' };
+// org（「（厚生労働省）」）は折り返しで割らない（画面で 1 まとまりにする）。
+export const CARE_LINK = { name: 'まもろうよ こころ', org: '（厚生労働省）', label: 'まもろうよ こころ（厚生労働省）', url: 'https://www.mhlw.go.jp/mamorouyokokoro/' };
 export function needsCareLine(texts) {
   return (Array.isArray(texts) ? texts : [texts]).some((t) => CARE_WORDS.test(String(t || '')));
 }
