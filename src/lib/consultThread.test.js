@@ -251,9 +251,9 @@ describe('nextStepChips（答えのあとの次のチップ）', () => {
     expect(c[0]).toEqual({ label: '会議の前', send: '会議の前', kind: 'reply' });
     expect(c[2]).toEqual({ label: DECIDE_CHIP, send: DECIDE_REQUEST, kind: 'decide' });
   });
-  it('行動を決めた答えのあとは、見方を変える 3 つ＋うまくいかなかったら？（2026-10-08）', () => {
-    expect(nextStepChips({ hasAction: true, booksWithMemos: 1 }).map((x) => x.label)).toEqual(['2 つ上の立場なら', '前と後ろの工程から', FOLLOWUP_IF_FAIL]);
-    expect(nextStepChips({ hasAction: true, booksWithMemos: 2 }).map((x) => x.label)).toEqual(['ほかの本の視点で', '2 つ上の立場なら', '前と後ろの工程から', FOLLOWUP_IF_FAIL]);
+  it('行動を決めた答えのあとは、うまくいかなかったら？が先頭・見方は 2 つまで（2026-10-08）', () => {
+    expect(nextStepChips({ hasAction: true, booksWithMemos: 1 }).map((x) => x.label)).toEqual([FOLLOWUP_IF_FAIL, '2 つ上の立場なら', '前と後ろの工程から']);
+    expect(nextStepChips({ hasAction: true, booksWithMemos: 2 }).map((x) => x.label)).toEqual([FOLLOWUP_IF_FAIL, 'ほかの本の視点で', '2 つ上の立場なら']);
   });
   it('行動も候補も無い答えのあとは「ここで答えと行動を」が先頭・続けて見方を変える 3 つ', () => {
     expect(nextStepChips({ hasAction: false, booksWithMemos: 1 }).map((x) => x.label)).toEqual([DECIDE_CHIP, '2 つ上の立場なら', '前と後ろの工程から']);

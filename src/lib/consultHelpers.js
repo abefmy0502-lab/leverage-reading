@@ -561,15 +561,44 @@ export function lensOf(text) {
   const hit = Object.entries(LENS_CHIPS).find(([, c]) => c.send === t);
   return hit ? hit[0] : null;
 }
-export function lensChips({ booksWithMemos = 0 } = {}) {
+//   work: 仕事の相談か（isWorkConsult）。「2 つ上の立場なら」「前と後ろの工程から」は仕事の言葉なので、仕事の相談のときだけ。
+//   used: いまの区切りで使った見方（usedLenses）。使った見方は出さない（見方を回り続けない・2026-10-08 ui-critic）。
+export function lensChips({ booksWithMemos = 0, work = true, used = [] } = {}) {
+  const usedSet = new Set(Array.isArray(used) ? used : []);
   return [
-    ...(booksWithMemos >= 2 ? [LENS_CHIPS.otherBook] : []),
-    LENS_CHIPS.up,
-    LENS_CHIPS.flow,
-  ].map((c) => ({ ...c, kind: 'lens' }));
+    ...(booksWithMemos >= 2 ? [['otherBook', LENS_CHIPS.otherBook]] : []),
+    ...(work ? [['up', LENS_CHIPS.up], ['flow', LENS_CHIPS.flow]] : []),
+  ].filter(([k]) => !usedSet.has(k)).map(([, c]) => ({ ...c, kind: 'lens' }));
 }
-// 見方を変えた答えの最後は「この見方で続けますか？」の問いだけ（候補は書かせない）。入力欄の上のチップは
-//   「ここで答えと行動を」（この見方で結論＋行動）と、まだ使っていないほかの見方（nextStepChips の lens）。
+
+// 見方は 1 つの区切りで 2 つまで。2 つ使ったら「ここで答えと行動を」だけ（ゴールが見えるように）。
+export const LENS_LIMIT = 2;
+// いまの区切り（最後に行動を決めた答えより後）で使った見方 → ['up', …]。turns は [{ question, answer }]（古い順）。
+export function usedLenses(turns) {
+  let used = [];
+  (Array.isArray(turns) ? turns : []).forEach((t) => {
+    if (ACTION_SECTION_RE.test(String(t?.answer || ''))) { used = []; return; }
+    const k = lensOf(t?.question);
+    if (k && !used.includes(k)) used.push(k);
+  });
+  return used;
+}
+
+// 仕事の相談か（2026-10-08 ui-critic）。相談の文（この会話の相談たち）に仕事の言葉があるか、
+//   相談相手に絞った本のタグ・書名が仕事の本（ビジネス・マネジメント・営業など）なら仕事。どちらも無ければ仕事ではない。
+const WORK_WORDS_RE = /部下|上司|同僚|先輩|後輩|チーム|会社|職場|組織|社員|会議|顧客|お客|取引|商談|営業|売上|案件|プロジェクト|担当|業務|仕事|納期|評価|昇進|転職|残業|クライアント|経営|マネジ|リーダー|報告|プレゼン|キャリア|事業|部署|部長|課長|役員/;
+const WORK_BOOK_RE = /ビジネス|仕事|マネジメント|マネジャー|マネージャー|リーダー|営業|経営|組織|キャリア|会議|プレゼン|戦略|マーケティング|働き方|チーム|上司|部下/;
+export function isWorkConsult({ texts = [], books = [] } = {}) {
+  const t = (Array.isArray(texts) ? texts : [texts]).map((x) => String(x || '')).join(' ');
+  if (WORK_WORDS_RE.test(t)) return true;
+  return (Array.isArray(books) ? books : []).some((b) => {
+    const tags = [...(Array.isArray(b?.tags) ? b.tags : []), ...(Array.isArray(b?.collections) ? b.collections : [])].join(' ');
+    return WORK_BOOK_RE.test(`${tags} ${b?.title || ''}`);
+  });
+}
+// 見方を変えた答えは問いで締めない（聞き返しにしない・2026-10-08 ui-critic）。答えの下に 1 行（LENS_NEXT_LINE）、
+//   入力欄の上のチップは「ここで答えと行動を」（この見方で結論＋行動）と、まだ使っていないほかの見方（nextStepChips）。
+export const LENS_NEXT_LINE = '「ここで答えと行動を」で、この見方から行動を 1 つ決めます';
 
 // 🎯 行動は会話で決める（2026-09-30 オーナー要望「最初から勝手に行動を決めるのではなく、会話を進めていって行動を決めたい」）。
 //   最初の答えは行動を決めず、【あなたに聞きたいこと】で状況を 1 つ聞く（問い 1 文＋答えの候補 2〜3 行「・会議の前」）。
@@ -709,12 +738,16 @@ export function lookupChips({ term = '', found = 0 } = {}) {
   return list;
 }
 
-export function nextStepChips({ replies = [], hasAction = false, booksWithMemos = 0, lastAsked = '', lookup = false, term = '', found = 0 } = {}) {
+// work: 仕事の相談か（isWorkConsult）/ used: いまの区切りで使った見方（usedLenses）。
+export function nextStepChips({ replies = [], hasAction = false, booksWithMemos = 0, lastAsked = '', lookup = false, term = '', found = 0, work = true, used = [] } = {}) {
   const sent = String(lastAsked || '').trim();
   if (lookup) return lookupChips({ term, found }).filter((c) => c.send !== sent);
-  // 🔭 見方を変えた答えのあと（行動を決めていない）: 「ここで答えと行動を」（この見方で結論＋行動）→ まだ使っていないほかの見方。
+  const usedNow = [...new Set([...(Array.isArray(used) ? used : []), ...(lensOf(sent) && !hasAction ? [lensOf(sent)] : [])])];
+  // 見方は 1 つの区切りで 2 つまで（2 つ使ったら出さない）。
+  const lensesLeft = usedNow.length >= LENS_LIMIT ? [] : lensChips({ booksWithMemos, work, used: usedNow });
+  // 🔭 見方を変えた答えのあと（行動を決めていない）: 「ここで答えと行動を」（この見方で結論＋行動）が先頭 → まだ使っていない見方。
   if (!hasAction && lensOf(sent)) {
-    return [{ label: DECIDE_CHIP, send: DECIDE_REQUEST, kind: 'decide' }, ...lensChips({ booksWithMemos }).filter((c) => c.send !== sent)];
+    return [{ label: DECIDE_CHIP, send: DECIDE_REQUEST, kind: 'decide' }, ...lensesLeft];
   }
   const reply = (Array.isArray(replies) ? replies : []).slice(0, ASK_REPLY_MAX).map((r) => ({ label: r, send: r, kind: 'reply' }));
   const decide = { label: DECIDE_CHIP, send: DECIDE_REQUEST, kind: 'decide' };
@@ -724,10 +757,10 @@ export function nextStepChips({ replies = [], hasAction = false, booksWithMemos 
   // 🔭 2026-10-08: 「もっと具体的に」「別の角度で答えて」は、見方を変える 3 つ（lensChips）に置き換えた。
   //   行動を決めたあとは 3 つ＋「うまくいかなかったら？」、問いも行動も無い答えは「ここで答えと行動を」＋3 つ。
   //   問いに答えている間（返事の候補がある）は、候補＋「ここで答えと行動を」だけ（今までどおり）。
-  const lenses = lensChips({ booksWithMemos });
+  //   行動を決めたあとは「うまくいかなかったら？」が先頭・見方は 2 つまで（2026-10-08 ui-critic）。
   let list;
-  if (hasAction) list = [...lenses, followOf(FOLLOWUP_IF_FAIL)];
+  if (hasAction) list = [followOf(FOLLOWUP_IF_FAIL), ...lensChips({ booksWithMemos, work }).slice(0, LENS_LIMIT)];
   else if (reply.length > 0) list = [...reply, decide];
-  else list = [decide, ...lenses];
+  else list = [decide, ...lensesLeft];
   return list.filter((c) => c.send !== sent);
 }

@@ -1154,7 +1154,8 @@ textarea[aria-invalid="true"]:not(.no-focus-ring):focus {
 }
 .ai-input-area textarea {
   flex: 1;
-  min-height: 44px;
+  /* 空のときは 1 行ぶん（下限 44）。文字を大きくしても 1 行目が下で切れない（2026-10-08 ui-critic）。 */
+  min-height: max(44px, calc(1.5em + var(--space-2) * 2 + 2px));
   /* 書いた量に合わせて 5 行まで伸び、そこから中を送る（行の高さ 1.5・上下の内側 8・枠 1・2026-10-08）。 */
   /* 文字を大きくしているときは、見えている高さの 35% まで（答えの場所を残す・2026-10-08 ui-critic）。 */
   max-height: min(calc(1.5em * 5 + var(--space-2) * 2 + 2px), 35dvh);

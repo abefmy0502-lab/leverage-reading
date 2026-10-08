@@ -40,11 +40,11 @@ import { getIntroOffer } from '../lib/iap';
 import { firstAnswerTrialGroup, isFirstAnswerTrialMoment, canOfferFirstAnswerTrial, holdGrownNudge, firstAnswerTrialText, isFirstAnswerTrialDone, markFirstAnswerTrialDone } from '../lib/firstAnswerTrial';
 import { shouldAskForReview, markReviewAsked, askForReview } from '../lib/reviewRequest';
 import { growthMeterText, firstAnswerEvidence, takeFirstConsult, takeMemosReached, getOnboardPath } from '../lib/firstDay';
-import { composerChrome, answerEndScrollTop, composerHeight, isTouchUi } from '../lib/composerView';
+import { composerChrome, answerEndScrollTop, isTouchUi } from '../lib/composerView';
+import { useComposerHeight } from '../hooks/useComposerHeight';
 import { NATIVE_KEYBOARD_EVENT } from '../lib/native';
 import { encodeThreadRef, isThreadRef, threadRootOf, groupConsults, threadScopeOf, threadTitleOf } from '../lib/consultThreads';
-import { lensOf } from '../lib/consultHelpers';
-import { buildConsultExamples, standaloneAction, shortTitle, hasSummaryMemo, countSummaryMemos, fmtTokens, consultsLeft, memoSearchQuery, answerStepToAction, stripScenePrefix, selectThreadTurns, isCompletedAnswer, parseAskSection, nextStepChips, wantsAction, isBookLookup, lookupTerm, shouldDecide, countAsks, askProgressText, answerAsks } from '../lib/consultHelpers';
+import { buildConsultExamples, standaloneAction, shortTitle, hasSummaryMemo, countSummaryMemos, fmtTokens, consultsLeft, memoSearchQuery, answerStepToAction, stripScenePrefix, selectThreadTurns, isCompletedAnswer, parseAskSection, nextStepChips, wantsAction, isBookLookup, lookupTerm, shouldDecide, countAsks, askProgressText, answerAsks, lensOf, usedLenses, isWorkConsult, LENS_NEXT_LINE } from '../lib/consultHelpers';
 import LibrarySearchHit from './LibrarySearchHit';
 import { buildSnippet, compileTerms, splitQuery } from '../lib/librarySearch';
 import { tomorrowLocal } from '../lib/dates';
@@ -682,13 +682,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const blurTimerRef = useRef(0);
   // 描く前に高さを合わせる（useEffect だと、送ったあとに「消えた文字の高さのまま 1 回描く → 縮む」で
   // 入力欄が 2 回動いていた）。
-  useLayoutEffect(() => {
-    const el = inputRef.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    const max = parseFloat(getComputedStyle(el).maxHeight);
-    el.style.height = composerHeight({ scrollHeight: el.scrollHeight + 2, max: Number.isFinite(max) ? max : 146 }) + 'px';
-  }, [input]);
+  // 文字の大きさが変わったときも測り直す（hooks/useComposerHeight.js・2026-10-08 ui-critic）。
+  useComposerHeight(inputRef, input, view === 'chat');
 
   const historyLatestRef = useRef(null);
   const fetchHistory = useCallback(async () => {
@@ -1338,7 +1333,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         scopeIds: askBookIds, // 相談相手のアイコン（書いている間・失敗・関係するメモが無かった答えは相談相手から）
         mode: askMode, // 本ごとには、書いている途中から本のカードの形で見せる（出来上がりで形が跳ねないように）
         // 本を探す問い（「…を書いた本はどれ？」）は問いも行動も無い答えなので、下に箱の形を取らない（2026-09-30）。
-        expect: isBookLookup(q) ? 'lookup' : expectAction ? 'action' : 'ask',
+        // 🔭 見方を変える頼みの答えは問いでも行動でもない（書いている途中は箱の形を取らない・2026-10-08 ui-critic）。
+        expect: isBookLookup(q) ? 'lookup' : expectAction ? 'action' : ((askThread.length > 0 || !!askPrior) && lensOf(q)) ? 'lens' : 'ask',
       },
     ]);
     setStage('search');
@@ -1744,6 +1740,15 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const showFollowups = answerDone && chrome.chips && !lastActionAdded;
   // いま送った文と同じチップは出さない（「もっと具体的に」のあとにまた「もっと具体的に」を並べない）。
   const lastAsked = visibleMessages[visibleMessages.length - 2]?.content || '';
+  // 🔭 見方のチップ（2026-10-08 ui-critic）: いまの区切りで使った見方は出さない・仕事の言葉の見方は仕事の相談のときだけ。
+  const convTurns = answerDone ? selectThreadTurns(visibleMessages, { max: 50, carry }) : [];
+  const lensesUsed = usedLenses(convTurns);
+  const workConsult = answerDone && isWorkConsult({
+    texts: convTurns.map((t) => t.question).filter((q) => !lensOf(q)),
+    books: scopeIds.length > 0 ? (books || []).filter((b) => scopeIds.includes(b.id)) : [],
+  });
+  // 見方を変えた答えのあと、答えの下に「「ここで答えと行動を」で…」の 1 行（進み具合の行と同じ見た目）。
+  const lensNextShown = answerDone && !!lensOf(lastAsked) && !answerAsks(lastVisible.content) && !extractActionLine(lastVisible.content);
   // 🎯 行動は会話で決める（2026-09-30）: 最後の答えが問いで終わっていれば、その候補（返事）→「行動を決める」。
   //   行動を決めた答えのあとは、これまでの深掘りのチップ。次にすることは入力欄の上のこの 1 行だけ（lib/consultHelpers.js）。
   const lastParsed = answerDone ? parseAnswer(lastVisible.content) : null;
@@ -1754,7 +1759,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     ? (lastLocalLookup ? lastVisible.memoAnswer.groups.length : decodeQuoteRefs(lastVisible.refs || []).filter((c) => c.k === 'r' && c.s === 'ok').length || (lastVisible.refs || []).filter((r) => !isMetaRef(r)).length)
     : 0;
   const followups = showFollowups
-    ? nextStepChips({ replies: lastParsed?.replies || [], hasAction: lastParsed ? isActionAnswer(lastParsed) : !!extractActionLine(lastVisible.content), booksWithMemos, lastAsked, lookup: lastLookup, term: lastLookup ? lookupTerm(lastAsked) : '', found: lookupFound })
+    ? nextStepChips({ replies: lastParsed?.replies || [], hasAction: lastParsed ? isActionAnswer(lastParsed) : !!extractActionLine(lastVisible.content), booksWithMemos, lastAsked, lookup: lastLookup, term: lastLookup ? lookupTerm(lastAsked) : '', found: lookupFound, work: workConsult, used: lensesUsed })
     : [];
   // 同じ相談にもう一度答える（別の角度で／止めた・途中までの答えは「もう一度答えて」）。チップの行の最後に置く。
   // 問いに答えている間（返事の候補がある）は出さない＝チップは「候補＋行動を決める」だけ（2026-09-30 ui-critic）。
@@ -2323,6 +2328,12 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             </>
           )}
 
+          {/* 🔭 見方を変えた答えの下: 進み具合の行と同じ見た目で、次にできること（問いの箱にはしない・2026-10-08 ui-critic） */}
+          {answerRowShown && lensNextShown && !lastActionAdded && (
+            <p style={{ margin: 'var(--space-2) 0 0', marginLeft: ANSWER_COLUMN, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+              {withPhraseBreaks(LENS_NEXT_LINE)}
+            </p>
+          )}
           {/* 🏁 行動に追加したら一区切り: 「新しい相談をはじめる」を主ボタンで（2026-10-08） */}
           {answerRowShown && lastActionAdded && (
             <button type="button" onClick={handleResolveAndClear} style={{ ...uiBtnPrimary, marginTop: 'var(--space-4)', marginLeft: ANSWER_COLUMN, width: `calc(100% - ${AVATAR_SIZE}px - var(--space-2))` }}>
@@ -2377,6 +2388,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 {followups.filter((c) => c.kind !== 'decide').map((c, i) => (
                   <button key={`${c.kind}-${c.label}`} type="button" onClick={() => { track('brain_followup', { chip: i, kind: c.kind }); ask(c.send); }} style={followupChip}>
                     {c.label}
+                    {/* 無料プランは、見方を変えると 1 回分の相談になるので使う量を添える（前の「別の角度で答えて」と同じ・2026-10-08） */}
+                    {freeMode && c.kind === 'lens' && <span style={{ color: 'var(--text-2)', fontSize: 'var(--text-meta)' }}>（約 {answerMode === 'perbook' && modeApplies ? TOKEN_COSTS.consultPerBook : TOKEN_COSTS.consult} トークン）</span>}
                   </button>
                 ))}
                 {/* 🎯「行動を決める」は決まった頼み方（DECIDE_REQUEST）で送る。行動の印（Target）つき。 */}
@@ -2401,6 +2414,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                   {followups.map((c, i) => (
                     <button key={`${c.kind}-${c.label}`} type="button" onClick={() => { track('brain_followup', { chip: i, kind: c.kind }); ask(c.send); }} style={followupChip}>
                       {c.label}
+                      {freeMode && c.kind === 'lens' && <span style={{ color: 'var(--text-2)', fontSize: 'var(--text-meta)' }}>（約 {answerMode === 'perbook' && modeApplies ? TOKEN_COSTS.consultPerBook : TOKEN_COSTS.consult} トークン）</span>}
                     </button>
                   ))}
                   {regenLabel && (
@@ -3656,7 +3670,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
               （以前は 44 の「答えを書いています…」→ 約 130 の箱に変わって、下が 87px 跳ねていた・2026-09-29）。 */}
           {/* 結論を書いている間は、その下に一歩の形も「根拠を見る」も出さない（結論が伸びるたびに下の箱が押し下げられて
               揺れていた・2026-09-30）。結論を書き終えてから一歩の形を出す（新しいものは下に足されるだけ＝読んでいる行は動かない）。 */}
-          {tail === 'conclusion' || (message.expect === 'lookup' && !liveFused.action && !liveFused.question) ? null : liveFused.action ? renderAction(liveFused, 'var(--space-4)') : liveFused.question ? renderAsk(liveFused, 'var(--space-4)') : (
+          {tail === 'conclusion' || ((message.expect === 'lookup' || message.expect === 'lens') && !liveFused.action && !liveFused.question) ? null : liveFused.action ? renderAction(liveFused, 'var(--space-4)') : liveFused.question ? renderAsk(liveFused, 'var(--space-4)') : (
             <div aria-hidden="true" style={{ marginTop: 'var(--space-4)', ...nextStepBox }}>
               {/* 1 行目は点つきの「答えを書いています…」（SPEC §3・骨組みだけだと何を待っているか分からない）。
                   高さは小さな見出し（subLabel: 12・行間 1.5・下 4）と同じにして、一歩が来たときに跳ねさせない。 */}

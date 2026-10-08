@@ -54,7 +54,7 @@ import { findDuplicateBook } from '../lib/checkDuplicate';
 import { filterProseTitles, proseTitleLists } from '../lib/advisorProse';
 import { dropSummarySection, introTextOf } from '../lib/advisorSummary';
 import { useEdgeSwipeBack } from '../hooks/useEdgeSwipeBack';
-import { composerHeight } from '../lib/composerView';
+import { useComposerHeight } from '../hooks/useComposerHeight';
 
 const AdvisorHistoryList = lazy(() => import('./AdvisorHistory').then((m) => ({ default: m.AdvisorHistoryList })));
 const AdvisorSessionDetail = lazy(() => import('./AdvisorHistory').then((m) => ({ default: m.AdvisorSessionDetail })));
@@ -281,13 +281,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   }, [messages]);
   // 入力欄は書いた量に合わせて伸びる（空は 1 行 44・5 行を超えたら中を送る＝上限は CSS の max-height・相談と同じ）。
   const inputRef = useRef(null);
-  useEffect(() => {
-    const el = inputRef.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    const max = parseFloat(getComputedStyle(el).maxHeight);
-    el.style.height = composerHeight({ scrollHeight: el.scrollHeight + 2, max: Number.isFinite(max) ? max : 146 }) + 'px';
-  }, [input]);
+  // 文字の大きさが変わったときも測り直す（hooks/useComposerHeight.js・2026-10-08 ui-critic）。
+  useComposerHeight(inputRef, input, !interview && !interviewLoading && !recoLoading && !recommendations);
 
   // Parse the new richer response: leading prose + JSON recs + trailing prose.
   // 表示用: RECOMMENDATIONS ブロック（マーカー + JSON）を本文から取り除く。
