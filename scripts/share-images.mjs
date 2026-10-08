@@ -60,6 +60,9 @@ const results = await page.evaluate(async ({ photos }) => {
     ['photo', { style: 'photo', photo: photo.normal }],
     ['photo-bright', { style: 'photo', photo: photo.bright }],
     ['photo-dark', { style: 'photo', photo: photo.dark }],
+    // フィルム（写真の色を端末の中で整えた地・2026-10-08）
+    ['film', { style: 'photo', photo: card.filmPhoto(photo.normal) }],
+    ['film-bright', { style: 'photo', photo: card.filmPhoto(photo.bright) }],
     ['paper', { style: 'paper' }],
     ['night', { style: 'night' }],
     ['cover', { style: 'cover' }],
@@ -88,6 +91,18 @@ const results = await page.evaluate(async ({ photos }) => {
     }
     jobs.push({ name: `edge-longtitle-${layout}-post-paper`, opts: { ...base, layout, format: 'post', style: 'paper', record: longRec, title: longBook.title, line: layout === 'record' ? ov.quoteText(base.line, 'record') : base.line } });
   }
+  // 長い著者・複数の著者（「最初の著者 ほか」・2 行まで・… で切らない・2026-10-08）
+  const manyBook = { ...book, title: '1兆ドルコーチ', author: 'エリック・シュミット、ジョナサン・ローゼンバーグ、アラン・イーグル' };
+  const longAuthorBook = { ...book, title: 'ファクトフルネス', author: 'ハンス・ロスリング・オーラ・ロスリング・アンナ・ロスリング・ロンランド' };
+  for (const [nm, bk] of [['many', manyBook], ['long', longAuthorBook]]) {
+    const rec = ov.bookRecord(bk, memos, new Date(2026, 9, 5));
+    for (const layout of ['record', 'stats', 'quote']) {
+      // 表紙はその本の代用表紙（見本の緑の表紙は『1兆ドルコーチ』のもの・第 4 回）。
+      const own = nm === 'many' ? cover : { image: null, tone: null };
+      jobs.push({ name: `edge-author-${nm}-${layout}-post-paper`, opts: { ...base, layout, format: 'post', style: 'paper', record: rec, cover: own, title: bk.title, author: bk.author, line: layout === 'record' ? ov.quoteText(base.line, 'record') : base.line } });
+      jobs.push({ name: `edge-author-${nm}-${layout}-story-photo-bright`, opts: { ...base, layout, format: 'story', style: 'photo', photo: photo.bright, record: rec, cover: own, title: bk.title, author: bk.author, line: layout === 'record' ? ov.quoteText(base.line, 'record') : base.line } });
+    }
+  }
   // 4 桁の数字（1,234 件）
   const bigRec = { ...record, stats: [{ key: 'date', label: '読み終えた日', value: '12月28日' }, { key: 'memos', label: 'メモ', value: '1,234件' }, { key: 'actions', label: '実行した行動', value: '1件' }] };
   for (const layout of ['record', 'stats']) {
@@ -103,6 +118,46 @@ const results = await page.evaluate(async ({ photos }) => {
   for (const [gName, g] of [['photo', { style: 'photo', photo: photo.normal }], ['paper', { style: 'paper' }], ['night', { style: 'night' }]]) {
     for (const layout of ['record', 'stats']) {
       jobs.push({ name: `edge-month5-${layout}-story-${gName}`, opts: { ...base, layout, format: 'story', ...g, record: monthRec, covers: monthCovers, title: monthRec.title, line: '', stamp: '2026.10.20' } });
+    }
+  }
+  // 今年の読書（12 月だけ・2026-10-08）: 冊数・メモ・行動・読み終えた本の表紙（4 冊まで重ねる）・いちばん残した一文。
+  //   重ね方 3 つ × 形 2 つ × 地（写真・明るい写真・紙・夜・表紙の色）。year-<重ね方>-<形>-<地>
+  const dec = new Date(2026, 11, 3);
+  const yearBooks = ['1兆ドルコーチ', 'イシューからはじめよ', '数値化の鬼', 'エッセンシャル思考', 'GIVE & TAKE', '人を動かす', '嫌われる勇気']
+    .map((t, i) => ({ id: `yb${i}`, title: t, status: 'done', doneDate: `2026-${String(11 - i).padStart(2, '0')}-15`, actions: i < 3 ? [{ done: true, completedAt: `2026-${String(11 - i).padStart(2, '0')}-20` }, { done: true, completedAt: '2026-06-01' }] : [] }));
+  const yearMemos = [
+    { id: 'y1', text: '短い', createdAt: '2026-11-30' },
+    { id: 'y2', text: '「全部やる」はできない。やらないことを決めることが、いちばん大事な仕事。', createdAt: '2026-04-02', recallCount: 3 },
+    { id: 'y3', text: 'チームの勝利が最優先。', createdAt: '2026-11-01', recallCount: 1 },
+  ];
+  const yearRec = ov.yearRecord(yearBooks, yearMemos, dec, { memoCount: 184 });
+  const yearLine = ov.orderYearQuoteCandidates(yearMemos)[0].text;
+  const yearCovers = yearRec.finishedBooks.map((b, i) => ({ cover: i === 0 ? cover : { image: null, tone: null }, title: b.title }));
+  // 一文の本（エッセンシャル思考）の表紙＝その本の代用表紙（見本の緑の表紙は『1兆ドルコーチ』なので使わない・第 2 回）。
+  const quoteCover = { image: null, tone: null };
+  const yearGrounds = [
+    ['photo', { style: 'photo', photo: photo.normal }],
+    ['photo-bright', { style: 'photo', photo: photo.bright }],
+    ['film', { style: 'photo', photo: card.filmPhoto(photo.normal) }],
+    ['paper', { style: 'paper' }],
+    ['night', { style: 'night' }],
+    ['cover', { style: 'cover' }],
+  ];
+  for (const layout of ['record', 'stats', 'quote']) {
+    for (const format of ['post', 'story']) {
+      for (const [gName, g] of yearGrounds) {
+        jobs.push({ name: `year-${layout}-${format}-${gName}`, opts: { ...base, layout, format, ...g, record: yearRec, cover: layout === 'quote' ? quoteCover : cover, covers: layout === 'quote' ? [] : yearCovers, title: layout === 'quote' ? yearBooks[3].title : yearRec.title, author: layout === 'quote' ? 'グレッグ・マキューン' : '', line: ov.quoteText(yearLine, layout), page: layout === 'quote' ? 18 : null, stamp: '2026.12.3', seedKey: 'y2', kicker: layout === 'quote' ? '2026' : '' } });
+      }
+    }
+  }
+  // 1 冊だけ・メモ 0・行動 0 の年（数字は読了だけ）
+  const oneBook = [{ id: 'o1', title: 'イシューからはじめよ', status: 'done', doneDate: '2026-04-10', actions: [] }];
+  const oneRec = ov.yearRecord(oneBook, [], dec);
+  for (const layout of ['record', 'stats']) {
+    for (const format of ['post', 'story']) {
+      for (const [gName, g] of [['photo-bright', { style: 'photo', photo: photo.bright }], ['paper', { style: 'paper' }]]) {
+        jobs.push({ name: `year-onebook-${layout}-${format}-${gName}`, opts: { ...base, layout, format, ...g, record: oneRec, covers: [{ cover: { image: null, tone: null }, title: oneBook[0].title }], title: oneRec.title, author: '', line: '', stamp: '2026.12.3' } });
+      }
     }
   }
   // 透明＋言葉（言葉は記録の上に場所を取る）

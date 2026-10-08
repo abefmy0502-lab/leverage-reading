@@ -105,7 +105,9 @@ import { saveStrategyHistory, popStrategyHistory, hasStrategyHistory, clearStrat
 const CoverFixModal = lazy(() => import('./components/CoverFixModal'));
 // 📤 一文をシェア（この本の一文を 1 枚の画像に・SPEC §2-1）
 const ShareSheet = lazy(() => import('./components/ShareSheet'));
-import { hasFinishedThisMonth } from './lib/shareOverlay';
+import { hasFinishedThisMonth, yearChoiceAllowed } from './lib/shareOverlay';
+import { appNow } from './lib/appNow';
+import { clearShareMemoCaches } from './lib/shareMemoCache';
 const Landing = lazy(() => import('./pages/Landing'));
 const TermsPage = lazy(() => import('./legal/TermsPage'));
 const PrivacyPage = lazy(() => import('./legal/PrivacyPage'));
@@ -125,7 +127,7 @@ import HomeScreen, { HomeBlocksSkeleton } from './components/HomeScreen';
 import { initServiceWorker } from './lib/swUpdate';
 import { ensurePushSubscription } from './lib/push';
 import { isNative } from './lib/iap';
-import { APP_STORE_URL, isAppStoreLive } from './lib/appStore';
+import { storeLinkFor, isAppStoreLive } from './lib/appStore';
 import { initNativePushNav } from './lib/nativePush';
 import UpdateBanner from './components/UpdateBanner';
 import { useWhatsNew } from './hooks/useWhatsNew';
@@ -565,6 +567,8 @@ const OPEN_SETTINGS_EVENT = 'orime:open-settings';
 function AuthedApp() {
   const { signOut, user } = useAuth();
   const appCache = useAppDataCache();
+  // 📷 写真で共有の「今月」「今年」のメモの控えは、メモが動いたら捨てる（次に開いたときに読み直す・2026-10-08）。
+  useEffect(() => appCache?.subscribeAnyMemo?.(clearShareMemoCaches), [appCache]);
   // 仮想キーボード表示中は BottomNav を消し、入力欄に重ならないようにする。
   // viewport meta の interactive-widget=resizes-content と併用すると iOS
   // で「BottomNav が押し上げられる」現象が完全になくなる。
@@ -4935,7 +4939,11 @@ function AuthedApp() {
           fromHome: true,
           from: tab === 'review' ? 'review' : tab === 'ai' ? 'consult' : 'home',
           // 振り返り › 記録からは、今月に読み終えた本があるときだけ「今月」を選んでおく（無ければいま読んでいる本・2026-10-01）。
-          ...(tab === 'review' && reviewSubTab === 'record' && hasFinishedThisMonth(books) ? { initialSubject: { kind: 'month' } } : {}),
+          // 12 月で今年に読み終えた本があれば「今年」を選んでおく（2026-10-08・今年の読書）。
+          ...(tab === 'review' && reviewSubTab === 'record'
+            ? (yearChoiceAllowed(books, appNow()) ? { initialSubject: { kind: 'year' } }
+              : hasFinishedThisMonth(books, appNow()) ? { initialSubject: { kind: 'month' } } : {})
+            : {}),
         })}
         aria-label="写真で共有"
         // 文字は 15 から設定に合わせて大きくなるが、20 で止める（--text-bar-max・1 行に収める）。アイコンは右の ？・⚙️ と同じ 22。
@@ -5015,6 +5023,8 @@ function AuthedApp() {
               onOpenLibrary={() => startTransition(() => setShelfMode('library'))}
               onSeeAllReading={() => { setStatusFilter('reading'); setShelfMode('library'); }}
               onCoverRetry={triggerCoverAutoRetry}
+              // 月末・12 月の控えめな 1 行「◯月の読書を、1 枚の画像に」→ 写真で共有の「今月」／「今年」（カメラは開かない・2026-10-08）。
+              onShareNudge={(kind) => setShareSheet({ fromHome: true, from: 'home_nudge', initialSubject: { kind } })}
             />
           </PullToRefresh>
         )}
@@ -6341,7 +6351,7 @@ function WebAppOnlyGate() {
         </p>
         {isAppStoreLive ? (
           <a
-            href={APP_STORE_URL}
+            href={storeLinkFor('web_gate')}
             target="_blank"
             rel="noopener noreferrer"
             style={{ ...btnPrimary, boxSizing: 'border-box', textDecoration: 'none', marginTop: 'var(--space-8)' }}
@@ -6488,7 +6498,8 @@ function PaywallGate() {
   // アプリの上に重ねて開く有料プランの画面（{ reason, feature }）。いつでも × / 「あとで」で閉じられる。
   //   reason: 'free_used'（今月の無料のトークンを使い切った）/ 'free_ocr_used'（今月の無料の写真から書き起こしを
   //           使い切った）/ 'feature'（プランで使える機能）/
-  //           'grown'（メモが 10 件たまった＝相談の「相談相手が育ってきました」）/ null（プランを見る）
+  //           'grown'（メモが 10 件たまった＝相談の「相談相手が育ってきました」）/
+  //           'first_answer'（はじめての相談の答えのあとの 1 行＝lib/firstAnswerTrial.js）/ null（プランを見る）
   const [paywall, setPaywall] = useState(null);
   useEffect(() => {
     // reason: null は「プランを見る」（見出しは一般の価値）。指定が無いときは機能の案内。
@@ -6526,6 +6537,8 @@ function PaywallGate() {
         setTokenSheetOpen(true);
       },
       refreshTokens,
+      // 契約の状態を読み直す（設定の「コードを使う」のあと・オファーコードで始まったプランをすぐ効かせる）。
+      refreshPlan: () => { refresh?.(); refreshTokens?.(); },
       // 旧名（お試しの頃の呼び方）。無料プランの残りのトークン。
       freeRemaining: freeMode ? tokensRemaining : null,
       refreshFree: refreshTokens,
@@ -6540,7 +6553,7 @@ function PaywallGate() {
         return false;
       },
     };
-  }, [plan, freeMode, trialEndsAt, tokenAllowance, tokensRemaining, purchasedTokens, lots?.nextExpiry, canBuyTokens, refreshTokens, subscription?.status, freeOcrUsed]);
+  }, [plan, freeMode, trialEndsAt, tokenAllowance, tokensRemaining, purchasedTokens, lots?.nextExpiry, canBuyTokens, refreshTokens, refresh, subscription?.status, freeOcrUsed]);
 
   // Checkout 復帰処理: ?checkout=success なら webhook 反映ラグを吸収するため
   // refresh を数秒間隔で数回リトライ。?checkout=cancel は静かに URL を掃除。

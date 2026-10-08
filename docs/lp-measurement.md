@@ -27,6 +27,36 @@ App Store Connect では、キャンペーン名ごとに「ページ閲覧数�
 - 押した場所: `header`（上の帯）/ `hero`（最初の画面）/ `sticky`（スマホの下に固定）/ `start`（「メモがゼロでも、初日から」の節）/ `pricing`（料金）/ `final`（最後）/ `qr`（PC の QR コード）/ `hero_badge`・`final_badge`（公式バッジ・`VITE_APP_STORE_BADGE` があるときだけ）。`offer`（創業メンバー価格の節）は 2026-10-05 に料金の中の帯になり、ボタンは無くなった。`demo` は 2026-10-02 に無くなった
 - ヒーローの表示: `3d` / `photo`（2026-10-05 から、広い画面・マウスの端末だけ半々に振り分け、スマホはいつも `photo`。`?hero=3d` / `?hero=photo` で固定して確認できる・`VITE_LP_HERO_AB=off` で全員 `photo`）
 
+### ③-2 入口ごとのキャンペーン名（ct）の一覧（2026-10-08・マーケ戦略 §6-4）
+
+LP だけでなく、**共有の画像・note・発信者・Web のアプリ**からの入手も、同じ「App 分析 → キャンペーン」で入口ごとに数える。
+決まりと作り方は `src/lib/storeCampaign.js`（名前は英小文字・数字・_ だけ・40 字まで。`VITE_APP_STORE_PT` が無いと ct は付けない）。
+
+| 入口 | キャンペーン名 | どこで付く | 備考 |
+|---|---|---|---|
+| LP のボタン | `lp_<場所>_<3d\|photo>` | 自動（`lpTrack.js` の `storeUrlFor`） | 上の一覧 |
+| 写真で共有（記録） | `share_record` / 今月は `share_month_record`・今年（12 月）は `share_year_record` | 自動（共有シートに添える文の URL・`ShareSheet.jsx`） | 画像そのものには URL を入れない（ロゴだけ）。App Store の URL が無い間は紹介ページの URL のまま |
+| 写真で共有（数字） | `share_stats` / `share_month_stats` / `share_year_stats` | 同上 | |
+| 写真で共有（一文） | `share_quote` / `share_month_quote` / `share_year_quote` | 同上 | |
+| Web のアプリの有料プランの画面 | `web_paywall` | 自動（`Paywall.jsx`） | Web は紹介と入手の案内だけ |
+| Web のアプリの「アプリでご利用ください」 | `web_gate` | 自動（`App.jsx`） | |
+| note の記事 | `note_<記事>`（例 `note_launch`・`note_why_orime`） | 手で作る（下） | 記事ごとに 1 つ |
+| 発信者・読書会 | `partner_<名前>`（例 `partner_nekomachi`） | 手で作る（下） | オファーコードと一緒に渡す。投稿には「PR」を最初に（戦略 §5-5） |
+
+**リンクの作り方**（note・発信者）: App Store の URL と provider token を入れて、スクリプトで作る。
+
+```sh
+VITE_APP_STORE_URL=https://apps.apple.com/jp/app/orime/id… VITE_APP_STORE_PT=123456 \
+  node scripts/store-link.mjs note launch
+# → キャンペーン名: note_launch
+#   https://apps.apple.com/jp/app/orime/id…?pt=123456&ct=note_launch&mt=8
+VITE_APP_STORE_URL=… VITE_APP_STORE_PT=… node scripts/store-link.mjs partner nekomachi
+```
+
+- App Store の URL が決まる前（予約注文の前）に配るリンクは、紹介ページ `https://orime.vercel.app/?utm_source=note&utm_campaign=<記事>` の形にする（LP の記録 `lp_events` の `utm_*` で数える）。
+- 名前は日本語にしない（英小文字・数字・_ に直す・日本語だけの名前は種類だけ＝`note` になる）。
+- 毎週の見方: App Store Connect →「App 分析」→「キャンペーン」→ キャンペーン名ごとの「App 入手数」。§7 の ③（週のインストール・入口別）。
+
 ## ④ 公開のお知らせ（App Store の URL が無い間の入口）
 
 LP は `VITE_APP_STORE_URL` が無い間、押せないボタンを出さずに「公開の日にメールで知らせる」（メール 1 欄＋送る）を出す（ヒーロー・初日から・料金・最後の 4 か所。1 か所で送ると全部が「公開の日にお知らせします。」になる）。

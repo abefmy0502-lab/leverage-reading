@@ -3,6 +3,8 @@
 // 引用ではなく、読み手自身の言葉で書いた気づき（著作物の転載を避けるため）。
 // 日付は起動時点からの相対（daysAgo）で生成するので、いつ開いても自然に見える。
 
+import { appNow } from '../lib/appNow';
+
 export const DEMO_USER_ID = '00000000-0000-4000-8000-00000000d3e0';
 
 const COLORS = [
@@ -78,8 +80,9 @@ function coverSvg(title, author, i) {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
+// &today=YYYY-MM-DD（appNow）で日付を差し替えたときは、その日から数える（月末・12 月の写真で共有の確認用）。
 const iso = (daysAgo, hour = 21) => {
-  const d = new Date();
+  const d = appNow();
   d.setDate(d.getDate() - daysAgo);
   d.setHours(hour, (daysAgo * 7) % 60, 0, 0);
   return d.toISOString();
