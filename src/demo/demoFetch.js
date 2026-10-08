@@ -9,7 +9,7 @@ const fakeChapterMode = () => { const a = typeof window !== 'undefined' ? new UR
 const relatedAllBad = () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('related') === 'allbad';
 const relatedMessy = () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('related') === 'messy';
 import { demoServerSearch, demoNdlXml } from './demoBookSearch';
-import { questionGist } from '../lib/consultHelpers';
+import { lensOf } from '../lib/consultHelpers';
 
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
@@ -148,7 +148,7 @@ function lpShotAnswer(store, question, thread, decide) {
   ].join('\n');
 }
 
-function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null, voice = null, decide = false, lookup = false, relatedBlock = '', askMore = false) {
+function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null, voice = null, decide = false, lookup = false, relatedBlock = '', askMore = false, lens = null) {
   if (lpShotOn()) {
     const shot = lpShotAnswer(store, question, thread, decide);
     if (shot) return shot;
@@ -223,8 +223,6 @@ function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null
     ...picked.map((m, i) => `- ${nameOf(m, i)} のメモ：「${aiMode === 'fabricate' && i === 1 ? '他人の期待を満たすために生きてはいけない' : m.text}」`),
     ...(fakeRef ? ['- 『7つの習慣』p.88 のメモ：主体性を発揮して、自分で選んで動く'] : []),
   ].join('\n');
-  // 一歩は、あとで行動の一覧だけを見ても分かる文にする（本番の指示文と同じ・「この件」と書かない）。
-  const subject = questionGist(thread ? (thread.firstQuestion || thread.lastQuestion) : question, 20) || 'いまの悩み';
   const refs = [
     ...picked.map((m) => `- ${label(m).ref}`),
     ...(fakeRef ? ['- 📚 スティーブン・R・コヴィー『7つの習慣』p.88'] : []),
@@ -277,12 +275,35 @@ function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null
       'REFS_END',
     ].join('\n');
   }
+  // 🔭 見方を変える 3 つ（本番の LENS・2026-10-08）: メモの言葉だけで答え直し、最後は続けるかどうかの問い 1 つ。
+  //   立場・工程はメモから分からないので、本番の指示と同じく結論の頭で仮定を一言書く（作り話の役職・工程を作らない）。
+  if (lens) {
+    const scene = (thread && thread.replies[0]) || '';
+    const conclusion = {
+      otherBook: p1 ? `${p1.name.replace(/ p\.\d+$/, '')}のメモから見ると、${gist(picked[0].text)}という考えも使えます。前の答えとは別の手として持っておきましょう。` : '',
+      up: `あなたの 2 つ上の立場（部長くらい）だと仮定して見ると、${gist(picked[0].text)}は、チーム全体の時間の使い方の話になります。`,
+      flow: `あなたの仕事の前の工程（頼む側）と後ろの工程（報告を受けて決める側）があると仮定して見ると、${gist(picked[0].text)}は、報告を受ける人が何を見て判断するかを先に決める話になります。`,
+    }[lens];
+    const interp = {
+      otherBook: p2 ? `${p1.name}の「${clip(picked[0].text)}」は、${p2.name}の見方とは別の入口です。${scene ? `「${scene}」の場面でも、` : ''}こちらから試せます。` : `「${clip(picked[0].text)}」を、別の入口として試せます。`,
+      up: `上の立場から見ると、1 人の報告の遅れより「どこで止まるか」がチームで繰り返されているかが気になります。メモの「${clip(picked[0].text)}」を、その仕組みの側に当てはめてみましょう。`,
+      flow: `前の工程で「いつまでに・何を」が決まっていないと、後ろの工程は報告を待つしかありません。メモの「${clip(picked[0].text)}」は、その受け渡しの決め方に当てはまります。`,
+    }[lens];
+    return [
+      '【結論】', conclusion, '',
+      '【参照した本のメモ】', quotes, '',
+      '【あなたの状況に合わせた解釈】', interp, '',
+      '【あなたに聞きたいこと】', 'この見方で続けますか？', '',
+      '（お試しモードの応答です。本番では AI があなたのメモ全体を読んで答えます）', '',
+      'REFS_START', refs, 'REFS_END',
+    ].join('\n');
+  }
   // 🎯 行動を決める回（会話の続きで行動を求めた・本番の ACTION_REQUEST）: 会話で聞いた状況（返事）を使って行動を 1 つ。
   if (decide) {
-    // 2 回聞いたあとの答え（本番の ACTION_REQUEST・2026-10-08）は、いま送った返事がいちばん新しい状況。
+    // 場面は、最初の問いへの返事（「会議の前」）。2 回聞いたあとの答え（本番の ACTION_REQUEST・2026-10-08）でも同じ。
     const lastReply = String(question || '').trim();
-    const situation = (thread && thread.lastAsked && lastReply && !/行動|まとめ/.test(lastReply) ? lastReply.slice(0, 20) : '')
-      || (thread && thread.replies[thread.replies.length - 1]) || '';
+    const situation = (thread && thread.replies[0])
+      || (thread && thread.lastAsked && lastReply && !/行動|まとめ|視点|立場|工程/.test(lastReply) ? lastReply.slice(0, 20) : '');
     return [
       '【結論】',
       situation
@@ -301,8 +322,9 @@ function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null
       '【明日からできる 1 つの行動】',
       situation
         // 行動の文は短く（行動の一覧で 2〜3 行に収まる長さ）。メモの一節は 16 字まで。
-        ? `「${subject}」について、${whenOf(situation)}メモの「${short16(picked[0].text)}」を 1 回だけ試す。`
-        : `「${subject}」の次の場面で、メモの「${short16(picked[0].text)}」を 1 回だけ試す。`,
+        // 本番と同じく、行動の文はそのまま読める形（相談の文を「」で頭に付けない＝それは行動に追加するときだけ・standaloneAction）。
+        ? `${whenOf(situation)}、メモの「${short16(picked[0].text)}」を 1 回だけ試す。`
+        : `次に同じ場面が来たら、メモの「${short16(picked[0].text)}」を 1 回だけ試す。`,
       '',
       '（お試しモードの応答です。本番では AI があなたのメモ全体を読んで答えます）',
       '',
@@ -588,7 +610,9 @@ function aiReply(store, payload, aiMode = '') {
     ].filter(Boolean).join('\n\n');
     // 1 回目の返事のあと（「聞き返すのはこれが最後」）・「もっと聞いて」のときは、もう 1 つ聞く（ai.js の turnHint・2026-10-08）。
     const askMore = !decide && (userText.includes('聞き返すのはこれが最後') || userText.includes('もっと聞いてほしい'));
-    return brainAnswer(store, q[1], block, aiMode, parseThread(userText), parseVoice(userText), decide, userText.includes('===== BOOK_LOOKUP ====='), related, askMore);
+    // 🔭 見方を変える頼み（本番の LENS・2026-10-08）。
+    const lens = userText.includes('===== LENS =====') ? lensOf(q[1].trim()) : null;
+    return brainAnswer(store, q[1], block, aiMode, parseThread(userText), parseVoice(userText), decide, userText.includes('===== BOOK_LOOKUP ====='), related, askMore, lens);
   }
   // 📷 写真から書き起こし（本番と同じく、本文だけを返す）。
   //   &lpshot=1（LP・App Store の画像）は、実在の本の一節に見えない、自分で書いた付箋のような短い文にする（2026-10-08）。

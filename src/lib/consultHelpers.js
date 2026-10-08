@@ -539,10 +539,37 @@ export const FOLLOWUP_OTHER_BOOKS = 'ほかの本ではどう言ってる？';
 // チップの見た目は短く（送るのは上の文のまま・入力欄の上の 1 行で読めるように・2026-09-30 ui-critic）。
 export const FOLLOWUP_OTHER_BOOKS_LABEL = 'ほかの本では？';
 // lastAsked: いま送った相談の文。同じチップは出さない（続けて同じ聞き方を並べない・2026-09-30）。
+// （2026-10-08 から答えのあとのチップは見方を変える 3 つ＝lensChips。これは前の形の深掘りの聞き方の一覧として残す）
 export function followupChips({ booksWithMemos = 0, lastAsked = '' } = {}) {
   const sent = String(lastAsked || '').trim();
   return [FOLLOWUP_MORE, FOLLOWUP_IF_FAIL, ...(booksWithMemos >= 2 ? [FOLLOWUP_OTHER_BOOKS] : [])].filter((q) => q !== sent);
 }
+
+// 🔭 見方を変える 3 つのチップ（2026-10-08 オーナー承認・記事「視点・視野・視座」から）。答えのあと「もっと具体的に」
+//   「別の角度で答えて」の代わりに置く。押すとすぐ送る。AI への頼み方は ai.js の turnHint（LENS）と BRAIN_SYSTEM ルール 10。
+//   - 視点＝ほかの本の視点で: 同じ悩みに、直前の答えで使っていない別の本のメモを根拠に答え直す（メモのある本が 2 冊以上のときだけ）
+//   - 視座＝2 つ上の立場なら: ユーザーの立場から 2 段上（担当なら部長・課長なら役員）の視点で考え直す
+//   - 視野＝前と後ろの工程から: 自分の仕事の一つ前と一つ後ろの工程で、誰が何を指標に動いているかから原因を考え直す
+export const LENS_CHIPS = {
+  otherBook: { label: 'ほかの本の視点で', send: 'ほかの本の視点で、同じ悩みに答え直して' },
+  up: { label: '2 つ上の立場なら', send: '2 つ上の立場なら、どう考えるかで答え直して' },
+  flow: { label: '前と後ろの工程から', send: '仕事の前と後ろの工程から、原因を考え直して' },
+};
+// その相談が見方を変える頼みか（チップの送る文そのもの）→ 'otherBook' | 'up' | 'flow' | null。
+export function lensOf(text) {
+  const t = String(text || '').trim();
+  const hit = Object.entries(LENS_CHIPS).find(([, c]) => c.send === t);
+  return hit ? hit[0] : null;
+}
+export function lensChips({ booksWithMemos = 0 } = {}) {
+  return [
+    ...(booksWithMemos >= 2 ? [LENS_CHIPS.otherBook] : []),
+    LENS_CHIPS.up,
+    LENS_CHIPS.flow,
+  ].map((c) => ({ ...c, kind: 'lens' }));
+}
+// 見方を変えた答えの最後は「この見方で続けますか？」の問いだけ（候補は書かせない）。入力欄の上のチップは
+//   「ここで答えと行動を」（この見方で結論＋行動）と、まだ使っていないほかの見方（nextStepChips の lens）。
 
 // 🎯 行動は会話で決める（2026-09-30 オーナー要望「最初から勝手に行動を決めるのではなく、会話を進めていって行動を決めたい」）。
 //   最初の答えは行動を決めず、【あなたに聞きたいこと】で状況を 1 つ聞く（問い 1 文＋答えの候補 2〜3 行「・会議の前」）。
@@ -568,12 +595,13 @@ export function answerAsks(text) {
   return !!m && !!parseAskSection(m[1]).question;
 }
 // これまでのやりとり（[{ answer }]・古い順）で、いまの区切り（最後に行動を決めた答えより後）に何回聞き返したか。
+//   見方を変えた答え（lensOf）の最後の「続けるかどうか」の問いは数えない（状況を聞き返したのではないため）。
 export function countAsks(turns) {
   let n = 0;
   (Array.isArray(turns) ? turns : []).forEach((t) => {
     const a = String(t?.answer || '');
     if (ACTION_SECTION_RE.test(a)) n = 0;
-    else if (answerAsks(a)) n += 1;
+    else if (answerAsks(a) && !lensOf(t?.question)) n += 1;
   });
   return n;
 }
@@ -586,6 +614,8 @@ export function wantsMoreAsk(text) {
 //   followUp: 会話の続き（THREAD か前の相談がある）/ asked: これまでの聞き返しの回数（countAsks）。
 export function shouldDecide({ followUp = false, question = '', asked = 0 } = {}) {
   if (!followUp || isBookLookup(question)) return false;
+  // 見方を変える頼みは、聞き返しの回数に関係なく、その見方で答える（行動は決めない）。
+  if (lensOf(question)) return false;
   if (wantsAction(question)) return true;
   return asked >= ASK_LIMIT && !wantsMoreAsk(question);
 }
@@ -682,14 +712,22 @@ export function lookupChips({ term = '', found = 0 } = {}) {
 export function nextStepChips({ replies = [], hasAction = false, booksWithMemos = 0, lastAsked = '', lookup = false, term = '', found = 0 } = {}) {
   const sent = String(lastAsked || '').trim();
   if (lookup) return lookupChips({ term, found }).filter((c) => c.send !== sent);
+  // 🔭 見方を変えた答えのあと（行動を決めていない）: 「ここで答えと行動を」（この見方で結論＋行動）→ まだ使っていないほかの見方。
+  if (!hasAction && lensOf(sent)) {
+    return [{ label: DECIDE_CHIP, send: DECIDE_REQUEST, kind: 'decide' }, ...lensChips({ booksWithMemos }).filter((c) => c.send !== sent)];
+  }
   const reply = (Array.isArray(replies) ? replies : []).slice(0, ASK_REPLY_MAX).map((r) => ({ label: r, send: r, kind: 'reply' }));
   const decide = { label: DECIDE_CHIP, send: DECIDE_REQUEST, kind: 'decide' };
   // label＝チップに出す文・send＝送る文（「ほかの本では？」と出して「ほかの本ではどう言ってる？」を送る）。
   const follow = (q, label = q) => ({ label, send: q, kind: 'followup' });
   const followOf = (q) => follow(q, q === FOLLOWUP_OTHER_BOOKS ? FOLLOWUP_OTHER_BOOKS_LABEL : q);
+  // 🔭 2026-10-08: 「もっと具体的に」「別の角度で答えて」は、見方を変える 3 つ（lensChips）に置き換えた。
+  //   行動を決めたあとは 3 つ＋「うまくいかなかったら？」、問いも行動も無い答えは「ここで答えと行動を」＋3 つ。
+  //   問いに答えている間（返事の候補がある）は、候補＋「ここで答えと行動を」だけ（今までどおり）。
+  const lenses = lensChips({ booksWithMemos });
   let list;
-  if (hasAction) list = followupChips({ booksWithMemos }).map((q) => followOf(q));
+  if (hasAction) list = [...lenses, followOf(FOLLOWUP_IF_FAIL)];
   else if (reply.length > 0) list = [...reply, decide];
-  else list = [decide, followOf(FOLLOWUP_MORE), ...(booksWithMemos >= 2 ? [followOf(FOLLOWUP_OTHER_BOOKS)] : [])];
+  else list = [decide, ...lenses];
   return list.filter((c) => c.send !== sent);
 }

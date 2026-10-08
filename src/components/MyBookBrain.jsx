@@ -41,6 +41,7 @@ import { growthMeterText, firstAnswerEvidence, takeFirstConsult, takeMemosReache
 import { composerChrome, answerEndScrollTop, composerHeight, isTouchUi } from '../lib/composerView';
 import { NATIVE_KEYBOARD_EVENT } from '../lib/native';
 import { encodeThreadRef, isThreadRef, threadRootOf, groupConsults, threadScopeOf, threadTitleOf } from '../lib/consultThreads';
+import { lensOf } from '../lib/consultHelpers';
 import { buildConsultExamples, standaloneAction, shortTitle, hasSummaryMemo, countSummaryMemos, fmtTokens, consultsLeft, memoSearchQuery, answerStepToAction, stripScenePrefix, selectThreadTurns, isCompletedAnswer, parseAskSection, nextStepChips, wantsAction, isBookLookup, lookupTerm, shouldDecide, countAsks, askProgressText, answerAsks } from '../lib/consultHelpers';
 import LibrarySearchHit from './LibrarySearchHit';
 import { buildSnippet, compileTerms, splitQuery } from '../lib/librarySearch';
@@ -499,6 +500,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // 🧵 過去の相談の「この続きを相談する」（2026-10-08）: その会話のやりとり（相談と答えの id）を今の会話として並べる。
   //   { ids, title }。「新しい相談をはじめる」・入力欄の上の × で外す。続けて送ると直前の会話を最大 3 往復渡す（threadBlock）。
   const [resumeThread, setResumeThread] = useState(() => (resumed?.resumeThread || null));
+  const focusOnResumeRef = useRef(false);
   useEffect(() => { rememberSession(user?.id, { resumeThread }); }, [resumeThread, user?.id]);
   const [input, setInput] = useState('');
   // 🎯 相談相手（2026-09-26）: [] = すべての本（＋学びログ）/ [id] = その 1 冊だけ /
@@ -945,13 +947,29 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   //   カーソルを置いたら最新の答えの終わりまで送る。キーボードが上がって欄が縮んだとき・入力欄が伸びたときは、
   //   その前に答えの終わりが見えていたときだけ見えたままにする（自分で上へ戻して読んでいる場所は奪わない）。
   const forceEndUntilRef = useRef(0);
+  // 最後の答えが問いで終わっているか（描くたびに入れる）。
+  const lastAsksRef = useRef(false);
   const keepAnswerEnd = useCallback((prevClientHeight) => {
     const el = chatScrollRef.current;
     const end = messagesEndRef.current;
     if (!el || !end) return;
+    const forcedNow = Date.now() < forceEndUntilRef.current;
+    // 最後の答えが問い（あなたに聞きたいこと）なら、返事を書く相手＝問いの箱の上端を欄の上 8 に合わせる
+    //   （答えの終わりに合わせると、問いの箱が上へ押し出されて見えなかった・2026-10-08 ui-critic）。
+    //   欄が縮んでも上端の位置は変わらないので、合わせるのはカーソルを置いたとき（とキーボードが上がりきるまで）だけ。
+    if (lastAsksRef.current) {
+      const boxes = el.querySelectorAll('[data-ask-box]');
+      const box = boxes[boxes.length - 1];
+      if (box) {
+        if (!forcedNow && prevClientHeight != null) return;
+        const gap = parseFloat(getComputedStyle(el).getPropertyValue('--space-2')) || 8;
+        const want = Math.max(0, Math.round(box.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop - gap));
+        if (Math.abs(want - el.scrollTop) > 1) el.scrollTop = want;
+        return;
+      }
+    }
     const endOffset = end.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop;
-    const forced = Date.now() < forceEndUntilRef.current;
-    if (!forced && prevClientHeight != null && endOffset > el.scrollTop + prevClientHeight + 2) return;
+    if (!forcedNow && prevClientHeight != null && endOffset > el.scrollTop + prevClientHeight + 2) return;
     const top = answerEndScrollTop({ scrollTop: el.scrollTop, clientHeight: el.clientHeight, endOffset, pad: 8 });
     if (top != null) el.scrollTop = top;
   }, []);
@@ -1404,7 +1422,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       // 🎯 行動を決める回（2026-09-30 ui-critic）: 書き終えたら「明日からできる一歩」の箱（「行動に追加」まで）が
       //   見えるところまで、会話の欄だけを最小限送る（相談の吹き出しを上端にそろえたままだと、ボタンが画面の下に隠れていた）。
       //   送るのは、書き終えて入力欄の上のチップが出たあと（欄の高さが決まってから）＝答えが出来上がったときの effect。
-      if (!wasAborted && (typeof usedDecide === 'boolean' ? usedDecide : expectAction)) revealStepRef.current = true;
+      //   🏁 問いで終わった答え（あなたに聞きたいこと）も同じく、問いの箱（と中の進み具合の 1 行）が見えるところまで（2026-10-08 ui-critic）。
+      if (!wasAborted && ((typeof usedDecide === 'boolean' ? usedDecide : expectAction) || answerAsks(assistantContent))) revealStepRef.current = true;
       // AI 応答を正常に得て確定できた時のみ計測 (中止/中断パスは除外、PII なし)。
       if (!wasAborted) {
         track(EVENTS.AI_USED, { feature: 'brain', mode: askMode });
@@ -1582,8 +1601,15 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     setScopeIds(threadScopeOf(group));
     setView('chat');
     track('brain_continue', { turns: ids.length / 2 });
-    setTimeout(() => { try { inputRef.current?.focus({ preventScroll: true }); } catch { /* ignore */ } }, 80);
+    // カーソルは描いた直後（useLayoutEffect）に置く。押した操作の中で置くので、iOS でもキーボードが上がりやすい
+    //   （setTimeout で待つと、押した操作から外れてキーボードが上がらないことがあった・2026-10-08 ui-critic）。
+    focusOnResumeRef.current = true;
   };
+  useLayoutEffect(() => {
+    if (!focusOnResumeRef.current || view !== 'chat' || !resumeThread) return;
+    focusOnResumeRef.current = false;
+    try { inputRef.current?.focus({ preventScroll: true }); } catch { /* ignore */ }
+  }, [resumeThread, view]);
 
   // 「💬 続けて質問する」: プロンプトだけ閉じる。次の AI 回答までは再表示しない。
   const handleContinue = () => {
@@ -1676,9 +1702,11 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const answerReady = !busy && !outOfTokens && !freeUsedUp
     && visibleMessages.length >= 2 && visibleMessages[visibleMessages.length - 2]?.role === 'user'
     && lastVisible?.role === 'assistant' && !lastVisible.streaming && !lastVisible.error && !lastVisible.notice && (!lastVisible.memoAnswer || lastLocalLookup) && !isNoInfoAnswer(lastVisible);
-  const chipRowBase = answerReady && chrome.chips;
+  // 🏁 行動を決めて「行動に追加」したら、会話が一区切り＝チップは出さず「新しい相談をはじめる」（主ボタン）だけ（2026-10-08）。
+  const lastActionAdded = !!lastVisible && addedActionIds.includes(lastVisible.id);
+  const chipRowBase = answerReady && chrome.chips && !lastActionAdded;
   const answerDone = answerReady && (lastLocalLookup || isCompletedAnswer(lastVisible));
-  const showFollowups = answerDone && chrome.chips;
+  const showFollowups = answerDone && chrome.chips && !lastActionAdded;
   // いま送った文と同じチップは出さない（「もっと具体的に」のあとにまた「もっと具体的に」を並べない）。
   const lastAsked = visibleMessages[visibleMessages.length - 2]?.content || '';
   // 🎯 行動は会話で決める（2026-09-30）: 最後の答えが問いで終わっていれば、その候補（返事）→「行動を決める」。
@@ -1698,12 +1726,16 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // 途中で止めた答え（「— ここで中止しました」で終わる）も「もう一度答えて」（SPEC §3・角度を変えたいのではなく続きが欲しい・2026-10-04）。
   const stoppedAnswer = !!lastVisible && (lastVisible.content === STOPPED_EMPTY || /— ここで中止しました\s*$/.test(String(lastVisible.content || '')));
   // 🏁 いまどこにいるか（2026-10-08）: 最後の答えが聞き返しなら、その下に「あと 1 つ聞いたら…」「次で…」の 1 行。
-  const askProgress = answerDone && !lastLookup && answerAsks(lastVisible.content)
+  //   見方を変えた答え（🔭 lensOf）の「続けますか？」は聞き返しではないので出さない。
+  const askProgress = answerDone && !lastLookup && !lensOf(lastAsked) && answerAsks(lastVisible.content)
     ? askProgressText(countAsks(selectThreadTurns(visibleMessages, { max: 3, carry })))
     : '';
-  // 🏁 行動を決めて「行動に追加」したら、会話が一区切り＝「新しい相談をはじめる」を主ボタンに（2026-10-08）。
-  const lastActionAdded = !!lastVisible && addedActionIds.includes(lastVisible.id);
-  const regenLabel = !chipRowBase || isBookLookup(lastAsked) || followups.some((c) => c.kind === 'reply') ? '' : stoppedAnswer ? 'もう一度答えて' : '別の角度で答えて';
+  // 「別の角度で答えて」は見方を変える 3 つのチップ（🔭 lensChips）に置き換えた（2026-10-08）。止めた・途中までの答えの「もう一度答えて」だけ残す。
+  const regenLabel = !chipRowBase || isBookLookup(lastAsked) || !stoppedAnswer ? '' : 'もう一度答えて';
+  // 進み具合の 1 行を出す答え（最後の答え）の id。問いの箱の中のいちばん下に出す（送った直後の 1 画面で見える・2026-10-08）。
+  const askProgressFor = askProgress && answerRowShown ? lastVisible.id : null;
+  // 入力欄を押したとき、問いの箱（返事を書く相手）を上に合わせて見せるか（keepAnswerEnd）。
+  lastAsksRef.current = !!(answerDone && !lastLookup && answerAsks(lastVisible.content));
 
   // 過去の相談: 相談（user）とそれに続く答えを 1 組にして、新しい組から並べる。
   //   🧵 続きを相談した会話は 1 つにまとめる（答えの目印＝lib/consultThreads.js・2026-10-08）。新しく話した相談から。
@@ -1981,18 +2013,22 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             {historyGroups.map((g, gi) => {
               const canContinue = g[0].role === 'user' && g.some((m) => m.role === 'assistant' && isCompletedAnswer(m) && m.content !== STOPPED_EMPTY);
               return (
-                <div key={g[0].id} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
+                // 相談（会話）どうしの間は 32（中は 12）＝どこからどこまでが 1 つの相談か分かるように（2026-10-08 ui-critic）。
+                <div key={g[0].id} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginBottom: 'calc(var(--space-8) - var(--space-3))' }}>
                   {g.map((m) => (
                     <ChatMessage key={m.id} message={m} showTime onOpenBook={onOpenBook} books={books} onAddAction={handleAnswerToAction} onAddActionPickBook={onAddActionPickBook} onRetry={busy ? null : regenerate} question={g[0].role === 'user' ? g[0].content : ''} onAskBook={askAboutBook} askBusy={busy} memoBookIds={memoBookIds} onShowPartner={setPartnerSheet} />
                   ))}
-                  {/* 🧵 この続きを相談する（2026-10-08）: その相談の下にボタン 1 つ。いちばん新しい相談は主ボタン、それより前は枠線のボタン
+                  {/* 🧵 この続きを相談する（2026-10-08）: その相談の下に 1 つ。いちばん新しい相談は主ボタン、それより前は文字ボタン
                       （主ボタンを画面に何本も並べない）。押すと相談の画面で、この会話の続きから。 */}
                   {canContinue && (
                     <button
                       type="button"
                       onClick={() => continueThread(g)}
                       disabled={busy}
-                      style={{ ...(busy ? uiBtnPrimaryOff : gi === 0 ? uiBtnPrimary : uiBtnGhost), marginLeft: ANSWER_COLUMN, width: `calc(100% - ${AVATAR_SIZE}px - var(--space-2))` }}
+                      // いちばん新しい相談だけ主ボタン。2 つ目からは文字ボタン（一覧がボタンの列に見えないように・2026-10-08 ui-critic）。
+                      style={gi === 0
+                        ? { ...(busy ? uiBtnPrimaryOff : uiBtnPrimary), marginLeft: ANSWER_COLUMN, width: `calc(100% - ${AVATAR_SIZE}px - var(--space-2))` }
+                        : { ...uiBtnLink, alignSelf: 'flex-start', margin: `calc(-1 * var(--space-2)) 0 0 calc(${ANSWER_COLUMN} - var(--space-1))`, ...(busy ? { color: 'var(--text-3)', opacity: 1, cursor: 'default' } : null) }}
                     >
                       この続きを相談する
                     </button>
@@ -2159,6 +2195,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                   onAskBook={askAboutBook}
                   askBusy={busy}
                   onActionAdded={() => { setOptinAfterId((cur) => cur || m.id); setAddedActionIds((ids) => (ids.includes(m.id) ? ids : [...ids, m.id])); }}
+                  askProgress={m.id === askProgressFor ? askProgress : ''}
                   onOpenActions={onOpenActions}
                   memoBookIds={memoBookIds}
                   onShowPartner={setPartnerSheet}
@@ -2190,12 +2227,6 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             </>
           )}
 
-          {/* 🏁 聞き返しの答えの下に、いまどこにいるかを 1 行（13/--text-2・状態色や段階のバーは使わない・2026-10-08） */}
-          {answerRowShown && askProgress && (
-            <p style={{ margin: 'var(--space-2) 0 0', marginLeft: ANSWER_COLUMN, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>
-              {withPhraseBreaks(askProgress)}
-            </p>
-          )}
           {/* 🏁 行動に追加したら一区切り: 「新しい相談をはじめる」を主ボタンで（2026-10-08） */}
           {answerRowShown && lastActionAdded && (
             <button type="button" onClick={handleResolveAndClear} style={{ ...uiBtnPrimary, marginTop: 'var(--space-4)', marginLeft: ANSWER_COLUMN, width: `calc(100% - ${AVATAR_SIZE}px - var(--space-2))` }}>
@@ -2285,7 +2316,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             )
           )}
           {/* 相談相手は入力欄のすぐ上（SPEC §3）。入力欄にカーソルがある間は出さない（答えと自分の文に場所を譲る・2026-10-08）。 */}
-          {chrome.scopeBar && (
+          {/* 続きを相談している間は、相談相手・答え方の行の代わりに「〈題〉の続き」の 1 行（相談相手はその会話のまま・
+              × で外すと戻る）。入力欄のまとまりを 1 段減らす（2026-10-08 ui-critic）。 */}
+          {chrome.scopeBar && !resumeThread && (
           <ScopeBar
             label={scopeLabelFor(scopeIds, books)}
             scoped={scopeIds.length > 0}
@@ -2317,9 +2350,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           {/* 区切り線は相談相手の行の上に 1 本だけ（入力欄側の線は消す）。相談相手の行を隠している間は入力欄の上に 1 本。 */}
           {/* 🧵 過去の相談の続き（2026-10-08）: 入力欄の上に「〈相談の題〉の続き」の 1 行。× で外すと新しい相談に戻る。 */}
           {resumeThread && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', padding: '0 var(--space-4)', flexShrink: 0, borderTop: chrome.scopeBar ? 'none' : '1px solid var(--separator)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', padding: '0 var(--space-4)', flexShrink: 0, borderTop: followups.length > 0 || !!regenLabel ? 'none' : '1px solid var(--separator)' }}>
               <p style={{ flex: 1, minWidth: 0, margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                「{resumeThread.title}」の続き
+                「{resumeThread.title}」の続き{scopeIds.length > 0 ? `・${scopeLabelFor(scopeIds, books)}` : ''}
               </p>
               <button
                 type="button"
@@ -2540,7 +2573,7 @@ function prefersReducedMotion() {
 // 収まらなければ scrollIntoView の block: 'nearest' と同じ最小限の送り。
 function revealLastNextStep(el) {
   if (!el) return;
-  const boxes = el.querySelectorAll('[data-next-step]');
+  const boxes = el.querySelectorAll('[data-next-step], [data-ask-box]');
   const box = boxes[boxes.length - 1];
   if (!box) return;
   const r = box.getBoundingClientRect();
@@ -2974,7 +3007,7 @@ function ActionAddedNote({ onOpenActions, deadline = null, focus = null }) {
   );
 }
 
-function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAction, onAddActionPickBook, onRetry, onWriteLearning, showTime = false, question = '', onAskBook = null, askBusy = false, onActionAdded = null, onOpenActions = null, memoBookIds = null, onShowPartner = null }) {
+function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAction, onAddActionPickBook, onRetry, onWriteLearning, showTime = false, question = '', onAskBook = null, askBusy = false, onActionAdded = null, onOpenActions = null, memoBookIds = null, onShowPartner = null, askProgress = '' }) {
   const isUser = message.role === 'user';
   const isStreaming = !!message.streaming;
   const hasBody = typeof message.content === 'string' && message.content.length > 0;
@@ -3169,9 +3202,16 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
   // 🎯 あなたに聞きたいこと（行動を決めない回の締め・2026-09-30）。候補はカードに並べず、入力欄の上の返事のチップだけ
   //   （次にすることは 1 か所）。行動の箱と同じ面・同じ場所（結論のすぐ下）。
   const renderAsk = (p, marginTop) => (p.question ? (
-    <div style={{ marginTop, ...nextStepBox }}>
+    <div data-ask-box="" style={{ marginTop, ...nextStepBox }}>
       <p style={subLabel}>{ASK_LABEL}</p>
       <p style={{ ...readText, margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'keep-all', overflowWrap: 'break-word', ...hangIndent(p.question), ...(isStreaming ? { minHeight: ASK_SKELETON_HEIGHT } : null) }}>{renderBoldPhrased(p.question)}{tail === 'ask' && cursor}</p>
+      {/* 🏁 いまどこにいるか（2026-10-08）: 問いの下 8 に 13/--text-2 の 1 行（状態色・段階のバーは使わない）。
+          送った直後の 1 画面（答えの上端＝問いの箱が見える位置）で読めるよう、答えの下ではなく箱の中に置く。 */}
+      {askProgress && !isStreaming && (
+        <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+          {withPhraseBreaks(askProgress)}
+        </p>
+      )}
     </div>
   ) : null);
   // 積み重ねが効いていることを、事実だけで一行（盛らない・渡したメモと一致したものだけ）
