@@ -543,6 +543,51 @@ function planSheetAnswer(userText) {
   ].join('\n');
 }
 
+// 📖 お試しの「この本で学べること」（2026-10-08）。本番と同じく、渡された「本の紹介」「目次」だけから書く。
+//   目次がある本は項目名を『』で引き、無い本は章の名前を挙げない。&ai=fakechapter で目次に無い章を混ぜる（画面は消す）。
+function bookBriefAnswer(userText) {
+  const about = (userText.match(/===== 本の紹介（[^）]*） =====\n([\s\S]*?)\n===== 本の紹介ここまで/) || [])[1] || '';
+  const toc = ((userText.match(/===== 目次（データ） =====\n([\s\S]*?)\n===== 目次ここまで/) || [])[1] || '')
+    .split('\n').map((l) => l.replace(/^- /, '').trim()).filter(Boolean);
+  const purpose = ((userText.match(/得たいこと: (.+)/) || [])[1] || '').replace('（未入力）', '').trim();
+  const pick = (re) => toc.find((l) => re.test(l));
+  const isLife = /100年|ステージ/.test(about + toc.join(''));
+  if (isLife) {
+    const asset = pick(/資産/);
+    const stage = pick(/ステージ/);
+    const time = pick(/時間/);
+    return [
+      '## 概要',
+      '人生が 100 年に延びると「教育・仕事・引退」の 3 つの段階では足りなくなる。お金に換えられない資産を育て、段階を自分で組み替えることが要になる。',
+      '',
+      '## 学べること',
+      `- スキル・健康・人間関係を「資産」として見る考え方${asset ? `（『${asset}』）` : ''}`,
+      `- 学び直しや転身をはさむ、複数の段階の組み立て方${stage ? `（『${stage}』）` : ''}`,
+      '- 具体的な人物のシナリオで、自分の 5 年後を考える方法',
+      `- 余暇を「休み」ではなく作り直しの時間に使う視点${time ? `（『${time}』）` : ''}`,
+      ...(fakeChapterMode() ? ['- AI 時代の副業の始め方（『第9章 AI 時代の働き方』）'] : []),
+      '',
+      '## 仮説の例',
+      `- 見えない資産を書き出せば、${purpose ? '40 代からの' : '次の'}働き方の選択肢が見えてくるのでは`,
+      '- 週に 1 回、学び直しの時間を予定に入れれば、5 年後の段階の候補が増えるのでは',
+      '- 仕事以外の人間関係に時間を使えば、転身の手がかりが増えるのでは',
+    ].join('\n');
+  }
+  return [
+    '## 概要',
+    '変化は必ず起きる。元に戻るのを待つより、早く気づいて動き出すほうが、新しい機会に出会える。',
+    '',
+    '## 学べること',
+    '- 変化の小さな兆しに気づく見方',
+    '- 慣れた場所を手放すときの、怖さとの付き合い方',
+    '- 動き出した人と待ち続けた人の違い',
+    '',
+    '## 仮説の例',
+    '- いまの仕事の「チーズ」を書き出せば、手放せるものが見えるのでは',
+    '- 小さな変化を週に 1 つ試せば、変化への怖さが減るのでは',
+  ].join('\n');
+}
+
 function aiReply(store, payload, aiMode = '') {
   const last = [...(payload.messages || [])].reverse().find((m) => m.role === 'user');
   const userText = textOf(last?.content);
@@ -614,6 +659,8 @@ function aiReply(store, payload, aiMode = '') {
       '## 💬 まとめ', '一冊ずつ、明日できる一歩に変えていきましょう。',
     ].join('\n');
   }
+  // 📖 この本で学べること（2026-10-08）
+  if (payload.purpose === 'book_brief') return bookBriefAnswer(userText);
   // 📖 読書計画シート（2026-10-02）: 本番と同じく、渡された「本の紹介」「目次」だけから概要と重点箇所を書く。
   if (system.includes('『読書計画シート』を作成')) return planSheetAnswer(userText);
   return [
@@ -737,7 +784,7 @@ export function installDemoFetch(store) {
         return json({ jev: { result: demoJevResult(payload.purpose, payload.jev || {}), ms: 180 } });
       }
       // 本番（api/claude.js・api/_aiAccess.js）と同じ決まりをまねる:
-      //   契約なし＝無料プラン: 相談（purpose 'consult'）だけ・毎月 30 トークン（'free-YYYY-MM'）。ほかは 402 plan_required
+      //   契約なし＝無料プラン: 相談（purpose 'consult'）とこの本で学べること（'book_brief'）だけ・毎月 30 トークン（'free-YYYY-MM'）。ほかは 402 plan_required
       //   無料期間: 150 トークン（'trial-終わる日'）/ 有料: 毎月 800 トークン（'YYYY-MM'）→ 使い切ったら 429
       //   「最後の 1 回」: 使ったトークン（切り上げ）が上限未満なら始められる。
       const jstNow = new Date(Date.now() + 9 * 3600 * 1000);
@@ -757,7 +804,8 @@ export function installDemoFetch(store) {
         await wait(900, signal);
         return json({ content: [{ type: 'text', text: aiReply(store, payload, aiMode) }], stop_reason: 'end_turn' });
       }
-      if (tier === 'free' && payload.purpose !== 'consult') {
+      // 📖 この本で学べること（book_brief）も無料プランで使える（相談と同じ無料のトークンから・2026-10-08）。
+      if (tier === 'free' && payload.purpose !== 'consult' && payload.purpose !== 'book_brief') {
         return json({ error: { message: 'この AI 機能は、プランでご利用いただけます。' }, error_code: 'plan_required' }, 402);
       }
       const trialEnd = sub?.current_period_end ? new Date(Date.parse(sub.current_period_end) + 9 * 3600 * 1000) : null;
@@ -784,7 +832,7 @@ export function installDemoFetch(store) {
       }
       // 使った量（目安）: 相談 約 9 トークン・AI 選書 約 20・そのほか 約 3。
       row.calls += 1;
-      row.cost_mjpy = (row.cost_mjpy || 0) + (payload.purpose === 'consult' ? 2760 : (payload.max_tokens || 0) >= 3000 ? 6000 : 900);
+      row.cost_mjpy = (row.cost_mjpy || 0) + (payload.purpose === 'consult' ? 2760 : payload.purpose === 'book_brief' ? 420 : (payload.max_tokens || 0) >= 3000 ? 6000 : 900);
       // その月の分を超えた分を、追加分から差し引く（settle_token_overflow）。
       let need = Math.max(0, Math.ceil(row.cost_mjpy / 300 - 1e-9) - allowance) - (row.lot_tokens || 0);
       if (need > 0) {

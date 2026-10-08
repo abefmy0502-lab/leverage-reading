@@ -4,6 +4,7 @@ import { useAuth } from './useAuth';
 import { LIMITS, clamp } from '../lib/limits';
 import { isSchemaError } from '../lib/errors';
 import { invalidateKnowledgeCache } from '../lib/ai';
+import { writeLocalBrief, readLocalBrief } from '../lib/bookBrief';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -91,6 +92,8 @@ const transformBook = (book) => ({
   currentChallenge: book.current_challenge || '',
   hypothesis: book.hypothesis || '',
   bookReason: book.book_reason || '',
+  // 📖 この本で学べること（supabase_books_brief.sql・2026-10-08）。列が無い DB では端末の控え（lib/bookBrief.js）。
+  aiBrief: book.ai_brief || readLocalBrief(book.id) || '',
 });
 
 export function useBooks() {
@@ -610,6 +613,30 @@ export function useBooks() {
     return { ok: true, failed };
   };
 
+  // 📖 この本で学べること（books.ai_brief）だけを保存する（2026-10-08）。本の保存（saveBook）は通さない＝タグ・行動を
+  //   書き直さない・ほかの欄の書きかけを保存しない。列が無い DB（supabase_books_brief.sql 未適用）では端末に控える。
+  //   戻り値 { ok: true, local: boolean }。保存に失敗したら投げる（列が無い以外）。
+  const saveBookBrief = async (bookId, text) => {
+    const value = String(text || '');
+    const patchLocal = () => setBooks((prev) => prev.map((b) => (b.id === bookId ? { ...b, aiBrief: value } : b)));
+    if (!user || !isSupabaseConfigured || !UUID_RE.test(bookId || '')) {
+      writeLocalBrief(bookId, value);
+      patchLocal();
+      return { ok: true, local: true };
+    }
+    const { error } = await supabase.from('books').update({ ai_brief: value || null }).eq('id', bookId).eq('user_id', user.id);
+    if (error) {
+      const msg = String(error.message || '').toLowerCase();
+      if (!(isSchemaError(error) || msg.includes('ai_brief'))) throw error;
+      writeLocalBrief(bookId, value);
+      patchLocal();
+      return { ok: true, local: true };
+    }
+    writeLocalBrief(bookId, ''); // 列に入ったら端末の控えは要らない
+    patchLocal();
+    return { ok: true, local: false };
+  };
+
   // ローカル state のみを即時更新する（DB は触らない）。行動トグル等の
   // 楽観的 UI 用。確定値は直後の saveBook → fetchBooks が上書きする。
   const mutateBookLocal = (bookId, updater) => {
@@ -623,6 +650,7 @@ export function useBooks() {
     saveBook,
     deleteBook,
     mutateBookLocal,
+    saveBookBrief,
     captureBookSnapshot,
     restoreBookFromSnapshot,
     refreshBooks: fetchBooks,

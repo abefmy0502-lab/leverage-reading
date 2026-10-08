@@ -22,6 +22,14 @@ describe('用途ごとの行き先（既定）', () => {
       expect(r(p)).toMatchObject({ provider: 'gemini', model: 'gemini-3.1-flash-lite', claudeModel: 'claude-haiku-4-5' });
     }
   });
+  it('この本で学べること（book_brief）は読書計画シートと同じ Flash-Lite・無料プランでも Claude に固定しない（2026-10-08）', () => {
+    expect(r('book_brief')).toMatchObject({ provider: 'gemini', model: 'gemini-3.1-flash-lite', claudeModel: 'claude-haiku-4-5' });
+    expect(r('book_brief', KEYS, { free: true })).toMatchObject({ provider: 'gemini', model: 'gemini-3.1-flash-lite', reason: 'route' });
+    expect(r('book_brief', { ANTHROPIC_API_KEY: 'a' }, { free: true })).toMatchObject({ provider: 'anthropic', model: 'claude-haiku-4-5', reason: 'no_key' });
+    expect(routeEnvName('book_brief')).toBe('AI_ROUTE_BOOK_BRIEF');
+    // 無料プランのほかの用途は、今までどおり Claude（相談の行き先）
+    expect(r('setup_sheet', KEYS, { free: true })).toMatchObject({ provider: 'anthropic', reason: 'free' });
+  });
   it('用途が無い（出し直す前のアプリ）・知らない用途は、アプリが指定した Claude のまま', () => {
     expect(r(undefined)).toMatchObject({ provider: 'anthropic', model: 'claude-haiku-4-5', reason: 'legacy' });
     expect(resolveRoute({ requestedModel: 'claude-sonnet-5', env: KEYS })).toMatchObject({ provider: 'anthropic', model: 'claude-sonnet-5' });

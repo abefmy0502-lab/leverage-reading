@@ -299,6 +299,7 @@ export function BeforePhase({
   onAddRelatedBook,
   addingTitles,
   savedAsBefore = true, // 編集を始めたときにすでに積読だったか（そのときだけ保存で読書中に進む）
+  briefSlot = null, // 📖 この本で学べること（App.jsx が BookBrief variant="fold" を渡す・得たいことの欄の上・2026-10-08）
 }) {
   const [editInstruction, setEditInstruction] = useState('');
   const submitEdit = () => {
@@ -348,6 +349,9 @@ export function BeforePhase({
       <Field label="読書開始日">
         <input type="date" value={form.startDate || ""} data-empty={form.startDate ? undefined : DATE_HINT} onChange={(e) => setForm({ ...form, startDate: e.target.value })} style={dateInp(form.startDate)} />
       </Field>
+
+      {/* 📖 読む前に「この本で何を学べるか」をつかんでから、得たいこと・課題・仮説を書く（2026-10-08 オーナー）。 */}
+      {briefSlot}
 
       {/* ⚠️ 得たいこと〜読書計画シートは AI にゲートしない。AI を使わない / 月次上限 /
           オフラインのユーザーも、得たいことさえ書けば読書を開始できる（AI は任意の補助）。 */}

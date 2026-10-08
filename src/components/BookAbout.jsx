@@ -171,7 +171,8 @@ export function BookAboutFoldSkeleton({ style }) {
   );
 }
 
-export default function BookAbout({ info, loading = false, variant = 'card', style }) {
+// briefSlot: 「この本で学べること」（BookBrief.jsx・2026-10-08）。紹介文・添え書きの下、目次の上に置く。
+export default function BookAbout({ info, loading = false, variant = 'card', style, briefSlot = null }) {
   if (variant === 'card' && loading) return <BookAboutSkeleton style={style} />;
   if (variant === 'fold' && loading) return <BookAboutFoldSkeleton style={style} />;
   if (!hasBookInfo(info)) return null;
@@ -199,6 +200,7 @@ export default function BookAbout({ info, loading = false, variant = 'card', sty
               {meta && <p style={metaStyle}>{meta}</p>}
             </div>
           )}
+          {briefSlot}
           {toc.length > 0 && (
             <div>
               <p style={{ ...groupTitle, margin: '0 0 var(--space-2)' }}>目次</p>
@@ -220,6 +222,7 @@ export default function BookAbout({ info, loading = false, variant = 'card', sty
         </div>
       )}
       {!info.description && meta && <p style={metaStyle}>{meta}</p>}
+      {briefSlot}
       {toc.length > 0 && (
         <details style={{ marginTop: 'var(--space-3)', borderTop: '1px solid var(--separator)' }}>
           <summary style={tocSummary}>

@@ -12,6 +12,8 @@ import { verifyAnswerQuotes, decodeQuoteRefs, groundRefs, hasGroundedEvidence } 
 import { parseAskSection, wantsAction, isBookLookup } from './consultHelpers';
 import { checkAiConsentForSend, AI_CONSENT_HEADER, AI_CONSENT_DECLINED_TEXT } from './aiConsent';
 import { askJev, jevClientOn } from './jev';
+import { bookInfoForPrompt } from './bookInfo';
+import { hasBriefMaterial, finalizeBrief, BRIEF_MAX_TOKENS, BRIEF_NO_MATERIAL_TEXT } from './bookBrief';
 import { relevanceCandidates, relevanceInput, relatedFromScores, JEV_LEXICAL_CANDIDATES } from './consultRelevance';
 
 const DEFAULT_MODEL = MODEL_SMART;
@@ -1753,6 +1755,39 @@ export async function condenseMemo({ text }) {
   if (!cleaned) return null;
   track('ai_used', { feature: 'condense' });
   return cleaned;
+}
+
+// 📖 この本で学べること（2026-10-08・lib/bookBrief.js）— 公開の紹介文と目次だけを材料に、概要・学べること・仮説の例。
+//   材料が足りない本では呼ばない（呼び出し側が hasBriefMaterial で確かめる。ここでも確かめて投げる）。
+//   成功で保存する文（決まった 3 つの見出し・目次に無い章名を消したもの）を返す。失敗は Error を投げる
+//   （トークンの上限・プランの案内・同意をやめた＝err.notice。作れなかった＝ふつうのエラー）。
+export async function generateBookBrief({ book, info }) {
+  if (!hasBriefMaterial(info)) throw new Error(BRIEF_NO_MATERIAL_TEXT);
+  const { about, aboutSource, toc } = bookInfoForPrompt(info);
+  const cleanToc = toc.map((l) => sanitizeForPrompt(l)).filter(Boolean);
+  const result = await callClaude(
+    PROMPTS.bookBrief.system,
+    PROMPTS.bookBrief.user({
+      title: clamp(sanitizeForPrompt(book?.title || ''), LIMITS.bookTitle),
+      author: clamp(sanitizeForPrompt(book?.author || ''), LIMITS.bookAuthor),
+      purpose: clamp(sanitizeForPrompt(book?.investPurpose || ''), 200),
+      about: sanitizeForPrompt(about),
+      aboutSource,
+      toc: cleanToc,
+    }),
+    // purpose 'book_brief': 読書計画シートと同じ安いモデルへ（docs/ai-routing.md・失敗したら Claude）。無料プランも使える。
+    { max_tokens: BRIEF_MAX_TOKENS, cacheSystem: true, model: MODEL_FAST, purpose: 'book_brief' },
+  );
+  if (typeof result !== 'string') throw new Error('この本で学べることを作れませんでした。');
+  if (isClaudeErrorString(result)) {
+    const err = new Error(isAiNoticeString(result) ? result : 'この本で学べることを作れませんでした。少し時間をおいて、もう一度お試しください。');
+    if (isAiNoticeString(result)) err.notice = true;
+    throw err;
+  }
+  const text = finalizeBrief(isSuspiciousOutput(result) ? '' : result, { toc: cleanToc, title: book?.title || '' });
+  if (!text) throw new Error('この本で学べることを作れませんでした。もう一度お試しください。');
+  track('ai_used', { feature: 'book_brief' });
+  return text;
 }
 
 // 📝 カード→まとめ生成 — 1冊に貯めたカードメモ（断片）を AI が1枚の

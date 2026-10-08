@@ -128,7 +128,8 @@ const AI_TRIAL_CALL_LIMIT = (() => {
 })();
 
 // 🎁 無料プラン（フリーミアム・2026-09-27 オーナー裁定）。契約していない人も、AI の 💬 相談
-// （purpose: 'consult'）だけは 1 か月に AI_FREE_TOKENS トークン（既定 30＝相談 約 3 回）使える。
+// （purpose: 'consult'）と 📖 この本で学べること（'book_brief'・2026-10-08）だけは 1 か月に AI_FREE_TOKENS トークン
+// （既定 30＝相談 約 3 回）使える。
 // ほかの AI 機能は 402 plan_required。トークンの数え方・プランごとの量は api/_aiAccess.js。
 // 数えるのは ai_usage の period_month='free-YYYY-MM'（日本時間の月・有料の月の行とは別枠）。
 // 原価の青天井を防ぐため、この枠だけは fail-closed（数えられないときは使わせない）。
@@ -708,6 +709,7 @@ export default async function handler(req, res) {
   const freeCall = tier === 'free';
   const freeOcrCall = tier === 'free_ocr';
   // 🧭 どの会社のどのモデルで答えるか（api/_aiRouting.js）。無料プランの相談は、いちばん安い Claude に固定
+  //    （この本で学べること＝book_brief は無料プランでも読書計画シートと同じ Flash-Lite）
   //    （AI_CONSULT_MODEL の差し替えも効かせない）。Claude 以外が答える前に失敗したら route.claudeModel で 1 回だけやり直す。
   const route = resolveRoute({
     purpose: req.body?.purpose, requestedModel: pickModel(req.body), free: freeCall, freeModel: FREE_MODEL,
