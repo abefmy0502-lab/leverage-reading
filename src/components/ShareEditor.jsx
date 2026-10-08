@@ -31,6 +31,7 @@ import {
   newPhrase, clampScale, phrasePositionFrom, PHRASE_MAX, PHRASE_STYLES, PHRASE_STYLE_LABELS, PHRASE_SCALE_MIN, PHRASE_SCALE_MAX,
 } from '../lib/sharePhrase';
 import { btnGhost, btnLink, groupTitle, input as inputStyle } from '../styles/ui';
+import { setKeyboardAccessoryBar } from '../lib/native';
 
 // 形の見本の書体（押す前に形が分かるように、名前をその書体で書く）。
 const STYLE_FONT = {
@@ -96,6 +97,23 @@ export default function ShareEditor({
   const [handOk, setHandOk] = useState(null); // 手書き風の書体: null=読み込み中 / true / false（出さない）
   const [inputFocused, setInputFocused] = useState(false);
   const [scrolled, setScrolled] = useState(false); // 下の欄を送ったか（画像の下端の線）
+  const scrollRef = useRef(null);
+  // キーボードの上に見えている高さ（visualViewport）。言葉を打っている間は、画像をこの 4 割までの大きさにして、
+  // 画像と入力欄をキーボードの上に一緒に見せる（2026-10-08 オーナー「テキストを入力しているときに、画面にどのように
+  // 入力されているのかが見えない」）。
+  const [viewH, setViewH] = useState(() => (typeof window !== 'undefined' ? (window.visualViewport?.height || window.innerHeight) : 800));
+  useEffect(() => {
+    const vv = typeof window !== 'undefined' ? window.visualViewport : null;
+    const on = () => setViewH(vv?.height || window.innerHeight);
+    if (vv) { vv.addEventListener('resize', on); return () => vv.removeEventListener('resize', on); }
+    window.addEventListener('resize', on);
+    return () => window.removeEventListener('resize', on);
+  }, []);
+  // 打っている間は iOS の入力補助バー（∧ ∨ 完了）を出さない（その分、画像を大きく見せる・ネイティブのときだけ）。
+  useEffect(() => {
+    setKeyboardAccessoryBar(!inputFocused);
+    return () => { if (inputFocused) setKeyboardAccessoryBar(true); };
+  }, [inputFocused]);
 
   // ---- Esc はこの画面だけを閉じる（下のシートの Esc まで届かせない）
   useEffect(() => {
@@ -439,6 +457,7 @@ export default function ShareEditor({
       </div>
 
       <div
+        ref={scrollRef}
         onScroll={(e) => { const s = e.currentTarget.scrollTop > 0; if (s !== scrolled) setScrolled(s); }}
         style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}
       >
@@ -455,7 +474,8 @@ export default function ShareEditor({
             onPointerUp={onPointerUp}
             onPointerCancel={onPointerUp}
             style={{
-              position: 'relative', width: `min(100%, calc(${inputFocused ? 30 : 48}dvh * ${size.w} / ${size.h}))`, margin: '0 auto', aspectRatio: aspect,
+              // 言葉を打っている間は、キーボードの上に見えている高さの 4 割まで（入力欄と一緒に見える大きさ）。
+              position: 'relative', width: inputFocused ? `min(100%, ${Math.round(viewH * 0.4 * size.w / size.h)}px)` : `min(100%, calc(48dvh * ${size.w} / ${size.h}))`, margin: '0 auto', aspectRatio: aspect,
               background: ground === 'sticker' ? checker(16) : 'var(--fill)',
               borderRadius: 'var(--radius)',
               touchAction: touchable ? 'none' : 'auto', userSelect: 'none', WebkitUserSelect: 'none',
@@ -509,10 +529,33 @@ export default function ShareEditor({
               />
             )}
           </div>
-          {hint && (
+          {hint && !inputFocused && (
             <p style={{ margin: 0, padding: 'var(--space-2) 0 0', textAlign: 'center', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all' }}>
               {hint.map((h) => <span key={h} style={{ display: 'block' }}>{h}</span>)}
             </p>
+          )}
+          {/* 言葉の入力欄は画像のすぐ下に（上に残る画像と一緒に＝打った言葉がどう乗るかをその場で見られる・2026-10-08）。 */}
+          {phrase && (
+            <input
+              ref={inputRef}
+              type="text"
+              value={phrase.text}
+              maxLength={PHRASE_MAX}
+              placeholder="気に入った言葉"
+              aria-label="画像に入れる言葉"
+              enterKeyHint="done"
+              onChange={(e) => setPhraseField({ text: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); e.currentTarget.blur(); }
+              }}
+              onFocus={() => {
+                setInputFocused(true);
+                // 画像と入力欄を一緒にキーボードの上に（下の欄を送っていたら先頭へ戻す）。
+                try { if (scrollRef.current) scrollRef.current.scrollTop = 0; } catch { /* ignore */ }
+              }}
+              onBlur={() => setInputFocused(false)}
+              style={{ ...inputStyle, marginTop: 'var(--space-2)' }}
+            />
           )}
           </div>
 
@@ -526,22 +569,7 @@ export default function ShareEditor({
               </button>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={phrase.text}
-                  maxLength={PHRASE_MAX}
-                  placeholder="気に入った言葉"
-                  aria-label="画像に入れる言葉"
-                  enterKeyHint="done"
-                  onChange={(e) => setPhraseField({ text: e.target.value })}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); e.currentTarget.blur(); }
-                  }}
-                  onFocus={() => setInputFocused(true)}
-                  onBlur={() => setInputFocused(false)}
-                  style={inputStyle}
-                />
+                {/* 入力欄は画像のすぐ下（上に残る欄）に置いた。ここは形・大きさ・色。 */}
                 <div role="radiogroup" aria-label="言葉の形" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 'var(--space-2)' }}>
                   {styles.map((s) => {
                     const on = (phrase.style || 'mincho') === s;

@@ -596,6 +596,15 @@ const SCREENS = [
   { name: 'share-photo-dark', url: '/', steps: [{ css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo-dark.jpg'] }, { wait: 2500 }] },
   { name: 'share-photo-bright-story', url: '/', steps: [{ css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo-bright.jpg'] }, { wait: 2000 }, { css: '[role=radio][aria-label="ストーリー（9:16）"]' }, { wait: 2000 }] },
   { name: 'share-photo-bright-edit', url: '/', steps: [{ css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo-bright.jpg'] }, { wait: 2000 }, ...SHARE_EDIT] },
+  // ── 写真で共有の見た目の作り直し（2026-10-08・重ね方の名前・形の切り替えの場所・フィルム・言葉を打つ間の画像）
+  { name: 'style-sheet-photo', url: '/', steps: [...SHARE_CAMERA, { wait: 800 }] },
+  { name: 'style-sheet-paper', url: '/', steps: SHARE_PAPER },
+  { name: 'style-sheet-bgmenu', url: '/', steps: [...SHARE_CAMERA, { css: SHARE_BG_MENU }, { wait: 600 }] },
+  { name: 'style-sheet-film', url: '/', steps: [...SHARE_CAMERA, { css: SHARE_BG_MENU }, { css: '[role=menuitem]:has-text("フィルム")' }, { wait: 2000 }] },
+  { name: 'style-sheet-quote', url: '/', steps: [...SHARE_CAMERA, shareVariant('心に残った一文'), { wait: 2000 }] },
+  { name: 'style-editor-typing', url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT, { css: `${EDIT} button:has-text("言葉を入れる")` }, { fill: [`${EDIT} input[type=text]`, '問いの質が、答えの質を決める。'] }, { wait: 1500 }] },
+  { name: 'style-editor-typing-short', url: '/', viewport: { width: 390, height: 520 }, steps: [...SHARE_CAMERA, ...SHARE_EDIT, { css: `${EDIT} button:has-text("言葉を入れる")` }, { fill: [`${EDIT} input[type=text]`, '問いの質が、答えの質を決める。'] }, { wait: 1500 }] },
+  { name: 'style-sheet-xl-text', url: '/', steps: [{ eval: () => { document.documentElement.style.fontSize = '23px'; } }, ...SHARE_CAMERA, { wait: 800 }] },
   // ── 月末の「今月の読書」の声かけ・12 月の「今年の読書」（2026-10-08・&today= で日付を差し替える）
   { name: 'wrap-home-month', url: '/?today=2026-11-29', steps: [{ waitFor: '[data-share-nudge]' }, { wait: 600 }] },
   { name: 'wrap-home-year', url: '/?today=2026-12-03', steps: [{ waitFor: '[data-share-nudge]' }, { wait: 600 }] },

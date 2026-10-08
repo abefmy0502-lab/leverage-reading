@@ -21,7 +21,7 @@ export const PHRASE_SCALE_MAX = 1.8;
 
 // 形ごとの文字の大きさ（幅 1080 のとき・倍率 1）と行間・字間・箱の内側の余白（文字の大きさに対する割合）。
 const STYLE_METRICS = {
-  mincho: { size: 64, lineHeight: 1.5, spacing: 0.04, padX: 0, padY: 0, underline: 0.42 },
+  mincho: { size: 64, lineHeight: 1.6, spacing: 0.06, padX: 0, padY: 0, underline: 0 }, // 傍線は 2026-10-08 にやめた
   bold: { size: 78, lineHeight: 1.22, spacing: 0.02, padX: 0, padY: 0, underline: 0 },
   hand: { size: 70, lineHeight: 1.45, spacing: 0.02, padX: 0, padY: 0, underline: 0 },
   band: { size: 54, lineHeight: 1.4, spacing: 0.04, padX: 0.6, padY: 0.42, underline: 0 },

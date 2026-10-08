@@ -60,6 +60,9 @@ const results = await page.evaluate(async ({ photos }) => {
     ['photo', { style: 'photo', photo: photo.normal }],
     ['photo-bright', { style: 'photo', photo: photo.bright }],
     ['photo-dark', { style: 'photo', photo: photo.dark }],
+    // フィルム（写真の色を端末の中で整えた地・2026-10-08）
+    ['film', { style: 'photo', photo: card.filmPhoto(photo.normal) }],
+    ['film-bright', { style: 'photo', photo: card.filmPhoto(photo.bright) }],
     ['paper', { style: 'paper' }],
     ['night', { style: 'night' }],
     ['cover', { style: 'cover' }],
@@ -87,6 +90,15 @@ const results = await page.evaluate(async ({ photos }) => {
       jobs.push({ name: `edge-longtitle-${layout}-${format}-photo`, opts: { ...base, layout, format, style: 'photo', photo: photo.normal, record: longRec, title: longBook.title, line: layout === 'record' ? ov.quoteText(base.line, 'record') : base.line } });
     }
     jobs.push({ name: `edge-longtitle-${layout}-post-paper`, opts: { ...base, layout, format: 'post', style: 'paper', record: longRec, title: longBook.title, line: layout === 'record' ? ov.quoteText(base.line, 'record') : base.line } });
+  }
+  // 長い著者・複数の著者（「最初の著者 ほか」・2 行まで・… で切らない・2026-10-08）
+  const manyBook = { ...book, title: '1兆ドルコーチ', author: 'エリック・シュミット、ジョナサン・ローゼンバーグ、アラン・イーグル' };
+  const longAuthorBook = { ...book, title: 'ファクトフルネス', author: 'ハンス・ロスリング・オーラ・ロスリング・アンナ・ロスリング・ロンランド' };
+  for (const [nm, bk] of [['many', manyBook], ['long', longAuthorBook]]) {
+    const rec = ov.bookRecord(bk, memos, new Date(2026, 9, 5));
+    for (const layout of ['record', 'stats', 'quote']) {
+      jobs.push({ name: `edge-author-${nm}-${layout}-post-paper`, opts: { ...base, layout, format: 'post', style: 'paper', record: rec, title: bk.title, author: bk.author, line: layout === 'record' ? ov.quoteText(base.line, 'record') : base.line } });
+    }
   }
   // 4 桁の数字（1,234 件）
   const bigRec = { ...record, stats: [{ key: 'date', label: '読み終えた日', value: '12月28日' }, { key: 'memos', label: 'メモ', value: '1,234件' }, { key: 'actions', label: '実行した行動', value: '1件' }] };
@@ -123,6 +135,7 @@ const results = await page.evaluate(async ({ photos }) => {
   const yearGrounds = [
     ['photo', { style: 'photo', photo: photo.normal }],
     ['photo-bright', { style: 'photo', photo: photo.bright }],
+    ['film', { style: 'photo', photo: card.filmPhoto(photo.normal) }],
     ['paper', { style: 'paper' }],
     ['night', { style: 'night' }],
     ['cover', { style: 'cover' }],

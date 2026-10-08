@@ -640,3 +640,40 @@ export function tabPosition(page, totalPages, knownMaxPage = 0) {
     : Math.max(Number(knownMaxPage) || 0, p + 50);
   return Math.min(1, Math.max(0, (p - 1) / Math.max(1, total - 1)));
 }
+
+// ---------------------------------------------------------------- フィルム（2026-10-08）
+//
+// 写真の地の 1 つ「フィルム」: 端末の中で写真の色だけを整える（AI は使わない・どこにも送らない）。
+// 彩度を少し落とし（0.78）、黒を少し持ち上げ（フェード）、温かみ（赤 +、青 −）を足し、四隅をわずかに暗く。
+// 文字の幕の濃さは、この後の写真の明るさで決める（読みやすさ 4.5:1 の決まりはそのまま）。
+// data は RGBA の配列（ImageData.data）。その場で書き換える。
+export const FILM = { saturation: 0.78, lift: 18, fade: 0.92, warmR: 8, warmB: -10, vignette: 0.16 };
+export function filmTone(data, w, h, f = FILM) {
+  const cx = w / 2;
+  const cy = h / 2;
+  const maxD = Math.hypot(cx, cy) || 1;
+  const clamp = (v) => (v < 0 ? 0 : v > 255 ? 255 : v);
+  for (let y = 0; y < h; y += 1) {
+    for (let x = 0; x < w; x += 1) {
+      const i = (y * w + x) * 4;
+      let r = data[i];
+      let g = data[i + 1];
+      let b = data[i + 2];
+      const l = 0.299 * r + 0.587 * g + 0.114 * b;
+      r = l + (r - l) * f.saturation;
+      g = l + (g - l) * f.saturation;
+      b = l + (b - l) * f.saturation;
+      // 黒を持ち上げて白を少し抑える（フィルムの柔らかいコントラスト）。
+      r = f.lift + r * f.fade + f.warmR;
+      g = f.lift + g * f.fade;
+      b = f.lift + b * f.fade + f.warmB;
+      // 四隅をわずかに暗く（中心からの距離の 2 乗）。
+      const d = Math.hypot(x + 0.5 - cx, y + 0.5 - cy) / maxD;
+      const v = 1 - f.vignette * d * d;
+      data[i] = clamp(r * v);
+      data[i + 1] = clamp(g * v);
+      data[i + 2] = clamp(b * v);
+    }
+  }
+  return data;
+}

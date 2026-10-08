@@ -24,12 +24,12 @@
 import {
   FORMATS, clampLine, fitQuote, wrapBalanced, coverTone, rgbCss,
   photoPlacement, scrimAlpha, brightLuminance, coverProxyPath,
-  seedFrom, underlineStroke, tabPosition, coverWashAlpha, relativeLuminance, shareImageType,
-  darkLuminance, logoInkOnPhoto, blockScrimStops, photoInkForBand, blockVeilStops, PHOTO_INK_DARK_Q,
+  seedFrom, tabPosition, coverWashAlpha, relativeLuminance, shareImageType,
+  darkLuminance, filmTone, logoInkOnPhoto, blockScrimStops, photoInkForBand, blockVeilStops, PHOTO_INK_DARK_Q,
 } from './shareCardLayout';
 import {
   RECORD_QUOTE_MAX, recordFrame, placeRecordBlock, statColumns, splitStatValue, recordBlockPlan, recordTitleScale, recordTitleMaxLines,
-  applyShareItems, shareVisibility, recordCoverPlacement, logoBox, LOGO_RULES, statsStackPlan, placeStatsStack, statColumnsScale, mainTitle, pickSubVariant,
+  applyShareItems, shareVisibility, recordCoverPlacement, logoBox, LOGO_RULES, statsStackPlan, placeStatsStack, statColumnsScale, mainTitle, pickSubVariant, formatAuthors,
 } from './shareOverlay';
 import { phraseLayout, phraseMetrics, phraseColors, phraseDisplayText, stickerPhraseReserve } from './sharePhrase';
 import { paletteFor } from './coverPalette';
@@ -213,6 +213,27 @@ export async function loadPhotoFile(file) {
   return { source: c, width: c.width, height: c.height };
 }
 
+// 「フィルム」の地の写真（filmTone で色を整えた写真）。写真ごとに 1 回だけ作って覚える（指で動かしても作り直さない）。
+const filmCache = new WeakMap();
+export function filmPhoto(photo) {
+  if (!photo?.source) return photo;
+  const hit = filmCache.get(photo.source);
+  if (hit) return hit;
+  try {
+    const c = makeCanvas(photo.width, photo.height);
+    const ctx = c.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(photo.source, 0, 0, photo.width, photo.height);
+    const img = ctx.getImageData(0, 0, c.width, c.height);
+    filmTone(img.data, c.width, c.height);
+    ctx.putImageData(img, 0, 0);
+    const out = { ...photo, source: c, film: true };
+    filmCache.set(photo.source, out);
+    return out;
+  } catch {
+    return photo; // 作れなければ元の写真（共有はできる）
+  }
+}
+
 // ---------------------------------------------------------------- ロゴ
 
 let logoPromise = null;
@@ -375,6 +396,13 @@ function drawQuoteMark(ctx, mark, x, top, color) {
   ctx.fillText('“', x + mark.left, top + mark.ascent); // 墨の左端を本文の左端に
 }
 
+// 文字の組み（2026-10-08 オーナー「おしゃれな意識高い人間が使いたくなるように」＝雑誌・装丁のような編集デザイン）。
+// 字間を少し広げ、装飾（橙の傍線・付箋・点）をやめて、余白と明朝の組みで見せる。
+const QUOTE_TRACK = 0.04; // 一文（明朝）
+const TITLE_TRACK = 0.04; // 書名（明朝）
+const KICKER_TRACK = 0.18; // 見出し（「読了」「2026」）
+const LABEL_TRACK = 0.1; // 数字の名前（「メモ」「実行した行動」）
+
 // 一文の組み（枠に収まる大きさと改行）。いくつもの組み方を比べるので、同じ条件の結果は覚えておく
 // （写真を指で動かしている間は毎フレーム描き直すため）。
 const quoteLayoutCache = new Map();
@@ -388,8 +416,8 @@ function layoutQuote(ctx, fonts, text, { maxWidth, maxHeight, sizes, lineHeight 
     sizes,
     lineHeight,
     measureAt: (size) => {
-      const m = measurer(ctx, `400 ${size}px ${fonts.read}`, 0.02);
-      const trail = Math.round(0.02 * size * 10) / 10; // 行末の字間は墨にならないので数えない
+      const m = measurer(ctx, `400 ${size}px ${fonts.read}`, QUOTE_TRACK);
+      const trail = Math.round(QUOTE_TRACK * size * 10) / 10; // 行末の字間は墨にならないので数えない
       const memo = new Map();
       return (s) => {
         if (!memo.has(s)) memo.set(s, s ? Math.max(0, m(s) - trail) : 0);
@@ -402,64 +430,17 @@ function layoutQuote(ctx, fonts, text, { maxWidth, maxHeight, sizes, lineHeight 
   return fit;
 }
 
-// 手描きの傍線（最後の行の下・文字より先に描いて文字の後ろに回す）。
-function drawUnderline(ctx, { x0, x1, y, weight, seed, color }) {
-  const st = underlineStroke({ x0, x1, y, weight, seed });
-  ctx.save();
-  ctx.globalAlpha = 0.9;
-  ctx.fillStyle = color;
-  ctx.beginPath();
-  st.top.forEach(([x, yy], i) => (i ? ctx.lineTo(x, yy) : ctx.moveTo(x, yy)));
-  st.bottom.forEach(([x, yy]) => ctx.lineTo(x, yy));
-  ctx.closePath();
-  ctx.fill();
-  [st.capStart, st.capEnd].forEach(([cx, cy, r]) => { ctx.beginPath(); ctx.arc(cx, cy, Math.max(0.5, r), 0, Math.PI * 2); ctx.fill(); });
-  ctx.restore();
-}
-
-function drawQuoteLines(ctx, fonts, fit, left, top, color, underline = null) {
+// 一文の行（明朝 400・字間 QUOTE_TRACK）。橙の手描きの傍線は 2026-10-08 にやめた（オーナー「オレンジ色の下線がダサい」）。
+function drawQuoteLines(ctx, fonts, fit, left, top, color) {
   ctx.font = `400 ${fit.size}px ${fonts.read}`;
-  setSpacing(ctx, 0.02, fit.size);
+  setSpacing(ctx, QUOTE_TRACK, fit.size);
   const ascent = fit.size * 0.88; // 行の箱の上から字の基線まで（明朝のおおよそ）
   const half = (fit.lineHeight - fit.size) / 2;
-  if (underline && fit.lines.length) {
-    const last = fit.lines[fit.lines.length - 1];
-    const lx = left - inkLeftOffset(ctx, last);
-    const m = ctx.measureText(last);
-    const inkRight = lx + (m.actualBoundingBoxRight || m.width);
-    const baseline = top + (fit.lines.length - 1) * fit.lineHeight + half + ascent;
-    drawUnderline(ctx, { x0: left, x1: inkRight, y: baseline + fit.size * 0.24, weight: Math.max(8, fit.size * 0.2), seed: underline.seed, color: underline.color });
-    ctx.font = `400 ${fit.size}px ${fonts.read}`;
-    setSpacing(ctx, 0.02, fit.size);
-  }
   ctx.fillStyle = color;
   fit.lines.forEach((ln, i) => {
     // 行頭の開き括弧（「『（）は、字の墨の左端を本文の左端にそろえる（括弧の前の空きを詰める）。
     ctx.fillText(ln, left - inkLeftOffset(ctx, ln), top + i * fit.lineHeight + half + ascent);
   });
-}
-
-// 付箋（橙）: 本の右の小口から、その一文のあたりの高さで少しはみ出す。
-// 本の裏に差し込んだように、本（表紙）より先に描く。frac＝本の上 0〜下 1。
-function tabGeometry({ y, h, w, frac, seed }) {
-  const th = Math.max(10, h * 0.1); // 付箋の幅（縦）
-  const inset = h * 0.05;
-  const ty = y + inset + (h - inset * 2 - th) * frac;
-  const protrude = Math.max(12, w * 0.24);
-  const tilt = ((((seed >>> 8) % 1000) / 1000) - 0.5) * 0.08; // ±2.3° の傾き（メモごとに決まる）
-  return { ty, th, protrude, tilt };
-}
-function drawTab(ctx, { rightX, y, h, w, frac, seed, color }) {
-  const { ty, th, protrude, tilt } = tabGeometry({ y, h, w, frac, seed });
-  ctx.save();
-  ctx.translate(rightX, ty + th / 2);
-  ctx.rotate(tilt);
-  ctx.fillStyle = color;
-  const r = Math.min(3, th * 0.25);
-  roundRectPath(ctx, -th * 2, -th / 2, th * 2 + protrude, th, r);
-  ctx.fill();
-  ctx.restore();
-  return protrude;
 }
 
 function drawCover(ctx, { x, y, w, h, cover, title, theme, fonts, showText = true }) {
@@ -544,14 +525,32 @@ function layoutBookLines(ctx, fonts, { title, author, page, width, titleFont, ti
   ctx.font = titleFont;
   setSpacing(ctx, 0.02, titleSize);
   // title が null のときは書名を隠す（表示する項目・2026-10-01）。
-  const titleLines = title === null ? [] : fitTitleLines(ctx, title || '無題', { isBook: true, width, font: titleFont, em: 0.02, maxLines: 2 });
+  const titleLines = title === null ? [] : fitTitleLines(ctx, title || '無題', { isBook: true, width, font: titleFont, em: TITLE_TRACK, maxLines: 2 });
   const titleLH = Math.round(titleSize * 1.4);
-  const authorText = String(author || '').trim();
+  // 著者は「最初の著者 ほか」・2 行まで折り返す（… で切らない・2026-10-08）。ページは最後の行の後ろに。
+  const authorText = formatAuthors(author);
   const pageText = Number.isFinite(page) && page > 0 ? `p.${page}` : '';
   const metaLH = Math.round(metaSize * 1.5);
-  const hasMeta = !!(authorText || pageText);
-  const gap = titleLines.length && hasMeta ? 10 : 0;
-  return { titleLines, titleLH, authorText, pageText, metaLH, height: titleLines.length * titleLH + (hasMeta ? gap + metaLH : 0) };
+  const metaFont = `400 ${metaSize}px ${fonts.ui}`;
+  let authorLines = [];
+  if (authorText) {
+    authorLines = wrapBalanced(authorText, width, measurer(ctx, metaFont, 0.04));
+    if (authorLines.length > 2) {
+      ctx.font = metaFont;
+      setSpacing(ctx, 0.04, metaSize);
+      authorLines = [authorLines[0], ellipsize(ctx, authorLines.slice(1).join(''), width)];
+    }
+  }
+  // ページが最後の行に入らなければ、もう 1 行（ページだけの行）。
+  let pageOwnLine = false;
+  if (pageText && authorLines.length) {
+    const m = measurer(ctx, metaFont, 0.04);
+    pageOwnLine = m(`${authorLines[authorLines.length - 1]}　${pageText}`) > width;
+  }
+  const metaLines = (authorLines.length || (pageText ? 1 : 0)) + (pageOwnLine ? 1 : 0);
+  const hasMeta = metaLines > 0;
+  const gap = titleLines.length && hasMeta ? 12 : 0;
+  return { titleLines, titleLH, authorText, authorLines, pageText, pageOwnLine, metaLH, height: titleLines.length * titleLH + (hasMeta ? gap + metaLH * metaLines : 0) };
 }
 
 function drawBookLines(ctx, fonts, bl, { x, top, width, titleFont, titleSize, metaSize, ink, ink2, ink3 }) {
@@ -559,22 +558,23 @@ function drawBookLines(ctx, fonts, bl, { x, top, width, titleFont, titleSize, me
   ctx.fillStyle = ink;
   bl.titleLines.forEach((tl) => {
     ctx.font = titleFont;
-    setSpacing(ctx, 0.02, titleSize);
+    setSpacing(ctx, TITLE_TRACK, titleSize);
     ctx.fillText(tl, x - inkLeftOffset(ctx, tl), cy + bl.titleLH * 0.78);
     cy += bl.titleLH;
   });
-  if (bl.authorText || bl.pageText) {
-    if (bl.titleLines.length) cy += 10;
+  if (bl.authorLines.length || bl.pageText) {
+    if (bl.titleLines.length) cy += 12;
     ctx.font = `400 ${metaSize}px ${fonts.ui}`;
-    setSpacing(ctx, 0.02, metaSize);
+    setSpacing(ctx, 0.04, metaSize);
     let mx = x;
-    if (bl.authorText) {
-      const a = ellipsize(ctx, bl.authorText, width - (bl.pageText ? 120 : 0));
-      ctx.fillStyle = ink2;
-      ctx.fillText(a, mx, cy + bl.metaLH * 0.72);
-      mx += ctx.measureText(a).width + 24;
-    }
+    ctx.fillStyle = ink2;
+    bl.authorLines.forEach((a, i) => {
+      ctx.fillText(a, x, cy + bl.metaLH * 0.72);
+      if (i === bl.authorLines.length - 1) mx = x + ctx.measureText(a).width + metaSize;
+      else cy += bl.metaLH;
+    });
     if (bl.pageText) {
+      if (bl.pageOwnLine) { cy += bl.metaLH; mx = x; }
       ctx.fillStyle = ink3;
       ctx.fillText(bl.pageText, mx, cy + bl.metaLH * 0.72);
     }
@@ -695,10 +695,11 @@ function parseRgb(css) {
 // 形ごとの寸法。ストーリーは Instagram などの上下の帯（約 250px）に文字をかけない
 // （下の帯は 1920 − 250 ＝ 1670 から。ロゴの基線は 1630＝どの重ね方も shareOverlay.js の logoBox）。
 // 著者・ページは、スマホで縮めて見ても読める大きさ（ストーリー 36 以上）。書名はそれより大きく。
+// 2026-10-08: 一文を少し小さく・余白を大きく・引用符を小さく（雑誌の引用ページの組み）。
 const POSTER = {
-  story: { margin: 112, top: 300, bottom: 1460, markInk: 76, sizes: [92, 84, 76, 70, 64, 60, 56, 52, 48, 44], coverW: 140, titleSize: 46, metaSize: 36 },
-  post: { margin: 104, top: 128, bottom: 1110, markInk: 60, sizes: [76, 70, 64, 60, 56, 52, 48, 44, 40, 38], coverW: 124, titleSize: 42, metaSize: 35 },
-  square: { margin: 96, top: 104, bottom: 870, markInk: 50, sizes: [68, 62, 56, 52, 48, 44, 40, 36, 34, 32], coverW: 112, titleSize: 40, metaSize: 34 },
+  story: { margin: 120, top: 300, bottom: 1460, markInk: 56, sizes: [80, 74, 68, 64, 60, 56, 52, 48, 44, 40], coverW: 132, titleSize: 42, metaSize: 32 },
+  post: { margin: 112, top: 136, bottom: 1110, markInk: 46, sizes: [66, 62, 58, 54, 50, 46, 42, 40, 38, 36], coverW: 116, titleSize: 38, metaSize: 31 },
+  square: { margin: 104, top: 112, bottom: 870, markInk: 40, sizes: [58, 54, 50, 46, 42, 40, 38, 36, 34, 32], coverW: 104, titleSize: 36, metaSize: 30 },
 };
 
 function drawPoster(ctx, o) {
@@ -717,7 +718,7 @@ function drawPoster(ctx, o) {
   const kSize = recordFrame(format).kickerSize;
   const kickerH = o.kicker ? Math.round(kSize * 1.35) + Math.round(L.sizes[0] * 0.5) : 0;
   const fixedH = kickerH + L.markInk + markGap + bookGap + (showBook ? coverH : 0);
-  const fit = layoutQuote(ctx, fonts, text, { maxWidth: contentW, maxHeight: (L.bottom - L.top) - fixedH, sizes: L.sizes, lineHeight: 1.62 });
+  const fit = layoutQuote(ctx, fonts, text, { maxWidth: contentW, maxHeight: (L.bottom - L.top) - fixedH, sizes: L.sizes, lineHeight: 1.75 });
   const quoteH = fit.lines.length * fit.lineHeight;
   // 目で見た中心（数学の中心より少し上）に置く。
   let y = L.top + Math.max(0, (L.bottom - L.top - fixedH - quoteH) * 0.44);
@@ -726,9 +727,9 @@ function drawPoster(ctx, o) {
     drawKicker(ctx, fonts, { x: left, y, h: Math.round(kSize * 1.35), size: kSize, text: o.kicker, theme });
     y += kickerH;
   }
-  drawQuoteMark(ctx, mark, left, y, theme.accent);
+  drawQuoteMark(ctx, mark, left, y, theme.ink3);
   y += L.markInk + markGap;
-  drawQuoteLines(ctx, fonts, fit, left, y, theme.ink, { seed: o.seed, color: theme.accent });
+  drawQuoteLines(ctx, fonts, fit, left, y, theme.ink);
   y += quoteH + bookGap;
 
   if (showBook) drawPosterBook(ctx, o, L, { left, y, coverH, theme, fonts });
@@ -737,10 +738,8 @@ function drawPoster(ctx, o) {
 
 function drawPosterBook(ctx, o, L, { left, y, coverH, theme, fonts }) {
   const { W } = o;
-  // 付箋（ページがあるときだけ）→ 表紙の順に描く（付箋が本に挟まって見える）。
-  const tabOut = o.frac != null
-    ? drawTab(ctx, { rightX: left + L.coverW, y, h: coverH, w: L.coverW, frac: o.frac, seed: o.seed, color: theme.accent })
-    : 0;
+  // 付箋（橙）は 2026-10-08 にやめた（装飾を減らす）。
+  const tabOut = 0;
   drawCover(ctx, { x: left, y, w: L.coverW, h: coverH, cover: o.cover, title: o.title, theme, fonts, showText: o.showTitle !== false });
   const colX = left + L.coverW + tabOut + 36;
   const colW = W - L.margin - colX;
@@ -756,10 +755,11 @@ function bookLineOpts(o, rest) {
 
 // ---------------------------------------------------------------- 写真
 
+// 余白は記録の枠（recordFrame）とそろえる・一文と引用符は少し小さく（2026-10-08）。
 const PHOTO = {
-  story: { margin: 88, safeTop: 270, markInk: 50, sizes: [84, 76, 70, 64, 60, 56, 52, 48, 44, 40], maxBlock: 0.5, titleSize: 44, metaSize: 36 },
-  post: { margin: 80, safeTop: 96, markInk: 44, sizes: [72, 66, 60, 56, 52, 48, 44, 40, 36], maxBlock: 0.52, titleSize: 42, metaSize: 35 },
-  square: { margin: 72, safeTop: 80, markInk: 40, sizes: [64, 58, 54, 50, 46, 42, 38, 34, 32], maxBlock: 0.56, titleSize: 40, metaSize: 34 },
+  story: { margin: 96, safeTop: 270, markInk: 40, sizes: [74, 68, 64, 60, 56, 52, 48, 44, 40], maxBlock: 0.5, titleSize: 40, metaSize: 32 },
+  post: { margin: 88, safeTop: 104, markInk: 36, sizes: [64, 60, 56, 52, 48, 44, 40, 36], maxBlock: 0.52, titleSize: 38, metaSize: 31 },
+  square: { margin: 80, safeTop: 88, markInk: 32, sizes: [58, 54, 50, 46, 42, 38, 34, 32], maxBlock: 0.56, titleSize: 36, metaSize: 30 },
 };
 
 // 文字の塊（引用符・一文・書名・著者）の組み。
@@ -782,7 +782,7 @@ function layoutOverlay(ctx, fonts, o, L, maxBlockH) {
   const kLine = Math.round(kSize * 1.35);
   const kickerH = o.kicker ? kLine + Math.round(L.sizes[0] * 0.42) : 0;
   const fixedH = kickerH + L.markInk + markGap + gapBook + bookH;
-  const fit = layoutQuote(ctx, fonts, o.text, { maxWidth: contentW, maxHeight: maxBlockH - fixedH, sizes: L.sizes, lineHeight: 1.55 });
+  const fit = layoutQuote(ctx, fonts, o.text, { maxWidth: contentW, maxHeight: maxBlockH - fixedH, sizes: L.sizes, lineHeight: 1.7 });
   const quoteH = fit.lines.length * fit.lineHeight;
   return { mark, markGap, bookGap: gapBook, showBook, titleFont, bl, fit, quoteH, height: fixedH + quoteH, contentW, iconH, iconW, textX, kickerH, kSize, kLine };
 }
@@ -794,9 +794,9 @@ function drawOverlay(ctx, fonts, o, L, lay, top, theme) {
     drawKicker(ctx, fonts, { x: left, y, h: lay.kLine, size: lay.kSize, text: o.kicker, theme });
     y += lay.kickerH;
   }
-  drawQuoteMark(ctx, lay.mark, left, y, theme.accent);
+  drawQuoteMark(ctx, lay.mark, left, y, theme.ink3);
   y += L.markInk + lay.markGap;
-  drawQuoteLines(ctx, fonts, lay.fit, left, y, theme.ink, { seed: o.seed, color: theme.accent });
+  drawQuoteLines(ctx, fonts, lay.fit, left, y, theme.ink);
   y += lay.quoteH + lay.bookGap;
   if (!lay.showBook) return;
   const rowH = lay.bl.height;
@@ -947,6 +947,24 @@ function drawSticker(ctx, o, size) {
 //   Orime のロゴ                        2026.9.30
 // 文字は SNS で切られない範囲（recordFrame の安全な枠）の中だけ。写真でない地では、空いた上に表紙を置く。
 
+// 書名の下の行（著者・今月／今年は読み終えた本）。著者は文節の切れ目で 2 行まで折り返す（… で切らない・2026-10-08
+// オーナー「著者の名前が長い、複数いるとキレてしまう」。複数の著者は bookRecord が「最初の著者 ほか」にしてある）。
+// 今月・今年の「『A』『B』 ほか N 冊」は幅に入る書き方を選ぶ（pickSubVariant・冊数を切らない）。
+// 2 行に入らない長さ（まれ）だけ、2 行目の終わりを … にする（最後の手段）。
+function fitSubLines(ctx, rec, { width, font, size }) {
+  if (!rec?.sub) return [];
+  ctx.font = font;
+  setSpacing(ctx, 0.04, size);
+  if (rec.subVariants && rec.subVariants.length) {
+    return [ellipsize(ctx, pickSubVariant(rec.subVariants, (t) => ctx.measureText(t).width, width), width)];
+  }
+  const lines = wrapBalanced(String(rec.sub), width, measurer(ctx, font, 0.04));
+  if (lines.length <= 2) return lines;
+  ctx.font = font;
+  setSpacing(ctx, 0.04, size);
+  return [lines[0], ellipsize(ctx, lines.slice(1).join(''), width)];
+}
+
 function layoutRecord(ctx, fonts, o, F) {
   const rec = o.record || { kicker: '', title: '', stats: [] };
   const contentW = F.W - F.margin * 2;
@@ -956,22 +974,15 @@ function layoutRecord(ctx, fonts, o, F) {
   const titleSize = Math.round(F.titleSize * titleScale);
   const titleFont = `600 ${titleSize}px ${fonts.read}`;
   ctx.font = titleFont;
-  setSpacing(ctx, 0.01, titleSize);
+  setSpacing(ctx, TITLE_TRACK, titleSize);
   const maxLines = recordTitleMaxLines({ statsCount: stats.length });
-  const titleLines = rec.title ? fitTitleLines(ctx, rec.title, { isBook: !!rec.titleIsBook, width: contentW, font: titleFont, em: 0.01, maxLines }) : [];
+  const titleLines = rec.title ? fitTitleLines(ctx, rec.title, { isBook: !!rec.titleIsBook, width: contentW, font: titleFont, em: TITLE_TRACK, maxLines }) : [];
   const subFont = `400 ${F.subSize}px ${fonts.ui}`;
-  let sub = '';
-  if (rec.sub) {
-    ctx.font = subFont;
-    setSpacing(ctx, 0.02, F.subSize);
-    // 今月・今年の「『A』『B』 ほか N 冊」は、入らなければ短い書き方へ（冊数を … で切らない・pickSubVariant）。
-    sub = rec.subVariants && rec.subVariants.length
-      ? ellipsize(ctx, pickSubVariant(rec.subVariants, (t) => ctx.measureText(t).width, contentW), contentW)
-      : ellipsize(ctx, String(rec.sub), contentW);
-  }
+  const subLines = fitSubLines(ctx, rec, { width: contentW, font: subFont, size: F.subSize });
+  const sub = subLines.join('');
   const subLH = Math.round(F.subSize * 1.45);
   const labelH = Math.round(F.statLabelSize * 1.3);
-  const parts = { hasKicker: !!rec.kicker, titleLines: titleLines.length, hasSub: !!sub, statsCount: stats.length };
+  const parts = { hasKicker: !!rec.kicker, titleLines: titleLines.length, hasSub: subLines.length > 0, subLines: subLines.length, statsCount: stats.length };
   const base = recordBlockPlan(F, parts);
   const bottom = placeRecordBlock(F, 0, { hasFooter: o.hasFooter !== false }).bottom;
   let fit = null;
@@ -981,14 +992,14 @@ function layoutRecord(ctx, fonts, o, F) {
   const quoteGapBelow = base.height > 0 ? Math.round(F.quoteSizes[0] * 0.95) : 0;
   if (o.text) {
     const room = (bottom - F.safeTop) - base.height - quoteGapBelow;
-    const cap = Math.min(room, sizes[0] * 1.55 * (heroQuote ? 4 : 3));
-    if (cap > sizes[sizes.length - 1] * 1.55) {
-      const f = layoutQuote(ctx, fonts, o.text, { maxWidth: contentW, maxHeight: cap, sizes, lineHeight: 1.55 });
+    const cap = Math.min(room, sizes[0] * 1.7 * (heroQuote ? 4 : 3));
+    if (cap > sizes[sizes.length - 1] * 1.7) {
+      const f = layoutQuote(ctx, fonts, o.text, { maxWidth: contentW, maxHeight: cap, sizes, lineHeight: 1.7 });
       if (f && f.lines.length && f.lines.length * f.lineHeight <= cap + 0.5) fit = f;
     }
   }
   const plan = fit ? recordBlockPlan(F, { ...parts, quoteLines: fit.lines.length, quoteLineHeight: fit.lineHeight }) : base;
-  return { rec, titleLines, titleLH: plan.titleLH, titleFont, titleSize, sub, subFont, subLH, stats, labelH, contentW, fit, plan, height: plan.height };
+  return { rec, titleLines, titleLH: plan.titleLH, titleFont, titleSize, sub, subLines, subFont, subLH, stats, labelH, contentW, fit, plan, height: plan.height };
 }
 
 // 数字（大きく 700）と単位（小さく 600）を左から並べる。単位は数字の墨の右端（actualBoundingBoxRight）の 2 右から
@@ -998,7 +1009,8 @@ function layoutStatValue(ctx, fonts, value, { valueSize, unitSize }, k = 1, { x0
   let x = x0;
   let end = x0;
   splitStatValue(value).forEach((p) => {
-    ctx.font = p.big ? `700 ${Math.round(valueSize * k)}px ${fonts.ui}` : `600 ${Math.round(unitSize * k)}px ${fonts.ui}`;
+    // 数字は 600（太すぎない・2026-10-08）、単位は 400 で小さく。
+    ctx.font = p.big ? `600 ${Math.round(valueSize * k)}px ${fonts.ui}` : `400 ${Math.round(unitSize * k)}px ${fonts.ui}`;
     setSpacing(ctx, 0, valueSize);
     const m = ctx.measureText(p.text);
     if (p.big) {
@@ -1030,7 +1042,7 @@ function drawStatValue(ctx, fonts, value, sizes, k, x0, baseline, ink) {
 function statsRow(ctx, fonts, F, stats) {
   const sizes = { valueSize: F.statValueSize, unitSize: F.statUnitSize };
   ctx.font = `400 ${F.statLabelSize}px ${fonts.ui}`;
-  setSpacing(ctx, 0.04, F.statLabelSize);
+  setSpacing(ctx, LABEL_TRACK, F.statLabelSize);
   const labelW = stats.map((st) => ctx.measureText(st.label).width);
   const valueW = stats.map((st) => statValueWidth(ctx, fonts, st.value, sizes, 1));
   const k = statColumnsScale(F, labelW, valueW);
@@ -1040,7 +1052,7 @@ function statsRow(ctx, fonts, F, stats) {
 
 function drawStat(ctx, fonts, F, stat, col, top, lay, theme, k = 1) {
   ctx.font = `400 ${F.statLabelSize}px ${fonts.ui}`;
-  setSpacing(ctx, 0.04, F.statLabelSize);
+  setSpacing(ctx, LABEL_TRACK, F.statLabelSize);
   ctx.fillStyle = theme.ink2;
   ctx.fillText(ellipsize(ctx, stat.label, Math.max(col.width, F.W - F.margin - col.x) + 1), col.x, top + lay.labelH * 0.78);
   // 数字は大きく（700）・単位は小さく（600）。基線は列どうしでそろえる。
@@ -1050,19 +1062,14 @@ function drawStat(ctx, fonts, F, stat, col, top, lay, theme, k = 1) {
 
 // 見出し（「読了」「2026」など）。記録・一文で同じ部品（2026-10-08 第 2 回 ui-critic「今年の一文にも年を」）。
 // h は見出しの行の高さ（大きさ × 1.35）。
-function drawKicker(ctx, fonts, { x, y, h, size, text, theme }) {
-  const r = Math.round(size * 0.2);
-  ctx.save();
-  ctx.shadowColor = 'transparent';
-  ctx.fillStyle = theme.accent;
-  ctx.beginPath();
-  ctx.arc(x + r, y + h * 0.52, r, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
+// 2026-10-08: 前の橙の点をやめ、字間を広げた小さな文字だけに（雑誌の小見出しの組み）。align: 'center' は cx を中心に。
+function drawKicker(ctx, fonts, { x, y, h, size, text, theme, align = 'left' }) {
   ctx.font = `600 ${size}px ${fonts.ui}`;
-  setSpacing(ctx, 0.08, size);
+  setSpacing(ctx, KICKER_TRACK, size);
   ctx.fillStyle = theme.ink2;
-  ctx.fillText(text, x + r * 2 + 14, y + h * 0.78);
+  const trail = KICKER_TRACK * size; // 最後の字の後ろの字間（中央にそろえるときは数えない）
+  const w = ctx.measureText(text).width - trail;
+  ctx.fillText(text, align === 'center' ? x - w / 2 : x, y + h * 0.78);
 }
 
 // recordBlockPlan の組みのとおりに描く（隠した項目は組みに無い＝場所を取らない）。
@@ -1071,26 +1078,27 @@ function drawRecordBlock(ctx, fonts, o, F, lay, top, theme) {
   for (const el of lay.plan.elements) {
     const y = top + el.top;
     if (el.kind === 'quote') {
-      drawQuoteLines(ctx, fonts, lay.fit, left, y, theme.ink, { seed: o.seed, color: theme.accent });
+      drawQuoteLines(ctx, fonts, lay.fit, left, y, theme.ink);
     } else if (el.kind === 'kicker') {
       drawKicker(ctx, fonts, { x: left, y, h: el.height, size: F.kickerSize, text: lay.rec.kicker, theme });
     } else if (el.kind === 'title') {
       ctx.fillStyle = theme.ink;
       lay.titleLines.forEach((ln, i) => {
         ctx.font = lay.titleFont;
-        setSpacing(ctx, 0.01, lay.titleSize);
+        setSpacing(ctx, TITLE_TRACK, lay.titleSize);
         ctx.fillText(ln, left - inkLeftOffset(ctx, ln), y + i * lay.titleLH + lay.titleLH * 0.8);
       });
     } else if (el.kind === 'sub') {
       ctx.font = lay.subFont;
-      setSpacing(ctx, 0.02, F.subSize);
+      setSpacing(ctx, 0.04, F.subSize);
       ctx.fillStyle = theme.ink2;
-      ctx.fillText(lay.sub, left, y + lay.subLH * 0.76);
+      lay.subLines.forEach((ln, i) => ctx.fillText(ln, left, y + i * lay.subLH + lay.subLH * 0.76));
     } else if (el.kind === 'rule') {
+      // 細い罫線 1 本だけ（2026-10-08）。
       ctx.save();
-      ctx.globalAlpha = 0.32;
+      ctx.globalAlpha = 0.24;
       ctx.fillStyle = theme.ink;
-      ctx.fillRect(left, y - 1, lay.contentW, 2);
+      ctx.fillRect(left, y - 0.75, lay.contentW, 1.5);
       ctx.restore();
     } else if (el.kind === 'stats') {
       const { k, cols } = statsRow(ctx, fonts, F, lay.stats);
@@ -1108,8 +1116,9 @@ function drawRecordFooter(ctx, { F, baseline, logo, theme, fonts, stamp }) {
   ctx.textAlign = 'right';
   ctx.fillStyle = theme.ink2;
   ctx.font = `400 ${F.metaSize}px ${fonts.ui}`;
-  setSpacing(ctx, 0.04, F.metaSize);
-  ctx.fillText(stamp, F.W - F.margin, baseline);
+  setSpacing(ctx, 0.08, F.metaSize);
+  // 右にそろえるので、最後の字の後ろの字間ぶん右へ（墨の右端を余白にそろえる）。
+  ctx.fillText(stamp, F.W - F.margin + 0.08 * F.metaSize, baseline);
   ctx.textAlign = 'left';
 }
 
@@ -1271,23 +1280,16 @@ function layoutStats(ctx, fonts, o, F) {
   const contentW = F.W - F.margin * 2;
   const titleFont = `600 ${st.titleSize}px ${fonts.read}`;
   ctx.font = titleFont;
-  setSpacing(ctx, 0.01, st.titleSize);
-  const titleLines = rec.title ? fitTitleLines(ctx, rec.title, { isBook: !!rec.titleIsBook, width: contentW, font: titleFont, em: 0.01, maxLines: 2 }) : [];
+  setSpacing(ctx, TITLE_TRACK, st.titleSize);
+  const titleLines = rec.title ? fitTitleLines(ctx, rec.title, { isBook: !!rec.titleIsBook, width: contentW, font: titleFont, em: TITLE_TRACK, maxLines: 2 }) : [];
   const subFont = `400 ${st.subSize}px ${fonts.ui}`;
-  let sub = '';
-  if (rec.sub) {
-    ctx.font = subFont;
-    setSpacing(ctx, 0.02, st.subSize);
-    // 今月・今年の「『A』『B』 ほか N 冊」は、入らなければ短い書き方へ（冊数を … で切らない・pickSubVariant）。
-    sub = rec.subVariants && rec.subVariants.length
-      ? ellipsize(ctx, pickSubVariant(rec.subVariants, (t) => ctx.measureText(t).width, contentW), contentW)
-      : ellipsize(ctx, String(rec.sub), contentW);
-  }
-  const plan = statsStackPlan(F, { hasKicker: !!rec.kicker, titleLines: titleLines.length, hasSub: !!sub, statsCount: stats.length, compact });
+  const subLines = fitSubLines(ctx, rec, { width: contentW, font: subFont, size: st.subSize });
+  const sub = subLines.join('');
+  const plan = statsStackPlan(F, { hasKicker: !!rec.kicker, titleLines: titleLines.length, hasSub: subLines.length > 0, subLines: subLines.length, statsCount: stats.length, compact });
   // 数字の大きさは 3 つで同じ（いちばん長いものが幅に入るまで縮める）。
   const sizes = { valueSize: st.valueSize, unitSize: st.unitSize };
   const k = stats.reduce((m, s) => Math.min(m, contentW / Math.max(1, statValueWidth(ctx, fonts, s.value, sizes, 1))), 1);
-  return { rec, stats, st, titleFont, titleLines, subFont, sub, plan, k, contentW, height: plan.height };
+  return { rec, stats, st, titleFont, titleLines, subFont, sub, subLines, plan, k, contentW, height: plan.height };
 }
 
 function drawStatsBlock(ctx, fonts, F, lay, top, theme, cx) {
@@ -1297,40 +1299,29 @@ function drawStatsBlock(ctx, fonts, F, lay, top, theme, cx) {
   for (const el of lay.plan.elements) {
     const y = top + el.top;
     if (el.kind === 'kicker') {
-      ctx.font = `600 ${st.kickerSize}px ${fonts.ui}`;
-      setSpacing(ctx, 0.08, st.kickerSize);
-      const r = Math.round(st.kickerSize * 0.2);
-      const textW = ctx.measureText(lay.rec.kicker).width;
-      const totalW = r * 2 + 14 + textW;
-      const x0 = cx - totalW / 2;
-      ctx.save();
-      ctx.shadowColor = 'transparent';
-      ctx.fillStyle = theme.accent;
-      ctx.beginPath();
-      ctx.arc(x0 + r, y + el.height * 0.52, r, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-      ctx.fillStyle = theme.ink2;
-      ctx.fillText(lay.rec.kicker, x0 + r * 2 + 14, y + el.height * 0.78);
+      drawKicker(ctx, fonts, { x: cx, y, h: el.height, size: st.kickerSize, text: lay.rec.kicker, theme, align: 'center' });
     } else if (el.kind === 'title') {
       ctx.fillStyle = theme.ink;
       lay.titleLines.forEach((ln, i) => {
         ctx.font = lay.titleFont;
-        setSpacing(ctx, 0.01, st.titleSize);
-        const w = ctx.measureText(ln).width;
+        setSpacing(ctx, TITLE_TRACK, st.titleSize);
+        const w = ctx.measureText(ln).width - TITLE_TRACK * st.titleSize;
         ctx.fillText(ln, cx - w / 2, y + i * st.titleLH + st.titleLH * 0.8);
       });
     } else if (el.kind === 'sub') {
       ctx.font = lay.subFont;
-      setSpacing(ctx, 0.02, st.subSize);
+      setSpacing(ctx, 0.04, st.subSize);
       ctx.fillStyle = theme.ink2;
-      const w = ctx.measureText(lay.sub).width;
-      ctx.fillText(lay.sub, cx - w / 2, y + Math.round(st.subSize * 1.45) * 0.76);
+      const lh = Math.round(st.subSize * 1.45);
+      lay.subLines.forEach((ln, i) => {
+        const w = ctx.measureText(ln).width - 0.04 * st.subSize;
+        ctx.fillText(ln, cx - w / 2, y + i * lh + lh * 0.76);
+      });
     } else if (el.kind === 'stat') {
       const stat = lay.stats[el.index];
       if (!stat) continue;
       ctx.font = `400 ${st.labelSize}px ${fonts.ui}`;
-      setSpacing(ctx, 0.08, st.labelSize);
+      setSpacing(ctx, LABEL_TRACK, st.labelSize);
       ctx.fillStyle = theme.ink2;
       const label = ellipsize(ctx, stat.label, lay.contentW);
       const lw = ctx.measureText(label).width;
@@ -1535,16 +1526,7 @@ function drawPhrase(ctx, o, W, H) {
   const trail = Math.round(spacing * lay.size * 10) / 10;
   const lineW = (l) => Math.max(0, ctx.measureText(l).width - trail);
   const baselineOf = (i) => lay.y0 + lay.padY + i * lay.lineHeight + (lay.lineHeight - lay.size) / 2 + lay.size * 0.88;
-  if (lay.style === 'mincho' && lay.lines.length && !o.quoteShown) {
-    // 最後の行の下に橙の手描きの傍線（文字の後ろ・影なし）。メモの一文も出ているときは付けない
-    // （傍線は「メモの一文」の印・1 枚に 2 本の傍線を並べない・2026-10-01）。
-    const last = lay.lines[lay.lines.length - 1];
-    const w = lineW(last);
-    const x0 = lay.cx - w / 2;
-    drawUnderline(ctx, { x0, x1: x0 + w, y: baselineOf(lay.lines.length - 1) + lay.size * 0.24, weight: Math.max(6, lay.size * 0.18), seed: seedFrom(`phrase|${lay.text}`), color: o.theme?.accent || cssVar('--share-accent') || '#df8e17' });
-    ctx.font = font;
-    setSpacing(ctx, spacing, lay.size);
-  }
+  // 明朝の引用の下の橙の傍線は 2026-10-08 にやめた（オーナー「オレンジ色の下線がダサい」・「」と余白で見せる）。
   if (!colors.band) {
     if (colors.ink === 'light') {
       ctx.shadowColor = o.theme?.shadow || cssVar('--share-photo-shadow') || 'rgba(0,0,0,0.35)';
