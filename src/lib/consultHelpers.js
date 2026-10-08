@@ -551,8 +551,49 @@ export const ASK_REPLY_MAX = 3;
 // 候補は 10 字以内と頼む。少しの超えは許し、12 字を超える行はチップにしない（入力欄の上の行で「行動を決める」の横に
 //   読める長さ＝約 215pt・15px で 11 字ほど・2026-09-30 ui-critic）。
 export const ASK_REPLY_CHARS = 12;
-export const DECIDE_CHIP = '行動を決める';
-export const DECIDE_REQUEST = 'ここまでの話から、私がやる行動を 1 つ決めたい';
+// 🏁 ゴールが見える相談（2026-10-08 オーナー「ひたすら質問が続いてゴールが見えない」）: 最初の聞き返しから
+//   「ここで答えと行動を」（旧「行動を決める」と「ここまでで答えて」を 1 つに）。押すと聞き返さずに結論＋行動 1 つ。
+export const DECIDE_CHIP = 'ここで答えと行動を';
+export const DECIDE_REQUEST = 'ここまでの話で答えをまとめて、私がやる行動を 1 つ決めたい';
+// 聞き返すのは 1 つの相談で最大 2 回まで。2 回答えたら、次の答えは聞き返さずに結論＋行動 1 つ（ai.js の turnHint）。
+//   ユーザーが「もっと聞いて」と頼んだときだけ続けて聞く（wantsMoreAsk）。行動を決めた答えのあとは数え直す。
+export const ASK_LIMIT = 2;
+const ASK_SECTION_RE = /【\s*[^】]*聞きたい[^】]*】\s*([\s\S]*?)(?:\n\s*【|REFS_START|$)/;
+const ACTION_SECTION_RE = /【\s*明日からできる[^】]*】/;
+// その答えが状況を聞き返したか（【あなたに聞きたいこと】に問いがある・行動を決めた答えではない）。
+export function answerAsks(text) {
+  const t = String(text || '');
+  if (ACTION_SECTION_RE.test(t)) return false;
+  const m = t.match(ASK_SECTION_RE);
+  return !!m && !!parseAskSection(m[1]).question;
+}
+// これまでのやりとり（[{ answer }]・古い順）で、いまの区切り（最後に行動を決めた答えより後）に何回聞き返したか。
+export function countAsks(turns) {
+  let n = 0;
+  (Array.isArray(turns) ? turns : []).forEach((t) => {
+    const a = String(t?.answer || '');
+    if (ACTION_SECTION_RE.test(a)) n = 0;
+    else if (answerAsks(a)) n += 1;
+  });
+  return n;
+}
+// 「もっと聞いて」と頼んだか（聞き返しの上限を超えても、もう 1 つ聞く）。
+const WANTS_MORE_ASK_RE = /もっと(?:聞いて|質問して|たずねて)|(?:もう少し|もう\s*1\s*つ|もうひとつ|もう一つ)(?:聞いて|質問して)/;
+export function wantsMoreAsk(text) {
+  return WANTS_MORE_ASK_RE.test(String(text || ''));
+}
+// この回は聞き返さずに結論＋行動 1 つにするか（turnHint と、書いている途中の形を決める画面の両方が使う）。
+//   followUp: 会話の続き（THREAD か前の相談がある）/ asked: これまでの聞き返しの回数（countAsks）。
+export function shouldDecide({ followUp = false, question = '', asked = 0 } = {}) {
+  if (!followUp || isBookLookup(question)) return false;
+  if (wantsAction(question)) return true;
+  return asked >= ASK_LIMIT && !wantsMoreAsk(question);
+}
+// 聞き返しの答えの下の 1 行（いまどこにいるか・13/--text-2）。k＝この答えまでの聞き返しの回数（countAsks）。
+export function askProgressText(k) {
+  if (!Number.isFinite(k) || k < 1) return '';
+  return k < ASK_LIMIT ? 'あと 1 つ聞いたら、答えと行動をまとめます' : '次で答えと行動をまとめます';
+}
 // 候補の行の頭の印（指示は「・」。- * • → や「1.」も受ける）。
 const ASK_REPLY_RE = /^\s*(?:[・•\-*→＞>]|[0-9０-９]+\s*[.．)）、])\s*(.+?)\s*$/;
 // 【あなたに聞きたいこと】の中身 → { question, replies, rest }。

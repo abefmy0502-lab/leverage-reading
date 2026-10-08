@@ -148,7 +148,7 @@ function lpShotAnswer(store, question, thread, decide) {
   ].join('\n');
 }
 
-function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null, voice = null, decide = false, lookup = false, relatedBlock = '') {
+function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null, voice = null, decide = false, lookup = false, relatedBlock = '', askMore = false) {
   if (lpShotOn()) {
     const shot = lpShotAnswer(store, question, thread, decide);
     if (shot) return shot;
@@ -279,7 +279,10 @@ function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null
   }
   // 🎯 行動を決める回（会話の続きで行動を求めた・本番の ACTION_REQUEST）: 会話で聞いた状況（返事）を使って行動を 1 つ。
   if (decide) {
-    const situation = (thread && thread.replies[thread.replies.length - 1]) || '';
+    // 2 回聞いたあとの答え（本番の ACTION_REQUEST・2026-10-08）は、いま送った返事がいちばん新しい状況。
+    const lastReply = String(question || '').trim();
+    const situation = (thread && thread.lastAsked && lastReply && !/行動|まとめ/.test(lastReply) ? lastReply.slice(0, 20) : '')
+      || (thread && thread.replies[thread.replies.length - 1]) || '';
     return [
       '【結論】',
       situation
@@ -311,6 +314,31 @@ function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null
   // 返事（前の答えの問いへの答え）: その状況に合わせて一歩深く。行動はまだ決めない（本番の BRAIN_SYSTEM ルール 9）。
   if (thread && thread.lastAsked) {
     const reply = String(question || '').trim().slice(0, 20);
+    // 🏁 聞き返しは最大 2 回（2026-10-08）: 1 回目の返事のあと・「もっと聞いて」のときは、もう 1 つ聞く（本番の turnHint の念押し）。
+    if (askMore) {
+      return [
+        '【結論】',
+        `${voice ? '私なら、' : ''}「${reply}」の場面なら、${gist(picked[0].text)}という考えが効きそうです。`,
+        '',
+        '【参照した本のメモ】',
+        quotes,
+        '',
+        '【あなたの状況に合わせた解釈】',
+        `「${reply}」の場面では、「${clip(picked[0].text)}」を先に置くと、相手が話しやすくなります。`,
+        '',
+        '【あなたに聞きたいこと】',
+        'そのとき、いちばん気になるのは何ですか？',
+        '・相手の反応',
+        '・自分の時間',
+        '・結果の質',
+        '',
+        '（お試しモードの応答です。本番では AI があなたのメモ全体を読んで答えます）',
+        '',
+        'REFS_START',
+        refs,
+        'REFS_END',
+      ].join('\n');
+    }
     return [
       '【結論】',
       `${voice ? '私なら、' : ''}「${reply}」の場面なら、${gist(picked[0].text)}という考えが効きそうです。`,
@@ -558,7 +586,9 @@ function aiReply(store, payload, aiMode = '') {
       (userText.match(/===== MEMOS_START =====\n([\s\S]*?)\n===== MEMOS_END/) || [])[1] || '',
       related,
     ].filter(Boolean).join('\n\n');
-    return brainAnswer(store, q[1], block, aiMode, parseThread(userText), parseVoice(userText), decide, userText.includes('===== BOOK_LOOKUP ====='), related);
+    // 1 回目の返事のあと（「聞き返すのはこれが最後」）・「もっと聞いて」のときは、もう 1 つ聞く（ai.js の turnHint・2026-10-08）。
+    const askMore = !decide && (userText.includes('聞き返すのはこれが最後') || userText.includes('もっと聞いてほしい'));
+    return brainAnswer(store, q[1], block, aiMode, parseThread(userText), parseVoice(userText), decide, userText.includes('===== BOOK_LOOKUP ====='), related, askMore);
   }
   // 📷 写真から書き起こし（本番と同じく、本文だけを返す）。
   if (payload.purpose === 'ocr') return '成果を上げるには、まず自分の時間がどこに使われているかを知ることから始めなければならない。時間の記録をとり、ムダな仕事を捨て、まとまった時間をつくる。';

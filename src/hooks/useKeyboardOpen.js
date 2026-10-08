@@ -56,7 +56,7 @@ export function useKeyboardOpen(threshold = 100) {
       return t === 'TEXTAREA' || t === 'INPUT' || el.isContentEditable;
     };
     const onFocusIn = (e) => {
-      if (!isFormField(e.target)) return;
+      if (!isFormField(e.target) || nativeSeen) return;
       if (!focusOpen) {
         focusOpen = true;
         apply();
@@ -75,10 +75,14 @@ export function useKeyboardOpen(threshold = 100) {
       }, 80);
     };
 
+    // 一度でもネイティブの知らせが来たら、カーソルだけでは開いたとみなさない（カーソルを置いてもキーボードが出ない
+    // ＝画面を開いたときに置いたカーソルで、下のタブが消えたままにならないように）。
+    let nativeSeen = false;
     const onNative = (e) => {
       const open = !!e?.detail?.open;
+      nativeSeen = true;
       nativeOpen = open;
-      if (!open) focusOpen = false;
+      focusOpen = false;
       apply();
     };
     window.addEventListener(NATIVE_KEYBOARD_EVENT, onNative);

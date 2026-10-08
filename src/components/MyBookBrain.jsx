@@ -39,7 +39,8 @@ import { shouldShowTrialNudge, trialNudgeCopy, isTrialNudgeDone, markTrialNudgeD
 import { getIntroOffer } from '../lib/iap';
 import { growthMeterText, firstAnswerEvidence, takeFirstConsult, takeMemosReached, getOnboardPath } from '../lib/firstDay';
 import { composerChrome, answerEndScrollTop, composerHeight, isTouchUi } from '../lib/composerView';
-import { buildConsultExamples, standaloneAction, shortTitle, hasSummaryMemo, countSummaryMemos, fmtTokens, consultsLeft, memoSearchQuery, answerStepToAction, stripScenePrefix, selectThreadTurns, isCompletedAnswer, parseAskSection, nextStepChips, wantsAction, isBookLookup, lookupTerm } from '../lib/consultHelpers';
+import { NATIVE_KEYBOARD_EVENT } from '../lib/native';
+import { buildConsultExamples, standaloneAction, shortTitle, hasSummaryMemo, countSummaryMemos, fmtTokens, consultsLeft, memoSearchQuery, answerStepToAction, stripScenePrefix, selectThreadTurns, isCompletedAnswer, parseAskSection, nextStepChips, wantsAction, isBookLookup, lookupTerm, shouldDecide, countAsks, askProgressText, answerAsks } from '../lib/consultHelpers';
 import LibrarySearchHit from './LibrarySearchHit';
 import { buildSnippet, compileTerms, splitQuery } from '../lib/librarySearch';
 import { tomorrowLocal } from '../lib/dates';
@@ -537,6 +538,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const [busy, setBusy] = useState(false);
   // 🔔 はじめて「行動に追加」した答えの id（その下に、思い出しの通知の案内を 1 回だけ出す）
   const [optinAfterId, setOptinAfterId] = useState(null);
+  // 「行動に追加」した答えの id（会話が一区切りついたことを見せる・2026-10-08）。
+  const [addedActionIds, setAddedActionIds] = useState([]);
   // 🧠→🎯 回答の行動を、紐づく本の行動リストへ追加。
   const handleAnswerToAction = useCallback(async (bookId, text) => {
     if (!onAddAction || !bookId || !text) return false;
@@ -632,6 +635,14 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const [inputFocused, setInputFocused] = useState(false);
   // 指で使う端末（キーボードが画面に出る）だけ、カーソルがある間に上の行を隠す。マウスの端末は文字がある間だけ（今までどおり）。
   const touchUi = useMemo(() => isTouchUi(), []);
+  // iOS のアプリでは、キーボードが本当に開いているか（lib/native.js の知らせ）。知らせが来るまでは null＝カーソルだけで決める。
+  //   カーソルを置いてもキーボードが出ない（画面を開いたときに置いたカーソル）間に、チップを隠したままにしない。
+  const [nativeKb, setNativeKb] = useState(null);
+  useEffect(() => {
+    const on = (e) => setNativeKb(!!e?.detail?.open);
+    window.addEventListener(NATIVE_KEYBOARD_EVENT, on);
+    return () => window.removeEventListener(NATIVE_KEYBOARD_EVENT, on);
+  }, []);
   const blurTimerRef = useRef(0);
   // 描く前に高さを合わせる（useEffect だと、送ったあとに「消えた文字の高さのまま 1 回描く → 縮む」で
   // 入力欄が 2 回動いていた）。
@@ -1192,7 +1203,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     const askThread = selectThreadTurns(visibleMessages, { max: 3, before: opts.questionAt || null, carry: askPrior ? null : carry });
     // 🎯 行動は会話で決める（2026-09-30）: 会話の続きで行動を求めた回だけ、答えの最後が行動になる（ai.js の turnHint と同じ判断）。
     //   書いている途中の形（行動の箱／問いの箱）を先に決める。書き始める前にサーバー側の判断（onStage の decide）で合わせ直す。
-    const expectAction = (askThread.length > 0 || !!askPrior) && wantsAction(q) && !isBookLookup(q);
+    //   🏁 聞き返しは最大 2 回（2026-10-08）: 2 回答えたら、聞き返さずに結論＋行動（shouldDecide＝ai.js の turnHint と同じ判断）。
+    const expectAction = shouldDecide({ followUp: askThread.length > 0 || !!askPrior, question: q, asked: countAsks([...(askPrior ? [askPrior] : []), ...askThread]) });
     // この相談より前の、いちばん新しい相談の時刻（「前の相談から メモ +N 件」に使う）。
     const before = opts.questionAt || '9999';
     let prevAskAt = null;
@@ -1640,7 +1652,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const lastLocalLookup = !!(lastVisible?.memoAnswer?.lookup && lastVisible.memoAnswer.status === 'ready');
   // 書き終えた答えのあと（入力欄の状態を除く）。プレースホルダー（「質問に答える…」）はこちらで決める＝カーソルを置いても変わらない。
   // チップの行を出すのは、そのうえで入力欄にカーソルも文字も無いとき（composerChrome・2026-10-08）。
-  const chrome = composerChrome({ focused: inputFocused && touchUi, text: input });
+  const chrome = composerChrome({ focused: inputFocused && touchUi && nativeKb !== false, text: input });
   const answerReady = !busy && !outOfTokens && !freeUsedUp
     && visibleMessages.length >= 2 && visibleMessages[visibleMessages.length - 2]?.role === 'user'
     && lastVisible?.role === 'assistant' && !lastVisible.streaming && !lastVisible.error && !lastVisible.notice && (!lastVisible.memoAnswer || lastLocalLookup) && !isNoInfoAnswer(lastVisible);
@@ -1665,6 +1677,12 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // 問いに答えている間（返事の候補がある）は出さない＝チップは「候補＋行動を決める」だけ（2026-09-30 ui-critic）。
   // 途中で止めた答え（「— ここで中止しました」で終わる）も「もう一度答えて」（SPEC §3・角度を変えたいのではなく続きが欲しい・2026-10-04）。
   const stoppedAnswer = !!lastVisible && (lastVisible.content === STOPPED_EMPTY || /— ここで中止しました\s*$/.test(String(lastVisible.content || '')));
+  // 🏁 いまどこにいるか（2026-10-08）: 最後の答えが聞き返しなら、その下に「あと 1 つ聞いたら…」「次で…」の 1 行。
+  const askProgress = answerDone && !lastLookup && answerAsks(lastVisible.content)
+    ? askProgressText(countAsks(selectThreadTurns(visibleMessages, { max: 3, carry })))
+    : '';
+  // 🏁 行動を決めて「行動に追加」したら、会話が一区切り＝「新しい相談をはじめる」を主ボタンに（2026-10-08）。
+  const lastActionAdded = !!lastVisible && addedActionIds.includes(lastVisible.id);
   const regenLabel = !chipRowBase || isBookLookup(lastAsked) || followups.some((c) => c.kind === 'reply') ? '' : stoppedAnswer ? 'もう一度答えて' : '別の角度で答えて';
 
   // 過去の相談: 相談（user）とそれに続く答えを 1 組にして、新しい組から並べる。
@@ -2122,7 +2140,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                   question={m.role === 'assistant' ? precedingQuestion(visibleMessages, i) : ''}
                   onAskBook={askAboutBook}
                   askBusy={busy}
-                  onActionAdded={() => setOptinAfterId((cur) => cur || m.id)}
+                  onActionAdded={() => { setOptinAfterId((cur) => cur || m.id); setAddedActionIds((ids) => (ids.includes(m.id) ? ids : [...ids, m.id])); }}
                   onOpenActions={onOpenActions}
                   memoBookIds={memoBookIds}
                   onShowPartner={setPartnerSheet}
@@ -2154,7 +2172,19 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             </>
           )}
 
-          {answerRowShown && (
+          {/* 🏁 聞き返しの答えの下に、いまどこにいるかを 1 行（13/--text-2・状態色や段階のバーは使わない・2026-10-08） */}
+          {answerRowShown && askProgress && (
+            <p style={{ margin: 'var(--space-2) 0 0', marginLeft: ANSWER_COLUMN, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>
+              {withPhraseBreaks(askProgress)}
+            </p>
+          )}
+          {/* 🏁 行動に追加したら一区切り: 「新しい相談をはじめる」を主ボタンで（2026-10-08） */}
+          {answerRowShown && lastActionAdded && (
+            <button type="button" onClick={handleResolveAndClear} style={{ ...uiBtnPrimary, marginTop: 'var(--space-4)', marginLeft: ANSWER_COLUMN, width: `calc(100% - ${AVATAR_SIZE}px - var(--space-2))` }}>
+              新しい相談をはじめる
+            </button>
+          )}
+          {answerRowShown && !lastActionAdded && (
             // 答えのカード → 文字ボタンの文字まで約 20（8 ＋ 押せる範囲 44 の上の空き）。文字の左端は余白 16 に揃える。
             // メモの答えの下に「AI に答えてもらう（プラン）」が出ているときは、別のまとまりとして 24 離す（2026-10-01 ui-critic）。
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-4)', marginTop: lastIsMemoAnswer && freeMode && visibleMessages[visibleMessages.length - 1]?.id === firstMemoAnswerId ? 'var(--space-6)' : 'var(--space-2)', marginLeft: ANSWER_COLUMN }}>
