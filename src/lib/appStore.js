@@ -13,6 +13,8 @@
 // VITE_APP_STORE_URL に実 URL（.../idXXXXXXXXXX）を設定すると isAppStoreLive が
 // true になり、全導線が一斉に「入手」ボタンへ切り替わる。
 
+import { storeCampaignLink } from './storeCampaign';
+
 const PLACEHOLDER_URL = 'https://apps.apple.com/jp/app/orime';
 
 export const APP_STORE_URL = import.meta.env.VITE_APP_STORE_URL || PLACEHOLDER_URL;
@@ -20,3 +22,12 @@ export const APP_STORE_URL = import.meta.env.VITE_APP_STORE_URL || PLACEHOLDER_U
 // 実 URL が env で設定されているか（= リンクを出してよいか）。
 // プレースホルダーのままなら false — 導線側は「近日公開」等に倒すこと。
 export const isAppStoreLive = Boolean(import.meta.env.VITE_APP_STORE_URL);
+
+// 📊 App Store Connect の provider token（キャンペーンリンクの pt=）。無ければ ct を付けない（lib/storeCampaign.js）。
+export const APP_STORE_PT = String(import.meta.env.VITE_APP_STORE_PT || '').trim();
+
+// キャンペーン名（ct）付きの App Store の URL。App Store の URL がまだ無いときは ''（入れない・出さない）。
+//   ct は lib/storeCampaign.js の campaignToken / shareCampaign で作る（share_* / note_* / partner_* / web_*）。
+export function storeLinkFor(ct) {
+  return storeCampaignLink({ url: APP_STORE_URL, live: isAppStoreLive, pt: APP_STORE_PT }, ct);
+}

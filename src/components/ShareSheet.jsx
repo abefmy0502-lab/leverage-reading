@@ -60,6 +60,8 @@ import {
 } from '../lib/shareOverlay';
 import { phraseDisplayText } from '../lib/sharePhrase';
 import { shareImage, saveImage } from '../lib/shareImage';
+import { storeLinkFor } from '../lib/appStore';
+import { shareCampaign } from '../lib/storeCampaign';
 import { btnPrimary, btnPrimaryOff, btnLink } from '../styles/ui';
 
 const FORMAT_OPTIONS = [
@@ -591,9 +593,12 @@ export default function ShareSheet({
     try {
       // 共有の文は、画像に入れたものと同じ。await を挟まずに共有シートを開く。
       // 隠した項目（書名など）は文にも入れない。
+      // 📊 リンクは、App Store の URL があればキャンペーン名（ct=share_<重ね方>）付きの App Store（どの共有から入手されたかを
+      //   数える・lib/storeCampaign.js）。無い間は今までどおり紹介ページ。画像そのものには URL を入れない（ロゴだけ）。
+      const link = storeLinkFor(shareCampaign({ variant, month: isMonth })) || SITE_URL;
       const text = variant !== 'quote'
-        ? buildRecordShareText({ record: applyShareItems(record, hidden), quote: card.line, siteUrl: SITE_URL })
-        : buildShareText({ title: shareVisibility(hidden).title ? lineBook?.title : '', line: card.line, siteUrl: SITE_URL });
+        ? buildRecordShareText({ record: applyShareItems(record, hidden), quote: card.line, siteUrl: link })
+        : buildShareText({ title: shareVisibility(hidden).title ? lineBook?.title : '', line: card.line, siteUrl: link });
       const result = await shareImage({ blob: card.blob, filename, text });
       if (result !== 'cancelled') track(EVENTS.SHARE_CARD, trackProps(result));
       if (result === 'saved') toast.info('この端末では共有できないため、画像を保存しました。');
