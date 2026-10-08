@@ -3,179 +3,187 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Orime — App Store プレビュー作成ツール</title>
-<!-- 画面を PNG 保存するためのライブラリ（ネット接続が必要） -->
+<title>Orime ストア画像</title>
+<!-- 手で PNG 保存するときだけ使う（node scripts/appstore-shots.mjs で書き出すときは読み込まない） -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
   /* ====== Orime ブランド（tokens.css と同系統の暖色） ====== */
   :root{
-    --cream:#faf7f2; --cream2:#f2ece1; --soft:#f0ebe2;
-    --ink:#3d362c; --ink2:#5a4f3e; --brand:#5c5043; --hair:#e6ddcf;
-    --accent:#8a7040;
-    --w:1320px;  /* 6.9インチ App Store 幅（iPhone 16/15 Pro Max・Apple必須サイズ） */
-    --h:2868px;  /* 6.9インチ 高さ */
-    --scale:0.30; /* 画面プレビューの縮小率（保存時は自動で原寸に戻る） */
-    --serif:"Noto Serif JP","Hiragino Mincho ProN",serif;
-    --sans:-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;
+    --ink:#3d362c; --ink2:#5a4f3e; --brand:#8b4a2b; --accent:#8a7040;
+    --w:1320px; --h:2868px;   /* 6.9 インチ。?size=65 で 1284×2778 */
+    --k:1;                    /* 6.5 インチは 1284/1320 で中身を縮める */
+    --scale:0.30;             /* 一覧の縮小率（書き出しは ?render=1 で 1） */
+    --serif:"Noto Serif JP","Hiragino Mincho ProN","IPAMincho",serif;
+    --sans:"Noto Sans JP",-apple-system,"Hiragino Sans",sans-serif;
   }
   *{box-sizing:border-box;}
   body{margin:0;background:#2a2520;color:#fff;font-family:var(--sans);padding:24px;}
+  body.render{padding:0;background:#fff;}
+  body.render .ui{display:none;}
   h1{font-size:18px;font-weight:700;margin:0 0 4px;}
-  .lead{font-size:13px;color:#cdbfa8;margin:0 0 20px;line-height:1.7;max-width:720px;}
+  h3{font-size:15px;margin:28px 0 10px;color:#e8dcc6;}
+  .lead{font-size:13px;color:#cdbfa8;margin:0 0 20px;line-height:1.7;max-width:760px;}
   .lead code{background:#000;padding:1px 6px;border-radius:5px;}
   .grid{display:flex;flex-wrap:wrap;gap:28px;}
+  body.render .grid{display:block;}
   .card{display:flex;flex-direction:column;gap:10px;}
-  .toolbar{display:flex;gap:8px;align-items:center;}
   .save{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;}
-  .save:active{opacity:.8;}
-  .frame-wrap{
-    width:calc(var(--w) * var(--scale));
-    height:calc(var(--h) * var(--scale));
-    overflow:hidden;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.4);
-    background:#fff;
-  }
+  .frame-wrap{width:calc(var(--w) * var(--scale));height:calc(var(--h) * var(--scale));overflow:hidden;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.4);}
+  body.render .frame-wrap{width:auto;height:auto;border-radius:0;box-shadow:none;}
 
-  /* ====== 1枚 = App Store 原寸 1320×2868 ====== */
-  .frame{
-    width:var(--w);height:var(--h);
-    transform:scale(var(--scale));transform-origin:top left;
-    position:relative;overflow:hidden;
-    display:flex;flex-direction:column;align-items:center;
-  }
+  /* ====== 1 枚＝App Store の原寸 ====== */
+  .frame{width:var(--w);height:var(--h);transform:scale(var(--scale));transform-origin:top left;position:relative;overflow:hidden;}
+  body.render .frame{transform:none;}
+  .stage{width:1320px;height:2868px;transform:scale(var(--k));transform-origin:top left;position:relative;display:flex;flex-direction:column;align-items:center;}
   .frame.bg-a{background:linear-gradient(180deg,#faf7f2 0%,#f1e9da 100%);}
   .frame.bg-b{background:linear-gradient(180deg,#efe7d8 0%,#e3d6bf 100%);}
   .frame.bg-c{background:linear-gradient(180deg,#f3eee4 0%,#e8ddc9 100%);}
 
-  .cap{padding:150px 110px 0;text-align:center;width:100%;}
-  .eyebrow{font-family:var(--sans);font-size:38px;font-weight:700;letter-spacing:.12em;color:var(--accent);margin:0 0 22px;}
-  .headline{
-    font-family:var(--serif);font-weight:700;color:var(--ink);
-    font-size:104px;line-height:1.34;margin:0;letter-spacing:.01em;
-    outline:none;
-  }
+  .cap{padding:150px 100px 0;text-align:center;width:100%;}
+  .eyebrow{font-family:var(--sans);font-size:36px;font-weight:700;letter-spacing:.12em;color:var(--accent);margin:0 0 26px;}
+  .headline{font-family:var(--serif);font-weight:700;color:var(--ink);font-size:88px;line-height:1.4;margin:0;letter-spacing:.01em;outline:none;}
   .headline .em{color:var(--brand);}
-  .sub{font-family:var(--sans);font-size:42px;color:var(--ink2);line-height:1.6;margin:28px 0 0;outline:none;}
+  .sub{font-family:var(--sans);font-size:42px;color:var(--ink2);line-height:1.6;margin:30px 0 0;outline:none;}
 
-  /* 端末フレーム */
-  .device{
-    position:absolute;left:50%;transform:translateX(-50%);
-    bottom:-40px;width:980px;
-    background:#1d1813;border-radius:96px;padding:20px;
-    box-shadow:0 60px 110px rgba(60,48,30,.30);
-  }
-  .screen{position:relative;border-radius:78px;overflow:hidden;background:#faf7f2;}
+  /* 端末の枠（画面＝上 54pt の時計の行＋お試しモードで撮った 440×902pt） */
+  .device{position:absolute;left:50%;transform:translateX(-50%);bottom:-40px;width:980px;background:#1d1813;border-radius:96px;padding:20px;box-shadow:0 60px 110px rgba(60,48,30,.30);}
+  .screen{position:relative;border-radius:78px;overflow:hidden;background:#f6f4f0;}
   .shot{display:block;width:100%;height:auto;}
-  .shot-empty{
-    width:100%;aspect-ratio:1179/2556;background:
-      repeating-linear-gradient(45deg,#efe7d8,#efe7d8 24px,#e6dcc9 24px,#e6dcc9 48px);
-    display:flex;align-items:center;justify-content:center;color:#8a7c5f;
-    font-family:var(--sans);font-size:40px;text-align:center;line-height:1.6;padding:40px;
-  }
-  /* クリーンなステータスバー（実機の時刻/電池を隠して 9:41 に） */
-  .statusbar{
-    position:absolute;top:0;left:0;right:0;height:118px;
-    display:flex;align-items:center;justify-content:space-between;
-    padding:0 70px;font-family:var(--sans);color:var(--ink);
-    background:#faf7f2; /* アプリ上部のクリーム色に馴染ませる */
-  }
-  .statusbar .time{font-size:46px;font-weight:700;}
-  .statusbar .right{display:flex;align-items:center;gap:14px;font-size:40px;}
-  .sb-bat{width:64px;height:32px;border:3px solid var(--ink);border-radius:8px;position:relative;}
-  .sb-bat::after{content:"";position:absolute;right:-9px;top:9px;width:5px;height:14px;background:var(--ink);border-radius:2px;}
-  .sb-bat span{position:absolute;inset:3px;right:14px;background:var(--ink);border-radius:3px;}
+  .shot-empty{width:100%;aspect-ratio:440/902;background:repeating-linear-gradient(45deg,#efe7d8,#efe7d8 24px,#e6dcc9 24px,#e6dcc9 48px);display:flex;align-items:center;justify-content:center;color:#8a7c5f;font-family:var(--sans);font-size:40px;text-align:center;line-height:1.6;padding:40px;}
+  .statusbar{height:115px;display:flex;align-items:center;justify-content:space-between;padding:12px 76px 0 92px;font-family:var(--sans);color:#1d1813;}
+  .statusbar .time{font-size:44px;font-weight:700;letter-spacing:.01em;}
+  .statusbar .right{display:flex;align-items:center;gap:16px;}
+  .sb-bars{display:flex;align-items:flex-end;gap:5px;height:30px;}
+  .sb-bars i{display:block;width:8px;background:#1d1813;border-radius:2px;}
+  .sb-bat{width:62px;height:30px;border:3px solid #1d1813;border-radius:9px;position:relative;opacity:.95;}
+  .sb-bat::after{content:"";position:absolute;right:-9px;top:8px;width:5px;height:10px;background:#1d1813;border-radius:2px;}
+  .sb-bat span{position:absolute;inset:3px;background:#1d1813;border-radius:4px;}
 </style>
 </head>
 <body>
-  <h1>📱 Orime — App Store プレビュー作成ツール</h1>
-  <p class="lead">
-    ① iPhone でアプリの画面を6枚スクショ → このフォルダに <code>shot1.png</code> 〜 <code>shot6.png</code> の名前で置く。<br>
-    ② キャッチコピーは<strong>直接クリックして書き換え可能</strong>（自由に編集してOK）。<br>
-    ③ 各カードの「📥 PNG保存」を押すと、App Store 用の <strong>1320×2868</strong> 画像が保存されます。<br>
-    ※ ファイルを直接開くと保存ボタンが動かないことがあります。その場合は下の README の手順でローカルサーバー経由で開いてください。
-  </p>
-
+  <div class="ui">
+    <h1>Orime — App Store の画像</h1>
+    <p class="lead">
+      ふつうは <code>node scripts/appstore-shots.mjs</code> で、お試しモードの画面を撮ってから 6.9 インチと 6.5 インチの PNG を書き出す（<code>company/launch-2026-11/README.md</code>）。<br>
+      このページを手で開くときは <code>?shots=撮った画面のフォルダ/</code>（既定は <code>../../ui-shots/appstore-raw/</code>）・<code>?set=base|cpp-import|cpp-photo|cpp-ask|all</code>・<code>?size=69|65</code>。見出しはクリックで書き換えられる（「PNG 保存」は html2canvas が読めるときだけ動く）。
+    </p>
+  </div>
   <div class="grid" id="grid"></div>
 
 <script>
-  // ====== ここを編集すると各スライドの中身が変わります ======
-  // 順序・コピーの正典は company/aso-store-listing.md §8（1枚目=相談が差別化の核）。
-  // shotN.png との対応: 1=相談の答え 2=相談タブの件数の行と育つまでの一行 3=行動（会話で決める→振り返り›行動）
-  //   4=メモを書く（写真から書き起こす） 5=写真で共有 6=ほかのアプリから取り込む
-  // 2026-10-04 改訂: いまの主役（相談・行動・取り込み・写真で共有）に合わせた。2 枚目は削除済みのホームの相談カードから
-  //   相談タブへ、5 枚目の「凝縮」は写真で共有へ、6 枚目の AI 選書＋料金は取り込みへ。価格はスクショに入れない
-  //   （創業メンバー価格の期間は年額に 7 日間無料が付かず誤解を招く・審査 2.3.7）。効果の言い切り（「忘れない」など）も入れない。
-  const SLIDES = [
-    { bg:'bg-c', shot:'shot1.png', eyebrow:'ASK YOUR BOOKS',
-      head:'困ったとき、<br><span class="em">読んだ本たちが答えてくれる。</span>', sub:'あなたの読書メモから、本とページを添えて。' },
-    { bg:'bg-a', shot:'shot2.png', eyebrow:'YOUR OWN ADVISOR',
-      head:'読むほど、<br><span class="em">自分だけの相談相手が育つ。</span>', sub:'読書メモが増えるほど、答えがあなたに近づく。' },
-    { bg:'bg-b', shot:'shot3.png', eyebrow:'INTO ACTION',
-      head:'話しながら、<br><span class="em">明日の一歩を一つ。</span>', sub:'決めた行動は、期限と完了まで見届ける。' },
-    { bg:'bg-c', shot:'shot4.png', eyebrow:'JUST ONE LINE',
-      head:'心が動いた一行を、<br><span class="em">残すだけ。</span>', sub:'紙の本は、ページを撮れば書き起こせる。' },
-    { bg:'bg-b', shot:'shot5.png', eyebrow:'SHARE A PHOTO',
-      head:'読んだ本を、<br><span class="em">写真で共有。</span>', sub:'心に残った一文を、1 枚に重ねて。' },
-    { bg:'bg-a', shot:'shot6.png', eyebrow:'BRING YOUR NOTES',
-      head:'これまでの読書ノートも、<br><span class="em">今日から材料に。</span>', sub:'無料プラン（ずっと無料）で始められます。' },
-  ];
+  // ====== 中身（並びと文言の正典は company/aso-store-listing.md §8・2026-10-08） ======
+  // 決まり: 価格を入れない／効果を言い切らない（「忘れない」「必ず」）／ほかの会社のアプリ名・サービス名を見出しに焼き込まない
+  //   （ブクログ・読書メーター・Kindle は取り込みの画面に実際に写る分だけ。ChatGPT とは書かない＝比べる相手は「一般論」）／
+  //   実在の著者が話し手に見える画面を使わない（相談の画面は「2 冊の本と自分の学び」）。
+  // shot は ui-shots/appstore-raw/<名前>.png（scripts/appstore-shots.mjs の SHOTS と同じ名前）。
+  const SETS = {
+    // 基本の 6 枚: 相談 → 根拠 → 行動 → 取り込み → 撮る → 写真で共有
+    base: [
+      { out:'base-1-consult', bg:'bg-c', shot:'answer', eyebrow:'ASK YOUR BOOKS',
+        head:'読んだ本が、<br><span class="em">あなたの相談相手になる。</span>', sub:'困ったことを書くと、あなたの読書メモから答えます。' },
+      { out:'base-2-evidence', bg:'bg-a', shot:'sources', eyebrow:'FROM YOUR NOTES',
+        head:'答えの根拠は、<br><span class="em">あなたが残した一行。</span>', sub:'要約ではなく、あなたの読書メモから。本とページつき。' },
+      { out:'base-3-action', bg:'bg-b', shot:'action', eyebrow:'INTO ACTION',
+        head:'話しながら、<br><span class="em">明日の一歩を一つ。</span>', sub:'決めた行動は、期限と完了まで見届ける。' },
+      { out:'base-4-import', bg:'bg-c', shot:'import', eyebrow:'BRING YOUR RECORDS',
+        head:'これまでの読書記録も、<br><span class="em">今日から相談の材料に。</span>', sub:'ほかの読書アプリの書き出しファイルを選ぶだけ。' },
+      { out:'base-5-photo', bg:'bg-a', shot:'ocr-done', eyebrow:'SNAP A PAGE',
+        head:'紙の本は、<br><span class="em">ページを撮るだけ。</span>', sub:'写真から書き起こして、読書メモに。' },
+      { out:'base-6-share', bg:'bg-b', shot:'share', eyebrow:'SHARE A PHOTO',
+        head:'読んだ本を、<br><span class="em">写真で共有。</span>', sub:'心に残った一文を、1 枚に重ねて。' },
+    ],
+    // カスタムプロダクトページ①: ほかの読書アプリから乗り換える人
+    'cpp-import': [
+      { out:'cpp-import-1', bg:'bg-c', shot:'import-pick', eyebrow:'BRING YOUR RECORDS',
+        head:'今までの読書記録を、<br><span class="em">そのまま持ってくる。</span>', sub:'ほかの読書アプリの書き出しファイルを選ぶだけ。' },
+      { out:'cpp-import-2', bg:'bg-a', shot:'import', eyebrow:'REVIEWS & NOTES',
+        head:'感想もメモも、<br><span class="em">まとめて取り込む。</span>', sub:'ファイルは端末の中で読み取ります。' },
+      { out:'cpp-import-3', bg:'bg-b', shot:'answer', eyebrow:'ASK YOUR BOOKS',
+        head:'眠っていた記録が、<br><span class="em">今日から相談相手に。</span>', sub:'困ったことを書くと、取り込んだメモからも答えます。' },
+    ],
+    // カスタムプロダクトページ②: 紙の本を読む人
+    'cpp-photo': [
+      { out:'cpp-photo-1', bg:'bg-a', shot:'ocr', eyebrow:'FOR PAPER BOOKS',
+        head:'付箋の代わりに、<br><span class="em">ページを撮る。</span>', sub:'写真から書き起こして、読書メモに。' },
+      { out:'cpp-photo-2', bg:'bg-c', shot:'ocr-done', eyebrow:'NO RETYPING',
+        head:'撮ったページを、<br><span class="em">文字のメモに。</span>', sub:'直してから保存できます。ページ番号も一緒に。' },
+      { out:'cpp-photo-3', bg:'bg-b', shot:'sources', eyebrow:'PAGE BY PAGE',
+        head:'あのページが、<br><span class="em">相談の根拠になる。</span>', sub:'答えには、本とページが付きます。' },
+    ],
+    // カスタムプロダクトページ③: 一般論の AI ではなく、自分のメモに聞きたい人
+    'cpp-ask': [
+      { out:'cpp-ask-1', bg:'bg-c', shot:'consult-start', eyebrow:'NOT GENERAL ADVICE',
+        head:'一般論ではなく、<br><span class="em">あなたのメモに聞く。</span>', sub:'メモを貼り付けなくていい。読んだ本から答えます。' },
+      { out:'cpp-ask-2', bg:'bg-a', shot:'answer', eyebrow:'ASK YOUR BOOKS',
+        head:'答えるのは、<br><span class="em">あなたが読んだ本たち。</span>', sub:'状況を聞き返してから、一歩ずつ深く。' },
+      { out:'cpp-ask-3', bg:'bg-b', shot:'sources', eyebrow:'FROM YOUR NOTES',
+        head:'根拠の本とページが、<br><span class="em">いつも見える。</span>', sub:'関係するメモが無いときは、無いと答えます。' },
+    ],
+  };
+  const TITLES = { base:'基本の 6 枚', 'cpp-import':'カスタムプロダクトページ① 乗り換え', 'cpp-photo':'カスタムプロダクトページ② 紙の本を撮る', 'cpp-ask':'カスタムプロダクトページ③ 自分のメモに聞く' };
+
+  const qs = new URLSearchParams(location.search);
+  const render = qs.get('render') === '1';
+  const setKey = qs.get('set') || 'all';
+  const size = qs.get('size') === '65' ? { w:1284, h:2778 } : { w:1320, h:2868 };
+  const shotsDir = qs.get('shots') || '../../ui-shots/appstore-raw/';
+  const bars = window.__BARS || {};
+  const root = document.documentElement.style;
+  root.setProperty('--w', size.w + 'px');
+  root.setProperty('--h', size.h + 'px');
+  root.setProperty('--k', String(size.w / 1320));
+  if (render) { document.body.classList.add('render'); root.setProperty('--scale', '1'); }
 
   const grid = document.getElementById('grid');
-  SLIDES.forEach((s, i) => {
-    const card = document.createElement('div');
-    card.className = 'card';
-    card.innerHTML = `
-      <div class="toolbar">
-        <button class="save" data-i="${i}">📥 PNG保存（slide ${i+1}）</button>
-      </div>
-      <div class="frame-wrap">
-        <div class="frame ${s.bg}" id="frame-${i}">
-          <div class="cap">
-            <p class="eyebrow" contenteditable="true">${s.eyebrow}</p>
-            <h2 class="headline" contenteditable="true">${s.head}</h2>
-            <p class="sub" contenteditable="true">${s.sub}</p>
-          </div>
-          <div class="device">
-            <div class="screen">
-              <img class="shot" src="${s.shot}" alt=""
-                   onerror="this.outerHTML='<div class=&quot;shot-empty&quot;>ここに ${s.shot} が入ります<br>（同じフォルダに置いてください）</div>'">
-              <div class="statusbar">
-                <span class="time">9:41</span>
-                <span class="right">
-                  <span>●●●</span>
-                  <span>📶</span>
-                  <span class="sb-bat"><span></span></span>
-                </span>
+  const keys = setKey === 'all' ? Object.keys(SETS) : [setKey];
+  keys.forEach((key) => {
+    if (!render) { const h = document.createElement('h3'); h.textContent = TITLES[key]; grid.appendChild(h); }
+    const row = document.createElement('div'); row.className = render ? '' : 'grid'; grid.appendChild(row);
+    SETS[key].forEach((s) => {
+      const card = document.createElement('div');
+      card.className = 'card';
+      const src = `${shotsDir}${s.shot}.png`;
+      card.innerHTML = `
+        <div class="ui"><button class="save">PNG 保存（${s.out}）</button></div>
+        <div class="frame-wrap">
+          <div class="frame ${s.bg}" data-out="${s.out}">
+            <div class="stage">
+              <div class="cap">
+                <p class="eyebrow" contenteditable="true">${s.eyebrow}</p>
+                <h2 class="headline" contenteditable="true">${s.head}</h2>
+                <p class="sub" contenteditable="true">${s.sub}</p>
+              </div>
+              <div class="device">
+                <div class="screen">
+                  <div class="statusbar" style="background:${bars[s.shot] || '#f6f4f0'}">
+                    <span class="time">9:41</span>
+                    <span class="right">
+                      <span class="sb-bars"><i style="height:10px"></i><i style="height:16px"></i><i style="height:22px"></i><i style="height:30px"></i></span>
+                      <span class="sb-bat"><span></span></span>
+                    </span>
+                  </div>
+                  <img class="shot" src="${src}" alt=""
+                       onerror="this.outerHTML='<div class=&quot;shot-empty&quot;>${s.shot}.png がありません</div>'">
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </div>`;
-    grid.appendChild(card);
-  });
-
-  // 保存：プレビュー用の縮小を一旦解除して原寸(1320×2868)でキャプチャ
-  document.querySelectorAll('.save').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const i = btn.dataset.i;
-      const frame = document.getElementById('frame-' + i);
-      const prev = frame.style.transform;
-      frame.style.transform = 'none';
-      btn.textContent = '保存中…';
-      try {
-        const canvas = await html2canvas(frame, {
-          width: 1320, height: 2868, windowWidth: 1320, windowHeight: 2868,
-          scale: 1, useCORS: true, backgroundColor: null,
-        });
-        const a = document.createElement('a');
-        a.download = `orime-appstore-${Number(i) + 1}.png`;
-        a.href = canvas.toDataURL('image/png');
-        a.click();
-      } catch (e) {
-        alert('保存に失敗しました。README の「ローカルサーバーで開く」手順を試してください。\n' + (e?.message || e));
-      } finally {
-        frame.style.transform = prev;
-        btn.textContent = `📥 PNG保存（slide ${Number(i) + 1}）`;
-      }
+        </div>`;
+      row.appendChild(card);
+      card.querySelector('.save').addEventListener('click', async (e) => {
+        const frame = card.querySelector('.frame');
+        if (!window.html2canvas) { alert('html2canvas を読めませんでした。node scripts/appstore-shots.mjs compose で書き出してください。'); return; }
+        frame.style.transform = 'none';
+        try {
+          const canvas = await html2canvas(frame, { width:size.w, height:size.h, scale:1, useCORS:true, backgroundColor:null });
+          const a = document.createElement('a');
+          a.download = `${s.out}-${size.w}x${size.h}.png`;
+          a.href = canvas.toDataURL('image/png');
+          a.click();
+        } catch (err) {
+          alert('保存に失敗しました。ローカルサーバー経由で開くか、node scripts/appstore-shots.mjs compose を使ってください。\n' + (err?.message || err));
+        } finally { frame.style.transform = ''; }
+      });
     });
   });
 </script>
