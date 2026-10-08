@@ -3,11 +3,11 @@
 
 import { describe, it, expect } from 'vitest';
 import {
-  clampLine, segmentPhrases, wrapBalanced, wrapCost, hasOrphan, fitQuote, orderLineCandidates,
+  clampLine, segmentPhrases, wrapBalanced, wrapCost, hasOrphan, fitQuote, orderLineCandidates, softBreaks,
   buildShareText, shareFilename, coverTone, contrastRatio, photoPlacement, panView, zoomView,
   scrimAlpha, brightLuminance, coverProxyPath, seedFrom, mulberry32, underlineStroke, tabPosition, FORMATS,
   darkLuminance, logoInkOnPhoto, coverWashAlpha, relativeLuminance, blockScrimStops,
-  blockVeilStops, photoInkForBand, veiledLuminance, PHOTO_VEIL_MAX,
+  blockVeilStops, photoInkForBand, veiledLuminance, PHOTO_VEIL_MAX, PHOTO_VEIL_BUSY_MAX, PHOTO_TEXTURE_LOUD, textureVeil, bandTexture,
 } from './shareCardLayout.js';
 import { mainTitle } from './shareOverlay.js';
 
@@ -75,6 +75,28 @@ describe('wrapBalanced', () => {
   });
 });
 
+describe('長い名前は「・」・文字の種類の切れ目で折り返す（語の途中で割らない・2026-10-08 第 4 回）', () => {
+  const name = 'ハンス・ロスリング・オーラ・ロスリング・アンナ・ロスリング・ロンランド';
+  it('記録の幅（888・著者 34 の字間 0.04）で、どの行も「・」の後ろで切れる', () => {
+    const per = 34 * 1.04;
+    const lines = wrapBalanced(name, 888, (s) => Array.from(s).length * per);
+    expect(lines.length).toBe(2);
+    expect(lines.join('')).toBe(name);
+    lines.slice(0, -1).forEach((l) => expect(l.endsWith('・'), l).toBe(true));
+  });
+  it('一文の本の行の幅（狭い）でも語の途中で割らない', () => {
+    const lines = wrapBalanced(name, 560, (s) => Array.from(s).length * 31 * 1.04);
+    lines.slice(0, -1).forEach((l) => expect(l.endsWith('・'), l).toBe(true));
+  });
+  it('カタカナ↔漢字の切れ目でも切れる・切れ目が無いときだけ文字で', () => {
+    const l1 = wrapBalanced('アウトプット大全実践ワークブック', 7 * 10, (s) => Array.from(s).length * 10);
+    expect(l1[0]).toBe('アウトプット');
+    expect(softBreaks('アアアアアア')).toEqual(new Set());
+    const l2 = wrapBalanced('アアアアアアアアアア', 50, (s) => Array.from(s).length * 10);
+    expect(l2.join('')).toBe('アアアアアアアアアア');
+  });
+});
+
 describe('fitQuote', () => {
   it('枠に収まるいちばん大きな大きさを選ぶ', () => {
     const r = fitQuote('読むほど、自分だけの相談相手が育つ。', {
@@ -82,6 +104,23 @@ describe('fitQuote', () => {
     });
     expect(r.lines.length * r.lineHeight).toBeLessThanOrEqual(200);
     expect(r.size).toBe(40);
+  });
+  it('文節を語の途中で切るより、70% までなら小さくして文節の切れ目で改行する（「はできな／い。」にしない）', () => {
+    const t = '「全部やる」はできない。やらないことを決めることが、いちばん大事な仕事。';
+    const sizes = [96, 92, 88, 84, 80, 76, 72, 68];
+    const r = fitQuote(t, { maxWidth: 860, maxHeight: 1200, sizes, lineHeight: 1.45, measureAt: (size) => mono(size) });
+    const phrases = segmentPhrases(t);
+    // どの行の終わりも文節の終わり＝文節の途中で割れていない
+    let joined = '';
+    const ends = new Set(phrases.map((p) => { joined += p; return joined.trimEnd().length; }));
+    let acc = '';
+    r.lines.slice(0, -1).forEach((l) => { acc += l; expect(ends.has(acc.trimEnd().length), `「${l}」で文節が割れた`).toBe(true); });
+    expect(r.size).toBeGreaterThanOrEqual(96 * 0.7);
+    expect(r.size).toBeLessThan(96);
+  });
+  it('70% より小さくしないと収まらない長い語は、語の途中で切ってでも大きさを保つ', () => {
+    const r = fitQuote('あ'.repeat(30), { maxWidth: 400, maxHeight: 2000, sizes: [40, 36, 32, 28, 24, 20, 16, 12], lineHeight: 1.5, measureAt: (size) => mono(size) });
+    expect(r.size).toBeGreaterThanOrEqual(28);
   });
   it('どれも収まらなければいちばん小さい大きさ', () => {
     const r = fitQuote('あ'.repeat(120), { maxWidth: 100, maxHeight: 10, sizes: [40, 20], lineHeight: 1.5, measureAt: (size) => mono(size) });
@@ -189,10 +228,25 @@ describe('写真の上の幕はまとまりの周りだけ（2026-10-05 第 2 �
     expect(s[4][1]).toBeCloseTo(0.68);
     expect(s[5]).toEqual([H, s[4][1]]); // 投稿はロゴの下で明るく戻さない
   });
-  it('白い幕の帯（明るい写真）: 上は fade で 0 → veil → 下端の後 f/2 で 0・上限 0.6', () => {
+  it('白い幕の帯（明るい写真）: 上は fade で 0 → veil → 下端の後 f/2 で 0・上限 0.78（模様のある写真で足したとき）', () => {
     const v = blockVeilStops({ top: 700, bottom: 1100, H: 1350, veil: 0.9, fade: 100 });
-    expect(v[1]).toEqual([700, PHOTO_VEIL_MAX]);
+    expect(v[1]).toEqual([700, PHOTO_VEIL_BUSY_MAX]);
     expect(v[3]).toEqual([1100 + 135, 0]);
+  });
+  it('模様のある明るい写真は白い幕を足す・強すぎる模様は白い文字＋黒い幕（第 4 回）', () => {
+    const calm = photoInkForBand({ bright: 0.9, dark: 0.7, texture: 0 });
+    expect(calm).toMatchObject({ ink: 'dark', veil: 0 });
+    const busy = photoInkForBand({ bright: 0.9, dark: 0.7, texture: 0.06 });
+    expect(busy.ink).toBe('dark');
+    expect(busy.veil).toBeGreaterThanOrEqual(0.7);
+    expect(busy.veil).toBeLessThanOrEqual(PHOTO_VEIL_BUSY_MAX);
+    expect(photoInkForBand({ bright: 0.9, dark: 0.7, texture: PHOTO_TEXTURE_LOUD + 0.01 }).ink).toBe('light');
+    expect(textureVeil(0.005)).toBe(0);
+    // 模様の強さ: 平らな帯は 0・縞の帯は大きい
+    const flat = Array.from({ length: 20 }, () => [230, 230, 230]);
+    expect(bandTexture(flat, 5)).toBe(0);
+    const stripes = Array.from({ length: 20 }, (_, i) => (Math.floor(i / 5) % 2 ? [120, 120, 120] : [235, 235, 235]));
+    expect(bandTexture(stripes, 5)).toBeGreaterThan(0.1);
   });
 });
 

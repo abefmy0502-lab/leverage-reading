@@ -317,8 +317,8 @@ describe('数字の重ね方', () => {
   it('数字は 3 つとも同じ大きさ（列ごとに縮めない）', () => {
     const canvas = fakeCanvas();
     drawShareCard(canvas, opts({ layout: 'stats', style: 'paper', format: 'story' }));
-    const bigs = canvas.calls.filter((c) => c.op === 'fillText' && /^700 /.test(c.font) && /^[0-9]/.test(c.args[0]));
-    // 「10月5日」は 10 と 5 の 2 つに分けて描く（単位は小さく）
+    const bigs = canvas.calls.filter((c) => c.op === 'fillText' && /^600 /.test(c.font) && /^[0-9]/.test(c.args[0]));
+    // 数字は 600（2026-10-08）
     expect(bigs.length).toBeGreaterThanOrEqual(RECORD.stats.length);
     const sizes = new Set(bigs.map((c) => c.font));
     expect(sizes.size).toBe(1);
@@ -328,7 +328,7 @@ describe('数字の重ね方', () => {
       const canvas = fakeCanvas();
       drawShareCard(canvas, opts({ layout, style: 'paper', record: { ...RECORD, stats: [{ key: 'memos', label: 'メモ', value: '1件' }] } }));
       const texts = canvas.calls.filter((c) => c.op === 'fillText');
-      const i = texts.findIndex((c) => c.args[0] === '1' && /^700 /.test(c.font));
+      const i = texts.findIndex((c) => c.args[0] === '1' && /^600 /.test(c.font));
       const big = texts[i];
       const unit = texts[i + 1];
       expect(unit.args[0]).toBe('件');
@@ -340,6 +340,33 @@ describe('数字の重ね方', () => {
   it('一文は入れない（共有の文にも入れない）', () => {
     const r = drawShareCard(fakeCanvas(), opts({ layout: 'stats', style: 'photo' }));
     expect(r.line).toBe('');
+  });
+});
+
+describe('編集デザイン（2026-10-08 オーナー「おしゃれな感じの写真が出せるように」）', () => {
+  // 橙の飾り（傍線・付箋・見出しの点）をやめた: 描いた形にも文字にも橙を使わない（ロゴは画像なので別）。
+  it('どの重ね方・地でも、橙の飾りを描かない', () => {
+    const accent = /#df8e17|223,\s*142,\s*23/i;
+    for (const layout of ['record', 'stats', 'quote']) {
+      for (const style of ['photo', 'paper', 'night', 'cover', 'sticker']) {
+        for (const format of ['post', 'story']) {
+          const canvas = fakeCanvas();
+          drawShareCard(canvas, opts({ layout, style, format, kicker: '2026' }));
+          const orange = canvas.calls.filter((c) => ['fill', 'fillRect', 'fillText'].includes(c.op) && accent.test(String(c.fillStyle || '')));
+          expect(orange.map((c) => c.op), `${layout} ${style} ${format}`).toEqual([]);
+        }
+      }
+    }
+  });
+  it('複数の著者は … で切らずに「最初の著者 ほか」', () => {
+    const many = { ...BOOK, author: 'ジョナサン・ローゼンバーグ、アラン・イーグル、エリック・シュミット' };
+    for (const layout of ['record', 'stats', 'quote']) {
+      const canvas = fakeCanvas();
+      drawShareCard(canvas, opts({ layout, style: 'paper', format: 'post', record: bookRecord(many, [], new Date(2026, 9, 5)), author: many.author }));
+      const texts = canvas.calls.filter((c) => c.op === 'fillText').map((c) => String(c.args[0]));
+      expect(texts.join('|'), layout).toContain('ほか');
+      expect(texts.some((t) => t.includes('…')), layout).toBe(false);
+    }
   });
 });
 

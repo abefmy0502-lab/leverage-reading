@@ -35,9 +35,9 @@ LP だけでなく、**共有の画像・note・発信者・Web のアプリ**�
 | 入口 | キャンペーン名 | どこで付く | 備考 |
 |---|---|---|---|
 | LP のボタン | `lp_<場所>_<3d\|photo>` | 自動（`lpTrack.js` の `storeUrlFor`） | 上の一覧 |
-| 写真で共有（記録） | `share_record` / 今月は `share_month_record` | 自動（共有シートに添える文の URL・`ShareSheet.jsx`） | 画像そのものには URL を入れない（ロゴだけ）。App Store の URL が無い間は紹介ページの URL のまま |
-| 写真で共有（数字） | `share_stats` / `share_month_stats` | 同上 | |
-| 写真で共有（一文） | `share_quote` / `share_month_quote` | 同上 | |
+| 写真で共有（記録） | `share_record` / 今月は `share_month_record`・今年（12 月）は `share_year_record` | 自動（共有シートに添える文の URL・`ShareSheet.jsx`） | 画像そのものには URL を入れない（ロゴだけ）。App Store の URL が無い間は紹介ページの URL のまま |
+| 写真で共有（数字） | `share_stats` / `share_month_stats` / `share_year_stats` | 同上 | |
+| 写真で共有（一文） | `share_quote` / `share_month_quote` / `share_year_quote` | 同上 | |
 | Web のアプリの有料プランの画面 | `web_paywall` | 自動（`Paywall.jsx`） | Web は紹介と入手の案内だけ |
 | Web のアプリの「アプリでご利用ください」 | `web_gate` | 自動（`App.jsx`） | |
 | note の記事 | `note_<記事>`（例 `note_launch`・`note_why_orime`） | 手で作る（下） | 記事ごとに 1 つ |
