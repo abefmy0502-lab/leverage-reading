@@ -456,7 +456,8 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
   const [search, setSearch] = useState(() => (freshPreset ? String(freshPreset.query || '') : resumedReview?.search || ''));
   // 絞り込み・結果の描画は一歩遅れの値で（打っている間は入力欄を先に描き、結果はあとから・CPU が遅い端末でも文字が詰まらない・2026-09-30）。
   const deferredSearch = useDeferredValue(search);
-  const [tagFilter, setTagFilter] = useState(() => (freshPreset ? '' : resumedReview?.tagFilter || ''));
+  // 視点の地図（記録）からタグを押して開いたときは、そのタグで絞った一覧から（{ query: '', tag }・2026-10-08）。
+  const [tagFilter, setTagFilter] = useState(() => (freshPreset ? String(freshPreset.tag || '') : resumedReview?.tagFilter || ''));
   // 想起カードから「→行動にする」したメモ id（直後のボタン表示を ✓ に切替）。
   const [actionAddedId, setActionAddedId] = useState(null);
   const [addingAction, setAddingAction] = useState(false);
@@ -974,7 +975,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
     if (!searchPreset?.nonce || searchPreset.nonce === appliedSearchNonce) return;
     appliedSearchNonce = searchPreset.nonce;
     setSearch(String(searchPreset.query || ''));
-    setTagFilter('');
+    setTagFilter(String(searchPreset.tag || ''));
     setKindFilter('all');
     setSearchActive(true);
   }, [searchPreset?.nonce]); // eslint-disable-line react-hooks/exhaustive-deps

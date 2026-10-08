@@ -27,6 +27,8 @@
 //     付けなければ、いまの版を見たことにする（ほかの撮影にシートを重ねない）。新規の人のシナリオは付けても無視
 //   - &update=1 : 「アプリの新しい版があります」を出す（Web の新しい版の知らせ）。&bundle=2026-10-04 を足すと、
 //     アプリに入っている版をその版にして「何が変わった？」（それより新しい版の中身）を出せる
+//   - &viewmap=on : 視点の地図を使っている人（メモに分野のタグが付いている・記録に地図が出る）。
+//     &viewmap=off : 使っていない人（端末に残った選択より優先）。付けなければ端末に残った選択（既定は使わない）
 // データはメモリ上だけ。再読み込みで初期状態に戻る。
 //
 // supabase-js のうち、このアプリが実際に使う範囲だけを再現する
@@ -334,6 +336,10 @@ export function createDemoClient() {
     user_metadata: {
       display_name: scenario === 'new' ? '' : 'さとう',
       ai_consent: params.get('consent') === 'none' ? null : { version: AI_CONSENT_VERSION, at: '2026-10-01T00:00:00.000Z' },
+      // 視点の地図（lib/viewpointMapSetting.js）。&viewmap=on / off のときだけアカウントの記録を持つ。
+      ...(params.get('viewmap') === 'on' || params.get('viewmap') === 'off'
+        ? { viewpoint_map: { on: params.get('viewmap') === 'on', at: '2026-10-08T00:00:00.000Z' } }
+        : {}),
     },
     app_metadata: { provider: 'email' },
     // ?demo=freenew: 登録したばかりの人。

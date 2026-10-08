@@ -4,6 +4,7 @@ import { useBooks } from './hooks/useBooks';
 import { sanitizeForPrompt, invalidateKnowledgeCache } from './lib/ai';
 import { markActivation } from './lib/activation';
 import { OPEN_MEMO_EVENT } from './lib/openMemo';
+import { advisorDraftFor } from './lib/viewpointMap';
 import { useAppDataCache } from './state/AppDataCache';
 import { streamClaude } from './lib/streamClaude';
 import { PROMPTS } from './lib/prompts';
@@ -685,7 +686,9 @@ function AuthedApp() {
   // 相談タブのサブタブ（相談｜AI 選書）の行の右端。相談の 🕒・…／AI 選書の履歴・新規はここへ portal で出す（2026-10-01 ui-critic）。
   const [aiBarSlot, setAiBarSlot] = useState(null);
   // 🔎 トークンを使い切った相談から「メモを検索して探す」: 振り返り › メモの検索欄に入れる言葉（2026-09-29）。
-  const [memoSearchPreset, setMemoSearchPreset] = useState(null); // { query, nonce } | null
+  const [memoSearchPreset, setMemoSearchPreset] = useState(null); // { query, tag?, nonce } | null
+  // 🗺 視点の地図の「この分野の本を探す」→ AI 選書の最初の悩みに入れる言葉（送らない・2026-10-08）。
+  const [advisorDraft, setAdvisorDraft] = useState(null); // { text, nonce } | null
   // 📖→🧠 本詳細の「この本に相談する」: 相談相手をその本に絞ってマイ読書脳を開く。
   const [scopePreset, setScopePreset] = useState(null); // { bookIds, nonce } | null
   // 🏠 ホームタブ（tab キー 'books'）の中の画面: 'home'＝ホーム / 'library'＝すべての本（SPEC §1）。
@@ -2361,12 +2364,20 @@ function AuthedApp() {
 
   // 🔎 振り返り › メモを、検索欄に言葉を入れて開く（トークンを使い切った相談の「メモを検索して探す」・2026-09-29）。
   //   AI を使わずに、自分のメモから手がかりを探せるように。検索欄は画面のいちばん上なので先頭から見せる。
-  const openMemoSearch = (query) => {
-    setMemoSearchPreset({ query: String(query || '').slice(0, 100), nonce: Date.now() });
+  const openMemoSearch = (query, opts = {}) => {
+    setMemoSearchPreset({ query: String(query || '').slice(0, 100), tag: opts.tag ? String(opts.tag) : '', nonce: Date.now() });
     savedTabScroll.current[scrollKeyFor('review', 'note')] = 0;
     setView('list');
     setReviewSubTab('note');
     setTab('review');
+  };
+  // 🗺 視点の地図（振り返り › 記録）から: そのタグのメモの一覧（振り返り › メモのタグの絞り込み）／AI 選書の最初の悩みに入れて開く（送らない）。
+  const openMemosByTag = (tag) => openMemoSearch('', { tag });
+  const openAdvisorWithDraft = (text) => {
+    setAdvisorDraft({ text: String(text || '').slice(0, 200), nonce: Date.now() });
+    setView('list');
+    setAiSubTab('advisor');
+    setTab('ai');
   };
 
   // 📥 取り込みの確かめる画面の数え方用: 本棚の本にもうあるメモの本文（本の id → 本文の Set・2026-09-29）。
@@ -5437,6 +5448,8 @@ function AuthedApp() {
                     openLibraryFromRecord();
                   }}
                   onShowMemos={() => setReviewSubTab('note')}
+                  onShowTagMemos={openMemosByTag}
+                  onFindBooksForTag={(tag) => openAdvisorWithDraft(advisorDraftFor(tag))}
                   onShowActions={() => { setActionShowDoneNonce(Date.now()); setReviewSubTab('action'); }}
                   onOpenBook={(b) => { setTab('books'); openDetail(b); }}
                   onFilterTag={(tag) => {
@@ -5519,6 +5532,7 @@ function AuthedApp() {
                     onOpenBook={(b) => openDetail(b)}
                     barSlot={aiBarSlot}
                     onPushedViewChange={setAdvisorPushed}
+                    draftPreset={advisorDraft}
                   />
                 </Suspense>
               ) : (

@@ -131,12 +131,15 @@ const advisorMemory = { uid: null, state: null };
 // 結果は advisorMemory に書く（原価はもう払っているので捨てない・相談の backgroundAsk と同じ考え・2026-10-04）。
 // { kind: 'interview' | 'reco', uid, done, promise }。戻ってきた画面は、終わるまで同じ待ちの形を出し、終わったら結果を出す。
 let advisorPendingJob = null;
+// 🗺 ほかの画面から「最初の悩み」に言葉を入れて開いたとき（視点の地図の「この分野の本を探す」・{ text, nonce }）。
+// 同じ nonce は 1 回だけ入れる（タブを行き来しても、消した言葉が戻らないように）。送らない。
+let appliedAdvisorDraft = null;
 
 
 // barSlot: App のサブタブ（相談｜AI 選書）の行の右端の要素。履歴・新規のアイコンはそこへ出す（🕒 だけの行を作らない・2026-10-01 ui-critic）。
 // onPushedViewChange(level): 過去の AI 選書（1）・その中身（2）を開いている間は、親が全体の見出しとサブタブを隠す
 //   （押し込まれた画面は「‹ 戻り先」の行 1 本だけ＝相談の過去の相談と同じ・2026-10-04）。0 で戻す。
-export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook, onManualBook, onOpenBook, barSlot = null, onPushedViewChange = null }) {
+export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook, onManualBook, onOpenBook, barSlot = null, onPushedViewChange = null, draftPreset = null }) {
   // 🎁 AI 選書はプランの機能（フリーミアム・2026-09-27）。無料プランの人が送ったら、有料プランの画面を
   //    重ねて開く（入力は残す・画面はそのまま見せる）。サーバーも 402 plan_required で止める。
   const { requirePlan, canBuyTokens, openTokenSheet, plan, freeMode, tokensRemaining, purchasedTokens, trialEndsAt, tokenAllowance } = usePaywall();
@@ -1008,6 +1011,18 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     setRecoError(null);
     setView('chat');
   };
+
+  // 🗺 視点の地図から開いたとき: 新しい会話の最初の悩みに言葉を入れるだけ（送らない）。前の会話は過去の AI 選書に残っている。
+  //   質問・おすすめを作っている途中なら上書きしない（作り終えたものを消さない）。
+  useEffect(() => {
+    if (!draftPreset?.nonce || draftPreset.nonce === appliedAdvisorDraft) return;
+    appliedAdvisorDraft = draftPreset.nonce;
+    if (interviewLoading || recoLoading || (advisorPendingJob && !advisorPendingJob.done)) return;
+    if (messages.length || recommendations || interview || recoError) startNewSession();
+    setView('chat');
+    setInput(String(draftPreset.text || ''));
+    setTimeout(() => { try { inputRef.current?.focus({ preventScroll: true }); } catch { /* ignore */ } }, 0);
+  }, [draftPreset?.nonce]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 履歴詳細から「💬 この会話を続ける」が押されたら、その session の状態を
   // フロントに復元し、以降のメッセージはその session に紐付く。
