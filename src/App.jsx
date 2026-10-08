@@ -4397,42 +4397,8 @@ function AuthedApp() {
                     読書計画シートを見る
                   </button>
                 )}
-                {current.status === 'want' && !(current.aiStrategy || '').trim() && (
-                  <>
-                    <button
-                      type="button"
-                      disabled={!!planGen}
-                      onClick={async () => {
-                        if (planGen) return;
-                        if (!requirePlan('読書計画シート')) return;
-                        const book = current;
-                        // 状態の変更はついでなので「元に戻す」は出さず、いま何をしているかを言う（2026-09-29）。
-                        //   得たいことがまだ無い本は、積読に積んで編集画面へ（runStrategyInPlace → openSetup）。
-                        const hasPurpose = !!(buildFormFromBook(book).investPurpose || '').trim();
-                        // 🤝 その場で AI に送るときは、状態を変える前に同意を確かめる（やめたら読みたいのまま・lib/aiConsent.js）。
-                        if (hasPurpose && !(await ensureAiConsent('setup_sheet'))) return;
-                        advanceStatus(book, 'before', {
-                          message: hasPurpose
-                            ? '積読に積んで、読書計画シートを作っています'
-                            : '積読に積みました。得たいことを書くと、読書計画シートを作れます',
-                          progress: hasPurpose,
-                        });
-                        runStrategyInPlace({ ...book, status: 'before' });
-                      }}
-                      style={{ ...btnLink, alignSelf: 'center' }}
-                    >
-                      読書計画シートを作る（積読に積みます）
-                    </button>
-                    {/* 1 回の目安と残り（AI 選書と同じ言い方・無料プランはプランの機能なので出さない）。
-                        上の「読書計画シートを作る」の補足なので、ボタンにくっつける（間 0）。次のボタンとは 12 離す（2026-09-30）。 */}
-                    {!paywallFree && (() => {
-                      const line = runCostLine({ plan: paywallPlan, remaining: paywallTokens, purchased: paywallPurchased, cost: TOKEN_COSTS.setupSheet });
-                      return line ? (
-                        <p style={{ margin: 'calc(-1 * var(--space-2)) 0 calc(var(--space-3) - var(--space-2))', fontSize: 'var(--text-meta)', color: 'var(--text-3)', textAlign: 'center', lineHeight: 1.5 }}>{line}</p>
-                      ) : null;
-                    })()}
-                  </>
-                )}
+                {/* 読みたい: 「読書計画シートを作る（積読に積みます）」は 2026-10-08 にやめた（オーナー「積読に積むと二つの選択は不要」）。
+                    主ボタン「積読に積む」のあと、積読の本の詳細で読書計画シートを作る（1 か所に寄せる）。 */}
                 {/* 読みたいだけ: 主ボタン「積読に積む」のすぐ下に文字ボタン（積読では「読書を開始する」と
                     行き先が同じで二重になるので出さない）。ワンタップで読書中にして、そのままメモを開く。 */}
                 {current.status === 'want' && (
