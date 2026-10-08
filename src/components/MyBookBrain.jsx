@@ -1743,8 +1743,14 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     markFirstAnswerTrialDone('shown');
     setFirstTrialSeen(true);
     setFirstTrialId(answer.id);
-    track('first_answer_trial', { action: 'shown', group: st.group });
+    // shown は、カードが実際に画面に入ったときに数える（FirstAnswerTrialCard の onSeen・実験の母数）。
   };
+  const firstTrialSeenRef = useRef(false);
+  const onFirstTrialSeen = useCallback(() => {
+    if (firstTrialSeenRef.current) return;
+    firstTrialSeenRef.current = true;
+    track('first_answer_trial', { action: 'shown', group: 'show' });
+  }, []);
   const closeFirstTrial = (action) => {
     markFirstAnswerTrialDone(action);
     setFirstTrialId(null);
@@ -1752,6 +1758,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   };
   const firstTrialCard = (style) => (
     <FirstAnswerTrialCard
+      onSeen={onFirstTrialSeen}
       text={firstAnswerTrialText(firstTrialOffer || '')}
       onOpen={() => { closeFirstTrial('tap'); openPaywall('first_answer'); }}
       onDismiss={() => closeFirstTrial('dismiss')}
@@ -2145,7 +2152,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                     最後の答えのときは、答えの下の文字ボタンの行（別の角度で答えて…）の後ろに出す（答えと操作を離さない・2026-09-29） */}
                 {optinAfterId === m.id && !(answerRowShown && i === visibleMessages.length - 1) && <NotifyOptInCard where="action" />}
                 {/* 🧪 はじめての相談の答えのあとの 7 日間無料（続けて相談したあとも、その答えの下に残す）。 */}
-                {firstTrialId === m.id && !busy && !(answerRowShown && i === visibleMessages.length - 1) && firstTrialCard({ marginLeft: ANSWER_COLUMN })}
+                {/* 続けて相談して答えを書いている間は、見えなくするだけで場所は残す（消して戻すと会話が跳ねる）。 */}
+                {firstTrialId === m.id && !(answerRowShown && i === visibleMessages.length - 1)
+                  && firstTrialCard({ marginLeft: ANSWER_COLUMN, ...(busy ? { visibility: 'hidden' } : null) })}
               </Fragment>
             ))}
           </div>
@@ -2388,36 +2397,55 @@ function TrialNudgeCard({ copy, onOpen, onDismiss }) {
 // 🧪 はじめての相談の答えのあとの 7 日間無料（lib/firstAnswerTrial.js・2026-10-08・実験）。
 // 閉じられる 1 行のカード（DESIGN §5「閉じられる 1 行の案内」）: 面は案内カードと同じ・行全体が押せる（右に ›）・右端に ×。
 // 押すと有料プランの画面（reason 'first_answer'）。題を立てない（答えのすぐ下で静かに 1 行）。
-function FirstAnswerTrialCard({ text, onOpen, onDismiss, style = null }) {
+function FirstAnswerTrialCard({ text, onOpen, onDismiss, onSeen = null, style = null }) {
+  // 画面に半分以上入ったら 1 回だけ onSeen（計測の shown＝実験の母数）。見えなくしている間（書いている間）は数えない。
+  const ref = useRef(null);
+  const hidden = style?.visibility === 'hidden';
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || !onSeen || hidden) return undefined;
+    if (typeof IntersectionObserver === 'undefined') { onSeen(); return undefined; }
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) { onSeen(); io.disconnect(); }
+    }, { threshold: 0.5 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [onSeen, hidden]);
   return (
     <section
+      ref={ref}
+      aria-hidden={hidden || undefined}
       aria-label="7 日間無料の案内"
       style={{ display: 'flex', alignItems: 'center', background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', ...style }}
     >
       <button
         type="button"
         onClick={onOpen}
+        tabIndex={hidden ? -1 : undefined}
         style={{
           flex: 1, minWidth: 0, minHeight: 44, display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-          padding: 'var(--space-3) 0 var(--space-3) var(--space-4)', background: 'none', border: 'none', cursor: 'pointer',
+          padding: 'var(--space-3) var(--space-2) var(--space-3) var(--space-4)', background: 'none', border: 'none', cursor: 'pointer',
           textAlign: 'left', color: 'var(--text)', fontSize: 'var(--text-sub)', fontWeight: 600, lineHeight: 1.5, fontFamily: 'inherit',
         }}
       >
-        {/* 狭い画面で 2 行になるときは「、」の後ろで折り返す（「7 日間無料で」と「育てる」を離さない）。 */}
+        {/* 狭い画面で 2 行になるときは「、」の後ろで折り返す（「7 日間無料で」と「もっと話す」を離さない）。 */}
         <span style={{ flex: 1, minWidth: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
           {(text.match(/[^、]+、?/g) || [text]).map((part, i) => (
             <span key={i} style={{ display: 'inline-block' }}>{withPhraseBreaks(part)}</span>
           ))}
         </span>
-        <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+        {/* アイコンは文字の大きさに合わせる（15 の文字で 20 相当・DESIGN §5 文字の横のアイコンは em）。 */}
+        <ChevronRight size="1.34em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
       </button>
       <button
         type="button"
         onClick={onDismiss}
         aria-label="閉じる"
-        style={{ ...iconBtn, color: 'var(--text-3)', flexShrink: 0, marginRight: 'var(--space-1)' }}
+        tabIndex={hidden ? -1 : undefined}
+        // 押せる範囲は 44 以上（文字を大きくしたら × と一緒に広がる）。
+        style={{ ...iconBtn, minWidth: 44, minHeight: 44, width: '2.94em', height: '2.94em', fontSize: 'var(--text-sub)', color: 'var(--text-3)', flexShrink: 0, marginRight: 'var(--space-1)' }}
       >
-        <X size={20} aria-hidden="true" />
+        <X size="1.34em" aria-hidden="true" />
       </button>
     </section>
   );

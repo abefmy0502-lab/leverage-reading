@@ -6,7 +6,7 @@
 //   reason 'feature'   … プランで使える AI 機能を押した（feature＝機能の名前）
 //   reason 'free_ocr_used' … 今月の無料の写真から書き起こし（毎月 10 回）を使い切った（2026-10-02・② プランの機能を押した扱い）
 //   reason 'grown'     … 自分のメモが 10 件たまった（相談の「相談相手が育ってきました」・本人の本の表紙を並べる）
-//   reason 'first_answer' … はじめての相談の答えのあとの 1 行「この相談相手を、7 日間無料で育てる」（2026-10-08・実験・
+//   reason 'first_answer' … はじめての相談の答えのあとの 1 行「この相談相手と、7 日間無料でもっと話す」（2026-10-08・実験・
 //                       lib/firstAnswerTrial.js。本人の本の表紙を並べる。7 日間無料が月額だけのときは月額を選んで開く）
 //   reason null        … 設定の「プランを見る」
 // 7 日間無料（プランの無料期間）をすすめるのは、この 4 つ（① free_used ／ ② feature・free_ocr_used ／ ③ grown ／ ④ first_answer）と設定からだけ
@@ -192,14 +192,16 @@ const linkStyle = { ...btnLink, textDecoration: 'none' };
 // 請求額の行＋主ボタンの欄（DESIGN §5「下に固定の保存」と同じ形）。スクロールする <main> の中で下に固定し、
 // 横は <main> の余白（--space-4）の分だけ外へ広げて画面の幅いっぱいに区切り線を引く。
 // 下の安全域はこの欄が持つ（<main> の下の余白は 0。sticky は親の余白の内側で止まるため）。
+// 下端は画面の外へ 8 だけ伸ばし、その分を内側の余白で戻す（bottom: 0 だと、下の中身の文字が欄の下端に数 px 覗いていた・
+// 2026-10-08 ui-critic「下端で切れて見える 1 行」）。
 const stickyFooter = {
   position: 'sticky',
-  bottom: 0,
+  bottom: 'calc(-1 * var(--space-2))',
   zIndex: 1,
   marginTop: 'var(--space-4)',
   marginLeft: 'calc(-1 * var(--space-4))',
   marginRight: 'calc(-1 * var(--space-4))',
-  padding: 'var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom, 0px))',
+  padding: 'var(--space-3) var(--space-4) calc(var(--space-3) + var(--space-2) + env(safe-area-inset-bottom, 0px))',
   background: 'var(--bg)',
   borderTop: '1px solid var(--separator)',
 };
@@ -336,7 +338,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
   const fromFeature = reason === 'feature';
   const fromFreeOcr = reason === 'free_ocr_used';
   // メモが 10 件たまって開いたとき（相談の「相談相手が育ってきました」）も、本人の本の表紙を並べる。
-  // はじめての相談の答えのあと（「この相談相手を、7 日間無料で育てる」）も同じ（育てる相手＝メモを書いた本）。
+  // はじめての相談の答えのあと（「この相談相手と、7 日間無料でもっと話す」）も同じ（話す相手＝メモを書いた本）。
   const fromGrown = reason === 'grown' || reason === 'first_answer';
   // 📊 課金転換率（CVR = purchase÷view）の分母。どこから開いたか（enum だけ）も添える。
   useEffect(() => { track(EVENTS.PAYWALL_VIEWED, { reason: reason || 'plan' }); }, [reason]);
@@ -425,7 +427,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
   // 両方のプランに無料期間があれば、比較のプランの行に「（最初の 7 日間は無料）」を出す。
   // 片方だけ（創業メンバー価格のあいだは月額だけ）のときは、その行にだけ「最初の 7 日間は無料」を出す（年額に無料期間があるように読ませない）。
   const trialPlan = priceState === 'ready' ? trialPlanOf(labels) : '';
-  // 「7 日間無料で育てる」から開いたのに、7 日間無料が月額だけ（創業メンバー価格のあいだ）なら月額を選んで開く
+  // 「7 日間無料でもっと話す」から開いたのに、7 日間無料が月額だけ（創業メンバー価格のあいだ）なら月額を選んで開く
   //   （年額が選ばれていて「7 日間無料」が見当たらない、を作らない）。選び直しは 1 回だけ（あとは本人の選択のまま）。
   const pickedForTrialRef = useRef(false);
   useEffect(() => {
@@ -433,6 +435,10 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
     pickedForTrialRef.current = true;
     setPlan('monthly');
   }, [reason, trialPlan]);
+  // 並び: 「7 日間無料でもっと話す」から開き、7 日間無料が月額だけのときは月額を上に（選んだ行が最初の画面に入るように）。
+  //   読み込み中は、創業メンバー価格の期間なら月額を上に（読み込み後に並びが入れ替わって跳ねないように）。
+  const monthlyFirst = reason === 'first_answer' && (priceState === 'ready' ? trialPlan === 'monthly' : founding.active);
+  const planOrder = monthlyFirst ? ['monthly', 'annual'] : ['annual', 'monthly'];
   const anyTrial = trialPlan === 'both' ? normalizeTrialLabel(labels.annual?.trial || '') : '';
   const rowTrialNote = (id) => (trialPlan && trialPlan !== 'both' && labels[id]?.trial ? trialFirstPhrase(normalizeTrialLabel(labels[id].trial)) : '');
   // 創業メンバー価格と呼ぶのは、ストアが年額に有料の初回価格を返し、かつ期間中のときだけ（値段の真実はストア）。
@@ -656,9 +662,9 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
               style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginTop: 'var(--space-8)' }}
             >
               {priceState === 'loading' ? (
-                ['annual', 'monthly'].map((id) => <PlanOption key={id} label={labels[id]} selected={false} placeholder />)
+                planOrder.map((id) => <PlanOption key={id} label={labels[id]} selected={false} placeholder />)
               ) : (
-                ['annual', 'monthly'].map((id) => (
+                planOrder.map((id) => (
                   <PlanOption
                     key={id}
                     label={labels[id]}

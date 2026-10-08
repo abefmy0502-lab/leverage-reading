@@ -315,6 +315,24 @@ export async function presentOfferCodeSheet(userId) {
   return true;
 }
 
+// コードの入力画面（Apple の画面）が閉じるのを待つ。開いている間アプリは前面から外れる（inactive）ので、
+// 外れたあと前面に戻ったら閉じたとみなす（@capacitor/app の appStateChange）。分からないまま maxMs が過ぎたら false。
+export async function waitForCodeSheetClosed(maxMs = 180000) {
+  if (!isNative) return false;
+  let App;
+  try { ({ App } = await import('@capacitor/app')); } catch { return false; }
+  return new Promise((resolve) => {
+    let left = false;
+    let handle = null;
+    const done = (v) => { clearTimeout(timer); try { handle?.remove?.(); } catch { /* ignore */ } resolve(v); };
+    const timer = setTimeout(() => done(false), maxMs);
+    Promise.resolve(App.addListener('appStateChange', ({ isActive }) => {
+      if (!isActive) left = true;
+      else if (left) done(true);
+    })).then((h) => { handle = h; }, () => done(false));
+  });
+}
+
 // 端末の購読の状態（RevenueCat の customerInfo）を取り直させる。コードを使ったあとの読み直しの前に呼ぶ。
 export async function invalidateCustomerInfo() {
   const Purchases = await loadPurchases();

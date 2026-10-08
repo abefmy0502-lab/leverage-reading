@@ -90,7 +90,7 @@ D30（30 日後も使っている）と 7 日間無料 → 有料は、運営ダ
 | イベント | いつ | props | 送るところ |
 |---|---|---|---|
 | `first_answer_trial` `{action:'eligible'}` | はじめての相談の答えが出きって、カードを出せる条件がそろった（無料プラン・7 日間無料を使える・関係するメモが無かった答えでない・根拠を確かめられた・③ を閉じていない）。**両方の組で送る**＝比べる母数 | `group`: `show`（見せる組）/ `hold`（見せない組） | `MyBookBrain.jsx` |
-| `first_answer_trial` `{action:'shown'}` | 見せる組で、カード「この相談相手を、7 日間無料で育てる」を出した | `group: 'show'` | 同上 |
+| `first_answer_trial` `{action:'shown'}` | 見せる組で、カード「この相談相手と、7 日間無料でもっと話す」を出した | `group: 'show'` | 同上 |
 | `first_answer_trial` `{action:'tap'}` / `{action:'dismiss'}` | カードを押した（有料プランの画面へ）／× で閉じた | `group: 'show'` | 同上 |
 | `paywall_viewed` `{reason:'first_answer'}` | カードから有料プランの画面を開いた | — | `Paywall.jsx` |
 | `offer_code` `{action:'open'}` | 設定の「コードを使う」を押した（iPhone のアプリだけ・§6-6） | — | `AccountSettings.jsx` |

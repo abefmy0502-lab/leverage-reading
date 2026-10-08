@@ -90,8 +90,8 @@ describe('holdGrownNudge（③ と重ねない）', () => {
 
 describe('文と印', () => {
   it('1 行の文', () => {
-    expect(firstAnswerTrialText('7 日間無料')).toBe('この相談相手を、7 日間無料で育てる');
-    expect(firstAnswerTrialText('')).toBe('この相談相手を、7 日間無料で育てる');
+    expect(firstAnswerTrialText('7 日間無料')).toBe('この相談相手と、7 日間無料でもっと話す');
+    expect(firstAnswerTrialText('')).toBe('この相談相手と、7 日間無料でもっと話す');
   });
   it('出したら端末に覚える（アカウントには書かない）', () => {
     expect(isFirstAnswerTrialDone(null)).toBe(false);

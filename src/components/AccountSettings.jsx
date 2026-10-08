@@ -33,7 +33,7 @@ import { exportUserDataAsCSV, exportMemosAsMarkdown } from '../lib/exportData';
 import { forceUpdate as forceAppUpdate } from '../lib/swUpdate';
 import { useSubscription } from '../hooks/useSubscription';
 import { openBillingPortal } from '../lib/billing';
-import { isNative, openManageSubscriptions, canRedeemOfferCode, presentOfferCodeSheet, invalidateCustomerInfo } from '../lib/iap';
+import { isNative, openManageSubscriptions, canRedeemOfferCode, presentOfferCodeSheet, invalidateCustomerInfo, waitForCodeSheetClosed } from '../lib/iap';
 import { usePaywall } from '../state/PaywallContext';
 import { planNameFor, trialRenewalLine, trialCancelNote, trialCancelByTime } from '../lib/trialNudge';
 import { PAID_TOKENS, TOKEN_COSTS, FREE_TOKENS } from '../lib/tokens';
@@ -371,25 +371,33 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
   // 🎟 コードを使う（オファーコード・2026-10-08）: iPhone のアプリだけ（lib/iap.js の canRedeemOfferCode）。
   //   Apple のコード入力の画面を開き、閉じたあとに契約の状態を何度か読み直す（結果は画面から返らないため）。
   //   お試しモードは &native=1 で行を出す（押しても Apple の画面は開かない）。
-  const showCodeRow = canRedeemOfferCode || (isDemo && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('native') === '1');
+  // お試しモードの &native=1 は、iPhone のアプリと同じ並び（Web だけの行を出さない）で撮るためのもの。
+  const nativePreview = isDemo && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('native') === '1';
+  const nativeView = isNative || nativePreview;
+  const showCodeRow = canRedeemOfferCode || nativePreview;
   const [codeBusy, setCodeBusy] = useState(false);
   const codeTimersRef = useRef([]);
   useEffect(() => () => codeTimersRef.current.forEach(clearTimeout), []);
   const handleRedeemCode = async () => {
     if (codeBusy) return;
     track('offer_code', { action: 'open' });
-    if (!canRedeemOfferCode) { toast.info('お試しモードでは、コードの入力画面は開きません。'); return; }
+    // お試しモード: Apple の画面は開かず、閉じたあとの知らせだけ見せる。
+    if (!canRedeemOfferCode) { toast.info('コードを使ったときは、数秒〜30 秒で反映されます。'); return; }
     setCodeBusy(true);
     try {
       const opened = await presentOfferCodeSheet(user?.id);
       if (!opened) { toast.error('この端末では、コードの入力画面を開けませんでした。'); return; }
-      // 使えたかは画面から分からないので、少しずつ間をあけて読み直す（反映は数秒〜数十秒）。
-      codeTimersRef.current.forEach(clearTimeout);
-      codeTimersRef.current = [1500, 5000, 12000, 30000].map((ms) => setTimeout(async () => {
-        await invalidateCustomerInfo();
-        refreshSub?.();
-        refreshPlan?.();
-      }, ms));
+      // Apple の画面を閉じたら 1 回だけ知らせ、少しずつ間をあけて契約の状態を読み直す（使えたかは画面から分からない・
+      // 反映は数秒〜数十秒）。閉じたのが分からないまま 3 分たったら、知らせずに読み直しだけ。
+      waitForCodeSheetClosed().then((closed) => {
+        if (closed) toast.info('コードを使ったときは、数秒〜30 秒で反映されます。');
+        codeTimersRef.current.forEach(clearTimeout);
+        codeTimersRef.current = [1500, 5000, 12000, 30000].map((ms) => setTimeout(async () => {
+          await invalidateCustomerInfo();
+          refreshSub?.();
+          refreshPlan?.();
+        }, ms));
+      });
     } catch (e) {
       toast.error(toMessage(e, 'コードの入力画面を開けませんでした。'));
     } finally {
@@ -398,7 +406,11 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
   };
   const codeRow = showCodeRow ? (
     <button type="button" onClick={handleRedeemCode} disabled={codeBusy} aria-busy={codeBusy || undefined} style={{ ...rowButtonStyle, ...divider }}>
-      <span style={{ ...rowTitleStyle, flex: 1 }}>コードを使う</span>
+      {/* 2 行: 題と、何のコードか（13/--text-2・GLOSSARY「オファーコード」）。 */}
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ ...rowTitleStyle, display: 'block' }}>コードを使う</span>
+        <span style={{ ...rowDescStyle, display: 'block', margin: 0 }}>App Store のオファーコード</span>
+      </span>
       <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
     </button>
   ) : null;
@@ -531,7 +543,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
     if (billingBusy) return;
     setBillingBusy(true);
     try {
-      if (isNative) {
+      if (nativeView) {
         // ネイティブ(IAP): 解約・プラン変更は App Store のサブスク設定で行う。
         await openManageSubscriptions();
         setBillingBusy(false);
@@ -958,13 +970,13 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                   )}
                   {/* 文節の切れ目でだけ折り返す（「でき／ます」と語の途中で切らない・2026-10-04）。 */}
                   <p style={{ ...noteStyle, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-                    {withPhraseBreaks(isNative
+                    {withPhraseBreaks(nativeView
                       ? '解約・プラン変更は App Store のサブスクリプションの設定から。いつでも解約でき、データは保持されます。'
                       : subscription?.stripeCustomerId
                         ? '解約・カード変更・請求履歴は下のボタンから。いつでも解約でき、データは保持されます。'
                         : 'App で購入した場合、解約は iPhone の「設定」→ 名前 →「サブスクリプション」から、いつでもできます。データは保持されます。')}
                   </p>
-                  {isNative ? (
+                  {nativeView ? (
                     <button
                       type="button"
                       aria-label="サブスクリプションを管理する"
@@ -990,13 +1002,13 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                     （旧: 「画面下部のお問い合わせから」と下端リンクを自力で
                     探させる行き止まりだった）。一覧の行として置く（枠のボタンにしない）。 */}
                 {/* Web で見ている App Store の契約: App Store のサブスクリプション画面を開ける行（iPhone なら App Store が開く・2026-09-29）。 */}
-                {!isNative && !subscription?.stripeCustomerId && (
+                {!nativeView && !subscription?.stripeCustomerId && (
                   <button type="button" onClick={() => openManageSubscriptions()} style={{ ...rowButtonStyle, ...divider }}>
                     <span style={{ ...rowTitleStyle, flex: 1 }}>サブスクリプションを管理</span>
                     <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
                   </button>
                 )}
-                {!isNative && !subscription?.stripeCustomerId && (
+                {!nativeView && !subscription?.stripeCustomerId && (
                   <a
                     href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('解約・プラン変更について')}`}
                     style={{ ...rowButtonStyle, ...divider, textDecoration: 'none', boxSizing: 'border-box' }}
@@ -1304,7 +1316,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
             </a>
             {/* 特商法リンクはネイティブでは反ステアリング順守のため非表示にし、価格開示は
                 App Store に委ねる（特商法ページ自体は ¥1,480 / App Store 課金前提に更新済み）。 */}
-            {!isNative && (
+            {!nativeView && (
               <a href={SCT_URL} target="_blank" rel="noopener noreferrer" style={legalLinkStyle}>
                 特定商取引法に基づく表記
               </a>
