@@ -5,6 +5,7 @@
 //      メモが 1〜9 件の間は、同じ場所に静かな一行「あと N 件で相談相手が育ちます」（GrowthMeter・2026-10-02）
 //   2. いま読んでいる本（最大 3 冊・各本に「メモを書く」＝ 1 タップでクイックメモ）
 //   3. すべての本（N 冊）› → ライブラリ画面（検索・絞り込み・並び替えはそちらへ）
+// 月末の 3 日間・12 月だけ、題の下に控えめな 1 行「◯月の読書を、1 枚の画像に」（ShareNudge・閉じられる・2026-10-08）。
 // 本 0 冊のときは「はじめる」カード 1 枚だけ。
 // 相談カード（旧 HomeConsult.jsx）は 2026-10-01 オーナー裁定「ホームには相談チャット不要」で外した
 // （相談は下のタブ「相談」から）。思い出しカードはホームから外し「振り返り」へ（SPEC §1）。
@@ -14,6 +15,7 @@ import { useEffect, useState } from 'react';
 import { Library, ChevronRight, PencilLine, Plus, BookOpen } from 'lucide-react';
 import HomeFirstStep, { useHomeMemoState } from './HomeFirstStep';
 import GrowthMeter from './GrowthMeter';
+import ShareNudge, { useShareNudge } from './ShareNudge';
 import { takeMemosReached, growthMeterText, rememberHomeMemoCount, lastHomeMemoCount, showGrowthPlaceholder } from '../lib/firstDay';
 import { track } from '../lib/analytics';
 import { MiniCover } from './BookCards';
@@ -179,10 +181,13 @@ export function HomeBlocksSkeleton() {
 export default function HomeScreen({
   books = [], loading = false, loadError = null, onRetry,
   onQuickstart, onAddBook, onAddReadingBook, onAdvisor, onImport,
-  onOpenBook, onWriteMemo, onStartReading, onOpenLibrary, onSeeAllReading, onCoverRetry,
+  onOpenBook, onWriteMemo, onStartReading, onOpenLibrary, onSeeAllReading, onCoverRetry, onShareNudge,
 }) {
   // メモがあるか（はじめの一歩を出すか）。分かるまではスケルトン（カードを遅れて差し込まない・最大 800ms）。
   const memoState = useHomeMemoState(books);
+  // 月末・12 月の 1 行（数えるのはメモの件数と同じ時点・決まるまでホームは形のまま＝あとから差し込まない）。
+  const shareNudge = useShareNudge(books, !!onShareNudge && !loading && !loadError && books.length > 0);
+  const homeKnown = memoState.known && shareNudge.ready;
   // 📊 memos_reached_10（lib/firstDay.js）: 10 件より少ないのを見たあとで 10 件以上になったら 1 回だけ。
   useEffect(() => {
     if (!loading && !loadError && memoState.known && takeMemosReached(memoState.count)) track('memos_reached_10', { memos: memoState.count, where: 'home' });
@@ -199,13 +204,15 @@ export default function HomeScreen({
           （端末に覚えた前回の件数・はじめて開いたときと 0 件・10 件以上の人には出さない＝出してから縮んで跳ねないように）。 */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
         <h1 style={{ fontSize: 'var(--text-title)', fontWeight: 700, color: 'var(--text)', margin: 0, lineHeight: 1.3 }}>ホーム</h1>
-        {books.length > 0 && !memoState.known ? (showGrowthPlaceholder(lastCount) && (
+        {books.length > 0 && !homeKnown ? (showGrowthPlaceholder(lastCount) && (
           <span aria-hidden="true" style={{ display: 'flex', alignItems: 'center', height: 'calc(var(--text-meta) * 1.5)' }}>
             <SkeletonBlock width="56%" height={14} radius="var(--radius-full)" />
           </span>
         )) : books.length > 0 && growthMeterText(memoState.count) ? (
           <GrowthMeter memoCount={memoState.count} />
         ) : null}
+        {/* 月末・12 月の 1 行（本を読み込んで、ホームの中身を出すときに一緒に出す＝あとから差し込んで押し下げない）。 */}
+        {homeKnown && <ShareNudge nudge={shareNudge.nudge} onOpen={onShareNudge} onDismiss={shareNudge.dismiss} />}
       </div>
 
       {loading && books.length === 0 ? (
@@ -223,7 +230,7 @@ export default function HomeScreen({
         />
       ) : books.length === 0 ? (
         <StartCard onQuickstart={onQuickstart} onAddBook={onAddReadingBook || onAddBook} onAdvisor={onAdvisor} onImport={onImport} />
-      ) : !memoState.known ? (
+      ) : !homeKnown ? (
         <div role="status" aria-busy="true" aria-label="読み込み中" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
           <HomeBlocksSkeleton />
         </div>

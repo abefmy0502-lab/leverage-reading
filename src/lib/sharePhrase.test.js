@@ -149,13 +149,13 @@ describe('大きさ・改行・箱', () => {
     const m = phraseLayout({ text: '問いの質が、答えの質を決める。', style: 'mincho', scale: 1.4 }, { ...FORMATS.post, format: 'post', measureAt });
     expect(m.lines).toEqual(['「問いの質が、', '答えの質を決める。」']);
   });
-  it('帯は文字の周りに余白、明朝の引用は傍線のぶん下に余白', () => {
+  it('帯は文字の周りに余白、明朝の引用は傍線なし（2026-10-08）', () => {
     const band = phraseLayout({ text: '読む', style: 'band' }, { ...FORMATS.post, format: 'post', measureAt });
     expect(band.padX).toBeGreaterThan(0);
     expect(band.w).toBe(measureAt(band.size)('読む') + band.padX * 2);
     const mincho = phraseLayout({ text: '読む', style: 'mincho' }, { ...FORMATS.post, format: 'post', measureAt });
-    expect(mincho.underlineH).toBeGreaterThan(0);
-    expect(mincho.h).toBe(mincho.lineHeight + mincho.underlineH);
+    expect(mincho.underlineH).toBe(0);
+    expect(mincho.h).toBe(Math.ceil(mincho.lineHeight));
   });
   it('透明: 言葉は上の言葉の場所だけ（記録・一文の塊に重ならない）', () => {
     for (const style of PHRASE_STYLES) {

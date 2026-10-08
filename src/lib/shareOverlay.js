@@ -5,6 +5,9 @@
 //   - subjectChoices     … シートの「どの本？」の並び（今月 → 読書中 → 最近読み終えた本）
 //   - bookRecord         … 本 1 冊の記録（読了・読書中の日付・メモの件数・実行した行動）
 //   - monthRecord        … 今月の記録（読了の冊数・メモ・実行した行動）
+//   - yearRecord / orderYearQuoteCandidates / isYearWrapSeason / hasFinishedThisYear
+//                        … 今年の読書（12 月だけ・冊数・メモ・行動・いちばん残した一文・2026-10-08）
+//   - shareHashtags      … 共有の文に添えるハッシュタグ（#10月読了本・#2026年の読書。画像には入れない）
 //   - orderQuoteCandidates / swapQuote / swapQuoteLabel … 重ねる一文（新しい順・1 タップで次へ）
 //   - splitStatValue     … 「9月28日」の数字を大きく、単位を小さく描くための分け方
 //   - recordFrame / placeRecordBlock / recordBlockPlan … 4:5・9:16 の、SNS で切られない範囲（安全な枠）と置き方・組み
@@ -18,6 +21,7 @@
 // 連続日数・目標・順位・バッジは入れない（反ゲーミフィケーション）。
 
 import { clampLine, FORMATS } from './shareCardLayout';
+import { isAiWritten } from './recall';
 
 // 「記録」に重ねる一文は短く（写真を見せたいので 3 行まで）。
 export const RECORD_QUOTE_MAX = 60;
@@ -47,12 +51,22 @@ export function fmtMonthDay(value, now = new Date()) {
   return d.getFullYear() === now.getFullYear() ? md : `${d.getFullYear()}年${md}`;
 }
 
+// 数字の行の日付「9.28」（今年でなければ「2025.9.28」）。画像の日付は右下の「2026.10.9」と同じ点の書き方にそろえる
+// （「9月28日」と「2026.10.5」が 1 枚に混ざっていた・2026-10-08 オーナー「おしゃれな感じに」）。
+export function fmtDotDate(value, now = new Date()) {
+  const d = parseLocalDate(value);
+  if (!d) return '';
+  const md = `${d.getMonth() + 1}.${d.getDate()}`;
+  return d.getFullYear() === now.getFullYear() ? md : `${d.getFullYear()}.${md}`;
+}
+
 // 画像の右下の日付「2026.9.30」。
 export function fmtStamp(now = new Date()) {
   return `${now.getFullYear()}.${now.getMonth() + 1}.${now.getDate()}`;
 }
 
 const sameMonth = (d, now) => !!d && d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+const sameYear = (d, now) => !!d && d.getFullYear() === now.getFullYear();
 const timeOf = (v) => {
   const d = parseLocalDate(v);
   return d ? d.getTime() : 0;
@@ -83,9 +97,10 @@ export function hasFinishedThisMonth(books, now = new Date()) {
     .some((b) => b && b.status === 'done' && sameMonth(parseLocalDate(b.doneDate), now));
 }
 
-// シートの「どの本？」の並び: 今月 → 読書中（新しい順）→ 読了（新しい順）。多すぎると選べないので max 冊まで。
+// シートの「どの本？」の並び: 今月 →（12 月だけ）今年 → 読書中（新しい順）→ 読了（新しい順）。多すぎると選べないので max 冊まで。
 // 選んでいる本が範囲の外なら、今月の次に入れて見えるようにする。
-export function subjectChoices(books, { selectedId = null, max = 8 } = {}) {
+// includeYear … 「今年」を出すか（12 月で、今年に読み終えた本が 1 冊以上＝yearChoiceAllowed）。
+export function subjectChoices(books, { selectedId = null, max = 8, includeYear = false } = {}) {
   const list = (Array.isArray(books) ? books : []).filter(isShareable);
   const reading = list.filter((b) => b.status === 'reading').sort((a, b) => recency(b) - recency(a));
   const done = list.filter((b) => b.status === 'done').sort((a, b) => recency(b) - recency(a));
@@ -94,13 +109,57 @@ export function subjectChoices(books, { selectedId = null, max = 8 } = {}) {
     const sel = list.find((b) => b.id === selectedId);
     if (sel) picked = [sel, ...picked.slice(0, max - 1)];
   }
-  return [{ kind: 'month' }, ...picked.map((b) => ({ kind: 'book', bookId: b.id, book: b }))];
+  return [{ kind: 'month' }, ...(includeYear ? [{ kind: 'year' }] : []), ...picked.map((b) => ({ kind: 'book', bookId: b.id, book: b }))];
+}
+
+// ---------------------------------------------------------------- 今年の読書（12 月だけ・2026-10-08）
+//
+// Spotify Wrapped と同じ時期に、1 年を 1 枚で見せる（company/marketing-strategy-2026-11.md §6-3）。
+// 出すのは 12 月（端末の日付の 12/1〜12/31）だけ・今年に読み終えた本が 1 冊以上あるときだけ。
+// 入れるのは 冊数・メモの数・実行した行動の数・読み終えた本の表紙・いちばん残した一文。
+// 連続日数・順位・目標・バッジは入れない（反ゲーミフィケーション）。
+
+export function isYearWrapSeason(now = new Date()) {
+  return now.getMonth() === 11;
+}
+
+export function hasFinishedThisYear(books, now = new Date()) {
+  return (Array.isArray(books) ? books : [])
+    .some((b) => b && b.status === 'done' && sameYear(parseLocalDate(b.doneDate), now));
+}
+
+// 「今年」を選べるか（12 月・今年の読了 1 冊以上）。
+export function yearChoiceAllowed(books, now = new Date()) {
+  return isYearWrapSeason(now) && hasFinishedThisYear(books, now);
 }
 
 // ---------------------------------------------------------------- 記録（数字）
 
 const hasText = (m) => !!m && String(m.text || '').trim().length > 0;
 const hasSummary = (b) => typeof (b?.leverageMemo ?? b?.leverage_memo) === 'string' && (b.leverageMemo ?? b.leverage_memo).trim().length > 0;
+
+// 著者の書き方（2026-10-08 オーナー「著者の名前が長い、複数いるとキレてしまう」）。
+// 複数なら「最初の著者 ほか」。区切りは 、, / ／ & ＆ と、漢字だけの名前どうしの「・」（「岸見一郎・古賀史健」）。
+// カタカナの名前の中の「・」（「エリック・シュミット」「D・カーネギー」）では切らない。「（著）」などの役割は外す。
+const ROLE_RE = /[（(][^）)]*[）)]\s*$/u;
+const KANJI_NAME = /^[\p{Script=Han}々〆ヶ\s]+$/u;
+export function splitAuthors(author) {
+  const raw = String(author || '').replace(/\s+/g, ' ').trim();
+  if (!raw) return [];
+  const parts = raw.split(/\s*(?:[、,，/／&＆]|\s+and\s+)\s*/u).map((a) => a.replace(ROLE_RE, '').trim()).filter(Boolean);
+  const out = [];
+  for (const a of parts) {
+    const dots = a.split('・').map((x) => x.trim()).filter(Boolean);
+    if (dots.length > 1 && dots.every((x) => KANJI_NAME.test(x))) out.push(...dots);
+    else out.push(a);
+  }
+  return out;
+}
+export function formatAuthors(author) {
+  const list = splitAuthors(author);
+  if (!list.length) return '';
+  return list.length > 1 ? `${list[0]} ほか` : list[0];
+}
 
 // 本 1 冊の記録。stats は最大 3 つ・0 のものは出さない（日付は分かるときだけ）。
 // 戻り値: { kicker, title, sub, stats: [{ label, value }] }
@@ -110,15 +169,15 @@ export function bookRecord(book, memos = [], now = new Date()) {
   const memoCount = (Array.isArray(memos) ? memos : []).filter((m) => hasText(m) || m?.photoPath).length + (hasSummary(b) ? 1 : 0);
   const actionsDone = (Array.isArray(b.actions) ? b.actions : []).filter((a) => a && a.done).length;
   const stats = [];
-  if (done && parseLocalDate(b.doneDate)) stats.push({ key: 'date', label: '読み終えた日', value: fmtMonthDay(b.doneDate, now) });
-  else if (!done && parseLocalDate(b.startDate)) stats.push({ key: 'date', label: '読みはじめ', value: fmtMonthDay(b.startDate, now) });
+  if (done && parseLocalDate(b.doneDate)) stats.push({ key: 'date', label: '読み終えた日', value: fmtDotDate(b.doneDate, now) });
+  else if (!done && parseLocalDate(b.startDate)) stats.push({ key: 'date', label: '読みはじめ', value: fmtDotDate(b.startDate, now) });
   if (memoCount > 0) stats.push({ key: 'memos', label: 'メモ', value: `${memoCount}件` });
   if (actionsDone > 0) stats.push({ key: 'actions', label: '実行した行動', value: `${actionsDone}件` });
   return {
     kicker: done ? '読了' : '読書中',
     title: String(b.title || '').trim() || '無題',
     titleIsBook: true,
-    sub: String(b.author || '').trim(),
+    sub: formatAuthors(b.author),
     stats,
   };
 }
@@ -142,16 +201,80 @@ export function monthRecord(books, monthMemos = [], now = new Date()) {
   if (finished.length) stats.push({ key: 'books', label: '読了', value: `${finished.length}冊` });
   if (memoCount) stats.push({ key: 'memos', label: 'メモ', value: `${memoCount}件` });
   if (actionsDone) stats.push({ key: 'actions', label: '実行した行動', value: `${actionsDone}件` });
-  const titles = finished.slice(0, 2).map((b) => `『${String(b.title || '').trim()}』`).join('');
-  const more = finished.length > 2 ? ` ほか ${finished.length - 2} 冊` : '';
+  const subVariants = finishedSubVariants(finished);
   return {
     kicker: String(now.getFullYear()),
     title: `${now.getMonth() + 1}月の読書`,
     titleIsBook: false,
-    sub: finished.length ? `${titles}${more}` : (stats.length ? '' : '読書の記録をはじめました'),
+    sub: finished.length ? subVariants[0] : (stats.length ? '' : '読書の記録をはじめました'),
+    subVariants: finished.length ? subVariants : null,
     stats,
     finishedBooks: finished.slice(0, 4),
   };
+}
+
+// 読み終えた本の行（今月・今年の書名の下）の書き方を、長い順に（2026-10-08 第 2 回 ui-critic「ほか N 冊が … で消える」）。
+//   『A』『B』 ほか N 冊 → 『A』 ほか N+1 冊 → 「N+2 冊」。描く側は幅に入る最初のものを使う（pickSubVariant）＝冊数は切らない。
+export function finishedSubVariants(finished) {
+  const list = Array.isArray(finished) ? finished : [];
+  const n = list.length;
+  if (!n) return [];
+  const t = (b) => `『${String(b?.title || '').trim()}』`;
+  const out = [];
+  if (n >= 2) out.push(`${t(list[0])}${t(list[1])}${n > 2 ? ` ほか ${n - 2} 冊` : ''}`);
+  out.push(n >= 2 ? `${t(list[0])} ほか ${n - 1} 冊` : t(list[0]));
+  out.push(`${n} 冊`);
+  return out;
+}
+
+// 幅に入る最初の書き方（どれも入らなければ最後＝いちばん短いもの）。measure(text) は描く幅。
+export function pickSubVariant(variants, measure, width) {
+  const list = (Array.isArray(variants) ? variants : []).filter(Boolean);
+  if (!list.length) return '';
+  return list.find((v) => measure(v) <= width) || list[list.length - 1];
+}
+
+// 今年の記録（今年に読み終えた本の冊数・今年のメモ・今年に実行した行動）。
+// yearMemos は今年書いたメモ（読める分だけ）。memoCount を渡したら、件数はそちらを使う（読む上限より多い人のため）。
+// 見出しは無し（題の「2026年の読書」が年を言う）。表紙は新しく読み終えた順に 4 冊まで（重ねる部品は今月と同じ）。
+export function yearRecord(books, yearMemos = [], now = new Date(), { memoCount = null } = {}) {
+  const list = Array.isArray(books) ? books : [];
+  const finished = list
+    .filter((b) => b && b.status === 'done' && sameYear(parseLocalDate(b.doneDate), now))
+    .sort((a, b) => timeOf(b.doneDate) - timeOf(a.doneDate));
+  const counted = (Array.isArray(yearMemos) ? yearMemos : [])
+    .filter((m) => (hasText(m) || m?.photoPath) && sameYear(parseLocalDate(m.createdAt || m.created_at), now)).length;
+  const memos = Number.isFinite(memoCount) && memoCount >= 0 ? memoCount : counted;
+  let actionsDone = 0;
+  for (const b of list) {
+    for (const a of (Array.isArray(b?.actions) ? b.actions : [])) {
+      if (a && a.done && sameYear(parseLocalDate(a.completedAt || a.completed_at), now)) actionsDone += 1;
+    }
+  }
+  const stats = [];
+  if (finished.length) stats.push({ key: 'books', label: '読了', value: `${finished.length}冊` });
+  if (memos) stats.push({ key: 'memos', label: 'メモ', value: `${memos}件` });
+  if (actionsDone) stats.push({ key: 'actions', label: '実行した行動', value: `${actionsDone}件` });
+  const subVariants = finishedSubVariants(finished);
+  return {
+    kicker: '',
+    title: `${now.getFullYear()}年の読書`,
+    titleIsBook: false,
+    sub: finished.length ? subVariants[0] : '',
+    subVariants: finished.length ? subVariants : null,
+    stats,
+    finishedBooks: finished.slice(0, 4),
+  };
+}
+
+// 今年のメモの件数（yearRecord と同じ数え方＝本文か写真のあるメモ）。読んだ件数がシートの読む上限（limit）に
+// 届いたときだけ、読めなかった分を数え上げの数から足す（その分は本文の有無が分からないので、そのまま数える）。
+// 上限に届かなければ null＝yearRecord が読んだメモを数え直す（数え上げは空のメモも数えるので使わない・第 4 回）。
+export function yearMemoCountFor(memos, total, limit = Infinity) {
+  const list = Array.isArray(memos) ? memos : [];
+  if (list.length < limit || !Number.isFinite(total) || total <= list.length) return null;
+  const counted = list.filter((m) => String(m.text || '').trim() || m.photoPath).length;
+  return counted + (total - list.length);
 }
 
 // 副題を除いた書名（長い書名が決まった行数に入らないとき、副題の前で切って』を閉じるため・第 3 回）。
@@ -188,6 +311,24 @@ export function orderQuoteCandidates(memos, { preferId = null } = {}) {
     if (i > 0) sorted.unshift(sorted.splice(i, 1)[0]);
   }
   return sorted;
+}
+
+// 今年の「いちばん残した一文」の並び（先頭がいちばん）。AI を使わない・AI が書いたもの（AI まとめ）は入れない。
+//   1. 思い出しカードで「覚えた」を多く押したメモ（recallCount が大きい順）
+//   2. 自分の言葉でしっかり書いたメモ（8 字以上）
+//   3. 同じなら新しい順
+// 「別の一文」はこの順に次へ。
+export const YEAR_QUOTE_MIN_CHARS = 8;
+export function orderYearQuoteCandidates(memos) {
+  const list = (Array.isArray(memos) ? memos : []).filter((m) => hasText(m) && !isAiWritten(m));
+  const recall = (m) => {
+    const n = Number(m.recallCount ?? m.recall_count);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  };
+  const solid = (m) => (Array.from(String(m.text).trim()).length >= YEAR_QUOTE_MIN_CHARS ? 1 : 0);
+  return [...list].sort((a, b) => (recall(b) - recall(a))
+    || (solid(b) - solid(a))
+    || (timeOf(b.createdAt || b.created_at) - timeOf(a.createdAt || a.created_at)));
 }
 
 // 見せ方ごとの一文の長さ（記録は 60 字・一文は 120 字）。
@@ -230,22 +371,23 @@ export function defaultVariant({ fromMemo = false, hasQuote = false } = {}) {
 //   投稿 4:5      … プロフィールの一覧は 3:4 に切られる（左右 約 34）ので左右 80 空ける
 // footerBaseline はロゴと日付の基線、wordH はロゴの文字の高さ（LOGO_RULES.minWordH 以上）。
 const FRAMES = {
-  story: { margin: 88, safeTop: 270, safeBottom: 1920 - 270, footerBaseline: 1630, wordH: 44, gap: 64 },
-  post: { margin: 80, safeTop: 96, safeBottom: 1350 - 72, footerBaseline: 1262, wordH: 40, gap: 56 },
-  square: { margin: 72, safeTop: 80, safeBottom: 1080 - 64, footerBaseline: 1004, wordH: 36, gap: 48 },
+  story: { margin: 96, safeTop: 270, safeBottom: 1920 - 270, footerBaseline: 1630, wordH: 36, gap: 72 },
+  post: { margin: 88, safeTop: 104, safeBottom: 1350 - 72, footerBaseline: 1262, wordH: 32, gap: 64 },
+  square: { margin: 80, safeTop: 88, safeBottom: 1080 - 64, footerBaseline: 1004, wordH: 30, gap: 56 },
 };
 
 // ---------------------------------------------------------------- ロゴ（必ず入る・2026-10-05 オーナー裁定）
 //
 // 「Orime のロゴはマストで入るようにしてください」。どの重ね方・地・形でも、左下にロゴを必ず描く（隠す項目に無い）。
 // 決まり（幅 1080 の画像の座標）:
-//   - 大きさ … 「Orime」の文字の高さ 36 以上（スマホで縮めて見ても 13pt ほど）。本の印はその 1.28 倍
+//   - 大きさ … 「Orime」の文字の高さ 30 以上（スマホで縮めて見ても 11pt ほど・2026-10-08 に 36 → 30＝必須だが主張しない
+//               オーナー「おしゃれな意識高い人間が使いたくなるように」）。本の印はその 1.28 倍
 //   - 余白   … 左は 72 以上（SNS の一覧で切られる左右 34 より内側）・基線は安全な枠の下端より上
 //   - 空き   … ロゴの上 24 には何も置かない（自分で入れる言葉も、この線より下には動かせない＝言葉でロゴを隠せない）
 //   - 読める … 写真の上は白いロゴ＋影、その下の写真の明るさから幕の濃さを決める（白と 4.5:1 以上・scrimAlpha）。
 //               紙は元の色（焦げ茶）、夜・表紙の色・透明は白。今日の日付を隠しても、ロゴの場所は変わらない
 // 動かせるのは写真と言葉だけ（ロゴは指で動かせない・大きさも変えられない）。
-export const LOGO_RULES = { minWordH: 36, minMargin: 72, clearance: 24 };
+export const LOGO_RULES = { minWordH: 30, minMargin: 72, clearance: 24 };
 
 // ロゴの箱（文字の高さ wordH・基線 baseline・左端 x・上端 top＝本の印の上端・clearTop＝上の空きの線）。
 // 基線と大きさは形ごとに決まった値（重ね方・地で変えない）。左端だけ、その重ね方の文字の左端にそろえる（margin・72 以上）。
@@ -268,14 +410,14 @@ export function recordFrame(format = 'post') {
   return {
     format: key, W, H, ...f,
     footerTop: f.footerBaseline - Math.round(f.wordH * 1.5),
-    kickerSize: r(38),
-    titleSize: r(76),
-    subSize: r(38),
-    statLabelSize: r(38),
-    statValueSize: r(120),
-    statUnitSize: r(44),
-    quoteSizes: [r(54), r(50), r(46), r(42), r(38)],
-    metaSize: r(38),
+    kickerSize: r(30),
+    titleSize: r(68),
+    subSize: r(34),
+    statLabelSize: r(30),
+    statValueSize: r(108),
+    statUnitSize: r(36),
+    quoteSizes: [r(50), r(46), r(42), r(38), r(36)],
+    metaSize: r(32),
   };
 }
 
@@ -328,17 +470,18 @@ export function recordTitleMaxLines({ statsCount = 0 } = {}) {
 // shareCard.js の drawRecordBlock はこの top / height のとおりに描く（テストで高さを確かめられるように純粋関数）。
 // 戻り値: { elements: [{ kind, top, height }], height, titleScale, titleLH }
 export function recordBlockPlan(frame, {
-  hasKicker = false, titleLines = 0, hasSub = false, statsCount = 0, quoteLines = 0, quoteLineHeight = 0,
+  hasKicker = false, titleLines = 0, hasSub = false, subLines = 1, statsCount = 0, quoteLines = 0, quoteLineHeight = 0,
 } = {}) {
   const titleScale = recordTitleScale({ statsCount });
   const titleLH = Math.round(frame.titleSize * titleScale * 1.3);
   const labelH = Math.round(frame.statLabelSize * 1.3);
   const ruleGap = Math.round(frame.statLabelSize * 1.1);
   const parts = [];
-  if (quoteLines > 0) parts.push({ kind: 'quote', height: quoteLines * quoteLineHeight, gapAfter: Math.round(frame.quoteSizes[0] * 0.95) });
-  if (hasKicker) parts.push({ kind: 'kicker', height: Math.round(frame.kickerSize * 1.35), gapAfter: 10 });
+  if (quoteLines > 0) parts.push({ kind: 'quote', height: quoteLines * quoteLineHeight, gapAfter: Math.round(frame.quoteSizes[0] * 1.3) });
+  if (hasKicker) parts.push({ kind: 'kicker', height: Math.round(frame.kickerSize * 1.35), gapAfter: 16 });
   if (titleLines > 0) parts.push({ kind: 'title', height: Math.min(recordTitleMaxLines({ statsCount }), titleLines) * titleLH, gapAfter: 0 });
-  if (hasSub) parts.push({ kind: 'sub', height: Math.round(frame.subSize * 1.45), gapBefore: 6, gapAfter: 0 });
+  // 著者は 2 行まで折り返す（… で切らない・2026-10-08）。
+  if (hasSub) parts.push({ kind: 'sub', height: Math.round(frame.subSize * 1.45) * Math.max(1, Math.min(2, subLines)), gapBefore: 10, gapAfter: 0 });
   if (statsCount > 0) {
     parts.push({ kind: 'rule', height: 0, gapBefore: ruleGap, gapAfter: ruleGap });
     parts.push({ kind: 'stats', height: labelH + 10 + frame.statValueSize, gapAfter: 0 });
@@ -420,26 +563,26 @@ export function statsStyle(frame, { compact = false } = {}) {
   const r = (n) => Math.round(n * k);
   const c = (a, b) => r(compact ? b : a);
   return {
-    kickerSize: c(38, 36),
-    titleSize: c(60, 54),
-    subSize: c(38, 36),
-    labelSize: c(38, 36),
-    valueSize: c(156, 140),
-    unitSize: c(56, 50),
-    titleLH: Math.round(c(60, 54) * 1.32),
-    labelH: Math.round(c(38, 36) * 1.3),
+    kickerSize: c(30, 28),
+    titleSize: c(56, 50),
+    subSize: c(34, 32),
+    labelSize: c(30, 28),
+    valueSize: c(148, 132),
+    unitSize: c(44, 40),
+    titleLH: Math.round(c(56, 50) * 1.36),
+    labelH: Math.round(c(30, 28) * 1.3),
     statGap: c(44, 24), // 数字と、次の数字の名前の間
     headGap: c(72, 48), // 書名・著者と、1 つめの数字の間
   };
 }
 
 // 数字の積み方の組み（隠した項目は場所を取らない）。戻り値: { elements: [{ kind, top, height, index? }], height, style }
-export function statsStackPlan(frame, { hasKicker = false, titleLines = 0, hasSub = false, statsCount = 0, compact = false } = {}) {
+export function statsStackPlan(frame, { hasKicker = false, titleLines = 0, hasSub = false, subLines = 1, statsCount = 0, compact = false } = {}) {
   const st = statsStyle(frame, { compact });
   const parts = [];
   if (hasKicker) parts.push({ kind: 'kicker', height: Math.round(st.kickerSize * 1.35), gapAfter: 12 });
   if (titleLines > 0) parts.push({ kind: 'title', height: Math.min(2, titleLines) * st.titleLH, gapAfter: 0 });
-  if (hasSub) parts.push({ kind: 'sub', height: Math.round(st.subSize * 1.45), gapBefore: 6, gapAfter: 0 });
+  if (hasSub) parts.push({ kind: 'sub', height: Math.round(st.subSize * 1.45) * Math.max(1, Math.min(2, subLines)), gapBefore: 10, gapAfter: 0 });
   const n = Math.max(0, Math.min(3, statsCount));
   for (let i = 0; i < n; i += 1) {
     parts.push({ kind: 'stat', index: i, height: st.labelH + 4 + st.valueSize, gapBefore: i === 0 ? st.headGap : st.statGap, gapAfter: 0 });
@@ -530,6 +673,7 @@ export function applyShareItems(record, hidden) {
     kicker: h.has('status') ? '' : record.kicker,
     title: h.has('title') ? '' : record.title,
     sub: h.has('author') ? '' : record.sub,
+    subVariants: h.has('author') ? null : (record.subVariants || null),
     stats: (record.stats || []).filter((st) => !h.has(st.key)),
   };
 }
@@ -604,8 +748,17 @@ export function stepVariant(variants, current, dir) {
 
 // ---------------------------------------------------------------- 共有の文
 
-// 画像に入れたものだけ（記録の見出し・書名・一文）＋ #Orime ＋ URL。
-export function buildRecordShareText({ record, quote = '', siteUrl = '' }) {
+// 共有の文に添えるハッシュタグ（画像には入れない・2026-10-08）。X の月末の「#◯月読了本」と 12 月の「今年の読書」に乗る。
+//   今月 … #10月読了本（その月の数字・その月に読み終えた本があるときだけ＝メモだけの月は付けない・オーナー判断）
+//   今年 … #2026年の読書／本 1 冊 … なし
+export function shareHashtags(kind, now = new Date(), { finishedCount = 0 } = {}) {
+  if (kind === 'month') return finishedCount >= 1 ? [`#${now.getMonth() + 1}月読了本`] : [];
+  if (kind === 'year') return [`#${now.getFullYear()}年の読書`];
+  return [];
+}
+
+// 画像に入れたものだけ（記録の見出し・書名・一文）＋ハッシュタグ（tags・#Orime の前）＋ #Orime ＋ URL。
+export function buildRecordShareText({ record, quote = '', siteUrl = '', tags = [] }) {
   const parts = [];
   // 書名を隠した（表示する項目）ときは文にも入れない（画像に入れたものだけ）。
   if (record && record.title) {
@@ -613,7 +766,8 @@ export function buildRecordShareText({ record, quote = '', siteUrl = '' }) {
   }
   const q = String(quote || '').trim();
   if (q) parts.push(q);
-  parts.push('#Orime');
+  const tagLine = [...(Array.isArray(tags) ? tags : []).filter(Boolean), '#Orime'].join(' ');
+  parts.push(tagLine);
   const url = String(siteUrl || '').trim();
   if (url) parts.push(url);
   return parts.join('\n');

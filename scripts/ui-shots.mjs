@@ -539,6 +539,22 @@ const SCREENS = [
   { name: 'tokens-sheet', url: '/?demo=limit', steps: [{ css: nav('相談') }, { css: 'button:has-text("トークンを追加")' }] },
   { name: 'consult-tokens-extra', url: '/?demo=tokens', steps: [{ css: nav('相談') }] },
   { name: 'settings-tokens', url: '/?demo=tokens', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { scrollTo: 'section[aria-label="プラン・お支払い"]' }] },
+  // 🧪 はじめての相談の答えのあとの 7 日間無料（2026-10-08・実験）: 見せる組（&trialab=on）／見せない組（off）／押したあとの有料プランの画面
+  { name: 'consult-first-trial', url: '/?demo=fewmemos&trialab=on', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { waitFor: '[aria-label="続けて聞く"] button' }, { wait: 1200 }, { scrollBottom: true }] },
+  { name: 'consult-first-trial-hold', url: '/?demo=fewmemos&trialab=off', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { waitFor: '[aria-label="続けて聞く"] button' }, { wait: 1200 }, { scrollBottom: true }] },
+  { name: 'consult-first-trial-large-text', url: '/?demo=fewmemos&trialab=on', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { waitFor: '[aria-label="続けて聞く"] button' }, { wait: 1200 }, { eval: () => { document.documentElement.style.fontSize = '23px'; } }, { wait: 500 }, { scrollBottom: true }] },
+  { name: 'paywall-first-answer', url: '/?demo=fewmemos&trialab=on&native=1&founding=on', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { waitFor: '[aria-label="続けて聞く"] button' }, { wait: 1200 }, { css: 'section[aria-label="7 日間無料の案内"] button:has-text("もっと話す")' }, { wait: 1500 }] },
+  // 第 2 回（ui-critic）: 続けて相談したあと（カードは最初の答えの下に残る）／書いている間（場所は残して見えなくする）
+  { name: 'consult-first-trial-followup', url: '/?demo=fewmemos&trialab=on', steps: [...[{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { waitFor: '[aria-label="続けて聞く"] button' }, { wait: 1200 }].slice(0, 4), { wait: 1200 }, { css: '[aria-label="続けて聞く"] button >> nth=0' }, { waitFor: '[aria-label="続けて聞く"] button' }, { wait: 1200 }, { scrollTo: 'section[aria-label="7 日間無料の案内"]' }] },
+  { name: 'consult-first-trial-followup-writing', url: '/?demo=fewmemos&trialab=on&ai=slow', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { wait: 64000 }, { css: '[aria-label="続けて聞く"] button >> nth=0' }, { wait: 1500 }, { scrollTo: 'section[aria-label="7 日間無料の案内"]' }] },
+  { name: 'paywall-first-answer-loading', url: '/?demo=fewmemos&trialab=on&native=1&founding=on&price=loading', steps: [...[{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { waitFor: '[aria-label="続けて聞く"] button' }, { wait: 1200 }], { css: 'section[aria-label="7 日間無料の案内"] button:has-text("もっと話す")' }, { wait: 1500 }] },
+  { name: 'paywall-first-answer-failed', url: '/?demo=fewmemos&trialab=on&native=1&founding=on&price=fail', steps: [...[{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { waitFor: '[aria-label="続けて聞く"] button' }, { wait: 1200 }], { css: 'section[aria-label="7 日間無料の案内"] button:has-text("もっと話す")' }, { wait: 1500 }] },
+  { name: 'paywall-first-answer-xxl-text', url: '/?demo=fewmemos&trialab=on&native=1&founding=on', steps: [...[{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { waitFor: '[aria-label="続けて聞く"] button' }, { wait: 1200 }], { css: 'section[aria-label="7 日間無料の案内"] button:has-text("もっと話す")' }, { wait: 1500 }, { eval: () => { document.documentElement.style.fontSize = '40px'; } }, { wait: 800 }] },
+  { name: 'paywall-first-answer-bottom', url: '/?demo=fewmemos&trialab=on&native=1&founding=on', steps: [...[{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { waitFor: '[aria-label="続けて聞く"] button' }, { wait: 1200 }], { css: 'section[aria-label="7 日間無料の案内"] button:has-text("もっと話す")' }, { wait: 1500 }, { scrollBottom: true }] },
+  // 🎟 設定の「コードを使う」（iPhone のアプリだけ・お試しは &native=1）
+  { name: 'settings-code', url: '/?demo=free&native=1', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { scrollTo: 'h2:has-text("プラン・お支払い"), p:text-is("プラン・お支払い"), :text-is("プラン・お支払い")' }] },
+  { name: 'settings-code-paid', url: '/?native=1', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { scrollTo: ':text-is("プラン・お支払い")' }] },
+  { name: 'settings-code-toast', url: '/?native=1', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { scrollTo: ':text-is("プラン・お支払い")' }, { css: 'button:has-text("コードを使う")' }, { wait: 600 }] },
   // 長さの上限で途中まで（&ai=cut・本文は残し、下に 1 行の案内）
   // ── 一文をシェア（2026-09-27・SPEC §2-1）
   { name: 'share-line', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("画像で共有")' }, { wait: 1500 }] },
@@ -630,13 +646,37 @@ const SCREENS = [
   { name: 'share-photo-dark', url: '/', steps: [{ css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo-dark.jpg'] }, { wait: 2500 }] },
   { name: 'share-photo-bright-story', url: '/', steps: [{ css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo-bright.jpg'] }, { wait: 2000 }, { css: '[role=radio][aria-label="ストーリー（9:16）"]' }, { wait: 2000 }] },
   { name: 'share-photo-bright-edit', url: '/', steps: [{ css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo-bright.jpg'] }, { wait: 2000 }, ...SHARE_EDIT] },
+  // ── 写真で共有の見た目の作り直し（2026-10-08・重ね方の名前・形の切り替えの場所・フィルム・言葉を打つ間の画像）
+  { name: 'style-sheet-photo', url: '/', steps: [...SHARE_CAMERA, { wait: 800 }] },
+  { name: 'style-sheet-paper', url: '/', steps: SHARE_PAPER },
+  { name: 'style-sheet-bgmenu', url: '/', steps: [...SHARE_CAMERA, { css: SHARE_BG_MENU }, { wait: 600 }] },
+  { name: 'style-sheet-film', url: '/', steps: [...SHARE_CAMERA, { css: SHARE_BG_MENU }, { css: '[role=menuitem]:has-text("フィルム")' }, { wait: 2000 }] },
+  { name: 'style-sheet-quote', url: '/', steps: [...SHARE_CAMERA, shareVariant('心に残った一文'), { wait: 2000 }] },
+  { name: 'style-sheet-stats-bright', url: '/', steps: [{ css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo-bright.jpg'] }, { wait: 2000 }, shareVariant('大きな数字'), { wait: 2000 }] },
+  { name: 'style-sheet-film-bright', url: '/', steps: [{ css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo-bright.jpg'] }, { wait: 2000 }, { css: SHARE_BG_MENU }, { css: '[role=menuitem]:has-text("フィルム")' }, { wait: 2500 }] },
+  { name: 'style-editor-typing', url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT, { css: `${EDIT} button:has-text("言葉を入れる")` }, { fill: [`${EDIT} input[type=text]`, '問いの質が、答えの質を決める。'] }, { wait: 1500 }] },
+  { name: 'style-editor-typing-short', url: '/', viewport: { width: 390, height: 520 }, steps: [...SHARE_CAMERA, ...SHARE_EDIT, { css: `${EDIT} button:has-text("言葉を入れる")` }, { fill: [`${EDIT} input[type=text]`, '問いの質が、答えの質を決める。'] }, { wait: 1500 }] },
+  { name: 'style-sheet-xl-text', url: '/', steps: [{ eval: () => { document.documentElement.style.fontSize = '23px'; } }, ...SHARE_CAMERA, { wait: 800 }] },
+  // ── 月末の「今月の読書」の声かけ・12 月の「今年の読書」（2026-10-08・&today= で日付を差し替える）
+  { name: 'wrap-home-month', url: '/?today=2026-11-29', steps: [{ waitFor: '[data-share-nudge]' }, { wait: 600 }] },
+  { name: 'wrap-home-year', url: '/?today=2026-12-03', steps: [{ waitFor: '[data-share-nudge]' }, { wait: 600 }] },
+  { name: 'wrap-home-none', url: '/?today=2026-11-20', steps: [{ css: 'h1' }, { wait: 1200 }] },
+  { name: 'wrap-sheet-month', url: '/?today=2026-11-29', steps: [{ css: '[data-share-nudge] button:has-text("11月の読書")' }, { wait: 2500 }] },
+  { name: 'wrap-sheet-year', url: '/?today=2026-12-03', steps: [{ css: '[data-share-nudge] button:has-text("2026年の読書")' }, { wait: 2500 }] },
+  { name: 'wrap-sheet-year-stats', url: '/?today=2026-12-03', steps: [{ css: '[data-share-nudge] button:has-text("2026年の読書")' }, { wait: 2000 }, shareVariant('大きな数字'), { wait: 2000 }] },
+  { name: 'wrap-sheet-year-photo', url: '/?today=2026-12-03', steps: [{ css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo-bright.jpg'] }, { wait: 2000 }, { css: '[role=radiogroup][aria-label="どの本を共有するか"] [role=radio]:has-text("今年")' }, { wait: 2500 }] },
+  { name: 'wrap-home-month-xl-text', url: '/?today=2026-11-29', steps: [{ waitFor: '[data-share-nudge]' }, { eval: () => { document.documentElement.style.fontSize = '30px'; } }, { wait: 500 }] },
+  { name: 'wrap-home-dec30', url: '/?today=2026-12-30', steps: [{ waitFor: '[data-share-nudge]' }, { css: '[data-share-nudge] button[aria-label="この案内を閉じる"]' }, { wait: 800 }] },
+  { name: 'wrap-sheet-year-quote', url: '/?today=2026-12-03', steps: [{ css: '[data-share-nudge] button:has-text("2026年の読書")' }, { wait: 2000 }, shareVariant('心に残った一文'), { wait: 2000 }] },
+  { name: 'wrap-sheet-year-error', url: '/?today=2026-12-03&share=yearfail', steps: [{ css: '[data-share-nudge] button:has-text("2026年の読書")' }, { wait: 2000 }] },
+  { name: 'wrap-sheet-year-review', url: '/?today=2026-12-03', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }, { css: 'button[aria-label="写真で共有"]' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 2500 }] },
   // ── 写真で共有をよくする（2026-10-05・ロゴは必ず入る・重ね方 3 つ・選んだ重ね方と形を覚える・撮り直す／アルバム）
   // 「数字」の重ね方（大きな数字を真ん中に縦に積む）。投稿・ストーリー・明るい写真・暗い写真・紙・表紙の色。
-  { name: 'share-photo-stats', url: '/', steps: [...SHARE_CAMERA, shareVariant('数字'), { wait: 2000 }] },
-  { name: 'share-photo-stats-story', url: '/', steps: [...SHARE_CAMERA, shareVariant('数字'), { wait: 1200 }, { css: '[role=radio][aria-label="ストーリー（9:16）"]' }, { wait: 2000 }] },
-  { name: 'share-photo-stats-bright', url: '/', steps: [{ css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo-bright.jpg'] }, { wait: 2000 }, shareVariant('数字'), { wait: 2000 }] },
-  { name: 'share-photo-stats-dark', url: '/', steps: [{ css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo-dark.jpg'] }, { wait: 2000 }, shareVariant('数字'), { wait: 2000 }] },
-  { name: 'share-stats-paper', url: '/', steps: [...SHARE_CAMERA_PAPER, shareVariant('数字'), { wait: 2000 }] },
+  { name: 'share-photo-stats', url: '/', steps: [...SHARE_CAMERA, shareVariant('大きな数字'), { wait: 2000 }] },
+  { name: 'share-photo-stats-story', url: '/', steps: [...SHARE_CAMERA, shareVariant('大きな数字'), { wait: 1200 }, { css: '[role=radio][aria-label="ストーリー（9:16）"]' }, { wait: 2000 }] },
+  { name: 'share-photo-stats-bright', url: '/', steps: [{ css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo-bright.jpg'] }, { wait: 2000 }, shareVariant('大きな数字'), { wait: 2000 }] },
+  { name: 'share-photo-stats-dark', url: '/', steps: [{ css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo-dark.jpg'] }, { wait: 2000 }, shareVariant('大きな数字'), { wait: 2000 }] },
+  { name: 'share-stats-paper', url: '/', steps: [...SHARE_CAMERA_PAPER, shareVariant('大きな数字'), { wait: 2000 }] },
   // プレビューを左に振る＝隣の重ね方（記録 → 数字）。
   { name: 'share-photo-swipe', url: '/', steps: [...SHARE_CAMERA, { swipe: ['[role=dialog] button[aria-label$="を大きくして編集"]', -140] }, { wait: 2000 }] },
   // 前に選んだ重ね方・形（数字・ストーリー）で開く。
@@ -659,7 +699,7 @@ const SCREENS = [
   { name: 'share-edit-phrase-band', url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT, ...EDIT_PHRASE, EDIT_BLUR, { wait: 800 }, editClick('[role=radiogroup][aria-label="言葉の形"] [role=radio]', '白抜きの帯'), { wait: 1500 }, EDIT_TOP] },
   { name: 'share-edit-phrase-invert', url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT, ...EDIT_PHRASE, EDIT_BLUR, { wait: 800 }, editClick('button', '文字を黒にする'), { wait: 1500 }, EDIT_TOP] },
   { name: 'share-edit-phrase-focus', url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT, ...EDIT_PHRASE, { wait: 800 }] },
-  { name: 'share-edit-stats', url: '/', steps: [...SHARE_CAMERA, shareVariant('数字'), { wait: 1500 }, ...SHARE_EDIT] },
+  { name: 'share-edit-stats', url: '/', steps: [...SHARE_CAMERA, shareVariant('大きな数字'), { wait: 1500 }, ...SHARE_EDIT] },
   { name: 'share-edit-phrase-sticker', url: '/', steps: [...SHARE_PAPER, { css: '[role=dialog] [role=radio][aria-label="透明（ステッカー用）"]' }, { wait: 1500 }, ...SHARE_EDIT, ...EDIT_PHRASE, EDIT_BLUR, { wait: 800 }, EDIT_TOP] },
   { name: 'share-edit-scrolled', url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT, { scrollBottom: true }] },
   // ── AI に送る内容の同意（App Review 5.1.2(i)・2026-10-01）。&consent=none＝まだ同意していない人（お試しモードの既定は同意済み）。
