@@ -31,11 +31,29 @@ export function interviewPairsOf(raw) {
   return pairs;
 }
 
-// 表示用: 相談＋回答（「・」の箇条書き）
+// 確かめた悩み（2026-10-08）: AI が受け取ったまとめ（summary）と、本人の直し（correction）。無ければ空。
+//   推薦を頼む文の【受け取った悩み】【本人の直し（最優先）】の節（lib/advisorInterview.js の buildRecoMessage）。
+function sectionOf(s, name) {
+  const head = `【${name}】\n`;
+  const i = s.indexOf(head);
+  if (i < 0) return '';
+  const rest = s.slice(i + head.length);
+  const end = rest.indexOf('\n\n');
+  return (end < 0 ? rest : rest.slice(0, end)).trim();
+}
+export function confirmedOf(raw) {
+  const s = String(raw || '');
+  if (!TEMPLATE.test(s)) return { summary: '', correction: '' };
+  return { summary: sectionOf(s, '受け取った悩み'), correction: sectionOf(s, '本人の直し（最優先）') };
+}
+
+// 表示用: 相談＋回答（「・」の箇条書き）。本人の直しがあれば最後に（本人の言葉なので）。
 export function displayUserText(raw) {
   const s = String(raw || '');
   if (!TEMPLATE.test(s)) return s;
   const answers = interviewPairsOf(s).map((p) => p.a);
+  const { correction } = confirmedOf(s);
+  if (correction) answers.push(correction);
   const c = concernOf(s);
   return answers.length ? `${c}\n${answers.map((a) => `・${a}`).join('\n')}` : c;
 }
@@ -45,17 +63,21 @@ export function displayUserText(raw) {
 //   この本から得たいこと ＝ ヒアリングの「理想の状態」の答え（問いの言葉で探し、無ければ 2 問目）
 //   以前は相談そのものを「得たいこと」に、答えを全部つなげて「課題」に入れていた（困りごとが得たいことに入る）。
 //   ヒアリングが無かったとき（相談だけで推薦した）は、得たいことは空のまま（本人に書いてもらう）。
-const IDEAL_Q = /理想|なりたい|得たい|目指|ゴール|どうなれ/;
-export function advisorSetupFields(concern, answers) {
+//   2026-10-08: 悩みを確かめた（confirmed＝{ summary, correction }）ときは、現在の課題＝本人の直し＋受け取ったまとめ
+//   （直しが先＝本人の言葉を優先）。「まだ言葉にできない」と答えた問い（unsure）は答えに数えない。
+const IDEAL_Q = /理想|なりたい|得たい|目指|ゴール|どうなれ|どうなって/;
+export function advisorSetupFields(concern, answers, confirmed = null) {
   const c = String(concern || '').trim();
   const list = (Array.isArray(answers) ? answers : [])
+    .filter((x) => !x?.unsure)
     .map((x) => ({ q: String(x?.q || '').trim(), a: String(x?.a || '').trim() }))
     .filter((x) => x.a);
   let idealIdx = list.findIndex((x) => IDEAL_Q.test(x.q));
   if (idealIdx < 0 && list.length >= 2) idealIdx = 1;
   const first = list[0] && idealIdx !== 0 ? list[0].a : '';
+  const told = [String(confirmed?.correction || '').trim(), String(confirmed?.summary || '').trim()].filter(Boolean);
   return {
-    challenge: [c, first].filter(Boolean).join('／'),
+    challenge: told.length ? told.join('\n') : [c, first].filter(Boolean).join('／'),
     purpose: idealIdx >= 0 ? list[idealIdx].a : '',
   };
 }
@@ -66,8 +88,9 @@ export function advisorSetupFields(concern, answers) {
 //   得たいこと＝理想の状態の答え（sourceQuery も同じ＝「AI 選書で入力した内容に戻す」の元）／課題＝相談＋1 問目／
 //   仮説は空（推薦の核心は AI の言葉で、本人の仮説ではない＝読む前に自分で書く欄）／
 //   選書理由＝推薦の「なぜ」＋改行＋「この本の核心: …」。answers は呼ぶ側で sanitize 済みの { q, a }。
-export function advisorSetupPayload(concern, answers, rec) {
-  const setup = advisorSetupFields(concern, answers);
+//   confirmed＝確かめた悩み（{ summary, correction }・2026-10-08）。課題はこれを優先する。
+export function advisorSetupPayload(concern, answers, rec, confirmed = null) {
+  const setup = advisorSetupFields(concern, answers, confirmed);
   return {
     sourceQuery: clamp(setup.purpose, 400),
     investPurpose: clamp(setup.purpose, 400),

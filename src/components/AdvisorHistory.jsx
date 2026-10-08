@@ -22,7 +22,7 @@ import { withPhraseBreaks } from './TightBubble';
 import AdvisorStoreLinks from './AdvisorStoreLinks';
 import { STORE_DISCLOSURE_TEXT } from '../lib/rakutenLink';
 import { btnPrimary, btnGhost, btnGhostOff, btnText, groupTitle } from '../styles/ui';
-import { displayUserText, concernOf, interviewPairsOf, advisorSetupPayload } from '../lib/advisorText';
+import { displayUserText, concernOf, interviewPairsOf, confirmedOf, advisorSetupPayload } from '../lib/advisorText';
 import { filterProseTitles, proseTitleLists } from '../lib/advisorProse';
 import { dropSummarySection, introTextOf, splitRecoAnswer } from '../lib/advisorSummary';
 import { fmtDateTimeJa } from '../lib/dates';
@@ -371,7 +371,9 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
   // 読書準備は AI 選書の画面と同じ中身（課題＝相談＋1 問目・得たいこと＝理想の状態の答え・仮説は空・
   //   選書理由＝なぜ＋核心＝lib/advisorText.js の advisorSetupPayload・2026-10-04）。
   const interviewPairs = useMemo(() => interviewPairsOf(lastUserRaw), [lastUserRaw]);
-  const setupFor = (rec) => advisorSetupPayload(lastUserQuery, interviewPairs, rec);
+  // 確かめた悩み（受け取ったまとめ・本人の直し）があれば、課題はそれを優先（2026-10-08）。
+  const confirmed = useMemo(() => confirmedOf(lastUserRaw), [lastUserRaw]);
+  const setupFor = (rec) => advisorSetupPayload(lastUserQuery, interviewPairs, rec, confirmed);
 
   const recKey = (rec) => {
     const norm = (s) => (s || '').toString().toLowerCase().replace(/\s+/g, '');

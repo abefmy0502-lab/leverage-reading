@@ -10,11 +10,8 @@ import {
   ChevronLeft as IcBack,
   History as IcHistory,
   MessageSquarePlus as IcNewChat,
-  PencilLine as IcPencil,
   Plus as IcPlus,
   RotateCw as IcRetry,
-  Square as IcBox,
-  SquareCheck as IcBoxChecked,
   TriangleAlert as IcAlert,
 } from 'lucide-react';
 import { callClaude, sanitizeForPrompt, gatherAdvisorContext, prewarmAdvisorContext, isAiNoticeString } from '../lib/ai';
@@ -35,7 +32,7 @@ import { nextResetLabelJa } from '../lib/freeTrial';
 import { TOKEN_COSTS, runCostLine, monthDayLabelJa } from '../lib/tokens';
 import { trialCancelShortLine } from '../lib/trialNudge';
 import TokensOutCard from './TokensOutCard';
-import { groupTitle, btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, btnText as uiBtnText, btnLink as uiBtnLink, input as uiInput, card as uiCard } from '../styles/ui';
+import { groupTitle, btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, btnLink as uiBtnLink, card as uiCard } from '../styles/ui';
 import { useAuth } from '../hooks/useAuth';
 import { useHaptic } from '../hooks/useHaptic';
 import { useToast } from './Toast';
@@ -48,7 +45,8 @@ import { AdvisorNavBar, formatDate as advisorSessionDate } from './AdvisorHistor
 import ErrorMessage from './ErrorMessage';
 import { SkeletonBlock } from './Skeleton';
 import TightBubble, { withPhraseBreaks } from './TightBubble';
-import { displayUserText, concernOf, interviewPairsOf, advisorSetupFields, advisorSetupPayload } from '../lib/advisorText';
+import { displayUserText, concernOf, interviewPairsOf, confirmedOf, advisorSetupPayload } from '../lib/advisorText';
+import { MAX_INTERVIEW_QUESTIONS, OPT_UNSURE, OFF_PLACEHOLDER, parseInterviewStep, interviewChips, applyStarter, buildPriorQA, buildRecoMessage, spokenAnswers, needsCareLine, CARE_LINE } from '../lib/advisorInterview';
 import { usePaywall } from '../state/PaywallContext';
 import { findDuplicateBook } from '../lib/checkDuplicate';
 import { filterProseTitles, proseTitleLists } from '../lib/advisorProse';
@@ -73,16 +71,12 @@ const readText = { fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)',
 // カード内の小見出しラベル（DESIGN §5 groupTitle: 12/600/--text-2）と本文。
 const fieldLabel = { ...groupTitle, margin: 0 };
 const fieldText = { fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.6, margin: 'var(--space-1) 0 0' };
-// 行の中の副ボタン（DESIGN §5 btnRow: 44・15・600）。
-const rowBtn = { ...uiBtnGhost, width: 'auto', minHeight: 44, padding: 'var(--space-2) var(--space-3)', fontSize: 'var(--text-sub)', flexShrink: 0 };
-// 答えの選択肢＝チップ（--fill 面・枠なし・角丸 12。選択中は --accent-soft ＋ --accent 600）。
-const advisorOptionChip = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 'var(--space-2)',
-  width: '100%',
+// 答えの書き出し＝入力欄の上のチップ（相談の答えの候補と同じ: --fill 面・枠なし・角丸 12・高さ 44。
+//   押すと入力欄に入るだけ＝答えを決めない・2026-10-08）。選択中（「どれも少し違う」）は --accent-soft ＋ --accent 600。
+const answerChip = {
   minHeight: 44,
-  padding: 'var(--space-3)',
+  maxWidth: '100%',
+  padding: 'var(--space-2) var(--space-3)',
   textAlign: 'left',
   background: 'var(--fill)',
   border: 'none',
@@ -93,12 +87,20 @@ const advisorOptionChip = {
   lineHeight: 1.5,
   cursor: 'pointer',
   touchAction: 'manipulation',
+  wordBreak: 'keep-all',
+  overflowWrap: 'anywhere',
 };
+// いつもある逃げ道（どれも少し違う・まだ言葉にできない）は、書き出しより一段控えめな文字色。
+const answerChipEscape = { color: 'var(--text-2)' };
+// 答えた問い（会話の流れとして残す・いまの問いより控えめ＝15/--text-2）。
+const askedText = { fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.6, margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' };
+// いまの問い（17/600・文節で折り返す）。
+const questionText = { fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5, margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' };
 // 「読みたいに追加」後の表示（押せない状態はボタンではなく文字で示す。相談の「行動に追加しました」と同じ）。
 // ユーザーの相談＝右寄せの --fill 吹き出し（相談と同じ）。
 // 相談の吹き出しと同じ: 文字に沿って縮む（TightBubble・最大 85%）・文節の切れ目でだけ折り返す（BudouX の <wbr>＋keep-all・2026-09-29）。
 const userBubble = { maxWidth: '85%', padding: 'var(--space-3) var(--space-4)', borderRadius: 'var(--radius)', background: 'var(--fill)', color: 'var(--text)', fontSize: 'var(--text-body)', lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'keep-all', overflowWrap: 'anywhere', textWrap: 'pretty' };
-const advisorOptionChipSelected = { background: 'var(--accent-soft)', color: 'var(--accent)', fontWeight: 600 };
+const answerChipSelected = { background: 'var(--accent-soft)', color: 'var(--accent)', fontWeight: 600 };
 // 推薦カードの購入リンク（Amazon・楽天ブックス）は AdvisorStoreLinks.jsx（過去の AI 選書と共通・2026-10-04）。
 
 // 推薦の前置きを 1 段落の文にするのは lib/advisorSummary.js の introTextOf（過去の AI 選書と共通・2026-10-04）。
@@ -120,8 +122,7 @@ const ADVISOR_EXAMPLES = [
   'お金の不安',
 ];
 
-// ヒアリングの最大ラウンド数。AI は途中で done を返せるが、上限で必ず締める。
-const MAX_INTERVIEW_ROUNDS = 3;
+// 聞き取りの問いの上限は lib/advisorInterview.js の MAX_INTERVIEW_QUESTIONS（芯が見えたら AI が先に止める）。
 
 // 🧭 画面を離れても、おすすめ・会話を覚えておく（アプリの起動中だけ・ログイン中の人ごと）。
 //   追加した本の詳細を開いて「‹ AI 選書」で戻ったとき、さっきのおすすめのまま戻れるように
@@ -233,18 +234,26 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   // 検証が終わった時点の会話 ID（非同期の後で読むので ref でも持つ）。
   const sessionIdRef = useRef(currentSessionId);
   useEffect(() => { sessionIdRef.current = currentSessionId; }, [currentSessionId]);
-  // ── ガイド付きヒアリング（チップ選択ウィザード）の状態 ───────────────────
-  // 旧来の「4 問を一括テキストで投げて自由記述で受ける」摩擦を解消するため、
-  // 初回の相談内容から AI が質問セットを設計 → 1 問ずつ選択肢タップで答える。
+  // ── 聞き取り（2026-10-08 作り直し・lib/advisorInterview.js） ───────────────────
+  // 1 回に 1 つの開いた問い → 自分の言葉で答える（書き出しのチップは入力欄に入るだけ）→
+  // 悩みの芯が見えたら「あなたの悩みを、こう受け取りました」を確かめる → 本を探す。
   const [concern, setConcern] = useState(() => memo0.concern || '');            // 初回の相談（課題）
-  const [interview, setInterview] = useState(() => memo0.interview || null);      // [{q, options[]}] | null
-  const [interviewStep, setInterviewStep] = useState(() => memo0.interviewStep || 0); // 現在の質問 index
-  const [interviewRound, setInterviewRound] = useState(() => memo0.interviewRound || 1); // 現在のヒアリング周回（1..MAX）
-  const [interviewAnswers, setInterviewAnswers] = useState(() => memo0.interviewAnswers || []); // [{q, a}] 全周通算
-  const [interviewLoading, setInterviewLoading] = useState(false); // 質問生成中
-  const [otherMode, setOtherMode] = useState(() => !!memo0.otherMode);     // 「その他」自由入力モード
-  const [otherText, setOtherText] = useState(() => memo0.otherText || '');
-  const [multiSelected, setMultiSelected] = useState(() => memo0.multiSelected || []); // 複数選択質問の選択中の答え
+  // いまの問い { question, options, summary } | null（以前の形＝問いの配列は読まない）
+  const [interview, setInterview] = useState(() => (memo0.interview && !Array.isArray(memo0.interview) ? memo0.interview : null));
+  // 答えた問い（interviewAnswers と同じ並び・「前の問いに戻る」で 1 つずつ戻す）
+  const [interviewTrail, setInterviewTrail] = useState(() => (Array.isArray(memo0.interviewTrail) ? memo0.interviewTrail : []));
+  const [interviewAnswers, setInterviewAnswers] = useState(() => memo0.interviewAnswers || []); // [{ q, a, off?, unsure? }]
+  const [interviewLoading, setInterviewLoading] = useState(false); // 問いを考えている途中
+  const [answerText, setAnswerText] = useState(() => memo0.answerText || ''); // 「自分の言葉で答える」の入力
+  const [answerOff, setAnswerOff] = useState(() => !!memo0.answerOff);       // 「どれも少し違う」を押した
+  // 確かめる一歩 { summary, from }（from＝「このくらいで探して」を押した問い・戻る先）| null
+  const [summaryStep, setSummaryStep] = useState(() => memo0.summaryStep || null);
+  const [correcting, setCorrecting] = useState(() => !!memo0.correcting);    // 「少し違う（直す）」で書いている
+  const [correctionText, setCorrectionText] = useState(() => memo0.correctionText || '');
+  // 推薦のもとにした悩み { summary, correction } | null（おすすめの上の 1 行・読書準備の課題）
+  const [confirmed, setConfirmed] = useState(() => memo0.confirmed || null);
+  // 送信の二重押しを止める同期の印（state は次の描画まで変わらないため）。
+  const askingRef = useRef(false);
   const [recoLoading, setRecoLoading] = useState(false); // 推薦生成中
   const [recoStream, setRecoStream] = useState(''); // 推薦生成中のライブ前置き文（体感速度）
   const [recoError, setRecoError] = useState(() => memo0.recoError || null);
@@ -255,10 +264,10 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     advisorMemory.uid = advisorUser?.id || null;
     advisorMemory.state = {
       messages, input, recommendations, chatHistory, lastUserQuery, addedTitles: [...addedTitles],
-      currentSessionId, concern, interview, interviewStep, interviewRound, interviewAnswers,
-      otherMode, otherText, multiSelected, recoError, recoNotice,
+      currentSessionId, concern, interview, interviewTrail, interviewAnswers,
+      answerText, answerOff, summaryStep, correcting, correctionText, confirmed, recoError, recoNotice,
     };
-  }, [advisorUser?.id, messages, input, recommendations, chatHistory, lastUserQuery, addedTitles, currentSessionId, concern, interview, interviewStep, interviewRound, interviewAnswers, otherMode, otherText, multiSelected, recoError, recoNotice]);
+  }, [advisorUser?.id, messages, input, recommendations, chatHistory, lastUserQuery, addedTitles, currentSessionId, concern, interview, interviewTrail, interviewAnswers, answerText, answerOff, summaryStep, correcting, correctionText, confirmed, recoError, recoNotice]);
   // Strict auto-scroll: only when a real append happens. Initial seed
   // message + any case where we would scroll from a zero baseline are
   // explicitly excluded so re-mounting the component (sub-tab switch)
@@ -280,13 +289,16 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   }, [messages]);
   // Auto-grow textarea: clamp 60–200px, scroll past 200.
   const inputRef = useRef(null);
+  // 答え・直しの入力欄（同じ下の欄の場所に、いまの段階のものを 1 つだけ出す）。
+  const answerRef = useRef(null);
   useEffect(() => {
-    const el = inputRef.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    // 空のときは 1 行（44）。相談の入力欄と同じ高さから伸びる。
-    el.style.height = Math.min(Math.max(el.scrollHeight + 2, 44), 200) + 'px';
-  }, [input]);
+    for (const el of [inputRef.current, answerRef.current]) {
+      if (!el) continue;
+      el.style.height = 'auto';
+      // 空のときは 1 行（44）。相談の入力欄と同じ高さから伸びる。
+      el.style.height = Math.min(Math.max(el.scrollHeight + 2, 44), 200) + 'px';
+    }
+  }, [input, answerText, correctionText, interview, correcting]);
 
   // Parse the new richer response: leading prose + JSON recs + trailing prose.
   // 表示用: RECOMMENDATIONS ブロック（マーカー + JSON）を本文から取り除く。
@@ -428,56 +440,25 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     return { recs, prose: { before, after } };
   };
 
-  // 質問生成レスポンス（JSON）を堅牢にパース。純粋 JSON を指示しているが、
-  // 前後に余計な文字が混ざっても最初の { 〜 最後の } を取り出して解釈する。
-  // 返り値: { done: bool, questions: [...] } | null（パース不能）。
-  const parseInterview = (text) => {
-    if (typeof text !== 'string') return null;
-    const s = text.indexOf('{');
-    const e = text.lastIndexOf('}');
-    if (s < 0 || e <= s) return null;
-    try {
-      const obj = JSON.parse(text.slice(s, e + 1));
-      const done = obj?.done === true;
-      const qs = Array.isArray(obj?.questions) ? obj.questions : [];
-      const cleaned = qs
-        .filter((q) => q && typeof q.q === 'string' && q.q.trim())
-        .map((q) => ({
-          q: q.q.trim(),
-          multi: q.multi === true,
-          options: Array.isArray(q.options)
-            ? q.options
-                .filter((o) => typeof o === 'string' && o.trim())
-                .map((o) => o.trim())
-                .slice(0, 4)
-            : [],
-        }))
-        .filter((q) => q.options.length >= 2)
-        .slice(0, 3);
-      return { done, questions: cleaned };
-    } catch {
-      return null;
-    }
-  };
-
-  // 1 ラウンド分のヒアリング質問を AI に設計させる。これまでの回答を渡して
-  // 「掘り下げ」を依頼する。返り値: 質問配列（続行）/ [] （done = 締めて推薦へ）/
-  // null（生成・解釈失敗 → 呼び出し側で fallback）。
+  // 問いを 1 つ AI に考えてもらう（これまでの答えを渡して、前の言葉を引いて深める・2026-10-08）。
+  //   返り値: { done, question, options, summary }（lib/advisorInterview.js の parseInterviewStep）/
+  //   { stop }（トークンの上限・プランの案内）/ null（生成・解釈の失敗 → 呼び出し側で推薦へ）。
+  //   round＝次の問いの番号。上限（MAX_INTERVIEW_QUESTIONS）を超えたら AI は必ず done とまとめだけを返す。
   const runInterviewRound = async (c, priorAnswers, round) => {
-    // c / x.a は呼び出し元（startInterview / answerQuestion）で既に
-    // sanitizeForPrompt+clamp 済みだが、AI プロンプトへ渡す直前でも二重に
-    // 適用しておく（呼び出し元の前提が将来崩れても壊れない防御的境界）。
+    // c / x.a は呼び出し元で既に sanitizeForPrompt+clamp 済みだが、AI に渡す直前でも二重にかける
+    // （呼び出し元の前提が将来崩れても壊れない防御的境界）。問いは AI の文だが、同じく通す。
     const safeConcern = clamp(sanitizeForPrompt(c || ''), LIMITS.aiQuestion);
-    const priorQA = (priorAnswers || [])
-      .map((x) => `Q. ${clamp(sanitizeForPrompt(x.q || ''), LIMITS.aiQuestion)}\nA. ${clamp(sanitizeForPrompt(x.a || ''), 120)}`)
-      .join('\n');
+    const priorQA = buildPriorQA((priorAnswers || []).map((x) => ({
+      ...x,
+      q: sanitizeForPrompt(String(x?.q || '')),
+      a: sanitizeForPrompt(String(x?.a || '')),
+    })));
     let text = '';
     try {
       text = await callClaude(
         PROMPTS.advisorInterview.system,
-        PROMPTS.advisorInterview.user({ concern: safeConcern, priorQA, round, maxRounds: MAX_INTERVIEW_ROUNDS }),
-        // ヒアリング質問は「定型 JSON（質問文＋選択肢）」の生成で、Haiku 4.5 で十分な
-        // 品質が出る領域（事実想起や横断推論を伴わない）。コスト削減のため FAST に。
+        PROMPTS.advisorInterview.user({ concern: safeConcern, priorQA, round, maxRounds: MAX_INTERVIEW_QUESTIONS }),
+        // 問い 1 つ＋選択肢＋まとめの短い JSON。事実想起や横断推論を伴わないので安いモデルで足りる。
         // ※ 最終的な「本の推薦」は捏造リスク＆横断推論があるため別関数で SMART 維持。
         // purpose: サーバーが用途ごとに安いモデルへ送る（docs/ai-routing.md・失敗したら Claude）。
         { max_tokens: 700, cacheSystem: true, model: MODEL_FAST, purpose: 'advisor_interview' },
@@ -487,11 +468,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     }
     // トークンの上限・プランの案内なら、推薦にも進まず案内だけ出す（もう一度 AI を呼んでも同じ結果なので呼ばない）。
     if (isAiNoticeString(text)) return { stop: text };
-    const parsed = parseInterview(text);
-    if (!parsed) return null;
-    // done でも質問が来ていても、最終ラウンドなら締める。
-    if (parsed.done || round > MAX_INTERVIEW_ROUNDS) return [];
-    return parsed.questions;
+    return parseInterviewStep(text);
   };
 
   // トークンの上限・プランの案内: 失敗ではないので、再試行ボタンのない案内として出す（相談と同じ）。
@@ -500,14 +477,31 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     setRecoError(message);
   };
 
-  // 集めた回答を束ねて推薦生成へ。
-  const proceedToRecommend = (answers) => {
-    const lines = (answers || []).map((x) => `Q. ${x.q}\nA. ${x.a}`).join('\n');
-    const compiled =
-      `【相談内容】\n${concern}\n\n【ヒアリングの回答】\n${lines}\n\n` +
-      `以上でヒアリングは十分です。これ以上質問せず、上記を踏まえて、その人に本当に刺さる実在の本を推薦してください。`;
+  // AI の問いを画面に置く。止める（done）ときは「受け取ったまとめ」を確かめる一歩へ。
+  //   返り値: 'question' | 'summary' | 'reco'（まとめが無く確かめられない＝そのまま推薦へ）。
+  const landStep = (step, remember) => {
+    if (step.done) {
+      if (!step.summary) return 'reco';
+      const ss = { summary: step.summary, from: null };
+      setSummaryStep(ss);
+      setInterview(null);
+      remember({ summaryStep: ss, interview: null });
+      return 'summary';
+    }
+    setInterview(step);
+    remember({ interview: step });
+    return 'question';
+  };
+
+  // 集めた答え（と確かめた悩み）を束ねて推薦生成へ。conf＝{ summary, correction } | null。
+  const proceedToRecommend = (answers, conf = null) => {
+    const msg = buildRecoMessage({ concern, answers, summary: conf?.summary || '', correction: conf?.correction || '' });
+    setConfirmed(conf);
     setInterview(null);
-    generateRecommendations(compiled, concern);
+    setSummaryStep(null);
+    setCorrecting(false);
+    setCorrectionText('');
+    generateRecommendations(msg, concern);
   };
 
   // 🔎 推薦の実在検証＋表紙先読み（並列・非ブロッキング）。
@@ -625,10 +619,11 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       p.promise.then(() => {
         if (unmountedRef.current) return;
         const st = advisorMemory.uid === p.uid ? (advisorMemory.state || {}) : {};
-        if (st.interview !== undefined) setInterview(st.interview);
-        if (st.interviewStep !== undefined) setInterviewStep(st.interviewStep);
-        if (st.interviewRound !== undefined) setInterviewRound(st.interviewRound);
+        if (st.interview !== undefined) setInterview(st.interview && !Array.isArray(st.interview) ? st.interview : null);
+        if (Array.isArray(st.interviewTrail)) setInterviewTrail(st.interviewTrail);
         if (st.interviewAnswers) setInterviewAnswers(st.interviewAnswers);
+        if (st.summaryStep !== undefined) setSummaryStep(st.summaryStep);
+        if (st.confirmed !== undefined) setConfirmed(st.confirmed);
         if (st.recommendations !== undefined) setRecommendations(st.recommendations);
         if (st.chatHistory) setChatHistory(st.chatHistory);
         if (st.lastUserQuery !== undefined) setLastUserQuery(st.lastUserQuery);
@@ -859,113 +854,170 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     settlePending();
   };
 
-  // テーマのチップをタップ — AI の良書の棚（テーマ別の推薦）を生成する。
-  // 初回の相談を受けて、第 1 ラウンドのヒアリング質問を設計させる。
-  // 失敗（生成エラー / JSON 解釈不能）時はヒアリングを skip して直接推薦へ。
+  // 聞き取りの途中の状態をすべて空にする（最初の相談・別の条件で探す・新しい会話）。
+  const clearInterview = () => {
+    setInterview(null);
+    setInterviewTrail([]);
+    setInterviewAnswers([]);
+    setAnswerText('');
+    setAnswerOff(false);
+    setSummaryStep(null);
+    setCorrecting(false);
+    setCorrectionText('');
+    setConfirmed(null);
+  };
+
+  // 初回の相談を受けて、最初の問いを 1 つ考えてもらう。
+  // 失敗（生成エラー / JSON 解釈不能）時は聞き取りを飛ばして直接推薦へ。
   const startInterview = async (rawConcern) => {
-    if (interviewLoading || recoLoading) return;
+    if (interviewLoading || recoLoading || askingRef.current) return;
     const c = clamp(sanitizeForPrompt(rawConcern || ''), LIMITS.aiQuestion);
     if (!c) return;
     if (!requirePlan('AI 選書')) return; // 無料プラン: 有料プランの画面を開く（入力は残す）
-    // 🤝 はじめて AI に送るときの同意（lib/aiConsent.js）。やめたら送らない（入力は残す）。
-    if (!(await ensureAiConsent('advisor_interview'))) return;
-    // ヒアリング開始と同時に読書傾向コンテキストを裏で先読み（推薦時の待ちを隠す）。
-    // マウント時の prewarm から時間が経ち TTL 切れの場合の再ウォーム。
-    prewarmAdvisorContext(advisorUser?.id);
-    setRecoError(null);
-    setRecoNotice(false);
-    setConcern(c);
-    setInput('');
-    setOtherMode(false);
-    setOtherText('');
-    setMultiSelected([]);
-    setInterviewAnswers([]);
-    setInterviewStep(0);
-    setInterviewRound(1);
-    setInterviewLoading(true);
-    // 離れても止めない（ヒアリングの質問も覚えておく・2026-10-04）。
-    const { remember, settle } = beginJob('interview');
-    const qs = await runInterviewRound(c, [], 1);
-    setInterviewLoading(false);
-    if (qs?.stop) { showLimitNotice(qs.stop); remember({ recoNotice: true, recoError: qs.stop }); settle(); return; }
-    if (qs === null || qs.length === 0) {
-      // 質問を組めなかった / いきなり done → 相談内容だけで直接推薦（graceful）
-      // 注: concern state はまだ反映前なので c を直接渡す。
-      const lines = '';
-      const compiled =
-        `【相談内容】\n${c}\n\n【ヒアリングの回答】\n${lines || '（なし）'}\n\n` +
-        `上記を踏まえて、その人に本当に刺さる実在の本を推薦してください。`;
-      generateRecommendations(compiled, c); // 推薦の控えを先に作ってから、ヒアリングの控えを終える
+    askingRef.current = true;
+    try {
+      // 🤝 はじめて AI に送るときの同意（lib/aiConsent.js）。やめたら送らない（入力は残す）。
+      if (!(await ensureAiConsent('advisor_interview'))) return;
+      // 聞き取りの開始と同時に読書傾向コンテキストを裏で先読み（推薦時の待ちを隠す）。
+      prewarmAdvisorContext(advisorUser?.id);
+      setRecoError(null);
+      setRecoNotice(false);
+      setConcern(c);
+      setInput('');
+      clearInterview();
+      setInterviewLoading(true);
+      // 離れても止めない（問いも覚えておく・2026-10-04）。
+      const { remember, settle } = beginJob('interview');
+      const step = await runInterviewRound(c, [], 1);
+      setInterviewLoading(false);
+      if (step?.stop) { showLimitNotice(step.stop); remember({ recoNotice: true, recoError: step.stop }); settle(); return; }
+      if (!step || landStep(step, remember) === 'reco') {
+        // 問いを組めなかった / まとめ無しで止めた → 相談内容だけで直接推薦（graceful）
+        // 注: concern state はまだ反映前なので c を直接渡す。
+        generateRecommendations(buildRecoMessage({ concern: c, answers: [] }), c); // 推薦の控えを先に作ってから、聞き取りの控えを終える
+      }
       settle();
-      return;
+    } finally {
+      askingRef.current = false;
     }
-    setInterview(qs);
-    setInterviewStep(0);
-    remember({ interview: qs, interviewStep: 0 });
-    settle();
   };
 
-  // 質問への回答（選択肢タップ or その他自由入力）。
-  const answerQuestion = (answer) => {
-    if (!interview) return;
-    const a = clamp(sanitizeForPrompt(String(answer || '')), 120);
-    if (!a) return;
+  // 答える（自分の言葉／書き出しを入れて送る／「まだ言葉にできない」）。
+  //   unsure: 「まだ言葉にできない」＝ AI が角度を変えた答えやすい問いにする。
+  //   finish: 「このくらいで探して」を押したときに書きかけの答えがあった＝それも入れてまとめだけを返してもらう。
+  const answerQuestion = (raw, { unsure = false, finish = false } = {}) => {
+    if (!interview || interviewLoading || askingRef.current) return;
+    const a = unsure ? '' : clamp(sanitizeForPrompt(String(raw || '')), 400).trim();
+    if (!unsure && !a) return;
+    askingRef.current = true;
     try { advisorHaptic.light(); } catch { /* non-critical */ }
-    const q = interview[interviewStep];
-    const nextAnswers = [...interviewAnswers, { q: q.q, a }];
+    const entry = unsure
+      ? { q: interview.question, a: '', unsure: true }
+      : { q: interview.question, a, ...(answerOff ? { off: true } : null) };
+    const nextAnswers = [...interviewAnswers, entry];
+    const nextTrail = [...interviewTrail, interview];
     setInterviewAnswers(nextAnswers);
-    setOtherMode(false);
-    setOtherText('');
-    setMultiSelected([]);
-    if (interviewStep + 1 < interview.length) {
-      // 同じラウンドの次の質問へ
-      setInterviewStep(interviewStep + 1);
-      return;
-    }
-    // このラウンドの質問をすべて回答 → AI に「さらに深掘りするか / 締めるか」を判断させる。
-    if (interviewRound >= MAX_INTERVIEW_ROUNDS) {
-      proceedToRecommend(nextAnswers);
-      return;
-    }
-    const nextRound = interviewRound + 1;
+    setInterviewTrail(nextTrail);
     setInterview(null);
+    setAnswerText('');
+    setAnswerOff(false);
     setInterviewLoading(true);
-    // 離れても止めない（次の質問も覚えておく・2026-10-04）。
+    // 離れても止めない（次の問いも覚えておく・2026-10-04）。
     const { remember, settle } = beginJob('interview');
     (async () => {
-      const qs = await runInterviewRound(concern, nextAnswers, nextRound);
-      setInterviewLoading(false);
-      if (qs?.stop) { showLimitNotice(qs.stop); remember({ recoNotice: true, recoError: qs.stop }); settle(); return; }
-      if (qs === null || qs.length === 0) {
-        // done もしくは失敗 → 集めた回答で推薦へ（推薦の控えを先に作ってから、ヒアリングの控えを終える）
-        proceedToRecommend(nextAnswers);
+      try {
+        const step = await runInterviewRound(concern, nextAnswers, finish ? MAX_INTERVIEW_QUESTIONS + 1 : nextTrail.length + 1);
+        setInterviewLoading(false);
+        if (step?.stop) { showLimitNotice(step.stop); remember({ recoNotice: true, recoError: step.stop }); settle(); return; }
+        // 失敗・まとめの無い done → 集めた答えで推薦へ（推薦の控えを先に作ってから、聞き取りの控えを終える）
+        if (!step || landStep(step, remember) === 'reco') proceedToRecommend(nextAnswers, null);
         settle();
-        return;
+      } finally {
+        askingRef.current = false;
       }
-      // さらに深掘りラウンドへ
-      setInterview(qs);
-      setInterviewStep(0);
-      setInterviewRound(nextRound);
-      remember({ interview: qs, interviewStep: 0, interviewRound: nextRound });
-      settle();
     })();
   };
 
-  // ひとつ前の質問へ戻る（最初の質問で戻ると相談入力に戻る）。
-  const goBackQuestion = () => {
-    setOtherMode(false);
-    setOtherText('');
-    setMultiSelected([]);
-    if (interviewStep <= 0) {
-      // ラウンド先頭で戻る → 相談入力に戻す（多段の途中状態はクリア）
+  // 書き出しのチップ: 押すと入力欄に入るだけ（続きを書き足せる・そのまま送ってもよい）。
+  //   「どれも少し違う」は「どこが違いますか？」と入力欄を開く。「まだ言葉にできない」は角度を変えた問いへ。
+  const focusAnswer = () => {
+    setTimeout(() => {
+      const el = answerRef.current;
+      if (!el) return;
+      try { el.focus(); const n = el.value.length; el.setSelectionRange(n, n); } catch { /* noop */ }
+    }, 30);
+  };
+  const onAnswerChip = (chip, labels) => {
+    try { advisorHaptic.light(); } catch { /* non-critical */ }
+    if (chip.kind === 'unsure') { answerQuestion('', { unsure: true }); return; }
+    if (chip.kind === 'off') {
+      setAnswerOff((v) => !v);
+      // 書き出しのチップの言葉だけが入っていたら空にする（違うと言ったので）。本人が書いた文は残す。
+      setAnswerText((t) => (labels.includes(t.trim()) ? '' : t));
+      focusAnswer();
+      return;
+    }
+    setAnswerText((t) => applyStarter(t, chip.label, labels));
+    focusAnswer();
+  };
+
+  // 「このくらいで探して」: いつでも次へ（悩みのまとめを確かめてから探す）。
+  //   書きかけの答えがあれば、それも入れてまとめてもらう（1 回だけ AI に聞く）。
+  const searchNow = () => {
+    if (!interview || interviewLoading || askingRef.current) return;
+    if (answerText.trim()) { answerQuestion(answerText, { finish: true }); return; }
+    if (interview.summary) {
+      setSummaryStep({ summary: interview.summary, from: interview });
       setInterview(null);
-      setInterviewAnswers([]);
-      setInterviewRound(1);
+      setAnswerOff(false);
+      return;
+    }
+    proceedToRecommend(interviewAnswers, null);
+  };
+
+  // 受け取ったまとめが「合っている」→ そのまま探す。「少し違う（直す）」→ 下の欄に直しを書いて探す（直しを最優先）。
+  const confirmSummary = () => {
+    if (!summaryStep || recoLoading) return;
+    proceedToRecommend(interviewAnswers, { summary: summaryStep.summary, correction: '' });
+  };
+  const startCorrect = () => {
+    setCorrecting(true);
+    setTimeout(() => { try { answerRef.current?.focus(); } catch { /* noop */ } }, 30);
+  };
+  const submitCorrection = () => {
+    if (!summaryStep || recoLoading) return;
+    const fix = clamp(sanitizeForPrompt(correctionText), 400).trim();
+    if (!fix) return;
+    try { advisorHaptic.light(); } catch { /* non-critical */ }
+    proceedToRecommend(interviewAnswers, { summary: summaryStep.summary, correction: fix });
+  };
+
+  // ひとつ前の問いへ戻る（最初の問いで戻ると相談入力に戻る）。答えた言葉は入力欄に戻す（書き直せる）。
+  const goBackQuestion = () => {
+    if (interviewLoading || askingRef.current) return;
+    setAnswerOff(false);
+    setCorrecting(false);
+    setCorrectionText('');
+    // 「このくらいで探して」で開いたまとめ → その問いへ
+    if (summaryStep?.from) {
+      setInterview(summaryStep.from);
+      setSummaryStep(null);
+      return;
+    }
+    setSummaryStep(null);
+    if (interviewTrail.length === 0) {
+      // 最初の問いで戻る → 相談入力に戻す
+      clearInterview();
       setInput(concern);
       return;
     }
-    setInterviewStep(interviewStep - 1);
+    const prev = interviewTrail[interviewTrail.length - 1];
+    const last = interviewAnswers[interviewAnswers.length - 1];
+    setInterview(prev);
+    setInterviewTrail(interviewTrail.slice(0, -1));
     setInterviewAnswers(interviewAnswers.slice(0, -1));
+    setAnswerText(last && !last.unsure ? last.a : '');
+    setAnswerOff(!!last?.off);
   };
 
   // すべてリセットして最初の相談入力に戻す（「別の条件で探す」用）。
@@ -976,13 +1028,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     setRecommendations(null);
     setRecoError(null);
     setRecoStream('');
-    setInterview(null);
-    setInterviewAnswers([]);
-    setInterviewStep(0);
-    setInterviewRound(1);
-    setOtherMode(false);
-    setOtherText('');
-    setMultiSelected([]);
+    clearInterview();
     // 最初の相談の言葉は入力欄に残す（条件を少し変えて探し直せる・書き直しにしない・2026-09-30）。
     setInput(concern || lastUserQuery || '');
   };
@@ -995,16 +1041,10 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     setLastUserQuery('');
     setCurrentSessionId(null);
     setSelectedSession(null);
-    // ガイド付きヒアリングの途中状態もすべてクリア
+    // 聞き取りの途中状態もすべてクリア
     setConcern('');
-    setInterview(null);
-    setInterviewAnswers([]);
-    setInterviewStep(0);
-    setInterviewRound(1);
+    clearInterview();
     setInterviewLoading(false);
-    setOtherMode(false);
-    setOtherText('');
-    setMultiSelected([]);
     setRecoError(null);
     setView('chat');
   };
@@ -1039,7 +1079,11 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     const lastUser = [...histMessages].reverse().find((m) => m.role === 'user');
     const lastRaw = (lastUser?.content || lastUser?.text || '').toString();
     setLastUserQuery(concernOf(lastRaw));
+    clearInterview();
     setInterviewAnswers(interviewPairsOf(lastRaw));
+    // 確かめた悩み（受け取ったまとめ・本人の直し）があれば、おすすめの上の 1 行と読書準備の課題に使う（2026-10-08）。
+    const conf = confirmedOf(lastRaw);
+    setConfirmed(conf.summary || conf.correction ? conf : null);
     setCurrentSessionId(s.id);
     setSelectedSession(null);
     // 表示用: 直前の会話の相談（concern）の吹き出しを、再開した会話に持ち越さない。
@@ -1063,7 +1107,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
 
   const isEmpty = messages.length === 0 && !recommendations;
   // ガイド付きヒアリングのいずれかが動いている = 相談入力フェーズではない。
-  const inInterview = !!interview || interviewLoading || recoLoading;
+  const inInterview = !!interview || !!summaryStep || interviewLoading || recoLoading;
   // 相談入力（textarea + 例チップ）は「推薦カードが出ていない間」は常に出す。
   // 旧条件（isEmpty のみ）だと、推薦 JSON が取れなかった回や履歴再開
   // （recommended_books 空）で messages だけがあると、入力欄も再スタート
@@ -1072,6 +1116,10 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   // 失敗・月の上限の案内が出ている間は、送った相談を残し、はじめの見出しと例は出さない
   // （何を送って失敗したのかが見えなくなるため）。入力欄は出したまま＝別の相談も送れる。
   const showErrorState = !!recoError && !recoLoading;
+  // 聞き取りの流れ（答えた問い・確かめた悩み）を出すのは、おすすめが出るまで（出たら上の 1 行にまとめる）。
+  const showThread = !recommendations;
+  // 命に関わる言葉が本人の文にあれば、相談窓口を静かに示す（lib/advisorInterview.js の needsCareLine）。
+  const showCare = needsCareLine([concern, ...interviewAnswers.map((x) => x?.a), confirmed?.correction, correcting ? correctionText : '']);
   // はじめの画面（まだ何も話していない）だけ見出しを出す。
   const showStartHeading = showConcernInput && messages.length === 0 && !showErrorState;
   const chatScrollRef = useRef(null);
@@ -1119,10 +1167,12 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   //   仮説は空のまま（推薦の核心は AI の言葉で、本人の仮説ではない＝読む前に自分で書く欄・2026-09-30）。
   //   確認の「書名で探す」「手動で入力する」から追加するときも同じ中身を渡す（2026-10-04・以前はそちらの道だと空のままだった）。
   //   中身は lib/advisorText.js の advisorSetupPayload（過去の AI 選書の中身から追加するときも同じ・2026-10-04）。
+  //   確かめた悩み（受け取ったまとめ・本人の直し）があれば、課題はそれを優先（2026-10-08）。
   const setupPayloadFor = (rec) => advisorSetupPayload(
     lastUserQuery,
-    interviewAnswers.map((x) => ({ q: x?.q, a: clamp(sanitizeForPrompt(String(x?.a || '')), 120) })),
+    spokenAnswers(interviewAnswers).map((x) => ({ q: x?.q, a: clamp(sanitizeForPrompt(String(x?.a || '')), 400) })),
     rec,
+    confirmed,
   );
   const proceedAdd = (verifiedRec) => {
     // ここで初めて「追加済み」にする（確認でキャンセルした本は、押す前の見た目のまま）。
@@ -1263,6 +1313,17 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     if (!chatScrollRef.current || messages.length === 0) return;
     chatScrollRef.current.scrollTo({ top: chatScrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages.length]);
+  // 新しい問い・受け取ったまとめが出たら、いちばん下（いまの問いと「このくらいで探して」）まで送る（2026-10-08）。
+  //   下の欄（書き出しのチップ＋入力欄）が高くなっても、いまの問いが隠れないように。
+  const stepKey = interview ? `q:${interviewTrail.length}:${interview.question}` : summaryStep ? `s:${correcting ? 1 : 0}` : '';
+  useEffect(() => {
+    if (!stepKey) return;
+    const t = setTimeout(() => {
+      const el = chatScrollRef.current;
+      if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+    }, 60);
+    return () => clearTimeout(t);
+  }, [stepKey]);
   // 推薦が出たときは、最下部ではなく推薦の先頭（前置き → 1 冊目のカードと「読みたいに追加」）へ。
   // 表紙の後追い（verifyAndEnrich）で items が差し替わっても、もう一度は動かさない（出た瞬間だけ）。
   const recoBlockRef = useRef(null);
@@ -1412,180 +1473,122 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         </div>
       )}
 
-      {/* ガイド付きヒアリング — 質問生成中のローディング（初回 or 深掘り） */}
+      {/* 聞き取りの流れ（答えた問いと自分の言葉）。おすすめが出たら畳む（上の 1 行「受け取った悩み」にまとめる）。 */}
+      {showThread && interviewTrail.map((st, i) => {
+        const ans = interviewAnswers[i];
+        if (!st || !ans) return null;
+        const said = ans.unsure ? OPT_UNSURE : ans.a;
+        return (
+          <Fragment key={`t${i}`}>
+            <p style={askedText}>{withPhraseBreaks(st.question)}</p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }} role="article" aria-label="あなたの答え">
+              <TightBubble text={said} className="text-pretty" style={{ ...userBubble, ...(ans.unsure ? { color: 'var(--text-2)' } : null) }}>{withPhraseBreaks(said)}</TightBubble>
+            </div>
+          </Fragment>
+        );
+      })}
+
+      {/* 問いを考えている途中（最初・次・「まだ言葉にできない」のあと） */}
       {interviewLoading && (
         <div style={advisorWizardCard}>
           <div className="ai-thinking">
             <span className="ai-thinking-dot" aria-hidden="true" />
             <span>
-              {/* 待っている間の文は、いま何をしているかを 1 つだけ言う（質問を作る／本を選ぶ・2026-09-29）。
-                  最初の質問はまだ何も聞いていないので「追加で」とは言わない（2026-09-30）。 */}
-              {interviewAnswers.length > 0 ? '追加で聞くことを考えています…' : 'あなたに聞くことを考えています…'}
+              {/* 待っている間の文は、いま何をしているかを 1 つだけ言う（2026-09-29・2026-10-08）。 */}
+              {interviewAnswers.length === 0 ? 'あなたに聞くことを考えています…'
+                : interviewAnswers[interviewAnswers.length - 1]?.unsure ? '答えやすい聞き方を考えています…'
+                  : '次に聞くことを考えています…'}
             </span>
           </div>
-          <div className="ai-skeleton" aria-label="質問を準備中" style={{ marginTop: 'var(--space-2)' }}>
+          <div className="ai-skeleton" aria-label="問いを準備中" style={{ marginTop: 'var(--space-2)' }}>
             <div className="ai-skeleton-line" style={{ width: '82%' }} />
             <div className="ai-skeleton-line" style={{ width: '64%' }} />
           </div>
         </div>
       )}
 
-      {/* ガイド付きヒアリング — 1 問ずつチップで回答するウィザード */}
+      {/* いまの問い（1 つだけ）。選択肢は「書き出しのきっかけ」＝押すと下の「自分の言葉で答える」に入るだけ（答えを決めない）。
+          逃げ道の「どれも少し違う」「まだ言葉にできない」はいつもある（2026-10-08）。チップは問いのカードの中に置く
+          （下の欄は入力欄だけ＝文字を大きくしても問いが隠れない）。 */}
       {interview && !recoLoading && (() => {
-        const total = interview.length;
-        const q = interview[interviewStep];
-        const stepNo = interviewStep + 1;
-        const isMulti = q.multi === true;
-        const toggleMulti = (opt) => {
-          try { advisorHaptic.light(); } catch { /* non-critical */ }
-          setMultiSelected((prev) =>
-            prev.includes(opt) ? prev.filter((x) => x !== opt) : [...prev, opt],
-          );
-        };
-        const submitOther = () => {
-          if (!otherText.trim()) return;
-          if (isMulti) {
-            toggleMulti(otherText.trim());
-            setOtherText('');
-            setOtherMode(false);
-          } else {
-            answerQuestion(otherText);
-          }
-        };
+        const chips = interviewChips(interview);
+        const labels = chips.filter((c) => c.kind === 'start').map((c) => c.label);
         return (
-          <div style={advisorWizardCard}>
-            {/* 戻る + 進捗 */}
-            {/* 戻るの「‹」の見た目の左端を質問文の左端にそろえる（押せる範囲 44 は保ったまま左へ寄せる）。 */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', margin: 'calc(-1 * var(--space-3)) 0 var(--space-2) calc(-1 * var(--space-2))' }}>
-              <button
-                type="button"
-                onClick={goBackQuestion}
-                aria-label={interviewStep === 0 ? '最初の入力に戻る' : '前の質問に戻る'}
-                style={{ ...iconBtn, justifyContent: 'flex-start' }}
-              >
-                <IcBack size={22} aria-hidden="true" />
-              </button>
-              <div style={{ flex: 1, display: 'flex', gap: 'var(--space-1)' }} aria-hidden="true">
-                {interview.map((_, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      flex: 1,
-                      height: 4,
-                      borderRadius: 999,
-                      background: i <= interviewStep ? 'var(--text-2)' : 'var(--separator)',
-                      transition: 'background .25s',
-                    }}
-                  />
-                ))}
-              </div>
-              <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', flexShrink: 0 }}>
-                {interviewRound > 1 ? `深掘り${interviewRound} · ` : ''}{stepNo}/{total}
-              </span>
-            </div>
-
-            {/* これまでの回答（小チップ） */}
-            {interviewAnswers.length > 0 && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
-                {interviewAnswers.map((x, i) => (
-                  <span
-                    key={i}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', maxWidth: '100%', fontSize: 'var(--text-meta)', padding: 'var(--space-1) var(--space-2)', borderRadius: 'var(--radius)', background: 'var(--fill)', color: 'var(--text-2)' }}
-                  >
-                    <IcCheck size={14} aria-hidden="true" style={{ flexShrink: 0 }} />
-                    <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{x.a}</span>
-                  </span>
-                ))}
-              </div>
-            )}
-
-            {/* 質問文 */}
-            <p style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5, margin: 0 }}>
-              {q.q}
-            </p>
-            {/* 複数選択できる質問だけ明示する */}
-            {isMulti && (
-              <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 'var(--space-1) 0 0' }}>
-                複数選べます
-              </p>
-            )}
-
-            {/* 選択肢チップ（縦並び・全幅タップ） */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
-              {q.options.map((opt) => {
-                const selected = isMulti && multiSelected.includes(opt);
-                return (
-                  <button
-                    type="button"
-                    key={opt}
-                    onClick={() => (isMulti ? toggleMulti(opt) : answerQuestion(opt))}
-                    aria-pressed={isMulti ? selected : undefined}
-                    style={{ ...advisorOptionChip, ...(selected ? advisorOptionChipSelected : null) }}
-                  >
-                    {isMulti && (selected
-                      ? <IcBoxChecked size={20} aria-hidden="true" style={{ flexShrink: 0 }} />
-                      : <IcBox size={20} aria-hidden="true" style={{ flexShrink: 0, color: 'var(--text-3)' }} />)}
-                    <span style={{ minWidth: 0 }}>{opt}</span>
-                  </button>
-                );
-              })}
-
-              {/* その他（自由入力）。複数選択モードでは選択肢に「追加」する。 */}
-              {!otherMode ? (
+        <div style={advisorWizardCard} role="group" aria-label="AI 選書からの問い">
+          <p style={questionText}>{withPhraseBreaks(interview.question)}</p>
+          <div role="group" aria-label="書き出しのきっかけ" style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
+            {chips.map((c) => {
+              const on = c.kind === 'off' && answerOff;
+              return (
                 <button
                   type="button"
-                  onClick={() => setOtherMode(true)}
-                  style={{ ...uiBtnText, alignSelf: 'flex-start', minHeight: 44, padding: 'var(--space-2) 0', fontSize: 'var(--text-sub)' }}
+                  key={`${c.kind}-${c.label}`}
+                  onClick={() => onAnswerChip(c, labels)}
+                  aria-pressed={c.kind === 'off' ? on : undefined}
+                  style={{ ...answerChip, ...(c.kind !== 'start' ? answerChipEscape : null), ...(on ? answerChipSelected : null) }}
                 >
-                  <IcPencil size={18} aria-hidden="true" />
-                  その他（自由に入力）
+                  {withPhraseBreaks(c.label)}
                 </button>
-              ) : (
-                <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-                  <input
-                    type="text"
-                    autoFocus
-                    value={otherText}
-                    onChange={(e) => setOtherText(e.target.value)}
-                    placeholder="自由に入力…"
-                    maxLength={120}
-                    aria-label="その他の回答を自由入力"
-                    onKeyDown={(e) => {
-                      if (e.nativeEvent.isComposing) return;
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        submitOther();
-                      }
-                    }}
-                    style={{ ...uiInput, flex: 1, minWidth: 0, width: 'auto' }}
-                  />
-                  <button
-                    type="button"
-                    onClick={submitOther}
-                    disabled={!otherText.trim()}
-                    aria-label={isMulti ? '選択肢に追加' : 'この内容で回答'}
-                    style={{ ...rowBtn, minHeight: 48, ...(otherText.trim() ? null : { color: uiBtnGhostOff.color, border: uiBtnGhostOff.border, opacity: 1, cursor: 'default' }) }}
-                  >
-                    {isMulti ? '追加' : '決定'}
-                  </button>
-                </div>
-              )}
+              );
+            })}
+          </div>
+          {/* 脇役の 2 つ（文字ボタン）: 前の問いに戻る／このくらいで探して（いつでも次へ進める）。 */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 'var(--space-2)', marginTop: 'var(--space-3)', marginLeft: 'calc(-1 * var(--space-1))' }}>
+            <button type="button" onClick={goBackQuestion} style={{ ...uiBtnLink, gap: 'var(--space-1)' }}>
+              <IcBack size={16} aria-hidden="true" />
+              {interviewTrail.length === 0 ? '最初の入力に戻る' : '前の問いに戻る'}
+            </button>
+            <button type="button" onClick={searchNow} style={uiBtnLink}>
+              このくらいで探して
+            </button>
+          </div>
+        </div>
+        );
+      })()}
 
-              {/* 複数選択モードの確定ボタン（この画面の主ボタン） */}
-              {isMulti && (
-                <button
-                  type="button"
-                  onClick={() => { if (multiSelected.length) answerQuestion(multiSelected.join('、')); }}
-                  disabled={multiSelected.length === 0}
-                  style={{ ...(multiSelected.length ? uiBtnPrimary : uiBtnPrimaryOff), marginTop: 'var(--space-2)' }}
-                >
-                  {multiSelected.length ? `決定（${multiSelected.length} 件）` : '1つ以上選んでください'}
+      {/* 確かめる一歩: 「あなたの悩みを、こう受け取りました」→ 合っている／少し違う（直す）。 */}
+      {(summaryStep || (showThread && confirmed?.summary)) && (() => {
+        const text = summaryStep?.summary || confirmed?.summary || '';
+        const asking = !!summaryStep && !recoLoading;
+        return (
+          <div style={advisorWizardCard} role="group" aria-label="受け取った悩み">
+            <p style={fieldLabel}>あなたの悩みを、こう受け取りました</p>
+            <p style={{ ...readText, margin: 'var(--space-2) 0 0', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(text)}</p>
+            {asking && !correcting && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginTop: 'var(--space-4)' }}>
+                <button type="button" onClick={confirmSummary} style={uiBtnPrimary}>合っている</button>
+                <button type="button" onClick={startCorrect} style={uiBtnGhost}>少し違う（直す）</button>
+              </div>
+            )}
+            {asking && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 'var(--space-2)', marginTop: 'var(--space-3)', marginLeft: 'calc(-1 * var(--space-1))' }}>
+                <button type="button" onClick={goBackQuestion} style={{ ...uiBtnLink, gap: 'var(--space-1)' }}>
+                  <IcBack size={16} aria-hidden="true" />
+                  {!summaryStep?.from && interviewTrail.length === 0 ? '最初の入力に戻る' : '前の問いに戻る'}
                 </button>
-              )}
-            </div>
+                {correcting && (
+                  <button type="button" onClick={() => { setCorrecting(false); setCorrectionText(''); }} style={uiBtnLink}>
+                    直すのをやめる
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         );
       })()}
+      {/* 直した言葉（本人の言葉＝右の吹き出し）。本はこちらを優先して選ぶ。 */}
+      {showThread && confirmed?.correction && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }} role="article" aria-label="あなたの直し">
+          <TightBubble text={confirmed.correction} className="text-pretty" style={userBubble}>{withPhraseBreaks(confirmed.correction)}</TightBubble>
+        </div>
+      )}
+
+      {/* 命に関わる言葉が書かれたときだけ、相談窓口を静かに示す 1 行（AI は使わない・lib/advisorInterview.js）。 */}
+      {showCare && (
+        <p role="note" style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.6, margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+          {withPhraseBreaks(CARE_LINE)}
+        </p>
+      )}
 
       {/* 推薦生成中のローディング */}
       {recoLoading && (
@@ -1719,10 +1722,19 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
           {/* 前置き（「## 👋 はじめに」）は、本のカードより控えめな 1 段落（15/--text-2・カードも見出しも付けない）。
               見出し行と、末尾の空見出し「## 📚 おすすめの本」（本のカードと重複）は落とす。 */}
-          {/* 選んだ答えを 1 行で（「何をもとに選ばれたか」が見える・13/--text-2・2026-09-29） */}
-          {interviewAnswers.length > 0 && (
+          {/* 何をもとに選ばれたかが見える 1 行（13/--text-2）。確かめた悩みがあれば「受け取った悩み」＋直し（2026-10-08）、
+              無ければ答えを「・」でつなぐ（2026-09-29）。 */}
+          {confirmed?.summary || confirmed?.correction ? (
+            <div>
+              <p style={fieldLabel}>{confirmed.correction ? 'あなたの言葉' : '受け取った悩み'}</p>
+              <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.6, margin: 'var(--space-1) 0 0', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+                {/* 直したときは本人の直しだけ（まとめは「少し違う」と言われたので並べない・本人の言葉が主役） */}
+                {withPhraseBreaks(confirmed.correction || confirmed.summary || '')}
+              </p>
+            </div>
+          ) : spokenAnswers(interviewAnswers).length > 0 && (
             <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, margin: 0, overflowWrap: 'anywhere' }}>
-              {interviewAnswers.map((x) => x?.a).filter(Boolean).join('・')}
+              {spokenAnswers(interviewAnswers).map((x) => x.a).join('・')}
             </p>
           )}
           {recommendations.before && (() => {
@@ -1943,6 +1955,71 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         </div>
         );
       })()}
+      {/* 答える欄（2026-10-08）: 問いのカードの書き出しの下に、「自分の言葉で答える」がいつも見えている（相談の入力欄と同じ場所）。 */}
+      {interview && !interviewLoading && !recoLoading && (() => {
+        const canSend = !!answerText.trim();
+        return (
+          <div className="ai-input-area">
+            <textarea
+              ref={answerRef}
+              value={answerText}
+              onChange={(e) => setAnswerText(e.target.value)}
+              placeholder={answerOff ? OFF_PLACEHOLDER : '自分の言葉で答える'}
+              rows={1}
+              maxLength={400}
+              aria-label={answerOff ? OFF_PLACEHOLDER : '自分の言葉で答える'}
+              onKeyDown={(e) => {
+                if (e.nativeEvent.isComposing) return;
+                if (e.key === 'Enter' && (e.shiftKey || e.metaKey || e.ctrlKey)) {
+                  e.preventDefault();
+                  answerQuestion(answerText);
+                }
+              }}
+            />
+            <button
+              type="button"
+              className="send-btn"
+              onClick={() => answerQuestion(answerText)}
+              disabled={!canSend}
+              aria-label="答える"
+              title="答える"
+            >
+              <IcSend size={20} strokeWidth={2.25} aria-hidden="true" />
+            </button>
+          </div>
+        );
+      })()}
+      {/* 「少し違う（直す）」: 違うところを自分の言葉で書いて探す（直しを最優先にして本を選ぶ）。 */}
+      {summaryStep && correcting && !recoLoading && (
+        <div className="ai-input-area">
+          <textarea
+            ref={answerRef}
+            value={correctionText}
+            onChange={(e) => setCorrectionText(e.target.value)}
+            placeholder="違うところを、自分の言葉で"
+            rows={1}
+            maxLength={400}
+            aria-label="違うところを、自分の言葉で"
+            onKeyDown={(e) => {
+              if (e.nativeEvent.isComposing) return;
+              if (e.key === 'Enter' && (e.shiftKey || e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                submitCorrection();
+              }
+            }}
+          />
+          <button
+            type="button"
+            className="send-btn"
+            onClick={submitCorrection}
+            disabled={!correctionText.trim()}
+            aria-label="直して探す"
+            title="直して探す"
+          >
+            <IcSend size={20} strokeWidth={2.25} aria-hidden="true" />
+          </button>
+        </div>
+      )}
       {confirmAddModal}
     </div>
   );
