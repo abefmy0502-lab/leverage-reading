@@ -157,6 +157,28 @@ const SCREENS = [
   { name: 'review-action-bottom', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("行動")' }, { scrollBottom: true }] },
   { name: 'review-memo', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("ノート"), button[role=tab]:has-text("メモ")' }] },
   { name: 'review-record', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }] },
+  // 🗺 視点の地図（2026-10-08）。&viewmap=on＝使っている人（メモに分野のタグ）・off＝使っていない人。
+  ...(() => {
+    const REC = [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }, { wait: 600 }];
+    const XXL = { eval: () => { document.documentElement.style.fontSize = '40px'; } };
+    return [
+      { name: 'viewmap-record-on', url: '/?viewmap=on', steps: [...REC, { scrollTo: 'h3:has-text("月別の読了")' }] },
+      { name: 'viewmap-record-on-bottom', url: '/?viewmap=on', steps: [...REC, { scrollBottom: true }] },
+      { name: 'viewmap-record-on-xxl-text', url: '/?viewmap=on', steps: [...REC, XXL, { wait: 500 }, { scrollTo: 'h3:has-text("月別の読了")' }] },
+      { name: 'viewmap-record-off', url: '/?viewmap=off', steps: [...REC, { scrollBottom: true }] },
+      { name: 'viewmap-record-off-xxl-text', url: '/?viewmap=off', steps: [...REC, XXL, { wait: 500 }, { scrollBottom: true }] },
+      { name: 'viewmap-sheet', url: '/?viewmap=off', steps: [...REC, { scrollBottom: true }, { css: 'button:has-text("視点の地図を作れます")' }, { wait: 500 }] },
+      { name: 'viewmap-sheet-bottom', url: '/?viewmap=off', steps: [...REC, { scrollBottom: true }, { css: 'button:has-text("視点の地図を作れます")' }, { wait: 500 }, { scrollBottom: true }] },
+      { name: 'viewmap-sheet-xxl-text', url: '/?viewmap=off', steps: [...REC, XXL, { wait: 500 }, { scrollBottom: true }, { css: 'button:has-text("視点の地図を作れます")' }, { wait: 500 }] },
+      { name: 'viewmap-menu', url: '/?viewmap=on', steps: [...REC, { scrollTo: 'h3:has-text("月別の読了")' }, { css: 'button[aria-label="視点の地図の操作"]' }] },
+      { name: 'viewmap-tag-memos', url: '/?viewmap=on', steps: [...REC, { scrollTo: 'h3:has-text("月別の読了")' }, { css: 'button[aria-label="決め方のメモ 3 件を見る"]' }, { wait: 800 }] },
+      { name: 'viewmap-advisor', url: '/?viewmap=on', steps: [...REC, { scrollBottom: true }, { css: 'button[aria-label="お金の本を探す（AI 選書）"]' }, { wait: 1200 }] },
+      { name: 'viewmap-advisor-xxl-text', url: '/?viewmap=on', steps: [...REC, XXL, { wait: 500 }, { scrollBottom: true }, { css: 'button[aria-label="お金の本を探す（AI 選書）"]' }, { wait: 1200 }] },
+      { name: 'viewmap-tag-suggest', url: '/?viewmap=on', steps: [...MEMO_SAVED] },
+      { name: 'viewmap-tag-suggest-xxl-text', url: '/?viewmap=on', steps: [XXL, ...MEMO_SAVED] },
+      { name: 'viewmap-settings', url: '/?viewmap=on', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { wait: 500 }, { scrollTo: 'h3:has-text("メモのタグ")' }] },
+    ];
+  })(),
   { name: 'settings', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }] },
   { name: 'auth', url: '/?demo=auth&auth=signin' },
   { name: 'landing', url: '/?demo=auth' },
