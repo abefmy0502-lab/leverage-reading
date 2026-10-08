@@ -97,7 +97,10 @@ const results = await page.evaluate(async ({ photos }) => {
   for (const [nm, bk] of [['many', manyBook], ['long', longAuthorBook]]) {
     const rec = ov.bookRecord(bk, memos, new Date(2026, 9, 5));
     for (const layout of ['record', 'stats', 'quote']) {
-      jobs.push({ name: `edge-author-${nm}-${layout}-post-paper`, opts: { ...base, layout, format: 'post', style: 'paper', record: rec, title: bk.title, author: bk.author, line: layout === 'record' ? ov.quoteText(base.line, 'record') : base.line } });
+      // 表紙はその本の代用表紙（見本の緑の表紙は『1兆ドルコーチ』のもの・第 4 回）。
+      const own = nm === 'many' ? cover : { image: null, tone: null };
+      jobs.push({ name: `edge-author-${nm}-${layout}-post-paper`, opts: { ...base, layout, format: 'post', style: 'paper', record: rec, cover: own, title: bk.title, author: bk.author, line: layout === 'record' ? ov.quoteText(base.line, 'record') : base.line } });
+      jobs.push({ name: `edge-author-${nm}-${layout}-story-photo-bright`, opts: { ...base, layout, format: 'story', style: 'photo', photo: photo.bright, record: rec, cover: own, title: bk.title, author: bk.author, line: layout === 'record' ? ov.quoteText(base.line, 'record') : base.line } });
     }
   }
   // 4 桁の数字（1,234 件）

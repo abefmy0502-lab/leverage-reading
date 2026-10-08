@@ -129,9 +129,12 @@ describe('12 月の「今年の読書」', () => {
   });
   it('件数は読んだメモの数え方とそろえる（上限より多い人だけ、読めなかった分を足す）', () => {
     const memos = [{ text: 'a' }, { text: ' ' }, { text: '', photoPath: 'p.jpg' }];
-    expect(yearMemoCountFor(memos, 3)).toBeNull(); // 全部読めた＝yearRecord が数える（空のメモは数えない）
-    expect(yearMemoCountFor(memos, null)).toBeNull();
-    expect(yearMemoCountFor(memos, 10)).toBe(2 + 7);
+    expect(yearMemoCountFor(memos, 3, 2000)).toBeNull(); // 全部読めた＝yearRecord が数える（空のメモは数えない）
+    expect(yearMemoCountFor(memos, null, 3)).toBeNull();
+    // 上限に届かないのに数え上げが多い（空のメモが混ざる等）ときも数え直す
+    expect(yearMemoCountFor(memos, 10, 2000)).toBeNull();
+    // 上限（3 件）まで読んで、まだある
+    expect(yearMemoCountFor(memos, 10, 3)).toBe(2 + 7);
   });
   it('1 冊だけ・メモ 0・行動 0 の年も作れる（数字は読了だけ）', () => {
     const rec = yearRecord([{ id: 'x', title: 'ひとつ', status: 'done', doneDate: '2026-02-01', actions: [] }], [], d(2026, 12, 3));

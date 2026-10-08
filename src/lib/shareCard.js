@@ -25,7 +25,7 @@ import {
   FORMATS, clampLine, fitQuote, wrapBalanced, coverTone, rgbCss,
   photoPlacement, scrimAlpha, brightLuminance, coverProxyPath,
   seedFrom, tabPosition, coverWashAlpha, relativeLuminance, shareImageType,
-  darkLuminance, filmTone, logoInkOnPhoto, blockScrimStops, photoInkForBand, blockVeilStops, PHOTO_INK_DARK_Q,
+  darkLuminance, filmTone, logoInkOnPhoto, blockScrimStops, photoInkForBand, blockVeilStops, PHOTO_INK_DARK_Q, bandTexture,
 } from './shareCardLayout';
 import {
   RECORD_QUOTE_MAX, recordFrame, placeRecordBlock, statColumns, splitStatValue, recordBlockPlan, recordTitleScale, recordTitleMaxLines,
@@ -804,9 +804,8 @@ function drawOverlay(ctx, fonts, o, L, lay, top, theme) {
 }
 
 // 写真の、ある帯（y0〜y1・左右は x0〜x1）の画素（縮めて読む）。読めなければ null。
-function bandPixels(photo, place, W, H, y0, y1, x0 = 0, x1 = W) {
+function bandPixels(photo, place, W, H, y0, y1, x0 = 0, x1 = W, sw = 54) {
   try {
-    const sw = 54;
     const k = sw / W;
     const sh = Math.max(1, Math.round(H * k));
     const c = makeCanvas(sw, sh);
@@ -820,6 +819,7 @@ function bandPixels(photo, place, W, H, y0, y1, x0 = 0, x1 = W) {
     const { data } = ctx.getImageData(c0, r0, c1 - c0, r1 - r0);
     const px = [];
     for (let i = 0; i < data.length; i += 4) px.push([data[i], data[i + 1], data[i + 2]]);
+    px.width = c1 - c0; // 模様の強さ（bandTexture）を測るための幅
     return px;
   } catch {
     return null;
@@ -1143,7 +1143,10 @@ function drawBlockScrim(ctx, o, place, F, top, bottom) {
   const px = bandPixels(o.photo, place, F.W, F.H, top, bottom);
   const bright = px && px.length ? brightLuminance(px) : 0.6;
   const dark = px && px.length ? darkLuminance(px, PHOTO_INK_DARK_Q) : 0;
-  const pick = photoInkForBand({ bright, dark }, photoInkLums());
+  // 縮めた画素ではこまかい縞が均されるので、帯だけをもう一度細かく読んで模様の強さを測る（第 4 回）。
+  const fine = bandPixels(o.photo, place, F.W, F.H, top, bottom, 0, F.W, 216);
+  const texture = fine && fine.length ? bandTexture(fine, fine.width) : 0;
+  const pick = photoInkForBand({ bright, dark, texture }, photoInkLums());
   // photoInkForBand は幕を描く前の明るさで決めるので、ロゴの黒い幕がまとまりに掛からないことも確かめる（第 4 回）:
   // ロゴの黒い幕はまとまりの下端＋16 より下から暗くし、立ち上げる場所（48）が無ければ白い文字＋黒い幕に戻す。
   const oF = { ...o, W: F.W, H: F.H, format: F.format };

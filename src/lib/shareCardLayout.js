@@ -93,21 +93,61 @@ export function segmentPhrases(text) {
   return out;
 }
 
-// まとまりが 1 行に入らないときだけ、禁則を守って文字で切る。
+// 文字の種類（UI の TightBubble.jsx の scriptBreakPieces と同じ決まり・2026-10-08 第 4 回 ui-critic）。
+function scriptKind(ch) {
+  if (ch === '・' || ch === '･') return 'dot';
+  if (ch === 'ー') return null; // 前の字の種類に続ける
+  if (/[゠-ヿㇰ-ㇿｦ-ﾟ]/.test(ch)) return 'kata';
+  if (/[぀-ゟ]/.test(ch)) return 'hira';
+  if (/[一-鿿㐀-䶿々〆]/.test(ch)) return 'kanji';
+  if (/[A-Za-z0-9０-９Ａ-Ｚａ-ｚ]/.test(ch)) return 'latin';
+  return null;
+}
+const SCRIPT_TURNS = new Set(['kata>kanji', 'kanji>kata', 'latin>kata', 'latin>hira', 'latin>kanji', 'kata>latin', 'hira>latin', 'kanji>latin']);
+
+// まとまりの中で切ってよい位置（その字の前）: 「・」・空白の後ろ、文字の種類の切れ目（カタカナ↔漢字・英数字↔日本語）。
+// 2 字に満たない切れ端を作る位置は使わない。
+export function softBreaks(phrase) {
+  const chars = Array.from(String(phrase || ''));
+  const out = new Set();
+  let prev = null;
+  chars.forEach((ch, i) => {
+    if (i === 0) { const k = scriptKind(ch); if (k && k !== 'dot') prev = k; return; }
+    const a = chars[i - 1];
+    const own = scriptKind(ch);
+    const ok = i >= 2 && chars.length - i >= 2 && !NO_START.test(ch) && !NO_END.test(a);
+    if (ok && (a === '・' || a === '･' || /\s/.test(a))) out.add(i);
+    else if (ok && own && own !== 'dot' && prev && SCRIPT_TURNS.has(`${prev}>${own}`)) out.add(i);
+    if (own && own !== 'dot') prev = own;
+  });
+  return out;
+}
+
+// まとまりが 1 行に入らないときだけ切る。はみ出す手前の最後の「・」・空白・文字の種類の切れ目で切り
+// （「アンナ・ロスリン／グ」と語の途中で割らない・2026-10-08 第 4 回）、それが無いときだけ禁則を守って文字で切る。
 function splitLongPhrase(phrase, maxWidth, measure) {
   const chars = Array.from(phrase);
+  const soft = softBreaks(phrase);
   const parts = [];
-  let cur = '';
-  chars.forEach((ch, i) => {
-    const next = cur + ch;
-    if (cur && measure(next) > maxWidth && !NO_START.test(ch) && !NO_END.test(chars[i - 1] || '')) {
-      parts.push(cur);
-      cur = ch;
-    } else {
-      cur = next;
+  let start = 0;
+  let i = start + 1;
+  while (start < chars.length) {
+    if (measure(chars.slice(start).join('')) <= maxWidth) { parts.push(chars.slice(start).join('')); break; }
+    // 入るいちばん長いところ（end＝その字の前で切る）
+    let end = start + 1;
+    while (end < chars.length && measure(chars.slice(start, end + 1).join('')) <= maxWidth) end += 1;
+    let cut = -1;
+    for (let k = end; k > start; k -= 1) if (soft.has(k)) { cut = k; break; }
+    if (cut < 0) {
+      // 文字で（禁則を守る）
+      cut = end;
+      while (cut > start + 1 && (NO_START.test(chars[cut] || '') || NO_END.test(chars[cut - 1] || ''))) cut -= 1;
     }
-  });
-  if (cur) parts.push(cur);
+    parts.push(chars.slice(start, cut).join(''));
+    start = cut;
+    i += 1;
+    if (i > chars.length + 2) break; // 念のため
+  }
   return parts;
 }
 
@@ -476,7 +516,7 @@ export function blockScrimStops({ top, bottom, H, a, aFoot, logoTop, logoBottom,
 // 白い幕（明るい写真の上の墨の文字）の帯: まとまりの上端の f 手前で 0 → まとまりの中 veil → 下端から f/2 で 0。
 export function blockVeilStops({ top, bottom, H, veil, fade }) {
   const f = Math.max(H * 0.2, Number(fade) || 0);
-  const v = Math.min(PHOTO_VEIL_MAX, Math.max(0, veil));
+  const v = Math.min(PHOTO_VEIL_BUSY_MAX, Math.max(0, veil));
   return [[top - f, 0], [top, v], [bottom, v], [Math.min(H, bottom + f / 2), 0]];
 }
 
@@ -512,16 +552,47 @@ const toLinear = (s) => (s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4
 // α は sRGB の値で混ぜたときに、暗い部分がラベルと 4.5:1 になる濃さ（それより明るければ 0）。上限 0.6。
 // inkLum はラベル（いちばん淡い墨）の相対輝度、veilLum は白い幕の相対輝度。
 export const PHOTO_VEIL_MAX = 0.6;
-export function photoInkForBand({ bright = 0, dark = 0 } = {}, { inkLum = 0.104, veilLum = 0.86 } = {}) {
+// 模様（帯の明るさのばらつき＝bandTexture）がある写真は、墨の文字の後ろの模様（本の挿絵の縞など）が見えなくなるまで
+// 白い幕を足す（2026-10-08 第 4 回 ui-critic「文字が挿絵の縞に乗ってごちゃつく」）。足しても 0.78 まで。
+// それでも足りないほど模様が強い写真は、白い文字＋黒い幕に戻す。
+export const PHOTO_VEIL_BUSY_MAX = 0.78;
+export const PHOTO_TEXTURE_CALM = 0.012; // これ以下は模様なし（足さない）
+export const PHOTO_TEXTURE_LOUD = 0.12; // これより強い模様は白い文字＋黒い幕
+export function textureVeil(texture = 0) {
+  const t = Math.max(0, Number(texture) || 0);
+  if (t <= PHOTO_TEXTURE_CALM) return 0;
+  return Math.min(PHOTO_VEIL_BUSY_MAX, 0.6 + (t - PHOTO_TEXTURE_CALM) * 12);
+}
+export function photoInkForBand({ bright = 0, dark = 0, texture = 0 } = {}, { inkLum = 0.104, veilLum = 0.86 } = {}) {
   const light = { ink: 'light', scrim: scrimAlpha(bright), veil: 0 };
   if (bright < 0.5) return light;
+  if (texture > PHOTO_TEXTURE_LOUD) return light;
   const target = 4.6 * (inkLum + 0.05) - 0.05; // 幕のあとに要る明るさ（相対輝度・4.5:1 に少し余裕）
   const s = toSrgb(Math.min(1, Math.max(0, dark)));
   const sv = toSrgb(veilLum);
   const st = toSrgb(Math.min(1, target));
   const need = s >= st ? 0 : (st - s) / Math.max(0.001, sv - s);
   if (need > PHOTO_VEIL_MAX) return light;
-  return { ink: 'dark', veil: Math.ceil(Math.min(PHOTO_VEIL_MAX, Math.max(0, need)) * 1000) / 1000, scrim: 0 };
+  const v = Math.max(need, textureVeil(texture));
+  return { ink: 'dark', veil: Math.ceil(Math.min(PHOTO_VEIL_BUSY_MAX, Math.max(0, v)) * 1000) / 1000, scrim: 0 };
+}
+
+// 帯の模様の強さ: 隣り合う画素（横・縦）の相対輝度の差の平均（縮めた画素で・0〜1）。
+// pixels は [r,g,b] の行の順の並び・w はその幅。平らな空は 0 に近く、本の縞・木の葉は大きい。
+export function bandTexture(pixels, w) {
+  if (!Array.isArray(pixels) || pixels.length < 2 || !(w > 0)) return 0;
+  const lum = pixels.map(relLum);
+  const h = Math.floor(lum.length / w);
+  let sum = 0;
+  let n = 0;
+  for (let y = 0; y < h; y += 1) {
+    for (let x = 0; x < w; x += 1) {
+      const i = y * w + x;
+      if (x + 1 < w) { sum += Math.abs(lum[i] - lum[i + 1]); n += 1; }
+      if (y + 1 < h) { sum += Math.abs(lum[i] - lum[i + w]); n += 1; }
+    }
+  }
+  return n ? sum / n : 0;
 }
 
 // 白い幕 veil を、暗い部分 dark に重ねたあとの明るさ（相対輝度・sRGB の値で混ぜる＝canvas と同じ）。テスト用にも使う。
@@ -644,10 +715,19 @@ export function tabPosition(page, totalPages, knownMaxPage = 0) {
 // ---------------------------------------------------------------- フィルム（2026-10-08）
 //
 // 写真の地の 1 つ「フィルム」: 端末の中で写真の色だけを整える（AI は使わない・どこにも送らない）。
-// 彩度を少し落とし（0.78）、黒を少し持ち上げ（フェード）、温かみ（赤 +、青 −）を足し、四隅をわずかに暗く。
+// 彩度を落とし（0.62）、黒を持ち上げ（フェード）、温かみ（赤 +、青 −）を足し、四隅を暗くし、細かい粒を足す
+// （2026-10-08 第 4 回 ui-critic「フィルムが写真と見分けられない」＝64 幅の見本でも違いが分かる強さ）。
+// 粒は位置から決まる（同じ写真は同じ粒＝描き直しても揺れない）。
 // 文字の幕の濃さは、この後の写真の明るさで決める（読みやすさ 4.5:1 の決まりはそのまま）。
 // data は RGBA の配列（ImageData.data）。その場で書き換える。
-export const FILM = { saturation: 0.78, lift: 18, fade: 0.92, warmR: 8, warmB: -10, vignette: 0.16 };
+export const FILM = { saturation: 0.62, lift: 28, fade: 0.88, warmR: 12, warmB: -14, vignette: 0.24, grain: 14 };
+// 位置 (x, y) の粒（-0.5〜0.5・決まった値）。
+export function filmGrain(x, y) {
+  let h = (Math.imul(x, 374761393) + Math.imul(y, 668265263)) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  h ^= h >>> 16;
+  return ((h >>> 0) % 1000) / 1000 - 0.5;
+}
 export function filmTone(data, w, h, f = FILM) {
   const cx = w / 2;
   const cy = h / 2;
@@ -667,12 +747,13 @@ export function filmTone(data, w, h, f = FILM) {
       r = f.lift + r * f.fade + f.warmR;
       g = f.lift + g * f.fade;
       b = f.lift + b * f.fade + f.warmB;
-      // 四隅をわずかに暗く（中心からの距離の 2 乗）。
+      // 四隅を暗く（中心からの距離の 2 乗）。
       const d = Math.hypot(x + 0.5 - cx, y + 0.5 - cy) / maxD;
       const v = 1 - f.vignette * d * d;
-      data[i] = clamp(r * v);
-      data[i + 1] = clamp(g * v);
-      data[i + 2] = clamp(b * v);
+      const n = f.grain ? filmGrain(x, y) * f.grain : 0;
+      data[i] = clamp(r * v + n);
+      data[i + 1] = clamp(g * v + n);
+      data[i + 2] = clamp(b * v + n);
     }
   }
   return data;

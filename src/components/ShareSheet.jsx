@@ -76,7 +76,7 @@ const FORMAT_OPTIONS = [
 ];
 // 重ね方の名前は、押す前に中身が分かる言葉で（2026-10-08 オーナー「記録、数字という意味が伝わりにくい」）。
 // コードの名前（record / stats / quote）と端末に覚える値は変えない。
-const VARIANT_LABELS = { record: '書名と数字', stats: '数字を大きく', quote: '心に残った一文' };
+const VARIANT_LABELS = { record: '書名と数字', stats: '大きな数字', quote: '心に残った一文' };
 // フィルム＝写真の色を端末の中で整えた地（彩度を少し落とし・温かく・黒を少し持ち上げる・2026-10-08）。写真があるときだけ。
 const STYLE_LABELS = { photo: '写真', film: 'フィルム', paper: '紙', night: '夜', cover: '表紙の色', sticker: '透明' };
 const BG_OPTIONS = ['paper', 'night', 'cover', 'sticker'];
@@ -341,7 +341,7 @@ export default function ShareSheet({
 
   const record = useMemo(
     () => (period === 'year'
-      ? yearRecord(books || [], yearM.memos, now, { memoCount: yearMemoCountFor(yearM.memos, yearM.count) })
+      ? yearRecord(books || [], yearM.memos, now, { memoCount: yearMemoCountFor(yearM.memos, yearM.count, YEAR_MEMO_LIMIT) })
       : period === 'month' ? monthRecord(books || [], month.memos, now) : bookRecord(subjectBook, memos, now)),
     [period, books, month.memos, yearM.memos, yearM.count, subjectBook, memos, now],
   );
@@ -886,7 +886,7 @@ export default function ShareSheet({
         {/* 今年のメモを読めなかった間は、見本（空になる）を見せない（場所は残す＝読み直せたときに下が動かない）。 */}
         {variants.length > 1 && (
         <div aria-hidden={yearError || undefined} style={{ visibility: yearError ? 'hidden' : 'visible' }}>
-            {/* 見本は等しい幅の列に（名前「書名と数字」「数字を大きく」「心に残った一文」が 1 行に入る幅）。 */}
+            {/* 見本は等しい幅の列に（名前「書名と数字」「大きな数字」「心に残った一文」が 1 行に入る幅）。 */}
             <div role="radiogroup" aria-label="見せ方" style={{ display: 'grid', gridTemplateColumns: `repeat(${variants.length}, minmax(0, 1fr))`, gap: 'var(--space-1)', margin: '0 calc(-1 * var(--space-1))' }}>
               {variants.map((v) => {
                 const on = v === variant;

@@ -267,11 +267,12 @@ export function yearRecord(books, yearMemos = [], now = new Date(), { memoCount 
   };
 }
 
-// 今年のメモの件数（yearRecord と同じ数え方＝本文か写真のあるメモ）。シートが読む上限より多い人だけ、
-// 読めなかった分を数え上げの数から足す（その分は本文の有無が分からないので、そのまま数える）。null＝yearRecord に任せる。
-export function yearMemoCountFor(memos, total) {
+// 今年のメモの件数（yearRecord と同じ数え方＝本文か写真のあるメモ）。読んだ件数がシートの読む上限（limit）に
+// 届いたときだけ、読めなかった分を数え上げの数から足す（その分は本文の有無が分からないので、そのまま数える）。
+// 上限に届かなければ null＝yearRecord が読んだメモを数え直す（数え上げは空のメモも数えるので使わない・第 4 回）。
+export function yearMemoCountFor(memos, total, limit = Infinity) {
   const list = Array.isArray(memos) ? memos : [];
-  if (!Number.isFinite(total) || total <= list.length) return null;
+  if (list.length < limit || !Number.isFinite(total) || total <= list.length) return null;
   const counted = list.filter((m) => String(m.text || '').trim() || m.photoPath).length;
   return counted + (total - list.length);
 }
