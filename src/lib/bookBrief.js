@@ -183,10 +183,13 @@ export function briefSourceLine(info) {
 
 /** 見出しの名前（小説・物語は「この本で味わえること」）。 */
 export function briefLabels(text) {
-  const savor = parseBrief(text).kind === 'savor';
+  const b = parseBrief(text);
+  const savor = b.kind === 'savor';
+  // 畳む見出しの右の要約は中身に合わせる（仮説の例があれば「・仮説」まで）。
+  const hyp = b.hypotheses.length ? '・仮説' : '';
   return savor
-    ? { title: 'この本で味わえること', learn: BRIEF_HEADINGS.savor, short: '概要・味わえること' }
-    : { title: 'この本で学べること', learn: BRIEF_HEADINGS.learn, short: '概要・学べること' };
+    ? { title: 'この本で味わえること', learn: BRIEF_HEADINGS.savor, short: `概要・味わえること${hyp}` }
+    : { title: 'この本で学べること', learn: BRIEF_HEADINGS.learn, short: `概要・学べること${hyp}` };
 }
 
 /** 仮説の欄に足す（空なら入れる・もう入っていれば何もしない・あれば改行して後ろに）。 */

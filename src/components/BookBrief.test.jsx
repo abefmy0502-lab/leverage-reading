@@ -60,6 +60,14 @@ describe('BookBrief', () => {
     expect(text(html)).toContain('作れませんでした。');
   });
 
+  it('作り直しに失敗したら、中身は残したまま添え書きの下に理由の 1 行', () => {
+    const html = renderToStaticMarkup(<BookBrief variant="fold" text={BRIEF} info={INFO} defaultOpen error="作り直せませんでした。前の内容のままです。" onMake={() => {}} />);
+    expect(html).toContain('role="alert"');
+    const t = text(html);
+    expect(t).toContain('見えない資産');
+    expect(t.indexOf('作り直せませんでした')).toBeGreaterThan(t.indexOf('AI がまとめました'));
+  });
+
   it('紹介を読み込んでいる間は押せないボタン（「作成中…」とは言わない）', () => {
     const html = renderToStaticMarkup(<BookBrief variant="make" material={false} infoLoading onMake={() => {}} />);
     expect(html).toContain('disabled');
@@ -69,7 +77,7 @@ describe('BookBrief', () => {
 
   it('作ったあとの積読の畳み: 見出し＋右に「概要・学べること」・ふだんは閉じる', () => {
     const html = renderToStaticMarkup(<BookBrief variant="fold" text={BRIEF} info={INFO} />);
-    expect(text(html)).toContain('概要・学べること');
+    expect(text(html)).toContain('概要・学べること・仮説');
     expect(html).not.toMatch(/<details[^>]* open/);
   });
 

@@ -323,12 +323,12 @@ function titleWithPhraseBreaks(title) {
   return withPhraseBreaks(title, { scriptBreaks: true });
 }
 
-function Card({ label, text, style }) {
+// カードの中の 1 まとまり（小さな見出し＋本文・長い文は 4 行で切って「すべて表示」）。
+function CardBody({ label, text }) {
   const [expanded, setExpanded] = useState(false);
   const isLong = (text || '').length > 130;
   return (
-    // DESIGN §5 のカード（--surface＋枠 --separator＋角丸 12＋内側 16・影なし）。
-    <div style={{ background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4)', marginTop: 'var(--space-2)', ...style }}>
+    <div>
       <p style={{ fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-2)', margin: '0 0 var(--space-2)' }}>{label}</p>
       <p
         style={{
@@ -347,11 +347,30 @@ function Card({ label, text, style }) {
           type="button"
           onClick={() => setExpanded((v) => !v)}
           aria-expanded={expanded}
-          style={{ background: 'none', border: 'none', padding: 0, minHeight: 44, fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--accent)', cursor: 'pointer', fontFamily: 'inherit' }}
+          style={{ background: 'none', border: 'none', padding: 0, minHeight: 'var(--tap-min)', fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--accent)', cursor: 'pointer', fontFamily: 'inherit' }}
         >
           {expanded ? '閉じる' : 'すべて表示'}
         </button>
       )}
+    </div>
+  );
+}
+
+// DESIGN §5 のカード（--surface＋枠 --separator＋角丸 12＋内側 16・影なし）。
+const cardBoxStyle = { background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4)', marginTop: 'var(--space-2)' };
+function Card({ label, text, style }) {
+  return (
+    <div style={{ ...cardBoxStyle, ...style }}>
+      <CardBody label={label} text={text} />
+    </div>
+  );
+}
+// 積読の得たいこと・課題・仮説を 1 枚のカードに（小さな見出しのまとまりを間 16 で縦に・2026-10-08 ui-critic 第 3 回）。
+//   カードを 1 枚ずつ並べると枠と余白のぶん「読書を開始する」が 390×844 の最初の画面から押し出されていた。
+function PlanCard({ items, style }) {
+  return (
+    <div style={{ ...cardBoxStyle, display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', ...style }}>
+      {items.map((p) => <CardBody key={p.label} label={p.label} text={p.text} />)}
     </div>
   );
 }
@@ -3037,6 +3056,7 @@ function AuthedApp() {
     const bookId = book.id;
     // 編集画面で得たいことを書いているときは、その言葉に寄せる（保存はしない）。
     const purpose = view === 'edit' && form?.id === bookId ? (form.investPurpose || '') : (book.investPurpose || '');
+    const remaking = isUsableBrief(parseBrief(storedBriefOf(book)));
     setBriefGenId(bookId);
     setBriefError(null);
     try {
@@ -3057,7 +3077,13 @@ function AuthedApp() {
       // トークンの上限は案内として。プランの案内（402）は有料プランの画面が開くので重ねない。同意をやめたときは何も言わない。
       // 作れなかったときは、ボタンの下に理由の 1 行（ボタンは「もう一度作る」・2026-10-08 ui-critic）。
       if (error?.notice) { if (!/^(この AI 機能は|AI への送信をやめました)/.test(error.message)) toast.info(error.message); }
-      else setBriefError({ bookId, message: toMessage(error, 'この本で学べることを作れませんでした。少し時間をおいてから押してください。') });
+      else setBriefError({
+        bookId,
+        // 作り直しの失敗は前の中身が残ることを言う（中身の下に 1 行・BriefBody）。
+        message: remaking
+          ? '作り直せませんでした。前の内容のままです。'
+          : toMessage(error, 'この本で学べることを作れませんでした。少し時間をおいてから押してください。'),
+      });
     } finally {
       setBriefGenId(null);
     }
@@ -3082,6 +3108,8 @@ function AuthedApp() {
         let reduce = false;
         try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { /* ignore */ }
         el.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
+        // 足した例は欄の最後の行（3 行を超えると欄の中で隠れていた）＝欄の中も最後まで送る。
+        el.scrollTop = el.scrollHeight;
       } catch { /* ignore */ }
     }, 250);
   };
@@ -3101,7 +3129,7 @@ function AuthedApp() {
     if (view !== 'edit' || !p) return;
     pendingHypothesisRef.current = null;
     setForm((f) => (f && f.id === p.id ? { ...f, hypothesis: appendHypothesis(f.hypothesis, p.text) } : f));
-    toast.info('仮説の欄に入れました。書き足して保存できます。');
+    toast.info('仮説の欄に入れました');
     revealHypothesisField();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view]);
@@ -4108,7 +4136,7 @@ function AuthedApp() {
             <BookAbout info={bookAbout.info} loading={bookAbout.loading} variant="card" style={{ marginTop: 'var(--space-6)' }} briefSlot={briefInCard} />
           )}
           {aboutAsCard && briefWithoutAbout && (
-            <BookBrief variant="section" text={briefText} making={briefMaking} onMake={() => makeBookBrief(current)} onRemake={() => remakeBookBrief(current)} onPickHypothesis={briefPick} pickedHypotheses={current.hypothesis || ''} info={bookAbout.info} style={{ marginTop: 'var(--space-6)' }} />
+            <BookBrief variant="section" text={briefText} making={briefMaking} onMake={() => makeBookBrief(current)} onRemake={() => remakeBookBrief(current)} onPickHypothesis={briefPick} pickedHypotheses={current.hypothesis || ''} info={bookAbout.info} error={briefError?.bookId === current.id ? briefError.message : ''} style={{ marginTop: 'var(--space-6)' }} />
           )}
 
           {current.status !== 'before' && planCta}
@@ -4172,9 +4200,10 @@ function AuthedApp() {
               making={briefMaking}
               onMake={() => makeBookBrief(current)}
               onRemake={() => remakeBookBrief(current)}
-              onPickHypothesis={current.hypothesis ? undefined : briefPick}
+              onPickHypothesis={briefPick}
               pickedHypotheses={current.hypothesis || ''}
               info={bookAbout.info}
+              error={briefError?.bookId === current.id ? briefError.message : ''}
               style={{ marginTop: 0 }}
             />
           ) : (bookAbout.loading || hasBookInfo(bookAbout.info)) && (
@@ -4189,7 +4218,9 @@ function AuthedApp() {
               error={briefError?.bookId === current.id ? briefError.message : ''}
             />
           ))}
-          {planItems.map((p) => <Card key={p.label} label={p.label} text={p.text} style={{ marginTop: 0 }} />)}
+          {current.status === 'before' && planItems.length > 0
+            ? <PlanCard items={planItems} style={{ marginTop: 0 }} />
+            : planItems.map((p) => <Card key={p.label} label={p.label} text={p.text} style={{ marginTop: 0 }} />)}
           {/* 積読で課題・仮説・シートがあるとき: この本についてはカードの下に畳んで置く（間 12）。 */}
           {current.status === 'before' && (
             <BookAbout info={bookAbout.info} loading={bookAbout.loading} variant="fold" />

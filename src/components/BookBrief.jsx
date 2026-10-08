@@ -104,7 +104,8 @@ export function BriefMakeButton({ material, making, waiting = false, costLine, o
  *   compact: 概要と学べることだけ（仮説の例は出さない）
  *   info: いま読める紹介文・目次（添え書きの言葉を材料に合わせる）
  */
-export function BriefBody({ text, onPickHypothesis, pickedHypotheses = '', compact = false, onRemake, making = false, info = null }) {
+//   error: 作り直しに失敗した理由（添え書きの行のすぐ下に 1 行・中身は前のまま残る）
+export function BriefBody({ text, onPickHypothesis, pickedHypotheses = '', compact = false, onRemake, making = false, info = null, error = '' }) {
   const b = parseBrief(text);
   if (!isUsableBrief(b)) return null;
   const labels = briefLabels(text);
@@ -166,6 +167,7 @@ export function BriefBody({ text, onPickHypothesis, pickedHypotheses = '', compa
           </button>
         )}
       </div>
+      {!making && error && <p role="alert" style={{ ...errorStyle, marginTop: 'calc(-1 * var(--space-2))' }}>{withPhraseBreaks(error)}</p>}
       {making && <MakingSkeleton />}
     </div>
   );
@@ -200,7 +202,7 @@ export default function BookBrief({
         {has ? (
           <>
             <h3 style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', margin: '0 0 var(--space-3)', lineHeight: 1.3 }}>{labels.title}</h3>
-            <BriefBody text={text} onPickHypothesis={onPickHypothesis} pickedHypotheses={pickedHypotheses} onRemake={remake} making={making} info={info} />
+            <BriefBody text={text} onPickHypothesis={onPickHypothesis} pickedHypotheses={pickedHypotheses} onRemake={remake} making={making} info={info} error={error} />
           </>
         ) : (
           <BriefMakeButton material={material} making={making} costLine={costLine} onMake={onMake} error={error} />
@@ -214,7 +216,7 @@ export default function BookBrief({
     return (
       <section aria-labelledby="book-brief-title" style={{ ...cardStyle, ...style }}>
         <h2 id="book-brief-title" style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', margin: '0 0 var(--space-3)', lineHeight: 1.3 }}>{labels.title}</h2>
-        <BriefBody text={text} onPickHypothesis={onPickHypothesis} pickedHypotheses={pickedHypotheses} compact={!onPickHypothesis} onRemake={remake} making={making} info={info} />
+        <BriefBody text={text} onPickHypothesis={onPickHypothesis} pickedHypotheses={pickedHypotheses} compact={!onPickHypothesis} onRemake={remake} making={making} info={info} error={error} />
       </section>
     );
   }
@@ -237,12 +239,12 @@ export default function BookBrief({
         <span style={{ flex: '0 1 auto', minWidth: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(has ? labels.title : BRIEF_TITLE)}</span>
         <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 'var(--space-2)', flex: '1 1 0', minWidth: 0 }}>
           {right && <span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{right}</span>}
-          <ChevronDown size={20} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+          <ChevronDown size={iconSize} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
         </span>
       </summary>
       <div style={{ paddingBottom: 'var(--space-4)' }}>
         {has
-          ? <BriefBody text={text} onPickHypothesis={onPickHypothesis} pickedHypotheses={pickedHypotheses} onRemake={remake} making={making} info={info} />
+          ? <BriefBody text={text} onPickHypothesis={onPickHypothesis} pickedHypotheses={pickedHypotheses} onRemake={remake} making={making} info={info} error={error} />
           : <BriefMakeButton material={material} making={making} waiting={infoLoading} costLine={costLine} onMake={onMake} error={error} />}
       </div>
     </details>

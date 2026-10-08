@@ -153,7 +153,8 @@ describe('小説・物語は「味わえること」・添え書きは材料に�
   it('「## 味わえること」で書かれたら、その見出しのまま保存し、見出しも「この本で味わえること」', () => {
     const text = finalizeBrief('## 概要\n変化は起きる。\n## 味わえること\n- 寓話の余韻\n## 仮説の例\n- 動けば変わるのでは', { toc: [], about: '変化は起きる。寓話の余韻。' });
     expect(text).toContain('## 味わえること\n- 寓話の余韻');
-    expect(briefLabels(text)).toEqual({ title: 'この本で味わえること', learn: '味わえること', short: '概要・味わえること' });
+    expect(briefLabels(text)).toEqual({ title: 'この本で味わえること', learn: '味わえること', short: '概要・味わえること・仮説' });
+    expect(briefLabels('## 概要\nA。\n## 学べること\n- B').short).toBe('概要・学べること');
     expect(briefLabels(finalizeBrief(ANSWER, { toc: TOC })).title).toBe('この本で学べること');
     expect(PROMPTS.bookBrief.system).toContain('## 味わえること');
   });
