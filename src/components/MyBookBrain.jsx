@@ -40,6 +40,7 @@ import { getIntroOffer } from '../lib/iap';
 import { growthMeterText, firstAnswerEvidence, takeFirstConsult, takeMemosReached, getOnboardPath } from '../lib/firstDay';
 import { composerChrome, answerEndScrollTop, composerHeight, isTouchUi } from '../lib/composerView';
 import { NATIVE_KEYBOARD_EVENT } from '../lib/native';
+import { encodeThreadRef, isThreadRef, threadRootOf, groupConsults, threadScopeOf, threadTitleOf } from '../lib/consultThreads';
 import { buildConsultExamples, standaloneAction, shortTitle, hasSummaryMemo, countSummaryMemos, fmtTokens, consultsLeft, memoSearchQuery, answerStepToAction, stripScenePrefix, selectThreadTurns, isCompletedAnswer, parseAskSection, nextStepChips, wantsAction, isBookLookup, lookupTerm, shouldDecide, countAsks, askProgressText, answerAsks } from '../lib/consultHelpers';
 import LibrarySearchHit from './LibrarySearchHit';
 import { buildSnippet, compileTerms, splitQuery } from '../lib/librarySearch';
@@ -186,7 +187,7 @@ const ACTED_PREFIX = '🎯 ';
 // refs のうち、AI が挙げた本（📚 📖 💡）ではない、画面用の目印つきの行（使ったメモ・前の相談から・引用の照合）。
 const isMetaRef = (r) => {
   const s = String(r || '');
-  return s.startsWith(EVIDENCE_PREFIX) || s.startsWith(GROWTH_PREFIX) || s.startsWith(QUOTE_PREFIX) || s.startsWith(REFUND_PREFIX) || s.startsWith(ACTED_PREFIX) || s.startsWith(VOICE_PREFIX);
+  return s.startsWith(EVIDENCE_PREFIX) || s.startsWith(GROWTH_PREFIX) || s.startsWith(QUOTE_PREFIX) || s.startsWith(REFUND_PREFIX) || s.startsWith(ACTED_PREFIX) || s.startsWith(VOICE_PREFIX) || isThreadRef(s);
 };
 
 // 関係するメモが無かった答え（トークンを返した答え・返金の回数の上限を超えたときは決まり文句で見分ける）。
@@ -495,6 +496,10 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // 次の相談にだけ文脈として渡す（streamMyBookBrain の prior）。{ id, question, answer, at, used }
   const [carry, setCarry] = useState(() => (resumed?.carry || null));
   useEffect(() => { rememberSession(user?.id, { carry }); }, [carry, user?.id]);
+  // 🧵 過去の相談の「この続きを相談する」（2026-10-08）: その会話のやりとり（相談と答えの id）を今の会話として並べる。
+  //   { ids, title }。「新しい相談をはじめる」・入力欄の上の × で外す。続けて送ると直前の会話を最大 3 往復渡す（threadBlock）。
+  const [resumeThread, setResumeThread] = useState(() => (resumed?.resumeThread || null));
+  useEffect(() => { rememberSession(user?.id, { resumeThread }); }, [resumeThread, user?.id]);
   const [input, setInput] = useState('');
   // 🎯 相談相手（2026-09-26）: [] = すべての本（＋学びログ）/ [id] = その 1 冊だけ /
   //   [id, id, …] = 選んだ数冊だけ。質問ごとに streamMyBookBrain へ bookIds で渡す。
@@ -1204,6 +1209,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     // 🎯 行動は会話で決める（2026-09-30）: 会話の続きで行動を求めた回だけ、答えの最後が行動になる（ai.js の turnHint と同じ判断）。
     //   書いている途中の形（行動の箱／問いの箱）を先に決める。書き始める前にサーバー側の判断（onStage の decide）で合わせ直す。
     //   🏁 聞き返しは最大 2 回（2026-10-08）: 2 回答えたら、聞き返さずに結論＋行動（shouldDecide＝ai.js の turnHint と同じ判断）。
+    // 🧵 この会話のはじめの相談（答えに目印を残す＝過去の相談で 1 つの相談にまとめる・続きを相談した会話は元の会話のはじめ）。
+    const threadRootAtSend = threadRootOf(visibleMessages, null);
     const expectAction = shouldDecide({ followUp: askThread.length > 0 || !!askPrior, question: q, asked: countAsks([...(askPrior ? [askPrior] : []), ...askThread]) });
     // この相談より前の、いちばん新しい相談の時刻（「前の相談から メモ +N 件」に使う）。
     const before = opts.questionAt || '9999';
@@ -1354,7 +1361,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       // 🌱 はじめての相談の答えには、必ず「あなたのメモ N 件から答えました」（2026-10-02・lib/firstDay.js）。
       //   AI の参照から数えられなかったときも、はじめての相談だけは答えに使ったメモの数で出す（関係するメモが無かった答えは除く）。
       const evidenceLine = firstAnswerEvidence({ evidence, memoCount, isFirst: !prevAskAt && !opts.skipUserInsert, refunded: !!tokenRefund, grounded });
-      const persistRefs = wasAborted ? [] : [
+      // 🧵 同じ会話の目印（はじめの相談の id・相談相手）。過去の相談の一覧で 1 つの相談にまとめる（止めた答えにも付ける・2026-10-08）。
+      const threadMark = encodeThreadRef(threadRootAtSend || savedUserId, askBookIds);
+      const persistRefs = wasAborted ? (threadMark ? [threadMark] : []) : [
         ...(evidenceLine ? [`${EVIDENCE_PREFIX}${evidenceLine}`] : []),
         // 関係するメモが無かった答え（トークンを返した）には、積み重ねの一行を付けない（効いていないので）
         ...(grown > 0 && memoCount > 0 && !tokenRefund ? [`${GROWTH_PREFIX}前の相談から メモ +${grown} 件`] : []),
@@ -1363,6 +1372,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         ...(completedActions > 0 && !tokenRefund ? [`${ACTED_PREFIX}${completedActions}`] : []),
         // 著者の語り口で書いた答えの印（名前の行の「（本の語り口で・AI）」・過去の相談にも残す）。
         ...(encodeVoice(usedVoice || liveVoice) ? [encodeVoice(usedVoice || liveVoice)] : []),
+        ...(threadMark ? [threadMark] : []),
         ...(refs || []),
       ];
       // 本ごとにで送ったのに、並べる本が足りずに「まとめて」で答えた（答えの上に一行で知らせる）。
@@ -1542,6 +1552,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     rememberSession(user?.id, { clearedAt: now, reserve: false });
     setPromptDismissed(false);
     setCarry(null);
+    setResumeThread(null);
     try {
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem('brain-cleared-at', now);
@@ -1553,16 +1564,24 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     toast.success('新しい相談をはじめます。これまでの相談は右上の時計から見返せます。');
   };
 
-  // 過去の相談の「この相談の続きを聞く」: その相談と答えを新しい会話のいちばん上に置き、
-  // 次の相談に文脈として渡す（いまの会話は過去の相談に残る）。入力欄にすぐ書けるようにする。
-  const continueFrom = (group) => {
-    const u = group[0];
-    const a = group.find((m) => m.role === 'assistant' && !m.error && !m.notice && m.content !== STOPPED_EMPTY);
-    if (busy || !u || u.role !== 'user' || !a) return;
+  // 🧵 過去の相談の「この続きを相談する」（2026-10-08）: その会話（相談と答え・相談相手）を今の会話として並べ、
+  // 入力欄にカーソル。続けて送ると、直前の会話を最大 3 往復渡す（selectThreadTurns → threadBlock）。答えには同じ会話の
+  // 目印を残すので、過去の相談の一覧は 1 つの相談のまま（二重にならない）。古い相談でも使える。
+  const continueThread = (group) => {
+    if (busy) return;
+    const ids = [];
+    group.forEach((m, k) => {
+      if (m.role !== 'user') return;
+      const a = group[k + 1];
+      if (!a || a.role !== 'assistant' || !isCompletedAnswer(a) || a.content === STOPPED_EMPTY) return;
+      ids.push(m.id, a.id);
+    });
+    if (ids.length === 0) return;
     clearConversation();
-    setCarry({ id: u.id, question: u.content, answer: a.content, at: u.createdAt, used: false });
+    setResumeThread({ ids, title: threadTitleOf(group) });
+    setScopeIds(threadScopeOf(group));
     setView('chat');
-    track('brain_continue', {});
+    track('brain_continue', { turns: ids.length / 2 });
     setTimeout(() => { try { inputRef.current?.focus({ preventScroll: true }); } catch { /* ignore */ } }, 80);
   };
 
@@ -1624,8 +1643,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
 
   // chat view では clearedAt 以降のメッセージだけ表示する。history view は
   // 全件表示のままで OK (DB は削除していない)。
+  const resumeIdSet = useMemo(() => new Set(resumeThread?.ids || []), [resumeThread]);
   const visibleMessages = clearedAt
-    ? messages.filter((m) => isLocalMsg(m) || (m.createdAt || '') > clearedAt)
+    ? messages.filter((m) => isLocalMsg(m) || (m.createdAt || '') > clearedAt || resumeIdSet.has(m.id))
     : messages;
   // メモが答える相談の「AI に答えてもらう（プラン）」は、この会話でいちばん最初のメモの答えにだけ（毎回すすめない）。
   //   見つからなかった答えには出さない（AI もメモが無ければ答えられないので）。
@@ -1686,15 +1706,12 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const regenLabel = !chipRowBase || isBookLookup(lastAsked) || followups.some((c) => c.kind === 'reply') ? '' : stoppedAnswer ? 'もう一度答えて' : '別の角度で答えて';
 
   // 過去の相談: 相談（user）とそれに続く答えを 1 組にして、新しい組から並べる。
-  const historyGroups = useMemo(() => {
-    const groups = [];
-    messages.forEach((m) => {
-      if (isLocalMsg(m)) return; // メモが答える相談は過去の相談に入れない（AI の答えではないので）
-      if (m.role === 'user' || groups.length === 0) groups.push([m]);
-      else groups[groups.length - 1].push(m);
-    });
-    return groups.reverse();
-  }, [messages]);
+  //   🧵 続きを相談した会話は 1 つにまとめる（答えの目印＝lib/consultThreads.js・2026-10-08）。新しく話した相談から。
+  const historyGroups = useMemo(
+    // メモが答える相談は過去の相談に入れない（AI の答えではないので）
+    () => groupConsults(messages, { skip: isLocalMsg }),
+    [messages],
+  );
   // 空の画面の出し分けはメモ（カード式＋学び＋この本のまとめ）の件数で決める（SPEC §3）。メモ＝カード式＋まとめ式
   // （GLOSSARY）なので、読書メーター等の感想を「この本のまとめ」に取り込んだだけの人も相談できる（2026-09-29 オーナー裁定）。
   // 読書計画だけの人は「これまで読んだ本から始める」へ（相談例の「最近のメモから…」が空振りしないように）。
@@ -1939,7 +1956,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           {/* 履歴は静的な過去ログなので live region にはしない（mount 時の過剰読み上げを避ける）。 */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }} role="region" aria-label="過去の相談">
             {historyGroups.length > 0 && (
-              <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 0, lineHeight: 1.5 }}>{messages.filter((m) => m.role === 'user' && !isLocalMsg(m)).length} 件の相談</p>
+              <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 0, lineHeight: 1.5 }}>{historyGroups.length} 件の相談</p>
             )}
             {/* 「N 件の相談」の行の形も一緒に待つ（読み込み後に一覧が下へ跳ねないように）。 */}
             {!historyLoaded && historyGroups.length === 0 && <SkeletonBlock width={72} height={20} radius="var(--radius)" />}
@@ -1961,22 +1978,23 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               />
             )}
             {/* 新しい相談から上に並べる（開いてすぐ最近の相談が見える）。相談とその答えは 1 組のまま。 */}
-            {historyGroups.map((g) => {
-              const canContinue = g[0].role === 'user' && g.some((m) => m.role === 'assistant' && !m.error && !m.notice && m.content !== STOPPED_EMPTY);
+            {historyGroups.map((g, gi) => {
+              const canContinue = g[0].role === 'user' && g.some((m) => m.role === 'assistant' && isCompletedAnswer(m) && m.content !== STOPPED_EMPTY);
               return (
                 <div key={g[0].id} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
                   {g.map((m) => (
                     <ChatMessage key={m.id} message={m} showTime onOpenBook={onOpenBook} books={books} onAddAction={handleAnswerToAction} onAddActionPickBook={onAddActionPickBook} onRetry={busy ? null : regenerate} question={g[0].role === 'user' ? g[0].content : ''} onAskBook={askAboutBook} askBusy={busy} memoBookIds={memoBookIds} onShowPartner={setPartnerSheet} />
                   ))}
-                  {/* この相談の続きを聞く: 答えのカードのすぐ下（文字ボタン・文字の端を吹き出しの列＝アイコン 32＋間 8 にそろえる・2026-09-30 ui-critic）。 */}
+                  {/* 🧵 この続きを相談する（2026-10-08）: その相談の下にボタン 1 つ。いちばん新しい相談は主ボタン、それより前は枠線のボタン
+                      （主ボタンを画面に何本も並べない）。押すと相談の画面で、この会話の続きから。 */}
                   {canContinue && (
                     <button
                       type="button"
-                      onClick={() => continueFrom(g)}
+                      onClick={() => continueThread(g)}
                       disabled={busy}
-                      style={{ ...uiBtnLink, alignSelf: 'flex-start', margin: `calc(-1 * var(--space-2)) 0 0 calc(${ANSWER_COLUMN} - var(--space-1))`, ...(busy ? { color: 'var(--text-3)', opacity: 1, cursor: 'default' } : null) }}
+                      style={{ ...(busy ? uiBtnPrimaryOff : gi === 0 ? uiBtnPrimary : uiBtnGhost), marginLeft: ANSWER_COLUMN, width: `calc(100% - ${AVATAR_SIZE}px - var(--space-2))` }}
                     >
-                      この相談の続きを聞く
+                      この続きを相談する
                     </button>
                   )}
                 </div>
@@ -2297,7 +2315,25 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             />
           )}
           {/* 区切り線は相談相手の行の上に 1 本だけ（入力欄側の線は消す）。相談相手の行を隠している間は入力欄の上に 1 本。 */}
-          <div className="ai-input-area" style={chrome.scopeBar ? { borderTop: 'none' } : undefined}>
+          {/* 🧵 過去の相談の続き（2026-10-08）: 入力欄の上に「〈相談の題〉の続き」の 1 行。× で外すと新しい相談に戻る。 */}
+          {resumeThread && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', padding: '0 var(--space-4)', flexShrink: 0, borderTop: chrome.scopeBar ? 'none' : '1px solid var(--separator)' }}>
+              <p style={{ flex: 1, minWidth: 0, margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                「{resumeThread.title}」の続き
+              </p>
+              <button
+                type="button"
+                onClick={() => { clearConversation(); track('brain_continue', { action: 'cancel' }); }}
+                onMouseDown={(e) => { if (document.activeElement === inputRef.current) e.preventDefault(); }}
+                disabled={busy}
+                aria-label="続きをやめて、新しい相談にする"
+                style={{ ...iconBtn, color: busy ? 'var(--text-3)' : 'var(--text-2)', marginRight: 'calc(-1 * var(--space-3))' }}
+              >
+                <X size={18} aria-hidden="true" />
+              </button>
+            </div>
+          )}
+          <div className="ai-input-area" style={chrome.scopeBar || resumeThread ? { borderTop: 'none' } : undefined}>
             <textarea
               ref={inputRef}
               value={input}
