@@ -105,6 +105,33 @@ const results = await page.evaluate(async ({ photos }) => {
       jobs.push({ name: `edge-month5-${layout}-story-${gName}`, opts: { ...base, layout, format: 'story', ...g, record: monthRec, covers: monthCovers, title: monthRec.title, line: '', stamp: '2026.10.20' } });
     }
   }
+  // 今年の読書（12 月だけ・2026-10-08）: 冊数・メモ・行動・読み終えた本の表紙（4 冊まで重ねる）・いちばん残した一文。
+  //   重ね方 3 つ × 形 2 つ × 地（写真・明るい写真・紙・夜・表紙の色）。year-<重ね方>-<形>-<地>
+  const dec = new Date(2026, 11, 3);
+  const yearBooks = ['1兆ドルコーチ', 'イシューからはじめよ', '数値化の鬼', 'エッセンシャル思考', 'GIVE & TAKE', '人を動かす', '嫌われる勇気']
+    .map((t, i) => ({ id: `yb${i}`, title: t, status: 'done', doneDate: `2026-${String(11 - i).padStart(2, '0')}-15`, actions: i < 3 ? [{ done: true, completedAt: `2026-${String(11 - i).padStart(2, '0')}-20` }, { done: true, completedAt: '2026-06-01' }] : [] }));
+  const yearMemos = [
+    { id: 'y1', text: '短い', createdAt: '2026-11-30' },
+    { id: 'y2', text: '「全部やる」はできない。やらないことを決めることが、いちばん大事な仕事。', createdAt: '2026-04-02', recallCount: 3 },
+    { id: 'y3', text: 'チームの勝利が最優先。', createdAt: '2026-11-01', recallCount: 1 },
+  ];
+  const yearRec = ov.yearRecord(yearBooks, yearMemos, dec, { memoCount: 184 });
+  const yearLine = ov.orderYearQuoteCandidates(yearMemos)[0].text;
+  const yearCovers = yearRec.finishedBooks.map((b, i) => ({ cover: i === 0 ? cover : { image: null, tone: null }, title: b.title }));
+  const yearGrounds = [
+    ['photo', { style: 'photo', photo: photo.normal }],
+    ['photo-bright', { style: 'photo', photo: photo.bright }],
+    ['paper', { style: 'paper' }],
+    ['night', { style: 'night' }],
+    ['cover', { style: 'cover' }],
+  ];
+  for (const layout of ['record', 'stats', 'quote']) {
+    for (const format of ['post', 'story']) {
+      for (const [gName, g] of yearGrounds) {
+        jobs.push({ name: `year-${layout}-${format}-${gName}`, opts: { ...base, layout, format, ...g, record: yearRec, covers: layout === 'quote' ? [] : yearCovers, title: layout === 'quote' ? yearBooks[3].title : yearRec.title, author: layout === 'quote' ? 'グレッグ・マキューン' : '', line: ov.quoteText(yearLine, layout), page: layout === 'quote' ? 18 : null, stamp: '2026.12.3', seedKey: 'y2' } });
+      }
+    }
+  }
   // 透明＋言葉（言葉は記録の上に場所を取る）
   const phrase = { text: '問いの質が、答えの質を決める。', style: 'mincho', x: 0.5, y: 0.2, scale: 1 };
   for (const layout of ['record', 'stats', 'quote']) {

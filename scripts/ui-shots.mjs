@@ -596,6 +596,15 @@ const SCREENS = [
   { name: 'share-photo-dark', url: '/', steps: [{ css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo-dark.jpg'] }, { wait: 2500 }] },
   { name: 'share-photo-bright-story', url: '/', steps: [{ css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo-bright.jpg'] }, { wait: 2000 }, { css: '[role=radio][aria-label="ストーリー（9:16）"]' }, { wait: 2000 }] },
   { name: 'share-photo-bright-edit', url: '/', steps: [{ css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo-bright.jpg'] }, { wait: 2000 }, ...SHARE_EDIT] },
+  // ── 月末の「今月の読書」の声かけ・12 月の「今年の読書」（2026-10-08・&today= で日付を差し替える）
+  { name: 'wrap-home-month', url: '/?today=2026-11-29', steps: [{ waitFor: '[data-share-nudge]' }, { wait: 600 }] },
+  { name: 'wrap-home-year', url: '/?today=2026-12-03', steps: [{ waitFor: '[data-share-nudge]' }, { wait: 600 }] },
+  { name: 'wrap-home-none', url: '/?today=2026-11-20', steps: [{ css: 'h1' }, { wait: 1200 }] },
+  { name: 'wrap-sheet-month', url: '/?today=2026-11-29', steps: [{ css: '[data-share-nudge] button:has-text("11月の読書")' }, { wait: 2500 }] },
+  { name: 'wrap-sheet-year', url: '/?today=2026-12-03', steps: [{ css: '[data-share-nudge] button:has-text("2026年の読書")' }, { wait: 2500 }] },
+  { name: 'wrap-sheet-year-stats', url: '/?today=2026-12-03', steps: [{ css: '[data-share-nudge] button:has-text("2026年の読書")' }, { wait: 2000 }, shareVariant('数字'), { wait: 2000 }] },
+  { name: 'wrap-sheet-year-photo', url: '/?today=2026-12-03', steps: [{ css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo-bright.jpg'] }, { wait: 2000 }, { css: '[role=radiogroup][aria-label="どの本を共有するか"] [role=radio]:has-text("今年")' }, { wait: 2500 }] },
+  { name: 'wrap-sheet-year-review', url: '/?today=2026-12-03', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }, { css: 'button[aria-label="写真で共有"]' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 2500 }] },
   // ── 写真で共有をよくする（2026-10-05・ロゴは必ず入る・重ね方 3 つ・選んだ重ね方と形を覚える・撮り直す／アルバム）
   // 「数字」の重ね方（大きな数字を真ん中に縦に積む）。投稿・ストーリー・明るい写真・暗い写真・紙・表紙の色。
   { name: 'share-photo-stats', url: '/', steps: [...SHARE_CAMERA, shareVariant('数字'), { wait: 2000 }] },
