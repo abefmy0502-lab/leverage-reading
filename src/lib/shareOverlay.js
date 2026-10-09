@@ -385,7 +385,7 @@ export function defaultVariant({ fromMemo = false, hasQuote = false, preferred =
 // ---------------------------------------------------------------- 雑誌（2026-10-09 オーナーの見本）
 //
 // 雑誌の 1 ページのような組み（中身はこれだけ・2026-10-09 オーナー「読書の記録の帯は不要」）:
-//   右上 … Orime のロゴ（必ず入る・小さく）＋その下に字間の広い英字のひとこと（MAGAZINE_TAGLINE_TOP）
+//   右上 … Orime のロゴ（必ず入る・小さく）。その下の英字のひとこと「READ. NOTE. GROW.」は 2026-10-09 にやめた（オーナー「不要」）＝空きを詰める
 //   左上 … 大きな引用＝心に残った一文の最初の文（「」で包む・細い明朝・字間を広く・3 行まで）
 //          その下に、続きの文を小さく 3 行まで（無ければ出さない）
 //   右   … 本のカード（表紙・書名・著者。説明の文は入れない＝AI の文も出版社の文も使わない）
@@ -393,7 +393,6 @@ export function defaultVariant({ fromMemo = false, hasQuote = false, preferred =
 // 数字の帯（メモの数・行動など）は作らない。下の行には、あとで短い数を 1 つだけ添えられる場所（note）を残す
 // （集中モードの読書時間を予定・今は null＝出さない）。
 
-export const MAGAZINE_TAGLINE_TOP = 'READ. NOTE. GROW.';
 export const MAGAZINE_TAGLINE_BOTTOM = 'YOUR BOOKS, YOUR ADVISOR.';
 export const MAGAZINE_HEAD_MAX = 48;
 export const MAGAZINE_BODY_MAX = 90;
@@ -489,25 +488,21 @@ export function logoBox(format = 'post', { margin } = {}) {
 }
 
 // 雑誌のロゴの場所（右上・安全な枠の上端から）。大きさは logoBox と同じ（決まり LOGO_RULES のまま）。
-// 右端は余白（frame.margin・72 以上）。下に英字のひとこと（tagSize）。clearBottom より上には言葉を置けない（ロゴを隠せない）。
-// 戻り値: { right, top, wordH, markH, baseline, tagSize, tagBaseline, clearBottom }
+// 右端は余白（frame.margin・72 以上）。clearBottom（ロゴの下端＋決まりの空き 24）より上には言葉を置けない（ロゴを隠せない）。
+// ロゴの下の英字のひとことは 2026-10-09 にやめた（オーナー「不要」）＝引用はロゴのすぐ下の空きから始まる。
+// 戻り値: { right, top, wordH, markH, baseline, clearBottom }
 export function magazineLogoBox(format = 'post') {
   const f = recordFrame(format);
   const wordH = logoBox(f.format).wordH;
   const markH = wordH * 1.28;
-  const k = f.format === 'story' ? 1 : 0.92;
   const top = f.safeTop;
-  const tagSize = Math.round(20 * k);
-  const tagBaseline = Math.round(top + markH + 18 * k + tagSize);
   return {
     right: f.W - Math.max(LOGO_RULES.minMargin, f.margin),
     top,
     wordH,
     markH,
     baseline: top + markH / 2 + wordH / 2,
-    tagSize,
-    tagBaseline,
-    clearBottom: tagBaseline + Math.round(tagSize * 0.3) + LOGO_RULES.clearance,
+    clearBottom: Math.round(top + markH) + LOGO_RULES.clearance,
   };
 }
 

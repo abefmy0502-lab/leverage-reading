@@ -622,7 +622,9 @@ describe('雑誌（2026-10-09・大きな引用＋続きの文＋本のカード
       expect(b.wordH).toBeGreaterThanOrEqual(LOGO_RULES.minWordH);
       expect(f.W - b.right).toBeGreaterThanOrEqual(LOGO_RULES.minMargin);
       expect(b.top).toBeGreaterThanOrEqual(f.safeTop);
-      expect(b.clearBottom).toBeGreaterThan(b.tagBaseline);
+      // ロゴの下の英字のひとことはやめた（2026-10-09）＝空きはロゴの下端＋決まりの 24 だけ
+      expect(b.tagBaseline).toBeUndefined();
+      expect(b.clearBottom).toBe(Math.round(b.top + b.markH) + LOGO_RULES.clearance);
     }
   });
 });

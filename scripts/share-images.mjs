@@ -224,7 +224,7 @@ const results = await page.evaluate(async ({ photos, only }) => {
     jobs.push({ name: `magazine-edge-short-${format}-photo`, opts: { ...magBase, format, style: 'photo', photo: photo.normal, line: 'チームの勝利が最優先。' } });
     jobs.push({ name: `magazine-edge-long-${format}-paper`, opts: { ...magBase, format, style: 'paper', title: 'イシューからはじめよ 知的生産の「シンプルな本質」', author: 'エリック・シュミット、ジョナサン・ローゼンバーグ、アラン・イーグル', cover: { image: null, tone: null }, line: '「全部やる」はできない。やらないことを決めることが、いちばん大事な仕事になる。そのために、まず問いを見極める。毎朝、今日やらないことを 1 つ書き出す。' } });
     jobs.push({ name: `magazine-edge-nobook-${format}-photo-bright`, opts: { ...magBase, format, style: 'photo', photo: photo.bright, hidden: ['title', 'author', 'stamp'] } });
-    jobs.push({ name: `magazine-edge-note-${format}-photo-dark`, opts: { ...magBase, format, style: 'photo', photo: photo.dark, note: { label: 'READING', value: '1h 32m' } } });
+    jobs.push({ name: `magazine-edge-note-${format}-photo-dark`, opts: { ...magBase, format, style: 'photo', photo: photo.dark, note: { label: '読書', value: '32 分' } } });
     jobs.push({ name: `magazine-edge-phrase-${format}-photo`, opts: { ...magBase, format, style: 'photo', photo: photo.normal, phrase: { text: '今日も、少しだけ深く。', style: 'hand', x: 0.7, y: 0, scale: 1 } } });
   }
   const out = [];

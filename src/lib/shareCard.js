@@ -31,7 +31,7 @@ import {
 import {
   RECORD_QUOTE_MAX, recordFrame, placeRecordBlock, statColumns, splitStatValue, recordBlockPlan, recordTitleScale, recordTitleMaxLines,
   applyShareItems, shareVisibility, recordCoverPlacement, logoBox, LOGO_RULES, statsStackPlan, placeStatsStack, statColumnsScale, mainTitle, pickSubVariant, formatAuthors,
-  magazineRecord, magazineLogoBox, magazineFooterItems, MAGAZINE_TAGLINE_TOP,
+  magazineRecord, magazineLogoBox, magazineFooterItems,
 } from './shareOverlay';
 import { phraseLayout, phraseMetrics, phraseColors, phraseDisplayText, stickerPhraseReserve } from './sharePhrase';
 import { paletteFor } from './coverPalette';
@@ -1427,7 +1427,7 @@ function drawStatsSticker(ctx, o, size) {
 // ---------------------------------------------------------------- 雑誌（2026-10-09 オーナーの見本）
 //
 //                                           [本の印] Orime   … 右上・必ず入る（決まり LOGO_RULES の大きさ）
-//                                        READ. NOTE. GROW.   … 字間の広い英字のひとこと
+//                                        （ロゴの下の英字のひとことは 2026-10-09 にやめた＝空きを詰める）
 //   「正解を探すんじゃなくて、                              … 大きな引用（細い明朝 400・字間 0.14em・3 行まで・
 //     自分の問いを持ち続けること。」                            開き括弧は左へぶら下げる）
 //     答えはひとつじゃない。            ┌──┐ 書名           … 続きの文（小さく・3 行まで）と、右に本のカード
@@ -1441,7 +1441,6 @@ const MAG_HEAD_TRACK = 0.14;
 // 引用は細く（ヒラギノ明朝 W3 など細い字があれば使う・無ければ 400）。
 const MAG_HEAD_WEIGHT = 300;
 const MAG_BODY_TRACK = 0.06;
-const MAG_TAG_TRACK = 0.32;
 const MAG_FOOT_TRACK = 0.24;
 
 function magazineStyle(format) {
@@ -1610,13 +1609,9 @@ function fillRight(ctx, text, right, baseline, em, size) {
 
 function drawMagazineTop(ctx, o, lay, theme) {
   const { S, LB, fonts } = { ...lay, fonts: o.fonts };
-  // ロゴ（右上）とひとこと
+  // ロゴ（右上・その下の英字のひとことは 2026-10-09 にやめた）
   const lw = logoWidth(ctx, o.logo, theme.logo, { wordH: LB.wordH, fonts });
   drawLogo(ctx, o.logo, theme.logo, { x: LB.right - lw, baseline: LB.baseline, wordH: LB.wordH, fonts, ink: theme.ink });
-  ctx.font = `400 ${LB.tagSize}px ${fonts.ui}`;
-  setSpacing(ctx, MAG_TAG_TRACK, LB.tagSize);
-  ctx.fillStyle = theme.ink2;
-  fillRight(ctx, MAGAZINE_TAGLINE_TOP, LB.right, LB.tagBaseline, MAG_TAG_TRACK, LB.tagSize);
 
   // 大きな引用
   const { fit } = lay;
