@@ -2,7 +2,8 @@
 // （旧「一文をシェア」も同じシート。メモの「…」から開くと、その一文を選んだ「一文」の見せ方で開く。）
 //
 // 開いた時点で、いちばんよい 1 枚を描き終えておく＝そのまま「共有する」を押すだけ:
-//   写真あり（カメラの入口）… 写真＋記録（書名・著者・読了日／メモの件数／実行した行動）＋いちばん新しいメモの一文
+//   写真あり（カメラの入口）… 写真＋記録（書名・著者・メモの件数／実行した行動）＋いちばん新しいメモの一文
+//                              （読書中の本はメモがあれば「心に残った一文」から・日付は既定で入れない・2026-10-09）
 //                              （重ね方・形は前に選んだもの＝端末に覚える）
 //   写真なし（カメラをやめた・画像で共有）… 表紙がある本は「表紙の色」（ぼかした表紙を敷いた地＋表紙）、無ければ紙
 //   メモから                … 紙＋その一文
@@ -59,7 +60,7 @@ import { buildShareText, shareFilename, FORMATS } from '../lib/shareCardLayout';
 import {
   pickShareSubject, subjectChoices, bookRecord, monthRecord, yearRecord, yearChoiceAllowed, orderQuoteCandidates,
   orderYearQuoteCandidates, shareHashtags, yearMemoCountFor, quoteText,
-  swapQuote, swapQuoteLabel, availableVariants, buildRecordShareText, fmtStamp,
+  swapQuote, swapQuoteLabel, availableVariants, defaultVariant, buildRecordShareText, fmtStamp,
   shareItemsFor, applyShareItems, shareVisibility, readHiddenItems, writeHiddenItems,
   readSharePrefs, writeSharePrefs, stepVariant,
 } from '../lib/shareOverlay';
@@ -354,8 +355,16 @@ export default function ShareSheet({
 
   // ---- 重ね方（見せ方）・一文・形・地。重ね方と形は前に選んだもの（端末に覚える）。メモから開いたときは一文。
   const prefs = useMemo(() => readSharePrefs(safeStorage()), []);
-  const [variantPref, setVariantPref] = useState(initialMemoId ? 'quote' : (prefs.variant || 'record'));
-  const variant = variants.includes(variantPref) ? variantPref : 'record';
+  // 前に選んだ重ね方（無ければ null）。最初の重ね方は defaultVariant（読書中の本はメモがあれば一文・
+  // 大きく出せる数が無い本で「大きな数字」を選んでいたら一文へ・2026-10-09）。
+  const [variantPref, setVariantPref] = useState(initialMemoId ? 'quote' : (prefs.variant || null));
+  const variant = defaultVariant({
+    fromMemo: !!initialMemoId && variantPref === 'quote',
+    hasQuote: candidates.length > 0,
+    preferred: variantPref,
+    variants,
+    readingBook: !isPeriod && subjectBook?.status === 'reading',
+  });
   const [quoteIndex, setQuoteIndex] = useState(0);
   // 本を切り替えたら、その本のいちばん新しい一文から。
   const subjectKey = period || `b:${subject.bookId}`;
@@ -470,7 +479,7 @@ export default function ShareSheet({
   useEffect(() => {
     let alive = true;
     if (DEMO_SHARE === 'slow') return () => { alive = false; };
-    const sample = `${record.title}${record.sub}${record.kicker}${(memos || []).map((m) => m.text || '').join('').slice(0, 1500)}${(record.stats || []).map((s) => s.label + s.value).join('')}`;
+    const sample = `${record.title}${record.sub}${record.kicker} · ${record.date?.text || ''}${(memos || []).map((m) => m.text || '').join('').slice(0, 1500)}${(record.stats || []).map((s) => s.label + s.value).join('')}`;
     Promise.all([prepareFonts(sample), prepareLogo()])
       .then(([fonts, logo]) => { if (alive) setBaseAssets({ fonts, logo, ver: Date.now() }); });
     return () => { alive = false; };
@@ -518,7 +527,7 @@ export default function ShareSheet({
   const yearError = period === 'year' && !!yearM.error;
   const ready0 = !!assets && (coverReady || !needCover) && !memosLoading && !photoLoading && !yearError;
   const drawKey = ready0
-    ? JSON.stringify([variant, subjectKey, chosen?.id, lineText, chosen?.pageNumber, effStyle, format, photo?.id, view, record.kicker, record.title, record.sub, record.stats, lineBook?.title, lineBook?.author, retry, assets.ver, hidden, phrase])
+    ? JSON.stringify([variant, subjectKey, chosen?.id, lineText, chosen?.pageNumber, effStyle, format, photo?.id, view, record.kicker, record.date, record.title, record.sub, record.stats, lineBook?.title, lineBook?.author, retry, assets.ver, hidden, phrase])
     : '';
 
   // 描く材料（書き出す 1 枚・動かしている間の 1 コマ・見本で共通）。

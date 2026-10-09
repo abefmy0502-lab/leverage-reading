@@ -64,16 +64,26 @@ describe('bookRecord（本 1 冊の数字）', () => {
     expect(r.kicker).toBe('読了');
     expect(r.title).toBe('イシューからはじめよ');
     expect(r.sub).toBe('安宅和人');
+    // 日付は大きな数字にしない（2026-10-09）。数字はメモの件数と実行した行動だけ
     expect(r.stats).toEqual([
-      { key: 'date', label: '読み終えた日', value: '9.28' },
       { key: 'memos', label: 'メモ', value: '3件' },
       { key: 'actions', label: '実行した行動', value: '2件' },
     ]);
+    expect(r.date).toEqual({ label: '読了日', text: '9.28' });
   });
-  it('読書中: 読みはじめの日。0 の数字は出さない', () => {
+  it('読書中: 読みはじめの日は数字にしない。0 の数字は出さない＝大きく出せる数が無い', () => {
     const r = bookRecord({ title: 'X', status: 'reading', startDate: '2026-09-21' }, [], NOW);
     expect(r.kicker).toBe('読書中');
-    expect(r.stats).toEqual([{ key: 'date', label: '読みはじめ', value: '9.21' }]);
+    expect(r.stats).toEqual([]);
+    expect(r.date).toEqual({ label: '読みはじめの日', text: '9.21〜' });
+    expect(availableVariants(false, r.stats.length > 0)).toEqual(['record']);
+  });
+  it('日付は既定で隠す。オンにしたときだけ見出しの小さな添え書き', () => {
+    const r = bookRecord({ title: 'X', status: 'done', doneDate: '2026-09-28' }, [{ text: 'a' }], NOW);
+    expect(applyShareItems(r, readHiddenItems(null)).kicker).toBe('読了');
+    expect(applyShareItems(r, []).kicker).toBe('読了 · 9.28');
+    expect(applyShareItems(r, ['status']).kicker).toBe('9.28');
+    expect(applyShareItems(r, []).stats.some((st) => /\./.test(st.value))).toBe(false);
   });
   it('去年の日付は年も入れる', () => {
     expect(fmtMonthDay('2025-12-31', NOW)).toBe('2025年12月31日');
@@ -153,6 +163,29 @@ describe('重ねる一文', () => {
     expect(defaultVariant({ fromMemo: true, hasQuote: true })).toBe('quote');
     expect(defaultVariant({ fromMemo: false, hasQuote: true })).toBe('record');
     expect(defaultVariant({ fromMemo: true, hasQuote: false })).toBe('record');
+  });
+  it('最初の重ね方（2026-10-09）: 読書中はメモがあれば一文・無ければ書名と数字', () => {
+    const all = ['record', 'stats', 'quote'];
+    expect(defaultVariant({ readingBook: true, hasQuote: true, variants: all })).toBe('quote');
+    expect(defaultVariant({ readingBook: true, hasQuote: false, variants: ['record'] })).toBe('record');
+    // 読了の本は前の選択が無ければ書名と数字
+    expect(defaultVariant({ readingBook: false, hasQuote: true, variants: all })).toBe('record');
+    // 前に選んだ重ね方が選べるならそれ
+    expect(defaultVariant({ readingBook: true, hasQuote: true, preferred: 'stats', variants: all })).toBe('stats');
+    expect(defaultVariant({ readingBook: true, hasQuote: true, preferred: 'record', variants: all })).toBe('record');
+    // 大きく出せる数が無い本で「大きな数字」を選んでいた＝一文へ（一文も無ければ書名と数字）
+    expect(defaultVariant({ hasQuote: true, preferred: 'stats', variants: ['record', 'quote'] })).toBe('quote');
+    expect(defaultVariant({ hasQuote: false, preferred: 'stats', variants: ['record'] })).toBe('record');
+    // メモから開いたら一文
+    expect(defaultVariant({ fromMemo: true, hasQuote: true, preferred: 'stats', variants: all })).toBe('quote');
+  });
+  it('重ねる一文に AI まとめは入れない（本人が選んだときだけ）', () => {
+    const ms = [
+      { id: 'ai', text: 'AI のまとめ', sourceType: 'ai_summary', createdAt: '2026-09-30T00:00:00Z' },
+      { id: 'me', text: '自分の言葉', createdAt: '2026-09-20T00:00:00Z' },
+    ];
+    expect(orderQuoteCandidates(ms).map((m) => m.id)).toEqual(['me']);
+    expect(orderQuoteCandidates(ms, { preferId: 'ai' }).map((m) => m.id)).toEqual(['ai', 'me']);
   });
 });
 
@@ -248,7 +281,7 @@ describe('表示する項目（2026-10-01）', () => {
   it('選べる項目は中身のあるものだけ・画像の上から順（記録）・ロゴは項目に無い（必ず入る）', () => {
     const items = shareItemsFor({ record: rec, variant: 'record', hasQuote: true });
     expect(items.map((i) => i.key)).toEqual(['status', 'title', 'author', 'date', 'memos', 'actions', 'quote', 'stamp']);
-    expect(items.find((i) => i.key === 'date').label).toBe('読みはじめ');
+    expect(items.find((i) => i.key === 'date').label).toBe('読みはじめの日');
     expect(items.find((i) => i.key === 'memos').label).toBe('メモの数');
     // 著者の無い本・一文の無い本は、その項目を出さない
     const bare = bookRecord({ title: 'X', status: 'reading' }, [], NOW);
@@ -262,6 +295,7 @@ describe('表示する項目（2026-10-01）', () => {
     const m = monthRecord([{ id: 'a', title: 'A', status: 'done', doneDate: '2026-09-03' }], [], NOW);
     const items = shareItemsFor({ record: m, variant: 'record' });
     expect(items.map((i) => i.label)).toEqual(['年', '「9月の読書」', '読み終えた本', '読了の冊数', '今日の日付']);
+    expect(items.some((i) => i.key === 'date')).toBe(false);
   });
   it('一文の見せ方は書名・著者だけ（一文は主役なので隠せない・ロゴは必ず入る）', () => {
     expect(shareItemsFor({ variant: 'quote', hasAuthor: true }).map((i) => i.key)).toEqual(['title', 'author']);
@@ -279,6 +313,7 @@ describe('表示する項目（2026-10-01）', () => {
   it('隠した項目は記録から外れる（数字は項目ごと）', () => {
     const r = applyShareItems(rec, ['status', 'author', 'date']);
     expect(r.kicker).toBe('');
+    expect(applyShareItems(rec, ['author']).kicker).toBe('読書中 · 9.21〜');
     expect(r.sub).toBe('');
     expect(r.title).toBe('イシューからはじめよ');
     expect(r.stats.map((s) => s.key)).toEqual(['memos', 'actions']);
@@ -289,21 +324,25 @@ describe('表示する項目（2026-10-01）', () => {
   it('前の選択を覚える（壊れた値・知らない名前・読めない保存先でも落ちない）', () => {
     const mem = new Map();
     const storage = { getItem: (k) => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => mem.set(k, v) };
-    expect(readHiddenItems(storage)).toEqual([]);
+    // 何も選んでいない＝日付だけ隠す（既定で隠す項目）
+    expect(readHiddenItems(storage)).toEqual(['date']);
     expect(writeHiddenItems(storage, ['author', 'nope', 'date'])).toBe(true);
     expect(readHiddenItems(storage)).toEqual(['author', 'date']);
+    // 日付をオンにしたら覚える
+    expect(writeHiddenItems(storage, ['author'])).toBe(true);
+    expect(readHiddenItems(storage)).toEqual(['author']);
     mem.set(SHARE_ITEMS_STORAGE_KEY, '{broken');
     expect(readHiddenItems(storage)).toEqual([]);
     const throwing = { getItem: () => { throw new Error('private'); }, setItem: () => { throw new Error('quota'); } };
-    expect(readHiddenItems(throwing)).toEqual([]);
+    expect(readHiddenItems(throwing)).toEqual(['date']);
     expect(writeHiddenItems(throwing, ['author'])).toBe(false);
-    expect(readHiddenItems(null)).toEqual([]);
+    expect(readHiddenItems(null)).toEqual(['date']);
   });
   it('以前に「ロゴを隠す」を選んだ端末でも、ロゴは隠さない（読むときに捨てる・書くときにも残さない）', () => {
     const mem = new Map();
     const storage = { getItem: (k) => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => mem.set(k, v) };
     mem.set(SHARE_ITEMS_STORAGE_KEY, JSON.stringify(['logo', 'stamp', 'author']));
-    expect(readHiddenItems(storage)).toEqual(['stamp', 'author']);
+    expect(readHiddenItems(storage)).toEqual(['stamp', 'author', 'date']);
     writeHiddenItems(storage, ['logo', 'author']);
     expect(JSON.parse(mem.get(SHARE_ITEMS_STORAGE_KEY))).toEqual(['author']);
   });

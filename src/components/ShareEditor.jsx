@@ -4,6 +4,7 @@
 //   - 写真: 指で動かす・2 本の指で拡大（パソコンはトラックパッドのスクロールで動かす・つまむ／ctrl＋ホイールで拡大）。
 //          写真は枠を必ず覆う（photoPlacement が枠の外に出さない）。2 回タップで元の置き方に戻す
 //   - 言葉: 「言葉を入れる」→ 入力欄と形（明朝の引用・太いゴシック・手書き風・白抜きの帯）・大きさ・色の入れ替え。
+//          欄を押している間は、上に固定した「言葉を入れる」の画面（題の行「完了」→ 入力欄 → 小さめの画像・2026-10-09）。
 //          画像の上の言葉は指で動かす・2 本の指で大きさを変える（sharePhrase.js）
 //   - 表示する項目: 項目ごとのスイッチ（隠した項目は場所を取らずに組み直す・次の共有でも使う）
 // 見えている画像＝共有する画像（同じ drawShareCard で 1080 幅に描き、CSS で縮めて見せる）。
@@ -98,18 +99,30 @@ export default function ShareEditor({
   const [inputFocused, setInputFocused] = useState(false);
   const [scrolled, setScrolled] = useState(false); // 下の欄を送ったか（画像の下端の線）
   const scrollRef = useRef(null);
-  // キーボードの上に見えている高さ（visualViewport）。言葉を打っている間は、画像をこの 4 割までの大きさにして、
-  // 画像と入力欄をキーボードの上に一緒に見せる（2026-10-08 オーナー「テキストを入力しているときに、画面にどのように
-  // 入力されているのかが見えない」）。
-  const [viewH, setViewH] = useState(() => (typeof window !== 'undefined' ? (window.visualViewport?.height || window.innerHeight) : 800));
+  // 言葉を打っている間（typing）は「言葉を入れる」の画面にする（2026-10-09 オーナー「入力欄を押したら、入力ボタンの
+  // 出現で欄が見えなくなった。どんなにスクロールしても見えない」）: 上から 題の行「完了」→ 入力欄 → 小さめの画像。
+  // 下の欄（言葉の形・表示する項目）は隠す。キーボードの高さや iOS の入力補助のバーに頼らない＝入力欄がいちばん上に
+  // あるので、どの端末でも見える。visualViewport が使える端末では、見えている範囲（top・高さ）に画面を合わせ、
+  // 画像はその残りの高さに縮める。
+  const readView = () => {
+    if (typeof window === 'undefined') return { h: 800, top: 0 };
+    const vv = window.visualViewport;
+    return { h: Math.round(vv?.height || window.innerHeight), top: Math.round(vv?.offsetTop || 0) };
+  };
+  const [vp, setVp] = useState(readView);
   useEffect(() => {
     const vv = typeof window !== 'undefined' ? window.visualViewport : null;
-    const on = () => setViewH(vv?.height || window.innerHeight);
-    if (vv) { vv.addEventListener('resize', on); return () => vv.removeEventListener('resize', on); }
+    const on = () => setVp((p) => { const n = readView(); return n.h === p.h && n.top === p.top ? p : n; });
+    if (vv) {
+      vv.addEventListener('resize', on);
+      vv.addEventListener('scroll', on);
+      return () => { vv.removeEventListener('resize', on); vv.removeEventListener('scroll', on); };
+    }
     window.addEventListener('resize', on);
     return () => window.removeEventListener('resize', on);
   }, []);
-  // 打っている間は iOS の入力補助バー（∧ ∨ 完了）を出さない（その分、画像を大きく見せる・ネイティブのときだけ）。
+  // 打っている間は iOS の入力補助バー（∧ ∨ 完了）を出さない（ネイティブで効くときだけ・効かなくても「言葉を入れる」の
+  // 画面は入力欄がいちばん上なので見える＝これに頼らない・2026-10-09）。
   useEffect(() => {
     setKeyboardAccessoryBar(!inputFocused);
     return () => { if (inputFocused) setKeyboardAccessoryBar(true); };
@@ -121,6 +134,8 @@ export default function ShareEditor({
       if (e.key !== 'Escape' || e.isComposing) return;
       e.stopImmediatePropagation();
       e.preventDefault();
+      // 言葉を打っている間は「言葉を入れる」をやめるだけ（編集画面は閉じない）。
+      if (document.activeElement && document.activeElement === inputRef.current) { inputRef.current.blur(); return; }
       onClose?.();
     };
     window.addEventListener('keydown', onKey, true);
@@ -436,6 +451,15 @@ export default function ShareEditor({
     : pStyle === 'band' ? (phrase.invert ? '帯を暗くする' : '帯を明るくする')
       : ground === 'photo' ? (phrase.invert ? '文字を白にする' : '文字を黒にする') : null;
   const boxVisible = !!box && (showBox || inputFocused);
+  const typing = inputFocused && !!phrase;
+  // 「言葉を入れる」の画面の、画像以外の高さ（題の行 44＋線 1＋上 12＋入力欄 48＋間 12＋下 8＋16）。画像はその残り。
+  const TYPING_CHROME = 144;
+  const stageWidth = typing
+    ? `min(100%, calc((${vp.h}px - ${TYPING_CHROME}px - env(safe-area-inset-top, 0px)) * ${size.w} / ${size.h}))`
+    : `min(100%, calc(48dvh * ${size.w} / ${size.h}))`;
+  // 「完了」（打っている間）: キーボードを閉じて元の画面へ。押した瞬間に入力欄から外れて並びが変わらないよう、
+  // 押し始めでは focus を動かさない。
+  const endTyping = () => { try { inputRef.current?.blur(); } catch { /* ignore */ } };
 
   return createPortal(
     <div
@@ -443,14 +467,25 @@ export default function ShareEditor({
       role="dialog"
       aria-modal="true"
       aria-label="画像を編集"
-      style={{ position: 'fixed', inset: 0, zIndex: 'var(--z-overlay)', background: 'var(--bg)', display: 'flex', flexDirection: 'column', fontFamily: 'var(--font-ui)', animation: 'leverage-fade-in var(--duration-fast) var(--ease-out)' }}
+      style={{
+        position: 'fixed', left: 0, right: 0,
+        // 打っている間は、見えている範囲（visualViewport）にぴったり合わせる（iOS が画面を送っても上にずれない）。
+        ...(typing ? { top: vp.top, height: vp.h } : { top: 0, bottom: 0 }),
+        zIndex: 'var(--z-overlay)', background: 'var(--bg)', display: 'flex', flexDirection: 'column', fontFamily: 'var(--font-ui)', animation: 'leverage-fade-in var(--duration-fast) var(--ease-out)',
+      }}
     >
-      {/* 上の 1 行: 題名と「完了」（変えたことはその場で効く＝閉じるだけ） */}
+      {/* 上の 1 行: 題名と「完了」（変えたことはその場で効く＝閉じるだけ）。打っている間は「言葉を入れる」と、
+          キーボードを閉じる「完了」。 */}
       <div style={{ paddingTop: 'env(safe-area-inset-top, 0px)', borderBottom: '1px solid var(--separator)', flexShrink: 0 }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'var(--space-16) 1fr var(--space-16)', alignItems: 'center', minHeight: 'var(--tap-min)', padding: '0 var(--space-4)' }}>
           <span aria-hidden="true" />
-          <h2 style={{ margin: 0, textAlign: 'center', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>画像を編集</h2>
-          <button type="button" onClick={onClose} style={{ justifySelf: 'end', minHeight: 'var(--tap-min)', minWidth: 'var(--tap-min)', padding: 0, background: 'none', border: 'none', color: 'var(--accent)', fontFamily: 'inherit', fontSize: 'var(--text-body)', fontWeight: 600, cursor: 'pointer' }}>
+          <h2 style={{ margin: 0, textAlign: 'center', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>{typing ? '言葉を入れる' : '画像を編集'}</h2>
+          <button
+            type="button"
+            onPointerDown={typing ? (e) => e.preventDefault() : undefined}
+            onMouseDown={typing ? (e) => e.preventDefault() : undefined}
+            onClick={typing ? endTyping : onClose}
+            style={{ justifySelf: 'end', minHeight: 'var(--tap-min)', minWidth: 'var(--tap-min)', padding: 0, background: 'none', border: 'none', color: 'var(--accent)', fontFamily: 'inherit', fontSize: 'var(--text-body)', fontWeight: 600, cursor: 'pointer' }}>
             完了
           </button>
         </div>
@@ -459,14 +494,16 @@ export default function ShareEditor({
       <div
         ref={scrollRef}
         onScroll={(e) => { const s = e.currentTarget.scrollTop > 0; if (s !== scrolled) setScrolled(s); }}
-        style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}
+        style={{ flex: 1, minHeight: 0, overflowY: typing ? 'hidden' : 'auto', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}
       >
-        <div style={{ maxWidth: 480, margin: '0 auto', paddingBottom: 'calc(var(--space-8) + env(safe-area-inset-bottom, 0px))' }}>
+        <div style={{ maxWidth: 480, margin: '0 auto', paddingBottom: typing ? 'var(--space-4)' : 'calc(var(--space-8) + env(safe-area-inset-bottom, 0px))' }}>
           {/* 大きな画像（左右 16 の内側・形の比のまま・角丸 12）。下の欄を送っても上に残る（sticky）＝スイッチを
               切り替えたり言葉を打ったりしながら画像が見える。高さは画面の 48%（入力中は 30%）まで。
               上の行との間は 12。下の欄を送ったときだけ、下端に --separator の線（重なっていることが分かる）。
               線の太さぶんはいつも取って、送ったときに高さが変わらない。 */}
-          <div style={{ position: 'sticky', top: 0, zIndex: 1, background: 'var(--bg)', padding: 'var(--space-3) var(--space-4) var(--space-2)', borderBottom: `1px solid ${scrolled ? 'var(--separator)' : 'transparent'}` }}>
+          {/* 打っている間は並びを 入力欄 → 画像 に（同じ入力欄の要素のまま order で並べ替える＝打っている途中で
+              キーボードが閉じない）。 */}
+          <div style={{ position: 'sticky', top: 0, zIndex: 1, background: 'var(--bg)', padding: 'var(--space-3) var(--space-4) var(--space-2)', borderBottom: `1px solid ${scrolled && !typing ? 'var(--separator)' : 'transparent'}`, display: 'flex', flexDirection: 'column', gap: typing ? 'var(--space-3)' : 0 }}>
           <div
             ref={stageRef}
             onPointerDown={onPointerDown}
@@ -475,7 +512,7 @@ export default function ShareEditor({
             onPointerCancel={onPointerUp}
             style={{
               // 言葉を打っている間は、キーボードの上に見えている高さの 4 割まで（入力欄と一緒に見える大きさ）。
-              position: 'relative', width: inputFocused ? `min(100%, ${Math.round(viewH * 0.4 * size.w / size.h)}px)` : `min(100%, calc(48dvh * ${size.w} / ${size.h}))`, margin: '0 auto', aspectRatio: aspect,
+              position: 'relative', width: stageWidth, margin: '0 auto', aspectRatio: aspect, order: 2, flexShrink: 0,
               background: ground === 'sticker' ? checker(16) : 'var(--fill)',
               borderRadius: 'var(--radius)',
               touchAction: touchable ? 'none' : 'auto', userSelect: 'none', WebkitUserSelect: 'none',
@@ -529,8 +566,8 @@ export default function ShareEditor({
               />
             )}
           </div>
-          {hint && !inputFocused && (
-            <p style={{ margin: 0, padding: 'var(--space-2) 0 0', textAlign: 'center', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all' }}>
+          {hint && !typing && (
+            <p style={{ order: 3, margin: 0, padding: 'var(--space-2) 0 0', textAlign: 'center', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all' }}>
               {hint.map((h) => <span key={h} style={{ display: 'block' }}>{h}</span>)}
             </p>
           )}
@@ -550,17 +587,17 @@ export default function ShareEditor({
               }}
               onFocus={() => {
                 setInputFocused(true);
-                // 画像と入力欄を一緒にキーボードの上に（下の欄を送っていたら先頭へ戻す）。
+                // 下の欄を送っていたら先頭へ戻す（入力欄と画像は上に固定した「言葉を入れる」の画面に出る）。
                 try { if (scrollRef.current) scrollRef.current.scrollTop = 0; } catch { /* ignore */ }
               }}
               onBlur={() => setInputFocused(false)}
-              style={{ ...inputStyle, marginTop: 'var(--space-2)' }}
+              style={{ ...inputStyle, order: typing ? 1 : 4, marginTop: typing ? 0 : 'var(--space-2)' }}
             />
           )}
           </div>
 
-          {/* 言葉 */}
-          <section aria-labelledby="share-edit-phrase" style={{ padding: 'var(--space-6) var(--space-4) 0' }}>
+          {/* 言葉（打っている間は隠す） */}
+          <section aria-labelledby="share-edit-phrase" style={{ display: typing ? 'none' : 'block', padding: 'var(--space-6) var(--space-4) 0' }}>
             <h3 id="share-edit-phrase" style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>言葉</h3>
             {!phrase ? (
               <button type="button" onClick={addPhrase} style={{ ...btnGhost, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)' }}>
@@ -612,7 +649,7 @@ export default function ShareEditor({
 
           {/* 表示する項目 */}
           {items.length > 0 && (
-            <section aria-labelledby="share-edit-items" style={{ padding: 'var(--space-6) var(--space-4) 0' }}>
+            <section aria-labelledby="share-edit-items" style={{ display: typing ? 'none' : 'block', padding: 'var(--space-6) var(--space-4) 0' }}>
               <h3 id="share-edit-items" style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>表示する項目</h3>
               <div style={{ background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
                 {items.map((it, i) => {

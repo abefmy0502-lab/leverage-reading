@@ -6,7 +6,7 @@
 //
 // 使い方:
 //   1. 別ターミナルで  npm run demo
-//   2. node scripts/share-images.mjs [出力先]   （既定 ui-shots/share-after/images）
+//   2. node scripts/share-images.mjs [出力先] [名前の頭]   （既定 ui-shots/share-after/images・名前の頭で絞れる 例 content-）
 //   UI_SHOTS_URL（既定 http://localhost:5173）・PW_EXE はui-shots.mjs と同じ。
 //
 // 書き出すもの: <重ね方>-<形>-<地>.<jpg|png>（写真は JPEG・ほかは PNG＝実際に共有する種類）と、
@@ -18,6 +18,7 @@ import { chromium } from 'playwright-core';
 
 const BASE = process.env.UI_SHOTS_URL || 'http://localhost:5173';
 const outDir = process.argv[2] || join('ui-shots', 'share-after', 'images');
+const only = process.argv[3] || '';
 mkdirSync(outDir, { recursive: true });
 
 const photos = Object.fromEntries(['', '-bright', '-dark'].map((s) => [
@@ -31,7 +32,7 @@ const page = await browser.newPage({ viewport: { width: 390, height: 844 }, loca
 await page.goto(`${BASE}/`, { waitUntil: 'networkidle' });
 await page.waitForTimeout(1500);
 
-const results = await page.evaluate(async ({ photos }) => {
+const results = await page.evaluate(async ({ photos, only }) => {
   const card = await import('/src/lib/shareCard.js');
   const ov = await import('/src/lib/shareOverlay.js');
   const toFile = async (url, name) => new File([await (await fetch(url)).blob()], name, { type: 'image/jpeg' });
@@ -54,7 +55,7 @@ const results = await page.evaluate(async ({ photos }) => {
   const logo = await card.prepareLogo();
   const base = {
     record, stamp: '2026.10.5', line: memos[0].text, page: 64, title: book.title, author: book.author, totalPages: 280, seedKey: 'm0',
-    cover, covers: [], fonts, logo, view: { panX: 0, panY: 0, zoom: 1 }, textPos: 'bottom', hidden: [], phrase: null,
+    cover, covers: [], fonts, logo, view: { panX: 0, panY: 0, zoom: 1 }, textPos: 'bottom', hidden: ov.readHiddenItems(null), phrase: null,
   };
   const grounds = [
     ['photo', { style: 'photo', photo: photo.normal }],
@@ -104,7 +105,7 @@ const results = await page.evaluate(async ({ photos }) => {
     }
   }
   // 4 桁の数字（1,234 件）
-  const bigRec = { ...record, stats: [{ key: 'date', label: '読み終えた日', value: '12月28日' }, { key: 'memos', label: 'メモ', value: '1,234件' }, { key: 'actions', label: '実行した行動', value: '1件' }] };
+  const bigRec = { ...record, stats: [{ key: 'memos', label: 'メモ', value: '1,234件' }, { key: 'actions', label: '実行した行動', value: '1件' }] };
   for (const layout of ['record', 'stats']) {
     for (const format of ['post', 'story']) {
       jobs.push({ name: `edge-4digits-${layout}-${format}-photo`, opts: { ...base, layout, format, style: 'photo', photo: photo.dark, record: bigRec, line: '' } });
@@ -170,8 +171,42 @@ const results = await page.evaluate(async ({ photos }) => {
     jobs.push({ name: `edge-logo-text-${gName}`, opts: { ...base, layout: 'record', format: 'post', ...g, logo: null, line: ov.quoteText(base.line, 'record') } });
   }
   jobs.push({ name: 'edge-logo-text-only-bright', opts: { ...base, layout: 'record', format: 'post', style: 'photo', photo: photo.bright, logo: null, hidden: allHidden } });
+  // ── 中身（2026-10-09 オーナー「なんで読み始めの日付を目立たせる？」）: 読書中・読了・今月・今年 × 重ね方 × 形。
+  //   日付は既定で入れない・大きく出すのはメモ・行動（今月・今年は冊数も）だけ。content-<対象>-<重ね方>-<形>-<地>
+  const today = new Date(2026, 9, 9);
+  const readingBook = { id: 'r1', title: '1兆ドルコーチ', author: 'エリック・シュミット、ジョナサン・ローゼンバーグ', status: 'reading', startDate: '2026-10-05', actions: [{ done: true }] };
+  const readingMemos = memos.slice(0, 5);
+  const contentSubjects = [
+    ['reading', ov.bookRecord(readingBook, readingMemos, today), readingBook, readingMemos],
+    ['reading-nomemo', ov.bookRecord({ ...readingBook, actions: [] }, [], today), readingBook, []],
+    ['done', ov.bookRecord(book, memos, today), book, memos],
+    ['month', monthRec, null, [{ text: 'やらないことを決める。それがいちばん大事な仕事。' }]],
+    ['year', yearRec, null, [{ text: yearLine }]],
+  ];
+  for (const [nm, rec, bk, ms] of contentSubjects) {
+    const variants = ov.availableVariants(ms.length > 0, rec.stats.length > 0);
+    const first = ov.defaultVariant({ hasQuote: ms.length > 0, variants, readingBook: bk?.status === 'reading' });
+    for (const layout of variants) {
+      for (const format of ['post', 'story']) {
+        for (const [gName, g] of [['photo', { style: 'photo', photo: photo.normal }], ['paper', { style: 'paper' }]]) {
+          const q = ms[0]?.text || '';
+          jobs.push({ name: `content-${nm}-${layout}${layout === first ? '-first' : ''}-${format}-${gName}`, opts: {
+            ...base, layout, format, ...g, record: rec,
+            cover: bk ? cover : { image: null, tone: null },
+            covers: bk || layout === 'quote' ? [] : (nm === 'year' ? yearCovers : monthCovers),
+            title: bk ? bk.title : rec.title, author: bk ? bk.author : '',
+            line: layout === 'record' ? ov.quoteText(q, 'record') : q, page: null, stamp: '2026.10.9',
+            kicker: nm === 'year' && layout === 'quote' ? '2026' : '',
+          } });
+        }
+      }
+    }
+  }
+  // 日付をオンにした（表示する項目）＝見出しの小さな添え書きだけ
+  jobs.push({ name: 'content-reading-dateon-stats-post-photo', opts: { ...base, layout: 'stats', format: 'post', style: 'photo', photo: photo.normal, record: contentSubjects[0][1], hidden: [], title: readingBook.title, author: readingBook.author, line: '' } });
+  jobs.push({ name: 'content-done-dateon-record-post-paper', opts: { ...base, layout: 'record', format: 'post', style: 'paper', record: contentSubjects[2][1], hidden: [], line: ov.quoteText(base.line, 'record') } });
   const out = [];
-  for (const j of jobs) {
+  for (const j of jobs.filter((x) => !only || x.name.startsWith(only))) {
     const cv = document.createElement('canvas');
     const t0 = performance.now();
     card.drawShareCard(cv, j.opts);
@@ -185,7 +220,7 @@ const results = await page.evaluate(async ({ photos }) => {
     out.push({ name: j.name, type: blob.type, w: cv.width, h: cv.height, b64: btoa(bin), drawMs: Math.round(drawMs), encodeMs: Math.round(encodeMs) });
   }
   return out;
-}, { photos });
+}, { photos, only });
 
 for (const r of results) {
   const ext = r.type === 'image/jpeg' ? 'jpg' : 'png';

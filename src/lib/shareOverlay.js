@@ -3,7 +3,7 @@
 // canvas も DOM も触らない純粋関数だけ（テストで確かめられるように）。描くのは shareCard.js。
 //   - pickShareSubject   … ホームから開いたときに、どの本（または「今月」）を最初に選んでおくか
 //   - subjectChoices     … シートの「どの本？」の並び（今月 → 読書中 → 最近読み終えた本）
-//   - bookRecord         … 本 1 冊の記録（読了・読書中の日付・メモの件数・実行した行動）
+//   - bookRecord         … 本 1 冊の記録（メモの件数・実行した行動。日付は既定で出さない小さな添え書き・2026-10-09）
 //   - monthRecord        … 今月の記録（読了の冊数・メモ・実行した行動）
 //   - yearRecord / orderYearQuoteCandidates / isYearWrapSeason / hasFinishedThisYear
 //                        … 今年の読書（12 月だけ・冊数・メモ・行動・いちばん残した一文・2026-10-08）
@@ -161,24 +161,28 @@ export function formatAuthors(author) {
   return list.length > 1 ? `${list[0]} ほか` : list[0];
 }
 
-// 本 1 冊の記録。stats は最大 3 つ・0 のものは出さない（日付は分かるときだけ）。
-// 戻り値: { kicker, title, sub, stats: [{ label, value }] }
+// 本 1 冊の記録。stats は意味のある数だけ（メモの件数・実行した行動・0 は出さない）。
+// 日付は数字にしない（2026-10-09 オーナー「そもそもなんで読み始めの日付を目立たせる？」）: 読了日・読みはじめの日は
+// date に分けて持ち、出すときも見出しの小さな添え書き（「読了 · 9.28」）だけ。既定は出さない（SHARE_ITEMS_DEFAULT_OFF）。
+// 戻り値: { kicker, title, sub, stats: [{ key, label, value }], date: { label, text } | null }
 export function bookRecord(book, memos = [], now = new Date()) {
   const b = book || {};
   const done = b.status === 'done';
   const memoCount = (Array.isArray(memos) ? memos : []).filter((m) => hasText(m) || m?.photoPath).length + (hasSummary(b) ? 1 : 0);
   const actionsDone = (Array.isArray(b.actions) ? b.actions : []).filter((a) => a && a.done).length;
   const stats = [];
-  if (done && parseLocalDate(b.doneDate)) stats.push({ key: 'date', label: '読み終えた日', value: fmtDotDate(b.doneDate, now) });
-  else if (!done && parseLocalDate(b.startDate)) stats.push({ key: 'date', label: '読みはじめ', value: fmtDotDate(b.startDate, now) });
   if (memoCount > 0) stats.push({ key: 'memos', label: 'メモ', value: `${memoCount}件` });
   if (actionsDone > 0) stats.push({ key: 'actions', label: '実行した行動', value: `${actionsDone}件` });
+  let date = null;
+  if (done && parseLocalDate(b.doneDate)) date = { label: '読了日', text: fmtDotDate(b.doneDate, now) };
+  else if (!done && parseLocalDate(b.startDate)) date = { label: '読みはじめの日', text: `${fmtDotDate(b.startDate, now)}〜` };
   return {
     kicker: done ? '読了' : '読書中',
     title: String(b.title || '').trim() || '無題',
     titleIsBook: true,
     sub: formatAuthors(b.author),
     stats,
+    date,
   };
 }
 
@@ -303,8 +307,9 @@ export function splitStatValue(value) {
 // ---------------------------------------------------------------- 重ねる一文
 
 // 本文のあるメモだけ・新しい順。preferId（メモの「…」→「この一文をシェア」）を先頭に。
+// AI が書いたもの（AI まとめ）は入れない＝画像の主役は自分の言葉（2026-10-09）。本人がそのメモを選んだときだけ入れる。
 export function orderQuoteCandidates(memos, { preferId = null } = {}) {
-  const list = (Array.isArray(memos) ? memos : []).filter(hasText);
+  const list = (Array.isArray(memos) ? memos : []).filter((m) => hasText(m) && (!isAiWritten(m) || (preferId && m.id === preferId)));
   const sorted = [...list].sort((a, b) => timeOf(b.createdAt || b.created_at) - timeOf(a.createdAt || a.created_at));
   if (preferId) {
     const i = sorted.findIndex((m) => m.id === preferId);
@@ -360,8 +365,18 @@ export function swapQuoteLabel(index, count, allowNone = false) {
 export function availableVariants(hasQuote, hasStats = false) {
   return VARIANTS.filter((v) => (v === 'quote' ? !!hasQuote : v === 'stats' ? !!hasStats : true));
 }
-export function defaultVariant({ fromMemo = false, hasQuote = false } = {}) {
-  return fromMemo && hasQuote ? 'quote' : 'record';
+// 最初の重ね方（2026-10-09 オーナー「もっとおしゃれな内容で、周りに拡散したいと思える内容に」）。
+//   1. メモから開いた（fromMemo）＝その一文
+//   2. 前に選んだ重ね方（preferred）が選べるならそれ
+//   3. 読書中の本（readingBook）・「大きな数字」を選んでいたが大きく出せる数が無い＝一文があれば「心に残った一文」
+//   4. ほかは「書名と数字」（読書中でメモが無い本は、見出しの「読書中」が小さな添え書きになる）
+// variants を省いたときは、選べるかどうかを見ない（記録はいつも選べる）。
+export function defaultVariant({ fromMemo = false, hasQuote = false, preferred = null, variants = null, readingBook = false } = {}) {
+  const can = (v) => (Array.isArray(variants) ? variants.includes(v) : (v !== 'quote' || hasQuote));
+  if (fromMemo && hasQuote && can('quote')) return 'quote';
+  if (preferred && VARIANTS.includes(preferred) && can(preferred)) return preferred;
+  if (hasQuote && can('quote') && (readingBook || preferred === 'stats')) return 'quote';
+  return 'record';
 }
 
 // ---------------------------------------------------------------- 安全な枠（SNS で切られない範囲）
@@ -650,8 +665,9 @@ export function shareItemsFor({ record = null, variant = 'record', hasQuote = fa
     if (record.kicker) out.push({ key: 'status', label: book ? '状態' : '年' });
     if (record.title) out.push({ key: 'title', label: book ? '書名' : `「${record.title}」` });
     if (record.sub) out.push({ key: 'author', label: book ? '著者' : '読み終えた本' });
+    if (record.date?.text) out.push({ key: 'date', label: record.date.label });
     for (const st of record.stats || []) {
-      if (st?.key) out.push({ key: st.key, label: st.key === 'date' ? st.label : (STAT_ITEM_LABEL[st.key] || st.label) });
+      if (st?.key) out.push({ key: st.key, label: STAT_ITEM_LABEL[st.key] || st.label });
     }
     if (hasQuote && variant === 'record') out.push({ key: 'quote', label: '一文' });
     out.push({ key: 'stamp', label: '今日の日付' });
@@ -664,13 +680,21 @@ export function shareItemsFor({ record = null, variant = 'record', hasQuote = fa
 
 const hiddenSet = (hidden) => new Set(Array.isArray(hidden) || hidden instanceof Set ? [...hidden] : []);
 
-// 隠した項目を記録に当てる（隠した見出し・書名・著者は空に、数字は外す）。
+// 見出しの小さな添え書き（「読了 · 9.28」「読書中 · 10.5〜」）。日付を出すとき（表示する項目でオン）だけ。
+export function kickerWithDate(kicker, date) {
+  const k = String(kicker || '').trim();
+  const d = String(date?.text || '').trim();
+  if (!d) return k;
+  return k ? `${k} · ${d}` : d;
+}
+
+// 隠した項目を記録に当てる（隠した見出し・書名・著者は空に、数字は外す）。日付は既定で隠す（SHARE_ITEMS_DEFAULT_OFF）。
 export function applyShareItems(record, hidden) {
   if (!record) return record;
   const h = hiddenSet(hidden);
   return {
     ...record,
-    kicker: h.has('status') ? '' : record.kicker,
+    kicker: kickerWithDate(h.has('status') ? '' : record.kicker, h.has('date') ? null : record.date),
     title: h.has('title') ? '' : record.title,
     sub: h.has('author') ? '' : record.sub,
     subVariants: h.has('author') ? null : (record.subVariants || null),
@@ -684,10 +708,14 @@ export function shareVisibility(hidden) {
   return { title: !h.has('title'), author: !h.has('author'), quote: !h.has('quote'), stamp: !h.has('stamp') };
 }
 
-// 前に選んだ「隠した項目」を読む（読めない・壊れている・private ブラウズ＝何も隠さない）。
-export function readHiddenItems(storage) {
+// 既定で隠す項目（本人がオンにしたときだけ出す）。日付は画像の主役にしない（2026-10-09）。
+// オンにした項目は別の名前（orime.share.shownItems）で覚える（隠した項目の一覧は今までの形のまま）。
+export const SHARE_ITEMS_DEFAULT_OFF = ['date'];
+export const SHARE_SHOWN_STORAGE_KEY = 'orime.share.shownItems';
+
+function readList(storage, key) {
   try {
-    const raw = storage?.getItem(SHARE_ITEMS_STORAGE_KEY);
+    const raw = storage?.getItem(key);
     if (!raw) return [];
     const list = JSON.parse(raw);
     return Array.isArray(list) ? list.filter((k) => SHARE_ITEM_KEYS.includes(k)) : [];
@@ -696,10 +724,20 @@ export function readHiddenItems(storage) {
   }
 }
 
+// 前に選んだ「隠した項目」を読む（読めない・壊れている・private ブラウズ＝既定で隠す項目だけを隠す）。
+export function readHiddenItems(storage) {
+  const hidden = readList(storage, SHARE_ITEMS_STORAGE_KEY);
+  const shown = readList(storage, SHARE_SHOWN_STORAGE_KEY);
+  const out = [...hidden];
+  for (const k of SHARE_ITEMS_DEFAULT_OFF) if (!shown.includes(k) && !out.includes(k)) out.push(k);
+  return out;
+}
+
 export function writeHiddenItems(storage, hidden) {
   try {
     const list = [...hiddenSet(hidden)].filter((k) => SHARE_ITEM_KEYS.includes(k));
     storage?.setItem(SHARE_ITEMS_STORAGE_KEY, JSON.stringify(list));
+    storage?.setItem(SHARE_SHOWN_STORAGE_KEY, JSON.stringify(SHARE_ITEMS_DEFAULT_OFF.filter((k) => !list.includes(k))));
     return true;
   } catch {
     return false;
