@@ -3,7 +3,7 @@ import { applyCors } from './_cors.js';
 import { estimateCost, costFromUsage, createUsageSniffer, cacheSegments } from './_aiCost.js';
 import {
   decideAiAccess, decideFreeReservation, periodKeyFor, reserveBudgetMjpy, allowanceFor, meteredCallLimit,
-  freeTokens, fallbackCallsFor, nextMonthFirstLabel, planRequiredMessage, limitMessageFor, tokenMjpy,
+  freeTokensFor, fallbackCallsFor, nextMonthFirstLabel, planRequiredMessage, limitMessageFor, tokenMjpy,
   tokensFromMjpy, noInfoRefundEligible, noInfoRefundLimit, refundPeriodKey,
   freeOcrPerMonth, freeOcrPeriodKey, freeOcrLimitMessage, decideFreeOcrReservation,
 } from './_aiAccess.js';
@@ -129,7 +129,8 @@ const AI_TRIAL_CALL_LIMIT = (() => {
 
 // 🎁 無料プラン（フリーミアム・2026-09-27 オーナー裁定）。契約していない人も、AI の 💬 相談
 // （purpose: 'consult'）と 📖 この本で学べること（'book_brief'・2026-10-08）だけは 1 か月に AI_FREE_TOKENS トークン
-// （既定 30＝相談 約 3 回）使える。
+// （既定 30＝相談 約 1 つ）使える。アカウントを作った月（日本時間）だけは AI_FREE_FIRST_MONTH_TOKENS（既定 60＝相談 約 2 つ・
+// 2026-10-09）。作った日は auth.getUser の created_at（アプリの申告は使わない）・読めなければ毎月の量。
 // ほかの AI 機能は 402 plan_required。トークンの数え方・プランごとの量は api/_aiAccess.js。
 // 数えるのは ai_usage の period_month='free-YYYY-MM'（日本時間の月・有料の月の行とは別枠）。
 // 原価の青天井を防ぐため、この枠だけは fail-closed（数えられないときは使わせない）。
@@ -644,6 +645,8 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Unauthorized: invalid token' });
   }
   const userId = userData.user.id;
+  // 🌱 アカウントを作った日時（無料プランのはじめの月を見る・auth が確かめた値だけを使う）。
+  const userCreatedAt = userData.user.created_at || null;
 
   // 🧭 Jev（文を書かない判断のモデル・TypeSafe AI）への短い道（2026-10-02・api/_jevRelay.js）。
   //    文を書く AI の分間の上限・トークンとは別に数える（相談 1 回につき 1 回ついてくるので、相談の 10 回/分を食わないように）。
@@ -698,7 +701,9 @@ export default async function handler(req, res) {
   const monthKey = currentPeriodMonth(); // この 1 回の間は同じ月で数える（月末の日付またぎでずれない）
   // 📷 無料プランの写真から書き起こしは、相談のトークンとは別に 1 か月 AI_FREE_OCR_PER_MONTH 回（'freeocr-YYYY-MM'）。
   const freeOcrLimit = freeOcrPerMonth();
-  const access = decideAiAccess({ entitlement: ent, purpose: req.body?.purpose, freeAllowance: freeTokens(), freeOcrLimit });
+  // 🌱 無料のトークン（はじめの月は 60・それ以降は 30）。作った日が読めなければ 30（fail-closed）。
+  const freeAllowance = freeTokensFor({ createdAt: userCreatedAt, monthKey });
+  const access = decideAiAccess({ entitlement: ent, purpose: req.body?.purpose, freeAllowance, freeOcrLimit });
   if (!access.allow) {
     return res.status(access.status).json({
       error: { message: access.errorCode === 'free_limit_reached' ? limitMessageFor('free') : planRequiredMessage() },
@@ -706,6 +711,8 @@ export default async function handler(req, res) {
     });
   }
   const tier = access.tier; // 'admin' | 'paid' | 'trial' | 'free' | 'free_ocr'
+  // この 1 回で使うプランの量（無料ははじめの月を見た量）。
+  const tierAllowance = tier === 'free' ? freeAllowance : allowanceFor(tier);
   const freeCall = tier === 'free';
   const freeOcrCall = tier === 'free_ocr';
   // 🧭 どの会社のどのモデルで答えるか（api/_aiRouting.js）。無料プランの相談は、いちばん安い Claude に固定
@@ -789,7 +796,7 @@ export default async function handler(req, res) {
       .reduce((a, e) => ({ total: Math.max(a.total, e.total), output: Math.max(a.output, e.output) }), { total: 0, output: 0 });
     // 追加トークン（買い足し）があれば、その月の分＋追加分まで使える（使う順は その月 → 追加分）。
     lotState = await getLotState(userId, periodKey);
-    const allowance = lotState.ok ? effectiveAllowance(allowanceFor(tier), lotState) : allowanceFor(tier);
+    const allowance = lotState.ok ? effectiveAllowance(tierAllowance, lotState) : tierAllowance;
     costResult = await reserveCost(userId, periodKey, est.total, reserveBudgetMjpy(allowance, est.total));
     if (costResult.metered && !costResult.allowed) return limitResponse('monthly_budget_exceeded');
     costMetered = costResult.metered;
@@ -804,7 +811,7 @@ export default async function handler(req, res) {
         ? Math.min(callLimit || AI_MONTHLY_CALL_LIMIT, AI_FALLBACK_CALL_LIMIT)
         : tier === 'trial'
           ? Math.min(AI_TRIAL_CALL_LIMIT, Math.max(1, fallbackCallsFor('trial')))
-          : Math.max(1, fallbackCallsFor('free'));
+          : Math.max(1, fallbackCallsFor('free', process.env, { createdAt: userCreatedAt, monthKey }));
     }
   }
   // 精算: 実際の原価（mjpy）が分かったら差額を戻す。null＝AI が答えていない → 予約をまるごと戻す。
@@ -824,9 +831,9 @@ export default async function handler(req, res) {
     if (!refund && shouldSettleOverflow({
       lotOk: lotState.ok, balance: lotState.balance, charged: lotState.charged,
       totalAfterReserveMjpy: costResult.total, reservedMjpy: costReserved, actualMjpy,
-      allowanceTokens: allowanceFor(tier), tokenMjpy: tokenMjpy(),
+      allowanceTokens: tierAllowance, tokenMjpy: tokenMjpy(),
     })) {
-      track(Promise.resolve(adjusting).then(() => settleTokenOverflow(userId, periodKey, allowanceFor(tier))));
+      track(Promise.resolve(adjusting).then(() => settleTokenOverflow(userId, periodKey, tierAllowance)));
     } else {
       track(adjusting);
     }

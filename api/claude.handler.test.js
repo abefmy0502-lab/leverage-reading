@@ -16,6 +16,8 @@ function resetDb() {
     refunds: 0, // 'refund-YYYY-MM' 行の calls
     freeOcr: 0, // 'freeocr-YYYY-MM' 行の calls
     usageFail: false, // reserve_ai_usage が失敗する（RPC 未適用・障害）
+    costFail: false, // reserve_ai_cost が無い（supabase_ai_cost.sql 未適用）
+    createdAt: undefined, // auth.users.created_at（無ければ user に入れない）
   });
   log.length = 0;
 }
@@ -41,7 +43,7 @@ function query(table) {
 
 vi.mock('@supabase/supabase-js', () => ({
   createClient: () => ({
-    auth: { getUser: async () => ({ data: { user: { id: UID } }, error: null }) },
+    auth: { getUser: async () => ({ data: { user: { id: UID, ...(db.createdAt !== undefined ? { created_at: db.createdAt } : {}) } }, error: null }) },
     from: (t) => query(t),
     rpc: async (name, args) => {
       db.rpcArgs[name] = args;
@@ -49,6 +51,7 @@ vi.mock('@supabase/supabase-js', () => ({
       log.push(`rpc:${name}`);
       if (name === 'check_ai_rate_limit') return { data: true, error: null };
       if (name === 'reserve_ai_cost') {
+        if (db.costFail) return { data: null, error: { message: 'function reserve_ai_cost does not exist' } };
         if (db.costTotal + args.p_amount > args.p_budget) return { data: -1, error: null };
         db.costTotal += args.p_amount;
         return { data: db.costTotal, error: null };
@@ -469,6 +472,70 @@ describe('相談のキャッシュ（指示文は 1 時間・メモ一覧は 5 �
 });
 
 // 📷 無料プランの写真から書き起こし（月 10 回・2026-10-02）。
+describe('🌱 無料プランのはじめの月のトークン（アカウントを作った日本時間の月だけ 60・ほかは 30）', () => {
+  const jstMonth = () => new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 7);
+  const consultReq = () => req({
+    model: 'claude-haiku-4-5', purpose: 'consult', max_tokens: 1024, messages: [{ role: 'user', content: '部下が報告をくれません' }],
+  });
+  // reserve_ai_cost の上限 − この 1 回の見積もり ＝（使えるトークン − 1）× 300 mjpy（reserveBudgetMjpy）
+  const allowanceOfReserve = () => {
+    const a = db.rpcArgs.reserve_ai_cost;
+    return Math.round((a.p_budget - a.p_amount) / 300) + 1;
+  };
+  beforeEach(() => { db.sub = null; });
+  afterEach(() => { delete process.env.AI_FREE_FIRST_MONTH_TOKENS; });
+
+  it('今月作ったアカウント → 60 トークンで予約（行は free-YYYY-MM のまま）', async () => {
+    db.createdAt = new Date(Date.now() - 60_000).toISOString();
+    stubJson();
+    const res = mockRes();
+    await handler(consultReq(), res);
+    expect(res.statusCode).toBe(200);
+    expect(db.rpcArgs.reserve_ai_cost.p_period_month).toBe(`free-${jstMonth()}`);
+    expect(allowanceOfReserve()).toBe(60);
+  });
+  it('先月以前に作ったアカウント → 30', async () => {
+    db.createdAt = new Date(Date.now() - 40 * 86400000).toISOString();
+    stubJson();
+    await handler(consultReq(), mockRes());
+    expect(allowanceOfReserve()).toBe(30);
+  });
+  it('作った日が読めない（無い・壊れている）→ 30（fail-closed）', async () => {
+    for (const v of [undefined, null, 'きのう']) {
+      resetDb(); db.sub = null; db.createdAt = v;
+      stubJson();
+      await handler(consultReq(), mockRes());
+      expect(allowanceOfReserve()).toBe(30);
+      clockOffset += 61_000;
+    }
+  });
+  it('アプリが送った作成日（body）は信じない', async () => {
+    db.createdAt = new Date(Date.now() - 40 * 86400000).toISOString();
+    stubJson();
+    await handler(req({ model: 'claude-haiku-4-5', purpose: 'consult', max_tokens: 1024, created_at: new Date().toISOString(), messages: [{ role: 'user', content: 'こんにちは' }] }), mockRes());
+    expect(allowanceOfReserve()).toBe(30);
+  });
+  it('原価を数えられない DB では回数で: はじめの月 6 回・それ以降 3 回', async () => {
+    db.costFail = true;
+    db.createdAt = new Date(Date.now() - 60_000).toISOString();
+    stubJson();
+    await handler(consultReq(), mockRes());
+    expect(db.rpcArgs.reserve_ai_usage).toMatchObject({ p_period_month: `free-${jstMonth()}`, p_limit: 6 });
+    resetDb(); db.sub = null; db.costFail = true; clockOffset += 61_000;
+    db.createdAt = new Date(Date.now() - 40 * 86400000).toISOString();
+    stubJson();
+    await handler(consultReq(), mockRes());
+    expect(db.rpcArgs.reserve_ai_usage).toMatchObject({ p_limit: 3 });
+  });
+  it('AI_FREE_FIRST_MONTH_TOKENS で変えられる', async () => {
+    process.env.AI_FREE_FIRST_MONTH_TOKENS = '90';
+    db.createdAt = new Date(Date.now() - 60_000).toISOString();
+    stubJson();
+    await handler(consultReq(), mockRes());
+    expect(allowanceOfReserve()).toBe(90);
+  });
+});
+
 describe('無料プランの写真から書き起こし（月 AI_FREE_OCR_PER_MONTH 回・相談のトークンとは別）', () => {
   const jstMonth = () => new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 7);
   const image = { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: 'QUJD' } };

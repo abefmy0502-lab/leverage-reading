@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   decideAiAccess, decideFreeReservation, isFreePurpose,
   freeOcrPerMonth, freeOcrPeriodKey, freeOcrLimitMessage, decideFreeOcrReservation,
-  tokenJpy, tokenMjpy, tokensFromMjpy, freeTokens, trialTokens, paidTokens, allowanceFor, fallbackCallsFor,
+  tokenJpy, tokenMjpy, tokensFromMjpy, freeTokens, freeFirstMonthTokens, freeTokensFor, isFreeFirstMonth, trialTokens, paidTokens, allowanceFor, fallbackCallsFor,
   periodKeyFor, reserveBudgetMjpy, remainingTokens, meteredCallLimit,
   jstMonthDayLabel, nextMonthFirstLabel, monthlyTokensMessage, trialTokensMessage, planRequiredMessage, limitMessageFor,
 } from './_aiAccess.js';
@@ -54,6 +54,51 @@ describe('プランごとのトークン', () => {
   it('原価を数えられない DB での回数 = トークン ÷ 10', () => {
     expect(fallbackCallsFor('free', ENV)).toBe(3);
     expect(fallbackCallsFor('trial', ENV)).toBe(15);
+  });
+});
+
+describe('🌱 無料プランのはじめの月（アカウントを作った日本時間の月だけ 60）', () => {
+  // 2026-10-31 15:00Z ＝ 日本時間 11 月 1 日 0 時
+  const NOV1_JST = Date.parse('2026-10-31T15:00:00Z');
+  it('既定: はじめの月 60・それ以降 30', () => {
+    expect(freeFirstMonthTokens(ENV)).toBe(60);
+    expect(freeTokensFor({ createdAt: '2026-10-09T01:00:00Z', monthKey: '2026-10', env: ENV })).toBe(60);
+    expect(freeTokensFor({ createdAt: '2026-09-30T01:00:00Z', monthKey: '2026-10', env: ENV })).toBe(30);
+    expect(allowanceFor('free', ENV, { createdAt: '2026-10-09T01:00:00Z', monthKey: '2026-10' })).toBe(60);
+    expect(allowanceFor('free', ENV)).toBe(30); // opts なし＝毎月の量
+    expect(fallbackCallsFor('free', ENV, { createdAt: '2026-10-09T01:00:00Z', monthKey: '2026-10' })).toBe(6);
+    expect(fallbackCallsFor('free', ENV, { createdAt: '2026-08-09T01:00:00Z', monthKey: '2026-10' })).toBe(3);
+  });
+  it('月の区切りは日本時間（UTC の 10 月 31 日 15 時以降に作った人は 11 月がはじめの月）', () => {
+    const justBefore = new Date(NOV1_JST - 1000).toISOString(); // 日本時間 10 月 31 日 23:59:59
+    const justAfter = new Date(NOV1_JST).toISOString(); // 日本時間 11 月 1 日 0:00
+    expect(isFreeFirstMonth(justBefore, '2026-10')).toBe(true);
+    expect(isFreeFirstMonth(justBefore, '2026-11')).toBe(false);
+    expect(isFreeFirstMonth(justAfter, '2026-10')).toBe(false);
+    expect(isFreeFirstMonth(justAfter, '2026-11')).toBe(true);
+  });
+  it('月をまたいだら 30 に戻る（12 月をまたいで年が変わっても）', () => {
+    expect(freeTokensFor({ createdAt: '2026-10-20T00:00:00Z', monthKey: '2026-11', env: ENV })).toBe(30);
+    expect(freeTokensFor({ createdAt: '2026-12-20T00:00:00Z', monthKey: '2027-01', env: ENV })).toBe(30);
+    expect(freeTokensFor({ createdAt: '2025-10-20T00:00:00Z', monthKey: '2026-10', env: ENV })).toBe(30); // 1 年前の同じ月
+  });
+  it('作った日が読めない・無い → 30（fail-closed）', () => {
+    for (const v of [undefined, null, '', 'きのう', NaN]) {
+      expect(freeTokensFor({ createdAt: v, monthKey: '2026-10', env: ENV })).toBe(30);
+    }
+    expect(freeTokensFor({ createdAt: '2026-10-09T01:00:00Z', monthKey: undefined, env: ENV })).toBe(30);
+  });
+  it('Supabase の書き方（マイクロ秒つき）も読める', () => {
+    expect(isFreeFirstMonth('2026-10-09T01:23:45.123456+00:00', '2026-10')).toBe(true);
+  });
+  it('env: AI_FREE_FIRST_MONTH_TOKENS で変えられる・毎月の量より少なくはしない・無料の AI をやめたら 0', () => {
+    const c = { createdAt: '2026-10-09T01:00:00Z', monthKey: '2026-10' };
+    expect(freeTokensFor({ ...c, env: { AI_FREE_FIRST_MONTH_TOKENS: '90' } })).toBe(90);
+    expect(freeTokensFor({ ...c, env: { AI_FREE_FIRST_MONTH_TOKENS: '10' } })).toBe(30);
+    expect(freeTokensFor({ ...c, env: { AI_FREE_TOKENS: '0' } })).toBe(0);
+  });
+  it('使い切ったときの案内は来月の量（はじめの月の人にも 30 と言う）', () => {
+    expect(limitMessageFor('free', { env: ENV, now: Date.parse('2026-10-20T00:00:00Z') })).toContain('30 トークン');
   });
 });
 

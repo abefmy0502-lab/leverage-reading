@@ -6,8 +6,10 @@
 // トークン＝ceil(原価の円 ÷ AI_TOKEN_JPY) に直して見せる。
 //
 // プランと 1 か月に使えるトークン（env で変えられる）:
-//   - 無料（契約なし）: AI は 💬 相談（purpose: 'consult'）と 📖 この本で学べること（'book_brief'）だけ・AI_FREE_TOKENS（既定 30＝相談 約 3 回）。
-//     行のキーは 'free-YYYY-MM'（日本時間の月）。数えられないときは使わせない（fail-closed）。
+//   - 無料（契約なし）: AI は 💬 相談（purpose: 'consult'）と 📖 この本で学べること（'book_brief'）だけ・AI_FREE_TOKENS（既定 30＝相談 約 1 つ）。
+//     🌱 はじめの月（アカウントを作った日本時間の月・2026-10-09）だけは AI_FREE_FIRST_MONTH_TOKENS（既定 60＝相談 約 2 つ）。
+//     相談 1 つ＝聞き返し 2 回＋答えで 約 3 往復＝約 30 トークン。はじめての相談を最後までしても、2 つ目の相談ができる量。
+//     行のキーは 'free-YYYY-MM'（日本時間の月・はじめの月も同じ行）。数えられないときは使わせない（fail-closed）。
 //     📷 写真から書き起こし（purpose: 'ocr'）だけは別枠で 1 か月 AI_FREE_OCR_PER_MONTH 回（既定 10・行は
 //     'freeocr-YYYY-MM'・2026-10-02）。相談のトークンは使わない。下の「写真から書き起こし」の節。
 //     ほかの AI 機能は 402 plan_required（アプリは有料プランの画面を重ねて開く）。
@@ -56,6 +58,26 @@ export function tokensFromMjpy(mjpy, env = process.env) {
 export function freeTokens(env = process.env) {
   return Math.max(0, Math.floor(num(env.AI_FREE_TOKENS, 30)));
 }
+// 🌱 無料プランのはじめの月のトークン（2026-10-09 オーナー裁定「中期的な売り上げ最大化で考えて」）。
+// はじめての相談（約 3 往復＝約 30 トークン）を最後までして、2 つ目の相談の途中で 7 日間無料に出会う量。
+export function freeFirstMonthTokens(env = process.env) {
+  return Math.max(0, Math.floor(num(env.AI_FREE_FIRST_MONTH_TOKENS, 60)));
+}
+// はじめの月＝アカウントを作った日本時間の月（作ってから翌月 1 日 0 時まで）。
+// createdAt は auth.users.created_at（サーバーが auth.getUser で確かめたもの・アプリの申告は使わない）。
+// 読めないときは false（はじめの月として扱わない＝fail-closed）。
+export function isFreeFirstMonth(createdAt, monthKey) {
+  const t = typeof createdAt === 'number' ? createdAt : Date.parse(createdAt || '');
+  if (!Number.isFinite(t) || typeof monthKey !== 'string' || !monthKey) return false;
+  return jstParts(t).month === monthKey;
+}
+// この人のこの月の無料のトークン。AI_FREE_TOKENS=0（無料の AI をやめる）のときは、はじめの月も 0。
+// はじめの月の量が毎月の量より少なく設定されたときは、毎月の量（減らさない）。
+export function freeTokensFor({ createdAt, monthKey, env = process.env } = {}) {
+  const base = freeTokens(env);
+  if (!(base > 0)) return 0;
+  return isFreeFirstMonth(createdAt, monthKey) ? Math.max(base, freeFirstMonthTokens(env)) : base;
+}
 export function trialTokens(env = process.env) {
   const yen = num(env.AI_TRIAL_BUDGET_JPY, NaN);
   if (Number.isFinite(yen) && yen >= 0) return Math.floor(yen / tokenJpy(env));
@@ -66,15 +88,17 @@ export function paidTokens(env = process.env) {
   if (Number.isFinite(yen) && yen >= 0) return Math.floor(yen / tokenJpy(env));
   return Math.max(0, Math.floor(num(env.AI_PAID_TOKENS, 800)));
 }
-export function allowanceFor(tier, env = process.env) {
-  if (tier === 'free') return freeTokens(env);
+// opts: { createdAt, monthKey }（無料のはじめの月を見るとき。無ければ毎月の量）。
+export function allowanceFor(tier, env = process.env, opts = null) {
+  if (tier === 'free') return opts ? freeTokensFor({ ...opts, env }) : freeTokens(env);
   if (tier === 'trial') return trialTokens(env);
   if (tier === 'paid') return paidTokens(env);
   return Infinity; // admin
 }
 // 原価の見積もりが出せない DB（supabase_ai_cost.sql 未適用）での回数の目安＝トークン ÷ 10（相談 1 回 約 10）。
-export function fallbackCallsFor(tier, env = process.env) {
-  return Math.max(0, Math.floor(allowanceFor(tier, env) / 10));
+// 無料のはじめの月は 60 ÷ 10 ＝ 6 回（opts は allowanceFor と同じ）。
+export function fallbackCallsFor(tier, env = process.env, opts = null) {
+  return Math.max(0, Math.floor(allowanceFor(tier, env, opts) / 10));
 }
 
 // 原価（トークン）で守れているときの回数の上限（reserve_ai_usage に渡す・暴走止めだけ）。
@@ -213,7 +237,7 @@ export function nextMonthFirstLabel(now = Date.now(), noBreak = false) {
 export function planRequiredMessage() {
   return 'この AI 機能は、プランでご利用いただけます。';
 }
-// 月のトークンを使い切った（無料・有料）。
+// 月のトークンを使い切った（無料・有料）。allowanceTokens は来月の量（無料のはじめの月の人も、来月は毎月の量）。
 export function monthlyTokensMessage(allowanceTokens, now = Date.now()) {
   return `今月のトークンは、ここまでです。${nextMonthFirstLabel(now, true)}に ${allowanceTokens} トークンに戻ります。`;
 }
@@ -226,6 +250,7 @@ export function trialTokensMessage(periodEnd, paidAllowance = 800) {
 }
 export function limitMessageFor(tier, { periodEnd, env = process.env, now = Date.now() } = {}) {
   if (tier === 'trial') return trialTokensMessage(periodEnd, paidTokens(env));
+  // 来月は、はじめの月の人も毎月の量（allowanceFor の opts を渡さない）。
   return monthlyTokensMessage(allowanceFor(tier, env), now);
 }
 
