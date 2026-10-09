@@ -1582,7 +1582,8 @@ details[open] > summary .fold-chevron { transform: rotate(180deg); }
 .date-field:focus-within .date-field__text { display: none; }
 .date-field__input:not(:focus) { color: transparent !important; }
 .date-field__input:not(:focus)::-webkit-datetime-edit { color: transparent; }
-.date-field__input { position: relative; padding-right: var(--tap-min) !important; }
+/* 左右の余白は欄の側で固定する（重ねた文字の位置＝左は --space-3＋枠 1・右は --tap-min とずれないように）。 */
+.date-field__input { position: relative; padding-left: var(--space-3) !important; padding-right: var(--tap-min) !important; border-width: 1px !important; }
 /* 端末の日付の印は見えなくして、右端の押せる範囲（--tap-min）に広げる（押すと日付の選び方が開く）。見える印は
    上に重ねる lucide の Calendar（--text-2・.date-field__icon）。iOS には印が無いので、重ねた印は目印だけ。 */
 .date-field__input::-webkit-calendar-picker-indicator {

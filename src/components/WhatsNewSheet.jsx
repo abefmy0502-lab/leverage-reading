@@ -24,12 +24,14 @@ const wrapText = { wordBreak: 'keep-all', overflowWrap: 'anywhere', lineBreak: '
 // 語の途中で割る最後の手段＝overflow-wrap が「。」だけを次の行の頭へ送っていた・2026-10-05）。
 const PUNCT_TAIL_RE = /([^\s\u00a0][。、」』）]+)/;
 const nowrap = { whiteSpace: 'nowrap' };
-// 「10月8日」「2026年10月9日」は途中で割らない（keepDateTogether・2026-10-09 ui-critic）。
-const DATE_RE = /((?:\d{4}年)?\d{1,2}月\d{1,2}日)/;
+// 「10月8日」「2026年10月9日」「◯月1日」は途中で割らない（keepDateTogether・2026-10-09 ui-critic）。
+// かぎかっこの中の 8 字以下の画面の言葉（「日付を選ぶ」「見る」など）もひとまとまり（かっこごと割らない）。
+const DATE_RE = /((?:\d{4}年)?[\d◯]{1,2}月\d{1,2}日)/;
+const KEEP_RE = new RegExp(`(${DATE_RE.source.slice(1, -1)}|「[^「」]{1,8}」)`);
 function phrased(text) {
   const t = String(text ?? '');
-  if (DATE_RE.test(t)) {
-    return t.split(DATE_RE).map((p, i) => (i % 2 === 1
+  if (KEEP_RE.test(t)) {
+    return t.split(KEEP_RE).map((p, i) => (i % 2 === 1
       ? <span key={`d${i}`} style={nowrap}>{p}</span>
       : <Fragment key={`t${i}`}>{phrasedPlain(p)}</Fragment>));
   }

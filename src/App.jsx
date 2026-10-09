@@ -1524,7 +1524,7 @@ function AuthedApp() {
     if (view !== 'list') setView('list');
     setShelfMode('home');
     setTimeout(() => {
-      const b = [...document.querySelectorAll('button')].find((x) => x.textContent.trim() === 'これまで読んだ本から始める' && x.offsetParent);
+      const b = [...document.querySelectorAll('[data-first-step]')].find((x) => x.offsetParent);
       if (!b) { openAdd('reading'); return; }
       try { b.focus({ preventScroll: true }); b.scrollIntoView({ block: 'center' }); } catch { /* ignore */ }
       b.classList.remove('nudge-pulse');

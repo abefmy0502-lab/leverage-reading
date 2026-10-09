@@ -41,7 +41,8 @@ function StartCard({ onQuickstart, onAddBook, onAdvisor, onImport }) {
       {/* 「読むほど、自分だけの相談相手が育つ」はログインと初回ガイドで伝え済み。ここは行動だけを示す（同じことを二度言わない）。 */}
       {/* 題名で目的を伝える（初日クイックスタートの題名「相談相手をつくる」とそろえる・SPEC §1-1）。 */}
       <h2 id="home-start-title" style={{ ...sectionTitle, margin: '0 0 var(--space-4)' }}>相談相手をつくる</h2>
-      <button type="button" onClick={onQuickstart} style={btnPrimary}>これまで読んだ本から始める</button>
+      {/* data-first-step: 本が 0 冊で「写真で共有」を押したとき、ここへフォーカスを送る印（App.jsx の pointToFirstStep）。 */}
+      <button type="button" data-first-step="" onClick={onQuickstart} style={btnPrimary}>これまで読んだ本から始める</button>
       <button type="button" onClick={onAddBook} style={{ ...btnGhost, marginTop: 'var(--space-3)' }}>いま読んでいる本を追加する</button>
       {/* 脇役の文字ボタンは 1 つだけ（2 つ並ぶとアクセント色が強すぎる）。AI 選書は「相談」タブから開ける。
           文字ボタンの上下の余り（高さ 44 のため）をカードの内側余白と相殺し、上下の見た目をそろえる。 */}
