@@ -110,6 +110,15 @@ const answerChipSelected = { background: 'var(--accent-soft)', borderColor: 'var
 // 前置き＝本のカードより控えめな 1 段落（15/--text-2）。
 const introText = { fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.6, margin: 0 };
 
+// 問いの終わりの「？」「。」を前の 2 文字とつなぐ（行頭に「？」だけを残さない・2026-10-09 ui-critic）。
+//   文字を大きくして最後の文節が 1 行に入らないとき、ブラウザは記号の前でも割るので、末尾は折り返さない塊にする。
+function phrasesGluedEnd(text) {
+  const t = String(text || '');
+  const m = t.match(/^([\s\S]*?)([^\s]{2}[？?。！!]+)$/u);
+  if (!m) return withPhraseBreaks(t);
+  return <>{withPhraseBreaks(m[1])}<span style={{ whiteSpace: "nowrap" }}>{m[2]}</span></>;
+}
+
 // 案内文の「10月1日」を途中で改行させない（サーバーの文に結合文字が無い場合の保険）。
 function keepDateTogether(text) {
   const re = /(\d{1,2}\u2060?月\u2060?\d{1,2}\u2060?日)/;
@@ -1621,7 +1630,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         return (
         <div ref={stepCardRef} style={{ ...advisorWizardCard, scrollMarginTop: 'var(--space-4)' }} role="group" aria-label="AI 選書からの問い">
           {/* 読み上げは問いの文だけ（カード全体を読み直さない） */}
-          <p ref={questionRef} tabIndex={-1} aria-live="polite" style={{ ...questionText, outline: 'none' }}>{withPhraseBreaks(interview.question)}</p>
+          <p ref={questionRef} tabIndex={-1} aria-live="polite" style={{ ...questionText, outline: 'none' }}>{phrasesGluedEnd(interview.question)}</p>
           <div className="ai-answer-field" style={{ marginTop: 'var(--space-3)' }}>
             <textarea
               ref={answerRef}
@@ -1680,7 +1689,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         const asking = !!summaryStep && !recoLoading;
         return (
           <div ref={summaryStep ? stepCardRef : undefined} style={{ ...advisorWizardCard, scrollMarginTop: 'var(--space-4)' }} role="group" aria-label="受け取った悩み" aria-live="polite">
-            <p style={fieldLabel}>あなたの悩みを、こう受け取りました</p>
+            <p style={{ ...fieldLabel, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('あなたの悩みを、こう受け取りました')}</p>
             <p style={{ ...readText, margin: 'var(--space-2) 0 0', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(text)}</p>
             {/* 命に関わる言葉があるときは、まとめのすぐ後に相談窓口（15/--text・外部リンク 44）。 */}
             {showCare && careNote}
@@ -1917,7 +1926,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
                   )}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 0 }}>#{i + 1}</p>
-                    <p style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, margin: 'var(--space-1) 0 0', overflowWrap: 'anywhere', textIndent: '-0.5em' }}>『{rec.title}』</p>
+                    <p style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, margin: 'var(--space-1) 0 0', overflowWrap: 'anywhere', wordBreak: 'keep-all', textIndent: '-0.5em' }}>『{withPhraseBreaks(rec.title, { scriptBreaks: true })}』</p>
                     {rec.author && (
                       <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: 'var(--space-1) 0 0' }}>{rec.author}</p>
                     )}
