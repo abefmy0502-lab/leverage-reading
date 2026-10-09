@@ -16,7 +16,7 @@
 //     （HomeRecall と同流儀）。lean な列だけ・range ページング・schema-error
 //     fallback（recall 列が無い DB では定着セクションを静かに隠す）。
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { isSchemaError } from '../lib/errors';
 import { useAuth } from '../hooks/useAuth';
@@ -418,15 +418,26 @@ export default function ReadingRecord({
   onGoToShelf,
   onShowTagMemos,
   onFindBooksForTag,
+  focusViewmap = 0,
 }) {
   const { user } = useAuth();
   const toast = useToast();
   const viewpoint = useViewpointMap();
   const [viewpointSheet, setViewpointSheet] = useState(false);
-  const chooseViewpoint = async (on) => {
+  const [viewpointBusy, setViewpointBusy] = useState(false);
+  // 使う／やめる。保存が終わるまでシートのボタンは「保存しています…」。アカウントに書けなかったら知らせる（この端末では選んだとおり）。
+  const chooseViewpoint = async (on, { undoable = false } = {}) => {
+    setViewpointBusy(true);
+    const result = await viewpoint.setOn(on);
+    setViewpointBusy(false);
     setViewpointSheet(false);
-    await viewpoint.setOn(on);
-    toast.info(on ? '視点の地図を使います。' : '視点の地図をやめました。付けたタグは残っています。');
+    if (result === 'local') {
+      toast.error('アカウントに保存できませんでした。この端末では選んだとおりに動きます。');
+      return;
+    }
+    if (on) toast.info('視点の地図を使います。');
+    else if (undoable) toast.undo({ message: '視点の地図をやめました', onUndo: () => { viewpoint.setOn(true); } });
+    else toast.info('視点の地図をやめました。付けたタグは残っています。');
   };
 
   // メモ統計（自己完結 fetch）。null = 取得中/未取得。
@@ -497,6 +508,25 @@ export default function ReadingRecord({
     return () => { active = false; };
   }, [user?.id]);
 
+  // 「‹ 視点の地図」で戻ったとき: 地図の題が上のサブタブの行のすぐ下（＋16）に来るまで送る（nonce ごとに 1 回）。
+  const viewmapFocusDone = useRef(0);
+  useEffect(() => {
+    if (!focusViewmap || viewmapFocusDone.current === focusViewmap || memoStats === null) return undefined;
+    viewmapFocusDone.current = focusViewmap;
+    const id = requestAnimationFrame(() => requestAnimationFrame(() => {
+      const el = document.querySelector('[data-viewpoint-map]');
+      if (!el) return;
+      let box = el.parentElement;
+      while (box && box !== document.body && !/(auto|scroll)/.test(getComputedStyle(box).overflowY)) box = box.parentElement;
+      const scroller = box && box !== document.body ? box : document.scrollingElement;
+      const bars = [...document.querySelectorAll('.sub-tabs')].map((b) => b.getBoundingClientRect().bottom);
+      const topEdge = Math.max(scroller === document.scrollingElement ? 0 : scroller.getBoundingClientRect().top, ...bars);
+      const gap = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--space-4')) || 16;
+      scroller.scrollTop += el.getBoundingClientRect().top - topEdge - gap;
+    }));
+    return () => cancelAnimationFrame(id);
+  }, [focusViewmap, memoStats]);
+
   const bookStats = useMemo(() => buildBookStats(books), [books]);
   const doneBuckets = useMemo(() => bucketize(bookStats.doneDates), [bookStats.doneDates]);
   // 足あと = メモ + 読了（読書に触れた日すべて）。
@@ -511,7 +541,7 @@ export default function ReadingRecord({
   const viewpointPart = viewpointRecordPart({ on: viewpoint.on, failed: !!memoStats?.failed });
   const viewpointMap = useMemo(() => buildViewpointMap(memoStats?.tagRows || []), [memoStats]);
   const viewpointSheetEl = viewpointSheet && (
-    <ViewpointMapSheet on={viewpoint.on} onChoose={chooseViewpoint} onClose={() => setViewpointSheet(false)} />
+    <ViewpointMapSheet on={viewpoint.on} busy={viewpointBusy} onChoose={(on) => chooseViewpoint(on, { undoable: !on })} onClose={() => { if (!viewpointBusy) setViewpointSheet(false); }} />
   );
 
   // メモ集計がまだ返っていない間は「記録は、これから」を出さない — 本0冊で
@@ -588,7 +618,7 @@ export default function ReadingRecord({
           onOpenTag={onShowTagMemos}
           onFindBooks={onFindBooksForTag}
           onAbout={() => setViewpointSheet(true)}
-          onStop={() => chooseViewpoint(false)}
+          onStop={() => chooseViewpoint(false, { undoable: true })}
         />
       )}
       {viewpointPart === 'invite' && (

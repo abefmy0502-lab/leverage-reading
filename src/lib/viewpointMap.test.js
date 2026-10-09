@@ -11,6 +11,7 @@ import {
 } from './viewpointMap';
 import { resolveViewpointOn, readViewpointOn, setViewpointOn, __resetViewpointSetting } from './viewpointMapSetting';
 import { ViewpointMapCard, ViewpointMapSheet } from '../components/ViewpointMap';
+import { supabase } from './supabase';
 
 describe('ひな形の形', () => {
   it('大分類 3 → 中分類 → タグ。タグは 12〜18 個・重ならない・短い', () => {
@@ -125,10 +126,21 @@ describe('使うかどうか（設定）', () => {
   });
   it('選ぶとすぐ効き、やめられる', async () => {
     const user = { id: 'u2', user_metadata: {} };
-    await setViewpointOn(user, true);
+    expect(await setViewpointOn(user, true)).toBe('saved');
     expect(readViewpointOn(user)).toBe(true);
     await setViewpointOn(user, false);
     expect(readViewpointOn(user)).toBe(false);
+  });
+});
+
+describe('保存の失敗', () => {
+  it('アカウントに書けなければ local（この端末では選んだとおり）', async () => {
+    __resetViewpointSetting();
+    supabase.auth.updateUser.mockImplementationOnce(async () => ({ error: { message: 'offline' } }));
+    const user = { id: 'u3', user_metadata: {} };
+    expect(await setViewpointOn(user, true)).toBe('local');
+    expect(readViewpointOn(user)).toBe(true);
+    expect(await setViewpointOn(null, true)).toBe(false);
   });
 });
 
@@ -147,7 +159,7 @@ describe('記録の地図', () => {
 
   it('件数は数字だけ（点数・%・「あと N 件」・埋めよう は出さない）', () => {
     expect(html).toContain('視点の地図');
-    expect(html).toContain('2 件');
+    expect(html).toContain('メモ 2 件');
     const text = html.replace(/<[^>]+>/g, ' ');
     for (const ng of ['%', 'あと', '埋め', '達成', 'ランキング', '位']) expect(text.includes(ng), ng).toBe(false);
   });
@@ -157,6 +169,11 @@ describe('記録の地図', () => {
     expect(html).toContain('aria-label="決め方のメモ 2 件を見る"');
     expect(html).toContain('aria-label="お金のメモ 1 件を見る"');
     expect(html).not.toContain('経済のメモ 0 件を見る');
+  });
+  it('地図のタグが 1 つも無い人には「この分野の本を探す」を並べず、付け方の 1 行だけ', () => {
+    const empty = renderToStaticMarkup(createElement(ViewpointMapCard, { map: buildViewpointMap([]), onOpenTag: () => {}, onFindBooks: () => {} })).replace(/<wbr\/>/g, '');
+    expect(empty).not.toContain('この分野の本を探す');
+    expect(empty).toContain('ここに数が出ます');
   });
   it('説明と選ぶシート: 使っていない人は「視点の地図を使う」、使っている人は「使うのをやめる」', () => {
     const off = renderToStaticMarkup(createElement(ViewpointMapSheet, { on: false, onChoose: () => {}, onClose: () => {} }));

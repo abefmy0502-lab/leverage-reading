@@ -337,6 +337,14 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
   const toast = useToast();
   // 🗺 視点の地図（メモのタグのひな形・2026-10-08）。切り替えはすぐ効く（アカウントには後ろで保存）。
   const viewpoint = useViewpointMap();
+  const [viewpointBusy, setViewpointBusy] = useState(false);
+  const toggleViewpoint = async () => {
+    if (viewpointBusy) return;
+    setViewpointBusy(true);
+    const result = await viewpoint.setOn(!viewpoint.on);
+    setViewpointBusy(false);
+    if (result === 'local') toast.error('アカウントに保存できませんでした。この端末では選んだとおりに動きます。');
+  };
   const confirm = useConfirm();
   // 閉じるときも滑り下ろす（入りは下から .25s で上がるのに、出だけ瞬間に消えると所作が非対称・
   // QuickMemoSheet の animateClose と同じ・2026-09-29）。「完了」・外側のタップ・Esc で使う。
@@ -1084,8 +1092,9 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
               control={(
                 <ToggleSwitch
                   checked={viewpoint.on}
+                  busy={viewpointBusy}
                   ariaLabel="視点の地図"
-                  onChange={() => { viewpoint.setOn(!viewpoint.on); }}
+                  onChange={toggleViewpoint}
                 />
               )}
             />

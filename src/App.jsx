@@ -2369,14 +2369,17 @@ function AuthedApp() {
   // 🔎 振り返り › メモを、検索欄に言葉を入れて開く（トークンを使い切った相談の「メモを検索して探す」・2026-09-29）。
   //   AI を使わずに、自分のメモから手がかりを探せるように。検索欄は画面のいちばん上なので先頭から見せる。
   const openMemoSearch = (query, opts = {}) => {
-    setMemoSearchPreset({ query: String(query || '').slice(0, 100), tag: opts.tag ? String(opts.tag) : '', nonce: Date.now() });
+    setMemoSearchPreset({ query: String(query || '').slice(0, 100), tag: opts.tag ? String(opts.tag) : '', from: opts.from || null, nonce: Date.now() });
     savedTabScroll.current[scrollKeyFor('review', 'note')] = 0;
     setView('list');
     setReviewSubTab('note');
     setTab('review');
   };
   // 🗺 視点の地図（振り返り › 記録）から: そのタグのメモの一覧（振り返り › メモのタグの絞り込み）／AI 選書の最初の悩みに入れて開く（送らない）。
-  const openMemosByTag = (tag) => openMemoSearch('', { tag });
+  const openMemosByTag = (tag) => openMemoSearch('', { tag, from: 'viewmap' });
+  // 「‹ 視点の地図」: 記録に戻り、地図の位置まで送る（ReadingRecord の focusViewmap）。
+  const [viewmapFocus, setViewmapFocus] = useState(0);
+  const backToViewmap = () => { setViewmapFocus(Date.now()); setReviewSubTab('record'); };
   const openAdvisorWithDraft = (text) => {
     setAdvisorDraft({ text: String(text || '').slice(0, 200), nonce: Date.now() });
     setView('list');
@@ -5433,7 +5436,8 @@ function AuthedApp() {
                 <Review books={books} onOpenBook={(b, memoId, opts) => { openDetail(b, memoId, opts); }} onAddAction={addActionFromMemo} onAddNote={() => setAddNoteSheet('pick')} onGoToShelf={() => { navigateTab('books'); goList(); setShelfMode('library'); }}
                   // メモ検索で見つからなかった言葉を、相談の入力欄に入れて開く（送らない・2026-09-29）。
                   onAskConsult={(q) => { setAskPreset({ question: q, nonce: Date.now(), draft: true }); setView('list'); setAiSubTab('brain'); setTab('ai'); }}
-                  searchPreset={memoSearchPreset} />
+                  searchPreset={memoSearchPreset}
+                  onBackToViewmap={backToViewmap} />
               </Suspense>
             ) : booksLoadError && rawBooks.length === 0 ? (
               // 本（行動も本に入っている）を読み込めなかったときは、「行動 0 件」「読んだ本 0」を出さない。
@@ -5459,6 +5463,7 @@ function AuthedApp() {
                   }}
                   onShowMemos={() => setReviewSubTab('note')}
                   onShowTagMemos={openMemosByTag}
+                  focusViewmap={viewmapFocus}
                   onFindBooksForTag={(tag) => openAdvisorWithDraft(advisorDraftFor(tag))}
                   onShowActions={() => { setActionShowDoneNonce(Date.now()); setReviewSubTab('action'); }}
                   onOpenBook={(b) => { setTab('books'); openDetail(b); }}

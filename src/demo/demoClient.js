@@ -29,6 +29,8 @@
 //     アプリに入っている版をその版にして「何が変わった？」（それより新しい版の中身）を出せる
 //   - &viewmap=on : 視点の地図を使っている人（メモに分野のタグが付いている・記録に地図が出る）。
 //     &viewmap=off : 使っていない人（端末に残った選択より優先）。付けなければ端末に残った選択（既定は使わない）
+//     &viewmap=notags : 使っているが、メモに地図のタグが 1 つも無い人
+//     &viewmapsave=slow : 使う／やめるの保存が 8 秒かかる（「保存しています…」の確認用）・fail : アカウントへの保存に失敗する
 // データはメモリ上だけ。再読み込みで初期状態に戻る。
 //
 // supabase-js のうち、このアプリが実際に使う範囲だけを再現する
@@ -337,8 +339,8 @@ export function createDemoClient() {
       display_name: scenario === 'new' ? '' : 'さとう',
       ai_consent: params.get('consent') === 'none' ? null : { version: AI_CONSENT_VERSION, at: '2026-10-01T00:00:00.000Z' },
       // 視点の地図（lib/viewpointMapSetting.js）。&viewmap=on / off のときだけアカウントの記録を持つ。
-      ...(params.get('viewmap') === 'on' || params.get('viewmap') === 'off'
-        ? { viewpoint_map: { on: params.get('viewmap') === 'on', at: '2026-10-08T00:00:00.000Z' } }
+      ...(['on', 'off', 'notags'].includes(params.get('viewmap'))
+        ? { viewpoint_map: { on: params.get('viewmap') !== 'off', at: '2026-10-08T00:00:00.000Z' } }
         : {}),
     },
     app_metadata: { provider: 'email' },
@@ -402,6 +404,11 @@ export function createDemoClient() {
         // &consent=slow（&consent=none と一緒に使う）: アカウントへの同意の保存がなかなか終わらない（「保存しています…」の確認用）。
         if (params.getAll('consent').includes('slow') && attrs?.data && 'ai_consent' in attrs.data) {
           await new Promise((r) => { setTimeout(r, 8000); });
+        }
+        // &viewmapsave=slow|fail: 視点の地図の保存（lib/viewpointMapSetting.js）の確認用。
+        if (attrs?.data && 'viewpoint_map' in attrs.data) {
+          if (params.get('viewmapsave') === 'slow') await new Promise((r) => { setTimeout(r, 8000); });
+          if (params.get('viewmapsave') === 'fail') return { data: null, error: { message: 'Failed to fetch' } };
         }
         if (store.session) {
           store.session.user = {

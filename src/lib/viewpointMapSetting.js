@@ -53,21 +53,23 @@ export function readViewpointOn(user) {
   });
 }
 
-// 使う／やめる。この起動中と端末にはすぐ効き、アカウントには後ろで書く。
+// 使う／やめる。この起動中と端末にはすぐ効き、アカウントにも書く。
+// 戻り値: 'saved'（アカウントにも保存）／'local'（アカウントに書けず、この端末だけ）／false（ログインしていない）。
 export async function setViewpointOn(user, on, now = new Date()) {
   if (!user?.id) return false;
   const record = { on: !!on, at: now.toISOString() };
   override = { userId: user.id, record };
   writeLocal(user.id, record);
   listeners.forEach((cb) => { try { cb(record); } catch { /* ignore */ } });
-  if (!isSupabaseConfigured) return true;
+  if (!isSupabaseConfigured) return 'local';
   try {
     const { error } = await supabase.auth.updateUser({ data: { [VIEWPOINT_META_KEY]: record } });
-    if (error) console.warn('[viewpoint-map] could not save to account:', error.message);
+    if (error) { console.warn('[viewpoint-map] could not save to account:', error.message); return 'local'; }
   } catch (e) {
     console.warn('[viewpoint-map] could not save to account:', e?.message);
+    return 'local';
   }
-  return true;
+  return 'saved';
 }
 
 // テスト用

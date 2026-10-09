@@ -1017,7 +1017,11 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   useEffect(() => {
     if (!draftPreset?.nonce || draftPreset.nonce === appliedAdvisorDraft) return;
     appliedAdvisorDraft = draftPreset.nonce;
-    if (interviewLoading || recoLoading || (advisorPendingJob && !advisorPendingJob.done)) return;
+    if (interviewLoading || recoLoading || (advisorPendingJob && !advisorPendingJob.done)) {
+      // 作っている途中は消さない。入れなかったことは知らせる（黙って言葉が消えたように見せない）。
+      advisorToast.info('いまの AI 選書を作っています。できあがってから、もう一度押してください。');
+      return;
+    }
     if (messages.length || recommendations || interview || recoError) startNewSession();
     setView('chat');
     setInput(String(draftPreset.text || ''));
