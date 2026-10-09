@@ -1555,3 +1555,31 @@ details[open] > summary .fold-chevron { transform: rotate(180deg); }
   color: var(--text-2);
   cursor: not-allowed;
 }
+
+/* 📅 日付の欄（DateInput.jsx・2026-10-09）: 押していない間は、欄の上に日本の書き方の文字（「2026年10月9日」／空なら
+   「日付を選ぶ」）を重ね、端末の文字（英語の環境の「mm/dd/yyyy」など）は透明にする。押している間は端末の表示に戻す。
+   文字の左の余白は入力欄の内側の余白（--space-3）＋枠 1。右はブラウザの日付の印の場所を空ける。 */
+.date-field { position: relative; min-width: 0; }
+.date-field__text {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 44px;
+  display: flex;
+  align-items: center;
+  padding-left: calc(var(--space-3) + 1px);
+  font-size: max(16px, var(--text-body));
+  font-weight: 400;
+  letter-spacing: normal;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+.date-field--empty .date-field__text { color: var(--text-3); }
+.date-field:focus-within .date-field__text { display: none; }
+.date-field__input:not(:focus) { color: transparent !important; }
+.date-field__input:not(:focus)::-webkit-datetime-edit { color: transparent; }
+.date-field__input::-webkit-calendar-picker-indicator { color: var(--text-2); }

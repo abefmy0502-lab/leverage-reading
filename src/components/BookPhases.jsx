@@ -17,11 +17,11 @@ import {
 } from 'lucide-react';
 import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff, btnText, btnLink, groupTitle, fieldNote } from '../styles/ui';
 import { MiniCover } from './BookCards';
+import DateInput from './DateInput';
 import { LIMITS } from '../lib/limits';
 import { useBookCover } from '../hooks/useBookCover';
 import { useToast } from './Toast';
 import MarkdownSections, { hasVisibleSections } from './MarkdownSections';
-import { DATE_HINT } from '../lib/dateHint';
 import {
   Field, SectionHeader, Stars, TagInput, Chip,
   inp, ta,
@@ -356,7 +356,7 @@ export function BeforePhase({
   return (
     <div>
       <Field label="読書開始日">
-        <input type="date" value={form.startDate || ""} data-empty={form.startDate ? undefined : DATE_HINT} onChange={(e) => setForm({ ...form, startDate: e.target.value })} style={dateInp(form.startDate)} />
+        <DateInput value={form.startDate || ""} onChange={(e) => setForm({ ...form, startDate: e.target.value })} style={dateInp(form.startDate)} aria-label="読書開始日" />
       </Field>
 
       {/* 📖 読む前に「この本で何を学べるか」をつかんでから、得たいこと・課題・仮説を書く（2026-10-08 オーナー）。 */}
@@ -533,15 +533,42 @@ export function BeforePhase({
 
 // 編集画面（積読・読書中・読了）の「保存」。画面の下に固定し、上に区切り線（iOS の作成画面の作法）。
 // 本を追加する画面（WantPhase）は従来どおり本文中の主ボタン（タグ・フォルダより上）。
-export function saveLabelFor(form, savedAsBefore) {
-  const planReady = !!form?.investPurpose?.trim();
-  return form?.status === 'before' && savedAsBefore && planReady ? '保存して読書を開始' : '保存';
-}
 // disabled: 読書計画シートを作っている間など、保存するとシートが途中で切れるとき（押せない主ボタン＝薄くしない・2026-09-29）。
-export function EditSaveBar({ onSave, label = '保存', saving = false, disabled = false }) {
+// onStart: 積読の読書計画の編集で得たいことがあるときだけ。状態を変えない「保存」（副）と「保存して読書を開始」（主）を
+//   並べる（2026-10-09・以前は「保存して読書を開始」だけで、保存すると必ず読書中になった）。
+//   文字を大きくして横に並ばないときは縦に積む（主ボタンを上に）。
+// data-toast-above: 下に固定した欄より上に知らせを浮かべる（CLAUDE.md の知らせの決まり・2026-10-09）。
+export function EditSaveBar({ onSave, onStart = null, label = '保存', saving = false, disabled = false }) {
+  const [pressed, setPressed] = useState(null); // 'save' | 'start'（押した方だけ「保存中…」）
+  const off = disabled || saving;
+  const barStyle = { flexShrink: 0, borderTop: '1px solid var(--separator)', background: 'var(--bg)', padding: 'var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom, 0px))' };
+  if (!onStart) {
+    return (
+      <div data-toast-above="" style={barStyle}>
+        <button type="button" onClick={onSave} disabled={disabled} aria-busy={saving || undefined} style={disabled ? btnPrimaryOff : btnPrimary}>{saving ? '保存中…' : label}</button>
+      </div>
+    );
+  }
   return (
-    <div style={{ flexShrink: 0, borderTop: '1px solid var(--separator)', background: 'var(--bg)', padding: 'var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom, 0px))' }}>
-      <button type="button" onClick={onSave} disabled={disabled} aria-busy={saving || undefined} style={disabled ? btnPrimaryOff : btnPrimary}>{label}</button>
+    <div data-toast-above="" style={{ ...barStyle, display: 'flex', flexWrap: 'wrap-reverse', gap: 'var(--space-3)' }}>
+      <button
+        type="button"
+        onClick={() => { setPressed('save'); onSave(); }}
+        disabled={off}
+        aria-busy={(saving && pressed === 'save') || undefined}
+        style={{ ...(off ? btnGhostOff : btnGhost), flex: '1 1 7em', width: 'auto' }}
+      >
+        {saving && pressed === 'save' ? '保存中…' : '保存'}
+      </button>
+      <button
+        type="button"
+        onClick={() => { setPressed('start'); onStart(); }}
+        disabled={off}
+        aria-busy={(saving && pressed === 'start') || undefined}
+        style={{ ...(off ? btnPrimaryOff : btnPrimary), flex: '2 1 11em', width: 'auto' }}
+      >
+        {saving && pressed === 'start' ? '保存中…' : '保存して読書を開始'}
+      </button>
     </div>
   );
 }
@@ -558,7 +585,7 @@ export function ReadingPhase({ form, setForm, onSave, onSaveSummary, onMakeActio
           読書計画シートは本の詳細にあるので、ここに二重に置かない（SPEC §2）。
           並びは読了と同じ: 日付 → 行動 → タグ・フォルダ →（下に固定の）保存。 */}
       <Field label="読書開始日">
-        <input type="date" value={form.startDate || ""} data-empty={form.startDate ? undefined : DATE_HINT} onChange={(e) => setForm({ ...form, startDate: e.target.value })} style={dateInp(form.startDate)} />
+        <DateInput value={form.startDate || ""} onChange={(e) => setForm({ ...form, startDate: e.target.value })} style={dateInp(form.startDate)} aria-label="読書開始日" />
       </Field>
 
       <ActionsEditor form={form} setForm={setForm} title="この本から決めた行動" placeholder="例：明日の朝、学んだ手法を1つ試す" />
@@ -578,7 +605,7 @@ export function DonePhase({ form, setForm, onSave, allTags, allFolders }) {
   return (
     <div>
       <Field label="読書完了日">
-        <input type="date" value={form.doneDate || ""} data-empty={form.doneDate ? undefined : DATE_HINT} onChange={(e) => setForm({ ...form, doneDate: e.target.value })} style={dateInp(form.doneDate)} />
+        <DateInput value={form.doneDate || ""} onChange={(e) => setForm({ ...form, doneDate: e.target.value })} style={dateInp(form.doneDate)} aria-label="読書完了日" />
       </Field>
 
       <Field label="評価（読んでよかった度）">
@@ -643,7 +670,7 @@ function ActionsEditor({ form, setForm, title, placeholder }) {
               <textarea rows={2} value={a.text} onChange={(e) => updateAction(i, "text", e.target.value)} placeholder={i === 0 ? placeholder : `行動 ${i + 1}`} style={{ ...ta, minHeight: 48 }} maxLength={LIMITS.actionText} aria-label={`行動 ${i + 1}`} />
               <label style={{ ...groupTitle, display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
                 期限
-                <input type="date" value={a.deadline || ""} data-empty={a.deadline ? undefined : DATE_HINT} onChange={(e) => updateAction(i, "deadline", e.target.value)} style={{ ...dateInp(a.deadline), fontWeight: 400, letterSpacing: 'normal' }} aria-label={`行動 ${i + 1} の期限`} />
+                <DateInput value={a.deadline || ""} onChange={(e) => updateAction(i, "deadline", e.target.value)} style={{ ...dateInp(a.deadline), fontWeight: 400, letterSpacing: 'normal' }} aria-label={`行動 ${i + 1} の期限`} />
               </label>
             </div>
             <button type="button" onClick={() => removeAction(i)} aria-label={`行動 ${i + 1} を削除`} style={{ background: "none", border: "none", color: 'var(--error)', cursor: "pointer", minWidth: 44, minHeight: 48, padding: 0, marginRight: 'calc(-1 * var(--space-4))', display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>

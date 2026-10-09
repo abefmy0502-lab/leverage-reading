@@ -108,6 +108,27 @@ export async function fetchUpcomingReleases({ fetchImpl } = {}) {
   }
 }
 
+// 同じ日の版（'2026-10-08'・'2026-10-08b'…）を 1 つの見出しにまとめて見せる（データは分けたまま・2026-10-09）。
+//   並びは新しい順のまま。まとめた版の id はその日でいちばん新しい版、項目は新しい版のものから順に。
+function releaseDay(release) {
+  const m = /^(\d{4}-\d{2}-\d{2})/.exec(release?.date || release?.id || '');
+  return m ? m[1] : String(release?.id || '');
+}
+export function groupReleasesByDay(releases) {
+  const out = [];
+  const byDay = new Map();
+  (Array.isArray(releases) ? releases : []).forEach((r) => {
+    if (!r || !Array.isArray(r.items)) return;
+    const day = releaseDay(r);
+    const cur = byDay.get(day);
+    if (cur) { cur.items = cur.items.concat(r.items); return; }
+    const merged = { ...r, date: r.date || day, items: [...r.items] };
+    byDay.set(day, merged);
+    out.push(merged);
+  });
+  return out;
+}
+
 // 日付の見出し（「10月5日の更新」）。
 export function releaseHeading(release) {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(release?.date || release?.id || '');

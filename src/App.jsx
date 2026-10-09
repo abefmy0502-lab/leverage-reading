@@ -161,13 +161,13 @@ import { completedActionMessage } from './lib/actionMessages';
 // 🧩 #9 App.jsx 分割: 本フォーム共通プリミティブと Phase エディタは別ファイルへ抽出。
 import { Stars, inp, btnS } from './components/formPrimitives';
 import { btnGhost, btnGhostOff, btnText, btnPrimary, btnPrimaryOff, btnLink, groupTitle } from './styles/ui';
-import { WantPhase, BeforePhase, ReadingPhase, DonePhase, EditSaveBar, saveLabelFor } from './components/lazyParts';
+import { WantPhase, BeforePhase, ReadingPhase, DonePhase, EditSaveBar } from './components/lazyParts';
 import { getAmazonLink } from './lib/amazonLink';
 import BookStoreLinks from './components/BookStoreLinks';
 import { getRakutenLink } from './lib/rakutenLink';
 import { loadNavState, saveNavState } from './lib/navState';
 import { consultCanLeave } from './lib/consultBack';
-import { actionGist, firstConsultQuestion } from './lib/consultHelpers';
+import { actionGist, firstConsultQuestion, shortTitle } from './lib/consultHelpers';
 import { takeOnboardPathDone } from './lib/firstDay';
 import { withPhraseBreaks } from './components/TightBubble';
 import {
@@ -920,6 +920,27 @@ function AuthedApp() {
     if (tab !== 'ai' || aiSubTab !== 'advisor' || view !== 'list') setAdvisorPushed(0);
   }, [tab, aiSubTab, view]);
   const [current, setCurrent] = useState(null);
+  // 🔔 本に結びついた知らせ（「保存しました。」＋行動に追加・「仮説に入れました」＋元に戻す）。
+  //   別の本の詳細を開いたら閉じる（前の本の「行動に追加」が別の本の画面まで付いてきていた・2026-10-09）。
+  //   閉じるだけで、元に戻すなどの処理は走らせない（skipExpire）。
+  const bookToastsRef = useRef(new Map()); // 知らせの id → 本の id
+  const bindToastToBook = (bookId, id) => {
+    if (bookId && id) {
+      bookToastsRef.current.set(id, bookId);
+      if (bookToastsRef.current.size > 20) bookToastsRef.current.delete(bookToastsRef.current.keys().next().value);
+    }
+    return id;
+  };
+  useEffect(() => {
+    const openId = (view === 'detail' || view === 'edit') ? current?.id : null;
+    if (!openId) return;
+    bookToastsRef.current.forEach((bookId, id) => {
+      if (bookId === openId) return;
+      toast.dismiss(id, { skipExpire: true });
+      bookToastsRef.current.delete(id);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current?.id, view]);
 
   // ── 画面復帰（iOS PWA リロード対策）─────────────────────────────────
   // バックグラウンドでメモリから落とされると、戻った時にアプリがまるごと
@@ -1989,7 +2010,11 @@ function AuthedApp() {
   // 押した瞬間から「保存中…」を出す（重複の確認・表紙の解決で待つ間も、押せたことが分かる・
   // 薄くしない＝DESIGN §5「押せないボタン」）。
   const [savingBook, setSavingBook] = useState(false);
-  const handleSave = async () => {
+  // opts.startReading: 積読の読書計画の編集で「保存して読書を開始」を押したときだけ true（2026-10-09）。
+  //   以前は得たいことがあれば「保存」がいつも読書中へ進めていた（仮説の例を足しに来ただけでも読書中になった）。
+  //   onClick={handleSave} から呼ばれるとクリックの印が来るので、true のときだけ進める。
+  const handleSave = async (opts) => {
+    const startReading = !!(opts && opts.startReading === true);
     // 二重送信ガード。handleSave は表紙解決(findIsbnCandidates/resolveCover)+saveBook の
     // 複数 await を含むため、連打すると新規本が二重作成されうる。
     if (savingRef.current) return;
@@ -2070,7 +2095,7 @@ function AuthedApp() {
       // 変えただけ（ユーザーの意図は『積読にする』であって『読書開始』ではない）
       // のケースで、過去に入力済みの投資目的が残っていると意図せず読書中へ
       // 自動昇格してしまうのを防ぐ。
-      const isSetupCompletion = !!current
+      const isSetupCompletion = startReading && !!current
         && current.status === 'before'
         && form.status === 'before'
         && !!(form.investPurpose && form.investPurpose.trim());
@@ -2701,7 +2726,8 @@ function AuthedApp() {
       startDate: fresh.startDate,
       doneDate: fresh.doneDate,
     };
-    const patch = { status: newStatus };
+    // opts.extra: 状態と一緒に残す欄（積読の「読書を開始する」で、下書きの得たいことを本に残す・2026-10-09）。
+    const patch = { status: newStatus, ...(opts.extra || {}) };
     // 開始日は「読み始めた日」＝読書中・読了に進めたとき（積読に積んだ日ではない）。
     if ((newStatus === "reading" || newStatus === "done") && !fresh.startDate) patch.startDate = todayLocal();
     if (newStatus === "done" && !fresh.doneDate) patch.doneDate = todayLocal();
@@ -3130,24 +3156,45 @@ function AuthedApp() {
   };
   const pickHypothesisInEdit = (h) => {
     setForm((f) => ({ ...f, hypothesis: appendHypothesis(f.hypothesis, h) }));
-    revealHypothesisField();
-  };
-  // 本の詳細（積読）で仮説の例を押したとき: 読書計画の編集画面を開いて、仮説の欄に入れる（保存はしない＝書き足して自分で保存）。
-  //   編集画面の「保存していない変更」の基準（view が edit になったときの form）より後に入れる＝閉じるときに確かめる。
-  const pendingHypothesisRef = useRef(null);
-  const pickHypothesisFromDetail = (book, hypothesis) => {
-    pendingHypothesisRef.current = { id: book.id, text: hypothesis };
-    openSetup(book);
-  };
-  useEffect(() => {
-    const p = pendingHypothesisRef.current;
-    if (view !== 'edit' || !p) return;
-    pendingHypothesisRef.current = null;
-    setForm((f) => (f && f.id === p.id ? { ...f, hypothesis: appendHypothesis(f.hypothesis, p.text) } : f));
+    // 知らせは下に固定の保存の欄の上に浮かぶ（EditSaveBar の data-toast-above・2026-10-09）。
     toast.info('仮説の欄に入れました');
     revealHypothesisField();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view]);
+  };
+  // 本の詳細（積読）で仮説の例を押したとき（2026-10-09）: 編集画面に移らず、詳細のまま本の仮説に足して保存し、
+  //   「仮説に入れました」＋元に戻す。以前は読書計画の編集画面へ移り、下のボタンが「保存して読書を開始」だけで、
+  //   保存すると読書中になっていた（仮説を足しに来ただけなのに）。
+  const saveHypothesis = (bookId, value) => enqueueBookMutation(bookId, async (entry) => {
+    const base = entry.latest || booksRef.current.find((b) => b.id === bookId);
+    if (!base) return;
+    const updated = { ...base, hypothesis: value };
+    mutateBookLocal(bookId, (b) => ({ ...b, hypothesis: value }));
+    setCurrent((c) => (c && c.id === bookId ? { ...c, hypothesis: value } : c));
+    setForm((f) => (f && f.id === bookId ? { ...f, hypothesis: value } : f));
+    const saved = await saveBook(updated);
+    entry.latest = saved || updated;
+  });
+  const pickHypothesisFromDetail = async (book, hypothesis) => {
+    const fresh = booksRef.current.find((b) => b.id === book.id) || book;
+    const prevHyp = fresh.hypothesis || '';
+    const nextHyp = appendHypothesis(prevHyp, hypothesis);
+    if (nextHyp === prevHyp) return;
+    try {
+      await saveHypothesis(book.id, nextHyp);
+    } catch (error) {
+      mutateBookLocal(book.id, (b) => ({ ...b, hypothesis: prevHyp }));
+      setCurrent((c) => (c && c.id === book.id ? { ...c, hypothesis: prevHyp } : c));
+      toast.error(toMessage(error, '仮説に入れられませんでした。'));
+      return;
+    }
+    haptic.light();
+    bindToastToBook(book.id, toast.undo({
+      message: '仮説に入れました',
+      success: true,
+      onUndo: async () => {
+        try { await saveHypothesis(book.id, prevHyp); } catch (error) { toast.error(toMessage(error, '仮説を元に戻せませんでした。')); }
+      },
+    }));
+  };
   const runStrategyInPlace = async (book) => {
     if (!book?.id || planGen) return;
     const src = buildFormFromBook(book); // 得たいことが空なら AI 選書の入力で埋まる（編集画面と同じ）
@@ -4219,6 +4266,8 @@ function AuthedApp() {
               pickedHypotheses={current.hypothesis || ''}
               info={bookAbout.info}
               error={briefError?.bookId === current.id ? briefError.message : ''}
+              // 「この本で学べることを見る」で作れたら、畳まずに開いて見せる（作ったのに畳まれて見えなかった・2026-10-09）。
+              defaultOpen={briefJustMadeId === current.id}
               style={{ marginTop: 0 }}
             />
           ) : (bookAbout.loading || hasBookInfo(bookAbout.info)) && (
@@ -4528,10 +4577,15 @@ function AuthedApp() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
                 <button
                   onClick={async () => {
+                    let startExtra = null;
                     if (current.status === 'before') {
                       // 🎯 投資目的は必須（本田哲学=「目的なき読書はしない」）。
                       // 1 行も無いまま読書中へは進ませない＝設定画面へ誘導。
-                      if (!current.investPurpose || !current.investPurpose.trim()) {
+                      // 判定は読書計画の編集画面と同じ（得たいことが空なら AI 選書で書いた悩みを下書きにする＝buildFormFromBook）。
+                      //   編集画面では下書きが入って「保存して読書を開始」できるのに、ここでは止めていた食い違いを直す（2026-10-09）。
+                      const purposeDraft = (buildFormFromBook(current).investPurpose || '').trim();
+                      if (!(current.investPurpose || '').trim() && purposeDraft) startExtra = { investPurpose: purposeDraft };
+                      if (!purposeDraft) {
                         const ok = await confirm({
                           title: '読む前に、この本から得たいことを決めましょう',
                           message:
@@ -4560,7 +4614,7 @@ function AuthedApp() {
                         }
                       }
                     }
-                    advanceStatus(current, nextStatus[current.status]);
+                    advanceStatus(current, nextStatus[current.status], startExtra ? { extra: startExtra } : {});
                   }}
                   // 主アクションはボタン正典（ブランド茶）に統一。以前は遷移先の
                   // ステータス色（紫/青/緑）で塗っており、詳細画面が暖色世界から
@@ -4685,7 +4739,8 @@ function AuthedApp() {
                     },
                   });
                 } else if (actionText && current?.id) {
-                  toast.show({
+                  const memoBookId = current.id;
+                  bindToastToBook(memoBookId, toast.show({
                     type: 'success',
                     // 「行動に追加」のボタンと並ぶので短く（390 幅で 2 行に折れていた・2026-09-30）。
                     message: '保存しました。',
@@ -4693,7 +4748,7 @@ function AuthedApp() {
                     action: {
                       label: '行動に追加',
                       onClick: async () => {
-                        const ok = await addActionFromMemo(current.id, {
+                        const ok = await addActionFromMemo(memoBookId, {
                           text: actionText,
                           sourceMemoId: typeof result?.id === 'string' ? result.id : null,
                           sourcePage: result?.page_number ?? payload?.pageNumber ?? null,
@@ -4701,7 +4756,7 @@ function AuthedApp() {
                         if (ok) toast.success('行動に追加しました。');
                       },
                     },
-                  });
+                  }));
                 } else {
                   toast.success('メモを保存しました。');
                 }
@@ -4910,11 +4965,12 @@ function AuthedApp() {
                 else leaveNewBookForm();
               }}
               // 詳細画面・すべての本の戻ると同じ形（ChevronLeft 20・間 0・見た目の左端 16）。
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 0, minHeight: 44, padding: '0 var(--space-2) 0 0', marginLeft: BACK_CHEVRON_PULL, background: 'none', border: 'none', color: 'var(--accent)', fontSize: BACK_LABEL_SIZE, whiteSpace: 'nowrap', fontFamily: 'inherit', cursor: 'pointer' }}
-              aria-label={current ? 'この本に戻る' : undefined}
-            >{/* iOS の作法: 戻るは戻り先の画面の名前。編集からはいつも本の詳細へ戻るので「この本」
-                （書名は下の見出しにあるので、上の行で繰り返さない・2026-10-01 オーナー裁定・SPEC §2）。 */}
-              <ChevronLeft size={20} aria-hidden="true" />{current ? 'この本' : newBookBackLabel}</button>
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 0, minWidth: 0, maxWidth: 'calc(100% - 44px - var(--space-4))', minHeight: 44, padding: '0 var(--space-2) 0 0', marginLeft: BACK_CHEVRON_PULL, background: 'none', border: 'none', color: 'var(--accent)', fontSize: BACK_LABEL_SIZE, whiteSpace: 'nowrap', fontFamily: 'inherit', cursor: 'pointer' }}
+              aria-label={current ? `『${current.title || 'この本'}』に戻る` : undefined}
+            >{/* iOS の作法: 戻るは戻り先の画面の名前＝戻り先の本の書名（2026-10-09・旧「この本」では、どの本の編集か上の行で分からなかった）。
+                長い書名は副題を外し、それでも入らなければ 1 行で … に切る（BACK_LABEL_SIZE の 1 行の決まり）。 */}
+              <ChevronLeft size={20} aria-hidden="true" style={{ flexShrink: 0 }} />
+              <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{current ? (shortTitle(current.title || '') || 'この本') : newBookBackLabel}</span></button>
             {/* 右端は「…」（すべての本・本の詳細と同じ形）。中はヘルプ（？の丸を単独で置かない・2026-09-30）。 */}
             <button
               type="button"
@@ -5029,8 +5085,16 @@ function AuthedApp() {
         </div>
         </div>
 
+        {/* 積読の読書計画の編集: 状態を変えない「保存」と「保存して読書を開始」を分ける（2026-10-09）。 */}
         {hasSaveBar && (
-          <EditSaveBar onSave={handleSave} saving={savingBook} disabled={!!aiLoading} label={savingBook ? '保存中…' : editPhaseNow === 'before' ? saveLabelFor(form, current?.status === 'before') : '保存'} />
+          <EditSaveBar
+            onSave={handleSave}
+            saving={savingBook}
+            disabled={!!aiLoading}
+            onStart={editPhaseNow === 'before' && current?.status === 'before' && form.status === 'before' && !!(form.investPurpose || '').trim()
+              ? () => handleSave({ startReading: true })
+              : null}
+          />
         )}
 
         <Modal open={searchOpen} ariaLabel="本を検索" onClose={() => { setSearchOpen(false); setSearchInitialQuery(''); setSearchInitialAuthor(''); setSearchInitialIsbn(''); }}>
@@ -5138,7 +5202,10 @@ function AuthedApp() {
           撮ったら、いま読んでいる本の記録を重ねたシートが開く（振り返り › 記録から開いて今月の読了があるときだけ「今月」を選んでおく）。 */}
       <button
         type="button"
-        onClick={() => openShareCamera({
+        onClick={() => (!booksLoading && books.length === 0
+          // 本が 0 冊のときはカメラを開かない（重ねる本の記録が無い・2026-10-09）。知らせから本を追加へ。
+          ? toast.show({ type: 'info', message: 'まず本を追加しましょう', action: { label: '本を追加', onClick: () => openAdd('reading') } })
+          : openShareCamera({
           fromHome: true,
           from: tab === 'review' ? 'review' : tab === 'ai' ? 'consult' : 'home',
           // 振り返り › 記録からは、今月に読み終えた本があるときだけ「今月」を選んでおく（無ければいま読んでいる本・2026-10-01）。
@@ -5147,7 +5214,7 @@ function AuthedApp() {
             ? (yearChoiceAllowed(books, appNow()) ? { initialSubject: { kind: 'year' } }
               : hasFinishedThisMonth(books, appNow()) ? { initialSubject: { kind: 'month' } } : {})
             : {}),
-        })}
+        }))}
         aria-label="写真で共有"
         // 文字は 15 から設定に合わせて大きくなるが、20 で止める（--text-bar-max・1 行に収める）。アイコンは右の ？・⚙️ と同じ 22。
         style={{ ...btnLink, fontSize: 'min(var(--text-sub), var(--text-bar-max))', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', padding: '0 var(--space-2)', whiteSpace: 'nowrap' }}
@@ -5244,7 +5311,7 @@ function AuthedApp() {
                 // シートが閉じ始めてから知らせを出す（本の詳細のメモを書くと同じ・2026-09-30）。
                 afterSheetCloses(() => {
                 if (actionText && b?.id) {
-                  toast.show({
+                  bindToastToBook(b.id, toast.show({
                     type: 'success',
                     // 「行動に追加」のボタンと並ぶので短く（390 幅で 2 行に折れていた・2026-09-30）。
                     message: '保存しました。',
@@ -5260,7 +5327,7 @@ function AuthedApp() {
                         if (ok) toast.success('行動に追加しました。');
                       },
                     },
-                  });
+                  }));
                 } else {
                   toast.success('メモを保存しました。');
                 }
@@ -6168,7 +6235,7 @@ function AuthedApp() {
       })()}
 
       {addNoteSheet === 'pick' && (
-        <BottomSheet title="どの本のメモにしますか？" onClose={() => setAddNoteSheet(null)}>
+        <BottomSheet title="どの本のメモにしますか？" onClose={() => setAddNoteSheet(null)} dismissLabel="キャンセル">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
             {[...books]
               .filter((b) => b.status === 'reading' || b.status === 'done')
@@ -6304,6 +6371,7 @@ function AuthedApp() {
             onManual={openManualFromAdd}
             initialQuery={addFromSearchQuery || ''}
             existingBooks={books}
+            forPhoto={ocrIntentActive}
             onOpenExisting={(existing, query) => {
               setAddBookModalOpen(false);
               // 詳細の ‹ 検索・「戻る」で、さっきの言葉の検索結果へ戻れるように覚えておく。

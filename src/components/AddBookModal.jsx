@@ -374,7 +374,8 @@ function BarcodeScanner({ onDetect, onClose, onTypeIsbn }) {
 // 本を追加
 // ---------------------------------------------------------------------------
 
-export default function AddBookModal({ onClose, onSelect, onManual, existingBooks = [], onOpenExisting, initialQuery = '' }) {
+// forPhoto: 初回ガイドの「本のページを撮る」から開いたとき（題を「本を選ぶ」・上に「まず本を選びます」の 1 行・2026-10-09）。
+export default function AddBookModal({ onClose, onSelect, onManual, existingBooks = [], onOpenExisting, initialQuery = '', forPhoto = false }) {
   // 本の追加フォームの「‹ 検索」で戻ってきたときは、さっきの言葉と結果をそのまま出す。
   const [query, setQuery] = useState(initialQuery);
   const [scanning, setScanning] = useState(false);
@@ -456,16 +457,21 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
       )}
 
       <div style={headerStyle}>
-        {/* iOS の全画面モーダルの作法: 「キャンセル」は左上（右上は決定の場所）。
+        <span />
+        <h2 id="add-book-title" style={{ margin: 0, fontSize: 'var(--text-body)', fontWeight: 600, lineHeight: 1.3, color: 'var(--text)' }}>
+          {forPhoto ? '本を選ぶ' : '本を追加'}
+        </h2>
+        {/* 「キャンセル」は右上（ほかのシート・画面の「キャンセル」「完了」と同じ場所にそろえる・2026-10-09。以前はここだけ左上）。
             検索中でも閉じられる（応答が返らなくても閉じ込めない。中断はフック側が行う）。 */}
         <button
           type="button"
           onClick={closeAnimated}
           style={{
-            justifySelf: 'start',
+            justifySelf: 'end',
             minWidth: 44,
             minHeight: 44,
             padding: 0,
+            // 押せる範囲は 44 のまま、文字の右端を余白 16 にそろえる
             background: 'none',
             border: 'none',
             cursor: 'pointer',
@@ -479,14 +485,16 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
         >
           キャンセル
         </button>
-        <h2 id="add-book-title" style={{ margin: 0, fontSize: 'var(--text-body)', fontWeight: 600, lineHeight: 1.3, color: 'var(--text)' }}>
-          本を追加
-        </h2>
-        <span />
       </div>
 
       <div style={bodyStyle}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+          {/* 📷 本のページを撮るから来た人に、いま何をする画面か（撮る前に本を選ぶ）を 1 行だけ。 */}
+          {forPhoto && (
+            <p style={{ margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+              {withPhraseBreaks('まず本を選び、そのあとページを撮ります。')}
+            </p>
+          )}
           <BookSearchField
             id="add-book-query"
             value={query}

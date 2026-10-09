@@ -423,6 +423,8 @@ export default function ReadingRecord({
   const { user } = useAuth();
   const toast = useToast();
   const viewpoint = useViewpointMap();
+  // 「視点の地図を使う」を押した直後に地図まで送るための合図（focusViewmap と同じ送り方・2026-10-09）。
+  const [selfViewmapFocus, setSelfViewmapFocus] = useState(0);
   const [viewpointSheet, setViewpointSheet] = useState(false);
   // 保存中は選んだ側（true＝使う／false＝やめる）。null＝保存していない。シートは押したボタンの形のまま「保存しています…」。
   const [viewpointBusy, setViewpointBusy] = useState(null);
@@ -436,7 +438,8 @@ export default function ReadingRecord({
       toast.error('アカウントに保存できませんでした。この端末では選んだとおりに動きます。');
       return;
     }
-    if (on) toast.info('視点の地図を使います。');
+    // 使い始めたら、知らせだけで終わらせず地図の題までその場で送る（地図は記録のいちばん下に出るので、画面の外のままだった・2026-10-09）。
+    if (on) { toast.info('視点の地図を使います。'); setSelfViewmapFocus(Date.now()); }
     else if (undoable) toast.undo({ message: '視点の地図をやめました', onUndo: () => { viewpoint.setOn(true); } });
     else toast.info('視点の地図をやめました。付けたタグは残っています。');
   };
@@ -511,9 +514,10 @@ export default function ReadingRecord({
 
   // 「‹ 視点の地図」で戻ったとき: 地図の題が上のサブタブの行のすぐ下（＋16）に来るまで送る（nonce ごとに 1 回）。
   const viewmapFocusDone = useRef(0);
+  const viewmapNonce = Math.max(focusViewmap || 0, selfViewmapFocus || 0);
   useEffect(() => {
-    if (!focusViewmap || viewmapFocusDone.current === focusViewmap || memoStats === null) return undefined;
-    viewmapFocusDone.current = focusViewmap;
+    if (!viewmapNonce || viewmapFocusDone.current === viewmapNonce || memoStats === null) return undefined;
+    viewmapFocusDone.current = viewmapNonce;
     const id = requestAnimationFrame(() => requestAnimationFrame(() => {
       const el = document.querySelector('[data-viewpoint-map]');
       if (!el) return;
@@ -523,10 +527,15 @@ export default function ReadingRecord({
       const bars = [...document.querySelectorAll('.sub-tabs')].map((b) => b.getBoundingClientRect().bottom);
       const topEdge = Math.max(scroller === document.scrollingElement ? 0 : scroller.getBoundingClientRect().top, ...bars);
       const gap = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--space-4')) || 16;
-      scroller.scrollTop += el.getBoundingClientRect().top - topEdge - gap;
+      const delta = el.getBoundingClientRect().top - topEdge - gap;
+      let reduce = false;
+      try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { /* ignore */ }
+      // 押したその場で送るときはなめらかに（戻ってきたときは今までどおり一度に）。
+      if (selfViewmapFocus === viewmapNonce && !reduce && scroller.scrollBy) scroller.scrollBy({ top: delta, behavior: 'smooth' });
+      else scroller.scrollTop += delta;
     }));
     return () => cancelAnimationFrame(id);
-  }, [focusViewmap, memoStats]);
+  }, [viewmapNonce, memoStats]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const bookStats = useMemo(() => buildBookStats(books), [books]);
   const doneBuckets = useMemo(() => bucketize(bookStats.doneDates), [bookStats.doneDates]);

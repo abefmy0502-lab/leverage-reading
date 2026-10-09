@@ -15,7 +15,7 @@ import { ChevronDown } from 'lucide-react';
 import BottomSheet from './BottomSheet';
 import { withPhraseBreaks } from './TightBubble';
 import { btnPrimary, groupTitle } from '../styles/ui';
-import { releaseHeading } from '../lib/whatsNew';
+import { releaseHeading, groupReleasesByDay } from '../lib/whatsNew';
 
 const wrapText = { wordBreak: 'keep-all', overflowWrap: 'anywhere', lineBreak: 'strict' };
 
@@ -200,7 +200,8 @@ function ReleaseItems({ release, open = null }) {
 // releases: 新しい順の版の配列。2 つ目からは畳む（多いと最初の版が下に押し流されるため）。
 // openCount: いちばん新しい版で開いておく件数（null＝全部・設定の一覧）。
 export function ReleaseNotesList({ releases, openCount = null }) {
-  const list = Array.isArray(releases) ? releases.filter((r) => r && Array.isArray(r.items) && r.items.length) : [];
+  // 同じ日の版は 1 つの見出しにまとめる（「10月8日の更新」が 5 つ並ばないように・2026-10-09）。
+  const list = groupReleasesByDay(Array.isArray(releases) ? releases : []).filter((r) => r && Array.isArray(r.items) && r.items.length);
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
       {list.map((r, i) => (i === 0 ? (

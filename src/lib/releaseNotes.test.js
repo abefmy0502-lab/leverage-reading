@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { RELEASES, CURRENT_RELEASE_ID, WHERE_NAMES } from './releaseNotes';
 import {
-  decideWhatsNew, releasesNewerThan, sanitizeReleases, compareReleaseId, releaseHeading,
+  decideWhatsNew, releasesNewerThan, sanitizeReleases, compareReleaseId, releaseHeading, groupReleasesByDay,
 } from './whatsNew';
 
 // 「新しくなったこと」は利用者が読む文（CLAUDE.md ルール 5）。どの項目にも
@@ -157,5 +157,20 @@ describe('sanitizeReleases（サーバーの release-notes.json）', () => {
     const long = 'あ'.repeat(1000);
     const out = sanitizeReleases({ releases: [{ id: '2026-10-06', items: [{ where: long, what: long, before: long, after: long, impact: long, intent: long }] }] });
     expect(out[0].items[0].what.length).toBe(400);
+  });
+
+  it('同じ日の版は 1 つの見出しにまとめる（新しい版の項目から）', () => {
+    const it1 = (w) => ({ where: '相談', what: w, before: 'b。', after: 'c。', impact: 'd。', intent: 'e。' });
+    const out = groupReleasesByDay([
+      { id: '2026-10-08b', date: '2026-10-08', items: [it1('新')] },
+      { id: '2026-10-08', date: '2026-10-08', items: [it1('古1'), it1('古2')] },
+      { id: '2026-10-05', date: '2026-10-05', items: [it1('前')] },
+    ]);
+    expect(out.map((r) => r.id)).toEqual(['2026-10-08b', '2026-10-05']);
+    expect(out[0].items.map((i) => i.what)).toEqual(['新', '古1', '古2']);
+    expect(releaseHeading(out[0])).toBe('10月8日の更新');
+    // 実際の一覧でも、同じ見出しが 2 つ並ばない
+    const heads = groupReleasesByDay(RELEASES).map(releaseHeading);
+    expect(new Set(heads).size).toBe(heads.length);
   });
 });

@@ -22,9 +22,8 @@ const loaders = {
   authCallback: () => import('./auth/AuthCallback'),
   markdownSections: () => import('./MarkdownSections'),
   authorThankYou: () => import('./AuthorThankYou'),
-  bookPhases: () => import('./BookPhases').then((m) => { bookPhasesMod = m; return m; }),
+  bookPhases: () => import('./BookPhases'),
 };
-let bookPhasesMod = null;
 
 function withSuspense(load, fallback) {
   const Impl = lazy(load);
@@ -112,7 +111,7 @@ const phaseFallback = (
 );
 // 保存の欄は BookPhases の EditSaveBar と同じ形・同じ高さで、押せない主ボタンを置いておく。
 const saveBarFallback = (
-  <div style={{ flexShrink: 0, borderTop: '1px solid var(--separator)', background: 'var(--bg)', padding: 'var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom, 0px))' }}>
+  <div data-toast-above="" style={{ flexShrink: 0, borderTop: '1px solid var(--separator)', background: 'var(--bg)', padding: 'var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom, 0px))' }}>
     <button type="button" disabled aria-busy="true" style={btnPrimaryOff}>保存</button>
   </div>
 );
@@ -122,16 +121,6 @@ export const BeforePhase = phase('BeforePhase');
 export const ReadingPhase = phase('ReadingPhase');
 export const DonePhase = phase('DonePhase');
 export const EditSaveBar = phase('EditSaveBar', saveBarFallback);
-// 保存ボタンの文言。BookPhases を読み終えていればその場で文字を返す。まだなら、
-// 読み終えたら同じ関数で文字を出す小さな部品を返す（EditSaveBar はボタンの中に {label} を置くだけなので、
-// 文字でも部品でも同じ見た目になる）。
-const SaveLabel = lazy(() => loaders.bookPhases().then((m) => ({
-  default: ({ form, savedAsBefore }) => m.saveLabelFor(form, savedAsBefore),
-})));
-export function saveLabelFor(form, savedAsBefore) {
-  if (bookPhasesMod) return bookPhasesMod.saveLabelFor(form, savedAsBefore);
-  return <SaveLabel form={form} savedAsBefore={savedAsBefore} />;
-}
 
 // 手が空いたときに先読みする（ログイン済み・ネイティブだけ。LP を見に来た人の通信は増やさない）。
 function looksSignedIn() {

@@ -48,8 +48,10 @@ function hasBottomBar() {
 // data-toast-above: 下に固定した欄が決定ボタンの欄より高いとき（初日クイックスタートの「選んだ本」の列＋「次へ」）や、
 // タブの上に浮いた新しい版の知らせ（UpdateBanner）は、その上端より上に浮かべる（重なって読めなかった・2026-10-04）。
 // シートが開いている間は、いちばん上のシートの中の印だけを見る。
+// 下のタブが無い画面（本の編集＝下に固定の保存の欄）でも、印があればその上に浮かべる（保存のボタンに重なっていた・2026-10-09）。
 function barBottom() {
-  if (!hasBottomBar()) return BOTTOM_PLAIN;
+  if (typeof document === 'undefined') return BOTTOM_PLAIN;
+  if (!hasBottomBar() && (document.body?.classList.contains('keyboard-open') || !document.querySelector('[data-toast-above]'))) return BOTTOM_PLAIN;
   const dialogs = document.querySelectorAll(OPEN_DIALOG);
   const marks = dialogs.length
     ? [...dialogs[dialogs.length - 1].querySelectorAll('[data-toast-above]')]
@@ -60,7 +62,7 @@ function barBottom() {
     if (r.height > 0 && r.top < top) top = r.top;
   }
   if (top < Infinity) return `calc(${Math.max(0, Math.round(window.innerHeight - top))}px + var(--space-2))`;
-  return BOTTOM_WITH_BAR;
+  return hasBottomBar() ? BOTTOM_WITH_BAR : BOTTOM_PLAIN;
 }
 
 // 高さの位置は bottom ではなく transform で動かす（bottom を動かすと毎フレーム配置し直しになり、カクついていた・2026-09-30）。

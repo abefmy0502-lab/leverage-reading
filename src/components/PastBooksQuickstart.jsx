@@ -718,16 +718,18 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
                   onChange={(e) => setAskText(e.target.value)}
                   rows={2}
                   maxLength={LIMITS.aiQuestion}
-                  placeholder="例：上司への報告がうまくいかない"
+                  // 空のときは押せない理由が分かるように（「相談する」は書いてから押せる・2026-10-09）。
+                  placeholder="困っていることを書くと、相談できます（例：上司への報告がうまくいかない）"
                   aria-labelledby="qs-ask"
                   style={{ ...inputStyle, display: 'block', resize: 'none', lineHeight: 1.5 }}
                 />
+                {/* 空のままは押せない形（DESIGN §5 押せない主ボタン＝薄くしない）。以前は押せる見た目で、押しても何も起きなかった。 */}
                 <button
                   type="button"
-                  style={{ ...btnPrimary, marginTop: 'var(--space-3)' }}
+                  disabled={!askText.trim()}
+                  style={{ ...(askText.trim() ? btnPrimary : btnPrimaryOff), marginTop: 'var(--space-3)' }}
                   onClick={() => {
                     const q = askText.trim();
-                    // 空のまま押したら入力欄へ（主ボタンは薄くしない・ホームの相談カードと同じ）
                     if (!q) { askRef.current?.focus(); return; }
                     track('quickstart_first_consult', { example: askedExample === q });
                     track('try_consult', { from: 'quickstart' });

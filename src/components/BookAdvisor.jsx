@@ -1130,8 +1130,9 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     }
     if (messages.length || recommendations || interview || recoError) startNewSession();
     setView('chat');
+    // 書く状態（入力欄にカーソル）にはしない（2026-10-09）: カーソルを置くと相談｜AI 選書の行と下のタブが隠れて、
+    //   どこに来たのか分からなくなっていた。下書きを入れるだけ＝送るか直すかは入力欄を押してから。
     setInput(String(draftPreset.text || ''));
-    setTimeout(() => { try { inputRef.current?.focus({ preventScroll: true }); } catch { /* ignore */ } }, 0);
   }, [draftPreset?.nonce]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 履歴詳細から「💬 この会話を続ける」が押されたら、その session の状態を
@@ -1520,7 +1521,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       </button>
     )}
     {/* 推薦が出ている間は、やり直しの入口を下の「別の条件で探す」1 つにする（同じ操作を 2 か所に出さない）。 */}
-    {messages.length > 0 && !recommendations && (
+    {messages.length > 0 && !recommendations ? (
       <button
         type="button"
         onClick={startNewSession}
@@ -1530,7 +1531,10 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       >
         <IcNewChat size={22} strokeWidth={1.75} aria-hidden="true" />
       </button>
-    )}
+    ) : sessionApi?.available && barSlot ? (
+      // 新規が無い間も同じ幅の場所を取る＝履歴（🕒）の位置を相談（🕒・…）とそろえ、タブを切り替えても跳ねない（2026-10-09）。
+      <span aria-hidden="true" style={{ ...iconBtn, visibility: 'hidden' }} />
+    ) : null}
     </>
   );
 
