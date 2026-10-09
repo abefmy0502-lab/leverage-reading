@@ -73,11 +73,10 @@ export function interviewChips(step) {
   return [...starts, { kind: 'off', label: OPT_OFF }, { kind: 'unsure', label: OPT_UNSURE }];
 }
 
-// 書き出しを入力欄に入れる形: 言い切らずに続きを書く余地を作る（末尾に「、」・すでに句読点や … で終わっていればそのまま）。
+// 答えの候補を入力欄に入れる形（2026-10-09 オーナー「が、のあとはあるかなししかなく、続きを書く意味がない」）:
+//   候補は言い切った短い答え。押すとそのまま入る（そのまま送っても、直しても、書き足してもよい）。
 export function starterText(label) {
-  const t = str(label);
-  if (!t) return '';
-  return /[、,，…。！？!?]$/u.test(t) ? t : `${t}、`;
+  return str(label);
 }
 
 // 書き出しのチップを押したときの入力欄の中身（カーソルは末尾に置く＝呼ぶ側）。
@@ -114,7 +113,7 @@ export function ownWords(answer, starter = '') {
   return rest.replace(/^[、,，\s]+/u, '').trim();
 }
 
-// チップの言葉だけ（何も書き足していない）なら送れない＝続きを書いてもらう（2026-10-08 ui-critic）。
+// 候補の言葉だけ（何も書き足していない）か。送るのは止めない（2026-10-09）。AI に渡す印を変えるのに使う。
 export function onlyStarter(answer, labels = []) {
   const a = str(answer);
   if (!a) return false;
@@ -129,9 +128,11 @@ export function buildPriorQA(answers) {
       if (x?.unsure) return `Q. ${q}\nA. ${UNSURE_ANSWER}`;
       const a = clamp(oneBlock(x?.a), 400);
       if (!a) return '';
-      // 書き出しを使った答えは、その印を付ける（AI が引くのは本人が書き足した部分・書き出しの言葉は引かない）。
+      // 候補を使った答えは、その印を付ける（AI が「本人の言葉」として引くのは本人が書いた部分だけ）。
       const st = clamp(str(x?.starter), 40);
-      const starterNote = st ? `\n（書き出し「${st}」を使った。引くのは、そのあとに本人が書き足した部分）` : '';
+      const starterNote = !st ? ''
+        : a === st ? `\n（候補「${st}」をそのまま選んだ。本人の言葉としては引かない）`
+        : `\n（候補「${st}」に本人が書き足した。引くのは、書き足した部分）`;
       return `Q. ${q}\nA. ${a}${starterNote}${x?.off ? `\n${OFF_NOTE}` : ''}`;
     })
     .filter(Boolean)

@@ -47,7 +47,7 @@ import ErrorMessage from './ErrorMessage';
 import { SkeletonBlock } from './Skeleton';
 import TightBubble, { withPhraseBreaks } from './TightBubble';
 import { displayUserText, concernOf, interviewPairsOf, confirmedOf, advisorSetupPayload } from '../lib/advisorText';
-import { MAX_INTERVIEW_QUESTIONS, OPT_UNSURE, OFF_PLACEHOLDER, parseInterviewStep, interviewChips, applyStarter, starterOf, onlyStarter, buildPriorQA, buildRecoMessage, spokenAnswers, needsCareLine, CARE_LINE, CARE_LINK } from '../lib/advisorInterview';
+import { MAX_INTERVIEW_QUESTIONS, OPT_UNSURE, OFF_PLACEHOLDER, parseInterviewStep, interviewChips, applyStarter, starterOf, buildPriorQA, buildRecoMessage, spokenAnswers, needsCareLine, CARE_LINE, CARE_LINK } from '../lib/advisorInterview';
 import { usePaywall } from '../state/PaywallContext';
 import { findDuplicateBook } from '../lib/checkDuplicate';
 import { filterProseTitles, proseTitleLists } from '../lib/advisorProse';
@@ -261,7 +261,6 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   const [interviewLoading, setInterviewLoading] = useState(false); // 問いを考えている途中
   const [answerText, setAnswerText] = useState(() => memo0.answerText || ''); // 「自分の言葉で答える」の入力
   const [answerOff, setAnswerOff] = useState(() => !!memo0.answerOff);       // 「どれも少し違う」を押した
-  const [starterHint, setStarterHint] = useState(false);                  // 書き出しだけで送ろうとした（続きを書く案内・2026-10-09）
   // 確かめる一歩 { summary, from }（from＝「このくらいで探して」を押した問い・戻る先）| null
   const [summaryStep, setSummaryStep] = useState(() => memo0.summaryStep || null);
   const [correcting, setCorrecting] = useState(() => !!memo0.correcting);    // 「少し違う（直す）」で書いている
@@ -504,7 +503,6 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       return 'summary';
     }
     setInterview(step);
-    setStarterHint(false);
     remember({ interview: step });
     return 'question';
   };
@@ -932,8 +930,6 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     if (!interview || interviewLoading || askingRef.current) return;
     const a = unsure ? '' : clamp(sanitizeForPrompt(String(raw || '')), LIMITS.advisorAnswer).trim();
     if (!unsure && !a) return;
-    // 書き出しだけのときは送らずに、続きを書く場所へ戻して一言で伝える（押せないボタンにしない）
-    if (!unsure && onlyStarter(a, interview.options || [])) { setStarterHint(true); focusAnswer(); return; }
     askingRef.current = true;
     try { advisorHaptic.light(); } catch { /* non-critical */ }
     const entry = unsure
@@ -1008,7 +1004,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     proceedToRecommend(err.answers, null);
   };
 
-  // 書き出しのチップ: 押すと入力欄に入るだけ（続きを書き足せる・そのまま送ってもよい）。
+  // 答えの候補のチップ: 押すと入力欄に入る（そのまま送っても、直しても、書き足してもよい・2026-10-09）。
   //   「どれも少し違う」は「どこが違いますか？」と入力欄を開く。「まだ言葉にできない」は角度を変えた問いへ。
   //   iOS は押した操作の中で focus しないとキーボードが開かないので、先にその場で focus し、
   //   入れた文の末尾へのカーソル移動だけを後で行う（2026-10-09 オーナー「押しても動かない」）。
@@ -1031,7 +1027,6 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       return;
     }
     setAnswerText((t) => applyStarter(t, chip.label, labels));
-    setStarterHint(false);
     focusAnswer();
   };
 
@@ -1039,7 +1034,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   //   書きかけの答えがあれば、それも入れてまとめてもらう（1 回だけ AI に聞く）。
   const searchNow = () => {
     if (!interview || interviewLoading || askingRef.current) return;
-    if (answerText.trim() && !onlyStarter(answerText, interview.options || [])) { answerQuestion(answerText, { finish: true }); return; }
+    if (answerText.trim()) { answerQuestion(answerText, { finish: true }); return; }
     if (interview.summary) {
       setSummaryStep({ summary: interview.summary, from: interview });
       setInterview(null);
@@ -1633,7 +1628,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       )}
 
       {/* いまの問い（1 つだけ・2026-10-08）。自分の言葉が主役: 問いのすぐ下に「自分の言葉で答える」。
-          書き出しのチップはその下に枠だけで控えめに（押すと入力欄に入り「、」で続きを書く余地を作るだけ＝答えを決めない）。
+          答えの候補のチップはその下に枠だけで控えめに（押すと入力欄に入る・そのまま送っても直してもよい＝2026-10-09）。
           逃げ道の「どれも少し違う」「まだ言葉にできない」は別の行（間 12）。脇役の文字ボタンはさらに下（間 16）。 */}
       {interview && !recoLoading && (() => {
         const chips = interviewChips(interview);
@@ -1663,7 +1658,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
             <textarea
               ref={answerRef}
               value={answerText}
-              onChange={(e) => { setAnswerText(e.target.value); setStarterHint(false); }}
+              onChange={(e) => setAnswerText(e.target.value)}
               placeholder={answerOff ? OFF_PLACEHOLDER : '自分の言葉で答える'}
               rows={1}
               maxLength={LIMITS.advisorAnswer}
@@ -1680,7 +1675,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
               type="button"
               className="send-btn"
               onClick={() => answerQuestion(answerText)}
-              // 書き出しだけのときも押せる（押すと続きを書く案内を出す・2026-10-09）
+              // 候補をそのまま送ってもよい（2026-10-09）
               disabled={!answerText.trim() || interviewLoading}
               aria-label="答える"
               title="答える"
@@ -1688,13 +1683,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
               <IcSend size={20} strokeWidth={2.25} aria-hidden="true" />
             </button>
           </div>
-          {starterHint && (
-            <p role="status" style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-              {withPhraseBreaks('「、」のあとに、続きを自分の言葉で書いてから送ってください。')}
-            </p>
-          )}
           {starts.length > 0 && (
-            <div role="group" aria-label="書き出しのきっかけ" style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
+            <div role="group" aria-label="答えの候補" style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
               {starts.map(chipBtn)}
             </div>
           )}

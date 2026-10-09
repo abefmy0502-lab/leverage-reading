@@ -17,11 +17,11 @@ describe('指示文（advisorInterview）の形', () => {
   it('本音に近づく 4 つの向き（何があったか・引っかかり・どうなりたいか・叶わないと何が困るか）', () => {
     for (const w of ['何があったか', 'いちばん引っかかっている', '本当はどうなりたいか', '叶わないと何が困るか']) expect(sys).toContain(w);
   });
-  it('選択肢は書き出しのきっかけ・誘導しない・逃げ道はアプリが付ける', () => {
-    expect(sys).toMatch(/書き出しのきっかけ/);
-    expect(sys).toMatch(/8〜20 字/);
-    expect(sys).toMatch(/言い切らず、続きを書きたくなる形で終える/);
-    expect(sys).toMatch(/願望や結論/);
+  it('選択肢は言い切った短い答えの候補（書き出しだけにしない）・誘導しない・逃げ道はアプリが付ける', () => {
+    expect(sys).toMatch(/答えの候補/);
+    expect(sys).toMatch(/8〜24 字/);
+    expect(sys).toMatch(/言い切った短い答え/);
+    expect(sys).toMatch(/書き出しだけの形にしない/);
     expect(sys).toMatch(/引用は省略しない/);
     expect(sys).toMatch(/押し付けない/);
     expect(sys).toContain(OPT_OFF);
@@ -53,7 +53,7 @@ describe('指示文（advisorInterview）の形', () => {
   });
   it('推薦の指示文: 本人の直しを最優先・本人の言葉を「」で引いて結びつける', () => {
     expect(PROMPTS.bookAdvisor.system).toMatch(/本人の直し（最優先）/);
-    expect(PROMPTS.bookAdvisor.system).toMatch(/本人が書き足した部分）を「」で 1 か所そのまま引き/);
+    expect(PROMPTS.bookAdvisor.system).toMatch(/候補をそのまま選んだ答えは使わない）を「」で 1 か所そのまま引き/);
   });
 });
 
@@ -92,23 +92,20 @@ describe('AI の答え（JSON）の解析', () => {
   });
 });
 
-describe('書き出しのチップを押したときの入力欄', () => {
-  const labels = ['気づくと一日が終わるのが', '本当は、'];
-  it('言い切らずに続きを書く余地を作る（末尾に「、」・すでに句読点なら足さない）', () => {
-    expect(starterText('気づくと一日が終わるのが')).toBe('気づくと一日が終わるのが、');
-    expect(starterText('本当は、')).toBe('本当は、');
-    expect(starterText('先週の会議で…')).toBe('先週の会議で…');
+describe('答えの候補のチップを押したときの入力欄（2026-10-09: 候補は言い切った答え・そのまま送れる）', () => {
+  const labels = ['気づくと一日が終わっている', '家賃と生活費で残らない'];
+  it('候補の言葉をそのまま入れる（「、」を足さない）', () => {
+    expect(starterText('気づくと一日が終わっている')).toBe('気づくと一日が終わっている');
     expect(starterText('')).toBe('');
   });
   it('空・前のチップの言葉だけなら入れ替える', () => {
-    expect(applyStarter('', '本当は、', labels)).toBe('本当は、');
-    expect(applyStarter('気づくと一日が終わるのが、', '本当は、', labels)).toBe('本当は、');
-    expect(applyStarter('気づくと一日が終わるのが', '本当は、', labels)).toBe('本当は、');
+    expect(applyStarter('', '家賃と生活費で残らない', labels)).toBe('家賃と生活費で残らない');
+    expect(applyStarter('気づくと一日が終わっている', '家賃と生活費で残らない', labels)).toBe('家賃と生活費で残らない');
   });
   it('本人が書いた文は消さずに後ろへ足す（二重には足さない）', () => {
-    expect(applyStarter('会議が多くて', '気づくと一日が終わるのが', labels)).toBe('会議が多くて、気づくと一日が終わるのが、');
-    expect(applyStarter('会議が多くて。', '本当は、', labels)).toBe('会議が多くて。本当は、');
-    expect(applyStarter('会議が多くて、本当は、家にいたい', '本当は、', labels)).toBe('会議が多くて、本当は、家にいたい');
+    expect(applyStarter('会議が多くて', '気づくと一日が終わっている', labels)).toBe('会議が多くて、気づくと一日が終わっている');
+    expect(applyStarter('会議が多くて。', '家賃と生活費で残らない', labels)).toBe('会議が多くて。家賃と生活費で残らない');
+    expect(applyStarter('会議が多くて、家賃と生活費で残らない', '家賃と生活費で残らない', labels)).toBe('会議が多くて、家賃と生活費で残らない');
   });
 });
 
@@ -177,7 +174,7 @@ describe('深刻な言葉の見張り', () => {
   });
 });
 
-describe('書き出しを使った答え（AI が引くのは本人が書き足した部分）', () => {
+describe('候補を使った答え（AI が本人の言葉として引くのは本人が書いた部分）', () => {
   const labels = ['本当は、', '大事なことに限って'];
   it('どの書き出しから始まったか・書き足した言葉', () => {
     expect(starterOf('本当は、夕方に時間がほしい', labels)).toBe('本当は、');
@@ -186,15 +183,16 @@ describe('書き出しを使った答え（AI が引くのは本人が書き足�
     expect(ownWords('大事なことに限って、会議が入る', '大事なことに限って')).toBe('会議が入る');
     expect(ownWords('会議が多い', '')).toBe('会議が多い');
   });
-  it('チップの言葉だけなら送れない', () => {
+  it('候補の言葉だけか（送るのは止めない・印を変えるのに使う）', () => {
     expect(onlyStarter('本当は、', labels)).toBe(true);
-    expect(onlyStarter('大事なことに限って、', labels)).toBe(true);
     expect(onlyStarter('本当は、夕方に', labels)).toBe(false);
     expect(onlyStarter('', labels)).toBe(false);
   });
-  it('AI に渡す文に印を付ける・指示文も書き出しを引かない', () => {
+  it('AI に渡す文に印を付ける（そのまま選んだ／書き足した）・指示文も候補をそのまま引かない', () => {
     const t = buildPriorQA([{ q: 'どうなりたい？', a: '本当は、夕方に時間がほしい', starter: '本当は、' }]);
-    expect(t).toContain('A. 本当は、夕方に時間がほしい\n（書き出し「本当は、」を使った。引くのは、そのあとに本人が書き足した部分）');
-    expect(PROMPTS.advisorInterview.system).toMatch(/書き出しの言葉は引かない/);
+    expect(t).toContain('A. 本当は、夕方に時間がほしい\n（候補「本当は、」に本人が書き足した。引くのは、書き足した部分）');
+    const t2 = buildPriorQA([{ q: '何に出ていく？', a: '家賃と生活費で残らない', starter: '家賃と生活費で残らない' }]);
+    expect(t2).toContain('（候補「家賃と生活費で残らない」をそのまま選んだ。本人の言葉としては引かない）');
+    expect(PROMPTS.advisorInterview.system).toMatch(/候補「…」をそのまま選んだ」とあれば、その言葉は本人の言葉として「」で引かない/);
   });
 });

@@ -28,17 +28,17 @@ const nav = (name) => `nav button[aria-label="${name}"]`;
 
 // AI 選書の聞き取り（2026-10-08）: 問いのすぐ下の「自分の言葉で答える」に書き出しを入れて続きを書く → 「答える」→ まとめを「合っている」。
 const ADVISOR_START = [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }];
-const ADVISOR_ANSWER = (chip, more) => [{ css: `[aria-label="書き出しのきっかけ"] button:has-text("${chip}")` }, ...(more ? [{ fill: ['textarea[aria-label="自分の言葉で答える"]', more] }] : []), { css: 'button[aria-label="答える"]' }, { wait: 2500 }];
+const ADVISOR_ANSWER = (chip, more) => [{ css: `[aria-label="答えの候補"] button:has-text("${chip}")` }, ...(more ? [{ fill: ['textarea[aria-label="自分の言葉で答える"]', more] }] : []), { css: 'button[aria-label="答える"]' }, { wait: 2500 }];
 const ADVISOR_ESCAPE = (label) => ({ css: `[aria-label="うまく答えられないとき"] button:has-text("${label}")` });
-const ADVISOR_TO_SUMMARY = [...ADVISOR_ANSWER('大事なことに限って', '大事なことに限って、メールと会議で一日が終わってしまう'), ...ADVISOR_ANSWER('本当は、', '本当は、夕方に自分の仕事を進める時間がほしい')];
+const ADVISOR_TO_SUMMARY = [...ADVISOR_ANSWER("大事なことほど後回しになる", "大事なことほど後回しになる。メールと会議で一日が終わってしまう"), ...ADVISOR_ANSWER("夕方に自分の仕事を進めたい", "夕方に自分の仕事を進めたい")];
 const ADVISOR_TO_RECO = [...ADVISOR_TO_SUMMARY, { css: 'button:has-text("合っている")' }];
 const ADVISOR_CARE_START = [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事がつらくて、消えたいと思うことがある'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }];
 // 第 2 回（ui-critic）の撮影: 明暗＋文字最大（-xxl）。
 const XXL = { eval: () => { document.documentElement.style.fontSize = '28px'; } };
 const ADVISOR2 = [
   ['adv2-q1', '/', [...ADVISOR_START]],
-  ['adv2-q2', '/', [...ADVISOR_START, ...ADVISOR_ANSWER('大事なことに限って', '大事なことに限って、メールと会議で一日が終わってしまう')]],
-  ['adv2-starter-only', '/', [...ADVISOR_START, { css: '[aria-label="書き出しのきっかけ"] button >> nth=0' }, { css: 'button[aria-label="答える"]' }, { wait: 500 }]],
+  ['adv2-q2', '/', [...ADVISOR_START, ...ADVISOR_ANSWER("大事なことほど後回しになる", "大事なことほど後回しになる。メールと会議で一日が終わってしまう")]],
+  ['adv2-chip-picked', '/', [...ADVISOR_START, { css: '[aria-label="答えの候補"] button >> nth=0' }, { wait: 400 }]],
   ['adv2-off', '/', [...ADVISOR_START, ADVISOR_ESCAPE('どれも少し違う')]],
   ['adv2-unsure', '/', [...ADVISOR_START, ADVISOR_ESCAPE('まだ言葉にできない'), { wait: 2500 }]],
   ['adv2-loading', '/?ai=slow', [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 800 }]],
@@ -265,7 +265,7 @@ const SCREENS = [
   // 聞き取りの作り直し（2026-10-08）: どれも少し違う／まだ言葉にできない／このくらいで探して／受け取ったまとめ／少し違う（直す）
   { name: 'advisor-interview-off', url: '/', steps: [...ADVISOR_START, ADVISOR_ESCAPE('どれも少し違う'), { fill: ['textarea[aria-label="どこが違いますか？"]', 'じつは仕事より、家に帰ってからも休めないのがつらい'] }] },
   { name: 'advisor-interview-unsure', url: '/', steps: [...ADVISOR_START, ADVISOR_ESCAPE('まだ言葉にできない'), { wait: 2500 }] },
-  { name: 'advisor-interview-second', url: '/', steps: [...ADVISOR_START, ...ADVISOR_ANSWER('大事なことに限って', '大事なことに限って、メールと会議で一日が終わってしまう')] },
+  { name: 'advisor-interview-second', url: '/', steps: [...ADVISOR_START, ...ADVISOR_ANSWER("大事なことほど後回しになる", "大事なことほど後回しになる。メールと会議で一日が終わってしまう")] },
   { name: 'advisor-search-now', url: '/', steps: [...ADVISOR_START, { css: 'button:has-text("このくらいで探して")' }] },
   { name: 'advisor-summary', url: '/', steps: [...ADVISOR_START, ...ADVISOR_TO_SUMMARY] },
   { name: 'advisor-summary-correct', url: '/', steps: [...ADVISOR_START, ...ADVISOR_TO_SUMMARY, { css: 'button:has-text("少し違う（直す）")' }, { fill: ['textarea[aria-label="違うところを、自分の言葉で"]', '時間というより、頼まれると断れないのがつらい'] }] },
