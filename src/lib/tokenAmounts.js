@@ -10,28 +10,26 @@ export const PAID_TOKENS = 800;
 // 📷 無料プランの写真から書き起こし（1 か月の回数・2026-10-02）。api/_aiAccess.js の AI_FREE_OCR_PER_MONTH の既定と揃える。
 export const FREE_OCR_PER_MONTH = 10;
 
-// 💬 相談 1 つ＝聞き返し 2 回＋答えで 約 3 往復＝約 30 トークン（1 回の答えは 約 10・2026-10-09）。
-//    「相談 約 N 回」（答え 1 回ずつ）だと、はじめての相談 1 つで無料の月が尽きる実態と食い違ったので、
-//    量の目安は「相談 約 N つ」で数える。
-export const CONSULT_THREAD_TOKENS = 30;
-// トークン → 相談いくつ（四捨五入・残りが少しでもあれば 1＝サーバーの「最後の 1 回」で始められる）。
-export function consultsOf(tokens) {
+// 💬 量の目安は「AI の答え 約 N 回」（AI の答え 1 回 約 10 トークン・2026-10-09 コーディネーター裁定）。
+//    相談 1 つは、聞き返しを含めて 2〜3 回の答え（この補足は有料プランの画面の目安・LP の注記・設定の説明に 1 回だけ）。
+//    「相談 1 つ＝約 30」に揃えるとプランが小さく見え、原価もキャッシュで会話 1 つ 約 13 トークンの見積もりがあり不確かなため。
+export const ANSWER_TOKENS = 10;
+export const CONSULT_ANSWERS_NOTE = '相談 1 つは、聞き返しを含めて 2〜3 回の答えです';
+// トークン → AI の答え何回（四捨五入・残りが少しでもあれば 1＝サーバーの「最後の 1 回」で始められる）。
+export function answersOf(tokens) {
   const t = Math.max(0, Math.floor(Number(tokens) || 0));
   if (t <= 0) return 0;
-  return Math.max(1, Math.round(t / CONSULT_THREAD_TOKENS));
+  return Math.max(1, Math.round(t / ANSWER_TOKENS));
 }
-// 「約 2 つ」「約 27 件」（「つ」は 9 まで・10 からは「件」）。
-export function consultCountLabel(tokens) {
-  const n = consultsOf(tokens);
-  return `約 ${n.toLocaleString('ja-JP')} ${n <= 9 ? 'つ' : '件'}`;
+// 「約 3 回」「約 80 回」。
+export function answerCountLabel(tokens) {
+  return `約 ${answersOf(tokens).toLocaleString('ja-JP')} 回`;
 }
-
-// 残りのトークンで、あと相談いくつ（切り捨て＝言い過ぎない・残りがあれば 1）。「約 1 つ」。
-export function remainingConsultsLabel(tokens) {
+// 残りのトークンで、あと AI の答え何回（切り捨て＝言い過ぎない・残りがあれば 1）。「約 5 回」。
+export function remainingAnswersLabel(tokens) {
   const t = Math.max(0, Math.floor(Number(tokens) || 0));
-  if (t <= 0) return '約 0 つ';
-  const n = Math.max(1, Math.floor(t / CONSULT_THREAD_TOKENS));
-  return `約 ${n.toLocaleString('ja-JP')} ${n <= 9 ? 'つ' : '件'}`;
+  const n = t <= 0 ? 0 : Math.max(1, Math.floor(t / ANSWER_TOKENS));
+  return `約 ${n.toLocaleString('ja-JP')} 回`;
 }
 
 // 🌱 はじめの月か（アカウントを作った日本時間の月＝いまの日本時間の月）。表示だけ（決めるのはサーバー）。

@@ -14,18 +14,18 @@ import { supabase, isSupabaseConfigured } from './supabase';
 
 import {
   AI_TOKEN_JPY, FREE_TOKENS, FREE_FIRST_MONTH_TOKENS, TRIAL_TOKENS, PAID_TOKENS,
-  CONSULT_THREAD_TOKENS, consultsOf, consultCountLabel, remainingConsultsLabel, isFreeFirstMonth, freeTokensFor,
+  ANSWER_TOKENS, CONSULT_ANSWERS_NOTE, answersOf, answerCountLabel, remainingAnswersLabel, isFreeFirstMonth, freeTokensFor,
 } from './tokenAmounts';
 
 export {
   AI_TOKEN_JPY, FREE_TOKENS, FREE_FIRST_MONTH_TOKENS, TRIAL_TOKENS, PAID_TOKENS,
-  CONSULT_THREAD_TOKENS, consultsOf, consultCountLabel, remainingConsultsLabel, isFreeFirstMonth, freeTokensFor,
+  ANSWER_TOKENS, CONSULT_ANSWERS_NOTE, answersOf, answerCountLabel, remainingAnswersLabel, isFreeFirstMonth, freeTokensFor,
 };
 
 // 1 回あたりの目安（表示だけ。実際は材料の長さで前後する）。api/_aiCost.js の単価と、ふつうの大きさの
 // 入出力から出して、切りのよい数に丸めた（2026-09-27）。
 export const TOKEN_COSTS = {
-  consult: 10, // 相談（まとめて）の答え 1 回。相談 1 つ（約 3 往復）は 約 CONSULT_THREAD_TOKENS（30）
+  consult: 10, // 相談（まとめて）の AI の答え 1 回（量の目安の単位＝ANSWER_TOKENS と同じ）
   consultPerBook: 12, // 相談（本ごとに）
   advisor: 25, // AI 選書（聞き返し＋おすすめ）
   setupSheet: 6, // 読書計画シート
@@ -54,7 +54,7 @@ function parsePacks(raw) {
   return packs.length ? packs : null;
 }
 export const TOKEN_PACKS = (parsePacks(import.meta.env?.VITE_TOKEN_PACKS) || DEFAULT_TOKEN_PACKS)
-  .map((p) => ({ ...p, consults: `${consultCountLabel(p.tokens)}分` }));
+  .map((p) => ({ ...p, consults: `${answerCountLabel(p.tokens)}分` }));
 
 // 追加分の残り（期限内の合計）といちばん近い期限（本人の行だけ読める）。表が無い・読めないときは null。
 export async function fetchLotBalance(userId) {

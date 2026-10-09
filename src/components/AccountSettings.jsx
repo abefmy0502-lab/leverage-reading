@@ -36,7 +36,7 @@ import { openBillingPortal } from '../lib/billing';
 import { isNative, openManageSubscriptions, canRedeemOfferCode, presentOfferCodeSheet, invalidateCustomerInfo, waitForCodeSheetClosed } from '../lib/iap';
 import { usePaywall } from '../state/PaywallContext';
 import { planNameFor, trialRenewalLine, trialCancelNote, trialCancelByTime } from '../lib/trialNudge';
-import { PAID_TOKENS, FREE_TOKENS, CONSULT_THREAD_TOKENS } from '../lib/tokens';
+import { PAID_TOKENS, FREE_TOKENS, TOKEN_COSTS, CONSULT_ANSWERS_NOTE } from '../lib/tokens';
 import { FREE_OCR_PER_MONTH } from '../lib/tokenAmounts';
 import { nextResetLabelJa } from '../lib/freeTrial';
 import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff, btnDanger, btnLink, input as uiInput } from '../styles/ui';
@@ -1050,7 +1050,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                 {lotRow}
                 <div style={{ ...blockStyle, ...divider }}>
                   <p style={noteStyle}>
-                    無料プランはずっと無料で、AI は相談（<span style={{ whiteSpace: 'nowrap' }}>1 つ 約 {CONSULT_THREAD_TOKENS} トークン</span>）と<span style={{ whiteSpace: 'nowrap' }}>写真から書き起こし</span>（<span style={{ whiteSpace: 'nowrap' }}>毎月 {FREE_OCR_PER_MONTH} 回</span>）。プランは<span style={{ whiteSpace: 'nowrap' }}>毎月 {PAID_TOKENS.toLocaleString()} トークン</span>で、<span style={{ whiteSpace: 'nowrap' }}>すべての AI 機能。</span>
+                    無料プランはずっと無料で、AI は相談（<span style={{ whiteSpace: 'nowrap' }}>AI の答え 1 回 約 {TOKEN_COSTS.consult} トークン</span>）と<span style={{ whiteSpace: 'nowrap' }}>写真から書き起こし</span>（<span style={{ whiteSpace: 'nowrap' }}>毎月 {FREE_OCR_PER_MONTH} 回</span>）。{/* 相談 1 つが何回の答えか（設定ではここで 1 回だけ・「、」の後で折り返す・2026-10-09） */}{CONSULT_ANSWERS_NOTE.split('、').map((part, i, all) => <span key={part} style={{ whiteSpace: 'nowrap' }}>{part}{i < all.length - 1 ? '、' : '。'}</span>)}プランは<span style={{ whiteSpace: 'nowrap' }}>毎月 {PAID_TOKENS.toLocaleString()} トークン</span>で、<span style={{ whiteSpace: 'nowrap' }}>すべての AI 機能。</span>
                   </p>
                   <button
                     type="button"

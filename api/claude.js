@@ -129,7 +129,7 @@ const AI_TRIAL_CALL_LIMIT = (() => {
 
 // 🎁 無料プラン（フリーミアム・2026-09-27 オーナー裁定）。契約していない人も、AI の 💬 相談
 // （purpose: 'consult'）と 📖 この本で学べること（'book_brief'・2026-10-08）だけは 1 か月に AI_FREE_TOKENS トークン
-// （既定 30＝相談 約 1 つ）使える。アカウントを作った月（日本時間）だけは AI_FREE_FIRST_MONTH_TOKENS（既定 60＝相談 約 2 つ・
+// （既定 30＝AI の答え 約 3 回）使える。アカウントを作った月（日本時間）だけは AI_FREE_FIRST_MONTH_TOKENS（既定 60＝AI の答え 約 6 回・
 // 2026-10-09）。作った日は auth.getUser の created_at（アプリの申告は使わない）・読めなければ毎月の量。
 // ほかの AI 機能は 402 plan_required。トークンの数え方・プランごとの量は api/_aiAccess.js。
 // 数えるのは ai_usage の period_month='free-YYYY-MM'（日本時間の月・有料の月の行とは別枠）。

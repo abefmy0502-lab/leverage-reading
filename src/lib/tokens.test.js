@@ -108,21 +108,26 @@ describe('🌱 無料プランのはじめの月（画面の写しはサーバ�
   });
 });
 
-describe('相談の量の目安（相談 1 つ＝約 3 往復＝約 30 トークン）', () => {
-  it('量の目安: 無料 約 1 つ・はじめの月 約 2 つ・7 日間無料 約 5 つ・プラン 約 27 件', async () => {
-    const { consultCountLabel, CONSULT_THREAD_TOKENS, FREE_FIRST_MONTH_TOKENS } = await import('./tokens.js');
-    expect(CONSULT_THREAD_TOKENS).toBe(3 * TOKEN_COSTS.consult);
-    expect(consultCountLabel(FREE_TOKENS)).toBe('約 1 つ');
-    expect(consultCountLabel(FREE_FIRST_MONTH_TOKENS)).toBe('約 2 つ');
-    expect(consultCountLabel(TRIAL_TOKENS)).toBe('約 5 つ');
-    expect(consultCountLabel(PAID_TOKENS)).toBe('約 27 件');
+describe('量の目安（単位は AI の答え・1 回 約 10 トークン）', () => {
+  it('無料 約 3 回・はじめの月 約 6 回・7 日間無料 約 15 回・プラン 約 80 回・追加 約 30／100 回分', async () => {
+    const { answerCountLabel, ANSWER_TOKENS, FREE_FIRST_MONTH_TOKENS, TOKEN_PACKS } = await import('./tokens.js');
+    expect(ANSWER_TOKENS).toBe(TOKEN_COSTS.consult);
+    expect(answerCountLabel(FREE_TOKENS)).toBe('約 3 回');
+    expect(answerCountLabel(FREE_FIRST_MONTH_TOKENS)).toBe('約 6 回');
+    expect(answerCountLabel(TRIAL_TOKENS)).toBe('約 15 回');
+    expect(answerCountLabel(PAID_TOKENS)).toBe('約 80 回');
+    expect(TOKEN_PACKS.map((p) => p.consults)).toEqual(['約 30 回分', '約 100 回分']);
   });
   it('残りの目安は切り捨て（言い過ぎない）・残りがあれば 1', async () => {
-    const { remainingConsultsLabel } = await import('./tokens.js');
-    expect(remainingConsultsLabel(60)).toBe('約 2 つ');
-    expect(remainingConsultsLabel(50)).toBe('約 1 つ');
-    expect(remainingConsultsLabel(5)).toBe('約 1 つ');
-    expect(remainingConsultsLabel(0)).toBe('約 0 つ');
-    expect(remainingConsultsLabel(800)).toBe('約 26 件');
+    const { remainingAnswersLabel } = await import('./tokens.js');
+    expect(remainingAnswersLabel(60)).toBe('約 6 回');
+    expect(remainingAnswersLabel(58)).toBe('約 5 回');
+    expect(remainingAnswersLabel(5)).toBe('約 1 回');
+    expect(remainingAnswersLabel(0)).toBe('約 0 回');
+  });
+  it('補足は 1 文（相談 1 つは 2〜3 回の答え）・助数詞「つ」「件」を使わない', async () => {
+    const { CONSULT_ANSWERS_NOTE, answerCountLabel } = await import('./tokens.js');
+    expect(CONSULT_ANSWERS_NOTE).toBe('相談 1 つは、聞き返しを含めて 2〜3 回の答えです');
+    for (const t of [10, 30, 60, 150, 800, 1000]) expect(answerCountLabel(t)).not.toMatch(/[つ件]$/);
   });
 });

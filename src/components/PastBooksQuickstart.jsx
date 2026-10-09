@@ -19,7 +19,7 @@ import { withPhraseBreaks } from './TightBubble';
 import { firstConsultSuggestions, memoExampleForBook, countSummaryMemos, fmtTokens } from '../lib/consultHelpers';
 import { X, Search, SearchX, Check, ChevronLeft, Plus } from 'lucide-react';
 import { usePaywall } from '../state/PaywallContext';
-import { remainingConsultsLabel } from '../lib/tokens';
+import { remainingAnswersLabel } from '../lib/tokens';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from './Toast';
@@ -705,12 +705,12 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
                   {withPhraseBreaks('いま困っていること')}
                 </h2>
                 {freeMode && freeRemaining > 0 && (
-                  // 相談の上部の行と同じ形（2026-10-04 ui-critic）: 1 行目「今月の残り N トークン」・2 行目「相談 約 N つ」
-                  // （相談 1 つ＝約 3 往復＝約 30 トークン・はじめの月は「（はじめの月は 60 トークン）」を添える・2026-10-09）
+                  // 相談の上部の行と同じ形（2026-10-04 ui-critic）: 1 行目「今月の残り N トークン」・2 行目「AI の答え 約 N 回」
+                  // （AI の答え 1 回 約 10 トークン・はじめの月は「（はじめの月は 60 トークン）」を添える・2026-10-09）
                   // （「・」でつなぐと 390 幅で途中から折り返し、切れる場所が毎回変わる＝相談の MyBookBrain と同じ理由）。
                   <p style={{ ...sub, margin: 'calc(-1 * var(--space-2)) 0 var(--space-3)', fontVariantNumeric: 'tabular-nums' }}>
                     <span style={{ display: 'block', whiteSpace: 'nowrap' }}>今月の残り {fmtTokens(freeRemaining)} トークン</span>
-                    <span style={{ display: 'block' }}><span style={{ whiteSpace: 'nowrap' }}>相談 {remainingConsultsLabel(freeRemaining)}</span>{freeFirstMonth && <span style={{ whiteSpace: 'nowrap' }}>（はじめの月は {fmtTokens(tokenAllowance)} トークン）</span>}</span>
+                    <span style={{ display: 'block' }}><span style={{ whiteSpace: 'nowrap' }}>AI の答え {remainingAnswersLabel(freeRemaining)}</span>{freeFirstMonth && <span style={{ whiteSpace: 'nowrap' }}>（はじめの月は {fmtTokens(tokenAllowance)} トークン）</span>}</span>
                   </p>
                 )}
                 <textarea

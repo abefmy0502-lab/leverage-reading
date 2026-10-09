@@ -6,9 +6,9 @@
 // トークン＝ceil(原価の円 ÷ AI_TOKEN_JPY) に直して見せる。
 //
 // プランと 1 か月に使えるトークン（env で変えられる）:
-//   - 無料（契約なし）: AI は 💬 相談（purpose: 'consult'）と 📖 この本で学べること（'book_brief'）だけ・AI_FREE_TOKENS（既定 30＝相談 約 1 つ）。
-//     🌱 はじめの月（アカウントを作った日本時間の月・2026-10-09）だけは AI_FREE_FIRST_MONTH_TOKENS（既定 60＝相談 約 2 つ）。
-//     相談 1 つ＝聞き返し 2 回＋答えで 約 3 往復＝約 30 トークン。はじめての相談を最後までしても、2 つ目の相談ができる量。
+//   - 無料（契約なし）: AI は 💬 相談（purpose: 'consult'）と 📖 この本で学べること（'book_brief'）だけ・AI_FREE_TOKENS（既定 30＝AI の答え 約 3 回）。
+//     🌱 はじめの月（アカウントを作った日本時間の月・2026-10-09）だけは AI_FREE_FIRST_MONTH_TOKENS（既定 60＝AI の答え 約 6 回）。
+//     相談 1 つは聞き返しを含めて 2〜3 回の答え（1 回 約 10 トークン）。はじめての相談を最後までしても、2 つ目の相談ができる量。
 //     行のキーは 'free-YYYY-MM'（日本時間の月・はじめの月も同じ行）。数えられないときは使わせない（fail-closed）。
 //     📷 写真から書き起こし（purpose: 'ocr'）だけは別枠で 1 か月 AI_FREE_OCR_PER_MONTH 回（既定 10・行は
 //     'freeocr-YYYY-MM'・2026-10-02）。相談のトークンは使わない。下の「写真から書き起こし」の節。
@@ -59,7 +59,7 @@ export function freeTokens(env = process.env) {
   return Math.max(0, Math.floor(num(env.AI_FREE_TOKENS, 30)));
 }
 // 🌱 無料プランのはじめの月のトークン（2026-10-09 オーナー裁定「中期的な売り上げ最大化で考えて」）。
-// はじめての相談（約 3 往復＝約 30 トークン）を最後までして、2 つ目の相談の途中で 7 日間無料に出会う量。
+// はじめての相談（2〜3 回の答え）を最後までして、2 つ目の相談の途中で 7 日間無料に出会う量。
 export function freeFirstMonthTokens(env = process.env) {
   return Math.max(0, Math.floor(num(env.AI_FREE_FIRST_MONTH_TOKENS, 60)));
 }

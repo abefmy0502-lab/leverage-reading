@@ -11,12 +11,13 @@
 import { noBreak, FOUNDING_NAME } from '../lib/foundingOffer';
 import { trialFirstPhrase, trialPeriodOf } from '../lib/trialLabel';
 import { savingsLabel } from '../lib/planOffers';
-import { FREE_TOKENS, FREE_FIRST_MONTH_TOKENS, PAID_TOKENS, TRIAL_TOKENS, FREE_OCR_PER_MONTH, consultCountLabel } from '../lib/tokenAmounts';
+import { FREE_TOKENS, FREE_FIRST_MONTH_TOKENS, PAID_TOKENS, TRIAL_TOKENS, FREE_OCR_PER_MONTH, answerCountLabel, CONSULT_ANSWERS_NOTE } from '../lib/tokenAmounts';
 
 export const MONTHLY = 1480;
 export const ANNUAL = 12800;
-// 相談 1 つ＝聞き返しを含めて約 3 往復＝約 30 トークン（lib/tokenAmounts.js の CONSULT_THREAD_TOKENS・2026-10-09）。
-// 「相談 約 3 回」（答え 1 回ずつ）だと、はじめての相談 1 つで無料の月が尽きる実態と食い違ったので「約 N つ」で数える。
+// 量の目安は「AI の答え 約 N 回」（1 回 約 10 トークン・lib/tokenAmounts.js の ANSWER_TOKENS・2026-10-09）。
+// 相談 1 つが何回の答えか（CONSULT_ANSWERS_NOTE）は、料金の注記（Landing.jsx）で 1 回だけ言う。
+export { CONSULT_ANSWERS_NOTE };
 // 関係するメモが無かった相談を払い戻す回数（api の AI_NO_INFO_REFUND_LIMIT の既定）。
 export const NO_INFO_REFUNDS = 10;
 // 公開予定（App Store の URL が無い間だけ出す）。VITE_LAUNCH_LABEL で変えられる。
@@ -28,8 +29,8 @@ export const LP_DESCRIPTION = '「あの本に書いてあったはずなのに�
 export const LP_OG_DESCRIPTION = '読んだ本が、あなたの相談相手になる。あなたが残した読書メモから、本とページを添えて答え、明日やることを一緒に一つ決める読書アプリです。';
 
 export const yen = (n) => `¥${Number(n).toLocaleString('ja-JP')}`;
-// 「約 2 つ」「約 27 件」（折り返さない空白でつなぐ）。
-export const consultsOf = (tokens) => noBreak(consultCountLabel(tokens));
+// 「約 3 回」「約 80 回」（折り返さない空白でつなぐ）。
+export const consultsOf = (tokens) => noBreak(answerCountLabel(tokens));
 
 // JSON-LD に入れる文: 折り返さない印（WORD JOINER・折り返さない空白）を外す。
 export const plainText = (t) => String(t || '').replace(/⁠/g, '').replace(/ /g, ' ');
@@ -100,7 +101,7 @@ export function buildLpCopy({
     }] : []),
     {
       q: '無料プランで、何ができますか？',
-      a: `本とメモは何件でも残せて、振り返り・行動・思い出しカード・写真で共有・ほかのアプリからの取り込みも使えます。AI の相談は${noBreak(`毎月 ${FREE_TOKENS} トークン`)}（${FREE_CONSULTS}）で、${FIRST_MONTH}です。相談 1 つは、聞き返しを含めて約 3 往復です。写真から書き起こしは${noBreak(`毎月 ${FREE_OCR_PER_MONTH} 回`)}です。相談のトークンを使い切った月も、AI を使わずに、あなたのメモから関係する一節を本ごとに並べてお答えします（メモが答える相談）。期間の決まりは無く、ずっと無料です。`,
+      a: `本とメモは何件でも残せて、振り返り・行動・思い出しカード・写真で共有・ほかのアプリからの取り込みも使えます。AI の相談は${noBreak(`毎月 ${FREE_TOKENS} トークン`)}（AI の答え ${FREE_CONSULTS}）で、${FIRST_MONTH}です。写真から書き起こしは${noBreak(`毎月 ${FREE_OCR_PER_MONTH} 回`)}です。相談のトークンを使い切った月も、AI を使わずに、あなたのメモから関係する一節を本ごとに並べてお答えします（メモが答える相談）。期間の決まりは無く、ずっと無料です。`,
     },
     {
       q: 'ChatGPT に聞くのと、何が違いますか？',
@@ -137,7 +138,7 @@ export function buildLpCopy({
     },
     {
       q: '料金はいくらですか？',
-      a: `無料プラン（ずっと無料）で、本とメモ・振り返り・行動・写真で共有が使えます。AI は相談が${noBreak(`毎月 ${FREE_TOKENS} トークン`)}（${FREE_CONSULTS}・${FIRST_MONTH}）、写真から書き起こしが${noBreak(`毎月 ${FREE_OCR_PER_MONTH} 回`)}です。プラン（月額 ${MONTHLY_TEXT}、または年額 ${ANNUAL_TEXT}・月あたり約 ${PER_MONTH_TEXT}・どちらも税込）にすると、相談が${noBreak(`毎月 ${PAID_TOKENS} トークン`)}（${PAID_CONSULTS}）になり、AI 選書・読書計画シートも使えます。相談の数は目安で、1 つの相談のトークンは、やりとりの数と質問・メモの量で変わります。使わなかったトークンは翌月に繰り越しません。${active ? `${END}までは、年額プランの 1 年目が ${noBreak(`${FOUNDING_PRICE}（税込）`)}です（${FOUNDING_NAME}）。` : ''}${TRIAL ? `${TRIAL_WHO}は${TRIAL_SENT}です（${ELIGIBLE}）。` : ''}お支払いは App Store（Apple ID）です。`,
+      a: `無料プラン（ずっと無料）で、本とメモ・振り返り・行動・写真で共有が使えます。AI は相談が${noBreak(`毎月 ${FREE_TOKENS} トークン`)}（AI の答え ${FREE_CONSULTS}・${FIRST_MONTH}）、写真から書き起こしが${noBreak(`毎月 ${FREE_OCR_PER_MONTH} 回`)}です。プラン（月額 ${MONTHLY_TEXT}、または年額 ${ANNUAL_TEXT}・月あたり約 ${PER_MONTH_TEXT}・どちらも税込）にすると、相談が${noBreak(`毎月 ${PAID_TOKENS} トークン`)}（AI の答え ${PAID_CONSULTS}）になり、AI 選書・読書計画シートも使えます。回数は目安で、1 回のトークンは質問とメモの量で変わります。使わなかったトークンは翌月に繰り越しません。${active ? `${END}までは、年額プランの 1 年目が ${noBreak(`${FOUNDING_PRICE}（税込）`)}です（${FOUNDING_NAME}）。` : ''}${TRIAL ? `${TRIAL_WHO}は${TRIAL_SENT}です（${ELIGIBLE}）。` : ''}お支払いは App Store（Apple ID）です。`,
     },
     ...(active ? [{
       q: `${FOUNDING_NAME}とは何ですか？`,
@@ -146,7 +147,7 @@ export function buildLpCopy({
     }] : []),
     ...(TRIAL ? [{
       q: '無料期間のあとは、自動で料金がかかりますか？',
-      a: `${TRIAL_WHO}の無料期間（${TRIAL}）は、AI を ${TRIAL_TOKENS} トークン（相談 ${TRIAL_CONSULTS}）まで使えます。無料期間が終わると、${active ? `${noBreak(`月額 ${MONTHLY_TEXT}（税込）`)}` : '選んだプラン（月額か年額）'}で自動更新されます。無料期間が終わる 24 時間前までに App Store のサブスクリプション設定から解約すれば、料金はかかりません。無料期間は、${ELIGIBLE}が対象です（1 つの Apple ID に 1 回）。無料プランは期間の決まりがなく、ずっと無料です。`,
+      a: `${TRIAL_WHO}の無料期間（${TRIAL}）は、AI を ${TRIAL_TOKENS} トークン（AI の答え ${TRIAL_CONSULTS}）まで使えます。無料期間が終わると、${active ? `${noBreak(`月額 ${MONTHLY_TEXT}（税込）`)}` : '選んだプラン（月額か年額）'}で自動更新されます。無料期間が終わる 24 時間前までに App Store のサブスクリプション設定から解約すれば、料金はかかりません。無料期間は、${ELIGIBLE}が対象です（1 つの Apple ID に 1 回）。無料プランは期間の決まりがなく、ずっと無料です。`,
     }] : []),
     {
       q: '解約すると、メモは消えますか？',

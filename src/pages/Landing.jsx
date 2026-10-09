@@ -49,7 +49,7 @@ import Shot from './LpShot';
 import LpFlow from './LpFlow';
 import LpWaitlist from './LpWaitlist';
 import Phrases from './LpPhrases';
-import { buildLpCopy, MONTHLY, ANNUAL, NO_INFO_REFUNDS, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION } from './lpCopy';
+import { buildLpCopy, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, NO_INFO_REFUNDS, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION } from './lpCopy';
 import qrcode from 'qrcode-generator';
 import { lpTrack, lpVariant, storeUrlFor, isWidePointer } from '../lib/lpTrack';
 import { inject as injectVercelAnalytics } from '@vercel/analytics';
@@ -635,7 +635,7 @@ export default function Landing() {
                   {/* li は flex（印と文を横に並べる）なので、文は 1 つの span に包む */}
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>本とメモは何件でも（振り返り・行動・思い出しカード・写真で共有も）</span></li>
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>ブクログ・読書メーター・Kindle から取り込み</span></li>
-                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>相談は<span className="lp-nb">毎月 {FREE_CONSULTS}</span><span className="lp-nb">（{FREE_TOKENS} トークン）。</span><span className="lp-nb">はじめの月は {FIRST_CONSULTS}</span><span className="lp-nb">（{FREE_FIRST_MONTH_TOKENS} トークン）</span></span></li>
+                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>AI の答えは<span className="lp-nb">毎月 {FREE_CONSULTS}</span><span className="lp-nb">（{FREE_TOKENS} トークン）。</span><span className="lp-nb">はじめの月は {FIRST_CONSULTS}</span><span className="lp-nb">（{FREE_FIRST_MONTH_TOKENS} トークン）</span></span></li>
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>使い切った月も、<strong>メモが答える相談</strong>（AI を使わずに、あなたのメモから関係する一節を本ごとに並べます）</span></li>
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>写真から書き起こし <span className="lp-nb">毎月 {FREE_OCR_PER_MONTH} 回</span></span></li>
                 </ul>
@@ -643,10 +643,10 @@ export default function Landing() {
               <div className="lp-plan">
                 <p className="lp-plan-name"><span>プラン{TRIAL_FIRST && !OFFER.active && <span className="lp-plan-trial">（{TRIAL_FIRST}）</span>}</span></p>
                 <ul className="lp-included" aria-label="プランに含まれるもの">
-                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>相談は<span className="lp-nb">毎月 {PAID_CONSULTS}</span><span className="lp-nb">（{PAID_TOKENS} トークン）。</span>足りない月は、有料で追加できます</span></li>
+                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>AI の答えは<span className="lp-nb">毎月 {PAID_CONSULTS}</span><span className="lp-nb">（{PAID_TOKENS} トークン）。</span>足りない月は、有料で追加できます</span></li>
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>AI 選書・読書計画シート・メモの凝縮</span></li>
                   {TRIAL_NOTE && (
-                    <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>無料期間の間は <span className="lp-nb">{TRIAL_TOKENS} トークン</span><span className="lp-nb">（相談 {TRIAL_CONSULTS}）</span></span></li>
+                    <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>無料期間の間は <span className="lp-nb">{TRIAL_TOKENS} トークン</span><span className="lp-nb">（AI の答え {TRIAL_CONSULTS}）</span></span></li>
                   )}
                 </ul>
                 <div className={`lp-plan-rows${OFFER.active ? ' is-founding' : ''}`}>
@@ -675,7 +675,7 @@ export default function Landing() {
               </div>
             </div>
             <p className="lp-fine lp-wbr">
-              <Phrases>{`相談の数は目安です（相談 1 つは聞き返しを含めて約 3 往復。トークンは、やりとりの数と質問・メモの量で変わります）。使わなかったトークンは翌月に繰り越しません。関係するメモが見つからなかった相談は、トークンを使ったことにしません（${noBreak(`毎月 ${NO_INFO_REFUNDS} 回`)}まで）。無料プランに期間の決まりはありません。`}</Phrases>
+              <Phrases>{`回数は目安です（${CONSULT_ANSWERS_NOTE}。1 回のトークンは、質問とメモの量で変わります）。使わなかったトークンは翌月に繰り越しません。関係するメモが見つからなかった相談は、トークンを使ったことにしません（${noBreak(`毎月 ${NO_INFO_REFUNDS} 回`)}まで）。無料プランに期間の決まりはありません。`}</Phrases>
             </p>
             <div className="lp-cta-block">
               <Entry loc="pricing" wl={wl} />
