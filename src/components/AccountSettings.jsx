@@ -648,7 +648,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
     const ok = await confirm({
       title: 'データを初期化しますか？',
       message:
-        '本・メモ・写真・行動・相談の履歴・タグなど、あなたのデータをすべて消去して、まっさらな状態に戻します。\n\nアカウント（ログイン）は残ります。この操作は取り消せません。',
+        '本・メモ・写真・行動・読書の時間・相談の履歴・タグなど、あなたのデータをすべて消去して、まっさらな状態に戻します。\n\nアカウント（ログイン）は残ります。この操作は取り消せません。',
       confirmLabel: '初期化する',
       cancelLabel: 'キャンセル',
       danger: true,
@@ -683,6 +683,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
       await deleteOwn('actions');
       await deleteOwn('theme_reports');
       await deleteOwn('advisor_sessions');
+      await deleteOwn('reading_sessions'); // ⏱ 読書の時間（集中モード・未適用 DB はスキップ）
       await deleteOwn('push_subscriptions');
       await deleteOwn('books');
 
@@ -694,7 +695,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
       }
       // 端末ローカルの一時状態（想起のクリア時刻・週次の問い等）も掃除して完全に空へ。
       try {
-        ['brain-cleared-at', 'brain-weekly-q', 'brain-weekly-dismissed', 'leverage-memo-snap'].forEach((k) => localStorage.removeItem(k));
+        ['brain-cleared-at', 'brain-weekly-q', 'brain-weekly-dismissed', 'leverage-memo-snap', 'orime.readingSessions.v1', 'orime.focus.v1'].forEach((k) => localStorage.removeItem(k));
       } catch { /* ignore */ }
       toast.success('データを初期化しました。まっさらな状態で読み込み直します。');
       // 全 state / キャッシュを確実に空へ戻すためリロード（初期化操作なので妥当）。
@@ -721,7 +722,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
     const ok = retry || await confirm({
       title: '本当にすべて削除しますか？',
       message:
-        '本・メモ・写真・行動・相談の履歴・タグ・AI 選書の履歴など、すべてのデータが完全に削除されます。\n\nログイン情報の完全削除は管理者の最終確認後（通常 7 日以内）に実行されます。この操作は取り消せません。',
+        '本・メモ・写真・行動・読書の時間・相談の履歴・タグ・AI 選書の履歴など、すべてのデータが完全に削除されます。\n\nログイン情報の完全削除は管理者の最終確認後（通常 7 日以内）に実行されます。この操作は取り消せません。',
       confirmLabel: '削除する',
       cancelLabel: 'キャンセル',
       danger: true,
@@ -785,6 +786,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
       await deleteOwn('actions');           // 行動リスト
       await deleteOwn('theme_reports');     // 📊 テーマまとめの履歴（機能は 2026-09-30 に廃止・過去の行は消す）
       await deleteOwn('advisor_sessions');  // 🕒 AI 選書の会話履歴
+      await deleteOwn('reading_sessions');  // ⏱ 読書の時間（集中モード・2026-10-09）
       await deleteOwn('push_subscriptions');// 🔔 想起プッシュ購読
       await deleteOwn('books');             // 親（残った子に CASCADE）
 
@@ -826,6 +828,8 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
         return;
       }
 
+      // ⏱ 端末に控えた読書の時間・途中の集中モードも消す（表に入らなかった分）。
+      try { ['orime.readingSessions.v1', 'orime.focus.v1'].forEach((k) => localStorage.removeItem(k)); } catch { /* ignore */ }
       toast.success('すべてのデータを削除しました。ログアウトします。');
       // Sign out then bubble up to the parent
       try { await signOut(); } catch { /* ignore */ }

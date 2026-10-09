@@ -46,6 +46,8 @@ import { MiniCover } from './BookCards';
 import { useToast } from './Toast';
 import { useHaptic } from '../hooks/useHaptic';
 import { useBookMemos } from '../hooks/useBookMemos';
+import { useReadingSessions } from '../hooks/useReadingSessions';
+import { shareReadingNote } from '../lib/readingTime';
 import { useAuth } from '../hooks/useAuth';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { toMessage } from '../lib/errors';
@@ -333,6 +335,10 @@ export default function ShareSheet({
   // 本 1 冊でない 1 枚（今月・今年）。period＝'month' | 'year' | null（本 1 冊）。
   const period = subject.kind === 'year' && yearAllowed ? 'year' : (subject.kind === 'month' || !subjectBook) ? 'month' : null;
   const isPeriod = !!period;
+  // ⏱ 雑誌の下の行の短い数の欄: この本の今日の読書時間（集中モード）があれば「読書 32 分」。無ければ出さない（2026-10-09）。
+  const readingRows = useReadingSessions().rows;
+  const readingNote = subject.kind === 'book' && subjectBook ? shareReadingNote(readingRows, subjectBook.id, now.getTime()) : null;
+  const readingNoteKey = readingNote ? readingNote.value : '';
 
   // メモ: 開いた本のメモを渡されたらそれを使い、ほかの本はここで読む。今月は今月の、今年は今年のメモを読む。
   const usePropMemos = !!memosProp && !!subjectBook && !!bookProp && subjectBook.id === bookProp.id;
@@ -532,7 +538,7 @@ export default function ShareSheet({
   const yearError = period === 'year' && !!yearM.error;
   const ready0 = !!assets && (coverReady || !needCover) && !memosLoading && !photoLoading && !yearError;
   const drawKey = ready0
-    ? JSON.stringify([variant, subjectKey, chosen?.id, lineText, chosen?.pageNumber, effStyle, format, photo?.id, view, record.kicker, record.date, record.title, record.sub, record.stats, lineBook?.title, lineBook?.author, retry, assets.ver, hidden, phrase])
+    ? JSON.stringify([variant, subjectKey, chosen?.id, lineText, chosen?.pageNumber, effStyle, format, photo?.id, view, record.kicker, record.date, record.title, record.sub, record.stats, lineBook?.title, lineBook?.author, retry, assets.ver, hidden, phrase, readingNoteKey])
     : '';
 
   // 描く材料（書き出す 1 枚・動かしている間の 1 コマ・見本で共通）。
@@ -564,6 +570,8 @@ export default function ShareSheet({
       textPos: 'bottom',
       hidden,
       phrase: phrase && phraseDisplayText(phrase) ? phrase : null,
+      // 雑誌だけが使う（ほかの重ね方は見ない）。
+      note: v === 'magazine' ? readingNote : null,
     };
   };
   // canvas に描く（同期・書き出す大きさで全部）。失敗は ErrorMessage へ。

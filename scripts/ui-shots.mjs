@@ -960,6 +960,24 @@ const SCREENS = [
   { name: 'whatsnew-update-sheet-multi', url: '/?update=1&bundle=2026-10-03', steps: [{ css: 'button:has-text("何が変わった？")' }, SAFE_BOTTOM, { wait: 600 }, { scrollBottom: true }, { wait: 400 }] },
   { name: 'whatsnew-update-sheet-xl-text', url: '/?update=1&bundle=2026-10-03', steps: [{ eval: () => { document.documentElement.style.fontSize = '30px'; } }, { css: 'button:has-text("何が変わった？")' }, SAFE_BOTTOM, { wait: 800 }] },
   { name: 'whatsnew-update-banner-xl-text', url: '/?update=1&bundle=2026-10-04', steps: [{ eval: () => { document.documentElement.style.fontSize = '30px'; } }, { waitFor: 'button:has-text("何が変わった？")' }, { wait: 500 }] },
+  // ── ⏱ 集中モード（読書の時間・2026-10-09）: 入口・始める前のシート（両方の形）・集中モード（タイマー・計測・一時停止・
+  //    長押し中・メモを開いたとき・タイマーが終わったとき）・おわったとき。&focus= は App.jsx（お試しモード）。
+  { name: 'focus-entry-home', url: '/', steps: [] },
+  { name: 'focus-entry-detail', url: '/', steps: [{ css: 'button[aria-label="『数値化の鬼』を開く"]' }, { wait: 800 }] },
+  { name: 'focus-start-timer', url: '/?focus=start', steps: [{ wait: 600 }] },
+  { name: 'focus-start-count', url: '/?focus=start', steps: [{ css: '[role=radiogroup][aria-label="時間の測り方"] [role=radio]:has-text("計測")' }] },
+  { name: 'focus-start-again', url: '/', steps: [{ eval: "localStorage.setItem('orime.focus.prefs', JSON.stringify({ mode: 'timer', minutes: 45 }))" }, { css: 'button[aria-label="『数値化の鬼』を読む（集中モード）"]' }, { wait: 600 }] },
+  { name: 'focus-timer', url: '/?focus=timer', steps: [{ wait: 1200 }] },
+  { name: 'focus-count', url: '/?focus=count', steps: [{ wait: 4500 }] },
+  { name: 'focus-paused', url: '/?focus=paused', steps: [{ wait: 800 }] },
+  { name: 'focus-hold', url: '/?focus=timer', steps: [{ wait: 800 }, { press: ['[data-focus-end]', 550] }] },
+  { name: 'focus-tap-hint', url: '/?focus=timer', steps: [{ wait: 800 }, { css: '[data-focus-end]', settle: 300 }] },
+  { name: 'focus-memo', url: '/?focus=timer', steps: [{ wait: 800 }, { css: 'button[aria-label="メモ"]' }, { wait: 600 }] },
+  { name: 'focus-done', url: '/?focus=done', steps: [{ wait: 4000 }] },
+  { name: 'focus-summary', url: '/?focus=done', steps: [{ wait: 1200 }, { css: '[data-focus-mode="timerDone"] button:has-text("おわる")' }, { wait: 800 }] },
+  { name: 'focus-summary-xxl', url: '/?focus=done', steps: [XXL, { wait: 1200 }, { css: '[data-focus-mode="timerDone"] button:has-text("おわる")' }, { wait: 800 }] },
+  { name: 'focus-timer-xxl', url: '/?focus=timer', steps: [XXL, { wait: 1200 }] },
+  { name: 'focus-share-magazine', url: '/', steps: [{ css: 'button[aria-label="『数値化の鬼』を開く"]' }, { wait: 800 }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("画像で共有")' }, { wait: 2000 }, shareVariant('雑誌'), { wait: 1500 }] },
   // ── 運営ダッシュボード「ローンチの 4 つの数字」（2026-10-02・管理者だけ・?admin=1 は src/demo/demoAdmin.js）
   // 見出し（または表）を、上に貼りつく見出しとタブの下（上から 130px）に来るまで送る。
   ...[
@@ -1019,6 +1037,16 @@ async function run(step, page) {
       await page.mouse.down();
       await page.mouse.move(x + step.swipe[1], y + 4, { steps: 8 });
       await page.mouse.up();
+    }
+  }
+  // press: [要素, ms]。押したまま ms 待つ（離さない＝長押しの途中を撮る・集中モードの「おわる」）。
+  if (step.press) {
+    const box = await page.locator(step.press[0]).first().boundingBox();
+    if (box) {
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await page.mouse.down();
+      await page.waitForTimeout(step.press[1]);
+      return;
     }
   }
   if (step.reload) await page.reload({ waitUntil: 'networkidle' });

@@ -3,7 +3,7 @@
 // The previous JSON export was complete but Excel-unfriendly. CSV is the
 // pragmatic interchange format users actually open. All tables (books /
 // book_memos / book_tags / actions / chat_messages / theme_reports /
-// advisor_sessions / book_collections) go into ONE file with a leading
+// advisor_sessions / book_collections / reading_sessions) go into ONE file with a leading
 // `table` column (2026-09-27: 8 sequential downloads were blocked on iOS).
 // ZIP packaging would require a new dependency, so we skip it.
 //
@@ -27,6 +27,7 @@ export const EXPORT_TABLES = [
   'theme_reports',      // 📐 テーマまとめの履歴（機能は 2026-09-30 に廃止・過去のまとめは書き出しに残す）
   'advisor_sessions',   // 🕒 AI 選書の会話履歴
   'book_collections',   // 🗂 本棚フォルダの割当
+  'reading_sessions',   // ⏱ 読書の時間（集中モード・2026-10-09・表がまだ無い DB は skipped。端末だけの控えは入らない）
 ];
 
 const UTF8_BOM = '﻿';

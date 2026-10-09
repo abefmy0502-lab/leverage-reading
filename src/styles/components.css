@@ -1631,3 +1631,24 @@ details[open] > summary .fold-chevron { transform: rotate(180deg); }
   40% { transform: scale(1.04); }
 }
 .nudge-pulse { animation: lvg-nudge-pulse 600ms var(--ease-spring) 2; }
+
+/* ⏱ 集中モード（FocusMode.jsx・2026-10-09・DESIGN §5「集中モード」）。
+   タイマーの輪は 1 秒ごとに次の位置へ線形に（ゆっくり減って見える）。計測は淡い光が 9 秒で 1 回呼吸する。
+   タイマーが終わったら地が 3 秒かけて少し明るくなる。長押しの輪は 1 秒で一周（離すと 0.2 秒で戻る）。
+   動きを減らす設定では、輪・光・地の動きを止める（長押しの進み具合は、輪の代わりに文字で伝わる）。 */
+.focus-surface { transition: background-color 3s var(--ease-out); }
+.focus-ring-progress { transition: stroke-dashoffset 1s linear, opacity var(--duration-base) var(--ease-out); }
+@keyframes focus-breathe {
+  0%, 100% { opacity: 0.45; transform: scale(0.94); }
+  50% { opacity: 1; transform: scale(1.04); }
+}
+.focus-glow { animation: focus-breathe 9s ease-in-out infinite; }
+.focus-glow.is-paused { animation-play-state: paused; }
+.focus-hold { transition: stroke-dashoffset 0.2s var(--ease-out), opacity 0.2s var(--ease-out); }
+.focus-hold.is-holding { transition: stroke-dashoffset 1s linear, opacity 0.1s linear; }
+.focus-round:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) {
+  .focus-surface, .focus-ring-progress { transition: none; }
+  .focus-glow { animation: none; opacity: 0.7; }
+  .focus-hold, .focus-hold.is-holding { transition: none; }
+}

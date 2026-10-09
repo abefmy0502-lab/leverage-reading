@@ -28,6 +28,10 @@ const BACK_LABEL_SIZE = 'min(var(--text-body), var(--text-bar-max))';
 const JUST_DONE_CLEARANCE = `calc(${FAB_CLEARANCE} + var(--space-16))`;
 import { frequentMemoTags } from './lib/memoTags';
 const HomeQuickMemo = lazy(() => import('./components/HomeQuickMemo'));
+// ⏱ 集中モード（読書の時間・2026-10-09）。使うときに読む。
+const FocusStartSheet = lazy(() => import('./components/FocusStartSheet'));
+const FocusMode = lazy(() => import('./components/FocusMode'));
+import { startFocus, pauseFocus, loadFocusState, saveFocusState } from './lib/readingTime';
 import Onboarding, { isOnboardingCompleted, clearOnboardingCompletion } from './components/Onboarding';
 import {
   Search as IcSearch, Plus as IcPlus, Library as IcLibrary, Sparkles as IcSparkles,
@@ -196,6 +200,7 @@ import {
   Smartphone,
   Tag as IcTag,
   ScrollText,
+  Timer,
 } from 'lucide-react';
 import { useBookMemos } from './hooks/useBookMemos';
 import { useBookInfo } from './hooks/useBookInfo';
@@ -3965,6 +3970,74 @@ function AuthedApp() {
   const actionCount = useMemo(() => books.reduce((s, b) => s + (b.actions || []).filter((a) => a.text?.trim()).length, 0), [books]);
   const actionDone = useMemo(() => books.reduce((s, b) => s + (b.actions || []).filter((a) => a.done).length, 0), [books]);
   const allTags = useMemo(() => { const s = new Set(); books.forEach((b) => (b.tags || []).forEach((t) => s.add(t))); return [...s]; }, [books]);
+
+  // ⏱ 集中モード（読書の時間・2026-10-09・SPEC §2-2）。入口は読書中の本の詳細とホームのいま読んでいる本の「読む」。
+  //   focusStartBook: 始める前のシートの本。focusRun: { book, state, phase } 画面いっぱいの集中モード。
+  const [focusStartBook, setFocusStartBook] = useState(null);
+  const [focusRun, setFocusRun] = useState(null);
+  const openFocusStart = useCallback((b) => { haptic.light(); setFocusStartBook(b); }, [haptic]);
+  // 途中で閉じた・裏に回して落ちたときは、本を読み込んだら端末に残った状態から再開する（始めた時刻から数え直す）。
+  const focusRestored = useRef(false);
+  useEffect(() => {
+    if (focusRestored.current || booksLoading || books.length === 0) return;
+    focusRestored.current = true;
+    // 🧪 お試しモード: &focus=timer|count|paused|done|summary|start で、読書中の本の集中モードを開く。
+    const demoFocus = isDemo ? new URLSearchParams(window.location.search).get('focus') : null;
+    if (demoFocus) {
+      const b = books.find((x) => x.title === '数値化の鬼') || books.find((x) => x.status === 'reading') || books[0];
+      if (demoFocus === 'start') { setFocusStartBook(b); return; }
+      const t = Date.now();
+      const MIN = 60 * 1000;
+      const st = demoFocus === 'count'
+        ? { ...startFocus({ bookId: b.id, mode: 'count' }, t - 32 * MIN - 20000) }
+        : demoFocus === 'done' ? startFocus({ bookId: b.id, mode: 'timer', minutes: 30 }, t - 30 * MIN - 5000)
+          : demoFocus === 'paused' ? pauseFocus(startFocus({ bookId: b.id, mode: 'timer', minutes: 30 }, t - 12 * MIN), t)
+            : startFocus({ bookId: b.id, mode: 'timer', minutes: 30 }, t - 7 * MIN - 10000);
+      setFocusRun({ book: b, state: st, phase: demoFocus === 'summary' ? 'summary' : null });
+      return;
+    }
+    const saved = loadFocusState();
+    if (!saved) return;
+    const b = books.find((x) => x.id === saved.bookId);
+    if (!b) { saveFocusState(null); return; }
+    setFocusRun({ book: b, state: saved, phase: null });
+  }, [booksLoading, books]);
+  const startFocusRun = ({ mode, minutes }) => {
+    const b = focusStartBook;
+    if (!b) return;
+    const st = startFocus({ bookId: b.id, mode, minutes });
+    saveFocusState(st);
+    setFocusStartBook(null);
+    setFocusRun({ book: b, state: st, phase: null });
+  };
+  // 集中モードの層（本の詳細と、ほかの画面の両方の木に置く＝どちらから始めても同じ）。
+  const focusLayer = (
+    <>
+      {focusStartBook && (
+        <Suspense fallback={<OverlayFallback />}>
+          <FocusStartSheet onStart={startFocusRun} onClose={() => setFocusStartBook(null)} />
+        </Suspense>
+      )}
+      {focusRun && (
+        <Suspense fallback={null}>
+          <FocusMode
+            key={focusRun.state.startedAt}
+            book={books.find((x) => x.id === focusRun.book.id) || focusRun.book}
+            initial={focusRun.state}
+            initialPhase={focusRun.phase}
+            allTags={allTags}
+            onClose={() => { saveFocusState(null); setFocusRun(null); }}
+            onOpenFullEditor={(prefill) => {
+              const b = focusRun.book;
+              setFocusRun(null);
+              openDetail(b);
+              setFullEditorPrefill(prefill);
+            }}
+          />
+        </Suspense>
+      )}
+    </>
+  );
   // フォルダ（コレクション）一覧 — 本に付いた collection 名の集合（冊数つき・名前順）。
   const allFolders = useMemo(() => {
     const counts = new Map();
@@ -4407,6 +4480,18 @@ function AuthedApp() {
                   {current.startDate && <>開始 {fmtDateJa(current.startDate)}</>}{current.startDate && current.doneDate && '　'}{current.doneDate && <>読了 {fmtDateJa(current.doneDate)}</>}
                 </p>
               )}
+              {/* ⏱ 読む（集中モード・読書中だけ・2026-10-09）。主役の「メモを書く」（右下の塗り）より弱い、枠の小さな副ボタン。 */}
+              {current.status === 'reading' && (
+                <button
+                  type="button"
+                  onClick={() => openFocusStart(current)}
+                  aria-label={`『${current.title}』を読む（集中モード）`}
+                  data-focus-entry=""
+                  style={{ ...btnGhost, width: 'auto', minHeight: 44, padding: 'var(--space-2) var(--space-3)', marginTop: 'var(--space-3)', fontSize: 'var(--text-sub)', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}
+                >
+                  <Timer size="1.1em" strokeWidth={1.75} aria-hidden="true" style={{ flexShrink: 0 }} />読む
+                </button>
+              )}
             </div>
           </div>
 
@@ -4830,6 +4915,7 @@ function AuthedApp() {
           </Suspense>
         )}
         {shareCameraInput}
+        {focusLayer}
         {storeSheetOpen && (
           <BottomSheet title="この本を買う" onClose={() => setStoreSheetOpen(false)}>
             <BookStoreLinks book={current} variant="cta" buy />
@@ -5294,6 +5380,8 @@ function AuthedApp() {
               onAdvisor={() => { setAiSubTab('advisor'); setTab('ai'); }}
               onOpenBook={(b) => openDetail(b)}
               onWriteMemo={(b) => setHomeMemoBook(b)}
+              // ⏱ 読む（集中モード・読書中の本だけ・2026-10-09）
+              onRead={openFocusStart}
               // 読書中が 0 冊のときの候補（積読）の「読み始める」: 本を開かずにその場で読書中へ（楽観的に変えて、失敗したら戻す）。
               onStartReading={(b) => { haptic.light(); setBookStatusQuiet(b, 'reading'); }}
               onOpenLibrary={() => startTransition(() => setShelfMode('library'))}
@@ -5937,6 +6025,7 @@ function AuthedApp() {
         </Suspense>
       )}
       {shareCameraInput}
+      {focusLayer}
 
       {settingsOpen && (
         <Suspense fallback={<OverlayFallback />}>

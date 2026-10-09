@@ -3,7 +3,7 @@
 // SPEC.md §1 の構成そのもの。置くのは次のブロックだけ:
 //   1. はじめの一歩（HomeFirstStep・本はあるがメモ 0 件のときだけ）→ 初日クイックスタート
 //      メモが 1〜9 件の間は、同じ場所に静かな一行「あと N 件で相談相手が育ちます」（GrowthMeter・2026-10-02）
-//   2. いま読んでいる本（最大 3 冊・各本に「メモを書く」＝ 1 タップでクイックメモ）
+//   2. いま読んでいる本（最大 3 冊・各本に「メモを書く」＝ 1 タップでクイックメモ。その下に控えめな「読む」＝集中モード・2026-10-09）
 //   3. すべての本（N 冊）› → ライブラリ画面（検索・絞り込み・並び替えはそちらへ）
 // 月末の 3 日間・12 月だけ、題の下に控えめな 1 行「◯月の読書を、1 枚の画像に」（ShareNudge・閉じられる・2026-10-08）。
 // 本 0 冊のときは「はじめる」カード 1 枚だけ。
@@ -12,7 +12,7 @@
 // 上の行の「写真で共有」は App.jsx の全体ヘッダー（ホーム・振り返り・相談で同じ場所）。
 // 見た目は DESIGN.md のトークンのみ。
 import { useEffect, useState } from 'react';
-import { Library, ChevronRight, PencilLine, Plus, BookOpen } from 'lucide-react';
+import { Library, ChevronRight, PencilLine, Plus, BookOpen, Timer } from 'lucide-react';
 import HomeFirstStep, { useHomeMemoState } from './HomeFirstStep';
 import GrowthMeter from './GrowthMeter';
 import ShareNudge, { useShareNudge } from './ShareNudge';
@@ -62,7 +62,7 @@ function StartCard({ onQuickstart, onAddBook, onAdvisor, onImport }) {
 }
 
 // いま読んでいる本の 1 行（表紙・書名・2 行目・右に副ボタン 1 つ）。読書中の本と、読書中が 0 冊のときの候補で共通。
-function BookRow({ book: b, sub, onOpenBook, onCoverRetry, action }) {
+function BookRow({ book: b, sub, onOpenBook, onCoverRetry, action, footer }) {
   return (
     // 文字サイズを大きくしたときは、右のボタンを書名の下へ折り返す（横に並べたままだと書名が「数値／化…」と
     // 2〜3 字で切れて読めなかった・2026-10-04）。ふだんの大きさでは 1 行（書名の欄は 10rem＝170 あれば並ぶ）。
@@ -85,6 +85,26 @@ function BookRow({ book: b, sub, onOpenBook, onCoverRetry, action }) {
         </span>
       </button>
       {action}
+      {footer}
+    </div>
+  );
+}
+
+// ⏱ 読む（集中モード・2026-10-09）: 読書中の本の行の下に、書名の列（表紙 40＋間 12）にそろえた控えめな文字ボタン。
+//   主役の「メモを書く」（枠の副ボタン）より弱く＝枠も塗りもない --text-2 の 15/600＋時計のアイコン。
+//   押せる高さは 44 のまま、上の行との間（12）とカードの下の余白を負の余白で詰めて、カードを 24 だけ伸ばす。
+function ReadLink({ book: b, onRead }) {
+  return (
+    <div style={{ flexBasis: '100%', display: 'flex', paddingLeft: 52, margin: 'calc(-1 * var(--space-3)) 0 calc(-1 * var(--space-3))' }}>
+      <button
+        type="button"
+        onClick={() => onRead(b)}
+        aria-label={`『${b.title}』を読む（集中モード）`}
+        data-focus-entry=""
+        style={{ ...btnLink, color: 'var(--text-2)', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}
+      >
+        <Timer size="1.1em" strokeWidth={1.75} aria-hidden="true" style={{ flexShrink: 0 }} />読む
+      </button>
     </div>
   );
 }
@@ -101,7 +121,7 @@ function phraseChunks(title) {
 const byUpdated = (a, b) => (b.updated_at || '').localeCompare(a.updated_at || '');
 const byDone = (a, b) => (b.doneDate || '').localeCompare(a.doneDate || '') || byUpdated(a, b);
 
-function ReadingNow({ books, onOpenBook, onWriteMemo, onStartReading, onAddBook, onSeeAllReading, onCoverRetry }) {
+function ReadingNow({ books, onOpenBook, onWriteMemo, onStartReading, onAddBook, onSeeAllReading, onCoverRetry, onRead }) {
   const reading = books.filter((b) => b.status === 'reading').sort(byUpdated);
   const shown = reading.slice(0, 3);
   // 読書中 0 冊（2026-10-01 ui-critic・オーナー承認・SPEC §1）: 次に読む候補を最大 3 冊。見出しで何の一覧かを言う
@@ -122,7 +142,7 @@ function ReadingNow({ books, onOpenBook, onWriteMemo, onStartReading, onAddBook,
       <h2 id="home-reading-title" style={sectionTitle}>{heading}</h2>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
           {shown.map((b) => (
-            <BookRow key={b.id} book={b} sub={b.author} onOpenBook={onOpenBook} onCoverRetry={onCoverRetry} action={memoBtn(b)} />
+            <BookRow key={b.id} book={b} sub={b.author} onOpenBook={onOpenBook} onCoverRetry={onCoverRetry} action={memoBtn(b)} footer={onRead ? <ReadLink book={b} onRead={onRead} /> : null} />
           ))}
           {shown.length === 0 && candidates.length === 0 && (
             <p style={{ margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5 }}>読書中の本はありません</p>
@@ -182,7 +202,7 @@ export function HomeBlocksSkeleton() {
 export default function HomeScreen({
   books = [], loading = false, loadError = null, onRetry,
   onQuickstart, onAddBook, onAddReadingBook, onAdvisor, onImport,
-  onOpenBook, onWriteMemo, onStartReading, onOpenLibrary, onSeeAllReading, onCoverRetry, onShareNudge,
+  onOpenBook, onWriteMemo, onStartReading, onOpenLibrary, onSeeAllReading, onCoverRetry, onShareNudge, onRead,
 }) {
   // メモがあるか（はじめの一歩を出すか）。分かるまではスケルトン（カードを遅れて差し込まない・最大 800ms）。
   const memoState = useHomeMemoState(books);
@@ -238,7 +258,7 @@ export default function HomeScreen({
       ) : (
         <>
           {!memoState.hasMemos && <HomeFirstStep bookCount={books.length} onQuickstart={onQuickstart} onImport={onImport} />}
-          <ReadingNow books={books} onOpenBook={onOpenBook} onWriteMemo={onWriteMemo} onStartReading={onStartReading} onAddBook={onAddBook} onSeeAllReading={onSeeAllReading} onCoverRetry={onCoverRetry} />
+          <ReadingNow books={books} onOpenBook={onOpenBook} onWriteMemo={onWriteMemo} onStartReading={onStartReading} onAddBook={onAddBook} onSeeAllReading={onSeeAllReading} onCoverRetry={onCoverRetry} onRead={onRead} />
           <button
             type="button"
             onClick={onOpenLibrary}

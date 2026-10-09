@@ -444,6 +444,24 @@ export function buildSeed(scenario) {
     });
   }
 
+  // ⏱ 読書の時間（集中モード・2026-10-09）。『数値化の鬼』は今日の朝に 20 分・きのう 45 分・3 日前 30 分
+  //   （＝おわったときの「この本で これまで …」と、写真で共有の雑誌の「読書 20 分」の確認用）。
+  //   開始の時刻は端末の日付（&today= があればその日）から数える。
+  db.reading_sessions = [];
+  const sessionAt = (daysAgo, hour, minutes) => {
+    const d = appNow();
+    d.setDate(d.getDate() - daysAgo);
+    d.setHours(hour, 10, 0, 0);
+    if (daysAgo === 0 && d.getTime() > appNow().getTime()) d.setTime(appNow().getTime() - (minutes + 60) * 60 * 1000);
+    return { started_at: d.toISOString(), ended_at: new Date(d.getTime() + minutes * 60 * 1000).toISOString(), seconds: minutes * 60 };
+  };
+  const focusBook = db.books.find((b) => b.title === '数値化の鬼');
+  if (focusBook) {
+    [[0, 7, 20, 'timer'], [1, 21, 45, 'count'], [3, 22, 30, 'timer']].forEach(([daysAgo, hour, minutes, mode], i) => {
+      db.reading_sessions.push({ id: `00000000-0000-4000-8000-0000000e${String(i).padStart(4, '0')}`, user_id: DEMO_USER_ID, book_id: focusBook.id, mode, created_at: iso(daysAgo), ...sessionAt(daysAgo, hour, minutes) });
+    });
+  }
+
   // 過去の相談（「過去の相談」の一覧の確認用）。答えは本番と同じ【結論】…の書式。
   const CHATS = [
     [12, '会議で意見を言えないのをどうにかしたい', '【結論】\n最初の 5 分で、ひとことだけ「確認の質問」をしてみましょう。\n\n【明日からできる 1 つの行動】\n次の会議の前に、聞きたいことを 1 つだけメモに書いておく。', ['📚 D・カーネギー『人を動かす』 p.64']],
@@ -463,6 +481,7 @@ export function buildSeed(scenario) {
     db.books.forEach((b) => { b.leverage_memo = ''; });
     db.chat_messages = [];
     db.actions = [];
+    db.reading_sessions = [];
   }
 
   return db;
