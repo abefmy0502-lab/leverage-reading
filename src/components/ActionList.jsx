@@ -729,11 +729,11 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
           onClose={() => setMenu(null)}
           items={[
             menu.action.done
-              ? { label: '未完了に戻す', icon: <Circle size={16} aria-hidden="true" />, onClick: () => onCheck(menu.action) }
-              : { label: '完了にする', icon: <CheckCircle2 size={16} aria-hidden="true" />, onClick: () => onCheck(menu.action) },
-            ...(onEditAction ? [{ label: '編集', icon: <Pencil size={16} aria-hidden="true" />, onClick: () => onEditAction(menu.action.bookId, menu.action.actionIdx, menu.action) }] : []),
-            { label: '本を開く', icon: <BookOpen size={16} aria-hidden="true" />, onClick: () => { const b = bookOf(menu.action); if (b) onOpenBook?.(b); } },
-            { label: '削除', icon: <Trash2 size={16} aria-hidden="true" />, destructive: true, onClick: () => onDeleteAction?.(menu.action.bookId, menu.action.actionIdx, { target: menu.action }) },
+              ? { label: '未完了に戻す', icon: <Circle size="1.1em" aria-hidden="true" />, onClick: () => onCheck(menu.action) }
+              : { label: '完了にする', icon: <CheckCircle2 size="1.1em" aria-hidden="true" />, onClick: () => onCheck(menu.action) },
+            ...(onEditAction ? [{ label: '編集', icon: <Pencil size="1.1em" aria-hidden="true" />, onClick: () => onEditAction(menu.action.bookId, menu.action.actionIdx, menu.action) }] : []),
+            { label: '本を開く', icon: <BookOpen size="1.1em" aria-hidden="true" />, onClick: () => { const b = bookOf(menu.action); if (b) onOpenBook?.(b); } },
+            { label: '削除', icon: <Trash2 size="1.1em" aria-hidden="true" />, destructive: true, onClick: () => onDeleteAction?.(menu.action.bookId, menu.action.actionIdx, { target: menu.action }) },
           ]}
         />
       )}

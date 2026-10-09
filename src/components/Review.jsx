@@ -1048,16 +1048,16 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
           onClose={() => setFilterMenu(null)}
           items={filterMenu.kind === 'kind'
             ? [
-              { label: 'すべての種類', icon: kindFilter === 'all' ? <Check size={16} aria-hidden="true" /> : <span aria-hidden="true" />, onClick: () => setKindFilter('all') },
+              { label: 'すべての種類', icon: kindFilter === 'all' ? <Check size="1.1em" aria-hidden="true" /> : <span aria-hidden="true" />, onClick: () => setKindFilter('all') },
               // 実際にある種類だけ（いま選んでいる種類は 0 件でも残す）。
               ...Object.entries(KIND_META)
                 .filter(([k]) => (kindCounts[k] || 0) > 0 || kindFilter === k)
-                .map(([k, meta]) => ({ label: meta.label, icon: kindFilter === k ? <Check size={16} aria-hidden="true" /> : <span aria-hidden="true" />, onClick: () => setKindFilter(k) })),
+                .map(([k, meta]) => ({ label: meta.label, icon: kindFilter === k ? <Check size="1.1em" aria-hidden="true" /> : <span aria-hidden="true" />, onClick: () => setKindFilter(k) })),
             ]
             : [
-              { label: 'すべてのタグ', icon: !tagFilter ? <Check size={16} aria-hidden="true" /> : <span aria-hidden="true" />, onClick: () => setTagFilter('') },
+              { label: 'すべてのタグ', icon: !tagFilter ? <Check size="1.1em" aria-hidden="true" /> : <span aria-hidden="true" />, onClick: () => setTagFilter('') },
               // メニューが画面に収まるよう、よく使うタグ 7 つまで（ほかのタグは検索欄に入れても探せる）。
-              ...menuTags.map((t) => ({ label: `#${t}`, icon: tagFilter === t ? <Check size={16} aria-hidden="true" /> : <span aria-hidden="true" />, onClick: () => setTagFilter(t) })),
+              ...menuTags.map((t) => ({ label: `#${t}`, icon: tagFilter === t ? <Check size="1.1em" aria-hidden="true" /> : <span aria-hidden="true" />, onClick: () => setTagFilter(t) })),
             ]}
         />
       )}
@@ -1070,32 +1070,32 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
             // 並びは本の詳細のメモの「…」とそろえる: 編集 → コピー → 行動に追加 → この一文をシェア → 本を開く → 削除（2026-09-30）。
             // 本に付いたふつうのメモは、ここから編集も開ける（その本のそのメモを編集で開く・2026-09-30）。
             ...(memoMenu.book && !memoMenu.memo?.synth && (memoMenu.memo?.kind || 'card') === 'card' && memoMenu.memo?.sourceType !== 'personal' && memoMenu.memo?.sourceType !== 'summary'
-              ? [{ label: '編集', icon: <Pencil size={16} aria-hidden="true" />, onClick: () => onOpenBook?.(memoMenu.book, memoMenu.memo?.id, { edit: true }) }]
+              ? [{ label: '編集', icon: <Pencil size="1.1em" aria-hidden="true" />, onClick: () => onOpenBook?.(memoMenu.book, memoMenu.memo?.id, { edit: true }) }]
               : []),
             // 本の詳細のメモの「…」と同じく、コピー・この一文をシェアもここから（2026-09-30）。
             ...((memoMenu.memo?.text || '').trim()
-              ? [{ label: 'コピー', icon: <Copy size={16} aria-hidden="true" />, onClick: () => copyMemo(memoMenu.memo) }]
+              ? [{ label: 'コピー', icon: <Copy size="1.1em" aria-hidden="true" />, onClick: () => copyMemo(memoMenu.memo) }]
               : []),
             // 🎯 読む→メモる→行動する、の変換点をどの一覧（タイムライン /
             // 検索結果）からでも 1 タップに。ランダム想起カード限定だった
             // handleMemoToAction を長押しメニューにも露出する。
             ...(memoMenu.book && onAddAction
-              ? [{ label: '行動に追加', icon: <Target size={16} aria-hidden="true" />, onClick: () => handleMemoToAction(memoMenu.memo) }]
+              ? [{ label: '行動に追加', icon: <Target size="1.1em" aria-hidden="true" />, onClick: () => handleMemoToAction(memoMenu.memo) }]
               : []),
             ...(memoMenu.book && !memoMenu.memo?.synth && (memoMenu.memo?.text || '').trim()
-              ? [{ label: 'この一文をシェア', icon: <Share size={16} aria-hidden="true" />, onClick: () => { haptic.light(); setShareTarget({ book: memoMenu.book, memoId: memoMenu.memo.id }); } }]
+              ? [{ label: 'この一文をシェア', icon: <Share size="1.1em" aria-hidden="true" />, onClick: () => { haptic.light(); setShareTarget({ book: memoMenu.book, memoId: memoMenu.memo.id }); } }]
               : []),
             // 思い出しカードの「…」だけ: 別の 1 枚へ（SPEC §4: 覚えた／もう一度 ＋ …）。
             ...(memoMenu.recall
-              ? [{ label: '別のメモを見る', icon: <Shuffle size={16} aria-hidden="true" />, onClick: () => { if (!flipping) reroll(); } }]
+              ? [{ label: '別のメモを見る', icon: <Shuffle size="1.1em" aria-hidden="true" />, onClick: () => { if (!flipping) reroll(); } }]
               : []),
             ...(memoMenu.book
-              ? [{ label: '本を開く', icon: <BookOpen size={16} aria-hidden="true" />, onClick: () => onOpenBook?.(memoMenu.book, memoMenu.memo?.id) }]
+              ? [{ label: '本を開く', icon: <BookOpen size="1.1em" aria-hidden="true" />, onClick: () => onOpenBook?.(memoMenu.book, memoMenu.memo?.id) }]
               : []),
             // 派生ノート（まとめ・収穫など）は DB の 1 行ではないので削除を出さない。
             ...(memoMenu.memo?.synth ? [] : [{
               label: '削除',
-              icon: <Trash2 size={16} aria-hidden="true" />,
+              icon: <Trash2 size="1.1em" aria-hidden="true" />,
               destructive: true,
               // メニューからの削除は確認する（スワイプは「ジェスチャー＝意図」で確認なし・取り消しつき）
               onClick: async () => {

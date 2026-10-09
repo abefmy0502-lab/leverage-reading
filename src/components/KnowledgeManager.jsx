@@ -744,7 +744,7 @@ export default function KnowledgeManager({ onChanged, onBooksMutated, onWriteMem
           y={itemMenu.y}
           onClose={() => setItemMenu(null)}
           items={[
-            { label: '編集', icon: <Pencil size={16} aria-hidden="true" />, onClick: () => handleEdit(itemMenu.item) },
+            { label: '編集', icon: <Pencil size="1.1em" aria-hidden="true" />, onClick: () => handleEdit(itemMenu.item) },
             {
               label: KIND_META[itemMenu.item.kind]?.column ? '消す' : '削除',
               icon: KIND_META[itemMenu.item.kind]?.column

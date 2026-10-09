@@ -2,7 +2,7 @@
 // (taps close) plus a small floating panel positioned near (x, y) but clamped
 // to the viewport.
 
-import { useEffect, useLayoutEffect, useState, useRef } from 'react';
+import { cloneElement, isValidElement, useEffect, useLayoutEffect, useState, useRef } from 'react';
 import { withPhraseBreaks } from './TightBubble';
 
 // 幅は 220 か 14rem（文字の大きさの設定に追従）の広いほう。文字を大きくしたら広がり、画面の幅（左右 16 ずつ）を超えない（項目が 1 字ずつ割れないように・2026-10-08）。
@@ -160,7 +160,13 @@ export default function ContextMenu({ x = 0, y = 0, items = [], onClose }) {
                 borderBottom: isLast ? 'none' : itemBase.borderBottom,
               }}
             >
-              {it.icon && <span style={{ display: 'inline-flex', width: 20, justifyContent: 'center' }}>{it.icon}</span>}
+              {/* アイコンは文字と一緒に大きくなる（入れ物 1.2em・線のアイコンは 1.1em・2026-10-08 ui-critic）。
+                  各画面は lucide のアイコンを渡すだけでよい（大きさはここで決める＝渡し忘れ・px の直書きが残っても同じ大きさ）。 */}
+              {it.icon && (
+                <span style={{ display: 'inline-flex', width: '1.2em', flexShrink: 0, justifyContent: 'center' }}>
+                  {isValidElement(it.icon) && it.icon.type !== 'span' ? cloneElement(it.icon, { size: '1.1em' }) : it.icon}
+                </span>
+              )}
               {/* 2 行になるときは文節の切れ目で（「読書計画シートを編／集」と割らない・2026-09-30）。 */}
               <span style={{ flex: 1, minWidth: 0, wordBreak: 'keep-all', overflowWrap: 'break-word' }}>{typeof it.label === 'string' ? withPhraseBreaks(it.label) : it.label}</span>
             </button>

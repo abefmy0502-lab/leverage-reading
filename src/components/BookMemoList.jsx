@@ -720,15 +720,15 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
           y={memoMenu.y}
           onClose={() => setMemoMenu(null)}
           items={[
-            { label: '編集', icon: <Pencil size={16} aria-hidden="true" />, onClick: () => openEdit(memoMenu.memo) },
-            { label: 'コピー', icon: <Copy size={16} aria-hidden="true" />, onClick: () => handleCopy(memoMenu.memo) },
+            { label: '編集', icon: <Pencil size="1.1em" aria-hidden="true" />, onClick: () => openEdit(memoMenu.memo) },
+            { label: 'コピー', icon: <Copy size="1.1em" aria-hidden="true" />, onClick: () => handleCopy(memoMenu.memo) },
             ...(onMakeAction && (memoMenu.memo?.text || '').trim()
-              ? [{ label: '行動に追加', icon: <Target size={16} aria-hidden="true" />, onClick: () => handleMakeAction(memoMenu.memo) }]
+              ? [{ label: '行動に追加', icon: <Target size="1.1em" aria-hidden="true" />, onClick: () => handleMakeAction(memoMenu.memo) }]
               : []),
             ...((memoMenu.memo?.text || '').trim()
-              ? [{ label: 'この一文をシェア', icon: <Share size={16} aria-hidden="true" />, onClick: () => handleShare(memoMenu.memo) }]
+              ? [{ label: 'この一文をシェア', icon: <Share size="1.1em" aria-hidden="true" />, onClick: () => handleShare(memoMenu.memo) }]
               : []),
-            { label: '削除', icon: <Trash2 size={16} aria-hidden="true" />, destructive: true, onClick: () => handleDelete(memoMenu.memo) },
+            { label: '削除', icon: <Trash2 size="1.1em" aria-hidden="true" />, destructive: true, onClick: () => handleDelete(memoMenu.memo) },
           ]}
         />
       )}

@@ -166,8 +166,8 @@ export function ViewpointMapCard({ map, onOpenTag, onFindBooks, onAbout, onStop 
           y={menu.y}
           onClose={() => setMenu(null)}
           items={[
-            { label: '視点の地図について', icon: <Info size={16} aria-hidden="true" />, onClick: () => { setMenu(null); onAbout?.(); } },
-            { label: '使うのをやめる', icon: <X size={16} aria-hidden="true" />, onClick: () => { setMenu(null); onStop?.(); } },
+            { label: '視点の地図について', icon: <Info size="1.1em" aria-hidden="true" />, onClick: () => { setMenu(null); onAbout?.(); } },
+            { label: '使うのをやめる', icon: <X size="1.1em" aria-hidden="true" />, onClick: () => { setMenu(null); onStop?.(); } },
           ]}
         />
       )}

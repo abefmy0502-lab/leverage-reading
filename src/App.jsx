@@ -4789,13 +4789,13 @@ function AuthedApp() {
             y={detailKebab.y}
             onClose={() => setDetailKebab(null)}
             items={[
-              { label: '編集', icon: <PencilLine size={16} aria-hidden="true" />, onClick: () => openEdit(current) },
+              { label: '編集', icon: <PencilLine size="1.1em" aria-hidden="true" />, onClick: () => openEdit(current) },
               // 📋 AI 読書計画は before / reading / done のどこからでも
               // 仕切り直せる。want は本格的な読書計画前なので除外。
               ...(current.status !== 'want'
                 ? [{
                     label: '読書計画シートを編集',
-                    icon: <IcMap size={16} aria-hidden="true" />,
+                    icon: <IcMap size="1.1em" aria-hidden="true" />,
                     onClick: () => openSetup(current),
                   }]
                 : []),
@@ -4809,7 +4809,7 @@ function AuthedApp() {
                 const prevLabel = STATUS_LABEL[prev] || prev;
                 return [{
                   label: `「${prevLabel}」に戻す`,
-                  icon: <RotateCcw size={16} aria-hidden="true" />,
+                  icon: <RotateCcw size="1.1em" aria-hidden="true" />,
                   onClick: async () => {
                     const ok = await confirm({
                       title: `「${prevLabel}」に戻しますか？`,
@@ -4822,20 +4822,20 @@ function AuthedApp() {
                   },
                 }];
               })()),
-              { label: '表紙を選び直す', icon: <ImagePlus size={16} aria-hidden="true" />, onClick: () => setCoverFixForBook(current) },
-              { label: '表紙を取り直す', icon: <IcRefresh size={16} aria-hidden="true" />, onClick: () => refreshCoverFor(current) },
-              { label: '表紙を手動でアップロード', icon: <Upload size={16} aria-hidden="true" />, onClick: () => triggerManualCoverUpload(current) },
-              ...(current.cover ? [{ label: '表紙を削除', icon: <ImageOff size={16} aria-hidden="true" />, onClick: () => removeCoverFor(current) }] : []),
+              { label: '表紙を選び直す', icon: <ImagePlus size="1.1em" aria-hidden="true" />, onClick: () => setCoverFixForBook(current) },
+              { label: '表紙を取り直す', icon: <IcRefresh size="1.1em" aria-hidden="true" />, onClick: () => refreshCoverFor(current) },
+              { label: '表紙を手動でアップロード', icon: <Upload size="1.1em" aria-hidden="true" />, onClick: () => triggerManualCoverUpload(current) },
+              ...(current.cover ? [{ label: '表紙を削除', icon: <ImageOff size="1.1em" aria-hidden="true" />, onClick: () => removeCoverFor(current) }] : []),
               ...(current.status !== 'want'
-                ? [{ label: 'この本を買う', icon: <ShoppingBag size={16} aria-hidden="true" />, onClick: () => setStoreSheetOpen(true) }]
+                ? [{ label: 'この本を買う', icon: <ShoppingBag size="1.1em" aria-hidden="true" />, onClick: () => setStoreSheetOpen(true) }]
                 : []),
               // 読書中・読了は画像で共有（写真なしで開く・シートの中で写真も選べる）。読みたい・積読は書名とお店のリンクの文を共有。
               isMemoPhase
-                ? { label: '画像で共有', icon: <Share size={16} aria-hidden="true" />, onClick: () => setShareSheet({ book: current, from: 'menu' }) }
-                : { label: '共有', icon: <Share size={16} aria-hidden="true" />, onClick: () => shareBook(current) },
+                ? { label: '画像で共有', icon: <Share size="1.1em" aria-hidden="true" />, onClick: () => setShareSheet({ book: current, from: 'menu' }) }
+                : { label: '共有', icon: <Share size="1.1em" aria-hidden="true" />, onClick: () => shareBook(current) },
               // ヘルプは上の行に単独のボタンで置かず、この「…」の中（削除の直前・削除はいつも最後）に（2026-09-30）。
-              { label: 'ヘルプ', icon: <HelpCircle size={16} aria-hidden="true" />, onClick: openHelp },
-              { label: '削除', icon: <Trash2 size={16} aria-hidden="true" />, destructive: true, onClick: () => requestDeleteBook(current) },
+              { label: 'ヘルプ', icon: <HelpCircle size="1.1em" aria-hidden="true" />, onClick: openHelp },
+              { label: '削除', icon: <Trash2 size="1.1em" aria-hidden="true" />, destructive: true, onClick: () => requestDeleteBook(current) },
             ]}
           />
         )}
@@ -4932,7 +4932,7 @@ function AuthedApp() {
             x={editMenu.x}
             y={editMenu.y}
             onClose={() => setEditMenu(null)}
-            items={[{ label: 'ヘルプ', icon: <HelpCircle size={16} aria-hidden="true" />, onClick: openHelp }]}
+            items={[{ label: 'ヘルプ', icon: <HelpCircle size="1.1em" aria-hidden="true" />, onClick: openHelp }]}
           />
         )}
         <div
@@ -5388,15 +5388,15 @@ function AuthedApp() {
                 y={libraryMenu.y}
                 onClose={() => setLibraryMenu(null)}
                 items={[
-                  { label: `並び替え（${SORT_LABELS[sortBy] || '更新順'}）`, icon: <IcSort size={16} aria-hidden="true" />, onClick: () => setSortSheetOpen(true) },
-                  { label: activeFilterCount > 0 ? `絞り込み（${activeFilterCount}）` : '絞り込み', icon: <IcFilter size={16} aria-hidden="true" />, onClick: () => setFilterSheetOpen(true) },
+                  { label: `並び替え（${SORT_LABELS[sortBy] || '更新順'}）`, icon: <IcSort size="1.1em" aria-hidden="true" />, onClick: () => setSortSheetOpen(true) },
+                  { label: activeFilterCount > 0 ? `絞り込み（${activeFilterCount}）` : '絞り込み', icon: <IcFilter size="1.1em" aria-hidden="true" />, onClick: () => setFilterSheetOpen(true) },
                   effectiveBookshelfView === 'grid'
-                    ? { label: 'リストで表示', icon: <IcList size={16} aria-hidden="true" />, onClick: () => setBookshelfViewMode('list') }
-                    : { label: '表紙で表示', icon: <IcGrid size={16} aria-hidden="true" />, onClick: () => setBookshelfViewMode('grid') },
+                    ? { label: 'リストで表示', icon: <IcList size="1.1em" aria-hidden="true" />, onClick: () => setBookshelfViewMode('list') }
+                    : { label: '表紙で表示', icon: <IcGrid size="1.1em" aria-hidden="true" />, onClick: () => setBookshelfViewMode('grid') },
                   // ブクログ・Kindle の記録を本棚に取り込む（設定の奥だけだったので、本の一覧からも・2026-09-29）。
-                  { label: '取り込む', icon: <Upload size={16} aria-hidden="true" />, onClick: () => setShowImport(true) },
+                  { label: '取り込む', icon: <Upload size="1.1em" aria-hidden="true" />, onClick: () => setShowImport(true) },
                   // 押し込まれた画面では全体ヘッダー（？）を出さないので、ヘルプはここから。
-                  { label: 'ヘルプ', icon: <HelpCircle size={16} aria-hidden="true" />, onClick: openHelp },
+                  { label: 'ヘルプ', icon: <HelpCircle size="1.1em" aria-hidden="true" />, onClick: openHelp },
                 ]}
               />
             )}
@@ -5790,7 +5790,7 @@ function AuthedApp() {
           items={[
             {
               label: '詳細を開く',
-              icon: <BookOpen size={16} aria-hidden="true" />,
+              icon: <BookOpen size="1.1em" aria-hidden="true" />,
               onClick: () => openDetail(bookContextMenu.book),
             },
             // 読書中/読了の本は、本棚の長押しから直接メモを書けるように
@@ -5798,49 +5798,49 @@ function AuthedApp() {
             ...((bookContextMenu.book?.status === 'reading' || bookContextMenu.book?.status === 'done')
               ? [{
                   label: 'メモを書く',
-                  icon: <PencilLine size={16} aria-hidden="true" />,
+                  icon: <PencilLine size="1.1em" aria-hidden="true" />,
                   onClick: () => { openDetail(bookContextMenu.book); setQuickMemoOpen(true); },
                 }]
               : []),
             // 📗 本を開かずにその場でステータス変更（管理の最頻操作を1手に）。
             {
               label: '状態を変える',
-              icon: <IcCheck size={16} aria-hidden="true" />,
+              icon: <IcCheck size="1.1em" aria-hidden="true" />,
               onClick: () => setStatusPickerBook(bookContextMenu.book),
             },
             // 🗂 フォルダ割当ても本棚から直接（新規フォルダもその場で作れる）。
             {
               label: 'フォルダに入れる',
-              icon: <IcFolder size={16} aria-hidden="true" />,
+              icon: <IcFolder size="1.1em" aria-hidden="true" />,
               onClick: () => { setNewFolderName(''); setFolderPickerBook(bookContextMenu.book); },
             },
             {
               label: '編集',
-              icon: <PencilLine size={16} aria-hidden="true" />,
+              icon: <PencilLine size="1.1em" aria-hidden="true" />,
               onClick: () => openEdit(bookContextMenu.book),
             },
             // 本棚から直接「表紙を取り直す」できるように追加。本詳細を開かず
             // 1 タップで再 fetch まで完結する (誤表紙への対処を 3 秒以内に)。
             {
               label: '表紙を取り直す',
-              icon: <IcRefresh size={16} aria-hidden="true" />,
+              icon: <IcRefresh size="1.1em" aria-hidden="true" />,
               onClick: () => refreshCoverFor(bookContextMenu.book),
             },
             // 読書中・読了は画像で共有（メモはシートが読み込む）。読みたい・積読は文を共有。
             (bookContextMenu.book.status === 'reading' || bookContextMenu.book.status === 'done')
               ? {
                   label: '画像で共有',
-                  icon: <Share size={16} aria-hidden="true" />,
+                  icon: <Share size="1.1em" aria-hidden="true" />,
                   onClick: () => setShareSheet({ book: bookContextMenu.book, from: 'menu' }),
                 }
               : {
                   label: '共有',
-                  icon: <Share size={16} aria-hidden="true" />,
+                  icon: <Share size="1.1em" aria-hidden="true" />,
                   onClick: () => shareBook(bookContextMenu.book),
                 },
             {
               label: '削除',
-              icon: <Trash2 size={16} aria-hidden="true" />,
+              icon: <Trash2 size="1.1em" aria-hidden="true" />,
               destructive: true,
               onClick: () => requestDeleteBook(bookContextMenu.book),
             },
