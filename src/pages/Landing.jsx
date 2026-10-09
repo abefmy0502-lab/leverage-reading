@@ -613,7 +613,7 @@ export default function Landing() {
                 {/* 見出しに金額を置かない（月あたりの額を請求額より大きく見せない） */}
                 <span>まずは、</span><span>無料プランで。</span>
               </h2>
-              <p className="lp-wbr"><Phrases>{`本とメモは、ずっと無料です。相談も、無料プランで${noBreak(`毎月 ${FREE_CONSULTS}`)}（はじめの月は ${FIRST_CONSULTS}）まで AI が答えます。`}</Phrases></p>
+              <p className="lp-wbr"><Phrases>{`本とメモは、ずっと無料です。相談も、無料プランで${noBreak(`毎月 ${FREE_CONSULTS}`)}${noBreak(`（はじめの月は ${FIRST_CONSULTS}）`)}まで AI が答えます。`}</Phrases></p>
             </div>
 
             {/* 創業メンバー価格（期間中だけ・料金の中の帯 1 枚）。「先着」「通常価格」と書かない・差額を書かない */}
