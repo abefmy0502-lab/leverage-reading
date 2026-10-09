@@ -33,6 +33,7 @@ import {
   StickyNote, BookOpen, Lightbulb, BarChart3, AlertTriangle, FlaskConical, Bot, Gem, FileText, Trash2, Target, Check, Plus, ChevronDown, ChevronLeft, ChevronRight, MoreHorizontal, Pencil, Copy, Share,
 } from 'lucide-react';
 import { track, EVENTS } from '../lib/analytics';
+import { memoInViewpoint } from '../lib/viewpointMap';
 // 一文をシェアのシート（メモの「…」から・押したときだけ読む）。
 const ShareSheet = lazy(() => import('./ShareSheet'));
 import { useConfirm } from './ConfirmDialog';
@@ -759,13 +760,14 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
     const scored = [];
     allNotes.forEach((m, i) => {
       if (kindFilter !== 'all' && m.kind !== kindFilter) return;
-      if (tagFilter && !m.tags?.includes(tagFilter)) return;
+      // 視点の地図のマスから来たときは、その分野に結びついた自分のタグ全部で絞る（地図の件数と同じ決め方・2026-10-09）。
+      if (tagFilter && !(viewmapTag && viewmapTag === tagFilter ? memoInViewpoint(tagFilter, m.tags) : m.tags?.includes(tagFilter))) return;
       const hits = hitsOf(m);
       if (hits > 0) scored.push({ m, hits, i });
     });
     if (terms.length > 1) scored.sort((a, b) => b.hits - a.hits || a.i - b.i);
     return scored.map((x) => x.m);
-  }, [allNotes, booksById, deferredSearch, tagFilter, kindFilter]);
+  }, [allNotes, booksById, deferredSearch, tagFilter, kindFilter, viewmapTag]);
 
   const memosByMonth = useMemo(() => {
     const groups = new Map();

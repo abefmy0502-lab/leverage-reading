@@ -104,16 +104,97 @@ const TAG_SET = new Set(VIEWPOINT_TAGS);
 
 export const isViewpointTag = (tag) => TAG_SET.has(String(tag || '').trim());
 
+// ── 自分のタグを地図の分野に結びつける（2026-10-09 オーナー「使い込んだ人ほど地図が空っぽに見える」）──
+// 今までのタグ（#マネジメント・#習慣化 など）の名前が分野の手がかりに当たれば、その分野のメモとして数える。
+// 地図のタグそのものの名前は変えない（付けたタグと地図がずれないように）。決め方は上から順に、最初に当たった段だけ:
+//   1. 地図のタグと同じ名前（「習慣」「#お金」）
+//   2. よくある自分のタグの言い換え（TAG_ALIASES・名前に分野の言葉が出てこないもの）
+//   3. 名前が分野の手がかりの言葉と同じ（「投資」→お金・「キャリア」→生き方・働き方・「時間」→段取り）
+//   4. 名前に手がかりの言葉（2 字以上・英字だけの言葉は除く）が入っている（「習慣化」→習慣・「心理学」→人の心理・「時間術」→段取り）
+// どれにも当たらないタグ（「読書術」など）は数えない。
+export const TAG_ALIASES = {
+  'マネジメント': ['人を育てる', 'チームづくり'],
+  'リーダーシップ': ['チームづくり'],
+  'リーダー': ['チームづくり'],
+  '思考法': ['問いを立てる'],
+  '思考': ['問いを立てる'],
+  'ロジカルシンキング': ['問いを立てる'],
+  '問題解決': ['問いを立てる'],
+  'コミュニケーション': ['伝え方'],
+  '話し方': ['伝え方'],
+  '書き方': ['伝え方'],
+  '仕事術': ['段取り'],
+  '生産性': ['段取り'],
+  '効率化': ['段取り'],
+  '資産運用': ['お金'],
+  'マネー': ['お金'],
+  'メンタル': ['心の持ち方'],
+  'マインドセット': ['心の持ち方'],
+  '自己肯定感': ['心の持ち方'],
+  'ウェルビーイング': ['休み方'],
+  'アイデア発想': ['発想'],
+  'イノベーション': ['発想'],
+  '経営': ['経済'],
+  'ビジネス': ['経済'],
+  '会計': ['数字で見る'],
+  'データ分析': ['数字で見る'],
+  'DX': ['テクノロジー'],
+  '歴史': ['歴史に学ぶ'],
+  '行動経済学': ['人の心理'],
+};
+const normTag = (tag) => normalizeLinkText(String(tag || '').trim().replace(/^[#＃]/u, '')).replace(/\s+/gu, '');
+const ALIAS_BY_NORM = new Map(Object.entries(TAG_ALIASES).map(([k, v]) => [normTag(k), v]));
+const ALL_TAGS = VIEWPOINT_MAP.flatMap((c) => c.groups.flatMap((g) => g.tags));
+const linkCache = new Map();
+
+/** 自分のタグ 1 つが結びつく地図のタグ（無ければ []）。「@」で始まる印のタグは結びつけない。 */
+export function viewpointTagsForTag(tag) {
+  const n = normTag(tag);
+  if (!n || n.startsWith('@')) return [];
+  if (linkCache.has(n)) return linkCache.get(n);
+  let out = ALL_TAGS.filter((t) => normTag(t.name) === n).map((t) => t.name);
+  if (!out.length && ALIAS_BY_NORM.has(n)) out = [...ALIAS_BY_NORM.get(n)];
+  if (!out.length) out = ALL_TAGS.filter((t) => t.words.some((w) => normTag(w) === n)).map((t) => t.name);
+  if (!out.length) {
+    out = ALL_TAGS.filter((t) => t.words.some((w) => {
+      const nw = normTag(w);
+      return [...nw].length >= 2 && !/^[a-z0-9]+$/.test(nw) && n.includes(nw);
+    })).map((t) => t.name);
+  }
+  linkCache.set(n, out);
+  return out;
+}
+
+/** メモのタグ（配列）が、地図のタグ mapTag の分野に入るか（地図のマスを押したときの絞り込み＝件数と同じ決め方）。 */
+export function memoInViewpoint(mapTag, tags) {
+  const target = String(mapTag || '').trim();
+  return (Array.isArray(tags) ? tags : []).some((t) => viewpointTagsForTag(t).includes(target));
+}
+
+/** その分野に結びついた自分のタグ（rows に出てくるものだけ・多い順）。 */
+export function linkedTagsFor(mapTag, rows = []) {
+  const target = String(mapTag || '').trim();
+  const count = new Map();
+  for (const m of Array.isArray(rows) ? rows : []) {
+    for (const t of new Set((Array.isArray(m?.tags) ? m.tags : []).map((x) => String(x || '').trim()))) {
+      if (t && viewpointTagsForTag(t).includes(target)) count.set(t, (count.get(t) || 0) + 1);
+    }
+  }
+  return [...count.entries()].sort((a, b) => b[1] - a[1]).map(([t]) => t);
+}
+
 // メモが少ない（「この分野の本を探す」を出す）＝ 0〜1 件。
 export const FEW_MEMOS = 1;
 export const isFewMemos = (count) => (Number(count) || 0) <= FEW_MEMOS;
 
-// タグごとのメモの件数（地図のタグだけ）。rows: [{ tags: [] }]。1 件のメモに同じタグが 2 つあっても 1。
+// 分野（地図のタグ）ごとのメモの件数。rows: [{ tags: [] }]。自分のタグが結びつく分野も数える（viewpointTagsForTag）。
+// 1 件のメモが同じ分野に何個のタグで当たっても 1。
 export function countMemosByTag(rows = []) {
   const counts = new Map(VIEWPOINT_TAGS.map((t) => [t, 0]));
   for (const m of Array.isArray(rows) ? rows : []) {
-    const tags = new Set((Array.isArray(m?.tags) ? m.tags : []).map((t) => String(t || '').trim()));
-    for (const t of tags) if (counts.has(t)) counts.set(t, counts.get(t) + 1);
+    const fields = new Set();
+    for (const t of (Array.isArray(m?.tags) ? m.tags : [])) for (const f of viewpointTagsForTag(t)) fields.add(f);
+    for (const f of fields) if (counts.has(f)) counts.set(f, counts.get(f) + 1);
   }
   return counts;
 }
@@ -162,7 +243,8 @@ export const VIEWPOINT_SUGGEST_MAX = 2;
 export function scoreViewpointTags(text, current = []) {
   const norm = normalizeLinkText(text);
   if ([...norm.replace(/\s+/gu, '')].length < 8) return [];
-  const skip = new Set((current || []).map((t) => String(t || '').trim()));
+  // もう付いているタグと、付いている自分のタグが結びつく分野（#マネジメント→人を育てる）はすすめない（もう数えている）。
+  const skip = new Set((current || []).flatMap((t) => [String(t || '').trim(), ...viewpointTagsForTag(t)]));
   const out = [];
   for (const c of VIEWPOINT_MAP) {
     for (const g of c.groups) {

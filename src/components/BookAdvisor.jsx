@@ -126,13 +126,16 @@ function keepDateTogether(text) {
   return String(text || '').split(re).map((p, i) => (i % 2 === 1 ? <span key={i} style={{ whiteSpace: 'nowrap' }}>{p}</span> : <Fragment key={i}>{withPhraseBreaks(p)}</Fragment>));
 }
 
+// 本を探す形の例（相談＝読んだ本のメモから答える と見分けがつくように・2026-10-09 オーナー「入口をはっきり分ける」）。
 const ADVISOR_EXAMPLES = [
-  '営業成績を上げたい',
-  'チームマネジメント',
-  '自信を持ちたい',
-  '時間管理',
-  'お金の不安',
+  '部下との 1on1 がうまくいかない。参考になる本は？',
+  '仕事を抱えすぎて、いつも時間が足りない。読むならどの本？',
+  'お金の不安を減らしたい。最初に読む 1 冊は？',
 ];
+// 空の画面の見出しと説明・入力欄の案内（相談の「困っていることを、相談してください」と書く場所を迷わせない）。
+export const ADVISOR_START_TITLE = '次に読む本を探す';
+export const ADVISOR_START_LEAD = 'あなたの悩みに合う、まだ読んでいない本を選びます';
+export const ADVISOR_PLACEHOLDER = '悩みを書くと、合う本を探します';
 
 // 聞き取りの問いの上限は lib/advisorInterview.js の MAX_INTERVIEW_QUESTIONS（芯が見えたら AI が先に止める）。
 
@@ -1550,13 +1553,17 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       )}
       {/* Scroll 領域: 見出し / 例チップ / メッセージ / 推薦カード をまとめる */}
       <div ref={chatScrollRef} onScroll={onChatScroll} className="chat-scroll" style={{ padding: `${barSlot ? 'var(--space-6)' : 'var(--space-2)'} var(--space-4) var(--space-4)` }}>
-      {/* 入力欄の「いまの課題を書いてください」と同じ問い（課題から本を選ぶ・2026-09-29） */}
-      {showStartHeading && <h2 style={headingStyle}>いま、どんなことに困っていますか</h2>}
+      {/* 見出しは「次に読む本を探す」＋説明 1 行（相談の空の画面と、どちらに書くか迷わせない・2026-10-09。
+          旧「いま、どんなことに困っていますか」は相談の「困っていることを、相談してください」と同じ問いに見えた） */}
+      {showStartHeading && <>
+        <h2 style={headingStyle}>{ADVISOR_START_TITLE}</h2>
+        <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(ADVISOR_START_LEAD)}</p>
+      </>}
 
       {/* Example chips — タップでそのまま送る（相談の相談例と同じ・2026-09-29）。
           無料プランで有料プランの画面が開いたときは、入力欄に残す。 */}
       {showConcernInput && !showErrorState && (
-        <div className="example-chips" style={{ marginTop: showStartHeading ? 'var(--space-6)' : 'var(--space-2)' }}>
+        <div className="example-chips example-chips--stack" style={{ marginTop: showStartHeading ? 'var(--space-6)' : 'var(--space-2)' }}>
           <p className="example-chips-label">たとえば</p>
           {ADVISOR_EXAMPLES.map((ex) => (
             <button
@@ -1565,7 +1572,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
               className="example-chip"
               onClick={() => { setInput(ex); startInterview(ex); }}
             >
-              {ex}
+              {withPhraseBreaks(ex)}
             </button>
           ))}
         </div>
@@ -2120,7 +2127,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
             value={input}
             onChange={(e) => setInput(e.target.value)}
             // 7 日間無料で使い切ったときも、いつからまた探せるかを日付で（相談の「◯月◯日から相談できます」と同じ・2026-10-04）。
-            placeholder={tokensOut ? (monthOut ? `${nextResetLabelJa()}から探せます` : (monthDayLabelJa(trialEndsAt) ? `${monthDayLabelJa(trialEndsAt)}から探せます` : 'トークンを使い切りました')) : 'いまの課題を書いてください'}
+            placeholder={tokensOut ? (monthOut ? `${nextResetLabelJa()}から探せます` : (monthDayLabelJa(trialEndsAt) ? `${monthDayLabelJa(trialEndsAt)}から探せます` : 'トークンを使い切りました')) : ADVISOR_PLACEHOLDER}
             rows={1}
             disabled={interviewLoading || tokensOut}
             maxLength={LIMITS.aiQuestion}

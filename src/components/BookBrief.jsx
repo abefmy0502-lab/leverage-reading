@@ -3,12 +3,13 @@
 // 公開の紹介文と目次だけから AI が書いた ①概要 ②学べること（小説・物語は「味わえること」）③仮説の例。
 // 読む前に「この本から何を得られそうか」をつかみ、仮説を決められるようにする。一度作ったら本に保存（開くたびに AI を呼ばない）。
 //
-//   variant="inCard" … 「この本について」のカードの中（紹介文・添え書きの下・目次の上）。まだ無ければ副ボタン
-//                      「この本で学べることを見る」＋ 1 回の目安トークン。作ったらカードの中に開いて見せる（読みたい・書く前の積読）
-//   variant="make"   … ボタン＋目安の行だけ（課題・仮説を書いた積読: 課題・仮説のカードの上・2026-10-08 ui-critic 第 2 回）
-//   variant="fold"   … 畳む見出し（課題・仮説を書いた積読＝主ボタン「読書を開始する」を最初の画面に残す・読書計画の編集画面）。
-//                      仮説の例を押すと仮説の欄に入る
-//   variant="section"… 畳まないカード（紹介・目次が今は読めないときの代わり）
+//   variant="inCard" … 「この本について」のカードの中（読みたい・積読・2026-10-09 に 1 枚へ寄せた）。まだ無ければ副ボタン
+//                      「この本で学べることを見る」＋ 1 回の目安トークン。作ったあとはカードの中の畳む行「この本で学べること」
+//                      （作ったその場だけ開いたまま＝defaultOpen・画面を離れたら畳む＝主ボタンを最初の画面に残す）。
+//                      flush: 畳む行「この本について」の下（compact のカード）＝上の間を取らず、下の余白を自分で持つ
+//   variant="make"   … ボタン＋目安の行だけ
+//   variant="fold"   … 畳む見出し（読書計画の編集画面・紹介と目次が今は読めないときの本の詳細）。仮説の例を押すと仮説の欄に入る
+//   variant="section"… 畳まないカード
 import { ChevronDown, Plus, Check } from 'lucide-react';
 import { groupTitle, btnGhost, btnGhostOff, btnLink } from '../styles/ui';
 import { glueForDisplay } from './BookAbout';
@@ -30,6 +31,8 @@ const foldSummary = {
   display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)',
   minHeight: 'var(--btn-h)', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', cursor: 'pointer', listStyle: 'none',
 };
+// カードの中の畳む行（「この本について」のカードの目次の行と同じ 48・15/600）。
+const rowSummary = { ...foldSummary, fontSize: 'var(--text-sub)' };
 const subTitle = { ...groupTitle, margin: '0 0 var(--space-2)' };
 // AI の文は文節で止めずに流す（word-break: normal・line-break: strict・text-wrap: pretty＝CLAUDE.md・MarkdownSections と同じ）。
 const aiFlow = { wordBreak: 'normal', lineBreak: 'strict', textWrap: 'pretty', overflowWrap: 'anywhere' };
@@ -186,7 +189,7 @@ export function BriefBody({ text, onPickHypothesis, pickedHypotheses = '', compa
  */
 export default function BookBrief({
   variant = 'inCard', text = '', material = false, making = false, costLine = '', onMake, onRemake,
-  onPickHypothesis, pickedHypotheses = '', defaultOpen = false, infoLoading = false, info = null, error = '', style,
+  onPickHypothesis, pickedHypotheses = '', defaultOpen = false, infoLoading = false, info = null, error = '', flush = false, style,
 }) {
   const has = isUsableBrief(parseBrief(text));
   const labels = briefLabels(text);
@@ -198,17 +201,27 @@ export default function BookBrief({
   }
 
   if (variant === 'inCard') {
-    // カードの中: 上に区切り線（目次の畳みと同じ）＋ 12。中身があれば見出し＋中身・無ければボタン。
-    return (
-      <div style={{ marginTop: 'var(--space-3)', paddingTop: 'var(--space-3)', borderTop: '1px solid var(--separator)', ...style }}>
-        {has ? (
-          <>
-            <h3 style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', margin: '0 0 var(--space-3)', lineHeight: 1.3 }}>{labels.title}</h3>
+    // 作ったあと: カードの中の畳む行（上に区切り線・目次の行と同じ形）。作ったその場だけ開いたまま。
+    if (has) {
+      return (
+        <details key={defaultOpen ? 'open' : 'closed'} open={defaultOpen || undefined} style={{ marginTop: flush ? 0 : 'var(--space-3)', borderTop: '1px solid var(--separator)', ...style }}>
+          <summary style={rowSummary}>
+            <span style={{ flex: '0 1 auto', minWidth: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(labels.title)}</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 'var(--space-2)', flex: '1 1 0', minWidth: 0 }}>
+              <span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{labels.short}</span>
+              <ChevronDown size={20} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+            </span>
+          </summary>
+          <div style={{ paddingBottom: flush ? 'var(--space-4)' : 'var(--space-3)' }}>
             <BriefBody text={text} onPickHypothesis={onPickHypothesis} pickedHypotheses={pickedHypotheses} onRemake={remake} making={making} info={info} error={error} />
-          </>
-        ) : (
-          <BriefMakeButton material={material} making={making} costLine={costLine} onMake={onMake} error={error} />
-        )}
+          </div>
+        </details>
+      );
+    }
+    // まだ無いとき: 区切り線の下 12 に副ボタン＋目安の行。
+    return (
+      <div style={{ marginTop: flush ? 0 : 'var(--space-3)', paddingTop: 'var(--space-3)', ...(flush ? { paddingBottom: 'var(--space-4)' } : null), borderTop: '1px solid var(--separator)', ...style }}>
+        <BriefMakeButton material={material} making={making} costLine={costLine} onMake={onMake} error={error} />
       </div>
     );
   }

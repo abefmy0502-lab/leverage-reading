@@ -8,6 +8,7 @@ vi.mock('./supabase', () => ({ supabase: { auth: { updateUser: vi.fn(async () =>
 import {
   VIEWPOINT_MAP, VIEWPOINT_TAGS, countMemosByTag, buildViewpointMap, shadeLevel, isFewMemos, advisorDraftFor,
   scoreViewpointTags, mergeTagSuggestions, viewpointRecordPart, isViewpointTag,
+  viewpointTagsForTag, memoInViewpoint, linkedTagsFor, TAG_ALIASES,
 } from './viewpointMap';
 import { resolveViewpointOn, readViewpointOn, setViewpointOn, __resetViewpointSetting } from './viewpointMapSetting';
 import { ViewpointMapCard, ViewpointMapSheet } from '../components/ViewpointMap';
@@ -49,7 +50,7 @@ describe('件数の数え方', () => {
     { tags: ['習慣', '決め方'] },
     { tags: ['決め方', '決め方'] }, // 同じメモに 2 つでも 1
     { tags: [' 決め方 '] },
-    { tags: ['仕事術'] }, // 地図にないタグは数えない
+    { tags: ['読書術'] }, // どの分野にも結びつかないタグは数えない
     { tags: null },
     {},
   ];
@@ -58,7 +59,7 @@ describe('件数の数え方', () => {
     expect(c.get('決め方')).toBe(3);
     expect(c.get('習慣')).toBe(1);
     expect(c.get('お金')).toBe(0);
-    expect(c.has('仕事術')).toBe(false);
+    expect(c.has('読書術')).toBe(false);
     expect(c.size).toBe(VIEWPOINT_TAGS.length);
   });
   it('地図の形に件数を付ける（大分類 → 中分類 → タグの順のまま）', () => {
@@ -74,6 +75,71 @@ describe('件数の数え方', () => {
   });
   it('AI 選書の最初の悩みに入れる言葉', () => {
     expect(advisorDraftFor('お金')).toBe('お金について、視点を増やしたい');
+  });
+});
+
+describe('自分のタグを地図の分野に結びつける（2026-10-09）', () => {
+  const tags = (list) => list.map((x) => x.tag);
+  it('オーナーの例: マネジメント・習慣化・投資・リーダーシップ・思考法', () => {
+    expect(viewpointTagsForTag('マネジメント')).toEqual(['人を育てる', 'チームづくり']);
+    expect(viewpointTagsForTag('習慣化')).toEqual(['習慣']);
+    expect(viewpointTagsForTag('投資')).toEqual(['お金']);
+    expect(viewpointTagsForTag('リーダーシップ')).toEqual(['チームづくり']);
+    expect(viewpointTagsForTag('思考法')).toEqual(['問いを立てる']);
+  });
+  it('地図のタグと同じ名前はそのまま（# と空白と全角・半角は気にしない）', () => {
+    expect(viewpointTagsForTag('習慣')).toEqual(['習慣']);
+    expect(viewpointTagsForTag('#お金')).toEqual(['お金']);
+    expect(viewpointTagsForTag(' ＃決め方 ')).toEqual(['決め方']);
+  });
+  it('手がかりの言葉と同じ名前・手がかりの言葉が入った名前', () => {
+    expect(viewpointTagsForTag('キャリア')).toEqual(['生き方・働き方']);
+    expect(viewpointTagsForTag('時間')).toEqual(['段取り']);
+    expect(viewpointTagsForTag('時間術')).toEqual(['段取り']);
+    expect(viewpointTagsForTag('心理学')).toEqual(['人の心理']);
+    expect(viewpointTagsForTag('KPI')).toEqual(['数字で見る']);
+  });
+  it('よくある自分のタグ（お試しモードのタグ）', () => {
+    expect(viewpointTagsForTag('コミュニケーション')).toEqual(['伝え方']);
+    expect(viewpointTagsForTag('仕事術')).toEqual(['段取り']);
+  });
+  it('結びつかないタグ・印のタグ・空は []', () => {
+    expect(viewpointTagsForTag('読書術')).toEqual([]);
+    expect(viewpointTagsForTag('@ai')).toEqual([]);
+    expect(viewpointTagsForTag('')).toEqual([]);
+    // 英字だけの短い手がかり（it・ai）は名前の中に入っていても結びつけない
+    expect(viewpointTagsForTag('security')).toEqual([]);
+  });
+  it('言い換えの行き先は、どれも地図のタグ', () => {
+    for (const [k, v] of Object.entries(TAG_ALIASES)) for (const t of v) expect(VIEWPOINT_TAGS, `${k}→${t}`).toContain(t);
+  });
+  it('件数に入る・1 件のメモは同じ分野に 1 回だけ', () => {
+    const rows = [
+      { tags: ['マネジメント'] },
+      { tags: ['マネジメント', '人を育てる'] },
+      { tags: ['習慣化', '習慣'] },
+      { tags: ['コミュニケーション'] },
+    ];
+    const c = countMemosByTag(rows);
+    expect(c.get('人を育てる')).toBe(2);
+    expect(c.get('チームづくり')).toBe(2);
+    expect(c.get('習慣')).toBe(1);
+    expect(c.get('伝え方')).toBe(1);
+  });
+  it('マスを押したときの絞り込みは件数と同じ（件数と一覧が合う）', () => {
+    const rows = [
+      { tags: ['マネジメント'] }, { tags: ['リーダーシップ'] }, { tags: ['チームづくり'] }, { tags: ['読書術'] }, { tags: [] },
+    ];
+    const counts = countMemosByTag(rows);
+    for (const tag of VIEWPOINT_TAGS) {
+      expect(rows.filter((m) => memoInViewpoint(tag, m.tags)).length, tag).toBe(counts.get(tag));
+    }
+    expect(linkedTagsFor('チームづくり', rows)).toEqual(['マネジメント', 'リーダーシップ', 'チームづくり']);
+  });
+  it('付いている自分のタグが結びつく分野は、合いそうなタグにすすめない', () => {
+    const text = '部下への指導とフィードバック、チームの会議の進め方。';
+    expect(tags(scoreViewpointTags(text, ['マネジメント']))).not.toContain('人を育てる');
+    expect(tags(scoreViewpointTags(text, ['マネジメント']))).not.toContain('チームづくり');
   });
 });
 

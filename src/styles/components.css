@@ -1230,6 +1230,20 @@ textarea[aria-invalid="true"]:not(.no-focus-ring):focus {
   flex-wrap: wrap;
   gap: var(--space-2);
 }
+/* 文の相談例（AI 選書「部下との 1on1 がうまくいかない。参考になる本は？」・2026-10-09）は、相談の例と同じく
+   全幅で縦に並べ、文節の切れ目でだけ折り返す（DESIGN §5 操作のチップ）。 */
+.example-chips--stack {
+  flex-direction: column;
+  flex-wrap: nowrap;
+}
+.example-chips--stack .example-chip {
+  width: 100%;
+  padding: var(--space-3);
+  text-align: left;
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
 .example-chips-label {
   /* チップ群のラベルは全画面 1 種類（小見出し 12・600・--text-2＝他画面の groupTitle と同じ） */
   width: 100%;

@@ -195,6 +195,7 @@ import {
   MessageCircle,
   Smartphone,
   Tag as IcTag,
+  ScrollText,
 } from 'lucide-react';
 import { useBookMemos } from './hooks/useBookMemos';
 import { useBookInfo } from './hooks/useBookInfo';
@@ -1057,6 +1058,8 @@ function AuthedApp() {
   const [editMenu, setEditMenu] = useState(null);
   // 読書中・読了の本の購入リンクは「⋯ → この本を買う」のシートへ（2026-09-26 オーナー判断）。
   const [storeSheetOpen, setStoreSheetOpen] = useState(false);
+  // 以前の AI 解析（2026-09-27 に廃止した「AIで本を解析する」の保存済みの結果）は「⋯ → 以前の AI 解析を見る」のシートで（2026-10-09）。
+  const [analysisSheetOpen, setAnalysisSheetOpen] = useState(false);
   // 📷 画像で共有のシート（SPEC §2-1）: { book?, initialMemoId?, photoFile?, fromHome?, initialSubject?, from }。
   //   fromHome＝上の行（ホーム・振り返り・相談のタブ）の入口＝本棚の本を渡して「どの本？」を選べるように。
   //   カメラの入口（タブの上の行・本の詳細の上の行・読了した直後）は、撮った写真を持って開く。
@@ -1974,7 +1977,7 @@ function AuthedApp() {
   // quickMemoOpen / fullEditorPrefill もリセットする — edge-swipe back や BottomNav
   // は QuickMemoSheet の onClose を経由しないため、開いたまま一覧へ戻ると次に
   // 開いた別の本の詳細でシートが勝手に開いてしまう。
-  const goList = () => { setJustDoneId(null); setView("list"); setCurrent(null); setEditPhaseOverride(null); setQuickMemoOpen(false); setFullEditorPrefill(null); setDetailKebab(null); setStoreSheetOpen(false); setDetailFromSearchId(null); setJustMadePlanId(null); };
+  const goList = () => { setJustDoneId(null); setView("list"); setCurrent(null); setEditPhaseOverride(null); setQuickMemoOpen(false); setFullEditorPrefill(null); setDetailKebab(null); setStoreSheetOpen(false); setAnalysisSheetOpen(false); setDetailFromSearchId(null); setJustMadePlanId(null); };
   // 本の詳細から 1 段戻る: 検索結果の「追加済み」から開いた本なら、さっきの検索結果へ戻す（2026-09-29）。
   const leaveDetail = () => {
     const toSearch = !!detailFromSearchId && current?.id === detailFromSearchId;
@@ -4090,8 +4093,11 @@ function AuthedApp() {
     // 読書中の「この本について」の畳む見出し（紹介か目次が見つかった本だけ）。
     // 読み込み中は同じ形の骨組みの行（読み込んで何も無ければ消える）。
     const aboutFoldShown = current.status === 'reading' && (hasBookInfo(bookAbout.info) || bookAbout.loading);
-    // 読みたいと、まだ何も書いていない積読はカード。課題・仮説・シートがある積読は畳む見出し（2026-10-02 ui-critic）。
-    const aboutAsCard = current.status === 'want' || (current.status === 'before' && !hasPlanFold);
+    // 📖 読みたい・積読の「この本について」は 1 枚のカード（紹介文と目次・この本で学べること・2026-10-09 オーナー「説明を 1 か所に」）。
+    //   読みたいと、まだ何も書いていない積読は紹介文を 3 行見せるカード。課題・仮説・シートがある積読は、1 行目を畳む行
+    //   「この本について」にした同じカード（主ボタン「読書を開始する」を 390×844 の最初の画面に残す＝compact）。
+    const aboutShown = current.status === 'want' || current.status === 'before';
+    const aboutCompact = current.status === 'before' && hasPlanFold;
     // 📖 この本で学べること（2026-10-08）。積読では仮説の例を押すと読書計画の編集画面の仮説の欄に入る（読みたいは見るだけ）。
     const briefText = storedBriefOf(current);
     const hasBrief = isUsableBrief(parseBrief(briefText));
@@ -4101,6 +4107,9 @@ function AuthedApp() {
     const briefInCard = (
       <BookBrief
         variant="inCard"
+        flush={aboutCompact}
+        // 作ったその場だけ開いたまま（画面を離れたら畳む＝briefJustMadeId は画面・本が変わると消える）。
+        defaultOpen={briefJustMadeId === current.id}
         text={briefText}
         material={briefMaterial}
         making={briefMaking}
@@ -4148,7 +4157,8 @@ function AuthedApp() {
                   <div style={{ marginTop: hasPlanFold ? 'var(--space-3)' : 'var(--space-6)' }}>
                     <button type="button" onClick={() => runStrategyInPlace(current)} disabled={!!planGen}
                       aria-busy={genHere || undefined} style={planGen ? btnGhostOff : btnGhost}>
-                      {genHere ? '作成中…' : '読書計画シートを作る'}
+                      {/* 無料プランには押す前に有料と分かる印（「AI に答えてもらう（プラン）」と同じ作法・2026-10-09） */}
+                      {genHere ? '作成中…' : paywallFree ? '読書計画シートを作る（プラン）' : '読書計画シートを作る'}
                     </button>
                     {genHere && (
                       <div role="status" aria-live="polite" aria-label="読書計画シートを作っています" style={{ marginTop: 'var(--space-3)' }}>
@@ -4217,15 +4227,14 @@ function AuthedApp() {
     // 読書計画・目的・課題・仮説・AI 解析（旧: 書名の直下）。読書中・読了では下へ回す。
     const planBlock = (
       <>
-          {/* 積読の「読書計画シートを作る」は、得たいこと・課題・仮説のカードの下（planCta を後ろで出す）。 */}
-          {/* 📖 この本について（読みたい・まだ何も書いていない積読）: 出版社・書店の紹介文 3 行＋目次（畳む）。
-              見つからない本は出さない。読む前に概要を掴んでから、得たいこと・読書計画へ（SPEC §2・2026-10-02）。
-              課題・仮説・シートがある積読は、カードの下の畳む見出しにする（主ボタン「読書を開始する」を最初の画面に残す）。 */}
-          {aboutAsCard && !briefWithoutAbout && (
-            <BookAbout info={bookAbout.info} loading={bookAbout.loading} variant="card" style={{ marginTop: 'var(--space-6)' }} briefSlot={briefInCard} />
+          {/* 📖 この本について（読みたい・積読）: 出版社・書店の紹介文＋目次（AI なし）と、その中の「この本で学べること」の 1 枚。
+              見つからない本は出さない。課題・仮説・シートのある積読は 1 行目を畳む行にしたカード（compact・SPEC §2・2026-10-09）。
+              作ってあるのに紹介・目次が今は読めない（通信の失敗など）ときは、中身だけを畳む見出しで。 */}
+          {aboutShown && !briefWithoutAbout && (
+            <BookAbout info={bookAbout.info} loading={bookAbout.loading} variant={aboutCompact ? 'compact' : 'card'} style={{ marginTop: 'var(--space-6)' }} briefSlot={briefInCard} briefRow={hasBrief} />
           )}
-          {aboutAsCard && briefWithoutAbout && (
-            <BookBrief variant="section" text={briefText} making={briefMaking} onMake={() => makeBookBrief(current)} onRemake={() => remakeBookBrief(current)} onPickHypothesis={briefPick} pickedHypotheses={current.hypothesis || ''} info={bookAbout.info} error={briefError?.bookId === current.id ? briefError.message : ''} style={{ marginTop: 'var(--space-6)' }} />
+          {aboutShown && briefWithoutAbout && (
+            <BookBrief variant="fold" text={briefText} material={briefMaterial} making={briefMaking} onMake={() => makeBookBrief(current)} onRemake={() => remakeBookBrief(current)} onPickHypothesis={briefPick} pickedHypotheses={current.hypothesis || ''} info={bookAbout.info} error={briefError?.bookId === current.id ? briefError.message : ''} defaultOpen={briefJustMadeId === current.id} style={{ marginTop: 'var(--space-6)' }} />
           )}
 
           {current.status !== 'before' && planCta}
@@ -4276,46 +4285,11 @@ function AuthedApp() {
           {/* 読みたい・積読: 読む準備が主役なので、得たいこと・課題・仮説は開いて見せる。
               シートは、あるときだけ畳んで置く。 */}
           {!isMemoPhase && hasPlanFold && (
-          <section style={{ marginTop: 'var(--space-6)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-          {/* 📖 この本で学べること（積読で課題・仮説を書いたあと・2026-10-08 ui-critic 第 2 回）: 課題・仮説のカードのすぐ上（間 12）。
-              まだ無ければ副ボタン「この本で学べることを見る」＋目安の 1 行（AI 選書から足した本は最初から課題・仮説があるので、
-              ここがいちばん多い入口）。作ったあとは畳む見出し（主ボタン「読書を開始する」を 390×844 の最初の画面に残す）。
-              紹介・目次を読み込んでいる間は押せないボタン、見つからない本では何も出さない（紹介が少なすぎる本だけ決まった 1 行）。 */}
-          {current.status === 'before' && (hasBrief ? (
-            <BookBrief
-              variant="fold"
-              text={briefText}
-              material={briefMaterial}
-              making={briefMaking}
-              onMake={() => makeBookBrief(current)}
-              onRemake={() => remakeBookBrief(current)}
-              onPickHypothesis={briefPick}
-              pickedHypotheses={current.hypothesis || ''}
-              info={bookAbout.info}
-              error={briefError?.bookId === current.id ? briefError.message : ''}
-              // 「この本で学べることを見る」で作れたら、畳まずに開いて見せる（作ったのに畳まれて見えなかった・2026-10-09）。
-              defaultOpen={briefJustMadeId === current.id}
-              style={{ marginTop: 0 }}
-            />
-          ) : (bookAbout.loading || hasBookInfo(bookAbout.info)) && (
-            <BookBrief
-              variant="make"
-              text={briefText}
-              material={briefMaterial}
-              infoLoading={bookAbout.loading}
-              making={briefMaking}
-              costLine={briefCostLine}
-              onMake={() => makeBookBrief(current)}
-              error={briefError?.bookId === current.id ? briefError.message : ''}
-            />
-          ))}
+          // この本についてのカードの下は 12（読む準備の 1 つのまとまり）。カードが出ない本は 24。
+          <section style={{ marginTop: aboutShown && (bookAbout.loading || hasBookInfo(bookAbout.info) || hasBrief) ? 'var(--space-3)' : 'var(--space-6)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
           {current.status === 'before' && planItems.length > 0
             ? <PlanCard items={planItems} style={{ marginTop: 0 }} />
             : planItems.map((p) => <Card key={p.label} label={p.label} text={p.text} style={{ marginTop: 0 }} />)}
-          {/* 積読で課題・仮説・シートがあるとき: この本についてはカードの下に畳んで置く（間 12）。 */}
-          {current.status === 'before' && (
-            <BookAbout info={bookAbout.info} loading={bookAbout.loading} variant="fold" />
-          )}
           {current.aiStrategy && (
             // その場で作り終えた直後は開いたまま（key を変えて、開いた状態で置き直す）。
             <details id="plan-sheet-fold" key={justMadePlanId === current.id ? 'plan-made' : 'plan'} open={justMadePlanId === current.id || undefined} style={{ ...detailsStyle, marginTop: 0, scrollMarginTop: 'var(--space-16)' }}>
@@ -4343,20 +4317,7 @@ function AuthedApp() {
             <BookAbout info={bookAbout.info} loading={bookAbout.loading} variant="fold" style={{ marginTop: hasPlanFold ? 'var(--space-3)' : planFoldTop }} />
           )}
 
-          {/* 「AIで本を解析する」は 2026-09-27 に廃止。以前の結果だけ、別の畳む見出しで残す。 */}
-          {/* 本を挙げる節を外すと何も残らないときは、畳みごと出さない（lib/markdownSections.js・2026-10-04） */}
-          {hasVisibleSections(current.aiAnalysis, { hideRelatedBooks: true }) && (
-            <details style={{ ...detailsStyle, marginTop: (hasPlanFold || aboutFoldShown) ? 'var(--space-3)' : (isMemoPhase ? planFoldTop : 'var(--space-3)') }}>
-              <summary style={summaryStyle}>
-                以前の AI 解析を見る
-                <ChevronDown size={20} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
-              </summary>
-              <div style={{ paddingBottom: 'var(--space-4)' }}>
-                {/* 以前の AI 解析は書誌で確かめていないので、本を挙げる節は出さない（「読みたいに追加」も出さない・2026-10-04） */}
-                <MarkdownSections flat text={current.aiAnalysis} hideRelatedBooks />
-              </div>
-            </details>
-          )}
+          {/* 「AIで本を解析する」は 2026-09-27 に廃止。以前の結果は「…」の「以前の AI 解析を見る」のシートへ（2026-10-09）。 */}
 
       </>
     );
@@ -4865,6 +4826,12 @@ function AuthedApp() {
             <BookStoreLinks book={current} variant="cta" buy />
           </BottomSheet>
         )}
+        {analysisSheetOpen && hasVisibleSections(current.aiAnalysis, { hideRelatedBooks: true }) && (
+          <BottomSheet title="以前の AI 解析" onClose={() => setAnalysisSheetOpen(false)}>
+            {/* 書誌で確かめていないので、本を挙げる節は出さない（「読みたいに追加」も出さない・2026-10-04） */}
+            <MarkdownSections flat text={current.aiAnalysis} hideRelatedBooks />
+          </BottomSheet>
+        )}
         {detailKebab && (
           <ContextMenu
             x={detailKebab.x}
@@ -4880,6 +4847,10 @@ function AuthedApp() {
                     icon: <IcMap size="1.1em" aria-hidden="true" />,
                     onClick: () => openSetup(current),
                   }]
+                : []),
+              // 以前の AI 解析は、保存済みのものがある本だけ（本の詳細の畳む見出しから移した・2026-10-09）。
+              ...(hasVisibleSections(current.aiAnalysis, { hideRelatedBooks: true })
+                ? [{ label: '以前の AI 解析を見る', icon: <ScrollText size="1.1em" aria-hidden="true" />, onClick: () => setAnalysisSheetOpen(true) }]
                 : []),
               // どのステータスからも「1 つ前」に戻せる（旧: reading/done→積読 の
               // 2 段戻りしか無く、読了を読書中に戻したい・積読を読みたいに戻したい

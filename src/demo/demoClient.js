@@ -30,6 +30,7 @@
 //   - &viewmap=on : 視点の地図を使っている人（メモに分野のタグが付いている・記録に地図が出る）。
 //     &viewmap=off : 使っていない人（端末に残った選択より優先）。付けなければ端末に残った選択（既定は使わない）
 //     &viewmap=notags : 使っているが、メモに地図のタグが 1 つも無い人
+//     &viewmap=own : 使っているが、メモには自分のタグ（#マネジメント・#習慣 など）だけ（自分のタグが分野に結びつく確認用・2026-10-09）
 //     &viewmapsave=slow : 使う／やめるの保存が 8 秒かかる（「保存しています…」の確認用）・fail : アカウントへの保存に失敗する
 // データはメモリ上だけ。再読み込みで初期状態に戻る。
 //
@@ -339,7 +340,8 @@ export function createDemoClient() {
       display_name: scenario === 'new' ? '' : 'さとう',
       ai_consent: params.get('consent') === 'none' ? null : { version: AI_CONSENT_VERSION, at: '2026-10-01T00:00:00.000Z' },
       // 視点の地図（lib/viewpointMapSetting.js）。&viewmap=on / off のときだけアカウントの記録を持つ。
-      ...(['on', 'off', 'notags'].includes(params.get('viewmap'))
+      //   &viewmap=own: 使っているが、メモには自分のタグ（#マネジメント・#習慣 など）だけ＝使い込んだ人の地図（2026-10-09）。
+      ...(['on', 'off', 'notags', 'own'].includes(params.get('viewmap'))
         ? { viewpoint_map: { on: params.get('viewmap') !== 'off', at: '2026-10-08T00:00:00.000Z' } }
         : {}),
     },
