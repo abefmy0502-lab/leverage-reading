@@ -23,6 +23,7 @@ export const TOKEN_COSTS = {
   consultPerBook: 12, // 相談（本ごとに）
   advisor: 25, // AI 選書（聞き返し＋おすすめ）
   setupSheet: 6, // 読書計画シート
+  bookBrief: 2, // この本で学べること（Flash-Lite・入力 約 3,000・出力 約 600 で ¥0.3〜0.5＝1〜2 トークン・2026-10-08）
   photoToText: 3, // 写真から書き起こす
   condense: 1, // 凝縮
   cardsToSummary: 3, // メモからまとめを作る

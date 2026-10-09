@@ -64,8 +64,10 @@ const BASE_FEATURES = [
     name: '読書計画シート',
     // 2026-10-02: 本の紹介と目次（出版社・書店が公開している書誌・lib/bookInfo.js）も添える。利用者のデータではなく
     // 公開の情報で、送り先（Google）も変わらないので AI_CONSENT_VERSION は上げない（版は会社と用途の組み合わせで決まる）。
+    // 2026-10-08: 📖 この本で学べること（book_brief）も同じ行（送るのは 書名・著者・得たいこと・本の紹介と目次＝この行に
+    // 書いてあるものの一部・送り先も同じ Google）。CONSENT_COVERED_BY を見る。
     sends: '書名・著者・得たいこと・タグ・本の紹介と目次・直してほしいこと',
-    purposes: ['setup_sheet', 'setup_sheet_edit'],
+    purposes: ['setup_sheet', 'setup_sheet_edit', 'book_brief'],
   },
   // 凝縮・まとめ・写真から書き起こしは同じ送り先（Google）なので 1 行に（シートの高さ・2026-10-02 ui-critic）。
   {
@@ -83,6 +85,7 @@ const BASE_PURPOSE_PROVIDER = {
   advisor_interview: 'gemini',
   setup_sheet: 'gemini',
   setup_sheet_edit: 'gemini',
+  book_brief: 'gemini',
   condense: 'gemini',
   cards_to_summary: 'gemini',
   ocr: 'gemini',
@@ -138,9 +141,19 @@ export function featureForPurpose(purpose, features = AI_FEATURES) {
   return features.find((f) => f.purposes.includes(purpose)) || null;
 }
 
+// 🤝 ほかの用途の同意に含まれる用途（新しい用途 → 含める用途）。送るものがその用途の「送るもの」の一部で、送り先の会社も
+//   同じときだけ（aiProcessors.test.js が、同じ機能の行・同じ会社かを確かめる）。この用途を足しても同意の版は上げない
+//   （同意した人に、同じ内容をもう一度聞かない）。送るものや送り先が違う用途は、ここに入れず版を上げる。
+//   book_brief（この本で学べること・2026-10-08）: 書名・著者・得たいこと・本の紹介と目次 → Google（読書計画シートと同じ）。
+export const CONSENT_COVERED_BY = {
+  book_brief: 'setup_sheet',
+};
+
 // 版を決める元（会社と用途の組み合わせ）。これが変わったら AI_CONSENT_VERSION を上げる（テストで確かめる）。
+// CONSENT_COVERED_BY の用途は、含める用途の同意に入っているので数えない。
 export function processorSignature(purposeProvider = AI_PURPOSE_PROVIDER) {
   return Object.keys(purposeProvider)
+    .filter((p) => !Object.prototype.hasOwnProperty.call(CONSENT_COVERED_BY, p))
     .sort()
     .map((p) => `${p}:${purposeProvider[p]}`)
     .join(',') + `|fallback:${AI_FALLBACK_PROVIDER}`;

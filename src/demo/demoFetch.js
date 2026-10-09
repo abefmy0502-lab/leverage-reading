@@ -9,7 +9,7 @@ const fakeChapterMode = () => { const a = typeof window !== 'undefined' ? new UR
 const relatedAllBad = () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('related') === 'allbad';
 const relatedMessy = () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('related') === 'messy';
 import { demoServerSearch, demoNdlXml } from './demoBookSearch';
-import { questionGist } from '../lib/consultHelpers';
+import { lensOf } from '../lib/consultHelpers';
 
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
@@ -148,7 +148,7 @@ function lpShotAnswer(store, question, thread, decide) {
   ].join('\n');
 }
 
-function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null, voice = null, decide = false, lookup = false, relatedBlock = '') {
+function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null, voice = null, decide = false, lookup = false, relatedBlock = '', askMore = false, lens = null) {
   if (lpShotOn()) {
     const shot = lpShotAnswer(store, question, thread, decide);
     if (shot) return shot;
@@ -223,8 +223,6 @@ function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null
     ...picked.map((m, i) => `- ${nameOf(m, i)} のメモ：「${aiMode === 'fabricate' && i === 1 ? '他人の期待を満たすために生きてはいけない' : m.text}」`),
     ...(fakeRef ? ['- 『7つの習慣』p.88 のメモ：主体性を発揮して、自分で選んで動く'] : []),
   ].join('\n');
-  // 一歩は、あとで行動の一覧だけを見ても分かる文にする（本番の指示文と同じ・「この件」と書かない）。
-  const subject = questionGist(thread ? (thread.firstQuestion || thread.lastQuestion) : question, 20) || 'いまの悩み';
   const refs = [
     ...picked.map((m) => `- ${label(m).ref}`),
     ...(fakeRef ? ['- 📚 スティーブン・R・コヴィー『7つの習慣』p.88'] : []),
@@ -277,9 +275,39 @@ function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null
       'REFS_END',
     ].join('\n');
   }
+  // 🔭 見方を変える 3 つ（本番の LENS・2026-10-08）: メモの言葉だけで答え直す。最後は問いにしない（解釈で締める）。
+  //   立場・工程はメモから分からないので、本番の指示と同じく結論の頭で仮定を一言書く（作り話の役職・工程を作らない）。
+  //   ほかの本の視点では、根拠は直前の答えで使っていない本 1 冊だけ・結論に書名を入れない（名前の行はその 1 冊）。
+  if (lens) {
+    const scene = (thread && thread.replies[0]) || '';
+    const one = lens === 'otherBook';
+    const lensQuotes = one ? `- ${nameOf(picked[0], 0)} のメモ：「${picked[0].text}」` : quotes;
+    const lensRefs = one ? `- ${label(picked[0]).ref}` : refs;
+    const conclusion = {
+      otherBook: `別の本のメモから見ると、${gist(picked[0].text)}という考えも使えます。前の答えとは別の手として持っておきましょう。`,
+      up: `あなたの 2 つ上の立場（部長くらい）だと仮定して見ると、${gist(picked[0].text)}は、チーム全体の時間の使い方の話になります。`,
+      flow: `あなたの仕事の前の工程（頼む側）と後ろの工程（報告を受けて決める側）があると仮定して見ると、${gist(picked[0].text)}は、受け取る人が何を見て判断するかを先に決める話になります。`,
+    }[lens];
+    const interp = {
+      otherBook: `「${clip(picked[0].text)}」は、前の答えとは別の入口です。${scene ? `「${scene}」の場面でも、` : ''}こちらから試せます。`,
+      up: `上の立場から見ると、1 人の遅れより「どこで止まるか」がチームで繰り返されているかが気になります。メモの「${clip(picked[0].text)}」を、その仕組みの側に当てはめてみましょう。`,
+      flow: `前の工程で「いつまでに・何を」が決まっていないと、後ろの工程は待つしかありません。メモの「${clip(picked[0].text)}」は、その受け渡しの決め方に当てはまります。`,
+    }[lens];
+    return [
+      '【結論】', conclusion, '',
+      '【参照した本のメモ】', lensQuotes, '',
+      '【あなたの状況に合わせた解釈】', interp, '',
+      // 最後の節（問い・行動）が無い答えの注記は「— 」で始める（答えの下の注記として出す）。
+      '— （お試しモードの応答です。本番では AI があなたのメモ全体を読んで答えます）', '',
+      'REFS_START', lensRefs, 'REFS_END',
+    ].join('\n');
+  }
   // 🎯 行動を決める回（会話の続きで行動を求めた・本番の ACTION_REQUEST）: 会話で聞いた状況（返事）を使って行動を 1 つ。
   if (decide) {
-    const situation = (thread && thread.replies[thread.replies.length - 1]) || '';
+    // 場面は、最初の問いへの返事（「会議の前」）。2 回聞いたあとの答え（本番の ACTION_REQUEST・2026-10-08）でも同じ。
+    const lastReply = String(question || '').trim();
+    const situation = (thread && thread.replies[0])
+      || (thread && thread.lastAsked && lastReply && !/行動|まとめ|視点|立場|工程/.test(lastReply) ? lastReply.slice(0, 20) : '');
     return [
       '【結論】',
       situation
@@ -298,8 +326,9 @@ function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null
       '【明日からできる 1 つの行動】',
       situation
         // 行動の文は短く（行動の一覧で 2〜3 行に収まる長さ）。メモの一節は 16 字まで。
-        ? `「${subject}」について、${whenOf(situation)}メモの「${short16(picked[0].text)}」を 1 回だけ試す。`
-        : `「${subject}」の次の場面で、メモの「${short16(picked[0].text)}」を 1 回だけ試す。`,
+        // 本番と同じく、行動の文はそのまま読める形（相談の文を「」で頭に付けない＝それは行動に追加するときだけ・standaloneAction）。
+        ? `${whenOf(situation)}、メモの「${short16(picked[0].text)}」を 1 回だけ試す。`
+        : `次に同じ場面が来たら、メモの「${short16(picked[0].text)}」を 1 回だけ試す。`,
       '',
       '（お試しモードの応答です。本番では AI があなたのメモ全体を読んで答えます）',
       '',
@@ -311,6 +340,31 @@ function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null
   // 返事（前の答えの問いへの答え）: その状況に合わせて一歩深く。行動はまだ決めない（本番の BRAIN_SYSTEM ルール 9）。
   if (thread && thread.lastAsked) {
     const reply = String(question || '').trim().slice(0, 20);
+    // 🏁 聞き返しは最大 2 回（2026-10-08）: 1 回目の返事のあと・「もっと聞いて」のときは、もう 1 つ聞く（本番の turnHint の念押し）。
+    if (askMore) {
+      return [
+        '【結論】',
+        `${voice ? '私なら、' : ''}「${reply}」の場面なら、${gist(picked[0].text)}という考えが効きそうです。`,
+        '',
+        '【参照した本のメモ】',
+        quotes,
+        '',
+        '【あなたの状況に合わせた解釈】',
+        `「${reply}」の場面では、「${clip(picked[0].text)}」を先に置くと、相手が話しやすくなります。`,
+        '',
+        '【あなたに聞きたいこと】',
+        'そのとき、いちばん気になるのは何ですか？',
+        '・相手の反応',
+        '・自分の時間',
+        '・結果の質',
+        '',
+        '（お試しモードの応答です。本番では AI があなたのメモ全体を読んで答えます）',
+        '',
+        'REFS_START',
+        refs,
+        'REFS_END',
+      ].join('\n');
+    }
     return [
       '【結論】',
       `${voice ? '私なら、' : ''}「${reply}」の場面なら、${gist(picked[0].text)}という考えが効きそうです。`,
@@ -543,6 +597,54 @@ function planSheetAnswer(userText) {
   ].join('\n');
 }
 
+// 📖 お試しの「この本で学べること」（2026-10-08）。本番と同じく、渡された「本の紹介」「目次」だけから書く。
+//   目次がある本は項目名を『』で引き、無い本は章の名前を挙げない。&ai=fakechapter で目次に無い章を混ぜる（画面は消す）。
+function bookBriefAnswer(userText) {
+  const about = (userText.match(/===== 本の紹介（[^）]*） =====\n([\s\S]*?)\n===== 本の紹介ここまで/) || [])[1] || '';
+  const toc = ((userText.match(/===== 目次（データ） =====\n([\s\S]*?)\n===== 目次ここまで/) || [])[1] || '')
+    .split('\n').map((l) => l.replace(/^- /, '').trim()).filter(Boolean);
+  const purpose = ((userText.match(/得たいこと: (.+)/) || [])[1] || '').replace('（未入力）', '').trim();
+  const pick = (re) => toc.find((l) => re.test(l));
+  const isLife = /100年|ステージ/.test(about + toc.join(''));
+  // 見本の答えも本番の決まりどおり、紹介と目次に出てくる言葉だけで書く（材料に無い数字・例を足さない・2026-10-08 ui-critic）。
+  if (isLife) {
+    const asset = pick(/資産/);
+    const scenario = pick(/シナリオ/);
+    const stage = pick(/ステージ/);
+    const time = pick(/時間/);
+    return [
+      '## 概要',
+      '100年生きる時代には、「教育→仕事→引退」の3つのステージで考える人生設計は成り立たなくなる。お金に換えられない資産を育て、複数のステージを行き来する生き方が要になる。',
+      '',
+      '## 学べること',
+      `- スキル・健康・人間関係を、お金に換えられない資産として育てる考え方${asset ? `（『${asset}』）` : ''}`,
+      `- 複数のステージを行き来する生き方と、その準備のしかた${stage ? `（『${stage}』）` : ''}`,
+      `- 具体的な人物のシナリオで人生設計を考える方法${scenario ? `（『${scenario}』）` : ''}`,
+      `- 働き方・学び直し・家族との時間の使い方を見直す視点${time ? `（『${time}』）` : ''}`,
+      ...(fakeChapterMode() ? ['- AI 時代の副業の始め方（『第9章 AI 時代の働き方』）', '- 5 年後のキャリアの描き方'] : []),
+      '',
+      '## 仮説の例',
+      `- スキル・健康・人間関係を資産として書き出せば、${purpose ? 'これからの' : '次の'}働き方の選択肢が見えてくるのでは`,
+      '- 学び直しの時間をつくれば、次のステージの準備が進むのでは',
+      '- 家族との時間の使い方を見直せば、人生設計の考え方が変わるのでは',
+    ].join('\n');
+  }
+  return [
+    '## 概要',
+    'いつもの場所からチーズが消えたとき、元に戻るのを待ち続けるより、変化をすぐに受け入れて動き出すほうがいい。',
+    '',
+    // 寓話の形をとった実用書なので「学べること」（「味わえること」は小説・物語・エッセイだけ＝本番の指示文と同じ）。
+    '## 学べること',
+    '- 変化にどう向き合うかを、短い寓話で考える',
+    '- 変化をすぐに受け入れて動き出す者の考え方',
+    '- 元に戻るのを待ち続ける者との違い',
+    '',
+    '## 仮説の例',
+    '- 自分にとっての「チーズ」が消えたときに備えれば、変化をすぐに受け入れられるのでは',
+    '- 元に戻るのを待ち続けずに動き出せば、変化への向き合い方が変わるのでは',
+  ].join('\n');
+}
+
 function aiReply(store, payload, aiMode = '') {
   const last = [...(payload.messages || [])].reverse().find((m) => m.role === 'user');
   const userText = textOf(last?.content);
@@ -558,7 +660,11 @@ function aiReply(store, payload, aiMode = '') {
       (userText.match(/===== MEMOS_START =====\n([\s\S]*?)\n===== MEMOS_END/) || [])[1] || '',
       related,
     ].filter(Boolean).join('\n\n');
-    return brainAnswer(store, q[1], block, aiMode, parseThread(userText), parseVoice(userText), decide, userText.includes('===== BOOK_LOOKUP ====='), related);
+    // 1 回目の返事のあと（「聞き返すのはこれが最後」）・「もっと聞いて」のときは、もう 1 つ聞く（ai.js の turnHint・2026-10-08）。
+    const askMore = !decide && (userText.includes('聞き返すのはこれが最後') || userText.includes('もっと聞いてほしい'));
+    // 🔭 見方を変える頼み（本番の LENS・2026-10-08）。
+    const lens = userText.includes('===== LENS =====') ? lensOf(q[1].trim()) : null;
+    return brainAnswer(store, q[1], block, aiMode, parseThread(userText), parseVoice(userText), decide, userText.includes('===== BOOK_LOOKUP ====='), related, askMore, lens);
   }
   // 📷 写真から書き起こし（本番と同じく、本文だけを返す）。
   //   &lpshot=1（LP・App Store の画像）は、実在の本の一節に見えない、自分で書いた付箋のような短い文にする（2026-10-08）。
@@ -614,6 +720,8 @@ function aiReply(store, payload, aiMode = '') {
       '## 💬 まとめ', '一冊ずつ、明日できる一歩に変えていきましょう。',
     ].join('\n');
   }
+  // 📖 この本で学べること（2026-10-08）
+  if (payload.purpose === 'book_brief') return bookBriefAnswer(userText);
   // 📖 読書計画シート（2026-10-02）: 本番と同じく、渡された「本の紹介」「目次」だけから概要と重点箇所を書く。
   if (system.includes('『読書計画シート』を作成')) return planSheetAnswer(userText);
   return [
@@ -737,7 +845,7 @@ export function installDemoFetch(store) {
         return json({ jev: { result: demoJevResult(payload.purpose, payload.jev || {}), ms: 180 } });
       }
       // 本番（api/claude.js・api/_aiAccess.js）と同じ決まりをまねる:
-      //   契約なし＝無料プラン: 相談（purpose 'consult'）だけ・毎月 30 トークン（'free-YYYY-MM'）。ほかは 402 plan_required
+      //   契約なし＝無料プラン: 相談（purpose 'consult'）とこの本で学べること（'book_brief'）だけ・毎月 30 トークン（'free-YYYY-MM'）。ほかは 402 plan_required
       //   無料期間: 150 トークン（'trial-終わる日'）/ 有料: 毎月 800 トークン（'YYYY-MM'）→ 使い切ったら 429
       //   「最後の 1 回」: 使ったトークン（切り上げ）が上限未満なら始められる。
       const jstNow = new Date(Date.now() + 9 * 3600 * 1000);
@@ -757,7 +865,8 @@ export function installDemoFetch(store) {
         await wait(900, signal);
         return json({ content: [{ type: 'text', text: aiReply(store, payload, aiMode) }], stop_reason: 'end_turn' });
       }
-      if (tier === 'free' && payload.purpose !== 'consult') {
+      // 📖 この本で学べること（book_brief）も無料プランで使える（相談と同じ無料のトークンから・2026-10-08）。
+      if (tier === 'free' && payload.purpose !== 'consult' && payload.purpose !== 'book_brief') {
         return json({ error: { message: 'この AI 機能は、プランでご利用いただけます。' }, error_code: 'plan_required' }, 402);
       }
       const trialEnd = sub?.current_period_end ? new Date(Date.parse(sub.current_period_end) + 9 * 3600 * 1000) : null;
@@ -784,7 +893,7 @@ export function installDemoFetch(store) {
       }
       // 使った量（目安）: 相談 約 9 トークン・AI 選書 約 20・そのほか 約 3。
       row.calls += 1;
-      row.cost_mjpy = (row.cost_mjpy || 0) + (payload.purpose === 'consult' ? 2760 : (payload.max_tokens || 0) >= 3000 ? 6000 : 900);
+      row.cost_mjpy = (row.cost_mjpy || 0) + (payload.purpose === 'consult' ? 2760 : payload.purpose === 'book_brief' ? 420 : (payload.max_tokens || 0) >= 3000 ? 6000 : 900);
       // その月の分を超えた分を、追加分から差し引く（settle_token_overflow）。
       let need = Math.max(0, Math.ceil(row.cost_mjpy / 300 - 1e-9) - allowance) - (row.lot_tokens || 0);
       if (need > 0) {

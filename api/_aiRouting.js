@@ -37,6 +37,10 @@ export const ROUTES = {
   advisor_interview: { primary: `gemini:${FLASH_LITE}`, claude: H },
   setup_sheet: { primary: `gemini:${FLASH_LITE}`, claude: H },
   setup_sheet_edit: { primary: `gemini:${FLASH_LITE}`, claude: H },
+  // 📖 この本で学べること（2026-10-08）: 公開の紹介文と目次から、概要・学べること・仮説の例（読書計画シートと同じ行き先）。
+  //   無料プランでも使える（相談と同じ無料のトークンから・api/_aiAccess.js の FREE_PURPOSES）。freeRouted＝無料プランでも
+  //   この表の行き先で答える（相談のように Claude に固定しない・1 回 約 1〜2 トークン）。
+  book_brief: { primary: `gemini:${FLASH_LITE}`, claude: H, freeRouted: true },
   ops_advise: { primary: `openai:${GPT_MINI}`, claude: H },
   condense: { primary: `gemini:${FLASH_LITE}`, claude: H },
   cards_to_summary: { primary: `gemini:${FLASH_LITE}`, claude: H },
@@ -97,7 +101,7 @@ export function isRetired(model, now = Date.now()) {
 // この 1 回の行き先を決める。
 //   purpose: body.purpose（アプリが送る用途。無ければ今までどおり）
 //   requestedModel: アプリが指定した Claude のモデル（許可リストで矯正済みのもの）
-//   free: 無料プランの相談か（常にいちばん安い Claude）
+//   free: 無料プランの呼び出しか（相談は常にいちばん安い Claude・freeRouted の用途は表の行き先）
 //   freeModel: 無料プランのモデル
 // 戻り値: { provider, model, claudeModel, purpose, reason }
 //   claudeModel … provider が Claude 以外のとき、失敗したら 1 回だけ切り替える Claude のモデル
@@ -105,8 +109,9 @@ export function isRetired(model, now = Date.now()) {
 export function resolveRoute({ purpose, requestedModel, free = false, freeModel = H, env = process.env, now = Date.now() } = {}) {
   const fallbackModel = ANTHROPIC_MODELS.has(requestedModel) ? requestedModel : H;
   const claude = (model, reason, p = null) => ({ provider: 'anthropic', model, claudeModel: model, purpose: p, reason });
-  if (free) return claude(freeModel, 'free', 'consult');
   const route = typeof purpose === 'string' && Object.prototype.hasOwnProperty.call(ROUTES, purpose) ? ROUTES[purpose] : null;
+  // 無料プランの AI は、相談ならいちばん安い Claude に固定。freeRouted の用途（この本で学べること）だけは表の行き先で。
+  if (free && !route?.freeRouted) return claude(freeModel, 'free', 'consult');
   if (!route) return claude(fallbackModel, 'legacy');
 
   // 💬 相談は、今までどおり AI_CONSULT_MODEL（Claude だけ）→ AI_ROUTE_CONSULT（Claude だけ）→ アプリの指定。
