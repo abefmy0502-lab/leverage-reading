@@ -26,6 +26,29 @@ const outDir = join('ui-shots', label);
 
 const nav = (name) => `nav button[aria-label="${name}"]`;
 
+// AI 選書の聞き取り（2026-10-08）: 問いのすぐ下の「自分の言葉で答える」に書き出しを入れて続きを書く → 「答える」→ まとめを「合っている」。
+const ADVISOR_START = [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }];
+const ADVISOR_ANSWER = (chip, more) => [{ css: `[aria-label="書き出しのきっかけ"] button:has-text("${chip}")` }, ...(more ? [{ fill: ['textarea[aria-label="自分の言葉で答える"]', more] }] : []), { css: 'button[aria-label="答える"]' }, { wait: 2500 }];
+const ADVISOR_ESCAPE = (label) => ({ css: `[aria-label="うまく答えられないとき"] button:has-text("${label}")` });
+const ADVISOR_TO_SUMMARY = [...ADVISOR_ANSWER('大事なことに限って', '大事なことに限って、メールと会議で一日が終わってしまう'), ...ADVISOR_ANSWER('本当は、', '本当は、夕方に自分の仕事を進める時間がほしい')];
+const ADVISOR_TO_RECO = [...ADVISOR_TO_SUMMARY, { css: 'button:has-text("合っている")' }];
+const ADVISOR_CARE_START = [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事がつらくて、消えたいと思うことがある'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }];
+// 第 2 回（ui-critic）の撮影: 明暗＋文字最大（-xxl）。
+const XXL = { eval: () => { document.documentElement.style.fontSize = '28px'; } };
+const ADVISOR2 = [
+  ['adv2-q1', '/', [...ADVISOR_START]],
+  ['adv2-q2', '/', [...ADVISOR_START, ...ADVISOR_ANSWER('大事なことに限って', '大事なことに限って、メールと会議で一日が終わってしまう')]],
+  ['adv2-off', '/', [...ADVISOR_START, ADVISOR_ESCAPE('どれも少し違う')]],
+  ['adv2-unsure', '/', [...ADVISOR_START, ADVISOR_ESCAPE('まだ言葉にできない'), { wait: 2500 }]],
+  ['adv2-loading', '/?ai=slow', [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 800 }]],
+  ['adv2-fail', '/?ai=fail', [...ADVISOR_START]],
+  ['adv2-summary', '/', [...ADVISOR_START, ...ADVISOR_TO_SUMMARY]],
+  ['adv2-correct', '/', [...ADVISOR_START, ...ADVISOR_TO_SUMMARY, { css: 'button:has-text("少し違う（直す）")' }]],
+  ['adv2-reco', '/', [...ADVISOR_START, ...ADVISOR_TO_SUMMARY, { css: 'button:has-text("少し違う（直す）")' }, { fill: ['textarea[aria-label="違うところを、自分の言葉で"]', '時間というより、頼まれると断れないのがつらい'] }, { css: 'button[aria-label="直して探す"]' }, { wait: 8000 }]],
+  ['adv2-care', '/', [...ADVISOR_CARE_START]],
+  ['adv2-history', '/', [...ADVISOR_START, ...ADVISOR_TO_SUMMARY, { css: 'button:has-text("少し違う（直す）")' }, { fill: ['textarea[aria-label="違うところを、自分の言葉で"]', '時間というより、頼まれると断れないのがつらい'] }, { css: 'button[aria-label="直して探す"]' }, { wait: 8000 }, { css: 'button[aria-label="履歴を見る"]' }, { wait: 800 }, { css: 'li button >> nth=0' }, { wait: 800 }]],
+].flatMap(([name, url, steps]) => [{ name, url, steps }, { name: `${name}-xxl`, url, steps: [XXL, ...steps] }]);
+
 // 写真で共有の編集画面（2026-10-01）の操作。
 const EDIT = '[role=dialog][aria-label="画像を編集"]';
 const SHARE_CAMERA = [{ css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 2000 }];
@@ -72,6 +95,7 @@ const CONSENT_CONSULT = [{ css: nav('相談') }, { fill: ['textarea[aria-label="
 
 // 画面の定義: url（お試しモードのシナリオ）と、そこに至る操作。
 const SCREENS = [
+  ...ADVISOR2,
   { name: 'home', url: '/' },
   { name: 'home-new-user', url: '/?demo=new', steps: [{ css: 'button[aria-label="閉じる"]' }] },
   { name: 'library', url: '/', steps: [{ css: 'button:has-text("すべての本")' }] },
@@ -234,20 +258,30 @@ const SCREENS = [
   { name: 'webgate', url: '/?demo=webgate' },
   // 2026-09-27 追加: 生成後・状態別・編集・取り込み
   { name: 'advisor-interview', url: '/', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }] },
-  { name: 'advisor-reco', url: '/', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }, { css: 'button:has-text("時間が足りない")' }, { wait: 1200 }, { css: 'button:has-text("大事な仕事に集中できる")' }, { wait: 7000 }] },
+  // 聞き取りの作り直し（2026-10-08）: どれも少し違う／まだ言葉にできない／このくらいで探して／受け取ったまとめ／少し違う（直す）
+  { name: 'advisor-interview-off', url: '/', steps: [...ADVISOR_START, ADVISOR_ESCAPE('どれも少し違う'), { fill: ['textarea[aria-label="どこが違いますか？"]', 'じつは仕事より、家に帰ってからも休めないのがつらい'] }] },
+  { name: 'advisor-interview-unsure', url: '/', steps: [...ADVISOR_START, ADVISOR_ESCAPE('まだ言葉にできない'), { wait: 2500 }] },
+  { name: 'advisor-interview-second', url: '/', steps: [...ADVISOR_START, ...ADVISOR_ANSWER('大事なことに限って', '大事なことに限って、メールと会議で一日が終わってしまう')] },
+  { name: 'advisor-search-now', url: '/', steps: [...ADVISOR_START, { css: 'button:has-text("このくらいで探して")' }] },
+  { name: 'advisor-summary', url: '/', steps: [...ADVISOR_START, ...ADVISOR_TO_SUMMARY] },
+  { name: 'advisor-summary-correct', url: '/', steps: [...ADVISOR_START, ...ADVISOR_TO_SUMMARY, { css: 'button:has-text("少し違う（直す）")' }, { fill: ['textarea[aria-label="違うところを、自分の言葉で"]', '時間というより、頼まれると断れないのがつらい'] }] },
+  { name: 'advisor-reco-corrected', url: '/', steps: [...ADVISOR_START, ...ADVISOR_TO_SUMMARY, { css: 'button:has-text("少し違う（直す）")' }, { fill: ['textarea[aria-label="違うところを、自分の言葉で"]', '時間というより、頼まれると断れないのがつらい'] }, { css: 'button[aria-label="直して探す"]' }, { wait: 8000 }] },
+  { name: 'advisor-interview-xxl-text', url: '/', steps: [...ADVISOR_START, { eval: () => { document.documentElement.style.fontSize = '28px'; } }, { wait: 500 }] },
+  { name: 'advisor-care', url: '/', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事がつらくて、消えたいと思うことがある'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }] },
+  { name: 'advisor-reco', url: '/', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }, ...ADVISOR_TO_RECO, { wait: 7000 }] },
   // 書名の欄に 2 冊を混ぜたカード（&ai=mixedrec・2026-10-04）: 1 冊ずつ確かめて、見つかった 1 冊のカードに
-  { name: 'advisor-reco-mixed', url: '/?ai=mixedrec', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }, { css: 'button:has-text("時間が足りない")' }, { wait: 1200 }, { css: 'button:has-text("大事な仕事に集中できる")' }, { wait: 9000 }, { scrollTo: 'p:has-text("プロフェッショナルマネジャー")' }] },
-  { name: 'advisor-reco-mixed-large-text', url: '/?ai=mixedrec', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }, { css: 'button:has-text("時間が足りない")' }, { wait: 1200 }, { css: 'button:has-text("大事な仕事に集中できる")' }, { wait: 9000 }, { eval: () => { document.documentElement.style.fontSize = '23px'; } }, { wait: 500 }, { scrollTo: 'p:has-text("プロフェッショナルマネジャー")' }] },
+  { name: 'advisor-reco-mixed', url: '/?ai=mixedrec', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }, ...ADVISOR_TO_RECO, { wait: 9000 }, { scrollTo: 'p:has-text("プロフェッショナルマネジャー")' }] },
+  { name: 'advisor-reco-mixed-large-text', url: '/?ai=mixedrec', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }, ...ADVISOR_TO_RECO, { wait: 9000 }, { eval: () => { document.documentElement.style.fontSize = '23px'; } }, { wait: 500 }, { scrollTo: 'p:has-text("プロフェッショナルマネジャー")' }] },
   // 2 冊を混ぜたカードを確かめている途中（&verify=slow）: カード 1 枚ぶんの骨組み
-  { name: 'advisor-reco-mixed-verifying', url: '/?ai=mixedrec&verify=slow', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }, { css: 'button:has-text("時間が足りない")' }, { wait: 1200 }, { css: 'button:has-text("大事な仕事に集中できる")' }, { wait: 4000 }, { scrollTo: 'p:has-text("プロフェッショナルマネジャー")' }] },
+  { name: 'advisor-reco-mixed-verifying', url: '/?ai=mixedrec&verify=slow', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }, ...ADVISOR_TO_RECO, { wait: 4000 }, { scrollTo: 'p:has-text("プロフェッショナルマネジャー")' }] },
   // 出せるカードが 0 枚（&ai=allmixed）→ ErrorMessage「本を確かめられませんでした」
-  { name: 'advisor-reco-allmixed', url: '/?ai=allmixed', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }, { css: 'button:has-text("時間が足りない")' }, { wait: 1200 }, { css: 'button:has-text("大事な仕事に集中できる")' }, { wait: 9000 }, { scrollBottom: true }] },
-  { name: 'advisor-reco-allmixed-xxl-text', url: '/?ai=allmixed', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }, { css: 'button:has-text("時間が足りない")' }, { wait: 1200 }, { css: 'button:has-text("大事な仕事に集中できる")' }, { wait: 9000 }, { eval: () => { document.documentElement.style.fontSize = '40px'; } }, { wait: 500 }, { scrollBottom: true }] },
+  { name: 'advisor-reco-allmixed', url: '/?ai=allmixed', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }, ...ADVISOR_TO_RECO, { wait: 9000 }, { scrollBottom: true }] },
+  { name: 'advisor-reco-allmixed-xxl-text', url: '/?ai=allmixed', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }, ...ADVISOR_TO_RECO, { wait: 9000 }, { eval: () => { document.documentElement.style.fontSize = '40px'; } }, { wait: 500 }, { scrollBottom: true }] },
   // 確かめられなかった（&verify=down）→「もう一度」＋文字の「別の条件で探す」。上の &ai=allmixed は どれも実在しない →「別の条件で探す」が主
-  { name: 'advisor-reco-allmixed-down', url: '/?ai=allmixed&verify=down', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }, { css: 'button:has-text("時間が足りない")' }, { wait: 1200 }, { css: 'button:has-text("大事な仕事に集中できる")' }, { wait: 9000 }, { scrollBottom: true }] },
-  { name: 'advisor-reco-allmixed-down-large-text', url: '/?ai=allmixed&verify=down', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }, { css: 'button:has-text("時間が足りない")' }, { wait: 1200 }, { css: 'button:has-text("大事な仕事に集中できる")' }, { wait: 9000 }, { eval: () => { document.documentElement.style.fontSize = '23px'; } }, { wait: 500 }, { scrollBottom: true }] },
-  { name: 'advisor-reco-mixed-down', url: '/?ai=mixedrec&verify=down', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }, { css: 'button:has-text("時間が足りない")' }, { wait: 1200 }, { css: 'button:has-text("大事な仕事に集中できる")' }, { wait: 9000 }, { scrollTo: 'p:has-text("プロフェッショナルマネジャー")' }] },
-  { name: 'advisor-reco-bottom', url: '/', steps:[{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }, { css: 'button:has-text("時間が足りない")' }, { wait: 1200 }, { css: 'button:has-text("大事な仕事に集中できる")' }, { wait: 7000 }, { scrollBottom: true }] },
+  { name: 'advisor-reco-allmixed-down', url: '/?ai=allmixed&verify=down', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }, ...ADVISOR_TO_RECO, { wait: 9000 }, { scrollBottom: true }] },
+  { name: 'advisor-reco-allmixed-down-large-text', url: '/?ai=allmixed&verify=down', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }, ...ADVISOR_TO_RECO, { wait: 9000 }, { eval: () => { document.documentElement.style.fontSize = '23px'; } }, { wait: 500 }, { scrollBottom: true }] },
+  { name: 'advisor-reco-mixed-down', url: '/?ai=mixedrec&verify=down', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }, ...ADVISOR_TO_RECO, { wait: 9000 }, { scrollTo: 'p:has-text("プロフェッショナルマネジャー")' }] },
+  { name: 'advisor-reco-bottom', url: '/', steps:[{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }, ...ADVISOR_TO_RECO, { wait: 7000 }, { scrollBottom: true }] },
   { name: 'book-detail-want', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("チーズはどこへ消えた")' }] },
   { name: 'book-detail-before', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("LIFE SHIFT")' }] },
   // 📖 この本について（2026-10-02）: 紹介文の続き・目次を開く／見つからない本（&info=none）／読み込み中（&info=slow）／読書中の畳む見出し
@@ -508,7 +542,7 @@ const SCREENS = [
   { name: 'advisor-loading', url: '/?ai=slow', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 800 }] },
   { name: 'advisor-error', url: '/?ai=fail', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }] },
   { name: 'advisor-limit', url: '/?demo=limit', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }] },
-  { name: 'advisor-added', url: '/', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }, { css: 'button:has-text("時間が足りない")' }, { wait: 1200 }, { css: 'button:has-text("大事な仕事に集中できる")' }, { wait: 7000 }, { css: 'button:has-text("読みたいに追加")' }, { waitFor: 'button:has-text("追加済み・開く")' }, { wait: 1500 }] },
+  { name: 'advisor-added', url: '/', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }, ...ADVISOR_TO_RECO, { wait: 7000 }, { css: 'button:has-text("読みたいに追加")' }, { waitFor: 'button:has-text("追加済み・開く")' }, { wait: 1500 }] },
   // トークンが 1 回分に足りない人: 「まとめる」は押せない形で、上限の案内カード＋「トークンを追加」が先に出る（テーマを選ぶだけ）
   // ── 状態（3 回目の採点で追加）
   { name: 'home-error', url: '/?dbfail=books' },
@@ -649,7 +683,7 @@ const SCREENS = [
   { name: 'share-line-error', url: '/?share=fail', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("画像で共有")' }, { wait: 1500 }] },
   // ── 使いやすさの手直し（2026-09-29・b2）: AI 選書の確認・振り返りの思い出しの取り消し・絞り込みのメニュー・テーマを選ぶ・無料プランの「プラン」・設定のヘルプ・フィードバック
   // 2 冊目（時間術大全）はお試しのカタログに版が 2 つあるので、同じ本かを確かめる画面が出る。
-  { name: 'advisor-confirm', url: '/', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }, { css: 'button:has-text("時間が足りない")' }, { wait: 1200 }, { css: 'button:has-text("大事な仕事に集中できる")' }, { wait: 7000 }, { css: 'button:has-text("読みたいに追加") >> nth=1' }, { wait: 3000 }] },
+  { name: 'advisor-confirm', url: '/', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }, ...ADVISOR_TO_RECO, { wait: 7000 }, { css: 'button:has-text("読みたいに追加") >> nth=1' }, { wait: 3000 }] },
   { name: 'review-recall-answered', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("メモ")' }, { css: 'button:has-text("まだ覚えていない")' }, { wait: 500 }] },
   { name: 'review-filter-menu', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("メモ")' }, { css: 'input[placeholder="メモを検索"]' }, { css: 'button[aria-label^="種類で絞り込む"]' }] },
   { name: 'free-advisor-tab', url: '/?demo=free', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }] },
@@ -876,7 +910,7 @@ const SCREENS = [
   // ── 2026-10-04 エリア B の点検（相談・AI 選書・プラン・設定）
   // AI 選書: 質問を考えている途中・本を選んでいる途中に相談のタブへ移って戻る（止めずに作り、戻ったら続き）
   { name: 'advisor-leave-interview', url: '/', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]', settle: 200 }, { css: 'button[role=tab]:has-text("相談")', settle: 200 }, { css: 'button[role=tab]:has-text("AI 選書")' }, { wait: 3000 }] },
-  { name: 'advisor-leave-reco', url: '/', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }, { css: 'button:has-text("時間が足りない")' }, { wait: 1200 }, { css: 'button:has-text("大事な仕事に集中できる")', settle: 300 }, { css: 'button[role=tab]:has-text("相談")', settle: 200 }, { css: 'button[role=tab]:has-text("AI 選書")', settle: 300 }] },
+  { name: 'advisor-leave-reco', url: '/', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }, ...ADVISOR_TO_RECO, { css: 'button[role=tab]:has-text("相談")', settle: 200 }, { css: 'button[role=tab]:has-text("AI 選書")', settle: 300 }] },
   // 7 日間無料でトークンを使い切った AI 選書（枠線の「トークンを追加」＋解約の期限）
   { name: 'advisor-limit-trial', url: '/?demo=trialout', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }] },
   // 相談: 8 秒たっても答えが来ない（「時間がかかっています…」・文節で折り返す）
@@ -895,8 +929,8 @@ const SCREENS = [
   // 相談: 書いている途中で止めた答え（「もう一度答えて」のチップ・2026-10-04）
   { name: 'consult-stopped', url: '/?ai=stall', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { waitFor: '[aria-label="相談への答え"][aria-busy] p' }, { wait: 600 }, { css: 'button[aria-label="回答を中止"]' }, { wait: 1200 }] },
   // 過去の AI 選書（押し込まれた画面の形・上の行 1 本）と、その中身
-  { name: 'advisor-history', url: '/', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }, { css: 'button:has-text("時間が足りない")' }, { wait: 1200 }, { css: 'button:has-text("大事な仕事に集中できる")' }, { wait: 8000 }, { css: 'button[aria-label="履歴を見る"]' }, { wait: 800 }] },
-  { name: 'advisor-history-detail', url: '/', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }, { css: 'button:has-text("時間が足りない")' }, { wait: 1200 }, { css: 'button:has-text("大事な仕事に集中できる")' }, { wait: 8000 }, { css: 'button[aria-label="履歴を見る"]' }, { wait: 800 }, { css: 'li button >> nth=0' }, { wait: 800 }] },
+  { name: 'advisor-history', url: '/', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }, ...ADVISOR_TO_RECO, { wait: 8000 }, { css: 'button[aria-label="履歴を見る"]' }, { wait: 800 }] },
+  { name: 'advisor-history-detail', url: '/', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }, ...ADVISOR_TO_RECO, { wait: 8000 }, { css: 'button[aria-label="履歴を見る"]' }, { wait: 800 }, { css: 'li button >> nth=0' }, { wait: 800 }] },
   // 根拠にできる情報（日付は「9/29」の形）
   { name: 'consult-knowledge-dates', url: '/', steps: [{ css: nav('相談') }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("根拠にできる情報")' }, { wait: 800 }] },
   // ── 🆕 新しくなったこと（2026-10-05）: 更新したあとに 1 回だけ出るシート（&seen=… でその版まで見た人）・設定の一覧・新しい版の知らせ

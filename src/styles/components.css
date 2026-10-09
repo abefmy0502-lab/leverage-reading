@@ -798,9 +798,15 @@ textarea[aria-invalid="true"]:not(.no-focus-ring):focus {
 }
 .error-message-actions {
   display: flex;
-  gap: var(--space-2);
+  gap: var(--space-2) var(--space-4);
   margin-top: var(--space-3);
   flex-wrap: wrap;
+}
+/* 文字ボタンは左右の内側を持たない＝折り返して次の行に来ても、文字の左端が「もう一度」の箱の左端とそろう
+   （AI 選書の「最初の入力に戻る」・2026-10-09 ui-critic）。並んだときの間は上の横の間 16。 */
+.error-message-actions .btn-ghost {
+  padding-left: 0;
+  padding-right: 0;
 }
 .error-message-hint {
   font-size: var(--text-meta);
@@ -1499,3 +1505,53 @@ details[open] > summary .fold-chevron { transform: rotate(180deg); }
 /* 畳みの中（flat）の箇条の間は 12（一覧の gap 8＋ここの 4）。.long-text の li + li の 8 を足すと 16 になり、
    区画の間（24）との差が小さくなっていた（2026-10-02 ui-critic）。 */
 .md-section--flat li + li { margin-top: var(--space-1); }
+
+/* 🔍 AI 選書の聞き取りの答える欄（問いのカードの中・2026-10-08）。
+   見た目は下の入力欄（.ai-input-area）と同じ: 枠 --border・角丸 12・17・最小は 1 行ぶん・送るは 44 の円。
+   自分の言葉が主役なので、問いのすぐ下に置く（下の欄に置くと書き出しのチップのほうが目立った・ui-critic）。 */
+.ai-answer-field {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-end;
+}
+.ai-answer-field textarea {
+  flex: 1;
+  min-width: 0;
+  min-height: max(44px, calc(1.5em + 2 * var(--space-2) + 2px));
+  /* 下の入力欄と同じく 5 行まで伸び、文字を大きくしているときは見えている高さの 35% まで（hooks/useComposerHeight.js） */
+  max-height: min(calc(1.5em * 5 + var(--space-2) * 2 + 2px), 35dvh);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-family: inherit;
+  font-size: max(16px, var(--text-body));
+  line-height: 1.5;
+  resize: none;
+  outline: none;
+  box-sizing: border-box;
+}
+.ai-answer-field textarea:focus { border-color: var(--accent); }
+.ai-answer-field textarea:focus-visible { outline: none; }
+.ai-answer-field .send-btn {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 50%;
+  border: none;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-family: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.ai-answer-field .send-btn:disabled {
+  opacity: 1;
+  background: var(--fill);
+  color: var(--text-2);
+  cursor: not-allowed;
+}

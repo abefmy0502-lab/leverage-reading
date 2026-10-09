@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { scriptBreakPieces, phrasePieces, longestPhraseLength, keepUnitsTogether } from './TightBubble';
+import { scriptBreakPieces, phrasePieces, longestPhraseLength, keepUnitsTogether, isGluedPhrase } from './TightBubble';
 
 // 書名・著者名の長い 1 文節の中の折り返してよい所（文字の種類の切れ目・2026-10-04）。
 describe('scriptBreakPieces', () => {
@@ -58,5 +58,20 @@ describe('phrasePieces / longestPhraseLength', () => {
   it('scriptBreaks ありでは長い文節の中も分ける', () => {
     expect(phrasePieces('アウトプット大全', { scriptBreaks: true })).toEqual(['アウトプット', '大全']);
     expect(longestPhraseLength('アウトプット大全', { scriptBreaks: true })).toBe(6);
+  });
+});
+
+// 割ると読みにくい決まった言い回し（2026-10-08: AI 選書の問いとまとめ）。
+describe('isGluedPhrase', () => {
+  it('「もう／一度」「と／いう」は割らない', () => {
+    expect(isGluedPhrase('もう', '一度')).toBe(true);
+    expect(isGluedPhrase('「悩み」と', 'いう悩みについて')).toBe(true);
+  });
+  it('「いちばん」だけの半端な 1 行を作らない（次の文節とつなぐ）', () => {
+    expect(isGluedPhrase('書いていましたが、いちばん', '引っかかっているのは、')).toBe(true);
+  });
+  it('ほかの切れ目は割ってよい', () => {
+    expect(isGluedPhrase('本を', '読む')).toBe(false);
+    expect(isGluedPhrase('あと', '一冊')).toBe(false);
   });
 });

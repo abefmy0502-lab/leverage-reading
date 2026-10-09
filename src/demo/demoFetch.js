@@ -597,6 +597,58 @@ function planSheetAnswer(userText) {
   ].join('\n');
 }
 
+// 本人の言葉を「」で引く一節（語の途中で切らない・…で省略しない＝本番の指示文と同じ・2026-10-08）。
+//   最初の文を丸ごと。長ければ、最初の読点までの一節を丸ごと（短すぎる一節なら文のまま）。
+function demoQuote(t) {
+  const s = String(t || '').replace(/^A\. /, '').replace(/\s+/g, ' ').trim();
+  const sentence = (s.split(/[。！？!?\n]/).find((x) => x.trim()) || s).trim().replace(/[、,]+$/u, '');
+  if (sentence.length <= 24) return sentence;
+  const clause = sentence.split('、')[0].trim();
+  return clause.length >= 6 ? clause : sentence;
+}
+
+// 「A. …」の答えを、本人が書き足した言葉にする（次の行に「（書き出し「…」を使った…）」があれば、その書き出しを除く＝本番の指示文と同じ・2026-10-08）。
+function demoSpokenAnswers(block) {
+  const lines = String(block || '').split('\n');
+  const out = [];
+  lines.forEach((l, i) => {
+    if (!l.startsWith('A. ')) return;
+    let a = l.slice(3).trim();
+    const st = ((lines[i + 1] || '').match(/^（書き出し「(.+?)」を使った/) || [])[1];
+    if (st && a.startsWith(st)) a = a.slice(st.length).replace(/^[、,\s]+/u, '').trim() || a;
+    out.push(a);
+  });
+  return out;
+}
+
+// 🧭 お試しモードの聞き取り（本番の advisorInterview と同じ JSON の形）。
+//   1 問目＝いちばん引っかかっていること／「まだ言葉にできない」のあと＝最近の場面／2 問目＝本当はどうなりたいか → まとめて止める。
+function demoInterviewStep(userText) {
+  const concern = (userText.match(/【ユーザーの相談内容】\n([\s\S]*?)\n\n/) || [])[1]?.trim() || '';
+  const qa = (userText.match(/【これまでの問いと答え】\n([\s\S]*?)\n\n【次の問いの番号】/) || [])[1] || '';
+  const answers = demoSpokenAnswers(qa);
+  const spoken = answers.filter((a) => a !== '（まだ言葉にできない）');
+  const lastUnsure = answers[answers.length - 1] === '（まだ言葉にできない）';
+  const over = userText.includes('上限を超えた');
+  const c = demoQuote(concern);
+  const summary = spoken.length === 0
+    ? `「${c}」ということが、いまいちばん気になっているのでしょうか。まだ言葉になっていない部分もありそうです。`
+    : `「${c}」という悩みについて、「${demoQuote(spoken[0])}」と話してくれました。`
+      + (spoken[1] ? `その奥に「${demoQuote(spoken[1])}」という思いがある、ということでしょうか。` : 'その奥に、まだ言葉になっていない引っかかりがありそうです。');
+  // 命に関わる言葉があれば、深掘りせずにやさしく受け止めて止める（本番の指示文と同じ・画面は相談窓口の 1 行を添える）。
+  if (/死にたい|消えたい|いなくなりたい/.test(`${concern}\n${qa}`)) {
+    return { done: true, question: '', options: [], summary: `「${c}」と書いてくれました。いま、とてもつらい気持ちを抱えているのだと受け取りました。` };
+  }
+  if (over || spoken.length >= 2) return { done: true, question: '', options: [], summary };
+  if (lastUnsure) {
+    return { done: false, question: `最近「${c}」と感じた場面を、1 つ思い出せますか？`, options: ['きのうの夕方、', '会議が終わったあと', '週末に仕事を思い出したとき'], summary };
+  }
+  if (spoken.length === 0) {
+    return { done: false, question: `「${c}」と書いていましたが、いちばん引っかかっているのは、どんなところですか？`, options: ['気づくと一日が終わるのが', '大事なことに限って', 'いちばん困るのは'], summary };
+  }
+  return { done: false, question: `「${demoQuote(spoken[0])}」とありましたが、本当は、どうなっていたいですか？`, options: ['本当は、', 'もし時間があったら', 'いまより少しでも'], summary };
+}
+
 // 📖 お試しの「この本で学べること」（2026-10-08）。本番と同じく、渡された「本の紹介」「目次」だけから書く。
 //   目次がある本は項目名を『』で引き、無い本は章の名前を挙げない。&ai=fakechapter で目次に無い章を混ぜる（画面は消す）。
 function bookBriefAnswer(userText) {
@@ -671,24 +723,26 @@ function aiReply(store, payload, aiMode = '') {
   if (payload.purpose === 'ocr' && lpShotOn()) return '1on1 は、まず相手の話を最後まで聞く時間にする。自分が話すのは最後の 5 分だけ。';
   if (payload.purpose === 'ocr') return '成果を上げるには、まず自分の時間がどこに使われているかを知ることから始めなければならない。時間の記録をとり、ムダな仕事を捨て、まとまった時間をつくる。';
   const system = textOf(payload.system);
-  // AI 選書: ヒアリング（1 周だけ質問を出し、2 周目で締める）と、おすすめ（本番と同じ JSON ブロック）
-  if (system.includes('ヒアリング設計担当')) {
-    if (userText.includes('まだ回答なし')) {
-      return JSON.stringify({ done: false, questions: [
-        { q: 'いま一番つまずいているのは？', options: ['時間が足りない', '優先順位が決められない', '人に任せられない'], multi: false },
-        { q: '理想に近い状態は？', options: ['定時で帰れる', '大事な仕事に集中できる', 'チームが自走する'], multi: false },
-      ] });
-    }
-    return JSON.stringify({ done: true, questions: [] });
-  }
+  // AI 選書: 聞き取り（1 回に問い 1 つ・前の言葉を引く・毎回まとめつき・2026-10-08）と、おすすめ（本番と同じ JSON ブロック）
+  if (system.includes('本を選ぶための聞き取り')) return JSON.stringify(demoInterviewStep(userText));
   if (system.includes('RECOMMENDATIONS_START')) {
     // 「なぜあなたに」は、ヒアリングで実際に選んだ答え（「A. …」の行）だけを引く。選んでいない選択肢は言わない（2026-09-29）。
     const answers = userText.split('\n').filter((l) => l.startsWith('A. ')).join('\n');
     const chose = (opt) => answers.includes(opt);
+    // 本人の直し（最優先）→ 最後の答え → 相談、の順に本人の言葉を「」で引く（本番の指示文と同じ・2026-10-08）。
+    const fix = (userText.match(/【本人の直し（最優先）】\n([^\n]+)/) || [])[1] || '';
+    const lastA = demoSpokenAnswers(userText).filter((a) => a !== '（まだ言葉にできない）').pop() || '';
+    const said = demoQuote(fix || lastA || (userText.match(/【相談内容】\n([^\n]+)/) || [])[1] || '');
+    // 引用した言葉に、この本のやり方がどう効くかを続けて書く（引用と結論をつなげる）。
+    const saidWhy = !said ? ''
+      : /断れ|頼まれ|任せ/.test(said) ? `「${said}」とありました。先に自分の時間を予定に入れておけば、頼まれても「その時間は埋まっています」と言えるようになります。`
+        : /時間|一日|会議|メール/.test(said) ? `「${said}」とありました。邪魔の入らない時間を先に予定へ入れて守るやり方で、その時間を取り戻せます。`
+          : `「${said}」とありました。大事なことに使う時間を先に押さえるやり方が、その手がかりになります。`;
     const delegate = ['人に任せられない', 'チームが自走する'].find(chose);
     const recs = [
       { title: '大事なことに集中する', author: 'カル・ニューポート',
-        why: chose('時間が足りない') ? '邪魔の入らない時間を先に確保するやり方が、「時間が足りない」にそのまま効きます。'
+        why: saidWhy ? saidWhy
+          : chose('時間が足りない') ? '邪魔の入らない時間を先に確保するやり方が、「時間が足りない」にそのまま効きます。'
           : chose('大事な仕事に集中できる') ? '邪魔の入らない時間を先に確保するやり方で、「大事な仕事に集中できる」状態に近づけます。'
             : '邪魔の入らない時間を先に確保するやり方で、大事な仕事に使える時間が増えます。',
         core: '深い仕事の時間を、予定より先に押さえる。', focus: '第2部のルール1〜2', duration: '2週間で読了、1か月で実践' },

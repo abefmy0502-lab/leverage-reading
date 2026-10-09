@@ -22,11 +22,25 @@ import { withPhraseBreaks } from './TightBubble';
 import AdvisorStoreLinks from './AdvisorStoreLinks';
 import { STORE_DISCLOSURE_TEXT } from '../lib/rakutenLink';
 import { btnPrimary, btnGhost, btnGhostOff, btnText, groupTitle } from '../styles/ui';
-import { displayUserText, concernOf, interviewPairsOf, advisorSetupPayload } from '../lib/advisorText';
+import { displayUserText, concernOf, interviewPairsOf, confirmedOf, advisorSetupPayload } from '../lib/advisorText';
 import { filterProseTitles, proseTitleLists } from '../lib/advisorProse';
 import { dropSummarySection, introTextOf, splitRecoAnswer } from '../lib/advisorSummary';
 import { fmtDateTimeJa } from '../lib/dates';
 import { normalizeAdvisorRecs, focusText } from '../lib/advisorRecs';
+
+// 本人の言葉＝右寄せの --fill 吹き出し（会話中の AI 選書・相談と同じ）。
+const userBubbleStyle = {
+  maxWidth: '85%',
+  padding: 'var(--space-3) var(--space-4)',
+  borderRadius: 'var(--radius)',
+  background: 'var(--fill)',
+  color: 'var(--text)',
+  fontSize: 'var(--text-body)',
+  lineHeight: 1.5,
+  whiteSpace: 'pre-wrap',
+  wordBreak: 'keep-all',
+  overflowWrap: 'anywhere',
+};
 
 // 日時は過去の相談と同じ「10月4日 22:38」（lib/dates.js の fmtDateTimeJa・以前は「今日 22:38」と混ざっていた・2026-10-04）。
 export function formatDate(iso) {
@@ -98,7 +112,7 @@ const pageStyle = { display: 'flex', flexDirection: 'column', gap: 'var(--space-
 //   線は中身を下へ送ったときだけ（太さぶんはいつも取る）。シェブロンの見た目の左端を余白 16 に。
 const navRow = { flexShrink: 0, display: 'flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 52, paddingTop: 'var(--space-1)', paddingBottom: 'var(--space-1)', paddingLeft: 'var(--space-4)', paddingRight: 'var(--space-4)' };
 const navSide = { width: 96, flexShrink: 0 };
-const navTitle = { flex: 1, minWidth: 0, margin: 0, textAlign: 'center', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
+const navTitle = { flex: 1, minWidth: 0, margin: 0, textAlign: 'center', fontSize: 'min(var(--text-body), var(--text-bar-max))', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
 // 文字は App の BACK_LABEL_SIZE と同じ上限（文字サイズを最大にしても「‹ AI 選書」を 1 行に・2026-10-04）。
 const backBtn = { ...btnText, fontSize: 'min(var(--text-body), var(--text-bar-max))', fontWeight: 400, padding: 'var(--space-2) 0', marginLeft: 'calc(-1 * var(--space-2))', gap: 0, lineHeight: 1.3, whiteSpace: 'nowrap' };
 
@@ -277,7 +291,7 @@ function RecommendationCard({ book, index = 0, isAdded, isChecking, onAdd }) {
       {book.why && (
         <div style={{ marginTop: 'var(--space-3)' }}>
           <p style={fieldLabel}>なぜあなたに</p>
-          <p style={{ ...readText, margin: 'var(--space-1) 0 0' }}>{withPhraseBreaks(book.why)}</p>
+          <p style={{ ...readText, margin: 'var(--space-1) 0 0', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(book.why)}</p>
         </div>
       )}
       {book.core && <RecField label="この本の核心" text={book.core} />}
@@ -371,7 +385,9 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
   // 読書準備は AI 選書の画面と同じ中身（課題＝相談＋1 問目・得たいこと＝理想の状態の答え・仮説は空・
   //   選書理由＝なぜ＋核心＝lib/advisorText.js の advisorSetupPayload・2026-10-04）。
   const interviewPairs = useMemo(() => interviewPairsOf(lastUserRaw), [lastUserRaw]);
-  const setupFor = (rec) => advisorSetupPayload(lastUserQuery, interviewPairs, rec);
+  // 確かめた悩み（受け取ったまとめ・本人の直し）があれば、課題はそれを優先（2026-10-08）。
+  const confirmed = useMemo(() => confirmedOf(lastUserRaw), [lastUserRaw]);
+  const setupFor = (rec) => advisorSetupPayload(lastUserQuery, interviewPairs, rec, confirmed);
 
   const recKey = (rec) => {
     const norm = (s) => (s || '').toString().toLowerCase().replace(/\s+/g, '');
@@ -492,30 +508,25 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
             }
             const text = isUser ? displayUserText(raw) : filterProseTitles(dropSummarySection(stripRecommendations(raw)), proseLists);
             if (!text) return null; // JSON だけのメッセージは非表示
+            // 確かめた悩み（受け取ったまとめ・本人の直し）は会話中と同じ並び: 相談の吹き出し → 小見出し「受け取った悩み」＋本文 → 直しの吹き出し（2026-10-08）。
+            const conf = isUser ? confirmedOf(raw) : null;
             return isUser ? (
-              // ユーザーの相談＝右寄せの --fill 吹き出し（相談と同じ）。
-              <div
-                key={i}
-                style={{ display: 'flex', justifyContent: 'flex-end' }}
-                role="article"
-                aria-label="あなたの相談"
-              >
-                <div
-                  style={{
-                    maxWidth: '85%',
-                    padding: 'var(--space-3) var(--space-4)',
-                    borderRadius: 'var(--radius)',
-                    background: 'var(--fill)',
-                    color: 'var(--text)',
-                    fontSize: 'var(--text-body)',
-                    lineHeight: 1.5,
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'keep-all',
-                    overflowWrap: 'anywhere',
-                  }}
-                >
-                  {text}
+              <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+                {/* ユーザーの相談＝右寄せの --fill 吹き出し（相談と同じ）。 */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }} role="article" aria-label="あなたの相談">
+                  <div style={userBubbleStyle}>{withPhraseBreaks(text)}</div>
                 </div>
+                {conf?.summary && (
+                  <div role="note" aria-label="受け取った悩み">
+                    <p style={{ ...groupTitle, margin: 0 }}>受け取った悩み</p>
+                    <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.6, margin: 'var(--space-1) 0 0', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(conf.summary)}</p>
+                  </div>
+                )}
+                {conf?.correction && (
+                  <div style={{ display: 'flex', justifyContent: 'flex-end' }} role="article" aria-label="あなたの言葉（直し）">
+                    <div style={userBubbleStyle}>{withPhraseBreaks(conf.correction)}</div>
+                  </div>
+                )}
               </div>
             ) : (
               // AI の提案＝Markdown（見出し・箇条書き）として描画（生の ## を出さない。会話中と同じ）。

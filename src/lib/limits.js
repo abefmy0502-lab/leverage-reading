@@ -12,6 +12,8 @@ export const LIMITS = {
   summaryMemo: 50000,
   tag: 50,
   aiQuestion: 1000,
+  // AI 選書の聞き取りの答え・受け取った悩みの直し（1 回ぶん・2026-10-08）
+  advisorAnswer: 400,
   displayName: 60,
   email: 254,
   actionText: 500,
