@@ -714,7 +714,7 @@ function AuthedApp() {
   const [aiBarSlot, setAiBarSlot] = useState(null);
   // 🔎 トークンを使い切った相談から「メモを検索して探す」: 振り返り › メモの検索欄に入れる言葉（2026-09-29）。
   const [memoSearchPreset, setMemoSearchPreset] = useState(null); // { query, tag?, nonce } | null
-  // 🗺 視点の地図の「この分野の本を探す」→ AI 選書の最初の悩みに入れる言葉（送らない・2026-10-08）。
+  // 🗺 視点の地図の「メモの少ない分野の本を探す」→ AI 選書の最初の悩みに入れる言葉（送らない・2026-10-08）。
   const [advisorDraft, setAdvisorDraft] = useState(null); // { text, nonce } | null
   // 📖→🧠 本詳細の「この本に相談する」: 相談相手をその本に絞ってマイ読書脳を開く。
   const [scopePreset, setScopePreset] = useState(null); // { bookIds, nonce } | null
@@ -3110,6 +3110,7 @@ function AuthedApp() {
   // 開いたままにするのは、作ったその場だけ。画面を離れたら（別の画面・別の本）畳む＝主ボタン「読書を開始する」を最初の画面に残す（2026-10-09 ui-critic）。
   useEffect(() => { setBriefJustMadeId(null); }, [view, current?.id]);
   const [briefError, setBriefError] = useState(null); // { bookId, message } 作れなかった理由（ボタンの下に 1 行）
+  const planCostLine = runCostLine({ plan: paywallPlan, remaining: paywallTokens, purchased: paywallPurchased, cost: TOKEN_COSTS.setupSheet });
   const briefCostLine = runCostLine({ plan: paywallPlan, remaining: paywallTokens, purchased: paywallPurchased, cost: TOKEN_COSTS.bookBrief });
   const makeBookBrief = async (book) => {
     if (!book?.id || briefGenId) return;
@@ -4114,6 +4115,9 @@ function AuthedApp() {
         material={briefMaterial}
         making={briefMaking}
         costLine={briefCostLine}
+        // 行の右の目安（「1 回 約 2 トークン」・残りは相談・設定で見る）。
+        costShort={`1 回 約 ${TOKEN_COSTS.bookBrief} トークン`}
+        infoLoading={bookAbout.loading}
         onMake={() => makeBookBrief(current)}
         onRemake={() => remakeBookBrief(current)}
         onPickHypothesis={briefPick}
@@ -4160,6 +4164,10 @@ function AuthedApp() {
                       {/* 無料プランには押す前に有料と分かる印（「AI に答えてもらう（プラン）」と同じ作法・2026-10-09） */}
                       {genHere ? '作成中…' : paywallFree ? '読書計画シートを作る（プラン）' : '読書計画シートを作る'}
                     </button>
+                    {/* プラン・7 日間無料の人には 1 回の目安と残り（下 8・13/--text-3・無料プランは「（プラン）」の印だけ）。 */}
+                    {!genHere && !paywallFree && planCostLine && (
+                      <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, fontVariantNumeric: 'tabular-nums', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(planCostLine)}</p>
+                    )}
                     {genHere && (
                       <div role="status" aria-live="polite" aria-label="読書計画シートを作っています" style={{ marginTop: 'var(--space-3)' }}>
                         {!planGen.text ? (
@@ -4231,7 +4239,7 @@ function AuthedApp() {
               見つからない本は出さない。課題・仮説・シートのある積読は 1 行目を畳む行にしたカード（compact・SPEC §2・2026-10-09）。
               作ってあるのに紹介・目次が今は読めない（通信の失敗など）ときは、中身だけを畳む見出しで。 */}
           {aboutShown && !briefWithoutAbout && (
-            <BookAbout info={bookAbout.info} loading={bookAbout.loading} variant={aboutCompact ? 'compact' : 'card'} style={{ marginTop: 'var(--space-6)' }} briefSlot={briefInCard} briefRow={hasBrief} />
+            <BookAbout info={bookAbout.info} loading={bookAbout.loading} variant={aboutCompact ? 'compact' : 'card'} style={{ marginTop: 'var(--space-6)' }} briefSlot={briefInCard} briefRow />
           )}
           {aboutShown && briefWithoutAbout && (
             <BookBrief variant="fold" text={briefText} material={briefMaterial} making={briefMaking} onMake={() => makeBookBrief(current)} onRemake={() => remakeBookBrief(current)} onPickHypothesis={briefPick} pickedHypotheses={current.hypothesis || ''} info={bookAbout.info} error={briefError?.bookId === current.id ? briefError.message : ''} defaultOpen={briefJustMadeId === current.id} style={{ marginTop: 'var(--space-6)' }} />
@@ -4538,7 +4546,8 @@ function AuthedApp() {
           {isMemoPhase && planBlock}
 
           {/* Action buttons */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 'var(--space-6)', marginTop: 'var(--space-8)' }}>
+          {/* 読みたい・積読は上のカードとの間を 24 に（主ボタンを 390×844 の最初の画面に収める・2026-10-09 ui-critic）。 */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 'var(--space-6)', marginTop: isMemoPhase ? 'var(--space-8)' : 'var(--space-6)' }}>
             {/* 📷 読了にした直後だけ（控えめな副ボタン 1 つ・本を離れたら消える・SPEC §2-1）。 */}
             {current.status === 'done' && justDoneId === current.id && (
               <button
@@ -4848,10 +4857,6 @@ function AuthedApp() {
                     onClick: () => openSetup(current),
                   }]
                 : []),
-              // 以前の AI 解析は、保存済みのものがある本だけ（本の詳細の畳む見出しから移した・2026-10-09）。
-              ...(hasVisibleSections(current.aiAnalysis, { hideRelatedBooks: true })
-                ? [{ label: '以前の AI 解析を見る', icon: <ScrollText size="1.1em" aria-hidden="true" />, onClick: () => setAnalysisSheetOpen(true) }]
-                : []),
               // どのステータスからも「1 つ前」に戻せる（旧: reading/done→積読 の
               // 2 段戻りしか無く、読了を読書中に戻したい・積読を読みたいに戻したい
               // 人の行き場が無かった）。データは常に保持される。
@@ -4886,6 +4891,10 @@ function AuthedApp() {
               isMemoPhase
                 ? { label: '画像で共有', icon: <Share size="1.1em" aria-hidden="true" />, onClick: () => setShareSheet({ book: current, from: 'menu' }) }
                 : { label: '共有', icon: <Share size="1.1em" aria-hidden="true" />, onClick: () => shareBook(current) },
+              // 以前の AI 解析は、保存済みのものがある本だけ（本の詳細の畳む見出しから移した・共有の下・ヘルプの上・2026-10-09）。
+              ...(hasVisibleSections(current.aiAnalysis, { hideRelatedBooks: true })
+                ? [{ label: '以前の AI 解析を見る', icon: <ScrollText size="1.1em" aria-hidden="true" />, onClick: () => setAnalysisSheetOpen(true) }]
+                : []),
               // ヘルプは上の行に単独のボタンで置かず、この「…」の中（削除の直前・削除はいつも最後）に（2026-09-30）。
               { label: 'ヘルプ', icon: <HelpCircle size="1.1em" aria-hidden="true" />, onClick: openHelp },
               { label: '削除', icon: <Trash2 size="1.1em" aria-hidden="true" />, destructive: true, onClick: () => requestDeleteBook(current) },
@@ -5728,7 +5737,7 @@ function AuthedApp() {
                   onShowMemos={() => setReviewSubTab('note')}
                   onShowTagMemos={openMemosByTag}
                   focusViewmap={viewmapFocus}
-                  onFindBooksForTag={(tag) => openAdvisorWithDraft(advisorDraftFor(tag))}
+                  onFindBooksForTag={(tags) => openAdvisorWithDraft(advisorDraftFor(tags))}
                   onShowActions={() => { setActionShowDoneNonce(Date.now()); setReviewSubTab('action'); }}
                   onOpenBook={(b) => { setTab('books'); openDetail(b); }}
                   onFilterTag={(tag) => {

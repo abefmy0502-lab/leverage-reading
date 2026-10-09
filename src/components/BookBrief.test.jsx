@@ -10,10 +10,11 @@ const BRIEF = '## 概要\n長く生きる時代は段階を組み替える。\n\
 const INFO = { description: '寿命が延びる時代の人生設計を考える本。', toc: ['序章 100年ライフ'], source: 'openbd', tocSource: 'openbd', pages: 0, pubdate: '' };
 
 describe('BookBrief', () => {
-  it('カードの中: まだ無ければ副ボタンと 1 回の目安', () => {
+  it('カードの中: まだ無ければ「この本で学べることを見る」の行と 1 回の目安（残りは出さない）', () => {
     const html = renderToStaticMarkup(<BookBrief variant="inCard" material costLine="1 回 約 2 トークン・今月の残り 30 トークン" onMake={() => {}} />);
     expect(text(html)).toContain(BRIEF_MAKE_LABEL);
     expect(text(html)).toContain('1 回 約 2 トークン');
+    expect(text(html)).not.toContain('今月の残り');
   });
 
   it('材料が無ければボタンを出さず「この本の紹介が見つからないため作れません。」', () => {

@@ -8,7 +8,7 @@ vi.mock('./supabase', () => ({ supabase: { auth: { updateUser: vi.fn(async () =>
 import {
   VIEWPOINT_MAP, VIEWPOINT_TAGS, countMemosByTag, buildViewpointMap, shadeLevel, isFewMemos, advisorDraftFor,
   scoreViewpointTags, mergeTagSuggestions, viewpointRecordPart, isViewpointTag,
-  viewpointTagsForTag, memoInViewpoint, linkedTagsFor, TAG_ALIASES,
+  viewpointTagsForTag, memoInViewpoint, linkedTagsFor, TAG_ALIASES, fewViewpointTags,
 } from './viewpointMap';
 import { resolveViewpointOn, readViewpointOn, setViewpointOn, __resetViewpointSetting } from './viewpointMapSetting';
 import { ViewpointMapCard, ViewpointMapSheet } from '../components/ViewpointMap';
@@ -229,16 +229,24 @@ describe('記録の地図', () => {
     const text = html.replace(/<[^>]+>/g, ' ');
     for (const ng of ['%', 'あと', '埋め', '達成', 'ランキング', '位']) expect(text.includes(ng), ng).toBe(false);
   });
-  it('0〜1 件のタグにだけ「この分野の本を探す」・0 件は押して一覧へ行かない', () => {
-    const finds = (html.match(/この分野の本を探す/g) || []).length;
-    expect(finds).toBe(VIEWPOINT_TAGS.length - 1); // 2 件の「決め方」だけ出さない
+  it('マスごとの「この分野の本を探す」は無い・いちばん下に 1 つだけ「メモの少ない分野の本を探す」・0 件は押して一覧へ行かない', () => {
+    expect(html).not.toContain('この分野の本を探す');
+    expect((html.match(/メモの少ない分野の本を探す/g) || []).length).toBe(1);
     expect(html).toContain('aria-label="決め方のメモ 2 件を見る"');
     expect(html).toContain('aria-label="お金のメモ 1 件を見る"');
     expect(html).not.toContain('経済のメモ 0 件を見る');
   });
-  it('地図のタグが 1 つも無い人には「この分野の本を探す」を並べず、付け方の 1 行だけ', () => {
+  it('少ない分野は 0 件から・地図の順に 3 つまで・AI 選書の下書きは「・」でつなぐ', () => {
+    const map = buildViewpointMap([{ tags: ['決め方'] }, { tags: ['決め方'] }, { tags: ['お金'] }]);
+    expect(fewViewpointTags(map)).toEqual(['生き方・働き方', '心の持ち方', '習慣']);
+    expect(fewViewpointTags(map, 2)).toHaveLength(2);
+    const full = buildViewpointMap(VIEWPOINT_TAGS.flatMap((t) => [{ tags: [t] }, { tags: [t] }]));
+    expect(fewViewpointTags(full)).toEqual([]);
+    expect(advisorDraftFor(['お金', '発想'])).toBe('お金・発想について、視点を増やしたい');
+  });
+  it('地図のタグが 1 つも無い人には「メモの少ない分野の本を探す」を出さず、付け方の 1 行だけ', () => {
     const empty = renderToStaticMarkup(createElement(ViewpointMapCard, { map: buildViewpointMap([]), onOpenTag: () => {}, onFindBooks: () => {} })).replace(/<wbr\/>/g, '');
-    expect(empty).not.toContain('この分野の本を探す');
+    expect(empty).not.toContain('メモの少ない分野の本を探す');
     expect(empty).toContain('ここに数が出ます');
   });
   it('説明と選ぶシート: 使っていない人は「視点の地図を使う」、使っている人は「使うのをやめる」', () => {

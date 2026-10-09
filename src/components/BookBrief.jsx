@@ -3,14 +3,14 @@
 // 公開の紹介文と目次だけから AI が書いた ①概要 ②学べること（小説・物語は「味わえること」）③仮説の例。
 // 読む前に「この本から何を得られそうか」をつかみ、仮説を決められるようにする。一度作ったら本に保存（開くたびに AI を呼ばない）。
 //
-//   variant="inCard" … 「この本について」のカードの中（読みたい・積読・2026-10-09 に 1 枚へ寄せた）。まだ無ければ副ボタン
-//                      「この本で学べることを見る」＋ 1 回の目安トークン。作ったあとはカードの中の畳む行「この本で学べること」
+//   variant="inCard" … 「この本について」のカードの中（読みたい・積読・2026-10-09 に 1 枚へ寄せた）。まだ無ければ 48 の行
+//                      「この本で学べることを見る」（右に「1 回 約 2 トークン」）。作ったあとはカードの中の畳む行「この本で学べること」
 //                      （作ったその場だけ開いたまま＝defaultOpen・画面を離れたら畳む＝主ボタンを最初の画面に残す）。
 //                      flush: 畳む行「この本について」の下（compact のカード）＝上の間を取らず、下の余白を自分で持つ
 //   variant="make"   … ボタン＋目安の行だけ
 //   variant="fold"   … 畳む見出し（読書計画の編集画面・紹介と目次が今は読めないときの本の詳細）。仮説の例を押すと仮説の欄に入る
 //   variant="section"… 畳まないカード
-import { ChevronDown, Plus, Check } from 'lucide-react';
+import { ChevronDown, ChevronRight, Plus, Check } from 'lucide-react';
 import { groupTitle, btnGhost, btnGhostOff, btnLink } from '../styles/ui';
 import { glueForDisplay } from './BookAbout';
 import { withPhraseBreaks } from './TightBubble';
@@ -97,6 +97,49 @@ export function BriefMakeButton({ material, making, waiting = false, costLine, o
       {!off && costLine && <p style={{ ...metaStyle, marginTop: 'var(--space-2)' }}>{withPhraseBreaks(costLine)}</p>}
       {making && <MakingSkeleton />}
     </div>
+  );
+}
+
+/**
+ * カードの中の「この本で学べることを見る」の行（高さ 48・15/600・右に目安と ›）。押すと作る。
+ *   making: 「作成中…」（押せない・文字は --text-3）＋下に骨組み／error: 「もう一度作る」＋下に 1 行
+ *   材料が無い本: 押せない行に決まった 1 行（13/--text-3）
+ */
+export function BriefMakeRow({ material, making, waiting = false, costShort = '', onMake, error = '', flush = false }) {
+  const pad = { paddingBottom: flush ? 'var(--space-4)' : 'var(--space-3)' };
+  if (!material && !waiting) {
+    return (
+      <div style={{ minHeight: 'var(--btn-h)', display: 'flex', alignItems: 'center', padding: 'var(--space-3) 0' }}>
+        <p style={metaStyle}>{withPhraseBreaks(BRIEF_NO_MATERIAL_TEXT)}</p>
+      </div>
+    );
+  }
+  const off = making || waiting;
+  return (
+    <>
+      <button
+        type="button"
+        onClick={onMake}
+        disabled={off}
+        aria-busy={off || undefined}
+        aria-label={making ? 'この本で学べることを作っています' : `${error ? 'もう一度作る' : BRIEF_MAKE_LABEL}${costShort ? `（${costShort}）` : ''}`}
+        style={{
+          ...rowSummary, width: '100%', background: 'none', border: 'none', padding: 0, fontFamily: 'inherit', textAlign: 'left',
+          // 押せない間も薄くしない（DESIGN §5 押せないボタン）。
+          ...(off ? { color: 'var(--text-3)', cursor: 'default', opacity: 1 } : null),
+        }}
+      >
+        <span style={{ flex: '0 1 auto', minWidth: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+          {withPhraseBreaks(making ? '作成中…' : error ? 'もう一度作る' : BRIEF_MAKE_LABEL)}
+        </span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 'var(--space-2)', flex: '1 1 0', minWidth: 0 }}>
+          {!off && costShort && <span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{costShort}</span>}
+          <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+        </span>
+      </button>
+      {!off && error && <p role="alert" style={{ ...errorStyle, marginTop: 0, ...pad }}>{withPhraseBreaks(error)}</p>}
+      {making && <div style={{ ...pad, marginTop: 'calc(-1 * var(--space-3))' }}><MakingSkeleton /></div>}
+    </>
   );
 }
 
@@ -189,7 +232,7 @@ export function BriefBody({ text, onPickHypothesis, pickedHypotheses = '', compa
  */
 export default function BookBrief({
   variant = 'inCard', text = '', material = false, making = false, costLine = '', onMake, onRemake,
-  onPickHypothesis, pickedHypotheses = '', defaultOpen = false, infoLoading = false, info = null, error = '', flush = false, style,
+  onPickHypothesis, pickedHypotheses = '', defaultOpen = false, infoLoading = false, info = null, error = '', flush = false, costShort = '', style,
 }) {
   const has = isUsableBrief(parseBrief(text));
   const labels = briefLabels(text);
@@ -218,10 +261,12 @@ export default function BookBrief({
         </details>
       );
     }
-    // まだ無いとき: 区切り線の下 12 に副ボタン＋目安の行。
+    // まだ無いとき（2026-10-09 ui-critic）: 作ったあとの畳む行と同じ 48 の行（押すと作る・右に 13/--text-3 の「1 回 約 2 トークン」）。
+    //   副ボタン＋目安の 2 行より低く、積読の主ボタン「読書を開始する」を最初の画面に残す。
     return (
-      <div style={{ marginTop: flush ? 0 : 'var(--space-3)', paddingTop: 'var(--space-3)', ...(flush ? { paddingBottom: 'var(--space-4)' } : null), borderTop: '1px solid var(--separator)', ...style }}>
-        <BriefMakeButton material={material} making={making} costLine={costLine} onMake={onMake} error={error} />
+      <div style={{ marginTop: flush ? 0 : 'var(--space-3)', borderTop: '1px solid var(--separator)', ...style }}>
+        {/* 目安は「1 回 約 2 トークン」だけ（無ければ costLine の先頭＝「・」の前）。 */}
+        <BriefMakeRow material={material} making={making} waiting={infoLoading} costShort={costShort || String(costLine || '').split('・')[0]} onMake={onMake} error={error} flush={flush} />
       </div>
     );
   }

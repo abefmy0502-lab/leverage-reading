@@ -128,13 +128,13 @@ function keepDateTogether(text) {
 
 // 本を探す形の例（相談＝読んだ本のメモから答える と見分けがつくように・2026-10-09 オーナー「入口をはっきり分ける」）。
 const ADVISOR_EXAMPLES = [
-  '部下との 1on1 がうまくいかない。参考になる本は？',
+  '人前で話すのが苦手。おすすめの本は？',
   '仕事を抱えすぎて、いつも時間が足りない。読むならどの本？',
   'お金の不安を減らしたい。最初に読む 1 冊は？',
 ];
 // 空の画面の見出しと説明・入力欄の案内（相談の「困っていることを、相談してください」と書く場所を迷わせない）。
 export const ADVISOR_START_TITLE = '次に読む本を探す';
-export const ADVISOR_START_LEAD = 'あなたの悩みに合う、まだ読んでいない本を選びます';
+export const ADVISOR_START_LEAD = '悩みに合う、まだ読んでいない本を選びます';
 export const ADVISOR_PLACEHOLDER = '悩みを書くと、合う本を探します';
 
 // 聞き取りの問いの上限は lib/advisorInterview.js の MAX_INTERVIEW_QUESTIONS（芯が見えたら AI が先に止める）。
@@ -147,7 +147,7 @@ const advisorMemory = { uid: null, state: null };
 // 結果は advisorMemory に書く（原価はもう払っているので捨てない・相談の backgroundAsk と同じ考え・2026-10-04）。
 // { kind: 'interview' | 'reco', uid, done, promise }。戻ってきた画面は、終わるまで同じ待ちの形を出し、終わったら結果を出す。
 let advisorPendingJob = null;
-// 🗺 ほかの画面から「最初の悩み」に言葉を入れて開いたとき（視点の地図の「この分野の本を探す」・{ text, nonce }）。
+// 🗺 ほかの画面から「最初の悩み」に言葉を入れて開いたとき（視点の地図の「メモの少ない分野の本を探す」・{ text, nonce }）。
 // 同じ nonce は 1 回だけ入れる（タブを行き来しても、消した言葉が戻らないように）。送らない。
 let appliedAdvisorDraft = null;
 
@@ -1564,7 +1564,11 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
           無料プランで有料プランの画面が開いたときは、入力欄に残す。 */}
       {showConcernInput && !showErrorState && (
         <div className="example-chips example-chips--stack" style={{ marginTop: showStartHeading ? 'var(--space-6)' : 'var(--space-2)' }}>
-          <p className="example-chips-label">たとえば</p>
+          {/* 無料プランは「たとえば」の行の右に「プラン」（押す前にプランの機能と分かる・2026-10-09 ui-critic） */}
+          <p className="example-chips-label" style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 'var(--space-2)' }}>
+            たとえば
+            {freeMode && <span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-2)' }}>プラン</span>}
+          </p>
           {ADVISOR_EXAMPLES.map((ex) => (
             <button
               type="button"

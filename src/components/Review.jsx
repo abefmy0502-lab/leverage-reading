@@ -33,7 +33,7 @@ import {
   StickyNote, BookOpen, Lightbulb, BarChart3, AlertTriangle, FlaskConical, Bot, Gem, FileText, Trash2, Target, Check, Plus, ChevronDown, ChevronLeft, ChevronRight, MoreHorizontal, Pencil, Copy, Share,
 } from 'lucide-react';
 import { track, EVENTS } from '../lib/analytics';
-import { memoInViewpoint } from '../lib/viewpointMap';
+import { memoInViewpoint, linkedTagsFor } from '../lib/viewpointMap';
 // 一文をシェアのシート（メモの「…」から・押したときだけ読む）。
 const ShareSheet = lazy(() => import('./ShareSheet'));
 import { useConfirm } from './ConfirmDialog';
@@ -769,6 +769,12 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
     return scored.map((x) => x.m);
   }, [allNotes, booksById, deferredSearch, tagFilter, kindFilter, viewmapTag]);
 
+  // 視点の地図から来て、地図のタグ以外の自分のタグ（#マネジメント など）も含めて絞っているときの、そのタグの名前。
+  const viewmapExtraTags = useMemo(() => {
+    if (!viewmapTag || viewmapTag !== tagFilter) return [];
+    return linkedTagsFor(tagFilter, allNotes).filter((t) => t !== tagFilter);
+  }, [allNotes, tagFilter, viewmapTag]);
+
   const memosByMonth = useMemo(() => {
     const groups = new Map();
     allNotes.forEach((m) => {
@@ -1158,14 +1164,22 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
           - これで開いた瞬間の1画面が「今日の想起＝ユーザー自身の言葉」だけになる。 */}
 
       {onBackToViewmap && viewmapTag && viewmapTag === tagFilter && (
-        <button
-          type="button"
-          onClick={onBackToViewmap}
-          style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', alignSelf: 'flex-start', marginLeft: 'calc(-1 * var(--space-1))', marginBottom: 'calc(-1 * var(--space-2))' }}
-        >
-          <ChevronLeft size="1.2em" aria-hidden="true" style={{ flexShrink: 0 }} />
-          視点の地図
-        </button>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', marginBottom: 'calc(-1 * var(--space-2))' }}>
+          <button
+            type="button"
+            onClick={onBackToViewmap}
+            style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}
+          >
+            <ChevronLeft size="1.2em" aria-hidden="true" style={{ flexShrink: 0 }} />
+            視点の地図
+          </button>
+          {/* 自分のタグで絞っているときは、どのタグのメモを含むかを 1 行（地図の件数と同じ決め方・2026-10-09 ui-critic） */}
+          {viewmapExtraTags.length > 0 && (
+            <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+              {viewmapExtraTags.map((t) => <span key={t} style={{ whiteSpace: 'nowrap' }}>#{t}{' '}</span>)}のメモも含みます
+            </p>
+          )}
+        </div>
       )}
 
       {/* ===== 1. 全メモ検索（一番上・SPEC §4）===== 検索中は結果をすぐ下に出し、思い出しカードと月ごとのメモは隠す。 */}

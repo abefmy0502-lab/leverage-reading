@@ -1010,6 +1010,8 @@ export function installDemoFetch(store) {
         const sampleToc = ['第1章 変化に気づく', '第2章 古いチーズを手放す', '第3章 新しいチーズを探す', '第4章 変化を楽しむ'];
         let hit = mode === 'none' ? null : base;
         if (base && mode === 'toconly') hit = { ...base, description: '', source: '', toc: base.toc.length ? base.toc : sampleToc, tocSource: 'rakuten' };
+        // &info=thin＝紹介が短く目次も無い（この本で学べることを作れない本・2026-10-09）。
+        if (base && mode === 'thin') hit = { ...base, description: base.description.slice(0, 20), toc: [] };
         if (base && mode === 'mixed') hit = { ...base, source: 'openbd', toc: base.toc.length ? base.toc : sampleToc, tocSource: 'rakuten' };
         return json(hit || { description: '', toc: [], source: '', tocSource: '', pages: 0, pubdate: '', isbn: params.get('isbn') || '' });
       }

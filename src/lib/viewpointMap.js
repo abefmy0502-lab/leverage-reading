@@ -229,9 +229,22 @@ export function shadeLevel(count) {
   return 3;
 }
 
-// 「この分野の本を探す」で AI 選書の最初の悩みに入れる言葉（送らない）。
-export function advisorDraftFor(tag) {
-  return `${String(tag || '').trim()}について、視点を増やしたい`;
+// 「メモの少ない分野の本を探す」で AI 選書の最初の悩みに入れる言葉（送らない）。分野は 1 つでも数個（「・」でつなぐ）でも。
+export function advisorDraftFor(tags) {
+  const list = (Array.isArray(tags) ? tags : [tags]).map((t) => String(t || '').trim()).filter(Boolean);
+  return `${list.join('・')}について、視点を増やしたい`;
+}
+
+// メモの少ない分野（0〜1 件）を、少ない順・地図の順に max 個（「メモの少ない分野の本を探す」に入れる・2026-10-09）。
+export function fewViewpointTags(map = [], max = 3) {
+  const flat = [];
+  (Array.isArray(map) ? map : []).forEach((c) => c.groups.forEach((g) => g.tags.forEach((t) => flat.push(t))));
+  return flat
+    .map((t, i) => ({ ...t, i }))
+    .filter((t) => isFewMemos(t.count))
+    .sort((a, b) => a.count - b.count || a.i - b.i)
+    .slice(0, max)
+    .map((t) => t.name);
 }
 
 // ── 合いそうなタグ（地図のタグから） ─────────────────────────────

@@ -51,6 +51,8 @@ const cardStyle = {
 };
 // DESIGN §5「畳む見出し」（App.jsx の detailsStyle / summaryStyle と同じ形）。
 const foldStyle = { ...cardStyle, padding: '0 var(--space-4)' };
+// カードの題（「この本について」）は、中の行（この本で学べること・目次）と同じ 15/600（2026-10-09 ui-critic: 同じカードの題の大きさを 1 つに）。
+const cardTitle = { fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)', margin: 0, lineHeight: 1.3 };
 const foldSummary = {
   display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)',
   minHeight: 48, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', cursor: 'pointer', listStyle: 'none',
@@ -139,7 +141,7 @@ export function BookAboutSkeleton({ style }) {
   const line = { height: 'calc(var(--text-read) * 1.6)', display: 'flex', alignItems: 'center' };
   return (
     <section aria-busy="true" aria-label="この本について（読み込み中）" style={{ ...cardStyle, ...style }}>
-      <p style={groupTitle}>この本について</p>
+      <p style={cardTitle}>この本について</p>
       <div style={{ marginTop: 'var(--space-2)' }} aria-hidden="true">
         <div style={line}><SkeletonBlock width="94%" height={14} radius="var(--radius-full)" /></div>
         <div style={line}><SkeletonBlock width="86%" height={14} radius="var(--radius-full)" /></div>
@@ -161,11 +163,11 @@ export function BookAboutSkeleton({ style }) {
  * 畳む見出しの読み込み中: 同じ形の行（押せない div・見出し 17/600・右に中身の一覧の場所の骨組み 64×12）。
  * 読み込んで紹介も目次も無ければ消える（はじめて開いたときだけ・2 回目からは端末の控えから即座に）。
  */
-export function BookAboutFoldSkeleton({ style }) {
+export function BookAboutFoldSkeleton({ style, compact = false }) {
   return (
     // 本物と同じ 2 段（外側＝枠の foldStyle・内側＝48 の行の foldSummary）にして、高さを本物とそろえる。
     <div role="status" aria-busy="true" style={{ ...foldStyle, ...style }}>
-      <div style={{ ...foldSummary, cursor: 'default' }}>
+      <div style={{ ...foldSummary, ...(compact ? { fontSize: 'var(--text-sub)' } : null), cursor: 'default' }}>
         この本について
         <SkeletonBlock width={64} height={12} radius="var(--radius-full)" style={{ marginRight: 'var(--space-1)' }} />
       </div>
@@ -177,7 +179,7 @@ export function BookAboutFoldSkeleton({ style }) {
 //   briefRow: briefSlot が畳む行（この本で学べることを作ってある）＝カードの下の余白は行の側が持つ。
 export default function BookAbout({ info, loading = false, variant = 'card', style, briefSlot = null, briefRow = false }) {
   if (variant === 'card' && loading) return <BookAboutSkeleton style={style} />;
-  if ((variant === 'fold' || variant === 'compact') && loading) return <BookAboutFoldSkeleton style={style} />;
+  if ((variant === 'fold' || variant === 'compact') && loading) return <BookAboutFoldSkeleton style={style} compact={variant === 'compact'} />;
   if (!hasBookInfo(info)) return null;
   const toc = info.toc || [];
   const meta = bookInfoMetaLine(info);
@@ -190,7 +192,7 @@ export default function BookAbout({ info, loading = false, variant = 'card', sty
     return (
       <section aria-label="この本について" style={{ ...foldStyle, ...style }}>
         <details>
-          <summary style={foldSummary}>
+          <summary style={{ ...foldSummary, fontSize: 'var(--text-sub)' }}>
             この本について
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', minWidth: 0 }}>
               <span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)' }}>{parts}</span>
@@ -249,7 +251,7 @@ export default function BookAbout({ info, loading = false, variant = 'card', sty
 
   return (
     <section aria-labelledby="book-about-title" style={{ ...cardStyle, ...(toc.length || (briefSlot && briefRow) ? { paddingBottom: 0 } : null), ...style }}>
-      <h2 id="book-about-title" style={groupTitle}>この本について</h2>
+      <h2 id="book-about-title" style={cardTitle}>この本について</h2>
       {info.description && (
         <div style={{ marginTop: 'var(--space-2)' }}>
           <Description text={info.description} clamp />

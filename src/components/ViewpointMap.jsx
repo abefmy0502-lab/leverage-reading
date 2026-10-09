@@ -1,7 +1,8 @@
 // 🗺 視点の地図（2026-10-08・SPEC §4・DESIGN §5「視点の地図」・lib/viewpointMap.js）。
 //
 //   ViewpointMapCard   … 振り返り › 記録の区画。大分類ごとのまとまりに、タグごとのメモの件数を淡く見せる。
-//                        押すとそのタグのメモの一覧（振り返り › メモの絞り込み）。0〜1 件のタグには「この分野の本を探す」。
+//                        押すとそのタグのメモの一覧（振り返り › メモの絞り込み）。地図のいちばん下に 1 つだけ文字ボタン
+//                        「メモの少ない分野の本を探す」（0〜1 件の分野を 2〜3 個入れて AI 選書へ・2026-10-09 にマスごとのボタンをやめた）。
 //   ViewpointMapInvite … 地図を使っていない人に、記録の最後の控えめな 1 行。
 //   ViewpointMapSheet  … 説明と「視点の地図を使う」／「使うのをやめる」を選ぶシート。
 //
@@ -11,8 +12,8 @@ import { ChevronRight, Info, MoreHorizontal, X } from 'lucide-react';
 import BottomSheet from './BottomSheet';
 import ContextMenu from './ContextMenu';
 import { withPhraseBreaks } from './TightBubble';
-import { btnGhost, btnPrimary, groupTitle } from '../styles/ui';
-import { VIEWPOINT_MAP, isFewMemos, shadeLevel } from '../lib/viewpointMap';
+import { btnGhost, btnPrimary, btnLink, groupTitle } from '../styles/ui';
+import { VIEWPOINT_MAP, fewViewpointTags, shadeLevel } from '../lib/viewpointMap';
 
 // 濃さの段（0 は面なし）。アクセント 1 色を面に混ぜる（記録の足あとと同じ作り・それより淡く）。
 const SHADES = [
@@ -34,11 +35,11 @@ const moreBtn = {
   background: 'none', border: 'none', borderRadius: 999, padding: 0, cursor: 'pointer', color: 'var(--text-2)',
 };
 // タグのマスは文字の大きさに合わせて列の数が変わる（ふだん 2 列・文字の大きさの設定を 2 段ほど大きくすると 1 列＝rem で決める）。
-// マスは中身の高さで並べ（start）、同じ行のマスは高さをそろえて「この分野の本を探す」をマスの下端に置く（height 100%＋margin-top auto）。
+// 同じ行のマスは高さをそろえる（stretch・0 件のマスもほかと同じ高さ）。
 const gridStyle = {
   display: 'grid',
   gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 8.5rem), 1fr))',
-  alignItems: 'start',
+  alignItems: 'stretch',
   gap: 'var(--space-2)',
   marginTop: 'var(--space-2)',
 };
@@ -53,8 +54,7 @@ const countStyle = {
   fontSize: 'var(--text-meta)', color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums', lineHeight: 1.3,
 };
 
-function TagTile({ tag, count, onOpen, onFindBooks, showFind = true }) {
-  const few = showFind && isFewMemos(count) && !!onFindBooks;
+function TagTile({ tag, count, onOpen }) {
   const canOpen = count > 0 && !!onOpen;
   const tile = {
     background: SHADES[shadeLevel(count)],
@@ -78,7 +78,7 @@ function TagTile({ tag, count, onOpen, onFindBooks, showFind = true }) {
   );
   const headBox = {
     display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-1)',
-    padding: 'var(--space-2) var(--space-3)', minHeight: 44, boxSizing: 'border-box', width: '100%', textAlign: 'left',
+    padding: 'var(--space-2) var(--space-3)', minHeight: 44, flex: 1, boxSizing: 'border-box', width: '100%', textAlign: 'left',
   };
   return (
     <div style={tile}>
@@ -94,22 +94,6 @@ function TagTile({ tag, count, onOpen, onFindBooks, showFind = true }) {
       ) : (
         <div style={headBox}>{head}</div>
       )}
-      {/* メモが 0〜1 件のマスだけ。目立たせない（栗色にしない＝マスを埋めたくなる形にしない）。押せる範囲は 44。 */}
-      {few && (
-        <button
-          type="button"
-          onClick={() => onFindBooks(tag)}
-          aria-label={`${tag}の本を探す（AI 選書）`}
-          style={{
-            display: 'flex', alignItems: 'center', minHeight: 44, padding: '0 var(--space-3)', marginTop: 'auto',
-            background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
-            fontSize: 'var(--text-meta)', fontWeight: 600, color: 'var(--text-2)', lineHeight: 1.3,
-            wordBreak: 'keep-all', overflowWrap: 'anywhere',
-          }}
-        >
-          {withPhraseBreaks('この分野の本を探す')}
-        </button>
-      )}
     </div>
   );
 }
@@ -117,8 +101,9 @@ function TagTile({ tag, count, onOpen, onFindBooks, showFind = true }) {
 // map: lib/viewpointMap.js の buildViewpointMap の結果。
 export function ViewpointMapCard({ map, onOpenTag, onFindBooks, onAbout, onStop }) {
   const [menu, setMenu] = useState(null);
-  // 地図のタグがまだ 1 つも無い人には、17 個の「この分野の本を探す」を並べず、付け方の 1 行だけ。
+  // 地図のタグがまだ 1 つも無い人には「メモの少ない分野の本を探す」を出さず、付け方の 1 行だけ。
   const total = map.reduce((n, c) => n + c.groups.reduce((m, g) => m + g.tags.reduce((k, t) => k + t.count, 0), 0), 0);
+  const few = fewViewpointTags(map);
   return (
     <section style={cardStyle} aria-labelledby="viewpoint-map-title" data-viewpoint-map>
       {/* 題の行は文字 1 行の高さ（1.3em）。「…」の押せる範囲 44 は上下と右に負の余白で収める。 */}
@@ -153,13 +138,26 @@ export function ViewpointMapCard({ map, onOpenTag, onFindBooks, onAbout, onStop 
               <p style={groupTitle}>{g.name}</p>
               <div style={gridStyle}>
                 {g.tags.map((t) => (
-                  <TagTile key={t.name} tag={t.name} count={t.count} onOpen={onOpenTag} onFindBooks={onFindBooks} showFind={total > 0} />
+                  <TagTile key={t.name} tag={t.name} count={t.count} onOpen={onOpenTag} />
                 ))}
               </div>
             </div>
           ))}
         </div>
       ))}
+      {/* メモの少ない分野の本を探す: 地図のいちばん下に 1 つだけ（マスごとに並べない＝埋めたくなる形にしない・2026-10-09）。
+          地図のタグがまだ 1 つも無い人には出さない（付け方の 1 行だけ）。 */}
+      {total > 0 && few.length > 0 && onFindBooks && (
+        <button
+          type="button"
+          onClick={() => onFindBooks(few)}
+          aria-label={`メモの少ない分野（${few.join('・')}）の本を探す（AI 選書）`}
+          style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginTop: 'var(--space-4)', marginLeft: 'calc(-1 * var(--space-1))', marginBottom: 'calc(-1 * var(--space-3))', textAlign: 'left' }}
+        >
+          {withPhraseBreaks('メモの少ない分野の本を探す')}
+          <ChevronRight size="1.2em" aria-hidden="true" style={{ flexShrink: 0 }} />
+        </button>
+      )}
       {menu && (
         <ContextMenu
           x={menu.x}
