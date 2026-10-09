@@ -16,10 +16,10 @@ import { useEffect, useRef, useState } from 'react';
 import NotifyOptInCard from './NotifyOptInCard';
 import GrowthMeter from './GrowthMeter';
 import { withPhraseBreaks } from './TightBubble';
-import { firstConsultSuggestions, memoExampleForBook, countSummaryMemos, fmtTokens, consultsLeft } from '../lib/consultHelpers';
+import { firstConsultSuggestions, memoExampleForBook, countSummaryMemos, fmtTokens } from '../lib/consultHelpers';
 import { X, Search, SearchX, Check, ChevronLeft, Plus } from 'lucide-react';
 import { usePaywall } from '../state/PaywallContext';
-import { TOKEN_COSTS } from '../lib/tokens';
+import { remainingConsultsLabel } from '../lib/tokens';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from './Toast';
@@ -196,7 +196,7 @@ function ResultsSkeleton() {
 export default function PastBooksQuickstart({ books = [], initialBooks = null, onSaveBook, onAsk, onClose, onWriteMemo, onImport, onMarkRead, onMemosAdded }) {
   const { user } = useAuth();
   const toast = useToast();
-  const { freeMode, freeRemaining } = usePaywall();
+  const { freeMode, freeRemaining, freeFirstMonth, tokenAllowance } = usePaywall();
   const trapRef = useFocusTrap(true);
   // 本棚の本から始める（取り込みのあと）: 一言の段から。onShelf＝保存しなくても本棚にある本。
   const seeded = Array.isArray(initialBooks) && initialBooks.length > 0;
@@ -705,11 +705,12 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
                   {withPhraseBreaks('いま困っていること')}
                 </h2>
                 {freeMode && freeRemaining > 0 && (
-                  // 相談の上部の行と同じ形（2026-10-04 ui-critic）: 1 行目「今月の残り N トークン」・2 行目「相談 約 N 回」
+                  // 相談の上部の行と同じ形（2026-10-04 ui-critic）: 1 行目「今月の残り N トークン」・2 行目「相談 約 N つ」
+                  // （相談 1 つ＝約 3 往復＝約 30 トークン・はじめの月は「（はじめの月は 60 トークン）」を添える・2026-10-09）
                   // （「・」でつなぐと 390 幅で途中から折り返し、切れる場所が毎回変わる＝相談の MyBookBrain と同じ理由）。
                   <p style={{ ...sub, margin: 'calc(-1 * var(--space-2)) 0 var(--space-3)', fontVariantNumeric: 'tabular-nums' }}>
                     <span style={{ display: 'block', whiteSpace: 'nowrap' }}>今月の残り {fmtTokens(freeRemaining)} トークン</span>
-                    <span style={{ display: 'block', whiteSpace: 'nowrap' }}>相談 約 {consultsLeft(freeRemaining, TOKEN_COSTS.consult)} 回</span>
+                    <span style={{ display: 'block' }}><span style={{ whiteSpace: 'nowrap' }}>相談 {remainingConsultsLabel(freeRemaining)}</span>{freeFirstMonth && <span style={{ whiteSpace: 'nowrap' }}>（はじめの月は {fmtTokens(tokenAllowance)} トークン）</span>}</span>
                   </p>
                 )}
                 <textarea

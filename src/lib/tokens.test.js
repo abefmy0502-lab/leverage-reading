@@ -80,3 +80,49 @@ describe('runCostLine（AI 選書・読書計画シートのボタンのそば�
     expect(runCostLine({ plan: 'paid', remaining: null, cost: 25 })).toBe('');
   });
 });
+
+describe('🌱 無料プランのはじめの月（画面の写しはサーバーと同じ）', () => {
+  it('既定の量（60）はサーバーの AI_FREE_FIRST_MONTH_TOKENS の既定と同じ', async () => {
+    const { FREE_FIRST_MONTH_TOKENS } = await import('./tokens.js');
+    expect(FREE_FIRST_MONTH_TOKENS).toBe(server.freeFirstMonthTokens({}));
+    expect(FREE_FIRST_MONTH_TOKENS).toBe(60);
+  });
+  it('はじめの月の判定と量は、サーバーと同じ（日本時間の月・月をまたぐ・読めない）', async () => {
+    const { isFreeFirstMonth, freeTokensFor } = await import('./tokens.js');
+    const nowList = ['2026-10-09T03:00:00Z', '2026-10-31T14:59:59Z', '2026-10-31T15:00:00Z', '2027-01-01T00:00:00Z'].map(Date.parse);
+    const created = ['2026-10-01T00:00:00Z', '2026-09-30T14:59:59Z', '2026-09-30T15:00:00Z', '2026-10-31T15:00:00Z', '2026-12-31T16:00:00Z', null, '', 'きのう'];
+    for (const now of nowList) {
+      for (const c of created) {
+        const monthKey = server.jstMonthKey(now);
+        expect(isFreeFirstMonth(c, now), `${c} @ ${new Date(now).toISOString()}`).toBe(server.isFreeFirstMonth(c, monthKey));
+        expect(freeTokensFor(c, now)).toBe(server.freeTokensFor({ createdAt: c, monthKey, env: {} }));
+        expect(allowanceFor('free', { createdAt: c, now })).toBe(server.allowanceFor('free', {}, { createdAt: c, monthKey }));
+      }
+    }
+  });
+  it('来月に戻る量は、はじめの月の人も毎月の量（サーバーの使い切った案内と同じ 30）', async () => {
+    const { nextMonthAllowanceFor } = await import('./tokens.js');
+    expect(nextMonthAllowanceFor('free')).toBe(30);
+    expect(server.limitMessageFor('free', { env: {}, now: Date.parse('2026-10-09T03:00:00Z') })).toContain(`${nextMonthAllowanceFor('free')} トークン`);
+    expect(nextMonthAllowanceFor('paid')).toBe(800);
+  });
+});
+
+describe('相談の量の目安（相談 1 つ＝約 3 往復＝約 30 トークン）', () => {
+  it('量の目安: 無料 約 1 つ・はじめの月 約 2 つ・7 日間無料 約 5 つ・プラン 約 27 件', async () => {
+    const { consultCountLabel, CONSULT_THREAD_TOKENS, FREE_FIRST_MONTH_TOKENS } = await import('./tokens.js');
+    expect(CONSULT_THREAD_TOKENS).toBe(3 * TOKEN_COSTS.consult);
+    expect(consultCountLabel(FREE_TOKENS)).toBe('約 1 つ');
+    expect(consultCountLabel(FREE_FIRST_MONTH_TOKENS)).toBe('約 2 つ');
+    expect(consultCountLabel(TRIAL_TOKENS)).toBe('約 5 つ');
+    expect(consultCountLabel(PAID_TOKENS)).toBe('約 27 件');
+  });
+  it('残りの目安は切り捨て（言い過ぎない）・残りがあれば 1', async () => {
+    const { remainingConsultsLabel } = await import('./tokens.js');
+    expect(remainingConsultsLabel(60)).toBe('約 2 つ');
+    expect(remainingConsultsLabel(50)).toBe('約 1 つ');
+    expect(remainingConsultsLabel(5)).toBe('約 1 つ');
+    expect(remainingConsultsLabel(0)).toBe('約 0 つ');
+    expect(remainingConsultsLabel(800)).toBe('約 26 件');
+  });
+});

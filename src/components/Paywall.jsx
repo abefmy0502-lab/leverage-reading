@@ -1,6 +1,6 @@
 // 💳 Paywall — 有料プランの画面（フリーミアム・2026-09-27〜）。
 //
-// 契約が無くてもアプリは使える（無料プラン: メモ・記録・シェア・相談 毎月 30 トークン）。この画面は
+// 契約が無くてもアプリは使える（無料プラン: メモ・記録・シェア・相談 毎月 30 トークン・はじめの月は 60）。この画面は
 // アプリの上に重ねて開く（App の PaywallGate・いつでも × / 「あとで」で閉じられる）:
 //   reason 'free_used' … 無料のトークンを使い切った（本人の本の表紙を並べる）
 //   reason 'feature'   … プランで使える AI 機能を押した（feature＝機能の名前）
@@ -59,7 +59,7 @@ import { btnPrimary, btnPrimaryOff, btnLink, groupTitle, card } from '../styles/
 import ErrorMessage from './ErrorMessage';
 import { SkeletonBlock } from './Skeleton';
 import { TERMS_URL, PRIVACY_URL, SCT_URL } from '../lib/legalLinks';
-import { FREE_TOKENS, PAID_TOKENS, TRIAL_TOKENS, TOKEN_COSTS, monthDayLabelJa } from '../lib/tokens';
+import { FREE_TOKENS, FREE_FIRST_MONTH_TOKENS, PAID_TOKENS, TRIAL_TOKENS, TOKEN_COSTS, CONSULT_THREAD_TOKENS, consultCountLabel, monthDayLabelJa } from '../lib/tokens';
 import { FREE_OCR_PER_MONTH } from '../lib/tokenAmounts';
 import { nextResetLabelJa } from '../lib/freeTrial';
 import { normalizeTrialLabel, trialFirstPhrase } from '../lib/trialNudge';
@@ -131,21 +131,23 @@ const showNative = isNative || preview.on;
 // 無料プランとプランの違い（2 行・DESIGN §0-6: 説明の文は置かない）。量（トークン）を強く、中身は補足で。
 // 「無料」だけの見出しにしない（7 日間無料と取り違えないよう「無料プラン（ずっと無料）」・GLOSSARY）。
 const PLAN_COMPARE = [
-  // 量の横に「相談なら何回か」を添える（トークンの数だけでは、どれだけ使えるか分からないため・2026-09-29）。
+  // 量の横に「相談ならいくつか」を添える（トークンの数だけでは、どれだけ使えるか分からないため・2026-09-29）。
+  // 相談 1 つ＝約 3 往復＝約 30 トークンで数える（「相談 約 3 回」は答え 1 回ずつで、実態より多く見えた・2026-10-09）。
+  // 無料プランは、はじめの月（アカウントを作った月）だけ 60 トークン＝相談 約 2 つ。
   // 写真から書き起こしは無料プランでも毎月 10 回（トークンとは別・2026-10-02）。
-  { name: '無料プラン（ずっと無料）', amount: `毎月 ${FREE_TOKENS.toLocaleString()} トークン`, scope: `相談 約 ${Math.round(FREE_TOKENS / TOKEN_COSTS.consult).toLocaleString()} 回`, items: [`写真から書き起こし 毎月 ${FREE_OCR_PER_MONTH} 回`, 'メモ', '記録', '振り返り', 'シェア'] },
+  { name: '無料プラン（ずっと無料）', amount: `毎月 ${FREE_TOKENS.toLocaleString()} トークン`, scope: `相談 ${consultCountLabel(FREE_TOKENS)}・はじめの月は ${consultCountLabel(FREE_FIRST_MONTH_TOKENS)}`, items: [`写真から書き起こし 毎月 ${FREE_OCR_PER_MONTH} 回`, 'メモ', '記録', '振り返り', 'シェア'] },
   // 機能名は語の途中で折り返さない（「写真から書き起こし」が割れないよう、名前ごとに nowrap で並べる）。
-  { name: 'プラン', amount: `毎月 ${PAID_TOKENS.toLocaleString()} トークン`, scope: `相談なら 約 ${Math.round(PAID_TOKENS / TOKEN_COSTS.consult).toLocaleString()} 回`, lead: 'すべての AI：', items: ['AI 選書', '読書計画シート', '写真から書き起こし'] },
+  { name: 'プラン', amount: `毎月 ${PAID_TOKENS.toLocaleString()} トークン`, scope: `相談なら ${consultCountLabel(PAID_TOKENS)}`, lead: 'すべての AI：', items: ['AI 選書', '読書計画シート', '写真から書き起こし'] },
 ];
 // 7 日間無料で使えるトークン（期間まるごと・2026-09-29 オーナー裁定で下の固定の欄に出す）。
-// SPEC §1-3 の書き方「最初の 7 日間は無料（150 トークン・相談 約 15 回）」。かっこの中は 1 かたまり
+// SPEC §1-3 の書き方「最初の 7 日間は無料（150 トークン・相談 約 5 つ）」。かっこの中は 1 かたまり
 // （以前は「…無料・150 トークン・」と「・」で続けたので、行末に「・」が残って次の行へ割れていた・2026-10-04）。
 //   数と単位の間は折り返さない空白（狭い画面でかっこの中を割るときも「・」の後だけ）。
-const TRIAL_TOKENS_NOTE = `（${TRIAL_TOKENS.toLocaleString('ja-JP')}\u00a0トークン・相談\u00a0約\u00a0${Math.round(TRIAL_TOKENS / TOKEN_COSTS.consult).toLocaleString('ja-JP')}\u00a0回）`;
+const TRIAL_TOKENS_NOTE = `（${TRIAL_TOKENS.toLocaleString('ja-JP')}\u00a0トークン・相談\u00a0${consultCountLabel(TRIAL_TOKENS).replace(/ /g, '\u00a0')}）`;
 // トークンの目安（1 行）。
-const TOKEN_EXAMPLE = `相談 1 回 約 ${TOKEN_COSTS.consult}・AI 選書 約 ${TOKEN_COSTS.advisor} トークン`;
+const TOKEN_EXAMPLE = `相談 1 つ 約 ${CONSULT_THREAD_TOKENS}・AI 選書 約 ${TOKEN_COSTS.advisor} トークン`;
 // 無料の写真から書き起こしを使い切って開いたとき（free_ocr_used）は、プランで書き起こすといくつ使うかを先に（上限なしとは言わない）。
-const TOKEN_EXAMPLE_OCR = `写真から書き起こし 1 回 約 ${TOKEN_COSTS.photoToText}・相談 1 回 約 ${TOKEN_COSTS.consult} トークン`;
+const TOKEN_EXAMPLE_OCR = `写真から書き起こし 1 回 約 ${TOKEN_COSTS.photoToText}・相談 1 つ 約 ${CONSULT_THREAD_TOKENS} トークン`;
 
 // onlyPlan: 無料のトークンを使い切ったあと（本人の本の表紙を出すとき）はプランの行だけ（主ボタンを近くに）。
 // trial: この人が使える無料期間（「7 日間無料」）。あればプランの行の名前に「（最初の 7 日間は無料）」。
@@ -553,7 +555,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
 
   // 下に固定の欄の上の 1 行（無料期間の量／創業メンバー価格の呼び名と終わる日）と、ボタンの下の注記。
   //   ふだんは欄の中、大きな文字のとき（compactFooter）はスクロールする中身へ（同じ中身を 1 か所で作る）。
-  // 無料期間は「最初の 7 日間は無料」＋「（150 トークン・相談 約 15 回）」の 2 かたまり（SPEC §1-3・2026-10-04）。
+  // 無料期間は「最初の 7 日間は無料」＋「（150 トークン・相談 約 5 つ）」の 2 かたまり（SPEC §1-3・2026-10-04）。
   const leadLine = trial
     ? [trialFirstPhrase(trial), TRIAL_TOKENS_NOTE].map((part) => <span key={part} style={chunk}>{part}</span>)
     : (selected.intro && plan === 'annual' && foundingNamed)

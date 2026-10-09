@@ -5,21 +5,27 @@
 // 値を変えるときは api/_aiAccess.js の既定（AI_TOKEN_JPY / AI_FREE_TOKENS / AI_TRIAL_TOKENS /
 // AI_PAID_TOKENS）と揃える（src/lib/tokens.test.js が確かめる）。
 //
-//   無料（契約なし）: 相談だけ・毎月 30 トークン（行 'free-YYYY-MM'）
+//   無料（契約なし）: 相談だけ・毎月 30 トークン（行 'free-YYYY-MM'）。はじめの月（アカウントを作った月）だけ 60
 //   無料期間（7 日間）: すべての AI・期間まるごとで 150 トークン（行 'trial-YYYY-MM-DD'＝終わる日）
 //   プラン: すべての AI・毎月 800 トークン（行 'YYYY-MM'）
 //   追加トークン: プランの人が買い足せる（TOKEN_PACKS・購入から 180 日）
 
 import { supabase, isSupabaseConfigured } from './supabase';
 
-import { AI_TOKEN_JPY, FREE_TOKENS, TRIAL_TOKENS, PAID_TOKENS } from './tokenAmounts';
+import {
+  AI_TOKEN_JPY, FREE_TOKENS, FREE_FIRST_MONTH_TOKENS, TRIAL_TOKENS, PAID_TOKENS,
+  CONSULT_THREAD_TOKENS, consultsOf, consultCountLabel, remainingConsultsLabel, isFreeFirstMonth, freeTokensFor,
+} from './tokenAmounts';
 
-export { AI_TOKEN_JPY, FREE_TOKENS, TRIAL_TOKENS, PAID_TOKENS };
+export {
+  AI_TOKEN_JPY, FREE_TOKENS, FREE_FIRST_MONTH_TOKENS, TRIAL_TOKENS, PAID_TOKENS,
+  CONSULT_THREAD_TOKENS, consultsOf, consultCountLabel, remainingConsultsLabel, isFreeFirstMonth, freeTokensFor,
+};
 
 // 1 回あたりの目安（表示だけ。実際は材料の長さで前後する）。api/_aiCost.js の単価と、ふつうの大きさの
 // 入出力から出して、切りのよい数に丸めた（2026-09-27）。
 export const TOKEN_COSTS = {
-  consult: 10, // 相談（まとめて）
+  consult: 10, // 相談（まとめて）の答え 1 回。相談 1 つ（約 3 往復）は 約 CONSULT_THREAD_TOKENS（30）
   consultPerBook: 12, // 相談（本ごとに）
   advisor: 25, // AI 選書（聞き返し＋おすすめ）
   setupSheet: 6, // 読書計画シート
@@ -48,7 +54,7 @@ function parsePacks(raw) {
   return packs.length ? packs : null;
 }
 export const TOKEN_PACKS = (parsePacks(import.meta.env?.VITE_TOKEN_PACKS) || DEFAULT_TOKEN_PACKS)
-  .map((p) => ({ ...p, consults: `約 ${Math.round(p.tokens / TOKEN_COSTS.consult)} 回分` }));
+  .map((p) => ({ ...p, consults: `${consultCountLabel(p.tokens)}分` }));
 
 // 追加分の残り（期限内の合計）といちばん近い期限（本人の行だけ読める）。表が無い・読めないときは null。
 export async function fetchLotBalance(userId) {
@@ -81,11 +87,17 @@ export function tokensFromMjpy(mjpy) {
   return Math.ceil(m / TOKEN_MJPY - 1e-9);
 }
 
-export function allowanceFor(plan) {
-  if (plan === 'free') return FREE_TOKENS;
+// opts.createdAt（アカウントを作った日時）を渡すと、無料のはじめの月は 60（表示だけ・決めるのはサーバー）。
+export function allowanceFor(plan, { createdAt = null, now = Date.now() } = {}) {
+  if (plan === 'free') return freeTokensFor(createdAt, now);
   if (plan === 'trial') return TRIAL_TOKENS;
   if (plan === 'paid') return PAID_TOKENS;
   return null; // 管理者など（数えない）
+}
+
+// 来月 1 日に戻る量（無料のはじめの月の人も、来月は毎月の 30）。
+export function nextMonthAllowanceFor(plan) {
+  return allowanceFor(plan);
 }
 
 export function remainingTokens(allowance, usedMjpy) {

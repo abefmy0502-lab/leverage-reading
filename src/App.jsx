@@ -151,7 +151,7 @@ import { ensureHttps } from './lib/url';
 import { PAYWALL_EVENT, AI_USED_EVENT } from './lib/freeTrial';
 import { AiConsentGate } from './components/AiConsentSheet';
 import { ensureAiConsent } from './lib/aiConsent';
-import { periodKeyFor, fetchUsedMjpy, fetchLotBalance, remainingTokens, allowanceFor as allowanceForPlan, runCostLine, TOKEN_COSTS } from './lib/tokens';
+import { periodKeyFor, fetchUsedMjpy, fetchLotBalance, remainingTokens, allowanceFor as allowanceForPlan, nextMonthAllowanceFor, isFreeFirstMonth, runCostLine, TOKEN_COSTS } from './lib/tokens';
 import { FREE_OCR_PER_MONTH, freeOcrPeriodKey, fetchFreeOcrUsed, freeOcrRemaining } from './lib/freeOcr';
 // 🪙➕ トークンを追加（買い足し）のシート
 const TokenSheet = lazy(() => import('./components/TokenSheet'));
@@ -6684,7 +6684,12 @@ function PaywallGate() {
     window.addEventListener(AI_USED_EVENT, onUsed);
     return () => window.removeEventListener(AI_USED_EVENT, onUsed);
   }, [refreshTokens]);
-  const tokenAllowance = allowanceForPlan(plan);
+  // 🌱 無料プランのはじめの月（アカウントを作った日本時間の月）は 60（表示だけ・決めるのはサーバーの auth の created_at）。
+  const userCreatedAt = user?.created_at || null;
+  const tokenAllowance = allowanceForPlan(plan, { createdAt: userCreatedAt, now: appNow().getTime() });
+  const freeFirstMonth = plan === 'free' && isFreeFirstMonth(userCreatedAt, appNow().getTime());
+  // 来月 1 日に戻る量（はじめの月の人も来月は毎月の量）。
+  const tokenNextAllowance = nextMonthAllowanceFor(plan);
   const tokensRemaining = usedMjpy == null || tokenAllowance == null ? null : remainingTokens(tokenAllowance, usedMjpy);
   const purchasedTokens = plan === 'admin' ? 0 : (lots?.balance || 0);
   const freeMode = plan === 'free';
@@ -6727,6 +6732,9 @@ function PaywallGate() {
       freeMode,
       trialEndsAt,
       tokenAllowance,
+      // 🌱 無料プランのはじめの月か・来月 1 日に戻る量（「11月1日に 30 トークンに戻ります」）。
+      freeFirstMonth,
+      tokenNextAllowance,
       tokensRemaining,
       // 追加トークン（買い足し）の残りと、いちばん近い期限。使えるのは その月の分＋追加分。
       purchasedTokens,
@@ -6758,7 +6766,7 @@ function PaywallGate() {
         return false;
       },
     };
-  }, [plan, freeMode, trialEndsAt, tokenAllowance, tokensRemaining, purchasedTokens, lots?.nextExpiry, canBuyTokens, refreshTokens, refresh, subscription?.status, freeOcrUsed]);
+  }, [plan, freeMode, trialEndsAt, tokenAllowance, freeFirstMonth, tokenNextAllowance, tokensRemaining, purchasedTokens, lots?.nextExpiry, canBuyTokens, refreshTokens, refresh, subscription?.status, freeOcrUsed]);
 
   // Checkout 復帰処理: ?checkout=success なら webhook 反映ラグを吸収するため
   // refresh を数秒間隔で数回リトライ。?checkout=cancel は静かに URL を掃除。

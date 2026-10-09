@@ -42,7 +42,7 @@ import { BUILD_LABEL } from '../lib/buildInfo';
 import { SUPPORT_EMAIL } from '../lib/contact';
 import { isAppStoreLive } from '../lib/appStore';
 import { AI_JEV_ON } from '../lib/aiProcessors';
-import { FREE_TOKENS, PAID_TOKENS, TRIAL_TOKENS, FREE_OCR_PER_MONTH } from '../lib/tokenAmounts';
+import { FREE_TOKENS, FREE_FIRST_MONTH_TOKENS, PAID_TOKENS, TRIAL_TOKENS, FREE_OCR_PER_MONTH } from '../lib/tokenAmounts';
 import { normalizeTrialLabel } from '../lib/trialLabel';
 import { readFoundingOffer, noBreak, FOUNDING_NAME } from '../lib/foundingOffer';
 import Shot from './LpShot';
@@ -88,7 +88,7 @@ const LAUNCH_LABEL = (import.meta.env.VITE_LAUNCH_LABEL || DEFAULT_LAUNCH_LABEL)
 // ヒーローと最後のボタンの横に出す（高さ 40 以上・周りに高さの 1/4 の余白・Apple のガイドライン）。
 const BADGE_SRC = (import.meta.env.VITE_APP_STORE_BADGE || '').trim();
 const COPY = buildLpCopy({ offer: OFFER, trialNote: TRIAL_NOTE, appLive: isAppStoreLive, jev: AI_JEV_ON, launchLabel: LAUNCH_LABEL });
-const { MONTHLY_TEXT, ANNUAL_TEXT, PER_MONTH_TEXT, SAVE, TRIAL_FIRST, TRIAL_CONSULTS, FREE_CONSULTS, PAID_CONSULTS, END } = COPY;
+const { MONTHLY_TEXT, ANNUAL_TEXT, PER_MONTH_TEXT, SAVE, TRIAL_FIRST, TRIAL_CONSULTS, FREE_CONSULTS, FIRST_CONSULTS, PAID_CONSULTS, END } = COPY;
 const LAUNCH_LINE = `${LAUNCH_LABEL}に、App Store で公開予定です。`;
 // ボタンの文言（2026-10-02 オーナー承認）: アプリは無料プラン（ずっと無料）で使える（押すと App Store）。
 const CTA_LABEL = '無料プランで始める';
@@ -613,7 +613,7 @@ export default function Landing() {
                 {/* 見出しに金額を置かない（月あたりの額を請求額より大きく見せない） */}
                 <span>まずは、</span><span>無料プランで。</span>
               </h2>
-              <p className="lp-wbr"><Phrases>{`本とメモは、ずっと無料です。相談も、無料プランで${noBreak(`毎月 約 ${FREE_CONSULTS} 回`)}まで AI が答えます。`}</Phrases></p>
+              <p className="lp-wbr"><Phrases>{`本とメモは、ずっと無料です。相談も、無料プランで${noBreak(`毎月 ${FREE_CONSULTS}`)}（はじめの月は ${FIRST_CONSULTS}）まで AI が答えます。`}</Phrases></p>
             </div>
 
             {/* 創業メンバー価格（期間中だけ・料金の中の帯 1 枚）。「先着」「通常価格」と書かない・差額を書かない */}
@@ -635,7 +635,7 @@ export default function Landing() {
                   {/* li は flex（印と文を横に並べる）なので、文は 1 つの span に包む */}
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>本とメモは何件でも（振り返り・行動・思い出しカード・写真で共有も）</span></li>
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>ブクログ・読書メーター・Kindle から取り込み</span></li>
-                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>相談は<span className="lp-nb">毎月 約 {FREE_CONSULTS} 回</span><span className="lp-nb">（{FREE_TOKENS} トークン）</span></span></li>
+                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>相談は<span className="lp-nb">毎月 {FREE_CONSULTS}</span><span className="lp-nb">（{FREE_TOKENS} トークン）。</span><span className="lp-nb">はじめの月は {FIRST_CONSULTS}</span><span className="lp-nb">（{FREE_FIRST_MONTH_TOKENS} トークン）</span></span></li>
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>使い切った月も、<strong>メモが答える相談</strong>（AI を使わずに、あなたのメモから関係する一節を本ごとに並べます）</span></li>
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>写真から書き起こし <span className="lp-nb">毎月 {FREE_OCR_PER_MONTH} 回</span></span></li>
                 </ul>
@@ -643,10 +643,10 @@ export default function Landing() {
               <div className="lp-plan">
                 <p className="lp-plan-name"><span>プラン{TRIAL_FIRST && !OFFER.active && <span className="lp-plan-trial">（{TRIAL_FIRST}）</span>}</span></p>
                 <ul className="lp-included" aria-label="プランに含まれるもの">
-                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>相談は<span className="lp-nb">毎月 約 {PAID_CONSULTS} 回</span><span className="lp-nb">（{PAID_TOKENS} トークン）。</span>足りない月は、有料で追加できます</span></li>
+                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>相談は<span className="lp-nb">毎月 {PAID_CONSULTS}</span><span className="lp-nb">（{PAID_TOKENS} トークン）。</span>足りない月は、有料で追加できます</span></li>
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>AI 選書・読書計画シート・メモの凝縮</span></li>
                   {TRIAL_NOTE && (
-                    <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>無料期間の間は <span className="lp-nb">{TRIAL_TOKENS} トークン</span><span className="lp-nb">（相談 約 {TRIAL_CONSULTS} 回）</span></span></li>
+                    <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>無料期間の間は <span className="lp-nb">{TRIAL_TOKENS} トークン</span><span className="lp-nb">（相談 {TRIAL_CONSULTS}）</span></span></li>
                   )}
                 </ul>
                 <div className={`lp-plan-rows${OFFER.active ? ' is-founding' : ''}`}>
@@ -675,7 +675,7 @@ export default function Landing() {
               </div>
             </div>
             <p className="lp-fine lp-wbr">
-              <Phrases>{`回数は目安です（1 回のトークンは、質問とメモの量で変わります）。使わなかったトークンは翌月に繰り越しません。関係するメモが見つからなかった相談は、トークンを使ったことにしません（${noBreak(`毎月 ${NO_INFO_REFUNDS} 回`)}まで）。無料プランに期間の決まりはありません。`}</Phrases>
+              <Phrases>{`相談の数は目安です（相談 1 つは聞き返しを含めて約 3 往復。トークンは、やりとりの数と質問・メモの量で変わります）。使わなかったトークンは翌月に繰り越しません。関係するメモが見つからなかった相談は、トークンを使ったことにしません（${noBreak(`毎月 ${NO_INFO_REFUNDS} 回`)}まで）。無料プランに期間の決まりはありません。`}</Phrases>
             </p>
             <div className="lp-cta-block">
               <Entry loc="pricing" wl={wl} />

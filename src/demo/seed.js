@@ -222,9 +222,11 @@ export function buildSeed(scenario) {
   //   &trial=off で「無料期間はもう使えない人」の文（「プランを見る」）。
   if (scenario === 'freegrown') { db.subscriptions = []; db.ai_usage = []; }
   // ?demo=freeused: 無料プランで今月の 30 トークンを使い切った人（案内と有料プランの画面の確認用）。
+  //   &joined=new: はじめの月の人（60 トークンを使い切った・来月は 30 に戻る）。
   if (scenario === 'freeused') {
     db.subscriptions = [];
-    db.ai_usage = [{ user_id: DEMO_USER_ID, period_month: `free-${jstMonth}`, calls: 3, cost_mjpy: 9000 }];
+    const firstMonth = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('joined') === 'new';
+    db.ai_usage = [{ user_id: DEMO_USER_ID, period_month: `free-${jstMonth}`, calls: firstMonth ? 6 : 3, cost_mjpy: firstMonth ? 18000 : 9000 }];
   }
   // 📷 無料プランの写真から書き起こし（毎月 10 回・'freeocr-YYYY-MM'）。無料プランの人は今月 2 回使った（あと 8 回）。
   //   &ocr=used: 今月の 10 回を使い切った（「11月1日に戻ります」と、押すと有料プランの画面が開くことの確認用）。
