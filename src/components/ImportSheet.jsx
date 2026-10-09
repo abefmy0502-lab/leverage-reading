@@ -175,7 +175,9 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
           </li>
           <li>
             <p style={howTitle}>Kindle アプリ</p>
-            <p style={body}>本を開いて「ノートブック」→ 共有（エクスポート）で届く HTML を、「ファイル」に保存して選びます。</p>
+            {/* 手順の 1 行（2026-10-08 オーナー承認）。書き出しは本ごとに 1 ファイルなので、まとめて選べることを添える。 */}
+            <p style={body}>1 冊読み終えたら、Kindle アプリの<span style={nowrap}>ノートブック</span> →<span style={nowrap}>「書き出す」</span>→ ファイルに保存 → ここで選ぶ。同じメモは二重に入りません。</p>
+            <p style={{ ...body, fontSize: 'var(--text-meta)', marginTop: 'var(--space-1)' }}>書き出しは本ごとに 1 ファイルです。何冊分かをまとめて選べます。</p>
           </li>
           <li>
             <p style={howTitle}>Kindle 端末</p>

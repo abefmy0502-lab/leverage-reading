@@ -424,12 +424,13 @@ export default function ReadingRecord({
   const toast = useToast();
   const viewpoint = useViewpointMap();
   const [viewpointSheet, setViewpointSheet] = useState(false);
-  const [viewpointBusy, setViewpointBusy] = useState(false);
+  // 保存中は選んだ側（true＝使う／false＝やめる）。null＝保存していない。シートは押したボタンの形のまま「保存しています…」。
+  const [viewpointBusy, setViewpointBusy] = useState(null);
   // 使う／やめる。保存が終わるまでシートのボタンは「保存しています…」。アカウントに書けなかったら知らせる（この端末では選んだとおり）。
   const chooseViewpoint = async (on, { undoable = false } = {}) => {
-    setViewpointBusy(true);
+    setViewpointBusy(!!on);
     const result = await viewpoint.setOn(on);
-    setViewpointBusy(false);
+    setViewpointBusy(null);
     setViewpointSheet(false);
     if (result === 'local') {
       toast.error('アカウントに保存できませんでした。この端末では選んだとおりに動きます。');
@@ -541,7 +542,12 @@ export default function ReadingRecord({
   const viewpointPart = viewpointRecordPart({ on: viewpoint.on, failed: !!memoStats?.failed });
   const viewpointMap = useMemo(() => buildViewpointMap(memoStats?.tagRows || []), [memoStats]);
   const viewpointSheetEl = viewpointSheet && (
-    <ViewpointMapSheet on={viewpoint.on} busy={viewpointBusy} onChoose={(on) => chooseViewpoint(on, { undoable: !on })} onClose={() => { if (!viewpointBusy) setViewpointSheet(false); }} />
+    <ViewpointMapSheet
+      on={viewpointBusy === null ? viewpoint.on : !viewpointBusy}
+      busy={viewpointBusy !== null}
+      onChoose={(on) => chooseViewpoint(on, { undoable: !on })}
+      onClose={() => { if (viewpointBusy === null) setViewpointSheet(false); }}
+    />
   );
 
   // メモ集計がまだ返っていない間は「記録は、これから」を出さない — 本0冊で

@@ -1088,7 +1088,8 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
           <Group label="メモのタグ">
             <SettingRow
               title="視点の地図"
-              desc="分野のタグのひな形を使い、振り返り › 記録に地図を出します。合いそうなタグでもすすめます。"
+              // 「合いそうなタグ」は画面の名前なので割らない（2026-10-08 ui-critic 第 2 回）。
+              desc={<>{withPhraseBreaks('分野のタグで、振り返り › 記録に地図を出します。保存したメモには')}<span style={{ whiteSpace: 'nowrap' }}>「合いそうなタグ」</span>{withPhraseBreaks('としてすすめます。')}</>}
               control={(
                 <ToggleSwitch
                   checked={viewpoint.on}

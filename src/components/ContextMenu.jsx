@@ -5,7 +5,9 @@
 import { useEffect, useLayoutEffect, useState, useRef } from 'react';
 import { withPhraseBreaks } from './TightBubble';
 
-const PANEL_WIDTH = 220;
+// 幅は 220 か 14rem（文字の大きさの設定に追従）の広いほう。文字を大きくしたら広がり、画面の幅（左右 16 ずつ）を超えない（項目が 1 字ずつ割れないように・2026-10-08）。
+const PANEL_WIDTH = 'min(calc(100vw - 2 * var(--space-4)), max(220px, 14rem))';
+const PANEL_WIDTH_FALLBACK = 220;
 const PANEL_MARGIN = 16;
 
 const backdrop = {
@@ -93,10 +95,12 @@ export default function ContextMenu({ x = 0, y = 0, items = [], onClose }) {
     const vh = window.innerHeight;
     const measured = panelRef.current ? panelRef.current.offsetHeight : 0;
     const estHeight = measured > 0 ? measured : items.length * 50 + 12;
-    let left = x - PANEL_WIDTH / 2;
+    // 幅も描いたあとのパネルを測る（文字の大きさで変わる）。
+    const width = (panelRef.current && panelRef.current.offsetWidth) || PANEL_WIDTH_FALLBACK;
+    let left = x - width / 2;
     let top = y + 12;
     if (left < PANEL_MARGIN) left = PANEL_MARGIN;
-    if (left + PANEL_WIDTH > vw - PANEL_MARGIN) left = vw - PANEL_WIDTH - PANEL_MARGIN;
+    if (left + width > vw - PANEL_MARGIN) left = vw - width - PANEL_MARGIN;
     if (top + estHeight > vh - PANEL_MARGIN) top = Math.max(PANEL_MARGIN, y - estHeight - 12);
     setPosition({ left, top });
   }, [x, y, items.length]);

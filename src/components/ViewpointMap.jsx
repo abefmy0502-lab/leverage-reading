@@ -44,13 +44,12 @@ const gridStyle = {
 };
 // タグの名前は本文の太さ（大分類・題より弱く）。
 const tagNameStyle = {
-  flex: '1 1 auto',
-  minWidth: 0,
+  maxWidth: '100%',
   fontSize: 'var(--text-sub)', fontWeight: 400, color: 'var(--text)', lineHeight: 1.3,
   wordBreak: 'keep-all', overflowWrap: 'anywhere', textAlign: 'left',
 };
 const countStyle = {
-  display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'auto', whiteSpace: 'nowrap',
+  display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', whiteSpace: 'nowrap',
   fontSize: 'var(--text-meta)', color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums', lineHeight: 1.3,
 };
 
@@ -67,7 +66,7 @@ function TagTile({ tag, count, onOpen, onFindBooks, showFind = true }) {
     height: '100%',
     boxSizing: 'border-box',
   };
-  // 1 行目: 名前（左）と「メモ 3 件 ›」（右端）。収まらないときだけ件数が次の行へ。
+  // 1 行目＝名前、2 行目＝「メモ 3 件 ›」（どのマスも同じ位置・2026-10-08 ui-critic 第 2 回）。
   const head = (
     <>
       <span style={tagNameStyle}>{tag}</span>
@@ -78,8 +77,8 @@ function TagTile({ tag, count, onOpen, onFindBooks, showFind = true }) {
     </>
   );
   const headBox = {
-    display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 'var(--space-2)', rowGap: 'var(--space-1)',
-    padding: 'var(--space-2) var(--space-3)', minHeight: 44, boxSizing: 'border-box', width: '100%',
+    display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-1)',
+    padding: 'var(--space-2) var(--space-3)', minHeight: 44, boxSizing: 'border-box', width: '100%', textAlign: 'left',
   };
   return (
     <div style={tile}>
@@ -193,7 +192,7 @@ export function ViewpointMapInvite({ onOpen }) {
   );
 }
 
-export const VIEWPOINT_LEAD = '本を 1 冊読むたびに、著者のものの見方が 1 つ増えます。メモに分野のタグを付けると、どの分野の視点がたまっていて、相談でどの分野を根拠にできるかを地図で見られます。';
+export const VIEWPOINT_LEAD = '本を読むたびに、著者のものの見方が 1 つ増えます。メモに分野のタグを付けると、どの分野の視点がたまっていて、相談でどの分野を根拠にできるかを地図で見られます。';
 
 // on: いま使っているか / onChoose(true|false)
 export function ViewpointMapSheet({ on, busy = false, onChoose, onClose }) {
@@ -212,10 +211,10 @@ export function ViewpointMapSheet({ on, busy = false, onChoose, onClose }) {
           <div key={c.id}>
             <h3 style={{ margin: 0, fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)' }}>{c.name}</h3>
             {/* 中分類（左）とタグ（右）の 2 列。タグは 1 つずつ割らない。 */}
-            <dl style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 'var(--space-3)', rowGap: 'var(--space-2)', margin: 'var(--space-2) 0 0', fontSize: 'var(--text-sub)', lineHeight: 1.5 }}>
+            <dl style={{ display: 'grid', gridTemplateColumns: '5.5em 1fr', columnGap: 'var(--space-3)', rowGap: 'var(--space-2)', margin: 'var(--space-2) 0 0', fontSize: 'var(--text-sub)', lineHeight: 1.5 }}>
               {c.groups.map((g) => (
                 <div key={g.id} style={{ display: 'contents' }}>
-                  <dt style={{ color: 'var(--text)', whiteSpace: 'nowrap' }}>{g.name}</dt>
+                  <dt style={{ color: 'var(--text)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{g.name}</dt>
                   <dd style={{ margin: 0, color: 'var(--text-2)', minWidth: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
                     {g.tags.map((t, i) => (
                       <span key={t.name}>{i > 0 && '、'}<wbr /><span style={{ whiteSpace: 'nowrap' }}>{t.name}</span></span>
