@@ -35,7 +35,7 @@ const oneBlock = (v) => str(v).replace(/\n\s*\n+/g, '\n');
 export function cleanOptions(list) {
   const out = [];
   for (const o of Array.isArray(list) ? list : []) {
-    const s = str(o).replace(/[。．]+$/u, '');
+    const s = str(o).replace(/[。．、,，\s]+$/u, '');
     if (!s || s.length > OPTION_MAX || ESCAPE_OPTION.test(s)) continue;
     if (out.includes(s)) continue;
     out.push(s);

@@ -1641,13 +1641,14 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         const starts = chips.filter((c) => c.kind === 'start');
         const escapes = chips.filter((c) => c.kind !== 'start');
         const chipBtn = (c) => {
-          const on = c.kind === 'off' && answerOff;
+          // 入力欄に入っている書き出しのチップも選んだ形に（同じ言葉が 2 つ並んで見えないように・2026-10-09）
+          const on = (c.kind === 'off' && answerOff) || (c.kind === 'start' && starterOf(answerText, [c.label]) === c.label);
           return (
             <button
               type="button"
               key={`${c.kind}-${c.label}`}
               onClick={() => onAnswerChip(c, labels)}
-              aria-pressed={c.kind === 'off' ? on : undefined}
+              aria-pressed={c.kind === 'unsure' ? undefined : on}
               style={{ ...answerChip, ...(on ? answerChipSelected : null) }}
             >
               {withPhraseBreaks(c.label)}
