@@ -5,6 +5,7 @@ import { LIMITS, clamp } from '../lib/limits';
 import { isSchemaError } from '../lib/errors';
 import { invalidateKnowledgeCache } from '../lib/ai';
 import { writeLocalBrief, readLocalBrief } from '../lib/bookBrief';
+import { captureBookReadingSessions, restoreBookReadingSessions } from '../lib/readingSessions';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -533,7 +534,9 @@ export function useBooks() {
           .single());
       }
       if (error) throw error;
-      return data;
+      // ⏱ 読書の時間も控える（本の削除で一緒に消えるため・表が無い DB は空）。
+      const reading_sessions = await captureBookReadingSessions(supabase, user.id, bookId);
+      return { ...data, reading_sessions };
     } catch (error) {
       console.error('本のスナップショット取得エラー:', error);
       return null;
@@ -555,7 +558,7 @@ export function useBooks() {
   // 行動/メモが消えるため、失敗を必ず呼び出し側へ返す。
   const restoreBookFromSnapshot = async (snapshot) => {
     if (!snapshot || !user || !isSupabaseConfigured) return { ok: false, failed: [] };
-    const { book_tags = [], actions = [], book_memos = [], book_collections = [], ...bookRow } = snapshot;
+    const { book_tags = [], actions = [], book_memos = [], book_collections = [], reading_sessions = [], ...bookRow } = snapshot;
     // Reset updated_at so the restored row floats to the top of "更新順".
     const bookPayload = { ...bookRow, updated_at: new Date().toISOString() };
 
@@ -608,6 +611,9 @@ export function useBooks() {
         failed.push('フォルダ');
       }
     }
+
+    // ⏱ 読書の時間（本を入れ直したあと＝外部キーが通る）。
+    if (!(await restoreBookReadingSessions(supabase, reading_sessions))) failed.push('読書の時間');
 
     await fetchBooks();
     return { ok: true, failed };

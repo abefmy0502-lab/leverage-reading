@@ -7,7 +7,8 @@ import { useBookMemos } from '../hooks/useBookMemos';
 import QuickMemoSheet from './QuickMemoSheet';
 import { frequentMemoTags } from '../lib/memoTags';
 
-export default function HomeQuickMemo({ book, allTags = [], onClose, onSaved, onOpenFullEditor }) {
+// scopeClass: シートを包む class（集中モードから開くときは 'focus-dark-scope'＝明るい画面の設定でも暗い値で描く）。
+export default function HomeQuickMemo({ book, allTags = [], onClose, onSaved, onOpenFullEditor, scopeClass }) {
   const memoOps = useBookMemos(book.id);
   const nums = (memoOps.memos || []).map((m) => m.pageNumber).filter((n) => Number.isFinite(n));
   return (
@@ -22,6 +23,7 @@ export default function HomeQuickMemo({ book, allTags = [], onClose, onSaved, on
         return result;
       }}
       onOpenFullEditor={onOpenFullEditor}
+      scopeClass={scopeClass}
     />
   );
 }

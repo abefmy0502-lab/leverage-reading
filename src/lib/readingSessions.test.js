@@ -90,3 +90,39 @@ describe('reading_sessions', () => {
     expect(store.rows()).toHaveLength(1);
   });
 });
+
+describe('本の削除の「元に戻す」で読書の時間も戻す', () => {
+  // from('reading_sessions').select().eq().eq() と insert() だけ。
+  function snapClient({ rows = [], selectError = null, insertError = null } = {}) {
+    const inserted = [];
+    const eqs = [];
+    const q = {
+      select: () => q,
+      eq: (k, v) => { eqs.push([k, v]); return eqs.length >= 2 ? Promise.resolve({ data: selectError ? null : rows, error: selectError }) : q; },
+      insert: async (r) => { inserted.push(...r); return { error: insertError }; },
+    };
+    return { inserted, eqs, from: () => q };
+  }
+  const rows = [{ id: 's1', user_id: 'u1', book_id: 'b1', started_at: 'a', ended_at: 'b', seconds: 600, mode: 'timer' }];
+
+  it('消す前にその本の行を控え、戻すときに同じ行を入れ直す', async () => {
+    const { captureBookReadingSessions, restoreBookReadingSessions } = await import('./readingSessions');
+    const c = snapClient({ rows });
+    const got = await captureBookReadingSessions(c, 'u1', 'b1');
+    expect(got).toEqual(rows);
+    expect(c.eqs).toEqual([['user_id', 'u1'], ['book_id', 'b1']]);
+    const r = snapClient();
+    expect(await restoreBookReadingSessions(r, got)).toBe(true);
+    expect(r.inserted).toEqual(rows);
+  });
+
+  it('表が無い DB は控えない・入れ直しも失敗にしない／ほかの失敗は false', async () => {
+    const { captureBookReadingSessions, restoreBookReadingSessions } = await import('./readingSessions');
+    expect(await captureBookReadingSessions(snapClient({ selectError: missing.error }), 'u1', 'b1')).toEqual([]);
+    expect(await restoreBookReadingSessions(snapClient(), [])).toBe(true);
+    expect(await restoreBookReadingSessions(snapClient({ insertError: missing.error }), rows)).toBe(true);
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+    expect(await restoreBookReadingSessions(snapClient({ insertError: { message: 'Failed to fetch' } }), rows)).toBe(false);
+    err.mockRestore();
+  });
+});

@@ -111,3 +111,40 @@ export function createReadingSessionStore({ getClient = () => null, storage = de
 
   return { load, save, rows, subscribe, clearLocal, isLoaded: (userId) => loadedFor === (userId || null) };
 }
+
+// ---------------------------------------------------------------- 本の削除の「元に戻す」（2026-10-09 ui-critic）
+// 本を消すと reading_sessions も一緒に消える（ON DELETE CASCADE）。消す前にその本の行を控え、
+// 「元に戻す」で本を入れ直したあとに同じ行（同じ id）を入れ直す。表が無い DB は控えない（空）。
+
+const SNAPSHOT_COLS = 'id, user_id, book_id, started_at, ended_at, seconds, mode, created_at';
+
+export async function captureBookReadingSessions(client, userId, bookId) {
+  if (!client || !userId || !bookId) return [];
+  try {
+    const { data, error } = await client
+      .from('reading_sessions')
+      .select(SNAPSHOT_COLS)
+      .eq('user_id', userId)
+      .eq('book_id', bookId);
+    if (error) throw error;
+    return Array.isArray(data) ? data : [];
+  } catch (e) {
+    if (!isSchemaError(e)) console.warn('読書の時間を控えられませんでした:', e?.message || e);
+    return [];
+  }
+}
+
+// 戻り値: true＝入れ直せた（または入れ直す行が無い・表が無い）／false＝失敗（呼び出し側が「読書の時間」を失敗に数える）。
+export async function restoreBookReadingSessions(client, rows) {
+  const list = (rows || []).filter((r) => r && r.book_id);
+  if (!client || list.length === 0) return true;
+  try {
+    const { error } = await client.from('reading_sessions').insert(list.map((r) => ({ ...r })));
+    if (error) throw error;
+    return true;
+  } catch (e) {
+    if (isSchemaError(e)) return true;
+    console.error('読書の時間の復元の一部失敗:', e);
+    return false;
+  }
+}

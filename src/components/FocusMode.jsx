@@ -35,7 +35,7 @@ const RING_C = 2 * Math.PI * RING_R;
 const HOLD_R = 31;
 const HOLD_C = 2 * Math.PI * HOLD_R;
 // 下の欄の高さ（ひとことの行＋16＋丸いボタン 64＋8＋名前）。どの段でも同じにして、輪・数字の位置を動かさない。
-const FOOT_H = 'calc(var(--text-meta) * 3 + var(--space-4) + 64px + var(--space-2))';
+const FOOT_H = 'calc(var(--text-meta) * 3 + var(--space-4) + var(--focus-btn) + var(--space-2))';
 
 // ---------------------------------------------------------------- 画面を暗くしない
 
@@ -95,20 +95,21 @@ function useDarkChrome() {
 
 // ---------------------------------------------------------------- 部品
 
-// 大きな数字（細い字・等幅の数字）。60 分以上は「1 時間 05 分」の形。
+// 大きな数字（細い字・等幅の数字）。60 分以上は「1 時間 05 分」の形（小さな行の「2 時間 5 分」とは書き分ける・SPEC §2-2）。
+// 輪の中心に置くのは数字（と間の「時間」）だけ。最後の「分」は右へぶら下げる（幅を数えない＝右の負の余白が自分の幅と同じ）。
 function BigTime({ hours, minutes, dim }) {
   const num = { fontSize: 'var(--focus-time)', fontWeight: 200, letterSpacing: '-0.02em', lineHeight: 1, fontVariantNumeric: 'tabular-nums', color: dim ? 'var(--focus-ink-2)' : 'var(--focus-ink)', transition: 'color var(--duration-base) var(--ease-out)' };
-  const unit = { fontSize: 'var(--text-body)', fontWeight: 400, color: 'var(--focus-ink-2)', marginLeft: 'var(--space-1)' };
+  const unit = { fontSize: 'var(--text-body)', fontWeight: 400, color: 'var(--focus-ink-2)', lineHeight: 1 };
   return (
     <span style={{ display: 'inline-flex', alignItems: 'baseline', whiteSpace: 'nowrap' }}>
-      {hours > 0 && (<><span style={num}>{hours}</span><span style={{ ...unit, marginRight: 'var(--space-2)' }}>時間</span></>)}
+      {hours > 0 && (<><span style={num}>{hours}</span><span style={{ ...unit, margin: '0 var(--space-2) 0 var(--space-1)' }}>時間</span></>)}
       <span style={num}>{hours > 0 ? String(minutes).padStart(2, '0') : minutes}</span>
-      <span style={unit}>分</span>
+      <span style={{ ...unit, width: '1em', marginLeft: 'var(--space-1)', marginRight: 'calc(-1em - var(--space-1))' }}>分</span>
     </span>
   );
 }
 
-// 丸いボタン（64・枠 --focus-line）＋下に名前。
+// 丸いボタン（--focus-btn＝64・枠 --focus-line-strong＝押せる物なので 3:1）＋下に名前。
 function RoundButton({ label, icon, onClick, children, ...rest }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-2)', minWidth: 0, flex: '1 1 0' }}>
@@ -117,7 +118,7 @@ function RoundButton({ label, icon, onClick, children, ...rest }) {
         onClick={onClick}
         aria-label={label}
         className="focus-round"
-        style={{ position: 'relative', width: 64, height: 64, borderRadius: '50%', border: '1px solid var(--focus-line)', background: 'transparent', color: 'var(--focus-ink)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0, fontFamily: 'inherit', WebkitTapHighlightColor: 'transparent' }}
+        style={{ position: 'relative', width: 'var(--focus-btn)', height: 'var(--focus-btn)', borderRadius: '50%', border: '1px solid var(--focus-line-strong)', background: 'transparent', color: 'var(--focus-ink)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0, fontFamily: 'inherit', WebkitTapHighlightColor: 'transparent' }}
         {...rest}
       >
         {icon}
@@ -130,8 +131,8 @@ function RoundButton({ label, icon, onClick, children, ...rest }) {
 
 // 下の 2 つのボタン（タイマーが終わったとき・おわったとき）。主＝温かい塗り、副＝枠。
 const footBtn = (primary) => ({
-  width: '100%', minHeight: 48, borderRadius: 'var(--radius)', fontFamily: 'inherit', fontSize: 'var(--text-body)', fontWeight: 600, cursor: 'pointer',
-  border: primary ? 'none' : '1px solid var(--focus-line)',
+  width: '100%', minHeight: 'var(--btn-h)', borderRadius: 'var(--radius)', fontFamily: 'inherit', fontSize: 'var(--text-body)', fontWeight: 600, cursor: 'pointer',
+  border: primary ? 'none' : '1px solid var(--focus-line-strong)',
   background: primary ? 'var(--focus-accent)' : 'transparent',
   color: primary ? 'var(--focus-accent-ink)' : 'var(--focus-ink)',
 });
@@ -210,8 +211,8 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
       if (r?.row) rows = [r.row, ...rows.filter((x) => x.id !== r.row.id)];
     }
     const todaySec = todaySeconds(rows, book.id, t);
-    // 押し間違い（30 秒未満）で、今日まだ読んでいなければ何も残さず閉じる。
-    if (!row && todaySec === 0) { onClose(); return; }
+    // 押し間違い（30 秒未満）は何も残さず閉じる（おわったときの画面も出さない）。
+    if (!row) { onClose(); return; }
     setSummary({ todaySec, totalSec: totalSeconds(rows, book.id) });
     setPhase('summary');
   }, [s, sessions, book.id, onClose]);
@@ -263,8 +264,10 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
   // 読み上げ（分が変わったときだけ・aria-live は付けない＝毎分読み上げない）。
   const spoken = `${caption} ${hours ? `${hours} 時間 ` : ''}${minutes} 分`;
 
+  // メモを書くシートも暗いまま（明るい画面の設定でも・tokens.css の .focus-dark-scope）。
   const memoSheet = memoOpen && (
     <HomeQuickMemo
+      scopeClass="focus-dark-scope"
       book={book}
       allTags={allTags}
       onClose={() => setMemoOpen(false)}
@@ -340,7 +343,7 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
                     cx="100" cy="100" r={RING_R} fill="none"
                     stroke="var(--focus-ring)" strokeWidth="2" strokeLinecap="round" vectorEffect="non-scaling-stroke"
                     strokeDasharray={RING_C} strokeDashoffset={RING_C * progress}
-                    style={{ opacity: paused ? 0.45 : 1 }}
+                    style={{ opacity: paused ? 'var(--focus-paused-opacity)' : 1 }}
                   />
                 )}
               </svg>
@@ -376,7 +379,7 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
                 data-focus-end=""
               >
                 {/* 長押しの進み具合（輪が 1 秒で一周する・離すと戻る）。 */}
-                <svg aria-hidden="true" viewBox="0 0 66 66" style={{ position: 'absolute', inset: -1, width: 66, height: 66, transform: 'rotate(-90deg)', pointerEvents: 'none' }}>
+                <svg aria-hidden="true" viewBox="0 0 66 66" style={{ position: 'absolute', inset: -1, width: 'calc(100% + 2px)', height: 'calc(100% + 2px)', transform: 'rotate(-90deg)', pointerEvents: 'none' }}>
                   <circle
                     cx="33" cy="33" r={HOLD_R} fill="none" stroke="var(--focus-ring)" strokeWidth="2" strokeLinecap="round"
                     strokeDasharray={HOLD_C} strokeDashoffset={holding ? 0 : HOLD_C}
@@ -389,15 +392,15 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
                 label={paused ? '再開' : '一時停止'}
                 icon={paused ? <Play size={22} strokeWidth={1.5} aria-hidden="true" /> : <Pause size={22} strokeWidth={1.5} aria-hidden="true" />}
                 onClick={togglePause}
-                aria-pressed={paused}
               />
             </div>
           </>
         )}
         {phase === 'timerDone' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-            <button type="button" onClick={continueReading} style={footBtn(false)}>続けて読む</button>
+            {/* 上＝主「おわる」・下＝副「続けて読む」（おわったときの「メモを書く」「閉じる」と同じ並び）。 */}
             <button type="button" onClick={finish} style={footBtn(true)}>おわる</button>
+            <button type="button" onClick={continueReading} style={footBtn(false)}>続けて読む</button>
           </div>
         )}
         {phase === 'summary' && (

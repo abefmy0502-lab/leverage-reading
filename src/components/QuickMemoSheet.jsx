@@ -163,6 +163,8 @@ export default function QuickMemoSheet({
   //   「写真から書き起こす」（副ボタン・ScanText 20）を置く。主ボタンは「保存」のまま。書き起こした（本文が入った）ら、
   //   いつもの場所（「＋ ページ・写真」の中）に戻る。
   startWithPhoto = false,
+  // 包む class（集中モードから開くと 'focus-dark-scope'＝暗い値のトークンで描く・2026-10-09）。display: contents なので並びは変えない。
+  scopeClass = '',
 }) {
   ensureKeyframes();
   const [pageNumber, setPageNumber] = useState(defaultPageNumber !== '' ? String(defaultPageNumber) : '');
@@ -634,5 +636,6 @@ export default function QuickMemoSheet({
       </div>
     </>
   );
-  return typeof document !== 'undefined' ? createPortal(sheet, document.body) : sheet;
+  const scoped = scopeClass ? <div className={scopeClass} style={{ display: 'contents' }}>{sheet}</div> : sheet;
+  return typeof document !== 'undefined' ? createPortal(scoped, document.body) : scoped;
 }

@@ -164,7 +164,7 @@ import { todayLocal, tomorrowLocal, fmtDateJa, isScheduledLater } from './lib/da
 import { completedActionMessage } from './lib/actionMessages';
 // 🧩 #9 App.jsx 分割: 本フォーム共通プリミティブと Phase エディタは別ファイルへ抽出。
 import { Stars, inp, btnS } from './components/formPrimitives';
-import { btnGhost, btnGhostOff, btnText, btnPrimary, btnPrimaryOff, btnLink, groupTitle } from './styles/ui';
+import { btnGhost, btnGhostOff, btnText, btnPrimary, btnPrimaryOff, btnLink, btnRow, groupTitle } from './styles/ui';
 import { WantPhase, BeforePhase, ReadingPhase, DonePhase, EditSaveBar } from './components/lazyParts';
 import { getAmazonLink } from './lib/amazonLink';
 import BookStoreLinks from './components/BookStoreLinks';
@@ -3981,7 +3981,7 @@ function AuthedApp() {
   useEffect(() => {
     if (focusRestored.current || booksLoading || books.length === 0) return;
     focusRestored.current = true;
-    // 🧪 お試しモード: &focus=timer|count|paused|done|summary|start で、読書中の本の集中モードを開く。
+    // 🧪 お試しモード: &focus=timer|count|long|fresh|paused|done|summary|start で、読書中の本の集中モードを開く。
     const demoFocus = isDemo ? new URLSearchParams(window.location.search).get('focus') : null;
     if (demoFocus) {
       const b = books.find((x) => x.title === '数値化の鬼') || books.find((x) => x.status === 'reading') || books[0];
@@ -3990,6 +3990,8 @@ function AuthedApp() {
       const MIN = 60 * 1000;
       const st = demoFocus === 'count'
         ? { ...startFocus({ bookId: b.id, mode: 'count' }, t - 32 * MIN - 20000) }
+        : demoFocus === 'long' ? startFocus({ bookId: b.id, mode: 'count' }, t - 75 * MIN - 20000)
+        : demoFocus === 'fresh' ? startFocus({ bookId: b.id, mode: 'timer', minutes: 15 }, t - 10000)
         : demoFocus === 'done' ? startFocus({ bookId: b.id, mode: 'timer', minutes: 30 }, t - 30 * MIN - 5000)
           : demoFocus === 'paused' ? pauseFocus(startFocus({ bookId: b.id, mode: 'timer', minutes: 30 }, t - 12 * MIN), t)
             : startFocus({ bookId: b.id, mode: 'timer', minutes: 30 }, t - 7 * MIN - 10000);
@@ -4487,7 +4489,7 @@ function AuthedApp() {
                   onClick={() => openFocusStart(current)}
                   aria-label={`『${current.title}』を読む（集中モード）`}
                   data-focus-entry=""
-                  style={{ ...btnGhost, width: 'auto', minHeight: 44, padding: 'var(--space-2) var(--space-3)', marginTop: 'var(--space-3)', fontSize: 'var(--text-sub)', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}
+                  style={{ ...btnRow, marginTop: 'var(--space-3)' }}
                 >
                   <Timer size="1.1em" strokeWidth={1.75} aria-hidden="true" style={{ flexShrink: 0 }} />読む
                 </button>

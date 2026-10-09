@@ -129,6 +129,20 @@ export const btnLink = {
   fontWeight: 600,
 };
 
+// 行の中の小さい副ボタン（DESIGN §5: 高さ 44・文字 15・600・内側 8/12・幅は中身）。
+// ホームのいま読んでいる本の「メモを書く」・本の詳細の「読む」（2026-10-09 に HomeScreen から移した）。
+export const btnRow = {
+  ...btnGhost,
+  width: 'auto',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 'var(--space-2)',
+  padding: 'var(--space-2) var(--space-3)',
+  minHeight: 'var(--tap-min)',
+  fontSize: 'var(--text-sub)',
+};
+
 // 一覧・区画の小さな見出し（「たとえば」「今日」「完了した行動」など）。12/600/--text-2。
 export const groupTitle = {
   fontSize: 'var(--text-caption)',

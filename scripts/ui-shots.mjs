@@ -978,6 +978,18 @@ const SCREENS = [
   { name: 'focus-summary-xxl', url: '/?focus=done', steps: [XXL, { wait: 1200 }, { css: '[data-focus-mode="timerDone"] button:has-text("おわる")' }, { wait: 800 }] },
   { name: 'focus-timer-xxl', url: '/?focus=timer', steps: [XXL, { wait: 1200 }] },
   { name: 'focus-share-magazine', url: '/', steps: [{ css: 'button[aria-label="『数値化の鬼』を開く"]' }, { wait: 800 }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("画像で共有")' }, { wait: 2000 }, shareVariant('雑誌'), { wait: 1500 }] },
+  // ── ⏱ 集中モードの手直しの撮り直し（2026-10-09 ui-critic・ui-shots/focus2/）
+  { name: 'focus2-entry-detail', url: '/', steps: [{ css: 'button[aria-label="『数値化の鬼』を開く"]' }, { wait: 1800 }] },
+  { name: 'focus2-before-no-read', url: '/?shelf=library', steps: [{ css: '.lvg-page button:has-text("LIFE SHIFT")' }, { wait: 1800 }] },
+  { name: 'focus2-done-no-read', url: '/?shelf=library', steps: [{ css: '.lvg-page button:has-text("イシューからはじめよ")' }, { wait: 1800 }] },
+  { name: 'focus2-timer', url: '/?focus=timer', steps: [{ wait: 1200 }] },
+  { name: 'focus2-long', url: '/?focus=long', steps: [{ wait: 1200 }] },
+  { name: 'focus2-done', url: '/?focus=done', steps: [{ wait: 4000 }] },
+  { name: 'focus2-start-count', url: '/?focus=start', steps: [{ css: '[role=radiogroup][aria-label="時間の測り方"] [role=radio]:has-text("計測")' }] },
+  { name: 'focus2-under30-closed', url: '/?focus=fresh', steps: [{ wait: 800 }, { press: ['[data-focus-end]', 1400] }] },
+  { name: 'focus2-reduced-hold', url: '/?focus=timer', steps: [{ reducedMotion: true }, { wait: 800 }, { press: ['[data-focus-end]', 550] }] },
+  { name: 'focus2-memo', url: '/?focus=timer', steps: [{ wait: 800 }, { css: 'button[aria-label="メモ"]' }, { wait: 800 }] },
+  { name: 'focus2-paused', url: '/?focus=paused', steps: [{ wait: 800 }] },
   // ── 運営ダッシュボード「ローンチの 4 つの数字」（2026-10-02・管理者だけ・?admin=1 は src/demo/demoAdmin.js）
   // 見出し（または表）を、上に貼りつく見出しとタブの下（上から 130px）に来るまで送る。
   ...[
@@ -1039,6 +1051,8 @@ async function run(step, page) {
       await page.mouse.up();
     }
   }
+  // reducedMotion: 動きを減らす設定にする（集中モードの長押しの輪を出さない確認など）。
+  if (step.reducedMotion) { await page.emulateMedia({ reducedMotion: 'reduce' }); }
   // press: [要素, ms]。押したまま ms 待つ（離さない＝長押しの途中を撮る・集中モードの「おわる」）。
   if (step.press) {
     const box = await page.locator(step.press[0]).first().boundingBox();

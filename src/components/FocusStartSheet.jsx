@@ -13,7 +13,7 @@ import { FOCUS_MINUTES, loadFocusPrefs, saveFocusPrefs } from '../lib/readingTim
 const choice = (on) => ({
   flex: '1 1 0',
   minWidth: 0,
-  minHeight: 44,
+  minHeight: 'var(--tap-min)',
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -35,7 +35,7 @@ const choice = (on) => ({
 const seg = (on) => ({
   flex: '1 1 0',
   minWidth: 0,
-  minHeight: 48,
+  minHeight: 'var(--btn-h)',
   border: 'none',
   borderBottom: `2px solid ${on ? 'var(--accent)' : 'transparent'}`,
   marginBottom: -1,
@@ -71,28 +71,19 @@ export default function FocusStartSheet({ onStart, onClose }) {
             </button>
           ))}
         </div>
-        {/* 2 つの形で高さを変えない（下の主ボタンが跳ねない）: 小さな見出し＋44 の行。 */}
-        <div>
-          {mode === 'timer' ? (
-            <>
-              <p id="focus-min-title" style={{ ...groupTitle, margin: '0 0 var(--space-2)' }}>時間</p>
-              <div role="radiogroup" aria-labelledby="focus-min-title" style={{ display: 'flex', gap: 'var(--space-2)' }}>
-                {FOCUS_MINUTES.map((m) => (
-                  <button key={m} type="button" role="radio" aria-checked={minutes === m} aria-label={`${m} 分`} onClick={() => setMinutes(m)} style={choice(minutes === m)}>
-                    {m} 分
-                  </button>
-                ))}
-              </div>
-            </>
-          ) : (
-            <>
-              <p style={{ ...groupTitle, margin: '0 0 var(--space-2)' }}>時間</p>
-              <p style={{ margin: 0, minHeight: 44, display: 'flex', alignItems: 'center', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5 }}>
-                0 分から数えます
-              </p>
-            </>
-          )}
-        </div>
+        {/* 分を選ぶのはタイマーだけ（計測は選ぶものが無いので何も置かない＝説明の文を足さない・2026-10-09 ui-critic）。 */}
+        {mode === 'timer' && (
+          <div>
+            <p id="focus-min-title" style={{ ...groupTitle, margin: '0 0 var(--space-2)' }}>時間</p>
+            <div role="radiogroup" aria-labelledby="focus-min-title" style={{ display: 'flex', gap: 'var(--space-2)' }}>
+              {FOCUS_MINUTES.map((m) => (
+                <button key={m} type="button" role="radio" aria-checked={minutes === m} aria-label={`${m} 分`} onClick={() => setMinutes(m)} style={choice(minutes === m)}>
+                  {m} 分
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>
           おわるときは「おわる」を長く押します。
         </p>

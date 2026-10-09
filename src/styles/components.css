@@ -1635,7 +1635,7 @@ details[open] > summary .fold-chevron { transform: rotate(180deg); }
 /* ⏱ 集中モード（FocusMode.jsx・2026-10-09・DESIGN §5「集中モード」）。
    タイマーの輪は 1 秒ごとに次の位置へ線形に（ゆっくり減って見える）。計測は淡い光が 9 秒で 1 回呼吸する。
    タイマーが終わったら地が 3 秒かけて少し明るくなる。長押しの輪は 1 秒で一周（離すと 0.2 秒で戻る）。
-   動きを減らす設定では、輪・光・地の動きを止める（長押しの進み具合は、輪の代わりに文字で伝わる）。 */
+   動きを減らす設定では、輪・光・地の動きを止め、長押しの輪は出さない（進み具合は上のひとこと「そのまま押し続けると、おわります」だけ）。 */
 .focus-surface { transition: background-color 3s var(--ease-out); }
 .focus-ring-progress { transition: stroke-dashoffset 1s linear, opacity var(--duration-base) var(--ease-out); }
 @keyframes focus-breathe {
@@ -1650,5 +1650,5 @@ details[open] > summary .fold-chevron { transform: rotate(180deg); }
 @media (prefers-reduced-motion: reduce) {
   .focus-surface, .focus-ring-progress { transition: none; }
   .focus-glow { animation: none; opacity: 0.7; }
-  .focus-hold, .focus-hold.is-holding { transition: none; }
+  .focus-hold, .focus-hold.is-holding { display: none; }
 }

@@ -22,10 +22,12 @@ import { MiniCover } from './BookCards';
 import { phrasePieces } from './TightBubble';
 import { SkeletonBlock } from './Skeleton';
 import ErrorMessage from './ErrorMessage';
-import { btnPrimary, btnGhost, btnLink, card } from '../styles/ui';
+import { btnPrimary, btnGhost, btnLink, btnRow as btnRowBase, card } from '../styles/ui';
 
-// DESIGN §5「行の中の小さい副ボタン」（高さ 44・文字 15・600）。
-const btnRow = { ...btnGhost, width: 'auto', flex: '1 0 auto', padding: 'var(--space-2) var(--space-3)', minHeight: 44, fontSize: 'var(--text-sub)' };
+// DESIGN §5「行の中の小さい副ボタン」（ui.js の btnRow・高さ 44・文字 15・600）。折り返した行では幅いっぱいに伸びる。
+const btnRow = { ...btnRowBase, flex: '1 0 auto' };
+// 行の表紙の幅（MiniCover）。「読む」はこの幅＋間 12 だけ右から始めて、書名の列にそろえる。
+const ROW_COVER_W = 40;
 
 const sectionTitle = {
   fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', margin: '0 0 var(--space-3)', lineHeight: 1.3,
@@ -76,7 +78,7 @@ function BookRow({ book: b, sub, onOpenBook, onCoverRetry, action, footer }) {
         // 文字を少しでも大きくしたらボタンを折り返して書名の列を広げる（2026-10-04 ui-critic）。
         style={{ flex: '1000 1 calc(7.5rem + 52px)', minWidth: 0, minHeight: 44, display: 'flex', alignItems: 'center', gap: 'var(--space-3)', background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', color: 'inherit' }}
       >
-        <MiniCover book={b} width={40} onAutoRetry={onCoverRetry} />
+        <MiniCover book={b} width={ROW_COVER_W} onAutoRetry={onCoverRetry} />
         <span style={{ minWidth: 0 }}>
           {/* 書名は文節の切れ目でだけ折り返す（「イシューからは／じめよ」と語の途中で割れていた・2026-10-04）。 */}
           {/* 文節・文字の種類の切れ目でだけ折り返す。それでも入らない切れ端だけ … に切る（最後の手段・2026-10-04）。 */}
@@ -95,7 +97,7 @@ function BookRow({ book: b, sub, onOpenBook, onCoverRetry, action, footer }) {
 //   押せる高さは 44 のまま、上の行との間（12）とカードの下の余白を負の余白で詰めて、カードを 24 だけ伸ばす。
 function ReadLink({ book: b, onRead }) {
   return (
-    <div style={{ flexBasis: '100%', display: 'flex', paddingLeft: 52, margin: 'calc(-1 * var(--space-3)) 0 calc(-1 * var(--space-3))' }}>
+    <div style={{ flexBasis: '100%', display: 'flex', paddingLeft: `calc(${ROW_COVER_W}px + var(--space-3))`, margin: 'calc(-1 * var(--space-3)) 0 calc(-1 * var(--space-3))' }}>
       <button
         type="button"
         onClick={() => onRead(b)}

@@ -32,8 +32,8 @@
 //     &viewmap=notags : 使っているが、メモに地図のタグが 1 つも無い人
 //     &viewmap=own : 使っているが、メモには自分のタグ（#マネジメント・#習慣 など）だけ（自分のタグが分野に結びつく確認用・2026-10-09）
 //     &viewmapsave=slow : 使う／やめるの保存が 8 秒かかる（「保存しています…」の確認用）・fail : アカウントへの保存に失敗する
-//   - &focus=start|timer|count|paused|done|summary : ⏱ 読む（集中モード）を『数値化の鬼』で開く（App.jsx・2026-10-09）。
-//     start=始める前のシート・timer=タイマー 30 分の 7 分目・count=計測 32 分・paused=一時停止中・done=タイマーが終わった・summary=おわったとき
+//   - &focus=start|timer|count|long|fresh|paused|done|summary : ⏱ 読む（集中モード）を『数値化の鬼』で開く（App.jsx・2026-10-09）。
+//     start=始める前のシート・timer=タイマー 30 分の 7 分目・count=計測 32 分・long=計測 1 時間 15 分・fresh=始めて 10 秒（30 秒未満でおわると何も残さず閉じる）・paused=一時停止中・done=タイマーが終わった・summary=おわったとき
 // データはメモリ上だけ。再読み込みで初期状態に戻る。
 //
 // supabase-js のうち、このアプリが実際に使う範囲だけを再現する
@@ -294,7 +294,7 @@ class Query {
       // 本の削除はリレーション（DB の ON DELETE CASCADE 相当）も消す。
       if (this.table === 'books') {
         const ids = new Set(hits.map((h) => h.id));
-        ['book_tags', 'book_collections', 'actions', 'book_memos'].forEach((t) => {
+        ['book_tags', 'book_collections', 'actions', 'book_memos', 'reading_sessions'].forEach((t) => {
           this.store.db[t] = this.store.table(t).filter((r) => !ids.has(r.book_id));
         });
       }
