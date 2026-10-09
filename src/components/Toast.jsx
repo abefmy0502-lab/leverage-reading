@@ -76,11 +76,15 @@ const containerStyle = {
   pointerEvents: 'none',
 };
 
+// 文字を大きくして文とボタンが 1 行に収まらないときは、ボタン（と ×）を文の下の行へ回す（flex-wrap）。
+// 以前は文の欄が縮みきって 1 字ずつ縦に割れていた（2026-10-08 ui-critic）。
 const toastStyleBase = {
   pointerEvents: 'auto',
   display: 'flex',
+  flexWrap: 'wrap',
   alignItems: 'center',
-  gap: 'var(--space-2)',
+  columnGap: 'var(--space-2)',
+  rowGap: 0,
   // 右は閉じるボタン（押せる範囲 44）の内側の空きで足りるので詰める。
   padding: 'var(--space-1) var(--space-1) var(--space-1) var(--space-4)',
   minHeight: 52,
@@ -168,15 +172,16 @@ function ToastItem({ toast, onDismiss, onAction }) {
       {/* quote: 書名など長さの読めない名前。『』で囲み、入りきらない分は … で切って 1 行に収める（ボタンと並ぶ知らせは 1 行・
           「『数値化の鬼』を／削除しました。」と 2 行に折れていた・2026-10-04 ui-critic）。文の残り（message）は折り返さない。 */}
       {toast.quote ? (
-        <span style={{ flex: 1, minWidth: 0, display: 'flex', padding: 'var(--space-2) 0', whiteSpace: 'nowrap' }}>
+        <span style={{ flex: '1 1 7em', minWidth: 0, display: 'flex', padding: 'var(--space-2) 0', whiteSpace: 'nowrap' }}>
           <span style={{ minWidth: '2.5em', overflow: 'hidden', textOverflow: 'ellipsis' }}><span style={{ marginLeft: '-0.5em' }}>『</span>{toast.quote}</span>
           <span style={{ flexShrink: 0 }}>』{stripLeadingEmoji(toast.message)}</span>
         </span>
       ) : (
-      <span style={{ flex: 1, minWidth: 0, whiteSpace: 'pre-line', wordBreak: 'keep-all', overflowWrap: 'anywhere', padding: 'var(--space-2) 0' }}>{tightenPunct(withPhraseBreaks(stripLeadingEmoji(toast.message)))}</span>
+      <span style={{ flex: '1 1 7em', minWidth: 0, whiteSpace: 'pre-line', wordBreak: 'keep-all', overflowWrap: 'anywhere', padding: 'var(--space-2) 0' }}>{tightenPunct(withPhraseBreaks(stripLeadingEmoji(toast.message)))}</span>
       )}
       {toast.action && (
-        <button type="button" style={actionBtnStyle} onClick={() => onAction(toast)}>
+        // 下の行に回ったときは右へ寄せる（× と並べる）。
+        <button type="button" style={{ ...actionBtnStyle, marginLeft: 'auto' }} onClick={() => onAction(toast)}>
           {toast.action.label}
         </button>
       )}

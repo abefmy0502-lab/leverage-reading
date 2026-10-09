@@ -2056,8 +2056,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           y={moreMenu.y}
           onClose={() => setMoreMenu(null)}
           items={[
-            { label: '学びを書く', icon: <PencilLine size={16} aria-hidden="true" />, onClick: () => setView('learning') },
-            { label: '根拠にできる情報', icon: <BookOpenCheck size={16} aria-hidden="true" />, onClick: () => setView('knowledge') },
+            { label: '学びを書く', icon: <PencilLine size="1.1em" aria-hidden="true" />, onClick: () => setView('learning') },
+            { label: '根拠にできる情報', icon: <BookOpenCheck size="1.1em" aria-hidden="true" />, onClick: () => setView('knowledge') },
           ]}
         />
       )}
@@ -2070,7 +2070,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           y={historyMenu.y}
           onClose={() => setHistoryMenu(null)}
           items={[
-            { label: 'すべて削除', icon: <Trash2 size={16} aria-hidden="true" />, destructive: true, onClick: clearHistory },
+            { label: 'すべて削除', icon: <Trash2 size="1.1em" aria-hidden="true" />, destructive: true, onClick: clearHistory },
           ]}
         />
       )}

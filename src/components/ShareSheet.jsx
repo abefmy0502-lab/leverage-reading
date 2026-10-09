@@ -722,7 +722,7 @@ export default function ShareSheet({
     ...BG_OPTIONS.filter((v) => v !== 'cover' || coverAllowed),
   ].map((v) => ({
     label: STYLE_LABELS[v],
-    icon: effStyle === v ? <Check size={16} aria-hidden="true" /> : <span style={{ width: 'var(--space-4)' }} aria-hidden="true" />,
+    icon: effStyle === v ? <Check size="1.1em" aria-hidden="true" /> : <span style={{ width: 'var(--space-4)' }} aria-hidden="true" />,
     onClick: () => setStyle(v),
   }));
 

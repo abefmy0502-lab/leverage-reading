@@ -46,6 +46,7 @@ import { withPhraseBreaks } from './TightBubble';
 import { track, EVENTS, isAnalyticsOptedOut, setAnalyticsOptOut } from '../lib/analytics';
 import { closeDelayMs } from '../lib/motion';
 import ToggleSwitch from './ToggleSwitch';
+import { useViewpointMap } from '../hooks/useViewpointMap';
 import { readAiConsent, requestAiConsent, isAiConsentCurrent, AI_CONSENT_CHANGED_EVENT } from '../lib/aiConsent';
 import {
   isPushSupported,
@@ -334,6 +335,16 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
     return () => clearTimeout(t);
   }, [focusDelete]);
   const toast = useToast();
+  // 🗺 視点の地図（メモのタグのひな形・2026-10-08）。切り替えはすぐ効く（アカウントには後ろで保存）。
+  const viewpoint = useViewpointMap();
+  const [viewpointBusy, setViewpointBusy] = useState(false);
+  const toggleViewpoint = async () => {
+    if (viewpointBusy) return;
+    setViewpointBusy(true);
+    const result = await viewpoint.setOn(!viewpoint.on);
+    setViewpointBusy(false);
+    if (result === 'local') toast.error('アカウントに保存できませんでした。この端末では選んだとおりに動きます。');
+  };
   const confirm = useConfirm();
   // 閉じるときも滑り下ろす（入りは下から .25s で上がるのに、出だけ瞬間に消えると所作が非対称・
   // QuickMemoSheet の animateClose と同じ・2026-09-29）。「完了」・外側のタップ・Esc で使う。
@@ -1072,6 +1083,23 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
             />
           </Group>
           )}
+
+          {/* ── メモのタグ: 視点の地図（振り返り › 記録に地図・合いそうなタグでもすすめる・やめてもタグは残る） ── */}
+          <Group label="メモのタグ">
+            <SettingRow
+              title="視点の地図"
+              // 「合いそうなタグ」は画面の名前なので割らない（2026-10-08 ui-critic 第 2 回）。
+              desc={<>{withPhraseBreaks('分野のタグで、振り返り › 記録に地図を出します。保存したメモには')}<span style={{ whiteSpace: 'nowrap' }}>「合いそうなタグ」</span>{withPhraseBreaks('としてすすめます。')}</>}
+              control={(
+                <ToggleSwitch
+                  checked={viewpoint.on}
+                  busy={viewpointBusy}
+                  ariaLabel="視点の地図"
+                  onChange={toggleViewpoint}
+                />
+              )}
+            />
+          </Group>
 
           {/* ── ほかのアプリから取り込む（ブクログ・読書メーター・Kindle） ── */}
           {onOpenImport && (

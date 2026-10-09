@@ -4,6 +4,7 @@
 // 日付は起動時点からの相対（daysAgo）で生成するので、いつ開いても自然に見える。
 
 import { appNow } from '../lib/appNow';
+import { VIEWPOINT_TAGS } from '../lib/viewpointMap';
 
 export const DEMO_USER_ID = '00000000-0000-4000-8000-00000000d3e0';
 
@@ -336,6 +337,23 @@ export function buildSeed(scenario) {
       created_at: iso(daysAgo), updated_at: iso(daysAgo),
     });
   });
+
+  // &viewmap=on: 視点の地図を使っている人。メモに地図の分野のタグを付けておく（lib/viewpointMap.js・2026-10-08）。
+  //   付かない分野（生き方・働き方・お金・発想・経済・テクノロジー・歴史に学ぶ）は 0 件＝「この分野の本を探す」の確認用。
+  if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('viewmap') === 'on') {
+    const MAP_TAGS = {
+      3: ['問いを立てる'], 4: ['問いを立てる'], 5: ['伝え方'], 6: ['伝え方'], 7: ['決め方'], 8: ['決め方'], 9: ['決め方'],
+      10: ['段取り'], 11: ['人の心理'], 12: ['人の心理'], 13: ['人を育てる'], 14: ['人を育てる'], 15: ['心の持ち方'],
+      16: ['心の持ち方'], 17: ['心の持ち方'], 20: ['休み方'], 21: ['数字で見る'], 22: ['数字で見る'], 23: ['チームづくり'],
+      24: ['人を育てる'], 25: ['チームづくり'], 26: ['チームづくり'], 27: ['問いを立てる'], 28: ['伝え方'], 29: ['段取り'],
+    };
+    db.book_memos.forEach((m, i) => { if (MAP_TAGS[i]) m.tags = [...(m.tags || []), ...MAP_TAGS[i]]; });
+  }
+  // &viewmap=notags: 使っているが、地図のタグが付いたメモが 1 件も無い人（「習慣」など地図と同じ名前の自分のタグも外す）。
+  if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('viewmap') === 'notags') {
+    const mapTags = new Set(VIEWPOINT_TAGS);
+    db.book_memos.forEach((m) => { m.tags = (m.tags || []).filter((t) => !mapTags.has(t)); });
+  }
 
   // ?demo=recalldone: 思い出しカードを今日の分まで答え終えた人（すべてのメモを昨日「覚えた」・次に出るのは 2 日後）。
   //   本のまとめ・AI まとめ（端末の中で数える派生のメモ）も出さない＝思い出しカードの「ここまで」の確認用。

@@ -49,6 +49,11 @@ const IMPORT_STATUS_LABEL = { done: '読了', reading: '読書中', before: '積
 //   同じ文のメモ（取り込みでも足さない）を数えないため（2026-09-29）。
 export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, onAddOneLine, existingBooks = [], loadMemoTexts = null }) {
   const inputRef = useRef(null);
+  // 文字の大きさの設定が大きいとき（ルートの文字 22px 以上）は、下に固定の欄の「外には送りません」を手順の後ろへ回す
+  // （固定の欄が高くなって、手順が 2 行しか見えなかった・2026-10-08 ui-critic）。
+  const [largeText] = useState(() => {
+    try { return parseFloat(getComputedStyle(document.documentElement).fontSize) >= 22; } catch { return false; }
+  });
   const [step, setStep] = useState('pick'); // pick | preview | importing | done
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
@@ -159,6 +164,9 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
 
   let content;
   let footer = null;
+  const localNote = (
+    <p style={{ ...body, fontSize: 'var(--text-meta)', textAlign: largeText ? 'left' : 'center' }}>ファイルはこの端末の中で読み取ります。<span style={nowrap}>外には送りません。</span></p>
+  );
   if (step === 'pick') {
     content = (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
@@ -175,19 +183,22 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
           </li>
           <li>
             <p style={howTitle}>Kindle アプリ</p>
-            <p style={body}>本を開いて「ノートブック」→ 共有（エクスポート）で届く HTML を、「ファイル」に保存して選びます。</p>
+            {/* 初めての人がたどり着ける手順（2026-10-08 オーナー承認・ui-critic）。補足は手順の後ろに小さく。 */}
+            <p style={{ ...body, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('Kindle アプリで本を開き、画面を押して上のノートブックのアイコン ')}<span style={nowrap}>→ エクスポート。</span>{withPhraseBreaks('届いた HTML ファイルを「ファイル」に保存して、ここで選びます。')}</p>
+            <p style={{ ...body, fontSize: 'var(--text-meta)', marginTop: 'var(--space-1)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('読んでいる途中でも取り込めます。同じメモは二重に入りません。何冊分かをまとめて選べます。')}</p>
           </li>
           <li>
             <p style={howTitle}>Kindle 端末</p>
             <p style={body}>パソコンにつないで、documents にある「<span style={nowrap}>My Clippings.txt</span>」を選びます。</p>
           </li>
         </ul>
+        {largeText && localNote}
       </div>
     );
     // 「外に送らない」はファイルを渡す直前に 1 行だけ（読書の記録を渡す不安を、押す前に消す・2026-09-29）。
     footer = (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-        <p style={{ ...body, fontSize: 'var(--text-meta)', textAlign: 'center' }}>ファイルはこの端末の中で読み取ります。<span style={nowrap}>外には送りません。</span></p>
+        {!largeText && localNote}
         <button type="button" onClick={pickFile} style={btnPrimary}>
           <FileUp size="1.1em" aria-hidden="true" style={{ flexShrink: 0 }} /><span style={{ wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('ファイルを選ぶ')}</span>
         </button>
