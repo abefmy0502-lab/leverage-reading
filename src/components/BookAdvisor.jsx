@@ -258,6 +258,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   const [interviewLoading, setInterviewLoading] = useState(false); // 問いを考えている途中
   const [answerText, setAnswerText] = useState(() => memo0.answerText || ''); // 「自分の言葉で答える」の入力
   const [answerOff, setAnswerOff] = useState(() => !!memo0.answerOff);       // 「どれも少し違う」を押した
+  const [starterHint, setStarterHint] = useState(false);                  // 書き出しだけで送ろうとした（続きを書く案内・2026-10-09）
   // 確かめる一歩 { summary, from }（from＝「このくらいで探して」を押した問い・戻る先）| null
   const [summaryStep, setSummaryStep] = useState(() => memo0.summaryStep || null);
   const [correcting, setCorrecting] = useState(() => !!memo0.correcting);    // 「少し違う（直す）」で書いている
@@ -500,6 +501,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       return 'summary';
     }
     setInterview(step);
+    setStarterHint(false);
     remember({ interview: step });
     return 'question';
   };
@@ -926,7 +928,9 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   const answerQuestion = (raw, { unsure = false, finish = false } = {}) => {
     if (!interview || interviewLoading || askingRef.current) return;
     const a = unsure ? '' : clamp(sanitizeForPrompt(String(raw || '')), LIMITS.advisorAnswer).trim();
-    if (!unsure && (!a || onlyStarter(a, interview.options || []))) return;
+    if (!unsure && !a) return;
+    // 書き出しだけのときは送らずに、続きを書く場所へ戻して一言で伝える（押せないボタンにしない）
+    if (!unsure && onlyStarter(a, interview.options || [])) { setStarterHint(true); focusAnswer(); return; }
     askingRef.current = true;
     try { advisorHaptic.light(); } catch { /* non-critical */ }
     const entry = unsure
@@ -1003,7 +1007,10 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
 
   // 書き出しのチップ: 押すと入力欄に入るだけ（続きを書き足せる・そのまま送ってもよい）。
   //   「どれも少し違う」は「どこが違いますか？」と入力欄を開く。「まだ言葉にできない」は角度を変えた問いへ。
+  //   iOS は押した操作の中で focus しないとキーボードが開かないので、先にその場で focus し、
+  //   入れた文の末尾へのカーソル移動だけを後で行う（2026-10-09 オーナー「押しても動かない」）。
   const focusAnswer = () => {
+    try { answerRef.current?.focus(); } catch { /* noop */ }
     setTimeout(() => {
       const el = answerRef.current;
       if (!el) return;
@@ -1021,6 +1028,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       return;
     }
     setAnswerText((t) => applyStarter(t, chip.label, labels));
+    setStarterHint(false);
     focusAnswer();
   };
 
@@ -1635,7 +1643,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
             <textarea
               ref={answerRef}
               value={answerText}
-              onChange={(e) => setAnswerText(e.target.value)}
+              onChange={(e) => { setAnswerText(e.target.value); setStarterHint(false); }}
               placeholder={answerOff ? OFF_PLACEHOLDER : '自分の言葉で答える'}
               rows={1}
               maxLength={LIMITS.advisorAnswer}
@@ -1652,14 +1660,19 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
               type="button"
               className="send-btn"
               onClick={() => answerQuestion(answerText)}
-              // チップの言葉だけでは送れない（続きを書いてから・2026-10-08 ui-critic）
-              disabled={!answerText.trim() || onlyStarter(answerText, interview.options || []) || interviewLoading}
+              // 書き出しだけのときも押せる（押すと続きを書く案内を出す・2026-10-09）
+              disabled={!answerText.trim() || interviewLoading}
               aria-label="答える"
               title="答える"
             >
               <IcSend size={20} strokeWidth={2.25} aria-hidden="true" />
             </button>
           </div>
+          {starterHint && (
+            <p role="status" style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+              {withPhraseBreaks('「、」のあとに、続きを自分の言葉で書いてから送ってください。')}
+            </p>
+          )}
           {starts.length > 0 && (
             <div role="group" aria-label="書き出しのきっかけ" style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
               {starts.map(chipBtn)}

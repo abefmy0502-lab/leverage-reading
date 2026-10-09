@@ -38,6 +38,7 @@ const XXL = { eval: () => { document.documentElement.style.fontSize = '28px'; } 
 const ADVISOR2 = [
   ['adv2-q1', '/', [...ADVISOR_START]],
   ['adv2-q2', '/', [...ADVISOR_START, ...ADVISOR_ANSWER('大事なことに限って', '大事なことに限って、メールと会議で一日が終わってしまう')]],
+  ['adv2-starter-only', '/', [...ADVISOR_START, { css: '[aria-label="書き出しのきっかけ"] button >> nth=0' }, { css: 'button[aria-label="答える"]' }, { wait: 500 }]],
   ['adv2-off', '/', [...ADVISOR_START, ADVISOR_ESCAPE('どれも少し違う')]],
   ['adv2-unsure', '/', [...ADVISOR_START, ADVISOR_ESCAPE('まだ言葉にできない'), { wait: 2500 }]],
   ['adv2-loading', '/?ai=slow', [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 800 }]],
