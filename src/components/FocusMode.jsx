@@ -273,8 +273,8 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
       onClose={() => setMemoOpen(false)}
       onSaved={() => {
         haptic.success();
-        if (memoOpen === 'summary') { toast.success('メモを保存しました。'); onClose(); return; }
-        toast.success('メモを保存しました。');
+        // おわったあとのメモだけ知らせる。読んでいる途中は振動だけ（知らせで集中を切らない・2026-10-09 ui-critic）。
+        if (memoOpen === 'summary') { toast.success('メモを保存しました。'); onClose(); }
       }}
       onOpenFullEditor={memoOpen === 'summary' && onOpenFullEditor ? (prefill) => { setMemoOpen(false); onOpenFullEditor(prefill); } : undefined}
     />
@@ -309,7 +309,7 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
       </header>
 
       {phase === 'summary' ? (
-        <main style={{ flex: 1, width: '100%', maxWidth: 400, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', gap: 'var(--space-3)' }}>
+        <main style={{ flex: 1, width: '100%', maxWidth: 'var(--focus-max)', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', gap: 'var(--space-3)' }}>
           {summary ? (
             <>
               {/* 集中モードと同じ組み（小さな見出し → 細い大きな数字 → 1 行）。読み上げは 1 文で。 */}
@@ -343,7 +343,7 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
                     cx="100" cy="100" r={RING_R} fill="none"
                     stroke="var(--focus-ring)" strokeWidth="2" strokeLinecap="round" vectorEffect="non-scaling-stroke"
                     strokeDasharray={RING_C} strokeDashoffset={RING_C * progress}
-                    style={{ opacity: paused ? 'var(--focus-paused-opacity)' : 1 }}
+                    style={{ stroke: paused ? 'var(--focus-ring-dim)' : 'var(--focus-ring)' }}
                   />
                 )}
               </svg>
@@ -357,7 +357,7 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
       )}
 
       {/* 下: 走っている間は 3 つの丸いボタン。タイマーが終わったら「続けて読む」と「おわる」。おわったら「メモを書く」と「閉じる」。 */}
-      <footer style={{ width: '100%', maxWidth: 400, minHeight: FOOT_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+      <footer style={{ width: '100%', maxWidth: 'var(--focus-max)', minHeight: FOOT_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
         {phase === 'running' && (
           <>
             {/* ひとことの欄（高さは決めておく＝出ても下が跳ねない）。 */}

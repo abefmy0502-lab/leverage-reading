@@ -990,6 +990,10 @@ const SCREENS = [
   { name: 'focus2-reduced-hold', url: '/?focus=timer', steps: [{ reducedMotion: true }, { wait: 800 }, { press: ['[data-focus-end]', 550] }] },
   { name: 'focus2-memo', url: '/?focus=timer', steps: [{ wait: 800 }, { css: 'button[aria-label="メモ"]' }, { wait: 800 }] },
   { name: 'focus2-paused', url: '/?focus=paused', steps: [{ wait: 800 }] },
+  // ── ⏱ 集中モードの仕上げ（2026-10-09 ui-critic 第 2 回・ui-shots/focus3/）: 計測でも切り替えの位置が跳ねない・一時停止の淡い輪
+  { name: 'focus3-start-timer', url: '/?focus=start', steps: [{ wait: 600 }] },
+  { name: 'focus3-start-count', url: '/?focus=start', steps: [{ css: '[role=radiogroup][aria-label="時間の測り方"] [role=radio]:has-text("計測")' }] },
+  { name: 'focus3-paused', url: '/?focus=paused', steps: [{ wait: 800 }] },
   // ── 運営ダッシュボード「ローンチの 4 つの数字」（2026-10-02・管理者だけ・?admin=1 は src/demo/demoAdmin.js）
   // 見出し（または表）を、上に貼りつく見出しとタブの下（上から 130px）に来るまで送る。
   ...[

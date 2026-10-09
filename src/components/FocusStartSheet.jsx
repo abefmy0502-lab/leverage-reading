@@ -37,8 +37,9 @@ const seg = (on) => ({
   minWidth: 0,
   minHeight: 'var(--btn-h)',
   border: 'none',
-  borderBottom: `2px solid ${on ? 'var(--accent)' : 'transparent'}`,
-  marginBottom: -1,
+  borderBottom: `var(--focus-tab-line) solid ${on ? 'var(--accent)' : 'transparent'}`,
+  // 選んだ方の下線を、全体の下の 1 の線に重ねる（線の太さぶん下へ）。
+  marginBottom: 'calc(-1 * var(--focus-tab-line) / 2)',
   background: 'transparent',
   color: on ? 'var(--text)' : 'var(--text-2)',
   fontSize: 'var(--text-body)',
@@ -71,19 +72,18 @@ export default function FocusStartSheet({ onStart, onClose }) {
             </button>
           ))}
         </div>
-        {/* 分を選ぶのはタイマーだけ（計測は選ぶものが無いので何も置かない＝説明の文を足さない・2026-10-09 ui-critic）。 */}
-        {mode === 'timer' && (
-          <div>
-            <p id="focus-min-title" style={{ ...groupTitle, margin: '0 0 var(--space-2)' }}>時間</p>
-            <div role="radiogroup" aria-labelledby="focus-min-title" style={{ display: 'flex', gap: 'var(--space-2)' }}>
-              {FOCUS_MINUTES.map((m) => (
-                <button key={m} type="button" role="radio" aria-checked={minutes === m} aria-label={`${m} 分`} onClick={() => setMinutes(m)} style={choice(minutes === m)}>
-                  {m} 分
-                </button>
-              ))}
-            </div>
+        {/* 分を選ぶのはタイマーだけ。計測でも場所は空けておく（切り替えたときに上の切り替え・下の 1 行が跳ねない・
+            見えない・読み上げない・Tab で止まらない＝説明の文は足さない・2026-10-09 ui-critic）。 */}
+        <div style={mode === 'timer' ? undefined : { visibility: 'hidden' }} aria-hidden={mode === 'timer' ? undefined : true}>
+          <p id="focus-min-title" style={{ ...groupTitle, margin: '0 0 var(--space-2)' }}>時間</p>
+          <div role="radiogroup" aria-labelledby="focus-min-title" style={{ display: 'flex', gap: 'var(--space-2)' }}>
+            {FOCUS_MINUTES.map((m) => (
+              <button key={m} type="button" role="radio" tabIndex={mode === 'timer' ? undefined : -1} aria-checked={minutes === m} aria-label={`${m} 分`} onClick={() => setMinutes(m)} style={choice(minutes === m)}>
+                {m} 分
+              </button>
+            ))}
           </div>
-        )}
+        </div>
         <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>
           おわるときは「おわる」を長く押します。
         </p>
