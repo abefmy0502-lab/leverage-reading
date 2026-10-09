@@ -167,7 +167,7 @@ import BookStoreLinks from './components/BookStoreLinks';
 import { getRakutenLink } from './lib/rakutenLink';
 import { loadNavState, saveNavState } from './lib/navState';
 import { consultCanLeave } from './lib/consultBack';
-import { actionGist, firstConsultQuestion, shortTitle } from './lib/consultHelpers';
+import { actionGist, firstConsultQuestion } from './lib/consultHelpers';
 import { takeOnboardPathDone } from './lib/firstDay';
 import { withPhraseBreaks } from './components/TightBubble';
 import {
@@ -4965,12 +4965,11 @@ function AuthedApp() {
                 else leaveNewBookForm();
               }}
               // 詳細画面・すべての本の戻ると同じ形（ChevronLeft 20・間 0・見た目の左端 16）。
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 0, minWidth: 0, maxWidth: 'calc(100% - 44px - var(--space-4))', minHeight: 44, padding: '0 var(--space-2) 0 0', marginLeft: BACK_CHEVRON_PULL, background: 'none', border: 'none', color: 'var(--accent)', fontSize: BACK_LABEL_SIZE, whiteSpace: 'nowrap', fontFamily: 'inherit', cursor: 'pointer' }}
-              aria-label={current ? `『${current.title || 'この本'}』に戻る` : undefined}
-            >{/* iOS の作法: 戻るは戻り先の画面の名前＝戻り先の本の書名（2026-10-09・旧「この本」では、どの本の編集か上の行で分からなかった）。
-                長い書名は副題を外し、それでも入らなければ 1 行で … に切る（BACK_LABEL_SIZE の 1 行の決まり）。 */}
-              <ChevronLeft size={20} aria-hidden="true" style={{ flexShrink: 0 }} />
-              <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{current ? (shortTitle(current.title || '') || 'この本') : newBookBackLabel}</span></button>
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 0, minHeight: 44, padding: '0 var(--space-2) 0 0', marginLeft: BACK_CHEVRON_PULL, background: 'none', border: 'none', color: 'var(--accent)', fontSize: BACK_LABEL_SIZE, whiteSpace: 'nowrap', fontFamily: 'inherit', cursor: 'pointer' }}
+              aria-label={current ? 'この本に戻る' : undefined}
+            >{/* iOS の作法: 戻るは戻り先の画面の名前。編集からはいつも本の詳細へ戻るので「この本」
+                （書名は下の見出しにあるので、上の行で繰り返さない・2026-10-01 オーナー裁定・SPEC §2）。 */}
+              <ChevronLeft size={20} aria-hidden="true" />{current ? 'この本' : newBookBackLabel}</button>
             {/* 右端は「…」（すべての本・本の詳細と同じ形）。中はヘルプ（？の丸を単独で置かない・2026-09-30）。 */}
             <button
               type="button"
