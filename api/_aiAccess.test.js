@@ -118,9 +118,16 @@ describe('decideAiAccess（フリーミアム）', () => {
   it('無料のトークンが 0（AI_FREE_TOKENS=0）なら相談も plan_required', () => {
     expect(decideAiAccess({ entitlement: {}, purpose: 'consult', freeAllowance: 0, env: ENV }).errorCode).toBe('plan_required');
   });
-  it('isFreePurpose は consult だけ', () => {
+  it('isFreePurpose は consult と book_brief（この本で学べること・2026-10-08）だけ', () => {
     expect(isFreePurpose('consult')).toBe(true);
+    expect(isFreePurpose('book_brief')).toBe(true);
     expect(isFreePurpose('advisor')).toBe(false);
+    expect(isFreePurpose('setup_sheet')).toBe(false);
+  });
+  it('契約なし: この本で学べることは相談と同じ無料のトークンで通す・使い切ったら free_limit_reached', () => {
+    expect(decideAiAccess({ entitlement: {}, purpose: 'book_brief', freeAllowance: 30, env: ENV })).toEqual({ allow: true, tier: 'free' });
+    expect(decideAiAccess({ entitlement: {}, purpose: 'book_brief', freeAllowance: 30, freeUsedMjpy: 9000, env: ENV }).errorCode).toBe('free_limit_reached');
+    expect(decideAiAccess({ entitlement: {}, purpose: 'book_brief', freeAllowance: 0, env: ENV }).errorCode).toBe('plan_required');
   });
 });
 

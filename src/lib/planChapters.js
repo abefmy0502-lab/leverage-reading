@@ -43,6 +43,7 @@ export function focusLinesOf(sheet) {
 }
 
 function lineIsGrounded(line, allowedNorm) {
+  // allowedNorm は norm 済みの許可する文字列（dropUnknownChapters の中）。外からは isLineGrounded を使う。
   const quotes = [...String(line).matchAll(/『([^』\n]+)』/g)].map((m) => norm(m[1])).filter(Boolean);
   for (const q of quotes) {
     const ok = allowedNorm.some((a) => a.includes(q) || (a.length >= 4 && q.includes(a)));
@@ -53,6 +54,15 @@ function lineIsGrounded(line, allowedNorm) {
     if (!allowedNorm.some((a) => a.includes(n))) return false;
   }
   return true;
+}
+
+/**
+ * 1 行が、許可する文字列（目次の項目・この本の書名）に無い『章名』・章番号を含まないか（2026-10-08・この本で学べること）。
+ * 『』の中が許可する文字列のどれかに含まれる（または 4 字以上の項目を含む）なら OK・「第3章」は同じ番号が許可する文字列にあれば OK。
+ */
+export function isLineGrounded(line, allowed = []) {
+  const allowedNorm = (Array.isArray(allowed) ? allowed : []).map(norm).filter(Boolean);
+  return lineIsGrounded(line, allowedNorm);
 }
 
 /**

@@ -53,6 +53,7 @@ import { findDuplicateBook } from '../lib/checkDuplicate';
 import { filterProseTitles, proseTitleLists } from '../lib/advisorProse';
 import { dropSummarySection, introTextOf } from '../lib/advisorSummary';
 import { useEdgeSwipeBack } from '../hooks/useEdgeSwipeBack';
+import { useComposerHeight } from '../hooks/useComposerHeight';
 
 const AdvisorHistoryList = lazy(() => import('./AdvisorHistory').then((m) => ({ default: m.AdvisorHistoryList })));
 const AdvisorSessionDetail = lazy(() => import('./AdvisorHistory').then((m) => ({ default: m.AdvisorSessionDetail })));
@@ -293,34 +294,13 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     if (messages.length <= prev) return;
     setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }), 30);
   }, [messages]);
-  // Auto-grow textarea: clamp 60–200px, scroll past 200.
+  // 入力欄は書いた量に合わせて伸びる（空は 1 行 44・5 行を超えたら中を送る＝上限は CSS の max-height・相談と同じ）。
   const inputRef = useRef(null);
-  // 答え・直しの入力欄（同じ下の欄の場所に、いまの段階のものを 1 つだけ出す）。
+  // 文字の大きさが変わったときも測り直す（hooks/useComposerHeight.js・2026-10-08 ui-critic）。
+  useComposerHeight(inputRef, input, !interview && !interviewLoading && !recoLoading && !recommendations);
+  // 答え・直しの入力欄（問いのカード・確かめるカードの中）も同じ測り方（空は 1 行・5 行を超えたら中を送る）。
   const answerRef = useRef(null);
-  // 下限は実際の 1 行ぶん（行の高さ＋上下の内側＋枠）。文字を大きくしても 1 行目が切れない（2026-10-08 ui-critic）。
-  const growAll = () => {
-    for (const el of [inputRef.current, answerRef.current]) {
-      if (!el) continue;
-      let floor = 44;
-      try {
-        const cs = window.getComputedStyle(el);
-        const lh = parseFloat(cs.lineHeight) || (parseFloat(cs.fontSize) || 17) * 1.5;
-        floor = Math.max(44, Math.ceil(lh + parseFloat(cs.paddingTop || 0) + parseFloat(cs.paddingBottom || 0)
-          + parseFloat(cs.borderTopWidth || 0) + parseFloat(cs.borderBottomWidth || 0)));
-      } catch { /* noop */ }
-      el.style.height = 'auto';
-      el.style.height = Math.min(Math.max(el.scrollHeight + 2, floor), Math.max(200, floor)) + 'px';
-    }
-  };
-  const growRef = useRef(growAll);
-  useEffect(() => { growRef.current = growAll; });
-  useEffect(() => { growAll(); // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [input, answerText, correctionText, interview, correcting, interviewLoading, recoLoading, summaryStep]);
-  useEffect(() => {
-    const onResize = () => growRef.current();
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
+  useComposerHeight(answerRef, `${answerText}\u0000${correctionText}`, !!interview || correcting);
 
   // Parse the new richer response: leading prose + JSON recs + trailing prose.
   // 表示用: RECOMMENDATIONS ブロック（マーカー + JSON）を本文から取り除く。

@@ -7,7 +7,7 @@
 //
 // ⚠️ 挙動は抽出前と不変。識別子名・props も不変（App.jsx 側の呼び出しはそのまま）。
 
-import { useState, useRef, useEffect, useId } from 'react';
+import { useState, useRef, useEffect, useId, useLayoutEffect } from 'react';
 import { todayLocal, fmtDateJa } from '../lib/dates';
 import { ensureHttps } from '../lib/url';
 import { toMessage } from '../lib/errors';
@@ -299,6 +299,7 @@ export function BeforePhase({
   onAddRelatedBook,
   addingTitles,
   savedAsBefore = true, // 編集を始めたときにすでに積読だったか（そのときだけ保存で読書中に進む）
+  briefSlot = null, // 📖 この本で学べること（App.jsx が BookBrief variant="fold" を渡す・得たいことの欄の上・2026-10-08）
 }) {
   const [editInstruction, setEditInstruction] = useState('');
   const submitEdit = () => {
@@ -321,6 +322,15 @@ export function BeforePhase({
     // 開いたときの 1 回だけ
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // 仮説の欄は中身の高さまで伸ばす（「この本で学べること」の仮説の例を足すと 3 行を超え、欄の中で 1 行目が欠けていた・2026-10-08 ui-critic）。
+  const hypothesisRef = useRef(null);
+  useLayoutEffect(() => {
+    const el = hypothesisRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight + 2}px`; // 枠の上下 1px ずつ
+  }, [form.hypothesis]);
 
   // 読書計画シートを作りはじめたら、下に出る形（スケルトン）を 1 回だけ画面に入れる
   // （ボタンが画面の下の方にあると、押しても何も起きていないように見えるため・2026-09-29）。
@@ -348,6 +358,9 @@ export function BeforePhase({
       <Field label="読書開始日">
         <input type="date" value={form.startDate || ""} data-empty={form.startDate ? undefined : DATE_HINT} onChange={(e) => setForm({ ...form, startDate: e.target.value })} style={dateInp(form.startDate)} />
       </Field>
+
+      {/* 📖 読む前に「この本で何を学べるか」をつかんでから、得たいこと・課題・仮説を書く（2026-10-08 オーナー）。 */}
+      {briefSlot}
 
       {/* ⚠️ 得たいこと〜読書計画シートは AI にゲートしない。AI を使わない / 月次上限 /
           オフラインのユーザーも、得たいことさえ書けば読書を開始できる（AI は任意の補助）。 */}
@@ -379,6 +392,7 @@ export function BeforePhase({
 
       <Field label="現在の課題">
         <textarea
+          aria-label="現在の課題"
           value={form.currentChallenge || ""}
           onChange={(e) => setForm({ ...form, currentChallenge: e.target.value })}
           placeholder="例：初回商談で信頼構築に時間がかかる"
@@ -390,9 +404,11 @@ export function BeforePhase({
 
       <Field label="仮説">
         <textarea
+          aria-label="仮説"
+          ref={hypothesisRef}
           value={form.hypothesis || ""}
           onChange={(e) => setForm({ ...form, hypothesis: e.target.value })}
-          placeholder="例：短時間で信頼を築くフレームワークが学べる"
+          placeholder="例：信頼を築く型を学べば、初回商談が短くなるのでは"
           rows={3}
           style={ta}
           maxLength={LIMITS.memoText}

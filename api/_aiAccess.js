@@ -6,7 +6,7 @@
 // トークン＝ceil(原価の円 ÷ AI_TOKEN_JPY) に直して見せる。
 //
 // プランと 1 か月に使えるトークン（env で変えられる）:
-//   - 無料（契約なし）: AI は 💬 相談（purpose: 'consult'）だけ・AI_FREE_TOKENS（既定 30＝相談 約 3 回）。
+//   - 無料（契約なし）: AI は 💬 相談（purpose: 'consult'）と 📖 この本で学べること（'book_brief'）だけ・AI_FREE_TOKENS（既定 30＝相談 約 3 回）。
 //     行のキーは 'free-YYYY-MM'（日本時間の月）。数えられないときは使わせない（fail-closed）。
 //     📷 写真から書き起こし（purpose: 'ocr'）だけは別枠で 1 か月 AI_FREE_OCR_PER_MONTH 回（既定 10・行は
 //     'freeocr-YYYY-MM'・2026-10-02）。相談のトークンは使わない。下の「写真から書き起こし」の節。
@@ -29,7 +29,8 @@ const num = (v, d) => {
 };
 
 // 無料で使える用途（purpose）。相談の本ごとの答え方も purpose は 'consult'。
-export const FREE_PURPOSES = new Set(['consult']);
+// 📖 この本で学べること（'book_brief'・2026-10-08）も、相談と同じ無料のトークンから（1 回 約 1〜2 トークン・Flash-Lite）。
+export const FREE_PURPOSES = new Set(['consult', 'book_brief']);
 export function isFreePurpose(purpose) {
   return typeof purpose === 'string' && FREE_PURPOSES.has(purpose);
 }

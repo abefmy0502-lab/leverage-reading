@@ -156,7 +156,7 @@ describe('AI に送る道は関所の 2 か所だけ', () => {
     const entries = {
       'components/MyBookBrain.jsx': ['consult'],
       'components/BookAdvisor.jsx': ['advisor_interview'],
-      'App.jsx': ['setup_sheet', 'setup_sheet_edit'],
+      'App.jsx': ['setup_sheet', 'setup_sheet_edit', 'book_brief'],
       'components/QuickMemoSheet.jsx': ['condense'],
       'components/BookMemoEditor.jsx': ['condense'],
       'components/BookMemoList.jsx': ['cards_to_summary'],

@@ -155,7 +155,7 @@ export default function BottomSheet({ title, onClose, children, footer, dismissL
         {footer && (
           // data-sheet-footer: ui-shots が iPhone の下の安全域（34）をまねて足す目印（scripts/ui-shots.mjs の SAFE_BOTTOM）。
           // data-toast-above: 知らせ（Toast）はこの欄の上端より上に浮かべる（ボタンが 2〜3 つの欄に重ねない・2026-10-04）。
-          <div data-sheet-footer="" data-toast-above="" style={{ borderTop: '1px solid var(--separator)', padding: 'var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom, 0px))' }}>
+          <div data-sheet-footer="" data-toast-above="" style={{ borderTop: '1px solid var(--separator)', padding: 'var(--space-3) var(--space-4) calc(var(--space-3) + var(--safe-bottom-kb))' }}>
             {footer}
           </div>
         )}

@@ -115,7 +115,7 @@ const footerStyle = {
   flexShrink: 0,
   display: 'flex',
   gap: 'var(--space-3)',
-  padding: 'var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom, 0px))',
+  padding: 'var(--space-3) var(--space-4) calc(var(--space-3) + var(--safe-bottom-kb))',
   borderTop: '1px solid var(--separator)',
   background: 'var(--surface)',
 };

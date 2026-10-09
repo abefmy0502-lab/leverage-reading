@@ -6,6 +6,7 @@ import { ROUTES, PURPOSES, JEV_ROUTES, JEV_PURPOSES, JEV_CONSENT_VERSION, JEV_PR
 import {
   AI_FEATURES, AI_PURPOSE_PROVIDER, AI_PROVIDER_NAMES, AI_CONSENT_EXEMPT_PURPOSES, AI_FALLBACK_PROVIDER,
   AI_CONSENT_VERSION, AI_JEV_ON, providersFor, featureForPurpose, processorSignature, buildAiProcessors, JEV_PURPOSE_FEATURE,
+  CONSENT_COVERED_BY,
 } from './aiProcessors';
 
 // 版ごとの「会社と用途の組み合わせ」。送り先を変えたら、AI_CONSENT_VERSION を上げてここに足す
@@ -48,6 +49,19 @@ describe('送り先は api/_aiRouting.js の既定と同じ', () => {
 
   it('送り先を変えたら版を上げる（いまの版の組み合わせと同じ）', () => {
     expect(CONSENT_SIGNATURES[AI_CONSENT_VERSION], `AI_CONSENT_VERSION ${AI_CONSENT_VERSION} の組み合わせを CONSENT_SIGNATURES に足す`).toBe(processorSignature());
+  });
+
+  it('ほかの用途の同意に含まれる用途（この本で学べること）は、同じ機能の行・同じ会社で、送るものもその行に書いてある', () => {
+    expect(CONSENT_COVERED_BY).toEqual({ book_brief: 'setup_sheet' });
+    for (const [p, parent] of Object.entries(CONSENT_COVERED_BY)) {
+      expect(ROUTES[p], p).toBeTruthy();
+      expect(AI_PURPOSE_PROVIDER[p], p).toBe(AI_PURPOSE_PROVIDER[parent]);
+      expect(featureForPurpose(p)?.id, p).toBe(featureForPurpose(parent)?.id);
+    }
+    // この本で学べることが送るもの（lib/ai.js の generateBookBrief）は、読書計画シートの行の「送るもの」に入っている
+    const sends = featureForPurpose('book_brief').sends;
+    for (const w of ['書名', '著者', '得たいこと', '本の紹介と目次']) expect(sends).toContain(w);
+    expect(providersFor(featureForPurpose('book_brief'))).toEqual(['Google']);
   });
 
   it('VITE_AI_JEV が無ければ（既定）Jev は入らず版 1', () => {

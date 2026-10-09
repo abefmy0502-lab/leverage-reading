@@ -200,7 +200,7 @@ function TextEditModal({ title, initialText, onClose, onSave, maxLength }) {
           />
           {errorMsg && <p role="alert" style={{ color: 'var(--error)', fontSize: 'var(--text-meta)', margin: 'var(--space-2) 0 0', lineHeight: 1.5 }}>{errorMsg}</p>}
         </div>
-        <div style={{ display: 'flex', gap: 'var(--space-3)', padding: 'var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom, 0px))', borderTop: '1px solid var(--separator)' }}>
+        <div style={{ display: 'flex', gap: 'var(--space-3)', padding: 'var(--space-3) var(--space-4) calc(var(--space-3) + var(--safe-bottom-kb))', borderTop: '1px solid var(--separator)' }}>
           <button type="button" onClick={onClose} style={{ ...btnGhost, flex: 1 }}>キャンセル</button>
           <button type="button" onClick={save} disabled={busy} style={{ ...(busy ? btnPrimaryOff : btnPrimary), flex: 1 }}>
             {busy ? '保存中…' : '保存'}
