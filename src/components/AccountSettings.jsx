@@ -36,7 +36,7 @@ import { openBillingPortal } from '../lib/billing';
 import { isNative, openManageSubscriptions, canRedeemOfferCode, presentOfferCodeSheet, invalidateCustomerInfo, waitForCodeSheetClosed } from '../lib/iap';
 import { usePaywall } from '../state/PaywallContext';
 import { planNameFor, trialRenewalLine, trialCancelNote, trialCancelByTime } from '../lib/trialNudge';
-import { PAID_TOKENS, TOKEN_COSTS, FREE_TOKENS } from '../lib/tokens';
+import { PAID_TOKENS, FREE_TOKENS, TOKEN_COSTS, CONSULT_ANSWERS_NOTE } from '../lib/tokens';
 import { FREE_OCR_PER_MONTH } from '../lib/tokenAmounts';
 import { nextResetLabelJa } from '../lib/freeTrial';
 import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff, btnDanger, btnLink, input as uiInput } from '../styles/ui';
@@ -378,7 +378,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
   const { subscription, isActive, loading: subLoading, refresh: refreshSub } = useSubscription();
   // 🪙 プランと残りのトークン（PaywallGate が配る）。契約は「プランを見る」→ 有料プランの画面で
   //    （価格・自動更新の条件・復元・規約を 1 か所で見せる＝審査 3.1.2）。
-  const { plan, tokensRemaining, tokenAllowance, openPaywall, purchasedTokens, purchasedExpiresAt, canBuyTokens, openTokenSheet, refreshPlan } = usePaywall();
+  const { plan, tokensRemaining, tokenAllowance, freeFirstMonth, tokenNextAllowance, openPaywall, purchasedTokens, purchasedExpiresAt, canBuyTokens, openTokenSheet, refreshPlan } = usePaywall();
   // 🎟 コードを使う（オファーコード・2026-10-08）: iPhone のアプリだけ（lib/iap.js の canRedeemOfferCode）。
   //   Apple のコード入力の画面を開き、閉じたあとに契約の状態を何度か読み直す（結果は画面から返らないため）。
   //   お試しモードは &native=1 で行を出す（押しても Apple の画面は開かない）。
@@ -1038,7 +1038,10 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                     label="今月の残り"
                     value={`${fmtTokens(tokensRemaining)} / ${fmtTokens(tokenAllowance)} トークン`}
                     // まだ使っていない（残り＝その月の分）ときは「戻ります」を出さない（2026-09-30）。
-                    sub={tokensRemaining >= tokenAllowance ? null : <><span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}に</span> <span style={{ whiteSpace: 'nowrap' }}>{fmtTokens(tokenAllowance)} トークンに戻ります</span></>}
+                    // 🌱 はじめの月（アカウントを作った月）は、今月だけ多いことと来月からの量を（2026-10-09）。
+                    sub={freeFirstMonth
+                      ? <><span style={{ whiteSpace: 'nowrap' }}>はじめの月だけ {fmtTokens(tokenAllowance)} トークン。</span><span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}から</span> <span style={{ whiteSpace: 'nowrap' }}>毎月 {fmtTokens(tokenNextAllowance ?? FREE_TOKENS)} トークン</span></>
+                      : tokensRemaining >= tokenAllowance ? null : <><span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}に</span> <span style={{ whiteSpace: 'nowrap' }}>{fmtTokens(tokenNextAllowance ?? tokenAllowance)} トークンに戻ります</span></>}
                     style={divider}
                   />
                 ) : tokensLoading ? (
@@ -1047,7 +1050,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                 {lotRow}
                 <div style={{ ...blockStyle, ...divider }}>
                   <p style={noteStyle}>
-                    無料プランはずっと無料で、AI は相談（<span style={{ whiteSpace: 'nowrap' }}>1 回 約 {TOKEN_COSTS.consult} トークン</span>）と<span style={{ whiteSpace: 'nowrap' }}>写真から書き起こし</span>（<span style={{ whiteSpace: 'nowrap' }}>毎月 {FREE_OCR_PER_MONTH} 回</span>）。プランは<span style={{ whiteSpace: 'nowrap' }}>毎月 {PAID_TOKENS.toLocaleString()} トークン</span>で、<span style={{ whiteSpace: 'nowrap' }}>すべての AI 機能。</span>
+                    無料プランはずっと無料で、AI は相談（<span style={{ whiteSpace: 'nowrap' }}>AI の答え 1 回 約 {TOKEN_COSTS.consult} トークン</span>）と<span style={{ whiteSpace: 'nowrap' }}>写真から書き起こし</span>（<span style={{ whiteSpace: 'nowrap' }}>毎月 {FREE_OCR_PER_MONTH} 回</span>）。{/* 相談 1 つが何回の答えか（設定ではここで 1 回だけ・「、」の後で折り返す・2026-10-09） */}{CONSULT_ANSWERS_NOTE.split('、').map((part, i, all) => <span key={part} style={{ whiteSpace: 'nowrap' }}>{part}{i < all.length - 1 ? '、' : '。'}</span>)}プランは<span style={{ whiteSpace: 'nowrap' }}>毎月 {PAID_TOKENS.toLocaleString()} トークン</span>で、<span style={{ whiteSpace: 'nowrap' }}>すべての AI 機能。</span>
                   </p>
                   <button
                     type="button"

@@ -13,7 +13,7 @@ describe('商品（packs）', () => {
   it('既定は 300 / 1,000 トークン（画面の写しと同じ）', () => {
     expect(tokenPacks({})).toEqual([{ id: 'orime_tokens_300', tokens: 300 }, { id: 'orime_tokens_1000', tokens: 1000 }]);
     expect(TOKEN_PACKS.map((p) => [p.id, p.tokens])).toEqual(tokenPacks({}).map((p) => [p.id, p.tokens]));
-    expect(TOKEN_PACKS.map((p) => p.consults)).toEqual(['約 30 回分', '約 100 回分']);
+    expect(TOKEN_PACKS.map((p) => p.consults)).toEqual(['約 30 回分', '約 100 回分']); // AI の答え 1 回 約 10 トークン（2026-10-09）
   });
   it('env AI_TOKEN_PACKS で上書き（壊れた指定は既定）', () => {
     expect(tokenPacks({ AI_TOKEN_PACKS: 'a:100, b:250' })).toEqual([{ id: 'a', tokens: 100 }, { id: 'b', tokens: 250 }]);

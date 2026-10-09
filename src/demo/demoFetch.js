@@ -900,6 +900,7 @@ export function installDemoFetch(store) {
       }
       // 本番（api/claude.js・api/_aiAccess.js）と同じ決まりをまねる:
       //   契約なし＝無料プラン: 相談（purpose 'consult'）とこの本で学べること（'book_brief'）だけ・毎月 30 トークン（'free-YYYY-MM'）。ほかは 402 plan_required
+      //     🌱 アカウントを作った月（日本時間）だけ 60 トークン（本番はサーバーが auth の created_at で決める・2026-10-09）
       //   無料期間: 150 トークン（'trial-終わる日'）/ 有料: 毎月 800 トークン（'YYYY-MM'）→ 使い切ったら 429
       //   「最後の 1 回」: 使ったトークン（切り上げ）が上限未満なら始められる。
       const jstNow = new Date(Date.now() + 9 * 3600 * 1000);
@@ -925,7 +926,11 @@ export function installDemoFetch(store) {
       }
       const trialEnd = sub?.current_period_end ? new Date(Date.parse(sub.current_period_end) + 9 * 3600 * 1000) : null;
       const key = tier === 'free' ? `free-${month}` : tier === 'trial' ? `trial-${trialEnd ? trialEnd.toISOString().slice(0, 10) : month}` : month;
-      const allowance = tier === 'free' ? 30 : tier === 'trial' ? 150 : 800;
+      const createdMonth = (() => {
+        const t = Date.parse(store.session?.user?.created_at || '');
+        return Number.isFinite(t) ? new Date(t + 9 * 3600 * 1000).toISOString().slice(0, 7) : '';
+      })();
+      const allowance = tier === 'free' ? (createdMonth === month ? 60 : 30) : tier === 'trial' ? 150 : 800;
       const rows = store.table('ai_usage');
       let row = rows.find((r) => r.period_month === key);
       if (!row) { row = { user_id: store.session?.user?.id, period_month: key, calls: 0, cost_mjpy: 0 }; rows.push(row); }

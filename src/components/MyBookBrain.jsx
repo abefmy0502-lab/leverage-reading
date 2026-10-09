@@ -35,7 +35,7 @@ import { X, MessageCircle, History, BookOpenCheck, Target, Check, RotateCw, More
 import ContextMenu from './ContextMenu';
 import { usePaywall } from '../state/PaywallContext';
 import { nextResetLabelJa } from '../lib/freeTrial';
-import { TOKEN_COSTS, monthDayLabelJa } from '../lib/tokens';
+import { TOKEN_COSTS, monthDayLabelJa, remainingAnswersLabel } from '../lib/tokens';
 import { shouldShowTrialNudge, trialNudgeCopy, isTrialNudgeDone, markTrialNudgeDone, normalizeTrialLabel, trialCancelShortLine } from '../lib/trialNudge';
 import { getIntroOffer } from '../lib/iap';
 import { firstAnswerTrialGroup, isFirstAnswerTrialMoment, canOfferFirstAnswerTrial, holdGrownNudge, firstAnswerTrialText, isFirstAnswerTrialDone, markFirstAnswerTrialDone } from '../lib/firstAnswerTrial';
@@ -430,7 +430,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const cache = useAppDataCache();
   // 🪙 プランと残りのトークン（src/lib/tokens.js・止めるのはサーバー）。上部に 1 行「今月の残り N トークン」。
   //    無料プラン（相談だけ）で使い切ったら、答えの下で静かに案内＋有料プランの画面へ。
-  const { plan, freeMode, trialEndsAt, tokensRemaining, tokenAllowance, purchasedTokens, tokensAvailable, canBuyTokens, openTokenSheet, refreshTokens, openPaywall, hadPlan } = usePaywall();
+  const { plan, freeMode, trialEndsAt, tokensRemaining, tokenAllowance, freeFirstMonth, tokenNextAllowance, purchasedTokens, tokensAvailable, canBuyTokens, openTokenSheet, refreshTokens, openPaywall, hadPlan } = usePaywall();
   const [monthLimitHit, setMonthLimitHit] = useState(false); // トークンの上限に達した（サーバーの 429）
   // 🪙➕ トークンを買い足したら、上限の状態を解く（送れるように戻す）。
   useEffect(() => { if (purchasedTokens > 0) setMonthLimitHit(false); }, [purchasedTokens]);
@@ -2009,7 +2009,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             <span style={{ whiteSpace: 'nowrap' }}>{plan === 'trial' ? '無料期間' : '今月'}の残り {fmtTokens(tokensRemaining)}{purchasedTokens > 0 ? <> ＋追加 {fmtTokens(purchasedTokens)}</> : null} トークン</span>
             {/* 無料プラン・7 日間無料は「あと何回相談できるか」を添える（トークンだけでは量が分からない・2026-09-29）。追加分も数に入れる。 */}
             {/* 回数は次の行に置く（「・」でつなぐと 390 幅で途中から折り返して、どこで切れるかが毎回変わる・2026-09-30）。 */}
-            {(freeMode || plan === 'trial') && tokensRemaining + (purchasedTokens || 0) > 0 && <span style={{ display: 'block', whiteSpace: 'nowrap' }}>相談 約 {consultsLeft(tokensRemaining + (purchasedTokens || 0), TOKEN_COSTS.consult)} 回</span>}
+            {/* 数える単位は「AI の答え」（1 回 約 10 トークン・2026-10-09）。 */}
+            {/* 🌱 無料プランのはじめの月は「（はじめの月は 60 トークン）」を添える（来月から 30 になることを先に知らせる）。 */}
+            {(freeMode || plan === 'trial') && tokensRemaining + (purchasedTokens || 0) > 0 && <span style={{ display: 'block' }}><span style={{ whiteSpace: 'nowrap' }}>AI の答え {remainingAnswersLabel(tokensRemaining + (purchasedTokens || 0))}</span>{freeMode && freeFirstMonth && <span style={{ whiteSpace: 'nowrap' }}>（はじめの月は {fmtTokens(tokenAllowance)} トークン）</span>}</span>}
           </span>
         )}
         {/* 上限に達したときの「◯月1日から」は、答えの吹き出しと入力欄に出す（同じ日付を 3 回並べない）。 */}
@@ -2218,7 +2220,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 {/* 🎁 無料プランで今月のトークンを使い切った（2026-10-01）: 相談はメモから探して答える（メモが答える相談）ので、
                     行き止まりにせず、案内カード（プランは文字ボタン）の下に見出しと相談例をいつもどおり出す。 */}
                 {freeUsedUp && (
-                  <FreeUsedCard tokenAllowance={tokenAllowance} onOpen={() => openPaywall('free_used')} style={{ marginBottom: 'var(--space-6)' }} />
+                  <FreeUsedCard tokenAllowance={tokenNextAllowance ?? tokenAllowance} onOpen={() => openPaywall('free_used')} style={{ marginBottom: 'var(--space-6)' }} />
                 )}
                 {showNudge && (
                   <TrialNudgeCard
@@ -2338,7 +2340,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           {/* 無料プランで今月のトークンを使い切ったら、答えの下（まだ話していなければ例の下）で静かに案内
               （読み終えるまで画面を奪わない） */}
           {freeUsedUp && !busy && lastIsAssistant && !isEmpty && !lastIsMemoAnswer && (
-            <FreeUsedCard tokenAllowance={tokenAllowance} onOpen={() => openPaywall('free_used')} style={{ marginTop: 'var(--space-6)', marginLeft: ANSWER_COLUMN }} />
+            <FreeUsedCard tokenAllowance={tokenNextAllowance ?? tokenAllowance} onOpen={() => openPaywall('free_used')} style={{ marginTop: 'var(--space-6)', marginLeft: ANSWER_COLUMN }} />
           )}
           {/* 🪙➕ プランの人がトークンを使い切ったら「トークンを追加」（答えの欄に案内が出ているのでボタンだけ。
               まだ話していないときの案内カードは、相談例の代わりに一番上に出す＝上の TokensOutCard） */}
@@ -2672,6 +2674,7 @@ function FirstAnswerTrialCard({ text, onOpen, onDismiss, onSeen = null, style = 
 // 🎁 無料プランで今月のトークンを使い切ったときの案内カード（会話の場所のいちばん上・AI の答えの下で共通）。
 // 2026-10-01: 相談はメモから探して答える（メモが答える相談・AI なし）ので、行き止まりの形（主ボタン「プランを見る」＋
 //   「メモを検索して探す」）をやめ、そのことを 1 文で言い、「プランを見る」は文字ボタンに（押し付けない）。
+// tokenAllowance: 来月 1 日に戻る量（はじめの月の人も来月は毎月の量）。
 function FreeUsedCard({ tokenAllowance, onOpen, style = null }) {
   return (
     <section aria-label="今月のトークンは、ここまで" style={{ ...cardStyle, ...style }}>

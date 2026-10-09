@@ -11,6 +11,8 @@ export const PaywallContext = createContext({
   freeMode: false, // 無料プラン（契約なし）
   trialEndsAt: null, // 無料期間が終わる日時（無料期間のときだけ）
   tokenAllowance: null,
+  freeFirstMonth: false, // 🌱 無料プランのはじめの月（アカウントを作った月・今月は 60 トークン）
+  tokenNextAllowance: null, // 来月 1 日に戻る量（はじめの月の人も来月は毎月の量）
   tokensRemaining: null,
   purchasedTokens: 0, // 追加トークン（買い足し）の残り（期限内）
   purchasedExpiresAt: null, // 追加分のいちばん近い期限
