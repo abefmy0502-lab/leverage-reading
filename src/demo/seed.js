@@ -4,6 +4,7 @@
 // 日付は起動時点からの相対（daysAgo）で生成するので、いつ開いても自然に見える。
 
 import { appNow } from '../lib/appNow';
+import { VIEWPOINT_TAGS } from '../lib/viewpointMap';
 
 export const DEMO_USER_ID = '00000000-0000-4000-8000-00000000d3e0';
 
@@ -347,6 +348,11 @@ export function buildSeed(scenario) {
       24: ['人を育てる'], 25: ['チームづくり'], 26: ['チームづくり'], 27: ['問いを立てる'], 28: ['伝え方'], 29: ['段取り'],
     };
     db.book_memos.forEach((m, i) => { if (MAP_TAGS[i]) m.tags = [...(m.tags || []), ...MAP_TAGS[i]]; });
+  }
+  // &viewmap=notags: 使っているが、地図のタグが付いたメモが 1 件も無い人（「習慣」など地図と同じ名前の自分のタグも外す）。
+  if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('viewmap') === 'notags') {
+    const mapTags = new Set(VIEWPOINT_TAGS);
+    db.book_memos.forEach((m) => { m.tags = (m.tags || []).filter((t) => !mapTags.has(t)); });
   }
 
   // ?demo=recalldone: 思い出しカードを今日の分まで答え終えた人（すべてのメモを昨日「覚えた」・次に出るのは 2 日後）。

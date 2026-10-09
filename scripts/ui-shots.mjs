@@ -184,7 +184,7 @@ const SCREENS = [
       { name: 'viewmap-save-fail', url: '/?viewmap=off&viewmapsave=fail', steps: [...REC, { scrollBottom: true }, { css: 'button:has-text("視点の地図を作れます")' }, { wait: 500 }, { css: '[role=dialog] button:has-text("視点の地図を使う")' }, { wait: 600 }] },
       { name: 'viewmap-stop-undo', url: '/?viewmap=on', steps: [...REC, { scrollTo: 'h3:has-text("月別の読了")' }, { css: 'button[aria-label="視点の地図の操作"]' }, { css: '[role=menu] button:has-text("使うのをやめる"), button:has-text("使うのをやめる")' }, { wait: 500 }] },
       { name: 'viewmap-back', url: '/?viewmap=on', steps: [...REC, { scrollTo: 'h3:has-text("月別の読了")' }, { css: 'button[aria-label="決め方のメモ 3 件を見る"]' }, { wait: 800 }, { css: 'button:has-text("視点の地図")' }, { wait: 1200 }] },
-      { name: 'viewmap-advisor-busy', url: '/?viewmap=on', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]', settle: 200 }, { css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }, { wait: 600 }, { scrollBottom: true }, { css: 'button[aria-label="お金の本を探す（AI 選書）"]', settle: 500 }] },
+      { name: 'viewmap-advisor-busy', url: '/?viewmap=on&ai=slow', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]', settle: 200 }, { css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }, { wait: 600 }, { scrollBottom: true }, { css: 'button[aria-label="お金の本を探す（AI 選書）"]', settle: 500 }] },
     ];
   })(),
   { name: 'settings', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }] },
