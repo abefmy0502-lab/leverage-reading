@@ -10,7 +10,8 @@
 // 変えたいときだけ:
 //   どの本？（ホームから開いたとき）… 今月／（12 月だけ）今年／読書中・読了の本を 1 タップで切り替え
 //   別の一文                         … 1 タップで次のメモへ（記録では「一文を外す」も）
-//   重ね方（見せ方）                 … 記録／数字（大きな数字を縦に積む）／一文。小さな見本を押す・プレビューを左右にスワイプ
+//   重ね方（見せ方）                 … 記録／数字（大きな数字を縦に積む）／一文／雑誌（本 1 冊でメモがあるときだけ・2026-10-09）。
+//                                      小さな見本を押す・プレビューを左右にスワイプ
 //   形                               … 投稿 4:5 ／ ストーリー 9:16（どちらも SNS で切られない範囲に文字を置く）
 //   地                               … 写真（撮り直す・アルバムから選ぶ）／紙／夜／表紙の色／透明（ステッカー）
 // Orime のロゴはどの 1 枚にも必ず入る（隠せない・2026-10-05 オーナー裁定）。
@@ -60,7 +61,7 @@ import { buildShareText, shareFilename, FORMATS } from '../lib/shareCardLayout';
 import {
   pickShareSubject, subjectChoices, bookRecord, monthRecord, yearRecord, yearChoiceAllowed, orderQuoteCandidates,
   orderYearQuoteCandidates, shareHashtags, yearMemoCountFor, quoteText,
-  swapQuote, swapQuoteLabel, availableVariants, defaultVariant, buildRecordShareText, fmtStamp,
+  swapQuote, swapQuoteLabel, availableVariants, defaultVariant, buildRecordShareText, fmtStamp, fmtMagazineStamp,
   shareItemsFor, applyShareItems, shareVisibility, readHiddenItems, writeHiddenItems,
   readSharePrefs, writeSharePrefs, stepVariant,
 } from '../lib/shareOverlay';
@@ -77,7 +78,8 @@ const FORMAT_OPTIONS = [
 ];
 // 重ね方の名前は、押す前に中身が分かる言葉で（2026-10-08 オーナー「記録、数字という意味が伝わりにくい」）。
 // コードの名前（record / stats / quote）と端末に覚える値は変えない。
-const VARIANT_LABELS = { record: '書名と数字', stats: '大きな数字', quote: '心に残った一文' };
+// 雑誌（magazine・2026-10-09）＝大きな引用＋続きの文＋右の本のカード（本 1 冊でメモがあるときだけ）。
+const VARIANT_LABELS = { record: '書名と数字', stats: '大きな数字', quote: '心に残った一文', magazine: '雑誌' };
 // フィルム＝写真の色を端末の中で整えた地（彩度を少し落とし・温かく・黒を少し持ち上げる・2026-10-08）。写真があるときだけ。
 const STYLE_LABELS = { photo: '写真', film: 'フィルム', paper: '紙', night: '夜', cover: '表紙の色', sticker: '透明' };
 const BG_OPTIONS = ['paper', 'night', 'cover', 'sticker'];
@@ -351,7 +353,7 @@ export default function ShareSheet({
     () => (period === 'year' ? orderYearQuoteCandidates(memos) : orderQuoteCandidates(memos, { preferId: initialMemoId })),
     [period, memos, initialMemoId],
   );
-  const variants = availableVariants(candidates.length > 0, (record.stats || []).length > 0);
+  const variants = availableVariants(candidates.length > 0, (record.stats || []).length > 0, { book: !isPeriod && !!subjectBook });
 
   // ---- 重ね方（見せ方）・一文・形・地。重ね方と形は前に選んだもの（端末に覚える）。メモから開いたときは一文。
   const prefs = useMemo(() => readSharePrefs(safeStorage()), []);
@@ -372,7 +374,9 @@ export default function ShareSheet({
   useEffect(() => {
     if (lastSubjectKey.current !== subjectKey) { lastSubjectKey.current = subjectKey; setQuoteIndex(0); }
   }, [subjectKey]);
-  const qi = candidates.length === 0 ? -1 : (variant === 'quote' && quoteIndex < 0 ? 0 : Math.min(quoteIndex, candidates.length - 1));
+    // 一文・雑誌は一文が主役なので「なし」にしない。
+  const quoteLed = variant === 'quote' || variant === 'magazine';
+  const qi = candidates.length === 0 ? -1 : (quoteLed && quoteIndex < 0 ? 0 : Math.min(quoteIndex, candidates.length - 1));
   const chosen = qi >= 0 ? candidates[qi] : null;
   // 一文の本（今月・今年の一文は、その一文を書いた本）。
   const lineBook = chosen && isPeriod ? ((books || []).find((b) => b.id === chosen.bookId) || null) : subjectBook;
@@ -390,7 +394,7 @@ export default function ShareSheet({
   const chooseVariant = (v) => {
     setVariantPref(v);
     writeSharePrefs(safeStorage(), { variant: v });
-    if (v === 'quote' && qi < 0) setQuoteIndex(0);
+    if ((v === 'quote' || v === 'magazine') && qi < 0) setQuoteIndex(0);
     haptic.light();
   };
 
@@ -511,7 +515,8 @@ export default function ShareSheet({
   const drawStyle = effStyle === 'film' ? 'photo' : effStyle;
   const drawPhoto = useMemo(() => (effStyle === 'film' && photo ? filmPhoto(photo) : photo), [effStyle, photo]);
   styleRef.current = drawStyle;
-  const needCover = drawStyle !== 'photo' && drawStyle !== 'sticker';
+  // 雑誌は写真・透明の上にも本のカード（表紙）を描くので、表紙を待つ。
+  const needCover = variant === 'magazine' || (drawStyle !== 'photo' && drawStyle !== 'sticker');
   const assets = baseAssets
     ? {
       ...baseAssets,
@@ -532,12 +537,13 @@ export default function ShareSheet({
 
   // 描く材料（書き出す 1 枚・動かしている間の 1 コマ・見本で共通）。
   const cardOpts = (v = variant) => {
-    const q = chosen || (v === 'quote' ? candidates[0] : null);
+    const q = chosen || (v === 'quote' || v === 'magazine' ? candidates[0] : null);
     const lb = q && isPeriod ? ((books || []).find((b) => b.id === q.bookId) || null) : subjectBook;
     return {
       layout: v,
       record,
-      stamp: fmtStamp(now),
+      // 雑誌の日付は「2026.10.09 FRI」（小さく・主役にしない）。
+      stamp: v === 'magazine' ? fmtMagazineStamp(now) : fmtStamp(now),
       line: q ? quoteText(q.text, v) : '',
       page: v === 'quote' && q && Number.isFinite(q.pageNumber) ? q.pageNumber : null,
       title: (v === 'quote' ? lb?.title : subjectBook?.title) || record.title || '',
@@ -548,7 +554,7 @@ export default function ShareSheet({
       // 今年の一文には見出し「2026」（記録の見出しと同じ部品・第 2 回 ui-critic）。
       kicker: period === 'year' && v === 'quote' ? String(now.getFullYear()) : '',
       cover: assets.cover,
-      covers: v !== 'quote' ? assets.covers : [],
+      covers: v !== 'quote' && v !== 'magazine' ? assets.covers : [],
       fonts: assets.fonts,
       logo: assets.logo,
       style: drawStyle,
@@ -694,7 +700,8 @@ export default function ShareSheet({
       //   （どの共有から入手されたかを数える・lib/storeCampaign.js）。無い間は今までどおり紹介ページ。画像には URL を入れない。
       const tags = shareHashtags(period, now, { finishedCount: (record.finishedBooks || []).length });
       const link = storeLinkFor(shareCampaign({ variant, period })) || SITE_URL;
-      const text = variant !== 'quote'
+      // 雑誌は一文と同じ（書名と一文）。
+      const text = variant !== 'quote' && variant !== 'magazine'
         ? buildRecordShareText({ record: applyShareItems(record, hidden), quote: card.line, siteUrl: link, tags })
         : buildShareText({ title: shareVisibility(hidden).title ? lineBook?.title : '', line: card.line, siteUrl: link, tags });
       const result = await shareImage({ blob: card.blob, filename, text });

@@ -10,7 +10,8 @@
 // （2026-10-01 オーナー裁定「orime.vercel.app の文字は確実に不要。ロゴのみでOK」・URL は共有の文にだけ）。
 // ロゴは必ず描く（2026-10-05 オーナー裁定「Orime のロゴはマストで入るように」・隠す項目に無い）。場所・大きさ・空きの
 // 決まりは shareOverlay.js の LOGO_RULES / logoBox。写真の上はロゴの下の明るさから幕を決める（drawLogoScrim）。
-// 重ね方は 3 つ: 記録（record）／数字（stats・大きな数字を真ん中に縦に積む）／一文（quote）。
+// 重ね方は 4 つ: 記録（record）／数字（stats・大きな数字を真ん中に縦に積む）／一文（quote）／雑誌（magazine・2026-10-09・
+// 大きな引用＋続きの文＋右の本のカード＋右上のロゴ＋下の小さな日付）。
 // 2 つの印（Strava の橙のルートにあたる「読んだ跡」）:
 //   傍線 … 一文の最後の行の下に、橙の手描きの線。メモごとに形が決まっている（メモの id と本文から種を作る）
 //   付箋 … 表紙の右の小口から橙の付箋がはみ出す（紙・夜・表紙の色の一文だけ。写真・透明は表紙も本の印も描かない）。
@@ -30,6 +31,7 @@ import {
 import {
   RECORD_QUOTE_MAX, recordFrame, placeRecordBlock, statColumns, splitStatValue, recordBlockPlan, recordTitleScale, recordTitleMaxLines,
   applyShareItems, shareVisibility, recordCoverPlacement, logoBox, LOGO_RULES, statsStackPlan, placeStatsStack, statColumnsScale, mainTitle, pickSubVariant, formatAuthors,
+  magazineRecord, magazineLogoBox, magazineFooterItems, MAGAZINE_TAGLINE_TOP,
 } from './shareOverlay';
 import { phraseLayout, phraseMetrics, phraseColors, phraseDisplayText, stickerPhraseReserve } from './sharePhrase';
 import { paletteFor } from './coverPalette';
@@ -339,6 +341,19 @@ function drawLogo(ctx, logo, variant, { x: x0, baseline, wordH: h0, fonts, ink }
   ctx.drawImage(word, x + markW + gap, baseline - wordH, wordW, wordH);
   ctx.restore();
   return markW + gap + wordW;
+}
+
+// ロゴの幅（drawLogo と同じ計算・描かない）。右にそろえて置くとき（雑誌の右上）に使う。
+function logoWidth(ctx, logo, variant, { wordH: h0, fonts }) {
+  const wordH = Math.max(LOGO_RULES.minWordH, Number(h0) || 0);
+  const set = logo?.[variant === 'white' ? 'white' : 'color'];
+  if (!set) {
+    ctx.font = `700 ${Math.round(wordH * 1.25)}px ${fonts.ui}`;
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+    return ctx.measureText('Orime').width;
+  }
+  const { mark, word } = set;
+  return (mark.width / mark.height) * wordH * 1.28 + wordH * 0.32 + (word.width / word.height) * wordH;
 }
 
 // ---------------------------------------------------------------- 描画の部品
@@ -1409,6 +1424,319 @@ function drawStatsSticker(ctx, o, size) {
   ctx.restore();
 }
 
+// ---------------------------------------------------------------- 雑誌（2026-10-09 オーナーの見本）
+//
+//                                           [本の印] Orime   … 右上・必ず入る（決まり LOGO_RULES の大きさ）
+//                                        READ. NOTE. GROW.   … 字間の広い英字のひとこと
+//   「正解を探すんじゃなくて、                              … 大きな引用（細い明朝 400・字間 0.14em・3 行まで・
+//     自分の問いを持ち続けること。」                            開き括弧は左へぶら下げる）
+//     答えはひとつじゃない。            ┌──┐ 書名           … 続きの文（小さく・3 行まで）と、右に本のカード
+//     むしろ、…                         │表│ 著者              （表紙・書名・著者だけ）
+//                                       └──┘
+//                    （写真を見せる余白）
+//   2026.10.09 FRI                YOUR BOOKS, YOUR ADVISOR.  … 下の行（日付は小さく・隠せる）
+// 数字の帯は作らない（2026-10-09 オーナー）。下の行の左には、あとで短い数を 1 つ（note）だけ添えられる。
+// 写真の上は、上のまとまりと下の行それぞれの明るさから、白い文字＋黒い幕／墨の文字＋白い幕を決める。
+const MAG_HEAD_TRACK = 0.14;
+// 引用は細く（ヒラギノ明朝 W3 など細い字があれば使う・無ければ 400）。
+const MAG_HEAD_WEIGHT = 300;
+const MAG_BODY_TRACK = 0.06;
+const MAG_TAG_TRACK = 0.32;
+const MAG_FOOT_TRACK = 0.24;
+
+function magazineStyle(format) {
+  const F = recordFrame(format);
+  const k = F.format === 'story' ? 1 : 0.92;
+  const r = (n) => Math.round(n * k);
+  return {
+    F,
+    k,
+    headSizes: [r(70), r(66), r(62), r(58), r(54), r(50), r(46)],
+    headLH: 1.62,
+    headGap: F.format === 'story' ? 72 : r(44), // ロゴのひとことの下から引用まで
+    bodySize: r(28),
+    bodyLH: 1.85,
+    bodyGap: r(36), // 引用の下から続きの文まで
+    coverW: r(104),
+    cardGap: r(26), // 表紙と書名の間
+    titleSize: r(34),
+    authorSize: r(30),
+    footSize: r(22),
+  };
+}
+
+// 文字の幅（字間つき・行末の字間は数えない）。
+function trackedMeasure(ctx, font, em, size) {
+  const m = measurer(ctx, font, em);
+  const trail = Math.round(em * size * 10) / 10;
+  return (s) => (s ? Math.max(0, m(s) - trail) : 0);
+}
+
+// 書名（括弧なし）を maxLines 行に。入らなければ副題を外し、それでも入らなければ最後の行を … で切る。
+function fitPlainTitle(ctx, title, { width, font, size, maxLines }) {
+  const m = trackedMeasure(ctx, font, TITLE_TRACK, size);
+  let lines = wrapBalanced(title, width, m);
+  if (lines.length > maxLines) {
+    const main = mainTitle(title);
+    if (main && main !== title) {
+      const short = wrapBalanced(main, width, m);
+      if (short.length <= maxLines) return short;
+    }
+    ctx.font = font;
+    setSpacing(ctx, TITLE_TRACK, size);
+    lines = [...lines.slice(0, maxLines - 1), ellipsize(ctx, lines.slice(maxLines - 1).join(''), width)];
+  }
+  return lines;
+}
+
+// 続きの文: 文の切れ目ごとに行を分け（見本のように 1 文 1 行）、入らない文は折り返す。3 行まで（最後は …）。
+function magazineBodyLines(ctx, fonts, body, { width, size }) {
+  if (!body) return [];
+  const font = `400 ${size}px ${fonts.ui}`;
+  const m = trackedMeasure(ctx, font, MAG_BODY_TRACK, size);
+  const sentences = String(body).match(/[^。！？!?]+[。！？!?]*[」』）)]*/gu) || [body];
+  const lines = [];
+  for (const sen of sentences) lines.push(...wrapBalanced(sen.trim(), width, m));
+  if (lines.length <= 3) return lines.filter(Boolean);
+  ctx.font = font;
+  setSpacing(ctx, MAG_BODY_TRACK, size);
+  return [lines[0], lines[1], ellipsize(ctx, `${lines.slice(2).join('')}`, width)];
+}
+
+// 組み（描く前に場所を決める＝写真の幕の範囲もここから）。
+function layoutMagazine(ctx, o) {
+  const S = magazineStyle(o.format);
+  const { F } = S;
+  const fonts = o.fonts;
+  const rec = o.magazine;
+  const LB = magazineLogoBox(F.format);
+  const left = F.margin;
+  const right = F.W - F.margin;
+  const contentW = right - left;
+  // 大きな引用（「＋最初の文＋」）。開き括弧は左の余白にぶら下げ、文字の左端を left + hang にそろえる。
+  const headTop = LB.clearBottom + S.headGap;
+  const headText = `${rec.quote.head}」`;
+  const fitOpts = {
+    maxWidth: contentW - S.headSizes[0],
+    maxHeight: 3 * S.headSizes[0] * S.headLH,
+    sizes: S.headSizes,
+    lineHeight: S.headLH,
+    measureAt: (size) => trackedMeasure(ctx, `${MAG_HEAD_WEIGHT} ${size}px ${fonts.read}`, MAG_HEAD_TRACK, size),
+  };
+  // 読点（、）で行を分けて、どの句も 1 行に入るいちばん大きな大きさがあれば、そこで改行する
+  // （「自分の｜問いを」のような切れ目を作らない・見本の組み）。
+  const clauses = headText.split(/(?<=、)/u).filter(Boolean);
+  let fit = null;
+  if (clauses.length >= 2 && clauses.length <= 3) {
+    for (const size of S.headSizes) {
+      const m = fitOpts.measureAt(size);
+      if (clauses.every((c) => m(c) <= fitOpts.maxWidth)) { fit = { size, lines: clauses, lineHeight: size * S.headLH }; break; }
+    }
+  }
+  if (!fit) fit = fitQuote(headText, fitOpts);
+  let headLines = fit.lines;
+  if (headLines.length > 3) {
+    ctx.font = `${MAG_HEAD_WEIGHT} ${fit.size}px ${fonts.read}`;
+    setSpacing(ctx, MAG_HEAD_TRACK, fit.size);
+    headLines = [headLines[0], headLines[1], `${ellipsize(ctx, headLines.slice(2).join('').replace(/」$/u, ''), contentW - fit.size * 2)}」`];
+  }
+  ctx.font = `${MAG_HEAD_WEIGHT} ${fit.size}px ${fonts.read}`;
+  setSpacing(ctx, 0, fit.size);
+  const hang = ctx.measureText('「').width;
+  const textX = left + hang;
+  const headBottom = headTop + headLines.length * fit.lineHeight;
+
+  // 本のカード（右）: 表紙・書名・著者。書名も著者も隠したときはカードごと出さない。
+  const showCard = o.showTitle !== false || o.showAuthor !== false;
+  const coverH = Math.round(S.coverW * 1.45);
+  const sideCardX = right - Math.round(contentW * 0.4);
+  // 続きの文（左・カードの左まで）。カードが無ければ幅いっぱい。
+  const bodyTop = headBottom + S.bodyGap;
+  const bodyW = showCard ? sideCardX - Math.round(40 * S.k) - textX : right - textX;
+  let bodyLines = magazineBodyLines(ctx, fonts, rec.quote.body, { width: bodyW, size: S.bodySize });
+  // カードの横で 3 行に入らない（… で切れる）ときは、続きの文を幅いっぱいにして、カードをその下（右）に置く。
+  let cardBelow = false;
+  if (showCard && bodyLines.length && /…$/u.test(bodyLines[bodyLines.length - 1]) && !/…$/u.test(rec.quote.body)) {
+    const wide = magazineBodyLines(ctx, fonts, rec.quote.body, { width: right - textX, size: S.bodySize });
+    if (wide.length < 3 || !/…$/u.test(wide[wide.length - 1])) { bodyLines = wide; cardBelow = true; }
+  }
+  const bodyLH = Math.round(S.bodySize * S.bodyLH);
+  const bodyBottom = bodyTop + bodyLines.length * bodyLH;
+  // カードは続きの文の高さに並べる（続きが無ければ引用の下・続きが長ければその下）。
+  // カードを続きの文の下に置くときは、幅を広く（書名・著者を細切れにしない）。
+  const cardX = cardBelow ? right - Math.round(contentW * 0.56) : sideCardX;
+  const colX = cardX + S.coverW + S.cardGap;
+  const colW = right - colX;
+  const titleFont = `600 ${S.titleSize}px ${fonts.read}`;
+  const titleLines = showCard && o.showTitle !== false && rec.title ? fitPlainTitle(ctx, rec.title, { width: colW, font: titleFont, size: S.titleSize, maxLines: 2 }) : [];
+  const authorFont = `400 ${S.authorSize}px ${fonts.ui}`;
+  let authorLines = [];
+  if (showCard && o.showAuthor !== false && rec.sub) {
+    authorLines = wrapBalanced(rec.sub, colW, trackedMeasure(ctx, authorFont, 0.04, S.authorSize));
+    if (authorLines.length > 2) {
+      ctx.font = authorFont;
+      setSpacing(ctx, 0.04, S.authorSize);
+      authorLines = [authorLines[0], ellipsize(ctx, authorLines.slice(1).join(''), colW)];
+    }
+  }
+  const titleLH = Math.round(S.titleSize * 1.4);
+  const authorLH = Math.round(S.authorSize * 1.5);
+  const textH = titleLines.length * titleLH + (titleLines.length && authorLines.length ? 12 : 0) + authorLines.length * authorLH;
+
+  const cardTop = cardBelow ? bodyBottom + Math.round(40 * S.k)
+    : bodyLines.length ? bodyTop + Math.round(bodyLH * 0.15) : headBottom + Math.round(48 * S.k);
+  const cardBottom = showCard ? cardTop + Math.max(coverH, textH) : 0;
+
+  // 下の行（日付・短い数の欄・英字のひとこと）。
+  const foot = magazineFooterItems({ stamp: o.stamp, note: rec.note });
+  const footBaseline = F.footerBaseline;
+  const footTop = footBaseline - Math.round(S.footSize * 1.1);
+
+  return {
+    S, F, LB, left, right, contentW, fit, headLines, headTop, headBottom, textX, hang,
+    showCard, cardX, cardTop, cardBottom, coverH, colX, colW, titleFont, titleLines, titleLH, authorFont, authorLines, authorLH, textH,
+    bodyLines, bodyTop, bodyLH, bodyBottom,
+    topBottom: Math.max(headBottom, bodyBottom, cardBottom),
+    foot, footBaseline, footTop,
+  };
+}
+
+// 右にそろえた字間つきの文字（最後の字の後ろの字間ぶん右へ＝墨の右端を余白にそろえる）。
+function fillRight(ctx, text, right, baseline, em, size) {
+  ctx.textAlign = 'right';
+  ctx.fillText(text, right + em * size, baseline);
+  ctx.textAlign = 'left';
+}
+
+function drawMagazineTop(ctx, o, lay, theme) {
+  const { S, LB, fonts } = { ...lay, fonts: o.fonts };
+  // ロゴ（右上）とひとこと
+  const lw = logoWidth(ctx, o.logo, theme.logo, { wordH: LB.wordH, fonts });
+  drawLogo(ctx, o.logo, theme.logo, { x: LB.right - lw, baseline: LB.baseline, wordH: LB.wordH, fonts, ink: theme.ink });
+  ctx.font = `400 ${LB.tagSize}px ${fonts.ui}`;
+  setSpacing(ctx, MAG_TAG_TRACK, LB.tagSize);
+  ctx.fillStyle = theme.ink2;
+  fillRight(ctx, MAGAZINE_TAGLINE_TOP, LB.right, LB.tagBaseline, MAG_TAG_TRACK, LB.tagSize);
+
+  // 大きな引用
+  const { fit } = lay;
+  ctx.font = `${MAG_HEAD_WEIGHT} ${fit.size}px ${fonts.read}`;
+  ctx.fillStyle = theme.ink;
+  const ascent = fit.size * 0.88;
+  const half = (fit.lineHeight - fit.size) / 2;
+  setSpacing(ctx, 0, fit.size);
+  ctx.fillText('「', lay.left, lay.headTop + half + ascent);
+  setSpacing(ctx, MAG_HEAD_TRACK, fit.size);
+  lay.headLines.forEach((ln, i) => ctx.fillText(ln, lay.textX, lay.headTop + i * fit.lineHeight + half + ascent));
+
+  // 続きの文
+  if (lay.bodyLines.length) {
+    ctx.font = `400 ${S.bodySize}px ${fonts.ui}`;
+    setSpacing(ctx, MAG_BODY_TRACK, S.bodySize);
+    ctx.fillStyle = theme.ink2;
+    lay.bodyLines.forEach((ln, i) => ctx.fillText(ln, lay.textX, lay.bodyTop + i * lay.bodyLH + lay.bodyLH * 0.7));
+  }
+
+  // 本のカード
+  if (lay.showCard) {
+    const coverTheme = { ...theme, bg: theme.bg || 'rgba(0,0,0,0.25)', shadow: theme.shadow || 'rgba(0,0,0,0.35)' };
+    drawCover(ctx, { x: lay.cardX, y: lay.cardTop, w: S.coverW, h: lay.coverH, cover: o.cover, title: o.magazine.title, theme: coverTheme, fonts, showText: o.showTitle !== false });
+    let y = lay.cardTop + Math.max(0, (lay.coverH - lay.textH) / 2);
+    ctx.fillStyle = theme.ink;
+    lay.titleLines.forEach((ln) => {
+      ctx.font = lay.titleFont;
+      setSpacing(ctx, TITLE_TRACK, S.titleSize);
+      ctx.fillText(ln, lay.colX, y + lay.titleLH * 0.78);
+      y += lay.titleLH;
+    });
+    if (lay.titleLines.length && lay.authorLines.length) y += 12;
+    ctx.fillStyle = theme.ink2;
+    lay.authorLines.forEach((ln) => {
+      ctx.font = lay.authorFont;
+      setSpacing(ctx, 0.04, S.authorSize);
+      ctx.fillText(ln, lay.colX, y + lay.authorLH * 0.72);
+      y += lay.authorLH;
+    });
+  }
+}
+
+// 下の行: 左に日付（と短い数の欄）、右に英字のひとこと。どれも小さく（主役にしない）。
+function drawMagazineFoot(ctx, o, lay, theme) {
+  const { S, fonts } = { ...lay, fonts: o.fonts };
+  ctx.font = `400 ${S.footSize}px ${fonts.ui}`;
+  setSpacing(ctx, MAG_FOOT_TRACK, S.footSize);
+  ctx.fillStyle = theme.ink2;
+  let x = lay.left;
+  lay.foot.left.forEach((it) => {
+    ctx.fillText(it.text, x, lay.footBaseline);
+    x += ctx.measureText(it.text).width + S.footSize * 1.6;
+  });
+  fillRight(ctx, lay.foot.right, lay.right, lay.footBaseline, MAG_FOOT_TRACK, S.footSize);
+}
+
+// 写真の上: 上のまとまり・下の行それぞれの帯の明るさから文字の色と幕を決める（記録と同じ決まり＝photoInkForBand）。
+function magazineBandInk(ctx, o, place, y0, y1, fill) {
+  const { W, H } = o;
+  const px = bandPixels(o.photo, place, W, H, y0, y1);
+  const bright = px && px.length ? brightLuminance(px) : 0.6;
+  const dark = px && px.length ? darkLuminance(px, PHOTO_INK_DARK_Q) : 0;
+  const fine = bandPixels(o.photo, place, W, H, y0, y1, 0, W, 216);
+  const texture = fine && fine.length ? bandTexture(fine, fine.width) : 0;
+  const pick = photoInkForBand({ bright, dark, texture }, photoInkLums());
+  if (pick.ink === 'dark') {
+    if (pick.veil > 0) drawScrim(ctx, W, H, cssVar('--share-photo-veil') || '244, 239, 230', fill(pick.veil));
+    return { ...darkInkTheme(o.theme), logo: 'color' };
+  }
+  drawScrim(ctx, W, H, o.theme.scrim, fill(pick.scrim));
+  return { ...o.theme, logo: 'white' };
+}
+
+function drawMagazineOverlay(ctx, o, place) {
+  const lay = layoutMagazine(ctx, o);
+  const { H } = o;
+  const gap = Math.max(0, lay.footTop - lay.topBottom);
+  const fade = Math.max(24, Math.min(H * 0.16, gap / 2 - 24));
+  const topEnd = lay.topBottom + 16;
+  const top = magazineBandInk(ctx, o, place, lay.LB.top - 8, lay.topBottom + 8, (a) => [[0, a], [topEnd, a], [Math.min(H, topEnd + fade), 0]]);
+  const footStart = lay.footTop - 16;
+  const foot = magazineBandInk(ctx, o, place, lay.footTop - 8, lay.footBaseline + 8, (a) => [[Math.max(0, footStart - fade), 0], [footStart, a], [H, a]]);
+  const sb = o.shadowScale || 1;
+  ctx.save();
+  ctx.shadowColor = top.shadow;
+  ctx.shadowBlur = 18 * sb;
+  ctx.shadowOffsetY = 2 * sb;
+  drawMagazineTop(ctx, o, lay, top);
+  ctx.shadowColor = foot.shadow;
+  drawMagazineFoot(ctx, o, lay, foot);
+  ctx.restore();
+}
+
+function drawMagazine(ctx, o) {
+  if (o.style === 'photo') {
+    const place = photoPlacement({ pw: o.photo.width, ph: o.photo.height, W: o.W, H: o.H, ...(o.view || {}) });
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(o.photo.source, place.x, place.y, place.w, place.h);
+    drawMagazineOverlay(ctx, o, place);
+    return;
+  }
+  const lay = layoutMagazine(ctx, o);
+  if (o.style === 'sticker') {
+    // 透明: 地は描かない・白い文字＋濃い影（下の写真が分からないので）
+    const theme = { ...o.theme, logo: 'white' };
+    ctx.save();
+    ctx.shadowColor = theme.shadow;
+    ctx.shadowBlur = 24;
+    ctx.shadowOffsetY = 3;
+    drawMagazineTop(ctx, o, lay, theme);
+    drawMagazineFoot(ctx, o, lay, theme);
+    ctx.restore();
+    return;
+  }
+  drawGround(ctx, o.W, o.H, o.theme, o.cover);
+  drawMagazineTop(ctx, o, lay, o.theme);
+  drawMagazineFoot(ctx, o, lay, o.theme);
+}
+
 // ---------------------------------------------------------------- 言葉の層（2026-10-01）
 //
 // 自分で入れる言葉（sharePhrase.js）を、いちばん上に描く。形は 4 つ:
@@ -1482,7 +1810,9 @@ export function layoutPhraseOn(ctx, o, W, H) {
     W,
     H,
     format: o.format,
-    sticker: o.style === 'sticker',
+    // 雑誌の透明は画像の大きさのまま（高さを中身に合わせない）・言葉は右上のロゴの下から。
+    sticker: o.style === 'sticker' && o.layout !== 'magazine',
+    magazine: o.layout === 'magazine',
     measureAt: (size) => {
       const m = measurer(ctx, phraseFont(style, fonts, size), spacing);
       const trail = Math.round(spacing * size * 10) / 10;
@@ -1554,6 +1884,11 @@ function drawPhrase(ctx, o, W, H) {
 // 一文・今日の日付はフラグで。一文の見せ方は書名・著者だけ。ロゴは隠せない（必ず描く・下の行はいつもある）。
 function visibleOpts(opts, layout, text) {
   const vis = shareVisibility(opts.hidden);
+  if (layout === 'magazine') {
+    // 雑誌: 引用は主役（隠せない）・書名・著者・今日の日付は隠せる。中身は書名・著者・一文から作る（数字は入れない）。
+    const rec = magazineRecord({ title: opts.title, author: opts.author }, text, { note: opts.note || null });
+    return { ...opts, magazine: rec, record: null, text, stamp: vis.stamp ? (opts.stamp || '') : '', showTitle: vis.title, showAuthor: vis.author, hasFooter: true };
+  }
   const isRecord = layout === 'record' || layout === 'stats';
   const stamp = isRecord && vis.stamp ? (opts.stamp || '') : '';
   return {
@@ -1568,7 +1903,7 @@ function visibleOpts(opts, layout, text) {
 }
 
 function normalizeLayout(layout) {
-  return layout === 'record' || layout === 'stats' ? layout : 'quote';
+  return layout === 'record' || layout === 'stats' || layout === 'magazine' ? layout : 'quote';
 }
 
 // canvas に描く（同期）。canvas の大きさもここで決める。
@@ -1583,7 +1918,7 @@ function normalizeLayout(layout) {
 export function drawShareCard(canvas, opts = {}) {
   const layout = normalizeLayout(opts.layout);
   const { text } = clampLine(layout === 'stats' ? '' : opts.line, layout === 'record' ? RECORD_QUOTE_MAX : undefined);
-  if (!text && layout === 'quote') throw new Error('画像にする一文がありません。');
+  if (!text && (layout === 'quote' || layout === 'magazine')) throw new Error('画像にする一文がありません。');
   const fonts = opts.fonts || fontStacks();
   let style = opts.style || 'paper';
   if (style === 'photo' && !opts.photo) style = 'night';
@@ -1595,6 +1930,19 @@ export function drawShareCard(canvas, opts = {}) {
     seed: seedFrom(`${opts.seedKey || ''}|${text}`),
     frac: tabPosition(opts.page, opts.totalPages, opts.knownMaxPage),
   };
+
+  if (layout === 'magazine') {
+    // 雑誌は透明でも画像の大きさのまま（右上のロゴと下の行の場所を変えない）。
+    const F = recordFrame(opts.format);
+    if (canvas.width !== F.W || canvas.height !== F.H) { canvas.width = F.W; canvas.height = F.H; }
+    ctx.clearRect(0, 0, F.W, F.H);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    const o = { ...base, W: F.W, H: F.H, format: F.format, layout };
+    drawMagazine(ctx, o);
+    drawPhrase(ctx, { ...o, quoteShown: true }, F.W, F.H);
+    return { line: text, width: F.W, height: F.H };
+  }
 
   if (layout === 'stats') {
     if (style === 'sticker') {
@@ -1679,14 +2027,14 @@ export function drawPhotoDragFrame(canvas, opts = {}, cache = {}, { targetWidth 
   const layout = normalizeLayout(opts.layout);
   const isRecord = layout === 'record';
   const { text } = clampLine(layout === 'stats' ? '' : opts.line, isRecord ? RECORD_QUOTE_MAX : undefined);
-  if (!text && layout === 'quote') return false;
+  if (!text && (layout === 'quote' || layout === 'magazine')) return false;
   const fmt = FORMATS[opts.format] ? opts.format : 'story';
   const { w: W, h: H } = FORMATS[fmt];
   const k = Math.min(1, Math.max(0.2, targetWidth / W));
   const cw = Math.round(W * k);
   const ch = Math.round(H * k);
   const fonts = opts.fonts || fontStacks();
-  const key = JSON.stringify([text, fmt, opts.textPos, opts.title, opts.author, opts.page, opts.totalPages, opts.knownMaxPage, opts.seedKey, opts.photo.width, opts.photo.height, fonts.read, k, opts.layout, opts.record, opts.stamp, opts.hidden, opts.phrase]);
+  const key = JSON.stringify([text, fmt, opts.textPos, opts.title, opts.author, opts.page, opts.totalPages, opts.knownMaxPage, opts.seedKey, opts.photo.width, opts.photo.height, fonts.read, k, opts.layout, opts.record, opts.stamp, opts.hidden, opts.phrase, opts.note, !!opts.cover?.image]);
   if (cache.key !== key || !cache.layer || cache.photoRef !== opts.photo) {
     const theme = readShareTheme('photo', { tone: opts.cover?.tone, title: opts.title });
     const o = {
@@ -1702,10 +2050,11 @@ export function drawPhotoDragFrame(canvas, opts = {}, cache = {}, { targetWidth 
     lctx.textAlign = 'left';
     lctx.textBaseline = 'alphabetic';
     const place0 = photoPlacement({ pw: opts.photo.width, ph: opts.photo.height, W, H, ...(opts.view || {}) });
-    if (layout === 'stats') drawStatsOverlay(lctx, o, place0);
+    if (layout === 'magazine') drawMagazineOverlay(lctx, { ...o, layout }, place0);
+    else if (layout === 'stats') drawStatsOverlay(lctx, o, place0);
     else if (isRecord) drawRecordOverlay(lctx, o, place0);
     else drawPhotoOverlay(lctx, o, place0);
-    drawPhrase(lctx, { ...o, quoteShown: layout === 'stats' ? false : isRecord ? !!fitRecord(lctx, o, recordFrame(fmt)).lay.fit : true }, W, H);
+    drawPhrase(lctx, { ...o, layout, quoteShown: layout === 'stats' ? false : isRecord ? !!fitRecord(lctx, o, recordFrame(fmt)).lay.fit : true }, W, H);
     // 写真は、動かし始めの大きさの 1.5 倍まで縮めておく（拡大しても粗くなりすぎない・元より大きくはしない）。
     const want = Math.max(cw, Math.round(place0.w * k * 1.5));
     const sk = Math.min(1, want / opts.photo.width);
@@ -1761,7 +2110,7 @@ export function drawPhraseDragFrame(canvas, opts = {}, cache = {}, { targetWidth
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(base, 0, 0);
   ctx.setTransform(k, 0, 0, k, 0, 0);
-  drawPhrase(ctx, { ...opts, quoteShown: cache.quoteShown, fonts: opts.fonts || fontStacks(), style: cache.style, theme: cache.theme, shadowScale: k, format: FORMATS[opts.format] ? opts.format : 'story' }, W, H);
+  drawPhrase(ctx, { ...opts, layout: normalizeLayout(opts.layout), quoteShown: cache.quoteShown, fonts: opts.fonts || fontStacks(), style: cache.style, theme: cache.theme, shadowScale: k, format: FORMATS[opts.format] ? opts.format : 'story' }, W, H);
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   return true;
 }
@@ -1774,7 +2123,7 @@ export function measurePhraseBox(opts = {}, { W, H }) {
   if (!ctx) return null;
   let style = opts.style || 'paper';
   if (style === 'photo' && !opts.photo) style = 'night';
-  return layoutPhraseOn(ctx, { ...opts, style, fonts: opts.fonts || fontStacks(), format: FORMATS[opts.format] ? opts.format : 'story' }, W, H);
+  return layoutPhraseOn(ctx, { ...opts, layout: normalizeLayout(opts.layout), style, fonts: opts.fonts || fontStacks(), format: FORMATS[opts.format] ? opts.format : 'story' }, W, H);
 }
 
 // 画像にする（style を渡すと、その地に合った種類＝写真は JPEG・ほかは PNG・shareImageType）。

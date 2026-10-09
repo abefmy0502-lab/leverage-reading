@@ -8,6 +8,7 @@ import {
   recordBlockPlan, recordTitleScale, shareItemsFor, applyShareItems, shareVisibility, readHiddenItems, writeHiddenItems,
   SHARE_ITEMS_STORAGE_KEY, recordCoverPlacement, SHARE_ITEM_KEYS, readSharePrefs, writeSharePrefs, SHARE_PREFS_STORAGE_KEY,
   stepVariant, logoBox, LOGO_RULES, statsStackPlan, placeStatsStack, statColumnsScale, STAT_COL_GAP,
+  splitMagazineQuote, magazineRecord, fmtMagazineStamp, magazineFooterItems, magazineLogoBox, MAGAZINE_HEAD_MAX, MAGAZINE_TAGLINE_BOTTOM,
 } from './shareOverlay.js';
 
 const NOW = new Date(2026, 8, 30, 10, 0, 0); // 2026-09-30
@@ -556,5 +557,72 @@ describe('hasFinishedThisMonth（振り返り › 記録から開いたときに
     ], now)).toBe(false);
     expect(hasFinishedThisMonth([], now)).toBe(false);
     expect(hasFinishedThisMonth(null, now)).toBe(false);
+  });
+});
+
+describe('雑誌（2026-10-09・大きな引用＋続きの文＋本のカード）', () => {
+  it('本 1 冊でメモ（一文）があるときだけ選べる（今月・今年・メモが無い本では選べない）', () => {
+    expect(availableVariants(true, true, { book: true })).toEqual(['record', 'stats', 'quote', 'magazine']);
+    expect(availableVariants(false, true, { book: true })).toEqual(['record', 'stats']);
+    expect(availableVariants(true, true, { book: false })).toEqual(['record', 'stats', 'quote']);
+    expect(availableVariants(true, true)).not.toContain('magazine');
+    // 前に雑誌を選んでいても、選べない 1 枚ではいつもの決まりに戻る
+    expect(defaultVariant({ hasQuote: true, preferred: 'magazine', variants: ['record', 'stats', 'quote'] })).toBe('record');
+    expect(defaultVariant({ hasQuote: true, preferred: 'magazine', variants: ['record', 'quote', 'magazine'] })).toBe('magazine');
+    expect(stepVariant(['record', 'stats', 'quote', 'magazine'], 'quote', 1)).toBe('magazine');
+  });
+  it('雑誌を選んだことを端末に覚える', () => {
+    const store = new Map();
+    const storage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v) };
+    writeSharePrefs(storage, { variant: 'magazine' });
+    expect(readSharePrefs(storage).variant).toBe('magazine');
+  });
+  it('最初の文を大きく・残りを小さく（無ければ出さない）', () => {
+    expect(splitMagazineQuote('正解を探すんじゃなくて、自分の問いを持ち続けること。答えはひとつじゃない。むしろ、問いを持ち続けることのほうが、人生を豊かにしてくれる。'))
+      .toEqual({ head: '正解を探すんじゃなくて、自分の問いを持ち続けること。', body: '答えはひとつじゃない。むしろ、問いを持ち続けることのほうが、人生を豊かにしてくれる。' });
+    expect(splitMagazineQuote('チームの勝利が最優先。')).toEqual({ head: 'チームの勝利が最優先。', body: '' });
+    expect(splitMagazineQuote('句点のない一文')).toEqual({ head: '句点のない一文', body: '' });
+    expect(splitMagazineQuote('一行目\n二行目の続き')).toEqual({ head: '一行目', body: '二行目の続き' });
+    // 外側の「」は外す（描くときに付ける）・2 つの文にまたがる括弧は片方だけ残さない
+    expect(splitMagazineQuote('「自分を好きになる努力をする」').head).toBe('自分を好きになる努力をする');
+    expect(splitMagazineQuote('「問いを持つ。答えは後から来る」')).toEqual({ head: '問いを持つ。', body: '答えは後から来る' });
+    // 長すぎる最初の文は … で切る
+    const long = splitMagazineQuote('あ'.repeat(80));
+    expect(Array.from(long.head).length).toBeLessThanOrEqual(MAGAZINE_HEAD_MAX);
+    expect(long.head.endsWith('…')).toBe(true);
+  });
+  it('中身は書名・著者・一文だけ（数字の欄は作らない・メモが無ければ null）', () => {
+    const rec = magazineRecord({ title: '嫌われる勇気', author: '岸見一郎・古賀史健' }, '問いを持ち続ける。');
+    expect(rec.title).toBe('嫌われる勇気');
+    expect(rec.sub).toBe('岸見一郎 ほか');
+    expect(rec.stats).toEqual([]);
+    expect(rec.note).toBeNull();
+    expect(magazineRecord({ title: 'A' }, '')).toBeNull();
+    expect(magazineRecord({ title: 'A' }, '   ')).toBeNull();
+  });
+  it('日付は「2026.10.09 FRI」の形', () => {
+    expect(fmtMagazineStamp(new Date(2026, 9, 9))).toBe('2026.10.09 FRI');
+    expect(fmtMagazineStamp(new Date(2026, 0, 4))).toBe('2026.01.04 SUN');
+  });
+  it('下の行: 日付（隠せる）と、あとで足す短い数の欄（今は空＝出さない）', () => {
+    expect(magazineFooterItems({ stamp: '2026.10.09 FRI' })).toEqual({ left: [{ kind: 'stamp', text: '2026.10.09 FRI' }], right: MAGAZINE_TAGLINE_BOTTOM });
+    expect(magazineFooterItems({ stamp: '' }).left).toEqual([]);
+    expect(magazineFooterItems({ stamp: 'd', note: { label: '読書', value: '1h 32m' } }).left.map((x) => x.text)).toEqual(['d', '読書 1h 32m']);
+    expect(magazineRecord({ title: 'A' }, 'x。', { note: { label: '読書', value: '' } }).note).toBeNull();
+  });
+  it('表示する項目は 書名・著者・今日の日付（引用は隠せない・数字の項目は無い）', () => {
+    const rec = magazineRecord({ title: 'A', author: 'B' }, 'x。');
+    expect(shareItemsFor({ record: rec, variant: 'magazine', hasAuthor: true }).map((i) => i.key)).toEqual(['title', 'author', 'stamp']);
+    expect(shareItemsFor({ record: rec, variant: 'magazine', hasAuthor: false }).map((i) => i.key)).toEqual(['title', 'stamp']);
+  });
+  it('右上のロゴは決まりの大きさ・余白の内側・安全な枠の中', () => {
+    for (const format of ['post', 'story']) {
+      const f = recordFrame(format);
+      const b = magazineLogoBox(format);
+      expect(b.wordH).toBeGreaterThanOrEqual(LOGO_RULES.minWordH);
+      expect(f.W - b.right).toBeGreaterThanOrEqual(LOGO_RULES.minMargin);
+      expect(b.top).toBeGreaterThanOrEqual(f.safeTop);
+      expect(b.clearBottom).toBeGreaterThan(b.tagBaseline);
+    }
   });
 });

@@ -25,9 +25,11 @@ import { isAiWritten } from './recall';
 
 // 「記録」に重ねる一文は短く（写真を見せたいので 3 行まで）。
 export const RECORD_QUOTE_MAX = 60;
-// 重ね方（見せ方）は 3 つ（2026-10-05）: 記録（書名と数字の横並び・Strava の記録の形）／数字（大きな数字を真ん中に
-// 縦に積む・Strava の共有の定番の形）／一文（メモの一文が主役）。左右のスワイプでこの順に切り替わる。
-export const VARIANTS = ['record', 'stats', 'quote'];
+// 重ね方（見せ方）は 4 つ（2026-10-05）: 記録（書名と数字の横並び・Strava の記録の形）／数字（大きな数字を真ん中に
+// 縦に積む・Strava の共有の定番の形）／一文（メモの一文が主役）／雑誌（2026-10-09・左上に大きな引用＋続きの小さな文・
+// 右に本のカード・右上にロゴ・下に小さな日付＝雑誌の 1 ページのような組み。本 1 冊でメモがあるときだけ）。
+// 左右のスワイプでこの順に切り替わる。
+export const VARIANTS = ['record', 'stats', 'quote', 'magazine'];
 // 形は 2 つ: 投稿 4:5 ／ ストーリー 9:16（正方形は選ばせない）。
 export const SHARE_FORMATS = ['post', 'story'];
 
@@ -362,8 +364,9 @@ export function swapQuoteLabel(index, count, allowNone = false) {
 }
 
 // 重ね方の選択肢（数字が 1 つも無ければ「数字」を出さない・一文が無ければ「一文」を出さない）と、最初の見せ方。
-export function availableVariants(hasQuote, hasStats = false) {
-  return VARIANTS.filter((v) => (v === 'quote' ? !!hasQuote : v === 'stats' ? !!hasStats : true));
+// 雑誌は本 1 冊（book）で一文（自分の言葉のメモ）があるときだけ（今月・今年・メモが無い本では選べない・2026-10-09）。
+export function availableVariants(hasQuote, hasStats = false, { book = false } = {}) {
+  return VARIANTS.filter((v) => (v === 'quote' ? !!hasQuote : v === 'stats' ? !!hasStats : v === 'magazine' ? !!hasQuote && !!book : true));
 }
 // 最初の重ね方（2026-10-09 オーナー「もっとおしゃれな内容で、周りに拡散したいと思える内容に」）。
 //   1. メモから開いた（fromMemo）＝その一文
@@ -377,6 +380,76 @@ export function defaultVariant({ fromMemo = false, hasQuote = false, preferred =
   if (preferred && VARIANTS.includes(preferred) && can(preferred)) return preferred;
   if (hasQuote && can('quote') && (readingBook || preferred === 'stats')) return 'quote';
   return 'record';
+}
+
+// ---------------------------------------------------------------- 雑誌（2026-10-09 オーナーの見本）
+//
+// 雑誌の 1 ページのような組み（中身はこれだけ・2026-10-09 オーナー「読書の記録の帯は不要」）:
+//   右上 … Orime のロゴ（必ず入る・小さく）＋その下に字間の広い英字のひとこと（MAGAZINE_TAGLINE_TOP）
+//   左上 … 大きな引用＝心に残った一文の最初の文（「」で包む・細い明朝・字間を広く・3 行まで）
+//          その下に、続きの文を小さく 3 行まで（無ければ出さない）
+//   右   … 本のカード（表紙・書名・著者。説明の文は入れない＝AI の文も出版社の文も使わない）
+//   下   … 左に小さな日付「2026.10.09 FRI」・右に英字のひとこと（MAGAZINE_TAGLINE_BOTTOM）
+// 数字の帯（メモの数・行動など）は作らない。下の行には、あとで短い数を 1 つだけ添えられる場所（note）を残す
+// （集中モードの読書時間を予定・今は null＝出さない）。
+
+export const MAGAZINE_TAGLINE_TOP = 'READ. NOTE. GROW.';
+export const MAGAZINE_TAGLINE_BOTTOM = 'YOUR BOOKS, YOUR ADVISOR.';
+export const MAGAZINE_HEAD_MAX = 48;
+export const MAGAZINE_BODY_MAX = 90;
+const DOW = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+
+// 雑誌の下の日付「2026.10.09 FRI」（ほかの重ね方の「2026.10.9」より小さく描く・主役にしない）。
+export function fmtMagazineStamp(now = new Date()) {
+  const p = (n) => String(n).padStart(2, '0');
+  return `${now.getFullYear()}.${p(now.getMonth() + 1)}.${p(now.getDate())} ${DOW[now.getDay()]}`;
+}
+
+// 一文を、大きく出す最初の文（head）と、小さく続ける残り（body）に分ける。
+// 最初の文＝最初の。！？か改行まで。長すぎる（MAGAZINE_HEAD_MAX 超）ときは … で切る。外側の「」は外す（描くときに付ける）。
+export function splitMagazineQuote(text) {
+  const s = clampLine(text).text;
+  if (!s) return { head: '', body: '' };
+  const m = /^[^\n。！？!?]*[。！？!?]+[」』）)]*/u.exec(s);
+  let head = (m ? m[0] : s.split('\n')[0]).trim();
+  let rest = s.slice(m ? m[0].length : s.split('\n')[0].length).replace(/\n+/g, ' ').trim();
+  const unq = /^「([^「」]*)」$/u.exec(head);
+  if (unq) head = unq[1].trim();
+  // 「A。B」のように括弧が 2 つの文にまたがるときは、片方だけ残った括弧を外す。
+  if (/^「/u.test(head) && !head.includes('」')) head = head.slice(1).trim();
+  if (/」$/u.test(rest) && !rest.includes('「')) rest = rest.slice(0, -1).trim();
+  if (Array.from(head).length > MAGAZINE_HEAD_MAX) head = clampLine(head, MAGAZINE_HEAD_MAX).text;
+  // 外側を「」で包むので、中の「」は『』に（入れ子の引用の書き方）。
+  head = head.replace(/「/gu, '『').replace(/」/gu, '』');
+  if (rest) rest = clampLine(rest, MAGAZINE_BODY_MAX).text;
+  return { head, body: rest };
+}
+
+// 雑誌の中身（本 1 冊・その本の心に残った一文＝自分の言葉のメモ）。メモが無い（quote が空）なら null＝選べない。
+// note は下の行の短い数の欄（今は使わない＝null。集中モードの読書時間を入れる予定・{ label, value }）。
+// 戻り値: { title, titleIsBook, sub, kicker, stats: [], date: null, quote: { head, body }, note }
+export function magazineRecord(book, quote, { note = null } = {}) {
+  const b = book || {};
+  const q = splitMagazineQuote(quote);
+  if (!q.head) return null;
+  return {
+    kicker: '',
+    title: String(b.title || '').trim() || '無題',
+    titleIsBook: true,
+    sub: formatAuthors(b.author),
+    stats: [],
+    date: null,
+    quote: q,
+    note: note && String(note.value || '').trim() ? { label: String(note.label || ''), value: String(note.value) } : null,
+  };
+}
+
+// 雑誌の下の行に並べるもの（左から）: 日付（隠せる）→ 短い数の欄（あれば）。右は英字のひとこと（いつも）。
+export function magazineFooterItems({ stamp = '', note = null } = {}) {
+  const left = [];
+  if (stamp) left.push({ kind: 'stamp', text: stamp });
+  if (note && note.value) left.push({ kind: 'note', text: note.label ? `${note.label} ${note.value}` : String(note.value) });
+  return { left, right: MAGAZINE_TAGLINE_BOTTOM };
 }
 
 // ---------------------------------------------------------------- 安全な枠（SNS で切られない範囲）
@@ -413,6 +486,29 @@ export function logoBox(format = 'post', { margin } = {}) {
   const markH = wordH * 1.28;
   const top = Math.floor(f.footerBaseline - wordH / 2 - markH / 2);
   return { x, baseline: f.footerBaseline, wordH, top, clearTop: top - LOGO_RULES.clearance };
+}
+
+// 雑誌のロゴの場所（右上・安全な枠の上端から）。大きさは logoBox と同じ（決まり LOGO_RULES のまま）。
+// 右端は余白（frame.margin・72 以上）。下に英字のひとこと（tagSize）。clearBottom より上には言葉を置けない（ロゴを隠せない）。
+// 戻り値: { right, top, wordH, markH, baseline, tagSize, tagBaseline, clearBottom }
+export function magazineLogoBox(format = 'post') {
+  const f = recordFrame(format);
+  const wordH = logoBox(f.format).wordH;
+  const markH = wordH * 1.28;
+  const k = f.format === 'story' ? 1 : 0.92;
+  const top = f.safeTop;
+  const tagSize = Math.round(20 * k);
+  const tagBaseline = Math.round(top + markH + 18 * k + tagSize);
+  return {
+    right: f.W - Math.max(LOGO_RULES.minMargin, f.margin),
+    top,
+    wordH,
+    markH,
+    baseline: top + markH / 2 + wordH / 2,
+    tagSize,
+    tagBaseline,
+    clearBottom: tagBaseline + Math.round(tagSize * 0.3) + LOGO_RULES.clearance,
+  };
 }
 
 export function recordFrame(format = 'post') {
@@ -657,6 +753,7 @@ const STAT_ITEM_LABEL = { books: '読了の冊数', memos: 'メモの数', actio
 //   記録: 状態（今月は年）・書名（今月は「9月の読書」）・著者（今月は読み終えた本）・数字それぞれ・一文・今日の日付
 //   数字: 記録と同じ（一文は入れないので出さない）
 //   一文: 書名・著者（一文は主役なので隠せない）
+//   雑誌: 書名・著者・今日の日付（引用は主役なので隠せない）
 // ロゴは出さない（必ず入る・2026-10-05）。
 export function shareItemsFor({ record = null, variant = 'record', hasQuote = false, hasAuthor = false } = {}) {
   const out = [];
@@ -670,6 +767,11 @@ export function shareItemsFor({ record = null, variant = 'record', hasQuote = fa
       if (st?.key) out.push({ key: st.key, label: STAT_ITEM_LABEL[st.key] || st.label });
     }
     if (hasQuote && variant === 'record') out.push({ key: 'quote', label: '一文' });
+    out.push({ key: 'stamp', label: '今日の日付' });
+  } else if (variant === 'magazine') {
+    // 雑誌: 引用（主役・隠せない）・書名・著者・今日の日付
+    out.push({ key: 'title', label: '書名' });
+    if (hasAuthor) out.push({ key: 'author', label: '著者' });
     out.push({ key: 'stamp', label: '今日の日付' });
   } else {
     out.push({ key: 'title', label: '書名' });

@@ -6,7 +6,7 @@ import {
   phraseColors, phraseCanInvert, clampScale, PHRASE_MAX, PHRASE_STYLES, PHRASE_SCALE_MAX, PHRASE_SCALE_MIN,
   stickerPhraseReserve, STICKER_PAD, PHRASE_STICKER_GAP, balanceLines,
 } from './sharePhrase.js';
-import { recordFrame, logoBox } from './shareOverlay.js';
+import { recordFrame, logoBox, magazineLogoBox } from './shareOverlay.js';
 
 // 字数×大きさ（全角のおおよそ）。
 const measureAt = (size) => (s) => Array.from(String(s)).length * size;
@@ -209,5 +209,16 @@ describe('文字の色（自動・1 タップで入れ替え）', () => {
     expect(phraseCanInvert({ ground: 'night', style: 'band' })).toBe(true);
     expect(phraseColors({ ground: 'paper', style: 'mincho', invert: true }).ink).toBe('dark');
     expect(phraseColors({ ground: 'night', style: 'mincho', invert: true }).ink).toBe('light');
+  });
+});
+
+describe('雑誌の重ね方では、言葉は右上のロゴの下から（2026-10-09）', () => {
+  it('枠の上端がロゴとひとことの下', () => {
+    for (const format of ['post', 'story']) {
+      const H = format === 'story' ? 1920 : 1350;
+      const f = phraseFrame({ format, H, magazine: true });
+      expect(f.top).toBeGreaterThanOrEqual(magazineLogoBox(format).clearBottom);
+      expect(phraseFrame({ format, H }).top).toBe(recordFrame(format).safeTop);
+    }
   });
 });

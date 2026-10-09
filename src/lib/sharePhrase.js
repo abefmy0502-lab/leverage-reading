@@ -10,7 +10,7 @@
 //   - phraseColors      … 文字の色（写真・夜・表紙の色・透明は白、紙は墨。1 タップで入れ替え）
 
 import { wrapBalanced, segmentPhrases } from './shareCardLayout';
-import { recordFrame, logoBox } from './shareOverlay';
+import { recordFrame, logoBox, magazineLogoBox } from './shareOverlay';
 
 export const PHRASE_MAX = 80;
 export const PHRASE_STYLES = ['mincho', 'bold', 'hand', 'band'];
@@ -59,7 +59,8 @@ export function stickerPhraseReserve(phraseH) {
 
 // 言葉を置いてよい範囲（画像の座標）。投稿・ストーリーは記録と同じ安全な枠（ストーリーは上下 270・投稿は左右 80）。
 // 透明は左右 72・上 72 から言葉の高さ（phraseH）まで＝記録の塊には入らない（phraseH が無ければ下 72 まで）。
-export function phraseFrame({ W = 1080, H = 1350, format = 'post', sticker = false, phraseH = 0 } = {}) {
+// magazine（雑誌の重ね方）は、右上のロゴとひとことの下から（言葉でロゴを隠せない・2026-10-09）。
+export function phraseFrame({ W = 1080, H = 1350, format = 'post', sticker = false, phraseH = 0, magazine = false } = {}) {
   if (sticker) {
     const top = STICKER_PAD;
     return { left: STICKER_PAD, right: W - STICKER_PAD, top, bottom: phraseH > 0 ? top + phraseH : Math.max(top * 2, H - STICKER_PAD) };
@@ -72,7 +73,8 @@ export function phraseFrame({ W = 1080, H = 1350, format = 'post', sticker = fal
   const sy = H / f.H;
   // 下はロゴの上の空きまで（言葉でロゴを隠せない・2026-10-05「ロゴは必ず入る」）。
   const bottom = Math.min(f.safeBottom, logoBox(format).clearTop);
-  return { left: f.margin * sx, right: W - f.margin * sx, top: f.safeTop * sy, bottom: bottom * sy };
+  const top = magazine ? Math.max(f.safeTop, magazineLogoBox(format).clearBottom) : f.safeTop;
+  return { left: f.margin * sx, right: W - f.margin * sx, top: top * sy, bottom: bottom * sy };
 }
 
 // 箱（中心 cx, cy・幅 w・高さ h）を枠の中に収める中心。枠より大きければ枠の中央。
@@ -129,13 +131,13 @@ export function balanceLines(text, maxWidth, measure) {
 // 大きさ・改行・箱。measureAt(size) は「その大きさの文字の幅を返す関数」を返す（canvas の measureText・テストでは字数×大きさ）。
 // 戻り値: { text, lines, size, lineHeight, w, h, cx, cy, x0, y0, padX, padY, underlineH, style } （画像の座標・箱は余白と傍線を含む）
 // 箱が枠に入らないときは、入るまで小さくする（文字の大きさの下限 28）。
-export function phraseLayout(phrase, { W = 1080, H = 1350, format = 'post', sticker = false, measureAt } = {}) {
+export function phraseLayout(phrase, { W = 1080, H = 1350, format = 'post', sticker = false, magazine = false, measureAt } = {}) {
   const text = phraseDisplayText(phrase);
   if (!text || typeof measureAt !== 'function') return null;
   const style = PHRASE_STYLES.includes(phrase.style) ? phrase.style : 'mincho';
   const m = phraseMetrics(style);
   // 透明は高さが中身で決まるので、大きさは幅だけで決め（高さは 1600 まで）、決まった高さをそのまま言葉の場所にする。
-  let frame = phraseFrame({ W, H: sticker ? STICKER_PAD * 2 + 1600 * (W / 1080) : H, format, sticker });
+  let frame = phraseFrame({ W, H: sticker ? STICKER_PAD * 2 + 1600 * (W / 1080) : H, format, sticker, magazine });
   const frameW = frame.right - frame.left;
   const frameH = frame.bottom - frame.top;
   const k = W / 1080;

@@ -50,3 +50,9 @@ describe('shareCampaign（写真で共有）', () => {
     expect(shareCampaign({ variant: 'unknown' })).toBe('share_record');
   });
 });
+
+describe('shareCampaign（雑誌・2026-10-09）', () => {
+  it('雑誌の重ね方も名前に入る', () => {
+    expect(shareCampaign({ variant: 'magazine' })).toBe('share_magazine');
+  });
+});

@@ -205,6 +205,28 @@ const results = await page.evaluate(async ({ photos, only }) => {
   // 日付をオンにした（表示する項目）＝見出しの小さな添え書きだけ
   jobs.push({ name: 'content-reading-dateon-stats-post-photo', opts: { ...base, layout: 'stats', format: 'post', style: 'photo', photo: photo.normal, record: contentSubjects[0][1], hidden: [], title: readingBook.title, author: readingBook.author, line: '' } });
   jobs.push({ name: 'content-done-dateon-record-post-paper', opts: { ...base, layout: 'record', format: 'post', style: 'paper', record: contentSubjects[2][1], hidden: [], line: ov.quoteText(base.line, 'record') } });
+  // ── 雑誌（2026-10-09 オーナーの見本「大きな引用＋続きの文＋右の本のカード＋右上のロゴ＋下の小さな日付」）。
+  //   magazine-<形>-<地>・端のケース magazine-edge-*（続きの文なし・長い書名と著者・書名と著者を隠す・読書時間の欄）
+  const magLine = '正解を探すんじゃなくて、自分の問いを持ち続けること。答えはひとつじゃない。むしろ、問いを持ち続けることのほうが、人生を豊かにしてくれる。';
+  const magBase = { ...base, layout: 'magazine', line: magLine, title: '嫌われる勇気', author: '岸見一郎・古賀史健', cover: { image: null, tone: null }, stamp: ov.fmtMagazineStamp(new Date(2026, 9, 9)), page: null };
+  const magGrounds = [
+    ['photo', { style: 'photo', photo: photo.normal }],
+    ['photo-bright', { style: 'photo', photo: photo.bright }],
+    ['photo-dark', { style: 'photo', photo: photo.dark }],
+    ['film', { style: 'photo', photo: card.filmPhoto(photo.normal) }],
+    ['paper', { style: 'paper' }],
+    ['night', { style: 'night' }],
+    ['cover', { style: 'cover' }],
+    ['sticker', { style: 'sticker' }],
+  ];
+  for (const format of ['post', 'story']) {
+    for (const [gName, g] of magGrounds) jobs.push({ name: `magazine-${format}-${gName}`, opts: { ...magBase, format, ...g } });
+    jobs.push({ name: `magazine-edge-short-${format}-photo`, opts: { ...magBase, format, style: 'photo', photo: photo.normal, line: 'チームの勝利が最優先。' } });
+    jobs.push({ name: `magazine-edge-long-${format}-paper`, opts: { ...magBase, format, style: 'paper', title: 'イシューからはじめよ 知的生産の「シンプルな本質」', author: 'エリック・シュミット、ジョナサン・ローゼンバーグ、アラン・イーグル', cover: { image: null, tone: null }, line: '「全部やる」はできない。やらないことを決めることが、いちばん大事な仕事になる。そのために、まず問いを見極める。毎朝、今日やらないことを 1 つ書き出す。' } });
+    jobs.push({ name: `magazine-edge-nobook-${format}-photo-bright`, opts: { ...magBase, format, style: 'photo', photo: photo.bright, hidden: ['title', 'author', 'stamp'] } });
+    jobs.push({ name: `magazine-edge-note-${format}-photo-dark`, opts: { ...magBase, format, style: 'photo', photo: photo.dark, note: { label: 'READING', value: '1h 32m' } } });
+    jobs.push({ name: `magazine-edge-phrase-${format}-photo`, opts: { ...magBase, format, style: 'photo', photo: photo.normal, phrase: { text: '今日も、少しだけ深く。', style: 'hand', x: 0.7, y: 0, scale: 1 } } });
+  }
   const out = [];
   for (const j of jobs.filter((x) => !only || x.name.startsWith(only))) {
     const cv = document.createElement('canvas');

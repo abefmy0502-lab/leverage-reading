@@ -148,7 +148,7 @@ function opts(over = {}) {
 }
 
 describe('ロゴは必ず入る（どの組み合わせでも）', () => {
-  const layouts = ['record', 'stats', 'quote'];
+  const layouts = ['record', 'stats', 'quote', 'magazine'];
   const styles = ['photo', 'paper', 'night', 'cover', 'sticker'];
   const formats = ['post', 'story'];
   const hiddenSets = [[], ['stamp'], ['logo'], [...SHARE_ITEM_KEYS, 'logo']];
@@ -182,7 +182,7 @@ describe('ロゴは必ず入る（どの組み合わせでも）', () => {
         }
       }
     }
-    expect(n).toBe(3 * 5 * 2 * 4 * 2);
+    expect(n).toBe(4 * 5 * 2 * 4 * 2);
   });
 
   it('今日の日付を隠しても、ロゴの場所は変わらない', () => {
@@ -281,7 +281,7 @@ describe('描いたあとの重なりで、写真の上の文字は 4.5:1 以上
   };
   const ACCENT = '#df8e17';
   for (const [name, profile] of Object.entries(PROFILES)) {
-    for (const layout of ['record', 'stats', 'quote']) {
+    for (const layout of ['record', 'stats', 'quote', 'magazine']) {
       for (const format of ['story', 'post']) {
         it(`${name} × ${layout} × ${format}`, () => {
           photoProfile = profile;
@@ -347,7 +347,7 @@ describe('編集デザイン（2026-10-08 オーナー「おしゃれな感じ�
   // 橙の飾り（傍線・付箋・見出しの点）をやめた: 描いた形にも文字にも橙を使わない（ロゴは画像なので別）。
   it('どの重ね方・地でも、橙の飾りを描かない', () => {
     const accent = /#df8e17|223,\s*142,\s*23/i;
-    for (const layout of ['record', 'stats', 'quote']) {
+    for (const layout of ['record', 'stats', 'quote', 'magazine']) {
       for (const style of ['photo', 'paper', 'night', 'cover', 'sticker']) {
         for (const format of ['post', 'story']) {
           const canvas = fakeCanvas();
@@ -387,5 +387,61 @@ describe('書き出す画像の種類', () => {
         }
       }
     }
+  });
+});
+
+describe('雑誌（2026-10-09）', () => {
+  const LINE = '正解を探すんじゃなくて、自分の問いを持ち続けること。答えはひとつじゃない。むしろ、問いを持ち続けることのほうが、人生を豊かにしてくれる。';
+  const mag = (over = {}) => opts({ layout: 'magazine', line: LINE, stamp: '2026.10.09 FRI', ...over });
+  const texts = (c) => c.calls.filter((k) => k.op === 'fillText').map((k) => String(k.args[0]));
+
+  it('数字の帯（読書の記録・件数・横線の欄）を描かない', () => {
+    for (const style of ['photo', 'paper', 'night', 'cover', 'sticker']) {
+      for (const format of ['post', 'story']) {
+        const c = fakeCanvas();
+        drawShareCard(c, mag({ style, format }));
+        const t = texts(c).join('|');
+        expect(t, `${style} ${format}`).not.toMatch(/読書の記録|件|実行した行動|メモ/);
+        expect(t).toContain('「');
+        expect(t).toContain('2026.10.09 FRI');
+      }
+    }
+  });
+  it('ロゴは右上（上のほう・右の余白の内側）', () => {
+    for (const format of ['post', 'story']) {
+      const c = fakeCanvas();
+      const r = drawShareCard(c, mag({ format, style: 'paper' }));
+      const [, x, y, w, h] = c.calls.find((k) => k.op === 'drawImage' && isLogoWord(k.args[0])).args;
+      expect(y + h).toBeLessThan(r.height / 3);
+      expect(x).toBeGreaterThan(r.width / 2);
+      expect(r.width - (x + w)).toBeGreaterThanOrEqual(LOGO_RULES.minMargin - 0.5);
+    }
+  });
+  it('日付は小さく、隠せる（ロゴの場所は変わらない）・書名と著者を隠すと本のカードごと出さない', () => {
+    const on = fakeCanvas();
+    drawShareCard(on, mag());
+    const stamp = on.calls.find((k) => k.op === 'fillText' && k.args[0] === '2026.10.09 FRI');
+    const headSize = Math.max(...on.calls.filter((k) => k.op === 'fillText' && /^(300|400) /.test(k.font)).map((k) => parseFloat(/(\d+)px/.exec(k.font)[1])));
+    expect(parseFloat(/(\d+)px/.exec(stamp.font)[1])).toBeLessThan(headSize / 2);
+    const off = fakeCanvas();
+    drawShareCard(off, mag({ hidden: ['stamp'] }));
+    expect(texts(off)).not.toContain('2026.10.09 FRI');
+    const logoAt = (c) => c.calls.find((k) => k.op === 'drawImage' && isLogoWord(k.args[0])).args.slice(1);
+    expect(logoAt(off)).toEqual(logoAt(on));
+    expect(on.calls.some((k) => k.op === 'drawImage' && k.args[0]?.tag === 'cover')).toBe(true);
+    const noBook = fakeCanvas();
+    drawShareCard(noBook, mag({ hidden: ['title', 'author'] }));
+    expect(noBook.calls.some((k) => k.op === 'drawImage' && k.args[0]?.tag === 'cover')).toBe(false);
+    expect(texts(noBook)).not.toContain(BOOK.title);
+  });
+  it('一文が無ければ作らない・共有の文には画像に入れた一文を返す', () => {
+    expect(() => drawShareCard(fakeCanvas(), mag({ line: '' }))).toThrow();
+    expect(drawShareCard(fakeCanvas(), mag()).line).toBe(LINE);
+  });
+  it('下の行の短い数の欄（あとで足す読書時間の場所）は、渡したときだけ描く', () => {
+    const c = fakeCanvas();
+    drawShareCard(c, mag({ note: { label: '読書', value: '1h 32m' } }));
+    expect(texts(c)).toContain('読書 1h 32m');
+    expect(texts(c)).toContain('YOUR BOOKS, YOUR ADVISOR.');
   });
 });

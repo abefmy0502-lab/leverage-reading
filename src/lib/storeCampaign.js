@@ -50,10 +50,10 @@ export function storeCampaignLink({ url, live, pt = '' }, ct) {
   return withCampaign(url, { pt, ct });
 }
 
-// 写真で共有のキャンペーン名。variant: 'record' | 'stats' | 'quote'（ShareSheet の重ね方）・month: 今月の記録か。
+// 写真で共有のキャンペーン名。variant: 'record' | 'stats' | 'quote' | 'magazine'（ShareSheet の重ね方）・month: 今月の記録か。
 // period: 'month'（今月）| 'year'（今年・12 月だけ・2026-10-08）| null（本 1 冊）。month: true は period: 'month' と同じ（前の呼び方）。
 export function shareCampaign({ variant = 'record', month = false, period = null } = {}) {
-  const v = ['record', 'stats', 'quote'].includes(variant) ? variant : 'record';
+  const v = ['record', 'stats', 'quote', 'magazine'].includes(variant) ? variant : 'record';
   const p = period === 'year' || period === 'month' ? period : (month ? 'month' : null);
   return campaignToken('share', p ? `${p}_${v}` : v);
 }
