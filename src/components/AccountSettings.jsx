@@ -987,20 +987,9 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                         ? '解約・カード変更・請求履歴は下のボタンから。いつでも解約でき、データは保持されます。'
                         : 'App で購入した場合、解約は iPhone の「設定」→ 名前 →「サブスクリプション」から、いつでもできます。データは保持されます。')}
                   </p>
-                  {nativeView ? (
+                  {!nativeView && subscription?.stripeCustomerId ? (
                     <button
                       type="button"
-                      aria-label="プランを管理する（App Store）"
-                      style={billingBusy ? btnGhostOff : btnGhost}
-                      disabled={billingBusy}
-                      onClick={handleManageBilling}
-                    >
-                      {billingBusy ? '移動中…' : 'プランを管理（App\u00a0Store）'}
-                    </button>
-                  ) : subscription?.stripeCustomerId ? (
-                    <button
-                      type="button"
-                      aria-label="プランを管理する"
                       style={billingBusy ? btnGhostOff : btnGhost}
                       disabled={billingBusy}
                       onClick={handleManageBilling}
@@ -1012,6 +1001,13 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                 {/* 管理ボタンを出せない契約状態では、探させずにその場で連絡導線を置く
                     （旧: 「画面下部のお問い合わせから」と下端リンクを自力で
                     探させる行き止まりだった）。一覧の行として置く（枠のボタンにしない）。 */}
+                {/* iPhone のアプリ: Web と同じ一覧の行（文字＋›）で App Store の管理を開く（枠のボタンにしない・2026-10-09 ui-critic）。 */}
+                {nativeView && (
+                  <button type="button" onClick={handleManageBilling} disabled={billingBusy} style={{ ...(billingBusy ? rowButtonBusy : rowButtonStyle), ...divider }}>
+                    <span style={{ ...rowTitleStyle, flex: 1 }}>{billingBusy ? '移動中…' : 'プランを管理（App\u00a0Store）'}</span>
+                    <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+                  </button>
+                )}
                 {/* Web で見ている App Store の契約: App Store のサブスクリプション画面を開ける行（iPhone なら App Store が開く・2026-09-29）。 */}
                 {!nativeView && !subscription?.stripeCustomerId && (
                   <button type="button" onClick={() => openManageSubscriptions()} style={{ ...rowButtonStyle, ...divider }}>

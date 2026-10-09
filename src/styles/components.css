@@ -1565,7 +1565,7 @@ details[open] > summary .fold-chevron { transform: rotate(180deg); }
   top: 0;
   bottom: 0;
   left: 0;
-  right: 44px;
+  right: var(--tap-min);
   display: flex;
   align-items: center;
   padding-left: calc(var(--space-3) + 1px);
@@ -1582,4 +1582,37 @@ details[open] > summary .fold-chevron { transform: rotate(180deg); }
 .date-field:focus-within .date-field__text { display: none; }
 .date-field__input:not(:focus) { color: transparent !important; }
 .date-field__input:not(:focus)::-webkit-datetime-edit { color: transparent; }
-.date-field__input::-webkit-calendar-picker-indicator { color: var(--text-2); }
+.date-field__input { position: relative; padding-right: var(--tap-min) !important; }
+/* 端末の日付の印は見えなくして、右端の押せる範囲（--tap-min）に広げる（押すと日付の選び方が開く）。見える印は
+   上に重ねる lucide の Calendar（--text-2・.date-field__icon）。iOS には印が無いので、重ねた印は目印だけ。 */
+.date-field__input::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: var(--tap-min);
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+}
+.date-field__icon {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: var(--tap-min);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-2);
+  pointer-events: none;
+}
+
+/* 👉 押せる場所へ目を向ける軽い強調（本が 0 冊で「写真で共有」を押したときの「これまで読んだ本から始める」・2026-10-09）。
+   大きさを 1 回だけ少し弾ませる（色は変えない・reduce motion では index.css の全体の抑制で止まる）。 */
+@keyframes lvg-nudge-pulse {
+  0%, 100% { transform: scale(1); }
+  40% { transform: scale(1.04); }
+}
+.nudge-pulse { animation: lvg-nudge-pulse 600ms var(--ease-spring) 2; }

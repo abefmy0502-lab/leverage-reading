@@ -129,16 +129,11 @@ const cardStyle = { background: 'var(--surface)', border: '1px solid var(--separ
 const headingStyle = { fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', margin: 0, lineHeight: 1.3 };
 // 相談例＝チップ（--fill 面・枠なし。入力欄と見分けがつくように。ホームと同じ）。
 // 深掘りのチップ（入力欄の上の 1 行・DESIGN §5 操作のチップ＝高さ 44・15/--text・--fill・枠なし）。
-// 🎯「行動を決める」を出すあいだは折り返す（followupRowWrap・チップ →「行動を決める」→「別の角度で答えて」）。
-//   行動を決めたあと（深掘りの聞き方だけ）は 1 行で横に送り、画面の右端まで伸ばす（followupScrollerToEdge）。
+// どのときも折り返して並べる（followupRowWrap・横に送ると端のチップが切れていた・2026-10-09 ui-critic・DESIGN §5）。
 const followupRow = { display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)', padding: 'var(--space-2) var(--space-4) 0', flexShrink: 0, borderTop: '1px solid var(--separator)' };
-const followupScroller = { display: 'flex', gap: 'var(--space-2)', flex: 1, minWidth: 0, overflowX: 'auto', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' };
-// 横に送る行（行動を決めたあと）は画面の端まで伸ばす（行の余白 16 で平らに切れて見えないように・
-// 端で切れたチップが続きの合図になる。送り終わりの右にも 16 の余白＝iOS の横スクロールと同じ・2026-09-30 ui-critic）。
-const followupScrollerToEdge = { ...followupScroller, marginRight: 'calc(-1 * var(--space-4))', paddingRight: 'var(--space-4)' };
 const followupChip = { flexShrink: 0, minHeight: 44, padding: 'var(--space-2) var(--space-3)', background: 'var(--fill)', border: 'none', borderRadius: 'var(--radius)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5, whiteSpace: 'nowrap' };
 const decideChip = { ...followupChip, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' };
-// 「行動を決める」を出すあいだの行（折り返す・間 8 は縦横とも）。
+// チップの行（折り返す・間 8 は縦横とも）。
 const followupRowWrap = { ...followupRow, flexWrap: 'wrap', rowGap: 'var(--space-2)' };
 // 選んだ相談例（初日の下書き・DESIGN §5 の操作のチップの選択中＝--accent-soft の面＋--accent の文字 600）。
 const chipPicked = { background: 'var(--accent-soft)', color: 'var(--accent)', fontWeight: 600 };
@@ -1820,7 +1815,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // メモが答える相談（無料のトークンを使い切った）では答え方は効かないので出さない（2026-10-01 ui-critic）。
   const modeApplies = !freeUsedUp && scopeIds.length !== 1 && (!memoStatsLoaded || ownMemoTotal > 0 || memoStatsFailed);
   // 🪙 無料プランの使う量の目安は、チップの行の上に 1 回だけ（13/--text-2・2026-10-09）。
-  const chipCostLine = freeMode && (followups.length > 0 || regenLabel) ? (
+  //   上の行（会話の先頭）に「今月の残り…」が出ているときは出さない（量の話を 2 か所にしない・2026-10-09 ui-critic）。
+  const chipCostLine = freeMode && tokensRemaining == null && (followups.length > 0 || regenLabel) ? (
     <p style={{ flexBasis: '100%', margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>
       1 回 約 {answerMode === 'perbook' && modeApplies ? TOKEN_COSTS.consultPerBook : TOKEN_COSTS.consult} トークン
     </p>
@@ -2137,7 +2133,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 // 相談（会話）どうしの間は 32（中は 12）＝どこからどこまでが 1 つの相談か分かるように（2026-10-08 ui-critic）。
                 <div key={g[0].id} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginBottom: 'calc(var(--space-8) - var(--space-3))' }}>
                   {g.map((m) => (
-                    <ChatMessage key={m.id} message={m} showTime onOpenBook={onOpenBook} books={books} actions={allActions} onAddAction={handleAnswerToAction} onAddActionPickBook={onAddActionPickBook} onRetry={busy ? null : regenerate} question={g[0].role === 'user' ? g[0].content : ''} onAskBook={askAboutBook} askBusy={busy} memoBookIds={memoBookIds} onShowPartner={setPartnerSheet} />
+                    <ChatMessage key={m.id} message={m} showTime onOpenBook={onOpenBook} books={books} actions={allActions} onAddAction={handleAnswerToAction} onAddActionPickBook={onAddActionPickBook} onRetry={busy ? null : regenerate} question={g[0].role === 'user' ? g[0].content : ''} onAskBook={askAboutBook} askBusy={busy} memoBookIds={memoBookIds} onShowPartner={setPartnerSheet} onOpenActions={onOpenActions} />
                   ))}
                   {/* 🧵 この続きを相談する（2026-10-08）: その相談の下に 1 つ。いちばん新しい相談は主ボタン、それより前は文字ボタン
                       （主ボタンを画面に何本も並べない）。押すと相談の画面で、この会話の続きから。 */}
@@ -2440,21 +2436,19 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 )}
               </div>
             ) : (
-              // 行動を決めたあと（深掘りの聞き方だけ）は 1 行で横に送り、画面の右端まで伸ばす（端で切れたチップが続きの合図）。
-              <div role="group" aria-label="続けて聞く" style={chipCostLine ? { ...followupRow, flexWrap: 'wrap', rowGap: 'var(--space-2)' } : followupRow}>
+              // 行動を決めたあと（深掘りの聞き方だけ）も折り返して並べる（横に送ると端のチップが切れて読めなかった・DESIGN §5・2026-10-09 ui-critic）。
+              <div role="group" aria-label="続けて聞く" style={followupRowWrap}>
                 {chipCostLine}
-                <div className="followup-chips" style={followupScrollerToEdge}>
-                  {followups.map((c, i) => (
-                    <button key={`${c.kind}-${c.label}`} type="button" onClick={() => { track('brain_followup', { chip: i, kind: c.kind }); ask(c.send); }} style={followupChip}>
-                      {c.label}
-                    </button>
-                  ))}
-                  {regenLabel && (
-                    <button type="button" onClick={regenerate} style={followupChip}>
-                      {regenLabel}
-                    </button>
-                  )}
-                </div>
+                {followups.map((c, i) => (
+                  <button key={`${c.kind}-${c.label}`} type="button" onClick={() => { track('brain_followup', { chip: i, kind: c.kind }); ask(c.send); }} style={followupChip}>
+                    {c.label}
+                  </button>
+                ))}
+                {regenLabel && (
+                  <button type="button" onClick={regenerate} style={followupChip}>
+                    {regenLabel}
+                  </button>
+                )}
               </div>
             )
           )}
@@ -2530,6 +2524,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 // メモが答える相談（AI を使わない）: 送れることと、何から答えるかを 1 行で（390 幅で 1 行に収まる長さ）。
                 : freeUsedUp ? '困りごと（メモから探します）'
                 : carry && !carry.used ? 'この相談の続きを書く'
+                // メモが 0 件の人は続けても同じ答えなので、最初の画面と同じ新しい相談の例（2026-10-09 ui-critic）。
+                : noMemosYet ? '例：上司への報告がうまくいかない'
                 // 390 幅の入力欄に 1 行で収まる長さ（「例：上司への報告がうまくいかない」と同じ 16 字）。
                 // AI が状況を聞き返しているときは、答えを書くか続けて聞く（候補のチップのほかに自分の言葉でも）。
                 : lastAsksBack ? '返事を書く・続けて相談する'
@@ -3192,9 +3188,9 @@ function ActionAddedNote({ onOpenActions, deadline = null, focus = null, already
     try { ref.current?.scrollIntoView({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' }); } catch { /* ignore */ }
   }, []);
   return (
-    <p ref={ref} role={already ? undefined : 'status'} style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-1)', minHeight: 44, boxSizing: 'border-box', paddingBlock: 'calc((44px - 1.5em) / 2)', margin: 'var(--space-3) 0 0', fontSize: 'var(--text-sub)', fontWeight: 600, lineHeight: 1.5, color: 'var(--success)' }}>
+    <p ref={ref} role={already ? undefined : 'status'} style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-1)', minHeight: 'var(--tap-min)', boxSizing: 'border-box', paddingBlock: 'calc((var(--tap-min) - 1.5em) / 2)', margin: 'var(--space-3) 0 0', fontSize: 'var(--text-sub)', fontWeight: 600, lineHeight: 1.5, color: 'var(--success)' }}>
       <span style={{ display: 'inline-flex', alignItems: 'center', height: '1.5em', flexShrink: 0 }}>
-        <Check size={16} aria-hidden="true" />
+        <Check size="1.1em" aria-hidden="true" />
       </span>
       <span style={{ minWidth: 0 }}>
         {already ? '行動に追加済み' : '行動に追加しました'}
@@ -3203,7 +3199,7 @@ function ActionAddedNote({ onOpenActions, deadline = null, focus = null, already
           {deadlineText && <span style={{ fontFeatureSettings: '"palt"' }}>{deadlineText}</span>}
           {/* 入った先（振り返り › 行動）をその場で見られる（2026-09-29）。左右 4 の内側余白が文字との間になる。 */}
           {onOpenActions && (
-            <button type="button" onClick={() => onOpenActions(focus)} aria-label="追加した行動を見る" style={{ ...uiBtnLink, minWidth: 44, justifyContent: 'center', verticalAlign: 'middle', marginBlock: 'calc((1.5em - 44px) / 2)' }}>見る</button>
+            <button type="button" onClick={() => onOpenActions(focus)} aria-label="追加した行動を見る" style={{ ...uiBtnLink, minWidth: 'var(--tap-min)', justifyContent: 'center', verticalAlign: 'middle', marginBlock: 'calc((1.5em - var(--tap-min)) / 2)' }}>見る</button>
           )}
         </span>
       </span>

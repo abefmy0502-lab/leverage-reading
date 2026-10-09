@@ -438,8 +438,9 @@ export default function ReadingRecord({
       toast.error('アカウントに保存できませんでした。この端末では選んだとおりに動きます。');
       return;
     }
-    // 使い始めたら、知らせだけで終わらせず地図の題までその場で送る（地図は記録のいちばん下に出るので、画面の外のままだった・2026-10-09）。
-    if (on) { toast.info('視点の地図を使います。'); setSelfViewmapFocus(Date.now()); }
+    // 使い始めたら、地図の題までその場で送る（地図は記録のいちばん下に出るので、画面の外のままだった）。
+    //   地図そのものが見えるので知らせは出さない（2026-10-09 ui-critic）。
+    if (on) setSelfViewmapFocus(Date.now());
     else if (undoable) toast.undo({ message: '視点の地図をやめました', onUndo: () => { viewpoint.setOn(true); } });
     else toast.info('視点の地図をやめました。付けたタグは残っています。');
   };

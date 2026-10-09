@@ -4,6 +4,7 @@
 // 空の読書開始日に「mm/dd/yyyy」と出ていた。欄そのもの（押すと端末の日付の選び方が開く）はそのままにして、
 // 押していない間だけ、上に日本の書き方の文字を重ねる（押している間は端末の表示）。
 // 形は呼ぶ側の input のスタイルのまま（components.css の .date-field）。空の欄の iOS の案内（data-empty）は使わない（二重になる）。
+import { Calendar } from 'lucide-react';
 import { DATE_HINT } from '../lib/dateHint';
 
 export function formatDateFieldJa(value) {
@@ -26,6 +27,7 @@ export default function DateInput({ value, onChange, style, className = '', ...r
         {...rest}
       />
       <span aria-hidden="true" className="date-field__text">{text || DATE_HINT}</span>
+      <span aria-hidden="true" className="date-field__icon"><Calendar size={20} /></span>
     </div>
   );
 }

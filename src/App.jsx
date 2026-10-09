@@ -370,7 +370,7 @@ function Card({ label, text, style }) {
 //   カードを 1 枚ずつ並べると枠と余白のぶん「読書を開始する」が 390×844 の最初の画面から押し出されていた。
 function PlanCard({ items, style }) {
   return (
-    <div style={{ ...cardBoxStyle, display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', ...style }}>
+    <div data-plan-card="" style={{ ...cardBoxStyle, display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', ...style }}>
       {items.map((p) => <CardBody key={p.label} label={p.label} text={p.text} />)}
     </div>
   );
@@ -1514,6 +1514,24 @@ function AuthedApp() {
     setAddOrigin(tab === 'books' && shelfMode === 'library' ? 'library' : 'home');
     setAddFromSearchQuery(null);
     setAddBookModalOpen(true);
+  };
+
+  // 📷 本が 0 冊で「写真で共有」を押したとき（2026-10-09 ui-critic）: 知らせは出さず、ホームの「これまで読んだ本から始める」へ
+  //   目と指を送る（フォーカス＋画面の中ほどへ＋軽く弾ませる＋ハプティクス）。見つからなければ本を追加を開く。
+  const pointToFirstStep = () => {
+    try { haptic.light(); } catch { /* ignore */ }
+    if (tab !== 'books') navigateTab('books');
+    if (view !== 'list') setView('list');
+    setShelfMode('home');
+    setTimeout(() => {
+      const b = [...document.querySelectorAll('button')].find((x) => x.textContent.trim() === 'これまで読んだ本から始める' && x.offsetParent);
+      if (!b) { openAdd('reading'); return; }
+      try { b.focus({ preventScroll: true }); b.scrollIntoView({ block: 'center' }); } catch { /* ignore */ }
+      b.classList.remove('nudge-pulse');
+      void b.offsetWidth;
+      b.classList.add('nudge-pulse');
+      setTimeout(() => b.classList.remove('nudge-pulse'), 1300);
+    }, 120);
   };
 
   // 📷 初回ガイドの「本のページを撮る」: いま読んでいる本を追加する流れ（保存すると本の詳細でメモのシートが開く）に、
@@ -3086,6 +3104,8 @@ function AuthedApp() {
   //   無料プランも使える（相談と同じ無料のトークンから・1 回 約 2 トークン）。
   const [briefGenId, setBriefGenId] = useState(null); // 作っている本の id
   const [briefJustMadeId, setBriefJustMadeId] = useState(null); // いま作った本（編集画面の畳みを開いたまま見せる）
+  // 開いたままにするのは、作ったその場だけ。画面を離れたら（別の画面・別の本）畳む＝主ボタン「読書を開始する」を最初の画面に残す（2026-10-09 ui-critic）。
+  useEffect(() => { setBriefJustMadeId(null); }, [view, current?.id]);
   const [briefError, setBriefError] = useState(null); // { bookId, message } 作れなかった理由（ボタンの下に 1 行）
   const briefCostLine = runCostLine({ plan: paywallPlan, remaining: paywallTokens, purchased: paywallPurchased, cost: TOKEN_COSTS.bookBrief });
   const makeBookBrief = async (book) => {
@@ -3157,7 +3177,7 @@ function AuthedApp() {
   const pickHypothesisInEdit = (h) => {
     setForm((f) => ({ ...f, hypothesis: appendHypothesis(f.hypothesis, h) }));
     // 知らせは下に固定の保存の欄の上に浮かぶ（EditSaveBar の data-toast-above・2026-10-09）。
-    toast.info('仮説の欄に入れました');
+    toast.success('仮説の欄に入れました');
     revealHypothesisField();
   };
   // 本の詳細（積読）で仮説の例を押したとき（2026-10-09）: 編集画面に移らず、詳細のまま本の仮説に足して保存し、
@@ -3187,6 +3207,13 @@ function AuthedApp() {
       return;
     }
     haptic.light();
+    // 仮説の書いてあるカードを画面の中ほどへ送って、入ったところを見せてから知らせる（2026-10-09 ui-critic）。
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    let reduce = false;
+    try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { /* ignore */ }
+    try { document.querySelector('[data-plan-card]')?.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' }); } catch { /* ignore */ }
+    await new Promise((resolve) => setTimeout(resolve, reduce ? 0 : 350));
+    if (currentRef.current?.id !== book.id) return;
     bindToastToBook(book.id, toast.undo({
       message: '仮説に入れました',
       success: true,
@@ -5203,7 +5230,7 @@ function AuthedApp() {
         type="button"
         onClick={() => (!booksLoading && books.length === 0
           // 本が 0 冊のときはカメラを開かない（重ねる本の記録が無い・2026-10-09）。知らせから本を追加へ。
-          ? toast.show({ type: 'info', message: 'まず本を追加しましょう', action: { label: '本を追加', onClick: () => openAdd('reading') } })
+          ? pointToFirstStep()
           : openShareCamera({
           fromHome: true,
           from: tab === 'review' ? 'review' : tab === 'ai' ? 'consult' : 'home',

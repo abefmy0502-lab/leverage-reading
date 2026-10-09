@@ -11,6 +11,7 @@
 // 2 つ目からの版は畳む見出しで畳む。更新したあとに出るシートと「何が変わった？」は、いちばん新しい版の上の 3 件だけを開き、
 // 残りは「ほかに N 件」で畳む（読む量を減らす・項目は大事な順・2026-10-05 ui-critic）。全部開くのは設定の一覧だけ。
 
+import { Fragment } from 'react';
 import { ChevronDown } from 'lucide-react';
 import BottomSheet from './BottomSheet';
 import { withPhraseBreaks } from './TightBubble';
@@ -23,7 +24,18 @@ const wrapText = { wordBreak: 'keep-all', overflowWrap: 'anywhere', lineBreak: '
 // 語の途中で割る最後の手段＝overflow-wrap が「。」だけを次の行の頭へ送っていた・2026-10-05）。
 const PUNCT_TAIL_RE = /([^\s\u00a0][。、」』）]+)/;
 const nowrap = { whiteSpace: 'nowrap' };
+// 「10月8日」「2026年10月9日」は途中で割らない（keepDateTogether・2026-10-09 ui-critic）。
+const DATE_RE = /((?:\d{4}年)?\d{1,2}月\d{1,2}日)/;
 function phrased(text) {
+  const t = String(text ?? '');
+  if (DATE_RE.test(t)) {
+    return t.split(DATE_RE).map((p, i) => (i % 2 === 1
+      ? <span key={`d${i}`} style={nowrap}>{p}</span>
+      : <Fragment key={`t${i}`}>{phrasedPlain(p)}</Fragment>));
+  }
+  return phrasedPlain(t);
+}
+function phrasedPlain(text) {
   const parts = withPhraseBreaks(text);
   if (!Array.isArray(parts)) return parts;
   return parts.map((p, i) => {
@@ -197,17 +209,20 @@ function ReleaseItems({ release, open = null }) {
   );
 }
 
+// 同じ日の版をまとめると 1 日に 20 件を超えることがあるので、日ごとに上の 8 件だけ開き、残りは「ほかに N 件」（2026-10-09 ui-critic）。
+const DAY_OPEN_ITEMS = 8;
+
 // releases: 新しい順の版の配列。2 つ目からは畳む（多いと最初の版が下に押し流されるため）。
-// openCount: いちばん新しい版で開いておく件数（null＝全部・設定の一覧）。
+// openCount: いちばん新しい版で開いておく件数（null＝日ごとに上の 8 件・設定の一覧）。
 export function ReleaseNotesList({ releases, openCount = null }) {
   // 同じ日の版は 1 つの見出しにまとめる（「10月8日の更新」が 5 つ並ばないように・2026-10-09）。
   const list = groupReleasesByDay(Array.isArray(releases) ? releases : []).filter((r) => r && Array.isArray(r.items) && r.items.length);
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
       {list.map((r, i) => (i === 0 ? (
         <section key={r.id} aria-label={releaseHeading(r)}>
           <h4 style={releaseHeadingStyle}>{withPhraseBreaks(releaseHeading(r))}</h4>
-          <ReleaseItems release={r} open={openCount} />
+          <ReleaseItems release={r} open={openCount ?? DAY_OPEN_ITEMS} />
         </section>
       ) : (
         <details key={r.id}>
@@ -217,7 +232,7 @@ export function ReleaseNotesList({ releases, openCount = null }) {
             <ChevronDown size="1.2em" aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
           </summary>
           <div style={{ marginTop: 'var(--space-3)' }}>
-            <ReleaseItems release={r} />
+            <ReleaseItems release={r} open={DAY_OPEN_ITEMS} />
           </div>
         </details>
       )))}

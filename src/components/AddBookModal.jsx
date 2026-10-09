@@ -468,10 +468,9 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
           onClick={closeAnimated}
           style={{
             justifySelf: 'end',
-            minWidth: 44,
-            minHeight: 44,
+            minWidth: 'var(--tap-min)',
+            minHeight: 'var(--tap-min)',
             padding: 0,
-            // 押せる範囲は 44 のまま、文字の右端を余白 16 にそろえる
             background: 'none',
             border: 'none',
             cursor: 'pointer',
@@ -491,7 +490,8 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
           {/* 📷 本のページを撮るから来た人に、いま何をする画面か（撮る前に本を選ぶ）を 1 行だけ。 */}
           {forPhoto && (
-            <p style={{ margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+            // 説明と検索欄の間は 16（列の間 12 ＋ 4）。
+            <p style={{ margin: '0 0 var(--space-1)', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
               {withPhraseBreaks('まず本を選び、そのあとページを撮ります。')}
             </p>
           )}
