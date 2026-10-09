@@ -229,24 +229,27 @@ describe('記録の地図', () => {
     const text = html.replace(/<[^>]+>/g, ' ');
     for (const ng of ['%', 'あと', '埋め', '達成', 'ランキング', '位']) expect(text.includes(ng), ng).toBe(false);
   });
-  it('マスごとの「この分野の本を探す」は無い・いちばん下に 1 つだけ「メモの少ない分野の本を探す」・0 件は押して一覧へ行かない', () => {
+  it('マスごとの「この分野の本を探す」は無い・いちばん下に 1 つだけ、いちばん少ない分野の名前入りのボタン・0 件は押して一覧へ行かない', () => {
     expect(html).not.toContain('この分野の本を探す');
-    expect((html.match(/メモの少ない分野の本を探す/g) || []).length).toBe(1);
+    expect((html.match(/aria-label="メモの少ない/g) || []).length).toBe(1);
+    expect(html.replace(/<[^>]+>/g, '')).toContain('メモの少ない「生き方・働き方」の本を探す');
+    expect(html).toContain('aria-label="メモの少ない「生き方・働き方」の本を探す（AI 選書）"');
     expect(html).toContain('aria-label="決め方のメモ 2 件を見る"');
     expect(html).toContain('aria-label="お金のメモ 1 件を見る"');
     expect(html).not.toContain('経済のメモ 0 件を見る');
   });
-  it('少ない分野は 0 件から・地図の順に 3 つまで・AI 選書の下書きは「・」でつなぐ', () => {
+  it('いちばん少ない分野は 0 件から・地図の順・下書きは「〈分野〉について、視点を増やしたい」', () => {
     const map = buildViewpointMap([{ tags: ['決め方'] }, { tags: ['決め方'] }, { tags: ['お金'] }]);
-    expect(fewViewpointTags(map)).toEqual(['生き方・働き方', '心の持ち方', '習慣']);
-    expect(fewViewpointTags(map, 2)).toHaveLength(2);
+    expect(fewViewpointTags(map, 1)).toEqual(['生き方・働き方']);
+    const onlyMoney = buildViewpointMap(VIEWPOINT_TAGS.filter((t) => t !== 'お金').flatMap((t) => [{ tags: [t] }, { tags: [t] }]).concat([{ tags: ['お金'] }]));
+    expect(fewViewpointTags(onlyMoney, 1)).toEqual(['お金']);
     const full = buildViewpointMap(VIEWPOINT_TAGS.flatMap((t) => [{ tags: [t] }, { tags: [t] }]));
-    expect(fewViewpointTags(full)).toEqual([]);
-    expect(advisorDraftFor(['お金', '発想'])).toBe('お金・発想について、視点を増やしたい');
+    expect(fewViewpointTags(full, 1)).toEqual([]);
+    expect(advisorDraftFor('お金')).toBe('お金について、視点を増やしたい');
   });
-  it('地図のタグが 1 つも無い人には「メモの少ない分野の本を探す」を出さず、付け方の 1 行だけ', () => {
+  it('地図のタグが 1 つも無い人には本を探すボタンを出さず、付け方の 1 行だけ', () => {
     const empty = renderToStaticMarkup(createElement(ViewpointMapCard, { map: buildViewpointMap([]), onOpenTag: () => {}, onFindBooks: () => {} })).replace(/<wbr\/>/g, '');
-    expect(empty).not.toContain('メモの少ない分野の本を探す');
+    expect(empty).not.toContain('の本を探す');
     expect(empty).toContain('ここに数が出ます');
   });
   it('説明と選ぶシート: 使っていない人は「視点の地図を使う」、使っている人は「使うのをやめる」', () => {

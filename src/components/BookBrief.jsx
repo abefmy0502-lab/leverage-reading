@@ -10,7 +10,7 @@
 //   variant="make"   … ボタン＋目安の行だけ
 //   variant="fold"   … 畳む見出し（読書計画の編集画面・紹介と目次が今は読めないときの本の詳細）。仮説の例を押すと仮説の欄に入る
 //   variant="section"… 畳まないカード
-import { ChevronDown, ChevronRight, Plus, Check } from 'lucide-react';
+import { ChevronDown, Plus, Check } from 'lucide-react';
 import { groupTitle, btnGhost, btnGhostOff, btnLink } from '../styles/ui';
 import { glueForDisplay } from './BookAbout';
 import { withPhraseBreaks } from './TightBubble';
@@ -101,7 +101,7 @@ export function BriefMakeButton({ material, making, waiting = false, costLine, o
 }
 
 /**
- * カードの中の「この本で学べることを見る」の行（高さ 48・15/600・右に目安と ›）。押すと作る。
+ * カードの中の「この本で学べることを見る」の行（高さ 48・15/600・右に目安＝入らなければ下 4 に折り返す・› は付けない）。押すと作る。
  *   making: 「作成中…」（押せない・文字は --text-3）＋下に骨組み／error: 「もう一度作る」＋下に 1 行
  *   材料が無い本: 押せない行に決まった 1 行（13/--text-3）
  */
@@ -124,18 +124,18 @@ export function BriefMakeRow({ material, making, waiting = false, costShort = ''
         aria-busy={off || undefined}
         aria-label={making ? 'この本で学べることを作っています' : `${error ? 'もう一度作る' : BRIEF_MAKE_LABEL}${costShort ? `（${costShort}）` : ''}`}
         style={{
-          ...rowSummary, width: '100%', background: 'none', border: 'none', padding: 0, fontFamily: 'inherit', textAlign: 'left',
+          ...rowSummary, width: '100%', background: 'none', border: 'none', padding: 'var(--space-3) 0', fontFamily: 'inherit', textAlign: 'left',
+          // 文字が大きくて 1 行に入らないときは、目安を行の下 4 に折り返す（消さない・2026-10-09 ui-critic 第 2 回）。
+          flexWrap: 'wrap', alignContent: 'center', columnGap: 'var(--space-2)', rowGap: 'var(--space-1)',
           // 押せない間も薄くしない（DESIGN §5 押せないボタン）。
           ...(off ? { color: 'var(--text-3)', cursor: 'default', opacity: 1 } : null),
         }}
       >
-        <span style={{ flex: '0 1 auto', minWidth: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+        {/* その場で作る行なので、› は付けない（ほかの画面へは移らない）。 */}
+        <span style={{ flex: '1 1 auto', minWidth: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
           {withPhraseBreaks(making ? '作成中…' : error ? 'もう一度作る' : BRIEF_MAKE_LABEL)}
         </span>
-        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 'var(--space-2)', flex: '1 1 0', minWidth: 0 }}>
-          {!off && costShort && <span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{costShort}</span>}
-          <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
-        </span>
+        {!off && costShort && <span style={{ flex: '0 0 auto', fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', lineHeight: 1.5 }}>{costShort}</span>}
       </button>
       {!off && error && <p role="alert" style={{ ...errorStyle, marginTop: 0, ...pad }}>{withPhraseBreaks(error)}</p>}
       {making && <div style={{ ...pad, marginTop: 'calc(-1 * var(--space-3))' }}><MakingSkeleton /></div>}

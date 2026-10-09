@@ -171,6 +171,12 @@ export function BookAboutFoldSkeleton({ style, compact = false }) {
         この本について
         <SkeletonBlock width={64} height={12} radius="var(--radius-full)" style={{ marginRight: 'var(--space-1)' }} />
       </div>
+      {/* compact（課題・仮説のある積読）は、読み込んだあとと同じ 2 行目（線＋48 の「この本で学べること」の行）も（高さを跳ねさせない）。 */}
+      {compact && (
+        <div aria-hidden="true" style={{ minHeight: 'var(--btn-h)', display: 'flex', alignItems: 'center', borderTop: '1px solid var(--separator)' }}>
+          <SkeletonBlock width="56%" height={14} radius="var(--radius-full)" />
+        </div>
+      )}
     </div>
   );
 }

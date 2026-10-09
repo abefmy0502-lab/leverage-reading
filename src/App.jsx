@@ -714,7 +714,7 @@ function AuthedApp() {
   const [aiBarSlot, setAiBarSlot] = useState(null);
   // 🔎 トークンを使い切った相談から「メモを検索して探す」: 振り返り › メモの検索欄に入れる言葉（2026-09-29）。
   const [memoSearchPreset, setMemoSearchPreset] = useState(null); // { query, tag?, nonce } | null
-  // 🗺 視点の地図の「メモの少ない分野の本を探す」→ AI 選書の最初の悩みに入れる言葉（送らない・2026-10-08）。
+  // 🗺 視点の地図の「メモの少ない「…」の本を探す」→ AI 選書の最初の悩みに入れる言葉（送らない・2026-10-08）。
   const [advisorDraft, setAdvisorDraft] = useState(null); // { text, nonce } | null
   // 📖→🧠 本詳細の「この本に相談する」: 相談相手をその本に絞ってマイ読書脳を開く。
   const [scopePreset, setScopePreset] = useState(null); // { bookIds, nonce } | null

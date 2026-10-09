@@ -2,7 +2,7 @@
 //
 //   ViewpointMapCard   … 振り返り › 記録の区画。大分類ごとのまとまりに、タグごとのメモの件数を淡く見せる。
 //                        押すとそのタグのメモの一覧（振り返り › メモの絞り込み）。地図のいちばん下に 1 つだけ文字ボタン
-//                        「メモの少ない分野の本を探す」（0〜1 件の分野を 2〜3 個入れて AI 選書へ・2026-10-09 にマスごとのボタンをやめた）。
+//                        「メモの少ない「お金」の本を探す」（いちばん少ない分野 1 つを AI 選書の下書きに・2026-10-09 にマスごとのボタンをやめた）。
 //   ViewpointMapInvite … 地図を使っていない人に、記録の最後の控えめな 1 行。
 //   ViewpointMapSheet  … 説明と「視点の地図を使う」／「使うのをやめる」を選ぶシート。
 //
@@ -101,9 +101,10 @@ function TagTile({ tag, count, onOpen }) {
 // map: lib/viewpointMap.js の buildViewpointMap の結果。
 export function ViewpointMapCard({ map, onOpenTag, onFindBooks, onAbout, onStop }) {
   const [menu, setMenu] = useState(null);
-  // 地図のタグがまだ 1 つも無い人には「メモの少ない分野の本を探す」を出さず、付け方の 1 行だけ。
+  // 地図のタグがまだ 1 つも無い人には「メモの少ない「…」の本を探す」を出さず、付け方の 1 行だけ。
   const total = map.reduce((n, c) => n + c.groups.reduce((m, g) => m + g.tags.reduce((k, t) => k + t.count, 0), 0), 0);
-  const few = fewViewpointTags(map);
+  // いちばんメモの少ない分野を 1 つだけ（2026-10-09 決定・ボタンの言葉に分野の名前を入れる）。
+  const fewest = fewViewpointTags(map, 1)[0] || '';
   return (
     <section style={cardStyle} aria-labelledby="viewpoint-map-title" data-viewpoint-map>
       {/* 題の行は文字 1 行の高さ（1.3em）。「…」の押せる範囲 44 は上下と右に負の余白で収める。 */}
@@ -145,17 +146,17 @@ export function ViewpointMapCard({ map, onOpenTag, onFindBooks, onAbout, onStop 
           ))}
         </div>
       ))}
-      {/* メモの少ない分野の本を探す: 地図のいちばん下に 1 つだけ（マスごとに並べない＝埋めたくなる形にしない・2026-10-09）。
+      {/* メモの少ない「お金」の本を探す: 地図のいちばん下に 1 つだけ（マスごとに並べない＝埋めたくなる形にしない・2026-10-09）。
           地図のタグがまだ 1 つも無い人には出さない（付け方の 1 行だけ）。 */}
-      {total > 0 && few.length > 0 && onFindBooks && (
+      {total > 0 && fewest && onFindBooks && (
         <button
           type="button"
-          onClick={() => onFindBooks(few)}
-          aria-label={`メモの少ない分野（${few.join('・')}）の本を探す（AI 選書）`}
-          style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginTop: 'var(--space-4)', marginLeft: 'calc(-1 * var(--space-1))', marginBottom: 'calc(-1 * var(--space-3))', textAlign: 'left' }}
+          onClick={() => onFindBooks(fewest)}
+          aria-label={`メモの少ない「${fewest}」の本を探す（AI 選書）`}
+          style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginTop: 'var(--space-4)', marginLeft: 'calc(-1 * var(--space-1))', marginBottom: 'calc(-1 * var(--space-3))', textAlign: 'left', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}
         >
-          {withPhraseBreaks('メモの少ない分野の本を探す')}
-          <ChevronRight size="1.2em" aria-hidden="true" style={{ flexShrink: 0 }} />
+          {/* 折り返したときも › が文の終わりに付くように、› は文の中に置く（「探す」の後ろで割らない）。 */}
+          <span>{withPhraseBreaks('メモの少ない')}<span style={{ whiteSpace: 'nowrap' }}>「{fewest}」</span>{withPhraseBreaks('の本を')}<span style={{ whiteSpace: 'nowrap' }}>探す<ChevronRight size="1.2em" aria-hidden="true" style={{ verticalAlign: 'text-bottom', marginLeft: 'var(--space-1)' }} /></span></span>
         </button>
       )}
       {menu && (

@@ -135,7 +135,7 @@ const ADVISOR_EXAMPLES = [
 // 空の画面の見出しと説明・入力欄の案内（相談の「困っていることを、相談してください」と書く場所を迷わせない）。
 export const ADVISOR_START_TITLE = '次に読む本を探す';
 export const ADVISOR_START_LEAD = '悩みに合う、まだ読んでいない本を選びます';
-export const ADVISOR_PLACEHOLDER = '悩みを書くと、合う本を探します';
+export const ADVISOR_PLACEHOLDER = '悩みを書くと、本を探します';
 
 // 聞き取りの問いの上限は lib/advisorInterview.js の MAX_INTERVIEW_QUESTIONS（芯が見えたら AI が先に止める）。
 
@@ -147,7 +147,7 @@ const advisorMemory = { uid: null, state: null };
 // 結果は advisorMemory に書く（原価はもう払っているので捨てない・相談の backgroundAsk と同じ考え・2026-10-04）。
 // { kind: 'interview' | 'reco', uid, done, promise }。戻ってきた画面は、終わるまで同じ待ちの形を出し、終わったら結果を出す。
 let advisorPendingJob = null;
-// 🗺 ほかの画面から「最初の悩み」に言葉を入れて開いたとき（視点の地図の「メモの少ない分野の本を探す」・{ text, nonce }）。
+// 🗺 ほかの画面から「最初の悩み」に言葉を入れて開いたとき（視点の地図の「メモの少ない「…」の本を探す」・{ text, nonce }）。
 // 同じ nonce は 1 回だけ入れる（タブを行き来しても、消した言葉が戻らないように）。送らない。
 let appliedAdvisorDraft = null;
 
@@ -1635,8 +1635,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
           description="通信の状態を確かめて、もう一度お試しください。"
           actions={[
             { label: 'もう一度', onClick: retryInterview, variant: 'secondary' },
-            // 答えがまだ無い（最初の問いで失敗）ときは、相談の言葉だけで探す・最初の入力に戻る も選べる
-            { label: (interviewError.answers || []).length === 0 ? '相談の言葉だけで探す' : 'このくらいで探して', onClick: searchAfterError, variant: 'ghost' },
+            // 答えがまだ無い（最初の問いで失敗）ときは、最初の言葉だけで探す・最初の入力に戻る も選べる
+            { label: (interviewError.answers || []).length === 0 ? '最初の言葉だけで探す' : 'このくらいで探して', onClick: searchAfterError, variant: 'ghost' },
             ...((interviewError.answers || []).length === 0 ? [{ label: '最初の入力に戻る', onClick: () => { clearInterview(); setInput(concern); }, variant: 'ghost' }] : []),
           ]}
         />
@@ -2117,8 +2117,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         <div className="ai-input-area" style={(costLine && !tokensOut) || freeMode ? { flexWrap: 'wrap' } : undefined}>
           {/* 目安の行は入力欄の上（相談のチップの上の 1 行と同じ位置・13/--text-2・2026-10-09 ui-critic） */}
           {costLine && !tokensOut && (
-            <p style={{ flexBasis: '100%', margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, fontVariantNumeric: 'tabular-nums' }}>
-              {costLine}
+            <p style={{ flexBasis: '100%', margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, fontVariantNumeric: 'tabular-nums', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+              {withPhraseBreaks(costLine)}
             </p>
           )}
           {freeMode && (
