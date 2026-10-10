@@ -51,7 +51,7 @@ import { shareReadingNote } from '../lib/readingTime';
 import { useAuth } from '../hooks/useAuth';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { toMessage } from '../lib/errors';
-import { validateImageFile, MAX_IMAGE_BYTES } from '../lib/limits';
+import { checkSharePhoto, canUseNativePhoto, pickNativePhoto } from '../lib/sharePhotoPick';
 import { track, EVENTS } from '../lib/analytics';
 import { SITE_URL } from '../lib/legalLinks';
 import { appNow } from '../lib/appNow';
@@ -209,13 +209,7 @@ const thumbBtn = {
   cursor: 'pointer',
 };
 
-// HEIC は端末（iOS の Safari）が JPEG に直して渡すことが多いが、そのまま来たときも読めれば使う。
-function checkPhoto(file) {
-  if (!file) return 'no-file';
-  const heic = /image\/hei[cf]/i.test(file.type || '') || /\.(heic|heif)$/i.test(file.name || '');
-  if (heic) return file.size > MAX_IMAGE_BYTES ? '画像が大きすぎます。1 枚あたり 10 MB 以下にしてください。' : null;
-  return validateImageFile(file);
-}
+// 写真の形と大きさを確かめる（HEIC は大きさだけ）は lib/sharePhotoPick.js の checkSharePhoto（選ぶシートと同じ）。
 
 function monthStartIso(now = new Date()) {
   return new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
@@ -461,7 +455,7 @@ export default function ShareSheet({
 
   // ---- 写真を読む（撮った写真・選んだ写真）。端末の中だけで縮めて使う。
   const readPhoto = useCallback(async (file) => {
-    const err = checkPhoto(file);
+    const err = checkSharePhoto(file);
     if (err) {
       if (err !== 'no-file') toast.error(err);
       return false;
@@ -671,8 +665,16 @@ export default function ShareSheet({
 
   // ---- 写真を選ぶ。「アルバム」「写真」は capture なし（iOS は「フォトライブラリ／写真を撮る」を選べる）、
   // 「撮り直す」は capture あり（すぐカメラ）。どちらも端末の中だけで使う。
-  const openPicker = () => { try { fileRef.current?.click(); } catch { /* ignore */ } };
-  const openCamera = () => { try { cameraRef.current?.click(); } catch { /* ignore */ } };
+  // iPhone のアプリに Camera のプラグインがあれば、それで直接開く（input だと iOS のメニューが二重に出る・2026-10-11）。
+  const pickNative = (source) => {
+    pickNativePhoto(source)
+      .then(async (file) => { if (file && await readPhoto(file)) haptic.light(); })
+      .catch((err) => toast.error(toMessage(err, 'この写真は読み込めませんでした。')));
+  };
+  const openPicker = () => { if (canUseNativePhoto()) { pickNative('album'); return; } try { fileRef.current?.click(); } catch { /* ignore */ } };
+  // 写真が無いときの「写真」のチップ（撮る・選ぶ）は、iPhone のアプリではどちらか聞く。
+  const openPhotoChip = () => { if (canUseNativePhoto()) { pickNative('prompt'); return; } openPicker(); };
+  const openCamera = () => { if (canUseNativePhoto()) { pickNative('camera'); return; } try { cameraRef.current?.click(); } catch { /* ignore */ } };
 
   // ---- プレビューを左右に振ると、隣の重ね方へ（Strava の共有と同じ）。押しただけなら編集画面。
   const swipeRef = useRef(null);
@@ -1008,7 +1010,7 @@ export default function ShareSheet({
           <div role="radiogroup" aria-label="背景" style={{ display: 'flex', alignItems: 'flex-start', gap: 0, flexWrap: 'wrap', paddingBottom: 'var(--space-2)' }}>
             {/* 390 幅で見本 4 つと 1 行に収まるよう、見える名前は「写真」（読み上げは「写真を選ぶ」）。 */}
             {/* 「写真」のチップの上下の中心を、右の見本の丸（上 4＋半径 14）の中心にそろえる（2026-10-10 ui-critic）。 */}
-            <button type="button" onClick={openPicker} aria-label="写真を撮る・選ぶ" title="写真を撮る・選ぶ" style={{ ...photoChip, marginTop: 'calc(var(--space-1) + 14px - var(--tap-min) / 2)' }}>
+            <button type="button" onClick={openPhotoChip} aria-label="写真を撮る・選ぶ" title="写真を撮る・選ぶ" style={{ ...photoChip, marginTop: 'calc(var(--space-1) + 14px - var(--tap-min) / 2)' }}>
               <ImagePlus size={20} aria-hidden="true" style={{ color: 'var(--text-2)' }} />
               写真
             </button>

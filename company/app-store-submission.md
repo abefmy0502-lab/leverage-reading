@@ -75,6 +75,7 @@ Xcode で:
 3. App アイコン: `public/icons/icon-1024.png` を AppIcon にセット（1024 必須）。
 4. **PrivacyInfo.xcprivacy** を `ios/App/App/` に追加（下記 §8 の内容をコピー）。
 5. 実機（あなたの iPhone）で一度ビルド＆起動して、**課金（Sandbox）と復元**が動くか確認。
+6. **Info.plist** に `NSCameraUsageDescription`（カメラ）と `NSPhotoLibraryUsageDescription`（写真）の説明文があるか確かめる（写真で共有・写真から書き起こし。`@capacitor/camera` は package.json に入っているので `npm install && npx cap sync ios` で入る・無いと開いた瞬間に落ちる）。実機で「写真で共有」→「写真から選ぶ」を押し、iOS のメニューが二重に出ずにフォトライブラリが直接開くことを確かめる（2026-10-11）。
 
 ## 6. App Privacy（プライバシー栄養成分・⬜ App Store Connect で入力）
 

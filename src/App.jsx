@@ -115,7 +115,8 @@ import { saveStrategyHistory, popStrategyHistory, hasStrategyHistory, clearStrat
 const CoverFixModal = lazy(() => import('./components/CoverFixModal'));
 // 📤 一文をシェア（この本の一文を 1 枚の画像に・SPEC §2-1）
 const ShareSheet = lazy(() => import('./components/ShareSheet'));
-import { hasFinishedThisMonth, yearChoiceAllowed } from './lib/shareOverlay';
+import { hasFinishedThisMonth, yearChoiceAllowed, pickShareSubject } from './lib/shareOverlay';
+import { checkSharePhoto, canUseNativePhoto, pickNativePhoto } from './lib/sharePhotoPick';
 import { appNow } from './lib/appNow';
 import { clearShareMemoCaches } from './lib/shareMemoCache';
 const Landing = lazy(() => import('./pages/Landing'));
@@ -1156,14 +1157,35 @@ function AuthedApp() {
   const justDoneTimerRef = useRef(null);
   // 📷 写真で共有の入口（2026-10-11 オーナー裁定で「押すとすぐカメラ」をやめた）: 押すと「写真で共有」の選ぶシート
   // （ShareSourceSheet）＝カメラで撮る／写真から選ぶ／写真なし（本の表紙）。毎回聞く（覚えない）。
-  // カメラ・写真は、押した瞬間に（await を挟まずに）開く必要があるので、隠した input を 2 つ（capture あり＝カメラ・
-  // なし＝フォトライブラリ）置いて使い回す。写真はこの端末の中だけで使う（アップロードしない）。
-  // 撮る・選ぶのをやめたら何も開かない（選ぶシートも閉じたまま）。
+  // iPhone のアプリに Camera のプラグインがあれば、それでカメラ／フォトライブラリを直接開く（input だと iOS が
+  // 「写真を撮る／フォトライブラリ」のメニューをもう一度出して二重になる・lib/sharePhotoPick.js）。無いビルドと Web は、
+  // 押した瞬間に（await を挟まずに）開く必要があるので、隠した input を 2 つ（capture あり＝カメラ・なし＝写真）置いて使い回す。
+  // 写真はこの端末の中だけで使う（アップロードしない）。撮る・選ぶのをやめたら何も開かない（選ぶシートも閉じたまま）。
+  // 受け取った写真は形と大きさを確かめてから共有のシートを開く（だめなら知らせだけ・checkSharePhoto）。
   const [shareChooser, setShareChooser] = useState(null);
   const openShareChooser = (target) => setShareChooser({ ...target });
   const shareCameraRef = useRef(null);
   const shareAlbumRef = useRef(null);
   const shareCameraTargetRef = useRef(null);
+  // 選ぶシートの「写真なし」の名前: 表紙が敷ける本のときだけ「写真なし（本の表紙）」。
+  const shareChooserHasCover = (() => {
+    const t = shareChooser;
+    if (!t) return false;
+    if (t.book) return !!t.book.cover;
+    if (t.initialSubject && t.initialSubject.kind !== 'book') return false;
+    // （books はこの下で決まるので、同じものの rawBooks を見る）
+    const subj = pickShareSubject(rawBooks);
+    return subj.kind === 'book' && !!(rawBooks || []).find((b) => b.id === subj.bookId)?.cover;
+  })();
+  const openShareWithPhoto = (t, file) => {
+    const err = checkSharePhoto(file);
+    if (err) {
+      if (err !== 'no-file') toast.error(err);
+      return;
+    }
+    setShareChooser(null);
+    setShareSheet({ ...t, photoFile: file });
+  };
   const openSharePicker = (target, el) => {
     shareCameraTargetRef.current = target;
     if (!el) { setShareSheet({ ...target }); return; }
@@ -1173,9 +1195,14 @@ function AuthedApp() {
     const t = shareChooser || { fromHome: true, from: 'home' };
     setShareChooser(null);
     track(EVENTS.SHARE_SOURCE, { source });
-    if (source === 'camera') openSharePicker(t, shareCameraRef.current);
-    else if (source === 'album') openSharePicker(t, shareAlbumRef.current);
-    else setShareSheet({ ...t });
+    if (source === 'none') { setShareSheet({ ...t }); return; }
+    if (canUseNativePhoto()) {
+      pickNativePhoto(source)
+        .then((file) => { if (file) openShareWithPhoto(t, file); })
+        .catch((err) => toast.error(toMessage(err, 'この写真は読み込めませんでした。')));
+      return;
+    }
+    openSharePicker(t, source === 'camera' ? shareCameraRef.current : shareAlbumRef.current);
   };
   const onShareCameraPicked = (e) => {
     const file = e.target.files?.[0];
@@ -1185,14 +1212,20 @@ function AuthedApp() {
     const t = shareCameraTargetRef.current
       || (view === 'detail' && current ? { book: current, from: 'detail' } : { fromHome: true, from: 'home' });
     shareCameraTargetRef.current = null;
-    setShareChooser(null);
-    setShareSheet({ ...t, photoFile: file });
+    openShareWithPhoto(t, file);
   };
-  // 🧪 お試しモード: &share=chooser で選ぶシートを開いておく（撮影用）。
+  // 🧪 お試しモード: &share=chooser で選ぶシートを開いておく（撮影用）。開いたら URL から外す（再読み込みで二重に開かない）。
   useEffect(() => {
     if (!isDemo || typeof window === 'undefined') return;
-    if (new URLSearchParams(window.location.search).get('share') === 'chooser') setShareChooser({ fromHome: true, from: 'home' });
-  }, []);
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('share') !== 'chooser') return;
+    params.delete('share');
+    try {
+      const q = params.toString();
+      window.history.replaceState(window.history.state, '', `${window.location.pathname}${q ? `?${q}` : ''}${window.location.hash}`);
+    } catch { /* ignore */ }
+    if (!shareSheet) setShareChooser({ fromHome: true, from: 'home' });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const shareCameraInput = (
     <>
       <input
@@ -1217,7 +1250,7 @@ function AuthedApp() {
         tabIndex={-1}
       />
       {shareChooser && (
-        <ShareSourceSheet onPick={onShareSourcePicked} onClose={() => setShareChooser(null)} />
+        <ShareSourceSheet hasCover={shareChooserHasCover} onPick={onShareSourcePicked} onClose={() => setShareChooser(null)} />
       )}
     </>
   );
