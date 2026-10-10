@@ -116,7 +116,7 @@ const CoverFixModal = lazy(() => import('./components/CoverFixModal'));
 // 📤 一文をシェア（この本の一文を 1 枚の画像に・SPEC §2-1）
 const ShareSheet = lazy(() => import('./components/ShareSheet'));
 import { hasFinishedThisMonth, yearChoiceAllowed, pickShareSubject } from './lib/shareOverlay';
-import { checkSharePhoto, canUseNativePhoto, pickNativePhoto } from './lib/sharePhotoPick';
+import { checkSharePhoto, canUseNativePhoto, pickNativePhoto, photoPickErrorText, nativePhotoDeniedMessage } from './lib/sharePhotoPick';
 import { appNow } from './lib/appNow';
 import { clearShareMemoCaches } from './lib/shareMemoCache';
 const Landing = lazy(() => import('./pages/Landing'));
@@ -1177,10 +1177,14 @@ function AuthedApp() {
     const subj = pickShareSubject(rawBooks);
     return subj.kind === 'book' && !!(rawBooks || []).find((b) => b.id === subj.bookId)?.cover;
   })();
+  // 写真を使えなかったときは、知らせに「選び直す」＝同じ入口の選ぶシートを開き直す（自分でやめたときは何も出さない・2026-10-11）。
+  const sharePhotoFailed = (t, message) => {
+    toast.error(message, { action: { label: '選び直す', onClick: () => setShareChooser({ ...t }) } });
+  };
   const openShareWithPhoto = (t, file) => {
     const err = checkSharePhoto(file);
     if (err) {
-      if (err !== 'no-file') toast.error(err);
+      if (err !== 'no-file') sharePhotoFailed(t, err);
       return;
     }
     setShareChooser(null);
@@ -1196,10 +1200,15 @@ function AuthedApp() {
     setShareChooser(null);
     track(EVENTS.SHARE_SOURCE, { source });
     if (source === 'none') { setShareSheet({ ...t }); return; }
+    // 🧪 お試しモード: &photo=denied で iPhone の許可が無いときの知らせを撮る。
+    if (isDemo && new URLSearchParams(window.location.search).get('photo') === 'denied') {
+      sharePhotoFailed(t, nativePhotoDeniedMessage(source));
+      return;
+    }
     if (canUseNativePhoto()) {
       pickNativePhoto(source)
         .then((file) => { if (file) openShareWithPhoto(t, file); })
-        .catch((err) => toast.error(toMessage(err, 'この写真は読み込めませんでした。')));
+        .catch((err) => sharePhotoFailed(t, photoPickErrorText(err) || toMessage(err, 'この写真は読み込めませんでした。')));
       return;
     }
     openSharePicker(t, source === 'camera' ? shareCameraRef.current : shareAlbumRef.current);

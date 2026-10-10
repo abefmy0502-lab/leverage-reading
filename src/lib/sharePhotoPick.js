@@ -10,11 +10,15 @@ import { validateImageFile, MAX_IMAGE_BYTES } from './limits';
 
 // HEIC は端末（iOS の Safari）が JPEG に直して渡すことが多いが、そのまま来たときも読めれば使う。
 // 戻り値: null＝使える／'no-file'＝写真が無い（やめた）／それ以外＝利用者に見せる理由。
+export const SHARE_PHOTO_TYPE_MESSAGE = 'この写真は使えません。JPEG・PNG・WebP の写真を選んでください。';
+export const SHARE_PHOTO_SIZE_MESSAGE = 'この写真は大きすぎます。10 MB 以下の写真を選んでください。';
 export function checkSharePhoto(file) {
   if (!file) return 'no-file';
   const heic = /image\/hei[cf]/i.test(file.type || '') || /\.(heic|heif)$/i.test(file.name || '');
-  if (heic) return file.size > MAX_IMAGE_BYTES ? '画像が大きすぎます。1 枚あたり 10 MB 以下にしてください。' : null;
-  return validateImageFile(file);
+  if (heic) return file.size > MAX_IMAGE_BYTES ? SHARE_PHOTO_SIZE_MESSAGE : null;
+  if (!validateImageFile(file)) return null;
+  // 共有の写真のための言い方に（「選び直す」と一緒に出す・2026-10-11）。
+  return typeof file.size === 'number' && file.size > MAX_IMAGE_BYTES ? SHARE_PHOTO_SIZE_MESSAGE : SHARE_PHOTO_TYPE_MESSAGE;
 }
 
 // ネイティブのカメラのプラグインを使えるか（同期で決める＝使えなければ、押した指の中で input を開く必要があるため）。
@@ -30,15 +34,20 @@ export function canUseNativePhoto() {
 export function classifyNativePhotoError(err) {
   const msg = String(err?.message || err || '').toLowerCase();
   if (/cancel/.test(msg)) return 'cancel';
-  if (/denied|permission|not authorized|access/.test(msg)) return 'denied';
+  if (/denied|not authorized|permission/i.test(msg)) return 'denied';
   return 'error';
 }
 
-// 許可が無いときの知らせ（どこで許可するか）。
-export function nativePhotoDeniedMessage(source) {
-  return source === 'camera'
-    ? 'カメラを使えません。設定 → Orime → カメラ をオンにしてください。'
-    : '写真を使えません。設定 → Orime → 写真 で許可してください。';
+// 許可が無いときの知らせ（どこで許可するか）。どちらか聞いた（prompt）ときは、拒まれたのがカメラか写真かを文から見る。
+export function nativePhotoDeniedMessage(source, err) {
+  let which = source;
+  if (source === 'prompt') {
+    const msg = String(err?.message || err || '').toLowerCase();
+    which = /camera/.test(msg) ? 'camera' : /photo|librar|gallery|album/.test(msg) ? 'album' : null;
+  }
+  if (which === 'camera') return 'カメラを使えません。設定 → Orime → カメラ をオンにしてください。';
+  if (which === 'album') return '写真を使えません。設定 → Orime → 写真 で許可してください。';
+  return 'カメラか写真を使えません。設定 → Orime で許可してください。';
 }
 
 // カメラ（source='camera'）かフォトライブラリ（'album'）、どちらか聞く（'prompt'＝シートの「写真」のチップ）を開き、File を返す。やめたら null。
@@ -57,7 +66,7 @@ export async function pickNativePhoto(source) {
   } catch (err) {
     const kind = classifyNativePhotoError(err);
     if (kind === 'cancel') return null;
-    const e = new Error(kind === 'denied' ? nativePhotoDeniedMessage(source) : 'この写真は読み込めませんでした。');
+    const e = new Error(kind === 'denied' ? nativePhotoDeniedMessage(source, err) : 'この写真は読み込めませんでした。');
     e.kind = kind;
     throw e;
   }
@@ -74,4 +83,10 @@ export async function pickNativePhoto(source) {
     e.kind = 'error';
     throw e;
   }
+}
+
+// 写真を受け取れなかったときに見せる文。pickNativePhoto が投げた失敗（.kind つき）は、その文をそのまま
+// （許可が無いのにオフラインの文にすり替わらないように・2026-10-11）。それ以外は null＝呼ぶ側の toMessage に任せる。
+export function photoPickErrorText(err) {
+  return err && err.kind && err.message ? String(err.message) : null;
 }

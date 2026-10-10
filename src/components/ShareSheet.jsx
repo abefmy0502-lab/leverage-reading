@@ -51,7 +51,7 @@ import { shareReadingNote } from '../lib/readingTime';
 import { useAuth } from '../hooks/useAuth';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { toMessage } from '../lib/errors';
-import { checkSharePhoto, canUseNativePhoto, pickNativePhoto } from '../lib/sharePhotoPick';
+import { checkSharePhoto, canUseNativePhoto, pickNativePhoto, photoPickErrorText } from '../lib/sharePhotoPick';
 import { track, EVENTS } from '../lib/analytics';
 import { SITE_URL } from '../lib/legalLinks';
 import { appNow } from '../lib/appNow';
@@ -669,7 +669,7 @@ export default function ShareSheet({
   const pickNative = (source) => {
     pickNativePhoto(source)
       .then(async (file) => { if (file && await readPhoto(file)) haptic.light(); })
-      .catch((err) => toast.error(toMessage(err, 'この写真は読み込めませんでした。')));
+      .catch((err) => toast.error(photoPickErrorText(err) || toMessage(err, 'この写真は読み込めませんでした。')));
   };
   const openPicker = () => { if (canUseNativePhoto()) { pickNative('album'); return; } try { fileRef.current?.click(); } catch { /* ignore */ } };
   // 写真が無いときの「写真」のチップ（撮る・選ぶ）は、iPhone のアプリではどちらか聞く。
