@@ -126,7 +126,11 @@ export function columnBackfill(table, body) {
       const m = part.match(/^unique\s*\(([^)]+)\)/i);
       if (m) {
         const cols = m[1].split(',').map((c) => c.trim());
-        out.push(`CREATE UNIQUE INDEX IF NOT EXISTS ${bare}_${cols.join('_')}_bundle_uq ON ${table} (${cols.join(', ')});`);
+        // 前からある表に重なった行があると索引を作れず、まとめ全体が止まる（2026-10-10 監査）。
+        // DO の中で unique_violation を受け止め、知らせ（NOTICE）だけにして先へ進む（重なりは docs/sql-runbook.md の手順で整理）。
+        const idx = `${bare}_${cols.join('_')}_bundle_uq`;
+        out.push(`DO $bundle_uq$ BEGIN CREATE UNIQUE INDEX IF NOT EXISTS ${idx} ON ${table} (${cols.join(', ')}); `
+          + `EXCEPTION WHEN unique_violation THEN RAISE NOTICE '${idx}: 重なった行があるので一意の索引を作れませんでした（重なりを整理してから流し直してください）'; END $bundle_uq$;`);
       }
       continue;
     }

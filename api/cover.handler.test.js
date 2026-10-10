@@ -351,3 +351,28 @@ describe('/api/cover?search=（本の検索・2026-10-02）', () => {
     expect(res.statusCode).toBe(400);
   });
 });
+
+describe('/api/cover?fields=1・?fieldvote=1（2026-10-10 監査）', () => {
+  it('声はログインした人だけ（Bearer が無い・確かめられないなら 401・残さない）', async () => {
+    vi.stubEnv('SUPABASE_URL', '');
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', '');
+    const handler = await loadHandler();
+    const res = mockRes();
+    await handler(req({ fieldvote: '1', title: '本の名前', remove: '歴史' }), res);
+    expect(res.statusCode).toBe(401);
+    const res2 = mockRes();
+    await handler(req({ fieldvote: '1', title: '本の名前', remove: '歴史' }, { authorization: 'Bearer abc' }), res2);
+    expect(res2.statusCode).toBe(401);
+  });
+  it('ログインしていない分野の問い合わせは AI を呼ばず、覚えない応答は CDN に置かない', async () => {
+    vi.stubEnv('GEMINI_API_KEY', 'g');
+    vi.stubEnv('ANTHROPIC_API_KEY', 'a');
+    routes = [[/api\.openbd\.jp/, () => resp({ body: JSON.stringify([{ summary: { title: '日本の歴史' }, onix: { CollateralDetail: { TextContent: [{ TextType: '03', Text: '江戸から明治までの歴史をたどる。' }] } } }]) })]];
+    const handler = await loadHandler();
+    const res = mockRes();
+    await handler(req({ fields: '1', isbn: '9784062938396', title: '日本の歴史' }), res);
+    expect(res.statusCode).toBe(200);
+    expect(fetched.some((u) => /generativelanguage|anthropic/.test(u))).toBe(false);
+    expect(res.headers['cache-control']).toBe('no-store');
+  });
+});

@@ -1,6 +1,10 @@
 // 🏷 本の分野を自動で付ける印（lib/bookFieldsAuto.js・2026-10-11）。
 import { describe, it, expect, beforeEach } from 'vitest';
-import { readFieldStages, markFieldStage, canAutoFill, isMigrated, setMigrated, backupLegacyTags, isAutoChosen, canRefine, readRefined, markRefined } from './bookFieldsAuto';
+import { readFileSync } from 'node:fs';
+import {
+  readFieldStages, markFieldStage, canAutoFill, isMigrated, setMigrated, backupLegacyTags, isAutoChosen, canRefine, readRefined, markRefined,
+  planTaxonomyChange, accountMarksWith, applyAccountMarks, shortBookId, ACCOUNT_MARKS_MAX,
+} from './bookFieldsAuto';
 
 function memStore() {
   const m = new Map();
@@ -83,5 +87,39 @@ describe('紹介文・ジャンルで決め直してよい本（2026-10-11 の 2
     expect(isAutoChosen('u', st, 'me')).toBe(false);
     markRefined('u', 'old');
     expect(canRefine('u', st, readRefined('u'), { id: 'old' }, true)).toBe(false);
+  });
+});
+
+describe('分野の裏の保存（2026-10-10 監査）', () => {
+  it('消す・足すは DB の行と base の差で決める（その間に本人が足した・外したタグを戻さない）', () => {
+    // 呼び出し側は [小説・物語, 会社の本] を見て、分野を 歴史 に替えたい。その間に本人が「積読候補」を足し、「会社の本」を外していた
+    const p = planTaxonomyChange({ have: ['小説・物語', '積読候補'], next: ['歴史', '会社の本'], base: ['小説・物語', '会社の本'] });
+    expect(p.toAdd).toEqual(['歴史']);
+    expect(p.toRemove).toEqual(['小説・物語']);
+    expect(p.final).toEqual(['積読候補', '歴史']);
+    // base が無いときは今までどおり next に合わせる
+    expect(planTaxonomyChange({ have: ['a', 'b'], next: ['b', 'c'] })).toEqual({ toAdd: ['c'], toRemove: ['a'], final: ['b', 'c'] });
+  });
+  it('本人が選んだ印をアカウントに（短い id・重ねない・上限）・どの端末でも端末の印へ写す', () => {
+    const id = '0123abcd-4567-4890-8abc-def012345678';
+    expect(shortBookId(id)).toBe('0123abcd4567');
+    const l1 = accountMarksWith([], id);
+    expect(l1).toEqual(['0123abcd4567']);
+    expect(accountMarksWith(l1, id)).toBe(null);
+    const many = Array.from({ length: ACCOUNT_MARKS_MAX }, (_, i) => i.toString(16).padStart(12, '0'));
+    const l2 = accountMarksWith(many, id);
+    expect(l2).toHaveLength(ACCOUNT_MARKS_MAX);
+    expect(l2[l2.length - 1]).toBe('0123abcd4567');
+    markFieldStage('u1', id, 'info');
+    expect(applyAccountMarks('u1', l1, [{ id }, { id: 'ffffffff-0000-4000-8000-000000000000' }])).toBe(1);
+    expect(readFieldStages('u1')[id]).toBe('user');
+    expect(canRefine('u1', readFieldStages('u1'), {}, { id }, true)).toBe(false);
+  });
+  it('App: 分野の裏の保存は本の保存と同じ順番待ちに乗り、編集中の本には書かない', () => {
+    const src = readFileSync(new URL('../App.jsx', import.meta.url), 'utf8');
+    const block = src.slice(src.indexOf('const saveTaxonomy = useCallback'), src.indexOf('const fieldsAccountMarks'));
+    expect(block).toContain('enqueueBookMutation(bookId');
+    expect(block).toContain('editingBookIdRef.current === bookId');
+    expect(src).toContain('bookFieldsAuto.markUserChosen(saved.id)');
   });
 });

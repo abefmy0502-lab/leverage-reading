@@ -21,7 +21,7 @@ import { rakutenGet, rakutenUpscale } from './_rakuten.js';
 import { searchBooksServer, cachedSearch, rememberSearch, normalizeSearchQuery } from './_bookSearch.js';
 import { getBookInfoCached, bookInfoResponse } from './_bookInfo.js';
 import { createClient } from '@supabase/supabase-js';
-import { classifyBookServer, recordFieldVotes } from './_bookFields.js';
+import { classifyBookServer, recordFieldVotes, takeUserSlot } from './_bookFields.js';
 
 // 🏷 本の分野（?fields=1）の覚え書き（book_field_cache）を読み書きする service_role のクライアント。無ければ覚えないだけ。
 let bookFieldsDb = null;
@@ -32,6 +32,20 @@ function getBookFieldsDb() {
   if (!url || !key) return null;
   bookFieldsDb = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
   return bookFieldsDb;
+}
+
+// 🛡 分野を書く・声を残す人を確かめる（Authorization: Bearer <Supabase の JWT>・2026-10-10 監査）。
+//    戻り値は利用者 id か ''（無い・確かめられない）。''＝覚え書きを読むだけ・書かない。
+async function bookFieldsUserId(req, db) {
+  const raw = req.headers?.authorization || req.headers?.Authorization || '';
+  if (typeof raw !== 'string' || !raw.startsWith('Bearer ')) return '';
+  const token = raw.slice(7).trim();
+  if (!token || token.length > 4096 || !db) return '';
+  try {
+    const { data, error } = await db.auth.getUser(token);
+    if (error || !data?.user?.id) return '';
+    return String(data.user.id);
+  } catch { return ''; }
 }
 
 // 🔎 実在の判定（?verify=1）のための「検索元が返した本」の記録。表紙探しの流れの途中で
@@ -734,27 +748,40 @@ export default async function handler(req, res) {
   // 🏷 本の分野（?fields=1・2026-10-11・api/_bookFields.js）: 本ごとに 1 回だけ決めて全員で使う。
   //    { fields: [..], source: 'genre'|'ai'|'keywords'|'none', genreIds, version }。AI に送るのは公開の書誌だけ。
   if (req.query?.fields) {
+    const db = getBookFieldsDb();
+    // 🛡 ログインした人だけが覚え書きに書ける（AI もそのときだけ）。1 人あたり 1 時間の回数に上限。
+    const userId = await bookFieldsUserId(req, db);
+    if (userId && !takeUserSlot(userId, 'fields')) {
+      res.setHeader('Cache-Control', 'no-store');
+      return res.status(429).json({ error: 'Too Many Requests' });
+    }
     let data;
     try {
       data = await classifyBookServer({ isbn: isbnIn, title, author }, {
-        supabase: getBookFieldsDb(),
+        supabase: db,
         getInfo: (q) => getBookInfoCached(q, { rakutenGet }),
         ip: clientKey(req),
+        write: !!userId,
       });
     } catch (e) {
       console.warn('[api/cover] fields failed:', e && e.message);
       data = { fields: [], source: 'none', genreIds: [], version: 0 };
     }
     const settled = data.source === 'ai' || data.source === 'genre';
-    res.setHeader('Cache-Control', settled ? 'public, max-age=3600, s-maxage=86400' : 'no-store');
+    res.setHeader('Cache-Control', settled && data.cached ? 'public, max-age=3600, s-maxage=86400' : 'no-store');
     return res.status(200).json({ fields: data.fields, source: data.source, genreIds: data.genreIds || [], version: data.version });
   }
-  // 🏷 自動の分野を選び直した声（?fieldvote=1&add=分野,…&remove=分野,…）。だれかは残さない（本と分野と +1/-1 だけ）。
+  // 🏷 自動の分野を選び直した声（?fieldvote=1&add=分野,…&remove=分野,…）。ログインした人だけ・1 人 1 冊 1 回
+  //    （利用者 id は残さず、そのハッシュで重複を除く）。
   if (req.query?.fieldvote) {
+    res.setHeader('Cache-Control', 'no-store');
+    const db = getBookFieldsDb();
+    const userId = await bookFieldsUserId(req, db);
+    if (!userId) return res.status(401).json({ ok: false });
+    if (!takeUserSlot(userId, 'fieldvote')) return res.status(429).json({ ok: false });
     const list = (v) => String(Array.isArray(v) ? v[0] : (v || '')).split(',').map((x) => x.trim()).filter(Boolean).slice(0, 3);
     const votes = [...list(req.query.add).map((field) => ({ field, delta: 1 })), ...list(req.query.remove).map((field) => ({ field, delta: -1 }))];
-    const r = await recordFieldVotes({ isbn: isbnIn, title, author, votes }, { supabase: getBookFieldsDb() });
-    res.setHeader('Cache-Control', 'no-store');
+    const r = await recordFieldVotes({ isbn: isbnIn, title, author, votes }, { supabase: db, userId });
     return res.status(200).json({ ok: !!r.ok });
   }
 

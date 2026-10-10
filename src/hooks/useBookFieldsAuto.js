@@ -20,7 +20,8 @@ import { useCallback, useEffect, useRef } from 'react';
 import { isDemo } from '../lib/supabase';
 import { classifyBook, fieldsOf, nonFieldTags, renameOldFields, splitLegacyTags, withFields } from '../lib/bookFields';
 import {
-  backupLegacyTags, canAutoFill, canRefine, isMigrated, markFieldStage, markRefined, readFieldStages, readRefined, setMigrated,
+  accountMarksWith, applyAccountMarks, backupLegacyTags, canAutoFill, canRefine, isMigrated, markFieldStage, markRefined,
+  readFieldStages, readRefined, setMigrated,
 } from '../lib/bookFieldsAuto';
 import { genresFor, hasBookInfo, loadBookInfo, peekBookInfo } from '../lib/bookInfo';
 import { fetchServerFields } from '../lib/bookFieldsServer';
@@ -39,9 +40,19 @@ export function infoFeatures(info, book = null) {
 
 const sameFields = (a, b) => a.length === b.length && a.every((x) => b.includes(x));
 
-export function useBookFieldsAuto({ userId, books, loading, saveBookTaxonomy, skipBookId = null }) {
+// saveBookTaxonomy は App が本の保存と同じ順番待ち（enqueueBookMutation）に乗せ、編集中の本を避けて呼ぶ（2026-10-10 監査）。
+// ここからは、tags を決めたもとの一覧（base）も渡す＝消す・足すは DB から読み直した行との差で決まる（useBooks）。
+//   accountMarks: アカウントの「本人が選んだ」印（user_metadata の orime_fields_user）/ saveAccountMarks(list): 書く
+export function useBookFieldsAuto({
+  userId, books, loading, saveBookTaxonomy, skipBookId = null, accountMarks = null, saveAccountMarks = null,
+}) {
   const live = useRef({});
-  live.current = { books, saveBookTaxonomy, skipBookId };
+  live.current = { books, saveBookTaxonomy, skipBookId, accountMarks, saveAccountMarks };
+  // アカウントの印を端末の印へ写す（ほかの端末で選んだ本を、この端末でも自動で変えない）
+  useEffect(() => {
+    if (!userId || !Array.isArray(accountMarks) || !accountMarks.length || !Array.isArray(books) || !books.length) return;
+    applyAccountMarks(userId, accountMarks, books);
+  }, [userId, accountMarks, books]);
   const ranFor = useRef(null);
   const queue = useRef({ ids: [], running: false, count: 0 });
 
@@ -60,7 +71,7 @@ export function useBookFieldsAuto({ userId, books, loading, saveBookTaxonomy, sk
     const auto = classifyBook({ title: cur.title, ...features });
     markFieldStage(userId, cur.id, useful ? 'info' : 'title');
     if (!auto.length || sameFields(auto, have)) return;
-    await live.current.saveBookTaxonomy(cur.id, { tags: withFields(cur.tags, auto) });
+    await live.current.saveBookTaxonomy(cur.id, { tags: withFields(cur.tags, auto), base: cur.tags || [] });
   }, [userId]);
 
   // サーバーが決めた分野で置きかえる（自動の分野の本だけ・本人が選んだ本は canRefine で外れる）。
@@ -74,7 +85,7 @@ export function useBookFieldsAuto({ userId, books, loading, saveBookTaxonomy, sk
     markRefined(userId, cur.id);
     markFieldStage(userId, cur.id, 'info');
     if (sameFields(server.fields, have)) return true;
-    await live.current.saveBookTaxonomy(cur.id, { tags: withFields(cur.tags, server.fields) });
+    await live.current.saveBookTaxonomy(cur.id, { tags: withFields(cur.tags, server.fields), base: cur.tags || [] });
     return true;
   }, [userId]);
 
@@ -132,13 +143,15 @@ export function useBookFieldsAuto({ userId, books, loading, saveBookTaxonomy, sk
     ranFor.current = userId;
     let alive = true;
     (async () => {
+      // アカウントの印を先に写す（本人が選んだ本を下の手順で変えない）
+      applyAccountMarks(userId, live.current.accountMarks, live.current.books);
       // 0. 前の版の分野の名前を新しい名前に（本人が選んだ分野も同じ置きかえ・分野でないタグは触らない）
       for (const b of [...live.current.books]) {
         if (!alive) return;
         const next = renameOldFields(b.tags, { title: b.title, ...infoFeatures(peekBookInfo(b), b) });
         if (!next) continue;
         // eslint-disable-next-line no-await-in-loop
-        await live.current.saveBookTaxonomy(b.id, { tags: next });
+        await live.current.saveBookTaxonomy(b.id, { tags: next, base: b.tags || [] });
       }
       // 1. 前の版のタグの移し替え
       if (isDemo || !isMigrated(userId)) {
@@ -153,12 +166,12 @@ export function useBookFieldsAuto({ userId, books, loading, saveBookTaxonomy, sk
           const fields = mapped.length ? mapped : fieldsOf(b);
           // まずフォルダへ（分野は足す・前のタグはまだ残す）→ フォルダに入ったら前のタグを外す
           // eslint-disable-next-line no-await-in-loop
-          const first = await live.current.saveBookTaxonomy(b.id, { tags: [...fields, ...folders], addCollections: folders });
+          const first = await live.current.saveBookTaxonomy(b.id, { tags: [...fields, ...folders], base: b.tags || [], addCollections: folders });
           if (!first.ok) { allOk = false; continue; }
           if (folders.length && !first.foldersOk) { allOk = false; continue; }
           if (folders.length) {
             // eslint-disable-next-line no-await-in-loop
-            const second = await live.current.saveBookTaxonomy(b.id, { tags: fields });
+            const second = await live.current.saveBookTaxonomy(b.id, { tags: fields, base: first.tags || [...fields, ...folders] });
             if (!second.ok) allOk = false;
           }
         }
@@ -181,7 +194,7 @@ export function useBookFieldsAuto({ userId, books, loading, saveBookTaxonomy, sk
         if (!auto.length) continue;
         n += 1;
         // eslint-disable-next-line no-await-in-loop
-        await live.current.saveBookTaxonomy(cur.id, { tags: withFields(cur.tags, auto) });
+        await live.current.saveBookTaxonomy(cur.id, { tags: withFields(cur.tags, auto), base: cur.tags || [] });
       }
       if (!alive) return;
       // 3. 紹介文・ジャンルを取ってきて決め直す（分野の無い本から・1 回に REFINE_PER_LAUNCH 冊）
@@ -203,5 +216,15 @@ export function useBookFieldsAuto({ userId, books, loading, saveBookTaxonomy, sk
     refineSoon(cur);
   }, [userId, refineSoon]);
 
-  return { onBookInfo, refineSoon };
+  /** 本人が分野を選んだ本の印（端末とアカウントの両方に・アカウントへは失敗しても止めない）。 */
+  const markUserChosen = useCallback((bookId) => {
+    if (!userId || !bookId) return;
+    markFieldStage(userId, bookId, 'user');
+    const next = accountMarksWith(live.current.accountMarks, bookId);
+    if (next && typeof live.current.saveAccountMarks === 'function') {
+      Promise.resolve(live.current.saveAccountMarks(next)).catch(() => { /* 端末の印は付いている */ });
+    }
+  }, [userId]);
+
+  return { onBookInfo, refineSoon, markUserChosen };
 }

@@ -18,6 +18,7 @@ function resetDb() {
     usageFail: false, // reserve_ai_usage が失敗する（RPC 未適用・障害）
     costFail: false, // reserve_ai_cost が無い（supabase_ai_cost.sql 未適用）
     createdAt: undefined, // auth.users.created_at（無ければ user に入れない）
+    subError: null, // subscriptions の読み取りの失敗
   });
   log.length = 0;
 }
@@ -29,7 +30,7 @@ function query(table) {
     select() { return q; }, eq() { return q; }, gt() { return q; }, in() { return q; }, order() { return q; },
     maybeSingle() {
       if (table === 'app_admins') return later({ data: null, error: null });
-      if (table === 'subscriptions') return later({ data: db.sub, error: null });
+      if (table === 'subscriptions') return later(db.subError ? { data: null, error: db.subError } : { data: db.sub, error: null });
       if (table === 'ai_usage') return later({ data: { lot_tokens: db.charged }, error: null });
       return later({ data: null, error: null });
     },
@@ -683,5 +684,39 @@ describe('🧭 Jev の短い道（purpose が Jev の用途・api/_jevRelay.js�
     await handler(jevReq({ 'x-orime-ai-consent': '1' }), res);
     expect(res.body).toEqual({ jev: null, reason: 'consent' });
     expect(f).not.toHaveBeenCalled();
+  });
+});
+
+// 🛡 契約を読めなかったとき（2026-10-10 監査）: 通さず、RevenueCat に直接たずね、だめなら無料プラン。
+describe('契約を読めなかったとき', () => {
+  it('RevenueCat の鍵が無ければ無料プラン（相談以外は 402・AI を呼ばない）', async () => {
+    db.subError = { message: 'connection reset' };
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    const res = mockRes();
+    await handler(req({ messages: [{ role: 'user', content: 'x' }], max_tokens: 500, purpose: 'setup_sheet' }), res);
+    expect(res.statusCode).toBe(402);
+    expect(res.body.error_code).toBe('plan_required');
+    expect(fetchMock).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+  it('RevenueCat で有効と確かめられたら有料として通す', async () => {
+    db.subError = { message: 'connection reset' };
+    process.env.REVENUECAT_SECRET_API_KEY = 'sk_test';
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const fetchMock = vi.fn(async (url) => {
+      if (String(url).includes('api.revenuecat.com')) {
+        return new Response(JSON.stringify({ subscriber: { entitlements: { pro: { expires_date: new Date(Date.now() + 86400000).toISOString(), product_identifier: 'm' } }, subscriptions: { m: { period_type: 'normal' } } } }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ content: [{ type: 'text', text: 'ok' }], usage }), { status: 200, headers: { 'content-type': 'application/json' } });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const res = mockRes();
+    await handler(req({ messages: [{ role: 'user', content: 'x' }], max_tokens: 500, purpose: 'condense', model: 'claude-haiku-4-5' }), res);
+    delete process.env.REVENUECAT_SECRET_API_KEY;
+    expect(res.statusCode).toBe(200);
+    expect(fetchMock.mock.calls.some(([u]) => String(u).includes('api.revenuecat.com'))).toBe(true);
+    warn.mockRestore();
   });
 });

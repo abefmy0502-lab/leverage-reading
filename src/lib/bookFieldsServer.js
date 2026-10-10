@@ -6,6 +6,7 @@
 // 控え: AI・ジャンルで決まった答えは端末に 30 日（言葉の仕分けは控えない＝あとでサーバーがもう一度 AI で決める）。
 
 import { apiUrl } from './apiUrl';
+import { supabase, isSupabaseConfigured } from './supabase';
 import { isBookField } from './bookFields';
 import { bookInfoKey } from './bookInfo';
 
@@ -14,6 +15,24 @@ const LS_PREFIX = 'orime.bookFields.server.v2:';
 const TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const TIMEOUT_MS = 12000;
 const mem = new Map();
+
+// 🛡 サーバーは、ログインした人の呼び出しだけで分野の覚え書きを書き・声を残す（2026-10-10 監査・api/cover.js）。
+//   ログインの鍵（Supabase の JWT）を Authorization に付ける。読めなければ付けない（サーバーは読むだけ）。
+async function defaultGetToken() {
+  if (!isSupabaseConfigured || !supabase) return null;
+  try {
+    const { data } = await supabase.auth.getSession();
+    return data?.session?.access_token || null;
+  } catch { return null; }
+}
+async function authInit(getToken, signal) {
+  let token = null;
+  try { token = await getToken(); } catch { token = null; }
+  const init = {};
+  if (token) init.headers = { Authorization: `Bearer ${token}` };
+  if (signal) init.signal = signal;
+  return Object.keys(init).length ? init : undefined;
+}
 
 function readStore(key) {
   try {
@@ -40,7 +59,7 @@ export function normalizeServerFields(raw) {
  * 本の分野をサーバーに聞く。{ fields, source } か null（つながらない・決められない）。
  * source が 'ai' / 'genre' の答えだけ端末に控える。
  */
-export async function fetchServerFields(book, { fetchImpl = globalThis.fetch, timeoutMs = TIMEOUT_MS } = {}) {
+export async function fetchServerFields(book, { fetchImpl = globalThis.fetch, timeoutMs = TIMEOUT_MS, getToken = defaultGetToken } = {}) {
   const key = bookInfoKey(book);
   if (!key) return null;
   if (mem.has(key)) return mem.get(key);
@@ -53,7 +72,7 @@ export async function fetchServerFields(book, { fetchImpl = globalThis.fetch, ti
   if (book?.author) params.set('author', String(book.author).slice(0, 200));
   try {
     const signal = typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(timeoutMs) : undefined;
-    const r = await fetchImpl(apiUrl(`/api/cover?${params.toString()}`), signal ? { signal } : undefined);
+    const r = await fetchImpl(apiUrl(`/api/cover?${params.toString()}`), await authInit(getToken, signal));
     if (!r || !r.ok) return null;
     const v = normalizeServerFields(await r.json());
     if (!v.fields.length) return null;
@@ -68,10 +87,11 @@ export async function fetchServerFields(book, { fetchImpl = globalThis.fetch, ti
 }
 
 /**
- * 自動で付いた分野を本人が選び直したら、その声をサーバーに残す（だれかは送らない・本の書誌と分野だけ）。
+ * 自動で付いた分野を本人が選び直したら、その声をサーバーに残す（本の書誌と分野だけ・ログインの鍵はサーバーが
+ * 1 人 1 冊 1 回に絞るためだけに使い、利用者 id は残さない）。
  * 同じ本で -1 が 3 つたまると、サーバーがその本の分野を決め直す。失敗しても何もしない。
  */
-export function sendFieldVotes(book, before = [], after = [], { fetchImpl = globalThis.fetch } = {}) {
+export function sendFieldVotes(book, before = [], after = [], { fetchImpl = globalThis.fetch, getToken = defaultGetToken } = {}) {
   const add = after.filter((f) => isBookField(f) && !before.includes(f));
   const remove = before.filter((f) => isBookField(f) && !after.includes(f));
   if (!add.length && !remove.length) return false;
@@ -82,7 +102,14 @@ export function sendFieldVotes(book, before = [], after = [], { fetchImpl = glob
   if (book?.author) params.set('author', String(book.author).slice(0, 200));
   if (add.length) params.set('add', add.join(','));
   if (remove.length) params.set('remove', remove.join(','));
-  try { Promise.resolve(fetchImpl(apiUrl(`/api/cover?${params.toString()}`))).catch(() => {}); } catch { /* 送れなくても動く */ }
+  // ログインしていなければサーバーは残さない（401）。送れなくても動く。
+  const url = apiUrl(`/api/cover?${params.toString()}`);
+  const sent = (async () => {
+    const init = await authInit(getToken);
+    if (!init?.headers) return;
+    await fetchImpl(url, init);
+  })().catch(() => {});
+  void sent;
   mem.delete(bookInfoKey(book));
   try { globalThis.localStorage?.removeItem(LS_PREFIX + bookInfoKey(book)); } catch { /* 無視 */ }
   return true;

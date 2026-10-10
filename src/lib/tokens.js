@@ -110,6 +110,14 @@ const jstIso = (t) => new Date(t + 9 * 3600 * 1000).toISOString();
 export function jstMonthKey(now = Date.now()) {
   return jstIso(now).slice(0, 7);
 }
+// 時刻（ISO の文字列・Date・数）→ 日本時間の 'YYYY-MM-DD'（2026-10-10 監査・AI に渡すメモの記録日など）。
+// 日付だけの 'YYYY-MM-DD' はそのまま。読めなければ ''。
+export function jstDayKey(value) {
+  if (value == null || value === '') return '';
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const t = value instanceof Date ? value.getTime() : typeof value === 'number' ? value : Date.parse(String(value));
+  return Number.isFinite(t) ? jstIso(t).slice(0, 10) : '';
+}
 
 // どの行を読むか（サーバーの periodKeyFor と同じ）。
 export function periodKeyFor(plan, { now = Date.now(), periodEnd = null } = {}) {

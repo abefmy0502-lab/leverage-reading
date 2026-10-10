@@ -5,7 +5,7 @@ import { sanitizeForPrompt, invalidateKnowledgeCache, generateBookBrief } from '
 import { markActivation } from './lib/activation';
 import { OPEN_MEMO_EVENT } from './lib/openMemo';
 import { advisorDraftFor, classifyBook, fieldsOf, isBookField, splitLegacyTags, withFields, BOOK_FIELDS } from './lib/bookFields';
-import { isAutoChosen, markFieldStage, readFieldStages } from './lib/bookFieldsAuto';
+import { ACCOUNT_FIELDS_USER_KEY, isAutoChosen, markFieldStage, readFieldStages } from './lib/bookFieldsAuto';
 import { fetchServerFields, sendFieldVotes } from './lib/bookFieldsServer';
 import { FIELDS_WAIT_MS, applyAutoFields, markFieldsWaiting, settleServerFields } from './lib/bookFieldsForm';
 import { useBookFieldsAuto, infoFeatures } from './hooks/useBookFieldsAuto';
@@ -1389,8 +1389,18 @@ function AuthedApp() {
   // Books are now committed to DB on delete (no soft-delete state to filter).
   const books = rawBooks;
   // 🏷 本の分野（2026-10-11・lib/bookFields.js）: 分野とフォルダだけを書き、開いている本の詳細にもすぐ映す。
+  //   🛡 2026-10-10 監査: 本の保存（saveBook）と同じ本ごとの順番待ち（enqueueBookMutation）に乗せ、順番が来た時点で
+  //   編集している本（editingBookIdRef）なら書かない＝編集の保存が古いタグで分野を消す・分野の保存が編集を追い越す、を防ぐ。
+  //   順番待ちの最新（entry.latest）にもタグを写す（後ろに並んだ行動の保存が古いタグを書き戻さないように）。
+  const editingBookIdRef = useRef(null);
+  editingBookIdRef.current = view === 'edit' ? (form?.id || null) : null;
   const saveTaxonomy = useCallback(async (bookId, opts) => {
-    const r = await saveBookTaxonomy(bookId, opts);
+    let r = { ok: false, foldersOk: false };
+    await enqueueBookMutation(bookId, async (entry) => {
+      if (editingBookIdRef.current === bookId) { r = { ok: false, foldersOk: false, skipped: 'editing' }; return; }
+      r = await saveBookTaxonomy(bookId, opts);
+      if (r?.ok && entry.latest && entry.latest.id === bookId) entry.latest = { ...entry.latest, tags: r.tags };
+    }).catch(() => {});
     if (r?.ok) {
       setCurrent((c) => (c && c.id === bookId
         ? { ...c, tags: r.tags, collections: r.addedCollections?.length ? [...(c.collections || []), ...r.addedCollections] : c.collections }
@@ -1398,6 +1408,13 @@ function AuthedApp() {
     }
     return r;
   }, [saveBookTaxonomy]); // eslint-disable-line react-hooks/exhaustive-deps
+  // 👤 「本人が分野を選んだ」印をアカウントにも（lib/bookFieldsAuto.js の ACCOUNT_FIELDS_USER_KEY・ほかの端末でも変えない）。
+  const fieldsAccountMarks = user?.user_metadata?.[ACCOUNT_FIELDS_USER_KEY] || null;
+  const saveFieldsAccountMarks = useCallback(async (list) => {
+    if (!supabaseClient?.auth?.updateUser) return;
+    const { error } = await supabaseClient.auth.updateUser({ data: { [ACCOUNT_FIELDS_USER_KEY]: list } });
+    if (error) throw error;
+  }, []);
   //   前の版のタグの移し替え（分野／フォルダへ）と、分野の無い本への自動の仕分け（静かに・知らせなし）。
   //   編集している本には触らない（保存で書き戻さないように）。
   const bookFieldsAuto = useBookFieldsAuto({
@@ -1406,6 +1423,8 @@ function AuthedApp() {
     loading: booksLoading,
     saveBookTaxonomy: saveTaxonomy,
     skipBookId: view === 'edit' ? (form?.id || null) : null,
+    accountMarks: fieldsAccountMarks,
+    saveAccountMarks: saveFieldsAccountMarks,
   });
   // 🔗 ホームのメモを書くを開いたら、似たメモを探す準備をしておく（保存したときに似たメモがあれば、知らせを「保存しました。」だけに＝次の一歩を 1 つに・2026-10-10）。
   const homeLinkFinder = useMemoLinkFinder({ books, enabled: !!homeMemoBook || !!homeSavedMemo });
@@ -2333,7 +2352,7 @@ function AuthedApp() {
         if (form.fieldsTouched) {
           // 自動で付いていた分野を選び直した声をサーバーへ（だれかは送らない・本と分野だけ・lib/bookFieldsServer.js）
           if (current?.id && isAutoChosen(user.id, readFieldStages(user.id), current.id)) sendFieldVotes(current, fieldsOf(current), fieldsOf(form));
-          markFieldStage(user.id, saved.id, 'user');
+          bookFieldsAuto.markUserChosen(saved.id);
         }
         else if (!current) {
           markFieldStage(user.id, saved.id, form.fieldsAutoStage || 'title');
@@ -4259,7 +4278,8 @@ function AuthedApp() {
     }
     // 12 時間より前に始めて置き忘れたものは再開しないが、読んだ時間は 1 回分として残す（タイマーは長さまで・計測は 6 時間まで）。
     const saved = loadFocusState(Date.now(), undefined, {
-      onStale: (row) => { if (books.some((x) => x.id === row.book_id)) readingSessions.save(user?.id || null, row); },
+      // ログインしている人の本のときだけ（控えは利用者ごとの鍵・lib/readingSessions.js・2026-10-10）
+      onStale: (row) => { if (user?.id && books.some((x) => x.id === row.book_id)) readingSessions.save(user.id, row); },
     });
     if (!saved) return;
     const b = books.find((x) => x.id === saved.bookId);

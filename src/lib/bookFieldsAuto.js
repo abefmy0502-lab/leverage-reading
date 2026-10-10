@@ -113,3 +113,55 @@ export function backupLegacyTags(userId, bookId, tags) {
   const all = readJson(LEGACY + userId) || {};
   if (!all[bookId]) { all[bookId] = tags.slice(0, 50); writeJson(LEGACY + userId, all); }
 }
+
+// 🏷 分野・タグの書き込みの計画（saveBookTaxonomy・2026-10-10 監査）。
+//   have: いま DB にあるタグ / next: 書きたいタグの全部 / base: next を決めたときに見ていたタグ（null なら next に合わせる）。
+//   戻り値 { toAdd, toRemove, final }。base があるときは、base と next の差だけを DB の行に当てる（三方向の合わせ）。
+export function planTaxonomyChange({ have = [], next = [], base = null } = {}) {
+  const haveSet = new Set(have);
+  const nextSet = new Set(next);
+  if (!Array.isArray(base)) {
+    const toAdd = next.filter((t) => !haveSet.has(t));
+    const toRemove = have.filter((t) => !nextSet.has(t));
+    return { toAdd, toRemove, final: [...next] };
+  }
+  const baseSet = new Set(base);
+  const toAdd = next.filter((t) => !baseSet.has(t) && !haveSet.has(t));
+  const toRemove = have.filter((t) => baseSet.has(t) && !nextSet.has(t));
+  const removed = new Set(toRemove);
+  return { toAdd, toRemove, final: [...have.filter((t) => !removed.has(t)), ...toAdd] };
+}
+
+// 👤 「本人が分野を選んだ」印をアカウントにも持つ（2026-10-10 監査）。
+//   端末の印（orime.fields.stage.v2）だけだと、別の端末がその本を自動の分野の本と思って決め直し、本人の選んだ
+//   分野を書き換えることがある。そこで、アカウントの user_metadata の orime_fields_user に、本人が選んだ本の
+//   短い id（uuid の先頭 12 文字・ハイフンなし）を残し、どの端末でも開いたときに端末の印へ写す。
+//   book_tags に印の行を足す案もあったが、タグを読む・書く・書き出すすべての場所で印を外す手当てと SQL が要る。
+//   user_metadata は SQL が要らず、読むのは開いたときの 1 か所だけなので、こちらにした（ログインの鍵に載るので、
+//   短い id にして ACCOUNT_MARKS_MAX 冊までに抑える＝多くても約 4KB。古いものから外す）。
+export const ACCOUNT_FIELDS_USER_KEY = 'orime_fields_user';
+export const ACCOUNT_MARKS_MAX = 300;
+export const shortBookId = (id) => String(id || '').replace(/-/g, '').toLowerCase().slice(0, 12);
+
+/** アカウントの印の一覧に本を足す（重ねない・新しいものを後ろに・上限で古いものから外す）。変わらなければ null。 */
+export function accountMarksWith(list, bookId) {
+  const sid = shortBookId(bookId);
+  if (sid.length < 12) return null;
+  const cur = (Array.isArray(list) ? list : []).map((x) => String(x || '')).filter((x) => /^[0-9a-f]{12}$/.test(x));
+  if (cur.includes(sid)) return null;
+  return [...cur, sid].slice(-ACCOUNT_MARKS_MAX);
+}
+
+/** アカウントの印を端末の印（'user'）へ写す。写した本の数。 */
+export function applyAccountMarks(userId, list, books) {
+  if (!userId || !Array.isArray(list) || !list.length || !Array.isArray(books)) return 0;
+  const marks = new Set(list.map((x) => String(x || '')));
+  const stages = readFieldStages(userId);
+  let n = 0;
+  for (const b of books) {
+    if (!b?.id || stages[b.id] === 'user' || !marks.has(shortBookId(b.id))) continue;
+    markFieldStage(userId, b.id, 'user');
+    n += 1;
+  }
+  return n;
+}

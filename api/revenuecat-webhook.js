@@ -51,7 +51,7 @@
 //                                  絶対にクライアントへ露出しないこと）
 
 import { createClient } from '@supabase/supabase-js';
-import { isTokenPackEvent, isTokenPackProductEvent, tokenCreditFromEvent, tokenRefundFromEvent } from './_tokenLots.js';
+import { isTokenPackEvent, isTokenPackProductEvent, tokenCreditFromEvent, tokenRefundFromEvent, sandboxCreditAllowed, sandboxTokenCap } from './_tokenLots.js';
 import { timingSafeEqual } from 'node:crypto';
 import { rcSubscriptionEventRow, recordSubscriptionEvent } from './_subscriptionEvents.js';
 
@@ -151,6 +151,21 @@ function resolveStatus(type, expirationMs) {
   }
 }
 
+// 状態の高さ（下げる＝active → past_due → canceled）。知らない値は最も低い。
+export function statusRank(status) {
+  return status === 'active' ? 2 : status === 'past_due' ? 1 : 0;
+}
+
+// 届いたイベントの期限が、保存済みの期限より古いか（どちらかが無ければ比べない＝false）。返金は対象外。
+export function isStaleRcEvent(event, existing) {
+  if (!event || !existing) return false;
+  if (event.type === 'CANCELLATION' && String(event.cancel_reason || '').toUpperCase() === 'CUSTOMER_SUPPORT') return false;
+  const incoming = Number(event.expiration_at_ms);
+  const stored = Date.parse(existing.current_period_end || '');
+  if (!Number.isFinite(incoming) || incoming <= 0 || !Number.isFinite(stored)) return false;
+  return incoming < stored;
+}
+
 // canceled_at 列が未適用の DB では「列が無い」エラーになるため、その時だけ
 // 列を抜いて再試行する（既存挙動を壊さない schema fallback）。
 async function upsertSubscriptionRow(supabase, row) {
@@ -201,6 +216,20 @@ export default async function handler(req, res) {
         if (!dedupErr) eventClaimed = true;
       }
       const c = r.credit;
+      // 🧪 サンドボックスの分は 1 人の期限内の合計を上限まで（お金が動かないので何度でも買える・2026-10-10 監査）。
+      if (c.environment === 'sandbox') {
+        const { data: sbLots, error: sbErr } = await supabase
+          .from('ai_token_lots')
+          .select('tokens_total, expires_at, transaction_id')
+          .eq('user_id', c.userId)
+          .eq('environment', 'sandbox');
+        if (sbErr) throw sbErr; // 5xx → 再送（claim は catch で解放）
+        const others = (sbLots || []).filter((l) => l.transaction_id !== c.transactionId);
+        if (!sandboxCreditAllowed(others, c.tokens, { cap: sandboxTokenCap() })) {
+          console.warn('RevenueCat webhook: sandbox token cap reached', { product: c.productId });
+          return res.status(200).json({ received: true, skipped: 'sandbox_cap' });
+        }
+      }
       const { data: credited, error: creditErr } = await supabase.rpc('credit_token_lot', {
         p_user_id: c.userId,
         p_transaction_id: c.transactionId,
@@ -370,7 +399,7 @@ export default async function handler(req, res) {
     try {
       const { data: existing } = await supabase
         .from('subscriptions')
-        .select('provider, status, stripe_subscription_id')
+        .select('provider, status, stripe_subscription_id, current_period_end')
         .eq('user_id', appUserId)
         .maybeSingle();
       // provider='stripe' 明示行に加え、provider が NULL のレガシー行でも
@@ -380,6 +409,15 @@ export default async function handler(req, res) {
         && (existing.provider === 'stripe' || (!existing.provider && existing.stripe_subscription_id));
       if (managedByStripe && existing.status === 'active' && status !== 'active') {
         return res.status(200).json({ received: true, skipped: 'stripe_active_preserved' });
+      }
+      // ⏳ 順番の入れ替わり（2026-10-10 監査）: 届いた期限が、保存済みの期限より古いイベント（あとから着いた古い
+      //   EXPIRATION・BILLING_ISSUE など）では状態を下げない。期限も古い方へ戻さない。返金（CANCELLATION の
+      //   cancel_reason が CUSTOMER_SUPPORT）は期限が前に動くのが正しいので、この守りの外。
+      if (existing && !managedByStripe && isStaleRcEvent(event, existing)) {
+        if (statusRank(status) < statusRank(existing.status)) {
+          return res.status(200).json({ received: true, skipped: 'stale_event' });
+        }
+        patch.current_period_end = existing.current_period_end;
       }
     } catch { /* 読み取り失敗時は従来どおり upsert に進む（fail-open） */ }
 

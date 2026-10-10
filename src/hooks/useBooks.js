@@ -6,6 +6,7 @@ import { isSchemaError } from '../lib/errors';
 import { invalidateKnowledgeCache } from '../lib/ai';
 import { writeLocalBrief, readLocalBrief } from '../lib/bookBrief';
 import { captureBookReadingSessions, restoreBookReadingSessions } from '../lib/readingSessions';
+import { planTaxonomyChange } from '../lib/bookFieldsAuto';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -654,14 +655,21 @@ export function useBooks() {
   // 🏷 本の分野（book_tags）とフォルダ（book_collections）だけを書く（2026-10-11・lib/bookFields.js）。
   //   本の保存（saveBook）は通さない＝ほかの欄・行動を書き直さない。自動の仕分けと前の版のタグの移し替えで使う。
   //   消してから入れ直さず、差分だけ（入れる → 消す）＝途中で失敗しても、言葉が消えたままにならない。
-  //   tags: 本のタグの全部（分野＋残すもの）/ addCollections: 足すフォルダ（今あるフォルダは消さない）
+  //   tags: 本のタグの全部（分野＋残すもの）/ base: 呼び出し側が見ていたタグ（tags を決めたもとの一覧）/
+  //   addCollections: 足すフォルダ（今あるフォルダは消さない）
+  //   🛡 2026-10-10 監査: 消す・足すは DB から読み直した行と base の差で決める（三方向の合わせ）＝呼び出し側が古い
+  //     一覧を見ていても、その間に本人が足したタグを消さない・本人が外したタグを戻さない。
+  //     消すのは「base にあって tags に無い、いま DB にあるタグ」、足すのは「base に無くて tags にある、DB に無いタグ」。
+  //     base を渡さないときは今までどおり tags に合わせる。
   //   戻り値: { ok, foldersOk, tags, addedCollections }。foldersOk=false のときはフォルダに入れられなかった（表が無い・失敗）。
-  const saveBookTaxonomy = async (bookId, { tags, addCollections = [] } = {}) => {
+  const saveBookTaxonomy = async (bookId, { tags, base = null, addCollections = [] } = {}) => {
     if (!user || !isSupabaseConfigured || !UUID_RE.test(bookId || '')) return { ok: false, foldersOk: false };
-    const nextTags = [...new Set((tags || []).map((t) => String(t || '').trim()).filter(Boolean))];
-    const addCols = [...new Set((addCollections || []).map((c) => String(c || '').trim()).filter(Boolean))];
+    const norm = (list) => [...new Set((list || []).map((t) => String(t || '').trim()).filter(Boolean))];
+    const nextTags = norm(tags);
+    const addCols = norm(addCollections);
     let foldersOk = true;
     let addedCols = [];
+    let finalTags = nextTags;
     try {
       if (addCols.length) {
         try {
@@ -681,16 +689,15 @@ export function useBooks() {
       }
       const { data: haveTags, error: e3 } = await supabase.from('book_tags').select('tag_name').eq('book_id', bookId);
       if (e3) throw e3;
-      const have = new Set((haveTags || []).map((r) => r.tag_name));
-      const want = new Set(nextTags);
-      const toAdd = nextTags.filter((t) => !have.has(t));
-      const toRemove = [...have].filter((t) => !want.has(t));
-      if (toAdd.length) {
-        const { error } = await supabase.from('book_tags').insert(toAdd.map((tag) => ({ book_id: bookId, user_id: user.id, tag_name: tag })));
+      const haveList = (haveTags || []).map((r) => r.tag_name);
+      const plan = planTaxonomyChange({ have: haveList, next: nextTags, base: Array.isArray(base) ? norm(base) : null });
+      finalTags = plan.final;
+      if (plan.toAdd.length) {
+        const { error } = await supabase.from('book_tags').insert(plan.toAdd.map((tag) => ({ book_id: bookId, user_id: user.id, tag_name: tag })));
         if (error) throw error;
       }
-      if (toRemove.length) {
-        const { error } = await supabase.from('book_tags').delete().eq('book_id', bookId).in('tag_name', toRemove);
+      if (plan.toRemove.length) {
+        const { error } = await supabase.from('book_tags').delete().eq('book_id', bookId).in('tag_name', plan.toRemove);
         if (error) throw error;
       }
     } catch (e) {
@@ -698,9 +705,9 @@ export function useBooks() {
       return { ok: false, foldersOk };
     }
     setBooks((prev) => prev.map((b) => (b.id === bookId
-      ? { ...b, tags: nextTags, collections: addedCols.length ? [...(b.collections || []), ...addedCols] : b.collections }
+      ? { ...b, tags: finalTags, collections: addedCols.length ? [...(b.collections || []), ...addedCols] : b.collections }
       : b)));
-    return { ok: true, foldersOk, tags: nextTags, addedCollections: addedCols };
+    return { ok: true, foldersOk, tags: finalTags, addedCollections: addedCols };
   };
 
   // ローカル state のみを即時更新する（DB は触らない）。行動トグル等の

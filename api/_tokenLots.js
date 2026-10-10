@@ -132,6 +132,21 @@ export function tokenCreditFromEvent(event, { env = process.env, isUserId = () =
   };
 }
 
+// 🧪 サンドボックス（TestFlight・App 審査）の追加分の上限（2026-10-10 監査・オーナー裁定「記録は続ける」）。
+//   サンドボックスの購入はお金が動かないので、だれでも何度でも買える。1 人の期限内のサンドボックスの分の合計
+//   （買った量＝tokens_total・使った分も数える）を SANDBOX_TOKEN_CAP（env RC_SANDBOX_TOKEN_CAP）までにする。
+export const SANDBOX_TOKEN_CAP = 2000;
+export function sandboxTokenCap(env = process.env) {
+  const n = Math.floor(Number(env?.RC_SANDBOX_TOKEN_CAP));
+  return Number.isFinite(n) && n >= 0 && String(env?.RC_SANDBOX_TOKEN_CAP ?? '').trim() !== '' ? n : SANDBOX_TOKEN_CAP;
+}
+//   lots: その人のサンドボックスのロット（tokens_total・expires_at）。足してよければ true。
+export function sandboxCreditAllowed(lots, tokens, { now = Date.now(), cap = SANDBOX_TOKEN_CAP } = {}) {
+  const live = (Array.isArray(lots) ? lots : []).filter((l) => l && ts(l.expires_at) > now);
+  const total = live.reduce((n, l) => n + Math.max(0, Math.floor(Number(l.tokens_total) || 0)), 0);
+  return total + Math.max(0, Math.floor(Number(tokens) || 0)) <= cap;
+}
+
 export function isTokenPackEvent(event, env = process.env) {
   return !!event && event.type === 'NON_RENEWING_PURCHASE' && !!packForProduct(event.product_id, env);
 }

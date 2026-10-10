@@ -107,10 +107,11 @@ export function parseToc(raw) {
 // ─── openBD ────────────────────────────────────────────────────────────
 /** openBD の 1 冊分（配列の要素）から { title, description, toc, pages, pubdate }。 */
 export function parseOpenbdRecord(rec) {
-  const out = { title: '', description: '', toc: [], pages: 0, pubdate: '' };
+  const out = { title: '', author: '', description: '', toc: [], pages: 0, pubdate: '' };
   if (!rec || typeof rec !== 'object') return out;
   const s = rec.summary || {};
   out.title = String(s.title || '').trim();
+  out.author = String(s.author || '').trim().slice(0, 200);
   out.pubdate = normPubdate(s.pubdate);
   const onix = rec.onix || {};
   const texts = Array.isArray(onix?.CollateralDetail?.TextContent) ? onix.CollateralDetail.TextContent : [];
@@ -212,6 +213,7 @@ async function rakutenInfo({ i13, title, author }, { rakutenGet, env }) {
     answered: true,
     status: resp.status,
     title: [it.title, it.subTitle].filter(Boolean).join(' '),
+    author: String(it.author || '').trim().slice(0, 200),
     isbn: toIsbn13(it.isbn),
     description: cap.description,
     toc: cap.toc,
@@ -276,7 +278,9 @@ const textWithin = (a, b) => {
 
 /**
  * 紹介文・目次を集める。戻り値:
- *   { description, toc: string[], source: 'openbd'|'rakuten'|'google'|'', tocSource, pages, pubdate, isbn, genreIds, answered }
+ *   { description, toc: string[], source: 'openbd'|'rakuten'|'google'|'', tocSource, pages, pubdate, isbn, genreIds, title, author, answered }
+ *   title / author ＝ 取得元（書誌）の書名・著者（送られた書名と照らして合った取得元のものだけ・2026-10-10 監査）。
+ *     本の分野（api/_bookFields.js）は ISBN があるとき、送られた書名ではなくこれを使う（送られた書名は照合だけ）。
  *   genreIds ＝ 楽天ブックスのジャンル ID（本の分野を決める手がかり・2026-10-11）
  *   answered ＝ どれかの取得元が正常に答えた（0 件でも）。false なら「確かめられなかった」＝覚えない。
  */
@@ -287,7 +291,7 @@ export async function fetchBookInfo({ isbn = '', title = '', author = '' } = {},
     env = (typeof process !== 'undefined' && process.env) || {},
     timeoutMs = FETCH_TIMEOUT_MS,
   } = deps;
-  const out = { description: '', toc: [], source: '', tocSource: '', pages: 0, pubdate: '', isbn: '', genreIds: [], answered: false };
+  const out = { description: '', toc: [], source: '', tocSource: '', pages: 0, pubdate: '', isbn: '', genreIds: [], title: '', author: '', answered: false };
   let i13 = toIsbn13(isbn);
   const safe = (p) => p.catch(() => ({ answered: false }));
 
@@ -317,12 +321,17 @@ export async function fetchBookInfo({ isbn = '', title = '', author = '' } = {},
   if (okOb && ob.pages) out.pages = ob.pages;
   out.pubdate = (okOb && ob.pubdate) || (okRk && rk.pubdate) || '';
   if (okRk && Array.isArray(rk.genreIds)) out.genreIds = rk.genreIds;
+  // 書誌の書名・著者（合った取得元のもの・openBD → 楽天の順）
+  if (okOb && ob.title) out.title = ob.title;
+  else if (okRk && rk.title) out.title = rk.title;
+  out.author = (okOb && ob.author) || (okRk && rk.author) || '';
 
   // 紹介文がまだ無いときだけ Google（鍵なしは共有の枠が細いので、要るときだけ）
   if (!out.description && i13) {
     const g = await safe(googleInfo(i13, { fetchImpl, env, timeoutMs }));
     if (g.answered) out.answered = true;
     if (g.answered && sameBookTitle(title, g.title)) {
+      if (!out.title && g.title) out.title = g.title;
       if (g.description) { out.description = g.description; out.source = 'google'; }
       if (!out.pages && g.pages) out.pages = g.pages;
       if (!out.pubdate && g.pubdate) out.pubdate = g.pubdate;

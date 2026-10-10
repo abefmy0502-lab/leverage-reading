@@ -7,6 +7,7 @@ import { PROMPTS } from './prompts';
 import { track } from './analytics';
 import { MODEL_SMART, MODEL_FAST } from './models';
 import { apiUrl } from './apiUrl';
+import { jstDayKey } from './tokens';
 import { fetchAllRows } from './fetchAllRows';
 import { verifyAnswerQuotes, decodeQuoteRefs, groundRefs, hasGroundedEvidence } from './evidenceCheck';
 import { parseAskSection, wantsAction, isBookLookup, shouldDecide, wantsMoreAsk, countAsks, ASK_LIMIT, lensOf } from './consultHelpers';
@@ -314,11 +315,12 @@ function formatMemo(memo, opts) {
   const rawText = memo.text || '';
   const safeText = clamp(sanitizeForPrompt(rawText), LIMITS.promptMemoExcerpt);
   const truncated = rawText.length > LIMITS.promptMemoExcerpt ? '\n…（以下省略）' : '';
-  const dateTag = withDate && memo.created_at ? `${memo.created_at.slice(0, 10)} / ` : '';
+  // 記録日は日本時間の日付（UTC の先頭 10 文字だと、朝 9 時前に書いたメモが前の日になる・2026-10-10 監査）
+  const dateTag = withDate && memo.created_at ? `${jstDayKey(memo.created_at)} / ` : '';
 
   // Personal learning ("学びログ") — 元々日付あり。
   if (memo.source_type === 'personal' || (!memo.book && !memo.book_id)) {
-    const date = memo.created_at?.slice(0, 10) || '';
+    const date = jstDayKey(memo.created_at);
     const cat = sanitizeForPrompt(pickCategory(memo.tags) || 'その他').slice(0, 32);
     return `【自分の学び: ${date} / ${cat}】${safeText}${truncated}`;
   }
@@ -957,7 +959,8 @@ const GROWTH_MAX_BOOKS = 10;
 const GROWTH_MAX_ACTIONS = 5;
 const GROWTH_MAX_CHATS = 3;
 const STATUS_LABEL = { want: '読みたい', before: '積読', reading: '読書中', done: '読了' };
-const day = (v) => (typeof v === 'string' && v.length >= 10 ? v.slice(0, 10) : '');
+// 日本時間の日付（日付だけの値はそのまま・時刻は日本時間に直す・2026-10-10 監査）
+const day = (v) => (typeof v === 'string' && v.length >= 10 ? jstDayKey(v) : '');
 const safeLine = (v, max) => clamp(sanitizeForPrompt(String(v || '')).replace(/\s+/g, ' ').trim(), max);
 
 async function fetchBooksForGrowth(userId) {
@@ -1380,7 +1383,7 @@ export function formatMemoPointer(memo) {
   const body = [...sanitizeForPrompt(memo?.text || '').replace(/\s+/g, ' ').trim()];
   const excerpt = `「${body.slice(0, POINTER_CHARS).join('')}${body.length > POINTER_CHARS ? '…' : ''}」`;
   if (memo?.source_type === 'personal' || (!memo?.book && !memo?.book_id)) {
-    return `- 自分の学び ${String(memo?.created_at || '').slice(0, 10)}${excerpt}`;
+    return `- 自分の学び ${jstDayKey(memo?.created_at)}${excerpt}`;
   }
   const title = sanitizeForPrompt(memo.book?.title || '').slice(0, 80);
   const kind = SYNTH_LABEL[memo.source_type] ? ` ${SYNTH_LABEL[memo.source_type]}` : '';
@@ -1450,7 +1453,7 @@ function formatPerBookMemo(m) {
   const tags = [];
   if (Number.isFinite(m.page_number)) tags.push(`p.${m.page_number}`);
   if (SYNTH_LABEL[m.source_type]) tags.push(SYNTH_LABEL[m.source_type]);
-  if (m.created_at) tags.push(String(m.created_at).slice(0, 10));
+  if (m.created_at) tags.push(jstDayKey(m.created_at));
   return `- ${tags.length ? `(${tags.join(' / ')}) ` : ''}${text}`;
 }
 

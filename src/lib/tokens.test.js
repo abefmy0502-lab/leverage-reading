@@ -131,3 +131,22 @@ describe('量の目安（単位は AI の答え・1 回 約 10 トークン）',
     for (const t of [10, 30, 60, 150, 800, 1000]) expect(answerCountLabel(t)).not.toMatch(/[つ件]$/);
   });
 });
+
+describe('jstDayKey（AI に渡す日付・2026-10-10 監査）', () => {
+  it('時刻は日本時間の日付・日付だけはそのまま・読めなければ空', async () => {
+    const { jstDayKey } = await import('./tokens');
+    expect(jstDayKey('2026-10-09T20:30:00.000Z')).toBe('2026-10-10'); // 日本時間の朝 5 時半
+    expect(jstDayKey('2026-10-09T14:59:59.000Z')).toBe('2026-10-09');
+    expect(jstDayKey('2026-10-09')).toBe('2026-10-09');
+    expect(jstDayKey(Date.parse('2026-12-31T15:00:00Z'))).toBe('2027-01-01');
+    expect(jstDayKey('')).toBe('');
+    expect(jstDayKey('x')).toBe('');
+    expect(jstDayKey(null)).toBe('');
+  });
+  it('ai.js は記録日を UTC の先頭 10 文字で切らない', async () => {
+    const { readFileSync } = await import('node:fs');
+    const src = readFileSync(new URL('./ai.js', import.meta.url), 'utf8');
+    expect(src).not.toMatch(/created_at\)?\??\.slice\(0, 10\)/);
+    expect(src).not.toMatch(/String\(m\.created_at\)\.slice\(0, 10\)/);
+  });
+});

@@ -59,36 +59,31 @@ function looksLikeSafeUserMessage(text) {
 // 新しいコード/文字列パターンを見つけたら、必ずここに足すこと。
 //
 // 判定対象:
-//   - Postgres:  42P01 (undefined_table) / 42703 (undefined_column)
-//   - PostgREST: PGRST200 (relationship not found) / PGRST204 (column not
-//     found in schema cache) / PGRST205 (table not found in schema cache)
-//   - 防御的な文字列マッチ（コードが落ちている・fetch 経由で文字列化された
-//     エラーに備える）: 'not exist'（'does not exist' を包含）/ 'schema cache'
-//     / 'could not find'（PGRST20x の英文）/ 'column' / 'relation'
-//     （'relationship' を包含）
+//   - Postgres:  42P01 (undefined_table) / 42703 (undefined_column) / 42883 (undefined_function＝RPC が未適用)
+//   - PostgREST: PGRST2xx（PGRST200 relationship not found / PGRST202 function not found / PGRST204 column not
+//     found in schema cache / PGRST205 table not found in schema cache など＝スキーマのキャッシュに無い）
+//   - コードが無いとき（`throw error.message` のように文字列で投げた・fetch 経由で文字列化された）だけ、
+//     文字列で見る: 'does not exist' / 'schema cache' / 'could not find'
 //
-// ⚠️ 文字列マッチは意図的に広い。呼び出し側は「schema error → 縮退/スキップ、
-// それ以外 → throw/記録」という fail 方向を持っているので、この関数を使う時は
-// その方向を変えないこと（広げる分には縮退が増えるだけで安全、狭めるのは事故）。
+// ⚠️ 2026-10-10 監査: 以前は文字列 'column' / 'relation' でも schema error にしていたため、
+//   23514（check 違反「… of relation "reading_sessions" violates check constraint」）や 23502（not null 違反
+//   「null value in column …」）・42501（RLS 違反「… row-level security policy for table …」）まで「表が無い」と
+//   取り違え、読書の時間の控えを表に送るのをやめてしまっていた。コードがあるときはコードだけで決める。
+//   呼び出し側は「schema error → 縮退/スキップ、それ以外 → throw/記録」の向きを変えないこと。
+const SCHEMA_CODES = new Set(['42P01', '42703', '42883']);
 export function isSchemaError(err) {
   if (!err) return false;
-  // `throw error.message` のように文字列で投げられた事故にも備える。
+  const code = typeof err === 'string' ? '' : String(err.code || err.error_code || '').trim();
+  if (code) return SCHEMA_CODES.has(code) || /^PGRST2\d\d$/.test(code);
+  // `throw error.message` のように文字列で投げられた事故にも備える（コードが無いときだけ）。
   const msg = (typeof err === 'string'
     ? err
     : String(err.message || err.error_description || err.error || '')
   ).toLowerCase();
-  const code = typeof err === 'string' ? '' : String(err.code || err.error_code || '');
   return (
-    code === '42P01' ||
-    code === '42703' ||
-    code === 'PGRST200' ||
-    code === 'PGRST204' ||
-    code === 'PGRST205' ||
-    msg.includes('not exist') ||
+    msg.includes('does not exist') ||
     msg.includes('schema cache') ||
-    msg.includes('could not find') ||
-    msg.includes('column') ||
-    msg.includes('relation')
+    msg.includes('could not find')
   );
 }
 

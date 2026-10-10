@@ -324,9 +324,19 @@ async function checkRevenueCat(userId) {
 // 期限切れの猶予（webhook の遅れを吸収する）
 const PERIOD_GRACE_MS = 3 * 24 * 60 * 60 * 1000;
 
+// 🛡 契約を読めなかったとき（2026-10-10 監査）: 以前は「判定不能なら通す（fail-open）」で、subscriptions の読み取りが
+//   失敗するたびに、だれでも有料の AI をすべて使えていた。いまは RevenueCat に直接たずね（checkRevenueCat）、
+//   それでも確かめられなければ無料プランとして扱う（相談・この本で学べること・写真から書き起こしの無料の枠だけ）。
+async function entitlementWhenUnknown(userId, why) {
+  console.warn('[entitlement] subscriptions unreadable → revenuecat / free plan:', why);
+  const rc = await checkRevenueCat(userId);
+  if (rc?.allowed) return { allowed: true, limit: rc.trial ? AI_TRIAL_CALL_LIMIT : AI_MONTHLY_CALL_LIMIT, trial: !!rc.trial, periodEnd: rc.periodEnd || null };
+  return { allowed: false, limit: AI_MONTHLY_CALL_LIMIT, unverified: true };
+}
+
 async function checkEntitlement(userId) {
   const supabase = getServiceSupabase();
-  if (!supabase) return { allowed: true }; // 判定不能なら通す（fail-open）
+  if (!supabase) return entitlementWhenUnknown(userId, 'no service client');
   try {
     // ⚡ 管理者判定（app_admins）と課金判定（subscriptions）は互いに独立した読み取り
     // なので直列 await せず並列化する（AI コールの TTFT からサーバー往復を 1 回削る）。
@@ -355,9 +365,8 @@ async function checkEntitlement(userId) {
     if (admin) return { allowed: true, admin: true };
     const { data, error } = subResult;
     if (error) {
-      // テーブル未適用（does not exist）含め、取得エラーは fail-open。
-      console.warn('[entitlement] check failed (fail-open):', error.message);
-      return { allowed: true };
+      // テーブル未適用（does not exist）含め、取得エラーは RevenueCat に直接たずね、だめなら無料プラン。
+      return entitlementWhenUnknown(userId, error.message);
     }
     // active でも、期限（current_period_end）を猶予 3 日以上過ぎていれば有効とみなさない
     // （EXPIRATION の取りこぼし・遅れて届いた古いイベントで active が残る事故の防止）。
@@ -374,8 +383,7 @@ async function checkEntitlement(userId) {
     if (rc?.allowed) return { allowed: true, limit: rc.trial ? AI_TRIAL_CALL_LIMIT : AI_MONTHLY_CALL_LIMIT, trial: !!rc.trial, periodEnd: rc.periodEnd || null };
     return { allowed: false, limit };
   } catch (e) {
-    console.warn('[entitlement] check threw (fail-open):', e?.message);
-    return { allowed: true };
+    return entitlementWhenUnknown(userId, e?.message);
   }
 }
 
@@ -695,7 +703,7 @@ export default async function handler(req, res) {
     return res.status(429).json({ error: { message: '短い時間にたくさん送られました。少し待ってから、もう一度お試しください。' }, error_code: 'rate_limited', retry_after: rlShared.retryAfter });
   }
 
-  // 課金 entitlement（サーバー側ゲート）。fail-open（未設定 / 未適用 / 障害は通す）。
+  // 課金 entitlement（サーバー側ゲート）。契約を読めないときは RevenueCat に直接たずね、だめなら無料プラン（2026-10-10 監査）。
   // 🎁 無料プラン（契約なし）は 💬 相談だけ・月 AI_FREE_TOKENS トークン（'free-YYYY-MM' の行で数える）。
   //    相談以外の AI 機能は 402 plan_required（アプリは有料プランの画面を重ねて開く）。判定は api/_aiAccess.js。
   const monthKey = currentPeriodMonth(); // この 1 回の間は同じ月で数える（月末の日付またぎでずれない）

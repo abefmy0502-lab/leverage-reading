@@ -739,8 +739,10 @@ create policy "reading_sessions_delete_own" on public.reading_sessions
 --   book_field_cache  … 本ごとの分野（book_key＝ISBN13 か、書名＋著者を整えた鍵）。source＝genre（書店のジャンルだけで決まった）
 --                       / ai（AI が一覧から選んだ）/ keywords（AI が使えなかったときの言葉の仕分け＝あとでもう一度）。
 --                       version は決め方の版（api/_bookFields.js の BOOK_FIELDS_VERSION）。古い版・0（直してほしいの声が多い）は決め直す。
---   book_field_votes  … 利用者が自動の分野を選び直したときの声（だれかは残さない・本と分野と +1/-1 だけ）。
---                       同じ本で、残っている分野に -1 が 3 つたまったら、その本の分野を決め直す（version を 0 に）。
+--   book_field_votes  … 利用者が自動の分野を選び直したときの声（本と分野と +1/-1 と、利用者 id のハッシュ voter＝
+--                       同じ人の 2 回目を除く目印・利用者 id そのものは残さない）。今の分野を決めた後に、別々の 3 人が
+--                       残っている分野に -1 を入れたら、その本の分野を決め直す（version を 0 に）。
+--   書くのはログインした人の呼び出しだけ（/api/cover が Bearer を確かめる・2026-10-10 監査）。
 --   book_field_ai_daily … 1 日に AI で決める本の数（env BOOK_FIELDS_DAILY_LIMIT・既定 2000）を数える。
 -- 書き手・読み手はサーバー（/api/cover?fields=1・service_role）だけ。RLS 有効・ポリシー無し＝アプリから直接は読めない。
 -- 利用者のメモ・個人の情報は入らない（本の公開の書誌から決めた分野だけ）。
@@ -811,6 +813,20 @@ begin
 end $$;
 
 create index if not exists book_field_votes_key_idx on public.book_field_votes (book_key, created_at desc);
+
+-- 🛡 1 人 1 冊・1 つの分野に 1 回（2026-10-10 監査）。voter＝利用者 id のハッシュ（api/_bookFields.js の voterHash・
+--   利用者 id そのものは残さない）。前からある行は voter が null（null どうしは重ならないので一意の索引は付けられる・
+--   サーバーは voter の無い行を数えない）。
+alter table public.book_field_votes add column if not exists voter text;
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'book_field_votes_voter_check') then
+    alter table public.book_field_votes add constraint book_field_votes_voter_check check (voter is null or char_length(voter) between 8 and 64);
+  end if;
+end $$;
+
+create unique index if not exists book_field_votes_voter_uq on public.book_field_votes (book_key, field, voter);
 
 alter table public.book_field_votes enable row level security;
 
@@ -1100,7 +1116,7 @@ ALTER TABLE public.push_subscriptions ADD COLUMN IF NOT EXISTS tz_offset_min sma
 ALTER TABLE public.push_subscriptions ADD COLUMN IF NOT EXISTS last_sent_at timestamptz;
 ALTER TABLE public.push_subscriptions ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
 ALTER TABLE public.push_subscriptions ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
-CREATE UNIQUE INDEX IF NOT EXISTS push_subscriptions_user_id_endpoint_bundle_uq ON public.push_subscriptions (user_id, endpoint);
+DO $bundle_uq$ BEGIN CREATE UNIQUE INDEX IF NOT EXISTS push_subscriptions_user_id_endpoint_bundle_uq ON public.push_subscriptions (user_id, endpoint); EXCEPTION WHEN unique_violation THEN RAISE NOTICE 'push_subscriptions_user_id_endpoint_bundle_uq: 重なった行があるので一意の索引を作れませんでした（重なりを整理してから流し直してください）'; END $bundle_uq$;
 
 CREATE INDEX IF NOT EXISTS push_subscriptions_user_idx
   ON public.push_subscriptions (user_id);
@@ -3715,7 +3731,7 @@ ALTER TABLE public.ops_sales_metrics ADD COLUMN IF NOT EXISTS x_profile_clicks i
 ALTER TABLE public.ops_sales_metrics ADD COLUMN IF NOT EXISTS memo text;
 ALTER TABLE public.ops_sales_metrics ADD COLUMN IF NOT EXISTS created_at timestamptz not null default now();
 ALTER TABLE public.ops_sales_metrics ADD COLUMN IF NOT EXISTS updated_at timestamptz not null default now();
-CREATE UNIQUE INDEX IF NOT EXISTS ops_sales_metrics_user_id_week_start_bundle_uq ON public.ops_sales_metrics (user_id, week_start);
+DO $bundle_uq$ BEGIN CREATE UNIQUE INDEX IF NOT EXISTS ops_sales_metrics_user_id_week_start_bundle_uq ON public.ops_sales_metrics (user_id, week_start); EXCEPTION WHEN unique_violation THEN RAISE NOTICE 'ops_sales_metrics_user_id_week_start_bundle_uq: 重なった行があるので一意の索引を作れませんでした（重なりを整理してから流し直してください）'; END $bundle_uq$;
 
 alter table public.ops_sales_metrics enable row level security;
 

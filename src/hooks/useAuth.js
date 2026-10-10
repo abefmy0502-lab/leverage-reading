@@ -59,8 +59,26 @@ async function sendPasswordResetEmail(email) {
   if (error) throw error;
 }
 
+// 🚪 ログアウトの前に（まだ表に書けるうちに）片付けるもの（2026-10-10 監査）。
+// 例: 読書の時間（hooks/useReadingSessions.js）＝途中の集中モードを 1 回分として残し、途中の状態を消す。
+// useAuth を読むモジュールから登録する（ここから import すると循環するため）。失敗してもログアウトは止めない。
+const beforeSignOut = new Set();
+export function registerBeforeSignOut(fn) {
+  beforeSignOut.add(fn);
+  return () => beforeSignOut.delete(fn);
+}
+export async function runBeforeSignOut(userId) {
+  for (const fn of [...beforeSignOut]) {
+    // eslint-disable-next-line no-await-in-loop
+    try { await fn(userId); } catch { /* 止めない */ }
+  }
+}
+
 async function signOut() {
   if (!isSupabaseConfigured) return;
+  let userId = null;
+  try { userId = (await supabase.auth.getSession())?.data?.session?.user?.id || null; } catch { userId = null; }
+  await runBeforeSignOut(userId);
   // 共有端末対策①: 想起プッシュの購読をこの端末から解除する（サインアウト前・
   // RLS で自分の行を消せるうちに）。解除しないと、次に別のアカウントが使う
   // 端末に前ユーザーのメモ通知（本文抜粋つき）が届き続ける。失敗しても

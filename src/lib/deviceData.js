@@ -3,9 +3,10 @@
 // 本の分野の自動の印・前の版のタグの控え・写真で共有の選び方など。消すのはこの一覧と接頭辞に当たるものだけ（ほかのアプリの設定は残す）。
 export const DEVICE_DATA_KEYS = [
   'brain-cleared-at', 'brain-weekly-q', 'brain-weekly-dismissed', 'leverage-memo-snap',
-  'orime.readingSessions.v1', 'orime.focus.v1', 'orime.consult.actionAdded.v1',
+  'orime.readingSessions.v1', 'orime.readingSessions.v1.moved', 'orime.focus.v1', 'orime.consult.actionAdded.v1',
 ];
-export const DEVICE_DATA_PREFIXES = ['orime.bookBrief.v1:', 'orime.viewmap:', 'orime.fields.', 'orime.share.'];
+// orime.readingSessions.v1:<利用者 id>＝読書の時間の控え（利用者ごと・2026-10-10）。
+export const DEVICE_DATA_PREFIXES = ['orime.readingSessions.v1:', 'orime.bookBrief.v1:', 'orime.viewmap:', 'orime.fields.', 'orime.share.'];
 
 function defaultStorage() {
   try { return typeof localStorage !== 'undefined' ? localStorage : null; } catch { return null; }

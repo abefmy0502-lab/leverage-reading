@@ -240,11 +240,16 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
     setHolding(false);
     const t = Date.now();
     const row = sessionRow(s, t);
-    saveFocusState(null);
     let rows = sessions.rows;
-    if (row) {
-      const r = await sessions.save(row);
-      if (r?.row) rows = [r.row, ...rows.filter((x) => x.id !== r.row.id)];
+    // 途中の状態は、保存（表に入らなければ端末への控え）が終わってから消す（保存の途中でアプリが閉じても、
+    // 次に開いたときに再開・記録できる・2026-10-10 監査）。
+    try {
+      if (row) {
+        const r = await sessions.save(row);
+        if (r?.row) rows = [r.row, ...rows.filter((x) => x.id !== r.row.id)];
+      }
+    } finally {
+      saveFocusState(null);
     }
     const todaySec = todaySeconds(rows, book.id, t);
     // 押し間違い（30 秒未満）は記録せずに閉じる（おわったときの画面は出さず、知らせだけ・2026-10-10）。

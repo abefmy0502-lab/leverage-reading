@@ -14,8 +14,9 @@
 // （利用者のトークンは使わない）。1 日に AI で決める本の数は env BOOK_FIELDS_DAILY_LIMIT（既定 2000・RPC で数える）、
 // 1 つの IP から AI で決めるのは 1 時間に BOOK_FIELDS_IP_PER_HOUR（既定 60）冊まで。
 //
-// 利用者が自動の分野を選び直したら、声（本と分野と +1/-1 だけ・だれかは残さない）を book_field_votes に残し、
-// 覚えている分野に -1 が 3 つたまったら、その本を決め直す（version を 0 に）。
+// 利用者が自動の分野を選び直したら、声（本と分野と +1/-1 と、利用者 id のハッシュ＝同じ人の 2 回目を除く目印）を
+// book_field_votes に残し、今の分野を決めた後に別々の 3 人が -1 を入れたら、その本を決め直す（version を 0 に）。
+// 🛡 分野を書く（AI・覚え書き）・声を残すのはログインした人だけ（api/cover.js が Bearer を確かめる・2026-10-10 監査）。
 
 import { GENRE_RULES, genreCandidates, classifyBookDetailed, isBookField } from './_bookFieldsCore.js';
 import { BOOK_FIELDS_SYSTEM, BOOK_FIELDS_MAX_TOKENS, bookFieldsUserText } from './_bookFieldsPrompt.js';
@@ -23,6 +24,7 @@ import { parseRouteSpec } from './_aiRouting.js';
 import { openRoute, ProviderError } from './_providers.js';
 import { costFromUsage } from './_aiCost.js';
 import { toIsbn13 } from './_coverSources.js';
+import { createHash } from 'node:crypto';
 
 // 決め方の版。一覧・指示文・ジャンルの結びつけを変えたら上げる（覚えている分野を決め直す）。
 //   2（2026-10-11 の 4 回目）: 分野「仕事の進め方」→「段取り・効率」・大分類の名前・指示文の例を変えた。
@@ -100,7 +102,7 @@ export function takeIpAiSlot(ip, env = process.env, now = Date.now()) {
   if (ipLog.size > 5000) ipLog.clear();
   return true;
 }
-export function _resetBookFieldsMemory() { ipLog.clear(); }
+export function _resetBookFieldsMemory() { ipLog.clear(); userLog.clear(); }
 
 /** AI に分野を選ばせる。{ fields, model, mjpy } か null（使えない・失敗・合わない答え）。 */
 export async function askAiForFields(book, { env = process.env, fetchImpl = fetch } = {}) {
@@ -167,10 +169,17 @@ export function cacheUsable(row, now = Date.now()) {
 
 /**
  * 本 1 冊の分野を決める。戻り値 { fields, source: 'genre'|'ai'|'keywords'|'none', genreIds, version, cached }。
- *   deps: { supabase（service_role・無くてもよい）, getInfo（公開の書誌を集める）, env, fetchImpl, ip, now }
+ *   deps: { supabase（service_role・無くてもよい）, getInfo（公開の書誌を集める）, env, fetchImpl, ip, now,
+ *           write（覚え書きに書いてよいか・既定 true。ログインしていない呼び出しは false＝読むだけ・AI も呼ばない） }
+ *
+ * 🛡 覚え書きは全員で使うので、送られた書名・著者で書き換えられないようにする（2026-10-10 監査）:
+ *   - ISBN があるときは、AI と言葉の仕分けに書誌側の書名・著者（info.title / info.author）を使う。送られた書名は
+ *     書誌と照らす（同じ本か）ことにだけ使う。書誌の書名が分からない（取得元が答えない・書名が合わない）ときは、
+ *     その場の見立てを返すだけで覚えない。
+ *   - ISBN が無いときは、送られた書名・著者がそのまま本の鍵なので、ほかの本の覚え書きには届かない。
  */
 export async function classifyBookServer({ isbn = '', title = '', author = '' } = {}, deps = {}) {
-  const { supabase = null, getInfo, env = process.env, fetchImpl = fetch, ip = 'unknown', now = Date.now() } = deps;
+  const { supabase = null, getInfo, env = process.env, fetchImpl = fetch, ip = 'unknown', now = Date.now(), write = true } = deps;
   const key = bookFieldKey({ isbn, title, author });
   if (!key) return { fields: [], source: 'none', genreIds: [], version: BOOK_FIELDS_VERSION, cached: false };
 
@@ -182,59 +191,102 @@ export async function classifyBookServer({ isbn = '', title = '', author = '' } 
   let info = {};
   try { info = (await getInfo({ isbn, title, author })) || {}; } catch { info = {}; }
   const genreIds = Array.isArray(info.genreIds) ? info.genreIds : [];
-  const features = { title, description: info.description || '', toc: Array.isArray(info.toc) ? info.toc : [], genreIds };
+  const byIsbn = key.startsWith('i:');
+  const bibTitle = String(info.title || '').trim();
+  // 分野を決める材料の書名・著者（ISBN があるときは書誌のものだけ）
+  const useTitle = byIsbn ? bibTitle : title;
+  const useAuthor = byIsbn ? String(info.author || '').trim() : author;
+  // 覚え書きに書いてよいか（ログインしている・ISBN のときは書誌の書名が分かった）
+  const canWrite = !!write && (!byIsbn || !!bibTitle);
+  const features = { title: useTitle, description: info.description || '', toc: Array.isArray(info.toc) ? info.toc : [], genreIds };
   const row = { book_key: key, isbn: toIsbn13(isbn || info.isbn) || null, genre_ids: genreIds, version: BOOK_FIELDS_VERSION };
+  const save = async (r) => { if (canWrite) await writeCache(supabase, r); };
 
   // 3. ジャンルが 1 つの分野にしか結びつかない
   const g = genreCandidates(genreIds);
   if (g && g.fields.length === 1) {
     const fields = [g.fields[0]];
-    await writeCache(supabase, { ...row, fields, source: 'genre', model: null });
+    await save({ ...row, fields, source: 'genre', model: null });
     return { fields, source: 'genre', genreIds, version: BOOK_FIELDS_VERSION, cached: false };
   }
 
-  // 4. AI（紹介文か目次があるときだけ・1 日の上限・IP ごとの上限）
+  // 4. AI（覚え書きに書けるときだけ・紹介文か目次があるときだけ・1 日の上限・IP ごとの上限）
   const hasText = !!(features.description || features.toc.length);
-  if (hasText && bookFieldsRoutes(env).length && takeIpAiSlot(ip, env, now) && await reserveDaily(supabase, env, now)) {
-    const ai = await askAiForFields({ title, author, description: features.description, toc: features.toc, genreNames: genreNamesOf(genreIds) }, { env, fetchImpl });
+  if (canWrite && hasText && bookFieldsRoutes(env).length && takeIpAiSlot(ip, env, now) && await reserveDaily(supabase, env, now)) {
+    const ai = await askAiForFields({ title: useTitle, author: useAuthor, description: features.description, toc: features.toc, genreNames: genreNamesOf(genreIds) }, { env, fetchImpl });
     if (ai) {
-      await writeCache(supabase, { ...row, fields: ai.fields, source: 'ai', model: ai.model });
+      await save({ ...row, fields: ai.fields, source: 'ai', model: ai.model });
       return { fields: ai.fields, source: 'ai', genreIds, version: BOOK_FIELDS_VERSION, cached: false };
     }
   }
 
-  // 5. 言葉の仕分け（端末と同じ）
-  const kw = classifyBookDetailed(features);
+  // 5. 言葉の仕分け（端末と同じ）。書誌の書名が分からない ISBN の本は、送られた書名でその場の見立てだけ（覚えない）。
+  const kw = classifyBookDetailed(byIsbn && !bibTitle ? { ...features, title } : features);
   if (kw.fields.length) {
-    await writeCache(supabase, { ...row, fields: kw.fields.slice(0, 2), source: 'keywords', model: null });
+    await save({ ...row, fields: kw.fields.slice(0, 2), source: 'keywords', model: null });
     return { fields: kw.fields.slice(0, 2), source: 'keywords', genreIds, version: BOOK_FIELDS_VERSION, cached: false };
   }
   return { fields: [], source: 'none', genreIds, version: BOOK_FIELDS_VERSION, cached: false };
 }
 
+/** 声を残す人の目印（利用者 id そのものは残さない・同じ人の 2 回目の声を除くためだけ）。 */
+export function voterHash(userId) {
+  const id = String(userId || '').trim();
+  if (!id) return '';
+  return createHash('sha256').update(`orime-fieldvote:${id}`).digest('hex').slice(0, 32);
+}
+
 /**
- * 利用者が自動の分野を選び直した声を残す（だれかは残さない）。覚えている分野に -1 が STALE_VOTES たまったら決め直す。
- *   votes: [{ field, delta: 1|-1 }]
+ * 利用者が自動の分野を選び直した声を残す（利用者 id は残さず、そのハッシュだけ）。覚えている分野に -1 が STALE_VOTES
+ * たまったら決め直す。
+ *   votes: [{ field, delta: 1|-1 }] / deps: { supabase, userId（ログインした人の id・無ければ残さない）, now }
+ * 🛡 1 人 1 冊・1 つの分野に 1 回（book_key, field, voter の一意の索引・2 回目は無視）。数えるのは今の覚え書きを
+ *   決めた時刻（updated_at）より後の声だけ＝決め直したら前の声は数えない（2026-10-10 監査）。
  */
-export async function recordFieldVotes({ isbn = '', title = '', author = '', votes = [] } = {}, { supabase = null } = {}) {
+export async function recordFieldVotes({ isbn = '', title = '', author = '', votes = [] } = {}, { supabase = null, userId = '', now = Date.now() } = {}) {
   const key = bookFieldKey({ isbn, title, author });
+  const voter = voterHash(userId);
+  const seen = new Set();
   const rows = (Array.isArray(votes) ? votes : [])
     .filter((v) => isBookField(v?.field) && (v.delta === 1 || v.delta === -1))
+    .filter((v) => (seen.has(v.field) ? false : (seen.add(v.field), true)))
     .slice(0, 6)
-    .map((v) => ({ book_key: key, field: v.field, delta: v.delta }));
-  if (!key || !rows.length || !supabase) return { ok: false };
+    .map((v) => ({ book_key: key, field: v.field, delta: v.delta, voter }));
+  if (!key || !rows.length || !supabase || !voter) return { ok: false };
   try {
-    const { error } = await supabase.from('book_field_votes').insert(rows);
+    // 同じ人の同じ本・同じ分野の 2 回目は何もしない（voter の列が無い古い表ではエラー＝残さない）
+    const { error } = await supabase.from('book_field_votes').upsert(rows, { onConflict: 'book_key,field,voter', ignoreDuplicates: true });
     if (error) return { ok: false };
     const cached = await readCache(supabase, key);
     if (!cached || !Array.isArray(cached.fields)) return { ok: true, stale: false };
-    const since = new Date(Date.now() - 180 * 86400 * 1000).toISOString();
-    const { data } = await supabase.from('book_field_votes').select('field, delta').eq('book_key', key).gte('created_at', since).limit(200);
-    const minus = (data || []).filter((v) => v.delta === -1 && cached.fields.includes(v.field)).length;
-    if (minus >= STALE_VOTES && cached.version !== 0) {
-      await supabase.from('book_field_cache').update({ version: 0, updated_at: new Date().toISOString() }).eq('book_key', key);
+    const floor = now - 180 * 86400 * 1000;
+    const decided = Date.parse(cached.updated_at || '') || 0;
+    const since = new Date(Math.max(floor, decided)).toISOString();
+    const { data } = await supabase.from('book_field_votes').select('field, delta, voter, created_at').eq('book_key', key).gte('created_at', since).limit(500);
+    const voters = new Set(
+      (data || [])
+        .filter((v) => v.delta === -1 && v.voter && cached.fields.includes(v.field) && (Date.parse(v.created_at || '') || now) >= decided)
+        .map((v) => v.voter),
+    );
+    if (voters.size >= STALE_VOTES && cached.version !== 0) {
+      await supabase.from('book_field_cache').update({ version: 0, updated_at: new Date(now).toISOString() }).eq('book_key', key);
       return { ok: true, stale: true };
     }
     return { ok: true, stale: false };
   } catch { return { ok: false }; }
+}
+
+// 🛡 利用者ごとの回数（インスタンスの中・1 時間）。分野を聞く・声を残すのはログインした人だけで、1 人あたりの上限を設ける。
+const userLog = new Map();
+export const USER_LIMITS = { fields: 300, fieldvote: 60 };
+export function takeUserSlot(userId, kind, env = process.env, now = Date.now()) {
+  const envKey = kind === 'fieldvote' ? 'BOOK_FIELDS_VOTES_PER_HOUR' : 'BOOK_FIELDS_USER_PER_HOUR';
+  const max = num(env[envKey], USER_LIMITS[kind] || 60);
+  const k = `${kind}:${userId}`;
+  const arr = (userLog.get(k) || []).filter((t) => now - t < 3600 * 1000);
+  if (arr.length >= max) return false;
+  arr.push(now);
+  userLog.set(k, arr);
+  if (userLog.size > 10000) userLog.clear();
+  return true;
 }

@@ -51,7 +51,9 @@ describe('前からある表に足りない列を足す', () => {
       'ALTER TABLE public.t ADD COLUMN IF NOT EXISTS user_id uuid REFERENCES auth.users(id);',
       'ALTER TABLE public.t ADD COLUMN IF NOT EXISTS enabled boolean NOT NULL DEFAULT true;',
       "ALTER TABLE public.t ADD COLUMN IF NOT EXISTS kind text CHECK (kind in ('a','b'));",
-      'CREATE UNIQUE INDEX IF NOT EXISTS t_user_id_kind_bundle_uq ON public.t (user_id, kind);',
+      "DO $bundle_uq$ BEGIN CREATE UNIQUE INDEX IF NOT EXISTS t_user_id_kind_bundle_uq ON public.t (user_id, kind); EXCEPTION WHEN unique_violation THEN RAISE NOTICE 't_user_id_kind_bundle_uq: 重なった行があるので一意の索引を作れませんでした（重なりを整理してから流し直してください）'; END $bundle_uq$;",
     ]);
+    // 重なった行があっても、まとめ全体を止めない（unique_violation を受け止めて知らせだけ）
+    expect(lines[4]).toMatch(/EXCEPTION WHEN unique_violation THEN RAISE NOTICE/);
   });
 });

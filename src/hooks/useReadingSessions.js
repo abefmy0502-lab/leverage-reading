@@ -3,11 +3,15 @@
 import { useEffect, useReducer } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { createReadingSessionStore } from '../lib/readingSessions';
-import { useAuth } from './useAuth';
+import { useAuth, registerBeforeSignOut } from './useAuth';
 
 export const readingSessions = createReadingSessionStore({
   getClient: () => (isSupabaseConfigured ? supabase : null),
 });
+
+// 🚪 ログアウトの前に、途中の集中モードを記録してから途中の状態を消す（2026-10-10 監査）。
+//   端末の控えは利用者ごとの鍵なので、次にログインした別の人には数えない。
+registerBeforeSignOut((userId) => readingSessions.flushBeforeSignOut(userId));
 
 // 戻り値: { rows, loaded, save(row) }
 export function useReadingSessions() {
