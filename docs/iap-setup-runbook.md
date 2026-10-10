@@ -24,7 +24,7 @@
 1. **アプリ** → 左上の **＋** → **新規 App**
 2. 入れる値
    - プラットフォーム: **iOS**
-   - 名前: **Orime**（使われていたら「Orime - 読書メモの相談相手」など。ホーム画面の名前はアプリの中の設定で Orime のまま）
+   - 名前: **Orime - 読んだ本が相談相手に**（2026-10-10 決定・`company/app-store-listing.md`。ホーム画面のアイコンの下の名前はアプリの設定で Orime のまま）
    - 主言語: **日本語**
    - バンドル ID: **com.leveragereading.app**（一覧に無ければ Apple Developer の Identifiers で同じ ID を作り、**In-App Purchase** にチェック）
    - SKU: **orime-ios-001**
