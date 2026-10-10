@@ -662,9 +662,6 @@ export default function ShareEditor({
                   );
                 })}
               </div>
-              <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>
-                選んだ項目は、次に共有するときも使います。
-              </p>
             </section>
           )}
         </div>

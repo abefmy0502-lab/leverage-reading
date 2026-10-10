@@ -68,7 +68,6 @@ import {
   readSharePrefs, writeSharePrefs, stepVariant,
 } from '../lib/shareOverlay';
 import { phraseDisplayText } from '../lib/sharePhrase';
-import { withPhraseBreaks } from './TightBubble';
 import { shareImage, saveImage } from '../lib/shareImage';
 import { storeLinkFor } from '../lib/appStore';
 import { shareCampaign } from '../lib/storeCampaign';
@@ -82,6 +81,8 @@ const FORMAT_OPTIONS = [
 // コードの名前（record / stats / quote）と端末に覚える値は変えない。
 // 雑誌（magazine・2026-10-09）＝大きな引用＋続きの文＋右の本のカード（本 1 冊でメモがあるときだけ）。
 const VARIANT_LABELS = { record: '書名と数字', stats: '大きな数字', quote: '心に残った一文', magazine: '雑誌' };
+// 見本の下の名前は、決まった切れ目で 2 行まで（列が狭くても「心に／残った／一文」の 3 行にしない・行は割らない・2026-10-10）。
+const VARIANT_LINES = { record: ['書名と', '数字'], stats: ['大きな', '数字'], quote: ['心に残った', '一文'], magazine: ['雑誌'] };
 // フィルム＝写真の色を端末の中で整えた地（彩度を少し落とし・温かく・黒を少し持ち上げる・2026-10-08）。写真があるときだけ。
 const STYLE_LABELS = { photo: '写真', film: 'フィルム', paper: '紙', night: '夜', cover: '表紙の色', sticker: '透明' };
 const BG_OPTIONS = ['paper', 'night', 'cover', 'sticker'];
@@ -741,14 +742,21 @@ export default function ShareSheet({
     try { return readShareTheme(v, { tone: coverReady ? coverAssets.cover?.tone : null, title: coverBook?.title || record.title }).bg || 'var(--fill)'; } catch { return 'var(--fill)'; }
   };
   // 背景のメニュー（写真・紙・夜・表紙の色・透明。印は選んでいる行の ✓ だけ・ほかは同じ幅の空き＝DESIGN §5）。
+  //   写真があるときは、いちばん上に「撮り直す」「アルバムから選ぶ」（シートの段を減らすため、文字ボタンの行からここへ・2026-10-10 ui-critic）。
   const bgItems = [
-    ...(photo ? ['photo', 'film'] : []),
-    ...BG_OPTIONS.filter((v) => v !== 'cover' || coverAllowed),
-  ].map((v) => ({
-    label: STYLE_LABELS[v],
-    icon: effStyle === v ? <Check size="1.1em" aria-hidden="true" /> : <span style={{ width: 'var(--space-4)' }} aria-hidden="true" />,
-    onClick: () => setStyle(v),
-  }));
+    ...(photo ? [
+      { label: '撮り直す', icon: <Camera size="1.1em" aria-hidden="true" />, onClick: openCamera },
+      { label: 'アルバムから選ぶ', icon: <ImagePlus size="1.1em" aria-hidden="true" />, onClick: openPicker },
+    ] : []),
+    ...[
+      ...(photo ? ['photo', 'film'] : []),
+      ...BG_OPTIONS.filter((v) => v !== 'cover' || coverAllowed),
+    ].map((v) => ({
+      label: STYLE_LABELS[v],
+      icon: effStyle === v ? <Check size="1.1em" aria-hidden="true" /> : <span style={{ width: '1.1em' }} aria-hidden="true" />,
+      onClick: () => setStyle(v),
+    })),
+  ];
 
   const aspect = `${dims.w} / ${dims.h}`;
   // 数字の重ね方（一文が無い）・記録で一文を隠した（表示する項目）ときは「別の一文」を出さない（替えても画像が変わらない）。
@@ -893,29 +901,37 @@ export default function ShareSheet({
               編集
             </button>
             </div>
-            {effStyle !== 'sticker' && (
-              <div role="radiogroup" aria-label="画像の形" style={{ display: 'inline-flex', gap: 'var(--space-1)', marginLeft: 'auto' }}>
-                {FORMAT_OPTIONS.map((o) => (
-                  <button key={o.v} type="button" role="radio" aria-checked={format === o.v} aria-label={o.aria} onClick={() => setFormat(o.v)} style={segBtn(format === o.v)}>
-                    {o.label}
-                  </button>
-                ))}
-              </div>
+            {photo && (
+              // 背景（写真・フィルム・紙…）と、撮り直す・アルバムから選ぶは「背景：写真 ▾」のメニュー 1 つに（2026-10-10）。
+              <button
+                type="button"
+                aria-haspopup="menu"
+                aria-expanded={!!bgMenu}
+                onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setBgMenu({ x: r.right - 8, y: r.top - 8 }); }}
+                style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'auto', marginRight: 'calc(-1 * var(--space-1))' }}
+              >
+                {`背景：${STYLE_LABELS[effStyle]}`}
+                <ChevronDown size="1.1em" aria-hidden="true" />
+              </button>
             )}
+            {photo && bgMenu && <ContextMenu x={bgMenu.x} y={bgMenu.y} onClose={() => setBgMenu(null)} items={bgItems} />}
           </div>
         </div>
 
         {/* 重ね方（記録／数字／一文の見本・プレビューを左右に振っても切り替わる）と形（投稿 4:5／ストーリー 9:16）。
             見本 3 つと形の切り替えが 390 幅の 1 行に入るよう、見本の間は 4。 */}
         {/* 今年のメモを読めなかった間は、見本（空になる）を見せない（場所は残す＝読み直せたときに下が動かない）。 */}
-        {variants.length > 1 && (
-        <div aria-hidden={yearError || undefined} style={{ visibility: yearError ? 'hidden' : 'visible' }}>
-            {/* 見本は等しい幅の列に（名前「書名と数字」「大きな数字」「心に残った一文」が 1 行に入る幅）。 */}
-            <div role="radiogroup" aria-label="見せ方" style={{ display: 'grid', gridTemplateColumns: `repeat(${variants.length}, minmax(0, 1fr))`, gap: 'var(--space-1)', margin: '0 calc(-1 * var(--space-1))' }}>
+        {/* 重ね方の見本（名前は 2 行ぶんの高さでそろえる）と、同じ行の右に形（投稿 4:5／ストーリー 9:16・縦に 2 つ）。
+            シートの段を 1 つ減らす（2026-10-10 ui-critic）。透明（形が無い）のときは形を出さない。 */}
+        {(variants.length > 1 || effStyle !== 'sticker') && (
+        <div aria-hidden={yearError || undefined} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: 'var(--space-2)', visibility: yearError ? 'hidden' : 'visible' }}>
+            {/* 列の幅は名前の字の大きさで決める（文字が大きいときは 3 列＋次の行・形の切り替えは下の行へ回る＝名前が重ならない）。 */}
+            {variants.length > 1 && (
+            <div role="radiogroup" aria-label="見せ方" style={{ flex: '1 1 15em', minWidth: 0, fontSize: 'var(--text-meta)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 4.6em), 1fr))', gap: 'var(--space-1)', margin: '0 0 0 calc(-1 * var(--space-1))' }}>
               {variants.map((v) => {
                 const on = v === variant;
                 return (
-                  <button key={v} type="button" role="radio" aria-checked={on} onClick={() => { if (v !== variant) chooseVariant(v); }} style={{ ...thumbBtn, minWidth: 0 }}>
+                  <button key={v} type="button" role="radio" aria-checked={on} onClick={() => { if (v !== variant) chooseVariant(v); }} style={{ ...thumbBtn, minWidth: 0, paddingLeft: 0, paddingRight: 0 }}>
                     <canvas
                       ref={(el) => { thumbRefs.current[v] = el; }}
                       width={thumbW * 2}
@@ -923,46 +939,35 @@ export default function ShareSheet({
                       aria-hidden="true"
                       style={{ display: 'block', width: thumbW, height: THUMB_H, borderRadius: 'var(--radius)', background: effStyle === 'sticker' ? checker(8) : 'var(--fill)', boxShadow: ring(on) }}
                     />
-                    {/* 名前は文節の切れ目でだけ折り返す（文字を大きくしたとき）。 */}
-                    <span style={{ ...swatchLabel(on), whiteSpace: 'normal', wordBreak: 'keep-all', overflowWrap: 'anywhere', textAlign: 'center' }}>{withPhraseBreaks(VARIANT_LABELS[v])}</span>
+                    {/* 名前は文節の切れ目でだけ折り返す・いつも 2 行ぶんの高さ（1 行の名前と 2 行の名前で見本の上下がずれない）。 */}
+                    <span aria-label={VARIANT_LABELS[v]} style={{ ...swatchLabel(on), minHeight: '2.4em', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+                      {(VARIANT_LINES[v] || [VARIANT_LABELS[v]]).map((ln) => <span key={ln} aria-hidden="true" style={{ whiteSpace: 'nowrap' }}>{ln}</span>)}
+                    </span>
                   </button>
                 );
               })}
             </div>
+            )}
+            {effStyle !== 'sticker' && (
+              <div role="radiogroup" aria-label="画像の形" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', flexShrink: 0, marginLeft: variants.length > 1 ? 0 : 'auto', marginRight: 'calc(-1 * var(--space-1))' }}>
+                {FORMAT_OPTIONS.map((o) => (
+                  <button key={o.v} type="button" role="radio" aria-checked={format === o.v} aria-label={o.aria} onClick={() => setFormat(o.v)} style={{ ...segBtn(format === o.v), padding: '0 var(--space-2)' }}>
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            )}
         </div>
         )}
 
         {/* 地。写真があるときは、撮り直す・アルバムから選ぶを文字ボタンで見せ（メニューの奥に隠さない・2026-10-05）、
             背景は右の「背景：写真 ▾」のメニュー 1 つ（写真・紙・夜・表紙の色・透明）。
             写真が無いときは「写真」（撮る・選ぶ）＋紙・夜・表紙の色・透明の見本（2026-09-30 ui-critic）。 */}
-        {photo ? (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', flexWrap: 'wrap', paddingBottom: 'var(--space-2)', marginLeft: 'calc(-1 * var(--space-1))', marginRight: 'calc(-1 * var(--space-1))' }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-              <button type="button" onClick={openCamera} style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                <Camera size={18} aria-hidden="true" />
-                撮り直す
-              </button>
-              <button type="button" onClick={openPicker} aria-label="アルバムから選ぶ" style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                <ImagePlus size={18} aria-hidden="true" />
-                アルバム
-              </button>
-            </div>
-            <button
-              type="button"
-              aria-haspopup="menu"
-              aria-expanded={!!bgMenu}
-              onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setBgMenu({ x: r.right - 8, y: r.top - 8 }); }}
-              style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }}
-            >
-              {`背景：${STYLE_LABELS[effStyle]}`}
-              <ChevronDown size={16} aria-hidden="true" />
-            </button>
-            {bgMenu && <ContextMenu x={bgMenu.x} y={bgMenu.y} onClose={() => setBgMenu(null)} items={bgItems} />}
-          </div>
-        ) : (
-          <div role="radiogroup" aria-label="背景" style={{ display: 'flex', alignItems: 'center', gap: 0, flexWrap: 'wrap', paddingBottom: 'var(--space-2)' }}>
+        {!photo && (
+          <div role="radiogroup" aria-label="背景" style={{ display: 'flex', alignItems: 'flex-start', gap: 0, flexWrap: 'wrap', paddingBottom: 'var(--space-2)' }}>
             {/* 390 幅で見本 4 つと 1 行に収まるよう、見える名前は「写真」（読み上げは「写真を選ぶ」）。 */}
-            <button type="button" onClick={openPicker} aria-label="写真を撮る・選ぶ" title="写真を撮る・選ぶ" style={photoChip}>
+            {/* 「写真」のチップの上下の中心を、右の見本の丸（上 4＋半径 14）の中心にそろえる（2026-10-10 ui-critic）。 */}
+            <button type="button" onClick={openPicker} aria-label="写真を撮る・選ぶ" title="写真を撮る・選ぶ" style={{ ...photoChip, marginTop: 'calc(var(--space-1) + 14px - var(--tap-min) / 2)' }}>
               <ImagePlus size={20} aria-hidden="true" style={{ color: 'var(--text-2)' }} />
               写真
             </button>

@@ -1706,6 +1706,27 @@ function drawMagazineOverlay(ctx, o, place) {
   ctx.restore();
 }
 
+// 写真が無いとき（紙・夜・表紙の色・透明）は、上のまとまり（引用・続きの文・本のカード）を、ロゴの下から下の行の上までの
+//   真ん中より少し上に置く（上に寄せたままだと下半分が空いて、作りかけに見えた・2026-10-10 ui-critic）。写真の上では
+//   今までどおり上に寄せる（写真を見せる場所を空ける）。
+export function centerMagazineLayout(lay) {
+  const roomTop = lay.headTop;
+  const roomBottom = lay.footTop - Math.round(48 * lay.S.k);
+  const used = lay.topBottom - roomTop;
+  const dy = Math.round(Math.max(0, (roomBottom - roomTop - used) * 0.42));
+  if (!dy) return lay;
+  return {
+    ...lay,
+    headTop: lay.headTop + dy,
+    headBottom: lay.headBottom + dy,
+    bodyTop: lay.bodyTop + dy,
+    bodyBottom: lay.bodyBottom + dy,
+    cardTop: lay.cardTop + dy,
+    cardBottom: lay.cardBottom ? lay.cardBottom + dy : 0,
+    topBottom: lay.topBottom + dy,
+  };
+}
+
 function drawMagazine(ctx, o) {
   if (o.style === 'photo') {
     const place = photoPlacement({ pw: o.photo.width, ph: o.photo.height, W: o.W, H: o.H, ...(o.view || {}) });
@@ -1714,7 +1735,7 @@ function drawMagazine(ctx, o) {
     drawMagazineOverlay(ctx, o, place);
     return;
   }
-  const lay = layoutMagazine(ctx, o);
+  const lay = centerMagazineLayout(layoutMagazine(ctx, o));
   if (o.style === 'sticker') {
     // 透明: 地は描かない・白い文字＋濃い影（下の写真が分からないので）
     const theme = { ...o.theme, logo: 'white' };
