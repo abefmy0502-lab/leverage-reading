@@ -89,7 +89,7 @@ const toastStyleBase = {
   rowGap: 0,
   // 右は閉じるボタン（押せる範囲 44）の内側の空きで足りるので詰める。
   padding: 'var(--space-1) var(--space-1) var(--space-1) var(--space-4)',
-  minHeight: 52,
+  minHeight: 'calc(var(--btn-h) + var(--space-1))', // 52
   borderRadius: 'var(--radius)',
   fontSize: 'var(--text-sub)',
   fontFamily: 'var(--font-app)',
@@ -103,8 +103,8 @@ const closeBtnStyle = {
   color: 'inherit',
   cursor: 'pointer',
   padding: 0,
-  minWidth: 44,
-  minHeight: 44,
+  minWidth: 'var(--tap-min)',
+  minHeight: 'var(--tap-min)',
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -117,7 +117,7 @@ const actionBtnStyle = {
   border: '1px solid currentColor',
   color: 'inherit',
   padding: 'var(--space-2) var(--space-3)',
-  minHeight: 44,
+  minHeight: 'var(--tap-min)',
   borderRadius: 'var(--radius)',
   fontSize: 'var(--text-sub)',
   fontWeight: 600,

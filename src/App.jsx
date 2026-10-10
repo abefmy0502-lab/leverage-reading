@@ -117,7 +117,7 @@ const CoverFixModal = lazy(() => import('./components/CoverFixModal'));
 // 📤 一文をシェア（この本の一文を 1 枚の画像に・SPEC §2-1）
 const ShareSheet = lazy(() => import('./components/ShareSheet'));
 import { hasFinishedThisMonth, yearChoiceAllowed, pickShareSubject } from './lib/shareOverlay';
-import { checkSharePhoto, canUseNativePhoto, pickNativePhoto, photoPickErrorText, nativePhotoDeniedMessage } from './lib/sharePhotoPick';
+import { checkSharePhoto, canUseNativePhoto, pickNativePhoto, photoPickErrorText, nativePhotoDeniedMessage, photoFailAction, PHOTO_FAIL_TOAST_MS } from './lib/sharePhotoPick';
 import { appNow } from './lib/appNow';
 import { clearShareMemoCaches } from './lib/shareMemoCache';
 const Landing = lazy(() => import('./pages/Landing'));
@@ -1178,9 +1178,13 @@ function AuthedApp() {
     const subj = pickShareSubject(rawBooks);
     return subj.kind === 'book' && !!(rawBooks || []).find((b) => b.id === subj.bookId)?.cover;
   })();
-  // 写真を使えなかったときは、知らせに「選び直す」＝同じ入口の選ぶシートを開き直す（自分でやめたときは何も出さない・2026-10-11）。
-  const sharePhotoFailed = (t, message) => {
-    toast.error(message, { action: { label: '選び直す', onClick: () => setShareChooser({ ...t }) } });
+  // 写真を使えなかったときは、知らせに「選び直す」＝同じ入口の選ぶシートを開き直す（自分でやめたときは何も出さない）。
+  // 許可が無いときは「設定を開く」＝iPhone のアプリの設定（開けないビルド・Web は「選び直す」）。操作つきは 8 秒（2026-10-11）。
+  const sharePhotoFailed = (t, message, err = null, opts) => {
+    toast.error(message, {
+      duration: PHOTO_FAIL_TOAST_MS,
+      action: photoFailAction(err, () => setShareChooser({ ...t }), opts),
+    });
   };
   const openShareWithPhoto = (t, file) => {
     const err = checkSharePhoto(file);
@@ -1203,13 +1207,14 @@ function AuthedApp() {
     if (source === 'none') { setShareSheet({ ...t }); return; }
     // 🧪 お試しモード: &photo=denied で iPhone の許可が無いときの知らせを撮る。
     if (isDemo && new URLSearchParams(window.location.search).get('photo') === 'denied') {
-      sharePhotoFailed(t, nativePhotoDeniedMessage(source));
+      // お試しでは iPhone のアプリと同じく「設定を開く」を出す（押しても何も開かない）。
+      sharePhotoFailed(t, nativePhotoDeniedMessage(source), { kind: 'denied' }, { canSettings: true });
       return;
     }
     if (canUseNativePhoto()) {
       pickNativePhoto(source)
         .then((file) => { if (file) openShareWithPhoto(t, file); })
-        .catch((err) => sharePhotoFailed(t, photoPickErrorText(err) || toMessage(err, 'この写真は読み込めませんでした。')));
+        .catch((err) => sharePhotoFailed(t, photoPickErrorText(err) || toMessage(err, 'この写真は読み込めませんでした。'), err));
       return;
     }
     openSharePicker(t, source === 'camera' ? shareCameraRef.current : shareAlbumRef.current);

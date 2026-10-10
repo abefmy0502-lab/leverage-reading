@@ -51,7 +51,7 @@ import { shareReadingNote } from '../lib/readingTime';
 import { useAuth } from '../hooks/useAuth';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { toMessage } from '../lib/errors';
-import { checkSharePhoto, canUseNativePhoto, pickNativePhoto, photoPickErrorText } from '../lib/sharePhotoPick';
+import { checkSharePhoto, canUseNativePhoto, pickNativePhoto, photoPickErrorText, photoFailAction, PHOTO_FAIL_TOAST_MS } from '../lib/sharePhotoPick';
 import { track, EVENTS } from '../lib/analytics';
 import { SITE_URL } from '../lib/legalLinks';
 import { appNow } from '../lib/appNow';
@@ -454,10 +454,18 @@ export default function ShareSheet({
   const drawnLineRef = useRef('');
 
   // ---- 写真を読む（撮った写真・選んだ写真）。端末の中だけで縮めて使う。
+  // 失敗の知らせの操作（2026-10-11）: 「選び直す」＝アルバムからもう一度／許可が無いときは「設定を開く」。操作つきは 8 秒。
+  const reselectRef = useRef(null);
+  const photoFailed = useCallback((message, err = null) => {
+    toast.error(message, {
+      duration: PHOTO_FAIL_TOAST_MS,
+      action: photoFailAction(err, () => reselectRef.current?.()),
+    });
+  }, [toast]);
   const readPhoto = useCallback(async (file) => {
     const err = checkSharePhoto(file);
     if (err) {
-      if (err !== 'no-file') toast.error(err);
+      if (err !== 'no-file') photoFailed(err);
       return false;
     }
     try {
@@ -475,10 +483,10 @@ export default function ShareSheet({
       setStyle('photo');
       return true;
     } catch (e2) {
-      toast.error(toMessage(e2, 'この写真は読み込めませんでした。'));
+      photoFailed(toMessage(e2, 'この写真は読み込めませんでした。'));
       return false;
     }
-  }, [toast]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [toast, photoFailed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!initialPhotoFile) return undefined;
@@ -669,9 +677,10 @@ export default function ShareSheet({
   const pickNative = (source) => {
     pickNativePhoto(source)
       .then(async (file) => { if (file && await readPhoto(file)) haptic.light(); })
-      .catch((err) => toast.error(photoPickErrorText(err) || toMessage(err, 'この写真は読み込めませんでした。')));
+      .catch((err) => photoFailed(photoPickErrorText(err) || toMessage(err, 'この写真は読み込めませんでした。'), err));
   };
   const openPicker = () => { if (canUseNativePhoto()) { pickNative('album'); return; } try { fileRef.current?.click(); } catch { /* ignore */ } };
+  reselectRef.current = openPicker;
   // 写真が無いときの「写真」のチップ（撮る・選ぶ）は、iPhone のアプリではどちらか聞く。
   const openPhotoChip = () => { if (canUseNativePhoto()) { pickNative('prompt'); return; } openPicker(); };
   const openCamera = () => { if (canUseNativePhoto()) { pickNative('camera'); return; } try { cameraRef.current?.click(); } catch { /* ignore */ } };

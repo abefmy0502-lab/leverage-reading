@@ -45,8 +45,8 @@ export function nativePhotoDeniedMessage(source, err) {
     const msg = String(err?.message || err || '').toLowerCase();
     which = /camera/.test(msg) ? 'camera' : /photo|librar|gallery|album/.test(msg) ? 'album' : null;
   }
-  if (which === 'camera') return 'カメラを使えません。設定 → Orime → カメラ をオンにしてください。';
-  if (which === 'album') return '写真を使えません。設定 → Orime → 写真 で許可してください。';
+  if (which === 'camera') return 'カメラを使えません。設定 → Orime → 「カメラ」をオンにしてください。';
+  if (which === 'album') return '写真を使えません。設定 → Orime → 「写真」で許可してください。';
   return 'カメラか写真を使えません。設定 → Orime で許可してください。';
 }
 
@@ -89,4 +89,34 @@ export async function pickNativePhoto(source) {
 // （許可が無いのにオフラインの文にすり替わらないように・2026-10-11）。それ以外は null＝呼ぶ側の toMessage に任せる。
 export function photoPickErrorText(err) {
   return err && err.kind && err.message ? String(err.message) : null;
+}
+
+// 失敗の知らせに付ける操作（2026-10-11）: 許可が無い（.kind === 'denied'）ときは「設定を開く」＝iPhone のアプリの設定を
+// 直接開く（@capacitor/app-launcher の openUrl('app-settings:')・プラグインの無いビルドと Web は開けないので「選び直す」）。
+// それ以外の失敗は「選び直す」。操作つきの知らせは 8 秒出す。
+export const PHOTO_FAIL_TOAST_MS = 8000;
+export function canOpenAppSettings() {
+  try {
+    return Capacitor.isNativePlatform() && Capacitor.isPluginAvailable('AppLauncher');
+  } catch {
+    return false;
+  }
+}
+export function photoFailActionKind(err, { canSettings = canOpenAppSettings() } = {}) {
+  return err && err.kind === 'denied' && canSettings ? 'settings' : 'reselect';
+}
+export async function openAppSettings() {
+  try {
+    const { AppLauncher } = await import('@capacitor/app-launcher');
+    await AppLauncher.openUrl({ url: 'app-settings:' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+// 知らせの操作 { label, onClick } を作る。onReselect＝同じ入口でもう一度選ぶ。
+export function photoFailAction(err, onReselect, opts) {
+  return photoFailActionKind(err, opts) === 'settings'
+    ? { label: '設定を開く', onClick: () => { openAppSettings(); } }
+    : { label: '選び直す', onClick: onReselect };
 }

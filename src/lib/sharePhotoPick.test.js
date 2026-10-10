@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { checkSharePhoto, classifyNativePhotoError, nativePhotoDeniedMessage, canUseNativePhoto, photoPickErrorText, SHARE_PHOTO_TYPE_MESSAGE, SHARE_PHOTO_SIZE_MESSAGE } from './sharePhotoPick';
+import { photoFailActionKind, photoFailAction, PHOTO_FAIL_TOAST_MS, canOpenAppSettings, checkSharePhoto, classifyNativePhotoError, nativePhotoDeniedMessage, canUseNativePhoto, photoPickErrorText, SHARE_PHOTO_TYPE_MESSAGE, SHARE_PHOTO_SIZE_MESSAGE } from './sharePhotoPick';
 
 const file = (name, type, size = 1000) => ({ name, type, size });
 
@@ -33,8 +33,8 @@ describe('ネイティブの写真', () => {
     expect(classifyNativePhotoError(new Error('boom'))).toBe('error');
   });
   it('許可の場所を案内する', () => {
-    expect(nativePhotoDeniedMessage('camera')).toContain('設定 → Orime → カメラ');
-    expect(nativePhotoDeniedMessage('album')).toContain('設定 → Orime → 写真');
+    expect(nativePhotoDeniedMessage('camera')).toContain('設定 → Orime → 「カメラ」');
+    expect(nativePhotoDeniedMessage('album')).toContain('設定 → Orime → 「写真」');
   });
 });
 
@@ -52,15 +52,37 @@ describe('写真で共有の言い方（2026-10-11）', () => {
     expect(classifyNativePhotoError(new Error('PERMISSION missing'))).toBe('denied');
   });
   it('どちらか聞いたときは、拒まれた方で分ける', () => {
-    expect(nativePhotoDeniedMessage('prompt', new Error('User denied access to camera'))).toContain('設定 → Orime → カメラ');
-    expect(nativePhotoDeniedMessage('prompt', new Error('User denied access to photos'))).toContain('設定 → Orime → 写真');
+    expect(nativePhotoDeniedMessage('prompt', new Error('User denied access to camera'))).toContain('設定 → Orime → 「カメラ」');
+    expect(nativePhotoDeniedMessage('prompt', new Error('User denied access to photos'))).toContain('設定 → Orime → 「写真」');
     expect(nativePhotoDeniedMessage('prompt', new Error('denied'))).toBe('カメラか写真を使えません。設定 → Orime で許可してください。');
   });
   it('受け取れなかった失敗の文はそのまま（オフラインの文にすり替えない）', () => {
     const e = new Error(nativePhotoDeniedMessage('camera'));
     e.kind = 'denied';
-    expect(photoPickErrorText(e)).toBe('カメラを使えません。設定 → Orime → カメラ をオンにしてください。');
+    expect(photoPickErrorText(e)).toBe('カメラを使えません。設定 → Orime → 「カメラ」をオンにしてください。');
     expect(photoPickErrorText(new Error('Failed to fetch'))).toBe(null);
     expect(photoPickErrorText(null)).toBe(null);
+  });
+});
+
+describe('失敗の知らせの操作', () => {
+  it('許可が無く設定を開けるときだけ「設定を開く」', () => {
+    expect(photoFailActionKind({ kind: 'denied' }, { canSettings: true })).toBe('settings');
+    expect(photoFailActionKind({ kind: 'denied' }, { canSettings: false })).toBe('reselect');
+    expect(photoFailActionKind({ kind: 'error' }, { canSettings: true })).toBe('reselect');
+    expect(photoFailActionKind(null, { canSettings: true })).toBe('reselect');
+  });
+  it('Web では設定を開けない＝許可なしでも「選び直す」', () => {
+    expect(canOpenAppSettings()).toBe(false);
+    expect(photoFailActionKind({ kind: 'denied' })).toBe('reselect');
+  });
+  it('操作の名前と、選び直すの呼び出し', () => {
+    let called = 0;
+    const a = photoFailAction({ kind: 'error' }, () => { called += 1; });
+    expect(a.label).toBe('選び直す');
+    a.onClick();
+    expect(called).toBe(1);
+    expect(photoFailAction({ kind: 'denied' }, () => {}, { canSettings: true }).label).toBe('設定を開く');
+    expect(PHOTO_FAIL_TOAST_MS).toBe(8000);
   });
 });
