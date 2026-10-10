@@ -21,6 +21,19 @@ describe('一覧の形', () => {
     expect(fieldGroupId('お金・投資')).toBe('life');
     expect(fieldGroupId('趣味・アート')).toBe('enjoy');
   });
+  it('同じ手がかりの言葉が 2 つの分野にない（「進化」が習慣・自己成長と科学・テクノロジーの両方にあった・2026-10-11）', () => {
+    const owner = new Map();
+    for (const c of BOOK_FIELD_GROUPS) {
+      for (const f of c.fields) {
+        for (const w of [f.name, ...f.words]) {
+          const k = w.normalize('NFKC').toLowerCase();
+          if (owner.has(k) && owner.get(k) !== f.name) throw new Error(`「${w}」が ${owner.get(k)} と ${f.name} の両方にある`);
+          owner.set(k, f.name);
+        }
+      }
+    }
+    expect(owner.get('進化')).toBe('科学・テクノロジー');
+  });
   it('どの分野にも手がかりの言葉がある', () => {
     for (const c of BOOK_FIELD_GROUPS) for (const f of c.fields) expect(f.words.length, f.name).toBeGreaterThan(10);
   });

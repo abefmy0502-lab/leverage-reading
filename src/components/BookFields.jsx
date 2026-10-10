@@ -13,12 +13,13 @@ import BottomSheet from './BottomSheet';
 import { Chip } from './formPrimitives';
 import { withPhraseBreaks } from './TightBubble';
 import { SkeletonBlock } from './Skeleton';
+import { useHaptic } from '../hooks/useHaptic';
 import { btnLink, btnPrimary, groupTitle } from '../styles/ui';
 import { BOOK_FIELD_GROUPS, FIELD_MAX } from '../lib/bookFields';
 import { fmtMinutes } from '../lib/readingStats';
 
 const chipRow = { display: 'flex', flexWrap: 'wrap', rowGap: 'var(--space-2)', columnGap: 'var(--space-2)' };
-// 付いている分野（押せない表示・選ぶシートの選択中と同じ色）。
+// 付いている分野（押すと選ぶシート・選ぶシートの選択中と同じ色）。
 const fieldTag = {
   display: 'inline-flex', alignItems: 'center', minHeight: 'var(--tap-min)', boxSizing: 'border-box',
   padding: 'var(--space-2) var(--space-3)', borderRadius: 'var(--radius)', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
@@ -46,21 +47,20 @@ export function BookFieldsInput({ fields = [], onChange, auto = false, autoFrom 
             <SkeletonBlock width="calc(var(--space-16) * 2)" height="var(--tap-min)" radius="var(--radius)" />
           </span>
         )}
-        {!waiting && (
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            aria-label={fields.length ? `分野を変更（いま ${fields.join('、')}）` : '分野を選ぶ'}
-            // 分野が無いときは文字ボタンだけの行: 押せる高さ 44 の上下の余りを行の外へ出し、見出し → 文字を 8 に
-            //   （フォルダの見出し → 入力欄と同じ間隔に見せる・2026-10-11 ui-critic）
-            style={{ ...btnLink, minWidth: 'var(--tap-min)', justifyContent: 'center', ...(fields.length ? {} : { marginLeft: 'calc(-1 * var(--space-1))', marginTop: 'calc(-1 * var(--space-3))', marginBottom: 'calc(-1 * var(--space-3))' }) }}
-          >
-            {fields.length ? '変更' : '分野を選ぶ'}
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label={fields.length ? `分野を変更（いま ${fields.join('、')}）` : '分野を選ぶ'}
+          // 分野が無いときは文字ボタンだけの行: 押せる高さ 44 の上下の余りを行の外へ出し、見出し → 文字を 8 に
+          //   （フォルダの見出し → 入力欄と同じ間隔に見せる・2026-10-11 ui-critic）
+          style={{ ...btnLink, minWidth: 'var(--tap-min)', justifyContent: 'center', ...(fields.length || waiting ? {} : { marginLeft: 'calc(-1 * var(--space-1))', marginTop: 'calc(-1 * var(--space-3))', marginBottom: 'calc(-1 * var(--space-3))' }) }}
+        >
+          {fields.length ? '変更' : '分野を選ぶ'}
+        </button>
+        {/* 読み込み中も「分野を選ぶ」は出したまま（待たずに自分で選べる・選んだらあとで届いた答えで上書きしない＝App.jsx・2026-10-11 ui-critic） */}
       </div>
       {waiting && <p style={note} role="status">{withPhraseBreaks('本の紹介から分野を選んでいます…')}</p>}
-      {!waiting && failed && !fields.length && <p style={note} role="status">{withPhraseBreaks('分野を自動で選べませんでした。「分野を選ぶ」から選べます。')}</p>}
+      {!waiting && failed && !fields.length && <p style={note} role="status">{withPhraseBreaks('自動では選べませんでした。')}</p>}
       {auto && fields.length > 0 && <p style={note}>{withPhraseBreaks(autoFrom === 'info' ? '本の紹介から自動で選びました。' : '書名などから自動で選びました。')}</p>}
       {open && (
         <BookFieldsSheet
@@ -75,22 +75,30 @@ export function BookFieldsInput({ fields = [], onChange, auto = false, autoFrom 
 
 export function BookFieldsSheet({ selected = [], onDone, onClose }) {
   const [picked, setPicked] = useState(() => [...selected]);
+  const haptic = useHaptic();
   const full = picked.length >= FIELD_MAX;
-  const toggle = (name) => setPicked((cur) => {
-    if (cur.includes(name)) return cur.filter((x) => x !== name);
-    if (cur.length >= FIELD_MAX) return cur;
-    return [...cur, name];
-  });
+  const toggle = (name) => {
+    if (!picked.includes(name) && picked.length >= FIELD_MAX) { haptic.warning(); return; } // 3 つ選んだあとのほかのチップ
+    setPicked((cur) => (cur.includes(name) ? cur.filter((x) => x !== name) : (cur.length >= FIELD_MAX ? cur : [...cur, name])));
+  };
   const footer = (
     <button type="button" style={{ ...btnPrimary, width: '100%' }} onClick={() => onDone(picked)}>決定</button>
   );
   return (
-    <BottomSheet title="分野" onClose={onClose} footer={footer} dismissLabel="キャンセル">
-      <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }} aria-live="polite">
-        {withPhraseBreaks(`${FIELD_MAX} つまで選べます`)}
-      </p>
+    // 選べる数の補足は題の行の直下に固定（スクロールで隠れない・3 つ選んだら外し方を言う・読み上げにも出る・2026-10-11 ui-critic）
+    <BottomSheet
+      title="分野"
+      onClose={onClose}
+      footer={footer}
+      dismissLabel="キャンセル"
+      subheader={(
+        <p data-fields-limit="" style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }} aria-live="polite">
+          {withPhraseBreaks(full ? `${FIELD_MAX} つ選びました。ほかを選ぶときは、どれかを外してください。` : `${FIELD_MAX} つまで選べます`)}
+        </p>
+      )}
+    >
       {BOOK_FIELD_GROUPS.map((c, ci) => (
-        <section key={c.id} style={{ marginTop: ci === 0 ? 'var(--space-4)' : 'var(--space-6)' }} aria-label={c.name}>
+        <section key={c.id} style={{ marginTop: ci === 0 ? 0 : 'var(--space-6)' }} aria-label={c.name}>
           <h3 style={{ margin: 0, fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)' }}>{c.name}</h3>
           {/* 大分類 4 つの見出し＋チップだけ（中分類は 2026-10-11 にやめた）。 */}
           <div style={{ ...chipRow, marginTop: 'var(--space-2)' }} role="group" aria-label={c.name}>
@@ -169,7 +177,7 @@ export function BookFieldsRecord({ record, onOpenField, onFindBooks }) {
                       <span style={{ fontSize: 'var(--text-sub)', lineHeight: 1.3, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{f.name}</span>
                       <span style={{ fontSize: 'var(--text-meta)', lineHeight: 1.3, color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
                         {/* 「·」は前の塊の末尾に付け、折り返すのは記号の後ろの空白だけ（行頭に「·」を出さない・2026-10-11 ui-critic）。 */}
-                        <span style={{ whiteSpace: 'nowrap' }}>{parts.join('・')}{time && <span style={{ color: 'var(--text-3)' }}>{'\u00A0·'}</span>}</span>{time && <span style={{ color: 'var(--text-3)', whiteSpace: 'nowrap' }}>{` ${time}`}</span>}
+                        <span style={{ whiteSpace: 'nowrap' }}>{parts.join('・')}{time && <span>{'\u00A0·'}</span>}</span>{time && <span style={{ whiteSpace: 'nowrap' }}>{` ${time}`}</span>}
                       </span>
                     </span>
                     <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />

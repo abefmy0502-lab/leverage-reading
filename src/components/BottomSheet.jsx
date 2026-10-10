@@ -39,7 +39,8 @@ const sheetWrap = {
 // dismissLabel=null で右上の閉じるボタンを出さない。dismissible=false のあいだは
 // 背景タップ・Esc・下スワイプ・ハンドルでも閉じない（取り込み中など、途中で閉じると困るとき）。
 // layer='dialog': ほかのシート・設定の上に重ねる（AI に送る前の同意のシート＝メモを書くシート・設定の上から開く・2026-10-01）。
-export default function BottomSheet({ title, onClose, children, footer, dismissLabel = '完了', dismissible = true, layer = null }) {
+// subheader: 題の行のすぐ下に固定する 1 行（中身と一緒にスクロールしない・選べる数の補足など・2026-10-11）。
+export default function BottomSheet({ title, onClose, children, footer, subheader = null, dismissLabel = '完了', dismissible = true, layer = null }) {
   const onTop = layer === 'dialog';
   // 開いている間は左端スワイプで画面を戻さない（書きかけが確認なしに消えないように）
   useBlockEdgeSwipe(true);
@@ -124,7 +125,7 @@ export default function BottomSheet({ title, onClose, children, footer, dismissL
             <div className="lvg-sheet-handle" aria-hidden="true" />
           </div>
           {title && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', columnGap: 'var(--space-3)', rowGap: 0, flexWrap: 'wrap-reverse', minHeight: 44, padding: 'var(--space-1) var(--space-4) var(--space-2)', borderBottom: '1px solid var(--separator)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', columnGap: 'var(--space-3)', rowGap: 0, flexWrap: 'wrap-reverse', minHeight: 44, padding: 'var(--space-1) var(--space-4) var(--space-2)', borderBottom: subheader ? 'none' : '1px solid var(--separator)' }}>
               {/* 文字を大きくしたとき: 題は文節の切れ目で折り返し、右の「キャンセル」「完了」は 1 行のまま
                   （「キャン／セル」と割れていた・2026-10-04）。題が 9 字ぶんの幅も取れないほど大きいときは、
                   「キャンセル」「完了」を題の上の行の右へ回し、題は全幅で折り返す（題が 1 行 3〜4 字に縮まない・
@@ -149,6 +150,11 @@ export default function BottomSheet({ title, onClose, children, footer, dismissL
             </div>
           )}
         </div>
+        {subheader && (
+          <div data-sheet-subheader="" style={{ padding: '0 var(--space-4) var(--space-2)', borderBottom: '1px solid var(--separator)' }}>
+            {subheader}
+          </div>
+        )}
         <div style={{ overflowY: 'auto', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', padding: 'var(--space-4)' }}>
           {children}
         </div>

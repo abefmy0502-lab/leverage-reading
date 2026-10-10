@@ -14,7 +14,11 @@ import { BOOK_FIELDS_SYSTEM, bookFieldsUserText, BOOK_FIELDS_MAX_TOKENS } from '
 import { costFromUsage } from '../api/_aiCost.js';
 import { genreNamesOf } from '../api/_bookFields.js';
 
-const judge = (b, got) => (got.length === 0 && !!b.allowEmpty) || got.length > 0 && got.every((g) => b.expect.includes(g)) && !(b.notFirst || []).includes(got[0]);
+// allowEmpty の本（言葉だけでは決めきれない＝付けないのが正しい）は、付かなければ期待どおり。付いたら expect のどれかであること。
+const judge = (b, got) => {
+  if (!got.length) return !!b.allowEmpty;
+  return got.every((g) => b.expect.includes(g)) && !(b.notFirst || []).includes(got[0]);
+};
 
 function run(label, books, featuresOf) {
   let assigned = 0;
@@ -27,7 +31,8 @@ function run(label, books, featuresOf) {
     else misses.push(`  - ${b.title}: ${got.join('・') || '（なし）'}（期待 ${b.expect.join('・')}）`);
   }
   const pct = (n) => `${((n / books.length) * 100).toFixed(1)}%`;
-  console.log(`${label}: ${books.length} 冊 / 付いた ${assigned}（${pct(assigned)}）/ 期待どおり ${ok}（${pct(ok)}）`);
+  const empties = books.filter((b) => b.allowEmpty).length;
+  console.log(`${label}: ${books.length} 冊 / 付いた ${assigned}（${pct(assigned)}）/ 期待どおり ${ok}（${pct(ok)}・付けないのが正しい本 ${empties} 冊を含む）`);
   if (misses.length) console.log(misses.join('\n'));
   return { assigned, ok, n: books.length };
 }

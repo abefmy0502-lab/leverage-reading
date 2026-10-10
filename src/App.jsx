@@ -7,6 +7,7 @@ import { OPEN_MEMO_EVENT } from './lib/openMemo';
 import { advisorDraftFor, classifyBook, fieldsOf, isBookField, splitLegacyTags, withFields, BOOK_FIELDS } from './lib/bookFields';
 import { isAutoChosen, markFieldStage, readFieldStages } from './lib/bookFieldsAuto';
 import { fetchServerFields, sendFieldVotes } from './lib/bookFieldsServer';
+import { FIELDS_WAIT_MS, applyAutoFields, markFieldsWaiting, settleServerFields } from './lib/bookFieldsForm';
 import { useBookFieldsAuto, infoFeatures } from './hooks/useBookFieldsAuto';
 import { BookFieldLinks } from './components/BookFields';
 import { useAppDataCache } from './state/AppDataCache';
@@ -3316,30 +3317,26 @@ function AuthedApp() {
     if (fieldsOf(form).length && !form.fieldsAuto) return undefined; // 本人か前の画面で選んだ分野は変えない
     const formId = form?.id;
     let alive = true;
-    const apply = (auto, stage) => setForm((f) => {
-      if (!f || f.id !== formId || f.fieldsTouched) return f;
-      if (fieldsOf(f).length && !f.fieldsAuto) return f;
-      if (!auto.length && !fieldsOf(f).length) return f;
-      return { ...f, tags: withFields(f.tags, auto), fieldsAuto: auto.length > 0, fieldsAutoStage: stage };
-    });
+    const apply = (auto, stage) => setForm((f) => applyAutoFields(f, formId, auto, stage));
     // 検索で選んだ本（ISBN あり）は、サーバーにも本の分野を聞く（本ごとに 1 回決めた分野・2026-10-11）。端末で決めきれない本は
-    //   その間「本の紹介から分野を選んでいます…」、答えが無ければ「分野を自動で選べませんでした。」（手で入力した本は保存のあとに聞く）。
+    //   その間「本の紹介から分野を選んでいます…」（「分野を選ぶ」は出したまま）、8 秒で「自動では選べませんでした。」に切り替える
+    //   （手で入力した本は保存のあとに聞く）。本人が選んだら、あとで届いた答えでは上書きしない（lib/bookFieldsForm.js）。
     let serverDone = false; // サーバーの答えが来たら、あとから届く紹介文の言葉の仕分けで上書きしない
-    const setStatus = (patch) => setForm((f) => (f && f.id === formId && !f.fieldsTouched ? { ...f, ...patch } : f));
+    let waitTimer = null;
     const timer = setTimeout(() => {
       if (!alive) return;
       const known = peekBookInfo(form);
       const local = classifyBook({ title: addFormTitle, ...infoFeatures(known, form) });
       apply(local, known ? 'info' : 'title');
       if (form?.isbn) {
-        setStatus({ fieldsPending: true, fieldsFailed: false });
+        setForm((f) => markFieldsWaiting(f, formId, true));
+        waitTimer = setTimeout(() => { if (alive) setForm((f) => (f?.fieldsPending ? markFieldsWaiting(f, formId, false) : f)); }, FIELDS_WAIT_MS);
         fetchServerFields({ isbn: form.isbn, title: addFormTitle, author: form.author }).then((server) => {
           if (!alive) return;
-          if (server?.fields?.length) { serverDone = true; apply(server.fields, 'info'); }
-          setForm((f) => (f && f.id === formId
-            ? { ...f, fieldsPending: false, fieldsFailed: !server?.fields?.length && !fieldsOf(f).length }
-            : f));
-        }).catch(() => { if (alive) setStatus({ fieldsPending: false, fieldsFailed: true }); });
+          if (server?.fields?.length) serverDone = true;
+          clearTimeout(waitTimer);
+          setForm((f) => settleServerFields(f, formId, server?.fields || []));
+        }).catch(() => { if (alive) { clearTimeout(waitTimer); setForm((f) => markFieldsWaiting(f, formId, false)); } });
       }
       if (known === undefined && (form?.isbn || addFormTitle.trim().length >= 2)) {
         loadBookInfo(form).then((info) => {
@@ -3349,7 +3346,7 @@ function AuthedApp() {
         }).catch(() => {});
       }
     }, 350);
-    return () => { alive = false; clearTimeout(timer); };
+    return () => { alive = false; clearTimeout(timer); clearTimeout(waitTimer); };
   }, [addFormTitle, form?.id, form?.isbn, form?.fieldsTouched]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 📖 この本で学べること（2026-10-08・lib/bookBrief.js・BookBrief.jsx）。公開の紹介文と目次だけから AI が
