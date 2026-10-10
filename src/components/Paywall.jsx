@@ -41,6 +41,7 @@ import { Fragment, useEffect, useRef, useState, lazy, Suspense } from 'react';
 import { Check, X } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from './Toast';
+import { withPhraseBreaks } from './TightBubble';
 import { PLAN_LABELS } from '../lib/billing';
 import {
   isNative,
@@ -169,8 +170,8 @@ function PlanCompare({ onlyPlan = false, trial = '', example = TOKEN_EXAMPLE }) 
           </p>
           <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5 }}>
             <span style={{ whiteSpace: 'nowrap' }}>{row.amount}</span>
-            {/* かっこの中は途中で折り返さない（「相談な／ら」のように割れないよう、まとまりで次の行へ）。 */}
-            <span style={{ fontSize: 'var(--text-sub)', fontWeight: 400, color: 'var(--text-2)', whiteSpace: 'nowrap' }}>（{row.scope}）</span>
+            {/* かっこの中は文節の切れ目でだけ折り返す（以前の nowrap は文字を大きくした端末で右へはみ出していた・2026-10-10）。 */}
+            <span style={{ fontSize: 'var(--text-sub)', fontWeight: 400, color: 'var(--text-2)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(`（${row.scope}）`)}</span>
           </p>
           <p style={{ ...metaText, marginTop: 'var(--space-1)' }}>
             {row.lead && <span style={{ whiteSpace: 'nowrap' }}>{row.lead}</span>}
@@ -181,15 +182,11 @@ function PlanCompare({ onlyPlan = false, trial = '', example = TOKEN_EXAMPLE }) 
         </div>
       ))}
       <p style={{ ...metaText, padding: 'var(--space-2) var(--space-4) var(--space-3)', borderTop: '1px solid var(--separator)' }}>
-        {/* 折り返すのは「・」の後だけ（「トー／クン」のように語の途中で割れないよう、まとまりごとに nowrap）。 */}
-        {example.split('・').map((part, i, all) => (
-          <span key={part} style={{ whiteSpace: 'nowrap' }}>{part}{i < all.length - 1 ? '・' : ''}</span>
-        ))}
-        {/* 相談 1 つが何回の答えか（この画面ではここで 1 回だけ・2026-10-09）。「、」の後で折り返す。 */}
-        <span style={{ display: 'block' }}>
-          {CONSULT_ANSWERS_NOTE.split('、').map((part, i, all) => (
-            <span key={part} style={{ whiteSpace: 'nowrap' }}>{part}{i < all.length - 1 ? '、' : '。'}</span>
-          ))}
+        {/* 文節の切れ目でだけ折り返す（以前の nowrap のまとまりは、文字を大きくした端末で右へはみ出していた・2026-10-10）。 */}
+        <span style={{ wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(example)}</span>
+        {/* 相談 1 つが何回の答えか（この画面ではここで 1 回だけ・2026-10-09）。 */}
+        <span style={{ display: 'block', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+          {withPhraseBreaks(`${CONSULT_ANSWERS_NOTE.replace(/。$/, '')}。`)}
         </span>
       </p>
     </section>

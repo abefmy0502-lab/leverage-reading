@@ -775,7 +775,7 @@ export default function ShareSheet({
   );
 
   return (
-    <BottomSheet title={photo ? '写真で共有' : '画像で共有'} onClose={onClose} footer={footer} dismissLabel="キャンセル">
+    <BottomSheet title="写真で共有" onClose={onClose} footer={footer} dismissLabel="キャンセル">
       <input ref={fileRef} type="file" accept="image/*" onChange={onPhotoPicked} style={{ display: 'none' }} aria-hidden="true" tabIndex={-1} />
       <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={onPhotoPicked} style={{ display: 'none' }} aria-hidden="true" tabIndex={-1} />
 

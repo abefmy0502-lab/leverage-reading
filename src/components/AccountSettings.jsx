@@ -1018,7 +1018,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                 {/* Web で見ている App Store の契約: App Store のサブスクリプション画面を開ける行（iPhone なら App Store が開く・2026-09-29）。 */}
                 {!nativeView && !subscription?.stripeCustomerId && (
                   <button type="button" onClick={() => openManageSubscriptions()} style={{ ...rowButtonStyle, ...divider }}>
-                    <span style={{ ...rowTitleStyle, flex: 1 }}>プランを管理（App\u00a0Store）</span>
+                    <span style={{ ...rowTitleStyle, flex: 1 }}>{'プランを管理（App\u00a0Store）'}</span>
                     <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
                   </button>
                 )}

@@ -192,13 +192,13 @@ export function briefLabels(text) {
     : { title: 'この本で学べること', learn: BRIEF_HEADINGS.learn, short: `概要・学べること${hyp}` };
 }
 
-/** 仮説の欄に足す（空なら入れる・もう入っていれば何もしない・あれば改行して後ろに）。 */
+/** 仮説の欄に足す（空なら入れる・もう入っていれば何もしない・あれば改行して「・」から後ろに＝前の仮説と続いて読めないように・2026-10-10）。 */
 export function appendHypothesis(current, hypothesis) {
   const cur = String(current || '');
   const h = String(hypothesis || '').trim();
   if (!h) return cur;
   if (cur.includes(h)) return cur;
-  return cur.trim() ? `${cur.replace(/\s+$/, '')}\n${h}` : h;
+  return cur.trim() ? `${cur.replace(/\s+$/, '')}\n・${h.replace(/^[・\-*]\s*/, '')}` : h;
 }
 
 // ── 列（books.ai_brief）が無い DB のための、端末の控え ─────────────────────

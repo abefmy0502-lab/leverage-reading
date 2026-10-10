@@ -16,7 +16,9 @@ import { useAllActions } from '../hooks/useAllActions';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { setConsultBackGuard } from '../lib/consultBack';
-import { toMessage, toSaveMessage } from '../lib/errors';
+import { toMessage, toSaveMessage, OFFLINE_SAVE_MESSAGE } from '../lib/errors';
+// 相談を送るときのオフラインの文（保存の文の「保存して」を「送って」に・2026-10-10）。
+const OFFLINE_SEND_MESSAGE = 'オフラインです。つながってから、もう一度送ってください。';
 import { streamMyBookBrain, prewarmKnowledge, invalidateKnowledgeCache, EVIDENCE_PREFIX } from '../lib/ai';
 import { ensureAiConsent } from '../lib/aiConsent';
 import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnText as uiBtnText, btnLink as uiBtnLink, groupTitle, fieldNote, input as uiInput } from '../styles/ui';
@@ -501,6 +503,13 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const focusOnResumeRef = useRef(false);
   useEffect(() => { rememberSession(user?.id, { resumeThread }); }, [resumeThread, user?.id]);
   const [input, setInput] = useState('');
+  // 送れなかったときの 1 行（会話の場所のいちばん下に出す・入力欄に重なる赤い帯にしない・2026-10-10）。次に送るときに消す。
+  const [sendNotice, setSendNotice] = useState('');
+  useEffect(() => {
+    if (!sendNotice) return;
+    try { messagesEndRef.current?.scrollIntoView({ block: 'end' }); } catch { /* ignore */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sendNotice]);
   // 🎯 相談相手（2026-09-26）: [] = すべての本（＋学びログ）/ [id] = その 1 冊だけ /
   //   [id, id, …] = 選んだ数冊だけ。質問ごとに streamMyBookBrain へ bookIds で渡す。
   const [scopeIds, setScopeIds] = useState(() => (resumed ? resumed.scopeIds : []));
@@ -1117,12 +1126,14 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
 
   // 💬 メモが答える相談（2026-10-01・lib/memoAnswer.js）: 画面の上だけに相談と答えを置き、自分のメモから一節を選ぶ。
   //   AI は使わない（/api/claude を呼ばない・トークンを使わない）。答えは id の行（memoAnswer）を入れ替える。
-  const runMemoAnswerInto = async (answerId, q, bookIds) => {
+  //   searchQ: 探すときの言葉（会話の続きでは、はじめの相談＋いまの言葉・askFromMemos）。無ければ q。
+  const runMemoAnswerInto = async (answerId, q, bookIds, searchQ = null) => {
+    const sq = searchQ && searchQ !== q ? searchQ : null;
     setMessages((arr) => arr.map((m) => (m.id === answerId
-      ? { id: answerId, role: 'assistant', content: '', refs: [], createdAt: m.createdAt || new Date().toISOString(), local: true, scopeIds: bookIds, memoAnswer: { status: 'loading', question: q } }
+      ? { id: answerId, role: 'assistant', content: '', refs: [], createdAt: m.createdAt || new Date().toISOString(), local: true, scopeIds: bookIds, memoAnswer: { status: 'loading', question: q, ...(sq ? { searchQuestion: sq } : {}) } }
       : m)));
     const result = await runMemoAnswer({
-      question: q,
+      question: sq || q,
       books,
       scopeIds: bookIds,
       loadMemos: async () => {
@@ -1130,7 +1141,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         return r.rows ? { rows: withCachedMemos(r.rows, books, cache), error: null } : r;
       },
     });
-    setMessages((arr) => arr.map((m) => (m.id === answerId ? { ...m, memoAnswer: { ...result, question: q } } : m)));
+    setMessages((arr) => arr.map((m) => (m.id === answerId ? { ...m, memoAnswer: { ...result, question: q, ...(sq ? { searchQuestion: sq } : {}) } } : m)));
     track('brain_memo_answer', { ok: result.status === 'ready', books: result.groups?.length || 0 });
   };
   // 🔎 本を探す問い（「『…』みたいなことを書いた本はどれ？」）は、まず端末の中で自分のメモから探す（2026-10-01・原価を下げる）。
@@ -1175,6 +1186,10 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   };
   const askFromMemos = (q, opts = {}) => {
     const askBookIds = Array.isArray(opts.bookIds) ? opts.bookIds : scopeIds;
+    // 会話の続き（「〇〇のとき」「どうしたらいい？」など短い返事）は、それだけで探すと
+    // 「まだ、この悩みに近いメモがありません」になっていた。はじめの相談と合わせて探す（2026-10-10）。
+    const firstQ = (visibleMessages.find((m) => m.role === 'user' && String(m.content || '').trim())?.content || carry?.question || '').trim();
+    const searchQ = firstQ && firstQ !== q ? `${firstQ}\n${q}` : null;
     const ts = Date.now();
     const at = new Date().toISOString();
     const answerId = `memo-a-${ts}`;
@@ -1188,7 +1203,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       { id: `memo-q-${ts}`, role: 'user', content: q, refs: [], createdAt: at, local: true, scopeLabel: scopeLabelFor(askBookIds, books) },
       { id: answerId, role: 'assistant', content: '', refs: [], createdAt: at, local: true, scopeIds: askBookIds, memoAnswer: { status: 'loading', question: q } },
     ]);
-    runMemoAnswerInto(answerId, q, askBookIds);
+    runMemoAnswerInto(answerId, q, askBookIds, searchQ);
   };
 
   // 二重送信の見張り（lib/sendGuard.js）: 送信を素早く 2 回押すと、state の busy が描画に反映される前（メモを探す・
@@ -1258,6 +1273,13 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         .then((r) => (r && !r.error && typeof r.count === 'number' ? r.count : 0), () => 0)
       : Promise.resolve(0);
 
+    // 📴 つながっていないときは送らずに、書いた相談を入力欄に残して会話の場所で知らせる（2026-10-10）。
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      setInput((cur) => (cur && cur.trim() ? cur : q));
+      setSendNotice(OFFLINE_SEND_MESSAGE);
+      return;
+    }
+    setSendNotice('');
     userScrolledRef.current = false;
     sentAtRef.current = Date.now();
     reserveRef.current = true;
@@ -1303,7 +1325,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         abortRef.current = null;
         // 書いた相談は消さずに入力欄へ戻す（つながったら、そのまま送り直せる・2026-10-10）。
         setInput((cur) => (cur && cur.trim() ? cur : q));
-        toast.error(toSaveMessage(e, '相談を送れませんでした。'));
+        // 知らせは入力欄に重なる帯ではなく、会話の場所に 1 行（2026-10-10）。
+        const offline = toSaveMessage(e, '') === OFFLINE_SAVE_MESSAGE;
+        setSendNotice(offline ? OFFLINE_SEND_MESSAGE : toMessage(e, '相談を送れませんでした。'));
         return;
       }
     }
@@ -1715,8 +1739,14 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     : messages;
   // メモが答える相談の「AI に答えてもらう（プラン）」は、この会話でいちばん最初のメモの答えにだけ（毎回すすめない）。
   //   見つからなかった答えには出さない（AI もメモが無ければ答えられないので）。
-  const firstMemoAnswerId = visibleMessages.find((m) => m.memoAnswer && m.memoAnswer.status === 'ready' && m.memoAnswer.groups?.length > 0)?.id || null;
+  //   今月のトークンを使い切っている間は、いちばん新しい答えの下に 1 つだけ（続けて相談すると、上の答えの下に残ったまま
+  //   画面の外へ流れ、プランへの道が見えなくなっていた・2026-10-10）。見つからなかった答えのときは、その下に案内カード（下の FreeUsedCard）。
   const lastIsMemoAnswer = !!visibleMessages[visibleMessages.length - 1]?.memoAnswer;
+  const lastMemoAnswer = lastIsMemoAnswer ? visibleMessages[visibleMessages.length - 1].memoAnswer : null;
+  const lastMemoFound = !!(lastMemoAnswer && lastMemoAnswer.status === 'ready' && lastMemoAnswer.groups?.length > 0);
+  const firstMemoAnswerId = freeUsedUp
+    ? (lastMemoFound ? visibleMessages[visibleMessages.length - 1].id : null)
+    : (visibleMessages.find((m) => m.memoAnswer && m.memoAnswer.status === 'ready' && m.memoAnswer.groups?.length > 0)?.id || null);
   // 続きの相談を持ってきたときは、空の画面（相談例）を出さない（会話はその相談から始まる）。
   const isEmpty = visibleMessages.length === 0 && !carry;
   const lastIsAssistant = visibleMessages.length > 0 && visibleMessages[visibleMessages.length - 1].role === 'assistant';
@@ -1867,6 +1897,24 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     return () => { alive = false; };
   }, [nudgeWanted, trialOffer, hadPlan, user?.id]);
   const showNudge = nudgeWanted && trialOffer !== null;
+  // 🎁 無料のトークンを使い切ったときの案内（FreeUsedCard）のボタン: 7 日間無料を使える人には「7 日間無料で試す」、
+  //   使えない・分からない・月額だけに無料期間があるとき（創業メンバー価格のあいだ）は「プランを見る」（2026-10-10）。
+  const [freeUsedOffer, setFreeUsedOffer] = useState('');
+  useEffect(() => {
+    if (!freeUsedUp || hadPlan) { setFreeUsedOffer(''); return undefined; }
+    if (isDemo) {
+      const sp = new URLSearchParams(window.location.search);
+      const t = sp.get('trial');
+      setFreeUsedOffer(t === 'off' || ['on', 'store'].includes(sp.get('founding')) ? '' : normalizeTrialLabel(t || '7日間無料'));
+      return undefined;
+    }
+    let alive = true;
+    getIntroOffer(user?.id)
+      .then((r) => { if (alive) setFreeUsedOffer(r.status === 'eligible' && r.plan !== 'monthly' ? normalizeTrialLabel(r.label) : ''); })
+      .catch(() => { if (alive) setFreeUsedOffer(''); });
+    return () => { alive = false; };
+  }, [freeUsedUp, hadPlan, user?.id]);
+  const freeUsedCta = freeUsedOffer ? `${freeUsedOffer}で試す` : 'プランを見る';
   const nudgeSeenRef = useRef(false);
   useEffect(() => {
     if (!showNudge || nudgeSeenRef.current) return;
@@ -2220,7 +2268,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 {/* 🎁 無料プランで今月のトークンを使い切った（2026-10-01）: 相談はメモから探して答える（メモが答える相談）ので、
                     行き止まりにせず、案内カード（プランは文字ボタン）の下に見出しと相談例をいつもどおり出す。 */}
                 {freeUsedUp && (
-                  <FreeUsedCard tokenAllowance={tokenNextAllowance ?? tokenAllowance} onOpen={() => openPaywall('free_used')} style={{ marginBottom: 'var(--space-6)' }} />
+                  <FreeUsedCard tokenAllowance={tokenNextAllowance ?? tokenAllowance} cta={freeUsedCta} onOpen={() => openPaywall('free_used')} style={{ marginBottom: 'var(--space-6)' }} />
                 )}
                 {showNudge && (
                   <TrialNudgeCard
@@ -2295,7 +2343,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                     column={ANSWER_COLUMN}
                     onOpen={(b, memoId) => { if (b?.id && onOpenBook) onOpenBook(b, memoId); }}
                     onOpenLearning={() => setView('knowledge')}
-                    onRetry={() => runMemoAnswerInto(m.id, m.memoAnswer.question || precedingQuestion(visibleMessages, i), m.scopeIds || [])}
+                    onRetry={() => runMemoAnswerInto(m.id, m.memoAnswer.question || precedingQuestion(visibleMessages, i), m.scopeIds || [], m.memoAnswer.searchQuestion || null)}
                     onPlan={() => { track('brain_memo_answer_plan', {}); openPaywall('free_used'); }}
                     showPlan={freeMode && m.id === firstMemoAnswerId}
                     // メモが 0 件の人だけ初日クイックスタートへ。メモのある人は AI の「関係するメモが無かった答え」と同じ「本を追加」。
@@ -2339,8 +2387,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
 
           {/* 無料プランで今月のトークンを使い切ったら、答えの下（まだ話していなければ例の下）で静かに案内
               （読み終えるまで画面を奪わない） */}
-          {freeUsedUp && !busy && lastIsAssistant && !isEmpty && !lastIsMemoAnswer && (
-            <FreeUsedCard tokenAllowance={tokenNextAllowance ?? tokenAllowance} onOpen={() => openPaywall('free_used')} style={{ marginTop: 'var(--space-6)', marginLeft: ANSWER_COLUMN }} />
+          {freeUsedUp && !busy && lastIsAssistant && !isEmpty && (!lastIsMemoAnswer || (!lastMemoFound && lastMemoAnswer?.status !== 'loading')) && (
+            <FreeUsedCard tokenAllowance={tokenNextAllowance ?? tokenAllowance} cta={freeUsedCta} onOpen={() => openPaywall('free_used')} style={{ marginTop: 'var(--space-6)', marginLeft: ANSWER_COLUMN }} />
           )}
           {/* 🪙➕ プランの人がトークンを使い切ったら「トークンを追加」（答えの欄に案内が出ているのでボタンだけ。
               まだ話していないときの案内カードは、相談例の代わりに一番上に出す＝上の TokensOutCard） */}
@@ -2400,6 +2448,11 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           {/* 🧪 はじめての相談の答えを読み終えたところ（答えの下の文字ボタンの行の後ろ）に 1 回だけ。 */}
           {answerRowShown && firstTrialId && firstTrialId === visibleMessages[visibleMessages.length - 1]?.id
             && firstTrialCard({ marginTop: 'var(--space-6)', marginLeft: ANSWER_COLUMN })}
+          {sendNotice && !busy && (
+            <p role="alert" style={{ margin: 'var(--space-4) 0 0', padding: 'var(--space-3) var(--space-4)', borderRadius: 'var(--radius)', background: 'var(--error-soft)', color: 'var(--text)', fontSize: 'var(--text-sub)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+              {withPhraseBreaks(sendNotice)}
+            </p>
+          )}
           <div ref={messagesEndRef} />
           {/* AI 免責注記（App Store 審査ガイドライン対応 + 誠実な期待値設定）。固定表示にすると
               会話の面積を削るので、会話の流れの最後（空の画面・答えの下）に置く。 */}
@@ -2675,7 +2728,8 @@ function FirstAnswerTrialCard({ text, onOpen, onDismiss, onSeen = null, style = 
 // 2026-10-01: 相談はメモから探して答える（メモが答える相談・AI なし）ので、行き止まりの形（主ボタン「プランを見る」＋
 //   「メモを検索して探す」）をやめ、そのことを 1 文で言い、「プランを見る」は文字ボタンに（押し付けない）。
 // tokenAllowance: 来月 1 日に戻る量（はじめの月の人も来月は毎月の量）。
-function FreeUsedCard({ tokenAllowance, onOpen, style = null }) {
+// cta: ボタンの文字（7 日間無料を使える人は「7 日間無料で試す」・ほかは「プランを見る」・2026-10-10）。
+function FreeUsedCard({ tokenAllowance, onOpen, cta = 'プランを見る', style = null }) {
   return (
     <section aria-label="今月のトークンは、ここまで" style={{ ...cardStyle, ...style }}>
       <p style={{ margin: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5 }}>
@@ -2685,7 +2739,7 @@ function FreeUsedCard({ tokenAllowance, onOpen, style = null }) {
         <span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}</span>に <span style={{ whiteSpace: 'nowrap' }}>{fmtTokens(tokenAllowance)} トークン</span>に戻ります。{withPhraseBreaks('それまでは、あなたのメモから探して答えます。')}
       </p>
       <button type="button" onClick={onOpen} style={{ ...uiBtnLink, marginTop: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}>
-        プランを見る
+        {cta}
       </button>
     </section>
   );

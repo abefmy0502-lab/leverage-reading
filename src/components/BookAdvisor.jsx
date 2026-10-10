@@ -1534,8 +1534,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       <button
         type="button"
         onClick={() => setView('history')}
-        aria-label="履歴を見る"
-        title="履歴"
+        aria-label="過去の AI 選書を見る"
+        title="過去の AI 選書"
         style={iconBtn}
       >
         <IcHistory size={22} strokeWidth={1.75} aria-hidden="true" />

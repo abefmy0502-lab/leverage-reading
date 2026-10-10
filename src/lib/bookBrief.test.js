@@ -213,8 +213,8 @@ describe('読書計画シートの材料（briefForPrompt）', () => {
 describe('仮説の欄に足す（appendHypothesis）', () => {
   it('空なら入れる・入っていれば何もしない・あれば改行して後ろに', () => {
     expect(appendHypothesis('', 'A のでは')).toBe('A のでは');
-    expect(appendHypothesis('自分の仮説', 'A のでは')).toBe('自分の仮説\nA のでは');
-    expect(appendHypothesis('自分の仮説\nA のでは', 'A のでは')).toBe('自分の仮説\nA のでは');
+    expect(appendHypothesis('自分の仮説', 'A のでは')).toBe('自分の仮説\n・A のでは');
+    expect(appendHypothesis('自分の仮説\n・A のでは', 'A のでは')).toBe('自分の仮説\n・A のでは');
     expect(appendHypothesis('x', '  ')).toBe('x');
   });
 });

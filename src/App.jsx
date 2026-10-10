@@ -4018,6 +4018,15 @@ function AuthedApp() {
   const [focusStartBook, setFocusStartBook] = useState(null);
   const [focusRun, setFocusRun] = useState(null);
   const openFocusStart = useCallback((b) => { haptic.light(); setFocusStartBook(b); }, [haptic]);
+  // シート（読む前のシート・写真で共有）や集中モードを開いたら、本に結びついた知らせを閉じる
+  // （「保存しました。」＋行動に追加などがシートの上に重なっていた・2026-10-10）。元に戻すなどの処理は走らせない。
+  const sheetOverBook = !!(focusStartBook || focusRun || shareSheet);
+  useEffect(() => {
+    if (!sheetOverBook) return;
+    bookToastsRef.current.forEach((_bookId, id) => toast.dismiss(id, { skipExpire: true }));
+    bookToastsRef.current.clear();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sheetOverBook]);
   // 途中で閉じた・裏に回して落ちたときは、本を読み込んだら端末に残った状態から再開する（始めた時刻から数え直す）。
   const focusRestored = useRef(false);
   useEffect(() => {
@@ -5022,7 +5031,7 @@ function AuthedApp() {
                 : []),
               // 読書中・読了は画像で共有（写真なしで開く・シートの中で写真も選べる）。読みたい・積読は書名とお店のリンクの文を共有。
               isMemoPhase
-                ? { label: '画像で共有', icon: <Share size="1.1em" aria-hidden="true" />, onClick: () => setShareSheet({ book: current, from: 'menu' }) }
+                ? { label: '写真で共有', icon: <Share size="1.1em" aria-hidden="true" />, onClick: () => setShareSheet({ book: current, from: 'menu' }) }
                 : { label: '共有', icon: <Share size="1.1em" aria-hidden="true" />, onClick: () => shareBook(current) },
               // 以前の AI 解析は、保存済みのものがある本だけ（本の詳細の畳む見出しから移した・共有の下・ヘルプの上・2026-10-09）。
               ...(hasVisibleSections(current.aiAnalysis, { hideRelatedBooks: true })
@@ -6037,7 +6046,7 @@ function AuthedApp() {
             // 読書中・読了は画像で共有（メモはシートが読み込む）。読みたい・積読は文を共有。
             (bookContextMenu.book.status === 'reading' || bookContextMenu.book.status === 'done')
               ? {
-                  label: '画像で共有',
+                  label: '写真で共有',
                   icon: <Share size="1.1em" aria-hidden="true" />,
                   onClick: () => setShareSheet({ book: bookContextMenu.book, from: 'menu' }),
                 }
@@ -6056,7 +6065,7 @@ function AuthedApp() {
         />
       )}
 
-      {/* 📷 ホームの「写真で共有」・本棚の長押し →「画像で共有」。本の詳細の同じ mount とは片方の画面しか return されない。
+      {/* 📷 ホームの「写真で共有」・本棚の長押し →「写真で共有」。本の詳細の同じ mount とは片方の画面しか return されない。
           ホームから開いたときは「どの本？」を切り替えられる（今月・読書中・読了の本）。 */}
       {shareSheet && (
         <Suspense fallback={<OverlayFallback />}>

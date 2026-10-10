@@ -33,9 +33,9 @@ import {
 
 export const HOLD_MS = 1000;
 const RING_R = 96;
-const RING_C = 2 * Math.PI * RING_R;
 const HOLD_R = 31;
-const HOLD_C = 2 * Math.PI * HOLD_R;
+// 輪の長さは pathLength="1" で 1 として数える（vector-effect="non-scaling-stroke" と画面の px で数えた長さを混ぜると、
+// 始めから輪が 3 割ほど欠けて見えた・2026-10-10）。線の太さは viewBox の単位（300px の輪で約 2px）。
 // 下の欄の高さ（ひとことの行＋16＋丸いボタン 64＋8＋名前）。どの段でも同じにして、輪・数字の位置を動かさない。
 const FOOT_H = 'calc(var(--text-meta) * 3 + var(--space-4) + var(--focus-btn) + var(--space-2))';
 
@@ -170,6 +170,7 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
   const hintTimer = useRef(null);
   const finishing = useRef(false);
   const [busy, setBusy] = useState(false); // おわるを保存している間（ボタンを止める）
+  const [memoCount, setMemoCount] = useState(0); // 読んでいる間に書いたメモの数（おわったときに「メモ N 件」）
   const paused = Number.isFinite(s?.pausedAt);
 
   useKeepAwake(phase !== 'summary');
@@ -239,13 +240,13 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
       if (r?.row) rows = [r.row, ...rows.filter((x) => x.id !== r.row.id)];
     }
     const todaySec = todaySeconds(rows, book.id, t);
-    // 押し間違い（30 秒未満）は何も残さず閉じる（おわったときの画面も出さない）。
-    if (!row) { onClose(); return; }
+    // 押し間違い（30 秒未満）は記録せずに閉じる（おわったときの画面は出さず、知らせだけ・2026-10-10）。
+    if (!row) { toast.info('30 秒より短いので、記録しませんでした。'); onClose(); return; }
     track(EVENTS.FOCUS_DONE, { mode: row.mode === 'count' ? 'count' : 'timer', minutes: minutesBucket(row.seconds) });
     setSummary({ todaySec, totalSec: totalSeconds(rows, book.id) });
     setPhase('summary');
     setBusy(false);
-  }, [s, sessions, book.id, onClose]);
+  }, [s, sessions, book.id, onClose, toast]);
 
   // ---- おわる（長押し）
   const startHold = (e) => {
@@ -305,6 +306,7 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
       onClose={() => setMemoOpen(false)}
       onSaved={() => {
         haptic.success();
+        if (memoOpen === 'running') setMemoCount((n) => n + 1);
         // おわったあとのメモだけ知らせる。読んでいる途中は振動だけ（知らせで集中を切らない・2026-10-09 ui-critic）。
         if (memoOpen === 'summary') { toast.success('メモを保存しました。'); onClose(); }
       }}
@@ -355,6 +357,11 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
                   この本で これまで {fmtDuration(summary.totalSec)}
                 </p>
               )}
+              {memoCount > 0 && (
+                <p style={{ margin: summary.totalSec > summary.todaySec ? 0 : 'var(--space-6) 0 0', fontSize: 'var(--text-meta)', color: 'var(--focus-ink-3)', fontVariantNumeric: 'tabular-nums' }}>
+                  メモ {memoCount} 件
+                </p>
+              )}
             </>
           ) : null}
         </main>
@@ -373,8 +380,8 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
                   <circle
                     className="focus-ring-progress"
                     cx="100" cy="100" r={RING_R} fill="none"
-                    stroke="var(--focus-ring)" strokeWidth="2" strokeLinecap="round" vectorEffect="non-scaling-stroke"
-                    strokeDasharray={RING_C} strokeDashoffset={RING_C * progress}
+                    stroke="var(--focus-ring)" strokeWidth="1.5" strokeLinecap="round"
+                    pathLength="1" strokeDasharray="1" strokeDashoffset={progress}
                     style={{ stroke: paused ? 'var(--focus-ring-dim)' : 'var(--focus-ring)' }}
                   />
                 )}
@@ -415,7 +422,7 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
                 <svg aria-hidden="true" viewBox="0 0 66 66" style={{ position: 'absolute', inset: -1, width: 'calc(100% + 2px)', height: 'calc(100% + 2px)', transform: 'rotate(-90deg)', pointerEvents: 'none' }}>
                   <circle
                     cx="33" cy="33" r={HOLD_R} fill="none" stroke="var(--focus-ring)" strokeWidth="2" strokeLinecap="round"
-                    strokeDasharray={HOLD_C} strokeDashoffset={holding ? 0 : HOLD_C}
+                    pathLength="1" strokeDasharray="1" strokeDashoffset={holding ? 0 : 1}
                     className={holding ? 'focus-hold is-holding' : 'focus-hold'}
                     style={{ opacity: holding ? 1 : 0 }}
                   />
@@ -437,12 +444,18 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
             <button type="button" onClick={continueReading} disabled={busy} style={{ ...footBtn(false), opacity: busy ? 0.5 : 1 }}>続けて読む</button>
           </div>
         )}
-        {phase === 'summary' && (
+        {phase === 'summary' && (memoCount > 0 ? (
+          // 読んでいる間にメモを書いたなら、主は「閉じる」・「メモを書く」は文字のボタン（2026-10-10）。
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-2)' }}>
+            <button type="button" onClick={onClose} style={footBtn(true)}>閉じる</button>
+            <button type="button" onClick={() => setMemoOpen('summary')} style={{ minHeight: 'var(--btn-h)', padding: '0 var(--space-4)', border: 'none', background: 'transparent', color: 'var(--focus-ink)', fontFamily: 'inherit', fontSize: 'var(--text-body)', fontWeight: 600, cursor: 'pointer' }}>メモを書く</button>
+          </div>
+        ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
             <button type="button" onClick={() => setMemoOpen('summary')} style={footBtn(true)}>メモを書く</button>
             <button type="button" onClick={onClose} style={footBtn(false)}>閉じる</button>
           </div>
-        )}
+        ))}
       </footer>
     </div>
   );

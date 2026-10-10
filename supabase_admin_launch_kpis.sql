@@ -18,9 +18,10 @@
 --      補助（あれば）: analytics_events の memos_reached_10（7 日以内）。
 --   ③ 30 日後も使っている割合 = 登録から 30〜37 日目（30 日後からの 1 週間）に 1 回でも使った人 ÷ 登録から 37 日たった人
 --      使った証拠: analytics_events（何でも）/ book_memos / chat_messages / actions の作成。
---      2026-10-10 から、ほかにも: 読む（集中モード）の reading_sessions.started_at・行動の完了 actions.completed_at・
---      思い出し book_memos.last_recalled_at（思い出しの通知を送った時刻も入る）。表・列が無い DB では
---      その証拠だけ数えない（to_regclass / information_schema で確かめてから動的 SQL で読む）。**再適用が要る**。
+--      2026-10-10 から、ほかにも: 読む（集中モード）の reading_sessions.started_at・行動の完了 actions.completed_at。
+--      表・列が無い DB ではその証拠だけ数えない（to_regclass / information_schema で確かめてから動的 SQL で読む）。**再適用が要る**。
+--      book_memos.last_recalled_at は数えない（思い出しの通知を送っただけでも書かれ、本人が開いていなくても
+--      「使っている」に入ってしまうため・2026-10-10）。
 --   ④ 7 日間無料 → 有料の割合 = 無料期間を始めて 8 日たった人のうち、有料に進んだ人
 --      無料期間の始まり: subscription_events の period_type が trial の最初の行。
 --      （'intro' は有料の初回価格＝創業メンバー価格「1 年目 ¥9,800」で、無料期間ではない。分母にも分子の
@@ -101,11 +102,7 @@ begin
     v_more_sql := v_more_sql || ' or exists (select 1 from public.actions a where a.user_id = u.id'
       || ' and a.completed_at >= u.created_at + interval ''30 days'' and a.completed_at < u.created_at + interval ''37 days'')';
   end if;
-  if exists (select 1 from information_schema.columns
-             where table_schema = 'public' and table_name = 'book_memos' and column_name = 'last_recalled_at') then
-    v_more_sql := v_more_sql || ' or exists (select 1 from public.book_memos m where m.user_id = u.id'
-      || ' and m.last_recalled_at >= u.created_at + interval ''30 days'' and m.last_recalled_at < u.created_at + interval ''37 days'')';
-  end if;
+  -- book_memos.last_recalled_at は数えない（通知を送っただけでも書かれる＝本人が使ったとは限らない・2026-10-10）。
   if v_more_sql <> '' then
     execute 'select coalesce(jsonb_object_agg(u.id::text, true), ''{}''::jsonb) from auth.users u'
       || ' where u.created_at >= $1 and u.id not in (select user_id from public.app_admins)'
