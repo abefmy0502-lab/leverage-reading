@@ -4,7 +4,10 @@ import { useBooks } from './hooks/useBooks';
 import { sanitizeForPrompt, invalidateKnowledgeCache, generateBookBrief } from './lib/ai';
 import { markActivation } from './lib/activation';
 import { OPEN_MEMO_EVENT } from './lib/openMemo';
-import { advisorDraftFor } from './lib/viewpointMap';
+import { advisorDraftFor, classifyBook, fieldsOf, isBookField, splitLegacyTags, withFields, BOOK_FIELDS } from './lib/bookFields';
+import { markFieldStage } from './lib/bookFieldsAuto';
+import { useBookFieldsAuto, infoFeatures } from './hooks/useBookFieldsAuto';
+import { BookFieldLinks } from './components/BookFields';
 import { useAppDataCache } from './state/AppDataCache';
 import { streamClaude } from './lib/streamClaude';
 import { PROMPTS } from './lib/prompts';
@@ -201,7 +204,7 @@ import {
   Target,
   MessageCircle,
   Smartphone,
-  Tag as IcTag,
+  Shapes as IcShapes,
   ScrollText,
   Timer,
 } from 'lucide-react';
@@ -210,7 +213,7 @@ import { useBookInfo } from './hooks/useBookInfo';
 import BookAbout from './components/BookAbout';
 import BookBrief from './components/BookBrief';
 import { hasBriefMaterial, storedBriefOf, briefForPrompt, appendHypothesis, isUsableBrief, parseBrief, briefLabels, BRIEF_NO_MATERIAL_TEXT } from './lib/bookBrief';
-import { loadBookInfo, bookInfoForPrompt, hasBookInfo } from './lib/bookInfo';
+import { loadBookInfo, bookInfoForPrompt, hasBookInfo, peekBookInfo } from './lib/bookInfo';
 // 🔎 すべての本の検索（書名・著者・タグ＋メモの言葉・2026-09-30）
 import { useLibrarySearch } from './hooks/useLibrarySearch';
 import { LibrarySearchResults, ConsultSearchLink, LibrarySearchHitSkeleton } from './components/LibrarySearchHit';
@@ -637,6 +640,7 @@ function AuthedApp() {
     deleteBook,
     mutateBookLocal,
     saveBookBrief,
+    saveBookTaxonomy,
     captureBookSnapshot,
     restoreBookFromSnapshot,
     refreshBooks,
@@ -734,7 +738,7 @@ function AuthedApp() {
   const [aiBarSlot, setAiBarSlot] = useState(null);
   // 🔎 トークンを使い切った相談から「メモを検索して探す」: 振り返り › メモの検索欄に入れる言葉（2026-09-29）。
   const [memoSearchPreset, setMemoSearchPreset] = useState(null); // { query, tag?, nonce } | null
-  // 🗺 視点の地図の「メモの少ない「…」の本を探す」→ AI 選書の最初の悩みに入れる言葉（送らない・2026-10-08）。
+  // 🏷 記録の「分野」の「この分野の本を探す」→ AI 選書の最初の悩みに入れる言葉（送らない・2026-10-08）。
   const [advisorDraft, setAdvisorDraft] = useState(null); // { text, nonce } | null
   // 📖→🧠 本詳細の「この本に相談する」: 相談相手をその本に絞ってマイ読書脳を開く。
   const [scopePreset, setScopePreset] = useState(null); // { bookIds, nonce } | null
@@ -811,6 +815,12 @@ function AuthedApp() {
   // 📊 記録の数字・タグ・著者から「すべての本」を開く（‹ 記録 で記録へ戻れるように印を付ける）。
   const openLibraryFromRecord = () => {
     navigateTab('books'); goList(); setShelfMode('library'); setLibraryFrom('record');
+  };
+  // 🏷 本の詳細の分野から「すべての本」をその分野で絞って開く（2026-10-11）。
+  const openLibraryByField = (field) => {
+    setSearch(''); setMinRating(0); setFolderFilter(null); setStatusFilter('all');
+    setTagFilter([field]);
+    goList(); setShelfMode('library');
   };
   // 下のタブで選択中に見せるタブ。記録から開いた「すべての本」（と、そこから開いた本）は振り返りの中の
   // 寄り道なので、ホームではなく振り返りを選択中にする（戻る先の「‹ 記録」と合わせる・2026-09-29）。
@@ -1296,6 +1306,25 @@ function AuthedApp() {
 
   // Books are now committed to DB on delete (no soft-delete state to filter).
   const books = rawBooks;
+  // 🏷 本の分野（2026-10-11・lib/bookFields.js）: 分野とフォルダだけを書き、開いている本の詳細にもすぐ映す。
+  const saveTaxonomy = useCallback(async (bookId, opts) => {
+    const r = await saveBookTaxonomy(bookId, opts);
+    if (r?.ok) {
+      setCurrent((c) => (c && c.id === bookId
+        ? { ...c, tags: r.tags, collections: r.addedCollections?.length ? [...(c.collections || []), ...r.addedCollections] : c.collections }
+        : c));
+    }
+    return r;
+  }, [saveBookTaxonomy]); // eslint-disable-line react-hooks/exhaustive-deps
+  //   前の版のタグの移し替え（分野／フォルダへ）と、分野の無い本への自動の仕分け（静かに・知らせなし）。
+  //   編集している本には触らない（保存で書き戻さないように）。
+  const bookFieldsAuto = useBookFieldsAuto({
+    userId: user?.id,
+    books: rawBooks,
+    loading: booksLoading,
+    saveBookTaxonomy: saveTaxonomy,
+    skipBookId: view === 'edit' ? (form?.id || null) : null,
+  });
   // 🔗 ホームのメモを書くを開いたら、似たメモを探す準備をしておく（保存したときに似たメモがあれば、知らせを「保存しました。」だけに＝次の一歩を 1 つに・2026-10-10）。
   const homeLinkFinder = useMemoLinkFinder({ books, enabled: !!homeMemoBook || !!homeSavedMemo });
   // 非同期処理（表紙リトライ・行動トグル直列化など）が「実行時点の最新 books」を
@@ -2216,6 +2245,11 @@ function AuthedApp() {
         saved = await saveBook(payload);
       }
       const next = saved || payload;
+      // 🏷 分野: 本人が選んだ本は、これから自動で付け直さない。自動で選んだまま追加した本は、どこまで見て決めたかを覚える。
+      if (saved?.id && user?.id) {
+        if (form.fieldsTouched) markFieldStage(user.id, saved.id, 'user');
+        else if (!current) markFieldStage(user.id, saved.id, form.fieldsAutoStage || 'title');
+      }
       // 保存の前に表紙が間に合わなかった（時間切れ・通信の失敗）本は、裏で探し続ける。
       if (saved && !saved.cover) resolveCoverInBackground(saved);
       const wasNew = !current; // 新規追加 (current=null) かどうか
@@ -2514,11 +2548,7 @@ function AuthedApp() {
     setReviewSubTab('note');
     setTab('review');
   };
-  // 🗺 視点の地図（振り返り › 記録）から: そのタグのメモの一覧（振り返り › メモのタグの絞り込み）／AI 選書の最初の悩みに入れて開く（送らない）。
-  const openMemosByTag = (tag) => openMemoSearch('', { tag, from: 'viewmap' });
-  // 「‹ 視点の地図」: 記録に戻り、地図の位置まで送る（ReadingRecord の focusViewmap）。
-  const [viewmapFocus, setViewmapFocus] = useState(0);
-  const backToViewmap = () => { setViewmapFocus(Date.now()); setReviewSubTab('record'); };
+  // 🏷 記録の「分野」の「この分野の本を探す」: AI 選書の最初の悩みに入れて開く（送らない）。
   const openAdvisorWithDraft = (text) => {
     setAdvisorDraft({ text: String(text || '').slice(0, 200), nonce: Date.now() });
     setView('list');
@@ -2594,7 +2624,12 @@ function AuthedApp() {
             status: ['want', 'before', 'reading', 'done'].includes(b.status) ? b.status : 'done',
             rating: Number(b.rating) || 0,
             doneDate: b.doneDate || '',
-            tags: Array.isArray(b.tags) ? b.tags : [],
+            // 取り込んだタグ（ブクログの本棚など）: 分野に結びつくものは分野に、ほかは同じ名前のフォルダへ（2026-10-11）。
+            //   分野が 1 つも無い本は書名から選ぶ。
+            ...(() => {
+              const { fields, folders } = splitLegacyTags(Array.isArray(b.tags) ? b.tags : []);
+              return { tags: fields.length ? fields : classifyBook({ title: b.title }), collections: folders };
+            })(),
             leverageMemo: b.review || '',
             addedVia: isbn ? 'search' : 'manual',
           });
@@ -3172,6 +3207,38 @@ function AuthedApp() {
   const bookAboutShown = (view === 'detail' && ['want', 'before', 'reading'].includes(current?.status))
     || (view === 'edit' && (editPhaseOverride === 'before' || form?.status === 'before'));
   const bookAbout = useBookInfo(current, { enabled: bookAboutShown });
+  // 🏷 紹介文・目次が届いたら、まだ分野の無い本に分野を付ける（2026-10-11・hooks/useBookFieldsAuto.js）。
+  useEffect(() => {
+    if (view !== 'detail' || !current?.id || !bookAbout.info) return;
+    bookFieldsAuto.onBookInfo(current, bookAbout.info);
+  }, [bookAbout.info, current?.id, view]); // eslint-disable-line react-hooks/exhaustive-deps
+  // 🏷 本を追加するフォーム: 書名（と紹介文・目次）から分野を先に選んでおく（本人が選び直したら触らない）。
+  const addFormTitle = view === 'edit' && !current ? (form?.title || '') : null;
+  useEffect(() => {
+    if (addFormTitle == null || form?.fieldsTouched) return undefined;
+    if (fieldsOf(form).length && !form.fieldsAuto) return undefined; // 本人か前の画面で選んだ分野は変えない
+    const formId = form?.id;
+    let alive = true;
+    const apply = (auto, stage) => setForm((f) => {
+      if (!f || f.id !== formId || f.fieldsTouched) return f;
+      if (fieldsOf(f).length && !f.fieldsAuto) return f;
+      if (!auto.length && !fieldsOf(f).length) return f;
+      return { ...f, tags: withFields(f.tags, auto), fieldsAuto: auto.length > 0, fieldsAutoStage: stage };
+    });
+    const timer = setTimeout(() => {
+      if (!alive) return;
+      const known = peekBookInfo(form);
+      apply(classifyBook({ title: addFormTitle, ...infoFeatures(known) }), known ? 'info' : 'title');
+      if (known === undefined && (form?.isbn || addFormTitle.trim().length >= 2)) {
+        loadBookInfo(form).then((info) => {
+          if (!alive || !info) return;
+          const auto = classifyBook({ title: addFormTitle, ...infoFeatures(info) });
+          if (auto.length) apply(auto, 'info');
+        }).catch(() => {});
+      }
+    }, 350);
+    return () => { alive = false; clearTimeout(timer); };
+  }, [addFormTitle, form?.id, form?.isbn, form?.fieldsTouched]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 📖 この本で学べること（2026-10-08・lib/bookBrief.js・BookBrief.jsx）。公開の紹介文と目次だけから AI が
   //   概要・学べること・仮説の例を書き、本に保存する（開くたびに AI を呼ばない・作り直しは押したときだけ）。
@@ -4005,16 +4072,11 @@ function AuthedApp() {
     return sorted;
   }, [books, statusFilter, libraryHits, sortBy, minRating, tagFilter, folderFilter]);
 
-  // 絞り込みシート用: 本に付いた全タグ（出現頻度の高い順、最大 24 個）。
+  // 絞り込みシート用: 本に付いている分野（一覧の順・冊数つき・2026-10-11）。
   const availableTags = useMemo(() => {
     const counts = new Map();
-    for (const b of books) {
-      for (const t of (b.tags || [])) {
-        const tag = (t || '').trim();
-        if (tag) counts.set(tag, (counts.get(tag) || 0) + 1);
-      }
-    }
-    return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 24).map(([t]) => t);
+    for (const b of books) for (const f of fieldsOf(b)) counts.set(f, (counts.get(f) || 0) + 1);
+    return BOOK_FIELDS.filter((f) => counts.has(f)).map((f) => ({ name: f, count: counts.get(f) }));
   }, [books]);
 
   // アクティブな絞り込み数（ツールバーのバッジ表示用）。
@@ -4040,7 +4102,8 @@ function AuthedApp() {
   const stats = useMemo(() => ({ total: books.length, want: books.filter((b) => b.status === "want").length, before: books.filter((b) => b.status === "before").length, reading: books.filter((b) => b.status === "reading").length, done: books.filter((b) => b.status === "done").length }), [books]);
   const actionCount = useMemo(() => books.reduce((s, b) => s + (b.actions || []).filter((a) => a.text?.trim()).length, 0), [books]);
   const actionDone = useMemo(() => books.reduce((s, b) => s + (b.actions || []).filter((a) => a.done).length, 0), [books]);
-  const allTags = useMemo(() => { const s = new Set(); books.forEach((b) => (b.tags || []).forEach((t) => s.add(t))); return [...s]; }, [books]);
+  // メモのタグの候補に添える本のタグ（分野は本の分け方なので、メモのタグの候補には入れない・2026-10-11）。
+  const allTags = useMemo(() => { const s = new Set(); books.forEach((b) => (b.tags || []).forEach((t) => { if (!isBookField(t)) s.add(t); })); return [...s]; }, [books]);
 
   // ⏱ 集中モード（読書の時間・2026-10-09・SPEC §2-2）。入口は読書中の本の詳細とホームのいま読んでいる本の「読む」。
   //   focusStartBook: 始める前のシートの本。focusRun: { book, state, phase } 画面いっぱいの集中モード。
@@ -4585,14 +4648,8 @@ function AuthedApp() {
             </div>
           </div>
 
-          {/* タグも押せない表示＝面なしのアイコン＋文字（DESIGN §5「表示用ラベル」）。 */}
-          {current.tags?.length > 0 && (
-            <div style={{ display: "flex", alignItems: 'center', flexWrap: "wrap", columnGap: 'var(--space-3)', rowGap: 'var(--space-1)', marginTop: 'var(--space-3)', fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>
-              <IcTag size="1.1em" strokeWidth={1.75} aria-label="タグ" style={{ flexShrink: 0, marginRight: 'calc(-1 * var(--space-2))' }} />
-              {/* 「#」は付けない（タグの印があるので二重になる・メモを書くシートのタグと同じ表記・2026-09-30）。 */}
-              {current.tags.map((t, i) => (<span key={i}>{t}</span>))}
-            </div>
-          )}
+          {/* 🏷 分野（2026-10-11）: 押すと、すべての本をその分野で絞る。分野でない前の版のタグは出さない（フォルダへ移す）。 */}
+          <BookFieldLinks fields={fieldsOf(current)} onPick={openLibraryByField} />
 
           {/* 読みたい・積読は「読む準備」が主役なので、計画・目的・AI 解析を上に置く。
               読書中・読了はメモが主役（SPEC §2）なので、これらは画面の下（行動の後）へ。 */}
@@ -5218,7 +5275,7 @@ function AuthedApp() {
                 )}
 
                 {(effectivePhase === "want" || !current) && (
-                  <WantPhase form={form} setForm={setForm} onSave={handleSave} saving={savingBook} onSearchOpen={addFromSearchQuery !== null ? undefined : () => setSearchOpen(true)} allTags={allTags} allFolders={folderNames} />
+                  <WantPhase form={form} setForm={setForm} onSave={handleSave} saving={savingBook} onSearchOpen={addFromSearchQuery !== null ? undefined : () => setSearchOpen(true)} allFolders={folderNames} />
                 )}
                 {effectivePhase === "before" && current && (
                   <BeforePhase
@@ -5257,10 +5314,10 @@ function AuthedApp() {
                   />
                 )}
                 {effectivePhase === "reading" && current && (
-                  <ReadingPhase form={form} setForm={setForm} onSave={handleSave} onSaveSummary={handleSaveSummaryFromForm} onMakeAction={addActionFromMemo} allTags={allTags} allFolders={folderNames} />
+                  <ReadingPhase form={form} setForm={setForm} onSave={handleSave} onSaveSummary={handleSaveSummaryFromForm} onMakeAction={addActionFromMemo} allFolders={folderNames} />
                 )}
                 {effectivePhase === "done" && current && (
-                  <DonePhase form={form} setForm={setForm} onSave={handleSave} allTags={allTags} allFolders={folderNames} />
+                  <DonePhase form={form} setForm={setForm} onSave={handleSave} allFolders={folderNames} />
                 )}
               </>
             );
@@ -5701,8 +5758,8 @@ function AuthedApp() {
                     </ShelfChip>
                   )}
                   {tagFilter.map((t) => (
-                    <ShelfChip key={`tag-${t}`} active onClick={() => setTagFilter((prev) => prev.filter((x) => x !== t))} ariaLabel={`タグ「${t}」の絞り込みを解除`}>
-                      <IcTag size={14} aria-hidden="true" />{t}<IcX size={14} aria-hidden="true" />
+                    <ShelfChip key={`tag-${t}`} active onClick={() => setTagFilter((prev) => prev.filter((x) => x !== t))} ariaLabel={`分野「${t}」の絞り込みを解除`}>
+                      <IcShapes size={14} aria-hidden="true" />{t}<IcX size={14} aria-hidden="true" />
                     </ShelfChip>
                   ))}
                   {/* 並びは管理でよく使う順（読書中・読了を先に）。 */}
@@ -5902,8 +5959,7 @@ function AuthedApp() {
                   // メモ検索で見つからなかった言葉を、相談の入力欄に入れて開く（送らない・2026-09-29）。
                   // 思い出しカードの「このメモで相談する」は、相談相手をそのメモの本に絞る（opts.bookIds・2026-10-10）。
                   onAskConsult={(q, opts) => openConsultWith(q, { bookIds: opts?.bookIds || null })}
-                  searchPreset={memoSearchPreset}
-                  onBackToViewmap={backToViewmap} />
+                  searchPreset={memoSearchPreset} />
               </Suspense>
             ) : booksLoadError && rawBooks.length === 0 ? (
               // 本（行動も本に入っている）を読み込めなかったときは、「行動 0 件」「読んだ本 0」を出さない。
@@ -5928,8 +5984,6 @@ function AuthedApp() {
                     openLibraryFromRecord();
                   }}
                   onShowMemos={() => setReviewSubTab('note')}
-                  onShowTagMemos={openMemosByTag}
-                  focusViewmap={viewmapFocus}
                   onFindBooksForTag={(tags) => openAdvisorWithDraft(advisorDraftFor(tags))}
                   onShowActions={() => { setActionShowDoneNonce(Date.now()); setReviewSubTab('action'); }}
                   onOpenBook={(b) => { setTab('books'); openDetail(b); }}
@@ -6521,21 +6575,21 @@ function AuthedApp() {
             ))}
           </div>
 
-          <p style={sheetLabel}>タグ</p>
+          <p style={sheetLabel}>分野</p>
           {availableTags.length > 0 ? (
             <div style={{ ...sheetChips, marginBottom: 0 }}>
-              {availableTags.map((t) => {
+              {availableTags.map(({ name: t, count }) => {
                 const active = tagFilter.includes(t);
                 return (
                   <ShelfChip key={t} active={active} onClick={() => setTagFilter((arr) => (active ? arr.filter((x) => x !== t) : [...arr, t]))}>
-                    {t}
+                    {t}<span style={{ color: 'var(--text-2)', fontWeight: 400 }}>{count}</span>
                   </ShelfChip>
                 );
               })}
             </div>
           ) : (
             <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: 0, lineHeight: 1.5 }}>
-              本の「タグ」欄にキーワードを付けると、ここで選べます。
+              本に分野が付くと、ここで選べます。
             </p>
           )}
         </BottomSheet>

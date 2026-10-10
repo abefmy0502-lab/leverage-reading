@@ -22,12 +22,33 @@ import { LIMITS } from '../lib/limits';
 import { useBookCover } from '../hooks/useBookCover';
 import { useToast } from './Toast';
 import MarkdownSections, { hasVisibleSections } from './MarkdownSections';
+import { BookFieldsInput } from './BookFields';
+import { fieldsOf, withFields } from '../lib/bookFields';
 import {
   Field, SectionHeader, Stars, TagInput, Chip,
   inp, ta,
 } from './formPrimitives';
 
 /* ========== Phase Screens ========== */
+
+// 🏷 分野とフォルダ（2026-10-11・lib/bookFields.js）。
+//   分野＝決まった一覧から（アプリが自動で選び、本人が直せる・3 つまで）。form.tags に入る（分野でない前の版のタグは残す）。
+//   フォルダ＝本人が自由に作る分け方（自動で入れない・すすめない）。
+//   form.fieldsTouched: 本人が分野を選んだ（保存のあと自動で付け直さない）/ form.fieldsAuto: アプリが選んだまま。
+function FieldsAndFolders({ form, setForm, allFolders }) {
+  return (
+    <>
+      <BookFieldsInput
+        fields={fieldsOf(form)}
+        auto={!!form.fieldsAuto && !form.fieldsTouched}
+        onChange={(next) => setForm((f) => ({ ...f, tags: withFields(f.tags, next), fieldsTouched: true, fieldsAuto: false }))}
+      />
+      <Field label="フォルダ">
+        <TagInput tags={form.collections || []} onChange={(c) => setForm((f) => ({ ...f, collections: c }))} allTags={allFolders} placeholder="例：会社の課題図書" aria-label="フォルダを追加" />
+      </Field>
+    </>
+  );
+}
 
 // 積読・読書中・読了の編集画面で共通の小道具（DESIGN のトークンだけ）。
 // 面・枠・見出しは本の詳細の畳む見出し（App.jsx の detailsStyle / summaryStyle）と同じ。
@@ -72,7 +93,7 @@ const COVER_W = 60;
 const COVER_H = Math.round(COVER_W * 1.42); // MiniCover と同じ縦横比
 const COVER_RADIUS = 4; // DESIGN §4 の例外: 本の表紙は本の形として角丸 4
 
-export function WantPhase({ form, setForm, onSave, saving = false, onSearchOpen, allTags, allFolders }) {
+export function WantPhase({ form, setForm, onSave, saving = false, onSearchOpen, allFolders }) {
   const fileInputRef = useRef(null);
   const { uploadCover } = useBookCover();
   const toast = useToast();
@@ -273,14 +294,9 @@ export function WantPhase({ form, setForm, onSave, saving = false, onSearchOpen,
         {saving ? '保存中…' : (form.status === 'reading' || form.status === 'done') ? '保存してメモを書く' : '保存'}
       </button>
 
-      {/* タグ・フォルダは任意なので、主ボタンより下に（最初の画面で「保存」が見えるように）。 */}
+      {/* 分野・フォルダは任意なので、主ボタンより下に（最初の画面で「保存」が見えるように）。 */}
       <div style={{ marginTop: 'var(--space-8)' }}>
-      <Field label="タグ">
-        <TagInput tags={form.tags || []} onChange={(t) => setForm({ ...form, tags: t })} allTags={allTags} />
-      </Field>
-      <Field label="フォルダ">
-        <TagInput tags={form.collections || []} onChange={(c) => setForm({ ...form, collections: c })} allTags={allFolders} placeholder="フォルダを追加" />
-      </Field>
+      <FieldsAndFolders form={form} setForm={setForm} allFolders={allFolders} />
       </div>
     </div>
   );
@@ -575,7 +591,7 @@ export function EditSaveBar({ onSave, onStart = null, label = '保存', saving =
 
 // Phase 3: 読書中（インプット）
 
-export function ReadingPhase({ form, setForm, onSave, onSaveSummary, onMakeAction, allTags, allFolders }) {
+export function ReadingPhase({ form, setForm, onSave, onSaveSummary, onMakeAction, allFolders }) {
   // 📖 読書進捗（ページ管理）は撤去（本田哲学=「作業量の可視化」は成果ではない／
   // 進捗を見て満足する病を生む）。totalPages は書誌メタとして裏で保持するのみで
   // UI には出さない。データ列は dormant（復活は容易・既存値は保持）。
@@ -590,18 +606,13 @@ export function ReadingPhase({ form, setForm, onSave, onSaveSummary, onMakeActio
 
       <ActionsEditor form={form} setForm={setForm} title="この本から決めた行動" placeholder="例：明日の朝、学んだ手法を1つ試す" />
 
-      <Field label="タグ">
-        <TagInput tags={form.tags || []} onChange={(t) => setForm({ ...form, tags: t })} allTags={allTags} />
-      </Field>
-      <Field label="フォルダ">
-        <TagInput tags={form.collections || []} onChange={(c) => setForm({ ...form, collections: c })} allTags={allFolders} placeholder="フォルダを追加" />
-      </Field>
+      <FieldsAndFolders form={form} setForm={setForm} allFolders={allFolders} />
     </div>
   );
 }
 
 // Phase 4: 読了（投資回収）
-export function DonePhase({ form, setForm, onSave, allTags, allFolders }) {
+export function DonePhase({ form, setForm, onSave, allFolders }) {
   return (
     <div>
       <Field label="読書完了日">
@@ -637,12 +648,7 @@ export function DonePhase({ form, setForm, onSave, allTags, allFolders }) {
         />
       </Field>
 
-      <Field label="タグ">
-        <TagInput tags={form.tags || []} onChange={(t) => setForm({ ...form, tags: t })} allTags={allTags} />
-      </Field>
-      <Field label="フォルダ">
-        <TagInput tags={form.collections || []} onChange={(c) => setForm({ ...form, collections: c })} allTags={allFolders} placeholder="フォルダを追加" />
-      </Field>
+      <FieldsAndFolders form={form} setForm={setForm} allFolders={allFolders} />
     </div>
   );
 }

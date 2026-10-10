@@ -30,11 +30,10 @@ import NotifyOptInCard from './NotifyOptInCard';
 import { btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, btnLink, groupTitle, card as uiCard, input as uiInput } from '../styles/ui';
 import {
   Shuffle, CalendarDays, Search as SearchIcon, RotateCw, MessageSquareQuote,
-  StickyNote, BookOpen, Lightbulb, BarChart3, AlertTriangle, FlaskConical, Bot, Gem, FileText, Trash2, Target, Check, Plus, ChevronDown, ChevronLeft, ChevronRight, MoreHorizontal, Pencil, Copy, Share, MessageCircle,
+  StickyNote, BookOpen, Lightbulb, BarChart3, AlertTriangle, FlaskConical, Bot, Gem, FileText, Trash2, Target, Check, Plus, ChevronDown, ChevronRight, MoreHorizontal, Pencil, Copy, Share, MessageCircle,
 } from 'lucide-react';
 import { memoConsultQuestion } from '../lib/consultHelpers';
 import { track, EVENTS } from '../lib/analytics';
-import { memoInViewpoint, linkedTagsFor } from '../lib/viewpointMap';
 // 一文をシェアのシート（メモの「…」から・押したときだけ読む）。
 const ShareSheet = lazy(() => import('./ShareSheet'));
 import { useConfirm } from './ConfirmDialog';
@@ -403,7 +402,7 @@ const rememberReview = (userId, patch) => {
 // 同じ nonce は 1 回だけ入れる（本を開いて戻ってきたときに、消した言葉が戻らないように）。
 let appliedSearchNonce = null;
 
-export default function Review({ books = [], onOpenBook, onAddAction, onAddNote, onGoToShelf, onAskConsult, searchPreset = null, onBackToViewmap = null }) {
+export default function Review({ books = [], onOpenBook, onAddAction, onAddNote, onGoToShelf, onAskConsult, searchPreset = null }) {
   const { user } = useAuth();
   const resumedReview = useRef(reviewSessionFor(user?.id)).current;
   // まだ入れていない検索の言葉（開いた瞬間から検索の結果を出す＝思い出しカードが一瞬見えないように）。
@@ -457,10 +456,8 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
   const [search, setSearch] = useState(() => (freshPreset ? String(freshPreset.query || '') : resumedReview?.search || ''));
   // 絞り込み・結果の描画は一歩遅れの値で（打っている間は入力欄を先に描き、結果はあとから・CPU が遅い端末でも文字が詰まらない・2026-09-30）。
   const deferredSearch = useDeferredValue(search);
-  // 視点の地図（記録）からタグを押して開いたときは、そのタグで絞った一覧から（{ query: '', tag }・2026-10-08）。
+  // タグで絞って開いたときは、そのタグで絞った一覧から（{ query: '', tag }）。
   const [tagFilter, setTagFilter] = useState(() => (freshPreset ? String(freshPreset.tag || '') : resumedReview?.tagFilter || ''));
-  // 視点の地図から来たとき（{ from: 'viewmap', tag }）は、そのタグで絞っている間だけ上に「‹ 視点の地図」（2026-10-08 ui-critic）。
-  const [viewmapTag, setViewmapTag] = useState(() => (freshPreset?.from === 'viewmap' ? String(freshPreset.tag || '') : resumedReview?.viewmapTag || ''));
   // 想起カードから「→行動にする」したメモ id（直後のボタン表示を ✓ に切替）。
   const [actionAddedId, setActionAddedId] = useState(null);
   const [addingAction, setAddingAction] = useState(false);
@@ -761,20 +758,13 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
     const scored = [];
     allNotes.forEach((m, i) => {
       if (kindFilter !== 'all' && m.kind !== kindFilter) return;
-      // 視点の地図のマスから来たときは、その分野に結びついた自分のタグ全部で絞る（地図の件数と同じ決め方・2026-10-09）。
-      if (tagFilter && !(viewmapTag && viewmapTag === tagFilter ? memoInViewpoint(tagFilter, m.tags) : m.tags?.includes(tagFilter))) return;
+      if (tagFilter && !m.tags?.includes(tagFilter)) return;
       const hits = hitsOf(m);
       if (hits > 0) scored.push({ m, hits, i });
     });
     if (terms.length > 1) scored.sort((a, b) => b.hits - a.hits || a.i - b.i);
     return scored.map((x) => x.m);
-  }, [allNotes, booksById, deferredSearch, tagFilter, kindFilter, viewmapTag]);
-
-  // 視点の地図から来て、地図のタグ以外の自分のタグ（#マネジメント など）も含めて絞っているときの、そのタグの名前。
-  const viewmapExtraTags = useMemo(() => {
-    if (!viewmapTag || viewmapTag !== tagFilter) return [];
-    return linkedTagsFor(tagFilter, allNotes).filter((t) => t !== tagFilter);
-  }, [allNotes, tagFilter, viewmapTag]);
+  }, [allNotes, booksById, deferredSearch, tagFilter, kindFilter]);
 
   const memosByMonth = useMemo(() => {
     const groups = new Map();
@@ -987,13 +977,12 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
     appliedSearchNonce = searchPreset.nonce;
     setSearch(String(searchPreset.query || ''));
     setTagFilter(String(searchPreset.tag || ''));
-    setViewmapTag(searchPreset.from === 'viewmap' ? String(searchPreset.tag || '') : '');
     setKindFilter('all');
     setSearchActive(true);
   }, [searchPreset?.nonce]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
-    rememberReview(user?.id, { search, tagFilter, kindFilter, randomSeed, searchActive, viewmapTag: viewmapTag && viewmapTag === tagFilter ? viewmapTag : '' });
-  }, [user?.id, search, tagFilter, kindFilter, randomSeed, searchActive, viewmapTag]);
+    rememberReview(user?.id, { search, tagFilter, kindFilter, randomSeed, searchActive });
+  }, [user?.id, search, tagFilter, kindFilter, randomSeed, searchActive]);
 
   if (loading) {
     return (
@@ -1171,25 +1160,6 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
             機能が完全重複し、種類が1つしか無い初期ユーザーには「メモ 3」だけの
             壊れたカードに見えていた。件数は検索の絞り込みで足りる。
           - これで開いた瞬間の1画面が「今日の想起＝ユーザー自身の言葉」だけになる。 */}
-
-      {onBackToViewmap && viewmapTag && viewmapTag === tagFilter && (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', marginBottom: 'calc(-1 * var(--space-2))' }}>
-          <button
-            type="button"
-            onClick={onBackToViewmap}
-            style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}
-          >
-            <ChevronLeft size="1.2em" aria-hidden="true" style={{ flexShrink: 0 }} />
-            視点の地図
-          </button>
-          {/* 自分のタグで絞っているときは、どのタグのメモを含むかを 1 行（地図の件数と同じ決め方・2026-10-09 ui-critic） */}
-          {viewmapExtraTags.length > 0 && (
-            <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-              {viewmapExtraTags.map((t) => <span key={t} style={{ whiteSpace: 'nowrap' }}>#{t}{' '}</span>)}のメモも含みます
-            </p>
-          )}
-        </div>
-      )}
 
       {/* ===== 1. 全メモ検索（一番上・SPEC §4）===== 検索中は結果をすぐ下に出し、思い出しカードと月ごとのメモは隠す。 */}
       <section aria-label="メモを検索">

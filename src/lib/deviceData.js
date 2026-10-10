@@ -1,11 +1,11 @@
 // 🧹 データの初期化・退会のときに消す、端末の中だけの控え（2026-10-10）。
 // 表に入らなかった読書の時間・途中の集中モード・この本で学べることの控え・相談から足した行動の印・
-// 視点の地図の設定・写真で共有の選び方など。消すのはこの一覧と接頭辞に当たるものだけ（ほかのアプリの設定は残す）。
+// 本の分野の自動の印・前の版のタグの控え・写真で共有の選び方など。消すのはこの一覧と接頭辞に当たるものだけ（ほかのアプリの設定は残す）。
 export const DEVICE_DATA_KEYS = [
   'brain-cleared-at', 'brain-weekly-q', 'brain-weekly-dismissed', 'leverage-memo-snap',
   'orime.readingSessions.v1', 'orime.focus.v1', 'orime.consult.actionAdded.v1',
 ];
-export const DEVICE_DATA_PREFIXES = ['orime.bookBrief.v1:', 'orime.viewmap:', 'orime.share.'];
+export const DEVICE_DATA_PREFIXES = ['orime.bookBrief.v1:', 'orime.viewmap:', 'orime.fields.', 'orime.share.'];
 
 function defaultStorage() {
   try { return typeof localStorage !== 'undefined' ? localStorage : null; } catch { return null; }

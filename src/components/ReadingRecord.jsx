@@ -8,7 +8,7 @@
 //   1b. 読書の時間   : 集中モードで測った時間（2026-10-10・記録があるときだけ・components/ReadingTimeCard.jsx）
 //   2. 読書の足あと   : 直近16週のアクティビティ・ヒートマップ（メモ+読了）
 //   3. 月別の読了     : 直近 6 ヶ月の読了数のバー
-//   4. 視点の地図     : 使うと選んだ人だけ（2026-10-08・components/ViewpointMap.jsx）。使っていない人には最後に控えめな 1 行
+//   4. 分野           : 本の分野ごとの本・メモ・読書の時間（2026-10-11・components/BookFields.jsx の BookFieldsRecord）。分野の付いた本があるときだけ
 //   （2026-09-26 オーナー判断で 3 区画に絞った。旧: ハイライト/一番学んだ本/定着/リズム/テーマ/著者）
 //
 // データ:
@@ -18,7 +18,7 @@
 //     fallback（recall 列が無い DB では定着セクションを静かに隠す）。
 
 import { withPhraseBreaks } from './TightBubble';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { isSchemaError } from '../lib/errors';
 import { useAuth } from '../hooks/useAuth';
@@ -29,13 +29,11 @@ import { BarChart3, BookOpen, ChevronRight } from 'lucide-react';
 import { countSummaryMemos } from '../lib/consultHelpers';
 import { applyLocalRecall } from '../lib/recall';
 import { loadRecallLocal } from '../lib/recallLocal';
-import { buildViewpointMap, viewpointRecordPart } from '../lib/viewpointMap';
-import { useViewpointMap } from '../hooks/useViewpointMap';
-import { useToast } from './Toast';
-import { ViewpointMapCard, ViewpointMapInvite, ViewpointMapSheet } from './ViewpointMap';
+import { buildFieldRecord } from '../lib/bookFields';
+import { BookFieldsRecord } from './BookFields';
 import ReadingTimeCard from './ReadingTimeCard';
 import { useReadingSessions } from '../hooks/useReadingSessions';
-import { hasReadingTime } from '../lib/readingStats';
+import { hasReadingTime, bookTotals } from '../lib/readingStats';
 import { appNow } from '../lib/appNow';
 
 /* ---------- 日付ユーティリティ（ローカル基準・UTC ずれ防止） ---------- */
@@ -424,34 +422,9 @@ export default function ReadingRecord({
   onFilterTag,
   onSearchAuthor,
   onGoToShelf,
-  onShowTagMemos,
   onFindBooksForTag,
-  focusViewmap = 0,
 }) {
   const { user } = useAuth();
-  const toast = useToast();
-  const viewpoint = useViewpointMap();
-  // 「視点の地図を使う」を押した直後に地図まで送るための合図（focusViewmap と同じ送り方・2026-10-09）。
-  const [selfViewmapFocus, setSelfViewmapFocus] = useState(0);
-  const [viewpointSheet, setViewpointSheet] = useState(false);
-  // 保存中は選んだ側（true＝使う／false＝やめる）。null＝保存していない。シートは押したボタンの形のまま「保存しています…」。
-  const [viewpointBusy, setViewpointBusy] = useState(null);
-  // 使う／やめる。保存が終わるまでシートのボタンは「保存しています…」。アカウントに書けなかったら知らせる（この端末では選んだとおり）。
-  const chooseViewpoint = async (on, { undoable = false } = {}) => {
-    setViewpointBusy(!!on);
-    const result = await viewpoint.setOn(on);
-    setViewpointBusy(null);
-    setViewpointSheet(false);
-    if (result === 'local') {
-      toast.error('アカウントに保存できませんでした。この端末では選んだとおりに動きます。');
-      return;
-    }
-    // 使い始めたら、地図の題までその場で送る（地図は記録のいちばん下に出るので、画面の外のままだった）。
-    //   地図そのものが見えるので知らせは出さない（2026-10-09 ui-critic）。
-    if (on) setSelfViewmapFocus(Date.now());
-    else if (undoable) toast.undo({ message: '視点の地図をやめました', onUndo: () => { viewpoint.setOn(true); } });
-    else toast.info('視点の地図をやめました。付けたタグは残っています。');
-  };
 
   // メモ統計（自己完結 fetch）。null = 取得中/未取得。
   const [memoStats, setMemoStats] = useState(null);
@@ -465,7 +438,7 @@ export default function ReadingRecord({
   }, []);
 
   useEffect(() => {
-    if (!isSupabaseConfigured || !user?.id) { setMemoStats({ total: 0, createdDates: [], recalled: 0, mastered: 0, byBook: {}, tagRows: [], recallSupported: false }); return; }
+    if (!isSupabaseConfigured || !user?.id) { setMemoStats({ total: 0, createdDates: [], recalled: 0, mastered: 0, byBook: {}, recallSupported: false }); return; }
     let active = true;
     (async () => {
       // lean な列だけをページングで取得。recall 列が無い DB（マイグレーション未適用）
@@ -502,7 +475,7 @@ export default function ReadingRecord({
       if (!rows) {
         // 取得失敗（通信断など）。0 件と偽装すると「メモが消えた」ように見えるため、
         // failed を立ててメモ由来のセクションは出さず、控えめな注記だけ出す。
-        setMemoStats({ total: 0, createdDates: [], recalled: 0, mastered: 0, byBook: {}, tagRows: [], recallSupported: false, failed: true });
+        setMemoStats({ total: 0, createdDates: [], recalled: 0, mastered: 0, byBook: {}, recallSupported: false, failed: true });
         return;
       }
       let recalled = 0;
@@ -518,37 +491,10 @@ export default function ReadingRecord({
         if ((rec.recallCount || 0) > 0) mastered += 1;
         if (r.book_id) byBook[r.book_id] = (byBook[r.book_id] || 0) + 1;
       }
-      // 視点の地図はタグだけ使う（タグの無いメモは持たない）。
-      const tagRows = rows.filter((r) => Array.isArray(r.tags) && r.tags.length > 0).map((r) => ({ tags: r.tags }));
-      setMemoStats({ total: rows.length, createdDates, recalled, mastered, byBook, tagRows, recallSupported });
+      setMemoStats({ total: rows.length, createdDates, recalled, mastered, byBook, recallSupported });
     })();
     return () => { active = false; };
   }, [user?.id]);
-
-  // 「‹ 視点の地図」で戻ったとき: 地図の題が上のサブタブの行のすぐ下（＋16）に来るまで送る（nonce ごとに 1 回）。
-  const viewmapFocusDone = useRef(0);
-  const viewmapNonce = Math.max(focusViewmap || 0, selfViewmapFocus || 0);
-  useEffect(() => {
-    if (!viewmapNonce || viewmapFocusDone.current === viewmapNonce || memoStats === null) return undefined;
-    viewmapFocusDone.current = viewmapNonce;
-    const id = requestAnimationFrame(() => requestAnimationFrame(() => {
-      const el = document.querySelector('[data-viewpoint-map]');
-      if (!el) return;
-      let box = el.parentElement;
-      while (box && box !== document.body && !/(auto|scroll)/.test(getComputedStyle(box).overflowY)) box = box.parentElement;
-      const scroller = box && box !== document.body ? box : document.scrollingElement;
-      const bars = [...document.querySelectorAll('.sub-tabs')].map((b) => b.getBoundingClientRect().bottom);
-      const topEdge = Math.max(scroller === document.scrollingElement ? 0 : scroller.getBoundingClientRect().top, ...bars);
-      const gap = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--space-4')) || 16;
-      const delta = el.getBoundingClientRect().top - topEdge - gap;
-      let reduce = false;
-      try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { /* ignore */ }
-      // 押したその場で送るときはなめらかに（戻ってきたときは今までどおり一度に）。
-      if (selfViewmapFocus === viewmapNonce && !reduce && scroller.scrollBy) scroller.scrollBy({ top: delta, behavior: 'smooth' });
-      else scroller.scrollTop += delta;
-    }));
-    return () => cancelAnimationFrame(id);
-  }, [viewmapNonce, memoStats]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const bookStats = useMemo(() => buildBookStats(books), [books]);
   const doneBuckets = useMemo(() => bucketize(bookStats.doneDates), [bookStats.doneDates]);
@@ -561,16 +507,12 @@ export default function ReadingRecord({
   const summaryMemos = useMemo(() => countSummaryMemos(books), [books]);
   const memoTotal = (memoStats?.total || 0) + summaryMemos;
   const hasAnything = (books?.length || 0) > 0 || memoTotal > 0;
-  const viewpointPart = viewpointRecordPart({ on: viewpoint.on, failed: !!memoStats?.failed });
-  const viewpointMap = useMemo(() => buildViewpointMap(memoStats?.tagRows || []), [memoStats]);
-  const viewpointSheetEl = viewpointSheet && (
-    <ViewpointMapSheet
-      on={viewpointBusy === null ? viewpoint.on : !viewpointBusy}
-      busy={viewpointBusy !== null}
-      onChoose={(on) => chooseViewpoint(on, { undoable: !on })}
-      onClose={() => { if (viewpointBusy === null) setViewpointSheet(false); }}
-    />
-  );
+  // 🏷 分野（2026-10-11）: 本の分野ごとの本・メモ・読書の時間。メモを読めなかったときはメモの数を 0 と偽装しない（数えない）。
+  const fieldRecord = useMemo(() => {
+    const secondsByBook = {};
+    for (const x of bookTotals(sessions.rows, books, 'all', nowMs)) secondsByBook[x.book.id] = x.seconds;
+    return buildFieldRecord(books, { memoCountByBook: memoStats?.failed ? {} : (memoStats?.byBook || {}), secondsByBook });
+  }, [books, memoStats, sessions.rows, nowMs]);
 
   // メモ集計がまだ返っていない間は「記録は、これから」を出さない — 本0冊で
   // メモだけあるユーザーに空状態が一瞬チラついてから統計に切り替わるのを防ぐ。
@@ -647,22 +589,10 @@ export default function ReadingRecord({
       </section>
       )}
 
-      {/* 🗺 視点の地図（使うと選んだ人だけ）。メモを読めなかったときは 0 件と偽装しない（地図ごと出さない）。 */}
-      {viewpointPart === 'map' && (
-        <ViewpointMapCard
-          map={viewpointMap}
-          onOpenTag={onShowTagMemos}
-          onFindBooks={onFindBooksForTag}
-          onAbout={() => setViewpointSheet(true)}
-          onStop={() => chooseViewpoint(false, { undoable: true })}
-        />
+      {/* 🏷 分野（分野の付いた本があるときだけ・押すと、すべての本をその分野で絞る）。 */}
+      {fieldRecord.any && (
+        <BookFieldsRecord record={fieldRecord} onOpenField={onFilterTag} onFindBooks={onFindBooksForTag} />
       )}
-      {viewpointPart === 'invite' && (
-        <div style={{ marginTop: 'calc(-1 * var(--space-3))' }}>
-          <ViewpointMapInvite onOpen={() => setViewpointSheet(true)} />
-        </div>
-      )}
-      {viewpointSheetEl}
     </div>
   );
 

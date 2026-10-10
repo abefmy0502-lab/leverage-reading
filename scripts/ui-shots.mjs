@@ -198,37 +198,22 @@ const SCREENS = [
   { name: 'review-action-bottom', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("行動")' }, { scrollBottom: true }] },
   { name: 'review-memo', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("ノート"), button[role=tab]:has-text("メモ")' }] },
   { name: 'review-record', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }] },
-  // 🗺 視点の地図（2026-10-08）。&viewmap=on＝使っている人（メモに分野のタグ）・off＝使っていない人。
+  // 🏷 本の分野（2026-10-11・旧「視点の地図」2026-10-08 を作り直した）。&fields=none＝分野を外す（書名から自動で付く）。
   ...(() => {
-    const REC = [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }, { wait: 600 }];
+    const LIB = [{ css: 'button:has-text("すべての本")' }];
+    const REC = [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }, { wait: 800 }];
     const XXL = { eval: () => { document.documentElement.style.fontSize = '40px'; } };
+    const EDIT_ISSUE = [...LIB, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("編集")' }, { scrollBottom: true }];
     return [
-      { name: 'viewmap-record-on', url: '/?viewmap=on', steps: [...REC, { scrollTo: 'h3:has-text("月別の読了")' }] },
-      { name: 'viewmap-record-on-bottom', url: '/?viewmap=on', steps: [...REC, { scrollBottom: true }] },
-      { name: 'viewmap-record-on-xxl-text', url: '/?viewmap=on', steps: [...REC, XXL, { wait: 500 }, { scrollTo: 'h3:has-text("月別の読了")' }] },
-      { name: 'viewmap-record-off', url: '/?viewmap=off', steps: [...REC, { scrollBottom: true }] },
-      { name: 'viewmap-record-off-xxl-text', url: '/?viewmap=off', steps: [...REC, XXL, { wait: 500 }, { scrollBottom: true }] },
-      { name: 'viewmap-sheet', url: '/?viewmap=off', steps: [...REC, { scrollBottom: true }, { css: 'button:has-text("視点の地図を作れます")' }, { wait: 500 }] },
-      { name: 'viewmap-sheet-bottom', url: '/?viewmap=off', steps: [...REC, { scrollBottom: true }, { css: 'button:has-text("視点の地図を作れます")' }, { wait: 500 }, { scrollBottom: true }] },
-      { name: 'viewmap-sheet-xxl-text', url: '/?viewmap=off', steps: [...REC, XXL, { wait: 500 }, { scrollBottom: true }, { css: 'button:has-text("視点の地図を作れます")' }, { wait: 500 }] },
-      { name: 'viewmap-menu', url: '/?viewmap=on', steps: [...REC, { scrollTo: 'h3:has-text("月別の読了")' }, { css: 'button[aria-label="視点の地図の操作"]' }] },
-      { name: 'viewmap-tag-memos', url: '/?viewmap=on', steps: [...REC, { scrollTo: 'h3:has-text("月別の読了")' }, { css: 'button[aria-label="決め方のメモ 3 件を見る"]' }, { wait: 800 }] },
-      { name: 'viewmap-advisor', url: '/?viewmap=on', steps: [...REC, { scrollBottom: true }, { css: 'button[aria-label="お金の本を探す（AI 選書）"]' }, { wait: 1200 }] },
-      { name: 'viewmap-advisor-xxl-text', url: '/?viewmap=on', steps: [...REC, XXL, { wait: 500 }, { scrollBottom: true }, { css: 'button[aria-label="お金の本を探す（AI 選書）"]' }, { wait: 1200 }] },
-      { name: 'viewmap-tag-suggest', url: '/?viewmap=on', steps: [...MEMO_SAVED] },
-      { name: 'viewmap-tag-suggest-xxl-text', url: '/?viewmap=on', steps: [XXL, ...MEMO_SAVED] },
-      { name: 'viewmap-settings', url: '/?viewmap=on', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { wait: 500 }, { scrollTo: 'h3:has-text("メモのタグ")' }] },
-      { name: 'viewmap-settings-xxl-text', url: '/?viewmap=on', steps: [XXL, { css: 'button[aria-label="アカウント設定を開く"]' }, { wait: 500 }, { scrollTo: 'h3:has-text("メモのタグ")' }] },
-      { name: 'viewmap-menu-xxl-text', url: '/?viewmap=on', steps: [...REC, XXL, { wait: 500 }, { scrollTo: 'h3:has-text("視点の地図")' }, { eval: () => { const b = document.querySelector('button[aria-label="視点の地図の操作"]'); b.scrollIntoView({ block: 'center' }); } }, { css: 'button[aria-label="視点の地図の操作"]' }] },
-      { name: 'viewmap-import-kindle', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:has-text("ほかのアプリから取り込む")' }, { wait: 500 }, { scrollTo: 'p:has-text("Kindle 端末")' }] },
-      { name: 'viewmap-import-kindle-xxl-text', url: '/', steps: [XXL, { wait: 300 }, { css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:has-text("ほかのアプリから取り込む")' }, { wait: 500 }, { scrollTo: 'p:has-text("Kindle アプリ")' }] },
-      { name: 'viewmap-review-memo-menu-xxl-text', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("メモ")' }, XXL, { wait: 500 }, { css: 'button[aria-label$="の操作"], button[aria-label*="操作"]' }, { wait: 400 }] },
-      { name: 'viewmap-record-notags', url: '/?viewmap=notags', steps: [...REC, { scrollTo: 'h3:has-text("月別の読了")' }] },
-      { name: 'viewmap-sheet-saving', url: '/?viewmap=off&viewmapsave=slow', steps: [...REC, { scrollBottom: true }, { css: 'button:has-text("視点の地図を作れます")' }, { wait: 500 }, { css: '[role=dialog] button:has-text("視点の地図を使う")', settle: 600 }] },
-      { name: 'viewmap-save-fail', url: '/?viewmap=off&viewmapsave=fail', steps: [...REC, { scrollBottom: true }, { css: 'button:has-text("視点の地図を作れます")' }, { wait: 500 }, { css: '[role=dialog] button:has-text("視点の地図を使う")' }, { wait: 600 }] },
-      { name: 'viewmap-stop-undo', url: '/?viewmap=on', steps: [...REC, { scrollTo: 'h3:has-text("月別の読了")' }, { css: 'button[aria-label="視点の地図の操作"]' }, { css: '[role=menu] button:has-text("使うのをやめる"), button:has-text("使うのをやめる")' }, { wait: 500 }] },
-      { name: 'viewmap-back', url: '/?viewmap=on', steps: [...REC, { scrollTo: 'h3:has-text("月別の読了")' }, { css: 'button[aria-label="決め方のメモ 3 件を見る"]' }, { wait: 800 }, { css: 'button:has-text("視点の地図")' }, { wait: 1200 }] },
-      { name: 'viewmap-advisor-busy', url: '/?viewmap=on&ai=slow', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]', settle: 200 }, { css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }, { wait: 600 }, { scrollBottom: true }, { css: 'button[aria-label="お金の本を探す（AI 選書）"]', settle: 500 }] },
+      { name: 'fields-add-manual', url: '/', steps: [...LIB, { css: 'button[aria-label="本を追加"]' }, { css: 'button:has-text("手動で入力する")' }, { fill: ['input[aria-label="書名（必須）"]', 'スタンフォード式 最高の睡眠'] }, { wait: 1500 }, { scrollBottom: true }] },
+      { name: 'fields-edit', url: '/', steps: [...EDIT_ISSUE] },
+      { name: 'fields-picker', url: '/', steps: [...EDIT_ISSUE, { css: 'button[aria-label^="分野を変更"]' }, { wait: 600 }] },
+      { name: 'fields-picker-xxl-text', url: '/', steps: [XXL, ...EDIT_ISSUE, { css: 'button[aria-label^="分野を変更"]' }, { wait: 600 }] },
+      { name: 'fields-detail', url: '/', steps: [...LIB, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { wait: 800 }] },
+      { name: 'fields-library-filtered', url: '/', steps: [...LIB, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { wait: 800 }, { css: '[data-book-fields] button >> nth=0' }, { wait: 800 }] },
+      { name: 'fields-record', url: '/', steps: [...REC, { scrollBottom: true }] },
+      { name: 'fields-record-xxl-text', url: '/', steps: [...REC, XXL, { wait: 500 }, { scrollBottom: true }] },
+      { name: 'fields-record-auto', url: '/?fields=none', steps: [...REC, { wait: 1500 }, { scrollBottom: true }] },
     ];
   })(),
   { name: 'settings', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }] },

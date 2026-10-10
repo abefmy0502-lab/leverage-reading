@@ -1,8 +1,8 @@
 // ⏱📊 記録の「読書の時間」（2026-10-10 オーナー「せっかく時間を測るので、どれくらいの読書に費やしたのか記録で
 // 可視化できるように」「どのような分類の本にどの本にどれくらい時間をかけたのかを客観的にみれるように」）。
 //
-// 上から: 今月・これまで の 2 つの数 → 週ごと（直近 12 週の棒）→ 内訳の期間（今月｜これまで）→ 分類ごと
-// （本につけたタグ・タグが複数の本は時間をタグの数で分ける＝足すと合計）→ 本ごと（多い順・5 冊のあとは畳む）。
+// 上から: 今月・これまで の 2 つの数 → 週ごと（直近 12 週の棒）→ 内訳の期間（今月｜これまで）→ 分野ごと
+// （本の分野・分野が複数の本は時間を分野の数で分ける＝足すと合計）→ 本ごと（多い順・5 冊のあとは畳む）。
 // 反ゲーミフィケーション: 目標・連続日数・順位・%・「あと N 分」・ほかの人との比べは出さない。
 // 棒は「その期間の合計に対する長さ」を見せるだけ（数字の % は書かない）。
 // 数え方は lib/readingStats.js（日付・週・月をまたいだ回は時刻の割合で分ける）。
@@ -169,7 +169,7 @@ export default function ReadingTimeCard({ rows, books, onOpenBook, now = Date.no
   const tags = useMemo(() => tagTotals(rows, books, period, now), [rows, books, period, now]);
   const perBook = useMemo(() => bookTotals(rows, books, period, now), [rows, books, period, now]);
   const periodTotal = period === 'month' ? monthSec : allSec;
-  // 選んだ分類がこの期間に無ければ、絞り込みはしない。
+  // 選んだ分野がこの期間に無ければ、絞り込みはしない。
   const tagNames = new Set([...tags.items.map((x) => x.tag), ...(tags.untagged ? [NO_TAG] : [])]);
   const activeTag = tagFilter && tagNames.has(tagFilter) ? tagFilter : null;
   const shownBooks = activeTag ? perBook.filter((x) => bookInTag(x.book, activeTag)) : perBook;
@@ -210,7 +210,7 @@ export default function ReadingTimeCard({ rows, books, onOpenBook, now = Date.no
         </table>
       </div>
 
-      {/* 内訳（分類ごと・本ごと）の期間 */}
+      {/* 内訳（分野ごと・本ごと）の期間 */}
       <div style={{ borderTop: '1px solid var(--separator)', marginTop: 'var(--space-6)', paddingTop: 'var(--space-4)' }}>
         <div role="group" aria-label="内訳の期間" style={segTrack}>
           {PERIODS.map((p) => (
@@ -224,9 +224,9 @@ export default function ReadingTimeCard({ rows, books, onOpenBook, now = Date.no
           <p style={{ ...metaText, margin: 'var(--space-4) 0 0', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('今月の読書の時間は、まだありません。')}</p>
         ) : (
           <>
-            {/* 分類ごと（本につけたタグ）。押すと下の本ごとをその分類の本に絞る。 */}
+            {/* 分野ごと（本の分野）。押すと下の本ごとをその分野の本に絞る。 */}
             <div data-reading-time-tags="" style={{ marginTop: 'var(--space-4)' }}>
-              <h4 style={subHeading} id="reading-time-tags-title">分類ごと</h4>
+              <h4 style={subHeading} id="reading-time-tags-title">分野ごと</h4>
               <ul
                 aria-labelledby="reading-time-tags-title"
                 aria-describedby="reading-time-tags-total"
@@ -235,13 +235,13 @@ export default function ReadingTimeCard({ rows, books, onOpenBook, now = Date.no
                 {tagRows.map((t) => {
                   const time = fmtMinutes(t.minutes);
                   const ratio = tags.totalMinutes > 0 ? t.minutes / tags.totalMinutes : 0;
-                  const isOther = !!t.tags; // 「ほか」は押せない（いくつかの分類のまとめ）
+                  const isOther = !!t.tags; // 「ほか」は押せない（いくつかの分野のまとめ）
                   const on = activeTag === t.tag;
                   return (
                     <li key={t.tag}>
                       {isOther ? (
                         <div style={{ padding: 'var(--space-2) 0', minHeight: 'var(--tap-min)', boxSizing: 'border-box' }}>
-                          <NameTime name={`${t.tag}（${t.tags} 分類）`} time={time} muted />
+                          <NameTime name={`${t.tag}（${t.tags} 分野）`} time={time} muted />
                           <ShareBar ratio={ratio} />
                         </div>
                       ) : (

@@ -4,16 +4,14 @@
 // 一覧が下へ跳ねないように、間に合わなかったもの（自分のメモの読み込み）は使わない:
 //   - 自分のメモをまだ読めていなければ、その保存ではカードを出さない
 // 自分のメモ全部は hooks/useAllMemoRows.js（検索・つながるメモと共通の控え）から、本の詳細を開いたときに読んでおく。
-// 視点の地図を使っている人（lib/viewpointMapSetting.js）には、地図のタグ（まだ使っていないタグでも）からも 1 枠すすめる
-// （メモの文に出ている手がかりの言葉で決める・lib/viewpointMap.js の scoreViewpointTags・2026-10-08）。
+// すすめるのは自分のメモのタグだけ（2026-10-11 に視点の地図の枠をやめた＝本の分野は本の分け方で、メモのタグではない・lib/bookFields.js）。
 // 決め方は端末の中だけ（AI なし・トークンを使わない・誰でも）。Jev（TypeSafe AI）は使わない（2026-10-02・docs/jev-plan.md §3-3:
 // 保存からシートが閉じ終わるまでの 320ms に往復が間に合わないことが多く、使えない答えのためにメモの文を外へ送ることになるため）。
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from './useAuth';
 import { useAllMemoRows } from './useAllMemoRows';
-import { suggestTagsLocal, TAG_SUGGEST_MAX } from '../lib/tagSuggest';
-import { mergeTagSuggestions, scoreViewpointTags } from '../lib/viewpointMap';
-import { useViewpointMap } from './useViewpointMap';
+import { suggestTagsLocal } from '../lib/tagSuggest';
+import { isBookField } from '../lib/bookFields';
 import { track } from '../lib/analytics';
 
 // 保存 → シートが閉じ終わる（閉じる動き 220ms＋知らせ）まで。
@@ -24,13 +22,13 @@ export const DECIDE_MS = 320;
 export function useTagSuggestions({ saved, book = null, current = [], books, active = true }) {
   const { user } = useAuth();
   const { rows, status } = useAllMemoRows({ userId: user?.id, books, active: active && !!user?.id });
-  const { on: viewpointOn } = useViewpointMap();
   const [result, setResult] = useState(null); // { nonce, list, source }
   const nonce = saved?.id ? saved.nonce ?? null : null;
-  const bookTags = useMemo(() => (Array.isArray(book?.tags) ? book.tags : []), [book]);
+  // 本の分野はメモのタグの手がかりにしない（分野でない前の版のタグだけ）。
+  const bookTags = useMemo(() => (Array.isArray(book?.tags) ? book.tags.filter((t) => !isBookField(t)) : []), [book]);
   // 決める時点の最新の値を読む（effect は保存ごとに 1 回だけ）
   const live = useRef({});
-  live.current = { rows, status, current, bookTags, saved, viewpointOn };
+  live.current = { rows, status, current, bookTags, saved };
 
   useEffect(() => {
     if (nonce == null || !user?.id) return undefined;
@@ -47,15 +45,6 @@ export function useTagSuggestions({ saved, book = null, current = [], books, act
       let list = [];
       let source = 'none';
       if (l.status === 'ready' && Array.isArray(l.rows)) { list = suggestTagsLocal(argsNow()); source = 'local'; }
-      // 地図のタグは自分のメモを読めていなくても決められる（メモの文だけで決める）
-      if (l.viewpointOn) {
-        const map = scoreViewpointTags(l.saved?.text, l.current || []);
-        if (map.length) {
-          const merged = mergeTagSuggestions(list, map, TAG_SUGGEST_MAX);
-          if (merged.some((x) => x.why === 'map')) source = list.length ? 'local_map' : 'map';
-          list = merged;
-        }
-      }
       setResult({ nonce, list, source });
       if (list.length) track('tag_suggest_shown', { n: list.length, source });
     }, DECIDE_MS);

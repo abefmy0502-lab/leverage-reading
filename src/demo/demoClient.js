@@ -27,11 +27,7 @@
 //     付けなければ、いまの版を見たことにする（ほかの撮影にシートを重ねない）。新規の人のシナリオは付けても無視
 //   - &update=1 : 「アプリの新しい版があります」を出す（Web の新しい版の知らせ）。&bundle=2026-10-04 を足すと、
 //     アプリに入っている版をその版にして「何が変わった？」（それより新しい版の中身）を出せる
-//   - &viewmap=on : 視点の地図を使っている人（メモに分野のタグが付いている・記録に地図が出る）。
-//     &viewmap=off : 使っていない人（端末に残った選択より優先）。付けなければ端末に残った選択（既定は使わない）
-//     &viewmap=notags : 使っているが、メモに地図のタグが 1 つも無い人
-//     &viewmap=own : 使っているが、メモには自分のタグ（#マネジメント・#習慣 など）だけ（自分のタグが分野に結びつく確認用・2026-10-09）
-//     &viewmapsave=slow : 使う／やめるの保存が 8 秒かかる（「保存しています…」の確認用）・fail : アカウントへの保存に失敗する
+//   - &fields=none : 本の分野を全部外す（分野なしの本に書名から自動で付く確認用・lib/bookFields.js・2026-10-11）
 //   - &focus=start|until|untilrun|timer|count|long|fresh|paused|done|summary : ⏱ 読む（集中モード）を『数値化の鬼』で開く（App.jsx・2026-10-09）。
 //     start=始める前のシート・timer=タイマー 30 分の 7 分目・count=計測 32 分・long=計測 1 時間 15 分・fresh=始めて 10 秒（30 秒未満でおわると何も残さず閉じる）・paused=一時停止中・done=タイマーが終わった・summary=おわったとき
 // データはメモリ上だけ。再読み込みで初期状態に戻る。
@@ -341,11 +337,6 @@ export function createDemoClient() {
     user_metadata: {
       display_name: scenario === 'new' ? '' : 'さとう',
       ai_consent: params.get('consent') === 'none' ? null : { version: AI_CONSENT_VERSION, at: '2026-10-01T00:00:00.000Z' },
-      // 視点の地図（lib/viewpointMapSetting.js）。&viewmap=on / off のときだけアカウントの記録を持つ。
-      //   &viewmap=own: 使っているが、メモには自分のタグ（#マネジメント・#習慣 など）だけ＝使い込んだ人の地図（2026-10-09）。
-      ...(['on', 'off', 'notags', 'own'].includes(params.get('viewmap'))
-        ? { viewpoint_map: { on: params.get('viewmap') !== 'off', at: '2026-10-08T00:00:00.000Z' } }
-        : {}),
     },
     app_metadata: { provider: 'email' },
     // ?demo=freenew: 登録したばかりの人（無料プランのはじめの月＝今月は 60 トークン・2026-10-09）。
@@ -354,6 +345,8 @@ export function createDemoClient() {
   };
 
   const db = buildSeed(scenario);
+  // &fields=none: 本の分野と前の版のタグを全部外す（開くと書名から分野が自動で付く・2026-10-11）。
+  if (params.get('fields') === 'none') db.book_tags = [];
   if (params.get('longtag') === '1') {
     const LONG = 'マネジメント（部下・チーム・1on1・任せ方・評価・育成のことをまとめておくタグ）'.slice(0, 50);
     for (const m of db.book_memos || []) if (Array.isArray(m.tags)) m.tags = m.tags.map((t) => (t === 'マネジメント' ? LONG : t));
@@ -409,11 +402,6 @@ export function createDemoClient() {
         // &consent=slow（&consent=none と一緒に使う）: アカウントへの同意の保存がなかなか終わらない（「保存しています…」の確認用）。
         if (params.getAll('consent').includes('slow') && attrs?.data && 'ai_consent' in attrs.data) {
           await new Promise((r) => { setTimeout(r, 8000); });
-        }
-        // &viewmapsave=slow|fail: 視点の地図の保存（lib/viewpointMapSetting.js）の確認用。
-        if (attrs?.data && 'viewpoint_map' in attrs.data) {
-          if (params.get('viewmapsave') === 'slow') await new Promise((r) => { setTimeout(r, 8000); });
-          if (params.get('viewmapsave') === 'fail') return { data: null, error: { message: 'Failed to fetch' } };
         }
         if (store.session) {
           store.session.user = {

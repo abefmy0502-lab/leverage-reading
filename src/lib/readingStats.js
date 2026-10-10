@@ -2,18 +2,19 @@
 // 記録で可視化できるように」「どのような分類の本にどの本にどれくらい時間をかけたのかを客観的にみれるように」）。
 //
 // 2026-06-26「作業量の可視化はしない」の例外（2026-10-09 に読書の時間だけ認めたもの）を、記録へ広げたもの。
-// 見せるのは積み重ねそのもの（今月・これまで・週ごと・分類ごと・本ごと）だけ。目標・連続日数・順位・%・
+// 見せるのは積み重ねそのもの（今月・これまで・週ごと・分野ごと・本ごと）だけ。目標・連続日数・順位・%・
 // 「あと N 分」・ほかの人との比べは作らない（反ゲーミフィケーション）。
 //
 // 日付をまたいだ回・週をまたいだ回は、lib/readingTime.js の secondsWithin で時刻の割合に分ける。
 // 期間は端末の暦（ローカル時刻）。週は月曜はじまり（記録の「読書の足あと」・行動の「今週」とそろえる）。
 
 import { secondsWithin, fmtDuration, MIN_SESSION_SEC } from './readingTime';
+import { isBookField } from './bookFields';
 
 export const STATS_WEEKS = 12;
 export const TAG_TOP = 6;
 export const BOOKS_COLLAPSED = 5;
-export const NO_TAG = 'タグなし';
+export const NO_TAG = '分野なし';
 export const OTHER_TAGS = 'ほか';
 
 // その週の月曜 0 時（端末の暦・ms）。
@@ -110,24 +111,25 @@ export function bookTotals(rows, books, period = 'all', now = Date.now()) {
     .sort((a, b) => b.seconds - a.seconds || String(a.book.title || '').localeCompare(String(b.book.title || ''), 'ja'));
 }
 
+// 本の分野（2026-10-11・lib/bookFields.js）。分野でない前の版のタグは数えない。
 function tagsOf(book) {
   const seen = new Set();
   for (const t of Array.isArray(book?.tags) ? book.tags : []) {
     const k = String(t || '').trim();
-    if (k) seen.add(k);
+    if (k && isBookField(k)) seen.add(k);
   }
   return [...seen];
 }
 
-// 本がその分類に入るか（tag が NO_TAG なら、タグの無い本）。
+// 本がその分野に入るか（tag が NO_TAG なら、分野の無い本）。
 export function bookInTag(book, tag) {
   if (!tag) return true;
   const tags = tagsOf(book);
   return tag === NO_TAG ? tags.length === 0 : tags.includes(tag);
 }
 
-// 分類（本につけたタグ）ごとの時間（2026-10-10 オーナー裁定「重ねて数えない」）。
-//   タグが 2 つ以上の本は、その本の時間をタグの数で等しく分ける（3 つなら 1/3 ずつ）。タグの無い本は「タグなし」。
+// 分野ごとの時間（2026-10-10 オーナー裁定「重ねて数えない」・2026-10-11 に本のタグから分野へ）。
+//   分野が 2 つ以上の本は、その本の時間を分野の数で等しく分ける（3 つなら 1/3 ずつ）。分野の無い本は「分野なし」。
 //   計算は秒のまま、見せる分（minutes）は最大剰余で丸める＝分類ごとの分を足すと、期間の合計の分とちょうど同じ。
 //   多い順に top 個まで。残りのタグは「ほか」にまとめる（残りが 1 つだけならそのまま出す）。「タグなし」はいつも最後。
 // 戻り値: { items: [{ tag, seconds, minutes, books }], other: { tag, seconds, minutes, tags } | null,

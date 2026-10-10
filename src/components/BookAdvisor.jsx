@@ -145,7 +145,7 @@ const advisorMemory = { uid: null, state: null };
 // 結果は advisorMemory に書く（原価はもう払っているので捨てない・相談の backgroundAsk と同じ考え・2026-10-04）。
 // { kind: 'interview' | 'reco', uid, done, promise }。戻ってきた画面は、終わるまで同じ待ちの形を出し、終わったら結果を出す。
 let advisorPendingJob = null;
-// 🗺 ほかの画面から「最初の悩み」に言葉を入れて開いたとき（視点の地図の「メモの少ない「…」の本を探す」・{ text, nonce }）。
+// 🗺 ほかの画面から「最初の悩み」に言葉を入れて開いたとき（記録の「分野」の「この分野の本を探す」・{ text, nonce }）。
 // 同じ nonce は 1 回だけ入れる（タブを行き来しても、消した言葉が戻らないように）。送らない。
 let appliedAdvisorDraft = null;
 
@@ -1139,7 +1139,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     setView('chat');
   };
 
-  // 🗺 視点の地図から開いたとき: 新しい会話の最初の悩みに言葉を入れるだけ（送らない）。前の会話は過去の AI 選書に残っている。
+  // 🗺 記録の「分野」から開いたとき: 新しい会話の最初の悩みに言葉を入れるだけ（送らない）。前の会話は過去の AI 選書に残っている。
   //   質問・おすすめを作っている途中なら上書きしない（作り終えたものを消さない）。
   useEffect(() => {
     if (!draftPreset?.nonce || draftPreset.nonce === appliedAdvisorDraft) return;

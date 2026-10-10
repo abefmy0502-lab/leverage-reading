@@ -651,6 +651,58 @@ export function useBooks() {
     return { ok: true, local: false };
   };
 
+  // 🏷 本の分野（book_tags）とフォルダ（book_collections）だけを書く（2026-10-11・lib/bookFields.js）。
+  //   本の保存（saveBook）は通さない＝ほかの欄・行動を書き直さない。自動の仕分けと前の版のタグの移し替えで使う。
+  //   消してから入れ直さず、差分だけ（入れる → 消す）＝途中で失敗しても、言葉が消えたままにならない。
+  //   tags: 本のタグの全部（分野＋残すもの）/ addCollections: 足すフォルダ（今あるフォルダは消さない）
+  //   戻り値: { ok, foldersOk, tags, addedCollections }。foldersOk=false のときはフォルダに入れられなかった（表が無い・失敗）。
+  const saveBookTaxonomy = async (bookId, { tags, addCollections = [] } = {}) => {
+    if (!user || !isSupabaseConfigured || !UUID_RE.test(bookId || '')) return { ok: false, foldersOk: false };
+    const nextTags = [...new Set((tags || []).map((t) => String(t || '').trim()).filter(Boolean))];
+    const addCols = [...new Set((addCollections || []).map((c) => String(c || '').trim()).filter(Boolean))];
+    let foldersOk = true;
+    let addedCols = [];
+    try {
+      if (addCols.length) {
+        try {
+          const { data: haveCols, error: e1 } = await supabase.from('book_collections').select('collection_name').eq('book_id', bookId);
+          if (e1) throw e1;
+          const have = new Set((haveCols || []).map((r) => r.collection_name));
+          addedCols = addCols.filter((c) => !have.has(c));
+          if (addedCols.length) {
+            const { error: e2 } = await supabase.from('book_collections').insert(addedCols.map((name) => ({ book_id: bookId, user_id: user.id, collection_name: name })));
+            if (e2) throw e2;
+          }
+        } catch (e) {
+          if (!isMissingRelationError(e)) console.warn('[book-fields] フォルダに入れられませんでした:', e?.message || e);
+          foldersOk = false;
+          addedCols = [];
+        }
+      }
+      const { data: haveTags, error: e3 } = await supabase.from('book_tags').select('tag_name').eq('book_id', bookId);
+      if (e3) throw e3;
+      const have = new Set((haveTags || []).map((r) => r.tag_name));
+      const want = new Set(nextTags);
+      const toAdd = nextTags.filter((t) => !have.has(t));
+      const toRemove = [...have].filter((t) => !want.has(t));
+      if (toAdd.length) {
+        const { error } = await supabase.from('book_tags').insert(toAdd.map((tag) => ({ book_id: bookId, user_id: user.id, tag_name: tag })));
+        if (error) throw error;
+      }
+      if (toRemove.length) {
+        const { error } = await supabase.from('book_tags').delete().eq('book_id', bookId).in('tag_name', toRemove);
+        if (error) throw error;
+      }
+    } catch (e) {
+      console.warn('[book-fields] 本の分野を保存できませんでした:', e?.message || e);
+      return { ok: false, foldersOk };
+    }
+    setBooks((prev) => prev.map((b) => (b.id === bookId
+      ? { ...b, tags: nextTags, collections: addedCols.length ? [...(b.collections || []), ...addedCols] : b.collections }
+      : b)));
+    return { ok: true, foldersOk, tags: nextTags, addedCollections: addedCols };
+  };
+
   // ローカル state のみを即時更新する（DB は触らない）。行動トグル等の
   // 楽観的 UI 用。確定値は直後の saveBook → fetchBooks が上書きする。
   const mutateBookLocal = (bookId, updater) => {
@@ -665,6 +717,7 @@ export function useBooks() {
     deleteBook,
     mutateBookLocal,
     saveBookBrief,
+    saveBookTaxonomy,
     captureBookSnapshot,
     restoreBookFromSnapshot,
     refreshBooks: fetchBooks,
