@@ -3,7 +3,7 @@
 // マイ読書脳だけは、実際に入っているメモから質問に近いものを選んで
 // 本番と同じ書式（【結論】…REFS_START/END）で答えるので、画面の流れを確かめられる。
 
-import { SEARCH_CATALOG, DEMO_BOOK_INFO, DEMO_MESSY_RELATED } from './seed';
+import { SEARCH_CATALOG, DEMO_BOOK_INFO, DEMO_GENRES, DEMO_MESSY_RELATED } from './seed';
 
 const fakeChapterMode = () => { const a = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('ai') : ''; return a === 'fakechapter' || a === 'fakechapteronly' ? a : ''; };
 const relatedAllBad = () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('related') === 'allbad';
@@ -1013,7 +1013,9 @@ export function installDemoFetch(store) {
         // &info=thin＝紹介が短く目次も無い（この本で学べることを作れない本・2026-10-09）。
         if (base && mode === 'thin') hit = { ...base, description: base.description.slice(0, 20), toc: [] };
         if (base && mode === 'mixed') hit = { ...base, source: 'openbd', toc: base.toc.length ? base.toc : sampleToc, tocSource: 'rakuten' };
-        return json(hit || { description: '', toc: [], source: '', tocSource: '', pages: 0, pubdate: '', isbn: params.get('isbn') || '' });
+        // 楽天ブックスのジャンル（分野の手がかり・2026-10-11）。&info=none でも本番と同じくジャンルだけは返る本がある。
+        const genreIds = DEMO_GENRES[params.get('isbn') || ''] || [];
+        return json({ ...(hit || { description: '', toc: [], source: '', tocSource: '', pages: 0, pubdate: '', isbn: params.get('isbn') || '' }), genreIds });
       }
       // 実在の判定（?verify=1）は本番と同じく書名がまるごと同じ本だけを「実在」にする（2026-09-30）。
       if (params.get('verify') === '1') {

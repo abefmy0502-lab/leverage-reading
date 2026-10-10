@@ -39,7 +39,9 @@ export function BookFieldsInput({ fields = [], onChange, auto = false }) {
           type="button"
           onClick={() => setOpen(true)}
           aria-label={fields.length ? `分野を変更（いま ${fields.join('、')}）` : '分野を選ぶ'}
-          style={{ ...btnLink, minWidth: 'var(--tap-min)', justifyContent: 'center', marginLeft: fields.length ? 0 : 'calc(-1 * var(--space-1))' }}
+          // 分野が無いときは文字ボタンだけの行: 押せる高さ 44 の上下の余りを行の外へ出し、見出し → 文字を 8 に
+          //   （フォルダの見出し → 入力欄と同じ間隔に見せる・2026-10-11 ui-critic）
+          style={{ ...btnLink, minWidth: 'var(--tap-min)', justifyContent: 'center', ...(fields.length ? {} : { marginLeft: 'calc(-1 * var(--space-1))', marginTop: 'calc(-1 * var(--space-3))', marginBottom: 'calc(-1 * var(--space-3))' }) }}
         >
           {fields.length ? '変更' : '分野を選ぶ'}
         </button>

@@ -9,7 +9,8 @@
 
 import { apiUrl } from './apiUrl';
 
-const LS_PREFIX = 'orime.bookInfo.v1:';
+// v2（2026-10-11）: 楽天ブックスのジャンル（genreIds）も控える（分野を決める手がかり）。
+const LS_PREFIX = 'orime.bookInfo.v2:';
 const HIT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const MISS_TTL_MS = 24 * 60 * 60 * 1000;
 const FETCH_TIMEOUT_MS = 10000;
@@ -65,7 +66,31 @@ export function normalizeBookInfo(raw) {
   const pages = Number.isFinite(r.pages) && r.pages > 0 && r.pages < 20000 ? Math.round(r.pages) : 0;
   const pubdate = /^\d{4}(-\d{2}(-\d{2})?)?$/.test(String(r.pubdate || '')) ? String(r.pubdate) : '';
   const description = source ? tidyJaSpacing(str(r.description, 1000)).trim() : '';
-  return { description, toc, source, tocSource: toc.length ? tocSource : '', pages, pubdate };
+  const genreIds = normGenreIds(r.genreIds);
+  return { description, toc, source, tocSource: toc.length ? tocSource : '', pages, pubdate, genreIds };
+}
+
+/** 楽天ブックスのジャンル ID（「001004008」の形だけ・8 つまで）。 */
+export function normGenreIds(v) {
+  return [...new Set((Array.isArray(v) ? v : []).map((g) => String(g || '').trim()).filter((g) => /^001(?:\d{3}){0,5}$/.test(g)))].slice(0, 8);
+}
+
+/** 覚えておく値があるか（紹介文・目次か、ジャンル）。ジャンルだけの本は「この本について」には出さない。 */
+const worthKeeping = (info) => hasBookInfo(info) || !!(info && info.genreIds && info.genreIds.length);
+
+// 検索で選んだ本のジャンル（保存の前に分野を決めるため・メモリだけ）。
+const pickedGenres = new Map();
+/** 検索の結果から選んだ本のジャンルを覚える（本の追加のフォームで分野を決める手がかり）。 */
+export function rememberGenres(book, genreIds) {
+  const key = bookInfoKey(book);
+  const ids = normGenreIds(genreIds);
+  if (key && ids.length) pickedGenres.set(key, ids);
+}
+/** 本のジャンル（控えた紹介文の取得のときのもの → 検索で選んだときのもの）。 */
+export function genresFor(book, info = undefined) {
+  const i = info === undefined ? peekBookInfo(book) : info;
+  if (i && i.genreIds && i.genreIds.length) return i.genreIds;
+  return pickedGenres.get(bookInfoKey(book)) || [];
 }
 
 /** 見せるものがあるか（紹介文か目次のどちらか）。 */
@@ -86,13 +111,14 @@ function readStore(key) {
 }
 function writeStore(key, info) {
   try {
-    const until = Date.now() + (hasBookInfo(info) ? HIT_TTL_MS : MISS_TTL_MS);
-    globalThis.localStorage?.setItem(LS_PREFIX + key, JSON.stringify({ until, info: hasBookInfo(info) ? info : null }));
+    const until = Date.now() + (worthKeeping(info) ? HIT_TTL_MS : MISS_TTL_MS);
+    globalThis.localStorage?.setItem(LS_PREFIX + key, JSON.stringify({ until, info: worthKeeping(info) ? info : null }));
   } catch { /* 書けない端末では毎回取りに行く */ }
 }
 
 /**
- * 控えだけを見る（同期）。undefined＝まだ知らない／null＝見つからなかった本／{…}＝紹介文・目次。
+ * 控えだけを見る（同期）。undefined＝まだ知らない／null＝見つからなかった本／{…}＝紹介文・目次・ジャンル
+ * （ジャンルだけで紹介文の無いものもある＝見せるかどうかは hasBookInfo で決める）。
  */
 export function peekBookInfo(book) {
   const key = bookInfoKey(book);
@@ -123,7 +149,7 @@ export async function loadBookInfo(book, { fetchImpl = globalThis.fetch, timeout
       const r = await fetchImpl(apiUrl(`/api/cover?${params.toString()}`), signal ? { signal } : undefined);
       if (!r || !r.ok) return null;
       const info = normalizeBookInfo(await r.json());
-      const value = hasBookInfo(info) ? info : null;
+      const value = worthKeeping(info) ? info : null;
       // サーバーが「確かめられなかった」（no-store）ときは覚えない。
       const cc = (r.headers && typeof r.headers.get === 'function' && r.headers.get('cache-control')) || '';
       if (value || !/no-store/i.test(cc)) {
@@ -144,6 +170,7 @@ export async function loadBookInfo(book, { fetchImpl = globalThis.fetch, timeout
 /** テスト用: 控えを空にする。 */
 export function _resetBookInfoMemory() {
   mem.clear();
+  pickedGenres.clear();
   inflight.clear();
 }
 

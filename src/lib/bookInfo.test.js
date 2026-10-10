@@ -18,7 +18,7 @@ describe('normalizeBookInfo', () => {
     expect(n.toc).toEqual(['a', '3', 'b'.repeat(80)]);
     expect(n.pages).toBe(0);
     expect(n.pubdate).toBe('');
-    expect(normalizeBookInfo(null)).toEqual({ description: '', toc: [], source: '', tocSource: '', pages: 0, pubdate: '' });
+    expect(normalizeBookInfo(null)).toEqual({ description: '', toc: [], source: '', tocSource: '', pages: 0, pubdate: '', genreIds: [] });
   });
   it('hasBookInfo は紹介文か目次のどちらかがあるとき', () => {
     expect(hasBookInfo(null)).toBe(false);
@@ -100,5 +100,18 @@ describe('表示と AI に渡す形', () => {
     expect(p.toc).toHaveLength(PLAN_TOC_MAX_LINES);
     expect(p.toc.every((l) => [...l].length <= 60)).toBe(true);
     expect(bookInfoForPrompt(null)).toEqual({ about: '', aboutSource: '', toc: [] });
+  });
+});
+
+describe('ジャンル（分野の手がかり・2026-10-11）', () => {
+  it('形の合うジャンル ID だけ・ジャンルだけの本も覚えるが「この本について」には出さない', async () => {
+    const { normGenreIds, rememberGenres, genresFor } = await import('./bookInfo');
+    expect(normGenreIds(['001004008', 'x', '001004008', 5])).toEqual(['001004008']);
+    const n = normalizeBookInfo({ genreIds: ['001006'] });
+    expect(hasBookInfo(n)).toBe(false);
+    expect(n.genreIds).toEqual(['001006']);
+    rememberGenres({ isbn: '9784000000001', title: 't' }, ['001012']);
+    expect(genresFor({ isbn: '9784000000001', title: 't' }, null)).toEqual(['001012']);
+    expect(genresFor({ isbn: '9784000000001' }, { genreIds: ['001004'] })).toEqual(['001004']);
   });
 });

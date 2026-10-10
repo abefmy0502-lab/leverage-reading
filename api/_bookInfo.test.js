@@ -156,8 +156,11 @@ describe('同じ本か（sameBookTitle）', () => {
 describe('fetchBookInfo（取得元をまとめる）', () => {
   it('ISBN: openBD の紹介と目次を先に。紹介があれば Google は引かない', async () => {
     const fetchImpl = makeFetch([[/api\.openbd\.jp/, () => resp({ body: JSON.stringify(OPENBD_LIFESHIFT) })]]);
-    const rakutenGet = makeRakuten([{ title: 'LIFE SHIFT', author: 'リンダ・グラットン', isbn: '9784492533871', itemCaption: '楽天の説明。', salesDate: '2016年10月21日' }]);
+    const rakutenGet = makeRakuten([{ title: 'LIFE SHIFT', author: 'リンダ・グラットン', isbn: '9784492533871', itemCaption: '楽天の説明。', salesDate: '2016年10月21日', booksGenreId: '001006009/001006001' }]);
     const r = await fetchBookInfo({ isbn: '978-4-492-53387-1', title: 'LIFE SHIFT', author: 'リンダ・グラットン' }, { fetchImpl, rakutenGet, env: RK_ENV });
+    // 楽天ブックスのジャンル（分野の手がかり・2026-10-11）
+    expect(r.genreIds).toEqual(['001006009', '001006001']);
+    expect(rakutenGet.calls[0].url).toContain('booksGenreId');
     expect(r.source).toBe('openbd');
     expect(r.tocSource).toBe('openbd');
     expect(r.description).toContain('見えない資産');
@@ -240,7 +243,7 @@ describe('fetchBookInfo（取得元をまとめる）', () => {
   });
 
   it('応答の形と控えの鍵', () => {
-    expect(bookInfoResponse({ description: 'd', toc: ['a'], source: 'openbd', answered: true })).toEqual({ description: 'd', toc: ['a'], source: 'openbd', tocSource: '', pages: 0, pubdate: '', isbn: '' });
+    expect(bookInfoResponse({ description: 'd', toc: ['a'], source: 'openbd', answered: true })).toEqual({ description: 'd', toc: ['a'], source: 'openbd', tocSource: '', pages: 0, pubdate: '', isbn: '', genreIds: [] });
     expect(bookInfoCacheKey({ isbn: '4492533877', title: 'LIFE SHIFT' })).toBe(bookInfoCacheKey({ isbn: '9784492533871', title: 'LIFE SHIFT' }));
   });
 });

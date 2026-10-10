@@ -71,6 +71,11 @@ describe('parseRakutenSearch（楽天の応答を読む）', () => {
     expect(books.find((x) => x.isbn === '9784478117460').cover).toBe('');
     expect(books.find((x) => x.isbn === '9784416000000').author).toBe('某');
   });
+  it('楽天ブックスのジャンル（分野の手がかり・2026-10-11）', () => {
+    const [b] = parseRakutenSearch({ Items: [{ Item: { title: '本', author: '某', isbn: '9784000000001', booksGenreId: '001006009/001019001' } }] });
+    expect(b.genreIds).toEqual(['001006009', '001019001']);
+    expect(rakutenPlan('考え方')[0].params.elements).toContain('booksGenreId');
+  });
   it('壊れた応答は空', () => {
     expect(parseRakutenSearch('not json')).toEqual([]);
     expect(parseRakutenSearch('{}')).toEqual([]);

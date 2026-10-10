@@ -1,6 +1,6 @@
 // 🏷 本の分野を自動で付ける印（lib/bookFieldsAuto.js・2026-10-11）。
 import { describe, it, expect, beforeEach } from 'vitest';
-import { readFieldStages, markFieldStage, canAutoFill, isMigrated, setMigrated, backupLegacyTags } from './bookFieldsAuto';
+import { readFieldStages, markFieldStage, canAutoFill, isMigrated, setMigrated, backupLegacyTags, isAutoChosen, canRefine, readRefined, markRefined } from './bookFieldsAuto';
 
 function memStore() {
   const m = new Map();
@@ -63,5 +63,25 @@ describe('移し替えの印と控え', () => {
     expect(readFieldStages('u')).toEqual({});
     expect(() => markFieldStage('u', 'a', 'title')).not.toThrow();
     expect(isMigrated('u')).toBe(false);
+  });
+});
+
+describe('紹介文・ジャンルで決め直してよい本（2026-10-11 の 2 回目）', () => {
+  it('本人が選んだ本・前の版のタグから移した分野（印の無い分野）は変えない', () => {
+    markFieldStage('u', 'auto', 'title');
+    markFieldStage('u', 'mine', 'user');
+    const st = readFieldStages('u');
+    expect(canRefine('u', st, {}, { id: 'auto' }, true)).toBe(true);
+    expect(canRefine('u', st, {}, { id: 'mine' }, true)).toBe(false);
+    expect(canRefine('u', st, {}, { id: 'legacy' }, true)).toBe(false);
+    expect(canRefine('u', st, {}, { id: 'empty' }, false)).toBe(true);
+  });
+  it('前の一覧の印（v1）で自動だった本も自動とみなす・1 冊 1 回', () => {
+    localStorage.setItem('orime.fields.stage.v1:u', JSON.stringify({ old: 'info', me: 'user' }));
+    const st = readFieldStages('u');
+    expect(isAutoChosen('u', st, 'old')).toBe(true);
+    expect(isAutoChosen('u', st, 'me')).toBe(false);
+    markRefined('u', 'old');
+    expect(canRefine('u', st, readRefined('u'), { id: 'old' }, true)).toBe(false);
   });
 });

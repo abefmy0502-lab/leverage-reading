@@ -284,6 +284,7 @@ function mergeInto(keep, other) {
   if (!keep.pages && other.pages) keep.pages = other.pages;
   if (Number.isFinite(other.salesRank) && !(keep.salesRank <= other.salesRank)) keep.salesRank = other.salesRank;
   keep.reviewCount = Math.max(Number(keep.reviewCount) || 0, Number(other.reviewCount) || 0);
+  if (!(keep.genreIds || []).length && (other.genreIds || []).length) keep.genreIds = other.genreIds;
   if (better) { keep.title = other.title || keep.title; keep.source = other.source; }
   keep.sources = [...new Set([...(keep.sources || [keep.source]), ...(other.sources || [other.source])])].filter(Boolean);
   return keep;

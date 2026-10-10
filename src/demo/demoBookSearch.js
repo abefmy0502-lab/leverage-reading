@@ -6,7 +6,7 @@
 //   NDL の書き方の著者名（「Heckel, Paul」「酒井, 邦秀, 1945-」）で返す（直す前の不具合の再現用）。
 //   稲盛和夫『考え方』（カンガエカタ）は先頭 50 件より後ろなので入らない。
 
-import { SEARCH_CATALOG } from './seed';
+import { SEARCH_CATALOG, DEMO_GENRES } from './seed';
 import { rankBooks, isRelated, formatAuthors } from '../../api/_bookRank.js';
 
 // 表紙の絵（縦長 200×284・色の帯と書名）。本番の表紙の代わり。
@@ -60,7 +60,7 @@ export function demoServerSearch(q) {
     .map((b) => ({
       title: b.title, subtitle: b.subtitle, author: formatAuthors(b.author), publisher: b.publisher,
       pubdate: b.pubdate, pubYear: b.pubYear, isbn: b.isbn, cover: b.cover, pages: 0,
-      sales: b.salesRank + 1, review: b.reviewCount, source: 'rakuten',
+      sales: b.salesRank + 1, review: b.reviewCount, genreIds: DEMO_GENRES[b.isbn] || [], source: 'rakuten',
     }));
   return { results };
 }

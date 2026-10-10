@@ -5,6 +5,8 @@
 //       title＝書名から一度決めた / info＝紹介文・目次まで見て一度決めた / user＝本人が分野を選んだ（もう自動で付けない）
 //       2026-10-11 に分野を 4 つの大分類・19 分野に作り直したので v2 に（前の v1 からは 'user' だけを引き継ぐ＝
 //       前の一覧で付かなかった本も、新しい一覧でもう一度だけ確かめる）
+//   orime.fields.refined.v<REFINE_VERSION>:<userId> … { [本の id]: 1 }＝紹介文・目次・楽天ブックスのジャンルを取ってきて決め直した本
+//       （2026-10-11 の 2 回目・本人が選んでいない本だけ・1 冊 1 回）
 //   orime.fields.migrated.v1:<userId> … 前の版のタグをフォルダ・分野へ移し終えた印（移し替えは何度流しても同じ結果）
 //   orime.fields.legacy.v1:<userId>   … 移す前のタグの控え（{ [本の id]: [タグ…] }・念のため・画面には出さない）
 // 自動で付けるのは分野が 1 つも無い本だけ。付いている分野は変えない。DB に印は付けない。
@@ -13,6 +15,10 @@ const STAGE = 'orime.fields.stage.v2:';
 const STAGE_V1 = 'orime.fields.stage.v1:';
 const MIGRATED = 'orime.fields.migrated.v1:';
 const LEGACY = 'orime.fields.legacy.v1:';
+// 仕分けの仕組みを変えたら版を上げる＝自動で付けた分野の本を、もう一度だけ決め直す（本人が選んだ本はそのまま）。
+//   v2（2026-10-11）: 「小説家」「文庫完全版」で小説・物語になっていた本（『半径5メートルの野望 完全版』）を直す。
+export const REFINE_VERSION = 2;
+const REFINED = `orime.fields.refined.v${REFINE_VERSION}:`;
 
 function store() {
   try { return typeof localStorage !== 'undefined' ? localStorage : null; } catch { return null; }
@@ -55,6 +61,40 @@ export function canAutoFill(stages, book, { withInfo = false } = {}) {
   if (s === 'user') return false;
   if (withInfo) return s !== 'info';
   return !s;
+}
+
+/**
+ * アプリが自動で選んだ分野か（本人が選んでいない・前の版のタグから移したものでもない）。
+ * 今の印（v2）と、前の一覧の印（v1）の title / info を見る。
+ */
+export function isAutoChosen(userId, stages, bookId) {
+  const st = stages?.[bookId];
+  if (st === 'user') return false;
+  if (st === 'title' || st === 'info') return true;
+  const v1 = userId ? readJson(STAGE_V1 + userId) : null;
+  return !!(v1 && (v1[bookId] === 'title' || v1[bookId] === 'info'));
+}
+
+export function readRefined(userId) {
+  if (!userId) return {};
+  const v = readJson(REFINED + userId);
+  return v && typeof v === 'object' ? v : {};
+}
+export function markRefined(userId, bookId) {
+  if (!userId || !bookId) return;
+  const all = readRefined(userId);
+  if (all[bookId]) return;
+  all[bookId] = 1;
+  writeJson(REFINED + userId, all);
+}
+
+/**
+ * 紹介文・ジャンルを取ってきて決め直してよい本か: 本人が選んでおらず、まだ決め直していない本で、
+ * 分野が無いか、分野がアプリの自動のもの（前の版のタグから移した分野・お試しの本の分野は変えない）。
+ */
+export function canRefine(userId, stages, refined, book, hasFields) {
+  if (!book?.id || stages?.[book.id] === 'user' || refined?.[book.id]) return false;
+  return !hasFields || isAutoChosen(userId, stages, book.id);
 }
 
 export function isMigrated(userId) {

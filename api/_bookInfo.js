@@ -22,6 +22,7 @@
 
 import { toIsbn13, createCooldown, FETCH_TIMEOUT_MS } from './_coverSources.js';
 import { strongTitleMatch, authorMatches, coreOfTitle, flatTitle } from './_bookVerify.js';
+import { parseGenreIds } from './_rakutenGenre.js';
 
 export const INFO_DESCRIPTION_MAX = 800;
 export const INFO_TOC_MAX_LINES = 40;
@@ -183,7 +184,7 @@ async function rakutenInfo({ i13, title, author }, { rakutenGet, env }) {
   const referer = String(env.RAKUTEN_APP_URL || '').trim();
   const params = new URLSearchParams({
     format: 'json', applicationId: appId, accessKey, hits: i13 ? '3' : '10', outOfStockFlag: '1',
-    elements: 'title,subTitle,author,isbn,itemCaption,salesDate',
+    elements: 'title,subTitle,author,isbn,itemCaption,salesDate,booksGenreId',
   });
   if (i13) params.set('isbn', i13);
   else {
@@ -215,6 +216,7 @@ async function rakutenInfo({ i13, title, author }, { rakutenGet, env }) {
     description: cap.description,
     toc: cap.toc,
     pubdate: rakutenSalesDate(it.salesDate),
+    genreIds: parseGenreIds(it.booksGenreId),
   };
 }
 
@@ -274,7 +276,8 @@ const textWithin = (a, b) => {
 
 /**
  * 紹介文・目次を集める。戻り値:
- *   { description, toc: string[], source: 'openbd'|'rakuten'|'google'|'', tocSource, pages, pubdate, isbn, answered }
+ *   { description, toc: string[], source: 'openbd'|'rakuten'|'google'|'', tocSource, pages, pubdate, isbn, genreIds, answered }
+ *   genreIds ＝ 楽天ブックスのジャンル ID（本の分野を決める手がかり・2026-10-11）
  *   answered ＝ どれかの取得元が正常に答えた（0 件でも）。false なら「確かめられなかった」＝覚えない。
  */
 export async function fetchBookInfo({ isbn = '', title = '', author = '' } = {}, deps = {}) {
@@ -284,7 +287,7 @@ export async function fetchBookInfo({ isbn = '', title = '', author = '' } = {},
     env = (typeof process !== 'undefined' && process.env) || {},
     timeoutMs = FETCH_TIMEOUT_MS,
   } = deps;
-  const out = { description: '', toc: [], source: '', tocSource: '', pages: 0, pubdate: '', isbn: '', answered: false };
+  const out = { description: '', toc: [], source: '', tocSource: '', pages: 0, pubdate: '', isbn: '', genreIds: [], answered: false };
   let i13 = toIsbn13(isbn);
   const safe = (p) => p.catch(() => ({ answered: false }));
 
@@ -313,6 +316,7 @@ export async function fetchBookInfo({ isbn = '', title = '', author = '' } = {},
   else if (okRk && (rk.toc || []).length) { out.toc = rk.toc; out.tocSource = 'rakuten'; }
   if (okOb && ob.pages) out.pages = ob.pages;
   out.pubdate = (okOb && ob.pubdate) || (okRk && rk.pubdate) || '';
+  if (okRk && Array.isArray(rk.genreIds)) out.genreIds = rk.genreIds;
 
   // 紹介文がまだ無いときだけ Google（鍵なしは共有の枠が細いので、要るときだけ）
   if (!out.description && i13) {
@@ -355,7 +359,7 @@ export async function getBookInfoCached(q, deps = {}) {
   if (hit && now < hit.until) return hit.data;
   const data = await fetchBookInfo(q, deps);
   if (data.answered) {
-    const found = !!(data.description || data.toc.length);
+    const found = !!(data.description || data.toc.length || (data.genreIds || []).length);
     if (cache.size >= CACHE_MAX) cache.delete(cache.keys().next().value);
     cache.set(key, { data, until: now + (found ? HIT_TTL_MS : MISS_TTL_MS) });
   }
@@ -373,5 +377,6 @@ export function bookInfoResponse(data) {
     pages: data.pages || 0,
     pubdate: data.pubdate || '',
     isbn: data.isbn || '',
+    genreIds: Array.isArray(data.genreIds) ? data.genreIds : [],
   };
 }

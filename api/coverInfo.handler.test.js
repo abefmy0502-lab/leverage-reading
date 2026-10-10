@@ -69,7 +69,7 @@ describe('/api/cover?info=1', () => {
     const res = mockRes();
     await handler(req({ info: '1', isbn: '9784492533871', title: 'LIFE SHIFT' }), res);
     expect(res.statusCode).toBe(200);
-    expect(res.body).toEqual({ description: '紹介文です。', toc: ['第1章 A', '第2章 B'], source: 'openbd', tocSource: 'openbd', pages: 0, pubdate: '2016-10-21', isbn: '9784492533871' });
+    expect(res.body).toEqual({ description: '紹介文です。', toc: ['第1章 A', '第2章 B'], source: 'openbd', tocSource: 'openbd', pages: 0, pubdate: '2016-10-21', isbn: '9784492533871', genreIds: [] });
     expect(res.headers['cache-control']).toContain('s-maxage=604800');
     expect(res.headers['access-control-allow-origin']).toBe('*');
     expect(res.body).not.toHaveProperty('cover');

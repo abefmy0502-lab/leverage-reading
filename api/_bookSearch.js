@@ -15,13 +15,14 @@
 import { rakutenCreds, rakutenGet, rakutenUrl, rakutenItems, rakutenUpscale, rakutenRealImage } from './_rakuten.js';
 import { toIsbn13, extractIsbnsFromXml } from './_coverSources.js';
 import { formatAuthors, yearOf, rankBooks, dedupeBooks, isRelated, splitSubtitle } from './_bookRank.js';
+import { parseGenreIds } from './_rakutenGenre.js';
 
 export const SEARCH_MAX_RESULTS = 30;
 const RAKUTEN_HITS = 30;
 const FETCH_TIMEOUT_MS = 4000;
 const SEARCH_BUDGET_MS = 9000;
 const NDL_MIN_RESULTS = 5;
-const RAKUTEN_ELEMENTS = 'title,subTitle,titleKana,author,authorKana,publisherName,isbn,jan,salesDate,largeImageUrl,mediumImageUrl,reviewCount,reviewAverage,size';
+const RAKUTEN_ELEMENTS = 'title,subTitle,titleKana,author,authorKana,publisherName,isbn,jan,salesDate,largeImageUrl,mediumImageUrl,reviewCount,reviewAverage,size,booksGenreId';
 
 const clip = (s, n = 200) => String(s ?? '').normalize('NFKC').replace(/\s+/g, ' ').trim().slice(0, n);
 
@@ -48,6 +49,8 @@ export function fromRakutenItem(it, rank) {
     cover,
     salesRank: rank,
     reviewCount: Number(it.reviewCount) || 0,
+    // 楽天ブックスのジャンル（「001004008/001019001」＝複数は / 区切り）。本の分野を決める手がかり（2026-10-11）
+    genreIds: parseGenreIds(it.booksGenreId),
     source: 'rakuten',
   };
 }
@@ -213,6 +216,7 @@ export function toClientBook(b) {
     pages: b.pages || 0,
     sales: Number.isFinite(b.salesRank) ? b.salesRank + 1 : null,
     review: Number(b.reviewCount) || 0,
+    genreIds: Array.isArray(b.genreIds) ? b.genreIds : [],
     source: b.source || '',
   };
 }

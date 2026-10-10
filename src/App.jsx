@@ -214,7 +214,7 @@ import { useBookInfo } from './hooks/useBookInfo';
 import BookAbout from './components/BookAbout';
 import BookBrief from './components/BookBrief';
 import { hasBriefMaterial, storedBriefOf, briefForPrompt, appendHypothesis, isUsableBrief, parseBrief, briefLabels, BRIEF_NO_MATERIAL_TEXT } from './lib/bookBrief';
-import { loadBookInfo, bookInfoForPrompt, hasBookInfo, peekBookInfo } from './lib/bookInfo';
+import { loadBookInfo, bookInfoForPrompt, hasBookInfo, peekBookInfo, rememberGenres } from './lib/bookInfo';
 // 🔎 すべての本の検索（書名・著者・タグ＋メモの言葉・2026-09-30）
 import { useLibrarySearch } from './hooks/useLibrarySearch';
 import { LibrarySearchResults, ConsultSearchLink, LibrarySearchHitSkeleton } from './components/LibrarySearchHit';
@@ -1683,6 +1683,7 @@ function AuthedApp() {
     //    その本に NDL の書影が無いと壊れた URL のまま保存され、表紙が付かなかった（2026-09-30）。
     const visibleCover = b?.cover || '';
     const seedCover = visibleCover;
+    rememberGenres(b, b?.genreIds); // 🏷 楽天ブックスのジャンル（分野を決める手がかり・2026-10-11）
     const seeded = {
       ...emptyBook(),
       ...(addStatusPresetRef.current ? { status: addStatusPresetRef.current } : {}),
@@ -2280,7 +2281,11 @@ function AuthedApp() {
       // 🏷 分野: 本人が選んだ本は、これから自動で付け直さない。自動で選んだまま追加した本は、どこまで見て決めたかを覚える。
       if (saved?.id && user?.id) {
         if (form.fieldsTouched) markFieldStage(user.id, saved.id, 'user');
-        else if (!current) markFieldStage(user.id, saved.id, form.fieldsAutoStage || 'title');
+        else if (!current) {
+          markFieldStage(user.id, saved.id, form.fieldsAutoStage || 'title');
+          // 追加した直後に紹介文・楽天ブックスのジャンル（商品説明）を取ってきて決め直す（2026-10-11・本人が選んだら何もしない）
+          bookFieldsAuto.refineSoon(saved);
+        }
       }
       // 保存の前に表紙が間に合わなかった（時間切れ・通信の失敗）本は、裏で探し続ける。
       if (saved && !saved.cover) resolveCoverInBackground(saved);
@@ -2529,6 +2534,7 @@ function AuthedApp() {
 
   const handleBookSelect = (b) => {
     setSearchOpen(false);
+    rememberGenres(b, b?.genreIds); // 🏷 楽天ブックスのジャンル（分野を決める手がかり・2026-10-11）
     setSearchInitialQuery('');
     setSearchInitialAuthor('');
     setSearchInitialIsbn('');
@@ -2563,10 +2569,16 @@ function AuthedApp() {
       totalPages: b.pages || 0,
       status: 'done',
       addedVia: b.manual ? 'manual' : 'search',
+      // 🏷 分野: 書名と検索のときの楽天ブックスのジャンルから先に選び、あとで紹介文でも決め直す（2026-10-11）
+      tags: classifyBook({ title: b.title, genreIds: Array.isArray(b.genreIds) ? b.genreIds : [] }),
     });
     if (saved) {
       track('book_added', { via: 'quickstart' });
       resolveCoverInBackground(saved);
+      if (saved.id && user?.id) {
+        markFieldStage(user.id, saved.id, 'title');
+        bookFieldsAuto.refineSoon(saved);
+      }
     }
     return saved;
   };
@@ -2627,6 +2639,7 @@ function AuthedApp() {
     let booksFailed = 0;
     const pending = []; // { bookId, memos }
     const newBooks = [];
+    const autoFieldTitles = new Set(); // 取り込んだタグが分野に結びつかず、書名から分野を選んだ本
     const noReviewIds = new Set(); // 感想・レビューの無い新しい本（メモも無ければ「覚えている一言を足す」の候補）
     const srcDoneDate = new Map(); // もとからあった本 → 取り込み元の読了日
     for (let i = 0; i < items.length; i += 1) {
@@ -2660,12 +2673,15 @@ function AuthedApp() {
             //   分野が 1 つも無い本は書名から選ぶ。
             ...(() => {
               const { fields, folders } = splitLegacyTags(Array.isArray(b.tags) ? b.tags : []);
+              if (!fields.length) autoFieldTitles.add(String(b.title || ''));
               return { tags: fields.length ? fields : classifyBook({ title: b.title }), collections: folders };
             })(),
             leverageMemo: b.review || '',
             addedVia: isbn ? 'search' : 'manual',
           });
           if (target) { booksAdded += 1; newBooks.push(target); if (b.review) reviewsAdded += 1; else noReviewIds.add(target.id); }
+          // 🏷 書名から自動で選んだ分野は「自動」と覚え、あとで紹介文・ジャンルで決め直せるように（2026-10-11）
+          if (target?.id && user?.id && autoFieldTitles.has(String(b.title || ''))) markFieldStage(user.id, target.id, 'title');
         } catch (e) {
           console.warn('[import] book save failed:', e?.message || e);
           booksFailed += 1;
@@ -2731,6 +2747,8 @@ function AuthedApp() {
     refreshBooks();
     // 表紙は最初の 20 冊だけ裏で探す（残りは本棚に表示されたときに探す）
     newBooks.slice(0, 20).forEach((bk) => { try { resolveCoverInBackground(bk); } catch { /* 表紙は後で */ } });
+    // 🏷 取り込んだ本の紹介文・楽天ブックスのジャンルを少しずつ取ってきて分野を決め直す（1 回に 20 冊まで・残りは次に開いたとき）
+    bookFieldsAuto.refineSoon(newBooks.filter((bk) => !fieldsOf(bk).length || autoFieldTitles.has(String(bk.title || ''))));
     // 新しい本のレビューは「この本のまとめ」に入れたので、メモ（カード）とは分けて数えて伝える
     track('import_done', { source: result?.source || 'unknown', books: booksAdded, matched: booksMatched, memos: memosAdded, reviews: reviewsAdded });
     if (memosAdded + reviewsAdded > 0) markActivation('memo');
@@ -3260,11 +3278,11 @@ function AuthedApp() {
     const timer = setTimeout(() => {
       if (!alive) return;
       const known = peekBookInfo(form);
-      apply(classifyBook({ title: addFormTitle, ...infoFeatures(known) }), known ? 'info' : 'title');
+      apply(classifyBook({ title: addFormTitle, ...infoFeatures(known, form) }), known ? 'info' : 'title');
       if (known === undefined && (form?.isbn || addFormTitle.trim().length >= 2)) {
         loadBookInfo(form).then((info) => {
           if (!alive || !info) return;
-          const auto = classifyBook({ title: addFormTitle, ...infoFeatures(info) });
+          const auto = classifyBook({ title: addFormTitle, ...infoFeatures(info, form) });
           if (auto.length) apply(auto, 'info');
         }).catch(() => {});
       }

@@ -708,11 +708,12 @@ export default async function handler(req, res) {
   if (!title && !isbnIn) return res.status(400).json({ error: 'title or isbn required' });
 
   // 📖 この本について（?info=1）: 出版社・書店が公開している紹介文と目次（AI なし・api/_bookInfo.js・2026-10-02）。
-  //    { description, toc, source, tocSource, pages, pubdate, isbn }。見つからなければ空。どこも答えなければ覚えない。
+  //    { description, toc, source, tocSource, pages, pubdate, isbn, genreIds }。見つからなければ空。どこも答えなければ覚えない。
+  //    genreIds＝楽天ブックスのジャンル ID（本の分野を決める手がかり・2026-10-11）。
   if (req.query?.info) {
     let data = null;
     try { data = await getBookInfoCached({ isbn: isbnIn, title, author }, { rakutenGet }); } catch (e) { console.warn('[api/cover] info failed:', e && e.message); }
-    const found = !!(data && (data.description || data.toc.length));
+    const found = !!(data && (data.description || data.toc.length || (data.genreIds || []).length));
     res.setHeader('Cache-Control', !data?.answered ? 'no-store' : found ? 'public, max-age=86400, s-maxage=604800' : 'public, max-age=0, s-maxage=600');
     return res.status(200).json(bookInfoResponse(data || {}));
   }

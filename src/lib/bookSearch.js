@@ -436,6 +436,8 @@ export async function searchBooksOnServer(query, { signal, timeoutMs = SERVER_SE
         // 表紙は https だけ（お試しモードの表紙の絵＝data: は開発中だけ）。
         cover: /^https:\/\//.test(String(b.cover || '')) || (import.meta.env?.DEV && /^data:image\//.test(String(b.cover || ''))) ? String(b.cover) : '',
         pages: Number(b.pages) || 0,
+        // 楽天ブックスのジャンル（本の分野を決める手がかり・2026-10-11）
+        genreIds: (Array.isArray(b.genreIds) ? b.genreIds : []).map(String).filter((g) => /^001(?:\d{3}){0,5}$/.test(g)).slice(0, 8),
         source: str(b.source, 20),
       }));
     return { ok: true, results };

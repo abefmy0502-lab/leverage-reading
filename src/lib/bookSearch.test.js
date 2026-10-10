@@ -56,6 +56,13 @@ describe('searchBooksOnServer', () => {
     expect(calls[0]).toBe(`/api/cover?search=${encodeURIComponent('考え方')}`);
     expect(r.results[0]).toMatchObject({ title: '考え方', subtitle: '人生・仕事の結果が変わる', author: '稲盛和夫', isbn: '9784479795735' });
     expect(r.results[1].cover).toBe('');
+    // 楽天ブックスのジャンル（形の合うものだけ・2026-10-11）
+    expect(r.results.every((b) => Array.isArray(b.genreIds))).toBe(true);
+  });
+  it('ジャンル ID は形を確かめて受け取る', async () => {
+    routes = [[/\/api\/cover\?search=/, () => resp(200, { results: [{ title: '本', genreIds: ['001006009', 'x', 7] }] })]];
+    const r = await searchBooksOnServer('本');
+    expect(r.results[0].genreIds).toEqual(['001006009']);
   });
   it('502・通信の失敗は ok: false（例外にしない）', async () => {
     routes = [[/\/api\/cover/, () => resp(502, { error: 'unavailable' })]];
