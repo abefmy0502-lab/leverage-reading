@@ -116,7 +116,7 @@ describe('量の目安（単位は AI の答え・1 回 約 10 トークン）',
     expect(answerCountLabel(FREE_FIRST_MONTH_TOKENS)).toBe('約 6 回');
     expect(answerCountLabel(TRIAL_TOKENS)).toBe('約 15 回');
     expect(answerCountLabel(PAID_TOKENS)).toBe('約 80 回');
-    expect(TOKEN_PACKS.map((p) => p.consults)).toEqual(['約 30 回分', '約 100 回分']);
+    expect(TOKEN_PACKS.map((p) => p.consults)).toEqual(['約 30 回', '約 100 回']);
   });
   it('残りの目安は切り捨て（言い過ぎない）・残りがあれば 1', async () => {
     const { remainingAnswersLabel } = await import('./tokens.js');

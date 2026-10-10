@@ -215,7 +215,7 @@ export default function TokenSheet({ plan, onClose, onPurchased }) {
                   <span style={{ whiteSpace: 'nowrap' }}>{p.tokens.toLocaleString()} トークン</span>
                   {p.tag && <span style={{ fontSize: 'var(--text-caption)', fontWeight: 600, color: off ? 'var(--text-3)' : 'var(--text-2)' }}>{p.tag}</span>}
                 </span>
-                <span style={{ ...meta, color: off ? 'var(--text-3)' : meta.color }}>相談 {p.consults}</span>
+                <span style={{ ...meta, color: off ? 'var(--text-3)' : meta.color }}>AI の答え {p.consults}</span>
               </span>
               {price != null && (
                 <span style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>

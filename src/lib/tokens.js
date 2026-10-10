@@ -37,7 +37,7 @@ export const TOKEN_COSTS = {
 
 // 🪙➕ 追加トークン（買い足し・プランの人だけ）。App Store の消耗型の App 内課金（RevenueCat）。
 // サーバーの api/_tokenLots.js（AI_TOKEN_PACKS）と揃える。VITE_TOKEN_PACKS='id:tokens:¥価格,…' で上書き。
-// 価格の真実は App Store（ストアの値が取れないときだけ fallbackPrice を出す）。consults＝相談の目安。
+// 価格の真実は App Store（ストアの値が取れないときだけ fallbackPrice を出す）。consults＝AI の答えの目安（「約 30 回」・2026-10-10 に「相談 約 30 回分」から GLOSSARY に合わせた）。
 // 期限は購入から TOKEN_LOT_DAYS 日（資金決済法: 6 か月以内）。使う順は その月の分 → 追加分（期限の近い順）。
 export const TOKEN_LOT_DAYS = 180;
 const DEFAULT_TOKEN_PACKS = [
@@ -54,7 +54,7 @@ function parsePacks(raw) {
   return packs.length ? packs : null;
 }
 export const TOKEN_PACKS = (parsePacks(import.meta.env?.VITE_TOKEN_PACKS) || DEFAULT_TOKEN_PACKS)
-  .map((p) => ({ ...p, consults: `${answerCountLabel(p.tokens)}分` }));
+  .map((p) => ({ ...p, consults: answerCountLabel(p.tokens) }));
 
 // 追加分の残り（期限内の合計）といちばん近い期限（本人の行だけ読める）。表が無い・読めないときは null。
 export async function fetchLotBalance(userId) {
