@@ -35,6 +35,12 @@ describe('自動で付けてよいか', () => {
     expect(st.b).toBe('user');
     expect(canAutoFill(st, { id: 'b' }, { withInfo: true })).toBe(false);
   });
+  it('前の一覧（v1）の印は「本人が選んだ」だけ引き継ぐ（新しい一覧でもう一度確かめる）', () => {
+    localStorage.setItem('orime.fields.stage.v1:u', JSON.stringify({ a: 'title', b: 'info', c: 'user' }));
+    expect(readFieldStages('u')).toEqual({ c: 'user' });
+    markFieldStage('u', 'a', 'title');
+    expect(readFieldStages('u')).toEqual({ c: 'user', a: 'title' });
+  });
   it('アカウントごとに分ける', () => {
     markFieldStage('u1', 'a', 'user');
     expect(readFieldStages('u2')).toEqual({});
@@ -49,7 +55,7 @@ describe('移し替えの印と控え', () => {
   });
   it('移す前のタグの控えは最初の 1 回だけ（上書きしない）', () => {
     backupLegacyTags('u', 'a', ['読書術', 'マネジメント']);
-    backupLegacyTags('u', 'a', ['人を育てる']);
+    backupLegacyTags('u', 'a', ['リーダー・チーム']);
     expect(JSON.parse(localStorage.getItem('orime.fields.legacy.v1:u'))).toEqual({ a: ['読書術', 'マネジメント'] });
   });
   it('localStorage が使えなくても壊れない', () => {

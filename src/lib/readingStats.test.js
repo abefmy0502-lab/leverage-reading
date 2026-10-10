@@ -15,10 +15,10 @@ const row = (bookId, startMs, minutes, id = `${bookId}-${startMs}`) => ({
 // 2026-10-14（水）の昼。今週は 10/12（月）から。
 const NOW = at(2026, 10, 14, 12);
 const books = [
-  { id: 'a', title: '数値化の鬼', tags: ['人を育てる'] },
-  { id: 'b', title: '1兆ドルコーチ', tags: ['人を育てる', '伝え方'] },
+  { id: 'a', title: '数値化の鬼', tags: ['リーダー・チーム'] },
+  { id: 'b', title: '1兆ドルコーチ', tags: ['リーダー・チーム', '伝える力'] },
   { id: 'c', title: 'アウトプット大全', tags: [] },
-  { id: 'd', title: '読んでいない本', tags: ['生き方・働き方'] },
+  { id: 'd', title: '読んでいない本', tags: ['キャリア・働き方'] },
 ];
 
 describe('weekStartOf / monthRange', () => {
@@ -113,20 +113,20 @@ describe('tagTotals', () => {
   const sumOf = (t) => [...t.items, ...(t.other ? [t.other] : []), ...(t.untagged ? [t.untagged] : [])].reduce((m, x) => m + x.minutes, 0);
   it('分野が 2 つの本は時間を分野の数で分ける（重ねて数えない）・分野なしは最後', () => {
     const t = tagTotals(rows, books, 'all', NOW);
-    // 人を育てる＝a 30 ＋ b 60/2 ＝ 60・伝え方＝b 60/2 ＝ 30・分野なし＝c 15。
-    expect(t.items.map((x) => [x.tag, x.minutes, x.books])).toEqual([['人を育てる', 60, 2], ['伝え方', 30, 1]]);
+    // リーダー・チーム＝a 30 ＋ b 60/2 ＝ 60・伝える力＝b 60/2 ＝ 30・分野なし＝c 15。
+    expect(t.items.map((x) => [x.tag, x.minutes, x.books])).toEqual([['リーダー・チーム', 60, 2], ['伝える力', 30, 1]]);
     expect(t.untagged).toMatchObject({ tag: NO_TAG, minutes: 15, books: 1 });
     expect(t.other).toBeNull();
     expect(t.totalMinutes).toBe(105);
     expect(sumOf(t)).toBe(105);
   });
   it('3 つの分野で割り切れなくても、丸めた分の和は合計と同じ', () => {
-    const bs = [{ id: 'p', title: '三つ', tags: ['お金', '習慣', '発想'] }, { id: 'q', title: '二つ', tags: ['お金', '経済'] }];
+    const bs = [{ id: 'p', title: '三つ', tags: ['お金・投資', '習慣・自己成長', '考える力'] }, { id: 'q', title: '二つ', tags: ['お金・投資', '経済・社会'] }];
     const r = [row('p', at(2026, 10, 13, 7), 50), row('q', at(2026, 10, 13, 9), 7)];
     const t = tagTotals(r, bs, 'all', NOW);
     expect(t.totalMinutes).toBe(57);
     expect(sumOf(t)).toBe(57);
-    expect(t.items[0].tag).toBe('お金'); // 50/3 ＋ 7/2 ＝ 20.2
+    expect(t.items[0].tag).toBe('お金・投資'); // 50/3 ＋ 7/2 ＝ 20.2
   });
   it('上位のあとは「ほか」にまとめ、それでも和は合計と同じ', () => {
     const many = Array.from({ length: 8 }, (_, i) => ({ id: `t${i}`, title: `本${i}`, tags: [BOOK_FIELDS[i]] }));
@@ -156,15 +156,15 @@ describe('tagTotals', () => {
   });
   it('期間で絞る', () => {
     const t = tagTotals([row('b', at(2026, 9, 10, 21), 60), row('a', at(2026, 10, 3, 7), 20)], books, 'month', NOW);
-    expect(t.items.map((x) => x.tag)).toEqual(['人を育てる']);
+    expect(t.items.map((x) => x.tag)).toEqual(['リーダー・チーム']);
     expect(t.totalMinutes).toBe(20);
   });
 });
 
 describe('bookInTag', () => {
   it('分野と分野なし', () => {
-    expect(bookInTag(books[1], '伝え方')).toBe(true);
-    expect(bookInTag(books[0], '伝え方')).toBe(false);
+    expect(bookInTag(books[1], '伝える力')).toBe(true);
+    expect(bookInTag(books[0], '伝える力')).toBe(false);
     expect(bookInTag(books[2], NO_TAG)).toBe(true);
     expect(bookInTag(books[0], NO_TAG)).toBe(false);
     expect(bookInTag(books[0], null)).toBe(true);

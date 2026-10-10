@@ -1,5 +1,8 @@
 // 🏷 本の分野を裏で整える（2026-10-11・lib/bookFields.js・lib/bookFieldsAuto.js）。
 //
+//   0. 前の版の分野の名前（大分類 3・分野 18）を新しい名前（大分類 4・分野 19）に置きかえる（2026-10-11・
+//        lib/bookFields.js の renameOldFields・決まった置きかえ・前の名前のある本だけ・何度流しても同じ。
+//        「物語・エッセイ」は書名と端末に控えた紹介文から 小説・物語 か エッセイ・ノンフィクション に）
 //   1. 前の版の本のタグを移す（アカウントごと・端末ごとに 1 回・何度流しても同じ結果）:
 //        分野に結びつくタグ → その分野に置きかえる / 結びつかないタグ → 同じ名前のフォルダへ移してからタグを外す
 //        （フォルダに入れられなかったときはタグのまま残す＝言葉を消さない）
@@ -8,7 +11,7 @@
 // 付いている分野は変えない。本人が選んだ本（stage 'user'）には自動で付けない。
 import { useCallback, useEffect, useRef } from 'react';
 import { isDemo } from '../lib/supabase';
-import { classifyBook, fieldsOf, nonFieldTags, splitLegacyTags, withFields } from '../lib/bookFields';
+import { classifyBook, fieldsOf, nonFieldTags, renameOldFields, splitLegacyTags, withFields } from '../lib/bookFields';
 import { backupLegacyTags, canAutoFill, isMigrated, markFieldStage, readFieldStages, setMigrated } from '../lib/bookFieldsAuto';
 import { peekBookInfo } from '../lib/bookInfo';
 
@@ -29,11 +32,20 @@ export function useBookFieldsAuto({ userId, books, loading, saveBookTaxonomy, sk
     ranFor.current = userId;
     let alive = true;
     (async () => {
+      // 0. 前の版の分野の名前を新しい名前に（本人が選んだ分野も同じ置きかえ・分野でないタグは触らない）
+      for (const b of [...live.current.books]) {
+        if (!alive) return;
+        const next = renameOldFields(b.tags, { title: b.title, ...infoFeatures(peekBookInfo(b)) });
+        if (!next) continue;
+        // eslint-disable-next-line no-await-in-loop
+        await live.current.saveBookTaxonomy(b.id, { tags: next });
+      }
       // 1. 前の版のタグの移し替え
       if (isDemo || !isMigrated(userId)) {
         let allOk = true;
-        for (const b of live.current.books) {
+        for (const b0 of [...live.current.books]) {
           if (!alive) return;
+          const b = live.current.books.find((x) => x.id === b0.id) || b0;
           const legacy = nonFieldTags(b);
           if (!legacy.length) continue;
           backupLegacyTags(userId, b.id, b.tags || []);

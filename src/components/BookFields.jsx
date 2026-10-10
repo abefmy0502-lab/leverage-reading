@@ -1,7 +1,7 @@
 // 🏷 本の分野（2026-10-11・lib/bookFields.js・SPEC §2 / §4・DESIGN §5「分野」）。
 //
 //   BookFieldsInput  … 本の追加・編集画面の「分野」欄。付いている分野のチップ＋「変更」（押すと BookFieldsSheet）
-//   BookFieldsSheet  … 分野を選ぶシート。大分類 → 中分類 → 分野のチップ（選ぶためのチップ 44）・3 つまで
+//   BookFieldsSheet  … 分野を選ぶシート。大分類 4 つ（仕事・自分と暮らし・教養・楽しむ）の見出し → 分野のチップ（選ぶためのチップ 44）・3 つまで
 //   BookFieldLinks   … 本の詳細の分野（押すと、すべての本をその分野で絞る）
 //   BookFieldsRecord … 振り返り › 記録の「分野」（本のある分野だけ・本とメモの数・読書の時間）
 //
@@ -75,9 +75,9 @@ export function BookFieldsSheet({ selected = [], onDone, onClose }) {
       {BOOK_FIELD_GROUPS.map((c, ci) => (
         <section key={c.id} style={{ marginTop: ci === 0 ? 'var(--space-4)' : 'var(--space-6)' }} aria-label={c.name}>
           <h3 style={{ margin: 0, fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)' }}>{c.name}</h3>
-          {/* 中分類の見出しは出さない（大分類 3 つ＋チップだけ・2026-10-11 ui-critic）。 */}
+          {/* 大分類 4 つの見出し＋チップだけ（中分類は 2026-10-11 にやめた）。 */}
           <div style={{ ...chipRow, marginTop: 'var(--space-2)' }} role="group" aria-label={c.name}>
-            {c.groups.flatMap((g) => g.fields).map((f) => {
+            {c.fields.map((f) => {
               const on = picked.includes(f.name);
               const off = !on && full;
               return (

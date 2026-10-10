@@ -1,13 +1,16 @@
 // 🏷 本の分野を自動で付ける・前の版のタグを移す（2026-10-11・lib/bookFields.js・hooks/useBookFieldsAuto.js）。
 //
 // 端末に覚えること（localStorage・読み書きは try/catch・消えても壊れない＝もう一度確かめるだけ）:
-//   orime.fields.stage.v1:<userId>    … { [本の id]: 'title' | 'info' | 'user' }
+//   orime.fields.stage.v2:<userId>    … { [本の id]: 'title' | 'info' | 'user' }
 //       title＝書名から一度決めた / info＝紹介文・目次まで見て一度決めた / user＝本人が分野を選んだ（もう自動で付けない）
+//       2026-10-11 に分野を 4 つの大分類・19 分野に作り直したので v2 に（前の v1 からは 'user' だけを引き継ぐ＝
+//       前の一覧で付かなかった本も、新しい一覧でもう一度だけ確かめる）
 //   orime.fields.migrated.v1:<userId> … 前の版のタグをフォルダ・分野へ移し終えた印（移し替えは何度流しても同じ結果）
 //   orime.fields.legacy.v1:<userId>   … 移す前のタグの控え（{ [本の id]: [タグ…] }・念のため・画面には出さない）
 // 自動で付けるのは分野が 1 つも無い本だけ。付いている分野は変えない。DB に印は付けない。
 
-const STAGE = 'orime.fields.stage.v1:';
+const STAGE = 'orime.fields.stage.v2:';
+const STAGE_V1 = 'orime.fields.stage.v1:';
 const MIGRATED = 'orime.fields.migrated.v1:';
 const LEGACY = 'orime.fields.legacy.v1:';
 
@@ -24,7 +27,12 @@ function writeJson(key, value) {
 export function readFieldStages(userId) {
   if (!userId) return {};
   const v = readJson(STAGE + userId);
-  return v && typeof v === 'object' ? v : {};
+  if (v && typeof v === 'object') return v;
+  const old = readJson(STAGE_V1 + userId);
+  if (!old || typeof old !== 'object') return {};
+  const kept = Object.fromEntries(Object.entries(old).filter(([, st]) => st === 'user'));
+  writeJson(STAGE + userId, kept);
+  return kept;
 }
 
 // stage の強さ: user ＞ info ＞ title（弱いほうで上書きしない）。
