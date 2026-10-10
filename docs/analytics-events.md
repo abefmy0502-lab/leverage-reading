@@ -146,6 +146,7 @@ where event = 'first_answer_trial' and props->>'group' = 'show' group by 1 order
 | `push_opened` | 通知を押してアプリを開いた（Web の通知・iPhone の通知どちらも） | `kind`: `recall`（思い出しの通知）/ `action_deadline`（行動の期限の通知） | `App.jsx`（通知の URL の `push=` を読んで消す。前の版の通知は `lib/nativePush.js` の `withPushKind` が種類を足す） |
 | `action_added` | 行動を足した | `source`: `consult`（相談の答えから）/ `memo`（メモ・思い出しカードから）/ `manual`（振り返り › 行動の「追加」・本の詳細の「＋ 行動を追加」） | `App.jsx`（`addActionFromMemo` / `createActionForBook`） |
 | `focus_done` | 読む（集中モード）をおえた（30 秒未満の押し間違いは数えない） | `mode`: `timer` / `count`、`minutes`: `<5` / `5-14` / `15-29` / `30-59` / `60+` | `FocusMode.jsx` |
+| `share_source` | 「写真で共有」を押して出る選ぶシートで、背景を選んだ（2026-10-11） | `source`: `camera`（カメラで撮る）/ `album`（写真から選ぶ）/ `none`（写真なし＝本の表紙） | `App.jsx`（`ShareSourceSheet.jsx`） |
 | `recall_answered` | 振り返りの思い出しカードで「覚えた」「まだ覚えていない」を押した | `mastered`: 覚えた＝true | `Review.jsx` |
 | `checkout_started` に `memos` | プランの購入を始めたときの、ホームで最後に数えたメモの件数の区分 | `memos`: `unknown` / `0` / `1-2` / `3-9` / `10-29` / `30+` | `Paywall.jsx` |
 

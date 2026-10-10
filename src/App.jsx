@@ -123,6 +123,7 @@ const PrivacyPage = lazy(() => import('./legal/PrivacyPage'));
 const SctPage = lazy(() => import('./legal/SctPage'));
 import { supabase as supabaseClient, isDemo, demoScenario } from './lib/supabase';
 import { track, trackAppOpen, EVENTS } from './lib/analytics';
+import ShareSourceSheet from './components/ShareSourceSheet';
 const AccountSettings = lazy(() => import('./components/AccountSettings'));
 const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
 import SplashScreen from './components/SplashScreen';
@@ -1146,23 +1147,34 @@ function AuthedApp() {
   const [analysisSheetOpen, setAnalysisSheetOpen] = useState(false);
   // 📷 画像で共有のシート（SPEC §2-1）: { book?, initialMemoId?, photoFile?, fromHome?, initialSubject?, from }。
   //   fromHome＝上の行（ホーム・振り返り・相談のタブ）の入口＝本棚の本を渡して「どの本？」を選べるように。
-  //   カメラの入口（タブの上の行・本の詳細の上の行・読了した直後）は、撮った写真を持って開く。
+  //   「写真で共有」の入口（タブの上の行・本の詳細の上の行・読了した直後）は、選ぶシートで選んだ写真（無ければ表紙）で開く。
   //   メモの「…」→「この一文をシェア」・本の「…」／本棚の長押し →「画像で共有」は写真なしで開く。
   const [shareSheet, setShareSheet] = useState(null);
   // 読了にした直後だけ、その本の下に「読了を写真で共有」を 1 つ出す（押した指の下に現れないよう少し待つ・本を離れたら消す）。
   const [justDoneId, setJustDoneId] = useState(null);
   const justDoneTimerRef = useRef(null);
-  // 📷 カメラを直接開く（input の capture。iOS はカメラ・パソコンはファイルを選ぶ画面）。
-  // 押した瞬間に（await を挟まずに）開く必要があるので、隠した input を 1 つだけ置いて使い回す。
-  // 写真はこの端末の中だけで使う（アップロードしない）。撮るのをやめたら（input の cancel）、写真なしのシートを開く
-  // （「写真を選ぶ」でアルバムから選べる・紙や夜でも共有できる・SPEC §2-1）。
+  // 📷 写真で共有の入口（2026-10-11 オーナー裁定で「押すとすぐカメラ」をやめた）: 押すと「写真で共有」の選ぶシート
+  // （ShareSourceSheet）＝カメラで撮る／写真から選ぶ／写真なし（本の表紙）。毎回聞く（覚えない）。
+  // カメラ・写真は、押した瞬間に（await を挟まずに）開く必要があるので、隠した input を 2 つ（capture あり＝カメラ・
+  // なし＝フォトライブラリ）置いて使い回す。写真はこの端末の中だけで使う（アップロードしない）。
+  // 撮る・選ぶのをやめたら何も開かない（選ぶシートも閉じたまま）。
+  const [shareChooser, setShareChooser] = useState(null);
+  const openShareChooser = (target) => setShareChooser({ ...target });
   const shareCameraRef = useRef(null);
+  const shareAlbumRef = useRef(null);
   const shareCameraTargetRef = useRef(null);
-  const openShareCamera = (target) => {
+  const openSharePicker = (target, el) => {
     shareCameraTargetRef.current = target;
-    const el = shareCameraRef.current;
     if (!el) { setShareSheet({ ...target }); return; }
     try { el.value = ''; el.click(); } catch { setShareSheet({ ...target }); }
+  };
+  const onShareSourcePicked = (source) => {
+    const t = shareChooser || { fromHome: true, from: 'home' };
+    setShareChooser(null);
+    track(EVENTS.SHARE_SOURCE, { source });
+    if (source === 'camera') openSharePicker(t, shareCameraRef.current);
+    else if (source === 'album') openSharePicker(t, shareAlbumRef.current);
+    else setShareSheet({ ...t });
   };
   const onShareCameraPicked = (e) => {
     const file = e.target.files?.[0];
@@ -1172,35 +1184,41 @@ function AuthedApp() {
     const t = shareCameraTargetRef.current
       || (view === 'detail' && current ? { book: current, from: 'detail' } : { fromHome: true, from: 'home' });
     shareCameraTargetRef.current = null;
+    setShareChooser(null);
     setShareSheet({ ...t, photoFile: file });
   };
-  const onShareCameraCanceledRef = useRef(null);
-  onShareCameraCanceledRef.current = () => {
-    const t = shareCameraTargetRef.current
-      || (view === 'detail' && current ? { book: current, from: 'detail' } : { fromHome: true, from: 'home' });
-    shareCameraTargetRef.current = null;
-    setShareSheet({ ...t, cameraCanceled: true });
-  };
-  // cancel は React の onCancel では input に付かないので、要素に直接付ける（入口ごとに input が付け替わっても 1 つだけ）。
-  const shareCameraRefCb = useCallback((el) => {
-    const onCancel = () => onShareCameraCanceledRef.current?.();
-    const prev = shareCameraRef.current;
-    if (prev && prev.__orimeCancel) prev.removeEventListener('cancel', prev.__orimeCancel);
-    shareCameraRef.current = el;
-    if (el) { el.__orimeCancel = onCancel; el.addEventListener('cancel', onCancel); }
+  // 🧪 お試しモード: &share=chooser で選ぶシートを開いておく（撮影用）。
+  useEffect(() => {
+    if (!isDemo || typeof window === 'undefined') return;
+    if (new URLSearchParams(window.location.search).get('share') === 'chooser') setShareChooser({ fromHome: true, from: 'home' });
   }, []);
   const shareCameraInput = (
-    <input
-      ref={shareCameraRefCb}
-      data-share-camera=""
-      type="file"
-      accept="image/*"
-      capture="environment"
-      onChange={onShareCameraPicked}
-      style={{ display: 'none' }}
-      aria-hidden="true"
-      tabIndex={-1}
-    />
+    <>
+      <input
+        ref={shareCameraRef}
+        data-share-camera=""
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={onShareCameraPicked}
+        style={{ display: 'none' }}
+        aria-hidden="true"
+        tabIndex={-1}
+      />
+      <input
+        ref={shareAlbumRef}
+        data-share-album=""
+        type="file"
+        accept="image/*"
+        onChange={onShareCameraPicked}
+        style={{ display: 'none' }}
+        aria-hidden="true"
+        tabIndex={-1}
+      />
+      {shareChooser && (
+        <ShareSourceSheet onPick={onShareSourcePicked} onClose={() => setShareChooser(null)} />
+      )}
+    </>
   );
   const openDetailKebab = (e) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -4579,11 +4597,11 @@ function AuthedApp() {
             </button>
             <div style={{ display: "flex", gap: 'var(--space-1)', marginRight: 'calc(-1 * var(--space-3))' }}>
               {/* 📷 写真で共有（読書中・読了・SPEC §2-1）: ホームと同じ文字つき（アイコンだけだと「写真から書き起こす」と
-                  見分けにくい）。押すとすぐカメラ。読了にした直後は下の「読了を写真で共有」があるので出さない（入口を二重にしない）。 */}
+                  見分けにくい）。押すとカメラ・写真から選ぶ・写真なしを選ぶシート（2026-10-11）。読了にした直後は下の「読了を写真で共有」があるので出さない（入口を二重にしない）。 */}
               {isMemoPhase && justDoneId !== current.id && (
                 <button
                   type="button"
-                  onClick={() => openShareCamera({ book: current, from: 'detail' })}
+                  onClick={() => openShareChooser({ book: current, from: 'detail' })}
                   aria-label="写真で共有"
                   // 文字はタブの画面の上の行と同じ上限（--text-bar-max）で止め、1 行に（文字サイズを大きくすると「写真で共／有」と割れていた・2026-10-04）。
                   style={{ ...btnLink, fontSize: 'min(var(--text-sub), var(--text-bar-max))', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', padding: '0 var(--space-2)' }}
@@ -4808,7 +4826,7 @@ function AuthedApp() {
                   try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { /* noop */ }
                   requestAnimationFrame(() => { try { el.scrollIntoView({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' }); } catch { /* ignore */ } });
                 }}
-                onClick={() => { setJustDoneId(null); openShareCamera({ book: current, from: 'done' }); }}
+                onClick={() => { setJustDoneId(null); openShareChooser({ book: current, from: 'done' }); }}
                 style={{ ...btnGhost, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)', scrollMarginBottom: JUST_DONE_CLEARANCE }}
               >
                 <Camera size={20} aria-hidden="true" />
@@ -5452,14 +5470,14 @@ function AuthedApp() {
     {/* 右端は左のロゴの補正と対称に（アイコンの見た目の右余白を 16 に）。 */}
     <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-1)', marginRight: 'calc(-1 * var(--space-3))' }}>
       {/* 📷 写真で共有（2026-09-30 オーナー裁定: 共有は前面に出す主要な機能。2026-10-01「振り返りでも相談でも表示があってもいい」で
-          ホーム・振り返り・相談の 3 つのタブで同じ場所・同じ形に）。押すとすぐカメラ（パソコンは写真を選ぶ画面）。
+          ホーム・振り返り・相談の 3 つのタブで同じ場所・同じ形に）。押すとカメラで撮る・写真から選ぶ・写真なし（本の表紙）を選ぶシート（2026-10-11 オーナー裁定・旧「すぐカメラ」）。
           撮ったら、いま読んでいる本の記録を重ねたシートが開く（振り返り › 記録から開いて今月の読了があるときだけ「今月」を選んでおく）。 */}
       <button
         type="button"
         onClick={() => (!booksLoading && books.length === 0
-          // 本が 0 冊のときはカメラを開かない（重ねる本の記録が無い・2026-10-09）。知らせから本を追加へ。
+          // 本が 0 冊のときは選ぶシートを開かない（重ねる本の記録が無い・2026-10-09）。知らせから本を追加へ。
           ? pointToFirstStep()
-          : openShareCamera({
+          : openShareChooser({
           fromHome: true,
           from: tab === 'review' ? 'review' : tab === 'ai' ? 'consult' : 'home',
           // 振り返り › 記録からは、今月に読み終えた本があるときだけ「今月」を選んでおく（無ければいま読んでいる本・2026-10-01）。

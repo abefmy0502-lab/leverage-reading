@@ -156,6 +156,7 @@ export const EVENTS = {
   ACTION_ADDED: 'action_added', // 行動を足した（props: source（consult / memo / manual）だけ・2026-10-10）
   FOCUS_DONE: 'focus_done', // 読む（集中モード）をおえた（props: mode（timer / count）/ minutes（区分）だけ・2026-10-10）
   RECALL_ANSWERED: 'recall_answered', // 思い出しカードに答えた（props: mastered（覚えた＝true）だけ・2026-10-10）
+  SHARE_SOURCE: 'share_source', // 「写真で共有」の選ぶシートで選んだ背景（props: source（camera / album / none）だけ・2026-10-11）
   SHARE_NUDGE: 'share_nudge', // ホームの「◯月の読書を、1 枚の画像に」の 1 行（props: kind（month / year）/ action（open / dismiss）だけ・2026-10-08）
 };
 
