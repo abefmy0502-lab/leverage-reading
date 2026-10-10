@@ -482,7 +482,7 @@ export function buildSeed(scenario) {
     }
   }
   // &readtime=old（2026-10-10 ui-critic）: どの回も 40 日前へずらす＝今月の記録が無く、これまでだけある人。
-  // &readtime=many: 『嫌われる勇気』のタグを外す＝分類ごとに「ほか（1 分類）」と「タグなし」が出る（これまで）。
+  // &readtime=many: 『嫌われる勇気』のタグを外し『イシューからはじめよ』に「キャリア」を足す＝分類ごとに「ほか（2 分類）」と「タグなし」が出る（これまで）。
   const readtimeParam = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('readtime') : null;
   if (readtimeParam === 'old') {
     const shift = 40 * 24 * 3600 * 1000;
@@ -494,6 +494,9 @@ export function buildSeed(scenario) {
   if (readtimeParam === 'many') {
     const b = db.books.find((x) => x.title === '嫌われる勇気');
     if (b) db.book_tags = db.book_tags.filter((t) => t.book_id !== b.id);
+    // 分類を 8 つに（上位 6 ＋「ほか（2 分類）」）。残りが 1 つだけだと「ほか」にせずそのまま出すため。
+    const issue = db.books.find((x) => x.title === 'イシューからはじめよ');
+    if (issue) db.book_tags.push({ id: `${issue.id}-t-キャリア`, book_id: issue.id, user_id: DEMO_USER_ID, tag_name: 'キャリア' });
   }
 
   // 過去の相談（「過去の相談」の一覧の確認用）。答えは本番と同じ【結論】…の書式。

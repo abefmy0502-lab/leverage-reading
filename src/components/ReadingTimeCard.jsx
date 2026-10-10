@@ -111,8 +111,9 @@ function ShareBar({ ratio }) {
 //   文字を大きくしても、どの行も「名前（左・1〜2 行）＋時間（右）」の同じ形（2026-10-10 ui-critic）。
 function NameTime({ name, time, strong, muted }) {
   return (
-    <span style={{ display: 'flex', alignItems: 'baseline', columnGap: 'var(--space-3)' }}>
-      <span style={{ flex: '1 1 auto', minWidth: 0, fontSize: 'var(--text-sub)', lineHeight: 1.35, fontWeight: strong ? 600 : 400, color: muted ? 'var(--text-2)' : 'var(--text)', whiteSpace: 'normal', wordBreak: 'keep-all', overflowWrap: 'anywhere', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+    // 名前は少なくとも 9 字ぶんの幅を取る（コミュニケーションが 1 字ずつ割れない）。収まらないときだけ時間を次の行の右へ。
+    <span style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 'var(--space-3)' }}>
+      <span style={{ flex: '1 1 auto', minWidth: 'min(100%, 9em)', fontSize: 'var(--text-sub)', lineHeight: 1.35, fontWeight: strong ? 600 : 400, color: muted ? 'var(--text-2)' : 'var(--text)', whiteSpace: 'normal', wordBreak: 'keep-all', overflowWrap: 'anywhere', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
         {withPhraseBreaks(name, { scriptBreaks: true })}
       </span>
       <span style={{ marginLeft: 'auto', flexShrink: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
@@ -220,7 +221,7 @@ export default function ReadingTimeCard({ rows, books, onOpenBook, now = Date.no
         </div>
 
         {periodTotal < 30 && period === 'month' ? (
-          <p style={{ ...metaText, margin: 'var(--space-4) 0 0' }}>今月の読書の時間は、まだありません。</p>
+          <p style={{ ...metaText, margin: 'var(--space-4) 0 0', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('今月の読書の時間は、まだありません。')}</p>
         ) : (
           <>
             {/* 分類ごと（本につけたタグ）。押すと下の本ごとをその分類の本に絞る。 */}
@@ -245,7 +246,7 @@ export default function ReadingTimeCard({ rows, books, onOpenBook, now = Date.no
                         </div>
                       ) : (
                         <button type="button" aria-pressed={on} aria-label={`${t.tag} ${time}`} onClick={() => chooseTag(t.tag)} style={rowBtn(on)}>
-                          <NameTime name={t.tag} time={time} strong={on} muted={t.tag === NO_TAG && !on} />
+                          <NameTime name={t.tag} time={time} strong={on} />
                           <ShareBar ratio={ratio} />
                         </button>
                       )}

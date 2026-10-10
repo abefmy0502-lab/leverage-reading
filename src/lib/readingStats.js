@@ -129,7 +129,7 @@ export function bookInTag(book, tag) {
 // 分類（本につけたタグ）ごとの時間（2026-10-10 オーナー裁定「重ねて数えない」）。
 //   タグが 2 つ以上の本は、その本の時間をタグの数で等しく分ける（3 つなら 1/3 ずつ）。タグの無い本は「タグなし」。
 //   計算は秒のまま、見せる分（minutes）は最大剰余で丸める＝分類ごとの分を足すと、期間の合計の分とちょうど同じ。
-//   多い順に top 個まで。残りのタグは「ほか」にまとめる。「タグなし」はいつも最後。
+//   多い順に top 個まで。残りのタグは「ほか」にまとめる（残りが 1 つだけならそのまま出す）。「タグなし」はいつも最後。
 // 戻り値: { items: [{ tag, seconds, minutes, books }], other: { tag, seconds, minutes, tags } | null,
 //          untagged: { tag, seconds, minutes, books } | null, totalSeconds, totalMinutes }
 export function tagTotals(rows, books, period = 'all', now = Date.now(), { top = TAG_TOP } = {}) {
@@ -159,8 +159,10 @@ export function tagTotals(rows, books, period = 'all', now = Date.now(), { top =
   allotMinutes(all, totalMinutes);
   // 並びは見せる分で（丸めたあとの数と並びが食い違わない）・同じなら秒・名前。
   const sorted = [...byTag.values()].sort((x, y) => y.minutes - x.minutes || y.seconds - x.seconds || x.tag.localeCompare(y.tag, 'ja'));
-  const items = sorted.slice(0, top).filter((x) => x.minutes > 0);
-  const rest = [...sorted.slice(top), ...sorted.slice(0, top).filter((x) => x.minutes <= 0)];
+  // 上位のあとに残る分類が 1 つだけなら「ほか（1 分類）」にまとめず、そのまま 7 行目に出す（2026-10-10 ui-critic）。
+  const cut = sorted.length === top + 1 ? top + 1 : top;
+  const items = sorted.slice(0, cut).filter((x) => x.minutes > 0);
+  const rest = [...sorted.slice(cut), ...sorted.slice(0, cut).filter((x) => x.minutes <= 0)];
   const otherMinutes = rest.reduce((m, x) => m + x.minutes, 0);
   const other = rest.length > 0 && otherMinutes > 0
     ? { tag: OTHER_TAGS, seconds: rest.reduce((m, x) => m + x.seconds, 0), minutes: otherMinutes, tags: rest.length }

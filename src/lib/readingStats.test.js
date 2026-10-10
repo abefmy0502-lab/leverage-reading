@@ -139,6 +139,15 @@ describe('tagTotals', () => {
     expect(t.other.minutes).toBe(137);
     expect(sumOf(t)).toBe(t.totalMinutes);
   });
+  it('上位のあとに 1 つだけ残るなら「ほか」にせず 7 行目に', () => {
+    const seven = Array.from({ length: 7 }, (_, i) => ({ id: `s${i}`, title: `本${i}`, tags: [`タグ${i}`] }));
+    const r = seven.map((b, i) => row(b.id, at(2026, 10, 2 + (i % 5), 8), 70 - i * 5));
+    const t = tagTotals(r, seven, 'all', NOW, { top: 6 });
+    expect(t.items).toHaveLength(7);
+    expect(t.items[6].tag).toBe('タグ6');
+    expect(t.other).toBeNull();
+    expect(sumOf(t)).toBe(t.totalMinutes);
+  });
   it('期間で絞る', () => {
     const t = tagTotals([row('b', at(2026, 9, 10, 21), 60), row('a', at(2026, 10, 3, 7), 20)], books, 'month', NOW);
     expect(t.items.map((x) => x.tag)).toEqual(['マネジメント']);
