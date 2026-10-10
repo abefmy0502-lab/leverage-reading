@@ -33,7 +33,7 @@ import { buildFieldRecord } from '../lib/bookFields';
 import { BookFieldsRecord } from './BookFields';
 import ReadingTimeCard from './ReadingTimeCard';
 import { useReadingSessions } from '../hooks/useReadingSessions';
-import { hasReadingTime, bookTotals } from '../lib/readingStats';
+import { hasReadingTime, bookTotals, allottedFieldMinutes } from '../lib/readingStats';
 import { appNow } from '../lib/appNow';
 
 /* ---------- 日付ユーティリティ（ローカル基準・UTC ずれ防止） ---------- */
@@ -511,7 +511,10 @@ export default function ReadingRecord({
   const fieldRecord = useMemo(() => {
     const secondsByBook = {};
     for (const x of bookTotals(sessions.rows, books, 'all', nowMs)) secondsByBook[x.book.id] = x.seconds;
-    return buildFieldRecord(books, { memoCountByBook: memoStats?.failed ? {} : (memoStats?.byBook || {}), secondsByBook });
+    // 分は読書の時間の「分野ごと」（これまで）と同じ配り方（同じ分野で 1 分ずれないように）。
+    const minutesByField = {};
+    for (const [name, x] of allottedFieldMinutes(sessions.rows, books, 'all', nowMs).byTag) minutesByField[name] = x.minutes;
+    return buildFieldRecord(books, { memoCountByBook: memoStats?.failed ? {} : (memoStats?.byBook || {}), secondsByBook, minutesByField });
   }, [books, memoStats, sessions.rows, nowMs]);
 
   // メモ集計がまだ返っていない間は「記録は、これから」を出さない — 本0冊で

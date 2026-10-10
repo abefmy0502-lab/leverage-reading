@@ -7,15 +7,21 @@
 //
 // 反ゲーミフィケーション: 点数・%・順位・「あと N 冊」・「埋めよう」は出さない。
 import { useState } from 'react';
-import { Check, ChevronRight, Shapes } from 'lucide-react';
+import { Check, ChevronRight } from 'lucide-react';
 import BottomSheet from './BottomSheet';
 import { Chip } from './formPrimitives';
 import { withPhraseBreaks } from './TightBubble';
 import { btnLink, btnPrimary, groupTitle } from '../styles/ui';
 import { BOOK_FIELD_GROUPS, FIELD_MAX } from '../lib/bookFields';
-import { fmtReadingTotal } from '../lib/readingStats';
+import { fmtMinutes } from '../lib/readingStats';
 
 const chipRow = { display: 'flex', flexWrap: 'wrap', rowGap: 'var(--space-2)', columnGap: 'var(--space-2)' };
+// 付いている分野（押せない表示・選ぶシートの選択中と同じ色）。
+const fieldTag = {
+  display: 'inline-flex', alignItems: 'center', minHeight: 'var(--tap-min)', boxSizing: 'border-box',
+  padding: 'var(--space-2) var(--space-3)', borderRadius: 'var(--radius)',
+  background: 'var(--accent-soft)', color: 'var(--accent)', fontSize: 'var(--text-sub)', fontWeight: 600,
+};
 const note = { margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' };
 
 // fields: 付いている分野（一覧の順）/ onChange(fields) / auto: アプリが選んだまま（本人が触っていない）
@@ -24,13 +30,19 @@ export function BookFieldsInput({ fields = [], onChange, auto = false }) {
   return (
     <div style={{ marginBottom: 'var(--space-6)' }}>
       <p id="book-fields-label" style={{ ...groupTitle, margin: '0 0 var(--space-2)' }}>分野</p>
-      <div style={chipRow} role="group" aria-labelledby="book-fields-label">
+      {/* 付いている分野は押せない表示（選択中の色の面）＋文字ボタン「変更」／「分野を選ぶ」（分野のチップと見分ける・2026-10-11 ui-critic）。 */}
+      <div style={{ ...chipRow, alignItems: 'center' }} role="group" aria-labelledby="book-fields-label">
         {fields.map((f) => (
-          <Chip key={f} size="select" active onClick={() => setOpen(true)} aria-label={`分野を変更（いま ${fields.join('、')}）`}>{f}</Chip>
+          <span key={f} style={fieldTag}>{f}</span>
         ))}
-        <Chip size="select" onClick={() => setOpen(true)} aria-label={fields.length ? `分野を変更（いま ${fields.join('、')}）` : '分野を選ぶ'}>
-          {fields.length ? '変更' : '選ぶ'}
-        </Chip>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label={fields.length ? `分野を変更（いま ${fields.join('、')}）` : '分野を選ぶ'}
+          style={{ ...btnLink, minWidth: 'var(--tap-min)', justifyContent: 'center', marginLeft: fields.length ? 0 : 'calc(-1 * var(--space-1))' }}
+        >
+          {fields.length ? '変更' : '分野を選ぶ'}
+        </button>
       </div>
       {auto && fields.length > 0 && <p style={note}>{withPhraseBreaks('書名などから自動で選びました。')}</p>}
       {open && (
@@ -63,30 +75,26 @@ export function BookFieldsSheet({ selected = [], onDone, onClose }) {
       {BOOK_FIELD_GROUPS.map((c, ci) => (
         <section key={c.id} style={{ marginTop: ci === 0 ? 'var(--space-4)' : 'var(--space-6)' }} aria-label={c.name}>
           <h3 style={{ margin: 0, fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)' }}>{c.name}</h3>
-          {c.groups.map((g) => (
-            <div key={g.id} style={{ marginTop: 'var(--space-3)' }} role="group" aria-label={`${c.name}・${g.name}`}>
-              <p style={{ ...groupTitle, margin: '0 0 var(--space-2)' }}>{g.name}</p>
-              <div style={chipRow}>
-                {g.fields.map((f) => {
-                  const on = picked.includes(f.name);
-                  const off = !on && full;
-                  return (
-                    <Chip
-                      key={f.name}
-                      size="select"
-                      active={on}
-                      aria-pressed={on}
-                      aria-disabled={off || undefined}
-                      onClick={() => toggle(f.name)}
-                    >
-                      {on && <Check size="1em" aria-hidden="true" />}
-                      <span style={off ? { color: 'var(--text-3)' } : undefined}>{f.name}</span>
-                    </Chip>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
+          {/* 中分類の見出しは出さない（大分類 3 つ＋チップだけ・2026-10-11 ui-critic）。 */}
+          <div style={{ ...chipRow, marginTop: 'var(--space-2)' }} role="group" aria-label={c.name}>
+            {c.groups.flatMap((g) => g.fields).map((f) => {
+              const on = picked.includes(f.name);
+              const off = !on && full;
+              return (
+                <Chip
+                  key={f.name}
+                  size="select"
+                  active={on}
+                  aria-pressed={on}
+                  aria-disabled={off || undefined}
+                  onClick={() => toggle(f.name)}
+                >
+                  {on && <Check size="1em" aria-hidden="true" />}
+                  <span style={off ? { color: 'var(--text-3)' } : undefined}>{f.name}</span>
+                </Chip>
+              );
+            })}
+          </div>
         </section>
       ))}
     </BottomSheet>
@@ -97,8 +105,9 @@ export function BookFieldsSheet({ selected = [], onDone, onClose }) {
 export function BookFieldLinks({ fields = [], onPick }) {
   if (!fields.length) return null;
   return (
-    <div data-book-fields="" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 'var(--space-2)', marginTop: 'var(--space-2)', marginBottom: 'calc((32px - 44px) / 2)' }}>
-      <Shapes size="1.1em" strokeWidth={1.75} aria-label="分野" style={{ flexShrink: 0, color: 'var(--text-2)', fontSize: 'var(--text-meta)' }} />
+    // チップの見た目は 32・押せる範囲は 44。下の余りは負の余白で行の外へ（見た目の間隔をそろえる）。
+    <div data-book-fields="" role="group" aria-label="分野" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 'var(--space-2)', marginTop: 'var(--space-2)', marginBottom: 'calc((32px - var(--tap-min)) / 2)' }}>
+      <span aria-hidden="true" style={{ flexShrink: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>分野</span>
       {fields.map((f) => (
         onPick
           ? <Chip key={f} onClick={() => onPick(f)} aria-label={`分野「${f}」の本を見る`}>{f}</Chip>
@@ -125,7 +134,7 @@ export function BookFieldsRecord({ record, onOpenField, onFindBooks }) {
             {c.fields.map((f, i) => {
               const parts = [`本 ${f.books} 冊`];
               if (f.memos > 0) parts.push(`メモ ${f.memos} 件`);
-              const time = f.seconds >= 60 ? fmtReadingTotal(f.seconds) : '';
+              const time = f.minutes > 0 ? fmtMinutes(f.minutes) : '';
               return (
                 <li key={f.name} style={{ borderTop: i === 0 ? 'none' : '1px solid var(--separator)' }}>
                   <button
@@ -133,15 +142,16 @@ export function BookFieldsRecord({ record, onOpenField, onFindBooks }) {
                     onClick={() => onOpenField?.(f.name)}
                     aria-label={`${f.name}・${parts.join('・')}${time ? `・読書 ${time}` : ''}・本を見る`}
                     style={{
-                      display: 'flex', alignItems: 'center', gap: 'var(--space-2)', width: '100%', minHeight: 48,
+                      display: 'flex', alignItems: 'center', gap: 'var(--space-2)', width: '100%', minHeight: 'var(--btn-h)',
                       padding: 'var(--space-2) 0', background: 'none', border: 'none', cursor: 'pointer',
-                      fontFamily: 'inherit', textAlign: 'left', color: 'var(--text)',
+                      fontFamily: 'inherit', fontSize: 'var(--text-sub)', textAlign: 'left', color: 'var(--text)',
                     }}
                   >
-                    <span style={{ flex: 1, minWidth: 0, display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 'var(--space-3)', rowGap: 'var(--space-1)' }}>
-                      <span style={{ fontSize: 'var(--text-sub)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{f.name}</span>
-                      <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-                        {parts.join('・')}{time && <span style={{ color: 'var(--text-3)' }}>{` · ${time}`}</span>}
+                    {/* 1 行目＝分野の名前・2 行目＝「本 N 冊・メモ N 件 · 時間」（どの行も同じ位置・2026-10-11 ui-critic）。 */}
+                    <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-1)' }}>
+                      <span style={{ fontSize: 'var(--text-sub)', lineHeight: 1.3, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{f.name}</span>
+                      <span style={{ fontSize: 'var(--text-meta)', lineHeight: 1.3, color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+                        <span style={{ whiteSpace: 'nowrap' }}>{parts.join('・')}</span>{time && <span style={{ color: 'var(--text-3)', whiteSpace: 'nowrap' }}>{` · ${time}`}</span>}
                       </span>
                     </span>
                     <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
@@ -152,20 +162,20 @@ export function BookFieldsRecord({ record, onOpenField, onFindBooks }) {
           </ul>
         </div>
       ))}
+      {/* 本の少ない分野は 1 つずつ「お金の本を探す ›」（AI 選書の最初の悩みに入れるだけ・送らない・2026-10-11 ui-critic）。 */}
       {thin.length > 0 && onFindBooks && (
-        <div style={{ marginTop: 'var(--space-3)', paddingTop: 'var(--space-3)', borderTop: '1px solid var(--separator)' }}>
-          <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-            {withPhraseBreaks('まだ本の少ない分野')}{'：'}
-            {thin.map((t, i) => <span key={t}>{i > 0 && '・'}<span style={{ whiteSpace: 'nowrap' }}>{t}</span></span>)}
-          </p>
-          <button
-            type="button"
-            onClick={() => onFindBooks(thin)}
-            aria-label={`${thin.join('・')}の本を探す（AI 選書）`}
-            style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))', marginBottom: 'calc(-1 * var(--space-3))' }}
-          >
-            この分野の本を探す<ChevronRight size="1.2em" aria-hidden="true" />
-          </button>
+        <div style={{ marginTop: 'var(--space-3)', paddingTop: 'var(--space-2)', borderTop: '1px solid var(--separator)', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', marginBottom: 'calc(-1 * var(--space-3))' }}>
+          {thin.map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => onFindBooks([t])}
+              aria-label={`${t}の本を探す（AI 選書）`}
+              style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))', textAlign: 'left', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}
+            >
+              <span><span style={{ whiteSpace: 'nowrap' }}>{t}</span>の本を<span style={{ whiteSpace: 'nowrap' }}>探す<ChevronRight size="1.2em" aria-hidden="true" style={{ verticalAlign: 'text-bottom', marginLeft: 'var(--space-1)' }} /></span></span>
+            </button>
+          ))}
         </div>
       )}
     </section>

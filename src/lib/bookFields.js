@@ -285,10 +285,12 @@ export const THIN_BOOKS = 1;
 /**
  * 分野ごとの本の数・メモの数・読書の時間（秒）。大分類ごとに、本のある分野だけ（一覧の順・本が 0 冊の分野は行にしない）。
  *   books: アプリの本（tags） / memoCountByBook: { [bookId]: N } / secondsByBook: { [bookId]: 秒 }
- * 戻り値: { groups: [{ id, name, fields: [{ name, books, memos, seconds }] }], thin: [分野の名前…], any }
+ *   minutesByField: { [分野]: 分 }＝読書の時間の「分野ごと」と同じ最大剰余で配った分（lib/readingStats.js の
+ *     allottedFieldMinutes・これまで）。渡されたら行の時間はこの分を出す（同じ分野で 1 分ずれないように）。
+ * 戻り値: { groups: [{ id, name, fields: [{ name, books, memos, seconds, minutes }] }], thin: [分野の名前…], any }
  */
-export function buildFieldRecord(books = [], { memoCountByBook = {}, secondsByBook = {} } = {}) {
-  const stat = new Map(BOOK_FIELDS.map((f) => [f, { name: f, books: 0, memos: 0, seconds: 0 }]));
+export function buildFieldRecord(books = [], { memoCountByBook = {}, secondsByBook = {}, minutesByField = null } = {}) {
+  const stat = new Map(BOOK_FIELDS.map((f) => [f, { name: f, books: 0, memos: 0, seconds: 0, minutes: 0 }]));
   let any = false;
   for (const b of Array.isArray(books) ? books : []) {
     const fs = fieldsOf(b);
@@ -301,6 +303,9 @@ export function buildFieldRecord(books = [], { memoCountByBook = {}, secondsByBo
       // 時間は分野の数で等しく分ける（読書の時間の「分野ごと」と同じ・足すと合計）
       s.seconds += (Number(secondsByBook?.[b.id]) || 0) / fs.length;
     }
+  }
+  for (const s of stat.values()) {
+    s.minutes = minutesByField ? (Number(minutesByField[s.name]) || 0) : (s.seconds > 0 ? Math.max(1, Math.round(s.seconds / 60)) : 0);
   }
   const groups = BOOK_FIELD_GROUPS.map((c) => ({
     id: c.id,

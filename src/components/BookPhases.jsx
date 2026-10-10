@@ -33,7 +33,7 @@ import {
 
 // 🏷 分野とフォルダ（2026-10-11・lib/bookFields.js）。
 //   分野＝決まった一覧から（アプリが自動で選び、本人が直せる・3 つまで）。form.tags に入る（分野でない前の版のタグは残す）。
-//   フォルダ＝本人が自由に作る分け方（自動で入れない・すすめない）。
+//   フォルダ＝本人が自由に作る分け方（自動で入れない・すすめない）。入力欄の例は、まだフォルダが 1 つも無い人だけ（候補のチップと重ねない）。
 //   form.fieldsTouched: 本人が分野を選んだ（保存のあと自動で付け直さない）/ form.fieldsAuto: アプリが選んだまま。
 function FieldsAndFolders({ form, setForm, allFolders }) {
   return (
@@ -44,7 +44,7 @@ function FieldsAndFolders({ form, setForm, allFolders }) {
         onChange={(next) => setForm((f) => ({ ...f, tags: withFields(f.tags, next), fieldsTouched: true, fieldsAuto: false }))}
       />
       <Field label="フォルダ">
-        <TagInput tags={form.collections || []} onChange={(c) => setForm((f) => ({ ...f, collections: c }))} allTags={allFolders} placeholder="例：会社の課題図書" aria-label="フォルダを追加" />
+        <TagInput tags={form.collections || []} onChange={(c) => setForm((f) => ({ ...f, collections: c }))} allTags={allFolders} placeholder={(allFolders || []).length ? 'フォルダを追加' : '例：会社の課題図書'} aria-label="フォルダを追加" />
       </Field>
     </>
   );

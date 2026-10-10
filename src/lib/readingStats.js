@@ -128,13 +128,10 @@ export function bookInTag(book, tag) {
   return tag === NO_TAG ? tags.length === 0 : tags.includes(tag);
 }
 
-// 分野ごとの時間（2026-10-10 オーナー裁定「重ねて数えない」・2026-10-11 に本のタグから分野へ）。
-//   分野が 2 つ以上の本は、その本の時間を分野の数で等しく分ける（3 つなら 1/3 ずつ）。分野の無い本は「分野なし」。
-//   計算は秒のまま、見せる分（minutes）は最大剰余で丸める＝分類ごとの分を足すと、期間の合計の分とちょうど同じ。
-//   多い順に top 個まで。残りのタグは「ほか」にまとめる（残りが 1 つだけならそのまま出す）。「タグなし」はいつも最後。
-// 戻り値: { items: [{ tag, seconds, minutes, books }], other: { tag, seconds, minutes, tags } | null,
-//          untagged: { tag, seconds, minutes, books } | null, totalSeconds, totalMinutes }
-export function tagTotals(rows, books, period = 'all', now = Date.now(), { top = TAG_TOP } = {}) {
+// 分野ごとの秒と、最大剰余で配った分（足すと期間の合計の分とちょうど同じ）。
+//   記録の「分野」の行と、読書の時間の「分野ごと」は、この同じ分を出す（2026-10-11 ui-critic・1 分ずれていた）。
+// 戻り値: { byTag: Map<分野, { tag, seconds, minutes, books }>, untagged, totalSeconds, totalMinutes }
+export function allottedFieldMinutes(rows, books, period = 'all', now = Date.now()) {
   const perBook = bookTotals(rows, books, period, now);
   const byTag = new Map();
   let untagged = null;
@@ -159,6 +156,17 @@ export function tagTotals(rows, books, period = 'all', now = Date.now(), { top =
   const totalMinutes = displayMinutesOf(totalSeconds);
   const all = [...byTag.values(), ...(untagged ? [untagged] : [])];
   allotMinutes(all, totalMinutes);
+  return { byTag, untagged, totalSeconds, totalMinutes };
+}
+
+// 分野ごとの時間（2026-10-10 オーナー裁定「重ねて数えない」・2026-10-11 に本のタグから分野へ）。
+//   分野が 2 つ以上の本は、その本の時間を分野の数で等しく分ける（3 つなら 1/3 ずつ）。分野の無い本は「分野なし」。
+//   計算は秒のまま、見せる分（minutes）は最大剰余で丸める＝分類ごとの分を足すと、期間の合計の分とちょうど同じ。
+//   多い順に top 個まで。残りのタグは「ほか」にまとめる（残りが 1 つだけならそのまま出す）。「タグなし」はいつも最後。
+// 戻り値: { items: [{ tag, seconds, minutes, books }], other: { tag, seconds, minutes, tags } | null,
+//          untagged: { tag, seconds, minutes, books } | null, totalSeconds, totalMinutes }
+export function tagTotals(rows, books, period = 'all', now = Date.now(), { top = TAG_TOP } = {}) {
+  const { byTag, untagged, totalSeconds, totalMinutes } = allottedFieldMinutes(rows, books, period, now);
   // 並びは見せる分で（丸めたあとの数と並びが食い違わない）・同じなら秒・名前。
   const sorted = [...byTag.values()].sort((x, y) => y.minutes - x.minutes || y.seconds - x.seconds || x.tag.localeCompare(y.tag, 'ja'));
   // 上位のあとに残る分類が 1 つだけなら「ほか（1 分類）」にまとめず、そのまま 7 行目に出す（2026-10-10 ui-critic）。

@@ -747,6 +747,8 @@ function AuthedApp() {
   const [shelfMode, setShelfMode] = useState(() => (isDemo && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('shelf') === 'library' ? 'library' : 'home'));
   // 「すべての本」をどこから開いたか。'record'＝振り返りの記録（「‹ 記録」で記録へ戻す）/ null＝ホーム。
   const [libraryFrom, setLibraryFrom] = useState(null);
+  // 'book'＝本の詳細の分野から（「‹ この本」でその本へ戻す・2026-10-11）。戻る先の本と、開く前のすべての本の様子。
+  const libraryFromBookRef = useRef(null); // { id, shelfMode, libraryFrom, tagFilter }
   // ⚡ すべての本を開いた最初の 1 枚は、上の LIBRARY_FIRST 冊だけ描く。残りは手が空いたときに足す
   // （冊数が多いと開くまでに間が空いていた・2026-09-29）。ホームに戻ったらまた最初から。
   const [libraryRenderAll, setLibraryRenderAll] = useState(false);
@@ -817,10 +819,12 @@ function AuthedApp() {
     navigateTab('books'); goList(); setShelfMode('library'); setLibraryFrom('record');
   };
   // 🏷 本の詳細の分野から「すべての本」をその分野で絞って開く（2026-10-11）。
+  //   「‹ この本」でその本の詳細へ戻す（開く前のすべての本の様子も戻す）。
   const openLibraryByField = (field) => {
+    if (current?.id) libraryFromBookRef.current = { id: current.id, shelfMode, libraryFrom, tagFilter };
     setSearch(''); setMinRating(0); setFolderFilter(null); setStatusFilter('all');
     setTagFilter([field]);
-    goList(); setShelfMode('library');
+    goList(); setShelfMode('library'); setLibraryFrom(current?.id ? 'book' : null);
   };
   // 下のタブで選択中に見せるタブ。記録から開いた「すべての本」（と、そこから開いた本）は振り返りの中の
   // 寄り道なので、ホームではなく振り返りを選択中にする（戻る先の「‹ 記録」と合わせる・2026-09-29）。
@@ -862,6 +866,16 @@ function AuthedApp() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // 「すべての本」から戻る: 記録から来たなら 振り返り → 記録 へ、それ以外はホームへ。
   const leaveLibrary = () => {
+    if (libraryFrom === 'book') {
+      const back = libraryFromBookRef.current;
+      libraryFromBookRef.current = null;
+      setLibraryFrom(back?.libraryFrom ?? null);
+      setTagFilter(back?.tagFilter || []);
+      setShelfMode(back?.shelfMode || 'home');
+      const b = back && rawBooks.find((x) => x.id === back.id);
+      if (b) openDetail(b);
+      return;
+    }
     if (libraryFrom === 'record') {
       setLibraryFrom(null);
       setShelfMode('home');
@@ -5621,7 +5635,7 @@ function AuthedApp() {
                   // シェブロンの見た目の左端を余白 16 に（相談の ‹ 相談 と同じ形・DESIGN §5「画面上部の 1 行」）。
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 0, minHeight: 44, padding: '0 var(--space-2) 0 0', marginLeft: BACK_CHEVRON_PULL, background: 'none', border: 'none', color: 'var(--accent)', fontSize: BACK_LABEL_SIZE, whiteSpace: 'nowrap', fontFamily: 'inherit', cursor: 'pointer' }}
                 >
-                  <ChevronLeft size={20} aria-hidden="true" />{libraryFrom === 'record' ? '記録' : 'ホーム'}
+                  <ChevronLeft size={20} aria-hidden="true" />{libraryFrom === 'record' ? '記録' : libraryFrom === 'book' ? 'この本' : 'ホーム'}
                 </button>
                 <div style={{ display: 'flex', alignItems: 'center', marginRight: 'calc(-1 * var(--space-3))' }}>
                   <button

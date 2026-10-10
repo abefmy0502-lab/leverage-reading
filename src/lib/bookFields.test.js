@@ -117,6 +117,9 @@ describe('記録の「分野」', () => {
     expect(r.any).toBe(true);
     const flat = r.groups.flatMap((g) => g.fields);
     expect(flat.map((f) => [f.name, f.books, f.memos, f.seconds])).toEqual([['お金', 1, 0, 0], ['問いを立てる', 2, 5, 300], ['段取り', 2, 2, 300]]);
+    // 読書の時間の「分野ごと」と同じ分を渡したら、その分を出す
+    const r2 = buildFieldRecord(books, { secondsByBook: { b: 600 }, minutesByField: { 問いを立てる: 6, 段取り: 4 } });
+    expect(r2.groups.flatMap((g) => g.fields).map((f) => f.minutes)).toEqual([0, 6, 4]);
     expect(r.groups.map((g) => g.name)).toEqual(['自分の軸', '仕事の腕']);
     // 少ない分野: 本の無い分野から一覧の順に 2 つ
     expect(r.thin).toEqual(['生き方・働き方', '心の持ち方']);
