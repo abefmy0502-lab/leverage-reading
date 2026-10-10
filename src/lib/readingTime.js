@@ -86,10 +86,14 @@ export function displayMinutes(s, now = Date.now()) {
 }
 
 // 記録する 1 行（短すぎる・始まっていないときは null）。
+// おわりの時刻は「読んでいた時間のおわり」（タイマーが終わってから置いていた時間・6 時間を超えた分は含めない
+// ＝日付をまたいだときに、その日の分を正しく分けられるように）。
 export function sessionRow(s, now = Date.now()) {
   const seconds = elapsedSeconds(s, now);
   if (!s?.bookId || seconds < MIN_SESSION_SEC) return null;
-  const endMs = Number.isFinite(s.pausedAt) ? s.pausedAt : now;
+  const stopMs = Number.isFinite(s.pausedAt) ? s.pausedAt : now;
+  const readEndMs = s.startedAt + (s.pausedMs || 0) + seconds * 1000;
+  const endMs = Math.min(stopMs, Math.max(readEndMs, s.startedAt));
   return {
     book_id: s.bookId,
     started_at: new Date(s.startedAt).toISOString(),
@@ -108,12 +112,32 @@ export function localDay(ms) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-// その日（端末の日付・始めた日で数える）のこの本の合計秒。
+// 端末の暦のその日の 0 時と次の日の 0 時（ms）。
+export function dayRange(now = Date.now()) {
+  const d = new Date(now);
+  const from = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const to = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).getTime();
+  return { from, to };
+}
+
+// 1 回分のうち [from, to) に入る秒。日付をまたいだ回（23:50〜0:30）は、始めてからおわるまでの間に
+// 読んだ秒を時刻の割合で分ける（一時停止の時間は回の中で均して数える）。おわりが無い・同じ時刻なら始めた時刻で決める。
+export function secondsWithin(r, from, to) {
+  const sec = Math.max(0, Number(r?.seconds) || 0);
+  const st = Date.parse(r?.started_at);
+  if (!sec || !Number.isFinite(st)) return 0;
+  const en = Date.parse(r?.ended_at);
+  if (!Number.isFinite(en) || en <= st) return st >= from && st < to ? sec : 0;
+  const overlap = Math.max(0, Math.min(en, to) - Math.max(st, from));
+  if (overlap <= 0) return 0;
+  if (overlap >= en - st) return sec;
+  return Math.round((sec * overlap) / (en - st));
+}
+
+// その日（端末の日付）のこの本の合計秒。日付をまたいだ回は、その日に入る分だけを数える。
 export function todaySeconds(rows, bookId, now = Date.now()) {
-  const today = localDay(now);
-  return (rows || []).reduce((sum, r) => (
-    r && r.book_id === bookId && localDay(Date.parse(r.started_at)) === today ? sum + (Number(r.seconds) || 0) : sum
-  ), 0);
+  const { from, to } = dayRange(now);
+  return (rows || []).reduce((sum, r) => (r && r.book_id === bookId ? sum + secondsWithin(r, from, to) : sum), 0);
 }
 
 export function totalSeconds(rows, bookId) {
@@ -151,15 +175,39 @@ export function saveFocusState(s, store = storage()) {
   } catch { /* 保存できなくても数えるのは続ける */ }
 }
 
-// 途中の状態を読む（壊れている・古すぎるものは捨てる）。
-export function loadFocusState(now = Date.now(), store = storage()) {
+// 途中の状態を読むだけ（古さは見ない・消さない）。壊れていれば null。
+export function readFocusState(store = storage()) {
   try {
     const raw = store?.getItem(STATE_KEY);
     if (!raw) return null;
     const s = JSON.parse(raw);
     if (!s || typeof s.bookId !== 'string' || !Number.isFinite(s.startedAt) || !['timer', 'count'].includes(s.mode)) return null;
-    if (now - s.startedAt > STALE_MS || s.startedAt > now + 60_000) { store.removeItem(STATE_KEY); return null; }
     return { ...s, pausedAt: Number.isFinite(s.pausedAt) ? s.pausedAt : null, pausedMs: Number(s.pausedMs) || 0 };
+  } catch {
+    return null;
+  }
+}
+
+// 途中の状態を読む（壊れている・古すぎるものは捨てる）。
+// 古すぎる（12 時間より前に始めた）ものは、捨てる前に 1 回分として onStale(row) に渡す
+// （タイマーは長さまで・計測は 6 時間まで＝sessionRow の決まりどおり）。消してから渡すので 1 回だけ。
+export function loadFocusState(now = Date.now(), store = storage(), { onStale } = {}) {
+  try {
+    const s = readFocusState(store);
+    if (!s) {
+      if (store?.getItem(STATE_KEY)) store.removeItem(STATE_KEY);
+      return null;
+    }
+    if (s.startedAt > now + 60_000) { store.removeItem(STATE_KEY); return null; }
+    if (now - s.startedAt > STALE_MS) {
+      store.removeItem(STATE_KEY);
+      const row = sessionRow(s, now);
+      if (row && typeof onStale === 'function') {
+        try { onStale(row); } catch { /* 残せなくても再開はしない */ }
+      }
+      return null;
+    }
+    return s;
   } catch {
     return null;
   }

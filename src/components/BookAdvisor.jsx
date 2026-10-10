@@ -42,7 +42,7 @@ import MarkdownSections from './MarkdownSections';
 import Spinner from './Spinner';
 import { TabPanelSkeleton } from './lazyParts';
 // 過去の AI 選書の上の行（押し込まれた画面の形）と日付の書き方。行はスクロールの箱の外に置く（2026-10-04）。
-import { AdvisorNavBar, formatDate as advisorSessionDate } from './AdvisorHistory';
+import { AdvisorNavBar, AdvisorHistoryList, AdvisorSessionDetail, formatDate as advisorSessionDate } from './AdvisorHistory';
 import ErrorMessage from './ErrorMessage';
 import { SkeletonBlock } from './Skeleton';
 import TightBubble, { withPhraseBreaks } from './TightBubble';
@@ -55,8 +55,6 @@ import { dropSummarySection, introTextOf } from '../lib/advisorSummary';
 import { useEdgeSwipeBack } from '../hooks/useEdgeSwipeBack';
 import { useComposerHeight } from '../hooks/useComposerHeight';
 
-const AdvisorHistoryList = lazy(() => import('./AdvisorHistory').then((m) => ({ default: m.AdvisorHistoryList })));
-const AdvisorSessionDetail = lazy(() => import('./AdvisorHistory').then((m) => ({ default: m.AdvisorSessionDetail })));
 const AdvisorAddConfirmModal = lazy(() => import('./AdvisorAddConfirmModal'));
 
 // ── AI 選書の部品（DESIGN.md のトークンのみ。見た目は 相談＝MyBookBrain に揃える） ──
@@ -957,7 +955,17 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         const round = finish ? MAX_INTERVIEW_QUESTIONS + 1 : nextTrail.length + 1;
         const step = await runInterviewRound(concern, nextAnswers, round);
         setInterviewLoading(false);
-        if (step?.stop) { showLimitNotice(step.stop); remember({ recoNotice: true, recoError: step.stop }); settle(); return; }
+        if (step?.stop) {
+          // トークンの上限などで止まった: 問いと書いた答えを入力欄に戻す（書いた言葉を失わない・2026-10-10）。
+          setInterview(interview);
+          setInterviewAnswers(interviewAnswers);
+          setInterviewTrail(interviewTrail);
+          if (!unsure) { setAnswerText(a); setAnswerOff(!!entry.off); }
+          showLimitNotice(step.stop);
+          remember({ recoNotice: true, recoError: step.stop });
+          settle();
+          return;
+        }
         if (!step) {
           // 問いを用意できなかった → 黙って推薦へ進まない（2026-10-08 ui-critic）。答えは残したまま、もう一度頼み直せる。
           const err = { answers: nextAnswers, round };
@@ -989,7 +997,17 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       try {
         const step = await runInterviewRound(concern, err.answers, err.round);
         setInterviewLoading(false);
-        if (step?.stop) { showLimitNotice(step.stop); remember({ recoNotice: true, recoError: step.stop }); settle(); return; }
+        if (step?.stop) {
+          // トークンの上限などで止まった: 問いと書いた答えを入力欄に戻す（書いた言葉を失わない・2026-10-10）。
+          setInterview(interview);
+          setInterviewAnswers(interviewAnswers);
+          setInterviewTrail(interviewTrail);
+          if (!unsure) { setAnswerText(a); setAnswerOff(!!entry.off); }
+          showLimitNotice(step.stop);
+          remember({ recoNotice: true, recoError: step.stop });
+          settle();
+          return;
+        }
         if (!step) { setInterviewError(err); remember({ interviewError: err }); }
         else if (landStep(step, remember) === 'reco') proceedToRecommend(err.answers, null);
         settle();

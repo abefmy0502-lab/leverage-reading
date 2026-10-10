@@ -14,12 +14,25 @@ function defaultStorage() {
   try { return typeof localStorage !== 'undefined' ? localStorage : null; } catch { return null; }
 }
 
-const localId = () => `local-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+// 行の id は端末で決める（表に入れるときも、端末に控えるときも同じ id＝あとで表に送っても二重に数えない）。
+export function newSessionId() {
+  try {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  } catch { /* 下の作り方へ */ }
+  const hex = (n) => Array.from({ length: n }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+  return `${hex(8)}-${hex(4)}-4${hex(3)}-${'89ab'[Math.floor(Math.random() * 4)]}${hex(3)}-${hex(12)}`;
+}
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// 外部キーの違反（その本がもう無い）＝送っても入らない行。
+const isForeignKeyError = (e) => e?.code === '23503';
 
 export function createReadingSessionStore({ getClient = () => null, storage = defaultStorage } = {}) {
   let serverRows = [];
-  let loadedFor = null; // 読み込んだ利用者の id
+  let loadedFor = null; // 読み込めた利用者の id（読み込みに失敗したら入れない＝次に頼まれたとき・つながったときにもう一度）
+  let triedFor = null; // 読み込みを試した利用者の id（失敗も含む・画面の「読み込み済み」）
+  let tableMissing = false;
   let loading = null;
+  let syncing = null;
   const subs = new Set();
 
   const readLocal = () => {
@@ -31,7 +44,10 @@ export function createReadingSessionStore({ getClient = () => null, storage = de
     }
   };
   const writeLocal = (list) => {
-    try { storage()?.setItem(LOCAL_SESSIONS_KEY, JSON.stringify(list.slice(-LOCAL_MAX))); } catch { /* 入らなければ控えない */ }
+    try {
+      if (list.length === 0) storage()?.removeItem(LOCAL_SESSIONS_KEY);
+      else storage()?.setItem(LOCAL_SESSIONS_KEY, JSON.stringify(list.slice(-LOCAL_MAX)));
+    } catch { /* 入らなければ控えない */ }
   };
   const notify = () => subs.forEach((fn) => { try { fn(); } catch { /* ignore */ } });
 
@@ -41,11 +57,60 @@ export function createReadingSessionStore({ getClient = () => null, storage = de
     return [...serverRows, ...readLocal().filter((r) => !ids.has(r.id))];
   };
 
+  // 端末の控えを表に送る（表が読めたときだけ）。入った行・その本がもう無い行は控えから消す。
+  async function syncLocal(userId) {
+    const client = getClient();
+    if (!client || !userId || tableMissing || loadedFor !== userId) return;
+    if (syncing) return syncing;
+    syncing = (async () => {
+      try {
+        // 前の版の控え（id が uuid でない）は、送る前に uuid を付け直して控えにも書き戻す（送り直しても二重にしない）。
+        let local = readLocal();
+        if (local.length === 0) return;
+        if (local.some((r) => !UUID_RE.test(String(r.id || '')))) {
+          local = local.map((r) => (UUID_RE.test(String(r.id || '')) ? r : { ...r, id: newSessionId() }));
+          writeLocal(local);
+        }
+        const toRow = (r) => ({
+          id: r.id, user_id: userId, book_id: r.book_id, started_at: r.started_at, ended_at: r.ended_at,
+          seconds: Math.round(Number(r.seconds) || 0), mode: r.mode === 'count' ? 'count' : 'timer',
+        });
+        const done = new Set();
+        const sent = [];
+        const { error } = await client.from('reading_sessions').upsert(local.map(toRow), { onConflict: 'id', ignoreDuplicates: true });
+        if (!error) {
+          local.forEach((r) => { done.add(r.id); sent.push(toRow(r)); });
+        } else if (isSchemaError(error)) {
+          tableMissing = true;
+          return;
+        } else {
+          // まとめて入らなかった（消えた本の行が混じっている等）→ 1 行ずつ。
+          for (const r of local) {
+            // eslint-disable-next-line no-await-in-loop
+            const res = await client.from('reading_sessions').upsert([toRow(r)], { onConflict: 'id', ignoreDuplicates: true });
+            if (!res.error) { done.add(r.id); sent.push(toRow(r)); } else if (isForeignKeyError(res.error)) done.add(r.id);
+          }
+        }
+        if (done.size === 0) return;
+        writeLocal(readLocal().filter((r) => !done.has(r.id)));
+        const ids = new Set(serverRows.map((r) => r.id));
+        serverRows = [...sent.filter((r) => !ids.has(r.id)), ...serverRows];
+        notify();
+      } catch (e) {
+        console.warn('端末に控えた読書の時間を送れませんでした:', e?.message || e);
+      } finally {
+        syncing = null;
+      }
+    })();
+    return syncing;
+  }
+
   async function load(userId, { force = false } = {}) {
     const client = getClient();
-    if (!client || !userId) { loadedFor = userId || null; notify(); return rows(); }
+    if (!client || !userId) { loadedFor = userId || null; triedFor = loadedFor; notify(); return rows(); }
     if (!force && loadedFor === userId) return rows();
     if (loading) return loading;
+    let ok = false;
     loading = (async () => {
       try {
         const { data, error } = await client
@@ -56,33 +121,45 @@ export function createReadingSessionStore({ getClient = () => null, storage = de
           .limit(5000);
         if (error) throw error;
         serverRows = Array.isArray(data) ? data : [];
-      } catch (e) {
-        // 表が無い（未適用）・つながらない: 端末の控えだけで数える（壊さない）。
-        if (!isSchemaError(e)) console.warn('reading_sessions の読み込みに失敗:', e?.message || e);
-        serverRows = [];
-      } finally {
+        tableMissing = false;
         loadedFor = userId;
+        ok = true;
+      } catch (e) {
+        if (isSchemaError(e)) {
+          // 表が無い（未適用）: 端末の控えだけで数える（壊さない・もう一度読みにいかない）。
+          tableMissing = true;
+          serverRows = [];
+          loadedFor = userId;
+        } else {
+          // つながらない: 読めた分はそのまま・次に頼まれたとき（つながったとき・画面に戻ったとき）にもう一度。
+          console.warn('reading_sessions の読み込みに失敗:', e?.message || e);
+          if (loadedFor !== userId) serverRows = [];
+        }
+      } finally {
+        triedFor = userId;
         loading = null;
         notify();
       }
+      if (ok) await syncLocal(userId);
       return rows();
     })();
     return loading;
   }
 
-  // 1 回分を残す。表に入らなければ端末に控える。戻り値: { ok, local, row }
+  // 1 回分を残す。表に入らなければ端末に控える（同じ id）。戻り値: { ok, local, row }
   async function save(userId, row) {
     if (!row || !row.book_id) return { ok: false, local: false, row: null };
+    const withId = { ...row, id: row.id || newSessionId() };
     const client = getClient();
     if (client && userId) {
       try {
         const { data, error } = await client
           .from('reading_sessions')
-          .insert([{ ...row, user_id: userId }])
+          .insert([{ ...withId, user_id: userId }])
           .select(SELECT)
           .single();
         if (error) throw error;
-        const saved = data || { ...row, id: localId() };
+        const saved = data || withId;
         serverRows = [saved, ...serverRows.filter((r) => r.id !== saved.id)];
         notify();
         return { ok: true, local: false, row: saved };
@@ -90,8 +167,8 @@ export function createReadingSessionStore({ getClient = () => null, storage = de
         if (!isSchemaError(e)) console.warn('reading_sessions に保存できず端末に控えます:', e?.message || e);
       }
     }
-    const local = { ...row, id: localId(), created_at: new Date().toISOString(), local: true };
-    writeLocal([...readLocal(), local]);
+    const local = { ...withId, created_at: new Date().toISOString(), local: true };
+    writeLocal([...readLocal().filter((r) => r.id !== local.id), local]);
     notify();
     return { ok: true, local: true, row: local };
   }
@@ -106,10 +183,15 @@ export function createReadingSessionStore({ getClient = () => null, storage = de
     try { storage()?.removeItem(LOCAL_SESSIONS_KEY); } catch { /* ignore */ }
     serverRows = [];
     loadedFor = null;
+    triedFor = null;
     notify();
   }
 
-  return { load, save, rows, subscribe, clearLocal, isLoaded: (userId) => loadedFor === (userId || null) };
+  return {
+    load, save, rows, subscribe, clearLocal, syncLocal,
+    hasLocal: () => readLocal().length > 0,
+    isLoaded: (userId) => loadedFor === (userId || null) || triedFor === (userId || null),
+  };
 }
 
 // ---------------------------------------------------------------- 本の削除の「元に戻す」（2026-10-09 ui-critic）

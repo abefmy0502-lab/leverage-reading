@@ -190,6 +190,13 @@ describe('使うかどうか（設定）', () => {
     expect(resolveViewpointOn({ metadata: {}, local: { on: true } })).toBe(true);
     expect(resolveViewpointOn({ override: { on: false }, metadata: { viewpoint_map: { on: true } } })).toBe(false);
   });
+  it('アカウントと端末の両方に時刻があれば、新しいほう（2026-10-10）', () => {
+    const older = '2026-10-08T00:00:00.000Z';
+    const newer = '2026-10-09T00:00:00.000Z';
+    expect(resolveViewpointOn({ metadata: { viewpoint_map: { on: true, at: older } }, local: { on: false, at: newer } })).toBe(false);
+    expect(resolveViewpointOn({ metadata: { viewpoint_map: { on: true, at: newer } }, local: { on: false, at: older } })).toBe(true);
+    expect(resolveViewpointOn({ metadata: { viewpoint_map: { on: true } }, local: { on: false, at: newer } })).toBe(true);
+  });
   it('選ぶとすぐ効き、やめられる', async () => {
     const user = { id: 'u2', user_metadata: {} };
     expect(await setViewpointOn(user, true)).toBe('saved');

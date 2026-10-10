@@ -21,12 +21,13 @@ import HomeQuickMemo from './HomeQuickMemo';
 import { useHaptic } from '../hooks/useHaptic';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { useBlockEdgeSwipe } from '../hooks/useEdgeSwipeBack';
+import { useBackLayer } from '../hooks/useHistoryBack';
 import { useReadingSessions } from '../hooks/useReadingSessions';
 import { useToast } from './Toast';
 import { withPhraseBreaks } from './TightBubble';
 import {
   displayMinutes, timerProgress, isTimerDone, pauseFocus, resumeFocus, continueAsCount,
-  sessionRow, saveFocusState, todaySeconds, totalSeconds, fmtDuration,
+  sessionRow, saveFocusState, readFocusState, todaySeconds, totalSeconds, fmtDuration,
 } from '../lib/readingTime';
 
 export const HOLD_MS = 1000;
@@ -80,13 +81,17 @@ function useDarkChrome() {
     const bg = getComputedStyle(document.documentElement).getPropertyValue('--focus-bg').trim();
     if (bg) metas.forEach((m) => m.setAttribute('content', bg));
     let restore = null;
+    let closed = false;
     if (Capacitor.isNativePlatform()) {
       import('@capacitor/status-bar').then(({ StatusBar, Style }) => {
-        StatusBar.setStyle({ style: Style.Dark }).catch(() => {});
         restore = () => StatusBar.setStyle({ style: Style.Default }).catch(() => {});
+        // 読み込む間に閉じていたら、明るくしたままにしない（すぐ戻す）。
+        if (closed) { restore(); return; }
+        StatusBar.setStyle({ style: Style.Dark }).catch(() => {});
       }).catch(() => {});
     }
     return () => {
+      closed = true;
       metas.forEach((m, i) => { if (prev[i] != null) m.setAttribute('content', prev[i]); });
       restore?.();
     };
@@ -110,15 +115,16 @@ function BigTime({ hours, minutes, dim }) {
 }
 
 // 丸いボタン（--focus-btn＝64・枠 --focus-line-strong＝押せる物なので 3:1）＋下に名前。
-function RoundButton({ label, icon, onClick, children, ...rest }) {
+function RoundButton({ label, icon, onClick, children, disabled = false, ...rest }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-2)', minWidth: 0, flex: '1 1 0' }}>
       <button
         type="button"
         onClick={onClick}
         aria-label={label}
+        disabled={disabled}
         className="focus-round"
-        style={{ position: 'relative', width: 'var(--focus-btn)', height: 'var(--focus-btn)', borderRadius: '50%', border: '1px solid var(--focus-line-strong)', background: 'transparent', color: 'var(--focus-ink)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0, fontFamily: 'inherit', WebkitTapHighlightColor: 'transparent' }}
+        style={{ opacity: disabled ? 0.5 : 1, position: 'relative', width: 'var(--focus-btn)', height: 'var(--focus-btn)', borderRadius: '50%', border: '1px solid var(--focus-line-strong)', background: 'transparent', color: 'var(--focus-ink)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0, fontFamily: 'inherit', WebkitTapHighlightColor: 'transparent' }}
         {...rest}
       >
         {icon}
@@ -147,7 +153,12 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
   useBlockEdgeSwipe(true);
   useDarkChrome();
 
-  const [s, setS] = useState(initial);
+  // 開き直したとき（本の詳細とほかの画面の間で置き場所が変わった等）は、端末に残った同じ回の新しい状態
+  // （一時停止・「続けて読む」）から続ける。
+  const [s, setS] = useState(() => {
+    const saved = readFocusState();
+    return saved && initial && saved.bookId === initial.bookId && saved.startedAt === initial.startedAt ? saved : initial;
+  });
   const [now, setNow] = useState(() => Date.now());
   const [phase, setPhase] = useState(() => initialPhase || (isTimerDone(initial) ? 'timerDone' : 'running'));
   const [summary, setSummary] = useState(null); // { todaySec, totalSec }
@@ -157,12 +168,24 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
   const holdTimer = useRef(null);
   const hintTimer = useRef(null);
   const finishing = useRef(false);
+  const [busy, setBusy] = useState(false); // おわるを保存している間（ボタンを止める）
   const paused = Number.isFinite(s?.pausedAt);
 
   useKeepAwake(phase !== 'summary');
 
-  // 途中の状態を端末に（裏に回して戻ったとき・アプリを閉じて開いたときに再開する）。
-  useEffect(() => { if (phase !== 'summary') saveFocusState(s); }, [s, phase]);
+  // ブラウザ・Android の「戻る」で画面を離れない（消えると一時停止・「続けて読む」が失われる）。
+  // おわったあとの画面だけは「戻る」で閉じる。
+  const phaseRef = useRef(phase);
+  phaseRef.current = phase;
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  useBackLayer(true, () => {
+    if (phaseRef.current === 'summary') { onCloseRef.current?.(); return true; }
+    return false;
+  });
+
+  // 途中の状態を端末に（裏に回して戻ったとき・アプリを閉じて開いたときに再開する）。おわるの保存中は書かない。
+  useEffect(() => { if (phase !== 'summary' && !finishing.current) saveFocusState(s); }, [s, phase]);
 
   // 1 秒ごとに時刻を取り直す（数えるのは始めた時刻から＝足し算しない）。戻ったときはすぐ。
   useEffect(() => {
@@ -202,6 +225,10 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
   const finish = useCallback(async () => {
     if (finishing.current) return;
     finishing.current = true;
+    setBusy(true);
+    clearTimeout(holdTimer.current);
+    holdTimer.current = null;
+    setHolding(false);
     const t = Date.now();
     const row = sessionRow(s, t);
     saveFocusState(null);
@@ -215,11 +242,12 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
     if (!row) { onClose(); return; }
     setSummary({ todaySec, totalSec: totalSeconds(rows, book.id) });
     setPhase('summary');
+    setBusy(false);
   }, [s, sessions, book.id, onClose]);
 
   // ---- おわる（長押し）
   const startHold = (e) => {
-    if (paused || phase !== 'running' || holding) return;
+    if (paused || phase !== 'running' || holding || finishing.current) return;
     if (e?.pointerType === 'mouse' && e.button !== 0) return;
     setHolding(true);
     haptic.light();
@@ -242,6 +270,7 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
   const onEndClick = () => { if (paused) finish(); };
 
   const togglePause = () => {
+    if (finishing.current) return;
     haptic.light();
     const t = Date.now();
     setNow(t);
@@ -249,6 +278,7 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
   };
 
   const continueReading = () => {
+    if (finishing.current) return;
     const t = Date.now();
     setNow(t);
     setS((cur) => continueAsCount(cur, t));
@@ -365,11 +395,12 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
               {holding ? 'そのまま押し続けると、おわります' : hint}
             </p>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--space-4)' }}>
-              <RoundButton label="メモ" icon={<PencilLine size={22} strokeWidth={1.5} aria-hidden="true" />} onClick={() => setMemoOpen('running')} />
+              <RoundButton label="メモ" icon={<PencilLine size={22} strokeWidth={1.5} aria-hidden="true" />} onClick={() => setMemoOpen('running')} disabled={busy} />
               <RoundButton
                 label={paused ? 'おわる' : 'おわる（長押し）'}
                 icon={<Square size={18} strokeWidth={1.5} aria-hidden="true" />}
                 onClick={onEndClick}
+                disabled={busy}
                 onPointerDown={startHold}
                 onPointerUp={cancelHold}
                 onPointerLeave={cancelHold}
@@ -392,6 +423,7 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
                 label={paused ? '再開' : '一時停止'}
                 icon={paused ? <Play size={22} strokeWidth={1.5} aria-hidden="true" /> : <Pause size={22} strokeWidth={1.5} aria-hidden="true" />}
                 onClick={togglePause}
+                disabled={busy}
               />
             </div>
           </>
@@ -399,8 +431,8 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
         {phase === 'timerDone' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
             {/* 上＝主「おわる」・下＝副「続けて読む」（おわったときの「メモを書く」「閉じる」と同じ並び）。 */}
-            <button type="button" onClick={finish} style={footBtn(true)}>おわる</button>
-            <button type="button" onClick={continueReading} style={footBtn(false)}>続けて読む</button>
+            <button type="button" onClick={finish} disabled={busy} style={{ ...footBtn(true), opacity: busy ? 0.5 : 1 }}>おわる</button>
+            <button type="button" onClick={continueReading} disabled={busy} style={{ ...footBtn(false), opacity: busy ? 0.5 : 1 }}>続けて読む</button>
           </div>
         )}
         {phase === 'summary' && (

@@ -630,13 +630,21 @@ export function useBooks() {
       patchLocal();
       return { ok: true, local: true };
     }
-    const { error } = await supabase.from('books').update({ ai_brief: value || null }).eq('id', bookId).eq('user_id', user.id);
+    let error = null;
+    try {
+      ({ error } = await supabase.from('books').update({ ai_brief: value || null }).eq('id', bookId).eq('user_id', user.id));
+    } catch (e) {
+      error = e || new Error('save failed');
+    }
     if (error) {
+      // 列が無い（未適用）ときも、つながらない等で入らなかったときも、作った中身は捨てずに端末に控えて見せる
+      // （AI のトークンは使い終わっている・2026-10-10）。列が無いとき以外は、次に作り直したときに本へ入る。
       const msg = String(error.message || '').toLowerCase();
-      if (!(isSchemaError(error) || msg.includes('ai_brief'))) throw error;
+      const missing = isSchemaError(error) || msg.includes('ai_brief');
+      if (!missing) console.warn('この本で学べることを本に保存できず端末に控えます:', error?.message || error);
       writeLocalBrief(bookId, value);
       patchLocal();
-      return { ok: true, local: true };
+      return { ok: true, local: true, failed: !missing };
     }
     writeLocalBrief(bookId, ''); // 列に入ったら端末の控えは要らない
     patchLocal();

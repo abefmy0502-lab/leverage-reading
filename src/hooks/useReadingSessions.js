@@ -16,6 +16,17 @@ export function useReadingSessions() {
   const [, bump] = useReducer((x) => x + 1, 0);
   useEffect(() => readingSessions.subscribe(bump), []);
   useEffect(() => { readingSessions.load(userId); }, [userId]);
+  // 読み込みに失敗していたら、つながったとき・画面に戻ったときにもう一度（端末の控えもそのとき表に送る）。
+  useEffect(() => {
+    if (!userId || typeof window === 'undefined') return undefined;
+    const retry = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      readingSessions.load(userId).then(() => { if (readingSessions.hasLocal()) readingSessions.syncLocal(userId); }).catch(() => {});
+    };
+    window.addEventListener('online', retry);
+    document.addEventListener('visibilitychange', retry);
+    return () => { window.removeEventListener('online', retry); document.removeEventListener('visibilitychange', retry); };
+  }, [userId]);
   return {
     rows: readingSessions.rows(),
     loaded: readingSessions.isLoaded(userId),

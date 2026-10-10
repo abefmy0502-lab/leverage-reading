@@ -2,7 +2,7 @@
 //
 // 保存先: Supabase Auth の user_metadata.viewpoint_map = { on, at }（端末を変えても付いてくる・新しい SQL は要らない）
 // ＋端末の localStorage（速さのため・読み書きは try/catch）。アカウントに書けなくても、この端末では選んだとおりに動く。
-// どれを信じるか: この起動中に選んだこと ＞ user_metadata（キーがあれば）＞ 端末。既定は使わない。
+// どれを信じるか: この起動中に選んだこと ＞ user_metadata と端末の新しいほう（at）＞ 端末。既定は使わない。
 // やめてもメモに付けたタグは消さない（タグは自分のもの）。
 
 import { supabase, isSupabaseConfigured } from './supabase';
@@ -16,12 +16,19 @@ export function normalizeViewpointSetting(raw) {
 }
 
 // 使っているか（true / false）。
+// アカウントと端末の両方にあるときは、選んだ時刻（at）の新しいほう（アカウントに書けずに端末だけ変えた選び方を、
+// 次に開いたときに古いアカウントの値で戻さない・2026-10-10）。時刻が比べられなければアカウント。
 export function resolveViewpointOn({ override, metadata, local } = {}) {
   if (override !== undefined) return !!normalizeViewpointSetting(override)?.on;
+  const loc = normalizeViewpointSetting(local);
   if (metadata && typeof metadata === 'object' && Object.prototype.hasOwnProperty.call(metadata, VIEWPOINT_META_KEY)) {
-    return !!normalizeViewpointSetting(metadata[VIEWPOINT_META_KEY])?.on;
+    const acc = normalizeViewpointSetting(metadata[VIEWPOINT_META_KEY]);
+    const accAt = Date.parse(acc?.at || '');
+    const locAt = Date.parse(loc?.at || '');
+    if (loc && acc && Number.isFinite(locAt) && Number.isFinite(accAt) && locAt > accAt) return !!loc.on;
+    return !!acc?.on;
   }
-  return !!normalizeViewpointSetting(local)?.on;
+  return !!loc?.on;
 }
 
 function readLocal(userId) {

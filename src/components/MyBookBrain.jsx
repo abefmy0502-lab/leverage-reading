@@ -16,7 +16,7 @@ import { useAllActions } from '../hooks/useAllActions';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { setConsultBackGuard } from '../lib/consultBack';
-import { toMessage } from '../lib/errors';
+import { toMessage, toSaveMessage } from '../lib/errors';
 import { streamMyBookBrain, prewarmKnowledge, invalidateKnowledgeCache, EVIDENCE_PREFIX } from '../lib/ai';
 import { ensureAiConsent } from '../lib/aiConsent';
 import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnText as uiBtnText, btnLink as uiBtnLink, groupTitle, fieldNote, input as uiInput } from '../styles/ui';
@@ -1299,7 +1299,11 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         }
       } catch (e) {
         setBusy(false);
-        toast.error(toMessage(e, 'メッセージの保存に失敗しました。'));
+        reserveRef.current = false;
+        abortRef.current = null;
+        // 書いた相談は消さずに入力欄へ戻す（つながったら、そのまま送り直せる・2026-10-10）。
+        setInput((cur) => (cur && cur.trim() ? cur : q));
+        toast.error(toSaveMessage(e, '相談を送れませんでした。'));
         return;
       }
     }
@@ -3255,7 +3259,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
       setActionBusy(true);
       const ok = await onAddAction(actionBookId, actionForList);
       setActionBusy(false);
-      if (ok) { rememberAnswerActionAdded(message.id); setAddedFocus(typeof ok === 'object' ? ok : null); setActionAdded(true); onActionAdded?.(); }
+      if (ok) { rememberAnswerActionAdded(message.id, (typeof ok === 'object' && ok?.text) || stripScenePrefix(answerStepToAction(actionForList))); setAddedFocus(typeof ok === 'object' ? ok : null); setActionAdded(true); onActionAdded?.(); }
     } else if (onAddActionPickBook) {
       // 本を特定できない（いちばんの根拠が自分の学びなど）→ 本選択シートで行動文をプレフィル（確定は本を選んだ時点）。
       // 本を選んで追加できたら、答えの中を「行動に追加しました（期限は明日）見る」に変える（二重に足さない・2026-09-30）。
@@ -3264,7 +3268,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
       onAddActionPickBook(stripScenePrefix(answerStepToAction(actionForList)), (deadline, focus) => {
         setAddedDeadline(deadline === tomorrowLocal() ? null : (deadline ?? null));
         setAddedFocus(focus && typeof focus === 'object' ? focus : null);
-        rememberAnswerActionAdded(message.id);
+        rememberAnswerActionAdded(message.id, (focus && typeof focus === 'object' && focus.text) || stripScenePrefix(answerStepToAction(actionForList)));
         setActionAdded(true);
         onActionAdded?.();
       }, { evidenceBookIds });

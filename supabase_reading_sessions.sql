@@ -51,8 +51,12 @@ create policy "reading_sessions_insert_own" on public.reading_sessions
   );
 
 drop policy if exists "reading_sessions_update_own" on public.reading_sessions;
+-- 書き換えても、ほかの人の本につけ替えられない（insert と同じ確かめ・2026-10-10）。
 create policy "reading_sessions_update_own" on public.reading_sessions
-  for update to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  for update to authenticated using (auth.uid() = user_id) with check (
+    auth.uid() = user_id
+    and exists (select 1 from public.books b where b.id = book_id and b.user_id = auth.uid())
+  );
 
 drop policy if exists "reading_sessions_delete_own" on public.reading_sessions;
 create policy "reading_sessions_delete_own" on public.reading_sessions

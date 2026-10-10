@@ -32,6 +32,7 @@ const HomeQuickMemo = lazy(() => import('./components/HomeQuickMemo'));
 const FocusStartSheet = lazy(() => import('./components/FocusStartSheet'));
 const FocusMode = lazy(() => import('./components/FocusMode'));
 import { startFocus, pauseFocus, loadFocusState, saveFocusState } from './lib/readingTime';
+import { readingSessions } from './hooks/useReadingSessions';
 import Onboarding, { isOnboardingCompleted, clearOnboardingCompletion } from './components/Onboarding';
 import {
   Search as IcSearch, Plus as IcPlus, Library as IcLibrary, Sparkles as IcSparkles,
@@ -2317,7 +2318,8 @@ function AuthedApp() {
       return;
     }
     dismissStatusUndo(book.id);
-    const deletionPromise = deleteBook(book.id).catch((error) => {
+    // 同じ本の保存（行動の切り替え・表紙など）と同じ順番待ちに並べる（保存の途中で消して、消した本を書き戻さない）。
+    const deletionPromise = enqueueBookMutation(book.id, () => deleteBook(book.id)).catch((error) => {
       toast.error(toMessage(error, '削除に失敗しました。'));
       throw error;
     });
@@ -2339,6 +2341,9 @@ function AuthedApp() {
       removePhotos();
       return;
     }
+
+    // 消せなかったときは「元に戻す」を出さない（消えていない本を「削除」と知らせない・知らせは上の失敗だけ）。
+    try { await deletionPromise; } catch { return; }
 
     // 本の削除→Undo では Storage の写真ファイルを消していないため、
     // photo_path ごと完全復元される（旧「※写真は復元できません」は誤案内だった）。
@@ -3130,7 +3135,8 @@ function AuthedApp() {
     setBriefError(null);
     try {
       const text = await generateBookBrief({ book: { ...book, investPurpose: purpose }, info });
-      await saveBookBrief(bookId, text);
+      // 本に入らなかった（つながらない等）ときも、作った中身は端末に控えて見せる（saveBookBrief）。
+      const briefSaved = await saveBookBrief(bookId, text);
       setCurrent((c) => (c && c.id === bookId ? { ...c, aiBrief: text } : c));
       setForm((f) => (f && f.id === bookId ? { ...f, aiBrief: text } : f));
       // 編集中の「保存していない変更」の基準も進める（作っただけで「変更があります」と言わない）。
@@ -3141,7 +3147,8 @@ function AuthedApp() {
         }
       } catch { /* 基準が読めなければそのまま */ }
       setBriefJustMadeId(bookId);
-      toast.success('この本で学べることを作りました');
+      if (briefSaved?.failed) toast.info('作りました。いまは、この端末にだけ保存しています。');
+      else toast.success('この本で学べることを作りました');
     } catch (error) {
       // トークンの上限は案内として。プランの案内（402）は有料プランの画面が開くので重ねない。同意をやめたときは何も言わない。
       // 作れなかったときは、ボタンの下に理由の 1 行（ボタンは「もう一度作る」・2026-10-08 ui-critic）。
@@ -3998,7 +4005,10 @@ function AuthedApp() {
       setFocusRun({ book: b, state: st, phase: demoFocus === 'summary' ? 'summary' : null });
       return;
     }
-    const saved = loadFocusState();
+    // 12 時間より前に始めて置き忘れたものは再開しないが、読んだ時間は 1 回分として残す（タイマーは長さまで・計測は 6 時間まで）。
+    const saved = loadFocusState(Date.now(), undefined, {
+      onStale: (row) => { if (books.some((x) => x.id === row.book_id)) readingSessions.save(user?.id || null, row); },
+    });
     if (!saved) return;
     const b = books.find((x) => x.id === saved.bookId);
     if (!b) { saveFocusState(null); return; }

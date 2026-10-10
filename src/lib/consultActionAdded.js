@@ -33,37 +33,57 @@ export function findAddedAction(actions, actionText) {
   return null;
 }
 
-function readIds() {
+// 覚えている形: [{ id: 答えの id, text: 足した行動の文 }]（前の版は id の文字列だけ）。
+function readEntries() {
   try {
     if (typeof localStorage === 'undefined') return [];
     const v = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-    return Array.isArray(v) ? v.filter((x) => typeof x === 'string') : [];
+    if (!Array.isArray(v)) return [];
+    return v
+      .map((x) => (typeof x === 'string' ? { id: x, text: '' } : (x && typeof x.id === 'string' ? { id: x.id, text: typeof x.text === 'string' ? x.text : '' } : null)))
+      .filter(Boolean);
   } catch {
     return [];
   }
 }
-
-// この端末で、この答えから行動を足したか。
-export function wasAnswerActionAdded(answerId) {
-  if (!answerId) return false;
-  return readIds().includes(String(answerId));
-}
-
-// この答えから行動を足したことを覚える（新しいものを後ろに・多すぎたら古いものから捨てる）。
-export function rememberAnswerActionAdded(answerId) {
-  if (!answerId) return;
-  const id = String(answerId);
+function writeEntries(list) {
   try {
     if (typeof localStorage === 'undefined') return;
-    const ids = readIds().filter((x) => x !== id);
-    ids.push(id);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(ids.slice(-MAX_REMEMBERED)));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(list.slice(-MAX_REMEMBERED)));
   } catch { /* 覚えられなくても、①の文の一致で分かる */ }
+}
+const findEntry = (answerId) => (answerId ? readEntries().find((e) => e.id === String(answerId)) || null : null);
+
+// この端末で、この答えから行動を足したと覚えているか（行動の一覧と突き合わせない）。
+export function wasAnswerActionAdded(answerId) {
+  return !!findEntry(answerId);
+}
+
+// この答えから行動を足したことを覚える（足した行動の文も・新しいものを後ろに・多すぎたら古いものから捨てる）。
+export function rememberAnswerActionAdded(answerId, actionText = '') {
+  if (!answerId) return;
+  const id = String(answerId);
+  writeEntries([...readEntries().filter((e) => e.id !== id), { id, text: String(actionText || '') }]);
+}
+
+export function forgetAnswerActionAdded(answerId) {
+  if (!answerId) return;
+  const id = String(answerId);
+  const list = readEntries();
+  if (list.some((e) => e.id === id)) writeEntries(list.filter((e) => e.id !== id));
 }
 
 // まとめて判定（{ added, action }）。action は「見る」で行動の一覧のその行へ送るための目印に使う。
+// actions が読めている（配列）ときは、いまある行動に一致するものがあるときだけ追加済み
+// （覚えた答えでも、その行動を消していたら、もう一度足せる・2026-10-10）。
+// 行動の一覧を読めていない（null）ときだけ、この端末で覚えた印で判定する。
 export function answerActionStatus({ answerId, actionText, actions }) {
   const action = findAddedAction(actions, actionText);
   if (action) return { added: true, action };
-  return { added: wasAnswerActionAdded(answerId), action: null };
+  const entry = findEntry(answerId);
+  if (!entry) return { added: false, action: null };
+  if (!Array.isArray(actions)) return { added: true, action: null };
+  const byText = entry.text ? findAddedAction(actions, entry.text) : null;
+  if (byText) return { added: true, action: byText };
+  return { added: false, action: null };
 }

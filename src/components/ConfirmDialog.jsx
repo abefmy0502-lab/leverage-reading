@@ -37,8 +37,6 @@ const titleStyle = {
 };
 
 const messageStyle = {
-  wordBreak: 'keep-all',
-  overflowWrap: 'anywhere',
   fontSize: 'var(--text-sub)',
   color: 'var(--text-2)',
   lineHeight: 1.6,

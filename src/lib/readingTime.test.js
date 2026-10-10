@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   startFocus, elapsedSeconds, remainingSeconds, isTimerDone, timerProgress, pauseFocus, resumeFocus, continueAsCount,
-  displayMinutes, sessionRow, todaySeconds, totalSeconds, fmtDuration, shareReadingNote, localDay,
+  displayMinutes, sessionRow, todaySeconds, secondsWithin, dayRange, totalSeconds, fmtDuration, shareReadingNote, localDay,
   saveFocusState, loadFocusState, loadFocusPrefs, saveFocusPrefs, MIN_SESSION_SEC, MAX_SESSION_SEC, STALE_MS,
 } from './readingTime';
 
@@ -118,5 +118,65 @@ describe('端末に覚える', () => {
     expect(loadFocusPrefs(store)).toEqual({ mode: 'timer', minutes: 30, remembered: false });
     saveFocusPrefs({ mode: 'count', minutes: 45 }, store);
     expect(loadFocusPrefs(store)).toEqual({ mode: 'count', minutes: 45, remembered: true });
+  });
+});
+
+describe('日付をまたいだ回（2026-10-10）', () => {
+  const at = (ms) => new Date(ms).toISOString();
+  const midnight = new Date(2026, 9, 10, 0, 0, 0).getTime();
+  it('23:50〜0:30 の 40 分は、今日（0 時から）の 30 分ときのうの 10 分に分ける', () => {
+    const s = startFocus({ bookId: 'b', mode: 'count' }, midnight - 10 * MIN);
+    const row = sessionRow(s, midnight + 30 * MIN);
+    expect(row.seconds).toBe(40 * 60);
+    expect(todaySeconds([row], 'b', midnight + 30 * MIN)).toBe(30 * 60);
+    expect(todaySeconds([row], 'b', midnight - MIN)).toBe(10 * 60);
+  });
+  it('おわったばかりの回の今日の分も合計に入る（「今日 1 分」にならない）', () => {
+    const rows = [
+      { book_id: 'b', started_at: at(midnight + 2 * 3600 * 1000), ended_at: at(midnight + 2 * 3600 * 1000 + 15 * MIN), seconds: 15 * 60 },
+      sessionRow(startFocus({ bookId: 'b', mode: 'count' }, midnight - 5 * MIN), midnight + 25 * MIN),
+    ];
+    expect(todaySeconds(rows, 'b', midnight + 3 * 3600 * 1000)).toBe(40 * 60);
+  });
+  it('タイマーが終わったあと日付をまたいで置いていた時間は、おわりの時刻に入れない', () => {
+    const s = startFocus({ bookId: 'b', mode: 'timer', minutes: 30 }, midnight - 40 * MIN);
+    const row = sessionRow(s, midnight + 20 * MIN);
+    expect(row.seconds).toBe(30 * 60);
+    expect(Date.parse(row.ended_at)).toBe(midnight - 10 * MIN);
+    expect(todaySeconds([row], 'b', midnight + 20 * MIN)).toBe(0);
+  });
+  it('おわりの無い古い行は、始めた日で数える', () => {
+    const { from, to } = dayRange(midnight + MIN);
+    expect(to - from).toBe(24 * 3600 * 1000);
+    expect(secondsWithin({ started_at: at(midnight + MIN), seconds: 600 }, from, to)).toBe(600);
+    expect(secondsWithin({ started_at: at(midnight - MIN), seconds: 600 }, from, to)).toBe(0);
+  });
+});
+
+describe('12 時間より前の途中の状態（2026-10-10）', () => {
+  it('捨てる前に 1 回分として残す（タイマーは長さまで・おわりは始め＋長さ）・2 回目は残さない', () => {
+    const store = memStore();
+    const s = startFocus({ bookId: 'b', mode: 'timer', minutes: 30 }, T0);
+    saveFocusState(s, store);
+    const got = [];
+    expect(loadFocusState(T0 + STALE_MS + 1, store, { onStale: (r) => got.push(r) })).toBeNull();
+    expect(got).toHaveLength(1);
+    expect(got[0]).toMatchObject({ book_id: 'b', seconds: 30 * 60, mode: 'timer' });
+    expect(Date.parse(got[0].ended_at) - T0).toBe(30 * MIN);
+    expect(loadFocusState(T0 + STALE_MS + 2, store, { onStale: (r) => got.push(r) })).toBeNull();
+    expect(got).toHaveLength(1);
+  });
+  it('計測は 6 時間まで・止めていた時間は引く', () => {
+    const store = memStore();
+    saveFocusState(startFocus({ bookId: 'b', mode: 'count' }, T0), store);
+    const got = [];
+    loadFocusState(T0 + STALE_MS + 1, store, { onStale: (r) => got.push(r) });
+    expect(got[0].seconds).toBe(MAX_SESSION_SEC);
+    expect(Date.parse(got[0].ended_at) - T0).toBe(MAX_SESSION_SEC * 1000);
+    const paused = pauseFocus(resumeFocus(pauseFocus(startFocus({ bookId: 'b', mode: 'timer', minutes: 45 }, T0), T0 + 10 * MIN), T0 + 20 * MIN), T0 + 25 * MIN);
+    saveFocusState(paused, store);
+    loadFocusState(T0 + STALE_MS + 1, store, { onStale: (r) => got.push(r) });
+    expect(got[1].seconds).toBe(15 * 60);
+    expect(Date.parse(got[1].ended_at) - T0).toBe(25 * MIN);
   });
 });

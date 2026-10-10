@@ -8,12 +8,19 @@ function memStore() {
 }
 
 // supabase-js の使う形だけ（from().select().eq().order().limit() / insert().select().single()）。
-function fakeClient({ selectResult, insertResult }) {
+function fakeClient({ selectResult, insertResult, upsertResult = { error: null } }) {
   const inserted = [];
+  const upserted = [];
   return {
     inserted,
+    upserted,
     from: () => ({
-      select: () => ({ eq: () => ({ order: () => ({ limit: async () => selectResult }) }) }),
+      select: () => ({ eq: () => ({ order: () => ({ limit: async () => (typeof selectResult === 'function' ? selectResult() : selectResult) }) }) }),
+      upsert: async (rows, opts) => {
+        const res = typeof upsertResult === 'function' ? upsertResult(rows, opts) : upsertResult;
+        if (!res.error) upserted.push(...rows);
+        return res;
+      },
       insert: (rows) => {
         inserted.push(...rows);
         return { select: () => ({ single: async () => (typeof insertResult === 'function' ? insertResult(rows[0]) : insertResult) }) };
@@ -28,13 +35,15 @@ const missing = { data: null, error: { code: 'PGRST205', message: "Could not fin
 describe('reading_sessions', () => {
   it('表に入れば表の行として持つ（端末には控えない）', async () => {
     const storage = memStore();
-    const client = fakeClient({ selectResult: { data: [], error: null }, insertResult: (r) => ({ data: { ...r, id: 'srv-1' }, error: null }) });
+    const client = fakeClient({ selectResult: { data: [], error: null }, insertResult: (r) => ({ data: { ...r }, error: null }) });
     const store = createReadingSessionStore({ getClient: () => client, storage: () => storage });
     await store.load('u1');
     const r = await store.save('u1', row);
     expect(r).toMatchObject({ ok: true, local: false });
     expect(client.inserted[0]).toMatchObject({ user_id: 'u1', book_id: 'b1', seconds: 1800 });
-    expect(store.rows().map((x) => x.id)).toEqual(['srv-1']);
+    // id は端末で決めて送る（uuid）。
+    expect(client.inserted[0].id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(store.rows().map((x) => x.id)).toEqual([client.inserted[0].id]);
     expect(storage.getItem(LOCAL_SESSIONS_KEY)).toBeNull();
   });
 
@@ -69,16 +78,83 @@ describe('reading_sessions', () => {
   it('表の行と端末の控えを合わせて数え、知らせる・初期化で控えも消す', async () => {
     const storage = memStore();
     storage.setItem(LOCAL_SESSIONS_KEY, JSON.stringify([{ ...row, id: 'local-1' }]));
-    const client = fakeClient({ selectResult: { data: [{ ...row, id: 'srv-9', seconds: 600 }], error: null } });
+    const client = fakeClient({ selectResult: { data: [{ ...row, id: 'srv-9', seconds: 600 }], error: null }, upsertResult: { error: { message: 'Failed to fetch' } } });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const store = createReadingSessionStore({ getClient: () => client, storage: () => storage });
     const fn = vi.fn();
     store.subscribe(fn);
     await store.load('u1');
     expect(fn).toHaveBeenCalled();
-    expect(store.rows().map((x) => x.id).sort()).toEqual(['local-1', 'srv-9']);
+    const ids = store.rows().map((x) => x.id);
+    expect(ids).toHaveLength(2);
+    expect(ids).toContain('srv-9');
     expect(store.isLoaded('u1')).toBe(true);
     store.clearLocal();
     expect(store.rows()).toEqual([]);
+    expect(storage.getItem(LOCAL_SESSIONS_KEY)).toBeNull();
+    warn.mockRestore();
+  });
+
+  it('保存に失敗した行は、表に入れようとした id のまま端末に控える（同じ行が二重に数えられない）', async () => {
+    const storage = memStore();
+    const client = fakeClient({ selectResult: { data: [], error: null }, insertResult: { data: null, error: { message: 'Failed to fetch' } } });
+    const store = createReadingSessionStore({ getClient: () => client, storage: () => storage });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const r = await store.save('u1', row);
+    expect(r.row.id).toBe(client.inserted[0].id);
+    expect(JSON.parse(storage.getItem(LOCAL_SESSIONS_KEY))[0].id).toBe(client.inserted[0].id);
+    warn.mockRestore();
+  });
+
+  it('読み込みに失敗したら、次に頼まれたときにもう一度読む', async () => {
+    const storage = memStore();
+    let fail = true;
+    const client = fakeClient({ selectResult: () => (fail ? { data: null, error: { message: 'Failed to fetch' } } : { data: [{ ...row, id: 'srv-1' }], error: null }) });
+    const store = createReadingSessionStore({ getClient: () => client, storage: () => storage });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await store.load('u1');
+    expect(store.rows()).toEqual([]);
+    expect(store.isLoaded('u1')).toBe(true); // 画面は待たせない
+    fail = false;
+    await store.load('u1');
+    expect(store.rows().map((x) => x.id)).toEqual(['srv-1']);
+    warn.mockRestore();
+  });
+
+  it('次に読めたとき、端末の控えを表に送って控えから消す（前の版の id は付け直す）', async () => {
+    const storage = memStore();
+    storage.setItem(LOCAL_SESSIONS_KEY, JSON.stringify([{ ...row, id: 'local-old', local: true }]));
+    const client = fakeClient({ selectResult: { data: [], error: null } });
+    const store = createReadingSessionStore({ getClient: () => client, storage: () => storage });
+    await store.load('u1');
+    expect(client.upserted).toHaveLength(1);
+    expect(client.upserted[0]).toMatchObject({ user_id: 'u1', book_id: 'b1', seconds: 1800 });
+    expect(client.upserted[0].id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(storage.getItem(LOCAL_SESSIONS_KEY)).toBeNull();
+    expect(store.rows()).toHaveLength(1);
+  });
+
+  it('消えた本の行は送らずに捨て、ほかの行は送る・表が無ければ送らない', async () => {
+    const storage = memStore();
+    const ok = '11111111-1111-4111-8111-111111111111';
+    const gone = '22222222-2222-4222-8222-222222222222';
+    storage.setItem(LOCAL_SESSIONS_KEY, JSON.stringify([{ ...row, id: ok }, { ...row, book_id: 'gone', id: gone }]));
+    const client = fakeClient({
+      selectResult: { data: [], error: null },
+      upsertResult: (rows) => (rows.some((r) => r.book_id === 'gone') ? { error: { code: '23503', message: 'fk' } } : { error: null }),
+    });
+    const store = createReadingSessionStore({ getClient: () => client, storage: () => storage });
+    await store.load('u1');
+    expect(client.upserted.map((r) => r.id)).toEqual([ok]);
+    expect(storage.getItem(LOCAL_SESSIONS_KEY)).toBeNull();
+
+    const s2 = memStore();
+    s2.setItem(LOCAL_SESSIONS_KEY, JSON.stringify([{ ...row, id: ok }]));
+    const c2 = fakeClient({ selectResult: missing });
+    const st2 = createReadingSessionStore({ getClient: () => c2, storage: () => s2 });
+    await st2.load('u1');
+    expect(c2.upserted).toEqual([]);
+    expect(st2.rows()).toHaveLength(1);
   });
 
   it('ログインしていない・設定の無い環境は端末だけ', async () => {

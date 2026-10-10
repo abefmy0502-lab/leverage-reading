@@ -48,12 +48,26 @@ describe('consultActionAdded', () => {
     expect(wasAnswerActionAdded('a2')).toBe(false);
   });
 
-  it('文が直されていても、覚えた id なら追加済み', () => {
-    rememberAnswerActionAdded('a9');
+  it('文が直されていても、覚えた id（と足した文）なら追加済み', () => {
+    rememberAnswerActionAdded('a9', '直した文');
     expect(answerActionStatus({ answerId: 'a9', actionText: '元の文', actions: [{ text: '直した文' }] }).added).toBe(true);
     const st = answerActionStatus({ answerId: 'zz', actionText: '直した文', actions: [{ text: '直した文', bookId: 'b' }] });
     expect(st.added).toBe(true);
     expect(st.action.bookId).toBe('b');
     expect(answerActionStatus({ answerId: 'zz', actionText: 'ほか', actions: [] }).added).toBe(false);
+  });
+
+  it('覚えた答えでも、その行動を消していたら追加済みにしない', () => {
+    rememberAnswerActionAdded('d1', '朝に読み返す');
+    expect(answerActionStatus({ answerId: 'd1', actionText: '朝に読み返す。', actions: [{ text: 'ほか' }] }).added).toBe(false);
+    // もう一度足したら、また追加済み
+    rememberAnswerActionAdded('d1', '朝に読み返す');
+    expect(answerActionStatus({ answerId: 'd1', actionText: 'x', actions: [{ text: '朝に読み返す' }] }).added).toBe(true);
+  });
+
+  it('行動の一覧を読めないときだけ、覚えた印で判定する（前の版の印も）', () => {
+    localStorage.setItem('orime.consult.actionAdded.v1', JSON.stringify(['old1']));
+    expect(answerActionStatus({ answerId: 'old1', actionText: 'x', actions: null }).added).toBe(true);
+    expect(answerActionStatus({ answerId: 'old1', actionText: 'x', actions: [] }).added).toBe(false);
   });
 });

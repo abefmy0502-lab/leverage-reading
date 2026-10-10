@@ -15,6 +15,8 @@
 // 塗りの主ボタンは「その状態で一番大事な 1 つ」だけ（未契約時の購入/入手）。
 // 削除の塗りボタン（btnDanger）は退会の最終確定だけに使う。
 
+import { clearDeviceData } from '../lib/deviceData';
+import { readingSessions } from '../hooks/useReadingSessions';
 import { TERMS_URL, PRIVACY_URL, SCT_URL } from '../lib/legalLinks';
 import { useEffect, useRef, useState } from 'react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
@@ -694,9 +696,9 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
         return;
       }
       // 端末ローカルの一時状態（想起のクリア時刻・週次の問い等）も掃除して完全に空へ。
-      try {
-        ['brain-cleared-at', 'brain-weekly-q', 'brain-weekly-dismissed', 'leverage-memo-snap', 'orime.readingSessions.v1', 'orime.focus.v1'].forEach((k) => localStorage.removeItem(k));
-      } catch { /* ignore */ }
+      // 読書の時間の控え・途中の集中モード・この本で学べること・視点の地図・写真で共有の選び方なども（lib/deviceData.js）。
+      clearDeviceData();
+      readingSessions.clearLocal();
       toast.success('データを初期化しました。まっさらな状態で読み込み直します。');
       // 全 state / キャッシュを確実に空へ戻すためリロード（初期化操作なので妥当）。
       // reload がブロックされた場合でもボタンが「初期化中…」で永久固定しないよう解除。
@@ -829,7 +831,8 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
       }
 
       // ⏱ 端末に控えた読書の時間・途中の集中モードも消す（表に入らなかった分）。
-      try { ['orime.readingSessions.v1', 'orime.focus.v1'].forEach((k) => localStorage.removeItem(k)); } catch { /* ignore */ }
+      clearDeviceData();
+      readingSessions.clearLocal();
       toast.success('すべてのデータを削除しました。ログアウトします。');
       // Sign out then bubble up to the parent
       try { await signOut(); } catch { /* ignore */ }
