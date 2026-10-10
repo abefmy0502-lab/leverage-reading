@@ -23,11 +23,66 @@ const PREFS_KEY = 'orime.focus.prefs';
 
 // ---------------------------------------------------------------- 時間の計算
 
-// 始める。
-export function startFocus({ bookId, mode, minutes }, now = Date.now()) {
+// 始める。untilMs（「◯時◯分まで」・2026-10-10）を渡したタイマーは、長さ＝その時刻まで（秒・1 分〜6 時間）。
+// 記録の形は今までどおりタイマー（mode 'timer'）で、画面に「18:45 まで」と出すために until を持つ。
+export function startFocus({ bookId, mode, minutes, untilMs }, now = Date.now()) {
   const m = mode === 'count' ? 'count' : 'timer';
+  if (m === 'timer' && Number.isFinite(untilMs)) {
+    const sec = Math.min(MAX_SESSION_SEC, Math.max(60, Math.round((untilMs - now) / 1000)));
+    return { bookId, mode: m, startedAt: now, pausedAt: null, pausedMs: 0, durationSec: sec, until: now + sec * 1000 };
+  }
   const min = FOCUS_MINUTES.includes(Number(minutes)) ? Number(minutes) : FOCUS_DEFAULT.minutes;
   return { bookId, mode: m, startedAt: now, pausedAt: null, pausedMs: 0, durationSec: m === 'timer' ? min * 60 : null };
+}
+
+// ---------------------------------------------------------------- 「◯時◯分まで」（2026-10-10 オーナー「電車で乗り換えの駅まで」）
+
+// 時刻の既定: いまから 20 分後を、次の 5 分の区切りに切り上げる（18:23 → 18:45）。"HH:MM"。
+export const UNTIL_DEFAULT_AHEAD_MIN = 20;
+export function defaultUntilTime(now = Date.now()) {
+  const step = 5 * 60 * 1000;
+  const t = Math.ceil((now + UNTIL_DEFAULT_AHEAD_MIN * 60 * 1000) / step) * step;
+  return fmtClock(t);
+}
+
+// "18:45"（端末の時刻・24 時間）。
+export function fmtClock(ms) {
+  const d = new Date(ms);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+// "HH:MM" → その時刻の次に来る時刻（ms・いま以前なら次の日）。読めなければ null。
+// 23:50 に 00:20 を選んだら 30 分後（日付をまたぐ）。
+export function untilToMs(hhmm, now = Date.now()) {
+  const m = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(String(hhmm || '').trim());
+  if (!m) return null;
+  const h = Number(m[1]);
+  const mi = Number(m[2]);
+  if (h > 23 || mi > 59) return null;
+  const d = new Date(now);
+  let t = new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, mi).getTime();
+  if (t <= now) t = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, h, mi).getTime();
+  return t;
+}
+
+// 選んだ時刻を確かめる。
+//   { ok: true, untilMs, minutes }        … minutes は残りの分（切り上げ）
+//   { ok: false, error: 'empty' | 'past' | 'tooLong', message }
+// 12 時間より先になる時刻は「いまより前を選んだ」とみなす（18:00 に 17:30＝past）。
+// 1 分未満も past。12 時間までで 6 時間を超えるものは tooLong（1 回 6 時間まで）。
+export const UNTIL_MESSAGES = {
+  empty: 'おわる時刻を選んでください',
+  past: 'いまより後の時刻を選んでください',
+  tooLong: '6 時間までの時刻を選んでください',
+};
+export function checkUntil(hhmm, now = Date.now()) {
+  const untilMs = untilToMs(hhmm, now);
+  if (untilMs == null) return { ok: false, error: 'empty', message: UNTIL_MESSAGES.empty };
+  const diff = untilMs - now;
+  if (diff < 60 * 1000 || diff > STALE_MS) return { ok: false, error: 'past', message: UNTIL_MESSAGES.past };
+  if (diff > MAX_SESSION_SEC * 1000) return { ok: false, error: 'tooLong', message: UNTIL_MESSAGES.tooLong };
+  return { ok: true, untilMs, minutes: Math.ceil(diff / 60000) };
 }
 
 // 読んでいた秒（一時停止を除く）。タイマーは長さで止める（終わったあとに裏で置いていた時間は数えない）。
@@ -213,20 +268,22 @@ export function loadFocusState(now = Date.now(), store = storage(), { onStale } 
   }
 }
 
+// until: 前回「時刻」を選んだか（時刻そのものは覚えない＝次はまた いま＋20 分 を既定に）。
 export function loadFocusPrefs(store = storage()) {
   try {
     const p = JSON.parse(store?.getItem(PREFS_KEY) || 'null');
-    if (!p) return { ...FOCUS_DEFAULT, remembered: false };
+    if (!p) return { ...FOCUS_DEFAULT, until: false, remembered: false };
     return {
       mode: p.mode === 'count' ? 'count' : 'timer',
       minutes: FOCUS_MINUTES.includes(Number(p.minutes)) ? Number(p.minutes) : FOCUS_DEFAULT.minutes,
+      until: p.until === true,
       remembered: true,
     };
   } catch {
-    return { ...FOCUS_DEFAULT, remembered: false };
+    return { ...FOCUS_DEFAULT, until: false, remembered: false };
   }
 }
 
-export function saveFocusPrefs({ mode, minutes }, store = storage()) {
-  try { store?.setItem(PREFS_KEY, JSON.stringify({ mode, minutes })); } catch { /* ignore */ }
+export function saveFocusPrefs({ mode, minutes, until = false }, store = storage()) {
+  try { store?.setItem(PREFS_KEY, JSON.stringify({ mode, minutes, until: !!until })); } catch { /* ignore */ }
 }

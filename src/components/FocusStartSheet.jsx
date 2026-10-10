@@ -4,10 +4,15 @@
 // 前回の選び方と時間を端末に覚えておき（lib/readingTime.js の loadFocusPrefs）、2 回目からは
 // 主ボタン「読みはじめる」を押すだけで始まる。下の 1 行は、おわり方（長押し）だけを言う
 // （集中モードの画面には説明を置かないので、ここで 1 度だけ）。
-import { useState } from 'react';
+//
+// 2026-10-10 オーナー「電車で乗り換えの駅まで集中して読みたい」: タイマーの 5 つめの選び方「時刻」。
+// 選ぶと下に「おわる時刻」（端末の時刻の入力・既定は いま＋20 分を 5 分に切り上げ）と「18:45 まで（21 分）」。
+// いまより前・6 時間を超える時刻は、その下に理由を出して「読みはじめる」を押せなくする。
+// 前回「時刻」を選んでいたら、次も「時刻」を選んだ形で開く（時刻は いま＋20 分 に出し直す）。
+import { useEffect, useState } from 'react';
 import BottomSheet from './BottomSheet';
-import { btnPrimary, groupTitle } from '../styles/ui';
-import { FOCUS_MINUTES, loadFocusPrefs, saveFocusPrefs } from '../lib/readingTime';
+import { btnPrimary, btnPrimaryOff, groupTitle, input } from '../styles/ui';
+import { FOCUS_MINUTES, loadFocusPrefs, saveFocusPrefs, defaultUntilTime, checkUntil, fmtClock } from '../lib/readingTime';
 import { withPhraseBreaks } from './TightBubble';
 
 // 選ぶボタン（DESIGN §5「選ぶためのチップ」: 44・15・選択中は --accent-soft の面＋--accent の文字 600）。
@@ -50,20 +55,55 @@ const seg = (on) => ({
   whiteSpace: 'nowrap',
 });
 
-export default function FocusStartSheet({ onStart, onClose }) {
+// initialUntil: 初めから「時刻」を選んで開く（お試しモードの &focus=until）。
+// 「21 分」「1 時間 5 分」「2 時間」。
+function fmtLen(min) {
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  if (!h) return `${m} 分`;
+  return m ? `${h} 時間 ${m} 分` : `${h} 時間`;
+}
+
+export default function FocusStartSheet({ onStart, onClose, initialUntil = false }) {
   const [prefs] = useState(loadFocusPrefs);
-  const [mode, setMode] = useState(prefs.mode);
+  const [mode, setMode] = useState(initialUntil ? 'timer' : prefs.mode);
   const [minutes, setMinutes] = useState(prefs.minutes);
+  const [useUntil, setUseUntil] = useState(initialUntil || prefs.until);
+  const [untilText, setUntilText] = useState(() => defaultUntilTime());
+  // 残りの分は時間とともに変わるので、開いている間は 15 秒ごとに出し直す。
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (mode !== 'timer' || !useUntil) return undefined;
+    const id = setInterval(() => setNow(Date.now()), 15000);
+    return () => clearInterval(id);
+  }, [mode, useUntil]);
+  const isUntil = mode === 'timer' && useUntil;
+  const check = isUntil ? checkUntil(untilText, now) : null;
+  const blocked = isUntil && !check.ok;
   const start = () => {
-    saveFocusPrefs({ mode, minutes });
+    if (isUntil) {
+      const c = checkUntil(untilText, Date.now());
+      if (!c.ok) { setNow(Date.now()); return; }
+      saveFocusPrefs({ mode, minutes, until: true });
+      onStart({ mode, minutes, untilMs: c.untilMs });
+      return;
+    }
+    saveFocusPrefs({ mode, minutes, until: mode === 'timer' ? false : useUntil });
     onStart({ mode, minutes });
+  };
+  const pickMinutes = (m) => { setMinutes(m); setUseUntil(false); };
+  const pickUntil = () => {
+    // 選び直したときに古い時刻が残っていたら（いまより前になっていたら）いま＋20 分に出し直す。
+    if (!checkUntil(untilText, Date.now()).ok) setUntilText(defaultUntilTime());
+    setNow(Date.now());
+    setUseUntil(true);
   };
   return (
     <BottomSheet
       title="読む"
       onClose={onClose}
       dismissLabel="キャンセル"
-      footer={<button type="button" onClick={start} style={btnPrimary} data-focus-start="">読みはじめる</button>}
+      footer={<button type="button" onClick={start} disabled={blocked} aria-disabled={blocked || undefined} style={blocked ? btnPrimaryOff : btnPrimary} data-focus-start="">読みはじめる</button>}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
         <div role="radiogroup" aria-label="時間の測り方" style={{ display: 'flex', borderBottom: '1px solid var(--separator)' }}>
@@ -79,11 +119,33 @@ export default function FocusStartSheet({ onStart, onClose }) {
           <p id="focus-min-title" style={{ ...groupTitle, margin: '0 0 var(--space-2)' }}>時間</p>
           <div role="radiogroup" aria-labelledby="focus-min-title" style={{ display: 'flex', gap: 'var(--space-2)' }}>
             {FOCUS_MINUTES.map((m) => (
-              <button key={m} type="button" role="radio" tabIndex={mode === 'timer' ? undefined : -1} aria-checked={minutes === m} aria-label={`${m} 分`} onClick={() => setMinutes(m)} style={choice(minutes === m)}>
+              <button key={m} type="button" role="radio" tabIndex={mode === 'timer' ? undefined : -1} aria-checked={!useUntil && minutes === m} aria-label={`${m} 分`} onClick={() => pickMinutes(m)} style={choice(!useUntil && minutes === m)}>
                 {m} 分
               </button>
             ))}
+            <button type="button" role="radio" tabIndex={mode === 'timer' ? undefined : -1} aria-checked={useUntil} aria-label="時刻まで" onClick={pickUntil} style={choice(useUntil)} data-focus-until="">
+              時刻
+            </button>
           </div>
+          {useUntil && (
+            <div style={{ marginTop: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+              <label htmlFor="focus-until-time" style={{ ...groupTitle, margin: 0 }}>おわる時刻</label>
+              <input
+                id="focus-until-time"
+                type="time"
+                step={60}
+                value={untilText}
+                tabIndex={mode === 'timer' ? undefined : -1}
+                onChange={(e) => { setUntilText(e.target.value); setNow(Date.now()); }}
+                aria-describedby="focus-until-note"
+                aria-invalid={check && !check.ok ? true : undefined}
+                style={{ ...input, fontVariantNumeric: 'tabular-nums', ...(check && !check.ok ? { borderColor: 'var(--error)' } : null) }}
+              />
+              <p id="focus-until-note" role={check && !check.ok ? 'alert' : undefined} style={{ margin: 0, fontSize: 'var(--text-meta)', lineHeight: 1.5, color: check && !check.ok ? 'var(--error)' : 'var(--text-2)', fontVariantNumeric: 'tabular-nums', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+                {!check ? null : check.ok ? `${fmtClock(check.untilMs)} まで（${fmtLen(check.minutes)}）` : withPhraseBreaks(check.message)}
+              </p>
+            </div>
+          )}
         </div>
         <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
           {withPhraseBreaks('おわるときは「おわる」を長く押します。')}

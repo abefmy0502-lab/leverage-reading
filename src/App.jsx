@@ -4061,11 +4061,11 @@ function AuthedApp() {
   useEffect(() => {
     if (focusRestored.current || booksLoading || books.length === 0) return;
     focusRestored.current = true;
-    // 🧪 お試しモード: &focus=timer|count|long|fresh|paused|done|summary|start で、読書中の本の集中モードを開く。
+    // 🧪 お試しモード: &focus=timer|count|long|fresh|paused|done|summary|start|until|untilrun で、読書中の本の集中モードを開く。
     const demoFocus = isDemo ? new URLSearchParams(window.location.search).get('focus') : null;
     if (demoFocus) {
       const b = books.find((x) => x.title === '数値化の鬼') || books.find((x) => x.status === 'reading') || books[0];
-      if (demoFocus === 'start') { setFocusStartBook(b); return; }
+      if (demoFocus === 'start' || demoFocus === 'until') { setFocusStartBook(demoFocus === 'until' ? { ...b, focusUntil: true } : b); return; }
       const t = Date.now();
       const MIN = 60 * 1000;
       const st = demoFocus === 'count'
@@ -4074,7 +4074,8 @@ function AuthedApp() {
         : demoFocus === 'fresh' ? startFocus({ bookId: b.id, mode: 'timer', minutes: 15 }, t - 10000)
         : demoFocus === 'done' ? startFocus({ bookId: b.id, mode: 'timer', minutes: 30 }, t - 30 * MIN - 5000)
           : demoFocus === 'paused' ? pauseFocus(startFocus({ bookId: b.id, mode: 'timer', minutes: 30 }, t - 12 * MIN), t)
-            : startFocus({ bookId: b.id, mode: 'timer', minutes: 30 }, t - 7 * MIN - 10000);
+            : demoFocus === 'untilrun' ? startFocus({ bookId: b.id, mode: 'timer', untilMs: Math.ceil((t + 28 * MIN) / (5 * MIN)) * 5 * MIN }, t - 4 * MIN)
+              : startFocus({ bookId: b.id, mode: 'timer', minutes: 30 }, t - 7 * MIN - 10000);
       setFocusRun({ book: b, state: st, phase: demoFocus === 'summary' ? 'summary' : null });
       return;
     }
@@ -4087,10 +4088,10 @@ function AuthedApp() {
     if (!b) { saveFocusState(null); return; }
     setFocusRun({ book: b, state: saved, phase: null });
   }, [booksLoading, books]);
-  const startFocusRun = ({ mode, minutes }) => {
+  const startFocusRun = ({ mode, minutes, untilMs }) => {
     const b = focusStartBook;
     if (!b) return;
-    const st = startFocus({ bookId: b.id, mode, minutes });
+    const st = startFocus({ bookId: b.id, mode, minutes, untilMs });
     saveFocusState(st);
     setFocusStartBook(null);
     setFocusRun({ book: b, state: st, phase: null });
@@ -4100,7 +4101,7 @@ function AuthedApp() {
     <>
       {focusStartBook && (
         <Suspense fallback={<OverlayFallback />}>
-          <FocusStartSheet onStart={startFocusRun} onClose={() => setFocusStartBook(null)} />
+          <FocusStartSheet onStart={startFocusRun} onClose={() => setFocusStartBook(null)} initialUntil={!!focusStartBook.focusUntil} />
         </Suspense>
       )}
       {focusRun && (

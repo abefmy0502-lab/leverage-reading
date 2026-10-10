@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 import {
   startFocus, elapsedSeconds, remainingSeconds, isTimerDone, timerProgress, pauseFocus, resumeFocus, continueAsCount,
   displayMinutes, sessionRow, todaySeconds, secondsWithin, dayRange, totalSeconds, fmtDuration, shareReadingNote, localDay,
-  saveFocusState, loadFocusState, loadFocusPrefs, saveFocusPrefs, MIN_SESSION_SEC, MAX_SESSION_SEC, STALE_MS,
+  saveFocusState, loadFocusState, loadFocusPrefs, saveFocusPrefs, defaultUntilTime, untilToMs, checkUntil, fmtClock, MIN_SESSION_SEC, MAX_SESSION_SEC, STALE_MS,
 } from './readingTime';
 
 const MIN = 60 * 1000;
@@ -115,9 +115,11 @@ describe('端末に覚える', () => {
   });
   it('前回の選び方（はじめては タイマー 30 分）', () => {
     const store = memStore();
-    expect(loadFocusPrefs(store)).toEqual({ mode: 'timer', minutes: 30, remembered: false });
+    expect(loadFocusPrefs(store)).toEqual({ mode: 'timer', minutes: 30, until: false, remembered: false });
     saveFocusPrefs({ mode: 'count', minutes: 45 }, store);
-    expect(loadFocusPrefs(store)).toEqual({ mode: 'count', minutes: 45, remembered: true });
+    expect(loadFocusPrefs(store)).toEqual({ mode: 'count', minutes: 45, until: false, remembered: true });
+    saveFocusPrefs({ mode: 'timer', minutes: 30, until: true }, store);
+    expect(loadFocusPrefs(store)).toEqual({ mode: 'timer', minutes: 30, until: true, remembered: true });
   });
 });
 
@@ -178,5 +180,49 @@ describe('12 時間より前の途中の状態（2026-10-10）', () => {
     loadFocusState(T0 + STALE_MS + 1, store, { onStale: (r) => got.push(r) });
     expect(got[1].seconds).toBe(15 * 60);
     expect(Date.parse(got[1].ended_at) - T0).toBe(25 * MIN);
+  });
+});
+
+describe('「◯時◯分まで」（2026-10-10）', () => {
+  const at = (h, m, d = 9) => new Date(2026, 9, d, h, m, 0).getTime();
+  it('既定は いま＋20 分を 5 分に切り上げ', () => {
+    expect(defaultUntilTime(at(18, 23))).toBe('18:45');
+    expect(defaultUntilTime(at(18, 25))).toBe('18:45');
+    expect(defaultUntilTime(at(23, 50))).toBe('00:10');
+    expect(fmtClock(at(9, 5))).toBe('09:05');
+  });
+  it('日付をまたぐ: 23:50 → 00:20 は 30 分', () => {
+    const now = at(23, 50);
+    expect(untilToMs('00:20', now)).toBe(at(0, 20, 10));
+    expect(checkUntil('00:20', now)).toEqual({ ok: true, untilMs: at(0, 20, 10), minutes: 30 });
+  });
+  it('残りの分は切り上げ', () => {
+    const now = at(18, 23) + 30 * 1000; // 18:23:30
+    expect(checkUntil('18:45', now).minutes).toBe(22);
+  });
+  it('いまより前・いまの分は past', () => {
+    expect(checkUntil('17:30', at(18, 0)).error).toBe('past');
+    expect(checkUntil('18:00', at(18, 0)).error).toBe('past');
+    expect(checkUntil('18:00', at(18, 0) - 30 * 1000).error).toBe('past');
+  });
+  it('6 時間を超えるのは tooLong・ちょうど 6 時間は ok', () => {
+    expect(checkUntil('01:00', at(18, 0)).error).toBe('tooLong');
+    expect(checkUntil('00:00', at(18, 0))).toMatchObject({ ok: true, minutes: 360 });
+  });
+  it('空・壊れた値は empty', () => {
+    expect(checkUntil('', at(18, 0)).error).toBe('empty');
+    expect(checkUntil('25:00', at(18, 0)).error).toBe('empty');
+    expect(untilToMs('ab', at(18, 0))).toBeNull();
+  });
+  it('時刻まで のタイマー: 長さはその時刻まで・記録はタイマー', () => {
+    const now = at(18, 23) + 30 * 1000;
+    const s = startFocus({ bookId: 'b1', mode: 'timer', untilMs: at(18, 45) }, now);
+    expect(s.mode).toBe('timer');
+    expect(s.durationSec).toBe(21 * 60 + 30);
+    expect(s.until).toBe(at(18, 45));
+    expect(displayMinutes(s, now)).toEqual({ hours: 0, minutes: 22 });
+    expect(sessionRow(s, at(18, 45)).mode).toBe('timer');
+    // 6 時間で止める
+    expect(startFocus({ bookId: 'b1', mode: 'timer', untilMs: now + 9 * 3600 * 1000 }, now).durationSec).toBe(MAX_SESSION_SEC);
   });
 });

@@ -28,7 +28,7 @@ import { withPhraseBreaks } from './TightBubble';
 import { track, EVENTS, minutesBucket } from '../lib/analytics';
 import {
   displayMinutes, timerProgress, isTimerDone, pauseFocus, resumeFocus, continueAsCount,
-  sessionRow, saveFocusState, readFocusState, todaySeconds, totalSeconds, fmtDuration,
+  sessionRow, saveFocusState, readFocusState, todaySeconds, totalSeconds, fmtDuration, fmtClock,
 } from '../lib/readingTime';
 
 export const HOLD_MS = 1000;
@@ -302,7 +302,8 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
   const progress = isTimer ? timerProgress(s, now) : 0;
   const caption = phase === 'timerDone' ? '読みました' : paused ? '一時停止中' : isTimer ? '残り' : '経過';
   // 読み上げ（分が変わったときだけ・aria-live は付けない＝毎分読み上げない）。
-  const spoken = `${caption} ${hours ? `${hours} 時間 ` : ''}${minutes} 分`;
+  const untilLabel = isTimer && phase === 'running' && Number.isFinite(s?.until) ? `${fmtClock(s.until)} まで` : null;
+  const spoken = `${caption} ${hours ? `${hours} 時間 ` : ''}${minutes} 分${untilLabel ? `・${untilLabel}` : ''}`;
 
   // メモを書くシートも暗いまま（明るい画面の設定でも・tokens.css の .focus-dark-scope）。
   const memoSheet = memoOpen && (
@@ -397,6 +398,10 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
             <div role="timer" aria-label={spoken} style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-3)' }}>
               <span aria-hidden="true" style={{ fontSize: 'var(--text-meta)', color: paused ? 'var(--focus-ink-2)' : 'var(--focus-ink-3)', letterSpacing: '0.12em' }}>{caption}</span>
               <span aria-hidden="true"><BigTime hours={hours} minutes={minutes} dim={paused} /></span>
+              {/* 「◯時◯分まで」で始めたタイマーは、数字の下におわる時刻を小さく（2026-10-10）。 */}
+              {untilLabel && (
+                <span aria-hidden="true" style={{ fontSize: 'var(--text-meta)', color: 'var(--focus-ink-3)', letterSpacing: '0.08em', fontVariantNumeric: 'tabular-nums' }}>{untilLabel}</span>
+              )}
             </div>
           </div>
         </main>
