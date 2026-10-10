@@ -315,6 +315,12 @@ create table if not exists public.book_collections (
   collection_name text not null,
   created_at    timestamptz not null default now()
 );
+-- （まとめが自動で足した: 前からある表に足りない列を足す）
+ALTER TABLE public.book_collections ADD COLUMN IF NOT EXISTS id uuid default gen_random_uuid();
+ALTER TABLE public.book_collections ADD COLUMN IF NOT EXISTS book_id uuid references public.books(id) on delete cascade;
+ALTER TABLE public.book_collections ADD COLUMN IF NOT EXISTS user_id uuid references auth.users(id) on delete cascade;
+ALTER TABLE public.book_collections ADD COLUMN IF NOT EXISTS collection_name text;
+ALTER TABLE public.book_collections ADD COLUMN IF NOT EXISTS created_at timestamptz not null default now();
 
 -- 同じ本に同じフォルダ名を二重登録しない。
 create unique index if not exists book_collections_unique
@@ -369,6 +375,13 @@ CREATE TABLE IF NOT EXISTS public.chat_messages (
   refs        jsonb,
   created_at  timestamptz NOT NULL DEFAULT now()
 );
+-- （まとめが自動で足した: 前からある表に足りない列を足す）
+ALTER TABLE public.chat_messages ADD COLUMN IF NOT EXISTS id uuid DEFAULT gen_random_uuid();
+ALTER TABLE public.chat_messages ADD COLUMN IF NOT EXISTS user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public.chat_messages ADD COLUMN IF NOT EXISTS role text CHECK (role IN ('user', 'assistant'));
+ALTER TABLE public.chat_messages ADD COLUMN IF NOT EXISTS content text;
+ALTER TABLE public.chat_messages ADD COLUMN IF NOT EXISTS refs jsonb;
+ALTER TABLE public.chat_messages ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
 
 CREATE INDEX IF NOT EXISTS chat_messages_user_id_idx
   ON public.chat_messages(user_id, created_at DESC);
@@ -546,6 +559,14 @@ CREATE TABLE IF NOT EXISTS public.advisor_sessions (
   created_at        timestamptz NOT NULL DEFAULT now(),
   updated_at        timestamptz NOT NULL DEFAULT now()
 );
+-- （まとめが自動で足した: 前からある表に足りない列を足す）
+ALTER TABLE public.advisor_sessions ADD COLUMN IF NOT EXISTS id uuid DEFAULT gen_random_uuid();
+ALTER TABLE public.advisor_sessions ADD COLUMN IF NOT EXISTS user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public.advisor_sessions ADD COLUMN IF NOT EXISTS messages jsonb NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE public.advisor_sessions ADD COLUMN IF NOT EXISTS recommended_books jsonb NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE public.advisor_sessions ADD COLUMN IF NOT EXISTS added_book_ids uuid[] NOT NULL DEFAULT '{}';
+ALTER TABLE public.advisor_sessions ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
+ALTER TABLE public.advisor_sessions ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
 
 CREATE INDEX IF NOT EXISTS advisor_sessions_user_idx
   ON public.advisor_sessions(user_id, created_at DESC);
@@ -597,6 +618,13 @@ create table if not exists public.theme_reports (
   generated_at  timestamptz not null default now(),
   updated_at    timestamptz not null default now()
 );
+-- （まとめが自動で足した: 前からある表に足りない列を足す）
+ALTER TABLE public.theme_reports ADD COLUMN IF NOT EXISTS id uuid default gen_random_uuid();
+ALTER TABLE public.theme_reports ADD COLUMN IF NOT EXISTS user_id uuid references auth.users(id) on delete cascade;
+ALTER TABLE public.theme_reports ADD COLUMN IF NOT EXISTS theme text;
+ALTER TABLE public.theme_reports ADD COLUMN IF NOT EXISTS content text;
+ALTER TABLE public.theme_reports ADD COLUMN IF NOT EXISTS generated_at timestamptz not null default now();
+ALTER TABLE public.theme_reports ADD COLUMN IF NOT EXISTS updated_at timestamptz not null default now();
 
 -- 履歴一覧（新しい順）用のインデックス。
 create index if not exists theme_reports_user_idx
@@ -646,6 +674,15 @@ create table if not exists public.reading_sessions (
   mode text not null,
   created_at timestamptz not null default now()
 );
+-- （まとめが自動で足した: 前からある表に足りない列を足す）
+ALTER TABLE public.reading_sessions ADD COLUMN IF NOT EXISTS id uuid default gen_random_uuid();
+ALTER TABLE public.reading_sessions ADD COLUMN IF NOT EXISTS user_id uuid not null default auth.uid() references auth.users(id) on delete cascade;
+ALTER TABLE public.reading_sessions ADD COLUMN IF NOT EXISTS book_id uuid references public.books(id) on delete cascade;
+ALTER TABLE public.reading_sessions ADD COLUMN IF NOT EXISTS started_at timestamptz;
+ALTER TABLE public.reading_sessions ADD COLUMN IF NOT EXISTS ended_at timestamptz;
+ALTER TABLE public.reading_sessions ADD COLUMN IF NOT EXISTS seconds integer;
+ALTER TABLE public.reading_sessions ADD COLUMN IF NOT EXISTS mode text;
+ALTER TABLE public.reading_sessions ADD COLUMN IF NOT EXISTS created_at timestamptz not null default now();
 
 -- 値の決まり（制約名で冪等に足す）。1 回は 6 時間まで（アプリも 6 時間で止める）。
 do $$
@@ -934,6 +971,20 @@ CREATE TABLE IF NOT EXISTS public.push_subscriptions (
   updated_at     timestamptz NOT NULL DEFAULT now(),
   UNIQUE (user_id, endpoint)                            -- 同一端末の重複登録防止 + upsert キー
 );
+-- （まとめが自動で足した: 前からある表に足りない列を足す）
+ALTER TABLE public.push_subscriptions ADD COLUMN IF NOT EXISTS id uuid DEFAULT gen_random_uuid();
+ALTER TABLE public.push_subscriptions ADD COLUMN IF NOT EXISTS user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public.push_subscriptions ADD COLUMN IF NOT EXISTS endpoint text;
+ALTER TABLE public.push_subscriptions ADD COLUMN IF NOT EXISTS p256dh text;
+ALTER TABLE public.push_subscriptions ADD COLUMN IF NOT EXISTS auth text;
+ALTER TABLE public.push_subscriptions ADD COLUMN IF NOT EXISTS enabled boolean NOT NULL DEFAULT true;
+ALTER TABLE public.push_subscriptions ADD COLUMN IF NOT EXISTS frequency text NOT NULL DEFAULT 'weekly';
+ALTER TABLE public.push_subscriptions ADD COLUMN IF NOT EXISTS preferred_hour smallint NOT NULL DEFAULT 8;
+ALTER TABLE public.push_subscriptions ADD COLUMN IF NOT EXISTS tz_offset_min smallint NOT NULL DEFAULT 540;
+ALTER TABLE public.push_subscriptions ADD COLUMN IF NOT EXISTS last_sent_at timestamptz;
+ALTER TABLE public.push_subscriptions ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
+ALTER TABLE public.push_subscriptions ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
+CREATE UNIQUE INDEX IF NOT EXISTS push_subscriptions_user_id_endpoint_bundle_uq ON public.push_subscriptions (user_id, endpoint);
 
 CREATE INDEX IF NOT EXISTS push_subscriptions_user_idx
   ON public.push_subscriptions (user_id);
@@ -1085,6 +1136,15 @@ CREATE TABLE IF NOT EXISTS public.subscriptions (
   created_at             timestamptz NOT NULL DEFAULT now(),
   updated_at             timestamptz NOT NULL DEFAULT now()
 );
+-- （まとめが自動で足した: 前からある表に足りない列を足す）
+ALTER TABLE public.subscriptions ADD COLUMN IF NOT EXISTS user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public.subscriptions ADD COLUMN IF NOT EXISTS stripe_customer_id text;
+ALTER TABLE public.subscriptions ADD COLUMN IF NOT EXISTS stripe_subscription_id text;
+ALTER TABLE public.subscriptions ADD COLUMN IF NOT EXISTS status text;
+ALTER TABLE public.subscriptions ADD COLUMN IF NOT EXISTS price_id text;
+ALTER TABLE public.subscriptions ADD COLUMN IF NOT EXISTS current_period_end timestamptz;
+ALTER TABLE public.subscriptions ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
+ALTER TABLE public.subscriptions ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
 
 -- Webhook は customer / subscription id から行を引くことがあるので index を張る。
 CREATE INDEX IF NOT EXISTS subscriptions_customer_idx
@@ -1199,6 +1259,10 @@ create table if not exists public.stripe_events (
   type       text,
   created_at timestamptz not null default now()
 );
+-- （まとめが自動で足した: 前からある表に足りない列を足す）
+ALTER TABLE public.stripe_events ADD COLUMN IF NOT EXISTS event_id text;
+ALTER TABLE public.stripe_events ADD COLUMN IF NOT EXISTS type text;
+ALTER TABLE public.stripe_events ADD COLUMN IF NOT EXISTS created_at timestamptz not null default now();
 
 alter table public.stripe_events enable row level security;
 -- ポリシー無し＝ authenticated/anon は不可。service_role のみ（RLS バイパス）が書く。
@@ -1227,6 +1291,10 @@ create table if not exists public.revenuecat_events (
   type       text,
   created_at timestamptz not null default now()
 );
+-- （まとめが自動で足した: 前からある表に足りない列を足す）
+ALTER TABLE public.revenuecat_events ADD COLUMN IF NOT EXISTS event_id text;
+ALTER TABLE public.revenuecat_events ADD COLUMN IF NOT EXISTS type text;
+ALTER TABLE public.revenuecat_events ADD COLUMN IF NOT EXISTS created_at timestamptz not null default now();
 
 alter table public.revenuecat_events enable row level security;
 -- ポリシー無し＝ authenticated/anon は不可。service_role のみ（RLS バイパス）が書く。
@@ -1275,6 +1343,20 @@ create table if not exists public.subscription_events (
   event_at            timestamptz not null default now(),  -- 出来事の時刻（RevenueCat event_timestamp_ms / Stripe event.created）
   created_at          timestamptz not null default now()
 );
+-- （まとめが自動で足した: 前からある表に足りない列を足す）
+ALTER TABLE public.subscription_events ADD COLUMN IF NOT EXISTS id uuid default gen_random_uuid();
+ALTER TABLE public.subscription_events ADD COLUMN IF NOT EXISTS user_id uuid references auth.users(id) on delete cascade;
+ALTER TABLE public.subscription_events ADD COLUMN IF NOT EXISTS provider text check (provider in ('revenuecat', 'stripe', 'backfill'));
+ALTER TABLE public.subscription_events ADD COLUMN IF NOT EXISTS source_event_id text;
+ALTER TABLE public.subscription_events ADD COLUMN IF NOT EXISTS event_type text;
+ALTER TABLE public.subscription_events ADD COLUMN IF NOT EXISTS status text;
+ALTER TABLE public.subscription_events ADD COLUMN IF NOT EXISTS period_type text check (period_type is null or period_type in ('trial', 'intro', 'normal'));
+ALTER TABLE public.subscription_events ADD COLUMN IF NOT EXISTS product_id text;
+ALTER TABLE public.subscription_events ADD COLUMN IF NOT EXISTS store text;
+ALTER TABLE public.subscription_events ADD COLUMN IF NOT EXISTS environment text;
+ALTER TABLE public.subscription_events ADD COLUMN IF NOT EXISTS is_trial_conversion boolean;
+ALTER TABLE public.subscription_events ADD COLUMN IF NOT EXISTS event_at timestamptz not null default now();
+ALTER TABLE public.subscription_events ADD COLUMN IF NOT EXISTS created_at timestamptz not null default now();
 
 create unique index if not exists subscription_events_source_uidx
   on public.subscription_events (provider, source_event_id)
@@ -1370,6 +1452,11 @@ CREATE TABLE IF NOT EXISTS public.ai_usage (
   updated_at   timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (user_id, period_month)
 );
+-- （まとめが自動で足した: 前からある表に足りない列を足す）
+ALTER TABLE public.ai_usage ADD COLUMN IF NOT EXISTS user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public.ai_usage ADD COLUMN IF NOT EXISTS period_month text;
+ALTER TABLE public.ai_usage ADD COLUMN IF NOT EXISTS calls integer NOT NULL DEFAULT 0;
+ALTER TABLE public.ai_usage ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
 
 -- 当月分の絞り込みを速くする（period_month 単位の集計・掃除に使う）。
 CREATE INDEX IF NOT EXISTS ai_usage_period_idx
@@ -1538,6 +1625,10 @@ create table if not exists public.ai_rate_limits (
   calls        integer not null default 0,
   primary key (user_id, window_start)
 );
+-- （まとめが自動で足した: 前からある表に足りない列を足す）
+ALTER TABLE public.ai_rate_limits ADD COLUMN IF NOT EXISTS user_id uuid;
+ALTER TABLE public.ai_rate_limits ADD COLUMN IF NOT EXISTS window_start timestamptz;
+ALTER TABLE public.ai_rate_limits ADD COLUMN IF NOT EXISTS calls integer not null default 0;
 
 alter table public.ai_rate_limits enable row level security;
 -- クライアントからの直接アクセスは一切不可（RPC/service_role のみ）。ポリシー無し
@@ -1716,6 +1807,18 @@ create table if not exists public.ai_token_lots (
   constraint ai_token_lots_left_le_total check (tokens_left <= tokens_total),
   constraint ai_token_lots_expiry_le_180d check (expires_at <= purchased_at + interval '180 days')
 );
+-- （まとめが自動で足した: 前からある表に足りない列を足す）
+ALTER TABLE public.ai_token_lots ADD COLUMN IF NOT EXISTS id uuid default gen_random_uuid();
+ALTER TABLE public.ai_token_lots ADD COLUMN IF NOT EXISTS user_id uuid references auth.users(id) on delete cascade;
+ALTER TABLE public.ai_token_lots ADD COLUMN IF NOT EXISTS tokens_total integer check (tokens_total > 0);
+ALTER TABLE public.ai_token_lots ADD COLUMN IF NOT EXISTS tokens_left integer check (tokens_left >= 0);
+ALTER TABLE public.ai_token_lots ADD COLUMN IF NOT EXISTS source text not null default 'iap' check (source in ('iap'));
+ALTER TABLE public.ai_token_lots ADD COLUMN IF NOT EXISTS transaction_id text;
+ALTER TABLE public.ai_token_lots ADD COLUMN IF NOT EXISTS product_id text;
+ALTER TABLE public.ai_token_lots ADD COLUMN IF NOT EXISTS environment text not null default 'production' check (environment in ('production', 'sandbox'));
+ALTER TABLE public.ai_token_lots ADD COLUMN IF NOT EXISTS purchased_at timestamptz not null default now();
+ALTER TABLE public.ai_token_lots ADD COLUMN IF NOT EXISTS expires_at timestamptz;
+ALTER TABLE public.ai_token_lots ADD COLUMN IF NOT EXISTS created_at timestamptz not null default now();
 
 create index if not exists ai_token_lots_user_active_idx
   on public.ai_token_lots (user_id, expires_at)
@@ -1890,6 +1993,12 @@ CREATE TABLE IF NOT EXISTS public.analytics_events (
   props       jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at  timestamptz NOT NULL DEFAULT now()
 );
+-- （まとめが自動で足した: 前からある表に足りない列を足す）
+ALTER TABLE public.analytics_events ADD COLUMN IF NOT EXISTS id uuid DEFAULT gen_random_uuid();
+ALTER TABLE public.analytics_events ADD COLUMN IF NOT EXISTS user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public.analytics_events ADD COLUMN IF NOT EXISTS event text;
+ALTER TABLE public.analytics_events ADD COLUMN IF NOT EXISTS props jsonb NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE public.analytics_events ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
 
 -- 集計は「イベント名 × 期間」と「ユーザー × 期間」が主。2 本の複合 index で両方をカバー。
 CREATE INDEX IF NOT EXISTS analytics_events_event_idx
@@ -1942,6 +2051,17 @@ create table if not exists public.feedback (
   status      text default 'open' check (status in ('open', 'in_progress', 'resolved', 'wont_fix')),
   admin_note  text
 );
+-- （まとめが自動で足した: 前からある表に足りない列を足す）
+ALTER TABLE public.feedback ADD COLUMN IF NOT EXISTS id uuid default gen_random_uuid();
+ALTER TABLE public.feedback ADD COLUMN IF NOT EXISTS user_id uuid references auth.users(id) on delete set null;
+ALTER TABLE public.feedback ADD COLUMN IF NOT EXISTS category text check (category in ('bug', 'feature', 'ui', 'question', 'thanks', 'other'));
+ALTER TABLE public.feedback ADD COLUMN IF NOT EXISTS content text;
+ALTER TABLE public.feedback ADD COLUMN IF NOT EXISTS name text;
+ALTER TABLE public.feedback ADD COLUMN IF NOT EXISTS email text;
+ALTER TABLE public.feedback ADD COLUMN IF NOT EXISTS user_agent text;
+ALTER TABLE public.feedback ADD COLUMN IF NOT EXISTS created_at timestamptz not null default now();
+ALTER TABLE public.feedback ADD COLUMN IF NOT EXISTS status text default 'open' check (status in ('open', 'in_progress', 'resolved', 'wont_fix'));
+ALTER TABLE public.feedback ADD COLUMN IF NOT EXISTS admin_note text;
 
 create index if not exists feedback_user_id_idx on public.feedback (user_id);
 create index if not exists feedback_created_idx on public.feedback (created_at desc);
@@ -2093,6 +2213,12 @@ CREATE TABLE IF NOT EXISTS public.account_deletion_requests (
   requested_at  timestamptz NOT NULL DEFAULT now(),
   notes         text
 );
+-- （まとめが自動で足した: 前からある表に足りない列を足す）
+ALTER TABLE public.account_deletion_requests ADD COLUMN IF NOT EXISTS id uuid DEFAULT gen_random_uuid();
+ALTER TABLE public.account_deletion_requests ADD COLUMN IF NOT EXISTS user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public.account_deletion_requests ADD COLUMN IF NOT EXISTS user_email text;
+ALTER TABLE public.account_deletion_requests ADD COLUMN IF NOT EXISTS requested_at timestamptz NOT NULL DEFAULT now();
+ALTER TABLE public.account_deletion_requests ADD COLUMN IF NOT EXISTS notes text;
 
 CREATE INDEX IF NOT EXISTS account_deletion_requests_user_id_idx
   ON public.account_deletion_requests(user_id);
@@ -2246,6 +2372,18 @@ create table if not exists public.lp_events (
   utm_medium text check (char_length(utm_medium) <= 64),
   utm_campaign text check (char_length(utm_campaign) <= 64)
 );
+-- （まとめが自動で足した: 前からある表に足りない列を足す）
+ALTER TABLE public.lp_events ADD COLUMN IF NOT EXISTS id bigint generated always as identity;
+ALTER TABLE public.lp_events ADD COLUMN IF NOT EXISTS created_at timestamptz not null default now();
+ALTER TABLE public.lp_events ADD COLUMN IF NOT EXISTS session_id text check (char_length(session_id) between 8 and 40);
+ALTER TABLE public.lp_events ADD COLUMN IF NOT EXISTS event text;
+ALTER TABLE public.lp_events ADD COLUMN IF NOT EXISTS variant text check (variant in ('3d', 'photo'));
+ALTER TABLE public.lp_events ADD COLUMN IF NOT EXISTS props jsonb not null default '{}'::jsonb check (pg_column_size(props) < 1024);
+ALTER TABLE public.lp_events ADD COLUMN IF NOT EXISTS device text check (device in ('mobile', 'desktop'));
+ALTER TABLE public.lp_events ADD COLUMN IF NOT EXISTS ref_host text check (char_length(ref_host) <= 100);
+ALTER TABLE public.lp_events ADD COLUMN IF NOT EXISTS utm_source text check (char_length(utm_source) <= 64);
+ALTER TABLE public.lp_events ADD COLUMN IF NOT EXISTS utm_medium text check (char_length(utm_medium) <= 64);
+ALTER TABLE public.lp_events ADD COLUMN IF NOT EXISTS utm_campaign text check (char_length(utm_campaign) <= 64);
 
 create index if not exists lp_events_created_idx on public.lp_events (created_at desc);
 create index if not exists lp_events_event_idx on public.lp_events (event, created_at desc);
@@ -2296,6 +2434,15 @@ create table if not exists public.lp_waitlist (
   utm_campaign text check (char_length(utm_campaign) <= 64),
   notified_at timestamptz -- 公開のお知らせを送った日時（送ったら管理者が入れる。null＝まだ）
 );
+-- （まとめが自動で足した: 前からある表に足りない列を足す）
+ALTER TABLE public.lp_waitlist ADD COLUMN IF NOT EXISTS id bigint generated always as identity;
+ALTER TABLE public.lp_waitlist ADD COLUMN IF NOT EXISTS created_at timestamptz not null default now();
+ALTER TABLE public.lp_waitlist ADD COLUMN IF NOT EXISTS email text check (char_length(email) between 6 and 254 and email = lower(email) and position('@' in email) > 1);
+ALTER TABLE public.lp_waitlist ADD COLUMN IF NOT EXISTS variant text check (variant in ('3d', 'photo'));
+ALTER TABLE public.lp_waitlist ADD COLUMN IF NOT EXISTS utm_source text check (char_length(utm_source) <= 64);
+ALTER TABLE public.lp_waitlist ADD COLUMN IF NOT EXISTS utm_medium text check (char_length(utm_medium) <= 64);
+ALTER TABLE public.lp_waitlist ADD COLUMN IF NOT EXISTS utm_campaign text check (char_length(utm_campaign) <= 64);
+ALTER TABLE public.lp_waitlist ADD COLUMN IF NOT EXISTS notified_at timestamptz;
 
 create unique index if not exists lp_waitlist_email_key on public.lp_waitlist (email);
 create index if not exists lp_waitlist_created_idx on public.lp_waitlist (created_at desc);
@@ -2565,6 +2712,9 @@ create table if not exists public.app_admins (
   user_id    uuid primary key references auth.users(id) on delete cascade,
   created_at timestamptz not null default now()
 );
+-- （まとめが自動で足した: 前からある表に足りない列を足す）
+ALTER TABLE public.app_admins ADD COLUMN IF NOT EXISTS user_id uuid references auth.users(id) on delete cascade;
+ALTER TABLE public.app_admins ADD COLUMN IF NOT EXISTS created_at timestamptz not null default now();
 -- RLS 有効＋ポリシー無し＝クライアントからは直接読めない（is_app_admin 経由のみ）。
 alter table public.app_admins enable row level security;
 
@@ -2833,6 +2983,12 @@ create table if not exists public.ops_goals (
   deadline   date,
   updated_at timestamptz not null default now()
 );
+-- （まとめが自動で足した: 前からある表に足りない列を足す）
+ALTER TABLE public.ops_goals ADD COLUMN IF NOT EXISTS user_id uuid references auth.users(id) on delete cascade;
+ALTER TABLE public.ops_goals ADD COLUMN IF NOT EXISTS metric text not null default 'mrr' check (metric in ('mrr', 'paid_users', 'users', 'gross_profit'));
+ALTER TABLE public.ops_goals ADD COLUMN IF NOT EXISTS target numeric not null default 0;
+ALTER TABLE public.ops_goals ADD COLUMN IF NOT EXISTS deadline date;
+ALTER TABLE public.ops_goals ADD COLUMN IF NOT EXISTS updated_at timestamptz not null default now();
 alter table public.ops_goals enable row level security;
 -- 既存DB向け: metric の許容値に gross_profit（月次粗利）を追加（冪等）。
 alter table public.ops_goals drop constraint if exists ops_goals_metric_check;
@@ -2851,6 +3007,16 @@ create table if not exists public.ops_tickets (
   created_at         timestamptz not null default now(),
   updated_at         timestamptz not null default now()
 );
+-- （まとめが自動で足した: 前からある表に足りない列を足す）
+ALTER TABLE public.ops_tickets ADD COLUMN IF NOT EXISTS id uuid default gen_random_uuid();
+ALTER TABLE public.ops_tickets ADD COLUMN IF NOT EXISTS title text;
+ALTER TABLE public.ops_tickets ADD COLUMN IF NOT EXISTS body text;
+ALTER TABLE public.ops_tickets ADD COLUMN IF NOT EXISTS kind text not null default 'task' check (kind in ('bug', 'feature', 'task'));
+ALTER TABLE public.ops_tickets ADD COLUMN IF NOT EXISTS priority int not null default 2;
+ALTER TABLE public.ops_tickets ADD COLUMN IF NOT EXISTS status text not null default 'open' check (status in ('open', 'in_progress', 'done', 'wont_fix'));
+ALTER TABLE public.ops_tickets ADD COLUMN IF NOT EXISTS source_feedback_id uuid references public.feedback(id) on delete set null;
+ALTER TABLE public.ops_tickets ADD COLUMN IF NOT EXISTS created_at timestamptz not null default now();
+ALTER TABLE public.ops_tickets ADD COLUMN IF NOT EXISTS updated_at timestamptz not null default now();
 alter table public.ops_tickets enable row level security;
 create index if not exists ops_tickets_status_idx on public.ops_tickets(status, priority, created_at desc);
 
@@ -3244,6 +3410,14 @@ create table if not exists public.ops_tasks (
   done       boolean not null default false,
   created_at timestamptz not null default now()
 );
+-- （まとめが自動で足した: 前からある表に足りない列を足す）
+ALTER TABLE public.ops_tasks ADD COLUMN IF NOT EXISTS id uuid default gen_random_uuid();
+ALTER TABLE public.ops_tasks ADD COLUMN IF NOT EXISTS user_id uuid not null default auth.uid() references auth.users(id) on delete cascade;
+ALTER TABLE public.ops_tasks ADD COLUMN IF NOT EXISTS due_date date;
+ALTER TABLE public.ops_tasks ADD COLUMN IF NOT EXISTS dept text;
+ALTER TABLE public.ops_tasks ADD COLUMN IF NOT EXISTS title text;
+ALTER TABLE public.ops_tasks ADD COLUMN IF NOT EXISTS done boolean not null default false;
+ALTER TABLE public.ops_tasks ADD COLUMN IF NOT EXISTS created_at timestamptz not null default now();
 create index if not exists ops_tasks_user_date_idx on public.ops_tasks(user_id, due_date);
 alter table public.ops_tasks alter column user_id set default auth.uid();
 alter table public.ops_tasks enable row level security;
@@ -3312,6 +3486,12 @@ create table if not exists public.ops_advisor_messages (
   content    text not null,
   created_at timestamptz not null default now()
 );
+-- （まとめが自動で足した: 前からある表に足りない列を足す）
+ALTER TABLE public.ops_advisor_messages ADD COLUMN IF NOT EXISTS id uuid default gen_random_uuid();
+ALTER TABLE public.ops_advisor_messages ADD COLUMN IF NOT EXISTS user_id uuid not null default auth.uid() references auth.users(id) on delete cascade;
+ALTER TABLE public.ops_advisor_messages ADD COLUMN IF NOT EXISTS role text check (role in ('user', 'assistant'));
+ALTER TABLE public.ops_advisor_messages ADD COLUMN IF NOT EXISTS content text;
+ALTER TABLE public.ops_advisor_messages ADD COLUMN IF NOT EXISTS created_at timestamptz not null default now();
 -- 既存テーブル向け: user_id を入れずに insert できるよう default を補填（冪等）。
 alter table public.ops_advisor_messages alter column user_id set default auth.uid();
 
@@ -3360,6 +3540,14 @@ create table if not exists public.ops_floor_reports (
   constraint ops_floor_reports_status_len check (status is null or char_length(status) <= 120),
   constraint ops_floor_reports_body_len check (body is null or char_length(body) <= 8000)
 );
+-- （まとめが自動で足した: 前からある表に足りない列を足す）
+ALTER TABLE public.ops_floor_reports ADD COLUMN IF NOT EXISTS id uuid default gen_random_uuid();
+ALTER TABLE public.ops_floor_reports ADD COLUMN IF NOT EXISTS user_id uuid not null default auth.uid() references auth.users(id) on delete cascade;
+ALTER TABLE public.ops_floor_reports ADD COLUMN IF NOT EXISTS member_id text;
+ALTER TABLE public.ops_floor_reports ADD COLUMN IF NOT EXISTS kind text not null default 'report';
+ALTER TABLE public.ops_floor_reports ADD COLUMN IF NOT EXISTS status text;
+ALTER TABLE public.ops_floor_reports ADD COLUMN IF NOT EXISTS body text;
+ALTER TABLE public.ops_floor_reports ADD COLUMN IF NOT EXISTS created_at timestamptz not null default now();
 
 alter table public.ops_floor_reports enable row level security;
 
@@ -3399,6 +3587,19 @@ create table if not exists public.ops_sales_metrics (
   unique (user_id, week_start),
   constraint osm_memo_len check (memo is null or char_length(memo) <= 500)
 );
+-- （まとめが自動で足した: 前からある表に足りない列を足す）
+ALTER TABLE public.ops_sales_metrics ADD COLUMN IF NOT EXISTS id uuid default gen_random_uuid();
+ALTER TABLE public.ops_sales_metrics ADD COLUMN IF NOT EXISTS user_id uuid not null default auth.uid() references auth.users(id) on delete cascade;
+ALTER TABLE public.ops_sales_metrics ADD COLUMN IF NOT EXISTS week_start date;
+ALTER TABLE public.ops_sales_metrics ADD COLUMN IF NOT EXISTS new_paid integer;
+ALTER TABLE public.ops_sales_metrics ADD COLUMN IF NOT EXISTS installs integer;
+ALTER TABLE public.ops_sales_metrics ADD COLUMN IF NOT EXISTS lp_clicks integer;
+ALTER TABLE public.ops_sales_metrics ADD COLUMN IF NOT EXISTS note_pv integer;
+ALTER TABLE public.ops_sales_metrics ADD COLUMN IF NOT EXISTS x_profile_clicks integer;
+ALTER TABLE public.ops_sales_metrics ADD COLUMN IF NOT EXISTS memo text;
+ALTER TABLE public.ops_sales_metrics ADD COLUMN IF NOT EXISTS created_at timestamptz not null default now();
+ALTER TABLE public.ops_sales_metrics ADD COLUMN IF NOT EXISTS updated_at timestamptz not null default now();
+CREATE UNIQUE INDEX IF NOT EXISTS ops_sales_metrics_user_id_week_start_bundle_uq ON public.ops_sales_metrics (user_id, week_start);
 
 alter table public.ops_sales_metrics enable row level security;
 

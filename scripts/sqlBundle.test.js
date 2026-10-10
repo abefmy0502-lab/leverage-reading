@@ -36,3 +36,22 @@ describe('Supabase の SQL のまとめ（supabase_all_in_order.sql）', () => {
     expect(live).not.toMatch(/^\s*truncate\b/im);
   });
 });
+
+describe('前からある表に足りない列を足す', () => {
+  it('列ごとの ADD COLUMN IF NOT EXISTS と UNIQUE の索引を作る（NOT NULL は DEFAULT があるときだけ）', async () => {
+    const { columnBackfill } = await import('./sql-bundle.mjs');
+    const lines = columnBackfill('public.t', `
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id uuid NOT NULL REFERENCES auth.users(id), -- 持ち主
+      enabled boolean NOT NULL DEFAULT true,
+      kind text CHECK (kind in ('a','b')),
+      UNIQUE (user_id, kind)`);
+    expect(lines).toEqual([
+      'ALTER TABLE public.t ADD COLUMN IF NOT EXISTS id uuid DEFAULT gen_random_uuid();',
+      'ALTER TABLE public.t ADD COLUMN IF NOT EXISTS user_id uuid REFERENCES auth.users(id);',
+      'ALTER TABLE public.t ADD COLUMN IF NOT EXISTS enabled boolean NOT NULL DEFAULT true;',
+      "ALTER TABLE public.t ADD COLUMN IF NOT EXISTS kind text CHECK (kind in ('a','b'));",
+      'CREATE UNIQUE INDEX IF NOT EXISTS t_user_id_kind_bundle_uq ON public.t (user_id, kind);',
+    ]);
+  });
+});

@@ -84,6 +84,88 @@ export const EXCLUDED = {
   'supabase_migration_memo_texts.sql': '消した機能の表（流さない）',
 };
 
+// ── 前からある表に足りない列を足す（2026-10-10・本番の push_subscriptions が別の形で前から作られていて
+//   「column "enabled" does not exist」で止まった）。CREATE TABLE IF NOT EXISTS は表があると何もしないので、
+//   そのすぐ後ろに、定義にある列ごとの ADD COLUMN IF NOT EXISTS と、表の UNIQUE(…) の一意の索引を足す。
+//   NOT NULL は DEFAULT があるときだけ残す（既にある行があると付けられない）。PRIMARY KEY・列の UNIQUE は外す。
+const SKIP_FIRST = new Set(['constraint', 'unique', 'primary', 'check', 'foreign', 'exclude', 'like']);
+
+function stripLineComments(sql) {
+  return sql.split('\n').map((l) => {
+    let inStr = false;
+    for (let i = 0; i < l.length; i++) {
+      if (l[i] === "'") inStr = !inStr;
+      else if (!inStr && l[i] === '-' && l[i + 1] === '-') return l.slice(0, i);
+    }
+    return l;
+  }).join('\n');
+}
+
+function splitTopLevel(body) {
+  const parts = []; let depth = 0; let cur = ''; let inStr = false;
+  for (const ch of body) {
+    if (ch === "'") inStr = !inStr;
+    if (!inStr) {
+      if (ch === '(') depth++;
+      else if (ch === ')') depth--;
+      else if (ch === ',' && depth === 0) { parts.push(cur); cur = ''; continue; }
+    }
+    cur += ch;
+  }
+  if (cur.trim()) parts.push(cur);
+  return parts.map((x) => x.replace(/\s+/g, ' ').trim()).filter(Boolean);
+}
+
+export function columnBackfill(table, body) {
+  const out = [];
+  const bare = table.replace(/^.*\./, '').replace(/"/g, '');
+  for (const part of splitTopLevel(stripLineComments(body))) {
+    const first = part.split(' ')[0].toLowerCase();
+    if (first === 'unique') {
+      const m = part.match(/^unique\s*\(([^)]+)\)/i);
+      if (m) {
+        const cols = m[1].split(',').map((c) => c.trim());
+        out.push(`CREATE UNIQUE INDEX IF NOT EXISTS ${bare}_${cols.join('_')}_bundle_uq ON ${table} (${cols.join(', ')});`);
+      }
+      continue;
+    }
+    if (SKIP_FIRST.has(first)) continue;
+    const name = part.split(' ')[0];
+    let def = part.slice(name.length).trim()
+      .replace(/\bprimary key\b/ig, '')
+      .replace(/\bunique\b(?!\s*\()/ig, '');
+    if (!/\bdefault\b/i.test(def)) def = def.replace(/\bnot null\b/ig, '');
+    def = def.replace(/\s+/g, ' ').trim();
+    out.push(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS ${name} ${def};`);
+  }
+  return out;
+}
+
+export function withColumnBackfill(sql) {
+  const re = /create\s+table\s+if\s+not\s+exists\s+([\w."]+)\s*\(/ig;
+  let result = ''; let last = 0; let m;
+  while ((m = re.exec(sql))) {
+    // 閉じかっこを探す（文字列とコメントの中のかっこは数えない）
+    let i = re.lastIndex; let depth = 1; let inStr = false;
+    for (; i < sql.length && depth > 0; i++) {
+      const ch = sql[i];
+      if (!inStr && ch === '-' && sql[i + 1] === '-') { const nl = sql.indexOf('\n', i); i = nl < 0 ? sql.length : nl; continue; }
+      if (ch === "'") inStr = !inStr;
+      else if (!inStr && ch === '(') depth++;
+      else if (!inStr && ch === ')') depth--;
+    }
+    const body = sql.slice(re.lastIndex, i - 1);
+    const semi = sql.indexOf(';', i);
+    if (semi < 0) continue;
+    const lines = columnBackfill(m[1], body);
+    result += sql.slice(last, semi + 1);
+    if (lines.length) result += `\n-- （まとめが自動で足した: 前からある表に足りない列を足す）\n${lines.join('\n')}`;
+    last = semi + 1;
+    re.lastIndex = semi + 1;
+  }
+  return result + sql.slice(last);
+}
+
 export function buildBundle(read = (f) => readFileSync(join(ROOT, f), 'utf8')) {
   const head = [
     '-- ============================================================',
@@ -99,7 +181,7 @@ export function buildBundle(read = (f) => readFileSync(join(ROOT, f), 'utf8')) {
     `-- ############################################################`,
     `-- ${String(i + 1).padStart(2, '0')}. ${f} — ${what}`,
     `-- ############################################################`,
-    read(f).trimEnd(),
+    withColumnBackfill(read(f)).trimEnd(),
     '',
   ].join('\n'));
   return head.join('\n') + parts.join('\n');
