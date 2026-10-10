@@ -971,6 +971,7 @@ const SCREENS = [
   // ── ⏱ 読むのタイマーに「◯時◯分まで」（2026-10-10・ui-shots/focus-until-after/）
   { name: 'focus-until', url: '/?focus=until', steps: [{ wait: 600 }] },
   { name: 'focus-until-past', url: '/?focus=until', steps: [{ wait: 600 }, { eval: "(() => { const i = document.querySelector('#focus-until-time'); const d = new Date(Date.now() - 30 * 60000); const v = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(i, v); i.dispatchEvent(new Event('input', { bubbles: true })); })()" }, { wait: 300 }] },
+  { name: 'focus-until-count', url: '/?focus=until', steps: [{ wait: 600 }, { css: '[role=radiogroup][aria-label="時間の測り方"] [role=radio]:has-text("計測")' }, { wait: 300 }] },
   { name: 'focus-until-run', url: '/?focus=untilrun', steps: [{ wait: 1200 }] },
   { name: 'focus-timer', url: '/?focus=timer', steps: [{ wait: 1200 }] },
   { name: 'focus-count', url: '/?focus=count', steps: [{ wait: 4500 }] },

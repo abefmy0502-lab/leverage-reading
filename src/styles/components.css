@@ -1611,6 +1611,12 @@ details[open] > summary .fold-chevron { transform: rotate(180deg); }
   padding: 0;
   cursor: pointer;
 }
+/* 時刻の欄（TimeInput.jsx）は押している間も重ねた「15:15」を出したまま（端末の「午後3:15」を見せない）。 */
+.time-field:focus-within .date-field__text { display: flex; }
+.time-field .date-field__input,
+.time-field .date-field__input::-webkit-datetime-edit { color: transparent !important; }
+.time-field .date-field__text { font-variant-numeric: tabular-nums; }
+.time-field .date-field__icon { font-size: max(16px, var(--text-body)); }
 .date-field__icon {
   position: absolute;
   top: 0;
