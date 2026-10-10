@@ -20,6 +20,19 @@ import { findStrongMatch, strongTitleMatch, authorMatches } from './_bookVerify.
 import { rakutenGet, rakutenUpscale } from './_rakuten.js';
 import { searchBooksServer, cachedSearch, rememberSearch, normalizeSearchQuery } from './_bookSearch.js';
 import { getBookInfoCached, bookInfoResponse } from './_bookInfo.js';
+import { createClient } from '@supabase/supabase-js';
+import { classifyBookServer, recordFieldVotes } from './_bookFields.js';
+
+// 🏷 本の分野（?fields=1）の覚え書き（book_field_cache）を読み書きする service_role のクライアント。無ければ覚えないだけ。
+let bookFieldsDb = null;
+function getBookFieldsDb() {
+  if (bookFieldsDb) return bookFieldsDb;
+  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+  bookFieldsDb = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+  return bookFieldsDb;
+}
 
 // 🔎 実在の判定（?verify=1）のための「検索元が返した本」の記録。表紙探しの流れの途中で
 //    楽天・NDL・Google が返した本（書名・著者・ISBN）を控え、最後に _bookVerify.js で
@@ -716,6 +729,33 @@ export default async function handler(req, res) {
     const found = !!(data && (data.description || data.toc.length || (data.genreIds || []).length));
     res.setHeader('Cache-Control', !data?.answered ? 'no-store' : found ? 'public, max-age=86400, s-maxage=604800' : 'public, max-age=0, s-maxage=600');
     return res.status(200).json(bookInfoResponse(data || {}));
+  }
+
+  // 🏷 本の分野（?fields=1・2026-10-11・api/_bookFields.js）: 本ごとに 1 回だけ決めて全員で使う。
+  //    { fields: [..], source: 'genre'|'ai'|'keywords'|'none', genreIds, version }。AI に送るのは公開の書誌だけ。
+  if (req.query?.fields) {
+    let data;
+    try {
+      data = await classifyBookServer({ isbn: isbnIn, title, author }, {
+        supabase: getBookFieldsDb(),
+        getInfo: (q) => getBookInfoCached(q, { rakutenGet }),
+        ip: clientKey(req),
+      });
+    } catch (e) {
+      console.warn('[api/cover] fields failed:', e && e.message);
+      data = { fields: [], source: 'none', genreIds: [], version: 0 };
+    }
+    const settled = data.source === 'ai' || data.source === 'genre';
+    res.setHeader('Cache-Control', settled ? 'public, max-age=3600, s-maxage=86400' : 'no-store');
+    return res.status(200).json({ fields: data.fields, source: data.source, genreIds: data.genreIds || [], version: data.version });
+  }
+  // 🏷 自動の分野を選び直した声（?fieldvote=1&add=分野,…&remove=分野,…）。だれかは残さない（本と分野と +1/-1 だけ）。
+  if (req.query?.fieldvote) {
+    const list = (v) => String(Array.isArray(v) ? v[0] : (v || '')).split(',').map((x) => x.trim()).filter(Boolean).slice(0, 3);
+    const votes = [...list(req.query.add).map((field) => ({ field, delta: 1 })), ...list(req.query.remove).map((field) => ({ field, delta: -1 }))];
+    const r = await recordFieldVotes({ isbn: isbnIn, title, author, votes }, { supabase: getBookFieldsDb() });
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(200).json({ ok: !!r.ok });
   }
 
   // 🔎 デバッグ: ?debug=1 で各段階の生の結果を返す（原因切り分け用）。

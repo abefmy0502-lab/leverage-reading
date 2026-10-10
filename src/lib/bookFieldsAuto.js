@@ -17,7 +17,8 @@ const MIGRATED = 'orime.fields.migrated.v1:';
 const LEGACY = 'orime.fields.legacy.v1:';
 // 仕分けの仕組みを変えたら版を上げる＝自動で付けた分野の本を、もう一度だけ決め直す（本人が選んだ本はそのまま）。
 //   v2（2026-10-11）: 「小説家」「文庫完全版」で小説・物語になっていた本（『半径5メートルの野望 完全版』）を直す。
-export const REFINE_VERSION = 2;
+//   v3（2026-10-11）: 分野をサーバーが本ごとに決める形（/api/cover?fields=1・AI）に。自動の分野の本は、サーバーに聞き直す。
+export const REFINE_VERSION = 3;
 const REFINED = `orime.fields.refined.v${REFINE_VERSION}:`;
 
 function store() {

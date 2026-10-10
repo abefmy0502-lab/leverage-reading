@@ -4,6 +4,7 @@
 // 本番と同じ書式（【結論】…REFS_START/END）で答えるので、画面の流れを確かめられる。
 
 import { SEARCH_CATALOG, DEMO_BOOK_INFO, DEMO_GENRES, DEMO_MESSY_RELATED } from './seed';
+import { classifyBookDetailed } from '../../api/_bookFieldsCore.js';
 
 const fakeChapterMode = () => { const a = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('ai') : ''; return a === 'fakechapter' || a === 'fakechapteronly' ? a : ''; };
 const relatedAllBad = () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('related') === 'allbad';
@@ -1001,6 +1002,16 @@ export function installDemoFetch(store) {
       // 見本の本の一覧にある本は「実在する」と答える（AI 選書の実在確認で全部が疑わしく見えないように）。
       const params = (() => { try { return new URL(url, window.location.origin).searchParams; } catch { return new URLSearchParams(); } })();
       const title = params.get('title') || '';
+      // 🏷 本の分野（?fields=1・2026-10-11）: 本番はサーバーが書店のジャンル → AI → 言葉で決める。お試しは見本の紹介文と
+      //   ジャンルを端末と同じ仕分けにかけ、AI で決めたものとして返す。&fieldsrv=down でつながらない（端末の仕分けだけ）。
+      if (params.get('fields') === '1') {
+        if (new URLSearchParams(window.location.search).get('fieldsrv') === 'down') return json({ error: 'unavailable' }, 502);
+        const isbn = params.get('isbn') || '';
+        const base = DEMO_BOOK_INFO[isbn] || {};
+        const r = classifyBookDetailed({ title: params.get('title') || '', description: base.description || '', toc: base.toc || [], genreIds: DEMO_GENRES[isbn] || [] });
+        return json({ fields: r.fields, source: r.fields.length ? 'ai' : 'none', genreIds: DEMO_GENRES[isbn] || [], version: 1 });
+      }
+      if (params.get('fieldvote') === '1') return json({ ok: true });
       // 📖 この本について（?info=1・2026-10-02）: 見本の紹介文と目次。&info=none＝どの本も見つからない／&info=slow＝3 秒待つ。
       if (params.get('info') === '1') {
         const mode = new URLSearchParams(window.location.search).get('info');

@@ -65,6 +65,10 @@ describe('プライバシーポリシー', () => {
     expect(featureForPurpose('book_advisor').sends).toContain('メモの一部');
     expect(t).toMatch(/AI選書:[^→]*メモの一部/);
   });
+  it('本の分野: 公開の書誌だけを AI に送る（メモ・個人情報は送らない）', () => {
+    expect(t).toContain('本の書誌情報(書名・著者・出版社・紹介文・目次・書店のジャンルなどの公開情報)を、分野を決めるためにAI');
+    expect(t).toContain('あなたのメモや個人情報は送りません');
+  });
   it('公開のお知らせのメールアドレス（取得・利用目的・消す時期）', () => {
     expect(t).toContain('公開のお知らせ');
     expect(t).toContain('公開のお知らせにだけ使い');

@@ -7,13 +7,15 @@
 //        分野に結びつくタグ → その分野に置きかえる / 結びつかないタグ → 同じ名前のフォルダへ移してからタグを外す
 //        （フォルダに入れられなかったときはタグのまま残す＝言葉を消さない）
 //   2. 分野が 1 つも無い本に、書名（と端末に控えた紹介文・目次・ジャンル）から分野を付ける（静かに・知らせなし・まとめて）
-//   3. 紹介文・目次・楽天ブックスのジャンル（商品説明）を取ってきて決め直す（2026-10-11 の 2 回目・オーナー
-//      「商品説明の情報からタグの分類をすればいいのでは？」）:
+//   3. サーバーに本の分野を聞いて決め直す（2026-10-11 の 3 回目・オーナー「この本以外の精度が上がるように仕組みを
+//      根本的に修正してね」）。分野は本ごとに 1 回だけサーバーが決めて全員で使う（/api/cover?fields=1＝書店のジャンル →
+//      AI（公開の書誌だけ）→ 言葉の仕分け・lib/bookFieldsServer.js）。サーバーにつながらないときだけ、紹介文・目次・
+//      楽天ブックスのジャンル（商品説明）を取ってきて端末の言葉の仕分けで決める:
 //        - 本を追加した直後（検索・手で入力・取り込み）＝ refineSoon(book)
 //        - 開いたときに、分野が無いか自動の分野の本を 1 回に REFINE_PER_LAUNCH 冊まで
 //        - 本の詳細で紹介文が届いたとき（onBookInfo・取りに行かない）
 //      取りに行くのは REFINE_GAP_MS ずつ空けて 1 冊ずつ（/api/cover は IP ごとに 1 分 30 回まで・控えはサーバー 24 時間
-//      と端末 30 日）。本人が選んだ本・前の版のタグから移した分野は変えない。1 冊 1 回だけ（orime.fields.refined.v2）。
+//      と端末 30 日）。本人が選んだ本・前の版のタグから移した分野は変えない。1 冊 1 回だけ（orime.fields.refined.v3）。
 import { useCallback, useEffect, useRef } from 'react';
 import { isDemo } from '../lib/supabase';
 import { classifyBook, fieldsOf, nonFieldTags, renameOldFields, splitLegacyTags, withFields } from '../lib/bookFields';
@@ -21,6 +23,7 @@ import {
   backupLegacyTags, canAutoFill, canRefine, isMigrated, markFieldStage, markRefined, readFieldStages, readRefined, setMigrated,
 } from '../lib/bookFieldsAuto';
 import { genresFor, hasBookInfo, loadBookInfo, peekBookInfo } from '../lib/bookInfo';
+import { fetchServerFields } from '../lib/bookFieldsServer';
 
 const BACKFILL_MAX = 60; // 1 回に書名から自動で付ける本の数（多い本棚でも通信を詰まらせない）
 export const REFINE_PER_LAUNCH = 5; // 開いたときに紹介文を取ってきて決め直す本の数
@@ -60,6 +63,21 @@ export function useBookFieldsAuto({ userId, books, loading, saveBookTaxonomy, sk
     await live.current.saveBookTaxonomy(cur.id, { tags: withFields(cur.tags, auto) });
   }, [userId]);
 
+  // サーバーが決めた分野で置きかえる（自動の分野の本だけ・本人が選んだ本は canRefine で外れる）。
+  const applyServer = useCallback(async (bookId, server) => {
+    if (!userId) return false;
+    const cur = live.current.books.find((x) => x.id === bookId);
+    if (!cur || cur.id === live.current.skipBookId) return false;
+    const stages = readFieldStages(userId);
+    const have = fieldsOf(cur);
+    if (!canRefine(userId, stages, readRefined(userId), cur, have.length > 0)) return true;
+    markRefined(userId, cur.id);
+    markFieldStage(userId, cur.id, 'info');
+    if (sameFields(server.fields, have)) return true;
+    await live.current.saveBookTaxonomy(cur.id, { tags: withFields(cur.tags, server.fields) });
+    return true;
+  }, [userId]);
+
   const pump = useCallback(async () => {
     const q = queue.current;
     if (q.running) return;
@@ -69,6 +87,15 @@ export function useBookFieldsAuto({ userId, books, loading, saveBookTaxonomy, sk
         const id = q.ids.shift();
         const book = live.current.books.find((x) => x.id === id);
         if (!book) continue;
+        // まずサーバー（本ごとに 1 回決めた分野）。答えがあれば、それで決まり。
+        // eslint-disable-next-line no-await-in-loop
+        const server = await fetchServerFields(book).catch(() => null);
+        // eslint-disable-next-line no-await-in-loop
+        if (server && await applyServer(id, server)) {
+          // eslint-disable-next-line no-await-in-loop
+          if (q.ids.length) await new Promise((r) => setTimeout(r, REFINE_GAP_MS));
+          continue;
+        }
         const known = peekBookInfo(book);
         // eslint-disable-next-line no-await-in-loop
         const info = known !== undefined ? known : await loadBookInfo(book).catch(() => null);
@@ -82,7 +109,7 @@ export function useBookFieldsAuto({ userId, books, loading, saveBookTaxonomy, sk
     } finally {
       q.running = false;
     }
-  }, [applyInfo]);
+  }, [applyInfo, applyServer]);
 
   /** 本を足した直後に、紹介文・ジャンルを取ってきて分野を決め直す（本人が選んだ本は何もしない）。 */
   const refineSoon = useCallback((bookOrBooks) => {
@@ -168,11 +195,13 @@ export function useBookFieldsAuto({ userId, books, loading, saveBookTaxonomy, sk
     return () => { alive = false; ranFor.current = null; };
   }, [userId, loading, books.length > 0]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 本の詳細で紹介文・目次が届いたとき（取りに行かない）
+  // 本の詳細を開いて紹介文・目次が届いたとき: まだ決め直していない自動の分野の本なら、サーバーに聞く（つながらなければ届いた紹介文で）
   const onBookInfo = useCallback(async (book, info) => {
     if (!userId || !book?.id || !info) return;
-    await applyInfo(book.id, info);
-  }, [userId, applyInfo]);
+    const cur = live.current.books.find((x) => x.id === book.id) || book;
+    if (!canRefine(userId, readFieldStages(userId), readRefined(userId), cur, fieldsOf(cur).length > 0)) return;
+    refineSoon(cur);
+  }, [userId, refineSoon]);
 
   return { onBookInfo, refineSoon };
 }

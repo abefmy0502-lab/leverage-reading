@@ -30,6 +30,7 @@ export const ORDER = [
   ['supabase_advisor_sessions.sql', '過去の AI 選書'],
   ['supabase_theme_reports.sql', '（廃止した機能の保存先・書き出し用に残す）'],
   ['supabase_reading_sessions.sql', '読む（集中モード）の読書の時間'],
+  ['supabase_book_field_cache.sql', '本の分野（本ごとに 1 回決めて全員で使う）'],
   // 2. 行動
   ['supabase_actions_full.sql', '行動の期限・繰り返し・ふりかえり'],
   ['supabase_actions_id_default.sql', '行動の id'],

@@ -5,7 +5,8 @@ import { sanitizeForPrompt, invalidateKnowledgeCache, generateBookBrief } from '
 import { markActivation } from './lib/activation';
 import { OPEN_MEMO_EVENT } from './lib/openMemo';
 import { advisorDraftFor, classifyBook, fieldsOf, isBookField, splitLegacyTags, withFields, BOOK_FIELDS } from './lib/bookFields';
-import { markFieldStage } from './lib/bookFieldsAuto';
+import { isAutoChosen, markFieldStage, readFieldStages } from './lib/bookFieldsAuto';
+import { sendFieldVotes } from './lib/bookFieldsServer';
 import { useBookFieldsAuto, infoFeatures } from './hooks/useBookFieldsAuto';
 import { BookFieldLinks } from './components/BookFields';
 import { useAppDataCache } from './state/AppDataCache';
@@ -2280,7 +2281,11 @@ function AuthedApp() {
       const next = saved || payload;
       // 🏷 分野: 本人が選んだ本は、これから自動で付け直さない。自動で選んだまま追加した本は、どこまで見て決めたかを覚える。
       if (saved?.id && user?.id) {
-        if (form.fieldsTouched) markFieldStage(user.id, saved.id, 'user');
+        if (form.fieldsTouched) {
+          // 自動で付いていた分野を選び直した声をサーバーへ（だれかは送らない・本と分野だけ・lib/bookFieldsServer.js）
+          if (current?.id && isAutoChosen(user.id, readFieldStages(user.id), current.id)) sendFieldVotes(current, fieldsOf(current), fieldsOf(form));
+          markFieldStage(user.id, saved.id, 'user');
+        }
         else if (!current) {
           markFieldStage(user.id, saved.id, form.fieldsAutoStage || 'title');
           // 追加した直後に紹介文・楽天ブックスのジャンル（商品説明）を取ってきて決め直す（2026-10-11・本人が選んだら何もしない）
