@@ -253,6 +253,8 @@ want(読みたい) → before(積読) → reading(読書中) → done(読了)
 
 ルートにある `supabase_*.sql` ファイルは Supabase の SQL Editor にコピペで実行する想定。コードに依存があるが Vercel デプロイ時に自動実行はされない。
 
+**オーナーの手順は `docs/sql-runbook.md` だけを見ればよい**（2026-10-10）: すべてを依存の順に 1 本にまとめた `supabase_all_in_order.sql`（`node scripts/sql-bundle.mjs` が作る・手で直さない・何度流しても壊れない＝空の DB に 2 回流して確かめた）を貼って Run → `supabase_verify_rls.sql` で確かめる。新しい SQL を足したら `scripts/sql-bundle.mjs` の `ORDER`（か `EXCLUDED`）に入れて作り直す（`scripts/sqlBundle.test.js` が、入れ忘れ・古いまとめ・依存の順・利用者の行を消す生きた文を確かめる）。`supabase_actions_scheduled.sql` の昔の暴走タスクを消す DELETE は、流し直すと正しい次回分まで消すので 2026-10-10 にコメントにした。
+
 | ファイル | 用途 |
 |---|---|
 | `supabase_migration_memo_texts.sql` | （旧）`book_memos` の text 関連カラム整理 |

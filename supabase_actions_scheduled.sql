@@ -32,9 +32,11 @@ COMMENT ON COLUMN public.actions.scheduled_for IS
 --      AND deadline > current_date
 --    ORDER BY deadline;
 --
--- 削除:
-DELETE FROM public.actions
- WHERE recurrence IS NOT NULL
-   AND done = false
-   AND deadline > current_date
-   AND created_at < (current_date - interval '1 day');
+-- 削除（2026-10-10 にコメントアウト: 今のアプリは次回分を「未来の期限＋scheduled_for」で作るので、
+-- 流し直すと正しい次回分まで消してしまう。旧バージョンの暴走タスクを消したいときだけ、確認してから手で流す）:
+--   DELETE FROM public.actions
+--    WHERE recurrence IS NOT NULL
+--      AND done = false
+--      AND deadline > current_date
+--      AND scheduled_for IS NULL
+--      AND created_at < (current_date - interval '1 day');
