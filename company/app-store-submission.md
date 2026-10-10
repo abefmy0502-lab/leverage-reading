@@ -33,12 +33,14 @@
 1. [App Store Connect](https://appstoreconnect.apple.com) → My Apps → ＋ → New App。
    - Platform: iOS / Name: **Orime** / Primary Language: 日本語 / Bundle ID: `com.leveragereading.app` / SKU: `orime-ios-001`。
 2. **サブスク商品（Auto-Renewable Subscription）を2つ**登録（App内課金 → サブスクリプショングループ「Orime Premium」を作りその中に）:
-   - 月額: Product ID `orime_premium_monthly` / ¥1,480 / 期間1ヶ月
-   - 年額: Product ID `orime_premium_annual` / ¥12,800 / 期間1年
+   - 月額: Product ID `orime_monthly` / ¥1,480 / 期間1ヶ月
+   - 年額: Product ID `orime_annual` / ¥12,800 / 期間1年
    - ローカリゼーション（表示名・説明）を各商品に記入。**審査用に最低1商品をアプリのバイナリと一緒に提出**。
    - ※ **7日間無料トライアル（月額・年額とも・確定オファー）**: 各商品の **Introductory Offer（Free Trial・7日間）** をここで必ず設定する。RevenueCat webhook がダッシュボードの period_type を 'trial' で書く設定と対にする。自前の「返金保証」は謳わない（Apple 一元管理）。
 
 ## 3. RevenueCat 設定（⬜）
+
+> 2026-10-10: 手順は `docs/iap-setup-runbook.md`（契約 → アプリ → 商品 → RevenueCat → Vercel → サンドボックス）を正とする。製品 ID は `orime_monthly` / `orime_annual` / `orime_tokens_300` / `orime_tokens_1000`。
 
 1. RevenueCat ダッシュボードで **iOS アプリ**を追加（Bundle ID 紐付け）。**App Store Connect API Key（.p8）** を RevenueCat に登録（サブスク状態同期に必須）。
 2. **Entitlement** を1つ作成（例 `premium`）。コードは「active な entitlement が1つでもあれば有効」判定なので名称は任意（`src/lib/iap.js` 参照）。
