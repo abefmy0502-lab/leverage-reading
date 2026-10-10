@@ -481,6 +481,20 @@ export function buildSeed(scenario) {
       histN += 1;
     }
   }
+  // &readtime=old（2026-10-10 ui-critic）: どの回も 40 日前へずらす＝今月の記録が無く、これまでだけある人。
+  // &readtime=many: 『嫌われる勇気』のタグを外す＝分類ごとに「ほか（1 分類）」と「タグなし」が出る（これまで）。
+  const readtimeParam = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('readtime') : null;
+  if (readtimeParam === 'old') {
+    const shift = 40 * 24 * 3600 * 1000;
+    db.reading_sessions.forEach((r) => {
+      r.started_at = new Date(Date.parse(r.started_at) - shift).toISOString();
+      r.ended_at = new Date(Date.parse(r.ended_at) - shift).toISOString();
+    });
+  }
+  if (readtimeParam === 'many') {
+    const b = db.books.find((x) => x.title === '嫌われる勇気');
+    if (b) db.book_tags = db.book_tags.filter((t) => t.book_id !== b.id);
+  }
 
   // 過去の相談（「過去の相談」の一覧の確認用）。答えは本番と同じ【結論】…の書式。
   const CHATS = [

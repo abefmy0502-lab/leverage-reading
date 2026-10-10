@@ -157,7 +157,8 @@ export function tagTotals(rows, books, period = 'all', now = Date.now(), { top =
   const totalMinutes = displayMinutesOf(totalSeconds);
   const all = [...byTag.values(), ...(untagged ? [untagged] : [])];
   allotMinutes(all, totalMinutes);
-  const sorted = [...byTag.values()].sort((x, y) => y.seconds - x.seconds || x.tag.localeCompare(y.tag, 'ja'));
+  // 並びは見せる分で（丸めたあとの数と並びが食い違わない）・同じなら秒・名前。
+  const sorted = [...byTag.values()].sort((x, y) => y.minutes - x.minutes || y.seconds - x.seconds || x.tag.localeCompare(y.tag, 'ja'));
   const items = sorted.slice(0, top).filter((x) => x.minutes > 0);
   const rest = [...sorted.slice(top), ...sorted.slice(0, top).filter((x) => x.minutes <= 0)];
   const otherMinutes = rest.reduce((m, x) => m + x.minutes, 0);

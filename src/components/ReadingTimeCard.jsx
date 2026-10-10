@@ -68,7 +68,7 @@ function WeekBars({ weeks }) {
               <div
                 style={{
                   width: '100%', maxWidth: 20, height: h, borderRadius: CHART_RADIUS,
-                  background: !has ? 'var(--separator)' : w.isCurrent ? 'var(--accent)' : BAR_SOFT,
+                  background: !has ? 'var(--border)' : w.isCurrent ? 'var(--accent)' : BAR_SOFT,
                 }}
               />
             </div>
@@ -107,14 +107,15 @@ function ShareBar({ ratio }) {
   );
 }
 
-// 名前と時間の 1 行（時間は縮めない・名前は 1 行で … ）。
+// 名前と時間の 1 行。名前は文節で折り返して 2 行まで（… で途中を切らない）、時間はいつも右（縮めない）。
+//   文字を大きくしても、どの行も「名前（左・1〜2 行）＋時間（右）」の同じ形（2026-10-10 ui-critic）。
 function NameTime({ name, time, strong, muted }) {
   return (
-    <span style={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', columnGap: 'var(--space-3)', rowGap: 0 }}>
-      <span style={{ flex: '1 1 8em', minWidth: 0, fontSize: 'var(--text-sub)', fontWeight: strong ? 600 : 400, color: muted ? 'var(--text-2)' : 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {name}
+    <span style={{ display: 'flex', alignItems: 'baseline', columnGap: 'var(--space-3)' }}>
+      <span style={{ flex: '1 1 auto', minWidth: 0, fontSize: 'var(--text-sub)', lineHeight: 1.35, fontWeight: strong ? 600 : 400, color: muted ? 'var(--text-2)' : 'var(--text)', whiteSpace: 'normal', wordBreak: 'keep-all', overflowWrap: 'anywhere', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+        {withPhraseBreaks(name, { scriptBreaks: true })}
       </span>
-      <span style={{ marginLeft: 'auto', fontSize: 'var(--text-meta)', color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+      <span style={{ marginLeft: 'auto', flexShrink: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
         {time}
       </span>
     </span>
@@ -144,6 +145,8 @@ const segBtn = (on) => ({
   border: 'none',
   borderRadius: 'calc(var(--radius) - var(--space-1))',
   background: on ? 'var(--seg-on)' : 'transparent',
+  // 選んだ方は溝より明るい --seg-on の面＋細い縁（暗い設定でも溝と見分けられる・2026-10-10 ui-critic）。
+  boxShadow: on ? 'inset 0 0 0 1px var(--border)' : 'none',
   color: on ? 'var(--text)' : 'var(--text-2)',
   fontFamily: 'inherit',
   fontSize: 'var(--text-sub)',
@@ -193,7 +196,7 @@ export default function ReadingTimeCard({ rows, books, onOpenBook, now = Date.no
       <div style={{ marginTop: 'var(--space-6)' }}>
         <h4 style={subHeading}>週ごと</h4>
         <p style={{ ...metaText, margin: 'var(--space-1) 0 0' }}>
-          {`直近 ${STATS_WEEKS} 週`}{thisWeek && thisWeek.seconds >= 30 ? <>{'　'}<span style={{ whiteSpace: 'nowrap' }}>今週 {fmtReadingTotal(thisWeek.seconds)}</span></> : null}
+          {`直近 ${STATS_WEEKS} 週`}{thisWeek && thisWeek.seconds >= 30 ? <span style={{ whiteSpace: 'nowrap', marginLeft: 'var(--space-3)' }}>今週 {fmtReadingTotal(thisWeek.seconds)}</span> : null}
         </p>
         <WeekBars weeks={weeks} />
         <table style={visuallyHidden}>
@@ -208,15 +211,15 @@ export default function ReadingTimeCard({ rows, books, onOpenBook, now = Date.no
 
       {/* 内訳（分類ごと・本ごと）の期間 */}
       <div style={{ borderTop: '1px solid var(--separator)', marginTop: 'var(--space-6)', paddingTop: 'var(--space-4)' }}>
-        <div role="radiogroup" aria-label="内訳の期間" style={segTrack}>
+        <div role="group" aria-label="内訳の期間" style={segTrack}>
           {PERIODS.map((p) => (
-            <button key={p.v} type="button" role="radio" aria-checked={period === p.v} onClick={() => choosePeriod(p.v)} style={segBtn(period === p.v)}>
+            <button key={p.v} type="button" aria-pressed={period === p.v} onClick={() => choosePeriod(p.v)} style={segBtn(period === p.v)}>
               {p.label}
             </button>
           ))}
         </div>
 
-        {periodTotal < 30 ? (
+        {periodTotal < 30 && period === 'month' ? (
           <p style={{ ...metaText, margin: 'var(--space-4) 0 0' }}>今月の読書の時間は、まだありません。</p>
         ) : (
           <>
