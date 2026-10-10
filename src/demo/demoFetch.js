@@ -3,7 +3,7 @@
 // マイ読書脳だけは、実際に入っているメモから質問に近いものを選んで
 // 本番と同じ書式（【結論】…REFS_START/END）で答えるので、画面の流れを確かめられる。
 
-import { SEARCH_CATALOG, DEMO_BOOK_INFO, DEMO_GENRES, DEMO_MESSY_RELATED } from './seed';
+import { SEARCH_CATALOG, DEMO_BOOK_INFO, DEMO_GENRES, DEMO_AI_FIELDS, DEMO_MESSY_RELATED } from './seed';
 import { classifyBookDetailed } from '../../api/_bookFieldsCore.js';
 
 const fakeChapterMode = () => { const a = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('ai') : ''; return a === 'fakechapter' || a === 'fakechapteronly' ? a : ''; };
@@ -1005,8 +1005,14 @@ export function installDemoFetch(store) {
       // 🏷 本の分野（?fields=1・2026-10-11）: 本番はサーバーが書店のジャンル → AI → 言葉で決める。お試しは見本の紹介文と
       //   ジャンルを端末と同じ仕分けにかけ、AI で決めたものとして返す。&fieldsrv=down でつながらない（端末の仕分けだけ）。
       if (params.get('fields') === '1') {
-        if (new URLSearchParams(window.location.search).get('fieldsrv') === 'down') return json({ error: 'unavailable' }, 502);
+        const srv = new URLSearchParams(window.location.search).get('fieldsrv');
+        // &fieldsrv=down: つながらない（「分野を自動で選べませんでした。」）／&fieldsrv=slow: 見立てに 30 秒（待っている間の骨組み）
+        if (srv === 'down') { await new Promise((r) => setTimeout(r, 600)); return json({ error: 'unavailable' }, 502); }
+        if (srv === 'slow') await new Promise((r) => setTimeout(r, 30000));
+        else await new Promise((r) => setTimeout(r, 800));
         const isbn = params.get('isbn') || '';
+        // AI の見立ての見本（端末の言葉だけでは決めきれない本）
+        if (DEMO_AI_FIELDS[isbn]) return json({ fields: DEMO_AI_FIELDS[isbn], source: 'ai', genreIds: DEMO_GENRES[isbn] || [], version: 2 });
         const base = DEMO_BOOK_INFO[isbn] || {};
         const r = classifyBookDetailed({ title: params.get('title') || '', description: base.description || '', toc: base.toc || [], genreIds: DEMO_GENRES[isbn] || [] });
         return json({ fields: r.fields, source: r.fields.length ? 'ai' : 'none', genreIds: DEMO_GENRES[isbn] || [], version: 1 });

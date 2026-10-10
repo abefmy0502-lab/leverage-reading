@@ -35,12 +35,16 @@ import {
 //   分野＝決まった一覧から（アプリが自動で選び、本人が直せる・3 つまで）。form.tags に入る（分野でない前の版のタグは残す）。
 //   フォルダ＝本人が自由に作る分け方（自動で入れない・すすめない）。入力欄の例は、まだフォルダが 1 つも無い人だけ（候補のチップと重ねない）。
 //   form.fieldsTouched: 本人が分野を選んだ（保存のあと自動で付け直さない）/ form.fieldsAuto: アプリが選んだまま。
+//   form.fieldsPending / fieldsFailed: サーバーが本の分野を見立てている間／見立てられなかった（検索で選んだ本・App.jsx）。
 function FieldsAndFolders({ form, setForm, allFolders }) {
   return (
     <>
       <BookFieldsInput
         fields={fieldsOf(form)}
         auto={!!form.fieldsAuto && !form.fieldsTouched}
+        autoFrom={form.fieldsAutoStage === 'info' ? 'info' : 'title'}
+        pending={!!form.fieldsPending && !form.fieldsTouched}
+        failed={!!form.fieldsFailed && !form.fieldsTouched}
         onChange={(next) => setForm((f) => ({ ...f, tags: withFields(f.tags, next), fieldsTouched: true, fieldsAuto: false }))}
       />
       <Field label="フォルダ">

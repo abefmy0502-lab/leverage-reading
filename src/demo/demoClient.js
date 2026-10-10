@@ -27,6 +27,8 @@
 //     付けなければ、いまの版を見たことにする（ほかの撮影にシートを重ねない）。新規の人のシナリオは付けても無視
 //   - &update=1 : 「アプリの新しい版があります」を出す（Web の新しい版の知らせ）。&bundle=2026-10-04 を足すと、
 //     アプリに入っている版をその版にして「何が変わった？」（それより新しい版の中身）を出せる
+//   - &fields=zero : 分野の付いた本が 1 冊も無い（自動でも付けない）
+//   - &fieldsrv=down|slow : 本の分野のサーバーがつながらない／見立てに 30 秒
 //   - &memos=none  : メモを全部外す（記録の「分野」でメモの数が無い行の確認用・2026-10-11）
 //   - &fields=none : 本の分野を全部外す（分野なしの本に書名から自動で付く確認用・lib/bookFields.js・2026-10-11）
 //   - &focus=start|until|untilrun|timer|count|long|fresh|paused|done|summary : ⏱ 読む（集中モード）を『数値化の鬼』で開く（App.jsx・2026-10-09）。
@@ -348,6 +350,14 @@ export function createDemoClient() {
   const db = buildSeed(scenario);
   // &fields=none: 本の分野と前の版のタグを全部外す（開くと書名から分野が自動で付く・2026-10-11）。
   if (params.get('fields') === 'none') db.book_tags = [];
+  // &fields=zero: 分野の付いた本が 1 冊も無い人（記録の「分野」が出ない形・自動でも付けない＝本人が選んだ印を付ける・2026-10-11）。
+  if (params.get('fields') === 'zero') {
+    db.book_tags = [];
+    try {
+      const marks = Object.fromEntries((db.books || []).map((b) => [b.id, 'user']));
+      localStorage.setItem(`orime.fields.stage.v2:${DEMO_USER_ID}`, JSON.stringify(marks));
+    } catch { /* 覚えられなくても撮るだけ */ }
+  }
   // &memos=none: メモを全部外す（記録の「分野」でメモの数が無い行・2026-10-11）。
   if (params.get('memos') === 'none') db.book_memos = [];
   if (params.get('longtag') === '1') {

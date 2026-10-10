@@ -15,7 +15,7 @@
 //        - 開いたときに、分野が無いか自動の分野の本を 1 回に REFINE_PER_LAUNCH 冊まで
 //        - 本の詳細で紹介文が届いたとき（onBookInfo・取りに行かない）
 //      取りに行くのは REFINE_GAP_MS ずつ空けて 1 冊ずつ（/api/cover は IP ごとに 1 分 30 回まで・控えはサーバー 24 時間
-//      と端末 30 日）。本人が選んだ本・前の版のタグから移した分野は変えない。1 冊 1 回だけ（orime.fields.refined.v3）。
+//      と端末 30 日）。本人が選んだ本・前の版のタグから移した分野は変えない。1 冊 1 回だけ（orime.fields.refined.v4）。
 import { useCallback, useEffect, useRef } from 'react';
 import { isDemo } from '../lib/supabase';
 import { classifyBook, fieldsOf, nonFieldTags, renameOldFields, splitLegacyTags, withFields } from '../lib/bookFields';

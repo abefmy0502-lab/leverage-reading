@@ -1,7 +1,8 @@
 // 🏷 本の分野（2026-10-11・lib/bookFields.js・SPEC §2 / §4・DESIGN §5「分野」）。
 //
-//   BookFieldsInput  … 本の追加・編集画面の「分野」欄。付いている分野のチップ＋「変更」（押すと BookFieldsSheet）
-//   BookFieldsSheet  … 分野を選ぶシート。大分類 4 つ（仕事・自分と暮らし・教養・楽しむ）の見出し → 分野のチップ（選ぶためのチップ 44）・3 つまで
+//   BookFieldsInput  … 本の追加・編集画面の「分野」欄。付いている分野のチップ（押しても選ぶシート）＋「変更」（押すと BookFieldsSheet）。
+//                      サーバーの見立てを待っている間は骨組み・失敗したら 1 行（pending / failed・2026-10-11 ui-critic）
+//   BookFieldsSheet  … 分野を選ぶシート。大分類 4 つ（仕事・自分と生活・教養・文芸・エンタメ）の見出し → 分野のチップ（選ぶためのチップ 44）・3 つまで
 //   BookFieldLinks   … 本の詳細の分野（押すと、すべての本をその分野で絞る）
 //   BookFieldsRecord … 振り返り › 記録の「分野」（本のある分野だけ・本とメモの数・読書の時間）
 //
@@ -11,6 +12,7 @@ import { Check, ChevronRight } from 'lucide-react';
 import BottomSheet from './BottomSheet';
 import { Chip } from './formPrimitives';
 import { withPhraseBreaks } from './TightBubble';
+import { SkeletonBlock } from './Skeleton';
 import { btnLink, btnPrimary, groupTitle } from '../styles/ui';
 import { BOOK_FIELD_GROUPS, FIELD_MAX } from '../lib/bookFields';
 import { fmtMinutes } from '../lib/readingStats';
@@ -19,34 +21,47 @@ const chipRow = { display: 'flex', flexWrap: 'wrap', rowGap: 'var(--space-2)', c
 // 付いている分野（押せない表示・選ぶシートの選択中と同じ色）。
 const fieldTag = {
   display: 'inline-flex', alignItems: 'center', minHeight: 'var(--tap-min)', boxSizing: 'border-box',
-  padding: 'var(--space-2) var(--space-3)', borderRadius: 'var(--radius)',
+  padding: 'var(--space-2) var(--space-3)', borderRadius: 'var(--radius)', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
   background: 'var(--accent-soft)', color: 'var(--accent)', fontSize: 'var(--text-sub)', fontWeight: 600,
 };
 const note = { margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' };
 
 // fields: 付いている分野（一覧の順）/ onChange(fields) / auto: アプリが選んだまま（本人が触っていない）
-export function BookFieldsInput({ fields = [], onChange, auto = false }) {
+// autoFrom: 'info'＝本の紹介（サーバー・紹介文）から選んだ／'title'＝書名から
+// pending: サーバーが本の分野を見立てている間（分野がまだ無いとき）/ failed: 見立てられなかった（分野がまだ無いとき）
+export function BookFieldsInput({ fields = [], onChange, auto = false, autoFrom = 'title', pending = false, failed = false }) {
   const [open, setOpen] = useState(false);
+  const waiting = pending && !fields.length;
   return (
     <div style={{ marginBottom: 'var(--space-6)' }}>
       <p id="book-fields-label" style={{ ...groupTitle, margin: '0 0 var(--space-2)' }}>分野</p>
-      {/* 付いている分野は押せない表示（選択中の色の面）＋文字ボタン「変更」／「分野を選ぶ」（分野のチップと見分ける・2026-10-11 ui-critic）。 */}
-      <div style={{ ...chipRow, alignItems: 'center' }} role="group" aria-labelledby="book-fields-label">
+      {/* 付いている分野（選択中の色の面・押しても選ぶシート）＋文字ボタン「変更」／「分野を選ぶ」（2026-10-11 ui-critic）。 */}
+      <div style={{ ...chipRow, alignItems: 'center' }} role="group" aria-labelledby="book-fields-label" aria-busy={waiting || undefined}>
         {fields.map((f) => (
-          <span key={f} style={fieldTag}>{f}</span>
+          <button key={f} type="button" style={fieldTag} onClick={() => setOpen(true)} aria-label={`分野「${f}」・押すと選び直せます`}>{f}</button>
         ))}
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          aria-label={fields.length ? `分野を変更（いま ${fields.join('、')}）` : '分野を選ぶ'}
-          // 分野が無いときは文字ボタンだけの行: 押せる高さ 44 の上下の余りを行の外へ出し、見出し → 文字を 8 に
-          //   （フォルダの見出し → 入力欄と同じ間隔に見せる・2026-10-11 ui-critic）
-          style={{ ...btnLink, minWidth: 'var(--tap-min)', justifyContent: 'center', ...(fields.length ? {} : { marginLeft: 'calc(-1 * var(--space-1))', marginTop: 'calc(-1 * var(--space-3))', marginBottom: 'calc(-1 * var(--space-3))' }) }}
-        >
-          {fields.length ? '変更' : '分野を選ぶ'}
-        </button>
+        {waiting && (
+          <span data-fields-pending="" aria-hidden="true" style={{ display: 'inline-flex', gap: 'var(--space-2)' }}>
+            <SkeletonBlock width="calc(var(--space-16) + var(--space-8))" height="var(--tap-min)" radius="var(--radius)" />
+            <SkeletonBlock width="calc(var(--space-16) * 2)" height="var(--tap-min)" radius="var(--radius)" />
+          </span>
+        )}
+        {!waiting && (
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            aria-label={fields.length ? `分野を変更（いま ${fields.join('、')}）` : '分野を選ぶ'}
+            // 分野が無いときは文字ボタンだけの行: 押せる高さ 44 の上下の余りを行の外へ出し、見出し → 文字を 8 に
+            //   （フォルダの見出し → 入力欄と同じ間隔に見せる・2026-10-11 ui-critic）
+            style={{ ...btnLink, minWidth: 'var(--tap-min)', justifyContent: 'center', ...(fields.length ? {} : { marginLeft: 'calc(-1 * var(--space-1))', marginTop: 'calc(-1 * var(--space-3))', marginBottom: 'calc(-1 * var(--space-3))' }) }}
+          >
+            {fields.length ? '変更' : '分野を選ぶ'}
+          </button>
+        )}
       </div>
-      {auto && fields.length > 0 && <p style={note}>{withPhraseBreaks('書名などから自動で選びました。')}</p>}
+      {waiting && <p style={note} role="status">{withPhraseBreaks('本の紹介から分野を選んでいます…')}</p>}
+      {!waiting && failed && !fields.length && <p style={note} role="status">{withPhraseBreaks('分野を自動で選べませんでした。「分野を選ぶ」から選べます。')}</p>}
+      {auto && fields.length > 0 && <p style={note}>{withPhraseBreaks(autoFrom === 'info' ? '本の紹介から自動で選びました。' : '書名などから自動で選びました。')}</p>}
       {open && (
         <BookFieldsSheet
           selected={fields}
@@ -107,8 +122,8 @@ export function BookFieldsSheet({ selected = [], onDone, onClose }) {
 export function BookFieldLinks({ fields = [], onPick }) {
   if (!fields.length) return null;
   return (
-    // チップの見た目は 32・押せる範囲は 44。下の余りは負の余白で行の外へ（見た目の間隔をそろえる）。
-    <div data-book-fields="" role="group" aria-label="分野" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 'var(--space-2)', marginTop: 'var(--space-2)', marginBottom: 'calc((32px - var(--tap-min)) / 2)' }}>
+    // チップの見た目は 32（--space-8）・押せる範囲は 44。下の余りは負の余白で行の外へ（見た目の間隔をそろえる）。
+    <div data-book-fields="" role="group" aria-label="分野" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 'var(--space-2)', marginTop: 'var(--space-2)', marginBottom: 'calc((var(--space-8) - var(--tap-min)) / 2)' }}>
       <span aria-hidden="true" style={{ flexShrink: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>分野</span>
       {fields.map((f) => (
         onPick

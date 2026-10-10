@@ -6,7 +6,7 @@ import { markActivation } from './lib/activation';
 import { OPEN_MEMO_EVENT } from './lib/openMemo';
 import { advisorDraftFor, classifyBook, fieldsOf, isBookField, splitLegacyTags, withFields, BOOK_FIELDS } from './lib/bookFields';
 import { isAutoChosen, markFieldStage, readFieldStages } from './lib/bookFieldsAuto';
-import { sendFieldVotes } from './lib/bookFieldsServer';
+import { fetchServerFields, sendFieldVotes } from './lib/bookFieldsServer';
 import { useBookFieldsAuto, infoFeatures } from './hooks/useBookFieldsAuto';
 import { BookFieldLinks } from './components/BookFields';
 import { useAppDataCache } from './state/AppDataCache';
@@ -3313,13 +3313,28 @@ function AuthedApp() {
       if (!auto.length && !fieldsOf(f).length) return f;
       return { ...f, tags: withFields(f.tags, auto), fieldsAuto: auto.length > 0, fieldsAutoStage: stage };
     });
+    // 検索で選んだ本（ISBN あり）は、サーバーにも本の分野を聞く（本ごとに 1 回決めた分野・2026-10-11）。端末で決めきれない本は
+    //   その間「本の紹介から分野を選んでいます…」、答えが無ければ「分野を自動で選べませんでした。」（手で入力した本は保存のあとに聞く）。
+    let serverDone = false; // サーバーの答えが来たら、あとから届く紹介文の言葉の仕分けで上書きしない
+    const setStatus = (patch) => setForm((f) => (f && f.id === formId && !f.fieldsTouched ? { ...f, ...patch } : f));
     const timer = setTimeout(() => {
       if (!alive) return;
       const known = peekBookInfo(form);
-      apply(classifyBook({ title: addFormTitle, ...infoFeatures(known, form) }), known ? 'info' : 'title');
+      const local = classifyBook({ title: addFormTitle, ...infoFeatures(known, form) });
+      apply(local, known ? 'info' : 'title');
+      if (form?.isbn) {
+        setStatus({ fieldsPending: true, fieldsFailed: false });
+        fetchServerFields({ isbn: form.isbn, title: addFormTitle, author: form.author }).then((server) => {
+          if (!alive) return;
+          if (server?.fields?.length) { serverDone = true; apply(server.fields, 'info'); }
+          setForm((f) => (f && f.id === formId
+            ? { ...f, fieldsPending: false, fieldsFailed: !server?.fields?.length && !fieldsOf(f).length }
+            : f));
+        }).catch(() => { if (alive) setStatus({ fieldsPending: false, fieldsFailed: true }); });
+      }
       if (known === undefined && (form?.isbn || addFormTitle.trim().length >= 2)) {
         loadBookInfo(form).then((info) => {
-          if (!alive || !info) return;
+          if (!alive || !info || serverDone) return;
           const auto = classifyBook({ title: addFormTitle, ...infoFeatures(info, form) });
           if (auto.length) apply(auto, 'info');
         }).catch(() => {});

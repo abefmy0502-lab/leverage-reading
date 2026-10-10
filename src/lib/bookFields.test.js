@@ -9,7 +9,7 @@ import { FIELD_CORPUS } from './bookFields.corpus';
 
 describe('一覧の形', () => {
   it('大分類 4 → 分野 20・重ならない・短い', () => {
-    expect(BOOK_FIELD_GROUPS.map((c) => c.name)).toEqual(['仕事', '自分と暮らし', '教養', '文芸・趣味']);
+    expect(BOOK_FIELD_GROUPS.map((c) => c.name)).toEqual(['仕事', '自分と生活', '教養', '文芸・エンタメ']);
     expect(BOOK_FIELDS).toHaveLength(20);
     expect(new Set(BOOK_FIELDS).size).toBe(20);
     expect(BOOK_FIELDS).toContain('暮らし・家事');
@@ -26,7 +26,14 @@ describe('一覧の形', () => {
   });
   it('前の一覧の名前（分かりにくい大分類）は使わない', () => {
     const names = [...BOOK_FIELD_GROUPS.map((c) => c.name), ...BOOK_FIELDS].join(' ');
-    for (const old of ['仕事の腕', '自分の軸', '世の中の見方', '楽しむ']) expect(names).not.toContain(old);
+    for (const old of ['仕事の腕', '自分の軸', '世の中の見方', '楽しむ', '自分と暮らし', '文芸・趣味', '仕事の進め方']) expect(names).not.toContain(old);
+  });
+  it('大分類の名前と分野の名前で語が重ならない（「仕事」と「仕事の進め方」・「暮らし」と「暮らし・家事」・「趣味」と「趣味・アート」）', () => {
+    for (const g of BOOK_FIELD_GROUPS) {
+      for (const word of g.name.split('・')) {
+        for (const f of BOOK_FIELDS) expect(f.includes(word), `${g.name} と ${f}`).toBe(false);
+      }
+    }
   });
 });
 
@@ -40,7 +47,8 @@ describe('classifyBook（本の特徴から分野）', () => {
       const got = classifyBook(b);
       expect(got.length, b.title).toBeLessThanOrEqual(2);
       if (got.length) assigned += 1;
-      if (got.length && got.every((g) => b.expect.includes(g)) && !(b.notFirst || []).includes(got[0])) sensible += 1;
+      if (!got.length && b.allowEmpty) sensible += 1; // 決めきれない本は付けないのが正しい
+      else if (got.length && got.every((g) => b.expect.includes(g)) && !(b.notFirst || []).includes(got[0])) sensible += 1;
       else misses.push(`${b.title}: ${got.join('・') || '（なし）'}`);
     }
     expect(FIELD_CORPUS.length).toBeGreaterThanOrEqual(30);
@@ -79,7 +87,7 @@ describe('classifyBook（本の特徴から分野）', () => {
   }
   it('書名だけでも分かるものは付く', () => {
     expect(classifyBook({ title: 'イシューからはじめよ' })).toEqual(['考える力']);
-    expect(classifyBook({ title: '数値化の鬼' })).toEqual(['仕事の進め方']);
+    expect(classifyBook({ title: '数値化の鬼' })).toEqual(['段取り・効率']);
     expect(classifyBook({ title: '嫌われる勇気' })).toEqual(['心の整え方']);
     expect(classifyBook({ title: '金持ち父さん 貧乏父さん' })).toEqual(['お金・投資']);
     expect(classifyBook({ title: 'アトミック・ハビット' })).toEqual(['習慣・自己成長']);
@@ -94,7 +102,8 @@ describe('classifyBook（本の特徴から分野）', () => {
   });
   it('どの分野にも届かないときの手がかり: 物語の紹介文・仕事の本・自分の本', () => {
     expect(classifyBook({ title: '星の夜', description: '主人公の少女は、ある日ふしぎな手紙を受け取る。' })).toEqual(['小説・物語']);
-    expect(classifyBook({ title: '一流の流儀', description: '結果を出すビジネスパーソンの共通点。' })).toEqual(['仕事の進め方']);
+    // 仕事の本によく出る言葉だけでは付けない（自信のない見立ては付けない）
+    expect(classifyBook({ title: '一流の流儀', description: '結果を出すビジネスパーソンの共通点。' })).toEqual([]);
     expect(classifyBook({ title: '自分の中に毒を持て', description: '人生は、いつも危険なほうを選べ。' })).toEqual(['心の整え方']);
   });
 });
@@ -103,9 +112,9 @@ describe('楽天ブックスのジャンルで決める（2026-10-11 の 2 回�
   it('ジャンルの上の段（001xxx）で候補を決める・本の形のジャンル（文庫・新書）は手がかりにしない', () => {
     expect(genreCandidates(['001004008001']).fields).toEqual(['小説・物語', 'エッセイ・ノンフィクション']);
     expect(genreCandidates(['001019001'])).toBeNull();
-    expect(genreCandidates(['001020', '001006009']).fallback).toBe('仕事の進め方');
+    expect(genreCandidates(['001020', '001006009']).fallback).toBe(null); // ビジネスの棚は広すぎて決めきれない
     expect(genreCandidates([])).toBeNull();
-    for (const g of GENRE_RULES) for (const f of [...g.fields, g.fallback]) expect(BOOK_FIELDS, `${g.id} ${f}`).toContain(f);
+    for (const g of GENRE_RULES) for (const f of [...g.fields, g.fallback].filter(Boolean)) expect(BOOK_FIELDS, `${g.id} ${f}`).toContain(f);
   });
   it('候補の中から言葉で選ぶ・決めきれなければジャンルの分野', () => {
     // 小説のジャンル: 「家族」という言葉があっても人間関係・家族にしない
@@ -113,7 +122,10 @@ describe('楽天ブックスのジャンルで決める（2026-10-11 の 2 回�
     expect(classifyBookDetailed({ title: '旅のエッセイ', genreIds: ['001004003'] }).fields).toEqual(['エッセイ・ノンフィクション']);
     // ビジネスのジャンル: 言葉で仕事の分野へ
     expect(classifyBookDetailed({ title: '話し方の教科書', genreIds: ['001006'] }).fields).toEqual(['伝える力']);
-    expect(classifyBookDetailed({ title: '1分で話せ', genreIds: ['001006'] }).fields).toEqual(['仕事の進め方']);
+    // ビジネスの棚だけで決めきれない本は付けない（段取り・効率に逃げない・サーバーの AI の答えを待つ）
+    expect(classifyBookDetailed({ title: '1分で話せ', genreIds: ['001006'] })).toEqual({ fields: [], by: 'none' });
+    expect(classifyBookDetailed({ title: '考え方', subtitle: '人生・仕事の結果が変わる', genreIds: ['001006008'] })).toEqual({ fields: [], by: 'none' });
+    expect(classifyBook({ title: '一流の流儀', description: 'ビジネスで成功する人の共通点。' })).toEqual([]);
     // 言葉が無くてもジャンルで決まる（漫画・料理）
     expect(classifyBookDetailed({ title: 'ONE PIECE 107', genreIds: ['001001001'] })).toEqual({ fields: ['小説・物語'], by: 'genre' });
     expect(classifyBookDetailed({ title: '何か', genreIds: ['001010'] }).fields).toEqual(['暮らし・家事']);
@@ -131,8 +143,10 @@ describe('前の版の分野の名前を移す', () => {
     expect(renameOldFields(['心の持ち方', '人の心理'])).toEqual(['心の整え方', '心理学']);
     // 同日の 19 分野の名前（人の心理）も
     expect(renameOldFields(['人の心理', '読書術'])).toEqual(['心理学', '読書術']);
-    expect(renameOldFields(['段取り', '数字で見る', '経済', 'テクノロジー', '歴史に学ぶ'])).toEqual(['仕事の進め方', '経済・社会', '歴史']);
+    expect(renameOldFields(['段取り', '数字で見る', '経済', 'テクノロジー', '歴史に学ぶ'])).toEqual(['段取り・効率', '経済・社会', '歴史']);
     expect(renameOldFields(['習慣', '伝え方'])).toEqual(['伝える力', '習慣・自己成長']);
+    // 同日の 4 回目: 仕事の進め方 → 段取り・効率
+    expect(renameOldFields(['仕事の進め方', '読書術'])).toEqual(['段取り・効率', '読書術']);
   });
   it('「物語・エッセイ」は書名・紹介文で分ける（分からなければ小説・物語）', () => {
     expect(renameOldFields(['物語・エッセイ'], { title: '半径5メートルの野望', description: '日々を綴ったエッセイ。' })).toEqual(['エッセイ・ノンフィクション']);
@@ -158,7 +172,7 @@ describe('前の版の分野の名前を移す', () => {
 
 describe('前の版のタグを分ける', () => {
   it('分野に結びつくタグは分野に・結びつかないタグはフォルダへ（消さない）', () => {
-    expect(splitLegacyTags(['思考法', '仕事術'])).toEqual({ fields: ['考える力', '仕事の進め方'], folders: [] });
+    expect(splitLegacyTags(['思考法', '仕事術'])).toEqual({ fields: ['考える力', '段取り・効率'], folders: [] });
     expect(splitLegacyTags(['マネジメント', 'コミュニケーション'])).toEqual({ fields: ['伝える力', 'リーダー・チーム'], folders: [] });
     expect(splitLegacyTags(['会社の本', '習慣'])).toEqual({ fields: ['習慣・自己成長'], folders: ['会社の本'] });
     expect(splitLegacyTags(['心理学'])).toEqual({ fields: ['心理学'], folders: [] });
@@ -171,7 +185,7 @@ describe('前の版のタグを分ける', () => {
   });
   it('fieldsForTag: 言い換え・含む言葉', () => {
     expect(fieldsForTag('#習慣化')).toEqual(['習慣・自己成長']);
-    expect(fieldsForTag('時間術')).toEqual(['仕事の進め方']);
+    expect(fieldsForTag('時間術')).toEqual(['段取り・効率']);
     expect(fieldsForTag('小説')).toEqual(['小説・物語']);
     expect(fieldsForTag('読書術')).toEqual(['習慣・自己成長']);
     expect(fieldsForTag('会社の課題図書')).toEqual([]);
@@ -181,8 +195,8 @@ describe('前の版のタグを分ける', () => {
 
 describe('本の分野の読み書き', () => {
   it('fieldsOf は一覧の順・分野だけ', () => {
-    expect(fieldsOf({ tags: ['仕事の進め方', '読書術', '考える力'] })).toEqual(['考える力', '仕事の進め方']);
-    expect(nonFieldTags({ tags: ['仕事の進め方', '読書術'] })).toEqual(['読書術']);
+    expect(fieldsOf({ tags: ['段取り・効率', '読書術', '考える力'] })).toEqual(['考える力', '段取り・効率']);
+    expect(nonFieldTags({ tags: ['段取り・効率', '読書術'] })).toEqual(['読書術']);
     expect(isBookField('お金・投資')).toBe(true);
     expect(isBookField('お金')).toBe(false);
     expect(isBookField('マネジメント')).toBe(false);
@@ -196,8 +210,8 @@ describe('本の分野の読み書き', () => {
 describe('記録の「分野」', () => {
   const books = [
     { id: 'a', tags: ['考える力'] },
-    { id: 'b', tags: ['考える力', '仕事の進め方'] },
-    { id: 'c', tags: ['仕事の進め方'] },
+    { id: 'b', tags: ['考える力', '段取り・効率'] },
+    { id: 'c', tags: ['段取り・効率'] },
     { id: 'd', tags: ['お金・投資'] },
     { id: 'e', tags: [] },
   ];
@@ -205,18 +219,18 @@ describe('記録の「分野」', () => {
     const r = buildFieldRecord(books, { memoCountByBook: { a: 3, b: 2 }, secondsByBook: { b: 600 } });
     expect(r.any).toBe(true);
     const flat = r.groups.flatMap((g) => g.fields);
-    expect(flat.map((f) => [f.name, f.books, f.memos, f.seconds])).toEqual([['考える力', 2, 5, 300], ['仕事の進め方', 2, 2, 300], ['お金・投資', 1, 0, 0]]);
+    expect(flat.map((f) => [f.name, f.books, f.memos, f.seconds])).toEqual([['考える力', 2, 5, 300], ['段取り・効率', 2, 2, 300], ['お金・投資', 1, 0, 0]]);
     // 読書の時間の「分野ごと」と同じ分を渡したら、その分を出す
-    const r2 = buildFieldRecord(books, { secondsByBook: { b: 600 }, minutesByField: { 考える力: 6, 仕事の進め方: 4 } });
+    const r2 = buildFieldRecord(books, { secondsByBook: { b: 600 }, minutesByField: { 考える力: 6, '段取り・効率': 4 } });
     expect(r2.groups.flatMap((g) => g.fields).map((f) => f.minutes)).toEqual([6, 4, 0]);
-    expect(r.groups.map((g) => g.name)).toEqual(['仕事', '自分と暮らし']);
+    expect(r.groups.map((g) => g.name)).toEqual(['仕事', '自分と生活']);
   });
   it('少ない分野は、なるべく別々の大分類から（本の少ない大分類から順に）', () => {
     const r = buildFieldRecord(books);
     // 教養・楽しむは 0 冊 → それぞれの最初の分野
     expect(r.thin).toEqual(['経済・社会', '小説・物語']);
     expect(new Set(r.thin.map(fieldGroupId)).size).toBe(2);
-    // 教養に本が多ければ、楽しむと自分と暮らしから
+    // 教養に本が多ければ、文芸・エンタメと自分と生活から
     const many = [...books, ...['経済・社会', '歴史', '科学・テクノロジー', '哲学・思想', '人の心理'].map((f, i) => ({ id: `k${i}`, tags: [f] }))];
     const r3 = buildFieldRecord(many);
     expect(r3.thin).toEqual(['小説・物語', '心の整え方']);
@@ -230,7 +244,7 @@ describe('記録の「分野」', () => {
   });
   it('AI 選書の下書き', () => {
     expect(advisorDraftFor('お金・投資')).toBe('お金・投資について、視点を増やしたい');
-    // 文芸・趣味の分野は「いま読みたい本」
+    // 文芸・エンタメの分野は「いま読みたい本」
     expect(advisorDraftFor('小説・物語')).toBe('小説・物語で、いま読みたい本を探したい');
     expect(advisorDraftFor(['趣味・アート'])).toBe('趣味・アートで、いま読みたい本を探したい');
   });

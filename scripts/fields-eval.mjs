@@ -14,7 +14,7 @@ import { BOOK_FIELDS_SYSTEM, bookFieldsUserText, BOOK_FIELDS_MAX_TOKENS } from '
 import { costFromUsage } from '../api/_aiCost.js';
 import { genreNamesOf } from '../api/_bookFields.js';
 
-const judge = (b, got) => got.length > 0 && got.every((g) => b.expect.includes(g)) && !(b.notFirst || []).includes(got[0]);
+const judge = (b, got) => (got.length === 0 && !!b.allowEmpty) || got.length > 0 && got.every((g) => b.expect.includes(g)) && !(b.notFirst || []).includes(got[0]);
 
 function run(label, books, featuresOf) {
   let assigned = 0;
