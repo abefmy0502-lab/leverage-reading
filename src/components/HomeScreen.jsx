@@ -52,7 +52,11 @@ function StartCard({ onQuickstart, onAddBook, onAdvisor, onImport }) {
     <section aria-labelledby="home-start-title" style={card}>
       {/* 「読むほど、自分だけの相談相手が育つ」はログインと初回ガイドで伝え済み。ここは行動だけを示す（同じことを二度言わない）。 */}
       {/* 題名で目的を伝える（初日クイックスタートの題名「相談相手をつくる」とそろえる・SPEC §1-1）。 */}
-      <h2 id="home-start-title" style={{ ...sectionTitle, margin: '0 0 var(--space-4)' }}>相談相手をつくる</h2>
+      <h2 id="home-start-title" style={{ ...sectionTitle, margin: 0 }}>相談相手をつくる</h2>
+      {/* 題の下に 1 行だけ、積み重ねが相談の質になることを言う（2026-10-10 第 9 回 総点検・ボタンの名前と順番は変えない）。 */}
+      <p style={{ margin: 'var(--space-1) 0 var(--space-4)', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+        {withPhraseBreaks('メモがたまるほど、あなたのメモから答えます')}
+      </p>
       {/* data-first-step: 本が 0 冊で「写真で共有」を押したとき、ここへフォーカスを送る印（App.jsx の pointToFirstStep）。 */}
       <button type="button" data-first-step="" onClick={onQuickstart} style={btnPrimary}>これまで読んだ本から始める</button>
       <button type="button" onClick={onAddBook} style={{ ...btnGhost, marginTop: 'var(--space-3)' }}>いま読んでいる本を追加する</button>
@@ -155,7 +159,7 @@ function ReadingNow({ books, onOpenBook, onWriteMemo, onStartReading, onAddBook,
   const shown = reading.slice(0, 3);
   // 読書中 0 冊（2026-10-01 ui-critic・オーナー承認・SPEC §1）: 次に読む候補を最大 3 冊。見出しで何の一覧かを言う
   //   （積読＝「次に読む本」・読了＝「最近読み終えた本」）ので、2 行目は著者だけ（「積読 ·」を重ねない）。
-  //   積読（新しく触った順）は「読み始める」（読書中へ・その場で変わる）、読了は「メモを書く」。
+  //   積読（新しく触った順）は「読書を開始する」（読書中へ・その場で変わる）、読了は「メモを書く」。
   //   候補も無ければ（読みたいの本だけなど）、見出し「いま読んでいる本」＋「読書中の本はありません」の 1 行。
   const stacked = shown.length === 0 ? books.filter((b) => b.status === 'before').sort(byUpdated).slice(0, 3) : [];
   const finished = shown.length === 0 && stacked.length === 0 ? books.filter((b) => b.status === 'done').sort(byDone).slice(0, 3) : [];
@@ -184,8 +188,8 @@ function ReadingNow({ books, onOpenBook, onWriteMemo, onStartReading, onAddBook,
               onOpenBook={onOpenBook}
               onCoverRetry={onCoverRetry}
               action={b.status === 'before' && onStartReading ? (
-                <button type="button" onClick={() => onStartReading(b)} aria-label={`『${b.title}』を読み始める`} style={btnRow}>
-                  <BookOpen size="1.1em" aria-hidden="true" style={{ flexShrink: 0 }} />読み始める
+                <button type="button" onClick={() => onStartReading(b)} aria-label={`『${b.title}』の読書を開始する`} style={btnRow}>
+                  <BookOpen size="1.1em" aria-hidden="true" style={{ flexShrink: 0 }} />読書を開始する
                 </button>
               ) : memoBtn(b)}
             />
@@ -218,7 +222,7 @@ function HomeActionsRow({ summary, onOpen }) {
       type="button"
       data-home-actions=""
       onClick={() => onOpen?.(summary)}
-      aria-label={`${summary.label} ${summary.count} 件。${firstText}。行動を開く`}
+      aria-label={`${summary.label} ${summary.count} 件。${firstText ? `${firstText.replace(/[。．.！!？?]+$/, '')}。` : ''}行動を開く`}
       style={{ ...card, width: '100%', minHeight: 56, display: 'flex', alignItems: 'center', gap: 'var(--space-3)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-body)', textAlign: 'left' }}
     >
       <Target size="1.2em" aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />

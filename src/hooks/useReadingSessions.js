@@ -19,7 +19,8 @@ export function useReadingSessions() {
   const userId = user?.id || null;
   const [, bump] = useReducer((x) => x + 1, 0);
   useEffect(() => readingSessions.subscribe(bump), []);
-  useEffect(() => { readingSessions.load(userId); }, [userId]);
+  // 読み込みの失敗は中で扱う（控えで数える）。思わぬ例外も未処理の Promise にしない（2026-10-10 第 9 回 総点検）。
+  useEffect(() => { readingSessions.load(userId).catch(() => {}); }, [userId]);
   // 読み込みに失敗していたら、つながったとき・画面に戻ったときにもう一度（端末の控えもそのとき表に送る）。
   useEffect(() => {
     if (!userId || typeof window === 'undefined') return undefined;

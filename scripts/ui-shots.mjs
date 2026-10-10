@@ -1040,6 +1040,22 @@ const SCREENS = [
     ['readtime-detail', '/', [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("数値化の鬼")' }, { wait: 600 }]],
     ['readtime-detail-done', '/', [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("アウトプット大全")' }, { wait: 600 }]],
   ].flatMap(([name, url, steps]) => [{ name, url, steps }, { name: `${name}-xxl`, url, steps: [XXL, ...steps] }]),
+  // ── 🔍 第 9 回 総点検の直し（2026-10-10・ui-shots/review9-before / review9-after）
+  { name: 'r9-focus-update', url: '/?focus=timer', steps: [{ wait: 1200 }, { eval: "window.dispatchEvent(new Event('app-update-available'))" }, { wait: 800 }] },
+  { name: 'r9-record-top', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }, { wait: 1500 }] },
+  { name: 'r9-record-footprints', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }, { wait: 1500 }, { eval: RT_SCROLL('section:has(> h3)') }, { scrollTo: 'h3:has-text("読書の足あと")' }, { wait: 500 }] },
+  { name: 'r9-focus-start', url: '/?focus=start', steps: [{ wait: 800 }] },
+  { name: 'r9-home-noreading', url: '/?demo=noreading', steps: [{ wait: 800 }] },
+  { name: 'r9-home-new', url: '/?demo=new', steps: [{ css: 'button[aria-label="閉じる"]' }, { wait: 600 }] },
+  { name: 'r9-share-nobook', url: '/?demo=new', steps: [{ css: 'button[aria-label="閉じる"]' }, { wait: 600 }, { css: 'button:has-text("写真で共有")', settle: 500 }] },
+  { name: 'r9-share-single', url: '/?demo=noreading', steps: [...[{ css: 'button[aria-label="『LIFE SHIFT』の読書を開始する"], button[aria-label="『LIFE SHIFT』を読み始める"]' }, { wait: 800 }, { css: 'button[aria-label="『LIFE SHIFT』を開く"]' }, { wait: 1200 }], { css: 'button:has-text("写真で共有")' }, { wait: 800 }, { css: '[role=dialog] button:has-text("写真なし")' }, { wait: 2500 }] },
+  { name: 'r9-reading-nopurpose', url: '/?demo=noreading', steps: [...[{ css: 'button[aria-label="『LIFE SHIFT』の読書を開始する"], button[aria-label="『LIFE SHIFT』を読み始める"]' }, { wait: 800 }, { css: 'button[aria-label="『LIFE SHIFT』を開く"]' }, { wait: 1200 }], { scrollTo: 'p:has-text("得たいこと")' }, { wait: 400 }] },
+  { name: 'r9-memo-one', url: '/?demo=noreading', steps: [...[{ css: 'button[aria-label="『LIFE SHIFT』の読書を開始する"], button[aria-label="『LIFE SHIFT』を読み始める"]' }, { wait: 800 }, { css: 'button[aria-label="『LIFE SHIFT』を開く"]' }, { wait: 1200 }], { css: 'button:has-text("メモを書く")' }, { fill: ['textarea[aria-label="メモ本文"]', '人生を 3 つのステージで考えない。'] }, { css: '[role=dialog] button:text-is("保存")' }, { wait: 2500 }, { scrollTo: 'h2:has-text("メモ")' }] },
+  { name: 'r9-consult-first-action', url: '/?demo=fewmemos', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { waitFor: '[aria-label="続けて聞く"] button' }, { wait: 1200 }, { css: '[aria-label="続けて聞く"] button:has-text("ここで答えと行動を")' }, { wait: 9000 }, { scrollBottom: true }] },
+  { name: 'r9-consult-declined', url: '/?demo=fewmemos&consent=none', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { wait: 800 }, { css: '[role=dialog] button:has-text("今はやめる")' }, { wait: 800 }] },
+  { name: 'r9-add-photo', url: '/?demo=new', steps: [{ role: '次へ' }, { css: '[role=dialog] button:has-text("本のページを撮る")' }, { wait: 600 }, { fill: ['#add-book-query', '考え方'] }, { css: 'button:has-text("検索")' }, { wait: 1500 }, { css: '[role=dialog] li button >> nth=0' }, { wait: 2500 }] },
+  { name: 'r9-add-photo-bottom', url: '/?demo=new', steps: [{ role: '次へ' }, { css: '[role=dialog] button:has-text("本のページを撮る")' }, { wait: 600 }, { fill: ['#add-book-query', '考え方'] }, { css: 'button:has-text("検索")' }, { wait: 1500 }, { css: '[role=dialog] li button >> nth=0' }, { wait: 2500 }, { scrollBottom: true }] },
+  { name: 'r9-quickstart-done', url: '/?demo=new', steps: [{ role: '次へ' }, { css: '[role=dialog] button:has-text("読んだ本に一言ずつ残す")' }, { css: '[role=dialog] button[aria-label^="『FACTFULNESS』"]' }, { css: '[role=dialog] button:has-text("次へ")' }, { fill: ['[role=dialog] textarea', '思い込みではなく、数字で世界を見る'] }, { css: '[role=dialog] button:has-text("相談相手をつくる")' }, { wait: 2500 }] },
 ];
 
 // UI_SHOTS_PROXY=1 で、外への通信（Google Fonts＝共有の「手書き風」の書体など）を HTTPS_PROXY 経由にする

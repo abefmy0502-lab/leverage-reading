@@ -1711,10 +1711,16 @@ function AuthedApp() {
     setAddBookModalOpen(true);
   };
 
-  // 📷 本が 0 冊で「写真で共有」を押したとき（2026-10-09 ui-critic）: 知らせは出さず、ホームの「これまで読んだ本から始める」へ
+  // 📷 本が 0 冊で「写真で共有」を押したとき（2026-10-09 ui-critic）: ホームの「これまで読んだ本から始める」へ
   //   目と指を送る（フォーカス＋画面の中ほどへ＋軽く弾ませる＋ハプティクス）。見つからなければ本を追加を開く。
+  //   弾ませるだけでは押した理由が分からないので、アプリを開いている間に 1 回だけ理由を 1 行で知らせる（2026-10-10 第 9 回 総点検）。
+  const firstStepToldRef = useRef(false);
   const pointToFirstStep = () => {
     try { haptic.light(); } catch { /* ignore */ }
+    if (!firstStepToldRef.current) {
+      firstStepToldRef.current = true;
+      toast.info('本を 1 冊入れると、画像を作れます。');
+    }
     if (tab !== 'books') navigateTab('books');
     if (view !== 'list') setView('list');
     setShelfMode('home');
@@ -4351,6 +4357,9 @@ function AuthedApp() {
     && !searchOpen
     && !detailKebab
     && !bookContextMenu
+    // 集中モード・読む前のシートの上に新しい版の知らせ・新しくなったことを重ねない（2026-10-10 第 9 回 総点検）。
+    && !focusRun
+    && !focusStartBook
   );
 
   // 🆕 更新したあと、はじめて開いたときに 1 回だけ「新しくなったこと」（2026-10-05・hooks/useWhatsNew.js）。
@@ -4359,7 +4368,7 @@ function AuthedApp() {
   const whatsNew = useWhatsNew({
     ready: !booksLoading && !booksLoadError,
     isNewUser: () => !isOnboardingCompleted() || books.length === 0,
-    safe: safeForUpdate && !booksLoading && !showQuickstart && !showImport && !shareSheet && !adminOpen && !coverFixForBook,
+    safe: safeForUpdate && !focusRun && !focusStartBook && !booksLoading && !showQuickstart && !showImport && !shareSheet && !adminOpen && !coverFixForBook,
   });
 
   // 📚 初日クイックスタート。初回ガイドはどの画面（一覧/詳細/編集）でも出るので、
@@ -4575,11 +4584,12 @@ function AuthedApp() {
             if (current.status === 'reading' && isIncomplete) {
               return (
                 <div style={{ ...cardStyle, marginTop: 'var(--space-6)' }}>
-                  <p style={{ fontSize: 'var(--text-body)', color: 'var(--text)', margin: 0, fontWeight: 600 }}>
-                    この本から得たいことが、まだありません
+                  <p style={{ fontSize: 'var(--text-body)', color: 'var(--text)', margin: 0, fontWeight: 600, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+                    {withPhraseBreaks('この本から得たいことが、まだありません')}
                   </p>
+                  {/* 無料プランには押す前に有料と分かる印（積読の「読書計画シートを作る（プラン）」と同じ・2026-10-10 第 9 回 総点検） */}
                   <button type="button" onClick={() => openSetup(current)} style={textBtnInCard}>
-                    読書計画シートを作る
+                    {paywallFree ? '読書計画シートを作る（プラン）' : '読書計画シートを作る'}
                   </button>
                 </div>
               );
@@ -5408,9 +5418,15 @@ function AuthedApp() {
                     <h2 style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: "var(--text)", margin: 0, lineHeight: 1.3 }}>{phaseLabel}</h2>
                   </div>
                 )}
+                {/* 📷 本のページを撮るから来たときは、本を選んだあとも何をしているかを 1 行で（本を選ぶ画面と同じ文・2026-10-10 第 9 回 総点検）。 */}
+                {!current && ocrIntentActive && (
+                  <p style={{ margin: 'calc(-1 * var(--space-2)) 0 var(--space-4)', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+                    {withPhraseBreaks('まず本を選び、そのあとページを撮ります。')}
+                  </p>
+                )}
 
                 {(effectivePhase === "want" || !current) && (
-                  <WantPhase form={form} setForm={setForm} onSave={handleSave} saving={savingBook} onSearchOpen={addFromSearchQuery !== null ? undefined : () => setSearchOpen(true)} allFolders={folderNames} />
+                  <WantPhase form={form} setForm={setForm} onSave={handleSave} saving={savingBook} onSearchOpen={addFromSearchQuery !== null ? undefined : () => setSearchOpen(true)} allFolders={folderNames} forPhoto={!current && ocrIntentActive} />
                 )}
                 {effectivePhase === "before" && current && (
                   <BeforePhase
@@ -5665,7 +5681,7 @@ function AuthedApp() {
               onWriteMemo={(b) => setHomeMemoBook(b)}
               // ⏱ 読む（集中モード・読書中の本だけ・2026-10-09）
               onRead={openFocusStart}
-              // 読書中が 0 冊のときの候補（積読）の「読み始める」: 本を開かずにその場で読書中へ（楽観的に変えて、失敗したら戻す）。
+              // 読書中が 0 冊のときの候補（積読）の「読書を開始する」: 本を開かずにその場で読書中へ（楽観的に変えて、失敗したら戻す）。
               onStartReading={(b) => { haptic.light(); setBookStatusQuiet(b, 'reading'); }}
               onOpenLibrary={() => startTransition(() => setShelfMode('library'))}
               onSeeAllReading={() => { setStatusFilter('reading'); setShelfMode('library'); }}

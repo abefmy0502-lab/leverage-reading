@@ -184,7 +184,7 @@ export default function ReadingTimeCard({ rows, books, onOpenBook, now = Date.no
     <section
       data-reading-time=""
       aria-labelledby="reading-time-title"
-      style={{ background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4)' }}
+      style={{ position: 'relative', background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4)' }}
     >
       <h3 id="reading-time-title" style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', margin: 0 }}>読書の時間</h3>
 
@@ -200,14 +200,17 @@ export default function ReadingTimeCard({ rows, books, onOpenBook, now = Date.no
           {`直近 ${STATS_WEEKS} 週`}{thisWeek && thisWeek.seconds >= 30 ? <span style={{ whiteSpace: 'nowrap', marginLeft: 'var(--space-3)' }}>今週 {fmtReadingTotal(thisWeek.seconds)}</span> : null}
         </p>
         <WeekBars weeks={weeks} />
-        <table style={visuallyHidden}>
-          <caption>{`週ごとの読書の時間（直近 ${STATS_WEEKS} 週）`}</caption>
-          <tbody>
-            {weeks.map((w) => (
-              <tr key={w.from}><th scope="row">{weekName(w.from)}</th><td>{w.seconds >= 30 ? fmtReadingTotal(w.seconds) : '記録なし'}</td></tr>
-            ))}
-          </tbody>
-        </table>
+        {/* 表は包む div で隠す（table に position:absolute と 1px を付けても表の幅で広がり、記録が上下に動いていた・2026-10-10）。 */}
+        <div style={visuallyHidden}>
+          <table>
+            <caption>{`週ごとの読書の時間（直近 ${STATS_WEEKS} 週）`}</caption>
+            <tbody>
+              {weeks.map((w) => (
+                <tr key={w.from}><th scope="row">{weekName(w.from)}</th><td>{w.seconds >= 30 ? fmtReadingTotal(w.seconds) : '記録なし'}</td></tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* 内訳（分野ごと・本ごと）の期間 */}

@@ -773,12 +773,13 @@ export function nextStepChips({ replies = [], hasAction = false, booksWithMemos 
 // 🔁 毎日の輪（メモ → 相談 → 行動 → 思い出す）をつなぐ下書き（2026-10-10）。どれも入力欄に入れるだけ（送らない）。
 const clip = (s, n) => { const t = oneLine(s); return t.length > n ? `${t.slice(0, n - 1)}…` : t; };
 
-// 行動を完了したあとの「この結果を相談する」: 『行動』をやってみました。（ふりかえり。）次はどうしたらいい？
+// 行動を完了したあとの「この結果を相談する」: 「行動」をやってみました。（ふりかえり。）次はどうしたらいい？
+//   『』は書名だけに使う（GLOSSARY・2026-10-10 第 9 回 総点検）ので、行動は「」で包み、中の「」は『』に。
 export function actionResultQuestion(actionText, reflection = '') {
-  const act = clip(String(actionText || '').replace(/[『』]/g, ''), 40);
+  const act = clip(nestQuotes(actionText), 40);
   const note = clip(reflection, 80).replace(/[。．.!！]+$/, '');
   if (!act) return '';
-  return `『${act}』をやってみました。${note ? `${note}。` : ''}次はどうしたらいい？`;
+  return `「${act}」をやってみました。${note ? `${note}。` : ''}次はどうしたらいい？`;
 }
 
 // 思い出しカードの「このメモで相談する」: 「メモの一節」と書いたメモを、いまの自分にどう活かせる？

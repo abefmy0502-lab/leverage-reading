@@ -807,9 +807,11 @@ export default function ShareSheet({
     </div>
   );
 
-  // 形（投稿 4:5／ストーリー 9:16）。文字が大きいときは横に並べる。
+  // 形（投稿 4:5／ストーリー 9:16）。見本が 2 つ以上あるときは見本の行の右に縦に 2 つ。
+  //   文字が大きいとき・見本が 1 つ以下のとき（形だけで 1 段を取らない・2026-10-10 第 9 回 総点検）は「編集」の行の右に横並び。
+  const formatInEditRow = effStyle !== 'sticker' && (largeText || variants.length <= 1);
   const formatSwitch = (
-    <div role="radiogroup" aria-label="画像の形" style={{ ...segTrack, ...(largeText ? { flexDirection: 'row' } : null), flexShrink: 0, marginLeft: variants.length > 1 || largeText ? 0 : 'auto' }}>
+    <div role="radiogroup" aria-label="画像の形" style={{ ...segTrack, ...(formatInEditRow ? { flexDirection: 'row' } : null), flexShrink: 0 }}>
       {FORMAT_OPTIONS.map((o) => (
         <button key={o.v} type="button" role="radio" aria-checked={format === o.v} aria-label={o.aria} onClick={() => setFormat(o.v)} style={{ ...segBtn(format === o.v), padding: '0 var(--space-2)' }}>
           {o.label}
@@ -937,7 +939,7 @@ export default function ShareSheet({
               編集
             </button>
             </div>
-            {effStyle !== 'sticker' && largeText && <div style={{ marginLeft: 'auto' }}>{formatSwitch}</div>}
+            {formatInEditRow && <div style={{ marginLeft: 'auto' }}>{formatSwitch}</div>}
             {photo && (
               // 背景（写真・フィルム・紙…）と、撮り直す・アルバムから選ぶは「背景：写真 ▾」のメニュー 1 つに（2026-10-10）。
               <button
@@ -961,7 +963,7 @@ export default function ShareSheet({
         {/* 今年のメモを読めなかった間は、見本（空になる）を見せない（場所は残す＝読み直せたときに下が動かない）。 */}
         {/* 重ね方の見本（名前は 2 行ぶんの高さでそろえる）と、同じ行の右に形（投稿 4:5／ストーリー 9:16・縦に 2 つ）。
             シートの段を 1 つ減らす（2026-10-10 ui-critic）。透明（形が無い）のときは形を出さない。 */}
-        {(variants.length > 1 || (effStyle !== 'sticker' && !largeText)) && (
+        {variants.length > 1 && (
         <div aria-hidden={yearError || undefined} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: 'var(--space-2)', visibility: yearError ? 'hidden' : 'visible' }}>
             {/* 列の幅は名前の字の大きさで決める（文字が大きいときは 3 列＋次の行・形の切り替えは下の行へ回る＝名前が重ならない）。 */}
             {variants.length > 1 && (
@@ -1009,7 +1011,7 @@ export default function ShareSheet({
               </div>
             )}
             {/* 形の切り替え。文字が大きいときは「別の一文／編集」の行の右へ移す（最初の画面で見えるように）。 */}
-            {effStyle !== 'sticker' && !largeText && formatSwitch}
+            {effStyle !== 'sticker' && !formatInEditRow && formatSwitch}
         </div>
         )}
 

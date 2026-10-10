@@ -517,6 +517,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const [input, setInput] = useState('');
   // 送れなかったときの 1 行（会話の場所のいちばん下に出す・入力欄に重なる赤い帯にしない・2026-10-10）。次に送るときに消す。
   const [sendNotice, setSendNotice] = useState('');
+  // 🤝 AI に送る同意を「今はやめる」で閉じた（2026-10-10 第 9 回 総点検）: 黙って何も起きないのではなく、送れない理由と
+  //   同意を開き直す文字ボタンを会話の場所のいちばん下に出す。次に送れたら消す。
+  const [consentDeclined, setConsentDeclined] = useState(false);
   useEffect(() => {
     if (!sendNotice) return;
     try { messagesEndRef.current?.scrollIntoView({ block: 'end' }); } catch { /* ignore */ }
@@ -1262,7 +1265,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     if (outOfTokens) return;
     // 🤝 はじめて AI に送るときは、送る内容と送り先を見せて同意をもらう（lib/aiConsent.js）。
     //   「今はやめる」なら送らない（相談は入力欄に残す＝ホーム・相談例から来た相談も消えない）。
-    if (!(await ensureAiConsent('consult'))) { setInput(q); return; }
+    if (!(await ensureAiConsent('consult'))) { setInput(q); setConsentDeclined(true); return; }
+    setConsentDeclined(false);
     const askBookIds = Array.isArray(opts.bookIds) ? opts.bookIds : scopeIds;
     const askScopeLabel = scopeLabelFor(askBookIds, books);
     const askMode = opts.mode || (askBookIds.length === 1 ? 'fused' : answerMode);
@@ -1800,9 +1804,25 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   //   続けても同じ答えにしかならない。代わりに主ボタン「これまで読んだ本から始める」（初日クイックスタート）だけ。
   const noMemosYet = !!onQuickstart && memoStatsLoaded && !memoStatsFailed
     && (memoStats.cards + memoStats.personal + (memoStats.summaryBooks || 0)) === 0;
-  const chipRowBase = answerReady && chrome.chips && !lastActionAdded && !noMemosYet;
   const answerDone = answerReady && (lastLocalLookup || isCompletedAnswer(lastVisible));
-  const showFollowups = answerDone && chrome.chips && !lastActionAdded && !noMemosYet;
+  // 🎯 最後の答えで行動が決まったか（行動の箱がある答え）。
+  const lastHasAction = answerDone && !lastLocalLookup && (() => {
+    const p = parseAnswer(lastVisible.content);
+    return p ? isActionAnswer(p) : !!extractActionLine(lastVisible.content);
+  })();
+  // 🌱 はじめての相談（2026-10-10 第 9 回 総点検）: いま見ている会話が、この人のはじめての相談（記録にある相談がすべてこの会話の中・
+  //   はじめの相談がこの会話のはじめ）。その回で行動が出たら「行動に追加」を主ボタンにし、続けて聞くチップは追加するまで出さない
+  //   （次にすることを 1 つに）。追加したら今までどおり「新しい相談をはじめる」。
+  const firstConsultThread = useMemo(() => {
+    const real = messages.filter((m) => m && m.role === 'user' && !isLocalMsg(m) && !/^(err|streaming|bg-wait)-/.test(String(m.id)));
+    if (real.length === 0) return false;
+    const visibleIds = new Set(visibleMessages.map((m) => m && m.id));
+    if (!real.every((m) => visibleIds.has(m.id))) return false;
+    return threadRootOf(visibleMessages, null) === real[0].id;
+  }, [messages, visibleMessages]);
+  const firstActionPending = firstConsultThread && lastHasAction && !lastActionAdded;
+  const chipRowBase = answerReady && chrome.chips && !lastActionAdded && !noMemosYet && !firstActionPending;
+  const showFollowups = answerDone && chrome.chips && !lastActionAdded && !noMemosYet && !firstActionPending;
   // いま送った文と同じチップは出さない（「もっと具体的に」のあとにまた「もっと具体的に」を並べない）。
   const lastAsked = visibleMessages[visibleMessages.length - 2]?.content || '';
   // 🔭 見方のチップ（2026-10-08 ui-critic）: いまの区切りで使った見方は出さない・仕事の言葉の見方は仕事の相談のときだけ。
@@ -2105,6 +2125,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     // 関係するメモが無かった答えのあとは、続きの例ではなく新しい相談の例（2026-09-30 ui-critic）。
     // 本を探す問いの答えのあとは、見つかったメモをいまに活かす問いの例（本を探す問いは続きの材料に入れないので threadActive に頼らない）。
     : lastLookup && !isNoInfoAnswer(lastVisible) ? '続けて聞く・ほかの言葉で探す'
+    // 行動が決まったあとは、特定の続きを言わない汎用の文（2026-10-10 第 9 回 総点検）。
+    : lastHasAction ? '続けて相談する'
     : threadActive && !isNoInfoAnswer(lastVisible) ? '続けて聞く：乗り気でないときは？' : '例：上司への報告がうまくいかない';
   // 描く前に高さを合わせる（useEffect だと、送ったあとに「消えた文字の高さのまま 1 回描く → 縮む」で
   // 入力欄が 2 回動いていた）。文字の大きさが変わったときも測り直す（hooks/useComposerHeight.js・2026-10-08 ui-critic）。
@@ -2411,6 +2433,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                   askBusy={busy}
                   onActionAdded={() => { onConsultActionAdded(m.id); setAddedActionIds((ids) => (ids.includes(m.id) ? ids : [...ids, m.id])); }}
                   askProgress={m.id === askProgressFor ? askProgress : ''}
+                  primaryAction={firstActionPending && i === visibleMessages.length - 1}
                   onOpenActions={onOpenActions}
                   memoBookIds={memoBookIds}
                   onShowPartner={setPartnerSheet}
@@ -2492,6 +2515,25 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           {/* 🧪 はじめての相談の答えを読み終えたところ（答えの下の文字ボタンの行の後ろ）に 1 回だけ。 */}
           {answerRowShown && firstTrialId && firstTrialId === visibleMessages[visibleMessages.length - 1]?.id
             && firstTrialCard({ marginTop: 'var(--space-6)', marginLeft: ANSWER_COLUMN })}
+          {consentDeclined && !busy && !sendNotice && (
+            <div data-consent-declined="" role="status" style={{ margin: 'var(--space-4) 0 0', padding: 'var(--space-3) var(--space-4)', borderRadius: 'var(--radius)', background: 'var(--fill)' }}>
+              <p style={{ margin: 0, color: 'var(--text)', fontSize: 'var(--text-sub)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+                {withPhraseBreaks('AI に送ることに同意すると、答えます。')}
+              </p>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!(await ensureAiConsent('consult'))) return;
+                  setConsentDeclined(false);
+                  if (input.trim()) ask();
+                }}
+                // 文字ボタンの高さ 44 の上下の余りを面の内側の余白と相殺し、上下の見た目をそろえる。
+                style={{ ...uiBtnLink, margin: 'calc(-1 * var(--space-1)) 0 calc(-1 * var(--space-2)) calc(-1 * var(--space-1))' }}
+              >
+                AI に送る内容を見る
+              </button>
+            </div>
+          )}
           {sendNotice && !busy && (
             <p role="alert" style={{ margin: 'var(--space-4) 0 0', padding: 'var(--space-3) var(--space-4)', borderRadius: 'var(--radius)', background: 'var(--error-soft)', color: 'var(--text)', fontSize: 'var(--text-sub)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
               {withPhraseBreaks(sendNotice)}
@@ -3296,7 +3338,7 @@ function answerActionAddedBefore(message, question, actions) {
   return answerActionStatus({ answerId: message.id, actionText: text, actions }).added;
 }
 
-function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions = null, onAddAction, onAddActionPickBook, onRetry, onWriteLearning, showTime = false, question = '', onAskBook = null, askBusy = false, onActionAdded = null, onOpenActions = null, memoBookIds = null, onShowPartner = null, askProgress = '' }) {
+function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions = null, onAddAction, onAddActionPickBook, onRetry, onWriteLearning, showTime = false, question = '', onAskBook = null, askBusy = false, onActionAdded = null, onOpenActions = null, memoBookIds = null, onShowPartner = null, askProgress = '', primaryAction = false }) {
   const isUser = message.role === 'user';
   const isStreaming = !!message.streaming;
   const hasBody = typeof message.content === 'string' && message.content.length > 0;
@@ -3491,8 +3533,9 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
         ) : priorAdded ? (
           <ActionAddedNote already onOpenActions={onOpenActions} focus={priorAdded.focus} />
         ) : (
-          <button type="button" onClick={handleAddAction} disabled={actionBusy} style={{ ...rowBtn, marginTop: 'var(--space-3)', ...(actionBusy ? rowBtnOffOnFill : null) }}>
-            <Target size={16} aria-hidden="true" />行動に追加
+          // はじめての相談で行動が出た回は、主ボタン（次にすることを 1 つに・2026-10-10 第 9 回 総点検）。
+          <button type="button" onClick={handleAddAction} disabled={actionBusy} style={primaryAction ? { ...(actionBusy ? uiBtnPrimaryOff : uiBtnPrimary), marginTop: 'var(--space-3)', gap: 'var(--space-2)' } : { ...rowBtn, marginTop: 'var(--space-3)', ...(actionBusy ? rowBtnOffOnFill : null) }}>
+            <Target size={primaryAction ? '1.1em' : 16} aria-hidden="true" />行動に追加
           </button>
         )
       )}
@@ -3914,7 +3957,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
           <ActionAddedNote already onOpenActions={onOpenActions} focus={priorAdded.focus} />
         ) : (
           // 答えのカード（--surface）の上なので、押せない間は副ボタンの押せない形（--separator の枠＋--text-3）。
-          <button type="button" onClick={handleAddAction} disabled={actionBusy} style={{ ...rowBtn, marginTop: 'var(--space-3)', ...(actionBusy ? { color: 'var(--text-3)', borderColor: 'var(--separator)', opacity: 1, cursor: 'default' } : null) }}>
+          <button type="button" onClick={handleAddAction} disabled={actionBusy} style={primaryAction ? { ...(actionBusy ? uiBtnPrimaryOff : uiBtnPrimary), marginTop: 'var(--space-3)', gap: 'var(--space-2)' } : { ...rowBtn, marginTop: 'var(--space-3)', ...(actionBusy ? { color: 'var(--text-3)', borderColor: 'var(--separator)', opacity: 1, cursor: 'default' } : null) }}>
             <Target size={16} aria-hidden="true" />行動に追加
           </button>
         )

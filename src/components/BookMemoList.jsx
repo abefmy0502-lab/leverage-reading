@@ -581,6 +581,9 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
           <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>
             {quoteOnly ? `ページ番号つき ${visibleMemos.length} 件` : `${memos.length} 件`}
           </span>
+          {/* メモが 1 件のときは並べ替えるものが無いので「ページ順 ▾」を出さない（行の高さ 44 はそのまま・2026-10-10 第 9 回 総点検）。
+              ページ番号つきだけに絞っているときは、外せるように出す。 */}
+          {memos.length <= 1 && !quoteOnly && !waiting ? <span aria-hidden="true" style={{ minHeight: 44 }} /> : (
           <button
             type="button"
             onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setSortMenu({ x: r.right - 8, y: r.bottom + 4 }); }}
@@ -590,6 +593,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
             {sortBy === 'page' ? 'ページ順' : '新しい順'}{quoteOnly ? '・ページ番号つき' : ''}
             <ChevronDown size="1.1em" aria-hidden="true" style={{ flexShrink: 0 }} />
           </button>
+          )}
         </div>
       )}
 

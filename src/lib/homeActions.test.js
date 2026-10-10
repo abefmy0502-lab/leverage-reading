@@ -34,8 +34,9 @@ describe('homeActionsSummary', () => {
 
 describe('相談の下書き', () => {
   it('行動の結果', () => {
-    expect(actionResultQuestion('上司に先に結論を話す', '早く終わった。')).toBe('『上司に先に結論を話す』をやってみました。早く終わった。次はどうしたらいい？');
-    expect(actionResultQuestion('上司に話す')).toBe('『上司に話す』をやってみました。次はどうしたらいい？');
+    expect(actionResultQuestion('上司に先に結論を話す', '早く終わった。')).toBe('「上司に先に結論を話す」をやってみました。早く終わった。次はどうしたらいい？');
+    expect(actionResultQuestion('上司に話す')).toBe('「上司に話す」をやってみました。次はどうしたらいい？');
+    expect(actionResultQuestion('「結論」から話す')).toBe('「『結論』から話す」をやってみました。次はどうしたらいい？');
     expect(actionResultQuestion('')).toBe('');
   });
   it('メモ', () => {

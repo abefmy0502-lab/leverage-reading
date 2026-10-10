@@ -206,6 +206,20 @@ describe('入らない行・利用者の切り替え・ログアウト（2026-10
     expect(storage.getItem(localSessionsKey('u1'))).toBeNull();
     warn.mockRestore();
   });
+  it('控えが空のときの送り（同期で終わる）は詰まらず、あとから控えた行は次の送りで表に入る（2026-10-10 第 9 回 総点検）', async () => {
+    const storage = memStore();
+    const client = fakeClient({ selectResult: { data: [], error: null } });
+    const store = createReadingSessionStore({ getClient: () => client, storage: () => storage });
+    await store.load('u1');
+    // 空の控え: await の前に return して finally が走る＝まだ代入していない値を読まない・例外にしない。
+    await expect(store.syncLocal('u1')).resolves.toBeUndefined();
+    await expect(store.syncLocal('u1')).resolves.toBeUndefined();
+    storage.setItem(localSessionsKey('u1'), JSON.stringify([{ ...row, id: A }]));
+    await store.syncLocal('u1');
+    expect(client.upserted.map((r) => r.id)).toEqual([A]);
+    expect(storage.getItem(localSessionsKey('u1'))).toBeNull();
+    expect(store.rows().map((r) => r.id)).toEqual([A]);
+  });
   it('本人の本でない行（42501）は保存の失敗でも端末に控えない', async () => {
     const storage = memStore();
     const client = fakeClient({ selectResult: { data: [], error: null }, insertResult: { data: null, error: { code: '42501', message: 'row-level security' } } });

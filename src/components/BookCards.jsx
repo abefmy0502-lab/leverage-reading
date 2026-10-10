@@ -111,7 +111,23 @@ export const BookCoverCard = memo(function BookCoverCard({ book, isJustDone, onO
 // 画像は onLoad でフェードイン・失敗(onError/1×1ダミー)時はプレースホルダに退避。
 // 生の <img> を直接置くと、読み込み中/失敗時に「白い空き枠」になる（本棚の
 // 続きからで実際に起きていた）。
-export function MiniCover({ book, width = 44, radius = 4, onAutoRetry }) {
+// 1 行に収まらない英字・カタカナの続き（「FACTFULNESS」）を、なるべく同じ長さに分ける切れ目（U+200B）を入れる
+//   （「FACTFULNES／S」のように 1 字だけ次の行に落ちないように・forceTitle のときだけ）。
+function balanceLongRuns(title, cap) {
+  const max = Math.max(2, cap);
+  return String(title || '').replace(/[A-Za-z0-9ァ-ヴー]+/g, (run) => {
+    if (run.length <= max) return run;
+    const lines = Math.ceil(run.length / max);
+    const size = Math.ceil(run.length / lines);
+    const parts = [];
+    for (let i = 0; i < run.length; i += size) parts.push(run.slice(i, i + size));
+    return parts.join('\u200b');
+  });
+}
+
+// forceTitle: 表紙の無い本には、いつも書名を載せた板にする（文節が 1 行に収まらないときは語の途中でも折り返す・
+//   初日クイックスタートのできあがりの大きな表紙＝無地の板が並ぶと何の本か分からない・2026-10-10 第 9 回 総点検）。
+export function MiniCover({ book, width = 44, radius = 4, onAutoRetry, forceTitle = false }) {
   const [from, to] = paletteFor(book.title);
   const [broken, setBroken] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -121,7 +137,7 @@ export function MiniCover({ book, width = 44, radius = 4, onAutoRetry }) {
     if (!show) onAutoRetry?.(book, broken && book.cover ? { brokenCover: book.cover } : undefined);
   }, [show, book.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const height = Math.round(width * 1.42); // 一般的な書籍の縦横比
-  const showTitle = width >= 48 && longestPhraseLength(book.title, { scriptBreaks: true }) * 12 <= width - 8 - 2; // 2: 字幅の端数で行からはみ出さない余裕
+  const showTitle = width >= 48 && (forceTitle || longestPhraseLength(book.title, { scriptBreaks: true }) * 12 <= width - 8 - 2); // 2: 字幅の端数で行からはみ出さない余裕
   return (
     // 表紙は「本の形」（DESIGN §4 の例外: 角丸 4）。影は使わず、極細の枠で面と分ける（暗い画面でも成立）。
     <div style={{ position: 'relative', width, height, borderRadius: radius, overflow: 'hidden', flexShrink: 0, boxShadow: 'inset 0 0 0 1px var(--separator)' }}>
@@ -140,7 +156,7 @@ export function MiniCover({ book, width = 44, radius = 4, onAutoRetry }) {
         {/* さらに、いちばん長い文節が 1 行に収まる表紙にだけ出す（字 12 × 字数 ≦ 幅 − 内側の余白 8・2026-09-29）。 */}
         {showTitle && (
           <span style={{ display: '-webkit-box', WebkitLineClamp: Math.max(1, Math.floor((height - 8) / 16)), WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-            {withPhraseBreaks(book.title, { scriptBreaks: true })}
+            {withPhraseBreaks(forceTitle ? balanceLongRuns(book.title, Math.floor((width - 10) / 12)) : book.title, { scriptBreaks: true })}
           </span>
         )}
       </div>

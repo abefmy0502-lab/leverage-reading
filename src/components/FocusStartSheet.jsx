@@ -2,12 +2,12 @@
 //
 // 「タイマー」（15・30・45・60 分）と「計測」（0 から数える・終わりは自分で）の 2 択。
 // 前回の選び方と時間を端末に覚えておき（lib/readingTime.js の loadFocusPrefs）、2 回目からは
-// 主ボタン「読みはじめる」を押すだけで始まる。下の 1 行は、おわり方（長押し）だけを言う
+// 主ボタン「はじめる」を押すだけで始まる（2026-10-10 に「読みはじめる」から＝状態を変える「読書を開始する」と見分ける）。下の 1 行は、おわり方（長押し）だけを言う
 // （集中モードの画面には説明を置かないので、ここで 1 度だけ）。
 //
 // 2026-10-10 オーナー「電車で乗り換えの駅まで集中して読みたい」: 分のチップの下の全幅のチップ「時刻まで」。
 // 選ぶと下に「おわる時刻」（TimeInput＝いつも「18:45」の書き方・既定は いま＋20 分を 5 分に切り上げ）と「21 分 読めます」。
-// いまより前・6 時間を超える時刻は、その下に理由を出して「読みはじめる」を押せなくする。
+// いまより前・6 時間を超える時刻は、その下に理由を出して「はじめる」を押せなくする。
 // 前回「時刻」を選んでいたら、次も「時刻」を選んだ形で開く（時刻は いま＋20 分 に出し直す）。
 import { useEffect, useState } from 'react';
 import BottomSheet from './BottomSheet';
@@ -105,7 +105,7 @@ export default function FocusStartSheet({ onStart, onClose, initialUntil = false
       title="読む"
       onClose={onClose}
       dismissLabel="キャンセル"
-      footer={<button type="button" onClick={start} disabled={blocked} aria-disabled={blocked || undefined} style={blocked ? btnPrimaryOff : btnPrimary} data-focus-start="">読みはじめる</button>}
+      footer={<button type="button" onClick={start} disabled={blocked} aria-disabled={blocked || undefined} style={blocked ? btnPrimaryOff : btnPrimary} data-focus-start="">はじめる</button>}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
         <div role="radiogroup" aria-label="時間の測り方" style={{ display: 'flex', borderBottom: '1px solid var(--separator)' }}>

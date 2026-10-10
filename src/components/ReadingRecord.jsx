@@ -6,7 +6,7 @@
 //
 //   1. 読書 → メモ → 行動 : 読んだ本・残したメモ・実行した行動（累計。各数字からその一覧へ）
 //   1b. 読書の時間   : 集中モードで測った時間（2026-10-10・記録があるときだけ・components/ReadingTimeCard.jsx）
-//   2. 読書の足あと   : 直近16週のアクティビティ・ヒートマップ（メモ+読了）
+//   2. 読書の足あと   : 直近16週のアクティビティ・ヒートマップ（メモ+読了+集中モードで読んだ日）
 //   3. 月別の読了     : 直近 6 ヶ月の読了数のバー
 //   4. 分野           : 本の分野ごとの本・メモ・読書の時間（2026-10-11・components/BookFields.jsx の BookFieldsRecord）。分野の付いた本があるときだけ
 //   （2026-09-26 オーナー判断で 3 区画に絞った。旧: ハイライト/一番学んだ本/定着/リズム/テーマ/著者）
@@ -498,10 +498,14 @@ export default function ReadingRecord({
 
   const bookStats = useMemo(() => buildBookStats(books), [books]);
   const doneBuckets = useMemo(() => bucketize(bookStats.doneDates), [bookStats.doneDates]);
-  // 足あと = メモ + 読了（読書に触れた日すべて）。
+  // 足あと = メモ + 読了 + 集中モードで読んだ日（読書に触れた日すべて・読んだ日は 2026-10-10 に足した＝始めた日・30 秒未満の回は数えない）。
   const footprints = useMemo(
-    () => [...(memoStats?.createdDates || []), ...bookStats.doneDates],
-    [memoStats, bookStats.doneDates],
+    () => [
+      ...(memoStats?.createdDates || []),
+      ...bookStats.doneDates,
+      ...(sessions.rows || []).filter((r) => r && r.started_at && (Number(r.seconds) || 0) >= 30).map((r) => r.started_at),
+    ],
+    [memoStats, bookStats.doneDates, sessions.rows],
   );
   // 「メモ」＝カード式＋学び（book_memos の全件）＋「この本のまとめ」の入っている本（1 冊 1 件）。
   const summaryMemos = useMemo(() => countSummaryMemos(books), [books]);

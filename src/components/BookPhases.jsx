@@ -36,7 +36,8 @@ import {
 //   フォルダ＝本人が自由に作る分け方（自動で入れない・すすめない）。入力欄の例は、まだフォルダが 1 つも無い人だけ（候補のチップと重ねない）。
 //   form.fieldsTouched: 本人が分野を選んだ（保存のあと自動で付け直さない）/ form.fieldsAuto: アプリが選んだまま。
 //   form.fieldsPending / fieldsFailed: サーバーが本の分野を見立てている間／見立てられなかった（検索で選んだ本・App.jsx）。
-function FieldsAndFolders({ form, setForm, allFolders }) {
+//   quietFail: 自動で選べなかったことを言わない（写真の道で本を追加するとき＝ページを撮るのが目的・2026-10-10 第 9 回 総点検）。
+function FieldsAndFolders({ form, setForm, allFolders, quietFail = false }) {
   return (
     <>
       <BookFieldsInput
@@ -44,7 +45,7 @@ function FieldsAndFolders({ form, setForm, allFolders }) {
         auto={!!form.fieldsAuto && !form.fieldsTouched}
         autoFrom={form.fieldsAutoStage === 'info' ? 'info' : 'title'}
         pending={!!form.fieldsPending && !form.fieldsTouched}
-        failed={!!form.fieldsFailed && !form.fieldsTouched}
+        failed={!quietFail && !!form.fieldsFailed && !form.fieldsTouched}
         onChange={(next) => setForm((f) => ({ ...f, tags: withFields(f.tags, next), fieldsTouched: true, fieldsAuto: false }))}
       />
       <Field label="フォルダ">
@@ -97,7 +98,10 @@ const COVER_W = 60;
 const COVER_H = Math.round(COVER_W * 1.42); // MiniCover と同じ縦横比
 const COVER_RADIUS = 4; // DESIGN §4 の例外: 本の表紙は本の形として角丸 4
 
-export function WantPhase({ form, setForm, onSave, saving = false, onSearchOpen, allFolders }) {
+// forPhoto: 初回ガイドの「本のページを撮る」から本を追加しているとき（2026-10-10 第 9 回 総点検）。
+//   分野・フォルダは「分野・フォルダ」の 1 行に畳み（押すと開く）、自動で選べなかった知らせは出さない（目的はページを撮ること）。
+export function WantPhase({ form, setForm, onSave, saving = false, onSearchOpen, allFolders, forPhoto = false }) {
+  const [fieldsOpen, setFieldsOpen] = useState(!forPhoto);
   const fileInputRef = useRef(null);
   const { uploadCover } = useBookCover();
   const toast = useToast();
@@ -299,8 +303,21 @@ export function WantPhase({ form, setForm, onSave, saving = false, onSearchOpen,
       </button>
 
       {/* 分野・フォルダは任意なので、主ボタンより下に（最初の画面で「保存」が見えるように）。 */}
-      <div style={{ marginTop: 'var(--space-8)' }}>
-      <FieldsAndFolders form={form} setForm={setForm} allFolders={allFolders} />
+      <div style={{ marginTop: fieldsOpen ? 'var(--space-8)' : 'var(--space-4)' }}>
+      {fieldsOpen ? (
+        <FieldsAndFolders form={form} setForm={setForm} allFolders={allFolders} quietFail={forPhoto} />
+      ) : (
+        // 畳んだ 1 行（本の詳細の畳む見出しと同じ形・右にシェブロン）。押すと欄を開く。
+        <button
+          type="button"
+          onClick={() => setFieldsOpen(true)}
+          aria-expanded="false"
+          style={{ ...foldSummary, width: '100%', padding: 0, background: 'none', border: 'none', fontFamily: 'inherit', textAlign: 'left' }}
+        >
+          分野・フォルダ
+          <IcChevron size="1.1em" aria-hidden="true" style={{ flexShrink: 0, color: 'var(--text-3)' }} />
+        </button>
+      )}
       </div>
     </div>
   );
