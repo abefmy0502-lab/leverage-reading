@@ -115,15 +115,14 @@ const THUMB_H = 64;
 const SELECTED_RING = '0 0 0 2px var(--surface), 0 0 0 4px var(--text)';
 // 形の切り替え（投稿／ストーリー）＝ iOS のセグメント（DESIGN §5「セグメント」・2026-10-10 ui-critic）。
 //   --fill の溝の中に 2 つ並べ、選んでいる方だけ --surface の面。太さは 600 のまま変えない（選ぶたびに幅が変わって跳ねない）。
-//   暗い設定では --surface が --fill より暗く、選んだ方が凹んで見えたので、選んだ面に 1px の輪（--border）を付けて浮かせる（2026-10-10 ui-critic）。
+//   選んだ面は --seg-on（明るい設定は --surface・暗い設定は溝より 1 段明るい面）。暗い設定で --surface だと溝より暗く凹んで見えた（2026-10-10 ui-critic）。
 const segTrack = { display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', padding: 'var(--space-1)', background: 'var(--fill)', borderRadius: 'var(--radius)' };
 const segBtn = (on) => ({
   minHeight: 'var(--tap-min)', // 押せる範囲 44 のまま（溝の内側 2 はその外）
   padding: '0 var(--space-3)',
   border: 'none',
   borderRadius: 'calc(var(--radius) - var(--space-1))', // 溝の角丸と同心（溝の内側の余白ぶん小さく）
-  background: on ? 'var(--surface)' : 'transparent',
-  boxShadow: on ? 'inset 0 0 0 1px var(--border)' : 'none',
+  background: on ? 'var(--seg-on)' : 'transparent',
   color: on ? 'var(--text)' : 'var(--text-2)',
   fontFamily: 'inherit',
   fontSize: 'var(--text-sub)',

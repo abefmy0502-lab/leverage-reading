@@ -146,7 +146,9 @@ const PLAN_COMPARE = [
 // （以前は「…無料・150 トークン・」と「・」で続けたので、行末に「・」が残って次の行へ割れていた・2026-10-04）。
 //   数と単位の間は折り返さない空白（狭い画面でかっこの中を割るときも「・」の後だけ）。
 // 文字が大きいときは「・」の後ろで割れるよう、そこにだけ幅のない空白（U+200B）を入れる（1 かたまりのまま画面からはみ出した・2026-10-10 ui-critic）。
-const TRIAL_TOKENS_NOTE = `（${TRIAL_TOKENS.toLocaleString('ja-JP')}\u00a0トークン・\u200bAI\u00a0の答え\u00a0${answerCountLabel(TRIAL_TOKENS).replace(/ /g, '\u00a0')}）`;
+// 割れてよいのは「・」の後ろだけ＝2 つの塊に分け、それぞれ折り返さない（keep-all だけでは暗い設定の撮影で「答／え」と割れた・2026-10-10 ui-critic）。
+const TRIAL_TOKENS_PARTS = [`（${TRIAL_TOKENS.toLocaleString('ja-JP')}\u00a0トークン・`, `AI\u00a0の答え\u00a0${answerCountLabel(TRIAL_TOKENS).replace(/ /g, '\u00a0')}）`];
+const TRIAL_TOKENS_NOTE = TRIAL_TOKENS_PARTS.join('');
 // トークンの目安（1 行）。
 // 相談 1 つが何回の答えかの補足（CONSULT_ANSWERS_NOTE）は、この目安の行で 1 回だけ（2026-10-09）。
 const TOKEN_EXAMPLE = `AI\u00a0の答え 1\u00a0回 約\u00a0${TOKEN_COSTS.consult}・AI\u00a0選書 約\u00a0${TOKEN_COSTS.advisor}\u00a0トークン`;
@@ -577,8 +579,11 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
   //   ふだんは欄の中、大きな文字のとき（compactFooter）はスクロールする中身へ（同じ中身を 1 か所で作る）。
   // 無料期間は「最初の 7 日間は無料」＋「（150 トークン・AI の答え 約 15 回）」の 2 かたまり（SPEC §1-3・2026-10-04）。
   const leadLine = trial
-    // かっこの中は keep-all（折り返すのは「・」の後ろの幅のない空白だけ＝「答／え」と割らない）。
-    ? [trialFirstPhrase(trial), TRIAL_TOKENS_NOTE].map((part) => <span key={part} style={part === TRIAL_TOKENS_NOTE ? { ...chunk, wordBreak: 'keep-all' } : chunk}>{part}</span>)
+    // かっこの中は 2 つの塊（それぞれ nowrap）＝折り返すのは「・」の後ろだけ。
+    ? [
+      <span key="first" style={chunk}>{trialFirstPhrase(trial)}</span>,
+      <span key="note" style={chunk}>{TRIAL_TOKENS_PARTS.map((p) => <span key={p} style={{ whiteSpace: 'nowrap' }}>{p}</span>)}</span>,
+    ]
     : (selected.intro && plan === 'annual' && foundingNamed)
       ? <span style={{ display: 'block' }}>{FOUNDING_NAME}（{noBreak(founding.endLabel)}まで）</span>
       : null;

@@ -36,6 +36,7 @@
   --text-3: #716b63;      /* 付随情報 4.8:1 */
   --separator: #dcd7ce;   /* 区切り線・カード枠（装飾） */
   --border: #868076;      /* 入力欄・副ボタンの枠（操作部品 3.6:1） */
+  --seg-on: var(--surface); /* セグメントの選んでいる面（溝 --fill より明るく浮く） */
 
   /* 色: アクセント 1 色（B 栗色）＋状態色 3 色 */
   --accent: #8a4b2a;
@@ -449,6 +450,7 @@
     --text-3: #9e978d;
     --separator: #3a3632;
     --border: #807a73;
+    --seg-on: #3a3632;
     --accent: #e0a07a;
     --accent-hover: #eab496;
     --accent-ink: #1b1a18;
@@ -482,6 +484,7 @@
     --text-3: #9e978d;
     --separator: #3a3632;
     --border: #807a73;
+    --seg-on: #3a3632;
     --accent: #e0a07a;
     --accent-hover: #eab496;
     --accent-ink: #1b1a18;
