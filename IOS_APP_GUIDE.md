@@ -27,8 +27,8 @@ npx cap sync ios            # dist + プラグインを iOS へ同期（毎回�
 npx cap open ios            # Xcode が開く
 ```
 
-- `capacitor.config.json`：appId `com.leveragereading.app` / appName **Orime** / webDir `dist`
-- Xcode で **Signing & Capabilities** → Team を選択、Bundle ID を `com.leveragereading.app` に一致
+- `capacitor.config.json`：appId `jp.orime.app` / appName **Orime** / webDir `dist`
+- Xcode で **Signing & Capabilities** → Team を選択、Bundle ID を `jp.orime.app` に一致
 - **In-App Purchase** capability を追加
 
 ## 3. RevenueCat 設定

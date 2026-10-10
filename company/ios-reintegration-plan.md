@@ -20,7 +20,7 @@
 
 ## 2. snapshotから「持ってくる」iOS土台（価格変更は除外）
 `main-ios-snapshot-20260620` の `145e6ce` から、以下**だけ**を現main上に再導入（¥990差分は取り込まない）：
-- [ ] `capacitor.config.json`（appId `com.leveragereading.app`・webDir `dist`・iOS contentInset/Keyboard/SplashScreen）。**appName等は要ブランド確認（Orime表記）**。
+- [ ] `capacitor.config.json`（appId `jp.orime.app`・webDir `dist`・iOS contentInset/Keyboard/SplashScreen）。**appName等は要ブランド確認（Orime表記）**。
 - [ ] `src/lib/native.js`（Capacitor検出・ネイティブ初期化のユーティリティ・44行）
 - [ ] `src/main.jsx` のネイティブ初期化呼び出し（5行）— 現mainのmain.jsxへマージ
 - [ ] `src/hooks/useHaptic.js` のネイティブ・ハプティクス分岐（現main版と差分マージ。Web挙動は壊さない）

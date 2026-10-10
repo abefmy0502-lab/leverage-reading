@@ -1,6 +1,6 @@
 # 📱 Orime — App Store 提出 完全手順書（v1.0.0）
 
-> 対象: iOS / Capacitor + RevenueCat(IAP)。Bundle ID `com.leveragereading.app`、表示名 `Orime`。
+> 対象: iOS / Capacitor + RevenueCat(IAP)。Bundle ID `jp.orime.app`、表示名 `Orime`。
 > このドキュメントは「コード側は提出可能水準」を前提に、**Apple 側でやる作業**を順に網羅する。
 > ✅=実装/準備済み、⬜=あなた（Mac/Apple アカウント）が行う作業。
 
@@ -25,13 +25,13 @@
 ## 1. Apple Developer / 証明書（⬜）
 
 1. **Apple Developer Program** 登録（年 ¥12,980）。
-2. **App ID** を作成: `com.leveragereading.app`。Capability で **In-App Purchase** を有効化（Push は後日＝今回は不要）。
+2. **App ID** を作成: `jp.orime.app`。Capability で **In-App Purchase** を有効化（Push は後日＝今回は不要）。
 3. 署名は **Xcode の Automatically manage signing** に任せるのが最速（Team を選ぶだけ）。
 
 ## 2. App Store Connect でアプリ作成（⬜）
 
 1. [App Store Connect](https://appstoreconnect.apple.com) → My Apps → ＋ → New App。
-   - Platform: iOS / Name: **Orime** / Primary Language: 日本語 / Bundle ID: `com.leveragereading.app` / SKU: `orime-ios-001`。
+   - Platform: iOS / Name: **Orime** / Primary Language: 日本語 / Bundle ID: `jp.orime.app` / SKU: `orime-ios-001`。
 2. **サブスク商品（Auto-Renewable Subscription）を2つ**登録（App内課金 → サブスクリプショングループ「Orime Premium」を作りその中に）:
    - 月額: Product ID `orime_monthly` / ¥1,480 / 期間1ヶ月
    - 年額: Product ID `orime_annual` / ¥12,800 / 期間1年

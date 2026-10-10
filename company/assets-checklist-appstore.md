@@ -11,7 +11,7 @@
 | # | 素材/手続き | 用途 | 内容 | 期限 |
 |---|---|---|---|---|
 | 1-1 | 👤 **Apple Developer Program 加入** | 提出の大前提 | developer.apple.com → 個人・年 ¥12,980。Apple ID（2FA必須）+ クレカ + 身分証。承認 24〜48h（遅延例あり） | **今日 7/12** |
-| 1-2 | 👤 **RevenueCat アカウント** | IAP 課金基盤 | app.revenuecat.com 無料登録 → iOS アプリ追加（Bundle ID `com.leveragereading.app`） | 7/13 |
+| 1-2 | 👤 **RevenueCat アカウント** | IAP 課金基盤 | app.revenuecat.com 無料登録 → iOS アプリ追加（Bundle ID `jp.orime.app`） | 7/13 |
 | 1-3 | 👤 Mac + Xcode 最新版 | ビルド環境 | Mac App Store から Xcode（約10GB・DL に時間がかかる） | 7/13 |
 | 1-4 | 👤 ASC 契約・税金・口座 | 有料アプリの売上受取 | App Store Connect → 契約 → Paid Apps 契約に同意・銀行口座・税務情報（W-8BEN 相当は画面の指示通り）。**未完了だと有料アプリを提出できない** | 7/14 |
 | 1-5 | 👤 APNs 認証キー (.p8) | 想起プッシュ通知 | Developer Portal → Keys → 「+」→ APNs にチェック → **ダウンロードは1回きり。安全に保管** | 7/14 |

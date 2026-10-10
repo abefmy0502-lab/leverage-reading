@@ -42,7 +42,7 @@ D0 Apple Developer登録 → D2 ASCアプリ作成+ios/生成+初ビルド → D
 - 🟢🤖 LP の App Store 対応差分・審査リスク修正の残り
 
 ### D2 7/14（火）
-- 🔴👤 （Developer 承認済み前提）**App Store Connect でアプリ作成**：名前「Orime」/ Bundle ID `com.leveragereading.app` / SKU `orime-ios`
+- 🔴👤 （Developer 承認済み前提）**App Store Connect でアプリ作成**：名前「Orime」/ Bundle ID `jp.orime.app` / SKU `orime-ios`
 - 🔴👤 Xcode：Push Notifications capability + Background Modes(Remote notifications) を追加、実機ビルドで全機能スモーク（ログイン→本追加→メモ→想起→AI選書）
 - 🟡👤 APNs 認証キー(.p8) を Developer Portal で発行 → Vercel に `APNS_KEY_ID / APNS_TEAM_ID / APNS_PRIVATE_KEY / APNS_BUNDLE_ID` 設定（`APNS_PRODUCTION` は TestFlight 中 false）
 

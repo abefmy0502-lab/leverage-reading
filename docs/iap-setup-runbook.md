@@ -26,8 +26,9 @@
    - プラットフォーム: **iOS**
    - 名前: **Orime - 読んだ本が相談相手に**（2026-10-10 決定・`company/app-store-listing.md`。ホーム画面のアイコンの下の名前はアプリの設定で Orime のまま）
    - 主言語: **日本語**
-   - バンドル ID: **com.leveragereading.app**（一覧に無ければ Apple Developer の Identifiers で同じ ID を作り、**In-App Purchase** にチェック）
+   - バンドル ID: **jp.orime.app**（一覧に無ければ Apple Developer の Identifiers で同じ ID を作り、**In-App Purchase** にチェック）
    - SKU: **orime-ios-001**
+   - バンドル ID は 2026-10-10 に `com.leveragereading.app` から **`jp.orime.app`** に変えた（旧名を外に出さない）。Mac の iOS の作業では Xcode → App のターゲット → Signing & Capabilities の **Bundle Identifier** も `jp.orime.app` に（`capacitor.config.json` は変更済み）。通知の鍵を入れるときの `APNS_BUNDLE_ID` も `jp.orime.app`
    - ユーザアクセス: フルアクセス
 3. **作成**
 
@@ -79,7 +80,7 @@ RevenueCat が「誰が何を買ったか」を Apple に確かめるための�
 
 1. https://app.revenuecat.com にログイン（はじめてなら Apple か Google でアカウントを作る）→ **Create project** → 名前 **Orime**
 2. **Apps & providers（アプリ）→ ＋ App Store**
-   - App name: Orime／Bundle ID: **com.leveragereading.app**
+   - App name: Orime／Bundle ID: **jp.orime.app**
    - **In-App Purchase Key**: E の .p8 を上げ、キー ID と発行者 ID を入れる
    - 保存すると、**App Store Server Notifications の URL** が表示される → それをコピー
 3. App Store Connect に戻る: Orime → **アプリ情報 → App Store サーバ通知** → 本番とサンドボックスの両方に、コピーした URL を貼って保存（RevenueCat が購入・解約をすぐ知るため）
