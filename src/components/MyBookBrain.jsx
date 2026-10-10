@@ -3522,7 +3522,17 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
       </span>
       <span style={{ minWidth: 0 }}>
         {/* 文節の切れ目でだけ折り返す（「いちば／ん古いのは」のように語の途中で割らない・2026-10-02 ui-critic）。 */}
-        {evidence && <span style={{ display: 'block', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(evidence)}</span>}
+        {/* 「（…）」は別の塊に（その前で折り返せる）・「（」は左の空き（半字）を詰める＝行の頭に来ても字下げに見えない（2026-10-10 ui-critic）。 */}
+        {evidence && (() => {
+          const i = evidence.indexOf('（');
+          if (i <= 0) return <span style={{ display: 'block', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(evidence)}</span>;
+          return (
+            <span style={{ display: 'block', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+              {withPhraseBreaks(evidence.slice(0, i))}<wbr />
+              <span style={{ marginLeft: '-0.5em' }}>（</span>{withPhraseBreaks(evidence.slice(i + 1))}
+            </span>
+          );
+        })()}
         {/* 前の相談から増えたメモ（事実だけ・点数やバッジにしない）。数字は等幅。 */}
         {growth && <span style={{ display: 'block', fontVariantNumeric: 'tabular-nums', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(growth)}</span>}
       </span>
@@ -3945,7 +3955,8 @@ function BarChip({ name, value, active, disabled, onClick, compact = false }) {
       style={{ minWidth: 0, maxWidth: '100%', minHeight: 44, margin: 'calc((var(--space-8) - 44px) / 2) 0', display: 'inline-flex', alignItems: 'center', padding: 0, background: 'none', border: 'none', cursor: disabled ? 'default' : 'pointer', fontFamily: 'inherit', opacity: 1 }}
     >
       <span style={{
-        minWidth: 0, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', height: 'var(--space-8)', padding: '0 var(--space-3)',
+        // 高さは 32 か文字の 1.8 倍の高いほう（文字を大きくしたときに字がチップの上下に詰まった・2026-10-10 ui-critic）。
+        minWidth: 0, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', height: 'max(var(--space-8), 1.8em)', padding: '0 var(--space-3)',
         borderRadius: 'var(--radius)', background: active ? 'var(--accent-soft)' : 'var(--fill)', color: disabled ? 'var(--text-2)' : 'var(--text)',
         fontSize: 'var(--text-meta)', fontWeight: 600,
       }}>

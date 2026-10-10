@@ -103,7 +103,9 @@ function scriptKind(ch) {
   if (/[A-Za-z0-9０-９Ａ-Ｚａ-ｚ]/.test(ch)) return 'latin';
   return null;
 }
-const SCRIPT_TURNS = new Set(['kata>kanji', 'kanji>kata', 'latin>kata', 'latin>hira', 'latin>kanji', 'kata>latin', 'hira>latin', 'kanji>latin']);
+// カタカナ→ひらがな（「イシュー｜からはじめよ」）も切ってよい（カタカナの語の後ろは助詞・語尾＝語の途中ではない・
+//   雑誌の本のカードで「イシューからは／じめよ」と割れていた・2026-10-10 ui-critic）。漢字↔ひらがなは送りがながあるので足さない。
+const SCRIPT_TURNS = new Set(['kata>kanji', 'kanji>kata', 'kata>hira', 'latin>kata', 'latin>hira', 'latin>kanji', 'kata>latin', 'hira>latin', 'kanji>latin']);
 
 // まとまりの中で切ってよい位置（その字の前）: 「・」・空白の後ろ、文字の種類の切れ目（カタカナ↔漢字・英数字↔日本語）。
 // 2 字に満たない切れ端を作る位置は使わない。

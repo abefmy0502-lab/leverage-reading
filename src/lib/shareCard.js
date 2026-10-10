@@ -33,7 +33,7 @@ import {
   applyShareItems, shareVisibility, recordCoverPlacement, logoBox, LOGO_RULES, statsStackPlan, placeStatsStack, statColumnsScale, mainTitle, pickSubVariant, formatAuthors,
   magazineRecord, magazineLogoBox, magazineFooterItems,
 } from './shareOverlay';
-import { phraseLayout, phraseMetrics, phraseColors, phraseDisplayText, stickerPhraseReserve } from './sharePhrase';
+import { phraseLayout, phraseMetrics, phraseColors, phraseDisplayText, stickerPhraseReserve, PHRASE_MAGAZINE_GAP } from './sharePhrase';
 import { paletteFor } from './coverPalette';
 import { apiUrl } from './apiUrl';
 
@@ -1564,7 +1564,8 @@ function layoutMagazine(ctx, o) {
   // カードは続きの文の高さに並べる（続きが無ければ引用の下・続きが長ければその下）。
   // カードを続きの文の下に置くときは、幅を広く（書名・著者を細切れにしない）。
   // 下に置くときは、表紙の左端を引用の文字の左端（textX）にそろえる（宙に浮いた位置に見えた・2026-10-10 ui-critic）。
-  const cardX = cardBelow ? Math.round(textX) : sideCardX;
+  // 続きの文が無いときも、引用の文字の左端にそろえる（右に寄せると左が空いて書名が細切れになった・2026-10-10 ui-critic）。
+  const cardX = cardBelow || !bodyLines.length ? Math.round(textX) : sideCardX;
   const colX = cardX + S.coverW + S.cardGap;
   const colW = right - colX;
   const titleFont = `600 ${S.titleSize}px ${fonts.read}`;
@@ -1624,7 +1625,8 @@ function drawMagazineTop(ctx, o, lay, theme) {
   setSpacing(ctx, 0, fit.size);
   ctx.fillText('「', lay.left, lay.headTop + half + ascent);
   setSpacing(ctx, MAG_HEAD_TRACK, fit.size);
-  lay.headLines.forEach((ln, i) => ctx.fillText(ln, lay.textX, lay.headTop + i * fit.lineHeight + half + ascent));
+  // 一文が括弧で始まる（「「『…」）ときは、1 行目を半字ぶん左へ詰める（括弧が続くと間が空いて見えた・2026-10-10 ui-critic）。
+  lay.headLines.forEach((ln, i) => ctx.fillText(ln, lay.textX - (i === 0 && /^[「『（(“]/u.test(ln) ? fit.size * 0.5 : 0), lay.headTop + i * fit.lineHeight + half + ascent));
 
   // 続きの文
   if (lay.bodyLines.length) {
@@ -1711,10 +1713,11 @@ function drawMagazineOverlay(ctx, o, place) {
 // 写真が無いとき（紙・夜・表紙の色・透明）は、上のまとまり（引用・続きの文・本のカード）を、ロゴの下から下の行の上までの
 //   真ん中より少し上に置く（上に寄せたままだと下半分が空いて、作りかけに見えた・2026-10-10 ui-critic）。写真の上では
 //   今までどおり上に寄せる（写真を見せる場所を空ける）。
-export function centerMagazineLayout(lay) {
+// reserve: まとまりの下に取っておく高さ（動かしていない言葉＝空き 48＋言葉の高さ・2026-10-10）。まとまりと言葉を一緒に真ん中へ。
+export function centerMagazineLayout(lay, reserve = 0) {
   const roomTop = lay.headTop;
   const roomBottom = lay.footTop - Math.round(48 * lay.S.k);
-  const used = lay.topBottom - roomTop;
+  const used = lay.topBottom - roomTop + Math.max(0, reserve);
   const dy = Math.round(Math.max(0, (roomBottom - roomTop - used) * 0.42));
   if (!dy) return lay;
   return {
@@ -1729,6 +1732,19 @@ export function centerMagazineLayout(lay) {
   };
 }
 
+// 雑誌の最終の組み（写真の上は上に寄せたまま・ほかは言葉の場所も含めて真ん中寄り）。
+// 動かしていない言葉があれば、その高さぶんを下に取っておく（言葉は引用のまとまりの下に置く＝重ねない）。
+function magazinePhraseReserve(ctx, o) {
+  if (!o.phrase || o.phrase.moved || !phraseDisplayText(o.phrase)) return 0;
+  const lay = layoutPhraseOn(ctx, { ...o, magazineBelow: null }, o.W, o.H);
+  return lay ? lay.h + PHRASE_MAGAZINE_GAP * (o.W / 1080) : 0;
+}
+function finalMagazineLayout(ctx, o) {
+  const lay = layoutMagazine(ctx, o);
+  if (o.style === 'photo') return lay;
+  return centerMagazineLayout(lay, magazinePhraseReserve(ctx, o));
+}
+
 function drawMagazine(ctx, o) {
   if (o.style === 'photo') {
     const place = photoPlacement({ pw: o.photo.width, ph: o.photo.height, W: o.W, H: o.H, ...(o.view || {}) });
@@ -1737,7 +1753,7 @@ function drawMagazine(ctx, o) {
     drawMagazineOverlay(ctx, o, place);
     return;
   }
-  const lay = centerMagazineLayout(layoutMagazine(ctx, o));
+  const lay = finalMagazineLayout(ctx, o);
   if (o.style === 'sticker') {
     // 透明: 地は描かない・白い文字＋濃い影（下の写真が分からないので）
     const theme = { ...o.theme, logo: 'white' };
@@ -1824,7 +1840,17 @@ export function layoutPhraseOn(ctx, o, W, H) {
   const style = o.phrase.style || 'mincho';
   const fonts = o.fonts || fontStacks();
   const { spacing } = phraseMetrics(style);
+  // 雑誌: 動かしていない言葉は、引用・続きの文・本のカードの下に置く（重ねない・2026-10-10 ui-critic）。
+  let below = null;
+  if (o.layout === 'magazine' && !o.phrase.moved) {
+    if (o.magazineBelow !== undefined) below = o.magazineBelow;
+    else {
+      const mo = magazineOpts(o, fonts);
+      below = mo ? finalMagazineLayout(ctx, { ...mo, magazineBelow: null }).topBottom : null;
+    }
+  }
   return phraseLayout(o.phrase, {
+    below,
     W,
     H,
     format: o.format,
@@ -1842,6 +1868,17 @@ export function layoutPhraseOn(ctx, o, W, H) {
       };
     },
   });
+}
+
+// 雑誌の組みに要る材料（描く前の opts でも・visibleOpts を通したあとでも）。画像の座標は recordFrame の大きさ。
+function magazineOpts(o, fonts) {
+  const F = recordFrame(o.format);
+  let style = o.style || 'paper';
+  if (style === 'photo' && !o.photo) style = 'night';
+  if (o.magazine) return { ...o, fonts, style, W: F.W, H: F.H, format: F.format };
+  const { text } = clampLine(o.line);
+  if (!text) return null;
+  return { ...visibleOpts(o, 'magazine', text), fonts, style, W: F.W, H: F.H, format: F.format, layout: 'magazine' };
 }
 
 function drawPhrase(ctx, o, W, H) {

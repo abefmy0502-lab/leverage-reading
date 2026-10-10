@@ -52,6 +52,8 @@ export function newPhrase(text = '') {
 // 言葉の場所と記録の間は 56。記録の塊は「上の余白 72＋言葉の高さ＋56」から始まる。
 export const STICKER_PAD = 72;
 export const PHRASE_STICKER_GAP = 56;
+// 雑誌の重ね方: 引用のまとまり（引用・続きの文・本のカード）の下端から言葉までの空き（幅 1080 のとき）。
+export const PHRASE_MAGAZINE_GAP = 48;
 // 透明のとき、言葉のために上に足す高さ（言葉が無ければ 0）。
 export function stickerPhraseReserve(phraseH) {
   return phraseH > 0 ? Math.ceil(phraseH) + PHRASE_STICKER_GAP : 0;
@@ -131,13 +133,18 @@ export function balanceLines(text, maxWidth, measure) {
 // 大きさ・改行・箱。measureAt(size) は「その大きさの文字の幅を返す関数」を返す（canvas の measureText・テストでは字数×大きさ）。
 // 戻り値: { text, lines, size, lineHeight, w, h, cx, cy, x0, y0, padX, padY, underlineH, style } （画像の座標・箱は余白と傍線を含む）
 // 箱が枠に入らないときは、入るまで小さくする（文字の大きさの下限 28）。
-export function phraseLayout(phrase, { W = 1080, H = 1350, format = 'post', sticker = false, magazine = false, measureAt } = {}) {
+// below（雑誌の重ね方・言葉をまだ動かしていないとき）: 引用・続きの文・本のカードの下端（画像の座標）。
+//   言葉はその下 PHRASE_MAGAZINE_GAP（幅 1080 のとき）から置き、引用に重ねない（2026-10-10 ui-critic）。
+//   入らなければ、その下の空きに入るまで小さくする。指で動かした言葉（moved）は今までどおり置いた場所に。
+export function phraseLayout(phrase, { W = 1080, H = 1350, format = 'post', sticker = false, magazine = false, below = null, measureAt } = {}) {
   const text = phraseDisplayText(phrase);
   if (!text || typeof measureAt !== 'function') return null;
   const style = PHRASE_STYLES.includes(phrase.style) ? phrase.style : 'mincho';
   const m = phraseMetrics(style);
   // 透明は高さが中身で決まるので、大きさは幅だけで決め（高さは 1600 まで）、決まった高さをそのまま言葉の場所にする。
   let frame = phraseFrame({ W, H: sticker ? STICKER_PAD * 2 + 1600 * (W / 1080) : H, format, sticker, magazine });
+  const underBlock = magazine && !sticker && !phrase.moved && Number.isFinite(below);
+  if (underBlock) frame = { ...frame, top: Math.min(frame.bottom - 28, Math.max(frame.top, below + PHRASE_MAGAZINE_GAP * (W / 1080))) };
   const frameW = frame.right - frame.left;
   const frameH = frame.bottom - frame.top;
   const k = W / 1080;
@@ -167,7 +174,9 @@ export function phraseLayout(phrase, { W = 1080, H = 1350, format = 'post', stic
     out = { ...rest, lines, w: Math.ceil(textW + rest.padX * 2) };
   }
   if (sticker) frame = phraseFrame({ W, format, sticker, phraseH: out.h });
-  const want = { cx: (Number.isFinite(phrase.x) ? phrase.x : 0.5) * W, cy: (Number.isFinite(phrase.y) ? phrase.y : 0.24) * H };
+  const want = underBlock
+    ? { cx: 0.5 * W, cy: frame.top + out.h / 2 }
+    : { cx: (Number.isFinite(phrase.x) ? phrase.x : 0.5) * W, cy: (Number.isFinite(phrase.y) ? phrase.y : 0.24) * H };
   const { cx, cy } = clampPhraseCenter({ ...want, w: out.w, h: out.h }, frame);
   return { ...out, cx, cy, x0: cx - out.w / 2, y0: cy - out.h / 2, frame };
 }
@@ -175,7 +184,8 @@ export function phraseLayout(phrase, { W = 1080, H = 1350, format = 'post', stic
 // 画像の座標の中心から、保存する置き方（0〜1）へ。枠からはみ出さないように寄せてから割る。
 export function phrasePositionFrom({ cx, cy }, layout, { W, H }) {
   const c = layout ? clampPhraseCenter({ cx, cy, w: layout.w, h: layout.h }, layout.frame) : { cx, cy };
-  return { x: Math.round((c.cx / W) * 10000) / 10000, y: Math.round((c.cy / H) * 10000) / 10000 };
+  // moved: 指・矢印キーで動かした印（雑誌の重ね方は、動かすまで引用の下に置く）。
+  return { x: Math.round((c.cx / W) * 10000) / 10000, y: Math.round((c.cy / H) * 10000) / 10000, moved: true };
 }
 
 // 文字の色（自動）: 写真・夜・表紙の色・透明＝白い文字、紙＝墨の文字。

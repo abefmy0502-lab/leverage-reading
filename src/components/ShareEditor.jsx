@@ -428,7 +428,7 @@ export default function ShareEditor({
       const [mx, my] = moves[e.key];
       const nx = (phrase.x ?? 0.5) + mx;
       const ny = (phrase.y ?? 0.3) + my;
-      const pos = box ? phrasePositionFrom({ cx: nx * size.w, cy: ny * size.h }, box, { W: size.w, H: size.h }) : { x: nx, y: ny };
+      const pos = box ? phrasePositionFrom({ cx: nx * size.w, cy: ny * size.h }, box, { W: size.w, H: size.h }) : { x: nx, y: ny, moved: true };
       onPhrase({ ...phrase, ...pos });
     } else if (e.key === '+' || e.key === '=' || e.key === '-') {
       e.preventDefault();

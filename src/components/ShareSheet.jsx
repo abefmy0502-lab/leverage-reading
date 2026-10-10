@@ -115,13 +115,15 @@ const THUMB_H = 64;
 const SELECTED_RING = '0 0 0 2px var(--surface), 0 0 0 4px var(--text)';
 // 形の切り替え（投稿／ストーリー）＝ iOS のセグメント（DESIGN §5「セグメント」・2026-10-10 ui-critic）。
 //   --fill の溝の中に 2 つ並べ、選んでいる方だけ --surface の面。太さは 600 のまま変えない（選ぶたびに幅が変わって跳ねない）。
-const segTrack = { display: 'flex', flexDirection: 'column', gap: 2, padding: 2, background: 'var(--fill)', borderRadius: 'var(--radius)' };
+//   暗い設定では --surface が --fill より暗く、選んだ方が凹んで見えたので、選んだ面に 1px の輪（--border）を付けて浮かせる（2026-10-10 ui-critic）。
+const segTrack = { display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', padding: 'var(--space-1)', background: 'var(--fill)', borderRadius: 'var(--radius)' };
 const segBtn = (on) => ({
   minHeight: 'var(--tap-min)', // 押せる範囲 44 のまま（溝の内側 2 はその外）
   padding: '0 var(--space-3)',
   border: 'none',
-  borderRadius: 'calc(var(--radius) - 2px)',
+  borderRadius: 'calc(var(--radius) - var(--space-1))', // 溝の角丸と同心（溝の内側の余白ぶん小さく）
   background: on ? 'var(--surface)' : 'transparent',
+  boxShadow: on ? 'inset 0 0 0 1px var(--border)' : 'none',
   color: on ? 'var(--text)' : 'var(--text-2)',
   fontFamily: 'inherit',
   fontSize: 'var(--text-sub)',
@@ -794,6 +796,17 @@ export default function ShareSheet({
     </div>
   );
 
+  // 形（投稿 4:5／ストーリー 9:16）。文字が大きいときは横に並べる。
+  const formatSwitch = (
+    <div role="radiogroup" aria-label="画像の形" style={{ ...segTrack, ...(largeText ? { flexDirection: 'row' } : null), flexShrink: 0, marginLeft: variants.length > 1 || largeText ? 0 : 'auto' }}>
+      {FORMAT_OPTIONS.map((o) => (
+        <button key={o.v} type="button" role="radio" aria-checked={format === o.v} aria-label={o.aria} onClick={() => setFormat(o.v)} style={{ ...segBtn(format === o.v), padding: '0 var(--space-2)' }}>
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+
   return (
     <BottomSheet title="写真で共有" onClose={onClose} footer={footer} dismissLabel="キャンセル">
       <input ref={fileRef} type="file" accept="image/*" onChange={onPhotoPicked} style={{ display: 'none' }} aria-hidden="true" tabIndex={-1} />
@@ -913,6 +926,7 @@ export default function ShareSheet({
               編集
             </button>
             </div>
+            {effStyle !== 'sticker' && largeText && <div style={{ marginLeft: 'auto' }}>{formatSwitch}</div>}
             {photo && (
               // 背景（写真・フィルム・紙…）と、撮り直す・アルバムから選ぶは「背景：写真 ▾」のメニュー 1 つに（2026-10-10）。
               <button
@@ -936,7 +950,7 @@ export default function ShareSheet({
         {/* 今年のメモを読めなかった間は、見本（空になる）を見せない（場所は残す＝読み直せたときに下が動かない）。 */}
         {/* 重ね方の見本（名前は 2 行ぶんの高さでそろえる）と、同じ行の右に形（投稿 4:5／ストーリー 9:16・縦に 2 つ）。
             シートの段を 1 つ減らす（2026-10-10 ui-critic）。透明（形が無い）のときは形を出さない。 */}
-        {(variants.length > 1 || effStyle !== 'sticker') && (
+        {(variants.length > 1 || (effStyle !== 'sticker' && !largeText)) && (
         <div aria-hidden={yearError || undefined} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: 'var(--space-2)', visibility: yearError ? 'hidden' : 'visible' }}>
             {/* 列の幅は名前の字の大きさで決める（文字が大きいときは 3 列＋次の行・形の切り替えは下の行へ回る＝名前が重ならない）。 */}
             {variants.length > 1 && (
@@ -977,16 +991,14 @@ export default function ShareSheet({
               })}
             </div>
             )}
-            {effStyle !== 'sticker' && (
-              // 文字が大きいときは見本の下の行で、横に並べる（左にそろえる）。
-              <div role="radiogroup" aria-label="画像の形" style={{ ...segTrack, ...(largeText ? { flexDirection: 'row' } : null), flexShrink: 0, marginLeft: variants.length > 1 || largeText ? 0 : 'auto' }}>
-                {FORMAT_OPTIONS.map((o) => (
-                  <button key={o.v} type="button" role="radio" aria-checked={format === o.v} aria-label={o.aria} onClick={() => setFormat(o.v)} style={{ ...segBtn(format === o.v), padding: '0 var(--space-2)' }}>
-                    {o.label}
-                  </button>
-                ))}
+            {/* 文字が大きいときは、選んでいる見せ方の名前を見本の下に 1 行で（見本の名前は出していないので・2026-10-10 ui-critic）。 */}
+            {largeText && variants.length > 1 && (
+              <div aria-hidden="true" style={{ flex: '1 1 100%', minWidth: 0, fontSize: 'var(--text-meta)', fontWeight: 600, color: 'var(--text-2)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {VARIANT_LABELS[variant]}
               </div>
             )}
+            {/* 形の切り替え。文字が大きいときは「別の一文／編集」の行の右へ移す（最初の画面で見えるように）。 */}
+            {effStyle !== 'sticker' && !largeText && formatSwitch}
         </div>
         )}
 

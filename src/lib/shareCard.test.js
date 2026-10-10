@@ -438,6 +438,45 @@ describe('雑誌（2026-10-09）', () => {
     expect(() => drawShareCard(fakeCanvas(), mag({ line: '' }))).toThrow();
     expect(drawShareCard(fakeCanvas(), mag()).line).toBe(LINE);
   });
+  it('動かしていない言葉は、引用・続きの文・本のカードの下に置く（重ねない・2026-10-10 ui-critic）', () => {
+    const lines = [LINE, '問いを持つ。', '正解を探さない、と決めた。']; // 長い一文（カードが下）・続きなし・続きあり
+    const phrases = ['やってみる、と決めた日。', '問いを持ち続ける。答えは一つじゃない。人生を豊かにするのは、問いのほうだ。'];
+    for (const line of lines) {
+      for (const text of phrases) {
+        for (const pstyle of ['mincho', 'bold', 'hand', 'band']) {
+          for (const style of ['photo', 'paper', 'night', 'cover', 'sticker']) {
+            for (const format of ['post', 'story']) {
+              const c = fakeCanvas();
+              drawShareCard(c, mag({ line, style, format, phrase: { text, style: pstyle, x: 0.5, y: 0.24, scale: 1 } }));
+              const fills = c.calls.map((k, i) => ({ ...k, i })).filter((k) => k.op === 'fillText');
+              // 言葉は最後に描く（言葉の行＝最後の言葉の書体の連続）。
+              const phraseFont = fills[fills.length - 1].font;
+              let start = fills.length - 1;
+              while (start > 0 && fills[start - 1].font === phraseFont && !/YOUR BOOKS|FRI/.test(String(fills[start - 1].args[0]))) start -= 1;
+              const phraseCalls = fills.slice(start);
+              const size = (k) => parseFloat(/(\d+(?:\.\d+)?)px/.exec(k.font)[1]);
+              const phraseTop = Math.min(...phraseCalls.map((k) => k.args[2] - size(k)));
+              const block = fills.slice(0, start).filter((k) => !/YOUR BOOKS|FRI/.test(String(k.args[0])));
+              let blockBottom = Math.max(...block.map((k) => k.args[2] + size(k) * 0.3));
+              const cover = c.calls.find((k) => k.op === 'drawImage' && k.args[0]?.tag === 'cover');
+              if (cover && cover.args.length >= 5) blockBottom = Math.max(blockBottom, cover.args[2] + cover.args[4]);
+              const where = `${line.slice(0, 6)} ${text.slice(0, 6)} ${pstyle} ${style} ${format}`;
+              expect(phraseTop, where).toBeGreaterThanOrEqual(blockBottom);
+              const foot = fills.find((k) => /FRI/.test(String(k.args[0])));
+              const phraseBottom = Math.max(...phraseCalls.map((k) => k.args[2]));
+              expect(phraseBottom, where).toBeLessThan(foot.args[2] - size(foot));
+            }
+          }
+        }
+      }
+    }
+  }, 60000);
+  it('指で動かした言葉は、置いた場所のまま', () => {
+    const c = fakeCanvas();
+    drawShareCard(c, mag({ format: 'post', phrase: { text: 'やってみる。', style: 'bold', x: 0.5, y: 0.5, scale: 1, moved: true } }));
+    const k = c.calls.filter((x) => x.op === 'fillText').pop();
+    expect(Math.abs(k.args[2] - 1350 * 0.5)).toBeLessThan(80);
+  });
   it('下の行の短い数の欄（あとで足す読書時間の場所）は、渡したときだけ描く', () => {
     const c = fakeCanvas();
     drawShareCard(c, mag({ note: { label: '読書', value: '1h 32m' } }));

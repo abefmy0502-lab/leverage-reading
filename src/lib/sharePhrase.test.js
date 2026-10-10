@@ -222,3 +222,21 @@ describe('雑誌の重ね方では、言葉は右上のロゴの下から（2026
     }
   });
 });
+
+describe('雑誌の重ね方: 動かしていない言葉は引用のまとまりの下（2026-10-10）', () => {
+  it('箱の上端は below＋48 以上・枠の中・動かした言葉は置いた場所', () => {
+    for (const format of ['post', 'story']) {
+      const { W, H } = FORMATS[format];
+      for (const below of [500, 800, 1000]) {
+        const lay = phraseLayout({ text: 'やってみる、と決めた日。', style: 'mincho', scale: 1, x: 0.5, y: 0.24 }, { W, H, format, magazine: true, below, measureAt });
+        expect(lay.y0).toBeGreaterThanOrEqual(below + 48 - 0.5);
+        expect(lay.y0 + lay.h).toBeLessThanOrEqual(lay.frame.bottom + 0.5);
+        const moved = phraseLayout({ text: 'やってみる', style: 'bold', scale: 1, x: 0.5, y: 0.3, moved: true }, { W, H, format, magazine: true, below, measureAt });
+        expect(moved.cy).toBeCloseTo(0.3 * H, 0);
+      }
+    }
+  });
+  it('phrasePositionFrom は動かした印を付ける', () => {
+    expect(phrasePositionFrom({ cx: 540, cy: 600 }, null, { W: 1080, H: 1350 }).moved).toBe(true);
+  });
+});

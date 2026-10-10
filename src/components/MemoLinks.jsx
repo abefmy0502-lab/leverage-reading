@@ -51,10 +51,10 @@ export default function MemoLinks({ links, onOpen, onDismiss = null, variant = '
             <Link2 size="1.2em" />
           </span>
           {/* 2 行まで（文字を大きくして書名が 1 行を取るときだけ 3 行・文の終わり「でも書いています」を切らない）。
-              書名は 1 つの塊（長ければ … で切る）・『 は行の頭でぶら下げる。 */}
+              書名は 1 つの塊（長ければ … で切る）・『 は行の頭でぶら下げる。書名は栗色＝押すと開けることを見せる（2026-10-10 ui-critic）。 */}
           <span style={{ minWidth: 0, display: '-webkit-box', WebkitLineClamp: largeText ? 3 : 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
             似たことを<wbr />
-            <span style={{ display: 'inline-block', maxWidth: 'calc(100% + 0.5em)', marginLeft: '-0.5em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', verticalAlign: 'bottom' }}>『{first.book.title}』</span>
+            <span style={{ display: 'inline-block', maxWidth: 'calc(100% + 0.5em)', marginLeft: '-0.5em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', verticalAlign: 'bottom', color: 'var(--accent)' }}>『{first.book.title}』</span>
             {withPhraseBreaks(`${page}でも書いています`)}
           </span>
         </button>

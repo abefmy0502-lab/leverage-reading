@@ -300,7 +300,8 @@ function ActionRow({ a, completing, swipeable, onCheck, onOpenMenu, onSwipeDelet
         aria-label={shownDone ? `「${stripInlineMd(a.text)}」を未完了に戻す` : `「${stripInlineMd(a.text)}」を完了にする`}
         onClick={() => onCheck?.(a)}
         // 丸は文の 1 行目の高さの中央に（文字の大きさに合わせて em で・2026-10-10 ui-critic）。押せる範囲は 44 のまま。
-        style={{ flexShrink: 0, width: 44, height: 44, fontSize: 'var(--text-body)', margin: `${ROW_ICON_OFFSET} 0 ${ROW_ICON_OFFSET} calc(-1 * var(--space-3))`, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+        // 左は丸の見た目の左端がカードの余白（16）にそろうよう、押せる範囲の余りぶんだけ外へ（文字最大で丸が左に寄った・2026-10-10）。
+        style={{ flexShrink: 0, width: 44, height: 44, fontSize: 'var(--text-body)', margin: `${ROW_ICON_OFFSET} 0 ${ROW_ICON_OFFSET} calc((1.4em - 44px) / 2)`, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
       >
         {shownDone
           ? <span key="on" className="check-pop" style={{ display: 'flex' }}><CheckCircle2 size="1.4em" aria-hidden="true" style={{ color: 'var(--success)' }} /></span>
@@ -321,7 +322,7 @@ function ActionRow({ a, completing, swipeable, onCheck, onOpenMenu, onSwipeDelet
             折り返しは今までどおり文節の切れ目で、1 つの文節が行に収まらないときだけ中で折る。 */}
         <p className="text-pretty" style={{ margin: 0, fontSize: 'var(--text-body)', lineHeight: 1.5, color: shownDone ? 'var(--text-3)' : 'var(--text)', textDecoration: shownDone ? 'line-through' : 'none', transition: `color ${HEIGHT_EASE}`, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
           {/* 右上の「…」の場所は 1 行目だけ空ける（2 行目からは右端まで使う・2026-10-10 ui-critic）。 */}
-          <span aria-hidden="true" style={{ float: 'right', width: 'calc(44px - var(--space-4) + var(--space-1))', height: '1.5em' }} />
+          <span aria-hidden="true" style={{ float: 'right', width: 'calc(1.2em + var(--space-2))', height: '1.5em' }} />
           {phrasedText}
         </p>
         {(a.bookTitle || meta.length > 0) && (
@@ -354,8 +355,8 @@ function ActionRow({ a, completing, swipeable, onCheck, onOpenMenu, onSwipeDelet
         // 並んだ「…」を読み上げで見分けられるように、行動の文を入れる（長い文は 40 字で切る・2026-09-29）。
         aria-label={`「${String(a.text || '').trim().slice(0, 40)}」の操作`}
         onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); onOpenMenu?.({ x: r.right - 8, y: r.bottom + 4, action: a }); }}
-        // 「…」も文の 1 行目の高さの中央に（em で大きさを決める）。
-        style={{ position: 'absolute', top: 'calc(var(--space-4) + 0.75em - 22px)', right: 0, width: 44, height: 44, fontSize: 'var(--text-body)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', color: 'var(--text-2)', cursor: 'pointer', padding: 0 }}
+        // 「…」も文の 1 行目の高さの中央に（em で大きさを決める）。右は見た目の右端がカードの余白（16）にそろう位置。
+        style={{ position: 'absolute', top: 'calc(var(--space-4) + 0.75em - 22px)', right: 'calc(var(--space-4) + (1.2em - 44px) / 2)', width: 44, height: 44, fontSize: 'var(--text-body)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', color: 'var(--text-2)', cursor: 'pointer', padding: 0 }}
       >
         <MoreHorizontal size="1.2em" aria-hidden="true" />
       </button>

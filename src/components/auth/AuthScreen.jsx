@@ -501,7 +501,7 @@ export default function AuthScreen() {
             </button>
             {/* サービス紹介はログインの画面だけ（新規登録は「ログインに戻る」1 つにして、押すものを減らす・2026-09-29）。 */}
             {!isNative && (
-              <a href="/lp" style={{ ...btnLink, textDecoration: 'none' }}>サービス紹介を見る</a>
+              <a href="/lp" style={{ ...btnLink, color: 'var(--text-2)', textDecoration: 'none' }}>サービス紹介を見る</a>
             )}
           </>
         )}

@@ -145,7 +145,8 @@ const PLAN_COMPARE = [
 // SPEC §1-3 の書き方「最初の 7 日間は無料（150 トークン・AI の答え 約 15 回）」。かっこの中は 1 かたまり
 // （以前は「…無料・150 トークン・」と「・」で続けたので、行末に「・」が残って次の行へ割れていた・2026-10-04）。
 //   数と単位の間は折り返さない空白（狭い画面でかっこの中を割るときも「・」の後だけ）。
-const TRIAL_TOKENS_NOTE = `（${TRIAL_TOKENS.toLocaleString('ja-JP')}\u00a0トークン・AI\u00a0の答え\u00a0${answerCountLabel(TRIAL_TOKENS).replace(/ /g, '\u00a0')}）`;
+// 文字が大きいときは「・」の後ろで割れるよう、そこにだけ幅のない空白（U+200B）を入れる（1 かたまりのまま画面からはみ出した・2026-10-10 ui-critic）。
+const TRIAL_TOKENS_NOTE = `（${TRIAL_TOKENS.toLocaleString('ja-JP')}\u00a0トークン・\u200bAI\u00a0の答え\u00a0${answerCountLabel(TRIAL_TOKENS).replace(/ /g, '\u00a0')}）`;
 // トークンの目安（1 行）。
 // 相談 1 つが何回の答えかの補足（CONSULT_ANSWERS_NOTE）は、この目安の行で 1 回だけ（2026-10-09）。
 const TOKEN_EXAMPLE = `AI\u00a0の答え 1\u00a0回 約\u00a0${TOKEN_COSTS.consult}・AI\u00a0選書 約\u00a0${TOKEN_COSTS.advisor}\u00a0トークン`;
@@ -576,7 +577,8 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
   //   ふだんは欄の中、大きな文字のとき（compactFooter）はスクロールする中身へ（同じ中身を 1 か所で作る）。
   // 無料期間は「最初の 7 日間は無料」＋「（150 トークン・AI の答え 約 15 回）」の 2 かたまり（SPEC §1-3・2026-10-04）。
   const leadLine = trial
-    ? [trialFirstPhrase(trial), TRIAL_TOKENS_NOTE].map((part) => <span key={part} style={chunk}>{part}</span>)
+    // かっこの中は keep-all（折り返すのは「・」の後ろの幅のない空白だけ＝「答／え」と割らない）。
+    ? [trialFirstPhrase(trial), TRIAL_TOKENS_NOTE].map((part) => <span key={part} style={part === TRIAL_TOKENS_NOTE ? { ...chunk, wordBreak: 'keep-all' } : chunk}>{part}</span>)
     : (selected.intro && plan === 'annual' && foundingNamed)
       ? <span style={{ display: 'block' }}>{FOUNDING_NAME}（{noBreak(founding.endLabel)}まで）</span>
       : null;
@@ -584,7 +586,8 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
   const leadInContent = !!leadLine && (compactFooter || !trial);
   // 無料期間: 期間中にやめれば払わない（2026-09-29）／先払いの初回価格: いつ・何の分を払うか（2026-10-02。1 行に収まる長さ＝「、」「まとめて」を省く・2026-10-04）。
   const noteBelow = trial
-    ? <><span style={chunk}>無料期間が終わる 24 時間前までに解約すれば、</span><span style={chunk}>料金はかかりません。</span></>
+    // 文節で折り返す（2 つの大きな塊だと、文字が大きいときに行の半分が空いた・2026-10-10 ui-critic）。
+    ? <span style={phraseText}><Phrases>{'無料期間が終わる 24 時間前までに解約すれば、料金はかかりません。'}</Phrases></span>
     : selected.intro?.upfront
       ? <span style={phraseText}><Phrases>{`${noBreak(selected.intro.priceString)} は始めるときに ${noBreak(selected.intro.span || '1 年')}分をお支払いします。`}</Phrases></span>
       : null;
@@ -660,8 +663,9 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
               {myBooks.map((b) => <MiniCover key={b.id} book={b} width={60} />)}
             </div>
             <p style={{ fontSize: 'var(--text-body)', lineHeight: 1.6, margin: 'var(--space-4) 0 0', wordBreak: 'auto-phrase', textWrap: 'pretty' }}>
-              {/* 『 は半字ぶん左へ（行の頭ではぶら下げ、』『 と続くところは詰める・2026-10-10 ui-critic）。 */}
-              {myBooks.slice(0, 2).map((b) => <span key={b.id} style={{ marginLeft: '-0.5em' }}>『{b.title}』</span>)}{myBooks.length > 2 ? 'など' : ''}のメモを根拠に答える、あなただけの相談相手です。
+              {/* 『 は半字ぶん左へ（行の頭ではぶら下げ、』『 と続くところは詰める・2026-10-10 ui-critic）。
+                  書名は 1 つの塊（長ければ … で切る・文字が大きいときに語の途中で割れた・MemoLinks と同じ）。 */}
+              {myBooks.slice(0, 2).map((b) => <span key={b.id} style={{ display: 'inline-block', maxWidth: 'calc(100% + 0.5em)', marginLeft: '-0.5em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', verticalAlign: 'bottom' }}>『{b.title}』</span>)}{myBooks.length > 2 ? 'など' : ''}のメモを根拠に答える、あなただけの相談相手です。
             </p>
           </>
         )}
