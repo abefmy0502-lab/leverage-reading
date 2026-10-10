@@ -29,6 +29,7 @@
    - バンドル ID: **jp.orime.app**（一覧に無ければ Apple Developer の Identifiers で同じ ID を作り、**In-App Purchase** にチェック）
    - SKU: **orime-ios-001**
    - バンドル ID は 2026-10-10 に `com.leveragereading.app` から **`jp.orime.app`** に変えた（旧名を外に出さない）。Mac の iOS の作業では Xcode → App のターゲット → Signing & Capabilities の **Bundle Identifier** も `jp.orime.app` に（`capacitor.config.json` は変更済み）。通知の鍵を入れるときの `APNS_BUNDLE_ID` も `jp.orime.app`
+   - 暗号化の書類は出さない（Orime の暗号化は HTTPS だけ＝免除）。かわりに Mac で Xcode の Info.plist に `ITSAppUsesNonExemptEncryption` = `NO`（Boolean）を足す（毎回のビルドで聞かれなくなる）。App 情報の「デジタルサービス法」は非トレーダーのまま・「ベトナムゲームライセンス」「規制対象の医療用デバイス」は該当しない
    - ユーザアクセス: フルアクセス
 3. **作成**
 
