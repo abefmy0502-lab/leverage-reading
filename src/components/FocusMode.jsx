@@ -25,6 +25,7 @@ import { useBackLayer } from '../hooks/useHistoryBack';
 import { useReadingSessions } from '../hooks/useReadingSessions';
 import { useToast } from './Toast';
 import { withPhraseBreaks } from './TightBubble';
+import { track, EVENTS, minutesBucket } from '../lib/analytics';
 import {
   displayMinutes, timerProgress, isTimerDone, pauseFocus, resumeFocus, continueAsCount,
   sessionRow, saveFocusState, readFocusState, todaySeconds, totalSeconds, fmtDuration,
@@ -240,6 +241,7 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
     const todaySec = todaySeconds(rows, book.id, t);
     // 押し間違い（30 秒未満）は何も残さず閉じる（おわったときの画面も出さない）。
     if (!row) { onClose(); return; }
+    track(EVENTS.FOCUS_DONE, { mode: row.mode === 'count' ? 'count' : 'timer', minutes: minutesBucket(row.seconds) });
     setSummary({ todaySec, totalSec: totalSeconds(rows, book.id) });
     setPhase('summary');
     setBusy(false);

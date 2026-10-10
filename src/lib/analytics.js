@@ -152,5 +152,58 @@ export const EVENTS = {
   RECALL_SHOWN: 'recall_shown', // 本物の想起カード表示（当日メモのプレビュー除く）— 初週想起体験率の分子
   ACTION_COMPLETED: 'action_completed',
   SHARE_CARD: 'share_card', // 写真で共有・一文カードをシェア／保存（props: kind（record / stats / line）/ style / format / via / subject（book / month / year）だけ・本文や書名は送らない）
+  PUSH_OPENED: 'push_opened', // 通知を押してアプリを開いた（props: kind（recall / action_deadline）だけ・2026-10-10）
+  ACTION_ADDED: 'action_added', // 行動を足した（props: source（consult / memo / manual）だけ・2026-10-10）
+  FOCUS_DONE: 'focus_done', // 読む（集中モード）をおえた（props: mode（timer / count）/ minutes（区分）だけ・2026-10-10）
+  RECALL_ANSWERED: 'recall_answered', // 思い出しカードに答えた（props: mastered（覚えた＝true）だけ・2026-10-10）
   SHARE_NUDGE: 'share_nudge', // ホームの「◯月の読書を、1 枚の画像に」の 1 行（props: kind（month / year）/ action（open / dismiss）だけ・2026-10-08）
 };
+
+// ── 区分（そのままの数を送らず、まとまりで送る・2026-10-10） ───────────────────
+// メモの件数の区分（checkout_started の memos など）。数えていない・分からないときは 'unknown'。
+export function memoCountBucket(n) {
+  if (n == null || n === '') return 'unknown';
+  const v = Number(n);
+  if (!Number.isFinite(v) || v < 0) return 'unknown';
+  if (v === 0) return '0';
+  if (v < 3) return '1-2';
+  if (v < 10) return '3-9';
+  if (v < 30) return '10-29';
+  return '30+';
+}
+// 読んだ時間（秒）の区分（focus_done の minutes）。
+export function minutesBucket(seconds) {
+  const s = Number(seconds);
+  if (!Number.isFinite(s) || s < 0) return 'unknown';
+  const m = s / 60;
+  if (m < 5) return '<5';
+  if (m < 15) return '5-14';
+  if (m < 30) return '15-29';
+  if (m < 60) return '30-59';
+  return '60+';
+}
+
+// ── app_open（起動と、前面に戻ったとき・2026-10-10） ─────────────────────────
+// 起動のたびに 1 回（trigger: 'launch'）。前面に戻ったとき（trigger: 'foreground'）は、その端末の日付で
+// まだ app_open を送っていない日だけ（＝前面に戻るのは 1 日に多くても 1 回）。
+const APP_OPEN_DAY_KEY = 'orime.analytics.appOpenDay';
+function localDayKey(now = Date.now()) {
+  const d = new Date(now);
+  const p = (x) => String(x).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+export function shouldTrackAppOpen(trigger, { now = Date.now(), storage } = {}) {
+  let ls = storage;
+  try { if (ls === undefined && typeof localStorage !== 'undefined') ls = localStorage; } catch { ls = null; }
+  const today = localDayKey(now);
+  let last = null;
+  try { last = ls ? ls.getItem(APP_OPEN_DAY_KEY) : null; } catch { last = null; }
+  const ok = trigger === 'launch' || last !== today;
+  if (ok) { try { ls?.setItem(APP_OPEN_DAY_KEY, today); } catch { /* 覚えられなくても送るだけ */ } }
+  return ok;
+}
+export function trackAppOpen(trigger = 'launch', opts) {
+  try {
+    if (shouldTrackAppOpen(trigger, opts)) track(EVENTS.APP_OPEN, { trigger });
+  } catch { /* never throw */ }
+}

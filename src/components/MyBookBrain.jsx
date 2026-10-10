@@ -582,7 +582,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     //   長い一歩の頭の「「上司への報告」の場面で、」は外す（行動の一覧で 2〜3 行に伸びて、肝心の一歩が埋もれる・2026-09-29）。
     const plain = stripScenePrefix(answerStepToAction(text));
     // 追加できたことは答えの中の「行動に追加しました」で伝える（同じ文をトーストで重ねない）。
-    return onAddAction(bookId, { text: plain, sourceMemoId: null, sourcePage: null, deadline: tomorrow });
+    return onAddAction(bookId, { text: plain, sourceMemoId: null, sourcePage: null, deadline: tomorrow, source: 'consult' });
   }, [onAddAction]);
   // 段階的ステータス表示: 'search' = 過去のメモを取得中, 'generate' = Claude が回答生成中,
   // null = 未送信 or ストリーミング中で本文が出始めた。

@@ -725,7 +725,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
     setAddingAction(false);
     if (ok) {
       setActionAddedId(memo.id);
-      toast.success('行動に追加しました。');
+      toast.success('行動に追加しました（期限は明日）。');
     }
   }, [onAddAction, addingAction, booksById, toast]);
 
@@ -878,6 +878,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
       : n));
     const isLast = !pickRecallMemo(after) && !pickFallbackMemo(after);
     recordRandomRecall(memo, mastered);
+    track(EVENTS.RECALL_ANSWERED, { mastered: !!mastered });
     reroll();
     const days = dueGapDays(patch.recall_count);
     if (isLast) {

@@ -180,6 +180,38 @@ describe('思い出しの通知で選ぶメモ（2026-10-04）', () => {
   });
 });
 
+describe('思い出しの通知は 3 日目ごろから・押すとそのメモへ（2026-10-10）', () => {
+  const at = (id, days, extra = {}) => ({ id, text: `メモ${id}`, createdAt: new Date(NOW - days * 86400000).toISOString(), ...extra });
+  it('通知は作ってから 2 日たったメモから出す（アプリのカードの既定 14 日は変えない）', () => {
+    expect(mod.PUSH_RECALL_MIN_AGE_DAYS).toBe(2);
+    expect(mod.pickRecallMemo([at('young', 1.5)], { now: NOW, minAgeDays: mod.PUSH_RECALL_MIN_AGE_DAYS })).toBeNull();
+    expect(mod.pickRecallMemo([at('ok', 2.1)], { now: NOW, minAgeDays: mod.PUSH_RECALL_MIN_AGE_DAYS })?.id).toBe('ok');
+    expect(mod.pickRecallMemo([at('ok', 2.1)], { now: NOW })).toBeNull(); // 既定は 14 日のまま
+  });
+  it('行き先: 本のメモ → 本とメモ／この本のまとめ → 本／本の無いメモ → 今までどおり', () => {
+    expect(mod.recallUrl({ id: 'm1', bookId: 'b1', isMemoRow: true })).toBe('/?book=b1&memo=m1&push=recall');
+    expect(mod.recallUrl({ id: 'summary-b1', bookId: 'b1', isMemoRow: false })).toBe('/?book=b1&push=recall');
+    expect(mod.recallUrl({ id: 'm2', bookId: null, isMemoRow: true })).toBe('/?recall=m2&push=recall');
+  });
+  it('始めて 3 日目の人にも届き、押すとそのメモへ（週に 1 回のガードはそのまま）', async () => {
+    db.subs = [webSub({ last_sent_at: null })];
+    db.memos = Array.from({ length: 3 }, (_, i) => ({ id: `m${i}`, book_id: 'b1', user_id: U1, text: `メモ ${i}`, created_at: new Date(NOW - 2.5 * 86400000).toISOString() }));
+    const res = mockRes();
+    await mod.default(cronReq(), res);
+    expect(res.body.sent).toBe(1);
+    expect(sentPushes[0].tag).toBe('orime-recall');
+    expect(sentPushes[0].url).toMatch(/^\/\?book=b1&memo=m[0-2]&push=recall$/);
+    expect(db.subs[0].last_sent_at).toBe(new Date(NOW).toISOString());
+  });
+  it('書いたばかり（2 日たっていない）のメモだけなら送らない', async () => {
+    db.subs = [webSub({ last_sent_at: null })];
+    db.memos = Array.from({ length: 3 }, (_, i) => ({ id: `m${i}`, book_id: 'b1', user_id: U1, text: `メモ ${i}`, created_at: new Date(NOW - 1 * 86400000).toISOString() }));
+    const res = mockRes();
+    await mod.default(cronReq(), res);
+    expect(res.body.sent).toBe(0);
+  });
+});
+
 describe('ガード（思い出しの通知と期限の通知は別々）', () => {
   it('思い出しの通知は 6.5 日たつまで送らない（毎日の Cron でも多くても週に 1 回）', () => {
     expect(mod.recallDue(new Date(NOW - 6 * 86400000).toISOString(), NOW)).toBe(false);
@@ -205,7 +237,7 @@ describe('handler（Cron の 1 回の実行）', () => {
     expect(res.body.sent).toBe(0);
     expect(sentPushes).toHaveLength(1);
     expect(sentPushes[0]).toMatchObject({
-      title: '🎯 今日が期限の行動が 2 件あります', body: '企画書を出す ほか', url: '/?tab=review&sub=action', tag: 'orime-action-deadline',
+      title: '🎯 今日が期限の行動が 2 件あります', body: '企画書を出す ほか', url: '/?tab=review&sub=action&push=action_deadline', tag: 'orime-action-deadline',
     });
     expect(db.subs[0].last_deadline_sent_on).toBe('2026-09-30');
     expect(db.subs[0].last_sent_at).toBe(new Date(NOW - 2 * 86400000).toISOString()); // 思い出しのガードは触らない

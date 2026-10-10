@@ -125,7 +125,7 @@ self.addEventListener('message', (event) => {
 //   { title, body, url, tag }
 //   title 例: "💭 3ヶ月前のあなたのメモ"
 //   body  例: メモ本文の冒頭 1〜2 行
-//   url   例: "/?recall=<memoId>"（タップで該当メモへディープリンク）
+//   url   例: "/?book=<本>&memo=<メモ>&push=recall"（タップでその本のそのメモへ・前の版は "/?recall=<memoId>"）
 // ───────────────────────────────────────────────────────────────────
 
 self.addEventListener('push', (event) => {

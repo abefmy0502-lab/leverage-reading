@@ -118,7 +118,7 @@ const TermsPage = lazy(() => import('./legal/TermsPage'));
 const PrivacyPage = lazy(() => import('./legal/PrivacyPage'));
 const SctPage = lazy(() => import('./legal/SctPage'));
 import { supabase as supabaseClient, isDemo, demoScenario } from './lib/supabase';
-import { track } from './lib/analytics';
+import { track, trackAppOpen, EVENTS } from './lib/analytics';
 const AccountSettings = lazy(() => import('./components/AccountSettings'));
 const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
 import SplashScreen from './components/SplashScreen';
@@ -606,8 +606,15 @@ function AuthedApp() {
     document.body.classList.toggle('keyboard-open', keyboardOpen);
     return () => document.body.classList.remove('keyboard-open');
   }, [keyboardOpen]);
-  // 📊 起動 1 回だけ計測（fail-silent・オプトアウト/未ログインで no-op）。
-  useEffect(() => { track('app_open'); }, []);
+  // 📊 起動のたびに 1 回＋前面に戻ったとき（その端末の日付で 1 日に多くても 1 回）計測（fail-silent・2026-10-10）。
+  //   iOS のアプリを裏から戻したときも WKWebView の visibilitychange で拾う。
+  useEffect(() => {
+    trackAppOpen('launch');
+    if (typeof document === 'undefined') return undefined;
+    const onVisible = () => { if (document.visibilityState === 'visible') trackAppOpen('foreground'); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
   // 🛰️ 管理者判定（is_app_admin RPC）。非管理者・未適用 DB では静かに false。
   useEffect(() => {
     if (!user) { setIsAdmin(false); return; }
@@ -837,16 +844,33 @@ function AuthedApp() {
   //   recall クエリは消費後に URL から消す（リロードで再発火させない）。
   // 想起ディープリンクで開きたいメモ ID。books 読込後に「そのメモの本」を直接開く
   // ためのペンディング（HomeRecall カードと同じ着地＝本詳細に揃える）。
+  //   { memoId, bookId }（bookId は 2026-10-10 からの通知＝/?book=<本>&memo=<メモ>。memoId だけは前の通知の /?recall=<メモ>）
   const [pendingRecallMemoId, setPendingRecallMemoId] = useState(null);
+  // 通知から開いた（行き先がある）ときは、前回の画面の復元（下の navRestoredRef の effect）をしない。
+  //   これが無いと、起動から開いた期限の通知が 振り返り › 行動 を開いたあと、本の読み込みが済んだところで
+  //   前回開いていた本の詳細に戻されていた（2026-10-10）。
+  const pushNavRef = useRef(false);
   const handleRecallDeepLink = useCallback(() => {
     if (typeof window === 'undefined') return;
     let sp;
     try { sp = new URLSearchParams(window.location.search); } catch { return; }
+    // 📊 通知から開いた（push=recall|action_deadline・2026-10-10）。数えたら URL から消す。
+    const pushKind = sp.get('push');
+    if (pushKind) {
+      if (pushKind === 'recall' || pushKind === 'action_deadline') track(EVENTS.PUSH_OPENED, { kind: pushKind });
+      sp.delete('push');
+      try {
+        const qs = sp.toString();
+        window.history.replaceState(null, '', window.location.pathname + (qs ? `?${qs}` : '') + window.location.hash);
+      } catch { /* ignore */ }
+    }
     // 行動の期限の通知 → /?tab=review&sub=action で振り返り → 行動を開く。
     if (sp.get('tab') === 'review') {
       const sub = sp.get('sub');
+      pushNavRef.current = true;
       setTab('review');
       setView('list');
+      setCurrent(null);
       if (sub === 'action' || sub === 'note' || sub === 'record') setReviewSubTab(sub);
       try {
         sp.delete('tab'); sp.delete('sub');
@@ -855,14 +879,17 @@ function AuthedApp() {
       } catch { /* ignore */ }
       return;
     }
-    const memoId = sp.get('recall');
-    if (!memoId) return;
+    // 思い出しの通知 → /?book=<本>&memo=<メモ>（2026-10-10〜）か /?recall=<メモ>（前の通知）。
+    const bookId = sp.get('book');
+    const memoId = sp.get('recall') || sp.get('memo');
+    if (!memoId && !bookId) return;
+    pushNavRef.current = true;
     // 本を直接開くのは books 読込後（下の resolver）。ここでは対象を控えるだけ。
     // 解決できない場合は resolver が振り返り（💭ノート）へフォールバックする。
-    setPendingRecallMemoId(memoId);
+    setPendingRecallMemoId({ memoId: memoId || null, bookId: bookId || null });
     // クエリを掃除（hash / 他クエリは温存）— リロードで再発火させない。
     try {
-      sp.delete('recall');
+      sp.delete('recall'); sp.delete('book'); sp.delete('memo');
       const qs = sp.toString();
       const next = window.location.pathname + (qs ? `?${qs}` : '') + window.location.hash;
       window.history.replaceState(null, '', next);
@@ -1896,19 +1923,24 @@ function AuthedApp() {
         // 合成ノート id（push-cron のまとめメモは `summary-<bookId>`。他の合成系も
         // `<prefix>-<bookId>`）は book_memos.id(UUID 列)で検索できず invalid-uuid で
         // 弾かれ、常に💭ノートへ退避していた。prefix を剥がして bookId を直接開く。
-        const synthMatch = /^(summary|leverage_memo|ai_summary|roi_summary|invest_purpose|current_challenge|hypothesis|ref)-(.+)$/.exec(pendingRecallMemoId);
-        if (synthMatch) {
+        const { memoId, bookId } = pendingRecallMemoId;
+        const synthMatch = memoId ? /^(summary|leverage_memo|ai_summary|roi_summary|invest_purpose|current_challenge|hypothesis|ref)-(.+)$/.exec(memoId) : null;
+        // 本とメモが分かる（2026-10-10 からの通知）→ その本を開いて、そのメモまで送る。
+        if (bookId) {
+          const b = rawBooks.find((x) => x.id === bookId);
+          if (b && !cancelled) { openDetail(b, memoId && !synthMatch ? memoId : undefined); setTab('books'); opened = true; }
+        } else if (synthMatch) {
           const b = rawBooks.find((x) => x.id === synthMatch[2]);
           if (b && !cancelled) { openDetail(b); setTab('books'); opened = true; }
-        } else if (supabaseClient) {
+        } else if (memoId && supabaseClient) {
           const { data } = await supabaseClient
             .from('book_memos')
             .select('book_id')
-            .eq('id', pendingRecallMemoId)
+            .eq('id', memoId)
             .maybeSingle();
           const bId = data?.book_id;
           const b = bId && rawBooks.find((x) => x.id === bId);
-          if (b && !cancelled) { openDetail(b); setTab('books'); opened = true; }
+          if (b && !cancelled) { openDetail(b, memoId); setTab('books'); opened = true; }
         }
       } catch { /* fall through to review */ }
       if (!cancelled && !opened) {
@@ -1927,7 +1959,7 @@ function AuthedApp() {
   useEffect(() => {
     if (navRestoredRef.current || booksLoading) return;
     navRestoredRef.current = true;
-    if (pendingRecallMemoId) return;
+    if (pendingRecallMemoId || pushNavRef.current) return;
     const nav = resumeNav;
     if (nav && (nav.view === 'detail' || nav.view === 'edit') && nav.bookId) {
       // ユーザーが復元より先に自分で画面を動かしていたら邪魔しない。
@@ -3678,13 +3710,14 @@ function AuthedApp() {
   // 🔄→🎯 想起から行動への橋渡し。振り返り（Review）で戻ってきたメモから
   // 「→行動にする」で、メモ本文（とページ）を引いた行動を1タップで作る。
   // 「読んで終わりにしない＝行動に変える」中核ループを想起面でも閉じる。
-  const addActionFromMemo = async (bookId, { text, sourceMemoId = null, sourcePage = null, deadline = '' }) => {
+  // 期限は渡されなければ明日（相談の答えから足す行動と同じ・期限なしだと一覧の最後に沈む・2026-10-10）。
+  const addActionFromMemo = async (bookId, { text, sourceMemoId = null, sourcePage = null, deadline = '', source = 'memo' }) => {
     const body = (text || '').trim();
     if (!body) return false;
     if (!booksRef.current.find((b) => b.id === bookId)) return false;
     const newAction = {
       text: body.slice(0, LIMITS.actionText || 500),
-      deadline: /^\d{4}-\d{2}-\d{2}$/.test(deadline) ? deadline : '',
+      deadline: /^\d{4}-\d{2}-\d{2}$/.test(deadline) ? deadline : tomorrowLocal(),
       done: false,
       priority: 'medium',
       sourceMemoId,
@@ -3707,6 +3740,7 @@ function AuthedApp() {
         // saveBook し、いま追加した行動が差分 DELETE で消える。
         syncActionSnapshots(next);
       });
+      track(EVENTS.ACTION_ADDED, { source: source === 'consult' ? 'consult' : 'memo' });
       // 追加した行動の目印（相談の「見る」で行動の一覧のその行まで送る・2026-09-30）。真偽としても使える。
       return { bookId, text: newAction.text };
     } catch (error) {
@@ -3743,6 +3777,7 @@ function AuthedApp() {
         mutateBookLocal(bookId, () => next);
         syncActionSnapshots(next);
       });
+      track(EVENTS.ACTION_ADDED, { source: payload.source === 'consult' ? 'consult' : 'manual' });
       if (!payload.quiet) toast.success('🎯 行動を追加しました。');
       return true;
     } catch (error) {
@@ -4847,7 +4882,7 @@ function AuthedApp() {
                           sourceMemoId: typeof result?.id === 'string' ? result.id : null,
                           sourcePage: result?.page_number ?? payload?.pageNumber ?? null,
                         });
-                        if (ok) toast.success('行動に追加しました。');
+                        if (ok) toast.success('行動に追加しました（期限は明日）。');
                       },
                     },
                   }));
@@ -5430,7 +5465,7 @@ function AuthedApp() {
                           sourceMemoId: typeof result?.id === 'string' ? result.id : null,
                           sourcePage: result?.page_number ?? payload?.pageNumber ?? null,
                         });
-                        if (ok) toast.success('行動に追加しました。');
+                        if (ok) toast.success('行動に追加しました（期限は明日）。');
                       },
                     },
                   }));
@@ -6228,7 +6263,7 @@ function AuthedApp() {
               // 相談から: 追加できたことは答えの中の「行動に追加しました（期限は明日）見る」で伝える（知らせを重ねない）。
               const fromConsult = addActionSheet.from === 'consult';
               let error = '';
-              const ok = await createActionForBook(addActionSheet.bookId, { ...patch, quiet: fromConsult, onError: (m) => { error = m; } });
+              const ok = await createActionForBook(addActionSheet.bookId, { ...patch, quiet: fromConsult, source: fromConsult ? 'consult' : 'manual', onError: (m) => { error = m; } });
               if (!ok) return { error };
               if (ok) {
                 addActionSheet.onDone?.(patch?.deadline ?? '', { bookId: addActionSheet.bookId, text: String(patch?.text || '').trim().slice(0, LIMITS.actionText || 500) });

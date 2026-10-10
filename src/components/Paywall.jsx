@@ -52,7 +52,8 @@ import {
 import { toMessage } from '../lib/errors';
 import { storeLinkFor, isAppStoreLive } from '../lib/appStore';
 import { exportMemosAsMarkdown } from '../lib/exportData';
-import { track, EVENTS } from '../lib/analytics';
+import { track, EVENTS, memoCountBucket } from '../lib/analytics';
+import { lastHomeMemoCount } from '../lib/firstDay';
 import { demoScenario, isDemo, supabase, isSupabaseConfigured } from '../lib/supabase';
 import { MiniCover } from './BookCards';
 import { btnPrimary, btnPrimaryOff, btnLink, groupTitle, card } from '../styles/ui';
@@ -501,7 +502,8 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
     }
     setPending(plan);
     // 📊 課金ファネルの計測（購入導線に入る直前・plan の enum だけ・PII なし）。
-    track(EVENTS.CHECKOUT_STARTED, { plan });
+    // memos: ホームで最後に数えたメモの件数の区分（そのままの数は送らない・数えていなければ unknown・2026-10-10）。
+    track(EVENTS.CHECKOUT_STARTED, { plan, memos: memoCountBucket(lastHomeMemoCount()) });
     try {
       // App Store の購入シート（RevenueCat）。
       const res = await purchasePlan(plan, user?.id);

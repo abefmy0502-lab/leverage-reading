@@ -18,6 +18,9 @@
 --      補助（あれば）: analytics_events の memos_reached_10（7 日以内）。
 --   ③ 30 日後も使っている割合 = 登録から 30〜37 日目（30 日後からの 1 週間）に 1 回でも使った人 ÷ 登録から 37 日たった人
 --      使った証拠: analytics_events（何でも）/ book_memos / chat_messages / actions の作成。
+--      2026-10-10 から、ほかにも: 読む（集中モード）の reading_sessions.started_at・行動の完了 actions.completed_at・
+--      思い出し book_memos.last_recalled_at（思い出しの通知を送った時刻も入る）。表・列が無い DB では
+--      その証拠だけ数えない（to_regclass / information_schema で確かめてから動的 SQL で読む）。**再適用が要る**。
 --   ④ 7 日間無料 → 有料の割合 = 無料期間を始めて 8 日たった人のうち、有料に進んだ人
 --      無料期間の始まり: subscription_events の period_type が trial の最初の行。
 --      （'intro' は有料の初回価格＝創業メンバー価格「1 年目 ¥9,800」で、無料期間ではない。分母にも分子の
@@ -50,6 +53,8 @@ declare
   v_has_trials boolean := to_regclass('public.subscription_events') is not null;
   v_trials jsonb := '{}'::jsonb; -- user_id → { t: 無料期間を始めた時刻, c: 有料に進んだ時刻 }
   v_trial_rows int := 0;
+  v_more_use jsonb := '{}'::jsonb; -- user_id → true（③ の追加の証拠が 30〜37 日目にある人・2026-10-10）
+  v_more_sql text := '';
   v_totals jsonb;
   v_cohorts jsonb;
 begin
@@ -84,6 +89,28 @@ begin
         (select count(*)::int from public.subscription_events)
       from conv
     $q$ into v_trials, v_trial_rows;
+  end if;
+
+  -- ③ の追加の証拠（2026-10-10）。表・列があるものだけを or でつなぎ、動的 SQL で読む。
+  if to_regclass('public.reading_sessions') is not null then
+    v_more_sql := v_more_sql || ' or exists (select 1 from public.reading_sessions r where r.user_id = u.id'
+      || ' and r.started_at >= u.created_at + interval ''30 days'' and r.started_at < u.created_at + interval ''37 days'')';
+  end if;
+  if exists (select 1 from information_schema.columns
+             where table_schema = 'public' and table_name = 'actions' and column_name = 'completed_at') then
+    v_more_sql := v_more_sql || ' or exists (select 1 from public.actions a where a.user_id = u.id'
+      || ' and a.completed_at >= u.created_at + interval ''30 days'' and a.completed_at < u.created_at + interval ''37 days'')';
+  end if;
+  if exists (select 1 from information_schema.columns
+             where table_schema = 'public' and table_name = 'book_memos' and column_name = 'last_recalled_at') then
+    v_more_sql := v_more_sql || ' or exists (select 1 from public.book_memos m where m.user_id = u.id'
+      || ' and m.last_recalled_at >= u.created_at + interval ''30 days'' and m.last_recalled_at < u.created_at + interval ''37 days'')';
+  end if;
+  if v_more_sql <> '' then
+    execute 'select coalesce(jsonb_object_agg(u.id::text, true), ''{}''::jsonb) from auth.users u'
+      || ' where u.created_at >= $1 and u.id not in (select user_id from public.app_admins)'
+      || ' and (false' || v_more_sql || ')'
+      into v_more_use using v_base_from;
   end if;
 
   with base as (
@@ -139,6 +166,7 @@ begin
         or exists (select 1 from public.actions a
                    where a.user_id = b.id
                      and a.created_at >= b.s + interval '30 days' and a.created_at < b.s + interval '37 days')
+        or (v_more_use ? (b.id::text))   -- 読む・行動の完了・思い出し（2026-10-10）
       ) as h_d30,
       -- ④ 7 日間無料 → 有料
       ((v_trials -> (b.id::text)) ->> 't')::timestamptz as trial_at,

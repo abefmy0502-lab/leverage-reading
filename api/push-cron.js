@@ -6,7 +6,7 @@
 //      → 送信（タイトル「💭 N か月前のあなたのメモ」/ 本文=抜粋）→ last_sent_at を更新（多重送信ガード）
 //   3. 🎯 行動の期限の通知（2026-09-29 オーナー裁定）: その端末のローカルの「今日」が期限で、まだ完了していない
 //      行動があれば、朝に 1 回だけ知らせる（複数あれば 1 通にまとめる:「今日が期限の行動が 2 件あります」
-//      ／本文「〈1 件目〉 ほか」）。タップで 振り返り → 行動（/?tab=review&sub=action）。
+//      ／本文「〈1 件目〉 ほか」）。タップで 振り返り → 行動（/?tab=review&sub=action&push=action_deadline）。
 //      1 日 1 回のガードは last_sent_at とは別の列 last_deadline_sent_on（supabase_push_deadline.sql）。
 //      列が無い DB では期限の通知だけ送らない（思い出しの通知はそのまま・fail-safe）。
 //   4. 失効した購読（410 Gone / 404）は push_subscriptions から DELETE
@@ -21,7 +21,10 @@
 //   - 低頻度・完全オプトイン・1タップで該当メモ／行動へ。思い出しの通知は多くても週に 1 回
 //     （Cron は毎日でも、last_sent_at から RECALL_RESEND_GUARD_MS（6.5 日）たつまで送らない）。
 //     行動の通知は期限の日の朝に 1 回だけ（期限の行動が無い日は何も送らない）。
-//   - メモ 3 件未満 / 14 日以上前のメモが無いユーザーには思い出しの通知を送らない（空通知防止）。
+//   - メモ 3 件未満 / 2 日以上前のメモが無いユーザーには思い出しの通知を送らない（空通知防止）。
+//     （2026-10-10: 14 日 → 2 日。始めたばかりの人にも 3 日目ごろから最初の通知が届く。
+//      多くても週に 1 回のガードは変えない・アプリの思い出しカードの 14 日は変えない）
+//   - 思い出しの通知を押すと、そのメモの本を開いてそのメモまで送る（/?book=<本>&memo=<メモ>&push=recall・2026-10-10）。
 //   - frequency='off' の端末には、どちらも送らない。
 //
 // ───────────────────────────────────────────────────────────────────
@@ -327,7 +330,22 @@ function getServiceSupabase() {
 export const RECALL_RESEND_GUARD_MS = 6.5 * 86400000;
 
 // ── 🎯 行動の期限の通知（純粋関数・テストあり）──────────────────────
-export const DEADLINE_URL = '/?tab=review&sub=action'; // 振り返り → 行動
+// push=<種類> はアプリが「通知から開いた」を数える印（push_opened・2026-10-10）。開いたら URL から消す。
+export const DEADLINE_URL = '/?tab=review&sub=action&push=action_deadline'; // 振り返り → 行動
+
+// 💭 思い出しの通知を押したときの行き先（2026-10-10）。
+//   本のメモ → /?book=<本>&memo=<メモ>&push=recall（その本を開いてそのメモまで送る）
+//   この本のまとめ（summary-<本>）→ /?book=<本>&push=recall
+//   本の無いメモ（学び）→ /?recall=<メモ>&push=recall（今までどおり・振り返り › メモへ）
+export function recallUrl(memo) {
+  if (!memo || !memo.id) return '/?push=recall';
+  const enc = encodeURIComponent;
+  if (memo.bookId) {
+    const memoPart = memo.isMemoRow ? `&memo=${enc(memo.id)}` : '';
+    return `/?book=${enc(memo.bookId)}${memoPart}&push=recall`;
+  }
+  return `/?recall=${enc(memo.id)}&push=recall`;
+}
 export const DEADLINE_TAG = 'orime-action-deadline'; // Web: 思い出しの通知（orime-recall）を上書きしない
 export const EARLIEST_LOCAL_HOUR = 5; // これより早い時刻には送らない
 export const LATEST_LOCAL_HOUR = 21; // これより遅い時刻には送らない（夜中に鳴らさない）
@@ -431,6 +449,10 @@ async function fetchDeadlineActions(supabase, userIds, minDate, maxDate) {
 }
 // メモがこの件数未満のユーザーには送らない（コールドスタート配慮・空通知防止）。
 const MIN_NOTES_TO_SEND = 3;
+// 思い出しの通知に出してよい、まだ一度も思い出していないメモの若さ（作ってから何日）。
+// アプリの思い出しカード（recall.js）は 14 日のまま。通知は最初の 1 通を早く届けるため 2 日
+// （1 日目に書いたメモが 3 日目の朝に戻ってくる・2026-10-10）。
+export const PUSH_RECALL_MIN_AGE_DAYS = 2;
 
 // あるユーザーの「ノート」を集めて { id, text, createdAt } の配列にする。
 // src/lib/ai.js の gatherKnowledge のサーバー版・最小流用（カードメモ + まとめメモ）。
@@ -444,7 +466,7 @@ async function gatherUserNotes(supabase, userId, now) {
   const fetchMemos = async () => {
     // 新しいメモ 250 件と、思い出していない期間がいちばん長いメモ 250 件を合わせる
     // （新しい順だけだと、メモが多い人ほど古い＝忘れかけたメモが通知に出てこなかった）。
-    const cols = 'id, text, created_at, last_recalled_at, recall_count, source_type';
+    const cols = 'id, book_id, text, created_at, last_recalled_at, recall_count, source_type';
     const [recent, oldest] = await Promise.all([
       supabase.from('book_memos').select(cols).eq('user_id', userId)
         .order('created_at', { ascending: false }).limit(250)
@@ -462,7 +484,7 @@ async function gatherUserNotes(supabase, userId, now) {
     // schema-error fallback: 間隔反復列なしで再取得（未適用 DB でも従来どおり動く）。
     const base = await supabase
       .from('book_memos')
-      .select('id, text, created_at')
+      .select('id, book_id, text, created_at')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(500)
@@ -485,6 +507,7 @@ async function gatherUserNotes(supabase, userId, now) {
     if (m && m.text && String(m.text).trim()) {
       notes.push({
         id: m.id,
+        bookId: m.book_id || null,
         text: m.text,
         createdAt: m.created_at,
         // 未適用 DB では undefined になり、pickRecallMemo が null / 0 として扱う。
@@ -499,6 +522,7 @@ async function gatherUserNotes(supabase, userId, now) {
     if (b && b.leverage_memo && String(b.leverage_memo).trim()) {
       notes.push({
         id: `summary-${b.id}`,
+        bookId: b.id,
         text: b.leverage_memo,
         createdAt: b.updated_at || b.created_at,
         sourceType: 'summary', // まとめメモ = 凝縮系（選定で軽くブースト）
@@ -766,15 +790,15 @@ export default async function handler(req, res) {
 
     // seed は user_id + 当日でばらけさせる（端末間で同じメモ・日替わりで別メモ）。
     const seed = (hashStr(sub.user_id) + Math.floor(now / 86400000)) >>> 0;
-    const memo = pickRecallMemo(notes, { now, seed, tzOffsetMin: sub.tz_offset_min });
+    const memo = pickRecallMemo(notes, { now, seed, tzOffsetMin: sub.tz_offset_min, minAgeDays: PUSH_RECALL_MIN_AGE_DAYS });
     if (!memo) return 'skipped';
 
     const r = await deliver(sub, {
       title: `💭 ${recallFraming(memo.createdAt, now)}`,
       body: memoExcerpt(memo.text),
-      url: `/?recall=${encodeURIComponent(memo.id)}`,
+      url: recallUrl(memo),
       tag: 'orime-recall',
-      extra: { recall: String(memo.id) },
+      extra: { recall: String(memo.id), kind: 'recall', ...(memo.bookId ? { book: String(memo.bookId) } : {}) },
     });
     if (r === 'sent') await afterSend(sub, memo);
     return r;

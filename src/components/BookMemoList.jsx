@@ -390,7 +390,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
       sourceMemoId: memo.id || null,
       sourcePage: memo.pageNumber ?? memo.page_number ?? null,
     });
-    if (ok) { haptic.success(); toast.success('行動に追加しました。'); }
+    if (ok) { haptic.success(); toast.success('行動に追加しました（期限は明日）。'); }
   };
 
   const openEdit = (memo) => {

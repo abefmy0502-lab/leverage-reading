@@ -197,7 +197,18 @@ export async function unsubscribeNativePush() {
   }
 }
 
-// 通知タップ時のディープリンク（/?recall=<memoId>）を SPA 内遷移につなぐ。
+// 通知から開いたことを数える印（push=recall|action_deadline・2026-10-10）。前の版の Cron が送った
+// 通知（url に push= が無い）でも、data の kind / recall から種類を足す。アプリが開いたら URL から消す。
+export function withPushKind(url, data = {}) {
+  if (!url || typeof url !== 'string') return url;
+  if (/[?&]push=/.test(url)) return url;
+  const kind = data.kind === 'action_deadline' ? 'action_deadline'
+    : (data.kind === 'recall' || data.recall ? 'recall' : null);
+  if (!kind) return url;
+  return `${url}${url.includes('?') ? '&' : '?'}push=${kind}`;
+}
+
+// 通知タップ時のディープリンク（/?book=<本>&memo=<メモ>・/?recall=<memoId>・/?tab=review&sub=action）を SPA 内遷移につなぐ。
 // アプリ起動時に1回だけ呼ぶ（native のみ）。onNavigate(url) が呼ばれる。
 // 戻り値: リスナー解除関数（呼ぶと remove。native/未導入では no-op 関数）。
 export async function initNativePushNav(onNavigate) {
@@ -207,7 +218,7 @@ export async function initNativePushNav(onNavigate) {
     const handle = await PN.addListener('pushNotificationActionPerformed', (action) => {
       try {
         const data = action?.notification?.data || {};
-        const url = data.url || (data.recall ? `/?recall=${encodeURIComponent(data.recall)}` : null);
+        const url = withPushKind(data.url || (data.recall ? `/?recall=${encodeURIComponent(data.recall)}` : null), data);
         if (url && typeof onNavigate === 'function') onNavigate(url);
       } catch { /* ignore */ }
     });
