@@ -115,9 +115,10 @@ export default function FocusStartSheet({ onStart, onClose, initialUntil = false
             </button>
           ))}
         </div>
-        {/* 分を選ぶのはタイマーだけ。計測でも場所は空けておく（切り替えたときに上の切り替え・下の 1 行が跳ねない・
-            見えない・読み上げない・Tab で止まらない＝説明の文は足さない・2026-10-09 ui-critic）。 */}
-        <div style={mode === 'timer' ? undefined : { visibility: 'hidden' }} aria-hidden={mode === 'timer' ? undefined : true}>
+        {/* 分を選ぶのはタイマーだけ。計測では描かない（「時刻まで」の欄で高さが変わるようになり、場所を空けておく意味が
+            なくなった・空けると約 165pt の空白が残った・2026-10-11 ui-critic）。シートの高さの変化は BottomSheet に任せる。 */}
+        {mode === 'timer' && (
+        <div>
           <p id="focus-min-title" style={{ ...groupTitle, margin: '0 0 var(--space-2)' }}>時間</p>
           <div role="radiogroup" aria-labelledby="focus-min-title" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
             <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
@@ -133,6 +134,7 @@ export default function FocusStartSheet({ onStart, onClose, initialUntil = false
             </button>
           </div>
         </div>
+        )}
         {/* おわる時刻の欄はタイマーで「時刻まで」を選んだときだけ（計測では場所を取らない）。 */}
         {isUntil && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>

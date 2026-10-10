@@ -151,7 +151,8 @@ export function BookFieldsRecord({ record, onOpenField, onFindBooks }) {
                     <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-1)' }}>
                       <span style={{ fontSize: 'var(--text-sub)', lineHeight: 1.3, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{f.name}</span>
                       <span style={{ fontSize: 'var(--text-meta)', lineHeight: 1.3, color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-                        <span style={{ whiteSpace: 'nowrap' }}>{parts.join('・')}</span>{time && <span style={{ color: 'var(--text-3)', whiteSpace: 'nowrap' }}>{` · ${time}`}</span>}
+                        {/* 「·」は前の塊の末尾に付け、折り返すのは記号の後ろの空白だけ（行頭に「·」を出さない・2026-10-11 ui-critic）。 */}
+                        <span style={{ whiteSpace: 'nowrap' }}>{parts.join('・')}{time && <span style={{ color: 'var(--text-3)' }}>{'\u00A0·'}</span>}</span>{time && <span style={{ color: 'var(--text-3)', whiteSpace: 'nowrap' }}>{` ${time}`}</span>}
                       </span>
                     </span>
                     <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
