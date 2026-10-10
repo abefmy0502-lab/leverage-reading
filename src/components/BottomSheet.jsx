@@ -125,7 +125,7 @@ export default function BottomSheet({ title, onClose, children, footer, subheade
             <div className="lvg-sheet-handle" aria-hidden="true" />
           </div>
           {title && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', columnGap: 'var(--space-3)', rowGap: 0, flexWrap: 'wrap-reverse', minHeight: 44, padding: 'var(--space-1) var(--space-4) var(--space-2)', borderBottom: subheader ? 'none' : '1px solid var(--separator)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', columnGap: 'var(--space-3)', rowGap: 0, flexWrap: 'wrap-reverse', minHeight: 'var(--tap-min)', padding: 'var(--space-1) var(--space-4) var(--space-2)', borderBottom: subheader ? 'none' : '1px solid var(--separator)' }}>
               {/* 文字を大きくしたとき: 題は文節の切れ目で折り返し、右の「キャンセル」「完了」は 1 行のまま
                   （「キャン／セル」と割れていた・2026-10-04）。題が 9 字ぶんの幅も取れないほど大きいときは、
                   「キャンセル」「完了」を題の上の行の右へ回し、題は全幅で折り返す（題が 1 行 3〜4 字に縮まない・

@@ -42,7 +42,8 @@ export function BookFieldsInput({ fields = [], onChange, auto = false, autoFrom 
           <button key={f} type="button" style={fieldTag} onClick={() => setOpen(true)} aria-label={`分野「${f}」・押すと選び直せます`}>{f}</button>
         ))}
         {waiting && (
-          <span data-fields-pending="" aria-hidden="true" style={{ display: 'inline-flex', gap: 'var(--space-2)' }}>
+          // 骨組みは「分野を選ぶ」の後ろ（order）＝読み込み中 → 失敗で文字ボタンの位置が動かない・行の高さも --tap-min のまま（2026-10-11 ui-critic）
+          <span data-fields-pending="" aria-hidden="true" style={{ display: 'inline-flex', gap: 'var(--space-2)', order: 1 }}>
             <SkeletonBlock width="calc(var(--space-16) + var(--space-8))" height="var(--tap-min)" radius="var(--radius)" />
             <SkeletonBlock width="calc(var(--space-16) * 2)" height="var(--tap-min)" radius="var(--radius)" />
           </span>
@@ -51,9 +52,9 @@ export function BookFieldsInput({ fields = [], onChange, auto = false, autoFrom 
           type="button"
           onClick={() => setOpen(true)}
           aria-label={fields.length ? `分野を変更（いま ${fields.join('、')}）` : '分野を選ぶ'}
-          // 分野が無いときは文字ボタンだけの行: 押せる高さ 44 の上下の余りを行の外へ出し、見出し → 文字を 8 に
+          // 自動で選ぶ前の何もない状態（分野なし・待っていない・失敗していない）だけ文字ボタンだけの行: 押せる高さ 44 の上下の余りを行の外へ出し、見出し → 文字を 8 に
           //   （フォルダの見出し → 入力欄と同じ間隔に見せる・2026-10-11 ui-critic）
-          style={{ ...btnLink, minWidth: 'var(--tap-min)', justifyContent: 'center', ...(fields.length || waiting ? {} : { marginLeft: 'calc(-1 * var(--space-1))', marginTop: 'calc(-1 * var(--space-3))', marginBottom: 'calc(-1 * var(--space-3))' }) }}
+          style={{ ...btnLink, minWidth: 'var(--tap-min)', justifyContent: 'center', ...(fields.length || waiting || failed ? {} : { marginLeft: 'calc(-1 * var(--space-1))', marginTop: 'calc(-1 * var(--space-3))', marginBottom: 'calc(-1 * var(--space-3))' }) }}
         >
           {fields.length ? '変更' : '分野を選ぶ'}
         </button>
@@ -92,7 +93,7 @@ export function BookFieldsSheet({ selected = [], onDone, onClose }) {
       footer={footer}
       dismissLabel="キャンセル"
       subheader={(
-        <p data-fields-limit="" style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }} aria-live="polite">
+        <p data-fields-limit="" style={{ margin: 0, fontSize: 'var(--text-meta)', color: full ? 'var(--text)' : 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }} aria-live="polite">
           {withPhraseBreaks(full ? `${FIELD_MAX} つ選びました。ほかを選ぶときは、どれかを外してください。` : `${FIELD_MAX} つまで選べます`)}
         </p>
       )}
@@ -172,12 +173,14 @@ export function BookFieldsRecord({ record, onOpenField, onFindBooks }) {
                       fontFamily: 'inherit', fontSize: 'var(--text-sub)', textAlign: 'left', color: 'var(--text)',
                     }}
                   >
-                    {/* 1 行目＝分野の名前・2 行目＝「本 N 冊・メモ N 件 · 時間」（どの行も同じ位置・2026-10-11 ui-critic）。 */}
+                    {/* 1 行目＝分野の名前・2 行目＝「本 N 冊 · メモ N 件 · 時間」（区切りは「 · 」に統一）（どの行も同じ位置・2026-10-11 ui-critic）。 */}
                     <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-1)' }}>
                       <span style={{ fontSize: 'var(--text-sub)', lineHeight: 1.3, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{f.name}</span>
                       <span style={{ fontSize: 'var(--text-meta)', lineHeight: 1.3, color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
                         {/* 「·」は前の塊の末尾に付け、折り返すのは記号の後ろの空白だけ（行頭に「·」を出さない・2026-10-11 ui-critic）。 */}
-                        <span style={{ whiteSpace: 'nowrap' }}>{parts.join('・')}{time && <span>{'\u00A0·'}</span>}</span>{time && <span style={{ whiteSpace: 'nowrap' }}>{` ${time}`}</span>}
+                        {[...parts, time].filter(Boolean).map((seg, i, all) => (
+                          <span key={i} style={{ whiteSpace: 'nowrap' }}>{i ? ' ' : ''}{seg}{i < all.length - 1 ? '\u00A0·' : ''}</span>
+                        ))}
                       </span>
                     </span>
                     <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
