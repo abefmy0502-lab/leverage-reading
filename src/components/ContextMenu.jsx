@@ -67,8 +67,14 @@ const itemBase = {
 // 背景に落ちてすぐ閉じるのを防ぐ・useLongPress 側の preventDefault と二重の守り・2026-09-29）。
 const OPEN_GRACE_MS = 350;
 
-export default function ContextMenu({ x = 0, y = 0, items = [], onClose }) {
+// 区切り（2026-10-10）: items に { separator: true } を入れると、そこで操作のまとまりを分ける（iOS のメニューと同じ
+//   太い区切り＝高さ 8 の --fill の帯。例: 写真で共有の背景のメニューの「撮り直す・アルバムから選ぶ」と背景の選択の間）。
+const separatorStyle = { height: 'var(--space-2)', background: 'var(--fill)' };
+
+export default function ContextMenu({ x = 0, y = 0, items: rawItems = [], onClose }) {
   ensureKeyframes();
+  // 押せる項目だけ（キーボードの移動・フォーカスの対象）。区切りの前後の端は数えない。
+  const items = rawItems.filter((it) => it && !it.separator);
   const [position, setPosition] = useState({ left: x, top: y });
   const panelRef = useRef(null);
   const openedAtRef = useRef(typeof performance !== 'undefined' ? performance.now() : Date.now());
@@ -94,7 +100,7 @@ export default function ContextMenu({ x = 0, y = 0, items = [], onClose }) {
     const vw = window.innerWidth;
     const vh = window.innerHeight;
     const measured = panelRef.current ? panelRef.current.offsetHeight : 0;
-    const estHeight = measured > 0 ? measured : items.length * 50 + 12;
+    const estHeight = measured > 0 ? measured : rawItems.length * 50 + 12;
     // 幅も描いたあとのパネルを測る（文字の大きさで変わる）。
     const width = (panelRef.current && panelRef.current.offsetWidth) || PANEL_WIDTH_FALLBACK;
     let left = x - width / 2;
@@ -103,7 +109,7 @@ export default function ContextMenu({ x = 0, y = 0, items = [], onClose }) {
     if (left + width > vw - PANEL_MARGIN) left = vw - width - PANEL_MARGIN;
     if (top + estHeight > vh - PANEL_MARGIN) top = Math.max(PANEL_MARGIN, y - estHeight - 12);
     setPosition({ left, top });
-  }, [x, y, items.length]);
+  }, [x, y, rawItems.length]);
 
   // role="menu" のキーボードパターン: 開いたら先頭にフォーカスし、上下/Home/End で移動。
   // 閉じたら、開く前にフォーカスがあった所（「…」のボタンなど）へ戻す（2026-09-29）。
@@ -143,8 +149,19 @@ export default function ContextMenu({ x = 0, y = 0, items = [], onClose }) {
         onClick={(e) => e.stopPropagation()}
         onKeyDown={onMenuKeyDown}
       >
-        {items.map((it, i) => {
-          const isLast = i === items.length - 1;
+        {rawItems.map((it, ri) => {
+          if (!it) return null;
+          if (it.separator) {
+            // 先頭・末尾・続いた区切りは描かない。
+            const prev = rawItems.slice(0, ri).filter(Boolean);
+            const next = rawItems.slice(ri + 1).filter(Boolean);
+            if (!prev.length || !next.length || prev[prev.length - 1].separator) return null;
+            return <div key={`sep-${ri}`} role="separator" style={separatorStyle} />;
+          }
+          const i = items.indexOf(it);
+          // まとまりの最後（次が区切り・末尾）は下の線を引かない。
+          const nextRaw = rawItems.slice(ri + 1).find(Boolean);
+          const isLast = !nextRaw || !!nextRaw.separator;
           return (
             <button
               key={it.label}

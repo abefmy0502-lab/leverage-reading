@@ -630,12 +630,14 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
         </div>
         <h1
           id="paywall-title"
-          style={{ fontSize: 'var(--text-title)', fontWeight: 700, lineHeight: 1.3, margin: 'var(--space-2) 0 0' }}
+          // 文字を最大にしても、いちばん長い塊（「この相談相手と、」8 字）が 1 行に入る大きさまで（2026-10-10 ui-critic）。
+          style={{ fontSize: 'min(var(--text-title), calc((100vw - 2 * var(--space-4)) / 8.4))', fontWeight: 700, lineHeight: 1.3, margin: 'var(--space-2) 0 0' }}
         >
           {/* 文節ごとの塊（LP の h1 と同じ）。<br> で決め打ちせず、入らないときは塊ごとに次の行へ
               （大きな文字で「読んだ本／が、」と割れていた・2026-10-02 ui-critic）。 */}
           {(fromFree
-            ? ['この', '相談相手と、', 'もっと', '話しませんか']
+            // 「この」だけの 1 行を作らない（文字を最大にすると「この／相談相手と、」と割れていた・2026-10-10 ui-critic）。
+            ? ['この相談相手と、', 'もっと', '話しませんか']
             : fromFreeOcr
               ? ['写真から', '書き起こしを、', 'もっと', '使いませんか']
               : fromFeature
@@ -658,7 +660,8 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
               {myBooks.map((b) => <MiniCover key={b.id} book={b} width={60} />)}
             </div>
             <p style={{ fontSize: 'var(--text-body)', lineHeight: 1.6, margin: 'var(--space-4) 0 0', wordBreak: 'auto-phrase', textWrap: 'pretty' }}>
-              {myBooks.slice(0, 2).map((b) => `『${b.title}』`).join('')}{myBooks.length > 2 ? 'など' : ''}のメモを根拠に答える、あなただけの相談相手です。
+              {/* 『 は半字ぶん左へ（行の頭ではぶら下げ、』『 と続くところは詰める・2026-10-10 ui-critic）。 */}
+              {myBooks.slice(0, 2).map((b) => <span key={b.id} style={{ marginLeft: '-0.5em' }}>『{b.title}』</span>)}{myBooks.length > 2 ? 'など' : ''}のメモを根拠に答える、あなただけの相談相手です。
             </p>
           </>
         )}

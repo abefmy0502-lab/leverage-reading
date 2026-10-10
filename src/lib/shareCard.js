@@ -1563,7 +1563,8 @@ function layoutMagazine(ctx, o) {
   const bodyBottom = bodyTop + bodyLines.length * bodyLH;
   // カードは続きの文の高さに並べる（続きが無ければ引用の下・続きが長ければその下）。
   // カードを続きの文の下に置くときは、幅を広く（書名・著者を細切れにしない）。
-  const cardX = cardBelow ? right - Math.round(contentW * 0.56) : sideCardX;
+  // 下に置くときは、表紙の左端を引用の文字の左端（textX）にそろえる（宙に浮いた位置に見えた・2026-10-10 ui-critic）。
+  const cardX = cardBelow ? Math.round(textX) : sideCardX;
   const colX = cardX + S.coverW + S.cardGap;
   const colW = right - colX;
   const titleFont = `600 ${S.titleSize}px ${fonts.read}`;
@@ -1588,7 +1589,8 @@ function layoutMagazine(ctx, o) {
 
   // 下の行（日付・短い数の欄・英字のひとこと）。
   const foot = magazineFooterItems({ stamp: o.stamp, note: rec.note });
-  const footBaseline = F.footerBaseline;
+  // ストーリーは下の行の下の空きを、ロゴの上の空き（安全な枠の上端）と同じにする（上下の釣り合い・2026-10-10 ui-critic）。
+  const footBaseline = F.format === 'story' ? F.H - LB.top : F.footerBaseline;
   const footTop = footBaseline - Math.round(S.footSize * 1.1);
 
   return {

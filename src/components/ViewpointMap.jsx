@@ -226,7 +226,8 @@ export function ViewpointMapSheet({ on, busy = false, onChoose, onClose }) {
         ))}
       </div>
       <p style={{ margin: 'var(--space-4) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-        {withPhraseBreaks('タグは自分で付けます。保存したメモには')}<span style={{ whiteSpace: 'nowrap' }}>「合いそうなタグ」</span>{withPhraseBreaks('としてすすめます。やめても、付けたタグは消えません。')}
+        {/* 注記は 1 行だけ（3 行の注記は読まれない・2026-10-10 ui-critic）。 */}
+        {withPhraseBreaks('やめても、付けたタグは消えません。')}
       </p>
     </BottomSheet>
   );

@@ -484,7 +484,8 @@ export default function AuthScreen() {
           </p>
         )}
       </form>
-      <div style={{ marginTop: 'var(--space-6)', display: 'flex', flexDirection: 'column', gap: 0, width: '100%', maxWidth: 400, alignItems: 'center' }}>
+      {/* 文字ボタンの間は 8（文字を大きくすると 3 つが 1 つの塊に見えた・2026-10-10 ui-critic）。 */}
+      <div style={{ marginTop: 'var(--space-6)', display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', width: '100%', maxWidth: 400, alignItems: 'center' }}>
         {mode !== 'signin' && (
           <button type="button" onClick={() => switchMode('signin')} style={btnLink}>
             ログインに戻る

@@ -8,7 +8,8 @@
 import { useCallback, useEffect, useLayoutEffect } from 'react';
 import { composerHeight } from '../lib/composerView';
 
-export function useComposerHeight(ref, value, active = true) {
+// placeholder: 入力欄の案内（空のときの高さは案内の文で決まるので、案内が変わったら測り直す・2026-10-10）。
+export function useComposerHeight(ref, value, active = true, placeholder = '') {
   const fit = useCallback(() => {
     const el = ref.current;
     if (!el) return;
@@ -23,7 +24,7 @@ export function useComposerHeight(ref, value, active = true) {
     }) + 'px';
   }, [ref]);
 
-  useLayoutEffect(() => { fit(); }, [value, fit, active]);
+  useLayoutEffect(() => { fit(); }, [value, fit, active, placeholder]);
 
   useEffect(() => {
     const el = ref.current;

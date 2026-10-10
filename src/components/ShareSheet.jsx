@@ -71,7 +71,7 @@ import { phraseDisplayText } from '../lib/sharePhrase';
 import { shareImage, saveImage } from '../lib/shareImage';
 import { storeLinkFor } from '../lib/appStore';
 import { shareCampaign } from '../lib/storeCampaign';
-import { btnPrimary, btnPrimaryOff, btnLink } from '../styles/ui';
+import { btnPrimary, btnPrimaryOff, btnLink, btnLinkQuiet } from '../styles/ui';
 
 const FORMAT_OPTIONS = [
   { v: 'post', label: '投稿', aria: '投稿（4:5）' },
@@ -113,13 +113,15 @@ const THUMB_H = 64;
 // 選んでいる状態は中立の見た目（DESIGN §3-1 の --fill＝選択中の面・--text の輪）。栗色は主ボタンと文字ボタンだけに
 // 残し、「共有する」がいちばん目立つようにする（2026-09-30 ui-critic）。
 const SELECTED_RING = '0 0 0 2px var(--surface), 0 0 0 4px var(--text)';
-// 形の切り替え（投稿／ストーリー）。太さは 600 のまま変えない（選ぶたびに幅が変わって跳ねない）。
+// 形の切り替え（投稿／ストーリー）＝ iOS のセグメント（DESIGN §5「セグメント」・2026-10-10 ui-critic）。
+//   --fill の溝の中に 2 つ並べ、選んでいる方だけ --surface の面。太さは 600 のまま変えない（選ぶたびに幅が変わって跳ねない）。
+const segTrack = { display: 'flex', flexDirection: 'column', gap: 2, padding: 2, background: 'var(--fill)', borderRadius: 'var(--radius)' };
 const segBtn = (on) => ({
-  minHeight: 'var(--tap-min)',
+  minHeight: 'var(--tap-min)', // 押せる範囲 44 のまま（溝の内側 2 はその外）
   padding: '0 var(--space-3)',
   border: 'none',
-  borderRadius: 'var(--radius)',
-  background: on ? 'var(--fill)' : 'transparent',
+  borderRadius: 'calc(var(--radius) - 2px)',
+  background: on ? 'var(--surface)' : 'transparent',
   color: on ? 'var(--text)' : 'var(--text-2)',
   fontFamily: 'inherit',
   fontSize: 'var(--text-sub)',
@@ -134,7 +136,9 @@ const swatchLabeledBtn = {
   alignItems: 'center',
   justifyContent: 'center',
   gap: 'var(--space-1)',
-  width: 'var(--space-16)',
+  // 幅は 64 か名前 4 字ぶんの広いほう（文字を大きくしても「表紙の色」が隣の名前に重ならない・2026-10-10）。
+  fontSize: 'var(--text-meta)',
+  width: 'max(var(--space-16), 4.4em)',
   minHeight: 'var(--tap-min)',
   padding: 'var(--space-1) 0',
   border: 'none',
@@ -146,10 +150,12 @@ const swatchLabeledBtn = {
 };
 const swatchLabel = (on) => ({ fontSize: 'var(--text-meta)', lineHeight: 1.2, fontWeight: on ? 600 : 400, color: on ? 'var(--text)' : 'var(--text-2)', whiteSpace: 'nowrap' });
 const ring = (on) => (on ? SELECTED_RING : 'inset 0 0 0 1px var(--border)');
-const swatchDot = (bg, on) => ({ width: 28, height: 28, borderRadius: 'var(--radius-full)', background: bg, boxShadow: ring(on) });
+// 選んでいない見本の丸の縁は 2（暗い画面の「夜」が地に溶けて見えなかった・2026-10-10 ui-critic）。
+const swatchDot = (bg, on) => ({ width: 28, height: 28, borderRadius: 'var(--radius-full)', background: bg, boxShadow: on ? SELECTED_RING : 'inset 0 0 0 2px var(--border)' });
 // 透明の見本・プレビューの地（暗い市松＝白い文字が見える。画像には入らない）。
 const checker = (size) => `repeating-conic-gradient(var(--share-sticker-backdrop-a) 0% 25%, var(--share-sticker-backdrop-b) 0% 50%) 50% / ${size}px ${size}px`;
-// 「写真を選ぶ」のチップ（写真が無いときだけ出る・押すとすぐ写真を選べる＝操作のチップ DESIGN §5）。
+// 「写真を選ぶ」のチップ（写真が無いときだけ出る・押すとすぐ写真を選べる）。枠だけ（面を付けると、選んでいる見本に
+//   見えた・2026-10-10 ui-critic）。
 const photoChip = {
   display: 'inline-flex',
   alignItems: 'center',
@@ -157,8 +163,8 @@ const photoChip = {
   minHeight: 'var(--tap-min)',
   padding: '0 var(--space-3) 0 var(--space-2)',
   borderRadius: 'var(--radius)',
-  border: 'none',
-  background: 'var(--fill)',
+  border: '1px solid var(--border)',
+  background: 'transparent',
   color: 'var(--text)',
   fontFamily: 'inherit',
   fontSize: 'var(--text-sub)',
@@ -315,6 +321,10 @@ export default function ShareSheet({
 }) {
   const toast = useToast();
   const haptic = useHaptic();
+  // 文字の大きさの設定が大きいとき（ルートの文字 22px 以上・ImportSheet と同じ目安）。見本を 1 行で横に送る。
+  const [largeText] = useState(() => {
+    try { return parseFloat(getComputedStyle(document.documentElement).fontSize) >= 22; } catch { return false; }
+  });
   // 端末の日付（お試しモードは &today= で差し替えられる＝lib/appNow.js）。
   const now = useMemo(() => appNow(), []);
   // 「今年」は 12 月で、今年に読み終えた本が 1 冊以上あるときだけ（ホームなど本棚を渡された入口だけ）。
@@ -747,6 +757,8 @@ export default function ShareSheet({
     ...(photo ? [
       { label: '撮り直す', icon: <Camera size="1.1em" aria-hidden="true" />, onClick: openCamera },
       { label: 'アルバムから選ぶ', icon: <ImagePlus size="1.1em" aria-hidden="true" />, onClick: openPicker },
+      // 操作（撮り直す・選ぶ）と背景の選択を区切る（2026-10-10 ui-critic）。
+      { separator: true },
     ] : []),
     ...[
       ...(photo ? ['photo', 'film'] : []),
@@ -908,7 +920,8 @@ export default function ShareSheet({
                 aria-haspopup="menu"
                 aria-expanded={!!bgMenu}
                 onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setBgMenu({ x: r.right - 8, y: r.top - 8 }); }}
-                style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'auto', marginRight: 'calc(-1 * var(--space-1))' }}
+                // 控えめな文字ボタン（栗色は「別の一文」「編集」と主ボタンに残す・2026-10-10 ui-critic）。
+                style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'auto', marginRight: 'calc(-1 * var(--space-1))' }}
               >
                 {`背景：${STYLE_LABELS[effStyle]}`}
                 <ChevronDown size="1.1em" aria-hidden="true" />
@@ -927,11 +940,20 @@ export default function ShareSheet({
         <div aria-hidden={yearError || undefined} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: 'var(--space-2)', visibility: yearError ? 'hidden' : 'visible' }}>
             {/* 列の幅は名前の字の大きさで決める（文字が大きいときは 3 列＋次の行・形の切り替えは下の行へ回る＝名前が重ならない）。 */}
             {variants.length > 1 && (
-            <div role="radiogroup" aria-label="見せ方" style={{ flex: '1 1 15em', minWidth: 0, fontSize: 'var(--text-meta)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 4.6em), 1fr))', gap: 'var(--space-1)', margin: '0 0 0 calc(-1 * var(--space-1))' }}>
+            // 列は見本の数で決めた等分（名前の太さ・メニューの開け閉めで幅が動かない・2026-10-10 ui-critic）。
+            //   文字が大きいときは、見本だけを 1 行に並べて横に送る（名前は読み上げだけ・形と背景が画面に残る）。
+            <div
+              role="radiogroup"
+              aria-label="見せ方"
+              className={largeText ? 'lvg-no-scrollbar' : undefined}
+              style={largeText
+                ? { flex: '1 1 100%', minWidth: 0, display: 'flex', gap: 'var(--space-2)', overflowX: 'auto', margin: '0 calc(-1 * var(--space-4))', padding: '0 var(--space-4)', WebkitOverflowScrolling: 'touch' }
+                : { flex: '1 1 15em', minWidth: 0, fontSize: 'var(--text-meta)', display: 'grid', gridTemplateColumns: `repeat(${variants.length}, minmax(4.6em, 1fr))`, gap: 'var(--space-1)', margin: '0 0 0 calc(-1 * var(--space-1))' }}
+            >
               {variants.map((v) => {
                 const on = v === variant;
                 return (
-                  <button key={v} type="button" role="radio" aria-checked={on} onClick={() => { if (v !== variant) chooseVariant(v); }} style={{ ...thumbBtn, minWidth: 0, paddingLeft: 0, paddingRight: 0 }}>
+                  <button key={v} type="button" role="radio" aria-checked={on} aria-label={VARIANT_LABELS[v]} onClick={() => { if (v !== variant) chooseVariant(v); }} style={{ ...thumbBtn, minWidth: 0, paddingLeft: largeText ? 'var(--space-1)' : 0, paddingRight: largeText ? 'var(--space-1)' : 0, flexShrink: 0 }}>
                     <canvas
                       ref={(el) => { thumbRefs.current[v] = el; }}
                       width={thumbW * 2}
@@ -939,17 +961,25 @@ export default function ShareSheet({
                       aria-hidden="true"
                       style={{ display: 'block', width: thumbW, height: THUMB_H, borderRadius: 'var(--radius)', background: effStyle === 'sticker' ? checker(8) : 'var(--fill)', boxShadow: ring(on) }}
                     />
-                    {/* 名前は文節の切れ目でだけ折り返す・いつも 2 行ぶんの高さ（1 行の名前と 2 行の名前で見本の上下がずれない）。 */}
-                    <span aria-label={VARIANT_LABELS[v]} style={{ ...swatchLabel(on), minHeight: '2.4em', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-                      {(VARIANT_LINES[v] || [VARIANT_LABELS[v]]).map((ln) => <span key={ln} aria-hidden="true" style={{ whiteSpace: 'nowrap' }}>{ln}</span>)}
-                    </span>
+                    {/* 名前はいつも 2 行（VARIANT_LINES）。選んだときの太字の幅を先に取っておく（見えない太字の写しを重ねる）。 */}
+                    {!largeText && (
+                      <span aria-hidden="true" style={{ ...swatchLabel(on), minHeight: '2.4em', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+                        {(VARIANT_LINES[v] || [VARIANT_LABELS[v]]).map((ln) => (
+                          <span key={ln} style={{ display: 'grid', whiteSpace: 'nowrap' }}>
+                            <span style={{ gridArea: '1 / 1' }}>{ln}</span>
+                            <span style={{ gridArea: '1 / 1', fontWeight: 600, visibility: 'hidden' }}>{ln}</span>
+                          </span>
+                        ))}
+                      </span>
+                    )}
                   </button>
                 );
               })}
             </div>
             )}
             {effStyle !== 'sticker' && (
-              <div role="radiogroup" aria-label="画像の形" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', flexShrink: 0, marginLeft: variants.length > 1 ? 0 : 'auto', marginRight: 'calc(-1 * var(--space-1))' }}>
+              // 文字が大きいときは見本の下の行で、横に並べる（左にそろえる）。
+              <div role="radiogroup" aria-label="画像の形" style={{ ...segTrack, ...(largeText ? { flexDirection: 'row' } : null), flexShrink: 0, marginLeft: variants.length > 1 || largeText ? 0 : 'auto' }}>
                 {FORMAT_OPTIONS.map((o) => (
                   <button key={o.v} type="button" role="radio" aria-checked={format === o.v} aria-label={o.aria} onClick={() => setFormat(o.v)} style={{ ...segBtn(format === o.v), padding: '0 var(--space-2)' }}>
                     {o.label}

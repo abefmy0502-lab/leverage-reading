@@ -1747,7 +1747,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
           <div ref={summaryStep ? stepCardRef : undefined} style={{ ...advisorWizardCard, scrollMarginTop: 'var(--space-4)' }} role="group" aria-label="受け取った悩み" aria-live="polite">
             <p style={{ ...fieldLabel, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('あなたの悩みを、こう受け取りました')}</p>
             {/* 受け取った悩みは、聞き取りの問いと同じ見た目（17/600・2026-10-10 ui-critic「確かめる一歩だけ明朝 18 で大きかった」）。 */}
-            <p style={{ ...questionText, margin: 'var(--space-2) 0 0' }}>{withPhraseBreaks(text)}</p>
+            {/* 長い文なので太さは 400（全部 600 だと重く読みにくかった・2026-10-10 ui-critic）。 */}
+            <p style={{ ...questionText, fontWeight: 400, margin: 'var(--space-2) 0 0' }}>{withPhraseBreaks(text)}</p>
             {/* 命に関わる言葉があるときは、まとめのすぐ後に相談窓口（15/--text・外部リンク 44）。 */}
             {showCare && careNote}
             {asking && !correcting && (
@@ -1982,7 +1983,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
                     />
                   )}
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 0 }}>#{i + 1}</p>
+                    <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 0 }}>{i + 1} 冊目</p>
                     <p style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, margin: 'var(--space-1) 0 0', overflowWrap: 'anywhere', wordBreak: 'keep-all', textIndent: '-0.5em' }}>『{withPhraseBreaks(rec.title, { scriptBreaks: true })}』</p>
                     {rec.author && (
                       <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: 'var(--space-1) 0 0' }}>{rec.author}</p>

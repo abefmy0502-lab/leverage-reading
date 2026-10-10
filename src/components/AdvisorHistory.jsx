@@ -269,7 +269,7 @@ function RecommendationCard({ book, index = 0, isAdded, isChecking, onAdd }) {
           />
         )}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 0 }}>#{index + 1}</p>
+          <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 0 }}>{index + 1} 冊目</p>
           <p style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, margin: 'var(--space-1) 0 0', textIndent: '-0.5em' }}>
             『{book.title}』
           </p>

@@ -164,6 +164,9 @@ const nextStepBox = { background: 'var(--fill)', borderRadius: 'var(--radius)', 
 const ASK_SKELETON_LINES = 2;
 const ASK_SKELETON_HEIGHT = `calc(var(--text-read) * 1.6 * ${ASK_SKELETON_LINES})`;
 const ASK_LABEL = 'あなたに聞きたいこと';
+// 問いの文字: ふつうは読む文字（--text-read）。文字が最大のとき、箱の幅に 1 行 10 字ほど入る大きさまで縮める
+//   （「報告が／遅れるのは、」のように 3 字で折り返していた・2026-10-10 ui-critic）。箱の幅は containerType で測る。
+const askQuestionSize = { fontSize: 'min(var(--text-read), 9.6cqi)' };
 // --fill の面（一歩・問いの箱）の上の骨組みは --separator の棒（ふつうの骨組みの色は --fill と同じ明るさで、暗い画面で見えなかった・
 // 2026-09-30 ui-critic）。光の流れは --separator ↔ --fill で残す。
 const skeletonOnFill = { background: 'linear-gradient(90deg, var(--separator) 0%, var(--fill) 50%, var(--separator) 100%)', backgroundSize: '200% 100%' };
@@ -209,6 +212,9 @@ const CATEGORIES = ['会話', '経験', '観察', '気づき', 'その他'];
 
 // 答えの吹き出しの列の左端（相手のアイコン 32 ＋ 間 8）。答えの下の文字ボタン・注記もこの列にそろえる（2026-09-30）。
 const ANSWER_COLUMN = `calc(${AVATAR_SIZE}px + var(--space-2))`;
+// メモの答えの下の「AI に答えてもらう（プラン）」と「新しい相談をはじめる」の文字と文字の間を 24 に（どちらも押せる範囲 44 の
+//   文字ボタンなので、44 − 1 行の高さ ぶんを引く・2026-10-10 ui-critic: 約 68 空いていた）。
+const MEMO_PLAN_GAP = 'max(0px, calc(var(--space-6) - 44px + var(--text-sub) * 1.5))';
 // 語り口の答えの最後にいつも出す一行（13/--text-3）。名前の行の「（本の語り口で・AI）」と合わせて、閉じられる案内は置かない（2026-09-30 オーナー判断）。
 const VOICE_FOOT_TEXT = 'AI が本とあなたのメモから語り口をまねた答えです';
 
@@ -421,6 +427,10 @@ function LearningInline({ onSaved, onDirtyChange, initialTags = null }) {
 // barSlot: App のサブタブ（相談｜AI 選書）の行の右端の要素。会話の 🕒・… はそこへ出す（上の操作を 3 段に積まない・2026-10-01 ui-critic）。
 export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBooksMutated, onAddActionPickBook, onGoBookshelf, onQuickstart, onAddBook, onOpenActions, askPreset, scopePreset, onPushedViewChange, onSearchMemos, barSlot = null }) {
   const { user } = useAuth();
+  // 文字の大きさの設定が大きいとき（ルートの文字 22px 以上・ImportSheet と同じ目安）。入力欄の案内を短くする。
+  const [largeText] = useState(() => {
+    try { return parseFloat(getComputedStyle(document.documentElement).fontSize) >= 22; } catch { return false; }
+  });
   // ⚡ タブを開いた瞬間に知識スキャン（gatherKnowledge）を裏で開始 — 最初の質問時には
   // キャッシュ済みで、RAG 構築の待ち時間（数百ms〜数秒）が消える。
   useEffect(() => { prewarmKnowledge(user?.id); }, [user?.id]);
@@ -697,10 +707,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     return () => window.removeEventListener(NATIVE_KEYBOARD_EVENT, on);
   }, []);
   const blurTimerRef = useRef(0);
-  // 描く前に高さを合わせる（useEffect だと、送ったあとに「消えた文字の高さのまま 1 回描く → 縮む」で
-  // 入力欄が 2 回動いていた）。
-  // 文字の大きさが変わったときも測り直す（hooks/useComposerHeight.js・2026-10-08 ui-critic）。
-  useComposerHeight(inputRef, input, view === 'chat');
+  // 入力欄の高さは composerPlaceholder を決めたあと（return の直前）で合わせる。
 
   const historyLatestRef = useRef(null);
   const fetchHistory = useCallback(async () => {
@@ -2081,6 +2088,28 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     </div>
   );
 
+  // 入力欄の案内（答えの状態ごと）。案内が変わったら高さも測り直す（Chrome は案内の文の高さも数える・2026-10-10）。
+  const composerPlaceholder = outOfTokens
+    ? (plan === 'trial'
+      ? (trialEndLabel ? `${trialEndLabel}から相談できます` : '無料期間のトークンは、ここまでです')
+      : `${nextResetLabelJa()}から相談できます`)
+    // メモが答える相談（AI を使わない）: 送れることと、何から答えるかを 1 行で（390 幅で 1 行に収まる長さ）。
+    : freeUsedUp ? '困りごと（メモから探します）'
+    : carry && !carry.used ? 'この相談の続きを書く'
+    // メモが 0 件の人は続けても同じ答えなので、最初の画面と同じ新しい相談の例（2026-10-09 ui-critic）。
+    : noMemosYet ? '例：上司への報告がうまくいかない'
+    // 390 幅の入力欄に 1 行で収まる長さ（「例：上司への報告がうまくいかない」と同じ 16 字）。
+    // AI が状況を聞き返しているときは、答えを書くか続けて聞く（候補のチップのほかに自分の言葉でも）。
+    // 文字が大きいときは 1 行に収まる短い形（2026-10-10 ui-critic）。
+    : lastAsksBack ? (largeText ? '返事を書く' : '返事を書く・続けて相談する')
+    // 関係するメモが無かった答えのあとは、続きの例ではなく新しい相談の例（2026-09-30 ui-critic）。
+    // 本を探す問いの答えのあとは、見つかったメモをいまに活かす問いの例（本を探す問いは続きの材料に入れないので threadActive に頼らない）。
+    : lastLookup && !isNoInfoAnswer(lastVisible) ? '続けて聞く・ほかの言葉で探す'
+    : threadActive && !isNoInfoAnswer(lastVisible) ? '続けて聞く：乗り気でないときは？' : '例：上司への報告がうまくいかない';
+  // 描く前に高さを合わせる（useEffect だと、送ったあとに「消えた文字の高さのまま 1 回描く → 縮む」で
+  // 入力欄が 2 回動いていた）。文字の大きさが変わったときも測り直す（hooks/useComposerHeight.js・2026-10-08 ui-critic）。
+  useComposerHeight(inputRef, input, view === 'chat', composerPlaceholder);
+
   return (
     <div style={wrap}>
       {/* 上の操作は 1 行だけ（SPEC §3）。会話のときは、履歴（時計）とその他（…）を App のサブタブ（相談｜AI 選書）の行の右端に出し
@@ -2438,7 +2467,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           {answerRowShown && !lastActionAdded && (
             // 答えのカード → 文字ボタンの文字まで約 20（8 ＋ 押せる範囲 44 の上の空き）。文字の左端は余白 16 に揃える。
             // メモの答えの下に「AI に答えてもらう（プラン）」が出ているときは、別のまとまりとして 24 離す（2026-10-01 ui-critic）。
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-4)', marginTop: lastIsMemoAnswer && freeMode && visibleMessages[visibleMessages.length - 1]?.id === firstMemoAnswerId ? 'var(--space-6)' : 'var(--space-2)', marginLeft: ANSWER_COLUMN }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-4)', marginTop: lastIsMemoAnswer && freeMode && visibleMessages[visibleMessages.length - 1]?.id === firstMemoAnswerId ? MEMO_PLAN_GAP : 'var(--space-2)', marginLeft: ANSWER_COLUMN }}>
               {/* 無料のトークンを使い切ったら、できない操作を出さない */}
               {/* 失敗した答えには吹き出しの「もう一度」があるので、ここでは出さない */}
               {/* 関係するメモが無かった答えは、角度を変えても答えられないので「本を追加」「学びを書く」へ（2026-09-29） */}
@@ -2495,8 +2524,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 ))}
                 {/* 🎯「行動を決める」は決まった頼み方（DECIDE_REQUEST）で送る。行動の印（Target）つき。 */}
                 {followups.filter((c) => c.kind === 'decide').map((c) => (
-                  // 🔭 見方を変えた答えのあとは「ここで答えと行動を」を行の先頭に（この見方で結論＋行動が次の主な一歩・2026-10-08 ui-critic）。
-                  <button key="decide" type="button" onClick={() => { track('brain_followup', { kind: 'decide' }); ask(c.send); }} style={lensOf(lastAsked) ? { ...decideChip, order: -1 } : decideChip}>
+                  // 「ここで答えと行動を」はいつも行の先頭に（横に送る行で切れて見えないことが無いように・2026-10-10 ui-critic）。
+                  <button key="decide" type="button" onClick={() => { track('brain_followup', { kind: 'decide' }); ask(c.send); }} style={{ ...decideChip, order: -1 }}>
                     <Target size="1.1em" aria-hidden="true" style={{ flexShrink: 0 }} />
                     {c.label}
                   </button>
@@ -2577,22 +2606,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                   if (!outOfTokens) ask();
                 }
               }}
-              placeholder={outOfTokens
-                ? (plan === 'trial'
-                  ? (trialEndLabel ? `${trialEndLabel}から相談できます` : '無料期間のトークンは、ここまでです')
-                  : `${nextResetLabelJa()}から相談できます`)
-                // メモが答える相談（AI を使わない）: 送れることと、何から答えるかを 1 行で（390 幅で 1 行に収まる長さ）。
-                : freeUsedUp ? '困りごと（メモから探します）'
-                : carry && !carry.used ? 'この相談の続きを書く'
-                // メモが 0 件の人は続けても同じ答えなので、最初の画面と同じ新しい相談の例（2026-10-09 ui-critic）。
-                : noMemosYet ? '例：上司への報告がうまくいかない'
-                // 390 幅の入力欄に 1 行で収まる長さ（「例：上司への報告がうまくいかない」と同じ 16 字）。
-                // AI が状況を聞き返しているときは、答えを書くか続けて聞く（候補のチップのほかに自分の言葉でも）。
-                : lastAsksBack ? '返事を書く・続けて相談する'
-                // 関係するメモが無かった答えのあとは、続きの例ではなく新しい相談の例（2026-09-30 ui-critic）。
-                // 本を探す問いの答えのあとは、見つかったメモをいまに活かす問いの例（本を探す問いは続きの材料に入れないので threadActive に頼らない）。
-                : lastLookup && !isNoInfoAnswer(lastVisible) ? '続けて聞く・ほかの言葉で探す'
-                : threadActive && !isNoInfoAnswer(lastVisible) ? '続けて聞く：乗り気でないときは？' : '例：上司への報告がうまくいかない'}
+              placeholder={composerPlaceholder}
               rows={1}
               // 答えを書いている間も押せなくしない（disabled にすると入力欄からフォーカスが外れ、下のタブが
               // 出てきて入力欄がもう一度動いていた・2026-09-29）。送るのは答えが終わってから（ask が busy で止める）。
@@ -3487,9 +3501,9 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
   // 🎯 あなたに聞きたいこと（行動を決めない回の締め・2026-09-30）。候補はカードに並べず、入力欄の上の返事のチップだけ
   //   （次にすることは 1 か所）。行動の箱と同じ面・同じ場所（結論のすぐ下）。
   const renderAsk = (p, marginTop) => (p.question ? (
-    <div data-ask-box="" style={{ marginTop, ...nextStepBox }}>
+    <div data-ask-box="" style={{ marginTop, ...nextStepBox, containerType: 'inline-size' }}>
       <p style={subLabel}>{ASK_LABEL}</p>
-      <p style={{ ...readText, margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'keep-all', overflowWrap: 'break-word', ...hangIndent(p.question), ...(isStreaming ? { minHeight: ASK_SKELETON_HEIGHT } : null) }}>{renderBoldPhrased(p.question)}{tail === 'ask' && cursor}</p>
+      <p style={{ ...readText, ...askQuestionSize, margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'keep-all', overflowWrap: 'break-word', ...hangIndent(p.question), ...(isStreaming ? { minHeight: ASK_SKELETON_HEIGHT } : null) }}>{renderBoldPhrased(p.question)}{tail === 'ask' && cursor}</p>
       {/* 🏁 いまどこにいるか（2026-10-08）: 問いの下 8 に 13/--text-2 の 1 行（状態色・段階のバーは使わない）。
           送った直後の 1 画面（答えの上端＝問いの箱が見える位置）で読めるよう、答えの下ではなく箱の中に置く。 */}
       {askProgress && !isStreaming && (

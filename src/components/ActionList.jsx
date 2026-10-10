@@ -33,7 +33,9 @@ import { MoreHorizontal, BookOpen, Trash2, Pencil, CheckCircle2, Circle, ListTod
 // 余白は辺ごとに書く（padding の一括指定と paddingBottom を混ぜると、描き直しで下の余白が戻らないことがある・2026-09-30）。
 const wrap = { paddingTop: 'var(--space-3)', paddingLeft: 'var(--space-4)', paddingRight: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' };
 const groupTitle = { ...uiGroupTitle, margin: '0 0 var(--space-2)' };
-const card = { position: 'relative', background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4) var(--space-12) var(--space-4) var(--space-4)', display: 'flex', gap: 'var(--space-2)', alignItems: 'flex-start' };
+const card = { position: 'relative', background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4)', display: 'flex', gap: 'var(--space-2)', alignItems: 'flex-start' };
+// 行の丸（押せる範囲 44）を文の 1 行目（文字 --text-body・行間 1.5）の高さの中央に置く上下の余白。
+const ROW_ICON_OFFSET = 'calc((1.5em - 44px) / 2)';
 const rowBtn = { display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, padding: 'var(--space-2) var(--space-3)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', fontSize: 'var(--text-sub)', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', flexShrink: 0 };
 // 押せない行の副ボタン（DESIGN §5「押せないボタン」＝ ui.js の btnGhostOff の色・枠を行サイズで使う）。
 const rowBtnOff = { ...rowBtn, color: btnGhostOff.color, border: btnGhostOff.border, opacity: btnGhostOff.opacity, cursor: btnGhostOff.cursor };
@@ -297,11 +299,12 @@ function ActionRow({ a, completing, swipeable, onCheck, onOpenMenu, onSwipeDelet
         aria-checked={shownDone}
         aria-label={shownDone ? `「${stripInlineMd(a.text)}」を未完了に戻す` : `「${stripInlineMd(a.text)}」を完了にする`}
         onClick={() => onCheck?.(a)}
-        style={{ flexShrink: 0, width: 44, height: 44, margin: 'calc(-1 * var(--space-3)) 0 calc(-1 * var(--space-3)) calc(-1 * var(--space-3))', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+        // 丸は文の 1 行目の高さの中央に（文字の大きさに合わせて em で・2026-10-10 ui-critic）。押せる範囲は 44 のまま。
+        style={{ flexShrink: 0, width: 44, height: 44, fontSize: 'var(--text-body)', margin: `${ROW_ICON_OFFSET} 0 ${ROW_ICON_OFFSET} calc(-1 * var(--space-3))`, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
       >
         {shownDone
-          ? <span key="on" className="check-pop" style={{ display: 'flex' }}><CheckCircle2 size={24} aria-hidden="true" style={{ color: 'var(--success)' }} /></span>
-          : <Circle size={24} aria-hidden="true" style={{ color: 'var(--border)' }} />}
+          ? <span key="on" className="check-pop" style={{ display: 'flex' }}><CheckCircle2 size="1.4em" aria-hidden="true" style={{ color: 'var(--success)' }} /></span>
+          : <Circle size="1.4em" aria-hidden="true" style={{ color: 'var(--border)' }} />}
       </button>
       {/* 文の欄を押すと編集を開く（2026-10-10・「…」→ 編集 と同じ）。完了にしている途中は開かない。 */}
       <div
@@ -317,6 +320,8 @@ function ActionRow({ a, completing, swipeable, onCheck, onOpenMenu, onSwipeDelet
         {/* overflowWrap は anywhere（break-word だと、文字を大きくしたときに行より長い文節がカードを画面の外まで押し広げた・2026-10-01）。
             折り返しは今までどおり文節の切れ目で、1 つの文節が行に収まらないときだけ中で折る。 */}
         <p className="text-pretty" style={{ margin: 0, fontSize: 'var(--text-body)', lineHeight: 1.5, color: shownDone ? 'var(--text-3)' : 'var(--text)', textDecoration: shownDone ? 'line-through' : 'none', transition: `color ${HEIGHT_EASE}`, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+          {/* 右上の「…」の場所は 1 行目だけ空ける（2 行目からは右端まで使う・2026-10-10 ui-critic）。 */}
+          <span aria-hidden="true" style={{ float: 'right', width: 'calc(44px - var(--space-4) + var(--space-1))', height: '1.5em' }} />
           {phrasedText}
         </p>
         {(a.bookTitle || meta.length > 0) && (
@@ -349,9 +354,10 @@ function ActionRow({ a, completing, swipeable, onCheck, onOpenMenu, onSwipeDelet
         // 並んだ「…」を読み上げで見分けられるように、行動の文を入れる（長い文は 40 字で切る・2026-09-29）。
         aria-label={`「${String(a.text || '').trim().slice(0, 40)}」の操作`}
         onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); onOpenMenu?.({ x: r.right - 8, y: r.bottom + 4, action: a }); }}
-        style={{ position: 'absolute', top: 0, right: 0, width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', color: 'var(--text-2)', cursor: 'pointer', padding: 0 }}
+        // 「…」も文の 1 行目の高さの中央に（em で大きさを決める）。
+        style={{ position: 'absolute', top: 'calc(var(--space-4) + 0.75em - 22px)', right: 0, width: 44, height: 44, fontSize: 'var(--text-body)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', color: 'var(--text-2)', cursor: 'pointer', padding: 0 }}
       >
-        <MoreHorizontal size={20} aria-hidden="true" />
+        <MoreHorizontal size="1.2em" aria-hidden="true" />
       </button>
     </div>
   );
@@ -701,7 +707,8 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
         </p>
         )}
         {canAdd && (
-          <button type="button" onClick={onAddAction} style={{ ...rowBtn, marginLeft: 'auto' }}>
+          // 文が行を埋めて右端に。文字を大きくして次の行へ回ったときは左にそろえる（2026-10-10 ui-critic）。
+          <button type="button" onClick={onAddAction} style={weekLine.total > 0 || open.length > 0 ? rowBtn : { ...rowBtn, marginLeft: 'auto' }}>
             <Plus size="1em" aria-hidden="true" />追加
           </button>
         )}

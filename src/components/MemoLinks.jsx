@@ -34,29 +34,32 @@ export default function MemoLinks({ links, onOpen, onDismiss = null, variant = '
 
   if (variant === 'line') {
     const first = links[0];
+    // 文字の大きさの設定が大きいとき（ルートの文字 22px 以上・ImportSheet と同じ目安）。
+    let largeText = false;
+    try { largeText = parseFloat(getComputedStyle(document.documentElement).fontSize) >= 22; } catch { /* ignore */ }
     const page = Number.isFinite(first.hit?.page) ? ` p.${first.hit.page} ` : '';
+    // 組み方は育つまでの一行（GrowthMeter）と同じ: アイコンは 1 行目の高さの中央・文は 2 行まで。行のどこを押しても開く
+    //   （› は置かない）。× は押せる範囲 44 のまま、1 行目の高さの中央にそろえる。書名は途中で割らない（2026-10-10 ui-critic）。
     return (
-      <div data-memo-links-line="" style={{ display: 'flex', alignItems: 'center', columnGap: 'var(--space-1)', margin: '0 calc(-1 * var(--space-3)) 0 0', ...style }}>
+      <div data-memo-links-line="" style={{ display: 'flex', alignItems: 'flex-start', columnGap: 'var(--space-1)', margin: '0 calc(-1 * var(--space-3)) 0 0', fontSize: 'var(--text-meta)', lineHeight: 1.5, ...style }}>
         <button
           type="button"
           onClick={() => onOpen?.(first.book, first.hit?.memoId)}
-          style={{ flex: 1, minWidth: 0, minHeight: 44, display: 'flex', alignItems: 'center', gap: 'var(--space-1)', background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', color: 'var(--text-2)', fontSize: 'var(--text-meta)', lineHeight: 1.5 }}
+          style={{ flex: 1, minWidth: 0, minHeight: 44, display: 'flex', alignItems: 'flex-start', gap: 'var(--space-1)', background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', color: 'var(--text-2)', fontSize: 'inherit', lineHeight: 'inherit' }}
         >
-          {/* 中の行は文の 1 行目にアイコンをそろえる（ボタンの 44 の中では上下の真ん中）。 */}
-          <span style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'flex-start', gap: 'var(--space-1)' }}>
           <span aria-hidden="true" style={{ display: 'inline-flex', alignItems: 'center', height: '1.5em', flexShrink: 0, color: 'var(--text-3)' }}>
             <Link2 size="1.2em" />
           </span>
-          <span style={{ minWidth: 0, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-            {withPhraseBreaks(`似たことを『${first.book.title}』${page}でも書いています`)}
-          </span>
-          <span aria-hidden="true" style={{ display: 'inline-flex', alignItems: 'center', height: '1.5em', flexShrink: 0, color: 'var(--text-3)' }}>
-            <ChevronRight size="1.2em" />
-          </span>
+          {/* 2 行まで（文字を大きくして書名が 1 行を取るときだけ 3 行・文の終わり「でも書いています」を切らない）。
+              書名は 1 つの塊（長ければ … で切る）・『 は行の頭でぶら下げる。 */}
+          <span style={{ minWidth: 0, display: '-webkit-box', WebkitLineClamp: largeText ? 3 : 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+            似たことを<wbr />
+            <span style={{ display: 'inline-block', maxWidth: 'calc(100% + 0.5em)', marginLeft: '-0.5em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', verticalAlign: 'bottom' }}>『{first.book.title}』</span>
+            {withPhraseBreaks(`${page}でも書いています`)}
           </span>
         </button>
         {onDismiss && (
-          <button type="button" onClick={onDismiss} aria-label="閉じる" style={closeBtn}>
+          <button type="button" onClick={onDismiss} aria-label="閉じる" style={{ ...closeBtn, marginTop: 'calc((1.5em - 44px) / 2)' }}>
             <X size="1.2em" aria-hidden="true" />
           </button>
         )}

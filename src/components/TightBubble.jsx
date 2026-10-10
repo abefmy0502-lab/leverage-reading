@@ -122,7 +122,8 @@ export function phrasePieces(text, { scriptBreaks = false } = {}) {
 
 // BudouX が 2 つの文節に分けるが、割ると読みにくい決まった言い回し（「もう／一度」）。前の文節の終わり＋次の文節の頭で見る。
 //   「と／いう」（「…」という悩み）・「いちばん／…」（「いちばん」だけの半端な 1 行を作らない）も割らない（2026-10-08 AI 選書）。
-const GLUED_PHRASES = [['もう', '一度'], ['と', 'いう'], ['いちばん', '']];
+//   「手が／かり」も割らない（AI 選書の推薦の文・2026-10-10 ui-critic）。
+const GLUED_PHRASES = [['もう', '一度'], ['と', 'いう'], ['いちばん', ''], ['手が', 'かり']];
 export const isGluedPhrase = (prev, pc) => GLUED_PHRASES.some(([a, b]) => prev.endsWith(a) && pc.startsWith(b));
 
 // 文を文節の切れ目（<wbr>）入りの React ノードにする。改行はそのまま（white-space: pre-wrap）。

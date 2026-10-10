@@ -343,7 +343,8 @@ function Heatmap({ dateStrings, weeks = 16 }) {
 
   const CELL = 14; // マスの最大（「形そのもの」DESIGN §4 の例外）。狭い画面では幅に合わせて縮む
   const GAP = 'var(--space-1)';
-  const LABEL_H = 'var(--space-4)'; // 月ラベルの行の高さ・曜日ラベルの列幅
+  // 月ラベルの行の高さ・曜日ラベルの列幅。文字を大きくしても「水」がマスに重ならない幅（文字の 1.2 倍・下限 16・2026-10-10 ui-critic）。
+  const LABEL_H = 'max(var(--space-4), calc(var(--text-meta) * 1.2))';
   const label = { fontSize: 'var(--text-meta)', lineHeight: 1, color: 'var(--text-3)', whiteSpace: 'nowrap', alignSelf: 'center' };
   return (
     <div role="img" aria-label={`直近 ${weeks} 週間の活動。読書の記録があった日は ${activeDays} 日`}>
@@ -624,7 +625,9 @@ export default function ReadingRecord({
       {doneBuckets.some((b) => b.count > 0) && (
       <section style={card}>
         {/* 直近 6 か月だけなので、見出しで範囲を言う（それより前の読了は数に入らない・2026-09-29）。 */}
-        <h3 style={{ ...cardTitle, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('月別の読了（直近 ')}<span style={{ whiteSpace: 'nowrap' }}>{'6\u00a0か月）'}</span></h3>
+        {/* 見出しは「月別の読了」だけ、範囲は下の小さな 1 行に（文字を大きくすると「（直近」が割れていた・2026-10-10 ui-critic）。 */}
+        <h3 style={cardTitle}>月別の読了</h3>
+        <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>{'直近 6\u00a0か月'}</p>
         <MonthBars buckets={doneBuckets} activeColor="var(--accent)" />
       </section>
       )}
