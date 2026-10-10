@@ -25,6 +25,13 @@ const [label = 'current', ...only] = process.argv.slice(2);
 const outDir = join('ui-shots', label);
 
 const nav = (name) => `nav button[aria-label="${name}"]`;
+// 要素を、中のスクロールの箱のサブタブの行のすぐ下（＋16）へ送る（記録の読書の時間の撮影・2026-10-10）。
+const RT_SCROLL = (sel) => `(() => { const el = document.querySelector('${sel}'); if (!el) return; let box = el.parentElement;
+  while (box && box !== document.body && !/(auto|scroll)/.test(getComputedStyle(box).overflowY)) box = box.parentElement;
+  const sc = box && box !== document.body ? box : document.scrollingElement;
+  const bars = [...document.querySelectorAll('.sub-tabs')].map((b) => b.getBoundingClientRect().bottom);
+  const top = Math.max(sc === document.scrollingElement ? 0 : sc.getBoundingClientRect().top, ...bars);
+  sc.scrollTop += el.getBoundingClientRect().top - top - 16; })()`;
 
 // AI 選書の聞き取り（2026-10-08）: 問いのすぐ下の「自分の言葉で答える」に書き出しを入れて続きを書く → 「答える」→ まとめを「合っている」。
 const ADVISOR_START = [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }];
@@ -1028,6 +1035,16 @@ const SCREENS = [
     name, url,
     steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:has-text("運営ダッシュボード")' }, { wait: 1200 }, { eval: ADMIN_SCROLL('#launch-kpi-title') }, ...extra],
   })),
+  // ⏱📊 記録の「読書の時間」（2026-10-10）。明暗＋文字最大（-xxl）。中のスクロールの箱だけを送る（文書ごと送るとタブの行がずれる）。
+  ...[
+    ['readtime-record', '/', [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }, { wait: 600 }, { eval: RT_SCROLL('[data-reading-time]') }, { wait: 300 }]],
+    ['readtime-record-books', '/', [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }, { wait: 600 }, { eval: RT_SCROLL('[data-reading-time-books]') }, { wait: 300 }]],
+    ['readtime-record-tag', '/', [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }, { wait: 600 }, { css: '[data-reading-time] button[aria-pressed]:has-text("コミュニケーション")' }, { eval: RT_SCROLL('[data-reading-time-tags]') }, { wait: 300 }]],
+    ['readtime-record-all', '/', [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }, { wait: 600 }, { css: '[data-reading-time] [role=radio]:has-text("これまで")' }, { css: '[data-reading-time] button:has-text("すべての本")' }, { eval: RT_SCROLL('[data-reading-time-books]') }, { wait: 300 }]],
+    ['readtime-none', '/?demo=fewmemos', [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }, { wait: 800 }]],
+    ['readtime-detail', '/', [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("数値化の鬼")' }, { wait: 600 }]],
+    ['readtime-detail-done', '/', [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("アウトプット大全")' }, { wait: 600 }]],
+  ].flatMap(([name, url, steps]) => [{ name, url, steps }, { name: `${name}-xxl`, url, steps: [XXL, ...steps] }]),
 ];
 
 // UI_SHOTS_PROXY=1 で、外への通信（Google Fonts＝共有の「手書き風」の書体など）を HTTPS_PROXY 経由にする

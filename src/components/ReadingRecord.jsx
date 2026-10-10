@@ -5,6 +5,7 @@
 // そのまま映すだけ。ヒートマップも「足あと」であって streak ではない）。
 //
 //   1. 読書 → メモ → 行動 : 読んだ本・残したメモ・実行した行動（累計。各数字からその一覧へ）
+//   1b. 読書の時間   : 集中モードで測った時間（2026-10-10・記録があるときだけ・components/ReadingTimeCard.jsx）
 //   2. 読書の足あと   : 直近16週のアクティビティ・ヒートマップ（メモ+読了）
 //   3. 月別の読了     : 直近 6 ヶ月の読了数のバー
 //   4. 視点の地図     : 使うと選んだ人だけ（2026-10-08・components/ViewpointMap.jsx）。使っていない人には最後に控えめな 1 行
@@ -32,6 +33,10 @@ import { buildViewpointMap, viewpointRecordPart } from '../lib/viewpointMap';
 import { useViewpointMap } from '../hooks/useViewpointMap';
 import { useToast } from './Toast';
 import { ViewpointMapCard, ViewpointMapInvite, ViewpointMapSheet } from './ViewpointMap';
+import ReadingTimeCard from './ReadingTimeCard';
+import { useReadingSessions } from '../hooks/useReadingSessions';
+import { hasReadingTime } from '../lib/readingStats';
+import { appNow } from '../lib/appNow';
 
 /* ---------- 日付ユーティリティ（ローカル基準・UTC ずれ防止） ---------- */
 
@@ -450,6 +455,10 @@ export default function ReadingRecord({
 
   // メモ統計（自己完結 fetch）。null = 取得中/未取得。
   const [memoStats, setMemoStats] = useState(null);
+  // ⏱ 読書の時間（集中モード・2026-10-10）。数える「いま」は開いたときに 1 回だけ決める（&today= の差し替えも効く）。
+  const sessions = useReadingSessions();
+  const [nowMs] = useState(() => appNow().getTime());
+  const showReadingTime = useMemo(() => hasReadingTime(sessions.rows, books), [sessions.rows, books]);
 
   useEffect(() => {
     track(EVENTS.RECORD_OPENED);
@@ -566,7 +575,8 @@ export default function ReadingRecord({
   // メモ集計がまだ返っていない間は「記録は、これから」を出さない — 本0冊で
   // メモだけあるユーザーに空状態が一瞬チラついてから統計に切り替わるのを防ぐ。
   // メモ集計が返るまでは 3 区画の形だけ出す（DESIGN §5: Skeleton。「残したメモ 0」が一瞬出るのも防ぐ）。
-  if (memoStats === null) {
+  // 読書の時間の読み込みも待つ（あとから区画が差し込まれて、下の足あとを押し下げない）。
+  if (memoStats === null || !sessions.loaded) {
     return (
       <div style={wrap} aria-busy="true" aria-label="記録を読み込み中">
         <SkeletonBlock height={120} radius="var(--radius)" />
@@ -613,6 +623,11 @@ export default function ReadingRecord({
           </p>
         )}
       </section>
+
+      {/* ⏱ 読書の時間（2026-10-10・記録が 1 回も無ければ出さない＝データの無い区画は出さない）。 */}
+      {showReadingTime && (
+        <ReadingTimeCard rows={sessions.rows} books={books} onOpenBook={onOpenBook} now={nowMs} />
+      )}
 
       {/* データが無い区画は出さない（SPEC §5-5・2026-10-04: 読了が直近 6 か月に 1 冊も無いのに 0 の棒だけの区画が出ていた）。 */}
       {footprints.length > 0 && (

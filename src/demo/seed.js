@@ -461,6 +461,26 @@ export function buildSeed(scenario) {
       db.reading_sessions.push({ id: `00000000-0000-4000-8000-0000000e${String(i).padStart(4, '0')}`, user_id: DEMO_USER_ID, book_id: focusBook.id, mode, created_at: iso(daysAgo), ...sessionAt(daysAgo, hour, minutes) });
     });
   }
+  // 記録の「読書の時間」（2026-10-10）の確認用に、ほかの日・ほかの本の回も（今日の回は『数値化の鬼』だけのまま
+  //   ＝集中モードの「今日 N 分」と写真で共有の「読書 20 分」は変えない）。週・分類（タグ）・本ごとが見えるように約 12 週に散らす。
+  //   [書名, [[何日前, 時, 分], …]]
+  const HISTORY = [
+    ['イシューからはじめよ', [[157, 22, 40], [155, 21, 30], [152, 7, 25]]],
+    ['エッセンシャル思考', [[128, 22, 30], [125, 22, 20]]],
+    ['嫌われる勇気', [[83, 22, 35], [82, 22, 40], [80, 21, 50]]],
+    ['アウトプット大全', [[70, 21, 30], [69, 22, 25], [67, 21, 45], [66, 7, 20], [64, 21, 55]]],
+    ['数値化の鬼', [[20, 7, 15], [18, 7, 25], [15, 22, 30], [12, 7, 20], [10, 7, 15], [7, 22, 40], [5, 7, 20]]],
+    ['1兆ドルコーチ', [[9, 22, 30], [8, 22, 45], [6, 21, 60], [4, 22, 35], [2, 21, 25], [1, 7, 20]]],
+  ];
+  let histN = 10;
+  for (const [title, list] of HISTORY) {
+    const b = db.books.find((x) => x.title === title);
+    if (!b) continue;
+    for (const [daysAgo, hour, minutes] of list) {
+      db.reading_sessions.push({ id: `00000000-0000-4000-8000-0000000e${String(histN).padStart(4, '0')}`, user_id: DEMO_USER_ID, book_id: b.id, mode: histN % 3 ? 'timer' : 'count', created_at: iso(daysAgo), ...sessionAt(daysAgo, hour, minutes) });
+      histN += 1;
+    }
+  }
 
   // 過去の相談（「過去の相談」の一覧の確認用）。答えは本番と同じ【結論】…の書式。
   const CHATS = [

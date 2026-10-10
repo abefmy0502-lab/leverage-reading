@@ -32,6 +32,7 @@ const HomeQuickMemo = lazy(() => import('./components/HomeQuickMemo'));
 const FocusStartSheet = lazy(() => import('./components/FocusStartSheet'));
 const FocusMode = lazy(() => import('./components/FocusMode'));
 import { startFocus, pauseFocus, loadFocusState, saveFocusState } from './lib/readingTime';
+import { BookReadingTime } from './components/ReadingTimeCard';
 import { readingSessions } from './hooks/useReadingSessions';
 import Onboarding, { isOnboardingCompleted, clearOnboardingCompletion } from './components/Onboarding';
 import {
@@ -4563,6 +4564,10 @@ function AuthedApp() {
                 <p style={{ fontSize: 'var(--text-meta)', color: "var(--text-3)", margin: 'var(--space-2) 0 0' }}>
                   {current.startDate && <>開始 {fmtDateJa(current.startDate)}</>}{current.startDate && current.doneDate && '　'}{current.doneDate && <>読了 {fmtDateJa(current.doneDate)}</>}
                 </p>
+              )}
+              {/* ⏱ この本の読書の時間（集中モードで測った合計・読書中と読了だけ・0 なら出さない・2026-10-10）。 */}
+              {(current.status === 'reading' || current.status === 'done') && (
+                <BookReadingTime bookId={current.id} style={current.startDate || current.doneDate ? undefined : { marginTop: 'var(--space-2)' }} />
               )}
               {/* ⏱ 読む（集中モード・読書中だけ・2026-10-09）。主役の「メモを書く」（右下の塗り）より弱い、枠の小さな副ボタン。 */}
               {current.status === 'reading' && (
