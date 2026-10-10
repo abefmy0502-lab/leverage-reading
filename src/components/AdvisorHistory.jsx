@@ -18,7 +18,7 @@ import {
 import EmptyState from './EmptyState.jsx';
 import MarkdownSections from './MarkdownSections';
 import { SkeletonBlock } from './Skeleton';
-import { withPhraseBreaks } from './TightBubble';
+import { withPhraseBreaks, withBulletLines } from './TightBubble';
 import AdvisorStoreLinks from './AdvisorStoreLinks';
 import { STORE_DISCLOSURE_TEXT } from '../lib/rakutenLink';
 import { btnPrimary, btnGhost, btnGhostOff, btnText, groupTitle } from '../styles/ui';
@@ -514,7 +514,7 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
               <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
                 {/* ユーザーの相談＝右寄せの --fill 吹き出し（相談と同じ）。 */}
                 <div style={{ display: 'flex', justifyContent: 'flex-end' }} role="article" aria-label="あなたの相談">
-                  <div style={userBubbleStyle}>{withPhraseBreaks(text)}</div>
+                  <div style={userBubbleStyle}>{withBulletLines(text)}</div>
                 </div>
                 {conf?.summary && (
                   <div role="note" aria-label="受け取った悩み">
@@ -524,7 +524,7 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
                 )}
                 {conf?.correction && (
                   <div style={{ display: 'flex', justifyContent: 'flex-end' }} role="article" aria-label="あなたの言葉（直し）">
-                    <div style={userBubbleStyle}>{withPhraseBreaks(conf.correction)}</div>
+                    <div style={userBubbleStyle}>{withBulletLines(conf.correction)}</div>
                   </div>
                 )}
               </div>

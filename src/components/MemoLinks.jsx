@@ -4,6 +4,8 @@
 //   variant 'card':    メモのカード・メモの編集の画面の中（上に --separator の線・小さな見出し「つながるメモ」）
 //   variant 'saved':   保存したあと、本の詳細のメモの一覧の上に 1 枚（カードの面・「いま書いたメモと似たメモ」・×）
 //   variant 'compact': 「保存して次へ」のあと、書く画面のいちばん上に 1 行（書き続けるのを邪魔しない・×）
+//   variant 'line':    ホームのメモを書くで保存したあと、題の下 8 に静かな 1 行（面を付けない・13/--text-2・
+//                      育つまでの一行・相談相手が育ちましたと同じ場所と組み方・知らせの読み上げはしない・2026-10-10）
 import { ChevronRight, Link2, X } from 'lucide-react';
 import LibrarySearchHit from './LibrarySearchHit';
 import { withPhraseBreaks } from './TightBubble';
@@ -29,6 +31,38 @@ export default function MemoLinks({ links, onOpen, onDismiss = null, variant = '
   const rows = links.map((l, i) => (
     <LibrarySearchHit key={l.key} inline divider={i > 0} showStatus={false} showRating={false} size="small" result={{ book: l.book, hit: l.hit }} onOpen={onOpen} />
   ));
+
+  if (variant === 'line') {
+    const first = links[0];
+    const page = Number.isFinite(first.hit?.page) ? ` p.${first.hit.page} ` : '';
+    return (
+      <div data-memo-links-line="" style={{ display: 'flex', alignItems: 'center', columnGap: 'var(--space-1)', margin: '0 calc(-1 * var(--space-3)) 0 0', ...style }}>
+        <button
+          type="button"
+          onClick={() => onOpen?.(first.book, first.hit?.memoId)}
+          style={{ flex: 1, minWidth: 0, minHeight: 44, display: 'flex', alignItems: 'center', gap: 'var(--space-1)', background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', color: 'var(--text-2)', fontSize: 'var(--text-meta)', lineHeight: 1.5 }}
+        >
+          {/* 中の行は文の 1 行目にアイコンをそろえる（ボタンの 44 の中では上下の真ん中）。 */}
+          <span style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'flex-start', gap: 'var(--space-1)' }}>
+          <span aria-hidden="true" style={{ display: 'inline-flex', alignItems: 'center', height: '1.5em', flexShrink: 0, color: 'var(--text-3)' }}>
+            <Link2 size="1.2em" />
+          </span>
+          <span style={{ minWidth: 0, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+            {withPhraseBreaks(`似たことを『${first.book.title}』${page}でも書いています`)}
+          </span>
+          <span aria-hidden="true" style={{ display: 'inline-flex', alignItems: 'center', height: '1.5em', flexShrink: 0, color: 'var(--text-3)' }}>
+            <ChevronRight size="1.2em" />
+          </span>
+          </span>
+        </button>
+        {onDismiss && (
+          <button type="button" onClick={onDismiss} aria-label="閉じる" style={closeBtn}>
+            <X size="1.2em" aria-hidden="true" />
+          </button>
+        )}
+      </div>
+    );
+  }
 
   if (variant === 'compact') {
     const first = links[0];

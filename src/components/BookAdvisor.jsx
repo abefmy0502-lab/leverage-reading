@@ -33,7 +33,7 @@ import { nextResetLabelJa } from '../lib/freeTrial';
 import { TOKEN_COSTS, runCostLine, monthDayLabelJa } from '../lib/tokens';
 import { trialCancelShortLine } from '../lib/trialNudge';
 import TokensOutCard from './TokensOutCard';
-import { groupTitle, btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, btnLink as uiBtnLink, card as uiCard } from '../styles/ui';
+import { groupTitle, btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, btnLink as uiBtnLink, btnLinkQuiet as uiBtnLinkQuiet, card as uiCard } from '../styles/ui';
 import { useAuth } from '../hooks/useAuth';
 import { useHaptic } from '../hooks/useHaptic';
 import { useToast } from './Toast';
@@ -45,7 +45,7 @@ import { TabPanelSkeleton } from './lazyParts';
 import { AdvisorNavBar, AdvisorHistoryList, AdvisorSessionDetail, formatDate as advisorSessionDate } from './AdvisorHistory';
 import ErrorMessage from './ErrorMessage';
 import { SkeletonBlock } from './Skeleton';
-import TightBubble, { withPhraseBreaks } from './TightBubble';
+import TightBubble, { withPhraseBreaks, withBulletLines } from './TightBubble';
 import { displayUserText, concernOf, interviewPairsOf, confirmedOf, advisorSetupPayload } from '../lib/advisorText';
 import { MAX_INTERVIEW_QUESTIONS, OPT_UNSURE, OFF_PLACEHOLDER, parseInterviewStep, interviewChips, applyStarter, starterOf, buildPriorQA, buildRecoMessage, spokenAnswers, needsCareLine, CARE_LINE, CARE_LINK } from '../lib/advisorInterview';
 import { usePaywall } from '../state/PaywallContext';
@@ -91,8 +91,8 @@ const answerChip = {
   wordBreak: 'keep-all',
   overflowWrap: 'anywhere',
 };
-// 問いのカードの脇役の文字ボタン（前の問いに戻る・このくらいで探して）。栗色にしない＝--text-2。
-const quietLink = { ...uiBtnLink, color: 'var(--text-2)' };
+// 問いのカードの脇役の文字ボタン（前の問いに戻る・このくらいで探して）。栗色にしない＝控えめな文字ボタン（DESIGN §5）。
+const quietLink = uiBtnLinkQuiet;
 // 答えた問い（会話の流れとして残す・いまの問いより控えめ＝15/--text-2）。
 const askedText = { fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.6, margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere', textWrap: 'pretty' };
 // いまの問い（17/600・文節で折り返す）。
@@ -1606,7 +1606,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       {/* ユーザーの相談（右寄せの --fill 吹き出し。相談と同じ） */}
       {concern && (!showConcernInput || showErrorState) && (
         <div style={{ display: 'flex', justifyContent: 'flex-end' }} role="article" aria-label="あなたの相談">
-          <TightBubble text={concern} className="text-pretty" style={userBubble}>{withPhraseBreaks(concern)}</TightBubble>
+          <TightBubble text={concern} className="text-pretty" style={userBubble}>{withBulletLines(concern)}</TightBubble>
         </div>
       )}
 
@@ -1619,7 +1619,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
           <Fragment key={`t${i}`}>
             <p style={askedText}>{withPhraseBreaks(st.question)}</p>
             <div style={{ display: 'flex', justifyContent: 'flex-end' }} role="article" aria-label="あなたの答え">
-              <TightBubble text={said} className="text-pretty" style={{ ...userBubble, ...(ans.unsure ? { color: 'var(--text-2)' } : null) }}>{withPhraseBreaks(said)}</TightBubble>
+              <TightBubble text={said} className="text-pretty" style={{ ...userBubble, ...(ans.unsure ? { color: 'var(--text-2)' } : null) }}>{withBulletLines(said)}</TightBubble>
             </div>
           </Fragment>
         );
@@ -1746,7 +1746,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         return (
           <div ref={summaryStep ? stepCardRef : undefined} style={{ ...advisorWizardCard, scrollMarginTop: 'var(--space-4)' }} role="group" aria-label="受け取った悩み" aria-live="polite">
             <p style={{ ...fieldLabel, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('あなたの悩みを、こう受け取りました')}</p>
-            <p style={{ ...readText, margin: 'var(--space-2) 0 0', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(text)}</p>
+            {/* 受け取った悩みは、聞き取りの問いと同じ見た目（17/600・2026-10-10 ui-critic「確かめる一歩だけ明朝 18 で大きかった」）。 */}
+            <p style={{ ...questionText, margin: 'var(--space-2) 0 0' }}>{withPhraseBreaks(text)}</p>
             {/* 命に関わる言葉があるときは、まとめのすぐ後に相談窓口（15/--text・外部リンク 44）。 */}
             {showCare && careNote}
             {asking && !correcting && (
@@ -1805,7 +1806,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       {/* 直した言葉（本人の言葉＝右の吹き出し）。本はこちらを優先して選ぶ。 */}
       {showThread && confirmed?.correction && (
         <div style={{ display: 'flex', justifyContent: 'flex-end' }} role="article" aria-label="あなたの直し">
-          <TightBubble text={confirmed.correction} className="text-pretty" style={userBubble}>{withPhraseBreaks(confirmed.correction)}</TightBubble>
+          <TightBubble text={confirmed.correction} className="text-pretty" style={userBubble}>{withBulletLines(confirmed.correction)}</TightBubble>
         </div>
       )}
 
@@ -1892,7 +1893,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         );
         return m.role === 'user' ? (
           <div key={i} style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <TightBubble text={m.text} className="text-pretty" style={userBubble}>{withPhraseBreaks(m.text)}</TightBubble>
+            <TightBubble text={m.text} className="text-pretty" style={userBubble}>{withBulletLines(m.text)}</TightBubble>
           </div>
         ) : m.streaming ? (
           <div key={i} style={{ ...cardStyle, ...readText, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>

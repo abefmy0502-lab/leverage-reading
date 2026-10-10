@@ -17,11 +17,9 @@ import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { setConsultBackGuard } from '../lib/consultBack';
 import { toMessage, toSaveMessage, OFFLINE_SAVE_MESSAGE } from '../lib/errors';
-// 相談を送るときのオフラインの文（保存の文の「保存して」を「送って」に・2026-10-10）。
-const OFFLINE_SEND_MESSAGE = 'オフラインです。つながってから、もう一度送ってください。';
 import { streamMyBookBrain, prewarmKnowledge, invalidateKnowledgeCache, EVIDENCE_PREFIX } from '../lib/ai';
 import { ensureAiConsent } from '../lib/aiConsent';
-import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnText as uiBtnText, btnLink as uiBtnLink, groupTitle, fieldNote, input as uiInput } from '../styles/ui';
+import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnText as uiBtnText, btnLink as uiBtnLink, btnLinkQuiet as uiBtnLinkQuiet, groupTitle, fieldNote, input as uiInput } from '../styles/ui';
 import { track, EVENTS } from '../lib/analytics';
 import { LIMITS } from '../lib/limits';
 import { answerActionStatus, rememberAnswerActionAdded } from '../lib/consultActionAdded';
@@ -76,6 +74,9 @@ import BottomSheet from './BottomSheet';
 import PartnerAvatar, { PartnerRow, PartnerBooksSheet, AVATAR_SIZE, AVATAR_SIZE_SMALL } from './PartnerAvatar';
 import { consultPartner, partnerFromScope, bookForRef, shelfBookForTitle, withVoice, decodeVoice, encodeVoice, perbookSummaryPartner, VOICE_PREFIX } from '../lib/consultPartner';
 import { fetchAllRows } from '../lib/fetchAllRows';
+
+// 相談を送るときのオフラインの文（上の行に「オフラインです。」が出ているので、次にすることだけ・2026-10-10）。
+const OFFLINE_SEND_MESSAGE = 'つながってから、もう一度送ってください。';
 
 // 1 文字も出る前に「止める」を押したときの答え（履歴にもこの文で残る）。
 const STOPPED_EMPTY = '回答を中止しました。';
@@ -132,12 +133,12 @@ const cardStyle = { background: 'var(--surface)', border: '1px solid var(--separ
 const headingStyle = { fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', margin: 0, lineHeight: 1.3 };
 // 相談例＝チップ（--fill 面・枠なし。入力欄と見分けがつくように。ホームと同じ）。
 // 深掘りのチップ（入力欄の上の 1 行・DESIGN §5 操作のチップ＝高さ 44・15/--text・--fill・枠なし）。
-// どのときも折り返して並べる（followupRowWrap・横に送ると端のチップが切れていた・2026-10-09 ui-critic・DESIGN §5）。
-const followupRow = { display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)', padding: 'var(--space-2) var(--space-4) 0', flexShrink: 0, borderTop: '1px solid var(--separator)' };
+// 1 行で横に送る（入力欄のまとまりを低く・2026-10-10 ui-critic。2026-10-09 の折り返しから戻した）。
 const followupChip = { flexShrink: 0, minHeight: 44, padding: 'var(--space-2) var(--space-3)', background: 'var(--fill)', border: 'none', borderRadius: 'var(--radius)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5, whiteSpace: 'nowrap' };
 const decideChip = { ...followupChip, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' };
-// チップの行（折り返す・間 8 は縦横とも）。
-const followupRowWrap = { ...followupRow, flexWrap: 'wrap', rowGap: 'var(--space-2)' };
+// チップのまとまり（上に区切り線・上 8）と、1 行で横に送る行（左右 16・間 8・2026-10-10）。
+const followupGroup = { flexShrink: 0, paddingTop: 'var(--space-2)', borderTop: '1px solid var(--separator)' };
+const followupScroll = { display: 'flex', alignItems: 'center', gap: 'var(--space-2)', padding: '0 var(--space-4)', overflowX: 'auto', overscrollBehaviorX: 'contain', WebkitOverflowScrolling: 'touch' };
 // 選んだ相談例（初日の下書き・DESIGN §5 の操作のチップの選択中＝--accent-soft の面＋--accent の文字 600）。
 const chipPicked = { background: 'var(--accent-soft)', color: 'var(--accent)', fontWeight: 600 };
 const chipStyle = { display: 'block', width: '100%', minHeight: 44, padding: 'var(--space-3)', textAlign: 'left', wordBreak: 'keep-all', overflowWrap: 'anywhere', background: 'var(--fill)', border: 'none', borderRadius: 'var(--radius)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5 };
@@ -1577,7 +1578,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       setFirstDayDraft(askPreset.from === 'firstDay' ? askPreset.question : null);
       // カーソルは、下書きが入って入力欄が描き直されたあと（下の effect）で置く（setTimeout の 80ms では、
       // 相談タブを開く動きの途中で入力欄がまだ無いことがあり、フォーカスの輪が出なかった・2026-10-02 ui-critic）。
-      setDraftFocusNonce(askPreset.nonce);
+      // 行動の結果・思い出しカード・相談相手が育ちましたから（focus: false）は置かない（戻り先と相談相手の行を見せたまま）。
+      if (askPreset.focus !== false) setDraftFocusNonce(askPreset.nonce);
       return;
     }
     // ホームの相談例「前に相談した「…」、その後どう進める？」なら、その会話の全体を開いて続きとして送る（この続きを相談すると同じ）。
@@ -1862,7 +1864,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // 🪙 無料プランの使う量の目安は、チップの行の上に 1 回だけ（13/--text-2・2026-10-09）。
   //   上の行（会話の先頭）に「今月の残り…」が出ているときは出さない（量の話を 2 か所にしない・2026-10-09 ui-critic）。
   const chipCostLine = freeMode && tokensRemaining == null && (followups.length > 0 || regenLabel) ? (
-    <p style={{ flexBasis: '100%', margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>
+    <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>
       1 回 約 {answerMode === 'perbook' && modeApplies ? TOKEN_COSTS.consultPerBook : TOKEN_COSTS.consult} トークン
     </p>
   ) : null;
@@ -2061,8 +2063,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         {!headCountPending && growthLine && (
           <span style={{ display: 'block', textIndent: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(growthLine)}</span>
         )}
-        {/* 残りのトークン（無料・有料は今月・無料期間は期間まるごと）。管理者・読めないときは出さない。 */}
-        {tokensRemaining != null && (
+        {/* 残りのトークン（無料・有料は今月・無料期間は期間まるごと）。管理者・読めないときは出さない。
+            使い切ったら出さない（「◯月1日に戻ります」の案内が答えの下にあるので「残り 0 トークン」は重ねない・2026-10-10 ui-critic）。 */}
+        {tokensRemaining != null && tokensRemaining + (purchasedTokens || 0) > 0 && (
           <span style={{ display: 'block', textIndent: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>
             {/* 「無料期間の残り／110 トークン」と切らない（1 つのまとまり）。かっこは重ねない。 */}
             <span style={{ whiteSpace: 'nowrap' }}>{plan === 'trial' ? '無料期間' : '今月'}の残り {fmtTokens(tokensRemaining)}{purchasedTokens > 0 ? <> ＋追加 {fmtTokens(purchasedTokens)}</> : null} トークン</span>
@@ -2448,7 +2451,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 </>
               ) : null}
               {/* 「別の角度で答えて」は入力欄の上のチップの行へ（2026-09-30）。ここは会話を区切る操作だけ。 */}
-              <button type="button" onClick={handleResolveAndClear} style={{ ...uiBtnLink, marginLeft: 'calc(-1 * var(--space-1))' }}>
+              {/* 無料のトークンを使い切ったあとは、プランの案内（上の文字ボタン）を次の一歩にして、こちらは控えめに（2026-10-10 ui-critic）。 */}
+              <button type="button" onClick={handleResolveAndClear} style={{ ...(freeUsedUp ? uiBtnLinkQuiet : uiBtnLink), marginLeft: 'calc(-1 * var(--space-1))' }}>
                 新しい相談をはじめる
               </button>
             </div>
@@ -2478,12 +2482,12 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
 
           {/* 🪙 無料プランは、チップの行の上に 1 回だけ使う量（どのチップも相談 1 回分・チップごとには添えない＝横に送る行で切れていた・2026-10-09） */}
           {/* 💬 深掘りのチップ（2026-09-30・SPEC §3）: 答えを書き終えたら、入力欄の上に続きの聞き方を 2〜3 つ。押すとすぐ送る。 */}
+          {/* 1 行で横に送る（2026-10-10 ui-critic「入力欄のまとまりが高い」）: 返事の候補 →「ここで答えと行動を」→「別の角度で答えて」。
+              右端は画面の端まで送る（切れたチップで、横に送れると分かる）。無料プランの「1 回 約 N トークン」は行の上に。 */}
           {(followups.length > 0 || regenLabel) && (
-            followups.some((c) => c.kind === 'reply' || c.kind === 'decide') ? (
-              // 「行動を決める」を出すあいだは折り返す（2026-09-30 ui-critic）: 返事の候補・深掘りの聞き方 →「行動を決める」→
-              // 「別の角度で答えて」（返事の候補があるときは出さない）。薄れも横送りも無し＝どのチップも切れない。
-              <div role="group" aria-label="続けて聞く" style={followupRowWrap}>
-                {chipCostLine}
+            <div role="group" aria-label="続けて聞く" style={followupGroup}>
+              {chipCostLine && <div style={{ padding: '0 var(--space-4) var(--space-2)' }}>{chipCostLine}</div>}
+              <div className="lvg-no-scrollbar" style={followupScroll}>
                 {followups.filter((c) => c.kind !== 'decide').map((c, i) => (
                   <button key={`${c.kind}-${c.label}`} type="button" onClick={() => { track('brain_followup', { chip: i, kind: c.kind }); ask(c.send); }} style={followupChip}>
                     {c.label}
@@ -2493,7 +2497,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 {followups.filter((c) => c.kind === 'decide').map((c) => (
                   // 🔭 見方を変えた答えのあとは「ここで答えと行動を」を行の先頭に（この見方で結論＋行動が次の主な一歩・2026-10-08 ui-critic）。
                   <button key="decide" type="button" onClick={() => { track('brain_followup', { kind: 'decide' }); ask(c.send); }} style={lensOf(lastAsked) ? { ...decideChip, order: -1 } : decideChip}>
-                    <Target size={16} aria-hidden="true" style={{ flexShrink: 0 }} />
+                    <Target size="1.1em" aria-hidden="true" style={{ flexShrink: 0 }} />
                     {c.label}
                   </button>
                 ))}
@@ -2502,23 +2506,10 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                     {regenLabel}
                   </button>
                 )}
+                {/* 右の余白 16（送り切ったとき、最後のチップを画面の端に付けない）。 */}
+                <span aria-hidden="true" style={{ flex: '0 0 var(--space-2)' }} />
               </div>
-            ) : (
-              // 行動を決めたあと（深掘りの聞き方だけ）も折り返して並べる（横に送ると端のチップが切れて読めなかった・DESIGN §5・2026-10-09 ui-critic）。
-              <div role="group" aria-label="続けて聞く" style={followupRowWrap}>
-                {chipCostLine}
-                {followups.map((c, i) => (
-                  <button key={`${c.kind}-${c.label}`} type="button" onClick={() => { track('brain_followup', { chip: i, kind: c.kind }); ask(c.send); }} style={followupChip}>
-                    {c.label}
-                  </button>
-                ))}
-                {regenLabel && (
-                  <button type="button" onClick={regenerate} style={followupChip}>
-                    {regenLabel}
-                  </button>
-                )}
-              </div>
-            )
+            </div>
           )}
           {/* 相談相手は入力欄のすぐ上（SPEC §3）。入力欄にカーソルがある間は出さない（答えと自分の文に場所を譲る・2026-10-08）。 */}
           {/* 続きを相談している間は、相談相手・答え方の行の代わりに「〈題〉の続き」の 1 行（相談相手はその会話のまま・
@@ -2534,6 +2525,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             onOpenMode={() => setModeSheetOpen(true)}
             // 深掘りのチップを出しているときは、区切り線はチップの上に 1 本だけ（入力欄のまとまりにチップを入れる）。
             noBorder={followups.length > 0 || !!regenLabel}
+            compact={!isEmpty}
           />
           )}
           {modeSheetOpen && (
@@ -3512,7 +3504,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-1)', margin: 'var(--space-3) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>
       {/* 2 行に折り返しても、アイコンは 1 行目の高さの中央に置く。 */}
       <span style={{ display: 'inline-flex', alignItems: 'center', height: '1.5em', flexShrink: 0 }}>
-        <Sprout size={16} aria-hidden="true" style={{ color: 'var(--text-3)' }} />
+        <Sprout size="1.2em" aria-hidden="true" style={{ color: 'var(--text-3)' }} />
       </span>
       <span style={{ minWidth: 0 }}>
         {/* 文節の切れ目でだけ折り返す（「いちば／ん古いのは」のように語の途中で割らない・2026-10-02 ui-critic）。 */}
@@ -3927,13 +3919,14 @@ function scopeLabelFor(ids, books) {
 // 見た目の文字（相談相手：…）がそのまま読み上げ名になる（label-in-name）。
 // 押せる範囲 44 は保ったまま、上下のはみ出し（(32-44)/2）を負の余白で打ち消す。
 // 既定から変えているとき（絞った相談相手・本ごとに）は --accent-soft の面。
-function BarChip({ name, value, active, disabled, onClick }) {
+function BarChip({ name, value, active, disabled, onClick, compact = false }) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
       aria-haspopup="dialog"
+      aria-label={compact ? `${name.replace(/：$/, '')}：${value}` : undefined}
       // 答えを作っている間も薄くしない（DESIGN §5 押せないボタン）。文字色を 1 段落として示す。
       style={{ minWidth: 0, maxWidth: '100%', minHeight: 44, margin: 'calc((var(--space-8) - 44px) / 2) 0', display: 'inline-flex', alignItems: 'center', padding: 0, background: 'none', border: 'none', cursor: disabled ? 'default' : 'pointer', fontFamily: 'inherit', opacity: 1 }}
     >
@@ -3942,7 +3935,8 @@ function BarChip({ name, value, active, disabled, onClick }) {
         borderRadius: 'var(--radius)', background: active ? 'var(--accent-soft)' : 'var(--fill)', color: disabled ? 'var(--text-2)' : 'var(--text)',
         fontSize: 'var(--text-meta)', fontWeight: 600,
       }}>
-        <span style={{ color: 'var(--text-2)', fontWeight: 400, flexShrink: 0 }}>{name}</span>
+        {/* 会話が始まったら（compact）名前を外して中身だけ（「すべての本 ▾」「まとめて ▾」・1 行に収める・2026-10-10）。 */}
+        {!compact && <span style={{ color: 'var(--text-2)', fontWeight: 400, flexShrink: 0 }}>{name}</span>}
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</span>
         {/* 文字の横のアイコンは em で（文字サイズの設定に合わせて大きくなる・DESIGN §5） */}
         <ChevronDown size="1.2em" aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
@@ -3954,14 +3948,15 @@ function BarChip({ name, value, active, disabled, onClick }) {
 // 相談相手 ＋ 答え方（2026-09-27）。答え方は相談相手が 1 冊のときは出さない（mode=null・並べる本が無い）。
 // 1 行に収めるため、「すべてに戻す」は答え方のチップが無いとき（1 冊に絞ったとき）だけ。
 // 数冊に絞ったときは相談相手のシートの「すべての本」から戻す。
-function ScopeBar({ label, scoped, onOpen, onReset, disabled, mode = null, onOpenMode, noBorder = false }) {
+// compact（会話が始まったあと）: チップの名前（相談相手：・答え方：）を外し、いつも 1 行に収める（長いほうが … で縮む・2026-10-10 ui-critic）。
+function ScopeBar({ label, scoped, onOpen, onReset, disabled, mode = null, onOpenMode, noBorder = false, compact = false }) {
   const showMode = mode != null && !!onOpenMode;
   return (
     // 「すべてに戻す」を出すときは折り返さず、長い書名のチップの方を縮めて（… で省略）1 行に収める。
-    <div style={{ display: 'flex', flexWrap: scoped && !showMode ? 'nowrap' : 'wrap', alignItems: 'center', columnGap: 'var(--space-2)', rowGap: 'var(--space-3)', padding: 'var(--space-2) var(--space-4) 0', flexShrink: 0, minWidth: 0, borderTop: noBorder ? 'none' : '1px solid var(--separator)' }}>
-      <BarChip name="相談相手：" value={label} active={scoped} disabled={disabled} onClick={onOpen} />
+    <div style={{ display: 'flex', flexWrap: compact || (scoped && !showMode) ? 'nowrap' : 'wrap', alignItems: 'center', columnGap: 'var(--space-2)', rowGap: 'var(--space-3)', padding: 'var(--space-2) var(--space-4) 0', flexShrink: 0, minWidth: 0, borderTop: noBorder ? 'none' : '1px solid var(--separator)' }}>
+      <BarChip name="相談相手：" value={label} active={scoped} disabled={disabled} onClick={onOpen} compact={compact} />
       {showMode && (
-        <BarChip name="答え方：" value={answerModeLabel(mode)} active={mode === 'perbook'} disabled={disabled} onClick={onOpenMode} />
+        <BarChip name="答え方：" value={answerModeLabel(mode)} active={mode === 'perbook'} disabled={disabled} onClick={onOpenMode} compact={compact} />
       )}
       {scoped && !showMode && (
         <button type="button" onClick={onReset} disabled={disabled} style={{ ...uiBtnLink, margin: 'calc((var(--space-8) - 44px) / 2) 0', marginRight: 'calc(-1 * var(--space-1))', flexShrink: 0, whiteSpace: 'nowrap', ...(disabled ? { color: 'var(--text-3)', opacity: 1, cursor: 'default' } : null) }}>

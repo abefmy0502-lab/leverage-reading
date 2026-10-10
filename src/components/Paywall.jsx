@@ -148,9 +148,9 @@ const PLAN_COMPARE = [
 const TRIAL_TOKENS_NOTE = `（${TRIAL_TOKENS.toLocaleString('ja-JP')}\u00a0トークン・AI\u00a0の答え\u00a0${answerCountLabel(TRIAL_TOKENS).replace(/ /g, '\u00a0')}）`;
 // トークンの目安（1 行）。
 // 相談 1 つが何回の答えかの補足（CONSULT_ANSWERS_NOTE）は、この目安の行で 1 回だけ（2026-10-09）。
-const TOKEN_EXAMPLE = `AI の答え 1 回 約 ${TOKEN_COSTS.consult}・AI 選書 約 ${TOKEN_COSTS.advisor} トークン`;
+const TOKEN_EXAMPLE = `AI\u00a0の答え 1\u00a0回 約\u00a0${TOKEN_COSTS.consult}・AI\u00a0選書 約\u00a0${TOKEN_COSTS.advisor}\u00a0トークン`;
 // 無料の写真から書き起こしを使い切って開いたとき（free_ocr_used）は、プランで書き起こすといくつ使うかを先に（上限なしとは言わない）。
-const TOKEN_EXAMPLE_OCR = `写真から書き起こし 1 回 約 ${TOKEN_COSTS.photoToText}・AI の答え 1 回 約 ${TOKEN_COSTS.consult} トークン`;
+const TOKEN_EXAMPLE_OCR = `写真から書き起こし 1\u00a0回 約\u00a0${TOKEN_COSTS.photoToText}・AI\u00a0の答え 1\u00a0回 約\u00a0${TOKEN_COSTS.consult}\u00a0トークン`;
 
 // onlyPlan: 無料のトークンを使い切ったあと（本人の本の表紙を出すとき）はプランの行だけ（主ボタンを近くに）。
 // trial: この人が使える無料期間（「7 日間無料」）。あればプランの行の名前に「（最初の 7 日間は無料）」。

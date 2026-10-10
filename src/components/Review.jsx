@@ -1420,7 +1420,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
               onClick={onAddNote}
               style={{ ...btnLink, gap: 'var(--space-1)', whiteSpace: 'nowrap', ...(showMonthly ? { paddingRight: 0 } : { paddingLeft: 0 }) }}
             >
-              <Plus size={16} strokeWidth={2} aria-hidden="true" />
+              <Plus size="1.1em" strokeWidth={2} aria-hidden="true" />
               メモを追加
             </button>
           )}
@@ -1454,7 +1454,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                   </span>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>
                     {group.length} 件
-                    {open ? <ChevronDown size={18} aria-hidden="true" /> : <ChevronRight size={18} aria-hidden="true" />}
+                    {open ? <ChevronDown size="1.2em" aria-hidden="true" /> : <ChevronRight size="1.2em" aria-hidden="true" />}
                   </span>
                 </button>
                 {open && (

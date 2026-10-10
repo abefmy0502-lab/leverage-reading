@@ -16,6 +16,7 @@
 //     （HomeRecall と同流儀）。lean な列だけ・range ページング・schema-error
 //     fallback（recall 列が無い DB では定着セクションを静かに隠す）。
 
+import { withPhraseBreaks } from './TightBubble';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { isSchemaError } from '../lib/errors';
@@ -202,10 +203,11 @@ function FlowRow({ cells }) {
             {/* › は数字の右に浮かせる（数字そのものはラベルの真上の中央。320px でもラベルを 1 行に収める）。 */}
             <span style={{ position: 'relative', fontSize: 'var(--text-heading)', fontWeight: 600, lineHeight: 1, color: c.color, fontVariantNumeric: 'tabular-nums' }}>
               {c.value}
-              {c.onClick && <ChevronRight size={16} aria-hidden="true" style={{ position: 'absolute', left: '100%', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)' }} />}
+              {c.onClick && <ChevronRight size="0.8em" aria-hidden="true" style={{ position: 'absolute', left: '100%', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)' }} />}
             </span>
-            <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', textAlign: 'center', lineHeight: 1.3, whiteSpace: 'nowrap' }}>
-              {c.label}
+            {/* 文字が大きいときは文節で折り返す（1 行のままだと隣の数と重なってはみ出した・2026-10-10 ui-critic）。 */}
+            <span style={{ maxWidth: '100%', fontSize: 'var(--text-meta)', color: 'var(--text-2)', textAlign: 'center', lineHeight: 1.3, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+              {withPhraseBreaks(c.label)}
             </span>
           </>
         );
@@ -622,7 +624,7 @@ export default function ReadingRecord({
       {doneBuckets.some((b) => b.count > 0) && (
       <section style={card}>
         {/* 直近 6 か月だけなので、見出しで範囲を言う（それより前の読了は数に入らない・2026-09-29）。 */}
-        <h3 style={cardTitle}>月別の読了（直近 6 か月）</h3>
+        <h3 style={{ ...cardTitle, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('月別の読了（直近 ')}<span style={{ whiteSpace: 'nowrap' }}>{'6\u00a0か月）'}</span></h3>
         <MonthBars buckets={doneBuckets} activeColor="var(--accent)" />
       </section>
       )}

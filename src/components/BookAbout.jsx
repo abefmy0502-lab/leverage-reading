@@ -202,7 +202,7 @@ export default function BookAbout({ info, loading = false, variant = 'card', sty
             この本について
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', minWidth: 0 }}>
               <span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)' }}>{parts}</span>
-              <ChevronDown size={20} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+              <ChevronDown size="1.2em" aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
             </span>
           </summary>
           <div style={{ paddingBottom: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
@@ -233,7 +233,7 @@ export default function BookAbout({ info, loading = false, variant = 'card', sty
           この本について
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', minWidth: 0 }}>
             <span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)' }}>{parts}</span>
-            <ChevronDown size={20} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+            <ChevronDown size="1.2em" aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
           </span>
         </summary>
         <div style={{ paddingBottom: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
@@ -273,7 +273,7 @@ export default function BookAbout({ info, loading = false, variant = 'card', sty
             目次
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
               <span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', fontVariantNumeric: 'tabular-nums' }}>{toc.length} 項目</span>
-              <ChevronDown size={20} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+              <ChevronDown size="1.2em" aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
             </span>
           </summary>
           <TocList toc={toc} note={tocNote} />

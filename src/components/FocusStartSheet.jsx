@@ -8,6 +8,7 @@ import { useState } from 'react';
 import BottomSheet from './BottomSheet';
 import { btnPrimary, groupTitle } from '../styles/ui';
 import { FOCUS_MINUTES, loadFocusPrefs, saveFocusPrefs } from '../lib/readingTime';
+import { withPhraseBreaks } from './TightBubble';
 
 // 選ぶボタン（DESIGN §5「選ぶためのチップ」: 44・15・選択中は --accent-soft の面＋--accent の文字 600）。
 const choice = (on) => ({
@@ -84,8 +85,8 @@ export default function FocusStartSheet({ onStart, onClose }) {
             ))}
           </div>
         </div>
-        <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>
-          おわるときは「おわる」を長く押します。
+        <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+          {withPhraseBreaks('おわるときは「おわる」を長く押します。')}
         </p>
       </div>
     </BottomSheet>

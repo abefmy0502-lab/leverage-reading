@@ -191,7 +191,7 @@ export function ViewpointMapInvite({ onOpen }) {
   );
 }
 
-export const VIEWPOINT_LEAD = '本を読むたびに、著者のものの見方が 1 つ増えます。メモに分野のタグを付けると、どの分野の視点がたまっていて、相談でどの分野を根拠にできるかを地図で見られます。';
+export const VIEWPOINT_LEAD = 'メモに分野のタグを付けると、たまった視点を地図で見られます。';
 
 // on: いま使っているか / onChoose(true|false)
 export function ViewpointMapSheet({ on, busy = false, onChoose, onClose }) {

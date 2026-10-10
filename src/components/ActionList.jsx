@@ -14,7 +14,7 @@
 // 取り消しは下のトーストの「元に戻す」（スクロールしていても見える）。
 // 見た目は DESIGN.md のトークンのみ。
 
-import { Fragment, startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { LIMITS } from '../lib/limits';
 import { input as uiInput, btnLink, btnGhostOff, groupTitle as uiGroupTitle } from '../styles/ui';
 import { useAllActions } from '../hooks/useAllActions';
@@ -320,18 +320,21 @@ function ActionRow({ a, completing, swipeable, onCheck, onOpenMenu, onSwipeDelet
           {phrasedText}
         </p>
         {(a.bookTitle || meta.length > 0) && (
-          // 1 行の flex（baseline）: 書名だけが縮んで … になり、「・」と期限などはいつも出す（flex: none）。
+          // 書名と期限などを「・」でつなぐ。収まらないときは期限などが次の行へ回り（書名が「エ…」まで縮まない）、
+          //   書名だけで行を超えるときは書名を … で切る。「・」は前の語の後ろに付ける（行頭に「・」を置かない・2026-10-10 ui-critic）。
           // contain: inline-size＝書名の全幅（nowrap）が行の最小幅としてカードを押し広げない（flex の min-content 対策・2026-10-01 ui-critic）。
-          //   いちばん大きな文字で期限などだけで行を超えるときは、カードの外へはみ出さず右端で切る（overflow: hidden）。
-          <p style={{ margin: 'var(--space-1) 0 0', display: 'flex', alignItems: 'baseline', minWidth: 0, contain: 'inline-size', overflow: 'hidden', fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5 }}>
+          <p style={{ margin: 'var(--space-1) 0 0', display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', minWidth: 0, contain: 'inline-size', overflow: 'hidden', fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5 }}>
             {a.bookTitle && (
-              <span style={{ flex: '0 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.bookTitle}</span>
+              <span style={{ flex: '0 1 auto', minWidth: 0, maxWidth: '100%', display: 'flex' }}>
+                <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.bookTitle}</span>
+                {meta.length > 0 && <span aria-hidden="true" style={{ flex: 'none' }}>・</span>}
+              </span>
             )}
             {meta.map((m, i) => (
-              <Fragment key={i}>
-                {(i > 0 || a.bookTitle) && <span aria-hidden="true" style={{ flex: 'none' }}>・</span>}
-                <span style={{ flex: 'none', whiteSpace: 'nowrap' }}>{m}</span>
-              </Fragment>
+              <span key={i} style={{ flex: 'none', whiteSpace: 'nowrap' }}>
+                {m}
+                {i < meta.length - 1 && <span aria-hidden="true">・</span>}
+              </span>
             ))}
           </p>
         )}
@@ -514,8 +517,9 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
     });
   };
 
+  // 返り値: 残せたら true（「この結果を相談する」は、残せなかったら相談へ移らない）。
   const saveReflection = async (c) => {
-    if (!c || !reflection.trim() || reflecting) return;
+    if (!c || !reflection.trim() || reflecting) return false;
     setReflecting(true);
     const ok = await onReflect?.(c.a.bookId, c.a.actionIdx, { ...c.a, done: true }, reflection);
     setReflecting(false);
@@ -534,6 +538,7 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
       });
       reflectToastRef.current = lastToastRef.current;
     }
+    return !!ok;
   };
 
   const [menu, setMenu] = useState(null); // { x, y, action }
@@ -541,7 +546,10 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
   const consultResult = async (c) => {
     if (!c || !onConsultResult || reflecting) return;
     const note = reflection.trim();
-    if (note) await saveReflection(c);
+    // 残せなかったときは、知らせ（保存の失敗）を見せたままここにとどまる（書いたふりかえりを失わない・2026-10-10 ui-critic）。
+    if (note && !(await saveReflection(c))) return;
+    // 「行動を完了しました／元に戻す」は相談の入力欄に重ねない（移る先で、下書きの上に知らせが残っていた・2026-10-10）。
+    if (lastToastRef.current) { toast.dismiss?.(lastToastRef.current, { skipExpire: true }); lastToastRef.current = null; }
     track('consult_from_action', { reflected: !!note });
     onConsultResult(actionResultQuestion(c.a.text, note), c.a.bookId || null);
   };
@@ -623,7 +631,7 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
           title={<>{/* 句の途中で折り返さない */}<span style={{ display: 'inline-block' }}>相談の答えや、</span><span style={{ display: 'inline-block' }}>メモから行動を作れます</span></>}
           // 相談へ（主な入口）＋ 自分で書く「行動を追加」（2026-09-29・相談しなくても行動を置ける）。
           actions={[
-            ...(onGoConsult ? [{ label: '相談する', icon: <MessageCircle size={18} aria-hidden="true" />, onClick: onGoConsult, variant: 'secondary' }] : []),
+            ...(onGoConsult ? [{ label: '相談する', icon: <MessageCircle size="1.1em" aria-hidden="true" />, onClick: onGoConsult, variant: 'primary' }] : []),
             ...(canAdd ? [{ label: '行動を追加', icon: <Plus size={18} aria-hidden="true" />, onClick: onAddAction, variant: onGoConsult ? 'ghost' : 'secondary' }] : []),
             ...(!onGoConsult && !canAdd && onGoToBooks ? [{ label: '本を追加する', icon: <BookOpen size={18} aria-hidden="true" />, onClick: onGoToBooks, variant: 'secondary' }] : []),
           ]}
@@ -704,7 +712,7 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
         <EmptyState
           icon={<CheckCircle2 size={32} strokeWidth={1.5} aria-hidden="true" />}
           title="やることはすべて完了しています"
-          actions={onGoConsult ? [{ label: '相談する', onClick: onGoConsult, variant: 'secondary' }] : []}
+          actions={onGoConsult ? [{ label: '相談する', onClick: onGoConsult, variant: 'primary' }] : []}
         />
       )}
 

@@ -539,7 +539,7 @@ export default function QuickMemoSheet({
               aria-controls="quick-memo-more"
               style={detailLink}
             >
-              {moreOpen ? <Minus size={16} aria-hidden="true" /> : <Plus size={16} aria-hidden="true" />}
+              {moreOpen ? <Minus size="1.1em" aria-hidden="true" /> : <Plus size="1.1em" aria-hidden="true" />}
               ページ・写真
               {!moreOpen && ((pageUsed && pageNumber !== '') || tags.length > 0) && (
                 <span style={{ fontWeight: 400, color: 'var(--text-2)' }}>

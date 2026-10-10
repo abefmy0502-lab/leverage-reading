@@ -55,6 +55,11 @@ describe('phrasePieces / longestPhraseLength', () => {
     expect(keepUnitsTogether('『時間術大全』 — 毎日の 1 つを決める')).toBe('『時間術大全』\u2060— 毎日の 1\u00a0つを決める');
     expect(keepUnitsTogether('focus — 2 apples')).toBe('focus — 2 apples');
   });
+  it('「約 15 回」「およそ 3 冊」の「約／およそ」と数を割らない（2026-10-10）', () => {
+    expect(keepUnitsTogether('AI の答え 約 15 回')).toBe('AI の答え 約\u00a015\u00a0回');
+    expect(keepUnitsTogether('およそ 3 冊')).toBe('およそ\u00a03\u00a0冊');
+    expect(phrasePieces('1 回 約 10 トークンです').join('')).toContain('約\u00a010\u00a0トークン');
+  });
   it('scriptBreaks ありでは長い文節の中も分ける', () => {
     expect(phrasePieces('アウトプット大全', { scriptBreaks: true })).toEqual(['アウトプット', '大全']);
     expect(longestPhraseLength('アウトプット大全', { scriptBreaks: true })).toBe(6);

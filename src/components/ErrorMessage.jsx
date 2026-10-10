@@ -13,13 +13,15 @@
 //   hint         — optional 補足（小さく・寄り添い形）
 //   actions      — [{ label, onClick, variant?, icon? }]
 //   className    — 追加のクラス（例: error-message--fill＝置いた場所の高さいっぱいに広げ、中身を上下の真ん中に）
-//                  variant: 'primary' | 'secondary' | 'ghost' (default secondary)
+//                  variant: 'primary' | 'secondary'（どちらも枠の主ボタン）| 'ghost'（文字ボタン）(default secondary)
 
 import { withPhraseBreaks } from './TightBubble';
 
-// 主・副ボタンはアプリ共通の 48/17（ui.js の btnPrimary / btnGhost と同じ・2026-09-30）。文字ボタンは控えめな 44/15。
+// ボタンは 2 つの形だけ（2026-10-10 ui-critic「もう一度が画面ごとに塗り／枠で揺れていた」）:
+//   主の操作（'primary' / 'secondary'）＝枠の 48/17（ui.js の btnGhost と同じ）。--error-soft の面の上に塗りの栗色を置かず、
+//   どの画面のエラーでも「もう一度」などは同じ形に見せる。文字ボタン（'ghost'）＝控えめな 44/15。
 const variantClass = {
-  primary: 'btn btn-primary',
+  primary: 'btn btn-secondary',
   secondary: 'btn btn-secondary',
   ghost: 'btn btn-ghost btn-sm',
 };

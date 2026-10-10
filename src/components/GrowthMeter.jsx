@@ -21,7 +21,7 @@ export default function GrowthMeter({ memoCount, style }) {
     >
       {/* 2 行に折り返しても、アイコンは 1 行目の高さの中央に置く。 */}
       <span style={{ display: 'inline-flex', alignItems: 'center', height: '1.5em', flexShrink: 0 }}>
-        <Sprout size={16} aria-hidden="true" style={{ color: 'var(--text-3)' }} />
+        <Sprout size="1.2em" aria-hidden="true" style={{ color: 'var(--text-3)' }} />
       </span>
       {/* 文節の切れ目でだけ折り返す（BudouX の <wbr>＋keep-all・iOS の Safari は auto-phrase を知らない）。 */}
       <span style={{ minWidth: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(text)}</span>

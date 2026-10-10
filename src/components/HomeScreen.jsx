@@ -7,14 +7,14 @@
 //   3. 今日の行動（期限が今日まで・明日の行動があるときだけ・2026-10-10）› → 振り返り › 行動
 //   4. すべての本（N 冊）› → ライブラリ画面（検索・絞り込み・並び替えはそちらへ）
 // メモが 10 件になったのを見たあと 1 回だけ、題の下に「相談相手が育ちました」＋「相談してみる」（GrownLine・2026-10-10）。
-// ホームのメモを書くで保存したメモに、ほかの本の似たメモがあれば、いま読んでいる本の上に 1 行（MemoLinks の compact・2026-10-10）。
+// ホームのメモを書くで保存したメモに、ほかの本の似たメモがあれば、題の下に静かな 1 行（MemoLinks の line・2026-10-10）。
 // 月末の 3 日間・12 月だけ、題の下に控えめな 1 行「◯月の読書を、1 枚の画像に」（ShareNudge・閉じられる・2026-10-08）。
 // 本 0 冊のときは「はじめる」カード 1 枚だけ。
 // 相談カード（旧 HomeConsult.jsx）は 2026-10-01 オーナー裁定「ホームには相談チャット不要」で外した
 // （相談は下のタブ「相談」から）。思い出しカードはホームから外し「振り返り」へ（SPEC §1）。
 // 上の行の「写真で共有」は App.jsx の全体ヘッダー（ホーム・振り返り・相談で同じ場所）。
 // 見た目は DESIGN.md のトークンのみ。
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Library, ChevronRight, PencilLine, Plus, BookOpen, Timer, Target, Sprout, X } from 'lucide-react';
 import HomeFirstStep, { useHomeMemoState } from './HomeFirstStep';
 import GrowthMeter from './GrowthMeter';
@@ -75,11 +75,28 @@ function StartCard({ onQuickstart, onAddBook, onAdvisor, onImport }) {
 
 // いま読んでいる本の 1 行（表紙・書名・2 行目・右に副ボタン 1 つ）。読書中の本と、読書中が 0 冊のときの候補で共通。
 function BookRow({ book: b, sub, onOpenBook, onCoverRetry, action, footer }) {
+  // 右のボタンが書名の下へ折り返したか（文字が大きいとき）。折り返したら下の「読む」をカードの左端（ボタンの左端）にそろえる
+  //   （書名の列にそろえたままだと、全幅の「メモを書く」と左端がずれていた・2026-10-10 ui-critic）。
+  const rowRef = useRef(null);
+  const [wrapped, setWrapped] = useState(false);
+  useLayoutEffect(() => {
+    const row = rowRef.current;
+    if (!row || !footer || typeof ResizeObserver !== 'function') return undefined;
+    const check = () => {
+      const [first, second] = row.children;
+      if (!first || !second) return;
+      setWrapped(second.offsetTop > first.offsetTop + first.offsetHeight / 2);
+    };
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(row);
+    return () => ro.disconnect();
+  }, [footer != null]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     // 文字サイズを大きくしたときは、右のボタンを書名の下へ折り返す（横に並べたままだと書名が「数値／化…」と
     // 2〜3 字で切れて読めなかった・2026-10-04）。ふだんの大きさでは 1 行（書名の欄は 10rem＝170 あれば並ぶ）。
     // 折り返した行ではボタンが行の幅いっぱいに伸びる（余りはほぼ書名の側へ＝flex-grow 1000:1）。
-    <div style={{ ...card, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--space-3)' }}>
+    <div ref={rowRef} style={{ ...card, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--space-3)' }}>
       <button
         type="button"
         onClick={() => onOpenBook(b)}
@@ -97,7 +114,7 @@ function BookRow({ book: b, sub, onOpenBook, onCoverRetry, action, footer }) {
         </span>
       </button>
       {action}
-      {footer}
+      {typeof footer === 'function' ? footer(wrapped) : footer}
     </div>
   );
 }
@@ -105,9 +122,9 @@ function BookRow({ book: b, sub, onOpenBook, onCoverRetry, action, footer }) {
 // ⏱ 読む（集中モード・2026-10-09）: 読書中の本の行の下に、書名の列（表紙 40＋間 12）にそろえた控えめな文字ボタン。
 //   主役の「メモを書く」（枠の副ボタン）より弱く＝枠も塗りもない --text-2 の 15/600＋時計のアイコン。
 //   押せる高さは 44 のまま、上の行との間（12）とカードの下の余白を負の余白で詰めて、カードを 24 だけ伸ばす。
-function ReadLink({ book: b, onRead }) {
+function ReadLink({ book: b, onRead, alignStart = false }) {
   return (
-    <div style={{ flexBasis: '100%', display: 'flex', paddingLeft: `calc(${ROW_COVER_W}px + var(--space-3))`, margin: 'calc(-1 * var(--space-3)) 0 calc(-1 * var(--space-3))' }}>
+    <div style={{ flexBasis: '100%', display: 'flex', paddingLeft: alignStart ? 0 : `calc(${ROW_COVER_W}px + var(--space-3))`, margin: 'calc(-1 * var(--space-3)) 0 calc(-1 * var(--space-3))' }}>
       <button
         type="button"
         onClick={() => onRead(b)}
@@ -154,7 +171,7 @@ function ReadingNow({ books, onOpenBook, onWriteMemo, onStartReading, onAddBook,
       <h2 id="home-reading-title" style={sectionTitle}>{heading}</h2>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
           {shown.map((b) => (
-            <BookRow key={b.id} book={b} sub={b.author} onOpenBook={onOpenBook} onCoverRetry={onCoverRetry} action={memoBtn(b)} footer={onRead ? <ReadLink book={b} onRead={onRead} /> : null} />
+            <BookRow key={b.id} book={b} sub={b.author} onOpenBook={onOpenBook} onCoverRetry={onCoverRetry} action={memoBtn(b)} footer={onRead ? (wrapped) => <ReadLink book={b} onRead={onRead} alignStart={wrapped} /> : null} />
           ))}
           {shown.length === 0 && candidates.length === 0 && (
             <p style={{ margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5 }}>読書中の本はありません</p>
@@ -220,18 +237,19 @@ function HomeActionsRow({ summary, onOpen }) {
 }
 
 // 🌱 相談相手が育ちました（2026-10-10）: メモが 10 件になったのを見たあと 1 回だけ、題の下（育つまでの一行と同じ場所）に。
-//   見た目は育つまでの一行（芽 16・--text-3＋13/--text-2）＋右に文字ボタン「相談してみる」と ×。押しても閉じても二度と出さない。
+//   見た目は育つまでの一行（芽 1.2em・--text-3＋13/--text-2）＋右に文字ボタン「相談してみる」と ×。押しても閉じても二度と出さない。
 //   7 日間無料はここではすすめない（ホームではすすめない・相談の画面の案内 ③ はそのまま）。
 function GrownLine({ onConsult, onDismiss }) {
   return (
     <div data-grown-line="" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 'var(--space-2)', margin: '0 calc(-1 * var(--space-3)) 0 0' }}>
       <p style={{ flex: '1 1 10em', minWidth: 0, display: 'flex', alignItems: 'flex-start', gap: 'var(--space-1)', margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', height: '1.5em', flexShrink: 0 }}>
-          <Sprout size={16} aria-hidden="true" style={{ color: 'var(--text-3)' }} />
+          <Sprout size="1.2em" aria-hidden="true" style={{ color: 'var(--text-3)' }} />
         </span>
         <span style={{ minWidth: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(`メモが ${GROWTH_GOAL}\u00a0件になり、相談相手が育ちました`)}</span>
       </p>
-      <span style={{ display: 'flex', alignItems: 'center', marginLeft: 'auto' }}>
+      {/* 1 行に収まるときは右へ（文が伸びて押す）。折り返したときは文の頭（芽の右）にそろえる（2026-10-10 ui-critic）。 */}
+      <span style={{ display: 'flex', alignItems: 'center', paddingLeft: 'calc(var(--text-meta) * 1.2)' }}>
         <button type="button" onClick={onConsult} style={{ ...btnLink, fontSize: 'min(var(--text-sub), var(--text-bar-max))', whiteSpace: 'nowrap' }}>相談してみる</button>
         <button
           type="button"
@@ -239,20 +257,20 @@ function GrownLine({ onConsult, onDismiss }) {
           aria-label="この案内を閉じる"
           style={{ width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', borderRadius: 'var(--radius-full)', padding: 0, cursor: 'pointer', color: 'var(--text-3)' }}
         >
-          <X size={18} aria-hidden="true" />
+          <X size="1.2em" aria-hidden="true" />
         </button>
       </span>
     </div>
   );
 }
 
-// 🔗 ホームのメモを書くで保存したメモと似たことを、ほかの本でも書いていたら 1 行（MemoLinks の compact・× で閉じる）。
+// 🔗 ホームのメモを書くで保存したメモと似たことを、ほかの本でも書いていたら題の下に 1 行（MemoLinks の line・× で閉じる）。
 //   見つからなければ何も出さない（全部のメモを読むのは保存したときだけ）。
 function HomeSavedLinks({ books, saved, onOpen, onDismiss }) {
   const { find } = useMemoLinkFinder({ books, enabled: !!saved });
   const links = useMemo(() => (saved ? find({ text: saved.text, bookId: saved.bookId, memoId: saved.id }) : []), [saved, find]);
   if (!saved || links.length === 0) return null;
-  return <MemoLinks variant="compact" links={links} onOpen={onOpen} onDismiss={onDismiss} />;
+  return <MemoLinks variant="line" links={links} onOpen={onOpen} onDismiss={onDismiss} />;
 }
 
 // 読み込み中のホームの形（いま読んでいる本＝見出し＋行カード 2 枚を 12 間隔＋「＋ 本を追加」の 44 の行／すべての本 ›）。
@@ -329,6 +347,8 @@ export default function HomeScreen({
             onDismiss={() => closeGrown('dismiss')}
           />
         ) : null}
+        {/* 🔗 ホームのメモを書くで保存したメモの似たメモ（題の下の静かな 1 行・2026-10-10）。 */}
+        {homeKnown && books.length > 0 && <HomeSavedLinks books={books} saved={savedMemo} onOpen={onOpenMemo} onDismiss={onDismissSavedMemo} />}
         {/* 月末・12 月の 1 行（本を読み込んで、ホームの中身を出すときに一緒に出す＝あとから差し込んで押し下げない）。 */}
         {homeKnown && <ShareNudge nudge={shareNudge.nudge} onOpen={onShareNudge} onDismiss={shareNudge.dismiss} />}
       </div>
@@ -340,7 +360,7 @@ export default function HomeScreen({
         </div>
       ) : loadError && books.length === 0 ? (
         // 読み込みに失敗したときに、既存ユーザーへ初回用の「はじめましょう」を見せない。
-        // この画面の主役は「もう一度」（相談カードを外したので主ボタンに・2026-10-01）。
+        // この画面の主役は「もう一度」（ErrorMessage の主の操作は、どの画面でも枠の同じ形・2026-10-10）。
         <ErrorMessage
           title="本を読み込めませんでした"
           description="通信環境を確認して、もう一度お試しください。"
@@ -355,7 +375,6 @@ export default function HomeScreen({
       ) : (
         <>
           {!memoState.hasMemos && <HomeFirstStep bookCount={books.length} onQuickstart={onQuickstart} onImport={onImport} />}
-          <HomeSavedLinks books={books} saved={savedMemo} onOpen={onOpenMemo} onDismiss={onDismissSavedMemo} />
           <ReadingNow books={books} onOpenBook={onOpenBook} onWriteMemo={onWriteMemo} onStartReading={onStartReading} onAddBook={onAddBook} onSeeAllReading={onSeeAllReading} onCoverRetry={onCoverRetry} onRead={onRead} />
           {/* 今日の行動とすべての本は、ひとまとまりの行（間 12）。 */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>

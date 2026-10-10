@@ -363,8 +363,8 @@ export default function AuthScreen() {
       </h1>
       {/* タグラインはログインの画面だけ（新規登録は題名「新規登録」と入力欄に集中させる・2026-09-29）。 */}
       {mode === 'signin' ? (
-        <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: '0 0 var(--space-6)', textAlign: 'center' }}>
-          読むほど、自分だけの相談相手が育つ
+        <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: '0 0 var(--space-6)', textAlign: 'center', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+          {withPhraseBreaks('読むほど、自分だけの相談相手が育つ')}
         </p>
       ) : (
         <div style={{ height: 'var(--space-3)' }} aria-hidden="true" />

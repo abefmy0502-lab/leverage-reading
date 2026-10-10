@@ -81,6 +81,9 @@ export function scriptBreakPieces(phrase, minLen = SCRIPT_BREAK_MIN) {
 // 数字と助数詞の間の空白（「1 つ」「800 トークン」「2 か月」）は折り返さない空白（U+00A0）に。
 //   keep-all でも普通の空白は折り返しの場所になり、「毎日の 1／つを決める」と割れていた（2026-10-04）。
 const NUM_UNIT_RE = /(\d) (?=(?:トークン|ページ|[回件冊行つ日週分秒時年人度個枚か章歳位点倍円]))/g;
+// 「約 15 回」「およそ 3 冊」の「約／およそ」と数の間も折り返さない（「約」だけが行末に残っていた・2026-10-10 ui-critic）。
+const APPROX_NUM_RE = /(約|およそ) (?=[\d¥])/g;
+const glueUnits = (t) => t.replace(NUM_UNIT_RE, '$1\u00a0').replace(APPROX_NUM_RE, '$1\u00a0');
 // ダッシュ（—・–・―）で始まる文節は前の文節に結合文字（U+2060）でつなぐ＝ダッシュを行頭に置かない
 //   （「『時間術大全』／— 毎日の…」と行頭に — が残っていた・2026-10-04）。前の空白は落とす（空白は折り返しの場所になり、
 //   行頭に空白が残るため・』の字の中の余白で間はあく）。ダッシュの後ろでは折り返せる。前の文節だけで 1 行を
@@ -92,7 +95,7 @@ const JA_BEFORE_DASH_RE = /([』」）】〉》\u3040-\u30ff\u4e00-\u9fff])[ \u0
 // 文節で割らない文（ふつうの日本語の折り返しで流す Markdown の箇条書き・段落など）にも、上の 2 つだけかける
 //   （数と助数詞の間・日本語の後ろの「 — 」）。文字列を返す（<wbr> は入れない・2026-10-04）。
 export function keepUnitsTogether(text) {
-  return String(text ?? '').replace(NUM_UNIT_RE, '$1\u00a0').replace(JA_BEFORE_DASH_RE, '$1\u2060');
+  return glueUnits(String(text ?? '')).replace(JA_BEFORE_DASH_RE, '$1\u2060');
 }
 
 // 文節（scriptBreaks のときは長い文節の中の文字の種類の切れ目でも）に分ける。改行は '\n' の要素で残す。
@@ -104,7 +107,7 @@ export function phrasePieces(text, { scriptBreaks = false } = {}) {
   const out = [];
   src.split('\n').forEach((rawLine, li) => {
     if (li > 0) out.push('\n');
-    const line = rawLine.replace(NUM_UNIT_RE, '$1\u00a0').replace(JA_BEFORE_DASH_RE, '$1\u2060');
+    const line = glueUnits(rawLine).replace(JA_BEFORE_DASH_RE, '$1\u2060');
     let phrases;
     try { phrases = !line ? [] : p ? p.parse(line) : [line]; } catch { phrases = [line]; }
     const joined = [];
@@ -142,6 +145,21 @@ export function withPhraseBreaks(text, { scriptBreaks = false } = {}) {
     prev = pc;
   });
   return out;
+}
+
+// 「・」で始まる行をぶら下げて組む（2 行目以降を「・」の後ろの字にそろえる・2026-10-10 ui-critic）。
+//   AI 選書の自分の吹き出し（聞き取りの答え・過去の AI 選書）で使う。「・」の行が無ければ withPhraseBreaks と同じ。
+export function withBulletLines(text) {
+  const src = String(text ?? '');
+  if (!/^[ \t]*[・•]/m.test(src)) return withPhraseBreaks(src);
+  return src.split('\n').map((line, i) => {
+    const bullet = /^[ \t]*[・•]/.test(line);
+    return (
+      <span key={`l${i}`} style={{ display: 'block', ...(bullet ? { paddingLeft: '1em', textIndent: '-1em' } : null) }}>
+        {line ? withPhraseBreaks(line.replace(/^[ \t]+(?=[・•])/, '')) : '\u00a0'}
+      </span>
+    );
+  });
 }
 
 // いちばん長い文節の字数（その文節が 1 行に収まるかを見積もる・MiniCover の書名など）。

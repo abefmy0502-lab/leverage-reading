@@ -142,6 +142,7 @@ import SwipeableCard from './components/SwipeableCard';
 import ContextMenu from './components/ContextMenu';
 import PullToRefresh from './components/PullToRefresh';
 import { useHaptic } from './hooks/useHaptic';
+import { useMemoLinkFinder } from './hooks/useMemoLinkFinder';
 import { useLongPress } from './hooks/useLongPress';
 import { useEdgeSwipeBack, isBackBlocked, useBackBlocked } from './hooks/useEdgeSwipeBack';
 import { useHistoryBack, useBackLayer, useBackLayerCount, topBackLayer } from './hooks/useHistoryBack';
@@ -832,7 +833,8 @@ function AuthedApp() {
   //   相談の入力欄に下書きを入れて開く（送らない＝トークンは送ったときだけ）。bookIds があれば相談相手をその本に絞る。
   const openConsultWith = (question, { bookIds = null } = {}) => {
     if (!question) return;
-    setAskPreset({ question, nonce: Date.now(), draft: true, ...(Array.isArray(bookIds) && bookIds.length ? { bookIds } : null) });
+    //   カーソルは置かない（キーボードで戻り先・相談相手の行が隠れないように・押せばすぐ書ける＝2026-10-10 ui-critic）。
+    setAskPreset({ question, nonce: Date.now(), draft: true, focus: false, ...(Array.isArray(bookIds) && bookIds.length ? { bookIds } : null) });
     setView('list'); setAiSubTab('brain'); setTab('ai');
   };
   // 🔎 すべての本の検索から「相談で探す」: 相談を開いて入力欄に問いを入れるだけ（送らない＝トークンは送ったときだけ・2026-09-30）。
@@ -1293,6 +1295,8 @@ function AuthedApp() {
 
   // Books are now committed to DB on delete (no soft-delete state to filter).
   const books = rawBooks;
+  // 🔗 ホームのメモを書くを開いたら、似たメモを探す準備をしておく（保存したときに似たメモがあれば、知らせを「保存しました。」だけに＝次の一歩を 1 つに・2026-10-10）。
+  const homeLinkFinder = useMemoLinkFinder({ books, enabled: !!homeMemoBook || !!homeSavedMemo });
   // 非同期処理（表紙リトライ・行動トグル直列化など）が「実行時点の最新 books」を
   // 読めるようにする ref。古いスナップショットで saveBook すると差分同期で
   // ユーザー編集が巻き戻るため、保存直前の rebase に使う。
@@ -4358,7 +4362,7 @@ function AuthedApp() {
               return (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', marginTop: 'var(--space-3)' }}>
                   <p style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 0 }}>
-                    <CheckCircle2 size={16} aria-hidden="true" style={{ color: 'var(--success)' }} />
+                    <CheckCircle2 size="1.1em" aria-hidden="true" style={{ color: 'var(--success)' }} />
                     読書計画シートができています
                   </p>
                   <button type="button" onClick={() => openSetup(current)} style={{ ...btnText, fontSize: 'var(--text-sub)' }}>
@@ -4420,7 +4424,7 @@ function AuthedApp() {
                       ...(current.aiStrategy ? ['シート'] : []),
                     ].join('・')}
                   </span>
-                  <ChevronDown size={20} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+                  <ChevronDown size="1.2em" aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
                 </span>
               </summary>
               <div style={{ paddingBottom: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
@@ -4456,7 +4460,7 @@ function AuthedApp() {
             <details id="plan-sheet-fold" key={justMadePlanId === current.id ? 'plan-made' : 'plan'} open={justMadePlanId === current.id || undefined} style={{ ...detailsStyle, marginTop: 0, scrollMarginTop: 'var(--space-16)' }}>
               <summary style={summaryStyle}>
                 読書計画シート
-                <ChevronDown size={20} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+                <ChevronDown size="1.2em" aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
               </summary>
               <div style={{ paddingBottom: 'var(--space-4)' }}>
                 <MarkdownSections
@@ -4628,11 +4632,11 @@ function AuthedApp() {
                         background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)',
                       }}
                     >
-                      <MessageCircle size={20} aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
+                      <MessageCircle size="1.2em" aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
                       <span style={{ flex: 1, minWidth: 0 }}>
                         <span style={{ display: 'block', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>この本に相談する</span>
                       </span>
-                      <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+                      <ChevronRight size="1.2em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
                     </button>
                   }
                 />
@@ -4644,7 +4648,7 @@ function AuthedApp() {
             <details style={{ ...detailsStyle, marginTop: isMemoPhase ? 'var(--space-3)' : 'var(--space-6)' }}>
               <summary style={summaryStyle}>
                 以前の AI まとめ
-                <ChevronDown size={20} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+                <ChevronDown size="1.2em" aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
               </summary>
               <div style={{ paddingBottom: 'var(--space-4)' }}>
                 {/* 以前の AI まとめも書誌で確かめていないので、本を挙げる節は出さない（2026-10-04） */}
@@ -4690,7 +4694,7 @@ function AuthedApp() {
                 onClick={() => setAddActionSheet({ step: 'edit', bookId: current.id, prefillText: '' })}
                 style={{ ...btnLink, padding: 0, justifyContent: 'flex-start', gap: 'var(--space-1)' }}
               >
-                <IcPlus size={18} aria-hidden="true" />行動を追加
+                <IcPlus size="1.1em" aria-hidden="true" />行動を追加
               </button>
             </section>
           )}
@@ -5358,13 +5362,13 @@ function AuthedApp() {
           alignItems: "center",
         }}
       >
+        {/* ロゴは本の形のマークだけ（地が透明・2026-10-10 ui-critic「アプリアイコンのクリーム色の四角が、明暗どちらでも浮いていた」）。 */}
         <img
-          src="/apple-touch-icon.png"
+          src="/icons/mark-96.png"
           alt="Orime"
           width={28}
           height={28}
-          // アプリアイコン画像は iOS のアイコン形状（角丸 UI の対象外・DESIGN §4 の例外）。
-          style={{ borderRadius: "22%", display: "block" }}
+          style={{ display: "block" }}
         />
       </button>
     </div>
@@ -5493,8 +5497,12 @@ function AuthedApp() {
                 const actionText = (result?.text ?? payload?.text ?? '').trim();
                 if (result?.id && b?.id && actionText) setHomeSavedMemo({ id: result.id, bookId: b.id, text: actionText, nonce: Date.now() });
                 // シートが閉じ始めてから知らせを出す（本の詳細のメモを書くと同じ・2026-09-30）。
+                // ほかの本の似たメモをホームに出すときは、知らせに「行動に追加」を付けない（次の一歩は似たメモの 1 行だけ）。
+                const hasLinks = !!(result?.id && b?.id && actionText) && homeLinkFinder.find({ text: actionText, bookId: b.id, memoId: result.id }).length > 0;
                 afterSheetCloses(() => {
-                if (actionText && b?.id) {
+                if (hasLinks) {
+                  bindToastToBook(b.id, toast.success('保存しました。'));
+                } else if (actionText && b?.id) {
                   bindToastToBook(b.id, toast.show({
                     type: 'success',
                     // 「行動に追加」のボタンと並ぶので短く（390 幅で 2 行に折れていた・2026-09-30）。

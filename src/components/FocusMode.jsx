@@ -188,6 +188,13 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
 
   // 途中の状態を端末に（裏に回して戻ったとき・アプリを閉じて開いたときに再開する）。おわるの保存中は書かない。
   useEffect(() => { if (phase !== 'summary' && !finishing.current) saveFocusState(s); }, [s, phase]);
+  // おわった画面に替わったとき・メモを書いて戻ったときは、前の画面で押していた形（data-pressed）を残さない
+  //   （おわるの長押しの指・シートの保存の指が離れる前に画面が替わると、新しいボタンが縮んだまま見えた・2026-10-10 ui-critic）。
+  useEffect(() => {
+    if (phase !== 'summary' && phase !== 'timerDone') return;
+    if (typeof document === 'undefined') return;
+    document.querySelectorAll('[data-pressed]').forEach((el) => el.removeAttribute('data-pressed'));
+  }, [phase, memoCount, memoOpen]);
 
   // 1 秒ごとに時刻を取り直す（数えるのは始めた時刻から＝足し算しない）。戻ったときはすぐ。
   useEffect(() => {
@@ -438,7 +445,7 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
           </>
         )}
         {phase === 'timerDone' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+          <div key="timer-done" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
             {/* 上＝主「おわる」・下＝副「続けて読む」（おわったときの「メモを書く」「閉じる」と同じ並び）。 */}
             <button type="button" onClick={finish} disabled={busy} style={{ ...footBtn(true), opacity: busy ? 0.5 : 1 }}>おわる</button>
             <button type="button" onClick={continueReading} disabled={busy} style={{ ...footBtn(false), opacity: busy ? 0.5 : 1 }}>続けて読む</button>
@@ -446,12 +453,13 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
         )}
         {phase === 'summary' && (memoCount > 0 ? (
           // 読んでいる間にメモを書いたなら、主は「閉じる」・「メモを書く」は文字のボタン（2026-10-10）。
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-2)' }}>
+          // key: メモを書く前の組と別の要素にする（同じ button を使い回すと、押した形・フォーカスが「閉じる」に残って縮んで見えた・2026-10-10 ui-critic）。
+          <div key="summary-memo" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-2)' }}>
             <button type="button" onClick={onClose} style={footBtn(true)}>閉じる</button>
             <button type="button" onClick={() => setMemoOpen('summary')} style={{ minHeight: 'var(--btn-h)', padding: '0 var(--space-4)', border: 'none', background: 'transparent', color: 'var(--focus-ink)', fontFamily: 'inherit', fontSize: 'var(--text-body)', fontWeight: 600, cursor: 'pointer' }}>メモを書く</button>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+          <div key="summary-plain" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
             <button type="button" onClick={() => setMemoOpen('summary')} style={footBtn(true)}>メモを書く</button>
             <button type="button" onClick={onClose} style={footBtn(false)}>閉じる</button>
           </div>
