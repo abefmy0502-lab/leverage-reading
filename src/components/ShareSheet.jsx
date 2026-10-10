@@ -457,9 +457,10 @@ export default function ShareSheet({
   // 失敗の知らせの操作（2026-10-11）: 「選び直す」＝アルバムからもう一度／許可が無いときは「設定を開く」。操作つきは 8 秒。
   const reselectRef = useRef(null);
   const photoFailed = useCallback((message, err = null) => {
-    toast.error(message, {
+    const a = photoFailAction(err, () => reselectRef.current?.(), { onSettingsFailed: (route) => toast.info(route) });
+    toast.error(a.message || message, {
       duration: PHOTO_FAIL_TOAST_MS,
-      action: photoFailAction(err, () => reselectRef.current?.()),
+      ...(a.label ? { action: { label: a.label, onClick: a.onClick } } : {}),
     });
   }, [toast]);
   const readPhoto = useCallback(async (file) => {

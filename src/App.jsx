@@ -1181,9 +1181,10 @@ function AuthedApp() {
   // 写真を使えなかったときは、知らせに「選び直す」＝同じ入口の選ぶシートを開き直す（自分でやめたときは何も出さない）。
   // 許可が無いときは「設定を開く」＝iPhone のアプリの設定（開けないビルド・Web は「選び直す」）。操作つきは 8 秒（2026-10-11）。
   const sharePhotoFailed = (t, message, err = null, opts) => {
-    toast.error(message, {
+    const a = photoFailAction(err, () => setShareChooser({ ...t }), { ...opts, onSettingsFailed: (route) => toast.info(route) });
+    toast.error(a.message || message, {
       duration: PHOTO_FAIL_TOAST_MS,
-      action: photoFailAction(err, () => setShareChooser({ ...t }), opts),
+      ...(a.label ? { action: { label: a.label, onClick: a.onClick } } : {}),
     });
   };
   const openShareWithPhoto = (t, file) => {
@@ -1208,7 +1209,7 @@ function AuthedApp() {
     // 🧪 お試しモード: &photo=denied で iPhone の許可が無いときの知らせを撮る。
     if (isDemo && new URLSearchParams(window.location.search).get('photo') === 'denied') {
       // お試しでは iPhone のアプリと同じく「設定を開く」を出す（押しても何も開かない）。
-      sharePhotoFailed(t, nativePhotoDeniedMessage(source), { kind: 'denied' }, { canSettings: true });
+      sharePhotoFailed(t, nativePhotoDeniedMessage(source), { kind: 'denied', which: source === 'camera' ? 'camera' : 'album', message: nativePhotoDeniedMessage(source) }, { canSettings: true });
       return;
     }
     if (canUseNativePhoto()) {

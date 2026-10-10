@@ -38,16 +38,26 @@ export function classifyNativePhotoError(err) {
   return 'error';
 }
 
-// 許可が無いときの知らせ（どこで許可するか）。どちらか聞いた（prompt）ときは、拒まれたのがカメラか写真かを文から見る。
+// 拒まれたのがカメラか写真か。どちらか聞いた（prompt）ときは、プラグインの文から見る（分からなければ null）。
+export function deniedWhich(source, err) {
+  if (source !== 'prompt') return source === 'camera' ? 'camera' : 'album';
+  const msg = String(err?.message || err || '').toLowerCase();
+  return /camera/.test(msg) ? 'camera' : /photo|librar|gallery|album/.test(msg) ? 'album' : null;
+}
+
+// 許可が無いときの知らせ（2026-10-11）。
+//   設定を開けないとき … 道順の文（どこで許可するか）。括弧が折り返しの行頭に来ないよう、括弧を使わない
+//   設定を開けるとき   … 短い文（nativePhotoDeniedShort）＋「設定を開く」
 export function nativePhotoDeniedMessage(source, err) {
-  let which = source;
-  if (source === 'prompt') {
-    const msg = String(err?.message || err || '').toLowerCase();
-    which = /camera/.test(msg) ? 'camera' : /photo|librar|gallery|album/.test(msg) ? 'album' : null;
-  }
-  if (which === 'camera') return 'カメラを使えません。設定 → Orime → 「カメラ」をオンにしてください。';
-  if (which === 'album') return '写真を使えません。設定 → Orime → 「写真」で許可してください。';
+  const which = deniedWhich(source, err);
+  if (which === 'camera') return 'カメラを使えません。設定 → Orime で、カメラをオンにしてください。';
+  if (which === 'album') return '写真を使えません。設定 → Orime で、写真へのアクセスを許可してください。';
   return 'カメラか写真を使えません。設定 → Orime で許可してください。';
+}
+export function nativePhotoDeniedShort(which) {
+  if (which === 'camera') return 'カメラの使用が許可されていません。';
+  if (which === 'album') return '写真の使用が許可されていません。';
+  return 'カメラか写真の使用が許可されていません。';
 }
 
 // カメラ（source='camera'）かフォトライブラリ（'album'）、どちらか聞く（'prompt'＝シートの「写真」のチップ）を開き、File を返す。やめたら null。
@@ -68,6 +78,7 @@ export async function pickNativePhoto(source) {
     if (kind === 'cancel') return null;
     const e = new Error(kind === 'denied' ? nativePhotoDeniedMessage(source, err) : 'この写真は読み込めませんでした。');
     e.kind = kind;
+    if (kind === 'denied') e.which = deniedWhich(source, err);
     throw e;
   }
   if (!photo?.webPath) return null;
@@ -114,9 +125,24 @@ export async function openAppSettings() {
     return false;
   }
 }
-// 知らせの操作 { label, onClick } を作る。onReselect＝同じ入口でもう一度選ぶ。
-export function photoFailAction(err, onReselect, opts) {
-  return photoFailActionKind(err, opts) === 'settings'
-    ? { label: '設定を開く', onClick: () => { openAppSettings(); } }
-    : { label: '選び直す', onClick: onReselect };
+// 失敗の知らせの中身 { message, label, onClick } を作る（message が null なら呼ぶ側の文のまま）。
+//   許可が無く設定を開ける   … 短い文＋「設定を開く」（開けなかったら opts.onSettingsFailed(道順の文)）
+//   許可が無く設定を開けない … 道順の文だけ（操作なし＝× だけ。選び直しても同じ許可で止まるため）
+//   ほかの失敗               … 呼ぶ側の文＋「選び直す」（onReselect）
+export function photoFailAction(err, onReselect, opts = {}) {
+  const kind = photoFailActionKind(err, opts);
+  if (kind === 'settings') {
+    const route = err.message && /設定/.test(err.message) ? err.message : nativePhotoDeniedMessage(err.which || 'prompt', err);
+    return {
+      message: nativePhotoDeniedShort(err.which || null),
+      label: '設定を開く',
+      onClick: () => {
+        openAppSettings().then((ok) => { if (!ok) opts.onSettingsFailed?.(route); });
+      },
+    };
+  }
+  if (err && err.kind === 'denied') {
+    return { message: err.message || nativePhotoDeniedMessage(err.which || 'prompt', err), label: null, onClick: null };
+  }
+  return { message: null, label: '選び直す', onClick: onReselect };
 }

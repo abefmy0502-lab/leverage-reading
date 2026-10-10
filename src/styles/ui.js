@@ -170,6 +170,11 @@ export const fieldNote = {
   fontFeatureSettings: '"palt"',
 };
 
+// 知らせ（Toast.jsx）の大きさ（2026-10-11 に Toast.jsx の直書きをここへ集めた）。
+//   barMax … 下のバーの最大幅（画面の左右 16 の内側で、広い画面でもこれ以上広げない）
+//   hudMin / hudMax … 中央の ✓ の箱の最小・最大幅／hudIcon … ✓ の丸（= --space-12）
+export const TOAST_SIZE = { barMax: 420, hudMin: 132, hudMax: 280, hudIcon: 'var(--space-12)' };
+
 // 共通カード面。
 // DESIGN: 影なし・枠線で区切る・角丸 12・内側 16。
 export const card = {

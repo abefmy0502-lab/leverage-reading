@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { photoFailActionKind, photoFailAction, PHOTO_FAIL_TOAST_MS, canOpenAppSettings, checkSharePhoto, classifyNativePhotoError, nativePhotoDeniedMessage, canUseNativePhoto, photoPickErrorText, SHARE_PHOTO_TYPE_MESSAGE, SHARE_PHOTO_SIZE_MESSAGE } from './sharePhotoPick';
+import { nativePhotoDeniedShort, deniedWhich, photoFailActionKind, photoFailAction, PHOTO_FAIL_TOAST_MS, canOpenAppSettings, checkSharePhoto, classifyNativePhotoError, nativePhotoDeniedMessage, canUseNativePhoto, photoPickErrorText, SHARE_PHOTO_TYPE_MESSAGE, SHARE_PHOTO_SIZE_MESSAGE } from './sharePhotoPick';
 
 const file = (name, type, size = 1000) => ({ name, type, size });
 
@@ -33,8 +33,8 @@ describe('ネイティブの写真', () => {
     expect(classifyNativePhotoError(new Error('boom'))).toBe('error');
   });
   it('許可の場所を案内する', () => {
-    expect(nativePhotoDeniedMessage('camera')).toContain('設定 → Orime → 「カメラ」');
-    expect(nativePhotoDeniedMessage('album')).toContain('設定 → Orime → 「写真」');
+    expect(nativePhotoDeniedMessage('camera')).toContain('設定 → Orime で、カメラをオンに');
+    expect(nativePhotoDeniedMessage('album')).toContain('設定 → Orime で、写真へのアクセスを許可');
   });
 });
 
@@ -52,14 +52,14 @@ describe('写真で共有の言い方（2026-10-11）', () => {
     expect(classifyNativePhotoError(new Error('PERMISSION missing'))).toBe('denied');
   });
   it('どちらか聞いたときは、拒まれた方で分ける', () => {
-    expect(nativePhotoDeniedMessage('prompt', new Error('User denied access to camera'))).toContain('設定 → Orime → 「カメラ」');
-    expect(nativePhotoDeniedMessage('prompt', new Error('User denied access to photos'))).toContain('設定 → Orime → 「写真」');
+    expect(nativePhotoDeniedMessage('prompt', new Error('User denied access to camera'))).toContain('設定 → Orime で、カメラをオンに');
+    expect(nativePhotoDeniedMessage('prompt', new Error('User denied access to photos'))).toContain('設定 → Orime で、写真へのアクセスを許可');
     expect(nativePhotoDeniedMessage('prompt', new Error('denied'))).toBe('カメラか写真を使えません。設定 → Orime で許可してください。');
   });
   it('受け取れなかった失敗の文はそのまま（オフラインの文にすり替えない）', () => {
     const e = new Error(nativePhotoDeniedMessage('camera'));
     e.kind = 'denied';
-    expect(photoPickErrorText(e)).toBe('カメラを使えません。設定 → Orime → 「カメラ」をオンにしてください。');
+    expect(photoPickErrorText(e)).toBe('カメラを使えません。設定 → Orime で、カメラをオンにしてください。');
     expect(photoPickErrorText(new Error('Failed to fetch'))).toBe(null);
     expect(photoPickErrorText(null)).toBe(null);
   });
@@ -82,7 +82,40 @@ describe('失敗の知らせの操作', () => {
     expect(a.label).toBe('選び直す');
     a.onClick();
     expect(called).toBe(1);
-    expect(photoFailAction({ kind: 'denied' }, () => {}, { canSettings: true }).label).toBe('設定を開く');
+    expect(photoFailAction({ kind: 'denied', which: 'camera' }, () => {}, { canSettings: true }).label).toBe('設定を開く');
     expect(PHOTO_FAIL_TOAST_MS).toBe(8000);
+  });
+});
+
+describe('許可なしの知らせ（2026-10-11 の 5 回目）', () => {
+  const denied = (which) => ({ kind: 'denied', which, message: nativePhotoDeniedMessage(which || 'prompt') });
+  it('設定を開けるときは短い文＋「設定を開く」', () => {
+    const a = photoFailAction(denied('camera'), () => {}, { canSettings: true });
+    expect(a.message).toBe('カメラの使用が許可されていません。');
+    expect(a.label).toBe('設定を開く');
+    expect(photoFailAction(denied('album'), () => {}, { canSettings: true }).message).toBe('写真の使用が許可されていません。');
+    expect(photoFailAction(denied(null), () => {}, { canSettings: true }).message).toBe('カメラか写真の使用が許可されていません。');
+  });
+  it('設定を開けないときは道順の文だけ・操作なし', () => {
+    const a = photoFailAction(denied('camera'), () => {}, { canSettings: false });
+    expect(a.label).toBe(null);
+    expect(a.onClick).toBe(null);
+    expect(a.message).toBe('カメラを使えません。設定 → Orime で、カメラをオンにしてください。');
+  });
+  it('ほかの失敗は文を差し替えず「選び直す」', () => {
+    const a = photoFailAction({ kind: 'error', message: 'x' }, () => {}, { canSettings: true });
+    expect(a.message).toBe(null);
+    expect(a.label).toBe('選び直す');
+  });
+  it('道順の文に括弧を使わない（折り返しの行頭に来ないように）', () => {
+    for (const w of ['camera', 'album', 'prompt']) expect(nativePhotoDeniedMessage(w)).not.toMatch(/[「『（]/);
+  });
+  it('短い文は 2 行に収まる長さ', () => {
+    for (const w of ['camera', 'album', null]) expect(nativePhotoDeniedShort(w).length).toBeLessThanOrEqual(20);
+  });
+  it('拒まれた方', () => {
+    expect(deniedWhich('camera')).toBe('camera');
+    expect(deniedWhich('album')).toBe('album');
+    expect(deniedWhich('prompt', new Error('denied'))).toBe(null);
   });
 });

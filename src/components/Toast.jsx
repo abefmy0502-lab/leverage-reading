@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Check, Trash2, Undo2, AlertTriangle, Info, X } from 'lucide-react';
 import { withPhraseBreaks } from './TightBubble';
+import { TOAST_SIZE } from '../styles/ui';
 
 const ToastContext = createContext({
   show: () => '',
@@ -74,7 +75,7 @@ const containerStyle = {
   flexDirection: 'column',
   gap: 'var(--space-2)',
   zIndex: 'var(--z-toast)',
-  width: 'min(420px, calc(100vw - 2 * var(--space-4)))',
+  width: `min(${TOAST_SIZE.barMax}px, calc(100vw - 2 * var(--space-4)))`,
   pointerEvents: 'none',
 };
 
@@ -129,6 +130,8 @@ const actionBtnStyle = {
 // 約物の空きを詰める（書体の palt に頼らない＝どの書体でも同じ幅・2026-09-30）。
 //   閉じ括弧・句読点（」』）。、）は後ろの半分の空きを、文頭の開き括弧（「『（）は前の半分の空きを除く
 //   （行頭の開き括弧の墨を左端にそろえる・DESIGN §5-1 と同じ考え）。
+// 開き括弧を詰めるのは文の最初の 1 字だけ（折り返して行頭に来た「 は詰められない＝どこで折り返すかは描くまで分からない）。
+//   なので、行頭に括弧が来やすい文（「設定 → Orime → 「カメラ」…」など）は文の側で避ける。
 const PUNCT_CLOSE = '」』）。、';
 const PUNCT_OPEN = '「『（';
 const tightStyle = { close: { marginRight: '-0.5em' }, open: { marginLeft: '-0.5em' } };
@@ -227,8 +230,8 @@ function ToastHud({ toast }) {
         alignItems: 'center',
         gap: 'var(--space-3)',
         padding: 'var(--space-6)',
-        minWidth: 132,
-        maxWidth: 'min(280px, calc(100vw - 2 * var(--space-6)))',
+        minWidth: TOAST_SIZE.hudMin,
+        maxWidth: `min(${TOAST_SIZE.hudMax}px, calc(100vw - 2 * var(--space-6)))`,
         background: 'var(--text)',
         color: 'var(--bg)',
         borderRadius: 'var(--radius)',
@@ -238,8 +241,8 @@ function ToastHud({ toast }) {
       <span
         className="toast-hud-check"
         style={{
-          width: 48,
-          height: 48,
+          width: TOAST_SIZE.hudIcon,
+          height: TOAST_SIZE.hudIcon,
           borderRadius: '50%',
           border: '2px solid currentColor',
           display: 'inline-flex',
@@ -251,7 +254,7 @@ function ToastHud({ toast }) {
         <Check size={28} strokeWidth={2.4} aria-hidden="true" />
       </span>
       {message && (
-        <span style={{ fontSize: 'var(--text-sub)', fontWeight: 600, textAlign: 'center', lineHeight: 1.5, whiteSpace: 'pre-line' }}>
+        <span style={{ fontSize: 'var(--text-sub)', fontWeight: 600, textAlign: 'center', lineHeight: 'var(--leading-base)', whiteSpace: 'pre-line' }}>
           {message}
         </span>
       )}
