@@ -30,6 +30,20 @@ props は数・真偽・32 字までの短い文字列だけ（本文・書名�
 「端末で 1 回」は localStorage の印（`lib/firstDay.js` の `FIRST_DAY_KEYS`）。端末を変える・データを消すと
 もう一度送ることがあるので、**集計は 1 人の最初の 1 件**で数える（下の SQL は `min(created_at)`）。
 
+## 毎日の輪のイベント（2026-10-10）
+
+メモ → 相談 → 行動 → 思い出す、の輪をつなぐ入口。どれも相談は下書きを入れて開くだけ（送らない）。送ったかは `ai_used {feature:'brain'}` で見る。
+
+| イベント | いつ | props | 送るところ |
+|---|---|---|---|
+| `home_actions_row` | ホームの「今日の行動 N 件 ›」「明日の行動 N 件 ›」を押した | `kind`: `today` / `tomorrow`、`count`: 件数 | `HomeScreen.jsx` |
+| `consult_from_action` | 完了した行動の欄の「この結果を相談する」を押した | `reflected`: ふりかえりを書いていたか | `ActionList.jsx` |
+| `consult_from_recall` | メモの「…」の「このメモで相談する」を押した | `where`: `recall`（思い出しカード）/ `list`（月ごと・検索）、`book`: 本のメモか | `Review.jsx` |
+| `grown_card` | ホームの「相談相手が育ちました」を押した／閉じた（端末で 1 回） | `action`: `open` / `dismiss` | `HomeScreen.jsx` |
+| `try_consult` `{from:'grown'}` | 同じく「相談してみる」を押した（上と一緒に送る） | `from`: `grown` | `App.jsx` |
+| `trial_next_consult` | 7 日間無料が始まった知らせの「相談してみる」を押した | なし | `Paywall.jsx` |
+| `notify_optin` `{where:'import'\|'ocr'}` | 通知の案内（取り込みの完了・写真から書き起こしたメモの保存のあと）を出した／答えた | もとからと同じ | `NotifyOptInCard.jsx` |
+
 ## もとからあるイベント（同じ流れで使う）
 
 | イベント | 意味 |

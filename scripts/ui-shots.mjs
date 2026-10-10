@@ -98,6 +98,15 @@ const CONSENT_CONSULT = [{ css: nav('相談') }, { fill: ['textarea[aria-label="
 const SCREENS = [
   ...ADVISOR2,
   { name: 'home', url: '/' },
+  // 🔁 毎日の輪（2026-10-10）: ホームの今日の行動・相談相手が育ちました・ホームで保存したメモの似たメモ・行動の結果を相談・思い出しカードから相談
+  { name: 'loop-home-grown', url: '/', steps: [{ eval: "localStorage.setItem('orime-memos-grown-line', '1')" }, { reload: true }, { wait: 1200 }] },
+  { name: 'loop-home-grown-xxl', url: '/', steps: [{ eval: "localStorage.setItem('orime-memos-grown-line', '1')" }, { reload: true }, { eval: () => { document.documentElement.style.fontSize = '28px'; } }, { wait: 1200 }] },
+  { name: 'loop-home-saved-links', url: '/', steps: [{ css: 'button[aria-label="『数値化の鬼』にメモを書く"]' }, { fill: ['textarea[aria-label="メモ本文"]', '部長への報告は、経緯より先に「この報告で決めてほしいこと」から話す。'] }, { css: '[role=dialog] button:text-is("保存")' }, { wait: 3000 }] },
+  { name: 'loop-action-reflect', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=checkbox][aria-label$="を完了にする"] >> nth=0' }, { wait: 1200 }] },
+  { name: 'loop-action-consult', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=checkbox][aria-label$="を完了にする"] >> nth=0' }, { wait: 1200 }, { fill: ['#act-reflection', '話したら、相手も同じ本を読んでいた'] }, { css: 'button:has-text("この結果を相談する")' }, { wait: 1500 }] },
+  { name: 'loop-recall-menu', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("メモ")' }, { css: 'button[aria-label="このメモの操作"] >> nth=0' }, { wait: 400 }] },
+  { name: 'loop-recall-consult', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("メモ")' }, { css: 'button[aria-label="このメモの操作"] >> nth=0' }, { css: 'button:has-text("このメモで相談する")' }, { wait: 1500 }] },
+  { name: 'loop-import-notify', url: '/?notify=1', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:has-text("ほかのアプリから取り込む")' }, { upload: ['input[type=file]', 'scripts/fixtures/booklog.csv'] }, { wait: 1200 }, { css: '[role=dialog] button:has-text("取り込む")' }, { wait: 3000 }] },
   { name: 'home-new-user', url: '/?demo=new', steps: [{ css: 'button[aria-label="閉じる"]' }] },
   { name: 'library', url: '/', steps: [{ css: 'button:has-text("すべての本")' }] },
   { name: 'library-list', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label^="並び替え・絞り込み・表示"]' }, { css: 'button:has-text("リストで表示")' }] },

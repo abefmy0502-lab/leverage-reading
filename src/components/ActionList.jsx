@@ -6,7 +6,8 @@
 //   - 期限切れは控えめな警告色（責めない）。多いときだけ「期限を見直す」をそっと出す
 //   - 達成率などの数字の演出はしない（反ゲーミフィケーション）。今週の完了数を 1 行だけ
 //   - 行動 0 件は「相談の答えや、メモから行動を作れます」＋相談へのボタン
-// 編集は「…」→ 編集（App の編集シート）、本の詳細へは「…」→ 本を開く（横の MoreHorizontal・DESIGN §5）。
+// 編集は行の文を押す（2026-10-10）か「…」→ 編集（App の編集シート）、本の詳細へは「…」→ 本を開く（横の MoreHorizontal・DESIGN §5）。
+// 完了したその場の欄に「この結果を相談する」（下書きを入れて相談を開く・送らない・2026-10-10）。
 // 行を長押しでも同じメニュー（完了・編集・本を開く・削除）、左へスワイプで削除（確認なし・トーストの「元に戻す」）。
 // 完了にすると（2026-09-29）: その行が ✓ と取り消し線で 0.6 秒その場に残る → 同じ場所で「やってみて、どうでしたか？」
 // の小さな欄に変わる（一覧の上に差し込まない＝下の行が跳ねない）→ × か「残す」で畳んで消える。
@@ -19,6 +20,7 @@ import { input as uiInput, btnLink, btnGhostOff, groupTitle as uiGroupTitle } fr
 import { useAllActions } from '../hooks/useAllActions';
 import { stripInlineMd } from '../lib/text';
 import { completedActionMessage } from '../lib/actionMessages';
+import { actionResultQuestion } from '../lib/consultHelpers';
 import { track, EVENTS } from '../lib/analytics';
 import EmptyState from './EmptyState';
 import { withPhraseBreaks } from './TightBubble';
@@ -252,7 +254,7 @@ function GroupSection({ collapsing = false, entering = false, children, ...rest 
 const nowrap = { whiteSpace: 'nowrap' };
 
 // 行動 1 行の中身（完了チェック・本文・メタ・「…」）。長押しでメニュー。
-function ActionRow({ a, completing, swipeable, onCheck, onOpenMenu, onSwipeDelete, highlight = false }) {
+function ActionRow({ a, completing, swipeable, onCheck, onOpenMenu, onSwipeDelete, onEdit = null, highlight = false }) {
   const longPress = useLongPress({
     onLongPress: ({ clientX, clientY }) => onOpenMenu?.({ x: clientX, y: clientY, action: a }),
   });
@@ -301,7 +303,17 @@ function ActionRow({ a, completing, swipeable, onCheck, onOpenMenu, onSwipeDelet
           ? <span key="on" className="check-pop" style={{ display: 'flex' }}><CheckCircle2 size={24} aria-hidden="true" style={{ color: 'var(--success)' }} /></span>
           : <Circle size={24} aria-hidden="true" style={{ color: 'var(--border)' }} />}
       </button>
-      <div style={{ flex: 1, minWidth: 0 }}>
+      {/* 文の欄を押すと編集を開く（2026-10-10・「…」→ 編集 と同じ）。完了にしている途中は開かない。 */}
+      <div
+        style={{ flex: 1, minWidth: 0, ...(onEdit && !completing ? { cursor: 'pointer' } : null) }}
+        {...(onEdit && !completing ? {
+          role: 'button',
+          tabIndex: 0,
+          'aria-label': `「${String(a.text || '').trim().slice(0, 40)}」を編集`,
+          onClick: () => onEdit(a),
+          onKeyDown: (e) => { if ((e.key === 'Enter' || e.key === ' ') && !e.nativeEvent.isComposing) { e.preventDefault(); onEdit(a); } },
+        } : null)}
+      >
         {/* overflowWrap は anywhere（break-word だと、文字を大きくしたときに行より長い文節がカードを画面の外まで押し広げた・2026-10-01）。
             折り返しは今までどおり文節の切れ目で、1 つの文節が行に収まらないときだけ中で折る。 */}
         <p className="text-pretty" style={{ margin: 0, fontSize: 'var(--text-body)', lineHeight: 1.5, color: shownDone ? 'var(--text-3)' : 'var(--text)', textDecoration: shownDone ? 'line-through' : 'none', transition: `color ${HEIGHT_EASE}`, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
@@ -345,7 +357,7 @@ function ActionRow({ a, completing, swipeable, onCheck, onOpenMenu, onSwipeDelet
 }
 
 // 完了した行の、その場の「やってみて、どうでしたか？」（1 行・任意）。
-function ReflectCard({ a, value, onChange, onSave, saving, onClose }) {
+function ReflectCard({ a, value, onChange, onSave, saving, onClose, onConsult = null }) {
   const ref = useRef(null);
   // 欄が開いたら、下の知らせ（元に戻す）とタブバーに隠れない所まで寄せる（2026-09-29）。
   //   高さが広がり終わってから（その前は、下の余白がまだ足りずに最後まで寄せられない）。
@@ -407,6 +419,12 @@ function ReflectCard({ a, value, onChange, onSave, saving, onClose }) {
         >
           {saving ? '保存中…' : '残す'}
         </button>
+        {/* 🔁 やってみた結果を相談へ（書いたふりかえりは残してから・相談は入力欄に入れるだけ・2026-10-10）。 */}
+        {onConsult && (
+          <button type="button" onClick={onConsult} disabled={saving} style={{ ...btnLink, marginLeft: 'auto', marginRight: 'calc(-1 * var(--space-1))', whiteSpace: 'nowrap' }}>
+            この結果を相談する
+          </button>
+        )}
       </div>
     </section>
   );
@@ -414,7 +432,7 @@ function ReflectCard({ a, value, onChange, onSave, saving, onClose }) {
 
 // showDoneNonce: 記録の「実行した行動」から来たときに変わる。完了した行動を開いた状態で見せる。
 // focusAction: 相談の答えから追加した行動の「見る」で来たとき（{ bookId, text, nonce }）。その行まで送って淡く光らせる。
-export default function ActionList({ books, onToggleAction, onReflect, onDeleteAction, onEditAction, onOpenBook, onGoToBooks, onAddAction, onGoConsult, showDoneNonce = null, focusAction = null }) {
+export default function ActionList({ books, onToggleAction, onReflect, onDeleteAction, onEditAction, onOpenBook, onGoToBooks, onAddAction, onGoConsult, onConsultResult = null, showDoneNonce = null, focusAction = null }) {
   const { allActions, stats } = useAllActions(books);
   const toast = useToast();
   const [showDone, setShowDone] = useState(showDoneNonce != null);
@@ -518,6 +536,24 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
     }
   };
 
+  const [menu, setMenu] = useState(null); // { x, y, action }
+  // 🔁 完了した行動の「この結果を相談する」: 書きかけのふりかえりは残してから、相談に下書きを入れて開く。
+  const consultResult = async (c) => {
+    if (!c || !onConsultResult || reflecting) return;
+    const note = reflection.trim();
+    if (note) await saveReflection(c);
+    track('consult_from_action', { reflected: !!note });
+    onConsultResult(actionResultQuestion(c.a.text, note), c.a.bookId || null);
+  };
+
+  // 長押しでメニューを開いた直後の click（マウスで離したとき）では編集を開かない。
+  const menuOpenedAtRef = useRef(0);
+  const openMenu = useCallback((m) => { menuOpenedAtRef.current = Date.now(); setMenu(m); }, []);
+  const editRow = (a) => {
+    if (!onEditAction || Date.now() - menuOpenedAtRef.current < 700) return;
+    onEditAction(a.bookId, a.actionIdx, a);
+  };
+
   const onCheck = (a) => {
     const key = rowKeyOf(a);
     if (completing.some((c) => c.key === key && c.phase !== 'restore')) { undoComplete(a); return; }
@@ -529,7 +565,6 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
 
   const swipeDelete = (a) => onDeleteAction?.(a.bookId, a.actionIdx, { skipConfirm: true, target: a, undoable: true });
 
-  const [menu, setMenu] = useState(null); // { x, y, action }
 
   const open = useMemo(() => allActions.filter((a) => !a.done).sort(byDeadline), [allActions]);
   // 「見る」で来た行動を探して、画面の中ほどまで送り、一度だけ光らせる（本が読み直されて行が現れるまで待つ・2026-09-30）。
@@ -621,6 +656,7 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
             saving={reflecting}
             onSave={() => saveReflection(c)}
             onClose={() => setPhase(key, 'collapse')}
+            onConsult={onConsultResult ? () => consultResult(c) : null}
           />
         ) : (
           <ActionRow
@@ -628,8 +664,9 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
             completing={!!c && !restoring}
             swipeable={!c || restoring}
             onCheck={onCheck}
-            onOpenMenu={setMenu}
+            onOpenMenu={openMenu}
             onSwipeDelete={swipeDelete}
+            onEdit={onEditAction ? editRow : null}
             highlight={!c && highlightKey === rowKeyOf(a)}
           />
         )}

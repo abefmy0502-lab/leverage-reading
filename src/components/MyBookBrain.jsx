@@ -42,6 +42,7 @@ import { shouldShowTrialNudge, trialNudgeCopy, isTrialNudgeDone, markTrialNudgeD
 import { getIntroOffer } from '../lib/iap';
 import { firstAnswerTrialGroup, isFirstAnswerTrialMoment, canOfferFirstAnswerTrial, holdGrownNudge, firstAnswerTrialText, isFirstAnswerTrialDone, markFirstAnswerTrialDone } from '../lib/firstAnswerTrial';
 import { shouldAskForReview, markReviewAsked, askForReview } from '../lib/reviewRequest';
+import { isNotifyOptInDone, canOfferNotify, notifyPromptedWithin } from '../lib/notifyOptIn';
 import { growthMeterText, firstAnswerEvidence, takeFirstConsult, takeMemosReached, getOnboardPath } from '../lib/firstDay';
 import { composerChrome, answerEndScrollTop, isTouchUi } from '../lib/composerView';
 import { useComposerHeight } from '../hooks/useComposerHeight';
@@ -576,9 +577,19 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   //     追加の印（「行動に追加しました」）が見えてから頼む。
   const onConsultActionAdded = (answerId) => {
     setOptinAfterId((cur) => cur || answerId);
-    if (shouldAskForReview()) {
-      markReviewAsked();
-      setTimeout(() => askForReview(toast), 1500);
+    //   通知の案内（と許可の確認）と同じ時には頼まない（2026-10-10）: この答えの下に案内が出る／この 1 分に案内を出した・
+    //   許可を聞いたときは見送り、次に行動を追加したときに頼む（頼んだ印は、頼んだときだけ付ける）。
+    if (shouldAskForReview() && !notifyPromptedWithin()) {
+      (async () => {
+        let optinNow = false;
+        try { optinNow = !isNotifyOptInDone() && await canOfferNotify(); } catch { optinNow = false; }
+        if (optinNow) return;
+        setTimeout(() => {
+          if (notifyPromptedWithin() || !shouldAskForReview()) return;
+          markReviewAsked();
+          askForReview(toast);
+        }, 1500);
+      })();
     }
   };
   // 🧠→🎯 回答の行動を、紐づく本の行動リストへ追加。

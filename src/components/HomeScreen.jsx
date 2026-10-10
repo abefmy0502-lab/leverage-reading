@@ -4,22 +4,32 @@
 //   1. はじめの一歩（HomeFirstStep・本はあるがメモ 0 件のときだけ）→ 初日クイックスタート
 //      メモが 1〜9 件の間は、同じ場所に静かな一行「あと N 件で相談相手が育ちます」（GrowthMeter・2026-10-02）
 //   2. いま読んでいる本（最大 3 冊・各本に「メモを書く」＝ 1 タップでクイックメモ。その下に控えめな「読む」＝集中モード・2026-10-09）
-//   3. すべての本（N 冊）› → ライブラリ画面（検索・絞り込み・並び替えはそちらへ）
+//   3. 今日の行動（期限が今日まで・明日の行動があるときだけ・2026-10-10）› → 振り返り › 行動
+//   4. すべての本（N 冊）› → ライブラリ画面（検索・絞り込み・並び替えはそちらへ）
+// メモが 10 件になったのを見たあと 1 回だけ、題の下に「相談相手が育ちました」＋「相談してみる」（GrownLine・2026-10-10）。
+// ホームのメモを書くで保存したメモに、ほかの本の似たメモがあれば、いま読んでいる本の上に 1 行（MemoLinks の compact・2026-10-10）。
 // 月末の 3 日間・12 月だけ、題の下に控えめな 1 行「◯月の読書を、1 枚の画像に」（ShareNudge・閉じられる・2026-10-08）。
 // 本 0 冊のときは「はじめる」カード 1 枚だけ。
 // 相談カード（旧 HomeConsult.jsx）は 2026-10-01 オーナー裁定「ホームには相談チャット不要」で外した
 // （相談は下のタブ「相談」から）。思い出しカードはホームから外し「振り返り」へ（SPEC §1）。
 // 上の行の「写真で共有」は App.jsx の全体ヘッダー（ホーム・振り返り・相談で同じ場所）。
 // 見た目は DESIGN.md のトークンのみ。
-import { useEffect, useState } from 'react';
-import { Library, ChevronRight, PencilLine, Plus, BookOpen, Timer } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Library, ChevronRight, PencilLine, Plus, BookOpen, Timer, Target, Sprout, X } from 'lucide-react';
 import HomeFirstStep, { useHomeMemoState } from './HomeFirstStep';
 import GrowthMeter from './GrowthMeter';
 import ShareNudge, { useShareNudge } from './ShareNudge';
-import { takeMemosReached, growthMeterText, rememberHomeMemoCount, lastHomeMemoCount, showGrowthPlaceholder } from '../lib/firstDay';
+import { takeMemosReached, growthMeterText, rememberHomeMemoCount, lastHomeMemoCount, showGrowthPlaceholder, grownLinePending, markGrownLineDone, GROWTH_GOAL } from '../lib/firstDay';
+import { useAllActions } from '../hooks/useAllActions';
+import { homeActionsSummary } from '../lib/homeActions';
+import { stripInlineMd } from '../lib/text';
+import { appNow } from '../lib/appNow';
+import { firstConsultQuestion } from '../lib/consultHelpers';
+import MemoLinks from './MemoLinks';
+import { useMemoLinkFinder } from '../hooks/useMemoLinkFinder';
 import { track } from '../lib/analytics';
 import { MiniCover } from './BookCards';
-import { phrasePieces } from './TightBubble';
+import { phrasePieces, withPhraseBreaks } from './TightBubble';
 import { SkeletonBlock } from './Skeleton';
 import ErrorMessage from './ErrorMessage';
 import { btnPrimary, btnGhost, btnLink, btnRow as btnRowBase, card } from '../styles/ui';
@@ -180,6 +190,71 @@ function ReadingNow({ books, onOpenBook, onWriteMemo, onStartReading, onAddBook,
   );
 }
 
+// 🎯 今日の行動（2026-10-10・SPEC §1）: 期限が今日まで（過ぎたものも）・明日の行動があるときだけ、すべての本の上に 1 行。
+//   形は「すべての本」の行と同じ（カードの面・左にアイコン・右に ›）。2 行目はいちばん先にやる 1 件の文（1 行で … に切る）。
+//   押すと 振り返り › 行動。数字の演出（%・連続日数）はしない。
+function HomeActionsRow({ summary, onOpen }) {
+  if (!summary) return null;
+  const firstText = stripInlineMd(String(summary.first?.text || '')).replace(/\s+/g, ' ').trim();
+  return (
+    <button
+      type="button"
+      data-home-actions=""
+      onClick={() => onOpen?.(summary)}
+      aria-label={`${summary.label} ${summary.count} 件。${firstText}。行動を開く`}
+      style={{ ...card, width: '100%', minHeight: 56, display: 'flex', alignItems: 'center', gap: 'var(--space-3)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-body)', textAlign: 'left' }}
+    >
+      <Target size="1.2em" aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
+      <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+        <span style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'space-between', columnGap: 'var(--space-3)' }}>
+          <span style={{ whiteSpace: 'nowrap', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>{summary.label}</span>
+          <span style={{ whiteSpace: 'nowrap', fontSize: 'var(--text-sub)', color: 'var(--text-3)' }}>{summary.count} 件</span>
+        </span>
+        {firstText && (
+          <span style={{ display: 'block', marginTop: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{firstText}</span>
+        )}
+      </span>
+      <ChevronRight size="1.2em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+    </button>
+  );
+}
+
+// 🌱 相談相手が育ちました（2026-10-10）: メモが 10 件になったのを見たあと 1 回だけ、題の下（育つまでの一行と同じ場所）に。
+//   見た目は育つまでの一行（芽 16・--text-3＋13/--text-2）＋右に文字ボタン「相談してみる」と ×。押しても閉じても二度と出さない。
+//   7 日間無料はここではすすめない（ホームではすすめない・相談の画面の案内 ③ はそのまま）。
+function GrownLine({ onConsult, onDismiss }) {
+  return (
+    <div data-grown-line="" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 'var(--space-2)', margin: '0 calc(-1 * var(--space-3)) 0 0' }}>
+      <p style={{ flex: '1 1 10em', minWidth: 0, display: 'flex', alignItems: 'flex-start', gap: 'var(--space-1)', margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', height: '1.5em', flexShrink: 0 }}>
+          <Sprout size={16} aria-hidden="true" style={{ color: 'var(--text-3)' }} />
+        </span>
+        <span style={{ minWidth: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(`メモが ${GROWTH_GOAL}\u00a0件になり、相談相手が育ちました`)}</span>
+      </p>
+      <span style={{ display: 'flex', alignItems: 'center', marginLeft: 'auto' }}>
+        <button type="button" onClick={onConsult} style={{ ...btnLink, fontSize: 'min(var(--text-sub), var(--text-bar-max))', whiteSpace: 'nowrap' }}>相談してみる</button>
+        <button
+          type="button"
+          onClick={onDismiss}
+          aria-label="この案内を閉じる"
+          style={{ width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', borderRadius: 'var(--radius-full)', padding: 0, cursor: 'pointer', color: 'var(--text-3)' }}
+        >
+          <X size={18} aria-hidden="true" />
+        </button>
+      </span>
+    </div>
+  );
+}
+
+// 🔗 ホームのメモを書くで保存したメモと似たことを、ほかの本でも書いていたら 1 行（MemoLinks の compact・× で閉じる）。
+//   見つからなければ何も出さない（全部のメモを読むのは保存したときだけ）。
+function HomeSavedLinks({ books, saved, onOpen, onDismiss }) {
+  const { find } = useMemoLinkFinder({ books, enabled: !!saved });
+  const links = useMemo(() => (saved ? find({ text: saved.text, bookId: saved.bookId, memoId: saved.id }) : []), [saved, find]);
+  if (!saved || links.length === 0) return null;
+  return <MemoLinks variant="compact" links={links} onOpen={onOpen} onDismiss={onDismiss} />;
+}
+
 // 読み込み中のホームの形（いま読んでいる本＝見出し＋行カード 2 枚を 12 間隔＋「＋ 本を追加」の 44 の行／すべての本 ›）。
 // 起動直後の読み込み（App.jsx の HomeLoadingSkeleton）と、本の読み込み中（下の HomeScreen）で同じものを使う（2026-09-29）。
 // カードの形はどれも本物と同じ枠 --separator（明るい画面で背景に溶けないように）。
@@ -205,6 +280,7 @@ export default function HomeScreen({
   books = [], loading = false, loadError = null, onRetry,
   onQuickstart, onAddBook, onAddReadingBook, onAdvisor, onImport,
   onOpenBook, onWriteMemo, onStartReading, onOpenLibrary, onSeeAllReading, onCoverRetry, onShareNudge, onRead,
+  onOpenActions, onConsultDraft, savedMemo = null, onDismissSavedMemo, onOpenMemo,
 }) {
   // メモがあるか（はじめの一歩を出すか）。分かるまではスケルトン（カードを遅れて差し込まない・最大 800ms）。
   const memoState = useHomeMemoState(books);
@@ -212,9 +288,23 @@ export default function HomeScreen({
   const shareNudge = useShareNudge(books, !!onShareNudge && !loading && !loadError && books.length > 0);
   const homeKnown = memoState.known && shareNudge.ready;
   // 📊 memos_reached_10（lib/firstDay.js）: 10 件より少ないのを見たあとで 10 件以上になったら 1 回だけ。
+  // 🌱 「相談相手が育ちました」（10 件を越えたのを見たあと 1 回だけ・相談の画面で先に越えても、ホームに戻ったら出す）。
+  const [grown, setGrown] = useState(grownLinePending);
   useEffect(() => {
-    if (!loading && !loadError && memoState.known && takeMemosReached(memoState.count)) track('memos_reached_10', { memos: memoState.count, where: 'home' });
+    if (!loading && !loadError && memoState.known && takeMemosReached(memoState.count)) {
+      track('memos_reached_10', { memos: memoState.count, where: 'home' });
+      setGrown(grownLinePending());
+    }
   }, [loading, loadError, memoState.known, memoState.count]);
+  const showGrown = grown && !!onConsultDraft && memoState.known && (memoState.count == null || memoState.count >= GROWTH_GOAL);
+  const closeGrown = (action) => {
+    markGrownLineDone();
+    setGrown(false);
+    track('grown_card', { action });
+  };
+  // 🎯 今日の行動（本の行動から作る＝本と一緒に分かる・あとから差し込まない）。
+  const { allActions } = useAllActions(books);
+  const actionsSummary = useMemo(() => homeActionsSummary(allActions, appNow()), [allActions]);
   // 前回の件数（開いたときに 1 回だけ読む）。数えている間の形は、前回 1〜9 件だった人にだけ出す。
   const [lastCount] = useState(lastHomeMemoCount);
   useEffect(() => {
@@ -233,6 +323,11 @@ export default function HomeScreen({
           </span>
         )) : books.length > 0 && growthMeterText(memoState.count) ? (
           <GrowthMeter memoCount={memoState.count} />
+        ) : books.length > 0 && showGrown ? (
+          <GrownLine
+            onConsult={() => { closeGrown('open'); onConsultDraft(firstConsultQuestion({ books, memoCount: memoState.count }), 'grown'); }}
+            onDismiss={() => closeGrown('dismiss')}
+          />
         ) : null}
         {/* 月末・12 月の 1 行（本を読み込んで、ホームの中身を出すときに一緒に出す＝あとから差し込んで押し下げない）。 */}
         {homeKnown && <ShareNudge nudge={shareNudge.nudge} onOpen={onShareNudge} onDismiss={shareNudge.dismiss} />}
@@ -260,7 +355,16 @@ export default function HomeScreen({
       ) : (
         <>
           {!memoState.hasMemos && <HomeFirstStep bookCount={books.length} onQuickstart={onQuickstart} onImport={onImport} />}
+          <HomeSavedLinks books={books} saved={savedMemo} onOpen={onOpenMemo} onDismiss={onDismissSavedMemo} />
           <ReadingNow books={books} onOpenBook={onOpenBook} onWriteMemo={onWriteMemo} onStartReading={onStartReading} onAddBook={onAddBook} onSeeAllReading={onSeeAllReading} onCoverRetry={onCoverRetry} onRead={onRead} />
+          {/* 今日の行動とすべての本は、ひとまとまりの行（間 12）。 */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+          {onOpenActions && (
+            <HomeActionsRow
+              summary={actionsSummary}
+              onOpen={(sm) => { track('home_actions_row', { kind: sm.kind, count: sm.count }); onOpenActions(); }}
+            />
+          )}
           <button
             type="button"
             onClick={onOpenLibrary}
@@ -274,6 +378,7 @@ export default function HomeScreen({
             </span>
             <ChevronRight size="1.2em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
           </button>
+          </div>
         </>
       )}
     </div>

@@ -707,6 +707,11 @@ function AuthedApp() {
   // 個別画面への明示遷移（思い出しの通知→メモ 等）は setReviewSubTab で上書きする。
   // 相談タブ（aiSubTab）は 60 分以内の再起動なら直前のサブタブへ戻す（下）。
   const [reviewSubTab, setReviewSubTab] = useState('action');
+  // 🔁 同じ起動の間は、振り返りのサブタブを覚えておく（2026-10-10）。ほかのタブから振り返りに戻ったら、前に開いていた
+  //   行動／メモ／記録へ（メモで思い出して相談 → 戻ってメモの続き、の行き来をしやすく）。アプリを開いたときは、いつも行動から
+  //   （SPEC §4・端末には覚えない）。
+  const lastReviewSubRef = useRef('action');
+  useEffect(() => { lastReviewSubRef.current = reviewSubTab; }, [reviewSubTab]);
   const [aiSubTab, setAiSubTab] = useState(() => (
     // テーマまとめ（'report'）は 2026-09-30 に廃止。前に開いていた人は相談から（下の一覧に無いので 'brain'）。
     ['advisor', 'brain'].includes(resumeNav?.aiSubTab) ? resumeNav.aiSubTab : 'brain'
@@ -760,6 +765,9 @@ function AuthedApp() {
   }, []);
   // 🏠✍️ ホームの「メモ」で開くクイックメモの対象本（詳細画面に移らずホームの上に重ねる）。
   const [homeMemoBook, setHomeMemoBook] = useState(null);
+  // 🔗 ホームのメモを書くで保存したメモ（{ id, bookId, text, nonce }）。似たメモがほかの本にあれば、ホームに 1 行（2026-10-10）。
+  //   ホームを離れたら消す（戻ってきたときに古い 1 行を出さない）。
+  const [homeSavedMemo, setHomeSavedMemo] = useState(null);
   // 📚 初日クイックスタート（これまで読んだ本で相談相手をつくる）の表示。
   const [showQuickstart, setShowQuickstart] = useState(false);
   // 取り込みの完了画面から開くとき: 一言を足す本（本棚に入っている本・一言の段から始める）。ふだんは null。
@@ -794,7 +802,7 @@ function AuthedApp() {
     if (t === 'review' && tab === 'books' && libraryFrom === 'record') { leaveLibrary(); return; }
     // 記録から開いた「すべての本」は寄り道なので、別のタブへ移ったらホームに戻しておく。
     if (tab === 'books' && libraryFrom) { setShelfMode('home'); setLibraryFrom(null); }
-    if (t === 'review') { setActionShowDoneNonce(null); setReviewSubTab('action'); }
+    if (t === 'review') { setActionShowDoneNonce(null); setReviewSubTab(lastReviewSubRef.current || 'action'); }
     else if (t === 'ai') setAiSubTab('brain');
     setTab(t);
   };
@@ -820,11 +828,25 @@ function AuthedApp() {
     setOcrBridge(null);
     openConsultDraft(firstConsultQuestion({ books: [book, ...books.filter((b) => b.id !== book.id)], memoBookIds: new Set([book.id]) }), 'ocr', scoped ? [book.id] : null);
   };
+  // 🔁 毎日の輪から相談へ（2026-10-10）: 行動の結果・思い出しカードのメモ・ホームの「相談相手が育ちました」から、
+  //   相談の入力欄に下書きを入れて開く（送らない＝トークンは送ったときだけ）。bookIds があれば相談相手をその本に絞る。
+  const openConsultWith = (question, { bookIds = null } = {}) => {
+    if (!question) return;
+    setAskPreset({ question, nonce: Date.now(), draft: true, ...(Array.isArray(bookIds) && bookIds.length ? { bookIds } : null) });
+    setView('list'); setAiSubTab('brain'); setTab('ai');
+  };
   // 🔎 すべての本の検索から「相談で探す」: 相談を開いて入力欄に問いを入れるだけ（送らない＝トークンは送ったときだけ・2026-09-30）。
   const openConsultSearch = (q) => {
     setAskPreset({ question: consultQuestionFor(q), nonce: Date.now(), draft: true });
     setView('list'); setAiSubTab('brain'); setTab('ai');
   };
+  // 🎁 7 日間無料が始まった直後の知らせの「相談してみる」（Paywall はアプリの外側に重なるので、知らせから合図で受ける・2026-10-10）。
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const onOpen = () => { setView('list'); setCurrent(null); setAiSubTab('brain'); setTab('ai'); };
+    window.addEventListener('orime:open-consult', onOpen);
+    return () => window.removeEventListener('orime:open-consult', onOpen);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // 「すべての本」から戻る: 記録から来たなら 振り返り → 記録 へ、それ以外はホームへ。
   const leaveLibrary = () => {
     if (libraryFrom === 'record') {
@@ -944,6 +966,8 @@ function AuthedApp() {
     return () => { cancelled = true; try { removeListener?.(); } catch { /* ignore */ } };
   }, [handleRecallDeepLink]);
   const [view, setView] = useState("list"); // list | detail | edit
+  // 🔗 ホームを離れたら、ホームで保存したメモの似たメモの 1 行は消す（homeSavedMemo・2026-10-10）。
+  useEffect(() => { if (tab !== 'books' || view !== 'list') setHomeSavedMemo(null); }, [tab, view]);
   // 実行時点の最新 view を読むための ref（handleSave の長い await 後に「ユーザーが
   // まだ編集画面にいるか」を判定する用。formRef/booksRef と同じ流儀）。
   const viewRef = useRef(view);
@@ -4857,7 +4881,8 @@ function AuthedApp() {
                 // 保存確定の手応え（カード式エディタ経由と体験を揃える）。
                 haptic.success();
                 // 🔗 ほかの本で似たことを書いていたら、メモの一覧の上に出す（BookMemoList の savedMemo）。
-                if (result?.id && current?.id) setDetailSavedMemo({ id: result.id, bookId: current.id, text: result.text ?? payload?.text ?? '', nonce: Date.now() });
+                //   写真から書き起こしたメモなら、その下に通知の案内も 1 回だけ（まだ決めていない人だけ・NotifyOptInCard・2026-10-10）。
+                if (result?.id && current?.id) setDetailSavedMemo({ id: result.id, bookId: current.id, text: result.text ?? payload?.text ?? '', nonce: Date.now(), fromPhoto: !!payload?.fromPhoto });
                 // 🎯 保存直後に「行動にする」を 1 タップで提案（カード式と同じ動線）。
                 // クイックメモは最頻の書き込み経路なので、ここが出ないと大多数の
                 // メモが「保存して終わり」になる。
@@ -5445,6 +5470,14 @@ function AuthedApp() {
               onCoverRetry={triggerCoverAutoRetry}
               // 月末・12 月の控えめな 1 行「◯月の読書を、1 枚の画像に」→ 写真で共有の「今月」／「今年」（カメラは開かない・2026-10-08）。
               onShareNudge={(kind) => setShareSheet({ fromHome: true, from: 'home_nudge', initialSubject: { kind } })}
+              // 🎯 今日の行動の 1 行 → 振り返り › 行動（2026-10-10）
+              onOpenActions={() => { setActionShowDoneNonce(null); setReviewSubTab('action'); setView('list'); setTab('review'); }}
+              // 🌱 相談相手が育ちました →「相談してみる」（下書きを入れて相談を開く・送らない）
+              onConsultDraft={(q, from) => { track('try_consult', { from }); openConsultWith(q); }}
+              // 🔗 ホームのメモを書くで保存したメモと似たメモ（ほかの本）
+              savedMemo={homeSavedMemo}
+              onDismissSavedMemo={() => setHomeSavedMemo(null)}
+              onOpenMemo={(b, memoId) => { setHomeSavedMemo(null); openDetail(b, memoId); }}
             />
           </PullToRefresh>
         )}
@@ -5458,6 +5491,7 @@ function AuthedApp() {
                 haptic.success();
                 const b = homeMemoBook;
                 const actionText = (result?.text ?? payload?.text ?? '').trim();
+                if (result?.id && b?.id && actionText) setHomeSavedMemo({ id: result.id, bookId: b.id, text: actionText, nonce: Date.now() });
                 // シートが閉じ始めてから知らせを出す（本の詳細のメモを書くと同じ・2026-09-30）。
                 afterSheetCloses(() => {
                 if (actionText && b?.id) {
@@ -5852,7 +5886,8 @@ function AuthedApp() {
               <Suspense fallback={<ReviewNoteFallback />}>
                 <Review books={books} onOpenBook={(b, memoId, opts) => { openDetail(b, memoId, opts); }} onAddAction={addActionFromMemo} onAddNote={() => setAddNoteSheet('pick')} onGoToShelf={() => { navigateTab('books'); goList(); setShelfMode('library'); }}
                   // メモ検索で見つからなかった言葉を、相談の入力欄に入れて開く（送らない・2026-09-29）。
-                  onAskConsult={(q) => { setAskPreset({ question: q, nonce: Date.now(), draft: true }); setView('list'); setAiSubTab('brain'); setTab('ai'); }}
+                  // 思い出しカードの「このメモで相談する」は、相談相手をそのメモの本に絞る（opts.bookIds・2026-10-10）。
+                  onAskConsult={(q, opts) => openConsultWith(q, { bookIds: opts?.bookIds || null })}
                   searchPreset={memoSearchPreset}
                   onBackToViewmap={backToViewmap} />
               </Suspense>
@@ -5911,6 +5946,8 @@ function AuthedApp() {
                 onGoToBooks={() => setTab("books")}
                 onAddAction={() => setAddActionSheet({ step: 'pick', prefillText: '' })}
                 onGoConsult={() => { setView('list'); setAiSubTab('brain'); setTab('ai'); }}
+                // 完了した行動の「この結果を相談する」（下書きを入れて相談を開く・相談相手はその本・2026-10-10）
+                onConsultResult={(q, bookId) => openConsultWith(q, { bookIds: bookId ? [bookId] : null })}
               />
               </PullToRefresh>
             )}

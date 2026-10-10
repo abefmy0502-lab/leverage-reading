@@ -19,6 +19,7 @@ import ShareSheet from './ShareSheet';
 import { BookOpen, PencilLine, Pencil, Copy, Share, Trash2, Sparkles, Target, ChevronDown, Check } from 'lucide-react';
 import { btnGhost, btnGhostOff, btnLink } from '../styles/ui';
 import MemoLinks from './MemoLinks';
+import NotifyOptInCard from './NotifyOptInCard';
 import { useMemoLinkFinder } from '../hooks/useMemoLinkFinder';
 import TagSuggest from './TagSuggest';
 import { useTagSuggestions } from '../hooks/useTagSuggestions';
@@ -644,6 +645,9 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
       {savedLinks.length > 0 && visibleMemos.length > 0 && (
         <MemoLinks variant="saved" links={savedLinks} onOpen={openLink} onDismiss={() => setDismissedSaved(saved.nonce)} style={{ marginBottom: 'var(--space-3)' }} />
       )}
+
+      {/* 🔔 写真から書き起こしたメモを保存した直後は、通知の案内を 1 回だけ（まだ決めていない人だけ・2026-10-10）。 */}
+      {saved?.fromPhoto && <NotifyOptInCard where="ocr" primary={false} style={{ marginBottom: 'var(--space-3)' }} />}
 
       {visibleMemos.length > 0 && (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>

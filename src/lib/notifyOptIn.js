@@ -50,3 +50,13 @@ export async function enableNotify() {
     ? subscribeNativePush({ frequency: 'weekly' })
     : subscribeToPush({ frequency: 'weekly' });
 }
+
+// ⭐️ レビューの依頼と、通知の案内・許可の確認を同じ時に重ねない（2026-10-10）。案内を出した・許可を聞いた時刻を
+//   この起動の間だけ覚え、そこから 1 分の間はレビューを頼まない（lib/reviewRequest.js を呼ぶ側が確かめる）。
+let lastNotifyPromptAt = 0;
+export function noteNotifyPrompt(at = Date.now()) {
+  lastNotifyPromptAt = at;
+}
+export function notifyPromptedWithin(ms = 60000, now = Date.now()) {
+  return lastNotifyPromptAt > 0 && now - lastNotifyPromptAt < ms;
+}

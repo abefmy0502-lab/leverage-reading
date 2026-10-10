@@ -30,8 +30,9 @@ import NotifyOptInCard from './NotifyOptInCard';
 import { btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, btnLink, groupTitle, card as uiCard, input as uiInput } from '../styles/ui';
 import {
   Shuffle, CalendarDays, Search as SearchIcon, RotateCw, MessageSquareQuote,
-  StickyNote, BookOpen, Lightbulb, BarChart3, AlertTriangle, FlaskConical, Bot, Gem, FileText, Trash2, Target, Check, Plus, ChevronDown, ChevronLeft, ChevronRight, MoreHorizontal, Pencil, Copy, Share,
+  StickyNote, BookOpen, Lightbulb, BarChart3, AlertTriangle, FlaskConical, Bot, Gem, FileText, Trash2, Target, Check, Plus, ChevronDown, ChevronLeft, ChevronRight, MoreHorizontal, Pencil, Copy, Share, MessageCircle,
 } from 'lucide-react';
+import { memoConsultQuestion } from '../lib/consultHelpers';
 import { track, EVENTS } from '../lib/analytics';
 import { memoInViewpoint, linkedTagsFor } from '../lib/viewpointMap';
 // 一文をシェアのシート（メモの「…」から・押したときだけ読む）。
@@ -1076,7 +1077,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
           y={memoMenu.y}
           onClose={() => setMemoMenu(null)}
           items={[
-            // 並びは本の詳細のメモの「…」とそろえる: 編集 → コピー → 行動に追加 → この一文をシェア → 本を開く → 削除（2026-09-30）。
+            // 並びは本の詳細のメモの「…」とそろえる: 編集 → コピー → 行動に追加 →（このメモで相談する・2026-10-10）→ この一文をシェア → 本を開く → 削除（2026-09-30）。
             // 本に付いたふつうのメモは、ここから編集も開ける（その本のそのメモを編集で開く・2026-09-30）。
             ...(memoMenu.book && !memoMenu.memo?.synth && (memoMenu.memo?.kind || 'card') === 'card' && memoMenu.memo?.sourceType !== 'personal' && memoMenu.memo?.sourceType !== 'summary'
               ? [{ label: '編集', icon: <Pencil size="1.1em" aria-hidden="true" />, onClick: () => onOpenBook?.(memoMenu.book, memoMenu.memo?.id, { edit: true }) }]
@@ -1090,6 +1091,13 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
             // handleMemoToAction を長押しメニューにも露出する。
             ...(memoMenu.book && onAddAction
               ? [{ label: '行動に追加', icon: <Target size="1.1em" aria-hidden="true" />, onClick: () => handleMemoToAction(memoMenu.memo) }]
+              : []),
+            // 🔁 思い出したメモで相談する（2026-10-10）: 相談の入力欄にメモの一節を入れた下書き（送らない）。本のメモなら相談相手をその本に。
+            ...(onAskConsult && !memoMenu.memo?.synth && memoConsultQuestion(memoMenu.memo?.text)
+              ? [{ label: 'このメモで相談する', icon: <MessageCircle size="1.1em" aria-hidden="true" />, onClick: () => {
+                track('consult_from_recall', { where: memoMenu.recall ? 'recall' : 'list', book: !!memoMenu.book });
+                onAskConsult(memoConsultQuestion(memoMenu.memo.text), { bookIds: memoMenu.book ? [memoMenu.book.id] : null });
+              } }]
               : []),
             ...(memoMenu.book && !memoMenu.memo?.synth && (memoMenu.memo?.text || '').trim()
               ? [{ label: 'この一文をシェア', icon: <Share size="1.1em" aria-hidden="true" />, onClick: () => { haptic.light(); setShareTarget({ book: memoMenu.book, memoId: memoMenu.memo.id }); } }]

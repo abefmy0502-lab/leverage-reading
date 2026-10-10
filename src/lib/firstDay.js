@@ -49,6 +49,7 @@ const KEYS = {
   firstConsult: 'orime-first-consult-sent',
   below: 'orime-memos-below-goal-seen', // 10 件より少ないのを見たことがある
   reached: 'orime-memos-reached-goal',
+  grown: 'orime-memos-grown-line', // ホームの「相談相手が育ちました」（'1'＝出す・'done'＝押した／閉じた）
 };
 export const ONBOARD_PATHS = ['import', 'ocr', 'quickstart', 'skip'];
 
@@ -92,7 +93,20 @@ export function takeMemosReached(memoCount) {
     return false;
   }
   write(KEYS.reached, '1');
-  return read(KEYS.below) === '1';
+  const crossed = read(KEYS.below) === '1';
+  // 10 件を越えたのをこの端末で見たときだけ、ホームに 1 回「相談相手が育ちました」を出す（前からのユーザーには出さない）。
+  if (crossed && read(KEYS.grown) !== 'done') write(KEYS.grown, '1');
+  return crossed;
+}
+
+// 🌱 ホームの「相談相手が育ちました」（2026-10-10・SPEC §1）: 10 件になったのを見たあと、押すか閉じるまで 1 回だけ。
+//   7 日間無料はすすめない（ホームではすすめない GLOSSARY のきまり）。押すと相談を開くだけ（相談の上の
+//   「相談相手が育ってきました」＝7 日間無料の案内 ③ は相談の画面のきまりのまま）。
+export function grownLinePending() {
+  return read(KEYS.grown) === '1';
+}
+export function markGrownLineDone() {
+  write(KEYS.grown, 'done');
 }
 
 // 🏠 ホームの「数えている間」の形（2026-10-02 ui-critic r2）: 前回のメモの件数を端末に覚えておき、前回の件数で

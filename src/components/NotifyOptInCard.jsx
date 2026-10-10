@@ -9,7 +9,7 @@ import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff } from '../styles/ui';
 import { useToast } from './Toast';
 import { withPhraseBreaks } from './TightBubble';
 import { track } from '../lib/analytics';
-import { canOfferNotify, enableNotify, isNotifyOptInDone, markNotifyOptInDone } from '../lib/notifyOptIn';
+import { canOfferNotify, enableNotify, isNotifyOptInDone, markNotifyOptInDone, noteNotifyPrompt } from '../lib/notifyOptIn';
 
 const card = { background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4)' };
 const closeBtn = {
@@ -21,7 +21,7 @@ const closeBtn = {
 
 const BODY = '思い出しの通知は多くても週に 1\u00a0回、前に残したメモを 1\u00a0件だけ。行動は期限の日の朝に 1\u00a0回お知らせします。設定からいつでもオフにできます。';
 
-// where: 'action'（はじめて行動に追加した直後）| 'quickstart'（初日クイックスタートを終えた直後）— 計測だけに使う
+// where: 'action'（はじめて行動に追加した直後）| 'quickstart'（初日クイックスタートを終えた直後）| 'recall' | 'import'（取り込みの完了）| 'ocr'（写真から書き起こしたメモの保存）— 計測だけに使う
 export default function NotifyOptInCard({ where = 'action', primary = true, style = null }) {
   const toast = useToast();
   const [state, setState] = useState(() => (isNotifyOptInDone() ? 'hidden' : 'checking')); // checking | shown | hidden
@@ -34,7 +34,7 @@ export default function NotifyOptInCard({ where = 'action', primary = true, styl
       .then((ok) => {
         if (!alive) return;
         setState(ok ? 'shown' : 'hidden');
-        if (ok) track('notify_optin', { action: 'shown', where });
+        if (ok) { noteNotifyPrompt(); track('notify_optin', { action: 'shown', where }); }
       })
       .catch(() => { if (alive) setState('hidden'); });
     return () => { alive = false; };
@@ -50,6 +50,7 @@ export default function NotifyOptInCard({ where = 'action', primary = true, styl
   const enable = async () => {
     if (busy) return;
     setBusy(true);
+    noteNotifyPrompt();
     try {
       const res = await enableNotify();
       if (res?.ok) {

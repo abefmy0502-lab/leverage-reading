@@ -464,7 +464,20 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
     const message = until
       ? `7 日間無料がはじまりました\n${until}まで・${tokens}`
       : `7 日間無料がはじまりました\n${tokens}`;
-    toast.show({ type: 'success', message, duration: 4000 });
+    // 次にすることを 1 つだけ（2026-10-10）: 「相談してみる」で相談を開く（Paywall はアプリの外側に重なるので合図で知らせる）。
+    //   残りの日数を数え下げる表示はしない。
+    toast.show({
+      type: 'success',
+      message,
+      duration: 8000,
+      action: {
+        label: '相談してみる',
+        onClick: () => {
+          track('trial_next_consult');
+          try { window.dispatchEvent(new CustomEvent('orime:open-consult')); } catch { /* ignore */ }
+        },
+      },
+    });
   };
 
   const handleSubscribe = async () => {

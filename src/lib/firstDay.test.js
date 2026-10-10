@@ -9,6 +9,8 @@ import {
   takeOnboardPathDone,
   takeFirstConsult,
   takeMemosReached,
+  grownLinePending,
+  markGrownLineDone,
   rememberHomeMemoCount,
   lastHomeMemoCount,
   showGrowthPlaceholder,
@@ -102,6 +104,21 @@ describe('計測の印（1 回だけ送る）', () => {
     expect(takeMemosReached(9)).toBe(false);
     expect(takeMemosReached(10)).toBe(true);
     expect(takeMemosReached(12)).toBe(false);
+  });
+
+  it('10 件を越えたのを見たら、ホームの「育ちました」を押す／閉じるまで 1 回だけ', () => {
+    expect(grownLinePending()).toBe(false);
+    takeMemosReached(9);
+    expect(grownLinePending()).toBe(false);
+    takeMemosReached(10);
+    expect(grownLinePending()).toBe(true);
+    markGrownLineDone();
+    expect(grownLinePending()).toBe(false);
+  });
+
+  it('前からのユーザーには「育ちました」を出さない', () => {
+    takeMemosReached(40);
+    expect(grownLinePending()).toBe(false);
   });
 
   it('はじめから 10 件以上（前からのユーザー）は送らない', () => {

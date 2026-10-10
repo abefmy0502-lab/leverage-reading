@@ -9,6 +9,7 @@ import { FileUp, BookOpen } from 'lucide-react';
 import BottomSheet from './BottomSheet';
 import { useConfirm } from './ConfirmDialog';
 import ErrorMessage from './ErrorMessage';
+import NotifyOptInCard from './NotifyOptInCard';
 import { withPhraseBreaks } from './TightBubble';
 import { btnPrimary, btnPrimaryOff, btnLink } from '../styles/ui';
 import { decodeImportBytes, parseImportText, summarizeImport, mergeImportResults, importShortfall, planImport, IMPORT_MAX_BYTES, IMPORT_MAX_BOOKS } from '../lib/importers';
@@ -379,6 +380,8 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
         {doneShortfall && (
           <p style={body}>読書メーターの残り<span style={nowrap}> {fmt(doneShortfall.total - doneShortfall.found)} 冊</span>は、残りのページを保存して取り込めます。</p>
         )}
+        {/* 🔔 メモが入ったら、通知の案内を 1 回だけ（まだ決めていない人だけ・下の主ボタンがあるので副ボタン・2026-10-10）。 */}
+        {any && <NotifyOptInCard where="import" primary={false} style={{ marginTop: 'var(--space-3)' }} />}
       </div>
     );
     // 閉じる入口は右上の「完了」1 つだけ（完了の画面ではいつも・2026-09-29）。下の主ボタンは次にすること:
