@@ -38,11 +38,10 @@ describe('buildLpCopy（全部の組み合わせ）', () => {
 });
 
 describe('公開後（既定）と公開前（VITE_LP_PRELAUNCH=on）', () => {
-  it('既定は公開済みの形: 「いつから」の問いが無く、パソコン・Android の答えが「いまは App Store のアプリで」・公開予定を書かない', () => {
+  it('既定は公開済みの形: 「いつから」の問いが無く、公開予定を書かない', () => {
     const c = buildLpCopy({ offer: OFFER_OFF, trialNote: '7 日間無料' });
     const t = allText(c);
     expect(c.faq.some((f) => f.q === 'いつから使えますか？')).toBe(false);
-    expect(c.faq.find((f) => f.q.startsWith('パソコン')).a).toContain('いまは App Store のアプリで');
     expect(t).not.toMatch(/公開する予定|の予定）|メールアドレスを登録/);
   });
   it('公開前の形は「配信しています」と書かず、公開予定を先頭の問いで言う', () => {
@@ -102,7 +101,7 @@ describe('創業メンバー価格', () => {
 });
 
 describe('AI の送り先', () => {
-  const sendQ = (c) => c.faq.find((f) => f.q.startsWith('AI には')).a;
+  const sendQ = (c) => c.faq.find((f) => f.q.includes('学習')).a;
   it('Jev を入れたビルドだけ TypeSafe AI 社を書く', () => {
     expect(sendQ(buildLpCopy({ jev: true }))).toContain('TypeSafe AI');
     expect(sendQ(buildLpCopy({ jev: false }))).not.toContain('TypeSafe AI');
@@ -140,7 +139,7 @@ describe('「毎月 N 回」を割らない（2026-10-05 第 3 回）', () => {
     expect(t).toMatch(/毎\u2060月\u2060\u00a0/);
   });
   it('AI の送り先の答えは「を Anthropic 社」（空白あり）', () => {
-    expect(buildLpCopy({}).faq.find((f) => f.q.startsWith('AI には')).a).toContain('を Anthropic 社');
+    expect(buildLpCopy({}).faq.find((f) => f.q.includes('学習')).a).toContain('を Anthropic 社');
   });
 
 });
@@ -152,6 +151,15 @@ describe('値段と（税込）を割らない', () => {
     const text = JSON.stringify({ pricingNote: c.pricingNote, faq: c.faq });
     expect(text).not.toMatch(/¥[\d,]+[ \n]?（税込）/);
     expect(text).toMatch(/¥\u20609\u2060,/);
+  });
+});
+
+describe('FAQ は絞る・1 日あたりの目安（2026-10-11 オーナー「もっとシンプルに」「¥1,480 を安く感じさせる」）', () => {
+  it.each(combos.map((c) => [name(c), c]))('%s: 期間もの・公開前を除くと 6 問まで', (_, cfg) => {
+    expect(buildLpCopy(cfg).faq.filter((f) => f.ld).length).toBeLessThanOrEqual(6);
+  });
+  it('1 日あたりは ¥49（¥1,480 ÷ 30）', () => {
+    expect(buildLpCopy({}).PER_DAY_TEXT).toBe('¥49');
   });
 });
 

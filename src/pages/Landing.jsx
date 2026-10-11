@@ -10,7 +10,9 @@
 //   ② 受け身から対話へ（これまで／これから の 2 行＋実画面 4 枚の対話の流れ・LpFlow.jsx＋相談の例 3 つ）
 //   ③ 続けられて、成果が見える（柱 ②〜⑤ を 1 行ずつ: 明日の一歩・集中モード・写真で共有・分野）
 //   ④ メモがゼロでも、今日から（一言ずつ・取り込む・撮る・積読でも）＋入口
-//   ⑤ 料金 → ⑥ よくある質問 → ⑦ 最後の入口。利用者の声は実在の声が届くまで出さない（TESTIMONIALS が空なら節ごと出ない）
+//   ⑤ 料金（見出しは価値の言い換え「本 1 冊ほどの値段で、…」・1 日あたり約 ¥49・年額の月あたり・プランで手に入るもの 4 つ）
+//   → ⑥ よくある質問（5〜6 問）→ ⑦ 最後の入口。2026-10-11 オーナー「もっとシンプルに・1 画面 1 メッセージ」で文と注記を減らし、
+//   開発者の名前は LP に出さない（法律のページだけ）。利用者の声は実在の声が届くまで出さない（TESTIMONIALS が空なら節ごと出ない）
 //
 // 入口（2026-10-11）: 既定は公開済みの形＝「無料プランで始める」（下の固定の帯・ヘッダーのボタン・PC の QR も）。
 //   App Store の URL（VITE_APP_STORE_URL）があればアプリのページ（＋キャンペーン ct=・lpTrack の storeUrlFor）、
@@ -37,14 +39,14 @@ import { BUILD_LABEL } from '../lib/buildInfo';
 import { SUPPORT_EMAIL } from '../lib/contact';
 import { isAppStoreLive } from '../lib/appStore';
 import { AI_JEV_ON } from '../lib/aiProcessors';
-import { FREE_TOKENS, FREE_FIRST_MONTH_TOKENS, PAID_TOKENS, TRIAL_TOKENS, FREE_OCR_PER_MONTH } from '../lib/tokenAmounts';
+import { PAID_TOKENS, TRIAL_TOKENS, FREE_OCR_PER_MONTH } from '../lib/tokenAmounts';
 import { normalizeTrialLabel } from '../lib/trialLabel';
 import { readFoundingOffer, noBreak, FOUNDING_NAME } from '../lib/foundingOffer';
 import Shot from './LpShot';
 import LpFlow from './LpFlow';
 import LpWaitlist from './LpWaitlist';
 import Phrases from './LpPhrases';
-import { buildLpCopy, storeHrefOf, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, NO_INFO_REFUNDS, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE } from './lpCopy';
+import { buildLpCopy, storeHrefOf, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE } from './lpCopy';
 import qrcode from 'qrcode-generator';
 import { lpTrack, lpVariant, storeUrlFor, isWidePointer } from '../lib/lpTrack';
 import { inject as injectVercelAnalytics } from '@vercel/analytics';
@@ -87,7 +89,7 @@ const LAUNCH_LABEL = (import.meta.env.VITE_LAUNCH_LABEL || DEFAULT_LAUNCH_LABEL)
 // ヒーローと最後のボタンの横に出す（高さ 40 以上・周りに高さの 1/4 の余白・Apple のガイドライン）。
 const BADGE_SRC = (import.meta.env.VITE_APP_STORE_BADGE || '').trim();
 const COPY = buildLpCopy({ offer: OFFER, trialNote: TRIAL_NOTE, prelaunch: PRELAUNCH, jev: AI_JEV_ON, launchLabel: LAUNCH_LABEL });
-const { MONTHLY_TEXT, ANNUAL_TEXT, PER_MONTH_TEXT, SAVE, TRIAL_FIRST, TRIAL_CONSULTS, FREE_CONSULTS, FIRST_CONSULTS, PAID_CONSULTS, END } = COPY;
+const { MONTHLY_TEXT, ANNUAL_TEXT, PER_MONTH_TEXT, PER_DAY_TEXT, SAVE, TRIAL_FIRST, TRIAL_CONSULTS, FREE_CONSULTS, FIRST_CONSULTS, PAID_CONSULTS, END } = COPY;
 const LAUNCH_LINE = `${LAUNCH_LABEL}に、App Store で公開予定です。`;
 // ボタンの文言（2026-10-02 オーナー承認）: アプリは無料プラン（ずっと無料）で使える（押すと App Store）。
 // 狭い幅・最大の文字で割れても「無料プランで／始める」になるよう、2 つの塊に包む（.lp-btn は keep-all）。
@@ -117,28 +119,28 @@ const PILLARS = [
     id: 'action', shot: 'action',
     head: '成果につなげる',
     title: '対話の最後は、明日の一歩。',
-    body: '決めた一歩は、ボタン一つで行動リストへ。期限の日の朝に一度だけお知らせします。',
+    body: '決めた一歩は行動リストへ。期限の日の朝にお知らせします。',
     alt: '振り返りの行動の画面。明日・来週以降に分かれた行動の一覧と、それぞれの本の名前',
   },
   {
     id: 'focus', shot: 'focus',
     head: '習慣にする',
     title: '時間を決めて、集中して読む。',
-    body: '画面いっぱいの集中モードで読みます。読んだ時間は、本と分野ごとに記録に残ります。',
+    body: '集中モードで読んだ時間が、本と分野ごとに残ります。',
     alt: '集中モードの画面。暗い地に本の表紙と書名、「残り 23 分」の大きな数字と細い輪、下にメモ・おわる・一時停止のボタン',
   },
   {
     id: 'share', share: true,
     head: '発信して、続ける',
     title: '心に残った一文を、1 枚の画像に。',
-    body: '撮った写真に一文と書名を重ねて共有できます。写真は端末の中で描き、どこにも送りません。',
+    body: '写真に一文と書名を重ねて共有。写真はどこにも送りません。',
     alt: '共有の画像の見本。朝の机の写真に、心に残った一文と書名・ページ、Orime のロゴが重なっている',
   },
   {
     id: 'fields', shot: 'fields',
     head: '自分の読書を客観的に見る',
     title: 'どの分野が手薄か、見える。',
-    body: 'どの分野を、どれだけ読んできたかが分かります。手薄な分野は、過去のメモから AI 選書で次の一冊を相談できます（プラン）。',
+    body: '手薄な分野が分かり、次の一冊を AI 選書で相談できます（プラン）。',
     alt: '振り返りの記録の「分野」。仕事・自分と生活の分野ごとの本とメモの数と、「まだ本がない分野」のチップ',
   },
 ];
@@ -146,9 +148,9 @@ const PILLARS = [
 // ④ メモがゼロでも、今日から（0 日目の 4 つの道・SPEC §1-1d）
 const START_POINTS = [
   { head: '読んだ本に、一言ずつ', body: `覚えている一行を書くだけ。${noBreak('うろ覚え')}で大丈夫です。` },
-  { head: 'ほかのアプリから取り込む', body: 'ブクログ・読書メーター・Kindle の記録を、ファイルを選ぶだけで。読み取りは端末の中で行い、AI には送りません。' },
-  { head: '本のページを撮る', body: `線を引いたページを撮ると、文字に書き起こしてメモにします（無料プランは${noBreak(`毎月 ${FREE_OCR_PER_MONTH} 回`)}）。` },
-  { head: '積読から始める', body: '読む前に、本の紹介と目次から「この本で学べること」を AI がまとめます。無料プランでも使えます。' },
+  { head: 'ほかのアプリから取り込む', body: 'ブクログ・読書メーター・Kindle の記録を、ファイルを選ぶだけで。' },
+  { head: '本のページを撮る', body: '線を引いたページを撮ると、文字に書き起こします。' },
+  { head: '積読から始める', body: '読む前に「この本で学べること」が分かります。' },
 ];
 
 const setMeta = (name, content, attr = 'name') => {
@@ -466,9 +468,6 @@ export default function Landing() {
               </p>
               <div className="lp-cta-block" ref={heroCtaRef}>
                 <Entry loc="hero" wl={wl} qr badge launch />
-                <p className="lp-cta-sub lp-wbr">
-                  <Phrases>ブクログ・読書メーター・Kindle の記録も取り込めます。</Phrases>
-                </p>
                 <div className="lp-hero-links">
                   <a className="lp-textlink" href="#lp-flow" onClick={() => lpTrack('hero_secondary', {})}>
                     <span>15 秒で、対話の流れを見る</span><ChevronDown size="1.1em" aria-hidden="true" />
@@ -564,7 +563,7 @@ export default function Landing() {
                 </li>
               ))}
             </ul>
-            <p className="lp-shot-note lp-pillars-note">画面は見本です。共有の画像は、見本の写真でアプリが作ったものです。</p>
+            <p className="lp-shot-note lp-pillars-note">共有の画像は、見本の写真でアプリが作ったものです。</p>
             <p className="lp-trust">メモは、AI の学習に使われません。</p>
           </div>
         </section>
@@ -576,7 +575,6 @@ export default function Landing() {
               <h2 className="lp-h2" id="lp-start">
                 <span>メモがゼロでも、</span><span>今日から。</span>
               </h2>
-              <p className="lp-wbr"><Phrases>始め方は 4 つ。どの道も、終えたら最初の相談の文を用意しておきます。送るかどうかは、あなたが決めます。</Phrases></p>
             </div>
             <PointList items={START_POINTS} className="lp-points lp-trio lp-quad" />
             <div className="lp-cta-block">
@@ -606,10 +604,11 @@ export default function Landing() {
           <div className="lp-wrap">
             <div className="lp-narrow lp-sec-head">
               <h2 className="lp-h2" id="lp-pricing">
-                {/* 見出しに金額を置かない（月あたりの額を請求額より大きく見せない） */}
-                <span>まずは、</span><span>無料プランで。</span>
+                {/* 価値の言い換え（2026-10-11 オーナー「¥1,480 を安く感じさせる」）。比べる値段（通常・定価・他社）は書かない。
+                    見出しに金額を置かない（月あたりの額を請求額より大きく見せない） */}
+                <span>本 1 冊ほどの値段で、</span><span>読んだ本すべてが</span><span>相談相手に。</span>
               </h2>
-              <p className="lp-wbr"><Phrases>{`本とメモ・集中モード・記録は、ずっと無料です。本との対話も、無料プランで${noBreak(`毎月 ${FREE_CONSULTS}`)}${noBreak(`（はじめの月は ${FIRST_CONSULTS}）`)}まで AI が答えます。`}</Phrases></p>
+              <p className="lp-wbr"><Phrases>{`まずは無料プラン（ずっと無料）から。本とメモ・集中モード・記録は、ずっと無料です。`}</Phrases></p>
             </div>
 
             {/* 創業メンバー価格（期間中だけ・料金の中の帯 1 枚）。「先着」「通常価格」と書かない・差額を書かない */}
@@ -618,7 +617,6 @@ export default function Landing() {
                 <p className="lp-offer-title">{FOUNDING_NAME}<span className="lp-nb">（{OFFER.endLabel}（日本時間）まで）</span></p>
                 <p className="lp-wbr"><Phrases>{`${END}までにプランを始めた方は、月額・年額どちらでも創業メンバーです。特典は、開発者への直接の窓口と、次に作る機能への投票。年額プランは、1 年目が ${noBreak(`${OFFER.price}（税込）`)}です。`}</Phrases></p>
                 <p className="lp-wbr"><Phrases>{`年額の 1 年目の価格は App Store の初回特典なので、先に月額プランの ${noBreak('7 日間無料')}を使うと、年額の${FOUNDING_NAME}は使えなくなります。人数の上限はありません。`}</Phrases></p>
-                <p className="lp-wbr lp-offer-note"><Phrases>Orime は、阿部文哉がひとりで作っています。最初に使ってくださる方の声で、次の形を決めたいと思っています。</Phrases></p>
               </div>
             )}
 
@@ -629,18 +627,19 @@ export default function Landing() {
                 <p className="lp-plan-price">¥0<span>ずっと無料</span></p>
                 <ul className="lp-included" aria-label="無料プランに含まれるもの">
                   {/* li は flex（印と文を横に並べる）なので、文は 1 つの span に包む */}
-                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>本とメモは何件でも（行動・集中モード・読書の記録・写真で共有も）</span></li>
-                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>ブクログ・読書メーター・Kindle から取り込み</span></li>
-                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>AI の答えは<span className="lp-nb">毎月 {FREE_CONSULTS}</span><span className="lp-nb">（{FREE_TOKENS} トークン）。</span><span className="lp-nb">はじめの月は {FIRST_CONSULTS}</span><span className="lp-nb">（{FREE_FIRST_MONTH_TOKENS} トークン）</span></span></li>
-                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>使い切った月も、<strong>メモが答える相談</strong>（AI を使わずに、あなたのメモから関係する一節を本ごとに並べます）</span></li>
+                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>本とメモは何件でも（行動・集中モード・記録・写真で共有・取り込みも）</span></li>
+                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>AI の答えは<span className="lp-nb">毎月 {FREE_CONSULTS}</span><span className="lp-nb">（はじめの月は {FIRST_CONSULTS}）</span></span></li>
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>写真から書き起こし <span className="lp-nb">毎月 {FREE_OCR_PER_MONTH} 回</span></span></li>
                 </ul>
               </div>
               <div className="lp-plan">
                 <p className="lp-plan-name"><span>プラン{TRIAL_FIRST && !OFFER.active && <span className="lp-plan-trial">（{TRIAL_FIRST}）</span>}</span></p>
+                {/* プランで手に入るもの（具体的に 4 つ・数は lib/tokenAmounts.js のとおり） */}
                 <ul className="lp-included" aria-label="プランに含まれるもの">
-                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>AI の答えは<span className="lp-nb">毎月 {PAID_CONSULTS}</span><span className="lp-nb">（{PAID_TOKENS} トークン）。</span>足りない月は、有料で追加できます</span></li>
-                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>AI 選書・読書計画シート・メモの凝縮</span></li>
+                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span><span className="lp-nb">毎月 {PAID_TOKENS} トークン</span><span className="lp-nb">（AI の答え {PAID_CONSULTS}）</span></span></li>
+                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>本と対話する相談（1 冊の本の語り口でも）</span></li>
+                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>読書計画シート・AI 選書</span></li>
+                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>写真から書き起こし・メモの凝縮</span></li>
                   {TRIAL_NOTE && (
                     <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>無料期間の間は <span className="lp-nb">{TRIAL_TOKENS} トークン</span><span className="lp-nb">（AI の答え {TRIAL_CONSULTS}）</span></span></li>
                   )}
@@ -665,13 +664,13 @@ export default function Landing() {
                   <div className="lp-plan-row">
                     <p className="lp-plan-label">月額プラン</p>
                     <p className="lp-plan-price">{MONTHLY_TEXT}<span>/ 月（税込）</span></p>
-                    <p className="lp-plan-sub">{OFFER.active && TRIAL_FIRST ? `${TRIAL_FIRST}。` : '1 か月ずつ続けられます。'}</p>
+                    <p className="lp-plan-sub"><span className="lp-nb">1 日あたり約 {PER_DAY_TEXT}。</span>{OFFER.active && TRIAL_FIRST && <span className="lp-nb">{TRIAL_FIRST}。</span>}</p>
                   </div>
                 </div>
               </div>
             </div>
             <p className="lp-fine lp-wbr">
-              <Phrases>{`回数は目安です（${CONSULT_ANSWERS_NOTE}。1 回のトークンは、質問とメモの量で変わります）。使わなかったトークンは翌月に繰り越しません。関係するメモが見つからなかった相談は、トークンを使ったことにしません（${noBreak(`毎月 ${NO_INFO_REFUNDS} 回`)}まで）。無料プランに期間の決まりはありません。`}</Phrases>
+              <Phrases>{`回数は目安です（${CONSULT_ANSWERS_NOTE}）。使わなかったトークンは翌月に繰り越しません。`}</Phrases>
             </p>
             <div className="lp-cta-block">
               <Entry loc="pricing" wl={wl} />
@@ -716,9 +715,6 @@ export default function Landing() {
               <Entry loc="final" wl={wl} qr badge launch center />
               <p className="lp-cta-note lp-wbr">{COPY.priceLine.map((t) => <span key={t}><Phrases>{t}</Phrases></span>)}</p>
             </div>
-            <p className="lp-story lp-wbr">
-              <Phrases>Orime（オリメ）の名前は「折り目」から。大切なページの角を折るように、心が動いた一行に印をつけておけるアプリを目指しています。</Phrases>
-            </p>
           </div>
         </section>
       </main>
@@ -726,7 +722,6 @@ export default function Landing() {
       <footer className="lp-footer" data-build={BUILD_LABEL}>
         <div className="lp-wrap">
           <p className="lp-footer-brand">Orime</p>
-          <p className="lp-footer-op">運営：阿部文哉（個人で開発しています）</p>
           <nav className="lp-footer-links" aria-label="フッター">
             <a href="/legal/terms" onClick={footerLink('terms')}>利用規約</a>
             <a href="/legal/privacy" onClick={footerLink('privacy')}>プライバシーポリシー</a>
