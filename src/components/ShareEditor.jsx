@@ -42,7 +42,8 @@ const STYLE_FONT = {
   band: { fontFamily: 'var(--font-ui)', fontWeight: 600 },
 };
 
-// 選ぶためのチップ（DESIGN §5・共有のシートの「どの本？」と同じ中立の選択＝--fill の面＋--border の枠）。
+// 選ぶためのチップ（DESIGN §5＝--fill の面・文字 --text）。選択中は中立の輪（--text の 2 の枠）で見分ける
+//   （栗色は「完了」と文字ボタンだけ・2026-10-11 点検＝選んでいないチップが枠だけで薄く見えていた）。
 const styleChip = (on) => ({
   display: 'inline-flex',
   alignItems: 'center',
@@ -51,9 +52,10 @@ const styleChip = (on) => ({
   minHeight: 'var(--tap-min)',
   padding: '0 var(--space-3)',
   borderRadius: 'var(--radius)',
-  border: on ? '1px solid var(--border)' : '1px solid var(--separator)',
-  background: on ? 'var(--fill)' : 'transparent',
-  color: on ? 'var(--text)' : 'var(--text-2)',
+  border: on ? '1px solid var(--text)' : '1px solid transparent',
+  boxShadow: on ? 'inset 0 0 0 1px var(--text)' : 'none',
+  background: 'var(--fill)',
+  color: 'var(--text)',
   fontSize: 'var(--text-sub)',
   cursor: 'pointer',
   whiteSpace: 'nowrap',

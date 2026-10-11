@@ -701,10 +701,11 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
       {summarySection && !loading && (
         <details style={{ background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: '0 var(--space-4)' }}>
           <summary style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', minHeight: 'var(--btn-h)', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', cursor: 'pointer', listStyle: 'none' }}>
-            この本のまとめ
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-              <span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)' }}>{(summaryText || '').trim() ? '書いてあります' : 'まだありません'}</span>
-              <ChevronDown size={20} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+            {/* 題は割らない・右の一言は残りの幅で … に切る（文字最大で「この本のま／とめ」と割れていた・2026-10-11 点検）。 */}
+            <span style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>この本のまとめ</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 'var(--space-2)', minWidth: 0, flex: '1 1 auto' }}>
+              <span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{(summaryText || '').trim() ? '書いてあります' : 'まだありません'}</span>
+              <ChevronDown size="1.2em" aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
             </span>
           </summary>
           <div style={{ paddingBottom: 'var(--space-4)' }}>{summarySection}</div>

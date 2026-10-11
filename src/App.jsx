@@ -85,8 +85,6 @@ function ShelfChip({ active, onClick, children, ariaLabel }) {
 const sheetLabel = { fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-2)', margin: '0 0 var(--space-1)' };
 const sheetChips = { display: 'flex', flexWrap: 'wrap', columnGap: 'var(--space-2)', marginBottom: 'var(--space-4)' };
 const sheetSubtitle = { fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: '0 0 var(--space-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
-// 横に送れるチップの行の右端をふわっと透過させる（まだ続きがあると分かる）マスク。
-const SCROLL_FADE_MASK = 'linear-gradient(90deg, black 90%, transparent 100%)';
 const sheetOption = (active) => ({
   display: 'flex', alignItems: 'center', gap: 'var(--space-3)', width: '100%', minHeight: 'var(--btn-h)',
   padding: 'var(--space-2) var(--space-3)', borderRadius: 'var(--radius)',
@@ -182,7 +180,7 @@ import { todayLocal, tomorrowLocal, fmtDateJa, isScheduledLater } from './lib/da
 import { completedActionMessage } from './lib/actionMessages';
 // 🧩 #9 App.jsx 分割: 本フォーム共通プリミティブと Phase エディタは別ファイルへ抽出。
 import { Stars, inp, btnS } from './components/formPrimitives';
-import { btnGhost, btnGhostOff, btnText, btnPrimary, btnPrimaryOff, btnLink, btnRow, groupTitle } from './styles/ui';
+import { btnGhost, btnGhostOff, btnText, btnPrimary, btnPrimaryOff, btnLink, btnRow, groupTitle, SCROLL_FADE_MASK } from './styles/ui';
 import { WantPhase, BeforePhase, ReadingPhase, DonePhase, EditSaveBar } from './components/lazyParts';
 import { getAmazonLink } from './lib/amazonLink';
 import BookStoreLinks from './components/BookStoreLinks';
@@ -4798,10 +4796,11 @@ function AuthedApp() {
           {isMemoPhase && hasPlanFold && (
             <details style={{ ...detailsStyle, marginTop: planFoldTop }}>
               <summary style={summaryStyle}>
-                読書計画
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', minWidth: 0 }}>
+                {/* 題は割らない（文字最大で「読書計／画」と割れていた・2026-10-11 点検）。右の一覧は残りの幅で … に切る。 */}
+                <span style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>読書計画</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 'var(--space-2)', minWidth: 0, flex: '1 1 auto' }}>
                   {/* 「読む前に書いたこと」を上に出している間は、右の中身の一覧を出さない（同じ言葉を 2 か所で名指ししない・2026-10-11 ui-critic） */}
-                  {beforeItemsNow.length === 0 && <span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {beforeItemsNow.length === 0 && <span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {[
                       ...planItems.map((p) => (p.label === 'この本から得たいこと' ? '得たいこと' : p.label === '現在の課題' ? '課題' : p.label)),
                       ...(current.aiStrategy ? ['シート'] : []),
@@ -6177,6 +6176,8 @@ function AuthedApp() {
                       </ShelfChip>
                     );
                   })}
+                  {/* 右の空き 16（間 8＋この 8・送り切ったときに最後のチップを端に付けない＝共有のシートの「どの本？」と同じ）。 */}
+                  <span aria-hidden="true" style={{ flex: '0 0 var(--space-2)' }} />
                 </div>
               )}
               {/* 🗂 フォルダのチップの行（フォルダが 1 つ以上あるとき・2026-10-11）: 状態のチップの行（最頻操作）の下。
@@ -6214,6 +6215,7 @@ function AuthedApp() {
                         </ShelfChip>
                       );
                     })}
+                    <span aria-hidden="true" style={{ flex: '0 0 var(--space-2)' }} />
                   </div>
                 </div>
               )}

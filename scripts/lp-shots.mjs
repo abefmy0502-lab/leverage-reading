@@ -123,12 +123,12 @@ const SHOTS = {
     await p.waitForTimeout(400);
     await hideDemoNote(p);
   },
-  // 4. やることを 1 つ決める（「会議の前」と答えて「行動を決める」）
+  // 4. やることを 1 つ決める（「会議の前」と答えて「ここで答えと行動を」）
   'flow-action': async (p) => {
     await ask(p);
     await p.locator('[aria-label="続けて聞く"] button >> nth=0').click();
-    await p.locator('[aria-label="続けて聞く"] button:has-text("行動を決める")').waitFor({ timeout: 15000 });
-    await p.locator('[aria-label="続けて聞く"] button:has-text("行動を決める")').click();
+    await p.locator('[aria-label="続けて聞く"] button:has-text("ここで答えと行動を")').waitFor({ timeout: 15000 });
+    await p.locator('[aria-label="続けて聞く"] button:has-text("ここで答えと行動を")').click();
     await p.locator('[aria-label="相談への答え"]:not([aria-busy]) button:has-text("行動に追加")').waitFor({ timeout: 15000 });
     await p.waitForTimeout(800);
     await hideDemoNote(p);

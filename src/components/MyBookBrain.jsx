@@ -19,7 +19,7 @@ import { setConsultBackGuard } from '../lib/consultBack';
 import { toMessage, toSaveMessage, OFFLINE_SAVE_MESSAGE } from '../lib/errors';
 import { streamMyBookBrain, prewarmKnowledge, invalidateKnowledgeCache, EVIDENCE_PREFIX } from '../lib/ai';
 import { ensureAiConsent } from '../lib/aiConsent';
-import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnText as uiBtnText, btnLink as uiBtnLink, btnLinkQuiet as uiBtnLinkQuiet, groupTitle, fieldNote, input as uiInput } from '../styles/ui';
+import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnText as uiBtnText, btnLink as uiBtnLink, btnLinkQuiet as uiBtnLinkQuiet, groupTitle, fieldNote, input as uiInput, scrollFade } from '../styles/ui';
 import { track, EVENTS } from '../lib/analytics';
 import { LIMITS } from '../lib/limits';
 import { answerActionStatus, rememberAnswerActionAdded } from '../lib/consultActionAdded';
@@ -142,7 +142,8 @@ const followupChip = { flexShrink: 0, minHeight: 44, padding: 'var(--space-2) va
 const decideChip = { ...followupChip, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' };
 // チップのまとまり（上に区切り線・上 8）と、1 行で横に送る行（左右 16・間 8・2026-10-10）。
 const followupGroup = { flexShrink: 0, paddingTop: 'var(--space-2)', borderTop: '1px solid var(--separator)' };
-const followupScroll = { display: 'flex', alignItems: 'center', gap: 'var(--space-2)', padding: '0 var(--space-4)', overflowX: 'auto', overscrollBehaviorX: 'contain', WebkitOverflowScrolling: 'touch' };
+// 右の空き 16 は行の最後の幅 8 の空き（横に送る箱では右の内側余白が効かない）＋右端のフェード（2026-10-11 点検）。
+const followupScroll = { display: 'flex', alignItems: 'center', gap: 'var(--space-2)', padding: '0 0 0 var(--space-4)', overflowX: 'auto', overscrollBehaviorX: 'contain', WebkitOverflowScrolling: 'touch', ...scrollFade };
 // 選んだ相談例（初日の下書き・DESIGN §5 の操作のチップの選択中＝--accent-soft の面＋--accent の文字 600）。
 const chipPicked = { background: 'var(--accent-soft)', color: 'var(--accent)', fontWeight: 600 };
 const chipStyle = { display: 'block', width: '100%', minHeight: 44, padding: 'var(--space-3)', textAlign: 'left', wordBreak: 'keep-all', overflowWrap: 'anywhere', background: 'var(--fill)', border: 'none', borderRadius: 'var(--radius)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5 };

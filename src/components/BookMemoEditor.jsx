@@ -66,6 +66,7 @@ const backBtn = {
   fontWeight: 400,
   fontFamily: 'inherit',
   flexShrink: 0,
+  whiteSpace: 'nowrap',
 };
 
 const body = {
@@ -176,6 +177,10 @@ export default function BookMemoEditor({
   const requestCloseRef = useRef(null);
   useBackLayer(true, () => requestCloseRef.current?.(), { overBlock: true });
   const isEdit = Boolean(initial?.id);
+  // 文字の大きさの設定が大きいとき（ルートの文字 22px 以上・ShareSheet / ImportSheet と同じ目安）。
+  const [largeText] = useState(() => {
+    try { return parseFloat(getComputedStyle(document.documentElement).fontSize) >= 22; } catch { return false; }
+  });
   const [pageNumber, setPageNumber] = useState(
     initial?.pageNumber != null ? String(initial.pageNumber) : (defaultPageNumber !== '' ? String(defaultPageNumber) : '')
   );
@@ -496,7 +501,7 @@ export default function BookMemoEditor({
   // られて、下のタブバーと「メモを書く」ボタンが保存ボタンの上に重なっていた。
   return createPortal(
     <div ref={(el) => { overlayRef.current = el; trapRef.current = el; }} style={overlay} role="dialog" aria-modal="true" aria-label={isEdit ? 'メモを編集' : 'メモを書く'}>
-      <div style={headerBar}>
+      <div style={largeText ? { ...headerBar, padding: 'var(--space-2) var(--space-4)' } : headerBar}>
         <button
           type="button"
           onClick={() => { requestClose(); }}
@@ -522,7 +527,7 @@ export default function BookMemoEditor({
               minWidth: 0,
             }}
           >
-            <BookOpen size={14} aria-hidden="true" style={{ flexShrink: 0, color: 'var(--text-2)' }} />
+            <BookOpen size="1em" aria-hidden="true" style={{ flexShrink: 0, color: 'var(--text-2)' }} />
             <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{bookTitle || '本'}</span>
           </p>
         </div>
@@ -710,7 +715,10 @@ export default function BookMemoEditor({
         {isEdit && editLinks.length > 0 && <MemoLinks links={editLinks} onOpen={openLinked} />}
       </div>
 
-      <div style={footer}>
+      {/* 文字が大きいときは 2 つのボタンを縦に積む（決める「保存」を上・確かめるダイアログと同じきまり＝
+          横に並べると「保存して／次へ」と割れる・2026-10-11 点検）。横に並べたときのボタンの中は文字最大で 1 行に 4〜5 字ほど
+          なので、ここでは 6 字の「保存して次へ」も積む。 */}
+      <div style={largeText && !isEdit ? { ...footer, flexDirection: 'column-reverse', gap: 'var(--space-2)' } : footer}>
         {!isEdit && (
           <button
             type="button"

@@ -181,6 +181,20 @@ export function BookAboutFoldSkeleton({ style, compact = false }) {
   );
 }
 
+// 畳んだ題の行: 題「この本について」は割らない（nowrap・縮めない）。右の「紹介・目次」は残りの幅に収め、
+//   入らなければ … で切る（文字が最大のときに題が「この本に／ついて」と割れていた・2026-10-11 点検）。
+function FoldSummaryInner({ parts }) {
+  return (
+    <>
+      <span style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>この本について</span>
+      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 'var(--space-2)', minWidth: 0, flex: '1 1 auto' }}>
+        <span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{parts}</span>
+        <ChevronDown size="1.2em" aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+      </span>
+    </>
+  );
+}
+
 // briefSlot: 「この本で学べること」（BookBrief.jsx・2026-10-08）。紹介文・添え書きの下、目次の上に置く。
 //   briefRow: briefSlot が畳む行（この本で学べることを作ってある）＝カードの下の余白は行の側が持つ。
 export default function BookAbout({ info, loading = false, variant = 'card', style, briefSlot = null, briefRow = false }) {
@@ -199,11 +213,7 @@ export default function BookAbout({ info, loading = false, variant = 'card', sty
       <section aria-label="この本について" style={{ ...foldStyle, ...style }}>
         <details>
           <summary style={{ ...foldSummary, fontSize: 'var(--text-sub)' }}>
-            この本について
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', minWidth: 0 }}>
-              <span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)' }}>{parts}</span>
-              <ChevronDown size="1.2em" aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
-            </span>
+            <FoldSummaryInner parts={parts} />
           </summary>
           <div style={{ paddingBottom: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
             {info.description && (
@@ -230,11 +240,7 @@ export default function BookAbout({ info, loading = false, variant = 'card', sty
     return (
       <details style={{ ...foldStyle, ...style }}>
         <summary style={foldSummary}>
-          この本について
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', minWidth: 0 }}>
-            <span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)' }}>{parts}</span>
-            <ChevronDown size="1.2em" aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
-          </span>
+          <FoldSummaryInner parts={parts} />
         </summary>
         <div style={{ paddingBottom: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
           {info.description && (

@@ -23,7 +23,7 @@ export default function TokensOutCard({ plan, trialEndLabel = '', cancelLine = '
   return (
     <section aria-label="トークンは、ここまで" role="status" style={style ? { ...cardStyle, ...style } : cardStyle}>
       <p style={titleStyle}>
-        {trial ? '無料期間のトークンは、ここまでです' : '今月のトークンは、ここまでです'}
+        {withPhraseBreaks(trial ? '無料期間のトークンは、ここまでです' : '今月のトークンは、ここまでです')}
       </p>
       {!trial ? (
         <p style={subStyle}>

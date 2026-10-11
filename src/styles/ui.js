@@ -197,3 +197,9 @@ export const input = {
   fontFamily: 'inherit',
   boxSizing: 'border-box',
 };
+
+// 横に送れるチップの行の右端をふわっと透過させる（まだ続きがあると分かる）マスク。
+//   行の最後に幅 8 の空き（間 8 と合わせて右 16）を置いて、送り切ったときに最後のチップを端に付けない
+//   （横に送る箱では右の内側余白が効かない・共有のシートの「どの本？」と同じ・2026-10-11 点検）。
+export const SCROLL_FADE_MASK = 'linear-gradient(90deg, black 90%, transparent 100%)';
+export const scrollFade = { WebkitMaskImage: SCROLL_FADE_MASK, maskImage: SCROLL_FADE_MASK };

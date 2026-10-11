@@ -210,9 +210,10 @@ export default function TokenSheet({ plan, onClose, onPurchased }) {
               </span>
               <span style={{ flex: 1, minWidth: 0 }}>
                 {/* 量は脇（15/400/--text-2）・価格が主（17/600/--text）。選べない行は --text-3。 */}
-                <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontSize: 'var(--text-sub)', fontWeight: 400, color: off ? 'var(--text-3)' : 'var(--text-2)', lineHeight: 1.5 }}>
+                {/* 「お得」は割らない（nowrap）。幅が足りなければ行ごと 2 行目へ回す（flexWrap・2026-10-11 点検＝文字最大で「お／得」）。 */}
+                <span style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 'var(--space-2)', fontSize: 'var(--text-sub)', fontWeight: 400, color: off ? 'var(--text-3)' : 'var(--text-2)', lineHeight: 1.5 }}>
                   <span style={{ whiteSpace: 'nowrap' }}>{p.tokens.toLocaleString()} トークン</span>
-                  {p.tag && <span style={{ fontSize: 'var(--text-caption)', fontWeight: 600, color: off ? 'var(--text-3)' : 'var(--text-2)' }}>{p.tag}</span>}
+                  {p.tag && <span style={{ whiteSpace: 'nowrap', fontSize: 'var(--text-caption)', fontWeight: 600, color: off ? 'var(--text-3)' : 'var(--text-2)' }}>{p.tag}</span>}
                 </span>
                 <span style={{ ...meta, color: off ? 'var(--text-3)' : meta.color }}>AI の答え {p.consults}</span>
               </span>
