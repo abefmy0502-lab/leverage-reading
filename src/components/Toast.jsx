@@ -88,6 +88,9 @@ const containerStyle = {
   pointerEvents: 'none',
 };
 
+// 読み上げの入れ物（エラー用・いつもの用）。並べ方は外の入れ物と同じ。
+const regionStyle = { display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' };
+
 // 文字を大きくして文とボタンが 1 行に収まらないときは、ボタン（と ×）を文の下の行へ回す（flex-wrap）。
 // 以前は文の欄が縮みきって 1 字ずつ縦に割れていた（2026-10-08 ui-critic）。
 const toastStyleBase = {
@@ -166,7 +169,7 @@ function tightenPunct(nodes) {
 const stripLeadingEmoji = (m) => String(m || '').replace(/^[←-⯿\u{1F000}-\u{1FAFF}️‍\s]+/u, '');
 
 // 下部バー（error / undo / info）。success はここには来ない。
-function ToastItem({ toast, onDismiss, onAction }) {
+function ToastItem({ toast, onDismiss, onAction, onHold }) {
   // 完了など「やり終えた」知らせの取り消し（success）は ✓（「行動を完了しました」に ↶ が付いて、戻したように見えていた・2026-09-30）。
   const p = (toast.type === 'undo' && toast.destructive ? palette.undoDelete
     : toast.type === 'undo' && toast.success ? palette.done
@@ -176,6 +179,12 @@ function ToastItem({ toast, onDismiss, onAction }) {
     <div
       className="toast-enter"
       style={{ ...toastStyleBase, background: p.bg, color: p.fg }}
+      // 指・マウスが乗っている間と、中のボタンにフォーカスがある間は消える時間を止める（2026-10-11・WCAG 2.2.1）。
+      onPointerEnter={() => onHold(toast.id, 'pointer', true)}
+      onPointerLeave={() => onHold(toast.id, 'pointer', false)}
+      onPointerCancel={() => onHold(toast.id, 'pointer', false)}
+      onFocus={() => onHold(toast.id, 'focus', true)}
+      onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) onHold(toast.id, 'focus', false); }}
       // 読み上げは外側の入れ物（いつもある live region）に任せる。ここにも role を付けると
       // 入れ子になって 2 回読まれていた（2026-09-29）。
     >
@@ -288,10 +297,11 @@ export function ToastProvider({ children }) {
     toastsRef.current = toasts;
   }, [toasts]);
 
+  // timersRef: id → { t: タイマー, remaining: 残りの ms, startedAt, holds: 止めている理由の集まり }
   const clearTimer = useCallback((id) => {
-    const t = timersRef.current.get(id);
-    if (t) {
-      clearTimeout(t);
+    const rec = timersRef.current.get(id);
+    if (rec) {
+      clearTimeout(rec.t);
       timersRef.current.delete(id);
     }
   }, []);
@@ -352,12 +362,32 @@ export function ToastProvider({ children }) {
         const t = setTimeout(() => {
           dismiss(id);
         }, duration);
-        timersRef.current.set(id, t);
+        timersRef.current.set(id, { t, remaining: duration, startedAt: Date.now(), holds: new Set() });
       }
       return id;
     },
     [dismiss]
   );
+
+  // 消える時間を止める・続ける（下のバーに指・マウスが乗っている／フォーカスがある間・2026-10-11）。
+  // 止めた時点の残りを覚え、離れたら残りの分だけ待つ（ゼロからやり直さない）。
+  const hold = useCallback((id, reason, on) => {
+    const rec = timersRef.current.get(id);
+    if (!rec) return;
+    const wasHeld = rec.holds.size > 0;
+    if (on) rec.holds.add(reason); else rec.holds.delete(reason);
+    const isHeld = rec.holds.size > 0;
+    if (!wasHeld && isHeld) {
+      clearTimeout(rec.t);
+      rec.t = null;
+      rec.remaining = Math.max(0, rec.remaining - (Date.now() - rec.startedAt));
+    } else if (wasHeld && !isHeld) {
+      // 離れてすぐ消えないよう、少なくとも 1.5 秒は残す。
+      rec.remaining = Math.max(rec.remaining, 1500);
+      rec.startedAt = Date.now();
+      rec.t = setTimeout(() => dismiss(id), rec.remaining);
+    }
+  }, [dismiss]);
 
   const handleAction = useCallback(
     (toast) => {
@@ -422,15 +452,17 @@ export function ToastProvider({ children }) {
           <ToastHud key={toast.id} toast={toast} />
         ))}
       </div>
-      {/* 下部バー（エラー / 削除取消 / 情報）。エラーがある時はスクリーンリーダーに
-          割り込み通知（assertive/alert）、それ以外は穏やかに（polite/status）。 */}
+      {/* 下部バー（エラー / 削除取消 / 情報）。読み上げの入れ物はエラー用（alert・assertive）と
+          いつもの用（status・polite）に分けて、いつもある（中身が入ったときに読まれる）。
+          以前は 1 つの入れ物の role を出し分けていたため、エラーが出た瞬間に入れ物ごと変わり読まれないことがあった（2026-10-11）。 */}
       {(() => {
-        const barHasError = barToasts.some((t) => t.type === 'error');
+        const errorToasts = barToasts.filter((t) => t.type === 'error');
+        const otherToasts = barToasts.filter((t) => t.type !== 'error');
+        const item = (toast) => <ToastItem key={toast.id} toast={toast} onDismiss={dismiss} onAction={handleAction} onHold={hold} />;
         return (
-          <div style={{ ...containerStyle, transform: `translate(-50%, calc(-1 * (${barPos})))`, opacity: barHold ? 0 : 1, transition: barAnim ? 'transform var(--duration-fast) var(--ease-out)' : 'none' }} aria-live={barHasError ? 'assertive' : 'polite'} role={barHasError ? 'alert' : 'status'}>
-            {barToasts.map((toast) => (
-              <ToastItem key={toast.id} toast={toast} onDismiss={dismiss} onAction={handleAction} />
-            ))}
+          <div style={{ ...containerStyle, gap: errorToasts.length && otherToasts.length ? 'var(--space-2)' : 0, transform: `translate(-50%, calc(-1 * (${barPos})))`, opacity: barHold ? 0 : 1, transition: barAnim ? 'transform var(--duration-fast) var(--ease-out)' : 'none' }}>
+            <div role="status" aria-live="polite" style={regionStyle}>{otherToasts.map(item)}</div>
+            <div role="alert" aria-live="assertive" style={regionStyle}>{errorToasts.map(item)}</div>
           </div>
         );
       })()}
