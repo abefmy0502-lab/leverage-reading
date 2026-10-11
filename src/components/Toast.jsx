@@ -157,8 +157,21 @@ function tightenPunct(nodes) {
     Array.from(node).forEach((ch, ci) => {
       const kind = PUNCT_CLOSE.includes(ch) ? 'close' : (first && ci === 0 && PUNCT_OPEN.includes(ch) ? 'open' : null);
       if (!kind) { buf += ch; return; }
+      const mark = <span key={`p${ni}-${ci}`} style={tightStyle[kind]}>{ch}</span>;
+      if (kind === 'open') { if (buf) out.push(buf); buf = ''; out.push(mark); return; }
+      // 閉じの約物は前の 1 字とつないで、行の頭に来させない（「開始できませんでした／。少し…」・2026-10-11 ui-critic）。
+      //   文節の切れ目（<wbr>）が約物の直前に入っていたら外す。
       if (buf) { out.push(buf); buf = ''; }
-      out.push(<span key={`p${ni}-${ci}`} style={tightStyle[kind]}>{ch}</span>);
+      while (out.length && out[out.length - 1]?.type === 'wbr') out.pop();
+      const last = out[out.length - 1];
+      if (typeof last === 'string' && last) {
+        const chars = Array.from(last);
+        const tail = chars.pop();
+        out[out.length - 1] = chars.join('');
+        out.push(<span key={`g${ni}-${ci}`} style={{ whiteSpace: 'nowrap' }}>{tail}{mark}</span>);
+      } else {
+        out.push(mark);
+      }
     });
     if (buf) out.push(buf);
     if (node) first = false;
