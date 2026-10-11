@@ -46,7 +46,7 @@ import Shot from './LpShot';
 import LpFlow from './LpFlow';
 import LpWaitlist from './LpWaitlist';
 import Phrases from './LpPhrases';
-import { buildLpCopy, storeHrefOf, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE } from './lpCopy';
+import { buildLpCopy, storeHrefOf, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, NO_INFO_REFUNDS, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE } from './lpCopy';
 import qrcode from 'qrcode-generator';
 import { lpTrack, lpVariant, storeUrlFor, isWidePointer } from '../lib/lpTrack';
 import { inject as injectVercelAnalytics } from '@vercel/analytics';
@@ -143,6 +143,15 @@ const PILLARS = [
     body: '手薄な分野が分かり、次の一冊を AI 選書で相談できます（プラン）。',
     alt: '振り返りの記録の「分野」。仕事・自分と生活の分野ごとの本とメモの数と、「まだ本がない分野」のチップ',
   },
+];
+
+// ③ の下の安心の 4 つ。学習＝各社の API 規約／同意＝ensureAiConsent（はじめて AI を使う操作のとき）／
+// 書き出し＝設定の CSV（lib/exportData.js）・退会のお申し込みで消去／写真で共有＝端末の中で描く（サーバーに送らない）。
+const TRUST_POINTS = [
+  'メモは、AI の学習に使われません',
+  'AI に送るのは AI の機能を使うときだけ。はじめに同意を聞きます',
+  'いつでも CSV で書き出せて、退会でデータを消去します',
+  '共有の写真は、サーバーに送りません',
 ];
 
 // ④ メモがゼロでも、今日から（0 日目の 4 つの道・SPEC §1-1d）
@@ -459,12 +468,12 @@ export default function Landing() {
         <section className="lp-hero">
           <div className="lp-wrap lp-hero-grid">
             <div className="lp-hero-text">
-              <p className="lp-eyebrow"><span>読書を、</span><span>受け身から対話へ。</span></p>
+              <p className="lp-eyebrow"><span>AI 読書メモアプリ</span></p>
               <h1 className="lp-h1">
                 <span>読んだ本と、</span><span>対話しよう。</span>
               </h1>
               <p className="lp-lead lp-wbr">
-                <Phrases>迷ったことを聞くと、心に響いた一行から、AI が本の語り口で答えます。要約ではなく、あなたのメモから。本とページを添えて、明日の一歩まで。</Phrases>
+                <Phrases>迷ったことを聞くと、AI が本の語り口で、あなたのメモから答えます。本とページを添えて、明日の一歩まで。</Phrases>
               </p>
               <div className="lp-cta-block" ref={heroCtaRef}>
                 <Entry loc="hero" wl={wl} qr badge launch />
@@ -536,6 +545,8 @@ export default function Landing() {
               <h2 className="lp-h2" id="lp-pillars">
                 <span>続けられて、</span><span>成果が見える。</span>
               </h2>
+              {/* 一番の価値（CLAUDE.md）を 1 行で */}
+              <p className="lp-wbr"><Phrases>読むほど、あなただけの相談相手が育つ。</Phrases></p>
             </div>
             <ul className="lp-pillars">
               {PILLARS.map((x) => (
@@ -564,7 +575,12 @@ export default function Landing() {
               ))}
             </ul>
             <p className="lp-shot-note lp-pillars-note">共有の画像は、見本の写真でアプリが作ったものです。</p>
-            <p className="lp-trust">メモは、AI の学習に使われません。</p>
+            {/* 安心の 4 つ（どれも実装と規約で確かめた事実だけ・2026-10-11） */}
+            <ul className="lp-trust" aria-label="データの扱い">
+              {TRUST_POINTS.map((t) => (
+                <li key={t}><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span className="lp-wbr"><Phrases>{t}</Phrases></span></li>
+              ))}
+            </ul>
           </div>
         </section>
 
@@ -655,7 +671,7 @@ export default function Landing() {
                     ) : (
                       <>
                         <p className="lp-plan-price">{ANNUAL_TEXT}<span>/ 年（税込）</span></p>
-                        <p className="lp-plan-sub"><span className="lp-nb">1 日あたり約 {ANNUAL_PER_DAY_TEXT}。</span>{SAVE && <span className="lp-nb">{SAVE}。</span>}</p>
+                        <p className="lp-plan-sub"><span className="lp-nb">1 年分を前払い。</span><span className="lp-nb">1 日あたり約 {ANNUAL_PER_DAY_TEXT}。</span>{SAVE && <span className="lp-nb">{SAVE}。</span>}</p>
                       </>
                     )}
                   </div>
@@ -668,7 +684,7 @@ export default function Landing() {
               </div>
             </div>
             <p className="lp-fine lp-wbr">
-              <Phrases>{`回数は目安です（${CONSULT_ANSWERS_NOTE}）。使わなかったトークンは翌月に繰り越しません。`}</Phrases>
+              <Phrases>{`回数は目安です（${CONSULT_ANSWERS_NOTE}）。使わなかったトークンは翌月に繰り越しません。関係するメモが見つからなかった相談は、トークンを戻します（${noBreak(`毎月 ${NO_INFO_REFUNDS} 回`)}まで）。`}</Phrases>
             </p>
             <div className="lp-cta-block">
               <Entry loc="pricing" wl={wl} />

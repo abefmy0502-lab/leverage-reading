@@ -43,6 +43,7 @@ describe('公開後（既定）と公開前（VITE_LP_PRELAUNCH=on）', () => {
     const t = allText(c);
     expect(c.faq.some((f) => f.q === 'いつから使えますか？')).toBe(false);
     expect(t).not.toMatch(/公開する予定|の予定）|メールアドレスを登録/);
+    expect(c.faq.find((f) => f.q.startsWith('Android')).a).toContain('いまは iPhone の App Store のアプリで');
   });
   it('公開前の形は「配信しています」と書かず、公開予定を先頭の問いで言う', () => {
     const c = buildLpCopy({ offer: OFFER_OFF, trialNote: '7 日間無料', prelaunch: true });
@@ -155,8 +156,8 @@ describe('値段と（税込）を割らない', () => {
 });
 
 describe('FAQ は絞る・1 日あたりの目安（2026-10-11 オーナー「もっとシンプルに」「¥1,480 を安く感じさせる」）', () => {
-  it.each(combos.map((c) => [name(c), c]))('%s: 期間もの・公開前を除くと 6 問まで', (_, cfg) => {
-    expect(buildLpCopy(cfg).faq.filter((f) => f.ld).length).toBeLessThanOrEqual(6);
+  it.each(combos.map((c) => [name(c), c]))('%s: 期間もの・公開前を除くと 7 問まで', (_, cfg) => {
+    expect(buildLpCopy(cfg).faq.filter((f) => f.ld).length).toBeLessThanOrEqual(7);
   });
   it('1 日あたりは ¥49（¥1,480 ÷ 30）', () => {
     expect(buildLpCopy({}).PER_DAY_TEXT).toBe('¥49');
