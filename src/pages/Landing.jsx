@@ -564,7 +564,7 @@ export default function Landing() {
                 </li>
               ))}
             </ul>
-            <p className="lp-shot-note lp-pillars-note">画面は見本です。共有の画像は、見本の写真でアプリが作ったものです</p>
+            <p className="lp-shot-note lp-pillars-note">画面は見本です。共有の画像は、見本の写真でアプリが作ったものです。</p>
             <p className="lp-trust">メモは、AI の学習に使われません。</p>
           </div>
         </section>

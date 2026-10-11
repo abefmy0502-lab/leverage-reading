@@ -12,6 +12,7 @@
 // - 写真は「いまの枚と次の枚」まで読む（見えない 3〜4 枚目がヒーローの写真と回線を取り合わないように・2026-10-05）。
 // - 記録: 画面に入った（flow_view・1 回）／手順を押した（flow_step）／もう一度見た（flow_replay）。
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { SAMPLE_NOTE } from './lpCopy';
 import Shot from './LpShot';
 
 export const FLOW_STEPS = [
@@ -162,7 +163,7 @@ export default function LpFlow({ onEvent = () => {} }) {
           ))}
         </div>
         {/* 注記は写真のすぐ下（広い画面でも写真の列にそろう） */}
-        <p className="lp-shot-note">画面は見本です。実際の答えは、あなたのメモによって変わります</p>
+        <p className="lp-shot-note">{SAMPLE_NOTE}</p>
       </div>
     </div>
   );
