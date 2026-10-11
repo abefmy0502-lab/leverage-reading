@@ -156,15 +156,20 @@ export default async function handler(req, res) {
 
   const stripe = getStripe();
   if (!stripe) {
-    return res.status(500).json({ error: 'STRIPE_SECRET_KEY not configured' });
+    // 環境変数の名前は返さない（ログにだけ・2026-10-11）。
+    console.error('[stripe-webhook] STRIPE_SECRET_KEY not configured');
+    return res.status(500).json({ error: 'server_not_configured' });
   }
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!webhookSecret) {
-    return res.status(500).json({ error: 'STRIPE_WEBHOOK_SECRET not configured' });
+    // 環境変数の名前は返さない（ログにだけ・2026-10-11）。
+    console.error('[stripe-webhook] STRIPE_WEBHOOK_SECRET not configured');
+    return res.status(500).json({ error: 'server_not_configured' });
   }
   const supabase = getServiceSupabase();
   if (!supabase) {
-    return res.status(500).json({ error: 'Supabase service role not configured' });
+    console.error('[stripe-webhook] Supabase service role not configured');
+    return res.status(500).json({ error: 'server_not_configured' });
   }
 
   // 1) 署名検証（raw body 必須）

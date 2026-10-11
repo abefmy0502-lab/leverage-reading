@@ -30,6 +30,10 @@ describe('checkCoverImageUrl', () => {
       'https://evil.com/?u=https://books.google.com',
       'https://books.google.com.evil.com/a.jpg',
       'https://googleusercontent.com.evil.com/a.jpg',
+      // Google のほかのファイル置き場（誰でも置ける）は表紙の配信元ではない（2026-10-11 に絞った）
+      'https://doc-0s-abc.docs.googleusercontent.com/docs/x',
+      'https://sites.googleusercontent.com/a.jpg',
+      'https://abc-script.googleusercontent.com/a.jpg',
       'http://169.254.169.254/latest/meta-data/',
       'http://localhost:3000/a.png',
       'https://127.0.0.1/a.png',

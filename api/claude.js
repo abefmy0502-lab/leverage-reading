@@ -12,6 +12,9 @@ import { resolveRoute, isJevPurpose } from './_aiRouting.js';
 import { handleJevRelay } from './_jevRelay.js';
 import { openRoute, ProviderError } from './_providers.js';
 
+// 画像として通す種類（2026-10-11）。ほかの種類は落とす（AI の会社が受け付ける画像だけ・アプリは JPEG に縮めて送る）。
+export const IMAGE_MEDIA_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+
 // 応答の前に、精算（adjust_ai_cost / settle_token_overflow）・回数の払い戻しを待つ上限。
 // Vercel の関数は応答を返したあと止められることがある（waitUntil なしの後処理は保証されない）ので、
 // fire-and-forget にすると、予約した最大額が戻らずトークンを多く取られる・追加分が差し引かれない、が起きうる。
@@ -983,7 +986,7 @@ export default async function handler(req, res) {
             } else if (
               b.type === 'image'
               && b.source?.type === 'base64'
-              && typeof b.source.media_type === 'string'
+              && IMAGE_MEDIA_TYPES.has(b.source.media_type)
               && typeof b.source.data === 'string'
             ) {
               blocks.push({ type: 'image', source: { type: 'base64', media_type: b.source.media_type, data: b.source.data } });

@@ -19,8 +19,14 @@ const EXACT_HOSTS = new Set([
   'images-fe.ssl-images-amazon.com',
   'm.media-amazon.com',
   'thumbnail.image.rakuten.co.jp',
+  // Google の表紙の配信元（books.google.com からの転送先と、Google Books が返す画像の置き場）。
+  // 2026-10-11 に *.googleusercontent.com（誰でも置ける Google のファイル置き場も含む）から、表紙に使う名前だけに絞った。
+  'lh3.googleusercontent.com',
+  'lh4.googleusercontent.com',
+  'lh5.googleusercontent.com',
+  'lh6.googleusercontent.com',
 ]);
-const SUFFIX_HOSTS = ['.googleusercontent.com'];
+const SUFFIX_HOSTS = [];
 const REDIRECT_ONLY_SUFFIX = ['.archive.org'];
 const SUPABASE_PUBLIC_PREFIX = '/storage/v1/object/public/book-covers/';
 export const MAX_URL_LENGTH = 2048;
