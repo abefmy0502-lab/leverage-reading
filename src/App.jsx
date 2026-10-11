@@ -66,11 +66,11 @@ function ShelfChip({ active, onClick, children, ariaLabel }) {
       onClick={onClick}
       aria-pressed={active}
       aria-label={ariaLabel}
-      style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44, padding: 0, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}
+      style={{ display: 'inline-flex', alignItems: 'center', minHeight: 'var(--tap-min)', padding: 0, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}
     >
       <span
         style={{
-          display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', height: 32, padding: '0 var(--space-3)',
+          display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', height: 'var(--space-8)', padding: '0 var(--space-3)',
           borderRadius: 'var(--radius)', fontSize: 'var(--text-meta)', fontWeight: active ? 600 : 400, whiteSpace: 'nowrap',
           background: active ? 'var(--accent-soft)' : 'var(--fill)',
           color: active ? 'var(--accent)' : 'var(--text)',
@@ -4917,7 +4917,7 @@ function AuthedApp() {
                   )}
                   {/* 押せる範囲 44 の中央に星があるので、左と上下の余りを行の外へ（星の左端を書名の左端に） */}
                   <div style={{ margin: 'calc(-1 * var(--space-2)) 0 calc(-1 * var(--space-2)) calc(-1 * var(--space-3))' }}>
-                    <Stars r={current.rating || 0} onChange={(r) => setBookRating(current, r)} size={24} />
+                    <Stars r={current.rating || 0} onChange={(r) => setBookRating(current, r)} size="calc(24rem / 17)" />
                   </div>
                 </div>
               )}
@@ -6105,20 +6105,20 @@ function AuthedApp() {
                   {/* 評価・タグの絞り込みも、効いている間は先頭に見せる（押すと解除）。「すべて」が選ばれて見えても、何かで絞っていると分かるように。 */}
                   {minRating > 0 && (
                     <ShelfChip active onClick={() => setMinRating(0)} ariaLabel={`評価 ${minRating} 以上の絞り込みを解除`}>
-                      <IcStar size={14} aria-hidden="true" />{minRating}以上<IcX size={14} aria-hidden="true" />
+                      <IcStar size="1em" aria-hidden="true" />{minRating}以上<IcX size="1em" aria-hidden="true" />
                     </ShelfChip>
                   )}
                   {tagFilter.map((t) => (
                     <ShelfChip key={`tag-${t}`} active onClick={() => setTagFilter((prev) => prev.filter((x) => x !== t))} ariaLabel={`分野「${t}」の絞り込みを解除`}>
-                      <IcShapes size={14} aria-hidden="true" />{t}<IcX size={14} aria-hidden="true" />
+                      <IcShapes size="1em" aria-hidden="true" />{t}<IcX size="1em" aria-hidden="true" />
                     </ShelfChip>
                   ))}
                   {/* 並びは管理でよく使う順（読書中・読了を先に）。 */}
                   {[{ key: 'all', label: 'すべて', count: chipStats.total }, ...SHELF_CHIP_ORDER.map((k) => STATUSES.find((st) => st.key === k)).filter(Boolean).map((s) => ({ key: s.key, label: s.label, count: chipStats[s.key] || 0 }))].map((s) => {
                     // 選んでいる状態のチップは 0 件でも残す（押して解除できるように）。
                     if (s.key !== 'all' && s.count === 0 && statusFilter !== s.key) return null;
-                    // 分野・評価で絞っている間は「すべて」を選択中の面にしない（絞っていないように見えるため）
-                    const active = statusFilter === s.key && (s.key !== 'all' || (tagFilter.length === 0 && minRating === 0));
+                    // 「すべて」は状態についての選択（分野・評価・フォルダで絞っていても、状態を選んでいなければ選択中・2026-10-11 決定）
+                    const active = statusFilter === s.key;
                     return (
                       <ShelfChip
                         key={s.key}
@@ -6156,11 +6156,12 @@ function AuthedApp() {
                   >
                     {allFolders.map((f) => {
                       const active = folderFilter === f.name;
-                      // 冊数はほかの絞り込み（状態・分野・評価・検索）を効かせた数（状態のチップと同じ）。0 冊になる組み合わせは数字を出さない。
+                      // 冊数はほかの絞り込み（状態・分野・評価・検索）を効かせた数（状態のチップと同じ）。
+                      //   冊数の決まりは状態の行と同じ＝いつも出す（0 冊は --text-3）。
                       const n = folderChipCounts.get(f.name) || 0;
                       return (
-                        <ShelfChip key={f.name} active={active} onClick={() => setFolderFilter(active ? null : f.name)} ariaLabel={`フォルダ「${f.name}」${n > 0 ? `${n} 冊` : ''}${active ? '（押すと解除）' : ''}`}>
-                          {f.name}{n > 0 && <span style={{ color: 'var(--text-2)', fontWeight: 400 }}>{n}</span>}
+                        <ShelfChip key={f.name} active={active} onClick={() => setFolderFilter(active ? null : f.name)} ariaLabel={`フォルダ「${f.name}」${n} 冊${active ? '（押すと解除）' : ''}`}>
+                          {f.name}<span style={{ color: n > 0 || active ? 'var(--text-2)' : 'var(--text-3)', fontWeight: 400 }}>{n}</span>
                         </ShelfChip>
                       );
                     })}

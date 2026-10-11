@@ -257,6 +257,7 @@ const SCREENS = [
       { name: 'book-detail-just-done-unrated', url: '/', steps: [...LIB, { css: '.lvg-page button:has-text("数値化の鬼")' }, { scrollBottom: true }, { css: 'button:has-text("読了にする")' }, { wait: 1800 }] },
       { name: 'book-detail-just-done-rated', url: '/?rated=reading', steps: [...LIB, { css: '.lvg-page button:has-text("数値化の鬼")' }, { scrollBottom: true }, { css: 'button:has-text("読了にする")' }, { wait: 1800 }] },
       { name: 'folder-sheet-some', url: '/', steps: [...LIB, { css: '.lvg-page button:has-text("アウトプット大全")' }, { wait: 800 }, { css: 'button[aria-label="フォルダに入れる"]' }, { wait: 600 }] },
+      { name: 'folder-detail-some', url: '/', steps: [...LIB, { css: '.lvg-page button:has-text("人を動かす")' }, { wait: 800 }] },
       { name: 'folder-sheet-none', url: '/?folders=none', steps: [...LIB, { css: '.lvg-page button:has-text("アウトプット大全")' }, { wait: 800 }, { css: 'button[aria-label="フォルダに入れる"]' }, { wait: 600 }] },
       { name: 'folder-detail-none', url: '/?folders=none', steps: [...LIB, { css: '.lvg-page button:has-text("アウトプット大全")' }, { wait: 800 }] },
       { name: 'folder-empty', url: '/', steps: [...LIB, { css: 'button[aria-pressed]:has-text("読書中")' }, { css: '[data-folder-chips] button:has-text("読み返したい")' }, { wait: 600 }] },
