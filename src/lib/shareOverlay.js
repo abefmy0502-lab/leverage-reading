@@ -202,7 +202,7 @@ export function readingStatValue(sec) {
 function pushReadingStat(stats, readingSec) {
   if (!(Number(readingSec) >= READING_STAT_MIN_SEC)) return;
   const value = readingStatValue(readingSec);
-  if (value) stats.push({ key: 'reading', label: '読書', value });
+  if (value) stats.push({ key: 'reading', label: '読書の時間', value });
 }
 
 // 画像に描く数字（3 つまで）。4 つそろうとき（今月・今年の 読了・メモ・読書の時間・実行した行動）は、

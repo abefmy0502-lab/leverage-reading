@@ -159,7 +159,7 @@ function ReadingNow({ books, onOpenBook, onWriteMemo, onStartReading, onAddBook,
   const shown = reading.slice(0, 3);
   // 読書中 0 冊（2026-10-01 ui-critic・オーナー承認・SPEC §1）: 次に読む候補を最大 3 冊。見出しで何の一覧かを言う
   //   （積読＝「次に読む本」・読了＝「最近読み終えた本」）ので、2 行目は著者だけ（「積読 ·」を重ねない）。
-  //   積読（新しく触った順）は「読書を開始する」（読書中へ・その場で変わる）、読了は「メモを書く」。
+  //   積読（新しく触った順）は「読み始める」（読み上げは「読書を開始する」・読書中へ・その場で変わる）、読了は「メモを書く」。
   //   候補も無ければ（読みたいの本だけなど）、見出し「いま読んでいる本」＋「読書中の本はありません」の 1 行。
   const stacked = shown.length === 0 ? books.filter((b) => b.status === 'before').sort(byUpdated).slice(0, 3) : [];
   const finished = shown.length === 0 && stacked.length === 0 ? books.filter((b) => b.status === 'done').sort(byDone).slice(0, 3) : [];
@@ -189,7 +189,9 @@ function ReadingNow({ books, onOpenBook, onWriteMemo, onStartReading, onAddBook,
               onCoverRetry={onCoverRetry}
               action={b.status === 'before' && onStartReading ? (
                 <button type="button" onClick={() => onStartReading(b)} aria-label={`『${b.title}』の読書を開始する`} style={btnRow}>
-                  <BookOpen size="1.1em" aria-hidden="true" style={{ flexShrink: 0 }} />読書を開始する
+                  {/* 見える名前は短い「読み始める」（「読書を開始する」だとボタンが折り返してカードが伸び、「すべての本」が 1 画面目から消えた・
+                      2026-10-11 ui-critic）。読み上げは本の詳細と同じ「読書を開始する」。 */}
+                  <BookOpen size="1.1em" aria-hidden="true" style={{ flexShrink: 0 }} />読み始める
                 </button>
               ) : memoBtn(b)}
             />

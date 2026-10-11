@@ -27,6 +27,7 @@ import {
   photoPlacement, scrimAlpha, brightLuminance, coverProxyPath,
   seedFrom, tabPosition, coverWashAlpha, relativeLuminance, shareImageType,
   darkLuminance, filmTone, logoInkOnPhoto, blockScrimStops, photoInkForBand, blockVeilStops, PHOTO_INK_DARK_Q, bandTexture,
+  softBreaks,
 } from './shareCardLayout';
 import {
   RECORD_QUOTE_MAX, recordFrame, placeRecordBlock, statColumns, splitStatValue, recordBlockPlan, recordTitleScale, recordTitleMaxLines,
@@ -488,14 +489,28 @@ function drawCover(ctx, { x, y, w, h, cover, title, theme, fonts, showText = tru
     g.addColorStop(1, b || '#5d3a22');
     ctx.fillStyle = g;
     ctx.fillRect(x, y, w, h);
-    const size = Math.round(w * 0.13);
-    const font = `600 ${size}px ${fonts.read}`;
     if (!showText) { ctx.restore(); return; }
+    const pad = Math.round(w * 0.1);
+    // 文字の種類の切れ目（カタカナ↔漢字・英数字↔日本語・「・」の後ろ＝アプリの書名の scriptBreakPieces と同じ規則）で
+    //   分けたかたまりが 1 行に入らないときは、文字を少し（70% まで）小さくして、かたまりの途中で割らない
+    //   （「エッセン／シャル思考」→「エッセンシャル／思考」・2026-10-11 ui-critic）。
+    let size = Math.round(w * 0.13);
+    {
+      const chars = Array.from(String(title || ''));
+      const cuts = [0, ...softBreaks(title || ''), chars.length];
+      const pieces = [];
+      for (let i = 0; i + 1 < cuts.length; i += 1) pieces.push(chars.slice(cuts[i], cuts[i + 1]).join('').trim());
+      ctx.font = `600 ${size}px ${fonts.read}`;
+      setSpacing(ctx, 0, size);
+      const widest = pieces.reduce((m, pc) => Math.max(m, pc ? ctx.measureText(pc).width : 0), 0);
+      const avail = w - pad * 2;
+      if (widest > avail) size = Math.max(Math.round(size * 0.7), Math.floor((size * avail) / widest));
+    }
+    const font = `600 ${size}px ${fonts.read}`;
     ctx.font = font;
     setSpacing(ctx, 0, size);
     ctx.fillStyle = cssVar('--on-cover') || '#ffffff';
     ctx.textBaseline = 'top';
-    const pad = Math.round(w * 0.1);
     const lines = wrapBalanced(title || '', w - pad * 2, measurer(ctx, font));
     const maxLines = Math.max(1, Math.floor((h - pad * 2) / (size * 1.35)));
     lines.slice(0, maxLines).forEach((l, i) => {

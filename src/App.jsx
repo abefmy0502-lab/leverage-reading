@@ -4902,7 +4902,8 @@ function AuthedApp() {
               <button
                 type="button"
                 onClick={() => setAddActionSheet({ step: 'edit', bookId: current.id, prefillText: '' })}
-                style={{ ...btnLink, padding: 0, justifyContent: 'flex-start', gap: 'var(--space-1)' }}
+                // 行動が 0 件のときは、高さ 44 の上の余りを詰めて見出しの 8 下に見せる（離れて浮いていた・2026-10-11 ui-critic）。
+                style={{ ...btnLink, padding: 0, justifyContent: 'flex-start', gap: 'var(--space-1)', ...((current.actions || []).some((a) => a.text?.trim() && !isScheduledLater(a)) ? null : { marginTop: 'calc(-1 * var(--space-3))' }) }}
               >
                 <IcPlus size="1.1em" aria-hidden="true" />行動を追加
               </button>

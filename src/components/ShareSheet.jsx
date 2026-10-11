@@ -124,6 +124,8 @@ const segBtn = (on) => ({
   border: 'none',
   borderRadius: 'calc(var(--radius) - var(--space-1))', // 溝の角丸と同心（溝の内側の余白ぶん小さく）
   background: on ? 'var(--seg-on)' : 'transparent',
+  // 選んだ側に細い縁（暗い設定で溝と面の差が小さく、どちらを選んでいるか見分けにくかった・2026-10-11 ui-critic）。
+  boxShadow: on ? 'inset 0 0 0 1px var(--border)' : 'none',
   color: on ? 'var(--text)' : 'var(--text-2)',
   fontFamily: 'inherit',
   fontSize: 'var(--text-sub)',
@@ -865,7 +867,8 @@ export default function ShareSheet({
 
         {/* プレビュー＝外に出る画像そのもの。押すと大きな画像の編集画面（写真を動かす・言葉・表示する項目）。
             左右に振ると隣の重ね方（記録 → 数字 → 一文）。縦の動きはシートのスクロール・下へ振って閉じるに渡す（pan-y）。 */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-1)' }}>
+        {/* 形の切り替えが「編集」の行にあるとき（52 の高さ）は、プレビューとの間を 12 に（4 だと詰まって見えた・2026-10-11 ui-critic）。 */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: formatInEditRow ? 'var(--space-3)' : 'var(--space-1)' }}>
           <button
             type="button"
             onClick={onPreviewClick}

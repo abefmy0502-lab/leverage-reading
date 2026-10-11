@@ -312,7 +312,8 @@ export function WantPhase({ form, setForm, onSave, saving = false, onSearchOpen,
           type="button"
           onClick={() => setFieldsOpen(true)}
           aria-expanded="false"
-          style={{ ...foldSummary, width: '100%', padding: 0, background: 'none', border: 'none', fontFamily: 'inherit', textAlign: 'left' }}
+          // 本文の大きさ・400・--text-2（任意の欄なので、主ボタンや見出しより目立たせない・2026-10-11 ui-critic）。
+          style={{ ...foldSummary, width: '100%', padding: 0, background: 'none', border: 'none', fontFamily: 'inherit', textAlign: 'left', fontSize: 'var(--text-body)', fontWeight: 400, color: 'var(--text-2)' }}
         >
           分野・フォルダ
           <IcChevron size="1.1em" aria-hidden="true" style={{ flexShrink: 0, color: 'var(--text-3)' }} />

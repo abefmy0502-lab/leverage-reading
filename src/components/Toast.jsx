@@ -58,11 +58,20 @@ function barBottom() {
     ? [...dialogs[dialogs.length - 1].querySelectorAll('[data-toast-above]')]
     : [...document.querySelectorAll('[data-fab], [data-toast-above]')];
   let top = Infinity;
+  let fab = false;
   for (const el of marks) {
     const r = el.getBoundingClientRect();
-    if (r.height > 0 && r.top < top) top = r.top;
+    if (r.height <= 0) continue;
+    // 浮いた「メモを書く」は、出てくる動き（transform）の途中で測ると低い位置になる。決まった位置
+    // （タブ＋12＋ボタンの実際の高さ --fab-live-h）の上 8 に置く（2026-10-11 ui-critic）。
+    if (el.hasAttribute('data-fab')) { fab = true; continue; }
+    if (r.top < top) top = r.top;
   }
-  if (top < Infinity) return `calc(${Math.max(0, Math.round(window.innerHeight - top))}px + var(--space-2))`;
+  const FAB_TOP = 'calc(var(--tabbar-live-h, var(--tabbar-h)) + var(--space-3) + var(--fab-live-h, 48px) + var(--space-2) + env(safe-area-inset-bottom, 0px))';
+  const rectBottom = top < Infinity ? `calc(${Math.max(0, Math.round(window.innerHeight - top))}px + var(--space-2))` : null;
+  if (fab && rectBottom) return `max(${FAB_TOP}, ${rectBottom})`;
+  if (fab) return FAB_TOP;
+  if (rectBottom) return rectBottom;
   return hasBottomBar() ? BOTTOM_WITH_BAR : BOTTOM_PLAIN;
 }
 

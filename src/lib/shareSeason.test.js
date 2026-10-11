@@ -126,7 +126,7 @@ describe('12 月の「今年の読書」', () => {
     expect(rec.finishedBooks.map((b) => b.id)).toEqual(['b', 'c', 'a']);
     expect(rec.sub).toBe('『1兆ドルコーチ』『エッセンシャル思考』 ほか 1 冊');
     expect(yearRecord(books, memos, d(2026, 12, 3), { memoCount: 1234 }).stats[1].value).toBe('1234件');
-    expect(yearRecord(books, memos, d(2026, 12, 3), { readingSec: 3600 * 40 }).stats.find((st) => st.key === 'reading')).toEqual({ key: 'reading', label: '読書', value: '40時間' });
+    expect(yearRecord(books, memos, d(2026, 12, 3), { readingSec: 3600 * 40 }).stats.find((st) => st.key === 'reading')).toEqual({ key: 'reading', label: '読書の時間', value: '40時間' });
   });
   it('件数は読んだメモの数え方とそろえる（上限より多い人だけ、読めなかった分を足す）', () => {
     const memos = [{ text: 'a' }, { text: ' ' }, { text: '', photoPath: 'p.jpg' }];

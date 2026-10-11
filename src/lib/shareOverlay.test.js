@@ -114,12 +114,12 @@ describe('monthRecord（今月の数字）', () => {
   it('今月の読書の時間（集中モード）を数字の欄に・1 分未満は出さない・表示する項目で外せる（2026-10-11）', () => {
     const r = monthRecord(books, memos, NOW, { readingSec: 45000 });
     expect(r.stats.map((st) => st.key)).toEqual(['books', 'memos', 'reading', 'actions']);
-    expect(r.stats[2]).toEqual({ key: 'reading', label: '読書', value: '12時間30分' });
+    expect(r.stats[2]).toEqual({ key: 'reading', label: '読書の時間', value: '12時間30分' });
     // 4 つそろうときは 読了・読書の時間・実行した行動（メモの数を外す）・どれかを外せばメモが入る
     expect(shownStats(r.stats).map((st) => st.key)).toEqual(['books', 'reading', 'actions']);
     expect(shownStats(applyShareItems(r, ['actions']).stats).map((st) => st.key)).toEqual(['books', 'memos', 'reading']);
     expect(shownStats(monthRecord(books, memos, NOW).stats).map((st) => st.key)).toEqual(['books', 'memos', 'actions']);
-    expect(monthRecord([], [], NOW, { readingSec: 2700 }).stats).toEqual([{ key: 'reading', label: '読書', value: '45分' }]);
+    expect(monthRecord([], [], NOW, { readingSec: 2700 }).stats).toEqual([{ key: 'reading', label: '読書の時間', value: '45分' }]);
     expect(monthRecord([], [], NOW, { readingSec: 30 }).stats).toEqual([]);
     expect(splitStatValue('12時間30分').filter((p) => p.big).map((p) => p.text)).toEqual(['12', '30']);
     expect(shareItemsFor({ record: r, variant: 'record' }).map((i) => i.key)).toContain('reading');

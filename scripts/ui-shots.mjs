@@ -1040,6 +1040,8 @@ const SCREENS = [
     ['readtime-detail', '/', [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("数値化の鬼")' }, { wait: 600 }]],
     ['readtime-detail-done', '/', [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("アウトプット大全")' }, { wait: 600 }]],
   ].flatMap(([name, url, steps]) => [{ name, url, steps }, { name: `${name}-xxl`, url, steps: [XXL, ...steps] }]),
+  // ── 🎨 第 9 回の ui-critic の直し（F1〜F8・2026-10-11・ui-shots/review9-after2/）
+  { name: 'r9f-detail-noaction', url: '/?demo=noreading', steps: [{ css: 'button[aria-label="『LIFE SHIFT』の読書を開始する"]' }, { wait: 800 }, { css: 'button[aria-label="『LIFE SHIFT』を開く"]' }, { wait: 1200 }, { scrollTo: 'h2:has-text("行動")' }, { wait: 400 }] },
   // ── 🏷🪙📝 第 9 回の追加（D1〜D3・2026-10-11）: 本 0 冊のボタンの名前・無料プランの残りの見せ方・ホームで保存した知らせ
   { name: 'r9d-home-new', url: '/?demo=new', steps: [{ css: 'button[aria-label="閉じる"]' }, { wait: 600 }] },
   { name: 'r9d-quickstart-done-free', url: '/?demo=freenew', steps: [{ role: '次へ' }, { css: '[role=dialog] button:has-text("読んだ本に一言ずつ残す")' }, { css: '[role=dialog] button[aria-label^="『イシューからはじめよ』"]' }, { css: '[role=dialog] button:has-text("次へ")' }, { fill: ['[role=dialog] textarea', '答えを出す前に、本当に答えるべき問いかを確かめる'] }, { css: '[role=dialog] button:has-text("相談相手をつくる")' }, { wait: 2500 }, { scrollTo: '#qs-ask' }] },

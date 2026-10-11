@@ -14,7 +14,7 @@ import SwipeableCard from './SwipeableCard';
 import { Stars } from './formPrimitives';
 import { searchMarkStyle } from '../styles/searchMark';
 import { getSt } from '../lib/status';
-import { withPhraseBreaks, longestPhraseLength } from './TightBubble';
+import { withPhraseBreaks, phrasePieces } from './TightBubble';
 
 // 状態の表示用ラベル（押せない）。DESIGN §5「表示用ラベル」: 面を付けず、アイコン＋--text-2 13 の文字。
 // 本の一覧の行（著者の横）と本の詳細の見出しで共有する。
@@ -113,9 +113,19 @@ export const BookCoverCard = memo(function BookCoverCard({ book, isJustDone, onO
 // 続きからで実際に起きていた）。
 // 1 行に収まらない英字・カタカナの続き（「FACTFULNESS」）を、なるべく同じ長さに分ける切れ目（U+200B）を入れる
 //   （「FACTFULNES／S」のように 1 字だけ次の行に落ちないように・forceTitle のときだけ）。
-function balanceLongRuns(title, cap) {
-  const max = Math.max(2, cap);
+// 幅の見積もり（字＝1・半角の英数字と記号は 0.6 字＝欧文は和文より狭い・2026-10-11 ui-critic「FACTFULNESS を割らない」）。
+// 太字の大文字は 0.7 字ほど（「FACTFULNESS」11 字は幅 88 の 1 行に入らない＝字の大きさ 12 は下げられないので均等に 2 行へ）。
+const charEm = (ch) => (/[A-Z]/.test(ch) ? 0.7 : /[\x20-\x7e]/.test(ch) ? 0.6 : 1);
+const textEm = (t) => [...String(t || '')].reduce((sum, ch) => sum + charEm(ch), 0);
+// いちばん長い文節の幅（字）。
+function longestPhraseEm(text) {
+  let max = 0;
+  phrasePieces(text, { scriptBreaks: true }).forEach((pc) => { if (pc !== '\n') max = Math.max(max, textEm(pc)); });
+  return max;
+}
+function balanceLongRuns(title, capEm) {
   return String(title || '').replace(/[A-Za-z0-9ァ-ヴー]+/g, (run) => {
+    const max = Math.max(2, Math.floor(capEm / charEm(run[0])));
     if (run.length <= max) return run;
     const lines = Math.ceil(run.length / max);
     const size = Math.ceil(run.length / lines);
@@ -137,7 +147,7 @@ export function MiniCover({ book, width = 44, radius = 4, onAutoRetry, forceTitl
     if (!show) onAutoRetry?.(book, broken && book.cover ? { brokenCover: book.cover } : undefined);
   }, [show, book.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const height = Math.round(width * 1.42); // 一般的な書籍の縦横比
-  const showTitle = width >= 48 && (forceTitle || longestPhraseLength(book.title, { scriptBreaks: true }) * 12 <= width - 8 - 2); // 2: 字幅の端数で行からはみ出さない余裕
+  const showTitle = width >= 48 && (forceTitle || longestPhraseEm(book.title) * 12 <= width - 8 - 2); // 2: 字幅の端数で行からはみ出さない余裕
   return (
     // 表紙は「本の形」（DESIGN §4 の例外: 角丸 4）。影は使わず、極細の枠で面と分ける（暗い画面でも成立）。
     <div style={{ position: 'relative', width, height, borderRadius: radius, overflow: 'hidden', flexShrink: 0, boxShadow: 'inset 0 0 0 1px var(--separator)' }}>
@@ -156,7 +166,7 @@ export function MiniCover({ book, width = 44, radius = 4, onAutoRetry, forceTitl
         {/* さらに、いちばん長い文節が 1 行に収まる表紙にだけ出す（字 12 × 字数 ≦ 幅 − 内側の余白 8・2026-09-29）。 */}
         {showTitle && (
           <span style={{ display: '-webkit-box', WebkitLineClamp: Math.max(1, Math.floor((height - 8) / 16)), WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-            {withPhraseBreaks(forceTitle ? balanceLongRuns(book.title, Math.floor((width - 10) / 12)) : book.title, { scriptBreaks: true })}
+            {withPhraseBreaks(forceTitle ? balanceLongRuns(book.title, (width - 8) / 12) : book.title, { scriptBreaks: true })}
           </span>
         )}
       </div>
