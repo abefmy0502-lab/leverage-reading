@@ -91,7 +91,8 @@ const { MONTHLY_TEXT, ANNUAL_TEXT, PER_MONTH_TEXT, SAVE, TRIAL_FIRST, TRIAL_CONS
 const LAUNCH_LINE = `${LAUNCH_LABEL}に、App Store で公開予定です。`;
 // ボタンの文言（2026-10-02 オーナー承認）: アプリは無料プラン（ずっと無料）で使える（押すと App Store）。
 // 狭い幅・最大の文字で割れても「無料プランで／始める」になるよう、2 つの塊に包む（.lp-btn は keep-all）。
-const CTA_LABEL = <><span className="lp-nb">無料プランで</span><wbr /><span className="lp-nb">始める</span></>;
+//   .lp-btn は inline-flex なので、外側を 1 つの span にして 2 つの塊を同じ行の中に置く（2 列に割れていた・2026-10-11 ui-critic）。
+const CTA_LABEL = <span className="lp-btn-label"><span className="lp-nb">無料プランで</span><wbr /><span className="lp-nb">始める</span></span>;
 
 // 🗣 お客様の声。実在ユーザーの許可を得た本物の声だけを入れる（捏造・盛りは絶対 NG・本物が届くまで出さない）。
 // 形式: { quote, who: '30代・営業', how: '部下との 1on1 の前に相談している' }。空なら節ごと出ない。
