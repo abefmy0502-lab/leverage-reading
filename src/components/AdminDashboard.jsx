@@ -10,15 +10,17 @@
 //
 // データは supabase の SECURITY DEFINER RPC（supabase_admin_metrics.sql /
 // supabase_admin_ops.sql / supabase_admin_launch_kpis.sql）。RPC 側で is_app_admin() ゲート済み。
-// 概況タブのいちばん上は「ローンチの 4 つの数字」（admin/LaunchKpiCard.jsx・docs/launch-kpis.md）。
+// 概況タブのいちばん上は「2027 年中に有料ユーザー 1,000 人」（admin/GoalPanel.jsx・lib/goal1000.js・
+// supabase_admin_goal.sql・docs/goal-1000.md・2026-10-11）: 目標の進み具合 → 毎週の流れ → いちばん弱い段階と
+// 今週やること → 季節と更新 → 毎週の見直し。その下に「ローンチの 4 つの数字」（admin/LaunchKpiCard.jsx）。
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { FOUNDING_PRICE_YEN } from '../lib/foundingOffer';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import {
   X, RefreshCw, Target, ListChecks, Ticket, Users, CreditCard, Cpu, Inbox,
-  BarChart3, TrendingUp, Check, Flag, Pencil, Activity, Calculator,
-  Brain, Send, Rocket, Megaphone, AlertTriangle, PenLine,
+  BarChart3, TrendingUp, Check, Flag, Activity, Calculator,
+  Brain, Send, Rocket, Megaphone, AlertTriangle, PenLine, ClipboardCheck,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { opsAdvise } from '../lib/ai';
@@ -26,6 +28,10 @@ import { C, btnPrimary, btnPrimaryOff, btnGhost } from '../styles/ui';
 import Spinner from './Spinner';
 import TodayCard from './admin/TodayCard';
 import LaunchKpiCard from './admin/LaunchKpiCard';
+import GoalPanel from './admin/GoalPanel';
+import { loadTargets } from '../lib/launchKpis';
+import { appNow } from '../lib/appNow';
+import { normalizePlan, goalStatus, normalizeWeeks, jstDateIso, needsReviewNudge } from '../lib/goal1000';
 import { DATE_HINT } from '../lib/dateHint';
 import { todayLocal } from '../lib/dates';
 import {
@@ -77,7 +83,6 @@ const inp = {
   color: C.ink, fontFamily: 'inherit',
 };
 
-const METRIC_LABEL = { gross_profit: '月次粗利（概算）', mrr: 'MRR（月次売上）', paid_users: '有料会員数', users: '総ユーザー数' };
 // 🏢 常駐する4部門。各アクションを担当部門に割り当てて「誰の仕事か」を明確にする。
 const DEPT = { CEO: '経営', MKT: 'マーケ営業', ENG: '開発', FIN: '経理' };
 const DEPT_ORDER = ['経営', 'マーケ営業', '開発', '経理'];
@@ -94,12 +99,6 @@ function uid() {
   try { if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID(); } catch { /* fall through */ }
   _uidCounter += 1;
   return `local-${_uidCounter}-${Date.now()}`;
-}
-
-function fmtGoal(metric, v) {
-  const n = Math.max(0, Math.round(v));
-  // mrr / gross_profit は金額（円）、paid_users / users は人数。
-  return (metric === 'mrr' || metric === 'gross_profit') ? `¥${n.toLocaleString()}` : `${n.toLocaleString()}人`;
 }
 
 // AI ロードマップ用の軽量 Markdown レンダラ（## 見出し / ### 月 / - 箇条書き / **太字**）。
@@ -212,10 +211,13 @@ export default function AdminDashboard({ onClose }) {
   const [mktSpend, setMktSpend] = useState(() => { try { return localStorage.getItem('orime-ops-mkt-spend') || ''; } catch { return ''; } });
   const [lifeMonths, setLifeMonths] = useState(() => { try { return localStorage.getItem('orime-ops-life-months') || '12'; } catch { return '12'; } });
   const [fbFilter, setFbFilter] = useState('open');
-  const [editingGoal, setEditingGoal] = useState(false);
-  const [gMetric, setGMetric] = useState('mrr');
-  const [gTarget, setGTarget] = useState('');
-  const [gDeadline, setGDeadline] = useState('');
+  // 🎯 2027 年中に有料ユーザー 1,000 人（supabase_admin_goal.sql）。missing = RPC・表が無い。
+  const [goalPlanRaw, setGoalPlanRaw] = useState(null);
+  const [goalPlanMissing, setGoalPlanMissing] = useState(false);
+  const [goalWeekly, setGoalWeekly] = useState(null);
+  const [goalWeeklyMissing, setGoalWeeklyMissing] = useState(false);
+  const [reviews, setReviews] = useState([]);
+  const [reviewsMissing, setReviewsMissing] = useState(false);
   // 🧠 AI 参謀（作戦会議）の対話。
   const [advisorMsgs, setAdvisorMsgs] = useState([]);
   const [advisorInput, setAdvisorInput] = useState('');
@@ -245,6 +247,7 @@ export default function AdminDashboard({ onClose }) {
   // ── 📣 営業ウィークリー入力（installs/note PV 等は外部数値のため手入力）──
   const SALES_FIELDS = [
     ['new_paid', '新規課金', '人'],
+    ['store_page_views', 'ストアのページ表示', '回'],
     ['installs', 'インストール', '件'],
     ['lp_clicks', 'LPクリック', '回'],
     ['note_pv', 'note PV', ''],
@@ -255,7 +258,18 @@ export default function AdminDashboard({ onClose }) {
   const [salesSaving, setSalesSaving] = useState(false);
   const [salesMissing, setSalesMissing] = useState(false);  // テーブル未適用
   const [salesLoaded, setSalesLoaded] = useState(false);
+  // 入れる週（今週 / 先週）。月曜の朝は先週の分を入れる（インストール数は App Store Connect に 1〜2 日遅れて出る）。
+  const [salesWeek, setSalesWeek] = useState(() => weekStartISO());
+  const fillSalesForm = (rows, wk) => {
+    const cur = rows.find((r) => r.week_start === wk);
+    const f = {};
+    SALES_FIELDS.forEach(([k]) => { f[k] = cur?.[k] ?? ''; });
+    f.memo = cur?.memo || '';
+    setSalesForm(f);
+  };
 
+  const salesWeekRef = useRef(salesWeek);
+  salesWeekRef.current = salesWeek;
   const loadSales = async () => {
     try {
       const { data, error } = await supabase
@@ -267,13 +281,7 @@ export default function AdminDashboard({ onClose }) {
       setSalesMissing(false);
       const rows = data || [];
       setSalesRows(rows);
-      const cur = rows.find((r) => r.week_start === weekStartISO());
-      if (cur) {
-        const f = {};
-        SALES_FIELDS.forEach(([k]) => { f[k] = cur[k] ?? ''; });
-        f.memo = cur.memo || '';
-        setSalesForm(f);
-      }
+      fillSalesForm(rows, salesWeekRef.current);
     } catch (e) {
       // 42P01 = relation does not exist（マイグレーション未適用）
       if (e?.code === '42P01' || /does not exist/i.test(e?.message || '')) setSalesMissing(true);
@@ -288,15 +296,20 @@ export default function AdminDashboard({ onClose }) {
     if (salesSaving) return;
     setSalesSaving(true);
     try {
-      const row = { week_start: weekStartISO(), updated_at: new Date().toISOString() };
+      const row = { week_start: salesWeek, updated_at: new Date().toISOString() };
       SALES_FIELDS.forEach(([k]) => {
         const v = parseInt(salesForm[k], 10);
         row[k] = Number.isFinite(v) && v >= 0 ? v : null;
       });
       row.memo = (salesForm.memo || '').slice(0, 500) || null;
-      const { error } = await supabase
+      let { error } = await supabase
         .from('ops_sales_metrics')
         .upsert(row, { onConflict: 'user_id,week_start' });
+      // ストアのページ表示の列（supabase_admin_goal.sql）が無い DB では、その列を外して保存し直す。
+      if (error && /store_page_views/.test(error.message || '')) {
+        const { store_page_views: _drop, ...rest } = row;
+        ({ error } = await supabase.from('ops_sales_metrics').upsert(rest, { onConflict: 'user_id,week_start' }));
+      }
       if (error) throw error;
       await loadSales();
     } catch { /* RLS/未適用時は下の案内カードが出ている */ }
@@ -314,7 +327,7 @@ export default function AdminDashboard({ onClose }) {
   const load = useCallback(async (d) => {
     setLoading(true); setErr(''); setWarn('');
     // 各 RPC を独立に扱い、1つ失敗しても他は表示する（graceful degradation）。
-    const [ov, se, us, au, rv, fb, gl, tk, gr, lk] = await Promise.all([
+    const [ov, se, us, au, rv, fb, gl, tk, gr, lk, gp, gw] = await Promise.all([
       supabase.rpc('admin_overview'),
       supabase.rpc('admin_active_series', { p_days: d }),
       supabase.rpc('admin_feature_usage', { p_days: d }),
@@ -324,9 +337,12 @@ export default function AdminDashboard({ onClose }) {
       supabase.rpc('admin_get_goal'),
       supabase.rpc('admin_tickets'),
       supabase.rpc('admin_growth'),
-      supabase.rpc('admin_launch_kpis', { p_weeks: 8 }),
+      // 12 週: 毎週の流れの表（GoalPanel）も登録した週ごとの相談・メモをここから使う。カードは 8 週だけ出す。
+      supabase.rpc('admin_launch_kpis', { p_weeks: 12 }),
+      supabase.rpc('admin_goal_plan'),
+      supabase.rpc('admin_goal_weekly', { p_weeks: 12 }),
     ]);
-    const all = [ov, se, us, au, rv, fb, gl, tk, gr, lk];
+    const all = [ov, se, us, au, rv, fb, gl, tk, gr, lk, gp, gw];
 
     // 'not authorized' が出るなら管理者でない（全面エラー）。
     if (all.some((r) => r.error?.message === 'not authorized')) {
@@ -353,7 +369,10 @@ export default function AdminDashboard({ onClose }) {
     setGrowth(gr.error ? null : (gr.data || null));
     setLaunchKpis(lk.error ? null : (lk.data || null));
     setLaunchKpisMissing(!!lk.error);
-    if (!gl.error && gl.data) { setGMetric(gl.data.metric); setGTarget(String(gl.data.target || '')); setGDeadline(gl.data.deadline || ''); }
+    setGoalPlanRaw(gp.error ? null : (gp.data || null));
+    setGoalPlanMissing(!!gp.error);
+    setGoalWeekly(gw.error ? null : (gw.data || null));
+    setGoalWeeklyMissing(!!gw.error);
 
     // 部分的に失敗したものを警告として可視化（原因切り分け用に実メッセージを出す）。
     const opsFailed = gl.error || tk.error;
@@ -362,6 +381,7 @@ export default function AdminDashboard({ onClose }) {
     if (opsFailed) notes.push('目標・チケットが読めません → supabase_admin_ops.sql を適用してください');
     if (gr.error) notes.push('成長・継続率が読めません → supabase_admin_growth.sql を適用してください');
     if (lk.error) notes.push('ローンチの 4 つの数字が読めません → supabase_admin_launch_kpis.sql を適用してください');
+    if (gw.error || gp.error) notes.push('1,000 人の目標の週ごとの流れ・道しるべが読めません → supabase_admin_goal.sql を適用してください');
     if (metricFails.length) notes.push(`一部メトリクスが読めません（${metricFails[0].error?.message || '不明'}）`);
     setWarn(notes.join(' / '));
     setLoading(false);
@@ -404,12 +424,48 @@ export default function AdminDashboard({ onClose }) {
   }, []);
   useEffect(() => { loadTasks(); }, [loadTasks]);
 
-  const saveGoal = async () => {
-    const t = parseFloat(gTarget);
-    if (!Number.isFinite(t) || t <= 0) return;
-    await supabase.rpc('admin_set_goal', { p_metric: gMetric, p_target: t, p_deadline: gDeadline || null });
-    setEditingGoal(false);
+  // 📋 毎週の見直し（ops_weekly_reviews・supabase_admin_goal.sql）。新しい週が先。
+  const loadReviews = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('ops_weekly_reviews')
+        .select('id, week_start, numbers, actions, weakest, memo, created_at, updated_at')
+        .order('week_start', { ascending: false })
+        .limit(26);
+      if (error) throw error;
+      setReviewsMissing(false);
+      setReviews(Array.isArray(data) ? data : []);
+    } catch (e) {
+      if (e?.code === '42P01' || /does not exist|Could not find/i.test(e?.message || '')) setReviewsMissing(true);
+    }
+  }, []);
+  useEffect(() => { loadReviews(); }, [loadReviews]);
+
+  const saveReview = async (row) => {
+    const cur = reviews.find((r) => String(r.week_start) === row.week_start);
+    const payload = { ...row, updated_at: new Date().toISOString() };
+    const { error } = cur
+      ? await supabase.from('ops_weekly_reviews').update(payload).eq('id', cur.id)
+      : await supabase.from('ops_weekly_reviews').insert(payload);
+    if (error) return false;
+    await loadReviews();
+    return true;
+  };
+  const saveGoalPlan = async (p) => {
+    const { error } = await supabase.rpc('admin_set_goal_plan', {
+      p_target: p.target, p_deadline: p.deadline, p_milestones: p.milestones, p_launch: p.launch,
+    });
+    if (error) return false;
     load(days);
+    return true;
+  };
+  // 打ち手をタスク（ops_tasks）に入れる。今日の日付・担当の部門つき。
+  const addGoalTask = async (a) => {
+    const { error } = await supabase.from('ops_tasks')
+      .insert({ due_date: todayLocal(), dept: a.dept || '経営', title: String(a.title).slice(0, 200) });
+    if (error) return false;
+    loadTasks();
+    return true;
   };
 
   const triageFb = async (id, status) => {
@@ -436,21 +492,15 @@ export default function AdminDashboard({ onClose }) {
   const aiCostThisMonth = aiCallsThisMonth * AI_COST_PER_CALL_JPY;
   const grossProfit = Math.max(0, Math.round(mrr - mrr * PAYMENT_FEE_RATE - aiCostThisMonth));
 
-  // 目標の現在地・ペース計算。
-  const goalCurrent = goal
-    ? (goal.metric === 'mrr' ? mrr
-      : goal.metric === 'gross_profit' ? grossProfit
-        : goal.metric === 'paid_users' ? (revenue?.active || 0)
-          : (overview?.users_total || 0))
-    : 0;
-  const goalGap = goal ? Math.max(0, (goal.target || 0) - goalCurrent) : 0;
-  const goalProgress = goal && goal.target > 0 ? Math.min(1, goalCurrent / goal.target) : 0;
-  let daysLeft = null; let requiredPerWeek = 0;
-  if (goal?.deadline) {
-    const ms = new Date(goal.deadline).getTime() - Date.now();
-    daysLeft = Math.ceil(ms / 86400000);
-    if (daysLeft > 0 && goalGap > 0) requiredPerWeek = Math.ceil(goalGap / (daysLeft / 7));
-  }
+  // 🎯 1,000 人の目標（GoalPanel と参謀の現状サマリーが使う）。
+  //   今日＝集計した時刻（日本時間）。お試しモードはサンプルの日付（demoAdmin.js の &goal=…）。
+  const genAt = goalWeekly?.generated_at || launchKpis?.generated_at;
+  const todayIso = jstDateIso(genAt ? new Date(genAt) : appNow());
+  const goalPlan = normalizePlan(goalPlanRaw || (goal?.metric === 'paid_users' ? goal : null));
+  const paidNow = revenue?.active ?? goalWeekly?.now?.paid ?? 0;
+  const annualNow = goalWeekly?.now?.paid_annual ?? null;
+  const goalStat = goalStatus({ plan: goalPlan, current: paidNow, todayIso, weeks: normalizeWeeks(goalWeekly?.rows), annualNow });
+  const reviewNudge = !reviewsMissing && needsReviewNudge(todayIso, reviews);
 
   // 📕 if-then ルールの一括評価（playbook.js が正典。営業タブ・TodayCard が共用）。
   const rulesEval = (!loading && !err)
@@ -494,7 +544,7 @@ export default function AdminDashboard({ onClose }) {
     `有料${revenue?.active ?? 0}人`,
     `MRR¥${mrr.toLocaleString()}`,
     `月粗利¥${grossProfit.toLocaleString()}`,
-    goal ? `目標=${METRIC_LABEL[goal.metric]}¥${(goal.target || 0).toLocaleString()}(締切${goal.deadline || '未設定'})` : '目標=未設定',
+    `目標=有料${goalPlan.target}人(締切${goalPlan.deadline})・今日あるべき数${goalStat.planned}人・${goalStat.behind > 0 ? `遅れ${goalStat.behind}人` : '予定どおり'}・必要な純増 週+${goalStat.requiredPerWeek}${goalStat.forecast != null ? `・見込み${goalStat.forecast}人` : ''}`,
     salesAlerts.length ? `発火中の警告=${salesAlerts.map((r) => r.text).join('；')}` : '発火中の警告なし',
     rulesPending.length ? `判定保留(分母不足・値からの推測禁止)=${rulesPending.map((r) => r.id).join(',')}` : '',
   ].filter(Boolean).join(' / ');
@@ -567,8 +617,15 @@ export default function AdminDashboard({ onClose }) {
 
         {!loading && !err && (
           <>
-            {/* 🎯 今日の一手 — 開いた瞬間に今日の最重要アクションが決まる1枚（常設） */}
-            <TodayCard phase={phase} launchDate={launchDate} weekly={salesRows} rules={rulesEval} shipChecks={shipChecks} />
+            {/* 📋 月曜に開いて、今週の見直しがまだなら 1 行（docs/goal-1000.md の毎週の手順） */}
+            {reviewNudge && (
+              <div role="status" style={{ ...card, marginTop: 'var(--space-3)', border: 'none', background: 'var(--warning-soft)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                <ClipboardCheck size="1em" strokeWidth={2} aria-hidden="true" style={{ flexShrink: 0, color: 'var(--warning)' }} />
+                <span style={{ flex: 1, fontSize: 'var(--text-meta)', color: C.ink, lineHeight: 1.5 }}>月曜です。今週の見直しがまだ記録されていません。</span>
+                <button type="button" onClick={() => { setActiveTab('overview'); setTimeout(() => { try { document.getElementById('goal-weekly-review')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch { /* ignore */ } }, 50); }}
+                  style={{ ...btnGhost, width: 'auto', flex: '0 0 auto', minHeight: 44, padding: '0 var(--space-3)', fontSize: 'var(--text-sub)', color: C.brand, fontWeight: 600 }}>見直しへ</button>
+              </div>
+            )}
 
             {/* タブ: 概況 / 営業 / アクション / 参謀 */}
             {/* 題の行の下に貼りつける（top＝題の行の高さ）。名前は文字だけ・高さ 44・600・トークン（2026-10-04 ui-critic）。
@@ -586,62 +643,19 @@ export default function AdminDashboard({ onClose }) {
 
             {/* ═══ 概況タブ（前半: 目標） ═══ */}
             {activeTab === 'overview' && (<>
-            {/* ── 🚀 ローンチの 4 つの数字（2026-10-02 オーナー承認・いちばん上） ── */}
-            <LaunchKpiCard data={launchKpis} missing={launchKpisMissing} />
+            {/* ── 🎯 2027 年中に有料ユーザー 1,000 人（2026-10-11 オーナー決定・いちばん上） ── */}
+            <GoalPanel
+              todayIso={todayIso} plan={goalPlan} planMissing={goalPlanMissing} onSavePlan={saveGoalPlan}
+              weekly={goalWeekly} weeklyMissing={goalWeeklyMissing} launchKpis={launchKpis} targets={loadTargets()}
+              salesRows={salesRows} salesMissing={salesMissing} paidNow={paidNow} annualNow={annualNow}
+              reviews={reviews} reviewsMissing={reviewsMissing} onSaveReview={saveReview} onAddTask={addGoalTask}
+            />
 
-            {/* ── 🎯 目標 ── */}
-            <p style={sectionTitle}><Target size={15} strokeWidth={2} /> 目標</p>
-            <div style={card}>
-              {editingGoal || !goal ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-                  <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-                    {Object.entries(METRIC_LABEL).map(([k, label]) => (
-                      <button key={k} type="button" onClick={() => setGMetric(k)}
-                        aria-pressed={gMetric === k}
-                        style={{ minHeight: 44, padding: '0 var(--space-3)', borderRadius: 'var(--radius)', fontSize: 'var(--text-sub)', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', border: 'none',
-                          background: gMetric === k ? 'var(--accent-soft)' : 'var(--fill)', color: gMetric === k ? 'var(--accent)' : 'var(--text-2)' }}>
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                  <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: 'var(--text-caption)', color: C.ink2, fontWeight: 600 }}>目標値{gMetric === 'mrr' ? '（円）' : '（人）'}</label>
-                      <input type="number" inputMode="numeric" value={gTarget} onChange={(e) => setGTarget(e.target.value)} placeholder={gMetric === 'mrr' ? '300000' : '300'} style={inp} />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: 'var(--text-caption)', color: C.ink2, fontWeight: 600 }}>締切（任意）</label>
-                      <input type="date" value={gDeadline} data-empty={gDeadline ? undefined : DATE_HINT} onChange={(e) => setGDeadline(e.target.value)} style={inp} />
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-                    <button type="button" onClick={saveGoal} style={{ ...btnPrimary, minHeight: 44 }}>目標を保存</button>
-                    {goal && <button type="button" onClick={() => setEditingGoal(false)} style={{ ...btnGhost, minHeight: 44 }}>キャンセル</button>}
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-                    <div>
-                      <p style={{ margin: 0, fontSize: 'var(--text-caption)', color: C.ink2, fontWeight: 600 }}>{METRIC_LABEL[goal.metric]}</p>
-                      <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-title)', fontWeight: 700, color: C.ink, lineHeight: 1.1 }}>
-                        {fmtGoal(goal.metric, goalCurrent)} <span style={{ fontSize: 'var(--text-meta)', color: C.ink3, fontWeight: 600 }}>/ {fmtGoal(goal.metric, goal.target)}</span>
-                      </p>
-                    </div>
-                    <button type="button" onClick={() => setEditingGoal(true)} style={iconBtn} aria-label="目標を編集"><Pencil size={16} /></button>
-                  </div>
-                  <div style={{ height: 8, background: C.soft, borderRadius: 'var(--radius-full)', overflow: 'hidden', margin: 'var(--space-3) 0 var(--space-2)' }}>
-                    <div style={{ height: '100%', width: `${goalProgress * 100}%`, background: C.brand, borderRadius: 'var(--radius-full)' }} />
-                  </div>
-                  <p style={{ margin: 0, fontSize: 'var(--text-caption)', color: C.ink2 }}>
-                    達成 {Math.round(goalProgress * 100)}%
-                    {daysLeft != null && <> ・ 締切まで {daysLeft > 0 ? `${daysLeft}日` : '超過'}</>}
-                    {requiredPerWeek > 0 && <> ・ <strong style={{ color: C.brand }}>週 {fmtGoal(goal.metric, requiredPerWeek)} 必要</strong></>}
-                    {goalGap === 0 && <strong style={{ color: 'var(--success)' }}> ・ 達成</strong>}
-                  </p>
-                </>
-              )}
-            </div>
+            {/* 🎯 今日の一手（曜日の台本・配信前の出荷） */}
+            <TodayCard phase={phase} launchDate={launchDate} weekly={salesRows} rules={rulesEval} shipChecks={shipChecks} />
+
+            {/* ── 🚀 ローンチの 4 つの数字（2026-10-02 オーナー承認） ── */}
+            <LaunchKpiCard data={launchKpis ? { ...launchKpis, cohorts: (launchKpis.cohorts || []).slice(0, 8) } : null} missing={launchKpisMissing} />
 
             </>)}
 
@@ -671,7 +685,7 @@ export default function AdminDashboard({ onClose }) {
                           </span>
                         ))}
                       </div>
-                      <p style={{ fontSize: 'var(--text-caption)', color: C.ink3, margin: 'var(--space-1) 0 0' }}>目標線は company/sales-strategy-2026-2027.md §5。改訂したらコードの SALES_MILESTONES も更新。</p>
+                      <p style={{ fontSize: 'var(--text-caption)', color: C.ink3, margin: 'var(--space-1) 0 0' }}>目標線は company/marketing-master-plan-2026-10.md §10-2（概況の「有料ユーザー 1,000 人」と同じ・既定は lib/goal1000.js の GOAL_DEFAULT）。</p>
                     </div>
                   );
                 })()}
@@ -702,8 +716,18 @@ export default function AdminDashboard({ onClose }) {
                   </p>
                 )}
 
-                <p style={sectionTitle}><PenLine size="1em" strokeWidth={2} aria-hidden="true" style={{ flexShrink: 0 }} /> 今週の数字（週の起点: {weekStartISO()}）</p>
+                <p style={sectionTitle}><PenLine size="1em" strokeWidth={2} aria-hidden="true" style={{ flexShrink: 0 }} /> 週の数字（週の起点: {salesWeek}）</p>
                 <div style={card}>
+                  <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
+                    {[[weekStartISO(), '今週'], [weekStartISO(new Date(Date.now() - 7 * 86400000)), '先週']].map(([wk, label]) => (
+                      <button key={wk} type="button" aria-pressed={salesWeek === wk}
+                        onClick={() => { setSalesWeek(wk); fillSalesForm(salesRows, wk); }}
+                        style={{ minHeight: 44, padding: '0 var(--space-3)', borderRadius: 'var(--radius)', fontSize: 'var(--text-sub)', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', border: 'none',
+                          background: salesWeek === wk ? 'var(--accent-soft)' : 'var(--fill)', color: salesWeek === wk ? 'var(--accent)' : 'var(--text-2)' }}>
+                        {label}（{wk.slice(5)}〜）
+                      </button>
+                    ))}
+                  </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)' }}>
                     {SALES_FIELDS.map(([k, label]) => (
                       <label key={k} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', fontSize: 'var(--text-caption)', color: C.ink2 }}>
@@ -717,10 +741,10 @@ export default function AdminDashboard({ onClose }) {
                     </label>
                   </div>
                   <button type="button" onClick={saveSalesWeek} disabled={salesSaving} style={{ ...(salesSaving ? btnPrimaryOff : btnPrimary), minHeight: 44, marginTop: 'var(--space-3)' }}>
-                    {salesSaving ? '保存中…' : '今週の数字を保存'}
+                    {salesSaving ? '保存中…' : `${salesWeek === weekStartISO() ? '今週' : '先週'}の数字を保存`}
                   </button>
                   <p style={{ fontSize: 'var(--text-caption)', color: C.ink3, margin: 'var(--space-2) 0 0', lineHeight: 1.6 }}>
-                    出どころ: 新規課金=下の売上欄 / インストール=App Store Connect / LPクリック=note・XのUTM / note PV=noteダッシュボード / Xプロフクリック=Xアナリティクス。日曜の週次レビュー（20分）で入力。
+                    出どころ: 新規課金=下の売上欄 / ストアのページ表示・インストール=App Store Connect（App 分析）/ LPクリック=note・XのUTM / note PV=noteダッシュボード / Xプロフクリック=Xアナリティクス。月曜の朝の見直しの前に、先週の分を入力（概況の「毎週の流れ」にも並びます）。
                   </p>
                 </div>
 

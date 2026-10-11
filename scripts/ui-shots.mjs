@@ -1160,6 +1160,21 @@ const SCREENS = [
     name, url,
     steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:has-text("運営ダッシュボード")' }, { wait: 1200 }, { eval: ADMIN_SCROLL('#launch-kpi-title') }, ...extra],
   })),
+  // 🎯 運営ダッシュボード「有料ユーザー 1,000 人」（2026-10-11・ui-shots/admin-goal/・&goal=… は src/demo/demoAdmin.js）
+  ...[
+    ['admin-goal', '/?admin=1', []],
+    ['admin-goal-behind', '/?admin=1&goal=behind', []],
+    ['admin-goal-funnel', '/?admin=1', [{ eval: ADMIN_SCROLL('#funnel-title') }]],
+    ['admin-goal-diag', '/?admin=1&goal=behind', [{ eval: ADMIN_SCROLL('#diag-title') }]],
+    ['admin-goal-season', '/?admin=1', [{ eval: ADMIN_SCROLL('#season-title') }]],
+    ['admin-goal-review', '/?admin=1', [{ eval: ADMIN_SCROLL('#review-title') }]],
+    ['admin-goal-edit', '/?admin=1', [{ css: 'button[aria-label="目標と道しるべを変える"]' }]],
+    ['admin-goal-missing', '/?admin=1&goal=missing', []],
+    ['admin-goal-prelaunch', '/?admin=1&goal=prelaunch', []],
+  ].map(([name, url, extra]) => ({
+    name, url,
+    steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:has-text("運営ダッシュボード")' }, { wait: 1200 }, ...extra, { wait: 300 }],
+  })),
   // ⏱📊 記録の「読書の時間」（2026-10-10）。明暗＋文字最大（-xxl）。中のスクロールの箱だけを送る（文書ごと送るとタブの行がずれる）。
   ...[
     ['readtime-record', '/', [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }, { wait: 600 }, { eval: RT_SCROLL('[data-reading-time]') }, { wait: 300 }]],

@@ -58,6 +58,7 @@ on conflict (user_id) do nothing;
 | `supabase_subscription_events.sql` | 契約の履歴（7 日間無料 → 有料を数える） | 運営の「7 日間無料 → 有料」が出ない |
 | `supabase_admin_members_tasks.sql` | 会員の内訳・売上（創業メンバー価格を有料として数える） | 売上が古い数え方 |
 | `supabase_admin_launch_kpis.sql` | ローンチの 4 つの数字（30 日後も使う＝読む・行動の完了も数える） | 4 つの数字が出ない・古い数え方 |
+| `supabase_admin_goal.sql` | 運営ダッシュボードの「有料ユーザー 1,000 人」: 週ごとの流れ（LP → 登録 → 7 日間無料 → 有料 → 解約）・道しるべを画面で変える・毎週の見直しの記録・ストアのページ表示の手入力（2026-10-11・`docs/goal-1000.md`） | その区画に「SQL を流すと出ます」・目標は既定の値で計算 |
 | `supabase_lp_events.sql` | 紹介ページの記録（捨てられていた記録が入る） | 一部が捨てられる |
 | `supabase_lp_waitlist.sql` | 紹介ページの「公開の日にメールで知らせる」。2026-10-11 に同じ IP から 1 日 5 回までの数え方を足した（**流し直す**） | 登録が「いま受け付けられませんでした」・連打は 1 分 5 回の簡易な制限だけ |
 | `supabase_security_hardening.sql` | 2026-10-11 に、表紙の置き場は 2MB・メモの写真の置き場は 10MB まで、画像は JPEG・PNG・WebP だけに（**流し直す**） | 大きなファイルや画像でないファイルも置けてしまう |
@@ -134,6 +135,7 @@ on conflict (user_id) do nothing;
 | 53 | `supabase_ops_floor.sql` | 作戦司令室の報告 |
 | 54 | `supabase_ops_sales_metrics.sql` | 営業の週の数字 |
 | 55 | `supabase_admin_launch_kpis.sql` | ローンチの 4 つの数字 |
+| 56 | `supabase_admin_goal.sql` | 有料ユーザー 1,000 人の目標・毎週の見直し |
 
 ## 6. 開発する人へ（SQL を足したとき）
 

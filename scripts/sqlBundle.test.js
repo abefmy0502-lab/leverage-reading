@@ -27,6 +27,9 @@ describe('Supabase の SQL のまとめ（supabase_all_in_order.sql）', () => {
       ['supabase_admin_exclude_admins.sql', 'supabase_admin_members_tasks.sql'],
       ['supabase_reading_sessions.sql', 'supabase_admin_launch_kpis.sql'],
       ['supabase_feedback.sql', 'supabase_admin_metrics.sql'],
+      ['supabase_admin_ops.sql', 'supabase_admin_goal.sql'],
+      ['supabase_ops_sales_metrics.sql', 'supabase_admin_goal.sql'],
+      ['supabase_subscription_events.sql', 'supabase_admin_goal.sql'],
     ];
     for (const [a, b] of before) expect(pos(a)).toBeLessThan(pos(b));
   });

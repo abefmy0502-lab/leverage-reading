@@ -42,7 +42,7 @@
 import { buildSeed, DEMO_USER_ID } from './seed';
 import { applyTokenUsageDemo } from './demoTokenUsage';
 import { installDemoFetch, LP_SHOT_MEMO } from './demoFetch';
-import { demoAdminRpc } from './demoAdmin';
+import { demoAdminRpc, seedAdminDemo, demoAdminTableMissing } from './demoAdmin';
 import { AI_CONSENT_VERSION } from '../lib/aiProcessors';
 
 // &offline=1: つながっていない間は書き込みがすべて失敗する（本物の端末と同じ・オフラインで保存したときの表示の確認用）。
@@ -180,6 +180,12 @@ class Query {
     if ((qs.get('offline') === '1' && !demoBackOnline && this.op !== 'select') || (['insert', 'upsert', 'update'].includes(this.op) && (writeFails.includes(this.table) || writeFails.includes(`${this.table}:${this.op}`)))) {
       return new Promise((r) => setTimeout(r, 300))
         .then(() => ({ data: null, error: { message: 'network error', code: 'demo' }, count: null }))
+        .then(resolve, reject);
+    }
+    // ?admin=1&goal=missing: 毎週の見直しの表が無い DB（supabase_admin_goal.sql 未適用）。
+    if (demoAdminTableMissing(this.table, qs)) {
+      return new Promise((r) => setTimeout(r, 40))
+        .then(() => ({ data: null, error: { message: `relation "public.${this.table}" does not exist`, code: '42P01' }, count: null }))
         .then(resolve, reject);
     }
     // &dbfail=books,book_memos: 指定した表の読み出しを失敗させる（読み込み失敗の表示の確認用）。
@@ -397,6 +403,8 @@ export function createDemoClient() {
       last_recalled_at: null, recall_count: 0, created_at: at, updated_at: at,
     });
   }
+  // ?admin=1: 運営ダッシュボードの手入力の週の数字・毎週の見直しのサンプル（demoAdmin.js・&goal=…）。
+  if (params.get('admin') === '1') seedAdminDemo(db, params, DEMO_USER_ID);
   if (params.get('purpose') === '1') {
     for (const b of db.books || []) if (b.title === 'LIFE SHIFT') b.invest_purpose = '40 代からの働き方の選択肢を持ちたい';
   }
@@ -456,12 +464,12 @@ export function createDemoClient() {
       refreshSession: async () => ({ data: { session: store.session }, error: null }),
     },
     from: (table) => new Query(store, table),
-    rpc: async (name) => {
+    rpc: async (name, args) => {
       // ?admin=1: 運営ダッシュボードを開ける管理者（demoAdmin.js のサンプル）。
       const isAdminDemo = params.get('admin') === '1';
       if (name === 'is_app_admin') return { data: isAdminDemo, error: null };
       if (isAdminDemo) {
-        const hit = demoAdminRpc(name, params);
+        const hit = demoAdminRpc(name, params, args || {});
         if (hit) return hit;
       }
       return { data: null, error: { code: 'PGRST202', message: `Could not find the function public.${name}` } };

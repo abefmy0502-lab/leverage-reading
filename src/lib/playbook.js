@@ -11,6 +11,8 @@
 //   - 司令が空になる状態は構造的に無い（L4 曜日台本が常に存在する）。
 
 // ── 最小標本ゲート。これ未満の分母で「率」を語らない（統計ノイズで誤誘導するため）。
+import { GOAL_DEFAULT } from './goal1000';
+
 export const MIN_N = {
   cvr: 200,        // CVR 判断に必要な paywall_viewed
   recall: 20,      // 初週想起体験率に必要な週間登録者
@@ -164,10 +166,8 @@ export function evaluateRules({ phase, weekly = [], paid = 0, events = {} }) {
 }
 
 // 今月のマイルストーン増分（月次目標 − 前月目標）。戦略文書を改訂したらここも更新。
-export const SALES_MILESTONES = [
-  ['2026-07', 5], ['2026-08', 15], ['2026-09', 30], ['2026-10', 50], ['2026-11', 75], ['2026-12', 100],
-  ['2027-03', 150], ['2027-06', 300], ['2027-09', 550], ['2027-12', 1000],
-];
+// 2026-10-11: 2027 年中に有料ユーザー 1,000 人の道しるべ（master plan §10-2・lib/goal1000.js の GOAL_DEFAULT）に合わせた。
+export const SALES_MILESTONES = GOAL_DEFAULT.milestones.map((m) => [m.d.slice(0, 7), m.n]);
 export function monthlyMilestoneNeed(date) {
   const ymKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
   const idx = SALES_MILESTONES.findIndex(([k]) => k === ymKey);
