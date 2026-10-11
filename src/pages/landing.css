@@ -1,5 +1,5 @@
 /* ===========================================================================
- * 🌱 Landing Page CSS — Orime（2026-09-26 作り直し → 2026-10-02 構成 → 2026-10-05 マーケの報告で作り直し）
+ * 🌱 Landing Page CSS — Orime（2026-09-26 作り直し → 2026-10-02 構成 → 2026-10-05 マーケの報告で作り直し → 2026-10-11 受け身から対話へ）
  *
  * アプリと同じトークン（src/styles/tokens.css）で書く。明暗は端末に従う（アプリと同じ）。
  *   - 色: 背景 --bg / 面 --surface / 文字 --text・--text-2 / 線 --separator
@@ -20,6 +20,8 @@
   /* ヒーローの 3D のキャンバスを、広い画面で写真の右へどれだけ広げるか（カードが扇状に出る場所・Hero3D の layoutFor と組む） */
   --lp-canvas-left: 160px;
   --lp-canvas-extra: 480px;
+  /* 柱（③）の小さな画面写真の幅（ヒーローの写真の 2/3・スマホは画面の半分まで） */
+  --lp-pillar-w: min(calc(var(--lp-shot-w) * 2 / 3), 52vw);
 }
 
 .lp-root, .lp-root *, .lp-root *::before, .lp-root *::after { box-sizing: border-box; }
@@ -369,6 +371,34 @@ body.lp-active {
 /* 3 つ並べる（広い画面は横に・文字を大きくすると列が減る） */
 .lp-trio { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 14em), 1fr)); column-gap: var(--space-8); }
 .lp-trio li:last-child { border-bottom: 0; }
+/* 4 つ並べる（④ 0 日目の始め方・PC は 4 列・タブレットは 2 列） */
+.lp-quad { grid-template-columns: repeat(auto-fit, minmax(min(100%, 12em), 1fr)); }
+
+/* ② これまで／Orime の 2 行（見出しのすぐ下）。押せないので色は文字のニュートラル、これからの行だけ太く */
+.lp-ba { margin: 0; display: grid; gap: var(--space-2); }
+.lp-ba > div { display: grid; grid-template-columns: 5em minmax(0, 1fr); gap: var(--space-3); align-items: baseline; }
+.lp-ba dt { color: var(--text-2); font-size: var(--text-sub); font-weight: 600; }
+.lp-ba dd { margin: 0; display: flex; flex-wrap: wrap; column-gap: var(--space-2); color: var(--text-2); line-height: 1.6; }
+.lp-ba .is-after dd { color: var(--text); font-weight: 600; }
+.lp-ba-arrow { margin-right: var(--space-2); color: var(--text-3); font-weight: 400; }
+/* ② 相談の例（対話の流れの下） */
+.lp-asks { margin-top: var(--space-12); max-width: 36em; }
+.lp-asks-title { color: var(--text-2); font-size: var(--text-sub); font-weight: 600; }
+.lp-asks ul { list-style: none; margin: var(--space-3) 0 0; padding: 0; border-top: 1px solid var(--separator); }
+.lp-asks li { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-1); align-items: baseline; padding: var(--space-3) 0; border-bottom: 1px solid var(--separator); }
+/* 「」の始めの括弧を左の線にそろえる（全角の括弧の左の空きを詰める） */
+.lp-asks li > span:last-child { margin-left: -0.5em; }
+.lp-asks-who { color: var(--text-2); font-size: var(--text-meta); font-weight: 600; }
+
+/* ③ 柱 ②〜⑤（小さな画面写真＋1〜2 文）。スマホは写真を左に、PC は 2×2 */
+.lp-pillars { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-12); }
+.lp-pillars > li { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-6); align-items: center; }
+/* スマホは文が先、写真はその下（左にそろえる・文の行を狭くしない） */
+.lp-pillar-shot { order: 2; width: var(--lp-pillar-w); }
+.lp-pillar-shot .lp-shot, .lp-pillar-shot .lp-share-img { width: 100%; margin: 0; }
+.lp-pillar-head { margin-bottom: var(--space-2) !important; color: var(--text-2); font-size: var(--text-sub); font-weight: 600; }
+.lp-pillar-text > p:not(.lp-pillar-head) { color: var(--text-2); }
+.lp-pillars-note { text-align: left; margin-top: var(--space-8) !important; }
 
 /* ② 相談の流れ（LpFlow.jsx）: 4 枚の実画面を重ねて切り替える */
 .lp-flow-sec { background: var(--surface); border-block: 1px solid var(--separator); }
@@ -625,6 +655,12 @@ body.lp-active {
   .lp-shot-note { text-align: left; }
 
   .lp-media { grid-template-columns: minmax(0, 26em) auto; justify-content: start; gap: var(--space-16); align-items: center; }
+  .lp-root { --lp-pillar-w: calc(var(--lp-shot-w) * 2 / 3); }
+  .lp-pillars > li { grid-template-columns: var(--lp-pillar-w) minmax(0, 1fr); }
+  .lp-pillar-shot { order: 0; }
+  .lp-pillars { grid-template-columns: repeat(auto-fit, minmax(min(100%, 26em), 1fr)); column-gap: var(--space-12); row-gap: var(--space-16); }
+  .lp-ba > div { grid-template-columns: 6em minmax(0, 1fr); }
+  .lp-asks li { grid-template-columns: 8em minmax(0, 1fr); gap: var(--space-3); }
   .lp-media-shot .lp-shot, .lp-media-shot .lp-share-img { margin: 0; }
   .lp-media-shot { text-align: left; }
   .lp-media-shot figcaption { max-width: var(--lp-share-w); }

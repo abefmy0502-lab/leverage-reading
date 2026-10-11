@@ -7,11 +7,15 @@
 //
 // 使い方:
 //   1. 別ターミナルで  npm run demo            （http://localhost:5173）
-//   2. npm run lp:shots                       → LP に載せる全部（answer・flow-*・action・share）
+//   2. npm run lp:shots                       → LP に載せる全部（hero・flow-line/talk/voice/source・action・focus・fields・share）
 //      npm run lp:shots -- answer recall      → 絞って撮る
-// 撮る画面: answer（相談の答え・ヒーロー）/ sources（根拠の本）/ memo（メモを書くシート）/
+//   （お試しモードを別のポートで動かしているときは UI_SHOTS_URL=http://localhost:5461 などを付ける）
+// 撮る画面: hero（1 冊の本に相談し、本の語り口で答えている所・ヒーロー・2026-10-11）/
+//           flow-line・flow-talk・flow-voice・flow-source（「読んだ本と、対話する」の 4 コマ・2026-10-11）/
+//           focus（集中モード）/ fields（記録の分野）/ answer（相談の答え・聞き返し）/
+//           sources（根拠の本）/ memo（メモを書くシート）/
 //           action（行動）/ recall（思い出しカード）/ search（メモの言葉で本を探す）/
-//           flow-worry・flow-memo・flow-ask・flow-action（LP の「悩みから、明日の一歩まで」の 4 コマ・2026-10-02）/
+//           flow-worry・flow-memo・flow-ask・flow-action（前の 4 コマ＝部下の報告の相談・2026-10-02・名前を指定したときだけ）/
 //           share（写真で共有の画像そのもの＝明暗なし・public/lp/share-card-<540|1080>.webp）
 //
 // 撮り方の決まり（2026-10-05）: どの URL にも &lpshot=1 を付ける。お試しモードが「部下が報告をくれない」の相談に、
@@ -38,7 +42,7 @@ const hideDemoNote = (p) => p.evaluate(() => {
 });
 // 画面ごとの開く URL（既定は /?lpshot=1）。flow-worry は答えを途中で止める設定（&ai=stall）で、
 // 送った悩みと答えの書きはじめ（結論の数行）が出ている所を撮る（読み込み中の骨組みだけの画面にしない・2026-10-05）。
-const SHOT_URL = { 'flow-worry': '/?lpshot=1&ai=stall' };
+const SHOT_URL = { 'flow-worry': '/?lpshot=1&ai=stall', 'flow-talk': '/?lpshot=1&ai=stall', focus: '/?lpshot=1&focus=timer' };
 const DEFAULT_URL = '/?lpshot=1';
 const ask = async (p) => {
   await p.locator(nav('相談')).click(); await p.waitForTimeout(800);
@@ -54,7 +58,104 @@ const chatToBottom = (p) => p.evaluate(() => {
   if (el) el.scrollTop = el.scrollHeight;
 });
 
+// ── 1 冊の本に相談する（2026-10-11・ヒーローと 4 コマ）──
+const VOICE_BOOK = '嫌われる勇気';
+const VOICE_Q = '相手が自分をどう思うかが気になって、意見が言えません';
+const VOICE_LINE = '人にどう思われるかより、自分がどうしたいかを先に考える。';
+const openBook = async (p) => {
+  await p.locator('button:has-text("すべての本")').first().click(); await p.waitForTimeout(800);
+  await p.locator(`.lvg-page button:has-text("${VOICE_BOOK}")`).first().click(); await p.waitForTimeout(1200);
+};
+const askBook = async (p) => {
+  await openBook(p);
+  await p.locator('button:has-text("この本に相談する")').first().click(); await p.waitForTimeout(1500);
+  await p.locator('textarea[aria-label="相談したいこと"]').fill(VOICE_Q);
+  await p.locator('button[aria-label="送信"]').click();
+  await p.waitForTimeout(8000);
+  await hideDemoNote(p);
+};
+// 名前の行の著者名（「（本の語り口で・AI）」の前の文字）だけを隠す。
+const hideAuthorName = (p) => p.evaluate(() => {
+  document.querySelectorAll('span').forEach((el) => {
+    if (el.textContent.trim() !== '（本の語り口で・AI）') return;
+    const name = el.previousElementSibling;
+    if (name) name.style.display = 'none';
+  });
+});
+// 画面のどこでも: 文字 text を含むいちばん内側の要素を、上から gap の所へ送る（スクロールの箱を探す）。
+const scrollToTextAny = (p, text, gap) => p.evaluate(({ text, gap }) => {
+  const el = [...document.querySelectorAll('*')].reverse().find((e) => e.textContent.includes(text) && e.children.length < 3);
+  if (!el) return;
+  let sc = el.parentElement;
+  while (sc && !(sc.scrollHeight > sc.clientHeight + 10 && /auto|scroll/.test(getComputedStyle(sc).overflowY))) sc = sc.parentElement;
+  if (sc) sc.scrollTop += el.getBoundingClientRect().top - sc.getBoundingClientRect().top - gap;
+  else window.scrollBy(0, el.getBoundingClientRect().top - gap);
+}, { text, gap });
+// 会話の場所で、文字 text の要素を上から gap の所へ送る。
+const scrollToText = (p, text, gap) => p.evaluate(({ text, gap }) => {
+  const el = [...document.querySelectorAll('*')].find((e) => e.children.length === 0 && e.textContent.trim().startsWith(text));
+  const sc = el?.closest('.chat-scroll');
+  if (!el || !sc) return;
+  sc.scrollTop += el.getBoundingClientRect().top - sc.getBoundingClientRect().top - gap;
+}, { text, gap });
+
 const SHOTS = {
+  // ── 2026-10-11 の作り直し（読書を、受け身から対話へ）──
+  // ヒーロー: 1 冊の本（『嫌われる勇気』）に相談して、本の語り口で答え、状況を 1 つ聞き返しているところ。
+  //   名前の行の著者名だけは隠す（実在の著者が話しているように見せない・LP の画像の決まり）。「（本の語り口で・AI）」は残す。
+  hero: async (p) => {
+    await askBook(p);
+    await hideAuthorName(p);
+    await scrollToText(p, VOICE_Q, 16);
+  },
+  // LP「読んだ本と、対話する」の 4 コマ: 一行を残す → 本に相談する → 本の語り口で聞き返す → 本とページで確かめる
+  // 1. 一行を残す: メモを書いて保存し、本の詳細のメモの一覧（いちばん上に今の一行）を見せる
+  'flow-line': async (p) => {
+    await openBook(p);
+    await p.locator('button:has-text("メモを書く")').last().click(); await p.waitForTimeout(900);
+    await p.keyboard.type(VOICE_LINE, { delay: 5 });
+    await p.locator('[role=dialog] button:has-text("保存")').last().click(); await p.waitForTimeout(2500);
+    // 保存の知らせ（ほかの行動へのすすめ）は写さない
+    await p.evaluate(() => document.querySelectorAll('[role=status], .toast, [data-toast]').forEach((el) => { el.style.display = 'none'; }));
+    await scrollToTextAny(p, VOICE_LINE, 420);
+  },
+  'flow-talk': async (p) => {
+    await openBook(p);
+    await p.locator('button:has-text("この本に相談する")').first().click(); await p.waitForTimeout(1500);
+    await p.locator('textarea[aria-label="相談したいこと"]').fill(VOICE_Q);
+    await p.locator('button[aria-label="送信"]').click();
+    await p.waitForTimeout(Number(process.env.FLOW_WORRY_MS || 4500));
+    await hideDemoNote(p);
+    await hideAuthorName(p);
+  },
+  'flow-voice': async (p) => {
+    await askBook(p);
+    await hideAuthorName(p);
+    await chatToBottom(p);
+    await p.waitForTimeout(400);
+  },
+  'flow-source': async (p) => {
+    await askBook(p);
+    await hideAuthorName(p);
+    await p.locator('summary:has-text("根拠を見る")').first().click(); await p.waitForTimeout(600);
+    await hideDemoNote(p);
+    await scrollToText(p, '参照したメモ', 64);
+  },
+  // 習慣にする: 集中モード（時間を決めて読む・『数値化の鬼』）
+  focus: async (p) => { await p.waitForTimeout(1500); },
+  // 自分の読書を客観的に見る: 振り返り › 記録の「分野」
+  fields: async (p) => {
+    await p.locator(nav('振り返り')).click(); await p.waitForTimeout(800);
+    await p.locator('button[role=tab]:has-text("記録")').click();
+    await p.locator('#book-fields-record-title').waitFor({ timeout: 20000 }); await p.waitForTimeout(800);
+    await p.evaluate(() => {
+      const h = document.getElementById('book-fields-record-title');
+      if (!h) return;
+      h.scrollIntoView({ block: 'start' });
+      const sc = [...document.querySelectorAll('*')].find((e) => e.contains(h) && e.scrollHeight > e.clientHeight + 10 && /auto|scroll/.test(getComputedStyle(e).overflowY));
+      if (sc) sc.scrollTop -= 88; else window.scrollBy(0, -170);
+    });
+  },
   answer: async (p) => {
     await ask(p);
     await p.evaluate(() => {
@@ -142,7 +243,7 @@ const SHOTS = {
   },
 };
 // メモのシートは下半分だけを切り出す（背後のぼかしたホームを見せない）。値は @2x の px。
-const CROP_TOP = { memo: 846 };
+const CROP_TOP = { memo: 846, 'flow-line': 0 };
 
 function browserOptions() {
   if (process.env.PW_EXE) return { executablePath: process.env.PW_EXE };
@@ -191,7 +292,9 @@ const encoder = await browser.newPage();
 let failed = 0;
 if (!only.length || only.includes('share')) failed += await shootShareCard(browser);
 // 2026-10-02 の作り直しで LP に載せなくなった画面（ストアの画像などで使うときは名前を指定して撮る）。
-const EXTRA = new Set(['sources', 'memo', 'recall', 'search']);
+// 2026-10-11 の作り直しで、ヒーローは hero（1 冊の本の語り口）、4 コマは flow-line・flow-talk・flow-voice・flow-source に。
+// 前の 4 コマ（部下の報告の相談）と answer は外した。
+const EXTRA = new Set(['answer', 'sources', 'memo', 'recall', 'search', 'flow-worry', 'flow-memo', 'flow-ask', 'flow-action']);
 for (const [name, steps] of Object.entries(SHOTS)) {
   if (only.length ? !only.includes(name) : EXTRA.has(name)) continue;
   for (const scheme of ['light', 'dark']) {

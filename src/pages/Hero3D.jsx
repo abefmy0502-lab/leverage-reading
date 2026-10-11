@@ -1,7 +1,7 @@
 // 🌱 LP ヒーローの 3D（three.js・LP だけで遅延読み込み）
 //
-// 見せたいこと（1 か所だけの意味のある動き）: 相談の答えの裏には、あなたが残したメモがある。
-// 相談の答えを映した iPhone の後ろ（スマホでは手前の角）から、根拠になった本のメモが
+// 見せたいこと（1 か所だけの意味のある動き）: 本の語り口の答えの裏には、あなたが残したメモがある。
+// 1 冊の本に相談した答えを映した iPhone の後ろ（スマホでは手前の角）から、根拠になった本のメモが
 // すっと出てきて止まる。あとはマウスの位置（タッチ端末はゆっくりした揺れ）で少し傾くだけ。
 //
 // 表示速度: 最初は親が <img>（相談の答えの写真）を出しておき、3D は読み込みとテクスチャの
@@ -10,7 +10,7 @@
 // （写真のまま）。画面外・タブ非表示の間は描画を止める。
 //
 // 色はアプリのトークン（--surface / --text / --accent …）を実行時に読み、明暗の切替えで作り直す。
-// メモの文面はお試しモードのサンプルのメモ（相談の答えの根拠になっている 3 冊）から。
+// メモの文面はお試しモードのサンプルのメモ（相談した本に残した 3 件）から。
 
 import { useEffect, useRef } from 'react';
 import {
@@ -20,11 +20,12 @@ import {
 } from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 
-// （2026-10-05）ヒーローの写真（npm run lp:shots の answer・お試しモードの &lpshot=1）の答えの根拠と同じ 3 件。
+// （2026-10-11）ヒーローの写真（npm run lp:shots の hero・1 冊の本『嫌われる勇気』に相談した答え）と同じ本のメモ 3 件
+// （お試しモードのサンプルのメモ＝読み手が自分の言葉で書いた気づき）。
 const MEMOS = [
-  { title: '自分の学び', page: '', text: '部下からの報告が遅いときは、まず自分の頼み方を見直す。' },
-  { title: '1兆ドルコーチ', page: 'p.61', text: '1on1 は仕事の話の前に、相手の近況から始める。' },
-  { title: '人を動かす', page: 'p.142', text: '命令ではなく質問で。「どうすればうまくいくと思う？」と聞く。' },
+  { title: '嫌われる勇気', page: 'p.40', text: '他人の課題と自分の課題を分ける。' },
+  { title: '嫌われる勇気', page: 'p.132', text: '承認を求めて生きると、他人の人生を生きることになる。' },
+  { title: '嫌われる勇気', page: 'p.210', text: '「いま、ここ」に集中する。' },
 ];
 
 // 寸法（ワールド単位）。画面写真は 780×1688。
@@ -355,7 +356,7 @@ export default function Hero3D({ stageRef, imgRef, onReady, onLost }) {
       metal.color = phoneColor();
       metal.needsUpdate = true;
       const scheme = darkMq.matches ? 'dark' : 'light';
-      const img = await loadImage(`/lp/answer-${scheme}-780.webp`);
+      const img = await loadImage(`/lp/hero-${scheme}-780.webp`);
       screenMat.map?.dispose();
       screenMat.map = makeScreenTexture(img);
       screenMat.needsUpdate = true;

@@ -1,7 +1,8 @@
 // 📝 LP（紹介ページ）の、条件で変わる文（料金の注記・FAQ・最後の注記）を作る（純粋な関数・テストあり）。
 //
 // 条件は 4 つ: 創業メンバー価格の期間中か（offer.active）／無料期間の表記（trialNote・'' は出さない）／
-// App Store で公開済みか（appLive）／Jev を入れたビルドか（jev）。Landing.jsx はこれを 1 回だけ呼ぶ。
+// 公開前の形か（prelaunch＝VITE_LP_PRELAUNCH=on のときだけ・2026-10-11 から既定は公開済みの形）／
+// Jev を入れたビルドか（jev）。Landing.jsx はこれを 1 回だけ呼ぶ。
 // テスト（lpCopy.test.js）が全部の組み合わせで「{MONTHLY_TEXT} のような書きかけの文字が出ない」
 // 「公開前に『配信しています』と書かない」などを確かめる（2026-10-05・料金の注記に変数名がそのまま出ていた）。
 //
@@ -20,13 +21,22 @@ export const ANNUAL = 12800;
 export { CONSULT_ANSWERS_NOTE };
 // 関係するメモが無かった相談を払い戻す回数（api の AI_NO_INFO_REFUND_LIMIT の既定）。
 export const NO_INFO_REFUNDS = 10;
-// 公開予定（App Store の URL が無い間だけ出す）。VITE_LAUNCH_LABEL で変えられる。
+// 公開予定（公開前の形＝VITE_LP_PRELAUNCH=on のときだけ出す）。VITE_LAUNCH_LABEL で変えられる。
 export const DEFAULT_LAUNCH_LABEL = '2026 年 11 月';
 
 // 文書の頭（title・description・OGP）。index.html の静的な meta と同じ言葉にする（lpCopy.test.js が確かめる）。
-export const LP_TITLE = 'Orime｜読んだ本が、あなたの相談相手になる読書メモアプリ';
-export const LP_DESCRIPTION = '「あの本に書いてあったはずなのに」をなくす読書メモアプリ。困ったことを相談すると、あなたが残した読書メモから、本とページを添えて答え、明日やることを一つ決めます。ブクログ・Kindle から取り込み可。無料プラン（ずっと無料）で始められます。';
-export const LP_OG_DESCRIPTION = '読んだ本が、あなたの相談相手になる。あなたが残した読書メモから、本とページを添えて答え、明日やることを一緒に一つ決める読書アプリです。';
+// 2026-10-11: 訴求を「読書を、受け身から対話へ」に（company/marketing-master-plan-2026-10.md §0）。
+// 「著者と話せる」とは書かない（「本の語り口で答える」「本と対話する」まで）。
+export const LP_TITLE = 'Orime｜読んだ本と、対話しよう。読書メモアプリ';
+export const LP_DESCRIPTION = '読書を、受け身から対話へ。心に響いた一行を残すと、AI がその本の語り口で、あなたのメモから答えます。本とページを添えて、明日の一歩まで。集中モード・写真で共有・分野ごとの記録も。ブクログ・Kindle から取り込めて、無料プラン（ずっと無料）で始められます。';
+export const LP_OG_DESCRIPTION = '読んだ本と、対話しよう。心に響いた一行から、AI が本の語り口で答え、明日の一歩まで一緒に決める読書メモアプリです。';
+// 語り口の答えの注記（アプリの答えの最後の一行と同じ考え方・LP では 1 か所＝ヒーローの写真の下）。
+export const VOICE_NOTE = '答えは、AI が本とあなたのメモから語り口をまねたもので、著者本人の言葉ではありません。';
+
+// 📱 App Store の URL（VITE_APP_STORE_URL）がまだ無いビルドでも、ボタンは出す（2026-10-11 オーナー「ローンチしている前提」）。
+// そのときの行き先は、日本の App Store での「Orime」の検索。URL が入れば、ボタンはアプリのページ（＋キャンペーン ct=）へ。
+export const APP_STORE_SEARCH_URL = 'https://apps.apple.com/jp/search?term=Orime';
+export const storeHrefOf = ({ live, url }) => (live && url ? url : APP_STORE_SEARCH_URL);
 
 export const yen = (n) => `¥${Number(n).toLocaleString('ja-JP')}`;
 // 「約 3 回」「約 80 回」（折り返さない空白でつなぐ）。
@@ -38,7 +48,7 @@ export const plainText = (t) => String(t || '').replace(/⁠/g, '').replace(/ /
 export function buildLpCopy({
   offer = { active: false, endLabel: '', price: '' },
   trialNote = '',
-  appLive = false,
+  prelaunch = false,
   jev = false,
   launchLabel = DEFAULT_LAUNCH_LABEL,
 } = {}) {
@@ -94,14 +104,18 @@ export function buildLpCopy({
   // ld: false は検索結果に残すと古くなる問い（期間ものの創業メンバー価格・公開前だけの問い）。JSON-LD に入れない。
   // link: 答えの最後に付けるリンク（{ href, label }）。
   const faq = [
-    ...(!appLive ? [{
+    ...(prelaunch ? [{
       q: 'いつから使えますか？',
       a: `${LAUNCH}に、App Store で公開する予定です。このページでメールアドレスを登録いただくと、公開の日にお知らせします。`,
       ld: false,
     }] : []),
     {
       q: '無料プランで、何ができますか？',
-      a: `本とメモは何件でも残せて、振り返り・行動・思い出しカード・写真で共有・ほかのアプリからの取り込みも使えます。AI の相談は${noBreak(`毎月 ${FREE_TOKENS} トークン`)}（AI の答え ${FREE_CONSULTS}）で、${FIRST_MONTH}です。写真から書き起こしは${noBreak(`毎月 ${FREE_OCR_PER_MONTH} 回`)}です。相談のトークンを使い切った月も、AI を使わずに、あなたのメモから関係する一節を本ごとに並べてお答えします（メモが答える相談）。期間の決まりは無く、ずっと無料です。`,
+      a: `本とメモは何件でも残せて、振り返り・行動・思い出しカード・集中モード・読書の時間と分野の記録・写真で共有・ほかのアプリからの取り込みも使えます。AI の相談と「この本で学べること」は、あわせて${noBreak(`毎月 ${FREE_TOKENS} トークン`)}（AI の答え ${FREE_CONSULTS}）で、${FIRST_MONTH}です。写真から書き起こしは${noBreak(`毎月 ${FREE_OCR_PER_MONTH} 回`)}です。相談のトークンを使い切った月も、AI を使わずに、あなたのメモから関係する一節を本ごとに並べてお答えします（メモが答える相談）。期間の決まりは無く、ずっと無料です。`,
+    },
+    {
+      q: '「本の語り口で答える」とは、どういうことですか？',
+      a: `1 冊の本に相談すると、AI がその本の語り口をまねて、あなたがその本に残したメモと読書の準備から答えます。${VOICE_NOTE}答えの名前の行にも「（本の語り口で・AI）」と出ます。本の要約ではなく、材料はあなたのメモです。すべての本に相談することもできます。`,
     },
     {
       q: 'ChatGPT に聞くのと、何が違いますか？',
@@ -134,7 +148,11 @@ export function buildLpCopy({
     },
     {
       q: '忙しくて、続けられるか不安です',
-      a: '読みながら、心が動いた一行を残すだけで始められます。メモは本文だけで保存でき、ページ番号や写真はあとから足せます。',
+      a: '読みながら、心が動いた一行を残すだけで始められます。メモは本文だけで保存でき、ページ番号や写真はあとから足せます。読む時間を決める集中モードもあり、読んだ時間は記録に残ります（連続日数やバッジで急かすことはしません）。',
+    },
+    {
+      q: '大学生でも使えますか？',
+      a: '使えます。ゼミや就活の準備、自己分析の相談にも使えます。本とメモ・集中モード・記録・写真で共有は、無料プラン（ずっと無料）で使えます。',
     },
     {
       q: '料金はいくらですか？',
@@ -167,13 +185,13 @@ export function buildLpCopy({
     },
     {
       q: 'パソコンや Android でも使えますか？',
-      a: appLive
-        ? 'いまは App Store のアプリでお使いいただけます。パソコンのブラウザ版と Android 版は、準備ができしだいお知らせします。'
-        : `まず App Store で公開します（${LAUNCH}の予定）。パソコンのブラウザ版と Android 版は、準備ができしだいお知らせします。`,
+      a: prelaunch
+        ? `まず App Store で公開します（${LAUNCH}の予定）。パソコンのブラウザ版と Android 版は、準備ができしだいお知らせします。`
+        : 'いまは App Store のアプリでお使いいただけます。パソコンのブラウザ版と Android 版は、準備ができしだいお知らせします。',
     },
     {
       q: '小説やエッセイでも使えますか？',
-      a: '使えます。ビジネス書に限りません。答えの材料はあなたのメモなので、心に残った一行があれば、どんな本でも相談の材料になります。',
+      a: '使えます。ビジネス書に限りません。答えの材料はあなたのメモなので、心に残った一行があれば、どんな本でも対話の材料になります。',
     },
   ].map((f) => ({ ld: true, ...f }));
 
@@ -182,7 +200,6 @@ export function buildLpCopy({
     TRIAL_FIRST, TRIAL_SENT, TRIAL_WHO,
     FREE_CONSULTS, FIRST_CONSULTS, PAID_CONSULTS, TRIAL_CONSULTS,
     LAUNCH, ELIGIBLE, END,
-    privacyLead: `相談では、あなたの質問と、答えに使うメモ・読書の記録を ${SENDERS}。写真からの書き起こしなど一部は Google 社の有料の API を使います。どの会社も、API で送られたデータを AI の学習に使わないと規約で定めています。`,
     pricingNote,
     priceLine,
     faq,

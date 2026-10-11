@@ -1,33 +1,28 @@
-// 🌱 Landing Page — Orime（2026-10-02 作り直し → 2026-10-05 マーケティングの 4 つの報告で作り直し）
+// 🌱 Landing Page — Orime（2026-10-02 作り直し → 2026-10-05 → 2026-10-11 公開している前提・新しい訴求で作り直し）
 //
-// 一番の価値（CLAUDE.md）: 読むほど、自分だけの相談相手が育つ。見出しはストア・OGP と同じ
-// 「読んだ本が、あなたの相談相手になる。」。勝ちどころ（市場の報告）: 要約ではなく、あなたのメモから。
-// 書き写さなくていい（撮る・取り込む）。答えは明日の一歩まで。
-// 相手: 30〜40 代で、ビジネス書を月 2〜4 冊読み、「あの本に書いてあったはずなのに」と感じている人。
+// 訴求の正は company/marketing-master-plan-2026-10.md（§0）: 読書を、受け身から対話へ。見出しは「読んだ本と、対話しよう。」
+//   心に響いた一行から、AI が本の語り口で答える（要約ではなく、あなたのメモから・本とページを添えて）→ 成果へ。
+//   「著者と話せる」とは書かない（「本の語り口で答える」「本と対話する」まで）。語り口の注記はヒーローの写真の下の 1 か所。
+// 相手: 読書の成果を最大にしたい人・読書を習慣にしたい人・意識の高い社会人・大学生（立場では絞らない）。
 //
-// 流れ（2026-10-05）:
-//   ① ヒーロー（上の 1 行「あの本に、書いてあったはずなのに。」→ 見出し → 補足（本とページ・明日の一歩）→ 入口
-//      → 「取り込めば初日から相談できます」→ 文字ボタン「15 秒で、相談の流れを見る」）
-//   ② 悩みから、明日の一歩まで（実画面 4 枚・LpFlow.jsx）
-//   ③ ChatGPT に聞くのと、何が違う？（Orime ならしなくていいこと 4 つ・3 列の比較表は外した）
-//   ④ 決めた一歩は、やり切るまで（行動）
-//   ⑤ 読むほど、あなただけの相談相手が育つ（一番の価値）
-//   ⑥ メモがゼロでも、初日から（取り込む・一言ずつ・撮る）＋入口
-//   ⑦ 読んだ本を、写真で共有（短く）
-//   ⑧ メモは、AI の学習に使われません（送るもの・送り先・4 つの約束）
-//   ⑨ 料金「まずは、無料プランで。」（創業メンバー価格は期間中だけ、この中の帯 1 枚）＋入口
-//   ⑩ よくある質問 → ⑪ 最後の入口。利用者の声は実在の声が届くまで出さない（TESTIMONIALS が空なら節ごと出ない）
+// 流れ（2026-10-11）:
+//   ① ヒーロー（1 冊の本に相談し、本の語り口で答えている画面）
+//   ② 受け身から対話へ（これまで／これから の 2 行＋実画面 4 枚の対話の流れ・LpFlow.jsx＋相談の例 3 つ）
+//   ③ 続けられて、成果が見える（柱 ②〜⑤ を 1 行ずつ: 明日の一歩・集中モード・写真で共有・分野）
+//   ④ メモがゼロでも、今日から（一言ずつ・取り込む・撮る・積読でも）＋入口
+//   ⑤ 料金 → ⑥ よくある質問 → ⑦ 最後の入口。利用者の声は実在の声が届くまで出さない（TESTIMONIALS が空なら節ごと出ない）
 //
-// 入口（2026-10-05）: App Store の URL（VITE_APP_STORE_URL）があれば「無料プランで始める」（App Store・予約注文の
-//   ページでもそのまま動く）。無い間は、押せないボタンを並べず「公開の日にメールで知らせる」（LpWaitlist.jsx）と
-//   公開予定の 1 行（VITE_LAUNCH_LABEL・既定「2026 年 11 月」）。下の固定の帯とヘッダーのボタンは公開後だけ。
+// 入口（2026-10-11）: 既定は公開済みの形＝「無料プランで始める」（下の固定の帯・ヘッダーのボタン・PC の QR も）。
+//   App Store の URL（VITE_APP_STORE_URL）があればアプリのページ（＋キャンペーン ct=・lpTrack の storeUrlFor）、
+//   無いビルドでは日本の App Store での「Orime」の検索（lpCopy.js の APP_STORE_SEARCH_URL）。
+//   公開前の形（メールでお知らせ・公開予定の行・公開前の FAQ）は VITE_LP_PRELAUNCH=on のときだけ（LpWaitlist.jsx）。
 //
 // 創業メンバー価格（lib/foundingOffer.js）: VITE_FOUNDING_OFFER=on かつ VITE_FOUNDING_OFFER_END（日本時間）の前だけ、
 //   ヒーローの小さな印・料金の中の帯・年額の行・FAQ を出す。終わる日を過ぎると自動で消える。「先着」「通常価格」を
 //   書かない・¥9,800 と ¥12,800 の差を書かない（二重価格にしない）。期間中、7 日間無料は月額だけ。
 //
 // 条件で変わる文（料金の注記・FAQ）は lpCopy.js（テストあり）。見た目はアプリと同じトークン（landing.css）。
-// 端末名（iPhone）は打ち出さない（Android も出す予定）。架空の数字・声・効果の言い切りは書かない。
+// 端末名（iPhone）は打ち出さない（Android も出す予定）。架空の数字・声・効果の言い切りは書かない。チーム・会社向けは書かない。
 //
 // 技術ノート:
 //   - CSP は default-src 'self'。外部 JS/画像/フォントは使わない
@@ -49,7 +44,7 @@ import Shot from './LpShot';
 import LpFlow from './LpFlow';
 import LpWaitlist from './LpWaitlist';
 import Phrases from './LpPhrases';
-import { buildLpCopy, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, NO_INFO_REFUNDS, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION } from './lpCopy';
+import { buildLpCopy, storeHrefOf, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, NO_INFO_REFUNDS, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE } from './lpCopy';
 import qrcode from 'qrcode-generator';
 import { lpTrack, lpVariant, storeUrlFor, isWidePointer } from '../lib/lpTrack';
 import { inject as injectVercelAnalytics } from '@vercel/analytics';
@@ -81,13 +76,17 @@ const OFFER = readFoundingOffer();
 // 🎁 プランの無料期間の表記（既定は正典どおり「7 日間無料」・VITE_TRIAL_NOTE で変える・'off' で出さない）。
 const TRIAL_RAW = (import.meta.env.VITE_TRIAL_NOTE ?? '7 日間無料').trim();
 const TRIAL_NOTE = TRIAL_RAW === 'off' ? '' : normalizeTrialLabel(TRIAL_RAW);
-// 公開予定（App Store の URL が無い間だけ出す）。
+// 🚀 公開前の形（メールでお知らせ・公開予定・公開前の FAQ）は VITE_LP_PRELAUNCH=on のときだけ（2026-10-11 から既定は公開済み）。
+// 🧪 開発中だけ ?prelaunch=1 で公開前の形を見られる。
+const PRELAUNCH = String(import.meta.env.VITE_LP_PRELAUNCH || '').trim().toLowerCase() === 'on'
+  || (import.meta.env.DEV && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('prelaunch') === '1');
+// 公開予定（公開前の形のときだけ出す）。
 const LAUNCH_LABEL = (import.meta.env.VITE_LAUNCH_LABEL || DEFAULT_LAUNCH_LABEL).trim();
 // 📛 Apple 公式の「App Store からダウンロード」バッジ（任意）。Apple のマーケティングのページから日本語版の SVG を
 // そのまま（色・形を変えずに）public/lp/ に置き、その場所を VITE_APP_STORE_BADGE に入れたときだけ、公開後の
 // ヒーローと最後のボタンの横に出す（高さ 40 以上・周りに高さの 1/4 の余白・Apple のガイドライン）。
 const BADGE_SRC = (import.meta.env.VITE_APP_STORE_BADGE || '').trim();
-const COPY = buildLpCopy({ offer: OFFER, trialNote: TRIAL_NOTE, appLive: isAppStoreLive, jev: AI_JEV_ON, launchLabel: LAUNCH_LABEL });
+const COPY = buildLpCopy({ offer: OFFER, trialNote: TRIAL_NOTE, prelaunch: PRELAUNCH, jev: AI_JEV_ON, launchLabel: LAUNCH_LABEL });
 const { MONTHLY_TEXT, ANNUAL_TEXT, PER_MONTH_TEXT, SAVE, TRIAL_FIRST, TRIAL_CONSULTS, FREE_CONSULTS, FIRST_CONSULTS, PAID_CONSULTS, END } = COPY;
 const LAUNCH_LINE = `${LAUNCH_LABEL}に、App Store で公開予定です。`;
 // ボタンの文言（2026-10-02 オーナー承認）: アプリは無料プラン（ずっと無料）で使える（押すと App Store）。
@@ -97,34 +96,57 @@ const CTA_LABEL = '無料プランで始める';
 // 形式: { quote, who: '30代・営業', how: '部下との 1on1 の前に相談している' }。空なら節ごと出ない。
 const TESTIMONIALS = [];
 
-// ③ ChatGPT に聞くのと、何が違う？（「ChatGPT にできないこと」ではなく「Orime ならしなくていいこと」・事実だけ）
-const VS_POINTS = [
-  { head: '貼り付けなくていい', body: '読みながら残した一行が、そのまま相談の材料になります。相談のたびに、自分の読書を説明し直す必要はありません。' },
-  { head: '本とページで確かめられる', body: '答えには、もとになったメモ（書名とページ）が付きます。' },
-  { head: '無いときは、無いと伝える', body: `関係するメモが見つからないときは、無理に答えを作らず、そう伝えるようにしています。そのときは、トークンを使ったことにしません（${noBreak(`毎月 ${NO_INFO_REFUNDS} 回`)}まで）。` },
-  { head: '聞き返してから、一歩を決める', body: '最初から行動を決めつけず、あなたの状況を聞いてから、明日やることを一緒に一つ決めます。' },
+// ② これまでの読書と、Orime の読書（2 行だけ）
+const BEFORE_AFTER = [
+  { label: 'これまで', steps: ['読む', '閉じる', '終わり'] },
+  { label: 'Orime', steps: ['一行を残す', '本と対話する', '明日の一歩'] },
 ];
 
-// ⑤ 読むほど、あなただけの相談相手が育つ（「良くなる」「賢くなる」と言い切らない）
-const GROW_POINTS = [
-  { head: '一行で残す', body: '読みながら、心が動いた一行だけ。紙の本は、ページを撮れば文字に書き起こせます。' },
-  { head: '本と本がつながる', body: 'メモを残すと、別の本で似たことを書いたメモを見せます。1 冊では気づかなかったことが、つながりから見えてくることもあります。' },
-  { head: '頭にも残す', body: '忘れかけたメモが、思い出しカードでもう一度めぐってきます。通知は多くても週に 1 回です。' },
+// ② 相談の例（幅を持たせて 3 つ・立場で絞らない）
+const ASK_EXAMPLES = [
+  { who: '仕事', q: '任せるのが苦手。どうしたらいい？' },
+  { who: '就活・キャリア', q: '自己分析で、自分の強みをどう言う？' },
+  { who: '習慣・自己成長', q: '続けたいのに、三日で終わってしまう' },
 ];
 
-// ⑥ メモがゼロでも、初日から（初日の 3 つの道・SPEC §1-1d）
+// ③ 続けられて、成果が見える（柱 ②〜⑤・1 つ 1〜2 文・画面 1 枚）
+const PILLARS = [
+  {
+    id: 'action', shot: 'action',
+    head: '成果につなげる',
+    title: '対話の最後は、明日の一歩。',
+    body: '決めた一歩は、ボタン一つで行動リストへ。期限の日の朝に一度だけお知らせします。',
+    alt: '振り返りの行動の画面。明日・来週以降に分かれた行動の一覧と、それぞれの本の名前',
+  },
+  {
+    id: 'focus', shot: 'focus',
+    head: '習慣にする',
+    title: '時間を決めて、集中して読む。',
+    body: '画面いっぱいの集中モードで読みます。読んだ時間は、本と分野ごとに記録に残ります。',
+    alt: '集中モードの画面。暗い地に本の表紙と書名、「残り 23 分」の大きな数字と細い輪、下にメモ・おわる・一時停止のボタン',
+  },
+  {
+    id: 'share', share: true,
+    head: '発信して、続ける',
+    title: '心に残った一文を、1 枚の画像に。',
+    body: '撮った写真に一文と書名を重ねて共有できます。写真は端末の中で描き、どこにも送りません。',
+    alt: '共有の画像の見本。朝の机の写真に、心に残った一文と書名・ページ、Orime のロゴが重なっている',
+  },
+  {
+    id: 'fields', shot: 'fields',
+    head: '自分の読書を客観的に見る',
+    title: 'どの分野が手薄か、見える。',
+    body: 'どの分野を、どれだけ読んできたかが分かります。手薄な分野は、過去のメモから AI 選書で次の一冊を相談できます（プラン）。',
+    alt: '振り返りの記録の「分野」。仕事・自分と生活の分野ごとの本とメモの数と、「まだ本がない分野」のチップ',
+  },
+];
+
+// ④ メモがゼロでも、今日から（0 日目の 4 つの道・SPEC §1-1d）
 const START_POINTS = [
-  { head: 'ほかのアプリから取り込む', body: 'ブクログ・読書メーター・Kindle に残したレビュー・感想・ハイライトを、ファイルを選ぶだけで。ファイルの読み取りは端末の中で行い、AI には送りません。' },
   { head: '読んだ本に、一言ずつ', body: `覚えている一行を書くだけ。${noBreak('うろ覚え')}で大丈夫です。` },
-  { head: '本のページを撮る', body: `撮ったページを文字に書き起こして、メモにします（無料プランは${noBreak(`毎月 ${FREE_OCR_PER_MONTH} 回`)}）。` },
-];
-
-// ⑧ データの約束。すべて実装・規約で裏付けのある事実だけ（AI の正しさを保証しない・持ち出しと消去を言い過ぎない）。
-const PRIVACY_POINTS = [
-  { head: 'AI に送る前に、確かめます', body: 'はじめて AI を使うとき、送る内容と送り先を見てから使えます。設定のプライバシーから、いつでも取り消せます。' },
-  { head: '根拠のメモを、いつも添えます', body: '答えには、もとになったメモ（本とページ）が付きます。AI の答えは間違えることもあるので、根拠のメモとあわせて確かめてください。' },
-  { head: 'メモは、あなたのもの', body: '本・メモ・行動・相談の記録は、設定からいつでも CSV でダウンロードできます（写真そのものは含みません）。退会のお申し込みを受けて、法令で保管が必要なものを除き、データを消去します。解約しても、メモは残ります。' },
-  { head: '急かさない', body: '思い出しの通知は多くても週に 1 回。行動は期限の日の朝に 1 回だけ。バッジや連続日数で急かす仕組みは入れていません。' },
+  { head: 'ほかのアプリから取り込む', body: 'ブクログ・読書メーター・Kindle の記録を、ファイルを選ぶだけで。読み取りは端末の中で行い、AI には送りません。' },
+  { head: '本のページを撮る', body: `線を引いたページを撮ると、文字に書き起こしてメモにします（無料プランは${noBreak(`毎月 ${FREE_OCR_PER_MONTH} 回`)}）。` },
+  { head: '積読から始める', body: '読む前に、本の紹介と目次から「この本で学べること」を AI がまとめます。無料プランでも使えます。' },
 ];
 
 const setMeta = (name, content, attr = 'name') => {
@@ -146,10 +168,13 @@ const TITLE = LP_TITLE;
 const DESCRIPTION = LP_DESCRIPTION;
 const OG_DESCRIPTION = LP_OG_DESCRIPTION;
 
-// 📱 App Store へ（公開後だけ）。loc = 押した場所（header / sticky / hero / start / pricing / final）。
+// 📱 App Store へ。loc = 押した場所（header / sticky / hero / start / pricing / final / qr）。
+// URL（VITE_APP_STORE_URL）が無いビルドでは、日本の App Store での「Orime」の検索へ（lpCopy.js）。
+const storeHref = (loc) => storeHrefOf({ live: isAppStoreLive, url: storeUrlFor(loc) });
+
 function StoreCta({ className, children, tabIndex, hidden = false, loc = 'other' }) {
   return (
-    <a href={storeUrlFor(loc)} className={className} tabIndex={tabIndex} aria-hidden={hidden || undefined} onClick={() => lpTrack('cta_click', { loc })}>
+    <a href={storeHref(loc)} className={className} tabIndex={tabIndex} aria-hidden={hidden || undefined} onClick={() => lpTrack('cta_click', { loc })}>
       {children}
     </a>
   );
@@ -158,7 +183,7 @@ function StoreCta({ className, children, tabIndex, hidden = false, loc = 'other'
 // 📷 PC で見ている人向けの QR コード（スマホのカメラで読んで App Store へ）。広い画面だけ（CSS で出し分け）。
 function StoreQr() {
   const qr = qrcode(0, 'M');
-  qr.addData(storeUrlFor('qr'));
+  qr.addData(storeHref('qr'));
   qr.make();
   const n = qr.getModuleCount();
   const cells = [];
@@ -177,16 +202,16 @@ function StoreQr() {
   );
 }
 
-// 入口: 公開後は「無料プランで始める」（＋QR・公式バッジ）、公開前は「公開の日にメールで知らせる」。
+// 入口: 既定は「無料プランで始める」（＋QR・公式バッジ）、公開前の形のときだけ「公開の日にメールで知らせる」。
 function Entry({ loc, wl, qr = false, badge = false, launch = false, center = false }) {
-  if (!isAppStoreLive) {
+  if (PRELAUNCH) {
     return <LpWaitlist loc={loc} done={wl.done} onDone={wl.markDone} launch={launch ? LAUNCH_LINE : ''} center={center} />;
   }
   return (
     <div className="lp-cta-row">
       <StoreCta className="lp-btn lp-btn-large" loc={loc}>{CTA_LABEL}</StoreCta>
       {badge && BADGE_SRC && (
-        <a className="lp-badge" href={storeUrlFor(`${loc}_badge`)} onClick={() => lpTrack('cta_click', { loc: `${loc}_badge` })}>
+        <a className="lp-badge" href={storeHref(`${loc}_badge`)} onClick={() => lpTrack('cta_click', { loc: `${loc}_badge` })}>
           <img src={BADGE_SRC} alt="App Store からダウンロード" height="40" />
         </a>
       )}
@@ -264,7 +289,7 @@ export default function Landing() {
         operatingSystem: 'iOS',
         // ストアの第 1 カテゴリ（仕事効率化）に近いもの
         applicationCategory: 'BusinessApplication',
-        description: '読んだ本が、あなたの相談相手になる読書メモアプリ。あなたが残した読書メモから、本とページを添えて答え、明日やることを一緒に一つ決めて行動リストに入れられる。',
+        description: '読んだ本と対話する読書メモアプリ。心に響いた一行を残すと、AI がその本の語り口で、あなたのメモから本とページを添えて答え、明日やることを一緒に一つ決める。集中モード・写真で共有・分野ごとの読書の記録も。',
         offers: [
           { '@type': 'Offer', name: '無料プラン', price: '0', priceCurrency: 'JPY' },
           { '@type': 'Offer', name: '月額プラン', price: String(MONTHLY), priceCurrency: 'JPY' },
@@ -334,16 +359,16 @@ export default function Landing() {
     // Vercel Web Analytics（閲覧数・参照元・端末。Cookie なし）。LP でだけ読み込み、開発中は出さない。
     if (!import.meta.env.DEV) { try { injectVercelAnalytics({ mode: 'production' }); } catch { /* 無くても LP は動く */ } }
     // 記録: 表示 1 回（創業メンバー価格を出しているか・公開済みか）と、読み進めた深さ（25/50/75/100%）。
-    lpTrack('lp_view', { offer: OFFER.active, live: isAppStoreLive });
+    lpTrack('lp_view', { offer: OFFER.active, live: isAppStoreLive, pre: PRELAUNCH });
     const depthSent = new Set();
-    // 下部の固定ボタン（公開後・スマホのみ）は、ヒーローのボタンが画面から外れたときだけ出す。
+    // 下部の固定ボタン（公開前の形では出さない・スマホのみ）は、ヒーローのボタンが画面から外れたときだけ出す。
     const onScroll = () => {
       const max = document.documentElement.scrollHeight - window.innerHeight;
       const pct = max > 0 ? (window.scrollY / max) * 100 : 100;
       [25, 50, 75, 100].forEach((d) => {
         if (pct >= d - 1 && !depthSent.has(d)) { depthSent.add(d); lpTrack('scroll_depth', { pct: d }); }
       });
-      if (!isAppStoreLive) return;
+      if (PRELAUNCH) return;
       const el = heroCtaRef.current;
       const vh = window.innerHeight;
       // 広い画面ではヘッダーが上に付いたままなので、その下から見えている範囲で数える。
@@ -402,7 +427,7 @@ export default function Landing() {
             <span>Orime</span>
           </a>
           <nav className="lp-header-nav" aria-label="ヘッダー">
-            {isAppStoreLive && (
+            {!PRELAUNCH && (
               <StoreCta
                 className={`lp-btn lp-btn-small lp-header-cta${heroCtaVisible ? ' is-hidden' : ''}`}
                 loc="header"
@@ -418,8 +443,8 @@ export default function Landing() {
         </div>
       </header>
 
-      {/* 下の固定の帯は公開後だけ（公開前に押せない帯を出し続けない・2026-10-05） */}
-      {isAppStoreLive && (
+      {/* 下の固定の帯（公開前の形では出さない・2026-10-05） */}
+      {!PRELAUNCH && (
         <div className={`lp-sticky${showSticky ? ' is-visible' : ''}`} aria-hidden={showSticky ? undefined : 'true'}>
           <StoreCta className="lp-btn" loc="sticky" tabIndex={showSticky ? undefined : -1}>{CTA_LABEL}</StoreCta>
         </div>
@@ -430,21 +455,21 @@ export default function Landing() {
         <section className="lp-hero">
           <div className="lp-wrap lp-hero-grid">
             <div className="lp-hero-text">
-              <p className="lp-eyebrow"><span>あの本に、</span><span>書いてあったはずなのに。</span></p>
+              <p className="lp-eyebrow"><span>読書を、</span><span>受け身から対話へ。</span></p>
               <h1 className="lp-h1">
-                <span>読んだ本が、</span><span>あなたの</span><span>相談相手になる。</span>
+                <span>読んだ本と、</span><span>対話しよう。</span>
               </h1>
               <p className="lp-lead lp-wbr">
-                <Phrases>困ったことを書くと、あなたが前に残した読書メモから答えます。どの本の、何ページのメモかも一緒に。最後に、明日やることを一つ決めます。</Phrases>
+                <Phrases>心に響いた一行から、AI が本の語り口で答えます。要約ではなく、あなたのメモから。本とページを添えて、明日の一歩まで。</Phrases>
               </p>
               <div className="lp-cta-block" ref={heroCtaRef}>
                 <Entry loc="hero" wl={wl} qr badge launch />
                 <p className="lp-cta-sub lp-wbr">
-                  <Phrases>ブクログ・読書メーター・Kindle の記録を取り込めば、初日から相談できます。</Phrases>
+                  <Phrases>無料プラン（ずっと無料）で始められます。ブクログ・読書メーター・Kindle の記録も取り込めます。</Phrases>
                 </p>
                 <div className="lp-hero-links">
                   <a className="lp-textlink" href="#lp-flow" onClick={() => lpTrack('hero_secondary', {})}>
-                    <span>15 秒で、相談の流れを見る</span><ChevronDown size="1.1em" aria-hidden="true" />
+                    <span>15 秒で、対話の流れを見る</span><ChevronDown size="1.1em" aria-hidden="true" />
                   </a>
                   {/* 創業メンバー価格（期間中だけ）: 押すと料金の中の帯へ */}
                   {OFFER.active && (
@@ -458,10 +483,10 @@ export default function Landing() {
             <figure className="lp-hero-shot">
               <div className={`lp-hero-stage${slot3D ? ' is-3d-slot' : ''}${ready3D ? ' is-3d' : ''}`} ref={heroStageRef}>
                 <Shot
-                  name="answer"
+                  name="hero"
                   eager
                   imgRef={heroImgRef}
-                  alt="相談の画面。「部下が報告をくれなくて困っています」という相談に、2 冊の本と自分の学びのメモを根拠にした答えと、「報告が遅れるのは、どんな場面が多いですか？」という問いが返っている"
+                  alt="相談の画面。相談相手を『嫌われる勇気』の 1 冊にして「相手が自分をどう思うかが気になって、意見が言えません」と送ると、「（本の語り口で・AI）」の答え「私の考え方で言えば、他人の課題と自分の課題を分ける」と、「意見を言いにくいのは、どんな会議ですか？」という問いが返っている"
                 />
                 {want3D && (
                   <Suspense fallback={null}>
@@ -469,124 +494,92 @@ export default function Landing() {
                   </Suspense>
                 )}
               </div>
-              <figcaption>画面は、サンプルのメモを入れた実際のアプリです</figcaption>
+              {/* 語り口の注記は LP でここ 1 か所（アプリの答えの最後の一行と同じ考え方） */}
+              <figcaption className="lp-wbr"><Phrases>{`画面は、サンプルのメモを入れた実際のアプリです。${VOICE_NOTE}`}</Phrases></figcaption>
             </figure>
           </div>
         </section>
 
-        {/* ============ ② 悩み → メモの一節 → 聞き返し → 一歩 ============ */}
+        {/* ============ ② 受け身から対話へ ============ */}
         <section className="lp-sec lp-flow-sec" aria-labelledby="lp-flow" data-lp-sec="flow">
           <div className="lp-wrap">
             <div className="lp-narrow lp-sec-head">
               <h2 className="lp-h2" id="lp-flow">
-                <span>悩みから、</span><span>明日の一歩まで。</span>
+                <span>読んで、</span><span>終わりにしない。</span>
               </h2>
-              <p className="lp-wbr"><Phrases>困ったことを書くと、前に読んで残したメモの一節を根拠に答えます。状況を一つ聞き返してから、明日やることを一緒に一つ決めます。</Phrases></p>
+              <dl className="lp-ba">
+                {BEFORE_AFTER.map((r, i) => (
+                  <div key={r.label} className={i === 1 ? 'is-after' : undefined}>
+                    <dt>{r.label}</dt>
+                    <dd>{r.steps.map((t, k) => <span key={t} className="lp-nb">{k > 0 && <span className="lp-ba-arrow" aria-hidden="true">→</span>}{t}</span>)}</dd>
+                  </div>
+                ))}
+              </dl>
             </div>
             <LpFlow onEvent={lpTrack} />
-          </div>
-        </section>
-
-        {/* ============ ③ ChatGPT に聞くのと、何が違う？ ============ */}
-        <section className="lp-sec" aria-labelledby="lp-vs" data-lp-sec="vs-chatgpt">
-          <div className="lp-wrap lp-split">
-            <div className="lp-split-head">
-              <h2 className="lp-h2" id="lp-vs">
-                <span>ChatGPT に</span><span>聞くのと、</span><span>何が違う？</span>
-              </h2>
-              <p className="lp-wbr"><Phrases>ChatGPT は、広い知識から何でも答えてくれます。要約のサービスは、ほかの人がまとめた本の要点を届けてくれます。Orime が答えるのは、あなたが読んで、書き残したことからです。</Phrases></p>
-              <p className="lp-wbr"><Phrases>自分が前に読んで納得した言葉なら、明日やってみようと思える。Orime は、そう考えて作っています。</Phrases></p>
-            </div>
-            <div>
-              <PointList items={VS_POINTS} check />
-              <p className="lp-fine lp-wbr"><Phrases>ChatGPT は、OpenAI の商標です。比べているのは主な使い方の違いです（2026 年 10 月時点）。各サービスの機能は、設定やプランで異なります。</Phrases></p>
+            <div className="lp-asks">
+              <p className="lp-asks-title">たとえば、こんな相談</p>
+              <ul>
+                {ASK_EXAMPLES.map((x) => (
+                  <li key={x.q}><span className="lp-asks-who">{x.who}</span><span className="lp-wbr"><Phrases>{`「${x.q}」`}</Phrases></span></li>
+                ))}
+              </ul>
             </div>
           </div>
         </section>
 
-        {/* ============ ④ 決めた一歩は、やり切るまで（行動） ============ */}
-        <section className="lp-sec lp-band" aria-labelledby="lp-action" data-lp-sec="action">
-          <div className="lp-wrap lp-media">
-            <div className="lp-media-text">
-              <h2 className="lp-h2" id="lp-action">
-                <span>決めた一歩は、</span><span>やり切るまで。</span>
-              </h2>
-              <p className="lp-wbr"><Phrases>相談で決めた一歩は、ボタン一つで行動リストへ。期限の日の朝に一度だけお知らせします。終わったら「やってみて、どうでしたか？」と振り返れて、その記録も次の相談の材料になります。</Phrases></p>
-            </div>
-            <figure className="lp-media-shot">
-              <Shot name="action" alt="振り返りの行動の画面。今週の期限と完了の数、期限ごとに分かれた行動の一覧" />
-              <figcaption>画面は、サンプルのメモを入れた実際のアプリです</figcaption>
-            </figure>
-          </div>
-        </section>
-
-        {/* ============ ⑤ 読むほど、育つ（一番の価値） ============ */}
-        <section className="lp-sec" aria-labelledby="lp-grow" data-lp-sec="grow">
+        {/* ============ ③ 続けられて、成果が見える（柱 ②〜⑤） ============ */}
+        <section className="lp-sec" aria-labelledby="lp-pillars" data-lp-sec="pillars">
           <div className="lp-wrap">
             <div className="lp-narrow lp-sec-head">
-              <h2 className="lp-h2" id="lp-grow">
-                <span>読むほど、</span><span>あなただけの</span><span>相談相手が育つ。</span>
+              <h2 className="lp-h2" id="lp-pillars">
+                <span>続けられて、</span><span>成果が見える。</span>
               </h2>
-              <p className="lp-wbr"><Phrases>答えの材料は、あなたが残したメモです。一行ずつ増えるほど、答えはあなたの仕事と悩みに近づいていきます。</Phrases></p>
             </div>
-            <PointList items={GROW_POINTS} className="lp-points lp-trio" />
+            <ul className="lp-pillars">
+              {PILLARS.map((x) => (
+                <li key={x.id} id={`lp-${x.id}`} data-lp-sec={x.id}>
+                  <div className="lp-pillar-shot">
+                    {x.share ? (
+                      <img
+                        className="lp-share-img"
+                        src="/lp/share-card-540.webp"
+                        srcSet="/lp/share-card-540.webp 540w, /lp/share-card-1080.webp 1080w"
+                        sizes="(min-width: 768px) 240px, 40vw"
+                        width="1080"
+                        height="1350"
+                        loading="lazy"
+                        decoding="async"
+                        alt={x.alt}
+                      />
+                    ) : <Shot name={x.shot} alt={x.alt} className="lp-shot lp-shot-sm" sizes="(min-width: 768px) 240px, 40vw" />}
+                  </div>
+                  <div className="lp-pillar-text">
+                    <p className="lp-pillar-head">{x.head}</p>
+                    <h3 className="lp-h3 lp-wbr"><Phrases>{x.title}</Phrases></h3>
+                    <p className="lp-wbr"><Phrases>{x.body}</Phrases></p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <p className="lp-shot-note lp-pillars-note">画面は、サンプルのメモを入れた実際のアプリです。共有の画像は、見本の写真でアプリが作ったものです</p>
           </div>
         </section>
 
-        {/* ============ ⑥ メモがゼロでも、初日から ============ */}
+        {/* ============ ④ メモがゼロでも、今日から ============ */}
         <section className="lp-sec lp-band" aria-labelledby="lp-start" data-lp-sec="start">
           <div className="lp-wrap">
             <div className="lp-narrow lp-sec-head">
               <h2 className="lp-h2" id="lp-start">
-                <span>メモがゼロでも、</span><span>初日から。</span>
+                <span>メモがゼロでも、</span><span>今日から。</span>
               </h2>
-              <p className="lp-wbr"><Phrases>これまでの読書も、相談の材料になります。始め方は 3 つ。どの道も、終えたら最初の相談の文を用意しておきます。送るかどうかは、あなたが決めます。</Phrases></p>
+              <p className="lp-wbr"><Phrases>始め方は 4 つ。どの道も、終えたら最初の相談の文を用意しておきます。送るかどうかは、あなたが決めます。</Phrases></p>
             </div>
-            <PointList items={START_POINTS} className="lp-points lp-trio" />
+            <PointList items={START_POINTS} className="lp-points lp-trio lp-quad" />
             <div className="lp-cta-block">
               <Entry loc="start" wl={wl} />
             </div>
-            <p className="lp-fine lp-wbr"><Phrases>ブクログ・読書メーター・Kindle は、各社の商標または登録商標です。</Phrases></p>
-          </div>
-        </section>
-
-        {/* ============ ⑦ 写真で共有の見本 ============ */}
-        <section className="lp-sec" aria-labelledby="lp-share" data-lp-sec="share">
-          <div className="lp-wrap lp-media">
-            <div className="lp-media-text">
-              <h2 className="lp-h2" id="lp-share">
-                <span>読んだ本を、</span><span>写真で共有。</span>
-              </h2>
-              <p className="lp-wbr"><Phrases>撮った写真に、書名と日付・メモの数・いちばん新しい一文が重なります。写真は端末の中で描き、どこにも送りません。無料プランで使えます。</Phrases></p>
-            </div>
-            <figure className="lp-media-shot">
-              {/* 傾けて起き上がるのは画像だけ（説明の文は傾けない） */}
-              <img
-                className="lp-share-img lp-reveal"
-                src="/lp/share-card-1080.webp"
-                srcSet="/lp/share-card-540.webp 540w, /lp/share-card-1080.webp 1080w"
-                sizes="(min-width: 768px) 340px, 80vw"
-                width="1080"
-                height="1350"
-                loading="lazy"
-                decoding="async"
-                alt="共有の画像の見本。朝の机の写真に「チームの勝利が最優先。個人の手柄より、チームが勝つための判断をする。」という一文、読書中の本の書名、読みはじめの日、メモの数、Orime のロゴが重なっている"
-              />
-              <figcaption>見本の写真とサンプルのメモで、アプリが作った画像です</figcaption>
-            </figure>
-          </div>
-        </section>
-
-        {/* ============ ⑧ AI の学習に使われません ============ */}
-        <section className="lp-sec lp-band" aria-labelledby="lp-privacy" data-lp-sec="privacy">
-          <div className="lp-wrap lp-split">
-            <div className="lp-split-head">
-              <h2 className="lp-h2" id="lp-privacy">
-                <span>メモは、</span><span>AI の学習に</span><span>使われません。</span>
-              </h2>
-              <p className="lp-wbr"><Phrases>{COPY.privacyLead}</Phrases></p>
-            </div>
-            <PointList items={PRIVACY_POINTS} check />
+            <p className="lp-fine lp-wbr"><Phrases>メモは、AI の学習に使われません。ブクログ・読書メーター・Kindle は、各社の商標または登録商標です。</Phrases></p>
           </div>
         </section>
 
@@ -605,7 +598,7 @@ export default function Landing() {
           </section>
         )}
 
-        {/* ============ ⑨ 料金（無料プランを前に） ============ */}
+        {/* ============ ⑤ 料金（無料プランを前に） ============ */}
         <section className="lp-sec lp-pricing" aria-labelledby="lp-pricing" data-lp-sec="pricing">
           <div className="lp-wrap">
             <div className="lp-narrow lp-sec-head">
@@ -613,7 +606,7 @@ export default function Landing() {
                 {/* 見出しに金額を置かない（月あたりの額を請求額より大きく見せない） */}
                 <span>まずは、</span><span>無料プランで。</span>
               </h2>
-              <p className="lp-wbr"><Phrases>{`本とメモは、ずっと無料です。相談も、無料プランで${noBreak(`毎月 ${FREE_CONSULTS}`)}${noBreak(`（はじめの月は ${FIRST_CONSULTS}）`)}まで AI が答えます。`}</Phrases></p>
+              <p className="lp-wbr"><Phrases>{`本とメモ・集中モード・記録は、ずっと無料です。本との対話も、無料プランで${noBreak(`毎月 ${FREE_CONSULTS}`)}${noBreak(`（はじめの月は ${FIRST_CONSULTS}）`)}まで AI が答えます。`}</Phrases></p>
             </div>
 
             {/* 創業メンバー価格（期間中だけ・料金の中の帯 1 枚）。「先着」「通常価格」と書かない・差額を書かない */}
@@ -633,7 +626,7 @@ export default function Landing() {
                 <p className="lp-plan-price">¥0<span>ずっと無料</span></p>
                 <ul className="lp-included" aria-label="無料プランに含まれるもの">
                   {/* li は flex（印と文を横に並べる）なので、文は 1 つの span に包む */}
-                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>本とメモは何件でも（振り返り・行動・思い出しカード・写真で共有も）</span></li>
+                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>本とメモは何件でも（行動・集中モード・読書の記録・写真で共有も）</span></li>
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>ブクログ・読書メーター・Kindle から取り込み</span></li>
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>AI の答えは<span className="lp-nb">毎月 {FREE_CONSULTS}</span><span className="lp-nb">（{FREE_TOKENS} トークン）。</span><span className="lp-nb">はじめの月は {FIRST_CONSULTS}</span><span className="lp-nb">（{FREE_FIRST_MONTH_TOKENS} トークン）</span></span></li>
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>使い切った月も、<strong>メモが答える相談</strong>（AI を使わずに、あなたのメモから関係する一節を本ごとに並べます）</span></li>
@@ -688,7 +681,7 @@ export default function Landing() {
           </div>
         </section>
 
-        {/* ============ ⑩ よくある質問 ============ */}
+        {/* ============ ⑥ よくある質問 ============ */}
         <section className="lp-sec lp-faq" aria-labelledby="lp-faq" data-lp-sec="faq">
           <div className="lp-wrap lp-narrow">
             <h2 className="lp-h2" id="lp-faq">よくある質問</h2>
@@ -710,11 +703,11 @@ export default function Landing() {
           </div>
         </section>
 
-        {/* ============ ⑪ 最後の入口 ============ */}
+        {/* ============ ⑦ 最後の入口 ============ */}
         <section className="lp-final" aria-labelledby="lp-final" data-lp-sec="final">
           <div className="lp-wrap lp-narrow lp-final-inner">
             <h2 className="lp-h2" id="lp-final">
-              <span>今日残した一行が、</span><span>一年後のあなたの</span><span>相談に答える。</span>
+              <span>次の一冊は、</span><span>読んで終わりにしない。</span>
             </h2>
             <div className="lp-cta-block">
               <Entry loc="final" wl={wl} qr badge launch center />

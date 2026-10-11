@@ -57,9 +57,11 @@ VITE_APP_STORE_URL=… VITE_APP_STORE_PT=… node scripts/store-link.mjs partner
 - 名前は日本語にしない（英小文字・数字・_ に直す・日本語だけの名前は種類だけ＝`note` になる）。
 - 毎週の見方: App Store Connect →「App 分析」→「キャンペーン」→ キャンペーン名ごとの「App 入手数」。§7 の ③（週のインストール・入口別）。
 
-## ④ 公開のお知らせ（App Store の URL が無い間の入口）
+## ④ 公開のお知らせ（公開前の形＝`VITE_LP_PRELAUNCH=on` のときだけ）
 
-LP は `VITE_APP_STORE_URL` が無い間、押せないボタンを出さずに「公開の日にメールで知らせる」（メール 1 欄＋送る）を出す（ヒーロー・初日から・料金・最後の 4 か所。1 か所で送ると全部が「公開の日にお知らせします。」になる）。
+**2026-10-11 から、LP の既定は公開済みの形**（オーナー「ローンチしている前提の内容にして」）。どのビルドでも「無料プランで始める」（ヒーロー・0 日目・料金・最後・下の固定の帯・PC のヘッダーと QR）を出す。行き先は `VITE_APP_STORE_URL` があればアプリのページ（`VITE_APP_STORE_PT` があれば `ct=lp_<場所>_<3d|photo>` 付き）、**無ければ日本の App Store での「Orime」の検索**（`https://apps.apple.com/jp/search?term=Orime`・`src/pages/lpCopy.js` の `APP_STORE_SEARCH_URL`＝この間はボタンごとの入手数は数えられないので、公開したら URL を入れる）。`lp_view` の props は `live`（URL があるか）と `pre`（公開前の形か）。
+
+公開前の形に戻すときだけ `VITE_LP_PRELAUNCH=on` を入れる。そのときは押せないボタンを出さずに「公開の日にメールで知らせる」（メール 1 欄＋送る）を出す（ヒーロー・初日から・料金・最後の 4 か所。1 か所で送ると全部が「公開の日にお知らせします。」になる）・公開予定の行（`VITE_LAUNCH_LABEL`）と FAQ「いつから使えますか？」も出る・下の固定の帯とヘッダーのボタンは出さない。開発中は `?prelaunch=1` で見られる。
 保存は `api/lp-waitlist.js` → `lp_waitlist`（同じメールは 1 行・IP は保存しない）。同じ IP からは 1 分 5 回（インスタンスの中）と 1 日 5 回（DB の `lp_waitlist_rate`＝IP の代わりに日付つきのハッシュだけ・2026-10-11）まで。Do Not Track の端末からも送れる（本人がボタンを押して送るもので、閲覧の記録ではない）。
 
 - 使い道は**公開のお知らせだけ**。公開から 3 か月以内に全部消す（プライバシーポリシーと同じ約束・欄の下にも書いてある）
@@ -106,7 +108,8 @@ select props->>'loc' as loc, count(*) from lp_events
 where event = 'cta_click' and created_at > now() - interval '14 days'
 group by 1 order by 2 desc;
 
--- 相談の流れ（4 枚・LpFlow.jsx）: 見た人の割合と、手順を押した／もう一度見た人のボタン押下率
+-- 対話の流れ（4 枚・LpFlow.jsx・2026-10-11 から 一行を残す → 本に相談する → 本の語り口で聞き返す → 本とページ）:
+--   見た人の割合と、手順を押した／もう一度見た人のボタン押下率
 --   flow_view（画面に入った・1 回。props.still=true は動きを減らす設定で自動で進まなかった人）
 --   flow_step（手順を押した・props.i=0..3）／ flow_replay（もう一度見る）
 with v as (select distinct session_id from lp_events where event = 'lp_view' and created_at > now() - interval '14 days'),
@@ -123,8 +126,9 @@ select count(*) as visits,
 from v left join f using (session_id) left join t using (session_id) left join c using (session_id);
 
 -- 節ごとの到達（section_view・節が 4 割見えたら 1 回）
---   2026-10-05 から: flow / vs-chatgpt / action / grow / start / share / privacy / offer（料金の中の帯・期間中）/ pricing / faq / final
---   （2026-10-02〜10-04 は compare＝比較表。いまは無い）
+--   2026-10-11 から: flow（受け身から対話へ）/ pillars（続けられて、成果が見える）/ action / focus / share / fields（柱 ②〜⑤ の 1 つずつ）
+--     / start / offer（料金の中の帯・期間中）/ pricing / faq / final
+--   （2026-10-05〜10-10 は flow / vs-chatgpt / action / grow / start / share / privacy …・2026-10-02〜10-04 は compare＝比較表。いまは無い）
 select props->>'s' as section, count(distinct session_id) from lp_events
 where event = 'section_view' and created_at > now() - interval '14 days'
 group by 1 order by 2 desc;
@@ -145,7 +149,7 @@ group by 1 order by 1::int;
 -- 開かれた FAQ（申し込みの手前で気になっていること）。2026-10-05 から props.q に問いの頭 40 字（並びが変わっても読める）
 select coalesce(props->>'q', props->>'i') as faq, count(*) from lp_events where event = 'faq_open' group by 1 order by 2 desc;
 
--- ヒーローの「15 秒で、相談の流れを見る」・ログイン・フッターのリンク（props.to: terms / privacy / sct / mail）
+-- ヒーローの「15 秒で、対話の流れを見る」（2026-10-10 までは「相談の流れを見る」）・ログイン・フッターのリンク（props.to: terms / privacy / sct / mail）
 select event, props->>'to' as to, count(*) from lp_events
 where event in ('hero_secondary', 'login_click', 'footer_link') and created_at > now() - interval '14 days'
 group by 1, 2 order by 3 desc;
