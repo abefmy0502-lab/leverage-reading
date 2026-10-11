@@ -137,7 +137,8 @@ const PLAN_COMPARE = [
   // 単位は「AI の答え」（1 回 約 10 トークン・2026-10-09）。相談 1 つが何回の答えかは、下の目安の行で 1 回だけ言う。
   // 無料プランは、はじめの月（アカウントを作った月）だけ 60 トークン＝AI の答え 約 6 回。
   // 写真から書き起こしは無料プランでも毎月 10 回（トークンとは別・2026-10-02）。
-  { name: '無料プラン（ずっと無料）', amount: `毎月 ${FREE_TOKENS.toLocaleString()} トークン`, scope: `AI の答え ${answerCountLabel(FREE_TOKENS)}・はじめの月は ${answerCountLabel(FREE_FIRST_MONTH_TOKENS)}`, items: [`写真から書き起こし 毎月 ${FREE_OCR_PER_MONTH} 回`, 'メモ', '記録', '振り返り', 'シェア'] },
+  // 無料プランの AI は 相談・この本で学べること・写真から書き起こし（2026-10-11 リリース前点検で並べた）。
+  { name: '無料プラン（ずっと無料）', amount: `毎月 ${FREE_TOKENS.toLocaleString()} トークン`, scope: `AI の答え ${answerCountLabel(FREE_TOKENS)}・はじめの月は ${answerCountLabel(FREE_FIRST_MONTH_TOKENS)}`, lead: 'AI：', items: ['相談', 'この本で学べること', `写真から書き起こし 毎月 ${FREE_OCR_PER_MONTH} 回`, 'メモ', '記録', '振り返り', '写真で共有'] },
   // 機能名は語の途中で折り返さない（「写真から書き起こし」が割れないよう、名前ごとに nowrap で並べる）。
   { name: 'プラン', amount: `毎月 ${PAID_TOKENS.toLocaleString()} トークン`, scope: `AI の答え ${answerCountLabel(PAID_TOKENS)}`, lead: 'すべての AI：', items: ['AI 選書', '読書計画シート', '写真から書き起こし'] },
 ];

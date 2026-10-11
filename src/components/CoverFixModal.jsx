@@ -189,7 +189,7 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
                 textAlign: 'center',
               }}
             >
-              表紙を探せませんでした。通信環境を確認してください。
+              表紙を探せませんでした。通信の状態を確かめてください。
               <button
                 type="button"
                 onClick={() => setRetryNonce((n) => n + 1)}

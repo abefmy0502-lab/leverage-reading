@@ -369,7 +369,7 @@ export default function HomeScreen({
         // この画面の主役は「もう一度」（ErrorMessage の主の操作は、どの画面でも枠の同じ形・2026-10-10）。
         <ErrorMessage
           title="本を読み込めませんでした"
-          description="通信環境を確認して、もう一度お試しください。"
+          description="通信の状態を確かめて、もう一度お試しください。"
           actions={onRetry ? [{ label: 'もう一度', onClick: onRetry, variant: 'primary' }] : []}
         />
       ) : books.length === 0 ? (

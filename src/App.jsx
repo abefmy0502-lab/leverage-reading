@@ -2433,7 +2433,7 @@ function AuthedApp() {
         setEditPhaseOverride(null);
         setView('detail');
         dismissStatusUndo(next.id);
-        toast.success('📚 読書を開始しました！');
+        toast.success('読書中にしました。');
       } else if (wasNew) {
         setView('detail');
         // ボタンラベル「保存してメモを書く」（読書中/読了で新規保存）に挙動を一致させ、
@@ -2481,7 +2481,7 @@ function AuthedApp() {
         // saveBook は未接続時に throw せず null を返す。その場合 DB へ書けて
         // いないので、ローカル state を新値で確定すると「保存できたのにリロード
         // で巻き戻る」不整合になる。明示的に失敗として扱い rollback する。
-        if (!saved) throw new Error('まとめメモを保存できませんでした。');
+        if (!saved) throw new Error('この本のまとめを保存できませんでした。');
         entry.latest = saved;
         // 保存済みになったので、編集の「変更あり」の基準も進める（離れるときに破棄の確認を出さない）
         if (editBaselineRef.current != null) editBaselineRef.current = JSON.stringify({ ...(formRef.current || merged), leverageMemo: text });
@@ -2498,7 +2498,7 @@ function AuthedApp() {
         // 失敗時は leverageMemo だけ previous 値へ戻す（並行操作の結果は保持）。
         setForm((f) => (f && f.id === bookId ? { ...f, leverageMemo: prevForm?.leverageMemo } : f));
         setCurrent((c) => (c && c.id === bookId ? { ...c, leverageMemo: prevCurrent?.leverageMemo } : c));
-        const msg = toMessage(error, 'まとめメモの保存に失敗しました。');
+        const msg = toMessage(error, 'この本のまとめの保存に失敗しました。');
         toast.error(msg);
         throw new Error(msg);
       }
@@ -2521,7 +2521,7 @@ function AuthedApp() {
       const merged = { ...base, leverageMemo: text };
       try {
         const saved = await saveBook(merged);
-        if (!saved) throw new Error('まとめメモを保存できませんでした。');
+        if (!saved) throw new Error('この本のまとめを保存できませんでした。');
         entry.latest = saved;
         const next = saved;
         // 📊 まとめ式メモ保存の計測（保存成功時のみ・mode の enum だけ・本文は送らない）。
@@ -2535,7 +2535,7 @@ function AuthedApp() {
         // 失敗時は leverageMemo だけ previous 値へ戻す（並行操作の結果は保持）。
         setCurrent((c) => (c && c.id === bookId ? { ...c, leverageMemo: prevCurrent?.leverageMemo } : c));
         setForm((f) => (f && f.id === bookId ? { ...f, leverageMemo: prevForm?.leverageMemo } : f));
-        const msg = toMessage(error, 'まとめメモの保存に失敗しました。');
+        const msg = toMessage(error, 'この本のまとめの保存に失敗しました。');
         toast.error(msg);
         throw new Error(msg);
       }
@@ -6199,7 +6199,7 @@ function AuthedApp() {
                 // アイコン・言い方はホーム・本の検索のエラーとそろえる（既定の AlertCircle）。
                 <ErrorMessage
                   title="本を読み込めませんでした"
-                  description="通信環境を確認して、もう一度お試しください。"
+                  description="通信の状態を確かめて、もう一度お試しください。"
                   actions={[{ label: 'もう一度', onClick: () => refreshBooks(), variant: 'primary' }]}
                 />
               ) : filtered.length === 0 && libraryQuery && librarySearch.memoStatus === 'loading' ? (
@@ -6358,7 +6358,7 @@ function AuthedApp() {
               <div style={{ padding: 'var(--space-4)' }}>
                 <ErrorMessage
                   title="本を読み込めませんでした"
-                  description="通信環境を確認して、もう一度お試しください。"
+                  description="通信の状態を確かめて、もう一度お試しください。"
                   actions={[{ label: 'もう一度', onClick: () => refreshBooks(), variant: 'primary' }]}
                 />
               </div>
@@ -7049,7 +7049,7 @@ function AppShell() {
           {/* ErrorMessage はアイコンを付けない（面と題・説明だけ・DESIGN §5）。 */}
           <ErrorMessage
             title="読み込みに時間がかかっています"
-            description="通信状況をご確認のうえ、もう一度お試しください。"
+            description="通信の状態を確かめて、もう一度お試しください。"
             actions={[
               { label: '再読み込み', onClick: () => window.location.reload(), variant: 'primary' },
             ]}

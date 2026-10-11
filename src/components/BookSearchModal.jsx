@@ -33,7 +33,7 @@ const INITIAL_DISPLAY = 20;
 const DISPLAY_STEP = 10;
 const MAX_DISPLAY = 50;
 
-const SEARCH_FALLBACK_ERROR = '通信環境を確認して、もう一度お試しください。';
+const SEARCH_FALLBACK_ERROR = '通信の状態を確かめて、もう一度お試しください。';
 
 // ---------------------------------------------------------------------------
 // 検索の振り分け

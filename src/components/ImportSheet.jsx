@@ -133,7 +133,7 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
       onClose?.();
     } catch {
       setUndoing(false);
-      setError('取り消せませんでした。通信環境を確認して、もう一度お試しください。');
+      setError('取り消せませんでした。通信の状態を確かめて、もう一度お試しください。');
     }
   };
 
@@ -152,7 +152,7 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
       setOutcome(o);
       setStep('done');
     } catch {
-      setError('取り込みの途中で止まりました。通信環境を確認して、もう一度お試しください（取り込めた分は残っています。同じファイルをもう一度選んでも、同じメモは二重になりません）。');
+      setError('取り込みの途中で止まりました。通信の状態を確かめて、もう一度お試しください（取り込めた分は残っています。同じファイルをもう一度選んでも、同じメモは二重になりません）。');
       setPlanSnap(null); // 確かめる画面に戻ったら、いまの本棚で数え直す
       setStep('preview');
       // 途中まで足したメモは、次の取り込みで足さない。数え直せるように本文を読み直す（読めなければ前のまま）。
@@ -370,7 +370,7 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
         {/* 直す入口は同じ行の右に「もう一度選ぶ」（同じファイルを選べば残りだけ入る・ui-critic 2026-10-04）。 */}
         {outcome.booksFailed > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 'var(--space-2)' }}>
-            <p style={{ ...body, fontSize: 'var(--text-meta)', flex: '1 1 12em', minWidth: 0 }}><span style={nowrap}>{fmt(outcome.booksFailed)} 冊</span>は取り込めませんでした。<wbr /><span style={nowrap}>通信環境を確認してください。</span></p>
+            <p style={{ ...body, fontSize: 'var(--text-meta)', flex: '1 1 12em', minWidth: 0 }}><span style={nowrap}>{fmt(outcome.booksFailed)} 冊</span>は取り込めませんでした。<wbr /><span style={nowrap}>通信の状態を確かめてください。</span></p>
             <button type="button" onClick={pickAnother} disabled={undoing} style={{ ...btnLink, flexShrink: 0, whiteSpace: 'nowrap' }}>もう一度選ぶ</button>
           </div>
         )}

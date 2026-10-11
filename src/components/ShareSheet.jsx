@@ -956,7 +956,7 @@ export default function ShareSheet({
                 <ErrorMessage
                   className="error-message--fill"
                   title="今年のメモを読み込めませんでした"
-                  description="通信環境を確認して、もう一度お試しください。"
+                  description="通信の状態を確かめて、もう一度お試しください。"
                   actions={[{ label: 'もう一度', onClick: () => { setStatus('loading'); yearM.reload(); } }]}
                 />
               ) : (

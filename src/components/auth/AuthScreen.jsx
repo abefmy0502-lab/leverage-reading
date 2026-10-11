@@ -65,7 +65,7 @@ const fieldHint = { fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHe
 const infoText = { color: 'var(--success)', fontSize: 'var(--text-meta)', lineHeight: 1.5, margin: '0 0 var(--space-3)' };
 
 // 通信やサーバー側の失敗（入力を直しても解決しない）。入力の誤りとは見せ方を分け、ErrorMessage の面で出す。
-const NETWORK_ERROR = 'サーバーに接続できませんでした。通信環境を確認して、もう一度お試しください。';
+const NETWORK_ERROR = 'つながりませんでした。通信の状態を確かめて、もう一度お試しください。';
 const RATE_LIMIT_ERROR = 'リクエストが多すぎます。しばらく経ってから再度お試しください。';
 const UNEXPECTED_ERROR = '予期せぬエラーが発生しました。時間をおいて再度お試しください。';
 const NOT_CONFIGURED_ERROR = 'アプリの設定が未完了です。管理者にお問い合わせください。';

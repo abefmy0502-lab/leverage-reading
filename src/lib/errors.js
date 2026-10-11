@@ -137,10 +137,10 @@ function toMessageRaw(err, fallback) {
     return OFFLINE_MESSAGE;
   }
   if (err.name === 'AbortError' || lower.includes('timeout') || lower.includes('timed out')) {
-    return '⏱ 処理に時間がかかりすぎました。少し待ってもう一度お試しください。';
+    return '時間がかかりすぎました。通信の状態を確かめて、もう一度お試しください。';
   }
   if (err.name === 'TypeError' && lower.includes('fetch')) {
-    return '🌐 サーバーに接続できませんでした。少し時間をおいて、やり直してください。';
+    return 'つながりませんでした。通信の状態を確かめて、もう一度お試しください。';
   }
   if (
     lower.includes('network') ||
@@ -153,19 +153,19 @@ function toMessageRaw(err, fallback) {
     lower.includes('err_internet') ||
     lower.includes('err_network')
   ) {
-    return '🌐 サーバーに接続できませんでした。少し時間をおいて、やり直してください。';
+    return 'つながりませんでした。通信の状態を確かめて、もう一度お試しください。';
   }
 
   // Auth
   if (status === 401 || status === 403 || code === '401' || code === '403') {
-    return '🔒 ログインの有効期限が切れました。再度ログインしてください。';
+    return 'ログインの有効期限が切れました。もう一度ログインしてください。';
   }
   if (lower.includes('jwt') && (lower.includes('expired') || lower.includes('invalid'))) {
-    return '🔒 ログインの有効期限が切れました。再度ログインしてください。';
+    return 'ログインの有効期限が切れました。もう一度ログインしてください。';
   }
   // メール未確認 — サインアップ直後のログイン等
   if (lower.includes('email not confirmed') || lower.includes('not confirmed')) {
-    return '📧 メールアドレスの確認が完了していません。受信メールのリンクをご確認ください。';
+    return 'メールアドレスの確認が済んでいません。届いたメールのリンクを開いてください。';
   }
   // ログイン情報の誤り（メール/パスワード違い）。invalid login / invalid credentials
   if (
@@ -175,11 +175,11 @@ function toMessageRaw(err, fallback) {
     lower.includes('incorrect password') ||
     (lower.includes('user') && lower.includes('not found') && lower.includes('login'))
   ) {
-    return '🔑 メールアドレスまたはパスワードが正しくありません。';
+    return 'メールアドレスまたはパスワードが正しくありません。';
   }
   // 既に登録済みのメール
   if (lower.includes('already registered') || lower.includes('user already exists')) {
-    return '📧 このメールアドレスは既に登録されています。';
+    return 'このメールアドレスは、もう登録されています。';
   }
 
   // Rate limit — AI 系は別メッセージで「混み合ってる感」を出す
@@ -189,8 +189,8 @@ function toMessageRaw(err, fallback) {
     lower.includes('too many requests') ||
     lower.includes('over_request_rate_limit')
   ) {
-    if (isAi) return '🤖 AI が混み合っています。少し待ってもう一度お試しください。';
-    return '⏳ リクエストが多すぎます。しばらく経ってから再度お試しください。';
+    if (isAi) return 'AI が混み合っています。少し待ってから、もう一度お試しください。';
+    return '短い間に操作が続きました。少し待ってから、もう一度お試しください。';
   }
 
   // Storage / file size
@@ -202,7 +202,7 @@ function toMessageRaw(err, fallback) {
     lower.includes('entity too large') ||
     lower.includes('file too large')
   ) {
-    return '📷 画像が大きすぎます。1 枚あたり 10MB 以下にしてください。';
+    return '画像が大きすぎます。1 枚 10MB 以下にしてください。';
   }
   // 不正なファイル形式
   if (
@@ -210,17 +210,17 @@ function toMessageRaw(err, fallback) {
     lower.includes('mime type') ||
     lower.includes('unsupported') && lower.includes('type')
   ) {
-    return '📷 この形式の画像は使えません。JPEG / PNG / WebP をお試しください。';
+    return 'この形式の画像は使えません。JPEG・PNG・WebP をお試しください。';
   }
 
   // AI / API key missing
   if (lower.includes('api key') || lower.includes('api_key')) {
-    return '⚙ API 設定に問題があります。お問い合わせください。';
+    return 'AI の設定に問題があります。お問い合わせください。';
   }
 
   // Common Supabase/PostgREST conditions
   if (code === '23505' || lower.includes('duplicate key') || lower.includes('unique constraint')) {
-    return '📚 同じデータがすでに存在します。';
+    return '同じものが、もうあります。';
   }
   if (code === '23503' || lower.includes('foreign key')) {
     return '関連データが見つからず、保存できませんでした。';
@@ -234,19 +234,19 @@ function toMessageRaw(err, fallback) {
     return '入力された内容では保存できませんでした。内容をご確認ください。';
   }
   if (code === '42501' || lower.includes('row-level security') || lower.includes('permission denied')) {
-    return '🔒 この操作の権限がありません。再度ログインしてお試しください。';
+    return 'この操作はできませんでした。もう一度ログインしてお試しください。';
   }
   // スキーマ不一致 — マイグレーション未適用などで起きる「列/テーブルが存在しない」系。
   // 判定は isSchemaError に一極集中（上の定義参照）。文字列マッチが広いので、
   // この分岐は 23502（null value in column ...）や 42501（permission denied）等の
   // より具体的な分岐の「後」に置いたまま動かさないこと。
   if (isSchemaError(err)) {
-    return '💾 データの設定がまだ完了していません。お手数ですが運営までお問い合わせください。';
+    return 'データの準備がまだ済んでいません。お手数ですが、お問い合わせください。';
   }
 
   // 汎用 5xx
   if (typeof status === 'number' && status >= 500) {
-    return '🛠 サーバー側で問題が発生しています。少し待ってもう一度お試しください。';
+    return 'サーバーで問題が起きました。少し待ってから、もう一度お試しください。';
   }
   // 4xx 全般（上で個別に拾えなかったもの）は安全な汎用文へ
   if (typeof status === 'number' && status >= 400) {

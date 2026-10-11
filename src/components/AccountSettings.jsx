@@ -36,6 +36,7 @@ import { exportUserDataAsCSV, exportMemosAsMarkdown } from '../lib/exportData';
 import { forceUpdate as forceAppUpdate } from '../lib/swUpdate';
 import { useSubscription } from '../hooks/useSubscription';
 import { openBillingPortal } from '../lib/billing';
+import { deleteConfirmTarget, deleteConfirmMatches } from '../lib/deleteConfirm';
 import { isNative, openManageSubscriptions, canRedeemOfferCode, presentOfferCodeSheet, invalidateCustomerInfo, waitForCodeSheetClosed } from '../lib/iap';
 import { usePaywall } from '../state/PaywallContext';
 import { planNameFor, trialRenewalLine, trialCancelNote, trialCancelByTime } from '../lib/trialNudge';
@@ -260,7 +261,7 @@ const inputStyle = uiInput;
 function billingStatusLabel(status) {
   switch (status) {
     case 'active': return '利用中';
-    case 'trialing': return 'トライアル中';
+    case 'trialing': return '7 日間無料';
     case 'past_due': return 'お支払い確認中';
     case 'canceled': return '解約済み';
     case 'unpaid': return 'お支払い未完了';
@@ -376,7 +377,6 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   // 🆕 新しくなったこと（2026-10-05）: 設定の上に重ねて全部の版を見せる。
   const [whatsNewOpen, setWhatsNewOpen] = useState(false);
-  // 🪙📊 トークンの使い方（残りの行を押して開く・設定の上に重ねる・2026-10-11）。
   // 新しくなったことの中身は押したときに読む（最初に読む JS を軽くする・2026-10-11）。
   const [allReleases, setAllReleases] = useState(null);
   const openWhatsNew = () => {
@@ -385,6 +385,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
       .then((m) => { setAllReleases(m.RELEASES || []); setWhatsNewOpen(true); })
       .catch(() => toast.error('読み込めませんでした。つながってから、もう一度押してください。'));
   };
+  // 🪙📊 トークンの使い方（残りの行を押して開く・設定の上に重ねる・2026-10-11）。
   const [usageOpen, setUsageOpen] = useState(false);
   const [updating, setUpdating] = useState(false);
   // フィードバック（入れ子モーダル）を開いている間は、そちらのトラップに譲るため無効化。
@@ -589,7 +590,8 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
     });
     if (!ok) return;
     setUpdating(true);
-    toast.info('アプリを最新版に更新中…');
+    // iPhone のアプリは中身がアプリに入っているので「最新版に更新」ではなく読み込み直すだけ（2026-10-11）。
+    toast.info(isNative ? '読み込み直しています…' : 'アプリを最新版に更新中…');
     // 内部で SW.update() → cache 全消去 → reload。reload するので
     // setUpdating(false) には到達しないが、エラー時の保険として finally。
     try { await forceAppUpdate(); }
@@ -608,7 +610,9 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onClose, feedbackOpen, whatsNewOpen, usageOpen, closing]);
 
-  const expectedConfirm = (user?.email || 'DELETE').trim();
+  // 退会の確認で入れる言葉（メールアドレス／Apple でサインイン・メールを非公開の人は「削除」・lib/deleteConfirm.js・2026-10-11）。
+  const deleteTarget = deleteConfirmTarget(user);
+  const expectedConfirm = deleteTarget.expected;
 
   const handleExport = async () => {
     if (!user || !isSupabaseConfigured) {
@@ -621,9 +625,9 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
       // 知らせは「行」ではなく本とメモの数で（何が入ったかが分かる・2026-09-30）。
       const countOf = (table) => summary.find((s) => s.table === table)?.count || 0;
       track(EVENTS.EXPORT_USED, { kind: 'csv' }); // 成功確定後のみ（fire-and-forget）
-      toast.success(`本 ${countOf('books')} 冊・メモ ${countOf('book_memos')} 件を書き出しました`);
+      toast.success(`本 ${countOf('books')} 冊・メモ ${countOf('book_memos')} 件を書き出しました。`);
     } catch (e) {
-      toast.error(toMessage(e, 'エクスポートに失敗しました。'));
+      toast.error(toMessage(e, '書き出しに失敗しました。'));
     } finally {
       setExporting(false);
     }
@@ -724,8 +728,8 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
       toast.error('ログインが必要です。');
       return;
     }
-    if (confirmText.trim().toLowerCase() !== String(expectedConfirm || '').toLowerCase()) {
-      toast.error('確認入力が一致しません。');
+    if (!deleteConfirmMatches(confirmText, deleteTarget)) {
+      toast.error(deleteTarget.byWord ? '「削除」と入力してください。' : 'メールアドレスが一致しません。');
       return;
     }
     const ok = retry || await confirm({
@@ -1269,14 +1273,16 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                     {withPhraseBreaks('ログイン情報の完全な削除は、管理者の確認のあと（通常 7 日以内）に行います。この操作は取り消せません。')}
                   </p>
                   <p style={{ ...rowDescStyle, margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-                    {withPhraseBreaks('確認のため、ご自身のメールアドレス')} <strong style={{ fontWeight: 600, color: 'var(--text)', overflowWrap: 'anywhere' }}>{expectedConfirm}</strong> {withPhraseBreaks('を入力してください。')}
+                    {deleteTarget.byWord
+                      ? withPhraseBreaks('確認のため、『削除』と入力してください。')
+                      : <>{withPhraseBreaks('確認のため、ご自身のメールアドレス')} <strong style={{ fontWeight: 600, color: 'var(--text)', overflowWrap: 'anywhere' }}>{expectedConfirm}</strong> {withPhraseBreaks('を入力してください。')}</>}
                   </p>
                   <input
                     type="text"
                     value={confirmText}
                     onChange={(e) => setConfirmText(e.target.value)}
                     placeholder={expectedConfirm}
-                    aria-label="確認用メールアドレス"
+                    aria-label={deleteTarget.byWord ? '確認のための入力（削除）' : '確認用メールアドレス'}
                     style={inputStyle}
                     maxLength={LIMITS.email}
                     autoCapitalize="off"
@@ -1287,13 +1293,12 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                       旧: ここだけ大文字小文字を区別していたため、メールを大文字混じりで
                       入力した人はボタンが薄いまま理由も分からず退会が詰んでいた。 */}
                   {(() => {
-                    const confirmMatches =
-                      confirmText.trim().toLowerCase() === String(expectedConfirm || '').toLowerCase();
+                    const confirmMatches = deleteConfirmMatches(confirmText, deleteTarget);
                     return (
                       <>
                         {confirmText.trim() !== '' && !confirmMatches && (
                           <p style={{ fontSize: 'var(--text-meta)', color: 'var(--error)', margin: 0, lineHeight: 1.5 }}>
-                            メールアドレスが一致しません。
+                            {deleteTarget.byWord ? '「削除」と入力してください。' : 'メールアドレスが一致しません。'}
                           </p>
                         )}
                         <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-1)' }}>

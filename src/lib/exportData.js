@@ -223,7 +223,7 @@ export async function exportMemosAsMarkdown(userId) {
     const author = b.author ? ` — ${b.author}` : '';
     lines.push(`## ${b.title || '（無題）'}${author}`, '');
     if (hasSummary) {
-      lines.push('### まとめメモ', '', String(b.leverage_memo).replace(/\r/g, '').trim(), '');
+      lines.push('### この本のまとめ', '', String(b.leverage_memo).replace(/\r/g, '').trim(), '');
     }
     if (bookMemos.length) {
       lines.push('### カード式メモ', '');

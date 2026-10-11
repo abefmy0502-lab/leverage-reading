@@ -781,10 +781,10 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     if (controller.signal.aborted && !finalText.trim()) {
       // ストール中断かつ 1 文字も生成されていない → エラーとして再試行を促す。
       setRecoNotice(false);
-      setRecoError('通信が途切れました。電波の良い場所でもう一度お試しください。');
+      setRecoError('通信が途切れました。通信の状態を確かめて、もう一度お試しください。');
       setChatHistory(historyBefore);
       setRecoLoading(false);
-      remember({ recoNotice: false, recoError: '通信が途切れました。電波の良い場所でもう一度お試しください。', chatHistory: historyBefore });
+      remember({ recoNotice: false, recoError: '通信が途切れました。通信の状態を確かめて、もう一度お試しください。', chatHistory: historyBefore });
       settlePending();
       return;
     }

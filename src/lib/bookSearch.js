@@ -511,7 +511,7 @@ export async function searchBooks(query) {
     // どちらかのソースが「失敗」していたら真の 0 件と断定できない。
     // 空をキャッシュすると 7 日間この ISBN の検索が死ぬ（cache poisoning）。
     if (isbnErr) {
-      return { ok: false, error: '検索できませんでした。通信環境を確認して、もう一度お試しください。' };
+      return { ok: false, error: '検索できませんでした。通信の状態を確かめて、もう一度お試しください。' };
     }
     setCached(q, []);
     return { ok: true, results: [] };
@@ -587,7 +587,7 @@ export async function searchBooks(query) {
     }
     return {
       ok: false,
-      error: '検索エラーが発生しました。\nネット接続を確認するか、しばらくしてからお試しください。',
+      error: '検索できませんでした。通信の状態を確かめて、もう一度お試しください。',
     };
   }
   if (googleError?.status === 429) {
@@ -656,7 +656,7 @@ export async function searchBooksAdvanced({ title = '', author = '', isbn = '' }
     // もう片方が 429/5xx なら本は存在し得る）。空をキャッシュすると、復帰後も
     // 7 日間「該当なし」を返し続ける cache poisoning になる。
     if (openbdError || googleError) {
-      return { ok: false, error: '検索できませんでした。通信環境を確認して、もう一度お試しください。' };
+      return { ok: false, error: '検索できませんでした。通信の状態を確かめて、もう一度お試しください。' };
     }
     setCached(cacheKey, []);
     return { ok: true, results: [] };
@@ -733,7 +733,7 @@ export async function searchBooksAdvanced({ title = '', author = '', isbn = '' }
   // 空結果を 7 日キャッシュしない（ネット復帰後の再検索を殺さない）。
   if ((typeof navigator !== 'undefined' && navigator.onLine === false)
     || ndlError || googleError) {
-    return { ok: false, error: '検索できませんでした。通信環境を確認して、もう一度お試しください。' };
+    return { ok: false, error: '検索できませんでした。通信の状態を確かめて、もう一度お試しください。' };
   }
   setCached(cacheKey, []);
   return { ok: true, results: [] };
