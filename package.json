@@ -15,7 +15,10 @@
     "icons": "node scripts/generate-icons.js",
     "demo": "VITE_DEMO=true vite",
     "ui:shots": "node scripts/ui-shots.mjs",
-    "lp:shots": "node scripts/lp-shots.mjs"
+    "lp:shots": "node scripts/lp-shots.mjs",
+    "mkt:record": "node scripts/marketing/record-demo.mjs",
+    "mkt:finish": "node scripts/marketing/finish-video.mjs",
+    "mkt:drafts": "node scripts/marketing/weekly-drafts.mjs"
   },
   "dependencies": {
     "@capacitor-community/apple-sign-in": "^7.1.0",
@@ -47,10 +50,12 @@
     "web-push": "^3.6.7"
   },
   "devDependencies": {
+    "@anthropic-ai/sdk": "^0.128.0",
     "@capacitor/cli": "^8.4.1",
     "@capacitor/ios": "^8.4.1",
     "@vitejs/plugin-react": "^4.3.4",
     "eslint": "^8.57.1",
+    "ffmpeg-static": "^5.2.0",
     "playwright-core": "^1.61.1",
     "sharp": "^0.35.4",
     "vite": "^6.0.0",

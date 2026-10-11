@@ -30,6 +30,9 @@ ios/DerivedData/
 # UI スクリーンショット（scripts/ui-shots.mjs の出力）
 ui-shots/
 
+# マーケの動画・下書き（scripts/marketing/ の出力）
+marketing-out/
+
 # 確認用の一時スクリプト（リポジトリのルートに一時的に置くもの）
 /*-tmp.mjs
 /.*-tmp.mjs
