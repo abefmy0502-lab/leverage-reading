@@ -55,14 +55,18 @@ const btnBase = {
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
-  gap: 8,
-  minHeight: 48,
-  padding: '12px 16px',
+  gap: 'var(--space-2)',
+  minHeight: 'var(--btn-h)',
+  padding: 'var(--space-3) var(--space-4)',
   borderRadius: 'var(--radius)',
   fontFamily: 'inherit',
   fontSize: 'var(--text-body)', // DESIGN: ボタンは 17・600
   fontWeight: 600,
   letterSpacing: '0.01em',
+  // 文字を大きくして 2 行になるとき、語の途中（「一言ず／つ」）で割らない。文節の切れ目（withPhraseBreaks の <wbr>）か、
+  // それも無いときだけ中で折る（2026-10-11 点検）。
+  wordBreak: 'keep-all',
+  overflowWrap: 'anywhere',
   cursor: 'pointer',
   border: 'none',
   width: '100%',
@@ -203,3 +207,5 @@ export const input = {
 //   （横に送る箱では右の内側余白が効かない・共有のシートの「どの本？」と同じ・2026-10-11 点検）。
 export const SCROLL_FADE_MASK = 'linear-gradient(90deg, black 90%, transparent 100%)';
 export const scrollFade = { WebkitMaskImage: SCROLL_FADE_MASK, maskImage: SCROLL_FADE_MASK };
+// 左端もふわっと消す形（左に固定の見出しがある行＝すべての本のフォルダの行）。左の 12 は箱の内側の余白に重ねる。
+export const SCROLL_FADE_MASK_BOTH = 'linear-gradient(90deg, transparent 0, black var(--space-3), black 90%, transparent 100%)';

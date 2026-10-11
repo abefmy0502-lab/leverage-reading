@@ -25,6 +25,7 @@ import TagSuggest from './TagSuggest';
 import { useTagSuggestions } from '../hooks/useTagSuggestions';
 import { track } from '../lib/analytics';
 import { requestOpenMemo } from '../lib/openMemo';
+import { isLargeText } from '../lib/largeText';
 
 // 写真で共有は押したときに読む（一覧の読み込みを軽くする・2026-10-11）。
 const ShareSheet = lazy(() => import('./ShareSheet'));
@@ -704,7 +705,8 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
             {/* 題は割らない・右の一言は残りの幅で … に切る（文字最大で「この本のま／とめ」と割れていた・2026-10-11 点検）。 */}
             <span style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>この本のまとめ</span>
             <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 'var(--space-2)', minWidth: 0, flex: '1 1 auto' }}>
-              <span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{(summaryText || '').trim() ? '書いてあります' : 'まだありません'}</span>
+              {/* 文字が大きいときは右の一言を出さない（「…」だけが残って読めない・lib/largeText）。 */}
+              {!isLargeText() && <span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{(summaryText || '').trim() ? '書いてあります' : 'まだありません'}</span>}
               <ChevronDown size="1.2em" aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
             </span>
           </summary>

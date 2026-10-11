@@ -10,7 +10,7 @@ import { ensureAiConsent } from '../lib/aiConsent';
 import { usePaywall } from '../state/PaywallContext';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
-import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, input as uiInput } from '../styles/ui';
+import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, input as uiInput, fieldNote } from '../styles/ui';
 import { ensureHttps } from '../lib/url';
 import { BookOpen, Sparkles, Undo2, ImagePlus, X, Plus } from 'lucide-react';
 import { Chip } from './formPrimitives';
@@ -42,7 +42,8 @@ const overlay = {
 };
 
 const headerBar = {
-  display: 'flex',
+  display: 'grid',
+  gridTemplateColumns: 'max-content minmax(0, 1fr) max-content',
   alignItems: 'center',
   gap: 'var(--space-3)',
   padding: 'var(--space-1) var(--space-4)',
@@ -62,7 +63,8 @@ const backBtn = {
   background: 'none',
   border: 'none',
   color: 'var(--text-2)',
-  fontSize: 'var(--text-body)',
+  // 押し込まれた画面の「‹ 戻り先」と同じ上限（文字最大で題の場所を食わない・DESIGN §5）。
+  fontSize: 'min(var(--text-body), var(--text-bar-max))',
   fontWeight: 400,
   fontFamily: 'inherit',
   flexShrink: 0,
@@ -364,6 +366,9 @@ export default function BookMemoEditor({
     };
   };
 
+  // 本文か写真があるときだけ「保存」を押せる（validate と同じ条件）。
+  const canSave = Boolean(text.trim() || photoFile || existingPhotoPath);
+
   const validate = (payload) => {
     if (!payload.text && !payload.photoFile && !existingPhotoPath) {
       return '本文または写真のいずれかを入力してください。';
@@ -501,7 +506,10 @@ export default function BookMemoEditor({
   // られて、下のタブバーと「メモを書く」ボタンが保存ボタンの上に重なっていた。
   return createPortal(
     <div ref={(el) => { overlayRef.current = el; trapRef.current = el; }} style={overlay} role="dialog" aria-modal="true" aria-label={isEdit ? 'メモを編集' : 'メモを書く'}>
-      <div style={largeText ? { ...headerBar, padding: 'var(--space-2) var(--space-4)' } : headerBar}>
+      {/* 押し込まれた画面の上の行（DESIGN §5）: 左に「キャンセル」・中央に題（その下に書名）・右は左と同じ幅の空き
+          （見えない「キャンセル」を置いて幅をそろえる＝文字の大きさが変わっても題が真ん中に来る・2026-10-11）。 */}
+      {/* 文字が大きいときは右の空きをやめて、題を左寄せで残りの幅いっぱいに（題が「メ…」まで縮まない）。 */}
+      <div style={largeText ? { ...headerBar, gridTemplateColumns: 'max-content minmax(0, 1fr)', padding: 'var(--space-2) var(--space-4)' } : headerBar}>
         <button
           type="button"
           onClick={() => { requestClose(); }}
@@ -511,26 +519,29 @@ export default function BookMemoEditor({
         >
           キャンセル
         </button>
-        <div style={{ minWidth: 0, flex: 1 }}>
+        <div style={{ minWidth: 0, textAlign: largeText ? 'left' : 'center' }}>
           {/* 見出しの言葉はメモを書くシートと同じ（新しいメモ＝「メモを書く」）。 */}
-          <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: 0, lineHeight: 1.3 }}>{isEdit ? 'メモを編集' : 'メモを書く'}</p>
+          <p style={{ fontSize: 'min(var(--text-body), var(--text-bar-max))', color: 'var(--text)', fontWeight: 600, margin: 0, lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {isEdit ? 'メモを編集' : 'メモを書く'}
+          </p>
           <p
             style={{
-              fontSize: 'var(--text-sub)',
-              color: 'var(--text)',
-              fontWeight: 600,
+              fontSize: 'var(--text-meta)',
+              color: 'var(--text-2)',
               margin: 0,
               lineHeight: 1.3,
               display: 'flex',
+              justifyContent: largeText ? 'flex-start' : 'center',
               alignItems: 'center',
               gap: 'var(--space-1)',
               minWidth: 0,
             }}
           >
-            <BookOpen size="1em" aria-hidden="true" style={{ flexShrink: 0, color: 'var(--text-2)' }} />
+            <BookOpen size="1em" aria-hidden="true" style={{ flexShrink: 0 }} />
             <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{bookTitle || '本'}</span>
           </p>
         </div>
+        {!largeText && <span aria-hidden="true" style={{ ...backBtn, visibility: 'hidden', justifySelf: 'end' }}>キャンセル</span>}
       </div>
 
       <div style={body}>
@@ -588,7 +599,7 @@ export default function BookMemoEditor({
         </div>
 
         <div>
-          <label htmlFor="memo-page" style={fieldLabel}>ページ番号（任意）</label>
+          <label htmlFor="memo-page" style={fieldLabel}>ページ番号<span style={fieldNote}>（任意）</span></label>
           <input
             id="memo-page"
             type="number"
@@ -599,13 +610,14 @@ export default function BookMemoEditor({
             onChange={(e) => setPageNumber(e.target.value)}
             onKeyDown={blockEnter}
             placeholder="78"
-            style={{ ...inp, width: 140 }}
+            // 5 桁と左右の内側が収まる幅（文字の大きさに合わせて広がる・直書きの 140 をやめた）。
+            style={{ ...inp, width: 'calc(7em + var(--space-8))', maxWidth: '100%' }}
           />
         </div>
 
         <div>
           {/* 「写真から書き起こす」（本文に文字を入れる）と区別して、写真そのものをメモに残すのは「写真を添える」。 */}
-          <label style={fieldLabel}>写真を添える（任意）</label>
+          <label style={fieldLabel}>写真を添える<span style={fieldNote}>（任意）</span></label>
           {!shownPreview && (
             <>
               <button
@@ -613,7 +625,7 @@ export default function BookMemoEditor({
                 onClick={() => fileInputRef.current?.click()}
                 style={btnRow}
               >
-                <ImagePlus size={16} aria-hidden="true" />
+                <ImagePlus size="1.2em" aria-hidden="true" style={{ flexShrink: 0 }} />
                 写真を選ぶ
               </button>
               <input
@@ -657,7 +669,7 @@ export default function BookMemoEditor({
         </div>
 
         <div>
-          <label htmlFor="memo-tag" style={fieldLabel}>タグ（任意）</label>
+          <label htmlFor="memo-tag" style={fieldLabel}>タグ<span style={fieldNote}>（任意）</span></label>
           {/* 本の追加・編集画面のタグ（formPrimitives の TagInput）と同じ形（DESIGN §5「選ぶためのチップ」44・2026-10-04）:
               付けたもの＝選択中のチップ（--accent-soft・押すと外す）、候補＝「＋ タグ」のチップ（押すと付ける）。
               打ちかけのタグを保存に含めるため、入力欄の状態はこの画面で持つ（TagInput は使わない）。 */}
@@ -723,17 +735,18 @@ export default function BookMemoEditor({
           <button
             type="button"
             onClick={() => save(true)}
-            disabled={busy}
-            style={busy ? btnGhostOff : btnGhost}
+            disabled={busy || !canSave}
+            style={busy || !canSave ? btnGhostOff : btnGhost}
           >
             <span aria-live="polite">{busy ? '保存中…' : justSaved ? '保存しました' : '保存して次へ'}</span>
           </button>
         )}
+        {/* 本文も写真も無いうちは押せない（押してから叱らない・DESIGN §5「押せないボタン」）。 */}
         <button
           type="button"
           onClick={() => save(false)}
-          disabled={busy}
-          style={busy ? btnPrimaryOff : btnPrimary}
+          disabled={busy || !canSave}
+          style={busy || !canSave ? btnPrimaryOff : btnPrimary}
         >
           {busy ? '保存中…' : '保存'}
         </button>

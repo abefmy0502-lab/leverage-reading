@@ -15,6 +15,7 @@ import { groupTitle, btnGhost, btnGhostOff, btnLink } from '../styles/ui';
 import { glueForDisplay } from './BookAbout';
 import { withPhraseBreaks } from './TightBubble';
 import { parseBrief, isUsableBrief, briefLabels, briefSourceLine, BRIEF_NO_MATERIAL_TEXT } from '../lib/bookBrief';
+import { isLargeText } from '../lib/largeText';
 
 export const BRIEF_TITLE = 'この本で学べること';
 export const BRIEF_MAKE_LABEL = 'この本で学べることを見る';
@@ -251,7 +252,8 @@ export default function BookBrief({
           <summary style={rowSummary}>
             <span style={{ flex: '0 1 auto', minWidth: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(labels.title)}</span>
             <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 'var(--space-2)', flex: '1 1 0', minWidth: 0 }}>
-              <span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{labels.short}</span>
+              {/* 文字が大きいときは右の要約を出さない（lib/largeText・この本についての畳む行と同じ）。 */}
+              {!isLargeText() && <span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{labels.short}</span>}
               <ChevronDown size={20} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
             </span>
           </summary>

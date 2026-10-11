@@ -180,7 +180,7 @@ import { todayLocal, tomorrowLocal, fmtDateJa, isScheduledLater } from './lib/da
 import { completedActionMessage } from './lib/actionMessages';
 // 🧩 #9 App.jsx 分割: 本フォーム共通プリミティブと Phase エディタは別ファイルへ抽出。
 import { Stars, inp, btnS } from './components/formPrimitives';
-import { btnGhost, btnGhostOff, btnText, btnPrimary, btnPrimaryOff, btnLink, btnRow, groupTitle, SCROLL_FADE_MASK } from './styles/ui';
+import { btnGhost, btnGhostOff, btnText, btnPrimary, btnPrimaryOff, btnLink, btnRow, groupTitle, SCROLL_FADE_MASK, SCROLL_FADE_MASK_BOTH } from './styles/ui';
 import { WantPhase, BeforePhase, ReadingPhase, DonePhase, EditSaveBar } from './components/lazyParts';
 import { getAmazonLink } from './lib/amazonLink';
 import BookStoreLinks from './components/BookStoreLinks';
@@ -190,6 +190,7 @@ import { consultCanLeave } from './lib/consultBack';
 import { actionGist, firstConsultQuestion } from './lib/consultHelpers';
 import { takeOnboardPathDone, GROWTH_GOAL } from './lib/firstDay';
 import { withPhraseBreaks } from './components/TightBubble';
+import { isLargeText } from './lib/largeText';
 import {
   BookOpen,
   Home,
@@ -4368,7 +4369,7 @@ function AuthedApp() {
     <>
       {focusStartBook && (
         <Suspense fallback={<OverlayFallback />}>
-          <FocusStartSheet onStart={startFocusRun} onClose={() => setFocusStartBook(null)} initialUntil={!!focusStartBook.focusUntil} />
+          <FocusStartSheet book={books.find((x) => x.id === focusStartBook.id) || focusStartBook} onStart={startFocusRun} onClose={() => setFocusStartBook(null)} initialUntil={!!focusStartBook.focusUntil} />
         </Suspense>
       )}
       {focusRun && (
@@ -4800,7 +4801,7 @@ function AuthedApp() {
                 <span style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>読書計画</span>
                 <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 'var(--space-2)', minWidth: 0, flex: '1 1 auto' }}>
                   {/* 「読む前に書いたこと」を上に出している間は、右の中身の一覧を出さない（同じ言葉を 2 か所で名指ししない・2026-10-11 ui-critic） */}
-                  {beforeItemsNow.length === 0 && <span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {beforeItemsNow.length === 0 && !isLargeText() && <span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {[
                       ...planItems.map((p) => (p.label === 'この本から得たいこと' ? '得たいこと' : p.label === '現在の課題' ? '課題' : p.label)),
                       ...(current.aiStrategy ? ['シート'] : []),
@@ -4962,8 +4963,10 @@ function AuthedApp() {
                       この本の評価は？
                     </p>
                   )}
-                  {/* 押せる範囲 44 の中央に星があるので、左と上下の余りを行の外へ（星の左端を書名の左端に） */}
-                  <div style={{ margin: 'calc(-1 * var(--space-2)) 0 calc(-1 * var(--space-2)) calc(-1 * var(--space-3))' }}>
+                  {/* 押せる範囲 44 の中央に星があるので、左と上下の余りを行の外へ（星の左端を書名の左端に）。
+                      左の余りは「押せる幅 − 星の大きさ」の半分＝文字を大きくして星が育つと余りが減る
+                      （決まった 12 を引くと、文字最大で星が左の余白 16 からはみ出していた・2026-10-11 点検）。 */}
+                  <div style={{ margin: 'calc(-1 * var(--space-2)) 0 calc(-1 * var(--space-2)) min(0px, (calc(24rem / 17) - var(--tap-min)) / 2)' }}>
                     <Stars r={current.rating || 0} onChange={(r) => setBookRating(current, r)} size="calc(24rem / 17)" />
                   </div>
                 </div>
@@ -5046,6 +5049,8 @@ function AuthedApp() {
                         width: '100%', display: 'flex', alignItems: 'center', gap: 'var(--space-3)', textAlign: 'left',
                         padding: 'var(--space-3) var(--space-4)', minHeight: 'calc(var(--space-12) + var(--space-2))', cursor: 'pointer', fontFamily: 'inherit',
                         background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)',
+                        // em のアイコンを文字に合わせる（ボタンの既定の文字の大きさだと、文字最大でアイコンだけ育たなかった）。
+                        fontSize: 'var(--text-body)',
                       }}
                     >
                       <MessageCircle size="1.2em" aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
@@ -5106,7 +5111,7 @@ function AuthedApp() {
                       : <Circle size={24} style={{ color: 'var(--border)' }} />}
                   </span>
                   <div style={{ minWidth: 0 }}>
-                    <p style={{ fontSize: 'var(--text-body)', color: a.done ? "var(--text-3)" : "var(--text)", textDecoration: a.done ? "line-through" : "none", margin: 0, wordBreak: "break-word", lineHeight: 1.5 }}>{a.text}</p>
+                    <p style={{ fontSize: 'var(--text-body)', color: a.done ? "var(--text-3)" : "var(--text)", textDecoration: a.done ? "line-through" : "none", margin: 0, wordBreak: "keep-all", overflowWrap: "anywhere", lineHeight: 1.5 }}>{withPhraseBreaks(a.text)}</p>
                     {a.deadline && <p style={{ fontSize: 'var(--text-meta)', color: "var(--text-3)", margin: 'var(--space-1) 0 0' }}>期限 {fmtDateJa(a.deadline)}</p>}
                   </div>
                 </button>
@@ -6133,12 +6138,18 @@ function AuthedApp() {
               {showStatusChips && (
                 <div
                   style={{
-                    display: 'flex', gap: 'var(--space-2)', overflowX: 'auto', // 下にフォルダの行があるときは、押せる範囲の余り（上下 6）が重なる分を引いて見た目の間を 8 に（負の余白は相殺で 1 つ分しか効かない）
-                    paddingBottom: showFolderChips ? 'calc(var(--space-2) - (var(--tap-min) - var(--space-8)) / 2)' : 'var(--space-4)',
+                    display: 'flex', gap: 'var(--space-2)', overflowX: 'auto',
+                    // 下にフォルダの行があるときは見た目の間 12（押せる範囲の余り 6 を引く＝押せる範囲 44 どうしは重ならず接するだけ・
+                    // 負の余白は相殺で 1 つ分しか効かない・2026-10-11 点検で 8 → 12）。
+                    paddingBottom: showFolderChips ? 'calc(var(--space-3) - (var(--tap-min) - var(--space-8)) / 2)' : 'var(--space-4)',
                     // チップの見た目は 32・押せる範囲は 44。上下の余り（6 ずつ）を行の外側で相殺し、
                     // 見た目の間隔を 見出し→チップ 12・チップ→一覧 16 にそろえる（チップ自体に負の余白を
                     // 付けると横スクロールの枠で押せる範囲が切れ、シートの折り返しでは行が詰まるため行の側で）。
-                    margin: 'calc((var(--space-8) - var(--tap-min)) / 2) 0',
+                    // 左右は画面の端まで広げ、内側の余白で 16（送ったチップが 16 の手前で切れて見えない・
+                    // 共有のシートの「どの本？」と同じ・2026-10-11 点検）。
+                    margin: 'calc((var(--space-8) - var(--tap-min)) / 2) calc(-1 * var(--space-4))',
+                    paddingLeft: 'var(--space-4)',
+                    scrollPaddingLeft: 'var(--space-4)',
                     WebkitOverflowScrolling: 'touch',
                     // 右端をふわっと透過させ「まだ続きがある（横スクロールできる）」を示す。
                     // フェードなしだと「読了」チップが硬く見切れて壊れて見えていた。
@@ -6189,7 +6200,8 @@ function AuthedApp() {
                   data-folder-chips=""
                   role="group"
                   aria-label="フォルダで絞り込み"
-                  style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', paddingBottom: 'var(--space-4)', margin: 'calc((var(--space-8) - var(--tap-min)) / 2) 0' }}
+                  // 左右は画面の端まで（見出し「フォルダ」は内側の余白で左 16・チップは右の端まで送れる・状態の行と同じ）。
+                  style={{ display: 'flex', alignItems: 'center', paddingBottom: 'var(--space-4)', margin: 'calc((var(--space-8) - var(--tap-min)) / 2) calc(-1 * var(--space-4))', paddingLeft: 'var(--space-4)' }}
                 >
                   <span aria-hidden="true" style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>
                     <IcFolder size="1em" aria-hidden="true" />フォルダ
@@ -6198,9 +6210,11 @@ function AuthedApp() {
                     data-folder-chips-scroll=""
                     style={{
                       flex: 1, minWidth: 0, display: 'flex', gap: 'var(--space-2)', overflowX: 'auto',
+                      // 見出しとの間 12 は箱の内側の余白で取り、その 12 で左端もふわっと消す（送ったチップが見出しの横で硬く切れない）。
+                      paddingLeft: 'var(--space-3)', scrollPaddingLeft: 'var(--space-3)',
                       WebkitOverflowScrolling: 'touch',
-                      WebkitMaskImage: SCROLL_FADE_MASK,
-                      maskImage: SCROLL_FADE_MASK,
+                      WebkitMaskImage: SCROLL_FADE_MASK_BOTH,
+                      maskImage: SCROLL_FADE_MASK_BOTH,
                     }}
                   >
                     {allFolders.map((f) => {

@@ -14,6 +14,7 @@ import { groupTitle, btnLink } from '../styles/ui';
 import { SkeletonBlock } from './Skeleton';
 import { withPhraseBreaks } from './TightBubble';
 import { BOOK_INFO_SOURCE_LABELS, bookInfoMetaLine, hasBookInfo } from '../lib/bookInfo';
+import { isLargeText } from '../lib/largeText';
 
 // サーバーで描く（テスト）ときの警告を出さない。
 const useIsoLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
@@ -188,7 +189,8 @@ function FoldSummaryInner({ parts }) {
     <>
       <span style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>この本について</span>
       <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 'var(--space-2)', minWidth: 0, flex: '1 1 auto' }}>
-        <span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{parts}</span>
+        {/* 文字が大きいときは右の要約を出さない（lib/largeText）。 */}
+        {!isLargeText() && <span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{parts}</span>}
         <ChevronDown size="1.2em" aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
       </span>
     </>
@@ -278,7 +280,7 @@ export default function BookAbout({ info, loading = false, variant = 'card', sty
           <summary style={tocSummary}>
             目次
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-              <span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', fontVariantNumeric: 'tabular-nums' }}>{toc.length} 項目</span>
+              {!isLargeText() && <span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', fontVariantNumeric: 'tabular-nums' }}>{toc.length} 項目</span>}
               <ChevronDown size="1.2em" aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
             </span>
           </summary>

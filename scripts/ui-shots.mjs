@@ -115,7 +115,19 @@ const REL10 = [
   ['r10-library-rows', '/', [{ css: 'button:has-text("すべての本")' }, { wait: 800 }, SCROLL_ROWS_END, { wait: 400 }]],
   ['r10-consult-chips', '/', [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { waitFor: '[aria-label="続けて聞く"] button' }, { css: '[aria-label="続けて聞く"] button >> nth=1' }, { waitFor: '[aria-label="続けて聞く"] button:has-text("ここで答えと行動を")' }, { wait: 800 }, SCROLL_ROWS_END, { wait: 400 }]],
 ].flatMap(([name, url, steps]) => [{ name, url, steps }, { name: `${name}-xxl`, url, steps: [XXL, ...steps] }]);
+// リリース前の最終採点の直し（2026-10-11・release10-after2・担当 A）: 明暗＋文字最大（-xxl）。
+const REL10A = [
+  ['a-memo-editor', '/', [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("数値化の鬼")' }, { css: 'button:has-text("メモを書く")' }, { css: 'button:has-text("ページ・写真")' }, { css: 'button:has-text("全画面で書く")' }, { wait: 800 }, { eval: () => { if (document.activeElement) document.activeElement.blur(); } }]],
+  ['a-library', '/', [{ css: 'button:has-text("すべての本")' }, { wait: 800 }]],
+  ['a-library-end', '/', [{ css: 'button:has-text("すべての本")' }, { wait: 800 }, SCROLL_ROWS_END, { wait: 400 }]],
+  ['a-detail-done', '/', [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("サピエンス全史")' }, { wait: 800 }]],
+  ['a-detail-done-bottom', '/', [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("サピエンス全史")' }, { wait: 800 }, { scrollBottom: true }]],
+  ['a-detail-reading', '/', [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { wait: 800 }, { scrollTo: 'button:has-text("この本に相談する")' }]],
+  ['a-home-new', '/?demo=new', [{ css: 'button[aria-label="閉じる"]' }, { wait: 600 }]],
+  ['a-review-memo', '/', [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("メモ")' }, { wait: 600 }]],
+].flatMap(([name, url, steps]) => [{ name, url, steps }, { name: `${name}-xxl`, url, steps: [XXL, ...steps] }]);
 const SCREENS = [
+  ...REL10A,
   ...ADVISOR2,
   ...REL10,
   { name: 'home', url: '/' },

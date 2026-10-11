@@ -277,7 +277,7 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
   const openBook = () => startTransition(() => onOpenBook(book, memo.id, canEdit ? { edit: true } : undefined));
   const inner = (
     <div
-      style={tapOpens ? { ...cardStyle, cursor: 'pointer' } : cardStyle}
+      style={{ ...cardStyle, position: 'relative', ...(tapOpens ? { cursor: 'pointer' } : null) }}
       onClick={tapOpens ? openBook : undefined}
       // キーボード・スイッチ操作でも開けるように（Enter / Space・中のボタンで押したときは、そのボタンの動作だけ）。
       {...(tapOpens ? {
@@ -290,8 +290,22 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
       } : null)}
       {...(onLongPress && !isSynth ? longPress.bind : {})}
     >
+      {/* 「…」（横・DESIGN §5）。本の詳細のメモ（BookMemoCard の kebabBtn）と同じく、カードの右上に置く
+          （日付の後ろに続けると、日付が次の行へ回ったときに「…」の位置が行ごとに変わっていた・2026-10-11 点検）。 */}
+      {onOpenMenu && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); const r = e.currentTarget.getBoundingClientRect(); onOpenMenu({ x: r.right - 8, y: r.bottom + 4, memo, book }); }}
+          aria-label="このメモの操作"
+          aria-haspopup="menu"
+          className="icon-btn"
+          style={{ position: 'absolute', top: 'var(--space-1)', right: 'var(--space-1)', width: 'var(--tap-min)', height: 'var(--tap-min)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', borderRadius: 'var(--radius-full)', color: 'var(--text-2)', cursor: 'pointer', padding: 0 }}
+        >
+          <MoreHorizontal size={20} strokeWidth={1.75} aria-hidden="true" />
+        </button>
+      )}
       {/* 書名は行の半分以上を保つ。文字が大きくて日付・ページが残りに入らないときは、日付が次の行へ回る（書名が「1兆…」まで縮まない・2026-10-04）。 */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', columnGap: 'var(--space-2)', rowGap: 0, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', columnGap: 'var(--space-2)', rowGap: 0, flexWrap: 'wrap', ...(onOpenMenu ? { paddingRight: 'var(--space-8)' } : null) }}>
         {bookInHeader ? bookButton(true) : (
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
           {showKind && <span
@@ -312,18 +326,6 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
             <>{relativeJa(memo.createdAt)}{memo.pageNumber != null && !isPersonal && <> · p.{memo.pageNumber}</>}</>
           ) : (
             <>{memo.pageNumber != null && !isPersonal && <>p.{memo.pageNumber} · </>}{fmtDate(memo.createdAt)}</>
-          )}
-          {/* 「…」（横・DESIGN §5）。押せる範囲 44 は保ち、行の高さは負の余白で増やさない。 */}
-          {onOpenMenu && (
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); const r = e.currentTarget.getBoundingClientRect(); onOpenMenu({ x: r.right - 8, y: r.bottom + 4, memo, book }); }}
-              aria-label="このメモの操作"
-              aria-haspopup="menu"
-              style={{ width: 44, height: 44, margin: 'calc(-1 * var(--space-3)) calc(-1 * var(--space-3)) calc(-1 * var(--space-3)) 0', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', borderRadius: 'var(--radius-full)', color: 'var(--text-2)', cursor: 'pointer', padding: 0 }}
-            >
-              <MoreHorizontal size={20} aria-hidden="true" />
-            </button>
           )}
         </span>
       </div>
