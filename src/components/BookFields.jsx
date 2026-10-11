@@ -175,7 +175,7 @@ export function BookFolderLinks({ folders = [], onPick, onEdit, stacked = false 
           onClick={onEdit}
           aria-label={folders.length ? `フォルダを変更（いま ${folders.join('、')}）` : 'フォルダに入れる'}
           // フォルダが無いときも見出し「フォルダ」＋文字ボタン（文字の左端を値の列＝チップの左端にそろえる）
-          style={{ ...btnLink, ...(folders.length ? null : { marginLeft: 'calc(-1 * var(--space-1))' }) }}
+          style={{ ...btnLink, minWidth: 'var(--tap-min)', justifyContent: 'center', ...(folders.length ? null : { marginLeft: 'calc(-1 * var(--space-1))' }) }}
         >
           {folders.length ? '変更' : 'フォルダに入れる'}
         </button>

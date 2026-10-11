@@ -42,7 +42,7 @@ import { BookReadingTime } from './components/ReadingTimeCard';
 import { DoneQuestions, BeforeAfter } from './components/DoneReflection';
 import { visibleDoneQuestions, readDoneQuestionState, markDoneQuestionAnswered, dismissDoneQuestions, visibleBeforeItems, foundAnswerDraft, promptedMemoText } from './lib/doneReflection';
 import { readingSessions } from './hooks/useReadingSessions';
-import { filterLibraryBooks, folderCounts } from './lib/libraryFilter';
+import { filterLibraryBooks, folderCounts, matchesLibraryFilters } from './lib/libraryFilter';
 import Onboarding, { isOnboardingCompleted, clearOnboardingCompletion } from './components/Onboarding';
 import {
   Search as IcSearch, Plus as IcPlus, Library as IcLibrary, Sparkles as IcSparkles,
@@ -4231,6 +4231,15 @@ function AuthedApp() {
   // アクティブな絞り込み数（ツールバーのバッジ表示用）。
   const activeFilterCount = (statusFilter !== 'all' ? 1 : 0) + (minRating > 0 ? 1 : 0) + tagFilter.length + (folderFilter ? 1 : 0);
   // 状態のチップの行を出すか（本が 4 冊以上か、何かで絞っているとき・検索で 0 件のときは出さない）。
+  // フォルダのチップの冊数（フォルダ以外の絞り込みを効かせた数）。
+  const folderChipCounts = useMemo(() => {
+    const m = new Map();
+    for (const b of books) {
+      if (!matchesLibraryFilters(b, { statusFilter, minRating, tagFilter, hits: libraryHits })) continue;
+      for (const c of b.collections || []) { const n = (c || '').trim(); if (n) m.set(n, (m.get(n) || 0) + 1); }
+    }
+    return m;
+  }, [books, statusFilter, minRating, tagFilter, libraryHits]);
   // フォルダのチップの行を出すか（フォルダが 1 つ以上・検索で 0 件のときは出さない）。allFolders はこの下で決まるので本から数える。
   const showFolderChips = books.some((b) => (b.collections || []).some((c) => (c || '').trim())) && !(filtered.length === 0 && libraryQuery && rawBooks.length > 0);
   const showStatusChips = (books.length >= 4 || !!folderFilter || minRating > 0 || tagFilter.length > 0) && !(filtered.length === 0 && libraryQuery && rawBooks.length > 0);
@@ -4508,7 +4517,7 @@ function AuthedApp() {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); createAndAdd(); }
                 }}
-                placeholder="例：会社の課題図書"
+                placeholder={folderNames.length ? '新しいフォルダの名前' : '例：会社の課題図書'}
                 maxLength={40}
                 style={{ ...inp, flex: 1, minWidth: 0, minHeight: 'var(--btn-h)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}
               />
@@ -6077,7 +6086,8 @@ function AuthedApp() {
               {showStatusChips && (
                 <div
                   style={{
-                    display: 'flex', gap: 'var(--space-2)', overflowX: 'auto', paddingBottom: showFolderChips ? 'var(--space-2)' : 'var(--space-4)',
+                    display: 'flex', gap: 'var(--space-2)', overflowX: 'auto', // 下にフォルダの行があるときは、押せる範囲の余り（上下 6）が重なる分を引いて見た目の間を 8 に（負の余白は相殺で 1 つ分しか効かない）
+                    paddingBottom: showFolderChips ? 'calc(var(--space-2) - (var(--tap-min) - var(--space-8)) / 2)' : 'var(--space-4)',
                     // チップの見た目は 32・押せる範囲は 44。上下の余り（6 ずつ）を行の外側で相殺し、
                     // 見た目の間隔を 見出し→チップ 12・チップ→一覧 16 にそろえる（チップ自体に負の余白を
                     // 付けると横スクロールの枠で押せる範囲が切れ、シートの折り返しでは行が詰まるため行の側で）。
@@ -6107,7 +6117,8 @@ function AuthedApp() {
                   {[{ key: 'all', label: 'すべて', count: chipStats.total }, ...SHELF_CHIP_ORDER.map((k) => STATUSES.find((st) => st.key === k)).filter(Boolean).map((s) => ({ key: s.key, label: s.label, count: chipStats[s.key] || 0 }))].map((s) => {
                     // 選んでいる状態のチップは 0 件でも残す（押して解除できるように）。
                     if (s.key !== 'all' && s.count === 0 && statusFilter !== s.key) return null;
-                    const active = statusFilter === s.key;
+                    // 分野・評価で絞っている間は「すべて」を選択中の面にしない（絞っていないように見えるため）
+                    const active = statusFilter === s.key && (s.key !== 'all' || (tagFilter.length === 0 && minRating === 0));
                     return (
                       <ShelfChip
                         key={s.key}
@@ -6145,9 +6156,11 @@ function AuthedApp() {
                   >
                     {allFolders.map((f) => {
                       const active = folderFilter === f.name;
+                      // 冊数はほかの絞り込み（状態・分野・評価・検索）を効かせた数（状態のチップと同じ）。0 冊になる組み合わせは数字を出さない。
+                      const n = folderChipCounts.get(f.name) || 0;
                       return (
-                        <ShelfChip key={f.name} active={active} onClick={() => setFolderFilter(active ? null : f.name)} ariaLabel={`フォルダ「${f.name}」${f.count} 冊${active ? '（押すと解除）' : ''}`}>
-                          {f.name}<span style={{ color: 'var(--text-2)', fontWeight: 400 }}>{f.count}</span>
+                        <ShelfChip key={f.name} active={active} onClick={() => setFolderFilter(active ? null : f.name)} ariaLabel={`フォルダ「${f.name}」${n > 0 ? `${n} 冊` : ''}${active ? '（押すと解除）' : ''}`}>
+                          {f.name}{n > 0 && <span style={{ color: 'var(--text-2)', fontWeight: 400 }}>{n}</span>}
                         </ShelfChip>
                       );
                     })}

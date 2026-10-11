@@ -284,6 +284,10 @@ export function buildSeed(scenario) {
     }));
   });
   // 🗂 本人が作ったフォルダ（本の詳細のフォルダの行・すべての本のフォルダのチップの確かめ用・2026-10-11）
+  //   &rated=reading: 読書中の『数値化の鬼』に★4（評価済みの本を読了にした直後＝送り先が「読了を写真で共有」の確かめ用）
+  if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('rated') === 'reading') {
+    db.books.forEach((b) => { if (b.title === '数値化の鬼') b.rating = 4; });
+  }
   //   &folders=none: フォルダが 1 つも無い人（前の版のタグからフォルダへ移る言葉も外す・フォルダに入れるシートの 0 件の確かめ用）
   const noFolders = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('folders') === 'none';
   if (noFolders) db.book_tags = db.book_tags.filter((t) => !['読書術', '会社の課題図書'].includes(t.tag_name));
