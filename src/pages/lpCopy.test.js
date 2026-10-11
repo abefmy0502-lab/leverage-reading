@@ -2,7 +2,7 @@
 // 変数名がそのまま出ていた（自動更新後の金額が読めない）。全部の組み合わせで書きかけの文字が残らないことを確かめる。
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { buildLpCopy, plainText, storeHrefOf, APP_STORE_SEARCH_URL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE } from './lpCopy';
+import { buildLpCopy, plainText, storeHrefOf, APP_STORE_SEARCH_URL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE } from './lpCopy';
 
 const OFFER_ON = { active: true, endLabel: '12月15日', price: '¥9,800', priceLabel: '1 年目 ¥9,800' };
 const OFFER_OFF = { active: false, endLabel: '', price: '¥9,800', priceLabel: '1 年目 ¥9,800' };
@@ -152,5 +152,17 @@ describe('値段と（税込）を割らない', () => {
     const text = JSON.stringify({ pricingNote: c.pricingNote, faq: c.faq });
     expect(text).not.toMatch(/¥[\d,]+[ \n]?（税込）/);
     expect(text).toMatch(/¥\u20609\u2060,/);
+  });
+});
+
+describe('画面は見本だと示す（景品表示法の優良誤認・2026-10-11）', () => {
+  it('「画面は見本です。」で始まり、実際の答えはメモで変わると書く', () => {
+    expect(SAMPLE_NOTE.startsWith('画面は見本です。')).toBe(true);
+    expect(SAMPLE_NOTE).toContain('あなたのメモによって変わります');
+  });
+  it('LP ではヒーローの写真の下の 1 か所に出す', () => {
+    const src = readFileSync(new URL('./Landing.jsx', import.meta.url), 'utf8').replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
+    expect(src.match(/\$\{SAMPLE_NOTE\}/g) || []).toHaveLength(1);
+    expect(src).toMatch(/<figcaption[^>]*>.*\$\{SAMPLE_NOTE\}\$\{VOICE_NOTE\}/);
   });
 });

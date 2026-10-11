@@ -6,9 +6,11 @@
 //
 // やること:
 //   - 頭の読み込み中（meta.json の trimStart）を切る（meta.cuts に [から, まで] を書けば途中も切れる・手で足すとき用）
-//   - H.264 / 30fps / 1080×1920 / 無音の音声トラックつきの final.mp4（Instagram・TikTok・YouTube ショート・X で読める形）
+//   - H.264 / 30fps / 1080×1920 / 無音の音声トラックつきの final.mp4（Instagram リール・X で読める形）
 //   - 字幕の captions.srt（final.mp4 の時間に合わせる）と、表紙用の cover.jpg（題が出ている 1 秒目）
 // 字幕と題は録画の時点で画面に焼き込んである（--plain で録ったときだけ素の画面＝CapCut で字幕を付ける）。
+// 画面の下の「画面は見本です。実際の答えは、あなたのメモによって変わります。」（notes.mjs の SAMPLE_NOTE）は --plain でも
+// 焼き込み済みで、最初から最後まで出る（景品表示法の優良誤認を避ける・切らない・上に字幕を重ねない）。
 //
 // ffmpeg は 環境変数 FFMPEG → npm の ffmpeg-static → PATH の ffmpeg の順に探す。
 // 見つからなければ、raw.webm に合わせた captions.srt だけ書き、CapCut での仕上げ方を表示する。
@@ -18,6 +20,7 @@ import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { toSrt, keepSegments, cutCues } from './srt.mjs';
+import { SAMPLE_NOTE } from './notes.mjs';
 
 export async function findFfmpeg() {
   const candidates = [];
@@ -43,6 +46,8 @@ export async function finishVideo(dir) {
   const meta = JSON.parse(readFileSync(join(dir, 'meta.json'), 'utf8'));
   const raw = join(dir, 'raw.webm');
   if (!existsSync(raw)) throw new Error(`${raw} がありません`);
+  // 「画面は見本です。…」の注記が焼き込まれていない古い録画は仕上げない（景品表示法・2026-10-11）
+  if (meta.sampleNote !== SAMPLE_NOTE) throw new Error('この録画には「画面は見本です。…」の注記がありません。npm run mkt:record で録り直してください');
   const bin = await findFfmpeg();
   const cues = [...(meta.plain ? [{ start: meta.trimStart, end: meta.trimStart + meta.titleSec, text: meta.title }] : []), ...meta.cues];
   const duration = meta.duration || cues.reduce((m, c) => Math.max(m, c.end), 0);

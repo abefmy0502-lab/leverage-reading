@@ -24,13 +24,64 @@
 //   optional: true          … 見つからなくても止めない
 //
 // 台本の外側に書けること:
-//   redact: { '実在の名前': '置きかえ' } … 画面の文字を録画の間だけ置きかえる（実在の著者名を映さない・下の consult-book）
+//   redact: { '実在の名前': '置きかえ' } … 画面の文字を録画の間だけ置きかえる（AUTHOR_REDACT に無い名前を足すとき）。
+//   ※ お試しモードの本の著者名は、どの台本でも AUTHOR_REDACT で書名に置きかわる（下の redactPairs・2026-10-11）。
 //   pillar: '本と対話' など               … 5 つの柱のどれか（mkt:drafts が説明欄の下書きに使う）
 // お試しモードの「（お試しモードの応答です…）」の注記は、録画の間は自動で隠す（record-demo.mjs）。
 //
 // 台本を足すとき: ここに 1 本足すか、同じ形の JSON（配列）を作って
 //   npm run mkt:record -- --file my-scenarios.json  で読み込む。
 // 字幕の言葉は CLAUDE.md の用語の正典（相談・行動・メモ・積読 など）に合わせる。言い過ぎない（brand-guardrails.md）。
+
+// 🛡 実在の著者名を映さない（2026-10-11・パブリシティ権・誤認・company/launch-2026-11/sns-playbook.md §7）。
+// お試しモードに出てくる実在の著者 → その本の書名。録画の間だけ、全部の台本で置きかえる（record-demo.mjs）。
+// 画面の文字は「著者名」→「『書名』」（「著者名『書名』」の形は「『書名』」に）。表紙の絵・写真で共有の画像（canvas）の
+// 中の著者名は消す（書名と同じ文字が 2 回並ばないように）。お試しモードに本を足したらここにも足す
+// （notes.test.js が src/demo の著者を拾って、抜けを見つける）。
+export const AUTHOR_REDACT = {
+  '本田直之': 'レバレッジ・リーディング',
+  '安宅和人': 'イシューからはじめよ',
+  'グレッグ・マキューン': 'エッセンシャル思考',
+  'D・カーネギー': '人を動かす',
+  '岸見一郎・古賀史健': '嫌われる勇気',
+  '岸見一郎': '嫌われる勇気',
+  '古賀史健': '嫌われる勇気',
+  '樺沢紫苑': 'アウトプット大全',
+  '安藤広大': '数値化の鬼',
+  'エリック・シュミット': '1兆ドルコーチ',
+  'リンダ・グラットン': 'LIFE SHIFT',
+  'スペンサー・ジョンソン': 'チーズはどこへ消えた？',
+  'ユヴァル・ノア・ハラリ': 'サピエンス全史',
+  '西野精治': 'スタンフォード式 最高の睡眠',
+  'スティーブン・R・コヴィー': '7つの習慣',
+  'ロバート・B・チャルディーニ': '影響力の武器',
+  'ハンス・ロスリング': 'ファクトフルネス',
+  '佐々木圭一': '伝え方が9割',
+  '前田裕二': 'メモの魔力',
+  '外山滋比古': '思考の整理学',
+  'ジェイク・ナップ': '時間術大全',
+  'アンジェラ・ダックワース': 'GRIT やり抜く力',
+  'カル・ニューポート': '大事なことに集中する',
+  'ハロルド・ジェニーン': 'プロフェッショナルマネジャー',
+  '稲盛和夫': '考え方',
+};
+// 著者ではないが、サンプルのメモに名前が出る実在の人（本の題材）。
+export const PERSON_REDACT = { 'ビル・キャンベル': 'そのコーチ', 'キャンベル': 'そのコーチ' };
+
+// 置きかえの組（上から順に当てる）。text＝画面の文字、media＝表紙の絵・canvas の文字。長い名前から先に。
+export function redactPairs(extra = {}) {
+  const text = [];
+  const media = [];
+  for (const [from, to] of Object.entries(extra || {})) { text.push([from, to]); media.push([from, to]); }
+  const authors = Object.keys(AUTHOR_REDACT).sort((a, b) => b.length - a.length);
+  for (const a of authors) {
+    const t = `『${AUTHOR_REDACT[a]}』`;
+    text.push([`${a}『`, '『'], [`｜${a}`, ''], [`- ${a}`, ''], [`${a} ほか`, t], [a, t]);
+    media.push([`${a} ほか`, ''], [a, '']);
+  }
+  for (const [from, to] of Object.entries(PERSON_REDACT)) { text.push([from, to]); media.push([from, to]); }
+  return { text, media };
+}
 
 const nav = (name) => `nav button[aria-label="${name}"]`;
 const ASK = 'textarea[aria-label="相談したいこと"]';
@@ -87,12 +138,11 @@ export const SCENARIOS = [
   },
   {
     // 1 冊に相談 → 本の語り口の答え（名前の行に「本の語り口で・AI」）→ 根拠の本とページ。
-    // 実在の著者名は映さない（redact）。「著者と話せる」とは字幕でも言わない（marketing-master-plan §0）。
+    // 実在の著者名は映さない（AUTHOR_REDACT で書名に置きかわる）。「著者と話せる」とは字幕でも言わない（marketing-master-plan §0）。
     name: 'consult-book',
     pillar: '本と対話',
     title: '読んだ本と、\n対話しよう。',
     url: '/',
-    redact: { 'エリック・シュミット': '『1兆ドルコーチ』' },
     steps: [
       { say: '前に読んだ 1 冊を開いて', hold: 500 },
       { tap: 'button:has-text("すべての本")' },

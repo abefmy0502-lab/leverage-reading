@@ -6,14 +6,15 @@
 //   2. npm run mkt:record                        → 台本（scenarios.mjs）を全部録る
 //      npm run mkt:record -- consult-answer       → 名前で絞る
 //      npm run mkt:record -- --file my.json       → JSON の台本（同じ形の配列）を足す
-//      npm run mkt:record -- --plain              → 字幕と題を焼き込まない（CapCut で付けるとき）
+//      npm run mkt:record -- --plain              → 字幕と題を焼き込まない（CapCut で付けるとき・「画面は見本です。…」の注記は残す）
 //      npm run mkt:record -- --theme dark         → 暗い画面で録る
 //      npm run mkt:record -- --no-finish          → mp4 に仕上げない（raw.webm と meta.json だけ）
 //   環境変数: MKT_BASE_URL（既定 UI_SHOTS_URL か http://localhost:5173）・PW_EXE（ui-shots.mjs と同じ）・MKT_OUT（出力先）
 //
 // 仕組み: 1080×1920 の「舞台」のページの中に、iPhone 幅（390×693）のアプリを iframe で置いて 2.1 倍に拡大する
 //   （アプリは 390 幅のまま動くので見た目は本物と同じ・文字はくっきり）。上の帯に字幕、最初の 2 秒は題、下にロゴ。
-//   お試しモードの注記「（お試しモードの応答です…）」は録画の間だけ隠し、台本の redact で実在の名前を置きかえる。
+//   お試しモードの注記「（お試しモードの応答です…）」は録画の間だけ隠し、実在の著者名（scenarios.mjs の AUTHOR_REDACT）と
+//   台本の redact を置きかえる。画面の下には、いつも小さく「画面は見本です。…」（notes.mjs の SAMPLE_NOTE・--plain でも出す）。
 //   色と書体は src/styles/tokens.css のトークンをそのまま読む。押した場所には丸い印。
 //   Playwright の recordVideo で舞台ごと録り、finish-video.mjs が頭を切って mp4 にする。
 // 出力: marketing-out/videos/<日付>/<名前>/ に raw.webm・meta.json・final.mp4・captions.srt・cover.jpg（git 管理外）。
@@ -21,7 +22,8 @@
 import { mkdirSync, renameSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { chromium } from 'playwright-core';
-import { SCENARIOS } from './scenarios.mjs';
+import { SCENARIOS, redactPairs, AUTHOR_REDACT } from './scenarios.mjs';
+import { SAMPLE_NOTE } from './notes.mjs';
 import { marksToCues } from './srt.mjs';
 import { finishVideo } from './finish-video.mjs';
 
@@ -74,8 +76,11 @@ function stageHtml(appUrl) {
         transform: scale(${PHONE.scale}); transform-origin: 0 0; border-radius: var(--radius-md); box-shadow: var(--shadow-3);
         background: var(--bg); opacity: 0; transition: opacity 300ms; }
   body.ready #ph { opacity: 1; }
-  #logo { position: absolute; left: 0; right: 0; bottom: 20px; height: 96px; display: flex; justify-content: center; }
-  #logo img { height: 96px; }
+  #logo { position: absolute; left: 0; right: 0; bottom: 64px; height: 64px; display: flex; justify-content: center; }
+  #logo img { height: 64px; }
+  /* 画面は見本だと示す注記（景品表示法の優良誤認・2026-10-11）。最初から最後まで、--plain でも出す */
+  #sample { position: absolute; left: 48px; right: 48px; bottom: 16px; margin: 0; text-align: center; font-size: 30px; line-height: 1.3;
+            color: var(--text-2); word-break: keep-all; line-break: strict; }
   .tap { position: absolute; width: 96px; height: 96px; margin: -48px 0 0 -48px; border-radius: 50%; background: var(--accent);
          opacity: 0.35; pointer-events: none; animation: tap 650ms ease-out forwards; }
   @keyframes tap { from { transform: scale(0.4); opacity: 0.45; } to { transform: scale(1.3); opacity: 0; } }
@@ -85,17 +90,54 @@ function stageHtml(appUrl) {
   <div id="band"><p id="cap"></p><p id="title"></p></div>
   <iframe id="ph" src="${escapeHtml(appUrl)}" title="Orime"></iframe>
   <div id="logo"><img src="/logo-lockup.png" alt="Orime"></div>
+  <p id="sample">${escapeHtml(SAMPLE_NOTE)}</p>
 </body></html>`;
 }
 
-// アプリの中（iframe）で動かす小さな script: お試しモードの注記を隠し、redact の文字を置きかえる。
-// React が文字を書き直しても MutationObserver がもう一度当てる（録画の間だけ・アプリのコードは変えない）。
-function cleanScreen({ redact }) {
+// アプリの中（iframe）で動かす小さな script: お試しモードの注記を隠し、実在の名前を置きかえる。
+// 置きかえは 3 か所に効かせる（録画の間だけ・アプリのコードは変えない・2026-10-11）:
+//   - 画面の文字（文節で span に割られても効くように、隣り合う文字のノードをつないで探す）
+//   - 表紙の絵（data:image/svg+xml の <img>・canvas に描く Image も）
+//   - canvas の文字（写真で共有の画像の中の著者名）
+// React が文字を書き直しても MutationObserver がもう一度当てる。
+function cleanScreen({ pairs, mediaPairs }) {
   if (window.top === window) return; // 舞台のページでは何もしない
   const NOTE = /お試しモードの応答/;
-  const pairs = Object.entries(redact || {});
-  const fix = (root) => {
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const apply = (str, list) => { let out = str; for (const [from, to] of list) out = out.split(from).join(to); return out; };
+  const hasAny = (str, list) => list.some(([from]) => str.includes(from));
+
+  // canvas の文字
+  for (const C of [window.CanvasRenderingContext2D, window.OffscreenCanvasRenderingContext2D]) {
+    if (!C) continue;
+    for (const k of ['fillText', 'strokeText', 'measureText']) {
+      const orig = C.prototype[k];
+      if (typeof orig !== 'function') continue;
+      C.prototype[k] = function patched(text, ...rest) { return orig.call(this, typeof text === 'string' ? apply(text, mediaPairs) : text, ...rest); };
+    }
+  }
+  // 表紙の絵（SVG の data URI）
+  const fixSrc = (v) => {
+    if (typeof v !== 'string' || !v.startsWith('data:image/svg+xml')) return v;
+    const comma = v.indexOf(',');
+    const head = v.slice(0, comma + 1);
+    if (/;base64,$/.test(head)) return v;
+    try {
+      const body = decodeURIComponent(v.slice(comma + 1));
+      return hasAny(body, mediaPairs) ? head + encodeURIComponent(apply(body, mediaPairs)) : v;
+    } catch { return v; }
+  };
+  const desc = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src');
+  Object.defineProperty(HTMLImageElement.prototype, 'src', { ...desc, set(v) { desc.set.call(this, fixSrc(v)); } });
+  const setAttr = Element.prototype.setAttribute;
+  Element.prototype.setAttribute = function patched(name, value) {
+    return setAttr.call(this, name, this instanceof HTMLImageElement && String(name).toLowerCase() === 'src' ? fixSrc(value) : value);
+  };
+
+  // 画面の文字。目に見えない文字（U+2060・U+200B）は飛ばしてつなぎ、名前が 2 つのノードにまたがっても置きかえる。
+  const INVISIBLE = /[⁠​]/;
+  const fix = () => {
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    const nodes = [];
     for (let n = walker.nextNode(); n; n = walker.nextNode()) {
       const v = n.nodeValue;
       if (!v) continue;
@@ -105,15 +147,42 @@ function cleanScreen({ redact }) {
         while (el && el !== document.body && !NOTE.test(el.textContent || '')) el = el.parentElement;
         if (el && el !== document.body && (el.textContent || '').length < 300) { el.style.display = 'none'; continue; }
       }
-      let out = v;
-      for (const [from, to] of pairs) out = out.split(from).join(to);
-      if (out !== v) n.nodeValue = out;
+      nodes.push(n);
     }
+    // 1 つのノードの中で済むものを先に
+    for (const n of nodes) { const out = apply(n.nodeValue, pairs); if (out !== n.nodeValue) n.nodeValue = out; }
+    // ノードをまたぐもの
+    const map = []; // つないだ文字 → [ノード, その中の位置]
+    let joined = '';
+    for (const n of nodes) {
+      const v = n.nodeValue;
+      for (let k = 0; k < v.length; k += 1) { if (!INVISIBLE.test(v[k])) { joined += v[k]; map.push([n, k]); } }
+    }
+    const edits = []; // [ノード, 位置, 消す長さ, 入れる文字]
+    for (const [from, to] of pairs) {
+      for (let at = joined.indexOf(from); at >= 0; at = joined.indexOf(from, at + from.length)) {
+        const first = map[at];
+        const last = map[at + from.length - 1];
+        if (first[0] === last[0]) continue; // 1 つのノードの中のもの（上で済んでいる）
+        // 最初のノードには置きかえの文字、残りのノードからは名前の部分を消す
+        const perNode = new Map();
+        for (let k = at; k < at + from.length; k += 1) {
+          const [n, pos] = map[k];
+          const r = perNode.get(n) || { start: pos, end: pos };
+          r.end = pos; perNode.set(n, r);
+        }
+        let firstDone = false;
+        for (const [n, r] of perNode) { edits.push([n, r.start, r.end - r.start + 1, firstDone ? '' : to]); firstDone = true; }
+        for (let k = at; k < at + from.length; k += 1) joined = joined.slice(0, k) + '\u0000' + joined.slice(k + 1);
+      }
+    }
+    // 後ろから当てる（同じノードの中の位置がずれないように）
+    edits.sort((a, b) => b[1] - a[1]);
+    for (const [n, start, len, text] of edits) n.nodeValue = n.nodeValue.slice(0, start) + text + n.nodeValue.slice(start + len);
   };
   const start = () => {
-    fix(document.body);
-    new MutationObserver((list) => { for (const m of list) fix(m.target.nodeType === 3 ? m.target.parentNode || document.body : m.target); })
-      .observe(document.body, { subtree: true, childList: true, characterData: true });
+    fix();
+    new MutationObserver(() => fix()).observe(document.body, { subtree: true, childList: true, characterData: true });
   };
   if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
 }
@@ -128,7 +197,8 @@ async function recordOne(browser, s) {
     recordVideo: { dir: videoDir, size: { width: W, height: H } },
   });
   await ctx.route(`${BASE}/__mkt-stage`, (route) => route.fulfill({ contentType: 'text/html; charset=utf-8', body: stageHtml(BASE + (s.url || '/')) }));
-  await ctx.addInitScript(cleanScreen, { redact: s.redact || null });
+  const { text: pairs, media: mediaPairs } = redactPairs(s.redact);
+  await ctx.addInitScript(cleanScreen, { pairs, mediaPairs });
   const page = await ctx.newPage();
   // fastForward を使う台本だけ、ページの時計を差し替える（集中モードの 30 分を一瞬で進める）。
   if ((s.steps || []).some((x) => x.fastForward)) await page.clock.install();
@@ -242,6 +312,7 @@ async function recordOne(browser, s) {
   const meta = {
     name: s.name, title: s.title || '', titleSec: TITLE_SEC, url: s.url || '/', plain, theme: theme || s.theme || 'light',
     trimStart, duration: end, cues: marksToCues(marks, end), cuts,
+    sampleNote: SAMPLE_NOTE, redacted: Object.keys(AUTHOR_REDACT).length,
     recordedAt: new Date().toISOString(), base: BASE, failed, pageErrors: errors.slice(0, 5),
   };
   writeFileSync(join(dir, 'meta.json'), JSON.stringify(meta, null, 2));

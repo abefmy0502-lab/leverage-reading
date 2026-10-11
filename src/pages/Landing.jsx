@@ -44,7 +44,7 @@ import Shot from './LpShot';
 import LpFlow from './LpFlow';
 import LpWaitlist from './LpWaitlist';
 import Phrases from './LpPhrases';
-import { buildLpCopy, storeHrefOf, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, NO_INFO_REFUNDS, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE } from './lpCopy';
+import { buildLpCopy, storeHrefOf, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, NO_INFO_REFUNDS, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE } from './lpCopy';
 import qrcode from 'qrcode-generator';
 import { lpTrack, lpVariant, storeUrlFor, isWidePointer } from '../lib/lpTrack';
 import { inject as injectVercelAnalytics } from '@vercel/analytics';
@@ -496,8 +496,8 @@ export default function Landing() {
                   </Suspense>
                 )}
               </div>
-              {/* 語り口の注記は LP でここ 1 か所（アプリの答えの最後の一行と同じ考え方） */}
-              <figcaption className="lp-wbr"><Phrases>{`画面は、サンプルのメモを入れた実際のアプリです。${VOICE_NOTE}`}</Phrases></figcaption>
+              {/* 「画面は見本です。」と語り口の注記は LP でここ 1 か所（アプリの答えの最後の一行と同じ考え方・2026-10-11） */}
+              <figcaption className="lp-wbr"><Phrases>{`${SAMPLE_NOTE}${VOICE_NOTE}`}</Phrases></figcaption>
             </figure>
           </div>
         </section>

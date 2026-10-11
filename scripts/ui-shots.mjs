@@ -563,6 +563,8 @@ const SCREENS = [
   { name: 'landing-faq-founding', url: '/?demo=auth&founding=on', steps: [{ scrollTo: '#lp-faq' }, { css: 'summary:has-text("創業メンバー価格とは")' }, { scrollTo: 'summary:has-text("創業メンバー価格とは")' }, { wait: 600 }] },
   // 相談の流れを「止める」で止めたところ／スマホの 3D のヒーロー（明暗）／LP を最大の文字で（2026-10-02 ui-critic）
   { name: 'landing-flow-paused', url: '/?demo=auth', steps: [{ scrollTo: '#lp-flow' }, { wait: 1800 }, { css: '.lp-flow-controls button:has-text("止める")' }, { wait: 600 }] },
+  // ヒーローの写真の下の注記（「画面は見本です。」・2026-10-11）
+  { name: 'landing-hero-note', url: '/?demo=auth', steps: [{ scrollTo: '.lp-hero-shot figcaption' }, { wait: 800 }] },
   { name: 'landing-hero-3d', url: '/?demo=auth&hero=3d', steps: [{ wait: 5000 }] },
   { name: 'landing-xxl-text', url: '/?demo=auth', steps: [{ eval: () => { document.documentElement.style.fontSize = '40px'; } }, { wait: 800 }] },
   // PC の 1280 幅: ヒーローのボタンが見えている間はヘッダーのボタンを隠し、スクロールしてヒーローのボタンが隠れたら出す
