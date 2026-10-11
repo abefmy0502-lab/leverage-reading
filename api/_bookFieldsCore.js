@@ -511,7 +511,7 @@ export function pickThinFields(stat, max = 2) {
  * 戻り値: { groups: [{ id, name, fields: [{ name, books, memos, seconds, minutes }], empty: [分野の名前…] }], any }
  */
 export function buildFieldRecord(books = [], { memoCountByBook = {}, secondsByBook = {}, minutesByField = null } = {}) {
-  const stat = new Map(BOOK_FIELDS.map((f) => [f, { name: f, books: 0, memos: 0, seconds: 0, minutes: 0 }]));
+  const stat = new Map(BOOK_FIELDS.map((f) => [f, { name: f, books: 0, memos: 0, seconds: 0, minutes: 0, rated: 0, ratingSum: 0, avgRating: null }]));
   let any = false;
   for (const b of Array.isArray(books) ? books : []) {
     const fs = fieldsOf(b);
@@ -523,10 +523,15 @@ export function buildFieldRecord(books = [], { memoCountByBook = {}, secondsByBo
       s.memos += Number(memoCountByBook?.[b.id]) || 0;
       // 時間は分野の数で等しく分ける（読書の時間の「分野ごと」と同じ・足すと合計）
       s.seconds += (Number(secondsByBook?.[b.id]) || 0) / fs.length;
+      // 評価（★1〜5）が付いた本だけ数える（0＝未評価は入れない）
+      const r = Number(b.rating) || 0;
+      if (r >= 1 && r <= 5) { s.rated += 1; s.ratingSum += r; }
     }
   }
   for (const s of stat.values()) {
     s.minutes = minutesByField ? (Number(minutesByField[s.name]) || 0) : (s.seconds > 0 ? Math.max(1, Math.round(s.seconds / 60)) : 0);
+    // 評価の平均は、評価の付いた本が 2 冊以上のときだけ（1 冊の★を「平均」と見せない・小数 1 桁・2026-10-11）
+    s.avgRating = s.rated >= 2 ? Math.round((s.ratingSum / s.rated) * 10) / 10 : null;
   }
   const groups = BOOK_FIELD_GROUPS.map((c) => ({
     id: c.id,

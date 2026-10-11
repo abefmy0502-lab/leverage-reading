@@ -271,6 +271,22 @@ describe('記録の「分野」', () => {
     const stat = new Map(BOOK_FIELDS.map((f) => [f, { books: fieldGroupId(f) === 'work' ? 0 : 5 }]));
     expect(pickThinFields(stat)).toEqual(['考える力', '伝える力']);
   });
+  it('評価の平均は、★の付いた本が 2 冊以上の分野だけ（未評価は数えない・小数 1 桁）', () => {
+    const rated = [
+      { id: 'a', tags: ['考える力'], rating: 5 },
+      { id: 'b', tags: ['考える力', '段取り・効率'], rating: 4 },
+      { id: 'c', tags: ['考える力'], rating: 4 },
+      { id: 'd', tags: ['考える力'], rating: 0 },
+      { id: 'e', tags: ['段取り・効率'], rating: 0 },
+      { id: 'f', tags: ['お金・投資'], rating: 3 },
+    ];
+    const flat = buildFieldRecord(rated).groups.flatMap((g) => g.fields);
+    const byName = Object.fromEntries(flat.map((f) => [f.name, f]));
+    expect(byName['考える力'].avgRating).toBe(4.3); // (5+4+4)/3
+    expect(byName['考える力'].rated).toBe(3);
+    expect(byName['段取り・効率'].avgRating).toBeNull(); // ★は 1 冊だけ
+    expect(byName['お金・投資'].avgRating).toBeNull();
+  });
   it('分野の付いた本が無ければ any=false', () => {
     expect(buildFieldRecord([{ id: 'x', tags: ['読書術'] }]).any).toBe(false);
   });

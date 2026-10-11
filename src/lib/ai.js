@@ -271,15 +271,22 @@ export function interleaveByBook(memos) {
   return out;
 }
 
-function memoPriority(memo, now = Date.now()) {
-  // Newer memos are weighted higher; book memos with high ratings get a boost.
+// ★ 本の評価 → 重み（2026-10-11 オーナー「評価が高い＝その考えを積極的に取り入れたい、低い＝そこまで」）。
+//   0＝未評価と ★3 は中立（0）・★4〜5 は強く上げ・★1〜2 は下げる。新しさの点（1 日 1 点・最大 100）と同じ尺度。
+export const RATING_PRIORITY = { 0: 0, 1: -28, 2: -16, 3: 0, 4: 24, 5: 40 };
+export function ratingPriority(rating) {
+  const r = Math.round(Number(rating) || 0);
+  return RATING_PRIORITY[r] ?? 0;
+}
+
+export function memoPriority(memo, now = Date.now()) {
+  // Newer memos are weighted higher; book memos with high ratings get a boost (low ratings are lowered).
   // now: 相談のメモ一覧（キャッシュする塊）では、その日の 0 時（consultDayNow）を渡して 1 日の間は並びを動かさない。
   const ageDays = memo.created_at
     ? (now - Date.parse(memo.created_at)) / 86400000
     : 9999;
   const recencyScore = Math.max(0, 100 - ageDays);
-  const rating = memo.book?.rating || 0;
-  const ratingScore = rating * 8;
+  const ratingScore = ratingPriority(memo.book?.rating);
   const personalBoost = memo.source_type === 'personal' ? 6 : 0;
   // Summaries condense the entire book — give them a stronger weight so they
   // make it into the truncated context even when the user has many memos.
@@ -330,10 +337,15 @@ function formatMemo(memo, opts) {
   const safeTitle = sanitizeForPrompt(b.title || '').slice(0, 200);
   const safeAuthor = sanitizeForPrompt(b.author || '').slice(0, 100);
 
+  // ★ この人の本の評価（1〜5 のときだけ・BRAIN_SYSTEM ルール 12）。評価を変えたときだけ行の文字が変わる（キャッシュの芯）。
+  const r = Math.round(Number(b.rating) || 0);
+  const ratingTag = r >= 1 && r <= 5 ? `評価: ★${r}` : '';
+
   // books の各フィールドを synthesize した行 (種別ラベルを切り替えるだけ)
   if (SYNTH_LABEL[memo.source_type]) {
     const parts = [`${dateTag}本: ${safeTitle}`];
     if (safeAuthor) parts.push(`著者: ${safeAuthor}`);
+    if (ratingTag) parts.push(ratingTag);
     parts.push(`種別: ${SYNTH_LABEL[memo.source_type]}`);
     return `【${parts.join(' / ')}】${safeText}${truncated}`;
   }
@@ -341,6 +353,7 @@ function formatMemo(memo, opts) {
   // Card memo (book_memos with book_id)
   const parts = [`${dateTag}本: ${safeTitle}`];
   if (safeAuthor) parts.push(`著者: ${safeAuthor}`);
+  if (ratingTag) parts.push(ratingTag);
   if (Number.isFinite(memo.page_number)) parts.push(`p.${memo.page_number}`);
   const tagText = (memo.tags || [])
     .filter((t) => typeof t === 'string' && !t.startsWith('@'))
@@ -451,6 +464,10 @@ ${CONSULT_SECURITY_RULES}
      書名は渡された表記のまま『』で書き、【結論】か【あなたの状況に合わせた解釈】に 1 文で。理由は紹介・目次にある言葉だけで短く。
    - その本の中身を読んだかのように語らない（「この本では〜と書かれています」「著者は〜と言っています」と書かない）。紹介・目次に無いことは言わない。
    - 合う本が無ければ触れない（「積読には合う本がありませんでした」とだけ書いてよいのは、ユーザーが積読を尋ねたときだけ）。
+12. 本の評価（2026-10-11・メモの行の「評価: ★N」と歩みの ★N）— ★はこの人が読み終えて付けた評価。
+   - ★4〜5 の本の考えは、この人が積極的に取り入れたいもの。関係するメモがあれば根拠として優先する。
+   - ★1〜2 の本は参考程度。それを主な根拠にしない（ほかに関係するメモが無いときだけ、控えめに添える）。評価の無い本と ★3 はふつうに扱う。
+   - ★や評価を答えの中で数字として言わない（「★5 の本」「評価の高い」と書かない）。根拠の選び方に使うだけ。
 
 【長さ】
 REFS を除いて 450 字前後に収める（スマホで一度に読める長さ・行動を決める回は 550 字前後まで）。【結論】は 1〜2 文、

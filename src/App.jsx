@@ -42,6 +42,7 @@ import { BookReadingTime } from './components/ReadingTimeCard';
 import { DoneQuestions, BeforeAfter } from './components/DoneReflection';
 import { visibleDoneQuestions, readDoneQuestionState, markDoneQuestionAnswered, dismissDoneQuestions, visibleBeforeItems, foundAnswerDraft, promptedMemoText } from './lib/doneReflection';
 import { readingSessions } from './hooks/useReadingSessions';
+import { filterLibraryBooks, folderCounts } from './lib/libraryFilter';
 import Onboarding, { isOnboardingCompleted, clearOnboardingCompletion } from './components/Onboarding';
 import {
   Search as IcSearch, Plus as IcPlus, Library as IcLibrary, Sparkles as IcSparkles,
@@ -4189,36 +4190,11 @@ function AuthedApp() {
   const librarySearch = useLibrarySearch({ userId: user?.id, books, query: search, active: tab === 'books' && shelfMode === 'library' });
   const libraryHits = librarySearch.hits;
   const libraryQuery = librarySearch.query;
-  const filtered = useMemo(() => {
-    const list = books.filter((b) => {
-      if (statusFilter !== "all" && b.status !== statusFilter) return false;
-      if (folderFilter && !((b.collections || []).includes(folderFilter))) return false;
-      if (minRating > 0 && (b.rating || 0) < minRating) return false;
-      if (tagFilter.length > 0) {
-        const bt = (b.tags || []).map((t) => (t || '').toLowerCase());
-        if (!tagFilter.some((t) => bt.includes(t.toLowerCase()))) return false;
-      }
-      return !libraryHits || libraryHits.has(b.id);
-    });
-    // 検索中は見つかった順（並び替えの設定より、言葉が合う本を先に）。
-    if (libraryHits) return list.sort((a, b) => libraryHits.get(a.id).rank - libraryHits.get(b.id).rank);
-
-    const titleKey = (b) => (b.title || '').toLowerCase();
-    const created = (b) => b.created_at || b.startDate || '';
-    const updated = (b) => b.updated_at || b.startDate || b.doneDate || '';
-
-    const sorted = [...list];
-    if (sortBy === 'title') {
-      sorted.sort((a, b) => titleKey(a).localeCompare(titleKey(b), 'ja'));
-    } else if (sortBy === 'rating') {
-      sorted.sort((a, b) => (b.rating || 0) - (a.rating || 0) || updated(b).localeCompare(updated(a)));
-    } else if (sortBy === 'created') {
-      sorted.sort((a, b) => created(b).localeCompare(created(a)));
-    } else {
-      sorted.sort((a, b) => updated(b).localeCompare(updated(a)));
-    }
-    return sorted;
-  }, [books, statusFilter, libraryHits, sortBy, minRating, tagFilter, folderFilter]);
+  // 絞り込みと並びは lib/libraryFilter.js（分野・フォルダで絞ったまま評価順に並べられる・2026-10-11）。
+  const filtered = useMemo(
+    () => filterLibraryBooks(books, { statusFilter, folderFilter, minRating, tagFilter, hits: libraryHits, sortBy }),
+    [books, statusFilter, libraryHits, sortBy, minRating, tagFilter, folderFilter],
+  );
 
   // 絞り込みシート用: 本に付いている分野（一覧の順・冊数つき・2026-10-11）。
   const availableTags = useMemo(() => {
@@ -4339,11 +4315,14 @@ function AuthedApp() {
     </>
   );
   // フォルダ（コレクション）一覧 — 本に付いた collection 名の集合（冊数つき・名前順）。
-  const allFolders = useMemo(() => {
-    const counts = new Map();
-    books.forEach((b) => (b.collections || []).forEach((c) => { const n = (c || '').trim(); if (n) counts.set(n, (counts.get(n) || 0) + 1); }));
-    return [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0], 'ja')).map(([name, count]) => ({ name, count }));
-  }, [books]);
+  const allFolders = useMemo(() => folderCounts(books), [books]);
+  // ★ 本の評価を変えたら（どの画面からでも）相談の材料を読み直させる（評価で根拠の優先度が変わる・2026-10-11）。
+  const ratingSig = useMemo(() => books.map((b) => `${b.id}:${b.rating || 0}`).join(','), [books]);
+  const ratingSigRef = useRef(null);
+  useEffect(() => {
+    if (ratingSigRef.current !== null && ratingSigRef.current !== ratingSig) invalidateKnowledgeCache();
+    ratingSigRef.current = ratingSig;
+  }, [ratingSig]);
   const folderNames = useMemo(() => allFolders.map((f) => f.name), [allFolders]);
   // フォルダが空になって消えたら、選択中フィルタを「すべて」に戻す（迷子防止）。
   useEffect(() => {

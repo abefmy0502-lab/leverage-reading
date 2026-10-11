@@ -183,3 +183,41 @@ describe('相談 1 回の内訳（お試しモードのデータ）', () => {
     console.log(`原価: 最初 ¥${firstWarm.toFixed(2)}（指示文が冷えていれば ¥${yenOf(first, { sys: 'w1h', core: 'w5' }).toFixed(2)}）・続き ¥${followWarm.toFixed(2)}`);
   });
 });
+
+// ★ 本の評価で根拠の優先度を変える（2026-10-11 オーナー「評価が高い＝その考えを積極的に取り入れたい」）。
+describe('本の評価とメモの優先度', () => {
+  const memo = (rating, daysAgo = 10) => ({ created_at: new Date(Date.UTC(2026, 9, 1) - daysAgo * 86400000).toISOString(), book: { rating } });
+  const now = Date.UTC(2026, 9, 1);
+  it('★4〜5 は強く上げ・★1〜2 は下げ・未評価は ★3 と同じ中立', () => {
+    const p = (r) => ai.memoPriority(memo(r), now);
+    expect(p(5)).toBeGreaterThan(p(4));
+    expect(p(4)).toBeGreaterThan(p(3));
+    expect(p(0)).toBe(p(3));
+    expect(p(3)).toBeGreaterThan(p(2));
+    expect(p(2)).toBeGreaterThan(p(1));
+    // ★5 の 2 か月前のメモは、未評価の今日のメモより前
+    expect(ai.memoPriority(memo(5, 30), now)).toBeGreaterThan(ai.memoPriority(memo(0, 0), now));
+    // ★1 の今日のメモは、未評価の 3 週間前のメモより後ろ
+    expect(ai.memoPriority(memo(1, 0), now)).toBeLessThan(ai.memoPriority(memo(0, 21), now));
+  });
+  it('メモ一覧の行に「評価: ★N」・評価を変えたときだけ芯の文字が変わる', async () => {
+    const { supabase } = await import('./supabase');
+    const { data: rows } = await supabase.from('books').select('id, title, rating').eq('user_id', USER);
+    const issue = rows.find((b) => b.title === 'イシューからはじめよ');
+    const a = await consult({ question: '会議が長くて困る' });
+    const b = await consult({ question: '部下に仕事を任せたい' });
+    expect(cachedPrefix(a)).toBe(cachedPrefix(b));
+    expect(a.messages[0].content[0].text).toContain(`本: イシューからはじめよ / 著者: 安宅和人 / 評価: ★${issue.rating}`);
+    await supabase.from('books').update({ rating: 2 }).eq('id', issue.id);
+    ai.invalidateKnowledgeCache(); // アプリは評価を変えたときに読み直させる（App.jsx の setBookRating）
+    try {
+      const c = await consult({ question: '会議が長くて困る' });
+      expect(cachedPrefix(c)).not.toBe(cachedPrefix(a));
+      expect(c.messages[0].content[0].text).toContain('本: イシューからはじめよ / 著者: 安宅和人 / 評価: ★2');
+      expect(c.system).toContain('★1〜2 の本は参考程度');
+    } finally {
+      await supabase.from('books').update({ rating: issue.rating }).eq('id', issue.id);
+      ai.invalidateKnowledgeCache();
+    }
+  });
+});
