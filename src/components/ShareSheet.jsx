@@ -978,9 +978,11 @@ export default function ShareSheet({
           {/* 同じ行の右に形（投稿 4:5／ストーリー 9:16）。重ね方の見本に名前の幅を空けるため、見本の行から移した（2026-10-08）。 */}
           <div
             aria-hidden={status === 'error' || undefined}
-            style={{ alignSelf: 'stretch', display: 'flex', alignItems: 'center', justifyContent: 'space-between', columnGap: 'var(--space-3)', rowGap: 'var(--space-1)', flexWrap: 'wrap', marginLeft: 'calc(-1 * var(--space-1))', visibility: status === 'error' ? 'hidden' : 'visible' }}
+            // 文字ボタンの行と、形・背景の行の 2 段（どちらも左揃え・2026-10-11 リリース前の採点 3 回目）。
+            style={{ alignSelf: 'stretch', display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 'var(--space-2)', visibility: status === 'error' ? 'hidden' : 'visible' }}
           >
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+            {/* 文字ボタンの左右 4 は、文字の端を 16 にそろえるためにこの 2 つにだけ負の余白で打ち消す。 */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginLeft: 'calc(-1 * var(--space-1))' }}>
             {swapLabel && (
               // 画像を作っている間は押せない（違う一文の画像のまま共有しない）。薄くせず色だけ変える（DESIGN §5 押せないボタン）。
               <button
@@ -1003,10 +1005,9 @@ export default function ShareSheet({
               編集
             </button>
             </div>
-            {/* 形の切り替えと「背景：写真 ▾」は 1 つのまとまり（右寄せ）。文字が大きいときは行の幅いっぱいの次の行に
-                左揃えで 1 行にまとめる（右の列がガタガタに見えた・2026-10-11 リリース前の採点）。 */}
+            {/* 形の切り替えと「背景：写真 ▾」は、いつも左揃えの独立した行（右の列がガタガタに見えた・2026-10-11 リリース前の採点）。 */}
             {(formatInEditRow || photo) && (
-            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 'var(--space-3)', rowGap: 'var(--space-1)', ...(largeText ? { flex: '1 1 100%', justifyContent: 'flex-start' } : { marginLeft: 'auto', justifyContent: 'flex-end' }) }}>
+            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 'var(--space-3)', rowGap: 'var(--space-1)', justifyContent: 'flex-start' }}>
             {formatInEditRow && formatSwitch}
             {photo && (
               // 背景（写真・フィルム・紙…）と、撮り直す・アルバムから選ぶは「背景：写真 ▾」のメニュー 1 つに（2026-10-10）。

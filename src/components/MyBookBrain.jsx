@@ -74,7 +74,7 @@ const consumePreset = (kind, nonce) => {
 };
 
 import BottomSheet from './BottomSheet';
-import PartnerAvatar, { PartnerRow, PartnerBooksSheet, AVATAR_SIZE, AVATAR_SIZE_SMALL } from './PartnerAvatar';
+import PartnerAvatar, { PartnerRow, PartnerBooksSheet, AVATAR_SIZE, AVATAR_SIZE_SMALL, partnerRowStacked } from './PartnerAvatar';
 import { unreadBooksInAnswer } from '../lib/unreadBooks';
 import { consultPartner, partnerFromScope, bookForRef, shelfBookForTitle, withVoice, decodeVoice, encodeVoice, perbookSummaryPartner, VOICE_PREFIX } from '../lib/consultPartner';
 import { fetchAllRows } from '../lib/fetchAllRows';
@@ -216,7 +216,10 @@ function isNoInfoAnswer(m) {
 const CATEGORIES = ['会話', '経験', '観察', '気づき', 'その他'];
 
 // 答えの吹き出しの列の左端（相手のアイコン 32 ＋ 間 8）。答えの下の文字ボタン・注記もこの列にそろえる（2026-09-30）。
-const ANSWER_COLUMN = `calc(${AVATAR_SIZE}px + var(--space-2))`;
+//   文字が大きいとき（ルートの文字 22px 以上）は列を外す（アイコンは名前の行に・答えの枠は全幅・2026-10-11 リリース前の採点 3 回目）。
+const ANSWER_COLUMN_WIDE = `calc(${AVATAR_SIZE}px + var(--space-2))`;
+//   値は画面のいちばん外の箱が --answer-col に入れる（描くたびに文字の大きさを見る）。
+const ANSWER_COLUMN = `var(--answer-col, ${ANSWER_COLUMN_WIDE})`;
 // メモの答えの下の「AI に答えてもらう（プラン）」と「新しい相談をはじめる」の文字と文字の間を 24 に（どちらも押せる範囲 44 の
 //   文字ボタンなので、44 − 1 行の高さ ぶんを引く・2026-10-10 ui-critic: 約 68 空いていた）。
 const MEMO_PLAN_GAP = 'max(0px, calc(var(--space-6) - 44px + var(--text-sub) * 1.5))';
@@ -2172,7 +2175,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   useComposerHeight(inputRef, input, view === 'chat', composerPlaceholder);
 
   return (
-    <div style={wrap}>
+    <div style={{ ...wrap, '--answer-col': partnerRowStacked() ? '0px' : ANSWER_COLUMN_WIDE }}>
       {/* 上の操作は 1 行だけ（SPEC §3）。会話のときは、履歴（時計）とその他（…）を App のサブタブ（相談｜AI 選書）の行の右端に出し
           （barSlot・2026-10-01 ui-critic: サブタブ／🕒…の行／件数の行と 3 段に積まない）、「何を根拠に答えるか」の 1 行は会話の先頭へ。
           会話以外の押し込まれた画面では「‹ 相談」で戻る行（押し込まれた画面では親が全体の見出しを隠すので、この行が画面の最上部＝ノッチを避ける）。 */}
@@ -2300,7 +2303,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                       disabled={busy}
                       // いちばん新しい相談だけ主ボタン。2 つ目からは文字ボタン（一覧がボタンの列に見えないように・2026-10-08 ui-critic）。
                       style={gi === 0
-                        ? { ...(busy ? uiBtnPrimaryOff : uiBtnPrimary), marginLeft: ANSWER_COLUMN, width: `calc(100% - ${AVATAR_SIZE}px - var(--space-2))` }
+                        ? { ...(busy ? uiBtnPrimaryOff : uiBtnPrimary), marginLeft: ANSWER_COLUMN, width: `calc(100% - ${ANSWER_COLUMN})` }
                         : { ...uiBtnLink, alignSelf: 'flex-start', margin: `calc(-1 * var(--space-2)) 0 0 calc(${ANSWER_COLUMN} - var(--space-1))`, ...(busy ? { color: 'var(--text-3)', opacity: 1, cursor: 'default' } : null) }}
                     >
                       この続きを相談する
@@ -2506,7 +2509,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           {planOut && !busy && lastIsAssistant && !isEmpty && (
             <>
               {/* 7 日間無料は枠線のボタン（まもなく毎月のトークンが来るので強くすすめない・2026-09-30） */}
-              <button type="button" onClick={openTokenSheet} style={{ ...(plan === 'trial' ? uiBtnGhost : uiBtnPrimary), marginTop: 'var(--space-4)', marginLeft: ANSWER_COLUMN, width: `calc(100% - ${AVATAR_SIZE}px - var(--space-2))` }}>
+              <button type="button" onClick={openTokenSheet} style={{ ...(plan === 'trial' ? uiBtnGhost : uiBtnPrimary), marginTop: 'var(--space-4)', marginLeft: ANSWER_COLUMN, width: `calc(100% - ${ANSWER_COLUMN})` }}>
                 トークンを追加
               </button>
               {/* 7 日間無料: 続けないときの解約の期限を日付だけで（2026-09-29・「あと N 日」は出さない） */}
@@ -2526,13 +2529,13 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           )}
           {/* 🏁 行動に追加したら一区切り: 「新しい相談をはじめる」を主ボタンで（2026-10-08） */}
           {answerRowShown && lastActionAdded && (
-            <button type="button" onClick={handleResolveAndClear} style={{ ...uiBtnPrimary, marginTop: 'var(--space-4)', marginLeft: ANSWER_COLUMN, width: `calc(100% - ${AVATAR_SIZE}px - var(--space-2))` }}>
+            <button type="button" onClick={handleResolveAndClear} style={{ ...uiBtnPrimary, marginTop: 'var(--space-4)', marginLeft: ANSWER_COLUMN, width: `calc(100% - ${ANSWER_COLUMN})` }}>
               新しい相談をはじめる
             </button>
           )}
           {/* 🌱 メモが 0 件の人: チップの代わりに「読んだ本に一言ずつ残す」を主ボタンで（2026-10-09） */}
           {answerRowShown && !lastActionAdded && noMemosYet && !lastIsMemoAnswer && (
-            <button type="button" onClick={onQuickstart} style={{ ...uiBtnPrimary, marginTop: 'var(--space-4)', marginLeft: ANSWER_COLUMN, width: `calc(100% - ${AVATAR_SIZE}px - var(--space-2))` }}>
+            <button type="button" onClick={onQuickstart} style={{ ...uiBtnPrimary, marginTop: 'var(--space-4)', marginLeft: ANSWER_COLUMN, width: `calc(100% - ${ANSWER_COLUMN})` }}>
               読んだ本に一言ずつ残す
             </button>
           )}

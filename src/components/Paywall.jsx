@@ -107,7 +107,7 @@ function PriceText({ text }) {
 
 // 開発専用のネイティブ表示プレビュー（本番は demoScenario=null で常に false）。
 function readNativePreview() {
-  if (!['paywall', 'free', 'freeused', 'freegrown', 'fewmemos'].includes(demoScenario) || typeof window === 'undefined') return { on: false, trial: '', price: '', storeIntro: false };
+  if (!['paywall', 'free', 'freeused', 'freegrown', 'fewmemos'].includes(demoScenario) || typeof window === 'undefined') return { on: false, trial: '', price: '', storeIntro: false, buy: '' };
   const sp = new URLSearchParams(window.location.search);
   // &price=loading / fail で、ストア価格の読み込み中・失敗の表示を確かめられる。
   // 無料プランの人が開く 3 つ（①無料のトークンを使い切った＝freeused ②プランの機能を押した＝free
@@ -119,7 +119,8 @@ function readNativePreview() {
   const trial = t === 'off' ? '' : normalizeTrialLabel(t || (demoScenario === 'paywall' ? '' : '7日間無料'));
   // &founding=on|store: ストアが年額に「先払い・1 年・¥9,800」の初回特典を返したときの表示。
   const storeIntro = ['on', 'store'].includes(devFoundingParam());
-  return { on: sp.get('native') === '1', trial, price: sp.get('price') || '', storeIntro };
+  // &buy=fail: 購入の手続きが失敗したときの知らせ（2026-10-11）。
+  return { on: sp.get('native') === '1', trial, price: sp.get('price') || '', storeIntro, buy: sp.get('buy') || '' };
 }
 const preview = readNativePreview();
 // プレビューの年額の初回価格（ストアの introPrice と同じ形から作る）。
@@ -221,15 +222,6 @@ const stickyFooterCompact = {
   ...stickyFooter,
   padding: 'var(--space-2) var(--space-4) calc(var(--space-2) + var(--space-2) + env(safe-area-inset-bottom, 0px))',
 };
-// 請求額の行を 1 行に収める文字の大きさ（全角 1・半角 0.55 で幅を見積もる）。小さくても 12（20−8）より下げない
-// （それでも入らないときは塊の切れ目で折り返す）。
-function billedFitSize(text = '') {
-  const t = String(text).replace(/[\u2060\u200b]/g, '');
-  let w = 0;
-  for (const ch of t) w += /[\u0020-\u007e\u00a0]/.test(ch) ? 0.55 : 1;
-  const n = Math.max(1, Math.ceil(w * 10) / 10 + 0.5);
-  return `min(${COMPACT_TEXT}, max(calc(var(--text-bar-max) - var(--space-2)), calc((100vw - 2 * var(--space-4)) / ${n})))`;
-}
 // 大きな文字で下の欄が画面の 4 割を超えるとき（compactFooter）は、欄に請求額の行と主ボタンだけを残し、
 // 文字の大きさを上限で止める（主ボタンがいつも全部見える・欄の中にスクロールを作らない・2026-10-02 ui-critic）。
 const COMPACT_TEXT = 'min(var(--text-body), calc(var(--text-bar-max) + var(--space-1)))';
@@ -503,6 +495,10 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
 
   const handleSubscribe = async () => {
     if (pending) return;
+    if (!isNative && isDemo && preview.buy === 'fail') {
+      toast.error('購入手続きを開始できませんでした。少し時間をおいて、やり直してください。');
+      return;
+    }
     if (!isNative && isDemo) {
       // お試しモード（開発専用）: 実際の購入は呼ばず、契約できたことにして先へ進める
       // （トークンの購入と同じ・「購入できません」の知らせが主ボタンに重なっていた・2026-09-29）。
@@ -760,7 +756,8 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
 
             {/* 請求額の行＋主ボタンは画面の下に固定（DESIGN §5「下に固定の保存」と同じ形）。
                 スクロールしても、押すボタンと実際に請求される金額がいつも一緒に見える（審査 3.1.2）。 */}
-            <div ref={footerRef} style={compactFooter ? stickyFooterCompact : stickyFooter}>
+            {/* 知らせ（購入の失敗など）は欄の上に浮かべる（請求額の行に重ねない・Toast.jsx の data-toast-above・2026-10-11）。 */}
+            <div ref={footerRef} data-toast-above="" style={compactFooter ? stickyFooterCompact : stickyFooter}>
               {priceState === 'ready' && (
                 // 実際に請求される金額を、無料期間より弱くしない（3.1.2）。無料期間はプランごと・使える人にだけ。
                 <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, margin: compactFooter ? '0 0 var(--space-2)' : '0 0 var(--space-3)' }}>
@@ -769,8 +766,8 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
                   {compactFooter && trial && (
                     <span style={{ display: 'block', fontSize: 'var(--text-meta)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{trialFirstPhrase(trial)}</span>
                   )}
-                  {/* 大きな文字のときは、請求額の行が 1 行に収まる大きさまで（欄が画面の 4 割を取っていた・2026-10-11 リリース前の採点）。 */}
-                  <span style={{ display: 'block', fontSize: compactFooter ? billedFitSize(billedLineParts({ ...selected, trial }).join('')) : 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>
+                  {/* 実際に請求される金額の行は、大きな文字でも小さくしない（塊の切れ目で 2 行・2026-10-11 リリース前の採点 3 回目）。 */}
+                  <span style={{ display: 'block', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>
                     {billedLineParts({ ...selected, trial }).map((part) => (
                       <Fragment key={part}>
                         {/* 塊の中は語の途中で割らない（keep-all・「年／額」と割れていた・2026-10-04）。1 行に入らないときは塊の中の空白で。 */}

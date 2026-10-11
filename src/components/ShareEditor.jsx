@@ -467,6 +467,22 @@ export default function ShareEditor({
   // 「完了」（打っている間）: キーボードを閉じて元の画面へ。押した瞬間に入力欄から外れて並びが変わらないよう、
   // 押し始めでは focus を動かさない。
   const endTyping = () => { try { inputRef.current?.blur(); } catch { /* ignore */ } };
+  // 「キャンセル」＝開いたときの状態（写真の位置・言葉・表示する項目）に戻して閉じる（DESIGN §5 全画面のモーダル・2026-10-11）。
+  const openedRef = useRef(null);
+  if (openedRef.current === null) openedRef.current = { view, phrase, hidden: [...hidden] };
+  const cancel = () => {
+    const o = openedRef.current;
+    try {
+      if (onView) onView(o.view || { panX: 0, panY: 0, zoom: 1 });
+      if (onPhrase) onPhrase(o.phrase || null);
+      if (onToggleItem) {
+        const now = new Set(hidden);
+        const was = new Set(o.hidden);
+        items.forEach((it) => { if (now.has(it.key) !== was.has(it.key)) onToggleItem(it.key); });
+      }
+    } catch { /* ignore */ }
+    onClose();
+  };
 
   return createPortal(
     <div
@@ -484,15 +500,23 @@ export default function ShareEditor({
       {/* 上の 1 行: 題名と「完了」（変えたことはその場で効く＝閉じるだけ）。打っている間は「言葉を入れる」と、
           キーボードを閉じる「完了」。 */}
       <div style={{ paddingTop: 'env(safe-area-inset-top, 0px)', borderBottom: '1px solid var(--separator)', flexShrink: 0 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'var(--space-16) 1fr var(--space-16)', alignItems: 'center', minHeight: 'var(--tap-min)', padding: '0 var(--space-4)' }}>
-          <span aria-hidden="true" />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', columnGap: 'var(--space-2)', alignItems: 'center', minHeight: 'var(--tap-min)', padding: '0 var(--space-4)' }}>
+          {/* 左は「キャンセル」（開いたときの状態に戻して閉じる・iOS の全画面モーダルと同じ・DESIGN §5）。打っている間は出さない。 */}
+          {typing ? <span aria-hidden="true" /> : (
+            <button
+              type="button"
+              onClick={cancel}
+              style={{ justifySelf: 'start', minHeight: 'var(--tap-min)', minWidth: 'var(--tap-min)', padding: 0, background: 'none', border: 'none', color: 'var(--text-2)', fontFamily: 'inherit', fontSize: 'var(--text-body)', fontWeight: 400, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+              キャンセル
+            </button>
+          )}
           <h2 style={{ margin: 0, textAlign: 'center', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>{typing ? '言葉を入れる' : '画像を編集'}</h2>
           <button
             type="button"
             onPointerDown={typing ? (e) => e.preventDefault() : undefined}
             onMouseDown={typing ? (e) => e.preventDefault() : undefined}
             onClick={typing ? endTyping : onClose}
-            style={{ justifySelf: 'end', minHeight: 'var(--tap-min)', minWidth: 'var(--tap-min)', padding: 0, background: 'none', border: 'none', color: 'var(--accent)', fontFamily: 'inherit', fontSize: 'var(--text-body)', fontWeight: 600, cursor: 'pointer' }}>
+            style={{ justifySelf: 'end', minHeight: 'var(--tap-min)', minWidth: 'var(--tap-min)', padding: 0, background: 'none', border: 'none', color: 'var(--accent)', fontFamily: 'inherit', fontSize: 'var(--text-body)', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
             完了
           </button>
         </div>
@@ -503,14 +527,16 @@ export default function ShareEditor({
         onScroll={(e) => { const s = e.currentTarget.scrollTop > 0; if (s !== scrolled) setScrolled(s); }}
         style={{ flex: 1, minHeight: 0, overflowY: typing ? 'hidden' : 'auto', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}
       >
-        <div style={{ maxWidth: 480, margin: '0 auto', paddingBottom: typing ? 'var(--space-4)' : 'calc(var(--space-8) + env(safe-area-inset-bottom, 0px))' }}>
+        {/* 中身は 1 本の縦の並び（order で並べ替える）。言葉の入力欄は同じ要素のまま、打っていない間は見出し「言葉」の
+            すぐ下（間 8）、打っている間だけいちばん上へ（要素を作り直さない＝打っている途中でキーボードが閉じない・2026-10-11）。 */}
+        <div style={{ maxWidth: 480, margin: '0 auto', display: 'flex', flexDirection: 'column', paddingBottom: typing ? 'var(--space-4)' : 'calc(var(--space-8) + env(safe-area-inset-bottom, 0px))' }}>
           {/* 大きな画像（左右 16 の内側・形の比のまま・角丸 12）。下の欄を送っても上に残る（sticky）＝スイッチを
               切り替えたり言葉を打ったりしながら画像が見える。高さは画面の 48%（入力中は 30%）まで。
               上の行との間は 12。下の欄を送ったときだけ、下端に --separator の線（重なっていることが分かる）。
               線の太さぶんはいつも取って、送ったときに高さが変わらない。 */}
           {/* 打っている間は並びを 入力欄 → 画像 に（同じ入力欄の要素のまま order で並べ替える＝打っている途中で
               キーボードが閉じない）。 */}
-          <div style={{ position: 'sticky', top: 0, zIndex: 1, background: 'var(--bg)', padding: 'var(--space-3) var(--space-4) var(--space-2)', borderBottom: `1px solid ${scrolled && !typing ? 'var(--separator)' : 'transparent'}`, display: 'flex', flexDirection: 'column', gap: typing ? 'var(--space-3)' : 0 }}>
+          <div style={{ order: 2, position: 'sticky', top: 0, zIndex: 1, background: 'var(--bg)', padding: 'var(--space-3) var(--space-4) var(--space-2)', borderBottom: `1px solid ${scrolled && !typing ? 'var(--separator)' : 'transparent'}`, display: 'flex', flexDirection: 'column' }}>
           <div
             ref={stageRef}
             onPointerDown={onPointerDown}
@@ -579,8 +605,21 @@ export default function ShareEditor({
               {hint.map((h) => <span key={h} style={{ display: 'block', overflowWrap: 'anywhere' }}>{withPhraseBreaks(h)}</span>)}
             </p>
           )}
-          {/* 言葉の入力欄は画像のすぐ下に（上に残る画像と一緒に＝打った言葉がどう乗るかをその場で見られる・2026-10-08）。 */}
+          </div>
+
+          {/* 言葉（打っている間は隠す）: 見出し（＋まだ無ければ「言葉を入れる」）→ 入力欄 → 形・大きさ・色。 */}
+          <div style={{ order: 3, display: typing ? 'none' : 'block', padding: 'var(--space-6) var(--space-4) 0' }}>
+            <h3 id="share-edit-phrase" style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>言葉</h3>
+            {!phrase && (
+              <button type="button" onClick={addPhrase} style={{ ...btnGhost, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)' }}>
+                <Type size="1.2em" aria-hidden="true" />
+                言葉を入れる
+              </button>
+            )}
+          </div>
+          {/* 言葉の入力欄（打っていない間は見出し「言葉」のすぐ下・打っている間はいちばん上）。 */}
           {phrase && (
+            <div style={{ order: typing ? 1 : 4, padding: typing ? 'var(--space-3) var(--space-4) 0' : '0 var(--space-4)' }}>
             <input
               ref={inputRef}
               type="text"
@@ -599,22 +638,13 @@ export default function ShareEditor({
                 try { if (scrollRef.current) scrollRef.current.scrollTop = 0; } catch { /* ignore */ }
               }}
               onBlur={() => setInputFocused(false)}
-              style={{ ...inputStyle, order: typing ? 1 : 4, marginTop: typing ? 0 : 'var(--space-4)' }}
+              style={inputStyle}
             />
+            </div>
           )}
-          </div>
-
-          {/* 言葉（打っている間は隠す） */}
-          <section aria-labelledby="share-edit-phrase" style={{ display: typing ? 'none' : 'block', padding: 'var(--space-6) var(--space-4) 0' }}>
-            <h3 id="share-edit-phrase" style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>言葉</h3>
-            {!phrase ? (
-              <button type="button" onClick={addPhrase} style={{ ...btnGhost, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)' }}>
-                <Type size="1.2em" aria-hidden="true" />
-                言葉を入れる
-              </button>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-                {/* 入力欄は画像のすぐ下（上に残る欄）に置いた。ここは形・大きさ・色。 */}
+          {phrase && (
+              <div role="group" aria-labelledby="share-edit-phrase" style={{ order: 5, display: typing ? 'none' : 'flex', flexDirection: 'column', gap: 'var(--space-3)', padding: 'var(--space-3) var(--space-4) 0' }}>
+                {/* ここは形・大きさ・色（入力欄はすぐ上）。 */}
                 {/* 3 つを 1 行に（文字が大きくて入らないときは縦に 1 列・2026-10-11 リリース前の採点）。 */}
                 <div role="radiogroup" aria-label="言葉の形" style={{ display: 'grid', gridTemplateColumns: rootTextLarge() ? 'minmax(0, 1fr)' : 'repeat(3, minmax(0, 1fr))', gap: 'var(--space-2)' }}>
                   {styles.map((s) => {
@@ -653,12 +683,11 @@ export default function ShareEditor({
                   </button>
                 </div>
               </div>
-            )}
-          </section>
+          )}
 
           {/* 表示する項目 */}
           {items.length > 0 && (
-            <section aria-labelledby="share-edit-items" style={{ display: typing ? 'none' : 'block', padding: 'var(--space-6) var(--space-4) 0' }}>
+            <section aria-labelledby="share-edit-items" style={{ order: 6, display: typing ? 'none' : 'block', padding: 'var(--space-6) var(--space-4) 0' }}>
               <h3 id="share-edit-items" style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>表示する項目</h3>
               <div style={{ background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
                 {items.map((it, i) => {
