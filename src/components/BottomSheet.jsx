@@ -40,7 +40,8 @@ const sheetWrap = {
 // 背景タップ・Esc・下スワイプ・ハンドルでも閉じない（取り込み中など、途中で閉じると困るとき）。
 // layer='dialog': ほかのシート・設定の上に重ねる（AI に送る前の同意のシート＝メモを書くシート・設定の上から開く・2026-10-01）。
 // subheader: 題の行のすぐ下に固定する 1 行（中身と一緒にスクロールしない・選べる数の補足など・2026-10-11）。
-export default function BottomSheet({ title, onClose, children, footer, subheader = null, dismissLabel = '完了', dismissible = true, layer = null }) {
+// eyebrow: 題の上の小さな 1 行（書名など・メモを書くシートと同じ形・長ければ … で切る・2026-10-11）。
+export default function BottomSheet({ title, eyebrow = '', onClose, children, footer, subheader = null, dismissLabel = '完了', dismissible = true, layer = null }) {
   const onTop = layer === 'dialog';
   // 開いている間は左端スワイプで画面を戻さない（書きかけが確認なしに消えないように）
   useBlockEdgeSwipe(true);
@@ -130,7 +131,14 @@ export default function BottomSheet({ title, onClose, children, footer, subheade
                   （「キャン／セル」と割れていた・2026-10-04）。題が 9 字ぶんの幅も取れないほど大きいときは、
                   「キャンセル」「完了」を題の上の行の右へ回し、題は全幅で折り返す（題が 1 行 3〜4 字に縮まない・
                   wrap-reverse なので回った行が上に来る・ふだんの大きさでは 1 行のまま）。 */}
-              <h3 style={{ flex: '1 1 0', minWidth: 'min(100%, 9em)', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{typeof title === 'string' ? withPhraseBreaks(title) : title}</h3>
+              {eyebrow ? (
+                <div style={{ flex: '1 1 0', minWidth: 'min(100%, 9em)' }}>
+                  <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{eyebrow}</p>
+                  <h3 style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{typeof title === 'string' ? withPhraseBreaks(title) : title}</h3>
+                </div>
+              ) : (
+                <h3 style={{ flex: '1 1 0', minWidth: 'min(100%, 9em)', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{typeof title === 'string' ? withPhraseBreaks(title) : title}</h3>
+              )}
               {/* 既定は「完了」（変更がその場で効くシート）。下に決定ボタンがあるシートは
                   dismissLabel="キャンセル" を渡す（決定の入口を 2 つにしない・iOS で「完了」は決定の意味）。 */}
               {/* 閉じられない間（取り込み中など）も場所は残して隠す（見出しの行の高さを変えない）。 */}

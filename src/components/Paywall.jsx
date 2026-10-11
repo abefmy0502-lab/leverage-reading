@@ -216,6 +216,20 @@ const stickyFooter = {
   background: 'var(--bg)',
   borderTop: '1px solid var(--separator)',
 };
+// 大きな文字のとき（compactFooter）は、欄の上下の余白を 8 に（下端は画面の外へ 8 伸ばした分を内側で戻す）。
+const stickyFooterCompact = {
+  ...stickyFooter,
+  padding: 'var(--space-2) var(--space-4) calc(var(--space-2) + var(--space-2) + env(safe-area-inset-bottom, 0px))',
+};
+// 請求額の行を 1 行に収める文字の大きさ（全角 1・半角 0.55 で幅を見積もる）。小さくても 12（20−8）より下げない
+// （それでも入らないときは塊の切れ目で折り返す）。
+function billedFitSize(text = '') {
+  const t = String(text).replace(/[\u2060\u200b]/g, '');
+  let w = 0;
+  for (const ch of t) w += /[\u0020-\u007e\u00a0]/.test(ch) ? 0.55 : 1;
+  const n = Math.max(1, Math.ceil(w * 10) / 10 + 0.5);
+  return `min(${COMPACT_TEXT}, max(calc(var(--text-bar-max) - var(--space-2)), calc((100vw - 2 * var(--space-4)) / ${n})))`;
+}
 // 大きな文字で下の欄が画面の 4 割を超えるとき（compactFooter）は、欄に請求額の行と主ボタンだけを残し、
 // 文字の大きさを上限で止める（主ボタンがいつも全部見える・欄の中にスクロールを作らない・2026-10-02 ui-critic）。
 const COMPACT_TEXT = 'min(var(--text-body), calc(var(--text-bar-max) + var(--space-1)))';
@@ -679,14 +693,14 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
           </>
         )}
 
-        {/* 無料プランとプランの違い（トークンの量と、プランで増える機能） */}
-        <PlanCompare onlyPlan={(fromFree || fromGrown) && myBooks.length > 0} trial={showNative && !trial ? anyTrial : ''} example={fromFreeOcr ? TOKEN_EXAMPLE_OCR : TOKEN_EXAMPLE} />
+        {/* 無料プランとプランの違い（トークンの量と、プランで増える機能）は、プランの選択肢の下へ（主役は「プランを選んで始める」＝
+            2 つの選択肢を 390×844 の最初の画面に入れる・2026-10-11 リリース前の採点）。 */}
 
         {showNative ? (
           <>
             {/* プラン（名前・期間・価格）。年額が既定。読み込めなかったときの案内は選択肢の外に出す。 */}
             {priceState === 'failed' ? (
-              <div style={{ marginTop: 'var(--space-8)' }}>
+              <div style={{ marginTop: 'var(--space-6)' }}>
                 <ErrorMessage
                   icon={null}
                   title="価格を読み込めませんでした"
@@ -699,7 +713,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
               role={priceState === 'ready' ? 'radiogroup' : undefined}
               aria-label={priceState === 'ready' ? 'プラン' : undefined}
               aria-busy={priceState === 'loading' || undefined}
-              style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginTop: 'var(--space-8)' }}
+              style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}
             >
               {priceState === 'loading' ? (
                 planOrder.map((id) => <PlanOption key={id} label={labels[id]} selected={false} placeholder />)
@@ -732,6 +746,8 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
               </p>
             )}
 
+            <PlanCompare onlyPlan={(fromFree || fromGrown) && myBooks.length > 0} trial={showNative && !trial ? anyTrial : ''} example={fromFreeOcr ? TOKEN_EXAMPLE_OCR : TOKEN_EXAMPLE} />
+
             {/* 大きな文字のとき（compactFooter）: 無料期間・創業メンバー価格の 1 行と、ボタンの下の注記は、スクロールする中身（欄のすぐ上）へ。
                 創業メンバー価格の「創業メンバー価格（◯月◯日まで）」は、ふだんから中身へ（下に固定の欄を 1 行減らし、月額の選択肢を
                 最初の画面に見せる・請求額の行と主ボタンは欄に残す＝審査 3.1.2・2026-10-04）。 */}
@@ -744,12 +760,13 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
 
             {/* 請求額の行＋主ボタンは画面の下に固定（DESIGN §5「下に固定の保存」と同じ形）。
                 スクロールしても、押すボタンと実際に請求される金額がいつも一緒に見える（審査 3.1.2）。 */}
-            <div ref={footerRef} style={stickyFooter}>
+            <div ref={footerRef} style={compactFooter ? stickyFooterCompact : stickyFooter}>
               {priceState === 'ready' && (
                 // 実際に請求される金額を、無料期間より弱くしない（3.1.2）。無料期間はプランごと・使える人にだけ。
-                <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, margin: '0 0 var(--space-3)' }}>
+                <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, margin: compactFooter ? '0 0 var(--space-2)' : '0 0 var(--space-3)' }}>
                   {!leadInContent && leadLine}
-                  <span style={{ display: 'block', fontSize: compactFooter ? COMPACT_TEXT : 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>
+                  {/* 大きな文字のときは、請求額の行が 1 行に収まる大きさまで（欄が画面の 4 割を取っていた・2026-10-11 リリース前の採点）。 */}
+                  <span style={{ display: 'block', fontSize: compactFooter ? billedFitSize(billedLineParts({ ...selected, trial }).join('')) : 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>
                     {billedLineParts({ ...selected, trial }).map((part) => (
                       <Fragment key={part}>
                         {/* 塊の中は語の途中で割らない（keep-all・「年／額」と割れていた・2026-10-04）。1 行に入らないときは塊の中の空白で。 */}
@@ -811,7 +828,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
         ) : (
           <>
             {/* Web: 契約は App Store（iOS アプリ）一本化。ここでは価格の表示と入手導線だけ */}
-            <section aria-label="プラン" style={{ ...card, padding: 0, marginTop: 'var(--space-8)' }}>
+            <section aria-label="プラン" style={{ ...card, padding: 0, marginTop: 'var(--space-6)' }}>
               {['annual', 'monthly'].map((id, i) => (
                 <div
                   key={id}
@@ -833,6 +850,8 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
                 </div>
               ))}
             </section>
+
+            <PlanCompare onlyPlan={(fromFree || fromGrown) && myBooks.length > 0} trial={showNative && !trial ? anyTrial : ''} example={fromFreeOcr ? TOKEN_EXAMPLE_OCR : TOKEN_EXAMPLE} />
 
             {/* Web でも入手の主ボタンは画面の下に固定（ネイティブと同じ形）。 */}
             <div style={stickyFooter}>

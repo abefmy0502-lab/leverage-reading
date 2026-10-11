@@ -115,6 +115,21 @@ const REL10 = [
   ['r10-library-rows', '/', [{ css: 'button:has-text("すべての本")' }, { wait: 800 }, SCROLL_ROWS_END, { wait: 400 }]],
   ['r10-consult-chips', '/', [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { waitFor: '[aria-label="続けて聞く"] button' }, { css: '[aria-label="続けて聞く"] button >> nth=1' }, { waitFor: '[aria-label="続けて聞く"] button:has-text("ここで答えと行動を")' }, { wait: 800 }, SCROLL_ROWS_END, { wait: 400 }]],
 ].flatMap(([name, url, steps]) => [{ name, url, steps }, { name: `${name}-xxl`, url, steps: [XXL, ...steps] }]);
+// リリース前の最終採点の直し（2026-10-11・release10-after3・担当 B）: 明暗＋文字最大（-xxl）。
+const PAYWALL_OPEN = { eval: "window.dispatchEvent(new CustomEvent('orime:paywall', { detail: { reason: null } }))" };
+const REL10B = [
+  ['paywall', '/?demo=paywall&native=1&trial=7日間無料', [PAYWALL_OPEN, { wait: 800 }]],
+  ['share-sheet', '/', [...SHARE_CAMERA]],
+  ['share-edit', '/', [...SHARE_CAMERA, ...SHARE_EDIT, ...EDIT_PHRASE, EDIT_BLUR, { wait: 800 }, EDIT_TOP]],
+  ['tokens-out', '/?demo=limit', [{ css: nav('相談') }, { wait: 800 }]],
+  ['consult-answer', '/', [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { waitFor: '[aria-label="続けて聞く"] button' }, { wait: 800 }]],
+  ['consult-decide', '/', [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { waitFor: '[aria-label="続けて聞く"] button' }, { css: '[aria-label="続けて聞く"] button:has-text("ここで答えと行動を")' }, { waitFor: '[aria-label="相談への答え"]:not([aria-busy]) button:has-text("行動に追加")' }, { wait: 600 }]],
+  ['settings-delete', '/', [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:has-text("アカウントの削除を開始")' }, { wait: 400 }, { eval: () => { const el = document.querySelector('[aria-label="確認用メールアドレス"], [aria-label="確認のための入力（削除）"]'); if (el) el.scrollIntoView({ block: 'center' }); } }, { wait: 300 }]],
+  ['brief-made', '/?brief=made&demo=planempty', [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("LIFE SHIFT")' }, { wait: 800 }]],
+  ['memo-sheet', '/', [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button:has-text("メモを書く")' }, { wait: 600 }]],
+  ['advisor', '/', [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { waitFor: 'textarea[aria-label="AI 選書への相談内容"]' }, { wait: 800 }]],
+  ['focus-start', '/?focus=start', [{ wait: 800 }]],
+].flatMap(([name, url, steps]) => [{ name, url, steps }, { name: `${name}-xxl`, url, steps: [XXL, ...steps] }]);
 // リリース前の最終採点の直し（2026-10-11・release10-after2・担当 A）: 明暗＋文字最大（-xxl）。
 const REL10A = [
   ['a-memo-editor', '/', [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("数値化の鬼")' }, { css: 'button:has-text("メモを書く")' }, { css: 'button:has-text("ページ・写真")' }, { css: 'button:has-text("全画面で書く")' }, { wait: 800 }, { eval: () => { if (document.activeElement) document.activeElement.blur(); } }]],
@@ -130,6 +145,7 @@ const SCREENS = [
   ...REL10A,
   ...ADVISOR2,
   ...REL10,
+  ...REL10B,
   { name: 'home', url: '/' },
   // 🔁 毎日の輪（2026-10-10）: ホームの今日の行動・相談相手が育ちました・ホームで保存したメモの似たメモ・行動の結果を相談・思い出しカードから相談
   { name: 'loop-home-grown', url: '/', steps: [{ eval: "localStorage.setItem('orime-memos-grown-line', '1')" }, { reload: true }, { wait: 1200 }] },
@@ -1218,7 +1234,9 @@ async function run(step, page) {
   await page.waitForTimeout(step.settle ?? 900);
 }
 
-const targets = only.length ? SCREENS.filter((s) => only.includes(s.name)) : SCREENS;
+// 同じ名前が 2 つあるときは先に書いたほう（上の撮り直しの一覧）だけ。
+const targets = (only.length ? SCREENS.filter((s) => only.includes(s.name)) : SCREENS)
+  .filter((s, i, all) => all.findIndex((t) => t.name === s.name) === i);
 if (targets.length === 0) {
   console.error(`画面名が見つかりません。使える名前: ${SCREENS.map((s) => s.name).join(', ')}`);
   process.exit(1);

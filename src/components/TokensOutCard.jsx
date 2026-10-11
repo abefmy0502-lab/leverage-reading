@@ -10,7 +10,7 @@ import { fmtTokens } from '../lib/consultHelpers';
 
 const cardStyle = { background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4)' };
 const titleStyle = { margin: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' };
-const subStyle = { margin: 'var(--space-1) 0 0', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5 };
+const subStyle = { margin: 'var(--space-1) 0 0', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' };
 // 文節の切れ目（<wbr>）でだけ折り返す（「無料プランに／戻ります」と割らない）。
 export const trialCancelLineStyle = { margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' };
 const nowrap = { whiteSpace: 'nowrap' };
@@ -27,7 +27,8 @@ export default function TokensOutCard({ plan, trialEndLabel = '', cancelLine = '
       </p>
       {!trial ? (
         <p style={subStyle}>
-          <span style={nowrap}>{nextResetLabelJa()}</span>に <span style={nowrap}>{fmtTokens(allowance)} トークン</span>に戻ります
+          {/* 「800 トークンに戻ります」は 1 つの塊（「に戻ります」だけが次の行に落ちない・2026-10-11 リリース前の採点）。 */}
+          <span style={nowrap}>{nextResetLabelJa()}</span>に <span style={nowrap}>{fmtTokens(allowance)} トークンに戻ります</span>
         </p>
       ) : trialEndLabel ? (
         <p style={subStyle}>

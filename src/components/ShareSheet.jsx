@@ -864,9 +864,9 @@ export default function ShareSheet({
     </div>
   );
 
-  // 形（投稿 4:5／ストーリー 9:16）。見本が 2 つ以上あるときは見本の行の右に縦に 2 つ。
-  //   文字が大きいとき・見本が 1 つ以下のとき（形だけで 1 段を取らない・2026-10-10 第 9 回 総点検）は「編集」の行の右に横並び。
-  const formatInEditRow = effStyle !== 'sticker' && (largeText || variants.length <= 1);
+  // 形（投稿 4:5／ストーリー 9:16）は、いつも「編集」の行の右に横並び（見本の行は見本だけで等分の幅・
+  //   2026-10-11 リリース前の採点。以前は見本が 2 つ以上のとき見本の行の右に縦に 2 つ）。透明（形が無い）のときは出さない。
+  const formatInEditRow = effStyle !== 'sticker';
   const formatSwitch = (
     <div role="radiogroup" aria-label="画像の形" style={{ ...segTrack, ...(formatInEditRow ? { flexDirection: 'row' } : null), flexShrink: 0 }}>
       {FORMAT_OPTIONS.map((o) => (
@@ -1035,7 +1035,7 @@ export default function ShareSheet({
               className={largeText ? 'lvg-no-scrollbar' : undefined}
               style={largeText
                 ? { flex: '1 1 100%', minWidth: 0, display: 'flex', gap: 'var(--space-2)', overflowX: 'auto', margin: '0 calc(-1 * var(--space-4))', padding: '0 var(--space-4)', WebkitOverflowScrolling: 'touch' }
-                : { flex: '1 1 15em', minWidth: 0, fontSize: 'var(--text-meta)', display: 'grid', gridTemplateColumns: `repeat(${variants.length}, minmax(4.6em, 1fr))`, gap: 'var(--space-1)', margin: '0 0 0 calc(-1 * var(--space-1))' }}
+                : { flex: '1 1 100%', minWidth: 0, fontSize: 'var(--text-meta)', display: 'grid', gridTemplateColumns: `repeat(${variants.length}, minmax(0, 1fr))`, gap: 'var(--space-1)', margin: '0 0 0 calc(-1 * var(--space-1))' }}
             >
               {variants.map((v) => {
                 const on = v === variant;

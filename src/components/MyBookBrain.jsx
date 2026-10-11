@@ -2631,7 +2631,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           {/* 相談相手は入力欄のすぐ上（SPEC §3）。入力欄にカーソルがある間は出さない（答えと自分の文に場所を譲る・2026-10-08）。 */}
           {/* 続きを相談している間は、相談相手・答え方の行の代わりに「〈題〉の続き」の 1 行（相談相手はその会話のまま・
               × で外すと戻る）。入力欄のまとまりを 1 段減らす（2026-10-08 ui-critic）。 */}
-          {chrome.scopeBar && !resumeThread && (
+          {/* トークンを使い切って送れない間は、相談相手・答え方の行も出さない（押しても相談できない・2026-10-11 リリース前の採点）。 */}
+          {chrome.scopeBar && !resumeThread && !outOfTokens && (
           <ScopeBar
             label={scopeLabelFor(scopeIds, books)}
             scoped={scopeIds.length > 0}
@@ -2680,7 +2681,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               </button>
             </div>
           )}
-          <div className="ai-input-area" style={chrome.scopeBar || resumeThread ? { borderTop: 'none' } : undefined}>
+          <div className="ai-input-area" style={(chrome.scopeBar && !outOfTokens) || resumeThread ? { borderTop: 'none' } : undefined}>
             <textarea
               ref={inputRef}
               value={input}
@@ -3571,7 +3572,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
       {/* 行動の箱だけ 🎯 の印（Target）を見出しの頭に（問いの箱・「心に残るもの」には付けない＝行動と見分ける・2026-09-30 ui-critic）。 */}
       {isActionAnswer(p) ? (
         <p style={{ ...subLabel, display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
-          <Target size={16} aria-hidden="true" style={{ flexShrink: 0 }} />{p.actionLabel}
+          <Target size="1.2em" aria-hidden="true" style={{ flexShrink: 0 }} />{p.actionLabel}
         </p>
       ) : (
         <p style={subLabel}>{p.actionLabel}</p>
@@ -3582,7 +3583,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
       {/* 書いている間は、押せない形で同じ場所に置く（書き終わったときに下が押し下がらないように） */}
       {isStreaming && (onAddAction || onAddActionPickBook) && (
         <button type="button" disabled aria-hidden="true" tabIndex={-1} style={{ ...rowBtn, ...rowBtnOffOnFill, marginTop: 'var(--space-3)' }}>
-          <Target size={16} aria-hidden="true" />行動に追加
+          <Target size="1.2em" aria-hidden="true" />行動に追加
         </button>
       )}
       {canShowAction && (
@@ -3593,7 +3594,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
         ) : (
           // はじめての相談で行動が出た回は、主ボタン（次にすることを 1 つに・2026-10-10 第 9 回 総点検）。
           <button type="button" onClick={handleAddAction} disabled={actionBusy} style={primaryAction ? { ...(actionBusy ? uiBtnPrimaryOff : uiBtnPrimary), marginTop: 'var(--space-3)', gap: 'var(--space-2)' } : { ...rowBtn, marginTop: 'var(--space-3)', ...(actionBusy ? rowBtnOffOnFill : null) }}>
-            <Target size={primaryAction ? '1.1em' : 16} aria-hidden="true" />行動に追加
+            <Target size={primaryAction ? '1.1em' : '1.2em'} aria-hidden="true" />行動に追加
           </button>
         )
       )}
@@ -3943,7 +3944,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
               ))}
               {expectAction && (onAddAction || onAddActionPickBook) && (
                 <button type="button" disabled tabIndex={-1} style={{ ...rowBtn, ...rowBtnOffOnFill, marginTop: 'var(--space-3)' }}>
-                  <Target size={16} aria-hidden="true" />行動に追加
+                  <Target size="1.2em" aria-hidden="true" />行動に追加
                 </button>
               )}
             </div>
@@ -4033,7 +4034,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
         ) : (
           // 答えのカード（--surface）の上なので、押せない間は副ボタンの押せない形（--separator の枠＋--text-3）。
           <button type="button" onClick={handleAddAction} disabled={actionBusy} style={primaryAction ? { ...(actionBusy ? uiBtnPrimaryOff : uiBtnPrimary), marginTop: 'var(--space-3)', gap: 'var(--space-2)' } : { ...rowBtn, marginTop: 'var(--space-3)', ...(actionBusy ? { color: 'var(--text-3)', borderColor: 'var(--separator)', opacity: 1, cursor: 'default' } : null) }}>
-            <Target size={16} aria-hidden="true" />行動に追加
+            <Target size="1.2em" aria-hidden="true" />行動に追加
           </button>
         )
       )}
@@ -4070,7 +4071,8 @@ function BarChip({ name, value, active, disabled, onClick, compact = false }) {
       aria-haspopup="dialog"
       aria-label={compact ? `${name.replace(/：$/, '')}：${value}` : undefined}
       // 答えを作っている間も薄くしない（DESIGN §5 押せないボタン）。文字色を 1 段落として示す。
-      style={{ minWidth: 0, maxWidth: '100%', minHeight: 44, margin: 'calc((var(--space-8) - 44px) / 2) 0', display: 'inline-flex', alignItems: 'center', padding: 0, background: 'none', border: 'none', cursor: disabled ? 'default' : 'pointer', fontFamily: 'inherit', opacity: 1 }}
+      // 外側の負の余白は見た目の高さ（32 か文字の 1.8 倍）に合わせる（文字最大で上下が欠けていた・2026-10-11 リリース前の採点）。
+      style={{ minWidth: 0, maxWidth: '100%', minHeight: 44, margin: 'min(0px, calc((max(var(--space-8), 1.8em) - 44px) / 2)) 0', display: 'inline-flex', alignItems: 'center', padding: 0, background: 'none', border: 'none', cursor: disabled ? 'default' : 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-meta)', opacity: 1 }}
     >
       <span style={{
         // 高さは 32 か文字の 1.8 倍の高いほう（文字を大きくしたときに字がチップの上下に詰まった・2026-10-10 ui-critic）。

@@ -1256,8 +1256,9 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                   Apple ガイドライン要件＋過剰請求トラブルの防止。解約の手順は上の「プラン」の欄の 1 か所だけ。
                   赤は削除の 2 つのボタンだけにして、ここは補足の文字色の 1 文。 */}
               {isActive && (
-                <p style={{ ...rowDescStyle, margin: 0 }}>
-                  <span style={{ display: 'inline-block' }}>退会しても、プランの支払いは止まりません。</span><span style={{ display: 'inline-block' }}>先に<span style={{ whiteSpace: 'nowrap' }}>「プラン・お支払い」</span>から</span><span style={{ display: 'inline-block' }}>解約してください。</span>
+                // 文節の切れ目でだけ折り返す（文字最大で「止まりませ／ん」と割れていた・2026-10-11 リリース前の採点）。
+                <p style={{ ...rowDescStyle, margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+                  {withPhraseBreaks('退会しても、プランの支払いは止まりません。先に「プラン・お支払い」から解約してください。')}
                 </p>
               )}
               {!deleteOpen ? (
@@ -1281,7 +1282,8 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                     type="text"
                     value={confirmText}
                     onChange={(e) => setConfirmText(e.target.value)}
-                    placeholder={expectedConfirm}
+                    // 欄の中の例は短く（長いメールアドレスが欄からはみ出していた・2026-10-11 リリース前の採点）。
+                    placeholder={deleteTarget.byWord ? '削除と入力' : 'メールアドレスを入力'}
                     aria-label={deleteTarget.byWord ? '確認のための入力（削除）' : '確認用メールアドレス'}
                     style={inputStyle}
                     maxLength={LIMITS.email}
@@ -1301,12 +1303,13 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                             {deleteTarget.byWord ? '「削除」と入力してください。' : 'メールアドレスが一致しません。'}
                           </p>
                         )}
-                        <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-1)' }}>
+                        {/* 2 つが 1 行に入らない大きな文字では縦に積む（削除を上・「キャンセ／ル」と割らない・2026-10-11 リリース前の採点）。 */}
+                        <div style={{ display: 'flex', flexWrap: 'wrap-reverse', gap: 'var(--space-3)', marginTop: 'var(--space-1)' }}>
                           <button
                             type="button"
                             aria-label="削除をキャンセル"
                             // 削除中は押せない見た目（btnGhostOff・薄くしない・DESIGN §5）。
-                            style={{ ...(deleting ? btnGhostOff : btnGhost), flex: 1, opacity: 1 }}
+                            style={{ ...(deleting ? btnGhostOff : btnGhost), flex: '1 1 6.5em', whiteSpace: 'nowrap', opacity: 1 }}
                             onClick={() => { setDeleteOpen(false); setConfirmText(''); setDeleteError(false); }}
                             disabled={deleting}
                           >
@@ -1316,7 +1319,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                             type="button"
                             aria-label="アカウントを完全に削除"
                             // 一致するまでは押せない見た目（薄くしない・DESIGN §5）。削除中は塗りのまま文言で示す。
-                            style={{ ...(confirmMatches ? btnDanger : btnPrimaryOff), flex: 1, opacity: 1 }}
+                            style={{ ...(confirmMatches ? btnDanger : btnPrimaryOff), flex: '1 1 6.5em', whiteSpace: 'nowrap', opacity: 1 }}
                             disabled={deleting || !confirmMatches}
                             onClick={handleDelete}
                           >

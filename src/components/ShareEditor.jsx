@@ -33,6 +33,7 @@ import {
 } from '../lib/sharePhrase';
 import { btnGhost, btnLink, groupTitle, input as inputStyle } from '../styles/ui';
 import { setKeyboardAccessoryBar } from '../lib/native';
+import { withPhraseBreaks } from './TightBubble';
 
 // 形の見本の書体（押す前に形が分かるように、名前をその書体で書く）。
 const STYLE_FONT = {
@@ -42,8 +43,8 @@ const STYLE_FONT = {
   band: { fontFamily: 'var(--font-ui)', fontWeight: 600 },
 };
 
-// 選ぶためのチップ（DESIGN §5＝--fill の面・文字 --text）。選択中は中立の輪（--text の 2 の枠）で見分ける
-//   （栗色は「完了」と文字ボタンだけ・2026-10-11 点検＝選んでいないチップが枠だけで薄く見えていた）。
+// 選ぶためのチップ（DESIGN §5＝--fill の面・文字 --text）。選択中はほかの選ぶチップと同じ --accent-soft の面＋--accent の文字 600
+//   （2026-10-11 リリース前の採点で、中立の輪の例外をやめて統一）。
 const styleChip = (on) => ({
   display: 'inline-flex',
   alignItems: 'center',
@@ -52,10 +53,9 @@ const styleChip = (on) => ({
   minHeight: 'var(--tap-min)',
   padding: '0 var(--space-3)',
   borderRadius: 'var(--radius)',
-  border: on ? '1px solid var(--text)' : '1px solid transparent',
-  boxShadow: on ? 'inset 0 0 0 1px var(--text)' : 'none',
-  background: 'var(--fill)',
-  color: 'var(--text)',
+  border: 'none',
+  background: on ? 'var(--accent-soft)' : 'var(--fill)',
+  color: on ? 'var(--accent)' : 'var(--text)',
   fontSize: 'var(--text-sub)',
   cursor: 'pointer',
   whiteSpace: 'nowrap',
@@ -570,7 +570,8 @@ export default function ShareEditor({
           </div>
           {hint && !typing && (
             <p style={{ order: 3, margin: 0, padding: 'var(--space-2) 0 0', textAlign: 'center', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all' }}>
-              {hint.map((h) => <span key={h} style={{ display: 'block' }}>{h}</span>)}
+              {/* 文節の切れ目でだけ折り返す（「2 回」を割らない・2026-10-11 リリース前の採点）。 */}
+              {hint.map((h) => <span key={h} style={{ display: 'block', overflowWrap: 'anywhere' }}>{withPhraseBreaks(h)}</span>)}
             </p>
           )}
           {/* 言葉の入力欄は画像のすぐ下に（上に残る画像と一緒に＝打った言葉がどう乗るかをその場で見られる・2026-10-08）。 */}
@@ -613,7 +614,7 @@ export default function ShareEditor({
                   {styles.map((s) => {
                     const on = (phrase.style || 'mincho') === s;
                     return (
-                      <button key={s} type="button" role="radio" aria-checked={on} onClick={() => { setPhraseField({ style: s }); haptic.light(); }} style={{ ...styleChip(on), ...STYLE_FONT[s] }}>
+                      <button key={s} type="button" role="radio" aria-checked={on} onClick={() => { setPhraseField({ style: s }); haptic.light(); }} style={{ ...styleChip(on), ...STYLE_FONT[s], ...(on ? { fontWeight: Math.max(600, STYLE_FONT[s]?.fontWeight || 400) } : null) }}>
                         {PHRASE_STYLE_LABELS[s]}
                       </button>
                     );

@@ -23,6 +23,11 @@ import { useBlockEdgeSwipe } from '../hooks/useEdgeSwipeBack';
 import { useBackLayer } from '../hooks/useHistoryBack';
 import { closeDelayMs } from '../lib/motion';
 
+// 文字の大きさの設定が大きいとき（ルートの文字 22px 以上・ShareSheet と同じ目安）。欄の中の例を 1 行に収まる短い文にする。
+const rootTextLarge = () => {
+  try { return parseFloat(getComputedStyle(document.documentElement).fontSize) >= 22; } catch { return false; }
+};
+
 const KEYFRAMES_ID = '__leverage-sheet-keyframes';
 function ensureKeyframes() {
   if (typeof document === 'undefined') return;
@@ -503,7 +508,7 @@ export default function QuickMemoSheet({
                   e.preventDefault();
                 }
               }}
-              placeholder={prompt ? '思ったことを、そのまま' : '心が動いた一行を書き留める'}
+              placeholder={prompt ? '思ったことを、そのまま' : (rootTextLarge() ? '心が動いた一行' : '心が動いた一行を書き留める')}
               style={ta}
               maxLength={LIMITS.memoText}
             />

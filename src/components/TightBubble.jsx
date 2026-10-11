@@ -91,11 +91,16 @@ const glueUnits = (t) => t.replace(NUM_UNIT_RE, '$1\u00a0').replace(APPROX_NUM_R
 const LEAD_DASH_RE = /^[ \u00a0\u2060]*[—–―]/;
 // 日本語の字・閉じかっこの後ろの「 — 」は、空白を結合文字に替えて前とつなぐ（同じ文節の中でも行頭に置かない・間の見た目をそろえる）。
 const JA_BEFORE_DASH_RE = /([』」）】〉》\u3040-\u30ff\u4e00-\u9fff])[ \u00a0]+(?=[—–―])/g;
+// 添え書きの区切りの「·」（「出版社の内容紹介より · 400 ページ」）も行頭に置かない＝前の語に折り返さない空き（U+00A0）で
+//   つなぐ（空きの見た目は残す・「·」の後ろでは折り返せる・2026-10-11 リリース前の採点）。
+const LEAD_MIDDOT_RE = /^[ \u00a0\u2060]*·/;
+const BEFORE_MIDDOT_RE = /([^\s\u00a0])[ ]+(?=·)/g;
+const glueMiddots = (t) => t.replace(BEFORE_MIDDOT_RE, '$1\u00a0');
 
 // 文節で割らない文（ふつうの日本語の折り返しで流す Markdown の箇条書き・段落など）にも、上の 2 つだけかける
 //   （数と助数詞の間・日本語の後ろの「 — 」）。文字列を返す（<wbr> は入れない・2026-10-04）。
 export function keepUnitsTogether(text) {
-  return glueUnits(String(text ?? '')).replace(JA_BEFORE_DASH_RE, '$1\u2060');
+  return glueMiddots(glueUnits(String(text ?? '')).replace(JA_BEFORE_DASH_RE, '$1\u2060'));
 }
 
 // 文節（scriptBreaks のときは長い文節の中の文字の種類の切れ目でも）に分ける。改行は '\n' の要素で残す。
@@ -107,13 +112,16 @@ export function phrasePieces(text, { scriptBreaks = false } = {}) {
   const out = [];
   src.split('\n').forEach((rawLine, li) => {
     if (li > 0) out.push('\n');
-    const line = glueUnits(rawLine).replace(JA_BEFORE_DASH_RE, '$1\u2060');
+    const line = glueMiddots(glueUnits(rawLine).replace(JA_BEFORE_DASH_RE, '$1\u2060'));
     let phrases;
     try { phrases = !line ? [] : p ? p.parse(line) : [line]; } catch { phrases = [line]; }
     const joined = [];
     phrases.forEach((ph) => {
       if (joined.length && LEAD_DASH_RE.test(ph)) joined[joined.length - 1] += `\u2060${ph.replace(/^[ \u00a0\u2060]+/, '')}`;
-      else joined.push(ph);
+      else if (joined.length && LEAD_MIDDOT_RE.test(ph)) {
+        // 「·」で始まる文節は前の文節へ（前の文節の終わりの空きは折り返さない空きに）。
+        joined[joined.length - 1] = `${joined[joined.length - 1].replace(/[ \u00a0]+$/, '')}\u00a0${ph.replace(/^[ \u00a0\u2060]+/, '')}`;
+      } else joined.push(ph);
     });
     joined.forEach((ph) => { (scriptBreaks ? scriptBreakPieces(ph) : [ph]).forEach((pc) => out.push(pc)); });
   });

@@ -65,7 +65,8 @@ function fmtLen(min) {
   return m ? `${h} 時間 ${m} 分` : `${h} 時間`;
 }
 
-export default function FocusStartSheet({ onStart, onClose, initialUntil = false }) {
+// book: 読む本（題の上に書名を 1 行・読書中が 2 冊以上でもどの本か分かる＝メモを書くシートと同じ・2026-10-11）。
+export default function FocusStartSheet({ book = null, onStart, onClose, initialUntil = false }) {
   const [prefs] = useState(loadFocusPrefs);
   const [mode, setMode] = useState(initialUntil ? 'timer' : prefs.mode);
   const [minutes, setMinutes] = useState(prefs.minutes);
@@ -103,6 +104,7 @@ export default function FocusStartSheet({ onStart, onClose, initialUntil = false
   return (
     <BottomSheet
       title="読む"
+      eyebrow={book?.title ? `『${book.title}』` : ''}
       onClose={onClose}
       dismissLabel="キャンセル"
       footer={<button type="button" onClick={start} disabled={blocked} aria-disabled={blocked || undefined} style={blocked ? btnPrimaryOff : btnPrimary} data-focus-start="">はじめる</button>}

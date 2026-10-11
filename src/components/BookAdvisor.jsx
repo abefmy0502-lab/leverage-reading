@@ -135,6 +135,13 @@ const ADVISOR_EXAMPLES = [
 export const ADVISOR_START_TITLE = '次に読む本を探す';
 export const ADVISOR_START_LEAD = '悩みに合う、まだ読んでいない本を選びます';
 export const ADVISOR_PLACEHOLDER = '悩みを書くと、本を探します';
+// 文字が大きいときは 1 行に収まる短い例（2026-10-11 リリース前の採点）。
+export const ADVISOR_PLACEHOLDER_SHORT = '悩みを書く';
+
+// 文字の大きさの設定が大きいとき（ルートの文字 22px 以上・ShareSheet と同じ目安）。欄の中の例を 1 行に収まる短い文にする。
+const rootTextLarge = () => {
+  try { return parseFloat(getComputedStyle(document.documentElement).fontSize) >= 22; } catch { return false; }
+};
 
 // 聞き取りの問いの上限は lib/advisorInterview.js の MAX_INTERVIEW_QUESTIONS（芯が見えたら AI が先に止める）。
 
@@ -2157,7 +2164,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
             value={input}
             onChange={(e) => setInput(e.target.value)}
             // 7 日間無料で使い切ったときも、いつからまた探せるかを日付で（相談の「◯月◯日から相談できます」と同じ・2026-10-04）。
-            placeholder={tokensOut ? (monthOut ? `${nextResetLabelJa()}から探せます` : (monthDayLabelJa(trialEndsAt) ? `${monthDayLabelJa(trialEndsAt)}から探せます` : 'トークンを使い切りました')) : ADVISOR_PLACEHOLDER}
+            placeholder={tokensOut ? (monthOut ? `${nextResetLabelJa()}から探せます` : (monthDayLabelJa(trialEndsAt) ? `${monthDayLabelJa(trialEndsAt)}から探せます` : 'トークンを使い切りました')) : (rootTextLarge() ? ADVISOR_PLACEHOLDER_SHORT : ADVISOR_PLACEHOLDER)}
             rows={1}
             disabled={interviewLoading || tokensOut}
             maxLength={LIMITS.aiQuestion}
