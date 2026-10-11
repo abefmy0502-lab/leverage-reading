@@ -608,7 +608,7 @@ export default function Landing() {
                     見出しに金額を置かない（月あたりの額を請求額より大きく見せない） */}
                 <span>月に</span><span>本{'\u00a0'}1{'\u00a0'}冊ほどの</span><span>値段で、</span><span>読んだ本</span><span>すべてが</span><span>相談相手に。</span>
               </h2>
-              <p className="lp-wbr"><Phrases>{`${noBreak(`月額 ${MONTHLY_TEXT}`)}（1 日あたり${noBreak(`約 ${PER_DAY_TEXT}）。`)}まずは無料プラン（ずっと無料）から始められます。`}</Phrases></p>
+              <p className="lp-wbr"><Phrases>{`${noBreak(`月額 ${MONTHLY_TEXT}`)}${noBreak(`（1 日あたり約 ${PER_DAY_TEXT}）。`)}まずは無料プラン（ずっと無料）から始められます。`}</Phrases></p>
             </div>
 
             {/* 創業メンバー価格（期間中だけ・料金の中の帯 1 枚）。「先着」「通常価格」と書かない・差額を書かない */}
@@ -637,8 +637,7 @@ export default function Landing() {
                 {/* プランで手に入るもの（具体的に 4 つ・数は lib/tokenAmounts.js のとおり） */}
                 <ul className="lp-included" aria-label="プランに含まれるもの">
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span><span className="lp-nb">AI の答え {PAID_CONSULTS}</span><span className="lp-nb">（毎月 {PAID_TOKENS} トークン）</span></span></li>
-                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>すべての <span className="lp-nb">AI 機能</span>（読書計画シート・<span className="lp-nb">AI 選書・</span>メモの凝縮など）</span></li>
-                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>写真から書き起こし</span></li>
+                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>すべての <span className="lp-nb">AI 機能</span>（読書計画シート・<span className="lp-nb">AI 選書・</span>写真から書き起こし・メモの凝縮など）</span></li>
                   {TRIAL_NOTE && (
                     <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>無料期間の間は <span className="lp-nb">{TRIAL_TOKENS} トークン</span><span className="lp-nb">（AI の答え {TRIAL_CONSULTS}）</span></span></li>
                   )}
