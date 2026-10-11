@@ -26,7 +26,7 @@
 // 台本の外側に書けること:
 //   redact: { '実在の名前': '置きかえ' } … 画面の文字を録画の間だけ置きかえる（AUTHOR_REDACT に無い名前を足すとき）。
 //   ※ お試しモードの本の著者名は、どの台本でも AUTHOR_REDACT で書名に置きかわる（下の redactPairs・2026-10-11）。
-//   pillar: '本と対話' など               … 5 つの柱のどれか（mkt:drafts が説明欄の下書きに使う）
+//   pillar: '本と会話' など               … 5 つの柱のどれか（mkt:drafts が説明欄の下書きに使う）
 // お試しモードの「（お試しモードの応答です…）」の注記は、録画の間は自動で隠す（record-demo.mjs）。
 //
 // 台本を足すとき: ここに 1 本足すか、同じ形の JSON（配列）を作って
@@ -94,7 +94,7 @@ const EVIDENCE = 'summary:has-text("根拠を見る") >> nth=-1'; // いちば�
 export const SCENARIOS = [
   {
     name: 'consult-answer',
-    pillar: '本と対話',
+    pillar: '本と会話',
     title: 'その答え、\n前に読んだ本に\n書いてありました。',
     url: '/',
     steps: [
@@ -115,7 +115,7 @@ export const SCENARIOS = [
   },
   {
     name: 'memo-to-consult',
-    pillar: '本と対話',
+    pillar: '本と会話',
     title: '読みながら残した一行が、\nあとで相談の根拠になる',
     url: '/',
     steps: [
@@ -140,8 +140,8 @@ export const SCENARIOS = [
     // 1 冊に相談 → 本の語り口の答え（名前の行に「本の語り口で・AI」）→ 根拠の本とページ。
     // 実在の著者名は映さない（AUTHOR_REDACT で書名に置きかわる）。「著者と話せる」とは字幕でも言わない（marketing-master-plan §0）。
     name: 'consult-book',
-    pillar: '本と対話',
-    title: '読んだ本と、\n対話しよう。',
+    pillar: '本と会話',
+    title: '読んだ本と、\n会話しよう。',
     url: '/',
     steps: [
       { say: '前に読んだ 1 冊を開いて', hold: 500 },
@@ -195,6 +195,35 @@ export const SCENARIOS = [
       { scrollTo: '[data-empty-fields] >> nth=0', block: 'center', hold: 1400 },
       { say: 'まだ本がない分野から、次の 1 冊を探す', tap: '[data-empty-fields] button >> nth=0', hold: 300 },
       { waitFor: ':text("次に読む本を探す")', timeout: 30000, hold: 3000 },
+    ],
+  },
+  {
+    // AI 選書（プラン）: 悩み → 会話で聞き取り →「こう受け取りました」→ おすすめと読む順番 →「読みたいに追加」（2026-10-11 オーナー）。
+    // short-video-scripts.md V13 の前半。後半の読書計画シートは手で録ってつなぐ。
+    // 「はじめに」に最近の相談を踏まえた行が出ても、その機能が公開されるまでは字幕で触れない（marketing-master-plan §0）。
+    name: 'advisor-pick',
+    pillar: '客観視',
+    title: '次に読む本を、\n悩みから選ぶ',
+    url: '/',
+    steps: [
+      { say: '次に読む本、どう選ぶ？', hold: 500 },
+      { tap: nav('相談') },
+      { tap: 'button[role=tab]:has-text("AI 選書")', hold: 500 },
+      { type: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] },
+      { say: '悩みを書くと', tap: 'button[aria-label="本を探す"]' },
+      { waitFor: '[aria-label="答えの候補"] button', timeout: 30000, hold: 1200 },
+      { say: '会話で、悩みを聞き取ってくれる', tap: '[aria-label="答えの候補"] button:has-text("大事なことほど後回しになる")', hold: 600 },
+      { tap: 'button[aria-label="答える"]' },
+      { waitFor: '[aria-label="答えの候補"] button:has-text("夕方に自分の仕事を進めたい")', timeout: 30000, hold: 900 },
+      { tap: '[aria-label="答えの候補"] button:has-text("夕方に自分の仕事を進めたい")', hold: 500 },
+      { tap: 'button[aria-label="答える"]' },
+      { say: '受け取り方を確かめてから', waitFor: 'button:has-text("合っている")', timeout: 30000, hold: 1800 },
+      { tap: 'button:has-text("合っている")' },
+      { say: '読んできた本と評価も材料に', waitFor: 'button:has-text("読みたいに追加")', timeout: 40000, hold: 2200 },
+      { say: '読む順番まで', scrollTo: ':text("読む順番")', block: 'start', optional: true, hold: 2200 },
+      { say: '気になった本は、本棚へ', scrollTo: 'button:has-text("読みたいに追加") >> nth=0', block: 'center', hold: 500 },
+      { tap: 'button:has-text("読みたいに追加") >> nth=0' },
+      { waitFor: 'button:has-text("追加済み・開く")', timeout: 20000, hold: 2400 },
     ],
   },
   {

@@ -6,7 +6,7 @@ describe('weekly-drafts', () => {
   it('使わない言い方を見つける（決まりを説明している行は除く）', () => {
     const hits = checkCopy('著者と話せるアプリ\n必ず読書が変わる\n「著者と話せる」とは言わない');
     expect(hits.map((h) => h.line)).toEqual([1, 2]);
-    expect(checkCopy('読んだ本と、対話しよう。本の語り口で答えます。')).toEqual([]);
+    expect(checkCopy('読んだ本と、会話しよう。本の語り口で答えます。')).toEqual([]);
   });
 
   it('その週の「新しくなったこと」だけを拾う', () => {
