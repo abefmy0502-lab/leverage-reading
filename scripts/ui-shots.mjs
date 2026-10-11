@@ -181,7 +181,7 @@ const SCREENS = [
   // ── 📕📗 積読から答える・読了の 3 つの問い・読む前と読んだ後（2026-10-11・ui-shots/article-before/ と article-after/）
   ...(() => {
     const ARTICLE_DONE = [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("数値化の鬼")' }, { scrollBottom: true }, { css: 'button:has-text("読了にする")' }, { wait: 1500 }];
-    const ARTICLE_TS = [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '積読から、今の悩みに合う本は？' ] }, { css: 'button[aria-label="送信"]' }, { wait: 6000 }];
+    const ARTICLE_TS = [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', 'まだ読んでいない本から、今の悩みに合う本は？' ] }, { css: 'button[aria-label="送信"]' }, { wait: 6000 }];
     return [
       ['article-consult', '/', [{ css: nav('相談') }, { wait: 800 }]],
       ['article-consult-tsundoku', '/', [...ARTICLE_TS, { scrollBottom: true }]],
@@ -190,6 +190,14 @@ const SCREENS = [
       ['article-done-saved', '/', [...ARTICLE_DONE, { scrollTo: 'h2:has-text("読み終えて、ひとこと")' }, { css: 'button:has-text("明日から何を変える？")' }, { fill: ['textarea[aria-label="明日から何を変える？"]', '週の始めに、チームの目標を数字で 1 つ決める'] }, { css: '[role=dialog] button:text-is("保存")' }, { wait: 1200 }, { scrollTo: 'h2:has-text("読み終えて、ひとこと")' }]],
       ['article-before-after', '/', [...ARTICLE_DONE, { scrollTo: 'h2:has-text("読む前に書いたこと")' }, { wait: 400 }]],
       ['article-found-answer', '/', [...ARTICLE_DONE, { scrollTo: 'h2:has-text("読む前に書いたこと")' }, { css: 'button:has-text("答えは見つかった？")' }, { wait: 1500 }]],
+      // 2 回目（ui-critic の直し・ui-shots/article-after2/）
+      ['article2-consult-tsundoku', '/', [...ARTICLE_TS, { css: 'summary:has-text("根拠を見る")' }, { scrollTo: 'summary:has-text("根拠を見る")' }, { wait: 400 }]],
+      ['article2-consult-tsundoku-decide', '/', [...ARTICLE_TS, { css: 'button:has-text("ここで答えと行動を")' }, { wait: 6000 }]],
+      ['article2-done-just', '/', [...ARTICLE_DONE]],
+      ['article2-done-questions', '/', [...ARTICLE_DONE, { scrollTo: 'h2:has-text("メモ")' }, { wait: 400 }]],
+      ['article2-done-prompt', '/', [...ARTICLE_DONE, { scrollTo: 'h2:has-text("読み終えて、ひとこと")' }, { css: 'button:has-text("あえて反論するなら？")' }, { wait: 800 }]],
+      ['article2-found-answer', '/', [...ARTICLE_DONE, { scrollTo: 'h2:has-text("読む前に書いたこと")' }, { css: 'button:has-text("答えは見つかった？")' }, { wait: 1500 }]],
+      ['article2-consult-no-tsundoku', '/?demo=noreadingdone', [{ css: nav('相談') }, { wait: 800 }]],
     ].map(([name, url, steps]) => ({ name, url, steps }));
   })(),
   {
@@ -1054,6 +1062,10 @@ const SCREENS = [
     ['readtime-detail', '/', [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("数値化の鬼")' }, { wait: 600 }]],
     ['readtime-detail-done', '/', [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("アウトプット大全")' }, { wait: 600 }]],
   ].flatMap(([name, url, steps]) => [{ name, url, steps }, { name: `${name}-xxl`, url, steps: [XXL, ...steps] }]),
+  // ── 🎯 第 9 回の 3 回目の採点の直し（H1〜H4・2026-10-11・ui-shots/review9-after4/）
+  { name: 'r9h-share-month', url: '/?share=chooser', steps: [...[{ wait: 800 }, { css: '[role=dialog] button:has-text("写真なし")' }, { wait: 1500 }], { css: '[role=radiogroup][aria-label="どの本を共有するか"] [role=radio]:has-text("今月")' }, { wait: 2500 }] },
+  { name: 'r9h-share-chips-end', url: '/?share=chooser', steps: [...[{ wait: 800 }, { css: '[role=dialog] button:has-text("写真なし")' }, { wait: 1500 }], { eval: "(() => { const g = document.querySelector('[role=radiogroup][aria-label=\"どの本を共有するか\"]'); if (g) g.scrollLeft = g.scrollWidth; })()" }, { wait: 600 }] },
+  { name: 'r9h-share-empty-month', url: '/?demo=fewmemos&share=chooser', steps: [...[{ wait: 800 }, { css: '[role=dialog] button:has-text("写真なし")' }, { wait: 1500 }], { wait: 1500 }] },
   // ── 🎯 第 9 回の 2 回目の採点の直し（G1・G2・2026-10-11・ui-shots/review9-after3/）
   { name: 'r9g-share-month', url: '/?share=chooser', steps: [{ wait: 800 }, { css: '[role=dialog] button:has-text("写真なし")' }, { wait: 1500 }, { css: '[role=radiogroup][aria-label="どの本を共有するか"] [role=radio]:has-text("今月")' }, { wait: 2500 }] },
   { name: 'r9g-share-month-nodone', url: '/?demo=fewmemos&share=chooser', steps: [{ wait: 800 }, { css: '[role=dialog] button:has-text("写真なし")' }, { wait: 1500 }, { css: '[role=radiogroup][aria-label="どの本を共有するか"] [role=radio]:has-text("今月")' }, { wait: 2500 }] },
@@ -1062,10 +1074,6 @@ const SCREENS = [
   // ── 🎨 第 9 回の ui-critic の直し（F1〜F8・2026-10-11・ui-shots/review9-after2/）
   { name: 'r9f-detail-noaction', url: '/?demo=noreading', steps: [{ css: 'button[aria-label="『LIFE SHIFT』の読書を開始する"]' }, { wait: 800 }, { css: 'button[aria-label="『LIFE SHIFT』を開く"]' }, { wait: 1200 }, { scrollTo: 'h2:has-text("行動")' }, { wait: 400 }] },
   // ── 🏷🪙📝 第 9 回の追加（D1〜D3・2026-10-11）: 本 0 冊のボタンの名前・無料プランの残りの見せ方・ホームで保存した知らせ
-  // ── 🎯 第 9 回の 3 回目の採点の直し（H1〜H4・2026-10-11・ui-shots/review9-after4/）
-  { name: 'r9h-share-month', url: '/?share=chooser', steps: [...[{ wait: 800 }, { css: '[role=dialog] button:has-text("写真なし")' }, { wait: 1500 }], { css: '[role=radiogroup][aria-label="どの本を共有するか"] [role=radio]:has-text("今月")' }, { wait: 2500 }] },
-  { name: 'r9h-share-chips-end', url: '/?share=chooser', steps: [...[{ wait: 800 }, { css: '[role=dialog] button:has-text("写真なし")' }, { wait: 1500 }], { eval: "(() => { const g = document.querySelector('[role=radiogroup][aria-label=\"どの本を共有するか\"]'); if (g) g.scrollLeft = g.scrollWidth; })()" }, { wait: 600 }] },
-  { name: 'r9h-share-empty-month', url: '/?demo=fewmemos&share=chooser', steps: [...[{ wait: 800 }, { css: '[role=dialog] button:has-text("写真なし")' }, { wait: 1500 }], { wait: 1500 }] },
   { name: 'r9d-home-new', url: '/?demo=new', steps: [{ css: 'button[aria-label="閉じる"]' }, { wait: 600 }] },
   { name: 'r9d-quickstart-done-free', url: '/?demo=freenew', steps: [{ role: '次へ' }, { css: '[role=dialog] button:has-text("読んだ本に一言ずつ残す")' }, { css: '[role=dialog] button[aria-label^="『イシューからはじめよ』"]' }, { css: '[role=dialog] button:has-text("次へ")' }, { fill: ['[role=dialog] textarea', '答えを出す前に、本当に答えるべき問いかを確かめる'] }, { css: '[role=dialog] button:has-text("相談相手をつくる")' }, { wait: 2500 }, { scrollTo: '#qs-ask' }] },
   { name: 'r9d-consult-free', url: '/?demo=fewmemos', steps: [{ css: nav('相談') }, { wait: 1200 }] },

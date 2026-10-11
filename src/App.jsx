@@ -40,7 +40,7 @@ import { startFocus, pauseFocus, loadFocusState, saveFocusState } from './lib/re
 import { BookReadingTime } from './components/ReadingTimeCard';
 // 📗 読了の 3 つの問い・読む前と読んだ後（2026-10-11・AI なし）
 import { DoneQuestions, BeforeAfter } from './components/DoneReflection';
-import { visibleDoneQuestions, readDoneQuestionState, markDoneQuestionAnswered, dismissDoneQuestions, beforeReadingItems, pickAfterMemos, foundAnswerDraft } from './lib/doneReflection';
+import { visibleDoneQuestions, readDoneQuestionState, markDoneQuestionAnswered, dismissDoneQuestions, visibleBeforeItems, foundAnswerDraft, promptedMemoText } from './lib/doneReflection';
 import { readingSessions } from './hooks/useReadingSessions';
 import Onboarding, { isOnboardingCompleted, clearOnboardingCompletion } from './components/Onboarding';
 import {
@@ -853,10 +853,11 @@ function AuthedApp() {
   };
   // 🔁 毎日の輪から相談へ（2026-10-10）: 行動の結果・思い出しカードのメモ・ホームの「相談相手が育ちました」から、
   //   相談の入力欄に下書きを入れて開く（送らない＝トークンは送ったときだけ）。bookIds があれば相談相手をその本に絞る。
-  const openConsultWith = (question, { bookIds = null } = {}) => {
+  //   from: 'beforeAfter'＝読了の「答えは見つかった？」（会話のいちばん上に見出しと「送るまでトークンは使いません」・2026-10-11）。
+  const openConsultWith = (question, { bookIds = null, from = null } = {}) => {
     if (!question) return;
     //   カーソルは置かない（キーボードで戻り先・相談相手の行が隠れないように・押せばすぐ書ける＝2026-10-10 ui-critic）。
-    setAskPreset({ question, nonce: Date.now(), draft: true, focus: false, ...(Array.isArray(bookIds) && bookIds.length ? { bookIds } : null) });
+    setAskPreset({ question, nonce: Date.now(), draft: true, focus: false, ...(from ? { from } : null), ...(Array.isArray(bookIds) && bookIds.length ? { bookIds } : null) });
     setView('list'); setAiSubTab('brain'); setTab('ai');
   };
   // 🔎 すべての本の検索から「相談で探す」: 相談を開いて入力欄に問いを入れるだけ（送らない＝トークンは送ったときだけ・2026-09-30）。
@@ -4259,7 +4260,7 @@ function AuthedApp() {
   const openFocusStart = useCallback((b) => { haptic.light(); setFocusStartBook(b); }, [haptic]);
   // シート（読む前のシート・写真で共有）や集中モードを開いたら、本に結びついた知らせを閉じる
   // （「保存しました。」＋行動に追加などがシートの上に重なっていた・2026-10-10）。元に戻すなどの処理は走らせない。
-  const sheetOverBook = !!(focusStartBook || focusRun || shareSheet);
+  const sheetOverBook = !!(focusStartBook || focusRun || shareSheet || quickMemoOpen);
   useEffect(() => {
     if (!sheetOverBook) return;
     bookToastsRef.current.forEach((_bookId, id) => toast.dismiss(id, { skipExpire: true }));
@@ -4457,6 +4458,10 @@ function AuthedApp() {
     const textBtnInCard = { ...btnText, fontSize: 'var(--text-sub)', padding: 0, marginBottom: 'calc(-1 * var(--space-3))' };
     // 畳んだ中の小さな見出し（DESIGN §5 groupTitle・12/600/--text-2）。
     const subLabelStyle = { ...groupTitle, margin: '0 0 var(--space-2)' };
+    // 📗 読了の 3 つの問い・読む前に書いたこと（2026-10-11・どちらも読了から 14 日だけ）。doneQTick は問いをメモにした・閉じたら読み直す印。
+    void doneQTick;
+    const doneQuestionsNow = current.status === 'done' ? visibleDoneQuestions(current, readDoneQuestionState(current.id)) : [];
+    const beforeItemsNow = current.status === 'done' ? visibleBeforeItems(current) : [];
     // 読書計画の中身（得たいこと・課題・仮説・シート）。読書中・読了では 1 つの「読書計画」に畳む。
     const planItems = [
       current.investPurpose && { label: 'この本から得たいこと', text: current.investPurpose },
@@ -4637,12 +4642,13 @@ function AuthedApp() {
               <summary style={summaryStyle}>
                 読書計画
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', minWidth: 0 }}>
-                  <span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {/* 「読む前に書いたこと」を上に出している間は、右の中身の一覧を出さない（同じ言葉を 2 か所で名指ししない・2026-10-11 ui-critic） */}
+                  {beforeItemsNow.length === 0 && <span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {[
                       ...planItems.map((p) => (p.label === 'この本から得たいこと' ? '得たいこと' : p.label === '現在の課題' ? '課題' : p.label)),
                       ...(current.aiStrategy ? ['シート'] : []),
                     ].join('・')}
-                  </span>
+                  </span>}
                   <ChevronDown size="1.2em" aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
                 </span>
               </summary>
@@ -4859,26 +4865,19 @@ function AuthedApp() {
                 />
               </section>
               {/* 📗 読了の 3 つの問い → 読む前に書いたこと（2026-10-11・SPEC §2・AI なし・lib/doneReflection.js） */}
-              {current.status === 'done' && (() => {
-                void doneQTick; // 問いをメモにした・閉じたら読み直す
-                const questions = visibleDoneQuestions(current, readDoneQuestionState(current.id));
-                const beforeItems = beforeReadingItems(current);
-                if (questions.length === 0 && beforeItems.length === 0) return null;
-                return (
-                  <>
-                    <DoneQuestions
-                      questions={questions}
-                      onPick={(q) => { track('done_question', { q: q.key }); setQuickMemoPrompt(q); setQuickMemoOpen(true); }}
-                      onDismiss={() => { dismissDoneQuestions(current.id); setDoneQTick((n) => n + 1); }}
-                    />
-                    <BeforeAfter
-                      items={beforeItems}
-                      memos={pickAfterMemos(beforeItems, currentMemoOps.memos, 2)}
-                      onFoundAnswer={() => { track('before_after_consult', {}); openConsultWith(foundAnswerDraft(current), { bookIds: [current.id] }); }}
-                    />
-                  </>
-                );
-              })()}
+              {current.status === 'done' && (doneQuestionsNow.length > 0 || beforeItemsNow.length > 0) && (
+                <>
+                  <DoneQuestions
+                    questions={doneQuestionsNow}
+                    onPick={(q) => { dismissStatusUndo(current.id); track('done_question', { q: q.key }); setQuickMemoPrompt(q); setQuickMemoOpen(true); }}
+                    onDismiss={() => { dismissDoneQuestions(current.id); setDoneQTick((n) => n + 1); }}
+                  />
+                  <BeforeAfter
+                    items={beforeItemsNow}
+                    onFoundAnswer={() => { dismissStatusUndo(current.id); track('before_after_consult', {}); openConsultWith(foundAnswerDraft(current), { bookIds: [current.id], from: 'beforeAfter' }); }}
+                  />
+                </>
+              )}
             </div>
           ) : null}
           {/* 畳む見出しが続くときは 12（「この本のまとめ」の直後）。 */}
@@ -4942,7 +4941,8 @@ function AuthedApp() {
 
           {/* 💡 読了直後の「一番の収穫」導線 — 感情のピークで 1 行の言語化を促す
               （レバレッジ読書の核心。未記入のときだけ出る＝書けば消える）。行動のすぐ後・読書計画より上。 */}
-          {current.status === 'done' && !(current.roiSummary || '').trim() && (
+          {/* 3 つの問いが出ている間は出さない（読み終えた直後に「書いて」が 2 か所に並ばないように・2026-10-11 ui-critic） */}
+          {current.status === 'done' && !(current.roiSummary || '').trim() && doneQuestionsNow.length === 0 && (
             <div style={{ ...cardStyle, marginTop: 'var(--space-6)' }}>
               <p style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', margin: 0 }}>一番の収穫を 1 行だけ残す</p>
               <button type="button" onClick={() => openEdit(current)} style={textBtnInCard}>
@@ -5114,7 +5114,10 @@ function AuthedApp() {
               frequentTags={frequentMemoTags(currentMemoOps.memos, allTags)}
               onClose={() => { setQuickMemoOpen(false); setQuickMemoPrompt(null); setOcrIntentAt(null); }}
               onCreate={async (payload) => {
-                const result = await currentMemoOps.createMemo(payload);
+                // 📗 読了の問いから書いたメモは、頭に「問い：…」の 1 行を残す（相談の材料で、自分の反論などを著者の主張と取り違えないため）。
+                const result = await currentMemoOps.createMemo(quickMemoPrompt
+                  ? { ...payload, text: promptedMemoText(quickMemoPrompt.text, payload?.text, LIMITS.memoText) }
+                  : payload);
                 // 📗 読了の問いから書いたメモ: その問いを消す（端末に覚える）。「明日から何を変える？」だけ知らせに「行動に追加」。
                 const fromPrompt = result && quickMemoPrompt ? quickMemoPrompt.key : null;
                 if (fromPrompt && current?.id) {
@@ -5138,7 +5141,8 @@ function AuthedApp() {
                 // 🎯 保存直後に「行動にする」を 1 タップで提案（カード式と同じ動線）。
                 // クイックメモは最頻の書き込み経路なので、ここが出ないと大多数の
                 // メモが「保存して終わり」になる。
-                const actionText = (result?.text ?? payload?.text ?? '').trim();
+                // 問いから書いたメモの行動の文は、本文だけ（頭の「問い：…」は入れない）。
+                const actionText = (fromPrompt ? (payload?.text ?? "") : (result?.text ?? payload?.text ?? "")).trim();
                 // 知らせはシートが「閉じている途中」になってから出す（onCreate のあとでシートが閉じ始めるので、
                 // すぐ出すと開いたシートの上＝画面の下端に出てからタブの上へ 160px 跳ねていた・2026-09-30）。
                 afterSheetCloses(() => {

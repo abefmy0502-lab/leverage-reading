@@ -20,17 +20,17 @@ describe('DoneQuestions', () => {
 
 describe('BeforeAfter', () => {
   it('書いたことが無ければ何も描かない', () => {
-    expect(renderToStaticMarkup(<BeforeAfter items={[]} memos={[]} />)).toBe('');
+    expect(renderToStaticMarkup(<BeforeAfter items={[]} />)).toBe('');
   });
-  it('読む前に書いたこと → 読んで残したメモ → 答えは見つかった？', () => {
+  it('読む前に書いたこと → 答えは見つかった？（メモの抜き出しは出さない）', () => {
     const html = text(renderToStaticMarkup(
       <BeforeAfter
         items={[{ key: 'purpose', label: 'この本から得たいこと', text: '成果を測りたい' }]}
-        memos={[{ id: 'm1', text: '数字で測る', pageNumber: 12 }]}
         onFoundAnswer={() => {}}
       />,
     ));
-    const order = ['読む前に書いたこと', 'この本から得たいこと', '成果を測りたい', '読んで残したメモ', 'p.12', '数字で測る', '答えは見つかった？'].map((t) => html.indexOf(t));
+    expect(html).not.toContain('読んで残したメモ');
+    const order = ['読む前に書いたこと', 'この本から得たいこと', '成果を測りたい', '答えは見つかった？'].map((t) => html.indexOf(t));
     order.forEach((i) => expect(i).toBeGreaterThanOrEqual(0));
     expect([...order].sort((a, b) => a - b)).toEqual(order);
   });

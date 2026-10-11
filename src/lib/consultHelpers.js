@@ -374,7 +374,7 @@ export function buildConsultExamples({ books = [], memoBookIds = null, lastConsu
   }
 
   WORRY_EXAMPLES.forEach((w) => push(w, 'worry'));
-  // 📕 積読から答える（2026-10-11）: 積読が 1 冊以上あれば「積読から、今の悩みに合う本は？」を必ず 1 つ。
+  // 📕 積読から答える（2026-10-11）: 積読が 1 冊以上あれば「まだ読んでいない本から、今の悩みに合う本は？」を必ず 1 つ。
   //   空きがあれば足し、無ければ入れ替える。入れ替えるのは よくある困りごと → 本 → 課題 → 本の困りごと の順に最後のもの
   //   （やってみた行動の次・前の相談の続きは押しのけない）。
   if (count > 0 && hasTsundoku(list) && !out.some((e) => e.text === UNREAD_EXAMPLE)) {
@@ -394,8 +394,8 @@ export function buildConsultExamples({ books = [], memoBookIds = null, lastConsu
   return out;
 }
 
-/** 相談例「積読から、今の悩みに合う本は？」（積読が 1 冊以上あるときだけ・lib/unreadBooks.js）。 */
-export const UNREAD_EXAMPLE = '積読から、今の悩みに合う本は？';
+/** 相談例「まだ読んでいない本から、今の悩みに合う本は？」（積読が 1 冊以上あるときだけ・lib/unreadBooks.js）。 */
+export const UNREAD_EXAMPLE = 'まだ読んでいない本から、今の悩みに合う本は？';
 export function hasTsundoku(books) {
   return (Array.isArray(books) ? books : []).some((b) => b && b.status === 'before' && String(b.title || '').trim());
 }

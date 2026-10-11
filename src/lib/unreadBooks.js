@@ -108,5 +108,5 @@ export function unreadBooksInAnswer(text, books, { max = 3 } = {}) {
   return out;
 }
 
-// 相談例「積読から、今の悩みに合う本は？」は lib/consultHelpers.js（buildConsultExamples・循環を避けてそちらに置く）。
+// 相談例「まだ読んでいない本から、今の悩みに合う本は？」は lib/consultHelpers.js（buildConsultExamples・循環を避けてそちらに置く）。
 export { UNREAD_EXAMPLE, hasTsundoku } from './consultHelpers';

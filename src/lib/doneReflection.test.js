@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   DONE_QUESTIONS, DONE_QUESTIONS_DAYS, visibleDoneQuestions, readDoneQuestionState, markDoneQuestionAnswered,
-  dismissDoneQuestions, beforeReadingItems, foundAnswerDraft, pickAfterMemos,
+  dismissDoneQuestions, beforeReadingItems, foundAnswerDraft, visibleBeforeItems, promptedMemoText,
 } from './doneReflection';
 
 const mem = () => {
@@ -46,21 +46,23 @@ describe('読む前と読んだ後', () => {
     expect(beforeReadingItems(book).map((x) => x.label)).toEqual(['この本から得たいこと', '仮説']);
     expect(beforeReadingItems({})).toEqual([]);
   });
-  it('「答えは見つかった？」の下書き（最初に書いたこと・40 字まで）', () => {
-    expect(foundAnswerDraft(book)).toBe('読む前に『チームの成果をきちんと測って伸ばしたい』と書いていました。答えは見つかった？');
+  it('「読む前に書いたこと」も読了から 14 日だけ', () => {
+    const b = { ...book, doneDate: '2026-10-01' };
+    expect(visibleBeforeItems(b, at(2026, 10, 15))).toHaveLength(2);
+    expect(visibleBeforeItems(b, at(2026, 10, 16))).toEqual([]);
+    expect(visibleBeforeItems({ ...b, doneDate: null }, at(2026, 10, 2))).toEqual([]);
+  });
+  it('「答えは見つかった？」の下書き（最初に書いたこと・40 字まで・書名の印『』は使わない）', () => {
+    expect(foundAnswerDraft(book)).toBe('読む前に「チームの成果をきちんと測って伸ばしたい」と書いていました。答えは見つかった？');
     const long = foundAnswerDraft({ investPurpose: 'あ'.repeat(80) });
-    expect(long).toContain('…』と書いていました');
-    expect(foundAnswerDraft({ hypothesis: '『本』で変わる' })).toBe('読む前に『「本」で変わる』と書いていました。答えは見つかった？');
+    expect(long).toContain('…」と書いていました');
+    expect(foundAnswerDraft({ hypothesis: '「数字」で変わる' })).toBe('読む前に「『数字』で変わる」と書いていました。答えは見つかった？');
     expect(foundAnswerDraft({})).toBe('');
   });
-  it('並べるメモは言葉の重なりが多い順・無ければ新しい順', () => {
-    const memos = [
-      { id: 'm1', text: '朝の会議は短くする', createdAt: '2026-10-03' },
-      { id: 'm2', text: '成果を数字で測ると、チームが動く', createdAt: '2026-10-01' },
-      { id: 'm3', text: '', createdAt: '2026-10-05' },
-    ];
-    expect(pickAfterMemos(beforeReadingItems(book), memos, 1).map((m) => m.id)).toEqual(['m2']);
-    expect(pickAfterMemos([{ text: 'xyz' }], memos, 2).map((m) => m.id)).toEqual(['m1', 'm2']);
-    expect(pickAfterMemos(beforeReadingItems(book), [], 2)).toEqual([]);
+  it('問いから書いたメモは頭に「問い：…」の 1 行', () => {
+    expect(promptedMemoText('あえて反論するなら？', '数字だけでは測れない')).toBe('問い：あえて反論するなら？\n数字だけでは測れない');
+    expect(promptedMemoText('', '本文')).toBe('本文');
+    expect(promptedMemoText('問い', '   ')).toBe('   ');
+    expect(promptedMemoText('長い問い', 'あ'.repeat(10), 8)).toHaveLength(8);
   });
 });

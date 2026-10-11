@@ -722,7 +722,8 @@ function aiReply(store, payload, aiMode = '') {
     //   結論のあとに 1 文で挙げる（中身は語らない・書誌の紹介の言葉だけ）。
     const unread = (userText.match(/===== UNREAD_BOOKS_START =====\n([\s\S]*?)\n===== UNREAD_BOOKS_END/) || [])[1] || '';
     const firstUnread = (unread.match(/◆『([^』]+)』/) || [])[1];
-    if (firstUnread && /積読|読んでいない/.test(q[1])) {
+    // 続きの回（ここで答えと行動を）でも、会話のはじめに積読を尋ねていれば挙げる（塊の後ろ＝会話と質問に含まれるか）。
+    if (firstUnread && /積読|読んでいない/.test(userText.split('===== UNREAD_BOOKS_END =====')[1] || '')) {
       return answer.replace(/【結論】\n([^\n]*)/, (m, line) => `【結論】\n${line}\n積読にある『${firstUnread}』が、この悩みに役立ちそうです。紹介を読むと、いまの状況に近い話を扱っています。`);
     }
     return answer;

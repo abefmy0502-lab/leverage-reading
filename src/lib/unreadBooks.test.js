@@ -71,7 +71,7 @@ describe('unreadBooksInAnswer', () => {
   });
 });
 
-describe('相談例「積読から、今の悩みに合う本は？」', () => {
+describe('相談例「まだ読んでいない本から、今の悩みに合う本は？」', () => {
   it('積読が 1 冊以上あるときだけ、3 つのうち最後に', () => {
     const withT = buildConsultExamples({ books: [book('a', 'before', '本A')], memoBookIds: new Set(), count: 3 });
     expect(withT).toHaveLength(3);

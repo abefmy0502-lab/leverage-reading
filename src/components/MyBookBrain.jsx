@@ -653,6 +653,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // 🌱 初日の「相談してみる」で入力欄に入れた相談（2026-10-02・askPreset.from === 'firstDay'）。送るまでは、見出しと
   //   「たとえば」を出したまま、入れた相談を選んだ状態で見せる（ふだんの下書きは入力欄だけを主役にする）。
   const [firstDayDraft, setFirstDayDraft] = useState(null);
+  // 📗 読了の「答えは見つかった？」から入れた下書き（2026-10-11・askPreset.from === 'beforeAfter'）。下書きが入力欄にあるあいだ、
+  //   会話のいちばん上に見出し「読む前の問いに、答えは見つかった？」と「送るまでトークンは使いません」（初日の相談と同じ組み立て）。
+  const [beforeAfterDraft, setBeforeAfterDraft] = useState(null);
   const [statsTick, setStatsTick] = useState(0);
   const messagesEndRef = useRef(null);
   // ストリーミング中の AbortController。送信ごとに作り直し、「中止」ボタンで
@@ -1591,6 +1594,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     if (askPreset.draft) {
       setInput(askPreset.question);
       setFirstDayDraft(askPreset.from === 'firstDay' ? askPreset.question : null);
+      setBeforeAfterDraft(askPreset.from === 'beforeAfter' ? askPreset.question : null);
       // カーソルは、下書きが入って入力欄が描き直されたあと（下の effect）で置く（setTimeout の 80ms では、
       // 相談タブを開く動きの途中で入力欄がまだ無いことがあり、フォーカスの輪が出なかった・2026-10-02 ui-critic）。
       // 行動の結果・思い出しカード・相談相手が育ちましたから（focus: false）は置かない（戻り先と相談相手の行を見せたまま）。
@@ -2353,6 +2357,12 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                     「相談で探す」は困りごとの相談ではないので、主役を入力欄に・2026-09-30）。
                     ただし初日の「相談してみる」で入れた相談（firstDayDraft）は、見出しと「たとえば」を残し、入れた相談を
                     選んだ状態で見せる（押すと入力欄に入れ替わる＝送るのは送信を押したとき・2026-10-02）。 */}
+                {beforeAfterDraft && input.trim() === beforeAfterDraft && (
+                  <div style={{ marginBottom: 'var(--space-6)' }}>
+                    <h2 id="brain-empty-title" style={{ ...headingStyle, margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('読む前の問いに、答えは見つかった？')}</h2>
+                    <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>送るまでトークンは使いません</p>
+                  </div>
+                )}
                 {(!input.trim() || firstDayDraft) && <>
                 <h2 id="brain-empty-title" style={{ ...headingStyle, marginBottom: 'var(--space-6)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('困っていることを、相談してください')}</h2>
                 <p style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>たとえば</p>
@@ -3595,7 +3605,18 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
   // 参照したメモを出すか: 照合の結果があればそのうち出せるもの（'x' 以外）・結果が無い古い答えは AI の文（p.refs）。
   //   全部が渡したメモに無い参照（'x'）で、解釈・もとになった本・踏まえたことも無ければ「根拠を見る」ごと出さない（2026-10-04 ui-critic）。
   const showRefChecks = (p) => (refChecksAll.length > 0 ? refChecks.length > 0 : !!p.refs);
-  const renderDetails = (p) => ((showRefChecks(p) || p.interp || refsList.length > 0 || actedCount > 0) ? (
+  // 📕 答えに出てきた、まだ読んでいない本の行（本の行＝表紙 44・書名・状態 · 著者・›）。
+  const renderUnreadBooks = (mt) => (unreadInAnswer.length > 0 ? (
+    <div style={{ marginTop: mt }} role="list" aria-label="まだ読んでいない本">
+      <p style={subLabel}>本棚にある、まだ読んでいない本</p>
+      {unreadInAnswer.map((b, i) => (
+        <div role="listitem" key={b.id}>
+          <LibrarySearchHit inline divider={i > 0} showRating={false} result={{ book: b, hit: null }} onOpen={(bk) => { if (bk?.id && onOpenBook) onOpenBook(bk); }} />
+        </div>
+      ))}
+    </div>
+  ) : null);
+  const renderDetails = (p) => ((showRefChecks(p) || p.interp || refsList.length > 0 || actedCount > 0 || (p.question && unreadInAnswer.length > 0)) ? (
     <details style={{ marginTop: 'var(--space-3)' }}>
       <summary style={summaryStyle}>
         {/* 見出しは書いたばかりの答えと過去の相談で同じ「根拠を見る」だけ（過去の相談にだけ「（N 冊のメモ）」が付いて
@@ -3604,6 +3625,8 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
         <ChevronDown size={20} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
       </summary>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)', paddingBottom: 'var(--space-1)' }}>
+        {/* 聞き返している回は、まだ読んでいない本を根拠の中のいちばん上に（結論の下に置くと問いの箱が押し下げられる・2026-10-11 ui-critic） */}
+        {p.question && renderUnreadBooks(0)}
         {!showRefChecks(p) ? null : refChecks.length > 0 ? (
           // 引用を実際のメモと突き合わせた結果（evidenceCheck.js）: 一致したものは保存しているメモの文そのもの、
           // 一致しない引用は見せない（作った引用を「あなたのメモ」として出さない）。
@@ -3937,17 +3960,8 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
             ))}
           </div>
           {/* 📕 積読から答える（2026-10-11）: 答えに『書名』で出てきた、まだ読んでいない本（本棚の本と同じ確かめ方）。押すと本の詳細へ。
-              結論のすぐ下（結論の中で挙げた本なので・問いの箱より上）。 */}
-          {unreadInAnswer.length > 0 && (
-            <div style={{ marginTop: 'var(--space-3)' }} role="list" aria-label="まだ読んでいない本">
-              <p style={subLabel}>本棚にある、まだ読んでいない本</p>
-              {unreadInAnswer.map((b, i) => (
-                <div role="listitem" key={b.id}>
-                  <LibrarySearchHit inline divider={i > 0} showRating={false} result={{ book: b, hit: null }} onOpen={(bk) => { if (bk?.id && onOpenBook) onOpenBook(bk); }} />
-                </div>
-              ))}
-            </div>
-          )}
+              答えと行動をまとめた回（問いの無い答え）だけ結論のすぐ下。聞き返している回は「根拠を見る」の中（renderDetails）。 */}
+          {!parsed.question && renderUnreadBooks('var(--space-3)')}
           {/* 本を探す問い: 見つかったメモの行を結論のすぐ下に開いて並べる（「根拠を見る」の代わり）。 */}
           {lookupRows.length > 0 && (
             <div style={{ marginTop: 'var(--space-3)' }} role="list" aria-label="見つかったメモ">

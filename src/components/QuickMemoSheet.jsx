@@ -486,8 +486,9 @@ export default function QuickMemoSheet({
           )}
           <div>
             {prompt && (
-              // 問いは入力欄の見出し（17/600・読む文章ではなく UI の文字）。入力欄とは 8 離す。
-              <p id="quick-memo-prompt" style={{ margin: '0 0 var(--space-2)', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5 }}>
+              // 問いは明朝 18・600（題の書名＝UI の 17/600 と見分ける・2026-10-11 ui-critic）。入力欄とは 8 離す。
+              //   保存すると、メモの頭に「問い：…」の 1 行として残る（App.jsx・lib/doneReflection.js の promptedMemoText）。
+              <p id="quick-memo-prompt" style={{ margin: '0 0 var(--space-2)', fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5 }}>
                 {withPhraseBreaks(prompt)}
               </p>
             )}
@@ -636,7 +637,8 @@ export default function QuickMemoSheet({
           )}
         </div>
 
-        <div style={footerStyle}>
+        {/* 知らせ（Toast）はこの欄の上に浮かべる（保存の下に重ねない・2026-10-11 ui-critic） */}
+        <div style={footerStyle} data-toast-above="">
           <button type="button" style={saveBtn(busy || !text.trim())} onClick={handleSave} disabled={busy || !text.trim()}>
             {busy ? '保存中…' : '保存'}
           </button>
