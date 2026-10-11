@@ -125,7 +125,10 @@ export default defineConfig({
     __BUILD_DATE__: JSON.stringify(BUILD_DATE),
   },
   build: {
-    sourcemap: true,
+    // 本番は .map を作らない（2026-10-11 リリース前点検 中2）。dist は Vercel の公開と iOS（cap sync）の
+    // 両方にそのまま入るので、作ると元のソースが誰でも読める。Sentry 等へ上げる仕組みはまだ無いので
+    // 'hidden' ではなく false。上げる仕組みを足すときは 'hidden' にして、上げたあと dist から消す。
+    sourcemap: false,
     // 800KB 超の単一バンドルを「滅多に変わらない vendor」と「アプリ本体」に分割。
     // vendor はデプロイ間でハッシュが変わらず長期キャッシュが効くので、更新時の
     // 再ダウンロード量が激減し、初回も並列ロードで体感が速くなる。
