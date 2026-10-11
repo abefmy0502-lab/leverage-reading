@@ -361,7 +361,7 @@ want(読みたい) → before(積読) → reading(読書中) → done(読了)
 - `X-Frame-Options: DENY`、`X-Content-Type-Options: nosniff`、`Referrer-Policy: strict-origin-when-cross-origin`
 - `Permissions-Policy: camera=(self), microphone=(), geolocation=()`
 - `Strict-Transport-Security: max-age=31536000; includeSubDomains`
-- `Content-Security-Policy`: `default-src 'self'` ベースでホワイトリスト制（Supabase / Anthropic / Google Books / openBD / NDL / Amazon 画像（images-na・images-fe・m.media-amazon）/ 楽天ブックス画像(`thumbnail.image.rakuten.co.jp`, img-src のみ) / Open Library の表紙の転送先 `*.archive.org`（img-src のみ・2026-09-30）を許可。表紙の配信元を足したら `img-src` と `api/_coverImageUrl.js` の許可リストの両方に。楽天 API 本体はサーバー(`api/cover.js` の表紙リゾルバ)経由なので connect-src 不要）
+- `Content-Security-Policy`: `default-src 'self'` ベースでホワイトリスト制（Supabase / Anthropic / Google Books / openBD / NDL / Amazon 画像（images-na・images-fe・m.media-amazon）/ 楽天ブックス画像(`thumbnail.image.rakuten.co.jp`, img-src のみ) / Open Library の表紙の転送先 `*.archive.org`（img-src のみ・2026-09-30）を許可。表紙の配信元を足したら `img-src` と `api/_coverImageUrl.js` の許可リストの両方に。楽天 API 本体はサーバー(`api/cover.js` の表紙リゾルバ)経由なので connect-src 不要）。**iOS アプリ**はヘッダーが付かないので、ビルドのときに同じ CSP を `<meta http-equiv>` で index.html に入れる（`vite.config.js` の `cspMeta`＝`scripts/cspMeta.mjs`・connect-src と img-src に `VITE_SITE_URL` の絶対 URL を足し・meta で効かない frame-ancestors は外す・開発中とお試しモードには入れない・2026-10-11）。vercel.json の CSP を変えれば両方に効く
 
 ### AI に送る前の同意（App Review 5.1.2(i)・2026-10-01）
 

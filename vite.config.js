@@ -4,6 +4,7 @@ import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { RELEASES } from './src/lib/releaseNotes.js';
+import { cspForMeta } from './scripts/cspMeta.mjs';
 
 // 本番の sourcemap は出さない（build.sourcemap のコメント・2026-10-11）。
 
@@ -80,6 +81,32 @@ function smartAppBanner() {
   };
 }
 
+// 🛡 iOS アプリ用の CSP（2026-10-11 リリース前点検 低10）。Web は vercel.json のヘッダーで守っているが、
+// iOS アプリは capacitor://localhost から端末の中のファイルを開くのでヘッダーが付かない。ビルドのときだけ、
+// vercel.json と同じ許可の範囲を <meta http-equiv="Content-Security-Policy"> で index.html に入れる。
+//   - iOS の 'self' は capacitor://localhost なので、自前の API（/api/*）と表紙の中継の絶対 URL
+//     （VITE_SITE_URL・既定 https://orime.vercel.app＝lib/apiUrl.js）を connect-src と img-src に足す
+//   - meta では効かない frame-ancestors は外す（Web はヘッダーで効く）
+//   - 開発中（npm run dev / npm run demo）は入れない（Vite の HMR とインラインのスクリプトが要るため）
+function cspMeta() {
+  return {
+    name: 'csp-meta',
+    apply: 'build',
+    transformIndexHtml(html) {
+      try {
+        const vercel = JSON.parse(fs.readFileSync(path.resolve('vercel.json'), 'utf8'));
+        const header = (vercel.headers || []).flatMap((h) => h.headers || []).find((h) => h.key === 'Content-Security-Policy');
+        if (!header) return html;
+        const site = (process.env.VITE_SITE_URL || 'https://orime.vercel.app').replace(/\/+$/, '');
+        const content = cspForMeta(header.value, site).replace(/"/g, '&quot;');
+        return html.replace('<meta charset="UTF-8" />', `<meta charset="UTF-8" />\n  <meta http-equiv="Content-Security-Policy" content="${content}" />`);
+      } catch {
+        return html; // 読めなければ入れない（ビルドは止めない・Web はヘッダーで守られている）
+      }
+    },
+  };
+}
+
 // 🆕 「新しくなったこと」（src/lib/releaseNotes.js）を /release-notes.json として書き出す（2026-10-05）。
 // Web の「アプリの新しい版があります」は古いコードのまま動いているので、新しい版の中身はこの JSON を
 // network-first で読んで見せる（lib/whatsNew.js の fetchUpcomingReleases）。開発中は同じ URL で今のファイルを返す。
@@ -107,7 +134,7 @@ function releaseNotesJson() {
 }
 
 export default defineConfig({
-  plugins: [react(), stampServiceWorkerVersion(), siteUrlInHtml(), smartAppBanner(), releaseNotesJson()],
+  plugins: [react(), stampServiceWorkerVersion(), siteUrlInHtml(), smartAppBanner(), releaseNotesJson(), cspMeta()],
   resolve: {
     alias: [
       // ⚡ Realtime は使っていないので、supabase-js が起動時に作る RealtimeClient を空の部品に替える
