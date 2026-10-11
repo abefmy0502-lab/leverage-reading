@@ -1630,7 +1630,7 @@ details[open] > summary .fold-chevron { transform: rotate(180deg); }
   pointer-events: none;
 }
 
-/* 👉 押せる場所へ目を向ける軽い強調（本が 0 冊で「写真で共有」を押したときの「これまで読んだ本から始める」・2026-10-09）。
+/* 👉 押せる場所へ目を向ける軽い強調（本が 0 冊で「写真で共有」を押したときの「読んだ本に一言ずつ残す」・2026-10-09）。
    大きさを 1 回だけ少し弾ませる（色は変えない・reduce motion では index.css の全体の抑制で止まる）。 */
 @keyframes lvg-nudge-pulse {
   0%, 100% { transform: scale(1); }

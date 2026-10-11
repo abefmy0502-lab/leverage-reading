@@ -182,7 +182,7 @@ import { getRakutenLink } from './lib/rakutenLink';
 import { loadNavState, saveNavState } from './lib/navState';
 import { consultCanLeave } from './lib/consultBack';
 import { actionGist, firstConsultQuestion } from './lib/consultHelpers';
-import { takeOnboardPathDone } from './lib/firstDay';
+import { takeOnboardPathDone, GROWTH_GOAL } from './lib/firstDay';
 import { withPhraseBreaks } from './components/TightBubble';
 import {
   BookOpen,
@@ -1711,7 +1711,7 @@ function AuthedApp() {
     setAddBookModalOpen(true);
   };
 
-  // 📷 本が 0 冊で「写真で共有」を押したとき（2026-10-09 ui-critic）: ホームの「これまで読んだ本から始める」へ
+  // 📷 本が 0 冊で「写真で共有」を押したとき（2026-10-09 ui-critic）: ホームの「読んだ本に一言ずつ残す」へ
   //   目と指を送る（フォーカス＋画面の中ほどへ＋軽く弾ませる＋ハプティクス）。見つからなければ本を追加を開く。
   //   弾ませるだけでは押した理由が分からないので、アプリを開いている間に 1 回だけ理由を 1 行で知らせる（2026-10-10 第 9 回 総点検）。
   const firstStepToldRef = useRef(false);
@@ -5715,9 +5715,23 @@ function AuthedApp() {
                 // シートが閉じ始めてから知らせを出す（本の詳細のメモを書くと同じ・2026-09-30）。
                 // ほかの本の似たメモをホームに出すときは、知らせに「行動に追加」を付けない（次の一歩は似たメモの 1 行だけ）。
                 const hasLinks = !!(result?.id && b?.id && actionText) && homeLinkFinder.find({ text: actionText, bookId: b.id, memoId: result.id }).length > 0;
-                afterSheetCloses(() => {
+                // 🌱 自分のメモが 10 件未満の間は「行動に追加」の代わりに「相談してみる」（ページを撮るの道と同じ動き＝
+                //   自分のメモから作った相談を入力欄に入れて相談を開く・送らない・2026-10-11 オーナー判断）。数えられなければ今どおり。
+                const countP = user?.id && supabaseClient
+                  ? Promise.resolve(supabaseClient.from('book_memos').select('id', { count: 'exact', head: true }).eq('user_id', user.id))
+                    .then((r) => (r && !r.error && typeof r.count === 'number' ? r.count : null), () => null)
+                  : Promise.resolve(null);
+                afterSheetCloses(async () => {
+                const ownCount = hasLinks ? null : await countP;
                 if (hasLinks) {
                   bindToastToBook(b.id, toast.success('保存しました。'));
+                } else if (b?.id && ownCount != null && ownCount < GROWTH_GOAL) {
+                  bindToastToBook(b.id, toast.show({
+                    type: 'success',
+                    message: '保存しました。',
+                    duration: 6000,
+                    action: { label: '相談してみる', onClick: () => openConsultDraft(firstConsultQuestion({ books: [b, ...books.filter((x) => x.id !== b.id)], memoBookIds: new Set([b.id]) }), 'home_memo') },
+                  }));
                 } else if (actionText && b?.id) {
                   bindToastToBook(b.id, toast.show({
                     type: 'success',
@@ -5975,11 +5989,11 @@ function AuthedApp() {
                     actions={[
                       { label: '本を追加', onClick: openAdd, variant: 'primary', icon: <IcPlus size={18} aria-hidden="true" /> },
                     ]}
-                    // 脇の入口は「これまで読んだ本から始める」（ホームの本 0 冊と同じ入口・無料で使える）。
+                    // 脇の入口は「読んだ本に一言ずつ残す」（ホームの本 0 冊と同じ入口・無料で使える）。
                     // AI 選書は有料プランだけなので、最初の一歩には出さない。
                     tip={(
                       <button type="button" onClick={() => setShowQuickstart(true)} style={btnLink}>
-                        これまで読んだ本から始める
+                        読んだ本に一言ずつ残す
                       </button>
                     )}
                   />

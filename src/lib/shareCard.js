@@ -32,6 +32,7 @@ import {
   RECORD_QUOTE_MAX, recordFrame, placeRecordBlock, statColumns, splitStatValue, recordBlockPlan, recordTitleScale, recordTitleMaxLines,
   applyShareItems, shareVisibility, recordCoverPlacement, logoBox, LOGO_RULES, statsStackPlan, placeStatsStack, statColumnsScale, mainTitle, pickSubVariant, formatAuthors,
   magazineRecord, magazineLogoBox, magazineFooterItems,
+  shownStats,
 } from './shareOverlay';
 import { phraseLayout, phraseMetrics, phraseColors, phraseDisplayText, stickerPhraseReserve, PHRASE_MAGAZINE_GAP } from './sharePhrase';
 import { paletteFor } from './coverPalette';
@@ -983,7 +984,7 @@ function fitSubLines(ctx, rec, { width, font, size }) {
 function layoutRecord(ctx, fonts, o, F) {
   const rec = o.record || { kicker: '', title: '', stats: [] };
   const contentW = F.W - F.margin * 2;
-  const stats = (rec.stats || []).slice(0, 3);
+  const stats = shownStats(rec.stats); // 3 つまで（4 つならメモの数を外す・2026-10-11）
   // 数字を全部隠したときは書名を主役に（大きく・3 行まで）。
   const titleScale = recordTitleScale({ statsCount: stats.length });
   const titleSize = Math.round(F.titleSize * titleScale);
@@ -1290,7 +1291,7 @@ function drawRecordSticker(ctx, o, size) {
 
 function layoutStats(ctx, fonts, o, F) {
   const rec = o.record || { kicker: '', title: '', stats: [] };
-  const stats = (rec.stats || []).slice(0, 3);
+  const stats = shownStats(rec.stats); // 3 つまで（4 つならメモの数を外す・2026-10-11）
   // 写真の地は詰める（写真を見せる）。紙・夜・表紙の色・透明はゆったり。
   const compact = o.style === 'photo';
   const plan0 = statsStackPlan(F, { hasKicker: false, compact });

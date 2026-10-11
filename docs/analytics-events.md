@@ -23,7 +23,7 @@ props は数・真偽・32 字までの短い文字列だけ（本文・書名�
 |---|---|---|---|
 | `onboard_path` | 初回ガイドの最後の画面で道を選んだ・選ばずに閉じた（×・Esc） | `path`: `import` / `ocr` / `quickstart` / `skip`、`step`: 閉じた／選んだ画面（1 / 2） | `Onboarding.jsx` |
 | `onboard_path_done` | 初回ガイドで選んだ道を終えた（端末で 1 回） | `path`、取り込みは `memos`（入ったメモ＋まとめの数）、ページを撮るは `photo`（写真から書き起こした文を入れたか） | `App.jsx`（取り込みの保存・初日クイックスタートのメモ保存・メモのシートの保存） |
-| `try_consult` | 道を終えた画面の「相談してみる」（取り込み・ページを撮る）／初日クイックスタートの「相談する」を押した | `from`: `import` / `ocr` / `quickstart` | `App.jsx`・`PastBooksQuickstart.jsx` |
+| `try_consult` | 道を終えた画面の「相談してみる」（取り込み・ページを撮る）／初日クイックスタートの「相談する」を押した | `from`: `import` / `ocr` / `quickstart` / `home_memo`（ホームでメモを保存した知らせ・自分のメモが 10 件未満の間・2026-10-11） | `App.jsx`・`PastBooksQuickstart.jsx` |
 | `first_consult_sent` | はじめての相談（AI に送る相談）を送った。前の相談が履歴に無いときだけ・端末で 1 回 | `memos`: 自分のメモの件数（数えている途中は -1）、`path`: 初回ガイドで選んだ道（無ければ `none`）、`preset`: ほかの画面から入れた相談か | `MyBookBrain.jsx` |
 | `memos_reached_10` | メモ（カード式＋学び＋この本のまとめ）が 10 件になった。10 件より少ないのをこの端末で見たあとだけ（前からのユーザーはリリースの日に一斉に送らない）・端末で 1 回 | `memos`: その時の件数、`where`: `home` / `consult` | `HomeScreen.jsx`・`MyBookBrain.jsx` |
 

@@ -20,6 +20,7 @@ import { firstConsultSuggestions, memoExampleForBook, countSummaryMemos, fmtToke
 import { X, Search, SearchX, Check, ChevronLeft, Plus } from 'lucide-react';
 import { usePaywall } from '../state/PaywallContext';
 import { remainingAnswersLabel } from '../lib/tokens';
+import { showFreeTokenCount } from '../lib/tokenAmounts';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from './Toast';
@@ -196,7 +197,7 @@ function ResultsSkeleton() {
 export default function PastBooksQuickstart({ books = [], initialBooks = null, onSaveBook, onAsk, onClose, onWriteMemo, onImport, onMarkRead, onMemosAdded }) {
   const { user } = useAuth();
   const toast = useToast();
-  const { freeMode, freeRemaining, freeFirstMonth, tokenAllowance } = usePaywall();
+  const { freeMode, freeRemaining, freeFirstMonth } = usePaywall();
   const trapRef = useFocusTrap(true);
   // 本棚の本から始める（取り込みのあと）: 一言の段から。onShelf＝保存しなくても本棚にある本。
   const seeded = Array.isArray(initialBooks) && initialBooks.length > 0;
@@ -422,7 +423,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
   const titlePicked = titleOnlyBook && isPicked(titleOnlyBook);
 
   return (
-    <div ref={trapRef} role="dialog" aria-modal="true" aria-label="これまで読んだ本から始める" style={overlay}>
+    <div ref={trapRef} role="dialog" aria-modal="true" aria-label="読んだ本に一言ずつ残す" style={overlay}>
       {header}
 
       {/* ===== 1 / 3 本をえらぶ ===== */}
@@ -710,8 +711,9 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
                   // （AI の答え 1 回 約 10 トークン・はじめの月は「（はじめの月は 60 トークン）」を添える・2026-10-09）
                   // （「・」でつなぐと 390 幅で途中から折り返し、切れる場所が毎回変わる＝相談の MyBookBrain と同じ理由）。
                   <p style={{ ...sub, margin: 'calc(-1 * var(--space-2)) 0 var(--space-3)', fontVariantNumeric: 'tabular-nums' }}>
-                    <span style={{ display: 'block', whiteSpace: 'nowrap' }}>今月の残り {fmtTokens(freeRemaining)} トークン</span>
-                    <span style={{ display: 'block' }}><span style={{ whiteSpace: 'nowrap' }}>AI の答え {remainingAnswersLabel(freeRemaining)}</span>{freeFirstMonth && <span style={{ whiteSpace: 'nowrap' }}>（はじめの月は {fmtTokens(tokenAllowance)} トークン）</span>}</span>
+                    {/* 🪙 「AI の答え 約 N 回」だけ。トークンの数は残り 20 以下のときだけ・はじめの月は数を言わない（2026-10-11）。 */}
+                    {showFreeTokenCount(freeRemaining) && <span style={{ display: 'block', whiteSpace: 'nowrap' }}>今月の残り {fmtTokens(freeRemaining)} トークン</span>}
+                    <span style={{ display: 'block' }}><span style={{ whiteSpace: 'nowrap' }}>AI の答え {remainingAnswersLabel(freeRemaining)}</span>{freeFirstMonth && <span style={{ whiteSpace: 'nowrap' }}>（はじめの月）</span>}</span>
                   </p>
                 )}
                 <textarea

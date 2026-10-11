@@ -150,3 +150,25 @@ describe('jstDayKey（AI に渡す日付・2026-10-10 監査）', () => {
     expect(src).not.toMatch(/String\(m\.created_at\)\.slice\(0, 10\)/);
   });
 });
+
+// 🪙 無料プランのトークンの見せ方（2026-10-11）: ふだんは「AI の答え 約 N 回」だけ・数は残り 20 以下のときだけ。
+describe('showFreeTokenCount', () => {
+  it('残り 20 トークン以下（0 より多い）のときだけ数を出す', async () => {
+    const { showFreeTokenCount, LOW_TOKENS_SHOW } = await import('./tokenAmounts.js');
+    expect(LOW_TOKENS_SHOW).toBe(20);
+    expect(showFreeTokenCount(60)).toBe(false);
+    expect(showFreeTokenCount(30)).toBe(false);
+    expect(showFreeTokenCount(21)).toBe(false);
+    expect(showFreeTokenCount(20)).toBe(true);
+    expect(showFreeTokenCount(3)).toBe(true);
+    expect(showFreeTokenCount(0)).toBe(false);
+    expect(showFreeTokenCount(null)).toBe(false);
+  });
+  it('はじめの月の 60 を画面で 2 回言わない（相談の上の行・初日クイックスタートのできあがり）', async () => {
+    const { readFileSync } = await import('node:fs');
+    for (const f of ['../components/MyBookBrain.jsx', '../components/PastBooksQuickstart.jsx']) {
+      const src = readFileSync(new URL(f, import.meta.url), 'utf8');
+      expect(src).not.toMatch(/はじめの月は \{fmtTokens/);
+    }
+  });
+});

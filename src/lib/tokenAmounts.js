@@ -32,6 +32,14 @@ export function remainingAnswersLabel(tokens) {
   return `約 ${n.toLocaleString('ja-JP')} 回`;
 }
 
+// 🪙 無料プランの画面（相談の上の行・初日クイックスタートのできあがり）では「AI の答え 約 N 回」だけを見せ、
+//    トークンの数は残りが少ないとき（20 トークン以下）だけ添える（設定の画面はいつも数を出す・2026-10-11 オーナー判断）。
+export const LOW_TOKENS_SHOW = 20;
+export function showFreeTokenCount(remaining) {
+  const t = Number(remaining);
+  return Number.isFinite(t) && t > 0 && t <= LOW_TOKENS_SHOW;
+}
+
 // 🌱 はじめの月か（アカウントを作った日本時間の月＝いまの日本時間の月）。表示だけ（決めるのはサーバー）。
 //    createdAt が読めなければ false（サーバーと同じく毎月の量で見せる）。
 export function isFreeFirstMonth(createdAt, now = Date.now()) {

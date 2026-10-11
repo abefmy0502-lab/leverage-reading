@@ -205,6 +205,17 @@ function pushReadingStat(stats, readingSec) {
   if (value) stats.push({ key: 'reading', label: '読書', value });
 }
 
+// 画像に描く数字（3 つまで）。4 つそろうとき（今月・今年の 読了・メモ・読書の時間・実行した行動）は、
+//   外から見て読書の量と成果が伝わる 読了・読書の時間・実行した行動 を出し、メモの数を外す（2026-10-11）。
+//   どれかが 0 で 3 つ以下ならメモも入る。表示する項目で外した数字は先に除いてから選ぶ（applyShareItems のあと）。
+export const STATS_MAX = 3;
+export function shownStats(stats) {
+  const list = Array.isArray(stats) ? stats.filter(Boolean) : [];
+  if (list.length <= STATS_MAX) return list;
+  const noMemos = list.filter((st) => st.key !== 'memos');
+  return (noMemos.length >= STATS_MAX ? noMemos : list).slice(0, STATS_MAX);
+}
+
 // 今月の記録（読了の冊数・今月のメモ・今月に実行した行動・読書の時間）。本が 1 冊も無くても作れる（数字の無い 1 枚）。
 // monthMemos は今月書いたメモ（件数だけ使う）。readingSec は今月の集中モードの合計秒（無ければ出さない）。
 export function monthRecord(books, monthMemos = [], now = new Date(), { readingSec = 0 } = {}) {
@@ -223,8 +234,7 @@ export function monthRecord(books, monthMemos = [], now = new Date(), { readingS
   const stats = [];
   if (finished.length) stats.push({ key: 'books', label: '読了', value: `${finished.length}冊` });
   if (memoCount) stats.push({ key: 'memos', label: 'メモ', value: `${memoCount}件` });
-  // 画像の数字は 3 つまで（shareCard の slice(0, 3)）。読書の時間は実行した行動より先＝4 つあるときは行動が出ない
-  //   （表示する項目でどれかを外すと出る・2026-10-11）。
+  // 画像の数字は 3 つまで。4 つそろうときはメモの数を外す（shownStats・2026-10-11）。
   pushReadingStat(stats, readingSec);
   if (actionsDone) stats.push({ key: 'actions', label: '実行した行動', value: `${actionsDone}件` });
   const subVariants = finishedSubVariants(finished);
@@ -280,8 +290,7 @@ export function yearRecord(books, yearMemos = [], now = new Date(), { memoCount 
   const stats = [];
   if (finished.length) stats.push({ key: 'books', label: '読了', value: `${finished.length}冊` });
   if (memos) stats.push({ key: 'memos', label: 'メモ', value: `${memos}件` });
-  // 画像の数字は 3 つまで（shareCard の slice(0, 3)）。読書の時間は実行した行動より先＝4 つあるときは行動が出ない
-  //   （表示する項目でどれかを外すと出る・2026-10-11）。
+  // 画像の数字は 3 つまで。4 つそろうときはメモの数を外す（shownStats・2026-10-11）。
   pushReadingStat(stats, readingSec);
   if (actionsDone) stats.push({ key: 'actions', label: '実行した行動', value: `${actionsDone}件` });
   const subVariants = finishedSubVariants(finished);

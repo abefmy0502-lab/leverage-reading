@@ -7,7 +7,7 @@ import {
   recordFrame, placeRecordBlock, statColumns, buildRecordShareText, recordBaseHeight, fmtMonthDay, fmtStamp, RECORD_QUOTE_MAX,
   recordBlockPlan, recordTitleScale, shareItemsFor, applyShareItems, shareVisibility, readHiddenItems, writeHiddenItems,
   SHARE_ITEMS_STORAGE_KEY, recordCoverPlacement, SHARE_ITEM_KEYS, readSharePrefs, writeSharePrefs, SHARE_PREFS_STORAGE_KEY,
-  stepVariant, logoBox, LOGO_RULES, statsStackPlan, placeStatsStack, statColumnsScale, STAT_COL_GAP,
+  shownStats, stepVariant, logoBox, LOGO_RULES, statsStackPlan, placeStatsStack, statColumnsScale, STAT_COL_GAP,
   splitMagazineQuote, magazineRecord, fmtMagazineStamp, magazineFooterItems, magazineLogoBox, MAGAZINE_HEAD_MAX, MAGAZINE_TAGLINE_BOTTOM,
 } from './shareOverlay.js';
 
@@ -115,6 +115,10 @@ describe('monthRecord（今月の数字）', () => {
     const r = monthRecord(books, memos, NOW, { readingSec: 45000 });
     expect(r.stats.map((st) => st.key)).toEqual(['books', 'memos', 'reading', 'actions']);
     expect(r.stats[2]).toEqual({ key: 'reading', label: '読書', value: '12時間30分' });
+    // 4 つそろうときは 読了・読書の時間・実行した行動（メモの数を外す）・どれかを外せばメモが入る
+    expect(shownStats(r.stats).map((st) => st.key)).toEqual(['books', 'reading', 'actions']);
+    expect(shownStats(applyShareItems(r, ['actions']).stats).map((st) => st.key)).toEqual(['books', 'memos', 'reading']);
+    expect(shownStats(monthRecord(books, memos, NOW).stats).map((st) => st.key)).toEqual(['books', 'memos', 'actions']);
     expect(monthRecord([], [], NOW, { readingSec: 2700 }).stats).toEqual([{ key: 'reading', label: '読書', value: '45分' }]);
     expect(monthRecord([], [], NOW, { readingSec: 30 }).stats).toEqual([]);
     expect(splitStatValue('12時間30分').filter((p) => p.big).map((p) => p.text)).toEqual(['12', '30']);

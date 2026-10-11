@@ -36,6 +36,7 @@ import ContextMenu from './ContextMenu';
 import { usePaywall } from '../state/PaywallContext';
 import { nextResetLabelJa } from '../lib/freeTrial';
 import { TOKEN_COSTS, monthDayLabelJa, remainingAnswersLabel } from '../lib/tokens';
+import { showFreeTokenCount } from '../lib/tokenAmounts';
 import { shouldShowTrialNudge, trialNudgeCopy, isTrialNudgeDone, markTrialNudgeDone, normalizeTrialLabel, trialCancelShortLine } from '../lib/trialNudge';
 import { getIntroOffer } from '../lib/iap';
 import { firstAnswerTrialGroup, isFirstAnswerTrialMoment, canOfferFirstAnswerTrial, holdGrownNudge, firstAnswerTrialText, isFirstAnswerTrialDone, markFirstAnswerTrialDone } from '../lib/firstAnswerTrial';
@@ -1801,7 +1802,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const lastActionAdded = !!lastVisible && (addedActionIds.includes(lastVisible.id)
     || (lastVisible.role === 'assistant' && !lastVisible.streaming && answerActionAddedBefore(lastVisible, precedingQuestion(visibleMessages, visibleMessages.length - 1), allActions)));
   // 🌱 メモが 0 件の人の答えのあと（2026-10-09）: 見方・返事のチップや「ここで答えと行動を」を並べても、根拠のメモが無いので
-  //   続けても同じ答えにしかならない。代わりに主ボタン「これまで読んだ本から始める」（初日クイックスタート）だけ。
+  //   続けても同じ答えにしかならない。代わりに主ボタン「読んだ本に一言ずつ残す」（初日クイックスタート）だけ。
   const noMemosYet = !!onQuickstart && memoStatsLoaded && !memoStatsFailed
     && (memoStats.cards + memoStats.personal + (memoStats.summaryBooks || 0)) === 0;
   const answerDone = answerReady && (lastLocalLookup || isCompletedAnswer(lastVisible));
@@ -1871,7 +1872,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   );
   // 空の画面の出し分けはメモ（カード式＋学び＋この本のまとめ）の件数で決める（SPEC §3）。メモ＝カード式＋まとめ式
   // （GLOSSARY）なので、読書メーター等の感想を「この本のまとめ」に取り込んだだけの人も相談できる（2026-09-29 オーナー裁定）。
-  // 読書計画だけの人は「これまで読んだ本から始める」へ（相談例の「最近のメモから…」が空振りしないように）。
+  // 読書計画だけの人は「読んだ本に一言ずつ残す」へ（相談例の「最近のメモから…」が空振りしないように）。
   const ownMemoTotal = memoStats.cards + memoStats.personal + (memoStats.summaryBooks || 0);
   ownMemoTotalRef.current = memoStatsLoaded ? ownMemoTotal : -1;
   // 📊 memos_reached_10（lib/firstDay.js）: 10 件より少ないのを見たあとで 10 件以上になったら 1 回だけ（ホームと同じ印）。
@@ -2095,12 +2096,15 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         {tokensRemaining != null && tokensRemaining + (purchasedTokens || 0) > 0 && (
           <span style={{ display: 'block', textIndent: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>
             {/* 「無料期間の残り／110 トークン」と切らない（1 つのまとまり）。かっこは重ねない。 */}
-            <span style={{ whiteSpace: 'nowrap' }}>{plan === 'trial' ? '無料期間' : '今月'}の残り {fmtTokens(tokensRemaining)}{purchasedTokens > 0 ? <> ＋追加 {fmtTokens(purchasedTokens)}</> : null} トークン</span>
+            {/* 🪙 無料プランは「AI の答え 約 N 回」だけ。トークンの数は残り 20 以下のときだけ（設定の画面はいつも出す・2026-10-11）。 */}
+            {(!freeMode || showFreeTokenCount(tokensRemaining + (purchasedTokens || 0))) && (
+              <span style={{ display: 'block', whiteSpace: 'nowrap' }}>{plan === 'trial' ? '無料期間' : '今月'}の残り {fmtTokens(tokensRemaining)}{purchasedTokens > 0 ? <> ＋追加 {fmtTokens(purchasedTokens)}</> : null} トークン</span>
+            )}
             {/* 無料プラン・7 日間無料は「あと何回相談できるか」を添える（トークンだけでは量が分からない・2026-09-29）。追加分も数に入れる。 */}
             {/* 回数は次の行に置く（「・」でつなぐと 390 幅で途中から折り返して、どこで切れるかが毎回変わる・2026-09-30）。 */}
             {/* 数える単位は「AI の答え」（1 回 約 10 トークン・2026-10-09）。 */}
-            {/* 🌱 無料プランのはじめの月は「（はじめの月は 60 トークン）」を添える（来月から 30 になることを先に知らせる）。 */}
-            {(freeMode || plan === 'trial') && tokensRemaining + (purchasedTokens || 0) > 0 && <span style={{ display: 'block' }}><span style={{ whiteSpace: 'nowrap' }}>AI の答え {remainingAnswersLabel(tokensRemaining + (purchasedTokens || 0))}</span>{freeMode && freeFirstMonth && <span style={{ whiteSpace: 'nowrap' }}>（はじめの月は {fmtTokens(tokenAllowance)} トークン）</span>}</span>}
+            {/* 🌱 無料プランのはじめの月は「（はじめの月）」を添える（数は言わない＝60 を 2 回言わない・2026-10-11）。 */}
+            {(freeMode || plan === 'trial') && tokensRemaining + (purchasedTokens || 0) > 0 && <span style={{ display: 'block' }}><span style={{ whiteSpace: 'nowrap' }}>AI の答え {remainingAnswersLabel(tokensRemaining + (purchasedTokens || 0))}</span>{freeMode && freeFirstMonth && <span style={{ whiteSpace: 'nowrap' }}>（はじめの月）</span>}</span>}
           </span>
         )}
         {/* 上限に達したときの「◯月1日から」は、答えの吹き出しと入力欄に出す（同じ日付を 3 回並べない）。 */}
@@ -2311,16 +2315,16 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 </button>
               </section>
             ) : ownMemoTotal === 0 && !memoStatsFailed ? (
-              // メモ（カード式＋学び）0 件: 質問させる前に「これまで読んだ本から始める」（根拠が無いと空振りするため）。
+              // メモ（カード式＋学び）0 件: 質問させる前に「読んだ本に一言ずつ残す」（根拠が無いと空振りするため）。
               // 読書計画・まとめだけの人もここ（上の行の件数とは別に、メモの件数で決める・SPEC §3）。
               // 空の画面は共通の EmptyState（DESIGN §5 空・エラー・読み込み）。主ボタンはこの 1 つ。
               <EmptyState
                 icon={<PencilLine size={32} strokeWidth={1.5} aria-hidden="true" />}
                 title="まだメモがありません"
                 // 本がもう本棚にあるときは、ホームのはじめの一歩と同じ「読んだ本に一言ずつ残す」（することを言う・2026-10-01）。
-                // 本 0 冊のときは「これまで読んだ本から始める」のまま（開くのはどちらも初日クイックスタート）。
+                // 本 0 冊のときも同じ名前（初回ガイド・ホームとそろえる・2026-10-11。開くのはどちらも初日クイックスタート）。
                 actions={onQuickstart
-                  ? [{ label: books.length > 0 ? '読んだ本に一言ずつ残す' : 'これまで読んだ本から始める', variant: 'primary', onClick: onQuickstart }]
+                  ? [{ label: '読んだ本に一言ずつ残す', variant: 'primary', onClick: onQuickstart }]
                   : onGoBookshelf ? [{ label: '本を開いてメモを書く', variant: 'secondary', onClick: onGoBookshelf }] : []}
               />
             ) : planOut ? (
@@ -2481,10 +2485,10 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               新しい相談をはじめる
             </button>
           )}
-          {/* 🌱 メモが 0 件の人: チップの代わりに「これまで読んだ本から始める」を主ボタンで（2026-10-09） */}
+          {/* 🌱 メモが 0 件の人: チップの代わりに「読んだ本に一言ずつ残す」を主ボタンで（2026-10-09） */}
           {answerRowShown && !lastActionAdded && noMemosYet && !lastIsMemoAnswer && (
             <button type="button" onClick={onQuickstart} style={{ ...uiBtnPrimary, marginTop: 'var(--space-4)', marginLeft: ANSWER_COLUMN, width: `calc(100% - ${AVATAR_SIZE}px - var(--space-2))` }}>
-              これまで読んだ本から始める
+              読んだ本に一言ずつ残す
             </button>
           )}
           {answerRowShown && !lastActionAdded && (
