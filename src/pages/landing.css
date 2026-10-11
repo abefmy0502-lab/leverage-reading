@@ -1,5 +1,5 @@
 /* ===========================================================================
- * 🌱 Landing Page CSS — Orime（2026-09-26 作り直し → 2026-10-02 構成 → 2026-10-05 マーケの報告で作り直し → 2026-10-11 受け身から対話へ）
+ * 🌱 Landing Page CSS — Orime（2026-09-26 作り直し → 2026-10-02 構成 → 2026-10-05 マーケの報告で作り直し → 2026-10-11 受け身から会話へ）
  *
  * アプリと同じトークン（src/styles/tokens.css）で書く。明暗は端末に従う（アプリと同じ）。
  *   - 色: 背景 --bg / 面 --surface / 文字 --text・--text-2 / 線 --separator
@@ -319,7 +319,7 @@ body.lp-active {
   font-size: var(--text-meta);
 }
 
-/* ヒーローのイラスト「いろいろな本と対話する」（LpIllust.jsx・A/B の 'illust'）。色はトークンだけ（明暗はトークンが切り替える）。
+/* ヒーローのイラスト「いろいろな本と会話する」（LpIllust.jsx・A/B の 'illust'）。色はトークンだけ（明暗はトークンが切り替える）。
    線の太さ・角の丸みは絵の中の寸法（viewBox の単位）で、絵と一緒に縮む。 */
 .lp-illust { display: block; width: 100%; max-width: calc(var(--lp-shot-w) * 1.4); height: auto; margin: 0 auto; }
 /* 本番の絵（画像）: 角丸 12 の「絵のカード」。明るい画面は地（ベージュ）になじませる。暗い画面は影を付けず、
@@ -412,7 +412,7 @@ body.lp-active {
 .lp-ba dd > * { white-space: nowrap; }
 .lp-ba .is-after dd { color: var(--text); font-weight: 600; }
 .lp-ba-arrow { margin-right: var(--space-2); color: var(--text-3); font-weight: 400; }
-/* ② 相談の例（対話の流れの下） */
+/* ② 相談の例（会話の流れの下） */
 .lp-asks { margin-top: var(--space-12); max-width: 36em; }
 .lp-asks-title { color: var(--text-2); font-size: var(--text-sub); font-weight: 600; }
 .lp-asks ul { list-style: none; margin: var(--space-3) 0 0; padding: 0; border-top: 1px solid var(--separator); }
@@ -500,6 +500,10 @@ body.lp-active {
   border-radius: var(--radius);
   box-shadow: var(--shadow-overlay);
   background: var(--fill);
+}
+/* 暗い画面では影が見えないので、イラストのカードと同じ細い縁取り */
+@media (prefers-color-scheme: dark) {
+  .lp-share-img { border: 1px solid var(--separator); }
 }
 
 /* ⑨ 料金 */

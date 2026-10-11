@@ -1,13 +1,13 @@
 // 🌱 Landing Page — Orime（2026-10-02 作り直し → 2026-10-05 → 2026-10-11 公開している前提・新しい訴求で作り直し）
 //
-// 訴求の正は company/marketing-master-plan-2026-10.md（§0）: 読書を、受け身から対話へ。見出しは「読んだ本と、対話しよう。」
+// 訴求の正は company/marketing-master-plan-2026-10.md（§0）: 読書を、受け身から会話へ。見出しは「読んだ本と、会話しよう。」
 //   心に響いた一行から、AI が本の語り口で答える（要約ではなく、あなたのメモから・本とページを添えて）→ 成果へ。
-//   「著者と話せる」とは書かない（「本の語り口で答える」「本と対話する」まで）。語り口の注記はヒーローの写真の下の 1 か所。
+//   「著者と話せる」とは書かない（「本の語り口で答える」「本と会話する」まで）。語り口の注記はヒーローの写真の下の 1 か所。
 // 相手: 読書の成果を最大にしたい人・読書を習慣にしたい人・意識の高い社会人・大学生（立場では絞らない）。
 //
 // 流れ（2026-10-11）:
-//   ① ヒーロー（A/B: 'illust'＝いろいろな本と対話するイラスト（LpIllust.jsx）↔ 'photo'＝1 冊の本に相談した答えの画面）
-//   ② 受け身から対話へ（これまで／これから の 2 行＋実画面 4 枚の対話の流れ・LpFlow.jsx＋相談の例 3 つ）
+//   ① ヒーロー（A/B: 'illust'＝いろいろな本と会話するイラスト（LpIllust.jsx）↔ 'photo'＝1 冊の本に相談した答えの画面）
+//   ② 受け身から会話へ（これまで／これから の 2 行＋実画面 4 枚の会話の流れ・LpFlow.jsx＋相談の例 3 つ）
 //   ③ 続けられて、成果が見える（柱 ②〜⑤ を 1 行ずつ: 明日の一歩・集中モード・写真で共有・分野）
 //   ④ メモがゼロでも、今日から（一言ずつ・取り込む・撮る・積読でも）＋入口
 //   ⑤ 料金（見出しは価値の言い換え「月に本 1 冊ほどの値段で、…」・補足に月額と 1 日あたり約 ¥49・年額は 1 日あたり約 ¥35・プランで手に入るもの 3 つ）
@@ -105,7 +105,7 @@ const TESTIMONIALS = [];
 // ② これまでの読書と、Orime の読書（2 行だけ）
 const BEFORE_AFTER = [
   { label: 'これまで', steps: ['読む', '閉じる', '終わり'] },
-  { label: 'Orime', steps: ['一行を残す', '本と対話する', '明日の一歩'] },
+  { label: 'Orime', steps: ['一行を残す', '本と会話する', '明日の一歩'] },
 ];
 
 // ② 相談の例（幅を持たせて 3 つ・立場で絞らない）
@@ -120,7 +120,7 @@ const PILLARS = [
   {
     id: 'action', shot: 'action', artAlt: '相談で決めた一歩を、明日のやることに書き込む様子のイラスト',
     head: '成果につなげる',
-    title: '対話の最後は、明日の一歩。',
+    title: '会話の最後は、明日の一歩。',
     body: '決めた一歩は行動リストへ。期限の日の朝にお知らせします。',
     alt: '振り返りの行動の画面。明日・来週以降に分かれた行動の一覧と、それぞれの本の名前',
   },
@@ -135,15 +135,24 @@ const PILLARS = [
     id: 'share', share: true, artAlt: '心に残った一文を写真に重ねて共有する様子のイラスト',
     head: '発信して、続ける',
     title: '心に残った一文を、1 枚の画像に。',
-    body: '写真に一文と書名を重ねて共有。写真はどこにも送りません。',
-    alt: '共有の画像の見本（縦長のストーリー）。海辺のカフェの写真に、心に残った一文と書名・ページ、Orime のロゴが重なっている',
+    body: '写真に一文と書名を重ねて共有。写真は端末の中で重ね、Orime のサーバーには送りません。',
+    alt: '共有の画像の見本（縦長のストーリー）。海辺のカフェの写真の上に、細い明朝の一文「人は、言われたことより、見たことで動く。まず自分がやってみせることだ。」と、読書中の本の書名・著者、Orime のロゴと日付が重なっている',
   },
   {
     id: 'fields', shot: 'fields', artAlt: 'これまでに読んだ本を分野ごとに見渡す様子のイラスト',
     head: '自分の読書を客観的に見る',
     title: 'どの分野が手薄か、見える。',
-    body: '手薄な分野が分かり、次の一冊を AI 選書で相談できます（プラン）。',
+    body: '読んだ本を分野ごとに。本とメモの数で、手薄な分野が分かります。',
     alt: '振り返りの記録の「分野」。仕事・自分と生活の分野ごとの本とメモの数と、「まだ本がない分野」のチップ',
+  },
+  {
+    // AI 選書（2026-10-11 オーナー「おすすめの本と順番、その本を読む戦略まで」）。言い過ぎない: 聞き取り・読んできた本と評価・
+    //   最近の相談 → おすすめと読む順番 → 追加した本の読書計画シート。どちらもプランの機能。
+    id: 'advisor', shot: 'advisor', artAlt: '悩みを聞いて、次に読む本と読む順番を選ぶ様子のイラスト',
+    head: '次に読む本と、読み方まで',
+    title: 'あなたの読書から、次の一冊を。',
+    body: 'AI 選書が悩みを会話で聞き取り、読んできた本と評価、最近の相談から、おすすめの本と読む順番を出します。追加した本には、重点的に読む箇所と仮説をまとめた読書計画シートも作れます（プラン）。',
+    alt: 'AI 選書の画面。受け取った悩みのまとめと、おすすめの本のカード、読む順番',
   },
 ];
 
@@ -260,7 +269,7 @@ export default function Landing() {
   // 公開のお知らせ: 1 か所で送ったら、ほかの入口も「お知らせします」にする。
   const [wlDone, setWlDone] = useState(false);
   const wl = { done: wlDone, markDone: useCallback(() => setWlDone(true), []) };
-  // ヒーローの表示方式（2026-10-11〜）: 'illust'＝いろいろな本と対話するイラスト ↔ 'photo'＝1 冊に相談した答えの実際の画面
+  // ヒーローの表示方式（2026-10-11〜）: 'illust'＝いろいろな本と会話するイラスト ↔ 'photo'＝1 冊に相談した答えの実際の画面
   // （'3d' は ?hero=3d のときだけ・lib/lpTrack.js の lpVariant）。イラストのときは注記を画面のある「読んで、終わりにしない。」の節に任せる。
   const [heroVariant] = useState(() => lpVariant());
   // 写真で共有の柱がイラストに替わったら、「共有の画像は見本の写真で…」の注記は出さない。
@@ -309,7 +318,7 @@ export default function Landing() {
         operatingSystem: 'iOS',
         // ストアの第 1 カテゴリ（仕事効率化）に近いもの
         applicationCategory: 'BusinessApplication',
-        description: '読んだ本と対話する読書メモアプリ。心に響いた一行を残すと、AI がその本の語り口で、あなたのメモから本とページを添えて答え、明日やることを一緒に一つ決める。集中モード・写真で共有・分野ごとの読書の記録も。',
+        description: '読んだ本と会話する読書メモアプリ。心に響いた一行を残すと、AI がその本の語り口で、あなたのメモから本とページを添えて答え、明日やることを一緒に一つ決める。集中モード・写真で共有・分野ごとの読書の記録も。',
         offers: [
           { '@type': 'Offer', name: '無料プラン', price: '0', priceCurrency: 'JPY' },
           { '@type': 'Offer', name: '月額プラン', price: String(MONTHLY), priceCurrency: 'JPY' },
@@ -477,7 +486,7 @@ export default function Landing() {
             <div className="lp-hero-text">
               <p className="lp-eyebrow"><span>AI 読書メモアプリ</span></p>
               <h1 className="lp-h1">
-                <span>読んだ本と、</span><span>対話しよう。</span>
+                <span>読んだ本と、</span><span>会話しよう。</span>
               </h1>
               <p className="lp-lead lp-wbr">
                 <Phrases>迷ったことを聞くと、AI が本の語り口で、あなたのメモから答えます。本とページを添えて、明日の一歩まで。</Phrases>
@@ -486,7 +495,7 @@ export default function Landing() {
                 <Entry loc="hero" wl={wl} qr badge launch />
                 <div className="lp-hero-links">
                   <a className="lp-textlink" href="#lp-flow" onClick={() => lpTrack('hero_secondary', {})}>
-                    <span>15 秒で、対話の流れを見る</span><ChevronDown size="1.1em" aria-hidden="true" />
+                    <span>15 秒で、会話の流れを見る</span><ChevronDown size="1.1em" aria-hidden="true" />
                   </a>
                   {/* 創業メンバー価格（期間中だけ）: 押すと料金の中の帯へ */}
                   {OFFER.active && (
@@ -523,14 +532,14 @@ export default function Landing() {
           </div>
         </section>
 
-        {/* ============ ② 受け身から対話へ ============ */}
+        {/* ============ ② 受け身から会話へ ============ */}
         <section className="lp-sec lp-flow-sec" aria-labelledby="lp-flow" data-lp-sec="flow">
           <div className="lp-wrap">
             <div className="lp-narrow lp-sec-head">
               <h2 className="lp-h2" id="lp-flow">
                 <span>読んで、</span><span>終わりにしない。</span>
               </h2>
-              {/* 一番の価値（CLAUDE.md）を 1 行で・対話の流れの頭に（2026-10-11 ui-critic） */}
+              {/* 一番の価値（CLAUDE.md）を 1 行で・会話の流れの頭に（2026-10-11 ui-critic） */}
               <p className="lp-wbr lp-flow-lead"><Phrases>読むほど、あなただけの相談相手が育つ。</Phrases></p>
               <dl className="lp-ba">
                 {BEFORE_AFTER.map((r, i) => (
@@ -540,8 +549,8 @@ export default function Landing() {
                   </div>
                 ))}
               </dl>
-              {/* イメージ図（public/lp/illust-dialogue-*.webp を置いたときだけ・LpArt.jsx）。実際の画面は下の対話の流れに残す */}
-              <LpArt name="illust-dialogue" ratio="4:3" className="lp-art-sec" alt="読んで終わりにせず、心に残った一行から本と対話し、明日の一歩につなげる様子のイラスト" />
+              {/* イメージ図（public/lp/illust-dialogue-*.webp を置いたときだけ・LpArt.jsx）。実際の画面は下の会話の流れに残す */}
+              <LpArt name="illust-dialogue" ratio="4:3" className="lp-art-sec" alt="読んで終わりにせず、心に残った一行から本と会話し、明日の一歩につなげる様子のイラスト" />
             </div>
             <LpFlow onEvent={lpTrack} />
             <div className="lp-asks">
@@ -750,7 +759,7 @@ export default function Landing() {
         <section className="lp-final" aria-labelledby="lp-final" data-lp-sec="final">
           <div className={`lp-wrap lp-narrow lp-final-inner${PRELAUNCH ? '' : ' is-live'}`}>
             <h2 className="lp-h2" id="lp-final">
-              <span>次の一冊から、</span><span>本と対話しよう。</span>
+              <span>次の一冊から、</span><span>本と会話しよう。</span>
             </h2>
             <div className="lp-cta-block">
               <Entry loc="final" wl={wl} qr badge launch center />

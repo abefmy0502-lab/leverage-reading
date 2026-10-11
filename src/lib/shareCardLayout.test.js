@@ -8,7 +8,7 @@ import {
   scrimAlpha, brightLuminance, coverProxyPath, seedFrom, mulberry32, underlineStroke, tabPosition, FORMATS,
   darkLuminance, logoInkOnPhoto, coverWashAlpha, relativeLuminance, blockScrimStops,
   blockVeilStops, photoInkForBand, veiledLuminance, PHOTO_VEIL_MAX, PHOTO_VEIL_BUSY_MAX, PHOTO_TEXTURE_LOUD, textureVeil, bandTexture,
-  textureScrim, photoScrimAlpha, PHOTO_SCRIM_BUSY_MIN,
+  textureScrim, photoScrimAlpha, PHOTO_SCRIM_BUSY_MIN, PHOTO_SCRIM_BUSY_MAX, phraseScrimAlpha, PHRASE_SCRIM_MAX,
 } from './shareCardLayout.js';
 import { mainTitle } from './shareOverlay.js';
 
@@ -278,21 +278,24 @@ describe('明るい写真の上は墨の文字＋白い幕（第 3 回）', () =
     // 明るい空と暗い机が同じ帯にある（暗い部分が暗すぎて、白い幕 0.6 では届かない）
     expect(photoInkForBand({ bright: 0.9, dark: 0.05 }).ink).toBe('light');
   });
-  it('白い文字の後ろに模様（本棚・照明）がある写真は、黒い幕を濃くする（2026-10-11）', () => {
+  it('白い文字の後ろに模様（本棚・照明）がある写真は、黒い幕を少しだけ濃くする（2026-10-11・写真が主役なので控えめ）', () => {
     // 模様なしは明るさだけで決める（今までどおり）
     expect(textureScrim(0)).toBe(0);
     expect(photoScrimAlpha(0.3, 0)).toBe(scrimAlpha(0.3));
-    // 模様があると 0.55 以上・強いほど濃い・0.82 まで
+    // 模様があると 0.45 以上・強いほど濃い・0.65 まで
     expect(textureScrim(0.02)).toBeGreaterThanOrEqual(PHOTO_SCRIM_BUSY_MIN);
     expect(textureScrim(0.06)).toBeGreaterThan(textureScrim(0.03));
-    expect(textureScrim(1)).toBe(0.82);
-    // 見本の写真（海辺のカフェ・一文の帯 bright 0.64・模様 0.062）は明るさだけの 0.72 より濃くなる
-    const cafe = photoInkForBand({ bright: 0.64, dark: 0.003, texture: 0.062 });
-    expect(cafe.ink).toBe('light');
-    expect(cafe.scrim).toBeGreaterThan(scrimAlpha(0.64));
-    expect(cafe.scrim).toBeLessThanOrEqual(0.82);
+    expect(textureScrim(1)).toBe(PHOTO_SCRIM_BUSY_MAX);
+    // 暗いが模様の多い写真（明るさだけなら 0.4）は濃くなる・明るさから要る濃さより重くはしない
+    expect(photoInkForBand({ bright: 0.3, dark: 0.01, texture: 0.06 }).scrim).toBeGreaterThan(scrimAlpha(0.3));
+    expect(photoInkForBand({ bright: 0.64, dark: 0.003, texture: 0.062 }).scrim).toBe(scrimAlpha(0.64));
     // 暗くて平らな写真は濃くしない
     expect(photoInkForBand({ bright: 0.3, dark: 0.1, texture: 0.005 }).scrim).toBe(scrimAlpha(0.3));
+  });
+  it('言葉の後ろの幕はごく淡い（最大 0.3・2026-10-11）', () => {
+    expect(phraseScrimAlpha(1)).toBe(PHRASE_SCRIM_MAX);
+    expect(phraseScrimAlpha(0.6)).toBeLessThanOrEqual(0.3);
+    expect(phraseScrimAlpha(0)).toBeGreaterThan(0);
   });
 });
 

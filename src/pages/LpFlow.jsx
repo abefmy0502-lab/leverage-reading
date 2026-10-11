@@ -1,7 +1,7 @@
-// 🎞 LP「読んだ本と、対話する」— 1 冊の本との対話を、実際の画面 4 枚で約 15 秒（2026-10-02 → 2026-10-11 作り直し）。
+// 🎞 LP「読んだ本と、会話する」— 1 冊の本との会話を、実際の画面 4 枚で約 15 秒（2026-10-02 → 2026-10-11 作り直し）。
 //
 //   1. 心に響いた一行を残す → 2. 本に相談する → 3. 本の語り口で、聞き返す → 4. 本とページで確かめる
-//   （作戦 company/marketing-master-plan-2026-10.md §0 の柱 ①「本と対話する」。明日の一歩は次の節で見せる）
+//   （作戦 company/marketing-master-plan-2026-10.md §0 の柱 ①「本と会話する」。明日の一歩は次の節で見せる）
 //
 // - 画面はお試しモード（サンプルのメモ）で撮った実際のアプリ（npm run lp:shots の flow-line・flow-talk・flow-voice・flow-source）。
 //   答えの名前の行の著者名は写さない（「（本の語り口で・AI）」は残す）。動画は使わない（軽さ）。
@@ -130,7 +130,7 @@ export default function LpFlow({ onEvent = () => {} }) {
   return (
     <div className={`lp-flow${running ? ' is-playing' : ''}`} ref={rootRef}>
       <div className="lp-flow-progress">
-      <ol className="lp-flow-steps" aria-label="対話の流れ">
+      <ol className="lp-flow-steps" aria-label="会話の流れ">
         {FLOW_STEPS.map((s, i) => {
           const state = i < step ? 'is-done' : i === step ? 'is-active' : '';
           return (

@@ -7,12 +7,12 @@
 //
 // 使い方:
 //   1. 別ターミナルで  npm run demo            （http://localhost:5173）
-//   2. npm run lp:shots                       → LP に載せる全部（hero・flow-line/talk/voice/source・action・focus・fields・share）
+//   2. npm run lp:shots                       → LP に載せる全部（hero・flow-line/talk/voice/source・action・focus・share・fields・advisor）
 //      npm run lp:shots -- answer recall      → 絞って撮る
 //   （お試しモードを別のポートで動かしているときは UI_SHOTS_URL=http://localhost:5461 などを付ける）
 // 撮る画面: hero（1 冊の本に相談し、本の語り口で答えている所・ヒーロー・2026-10-11）/
 //           flow-line・flow-talk・flow-voice・flow-source（「読んだ本と、対話する」の 4 コマ・2026-10-11）/
-//           focus（集中モード）/ fields（記録の分野）/ answer（相談の答え・聞き返し）/
+//           focus（集中モード）/ fields（記録の分野）/ advisor（AI 選書のおすすめの本と読む順番）/ answer（相談の答え・聞き返し）/
 //           sources（根拠の本）/ memo（メモを書くシート）/
 //           action（行動）/ recall（思い出しカード）/ search（メモの言葉で本を探す）/
 //           flow-worry・flow-memo・flow-ask・flow-action（前の 4 コマ＝部下の報告の相談・2026-10-02・名前を指定したときだけ）/
@@ -156,6 +156,20 @@ const SHOTS = {
       if (sc) sc.scrollTop -= 88; else window.scrollBy(0, -170);
     });
   },
+  // 次に読む本と、読み方まで: AI 選書（悩みを聞き取り → 受け取った悩みを確かめる → おすすめの本と読む順番・2026-10-11）
+  advisor: async (p) => {
+    await p.locator(nav('相談')).click(); await p.waitForTimeout(600);
+    await p.locator('button[role=tab]:has-text("AI 選書")').click();
+    await p.locator('textarea[aria-label="AI 選書への相談内容"]').fill('仕事が回らず、いつも時間が足りません');
+    await p.locator('button[aria-label="本を探す"]').click(); await p.waitForTimeout(3000);
+    for (const [chip, more] of [['大事なことほど後回しになる', '大事なことほど後回しになる。メールと会議で一日が終わってしまう'], ['夕方に自分の仕事を進めたい', '夕方に自分の仕事を進めたい']]) {
+      await p.locator(`[aria-label="答えの候補"] button:has-text("${chip}")`).click();
+      await p.locator('textarea[aria-label="自分の言葉で答える"]').fill(more);
+      await p.locator('button[aria-label="答える"]').click(); await p.waitForTimeout(2500);
+    }
+    await p.locator('button:has-text("合っている")').click(); await p.waitForTimeout(9000);
+    await hideDemoNote(p);
+  },
   answer: async (p) => {
     await ask(p);
     await p.evaluate(() => {
@@ -252,9 +266,9 @@ function browserOptions() {
 }
 
 // 📷 写真で共有の画像そのもの（アプリの描き方 src/lib/shareCard.js の drawShareCard をそのまま呼ぶ・2026-10-11 から
-//   ストーリー 9:16 の「心に残った一文」）。写真は scripts/fixtures/lp-share-cafe.jpg（オーナーの見本の写真・文字なし）。
-//   本は架空（書名「はたらく考え方」・著者「森川 遥」・自分の言葉のメモ）＝実在の本・著者を使わない。表紙も架空の装丁を描く。
-const LP_SHARE_BOOK = { title: 'はたらく考え方', author: '森川 遥', line: '正しいかどうかを、自分に問う。明日の会議で、まず試してみる。', page: 42 };
+//   ストーリー 9:16 の「書名と数字」で数字と一文を隠し、一文は「言葉を入れる」の明朝の引用＝「」で包む・オーナーの見本の形）。写真は scripts/fixtures/lp-share-cafe.jpg（オーナーの見本の写真・文字なし）。
+//   本は架空（書名「はたらく考え方」・著者「阿部文哉」・一文は新しく書いた文）＝実在の本の文を写さない。表紙も架空の装丁を描く。
+const LP_SHARE_BOOK = { title: 'はたらく考え方', author: '阿部文哉', line: '人は、言われたことより、見たことで動く。まず自分がやってみせることだ。', page: 42 };
 async function shootShareCard(browser) {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'ja-JP', colorScheme: 'light' });
   const page = await ctx.newPage();
@@ -272,17 +286,19 @@ async function shootShareCard(browser) {
       x.fillStyle = g; x.fillRect(0, 0, 300, 440);
       x.fillStyle = '#f4efe6'; x.font = '600 34px serif'; x.fillText('はたらく', 28, 90); x.fillText('考え方', 28, 136);
       const cover = await card.prepareCover({ cover: c.toDataURL('image/png') });
-      const now = new Date(2026, 9, 9);
-      const book = { id: 'lp', title: b.title, author: b.author, status: 'done', doneDate: '2026-10-09', actions: [{ done: true }] };
-      const memos = Array.from({ length: 12 }, (_, i) => ({ id: `m${i}`, text: i === 0 ? b.line : `メモ ${i}`, pageNumber: b.page }));
-      const record = ov.bookRecord(book, memos, now);
-      const fonts = await card.prepareFonts(`${record.title}${record.sub}${b.line}${b.author}`);
+      const now = new Date(2026, 9, 12);
+      // 読書中の本・数字と一文は隠し、一文は「言葉を入れる」の明朝の引用で上の中央に（オーナーの見本の形・2026-10-11）。
+      const book = { id: 'lp', title: b.title, author: b.author, status: 'reading', startDate: '2026-10-05', actions: [] };
+      const record = ov.bookRecord(book, [{ id: 'm0', text: b.line }], now);
+      const fonts = await card.prepareFonts(`${record.kicker}${record.title}${record.sub}「${b.line}」2026.10.12`);
       const logo = await card.prepareLogo();
       const cv = document.createElement('canvas');
       card.drawShareCard(cv, {
-        layout: 'quote', format: 'story', style: 'photo', photo, record, stamp: '2026.10.9',
-        line: ov.quoteText(b.line, 'quote'), page: b.page, title: b.title, author: b.author, seedKey: 'm0',
-        cover, covers: [], fonts, logo, view: { panX: 0, panY: 0, zoom: 1 }, textPos: 'bottom', hidden: ov.readHiddenItems(null), phrase: null,
+        layout: 'record', format: 'story', style: 'photo', photo, record, stamp: '2026.10.12',
+        line: '', page: null, title: b.title, author: b.author, seedKey: 'm0',
+        cover, covers: [], fonts, logo, view: { panX: 0, panY: 0, zoom: 1 }, textPos: 'bottom',
+        hidden: ['books', 'memos', 'actions', 'reading', 'quote', 'date'],
+        phrase: { text: b.line, style: 'mincho', x: 0.5, y: 0.24, scale: 1, invert: false },
       });
       const res = { full: cv.toDataURL('image/png').split(',')[1] };
       for (const w of [540, 1080]) {

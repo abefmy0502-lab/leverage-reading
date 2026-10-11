@@ -184,6 +184,7 @@ group by 1 order by 2 desc;
 | `illust-focus-light-…` | 1:1 | 柱「習慣にする」（集中モード） | 集中モードの画面写真 |
 | `illust-share-light-…` | 1:1 | 柱「発信して、続ける」（写真で共有） | 共有の画像の見本（絵に替わると「共有の画像は見本の写真で…」の注記も消える） |
 | `illust-fields-light-…` | 1:1 | 柱「自分の読書を客観的に見る」（分野） | 記録の分野の画面写真 |
+| `illust-advisor-light-…` | 1:1 | 柱「次に読む本と、読み方まで」（AI 選書） | AI 選書のおすすめの画面写真 |
 | `illust-start-light-…` | 4:3 | 「メモがゼロでも、今日から。」の頭 | 何も出さない |
 
 - 例（1:1）: `node -e "const s=require('sharp');[[390,90],[780,90],[1560,92]].forEach(([w,q])=>s('元.png').resize(w,w).webp({quality:q}).toFile('public/lp/illust-action-light-'+w+'.webp'))"`（4:3 は `resize(w, w*3/4)`）

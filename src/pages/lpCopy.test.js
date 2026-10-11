@@ -72,12 +72,12 @@ describe('App Store へのボタンの行き先', () => {
 describe('本の語り口（著者と話せる、とは書かない）', () => {
   it.each(combos.map((c) => [name(c), c]))('%s: 「著者と話」「著者本人が答え」が無く、語り口の注記が FAQ にある', (_, cfg) => {
     const t = allText(buildLpCopy(cfg));
-    expect(t).not.toMatch(/著者と(話|対話)|著者本人が答え|著者が答え/);
+    expect(t).not.toMatch(/著者と(話|対話|会話)|著者本人が答え|著者が答え/);
     expect(t).toContain(VOICE_NOTE);
   });
   it('title・description にも「著者と話せる」と書かない・AI 要約と書かない', () => {
     [LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION].forEach((t) => {
-      expect(t).not.toMatch(/著者と(話|対話)/);
+      expect(t).not.toMatch(/著者と(話|対話|会話)/);
       expect(t).not.toContain('AI 要約');
     });
   });
@@ -123,7 +123,7 @@ describe('index.html の静的な meta と LP の言葉がそろっている', (
 });
 
 describe('効果を言い切らない（景表法・SPEC §1-4）', () => {
-  const BANNED = ['忘れない', '作り話', '必ず', '絶対', '確実', '唯一', 'No.1', '最強', '誰でも', '成果が出る', '賢くなる', '良くなる', '出てきます', '先着', '通常価格', 'AI 要約', '著者と話', '著者と対話'];
+  const BANNED = ['忘れない', '作り話', '必ず', '絶対', '確実', '唯一', 'No.1', '最強', '誰でも', '成果が出る', '賢くなる', '良くなる', '出てきます', '先着', '通常価格', 'AI 要約', '著者と話', '著者と対話', '著者と会話'];
   it('LP の画面の文（Landing.jsx・LpWaitlist.jsx・LpFlow.jsx のコメントを除く）と lpCopy の文', () => {
     const strip = (src) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/\s\/\/ .*$/gm, '');
     const files = ['./Landing.jsx', './LpWaitlist.jsx', './LpFlow.jsx', './lpCopy.js'].map((f) => strip(readFileSync(new URL(f, import.meta.url), 'utf8')));

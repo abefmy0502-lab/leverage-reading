@@ -1,6 +1,6 @@
 // 📸 LP のアプリの実画面（お試しモードで撮影・public/lp/<名前>-<light|dark>-<390|780>.webp）。
 // 暗い画面の端末には暗い画面の写真を出す。撮り直しは npm run demo → npm run lp:shots。
-// sizes: 写真の表示幅（既定はヒーロー・対話の流れの大きさ。柱の小さな写真は Landing.jsx が渡す）。
+// sizes: 写真の表示幅（既定はヒーロー・会話の流れの大きさ。柱の小さな写真は Landing.jsx が渡す）。
 export default function Shot({ name, alt, eager = false, ratio = [390, 844], imgRef, className = 'lp-shot', hidden = false, sizes = '(min-width: 768px) 300px, 72vw' }) {
   const set = (scheme) => `/lp/${name}-${scheme}-390.webp 390w, /lp/${name}-${scheme}-780.webp 780w`;
   return (

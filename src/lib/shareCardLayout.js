@@ -567,12 +567,19 @@ export function textureVeil(texture = 0) {
 }
 // 白い文字＋黒い幕のとき、文字の後ろに模様（本棚・照明・葉）がある写真は、明るさだけで決めた幕では文字が模様に
 //   埋もれて読みにくい（2026-10-11 オーナーの見本の写真「海辺のカフェ」）。模様が強いほど幕を濃くする:
-//   模様なし（PHOTO_TEXTURE_CALM 以下）は足さない → 0.55 から模様に比例 → 0.82 まで（scrimAlpha の上限と同じ）。
-export const PHOTO_SCRIM_BUSY_MIN = 0.55;
+//   模様なし（PHOTO_TEXTURE_CALM 以下）は足さない。
+//   2026-10-11 同日オーナー「写真が主役」で控えめに: 0.45 から模様に比例 → 0.65 まで（明るさから要る濃さを超えては足さない）。
+export const PHOTO_SCRIM_BUSY_MIN = 0.45;
+export const PHOTO_SCRIM_BUSY_MAX = 0.65;
 export function textureScrim(texture = 0) {
   const t = Math.max(0, Number(texture) || 0);
   if (t <= PHOTO_TEXTURE_CALM) return 0;
-  return Math.round(Math.min(0.82, PHOTO_SCRIM_BUSY_MIN + (t - PHOTO_TEXTURE_CALM) * 5) * 100) / 100;
+  return Math.round(Math.min(PHOTO_SCRIM_BUSY_MAX, PHOTO_SCRIM_BUSY_MIN + (t - PHOTO_TEXTURE_CALM) * 4) * 100) / 100;
+}
+// 言葉（明朝の引用など）の後ろの幕: 写真の明るさから決めた濃さの 0.4 倍・最大 0.3（ごく淡く・文字の影で読ませる・2026-10-11）。
+export const PHRASE_SCRIM_MAX = 0.3;
+export function phraseScrimAlpha(luminance) {
+  return Math.round(Math.min(PHRASE_SCRIM_MAX, scrimAlpha(luminance) * 0.4) * 100) / 100;
 }
 // 黒い幕の濃さ＝明るさから要る濃さ（scrimAlpha）と、模様から要る濃さ（textureScrim）の濃いほう。
 export function photoScrimAlpha(bright = 0, texture = 0) {

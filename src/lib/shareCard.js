@@ -26,7 +26,7 @@ import {
   FORMATS, clampLine, fitQuote, wrapBalanced, coverTone, rgbCss,
   photoPlacement, scrimAlpha, brightLuminance, coverProxyPath,
   seedFrom, tabPosition, coverWashAlpha, relativeLuminance, shareImageType,
-  darkLuminance, filmTone, logoInkOnPhoto, blockScrimStops, photoInkForBand, photoScrimAlpha, blockVeilStops, PHOTO_INK_DARK_Q, bandTexture,
+  darkLuminance, filmTone, logoInkOnPhoto, blockScrimStops, photoInkForBand, photoScrimAlpha, phraseScrimAlpha, blockVeilStops, PHOTO_INK_DARK_Q, bandTexture,
   softBreaks,
 } from './shareCardLayout';
 import {
@@ -1855,7 +1855,8 @@ function phraseFont(style, fonts, size) {
   if (style === 'bold') return `700 ${size}px ${fonts.ui}`;
   if (style === 'hand') return `600 ${size}px ${HAND_FONT_FAMILY}, ${fonts.read}`;
   if (style === 'band') return `600 ${size}px ${fonts.ui}`;
-  return `400 ${size}px ${fonts.read}`;
+  // 明朝の引用は細い字（300・無ければ 400）＝雑誌の大きな引用と同じ（2026-10-11 オーナーの見本）。
+  return `${MAG_HEAD_WEIGHT} ${size}px ${fonts.read}`;
 }
 
 // 画像（W×H）の上の言葉の組み（描く前に位置と大きさを知りたいとき＝編集画面の指で動かす箱にも使う）。
@@ -1925,11 +1926,13 @@ function drawPhrase(ctx, o, W, H) {
   }
   if (!colors.band && colors.ink === 'light' && o.style === 'photo' && o.photo) {
     // 写真の上の白い文字: 言葉の高さの帯に、画面の幅いっぱいの上下になだらかな幕を敷く
-    // （楕円だと明るい空の上で黒いしみに見えた・2026-10-01 ui-critic）。濃さは写真の明るさから・最大 0.55。
+    // （楕円だと明るい空の上で黒いしみに見えた・2026-10-01 ui-critic）。
+    // 2026-10-11 オーナー「写真が主役」: 幕はごく淡く（写真の明るさから・最大 PHRASE_SCRIM_MAX）・上下に文字の 3 倍かけて消し、
+    //   読みやすさは文字のまわりのやわらかい影（下）で足す。写真全体は暗くしない。
     const place = photoPlacement({ pw: o.photo.width, ph: o.photo.height, W, H, ...(o.view || {}) });
-    const a = Math.min(0.55, scrimAlpha(bandLuminance(o.photo, place, W, H, lay.y0, lay.y0 + lay.h)) * 0.8);
+    const a = phraseScrimAlpha(bandLuminance(o.photo, place, W, H, lay.y0, lay.y0 + lay.h));
     const scrim = o.theme?.scrim || cssVar('--share-photo-scrim') || '14, 12, 10';
-    const fade = lay.size * 1.5;
+    const fade = lay.size * 3;
     drawScrim(ctx, W, H, scrim, [[lay.y0 - fade, 0], [lay.y0, a], [lay.y0 + lay.h, a], [lay.y0 + lay.h + fade, 0]]);
   }
   const font = phraseFont(lay.style, fonts, lay.size);
@@ -1941,9 +1944,17 @@ function drawPhrase(ctx, o, W, H) {
   // 明朝の引用の下の橙の傍線は 2026-10-08 にやめた（オーナー「オレンジ色の下線がダサい」・「」と余白で見せる）。
   if (!colors.band) {
     if (colors.ink === 'light') {
+      // 文字のまわりのやわらかい影（幕を淡くした分・2026-10-11）。写真の上は 2 回重ねて、細い字でも縁を立てる。
       ctx.shadowColor = o.theme?.shadow || cssVar('--share-photo-shadow') || 'rgba(0,0,0,0.35)';
-      ctx.shadowBlur = 18 * sb;
+      ctx.shadowBlur = 24 * sb;
       ctx.shadowOffsetY = 2 * sb;
+      if (o.style === 'photo') {
+        ctx.fillStyle = ink;
+        ctx.font = font;
+        lay.lines.forEach((l, i) => ctx.fillText(l, lay.cx - lineW(l) / 2, baselineOf(i)));
+        ctx.shadowBlur = 8 * sb;
+        ctx.shadowOffsetY = 1 * sb;
+      }
     } else if (o.style !== 'paper') {
       ctx.shadowColor = cssVar('--share-phrase-glow') || 'rgba(255,255,255,0.6)';
       ctx.shadowBlur = 16 * sb;

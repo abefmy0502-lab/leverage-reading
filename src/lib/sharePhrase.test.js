@@ -240,3 +240,13 @@ describe('雑誌の重ね方: 動かしていない言葉は引用のまとま�
     expect(phrasePositionFrom({ cx: 540, cy: 600 }, null, { W: 1080, H: 1350 }).moved).toBe(true);
   });
 });
+
+describe('明朝の引用は、文の途中で割らない（2026-10-11 オーナーの見本）', () => {
+  it('少し小さくすれば節の終わりで改行できるなら、そうする（「…動く。まず／自分が…」にしない）', () => {
+    const text = '人は、言われたことより、見たことで動く。まず自分がやってみせることだ。';
+    const mono = (size) => (s) => Array.from(String(s)).length * size * 1.14;
+    const lay = phraseLayout({ text, style: 'mincho' }, { W: 1080, H: 1920, format: 'story', measureAt: mono });
+    expect(lay.lines.every((l) => /[、。」]$/u.test(l))).toBe(true);
+    expect(lay.lines.some((l) => Array.from(l).length <= 2)).toBe(false);
+  });
+});

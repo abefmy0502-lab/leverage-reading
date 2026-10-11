@@ -12,11 +12,12 @@
 //   illust-focus        1:1    ③ 柱「習慣にする」（集中モード）
 //   illust-share        1:1    ③ 柱「発信して、続ける」（写真で共有）
 //   illust-fields       1:1    ③ 柱「自分の読書を客観的に見る」（分野）
+//   illust-advisor      1:1    ③ 柱「次に読む本と、読み方まで」（AI 選書）
 //   illust-start        4:3    ④「メモがゼロでも、今日から。」の頭
 //
-// 対話の 4 コマ（実際の画面）と見本の注記は、絵が届いても流れの節に残す（証拠）。
+// 会話の 4 コマ（実際の画面）と見本の注記は、絵が届いても流れの節に残す（証拠）。
 
-export const ART_NAMES = ['illust-dialogue', 'illust-action', 'illust-focus', 'illust-share', 'illust-fields', 'illust-start'];
+export const ART_NAMES = ['illust-dialogue', 'illust-action', 'illust-focus', 'illust-share', 'illust-fields', 'illust-advisor', 'illust-start'];
 export const ART_WIDTHS = [390, 780, 1560];
 export const artSrc = (name, w, scheme = 'light') => `/lp/${name}-${scheme}-${w}.webp`;
 export const artSet = (name, scheme = 'light') => ART_WIDTHS.map((w) => `${artSrc(name, w, scheme)} ${w}w`).join(', ');

@@ -21,7 +21,8 @@ export const PHRASE_SCALE_MAX = 1.8;
 
 // 形ごとの文字の大きさ（幅 1080 のとき・倍率 1）と行間・字間・箱の内側の余白（文字の大きさに対する割合）。
 const STYLE_METRICS = {
-  mincho: { size: 64, lineHeight: 1.6, spacing: 0.06, padX: 0, padY: 0, underline: 0 }, // 傍線は 2026-10-08 にやめた
+  // 傍線は 2026-10-08 にやめた。2026-10-11 オーナーの見本（細い明朝・字間を広く・写真が主役）で 64/0.06 → 56/0.14・行間 1.75。
+  mincho: { size: 56, lineHeight: 1.75, spacing: 0.14, padX: 0, padY: 0, underline: 0 },
   bold: { size: 78, lineHeight: 1.22, spacing: 0.02, padX: 0, padY: 0, underline: 0 },
   hand: { size: 70, lineHeight: 1.45, spacing: 0.02, padX: 0, padY: 0, underline: 0 },
   band: { size: 54, lineHeight: 1.4, spacing: 0.04, padX: 0.6, padY: 0.42, underline: 0 },
@@ -95,6 +96,25 @@ export function phraseDisplayText(phrase) {
 
 // 中央にそろえる言葉は、行の長さもそろえる（CSS の text-wrap: balance と同じ考え）:
 // 同じ行数のまま入るいちばん狭い幅で組み直す（「問いの質が、答えの質を／決める。」→「問いの質が、／答えの質を決める。」）。
+// 行が節の終わり（読点・句点・閉じ括弧）で終わっているか。
+const endsAtClause = (l) => /[、。！？!?」』）)]$/u.test(String(l).trim());
+
+// 同じ行数のまま、いちばん狭い幅で組み直す（行の長さをそろえる）。
+function evenWrap(text, maxWidth, measure) {
+  const base = wrapBalanced(text, maxWidth, measure);
+  if (base.length < 2) return base;
+  const longest = Math.max(0, ...segmentPhrases(text).map((p) => measure(p.trim())));
+  let lo = Math.max(maxWidth * 0.3, Math.min(maxWidth, longest));
+  let hi = maxWidth;
+  let best = base;
+  for (let i = 0; i < 10; i += 1) {
+    const mid = (lo + hi) / 2;
+    const lines = wrapBalanced(text, mid, measure);
+    if (lines.length <= base.length && lines.every((l) => measure(l) <= mid + 0.5)) { best = lines; hi = mid; } else { lo = mid; }
+  }
+  return best;
+}
+
 export function balanceLines(text, maxWidth, measure) {
   const base = wrapBalanced(text, maxWidth, measure);
   if (base.length < 2) return base;
@@ -123,7 +143,8 @@ export function balanceLines(text, maxWidth, measure) {
       if (lines.length === best.length && lines.every((l) => measure(l) <= limit + 0.5)) return lines;
       // 行数が合わないとき（節が 1 行に入らない大きさ）は、節ごとに組んで並べる。行数が増えなければそちら
       // （「問いの／質が、答えの／質を決める。」→「問いの質が、／答えの質を／決める。」・2026-10-05 第 2 回 ui-critic）。
-      const perClause = clauses.flatMap((c) => wrapBalanced(c, maxWidth, measure));
+      // 節の中で割るときも、行の長さをそろえる（「まず自分がやってみせること／だ。」の 1 字の行を作らない・2026-10-11）。
+      const perClause = clauses.flatMap((c) => evenWrap(c, maxWidth, measure));
       if (perClause.length <= best.length && perClause.every((l) => measure(l) <= maxWidth + 0.5)) return perClause;
     }
   }
@@ -165,6 +186,23 @@ export function phraseLayout(phrase, { W = 1080, H = 1350, format = 'post', stic
     const fits = w <= frameW + 0.5 && h <= frameH + 0.5 && lines.every((l) => measure(l) <= maxWidth + 0.5);
     if (fits || size <= 28) break;
     size = Math.max(28, Math.round(size * 0.92));
+  }
+  // 文の途中で割れている（「見たことで動く。まず／自分が…」）ときは、少し（0.84 倍まで）小さくして、
+  //   どの行も節の終わり（、。！？」）で終わる組み方があればそちらにする（2026-10-11 オーナーの見本）。
+  if (out && !text.includes('\n') && out.lines.length > 1 && !out.lines.every(endsAtClause)) {
+    const base = out;
+    for (let s2 = Math.round(base.size * 0.96); s2 >= Math.max(28, base.size * 0.84); s2 = Math.round(s2 * 0.96)) {
+      const padX = Math.round(s2 * m.padX);
+      const maxWidth = Math.max(s2 * 2, frameW - padX * 2);
+      const measure = measureAt(s2);
+      const lines = balanceLines(text, maxWidth, measure);
+      const lineHeight = Math.round(s2 * m.lineHeight);
+      const h = Math.ceil(lines.length * lineHeight + base.padY * 2 + base.underlineH);
+      if (lines.length <= base.lines.length && lines.every(endsAtClause) && h <= frameH + 0.5) {
+        out = { ...base, lines, size: s2, lineHeight, h, padX, maxWidth, measure };
+        break;
+      }
+    }
   }
   // 大きさが決まってから、行の長さをそろえる（同じ行数のまま狭める＝箱は小さくなるだけなので枠に入ったまま）。
   {
