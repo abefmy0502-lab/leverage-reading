@@ -2,7 +2,7 @@
 // ブラウザは sw.js を byte-by-byte で diff するため、SW_VERSION を
 // 変えるだけでも install → (waiting 状態で待機) → ユーザー操作で
 // SKIP_WAITING → activate → 旧 cache 削除の流れになる。
-const SW_VERSION = 'v55';
+const SW_VERSION = 'v56';
 const STATIC_CACHE = `leverage-static-${SW_VERSION}`;
 const RUNTIME_CACHE = `leverage-runtime-${SW_VERSION}`;
 const ALLOWED_CACHES = [STATIC_CACHE, RUNTIME_CACHE];
@@ -31,14 +31,43 @@ self.addEventListener('activate', (event) => {
 });
 
 const ASSET_RE = /\.(png|jpe?g|gif|svg|webp|ico|woff2?|ttf|otf)$/i;
+// ビルドが名前にハッシュを付けたファイル（/assets/…）。中身が変わると名前も変わるので、
+// 一度取れたらキャッシュから返す（2026-10-11 リリース前点検 中6）。
+const HASHED_RE = /^\/assets\//;
+// 新しくなったことの中身（Web の新しい版の知らせ）。アプリが毎回 network-first で読む（?t=… つき・no-store）ので、
+// SW は触らない（キャッシュに入れると ?t= ごとに溜まる・lib/whatsNew.js の fetchUpcomingReleases）。
+const PASS_THROUGH = new Set(['/release-notes.json']);
 
 function isAsset(url) {
   return ASSET_RE.test(url.pathname);
 }
 
-function isDocOrCode(request) {
+function isNavigation(request) {
+  return request.mode === 'navigate' || request.destination === 'document';
+}
+
+function isCode(request) {
   const dest = request.destination;
-  return dest === 'document' || dest === 'script' || dest === 'style' || dest === '';
+  return dest === 'script' || dest === 'style' || dest === '';
+}
+
+// HTML を JS・CSS として覚えない（取り違えた応答でキャッシュを汚さない）。
+function cacheableCode(response) {
+  if (!response || !response.ok || response.type === 'opaque') return false;
+  const type = (response.headers.get('content-type') || '').toLowerCase();
+  return !type.includes('text/html');
+}
+
+// ハッシュ付きのファイル: キャッシュにあればそれ、無ければ取りに行って覚える。
+async function cacheFirst(request) {
+  const cache = await caches.open(STATIC_CACHE);
+  const cached = await cache.match(request);
+  if (cached) return cached;
+  const response = await fetch(request);
+  if (cacheableCode(response)) {
+    cache.put(request, response.clone()).catch(() => {});
+  }
+  return response;
 }
 
 async function networkFirst(request) {
@@ -46,7 +75,9 @@ async function networkFirst(request) {
     const response = await fetch(request);
     if (response && response.ok) {
       const cache = await caches.open(RUNTIME_CACHE);
-      cache.put(request, response.clone());
+      // ナビゲーションはクエリが違っても同じアプリの外枠なので、/ の 1 つだけ覚える（?book=… ごとに溜めない）。
+      const key = isNavigation(request) ? '/' : request;
+      cache.put(key, response.clone()).catch(() => {});
     }
     return response;
   } catch (err) {
@@ -55,7 +86,7 @@ async function networkFirst(request) {
     // SPA のナビゲーションはクエリ付き URL（例: プッシュ通知の /?recall=<id>）で
     // 来ることがあり、その URL 自体はキャッシュに無い。オフラインでもエラー画面に
     // せず、キャッシュ済みアプリシェル（/）で応える。
-    if (request.mode === 'navigate' || request.destination === 'document') {
+    if (isNavigation(request)) {
       const shell = await caches.match('/', { ignoreSearch: true })
         || await caches.match('/index.html', { ignoreSearch: true });
       if (shell) return shell;
@@ -91,10 +122,18 @@ self.addEventListener('fetch', (event) => {
 
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith('/api/')) return;
+  if (PASS_THROUGH.has(url.pathname)) return;
 
-  if (isAsset(url)) {
+  if (HASHED_RE.test(url.pathname)) {
+    // /assets/ の画像・フォントも同じ（名前にハッシュが付く）。
+    event.respondWith(cacheFirst(request));
+  } else if (isNavigation(request)) {
+    // 画面（HTML）だけはいつもネットワークから（新しい版を取りこぼさない）。オフラインは覚えた外枠。
+    event.respondWith(networkFirst(request));
+  } else if (isAsset(url)) {
     event.respondWith(staleWhileRevalidate(request));
-  } else if (isDocOrCode(request)) {
+  } else if (isCode(request)) {
+    // ハッシュの無い JS・JSON（/manifest.json など）は今までどおり network-first。
     event.respondWith(networkFirst(request));
   }
 });
