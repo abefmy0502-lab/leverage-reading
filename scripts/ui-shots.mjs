@@ -1040,6 +1040,12 @@ const SCREENS = [
     ['readtime-detail', '/', [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("数値化の鬼")' }, { wait: 600 }]],
     ['readtime-detail-done', '/', [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("アウトプット大全")' }, { wait: 600 }]],
   ].flatMap(([name, url, steps]) => [{ name, url, steps }, { name: `${name}-xxl`, url, steps: [XXL, ...steps] }]),
+  // ── ⏱📷 第 9 回の追加（C1〜C4・2026-10-11）: 集中モードのおわったとき・記録の分野・今月の画像の読書の時間
+  { name: 'r9c-focus-done', url: '/?focus=done', steps: [{ wait: 1200 }, { css: '[data-focus-mode="timerDone"] button:has-text("おわる")' }, { wait: 900 }] },
+  { name: 'r9c-focus-done-memo', url: '/?focus=done', steps: [{ wait: 1200 }, { css: '[data-focus-mode="timerDone"] button:has-text("続けて読む")' }, { wait: 400 }, { css: 'button[aria-label="メモ"]' }, { wait: 600 }, { fill: ['textarea', '読んでいる間に書いたメモ'] }, { css: '[role=dialog] button:has-text("保存")' }, { wait: 1200 }, { press: ['[data-focus-end]', 1400] }, { wait: 1000 }] },
+  { name: 'r9c-focus-share', url: '/?focus=done', steps: [{ wait: 1200 }, { css: '[data-focus-mode="timerDone"] button:has-text("おわる")' }, { wait: 900 }, { css: '[data-focus-mode] footer button:has-text("写真で共有")' }, { wait: 900 }] },
+  { name: 'r9c-fields-record', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }, { wait: 1500 }, { scrollTo: 'h3:has-text("分野")' }, { wait: 400 }] },
+  { name: 'r9c-share-month', url: '/?share=chooser', steps: [{ wait: 800 }, { css: '[role=dialog] button:has-text("写真なし")' }, { wait: 1500 }, { css: '[role=radiogroup][aria-label="どの本を共有するか"] [role=radio]:has-text("今月")' }, { wait: 2500 }] },
   // ── 🔍 第 9 回 総点検の直し（2026-10-10・ui-shots/review9-before / review9-after）
   { name: 'r9-focus-update', url: '/?focus=timer', steps: [{ wait: 1200 }, { eval: "window.dispatchEvent(new Event('app-update-available'))" }, { wait: 800 }] },
   { name: 'r9-record-top', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }, { wait: 1500 }] },

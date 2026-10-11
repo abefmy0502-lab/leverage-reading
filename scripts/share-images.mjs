@@ -114,7 +114,7 @@ const results = await page.evaluate(async ({ photos, only }) => {
   // 今月に 3 冊以上読み終えた（「ほか N 冊」・表紙を重ねる）
   const now = new Date(2026, 9, 20);
   const monthBooks = ['1兆ドルコーチ', 'イシューからはじめよ', '数値化の鬼', 'エッセンシャル思考', 'GIVE & TAKE'].map((t, i) => ({ id: `mb${i}`, title: t, status: 'done', doneDate: `2026-10-${String(3 + i * 3).padStart(2, '0')}`, actions: i < 2 ? [{ done: true, completedAt: '2026-10-10' }] : [] }));
-  const monthRec = ov.monthRecord(monthBooks, Array.from({ length: 31 }, (_, i) => ({ id: `x${i}`, text: 'm', createdAt: '2026-10-08' })), now);
+  const monthRec = ov.monthRecord(monthBooks, Array.from({ length: 31 }, (_, i) => ({ id: `x${i}`, text: 'm', createdAt: '2026-10-08' })), now, { readingSec: 45000 }); // 読書 12時間30分（2026-10-11）
   const monthCovers = monthBooks.slice(0, 4).map((b) => ({ cover: { image: null, tone: null }, title: b.title }));
   for (const [gName, g] of [['photo', { style: 'photo', photo: photo.normal }], ['paper', { style: 'paper' }], ['night', { style: 'night' }]]) {
     for (const layout of ['record', 'stats']) {
@@ -131,7 +131,7 @@ const results = await page.evaluate(async ({ photos, only }) => {
     { id: 'y2', text: '「全部やる」はできない。やらないことを決めることが、いちばん大事な仕事。', createdAt: '2026-04-02', recallCount: 3 },
     { id: 'y3', text: 'チームの勝利が最優先。', createdAt: '2026-11-01', recallCount: 1 },
   ];
-  const yearRec = ov.yearRecord(yearBooks, yearMemos, dec, { memoCount: 184 });
+  const yearRec = ov.yearRecord(yearBooks, yearMemos, dec, { memoCount: 184, readingSec: 3600 * 86 + 60 * 40 }); // 読書 86時間40分
   const yearLine = ov.orderYearQuoteCandidates(yearMemos)[0].text;
   const yearCovers = yearRec.finishedBooks.map((b, i) => ({ cover: i === 0 ? cover : { image: null, tone: null }, title: b.title }));
   // 一文の本（エッセンシャル思考）の表紙＝その本の代用表紙（見本の緑の表紙は『1兆ドルコーチ』なので使わない・第 2 回）。

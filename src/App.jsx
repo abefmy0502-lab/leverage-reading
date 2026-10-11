@@ -4317,6 +4317,8 @@ function AuthedApp() {
             initialPhase={focusRun.phase}
             allTags={allTags}
             onClose={() => { saveFocusState(null); setFocusRun(null); }}
+            // おわったときの「写真で共有」: 集中モードを閉じて、ほかの入口と同じ選ぶシートをこの本で開く（2026-10-11）。
+            onShare={(b) => { saveFocusState(null); setFocusRun(null); openShareChooser({ book: b, from: 'focus' }); }}
             onOpenFullEditor={(prefill) => {
               const b = focusRun.book;
               setFocusRun(null);

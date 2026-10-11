@@ -54,6 +54,17 @@ export function periodSeconds(rows, books, period = 'all', now = Date.now()) {
   return bookTotals(rows, books, period, now).reduce((sum, x) => sum + x.seconds, 0);
 }
 
+// [from, to) に入る秒の合計（本棚の本だけ・期間をまたいだ回は時刻の割合で分ける）。写真で共有の今月・今年に使う（2026-10-11）。
+export function rangeSeconds(rows, books, from, to) {
+  return rowsOfShelf(rows, books).reduce((sum, r) => sum + secondsWithin(r, from, to), 0);
+}
+
+// その年の 1 月 1 日 0 時と次の年の 1 月 1 日 0 時（ms）。
+export function yearRange(now = Date.now()) {
+  const d = new Date(now);
+  return { from: new Date(d.getFullYear(), 0, 1).getTime(), to: new Date(d.getFullYear() + 1, 0, 1).getTime() };
+}
+
 // 読書の時間がひとつでもあるか（記録の区画を出すか）。
 export function hasReadingTime(rows, books) {
   return periodSeconds(rows, books, 'all') >= MIN_SESSION_SEC;

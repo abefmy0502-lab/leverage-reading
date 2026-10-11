@@ -4,7 +4,7 @@
 //                      サーバーの見立てを待っている間は骨組み・失敗したら 1 行（pending / failed・2026-10-11 ui-critic）
 //   BookFieldsSheet  … 分野を選ぶシート。大分類 4 つ（仕事・自分と生活・教養・文芸・エンタメ）の見出し → 分野のチップ（選ぶためのチップ 44）・3 つまで
 //   BookFieldLinks   … 本の詳細の分野（押すと、すべての本をその分野で絞る）
-//   BookFieldsRecord … 振り返り › 記録の「分野」（本のある分野だけ・本とメモの数・読書の時間）
+//   BookFieldsRecord … 振り返り › 記録の「分野」（本のある分野だけ・本とメモの数。読書の時間は「読書の時間」カードの「分野ごと」へ一本化・2026-10-11）
 //
 // 反ゲーミフィケーション: 点数・%・順位・「あと N 冊」・「埋めよう」は出さない。
 import { useState } from 'react';
@@ -16,7 +16,6 @@ import { SkeletonBlock } from './Skeleton';
 import { useHaptic } from '../hooks/useHaptic';
 import { btnLink, btnPrimary, groupTitle } from '../styles/ui';
 import { BOOK_FIELD_GROUPS, FIELD_MAX } from '../lib/bookFields';
-import { fmtMinutes } from '../lib/readingStats';
 
 const chipRow = { display: 'flex', flexWrap: 'wrap', rowGap: 'var(--space-2)', columnGap: 'var(--space-2)' };
 // 付いている分野（押すと選ぶシート・選ぶシートの選択中と同じ色）。
@@ -160,25 +159,25 @@ export function BookFieldsRecord({ record, onOpenField, onFindBooks }) {
             {c.fields.map((f, i) => {
               const parts = [`本 ${f.books} 冊`];
               if (f.memos > 0) parts.push(`メモ ${f.memos} 件`);
-              const time = f.minutes > 0 ? fmtMinutes(f.minutes) : '';
               return (
                 <li key={f.name} style={{ borderTop: i === 0 ? 'none' : '1px solid var(--separator)' }}>
                   <button
                     type="button"
                     onClick={() => onOpenField?.(f.name)}
-                    aria-label={`${f.name}・${parts.join('・')}${time ? `・読書 ${time}` : ''}・本を見る`}
+                    aria-label={`${f.name}・${parts.join('・')}・本を見る`}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 'var(--space-2)', width: '100%', minHeight: 'var(--btn-h)',
                       padding: 'var(--space-2) 0', background: 'none', border: 'none', cursor: 'pointer',
                       fontFamily: 'inherit', fontSize: 'var(--text-sub)', textAlign: 'left', color: 'var(--text)',
                     }}
                   >
-                    {/* 1 行目＝分野の名前・2 行目＝「本 N 冊 · メモ N 件 · 時間」（区切りは「 · 」に統一）（どの行も同じ位置・2026-10-11 ui-critic）。 */}
+                    {/* 1 行目＝分野の名前・2 行目＝「本 N 冊 · メモ N 件」（区切りは「 · 」に統一）（どの行も同じ位置・2026-10-11 ui-critic）。
+                        分野ごとの読書の時間は「読書の時間」カードの「分野ごと」に一本化した（同じ数を 2 か所に出さない・2026-10-11 オーナー裁定）。 */}
                     <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-1)' }}>
                       <span style={{ fontSize: 'var(--text-sub)', lineHeight: 1.3, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{f.name}</span>
                       <span style={{ fontSize: 'var(--text-meta)', lineHeight: 1.3, color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
                         {/* 「·」は前の塊の末尾に付け、折り返すのは記号の後ろの空白だけ（行頭に「·」を出さない・2026-10-11 ui-critic）。 */}
-                        {[...parts, time].filter(Boolean).map((seg, i, all) => (
+                        {parts.map((seg, i, all) => (
                           <span key={i} style={{ whiteSpace: 'nowrap' }}>{i ? ' ' : ''}{seg}{i < all.length - 1 ? '\u00A0·' : ''}</span>
                         ))}
                       </span>

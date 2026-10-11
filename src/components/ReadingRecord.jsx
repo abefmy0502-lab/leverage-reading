@@ -33,7 +33,7 @@ import { buildFieldRecord } from '../lib/bookFields';
 import { BookFieldsRecord } from './BookFields';
 import ReadingTimeCard from './ReadingTimeCard';
 import { useReadingSessions } from '../hooks/useReadingSessions';
-import { hasReadingTime, bookTotals, allottedFieldMinutes } from '../lib/readingStats';
+import { hasReadingTime } from '../lib/readingStats';
 import { appNow } from '../lib/appNow';
 
 /* ---------- 日付ユーティリティ（ローカル基準・UTC ずれ防止） ---------- */
@@ -511,15 +511,12 @@ export default function ReadingRecord({
   const summaryMemos = useMemo(() => countSummaryMemos(books), [books]);
   const memoTotal = (memoStats?.total || 0) + summaryMemos;
   const hasAnything = (books?.length || 0) > 0 || memoTotal > 0;
-  // 🏷 分野（2026-10-11）: 本の分野ごとの本・メモ・読書の時間。メモを読めなかったときはメモの数を 0 と偽装しない（数えない）。
-  const fieldRecord = useMemo(() => {
-    const secondsByBook = {};
-    for (const x of bookTotals(sessions.rows, books, 'all', nowMs)) secondsByBook[x.book.id] = x.seconds;
-    // 分は読書の時間の「分野ごと」（これまで）と同じ配り方（同じ分野で 1 分ずれないように）。
-    const minutesByField = {};
-    for (const [name, x] of allottedFieldMinutes(sessions.rows, books, 'all', nowMs).byTag) minutesByField[name] = x.minutes;
-    return buildFieldRecord(books, { memoCountByBook: memoStats?.failed ? {} : (memoStats?.byBook || {}), secondsByBook, minutesByField });
-  }, [books, memoStats, sessions.rows, nowMs]);
+  // 🏷 分野（2026-10-11）: 本の分野ごとの本・メモ。メモを読めなかったときはメモの数を 0 と偽装しない（数えない）。
+  //   分野ごとの読書の時間は「読書の時間」カードの「分野ごと」に一本化した（同じ数を 2 か所に出さない・2026-10-11 オーナー裁定）。
+  const fieldRecord = useMemo(
+    () => buildFieldRecord(books, { memoCountByBook: memoStats?.failed ? {} : (memoStats?.byBook || {}) }),
+    [books, memoStats],
+  );
 
   // メモ集計がまだ返っていない間は「記録は、これから」を出さない — 本0冊で
   // メモだけあるユーザーに空状態が一瞬チラついてから統計に切り替わるのを防ぐ。

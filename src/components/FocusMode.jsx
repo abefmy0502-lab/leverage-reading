@@ -10,7 +10,7 @@
 //     一時停止（もう一度で再開）
 //   - タイマーが終わったら、音は鳴らさず短い振動と、地がゆっくり少し明るくなる。「続けて読む」で計測に切り替えて続ける
 //   - 時間は始めた時刻から数え直す（裏に回しても正しい）。途中の状態は端末に保存し、戻ったら再開（App.jsx）
-//   - おわったら「今日 32 分読みました」（その日のこの本の合計）・主ボタン「メモを書く」・「閉じる」・小さく「この本で これまで …」
+//   - おわったら「今日 32 分読みました」（その日のこの本の合計）・主ボタン「メモを書く」・「写真で共有」・文字の「閉じる」・小さく「この本で これまで …」（2026-10-11）
 // 連続日数・目標・順位・バッジは入れない（反ゲーミフィケーション）。
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -144,9 +144,15 @@ const footBtn = (primary) => ({
   color: primary ? 'var(--focus-accent-ink)' : 'var(--focus-ink)',
 });
 
+// 文字のボタン（暗い地の上・高さ 44 以上・17/600・温かい白）。
+const footText = {
+  minHeight: 'var(--btn-h)', padding: '0 var(--space-4)', border: 'none', background: 'transparent',
+  color: 'var(--focus-ink)', fontFamily: 'inherit', fontSize: 'var(--text-body)', fontWeight: 600, cursor: 'pointer',
+};
+
 // ---------------------------------------------------------------- 本体
 
-export default function FocusMode({ book, initial, initialPhase = null, allTags = [], onClose, onOpenFullEditor }) {
+export default function FocusMode({ book, initial, initialPhase = null, allTags = [], onClose, onOpenFullEditor, onShare = null }) {
   const haptic = useHaptic();
   const toast = useToast();
   const sessions = useReadingSessions();
@@ -207,11 +213,12 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
     return () => { clearInterval(id); document.removeEventListener('visibilitychange', onVis); window.removeEventListener('focus', tick); };
   }, [phase]);
 
-  // タイマーが終わった: 音は鳴らさず、短い振動と、地がゆっくり少し明るくなる。
+  // タイマーが終わった: 音は鳴らさず、数回（3 回・間をあけて）震わせ、地がゆっくり少し明るくなる
+  //   （2026-10-11 オーナー裁定「数回震わせる」・動きを減らす設定でも振動はする）。
   useEffect(() => {
     if (phase === 'running' && !paused && isTimerDone(s, now)) {
       setPhase('timerDone');
-      haptic.success();
+      haptic.alarm(3);
     }
   }, [phase, s, now, paused, haptic]);
 
@@ -461,17 +468,26 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
             <button type="button" onClick={continueReading} disabled={busy} style={{ ...footBtn(false), opacity: busy ? 0.5 : 1 }}>続けて読む</button>
           </div>
         )}
+        {/* おわったとき（2026-10-11 オーナー裁定）: 「メモを書く」と「写真で共有」の 2 つ＋閉じる。
+            写真で共有はほかの入口と同じ選ぶシート（カメラで撮る／写真から選ぶ／写真なし）をこの本で開く。 */}
         {phase === 'summary' && (memoCount > 0 ? (
-          // 読んでいる間にメモを書いたなら、主は「閉じる」・「メモを書く」は文字のボタン（2026-10-10）。
+          // 読んでいる間にメモを書いたなら、主は「閉じる」・「写真で共有」「メモを書く」は文字のボタン（2026-10-10）。
           // key: メモを書く前の組と別の要素にする（同じ button を使い回すと、押した形・フォーカスが「閉じる」に残って縮んで見えた・2026-10-10 ui-critic）。
           <div key="summary-memo" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-2)' }}>
             <button type="button" onClick={onClose} style={footBtn(true)}>閉じる</button>
-            <button type="button" onClick={() => setMemoOpen('summary')} style={{ minHeight: 'var(--btn-h)', padding: '0 var(--space-4)', border: 'none', background: 'transparent', color: 'var(--focus-ink)', fontFamily: 'inherit', fontSize: 'var(--text-body)', fontWeight: 600, cursor: 'pointer' }}>メモを書く</button>
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', columnGap: 'var(--space-4)' }}>
+              {onShare && <button type="button" onClick={() => onShare(book)} style={footText}>写真で共有</button>}
+              <button type="button" onClick={() => setMemoOpen('summary')} style={footText}>メモを書く</button>
+            </div>
           </div>
         ) : (
-          <div key="summary-plain" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+          <div key="summary-plain" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-3)' }}>
             <button type="button" onClick={() => setMemoOpen('summary')} style={footBtn(true)}>メモを書く</button>
-            <button type="button" onClick={onClose} style={footBtn(false)}>閉じる</button>
+            {onShare
+              ? <button type="button" onClick={() => onShare(book)} style={footBtn(false)}>写真で共有</button>
+              : <button type="button" onClick={onClose} style={footBtn(false)}>閉じる</button>}
+            {/* 閉じる手段は残す（文字のボタン・文字ボタンの高さの余りは下の余白と相殺）。 */}
+            {onShare && <button type="button" onClick={onClose} style={{ ...footText, marginTop: 'calc(-1 * var(--space-2))', marginBottom: 'calc(-1 * var(--space-2))' }}>閉じる</button>}
           </div>
         ))}
       </footer>

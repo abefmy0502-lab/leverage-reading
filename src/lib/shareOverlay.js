@@ -188,9 +188,26 @@ export function bookRecord(book, memos = [], now = new Date()) {
   };
 }
 
-// 今月の記録（読了の冊数・今月のメモ・今月に実行した行動）。本が 1 冊も無くても作れる（数字の無い 1 枚）。
-// monthMemos は今月書いたメモ（件数だけ使う）。
-export function monthRecord(books, monthMemos = [], now = new Date()) {
+// ⏱ 今月・今年の読書の時間（集中モードの合計・2026-10-11 オーナー裁定）。1 分未満は出さない。
+//   数字の欄の短い形「12時間30分」「45分」（数字は大きく・単位は小さく描く＝splitStatValue）。
+export const READING_STAT_MIN_SEC = 60;
+export function readingStatValue(sec) {
+  const m = Math.round(Math.max(0, Number(sec) || 0) / 60);
+  if (m < 1) return '';
+  const h = Math.floor(m / 60);
+  const r = m % 60;
+  if (!h) return `${r}分`;
+  return r ? `${h}時間${r}分` : `${h}時間`;
+}
+function pushReadingStat(stats, readingSec) {
+  if (!(Number(readingSec) >= READING_STAT_MIN_SEC)) return;
+  const value = readingStatValue(readingSec);
+  if (value) stats.push({ key: 'reading', label: '読書', value });
+}
+
+// 今月の記録（読了の冊数・今月のメモ・今月に実行した行動・読書の時間）。本が 1 冊も無くても作れる（数字の無い 1 枚）。
+// monthMemos は今月書いたメモ（件数だけ使う）。readingSec は今月の集中モードの合計秒（無ければ出さない）。
+export function monthRecord(books, monthMemos = [], now = new Date(), { readingSec = 0 } = {}) {
   const list = Array.isArray(books) ? books : [];
   const finished = list
     .filter((b) => b && b.status === 'done' && sameMonth(parseLocalDate(b.doneDate), now))
@@ -206,6 +223,9 @@ export function monthRecord(books, monthMemos = [], now = new Date()) {
   const stats = [];
   if (finished.length) stats.push({ key: 'books', label: '読了', value: `${finished.length}冊` });
   if (memoCount) stats.push({ key: 'memos', label: 'メモ', value: `${memoCount}件` });
+  // 画像の数字は 3 つまで（shareCard の slice(0, 3)）。読書の時間は実行した行動より先＝4 つあるときは行動が出ない
+  //   （表示する項目でどれかを外すと出る・2026-10-11）。
+  pushReadingStat(stats, readingSec);
   if (actionsDone) stats.push({ key: 'actions', label: '実行した行動', value: `${actionsDone}件` });
   const subVariants = finishedSubVariants(finished);
   return {
@@ -243,7 +263,7 @@ export function pickSubVariant(variants, measure, width) {
 // 今年の記録（今年に読み終えた本の冊数・今年のメモ・今年に実行した行動）。
 // yearMemos は今年書いたメモ（読める分だけ）。memoCount を渡したら、件数はそちらを使う（読む上限より多い人のため）。
 // 見出しは無し（題の「2026年の読書」が年を言う）。表紙は新しく読み終えた順に 4 冊まで（重ねる部品は今月と同じ）。
-export function yearRecord(books, yearMemos = [], now = new Date(), { memoCount = null } = {}) {
+export function yearRecord(books, yearMemos = [], now = new Date(), { memoCount = null, readingSec = 0 } = {}) {
   const list = Array.isArray(books) ? books : [];
   const finished = list
     .filter((b) => b && b.status === 'done' && sameYear(parseLocalDate(b.doneDate), now))
@@ -260,6 +280,9 @@ export function yearRecord(books, yearMemos = [], now = new Date(), { memoCount 
   const stats = [];
   if (finished.length) stats.push({ key: 'books', label: '読了', value: `${finished.length}冊` });
   if (memos) stats.push({ key: 'memos', label: 'メモ', value: `${memos}件` });
+  // 画像の数字は 3 つまで（shareCard の slice(0, 3)）。読書の時間は実行した行動より先＝4 つあるときは行動が出ない
+  //   （表示する項目でどれかを外すと出る・2026-10-11）。
+  pushReadingStat(stats, readingSec);
   if (actionsDone) stats.push({ key: 'actions', label: '実行した行動', value: `${actionsDone}件` });
   const subVariants = finishedSubVariants(finished);
   return {
@@ -739,10 +762,10 @@ export function placeStatsStack(frame, blockH, { phrase = false, coverCount = 0,
 // ロゴは項目に無い＝隠せない（2026-10-05 オーナー裁定「Orime のロゴはマストで入るように」）。以前に隠した人の
 // 端末に残る 'logo' は、読むときに捨てる（readHiddenItems が SHARE_ITEM_KEYS に無い名前を落とす）。
 
-export const SHARE_ITEM_KEYS = ['status', 'title', 'author', 'date', 'books', 'memos', 'actions', 'quote', 'stamp'];
+export const SHARE_ITEM_KEYS = ['status', 'title', 'author', 'date', 'books', 'memos', 'actions', 'reading', 'quote', 'stamp'];
 export const SHARE_ITEMS_STORAGE_KEY = 'orime.share.hiddenItems';
 
-const STAT_ITEM_LABEL = { books: '読了の冊数', memos: 'メモの数', actions: '実行した行動' };
+const STAT_ITEM_LABEL = { books: '読了の冊数', memos: 'メモの数', actions: '実行した行動', reading: '読書の時間' };
 
 // いまの 1 枚で選べる項目（中身のある項目だけ・上から画像の順）。戻り値: [{ key, label }]
 //   記録: 状態（今月は年）・書名（今月は「9月の読書」）・著者（今月は読み終えた本）・数字それぞれ・一文・今日の日付

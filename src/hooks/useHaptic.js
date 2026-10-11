@@ -42,6 +42,21 @@ function notify(type, fallback) {
   }
 }
 
+// 🔔 数回の振動（集中モードのタイマーが終わったとき・2026-10-11 オーナー裁定「数回震わせる」）。
+//   音は出さない。iOS は通知の振動を間をあけて count 回、Web は vibrate のパターン（鳴る・止まるの組）。
+//   動きを減らす設定でも振動はする（画面の動きではないため）。
+export const ALARM_VIBRATE_PATTERN = [200, 150, 200, 150, 200];
+const ALARM_GAP_MS = 450;
+function alarm(count = 3) {
+  if (isNative) {
+    for (let i = 0; i < count; i += 1) {
+      setTimeout(() => { Haptics.notification({ type: NotificationType.Success }).catch(() => {}); }, i * ALARM_GAP_MS);
+    }
+  } else {
+    webVibrate(ALARM_VIBRATE_PATTERN);
+  }
+}
+
 export function useHaptic() {
   return useMemo(
     () => ({
@@ -51,6 +66,7 @@ export function useHaptic() {
       success: () => notify(NotificationType.Success, [20, 50, 20]),
       warning: () => notify(NotificationType.Warning, [30, 30, 30]),
       error: () => notify(NotificationType.Error, [50, 100, 50]),
+      alarm: (count) => alarm(count),
     }),
     []
   );

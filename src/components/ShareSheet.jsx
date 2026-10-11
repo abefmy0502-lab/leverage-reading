@@ -32,7 +32,7 @@
 //   initialSubject  … { kind: 'book', bookId } | { kind: 'month' } | { kind: 'year' }（省略時は book、無ければ pickShareSubject）
 //                     今年は 12 月で今年の読了が 1 冊以上のときだけ（それ以外は今月にする・2026-10-08）
 // 今月・今年の共有の文には「#10月読了本」「#2026年の読書」を添える（画像には入れない・shareHashtags）。
-//   from            … 計測用の入口の名前（home / review / consult / detail / done / memo / menu）
+//   from            … 計測用の入口の名前（home / review / consult / detail / done / focus / memo / menu）
 //   onClose
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -48,6 +48,7 @@ import { useHaptic } from '../hooks/useHaptic';
 import { useBookMemos } from '../hooks/useBookMemos';
 import { useReadingSessions } from '../hooks/useReadingSessions';
 import { shareReadingNote } from '../lib/readingTime';
+import { rangeSeconds, monthRange, yearRange } from '../lib/readingStats';
 import { useAuth } from '../hooks/useAuth';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { toMessage } from '../lib/errors';
@@ -354,11 +355,17 @@ export default function ShareSheet({
   const memos = period === 'year' ? yearM.memos : period === 'month' ? month.memos : (usePropMemos ? memosProp : loaded.memos);
   const memosLoading = period === 'year' ? yearM.loading : period === 'month' ? month.loading : (!usePropMemos && loaded.loading);
 
+  // ⏱ 今月・今年の 1 枚には、その期間の集中モードの合計（読書の時間）も数字の欄に（無ければ出さない・2026-10-11）。
+  const periodReadingSec = useMemo(() => {
+    if (!period) return 0;
+    const r = period === 'year' ? yearRange(now.getTime()) : monthRange(now.getTime());
+    return rangeSeconds(readingRows, books, r.from, r.to);
+  }, [period, readingRows, books, now]);
   const record = useMemo(
     () => (period === 'year'
-      ? yearRecord(books || [], yearM.memos, now, { memoCount: yearMemoCountFor(yearM.memos, yearM.count, YEAR_MEMO_LIMIT) })
-      : period === 'month' ? monthRecord(books || [], month.memos, now) : bookRecord(subjectBook, memos, now)),
-    [period, books, month.memos, yearM.memos, yearM.count, subjectBook, memos, now],
+      ? yearRecord(books || [], yearM.memos, now, { memoCount: yearMemoCountFor(yearM.memos, yearM.count, YEAR_MEMO_LIMIT), readingSec: periodReadingSec })
+      : period === 'month' ? monthRecord(books || [], month.memos, now, { readingSec: periodReadingSec }) : bookRecord(subjectBook, memos, now)),
+    [period, books, month.memos, yearM.memos, yearM.count, subjectBook, memos, now, periodReadingSec],
   );
   // 今年は「いちばん残した一文」から（思い出しカードで「覚えた」を押した回数 → しっかり書いた → 新しい順・AI まとめは入れない）。
   const candidates = useMemo(
