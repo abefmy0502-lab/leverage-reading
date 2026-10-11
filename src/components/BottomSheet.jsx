@@ -133,7 +133,9 @@ export default function BottomSheet({ title, eyebrow = '', onClose, children, fo
                   wrap-reverse なので回った行が上に来る・ふだんの大きさでは 1 行のまま）。 */}
               {eyebrow ? (
                 <div style={{ flex: '1 1 0', minWidth: 'min(100%, 9em)' }}>
-                  <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{eyebrow}</p>
+                  {/* 上の行の組み方（メモを書くシート・メモの全画面・読む前のシートで共通）: 小さな 1 行＝書名（13/--text-2・文字最大でも
+                      --text-bar-max まで＝題より大きくならない）、題＝操作の名前（17/600）。 */}
+                  <p style={{ margin: 0, fontSize: 'min(var(--text-meta), var(--text-bar-max))', color: 'var(--text-2)', lineHeight: 1.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{eyebrow}</p>
                   <h3 style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{typeof title === 'string' ? withPhraseBreaks(title) : title}</h3>
                 </div>
               ) : (

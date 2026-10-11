@@ -56,7 +56,7 @@ const foldStyle = { ...cardStyle, padding: '0 var(--space-4)' };
 const cardTitle = { fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)', margin: 0, lineHeight: 1.3 };
 const foldSummary = {
   display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)',
-  minHeight: 48, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', cursor: 'pointer', listStyle: 'none',
+  minHeight: 'var(--btn-h)', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', cursor: 'pointer', listStyle: 'none',
 };
 // 紹介文＝読む文章（明朝 18・行間 1.6・文節で折り返す・DESIGN §2）。
 const descStyle = {
@@ -70,7 +70,8 @@ const descStyle = {
   wordBreak: 'keep-all',
 };
 const clamp3 = { display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' };
-const metaStyle = { fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 'var(--space-2) 0 0', lineHeight: 1.5 };
+// 添え書き（出版社・取得元など）も文節で折り返す（readable と keep-all・文字最大で語の途中で割れていた・2026-10-11）。
+const metaStyle = { fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 'var(--space-2) 0 0', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' };
 const tocListStyle = {
   listStyle: 'none', margin: 0, padding: '0 0 var(--space-3)',
   display: 'flex', flexDirection: 'column', gap: 'var(--space-2)',
@@ -81,7 +82,7 @@ const tocListStyle = {
 const tocItemStyle = { paddingLeft: '1em', textIndent: '-1em' };
 const tocSummary = {
   display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)',
-  minHeight: 48, fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)', cursor: 'pointer', listStyle: 'none',
+  minHeight: 'var(--btn-h)', fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)', cursor: 'pointer', listStyle: 'none',
 };
 
 // flush: 下の余白を持たない（畳む見出しの中＝外側の下 16 だけにする。カードの目次の畳みは下 12 を持つ）。
@@ -91,7 +92,7 @@ function TocList({ toc, note, flush = false }) {
       <ol style={{ ...tocListStyle, ...(flush ? { paddingBottom: 0 } : null) }}>
         {toc.map((line, i) => <li key={i} style={tocItemStyle}>{readable(line)}</li>)}
       </ol>
-      {note && <p style={{ ...metaStyle, margin: flush ? 'var(--space-2) 0 0' : '0 0 var(--space-3)' }}>{note}</p>}
+      {note && <p style={{ ...metaStyle, margin: flush ? 'var(--space-2) 0 0' : '0 0 var(--space-3)' }}>{readable(note)}</p>}
     </>
   );
 }
@@ -221,7 +222,7 @@ export default function BookAbout({ info, loading = false, variant = 'card', sty
             {info.description && (
               <div>
                 <Description text={info.description} clamp={false} />
-                {meta && <p style={metaStyle}>{meta}</p>}
+                {meta && <p style={metaStyle}>{readable(meta)}</p>}
               </div>
             )}
             {toc.length > 0 && (
@@ -248,7 +249,7 @@ export default function BookAbout({ info, loading = false, variant = 'card', sty
           {info.description && (
             <div>
               <Description text={info.description} clamp={false} />
-              {meta && <p style={metaStyle}>{meta}</p>}
+              {meta && <p style={metaStyle}>{readable(meta)}</p>}
             </div>
           )}
           {briefSlot}
@@ -269,10 +270,10 @@ export default function BookAbout({ info, loading = false, variant = 'card', sty
       {info.description && (
         <div style={{ marginTop: 'var(--space-2)' }}>
           <Description text={info.description} clamp />
-          {meta && <p style={metaStyle}>{meta}</p>}
+          {meta && <p style={metaStyle}>{readable(meta)}</p>}
         </div>
       )}
-      {!info.description && meta && <p style={metaStyle}>{meta}</p>}
+      {!info.description && meta && <p style={metaStyle}>{readable(meta)}</p>}
       {briefSlot}
       {toc.length > 0 && (
         // 「この本で学べること」の畳む行のすぐ下は、行と行を線だけで区切る（間を空けない）。

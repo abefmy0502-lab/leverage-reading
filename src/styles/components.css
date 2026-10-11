@@ -1033,10 +1033,11 @@ textarea[aria-invalid="true"]:not(.no-focus-ring):focus {
   /* 文節の切れ目（<wbr>）でだけ折り返す（「チーズはどこへ消／えた？」と割れていた・2026-10-04）。 */
   word-break: keep-all;
   overflow-wrap: anywhere;
-  /* 1 行の書名でも 2 行ぶんの高さを取り、となりのカードと著者・状態の行の位置をそろえる（2026-09-29）。 */
-  min-height: calc(2 * 1.4em);
+  /* 書名の高さは中身のまま（1 行の書名で著者との間が 1 行ぶん空いていた）。となりのカードと著者・状態の行の位置は、
+     著者をカードの下端へ寄せてそろえる（同じ行のカードは格子で同じ高さになる・2026-10-11 第 2 回の採点）。 */
 }
 .book-cover-author {
+  margin-top: auto;
   font-size: var(--text-meta);
   color: var(--text-2); /* リスト表示の著者と同じ（DESIGN §5） */
   white-space: nowrap;

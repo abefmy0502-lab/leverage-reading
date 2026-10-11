@@ -207,5 +207,6 @@ export const input = {
 //   （横に送る箱では右の内側余白が効かない・共有のシートの「どの本？」と同じ・2026-10-11 点検）。
 export const SCROLL_FADE_MASK = 'linear-gradient(90deg, black 90%, transparent 100%)';
 export const scrollFade = { WebkitMaskImage: SCROLL_FADE_MASK, maskImage: SCROLL_FADE_MASK };
-// 左端もふわっと消す形（左に固定の見出しがある行＝すべての本のフォルダの行）。左の 12 は箱の内側の余白に重ねる。
-export const SCROLL_FADE_MASK_BOTH = 'linear-gradient(90deg, transparent 0, black var(--space-3), black 90%, transparent 100%)';
+// 左端もふわっと消す形（すべての本の状態・フォルダの行）。消す幅は 1.5em（文字と一緒に広がる）。
+//   左はいちばん左まで戻しているときは消さない（最初のチップを薄くしない）＝送ったときだけこちらに切り替える。
+export const SCROLL_FADE_MASK_BOTH = 'linear-gradient(90deg, transparent 0, black 1.5em, black 90%, transparent 100%)';

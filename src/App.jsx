@@ -1078,6 +1078,12 @@ function AuthedApp() {
   // 「絞り込み / 並び」をボトムシートに隠して本棚をスッキリさせる。
   const [minRating, setMinRating] = useState(0);             // 0=指定なし / 1〜5=その星以上
   const [tagFilter, setTagFilter] = useState([]);            // 選択タグ（AND ではなく OR）
+  // すべての本の状態・フォルダの横に送る行を左へ送っているか（送っている間だけ左端もふわっと消す）。
+  const [chipRowsScrolled, setChipRowsScrolled] = useState({ status: false, folder: false });
+  const onChipRowScroll = (key) => (e) => {
+    const v = e.currentTarget.scrollLeft > 0;
+    setChipRowsScrolled((p) => (p[key] === v ? p : { ...p, [key]: v }));
+  };
   const [folderFilter, setFolderFilter] = useState(null);    // 選択中フォルダ名（null=すべて）
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [sortSheetOpen, setSortSheetOpen] = useState(false);
@@ -5105,10 +5111,11 @@ function AuthedApp() {
                   style={{ display: "flex", gap: 'var(--space-3)', alignItems: "flex-start", padding: "var(--space-2) 0", width: "100%", background: "none", border: "none", textAlign: "left", cursor: "pointer", fontFamily: "inherit", minHeight: 48 }}
                 >
                   {/* ○ は 1 行目にそろえる（iOS のリマインダーと同じ）。1 行目の高さの箱の上下中央に置く。 */}
-                  <span aria-hidden="true" style={{ height: 'calc(var(--text-body) * 1.5)', display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}>
+                  {/* 丸は文字と一緒に大きくなる（em・ふだん 24＝17×1.4）。 */}
+                  <span aria-hidden="true" style={{ fontSize: 'var(--text-body)', height: 'calc(var(--text-body) * 1.5)', display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}>
                     {a.done
-                      ? <CheckCircle2 size={24} style={{ color: 'var(--success)' }} />
-                      : <Circle size={24} style={{ color: 'var(--border)' }} />}
+                      ? <CheckCircle2 size="1.4em" style={{ color: 'var(--success)' }} />
+                      : <Circle size="1.4em" style={{ color: 'var(--border)' }} />}
                   </span>
                   <div style={{ minWidth: 0 }}>
                     <p style={{ fontSize: 'var(--text-body)', color: a.done ? "var(--text-3)" : "var(--text)", textDecoration: a.done ? "line-through" : "none", margin: 0, wordBreak: "keep-all", overflowWrap: "anywhere", lineHeight: 1.5 }}>{withPhraseBreaks(a.text)}</p>
@@ -5134,7 +5141,8 @@ function AuthedApp() {
               （レバレッジ読書の核心。未記入のときだけ出る＝書けば消える）。行動のすぐ後・読書計画より上。 */}
           {/* 3 つの問いが出ている間は出さない（読み終えた直後に「書いて」が 2 か所に並ばないように・2026-10-11 ui-critic） */}
           {current.status === 'done' && !(current.roiSummary || '').trim() && doneQuestionsNow.length === 0 && (
-            <div style={{ ...cardStyle, marginTop: 'var(--space-6)' }}>
+            // 上の行動の区画は下の余りを負の余白で詰めているので、ほかの区画の間（24）より広く 32 を取って区切る（2026-10-11 第 2 回の採点）。
+            <div style={{ ...cardStyle, marginTop: 'var(--space-8)' }}>
               <p style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', margin: 0 }}>一番の収穫を 1 行だけ残す</p>
               <button type="button" onClick={() => openEdit(current)} style={textBtnInCard}>
                 1 行を書く
@@ -5848,7 +5856,8 @@ function AuthedApp() {
         }))}
         aria-label="写真で共有"
         // 文字は 15 から設定に合わせて大きくなるが、20 で止める（--text-bar-max・1 行に収める）。アイコンは右の ？・⚙️ と同じ 22。
-        style={{ ...btnLink, fontSize: 'min(var(--text-sub), var(--text-bar-max))', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', padding: '0 var(--space-2)', whiteSpace: 'nowrap' }}
+        // 本が 0 冊のときは栗色にしない（--text-2）＝主役は本文の「読んだ本に一言ずつ残す」（アクセントを 2 か所にしない・2026-10-11 第 2 回の採点）。
+        style={{ ...btnLink, ...(!booksLoading && books.length === 0 ? { color: 'var(--text-2)' } : null), fontSize: 'min(var(--text-sub), var(--text-bar-max))', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', padding: '0 var(--space-2)', whiteSpace: 'nowrap' }}
       >
         <Camera size={22} strokeWidth={1.75} aria-hidden="true" />
         写真で共有
@@ -6153,9 +6162,10 @@ function AuthedApp() {
                     WebkitOverflowScrolling: 'touch',
                     // 右端をふわっと透過させ「まだ続きがある（横スクロールできる）」を示す。
                     // フェードなしだと「読了」チップが硬く見切れて壊れて見えていた。
-                    WebkitMaskImage: SCROLL_FADE_MASK,
-                    maskImage: SCROLL_FADE_MASK,
+                    WebkitMaskImage: chipRowsScrolled.status ? SCROLL_FADE_MASK_BOTH : SCROLL_FADE_MASK,
+                    maskImage: chipRowsScrolled.status ? SCROLL_FADE_MASK_BOTH : SCROLL_FADE_MASK,
                   }}
+                  onScroll={onChipRowScroll('status')}
                   role="group"
                   aria-label="状態で絞り込み"
                 >
@@ -6208,13 +6218,14 @@ function AuthedApp() {
                   </span>
                   <div
                     data-folder-chips-scroll=""
+                    onScroll={onChipRowScroll('folder')}
                     style={{
                       flex: 1, minWidth: 0, display: 'flex', gap: 'var(--space-2)', overflowX: 'auto',
-                      // 見出しとの間 12 は箱の内側の余白で取り、その 12 で左端もふわっと消す（送ったチップが見出しの横で硬く切れない）。
+                      // 見出しとの間 12 は箱の内側の余白で取り、送ったときは左端もふわっと消す（送ったチップが見出しの横で硬く切れない）。
                       paddingLeft: 'var(--space-3)', scrollPaddingLeft: 'var(--space-3)',
                       WebkitOverflowScrolling: 'touch',
-                      WebkitMaskImage: SCROLL_FADE_MASK_BOTH,
-                      maskImage: SCROLL_FADE_MASK_BOTH,
+                      WebkitMaskImage: chipRowsScrolled.folder ? SCROLL_FADE_MASK_BOTH : SCROLL_FADE_MASK,
+                      maskImage: chipRowsScrolled.folder ? SCROLL_FADE_MASK_BOTH : SCROLL_FADE_MASK,
                     }}
                   >
                     {allFolders.map((f) => {

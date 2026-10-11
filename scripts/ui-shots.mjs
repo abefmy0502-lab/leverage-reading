@@ -141,7 +141,25 @@ const REL10A = [
   ['a-home-new', '/?demo=new', [{ css: 'button[aria-label="閉じる"]' }, { wait: 600 }]],
   ['a-review-memo', '/', [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("メモ")' }, { wait: 600 }]],
 ].flatMap(([name, url, steps]) => [{ name, url, steps }, { name: `${name}-xxl`, url, steps: [XXL, ...steps] }]);
+// リリース前の最終採点 第 2 回の直し（2026-10-11・release10-after4・担当 A）: 明暗＋文字最大（-xxl）。
+const HHMM = (ms) => { const d = new Date(Date.now() + ms); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+const OPEN_EDITOR = [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("数値化の鬼")' }, { css: 'button:has-text("メモを書く")' }, { css: 'button:has-text("ページ・写真")' }, { css: 'button:has-text("全画面で書く")' }, { wait: 800 }];
+const REL10A4 = [
+  ['memo-editor', '/', [...OPEN_EDITOR, { eval: () => { if (document.activeElement) document.activeElement.blur(); } }]],
+  ['memo-editor-offline', '/?offline=1', [...OPEN_EDITOR, { fill: ['textarea#memo-body', '数字で考えると、言い訳が消える。'] }, { css: '[role=dialog] button:text-is("保存")' }, { wait: 1500 }, { eval: () => { if (document.activeElement) document.activeElement.blur(); } }]],
+  ['memo-sheet', '/', [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button:has-text("メモを書く")' }, { wait: 600 }]],
+  ['focus-start', '/?focus=start', [{ wait: 800 }]],
+  ['focus-until-error', '/?focus=until', [{ wait: 800 }, { fill: ['input[type=time]', HHMM(-10 * 60000)] }, { wait: 400 }]],
+  ['focus-until-toolong', '/?focus=until', [{ wait: 800 }, { fill: ['input[type=time]', HHMM(7 * 3600000)] }, { wait: 400 }]],
+  ['library', '/', [{ css: 'button:has-text("すべての本")' }, { wait: 800 }]],
+  ['library-end', '/', [{ css: 'button:has-text("すべての本")' }, { wait: 800 }, SCROLL_ROWS_END, { wait: 400 }]],
+  ['detail-done', '/', [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("サピエンス全史")' }, { wait: 800 }, { scrollBottom: true }]],
+  ['detail-reading', '/', [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { wait: 800 }, { scrollTo: 'button:has-text("この本に相談する")' }]],
+  ['brief-made', '/?brief=made&demo=planempty', [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("LIFE SHIFT")' }, { wait: 800 }]],
+  ['home-new', '/?demo=new', [{ css: 'button[aria-label="閉じる"]' }, { wait: 600 }]],
+].map(([name, url, steps]) => [`a4-${name}`, url, steps]).flatMap(([name, url, steps]) => [{ name, url, steps }, { name: `${name}-xxl`, url, steps: [XXL, ...steps] }]);
 const SCREENS = [
+  ...REL10A4,
   ...REL10A,
   ...ADVISOR2,
   ...REL10,

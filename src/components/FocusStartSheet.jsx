@@ -37,20 +37,20 @@ const choice = (on) => ({
   fontVariantNumeric: 'tabular-nums',
 });
 
-// 切り替え（タイマー｜計測）は、下の分のチップと見分けがつくよう面を付けない: 等分の 2 列・17・
-// 選んでいる方は --text 600 と下に 2 の --accent の線、もう一方は --text-2（全体の下に --separator の線）。
+// 切り替え（タイマー｜計測）は iOS のセグメント（DESIGN §5・記録の「今月｜これまで」・写真で共有の「投稿｜ストーリー」と同じ形）:
+// --fill の溝に、選んだ方だけ --seg-on の面＋細い縁。等分の 2 列（2026-10-11 第 2 回の採点で下線の形から改めた）。
+const segTrack = { display: 'flex', gap: 'var(--space-1)', padding: 'var(--space-1)', background: 'var(--fill)', borderRadius: 'var(--radius)' };
 const seg = (on) => ({
   flex: '1 1 0',
   minWidth: 0,
-  minHeight: 'var(--btn-h)',
+  minHeight: 'var(--tap-min)',
   border: 'none',
-  borderBottom: `var(--focus-tab-line) solid ${on ? 'var(--accent)' : 'transparent'}`,
-  // 選んだ方の下線を、全体の下の 1 の線に重ねる（線の太さぶん下へ）。
-  marginBottom: 'calc(-1 * var(--focus-tab-line) / 2)',
-  background: 'transparent',
+  borderRadius: 'calc(var(--radius) - var(--space-1))',
+  background: on ? 'var(--seg-on)' : 'transparent',
+  boxShadow: on ? 'inset 0 0 0 1px var(--border)' : 'none',
   color: on ? 'var(--text)' : 'var(--text-2)',
-  fontSize: 'var(--text-body)',
-  fontWeight: on ? 600 : 400,
+  fontSize: 'var(--text-sub)',
+  fontWeight: 600,
   fontFamily: 'inherit',
   cursor: 'pointer',
   whiteSpace: 'nowrap',
@@ -110,7 +110,7 @@ export default function FocusStartSheet({ book = null, onStart, onClose, initial
       footer={<button type="button" onClick={start} disabled={blocked} aria-disabled={blocked || undefined} style={blocked ? btnPrimaryOff : btnPrimary} data-focus-start="">はじめる</button>}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
-        <div role="radiogroup" aria-label="時間の測り方" style={{ display: 'flex', borderBottom: '1px solid var(--separator)' }}>
+        <div role="radiogroup" aria-label="時間の測り方" style={segTrack}>
           {[['timer', 'タイマー'], ['count', '計測']].map(([v, label]) => (
             <button key={v} type="button" role="radio" aria-checked={mode === v} onClick={() => setMode(v)} style={seg(mode === v)}>
               {label}

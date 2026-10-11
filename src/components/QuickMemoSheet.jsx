@@ -459,19 +459,15 @@ export default function QuickMemoSheet({
         <div className="lvg-sheet-handle" aria-hidden="true" />
         <div style={headerStyle}>
           <div style={{ minWidth: 0, flex: 1 }}>
-            <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 0 }}>メモを書く</p>
-            <p
-              style={{
-                fontSize: 'var(--text-body)',
-                color: 'var(--text)',
-                fontWeight: 600,
-                margin: 0,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {bookTitle || '本'}
+            {/* 上の行の組み方（読む前のシート・メモの全画面と共通・BottomSheet の eyebrow）: 小さな 1 行＝書名
+                （13/--text-2・文字最大でも --text-bar-max まで＝題より大きくならない）、題＝操作の名前「メモを書く」（17/600）。 */}
+            {bookTitle && (
+              <p style={{ fontSize: 'min(var(--text-meta), var(--text-bar-max))', color: 'var(--text-2)', margin: 0, lineHeight: 1.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {`『${bookTitle}』`}
+              </p>
+            )}
+            <p style={{ fontSize: 'var(--text-body)', color: 'var(--text)', fontWeight: 600, margin: 0, lineHeight: 1.3 }}>
+              メモを書く
             </p>
           </div>
           <button type="button" style={cancelBtn} onClick={requestClose}>

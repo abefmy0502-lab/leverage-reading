@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { useAppDataCache } from '../state/AppDataCache';
-import { toMessage } from '../lib/errors';
+import { toMessage, toSaveMessage } from '../lib/errors';
 import { LIMITS, validateImageFile } from '../lib/limits';
 import PhotoToTextButton from './PhotoToTextButton';
 import { condenseMemo } from '../lib/ai';
@@ -12,8 +12,9 @@ import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, input as uiInput, fieldNote } from '../styles/ui';
 import { ensureHttps } from '../lib/url';
-import { BookOpen, Sparkles, Undo2, ImagePlus, X, Plus } from 'lucide-react';
+import { Sparkles, Undo2, ImagePlus, X, Plus } from 'lucide-react';
 import { Chip } from './formPrimitives';
+import { withPhraseBreaks } from './TightBubble';
 import { useBlockEdgeSwipe } from '../hooks/useEdgeSwipeBack';
 import { useBackLayer } from '../hooks/useHistoryBack';
 import MemoLinks from './MemoLinks';
@@ -408,7 +409,7 @@ export default function BookMemoEditor({
       }
     } catch (e) {
       console.error('memo save error', e);
-      setErrorMsg(toMessage(e, 'メモの保存に失敗しました。'));
+      setErrorMsg(toSaveMessage(e, 'メモの保存に失敗しました。'));
     } finally {
       setBusy(false);
     }
@@ -520,25 +521,16 @@ export default function BookMemoEditor({
           キャンセル
         </button>
         <div style={{ minWidth: 0, textAlign: largeText ? 'left' : 'center' }}>
-          {/* 見出しの言葉はメモを書くシートと同じ（新しいメモ＝「メモを書く」）。 */}
+          {/* 上の行の組み方はメモを書くシート・読む前のシートと共通（BottomSheet の eyebrow）: 小さな 1 行＝書名
+              （13/--text-2・文字最大でも --text-bar-max まで＝題より大きくならない）、題＝操作の名前（17/600）。 */}
+          {bookTitle && (
+            // 題も --text-bar-max で止まるので、書名は 13:17 の比のまま止める（文字最大で書名が題と同じ大きさにならない）。
+            <p style={{ fontSize: 'min(var(--text-meta), calc(var(--text-bar-max) * 13 / 17))', color: 'var(--text-2)', margin: 0, lineHeight: 1.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {`『${bookTitle}』`}
+            </p>
+          )}
           <p style={{ fontSize: 'min(var(--text-body), var(--text-bar-max))', color: 'var(--text)', fontWeight: 600, margin: 0, lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {isEdit ? 'メモを編集' : 'メモを書く'}
-          </p>
-          <p
-            style={{
-              fontSize: 'var(--text-meta)',
-              color: 'var(--text-2)',
-              margin: 0,
-              lineHeight: 1.3,
-              display: 'flex',
-              justifyContent: largeText ? 'flex-start' : 'center',
-              alignItems: 'center',
-              gap: 'var(--space-1)',
-              minWidth: 0,
-            }}
-          >
-            <BookOpen size="1em" aria-hidden="true" style={{ flexShrink: 0 }} />
-            <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{bookTitle || '本'}</span>
           </p>
         </div>
         {!largeText && <span aria-hidden="true" style={{ ...backBtn, visibility: 'hidden', justifySelf: 'end' }}>キャンセル</span>}
@@ -719,9 +711,6 @@ export default function BookMemoEditor({
           </div>
         </div>
 
-        {errorMsg && (
-          <p role="alert" style={{ color: 'var(--error)', fontSize: 'var(--text-meta)', lineHeight: 1.5, margin: 0 }}>{errorMsg}</p>
-        )}
 
         {/* 🔗 保存済みのメモを開いたとき: いちばん下に「つながるメモ」（ほかの本で似たことを書いたメモ・見つかったときだけ） */}
         {isEdit && editLinks.length > 0 && <MemoLinks links={editLinks} onOpen={openLinked} />}
@@ -730,7 +719,12 @@ export default function BookMemoEditor({
       {/* 文字が大きいときは 2 つのボタンを縦に積む（決める「保存」を上・確かめるダイアログと同じきまり＝
           横に並べると「保存して／次へ」と割れる・2026-10-11 点検）。横に並べたときのボタンの中は文字最大で 1 行に 4〜5 字ほど
           なので、ここでは 6 字の「保存して次へ」も積む。 */}
-      <div style={largeText && !isEdit ? { ...footer, flexDirection: 'column-reverse', gap: 'var(--space-2)' } : footer}>
+      {/* 保存できなかった理由は、押した「保存」のすぐ上に出す（本文の下だと画面の外で、押しても何も起きないように見えた・
+          オフラインは「つながってから、もう一度保存してください」＝toSaveMessage・2026-10-11 第 2 回の採点）。 */}
+      {errorMsg && (
+        <p role="alert" style={{ color: 'var(--error)', fontSize: 'var(--text-meta)', lineHeight: 1.5, margin: 0, padding: 'var(--space-3) var(--space-4) 0', background: 'var(--surface)', borderTop: '1px solid var(--separator)', flexShrink: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(errorMsg)}</p>
+      )}
+      <div style={{ ...(largeText && !isEdit ? { ...footer, flexDirection: 'column-reverse', gap: 'var(--space-2)' } : footer), ...(errorMsg ? { borderTop: 'none' } : null) }}>
         {!isEdit && (
           <button
             type="button"
