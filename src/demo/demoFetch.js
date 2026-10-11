@@ -777,8 +777,14 @@ function aiReply(store, payload, aiMode = '') {
         { title: '時間の使い方の本 または 集中の本', author: '架空太郎', why: '時間の使い方が変わります。', core: '時間を先に押さえる。', focus: '時間の使い方', duration: '2週間で読了' },
         { title: '任せ方シリーズ', author: '架空花子', why: '任せ方が分かります。', core: '結果から任せる。', focus: '任せ方', duration: '3週間で読了' });
     }
+    // 🗣 最近の相談（本番は先頭の参考ターンで渡す・ai.js の recentConsultsBlock・2026-10-11）。あれば、いちばん新しい相談を 1 か所だけ踏まえる。
+    const allText = (payload.messages || []).map((m) => textOf(m.content)).join('\n');
+    const recent = (allText.match(/【最近の相談[^】]*】\n・(.+?)の相談「([^」\n]+)」/) || []);
+    const intro = recent[2]
+      ? `${recent[1]}の相談「${recent[2]}」も踏まえて、時間の使い方と任せ方の両方に効く本を選びました。`
+      : 'お話を伺って、時間の使い方と任せ方の両方に効く本を選びました。';
     return [
-      '## 👋 はじめに', 'お話を伺って、時間の使い方と任せ方の両方に効く本を選びました。', '',
+      '## 👋 はじめに', intro, '',
       '## 📚 おすすめの本', '', 'RECOMMENDATIONS_START', JSON.stringify(recs, null, 2), 'RECOMMENDATIONS_END', '',
       // 4 行目は JSON に無い架空の書名（本番で起きた漏れの再現・2026-09-30）。画面では lib/advisorProse.js が消し、番号も 1〜3 のまま。
       '## 📋 読む順番のおすすめ', '1. 『大事なことに集中する』 — 集中できる時間をつくる', '2. 『チームを動かす最強の時間術 ハイライト実践編』 — 仕上げに', '3. 『時間術大全』 — 毎日の 1 つを決める', '4. 『プロフェッショナルマネジャー』 — 結果から逆算して任せる', '',

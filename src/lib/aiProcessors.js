@@ -56,7 +56,9 @@ const BASE_FEATURES = [
   {
     id: 'advisor',
     name: 'AI 選書',
-    sends: '困りごと・聞き返しへの答え・読んだ本とメモの一部',
+    // 2026-10-11: 推薦に「最近の相談」（相談のテーマとそのときの結論・4 件・600 字まで・ai.js の recentConsultsBlock）を足した。
+    //   送り先は同じ Anthropic（相談で既に送っている自分のデータ）なので AI_CONSENT_VERSION は上げない（版は会社と用途の組み合わせ）。
+    sends: '困りごと・聞き返しへの答え・読んだ本とメモの一部・最近の相談',
     purposes: ['book_advisor', 'advisor_interview'],
   },
   {
