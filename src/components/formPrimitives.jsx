@@ -114,7 +114,8 @@ export function Field({ label, sub, children }) {
 const CHIP_HEIGHT = 32;
 const SELECT_CHIP_HEIGHT = 44;
 // shrink: 長い文字（タグの提案の 50 字のタグなど）でも並びの幅を超えない（中の文字は呼び出し側で … に切る）。
-export function Chip({ active = false, stretch = false, shrink = false, size, onClick, children, ...rest }) {
+// wrap: 長い名前を文節で折り返す（高さは内容に合わせて伸びる・文字を大きくしても枠からはみ出さない・2026-10-11 記録の「分野」）
+export function Chip({ active = false, stretch = false, shrink = false, wrap = false, size, onClick, children, ...rest }) {
   const select = size === 'select';
   return (
     <button
@@ -138,6 +139,7 @@ export function Chip({ active = false, stretch = false, shrink = false, size, on
           background: active ? "var(--accent-soft)" : "var(--fill)",
           color: active ? "var(--accent)" : "var(--text)",
           ...(shrink ? { maxWidth: "100%", minWidth: 0, boxSizing: "border-box" } : null),
+          ...(wrap ? { height: "auto", minHeight: select ? SELECT_CHIP_HEIGHT : CHIP_HEIGHT, whiteSpace: "normal", wordBreak: "keep-all", overflowWrap: "anywhere", textAlign: "left", boxSizing: "border-box", paddingTop: "var(--space-1)", paddingBottom: "var(--space-1)" } : null),
         }}
       >
         {children}

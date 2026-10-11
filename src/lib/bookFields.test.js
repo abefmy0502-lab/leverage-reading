@@ -236,17 +236,36 @@ describe('記録の「分野」', () => {
     // 読書の時間の「分野ごと」と同じ分を渡したら、その分を出す
     const r2 = buildFieldRecord(books, { secondsByBook: { b: 600 }, minutesByField: { 考える力: 6, '段取り・効率': 4 } });
     expect(r2.groups.flatMap((g) => g.fields).map((f) => f.minutes)).toEqual([6, 4, 0]);
-    expect(r.groups.map((g) => g.name)).toEqual(['仕事', '自分と生活']);
+    expect(r.groups.flatMap((g) => g.fields).length).toBe(3);
+  });
+  it('大分類 4 つはいつも全部・本がまだ無い分野は empty に（一覧の順）・合わせて 20 分野', () => {
+    const r = buildFieldRecord(books);
+    expect(r.groups.map((g) => g.name)).toEqual(['仕事', '自分と生活', '教養', '文芸・エンタメ']);
+    const work = r.groups.find((g) => g.id === 'work');
+    expect(work.empty).toEqual(['伝える力', 'リーダー・チーム', '経営・マーケティング', 'キャリア・働き方']);
+    // 本が 0 冊の大分類は、分野が全部 empty
+    const culture = r.groups.find((g) => g.name === '教養');
+    expect(culture.fields).toEqual([]);
+    expect(culture.empty).toEqual(BOOK_FIELD_GROUPS.find((g) => g.name === '教養').fields.map((f) => f.name));
+    const all = r.groups.flatMap((g) => [...g.fields.map((f) => f.name), ...g.empty]);
+    expect([...all].sort()).toEqual([...BOOK_FIELDS].sort());
+    expect(all.length).toBe(20);
+    // 少ない分野を選んだ結果（thin）は返さない（全体が見えるので）
+    expect(r.thin).toBeUndefined();
   });
   it('少ない分野は、なるべく別々の大分類から（本の少ない大分類から順に）', () => {
-    const r = buildFieldRecord(books);
-    // 教養・楽しむは 0 冊 → それぞれの最初の分野
-    expect(r.thin).toEqual(['経済・社会', '小説・物語']);
-    expect(new Set(r.thin.map(fieldGroupId)).size).toBe(2);
+    const stat = (list) => {
+      const m = new Map(BOOK_FIELDS.map((f) => [f, { books: 0 }]));
+      for (const b of list) for (const f of b.tags) if (m.has(f)) m.get(f).books += 1;
+      return m;
+    };
+    // 教養・文芸・エンタメは 0 冊 → それぞれの最初の分野
+    const thin = pickThinFields(stat(books));
+    expect(thin).toEqual(['経済・社会', '小説・物語']);
+    expect(new Set(thin.map(fieldGroupId)).size).toBe(2);
     // 教養に本が多ければ、文芸・エンタメと自分と生活から
-    const many = [...books, ...['経済・社会', '歴史', '科学・テクノロジー', '哲学・思想', '人の心理'].map((f, i) => ({ id: `k${i}`, tags: [f] }))];
-    const r3 = buildFieldRecord(many);
-    expect(r3.thin).toEqual(['小説・物語', '心の整え方']);
+    const many = [...books, ...['経済・社会', '歴史', '科学・テクノロジー', '哲学・思想', '心理学'].map((f, i) => ({ id: `k${i}`, tags: [f] }))];
+    expect(pickThinFields(stat(many))).toEqual(['小説・物語', '心の整え方']);
   });
   it('別の大分類で 2 つにならなければ、残りの少ない分野で埋める', () => {
     const stat = new Map(BOOK_FIELDS.map((f) => [f, { books: fieldGroupId(f) === 'work' ? 0 : 5 }]));

@@ -4,7 +4,8 @@
 //                      サーバーの見立てを待っている間は骨組み・失敗したら 1 行（pending / failed・2026-10-11 ui-critic）
 //   BookFieldsSheet  … 分野を選ぶシート。大分類 4 つ（仕事・自分と生活・教養・文芸・エンタメ）の見出し → 分野のチップ（選ぶためのチップ 44）・3 つまで
 //   BookFieldLinks   … 本の詳細の分野（押すと、すべての本をその分野で絞る）
-//   BookFieldsRecord … 振り返り › 記録の「分野」（本のある分野だけ・本とメモの数。読書の時間は「読書の時間」カードの「分野ごと」へ一本化・2026-10-11）
+//   BookFieldsRecord … 振り返り › 記録の「分野」（大分類 4 つをいつも全部・本のある分野は行＝本とメモの数・本がまだ無い分野は
+//                      大分類ごとに 1 行の名前の並び＝押すと AI 選書。読書の時間は「読書の時間」カードの「分野ごと」へ一本化・2026-10-11）
 //
 // 反ゲーミフィケーション: 点数・%・順位・「あと N 冊」・「埋めよう」は出さない。
 import { useState } from 'react';
@@ -144,7 +145,7 @@ export function BookFieldLinks({ fields = [], onPick }) {
 
 // 振り返り › 記録の「分野」。record: lib/bookFields.js の buildFieldRecord の結果。
 export function BookFieldsRecord({ record, onOpenField, onFindBooks }) {
-  const { groups, thin } = record;
+  const { groups } = record;
   return (
     <section
       data-book-fields-record=""
@@ -153,8 +154,9 @@ export function BookFieldsRecord({ record, onOpenField, onFindBooks }) {
     >
       <h3 id="book-fields-record-title" style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', margin: 0 }}>分野</h3>
       {groups.map((c) => (
-        <div key={c.id} style={{ marginTop: 'var(--space-4)' }}>
+        <div key={c.id} data-field-group={c.id} style={{ marginTop: 'var(--space-4)' }}>
           <p style={{ ...groupTitle, margin: 0 }}>{c.name}</p>
+          {c.fields.length > 0 && (
           <ul style={{ listStyle: 'none', margin: 'var(--space-1) 0 0', padding: 0 }}>
             {c.fields.map((f, i) => {
               const parts = [`本 ${f.books} 冊`];
@@ -188,24 +190,36 @@ export function BookFieldsRecord({ record, onOpenField, onFindBooks }) {
               );
             })}
           </ul>
+          )}
+          {/* 本がまだ無い分野は、大分類ごとにまとめて 1 行（全体の 20 分野が見える・押すと AI 選書の最初の悩みに入れて開く＝送らない・2026-10-11 オーナー）。 */}
+          {c.empty?.length > 0 && <EmptyFieldsLine names={c.empty} divided={c.fields.length > 0} onFindBooks={onFindBooks} />}
         </div>
       ))}
-      {/* 本の少ない分野は 1 つずつ「お金の本を探す ›」（AI 選書の最初の悩みに入れるだけ・送らない・2026-10-11 ui-critic）。 */}
-      {thin.length > 0 && onFindBooks && (
-        <div style={{ marginTop: 'var(--space-3)', paddingTop: 'var(--space-2)', borderTop: '1px solid var(--separator)', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', marginBottom: 'calc(-1 * var(--space-3))' }}>
-          {thin.map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => onFindBooks([t])}
-              aria-label={`${t}の本を探す（AI 選書）`}
-              style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))', textAlign: 'left', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}
-            >
-              <span><span style={{ whiteSpace: 'nowrap' }}>{t}</span>の本を<span style={{ whiteSpace: 'nowrap' }}>探す<ChevronRight size="1.2em" aria-hidden="true" style={{ verticalAlign: 'text-bottom', marginLeft: 'var(--space-1)' }} /></span></span>
-            </button>
-          ))}
-        </div>
-      )}
     </section>
+  );
+}
+
+// 本がまだ無い分野の 1 行。「まだ本がない分野」に続けて名前のチップ（見た目 32・押せる範囲 44・折り返す）。
+// onFindBooks が無ければ名前を文字で並べるだけ。
+function EmptyFieldsLine({ names, divided, onFindBooks }) {
+  return (
+    <div
+      data-empty-fields=""
+      role="group"
+      aria-label="まだ本がない分野"
+      style={{
+        display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 'var(--space-2)', rowGap: 'var(--space-1)',
+        marginTop: divided ? 0 : 'var(--space-1)',
+        paddingTop: divided ? 'var(--space-1)' : 0,
+        borderTop: divided ? '1px solid var(--separator)' : 'none',
+      }}
+    >
+      <span style={{ flexShrink: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, minHeight: 'var(--tap-min)', display: 'inline-flex', alignItems: 'center' }}>まだ本がない分野</span>
+      {names.map((f) => (
+        onFindBooks
+          ? <Chip key={f} shrink wrap onClick={() => onFindBooks([f])} aria-label={`${f}の本を探す（AI 選書）`}>{f}</Chip>
+          : <span key={f} style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>{f}</span>
+      ))}
+    </div>
   );
 }

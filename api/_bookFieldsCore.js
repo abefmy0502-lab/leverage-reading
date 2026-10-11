@@ -475,7 +475,8 @@ export function classifyBook(features = {}) {
 }
 
 // ── 記録の「分野」 ──────────────────────────────────────────────
-// 本が 0〜1 冊の分野は「少ない分野」（下の行で「◯◯の本を探す」に 2 つまで名前を出す）。
+// 本が 0〜1 冊の分野は「少ない分野」。記録の「分野」は 2026-10-11 から全体（本がまだ無い分野も）を出すので、
+// pickThinFields は記録では使わない（ほかで少ない分野を選ぶときのために残す）。
 export const THIN_BOOKS = 1;
 
 /**
@@ -501,11 +502,13 @@ export function pickThinFields(stat, max = 2) {
 }
 
 /**
- * 分野ごとの本の数・メモの数・読書の時間（秒）。大分類（4 つ）ごとに、本のある分野だけ（一覧の順・本が 0 冊の分野は行にしない）。
+ * 分野ごとの本の数・メモの数・読書の時間（秒）。大分類（4 つ）はいつも全部（本が 0 冊の大分類も）。
+ * fields＝本のある分野（一覧の順・行にする）・empty＝本がまだ無い分野の名前（一覧の順・まとめて 1 行に）
+ * （2026-10-11 オーナー「全体何があるのか？どのように分野が分かれているのか？をわかるように」）。
  *   books: アプリの本（tags） / memoCountByBook: { [bookId]: N } / secondsByBook: { [bookId]: 秒 }
  *   minutesByField: { [分野]: 分 }＝読書の時間の「分野ごと」と同じ最大剰余で配った分（lib/readingStats.js の
  *     allottedFieldMinutes・これまで）。渡されたら行の時間はこの分を出す（同じ分野で 1 分ずれないように）。
- * 戻り値: { groups: [{ id, name, fields: [{ name, books, memos, seconds, minutes }] }], thin: [分野の名前…], any }
+ * 戻り値: { groups: [{ id, name, fields: [{ name, books, memos, seconds, minutes }], empty: [分野の名前…] }], any }
  */
 export function buildFieldRecord(books = [], { memoCountByBook = {}, secondsByBook = {}, minutesByField = null } = {}) {
   const stat = new Map(BOOK_FIELDS.map((f) => [f, { name: f, books: 0, memos: 0, seconds: 0, minutes: 0 }]));
@@ -529,9 +532,9 @@ export function buildFieldRecord(books = [], { memoCountByBook = {}, secondsByBo
     id: c.id,
     name: c.name,
     fields: c.fields.map((f) => stat.get(f.name)).filter((s) => s.books > 0),
-  })).filter((c) => c.fields.length);
-  const thin = pickThinFields(stat);
-  return { groups, thin, any };
+    empty: c.fields.map((f) => f.name).filter((f) => !(stat.get(f).books > 0)),
+  }));
+  return { groups, any };
 }
 
 // 「この分野の本を探す」で AI 選書の最初の悩みに入れる言葉（送らない）。分野は 1 つでも数個（「・」でつなぐ）でも。
