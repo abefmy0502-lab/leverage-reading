@@ -90,7 +90,8 @@ const COPY = buildLpCopy({ offer: OFFER, trialNote: TRIAL_NOTE, prelaunch: PRELA
 const { MONTHLY_TEXT, ANNUAL_TEXT, PER_MONTH_TEXT, SAVE, TRIAL_FIRST, TRIAL_CONSULTS, FREE_CONSULTS, FIRST_CONSULTS, PAID_CONSULTS, END } = COPY;
 const LAUNCH_LINE = `${LAUNCH_LABEL}に、App Store で公開予定です。`;
 // ボタンの文言（2026-10-02 オーナー承認）: アプリは無料プラン（ずっと無料）で使える（押すと App Store）。
-const CTA_LABEL = '無料プランで始める';
+// 狭い幅・最大の文字で割れても「無料プランで／始める」になるよう、2 つの塊に包む（.lp-btn は keep-all）。
+const CTA_LABEL = <><span className="lp-nb">無料プランで</span><wbr /><span className="lp-nb">始める</span></>;
 
 // 🗣 お客様の声。実在ユーザーの許可を得た本物の声だけを入れる（捏造・盛りは絶対 NG・本物が届くまで出さない）。
 // 形式: { quote, who: '30代・営業', how: '部下との 1on1 の前に相談している' }。空なら節ごと出ない。
@@ -712,10 +713,10 @@ export default function Landing() {
             </h2>
             <div className="lp-cta-block">
               <Entry loc="final" wl={wl} qr badge launch center />
-              <p className="lp-cta-note">{COPY.priceLine.map((t) => <span key={t}>{t}</span>)}</p>
+              <p className="lp-cta-note lp-wbr">{COPY.priceLine.map((t) => <span key={t}><Phrases>{t}</Phrases></span>)}</p>
             </div>
-            <p className="lp-story">
-              <span>Orime（オリメ）の名前は</span><span>「折り目」から。</span><span>大切なページの角を折るように、</span><span>心が動いた一行に</span><span>印をつけておけるアプリを</span><span>目指しています。</span>
+            <p className="lp-story lp-wbr">
+              <Phrases>Orime（オリメ）の名前は「折り目」から。大切なページの角を折るように、心が動いた一行に印をつけておけるアプリを目指しています。</Phrases>
             </p>
           </div>
         </section>
