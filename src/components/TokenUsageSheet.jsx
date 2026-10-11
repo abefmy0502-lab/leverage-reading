@@ -82,11 +82,14 @@ export default function TokenUsageSheet({ onClose, onAdd, onPlans, from = 'consu
   const [lots, setLots] = useState(undefined);
   // 使い道を読めなかったときの「もう一度」（使い道だけ読み直す）。
   const [usageTry, setUsageTry] = useState(0);
+  // 追加分を読めなかったときの「もう一度」（追加分だけ読み直す）。
+  const [lotsTry, setLotsTry] = useState(0);
   useEffect(() => {
     let alive = true;
+    setLots(undefined);
     fetchTokenLots(user?.id).then((l) => { if (alive) setLots(l); });
     return () => { alive = false; };
-  }, [user?.id]);
+  }, [user?.id, lotsTry]);
   useEffect(() => {
     let alive = true;
     setDetail(undefined);
@@ -190,7 +193,8 @@ export default function TokenUsageSheet({ onClose, onAdd, onPlans, from = 'consu
                     {hasLots && <span style={nowrap}>（追加分 {fmt(purchasedTokens)} トークンを含む）</span>}
                   </p>
                 )}
-                {ratio != null && (
+                {/* 残りが 0 のときは棒を出さない（空の棒は何も伝えない・2026-10-11 ui-critic）。 */}
+                {ratio != null && ratio > 0 && (
                   // 残りの細い 1 本の棒（見出しの「残り」と合わせて残りで埋める・使い切ったら空・読み上げは数の文で足りるので飾り）。色は数字と同じ条件。
                   <div aria-hidden="true" style={{ height: 'var(--space-1)', borderRadius: 'var(--radius-full)', background: 'var(--fill)', margin: 'var(--space-3) 0 var(--space-2)', overflow: 'hidden' }}>
                     <div style={{ width: `${ratio * 100}%`, height: '100%', borderRadius: 'var(--radius-full)', background: warn ? 'var(--warning)' : 'var(--accent)' }} />
@@ -223,8 +227,11 @@ export default function TokenUsageSheet({ onClose, onAdd, onPlans, from = 'consu
 
       {lotsFailed && (
         <section aria-label="追加分" style={sectionGap}>
-          <h3 style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>追加分</h3>
-          <p style={meta}>追加分を読み込めませんでした</p>
+          <ErrorMessage
+            title="追加分を読み込めませんでした"
+            description="通信の状態を確かめて、もう一度お試しください。"
+            actions={[{ label: 'もう一度', onClick: () => setLotsTry((n) => n + 1) }]}
+          />
         </section>
       )}
 

@@ -1064,7 +1064,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                 <div style={{ ...blockStyle, ...divider }}>
                   <p style={{ ...noteStyle, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
                     {/* 2 文に分ける（2026-10-11 ui-critic）。トークンの目安（AI の答え 約 N 回）はトークンの使い方のシートに。 */}
-                    <span style={{ display: 'block' }}>{withPhraseBreaks('無料プランはずっと無料。AI は相談・')}<span style={{ whiteSpace: 'nowrap' }}>この本で学べること</span>・<span style={{ whiteSpace: 'nowrap' }}>写真から書き起こし（毎月 {FREE_OCR_PER_MONTH} 回）。</span></span>
+                    <span style={{ display: 'block' }}>{withPhraseBreaks('無料プランはずっと無料。AI は相談・この本で学べること・写真から書き起こし（')}<span style={{ whiteSpace: 'nowrap' }}>毎月 {FREE_OCR_PER_MONTH} 回</span>）。</span>
                     <span style={{ display: 'block', marginTop: 'var(--space-1)' }}>{withPhraseBreaks(`プランは毎月 ${PAID_TOKENS.toLocaleString()} トークンで、すべての AI 機能を使えます。`)}</span>
                   </p>
                   <button
