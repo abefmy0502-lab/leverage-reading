@@ -374,13 +374,22 @@ export function buildConsultExamples({ books = [], memoBookIds = null, lastConsu
   }
 
   WORRY_EXAMPLES.forEach((w) => push(w, 'worry'));
-  // 📕 積読から答える（2026-10-11）: 積読が 1 冊以上あれば「積読から、今の悩みに合う本は？」を 1 つ。
-  //   自分の言葉から作った例（やってみた行動・前の相談・課題・本）は押しのけず、よくある困りごとの最後の 1 つと入れ替える。
+  // 📕 積読から答える（2026-10-11）: 積読が 1 冊以上あれば「積読から、今の悩みに合う本は？」を必ず 1 つ。
+  //   空きがあれば足し、無ければ入れ替える。入れ替えるのは よくある困りごと → 本 → 課題 → 本の困りごと の順に最後のもの
+  //   （やってみた行動の次・前の相談の続きは押しのけない）。
   if (count > 0 && hasTsundoku(list) && !out.some((e) => e.text === UNREAD_EXAMPLE)) {
-    let at = -1;
-    out.forEach((e, i) => { if (e.kind === 'worry' && WORRY_EXAMPLES.includes(e.text)) at = i; });
-    if (at >= 0) out[at] = { text: UNREAD_EXAMPLE, kind: 'tsundoku' };
-    else if (out.length < count) out.push({ text: UNREAD_EXAMPLE, kind: 'tsundoku' });
+    const item = { text: UNREAD_EXAMPLE, kind: 'tsundoku' };
+    if (out.length < count) out.push(item);
+    else {
+      const lastOf = (pred) => out.reduce((at, e, i) => (pred(e) ? i : at), -1);
+      const at = [
+        (e) => e.kind === 'worry' && WORRY_EXAMPLES.includes(e.text),
+        (e) => e.kind === 'book',
+        (e) => e.kind === 'challenge',
+        (e) => e.kind === 'worry',
+      ].map(lastOf).find((i) => i >= 0);
+      if (at != null) out[at] = item;
+    }
   }
   return out;
 }

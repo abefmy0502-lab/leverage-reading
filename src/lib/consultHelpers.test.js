@@ -110,10 +110,14 @@ const books = [
 describe('buildConsultExamples', () => {
   it('前の相談の続き → 課題 → 本 の順', () => {
     const ex = buildConsultExamples({ books, memoBookIds: new Set(['a', 'c']), lastConsult: { question: '部下に任せた仕事がいつも遅れる' } });
-    expect(ex.map((e) => e.kind)).toEqual(['continue', 'challenge', 'book']);
+    // 積読（LIFE SHIFT）があるので、最後の 1 つは「積読から、今の悩みに合う本は？」（2026-10-11）
+    expect(ex.map((e) => e.kind)).toEqual(['continue', 'challenge', 'tsundoku']);
     expect(ex[0].text).toBe('前に相談した「部下に任せた仕事がいつも遅れる」、その後どう進める？');
     expect(ex[1].text).toBe('いまの会社で定年まで働くイメージが持てない。どう考えればいい？');
-    expect(ex[2].text).toBe('『1兆ドルコーチ』の学びで、明日から使えるものは？');
+    expect(ex[2].text).toBe('積読から、今の悩みに合う本は？');
+    const noT = buildConsultExamples({ books: books.map((b) => ({ ...b, status: b.status === 'before' ? 'want' : b.status })), memoBookIds: new Set(['a', 'c']), lastConsult: { question: '部下に任せた仕事がいつも遅れる' } });
+    expect(noT.map((e) => e.kind)).toEqual(['continue', 'challenge', 'book']);
+    expect(noT[2].text).toBe('『1兆ドルコーチ』の学びで、明日から使えるものは？');
   });
   it('前の相談が無ければ課題から。足りない分はよくある困りごと', () => {
     const ex = buildConsultExamples({ books: [], count: 2 });
@@ -131,7 +135,7 @@ describe('buildConsultExamples', () => {
   it('メモが 10 件未満なら、本棚のよく読まれている本の困りごとを 2 番目に', () => {
     const shelf = [...books, { id: 'd', title: '嫌われる勇気', status: 'done', updatedAt: '2026-09-25' }];
     const ex = buildConsultExamples({ books: shelf, memoBookIds: new Set(['a', 'd']), lastConsult: { question: '部下に任せた仕事がいつも遅れる' }, memoCount: 3 });
-    expect(ex.map((e) => e.kind)).toEqual(['continue', 'worry', 'challenge']);
+    expect(ex.map((e) => e.kind)).toEqual(['continue', 'worry', 'tsundoku']);
     expect(ex[1].text).toBe('人の目が気になって、言いたいことが言えません');
     const many = buildConsultExamples({ books: shelf, memoBookIds: new Set(['a', 'd']), memoCount: 10 });
     expect(many.map((e) => e.text)).not.toContain('人の目が気になって、言いたいことが言えません');
