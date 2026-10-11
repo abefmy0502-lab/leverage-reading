@@ -14,6 +14,7 @@
 // 入力（GET）: url（表紙の URL）。出力: 画像そのもの（1 日キャッシュ）。
 
 import { checkCoverImageUrl, isAllowedImageType } from './_coverImageUrl.js';
+import { clientIp } from './_clientIp.js';
 
 const MAX_BYTES = 2 * 1024 * 1024;
 const TIMEOUT_MS = 5000;
@@ -21,12 +22,8 @@ const MAX_REDIRECTS = 3;
 const LIMIT_PER_MIN = 60;
 const hits = new Map();
 
-function clientKey(req) {
-  const h = req.headers || {};
-  const realIp = typeof h['x-real-ip'] === 'string' ? h['x-real-ip'].trim() : '';
-  const fwd = typeof h['x-forwarded-for'] === 'string' ? h['x-forwarded-for'].split(',')[0].trim() : '';
-  return realIp || fwd || req.socket?.remoteAddress || 'unknown';
-}
+// IP の取り方は api/_clientIp.js にそろえた（x-real-ip を先に・2026-10-11）。
+const clientKey = clientIp;
 
 function rateLimited(ip) {
   const now = Date.now();

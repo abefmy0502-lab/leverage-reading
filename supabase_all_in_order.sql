@@ -2645,7 +2645,8 @@ alter table public.lp_events add constraint lp_events_event_check check (event i
 -- 使い道は「公開のお知らせ」だけ（LP の欄の下とプライバシーポリシーに書く）。宣伝のメールには使わない。
 -- 頼まれたら消す・公開から 3 か月以内に全部消す（プライバシーポリシーと同じ約束）。
 -- ⚠️ 送るメール（特定電子メール法）: 本文に送信者の名前（Orime・運営 阿部文哉）と連絡先（問い合わせのメールアドレス）、
---   「このアドレスは LP で公開のお知らせを希望された方に送っています」を必ず書く。送るのは公開の日の 1 通だけ。
+--   「このアドレスは LP で公開のお知らせを希望された方に送っています」と配信停止の方法（返信で登録を消す等）を必ず書く。
+--   送るのは公開の日の 1 通だけ（確認の一覧は docs/lp-measurement.md §④）。
 -- 同じメールは 1 行（UNIQUE・api は on conflict do nothing＝2 回目は何もしない）。IP は持たない。
 -- 冪等（何度流しても安全）。
 
@@ -2684,6 +2685,51 @@ alter table public.lp_waitlist enable row level security;
 --   delete from public.lp_waitlist where email = lower('…');
 -- 公開から 3 か月以内に、全部消す（約束・忘れないようにカレンダーへ）:
 --   delete from public.lp_waitlist;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- 🚦 同じ IP からの連打を DB で数える（2026-10-11 リリース前点検 中3）
+-- ─────────────────────────────────────────────────────────────────────
+-- api/lp-waitlist.js の 1 分 5 回はインスタンスの中だけ（Vercel は何台にも分かれるので素通りしうる）。
+-- ここでは 1 つの IP から 1 日（日本時間）5 回まで。IP そのものは持たず、サーバーの秘密の鍵と日付で
+-- 作ったハッシュ（HMAC-SHA256・api/_clientIp.js の ipHash）だけを入れる＝日が変わると別の値になり、つなげて追えない。
+-- 2 日より古い行は呼ばれたときに消す。RLS 有効・ポリシー無し（service_role のみ・RPC も service_role だけ）。
+-- 未適用ならインスタンスの中の制限だけで動く（登録は止めない）。冪等。
+create table if not exists public.lp_waitlist_rate (
+  ip_hash text not null check (char_length(ip_hash) between 16 and 128),
+  day date not null,
+  n integer not null default 0,
+  primary key (ip_hash, day)
+);
+-- （まとめが自動で足した: 前からある表に足りない列を足す）
+ALTER TABLE public.lp_waitlist_rate ADD COLUMN IF NOT EXISTS ip_hash text check (char_length(ip_hash) between 16 and 128);
+ALTER TABLE public.lp_waitlist_rate ADD COLUMN IF NOT EXISTS day date;
+ALTER TABLE public.lp_waitlist_rate ADD COLUMN IF NOT EXISTS n integer not null default 0;
+alter table public.lp_waitlist_rate enable row level security;
+
+-- 上限未満なら 1 足して true、上限に届いていれば足さずに false（1 文の UPSERT で同時でも超えない）。
+create or replace function public.take_lp_waitlist_slot(p_ip_hash text, p_day date, p_limit integer)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_n integer;
+begin
+  if p_ip_hash is null or char_length(p_ip_hash) < 16 or p_limit is null or p_limit < 1 then
+    return false;
+  end if;
+  delete from public.lp_waitlist_rate where day < p_day - 1;
+  insert into public.lp_waitlist_rate as r (ip_hash, day, n)
+  values (p_ip_hash, p_day, 1)
+  on conflict (ip_hash, day) do update set n = r.n + 1 where r.n < p_limit
+  returning n into v_n;
+  return v_n is not null;
+end;
+$$;
+
+revoke all on function public.take_lp_waitlist_slot(text, date, integer) from public;
+grant execute on function public.take_lp_waitlist_slot(text, date, integer) to service_role;
 
 
 -- ############################################################

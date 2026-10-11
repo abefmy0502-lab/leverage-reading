@@ -4,7 +4,8 @@
 // 受け取ったものは信用しない: メールの形と長さを確かめ、表示の型（variant）と utm は許可した形だけを残し、
 // service_role で lp_waitlist に入れる。同じメールは 1 行だけ（UNIQUE・2 回目は何もしないで「受け付けた」と返す＝
 // 登録済みかどうかを外に漏らさない）。IP は保存しない。同じ IP からの連打は 1 分 5 回まで（インスタンス内の簡易制限・
-// api/lp-event.js と同じ形）。メールは公開のお知らせを送るためだけに使う（プライバシーポリシー）。
+// api/lp-event.js と同じ形）＋1 日（日本時間）5 回まで（DB で数える・IP の代わりに日付つきのハッシュだけを入れる＝
+// supabase_lp_waitlist.sql の take_lp_waitlist_slot・2026-10-11。表が無い・つながらないときは数えずに通す）。メールは公開のお知らせを送るためだけに使う（プライバシーポリシー）。
 // Do Not Track の端末からも送れる（本人がボタンを押して送るもので、閲覧の記録ではないため）。
 //
 // 返す形（画面はこれで出し分ける）:
@@ -15,8 +16,15 @@
 // テーブル: supabase_lp_waitlist.sql
 
 import { createClient } from '@supabase/supabase-js';
+import { clientIp, ipHash } from './_clientIp.js';
 
 const LIMIT_PER_MIN = 5;
+export const LIMIT_PER_DAY = 5;
+
+// 日本時間の日付（'YYYY-MM-DD'）。
+export function jstDay(now = Date.now()) {
+  return new Date(now + 9 * 3600_000).toISOString().slice(0, 10);
+}
 const hits = new Map();
 
 export function rateLimited(ip, now = Date.now()) {
@@ -64,7 +72,7 @@ const reply = (res, status, body) => {
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
-  const ip = String((req.headers?.['x-forwarded-for'] || '').split(',')[0] || req.socket?.remoteAddress || 'unknown').trim();
+  const ip = clientIp(req);
   if (rateLimited(ip)) return reply(res, 429, { ok: false, error: 'rate_limited' });
 
   const body = parseBody(req);
@@ -87,6 +95,14 @@ export default async function handler(req, res) {
   };
   try {
     const supabase = createClient(url, key, { auth: { persistSession: false } });
+    // 1 日の回数（DB・どのインスタンスでも同じ数）。IP はハッシュにしてから渡す（保存しない）。
+    const day = jstDay();
+    const hash = ipHash(ip, day, process.env.LP_IP_SALT || key);
+    if (hash) {
+      const { data: allowed, error: rateErr } = await supabase.rpc('take_lp_waitlist_slot', { p_ip_hash: hash, p_day: day, p_limit: LIMIT_PER_DAY });
+      if (rateErr) console.warn('[lp-waitlist] rate check skipped', rateErr.code || '');
+      else if (allowed === false) return reply(res, 429, { ok: false, error: 'rate_limited' });
+    }
     // 同じメールは 1 行（2 回目は何もしない＝最初に登録した日時と流入元を残す）。
     const { error } = await supabase.from('lp_waitlist').upsert(row, { onConflict: 'email', ignoreDuplicates: true });
     if (error) {

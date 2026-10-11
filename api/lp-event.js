@@ -7,6 +7,7 @@
 // テーブル: supabase_lp_events.sql（未適用なら insert が失敗するだけ）。
 
 import { createClient } from '@supabase/supabase-js';
+import { clientIp } from './_clientIp.js';
 
 // demo_* は 2026-10-02 まで LP にあった「試しに、相談してみる」の記録（過去の行の読み分けのために残す）。
 // flow_* は相談の流れの 4 枚（LpFlow.jsx）・section_view は節が画面に入った（1 回）・offer_badge は創業メンバー価格の印。
@@ -59,7 +60,7 @@ function parseBody(req) {
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
-  const ip = String((req.headers['x-forwarded-for'] || '').split(',')[0] || req.socket?.remoteAddress || 'unknown');
+  const ip = clientIp(req);
   if (rateLimited(ip)) return res.status(204).end();
 
   const body = parseBody(req);

@@ -2,9 +2,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const upserts = [];
+const rpcs = [];
 let failWith = null;
+let rpcResult = { data: true, error: null };
 vi.mock('@supabase/supabase-js', () => ({
   createClient: () => ({
+    rpc: async (name, args) => { rpcs.push({ name, args }); return rpcResult; },
     from: (table) => ({
       upsert: async (row, opts) => {
         if (failWith) return { error: failWith };
@@ -31,6 +34,8 @@ const post = (body, ip = '1.2.3.4') => ({ method: 'POST', headers: { 'x-forwarde
 
 beforeEach(() => {
   upserts.length = 0;
+  rpcs.length = 0;
+  rpcResult = { data: true, error: null };
   failWith = null;
   resetRateLimit();
   process.env.SUPABASE_URL = 'https://x.supabase.co';
@@ -115,5 +120,34 @@ describe('handler', () => {
     const res = mockRes();
     await handler({ method: 'GET', headers: {} }, res);
     expect(res.statusCode).toBe(405);
+  });
+});
+
+describe('1 日の回数（DB で数える・2026-10-11）', () => {
+  it('IP そのものは渡さず、日付つきのハッシュと 1 日 5 回の上限を渡す', async () => {
+    const res = mockRes();
+    await handler({ method: 'POST', headers: { 'x-real-ip': '9.9.9.9', 'x-forwarded-for': '1.1.1.1' }, body: { email: 'a@example.com' } }, res);
+    expect(res.statusCode).toBe(200);
+    expect(rpcs).toHaveLength(1);
+    expect(rpcs[0].name).toBe('take_lp_waitlist_slot');
+    expect(rpcs[0].args.p_limit).toBe(5);
+    expect(rpcs[0].args.p_ip_hash).toMatch(/^[0-9a-f]{32}$/);
+    expect(JSON.stringify(rpcs[0].args)).not.toContain('9.9.9.9');
+    expect(rpcs[0].args.p_day).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+  it('上限に届いていたら 429 で、保存しない', async () => {
+    rpcResult = { data: false, error: null };
+    const res = mockRes();
+    await handler(post({ email: 'b@example.com' }), res);
+    expect(res.statusCode).toBe(429);
+    expect(res.body).toEqual({ ok: false, error: 'rate_limited' });
+    expect(upserts).toHaveLength(0);
+  });
+  it('数える表が無いときは数えずに受け付ける', async () => {
+    rpcResult = { data: null, error: { code: '42883', message: 'function does not exist' } };
+    const res = mockRes();
+    await handler(post({ email: 'c@example.com' }), res);
+    expect(res.statusCode).toBe(200);
+    expect(upserts).toHaveLength(1);
   });
 });

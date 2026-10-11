@@ -71,6 +71,7 @@ import {
   probeImage,
   toIsbn13,
 } from './_coverSources.js';
+import { clientIp } from './_clientIp.js';
 
 function clean(s) {
   return (s || '').toString().trim().slice(0, 300);
@@ -558,15 +559,8 @@ function checkRateLimit(key) {
   }
   return { ok: true };
 }
-function clientKey(req) {
-  // Vercel は x-real-ip を実クライアント IP に上書きする（プロキシ管理・偽装不可）。
-  // x-forwarded-for の「先頭」はクライアントが自由に足せるため単独では信頼しない。
-  const h = req.headers || {};
-  const realIp = typeof h['x-real-ip'] === 'string' ? h['x-real-ip'].trim() : '';
-  const fwd = typeof h['x-forwarded-for'] === 'string' ? h['x-forwarded-for'].split(',')[0].trim() : '';
-  const ip = realIp || fwd || req.socket?.remoteAddress || 'unknown';
-  return ip.trim();
-}
+// IP の取り方は api/_clientIp.js にそろえた（x-real-ip を先に・2026-10-11）。
+const clientKey = clientIp;
 
 // 1 回の解決の持ち時間（これを過ぎたら次の取得元へ進まない）。vercel.json の maxDuration より十分短く。
 const COVER_BUDGET_MS = 9000;
