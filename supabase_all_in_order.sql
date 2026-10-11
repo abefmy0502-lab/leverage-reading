@@ -2589,7 +2589,7 @@ create table if not exists public.lp_events (
   created_at timestamptz not null default now(),
   session_id text not null check (char_length(session_id) between 8 and 40),
   event text not null, -- 一覧は下の lp_events_event_check（api/lp-event.js の EVENTS と同じ）
-  variant text check (variant in ('3d', 'photo')),
+  variant text, -- 一覧は下の lp_events_variant_check（api の LP_VARIANTS と同じ）
   props jsonb not null default '{}'::jsonb check (pg_column_size(props) < 1024),
   device text check (device in ('mobile', 'desktop')),
   ref_host text check (char_length(ref_host) <= 100),
@@ -2602,7 +2602,7 @@ ALTER TABLE public.lp_events ADD COLUMN IF NOT EXISTS id bigint generated always
 ALTER TABLE public.lp_events ADD COLUMN IF NOT EXISTS created_at timestamptz not null default now();
 ALTER TABLE public.lp_events ADD COLUMN IF NOT EXISTS session_id text check (char_length(session_id) between 8 and 40);
 ALTER TABLE public.lp_events ADD COLUMN IF NOT EXISTS event text;
-ALTER TABLE public.lp_events ADD COLUMN IF NOT EXISTS variant text check (variant in ('3d', 'photo'));
+ALTER TABLE public.lp_events ADD COLUMN IF NOT EXISTS variant text;
 ALTER TABLE public.lp_events ADD COLUMN IF NOT EXISTS props jsonb not null default '{}'::jsonb check (pg_column_size(props) < 1024);
 ALTER TABLE public.lp_events ADD COLUMN IF NOT EXISTS device text check (device in ('mobile', 'desktop'));
 ALTER TABLE public.lp_events ADD COLUMN IF NOT EXISTS ref_host text check (char_length(ref_host) <= 100);
@@ -2615,6 +2615,11 @@ create index if not exists lp_events_event_idx on public.lp_events (event, creat
 create index if not exists lp_events_session_idx on public.lp_events (session_id);
 
 alter table public.lp_events enable row level security;
+
+-- （2026-10-11）ヒーローの表示方式に 'illust'（いろいろな本と対話するイラスト）を足した。流し直すと CHECK を作り直す。
+alter table public.lp_events drop constraint if exists lp_events_variant_check;
+alter table public.lp_events add constraint lp_events_variant_check check (variant in ('3d', 'photo', 'illust'));
+
 -- ポリシーは作らない（= anon / authenticated からは読めず書けない。service_role のみ）。
 
 -- （2026-10-05）記録するイベントの一覧を api/lp-event.js の EVENTS とそろえる。
@@ -2654,7 +2659,7 @@ create table if not exists public.lp_waitlist (
   id bigint generated always as identity primary key,
   created_at timestamptz not null default now(),
   email text not null check (char_length(email) between 6 and 254 and email = lower(email) and position('@' in email) > 1),
-  variant text check (variant in ('3d', 'photo')),
+  variant text, -- 一覧は下の lp_waitlist_variant_check（api の LP_VARIANTS と同じ）
   utm_source text check (char_length(utm_source) <= 64),
   utm_medium text check (char_length(utm_medium) <= 64),
   utm_campaign text check (char_length(utm_campaign) <= 64),
@@ -2664,7 +2669,7 @@ create table if not exists public.lp_waitlist (
 ALTER TABLE public.lp_waitlist ADD COLUMN IF NOT EXISTS id bigint generated always as identity;
 ALTER TABLE public.lp_waitlist ADD COLUMN IF NOT EXISTS created_at timestamptz not null default now();
 ALTER TABLE public.lp_waitlist ADD COLUMN IF NOT EXISTS email text check (char_length(email) between 6 and 254 and email = lower(email) and position('@' in email) > 1);
-ALTER TABLE public.lp_waitlist ADD COLUMN IF NOT EXISTS variant text check (variant in ('3d', 'photo'));
+ALTER TABLE public.lp_waitlist ADD COLUMN IF NOT EXISTS variant text;
 ALTER TABLE public.lp_waitlist ADD COLUMN IF NOT EXISTS utm_source text check (char_length(utm_source) <= 64);
 ALTER TABLE public.lp_waitlist ADD COLUMN IF NOT EXISTS utm_medium text check (char_length(utm_medium) <= 64);
 ALTER TABLE public.lp_waitlist ADD COLUMN IF NOT EXISTS utm_campaign text check (char_length(utm_campaign) <= 64);
@@ -2674,6 +2679,11 @@ create unique index if not exists lp_waitlist_email_key on public.lp_waitlist (e
 create index if not exists lp_waitlist_created_idx on public.lp_waitlist (created_at desc);
 
 alter table public.lp_waitlist enable row level security;
+
+-- （2026-10-11）ヒーローの表示方式に 'illust'（いろいろな本と対話するイラスト）を足した。流し直すと CHECK を作り直す。
+alter table public.lp_waitlist drop constraint if exists lp_waitlist_variant_check;
+alter table public.lp_waitlist add constraint lp_waitlist_variant_check check (variant in ('3d', 'photo', 'illust'));
+
 -- ポリシーは作らない（= anon / authenticated からは読めず書けない。service_role のみ）。
 
 -- 集計例:

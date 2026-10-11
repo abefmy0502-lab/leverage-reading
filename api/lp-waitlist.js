@@ -18,6 +18,10 @@
 import { createClient } from '@supabase/supabase-js';
 import { clientIp, ipHash } from './_clientIp.js';
 
+// ヒーローの表示方式（src/lib/lpTrack.js の lpVariant・supabase_lp_events.sql / supabase_lp_waitlist.sql の variant の CHECK と同じ）。
+// 2026-10-11: 'illust'（いろいろな本と対話するイラスト）を足した。'3d' は ?hero=3d のときだけ。
+export const LP_VARIANTS = ['3d', 'photo', 'illust'];
+
 const LIMIT_PER_MIN = 5;
 export const LIMIT_PER_DAY = 5;
 
@@ -88,7 +92,7 @@ export default async function handler(req, res) {
 
   const row = {
     email,
-    variant: body.variant === '3d' || body.variant === 'photo' ? body.variant : null,
+    variant: LP_VARIANTS.includes(body.variant) ? body.variant : null,
     utm_source: str(body.utm_source, 64),
     utm_medium: str(body.utm_medium, 64),
     utm_campaign: str(body.utm_campaign, 64),

@@ -419,7 +419,7 @@ want(読みたい) → before(積読) → reading(読書中) → done(読了)
 | `VITE_LAUNCH_LABEL` | (任意) LP の公開予定の書き方（既定「2026 年 11 月」）。公開前の形（`VITE_LP_PRELAUNCH=on`）のときだけ、入口の上と FAQ「いつから使えますか？」に出る（`src/pages/lpCopy.js`） |
 | `VITE_LP_PRELAUNCH` | (任意) `on` のときだけ LP を公開前の形に（「公開の日にメールで知らせる」＝`LpWaitlist.jsx`・公開予定の行・FAQ「いつから使えますか？」・下の固定の帯とヘッダーのボタンは出さない）。**既定（未設定）は公開済みの形**（2026-10-11 オーナー「ローンチしている前提」）。開発中は `?prelaunch=1` で見られる |
 | `VITE_APP_STORE_BADGE` | (任意) Apple 公式の「App Store からダウンロード」バッジの置き場所（例 `/lp/app-store-badge-ja.svg`）。Apple のマーケティングのページから日本語版をそのまま `public/lp/` に置いて設定すると、LP のヒーローと最後のボタンの横に出る（公開前の形では出さない）（高さ 40・色や形を変えない）。未設定なら出さない |
-| `VITE_LP_HERO_AB` | (任意) `off` で LP のヒーローの A/B（3D ↔ 写真）を止め、みんな写真にする。既定は、広い画面・マウスの端末だけ半々（スマホはいつも写真・2026-10-05） |
+| `VITE_LP_HERO_AB` | (任意) `off` で LP のヒーローの A/B（イラスト ↔ 写真）を止め、みんなイラストにする。既定は、スマホも PC も半々（2026-10-11 から・`src/lib/lpTrack.js` の `lpVariant`・記録の variant は `illust` / `photo`＝`supabase_lp_events.sql`・`supabase_lp_waitlist.sql` の CHECK を流し直すこと）。3D は A/B から外し `?hero=3d` のときだけ。イラストの本番の絵は `public/lp/hero-illust-<light\|dark>-<390\|780\|1560>.webp` を置くだけで替わる（`docs/lp-measurement.md`） |
 | `VITE_APP_STORE_PT` | (任意・推奨) 📊 App Store Connect の **provider token**（「App 分析 → キャンペーン」で生成するリンクの `pt=` の値）。入れると LP の各ボタンが `ct=lp_<場所>_<3d|photo>` 付きで App Store に飛び、App Store Connect でボタンごとの**実際の入手数**が見られる（`src/lib/lpTrack.js` の `storeUrlFor`）。未設定なら URL はそのまま |
 | `VITE_FOUNDING_OFFER` | (任意) 💳 `on` で LP と有料プランの画面に創業メンバー価格・特典を出す（`src/lib/foundingOffer.js`）。iOS のビルドにも入れる（ビルド時に焼き込む）。金額の真実はストア（ストアに初回特典が無ければ通常の価格を出す・名前と特典は期間中だけ） |
 | `VITE_FOUNDING_OFFER_END` | (任意) 創業メンバー価格の終わる日 `YYYY-MM-DD`（日本時間のその日 23:59 まで）。過ぎると自動で消える。無い・読めないと出さない。App Store の初回特典の終わりはこの日 +1 日に（`company/launch-founding-offer.md`） |

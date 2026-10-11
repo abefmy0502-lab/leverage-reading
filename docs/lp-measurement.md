@@ -5,7 +5,7 @@ LP（https://orime.vercel.app の紹介ページ）には、3 種類の計測が
 | 何を | どこで見る | 必要な準備（1 回だけ） |
 |---|---|---|
 | ① 閲覧数・参照元・端末・国 | Vercel → orime → **Analytics** | Vercel の Analytics タブで「Enable」を押す（Hobby は無料枠内） |
-| ② ボタンが押された場所・相談の流れ（4 枚）・節ごとの到達・読み進めた深さ・3D ↔ 写真・創業メンバー価格 | Supabase → SQL Editor（下の集計例） | `supabase_lp_events.sql` を SQL Editor で 1 回実行 |
+| ② ボタンが押された場所・相談の流れ（4 枚）・節ごとの到達・読み進めた深さ・ヒーローの表示（イラスト ↔ 写真）・創業メンバー価格 | Supabase → SQL Editor（下の集計例） | `supabase_lp_events.sql` を SQL Editor で 1 回実行 |
 | ③ **実際のダウンロード数**（どのボタンから入手されたか） | App Store Connect → App 分析 → **キャンペーン** | provider token を Vercel の `VITE_APP_STORE_PT` に入れる（下記） |
 | ④ **公開のお知らせの登録**（公開前の成果・2026-10-05） | Supabase → SQL Editor（`lp_waitlist`） | `supabase_lp_waitlist.sql` を 1 回実行 |
 
@@ -19,13 +19,13 @@ LP（https://orime.vercel.app の紹介ページ）には、3 種類の計測が
 2. 出てくるリンクの中の `pt=数字` の数字が provider token。
 3. Vercel の Environment Variables に `VITE_APP_STORE_PT` = その数字（Production）を入れて、公開し直す。
 
-これで LP のボタンは押した場所ごとに `ct=lp_hero_3d`（ヒーロー・3D を見た人）のようなキャンペーン名付きで App Store に飛びます。
+これで LP のボタンは押した場所ごとに `ct=lp_hero_illust`（ヒーロー・イラストを見た人）のようなキャンペーン名付きで App Store に飛びます。
 App Store Connect では、キャンペーン名ごとに「ページ閲覧数・App 入手数」が見られます（反映は翌日以降）。
 
 キャンペーン名の読み方: `lp_<押した場所>_<ヒーローの表示>`
 
 - 押した場所: `header`（上の帯）/ `hero`（最初の画面）/ `sticky`（スマホの下に固定）/ `start`（「メモがゼロでも、初日から」の節）/ `pricing`（料金）/ `final`（最後）/ `qr`（PC の QR コード）/ `hero_badge`・`final_badge`（公式バッジ・`VITE_APP_STORE_BADGE` があるときだけ）。`offer`（創業メンバー価格の節）は 2026-10-05 に料金の中の帯になり、ボタンは無くなった。`demo` は 2026-10-02 に無くなった
-- ヒーローの表示: `3d` / `photo`（2026-10-05 から、広い画面・マウスの端末だけ半々に振り分け、スマホはいつも `photo`。`?hero=3d` / `?hero=photo` で固定して確認できる・`VITE_LP_HERO_AB=off` で全員 `photo`）
+- ヒーローの表示: `illust` / `photo`（2026-10-11 から、スマホも PC も半々に振り分けて端末に覚える＝`orime-lp-hero-v2`。`illust`＝いろいろな本と対話するイラスト・`photo`＝1 冊に相談した答えの実際の画面。`?hero=illust` / `?hero=photo` で固定して確認できる・`VITE_LP_HERO_AB=off` で全員 `illust`。`3d` は A/B から外し `?hero=3d` のときだけ。2026-10-05〜10-10 の記録は `3d` / `photo`（広い画面だけ半々））。`illust` を記録するには `supabase_lp_events.sql` と `supabase_lp_waitlist.sql` を**流し直す**（variant の CHECK に `illust` を足した）
 
 ### ③-2 入口ごとのキャンペーン名（ct）の一覧（2026-10-08・マーケ戦略 §6-4）
 
@@ -34,7 +34,7 @@ LP だけでなく、**共有の画像・note・発信者・Web のアプリ**�
 
 | 入口 | キャンペーン名 | どこで付く | 備考 |
 |---|---|---|---|
-| LP のボタン | `lp_<場所>_<3d\|photo>` | 自動（`lpTrack.js` の `storeUrlFor`） | 上の一覧 |
+| LP のボタン | `lp_<場所>_<illust\|photo>`（`?hero=3d` のときは `3d`） | 自動（`lpTrack.js` の `storeUrlFor`） | 上の一覧 |
 | 写真で共有（記録） | `share_record` / 今月は `share_month_record`・今年（12 月）は `share_year_record` | 自動（共有シートに添える文の URL・`ShareSheet.jsx`） | 画像そのものには URL を入れない（ロゴだけ）。App Store の URL が無い間は紹介ページの URL のまま |
 | 写真で共有（数字） | `share_stats` / `share_month_stats` / `share_year_stats` | 同上 | |
 | 写真で共有（一文） | `share_quote` / `share_month_quote` / `share_year_quote` | 同上 | |
@@ -59,7 +59,7 @@ VITE_APP_STORE_URL=… VITE_APP_STORE_PT=… node scripts/store-link.mjs partner
 
 ## ④ 公開のお知らせ（公開前の形＝`VITE_LP_PRELAUNCH=on` のときだけ）
 
-**2026-10-11 から、LP の既定は公開済みの形**（オーナー「ローンチしている前提の内容にして」）。どのビルドでも「無料プランで始める」（ヒーロー・0 日目・料金・最後・下の固定の帯・PC のヘッダーと QR）を出す。行き先は `VITE_APP_STORE_URL` があればアプリのページ（`VITE_APP_STORE_PT` があれば `ct=lp_<場所>_<3d|photo>` 付き）、**無ければ日本の App Store での「Orime」の検索**（`https://apps.apple.com/jp/search?term=Orime`・`src/pages/lpCopy.js` の `APP_STORE_SEARCH_URL`＝この間はボタンごとの入手数は数えられないので、公開したら URL を入れる）。`lp_view` の props は `live`（URL があるか）と `pre`（公開前の形か）。
+**2026-10-11 から、LP の既定は公開済みの形**（オーナー「ローンチしている前提の内容にして」）。どのビルドでも「無料プランで始める」（ヒーロー・0 日目・料金・最後・下の固定の帯・PC のヘッダーと QR）を出す。行き先は `VITE_APP_STORE_URL` があればアプリのページ（`VITE_APP_STORE_PT` があれば `ct=lp_<場所>_<illust|photo>` 付き）、**無ければ日本の App Store での「Orime」の検索**（`https://apps.apple.com/jp/search?term=Orime`・`src/pages/lpCopy.js` の `APP_STORE_SEARCH_URL`＝この間はボタンごとの入手数は数えられないので、公開したら URL を入れる）。`lp_view` の props は `live`（URL があるか）と `pre`（公開前の形か）。
 
 公開前の形に戻すときだけ `VITE_LP_PRELAUNCH=on` を入れる。そのときは押せないボタンを出さずに「公開の日にメールで知らせる」（メール 1 欄＋送る）を出す（ヒーロー・初日から・料金・最後の 4 か所。1 か所で送ると全部が「公開の日にお知らせします。」になる）・公開予定の行（`VITE_LAUNCH_LABEL`）と FAQ「いつから使えますか？」も出る・下の固定の帯とヘッダーのボタンは出さない。開発中は `?prelaunch=1` で見られる。
 保存は `api/lp-waitlist.js` → `lp_waitlist`（同じメールは 1 行・IP は保存しない）。同じ IP からは 1 分 5 回（インスタンスの中）と 1 日 5 回（DB の `lp_waitlist_rate`＝IP の代わりに日付つきのハッシュだけ・2026-10-11）まで。Do Not Track の端末からも送れる（本人がボタンを押して送るもので、閲覧の記録ではない）。
@@ -167,7 +167,12 @@ group by 1 order by 2 desc;
 
 ## 判断の目安
 
-- 3D と写真は、**各 300 訪問**くらい集まるまでは結論を出さない（それ未満は偶然の差が大きい）。最終判断は ③ の App 入手数で（公開前は ④ の登録数で）。3D は広い画面だけなので、比べるのは `device = 'desktop'` の訪問だけ。
+- イラストと写真は、**各 300 訪問**くらい集まるまでは結論を出さない（それ未満は偶然の差が大きい）。最終判断は ③ の App 入手数で（公開前は ④ の登録数で）。スマホと PC は分けても見る（`device`）。
+
+### ヒーローのイラストを本番の絵に差し替える（2026-10-11）
+- 置き場所: `public/lp/hero-illust-light-<390|780|1560>.webp` と `hero-illust-dark-<390|780|1560>.webp`（明暗 2 枚 × 幅 3 つ）。置くだけで LP が画像に替わる（`hero-illust-light-780.webp` が読めないときは今の SVG のまま・`src/pages/LpIllust.jsx`）。
+- 書き出し: webp（品質 80 前後）・横幅 390 / 780 / 1560 px・縦横の比は 3 つで同じ（今の絵は 6:5）・背景は LP の地の色（明 `--bg` #f7f5f1／暗 `--bg` の暗い値）に合わせるか透明。1 枚 200KB 以内が目安。
+- 読み上げの文は SVG と同じ（`ILLUST_LABEL`）。絵の意味が変わったら、その文も直す。
 - 結論が出たら、同じ枠でヒーローの文言（「読んだ本が、あなたの相談相手になる。」↔「読むほど、あなただけの相談相手が育つ。」）を比べる（lp-copy の案 A ↔ 案 B）。
 - 相談の流れの手順を押した人の押下率が押さない人より明らかに高ければ、流れの説明（手順の名前）をヒーローに近づける。section_view で比較・共有・学習のどこで離れているかを見る。
 - よく開かれる FAQ の内容は、ヒーローのボタン近くの一言に昇格させる。

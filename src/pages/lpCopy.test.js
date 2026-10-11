@@ -172,7 +172,11 @@ describe('画面は見本だと示す（景品表示法の優良誤認・2026-10
     expect(SAMPLE_NOTE.startsWith('画面は見本です。')).toBe(true);
     expect(SAMPLE_NOTE).toContain('あなたのメモによって変わります');
   });
-  it('LP ではヒーローの写真の下の 1 か所に出す', () => {
+  it('対話の流れ（実際の画面）の下にいつも出す（ヒーローがイラストのときの置き場・2026-10-11）', () => {
+    const src = readFileSync(new URL('./LpFlow.jsx', import.meta.url), 'utf8').replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
+    expect(src).toMatch(/\$\{SAMPLE_NOTE\}\$\{VOICE_NOTE\}/);
+  });
+  it('LP ではヒーローの写真（写真の型）の下の 1 か所に出す', () => {
     const src = readFileSync(new URL('./Landing.jsx', import.meta.url), 'utf8').replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
     expect(src.match(/\$\{SAMPLE_NOTE\}/g) || []).toHaveLength(1);
     expect(src).toMatch(/<figcaption[^>]*>.*\$\{SAMPLE_NOTE\}\$\{VOICE_NOTE\}/);

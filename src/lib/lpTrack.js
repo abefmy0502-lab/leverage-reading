@@ -34,19 +34,21 @@ function session() {
 export const WIDE_POINTER = '(min-width: 768px) and (pointer: fine)';
 export const isWidePointer = () => safe(() => window.matchMedia(WIDE_POINTER).matches, false);
 
-// ヒーローの表示方式。?hero=3d / ?hero=photo で固定できる。それ以外は、3D を出せる画面（広い画面・マウス）の
-// 端末だけ半々で振り分けて覚え、スマホ・タブレットはいつも 'photo'（覚えない）。
-// VITE_LP_HERO_AB=off で、みんな 'photo'（A/B を止める）。
+// ヒーローの表示方式（2026-10-11 から）: 'illust'（いろいろな本と対話するイラスト・LpIllust.jsx）↔ 'photo'（1 冊に相談した
+// 答えの実際の画面）を、スマホも PC も半々で振り分けて覚える（キーを変えたので、前の 3D ↔ 写真の組は引き継がない）。
+// '3d'（three.js の 3D）は A/B から外し、?hero=3d のときだけ（広い画面・マウスの端末で写真に重ねる）。?hero=illust|photo で固定もできる。
+// VITE_LP_HERO_AB=off で、みんな 'illust'（A/B を止める）。api/lp-event.js の LP_VARIANTS と同じ値だけを使う。
 const AB_OFF = String(import.meta.env.VITE_LP_HERO_AB || '').trim().toLowerCase() === 'off';
+const HERO_KEY = 'orime-lp-hero-v2';
 let variant = null;
 export function lpVariant() {
   if (variant) return variant;
   const q = safe(() => new URLSearchParams(window.location.search).get('hero'));
-  if (q === '3d' || q === 'photo') { variant = q; return variant; }
-  if (AB_OFF || !isWidePointer()) { variant = 'photo'; return variant; }
-  const saved = safe(() => localStorage.getItem('orime-lp-hero'));
-  variant = saved === '3d' || saved === 'photo' ? saved : (Math.random() < 0.5 ? '3d' : 'photo');
-  safe(() => localStorage.setItem('orime-lp-hero', variant));
+  if (q === '3d' || q === 'photo' || q === 'illust') { variant = q; return variant; }
+  if (AB_OFF) { variant = 'illust'; return variant; }
+  const saved = safe(() => localStorage.getItem(HERO_KEY));
+  variant = saved === 'illust' || saved === 'photo' ? saved : (Math.random() < 0.5 ? 'illust' : 'photo');
+  safe(() => localStorage.setItem(HERO_KEY, variant));
   return variant;
 }
 

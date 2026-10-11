@@ -332,6 +332,35 @@ body.lp-active {
   font-size: var(--text-meta);
 }
 
+/* ヒーローのイラスト「いろいろな本と対話する」（LpIllust.jsx・A/B の 'illust'）。色はトークンだけ（明暗はトークンが切り替える）。
+   線の太さ・角の丸みは絵の中の寸法（viewBox の単位）で、絵と一緒に縮む。 */
+.lp-illust { display: block; width: 100%; max-width: calc(var(--lp-shot-w) * 1.4); height: auto; margin: 0 auto; }
+.lp-ill-book rect { stroke: var(--border); stroke-width: 1.25; }
+.lp-ill-book-a rect { fill: var(--surface); }
+.lp-ill-book-b rect { fill: var(--fill); }
+.lp-ill-book-c rect { fill: var(--accent-soft); stroke: var(--accent); }
+.lp-ill-spine { stroke: var(--separator); stroke-width: 1.25; }
+.lp-ill-book-c .lp-ill-spine { stroke: var(--accent); stroke-opacity: 0.5; }
+.lp-ill-title { stroke: var(--text-3); stroke-width: 2; stroke-linecap: round; }
+.lp-ill-bubble { fill: var(--surface); stroke: var(--border); stroke-width: 1; }
+.lp-ill-text { stroke: var(--separator); stroke-width: 2.5; stroke-linecap: round; }
+.lp-ill-link { fill: none; stroke: var(--text-3); stroke-width: 1.25; stroke-dasharray: 2 4; stroke-linecap: round; }
+.lp-ill-card-face { fill: var(--surface); stroke: var(--accent); stroke-width: 1.5; }
+.lp-ill-fold { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.25; stroke-linejoin: round; }
+/* 絵の中の 2 つのラベル（大きさは LpIllust.jsx の fontSize＝絵の単位・絵と一緒に縮む） */
+.lp-ill-label { fill: var(--accent); font-family: var(--font-ui); font-weight: 600; }
+.lp-ill-arrow { fill: none; stroke: var(--text-3); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.lp-ill-pill { fill: var(--accent); }
+.lp-ill-check { fill: none; stroke: var(--accent-ink); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.lp-ill-pill-label { fill: var(--accent-ink); font-family: var(--font-ui); font-weight: 600; }
+/* 動き: 吹き出しと線が左から順にゆっくり現れる（1 回）。動きを減らす設定では最初から全部見せる */
+@media (prefers-reduced-motion: no-preference) {
+  .lp-ill-pop { animation: lp-ill-in var(--duration-slow) var(--ease-out-expo) both; animation-delay: calc(240ms + var(--i) * 180ms); }
+  .lp-ill-card, .lp-ill-step { animation: lp-ill-in var(--duration-slow) var(--ease-out-expo) both; }
+  .lp-ill-step { animation-delay: 1.4s; }
+}
+@keyframes lp-ill-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
 /* 画面写真: 中身が主役。写真にだけ影を付ける */
 .lp-shot {
   display: block;

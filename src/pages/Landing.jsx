@@ -6,7 +6,7 @@
 // 相手: 読書の成果を最大にしたい人・読書を習慣にしたい人・意識の高い社会人・大学生（立場では絞らない）。
 //
 // 流れ（2026-10-11）:
-//   ① ヒーロー（1 冊の本に相談し、本の語り口で答えている画面）
+//   ① ヒーロー（A/B: 'illust'＝いろいろな本と対話するイラスト（LpIllust.jsx）↔ 'photo'＝1 冊の本に相談した答えの画面）
 //   ② 受け身から対話へ（これまで／これから の 2 行＋実画面 4 枚の対話の流れ・LpFlow.jsx＋相談の例 3 つ）
 //   ③ 続けられて、成果が見える（柱 ②〜⑤ を 1 行ずつ: 明日の一歩・集中モード・写真で共有・分野）
 //   ④ メモがゼロでも、今日から（一言ずつ・取り込む・撮る・積読でも）＋入口
@@ -45,6 +45,7 @@ import { readFoundingOffer, noBreak, FOUNDING_NAME } from '../lib/foundingOffer'
 import Shot from './LpShot';
 import LpFlow from './LpFlow';
 import LpWaitlist from './LpWaitlist';
+import LpIllust from './LpIllust';
 import Phrases from './LpPhrases';
 import { buildLpCopy, storeHrefOf, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, NO_INFO_REFUNDS, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE } from './lpCopy';
 import qrcode from 'qrcode-generator';
@@ -258,6 +259,9 @@ export default function Landing() {
   // 公開のお知らせ: 1 か所で送ったら、ほかの入口も「お知らせします」にする。
   const [wlDone, setWlDone] = useState(false);
   const wl = { done: wlDone, markDone: useCallback(() => setWlDone(true), []) };
+  // ヒーローの表示方式（2026-10-11〜）: 'illust'＝いろいろな本と対話するイラスト ↔ 'photo'＝1 冊に相談した答えの実際の画面
+  // （'3d' は ?hero=3d のときだけ・lib/lpTrack.js の lpVariant）。イラストのときは注記を画面のある「読んで、終わりにしない。」の節に任せる。
+  const [heroVariant] = useState(() => lpVariant());
   const heroStageRef = useRef(null);
   const heroImgRef = useRef(null);
   // 3D に振り分けた・3D を出せる端末では、最初から 3D の余白を取っておく（あとから余白が足されて見出しが跳ねない・CLS）。
@@ -490,6 +494,11 @@ export default function Landing() {
                 </div>
               </div>
             </div>
+            {heroVariant === 'illust' ? (
+              <figure className="lp-hero-shot lp-hero-illust">
+                <LpIllust />
+              </figure>
+            ) : (
             <figure className="lp-hero-shot">
               <div className={`lp-hero-stage${slot3D ? ' is-3d-slot' : ''}${ready3D ? ' is-3d' : ''}`} ref={heroStageRef}>
                 <Shot
@@ -507,6 +516,7 @@ export default function Landing() {
               {/* 「画面は見本です。」と語り口の注記は LP でここ 1 か所（アプリの答えの最後の一行と同じ考え方・2026-10-11） */}
               <figcaption className="lp-wbr"><Phrases>{`${SAMPLE_NOTE}${VOICE_NOTE}`}</Phrases></figcaption>
             </figure>
+            )}
           </div>
         </section>
 

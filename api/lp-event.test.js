@@ -15,3 +15,19 @@ describe('lp-event の EVENTS と SQL の CHECK', () => {
     expect(inSql).toEqual([...EVENTS].sort());
   });
 });
+
+describe('ヒーローの表示方式（variant）の一覧が、api と SQL の CHECK とアプリでそろっている（2026-10-11・illust を足した）', () => {
+  it('lp_events と lp_waitlist', async () => {
+    const { LP_VARIANTS } = await import('./lp-event.js');
+    const { LP_VARIANTS: WL } = await import('./lp-waitlist.js');
+    expect([...WL].sort()).toEqual([...LP_VARIANTS].sort());
+    for (const [file, table] of [['../supabase_lp_events.sql', 'lp_events'], ['../supabase_lp_waitlist.sql', 'lp_waitlist']]) {
+      const sql = readFileSync(new URL(file, import.meta.url), 'utf8');
+      const m = sql.match(new RegExp(`add constraint ${table}_variant_check check \\(variant in \\(([^)]*)\\)\\);`));
+      expect(m, table).not.toBeNull();
+      expect([...m[1].matchAll(/'([a-z0-9]+)'/g)].map((x) => x[1]).sort()).toEqual([...LP_VARIANTS].sort());
+    }
+    const track = readFileSync(new URL('../src/lib/lpTrack.js', import.meta.url), 'utf8');
+    LP_VARIANTS.forEach((v) => expect(track).toContain(`'${v}'`));
+  });
+});
