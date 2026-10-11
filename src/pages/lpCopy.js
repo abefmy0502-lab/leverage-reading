@@ -63,6 +63,8 @@ export function buildLpCopy({
   const PER_MONTH_TEXT = yen(Math.floor(ANNUAL / 12));
   // 月額の 1 日あたりの目安（¥1,480 ÷ 30 ≒ ¥49・2026-10-11 オーナー「¥1,480 を安く感じさせる」）。
   const PER_DAY_TEXT = yen(Math.round(MONTHLY / 30));
+  // 年額の 1 日あたりの目安（¥12,800 ÷ 365 ≒ ¥35）。
+  const ANNUAL_PER_DAY_TEXT = yen(Math.round(ANNUAL / 365));
   const SAVE = savingsLabel(MONTHLY, ANNUAL);
   const TRIAL = String(trialNote || '');
   const TRIAL_FIRST = TRIAL ? trialFirstPhrase(TRIAL) : '';
@@ -148,7 +150,7 @@ export function buildLpCopy({
   ].map((f) => ({ ld: true, ...f }));
 
   return {
-    MONTHLY_TEXT, ANNUAL_TEXT, PER_MONTH_TEXT, PER_DAY_TEXT, SAVE,
+    MONTHLY_TEXT, ANNUAL_TEXT, PER_MONTH_TEXT, PER_DAY_TEXT, ANNUAL_PER_DAY_TEXT, SAVE,
     TRIAL_FIRST, TRIAL_SENT, TRIAL_WHO,
     FREE_CONSULTS, FIRST_CONSULTS, PAID_CONSULTS, TRIAL_CONSULTS,
     LAUNCH, ELIGIBLE, END,

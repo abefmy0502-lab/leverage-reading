@@ -161,6 +161,9 @@ describe('FAQ は絞る・1 日あたりの目安（2026-10-11 オーナー「�
   it('1 日あたりは ¥49（¥1,480 ÷ 30）', () => {
     expect(buildLpCopy({}).PER_DAY_TEXT).toBe('¥49');
   });
+  it('年額の 1 日あたりは ¥35（¥12,800 ÷ 365）', () => {
+    expect(buildLpCopy({}).ANNUAL_PER_DAY_TEXT).toBe('¥35');
+  });
 });
 
 describe('画面は見本だと示す（景品表示法の優良誤認・2026-10-11）', () => {

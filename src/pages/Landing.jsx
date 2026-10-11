@@ -10,7 +10,7 @@
 //   ② 受け身から対話へ（これまで／これから の 2 行＋実画面 4 枚の対話の流れ・LpFlow.jsx＋相談の例 3 つ）
 //   ③ 続けられて、成果が見える（柱 ②〜⑤ を 1 行ずつ: 明日の一歩・集中モード・写真で共有・分野）
 //   ④ メモがゼロでも、今日から（一言ずつ・取り込む・撮る・積読でも）＋入口
-//   ⑤ 料金（見出しは価値の言い換え「本 1 冊ほどの値段で、…」・1 日あたり約 ¥49・年額の月あたり・プランで手に入るもの 4 つ）
+//   ⑤ 料金（見出しは価値の言い換え「月に本 1 冊ほどの値段で、…」・補足に月額と 1 日あたり約 ¥49・年額は 1 日あたり約 ¥35・プランで手に入るもの 3 つ）
 //   → ⑥ よくある質問（5〜6 問）→ ⑦ 最後の入口。2026-10-11 オーナー「もっとシンプルに・1 画面 1 メッセージ」で文と注記を減らし、
 //   開発者の名前は LP に出さない（法律のページだけ）。利用者の声は実在の声が届くまで出さない（TESTIMONIALS が空なら節ごと出ない）
 //
@@ -89,7 +89,7 @@ const LAUNCH_LABEL = (import.meta.env.VITE_LAUNCH_LABEL || DEFAULT_LAUNCH_LABEL)
 // ヒーローと最後のボタンの横に出す（高さ 40 以上・周りに高さの 1/4 の余白・Apple のガイドライン）。
 const BADGE_SRC = (import.meta.env.VITE_APP_STORE_BADGE || '').trim();
 const COPY = buildLpCopy({ offer: OFFER, trialNote: TRIAL_NOTE, prelaunch: PRELAUNCH, jev: AI_JEV_ON, launchLabel: LAUNCH_LABEL });
-const { MONTHLY_TEXT, ANNUAL_TEXT, PER_MONTH_TEXT, PER_DAY_TEXT, SAVE, TRIAL_FIRST, TRIAL_CONSULTS, FREE_CONSULTS, FIRST_CONSULTS, PAID_CONSULTS, END } = COPY;
+const { MONTHLY_TEXT, ANNUAL_TEXT, PER_MONTH_TEXT, PER_DAY_TEXT, ANNUAL_PER_DAY_TEXT, SAVE, TRIAL_FIRST, TRIAL_CONSULTS, FREE_CONSULTS, FIRST_CONSULTS, PAID_CONSULTS, END } = COPY;
 const LAUNCH_LINE = `${LAUNCH_LABEL}に、App Store で公開予定です。`;
 // ボタンの文言（2026-10-02 オーナー承認）: アプリは無料プラン（ずっと無料）で使える（押すと App Store）。
 // 狭い幅・最大の文字で割れても「無料プランで／始める」になるよう、2 つの塊に包む（.lp-btn は keep-all）。
@@ -606,9 +606,9 @@ export default function Landing() {
               <h2 className="lp-h2" id="lp-pricing">
                 {/* 価値の言い換え（2026-10-11 オーナー「¥1,480 を安く感じさせる」）。比べる値段（通常・定価・他社）は書かない。
                     見出しに金額を置かない（月あたりの額を請求額より大きく見せない） */}
-                <span>本 1 冊ほどの値段で、</span><span>読んだ本すべてが</span><span>相談相手に。</span>
+                <span>月に</span><span>本{'\u00a0'}1{'\u00a0'}冊ほどの</span><span>値段で、</span><span>読んだ本</span><span>すべてが</span><span>相談相手に。</span>
               </h2>
-              <p className="lp-wbr"><Phrases>{`まずは無料プラン（ずっと無料）から。本とメモ・集中モード・記録は、ずっと無料です。`}</Phrases></p>
+              <p className="lp-wbr"><Phrases>{`${noBreak(`月額 ${MONTHLY_TEXT}`)}（1 日あたり${noBreak(`約 ${PER_DAY_TEXT}）。`)}まずは無料プラン（ずっと無料）から始められます。`}</Phrases></p>
             </div>
 
             {/* 創業メンバー価格（期間中だけ・料金の中の帯 1 枚）。「先着」「通常価格」と書かない・差額を書かない */}
@@ -636,10 +636,9 @@ export default function Landing() {
                 <p className="lp-plan-name"><span>プラン{TRIAL_FIRST && !OFFER.active && <span className="lp-plan-trial">（{TRIAL_FIRST}）</span>}</span></p>
                 {/* プランで手に入るもの（具体的に 4 つ・数は lib/tokenAmounts.js のとおり） */}
                 <ul className="lp-included" aria-label="プランに含まれるもの">
-                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span><span className="lp-nb">毎月 {PAID_TOKENS} トークン</span><span className="lp-nb">（AI の答え {PAID_CONSULTS}）</span></span></li>
-                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>すべての AI 機能が使える</span></li>
-                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>読書計画シート・AI 選書</span></li>
-                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>写真から書き起こし・メモの凝縮</span></li>
+                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span><span className="lp-nb">AI の答え {PAID_CONSULTS}</span><span className="lp-nb">（毎月 {PAID_TOKENS} トークン）</span></span></li>
+                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>すべての <span className="lp-nb">AI 機能</span>（読書計画シート・<span className="lp-nb">AI 選書・</span>メモの凝縮など）</span></li>
+                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>写真から書き起こし</span></li>
                   {TRIAL_NOTE && (
                     <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>無料期間の間は <span className="lp-nb">{TRIAL_TOKENS} トークン</span><span className="lp-nb">（AI の答え {TRIAL_CONSULTS}）</span></span></li>
                   )}
@@ -657,7 +656,7 @@ export default function Landing() {
                     ) : (
                       <>
                         <p className="lp-plan-price">{ANNUAL_TEXT}<span>/ 年（税込）</span></p>
-                        <p className="lp-plan-sub"><span className="lp-nb">月あたり約 {PER_MONTH_TEXT}。</span>{SAVE && <span className="lp-nb">{SAVE}。</span>}</p>
+                        <p className="lp-plan-sub"><span className="lp-nb">1 日あたり約 {ANNUAL_PER_DAY_TEXT}。</span>{SAVE && <span className="lp-nb">{SAVE}。</span>}</p>
                       </>
                     )}
                   </div>
