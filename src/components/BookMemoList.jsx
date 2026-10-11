@@ -583,12 +583,12 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
           </span>
           {/* メモが 1 件のときは並べ替えるものが無いので「ページ順 ▾」を出さない（行の高さ 44 はそのまま・2026-10-10 第 9 回 総点検）。
               ページ番号つきだけに絞っているときは、外せるように出す。 */}
-          {memos.length <= 1 && !quoteOnly && !waiting ? <span aria-hidden="true" style={{ minHeight: 44 }} /> : (
+          {memos.length <= 1 && !quoteOnly && !waiting ? <span aria-hidden="true" style={{ minHeight: 'var(--tap-min)' }} /> : (
           <button
             type="button"
             onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setSortMenu({ x: r.right - 8, y: r.bottom + 4 }); }}
             aria-haspopup="menu"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, padding: '0 0 0 var(--space-2)', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-sub)', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 'var(--tap-min)', padding: '0 0 0 var(--space-2)', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-sub)', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}
           >
             {sortBy === 'page' ? 'ページ順' : '新しい順'}{quoteOnly ? '・ページ番号つき' : ''}
             <ChevronDown size="1.1em" aria-hidden="true" style={{ flexShrink: 0 }} />
@@ -692,11 +692,11 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
       {/* 読み込み中は同じ高さの見えない形で場所を取る（メモの一覧が入ったときに、まとめが下へ押し下げられて見えないように・
           読み込み後に 48 の見出しが足されて下が跳ねないように）。 */}
       {summarySection && loading && (
-        <div aria-hidden="true" style={{ ...hidden, minHeight: 48, boxSizing: 'content-box', border: '1px solid var(--separator)', borderRadius: 'var(--radius)' }} />
+        <div aria-hidden="true" style={{ ...hidden, minHeight: 'var(--btn-h)', boxSizing: 'content-box', border: '1px solid var(--separator)', borderRadius: 'var(--radius)' }} />
       )}
       {summarySection && !loading && (
         <details style={{ background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: '0 var(--space-4)' }}>
-          <summary style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', minHeight: 48, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', cursor: 'pointer', listStyle: 'none' }}>
+          <summary style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', minHeight: 'var(--btn-h)', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', cursor: 'pointer', listStyle: 'none' }}>
             この本のまとめ
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
               <span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)' }}>{(summaryText || '').trim() ? '書いてあります' : 'まだありません'}</span>

@@ -199,6 +199,11 @@ const SCREENS = [
       ['article3-done-questions', '/', [...ARTICLE_DONE, { scrollTo: 'h2:has-text("読み終えて、ひとこと")' }, { wait: 400 }]],
       ['article3-done-saved', '/', [...ARTICLE_DONE, { scrollTo: 'h2:has-text("読み終えて、ひとこと")' }, { css: 'button:has-text("明日から何を変える？")' }, { fill: ['textarea[aria-label="明日から何を変える？"]', '週の始めに、チームの目標を数字で 1 つ決める'] }, { css: '[role=dialog] button:text-is("保存")' }, { wait: 1200 }]],
       ['article3-consult', '/', [{ css: nav('相談') }, { wait: 800 }]],
+      // 4 回目（ui-shots/article-after4/）: 問いのシート・× で閉じたあと・メモ 0 件の読了の本
+      ['article4-done-order', '/', [...ARTICLE_DONE, { scrollTo: 'h2:has-text("読み終えて、ひとこと")' }, { wait: 400 }]],
+      ['article4-done-prompt', '/', [...ARTICLE_DONE, { scrollTo: 'h2:has-text("読み終えて、ひとこと")' }, { css: 'button:has-text("いちばん効いた主張は？")' }, { wait: 800 }]],
+      ['article4-done-dismissed', '/', [...ARTICLE_DONE, { scrollTo: 'h2:has-text("読み終えて、ひとこと")' }, { css: 'button[aria-label="読み終えての問いを閉じる"]' }, { wait: 600 }, { scrollTo: 'h2:has-text("読む前に書いたこと")' }, { wait: 400 }]],
+      ['article4-done-nomemo', '/?demo=nomemo', [...ARTICLE_DONE, { scrollTo: 'h2:has-text("読み終えて、ひとこと")' }, { wait: 400 }]],
       ['article3-consult-tsundoku-decide', '/', [...ARTICLE_TS, { css: 'button:has-text("ここで答えと行動を")' }, { wait: 6000 }]],
       ['article2-done-prompt', '/', [...ARTICLE_DONE, { scrollTo: 'h2:has-text("読み終えて、ひとこと")' }, { css: 'button:has-text("あえて反論するなら？")' }, { wait: 800 }]],
       ['article2-found-answer', '/', [...ARTICLE_DONE, { scrollTo: 'h2:has-text("読む前に書いたこと")' }, { css: 'button:has-text("答えは見つかった？")' }, { wait: 1500 }]],

@@ -7,13 +7,15 @@ import { withPhraseBreaks } from './TightBubble';
 
 // カードの見出し（17/600・本の詳細の区画の見出し「メモ」「行動」20 より 1 段弱く＝メモ一覧の下の添えもの）。
 const h2 = { fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', margin: 0, lineHeight: 1.3 };
+// 画面の中まで送ったとき、上の行（‹ すべての本・約 52）の下 12 に見出しが来るように（読書計画の畳みと同じ 64）。
+const SCROLL_MARGIN = 'var(--space-16)';
 const label = { ...groupTitle, margin: '0 0 var(--space-1)' };
 const readText = { fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.6, color: 'var(--text)', margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' };
 
 export function DoneQuestions({ questions, onPick, onDismiss }) {
   if (!questions || questions.length === 0) return null;
   return (
-    <section aria-labelledby="done-questions-title" style={{ ...card, paddingBottom: 'var(--space-4)' }}>
+    <section aria-labelledby="done-questions-title" style={{ ...card, paddingBottom: 'var(--space-4)', scrollMarginTop: SCROLL_MARGIN }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)' }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <h2 id="done-questions-title" style={h2}>読み終えて、ひとこと</h2>
@@ -52,7 +54,7 @@ export function DoneQuestions({ questions, onPick, onDismiss }) {
 export function BeforeAfter({ items, onFoundAnswer }) {
   if (!items || items.length === 0) return null;
   return (
-    <section aria-labelledby="before-after-title" style={card}>
+    <section aria-labelledby="before-after-title" style={{ ...card, scrollMarginTop: SCROLL_MARGIN }}>
       <h2 id="before-after-title" style={h2}>読む前に書いたこと</h2>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginTop: 'var(--space-3)' }}>
         {items.map((x) => (

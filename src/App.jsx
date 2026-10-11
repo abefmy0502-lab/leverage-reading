@@ -4451,7 +4451,7 @@ function AuthedApp() {
     // 詳細画面の部品（DESIGN.md のトークンのみ）。
     const cardStyle = { background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4)' };
     const detailsStyle = { ...cardStyle, marginTop: 'var(--space-3)', padding: '0 var(--space-4)' };
-    const summaryStyle = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', minHeight: 48, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', cursor: 'pointer', listStyle: 'none' };
+    const summaryStyle = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', minHeight: 'var(--btn-h)', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', cursor: 'pointer', listStyle: 'none' };
     // 見出し「メモ」「行動」「読書計画」は同じ形（20・600・下 8）。
     const detailH2Style = { fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', margin: '0 0 var(--space-2)', lineHeight: 1.3 };
     // 押せる行（この本に相談する）の中の文字ボタンの縦の余り（高さ 44 のうち文字の上下）を詰める。
@@ -4467,6 +4467,13 @@ function AuthedApp() {
         questions={doneQuestionsNow}
         onPick={(q) => { dismissStatusUndo(current.id); track('done_question', { q: q.key }); setQuickMemoPrompt(q); setQuickMemoOpen(true); }}
         onDismiss={() => { dismissDoneQuestions(current.id); setDoneQTick((n) => n + 1); }}
+      />
+    ) : null;
+    // 読む前に書いたこと（振り返りの 2 枚目・問いのすぐ下＝この本のまとめより上・SPEC §2）。
+    const beforeAfterBlock = beforeItemsNow.length > 0 ? (
+      <BeforeAfter
+        items={beforeItemsNow}
+        onFoundAnswer={() => { dismissStatusUndo(current.id); track('before_after_consult', {}); openConsultWith(foundAnswerDraft(current), { bookIds: [current.id], from: 'beforeAfter' }); }}
       />
     ) : null;
     // 読書計画の中身（得たいこと・課題・仮説・シート）。読書中・読了では 1 つの「読書計画」に畳む。
@@ -4860,7 +4867,7 @@ function AuthedApp() {
                       }}
                       style={{
                         width: '100%', display: 'flex', alignItems: 'center', gap: 'var(--space-3)', textAlign: 'left',
-                        padding: 'var(--space-3) var(--space-4)', minHeight: 56, cursor: 'pointer', fontFamily: 'inherit',
+                        padding: 'var(--space-3) var(--space-4)', minHeight: 'calc(var(--space-12) + var(--space-2))', cursor: 'pointer', fontFamily: 'inherit',
                         background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)',
                       }}
                     >
@@ -4871,6 +4878,7 @@ function AuthedApp() {
                       <ChevronRight size="1.2em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
                     </button>
                     {current.status === 'done' && !detailMemoEmpty && doneQuestionBlock}
+                    {current.status === 'done' && !detailMemoEmpty && beforeAfterBlock}
                     </div>
                   }
                 />
@@ -4878,14 +4886,7 @@ function AuthedApp() {
               {/* 📗 読了の 3 つの問い → 読む前に書いたこと（2026-10-11・SPEC §2・AI なし・lib/doneReflection.js） */}
               {/* メモがまだ無い本は「この本に相談する」が出ないので、問いはメモの区画のすぐ下に */}
               {current.status === 'done' && detailMemoEmpty && doneQuestionBlock}
-              {current.status === 'done' && beforeItemsNow.length > 0 && (
-                <>
-                  <BeforeAfter
-                    items={beforeItemsNow}
-                    onFoundAnswer={() => { dismissStatusUndo(current.id); track('before_after_consult', {}); openConsultWith(foundAnswerDraft(current), { bookIds: [current.id], from: 'beforeAfter' }); }}
-                  />
-                </>
-              )}
+              {current.status === 'done' && detailMemoEmpty && beforeAfterBlock}
             </div>
           ) : null}
           {/* 畳む見出しが続くときは 12（「この本のまとめ」の直後）。 */}
