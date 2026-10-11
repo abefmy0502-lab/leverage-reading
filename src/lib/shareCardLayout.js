@@ -565,8 +565,21 @@ export function textureVeil(texture = 0) {
   if (t <= PHOTO_TEXTURE_CALM) return 0;
   return Math.min(PHOTO_VEIL_BUSY_MAX, 0.6 + (t - PHOTO_TEXTURE_CALM) * 12);
 }
+// 白い文字＋黒い幕のとき、文字の後ろに模様（本棚・照明・葉）がある写真は、明るさだけで決めた幕では文字が模様に
+//   埋もれて読みにくい（2026-10-11 オーナーの見本の写真「海辺のカフェ」）。模様が強いほど幕を濃くする:
+//   模様なし（PHOTO_TEXTURE_CALM 以下）は足さない → 0.55 から模様に比例 → 0.82 まで（scrimAlpha の上限と同じ）。
+export const PHOTO_SCRIM_BUSY_MIN = 0.55;
+export function textureScrim(texture = 0) {
+  const t = Math.max(0, Number(texture) || 0);
+  if (t <= PHOTO_TEXTURE_CALM) return 0;
+  return Math.round(Math.min(0.82, PHOTO_SCRIM_BUSY_MIN + (t - PHOTO_TEXTURE_CALM) * 5) * 100) / 100;
+}
+// 黒い幕の濃さ＝明るさから要る濃さ（scrimAlpha）と、模様から要る濃さ（textureScrim）の濃いほう。
+export function photoScrimAlpha(bright = 0, texture = 0) {
+  return Math.max(scrimAlpha(bright), textureScrim(texture));
+}
 export function photoInkForBand({ bright = 0, dark = 0, texture = 0 } = {}, { inkLum = 0.104, veilLum = 0.86 } = {}) {
-  const light = { ink: 'light', scrim: scrimAlpha(bright), veil: 0 };
+  const light = { ink: 'light', scrim: photoScrimAlpha(bright, texture), veil: 0 };
   if (bright < 0.5) return light;
   if (texture > PHOTO_TEXTURE_LOUD) return light;
   const target = 4.6 * (inkLum + 0.05) - 0.05; // 幕のあとに要る明るさ（相対輝度・4.5:1 に少し余裕）

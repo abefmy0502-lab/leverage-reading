@@ -26,7 +26,7 @@ import {
   FORMATS, clampLine, fitQuote, wrapBalanced, coverTone, rgbCss,
   photoPlacement, scrimAlpha, brightLuminance, coverProxyPath,
   seedFrom, tabPosition, coverWashAlpha, relativeLuminance, shareImageType,
-  darkLuminance, filmTone, logoInkOnPhoto, blockScrimStops, photoInkForBand, blockVeilStops, PHOTO_INK_DARK_Q, bandTexture,
+  darkLuminance, filmTone, logoInkOnPhoto, blockScrimStops, photoInkForBand, photoScrimAlpha, blockVeilStops, PHOTO_INK_DARK_Q, bandTexture,
   softBreaks,
 } from './shareCardLayout';
 import {
@@ -1192,7 +1192,7 @@ function drawBlockScrim(ctx, o, place, F, top, bottom) {
   }
   const aFoot = scrimAlpha(bandLuminance(o.photo, place, F.W, F.H, lb.clearTop, lb.baseline + 8));
   drawScrim(ctx, F.W, F.H, o.theme.scrim, blockScrimStops({
-    top, bottom, H: F.H, a: pick.ink === 'dark' ? scrimAlpha(bright) : pick.scrim, aFoot, logoTop: lb.clearTop, logoBottom: lb.baseline + Math.round(lb.wordH * 0.6), fade: F.H * 0.22, format: F.format,
+    top, bottom, H: F.H, a: pick.ink === 'dark' ? photoScrimAlpha(bright, texture) : pick.scrim, aFoot, logoTop: lb.clearTop, logoBottom: lb.baseline + Math.round(lb.wordH * 0.6), fade: F.H * 0.22, format: F.format,
   }));
   return { theme: o.theme, foot: o.theme };
 }

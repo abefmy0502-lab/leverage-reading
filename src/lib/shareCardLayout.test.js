@@ -8,6 +8,7 @@ import {
   scrimAlpha, brightLuminance, coverProxyPath, seedFrom, mulberry32, underlineStroke, tabPosition, FORMATS,
   darkLuminance, logoInkOnPhoto, coverWashAlpha, relativeLuminance, blockScrimStops,
   blockVeilStops, photoInkForBand, veiledLuminance, PHOTO_VEIL_MAX, PHOTO_VEIL_BUSY_MAX, PHOTO_TEXTURE_LOUD, textureVeil, bandTexture,
+  textureScrim, photoScrimAlpha, PHOTO_SCRIM_BUSY_MIN,
 } from './shareCardLayout.js';
 import { mainTitle } from './shareOverlay.js';
 
@@ -276,6 +277,22 @@ describe('明るい写真の上は墨の文字＋白い幕（第 3 回）', () =
     expect(photoInkForBand({ bright: 0.3, dark: 0.1 })).toMatchObject({ ink: 'light', scrim: scrimAlpha(0.3) });
     // 明るい空と暗い机が同じ帯にある（暗い部分が暗すぎて、白い幕 0.6 では届かない）
     expect(photoInkForBand({ bright: 0.9, dark: 0.05 }).ink).toBe('light');
+  });
+  it('白い文字の後ろに模様（本棚・照明）がある写真は、黒い幕を濃くする（2026-10-11）', () => {
+    // 模様なしは明るさだけで決める（今までどおり）
+    expect(textureScrim(0)).toBe(0);
+    expect(photoScrimAlpha(0.3, 0)).toBe(scrimAlpha(0.3));
+    // 模様があると 0.55 以上・強いほど濃い・0.82 まで
+    expect(textureScrim(0.02)).toBeGreaterThanOrEqual(PHOTO_SCRIM_BUSY_MIN);
+    expect(textureScrim(0.06)).toBeGreaterThan(textureScrim(0.03));
+    expect(textureScrim(1)).toBe(0.82);
+    // 見本の写真（海辺のカフェ・一文の帯 bright 0.64・模様 0.062）は明るさだけの 0.72 より濃くなる
+    const cafe = photoInkForBand({ bright: 0.64, dark: 0.003, texture: 0.062 });
+    expect(cafe.ink).toBe('light');
+    expect(cafe.scrim).toBeGreaterThan(scrimAlpha(0.64));
+    expect(cafe.scrim).toBeLessThanOrEqual(0.82);
+    // 暗くて平らな写真は濃くしない
+    expect(photoInkForBand({ bright: 0.3, dark: 0.1, texture: 0.005 }).scrim).toBe(scrimAlpha(0.3));
   });
 });
 

@@ -16,14 +16,14 @@
 //           sources（根拠の本）/ memo（メモを書くシート）/
 //           action（行動）/ recall（思い出しカード）/ search（メモの言葉で本を探す）/
 //           flow-worry・flow-memo・flow-ask・flow-action（前の 4 コマ＝部下の報告の相談・2026-10-02・名前を指定したときだけ）/
-//           share（写真で共有の画像そのもの＝明暗なし・public/lp/share-card-<540|1080>.webp）
+//           share（写真で共有の画像そのもの＝明暗なし・ストーリー 9:16・public/lp/share-story-<540|1080>.webp）
 //
 // 撮り方の決まり（2026-10-05）: どの URL にも &lpshot=1 を付ける。お試しモードが「部下が報告をくれない」の相談に、
 //   悩みと噛み合う答え（根拠は自分の学び＋2 冊の本）を返す（src/demo/demoFetch.js の lpShotAnswer）。
 //   相手の名前は「2 冊の本と自分の学び」になり、実在の著者名が答えの話し手に見えない（LP の画像の決まり）。
 //   書名・著者名は「根拠を見る」の中の書誌として出るだけ。
 
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { chromium } from 'playwright-core';
 
 const BASE = process.env.UI_SHOTS_URL || 'http://localhost:5173';
@@ -251,31 +251,53 @@ function browserOptions() {
   return { channel: 'chrome' };
 }
 
-// 📷 写真で共有の画像そのもの（シートが描いた canvas をそのまま書き出す・写真は scripts/fixtures の見本のイラスト）。
+// 📷 写真で共有の画像そのもの（アプリの描き方 src/lib/shareCard.js の drawShareCard をそのまま呼ぶ・2026-10-11 から
+//   ストーリー 9:16 の「心に残った一文」）。写真は scripts/fixtures/lp-share-cafe.jpg（オーナーの見本の写真・文字なし）。
+//   本は架空（書名「はたらく考え方」・著者「森川 遥」・自分の言葉のメモ）＝実在の本・著者を使わない。表紙も架空の装丁を描く。
+const LP_SHARE_BOOK = { title: 'はたらく考え方', author: '森川 遥', line: '正しいかどうかを、自分に問う。明日の会議で、まず試してみる。', page: 42 };
 async function shootShareCard(browser) {
-  const ctx = await browser.newContext({
-    viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, locale: 'ja-JP', colorScheme: 'light',
-  });
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'ja-JP', colorScheme: 'light' });
   const page = await ctx.newPage();
   try {
-    await page.goto(`${BASE}${DEFAULT_URL}`, { waitUntil: 'networkidle' });
-    await page.waitForTimeout(1200);
-    await page.locator('h1').first().click().catch(() => {});
-    await page.locator('input[data-share-camera]').setInputFiles('scripts/fixtures/share-photo.jpg');
+    await page.goto(`${BASE}/`, { waitUntil: 'load' });
     await page.waitForTimeout(2500);
-    for (const w of [540, 1080]) {
-      const data = await page.evaluate(async (w) => {
-        const src = [...document.querySelectorAll('[role=dialog] canvas')].sort((a, b) => b.width - a.width)[0];
-        if (!src) return null;
-        const c = document.createElement('canvas');
-        c.width = w; c.height = Math.round(src.height * w / src.width);
-        const g = c.getContext('2d'); g.imageSmoothingQuality = 'high';
-        g.drawImage(src, 0, 0, c.width, c.height);
-        return c.toDataURL('image/webp', 0.82).split(',')[1];
-      }, w);
-      if (!data) throw new Error('共有の画像が見つかりません');
-      writeFileSync(`${OUT}/share-card-${w}.webp`, Buffer.from(data, 'base64'));
-    }
+    const photoUrl = `data:image/jpeg;base64,${readFileSync('scripts/fixtures/lp-share-cafe.jpg').toString('base64')}`;
+    const out = await page.evaluate(async ({ photoUrl, b }) => {
+      const card = await import('/src/lib/shareCard.js');
+      const ov = await import('/src/lib/shareOverlay.js');
+      const photo = await card.loadPhotoFile(new File([await (await fetch(photoUrl)).blob()], 'cafe.jpg', { type: 'image/jpeg' }));
+      const c = document.createElement('canvas'); c.width = 300; c.height = 440;
+      const x = c.getContext('2d');
+      const g = x.createLinearGradient(0, 0, 300, 440); g.addColorStop(0, '#3b5a78'); g.addColorStop(1, '#1d3247');
+      x.fillStyle = g; x.fillRect(0, 0, 300, 440);
+      x.fillStyle = '#f4efe6'; x.font = '600 34px serif'; x.fillText('はたらく', 28, 90); x.fillText('考え方', 28, 136);
+      const cover = await card.prepareCover({ cover: c.toDataURL('image/png') });
+      const now = new Date(2026, 9, 9);
+      const book = { id: 'lp', title: b.title, author: b.author, status: 'done', doneDate: '2026-10-09', actions: [{ done: true }] };
+      const memos = Array.from({ length: 12 }, (_, i) => ({ id: `m${i}`, text: i === 0 ? b.line : `メモ ${i}`, pageNumber: b.page }));
+      const record = ov.bookRecord(book, memos, now);
+      const fonts = await card.prepareFonts(`${record.title}${record.sub}${b.line}${b.author}`);
+      const logo = await card.prepareLogo();
+      const cv = document.createElement('canvas');
+      card.drawShareCard(cv, {
+        layout: 'quote', format: 'story', style: 'photo', photo, record, stamp: '2026.10.9',
+        line: ov.quoteText(b.line, 'quote'), page: b.page, title: b.title, author: b.author, seedKey: 'm0',
+        cover, covers: [], fonts, logo, view: { panX: 0, panY: 0, zoom: 1 }, textPos: 'bottom', hidden: ov.readHiddenItems(null), phrase: null,
+      });
+      const res = { full: cv.toDataURL('image/png').split(',')[1] };
+      for (const w of [540, 1080]) {
+        const d = document.createElement('canvas');
+        d.width = w; d.height = Math.round(cv.height * w / cv.width);
+        const dg = d.getContext('2d'); dg.imageSmoothingQuality = 'high';
+        dg.drawImage(cv, 0, 0, d.width, d.height);
+        res[w] = d.toDataURL('image/webp', 0.82).split(',')[1];
+      }
+      return res;
+    }, { photoUrl, b: LP_SHARE_BOOK });
+    for (const w of [540, 1080]) writeFileSync(`${OUT}/share-story-${w}.webp`, Buffer.from(out[w], 'base64'));
+    // 書き出した 1 枚そのもの（PNG・確かめ用・git 管理外）
+    mkdirSync('ui-shots/lp-share', { recursive: true });
+    writeFileSync('ui-shots/lp-share/share-story-1080.png', Buffer.from(out.full, 'base64'));
     console.log('✓ share');
     return 0;
   } catch (e) {

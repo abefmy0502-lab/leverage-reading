@@ -136,7 +136,7 @@ const PILLARS = [
     head: '発信して、続ける',
     title: '心に残った一文を、1 枚の画像に。',
     body: '写真に一文と書名を重ねて共有。写真はどこにも送りません。',
-    alt: '共有の画像の見本。朝の机の写真に、心に残った一文と書名・ページ、Orime のロゴが重なっている',
+    alt: '共有の画像の見本（縦長のストーリー）。海辺のカフェの写真に、心に残った一文と書名・ページ、Orime のロゴが重なっている',
   },
   {
     id: 'fields', shot: 'fields', artAlt: 'これまでに読んだ本を分野ごとに見渡す様子のイラスト',
@@ -578,11 +578,11 @@ export default function Landing() {
                         {x.share ? (
                           <img
                             className="lp-share-img"
-                            src="/lp/share-card-540.webp"
-                            srcSet="/lp/share-card-540.webp 540w, /lp/share-card-1080.webp 1080w"
-                            sizes="(min-width: 768px) 240px, 40vw"
+                            src="/lp/share-story-540.webp"
+                            srcSet="/lp/share-story-540.webp 540w, /lp/share-story-1080.webp 1080w"
+                            sizes="(min-width: 768px) 240px, 72vw"
                             width="1080"
-                            height="1350"
+                            height="1920"
                             loading="lazy"
                             decoding="async"
                             alt={x.alt}
