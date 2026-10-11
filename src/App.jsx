@@ -85,16 +85,18 @@ function ShelfChip({ active, onClick, children, ariaLabel }) {
 const sheetLabel = { fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-2)', margin: '0 0 var(--space-1)' };
 const sheetChips = { display: 'flex', flexWrap: 'wrap', columnGap: 'var(--space-2)', marginBottom: 'var(--space-4)' };
 const sheetSubtitle = { fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: '0 0 var(--space-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
+// 横に送れるチップの行の右端をふわっと透過させる（まだ続きがあると分かる）マスク。
+const SCROLL_FADE_MASK = 'linear-gradient(90deg, black 90%, transparent 100%)';
 const sheetOption = (active) => ({
-  display: 'flex', alignItems: 'center', gap: 'var(--space-3)', width: '100%', minHeight: 48,
+  display: 'flex', alignItems: 'center', gap: 'var(--space-3)', width: '100%', minHeight: 'var(--btn-h)',
   padding: 'var(--space-2) var(--space-3)', borderRadius: 'var(--radius)',
   border: '1px solid var(--separator)', background: active ? 'var(--accent-soft)' : 'var(--surface)',
   color: 'var(--text)', fontSize: 'var(--text-body)', fontWeight: active ? 600 : 400,
   fontFamily: 'inherit', textAlign: 'left', cursor: 'pointer',
 });
 const bookshelfIconBtn = {
-  width: 44, height: 44, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-  background: 'none', border: 'none', borderRadius: 999, color: 'var(--text-2)', cursor: 'pointer', padding: 0, fontFamily: 'inherit',
+  width: 'var(--tap-min)', height: 'var(--tap-min)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+  background: 'none', border: 'none', borderRadius: '50%', color: 'var(--text-2)', cursor: 'pointer', padding: 0, fontFamily: 'inherit',
 };
 const HelpModal = lazy(() => import('./components/HelpModal'));
 const Review = lazy(() => import('./components/Review'));
@@ -6095,8 +6097,8 @@ function AuthedApp() {
                     WebkitOverflowScrolling: 'touch',
                     // 右端をふわっと透過させ「まだ続きがある（横スクロールできる）」を示す。
                     // フェードなしだと「読了」チップが硬く見切れて壊れて見えていた。
-                    WebkitMaskImage: 'linear-gradient(90deg, #000 90%, transparent 100%)',
-                    maskImage: 'linear-gradient(90deg, #000 90%, transparent 100%)',
+                    WebkitMaskImage: SCROLL_FADE_MASK,
+                    maskImage: SCROLL_FADE_MASK,
                   }}
                   role="group"
                   aria-label="状態で絞り込み"
@@ -6150,18 +6152,19 @@ function AuthedApp() {
                     style={{
                       flex: 1, minWidth: 0, display: 'flex', gap: 'var(--space-2)', overflowX: 'auto',
                       WebkitOverflowScrolling: 'touch',
-                      WebkitMaskImage: 'linear-gradient(90deg, #000 90%, transparent 100%)',
-                      maskImage: 'linear-gradient(90deg, #000 90%, transparent 100%)',
+                      WebkitMaskImage: SCROLL_FADE_MASK,
+                      maskImage: SCROLL_FADE_MASK,
                     }}
                   >
                     {allFolders.map((f) => {
                       const active = folderFilter === f.name;
                       // 冊数はほかの絞り込み（状態・分野・評価・検索）を効かせた数（状態のチップと同じ）。
-                      //   冊数の決まりは状態の行と同じ＝いつも出す（0 冊は --text-3）。
+                      //   冊数の決まりは状態の行と同じ数え方・数字はいつも --text-2（--fill の上の --text-3 は 4.5:1 に届かない）。
+                      //   状態の行は 0 件のチップを隠すが、フォルダの行は 0 冊でも見せる（フォルダは本人が作ったものなので消さない）。
                       const n = folderChipCounts.get(f.name) || 0;
                       return (
                         <ShelfChip key={f.name} active={active} onClick={() => setFolderFilter(active ? null : f.name)} ariaLabel={`フォルダ「${f.name}」${n} 冊${active ? '（押すと解除）' : ''}`}>
-                          {f.name}<span style={{ color: n > 0 || active ? 'var(--text-2)' : 'var(--text-3)', fontWeight: 400 }}>{n}</span>
+                          {f.name}<span style={{ color: 'var(--text-2)', fontWeight: 400 }}>{n}</span>
                         </ShelfChip>
                       );
                     })}
@@ -6178,12 +6181,12 @@ function AuthedApp() {
                     aria-hidden="true"
                     style={{
                       display: 'flex', gap: 'var(--space-2)', alignItems: 'center', overflow: 'hidden',
-                      height: 44, margin: 'calc((32px - 44px) / 2) 0', paddingBottom: 'var(--space-4)',
+                      height: 'var(--tap-min)', margin: 'calc((var(--space-8) - var(--tap-min)) / 2) 0', paddingBottom: 'var(--space-4)',
                       boxSizing: 'content-box',
                     }}
                   >
-                    {[72, 88, 64, 80].map((w, i) => (
-                      <SkeletonBlock key={i} width={w} height={32} radius="var(--radius)" style={{ flexShrink: 0 }} />
+                    {['calc(var(--space-16) + var(--space-2))', 'calc(var(--space-16) + var(--space-6))', 'var(--space-16)', 'calc(var(--space-16) + var(--space-4))'].map((w, i) => (
+                      <SkeletonBlock key={i} width={w} height="var(--space-8)" radius="var(--radius)" style={{ flexShrink: 0 }} />
                     ))}
                   </div>
                   {skeletonBookshelfView === 'grid' ? (
