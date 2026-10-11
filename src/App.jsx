@@ -4462,6 +4462,13 @@ function AuthedApp() {
     void doneQTick;
     const doneQuestionsNow = current.status === 'done' ? visibleDoneQuestions(current, readDoneQuestionState(current.id)) : [];
     const beforeItemsNow = current.status === 'done' ? visibleBeforeItems(current) : [];
+    const doneQuestionBlock = doneQuestionsNow.length > 0 ? (
+      <DoneQuestions
+        questions={doneQuestionsNow}
+        onPick={(q) => { dismissStatusUndo(current.id); track('done_question', { q: q.key }); setQuickMemoPrompt(q); setQuickMemoOpen(true); }}
+        onDismiss={() => { dismissDoneQuestions(current.id); setDoneQTick((n) => n + 1); }}
+      />
+    ) : null;
     // 読書計画の中身（得たいこと・課題・仮説・シート）。読書中・読了では 1 つの「読書計画」に畳む。
     const planItems = [
       current.investPurpose && { label: 'この本から得たいこと', text: current.investPurpose },
@@ -4838,7 +4845,9 @@ function AuthedApp() {
                   books={books}
                   savedMemo={detailSavedMemo}
                   afterList={
-                    // 💬 この本だけを相談相手にする（相談相手の絞り込み・2026-09-26）。
+                    // 📗 読了の 3 つの問いが出ている間は「この本に相談する」→ 問いのカード（間 12・「この本のまとめ」より上＝SPEC §2）。
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                    {/* 💬 この本だけを相談相手にする（相談相手の絞り込み・2026-09-26）。 */}
                     <button
                       type="button"
                       onClick={() => {
@@ -4861,17 +4870,16 @@ function AuthedApp() {
                       </span>
                       <ChevronRight size="1.2em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
                     </button>
+                    {current.status === 'done' && !detailMemoEmpty && doneQuestionBlock}
+                    </div>
                   }
                 />
               </section>
               {/* 📗 読了の 3 つの問い → 読む前に書いたこと（2026-10-11・SPEC §2・AI なし・lib/doneReflection.js） */}
-              {current.status === 'done' && (doneQuestionsNow.length > 0 || beforeItemsNow.length > 0) && (
+              {/* メモがまだ無い本は「この本に相談する」が出ないので、問いはメモの区画のすぐ下に */}
+              {current.status === 'done' && detailMemoEmpty && doneQuestionBlock}
+              {current.status === 'done' && beforeItemsNow.length > 0 && (
                 <>
-                  <DoneQuestions
-                    questions={doneQuestionsNow}
-                    onPick={(q) => { dismissStatusUndo(current.id); track('done_question', { q: q.key }); setQuickMemoPrompt(q); setQuickMemoOpen(true); }}
-                    onDismiss={() => { dismissDoneQuestions(current.id); setDoneQTick((n) => n + 1); }}
-                  />
                   <BeforeAfter
                     items={beforeItemsNow}
                     onFoundAnswer={() => { dismissStatusUndo(current.id); track('before_after_consult', {}); openConsultWith(foundAnswerDraft(current), { bookIds: [current.id], from: 'beforeAfter' }); }}

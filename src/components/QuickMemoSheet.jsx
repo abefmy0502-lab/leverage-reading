@@ -503,7 +503,7 @@ export default function QuickMemoSheet({
                   e.preventDefault();
                 }
               }}
-              placeholder={prompt ? '思いついたことを 1 行で' : '心が動いた一行を書き留める'}
+              placeholder={prompt ? '思ったことを、そのまま' : '心が動いた一行を書き留める'}
               style={ta}
               maxLength={LIMITS.memoText}
             />

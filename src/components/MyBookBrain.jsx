@@ -3973,7 +3973,8 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
             </div>
           )}
           {/* 2. 明日からできる一歩（＋ 行動に追加）か、あなたに聞きたいこと → 使ったメモの一行 → 3. 根拠（畳む） */}
-          {renderAction(parsed, 'var(--space-4)')}
+          {/* まだ読んでいない本の行の下は、行の下の余白 12＋12＝24 で行動の箱へ（2026-10-11 ui-critic） */}
+          {renderAction(parsed, !parsed.question && unreadInAnswer.length > 0 ? 'var(--space-3)' : 'var(--space-4)')}
           {renderAsk(parsed, 'var(--space-4)')}
           {renderEvidence()}
           {lookupRows.length === 0 && renderDetails(parsed)}

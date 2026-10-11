@@ -194,7 +194,12 @@ const SCREENS = [
       ['article2-consult-tsundoku', '/', [...ARTICLE_TS, { css: 'summary:has-text("根拠を見る")' }, { scrollTo: 'summary:has-text("根拠を見る")' }, { wait: 400 }]],
       ['article2-consult-tsundoku-decide', '/', [...ARTICLE_TS, { css: 'button:has-text("ここで答えと行動を")' }, { wait: 6000 }]],
       ['article2-done-just', '/', [...ARTICLE_DONE]],
-      ['article2-done-questions', '/', [...ARTICLE_DONE, { scrollTo: 'h2:has-text("メモ")' }, { wait: 400 }]],
+      ['article2-done-questions', '/', [...ARTICLE_DONE, { scrollTo: 'h2:has-text("読み終えて、ひとこと")' }, { wait: 400 }]],
+      // 3 回目（ui-shots/article-after3/）: 問いのカード・保存した後の知らせ（問いの行を隠さないか）・積読ありの相談例
+      ['article3-done-questions', '/', [...ARTICLE_DONE, { scrollTo: 'h2:has-text("読み終えて、ひとこと")' }, { wait: 400 }]],
+      ['article3-done-saved', '/', [...ARTICLE_DONE, { scrollTo: 'h2:has-text("読み終えて、ひとこと")' }, { css: 'button:has-text("明日から何を変える？")' }, { fill: ['textarea[aria-label="明日から何を変える？"]', '週の始めに、チームの目標を数字で 1 つ決める'] }, { css: '[role=dialog] button:text-is("保存")' }, { wait: 1200 }]],
+      ['article3-consult', '/', [{ css: nav('相談') }, { wait: 800 }]],
+      ['article3-consult-tsundoku-decide', '/', [...ARTICLE_TS, { css: 'button:has-text("ここで答えと行動を")' }, { wait: 6000 }]],
       ['article2-done-prompt', '/', [...ARTICLE_DONE, { scrollTo: 'h2:has-text("読み終えて、ひとこと")' }, { css: 'button:has-text("あえて反論するなら？")' }, { wait: 800 }]],
       ['article2-found-answer', '/', [...ARTICLE_DONE, { scrollTo: 'h2:has-text("読む前に書いたこと")' }, { css: 'button:has-text("答えは見つかった？")' }, { wait: 1500 }]],
       ['article2-consult-no-tsundoku', '/?demo=noreadingdone', [{ css: nav('相談') }, { wait: 800 }]],

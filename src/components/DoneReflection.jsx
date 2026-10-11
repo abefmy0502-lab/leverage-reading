@@ -8,7 +8,7 @@ import { withPhraseBreaks } from './TightBubble';
 // カードの見出し（17/600・本の詳細の区画の見出し「メモ」「行動」20 より 1 段弱く＝メモ一覧の下の添えもの）。
 const h2 = { fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', margin: 0, lineHeight: 1.3 };
 const label = { ...groupTitle, margin: '0 0 var(--space-1)' };
-const readText = { fontFamily: 'var(--font-read)', fontSize: 'var(--text-body)', lineHeight: 1.6, color: 'var(--text)', margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' };
+const readText = { fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.6, color: 'var(--text)', margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' };
 
 export function DoneQuestions({ questions, onPick, onDismiss }) {
   if (!questions || questions.length === 0) return null;
@@ -17,9 +17,6 @@ export function DoneQuestions({ questions, onPick, onDismiss }) {
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)' }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <h2 id="done-questions-title" style={h2}>読み終えて、ひとこと</h2>
-          <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>
-            {withPhraseBreaks('押すと、問いを見ながらメモを書けます。')}
-          </p>
         </div>
         {onDismiss && (
           // 右上の ×（押せる範囲は 44・カードの内側の余白に重ねて、見た目の位置をそろえる）
@@ -29,7 +26,7 @@ export function DoneQuestions({ questions, onPick, onDismiss }) {
             aria-label="読み終えての問いを閉じる"
             style={{ width: 'var(--tap-min)', height: 'var(--tap-min)', margin: 'calc(-1 * var(--space-3)) calc(-1 * var(--space-3)) 0 0', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', color: 'var(--text-2)', cursor: 'pointer', flexShrink: 0 }}
           >
-            <X size={20} aria-hidden="true" />
+            <X size="1.2em" aria-hidden="true" />
           </button>
         )}
       </div>
