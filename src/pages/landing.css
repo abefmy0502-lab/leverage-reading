@@ -20,8 +20,8 @@
   /* ヒーローの 3D のキャンバスを、広い画面で写真の右へどれだけ広げるか（カードが扇状に出る場所・Hero3D の layoutFor と組む） */
   --lp-canvas-left: 160px;
   --lp-canvas-extra: 480px;
-  /* 柱（③）の小さな画面写真の幅（ヒーローの写真の 2/3・スマホは画面の半分まで） */
-  --lp-pillar-w: min(calc(var(--lp-shot-w) * 2 / 3), 52vw);
+  /* 柱（③）の画面写真の幅（スマホはヒーローと同じ・広い画面はヒーローの写真の 4/5＝240） */
+  --lp-pillar-w: min(var(--lp-shot-w), 72vw);
 }
 
 .lp-root, .lp-root *, .lp-root *::before, .lp-root *::after { box-sizing: border-box; }
@@ -137,6 +137,8 @@ body.lp-active {
 .lp-btn-small { min-height: var(--tap-min); padding: 0 var(--space-4); font-size: var(--text-sub); }
 
 .lp-cta-block { margin-top: var(--space-8); }
+/* スマホのヒーローは最初の画面に答えの吹き出しまで入るよう詰める */
+.lp-hero .lp-cta-block { margin-top: var(--space-6); }
 .lp-cta-note {
   word-break: auto-phrase;
   margin-top: var(--space-3) !important;
@@ -287,11 +289,11 @@ body.lp-active {
   cursor: pointer;
 }
 /* スマホ（390×844）でも、最初の画面に見出し・補足・入口が入るように詰める */
-.lp-hero { padding: var(--space-8) 0 var(--lp-sec); }
+.lp-hero { padding: var(--space-6) 0 var(--lp-sec); }
 /* 最大の文字でも横にはみ出さない: ヒーローの列は中身の幅で広がらない */
-.lp-hero-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-8); }
+.lp-hero-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-6); }
 .lp-lead {
-  margin-top: var(--space-6) !important;
+  margin-top: var(--space-4) !important;
   max-width: 26em;
   font-size: var(--text-body);
   line-height: 1.6;
@@ -336,7 +338,8 @@ body.lp-active {
   border: 1px solid var(--separator);
   border-radius: var(--radius);
   box-shadow: var(--shadow-overlay);
-  background: var(--surface);
+  /* 読み込むまでの枠（遅延読み込みの間に空白に見せない） */
+  background: var(--fill);
 }
 /* まだ読んでいない枚（相談の流れの 3〜4 枚目）の場所取り。写真と同じ縦横の比 */
 .lp-shot-blank { aspect-ratio: 390 / 844; box-shadow: none; }
@@ -394,11 +397,13 @@ body.lp-active {
 .lp-pillars { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-12); }
 .lp-pillars > li { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-6); align-items: center; }
 /* スマホは文が先、写真はその下（左にそろえる・文の行を狭くしない） */
-.lp-pillar-shot { order: 2; width: var(--lp-pillar-w); }
+.lp-pillar-shot { order: 2; width: var(--lp-pillar-w); margin: 0 auto; }
 .lp-pillar-shot .lp-shot, .lp-pillar-shot .lp-share-img { width: 100%; margin: 0; }
 .lp-pillar-head { margin-bottom: var(--space-2) !important; color: var(--text-2); font-size: var(--text-sub); font-weight: 600; }
 .lp-pillar-text > p:not(.lp-pillar-head) { color: var(--text-2); }
 .lp-pillars-note { text-align: left; margin-top: var(--space-8) !important; }
+/* 学習に使わないの 1 行（柱の後ろ） */
+.lp-trust { margin-top: var(--space-6) !important; color: var(--text-2); font-size: var(--text-sub); }
 
 /* ② 相談の流れ（LpFlow.jsx）: 4 枚の実画面を重ねて切り替える */
 .lp-flow-sec { background: var(--surface); border-block: 1px solid var(--separator); }
@@ -463,6 +468,7 @@ body.lp-active {
   margin: 0 auto;
   border-radius: var(--radius);
   box-shadow: var(--shadow-overlay);
+  background: var(--fill);
 }
 
 /* ⑨ 料金 */
@@ -547,6 +553,8 @@ body.lp-active {
 /* メール欄（.lp-wl・30em）と同じ箱にして、最後の節の左端を 1 本にそろえる */
 .lp-final-inner .lp-cta-note, .lp-final-inner .lp-story { width: min(30rem, 100%); max-width: min(30rem, 100%); margin-left: auto; margin-right: auto; text-align: left; text-wrap: pretty; }
 .lp-story > span, .lp-final-inner .lp-cta-note > span { display: inline-block; }
+/* 公開済み（ボタンの行が中央）のときは、文も中央にそろえる */
+.lp-final-inner.is-live .lp-cta-note, .lp-final-inner.is-live .lp-story { text-align: center; }
 .lp-story {
   margin: var(--space-12) auto 0 !important;
   max-width: 28em;
@@ -627,7 +635,8 @@ body.lp-active {
   .lp-hero { padding: var(--space-16) 0 var(--lp-sec); }
   .lp-hero-stage.is-3d-slot { padding: var(--space-16) 0; margin-top: 0; }
   .lp-hero-grid { grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); align-items: center; gap: var(--space-16); }
-  .lp-lead { font-size: var(--text-heading); }
+  .lp-lead { font-size: var(--text-heading); margin-top: var(--space-6) !important; }
+  .lp-hero .lp-cta-block { margin-top: var(--space-8); }
   .lp-shot { width: var(--lp-shot-w); }
   /* 本体は列の左寄せ（右にカードが扇状に出る余白を作る） */
   .lp-hero-stage .lp-shot { margin: 0; }
@@ -655,9 +664,12 @@ body.lp-active {
   .lp-shot-note { text-align: left; }
 
   .lp-media { grid-template-columns: minmax(0, 26em) auto; justify-content: start; gap: var(--space-16); align-items: center; }
-  .lp-root { --lp-pillar-w: calc(var(--lp-shot-w) * 2 / 3); }
+  .lp-root { --lp-pillar-w: calc(var(--lp-shot-w) * 4 / 5); }
   .lp-pillars > li { grid-template-columns: var(--lp-pillar-w) minmax(0, 1fr); }
-  .lp-pillar-shot { order: 0; }
+  .lp-pillar-shot { order: 0; margin: 0; }
+  /* 広い画面は手順の名前が左の一覧にあるので、写真の上の題は出さない（題が 2 回出ない） */
+  .lp-flow-caption-title { display: none; }
+  .lp-flow-caption { min-height: calc(var(--text-sub) * 1.5 * 2); }
   .lp-pillars { grid-template-columns: repeat(auto-fit, minmax(min(100%, 26em), 1fr)); column-gap: var(--space-12); row-gap: var(--space-16); }
   .lp-ba > div { grid-template-columns: 6em minmax(0, 1fr); }
   .lp-asks li { grid-template-columns: 8em minmax(0, 1fr); gap: var(--space-3); }

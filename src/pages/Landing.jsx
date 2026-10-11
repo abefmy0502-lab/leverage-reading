@@ -460,12 +460,12 @@ export default function Landing() {
                 <span>読んだ本と、</span><span>対話しよう。</span>
               </h1>
               <p className="lp-lead lp-wbr">
-                <Phrases>心に響いた一行から、AI が本の語り口で答えます。要約ではなく、あなたのメモから。本とページを添えて、明日の一歩まで。</Phrases>
+                <Phrases>迷ったことを聞くと、心に響いた一行から、AI が本の語り口で答えます。要約ではなく、あなたのメモから。本とページを添えて、明日の一歩まで。</Phrases>
               </p>
               <div className="lp-cta-block" ref={heroCtaRef}>
                 <Entry loc="hero" wl={wl} qr badge launch />
                 <p className="lp-cta-sub lp-wbr">
-                  <Phrases>無料プラン（ずっと無料）で始められます。ブクログ・読書メーター・Kindle の記録も取り込めます。</Phrases>
+                  <Phrases>ブクログ・読書メーター・Kindle の記録も取り込めます。</Phrases>
                 </p>
                 <div className="lp-hero-links">
                   <a className="lp-textlink" href="#lp-flow" onClick={() => lpTrack('hero_secondary', {})}>
@@ -563,6 +563,7 @@ export default function Landing() {
               ))}
             </ul>
             <p className="lp-shot-note lp-pillars-note">画面は、サンプルのメモを入れた実際のアプリです。共有の画像は、見本の写真でアプリが作ったものです</p>
+            <p className="lp-trust">メモは、AI の学習に使われません。</p>
           </div>
         </section>
 
@@ -579,7 +580,7 @@ export default function Landing() {
             <div className="lp-cta-block">
               <Entry loc="start" wl={wl} />
             </div>
-            <p className="lp-fine lp-wbr"><Phrases>メモは、AI の学習に使われません。ブクログ・読書メーター・Kindle は、各社の商標または登録商標です。</Phrases></p>
+            <p className="lp-fine lp-wbr"><Phrases>ブクログ・読書メーター・Kindle は、各社の商標または登録商標です。</Phrases></p>
           </div>
         </section>
 
@@ -705,9 +706,9 @@ export default function Landing() {
 
         {/* ============ ⑦ 最後の入口 ============ */}
         <section className="lp-final" aria-labelledby="lp-final" data-lp-sec="final">
-          <div className="lp-wrap lp-narrow lp-final-inner">
+          <div className={`lp-wrap lp-narrow lp-final-inner${PRELAUNCH ? '' : ' is-live'}`}>
             <h2 className="lp-h2" id="lp-final">
-              <span>次の一冊は、</span><span>読んで終わりにしない。</span>
+              <span>次の一冊から、</span><span>本と対話しよう。</span>
             </h2>
             <div className="lp-cta-block">
               <Entry loc="final" wl={wl} qr badge launch center />
