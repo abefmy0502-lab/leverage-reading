@@ -576,6 +576,20 @@ export function textureScrim(texture = 0) {
   if (t <= PHOTO_TEXTURE_CALM) return 0;
   return Math.round(Math.min(PHOTO_SCRIM_BUSY_MAX, PHOTO_SCRIM_BUSY_MIN + (t - PHOTO_TEXTURE_CALM) * 4) * 100) / 100;
 }
+// 文字の後ろのいちばん明るい所（明るいほうから 5%＝電球・窓の光など）の相対輝度（2026-10-11 ui-critic「電球に重なる字が読めない」）。
+export function hotLuminance(pixels, q = 0.95) {
+  if (!Array.isArray(pixels) || pixels.length === 0) return 0;
+  const lums = pixels.map(relLum).sort((a, b) => a - b);
+  return lums[Math.min(lums.length - 1, Math.floor(lums.length * q))];
+}
+// 白い言葉の縁の影（幕ではなく、字のまわりだけ）の濃さ: いちばん明るい所が 0.45 を超えるほど濃く・0.3〜0.7。
+//   それより暗ければ 0（今までのやわらかい影だけ）。写真全体は暗くしない（オーナー「写真が主役で、文字は軽い」）。
+export function phraseHaloAlpha(hot) {
+  const h = Math.min(1, Math.max(0, Number(hot) || 0));
+  if (h <= 0.45) return 0;
+  return Math.round(Math.min(0.7, 0.3 + ((h - 0.45) / 0.55) * 0.4) * 100) / 100;
+}
+
 // 言葉（明朝の引用など）の後ろの幕: 写真の明るさから決めた濃さの 0.4 倍・最大 0.3（ごく淡く・文字の影で読ませる・2026-10-11）。
 export const PHRASE_SCRIM_MAX = 0.3;
 export function phraseScrimAlpha(luminance) {

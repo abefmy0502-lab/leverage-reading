@@ -8,7 +8,7 @@ import {
   scrimAlpha, brightLuminance, coverProxyPath, seedFrom, mulberry32, underlineStroke, tabPosition, FORMATS,
   darkLuminance, logoInkOnPhoto, coverWashAlpha, relativeLuminance, blockScrimStops,
   blockVeilStops, photoInkForBand, veiledLuminance, PHOTO_VEIL_MAX, PHOTO_VEIL_BUSY_MAX, PHOTO_TEXTURE_LOUD, textureVeil, bandTexture,
-  textureScrim, photoScrimAlpha, PHOTO_SCRIM_BUSY_MIN, PHOTO_SCRIM_BUSY_MAX, phraseScrimAlpha, PHRASE_SCRIM_MAX,
+  textureScrim, photoScrimAlpha, PHOTO_SCRIM_BUSY_MIN, PHOTO_SCRIM_BUSY_MAX, phraseScrimAlpha, PHRASE_SCRIM_MAX, hotLuminance, phraseHaloAlpha,
 } from './shareCardLayout.js';
 import { mainTitle } from './shareOverlay.js';
 
@@ -291,6 +291,15 @@ describe('明るい写真の上は墨の文字＋白い幕（第 3 回）', () =
     expect(photoInkForBand({ bright: 0.64, dark: 0.003, texture: 0.062 }).scrim).toBe(scrimAlpha(0.64));
     // 暗くて平らな写真は濃くしない
     expect(photoInkForBand({ bright: 0.3, dark: 0.1, texture: 0.005 }).scrim).toBe(scrimAlpha(0.3));
+  });
+  it('言葉の後ろに電球のような明るい所があると、字のまわりの影を濃くする（明るいほうから 5% で測る）', () => {
+    // 暗い壁に電球が 1 つ（画素の 6%）: 平均や 85% では気づかないが、95% では明るい
+    const px = [...Array(94).fill([40, 36, 32]), ...Array(6).fill([255, 240, 200])];
+    expect(brightLuminance(px)).toBeLessThan(0.1);
+    expect(hotLuminance(px)).toBeGreaterThan(0.8);
+    expect(phraseHaloAlpha(hotLuminance(px))).toBeGreaterThan(0.5);
+    expect(phraseHaloAlpha(0.2)).toBe(0);
+    expect(phraseHaloAlpha(1)).toBe(0.7);
   });
   it('言葉の後ろの幕はごく淡い（最大 0.3・2026-10-11）', () => {
     expect(phraseScrimAlpha(1)).toBe(PHRASE_SCRIM_MAX);

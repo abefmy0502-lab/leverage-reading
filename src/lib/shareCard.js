@@ -26,7 +26,7 @@ import {
   FORMATS, clampLine, fitQuote, wrapBalanced, coverTone, rgbCss,
   photoPlacement, scrimAlpha, brightLuminance, coverProxyPath,
   seedFrom, tabPosition, coverWashAlpha, relativeLuminance, shareImageType,
-  darkLuminance, filmTone, logoInkOnPhoto, blockScrimStops, photoInkForBand, photoScrimAlpha, phraseScrimAlpha, blockVeilStops, PHOTO_INK_DARK_Q, bandTexture,
+  darkLuminance, filmTone, logoInkOnPhoto, blockScrimStops, photoInkForBand, photoScrimAlpha, phraseScrimAlpha, hotLuminance, phraseHaloAlpha, blockVeilStops, PHOTO_INK_DARK_Q, bandTexture,
   softBreaks,
 } from './shareCardLayout';
 import {
@@ -1906,6 +1906,13 @@ function magazineOpts(o, fonts) {
   return { ...visibleOpts(o, 'magazine', text), fonts, style, W: F.W, H: F.H, format: F.format, layout: 'magazine' };
 }
 
+// 言葉の箱（字のある所）の後ろの写真の、明るいほうから 5% の明るさ（細かく読む）。
+function phraseHotLuminance(o, W, H, lay) {
+  const place = photoPlacement({ pw: o.photo.width, ph: o.photo.height, W, H, ...(o.view || {}) });
+  const px = bandPixels(o.photo, place, W, H, lay.y0, lay.y0 + lay.h, lay.x0, lay.x0 + lay.w, 216);
+  return px && px.length ? hotLuminance(px) : 0;
+}
+
 function drawPhrase(ctx, o, W, H) {
   const lay = layoutPhraseOn(ctx, o, W, H);
   if (!lay) return null;
@@ -1952,6 +1959,16 @@ function drawPhrase(ctx, o, W, H) {
         ctx.fillStyle = ink;
         ctx.font = font;
         lay.lines.forEach((l, i) => ctx.fillText(l, lay.cx - lineW(l) / 2, baselineOf(i)));
+        // 字の後ろに電球・窓の光のような明るい所がある（明るいほうから 5% で測る）ときは、字のまわりだけに
+        //   締まった影をもう 1 回（2026-10-11 ui-critic「動く」「ことだ」が電球に重なる）。幕は足さない。
+        const halo = o.photo ? phraseHaloAlpha(phraseHotLuminance(o, W, H, lay)) : 0;
+        if (halo > 0) {
+          ctx.shadowColor = `rgba(${o.theme?.scrim || cssVar('--share-photo-scrim') || '14, 12, 10'}, ${halo})`;
+          ctx.shadowBlur = 12 * sb;
+          ctx.shadowOffsetY = 0;
+          lay.lines.forEach((l, i) => ctx.fillText(l, lay.cx - lineW(l) / 2, baselineOf(i)));
+        }
+        ctx.shadowColor = o.theme?.shadow || cssVar('--share-photo-shadow') || 'rgba(0,0,0,0.35)';
         ctx.shadowBlur = 8 * sb;
         ctx.shadowOffsetY = 1 * sb;
       }
