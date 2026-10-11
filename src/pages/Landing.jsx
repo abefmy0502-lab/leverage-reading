@@ -637,7 +637,7 @@ export default function Landing() {
                 {/* プランで手に入るもの（具体的に 4 つ・数は lib/tokenAmounts.js のとおり） */}
                 <ul className="lp-included" aria-label="プランに含まれるもの">
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span><span className="lp-nb">毎月 {PAID_TOKENS} トークン</span><span className="lp-nb">（AI の答え {PAID_CONSULTS}）</span></span></li>
-                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>本と対話する相談（1 冊の本の語り口でも）</span></li>
+                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>すべての AI 機能が使える</span></li>
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>読書計画シート・AI 選書</span></li>
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>写真から書き起こし・メモの凝縮</span></li>
                   {TRIAL_NOTE && (
