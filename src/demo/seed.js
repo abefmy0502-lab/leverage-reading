@@ -284,7 +284,10 @@ export function buildSeed(scenario) {
     }));
   });
   // 🗂 本人が作ったフォルダ（本の詳細のフォルダの行・すべての本のフォルダのチップの確かめ用・2026-10-11）
-  const FOLDERS = { 'イシューからはじめよ': ['読み返したい'], '人を動かす': ['読み返したい'], 'サピエンス全史': ['読み返したい'], '1兆ドルコーチ': ['会社の課題図書'] };
+  //   &folders=none: フォルダが 1 つも無い人（前の版のタグからフォルダへ移る言葉も外す・フォルダに入れるシートの 0 件の確かめ用）
+  const noFolders = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('folders') === 'none';
+  if (noFolders) db.book_tags = db.book_tags.filter((t) => !['読書術', '会社の課題図書'].includes(t.tag_name));
+  const FOLDERS = noFolders ? {} : { 'イシューからはじめよ': ['読み返したい'], '人を動かす': ['読み返したい'], 'サピエンス全史': ['読み返したい'], '1兆ドルコーチ': ['会社の課題図書'] };
   db.books.forEach((b) => (FOLDERS[b.title] || []).forEach((name) => db.book_collections.push({
     id: `${b.id}-c-${name}`, book_id: b.id, user_id: DEMO_USER_ID, collection_name: name, created_at: b.created_at,
   })));

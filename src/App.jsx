@@ -839,8 +839,10 @@ function AuthedApp() {
     if (current?.id) libraryFromBookRef.current = { id: current.id, shelfMode, libraryFrom, tagFilter, folderFilter };
     setSearch(''); setMinRating(0); setTagFilter([]); setStatusFilter('all');
     setFolderFilter(folder);
+    folderChipRevealRef.current = true; // 開いたら選んだチップを見える所へ（1 回だけ）
     goList(); setShelfMode('library'); setLibraryFrom(current?.id ? 'book' : null);
   };
+  const folderChipRevealRef = useRef(false);
   // ★ 記録の分野から開いた「すべての本」は評価順に（本人が並び替えを選んでいたらそのまま・2026-10-11）。
   //   アプリが評価順にしたときだけ、記録へ戻るときに前の並びへ戻す。
   const sortTouchedRef = useRef(false);
@@ -4229,6 +4231,8 @@ function AuthedApp() {
   // アクティブな絞り込み数（ツールバーのバッジ表示用）。
   const activeFilterCount = (statusFilter !== 'all' ? 1 : 0) + (minRating > 0 ? 1 : 0) + tagFilter.length + (folderFilter ? 1 : 0);
   // 状態のチップの行を出すか（本が 4 冊以上か、何かで絞っているとき・検索で 0 件のときは出さない）。
+  // フォルダのチップの行を出すか（フォルダが 1 つ以上・検索で 0 件のときは出さない）。allFolders はこの下で決まるので本から数える。
+  const showFolderChips = books.some((b) => (b.collections || []).some((c) => (c || '').trim())) && !(filtered.length === 0 && libraryQuery && rawBooks.length > 0);
   const showStatusChips = (books.length >= 4 || !!folderFilter || minRating > 0 || tagFilter.length > 0) && !(filtered.length === 0 && libraryQuery && rawBooks.length > 0);
   const clearAllFilters = () => { setStatusFilter('all'); setMinRating(0); setTagFilter([]); setFolderFilter(null); };
 
@@ -4341,6 +4345,17 @@ function AuthedApp() {
   );
   // フォルダ（コレクション）一覧 — 本に付いた collection 名の集合（冊数つき・名前順）。
   const allFolders = useMemo(() => folderCounts(books), [books]);
+  // 外から（本の詳細のフォルダ）フォルダを選んで開いたときは、選んだチップをフォルダの行の見える所へ送る（1 回だけ・横だけ）。
+  useEffect(() => {
+    if (!folderChipRevealRef.current || shelfMode !== 'library' || view !== 'list' || !folderFilter) return undefined;
+    const id = requestAnimationFrame(() => {
+      const el = typeof document !== 'undefined' && document.querySelector('[data-folder-chips-scroll] [aria-pressed="true"]');
+      if (!el) return;
+      folderChipRevealRef.current = false;
+      try { el.scrollIntoView({ inline: 'nearest', block: 'nearest' }); } catch { /* ignore */ }
+    });
+    return () => cancelAnimationFrame(id);
+  }, [folderFilter, shelfMode, view, allFolders]);
   // ★ 本の評価を変えたら（どの画面からでも）相談の材料を読み直させる（評価で根拠の優先度が変わる・2026-10-11）。
   const ratingSig = useMemo(() => books.map((b) => `${b.id}:${b.rating || 0}`).join(','), [books]);
   const ratingSigRef = useRef(null);
@@ -4493,17 +4508,17 @@ function AuthedApp() {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); createAndAdd(); }
                 }}
-                placeholder="新しいフォルダ名"
+                placeholder="例：会社の課題図書"
                 maxLength={40}
-                style={{ ...inp, flex: 1, minWidth: 0, minHeight: 48, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}
+                style={{ ...inp, flex: 1, minWidth: 0, minHeight: 'var(--btn-h)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}
               />
               <button
                 type="button"
                 onClick={createAndAdd}
                 disabled={!newFolderName.trim()}
+                // 押せないときは薄くせず btnGhostOff（DESIGN §5・2026-10-11 ui-critic）
                 style={{
-                  ...btnGhost, width: 'auto', flexShrink: 0, padding: '0 var(--space-4)', fontSize: 'var(--text-sub)',
-                  cursor: newFolderName.trim() ? 'pointer' : 'default', opacity: newFolderName.trim() ? 1 : 0.5,
+                  ...(newFolderName.trim() ? btnGhost : btnGhostOff), width: 'auto', flexShrink: 0, padding: '0 var(--space-4)', fontSize: 'var(--text-sub)',
                 }}
               >
                 作って入れる
@@ -4875,8 +4890,21 @@ function AuthedApp() {
               {current.status === 'done' && (
                 <div data-detail-rating="" style={{ marginTop: 'var(--space-1)' }}>
                   {/* 読了にした直後で、まだ評価が無いときだけ淡い 1 行（★の高い本の考えを相談で優先する） */}
+                  {/* 読了にした直後の送り先: 評価が 0 ならここ（★）へ送る・評価済みなら下の「読了を写真で共有」へ（2026-10-11 ui-critic） */}
                   {justDoneId === current.id && !(current.rating > 0) && (
-                    <p id="detail-rating-ask" style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>この本の評価は？</p>
+                    <p
+                      id="detail-rating-ask"
+                      ref={(el) => {
+                        if (!el || el.dataset.revealed) return;
+                        el.dataset.revealed = '1';
+                        let reduce = false;
+                        try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { /* noop */ }
+                        requestAnimationFrame(() => { try { el.parentElement?.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' }); } catch { /* ignore */ } });
+                      }}
+                      style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}
+                    >
+                      この本の評価は？
+                    </p>
                   )}
                   {/* 押せる範囲 44 の中央に星があるので、左と上下の余りを行の外へ（星の左端を書名の左端に） */}
                   <div style={{ margin: 'calc(-1 * var(--space-2)) 0 calc(-1 * var(--space-2)) calc(-1 * var(--space-3))' }}>
@@ -5065,9 +5093,11 @@ function AuthedApp() {
                 className="list-item-enter"
                 // 出たら画面の中まで送る（上に「一番の収穫」のカードが入って押し下げられても、下の「読了にしました。」の
                 // 知らせと右下の「メモを書く」に重ならないように・下の余白は JUST_DONE_CLEARANCE）。
+                //   評価が 0 のときは送らない（送り先は見出しの「この本の評価は？」・2026-10-11 ui-critic）。
                 ref={(el) => {
                   if (!el || el.dataset.revealed) return;
                   el.dataset.revealed = '1';
+                  if (!(current.rating > 0)) return;
                   let reduce = false;
                   try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { /* noop */ }
                   requestAnimationFrame(() => { try { el.scrollIntoView({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' }); } catch { /* ignore */ } });
@@ -5984,6 +6014,8 @@ function AuthedApp() {
                   <span style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums' }}>
                     {/* メモを読んでいる間で、まだ何も見つかっていないときは「0 冊」と言い切らない（2026-09-30） */}
                     {libraryQuery ? (librarySearch.memoStatus === 'loading' && filtered.length === 0 ? `${rawBooks.length} 冊中 …` : `${rawBooks.length} 冊中 ${filtered.length} 冊`) : `${filtered.length} 冊`}
+                    {/* 評価順の間は並びを題の横に添える（分野の行から評価順で開いたときも・検索中は見つかった順なので出さない・2026-10-11 ui-critic） */}
+                    {!libraryQuery && sortBy === 'rating' && <span data-sort-note="" style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>{' · 評価順'}</span>}
                   </span>
                 )}
               </div>
@@ -6042,45 +6074,14 @@ function AuthedApp() {
                   （statusFilter＝activeFilterCount とも連動）。同じチップの再タップで解除。
                   本が少ないうちはノイズなので 4 冊未満では出さない。 */}
               {/* 検索で 0 件のときはチップ行を出さない（下の「該当する本がありません」だけにする）。 */}
-              {/* 🗂 フォルダのチップの行（フォルダが 1 つ以上あるとき・2026-10-11）: 「すべて」＋各フォルダ（冊数）。選ぶと folderFilter
-                  （絞り込みシートのフォルダと同じ）。分野・評価の絞り込みと重ねられ、評価順に並べるとフォルダごとの評価が見える。
-                  状態のチップの行が下にあるときは行の間を 8、無ければ一覧との間を 16。 */}
-              {allFolders.length > 0 && !(filtered.length === 0 && libraryQuery && rawBooks.length > 0) && (
-                <div
-                  data-folder-chips=""
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 'var(--space-2)', overflowX: 'auto',
-                    paddingBottom: showStatusChips ? 'var(--space-2)' : 'var(--space-4)',
-                    margin: 'calc((32px - 44px) / 2) 0',
-                    WebkitOverflowScrolling: 'touch',
-                    WebkitMaskImage: 'linear-gradient(90deg, #000 90%, transparent 100%)',
-                    maskImage: 'linear-gradient(90deg, #000 90%, transparent 100%)',
-                  }}
-                  role="group"
-                  aria-label="フォルダで絞り込み"
-                >
-                  <span aria-hidden="true" style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>
-                    <IcFolder size="1em" aria-hidden="true" />フォルダ
-                  </span>
-                  <ShelfChip active={!folderFilter} onClick={() => setFolderFilter(null)} ariaLabel="フォルダで絞らない（すべて）">すべて</ShelfChip>
-                  {allFolders.map((f) => {
-                    const active = folderFilter === f.name;
-                    return (
-                      <ShelfChip key={f.name} active={active} onClick={() => setFolderFilter(active ? null : f.name)} ariaLabel={`フォルダ「${f.name}」${f.count} 冊${active ? '（押すと解除）' : ''}`}>
-                        {f.name}<span style={{ color: 'var(--text-2)', fontWeight: 400 }}>{f.count}</span>
-                      </ShelfChip>
-                    );
-                  })}
-                </div>
-              )}
               {showStatusChips && (
                 <div
                   style={{
-                    display: 'flex', gap: 'var(--space-2)', overflowX: 'auto', paddingBottom: 'var(--space-4)',
+                    display: 'flex', gap: 'var(--space-2)', overflowX: 'auto', paddingBottom: showFolderChips ? 'var(--space-2)' : 'var(--space-4)',
                     // チップの見た目は 32・押せる範囲は 44。上下の余り（6 ずつ）を行の外側で相殺し、
                     // 見た目の間隔を 見出し→チップ 12・チップ→一覧 16 にそろえる（チップ自体に負の余白を
                     // 付けると横スクロールの枠で押せる範囲が切れ、シートの折り返しでは行が詰まるため行の側で）。
-                    margin: 'calc((32px - 44px) / 2) 0',
+                    margin: 'calc((var(--space-8) - var(--tap-min)) / 2) 0',
                     WebkitOverflowScrolling: 'touch',
                     // 右端をふわっと透過させ「まだ続きがある（横スクロールできる）」を示す。
                     // フェードなしだと「読了」チップが硬く見切れて壊れて見えていた。
@@ -6117,6 +6118,40 @@ function AuthedApp() {
                       </ShelfChip>
                     );
                   })}
+                </div>
+              )}
+              {/* 🗂 フォルダのチップの行（フォルダが 1 つ以上あるとき・2026-10-11）: 状態のチップの行（最頻操作）の下。
+                  見出し「フォルダ」はスクロールの外の固定の列・各フォルダ（冊数）を選ぶと folderFilter（絞り込みシートと同じ）・
+                  同じチップをもう一度押すと解除（「すべて」は置かない）。分野・評価の絞り込みと重ねられ、評価順に並べると
+                  フォルダごとの評価が見える。状態のチップの行があれば行の間 8・一覧との間 16。 */}
+              {showFolderChips && (
+                <div
+                  data-folder-chips=""
+                  role="group"
+                  aria-label="フォルダで絞り込み"
+                  style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', paddingBottom: 'var(--space-4)', margin: 'calc((var(--space-8) - var(--tap-min)) / 2) 0' }}
+                >
+                  <span aria-hidden="true" style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>
+                    <IcFolder size="1em" aria-hidden="true" />フォルダ
+                  </span>
+                  <div
+                    data-folder-chips-scroll=""
+                    style={{
+                      flex: 1, minWidth: 0, display: 'flex', gap: 'var(--space-2)', overflowX: 'auto',
+                      WebkitOverflowScrolling: 'touch',
+                      WebkitMaskImage: 'linear-gradient(90deg, #000 90%, transparent 100%)',
+                      maskImage: 'linear-gradient(90deg, #000 90%, transparent 100%)',
+                    }}
+                  >
+                    {allFolders.map((f) => {
+                      const active = folderFilter === f.name;
+                      return (
+                        <ShelfChip key={f.name} active={active} onClick={() => setFolderFilter(active ? null : f.name)} ariaLabel={`フォルダ「${f.name}」${f.count} 冊${active ? '（押すと解除）' : ''}`}>
+                          {f.name}<span style={{ color: 'var(--text-2)', fontWeight: 400 }}>{f.count}</span>
+                        </ShelfChip>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
               {/* ホームに移した: はじめの一歩・いま読んでいる本（HomeScreen.jsx・相談カードは 2026-10-01 に外した）。

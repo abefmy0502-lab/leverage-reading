@@ -128,13 +128,16 @@ export function BookFieldsSheet({ selected = [], onDone, onClose }) {
   );
 }
 
+// 本の詳細の分野・フォルダの行の見出し（13/--text-2・幅をそろえて値の列を合わせる・2026-10-11 ui-critic）。
+const detailRowLabel = { flexShrink: 0, minWidth: 'var(--space-16)', fontSize: 'var(--text-meta)', color: 'var(--text-2)' };
+
 // 本の詳細: 付いている分野（押すと、すべての本をその分野で絞る）。
 export function BookFieldLinks({ fields = [], onPick }) {
   if (!fields.length) return null;
   return (
     // チップの見た目は 32（--space-8）・押せる範囲は 44。下の余りは負の余白で行の外へ（見た目の間隔をそろえる）。
     <div data-book-fields="" role="group" aria-label="分野" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 'var(--space-2)', marginTop: 'var(--space-2)', marginBottom: 'calc((var(--space-8) - var(--tap-min)) / 2)' }}>
-      <span aria-hidden="true" style={{ flexShrink: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>分野</span>
+      <span aria-hidden="true" style={detailRowLabel}>分野</span>
       {fields.map((f) => (
         onPick
           ? <Chip key={f} onClick={() => onPick(f)} aria-label={`分野「${f}」の本を見る`}>{f}</Chip>
@@ -160,7 +163,7 @@ export function BookFolderLinks({ folders = [], onPick, onEdit, stacked = false 
         marginBottom: tapExtra,
       }}
     >
-      {folders.length > 0 && <span aria-hidden="true" style={{ flexShrink: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>フォルダ</span>}
+      <span aria-hidden="true" style={detailRowLabel}>フォルダ</span>
       {folders.map((f) => (
         <Chip key={f} shrink onClick={() => onPick?.(f)} aria-label={`フォルダ「${f}」の本を見る`}>
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{f}</span>
@@ -171,7 +174,7 @@ export function BookFolderLinks({ folders = [], onPick, onEdit, stacked = false 
           type="button"
           onClick={onEdit}
           aria-label={folders.length ? `フォルダを変更（いま ${folders.join('、')}）` : 'フォルダに入れる'}
-          // フォルダが無いときは文字ボタンだけの行: 文字の左端を見出しの左端にそろえる
+          // フォルダが無いときも見出し「フォルダ」＋文字ボタン（文字の左端を値の列＝チップの左端にそろえる）
           style={{ ...btnLink, ...(folders.length ? null : { marginLeft: 'calc(-1 * var(--space-1))' }) }}
         >
           {folders.length ? '変更' : 'フォルダに入れる'}

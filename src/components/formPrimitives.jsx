@@ -43,6 +43,8 @@ export function Stars({ r, onChange, size = 18 }) {
       </span>
     );
   }
+  // 押せる範囲は --tap-min（44）を下限に。星が大きいときは星＋8。
+  const tapSide = typeof size === 'number' ? `max(var(--tap-min), ${size + 8}px)` : 'var(--tap-min)';
   return (
     <span role="radiogroup" aria-label="評価（星 1〜5）" style={{ userSelect: "none", display: "inline-flex" }}>
       {[1, 2, 3, 4, 5].map((n) => (
@@ -57,7 +59,7 @@ export function Stars({ r, onChange, size = 18 }) {
             background: "none", border: "none", padding: 0, cursor: "pointer",
             fontSize: size, color: n <= r ? "var(--text-2)" : "var(--text-3)",
             // タップ領域は iOS HIG の 44px を下限に（グリフは fontSize のまま）。
-            minWidth: Math.max(44, size + 8), minHeight: Math.max(44, size + 8),
+            minWidth: tapSide, minHeight: tapSide,
             display: "inline-flex", alignItems: "center", justifyContent: "center",
             fontFamily: "inherit",
           }}
