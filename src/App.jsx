@@ -16,6 +16,7 @@ import { streamClaude } from './lib/streamClaude';
 import { AuthScreen, AuthCallback, BookMemoList, BookSearchModal, BookMemoEditor, ActionList, MarkdownSections, AuthorThankYou, OverlayFallback, BookAbout, BookBrief } from './components/lazyParts';
 import { BookCoverCard, SwipeableBookCard, MiniCover, StatusLabel } from './components/BookCards';
 import { STATUSES, getSt } from './lib/status';
+import { onTabListKeyDown, tabIndexFor } from './lib/tabKeys';
 import { isStrictMatch } from './lib/bookMatch';
 const BookAdvisor = lazy(() => import('./components/BookAdvisor'));
 const QuickMemoSheet = lazy(() => import('./components/QuickMemoSheet'));
@@ -4221,6 +4222,20 @@ function AuthedApp() {
     () => filterLibraryBooks(books, { statusFilter, folderFilter, minRating, tagFilter, hits: libraryHits, sortBy }),
     [books, statusFilter, libraryHits, sortBy, minRating, tagFilter, folderFilter],
   );
+  // 🔎 検索で見つかった部分の印（本ごと・2026-10-11）。検索語が無いときは作らない。描くたびに作り直すと
+  // 行（memo の SwipeableBookCard）が毎回描き直されるので、検索の結果が変わったときだけ作る。
+  const libraryHighlights = useMemo(() => {
+    if (!libraryQuery || !libraryHits) return null;
+    const out = new Map();
+    for (const b of filtered) {
+      const f = libraryHits.get(b.id)?.fields || {};
+      const title = f.title ? highlightSegments(b.title, libraryQuery) : null;
+      const author = f.author ? highlightSegments(b.author, libraryQuery) : null;
+      const tag = !f.title && !f.author ? f.tag || null : null;
+      if (title || author || tag) out.set(b.id, { title, author, tag });
+    }
+    return out;
+  }, [libraryQuery, libraryHits, filtered]);
 
   // 絞り込みシート用: 本に付いている分野（一覧の順・冊数つき・2026-10-11）。
   const availableTags = useMemo(() => {
@@ -6251,19 +6266,14 @@ function AuthedApp() {
                   onRetry={librarySearch.retry}
                   onConsult={() => openConsultSearch(libraryQuery)}
                   renderBookRow={(b, i) => {
-                    // 書名・著者・タグで見つかった部分に印（タグはほかで見つからなかったときだけ 1 行・2026-09-30）
-                    const f = libraryHits.get(b.id)?.fields || {};
-                    const highlight = {
-                      title: f.title ? highlightSegments(b.title, libraryQuery) : null,
-                      author: f.author ? highlightSegments(b.author, libraryQuery) : null,
-                      tag: !f.title && !f.author ? f.tag || null : null,
-                    };
+                    // 書名・著者・タグで見つかった部分に印（タグはほかで見つからなかったときだけ 1 行・2026-09-30）。
+                    // 印は上の libraryHighlights（検索の結果が変わったときだけ作る・無い本は null）。
                     return (
                     <SwipeableBookCard
                       key={b.id}
                       book={b}
                       index={i}
-                      highlight={highlight}
+                      highlight={libraryHighlights?.get(b.id) || null}
                       isJustDone={recentlyDoneId === b.id}
                       onOpen={openDetail}
                       onSwipeDelete={swipeDeleteBook}
@@ -6315,11 +6325,14 @@ function AuthedApp() {
 
         {tab === "review" && (
           <div key={`tab-${tab}`} className="tab-content">
-            <div className="sub-tabs" role="tablist" aria-label="振り返りのサブタブ">
+            <div className="sub-tabs" role="tablist" aria-label="振り返りのサブタブ" onKeyDown={onTabListKeyDown}>
               {/* 並び: 行動｜メモ｜記録（SPEC §4。「ノート」は GLOSSARY どおり「メモ」）。 */}
               <button
                 type="button"
                 role="tab"
+                id="review-tab-action"
+                aria-controls="review-panel"
+                tabIndex={tabIndexFor(reviewSubTab === 'action')}
                 aria-selected={reviewSubTab === 'action'}
                 className={`sub-tab ${reviewSubTab === 'action' ? 'active' : ''}`}
                 onClick={() => { setActionShowDoneNonce(null); setReviewSubTab('action'); }}
@@ -6329,6 +6342,9 @@ function AuthedApp() {
               <button
                 type="button"
                 role="tab"
+                id="review-tab-note"
+                aria-controls="review-panel"
+                tabIndex={tabIndexFor(reviewSubTab === 'note')}
                 aria-selected={reviewSubTab === 'note'}
                 className={`sub-tab ${reviewSubTab === 'note' ? 'active' : ''}`}
                 onClick={() => setReviewSubTab('note')}
@@ -6338,6 +6354,9 @@ function AuthedApp() {
               <button
                 type="button"
                 role="tab"
+                id="review-tab-record"
+                aria-controls="review-panel"
+                tabIndex={tabIndexFor(reviewSubTab === 'record')}
                 aria-selected={reviewSubTab === 'record'}
                 className={`sub-tab ${reviewSubTab === 'record' ? 'active' : ''}`}
                 onClick={() => setReviewSubTab('record')}
@@ -6345,6 +6364,7 @@ function AuthedApp() {
                 記録
               </button>
             </div>
+            <div role="tabpanel" id="review-panel" aria-labelledby={`review-tab-${reviewSubTab}`}>
             {reviewSubTab === 'note' ? (
               <Suspense fallback={<ReviewNoteFallback />}>
                 <Review books={books} onOpenBook={(b, memoId, opts) => { openDetail(b, memoId, opts); }} onAddAction={addActionFromMemo} onAddNote={() => setAddNoteSheet('pick')} onGoToShelf={() => { navigateTab('books'); goList(); setShelfMode('library'); }}
@@ -6413,6 +6433,7 @@ function AuthedApp() {
               />
               </PullToRefresh>
             )}
+            </div>
           </div>
         )}
 
@@ -6422,10 +6443,13 @@ function AuthedApp() {
                 上の操作を「サブタブ／アイコンの行／件数の行」と 3 段に積まない（2026-10-01 ui-critic・DESIGN §5）。 */}
             {!(aiSubTab === 'brain' && consultPushed) && !(aiSubTab === 'advisor' && advisorPushed) && (
             <div className="sub-tabs sub-tabs--fit" style={{ flexShrink: 0 }}>
-            <div role="tablist" aria-label="相談のサブタブ" className="sub-tabs__list">
+            <div role="tablist" aria-label="相談のサブタブ" className="sub-tabs__list" onKeyDown={onTabListKeyDown}>
               <button
                 type="button"
                 role="tab"
+                id="ai-tab-brain"
+                aria-controls="ai-panel"
+                tabIndex={tabIndexFor(aiSubTab === 'brain')}
                 aria-selected={aiSubTab === 'brain'}
                 className={`sub-tab ${aiSubTab === 'brain' ? 'active' : ''}`}
                 onClick={() => setAiSubTab('brain')}
@@ -6435,6 +6459,9 @@ function AuthedApp() {
               <button
                 type="button"
                 role="tab"
+                id="ai-tab-advisor"
+                aria-controls="ai-panel"
+                tabIndex={tabIndexFor(aiSubTab === 'advisor')}
                 aria-selected={aiSubTab === 'advisor'}
                 aria-label={paywallPlan === 'free' ? 'AI 選書（プランの機能）' : undefined}
                 className={`sub-tab ${aiSubTab === 'advisor' ? 'active' : ''}`}
@@ -6449,7 +6476,7 @@ function AuthedApp() {
             </div>
             )}
             {/* サブタブ（相談｜AI 選書）の下に説明文は置かない（各画面の見出しで伝わる・DESIGN §0-6）。 */}
-            <div className="ai-page-body">
+            <div className="ai-page-body" role="tabpanel" id="ai-panel" aria-labelledby={`ai-tab-${aiSubTab}`}>
               {aiSubTab === 'advisor' ? (
                 <Suspense fallback={<TabPanelSkeleton />}>
                   <BookAdvisor

@@ -71,7 +71,8 @@ const OPEN_GRACE_MS = 350;
 //   太い区切り＝高さ 8 の --fill の帯。例: 写真で共有の背景のメニューの「撮り直す・アルバムから選ぶ」と背景の選択の間）。
 const separatorStyle = { height: 'var(--space-2)', background: 'var(--fill)' };
 
-export default function ContextMenu({ x = 0, y = 0, items: rawItems = [], onClose }) {
+// label: 読み上げのメニューの名前（既定「操作」・2026-10-11）。項目は tabIndex -1（矢印キーで移り、Tab ではメニューを抜けて閉じる）。
+export default function ContextMenu({ x = 0, y = 0, items: rawItems = [], onClose, label = '操作' }) {
   ensureKeyframes();
   // 押せる項目だけ（キーボードの移動・フォーカスの対象）。区切りの前後の端は数えない。
   const items = rawItems.filter((it) => it && !it.separator);
@@ -136,6 +137,7 @@ export default function ContextMenu({ x = 0, y = 0, items: rawItems = [], onClos
     else if (e.key === 'ArrowUp') next = cur <= 0 ? n - 1 : cur - 1;
     else if (e.key === 'Home') next = 0;
     else if (e.key === 'End') next = n - 1;
+    else if (e.key === 'Tab') { onClose?.(); return; }
     if (next >= 0) { e.preventDefault(); try { itemRefs.current[next]?.focus(); } catch { /* ignore */ } }
   };
 
@@ -146,6 +148,8 @@ export default function ContextMenu({ x = 0, y = 0, items: rawItems = [], onClos
         ref={panelRef}
         style={{ ...panelBase, left: position.left, top: position.top }}
         role="menu"
+        aria-label={label}
+        aria-orientation="vertical"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={onMenuKeyDown}
       >
@@ -167,6 +171,7 @@ export default function ContextMenu({ x = 0, y = 0, items: rawItems = [], onClos
               key={it.label}
               type="button"
               role="menuitem"
+              tabIndex={-1}
               ref={(el) => { itemRefs.current[i] = el; }}
               onClick={() => {
                 try { it.onClick?.(); } finally { onClose?.(); }

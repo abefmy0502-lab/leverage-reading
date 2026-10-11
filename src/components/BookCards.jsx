@@ -53,6 +53,7 @@ export const BookCoverCard = memo(function BookCoverCard({ book, isJustDone, onO
     <button
       type="button"
       className="book-cover-card"
+      aria-label={bookCardLabel(book)}
       onClick={() => onOpen?.(book)}
       {...longPress.bind}
       style={{
@@ -193,6 +194,15 @@ export function MiniCover({ book, width = 44, radius = 4, onAutoRetry, forceTitl
   );
 }
 
+// 本のカードの読み上げの名前（2026-10-11）: 「書名（著者・状態）を開く」。著者が無い本は状態だけ。
+export function bookCardLabel(book) {
+  const title = String(book?.title || '').trim() || '無題';
+  const author = String(book?.author || '').trim();
+  const status = book?.status ? getSt(book.status).label : '';
+  const extra = [author, status].filter(Boolean).join('・');
+  return extra ? `${title}（${extra}）を開く` : `${title} を開く`;
+}
+
 // 検索の一致の印つきの文字（[{ text, match }]・無ければそのまま）。
 function Marked({ segments, text }) {
   if (!Array.isArray(segments)) return text;
@@ -211,7 +221,7 @@ export const SwipeableBookCard = memo(function SwipeableBookCard({ book, index, 
       <div
         role="button"
         tabIndex={0}
-        aria-label={`${book.title || '無題'} を開く`}
+        aria-label={bookCardLabel(book)}
         onClick={() => onOpen?.(book)}
         onKeyDown={(e) => {
           if ((e.key === 'Enter' || e.key === ' ') && !e.nativeEvent.isComposing) {
