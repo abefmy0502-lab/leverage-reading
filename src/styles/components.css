@@ -1610,6 +1610,14 @@ details[open] > summary .fold-chevron { transform: rotate(180deg); }
 .time-field:focus-within .date-field__text { display: flex; }
 .time-field .date-field__input,
 .time-field .date-field__input::-webkit-datetime-edit { color: transparent !important; }
+/* 押して選んだ時・分の欄の青い塗りも消す（重ねた「09:49」の上に「09」だけ青く浮いていた・2026-10-11 第 3 回の採点・:focus だけでは Chromium で消えないので欄そのものにも）。 */
+/* 1 つずつ書く（どれか 1 つを知らないブラウザで、まとめた規則ごと捨てられないように）。 */
+.time-field .date-field__input::-webkit-datetime-edit-hour-field,
+.time-field .date-field__input::-webkit-datetime-edit-hour-field:focus { background-color: transparent !important; color: transparent !important; }
+.time-field .date-field__input::-webkit-datetime-edit-minute-field,
+.time-field .date-field__input::-webkit-datetime-edit-minute-field:focus { background-color: transparent !important; color: transparent !important; }
+.time-field .date-field__input::-webkit-datetime-edit-ampm-field,
+.time-field .date-field__input::-webkit-datetime-edit-ampm-field:focus { background-color: transparent !important; color: transparent !important; }
 .time-field .date-field__text { font-variant-numeric: tabular-nums; }
 .time-field .date-field__icon { font-size: max(16px, var(--text-body)); }
 .date-field__icon {

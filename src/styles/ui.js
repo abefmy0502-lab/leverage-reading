@@ -209,4 +209,6 @@ export const SCROLL_FADE_MASK = 'linear-gradient(90deg, black 90%, transparent 1
 export const scrollFade = { WebkitMaskImage: SCROLL_FADE_MASK, maskImage: SCROLL_FADE_MASK };
 // 左端もふわっと消す形（すべての本の状態・フォルダの行）。消す幅は 1.5em（文字と一緒に広がる）。
 //   左はいちばん左まで戻しているときは消さない（最初のチップを薄くしない）＝送ったときだけこちらに切り替える。
-export const SCROLL_FADE_MASK_BOTH = 'linear-gradient(90deg, transparent 0, black 1.5em, black 90%, transparent 100%)';
+//   左の内側の余白 12 までは完全に透明（フォルダの見出しの横で送ったチップの字が半分だけ残って「フォルダ図書 2」と
+//   続けて読めていた・2026-10-11 第 3 回の採点）→ そこから 1.5em で濃く。
+export const SCROLL_FADE_MASK_BOTH = 'linear-gradient(90deg, transparent var(--space-3), black calc(var(--space-3) + 1.5em), black 90%, transparent 100%)';

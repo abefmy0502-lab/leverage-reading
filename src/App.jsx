@@ -5140,7 +5140,8 @@ function AuthedApp() {
           {/* 💡 読了直後の「一番の収穫」導線 — 感情のピークで 1 行の言語化を促す
               （レバレッジ読書の核心。未記入のときだけ出る＝書けば消える）。行動のすぐ後・読書計画より上。 */}
           {/* 3 つの問いが出ている間は出さない（読み終えた直後に「書いて」が 2 か所に並ばないように・2026-10-11 ui-critic） */}
-          {current.status === 'done' && !(current.roiSummary || '').trim() && doneQuestionsNow.length === 0 && (
+          {/* メモが 0 件の間は出さない（上の空の案内「メモを書く」と、書いてと頼む入口が 2 つ並ぶ・2026-10-11 第 3 回の採点） */}
+          {current.status === 'done' && !(current.roiSummary || '').trim() && doneQuestionsNow.length === 0 && (currentMemoOps.memos || []).length > 0 && (
             // 上の行動の区画は下の余りを負の余白で詰めているので、ほかの区画の間（24）より広く 32 を取って区切る（2026-10-11 第 2 回の採点）。
             <div style={{ ...cardStyle, marginTop: 'var(--space-8)' }}>
               <p style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', margin: 0 }}>一番の収穫を 1 行だけ残す</p>
@@ -6083,7 +6084,8 @@ function AuthedApp() {
                 {!((booksLoading || booksLoadError) && rawBooks.length === 0) && (
                   <span style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums' }}>
                     {/* メモを読んでいる間で、まだ何も見つかっていないときは「0 冊」と言い切らない（2026-09-30） */}
-                    {libraryQuery ? (librarySearch.memoStatus === 'loading' && filtered.length === 0 ? `${rawBooks.length} 冊中 …` : `${rawBooks.length} 冊中 ${filtered.length} 冊`) : `${filtered.length} 冊`}
+                    {/* 数と「冊」は割らない（文字最大で「0 / 冊」と割れていた・U+00A0） */}
+                    {libraryQuery ? (librarySearch.memoStatus === 'loading' && filtered.length === 0 ? `${rawBooks.length}\u00a0冊中 …` : `${rawBooks.length}\u00a0冊中 ${filtered.length}\u00a0冊`) : `${filtered.length}\u00a0冊`}
                     {/* 評価順の間は並びを題の横に添える（分野の行から評価順で開いたときも・検索中は見つかった順なので出さない・2026-10-11 ui-critic） */}
                     {!libraryQuery && sortBy === 'rating' && <span data-sort-note="" style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>{' · 評価順'}</span>}
                   </span>

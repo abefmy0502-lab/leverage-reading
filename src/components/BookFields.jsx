@@ -129,7 +129,8 @@ export function BookFieldsSheet({ selected = [], onDone, onClose }) {
 }
 
 // 本の詳細の分野・フォルダの行の見出し（13/--text-2・幅をそろえて値の列を合わせる・2026-10-11 ui-critic）。
-const detailRowLabel = { flexShrink: 0, minWidth: 'var(--space-16)', fontSize: 'var(--text-meta)', color: 'var(--text-2)' };
+//   幅は em（文字を大きくしても「フォルダ」が 1 行に入り、分野の行と値の列がそろう・2026-10-11 第 3 回の採点）。
+const detailRowLabel = { flexShrink: 0, minWidth: '4.5em', fontSize: 'var(--text-meta)', color: 'var(--text-2)' };
 
 // 本の詳細: 付いている分野（押すと、すべての本をその分野で絞る）。
 export function BookFieldLinks({ fields = [], onPick }) {

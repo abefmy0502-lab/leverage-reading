@@ -58,8 +58,8 @@ const headerBar = {
 const backBtn = {
   display: 'inline-flex',
   alignItems: 'center',
-  minHeight: 44,
-  minWidth: 44,
+  minHeight: 'var(--tap-min)',
+  minWidth: 'var(--tap-min)',
   padding: 0,
   background: 'none',
   border: 'none',
@@ -96,7 +96,7 @@ const inp = { ...uiInput };
 const ta = {
   ...inp,
   resize: 'none', // Web のサイズ変更つまみは iOS の作法にない（メモを書くシートと同じ・2026-10-04）
-  minHeight: 200,
+  minHeight: 'calc(var(--space-20) * 2 + var(--space-10))', // 200（メモを書くシートの入力欄と同じ考え・トークンで）
   fontFamily: 'var(--font-read)',
   fontSize: 'var(--text-read)',
   lineHeight: 1.6,
@@ -113,7 +113,7 @@ const btnRow = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: 'var(--space-1)',
-  minHeight: 44,
+  minHeight: 'var(--tap-min)',
   padding: 'var(--space-2) var(--space-3)',
   borderRadius: 'var(--radius)',
   border: '1px solid var(--border)',
@@ -130,7 +130,7 @@ const btnTextSm = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: 'var(--space-1)',
-  minHeight: 44,
+  minHeight: 'var(--tap-min)',
   padding: 'var(--space-2) 0',
   border: 'none',
   background: 'transparent',
@@ -509,8 +509,8 @@ export default function BookMemoEditor({
     <div ref={(el) => { overlayRef.current = el; trapRef.current = el; }} style={overlay} role="dialog" aria-modal="true" aria-label={isEdit ? 'メモを編集' : 'メモを書く'}>
       {/* 押し込まれた画面の上の行（DESIGN §5）: 左に「キャンセル」・中央に題（その下に書名）・右は左と同じ幅の空き
           （見えない「キャンセル」を置いて幅をそろえる＝文字の大きさが変わっても題が真ん中に来る・2026-10-11）。 */}
-      {/* 文字が大きいときは右の空きをやめて、題を左寄せで残りの幅いっぱいに（題が「メ…」まで縮まない）。 */}
-      <div style={largeText ? { ...headerBar, gridTemplateColumns: 'max-content minmax(0, 1fr)', padding: 'var(--space-2) var(--space-4)' } : headerBar}>
+      {/* 文字が大きいときも題は中央（「キャンセル」も --text-bar-max で止まるので、左右の空きで題が縮みすぎない・2026-10-11 第 3 回の採点）。 */}
+      <div style={largeText ? { ...headerBar, padding: 'var(--space-2) var(--space-4)' } : headerBar}>
         <button
           type="button"
           onClick={() => { requestClose(); }}
@@ -520,7 +520,7 @@ export default function BookMemoEditor({
         >
           キャンセル
         </button>
-        <div style={{ minWidth: 0, textAlign: largeText ? 'left' : 'center' }}>
+        <div style={{ minWidth: 0, textAlign: 'center' }}>
           {/* 上の行の組み方はメモを書くシート・読む前のシートと共通（BottomSheet の eyebrow）: 小さな 1 行＝書名
               （13/--text-2・文字最大でも --text-bar-max まで＝題より大きくならない）、題＝操作の名前（17/600）。 */}
           {bookTitle && (
@@ -533,7 +533,7 @@ export default function BookMemoEditor({
             {isEdit ? 'メモを編集' : 'メモを書く'}
           </p>
         </div>
-        {!largeText && <span aria-hidden="true" style={{ ...backBtn, visibility: 'hidden', justifySelf: 'end' }}>キャンセル</span>}
+        <span aria-hidden="true" style={{ ...backBtn, visibility: 'hidden', justifySelf: 'end' }}>キャンセル</span>
       </div>
 
       <div style={body}>

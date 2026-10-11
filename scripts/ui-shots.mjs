@@ -129,6 +129,10 @@ const REL10B = [
   ['memo-sheet', '/', [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button:has-text("メモを書く")' }, { wait: 600 }]],
   ['advisor', '/', [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { waitFor: 'textarea[aria-label="AI 選書への相談内容"]' }, { wait: 800 }]],
   ['focus-start', '/?focus=start', [{ wait: 800 }]],
+  ['share-sheet-error', '/?share=fail', [{ css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 2000 }]],
+  ['share-edit-typing', '/', [...SHARE_CAMERA, ...SHARE_EDIT, ...EDIT_PHRASE, { wait: 800 }]],
+  ['paywall-loading', '/?demo=paywall&native=1&trial=7日間無料&price=loading', [PAYWALL_OPEN, { wait: 800 }]],
+  ['paywall-buy-fail', '/?demo=paywall&native=1&trial=7日間無料&buy=fail', [PAYWALL_OPEN, { wait: 800 }, { css: 'button:has-text("7 日間無料で試す")' }, { wait: 600 }]],
 ].flatMap(([name, url, steps]) => [{ name, url, steps }, { name: `${name}-xxl`, url, steps: [XXL, ...steps] }]);
 // リリース前の最終採点の直し（2026-10-11・release10-after2・担当 A）: 明暗＋文字最大（-xxl）。
 const REL10A = [
@@ -149,6 +153,10 @@ const REL10A4 = [
   ['memo-editor-offline', '/?offline=1', [...OPEN_EDITOR, { fill: ['textarea#memo-body', '数字で考えると、言い訳が消える。'] }, { css: '[role=dialog] button:text-is("保存")' }, { wait: 1500 }, { eval: () => { if (document.activeElement) document.activeElement.blur(); } }]],
   ['memo-sheet', '/', [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button:has-text("メモを書く")' }, { wait: 600 }]],
   ['focus-start', '/?focus=start', [{ wait: 800 }]],
+  ['share-sheet-error', '/?share=fail', [{ css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 2000 }]],
+  ['share-edit-typing', '/', [...SHARE_CAMERA, ...SHARE_EDIT, ...EDIT_PHRASE, { wait: 800 }]],
+  ['paywall-loading', '/?demo=paywall&native=1&trial=7日間無料&price=loading', [PAYWALL_OPEN, { wait: 800 }]],
+  ['paywall-buy-fail', '/?demo=paywall&native=1&trial=7日間無料&buy=fail', [PAYWALL_OPEN, { wait: 800 }, { css: 'button:has-text("7 日間無料で試す")' }, { wait: 600 }]],
   ['focus-until-error', '/?focus=until', [{ wait: 800 }, { fill: ['input[type=time]', HHMM(-10 * 60000)] }, { wait: 400 }]],
   ['focus-until-toolong', '/?focus=until', [{ wait: 800 }, { fill: ['input[type=time]', HHMM(7 * 3600000)] }, { wait: 400 }]],
   ['library', '/', [{ css: 'button:has-text("すべての本")' }, { wait: 800 }]],
@@ -158,7 +166,20 @@ const REL10A4 = [
   ['brief-made', '/?brief=made&demo=planempty', [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("LIFE SHIFT")' }, { wait: 800 }]],
   ['home-new', '/?demo=new', [{ css: 'button[aria-label="閉じる"]' }, { wait: 600 }]],
 ].map(([name, url, steps]) => [`a4-${name}`, url, steps]).flatMap(([name, url, steps]) => [{ name, url, steps }, { name: `${name}-xxl`, url, steps: [XXL, ...steps] }]);
+// リリース前の最終採点 第 3 回の直し（2026-10-11・release10-after6・担当 A）: 明暗＋文字最大（-xxl）。
+const REL10A6 = [
+  ['library', '/', [{ css: 'button:has-text("すべての本")' }, { wait: 800 }]],
+  ['library-end', '/', [{ css: 'button:has-text("すべての本")' }, { wait: 800 }, SCROLL_ROWS_END, { wait: 400 }]],
+  ['library-noresult', '/', [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を検索"]' }, { fill: ['input[aria-label^="本を検索（"]', 'zzzz'] }, { wait: 800 }]],
+  ['brief-made', '/?brief=made&demo=planempty', [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("LIFE SHIFT")' }, { wait: 800 }]],
+  ['brief-noinfo', '/?info=none', [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("LIFE SHIFT")' }, { wait: 800 }]],
+  ['focus-until-error', '/?focus=until', [{ wait: 800 }, { fill: ['input[type=time]', HHMM(-10 * 60000)] }, { wait: 400 }]],
+  ['detail-done', '/', [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("サピエンス全史")' }, { wait: 800 }, { scrollBottom: true }]],
+  ['memo-editor', '/', [...OPEN_EDITOR, { eval: () => { if (document.activeElement) document.activeElement.blur(); } }]],
+  ['memo-sheet-offline', '/?offline=1', [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button:has-text("メモを書く")' }, { wait: 600 }, { fill: ['textarea[aria-label="メモ本文"]', '任せることで人は育つ。'] }, { css: '[role=dialog] button:text-is("保存")' }, { wait: 1500 }]],
+].map(([name, url, steps]) => [`a6-${name}`, url, steps]).flatMap(([name, url, steps]) => [{ name, url, steps }, { name: `${name}-xxl`, url, steps: [XXL, ...steps] }]);
 const SCREENS = [
+  ...REL10A6,
   ...REL10A4,
   ...REL10A,
   ...ADVISOR2,
