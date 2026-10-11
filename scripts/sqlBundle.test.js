@@ -19,6 +19,7 @@ describe('Supabase の SQL のまとめ（supabase_all_in_order.sql）', () => {
     const before = [
       ['supabase_ai_usage.sql', 'supabase_ai_cost.sql'],
       ['supabase_ai_cost.sql', 'supabase_ai_token_credits.sql'],
+      ['supabase_ai_cost.sql', 'supabase_ai_usage_purpose.sql'],
       ['supabase_push_subscriptions.sql', 'supabase_push_deadline.sql'],
       ['supabase_subscription_events.sql', 'supabase_admin_launch_kpis.sql'],
       ['supabase_analytics_events.sql', 'supabase_security_hardening.sql'],

@@ -37,6 +37,8 @@ import { usePaywall } from '../state/PaywallContext';
 import { nextResetLabelJa } from '../lib/freeTrial';
 import { TOKEN_COSTS, monthDayLabelJa, remainingAnswersLabel } from '../lib/tokens';
 import { showFreeTokenCount } from '../lib/tokenAmounts';
+import { isLowTokens } from '../lib/tokenUsage';
+import TokenUsageSheet from './TokenUsageSheet';
 import { shouldShowTrialNudge, trialNudgeCopy, isTrialNudgeDone, markTrialNudgeDone, normalizeTrialLabel, trialCancelShortLine } from '../lib/trialNudge';
 import { getIntroOffer } from '../lib/iap';
 import { firstAnswerTrialGroup, isFirstAnswerTrialMoment, canOfferFirstAnswerTrial, holdGrownNudge, firstAnswerTrialText, isFirstAnswerTrialDone, markFirstAnswerTrialDone } from '../lib/firstAnswerTrial';
@@ -442,6 +444,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // 🪙 プランと残りのトークン（src/lib/tokens.js・止めるのはサーバー）。上部に 1 行「今月の残り N トークン」。
   //    無料プラン（相談だけ）で使い切ったら、答えの下で静かに案内＋有料プランの画面へ。
   const { plan, freeMode, trialEndsAt, tokensRemaining, tokenAllowance, freeFirstMonth, tokenNextAllowance, purchasedTokens, tokensAvailable, canBuyTokens, openTokenSheet, refreshTokens, openPaywall, hadPlan } = usePaywall();
+  // 🪙📊 トークンの使い方のシート（上の行の残りの数から開く・2026-10-11）。残りが枠の 20% 以下で上の行を --warning に。
+  const [usageOpen, setUsageOpen] = useState(false);
+  const tokensLow = isLowTokens(tokensRemaining, tokenAllowance, purchasedTokens);
   const [monthLimitHit, setMonthLimitHit] = useState(false); // トークンの上限に達した（サーバーの 429）
   // 🪙➕ トークンを買い足したら、上限の状態を解く（送れるように戻す）。
   useEffect(() => { if (purchasedTokens > 0) setMonthLimitHit(false); }, [purchasedTokens]);
@@ -2101,7 +2106,21 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         {/* 残りのトークン（無料・有料は今月・無料期間は期間まるごと）。管理者・読めないときは出さない。
             使い切ったら出さない（「◯月1日に戻ります」の案内が答えの下にあるので「残り 0 トークン」は重ねない・2026-10-10 ui-critic）。 */}
         {tokensRemaining != null && tokensRemaining + (purchasedTokens || 0) > 0 && (
-          <span style={{ display: 'block', textIndent: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>
+          // 🪙📊 押すと「トークンの使い方」のシート（残り・追加分・使い道・追加課金の動線・2026-10-11）。
+          //   残りが枠の 20% 以下は --warning（押せることを › で示す・押せる高さは上下に広げて 44 に）。
+          <button
+            type="button"
+            onClick={() => setUsageOpen(true)}
+            aria-label={`トークンの使い方を開く（${plan === 'trial' ? '無料期間' : '今月'}の残り ${fmtTokens(tokensRemaining)} トークン）`}
+            style={{
+              display: 'flex', alignItems: 'flex-end', gap: 'var(--space-1)', textIndent: 0, textAlign: 'left',
+              background: 'transparent', border: 'none', fontFamily: 'inherit', cursor: 'pointer',
+              padding: 'var(--space-2) var(--space-2) var(--space-2) 0', margin: 'calc(-1 * var(--space-2)) 0',
+              minHeight: 'var(--tap-min)', fontSize: 'var(--text-meta)', lineHeight: 1.5,
+              color: tokensLow ? 'var(--warning)' : 'var(--text-3)',
+            }}
+          >
+          <span style={{ display: 'block' }}>
             {/* 「無料期間の残り／110 トークン」と切らない（1 つのまとまり）。かっこは重ねない。 */}
             {/* 🪙 無料プランは「AI の答え 約 N 回」だけ。トークンの数は残り 20 以下のときだけ（設定の画面はいつも出す・2026-10-11）。 */}
             {(!freeMode || showFreeTokenCount(tokensRemaining + (purchasedTokens || 0))) && (
@@ -2113,6 +2132,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             {/* 🌱 無料プランのはじめの月は「（はじめの月）」を添える（数は言わない＝60 を 2 回言わない・2026-10-11）。 */}
             {(freeMode || plan === 'trial') && tokensRemaining + (purchasedTokens || 0) > 0 && <span style={{ display: 'block' }}><span style={{ whiteSpace: 'nowrap' }}>AI の答え {remainingAnswersLabel(tokensRemaining + (purchasedTokens || 0))}</span>{freeMode && freeFirstMonth && <span style={{ whiteSpace: 'nowrap' }}>（はじめの月）</span>}</span>}
           </span>
+            <ChevronRight size="1.2em" aria-hidden="true" style={{ flexShrink: 0, marginBottom: '0.15em' }} />
+          </button>
         )}
         {/* 上限に達したときの「◯月1日から」は、答えの吹き出しと入力欄に出す（同じ日付を 3 回並べない）。 */}
       </p>
@@ -2703,6 +2724,14 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             )}
           </div>
         </div>
+      )}
+      {usageOpen && (
+        <TokenUsageSheet
+          from="consult"
+          onClose={() => setUsageOpen(false)}
+          onAdd={() => { setUsageOpen(false); openTokenSheet(); }}
+          onPlans={(reason) => { setUsageOpen(false); openPaywall(reason); }}
+        />
       )}
     </div>
   );

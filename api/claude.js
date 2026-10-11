@@ -4,7 +4,7 @@ import { estimateCost, costFromUsage, createUsageSniffer, cacheSegments } from '
 import {
   decideAiAccess, decideFreeReservation, periodKeyFor, reserveBudgetMjpy, allowanceFor, meteredCallLimit,
   freeTokensFor, fallbackCallsFor, nextMonthFirstLabel, planRequiredMessage, limitMessageFor, tokenMjpy,
-  tokensFromMjpy, noInfoRefundEligible, noInfoRefundLimit, refundPeriodKey,
+  tokensFromMjpy, noInfoRefundEligible, noInfoRefundLimit, refundPeriodKey, usagePurposeKey,
   freeOcrPerMonth, freeOcrPeriodKey, freeOcrLimitMessage, decideFreeOcrReservation,
 } from './_aiAccess.js';
 import { lotBalance, effectiveAllowance, shouldSettleOverflow } from './_tokenLots.js';
@@ -500,6 +500,23 @@ async function adjustCost(userId, periodKey, deltaMjpy) {
   }
 }
 
+// 🪙📊 トークンの使い道（用途ごとの内訳・supabase_ai_usage_purpose.sql）。精算のあとに、この 1 回の実際の原価を用途に足す。
+// 表示だけのための記録なので、失敗しても AI は止めない（警告だけ・未適用の DB では内訳が出ないだけ）。
+async function addPurposeCost(userId, periodKey, purpose, mjpy) {
+  const amount = Math.round(Number(mjpy) || 0);
+  if (amount <= 0) return;
+  const supabase = getServiceSupabase();
+  if (!supabase) return;
+  try {
+    const { error } = await supabase.rpc('add_ai_purpose_cost', {
+      p_user_id: userId, p_period_month: periodKey, p_purpose: usagePurposeKey(purpose), p_mjpy: amount,
+    });
+    if (error) console.warn('[ai-usage] purpose add failed:', error.message);
+  } catch (e) {
+    console.warn('[ai-usage] purpose add threw:', e?.message);
+  }
+}
+
 // 🙏 関係するメモが無かった相談の払い戻し（api/_aiAccess.js の noInfoRefundEligible）の回数を 1 回分とる。
 // ai_usage の 'refund-YYYY-MM' 行を reserve_ai_usage で数える（上限 AI_NO_INFO_REFUND_LIMIT・原子的）。
 // 数えられない（service_role 未設定・RPC 未適用・障害）ときは false＝返さない（fail-closed）。
@@ -834,6 +851,10 @@ export default async function handler(req, res) {
     if (!costMetered || costSettled) return;
     costSettled = true;
     const adjusting = adjustCost(userId, periodKey, (actualMjpy == null || refund ? 0 : actualMjpy) - costReserved);
+    // 🪙📊 使い道の内訳（払い戻した回・答えていない回は足さない）。精算と並べて待つ（応答の前の flush で）。
+    if (!refund && actualMjpy != null && actualMjpy > 0) {
+      track(addPurposeCost(userId, periodKey, req.body?.purpose, actualMjpy));
+    }
     // その月の分を超えた分を追加分から差し引く（精算で原価が決まってから）。追加分が無くても、
     // 「最後の 1 回」のはみ出しを払ったことにしておく（あとで買った追加分から取らない）。
     if (!refund && shouldSettleOverflow({

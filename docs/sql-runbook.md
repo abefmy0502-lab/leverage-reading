@@ -1,6 +1,6 @@
 # Supabase の SQL — これを見れば全部できる手順書
 
-最終更新: 2026-10-10。対象: リポジトリにある `supabase_*.sql` すべて。
+最終更新: 2026-10-11。対象: リポジトリにある `supabase_*.sql` すべて。
 
 しばらく流していなくても、どれを流したか分からなくても、下の「1 本でまとめて流す」だけで最新の状態になります。
 
@@ -53,6 +53,7 @@ on conflict (user_id) do nothing;
 | `supabase_books_brief.sql` | この本で学べることを本に保存 | その端末にしか残らない |
 | `supabase_ai_cost.sql` | AI の原価をトークンで数える（有料会員 1 人から月 ¥900 を残す上限） | 回数だけの粗い上限 |
 | `supabase_ai_token_credits.sql` | トークンの買い足し | 買ったトークンが反映されない |
+| `supabase_ai_usage_purpose.sql` | トークンの使い方のシートの「今月の使い道」（相談・AI 選書 … ごとのトークン・2026-10-11） | 使い道の段が出ない（残り・追加分・ボタンは出る） |
 | `supabase_push_deadline.sql` | 行動の期限の日の朝の通知 | 期限の通知が届かない |
 | `supabase_subscription_events.sql` | 契約の履歴（7 日間無料 → 有料を数える） | 運営の「7 日間無料 → 有料」が出ない |
 | `supabase_admin_members_tasks.sql` | 会員の内訳・売上（創業メンバー価格を有料として数える） | 売上が古い数え方 |
@@ -93,43 +94,45 @@ on conflict (user_id) do nothing;
 | 14 | `supabase_advisor_sessions.sql` | 過去の AI 選書 |
 | 15 | `supabase_theme_reports.sql` | （廃止した機能の保存先・書き出し用に残す） |
 | 16 | `supabase_reading_sessions.sql` | 読む（集中モード）の読書の時間 |
-| 17 | `supabase_actions_full.sql` | 行動の期限・繰り返し・ふりかえり |
-| 18 | `supabase_actions_id_default.sql` | 行動の id |
-| 19 | `supabase_actions_completed_at_backfill.sql` | 昔の完了日を埋める |
-| 20 | `supabase_actions_scheduled.sql` | 繰り返しの次回分 |
-| 21 | `supabase_push_subscriptions.sql` | 通知の登録 |
-| 22 | `supabase_push_native.sql` | iPhone の通知 |
-| 23 | `supabase_push_deadline.sql` | 行動の期限の通知 |
-| 24 | `supabase_subscriptions.sql` | 契約 |
-| 25 | `supabase_subscriptions_provider.sql` | App Store の契約 |
-| 26 | `supabase_subscriptions_provider_backfill.sql` | 昔の契約の種類を埋める |
-| 27 | `supabase_subscriptions_canceled_at.sql` | 解約した日 |
-| 28 | `supabase_stripe_events.sql` | Web の決済の二重処理を防ぐ |
-| 29 | `supabase_revenuecat_events.sql` | App Store の決済の二重処理を防ぐ |
-| 30 | `supabase_subscription_events.sql` | 契約の履歴（7 日間無料 → 有料） |
-| 31 | `supabase_ai_usage.sql` | AI の利用回数 |
-| 32 | `supabase_ai_usage_atomic.sql` | AI の上限を同時に超えない |
-| 33 | `supabase_ai_usage_release.sql` | 答えられなかった回を返す |
-| 34 | `supabase_ai_rate_limit.sql` | AI の連打を止める |
-| 35 | `supabase_ai_cost.sql` | AI の原価をトークンで数える |
-| 36 | `supabase_ai_token_credits.sql` | トークンの買い足し |
-| 37 | `supabase_analytics_events.sql` | 利用状況の記録 |
-| 38 | `supabase_feedback.sql` | フィードバック |
-| 39 | `supabase_feedback_hardening.sql` | フィードバックの守り |
-| 40 | `supabase_account_deletion.sql` | 退会の申し込み |
-| 41 | `supabase_account_deletion_hardening.sql` | 退会の申し込みの守り |
-| 42 | `supabase_lp_events.sql` | 紹介ページの記録 |
-| 43 | `supabase_lp_waitlist.sql` | 公開のお知らせの登録 |
-| 44 | `supabase_security_hardening.sql` | 本・メモ・行動・写真の権限 |
-| 45 | `supabase_admin_metrics.sql` | 運営ダッシュボード（管理者の登録つき） |
-| 46 | `supabase_admin_ops.sql` | 目標・チケット |
-| 47 | `supabase_admin_growth.sql` | 継続率 |
-| 48 | `supabase_admin_exclude_admins.sql` | 自分の利用を数えない |
-| 49 | `supabase_admin_members_tasks.sql` | 会員の内訳・売上 |
-| 50 | `supabase_ops_advisor.sql` | 参謀の会話 |
-| 51 | `supabase_ops_floor.sql` | 作戦司令室の報告 |
-| 52 | `supabase_ops_sales_metrics.sql` | 営業の週の数字 |
-| 53 | `supabase_admin_launch_kpis.sql` | ローンチの 4 つの数字 |
+| 17 | `supabase_book_field_cache.sql` | 本の分野（本ごとに 1 回決めて全員で使う） |
+| 18 | `supabase_actions_full.sql` | 行動の期限・繰り返し・ふりかえり |
+| 19 | `supabase_actions_id_default.sql` | 行動の id |
+| 20 | `supabase_actions_completed_at_backfill.sql` | 昔の完了日を埋める |
+| 21 | `supabase_actions_scheduled.sql` | 繰り返しの次回分 |
+| 22 | `supabase_push_subscriptions.sql` | 通知の登録 |
+| 23 | `supabase_push_native.sql` | iPhone の通知 |
+| 24 | `supabase_push_deadline.sql` | 行動の期限の通知 |
+| 25 | `supabase_subscriptions.sql` | 契約 |
+| 26 | `supabase_subscriptions_provider.sql` | App Store の契約 |
+| 27 | `supabase_subscriptions_provider_backfill.sql` | 昔の契約の種類を埋める |
+| 28 | `supabase_subscriptions_canceled_at.sql` | 解約した日 |
+| 29 | `supabase_stripe_events.sql` | Web の決済の二重処理を防ぐ |
+| 30 | `supabase_revenuecat_events.sql` | App Store の決済の二重処理を防ぐ |
+| 31 | `supabase_subscription_events.sql` | 契約の履歴（7 日間無料 → 有料） |
+| 32 | `supabase_ai_usage.sql` | AI の利用回数 |
+| 33 | `supabase_ai_usage_atomic.sql` | AI の上限を同時に超えない |
+| 34 | `supabase_ai_usage_release.sql` | 答えられなかった回を返す |
+| 35 | `supabase_ai_rate_limit.sql` | AI の連打を止める |
+| 36 | `supabase_ai_cost.sql` | AI の原価をトークンで数える |
+| 37 | `supabase_ai_token_credits.sql` | トークンの買い足し |
+| 38 | `supabase_ai_usage_purpose.sql` | トークンの使い道（用途ごとの内訳） |
+| 39 | `supabase_analytics_events.sql` | 利用状況の記録 |
+| 40 | `supabase_feedback.sql` | フィードバック |
+| 41 | `supabase_feedback_hardening.sql` | フィードバックの守り |
+| 42 | `supabase_account_deletion.sql` | 退会の申し込み |
+| 43 | `supabase_account_deletion_hardening.sql` | 退会の申し込みの守り |
+| 44 | `supabase_lp_events.sql` | 紹介ページの記録 |
+| 45 | `supabase_lp_waitlist.sql` | 公開のお知らせの登録 |
+| 46 | `supabase_security_hardening.sql` | 本・メモ・行動・写真の権限 |
+| 47 | `supabase_admin_metrics.sql` | 運営ダッシュボード（管理者の登録つき） |
+| 48 | `supabase_admin_ops.sql` | 目標・チケット |
+| 49 | `supabase_admin_growth.sql` | 継続率 |
+| 50 | `supabase_admin_exclude_admins.sql` | 自分の利用を数えない |
+| 51 | `supabase_admin_members_tasks.sql` | 会員の内訳・売上 |
+| 52 | `supabase_ops_advisor.sql` | 参謀の会話 |
+| 53 | `supabase_ops_floor.sql` | 作戦司令室の報告 |
+| 54 | `supabase_ops_sales_metrics.sql` | 営業の週の数字 |
+| 55 | `supabase_admin_launch_kpis.sql` | ローンチの 4 つの数字 |
 
 ## 6. 開発する人へ（SQL を足したとき）
 

@@ -720,3 +720,31 @@ describe('契約を読めなかったとき', () => {
     warn.mockRestore();
   });
 });
+
+// 🪙📊 トークンの使い道（用途ごとの内訳・2026-10-11・supabase_ai_usage_purpose.sql）。
+describe('精算のあとに、この 1 回の実際の原価を用途に足す（add_ai_purpose_cost）', () => {
+  it('相談: 実額を consult に足してから返す', async () => {
+    stubConsultStream(REAL_TEXT);
+    const res = mockRes();
+    await handler(consultReq({ stream: true }), res);
+    const a = db.rpcArgs.add_ai_purpose_cost;
+    expect(a).toMatchObject({ p_purpose: 'consult', p_period_month: expect.any(String) });
+    expect(a.p_mjpy).toBeGreaterThan(0);
+    expect(a.p_mjpy).toBe(db.costTotal); // 精算した額と同じ
+    expect(log.indexOf('rpc:add_ai_purpose_cost')).toBeLessThan(log.indexOf('respond'));
+  });
+  it('用途の無い・知らない用途は other', async () => {
+    stubJson();
+    await handler(req({ messages: [{ role: 'user', content: 'こんにちは' }], max_tokens: 1000, purpose: 'evil;drop' }), mockRes());
+    expect(db.rpcArgs.add_ai_purpose_cost?.p_purpose).toBe('other');
+  });
+  it('払い戻した相談・答えられなかった回は足さない', async () => {
+    stubConsultStream(NO_INFO_TEXT);
+    await handler(consultReq({ stream: true }), mockRes());
+    expect(log).not.toContain('rpc:add_ai_purpose_cost');
+    log.length = 0;
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('{"error":{}}', { status: 529, headers: { 'content-type': 'application/json' } })));
+    await handler(req({ messages: [{ role: 'user', content: 'x' }], max_tokens: 1000 }), mockRes());
+    expect(log).not.toContain('rpc:add_ai_purpose_cost');
+  });
+});

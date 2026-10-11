@@ -37,6 +37,17 @@ export function isFreePurpose(purpose) {
   return typeof purpose === 'string' && FREE_PURPOSES.has(purpose);
 }
 
+// 🪙📊 トークンの使い道（用途ごとの内訳・2026-10-11・supabase_ai_usage_purpose.sql）。
+//   ai_usage.purpose_mjpy に積む用途の名前。アプリが送る purpose のうち、知っているものだけ（それ以外・無しは 'other'）。
+//   画面の名前（相談・AI 選書 …）にまとめるのはアプリ（src/lib/tokenUsage.js の USAGE_GROUPS）。
+export const USAGE_PURPOSES = new Set([
+  'consult', 'book_advisor', 'advisor_interview', 'setup_sheet', 'setup_sheet_edit', 'book_brief',
+  'ops_advise', 'condense', 'cards_to_summary', 'ocr',
+]);
+export function usagePurposeKey(purpose) {
+  return typeof purpose === 'string' && USAGE_PURPOSES.has(purpose) ? purpose : 'other';
+}
+
 // 1 トークンの円（既定 ¥0.3）。0 以下は既定に戻す。
 export function tokenJpy(env = process.env) {
   const v = num(env.AI_TOKEN_JPY, 0.3);

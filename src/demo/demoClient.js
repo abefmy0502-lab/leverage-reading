@@ -40,6 +40,7 @@
 // limit/range/single/maybeSingle、埋め込み select、count/head、auth、storage）。
 
 import { buildSeed, DEMO_USER_ID } from './seed';
+import { applyTokenUsageDemo } from './demoTokenUsage';
 import { installDemoFetch, LP_SHOT_MEMO } from './demoFetch';
 import { demoAdminRpc } from './demoAdmin';
 import { AI_CONSENT_VERSION } from '../lib/aiProcessors';
@@ -171,7 +172,9 @@ class Query {
       // &load=memocount: ホームのメモの件数（book_memos の head の数え上げ）だけ遅らせる（育つまでの一行の形の確認用・2026-10-02）。
       || (qs.get('load') === 'memocount' && this.table === 'book_memos' && this.head)
       // &load=bookmemos: 本の詳細のメモ一覧（book_id で絞る読み出し）だけ遅らせる（本の詳細の読み込み中の形の確認用・2026-10-04）。
-      || (qs.get('load') === 'bookmemos' && this.table === 'book_memos' && !this.head && (this.eqCols || []).includes('book_id')));
+      || (qs.get('load') === 'bookmemos' && this.table === 'book_memos' && !this.head && (this.eqCols || []).includes('book_id'))
+      // &load=usage: トークンの使い方のシートの読み込み（使い道の内訳）だけ遅らせる（読み込み中の形の確認用・2026-10-11）。
+      || (qs.get('load') === 'usage' && this.table === 'ai_usage' && /purpose_mjpy/.test(String(this.selectStr || ''))));
     // &writefail=book_memos: 指定した表への書き込みを失敗させる（保存の失敗の表示の確認用）。
     //   &writefail=book_memos:update のように「表:操作」で、その操作だけを失敗させる。
     const writeFails = (qs.get('writefail') || '').split(',');
@@ -185,6 +188,13 @@ class Query {
     if (this.op === 'select' && failTables.includes(this.table)) {
       return new Promise((r) => setTimeout(r, 300))
         .then(() => ({ data: null, error: { message: 'network error', code: 'demo' }, count: null }))
+        .then(resolve, reject);
+    }
+    // &usage=nopurpose: 使い道の内訳の列（purpose_mjpy）が無い DB（supabase_ai_usage_purpose.sql 未適用・2026-10-11）。
+    const usageCols = this.op === 'select' && this.table === 'ai_usage' && /purpose_mjpy/.test(String(this.selectStr || ''));
+    if (usageCols && qs.get('usage') === 'nopurpose') {
+      return new Promise((r) => setTimeout(r, 40))
+        .then(() => ({ data: null, error: { message: 'column ai_usage.purpose_mjpy does not exist', code: '42703' }, count: null }))
         .then(resolve, reject);
     }
     // &db=fail: 過去の相談の読み込みが失敗する（失敗の表示の確認用）。
@@ -348,6 +358,8 @@ export function createDemoClient() {
   };
 
   const db = buildSeed(scenario);
+  // 🪙📊 トークンの使い方のシートのデータ（使い道の内訳・?demo=low|freelow・&usage=…・2026-10-11）。
+  applyTokenUsageDemo(db, scenario, params, DEMO_USER_ID);
   // &fields=none: 本の分野と前の版のタグを全部外す（開くと書名から分野が自動で付く・2026-10-11）。
   if (params.get('fields') === 'none') db.book_tags = [];
   // &fields=zero: 分野の付いた本が 1 冊も無い人（記録の「分野」が出ない形・自動でも付けない＝本人が選んだ印を付ける・2026-10-11）。

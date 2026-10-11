@@ -54,6 +54,7 @@ props は数・真偽・32 字までの短い文字列だけ（本文・書名�
 | `book_added` `{via}` / `memo_added` `{via, count?}` | 本・メモを足した |
 | `ai_used` `{feature:'brain', mode}` | 相談の答えを受け取った（中止は数えない） |
 | `trial_nudge` `{action, offer}` | 10 件で出る「相談相手が育ってきました」（7 日間無料の案内） |
+| `token_usage` `{action:'open'\|'add'\|'trial'\|'plans', from:'settings'\|'consult', plan}` | トークンの使い方のシート（2026-10-11）を開いた／下のボタン（トークンを追加・7 日間無料で試す・プランを見る）を押した。追加課金の入口としての効き目を見る（`TokenUsageSheet.jsx`） |
 | `checkout_started` / `checkout_completed` | プランの購入 |
 
 ## 運営の集計（service_role で SQL Editor）

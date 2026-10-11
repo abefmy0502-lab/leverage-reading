@@ -2097,7 +2097,92 @@ grant execute on function public.settle_token_overflow(uuid, text, integer, inte
 
 
 -- ############################################################
--- 38. supabase_analytics_events.sql — 利用状況の記録
+-- 38. supabase_ai_usage_purpose.sql — トークンの使い道（用途ごとの内訳）
+-- ############################################################
+-- 🪙📊 トークンの使い道（用途ごとの内訳・2026-10-11 オーナー「現在のトークン利用料の可視化をしたい」）
+--
+-- 目的: 設定・相談から開く「トークンの使い方」のシートで、今月（7 日間無料はその期間）に
+--       どの機能（相談・AI 選書・読書計画シート・この本で学べること・写真から書き起こし …）に
+--       何トークン使ったかを見せる。
+--
+-- 仕組み:
+--   - ai_usage に purpose_mjpy jsonb（用途 → その期間の原価。単位は 1/1000 円＝cost_mjpy と同じ）を足す。
+--     トークンではなく原価で積む（1 回ごとに切り上げたトークンを足すと、合計が「使ったトークン」より大きくなる）。
+--     画面はこの割合で「使ったトークン」（cost_mjpy から）を分ける＝足すと使ったトークンと同じ（src/lib/tokenUsage.js）。
+--   - add_ai_purpose_cost: api/claude.js が精算（adjust_ai_cost）のあとに、その 1 回の実際の原価を用途に足す。
+--     1 文の UPDATE なので、同時に何本来ても足し漏れない（行のロックのあとに最新の値から足す）。
+--     用途の名前は英小文字と _ だけ（それ以外は 'other'）。用途は 24 種類まで（超えたら 'other' に足す）。
+--   - 本人は自分の行を読める（ai_usage の既存の SELECT のポリシーのまま）。書くのは service_role だけ。
+--
+-- 先に supabase_ai_usage.sql・supabase_ai_cost.sql を適用しておくこと。
+-- 未適用の DB では、api/claude.js は内訳を足さず（警告だけ・AI は止めない）、画面は内訳の段を出さない。
+-- 冪等: 何度実行しても安全。
+
+alter table public.ai_usage
+  add column if not exists purpose_mjpy jsonb not null default '{}'::jsonb;
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'ai_usage_purpose_mjpy_object') then
+    alter table public.ai_usage
+      add constraint ai_usage_purpose_mjpy_object
+      check (jsonb_typeof(purpose_mjpy) = 'object' and pg_column_size(purpose_mjpy) < 4096);
+  end if;
+end;
+$$;
+
+create or replace function public.add_ai_purpose_cost(
+  p_user_id uuid,
+  p_period_month text,
+  p_purpose text,
+  p_mjpy bigint
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_key text := coalesce(p_purpose, '');
+  v_cur jsonb;
+begin
+  if p_user_id is null or p_period_month is null or p_mjpy is null or p_mjpy <= 0 then
+    return;
+  end if;
+  if v_key !~ '^[a-z_]{1,32}$' then
+    v_key := 'other';
+  end if;
+  -- 用途の数の上限（24）。数えるのはロックの前（同時に新しい用途が 2 つ来て 25 になっても害はない）。
+  select coalesce(purpose_mjpy, '{}'::jsonb) into v_cur
+    from public.ai_usage
+   where user_id = p_user_id and period_month = p_period_month;
+  if v_cur is null then
+    return; -- 行が無い（原価を予約していない）ときは足さない
+  end if;
+  if not (v_cur ? v_key) and (select count(*) from jsonb_object_keys(v_cur)) >= 24 then
+    v_key := 'other';
+  end if;
+
+  -- 足すのは 1 文の UPDATE（行のロックのあとの最新の値に足す＝同時でも足し漏れない）。
+  update public.ai_usage
+     set purpose_mjpy = jsonb_set(
+           coalesce(purpose_mjpy, '{}'::jsonb),
+           array[v_key],
+           to_jsonb(coalesce((purpose_mjpy ->> v_key)::bigint, 0) + p_mjpy),
+           true
+         ),
+         updated_at = now()
+   where user_id = p_user_id
+     and period_month = p_period_month;
+end;
+$$;
+
+revoke all on function public.add_ai_purpose_cost(uuid, text, text, bigint) from public;
+grant execute on function public.add_ai_purpose_cost(uuid, text, text, bigint) to service_role;
+
+
+-- ############################################################
+-- 39. supabase_analytics_events.sql — 利用状況の記録
 -- ############################################################
 -- 📊 利用状況の記録（製品改善のためのファーストパーティ計測）
 --
@@ -2159,7 +2244,7 @@ DROP POLICY IF EXISTS "analytics_events_delete_own" ON public.analytics_events;
 
 
 -- ############################################################
--- 39. supabase_feedback.sql — フィードバック
+-- 40. supabase_feedback.sql — フィードバック
 -- ############################################################
 -- 📩 ユーザーフィードバック・要望テーブル。
 --
@@ -2219,7 +2304,7 @@ create policy "feedback_select_own" on public.feedback
 
 
 -- ############################################################
--- 40. supabase_feedback_hardening.sql — フィードバックの守り
+-- 41. supabase_feedback_hardening.sql — フィードバックの守り
 -- ############################################################
 -- 🛡️ feedback テーブルの堅牢化（anon スパム封じ + 長さ CHECK）
 --
@@ -2321,7 +2406,7 @@ END $$;
 
 
 -- ############################################################
--- 41. supabase_account_deletion.sql — 退会の申し込み
+-- 42. supabase_account_deletion.sql — 退会の申し込み
 -- ############################################################
 -- =============================================================================
 -- 🛡️ アカウント削除リクエスト — Supabase migration
@@ -2383,7 +2468,7 @@ $$;
 
 
 -- ############################################################
--- 42. supabase_account_deletion_hardening.sql — 退会の申し込みの守り
+-- 43. supabase_account_deletion_hardening.sql — 退会の申し込みの守り
 -- ############################################################
 -- 🛡️ account_deletion_requests の堅牢化（メール偽装封じ + 二重リクエスト防止）
 --
@@ -2479,7 +2564,7 @@ END $$;
 
 
 -- ############################################################
--- 43. supabase_lp_events.sql — 紹介ページの記録
+-- 44. supabase_lp_events.sql — 紹介ページの記録
 -- ############################################################
 -- 📊 LP（紹介ページ）の閲覧状況の記録 — ダウンロードにつながる導線を数字で決めるため。
 --
@@ -2541,7 +2626,7 @@ alter table public.lp_events add constraint lp_events_event_check check (event i
 
 
 -- ############################################################
--- 44. supabase_lp_waitlist.sql — 公開のお知らせの登録
+-- 45. supabase_lp_waitlist.sql — 公開のお知らせの登録
 -- ############################################################
 -- ✉️ 公開のお知らせの登録（LP・2026-10-05）— App Store の URL が無い間、LP の入口は「公開の日にメールで知らせる」。
 --
@@ -2594,7 +2679,7 @@ alter table public.lp_waitlist enable row level security;
 
 
 -- ############################################################
--- 45. supabase_security_hardening.sql — 本・メモ・行動・写真の権限
+-- 46. supabase_security_hardening.sql — 本・メモ・行動・写真の権限
 -- ############################################################
 -- 🛡️ セキュリティ堅牢化マイグレーション（RLS 再保証 + Storage バケット防御）
 --
@@ -2822,7 +2907,7 @@ END $$;
 
 
 -- ############################################################
--- 46. supabase_admin_metrics.sql — 運営ダッシュボード（管理者の登録つき）
+-- 47. supabase_admin_metrics.sql — 運営ダッシュボード（管理者の登録つき）
 -- ############################################################
 -- 🛰️ 運営ダッシュボード（KGI/KPI 管制塔）— 管理者だけが見る集計 RPC 群。
 --
@@ -3092,7 +3177,7 @@ on conflict (user_id) do nothing;
 
 
 -- ############################################################
--- 47. supabase_admin_ops.sql — 目標・チケット
+-- 48. supabase_admin_ops.sql — 目標・チケット
 -- ############################################################
 -- 🎛️ 運営オペレーション層（Founder Cockpit）— 目標 ＋ チケット。
 --
@@ -3267,7 +3352,7 @@ grant execute on function public.admin_ticket_from_feedback(uuid) to authenticat
 
 
 -- ############################################################
--- 48. supabase_admin_growth.sql — 継続率
+-- 49. supabase_admin_growth.sql — 継続率
 -- ############################################################
 -- 📈 運営ダッシュボード — 成長・継続率の集計（admin_metrics の上に乗る）。
 -- ※ 先に supabase_admin_metrics.sql を適用すること（_require_admin 依存）。
@@ -3340,7 +3425,7 @@ grant execute on function public.admin_growth() to authenticated;
 
 
 -- ############################################################
--- 49. supabase_admin_exclude_admins.sql — 自分の利用を数えない
+-- 50. supabase_admin_exclude_admins.sql — 自分の利用を数えない
 -- ############################################################
 -- 🧹 運営ダッシュボードの集計から「管理者（app_admins）」を除外する。
 --
@@ -3517,7 +3602,7 @@ grant execute on function public.admin_growth() to authenticated;
 
 
 -- ############################################################
--- 50. supabase_admin_members_tasks.sql — 会員の内訳・売上
+-- 51. supabase_admin_members_tasks.sql — 会員の内訳・売上
 -- ############################################################
 -- 🧩 操縦席の強化: ①会員内訳（有料/無料期間/解約の分離）②日次タスク。
 -- ※ 先に supabase_admin_metrics.sql / _ops / _growth / _exclude_admins を適用済みであること。
@@ -3602,7 +3687,7 @@ grant execute on function public.admin_revenue() to authenticated;
 
 
 -- ############################################################
--- 51. supabase_ops_advisor.sql — 参謀の会話
+-- 52. supabase_ops_advisor.sql — 参謀の会話
 -- ############################################################
 -- 🧠 AI 参謀（作戦会議）の会話履歴 — 運営ダッシュボードの対話相談役。
 --
@@ -3646,7 +3731,7 @@ create policy "ops_advisor_delete_own" on public.ops_advisor_messages
 
 
 -- ############################################################
--- 52. supabase_ops_floor.sql — 作戦司令室の報告
+-- 53. supabase_ops_floor.sql — 作戦司令室の報告
 -- ############################################################
 -- 🏢 作戦司令室（社員フロア）の報告ログ — AI 企業の「記憶」。
 -- 各社員（member_id）の報告と CEO室の統合ブリーフ（member_id='__integration__'）を
@@ -3695,7 +3780,7 @@ create index if not exists ops_floor_reports_user_member_idx
 
 
 -- ############################################################
--- 53. supabase_ops_sales_metrics.sql — 営業の週の数字
+-- 54. supabase_ops_sales_metrics.sql — 営業の週の数字
 -- ############################################################
 -- 📣 営業ウィークリー計測 — 営業戦略（company/sales-strategy-2026-2027.md §7）の
 -- 週次KPI（新規課金/インストール/LPクリック/note PV/Xプロフクリック）を記録する。
@@ -3746,7 +3831,7 @@ create index if not exists ops_sales_metrics_user_week_idx
 
 
 -- ############################################################
--- 54. supabase_admin_launch_kpis.sql — ローンチの 4 つの数字
+-- 55. supabase_admin_launch_kpis.sql — ローンチの 4 つの数字
 -- ############################################################
 -- 🚀 ローンチの 4 つの数字（2026-10-02 オーナー承認・2026 年 11 月ローンチ）— 運営ダッシュボード用の集計。
 --

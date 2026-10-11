@@ -30,6 +30,7 @@ import { toMessage, isSchemaError } from '../lib/errors';
 import ErrorMessage from './ErrorMessage';
 import FeedbackForm from './FeedbackForm';
 import WhatsNewSheet from './WhatsNewSheet';
+import TokenUsageSheet from './TokenUsageSheet';
 import { RELEASES, markReleaseSeen, releaseHeading } from '../lib/whatsNew';
 import { exportUserDataAsCSV, exportMemosAsMarkdown } from '../lib/exportData';
 import { forceUpdate as forceAppUpdate } from '../lib/swUpdate';
@@ -222,18 +223,32 @@ function SettingRow({ title, desc, extra, control, style }) {
 
 // 値を右に出すだけの行（状態・次回更新など）。
 // sub: 値の下に小さく 1 行（無料プランの「M月1日に 30 トークンに戻ります」など）。
-function ValueRow({ label, value, sub = null, style }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', minHeight: 44, padding: 'var(--space-3) 0', ...style }}>
+// onClick: 行全体を押せる（右に ›・トークンの残りの行＝トークンの使い方を開く・2026-10-11）。ariaLabel はそのときの読み上げ。
+function ValueRow({ label, value, sub = null, style, onClick = null, ariaLabel }) {
+  const inner = (
+    <>
       <span style={{ fontSize: 'var(--text-body)', color: 'var(--text)', flexShrink: 0 }}>{label}</span>
       {sub ? (
-        <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', minWidth: 0, textAlign: 'right' }}>
+        <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', minWidth: 0, textAlign: 'right', marginLeft: onClick ? 'auto' : 0 }}>
           <span style={{ fontSize: 'var(--text-body)', color: 'var(--text-2)' }}>{value}</span>
           <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>{sub}</span>
         </span>
       ) : (
-        <span style={{ fontSize: 'var(--text-body)', color: 'var(--text-2)', textAlign: 'right' }}>{value}</span>
+        <span style={{ fontSize: 'var(--text-body)', color: 'var(--text-2)', textAlign: 'right', marginLeft: onClick ? 'auto' : 0 }}>{value}</span>
       )}
+      {onClick && <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0, marginLeft: 'calc(-1 * var(--space-1))' }} />}
+    </>
+  );
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} aria-label={ariaLabel} style={{ ...rowButtonStyle, justifyContent: 'space-between', ...style }}>
+        {inner}
+      </button>
+    );
+  }
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', minHeight: 44, padding: 'var(--space-3) 0', ...style }}>
+      {inner}
     </div>
   );
 }
@@ -361,6 +376,8 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   // 🆕 新しくなったこと（2026-10-05）: 設定の上に重ねて全部の版を見せる。
   const [whatsNewOpen, setWhatsNewOpen] = useState(false);
+  // 🪙📊 トークンの使い方（残りの行を押して開く・設定の上に重ねる・2026-10-11）。
+  const [usageOpen, setUsageOpen] = useState(false);
   const [updating, setUpdating] = useState(false);
   // フィードバック（入れ子モーダル）を開いている間は、そちらのトラップに譲るため無効化。
   const trapRef = useFocusTrap(!feedbackOpen);
@@ -583,12 +600,12 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
       // フィードバックシートが開いている間は、Escape はシート側に任せる
       // （ここで拾うと設定モーダルごと閉じ、送信中の入力が失われる）。
       // IME 変換中の Esc はガード（変換キャンセルで設定ごと閉じない）。
-      if (e.key === 'Escape' && !feedbackOpen && !whatsNewOpen && !e.isComposing && !e.nativeEvent?.isComposing) animateClose();
+      if (e.key === 'Escape' && !feedbackOpen && !whatsNewOpen && !usageOpen && !e.isComposing && !e.nativeEvent?.isComposing) animateClose();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onClose, feedbackOpen, whatsNewOpen, closing]);
+  }, [onClose, feedbackOpen, whatsNewOpen, usageOpen, closing]);
 
   const expectedConfirm = (user?.email || 'DELETE').trim();
 
@@ -942,6 +959,8 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                   <ValueRow
                     label={plan === 'trial' ? '無料期間の残り' : '今月の残り'}
                     value={`${fmtTokens(tokensRemaining)} / ${fmtTokens(tokenAllowance)} トークン`}
+                    onClick={() => setUsageOpen(true)}
+                    ariaLabel={`トークンの使い方を開く（${plan === 'trial' ? '無料期間' : '今月'}の残り ${fmtTokens(tokensRemaining)} / ${fmtTokens(tokenAllowance)} トークン）`}
                     // まだ使っていない（残り＝その月の分）ときは「戻ります」を出さない（戻るものが無い・2026-09-30）。
                     sub={plan === 'trial' || tokensRemaining >= tokenAllowance ? null : <><span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}に</span> <span style={{ whiteSpace: 'nowrap' }}>{fmtTokens(tokenAllowance)} トークンに戻ります</span></>}
                     style={divider}
@@ -1029,6 +1048,8 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                   <ValueRow
                     label="今月の残り"
                     value={`${fmtTokens(tokensRemaining)} / ${fmtTokens(tokenAllowance)} トークン`}
+                    onClick={() => setUsageOpen(true)}
+                    ariaLabel={`トークンの使い方を開く（今月の残り ${fmtTokens(tokensRemaining)} / ${fmtTokens(tokenAllowance)} トークン）`}
                     // まだ使っていない（残り＝その月の分）ときは「戻ります」を出さない（2026-09-30）。
                     // 🌱 はじめの月（アカウントを作った月）は、今月だけ多いことと来月からの量を（2026-10-09）。
                     sub={freeFirstMonth
@@ -1340,6 +1361,19 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
       {whatsNewOpen && (
         <div onClick={(e) => e.stopPropagation()}>
           <WhatsNewSheet releases={RELEASES} mode="all" layer="dialog" onClose={() => setWhatsNewOpen(false)} />
+        </div>
+      )}
+      {/* 🪙📊 トークンの使い方（設定の上に重ねる）。「トークンを追加」は設定を閉じてから開く（閉じたら設定に戻る）。
+          有料プランの画面は設定の上に重なるので、シートだけ閉じて開く。 */}
+      {usageOpen && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <TokenUsageSheet
+            from="settings"
+            layer="dialog"
+            onClose={() => setUsageOpen(false)}
+            onAdd={() => { setUsageOpen(false); onClose?.(); openTokenSheet({ from: 'settings' }); }}
+            onPlans={(reason) => { setUsageOpen(false); openPaywall(reason); }}
+          />
         </div>
       )}
     </div>

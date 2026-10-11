@@ -11,6 +11,7 @@ const relatedAllBad = () => typeof window !== 'undefined' && new URLSearchParams
 const relatedMessy = () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('related') === 'messy';
 import { demoServerSearch, demoNdlXml } from './demoBookSearch';
 import { lensOf } from '../lib/consultHelpers';
+import { addDemoPurposeCost } from './demoTokenUsage';
 
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
@@ -962,7 +963,10 @@ export function installDemoFetch(store) {
       }
       // 使った量（目安）: 相談 約 9 トークン・AI 選書 約 20・そのほか 約 3。
       row.calls += 1;
-      row.cost_mjpy = (row.cost_mjpy || 0) + (payload.purpose === 'consult' ? 2760 : payload.purpose === 'book_brief' ? 420 : (payload.max_tokens || 0) >= 3000 ? 6000 : 900);
+      const callMjpy = payload.purpose === 'consult' ? 2760 : payload.purpose === 'book_brief' ? 420 : (payload.max_tokens || 0) >= 3000 ? 6000 : 900;
+      row.cost_mjpy = (row.cost_mjpy || 0) + callMjpy;
+      // 🪙📊 使い道の内訳（api/claude.js の add_ai_purpose_cost と同じ・関係するメモが無かった相談は下で戻す）。
+      if (!(aiMode === 'noinfo' && payload.purpose === 'consult')) addDemoPurposeCost(row, payload.purpose, callMjpy);
       // その月の分を超えた分を、追加分から差し引く（settle_token_overflow）。
       let need = Math.max(0, Math.ceil(row.cost_mjpy / 300 - 1e-9) - allowance) - (row.lot_tokens || 0);
       if (need > 0) {
