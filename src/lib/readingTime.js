@@ -72,7 +72,7 @@ export function untilToMs(hhmm, now = Date.now()) {
 }
 
 // 選んだ時刻を確かめる。
-//   { ok: true, untilMs, minutes }        … minutes は残りの分（切り上げ）
+//   { ok: true, untilMs, minutes }        … minutes は残りの分（四捨五入＝lengthMinutes・おわったときの分とそろえる）
 //   { ok: false, error: 'empty' | 'past' | 'tooLong', message }
 // 12 時間より先になる時刻は「いまより前を選んだ」とみなす（18:00 に 17:30＝past）。
 // 1 分未満も past。12 時間までで 6 時間を超えるものは tooLong（1 回 6 時間まで）。
@@ -87,7 +87,15 @@ export function checkUntil(hhmm, now = Date.now()) {
   const diff = untilMs - now;
   if (diff < 60 * 1000 || diff > STALE_MS) return { ok: false, error: 'past', message: UNTIL_MESSAGES.past };
   if (diff > MAX_SESSION_SEC * 1000) return { ok: false, error: 'tooLong', message: UNTIL_MESSAGES.tooLong };
-  return { ok: true, untilMs, minutes: Math.ceil(diff / 60000) };
+  return { ok: true, untilMs, minutes: lengthMinutes(diff / 1000) };
+}
+
+// タイマーの長さ（秒）を「N 分」に（2026-10-11）。始める前の「N 分 読めます」・時間になったときの大きな数・
+// おわったときの「今日 N 分 読みました」（fmtDuration）で同じ丸め＝四捨五入・1 分から。
+// 前は始める前が切り上げ・時間になったときが切り捨てで、18:23:30 に「18:45 まで」を選ぶと「22 分 読めます」→「21 分」とずれていた。
+export function lengthMinutes(sec) {
+  const s = Math.max(0, Number(sec) || 0);
+  return Math.max(1, Math.round(s / 60));
 }
 
 // 読んでいた秒（一時停止を除く）。タイマーは長さで止める（終わったあとに裏で置いていた時間は数えない）。

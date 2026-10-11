@@ -50,6 +50,13 @@ export function isbnFromQuery(raw) {
   return /^(\d{13}|\d{9}[\dX])$/.test(compact) ? compact : '';
 }
 
+// 0 件のときの文（ISBN で探したとき・書名や著者で探したとき）。
+export function notFoundText(query) {
+  return isbnFromQuery(query)
+    ? { title: 'この ISBN の本が見つかりませんでした', description: '書名で探すか、手で入力してください。' }
+    : { title: '見つかりませんでした', description: '書名を短くするか、ISBN で探してください' };
+}
+
 // 手動入力へ引き継ぐ値（ISBN なら ISBN 欄、それ以外は書名欄へ）。
 export function manualSeedFromQuery(raw) {
   const isbn = isbnFromQuery(raw);
@@ -464,10 +471,10 @@ export function BookSearchStatus({ search, onRetry, onManual, onPick, getExistin
       {/* 下の「手動で入力する」との間を詰める（空状態の下の大きな余白を取らない・2026-09-29）。 */}
       {status === 'notfound' && (
         <div className="empty-state--flush-bottom">
+          {/* ISBN で探して 0 件のときに「ISBN で探してください」と言わない（2026-10-11）。 */}
           <EmptyState
             icon={<SearchX size={28} aria-hidden="true" />}
-            title="見つかりませんでした"
-            description="書名を短くするか、ISBN で探してください"
+            {...notFoundText(search.query)}
             actions={[]}
           />
         </div>

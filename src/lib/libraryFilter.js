@@ -20,6 +20,10 @@ export function sortLibraryBooks(list, sortBy = 'updated') {
   const updated = (b) => b.updated_at || b.startDate || b.doneDate || '';
   const sorted = [...list];
   if (sortBy === 'title') {
+    // 書名順は今の並び（Intl の日本語の照合＝英数字 → ひらがな・カタカナ（同じ読みは並べて・あいうえお順）→ 漢字）のまま
+    //   （2026-10-11 判断）。漢字の書名を読みで並べるには本ごとの読み（フリガナ）が要るが、books に読みの列が無い。
+    //   読みが取れるのは本の検索で楽天から選んだ本だけ（titleKana）で、手で入れた本・取り込んだ本・今までの本には無い。
+    //   新しい列・保存・取り込み・前からある本の読みの取り直しが要り、読みのある本と無い本が混ざると並びがかえって乱れるので見送った。
     sorted.sort((a, b) => titleKey(a).localeCompare(titleKey(b), 'ja'));
   } else if (sortBy === 'rating') {
     // 評価の高い順（未評価＝0 は最後）・同じ評価は更新の新しい順

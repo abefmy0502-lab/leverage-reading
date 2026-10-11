@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { memoExampleForBook, buildConsultExamples, standaloneAction, stripRelativeDayLead, questionGist, needsSubject, WORRY_EXAMPLES, actionGist, stripScenePrefix, recentReflectedAction, memoSearchQuery, answerStepToAction, firstConsultSuggestions, firstConsultQuestion } from './consultHelpers';
+import { memoExampleForBook, buildConsultExamples, standaloneAction, stripRelativeDayLead, questionGist, needsSubject, WORRY_EXAMPLES, actionGist, stripScenePrefix, recentReflectedAction, memoSearchQuery, answerStepToAction, firstConsultSuggestions, firstConsultQuestion, countBooksWithMemos } from './consultHelpers';
 
 describe('答えの一歩を行動の形に（answerStepToAction・2026-09-29）', () => {
   it('す で終わる動詞は「〜す」', () => {
@@ -362,5 +362,16 @@ describe('初日の「相談してみる」に入れておく相談（firstConsu
   it('作れないときは、よくある困りごと（空にしない）', () => {
     expect(firstConsultQuestion({ books: [], memoBookIds: new Set(), memoCount: 0 })).toBe(WORRY_EXAMPLES[0]);
     expect(firstConsultSuggestions({ books: [], memoBookIds: null, memoCount: 0, count: 2 })).toEqual(WORRY_EXAMPLES.slice(0, 2));
+  });
+});
+
+// 初日クイックスタートの「あなたの N 冊」＝メモのある本だけ（2026-10-11）。
+describe('countBooksWithMemos', () => {
+  it('メモのある本と「この本のまとめ」のある本だけ数える（同じ本は 1 冊・本に付かない学びは数えない）', () => {
+    const books = [
+      { id: 'a' }, { id: 'b' }, { id: 'c', leverageMemo: 'まとめ' }, { id: 'd' },
+    ];
+    expect(countBooksWithMemos(books, ['a', 'a', null])).toBe(2);
+    expect(countBooksWithMemos(books, [])).toBe(1);
   });
 });

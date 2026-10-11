@@ -395,7 +395,10 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
     const onKey = (e) => {
       if (e.key !== 'Escape' || e.isComposing || e.defaultPrevented) return;
       if (pending || settingsOpen) return;
-      if (document.querySelector('[role="dialog"][aria-modal="true"], [role="alertdialog"]')) return;
+      // 自分を包む入れ物（App.jsx の PaywallOverlay）と、後ろで inert になっているシートは数えない（2026-10-11）。
+      const above = Array.from(document.querySelectorAll('[role="dialog"][aria-modal="true"], [role="alertdialog"]'))
+        .some((el) => !el.hasAttribute('data-paywall-overlay') && !el.closest('[inert]'));
+      if (above) return;
       onClose();
     };
     window.addEventListener('keydown', onKey);

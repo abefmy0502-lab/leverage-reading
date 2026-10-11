@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 import {
   startFocus, elapsedSeconds, remainingSeconds, isTimerDone, timerProgress, pauseFocus, resumeFocus, continueAsCount,
   displayMinutes, sessionRow, todaySeconds, secondsWithin, dayRange, totalSeconds, fmtDuration, shareReadingNote, localDay,
-  saveFocusState, loadFocusState, loadFocusPrefs, saveFocusPrefs, defaultUntilTime, untilToMs, checkUntil, fmtClock, MIN_SESSION_SEC, MAX_SESSION_SEC, STALE_MS,
+  saveFocusState, loadFocusState, loadFocusPrefs, saveFocusPrefs, defaultUntilTime, untilToMs, checkUntil, fmtClock, lengthMinutes, MIN_SESSION_SEC, MAX_SESSION_SEC, STALE_MS,
 } from './readingTime';
 
 const MIN = 60 * 1000;
@@ -196,9 +196,19 @@ describe('「◯時◯分まで」（2026-10-10）', () => {
     expect(untilToMs('00:20', now)).toBe(at(0, 20, 10));
     expect(checkUntil('00:20', now)).toEqual({ ok: true, untilMs: at(0, 20, 10), minutes: 30 });
   });
-  it('残りの分は切り上げ', () => {
+  it('残りの分は四捨五入（21 分 30 秒 → 22 分・21 分 20 秒 → 21 分）', () => {
     const now = at(18, 23) + 30 * 1000; // 18:23:30
     expect(checkUntil('18:45', now).minutes).toBe(22);
+    expect(checkUntil('18:45', at(18, 23) + 40 * 1000).minutes).toBe(21);
+  });
+  it('始める前の「N 分 読めます」と、時間になったとき・おわったときの分がそろう（2026-10-11）', () => {
+    for (const sec of [0, 20, 30, 40]) {
+      const now = at(18, 23) + sec * 1000;
+      const c = checkUntil('18:45', now);
+      const st = startFocus({ bookId: 'b', mode: 'timer', untilMs: c.untilMs }, now);
+      expect(lengthMinutes(st.durationSec)).toBe(c.minutes);
+      expect(fmtDuration(st.durationSec)).toBe(`${c.minutes} 分`);
+    }
   });
   it('いまより前・いまの分は past', () => {
     expect(checkUntil('17:30', at(18, 0)).error).toBe('past');

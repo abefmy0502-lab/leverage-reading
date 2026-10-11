@@ -16,7 +16,7 @@ import { useEffect, useRef, useState } from 'react';
 import NotifyOptInCard from './NotifyOptInCard';
 import GrowthMeter from './GrowthMeter';
 import { withPhraseBreaks } from './TightBubble';
-import { firstConsultSuggestions, memoExampleForBook, countSummaryMemos, fmtTokens } from '../lib/consultHelpers';
+import { firstConsultSuggestions, memoExampleForBook, countSummaryMemos, countBooksWithMemos, fmtTokens } from '../lib/consultHelpers';
 import { X, Search, SearchX, Check, ChevronLeft, Plus } from 'lucide-react';
 import { usePaywall } from '../state/PaywallContext';
 import { remainingAnswersLabel } from '../lib/tokens';
@@ -352,14 +352,12 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
     setSaveProgress({ done: 0, total: entries.length });
     const savedBooks = [];
     const memoRows = [];
-    let newBooks = 0;
     for (const e of entries) {
       try {
         // 既に本棚にある本は追加せず、その本に一言だけ足す（重複登録しない）。
         const existing = findDuplicateBook(books, e.book) || (e.onShelf && e.book?.id ? e.book : null);
         const saved = existing || await onSaveBook?.(e.book);
         if (!saved?.id) continue;
-        if (!existing) newBooks += 1;
         savedBooks.push({ ...e.book, ...saved });
         const text = clamp(e.memo.trim(), LIMITS.memoText);
         if (text) memoRows.push({ user_id: user.id, book_id: saved.id, text, page_number: null, tags: [], photo_path: null });
@@ -391,7 +389,16 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
       const { count, error } = await supabase.from('book_memos').select('id', { count: 'exact', head: true }).eq('user_id', user.id);
       if (!error && typeof count === 'number') totalMemos = Math.max(count, memoCount) + countSummaryMemos(books);
     } catch { /* 今回の件数のまま */ }
-    setSummary({ books: savedBooks, memos: memoCount, totalMemos, totalBooks: books.length + newBooks, memoBookIds: memoCount ? memoRows.map((r) => r.book_id) : [] });
+    // 「あなたの N 冊」はメモのある本だけ（メモの無い本は相談の根拠にならない・2026-10-11）。
+    //   数えられなければ、今回メモを書いた本＋前から「この本のまとめ」がある本。
+    const newMemoBookIds = memoCount ? memoRows.map((r) => r.book_id) : [];
+    let memoBookIdsAll = newMemoBookIds;
+    try {
+      const { data, error } = await supabase.from('book_memos').select('book_id').eq('user_id', user.id).not('book_id', 'is', null).limit(5000);
+      if (!error && Array.isArray(data)) memoBookIdsAll = [...newMemoBookIds, ...data.map((r) => r.book_id)];
+    } catch { /* 今回の本だけ */ }
+    const totalBooks = countBooksWithMemos([...books, ...savedBooks], memoBookIdsAll);
+    setSummary({ books: savedBooks, memos: memoCount, totalMemos, totalBooks, memoBookIds: newMemoBookIds });
     setStep('done');
   };
 

@@ -28,7 +28,7 @@ import { withPhraseBreaks } from './TightBubble';
 import { track, EVENTS, minutesBucket } from '../lib/analytics';
 import {
   displayMinutes, timerProgress, isTimerDone, pauseFocus, resumeFocus, continueAsCount,
-  sessionRow, saveFocusState, readFocusState, todaySeconds, totalSeconds, fmtDuration, fmtClock,
+  sessionRow, saveFocusState, readFocusState, todaySeconds, totalSeconds, fmtDuration, fmtClock, lengthMinutes,
 } from '../lib/readingTime';
 
 export const HOLD_MS = 1000;
@@ -308,7 +308,7 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
   };
 
   const { hours, minutes } = phase === 'timerDone'
-    ? { hours: Math.floor((s.durationSec || 0) / 3600), minutes: Math.floor(((s.durationSec || 0) % 3600) / 60) }
+    ? (() => { const t = lengthMinutes(s.durationSec || 0); return { hours: Math.floor(t / 60), minutes: t % 60 }; })() // 始める前の「N 分 読めます」と同じ丸め
     : displayMinutes(s, now);
   const isTimer = s?.mode === 'timer';
   const progress = isTimer ? timerProgress(s, now) : 0;

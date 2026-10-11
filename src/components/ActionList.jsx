@@ -30,6 +30,7 @@ import { useToast } from './Toast';
 import { useLongPress } from '../hooks/useLongPress';
 import { MoreHorizontal, BookOpen, Trash2, Pencil, CheckCircle2, Circle, ListTodo, Plus, MessageCircle, ChevronDown, ChevronRight, X } from 'lucide-react';
 import { scrollBehavior } from '../lib/motion';
+import { completeWithRollback } from '../lib/actionComplete';
 
 // 余白は辺ごとに書く（padding の一括指定と paddingBottom を混ぜると、描き直しで下の余白が戻らないことがある・2026-09-30）。
 const wrap = { paddingTop: 'var(--space-3)', paddingLeft: 'var(--space-4)', paddingRight: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' };
@@ -503,7 +504,8 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
     track(EVENTS.ACTION_COMPLETED);
     // 保存はすぐ始める（行の見た目だけ、その場にしばらく残す）。ハプティクスは applyActionToggle が一元発火。
     // 本の一覧まで描き直す更新は後回しにできる更新に（✓ と取り消し線を先に描く・遅い端末で押しても反応が無く見えた）。
-    startTransition(() => { onToggleAction?.(a.bookId, a.actionIdx, { silent: true, target: a }); });
+    let saving;
+    startTransition(() => { saving = onToggleAction?.(a.bookId, a.actionIdx, { silent: true, target: a }); });
     const key = rowKeyOf(a);
     setReflection('');
     // 前に完了した行の欄は畳む（欄は同時に 1 つだけ）。
@@ -515,13 +517,30 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
     timersRef.current.set(key, setTimeout(() => setPhase(key, onReflect ? 'reflect' : 'collapse'), CHECK_HOLD_MS));
     // 取り消しは下のトーストで（スクロールしていても見える・トーストはタブの上に浮く）。
     if (lastToastRef.current) toast.dismiss?.(lastToastRef.current, { skipExpire: true });
-    // 「元に戻す」つきは toast.undo にそろえる（完了なので印は ✓・DESIGN §5 トースト・2026-09-30）。
-    lastToastRef.current = toast.undo({
-      message: completedActionMessage(a),
-      duration: TOAST_MS,
-      destructive: false,
-      success: true, // 印は ✓（完了の知らせ・2026-09-30）
-      onUndo: () => undoComplete(a),
+    // 完了の知らせは保存できたあとだけ。保存できなければ ✓ を外して未完了の行に戻す
+    // （失敗の知らせは保存する側が出す・オフラインで完了の見た目と成功の知らせが残っていた・2026-10-11）。
+    completeWithRollback({
+      save: () => saving,
+      onFail: () => {
+        setCompleting((list) => {
+          const cur = list.find((c) => c.key === key);
+          if (!cur || cur.phase === 'restore') return list; // その間に元に戻した行はそのまま
+          clearTimeout(timersRef.current.get(key));
+          timersRef.current.delete(key);
+          return list.filter((c) => c.key !== key);
+        });
+        setReflection('');
+      },
+      onSaved: () => {
+        // 「元に戻す」つきは toast.undo にそろえる（完了なので印は ✓・DESIGN §5 トースト・2026-09-30）。
+        lastToastRef.current = toast.undo({
+          message: completedActionMessage(a),
+          duration: TOAST_MS,
+          destructive: false,
+          success: true, // 印は ✓（完了の知らせ・2026-09-30）
+          onUndo: () => undoComplete(a),
+        });
+      },
     });
   };
 

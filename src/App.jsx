@@ -142,6 +142,7 @@ import { TabPanelSkeleton } from './components/lazyParts';
 import EmptyState from './components/EmptyState';
 import ErrorMessage from './components/ErrorMessage';
 import { useFocusTrap } from './hooks/useFocusTrap';
+import { useInertBackground } from './hooks/useInertBackground';
 import HomeScreen, { HomeBlocksSkeleton } from './components/HomeScreen';
 import { initServiceWorker } from './lib/swUpdate';
 import { ensurePushSubscription } from './lib/push';
@@ -163,6 +164,7 @@ import { useHistoryBack, useBackLayer, useBackLayerCount, topBackLayer } from '.
 import { useKeyboardOpen } from './hooks/useKeyboardOpen';
 import { useSubscription } from './hooks/useSubscription';
 const Paywall = lazy(() => import('./components/Paywall'));
+const PlanTokensOut = lazy(() => import('./components/PlanTokensOut'));
 import { useToast } from './components/Toast';
 import { useConfirm } from './components/ConfirmDialog';
 import { toMessage, toSaveMessage, fieldRequiredMessage, isSchemaError } from './lib/errors';
@@ -1184,7 +1186,13 @@ function AuthedApp() {
   // 写真はこの端末の中だけで使う（アップロードしない）。撮る・選ぶのをやめたら何も開かない（選ぶシートも閉じたまま）。
   // 受け取った写真は形と大きさを確かめてから共有のシートを開く（だめなら知らせだけ・checkSharePhoto）。
   const [shareChooser, setShareChooser] = useState(null);
-  const openShareChooser = (target) => setShareChooser({ ...target });
+  // 前の写真の失敗の知らせ（「選び直す」つき・8 秒）は、選ぶシートを開き直したら閉じる（シートの行をふさいでいた・2026-10-11）。
+  const sharePhotoFailToastRef = useRef(null);
+  const dismissSharePhotoFail = () => {
+    if (sharePhotoFailToastRef.current) toast.dismiss?.(sharePhotoFailToastRef.current, { skipExpire: true });
+    sharePhotoFailToastRef.current = null;
+  };
+  const openShareChooser = (target) => { dismissSharePhotoFail(); setShareChooser({ ...target }); };
   const shareCameraRef = useRef(null);
   const shareAlbumRef = useRef(null);
   const shareCameraTargetRef = useRef(null);
@@ -1201,8 +1209,9 @@ function AuthedApp() {
   // 写真を使えなかったときは、知らせに「選び直す」＝同じ入口の選ぶシートを開き直す（自分でやめたときは何も出さない）。
   // 許可が無いときは「設定を開く」＝iPhone のアプリの設定（開けないビルド・Web は「選び直す」）。操作つきは 8 秒（2026-10-11）。
   const sharePhotoFailed = (t, message, err = null, opts) => {
-    const a = photoFailAction(err, () => setShareChooser({ ...t }), { ...opts, onSettingsFailed: (route) => toast.info(route) });
-    toast.error(a.message || message, {
+    const a = photoFailAction(err, () => openShareChooser(t), { ...opts, onSettingsFailed: (route) => toast.info(route) });
+    dismissSharePhotoFail();
+    sharePhotoFailToastRef.current = toast.error(a.message || message, {
       duration: PHOTO_FAIL_TOAST_MS,
       ...(a.label ? { action: { label: a.label, onClick: a.onClick } } : {}),
     });
@@ -3296,6 +3305,13 @@ function AuthedApp() {
   const checkPlanBooks = async (sheet) => {
     try { return (await verifyPlanRelatedBooks(sheet, verifyBookExists)).sheet; } catch { return sheet; }
   };
+  // 編集画面で作る・直すときにトークンを使い切っていたら、知らせに「トークンを追加」（買えるプランの人だけ・2026-10-11）。
+  const { canBuyTokens: paywallCanBuy, openTokenSheet: paywallOpenTokenSheet } = usePaywall();
+  const planTokensOutToast = (error) => {
+    toast.info(error.message, paywallCanBuy
+      ? { duration: 8000, action: { label: 'トークンを追加', onClick: () => paywallOpenTokenSheet() } }
+      : {});
+  };
   const runStrategy = async () => {
     if (!requirePlan('読書計画シート')) return;
     // 🤝 はじめて AI に送るときは、送る内容と送り先を見せて同意をもらう（lib/aiConsent.js）。やめたら何も変えずに戻る。
@@ -3324,7 +3340,7 @@ function AuthedApp() {
       // 失敗時は元の計画シートに戻す（クリアしたまま保存すると DB のシートが消える）。
       setForm((f) => (f && f.id === targetId ? { ...f, aiStrategy: prevStrategy } : f));
       // プランの案内（402）は有料プランの画面が開くので重ねない。トークンの上限は案内として。
-      if (error?.monthlyLimit) toast.info(error.message);
+      if (error?.monthlyLimit) planTokensOutToast(error);
       else if (!error?.paywall) toast.error(toMessage(error, '読書計画シートを作れませんでした。'));
     } finally {
       setAiLoading(false);
@@ -3336,6 +3352,10 @@ function AuthedApp() {
   const [planGen, setPlanGen] = useState(null); // { bookId, text } 作っている間だけ
   // その場で作り終えた本の id。できたシートを開いたまま見せる（作ったのに畳まれて見えない、をなくす）。
   const [justMadePlanId, setJustMadePlanId] = useState(null);
+  // 🪙 本の詳細で「読書計画シートを作る」を押してトークンを使い切っていた本の id。ボタンの下に相談と同じ案内
+  //   （PlanTokensOut＝TokensOutCard）を出す。画面・本を変えたら消す（2026-10-11）。
+  const [planTokensOutId, setPlanTokensOutId] = useState(null);
+  useEffect(() => { setPlanTokensOutId(null); }, [view, current?.id]);
   // 📖 この本について（出版社・書店の紹介文と目次・AI なし・lib/bookInfo.js・2026-10-02）。
   //   読みたい・積読は書名の下のカード、読書中は下の畳む見出し。読了では出さない（取りにも行かない）。
   // 📚 保存済みの読書計画シートに「1 行に 2 冊を混ぜた関連書籍」（『A』関連 または『B』）があれば、開いたときに
@@ -3565,7 +3585,7 @@ function AuthedApp() {
       persistPlanSheet(bookId, sheet, '読書計画シートを保存しました', fields);
     } catch (error) {
       dismissPlanProgress(bookId);
-      if (error?.monthlyLimit) toast.info(error.message);
+      if (error?.monthlyLimit) setPlanTokensOutId(bookId); // 知らせではなくボタンの下の案内（トークンを追加・使い方）
       else if (!error?.paywall) toast.error(toMessage(error, '読書計画シートを作れませんでした。'));
     } finally {
       setPlanGen(null);
@@ -3629,7 +3649,7 @@ function AuthedApp() {
     } catch (error) {
       // ストリーミング失敗時は元のシートを戻す (undo 履歴は触らない)。
       setForm((f) => (f && f.id === targetId ? { ...f, aiStrategy: prev } : f));
-      if (error?.monthlyLimit) toast.info(error.message);
+      if (error?.monthlyLimit) planTokensOutToast(error);
       else if (!error?.paywall) toast.error(toMessage(error, '読書計画シートの修正に失敗しました。'));
     } finally {
       setAiLoading(false);
@@ -3858,13 +3878,14 @@ function AuthedApp() {
   };
 
   const doActionToggle = async (bookId, actionIdx, options, chainEntry, targetAction) => {
+    // 返り値: 保存できたら true（行動タブは、これを待ってから完了の知らせを出す・2026-10-11）。
     const book = chainEntry.latest || booksRef.current.find((b) => b.id === bookId);
-    if (!book) return;
+    if (!book) return false;
     const acts = [...(book.actions || [])];
     const idx = resolveActionIndex(acts, targetAction, actionIdx);
-    if (idx < 0) return; // 対象は先行操作で消えた — 別の行を誤ってトグルしない
+    if (idx < 0) return false; // 対象は先行操作で消えた — 別の行を誤ってトグルしない
     const target = acts[idx];
-    if (!target) return;
+    if (!target) return false;
     const becomingDone = !target.done;
     const updatedAct = {
       ...target,
@@ -3970,12 +3991,15 @@ function AuthedApp() {
       syncActionSnapshots(saved || updated);
       // 繰り返しの次回は、完了の知らせ（「完了。次回は来週」＝元に戻すつき）の 1 か所で伝える
       // （ここで中央の ✓ を重ねると、知らせが 2 つ同時に出ていた・2026-10-04）。
+      return true;
     } catch (error) {
       // rollback: 楽観反映を元に戻す。
       mutateBookLocal(bookId, () => book);
       chainEntry.latest = book;
       syncActionSnapshots(book);
-      toast.error(toMessage(error, '行動の更新に失敗しました。'));
+      // オフラインなら「つながってから、もう一度」（toSaveMessage・2026-10-11）。
+      toast.error(toSaveMessage(error, '行動の更新に失敗しました。'));
+      return false;
     }
   };
 
@@ -4092,20 +4116,22 @@ function AuthedApp() {
   };
 
   const toggleAction = async (bookId, actionIdx, opts = {}) => {
+    // 返り値: 保存できたら true（行動タブの完了は、これを待って知らせを出す・失敗なら見た目を戻す・2026-10-11）。
     const book = books.find((b) => b.id === bookId);
-    if (!book) return;
+    if (!book) return false;
     // 呼び出し側が行動そのもの（opts.target）を渡していれば、それで身元を確定する
     const target = (opts.target && (book.actions || []).find((x) => x && opts.target.id && x.id === opts.target.id))
       || (book.actions || [])[actionIdx];
-    if (!target) return;
+    if (!target) return false;
     // 旧実装は「完了化」時に振り返りモーダル (✅ 完了おめでとうございます!)
     // を挟んでいたが、毎回フリクションを増やしていたため撤去。タップ即完了 /
     // 即未完了戻しの軽快操作に統一。reflection は ActionEditModal から
     // いつでも編集可能。
-    await applyActionToggle(bookId, actionIdx, { target });
+    const ok = (await applyActionToggle(bookId, actionIdx, { target })) === true;
     // 完了は一瞬で一覧から消えるので、取り消せるようにする（押し間違いの救済）。
     // silent: 行動タブは自分の欄（ふりかえり＋元に戻す）を出すので、案内を重ねない。
-    if (!target.done && !opts.silent) {
+    // 保存できなかったときは出さない（失敗の知らせだけ・2026-10-11）。
+    if (ok && !target.done && !opts.silent) {
       // 「元に戻す」つきは toast.undo にそろえる（完了なので印は ✓・DESIGN §5 トースト・2026-09-30）。
       toast.undo({
         message: completedActionMessage(target),
@@ -4115,6 +4141,7 @@ function AuthedApp() {
         onUndo: () => { applyActionToggle(bookId, actionIdx, { target }); },
       });
     }
+    return ok;
   };
 
   // undoable: スワイプで消したとき（確認なし）。下のトーストの「元に戻す」で同じ位置に戻せる。
@@ -4671,7 +4698,12 @@ function AuthedApp() {
                       {genHere ? '作成中…' : paywallFree ? '読書計画シートを作る（プラン）' : '読書計画シートを作る'}
                     </button>
                     {/* プラン・7 日間無料の人には 1 回の目安と残り（下 8・13/--text-3・無料プランは「（プラン）」の印だけ）。 */}
-                    {!genHere && !paywallFree && planCostLine && (
+                    {!genHere && planTokensOutId === current.id && (
+                      <Suspense fallback={null}>
+                        <PlanTokensOut style={{ marginTop: 'var(--space-3)' }} />
+                      </Suspense>
+                    )}
+                    {!genHere && !paywallFree && planCostLine && planTokensOutId !== current.id && (
                       <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, fontVariantNumeric: 'tabular-nums', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(planCostLine)}</p>
                     )}
                     {genHere && (
@@ -7514,7 +7546,8 @@ function PaywallGate() {
       <AiConsentGate />
       {paywall && !isActive && (
         // アプリの上に重ねる（閉じればアプリに戻る＝書きかけも消えない）。
-        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', flexDirection: 'column', background: 'var(--bg)' }}>
+        // ♿ ダイアログとして読み上げ・Tab を中に閉じ込め・後ろは inert・閉じたら開いたボタンへ戻す（2026-10-11）。
+        <PaywallOverlay>
           <Suspense fallback={<Spinner />}>
             <Paywall
               onPurchased={refresh}
@@ -7523,7 +7556,7 @@ function PaywallGate() {
               onClose={() => setPaywall(null)}
             />
           </Suspense>
-        </div>
+        </PaywallOverlay>
       )}
       {tokenSheetOpen && canBuyTokens && (
         <Suspense fallback={<OverlayFallback />}>
@@ -7531,6 +7564,36 @@ function PaywallGate() {
         </Suspense>
       )}
     </PaywallContext.Provider>
+  );
+}
+
+// 💳 有料プランの画面をアプリの上に重ねる入れ物（role="dialog"・aria-modal・見出しは Paywall の h1）。
+//   useFocusTrap: 開いたら中へフォーカス・Tab を閉じ込め・閉じたら開く前の要素（押したボタン）へ戻す。
+//   useInertBackground: 後ろのアプリ・開いていたシートを inert に（知らせの読み上げの入れ物は残す）。
+function PaywallOverlay({ children }) {
+  // 開いたボタンは描く時点で覚える（inert を付けると、ブラウザがそのボタンのフォーカスを外すことがある）。
+  const openerRef = useRef(typeof document !== 'undefined' ? document.activeElement : null);
+  // inert を先に宣言する＝閉じるときは inert を外してから、開いたボタンへフォーカスを戻す（逆だと戻せない）。
+  const inertRef = useRef(null);
+  useInertBackground(true, inertRef);
+  useEffect(() => () => {
+    const el = openerRef.current;
+    if (el && el !== document.body && typeof el.focus === 'function' && document.contains(el)) {
+      try { el.focus({ preventScroll: true }); } catch { /* ignore */ }
+    }
+  }, []);
+  const trapRef = useFocusTrap(true);
+  return (
+    <div
+      ref={(el) => { inertRef.current = el; trapRef.current = el; }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="paywall-title"
+      data-paywall-overlay=""
+      style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', flexDirection: 'column', background: 'var(--bg)' }}
+    >
+      {children}
+    </div>
   );
 }
 

@@ -16,7 +16,8 @@
 //        - 本の詳細で紹介文が届いたとき（onBookInfo・取りに行かない）
 //      取りに行くのは REFINE_GAP_MS ずつ空けて 1 冊ずつ（/api/cover は IP ごとに 1 分 30 回まで・控えはサーバー 24 時間
 //      と端末 30 日）。本人が選んだ本・前の版のタグから移した分野は変えない。1 冊 1 回だけ（orime.fields.refined.v4）。
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { isOnlineNow } from './useOnline';
 import { isDemo } from '../lib/supabase';
 import { classifyBook, fieldsOf, nonFieldTags, renameOldFields, splitLegacyTags, withFields } from '../lib/bookFields';
 import {
@@ -47,7 +48,15 @@ export function useBookFieldsAuto({
   userId, books, loading, saveBookTaxonomy, skipBookId = null, accountMarks = null, saveAccountMarks = null,
 }) {
   const live = useRef({});
-  live.current = { books, saveBookTaxonomy, skipBookId, accountMarks, saveAccountMarks };
+  // 📶 つながっていない間は分野の自動の保存をしない（失敗を繰り返さない・2026-10-11）。
+  //   その間に飛ばした分は、つながったら 1 回だけやり直す（offlineSkipped → 'online' で onlineTick を進める）。
+  const offlineSkipped = useRef(false);
+  const [onlineTick, setOnlineTick] = useState(0);
+  const guardedSave = useCallback(async (bookId, opts) => {
+    if (!isOnlineNow()) { offlineSkipped.current = true; return { ok: false, foldersOk: false, offline: true }; }
+    return saveBookTaxonomy(bookId, opts);
+  }, [saveBookTaxonomy]);
+  live.current = { books, saveBookTaxonomy: guardedSave, skipBookId, accountMarks, saveAccountMarks };
   // アカウントの印を端末の印へ写す（ほかの端末で選んだ本を、この端末でも自動で変えない）
   useEffect(() => {
     if (!userId || !Array.isArray(accountMarks) || !accountMarks.length || !Array.isArray(books) || !books.length) return;
@@ -95,6 +104,8 @@ export function useBookFieldsAuto({
     q.running = true;
     try {
       while (q.ids.length) {
+        // つながっていなければ、残りは並べたまま止める（つながったら続きから・2026-10-11）。
+        if (!isOnlineNow()) { offlineSkipped.current = true; break; }
         const id = q.ids.shift();
         const book = live.current.books.find((x) => x.id === id);
         if (!book) continue;
@@ -140,6 +151,7 @@ export function useBookFieldsAuto({
   useEffect(() => {
     if (!userId || loading || !Array.isArray(books) || books.length === 0) return undefined;
     if (ranFor.current === userId) return undefined;
+    if (!isOnlineNow()) { offlineSkipped.current = true; return undefined; } // つながったら 1 回だけ（下の 'online'）
     ranFor.current = userId;
     let alive = true;
     (async () => {
@@ -206,7 +218,20 @@ export function useBookFieldsAuto({
       if (cands.length) refineSoon(cands.slice(0, REFINE_PER_LAUNCH));
     })();
     return () => { alive = false; ranFor.current = null; };
-  }, [userId, loading, books.length > 0]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [userId, loading, books.length > 0, onlineTick]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 📶 つながったら、つながっていない間に飛ばした分を 1 回だけやり直す（飛ばしていなければ何もしない）。
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const onOnline = () => {
+      if (!offlineSkipped.current) return;
+      offlineSkipped.current = false;
+      setOnlineTick((t) => t + 1); // 上の手順をもう一度（ranFor は前の回の片付けで外れる）
+      if (queue.current.ids.length) pump();
+    };
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
+  }, [pump]);
 
   // 本の詳細を開いて紹介文・目次が届いたとき: まだ決め直していない自動の分野の本なら、サーバーに聞く（つながらなければ届いた紹介文で）
   const onBookInfo = useCallback(async (book, info) => {

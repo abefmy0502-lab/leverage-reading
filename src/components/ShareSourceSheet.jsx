@@ -47,7 +47,8 @@ export function shareSources({ hasCover = false } = {}) {
 export default function ShareSourceSheet({ hasCover = false, onPick, onClose }) {
   return (
     <BottomSheet title="写真で共有" dismissLabel="キャンセル" onClose={onClose}>
-      <div style={listBox}>
+      {/* data-toast-above: 知らせ（写真を使えなかったときなど）は行の上に浮かべる（行をふさがない・2026-10-11）。 */}
+      <div data-toast-above="" style={listBox}>
         {shareSources({ hasCover }).map(({ key, label, Icon }, i) => (
           <button
             key={key}

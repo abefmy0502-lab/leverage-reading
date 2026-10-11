@@ -52,6 +52,16 @@ export function countSummaryMemos(books, bookIds = null) {
   return list.filter((b) => (!only || only.has(b.id)) && hasSummaryMemo(b)).length;
 }
 
+// メモ（カード式・本につくもの）か「この本のまとめ」がある本の冊数（2026-10-11）。
+//   初日クイックスタートのできあがりの「あなたの N 冊・メモ M 件」＝相談の根拠になる本だけ数える
+//   （本棚の全部の本を数えると、メモの無い本まで「相談相手」に入って見えた）。
+//   memoBookIds: book_memos の book_id（null＝本に付かない学びは数えない）。
+export function countBooksWithMemos(books, memoBookIds = []) {
+  const ids = new Set((memoBookIds || []).filter(Boolean));
+  (Array.isArray(books) ? books : []).forEach((b) => { if (b?.id && hasSummaryMemo(b)) ids.add(b.id); });
+  return ids.size;
+}
+
 // 初日クイックスタートの「よく読まれている本」12 冊に 1 つずつ決めた困りごと（2026-09-29）。
 // できあがりの画面の「たとえば」に、えらんだ本の困りごとを先に出す（AI を使わない＝原価ゼロ）。
 // 本を足し替えるときは PastBooksQuickstart.jsx の POPULAR_BOOKS と一緒に直す。
