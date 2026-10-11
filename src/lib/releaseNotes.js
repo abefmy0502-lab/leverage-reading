@@ -42,7 +42,45 @@ export const WHERE_NAMES = [
   'すべての画面',
 ];
 
-export const RELEASES = [
+const ALL_RELEASES = [
+  {
+    id: '2026-10-11k',
+    date: '2026-10-11',
+    items: [
+      {
+        where: 'トークンを追加',
+        what: '買い足したトークンの期限がなくなりました',
+        before: '買い足した分は、購入から 180 日で使えなくなりました。',
+        after: '期限はありません。使い切るまで、いつでも使えます。',
+        impact: '前に買った分も期限がなくなります。やることはありません。',
+        intent: '買ったトークンを、安心して自分のペースで使えるようにするためです。',
+      },
+      {
+        where: '設定',
+        what: 'Apple でサインインの方も退会しやすく',
+        before: '退会の確認に、メールアドレスを入れる必要がありました。',
+        after: 'Apple でサインインの方とメールを非公開の方は「削除」と入れれば進めます。',
+        impact: 'Apple でサインインの方です。ほかの方は今までどおりメールアドレスです。',
+        intent: '覚えていないメールアドレスで、退会が止まらないようにするためです。',
+      },
+      {
+        where: 'プラン',
+        what: '無料プランで使える AI を並べました',
+        before: '無料プランの欄に、使える AI の名前がありませんでした。',
+        after: '相談・この本で学べること・写真から書き起こしを並べました。',
+        impact: '無料プランの方です。使える量は変わりません。',
+        intent: '無料でどこまで使えるかを、分かりやすくするためです。',
+      },
+      {
+        where: 'すべての画面',
+        what: 'つながらないときの案内をそろえました',
+        before: 'つながらないときの案内が、画面ごとに少しずつ違いました。',
+        after: 'どの画面でも「通信の状態を確かめて」と、同じ言葉で案内します。',
+        impact: 'すべての方です。操作は変わりません。',
+        intent: '何をすればよいかを、同じ言葉で伝えるためです。',
+      },
+    ],
+  },
   {
     id: '2026-10-11j',
     date: '2026-10-11',
@@ -1375,5 +1413,27 @@ export const RELEASES = [
   },
 ];
 
+// 📅 公開前の版を出さない（2026-10-11 リリース前点検）: VITE_RELEASE_NOTES_SINCE='YYYY-MM-DD' より前の版は、
+//   設定の一覧・更新したあとのシート・「何が変わった？」（release-notes.json）のどれにも出さない。
+//   App Store 1.0 のビルドには公開日を入れる（公開前に 27 の版がたまっていて、はじめての人には関係が無いため）。
+//   未設定・読めない値なら今までどおり全部。ビルド（vite.config.js）は process.env から読む。
+export const RELEASE_NOTES_SINCE = (() => {
+  const raw = import.meta.env?.VITE_RELEASE_NOTES_SINCE
+    || (typeof process !== 'undefined' ? process.env?.VITE_RELEASE_NOTES_SINCE : '')
+    || '';
+  const v = String(raw).trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : '';
+})();
+
+// since（'YYYY-MM-DD'）より前の日の版を外す（同じ日の版は残す）。since が空なら全部。
+export function releasesSince(list, since) {
+  const all = Array.isArray(list) ? list : [];
+  if (!since) return all;
+  return all.filter((r) => String(r?.date || r?.id || '').slice(0, 10) >= since);
+}
+
+export const RELEASES = releasesSince(ALL_RELEASES, RELEASE_NOTES_SINCE);
+
 // いまの版（アプリに入っている、いちばん新しい「新しくなったこと」）。
-export const CURRENT_RELEASE_ID = RELEASES[0]?.id || null;
+// 公開前の版を外して何も残らないときも、いちばん新しい版の id（見たことの印に使う）。
+export const CURRENT_RELEASE_ID = ALL_RELEASES[0]?.id || null;

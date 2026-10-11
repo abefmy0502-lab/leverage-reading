@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { RELEASES, CURRENT_RELEASE_ID, WHERE_NAMES } from './releaseNotes';
+import { RELEASES, CURRENT_RELEASE_ID, WHERE_NAMES, releasesSince, RELEASE_NOTES_SINCE } from './releaseNotes';
 import {
   decideWhatsNew, releasesNewerThan, sanitizeReleases, compareReleaseId, releaseHeading, groupReleasesByDay,
 } from './whatsNew';
@@ -172,5 +172,17 @@ describe('sanitizeReleases（サーバーの release-notes.json）', () => {
     // 実際の一覧でも、同じ見出しが 2 つ並ばない
     const heads = groupReleasesByDay(RELEASES).map(releaseHeading);
     expect(new Set(heads).size).toBe(heads.length);
+  });
+});
+
+describe('公開前の版を出さない（VITE_RELEASE_NOTES_SINCE・2026-10-11）', () => {
+  const list = [{ id: '2026-11-20b', date: '2026-11-20' }, { id: '2026-11-20', date: '2026-11-20' }, { id: '2026-11-19', date: '2026-11-19' }];
+  it('その日より前の版を外し、同じ日の版は残す', () => {
+    expect(releasesSince(list, '2026-11-20').map((r) => r.id)).toEqual(['2026-11-20b', '2026-11-20']);
+    expect(releasesSince(list, '2026-12-01')).toEqual([]);
+  });
+  it('未設定なら全部（テストの環境では未設定）', () => {
+    expect(releasesSince(list, '')).toEqual(list);
+    expect(RELEASE_NOTES_SINCE).toBe('');
   });
 });

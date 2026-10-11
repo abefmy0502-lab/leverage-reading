@@ -412,6 +412,8 @@ want(読みたい) → before(積読) → reading(読書中) → done(読了)
 | `VITE_PRICE_MONTHLY_LABEL` | (任意) ペイウォール/設定の月額**表示用**ラベル。未設定なら「月額 ¥1,480（税込）」（`src/lib/billing.js` の既定値）。金額の真実は App Store / Stripe 側 |
 | `VITE_PRICE_ANNUAL_LABEL` | (任意) 年額**表示用**ラベル。未設定なら「年額 ¥12,800（税込・月あたり約¥1,066）」（`src/lib/billing.js` の既定値）。金額の真実は App Store / Stripe 側 |
 | `VITE_PRICE_ANNUAL_NOTE` | (任意) 年額の補足一言（例「まとめてお得」）。誇大表現は避ける |
+| `VITE_NATIVE_PUSH` | (任意) 🔔 `on` のビルドだけ、iPhone のアプリに通知のスイッチ（設定の「通知」）と通知の案内を出す（`src/lib/nativePush.js` の `NATIVE_PUSH_ON`・2026-10-11 リリース前点検）。APNs の鍵（`APNS_*`）・Xcode の Push Notifications の capability・`@capacitor/push-notifications`・`supabase_push_native.sql` がそろってから入れる。**既定（未設定）は iPhone では隠す**（届かないスイッチを審査官に見せない）。Web は今どおり（`VITE_VAPID_PUBLIC_KEY` で決まる）。ビルド時に焼き込むので、変えたら iOS は出し直し |
+| `VITE_RELEASE_NOTES_SINCE` | (任意) 🆕 `YYYY-MM-DD`。この日より前の「新しくなったこと」の版を、設定の一覧・更新したあとのシート・「何が変わった？」（`/release-notes.json`）に出さない（`src/lib/releaseNotes.js` の `releasesSince`・同じ日の版は残る・2026-10-11）。**App Store 1.0 のビルドには公開日を入れる**（公開前にたまった版をはじめての人に見せない・`company/app-store-submission.md` §4）。未設定・形の違う値なら全部出す。Vercel の Web にも同じ値を入れる（release-notes.json はビルド時に書き出す） |
 | `VITE_APP_STORE_URL` | (任意) App Store の実 URL。LP / Paywall / 設定 / Web 利用ゲートの「App Store で入手」導線が参照（`src/lib/appStore.js` に一元化・未設定時は「近日公開」表示。LP だけは未設定の間、押せないボタンの代わりに「公開の日にメールで知らせる」＝`api/lp-waitlist.js`・2026-10-05。App Store の予約注文のページの URL を入れてもそのまま動く）。公開後に実 URL へ差替。実 URL が入ると LP の PC 向け QR コードと、iPhone Safari の Smart App Banner（`vite.config.js` の `smartAppBanner` が URL の id から `apple-itunes-app` を index.html に入れる）も出る。**実 URL が入ると ⭐️ レビュー依頼（`src/lib/reviewRequest.js`・相談の答えから行動を追加した直後に一度だけ＝2026-10-08 に思い出しカードの「覚えた」の直後から移した）も自動有効化**。iOS は Apple の仕組み（プラグイン `InAppReview` の `requestReview`＝SKStoreReviewController・審査 5.6.1）だけを呼び、プラグインが無いビルドでは何も出さない（要 Mac で `npm i @capacitor-community/in-app-review && npx cap sync ios`）。Web はトースト |
 | `VITE_LAUNCH_LABEL` | (任意) LP の公開予定の書き方（既定「2026 年 11 月」）。App Store の URL（`VITE_APP_STORE_URL`）が無い間だけ、入口の上と FAQ「いつから使えますか？」に出る（`src/pages/lpCopy.js`） |
 | `VITE_APP_STORE_BADGE` | (任意) Apple 公式の「App Store からダウンロード」バッジの置き場所（例 `/lp/app-store-badge-ja.svg`）。Apple のマーケティングのページから日本語版をそのまま `public/lp/` に置いて設定すると、公開後の LP のヒーローと最後のボタンの横に出る（高さ 40・色や形を変えない）。未設定なら出さない |
@@ -442,9 +444,9 @@ want(読みたい) → before(積読) → reading(読書中) → done(読了)
 | `VITE_SITE_URL` | (任意・推奨) 🏷 本番サイトの URL（本番は `https://orime.vercel.app`（2026-09-26 決定・無料）。将来独自ドメインに移るときはここを差し替える・末尾スラッシュなし）。アプリ内の利用規約・プライバシーポリシーのリンク（`src/lib/legalLinks.js`・ネイティブは Safari で開く絶対 URL）と、`index.html` の共有用 URL（og:url / og:image。`vite.config.js` の `siteUrlInHtml` がビルド時に差し替え）に使う。未設定なら `https://orime.vercel.app`（2026-09-26 に Vercel で取得済み・旧 `leverage-reading.vercel.app` も同じ本番に向いたまま）。独自ドメインに移るときに設定する（あわせて Supabase Auth の Redirect URLs・`RAKUTEN_APP_URL`・`APP_ORIGIN` も新ドメインに） |
 | `VITE_SUPPORT_EMAIL` | (任意・推奨) 🏷 問い合わせ先メール（`src/lib/contact.js`。設定・エラー画面・特商法などに表示）。未設定なら `orime.support@gmail.com`（2026-09-26 に用意）。独自ドメインのメールに移るときに設定する |
 | `VITE_AMAZON_TAG` | (任意・推奨) 🏷 Amazon アソシエイトのトラッキング ID（`src/lib/amazonLink.js`・Amazon のリンクの URL に出る）。アソシエイト・セントラル →「トラッキング ID の管理」で Orime 名の ID を追加して設定。未設定なら旧 ID |
+| `LP_IP_SALT` | (任意) LP の公開のお知らせの登録で、1 日の回数を数えるときの IP のハッシュの鍵（`api/_clientIp.js` の `ipHash`）。無ければ `SUPABASE_SERVICE_ROLE_KEY` を鍵に使う。サーバー専用 |
 | `ALLOW_COVER_DEBUG` | (任意) `'true'` で `api/cover.js` の `?debug=1` 診断出力を本番でも許可。既定は無効（内部情報の露出防止）。通常は未設定のまま。**表紙の取得元の状態は、これを入れなくても `/api/cover?health=1` で見られる**（下の「運用 — 表紙が取れないとき」） |
 
-| `LP_IP_SALT` | (任意) LP の公開のお知らせの登録で、1 日の回数を数えるときの IP のハッシュの鍵（`api/_clientIp.js` の `ipHash`）。無ければ `SUPABASE_SERVICE_ROLE_KEY` を鍵に使う。サーバー専用 |
 ## デプロイフロー
 
 1. ローカルで変更
