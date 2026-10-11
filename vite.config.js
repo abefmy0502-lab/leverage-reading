@@ -133,6 +133,20 @@ function releaseNotesJson() {
   };
 }
 
+// 🖼 LP のイラスト（public/lp/<名前>-<light|dark>-<390|780|1560>.webp）のうち、3 つの幅がそろっているものの一覧を
+// ビルドのときに焼き込む（2026-10-11・開いた画面で画像を探しに行かない＝無い絵の 404 を出さない）。
+// 値は '<名前>-<light|dark>' の配列（例 'hero-illust-light'）。絵を置いたら公開し直せば替わる（src/pages/LpArt.jsx）。
+function lpArtList() {
+  const dir = path.resolve('public/lp');
+  if (!fs.existsSync(dir)) return [];
+  const keys = new Set();
+  for (const f of fs.readdirSync(dir)) {
+    const m = f.match(/^(.+-(?:light|dark))-780\.webp$/);
+    if (m && [390, 1560].every((w) => fs.existsSync(path.join(dir, `${m[1]}-${w}.webp`)))) keys.add(m[1]);
+  }
+  return [...keys].sort();
+}
+
 export default defineConfig({
   plugins: [react(), stampServiceWorkerVersion(), siteUrlInHtml(), smartAppBanner(), releaseNotesJson(), cspMeta()],
   resolve: {
@@ -147,6 +161,7 @@ export default defineConfig({
     __BUILD_DATE__: JSON.stringify(BUILD_DATE),
     // 🆕 いまの版の id だけを焼き込む（新しくなったことの本体＝releaseNotes.js は必要なときに読む・2026-10-11）。
     __CURRENT_RELEASE_ID__: JSON.stringify(RELEASES[0]?.id || ''),
+    __LP_ART__: JSON.stringify(lpArtList()),
   },
   build: {
     // 本番は .map を作らない（2026-10-11 リリース前点検 中2）。dist は Vercel の公開と iOS（cap sync）の

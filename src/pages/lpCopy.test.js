@@ -208,3 +208,16 @@ describe('節のイラストの受け皿（LpArt・2026-10-11）', () => {
     expect(landing).toMatch(/<LpFlow onEvent=\{lpTrack\} \/>/);
   });
 });
+
+describe('イラストがあるかは、ビルドのときに決める（2026-10-11・無い絵の 404 を出さない）', () => {
+  it('LpArt・LpIllust は開いた画面で画像を探しに行かない', () => {
+    ['./LpArt.jsx', './LpIllust.jsx'].forEach((f) => {
+      const src = readFileSync(new URL(f, import.meta.url), 'utf8');
+      expect(src, f).not.toMatch(/new Image\(/);
+    });
+  });
+  it('vite.config.js が public/lp の一覧を __LP_ART__ に焼き込む', () => {
+    const cfg = readFileSync(new URL('../../vite.config.js', import.meta.url), 'utf8');
+    expect(cfg).toContain('__LP_ART__: JSON.stringify(lpArtList())');
+  });
+});

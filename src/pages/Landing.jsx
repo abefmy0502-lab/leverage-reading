@@ -46,7 +46,7 @@ import Shot from './LpShot';
 import LpFlow from './LpFlow';
 import LpWaitlist from './LpWaitlist';
 import LpIllust from './LpIllust';
-import LpArt, { useArt } from './LpArt';
+import LpArt, { hasArt } from './LpArt';
 import Phrases from './LpPhrases';
 import { buildLpCopy, storeHrefOf, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, NO_INFO_REFUNDS, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE } from './lpCopy';
 import qrcode from 'qrcode-generator';
@@ -264,7 +264,7 @@ export default function Landing() {
   // （'3d' は ?hero=3d のときだけ・lib/lpTrack.js の lpVariant）。イラストのときは注記を画面のある「読んで、終わりにしない。」の節に任せる。
   const [heroVariant] = useState(() => lpVariant());
   // 写真で共有の柱がイラストに替わったら、「共有の画像は見本の写真で…」の注記は出さない。
-  const shareArt = useArt('illust-share');
+  const shareArt = hasArt('illust-share');
   const heroStageRef = useRef(null);
   const heroImgRef = useRef(null);
   // 3D に振り分けた・3D を出せる端末では、最初から 3D の余白を取っておく（あとから余白が足されて見出しが跳ねない・CLS）。
