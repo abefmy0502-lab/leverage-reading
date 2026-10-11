@@ -15,7 +15,7 @@ import { withPhraseBreaks } from './TightBubble';
 import { SkeletonBlock } from './Skeleton';
 import { useToast } from './Toast';
 import { useAuth } from '../hooks/useAuth';
-import { TOKEN_PACKS, TOKEN_LOT_DAYS, PAID_TOKENS, monthDayLabelJa } from '../lib/tokens';
+import { TOKEN_PACKS, PAID_TOKENS, monthDayLabelJa } from '../lib/tokens';
 import { isNative, getTokenPackPrices, purchaseTokenPack } from '../lib/iap';
 import { isDemo, supabase } from '../lib/supabase';
 import { toMessage } from '../lib/errors';
@@ -122,8 +122,7 @@ export default function TokenSheet({ plan, onClose, onPurchased }) {
         await supabase.from('ai_token_lots').insert({
           tokens_total: pack.tokens, tokens_left: pack.tokens, source: 'iap',
           transaction_id: `demo-${now}`, product_id: pack.id, environment: 'sandbox',
-          purchased_at: new Date(now).toISOString(),
-          expires_at: new Date(now + TOKEN_LOT_DAYS * 86400000).toISOString(),
+          purchased_at: new Date(now).toISOString(), expires_at: null, // 期限なし（2026-10-11）
         });
       }
       // webhook が足すまで少し待つことがある。数回取り直して、増えたら知らせる。
@@ -228,9 +227,10 @@ export default function TokenSheet({ plan, onClose, onPurchased }) {
       </div>
       {/* 文節の切れ目でだけ折り返す（「使えま／す」と語の途中で切らない・2026-10-04）。 */}
       <p style={{ ...meta, margin: 'var(--space-3) 0 0', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+        {/* 追加分に期限は無い（App Store 審査ガイドライン 3.1.1・2026-10-11 オーナー裁定）。 */}
         {withPhraseBreaks(`${isTrial
-          ? `購入から ${TOKEN_LOT_DAYS} 日有効。無料期間のトークンを使い切ったあとに使われます。プランをやめても、期限まで相談に使えます。`
-          : `購入から ${TOKEN_LOT_DAYS} 日有効。その月のトークンを使い切ってから使われます。プランをやめても、期限まで相談に使えます。`}お支払いは App Store を通じて行われます。購入後の払い戻しはできません。`)}
+          ? '無料期間のトークンを使い切ってから使われます。'
+          : 'その月のトークンを使い切ってから使われます。'}プランをやめても相談に使えます。お支払いは App Store を通じて行われます。払い戻しは App Store の決まりに従います。`)}
       </p>
     </BottomSheet>
   );

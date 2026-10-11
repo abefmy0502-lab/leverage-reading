@@ -2,13 +2,16 @@
 //
 // - 買えるのはプランの人（有料・7 日間無料）だけ。App Store の消耗型（consumable）の App 内課金を
 //   RevenueCat で売る（iOS だけ）。商品と量はここ（サーバー）と src/lib/tokens.js（画面）の 2 か所。
-// - 使う順: その月（無料期間はその期間）のトークン → 追加分。追加分は期限の近いものから（FIFO）。
-// - 期限: 購入から 180 日（資金決済法: 有効期限 6 か月以内の前払いは前払式支払手段の義務の対象外）。
+// - 使う順: その月（無料期間はその期間）のトークン → 追加分。追加分は買った順（古いものから・FIFO）。
+// - 期限: なし（2026-10-11 オーナー裁定・App Store 審査ガイドライン 3.1.1「App 内課金で買ったクレジットは
+//   期限切れにしてはいけない」）。expires_at は見ない（SQL がいつも null にする）。資金決済法の扱いは
+//   docs/iap-setup-runbook.md の「追加トークンと資金決済法」。
 // - データ: supabase_ai_token_credits.sql（ai_token_lots・credit_token_lot・consume_token_lots・
 //   settle_token_overflow・ai_usage.lot_tokens）。未適用なら、追加分は無いものとして今までどおり動く。
-// - 追加分はプランをやめても期限までは相談に使える（無料プランは相談だけ）。
+// - 追加分はプランをやめても相談に使える（無料プランは相談だけ）。
 
-export const TOKEN_LOT_DAYS = 180; // 法令の上限（6 か月）を超えない。SQL 側でも同じ日数
+// サンドボックスの上限を数える期間（日）。期限は無いので、直近この日数に買った分だけを数える。
+export const SANDBOX_WINDOW_DAYS = 180;
 
 // 商品（product id → トークン）。env AI_TOKEN_PACKS='orime_tokens_300:300,orime_tokens_1000:1000' で上書き。
 export const DEFAULT_TOKEN_PACKS = [
@@ -34,29 +37,28 @@ const ts = (v) => {
   return Number.isFinite(t) ? t : NaN;
 };
 
-// 使える（残りがあって期限内の）ロットを、期限の近い順に。
-export function activeLots(lots, now = Date.now()) {
+// 使える（残りのある）ロットを、買った順に（期限なし・expires_at は見ない）。
+const tsOr = (v, d) => { const t = ts(v); return Number.isFinite(t) ? t : d; };
+export function activeLots(lots) {
   return (Array.isArray(lots) ? lots : [])
-    .filter((l) => l && Number(l.tokens_left) > 0 && ts(l.expires_at) > now)
-    .sort((a, b) => (ts(a.expires_at) - ts(b.expires_at))
-      || (ts(a.purchased_at) - ts(b.purchased_at))
+    .filter((l) => l && Number(l.tokens_left) > 0)
+    .sort((a, b) => (tsOr(a.purchased_at, 0) - tsOr(b.purchased_at, 0))
       || String(a.id).localeCompare(String(b.id)));
 }
 
-// 追加分の残り（期限内の合計）と、いちばん近い期限。
-export function lotBalance(lots, now = Date.now()) {
-  const act = activeLots(lots, now);
+// 追加分の残り（合計）。
+export function lotBalance(lots) {
+  const act = activeLots(lots);
   return {
     balance: act.reduce((n, l) => n + Math.floor(Number(l.tokens_left) || 0), 0),
-    nextExpiry: act.length ? act[0].expires_at : null,
   };
 }
 
-// FIFO（期限の近い順）で tokens を差し引く計画（consume_token_lots と同じ順）。負にしない。
-export function planLotConsumption(lots, tokens, now = Date.now()) {
+// FIFO（買った順）で tokens を差し引く計画（consume_token_lots と同じ順）。負にしない。
+export function planLotConsumption(lots, tokens) {
   let need = Math.max(0, Math.floor(Number(tokens) || 0));
   const takes = [];
-  for (const l of activeLots(lots, now)) {
+  for (const l of activeLots(lots)) {
     if (need <= 0) break;
     const take = Math.min(Math.floor(Number(l.tokens_left)), need);
     if (take > 0) { takes.push({ id: l.id, take }); need -= take; }
@@ -133,16 +135,18 @@ export function tokenCreditFromEvent(event, { env = process.env, isUserId = () =
 }
 
 // 🧪 サンドボックス（TestFlight・App 審査）の追加分の上限（2026-10-10 監査・オーナー裁定「記録は続ける」）。
-//   サンドボックスの購入はお金が動かないので、だれでも何度でも買える。1 人の期限内のサンドボックスの分の合計
-//   （買った量＝tokens_total・使った分も数える）を SANDBOX_TOKEN_CAP（env RC_SANDBOX_TOKEN_CAP）までにする。
+//   サンドボックスの購入はお金が動かないので、だれでも何度でも買える。1 人の直近 SANDBOX_WINDOW_DAYS 日に買った
+//   サンドボックスの分の合計（買った量＝tokens_total・使った分も数える）を SANDBOX_TOKEN_CAP（env RC_SANDBOX_TOKEN_CAP）までにする。
 export const SANDBOX_TOKEN_CAP = 2000;
 export function sandboxTokenCap(env = process.env) {
   const n = Math.floor(Number(env?.RC_SANDBOX_TOKEN_CAP));
   return Number.isFinite(n) && n >= 0 && String(env?.RC_SANDBOX_TOKEN_CAP ?? '').trim() !== '' ? n : SANDBOX_TOKEN_CAP;
 }
-//   lots: その人のサンドボックスのロット（tokens_total・expires_at）。足してよければ true。
+//   lots: その人のサンドボックスのロット（tokens_total・purchased_at）。足してよければ true。
+//   買った日が読めないロットは数える（安全側）。
 export function sandboxCreditAllowed(lots, tokens, { now = Date.now(), cap = SANDBOX_TOKEN_CAP } = {}) {
-  const live = (Array.isArray(lots) ? lots : []).filter((l) => l && ts(l.expires_at) > now);
+  const since = now - SANDBOX_WINDOW_DAYS * 86400000;
+  const live = (Array.isArray(lots) ? lots : []).filter((l) => l && tsOr(l.purchased_at, Infinity) > since);
   const total = live.reduce((n, l) => n + Math.max(0, Math.floor(Number(l.tokens_total) || 0)), 0);
   return total + Math.max(0, Math.floor(Number(tokens) || 0)) <= cap;
 }

@@ -1,10 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import {
-  TOKEN_LOT_DAYS, tokenPacks, packForProduct, activeLots, lotBalance, planLotConsumption,
+  SANDBOX_WINDOW_DAYS, sandboxCreditAllowed, tokenPacks, packForProduct, activeLots, lotBalance, planLotConsumption,
   effectiveAllowance, overflowToCharge, tokenCreditFromEvent, isTokenPackEvent,
   shouldSettleOverflow, resolveEventUserId, isTokenPackProductEvent, tokenRefundFromEvent,
 } from './_tokenLots.js';
-import { TOKEN_PACKS, TOKEN_LOT_DAYS as CLIENT_DAYS } from '../src/lib/tokens.js';
+import { TOKEN_PACKS } from '../src/lib/tokens.js';
+import * as clientTokens from '../src/lib/tokens.js';
 
 const NOW = Date.parse('2026-09-27T00:00:00Z');
 const day = (n) => new Date(NOW + n * 86400000).toISOString();
@@ -21,35 +22,44 @@ describe('商品（packs）', () => {
     expect(packForProduct('orime_tokens_1000', {}).tokens).toBe(1000);
     expect(packForProduct('orime_monthly', {})).toBe(null);
   });
-  it('期限は 180 日（資金決済法の 6 か月以内）', () => {
-    expect(TOKEN_LOT_DAYS).toBe(180);
-    expect(CLIENT_DAYS).toBe(180);
+  it('追加分に期限は無い（App Store 3.1.1・2026-10-11）＝画面に期限の日数を持たない', () => {
+    expect(clientTokens.TOKEN_LOT_DAYS).toBeUndefined();
   });
 });
 
-describe('ロット（期限と FIFO）', () => {
+describe('ロット（期限なし・買った順の FIFO）', () => {
   const lots = [
-    { id: 'c', tokens_left: 300, expires_at: day(170), purchased_at: day(-10) },
-    { id: 'a', tokens_left: 50, expires_at: day(20), purchased_at: day(-160) },
-    { id: 'x', tokens_left: 999, expires_at: day(-1), purchased_at: day(-181) }, // 期限切れ
-    { id: 'z', tokens_left: 0, expires_at: day(90), purchased_at: day(-90) }, // 使い切り
-    { id: 'b', tokens_left: 100, expires_at: day(60), purchased_at: day(-120) },
+    { id: 'c', tokens_left: 300, expires_at: null, purchased_at: day(-10) },
+    { id: 'a', tokens_left: 50, expires_at: null, purchased_at: day(-160) },
+    { id: 'z', tokens_left: 0, expires_at: null, purchased_at: day(-90) }, // 使い切り
+    { id: 'b', tokens_left: 100, expires_at: null, purchased_at: day(-120) },
   ];
-  it('期限切れ・使い切りを除き、期限の近い順', () => {
-    expect(activeLots(lots, NOW).map((l) => l.id)).toEqual(['a', 'b', 'c']);
+  it('使い切りだけを除き、買った順（古いものから）', () => {
+    expect(activeLots(lots).map((l) => l.id)).toEqual(['a', 'b', 'c']);
   });
-  it('残りといちばん近い期限', () => {
-    expect(lotBalance(lots, NOW)).toEqual({ balance: 450, nextExpiry: day(20) });
-    expect(lotBalance([], NOW)).toEqual({ balance: 0, nextExpiry: null });
+  it('前の版の期限（過ぎていても）は見ない', () => {
+    const old = [{ id: 'x', tokens_left: 999, expires_at: day(-1), purchased_at: day(-200) }];
+    expect(lotBalance(old)).toEqual({ balance: 999 });
   });
-  it('期限の近いロットから差し引く', () => {
-    expect(planLotConsumption(lots, 120, NOW)).toEqual({ takes: [{ id: 'a', take: 50 }, { id: 'b', take: 70 }], consumed: 120, short: 0 });
+  it('残りの合計', () => {
+    expect(lotBalance(lots)).toEqual({ balance: 450 });
+    expect(lotBalance([])).toEqual({ balance: 0 });
+  });
+  it('古いロットから差し引く', () => {
+    expect(planLotConsumption(lots, 120)).toEqual({ takes: [{ id: 'a', take: 50 }, { id: 'b', take: 70 }], consumed: 120, short: 0 });
   });
   it('足りないときは差し引けた分だけ（負にしない）', () => {
-    expect(planLotConsumption(lots, 1000, NOW)).toEqual({
+    expect(planLotConsumption(lots, 1000)).toEqual({
       takes: [{ id: 'a', take: 50 }, { id: 'b', take: 100 }, { id: 'c', take: 300 }], consumed: 450, short: 550,
     });
-    expect(planLotConsumption(lots, -5, NOW).consumed).toBe(0);
+    expect(planLotConsumption(lots, -5).consumed).toBe(0);
+  });
+  it('サンドボックスの上限は直近 180 日に買った分だけを数える', () => {
+    expect(SANDBOX_WINDOW_DAYS).toBe(180);
+    expect(sandboxCreditAllowed([{ tokens_total: 2000, purchased_at: day(-181) }], 1000, { now: NOW })).toBe(true);
+    expect(sandboxCreditAllowed([{ tokens_total: 1000, purchased_at: day(-10) }], 1000, { now: NOW })).toBe(true);
+    expect(sandboxCreditAllowed([{ tokens_total: 1001, purchased_at: day(-10) }], 1000, { now: NOW })).toBe(false);
+    expect(sandboxCreditAllowed([{ tokens_total: 1001 }], 1000, { now: NOW })).toBe(false); // 買った日が読めない＝数える
   });
 });
 

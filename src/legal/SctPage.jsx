@@ -21,7 +21,7 @@ export default function SctPage() {
       title="特定商取引法に基づく表記"
       description="Orime の特定商取引法に基づく表記。販売事業者・販売価格・初回特典・追加トークン・支払方法・解約条件など。"
     >
-      <p className="effective-date">最終更新日:2026年10月4日</p>
+      <p className="effective-date">最終更新日:2026年10月11日</p>
 
       <table className="sct-table">
         <tbody>
@@ -101,7 +101,7 @@ export default function SctPage() {
             <th>商品の引渡時期</th>
             <td>
               有料プラン:お申し込み(決済完了。7日間無料のときはお申し込み)後、すぐにご利用いただけます。<br />
-              追加トークン:購入後すぐに使えます。購入から 180 日間有効で、期限を過ぎた分は消滅します。
+              追加トークン:購入後すぐに使えます。有効期限はありません。
             </td>
           </tr>
           <tr>
@@ -117,7 +117,7 @@ export default function SctPage() {
               <br />
               【返金】<br />
               お支払いは Apple App Store を通じて行われるため、返金は Apple App Store の返金ポリシーおよび手続に従います(Apple のサポート窓口へご請求ください)。<br />
-              追加トークンは、使わなかった分・期限を過ぎた分の払い戻しはできません。<br />
+              追加トークンの払い戻しは、Apple App Store の返金ポリシーおよび手続に従います。<br />
               当方の責に帰すべき事由による場合、または消費者契約法その他の強行法規により返金が必要な場合は、この限りではありません。
             </td>
           </tr>

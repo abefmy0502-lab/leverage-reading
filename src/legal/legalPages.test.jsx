@@ -25,7 +25,8 @@ describe('利用規約', () => {
     expect(t).toContain(`${founding}円`);
     expect(t).toContain('年額12,800円(税込)で自動更新');
     expect(t).toContain('翌月に繰り越しません');
-    expect(t).toContain('購入から180日間');
+    expect(t).toContain('追加トークンに有効期限はなく');
+    expect(t).not.toContain('180日');
     expect(t).toContain('1か月以上前に本サービス内でお知らせ');
   });
   it('無い「各号」を参照しない・宣伝やサブライセンスでコンテンツを使わない', () => {
@@ -39,7 +40,7 @@ describe('利用規約', () => {
     expect(t).toContain('上限');
   });
   it('最終更新日', () => {
-    expect(t).toContain('最終更新日:2026年10月4日');
+    expect(t).toContain('最終更新日:2026年10月11日');
   });
 });
 
@@ -52,10 +53,11 @@ describe('特定商取引法に基づく表記', () => {
     expect(t).toContain('年額12,800円(税込)で自動更新');
     expect(t).toContain('300トークン300円(税込)');
     expect(t).toContain('1,000トークン800円(税込)');
-    expect(t).toContain('180日間有効');
-    expect(t).toContain('払い戻しはできません');
+    expect(t).toContain('有効期限はありません');
+    expect(t).not.toContain('180');
+    expect(t).toContain('追加トークンの払い戻しは、AppleAppStoreの返金ポリシー');
     expect(t).toContain('サブスクリプション');
-    expect(t).toContain('最終更新日:2026年10月4日');
+    expect(t).toContain('最終更新日:2026年10月11日');
   });
 });
 

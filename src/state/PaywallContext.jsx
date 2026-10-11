@@ -2,7 +2,7 @@
 // 値を出すのは App.jsx の PaywallGate。
 //   plan: 'free'（無料プラン＝ずっと無料・AI は相談だけ）| 'trial'（プランの 7 日間無料）| 'paid' | 'admin'
 //   tokensRemaining / tokenAllowance: 今月（無料期間はまるごと）の残り・量（src/lib/tokens.js。null＝不明）
-//   purchasedTokens: 追加トークン（買い足し・購入から 180 日）の残り。使う順は その月の分 → 追加分
+//   purchasedTokens: 追加トークン（買い足し・期限なし）の残り。使う順は その月の分 → 追加分
 import { createContext, useContext } from 'react';
 
 const noop = () => {};
@@ -14,8 +14,7 @@ export const PaywallContext = createContext({
   freeFirstMonth: false, // 🌱 無料プランのはじめの月（アカウントを作った月・今月は 60 トークン）
   tokenNextAllowance: null, // 来月 1 日に戻る量（はじめの月の人も来月は毎月の量）
   tokensRemaining: null,
-  purchasedTokens: 0, // 追加トークン（買い足し）の残り（期限内）
-  purchasedExpiresAt: null, // 追加分のいちばん近い期限
+  purchasedTokens: 0, // 追加トークン（買い足し）の残り
   tokensAvailable: null, // その月の残り＋追加分
   canBuyTokens: false, // 買い足せるのはプランの人（有料・7 日間無料）だけ
   hadPlan: false, // 前にプランを契約していた無料プランの人（無料期間はもう使えない）

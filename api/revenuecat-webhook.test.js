@@ -127,28 +127,28 @@ describe('順番の入れ替わり（2026-10-10 監査）', () => {
 });
 
 describe('サンドボックスの追加トークン（2026-10-10 監査）', () => {
-  const future = new Date(Date.now() + 30 * 86400 * 1000).toISOString();
+  const recent = new Date(Date.now() - 30 * 86400 * 1000).toISOString();
   it('記録は続ける（上限まで）', async () => {
-    lotRows = [{ tokens_total: 1000, expires_at: future, transaction_id: 'a' }];
+    lotRows = [{ tokens_total: 1000, purchased_at: recent, transaction_id: 'a' }];
     const res = mockRes();
     await handler(post({ id: 'sb1', type: 'NON_RENEWING_PURCHASE', environment: 'SANDBOX', product_id: 'orime_tokens_1000', app_user_id: UID, transaction_id: 'sbtx1', purchased_at_ms: Date.now() }), res);
     expect(res.body.credited).toBe(1000);
     expect(ops.find((o) => o.rpc === 'credit_token_lot').args.p_environment).toBe('sandbox');
   });
-  it('1 人の期限内の合計が 2000 を超えるなら足さない', async () => {
-    lotRows = [{ tokens_total: 1000, expires_at: future, transaction_id: 'a' }, { tokens_total: 1000, expires_at: future, transaction_id: 'b' }];
+  it('1 人の直近 180 日の合計が 2000 を超えるなら足さない', async () => {
+    lotRows = [{ tokens_total: 1000, purchased_at: recent, transaction_id: 'a' }, { tokens_total: 1000, purchased_at: recent, transaction_id: 'b' }];
     const res = mockRes();
     await handler(post({ id: 'sb2', type: 'NON_RENEWING_PURCHASE', environment: 'SANDBOX', product_id: 'orime_tokens_300', app_user_id: UID, transaction_id: 'sbtx2', purchased_at_ms: Date.now() }), res);
     expect(res.body.skipped).toBe('sandbox_cap');
     expect(ops.some((o) => o.rpc === 'credit_token_lot')).toBe(false);
   });
-  it('本番の購入は上限なし・期限切れのサンドボックスの分は数えない', async () => {
+  it('本番の購入は上限なし・181 日より前のサンドボックスの分は数えない', async () => {
     const { sandboxCreditAllowed } = await import('./_tokenLots.js');
-    const past = new Date(Date.now() - 1000).toISOString();
-    expect(sandboxCreditAllowed([{ tokens_total: 2000, expires_at: past }], 1000)).toBe(true);
-    expect(sandboxCreditAllowed([{ tokens_total: 1000, expires_at: future }], 1000)).toBe(true);
-    expect(sandboxCreditAllowed([{ tokens_total: 1001, expires_at: future }], 1000)).toBe(false);
-    lotRows = [{ tokens_total: 5000, expires_at: future, transaction_id: 'x' }];
+    const old = new Date(Date.now() - 181 * 86400 * 1000).toISOString();
+    expect(sandboxCreditAllowed([{ tokens_total: 2000, purchased_at: old }], 1000)).toBe(true);
+    expect(sandboxCreditAllowed([{ tokens_total: 1000, purchased_at: recent }], 1000)).toBe(true);
+    expect(sandboxCreditAllowed([{ tokens_total: 1001, purchased_at: recent }], 1000)).toBe(false);
+    lotRows = [{ tokens_total: 5000, purchased_at: recent, transaction_id: 'x' }];
     const res = mockRes();
     await handler(post({ id: 'pr1', type: 'NON_RENEWING_PURCHASE', product_id: 'orime_tokens_300', app_user_id: UID, transaction_id: 'prtx', purchased_at_ms: Date.now() }), res);
     expect(res.body.credited).toBe(300);

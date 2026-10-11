@@ -216,11 +216,11 @@ export default async function handler(req, res) {
         if (!dedupErr) eventClaimed = true;
       }
       const c = r.credit;
-      // 🧪 サンドボックスの分は 1 人の期限内の合計を上限まで（お金が動かないので何度でも買える・2026-10-10 監査）。
+      // 🧪 サンドボックスの分は 1 人の直近 180 日に買った合計を上限まで（お金が動かないので何度でも買える・2026-10-10 監査）。
       if (c.environment === 'sandbox') {
         const { data: sbLots, error: sbErr } = await supabase
           .from('ai_token_lots')
-          .select('tokens_total, expires_at, transaction_id')
+          .select('tokens_total, purchased_at, transaction_id')
           .eq('user_id', c.userId)
           .eq('environment', 'sandbox');
         if (sbErr) throw sbErr; // 5xx → 再送（claim は catch で解放）

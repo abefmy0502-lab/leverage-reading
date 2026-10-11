@@ -1906,16 +1906,19 @@ grant execute on function public.adjust_ai_cost(uuid, text, bigint) to service_r
 --       商品: orime_tokens_300（300 トークン・¥300）/ orime_tokens_1000（1,000 トークン・¥800）。
 --
 -- 決まり:
---   - 使う順は「その月（無料期間はその期間）のトークン → 追加分」。追加分は期限の近いものから（FIFO）。
---   - 期限は購入から 180 日（資金決済法: 有効期限 6 か月以内の前払いは前払式支払手段の義務の対象外）。
---   - 追加分はプランをやめても期限までは相談に使える（無料プランは相談だけ）。
+--   - 使う順は「その月（無料期間はその期間）のトークン → 追加分」。追加分は買った順（古いものから・FIFO）。
+--   - 2026-10-11 オーナー裁定: 追加分に期限は無い（App Store 審査ガイドライン 3.1.1「App 内課金で買った
+--     クレジットは期限切れにしてはいけない」）。expires_at は null（列は前の版との互換のために残す）。
+--     前の版（購入から 180 日）で入った行も、この SQL を流すと期限が null になる（過ぎていた分も使える）。
+--     資金決済法の扱いは docs/iap-setup-runbook.md の「追加トークンと資金決済法」。
+--   - 追加分はプランをやめても相談に使える（無料プランは相談だけ）。
 --
 -- 仕組み:
 --   - ai_token_lots: 買ったまとまり（ロット）ごとに 1 行。transaction_id UNIQUE で二重に足さない。
 --     本人は SELECT だけできる（残りと期限の表示）。書くのは service_role（webhook・api/claude.js）だけ。
 --   - ai_usage.lot_tokens: その期間（行）で、もう追加分から払ったトークン。
 --   - credit_token_lot: webhook（api/revenuecat-webhook.js）が購入を記録する（同じ取引は 0 を返す）。
---   - consume_token_lots: 期限内のロットから期限の近い順に差し引き、差し引けた量を返す（負にしない）。
+--   - consume_token_lots: 残りのあるロットから買った順（古いもの）に差し引き、差し引けた量を返す（負にしない）。
 --   - settle_token_overflow: 精算のあとに api/claude.js が呼ぶ。その期間に使ったトークン（切り上げ）が
 --     その月の分を超えた分のうち、まだ払っていない分を追加分から差し引く（行をロックして 1 回ずつ）。
 --     足りない分（「最後の 1 回」のはみ出し）は、あとで買った分から取らない（払ったことにして進める）。
@@ -1934,10 +1937,9 @@ create table if not exists public.ai_token_lots (
   product_id text not null,
   environment text not null default 'production' check (environment in ('production', 'sandbox')),
   purchased_at timestamptz not null default now(),
-  expires_at timestamptz not null,
+  expires_at timestamptz, -- 2026-10-11 から使わない（いつも null＝期限なし）
   created_at timestamptz not null default now(),
-  constraint ai_token_lots_left_le_total check (tokens_left <= tokens_total),
-  constraint ai_token_lots_expiry_le_180d check (expires_at <= purchased_at + interval '180 days')
+  constraint ai_token_lots_left_le_total check (tokens_left <= tokens_total)
 );
 -- （まとめが自動で足した: 前からある表に足りない列を足す）
 ALTER TABLE public.ai_token_lots ADD COLUMN IF NOT EXISTS id uuid default gen_random_uuid();
@@ -1952,8 +1954,14 @@ ALTER TABLE public.ai_token_lots ADD COLUMN IF NOT EXISTS purchased_at timestamp
 ALTER TABLE public.ai_token_lots ADD COLUMN IF NOT EXISTS expires_at timestamptz;
 ALTER TABLE public.ai_token_lots ADD COLUMN IF NOT EXISTS created_at timestamptz not null default now();
 
-create index if not exists ai_token_lots_user_active_idx
-  on public.ai_token_lots (user_id, expires_at)
+-- 🗓 2026-10-11: 期限をなくす（前の版を流した DB を直す・何度流しても同じ）。
+alter table public.ai_token_lots alter column expires_at drop not null;
+alter table public.ai_token_lots drop constraint if exists ai_token_lots_expiry_le_180d;
+update public.ai_token_lots set expires_at = null where expires_at is not null;
+
+drop index if exists public.ai_token_lots_user_active_idx;
+create index if not exists ai_token_lots_user_open_idx
+  on public.ai_token_lots (user_id, purchased_at)
   where tokens_left > 0;
 
 alter table public.ai_token_lots enable row level security;
@@ -1988,10 +1996,11 @@ begin
   if p_tokens is null or p_tokens <= 0 or p_transaction_id is null or p_transaction_id = '' then
     return 0;
   end if;
+  -- 期限なし（expires_at は null・2026-10-11）
   insert into public.ai_token_lots (user_id, tokens_total, tokens_left, source, transaction_id, product_id, environment, purchased_at, expires_at)
   values (p_user_id, p_tokens, p_tokens, 'iap', p_transaction_id, p_product_id,
           case when p_environment = 'sandbox' then 'sandbox' else 'production' end,
-          v_at, v_at + interval '180 days')
+          v_at, null)
   on conflict (transaction_id) do nothing
   returning id into v_id;
   if v_id is null then
@@ -2001,7 +2010,7 @@ begin
 end;
 $$;
 
--- 期限内のロットから、期限の近い順に差し引く。戻り値: 差し引けた量（0 以上・p_tokens 以下）。
+-- 残りのあるロットから、買った順（古いもの）に差し引く（期限なし・2026-10-11）。戻り値: 差し引けた量（0 以上・p_tokens 以下）。
 create or replace function public.consume_token_lots(
   p_user_id uuid,
   p_tokens integer
@@ -2025,8 +2034,7 @@ begin
       from public.ai_token_lots
      where user_id = p_user_id
        and tokens_left > 0
-       and expires_at > now()
-     order by expires_at, purchased_at, id
+     order by purchased_at, id
      for update
   loop
     exit when v_need <= 0;

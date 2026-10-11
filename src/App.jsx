@@ -7304,7 +7304,7 @@ function PaywallGate() {
   // 🪙 残りのトークン（src/lib/tokens.js・表示だけ。止めるのはサーバー）。
   const [usedMjpy, setUsedMjpy] = useState(null); // null=未確認・読めない
   const tokenKey = plan === 'admin' ? null : periodKeyFor(plan, { periodEnd: trialEndsAt });
-  // 🪙➕ 追加トークン（買い足し・期限内の合計といちばん近い期限）。表が無ければ null＝出さない。
+  // 🪙➕ 追加トークン（買い足し・残りの合計・期限なし）。表が無ければ null＝出さない。
   const [lots, setLots] = useState(null);
   const lotsRef = useRef(null);
   // 戻り値: 追加分が前より増えたか（買ったあとの取り直しに使う）。
@@ -7388,9 +7388,8 @@ function PaywallGate() {
       freeFirstMonth,
       tokenNextAllowance,
       tokensRemaining,
-      // 追加トークン（買い足し）の残りと、いちばん近い期限。使えるのは その月の分＋追加分。
+      // 追加トークン（買い足し）の残り。使えるのは その月の分＋追加分。
       purchasedTokens,
-      purchasedExpiresAt: lots?.nextExpiry || null,
       tokensAvailable: tokensRemaining == null ? null : tokensRemaining + purchasedTokens,
       canBuyTokens,
       // 前にプランを契約していた（いまは無料プラン）。無料期間はもう使えないので、すすめる文を変える（lib/trialNudge.js）。
@@ -7418,7 +7417,7 @@ function PaywallGate() {
         return false;
       },
     };
-  }, [plan, freeMode, trialEndsAt, tokenAllowance, freeFirstMonth, tokenNextAllowance, tokensRemaining, purchasedTokens, lots?.nextExpiry, canBuyTokens, refreshTokens, refresh, subscription?.status, freeOcrUsed]);
+  }, [plan, freeMode, trialEndsAt, tokenAllowance, freeFirstMonth, tokenNextAllowance, tokensRemaining, purchasedTokens, canBuyTokens, refreshTokens, refresh, subscription?.status, freeOcrUsed]);
 
   // Checkout 復帰処理: ?checkout=success なら webhook 反映ラグを吸収するため
   // refresh を数秒間隔で数回リトライ。?checkout=cancel は静かに URL を掃除。

@@ -153,7 +153,7 @@ describe('精算は応答を返す前に終える（応答のあとの後処理�
 describe('回数の上限がトークンより先に尽きない', () => {
   it('有料（800）＋追加 1,000: reserve_ai_usage の上限は 1,800 回まで広がる', async () => {
     stubJson();
-    db.lots = [{ id: 'l1', tokens_left: 1000, expires_at: new Date(Date.now() + 90 * 86400000).toISOString(), purchased_at: new Date().toISOString() }];
+    db.lots = [{ id: 'l1', tokens_left: 1000, purchased_at: new Date().toISOString() }];
     await handler(req({ messages: [{ role: 'user', content: 'x' }], max_tokens: 500 }), mockRes());
     expect(db.rpcArgs.reserve_ai_usage.p_limit).toBe(1800);
   });
@@ -277,7 +277,7 @@ describe('関係するメモが無かった相談の払い戻し', () => {
   it('月の分を超えていても、払い戻した 1 回は追加分から差し引かない（settle_token_overflow を呼ばない）', async () => {
     stubConsultStream(NO_INFO_TEXT);
     db.costTotal = 799 * 300 - 10;
-    db.lots = [{ id: 'l1', tokens_left: 300, expires_at: new Date(Date.now() + 90 * 86400000).toISOString(), purchased_at: new Date().toISOString() }];
+    db.lots = [{ id: 'l1', tokens_left: 300, purchased_at: new Date().toISOString() }];
     await handler(consultReq({ stream: true }), mockRes());
     expect(db.costTotal).toBe(799 * 300 - 10);
     expect(log).not.toContain('rpc:settle_token_overflow');

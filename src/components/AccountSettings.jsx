@@ -394,7 +394,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
   const { subscription, isActive, loading: subLoading, refresh: refreshSub } = useSubscription();
   // 🪙 プランと残りのトークン（PaywallGate が配る）。契約は「プランを見る」→ 有料プランの画面で
   //    （価格・自動更新の条件・復元・規約を 1 か所で見せる＝審査 3.1.2）。
-  const { plan, tokensRemaining, tokenAllowance, freeFirstMonth, tokenNextAllowance, openPaywall, purchasedTokens, purchasedExpiresAt, canBuyTokens, openTokenSheet, refreshPlan } = usePaywall();
+  const { plan, tokensRemaining, tokenAllowance, freeFirstMonth, tokenNextAllowance, openPaywall, purchasedTokens, canBuyTokens, openTokenSheet, refreshPlan } = usePaywall();
   // 🎟 コードを使う（オファーコード・2026-10-08）: iPhone のアプリだけ（lib/iap.js の canRedeemOfferCode）。
   //   Apple のコード入力の画面を開き、閉じたあとに契約の状態を何度か読み直す（結果は画面から返らないため）。
   //   お試しモードは &native=1 で行を出す（押しても Apple の画面は開かない）。
@@ -441,18 +441,11 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
       <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
     </button>
   ) : null;
-  // 🪙➕ 追加トークンの行（残りがあるときだけ・いちばん近い期限つき）。
-  //    2 行: 量（本文 17）と、その下に右寄せで期限（13）。
-  const lotExpiry = purchasedExpiresAt ? dateLabelJa(purchasedExpiresAt) : null;
+  // 🪙➕ 追加トークンの行（残りがあるときだけ・期限なし＝2026-10-11 App Store 3.1.1）。
   const lotRow = purchasedTokens > 0 ? (
-    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 'var(--space-3)', minHeight: 44, padding: 'var(--space-3) 0', ...divider }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', minHeight: 44, padding: 'var(--space-3) 0', ...divider }}>
       <span style={{ fontSize: 'var(--text-body)', color: 'var(--text)' }}>追加分</span>
-      <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', textAlign: 'right' }}>
-        <span style={{ fontSize: 'var(--text-body)', color: 'var(--text-2)', whiteSpace: 'nowrap' }}>{purchasedTokens.toLocaleString()} トークン</span>
-        {lotExpiry && (
-          <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', whiteSpace: 'nowrap' }}>{lotExpiry}まで</span>
-        )}
-      </span>
+      <span style={{ fontSize: 'var(--text-body)', color: 'var(--text-2)', whiteSpace: 'nowrap' }}>{purchasedTokens.toLocaleString()} トークン</span>
     </div>
   ) : null;
   // 残りのトークンは契約の確認のあとに読み込む。読み込み中（最大 4 秒）は同じ高さの枠を出す（行が後から差し込まれて画面が跳ねないように）。

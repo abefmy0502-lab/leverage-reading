@@ -2,7 +2,7 @@
 //
 // 設定の「プラン・お支払い」の残りの行と、相談の上の行の残りの数から開くシート（TokenUsageSheet.jsx）の中身を決める純粋関数。
 //   - 今の枠（無料プラン 30／はじめの月 60・7 日間無料 150・プラン 800）のうち残り・次に戻る日
-//   - 追加分（買い足し）の残りと期限（期限の近い順）
+//   - 追加分（買い足し）の残りと買った日（買った順・期限なし）
 //   - 今月（7 日間無料はその期間）の使い道の内訳（ai_usage.purpose_mjpy＝supabase_ai_usage_purpose.sql）
 //   - シートの下のボタン（追加課金の動線）: プランの人は「トークンを追加」、無料プランは「プランを見る」
 //     （7 日間無料をすすめてよいのは ① 無料のトークンを使い切ったとき＝lib/trialNudge.js の決まり）
@@ -139,23 +139,22 @@ export async function fetchUsageDetail(userId, periodKey) {
   }
 }
 
-// 追加分（期限内で残りのあるロット）を期限の近い順に。表が無い・読めないときは null。
-export async function fetchTokenLots(userId, now = Date.now()) {
+// 追加分（残りのあるロット）を買った順に（期限なし・2026-10-11）。表が無い・読めないときは null。
+export async function fetchTokenLots(userId) {
   if (!isSupabaseConfigured || !userId) return null;
   try {
     const { data, error } = await supabase
       .from('ai_token_lots')
-      .select('id, tokens_left, tokens_total, expires_at')
+      .select('id, tokens_left, tokens_total, purchased_at')
       .eq('user_id', userId)
       .gt('tokens_left', 0)
-      .gt('expires_at', new Date(now).toISOString())
-      .order('expires_at', { ascending: true });
+      .order('purchased_at', { ascending: true });
     if (error) return null;
     return (Array.isArray(data) ? data : []).map((r) => ({
       id: r.id,
       left: Math.max(0, Math.floor(Number(r.tokens_left) || 0)),
       total: Math.max(0, Math.floor(Number(r.tokens_total) || 0)),
-      expiresAt: r.expires_at,
+      purchasedAt: r.purchased_at || null,
     })).filter((r) => r.left > 0);
   } catch {
     return null;

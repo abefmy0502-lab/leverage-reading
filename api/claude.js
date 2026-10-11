@@ -453,16 +453,15 @@ async function reserveCost(userId, periodKey, amountMjpy, budgetMjpy) {
   }
 }
 // 🪙➕ 追加トークン（supabase_ai_token_credits.sql）。その期間にもう追加分から払った量（ai_usage.lot_tokens）と、
-// 期限内の追加分の残り。表・列・RPC が無い DB や失敗は ok=false＝追加分は無いものとして扱う（fail-safe）。
+// 追加分の残り（期限なし・2026-10-11）。表・列・RPC が無い DB や失敗は ok=false＝追加分は無いものとして扱う（fail-safe）。
 async function getLotState(userId, periodKey) {
   const supabase = getServiceSupabase();
   const none = { ok: false, balance: 0, charged: 0 };
   if (!supabase) return none;
   try {
-    const nowIso = new Date().toISOString();
     const [lotsRes, usageRes] = await Promise.all([
-      supabase.from('ai_token_lots').select('id, tokens_left, expires_at, purchased_at')
-        .eq('user_id', userId).gt('tokens_left', 0).gt('expires_at', nowIso),
+      supabase.from('ai_token_lots').select('id, tokens_left, purchased_at')
+        .eq('user_id', userId).gt('tokens_left', 0),
       supabase.from('ai_usage').select('lot_tokens').eq('user_id', userId).eq('period_month', periodKey).maybeSingle(),
     ]);
     if (lotsRes.error || usageRes.error) return none;

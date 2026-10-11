@@ -946,11 +946,10 @@ export function installDemoFetch(store) {
       let row = rows.find((r) => r.period_month === key);
       if (!row) { row = { user_id: store.session?.user?.id, period_month: key, calls: 0, cost_mjpy: 0 }; rows.push(row); }
       const used = Math.ceil((row.cost_mjpy || 0) / 300 - 1e-9);
-      // 追加トークン（買い足し）: その月の分を使い切ったら、期限の近いロットから使う（supabase_ai_token_credits.sql と同じ）。
-      const nowIso = new Date().toISOString();
+      // 追加トークン（買い足し）: その月の分を使い切ったら、古いロットから使う（期限なし・supabase_ai_token_credits.sql と同じ）。
       const lots = store.table('ai_token_lots')
-        .filter((l) => l.tokens_left > 0 && l.expires_at > nowIso)
-        .sort((a, b) => String(a.expires_at).localeCompare(String(b.expires_at)));
+        .filter((l) => l.tokens_left > 0)
+        .sort((a, b) => String(a.purchased_at).localeCompare(String(b.purchased_at)));
       const lotBalance = lots.reduce((n, l) => n + l.tokens_left, 0);
       if (used >= allowance + (row.lot_tokens || 0) + lotBalance) {
         if (tier === 'free') {

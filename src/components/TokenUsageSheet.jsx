@@ -4,7 +4,7 @@
 // 組み立て（BottomSheet・題「トークンの使い方」・右上「完了」）:
 //   ① 今の枠の残り（「今月の残り」・7 日間無料は「無料期間の残り」）＝大きな数「590」＋「/ 800 トークン」→ AI の答え 約 N 回
 //      → 細い 1 本の棒（使った／残り・残りが枠の 20% 以下は --warning）→ 次に戻る日
-//   ② 追加分（買い足し・期限内）＝ロットごとに「120 トークン」と「2027年3月10日まで」（期限の近い順）
+//   ② 追加分（買い足し・期限なし＝2026-10-11）＝ロットごとに「120 トークン」と「9月27日に購入」（買った順）
 //   ③ 今月の使い道（用途ごとのトークン・多い順・足すと使ったトークン）。無料プランは写真から書き起こしの残りの回数も
 //   ④ 下の決定欄: プランの人は「トークンを追加」／無料プランは「プランを見る」（今月の無料のトークンを使い切った人で
 //      7 日間無料を使えるときだけ「7 日間無料で試す」＝すすめてよい場面 ①・lib/tokenUsage.js の usageSheetAction）
@@ -207,20 +207,20 @@ export default function TokenUsageSheet({ onClose, onAdd, onPlans, from = 'consu
         )}
       </section>
 
-      {/* ② 追加分（期限の近い順） */}
+      {/* ② 追加分（買った順・期限なし） */}
       {lotsShown && (
         <section aria-label="追加分" style={sectionGap}>
           <h3 style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>追加分</h3>
           {lots.map((l) => (
             <div key={l.id} style={row}>
               <span style={rowLabel}>{fmt(l.left)} トークン</span>
-              <span style={rowValue}>{dateLabelJa(l.expiresAt)}まで</span>
+              {dateLabelJa(l.purchasedAt) && <span style={rowValue}>{dateLabelJa(l.purchasedAt)}に購入</span>}
             </div>
           ))}
           <p style={{ ...meta, marginTop: 'var(--space-2)' }}>
             {withPhraseBreaks(trial
-              ? '無料期間のトークンを使い切ってから、期限の近い順に使われます。'
-              : 'その月のトークンを使い切ってから、期限の近い順に使われます。')}
+              ? '無料期間のトークンを使い切ってから、買った順に使われます。'
+              : 'その月のトークンを使い切ってから、買った順に使われます。')}
           </p>
         </section>
       )}

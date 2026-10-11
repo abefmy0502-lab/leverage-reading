@@ -3,7 +3,7 @@
 //   - 使った量のある ai_usage の行に、使い道の内訳（purpose_mjpy）のサンプルを入れる（無料プランは相談とこの本で学べることだけ）
 //   - ?demo=low      : プラン・今月の 800 トークンのうち 660 を使った（残り 140＝枠の 20% 以下＝相談の上の行が --warning）
 //   - ?demo=freelow  : 無料プラン・今月の 30 トークンのうち 24 を使った（残り 6）
-//   - ?demo=tokens   : 追加分をもう 1 つ（期限の近い順の確かめ用）
+//   - ?demo=tokens   : 追加分をもう 1 つ（買った順の確かめ用）
 //   - &usage=lotsfail  : 追加分の一覧の読み出しが失敗する（「追加分を読み込めませんでした」）
 //   - &usage=fail      : 使い道の読み出しが失敗する（「使い道を読み込めませんでした」）
 //   - ?demo=limit      : プラン・今月の 800 を使い切り、追加分も無い（数字と棒が --warning・主ボタン「トークンを追加」）
@@ -44,7 +44,7 @@ export function applyTokenUsageDemo(db, scenario, params, userId) {
     db.ai_token_lots.push({
       id: '00000000-0000-4000-8000-0000000d0002', user_id: userId, tokens_total: 1000, tokens_left: 1000,
       source: 'iap', transaction_id: 'demo-seed-2', product_id: 'orime_tokens_1000', environment: 'sandbox',
-      purchased_at: iso(4), expires_at: iso(-176),
+      purchased_at: iso(4), expires_at: null,
     });
   }
   const mode = params.get('usage');

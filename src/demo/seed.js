@@ -260,7 +260,7 @@ export function buildSeed(scenario) {
     db.ai_token_lots = [{
       id: '00000000-0000-4000-8000-0000000d0001', user_id: DEMO_USER_ID, tokens_total: 300, tokens_left: 120,
       source: 'iap', transaction_id: 'demo-seed', product_id: 'orime_tokens_300', environment: 'sandbox',
-      purchased_at: iso(30), expires_at: iso(-150),
+      purchased_at: iso(30), expires_at: null,
     }];
   }
 
