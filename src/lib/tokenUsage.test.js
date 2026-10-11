@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { usageBreakdown, isLowTokens, usedRatio, usageSheetAction, USAGE_GROUPS } from './tokenUsage';
+import { usageBreakdown, isLowTokens, usedRatio, usageSheetAction, isMissingPurposeColumn, USAGE_GROUPS } from './tokenUsage';
 import { tokensFromMjpy } from './tokens';
 import { USAGE_PURPOSES } from '../../api/_aiAccess.js';
 
@@ -57,21 +57,37 @@ describe('残りが少ない（isLowTokens）・棒（usedRatio）', () => {
 });
 
 describe('シートの下のボタン（追加課金の動線・usageSheetAction）', () => {
-  it('プランの人（有料・7 日間無料）は「トークンを追加」', () => {
-    expect(usageSheetAction({ plan: 'paid', remaining: 500 })).toEqual({ kind: 'add', label: 'トークンを追加' });
-    expect(usageSheetAction({ plan: 'trial', remaining: 0 })).toEqual({ kind: 'add', label: 'トークンを追加' });
+  it('プランの人（有料・7 日間無料）は「トークンを追加」。余裕があるときは枠線（strong=false）', () => {
+    expect(usageSheetAction({ plan: 'paid', remaining: 500 })).toEqual({ kind: 'add', label: 'トークンを追加', strong: false });
+    // 月の分は 0 でも追加分が十分あれば枠線
+    expect(usageSheetAction({ plan: 'paid', remaining: 0, purchased: 1120 }).strong).toBe(false);
   });
-  it('無料プランは買えない: まだ残りがあれば「プランを見る」（7 日間無料をすすめない）', () => {
-    expect(usageSheetAction({ plan: 'free', remaining: 12, trialOffer: '7 日間無料' })).toEqual({ kind: 'plans', label: 'プランを見る', reason: null });
+  it('塗りは 残りが少ない・使い切った（追加分も 0）ときだけ', () => {
+    expect(usageSheetAction({ plan: 'paid', remaining: 140, low: true }).strong).toBe(true);
+    expect(usageSheetAction({ plan: 'trial', remaining: 0 })).toEqual({ kind: 'add', label: 'トークンを追加', strong: true });
   });
-  it('無料のトークンを使い切った（すすめてよい ①）＋使える人だけ「7 日間無料で試す」', () => {
-    expect(usageSheetAction({ plan: 'free', remaining: 0, trialOffer: '7 日間無料' })).toEqual({ kind: 'trial', label: '7 日間無料で試す', reason: 'free_used' });
+  it('無料プランは買えない: まだ残りがあれば「プランを見る」（7 日間無料をすすめない・枠線）', () => {
+    expect(usageSheetAction({ plan: 'free', remaining: 12, trialOffer: '7 日間無料' })).toEqual({ kind: 'plans', label: 'プランを見る', reason: null, strong: false });
+    expect(usageSheetAction({ plan: 'free', remaining: 6, low: true }).strong).toBe(true);
+  });
+  it('無料のトークンを使い切った（すすめてよい ①）＋使える人だけ「7 日間無料で試す」（塗り）', () => {
+    expect(usageSheetAction({ plan: 'free', remaining: 0, trialOffer: '7 日間無料' })).toEqual({ kind: 'trial', label: '7 日間無料で試す', reason: 'free_used', strong: true });
     // 前にプランを契約した・使えない・分からない人は「プランを見る」
-    expect(usageSheetAction({ plan: 'free', remaining: 0, trialOffer: '7 日間無料', hadPlan: true })).toEqual({ kind: 'plans', label: 'プランを見る', reason: 'free_used' });
-    expect(usageSheetAction({ plan: 'free', remaining: 0, trialOffer: '' })).toEqual({ kind: 'plans', label: 'プランを見る', reason: 'free_used' });
+    expect(usageSheetAction({ plan: 'free', remaining: 0, trialOffer: '7 日間無料', hadPlan: true })).toEqual({ kind: 'plans', label: 'プランを見る', reason: 'free_used', strong: true });
+    expect(usageSheetAction({ plan: 'free', remaining: 0, trialOffer: '' })).toEqual({ kind: 'plans', label: 'プランを見る', reason: 'free_used', strong: true });
   });
   it('残りが分からないときは使い切ったことにしない・管理者は出さない', () => {
-    expect(usageSheetAction({ plan: 'free', remaining: null, trialOffer: '7 日間無料' }).kind).toBe('plans');
+    expect(usageSheetAction({ plan: 'free', remaining: null, trialOffer: '7 日間無料' })).toMatchObject({ kind: 'plans', strong: false });
     expect(usageSheetAction({ plan: 'admin', remaining: null })).toBe(null);
+  });
+});
+
+describe('列が無いエラーだけ読み直す（isMissingPurposeColumn）', () => {
+  it('42703・PGRST204・列名入りは列が無い、ほかの失敗は違う', () => {
+    expect(isMissingPurposeColumn({ code: '42703', message: 'column does not exist' })).toBe(true);
+    expect(isMissingPurposeColumn({ code: 'PGRST204', message: '' })).toBe(true);
+    expect(isMissingPurposeColumn({ message: 'column ai_usage.purpose_mjpy does not exist' })).toBe(true);
+    expect(isMissingPurposeColumn({ code: 'demo', message: 'network error' })).toBe(false);
+    expect(isMissingPurposeColumn(null)).toBe(false);
   });
 });

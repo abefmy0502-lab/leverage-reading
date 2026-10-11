@@ -192,6 +192,12 @@ class Query {
     }
     // &usage=nopurpose: 使い道の内訳の列（purpose_mjpy）が無い DB（supabase_ai_usage_purpose.sql 未適用・2026-10-11）。
     const usageCols = this.op === 'select' && this.table === 'ai_usage' && /purpose_mjpy/.test(String(this.selectStr || ''));
+    // &usage=fail: 使い道の読み出しだけ失敗する（「使い道を読み込めませんでした」の確認用）。
+    if (usageCols && qs.get('usage') === 'fail') {
+      return new Promise((r) => setTimeout(r, 300))
+        .then(() => ({ data: null, error: { message: 'network error', code: 'demo' }, count: null }))
+        .then(resolve, reject);
+    }
     if (usageCols && qs.get('usage') === 'nopurpose') {
       return new Promise((r) => setTimeout(r, 40))
         .then(() => ({ data: null, error: { message: 'column ai_usage.purpose_mjpy does not exist', code: '42703' }, count: null }))

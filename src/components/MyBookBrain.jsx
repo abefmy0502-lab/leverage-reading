@@ -447,6 +447,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // 🪙📊 トークンの使い方のシート（上の行の残りの数から開く・2026-10-11）。残りが枠の 20% 以下で上の行を --warning に。
   const [usageOpen, setUsageOpen] = useState(false);
   const tokensLow = isLowTokens(tokensRemaining, tokenAllowance, purchasedTokens);
+  // 上の行の残りの数の「›」は、最後の行の文のすぐ後ろに置く（2 行のとき 1 行目の横に浮かない・2026-10-11 ui-critic）。
+  const tokenAnswersShown = (freeMode || plan === 'trial') && tokensRemaining != null && tokensRemaining + (purchasedTokens || 0) > 0;
+  const tokenChevron = <ChevronRight size="1.2em" aria-hidden="true" style={{ verticalAlign: '-0.25em', marginLeft: '0.15em' }} />;
   const [monthLimitHit, setMonthLimitHit] = useState(false); // トークンの上限に達した（サーバーの 429）
   // 🪙➕ トークンを買い足したら、上限の状態を解く（送れるように戻す）。
   useEffect(() => { if (purchasedTokens > 0) setMonthLimitHit(false); }, [purchasedTokens]);
@@ -2113,7 +2116,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             onClick={() => setUsageOpen(true)}
             aria-label={`トークンの使い方を開く（${plan === 'trial' ? '無料期間' : '今月'}の残り ${fmtTokens(tokensRemaining)} トークン）`}
             style={{
-              display: 'flex', alignItems: 'flex-end', gap: 'var(--space-1)', textIndent: 0, textAlign: 'left',
+              display: 'block', textIndent: 0, textAlign: 'left',
               background: 'transparent', border: 'none', fontFamily: 'inherit', cursor: 'pointer',
               padding: 'var(--space-2) var(--space-2) var(--space-2) 0', margin: 'calc(-1 * var(--space-2)) 0',
               minHeight: 'var(--tap-min)', fontSize: 'var(--text-meta)', lineHeight: 1.5,
@@ -2124,15 +2127,14 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             {/* 「無料期間の残り／110 トークン」と切らない（1 つのまとまり）。かっこは重ねない。 */}
             {/* 🪙 無料プランは「AI の答え 約 N 回」だけ。トークンの数は残り 20 以下のときだけ（設定の画面はいつも出す・2026-10-11）。 */}
             {(!freeMode || showFreeTokenCount(tokensRemaining + (purchasedTokens || 0))) && (
-              <span style={{ display: 'block', whiteSpace: 'nowrap' }}>{plan === 'trial' ? '無料期間' : '今月'}の残り {fmtTokens(tokensRemaining)}{purchasedTokens > 0 ? <> ＋追加 {fmtTokens(purchasedTokens)}</> : null} トークン</span>
+              <span style={{ display: 'block', whiteSpace: 'nowrap' }}>{plan === 'trial' ? '無料期間' : '今月'}の残り {fmtTokens(tokensRemaining)}{purchasedTokens > 0 ? <> ＋追加 {fmtTokens(purchasedTokens)}</> : null} トークン{!tokenAnswersShown && tokenChevron}</span>
             )}
             {/* 無料プラン・7 日間無料は「あと何回相談できるか」を添える（トークンだけでは量が分からない・2026-09-29）。追加分も数に入れる。 */}
             {/* 回数は次の行に置く（「・」でつなぐと 390 幅で途中から折り返して、どこで切れるかが毎回変わる・2026-09-30）。 */}
             {/* 数える単位は「AI の答え」（1 回 約 10 トークン・2026-10-09）。 */}
             {/* 🌱 無料プランのはじめの月は「（はじめの月）」を添える（数は言わない＝60 を 2 回言わない・2026-10-11）。 */}
-            {(freeMode || plan === 'trial') && tokensRemaining + (purchasedTokens || 0) > 0 && <span style={{ display: 'block' }}><span style={{ whiteSpace: 'nowrap' }}>AI の答え {remainingAnswersLabel(tokensRemaining + (purchasedTokens || 0))}</span>{freeMode && freeFirstMonth && <span style={{ whiteSpace: 'nowrap' }}>（はじめの月）</span>}</span>}
+            {(freeMode || plan === 'trial') && tokensRemaining + (purchasedTokens || 0) > 0 && <span style={{ display: 'block' }}><span style={{ whiteSpace: 'nowrap' }}>AI の答え {remainingAnswersLabel(tokensRemaining + (purchasedTokens || 0))}</span>{freeMode && freeFirstMonth && <span style={{ whiteSpace: 'nowrap' }}>（はじめの月）</span>}{tokenChevron}</span>}
           </span>
-            <ChevronRight size="1.2em" aria-hidden="true" style={{ flexShrink: 0, marginBottom: '0.15em' }} />
           </button>
         )}
         {/* 上限に達したときの「◯月1日から」は、答えの吹き出しと入力欄に出す（同じ日付を 3 回並べない）。 */}
@@ -2357,7 +2359,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               />
             ) : planOut ? (
               // 🪙➕ プランの人がトークンを使い切った（SPEC §3）: 押せない相談例は出さず、案内カードを一番上に。
-              <TokensOutCard plan={plan} trialEndLabel={trialEndLabel} cancelLine={trialCancelLine} tokenAllowance={tokenAllowance} onAdd={openTokenSheet}>
+              <TokensOutCard plan={plan} trialEndLabel={trialEndLabel} cancelLine={trialCancelLine} tokenAllowance={tokenAllowance} onAdd={openTokenSheet} onUsage={() => setUsageOpen(true)}>
                 {searchMemos && <SearchMemosLink onClick={searchMemos} />}
               </TokensOutCard>
             ) : (
@@ -2504,6 +2506,10 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               </button>
               {/* 7 日間無料: 続けないときの解約の期限を日付だけで（2026-09-29・「あと N 日」は出さない） */}
               {trialCancelLine && <p style={{ ...trialCancelLineStyle, marginLeft: ANSWER_COLUMN }}>{withPhraseBreaks(trialCancelLine)}</p>}
+              {/* 使い切ると上の行の残りの数が消えるので、ここからも「トークンの使い方」を開ける（入口を途切れさせない）。 */}
+              <button type="button" onClick={() => setUsageOpen(true)} style={{ ...uiBtnLinkQuiet, display: 'block', marginLeft: `calc(${typeof ANSWER_COLUMN === 'number' ? `${ANSWER_COLUMN}px` : ANSWER_COLUMN} - var(--space-1))` }}>
+                トークンの使い方を見る
+              </button>
             </>
           )}
 

@@ -1063,11 +1063,12 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                 {lotRow}
                 <div style={{ ...blockStyle, ...divider }}>
                   <p style={noteStyle}>
-                    無料プランはずっと無料で、AI は相談（<span style={{ whiteSpace: 'nowrap' }}>AI の答え 1 回 約 {TOKEN_COSTS.consult} トークン</span>）と<span style={{ whiteSpace: 'nowrap' }}>写真から書き起こし</span>（<span style={{ whiteSpace: 'nowrap' }}>毎月 {FREE_OCR_PER_MONTH} 回</span>）。{/* 相談 1 つが何回の答えか（設定ではここで 1 回だけ・「、」の後で折り返す・2026-10-09） */}{CONSULT_ANSWERS_NOTE.split('、').map((part, i, all) => <span key={part} style={{ whiteSpace: 'nowrap' }}>{part}{i < all.length - 1 ? '、' : '。'}</span>)}プランは<span style={{ whiteSpace: 'nowrap' }}>毎月 {PAID_TOKENS.toLocaleString()} トークン</span>で、<span style={{ whiteSpace: 'nowrap' }}>すべての AI 機能。</span>
+                    無料プランはずっと無料で、AI は相談（<span style={{ whiteSpace: 'nowrap' }}>AI の答え 1 回 約 {TOKEN_COSTS.consult} トークン</span>）・<span style={{ whiteSpace: 'nowrap' }}>この本で学べること</span>・<span style={{ whiteSpace: 'nowrap' }}>写真から書き起こし</span>（<span style={{ whiteSpace: 'nowrap' }}>毎月 {FREE_OCR_PER_MONTH} 回</span>）。{/* 相談 1 つが何回の答えか（設定ではここで 1 回だけ・「、」の後で折り返す・2026-10-09） */}{CONSULT_ANSWERS_NOTE.split('、').map((part, i, all) => <span key={part} style={{ whiteSpace: 'nowrap' }}>{part}{i < all.length - 1 ? '、' : '。'}</span>)}プランは<span style={{ whiteSpace: 'nowrap' }}>毎月 {PAID_TOKENS.toLocaleString()} トークン</span>で、<span style={{ whiteSpace: 'nowrap' }}>すべての AI 機能。</span>
                   </p>
                   <button
                     type="button"
-                    style={btnPrimary}
+                    // まだ残りがある無料プランは枠線（トークンの使い方のシートとそろえる・強くすすめない・2026-10-11）。
+                    style={tokensRemaining != null && tokensRemaining > 0 ? btnGhost : btnPrimary}
                     // 有料プランの画面は設定の上に重なる（閉じると設定に戻る）。
                     onClick={() => openPaywall(null)}
                   >

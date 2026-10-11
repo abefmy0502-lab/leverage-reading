@@ -88,13 +88,22 @@ export default function TokenUsageSheet({ onClose, onAdd, onPlans, from = 'consu
   useEffect(() => { track('token_usage', { action: 'open', from, plan: plan || 'unknown' }); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const usedUp = tokensRemaining != null && tokensRemaining <= 0;
+  const hasLots = purchasedTokens > 0;
+  // 月の分を使い切り、追加分も無い（使える量が 0）。
+  const outAll = usedUp && !hasLots;
+  // 月の分を使い切って、追加分で使っている（大きな数は追加分の合計にする）。
+  const onLots = usedUp && hasLots;
   const trialOffer = useTrialOffer(free && usedUp, hadPlan, user?.id);
-  const action = usageSheetAction({ plan, remaining: tokensRemaining, trialOffer, hadPlan });
   const low = isLowTokens(tokensRemaining, tokenAllowance, purchasedTokens);
+  const action = usageSheetAction({ plan, remaining: tokensRemaining, purchased: purchasedTokens, trialOffer, hadPlan, low });
+  // 注意の色（数字と棒で同じ条件）: 残りが少ない・使い切った（追加分も無い）。
+  const warn = low || outAll;
   const ratio = usedRatio(tokensRemaining, tokenAllowance);
   // 内訳: 列が無い DB（未適用）・読めない・使った分が全部「数える前」のときは null（＝段を出さない）。
+  //   読めなかった（detail === null）ときは段を消さずに「読み込めませんでした」（下）。
   const breakdownRaw = detail && detail.purposeMjpy ? usageBreakdown(detail.purposeMjpy, detail.costMjpy) : null;
   const breakdown = breakdownRaw && !(breakdownRaw.length === 0 && detail.costMjpy > 0) ? breakdownRaw : null;
+  const usageFailed = detail === null;
   const usedSome = tokensRemaining != null && tokenAllowance != null && tokensRemaining < tokenAllowance;
 
   // 次に戻る日（データだけ）。
@@ -109,7 +118,7 @@ export default function TokenUsageSheet({ onClose, onAdd, onPlans, from = 'consu
   } else if (tokenAllowance != null) {
     resetLine = usedSome
       ? <><span style={nowrap}>{nextResetLabelJa()}に</span> <span style={nowrap}>{fmt(tokenNextAllowance ?? tokenAllowance)} トークンに戻ります</span></>
-      : <><span style={nowrap}>毎月 1 日に</span> <span style={nowrap}>{fmt(tokenNextAllowance ?? tokenAllowance)} トークンに戻ります</span></>;
+      : <><span style={nowrap}>毎月 1 日に</span> <span style={nowrap}>{fmt(tokenNextAllowance ?? tokenAllowance)} トークン</span></>;
   }
 
   const press = () => {
@@ -128,37 +137,56 @@ export default function TokenUsageSheet({ onClose, onAdd, onPlans, from = 'consu
       onClose={onClose}
       layer={layer}
       footer={action ? (
-        // 無料プランで、まだ残りがあるときの「プランを見る」は枠線（すすめすぎない）。ほかは主ボタン。
-        <button type="button" onClick={press} style={action.kind === 'plans' && !usedUp ? btnGhost : btnPrimary}>
+        // 塗りは 残りが少ない・使い切った・「7 日間無料で試す」のときだけ。余裕があるときは枠線（強く買わせない）。
+        <button type="button" onClick={press} style={action.strong ? btnPrimary : btnGhost}>
           {action.label}
         </button>
       ) : null}
     >
       {/* ① 今の枠の残り */}
       <section aria-label={`${periodName}の残り`}>
-        <p style={{ ...meta, fontSize: 'var(--text-sub)' }}>{periodName}の残り</p>
+        {/* 月の分を使い切って追加分で使っているときは「使えるトークン」（大きな数は追加分の合計）。 */}
+        <p style={{ ...meta, fontSize: 'var(--text-sub)' }}>{onLots ? '使えるトークン' : `${periodName}の残り`}</p>
         {tokensRemaining == null ? (
           <div role="status" aria-label="残りのトークンを読み込んでいます" style={{ padding: 'var(--space-2) 0' }}>
             <SkeletonBlock width="50%" height="var(--text-title)" radius="var(--radius)" />
           </div>
         ) : (
           <>
-            <p style={{ margin: 0, color: 'var(--text)', lineHeight: 1.3, fontVariantNumeric: 'tabular-nums' }}>
-              <span style={{ fontSize: 'var(--text-title)', fontWeight: 700, color: low ? 'var(--warning)' : 'var(--text)' }}>{fmt(tokensRemaining)}</span>
-              <span style={{ ...nowrap, fontSize: 'var(--text-body)', color: 'var(--text-2)' }}> / {fmt(tokenAllowance)} トークン</span>
-            </p>
-            {/* 量の目安は追加分も含めた残りで（「AI の答え 約 N 回」・GLOSSARY）。使い切って追加分も無いときは出さない。 */}
-            {tokensRemaining + (purchasedTokens || 0) > 0 && (
-              <p style={{ ...meta, fontSize: 'var(--text-sub)' }}>
-                <span style={nowrap}>AI の答え {remainingAnswersLabel(tokensRemaining + (purchasedTokens || 0))}</span>
-                {purchasedTokens > 0 && <span style={nowrap}>（追加分 {fmt(purchasedTokens)} トークンを含む）</span>}
-              </p>
-            )}
-            {ratio != null && (
-              // 使った量の細い 1 本の棒（読み上げは数の文で足りるので飾り）。
-              <div aria-hidden="true" style={{ height: 'var(--space-1)', borderRadius: 'var(--radius-full)', background: 'var(--fill)', margin: 'var(--space-3) 0 var(--space-2)', overflow: 'hidden' }}>
-                <div style={{ width: `${ratio * 100}%`, height: '100%', borderRadius: 'var(--radius-full)', background: low || (usedUp && !(purchasedTokens > 0)) ? 'var(--warning)' : 'var(--accent)' }} />
-              </div>
+            {onLots ? (
+              // 月の分を使い切って追加分で使っているとき: 大きな数は使える量（追加分の合計）。棒は出さない（月の分の棒は満ちているだけ）。
+              <>
+                <p style={{ margin: 0, color: 'var(--text)', lineHeight: 1.3, fontVariantNumeric: 'tabular-nums' }}>
+                  <span style={{ fontSize: 'var(--text-title)', fontWeight: 700, color: warn ? 'var(--warning)' : 'var(--text)' }}>{fmt(purchasedTokens)}</span>
+                  <span style={{ ...nowrap, fontSize: 'var(--text-body)', color: 'var(--text-2)' }}> トークン</span>
+                </p>
+                <p style={{ ...meta, fontSize: 'var(--text-sub)' }}>
+                  <span style={nowrap}>追加分のトークン</span><span style={nowrap}>（{periodName}の分は使い切りました）</span>
+                </p>
+                <p style={{ ...meta, fontSize: 'var(--text-sub)', marginBottom: 'var(--space-2)' }}>
+                  <span style={nowrap}>AI の答え {remainingAnswersLabel(purchasedTokens)}</span>
+                </p>
+              </>
+            ) : (
+              <>
+                <p style={{ margin: 0, color: 'var(--text)', lineHeight: 1.3, fontVariantNumeric: 'tabular-nums' }}>
+                  <span style={{ fontSize: 'var(--text-title)', fontWeight: 700, color: warn ? 'var(--warning)' : 'var(--text)' }}>{fmt(tokensRemaining)}</span>
+                  <span style={{ ...nowrap, fontSize: 'var(--text-body)', color: 'var(--text-2)' }}> / {fmt(tokenAllowance)} トークン</span>
+                </p>
+                {/* 量の目安は追加分も含めた残りで（「AI の答え 約 N 回」・GLOSSARY）。使い切ったときは出さない。 */}
+                {tokensRemaining + (purchasedTokens || 0) > 0 && (
+                  <p style={{ ...meta, fontSize: 'var(--text-sub)' }}>
+                    <span style={nowrap}>AI の答え {remainingAnswersLabel(tokensRemaining + (purchasedTokens || 0))}</span>
+                    {hasLots && <span style={nowrap}>（追加分 {fmt(purchasedTokens)} トークンを含む）</span>}
+                  </p>
+                )}
+                {ratio != null && (
+                  // 使った量の細い 1 本の棒（読み上げは数の文で足りるので飾り）。色は数字と同じ条件。
+                  <div aria-hidden="true" style={{ height: 'var(--space-1)', borderRadius: 'var(--radius-full)', background: 'var(--fill)', margin: 'var(--space-3) 0 var(--space-2)', overflow: 'hidden' }}>
+                    <div style={{ width: `${ratio * 100}%`, height: '100%', borderRadius: 'var(--radius-full)', background: warn ? 'var(--warning)' : 'var(--accent)' }} />
+                  </div>
+                )}
+              </>
             )}
             {resetLine && <p style={meta}>{resetLine}</p>}
           </>
@@ -191,6 +219,11 @@ export default function TokenUsageSheet({ onClose, onAdd, onPlans, from = 'consu
             <div key={i} style={row}><SkeletonBlock width={`${40 - i * 8}%`} height="var(--text-sub)" radius="var(--radius)" /></div>
           ))}
         </section>
+      ) : usageFailed ? (
+        <section aria-label={`${periodName}の使い道`} style={sectionGap}>
+          <h3 style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>{periodName}の使い道</h3>
+          <p style={meta}>使い道を読み込めませんでした</p>
+        </section>
       ) : breakdown ? (
         <section aria-label={`${periodName}の使い道`} style={sectionGap}>
           <h3 style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>{periodName}の使い道</h3>
@@ -202,26 +235,34 @@ export default function TokenUsageSheet({ onClose, onAdd, onPlans, from = 'consu
               <span style={rowValue}>{fmt(b.tokens)} トークン</span>
             </div>
           ))}
-          {/* 無料プランの写真から書き起こしは、トークンとは別の回数（毎月 10 回）。 */}
-          {free && freeOcrRemaining != null && (
-            <div style={{ ...row, ...(breakdown.length === 0 ? { marginTop: 'var(--space-3)' } : null) }}>
-              <span style={rowLabel}>
-                {withPhraseBreaks('写真から書き起こし')}
-                <span style={{ ...meta, display: 'block' }}>トークンとは別に<span style={nowrap}>毎月 {fmt(freeOcrLimit)} 回</span></span>
-              </span>
-              <span style={rowValue}>残り {fmt(freeOcrRemaining)} 回</span>
-            </div>
-          )}
         </section>
       ) : null}
 
-      {/* 無料プランの説明（買えないことと、プランで変わること・1 回だけ）。 */}
+      {/* 無料プランの写真から書き起こしは、トークンとは別の回数（毎月 10 回）＝使い道とは別の見出しの 1 行。 */}
+      {free && freeOcrRemaining != null && (
+        <section aria-label="写真から書き起こし" style={sectionGap}>
+          <h3 style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>写真から書き起こし</h3>
+          <p style={{ ...meta, fontSize: 'var(--text-sub)', color: 'var(--text)' }}>
+            <span style={nowrap}>今月の残り {fmt(freeOcrRemaining)} 回</span>
+            <span style={{ ...nowrap, color: 'var(--text-2)' }}>（トークンとは別に毎月 {fmt(freeOcrLimit)} 回）</span>
+          </p>
+        </section>
+      )}
+
+      {/* 無料プランの説明（買えないことと、プランで変わること・1 回だけ）。使い切ったら、メモが答える相談のことも 1 行。 */}
       {free && (
-        <p style={{ ...meta, marginTop: 'var(--space-6)' }}>
-          {withPhraseBreaks('無料プランの AI は、相談とこの本で学べることと写真から書き起こし。プランは')}
-          <span style={nowrap}>毎月 {fmt(PAID_TOKENS)} トークン</span>
-          {withPhraseBreaks('で、すべての AI 機能を使えます。')}
-        </p>
+        <div style={{ marginTop: 'var(--space-6)' }}>
+          {usedUp && (
+            <p style={{ ...meta, fontSize: 'var(--text-sub)', color: 'var(--text)', marginBottom: 'var(--space-2)' }}>
+              {withPhraseBreaks('メモが答える相談は、そのまま使えます')}
+            </p>
+          )}
+          <p style={meta}>
+            {withPhraseBreaks('無料プランで使える AI は、相談・この本で学べること・写真から書き起こしです。プランは')}
+            <span style={nowrap}>毎月 {fmt(PAID_TOKENS)} トークン</span>
+            {withPhraseBreaks('で、すべての AI 機能を使えます。')}
+          </p>
+        </div>
       )}
     </BottomSheet>
   );

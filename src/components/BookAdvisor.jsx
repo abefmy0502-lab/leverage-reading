@@ -4,6 +4,7 @@
 
 import { Fragment, useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { createPortal } from 'react-dom';
+import TokenUsageSheet from './TokenUsageSheet';
 import {
   ArrowUp as IcSend,
   Check as IcCheck,
@@ -29,7 +30,7 @@ import { normalizeAdvisorRecs, resolveMixedRec, focusText, emptyReasonOf } from 
 import { searchBooksFlat as searchBooksAPIFlat } from '../lib/bookSearch';
 import { STORE_DISCLOSURE_TEXT } from '../lib/rakutenLink';
 import AdvisorStoreLinks from './AdvisorStoreLinks';
-import { nextResetLabelJa } from '../lib/freeTrial';
+import { nextResetLabelJa, requestPaywall } from '../lib/freeTrial';
 import { TOKEN_COSTS, runCostLine, monthDayLabelJa } from '../lib/tokens';
 import { trialCancelShortLine } from '../lib/trialNudge';
 import TokensOutCard from './TokensOutCard';
@@ -157,6 +158,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   // 🎁 AI 選書はプランの機能（フリーミアム・2026-09-27）。無料プランの人が送ったら、有料プランの画面を
   //    重ねて開く（入力は残す・画面はそのまま見せる）。サーバーも 402 plan_required で止める。
   const { requirePlan, canBuyTokens, openTokenSheet, plan, freeMode, tokensRemaining, purchasedTokens, trialEndsAt, tokenAllowance } = usePaywall();
+  // 🪙📊 トークンの使い方（使い切ったときの案内カードから開く・2026-10-11）。
+  const [usageOpen, setUsageOpen] = useState(false);
   // 送るボタンのそばに 1 回の目安と残り（相談と同じ言い方・無料プランはプランの機能なので出さない・2026-09-29）。
   const costLine = freeMode ? '' : runCostLine({ plan, remaining: tokensRemaining, purchased: purchasedTokens, cost: TOKEN_COSTS.advisor });
   // 生成中にアンマウントされたら進行中のストリームを中断する（コスト・二重セッション対策）。
@@ -1849,6 +1852,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
             cancelLine={plan === 'trial' ? trialCancelShortLine(trialEndsAt) : ''}
             tokenAllowance={tokenAllowance}
             onAdd={canBuyTokens ? openTokenSheet : null}
+            onUsage={() => setUsageOpen(true)}
           />
         ) : (
           <p role="status" style={{ ...uiCard, margin: 0, fontSize: 'var(--text-sub)', lineHeight: 1.6, color: 'var(--text)', whiteSpace: 'pre-wrap', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
@@ -2182,6 +2186,14 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         );
       })()}
       {confirmAddModal}
+      {usageOpen && (
+        <TokenUsageSheet
+          from="advisor"
+          onClose={() => setUsageOpen(false)}
+          onAdd={() => { setUsageOpen(false); openTokenSheet(); }}
+          onPlans={(reason) => { setUsageOpen(false); requestPaywall(reason); }}
+        />
+      )}
     </div>
   );
 }

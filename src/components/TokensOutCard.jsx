@@ -2,7 +2,7 @@
 // 組み立て: 題（17/600）→ 戻る日・使える日（15/--text-2）→ カードの中に「トークンを追加」（7 日間無料は枠線・有料は塗り）
 //   → 7 日間無料は「続けないときは M月D日までに解約」の小さな 1 行 → 脇役（children：メモを検索して探す など）。
 // 日付と「800 トークン」は 1 かたまり（途中で改行しない）。
-import { btnPrimary, btnGhost } from '../styles/ui';
+import { btnPrimary, btnGhost, btnLink } from '../styles/ui';
 import { withPhraseBreaks } from './TightBubble';
 import { nextResetLabelJa } from '../lib/freeTrial';
 import { PAID_TOKENS } from '../lib/tokens';
@@ -15,7 +15,8 @@ const subStyle = { margin: 'var(--space-1) 0 0', fontSize: 'var(--text-sub)', co
 export const trialCancelLineStyle = { margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' };
 const nowrap = { whiteSpace: 'nowrap' };
 
-export default function TokensOutCard({ plan, trialEndLabel = '', cancelLine = '', tokenAllowance = null, onAdd, children = null, style = null }) {
+// onUsage: 文字ボタン「トークンの使い方を見る」（使い切ると相談の上の行の残りの数が消えるので、入口をここにも・2026-10-11）。
+export default function TokensOutCard({ plan, trialEndLabel = '', cancelLine = '', tokenAllowance = null, onAdd, onUsage = null, children = null, style = null }) {
   const trial = plan === 'trial';
   // 量が分からない（読み込み前・取れなかった）ときは有料の毎月の量（「0 トークンに戻ります」と出さない）。
   const allowance = Number(tokenAllowance) > 0 ? tokenAllowance : PAID_TOKENS;
@@ -39,6 +40,11 @@ export default function TokensOutCard({ plan, trialEndLabel = '', cancelLine = '
         </button>
       )}
       {onAdd && cancelLine && <p style={trialCancelLineStyle}>{withPhraseBreaks(cancelLine)}</p>}
+      {onUsage && (
+        <button type="button" onClick={onUsage} style={{ ...btnLink, width: '100%', marginTop: 'var(--space-2)' }}>
+          トークンの使い方を見る
+        </button>
+      )}
       {children}
     </section>
   );

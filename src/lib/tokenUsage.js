@@ -92,12 +92,24 @@ export function usedRatio(remaining, allowance) {
 //     契約していない）なら「7 日間無料で試す」（有料プランの画面・reason 'free_used'）。
 //     それ以外は「プランを見る」（使い切ったときは reason 'free_used'・まだ残っているときは null＝一般の見出し）。
 //   'admin' や不明は null（出さない）。
-export function usageSheetAction({ plan, remaining, trialOffer = '', hadPlan = false } = {}) {
-  if (plan === 'paid' || plan === 'trial') return { kind: 'add', label: 'トークンを追加' };
+// strong（主ボタンの塗り）: 残りが少ない（low＝その月の分＋追加分が枠の 20% 以下）・使い切った（その月の分も追加分も 0）・
+//   「7 日間無料で試す」のときだけ。余裕があるときは枠線（お金を払っている人ほど強く買わせない・2026-10-11 ui-critic）。
+export function usageSheetAction({ plan, remaining, purchased = 0, trialOffer = '', hadPlan = false, low = false } = {}) {
+  const known = remaining != null && Number.isFinite(Number(remaining));
+  const usedUp = known && Number(remaining) <= 0;
+  const outAll = usedUp && !(Number(purchased) > 0);
+  const strong = !!low || outAll;
+  if (plan === 'paid' || plan === 'trial') return { kind: 'add', label: 'トークンを追加', strong };
   if (plan !== 'free') return null;
-  const usedUp = Number.isFinite(Number(remaining)) && remaining != null && Number(remaining) <= 0;
-  if (usedUp && trialOffer && !hadPlan) return { kind: 'trial', label: `${trialOffer}で試す`, reason: 'free_used' };
-  return { kind: 'plans', label: 'プランを見る', reason: usedUp ? 'free_used' : null };
+  if (usedUp && trialOffer && !hadPlan) return { kind: 'trial', label: `${trialOffer}で試す`, reason: 'free_used', strong: true };
+  return { kind: 'plans', label: 'プランを見る', reason: usedUp ? 'free_used' : null, strong };
+}
+
+// 列が無いエラー（Postgres 42703・PostgREST の schema cache）か。
+export function isMissingPurposeColumn(error) {
+  if (!error) return false;
+  const msg = String(error.message || '');
+  return error.code === '42703' || error.code === 'PGRST204' || /purpose_mjpy/.test(msg);
 }
 
 // 期間の使った量（1/1000 円）と用途ごとの原価・追加分から払った量（本人の行だけ読める）。
@@ -110,6 +122,8 @@ export async function fetchUsageDetail(userId, periodKey) {
     let { data, error } = await read('cost_mjpy, purpose_mjpy');
     let hasPurpose = true;
     if (error) {
+      // 列が無い DB（supabase_ai_usage_purpose.sql 未適用）だけ cost_mjpy で読み直す。ほかの失敗は null（＝読めなかった）。
+      if (!isMissingPurposeColumn(error)) return null;
       hasPurpose = false;
       ({ data, error } = await read('cost_mjpy'));
       if (error) return null;
