@@ -35,6 +35,11 @@ import { btnGhost, btnLink, groupTitle, input as inputStyle } from '../styles/ui
 import { setKeyboardAccessoryBar } from '../lib/native';
 import { withPhraseBreaks } from './TightBubble';
 
+// 文字の大きさの設定が大きいとき（ルートの文字 22px 以上・ShareSheet と同じ目安）。
+const rootTextLarge = () => {
+  try { return parseFloat(getComputedStyle(document.documentElement).fontSize) >= 22; } catch { return false; }
+};
+
 // 形の見本の書体（押す前に形が分かるように、名前をその書体で書く）。
 const STYLE_FONT = {
   mincho: { fontFamily: 'var(--font-read)', fontWeight: 400 },
@@ -594,7 +599,7 @@ export default function ShareEditor({
                 try { if (scrollRef.current) scrollRef.current.scrollTop = 0; } catch { /* ignore */ }
               }}
               onBlur={() => setInputFocused(false)}
-              style={{ ...inputStyle, order: typing ? 1 : 4, marginTop: typing ? 0 : 'var(--space-2)' }}
+              style={{ ...inputStyle, order: typing ? 1 : 4, marginTop: typing ? 0 : 'var(--space-4)' }}
             />
           )}
           </div>
@@ -604,13 +609,14 @@ export default function ShareEditor({
             <h3 id="share-edit-phrase" style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>言葉</h3>
             {!phrase ? (
               <button type="button" onClick={addPhrase} style={{ ...btnGhost, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)' }}>
-                <Type size={20} aria-hidden="true" />
+                <Type size="1.2em" aria-hidden="true" />
                 言葉を入れる
               </button>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
                 {/* 入力欄は画像のすぐ下（上に残る欄）に置いた。ここは形・大きさ・色。 */}
-                <div role="radiogroup" aria-label="言葉の形" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 'var(--space-2)' }}>
+                {/* 3 つを 1 行に（文字が大きくて入らないときは縦に 1 列・2026-10-11 リリース前の採点）。 */}
+                <div role="radiogroup" aria-label="言葉の形" style={{ display: 'grid', gridTemplateColumns: rootTextLarge() ? 'minmax(0, 1fr)' : 'repeat(3, minmax(0, 1fr))', gap: 'var(--space-2)' }}>
                   {styles.map((s) => {
                     const on = (phrase.style || 'mincho') === s;
                     return (
@@ -637,12 +643,12 @@ export default function ShareEditor({
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: swapLabel ? 'space-between' : 'flex-end', marginLeft: 'calc(-1 * var(--space-1))', marginRight: 'calc(-1 * var(--space-1))' }}>
                   {swapLabel && (
                     <button type="button" onClick={() => { setPhraseField({ invert: !phrase.invert }); haptic.light(); }} style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                      <Contrast size={18} aria-hidden="true" />
+                      <Contrast size="1.1em" aria-hidden="true" />
                       {swapLabel}
                     </button>
                   )}
                   <button type="button" onClick={() => { onPhrase(null); haptic.light(); }} style={{ ...btnLink, color: 'var(--error)', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }}>
-                    <X size={18} aria-hidden="true" />
+                    <X size="1.1em" aria-hidden="true" />
                     言葉を外す
                   </button>
                 </div>

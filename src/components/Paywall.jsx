@@ -765,6 +765,10 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
                 // 実際に請求される金額を、無料期間より弱くしない（3.1.2）。無料期間はプランごと・使える人にだけ。
                 <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, margin: compactFooter ? '0 0 var(--space-2)' : '0 0 var(--space-3)' }}>
                   {!leadInContent && leadLine}
+                  {/* 大きな文字のときも「最初の 7 日間は無料」だけは欄に 13 の 1 行で残す（量のかっこは上の中身へ・2026-10-11 リリース前の採点）。 */}
+                  {compactFooter && trial && (
+                    <span style={{ display: 'block', fontSize: 'var(--text-meta)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{trialFirstPhrase(trial)}</span>
+                  )}
                   {/* 大きな文字のときは、請求額の行が 1 行に収まる大きさまで（欄が画面の 4 割を取っていた・2026-10-11 リリース前の採点）。 */}
                   <span style={{ display: 'block', fontSize: compactFooter ? billedFitSize(billedLineParts({ ...selected, trial }).join('')) : 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>
                     {billedLineParts({ ...selected, trial }).map((part) => (
@@ -780,8 +784,8 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
               {priceState === 'loading' && (
                 // 読み込み中も請求額の行と同じ高さを取っておく（価格が届いたときに欄が伸びて跳ねないように）。
                 <div aria-hidden="true" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', margin: '0 0 var(--space-3)', paddingTop: 'var(--space-1)' }}>
-                  {trial && <SkeletonBlock width="40%" height={16} />}
-                  <SkeletonBlock width="70%" height={20} />
+                  {trial && <SkeletonBlock width="40%" height="var(--space-4)" />}
+                  <SkeletonBlock width="70%" height="calc(var(--space-4) + var(--space-1))" />
                 </div>
               )}
               <button
@@ -791,7 +795,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
                 // 価格を読み込むまでは押せない見た目（薄くしない・DESIGN §5）。購入手続き中は塗りのまま文言で示す。
                 style={{
                   ...(priceState !== 'ready' ? btnPrimaryOff : btnPrimary),
-                  ...(compactFooter ? { fontSize: COMPACT_TEXT, height: 'auto', minHeight: 48, paddingTop: 'var(--space-2)', paddingBottom: 'var(--space-2)' } : null),
+                  ...(compactFooter ? { fontSize: COMPACT_TEXT, height: 'auto', minHeight: 'var(--btn-h)', paddingTop: 'var(--space-2)', paddingBottom: 'var(--space-2)' } : null),
                   cursor: pending || priceState !== 'ready' ? 'default' : 'pointer',
                   opacity: 1,
                 }}

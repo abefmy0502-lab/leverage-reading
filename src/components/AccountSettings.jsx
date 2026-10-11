@@ -1319,7 +1319,8 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                             type="button"
                             aria-label="アカウントを完全に削除"
                             // 一致するまでは押せない見た目（薄くしない・DESIGN §5）。削除中は塗りのまま文言で示す。
-                            style={{ ...(confirmMatches ? btnDanger : btnPrimaryOff), flex: '1 1 6.5em', whiteSpace: 'nowrap', opacity: 1 }}
+                            // カードの上なので、押せない間は --separator の枠の形（--fill の面だとカードに溶けて暗い画面で見えなかった・2026-10-11）。
+                            style={{ ...(confirmMatches ? btnDanger : btnGhostOff), flex: '1 1 6.5em', whiteSpace: 'nowrap', opacity: 1 }}
                             disabled={deleting || !confirmMatches}
                             onClick={handleDelete}
                           >

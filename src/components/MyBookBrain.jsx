@@ -31,7 +31,7 @@ import TightBubble, { withPhraseBreaks } from './TightBubble';
 import { createSendGuard } from '../lib/sendGuard';
 import TokensOutCard, { trialCancelLineStyle } from './TokensOutCard';
 import { SkeletonBlock } from './Skeleton';
-import { X, MessageCircle, History, BookOpenCheck, Target, Check, RotateCw, MoreHorizontal, ChevronLeft, ChevronDown, ChevronRight, PencilLine, ArrowUp, Square, Plus, Minus, Sprout, Trash2 } from 'lucide-react';
+import { X, MessageCircle, History, BookOpenCheck, Target, Check, RotateCw, MoreHorizontal, ChevronLeft, ChevronDown, ChevronRight, PencilLine, ArrowUp, Square, Plus, Minus, Sprout, Trash2, SlidersHorizontal } from 'lucide-react';
 import ContextMenu from './ContextMenu';
 import { usePaywall } from '../state/PaywallContext';
 import { nextResetLabelJa } from '../lib/freeTrial';
@@ -460,6 +460,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // プランの人（有料・無料期間）がトークンを使い切った（サーバーの 429 か、残りが 0）。
   const planOut = canBuyTokens && (monthLimitHit || (tokensAvailable != null && tokensAvailable <= 0));
   const outOfTokens = monthLimitHit || planOut;
+  // 会話が始まったあとの「相談相手と答え方」の入口のメニュー（入力欄の左の 44 のボタン・2026-10-11）。
+  const [scopeMenu, setScopeMenu] = useState(null);
   // 無料期間が終わる日（「◯月◯日から、毎月 800 トークン使えます」）。分からなければ空。
   const trialEndLabel = plan === 'trial' ? monthDayLabelJa(trialEndsAt) : '';
   const trialCancelLine = plan === 'trial' ? trialCancelShortLine(trialEndsAt) : '';
@@ -1467,7 +1469,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       const persistRefs = wasAborted ? (threadMark ? [threadMark] : []) : [
         ...(evidenceLine ? [`${EVIDENCE_PREFIX}${evidenceLine}`] : []),
         // 関係するメモが無かった答え（トークンを返した）には、積み重ねの一行を付けない（効いていないので）
-        ...(grown > 0 && memoCount > 0 && !tokenRefund ? [`${GROWTH_PREFIX}前の相談から メモ +${grown} 件`] : []),
+        ...(grown > 0 && memoCount > 0 && !tokenRefund ? [`${GROWTH_PREFIX}前の相談のあと、メモが ${grown} 件増えました`] : []),
         ...(Array.isArray(quoteRefs) ? quoteRefs : []),
         ...(tokenRefund ? [`${REFUND_PREFIX}${REFUND_NOTE}`] : []),
         ...(completedActions > 0 && !tokenRefund ? [`${ACTED_PREFIX}${completedActions}`] : []),
@@ -2145,10 +2147,11 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   );
 
   // 入力欄の案内（答えの状態ごと）。案内が変わったら高さも測り直す（Chrome は案内の文の高さも数える・2026-10-10）。
+  //   送れない間は文字が大きいと「相談でき／ます」と割れたので、短い「◯月◯日から再開」に（2026-10-11 リリース前の採点）。
   const composerPlaceholder = outOfTokens
     ? (plan === 'trial'
-      ? (trialEndLabel ? `${trialEndLabel}から相談できます` : '無料期間のトークンは、ここまでです')
-      : `${nextResetLabelJa()}から相談できます`)
+      ? (trialEndLabel ? `${trialEndLabel}から${largeText ? '再開' : '相談できます'}` : (largeText ? 'トークンはここまで' : '無料期間のトークンは、ここまでです'))
+      : `${nextResetLabelJa()}から${largeText ? '再開' : '相談できます'}`)
     // メモが答える相談（AI を使わない）: 送れることと、何から答えるかを 1 行で（390 幅で 1 行に収まる長さ）。
     : freeUsedUp ? '困りごと（メモから探します）'
     : carry && !carry.used ? 'この相談の続きを書く'
@@ -2632,7 +2635,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           {/* 続きを相談している間は、相談相手・答え方の行の代わりに「〈題〉の続き」の 1 行（相談相手はその会話のまま・
               × で外すと戻る）。入力欄のまとまりを 1 段減らす（2026-10-08 ui-critic）。 */}
           {/* トークンを使い切って送れない間は、相談相手・答え方の行も出さない（押しても相談できない・2026-10-11 リリース前の採点）。 */}
-          {chrome.scopeBar && !resumeThread && !outOfTokens && (
+          {/* 会話が始まったら（!isEmpty）、相談相手・答え方の行は入力欄の左の 44 のボタン 1 つにまとめる（答えの見える高さを増やす・
+              2026-10-11 リリース前の採点）。まだ話していない間は今までどおり名前つきの行。 */}
+          {chrome.scopeBar && !resumeThread && !outOfTokens && isEmpty && (
           <ScopeBar
             label={scopeLabelFor(scopeIds, books)}
             scoped={scopeIds.length > 0}
@@ -2681,7 +2686,34 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               </button>
             </div>
           )}
-          <div className="ai-input-area" style={(chrome.scopeBar && !outOfTokens) || resumeThread ? { borderTop: 'none' } : undefined}>
+          <div className="ai-input-area" style={(chrome.scopeBar && !outOfTokens && isEmpty) || resumeThread ? { borderTop: 'none' } : undefined}>
+            {chrome.scopeBar && !resumeThread && !outOfTokens && !isEmpty && (
+              <button
+                type="button"
+                onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setScopeMenu({ x: r.left + 8, y: r.top - 8 }); }}
+                onMouseDown={(e) => { if (document.activeElement === inputRef.current) e.preventDefault(); }}
+                disabled={busy}
+                aria-haspopup="menu"
+                aria-expanded={!!scopeMenu}
+                aria-label={`相談相手と答え方（${scopeLabelFor(scopeIds, books)}${modeApplies ? `・${answerModeLabel(answerMode)}` : ''}）`}
+                // 既定から変えているとき（絞った相談相手・本ごとに）は --accent-soft の面（BarChip と同じ）。
+                style={{ ...iconBtn, flexShrink: 0, borderRadius: 'var(--radius)', background: scopeIds.length > 0 || (modeApplies && answerMode === 'perbook') ? 'var(--accent-soft)' : 'var(--fill)', color: busy ? 'var(--text-3)' : (scopeIds.length > 0 || (modeApplies && answerMode === 'perbook') ? 'var(--accent)' : 'var(--text-2)'), opacity: 1 }}
+              >
+                <SlidersHorizontal size="1.2em" aria-hidden="true" />
+              </button>
+            )}
+            {scopeMenu && (
+              <ContextMenu
+                x={scopeMenu.x}
+                y={scopeMenu.y}
+                onClose={() => setScopeMenu(null)}
+                items={[
+                  { label: `相談相手：${scopeLabelFor(scopeIds, books)}`, onClick: () => setScopeSheetOpen(true) },
+                  ...(modeApplies ? [{ label: `答え方：${answerModeLabel(answerMode)}`, onClick: () => setModeSheetOpen(true) }] : []),
+                  ...(scopeIds.length > 0 ? [{ label: 'すべての本に戻す', onClick: () => setScopeIds([]) }] : []),
+                ]}
+              />
+            )}
             <textarea
               ref={inputRef}
               value={input}
@@ -2701,6 +2733,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               // 出てきて入力欄がもう一度動いていた・2026-09-29）。送るのは答えが終わってから（ask が busy で止める）。
               maxLength={LIMITS.aiQuestion}
               aria-label="相談したいこと"
+              // トークンを使い切って送れない間は、入力欄も押せない形（AI 選書と同じ・2026-10-11 リリース前の採点）。
+              disabled={outOfTokens}
             />
             {busy ? (
               // ストリーミング中は送信ボタンを「中止」に切り替える（その時点の内容で確定）。
@@ -3493,7 +3527,9 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
   const allRefs = Array.isArray(message.refs) ? message.refs : [];
   const evidence = (allRefs.find((r) => String(r).startsWith(EVIDENCE_PREFIX)) || '').slice(EVIDENCE_PREFIX.length);
   // 「前の相談から メモ +N 件」（積み重ねが効いていることを事実で・点数やバッジにしない）
-  const growth = (allRefs.find((r) => String(r).startsWith(GROWTH_PREFIX)) || '').slice(GROWTH_PREFIX.length);
+  //   前の版で残した「前の相談から メモ +N 件」も、今の言い方で出す（2026-10-11 リリース前の採点）。
+  const growth = (allRefs.find((r) => String(r).startsWith(GROWTH_PREFIX)) || '').slice(GROWTH_PREFIX.length)
+    .replace(/^前の相談から メモ \+(\d+) 件$/, '前の相談のあと、メモが $1 件増えました');
   // 相談の材料に入れた「最近完了した行動」の件数（0＝行を出さない）
   const actedCount = Math.max(0, parseInt((allRefs.find((r) => String(r).startsWith(ACTED_PREFIX)) || '').slice(ACTED_PREFIX.length), 10) || 0);
   // 引用を実際のメモと突き合わせた結果（無い＝古い答え。そのときは AI の文のまま見せる）
@@ -3582,8 +3618,8 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
       <p style={{ ...readText, margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'keep-all', overflowWrap: 'break-word', ...hangIndent(p.action), ...(isStreaming ? { minHeight: STEP_SKELETON_HEIGHT } : null) }}>{renderBoldPhrased(p.action)}{tail === 'action' && cursor}</p>
       {/* 書いている間は、押せない形で同じ場所に置く（書き終わったときに下が押し下がらないように） */}
       {isStreaming && (onAddAction || onAddActionPickBook) && (
-        <button type="button" disabled aria-hidden="true" tabIndex={-1} style={{ ...rowBtn, ...rowBtnOffOnFill, marginTop: 'var(--space-3)' }}>
-          <Target size="1.2em" aria-hidden="true" />行動に追加
+        <button type="button" disabled aria-hidden="true" tabIndex={-1} style={(primaryAction || isActionAnswer(p)) ? { ...uiBtnPrimaryOff, marginTop: 'var(--space-3)', gap: 'var(--space-2)' } : { ...rowBtn, ...rowBtnOffOnFill, marginTop: 'var(--space-3)' }}>
+          <Target size={(primaryAction || isActionAnswer(p)) ? '1.1em' : '1.2em'} aria-hidden="true" />行動に追加
         </button>
       )}
       {canShowAction && (
@@ -3593,8 +3629,9 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
           <ActionAddedNote already onOpenActions={onOpenActions} focus={priorAdded.focus} />
         ) : (
           // はじめての相談で行動が出た回は、主ボタン（次にすることを 1 つに・2026-10-10 第 9 回 総点検）。
-          <button type="button" onClick={handleAddAction} disabled={actionBusy} style={primaryAction ? { ...(actionBusy ? uiBtnPrimaryOff : uiBtnPrimary), marginTop: 'var(--space-3)', gap: 'var(--space-2)' } : { ...rowBtn, marginTop: 'var(--space-3)', ...(actionBusy ? rowBtnOffOnFill : null) }}>
-            <Target size={primaryAction ? '1.1em' : '1.2em'} aria-hidden="true" />行動に追加
+          //   行動が決まった回（【明日からできる…】）も、いつも主ボタン（次にすることは行動に追加・2026-10-11 リリース前の採点）。
+          <button type="button" onClick={handleAddAction} disabled={actionBusy} style={(primaryAction || isActionAnswer(p)) ? { ...(actionBusy ? uiBtnPrimaryOff : uiBtnPrimary), marginTop: 'var(--space-3)', gap: 'var(--space-2)' } : { ...rowBtn, marginTop: 'var(--space-3)', ...(actionBusy ? rowBtnOffOnFill : null) }}>
+            <Target size={(primaryAction || isActionAnswer(p)) ? '1.1em' : '1.2em'} aria-hidden="true" />行動に追加
           </button>
         )
       )}

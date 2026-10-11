@@ -74,6 +74,10 @@ import { storeLinkFor } from '../lib/appStore';
 import { shareCampaign } from '../lib/storeCampaign';
 import { btnPrimary, btnPrimaryOff, btnLink, btnLinkQuiet } from '../styles/ui';
 
+// 「どの本？」の行の左右をふわっと消す（選んだ本へ送られて開いたとき、左端に前のチップの切れ端が残っていた・2026-10-11）。
+//   左は 8 まで透明・16 で不透明（送っていないときの最初のチップは左の余白 16 から始まるので消えない）。
+const SUBJECT_ROW_MASK = 'linear-gradient(90deg, transparent 0, transparent var(--space-2), black var(--space-4), black 90%, transparent 100%)';
+
 const FORMAT_OPTIONS = [
   { v: 'post', label: '投稿', aria: '投稿（4:5）' },
   { v: 'story', label: 'ストーリー', aria: 'ストーリー（9:16）' },
@@ -177,23 +181,23 @@ const photoChip = {
   whiteSpace: 'nowrap',
   flexShrink: 0,
 };
-// 「どの本？」のチップ（選ぶためのチップ 44）。選んでいる本は --fill の面＋--border の枠＋--text。
-// 太さは変えない（横に送る列の幅が跳ねない）。
+// 「どの本？」のチップ（選ぶためのチップ 44）。選んでいる本は DESIGN §5 の選ぶチップと同じ --accent-soft の面＋--accent/600
+//   （2026-10-11 リリース前の採点で統一・以前は --fill の面＋--border の枠）。幅は文字の大きさに合わせて 12em まで。
 const subjectChip = (on) => ({
   display: 'inline-flex',
   alignItems: 'center',
   gap: 'var(--space-2)',
   flexShrink: 0,
   minHeight: 'var(--tap-min)',
-  maxWidth: 200,
+  maxWidth: 'min(100%, 12em)',
   padding: 'var(--space-1) var(--space-3) var(--space-1) var(--space-1)',
   borderRadius: 'var(--radius)',
-  border: on ? '1px solid var(--border)' : '1px solid var(--separator)',
-  background: on ? 'var(--fill)' : 'transparent',
-  color: on ? 'var(--text)' : 'var(--text-2)',
+  border: on ? '1px solid transparent' : '1px solid var(--separator)',
+  background: on ? 'var(--accent-soft)' : 'transparent',
+  color: on ? 'var(--accent)' : 'var(--text-2)',
   fontFamily: 'inherit',
   fontSize: 'var(--text-sub)',
-  fontWeight: 400,
+  fontWeight: on ? 600 : 400,
   cursor: 'pointer',
   scrollSnapAlign: 'start',
 });
@@ -888,7 +892,7 @@ export default function ShareSheet({
           <div
             role="radiogroup"
             aria-label="どの本を共有するか"
-            style={{ display: 'flex', gap: 'var(--space-2)', overflowX: 'auto', scrollSnapType: 'x proximity', margin: 'calc(-1 * var(--space-1)) calc(-1 * var(--space-4))', padding: 'var(--space-1) 0 var(--space-1) var(--space-4)', scrollPaddingLeft: 'var(--space-4)', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}
+            style={{ display: 'flex', gap: 'var(--space-2)', overflowX: 'auto', scrollSnapType: 'x proximity', margin: 'calc(-1 * var(--space-1)) calc(-1 * var(--space-4))', padding: 'var(--space-1) 0 var(--space-1) var(--space-4)', scrollPaddingLeft: 'var(--space-4)', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch', WebkitMaskImage: SUBJECT_ROW_MASK, maskImage: SUBJECT_ROW_MASK }}
           >
             {choices.map((c) => {
               const on = c.kind === 'book' ? (!isPeriod && subjectBook?.id === c.bookId) : period === c.kind;
@@ -903,9 +907,9 @@ export default function ShareSheet({
                   style={c.kind !== 'book' ? { ...subjectChip(on), paddingLeft: 'var(--space-3)' } : subjectChip(on)}
                 >
                   {c.kind === 'month'
-                    ? <><CalendarDays size={18} aria-hidden="true" />今月</>
+                    ? <><CalendarDays size="1.1em" aria-hidden="true" />今月</>
                     : c.kind === 'year'
-                    ? <><CalendarRange size={18} aria-hidden="true" />今年</>
+                    ? <><CalendarRange size="1.1em" aria-hidden="true" />今年</>
                     : <><MiniCover book={c.book} width={24} /><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{c.book.title}</span></>}
                 </button>
               );
@@ -985,7 +989,7 @@ export default function ShareSheet({
                 onClick={() => { setQuoteIndex(swapQuote(qi, candidates.length, variant === 'record')); haptic.light(); }}
                 style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', color: status === 'ready' ? 'var(--accent)' : 'var(--text-3)', opacity: 1, cursor: status === 'ready' ? 'pointer' : 'default' }}
               >
-                <Shuffle size={18} aria-hidden="true" />
+                <Shuffle size="1.1em" aria-hidden="true" />
                 {swapLabel}
               </button>
             )}
@@ -995,24 +999,32 @@ export default function ShareSheet({
               onClick={openEditor}
               style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', color: status === 'ready' ? 'var(--accent)' : 'var(--text-3)', opacity: 1, cursor: status === 'ready' ? 'pointer' : 'default' }}
             >
-              <SlidersHorizontal size={18} aria-hidden="true" />
+              <SlidersHorizontal size="1.1em" aria-hidden="true" />
               編集
             </button>
             </div>
-            {formatInEditRow && <div style={{ marginLeft: 'auto' }}>{formatSwitch}</div>}
+            {/* 形の切り替えと「背景：写真 ▾」は 1 つのまとまり（右寄せ）。文字が大きいときは行の幅いっぱいの次の行に
+                左揃えで 1 行にまとめる（右の列がガタガタに見えた・2026-10-11 リリース前の採点）。 */}
+            {(formatInEditRow || photo) && (
+            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 'var(--space-3)', rowGap: 'var(--space-1)', ...(largeText ? { flex: '1 1 100%', justifyContent: 'flex-start' } : { marginLeft: 'auto', justifyContent: 'flex-end' }) }}>
+            {formatInEditRow && formatSwitch}
             {photo && (
               // 背景（写真・フィルム・紙…）と、撮り直す・アルバムから選ぶは「背景：写真 ▾」のメニュー 1 つに（2026-10-10）。
               <button
                 type="button"
                 aria-haspopup="menu"
                 aria-expanded={!!bgMenu}
+                aria-label={largeText ? `背景：${STYLE_LABELS[effStyle]}` : undefined}
                 onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setBgMenu({ x: r.right - 8, y: r.top - 8 }); }}
                 // 控えめな文字ボタン（栗色は「別の一文」「編集」と主ボタンに残す・2026-10-10 ui-critic）。
-                style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'auto', marginRight: 'calc(-1 * var(--space-1))' }}
+                style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginRight: 'calc(-1 * var(--space-1))' }}
               >
-                {`背景：${STYLE_LABELS[effStyle]}`}
+                {/* 文字が大きいときは「写真 ▾」だけ（形の切り替えと 1 行に並ぶ・読み上げは「背景：写真」）。 */}
+                {largeText ? STYLE_LABELS[effStyle] : `背景：${STYLE_LABELS[effStyle]}`}
                 <ChevronDown size="1.1em" aria-hidden="true" />
               </button>
+            )}
+            </div>
             )}
             {photo && bgMenu && <ContextMenu x={bgMenu.x} y={bgMenu.y} onClose={() => setBgMenu(null)} items={bgItems} />}
           </div>
