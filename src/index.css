@@ -268,7 +268,7 @@ button:disabled:active {
 
 ::placeholder {
   /* Phase 5 簡素化: 背景に同化しがちだった quaternary を tertiary に格上げ。 */
-  /* DESIGN §6: 案内文も読む文字なので 4.5:1 を確保（--text-3＝明 5.2:1 / 暗 5.4:1）。薄めない。 */
+  /* DESIGN §6: 案内文も読む文字なので 4.5:1 を確保（--text-3＝明 5.1:1（--fill の上 4.7:1）/ 暗 5.4:1）。薄めない。 */
   color: var(--text-3);
   opacity: 1;
 }
@@ -520,6 +520,8 @@ select:focus-visible {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
   }
+  /* ページのなめらかなスクロールも止める（2026-10-11・JS の scrollIntoView は lib/motion.js の scrollBehavior）。 */
+  html { scroll-behavior: auto; }
 }
 
 /* ----- Existing keyframes used by JS-injected styles (kept for back-compat) -- */

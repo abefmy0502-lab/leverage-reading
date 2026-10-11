@@ -197,6 +197,7 @@ function TextEditModal({ title, initialText, onClose, onSave, maxLength }) {
             }}
             style={ta}
             maxLength={maxLength}
+            aria-labelledby={titleId}
           />
           {errorMsg && <p role="alert" style={{ color: 'var(--error)', fontSize: 'var(--text-meta)', margin: 'var(--space-2) 0 0', lineHeight: 1.5 }}>{errorMsg}</p>}
         </div>

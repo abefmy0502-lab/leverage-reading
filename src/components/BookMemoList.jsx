@@ -182,6 +182,7 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
         placeholder={'本を読んで得た学び・全体の感想・行動につなげたいポイントなど。'}
         style={summaryTextarea}
         maxLength={LIMITS.summaryMemo}
+        aria-label="この本のまとめ"
       />
       {errorMsg && (
         // 題（何が起きたか）＋説明（どうすればいいか）。アイコンは付けない（DESIGN §5）。

@@ -183,8 +183,9 @@
 .textarea::placeholder {
   /* Phase 5: 視認性を上げるため tertiary に格上げ。背景に同化しがちだった
      quaternary だと薄すぎてユーザーから「読めない」フィードバック。 */
-  color: var(--color-text-tertiary);
-  opacity: 0.7;
+  /* 薄めない（DESIGN §6・index.css の ::placeholder と同じ --text-3＝4.5:1 以上・2026-10-11）。 */
+  color: var(--text-3);
+  opacity: 1;
 }
 .input:focus,
 .textarea:focus {
@@ -440,14 +441,7 @@ textarea[aria-invalid="true"]:not(.no-focus-ring):focus {
 .skeleton-pill   { width: 56px; height: 18px; border-radius: var(--radius-full); }
 
 /* ---- Input focus ring (additive on top of components.css's .input) ------ */
-.input::placeholder,
-.textarea::placeholder {
-  transition: opacity var(--duration-fast) var(--ease-out);
-}
-.input:focus::placeholder,
-.textarea:focus::placeholder {
-  opacity: 0.5;
-}
+/* 案内文はフォーカスしても薄めない（4.5:1 を割っていた・2026-10-11）。 */
 
 /* ---- Toast slide-in / slide-out ---------------------------------------- */
 @keyframes lvg-toast-in {

@@ -29,6 +29,7 @@ import SwipeableCard from './SwipeableCard';
 import { useToast } from './Toast';
 import { useLongPress } from '../hooks/useLongPress';
 import { MoreHorizontal, BookOpen, Trash2, Pencil, CheckCircle2, Circle, ListTodo, Plus, MessageCircle, ChevronDown, ChevronRight, X } from 'lucide-react';
+import { scrollBehavior } from '../lib/motion';
 
 // 余白は辺ごとに書く（padding の一括指定と paddingBottom を混ぜると、描き直しで下の余白が戻らないことがある・2026-09-30）。
 const wrap = { paddingTop: 'var(--space-3)', paddingLeft: 'var(--space-4)', paddingRight: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' };
@@ -450,7 +451,7 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
   useEffect(() => {
     if (showDoneNonce == null) return undefined;
     setShowDone(true);
-    const t = setTimeout(() => { try { doneSectionRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' }); } catch { /* ignore */ } }, 80);
+    const t = setTimeout(() => { try { doneSectionRef.current?.scrollIntoView({ block: 'start', behavior: scrollBehavior() }); } catch { /* ignore */ } }, 80);
     return () => clearTimeout(t);
   }, [showDoneNonce]);
 

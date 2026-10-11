@@ -54,6 +54,7 @@ import { filterProseTitles, proseTitleLists } from '../lib/advisorProse';
 import { dropSummarySection, introTextOf } from '../lib/advisorSummary';
 import { useEdgeSwipeBack } from '../hooks/useEdgeSwipeBack';
 import { useComposerHeight } from '../hooks/useComposerHeight';
+import { scrollBehavior } from '../lib/motion';
 
 const AdvisorAddConfirmModal = lazy(() => import('./AdvisorAddConfirmModal'));
 
@@ -307,7 +308,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     prevMsgCountRef.current = messages.length;
     if (prev <= 0) return;
     if (messages.length <= prev) return;
-    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }), 30);
+    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: scrollBehavior(), block: 'end' }), 30);
   }, [messages]);
   // 入力欄は書いた量に合わせて伸びる（空は 1 行 44・5 行を超えたら中を送る＝上限は CSS の max-height・相談と同じ）。
   const inputRef = useRef(null);
@@ -1439,7 +1440,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   // 新メッセージ追加時に最下部へオートスクロール (LINE 挙動)。
   useEffect(() => {
     if (!chatScrollRef.current || messages.length === 0) return;
-    chatScrollRef.current.scrollTo({ top: chatScrollRef.current.scrollHeight, behavior: 'smooth' });
+    chatScrollRef.current.scrollTo({ top: chatScrollRef.current.scrollHeight, behavior: scrollBehavior() });
   }, [messages.length]);
   // 新しい問い・受け取ったまとめが出たら、そのカードの先頭まで送る（2026-10-08）。いちばん下へ送ると、
   //   文字を大きくしたときに問いの文が上へ流れて見えなくなった（ui-critic 第 3 回）。
@@ -1463,7 +1464,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     const appeared = has && !hadRecoRef.current;
     hadRecoRef.current = has;
     if (!appeared) return;
-    setTimeout(() => recoBlockRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 30);
+    setTimeout(() => recoBlockRef.current?.scrollIntoView({ behavior: scrollBehavior(), block: 'start' }), 30);
   }, [recommendations]);
 
   // 履歴サブビューでは入力欄を出さず、専用 UI に切り替える。

@@ -10,6 +10,11 @@ export function prefersReducedMotion() {
   }
 }
 
+// scrollIntoView / scrollTo の behavior。動きを減らす設定なら 'auto'（飛ぶ）・そうでなければ 'smooth'（2026-10-11）。
+export function scrollBehavior() {
+  return prefersReducedMotion() ? 'auto' : 'smooth';
+}
+
 // 閉じる動きを待つ時間（ms）。動きを減らす設定なら 0。
 export function closeDelayMs(ms) {
   return prefersReducedMotion() ? 0 : ms;
