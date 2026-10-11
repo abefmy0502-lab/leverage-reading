@@ -150,7 +150,7 @@ const PILLARS = [
 const TRUST_POINTS = [
   'メモは、AI の学習に使われません',
   'AI に送るのは AI の機能を使うときだけ。はじめに同意を聞きます',
-  'いつでも CSV で書き出せて、退会でデータを消去します',
+  'いつでも CSV で書き出せて、退会のお申し込みでデータを消去します',
   '共有の写真は、サーバーに送りません',
 ];
 
@@ -517,6 +517,8 @@ export default function Landing() {
               <h2 className="lp-h2" id="lp-flow">
                 <span>読んで、</span><span>終わりにしない。</span>
               </h2>
+              {/* 一番の価値（CLAUDE.md）を 1 行で・対話の流れの頭に（2026-10-11 ui-critic） */}
+              <p className="lp-wbr lp-flow-lead"><Phrases>読むほど、あなただけの相談相手が育つ。</Phrases></p>
               <dl className="lp-ba">
                 {BEFORE_AFTER.map((r, i) => (
                   <div key={r.label} className={i === 1 ? 'is-after' : undefined}>
@@ -545,8 +547,6 @@ export default function Landing() {
               <h2 className="lp-h2" id="lp-pillars">
                 <span>続けられて、</span><span>成果が見える。</span>
               </h2>
-              {/* 一番の価値（CLAUDE.md）を 1 行で */}
-              <p className="lp-wbr"><Phrases>読むほど、あなただけの相談相手が育つ。</Phrases></p>
             </div>
             <ul className="lp-pillars">
               {PILLARS.map((x) => (
@@ -624,7 +624,7 @@ export default function Landing() {
                     見出しに金額を置かない（月あたりの額を請求額より大きく見せない） */}
                 <span>月に</span><span>本{'\u00a0'}1{'\u00a0'}冊ほどの</span><span>値段で、</span><span>読んだ本</span><span>すべてが</span><span>相談相手に。</span>
               </h2>
-              <p className="lp-wbr"><Phrases>{`${noBreak(`月額 ${MONTHLY_TEXT}`)}${noBreak(`（1 日あたり約 ${PER_DAY_TEXT}）。`)}まずは無料プラン（ずっと無料）から始められます。`}</Phrases></p>
+              <p className="lp-wbr"><Phrases>{`${noBreak(`月額 ${MONTHLY_TEXT}`)}${noBreak('（1 日あたり')}${noBreak(`約 ${PER_DAY_TEXT}）。`)}まずは無料プラン（ずっと無料）から始められます。`}</Phrases></p>
             </div>
 
             {/* 創業メンバー価格（期間中だけ・料金の中の帯 1 枚）。「先着」「通常価格」と書かない・差額を書かない */}

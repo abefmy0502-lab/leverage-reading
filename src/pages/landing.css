@@ -407,7 +407,8 @@ body.lp-active {
 .lp-pillar-text > p:not(.lp-pillar-head) { color: var(--text-2); max-width: 30em; }
 .lp-pillars-note { text-align: left; margin-top: var(--space-8) !important; }
 /* 学習に使わないの 1 行（柱の後ろ） */
-.lp-trust { list-style: none; margin: var(--space-8) 0 0; padding: 0; display: grid; gap: var(--space-2) var(--space-8); grid-template-columns: repeat(auto-fit, minmax(min(100%, 18em), 1fr)); color: var(--text-2); font-size: var(--text-sub); line-height: 1.5; }
+.lp-root .lp-sec-head .lp-flow-lead { margin: var(--space-2) 0 var(--space-6); }
+.lp-trust { list-style: none; margin: var(--space-8) 0 0; padding: 0; display: grid; gap: var(--space-2) var(--space-8); grid-template-columns: repeat(auto-fit, minmax(min(100%, 24em), 1fr)); color: var(--text-2); font-size: var(--text-sub); line-height: 1.5; }
 .lp-trust li { display: flex; gap: var(--space-2); align-items: flex-start; }
 .lp-trust svg { flex-shrink: 0; margin-top: var(--space-1); color: var(--text-2); }
 
