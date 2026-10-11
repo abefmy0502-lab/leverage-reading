@@ -9,6 +9,7 @@
 //
 // 🖼 差し替え（2026-10-11）: この SVG は仮の絵。本番の絵（オーナーが作る画像）は、public/lp/ に
 //   hero-illust-<light|dark>-<390|780|1560>.webp を置くだけで替わる（明暗は prefers-color-scheme で出し分け）。
+//   本番の絵は横長 4:3（1560×1170 など）。SVG と同じ枠（.lp-illust＝幅いっぱい・最大 420・高さは比のまま）にそのまま入る。
 //   置いていないときは SVG のまま（はじめに hero-illust-light-780.webp を読めるか確かめ、読めたときだけ画像に替える＝
 //   壊れた画像を見せない）。読み上げの文は SVG と同じ（ILLUST_LABEL）。手順は docs/lp-measurement.md。
 import { useEffect, useState } from 'react';
@@ -103,7 +104,7 @@ export default function LpIllust() {
   return (
     <picture>
       <source media="(prefers-color-scheme: dark)" type="image/webp" srcSet={SET('dark')} sizes="(min-width: 768px) 420px, 92vw" />
-      <img className="lp-illust" src={IMG('light', 780)} srcSet={SET('light')} sizes="(min-width: 768px) 420px, 92vw" alt={ILLUST_LABEL} decoding="async" />
+      <img className="lp-illust" src={IMG('light', 780)} srcSet={SET('light')} sizes="(min-width: 768px) 420px, 92vw" width="1560" height="1170" alt={ILLUST_LABEL} decoding="async" />
     </picture>
   );
 }

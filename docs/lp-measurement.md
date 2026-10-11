@@ -25,7 +25,7 @@ App Store Connect では、キャンペーン名ごとに「ページ閲覧数�
 キャンペーン名の読み方: `lp_<押した場所>_<ヒーローの表示>`
 
 - 押した場所: `header`（上の帯）/ `hero`（最初の画面）/ `sticky`（スマホの下に固定）/ `start`（「メモがゼロでも、初日から」の節）/ `pricing`（料金）/ `final`（最後）/ `qr`（PC の QR コード）/ `hero_badge`・`final_badge`（公式バッジ・`VITE_APP_STORE_BADGE` があるときだけ）。`offer`（創業メンバー価格の節）は 2026-10-05 に料金の中の帯になり、ボタンは無くなった。`demo` は 2026-10-02 に無くなった
-- ヒーローの表示: `illust` / `photo`（2026-10-11 から、スマホも PC も半々に振り分けて端末に覚える＝`orime-lp-hero-v2`。`illust`＝いろいろな本と対話するイラスト・`photo`＝1 冊に相談した答えの実際の画面。`?hero=illust` / `?hero=photo` で固定して確認できる・`VITE_LP_HERO_AB=off` で全員 `illust`。`3d` は A/B から外し `?hero=3d` のときだけ。2026-10-05〜10-10 の記録は `3d` / `photo`（広い画面だけ半々））。`illust` を記録するには `supabase_lp_events.sql` と `supabase_lp_waitlist.sql` を**流し直す**（variant の CHECK に `illust` を足した）
+- ヒーローの表示: 既定は全員 `photo`（1 冊に相談した答えの実際の画面）。**`VITE_LP_ILLUST=on` のビルドだけ** `illust`（いろいろな本と対話するイラスト）↔ `photo` を、スマホも PC も半々に振り分けて端末に覚える（`orime-lp-hero-v2`・そのときだけ `VITE_LP_HERO_AB=off` で全員 `illust`）。本番の絵が届くまでは入れない（2026-10-11 オーナー・仮の SVG は見せない）。`?hero=photo` で固定、`?hero=illust` は開発中・お試しか `VITE_LP_ILLUST=on` のときだけ。`3d` は A/B から外し `?hero=3d` のときだけ。記録の variant は実際に見せた形。2026-10-05〜10-10 の記録は `3d` / `photo`（広い画面だけ半々）。`illust` を記録するには `supabase_lp_events.sql` と `supabase_lp_waitlist.sql` を**流し直す**（variant の CHECK に `illust` を足した）
 
 ### ③-2 入口ごとのキャンペーン名（ct）の一覧（2026-10-08・マーケ戦略 §6-4）
 
@@ -171,8 +171,8 @@ group by 1 order by 2 desc;
 
 ### ヒーローのイラストを本番の絵に差し替える（2026-10-11）
 - 置き場所: `public/lp/hero-illust-light-<390|780|1560>.webp` と `hero-illust-dark-<390|780|1560>.webp`（明暗 2 枚 × 幅 3 つ）。置くだけで LP が画像に替わる（`hero-illust-light-780.webp` が読めないときは今の SVG のまま・`src/pages/LpIllust.jsx`）。
-- 書き出し: webp（品質 80 前後）・横幅 390 / 780 / 1560 px・縦横の比は 3 つで同じ（今の絵は 6:5）・背景は LP の地の色（明 `--bg` #f7f5f1／暗 `--bg` の暗い値）に合わせるか透明。1 枚 200KB 以内が目安。
-- 読み上げの文は SVG と同じ（`ILLUST_LABEL`）。絵の意味が変わったら、その文も直す。
+- 書き出し: webp（品質 80 前後）・横幅 390 / 780 / 1560 px・横長 4:3（1560×1170・3 つとも同じ比）・背景は LP の地の色（明 `--bg` #f7f5f1／暗 `--bg` の暗い値）に合わせるか透明。1 枚 200KB 以内が目安。
+- 読み上げの文は SVG と同じ（`ILLUST_LABEL`）。絵の意味が変わったら、その文も直す。置いたら `VITE_LP_ILLUST=on` を入れて公開し直すと A/B が始まる。
 - 結論が出たら、同じ枠でヒーローの文言（「読んだ本が、あなたの相談相手になる。」↔「読むほど、あなただけの相談相手が育つ。」）を比べる（lp-copy の案 A ↔ 案 B）。
 - 相談の流れの手順を押した人の押下率が押さない人より明らかに高ければ、流れの説明（手順の名前）をヒーローに近づける。section_view で比較・共有・学習のどこで離れているかを見る。
 - よく開かれる FAQ の内容は、ヒーローのボタン近くの一言に昇格させる。
