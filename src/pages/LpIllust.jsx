@@ -8,10 +8,12 @@
 // 読み上げ: 絵の意味を 1 文で（aria-label）。中の形は読ませない。
 //
 // 🖼 本番の絵（2026-10-11 オーナー）: public/lp/hero-illust-light-<390|780|1560>.webp（横長 4:3・元は 1448×1086 の PNG を
-//   sharp で書き出した）。暗い版は作らず、暗い画面でも同じ絵を角丸の「絵のカード」（細い線で縁取り）として出す。
+//   sharp で書き出した）。暗い版はまだ無く、暗い画面でも同じ絵を角丸の「絵のカード」（細い線・少し暗く）として出す。
+//   hero-illust-dark-<390|780|1560>.webp を置くと、暗い画面ではそちらを出す（<picture>）。
 //   はじめに hero-illust-light-780.webp を読めるか確かめ、読めないときだけ下の SVG（仮の絵）を予備として出す。
 //   差し替えるときは同じ名前で 3 つ置き直す（手順は docs/lp-measurement.md）。読み上げの文は ILLUST_LABEL。
 import { useEffect, useState } from 'react';
+import { useArt, artSet } from './LpArt';
 
 const BOOKS = [
   { x: 22, y: 26, tone: 'a' },
@@ -90,10 +92,13 @@ function IllustSvg() {
 
 const IMG = (w) => `/lp/hero-illust-light-${w}.webp`;
 const SET = [390, 780, 1560].map((w) => `${IMG(w)} ${w}w`).join(', ');
+const SIZES = '(min-width: 768px) 420px, 92vw';
 
 export default function LpIllust() {
-  // 画像が読めるか（読めたら画像・読めなければ予備の SVG）。読めるまでは同じ大きさの枠だけを出す（跳ねない）。
+  // 画像が読めるか（読めたら画像・読めなければ予備の SVG）。確かめている間も画像のタグを出す（最初の画面の主役＝早く読む）。
   const [state, setState] = useState('probe');
+  // 暗い画面用の版（hero-illust-dark-*.webp）があれば出し分ける（2026-10-11・まだ無い＝明るい版を絵のカードで）。
+  const dark = useArt('hero-illust', 'dark');
   useEffect(() => {
     let alive = true;
     const probe = new Image();
@@ -104,16 +109,19 @@ export default function LpIllust() {
   }, []);
   if (state === 'svg') return <IllustSvg />;
   return (
-    <img
-      className="lp-illust lp-illust-img"
-      src={IMG(780)}
-      srcSet={SET}
-      sizes="(min-width: 768px) 420px, 92vw"
-      width="1560"
-      height="1170"
-      alt={ILLUST_LABEL}
-      fetchpriority="high"
-      decoding="async"
-    />
+    <picture>
+      {dark && <source media="(prefers-color-scheme: dark)" type="image/webp" srcSet={artSet('hero-illust', 'dark')} sizes={SIZES} />}
+      <img
+        className={`lp-illust lp-illust-img${dark ? ' has-dark' : ''}`}
+        src={IMG(780)}
+        srcSet={SET}
+        sizes={SIZES}
+        width="1560"
+        height="1170"
+        alt={ILLUST_LABEL}
+        fetchpriority="high"
+        decoding="async"
+      />
+    </picture>
   );
 }

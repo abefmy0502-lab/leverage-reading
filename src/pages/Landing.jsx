@@ -46,6 +46,7 @@ import Shot from './LpShot';
 import LpFlow from './LpFlow';
 import LpWaitlist from './LpWaitlist';
 import LpIllust from './LpIllust';
+import LpArt, { useArt } from './LpArt';
 import Phrases from './LpPhrases';
 import { buildLpCopy, storeHrefOf, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, NO_INFO_REFUNDS, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE } from './lpCopy';
 import qrcode from 'qrcode-generator';
@@ -117,28 +118,28 @@ const ASK_EXAMPLES = [
 // ③ 続けられて、成果が見える（柱 ②〜⑤・1 つ 1〜2 文・画面 1 枚）
 const PILLARS = [
   {
-    id: 'action', shot: 'action',
+    id: 'action', shot: 'action', artAlt: '相談で決めた一歩を、明日のやることに書き込む様子のイラスト',
     head: '成果につなげる',
     title: '対話の最後は、明日の一歩。',
     body: '決めた一歩は行動リストへ。期限の日の朝にお知らせします。',
     alt: '振り返りの行動の画面。明日・来週以降に分かれた行動の一覧と、それぞれの本の名前',
   },
   {
-    id: 'focus', shot: 'focus',
+    id: 'focus', shot: 'focus', artAlt: '時間を決めて、集中して本を読む様子のイラスト',
     head: '習慣にする',
     title: '時間を決めて、集中して読む。',
     body: '集中モードで読んだ時間が、本と分野ごとに残ります。',
     alt: '集中モードの画面。暗い地に本の表紙と書名、「残り 23 分」の大きな数字と細い輪、下にメモ・おわる・一時停止のボタン',
   },
   {
-    id: 'share', share: true,
+    id: 'share', share: true, artAlt: '心に残った一文を写真に重ねて共有する様子のイラスト',
     head: '発信して、続ける',
     title: '心に残った一文を、1 枚の画像に。',
     body: '写真に一文と書名を重ねて共有。写真はどこにも送りません。',
     alt: '共有の画像の見本。朝の机の写真に、心に残った一文と書名・ページ、Orime のロゴが重なっている',
   },
   {
-    id: 'fields', shot: 'fields',
+    id: 'fields', shot: 'fields', artAlt: 'これまでに読んだ本を分野ごとに見渡す様子のイラスト',
     head: '自分の読書を客観的に見る',
     title: 'どの分野が手薄か、見える。',
     body: '手薄な分野が分かり、次の一冊を AI 選書で相談できます（プラン）。',
@@ -262,6 +263,8 @@ export default function Landing() {
   // ヒーローの表示方式（2026-10-11〜）: 'illust'＝いろいろな本と対話するイラスト ↔ 'photo'＝1 冊に相談した答えの実際の画面
   // （'3d' は ?hero=3d のときだけ・lib/lpTrack.js の lpVariant）。イラストのときは注記を画面のある「読んで、終わりにしない。」の節に任せる。
   const [heroVariant] = useState(() => lpVariant());
+  // 写真で共有の柱がイラストに替わったら、「共有の画像は見本の写真で…」の注記は出さない。
+  const shareArt = useArt('illust-share');
   const heroStageRef = useRef(null);
   const heroImgRef = useRef(null);
   // 3D に振り分けた・3D を出せる端末では、最初から 3D の余白を取っておく（あとから余白が足されて見出しが跳ねない・CLS）。
@@ -537,6 +540,8 @@ export default function Landing() {
                   </div>
                 ))}
               </dl>
+              {/* イメージ図（public/lp/illust-dialogue-*.webp を置いたときだけ・LpArt.jsx）。実際の画面は下の対話の流れに残す */}
+              <LpArt name="illust-dialogue" ratio="4:3" className="lp-art-sec" alt="読んで終わりにせず、心に残った一行から本と対話し、明日の一歩につなげる様子のイラスト" />
             </div>
             <LpFlow onEvent={lpTrack} />
             <div className="lp-asks">
@@ -562,19 +567,30 @@ export default function Landing() {
               {PILLARS.map((x) => (
                 <li key={x.id} id={`lp-${x.id}`} data-lp-sec={x.id}>
                   <div className="lp-pillar-shot">
-                    {x.share ? (
-                      <img
-                        className="lp-share-img"
-                        src="/lp/share-card-540.webp"
-                        srcSet="/lp/share-card-540.webp 540w, /lp/share-card-1080.webp 1080w"
-                        sizes="(min-width: 768px) 240px, 40vw"
-                        width="1080"
-                        height="1350"
-                        loading="lazy"
-                        decoding="async"
-                        alt={x.alt}
-                      />
-                    ) : <Shot name={x.shot} alt={x.alt} className="lp-shot lp-shot-sm" sizes="(min-width: 768px) 240px, 40vw" />}
+                    {/* 柱のイラスト（public/lp/illust-<id>-*.webp・1:1）を置いたら絵に、無ければ今の画面写真 */}
+                    <LpArt
+                      name={`illust-${x.id}`}
+                      ratio="1:1"
+                      sizes="(min-width: 768px) 240px, 72vw"
+                      alt={x.artAlt}
+                      fallback={(
+                        <>
+                        {x.share ? (
+                          <img
+                            className="lp-share-img"
+                            src="/lp/share-card-540.webp"
+                            srcSet="/lp/share-card-540.webp 540w, /lp/share-card-1080.webp 1080w"
+                            sizes="(min-width: 768px) 240px, 40vw"
+                            width="1080"
+                            height="1350"
+                            loading="lazy"
+                            decoding="async"
+                            alt={x.alt}
+                          />
+                        ) : <Shot name={x.shot} alt={x.alt} className="lp-shot lp-shot-sm" sizes="(min-width: 768px) 240px, 40vw" />}
+                        </>
+                      )}
+                    />
                   </div>
                   <div className="lp-pillar-text">
                     <p className="lp-pillar-head">{x.head}</p>
@@ -584,7 +600,7 @@ export default function Landing() {
                 </li>
               ))}
             </ul>
-            <p className="lp-shot-note lp-pillars-note">共有の画像は、見本の写真でアプリが作ったものです。</p>
+            {!shareArt && <p className="lp-shot-note lp-pillars-note">共有の画像は、見本の写真でアプリが作ったものです。</p>}
             {/* 安心の 4 つ（どれも実装と規約で確かめた事実だけ・2026-10-11） */}
             <ul className="lp-trust" aria-label="データの扱い">
               {TRUST_POINTS.map((t) => (
@@ -601,6 +617,7 @@ export default function Landing() {
               <h2 className="lp-h2" id="lp-start">
                 <span>メモがゼロでも、</span><span>今日から。</span>
               </h2>
+              <LpArt name="illust-start" ratio="4:3" className="lp-art-sec" alt="読んだ本に一言ずつ残したり、ほかのアプリの記録を取り込んだり、本のページを撮ったりして始める様子のイラスト" />
             </div>
             <PointList items={START_POINTS} className="lp-points lp-trio lp-quad" />
             <div className="lp-cta-block">

@@ -151,7 +151,7 @@ export function buildLpCopy({
       q: 'Android・パソコンでも使えますか？',
       a: prelaunch
         ? `まず App Store（iPhone）で公開します（${LAUNCH}の予定）。Android 版とパソコンのブラウザ版は、準備ができしだいお知らせします。`
-        : 'いまは iPhone の App Store のアプリでお使いいただけます。Android 版とパソコンのブラウザ版は、準備ができしだいお知らせします。',
+        : 'いまは iPhone の App Store のアプリでお使いいただけます。ログインもアプリから行います。Android 版とパソコンのブラウザ版は、準備ができしだいお知らせします。',
     },
   ].map((f) => ({ ld: true, ...f }));
 

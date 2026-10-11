@@ -44,6 +44,7 @@ describe('公開後（既定）と公開前（VITE_LP_PRELAUNCH=on）', () => {
     expect(c.faq.some((f) => f.q === 'いつから使えますか？')).toBe(false);
     expect(t).not.toMatch(/公開する予定|の予定）|メールアドレスを登録/);
     expect(c.faq.find((f) => f.q.startsWith('Android')).a).toContain('いまは iPhone の App Store のアプリで');
+    expect(c.faq.find((f) => f.q.startsWith('Android')).a).toContain('ログインもアプリから');
   });
   it('公開前の形は「配信しています」と書かず、公開予定を先頭の問いで言う', () => {
     const c = buildLpCopy({ offer: OFFER_OFF, trialNote: '7 日間無料', prelaunch: true });
@@ -188,5 +189,22 @@ describe('LP にログインの導線を置かない（2026-10-11 オーナー�
     const src = readFileSync(new URL('./Landing.jsx', import.meta.url), 'utf8').replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/^\s*\/\/.*$/gm, '');
     expect(src).not.toContain('auth=signin');
     expect(src).not.toMatch(/>ログイン</);
+  });
+});
+
+describe('節のイラストの受け皿（LpArt・2026-10-11）', () => {
+  it('どの名前も LP で使い、docs/lp-measurement.md に置き場所を書いてある', async () => {
+    const { ART_NAMES } = await import('./LpArt.jsx');
+    const landing = readFileSync(new URL('./Landing.jsx', import.meta.url), 'utf8');
+    const docs = readFileSync(new URL('../../docs/lp-measurement.md', import.meta.url), 'utf8');
+    ART_NAMES.forEach((n) => {
+      const id = n.replace('illust-', '');
+      expect(landing.includes(`"${n}"`) || landing.includes(`id: '${id}'`), n).toBe(true);
+      expect(docs, n).toContain(`${n}-light-`);
+    });
+  });
+  it('対話の流れ（実際の画面）はいつも残る', () => {
+    const landing = readFileSync(new URL('./Landing.jsx', import.meta.url), 'utf8');
+    expect(landing).toMatch(/<LpFlow onEvent=\{lpTrack\} \/>/);
   });
 });

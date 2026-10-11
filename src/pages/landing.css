@@ -322,10 +322,13 @@ body.lp-active {
 /* ヒーローのイラスト「いろいろな本と対話する」（LpIllust.jsx・A/B の 'illust'）。色はトークンだけ（明暗はトークンが切り替える）。
    線の太さ・角の丸みは絵の中の寸法（viewBox の単位）で、絵と一緒に縮む。 */
 .lp-illust { display: block; width: 100%; max-width: calc(var(--lp-shot-w) * 1.4); height: auto; margin: 0 auto; }
-/* 本番の絵（画像）: 角丸 12 の「絵のカード」。明るい画面は地（ベージュ）になじませ、暗い画面は細い線で縁取って絵のカードに見せる */
+/* 本番の絵（画像）: 角丸 12 の「絵のカード」。明るい画面は地（ベージュ）になじませる。暗い画面は影を付けず、
+   --separator の細い線で縁取り、少しだけ暗くして地から浮かないように（暗い画面用の版＝.has-dark は暗くしない）。
+   ヒーロー（LpIllust.jsx）と節の絵（LpArt.jsx）で同じ扱い。 */
 .lp-illust-img { border-radius: var(--radius); background: var(--fill); }
 @media (prefers-color-scheme: dark) {
-  .lp-illust-img { border: 1px solid var(--border); box-shadow: var(--shadow-overlay); }
+  .lp-illust-img { border: 1px solid var(--separator); }
+  .lp-illust-img:not(.has-dark) { filter: brightness(0.92); }
 }
 .lp-ill-book rect { stroke: var(--border); stroke-width: 1.25; }
 .lp-ill-book-a rect { fill: var(--surface); }
