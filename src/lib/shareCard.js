@@ -1263,7 +1263,15 @@ function drawRecordPoster(ctx, o) {
       drawCover(ctx, { x: x0 + step * i, y: y0 + (covers.length > 1 ? (i % 2) * h * 0.04 : 0), w, h, cover: c.cover, title: c.title, theme, fonts: o.fonts, showText: o.showTitle !== false && (step >= w || i === covers.length - 1) });
     });
   }
-  drawRecordBlock(ctx, o.fonts, o, F, lay, place.top, theme);
+  // 表紙が 1 枚も無い（今月・今年で読了もメモも読書の時間もある本が無い）ときは、上の 4 割を空けずに
+  //   文字の塊を上の空き（安全な上端 〜 いつもの下端）の縦の中央へ（2026-10-11 ui-critic）。言葉を入れたときは今までどおり。
+  let blockTop = place.top;
+  if (!at && !covers.length && !(o.phrase && phraseDisplayText(o.phrase)) && !o.record?.titleIsBook) {
+    const blockH = place.bottom - place.top;
+    const areaTop = Number.isFinite(F.safeTop) ? F.safeTop : 0;
+    blockTop = Math.min(place.top, Math.round(areaTop + Math.max(0, place.bottom - areaTop - blockH) / 2));
+  }
+  drawRecordBlock(ctx, o.fonts, o, F, lay, blockTop, theme);
   drawRecordFooter(ctx, { F, baseline: F.footerBaseline, logo: o.logo, theme, fonts: o.fonts, stamp: o.stamp });
 }
 

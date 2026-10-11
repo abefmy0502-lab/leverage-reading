@@ -202,6 +202,9 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
   // 本棚の本から始める（取り込みのあと）: 一言の段から。onShelf＝保存しなくても本棚にある本。
   const seeded = Array.isArray(initialBooks) && initialBooks.length > 0;
   const [step, setStep] = useState(seeded ? 'memo' : 'pick'); // 'pick' | 'memo' | 'saving' | 'done'
+  // 本文を下へ送ったら、上の行の下に 1px の線（一番上では出さない＝ほかの押し込まれた画面と同じ・2026-10-11 ui-critic）。
+  const [bodyScrolled, setBodyScrolled] = useState(false);
+  useEffect(() => { setBodyScrolled(false); }, [step]);
   const [query, setQuery] = useState('');
   const [searched, setSearched] = useState(''); // 結果を出している検索語
   const [searching, setSearching] = useState(false);
@@ -397,7 +400,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
   const stepLabel = step === 'memo' && picked.length > 1 ? `${idx + 1} 冊目 / ${picked.length} 冊` : '';
 
   const header = (
-    <div style={headerRow}>
+    <div style={{ ...headerRow, borderBottom: `1px solid ${bodyScrolled ? 'var(--separator)' : 'transparent'}` }}>
       {step === 'memo' ? (
         <button type="button" aria-label="戻る" onClick={back} style={iconBtn}>
           <ChevronLeft size={28} aria-hidden="true" />
@@ -423,7 +426,14 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
   const titlePicked = titleOnlyBook && isPicked(titleOnlyBook);
 
   return (
-    <div ref={trapRef} role="dialog" aria-modal="true" aria-label="読んだ本に一言ずつ残す" style={overlay}>
+    <div
+      ref={trapRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label="読んだ本に一言ずつ残す"
+      style={overlay}
+      onScrollCapture={(e) => { const t = e.target; if (t && t.scrollTop != null) { const on = t.scrollTop > 0; setBodyScrolled((cur) => (cur === on ? cur : on)); } }}
+    >
       {header}
 
       {/* ===== 1 / 3 本をえらぶ ===== */}
@@ -678,10 +688,10 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
         <>
           <div style={body}>
             {/* えらんだ本の表紙を並べる＝「この本たちが相談相手」をひと目で */}
-            {/* 幅 88: 表紙の無い本でも書名の文節（6 字まで）が 1 行に収まる大きさ（56 では語の途中で割れた・2026-09-29）。
-                それより長い文節の本も、無地の板にせず書名を載せる（forceTitle・2026-10-10）。 */}
+            {/* 幅 104（2026-10-11 ui-critic に 88 から）: 3 冊で 104×3＋8×2＝328（390 幅の本文 358 に収まる）・
+                「FACTFULNESS」も 1 行。それより長い文節の本も、無地の板にせず書名を載せる（forceTitle・2026-10-10）。 */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', marginTop: 'var(--space-4)' }} aria-hidden="true">
-              {summary.books.map((b) => <MiniCover key={b.id || bookKey(b)} book={b} width={88} forceTitle />)}
+              {summary.books.map((b) => <MiniCover key={b.id || bookKey(b)} book={b} width={104} forceTitle />)}
             </div>
             {summary.memos > 0 ? (
               <>

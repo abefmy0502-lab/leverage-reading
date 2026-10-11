@@ -47,7 +47,7 @@ import { useToast } from './Toast';
 import { useHaptic } from '../hooks/useHaptic';
 import { useBookMemos } from '../hooks/useBookMemos';
 import { useReadingSessions } from '../hooks/useReadingSessions';
-import { shareReadingNote } from '../lib/readingTime';
+import { shareReadingNote, secondsWithin } from '../lib/readingTime';
 import { rangeSeconds, monthRange, yearRange } from '../lib/readingStats';
 import { useAuth } from '../hooks/useAuth';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
@@ -522,7 +522,21 @@ export default function ShareSheet({
   // ---- 表紙を準備する（外部の表紙は自前の中継を通す・読めなければ代用表紙）。通信なので遅いことがある。
   // 写真・透明の 1 枚は表紙を描かないので、表紙を待たずに描く（撮ってから重ねた画像が出るまでを短く・2026-10-05）。
   const coverBook = variant === 'quote' ? lineBook : subjectBook;
-  const monthCoverBooks = isPeriod && variant !== 'quote' ? (record.finishedBooks || []) : [];
+  // 今月・今年の表紙: 読み終えた本。読了が 0 冊なら、その期間にメモを書いたか読書の時間がある本（4 冊まで・新しい順）
+  //   （表紙が 0 枚で上の 4 割が空いていた・2026-10-11 ui-critic）。それも無ければ表紙なし（文字の塊を縦の中央へ＝shareCard）。
+  const periodActiveBooks = useMemo(() => {
+    if (!isPeriod || (record.finishedBooks || []).length > 0) return [];
+    const r = period === 'year' ? yearRange(now.getTime()) : monthRange(now.getTime());
+    const ids = [];
+    const add = (id) => { if (id && !ids.includes(id)) ids.push(id); };
+    [...(memos || [])].sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || ''))).forEach((m) => add(m.bookId));
+    [...(readingRows || [])].sort((a, b) => String(b.started_at || '').localeCompare(String(a.started_at || '')))
+      .forEach((row) => { if (secondsWithin(row, r.from, r.to) > 0) add(row.book_id); });
+    return ids.map((id) => (books || []).find((b) => b.id === id)).filter(Boolean).slice(0, 4);
+  }, [isPeriod, period, record.finishedBooks, memos, readingRows, books, now]);
+  const monthCoverBooks = isPeriod && variant !== 'quote'
+    ? ((record.finishedBooks || []).length ? record.finishedBooks : periodActiveBooks)
+    : [];
   const coverKey = JSON.stringify([coverBook?.cover || '', coverBook?.title || '', monthCoverBooks.map((b) => b.cover || b.title)]);
   useEffect(() => {
     let alive = true;
@@ -840,7 +854,7 @@ export default function ShareSheet({
           <div
             role="radiogroup"
             aria-label="どの本を共有するか"
-            style={{ display: 'flex', gap: 'var(--space-2)', overflowX: 'auto', scrollSnapType: 'x proximity', margin: 'calc(-1 * var(--space-1)) calc(-1 * var(--space-4))', padding: 'var(--space-1) var(--space-4)', scrollPaddingLeft: 'var(--space-4)', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}
+            style={{ display: 'flex', gap: 'var(--space-2)', overflowX: 'auto', scrollSnapType: 'x proximity', margin: 'calc(-1 * var(--space-1)) calc(-1 * var(--space-4))', padding: 'var(--space-1) 0 var(--space-1) var(--space-4)', scrollPaddingLeft: 'var(--space-4)', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}
           >
             {choices.map((c) => {
               const on = c.kind === 'book' ? (!isPeriod && subjectBook?.id === c.bookId) : period === c.kind;
@@ -862,6 +876,8 @@ export default function ShareSheet({
                 </button>
               );
             })}
+            {/* 横に送ったときの右の終わりにも 16 の余白（右の内側余白は横に送る箱で効かないことがある・2026-10-11 ui-critic）。 */}
+            <span aria-hidden="true" style={{ flex: '0 0 var(--space-2)' }} />
           </div>
         )}
 
@@ -1029,7 +1045,7 @@ export default function ShareSheet({
             背景は右の「背景：写真 ▾」のメニュー 1 つ（写真・紙・夜・表紙の色・透明）。
             写真が無いときは「写真」（撮る・選ぶ）＋紙・夜・表紙の色・透明の見本（2026-09-30 ui-critic）。 */}
         {!photo && (
-          <div role="radiogroup" aria-label="背景" style={{ display: 'flex', alignItems: 'flex-start', gap: 0, flexWrap: 'wrap', paddingBottom: 'var(--space-2)' }}>
+          <div role="radiogroup" aria-label="背景" style={{ display: 'flex', alignItems: 'flex-start', gap: 0, flexWrap: 'wrap', paddingBottom: 'var(--space-6)' }}>
             {/* 390 幅で見本 4 つと 1 行に収まるよう、見える名前は「写真」（読み上げは「写真を選ぶ」）。 */}
             {/* 「写真」のチップの上下の中心を、右の見本の丸（上 4＋半径 14）の中心にそろえる（2026-10-10 ui-critic）。 */}
             <button type="button" onClick={openPhotoChip} aria-label="写真を撮る・選ぶ" title="写真を撮る・選ぶ" style={{ ...photoChip, marginTop: 'calc(var(--space-1) + 14px - var(--tap-min) / 2)' }}>
