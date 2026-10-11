@@ -2133,7 +2133,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             {/* 回数は次の行に置く（「・」でつなぐと 390 幅で途中から折り返して、どこで切れるかが毎回変わる・2026-09-30）。 */}
             {/* 数える単位は「AI の答え」（1 回 約 10 トークン・2026-10-09）。 */}
             {/* 🌱 無料プランのはじめの月は「（はじめの月）」を添える（数は言わない＝60 を 2 回言わない・2026-10-11）。 */}
-            {(freeMode || plan === 'trial') && tokensRemaining + (purchasedTokens || 0) > 0 && <span style={{ display: 'block' }}><span style={{ whiteSpace: 'nowrap' }}>AI の答え {remainingAnswersLabel(tokensRemaining + (purchasedTokens || 0))}</span>{freeMode && freeFirstMonth && <span style={{ whiteSpace: 'nowrap' }}>（はじめの月）</span>}{tokenChevron}</span>}
+            {/* 無料プランでトークンの数を出さないときは「今月の残り AI の答え 約 N 回 ›」（何の数かを言う・2026-10-11 ui-critic）。 */}
+            {(freeMode || plan === 'trial') && tokensRemaining + (purchasedTokens || 0) > 0 && <span style={{ display: 'block' }}><span style={{ whiteSpace: 'nowrap' }}>{freeMode && !showFreeTokenCount(tokensRemaining + (purchasedTokens || 0)) ? '今月の残り ' : ''}AI の答え {remainingAnswersLabel(tokensRemaining + (purchasedTokens || 0))}</span>{freeMode && freeFirstMonth && <span style={{ whiteSpace: 'nowrap' }}>（はじめの月）</span>}{tokenChevron}</span>}
           </span>
           </button>
         )}
@@ -2898,7 +2899,8 @@ function CarryCard({ carry, onCancel }) {
 // 🔎 トークンを使い切ったときの脇役の文字ボタン（振り返り › メモを、相談の言葉を入れて開く）。
 function SearchMemosLink({ onClick }) {
   return (
-    <button type="button" onClick={onClick} style={{ ...uiBtnLink, width: '100%', marginTop: 'var(--space-2)' }}>
+    // 使い切ったカードの脇役（主は「トークンを追加」）なので控えめな文字ボタン（2026-10-11 ui-critic）。
+    <button type="button" onClick={onClick} style={{ ...uiBtnLinkQuiet, width: '100%', marginTop: 'var(--space-2)' }}>
       メモを検索して探す
     </button>
   );

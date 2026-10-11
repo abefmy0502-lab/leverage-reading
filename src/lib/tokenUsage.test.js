@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { usageBreakdown, isLowTokens, usedRatio, usageSheetAction, isMissingPurposeColumn, USAGE_GROUPS } from './tokenUsage';
+import { usageBreakdown, isLowTokens, remainingRatio, usageSheetAction, isMissingPurposeColumn, USAGE_GROUPS } from './tokenUsage';
 import { tokensFromMjpy } from './tokens';
 import { USAGE_PURPOSES } from '../../api/_aiAccess.js';
 
@@ -38,7 +38,7 @@ describe('使い道の内訳（usageBreakdown）', () => {
   });
 });
 
-describe('残りが少ない（isLowTokens）・棒（usedRatio）', () => {
+describe('残りが少ない（isLowTokens）・棒（remainingRatio）', () => {
   it('その月の分＋追加分が枠の 20% 以下で true・0 と不明は false', () => {
     expect(isLowTokens(160, 800)).toBe(true);
     expect(isLowTokens(161, 800)).toBe(false);
@@ -48,11 +48,12 @@ describe('残りが少ない（isLowTokens）・棒（usedRatio）', () => {
     expect(isLowTokens(null, 800)).toBe(false);
     expect(isLowTokens(10, null)).toBe(false);
   });
-  it('使った割合（0〜1）', () => {
-    expect(usedRatio(200, 800)).toBe(0.75);
-    expect(usedRatio(900, 800)).toBe(0);
-    expect(usedRatio(0, 800)).toBe(1);
-    expect(usedRatio(null, 800)).toBe(null);
+  it('残りの割合（0〜1・残りで埋める・使い切ったら空）', () => {
+    expect(remainingRatio(200, 800)).toBe(0.25);
+    expect(remainingRatio(900, 800)).toBe(1);
+    expect(remainingRatio(0, 800)).toBe(0);
+    expect(remainingRatio(800, 800)).toBe(1);
+    expect(remainingRatio(null, 800)).toBe(null);
   });
 });
 
@@ -68,7 +69,8 @@ describe('シートの下のボタン（追加課金の動線・usageSheetAction
   });
   it('無料プランは買えない: まだ残りがあれば「プランを見る」（7 日間無料をすすめない・枠線）', () => {
     expect(usageSheetAction({ plan: 'free', remaining: 12, trialOffer: '7 日間無料' })).toEqual({ kind: 'plans', label: 'プランを見る', reason: null, strong: false });
-    expect(usageSheetAction({ plan: 'free', remaining: 6, low: true }).strong).toBe(true);
+    // 少ないだけでは塗らない（使い切るまで枠線）
+    expect(usageSheetAction({ plan: 'free', remaining: 6, low: true }).strong).toBe(false);
   });
   it('無料のトークンを使い切った（すすめてよい ①）＋使える人だけ「7 日間無料で試す」（塗り）', () => {
     expect(usageSheetAction({ plan: 'free', remaining: 0, trialOffer: '7 日間無料' })).toEqual({ kind: 'trial', label: '7 日間無料で試す', reason: 'free_used', strong: true });

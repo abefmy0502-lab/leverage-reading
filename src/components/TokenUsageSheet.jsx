@@ -12,12 +12,13 @@
 
 import { useEffect, useState } from 'react';
 import BottomSheet from './BottomSheet';
+import ErrorMessage from './ErrorMessage';
 import { SkeletonBlock } from './Skeleton';
 import { withPhraseBreaks } from './TightBubble';
 import { useAuth } from '../hooks/useAuth';
 import { usePaywall } from '../state/PaywallContext';
 import { periodKeyFor, remainingAnswersLabel, monthDayLabelJa, FREE_TOKENS, PAID_TOKENS } from '../lib/tokens';
-import { usageBreakdown, isLowTokens, usedRatio, usageSheetAction, fetchUsageDetail, fetchTokenLots } from '../lib/tokenUsage';
+import { usageBreakdown, isLowTokens, remainingRatio, usageSheetAction, fetchUsageDetail, fetchTokenLots } from '../lib/tokenUsage';
 import { nextResetLabelJa } from '../lib/freeTrial';
 import { normalizeTrialLabel } from '../lib/trialNudge';
 import { getIntroOffer } from '../lib/iap';
@@ -79,12 +80,19 @@ export default function TokenUsageSheet({ onClose, onAdd, onPlans, from = 'consu
   // undefined＝読み込み中・null＝読めなかった
   const [detail, setDetail] = useState(undefined);
   const [lots, setLots] = useState(undefined);
+  // 使い道を読めなかったときの「もう一度」（使い道だけ読み直す）。
+  const [usageTry, setUsageTry] = useState(0);
   useEffect(() => {
     let alive = true;
-    fetchUsageDetail(user?.id, periodKey).then((d) => { if (alive) setDetail(d); });
     fetchTokenLots(user?.id).then((l) => { if (alive) setLots(l); });
     return () => { alive = false; };
-  }, [user?.id, periodKey]);
+  }, [user?.id]);
+  useEffect(() => {
+    let alive = true;
+    setDetail(undefined);
+    fetchUsageDetail(user?.id, periodKey).then((d) => { if (alive) setDetail(d); });
+    return () => { alive = false; };
+  }, [user?.id, periodKey, usageTry]);
   useEffect(() => { track('token_usage', { action: 'open', from, plan: plan || 'unknown' }); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const usedUp = tokensRemaining != null && tokensRemaining <= 0;
@@ -98,7 +106,7 @@ export default function TokenUsageSheet({ onClose, onAdd, onPlans, from = 'consu
   const action = usageSheetAction({ plan, remaining: tokensRemaining, purchased: purchasedTokens, trialOffer, hadPlan, low });
   // 注意の色（数字と棒で同じ条件）: 残りが少ない・使い切った（追加分も無い）。
   const warn = low || outAll;
-  const ratio = usedRatio(tokensRemaining, tokenAllowance);
+  const ratio = remainingRatio(tokensRemaining, tokenAllowance);
   // 内訳: 列が無い DB（未適用）・読めない・使った分が全部「数える前」のときは null（＝段を出さない）。
   //   読めなかった（detail === null）ときは段を消さずに「読み込めませんでした」（下）。
   const breakdownRaw = detail && detail.purposeMjpy ? usageBreakdown(detail.purposeMjpy, detail.costMjpy) : null;
@@ -130,6 +138,8 @@ export default function TokenUsageSheet({ onClose, onAdd, onPlans, from = 'consu
 
   const periodName = trial ? '無料期間' : '今月';
   const lotsShown = Array.isArray(lots) && lots.length > 0;
+  // 追加分があるはずなのに一覧を読めなかった（lots === null）。
+  const lotsFailed = lots === null && purchasedTokens > 0;
 
   return (
     <BottomSheet
@@ -181,7 +191,7 @@ export default function TokenUsageSheet({ onClose, onAdd, onPlans, from = 'consu
                   </p>
                 )}
                 {ratio != null && (
-                  // 使った量の細い 1 本の棒（読み上げは数の文で足りるので飾り）。色は数字と同じ条件。
+                  // 残りの細い 1 本の棒（見出しの「残り」と合わせて残りで埋める・使い切ったら空・読み上げは数の文で足りるので飾り）。色は数字と同じ条件。
                   <div aria-hidden="true" style={{ height: 'var(--space-1)', borderRadius: 'var(--radius-full)', background: 'var(--fill)', margin: 'var(--space-3) 0 var(--space-2)', overflow: 'hidden' }}>
                     <div style={{ width: `${ratio * 100}%`, height: '100%', borderRadius: 'var(--radius-full)', background: warn ? 'var(--warning)' : 'var(--accent)' }} />
                   </div>
@@ -211,6 +221,13 @@ export default function TokenUsageSheet({ onClose, onAdd, onPlans, from = 'consu
         </section>
       )}
 
+      {lotsFailed && (
+        <section aria-label="追加分" style={sectionGap}>
+          <h3 style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>追加分</h3>
+          <p style={meta}>追加分を読み込めませんでした</p>
+        </section>
+      )}
+
       {/* ③ 使い道（用途ごと） */}
       {detail === undefined ? (
         <section aria-label="使い道を読み込んでいます" style={sectionGap}>
@@ -221,8 +238,11 @@ export default function TokenUsageSheet({ onClose, onAdd, onPlans, from = 'consu
         </section>
       ) : usageFailed ? (
         <section aria-label={`${periodName}の使い道`} style={sectionGap}>
-          <h3 style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>{periodName}の使い道</h3>
-          <p style={meta}>使い道を読み込めませんでした</p>
+          <ErrorMessage
+            title="使い道を読み込めませんでした"
+            description="通信の状態を確かめて、もう一度お試しください。"
+            actions={[{ label: 'もう一度', onClick: () => setUsageTry((n) => n + 1) }]}
+          />
         </section>
       ) : breakdown ? (
         <section aria-label={`${periodName}の使い道`} style={sectionGap}>

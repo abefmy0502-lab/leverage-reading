@@ -2,7 +2,7 @@
 // 組み立て: 題（17/600）→ 戻る日・使える日（15/--text-2）→ カードの中に「トークンを追加」（7 日間無料は枠線・有料は塗り）
 //   → 7 日間無料は「続けないときは M月D日までに解約」の小さな 1 行 → 脇役（children：メモを検索して探す など）。
 // 日付と「800 トークン」は 1 かたまり（途中で改行しない）。
-import { btnPrimary, btnGhost, btnLink } from '../styles/ui';
+import { btnPrimary, btnGhost, btnLinkQuiet } from '../styles/ui';
 import { withPhraseBreaks } from './TightBubble';
 import { nextResetLabelJa } from '../lib/freeTrial';
 import { PAID_TOKENS } from '../lib/tokens';
@@ -41,7 +41,7 @@ export default function TokensOutCard({ plan, trialEndLabel = '', cancelLine = '
       )}
       {onAdd && cancelLine && <p style={trialCancelLineStyle}>{withPhraseBreaks(cancelLine)}</p>}
       {onUsage && (
-        <button type="button" onClick={onUsage} style={{ ...btnLink, width: '100%', marginTop: 'var(--space-2)' }}>
+        <button type="button" onClick={onUsage} style={{ ...btnLinkQuiet, width: '100%', marginTop: 'var(--space-2)' }}>
           トークンの使い方を見る
         </button>
       )}

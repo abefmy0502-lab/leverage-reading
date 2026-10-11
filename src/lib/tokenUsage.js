@@ -76,13 +76,14 @@ export function isLowTokens(remaining, allowance, purchased = 0) {
   return available > 0 && available <= a * LOW_TOKENS_RATIO;
 }
 
-// 使った量の棒（0〜1・使った／その枠）。表示だけ（数字の % は出さない）。
-export function usedRatio(remaining, allowance) {
+// 残りの棒（0〜1・残り／その枠）。見出しの「残り」と合わせて、残りで埋める（使い切ったら空・2026-10-11 ui-critic）。
+//   表示だけ（数字の % は出さない）。
+export function remainingRatio(remaining, allowance) {
   if (remaining == null || allowance == null) return null;
   const r = Number(remaining);
   const a = Number(allowance);
   if (!Number.isFinite(r) || !Number.isFinite(a) || a <= 0) return null;
-  return Math.min(1, Math.max(0, (a - Math.max(0, r)) / a));
+  return Math.min(1, Math.max(0, r / a));
 }
 
 // シートの下のボタン（追加課金の動線）。
@@ -94,6 +95,7 @@ export function usedRatio(remaining, allowance) {
 //   'admin' や不明は null（出さない）。
 // strong（主ボタンの塗り）: 残りが少ない（low＝その月の分＋追加分が枠の 20% 以下）・使い切った（その月の分も追加分も 0）・
 //   「7 日間無料で試す」のときだけ。余裕があるときは枠線（お金を払っている人ほど強く買わせない・2026-10-11 ui-critic）。
+//   無料プランの「プランを見る」は使い切るまで枠線（少ないだけでは塗らない）。
 export function usageSheetAction({ plan, remaining, purchased = 0, trialOffer = '', hadPlan = false, low = false } = {}) {
   const known = remaining != null && Number.isFinite(Number(remaining));
   const usedUp = known && Number(remaining) <= 0;
@@ -102,7 +104,7 @@ export function usageSheetAction({ plan, remaining, purchased = 0, trialOffer = 
   if (plan === 'paid' || plan === 'trial') return { kind: 'add', label: 'トークンを追加', strong };
   if (plan !== 'free') return null;
   if (usedUp && trialOffer && !hadPlan) return { kind: 'trial', label: `${trialOffer}で試す`, reason: 'free_used', strong: true };
-  return { kind: 'plans', label: 'プランを見る', reason: usedUp ? 'free_used' : null, strong };
+  return { kind: 'plans', label: 'プランを見る', reason: usedUp ? 'free_used' : null, strong: usedUp };
 }
 
 // 列が無いエラー（Postgres 42703・PostgREST の schema cache）か。
