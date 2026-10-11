@@ -15,6 +15,9 @@ import { useAuth } from './useAuth';
 import { validateImageFile, ALLOWED_IMAGE_EXT } from '../lib/limits';
 
 const BUCKET = 'book-covers';
+// 置き場の上限（supabase_security_hardening.sql §5 と同じ 2MB）。圧縮は 0.5MB を目指すが、
+// 圧縮に失敗して元の画像のまま送るときに、置き場の英語のエラーではなく分かる言葉で断る。
+export const COVER_MAX_BYTES = 2 * 1024 * 1024;
 
 function newId() {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
@@ -47,6 +50,9 @@ export function useBookCover() {
     if (validationError) throw new Error(validationError);
 
     const compressed = await compressForCover(file);
+    if (compressed && typeof compressed.size === 'number' && compressed.size > COVER_MAX_BYTES) {
+      throw new Error('表紙の画像が大きすぎます。2 MB 以下の画像を選んでください。');
+    }
     const rawExt = (file.name?.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
     const ext = ALLOWED_IMAGE_EXT.includes(rawExt) ? rawExt : 'jpg';
     const path = `${user.id}/${newId()}.${ext}`;

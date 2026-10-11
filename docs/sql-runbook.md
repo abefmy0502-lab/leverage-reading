@@ -60,6 +60,7 @@ on conflict (user_id) do nothing;
 | `supabase_admin_launch_kpis.sql` | ローンチの 4 つの数字（30 日後も使う＝読む・行動の完了も数える） | 4 つの数字が出ない・古い数え方 |
 | `supabase_lp_events.sql` | 紹介ページの記録（捨てられていた記録が入る） | 一部が捨てられる |
 | `supabase_lp_waitlist.sql` | 紹介ページの「公開の日にメールで知らせる」 | 登録が「いま受け付けられませんでした」 |
+| `supabase_security_hardening.sql` | 2026-10-11 に、表紙の置き場は 2MB・メモの写真の置き場は 10MB まで、画像は JPEG・PNG・WebP だけに（**流し直す**） | 大きなファイルや画像でないファイルも置けてしまう |
 
 ## 4. まとめに入れていないもの（ふだんは流さない）
 

@@ -2692,6 +2692,8 @@ alter table public.lp_waitlist enable row level security;
 --      anon でも user-folder 名を詐称すれば書ける余地があった → 作り直す。
 --   4. analytics_events の props（jsonb）にサイズ上限が無く、巨大 PII を
 --      流し込まれ得た → CHECK で上限を付ける。
+--   5. 画像の置き場（book-covers / book-memo-photos）に大きさと種類の上限が
+--      無かった → 表紙 2MB・メモの写真 10MB・JPEG/PNG/WebP だけに（2026-10-11）。
 --
 -- ⚠️ このファイルは Supabase の SQL Editor にコピペで 1 回実行する想定。
 --    Vercel デプロイでは自動実行されない。
@@ -2904,6 +2906,27 @@ BEGIN
       CHECK (pg_column_size(props) < 2048);
   END IF;
 END $$;
+
+
+-- =====================================================================
+-- 5. 画像の置き場の大きさと種類の上限（2026-10-11 リリース前点検 高1）
+-- =====================================================================
+-- これまでバケットに上限が無く、API を直接叩けば大きな／画像でないファイルも
+-- 置けた。アプリはアップロード前に JPEG/PNG/WebP・10MB 以下を確かめ
+-- （src/lib/limits.js の validateImageFile）、圧縮してから送る
+-- （表紙＝0.5MB・長辺 800 / メモの写真＝0.3MB・長辺 1200）ので、上限は余裕を持たせる:
+--   book-covers       … 2MB（圧縮に失敗して元の画像のときは useBookCover が先に断る）
+--   book-memo-photos  … 10MB（validateImageFile と同じ）
+-- UPDATE は何度流しても同じ値になる（冪等）。バケットが無ければ 0 行で何もしない。
+UPDATE storage.buckets
+   SET file_size_limit = 2 * 1024 * 1024,
+       allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/webp']
+ WHERE id = 'book-covers';
+
+UPDATE storage.buckets
+   SET file_size_limit = 10 * 1024 * 1024,
+       allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/webp']
+ WHERE id = 'book-memo-photos';
 
 
 -- ############################################################
