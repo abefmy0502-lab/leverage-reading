@@ -655,7 +655,7 @@ export default function ShareSheet({
     const canvas = canvasRef.current;
     if (!canvas || !ready0) return false;
     try {
-      if (DEMO_SHARE === 'fail') throw new Error('紙・夜など、ほかの色を選ぶか、もう一度お試しください。');
+      if (DEMO_SHARE === 'fail') throw new Error('もう一度お試しください。');
       const r = drawShareCard(canvas, cardOpts());
       drawnLineRef.current = r.line || '';
       setDims((d) => (d.w === r.width && d.h === r.height ? d : { w: r.width, h: r.height }));
@@ -663,7 +663,7 @@ export default function ShareSheet({
       return true;
     } catch (e) {
       console.error('share card draw error', e);
-      setError(toMessage(e, '紙・夜など、ほかの色を選ぶか、もう一度お試しください。'));
+      setError(toMessage(e, 'もう一度お試しください。'));
       setStatus('error');
       return false;
     }
@@ -683,7 +683,7 @@ export default function ShareSheet({
         })
         .catch((e) => {
           if (keyRef.current !== key) return;
-          setError(toMessage(e, '紙・夜など、ほかの色を選ぶか、もう一度お試しください。'));
+          setError(toMessage(e, 'もう一度お試しください。'));
           setStatus('error');
         });
     }, 180);
@@ -967,7 +967,8 @@ export default function ShareSheet({
                 <ErrorMessage
                   className="error-message--fill"
                   title="画像を作れませんでした"
-                  description={error && !error.startsWith('画像を作れませんでした') ? error : undefined}
+                  // 次にすることは、写真があるときだけ背景を変える道も（紙・夜は写真を使わない＝作れることが多い・2026-10-11）。
+                  description={photo ? '背景を「紙」か「夜」に変えるか、もう一度お試しください。' : 'もう一度お試しください。'}
                   actions={[{ label: 'もう一度', onClick: () => { setStatus('loading'); setRetry((n) => n + 1); } }]}
                 />
               )}
@@ -977,12 +978,12 @@ export default function ShareSheet({
               描けなかった間も場所は残して見えなくする（描き直せたときに下の部品が上下に動かない・見えない間は押せず読み上げない）。 */}
           {/* 同じ行の右に形（投稿 4:5／ストーリー 9:16）。重ね方の見本に名前の幅を空けるため、見本の行から移した（2026-10-08）。 */}
           <div
-            aria-hidden={status === 'error' || undefined}
             // 文字ボタンの行と、形・背景の行の 2 段（どちらも左揃え・2026-10-11 リリース前の採点 3 回目）。
-            style={{ alignSelf: 'stretch', display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 'var(--space-2)', visibility: status === 'error' ? 'hidden' : 'visible' }}
+            //   描けなかった間は文字ボタンの行だけ隠す（形と背景は見せる＝背景を変えて作り直せる・2026-10-11 4 回目）。
+            style={{ alignSelf: 'stretch', display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 'var(--space-2)' }}
           >
             {/* 文字ボタンの左右 4 は、文字の端を 16 にそろえるためにこの 2 つにだけ負の余白で打ち消す。 */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginLeft: 'calc(-1 * var(--space-1))' }}>
+            <div aria-hidden={status === 'error' || undefined} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginLeft: 'calc(-1 * var(--space-1))', visibility: status === 'error' ? 'hidden' : 'visible' }}>
             {swapLabel && (
               // 画像を作っている間は押せない（違う一文の画像のまま共有しない）。薄くせず色だけ変える（DESIGN §5 押せないボタン）。
               <button
@@ -1015,13 +1016,11 @@ export default function ShareSheet({
                 type="button"
                 aria-haspopup="menu"
                 aria-expanded={!!bgMenu}
-                aria-label={largeText ? `背景：${STYLE_LABELS[effStyle]}` : undefined}
                 onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setBgMenu({ x: r.right - 8, y: r.top - 8 }); }}
                 // 控えめな文字ボタン（栗色は「別の一文」「編集」と主ボタンに残す・2026-10-10 ui-critic）。
                 style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginRight: 'calc(-1 * var(--space-1))' }}
               >
-                {/* 文字が大きいときは「写真 ▾」だけ（形の切り替えと 1 行に並ぶ・読み上げは「背景：写真」）。 */}
-                {largeText ? STYLE_LABELS[effStyle] : `背景：${STYLE_LABELS[effStyle]}`}
+                {`背景：${STYLE_LABELS[effStyle]}`}
                 <ChevronDown size="1.1em" aria-hidden="true" />
               </button>
             )}

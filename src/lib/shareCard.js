@@ -2003,7 +2003,7 @@ export function drawShareCard(canvas, opts = {}) {
   if (style === 'photo' && !opts.photo) style = 'night';
   const theme = readShareTheme(style, { tone: opts.cover?.tone, title: opts.title });
   const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('紙・夜など、ほかの色を選ぶか、もう一度お試しください。');
+  if (!ctx) throw new Error('もう一度お試しください。');
   const base = {
     ...visibleOpts(opts, layout, text), fonts, theme, style,
     seed: seedFrom(`${opts.seedKey || ''}|${text}`),
@@ -2210,7 +2210,7 @@ export function canvasToBlob(canvas, { style } = {}) {
   const { type, quality } = shareImageType(style);
   return new Promise((resolve, reject) => {
     try {
-      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('紙・夜など、ほかの色を選ぶか、もう一度お試しください。'))), type, quality);
+      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('もう一度お試しください。'))), type, quality);
     } catch (e) {
       reject(e);
     }

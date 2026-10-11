@@ -467,6 +467,7 @@ export default function ShareEditor({
   // 「完了」（打っている間）: キーボードを閉じて元の画面へ。押した瞬間に入力欄から外れて並びが変わらないよう、
   // 押し始めでは focus を動かさない。
   const endTyping = () => { try { inputRef.current?.blur(); } catch { /* ignore */ } };
+  const stackHead = !typing && rootTextLarge();
   // 「キャンセル」＝開いたときの状態（写真の位置・言葉・表示する項目）に戻して閉じる（DESIGN §5 全画面のモーダル・2026-10-11）。
   const openedRef = useRef(null);
   if (openedRef.current === null) openedRef.current = { view, phrase, hidden: [...hidden] };
@@ -500,7 +501,9 @@ export default function ShareEditor({
       {/* 上の 1 行: 題名と「完了」（変えたことはその場で効く＝閉じるだけ）。打っている間は「言葉を入れる」と、
           キーボードを閉じる「完了」。 */}
       <div style={{ paddingTop: 'env(safe-area-inset-top, 0px)', borderBottom: '1px solid var(--separator)', flexShrink: 0 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', columnGap: 'var(--space-2)', alignItems: 'center', minHeight: 'var(--tap-min)', padding: '0 var(--space-4)' }}>
+        {/* 文字が大きいとき（打っていない間）は「キャンセル」「完了」の行の下に題を 2 行目として置く（BottomSheet と同じ考え・
+            3 つを 1 行に並べると「キャンセル」と題が重なっていた・2026-10-11 リリース前の採点 4 回目）。 */}
+        <div style={{ display: 'grid', gridTemplateColumns: stackHead ? '1fr 1fr' : '1fr auto 1fr', columnGap: 'var(--space-2)', alignItems: 'center', minHeight: 'var(--tap-min)', padding: stackHead ? '0 var(--space-4) var(--space-2)' : '0 var(--space-4)' }}>
           {/* 左は「キャンセル」（開いたときの状態に戻して閉じる・iOS の全画面モーダルと同じ・DESIGN §5）。打っている間は出さない。 */}
           {typing ? <span aria-hidden="true" /> : (
             <button
@@ -510,7 +513,7 @@ export default function ShareEditor({
               キャンセル
             </button>
           )}
-          <h2 style={{ margin: 0, textAlign: 'center', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>{typing ? '言葉を入れる' : '画像を編集'}</h2>
+          <h2 style={{ margin: 0, textAlign: stackHead ? 'left' : 'center', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', ...(stackHead ? { gridColumn: '1 / -1', gridRow: 2 } : null) }}>{typing ? '言葉を入れる' : '画像を編集'}</h2>
           <button
             type="button"
             onPointerDown={typing ? (e) => e.preventDefault() : undefined}
@@ -602,7 +605,8 @@ export default function ShareEditor({
           {hint && !typing && (
             <p style={{ order: 3, margin: 0, padding: 'var(--space-2) 0 0', textAlign: 'center', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all' }}>
               {/* 文節の切れ目でだけ折り返す（「2 回」を割らない・2026-10-11 リリース前の採点）。 */}
-              {hint.map((h) => <span key={h} style={{ display: 'block', overflowWrap: 'anywhere' }}>{withPhraseBreaks(h)}</span>)}
+              {/* 1 行目（何が動くか）だけを 1 行で（2 行目の「2 回タップで…」はやめた・2026-10-11 リリース前の採点 4 回目）。 */}
+              <span style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{hint[0]}</span>
             </p>
           )}
           </div>

@@ -20,6 +20,7 @@ import { useBackLayer } from '../hooks/useHistoryBack';
 import MemoLinks from './MemoLinks';
 import { useMemoLinkFinder } from '../hooks/useMemoLinkFinder';
 import { requestOpenMemo } from '../lib/openMemo';
+import { isLargeText } from '../lib/largeText';
 
 // Use 100dvh so iOS Safari URL bar resizes don't break full-screen editor.
 // Older browsers without dvh support gracefully ignore the property.
@@ -548,7 +549,8 @@ export default function BookMemoEditor({
             ref={bodyRef}
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="心が動いた一行を書き留める"
+            // 文字が大きいときは 1 行に収まる短い例（メモを書くシートと同じ・2026-10-11）。
+            placeholder={isLargeText() ? '心が動いた一行' : '心が動いた一行を書き留める'}
             style={ta}
             maxLength={LIMITS.memoText}
           />

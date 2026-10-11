@@ -6073,7 +6073,8 @@ function AuthedApp() {
               {/* 📶 オフラインの一行は「‹ ホーム」の行の下に左右いっぱいで（本の詳細と同じ置き場所・2026-10-04 ui-critic）。
                   畳んでいる間は行の間の空き（12）を打ち消し、出ているときは上の行にすぐ続ける。 */}
               <OfflineNotice style={{ margin: 'calc(-1 * var(--space-3)) calc(-1 * var(--space-4)) 0' }} />
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-2)' }}>
+              {/* 文字最大で件数が入らないときは次の行へ（間 4・2026-10-11 リリース前の採点 4 回目）。 */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 'var(--space-2)', rowGap: 'var(--space-1)' }}>
                 {/* 記録の「読んだ本」など、状態を決めて記録から開いたときは、その状態を見出しに（「読了 6 冊」）。
                     「すべての本 6 冊」と言いながら読了だけを並べていた食い違いを直す（2026-09-29）。 */}
                 <h1 style={{ fontSize: 'var(--text-title)', fontWeight: 700, color: 'var(--text)', margin: 0, lineHeight: 1.2 }}>
