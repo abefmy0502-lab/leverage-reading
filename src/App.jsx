@@ -9,7 +9,7 @@ import { ACCOUNT_FIELDS_USER_KEY, isAutoChosen, markFieldStage, readFieldStages 
 import { fetchServerFields, sendFieldVotes } from './lib/bookFieldsServer';
 import { FIELDS_WAIT_MS, applyAutoFields, markFieldsWaiting, settleServerFields } from './lib/bookFieldsForm';
 import { useBookFieldsAuto, infoFeatures } from './hooks/useBookFieldsAuto';
-import { BookFieldLinks } from './components/BookFields';
+import { BookFieldLinks, BookFolderLinks } from './components/BookFields';
 import { useAppDataCache } from './state/AppDataCache';
 import { streamClaude } from './lib/streamClaude';
 import { PROMPTS } from './lib/prompts';
@@ -829,11 +829,22 @@ function AuthedApp() {
   // 🏷 本の詳細の分野から「すべての本」をその分野で絞って開く（2026-10-11）。
   //   「‹ この本」でその本の詳細へ戻す（開く前のすべての本の様子も戻す）。
   const openLibraryByField = (field) => {
-    if (current?.id) libraryFromBookRef.current = { id: current.id, shelfMode, libraryFrom, tagFilter };
+    if (current?.id) libraryFromBookRef.current = { id: current.id, shelfMode, libraryFrom, tagFilter, folderFilter };
     setSearch(''); setMinRating(0); setFolderFilter(null); setStatusFilter('all');
     setTagFilter([field]);
     goList(); setShelfMode('library'); setLibraryFrom(current?.id ? 'book' : null);
   };
+  // 🗂 本の詳細のフォルダから「すべての本」をそのフォルダで絞って開く（分野と同じ「‹ この本」で戻る・2026-10-11）。
+  const openLibraryByFolder = (folder) => {
+    if (current?.id) libraryFromBookRef.current = { id: current.id, shelfMode, libraryFrom, tagFilter, folderFilter };
+    setSearch(''); setMinRating(0); setTagFilter([]); setStatusFilter('all');
+    setFolderFilter(folder);
+    goList(); setShelfMode('library'); setLibraryFrom(current?.id ? 'book' : null);
+  };
+  // ★ 記録の分野から開いた「すべての本」は評価順に（本人が並び替えを選んでいたらそのまま・2026-10-11）。
+  //   アプリが評価順にしたときだけ、記録へ戻るときに前の並びへ戻す。
+  const sortTouchedRef = useRef(false);
+  const autoRatingSortRef = useRef(null); // 評価順にする前の並び（null＝アプリは並びを変えていない）
   // 下のタブで選択中に見せるタブ。記録から開いた「すべての本」（と、そこから開いた本）は振り返りの中の
   // 寄り道なので、ホームではなく振り返りを選択中にする（戻る先の「‹ 記録」と合わせる・2026-09-29）。
   const navTab = tab === 'books' && libraryFrom === 'record' ? 'review' : tab;
@@ -880,12 +891,14 @@ function AuthedApp() {
       libraryFromBookRef.current = null;
       setLibraryFrom(back?.libraryFrom ?? null);
       setTagFilter(back?.tagFilter || []);
+      setFolderFilter(back?.folderFilter ?? null);
       setShelfMode(back?.shelfMode || 'home');
       const b = back && rawBooks.find((x) => x.id === back.id);
       if (b) openDetail(b);
       return;
     }
     if (libraryFrom === 'record') {
+      if (autoRatingSortRef.current) { setSortBy(autoRatingSortRef.current); autoRatingSortRef.current = null; }
       setLibraryFrom(null);
       setShelfMode('home');
       setReviewSubTab('record');
@@ -3133,6 +3146,16 @@ function AuthedApp() {
     });
   };
 
+  // ★ 本の詳細の見出しの★で評価を付け直す（読了の本・楽観的に変えて失敗したら戻す＝applyBookPatchQuiet・2026-10-11）。
+  const setBookRating = (book, rating) => {
+    if (!book?.id) return;
+    const r = Math.max(0, Math.min(5, Math.round(Number(rating) || 0)));
+    if ((book.rating || 0) === r) return;
+    haptic.light();
+    applyBookPatchQuiet(book.id, { rating: r }, null);
+    track('book_rated', { rating: r, from: 'detail' });
+  };
+
   // 📗 本棚から直接ステータス変更（長押し → ステータスを変える）。
   // 日付の補完ルールはクイック追加（WantPhase）と同じ:
   // 読書中/読了で startDate、読了で doneDate を未設定時のみ埋める。
@@ -4205,6 +4228,8 @@ function AuthedApp() {
 
   // アクティブな絞り込み数（ツールバーのバッジ表示用）。
   const activeFilterCount = (statusFilter !== 'all' ? 1 : 0) + (minRating > 0 ? 1 : 0) + tagFilter.length + (folderFilter ? 1 : 0);
+  // 状態のチップの行を出すか（本が 4 冊以上か、何かで絞っているとき・検索で 0 件のときは出さない）。
+  const showStatusChips = (books.length >= 4 || !!folderFilter || minRating > 0 || tagFilter.length > 0) && !(filtered.length === 0 && libraryQuery && rawBooks.length > 0);
   const clearAllFilters = () => { setStatusFilter('all'); setMinRating(0); setTagFilter([]); setFolderFilter(null); };
 
 
@@ -4420,6 +4445,74 @@ function AuthedApp() {
   ) : null;
 
   // ===== DETAIL =====
+  // 🗂 フォルダ割当てシート（本棚の長押し・本の詳細の「変更」／「フォルダに入れる」→ フォルダに入れる）。
+  //   タップでフォルダの出し入れをトグル（複数フォルダ可）。新規フォルダもその場で作成できる。
+  //   シートは開いたまま＝複数割当てが一気にできる。本の詳細（早い return）とすべての本の両方で出す（2026-10-11）。
+  const folderPickerSheet = folderPickerBook ? (() => {
+        const liveBook = books.find((b) => b.id === folderPickerBook.id) || folderPickerBook;
+        const cols = liveBook.collections || [];
+        const toggleFolder = (name) => {
+          const next = cols.includes(name) ? cols.filter((c) => c !== name) : [...cols, name];
+          // 成功トーストは出さない（シート内のチェックが即時フィードバック）。
+          applyBookPatchQuiet(liveBook.id, { collections: next }, null);
+        };
+        const createAndAdd = () => {
+          const name = newFolderName.trim();
+          if (!name) return;
+          if (!cols.includes(name)) toggleFolder(name);
+          setNewFolderName('');
+        };
+        return (
+          <BottomSheet title="フォルダに入れる" onClose={() => setFolderPickerBook(null)}>
+            <p style={sheetSubtitle}>
+              『{liveBook.title}』
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+              {folderNames.map((name) => {
+                const inFolder = cols.includes(name);
+                return (
+                  <button
+                    key={name}
+                    type="button"
+                    onClick={() => toggleFolder(name)}
+                    aria-pressed={inFolder}
+                    style={sheetOption(inFolder)}
+                  >
+                    <IcFolder size={18} aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+                    {inFolder && <IcCheck size={18} aria-hidden="true" style={{ marginLeft: 'auto', color: 'var(--accent)', flexShrink: 0 }} />}
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
+              <input
+                aria-label="新しいフォルダ名"
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); createAndAdd(); }
+                }}
+                placeholder="新しいフォルダ名"
+                maxLength={40}
+                style={{ ...inp, flex: 1, minWidth: 0, minHeight: 48, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}
+              />
+              <button
+                type="button"
+                onClick={createAndAdd}
+                disabled={!newFolderName.trim()}
+                style={{
+                  ...btnGhost, width: 'auto', flexShrink: 0, padding: '0 var(--space-4)', fontSize: 'var(--text-sub)',
+                  cursor: newFolderName.trim() ? 'pointer' : 'default', opacity: newFolderName.trim() ? 1 : 0.5,
+                }}
+              >
+                作って入れる
+              </button>
+            </div>
+          </BottomSheet>
+        );
+  })() : null;
+
   if (view === "detail" && current) {
     const st = getSt(current.status);
     const nextStatus = { want: "before", before: "reading", reading: "done" };
@@ -4775,8 +4868,22 @@ function AuthedApp() {
               <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-2)', marginTop: "var(--space-2)", flexWrap: "wrap" }}>
                 {/* 状態は押せない表示なので面を付けない（DESIGN §5「表示用ラベル」）。 */}
                 <StatusLabel status={current.status} />
-                {current.rating > 0 && <Stars r={current.rating} size="calc(14rem / 17)" />}
+                {/* ★ 読了の本は見出しの★を押して付け直せる（同じ★をもう一度押すと 0・押せる範囲 44・2026-10-11）。
+                    ほかの状態は付いているときだけ表示。 */}
+                {current.status !== 'done' && current.rating > 0 && <Stars r={current.rating} size="calc(14rem / 17)" />}
               </div>
+              {current.status === 'done' && (
+                <div data-detail-rating="" style={{ marginTop: 'var(--space-1)' }}>
+                  {/* 読了にした直後で、まだ評価が無いときだけ淡い 1 行（★の高い本の考えを相談で優先する） */}
+                  {justDoneId === current.id && !(current.rating > 0) && (
+                    <p id="detail-rating-ask" style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>この本の評価は？</p>
+                  )}
+                  {/* 押せる範囲 44 の中央に星があるので、左と上下の余りを行の外へ（星の左端を書名の左端に） */}
+                  <div style={{ margin: 'calc(-1 * var(--space-2)) 0 calc(-1 * var(--space-2)) calc(-1 * var(--space-3))' }}>
+                    <Stars r={current.rating || 0} onChange={(r) => setBookRating(current, r)} size={24} />
+                  </div>
+                </div>
+              )}
               {(current.startDate || current.doneDate) && (
                 <p style={{ fontSize: 'var(--text-meta)', color: "var(--text-3)", margin: 'var(--space-2) 0 0' }}>
                   {current.startDate && <>開始 {fmtDateJa(current.startDate)}</>}{current.startDate && current.doneDate && '　'}{current.doneDate && <>読了 {fmtDateJa(current.doneDate)}</>}
@@ -4803,6 +4910,13 @@ function AuthedApp() {
 
           {/* 🏷 分野（2026-10-11）: 押すと、すべての本をその分野で絞る。分野でない前の版のタグは出さない（フォルダへ移す）。 */}
           <BookFieldLinks fields={fieldsOf(current)} onPick={openLibraryByField} />
+          {/* 🗂 フォルダ（2026-10-11）: 押すと、すべての本をそのフォルダで絞る。「変更」でフォルダに入れるシート（全状態）。 */}
+          <BookFolderLinks
+            folders={current.collections || []}
+            stacked={fieldsOf(current).length > 0}
+            onPick={openLibraryByFolder}
+            onEdit={() => { setNewFolderName(''); setFolderPickerBook(current); }}
+          />
 
           {/* 読みたい・積読は「読む準備」が主役なので、計画・目的・AI 解析を上に置く。
               読書中・読了はメモが主役（SPEC §2）なので、これらは画面の下（行動の後）へ。 */}
@@ -5241,6 +5355,8 @@ function AuthedApp() {
         )}
         {shareCameraInput}
         {focusLayer}
+        {/* 🗂 フォルダに入れる（本の詳細の「変更」／「フォルダに入れる」・2026-10-11） */}
+        {folderPickerSheet}
         {storeSheetOpen && (
           <BottomSheet title="この本を買う" onClose={() => setStoreSheetOpen(false)}>
             <BookStoreLinks book={current} variant="cta" buy />
@@ -5475,6 +5591,7 @@ function AuthedApp() {
                     onAddRelatedBook={addRelatedBookFromAi}
                     addingTitles={addedRelatedTitles}
                     savedAsBefore={current?.status === 'before'}
+                    allFolders={folderNames}
                     // 📖 この本で学べること（畳んで置く・仮説の例を押すと仮説の欄に入る・2026-10-08）
                     briefSlot={(
                       <BookBrief
@@ -5925,7 +6042,38 @@ function AuthedApp() {
                   （statusFilter＝activeFilterCount とも連動）。同じチップの再タップで解除。
                   本が少ないうちはノイズなので 4 冊未満では出さない。 */}
               {/* 検索で 0 件のときはチップ行を出さない（下の「該当する本がありません」だけにする）。 */}
-              {(books.length >= 4 || folderFilter || minRating > 0 || tagFilter.length > 0) && !(filtered.length === 0 && libraryQuery && rawBooks.length > 0) && (
+              {/* 🗂 フォルダのチップの行（フォルダが 1 つ以上あるとき・2026-10-11）: 「すべて」＋各フォルダ（冊数）。選ぶと folderFilter
+                  （絞り込みシートのフォルダと同じ）。分野・評価の絞り込みと重ねられ、評価順に並べるとフォルダごとの評価が見える。
+                  状態のチップの行が下にあるときは行の間を 8、無ければ一覧との間を 16。 */}
+              {allFolders.length > 0 && !(filtered.length === 0 && libraryQuery && rawBooks.length > 0) && (
+                <div
+                  data-folder-chips=""
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 'var(--space-2)', overflowX: 'auto',
+                    paddingBottom: showStatusChips ? 'var(--space-2)' : 'var(--space-4)',
+                    margin: 'calc((32px - 44px) / 2) 0',
+                    WebkitOverflowScrolling: 'touch',
+                    WebkitMaskImage: 'linear-gradient(90deg, #000 90%, transparent 100%)',
+                    maskImage: 'linear-gradient(90deg, #000 90%, transparent 100%)',
+                  }}
+                  role="group"
+                  aria-label="フォルダで絞り込み"
+                >
+                  <span aria-hidden="true" style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>
+                    <IcFolder size="1em" aria-hidden="true" />フォルダ
+                  </span>
+                  <ShelfChip active={!folderFilter} onClick={() => setFolderFilter(null)} ariaLabel="フォルダで絞らない（すべて）">すべて</ShelfChip>
+                  {allFolders.map((f) => {
+                    const active = folderFilter === f.name;
+                    return (
+                      <ShelfChip key={f.name} active={active} onClick={() => setFolderFilter(active ? null : f.name)} ariaLabel={`フォルダ「${f.name}」${f.count} 冊${active ? '（押すと解除）' : ''}`}>
+                        {f.name}<span style={{ color: 'var(--text-2)', fontWeight: 400 }}>{f.count}</span>
+                      </ShelfChip>
+                    );
+                  })}
+                </div>
+              )}
+              {showStatusChips && (
                 <div
                   style={{
                     display: 'flex', gap: 'var(--space-2)', overflowX: 'auto', paddingBottom: 'var(--space-4)',
@@ -5942,12 +6090,7 @@ function AuthedApp() {
                   role="group"
                   aria-label="状態で絞り込み"
                 >
-                  {/* フォルダで絞っている間だけ、先頭にそのフォルダのチップ（押すと解除）。フォルダの選択は「…」→ 絞り込み。 */}
-                  {folderFilter && (
-                    <ShelfChip active onClick={() => setFolderFilter(null)} ariaLabel={`フォルダ「${folderFilter}」の絞り込みを解除`}>
-                      <IcFolder size={14} aria-hidden="true" />{folderFilter}<IcX size={14} aria-hidden="true" />
-                    </ShelfChip>
-                  )}
+                  {/* フォルダはすぐ上のフォルダのチップの行で選ぶ・解除する（2026-10-11）。 */}
                   {/* 評価・タグの絞り込みも、効いている間は先頭に見せる（押すと解除）。「すべて」が選ばれて見えても、何かで絞っていると分かるように。 */}
                   {minRating > 0 && (
                     <ShelfChip active onClick={() => setMinRating(0)} ariaLabel={`評価 ${minRating} 以上の絞り込みを解除`}>
@@ -6091,6 +6234,7 @@ function AuthedApp() {
                       onLongPress={handleBookLongPress}
                       onAutoRetry={triggerCoverAutoRetry}
                       showStatus={statusFilter === 'all'}
+                      showRating={sortBy === 'rating' && !libraryHits}
                     />
                   ))}
                 </div>
@@ -6187,6 +6331,8 @@ function AuthedApp() {
                   onFilterTag={(tag) => {
                     setSearch(''); setMinRating(0); setFolderFilter(null); setStatusFilter('all');
                     setTagFilter([tag]);
+                    // 分野の行（★の平均つき）から開いたら評価順に（本人が並び替えを選んでいればそのまま）
+                    if (!sortTouchedRef.current && sortBy !== 'rating') { autoRatingSortRef.current = sortBy; setSortBy('rating'); }
                     openLibraryFromRecord();
                   }}
                   onSearchAuthor={(author) => {
@@ -6619,73 +6765,7 @@ function AuthedApp() {
         </BottomSheet>
       )}
 
-      {/* 🗂 フォルダ割当てシート（本棚の長押し → フォルダに入れる）。
-          タップでフォルダの出し入れをトグル（複数フォルダ可）。新規フォルダも
-          その場で作成できる。シートは開いたまま＝複数割当てが一気にできる。 */}
-      {folderPickerBook && (() => {
-        const liveBook = books.find((b) => b.id === folderPickerBook.id) || folderPickerBook;
-        const cols = liveBook.collections || [];
-        const toggleFolder = (name) => {
-          const next = cols.includes(name) ? cols.filter((c) => c !== name) : [...cols, name];
-          // 成功トーストは出さない（シート内のチェックが即時フィードバック）。
-          applyBookPatchQuiet(liveBook.id, { collections: next }, null);
-        };
-        const createAndAdd = () => {
-          const name = newFolderName.trim();
-          if (!name) return;
-          if (!cols.includes(name)) toggleFolder(name);
-          setNewFolderName('');
-        };
-        return (
-          <BottomSheet title="フォルダに入れる" onClose={() => setFolderPickerBook(null)}>
-            <p style={sheetSubtitle}>
-              『{liveBook.title}』
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-              {folderNames.map((name) => {
-                const inFolder = cols.includes(name);
-                return (
-                  <button
-                    key={name}
-                    type="button"
-                    onClick={() => toggleFolder(name)}
-                    aria-pressed={inFolder}
-                    style={sheetOption(inFolder)}
-                  >
-                    <IcFolder size={18} aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
-                    {inFolder && <IcCheck size={18} aria-hidden="true" style={{ marginLeft: 'auto', color: 'var(--accent)', flexShrink: 0 }} />}
-                  </button>
-                );
-              })}
-            </div>
-            <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
-              <input
-                aria-label="新しいフォルダ名"
-                value={newFolderName}
-                onChange={(e) => setNewFolderName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); createAndAdd(); }
-                }}
-                placeholder="新しいフォルダ名"
-                maxLength={40}
-                style={{ ...inp, flex: 1, minWidth: 0, minHeight: 48, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}
-              />
-              <button
-                type="button"
-                onClick={createAndAdd}
-                disabled={!newFolderName.trim()}
-                style={{
-                  ...btnGhost, width: 'auto', flexShrink: 0, padding: '0 var(--space-4)', fontSize: 'var(--text-sub)',
-                  cursor: newFolderName.trim() ? 'pointer' : 'default', opacity: newFolderName.trim() ? 1 : 0.5,
-                }}
-              >
-                作って入れる
-              </button>
-            </div>
-          </BottomSheet>
-        );
-      })()}
+      {folderPickerSheet}
 
       {addNoteSheet === 'pick' && (
         <BottomSheet title="どの本のメモにしますか？" onClose={() => setAddNoteSheet(null)} dismissLabel="キャンセル">
@@ -6802,7 +6882,7 @@ function AuthedApp() {
                 <button
                   key={key}
                   type="button"
-                  onClick={() => { setSortBy(key); setSortSheetOpen(false); }}
+                  onClick={() => { sortTouchedRef.current = true; autoRatingSortRef.current = null; setSortBy(key); setSortSheetOpen(false); }}
                   aria-pressed={active}
                   // 文字の左端を見出し・区切り線の左端（シートの余白 16）にそろえる（4 だけ右にずれていた・2026-10-04）。
                   style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', minHeight: 48, padding: 0, background: 'none', border: 'none', borderBottom: i < arr.length - 1 ? '1px solid var(--separator)' : 'none', fontSize: 'var(--text-body)', fontFamily: 'inherit', cursor: 'pointer', color: active ? 'var(--accent)' : 'var(--text)', fontWeight: active ? 600 : 400 }}

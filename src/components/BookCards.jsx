@@ -32,7 +32,8 @@ export function StatusLabel({ status, style }) {
 // グリッド表示用の本カード（表紙主役）。表紙無し / 画像 404 時は
 // タイトルベースの色付きプレースホルダにフォールバック。
 // showStatus: 状態で絞り込んでいるときは全部同じ状態なので、表紙の上の状態を出さない（App が「すべて」のときだけ true）。
-export const BookCoverCard = memo(function BookCoverCard({ book, isJustDone, onOpen, onLongPress, onAutoRetry, showStatus = true }) {
+// showRating: 評価順に並べているときだけ、状態の下に★（評価の付いた本だけ・並びの理由が見えるように・2026-10-11）。
+export const BookCoverCard = memo(function BookCoverCard({ book, isJustDone, onOpen, onLongPress, onAutoRetry, showStatus = true, showRating = false }) {
   const longPress = useLongPress({
     onLongPress: ({ clientX, clientY }) => onLongPress?.({ x: clientX, y: clientY, book }),
   });
@@ -102,6 +103,7 @@ export const BookCoverCard = memo(function BookCoverCard({ book, isJustDone, onO
       {/* 状態は表紙に重ねず、著者の下に面なしのラベルで（DESIGN §5「表示用ラベル」）。
           状態で絞り込んでいるときは全部同じなので出さない（showStatus=false）。 */}
       {showStatus && book.status && <StatusLabel status={book.status} style={{ marginTop: 'var(--space-1)', maxWidth: '100%' }} />}
+      {showRating && book.rating > 0 && <span style={{ display: 'flex', marginTop: 'var(--space-1)' }}><Stars r={book.rating} size="calc(12rem / 17)" /></span>}
     </button>
   );
 });

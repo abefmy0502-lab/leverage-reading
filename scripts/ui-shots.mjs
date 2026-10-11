@@ -246,6 +246,17 @@ const SCREENS = [
       { name: 'fields-record', url: '/', steps: [...REC, { scrollBottom: true }] },
       { name: 'fields-record-xxl-text', url: '/', steps: [...REC, XXL, { wait: 500 }, { scrollBottom: true }] },
       { name: 'fields-record-auto', url: '/?fields=none', steps: [...REC, { wait: 1500 }, { scrollBottom: true }] },
+      { name: 'fields-record-auto-xxl-text', url: '/?fields=none', steps: [...REC, XXL, { wait: 1500 }, { scrollBottom: true }] },
+      // 🗂 フォルダと ★ 評価（2026-10-11）
+      { name: 'folder-detail-picker', url: '/', steps: [...LIB, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { wait: 800 }, { css: 'button[aria-label^="フォルダを変更"]' }, { wait: 600 }] },
+      { name: 'folder-detail-empty', url: '/', steps: [...LIB, { css: '.lvg-page button:has-text("アウトプット大全")' }, { wait: 800 }] },
+      { name: 'folder-from-detail', url: '/', steps: [...LIB, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { wait: 800 }, { css: '[data-book-folders] button >> nth=0' }, { wait: 800 }] },
+      { name: 'folder-library', url: '/', steps: [...LIB, { css: '[data-folder-chips] button:has-text("読み返したい")' }, { wait: 600 }] },
+      { name: 'fields-record-top', url: '/', steps: [...REC, { scrollTo: '[data-book-fields-record]' }, { wait: 400 }] },
+      { name: 'fields-record-open', url: '/', steps: [...REC, { css: '[data-book-fields-record] li button >> nth=0' }, { wait: 800 }] },
+      { name: 'book-detail-just-done-rating', url: '/', steps: [...LIB, { css: '.lvg-page button:has-text("数値化の鬼")' }, { scrollBottom: true }, { css: 'button:has-text("読了にする")' }, { wait: 1200 }, { scrollTo: '[data-detail-rating]' }, { wait: 500 }] },
+      { name: 'folder-library-rating', url: '/', steps: [...LIB, { css: '[data-folder-chips] button:has-text("読み返したい")' }, { css: 'button[aria-label^="並び替え・絞り込み・表示"]' }, { css: '[role=menuitem]:has-text("並び替え")' }, { css: '[role=dialog] button:has-text("評価順")' }, { wait: 600 }] },
+      { name: 'before-edit-folders', url: '/', steps: [...LIB, { css: '.lvg-page button:has-text("LIFE SHIFT")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("編集")' }, { scrollBottom: true }] },
     ];
   })(),
   { name: 'settings', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }] },

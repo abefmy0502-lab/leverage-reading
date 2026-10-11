@@ -4,12 +4,13 @@
 //                      サーバーの見立てを待っている間は骨組み・失敗したら 1 行（pending / failed・2026-10-11 ui-critic）
 //   BookFieldsSheet  … 分野を選ぶシート。大分類 4 つ（仕事・自分と生活・教養・文芸・エンタメ）の見出し → 分野のチップ（選ぶためのチップ 44）・3 つまで
 //   BookFieldLinks   … 本の詳細の分野（押すと、すべての本をその分野で絞る）
+//   BookFolderLinks  … 本の詳細のフォルダ（押すと、すべての本をそのフォルダで絞る・右に「変更」／「フォルダに入れる」・2026-10-11）
 //   BookFieldsRecord … 振り返り › 記録の「分野」（大分類 4 つをいつも全部・本のある分野は行＝本とメモの数・本がまだ無い分野は
 //                      大分類ごとに 1 行の名前の並び＝押すと AI 選書。読書の時間は「読書の時間」カードの「分野ごと」へ一本化・2026-10-11）
 //
 // 反ゲーミフィケーション: 点数・%・順位・「あと N 冊」・「埋めよう」は出さない。
 import { useState } from 'react';
-import { Check, ChevronRight } from 'lucide-react';
+import { Check, ChevronRight, Search } from 'lucide-react';
 import BottomSheet from './BottomSheet';
 import { Chip } from './formPrimitives';
 import { withPhraseBreaks } from './TightBubble';
@@ -143,6 +144,43 @@ export function BookFieldLinks({ fields = [], onPick }) {
   );
 }
 
+// 本の詳細: 入っているフォルダ（押すと、すべての本をそのフォルダで絞る）＋文字ボタン「変更」（フォルダが無ければ「フォルダに入れる」）。
+//   形は BookFieldLinks と同じ（見出し「フォルダ」13/--text-2・チップ 32・押せる範囲 44）。分野の行のすぐ下（stacked）なら行の間を 8 に。
+//   全状態の本で出す（フォルダは本人が自由に作る分け方・2026-10-11 オーナー「この画面でもフォルダ分けできるように」）。
+export function BookFolderLinks({ folders = [], onPick, onEdit, stacked = false }) {
+  const tapExtra = 'calc((var(--space-8) - var(--tap-min)) / 2)'; // 押せる範囲 44 と見た目 32 の差の半分（負）
+  return (
+    <div
+      data-book-folders=""
+      role="group"
+      aria-label="フォルダ"
+      style={{
+        display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 'var(--space-2)',
+        marginTop: stacked ? `calc(${tapExtra} + var(--space-2))` : 'var(--space-2)',
+        marginBottom: tapExtra,
+      }}
+    >
+      {folders.length > 0 && <span aria-hidden="true" style={{ flexShrink: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>フォルダ</span>}
+      {folders.map((f) => (
+        <Chip key={f} shrink onClick={() => onPick?.(f)} aria-label={`フォルダ「${f}」の本を見る`}>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{f}</span>
+        </Chip>
+      ))}
+      {onEdit && (
+        <button
+          type="button"
+          onClick={onEdit}
+          aria-label={folders.length ? `フォルダを変更（いま ${folders.join('、')}）` : 'フォルダに入れる'}
+          // フォルダが無いときは文字ボタンだけの行: 文字の左端を見出しの左端にそろえる
+          style={{ ...btnLink, ...(folders.length ? null : { marginLeft: 'calc(-1 * var(--space-1))' }) }}
+        >
+          {folders.length ? '変更' : 'フォルダに入れる'}
+        </button>
+      )}
+    </div>
+  );
+}
+
 // 振り返り › 記録の「分野」。record: lib/bookFields.js の buildFieldRecord の結果。
 export function BookFieldsRecord({ record, onOpenField, onFindBooks }) {
   const { groups } = record;
@@ -153,20 +191,24 @@ export function BookFieldsRecord({ record, onOpenField, onFindBooks }) {
       style={{ background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4)' }}
     >
       <h3 id="book-fields-record-title" style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', margin: 0 }}>分野</h3>
-      {groups.map((c) => (
-        <div key={c.id} data-field-group={c.id} style={{ marginTop: 'var(--space-4)' }}>
+      {groups.map((c, ci) => (
+        // 大分類の間は 24（見出しの下の最初だけ 16・2026-10-11 ui-critic）
+        <div key={c.id} data-field-group={c.id} style={{ marginTop: ci === 0 ? 'var(--space-4)' : 'var(--space-6)' }}>
           <p style={{ ...groupTitle, margin: 0 }}>{c.name}</p>
           {c.fields.length > 0 && (
           <ul style={{ listStyle: 'none', margin: 'var(--space-1) 0 0', padding: 0 }}>
             {c.fields.map((f, i) => {
               const parts = [`本 ${f.books} 冊`];
               if (f.memos > 0) parts.push(`メモ ${f.memos} 件`);
+              // ★ 評価の平均（評価の付いた本が 2 冊以上のときだけ・小数 1 桁・押すと評価順で並ぶ・2026-10-11）
+              const avg = Number.isFinite(f.avgRating) ? `★${f.avgRating.toFixed(1)}` : null;
+              if (avg) parts.push(avg);
               return (
                 <li key={f.name} style={{ borderTop: i === 0 ? 'none' : '1px solid var(--separator)' }}>
                   <button
                     type="button"
                     onClick={() => onOpenField?.(f.name)}
-                    aria-label={`${f.name}・${parts.join('・')}・本を見る`}
+                    aria-label={`${f.name}・${parts.map((x) => (x === avg ? `評価の平均 ${f.avgRating.toFixed(1)}` : x)).join('・')}・本を見る`}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 'var(--space-2)', width: '100%', minHeight: 'var(--btn-h)',
                       padding: 'var(--space-2) 0', background: 'none', border: 'none', cursor: 'pointer',
@@ -199,8 +241,12 @@ export function BookFieldsRecord({ record, onOpenField, onFindBooks }) {
   );
 }
 
-// 本がまだ無い分野の 1 行。「まだ本がない分野」に続けて名前のチップ（見た目 32・押せる範囲 44・折り返す）。
+// 本がまだ無い分野。見出し「まだ本がない分野」（13/--text-2）を 1 行にし、その下 4 に探す印つきのチップを折り返す。
+//   チップは塗らない（枠 --border・文字 --text-2・名前の前に虫めがね）＝押すと探しに行く（AI 選書）と分かり、
+//   自分の本がある行より弱く、本の詳細の分野チップ（絞り込み）とも別物に見える（DESIGN §5「探す印のチップ」・2026-10-11 ui-critic）。
+//   区切り線 → 見出しは 12・チップの行の間は 12（押せる範囲 44・見た目 32）・最後の行の下の余りは行の外へ。
 // onFindBooks が無ければ名前を文字で並べるだけ。
+const tapExtra = 'calc((var(--space-8) - var(--tap-min)) / 2)';
 function EmptyFieldsLine({ names, divided, onFindBooks }) {
   return (
     <div
@@ -208,18 +254,49 @@ function EmptyFieldsLine({ names, divided, onFindBooks }) {
       role="group"
       aria-label="まだ本がない分野"
       style={{
-        display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 'var(--space-2)', rowGap: 'var(--space-1)',
-        marginTop: divided ? 0 : 'var(--space-1)',
-        paddingTop: divided ? 'var(--space-1)' : 0,
+        marginTop: divided ? 0 : 'var(--space-2)',
+        paddingTop: divided ? 'var(--space-3)' : 0,
         borderTop: divided ? '1px solid var(--separator)' : 'none',
       }}
     >
-      <span style={{ flexShrink: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, minHeight: 'var(--tap-min)', display: 'inline-flex', alignItems: 'center' }}>まだ本がない分野</span>
-      {names.map((f) => (
-        onFindBooks
-          ? <Chip key={f} shrink wrap onClick={() => onFindBooks([f])} aria-label={`${f}の本を探す（AI 選書）`}>{f}</Chip>
-          : <span key={f} style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>{f}</span>
-      ))}
+      <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>まだ本がない分野</p>
+      <div
+        style={{
+          display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 'var(--space-2)', rowGap: 0,
+          marginTop: `calc(var(--space-1) + ${tapExtra})`,
+          marginBottom: tapExtra,
+        }}
+      >
+        {names.map((f) => (
+          onFindBooks
+            ? <FindFieldChip key={f} onClick={() => onFindBooks([f])} aria-label={`${f}の本を探す（AI 選書）`}>{f}</FindFieldChip>
+            : <span key={f} style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 'var(--tap-min)' }}>{f}</span>
+        ))}
+      </div>
     </div>
+  );
+}
+
+// 探す印のチップ（塗らない・枠 --border・文字 --text-2・虫めがね 0.95em・見た目 32・押せる範囲 44・長い名前は折り返す）。
+function FindFieldChip({ onClick, children, ...rest }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      {...rest}
+      // 上下に（44 − 32）/ 2 ずつの余りをいつも持たせる＝文字を大きくしてチップが 32 より高くなっても、行の間は 12 のまま
+      style={{ display: 'inline-flex', alignItems: 'center', minHeight: 'var(--tap-min)', minWidth: 'var(--tap-min)', maxWidth: '100%', boxSizing: 'border-box', padding: 'calc((var(--tap-min) - var(--space-8)) / 2) 0', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+    >
+      <span
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 'var(--space-8)', maxWidth: '100%', boxSizing: 'border-box',
+          padding: 'var(--space-1) var(--space-3)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'transparent',
+          fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.3, textAlign: 'left', wordBreak: 'keep-all', overflowWrap: 'anywhere',
+        }}
+      >
+        <Search size="0.95em" aria-hidden="true" style={{ flexShrink: 0 }} />
+        <span>{children}</span>
+      </span>
+    </button>
   );
 }

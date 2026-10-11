@@ -338,6 +338,7 @@ export function BeforePhase({
   addingTitles,
   savedAsBefore = true, // 編集を始めたときにすでに積読だったか（そのときだけ保存で読書中に進む）
   briefSlot = null, // 📖 この本で学べること（App.jsx が BookBrief variant="fold" を渡す・得たいことの欄の上・2026-10-08）
+  allFolders, // 🗂 フォルダの候補（ほかの状態の編集と同じ分野・フォルダの欄を下に・2026-10-11）
 }) {
   const [editInstruction, setEditInstruction] = useState('');
   const submitEdit = () => {
@@ -561,6 +562,11 @@ export function BeforePhase({
           </div>
         </details>
       )}
+
+      {/* 🏷🗂 分野とフォルダ（ほかの状態の編集と同じ・2026-10-11 オーナー「この画面でもフォルダ分けできるように」） */}
+      <div style={{ marginTop: 'var(--space-6)' }}>
+        <FieldsAndFolders form={form} setForm={setForm} allFolders={allFolders} />
+      </div>
 
       {/* 保存は画面の下に固定（App.jsx の編集画面の footer・EditSaveBar）。
           得たいことが書けていれば保存と同時に読書中へ自動遷移する（handleSave と同じ条件・

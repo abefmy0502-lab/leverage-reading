@@ -283,6 +283,11 @@ export function buildSeed(scenario) {
       id: `${bookIds[i]}-t-${tag}`, book_id: bookIds[i], user_id: DEMO_USER_ID, tag_name: tag,
     }));
   });
+  // 🗂 本人が作ったフォルダ（本の詳細のフォルダの行・すべての本のフォルダのチップの確かめ用・2026-10-11）
+  const FOLDERS = { 'イシューからはじめよ': ['読み返したい'], '人を動かす': ['読み返したい'], 'サピエンス全史': ['読み返したい'], '1兆ドルコーチ': ['会社の課題図書'] };
+  db.books.forEach((b) => (FOLDERS[b.title] || []).forEach((name) => db.book_collections.push({
+    id: `${b.id}-c-${name}`, book_id: b.id, user_id: DEMO_USER_ID, collection_name: name, created_at: b.created_at,
+  })));
 
   // &related=messy: 『1兆ドルコーチ』の保存済みの読書計画シートに、崩れた関連書籍がある人（2026-10-04）。
   //   2 冊を混ぜた行・『』の無い行・実在しない本。開くと書誌で確かめて 1 冊の『』の行に直すか消す（App.jsx の repair）。
