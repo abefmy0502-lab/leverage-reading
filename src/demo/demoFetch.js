@@ -717,7 +717,15 @@ function aiReply(store, payload, aiMode = '') {
     const askMore = !decide && (userText.includes('聞き返すのはこれが最後') || userText.includes('もっと聞いてほしい'));
     // 🔭 見方を変える頼み（本番の LENS・2026-10-08）。
     const lens = userText.includes('===== LENS =====') ? lensOf(q[1].trim()) : null;
-    return brainAnswer(store, q[1], block, aiMode, parseThread(userText), parseVoice(userText), decide, userText.includes('===== BOOK_LOOKUP ====='), related, askMore, lens);
+    const answer = brainAnswer(store, q[1], block, aiMode, parseThread(userText), parseVoice(userText), decide, userText.includes('===== BOOK_LOOKUP ====='), related, askMore, lens);
+    // 📕 積読から答える（本番の BRAIN_SYSTEM ルール 11・2026-10-11）: 積読を尋ねたときは、まだ読んでいない本の最初の 1 冊を
+    //   結論のあとに 1 文で挙げる（中身は語らない・書誌の紹介の言葉だけ）。
+    const unread = (userText.match(/===== UNREAD_BOOKS_START =====\n([\s\S]*?)\n===== UNREAD_BOOKS_END/) || [])[1] || '';
+    const firstUnread = (unread.match(/◆『([^』]+)』/) || [])[1];
+    if (firstUnread && /積読|読んでいない/.test(q[1])) {
+      return answer.replace(/【結論】\n([^\n]*)/, (m, line) => `【結論】\n${line}\n積読にある『${firstUnread}』が、この悩みに役立ちそうです。紹介を読むと、いまの状況に近い話を扱っています。`);
+    }
+    return answer;
   }
   // 📷 写真から書き起こし（本番と同じく、本文だけを返す）。
   //   &lpshot=1（LP・App Store の画像）は、実在の本の一節に見えない、自分で書いた付箋のような短い文にする（2026-10-08）。

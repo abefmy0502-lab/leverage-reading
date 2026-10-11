@@ -63,6 +63,30 @@ describe('相談の頭（指示文＋メモ一覧）は、相談ごとに同じ�
   });
 });
 
+describe('📕 積読から答える（まだ読んでいない本の塊）', () => {
+  const unreadBooks = [
+    { id: 'u1', status: 'before', title: 'エッセンシャル思考', author: 'グレッグ・マキューン' },
+    { id: 'u2', status: 'done', title: '読了の本', author: '誰か' },
+  ];
+  it('すべての本に相談するときは芯の後ろ・質問の前に別の塊で渡し、芯は変えない', async () => {
+    const a = await consult({ question: '積読から、今の悩みに合う本は？', unreadBooks });
+    const b = await consult({ question: '積読から、今の悩みに合う本は？' });
+    expect(cachedPrefix(a)).toBe(cachedPrefix(b));
+    const blocks = a.messages[0].content.map((x) => x.text);
+    const ui = blocks.findIndex((t) => t.includes('===== UNREAD_BOOKS_START ====='));
+    const qi = blocks.findIndex((t) => t.includes('===== QUESTION_START ====='));
+    expect(ui).toBeGreaterThan(0);
+    expect(ui).toBeLessThan(qi);
+    expect(blocks[ui]).toContain('◆『エッセンシャル思考』');
+    expect(blocks[ui]).not.toContain('読了の本');
+    expect(a.system).toContain('その本の中身を読んだかのように語らない');
+  });
+  it('本に絞って相談するときは渡さない', async () => {
+    const p = await consult({ question: '積読から、今の悩みに合う本は？', unreadBooks, bookIds: ['b1'] });
+    expect(p ? JSON.stringify(p.messages) : '').not.toContain('UNREAD_BOOKS_START');
+  });
+});
+
 // 本棚のメモをまねて作る
 const mk = (i, { book = `b${i % 12}`, text, days = i, page = i } = {}) => ({
   id: `m${String(i).padStart(4, '0')}`,

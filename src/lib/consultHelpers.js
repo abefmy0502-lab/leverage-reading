@@ -374,7 +374,21 @@ export function buildConsultExamples({ books = [], memoBookIds = null, lastConsu
   }
 
   WORRY_EXAMPLES.forEach((w) => push(w, 'worry'));
+  // 📕 積読から答える（2026-10-11）: 積読が 1 冊以上あれば「積読から、今の悩みに合う本は？」を 1 つ。
+  //   自分の言葉から作った例（やってみた行動・前の相談・課題・本）は押しのけず、よくある困りごとの最後の 1 つと入れ替える。
+  if (count > 0 && hasTsundoku(list) && !out.some((e) => e.text === UNREAD_EXAMPLE)) {
+    let at = -1;
+    out.forEach((e, i) => { if (e.kind === 'worry' && WORRY_EXAMPLES.includes(e.text)) at = i; });
+    if (at >= 0) out[at] = { text: UNREAD_EXAMPLE, kind: 'tsundoku' };
+    else if (out.length < count) out.push({ text: UNREAD_EXAMPLE, kind: 'tsundoku' });
+  }
   return out;
+}
+
+/** 相談例「積読から、今の悩みに合う本は？」（積読が 1 冊以上あるときだけ・lib/unreadBooks.js）。 */
+export const UNREAD_EXAMPLE = '積読から、今の悩みに合う本は？';
+export function hasTsundoku(books) {
+  return (Array.isArray(books) ? books : []).some((b) => b && b.status === 'before' && String(b.title || '').trim());
 }
 
 // 🌱 初日の「相談してみる」（2026-10-02・lib/firstDay.js）: 取り込み・ページを撮る・読んだ本に一言ずつ残す を

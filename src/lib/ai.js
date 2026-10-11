@@ -15,6 +15,7 @@ import { checkAiConsentForSend, AI_CONSENT_HEADER, AI_CONSENT_DECLINED_TEXT } fr
 import { askJev, jevClientOn } from './jev';
 import { bookInfoForPrompt } from './bookInfo';
 import { hasBriefMaterial, finalizeBrief, BRIEF_MAX_TOKENS, BRIEF_NO_MATERIAL_TEXT } from './bookBrief';
+import { unreadBooksBlock } from './unreadBooks';
 import { relevanceCandidates, relevanceInput, relatedFromScores, JEV_LEXICAL_CANDIDATES } from './consultRelevance';
 
 const DEFAULT_MODEL = MODEL_SMART;
@@ -444,6 +445,12 @@ ${CONSULT_SECURITY_RULES}
    - 【結論】には書名を書かない（本は【参照した本のメモ】に）。
    - 最後は問いにしない。【あなたに聞きたいこと】も【明日からできる 1 つの行動】も書かず、【あなたの状況に合わせた解釈】で締める（続けるか・行動にするかはアプリのボタンで選ぶ）。
    - 「ほかの本では」と聞かれたら、前の答えの「根拠にした本」以外の本のメモから答える。
+11. まだ読んでいない本（2026-10-11・UNREAD_BOOKS があるとき）— ユーザーの積読・読みたい本の書誌（書名・著者・公開の紹介・目次の見出し）。
+   - 根拠の中心はいつもユーザーのメモ。まだ読んでいない本は【参照した本のメモ】にも REFS にも挙げない。
+   - 使うのは「積読にある『書名』が役に立ちそう」と提案するときだけ（相談がまだ読んでいない本を尋ねたとき、または悩みに合う本が積読にあるとき・多くても 2 冊）。
+     書名は渡された表記のまま『』で書き、【結論】か【あなたの状況に合わせた解釈】に 1 文で。理由は紹介・目次にある言葉だけで短く。
+   - その本の中身を読んだかのように語らない（「この本では〜と書かれています」「著者は〜と言っています」と書かない）。紹介・目次に無いことは言わない。
+   - 合う本が無ければ触れない（「積読には合う本がありませんでした」とだけ書いてよいのは、ユーザーが積読を尋ねたときだけ）。
 
 【長さ】
 REFS を除いて 450 字前後に収める（スマホで一度に読める長さ・行動を決める回は 550 字前後まで）。【結論】は 1〜2 文、
@@ -1503,7 +1510,7 @@ export function voiceBlock(persona) {
 // and streaming (streamMyBookBrain) entry points. Pulled out so both paths
 // stay byte-for-byte equivalent on the data-gathering side — only the
 // transport (one-shot vs SSE) differs.
-async function buildBrainContext({ userId, question, onStage, bookIds, mode = 'fused', prior = null, thread = null }) {
+async function buildBrainContext({ userId, question, onStage, bookIds, mode = 'fused', prior = null, thread = null, unreadBooks = null }) {
   if (!isSupabaseConfigured || !userId) {
     throw new Error('Supabase が設定されていません。');
   }
@@ -1671,8 +1678,14 @@ async function buildBrainContext({ userId, question, onStage, bookIds, mode = 'f
       `「- 」で始まる 1 行は、上のメモ一覧にある同じメモの目印＝全文は上を読む）:\n\n` +
       `===== RELATED_MEMOS_START =====\n${related.map((m) => (extraSet.has(m) ? formatMemo(m, { withDate: true }) : formatMemoPointer(m))).join('\n')}\n===== RELATED_MEMOS_END =====\n`
     : '';
+  // 📕 まだ読んでいない本（積読から答える・2026-10-11）: すべての本に相談するときだけ。キャッシュの芯（メモ一覧）の後ろ・
+  //   質問の前に別の塊で（8 冊・1,500 字まで・lib/unreadBooks.js）。書誌は端末の控えと本の列だけ（取りに行かない）。
+  let unreadBlockText = '';
+  if (!scoped && Array.isArray(unreadBooks) && unreadBooks.length > 0) {
+    try { unreadBlockText = unreadBooksBlock(unreadBooks); } catch { unreadBlockText = ''; }
+  }
   // 後方互換: 文字列版も残す（構造化 content を使わない経路のため）。
-  const userPrompt = memoBlockText + relatedBlockText + (growthBlock ? `\n${growthBlock}` : '') + questionBlockText;
+  const userPrompt = memoBlockText + relatedBlockText + (growthBlock ? `\n${growthBlock}` : '') + unreadBlockText + questionBlockText;
   // 構造化 content（メモ=キャッシュ対象 / 質問=毎回変わる）。
   const userBlocks = [
     // 💴 キャッシュの印（5 分）: 指示文＋メモ一覧（芯）までをキャッシュする。深掘りの続き（2026-09-30〜・チップで返事・
@@ -1682,6 +1695,7 @@ async function buildBrainContext({ userId, question, onStage, bookIds, mode = 'f
     { type: 'text', text: memoBlockText, cache_control: { type: 'ephemeral' } },
     ...(relatedBlockText ? [{ type: 'text', text: relatedBlockText }] : []),
     ...(growthBlock ? [{ type: 'text', text: growthBlock }] : []),
+    ...(unreadBlockText ? [{ type: 'text', text: unreadBlockText }] : []),
     { type: 'text', text: questionBlockText },
   ];
 
@@ -1929,8 +1943,9 @@ export async function opsAdvise({ messages = [], stateLine = '' } = {}) {
 // prior: { question, answer, at } 過去の相談の「この相談の続きを聞く」で持ってきた前の相談（無ければ null）。
 // thread: [{ question, answer }]（古い順）いま見えている会話のこれまでのやりとり＝深掘りの続き（2026-09-30・無ければ null）。
 // 返り値の quoteRefs は、答えの引用を渡したメモと突き合わせた結果（refs に足して残す・evidenceCheck.js）。
-export async function streamMyBookBrain({ userId, question, onStage, onChunk, signal, bookIds, mode = 'fused', prior = null, thread = null }) {
-  const ctx = await buildBrainContext({ userId, question, onStage, bookIds, mode, prior, thread });
+// unreadBooks: まだ読んでいない本（積読・読みたいを含む本棚の本・すべての本に相談するときだけ使う・2026-10-11）。
+export async function streamMyBookBrain({ userId, question, onStage, onChunk, signal, bookIds, mode = 'fused', prior = null, thread = null, unreadBooks = null }) {
+  const ctx = await buildBrainContext({ userId, question, onStage, bookIds, mode, prior, thread, unreadBooks });
   if (ctx.empty) {
     onStage?.(null);
     return ctx.payload;

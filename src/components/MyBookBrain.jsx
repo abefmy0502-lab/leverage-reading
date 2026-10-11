@@ -73,6 +73,7 @@ const consumePreset = (kind, nonce) => {
 
 import BottomSheet from './BottomSheet';
 import PartnerAvatar, { PartnerRow, PartnerBooksSheet, AVATAR_SIZE, AVATAR_SIZE_SMALL } from './PartnerAvatar';
+import { unreadBooksInAnswer } from '../lib/unreadBooks';
 import { consultPartner, partnerFromScope, bookForRef, shelfBookForTitle, withVoice, decodeVoice, encodeVoice, perbookSummaryPartner, VOICE_PREFIX } from '../lib/consultPartner';
 import { fetchAllRows } from '../lib/fetchAllRows';
 
@@ -1395,6 +1396,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         question: q,
         bookIds: askBookIds,
         mode: askMode,
+        // 📕 積読から答える（2026-10-11）: すべての本に相談するときだけ、まだ読んでいない本の書誌も渡す（lib/unreadBooks.js）。
+        unreadBooks: Array.isArray(askBookIds) && askBookIds.length > 0 ? null : books,
         prior: askPrior ? { question: askPrior.question, answer: askPrior.answer, at: askPrior.at } : null,
         thread: askThread.length > 0 ? askThread : null,
         signal: controller.signal,
@@ -3418,6 +3421,9 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
   }
 
   const parsed = !isStreaming && !message.error && !message.notice ? parseAnswer(message.content) : null;
+  // 📕 答えに出てきた、まだ読んでいない本（積読・読みたい）。書き終えた答えだけ（lib/unreadBooks.js）。
+  //   （この上で相談の吹き出しを先に返すので hook にしない・軽い計算）
+  const unreadInAnswer = parsed && onOpenBook ? unreadBooksInAnswer(message.content, books) : [];
   // 💬 相談相手のアイコン（2026-09-30・lib/consultPartner.js）: 書き終えた答えは根拠の本から、書いている途中・失敗・
   //   案内・関係するメモが無かった答えは相談相手（送ったときのすべての本／1 冊／選んだ数冊）から。
   // 🗣 著者の語り口で書いた答え（2026-09-30）: 名前を「著者名（本の語り口で・AI）」に。本ごとには本のカードごと。
@@ -3946,6 +3952,17 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
           {renderEvidence()}
           {lookupRows.length === 0 && renderDetails(parsed)}
           {renderNote(parsed)}
+          {/* 📕 積読から答える（2026-10-11）: 答えに『書名』で出てきた、まだ読んでいない本（本棚の本と同じ確かめ方）。押すと本の詳細へ。 */}
+          {unreadInAnswer.length > 0 && (
+            <div style={{ marginTop: 'var(--space-4)' }} role="list" aria-label="まだ読んでいない本">
+              <p style={subLabel}>本棚にある、まだ読んでいない本</p>
+              {unreadInAnswer.map((b, i) => (
+                <div role="listitem" key={b.id}>
+                  <LibrarySearchHit inline divider={i > 0} showRating={false} result={{ book: b, hit: null }} onOpen={(bk) => { if (bk?.id && onOpenBook) onOpenBook(bk); }} />
+                </div>
+              ))}
+            </div>
+          )}
         </>
       ) : (
         <div style={readText}><PlainAnswer text={message.content} /></div>
