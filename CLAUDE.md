@@ -355,7 +355,7 @@ want(読みたい) → before(積読) → reading(読書中) → done(読了)
 ### データプライバシー
 - [ ] **エクスポート**: ユーザーが自分のデータを JSON でダウンロード可能（AccountSettings → 📥 データをダウンロード）
 - [ ] **削除リクエスト**: ユーザーがすべての関連データ削除を要求可能（AccountSettings → ⚠️ アカウント削除）
-- [ ] **管理者の作業**: 削除リクエストが入ったら、`account_deletion_requests` を確認 → Supabase Dashboard で auth.users を削除
+- [ ] **管理者の作業**: 削除リクエストが入ったら、`account_deletion_requests` を確認 → Supabase Dashboard で auth.users を削除（Apple でサインインの人は、その前に Apple のトークンを取り消す＝`appleid.apple.com/auth/revoke`・手順は `company/app-store-submission.md` §11・2026-10-11）。退会の確認の入力は、Apple でサインイン・メールを非公開の人は「削除」（`src/lib/deleteConfirm.js`）
 
 ### ヘッダー（vercel.json で実装済み）
 - `X-Frame-Options: DENY`、`X-Content-Type-Options: nosniff`、`Referrer-Policy: strict-origin-when-cross-origin`

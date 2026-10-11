@@ -71,6 +71,17 @@ describe('プライバシーポリシー', () => {
     expect(t).toContain('本の書誌情報(書名・著者・出版社・紹介文・目次・書店のジャンルなどの公開情報)を、分野を決めるためにAI');
     expect(t).toContain('あなたのメモや個人情報は送りません');
   });
+  it('取得する情報（写真・読書の時間・Apple の氏名・通知の識別子・フィードバックの名前とメール）と用語（2026-10-11）', () => {
+    expect(t).toContain('メモに添えた写真、および文字に書き起こすために撮影した本のページの写真');
+    expect(t).toContain('読書の時間の記録');
+    expect(t).toContain('Appleから受け取る氏名');
+    expect(t).toContain('通知を受け取るための端末の識別子');
+    expect(t).toContain('任意で書かれた名前・メールアドレス');
+    expect(t).toContain('本の書名・著者');
+    expect(t).not.toContain('本のタイトル');
+    expect(t).not.toContain('ステータス');
+    expect(t).toContain('購読の状態');
+  });
   it('公開のお知らせのメールアドレス（取得・利用目的・消す時期）', () => {
     expect(t).toContain('公開のお知らせ');
     expect(t).toContain('公開のお知らせにだけ使い');

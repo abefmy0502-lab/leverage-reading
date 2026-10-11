@@ -6,6 +6,8 @@
 // 🧭 TypeSafe AI（Jev・判断の補助）の行は、アプリで Jev を入れたとき（VITE_AI_JEV=on＝lib/aiProcessors.js の AI_JEV_ON）だけ出す
 //   （同意のシートの送り先と同じ・2026-10-02・docs/jev-plan.md）。
 // 公開中の本文はこのファイルが正（legal/privacy.md は旧い下書き。第 7 条の送るものだけは同じに保つ＝aiProcessors.test.js）。
+// 2026-10-11（リリース前点検）: 第 2 条に写真・読書の時間・Apple の氏名・通知の端末の識別子・フィードバックの名前とメールを、
+//   第 5 条に Sentry（VITE_SENTRY_DSN のあるビルドだけ＝lib/sentry.js の SENTRY_ON）を足した。用語は「書名」「購読の状態」に。
 // 2026-10-11: 第 7 条に「本の分野」（本の公開の書誌だけ → Google、使えないときは Anthropic・利用者のメモや個人の情報は送らない・
 //   同意のシートは出さない＝利用者のデータを送らないため）を足した。
 // 2026-10-08: 第 7 条に「この本で学べること」（書名・著者・得たいこと・公開の紹介文と目次 → Google）を足した。
@@ -16,6 +18,7 @@
 import LegalLayout from './LegalLayout';
 import { SUPPORT_EMAIL } from '../lib/contact';
 import { AI_JEV_ON } from '../lib/aiProcessors';
+import { SENTRY_ON } from '../lib/sentry';
 
 export default function PrivacyPage() {
   return (
@@ -49,9 +52,12 @@ export default function PrivacyPage() {
           <ul>
             <li>メールアドレス</li>
             <li>認証情報(パスワードはハッシュ化して保管)</li>
-            <li>本のタイトル・著者・ISBN 等の書誌情報</li>
+            <li>Apple でサインインを使ったときに Apple から受け取る氏名(ユーザーが Apple で共有を選んだ場合に限ります)</li>
+            <li>本の書名・著者・ISBN 等の書誌情報</li>
             <li>ユーザーが投稿するメモ、コメント、行動記録、AI への質問内容等</li>
-            <li>お問い合わせ時に提供される情報</li>
+            <li>メモに添えた写真、および文字に書き起こすために撮影した本のページの写真</li>
+            <li>読書の時間の記録(「読む」で読んだ本・始めた時刻・読んだ時間)</li>
+            <li>フィードバック・お問い合わせ時に提供される情報(任意で書かれた名前・メールアドレスを含みます)</li>
           </ul>
         </li>
         <li>紹介用 Web ページで、公開のお知らせを希望された方の情報
@@ -61,7 +67,7 @@ export default function PrivacyPage() {
         </li>
         <li>課金・購読に関する情報
           <ul>
-            <li>有料プランの契約状況・購読ステータス、課金履歴</li>
+            <li>有料プランの契約状況・購読の状態、課金履歴</li>
             <li>App Store のトランザクション識別子、購読開始日・更新日・有効期限等の購読状態情報(Apple App Store でのアプリ内課金につき、購読状態管理サービス RevenueCat を通じて取得します)</li>
             <li>※ クレジットカード番号等の決済情報は、Apple(App Store)が直接取得・管理し、当方はこれを取得・保持しません。</li>
           </ul>
@@ -69,6 +75,7 @@ export default function PrivacyPage() {
         <li>自動的に取得する情報
           <ul>
             <li>IP アドレス</li>
+            <li>通知を受け取るための端末の識別子(通知をオンにした場合に限ります。iPhone のアプリでは Apple のプッシュ通知サービスのデバイストークン、Web ではブラウザの通知の宛先)</li>
             <li>アプリのバージョン・デバイスの種類</li>
             <li>OS の種類・バージョン</li>
             <li>アクセス日時</li>
@@ -84,7 +91,7 @@ export default function PrivacyPage() {
       <ol>
         <li>本サービスの提供および運営</li>
         <li>ユーザーの本人確認、認証、不正利用の防止</li>
-        <li>購読状態(課金ステータス)の管理(決済処理は Apple(App Store)が行い、当方はこれを行いません)</li>
+        <li>購読の状態の管理(決済処理は Apple(App Store)が行い、当方はこれを行いません)</li>
         <li>本サービスの改善、新機能の開発、不具合対応</li>
         <li>本サービスに関するお問い合わせへの対応</li>
         <li>本サービスに関する重要なお知らせの送信</li>
@@ -118,7 +125,8 @@ export default function PrivacyPage() {
         <li><strong>Google LLC(米国):</strong> AI 機能(読書計画シート、この本で学べること、AI 選書の質問づくり、メモの凝縮、メモからまとめ、写真から書き起こし)の提供(Gemini API)</li>
         {AI_JEV_ON && <li><strong>TypeSafe AI(米国):</strong> AI 機能の判断の補助(相談で関係するメモを選ぶ)。文章は作らず、選択と確率だけを返します(Jev)</li>}
         <li><strong>Apple Inc.(米国):</strong> App Store でのアプリ内課金・決済処理(iOS アプリ)</li>
-        <li><strong>RevenueCat, Inc.(米国):</strong> 購読状態(課金ステータス・トランザクション識別子等)の管理</li>
+        <li><strong>RevenueCat, Inc.(米国):</strong> 購読の状態(トランザクション識別子等)の管理</li>
+        {SENTRY_ON && <li><strong>Functional Software, Inc.(Sentry・米国):</strong> 不具合の検知(アプリで起きたエラーと動作の速さの記録。メールアドレスや IP アドレスは送りません)</li>}
       </ul>
       <p>
         これらの委託先は、適切なセキュリティ措置を講じる事業者を選定し、
@@ -128,7 +136,7 @@ export default function PrivacyPage() {
       <h2>第6条(国外への個人データの移転)</h2>
       <p>
         前条に定める委託に伴い、ユーザーの個人データは、Supabase, Inc.、Vercel, Inc.、
-        Anthropic, PBC、Google LLC、{AI_JEV_ON ? 'TypeSafe AI、' : ''}Apple Inc.、RevenueCat, Inc. 等、
+        Anthropic, PBC、Google LLC、{AI_JEV_ON ? 'TypeSafe AI、' : ''}Apple Inc.、RevenueCat, Inc.{SENTRY_ON ? '、Functional Software, Inc.(Sentry)' : ''} 等、
         米国その他の国外に所在する委託先に移転されます。
         米国その他の国における個人情報保護制度は、日本と異なる場合があります。
         委託先の個人情報保護に関する制度については、以下をご参照ください。
@@ -143,7 +151,7 @@ export default function PrivacyPage() {
           <ul>
             <li><strong>相談:</strong> 質問と、答えの根拠にするメモ・本の情報(書名・著者・評価・読書計画シートの内容等。合わせて約 9,000 字まで)・行動の記録・これまでの相談 → Anthropic(Claude)</li>
             <li><strong>AI 選書:</strong> 困りごと(相談内容)と聞き返しへの回答・読んだ本(書名・著者・評価)とメモの一部 → おすすめの本は Anthropic(Claude)、途中の質問づくりは Google(Gemini)</li>
-            <li><strong>読書計画シート(作る・直す):</strong> 書名・著者・この本から得たいこと・よく使うタグ・今のシートと直したい点(あわせて、出版社・書店が公開しているその本の紹介文と目次) → Google(Gemini)</li>
+            <li><strong>読書計画シート(作る・直す):</strong> 書名・著者・この本から得たいこと・よく使うメモのタグ・今のシートと直したい点(あわせて、出版社・書店が公開しているその本の紹介文と目次) → Google(Gemini)</li>
             <li><strong>この本で学べること:</strong> 書名・著者・この本から得たいこと・出版社・書店が公開しているその本の紹介文と目次 → Google(Gemini)</li>
             <li><strong>メモの凝縮・メモからまとめ:</strong> そのメモの本文(まとめは書名とその本のメモ) → Google(Gemini)</li>
             <li><strong>写真から書き起こし:</strong> 撮った本のページの写真 → Google(Gemini)。写真を AI 事業者に送るのは、この機能だけです。</li>

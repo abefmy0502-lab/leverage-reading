@@ -16,6 +16,8 @@
 //     優先する判断。
 
 const DSN = import.meta.env.VITE_SENTRY_DSN;
+// このビルドで Sentry を使うか（プライバシーポリシーの委託先の行を出す・2026-10-11）。
+export const SENTRY_ON = Boolean(DSN);
 
 let started = false;
 let SentryMod = null;
