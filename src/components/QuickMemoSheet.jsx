@@ -163,6 +163,8 @@ export default function QuickMemoSheet({
   //   「写真から書き起こす」（副ボタン・ScanText 20）を置く。主ボタンは「保存」のまま。書き起こした（本文が入った）ら、
   //   いつもの場所（「＋ ページ・写真」の中）に戻る。
   startWithPhoto = false,
+  // 📗 読了の 3 つの問い（2026-10-11）: 入力欄の上に出す問い（「明日から何を変える？」など）。本文は空のまま・保存すると普通のメモ。
+  prompt = '',
   // 包む class（集中モードから開くと 'focus-dark-scope'＝暗い値のトークンで描く・2026-10-09）。display: contents なので並びは変えない。
   scopeClass = '',
 }) {
@@ -483,8 +485,14 @@ export default function QuickMemoSheet({
             </div>
           )}
           <div>
+            {prompt && (
+              // 問いは入力欄の見出し（17/600・読む文章ではなく UI の文字）。入力欄とは 8 離す。
+              <p id="quick-memo-prompt" style={{ margin: '0 0 var(--space-2)', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5 }}>
+                {withPhraseBreaks(prompt)}
+              </p>
+            )}
             <textarea
-              aria-label="メモ本文"
+              aria-label={prompt || 'メモ本文'}
               data-font-lg=""
               ref={textRef}
               value={text}
@@ -494,7 +502,7 @@ export default function QuickMemoSheet({
                   e.preventDefault();
                 }
               }}
-              placeholder="心が動いた一行を書き留める"
+              placeholder={prompt ? '思いついたことを 1 行で' : '心が動いた一行を書き留める'}
               style={ta}
               maxLength={LIMITS.memoText}
             />

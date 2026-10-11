@@ -178,6 +178,20 @@ const SCREENS = [
   { name: 'book-detail-done-bottom', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { scrollBottom: true }] },
   { name: 'book-store-sheet', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("この本を買う")' }] },
   { name: 'consult', url: '/', steps: [{ css: nav('相談') }] },
+  // ── 📕📗 積読から答える・読了の 3 つの問い・読む前と読んだ後（2026-10-11・ui-shots/article-before/ と article-after/）
+  ...(() => {
+    const ARTICLE_DONE = [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("数値化の鬼")' }, { scrollBottom: true }, { css: 'button:has-text("読了にする")' }, { wait: 1500 }];
+    const ARTICLE_TS = [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '積読から、今の悩みに合う本は？' ] }, { css: 'button[aria-label="送信"]' }, { wait: 6000 }];
+    return [
+      ['article-consult', '/', [{ css: nav('相談') }, { wait: 800 }]],
+      ['article-consult-tsundoku', '/', [...ARTICLE_TS, { scrollBottom: true }]],
+      ['article-done-questions', '/', [...ARTICLE_DONE, { scrollTo: 'h2:has-text("読み終えて、ひとこと")' }, { wait: 400 }]],
+      ['article-done-prompt', '/', [...ARTICLE_DONE, { scrollTo: 'h2:has-text("読み終えて、ひとこと")' }, { css: 'button:has-text("明日から何を変える？")' }, { wait: 800 }]],
+      ['article-done-saved', '/', [...ARTICLE_DONE, { scrollTo: 'h2:has-text("読み終えて、ひとこと")' }, { css: 'button:has-text("明日から何を変える？")' }, { fill: ['textarea[aria-label="明日から何を変える？"]', '週の始めに、チームの目標を数字で 1 つ決める'] }, { css: '[role=dialog] button:text-is("保存")' }, { wait: 1200 }, { scrollTo: 'h2:has-text("読み終えて、ひとこと")' }]],
+      ['article-before-after', '/', [...ARTICLE_DONE, { scrollTo: 'h2:has-text("読む前に書いたこと")' }, { wait: 400 }]],
+      ['article-found-answer', '/', [...ARTICLE_DONE, { scrollTo: 'h2:has-text("読む前に書いたこと")' }, { css: 'button:has-text("答えは見つかった？")' }, { wait: 1500 }]],
+    ].map(([name, url, steps]) => ({ name, url, steps }));
+  })(),
   {
     name: 'consult-answer', url: '/',
     steps: [

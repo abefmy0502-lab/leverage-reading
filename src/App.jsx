@@ -38,6 +38,9 @@ const FocusStartSheet = lazy(() => import('./components/FocusStartSheet'));
 const FocusMode = lazy(() => import('./components/FocusMode'));
 import { startFocus, pauseFocus, loadFocusState, saveFocusState } from './lib/readingTime';
 import { BookReadingTime } from './components/ReadingTimeCard';
+// 📗 読了の 3 つの問い・読む前と読んだ後（2026-10-11・AI なし）
+import { DoneQuestions, BeforeAfter } from './components/DoneReflection';
+import { visibleDoneQuestions, readDoneQuestionState, markDoneQuestionAnswered, dismissDoneQuestions, beforeReadingItems, pickAfterMemos, foundAnswerDraft } from './lib/doneReflection';
 import { readingSessions } from './hooks/useReadingSessions';
 import Onboarding, { isOnboardingCompleted, clearOnboardingCompletion } from './components/Onboarding';
 import {
@@ -1356,6 +1359,10 @@ function AuthedApp() {
   useBackLayer(helpModalOpen, () => setHelpModalOpen(false));
   useBackLayer(addBookModalOpen, () => setAddBookModalOpen(false));
   const [quickMemoOpen, setQuickMemoOpen] = useState(false);
+  // 📗 読了の 3 つの問い（2026-10-11）: メモを書くシートの入力欄の上に出す問い（{ key, text }・無ければ null）と、
+  //   問いの状態（端末に覚える）を読み直す印。
+  const [quickMemoPrompt, setQuickMemoPrompt] = useState(null);
+  const [doneQTick, setDoneQTick] = useState(0);
   const [fullEditorPrefill, setFullEditorPrefill] = useState(null); // { pageNumber, text }
   // 🔗 本の詳細でいま保存したメモ（本と本がつながる・一覧の上に「いま書いたメモと似たメモ」・2026-10-01）。
   const [detailSavedMemo, setDetailSavedMemo] = useState(null); // { id, bookId, text, nonce }
@@ -2181,7 +2188,7 @@ function AuthedApp() {
   // quickMemoOpen / fullEditorPrefill もリセットする — edge-swipe back や BottomNav
   // は QuickMemoSheet の onClose を経由しないため、開いたまま一覧へ戻ると次に
   // 開いた別の本の詳細でシートが勝手に開いてしまう。
-  const goList = () => { setJustDoneId(null); setView("list"); setCurrent(null); setEditPhaseOverride(null); setQuickMemoOpen(false); setFullEditorPrefill(null); setDetailKebab(null); setStoreSheetOpen(false); setAnalysisSheetOpen(false); setDetailFromSearchId(null); setJustMadePlanId(null); };
+  const goList = () => { setJustDoneId(null); setView("list"); setCurrent(null); setEditPhaseOverride(null); setQuickMemoOpen(false); setQuickMemoPrompt(null); setFullEditorPrefill(null); setDetailKebab(null); setStoreSheetOpen(false); setAnalysisSheetOpen(false); setDetailFromSearchId(null); setJustMadePlanId(null); };
   // 本の詳細から 1 段戻る: 検索結果の「追加済み」から開いた本なら、さっきの検索結果へ戻す（2026-09-29）。
   const leaveDetail = () => {
     const toSearch = !!detailFromSearchId && current?.id === detailFromSearchId;
@@ -4851,6 +4858,27 @@ function AuthedApp() {
                   }
                 />
               </section>
+              {/* 📗 読了の 3 つの問い → 読む前に書いたこと（2026-10-11・SPEC §2・AI なし・lib/doneReflection.js） */}
+              {current.status === 'done' && (() => {
+                void doneQTick; // 問いをメモにした・閉じたら読み直す
+                const questions = visibleDoneQuestions(current, readDoneQuestionState(current.id));
+                const beforeItems = beforeReadingItems(current);
+                if (questions.length === 0 && beforeItems.length === 0) return null;
+                return (
+                  <>
+                    <DoneQuestions
+                      questions={questions}
+                      onPick={(q) => { track('done_question', { q: q.key }); setQuickMemoPrompt(q); setQuickMemoOpen(true); }}
+                      onDismiss={() => { dismissDoneQuestions(current.id); setDoneQTick((n) => n + 1); }}
+                    />
+                    <BeforeAfter
+                      items={beforeItems}
+                      memos={pickAfterMemos(beforeItems, currentMemoOps.memos, 2)}
+                      onFoundAnswer={() => { track('before_after_consult', {}); openConsultWith(foundAnswerDraft(current), { bookIds: [current.id] }); }}
+                    />
+                  </>
+                );
+              })()}
             </div>
           ) : null}
           {/* 畳む見出しが続くときは 12（「この本のまとめ」の直後）。 */}
@@ -5070,6 +5098,8 @@ function AuthedApp() {
           <Suspense fallback={<OverlayFallback />}>
             <QuickMemoSheet
               bookTitle={current.title}
+              // 📗 読了の 3 つの問いから開いたときは、その問いを入力欄の上に（本文は空・保存すると普通のメモ）。
+              prompt={quickMemoPrompt?.text || ''}
               // 📷 初回ガイドの「本のページを撮る」から来たら「＋ ページ・写真」を開いた形で（写真から書き起こすが見える）。
               startWithPhoto={ocrIntentActive}
               defaultPageNumber={
@@ -5082,9 +5112,16 @@ function AuthedApp() {
               }
               // よく使うタグ（この本のメモのタグ → 本棚のタグ）を「＋ ページ・写真」の中にチップで。
               frequentTags={frequentMemoTags(currentMemoOps.memos, allTags)}
-              onClose={() => { setQuickMemoOpen(false); setOcrIntentAt(null); }}
+              onClose={() => { setQuickMemoOpen(false); setQuickMemoPrompt(null); setOcrIntentAt(null); }}
               onCreate={async (payload) => {
                 const result = await currentMemoOps.createMemo(payload);
+                // 📗 読了の問いから書いたメモ: その問いを消す（端末に覚える）。「明日から何を変える？」だけ知らせに「行動に追加」。
+                const fromPrompt = result && quickMemoPrompt ? quickMemoPrompt.key : null;
+                if (fromPrompt && current?.id) {
+                  markDoneQuestionAnswered(current.id, fromPrompt);
+                  setDoneQTick((n) => n + 1);
+                  track('done_question_saved', { q: fromPrompt });
+                }
                 // 🌱 初回ガイドの「本のページを撮る」で最初のメモを保存した → 「相談してみる」（2026-10-02・lib/firstDay.js）。
                 //   入力欄に、このメモの本から作った相談を入れて相談を開く（送らない）。
                 const fromOcrPath = ocrIntentActive && !!result;
@@ -5116,7 +5153,7 @@ function AuthedApp() {
                       onClick: () => openOcrConsult(book),
                     },
                   });
-                } else if (actionText && current?.id) {
+                } else if (actionText && current?.id && (!fromPrompt || fromPrompt === 'change')) {
                   const memoBookId = current.id;
                   bindToastToBook(memoBookId, toast.show({
                     type: 'success',
