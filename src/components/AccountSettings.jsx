@@ -487,7 +487,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
   //   pushDenied   : OS で許可を拒否済み（自前ダイアログは二度と出せない → 案内に倒す）
   // ネイティブ(iOS/APNs)と Web(VAPID)で「準備済み/対応済み」の意味が異なる。
   //   - Web:      VAPID 公開鍵の有無 + SW/PushManager/standalone 条件
-  //   - ネイティブ: Capacitor プラグインで APNs 登録できるか（VAPID 不要）
+  //   - ネイティブ: VITE_NATIVE_PUSH=on のビルドだけ（既定は iPhone では通知の欄ごと隠す・lib/nativePush.js・2026-10-11）
   // 🧪 お試しモード（開発専用）では、鍵が無くても通知の欄を出し、スイッチは端末の中の状態だけを切り替える
   //   （「設定からオフにできる」を確かめられるように・2026-09-29）。
   const pushConfigured = isDemo || (isNative ? isNativePushCapable : isPushConfigured());

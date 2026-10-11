@@ -23,8 +23,14 @@
 import { Capacitor } from '@capacitor/core';
 import { supabase, isSupabaseConfigured } from './supabase';
 
-// ネイティブ(Capacitor)実行時のみ true。Web では false → 全 API が即無効。
-export const isNativePushCapable = Capacitor.isNativePlatform();
+// 🔔 iPhone のアプリで通知を出せるビルドか（2026-10-11 リリース前点検）。
+//   APNs の鍵・Push Notifications の capability・@capacitor/push-notifications がそろったビルドだけ
+//   VITE_NATIVE_PUSH=on で出す。既定（未設定）は iPhone のアプリでは通知のスイッチも案内も出さない
+//   （押しても届かないスイッチを審査官に見せない）。Web は今どおり（VAPID の鍵で決まる・push.js）。
+export const NATIVE_PUSH_ON = import.meta.env?.VITE_NATIVE_PUSH === 'on';
+
+// ネイティブ(Capacitor)実行時で、通知を出せるビルドのときだけ true。Web では false → 全 API が即無効。
+export const isNativePushCapable = Capacitor.isNativePlatform() && NATIVE_PUSH_ON;
 
 let _PN = null;
 async function loadPN() {
