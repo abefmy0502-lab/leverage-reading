@@ -28,8 +28,12 @@ const PREFS_KEY = 'orime.focus.prefs';
 export function startFocus({ bookId, mode, minutes, untilMs }, now = Date.now()) {
   const m = mode === 'count' ? 'count' : 'timer';
   if (m === 'timer' && Number.isFinite(untilMs)) {
-    const sec = Math.min(MAX_SESSION_SEC, Math.max(60, Math.round((untilMs - now) / 1000)));
-    return { bookId, mode: m, startedAt: now, pausedAt: null, pausedMs: 0, durationSec: sec, until: now + sec * 1000 };
+    // 秒は切り上げ（四捨五入だと 10:48 が 10:47:59.6 になり「10:47 まで」と出ていた・2026-10-11）。
+    // 表に出す時刻は、上限・下限で長さを変えなかったときは入れた時刻そのもの。
+    const raw = (untilMs - now) / 1000;
+    const sec = Math.min(MAX_SESSION_SEC, Math.max(60, Math.ceil(raw)));
+    const until = sec === Math.ceil(raw) ? untilMs : now + sec * 1000;
+    return { bookId, mode: m, startedAt: now, pausedAt: null, pausedMs: 0, durationSec: sec, until };
   }
   const min = FOCUS_MINUTES.includes(Number(minutes)) ? Number(minutes) : FOCUS_DEFAULT.minutes;
   return { bookId, mode: m, startedAt: now, pausedAt: null, pausedMs: 0, durationSec: m === 'timer' ? min * 60 : null };
@@ -47,7 +51,8 @@ export function defaultUntilTime(now = Date.now()) {
 
 // "18:45"（端末の時刻・24 時間）。
 export function fmtClock(ms) {
-  const d = new Date(ms);
+  // いちばん近い分に丸める（前の版で保存した 10:47:59.6 のような途中の状態も 10:48 と出す）。
+  const d = new Date(Math.round(ms / 60000) * 60000);
   if (Number.isNaN(d.getTime())) return '';
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }

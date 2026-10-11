@@ -225,4 +225,16 @@ describe('「◯時◯分まで」（2026-10-10）', () => {
     // 6 時間で止める
     expect(startFocus({ bookId: 'b1', mode: 'timer', untilMs: now + 9 * 3600 * 1000 }, now).durationSec).toBe(MAX_SESSION_SEC);
   });
+
+  it('秒の途中で始めても、入れた時刻のまま出す（10:48 が 10:47 にならない・2026-10-11）', () => {
+    const base = new Date(2026, 9, 11, 10, 46, 0, 0).getTime();
+    const target = new Date(2026, 9, 11, 10, 48, 0, 0).getTime();
+    const now = base + 20_400; // 10:46:20.4
+    const s = startFocus({ bookId: 'b', mode: 'timer', untilMs: target }, now);
+    expect(s.until).toBe(target);
+    expect(fmtClock(s.until)).toBe('10:48');
+    expect(s.startedAt + s.durationSec * 1000).toBeGreaterThanOrEqual(target);
+    // 前の版で保存した途中の状態（数百ミリ秒前にずれた時刻）も 10:48 と出す
+    expect(fmtClock(target - 400)).toBe('10:48');
+  });
 });

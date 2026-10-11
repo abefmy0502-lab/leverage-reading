@@ -314,7 +314,9 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
   const progress = isTimer ? timerProgress(s, now) : 0;
   const caption = phase === 'timerDone' ? '読みました' : paused ? '一時停止中' : isTimer ? '残り' : '経過';
   // 読み上げ（分が変わったときだけ・aria-live は付けない＝毎分読み上げない）。
-  const untilLabel = isTimer && phase === 'running' && Number.isFinite(s?.until) ? `${fmtClock(s.until)} まで` : null;
+  // おわる時刻は実際に鳴る時刻から出す（一時停止したぶん後ろへずれる・2026-10-11）。
+  const untilLabel = isTimer && phase === 'running' && Number.isFinite(s?.until)
+    ? `${fmtClock(s.startedAt + (s.pausedMs || 0) + s.durationSec * 1000)} まで` : null;
   const spoken = `${caption} ${hours ? `${hours} 時間 ` : ''}${minutes} 分${untilLabel ? `・${untilLabel}` : ''}`;
 
   // メモを書くシートも暗いまま（明るい画面の設定でも・tokens.css の .focus-dark-scope）。
