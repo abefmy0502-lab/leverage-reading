@@ -11,7 +11,7 @@
 //
 // canvas も DOM も触らない純粋関数（テストで確かめる）。画面は components/ShareNudge.jsx。
 
-import { parseLocalDate, hasFinishedThisYear, isYearWrapSeason } from './shareOverlay';
+import { parseLocalDate, hasFinishedThisYear, isYearWrapSeason } from './shareSubject';
 
 export const MONTH_END_DAYS = 3;
 export const MONTH_NUDGE_MIN_MEMOS = 3;

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useBookMemos } from '../hooks/useBookMemos';
 import { useAppDataCache } from '../state/AppDataCache';
 import { useToast } from './Toast';
@@ -15,7 +15,7 @@ import { LIMITS } from '../lib/limits';
 import ContextMenu from './ContextMenu';
 import BookMemoCard from './BookMemoCard';
 import BookMemoEditor from './BookMemoEditor';
-import ShareSheet from './ShareSheet';
+import { OverlayFallback } from './lazyParts';
 import { BookOpen, PencilLine, Pencil, Copy, Share, Trash2, Sparkles, Target, ChevronDown, Check } from 'lucide-react';
 import { btnGhost, btnGhostOff, btnLink } from '../styles/ui';
 import MemoLinks from './MemoLinks';
@@ -25,6 +25,9 @@ import TagSuggest from './TagSuggest';
 import { useTagSuggestions } from '../hooks/useTagSuggestions';
 import { track } from '../lib/analytics';
 import { requestOpenMemo } from '../lib/openMemo';
+
+// 写真で共有は押したときに読む（一覧の読み込みを軽くする・2026-10-11）。
+const ShareSheet = lazy(() => import('./ShareSheet'));
 
 // SPEC §2（2026-09-26）: 「カード｜まとめ」の切替タブと、二段の並び替え・引用チップ・
 // 点線の「新しいメモ」は撤去。メモはカード式が基本で、並び順は小さなメニュー 1 つ。
@@ -758,12 +761,14 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
       )}
 
       {shareMemo && (
-        <ShareSheet
-          book={{ id: bookId, title: bookTitle, author: bookAuthor }}
-          memos={memos}
-          initialMemoId={shareMemo.id}
-          onClose={() => setShareMemo(null)}
-        />
+        <Suspense fallback={<OverlayFallback />}>
+          <ShareSheet
+            book={{ id: bookId, title: bookTitle, author: bookAuthor }}
+            memos={memos}
+            initialMemoId={shareMemo.id}
+            onClose={() => setShareMemo(null)}
+          />
+        </Suspense>
       )}
     </div>
   );

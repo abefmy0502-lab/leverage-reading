@@ -9,7 +9,7 @@
 //   - 行を消して箇条書きが 1 つも残らない節: 中身を決まった 1 行にする（目次が無い本は PLAN_NO_TOC_LINE・目次がある本は
 //     PLAN_NO_MATCH_LINE＝「目次と合う章が見つからなかったため、章の名前は挙げていません。」・画面は注記の見た目・2026-10-04 ui-critic）
 // AI は呼ばない。このモジュールは pure。
-import { PLAN_NO_TOC_LINE, PLAN_NO_MATCH_LINE } from './prompts';
+import { PLAN_NO_TOC_LINE, PLAN_NO_MATCH_LINE } from './promptConstants';
 
 const FOCUS_HEADING_RE = /重点的に読む|流し読み|読み飛ばし/;
 const CHAPTER_NUM_RE = /第\s*[0-9０-９一二三四五六七八九十百]+\s*[章部節編]|chapter\s*\d+|part\s*\d+/gi;

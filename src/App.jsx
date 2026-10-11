@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense, memo } from "react";
 import { useAuth } from './hooks/useAuth';
 import { useBooks } from './hooks/useBooks';
-import { sanitizeForPrompt, invalidateKnowledgeCache, generateBookBrief } from './lib/ai';
+import { sanitizeForPrompt, invalidateKnowledgeCache, generateBookBrief, loadPrompts } from './lib/ai';
 import { markActivation } from './lib/activation';
 import { OPEN_MEMO_EVENT } from './lib/openMemo';
 import { advisorDraftFor, classifyBook, fieldsOf, isBookField, splitLegacyTags, withFields, BOOK_FIELDS } from './lib/bookFields';
@@ -12,9 +12,8 @@ import { useBookFieldsAuto, infoFeatures } from './hooks/useBookFieldsAuto';
 import { BookFieldLinks, BookFolderLinks } from './components/BookFields';
 import { useAppDataCache } from './state/AppDataCache';
 import { streamClaude } from './lib/streamClaude';
-import { PROMPTS } from './lib/prompts';
 // ⚡ 最初の画面に要らない重い部品は、使うときに読む（Suspense 付きの薄い包み・components/lazyParts.jsx）。
-import { AuthScreen, AuthCallback, BookMemoList, BookSearchModal, BookMemoEditor, ActionList, MarkdownSections, AuthorThankYou, OverlayFallback } from './components/lazyParts';
+import { AuthScreen, AuthCallback, BookMemoList, BookSearchModal, BookMemoEditor, ActionList, MarkdownSections, AuthorThankYou, OverlayFallback, BookAbout, BookBrief } from './components/lazyParts';
 import { BookCoverCard, SwipeableBookCard, MiniCover, StatusLabel } from './components/BookCards';
 import { STATUSES, getSt } from './lib/status';
 import { isStrictMatch } from './lib/bookMatch';
@@ -122,7 +121,7 @@ import { saveStrategyHistory, popStrategyHistory, hasStrategyHistory, clearStrat
 const CoverFixModal = lazy(() => import('./components/CoverFixModal'));
 // 📤 一文をシェア（この本の一文を 1 枚の画像に・SPEC §2-1）
 const ShareSheet = lazy(() => import('./components/ShareSheet'));
-import { hasFinishedThisMonth, yearChoiceAllowed, pickShareSubject } from './lib/shareOverlay';
+import { hasFinishedThisMonth, yearChoiceAllowed, pickShareSubject } from './lib/shareSubject';
 import { checkSharePhoto, canUseNativePhoto, pickNativePhoto, photoPickErrorText, nativePhotoDeniedMessage, photoFailAction, PHOTO_FAIL_TOAST_MS } from './lib/sharePhotoPick';
 import { appNow } from './lib/appNow';
 import { clearShareMemoCaches } from './lib/shareMemoCache';
@@ -220,8 +219,6 @@ import {
 } from 'lucide-react';
 import { useBookMemos } from './hooks/useBookMemos';
 import { useBookInfo } from './hooks/useBookInfo';
-import BookAbout from './components/BookAbout';
-import BookBrief from './components/BookBrief';
 import { hasBriefMaterial, storedBriefOf, briefForPrompt, appendHypothesis, isUsableBrief, parseBrief, briefLabels, BRIEF_NO_MATERIAL_TEXT } from './lib/bookBrief';
 import { loadBookInfo, bookInfoForPrompt, hasBookInfo, peekBookInfo, rememberGenres } from './lib/bookInfo';
 // 🔎 すべての本の検索（書名・著者・タグ＋メモの言葉・2026-09-30）
@@ -3264,6 +3261,7 @@ function AuthedApp() {
       new Promise((resolve) => { setTimeout(() => resolve(null), 6000); }),
     ]);
     const { about, aboutSource, toc } = bookInfoForPrompt(info);
+    const PROMPTS = await loadPrompts();
     const text = await streamClaude({
       system: PROMPTS.setupSheet.system,
       cacheSystem: true,
@@ -3590,6 +3588,7 @@ function AuthedApp() {
     let didStreamAny = false;
     let lastText = '';
     try {
+      const PROMPTS = await loadPrompts();
       await streamClaude({
         system: PROMPTS.setupSheetEdit.system,
         cacheSystem: true,

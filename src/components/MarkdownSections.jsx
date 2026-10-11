@@ -18,7 +18,7 @@ import { groupTitle, btnGhost, btnGhostOff, btnLink } from '../styles/ui';
 import { ExternalLink as IcExternal } from 'lucide-react';
 import { SkeletonBlock } from './Skeleton';
 import { withPhraseBreaks, keepUnitsTogether } from './TightBubble';
-import { PLAN_NO_TOC_LINE, PLAN_NO_MATCH_LINE } from '../lib/prompts';
+import { PLAN_NO_TOC_LINE, PLAN_NO_MATCH_LINE } from '../lib/promptConstants';
 
 // minWidth:0 が肝。flex column の子は既定 min-width:auto なので、中に幅広な
 // 要素（Markdown 表など）があると縮まずページ全体を横にはみ出させる（横スクロール）。

@@ -5,8 +5,13 @@
 // - 見た版を覚えていない今までの利用者（この仕組みより前から使っている人）には、いちばん新しい版だけ出す
 // - Web の「新しい版があります」は、サーバーの release-notes.json（新しい版の中身）を network-first で読む
 
-import { RELEASES, CURRENT_RELEASE_ID, WHERE_NAMES } from './releaseNotes';
 import { isDemo } from './supabase';
+
+// ⚡ 中身（releaseNotes.js・約 45KB）は最初に読まない（2026-10-11）。出すと決めたとき・設定で開いたとき・
+//   新しい版の知らせの「何が変わった？」で読む。いまの版の id だけはビルドのときに焼き込む（vite.config.js）。
+export const loadReleaseNotes = () => import('./releaseNotes');
+// 焼き込みが無い（ビルドを通らない読み方）ときは null＝中身を読んで決める。
+export const BUNDLED_RELEASE_ID = (typeof __CURRENT_RELEASE_ID__ !== 'undefined' && __CURRENT_RELEASE_ID__) || null;
 
 export const WHATS_NEW_SEEN_KEY = 'orime.whatsnew.seen';
 export const RELEASE_NOTES_URL = '/release-notes.json';
@@ -20,7 +25,7 @@ export function readSeenRelease() {
   }
 }
 
-export function markReleaseSeen(id = CURRENT_RELEASE_ID) {
+export function markReleaseSeen(id = BUNDLED_RELEASE_ID) {
   if (!id) return;
   try {
     const prev = window.localStorage.getItem(WHATS_NEW_SEEN_KEY);
@@ -49,7 +54,7 @@ export function releasesNewerThan(releases, seenId) {
 //   seenId:    端末に覚えた見た版（null＝覚えていない・undefined＝読めない）
 //   isNewUser: はじめて使う人（初回ガイドがまだ・本が 0 冊）
 // 返り値: { show: 出す版の配列（新しい順）, markSeen: いま見たことにする版 | null }
-export function decideWhatsNew({ seenId, isNewUser, releases = RELEASES } = {}) {
+export function decideWhatsNew({ seenId, isNewUser, releases = [] } = {}) {
   const list = Array.isArray(releases) ? releases : [];
   const current = list[0]?.id || null;
   if (!current || seenId === undefined) return { show: [], markSeen: null };
@@ -84,14 +89,24 @@ export function sanitizeReleases(data) {
 
 // アプリに入っている、いまの版の id。開発中のお試しモードだけ &bundle=2026-10-04 で「古いコードが動いている」形にできる
 // （「新しい版があります」の「何が変わった？」を撮るため・本番では使わない）。
-export function bundledReleaseId() {
+export async function bundledReleaseId() {
   if (import.meta.env.DEV && isDemo) {
     try {
       const b = new URLSearchParams(window.location.search).get('bundle');
       if (b) return b;
     } catch { /* ignore */ }
   }
-  return CURRENT_RELEASE_ID;
+  if (BUNDLED_RELEASE_ID) return BUNDLED_RELEASE_ID;
+  try {
+    return (await loadReleaseNotes()).CURRENT_RELEASE_ID;
+  } catch {
+    return null;
+  }
+}
+
+// 中身を読まずに「出すものは無い」と分かるか（覚えた版が、アプリに入っている版と同じか新しい）。
+export function seenIsCurrent(seenId) {
+  return !!BUNDLED_RELEASE_ID && typeof seenId === 'string' && compareReleaseId(seenId, BUNDLED_RELEASE_ID) >= 0;
 }
 
 // 新しい版の「新しくなったこと」を読む。読めない・新しいものが無いときは []（バナーは今までどおり）。
@@ -102,7 +117,8 @@ export async function fetchUpcomingReleases({ fetchImpl } = {}) {
     const res = await f(`${RELEASE_NOTES_URL}?t=${Date.now()}`, { cache: 'no-store', credentials: 'same-origin' });
     if (!res || !res.ok) return [];
     const data = await res.json();
-    return releasesNewerThan(sanitizeReleases(data), bundledReleaseId());
+    const current = await bundledReleaseId();
+    return current ? releasesNewerThan(sanitizeReleases(data), current) : [];
   } catch {
     return [];
   }
@@ -135,5 +151,3 @@ export function releaseHeading(release) {
   if (!m) return '更新';
   return `${Number(m[2])}月${Number(m[3])}日の更新`;
 }
-
-export { RELEASES, CURRENT_RELEASE_ID, WHERE_NAMES };

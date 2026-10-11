@@ -11,7 +11,7 @@
 // このモジュールは pure（AI は呼ばない・localStorage だけ触る）。
 
 import { isLineGrounded } from './planChapters';
-import { BRIEF_HEADINGS } from './prompts';
+import { BRIEF_HEADINGS } from './promptConstants';
 
 // 1 回に頼む出力の上限（400 字＋見出し＝日本語でおよそ 500〜600 トークン）。1 回 約 1〜2 トークン（lib/tokens.js の TOKEN_COSTS.bookBrief）。
 export const BRIEF_MAX_TOKENS = 700;

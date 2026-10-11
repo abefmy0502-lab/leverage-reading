@@ -8,7 +8,7 @@
 // - 開いた時点で見たことにする（途中でアプリを閉じても、もう一度は出さない）
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { decideWhatsNew, markReleaseSeen, readSeenRelease } from '../lib/whatsNew';
+import { decideWhatsNew, markReleaseSeen, readSeenRelease, seenIsCurrent, loadReleaseNotes } from '../lib/whatsNew';
 
 const POLL_MS = 600;
 
@@ -37,12 +37,17 @@ export function useWhatsNew({ ready, isNewUser, safe }) {
     if (!ready || decidedRef.current) return;
     decidedRef.current = true;
     const fn = isNewUserRef.current;
-    const { show, markSeen } = decideWhatsNew({
-      seenId: readSeenRelease(),
-      isNewUser: typeof fn === 'function' ? Boolean(fn()) : Boolean(fn),
-    });
-    if (markSeen) markReleaseSeen(markSeen);
-    if (show.length) setPending(show);
+    const seenId = readSeenRelease();
+    // いまの版を見たことがあれば、中身を読まずに終わる（ほとんどの起動・2026-10-11）。
+    if (seenId === undefined || seenIsCurrent(seenId)) return undefined;
+    const isNew = typeof fn === 'function' ? Boolean(fn()) : Boolean(fn);
+    // 片付けの印は付けない（開発中の StrictMode は効果を 2 回走らせるが、決めるのは 1 回だけ＝decidedRef）。
+    loadReleaseNotes().then(({ RELEASES }) => {
+      const { show, markSeen } = decideWhatsNew({ seenId, isNewUser: isNew, releases: RELEASES });
+      if (markSeen) markReleaseSeen(markSeen);
+      if (show.length) setPending(show);
+    }).catch(() => { /* 読めない（オフライン等）: 次に開いたときにもう一度 */ });
+    return undefined;
   }, [ready]);
 
   useEffect(() => {

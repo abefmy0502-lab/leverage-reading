@@ -23,6 +23,9 @@ const loaders = {
   markdownSections: () => import('./MarkdownSections'),
   authorThankYou: () => import('./AuthorThankYou'),
   bookPhases: () => import('./BookPhases'),
+  // 本の詳細だけの部品（この本について・この本で学べること・2026-10-11）。
+  bookAbout: () => import('./BookAbout'),
+  bookBrief: () => import('./BookBrief'),
 };
 
 function withSuspense(load, fallback) {
@@ -97,6 +100,15 @@ const markdownFallback = (
 );
 export const MarkdownSections = memo(withSuspense(loaders.markdownSections, markdownFallback));
 
+// この本について・この本で学べること（本の詳細だけ）。待つ間は同じ場所にカード 1 枚ぶんの骨組み
+// （本の詳細は先読みしているので、ふつうは出ない）。
+export const BookAbout = withSuspense(loaders.bookAbout, (p) => (
+  p.variant === 'fold'
+    ? <SkeletonBlock width="100%" height={48} radius="var(--radius)" style={p.style} />
+    : <SkeletonBlock width="100%" height={p.variant === 'compact' ? 64 : 120} radius="var(--radius)" style={p.style} />
+));
+export const BookBrief = withSuspense(loaders.bookBrief, (p) => <SkeletonBlock width="100%" height={48} radius="var(--radius)" style={p.style} />);
+
 // 本の追加・編集画面の各段階（読みたい／積読／読書中／読了）と、下に固定する保存ボタン。
 // 待つ間は欄の形の骨組み（小さな見出し 12 ＋ 入力欄 48 を 3 組・組の間 24＝Field と同じ）。
 const phaseFallback = (
@@ -151,6 +163,8 @@ export function prefetchAppParts() {
     () => import('./Review'),
     loaders.bookMemoList,
     loaders.markdownSections,
+    loaders.bookAbout,
+    loaders.bookBrief,
     loaders.bookPhases,
     loaders.bookMemoEditor,
     loaders.bookSearchModal,

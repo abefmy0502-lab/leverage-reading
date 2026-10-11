@@ -16,10 +16,9 @@ import {
   RotateCw as IcRetry,
   TriangleAlert as IcAlert,
 } from 'lucide-react';
-import { callClaude, sanitizeForPrompt, gatherAdvisorContext, prewarmAdvisorContext, isAiNoticeString } from '../lib/ai';
+import { callClaude, sanitizeForPrompt, gatherAdvisorContext, prewarmAdvisorContext, isAiNoticeString, loadPrompts } from '../lib/ai';
 import { streamClaude } from '../lib/streamClaude';
 import { ensureAiConsent } from '../lib/aiConsent';
-import { PROMPTS } from '../lib/prompts';
 import { MODEL_FAST, MODEL_ADVISOR } from '../lib/models';
 import { LIMITS, clamp } from '../lib/limits';
 import { toMessage } from '../lib/errors';
@@ -473,6 +472,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     })));
     let text = '';
     try {
+      const PROMPTS = await loadPrompts();
       text = await callClaude(
         PROMPTS.advisorInterview.system,
         PROMPTS.advisorInterview.user({ concern: safeConcern, priorQA, round, maxRounds: MAX_INTERVIEW_QUESTIONS }),
@@ -735,6 +735,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       const sendMessages = readerContext
         ? [{ role: 'user', content: readerContext }, ...newHistory]
         : newHistory;
+      const PROMPTS = await loadPrompts();
       finalText = await streamClaude({
         system: PROMPTS.bookAdvisor.system,
         cacheSystem: true,

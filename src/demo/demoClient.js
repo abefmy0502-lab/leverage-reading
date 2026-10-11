@@ -44,7 +44,6 @@ import { applyTokenUsageDemo } from './demoTokenUsage';
 import { installDemoFetch, LP_SHOT_MEMO } from './demoFetch';
 import { demoAdminRpc } from './demoAdmin';
 import { AI_CONSENT_VERSION } from '../lib/aiProcessors';
-import { CURRENT_RELEASE_ID } from '../lib/releaseNotes';
 
 // &offline=1: つながっていない間は書き込みがすべて失敗する（本物の端末と同じ・オフラインで保存したときの表示の確認用）。
 //   window に 'online' の知らせが来たら、つながった状態に戻る（hooks/useOnline.js と同じ決まり）。
@@ -347,7 +346,7 @@ export function createDemoClient() {
       window.localStorage.setItem('orime-returning', 'true');
       window.localStorage.setItem('orime-activation-v1', JSON.stringify({ book: true, memo: true, review: true }));
       // 新しくなったこと: 既定はいまの版まで見た人（&seen=… でその版まで）。
-      window.localStorage.setItem('orime.whatsnew.seen', params.get('seen') || CURRENT_RELEASE_ID);
+      window.localStorage.setItem('orime.whatsnew.seen', params.get('seen') || (typeof __CURRENT_RELEASE_ID__ !== 'undefined' ? __CURRENT_RELEASE_ID__ : ''));
     } catch { /* ignore */ }
   }
   // &update=1: 新しい版の知らせ（UpdateBanner は window の知らせを待っている・読み込みが終わってから送る）。

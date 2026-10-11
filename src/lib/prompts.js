@@ -34,10 +34,11 @@ const BASE_PERSONA =
 //   紹介か目次があるときだけ、先頭に「## 📖 この本の概要」（著者のいちばんの主張を 1〜2 行・紹介文の言い換えにしない）。
 //   どちらも無い本では概要の節そのものを書かせない（AI に「手に入らなかった」と書かせない・2026-10-02 ui-critic）。
 //   全体の長さはほぼ同じ（1,000 字以内）。
-export const PLAN_NO_TOC_LINE = '目次が手に入らないため、章の名前は挙げていません。';
+import { PLAN_NO_TOC_LINE, PLAN_NO_MATCH_LINE, BRIEF_HEADINGS } from './promptConstants';
+
+export { PLAN_NO_TOC_LINE, PLAN_NO_MATCH_LINE, BRIEF_HEADINGS };
 // 目次はあるが、AI が挙げた章がどれも目次と合わなかったとき（lib/planChapters.js が行を消したあとの決まった 1 行・2026-10-04）。
 // 画面は PLAN_NO_TOC_LINE と同じく注記（13/--text-3）で見せる（MarkdownSections の renderPara）。
-export const PLAN_NO_MATCH_LINE = '目次と合う章が見つからなかったため、章の名前は挙げていません。';
 const setupSheet = {
   system:
     `あなたは読書コンサルタントです。${BASE_PERSONA}\n\n` +
@@ -110,7 +111,6 @@ const setupSheet = {
 // （書き終えたところで lib/bookBrief.js の groundBrief が目次に無い『章名』・章番号を含む行を消す）。
 // 紹介も目次も無い本ではアプリが呼ばない（「この本の紹介が見つからないため作れません」）。
 // 出力は 3 つの見出しだけ・400 字以内（max_tokens 700＝1 回 約 1〜2 トークン）。
-export const BRIEF_HEADINGS = { summary: '概要', learn: '学べること', savor: '味わえること', hypotheses: '仮説の例' };
 const bookBrief = {
   system:
     `あなたは読書の案内役です。これから本を読む人が「この本で何を学べて、どんな仮説を立てて読めるか」を、読む前に短くつかめるようにします。\n` +

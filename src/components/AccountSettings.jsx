@@ -31,7 +31,7 @@ import ErrorMessage from './ErrorMessage';
 import FeedbackForm from './FeedbackForm';
 import WhatsNewSheet from './WhatsNewSheet';
 import TokenUsageSheet from './TokenUsageSheet';
-import { RELEASES, markReleaseSeen, releaseHeading } from '../lib/whatsNew';
+import { markReleaseSeen, releaseHeading, loadReleaseNotes, BUNDLED_RELEASE_ID } from '../lib/whatsNew';
 import { exportUserDataAsCSV, exportMemosAsMarkdown } from '../lib/exportData';
 import { forceUpdate as forceAppUpdate } from '../lib/swUpdate';
 import { useSubscription } from '../hooks/useSubscription';
@@ -377,6 +377,14 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
   // 🆕 新しくなったこと（2026-10-05）: 設定の上に重ねて全部の版を見せる。
   const [whatsNewOpen, setWhatsNewOpen] = useState(false);
   // 🪙📊 トークンの使い方（残りの行を押して開く・設定の上に重ねる・2026-10-11）。
+  // 新しくなったことの中身は押したときに読む（最初に読む JS を軽くする・2026-10-11）。
+  const [allReleases, setAllReleases] = useState(null);
+  const openWhatsNew = () => {
+    markReleaseSeen(BUNDLED_RELEASE_ID);
+    loadReleaseNotes()
+      .then((m) => { setAllReleases(m.RELEASES || []); setWhatsNewOpen(true); })
+      .catch(() => toast.error('読み込めませんでした。つながってから、もう一度押してください。'));
+  };
   const [usageOpen, setUsageOpen] = useState(false);
   const [updating, setUpdating] = useState(false);
   // フィードバック（入れ子モーダル）を開いている間は、そちらのトラップに譲るため無効化。
@@ -1167,15 +1175,15 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
               </button>
             )}
             {/* 新しくなったこと（2026-10-05）: 版ごとの どこの・何が・これまで → これから・影響・意図。下はいちばん新しい版の日付。 */}
-            {RELEASES.length > 0 && (
+            {!!BUNDLED_RELEASE_ID && (
               <button
                 type="button"
                 style={{ ...rowButtonStyle, ...(onOpenHelp ? divider : null) }}
-                onClick={() => { markReleaseSeen(); setWhatsNewOpen(true); }}
+                onClick={openWhatsNew}
               >
                 <span style={{ flex: 1, minWidth: 0 }}>
                   <span style={{ ...rowTitleStyle, display: 'block' }}>新しくなったこと</span>
-                  <span style={{ ...rowDescStyle, display: 'block' }}>{releaseHeading(RELEASES[0])}</span>
+                  <span style={{ ...rowDescStyle, display: 'block' }}>{releaseHeading({ id: BUNDLED_RELEASE_ID })}</span>
                 </span>
                 <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
               </button>
@@ -1185,7 +1193,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
             <button
               type="button"
               aria-label="読み込み直す"
-              style={{ ...(updating ? rowButtonBusy : rowButtonStyle), ...(onOpenHelp || RELEASES.length > 0 ? divider : null) }}
+              style={{ ...(updating ? rowButtonBusy : rowButtonStyle), ...(onOpenHelp || BUNDLED_RELEASE_ID ? divider : null) }}
               aria-busy={updating || undefined}
               disabled={updating}
               onClick={handleForceUpdate}
@@ -1361,9 +1369,9 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
       {feedbackOpen && <FeedbackForm onClose={() => setFeedbackOpen(false)} />}
       {/* 設定の外側（背景）を押すと設定を閉じる仕組みに、シートの中のタップが届かないようにする
           （畳んだ前の版を開こうとしたら設定ごと閉じていた・2026-10-05）。 */}
-      {whatsNewOpen && (
+      {whatsNewOpen && allReleases && (
         <div onClick={(e) => e.stopPropagation()}>
-          <WhatsNewSheet releases={RELEASES} mode="all" layer="dialog" onClose={() => setWhatsNewOpen(false)} />
+          <WhatsNewSheet releases={allReleases} mode="all" layer="dialog" onClose={() => setWhatsNewOpen(false)} />
         </div>
       )}
       {/* 🪙📊 トークンの使い方（設定の上に重ねる）。「トークンを追加」は設定を閉じてから開く（閉じたら設定に戻る）。

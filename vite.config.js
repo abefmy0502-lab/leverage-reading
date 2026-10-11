@@ -5,12 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { RELEASES } from './src/lib/releaseNotes.js';
 
-// Sentry を有効にする際、ブラウザに送られるエラーのスタックトレースを
-// 解読できるよう production sourcemap を出力する。Sentry の Releases /
-// Source Maps 機能で sourcemap を upload する場合は、別途
-// `@sentry/vite-plugin` を導入し SENTRY_AUTH_TOKEN / SENTRY_ORG /
-// SENTRY_PROJECT を環境変数で渡すとより快適。最小構成として今回はファイル
-// の出力のみ行う。
+// 本番の sourcemap は出さない（build.sourcemap のコメント・2026-10-11）。
 
 // 🏷️ ビルドした版を後から確実に特定するためのスタンプ。
 // Vercel は VERCEL_GIT_COMMIT_SHA を自動で渡すのでそれを最優先し、
@@ -123,6 +118,8 @@ export default defineConfig({
   define: {
     __BUILD_COMMIT__: JSON.stringify(BUILD_COMMIT),
     __BUILD_DATE__: JSON.stringify(BUILD_DATE),
+    // 🆕 いまの版の id だけを焼き込む（新しくなったことの本体＝releaseNotes.js は必要なときに読む・2026-10-11）。
+    __CURRENT_RELEASE_ID__: JSON.stringify(RELEASES[0]?.id || ''),
   },
   build: {
     // 本番は .map を作らない（2026-10-11 リリース前点検 中2）。dist は Vercel の公開と iOS（cap sync）の

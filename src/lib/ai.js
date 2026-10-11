@@ -3,7 +3,8 @@ import { isPaywallError, requestPaywall, paywallReasonFor, notifyAiUsed } from '
 import { isSchemaError } from './errors';
 import { LIMITS, clamp } from './limits';
 import { streamClaude } from './streamClaude';
-import { PROMPTS } from './prompts';
+// ⚡ AI の指示文の本体（約 24KB）は、AI を呼ぶときに読む（最初に読む JS を軽くする・2026-10-11）。
+export const loadPrompts = () => import('./prompts').then((m) => m.PROMPTS);
 import { track } from './analytics';
 import { MODEL_SMART, MODEL_FAST } from './models';
 import { apiUrl } from './apiUrl';
@@ -1812,6 +1813,7 @@ function stripRefsBlock(text) {
 // ✨ メモの凝縮 — 長い抜き書き/OCR テキストを最大3行の本質に削る（本田流レバレッジ
 // メモ化）。成功で凝縮後テキストを返し、失敗・短すぎ・エラーは null（呼び出し側で案内）。
 export async function condenseMemo({ text }) {
+  const PROMPTS = await loadPrompts();
   const src = clamp(sanitizeForPrompt(String(text || '')), LIMITS.memoText || 2000);
   // 既に十分短い（おおよそ60字未満）なら凝縮の余地が薄い。
   if (!src || src.replace(/\s/g, '').length < 60) return null;
@@ -1844,6 +1846,7 @@ export async function condenseMemo({ text }) {
 //   成功で保存する文（決まった 3 つの見出し・目次に無い章名を消したもの）を返す。失敗は Error を投げる
 //   （トークンの上限・プランの案内・同意をやめた＝err.notice。作れなかった＝ふつうのエラー）。
 export async function generateBookBrief({ book, info }) {
+  const PROMPTS = await loadPrompts();
   if (!hasBriefMaterial(info)) throw new Error(BRIEF_NO_MATERIAL_TEXT);
   const { about, aboutSource, toc } = bookInfoForPrompt(info);
   const cleanToc = toc.map((l) => sanitizeForPrompt(l)).filter(Boolean);
@@ -1876,6 +1879,7 @@ export async function generateBookBrief({ book, info }) {
 // まとめメモに統合する。まとめ式の手書きの手間を消す（A3: メモ概念の統合）。
 // cards: カードメモのテキスト配列。返り値はまとめ本文の文字列 / 失敗時 null。
 export async function summarizeCards({ title, cards }) {
+  const PROMPTS = await loadPrompts();
   const arr = Array.isArray(cards) ? cards : [];
   // 断片を1ブロックに連結（各カードを区切る）。長すぎる入力は clamp。
   const joined = arr
@@ -1921,6 +1925,7 @@ function todayISO() {
 // 🧠 AI 参謀（作戦会議）— 元帥と対話して打ち手を一緒に作る。会話履歴 messages
 // （{role:'user'|'assistant', content}）＋現状サマリーを渡す。返り値は参謀の応答 / 失敗 null。
 export async function opsAdvise({ messages = [], stateLine = '' } = {}) {
+  const PROMPTS = await loadPrompts();
   const history = (Array.isArray(messages) ? messages : [])
     .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim())
     .slice(-20)
