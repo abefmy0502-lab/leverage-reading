@@ -126,10 +126,10 @@ describe('monthRecord（今月の数字）', () => {
     expect(applyShareItems(r, ['reading']).stats.some((st) => st.key === 'reading')).toBe(false);
     expect(SHARE_ITEM_KEYS).toContain('reading');
   });
-  it('本が 1 冊も無くても作れる（数字の無い 1 枚）', () => {
+  it('本が 1 冊も無くても作れる（数字の無い 1 枚・書名の行は出さない）', () => {
     const r = monthRecord([], [], NOW);
     expect(r.stats).toEqual([]);
-    expect(r.sub).toBe('読書の記録をはじめました');
+    expect(r.sub).toBe('');
   });
 });
 

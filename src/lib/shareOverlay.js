@@ -242,7 +242,8 @@ export function monthRecord(books, monthMemos = [], now = new Date(), { readingS
     kicker: String(now.getFullYear()),
     title: `${now.getMonth() + 1}月の読書`,
     titleIsBook: false,
-    sub: finished.length ? subVariants[0] : (stats.length ? '' : '読書の記録をはじめました'),
+    // 読了が無い月は書名の行を出さない（以前の「読書の記録をはじめました」は、前から使っている人の空の月では事実と合わなかった・2026-10-11）。
+    sub: finished.length ? subVariants[0] : '',
     subVariants: finished.length ? subVariants : null,
     stats,
     finishedBooks: finished.slice(0, 4),

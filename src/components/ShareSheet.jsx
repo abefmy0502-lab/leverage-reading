@@ -62,7 +62,7 @@ import {
 } from '../lib/shareCard';
 import { buildShareText, shareFilename, FORMATS } from '../lib/shareCardLayout';
 import {
-  pickShareSubject, subjectChoices, bookRecord, monthRecord, yearRecord, yearChoiceAllowed, orderQuoteCandidates,
+  pickShareSubject, subjectChoices, hasFinishedThisMonth, bookRecord, monthRecord, yearRecord, yearChoiceAllowed, orderQuoteCandidates,
   orderYearQuoteCandidates, shareHashtags, yearMemoCountFor, quoteText,
   swapQuote, swapQuoteLabel, availableVariants, defaultVariant, buildRecordShareText, fmtStamp, fmtMagazineStamp,
   shareItemsFor, applyShareItems, shareVisibility, readHiddenItems, writeHiddenItems,
@@ -155,7 +155,7 @@ const swatchLabeledBtn = {
 const swatchLabel = (on) => ({ fontSize: 'var(--text-meta)', lineHeight: 1.2, fontWeight: on ? 600 : 400, color: on ? 'var(--text)' : 'var(--text-2)', whiteSpace: 'nowrap' });
 const ring = (on) => (on ? SELECTED_RING : 'inset 0 0 0 1px var(--border)');
 // 選んでいない見本の丸の縁は 2（暗い画面の「夜」が地に溶けて見えなかった・2026-10-10 ui-critic）。
-const swatchDot = (bg, on) => ({ width: 28, height: 28, borderRadius: 'var(--radius-full)', background: bg, boxShadow: on ? SELECTED_RING : 'inset 0 0 0 2px var(--border)' });
+const swatchDot = (bg, on) => ({ width: 'var(--swatch-size)', height: 'var(--swatch-size)', borderRadius: 'var(--radius-full)', background: bg, boxShadow: on ? SELECTED_RING : 'inset 0 0 0 2px var(--border)' });
 // 透明の見本・プレビューの地（暗い市松＝白い文字が見える。画像には入らない）。
 const checker = (size) => `repeating-conic-gradient(var(--share-sticker-backdrop-a) 0% 25%, var(--share-sticker-backdrop-b) 0% 50%) 50% / ${size}px ${size}px`;
 // 「写真を選ぶ」のチップ（写真が無いときだけ出る・押すとすぐ写真を選べる）。枠だけ（面を付けると、選んでいる見本に
@@ -257,6 +257,27 @@ function useMonthMemos(enabled, now) {
 // recall_count・source_type の列が無い古い DB では外して読み直す（覚えた回数は 0 として扱う）。
 // 読めなかったときは error（数字の欠けた 1 枚を作らない＝シートは「今年のメモを読み込めませんでした」）。reload で読み直す。
 const YEAR_MEMO_LIMIT = 2000;
+// 今月に書いたメモの件数だけ（「どの本？」に「今月」を出すかの判定・2026-10-11）。読めなければ 0（今月は出さない側）。
+function useMonthMemoCount(enabled, now) {
+  const { user } = useAuth();
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (!enabled || !isSupabaseConfigured || !user?.id) return undefined;
+    let alive = true;
+    const from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    const to = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();
+    (async () => {
+      try {
+        const { count: c, error } = await supabase.from('book_memos').select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id).gte('created_at', from).lt('created_at', to);
+        if (alive && !error && Number.isFinite(c)) setCount(c);
+      } catch { /* 数えられなければ 0 のまま */ }
+    })();
+    return () => { alive = false; };
+  }, [enabled, user?.id, now]);
+  return count;
+}
+
 function useYearMemos(enabled, now) {
   const { user } = useAuth();
   const year = now.getFullYear();
@@ -333,10 +354,24 @@ export default function ShareSheet({
     const s = initialSubject || (bookProp ? { kind: 'book', bookId: bookProp.id } : pickShareSubject(books));
     return s.kind === 'year' && !yearAllowed ? { kind: 'month' } : s;
   });
-  const choices = useMemo(
-    () => (books ? subjectChoices(books, { selectedId: subject.kind === 'book' ? subject.bookId : null, includeYear: yearAllowed }) : []),
-    [books, subject, yearAllowed],
-  );
+  // ⏱ 集中モードの記録（今月の中身の判定・今月／今年の読書の時間・雑誌の短い数の欄で使う）。
+  const readingRows = useReadingSessions().rows;
+  // 中身の無い月（読了 0・メモ 0・読書の時間 0）は「どの本？」に「今月」を出さない（2026-10-11 ui-critic）。
+  //   いま「今月」を選んでいる（ほかに選べる本が無い・入口が今月を渡した）ときは残す。今月のメモは件数だけ数える。
+  const monthMemoCount = useMonthMemoCount(!!books, now);
+  const monthHasContent = useMemo(() => {
+    if (!books) return true;
+    if (hasFinishedThisMonth(books, now)) return true;
+    const r = monthRange(now.getTime());
+    if (rangeSeconds(readingRows, books, r.from, r.to) >= 60) return true;
+    return monthMemoCount > 0;
+  }, [books, now, readingRows, monthMemoCount]);
+  const choices = useMemo(() => {
+    if (!books) return [];
+    const list = subjectChoices(books, { selectedId: subject.kind === 'book' ? subject.bookId : null, includeYear: yearAllowed });
+    if (monthHasContent || subject.kind === 'month') return list;
+    return list.filter((c) => c.kind !== 'month');
+  }, [books, subject, yearAllowed, monthHasContent]);
   const showSwitcher = choices.length > 1;
   const subjectBook = subject.kind === 'book'
     ? ((bookProp && bookProp.id === subject.bookId) ? bookProp : (books || []).find((b) => b.id === subject.bookId) || null)
@@ -345,7 +380,6 @@ export default function ShareSheet({
   const period = subject.kind === 'year' && yearAllowed ? 'year' : (subject.kind === 'month' || !subjectBook) ? 'month' : null;
   const isPeriod = !!period;
   // ⏱ 雑誌の下の行の短い数の欄: この本の今日の読書時間（集中モード）があれば「読書 32 分」。無ければ出さない（2026-10-09）。
-  const readingRows = useReadingSessions().rows;
   const readingNote = subject.kind === 'book' && subjectBook ? shareReadingNote(readingRows, subjectBook.id, now.getTime()) : null;
   const readingNoteKey = readingNote ? readingNote.value : '';
 
@@ -1048,7 +1082,7 @@ export default function ShareSheet({
           <div role="radiogroup" aria-label="背景" style={{ display: 'flex', alignItems: 'flex-start', gap: 0, flexWrap: 'wrap', paddingBottom: 'var(--space-6)' }}>
             {/* 390 幅で見本 4 つと 1 行に収まるよう、見える名前は「写真」（読み上げは「写真を選ぶ」）。 */}
             {/* 「写真」のチップの上下の中心を、右の見本の丸（上 4＋半径 14）の中心にそろえる（2026-10-10 ui-critic）。 */}
-            <button type="button" onClick={openPhotoChip} aria-label="写真を撮る・選ぶ" title="写真を撮る・選ぶ" style={{ ...photoChip, marginTop: 'calc(var(--space-1) + 14px - var(--tap-min) / 2)' }}>
+            <button type="button" onClick={openPhotoChip} aria-label="写真を撮る・選ぶ" title="写真を撮る・選ぶ" style={{ ...photoChip, marginTop: 'calc(var(--space-1) + var(--swatch-size) / 2 - var(--tap-min) / 2)' }}>
               <ImagePlus size={20} aria-hidden="true" style={{ color: 'var(--text-2)' }} />
               写真
             </button>
@@ -1059,7 +1093,7 @@ export default function ShareSheet({
                 aria-label={v === 'sticker' ? '透明（ステッカー用）' : undefined} title={v === 'sticker' ? '透明（ステッカー用）' : undefined}>
                 {v === 'cover' && !coverReady
                   // 表紙を読み込むまでは、表紙の色が分からないので骨組みの丸（代用の色を一瞬出さない）。
-                  ? <SkeletonBlock width={28} height={28} radius="var(--radius-full)" style={{ boxShadow: ring(effStyle === v) }} />
+                  ? <SkeletonBlock width="var(--swatch-size)" height="var(--swatch-size)" radius="var(--radius-full)" style={{ boxShadow: ring(effStyle === v) }} />
                   : <span aria-hidden="true" style={swatchDot(v === 'sticker' ? checker(8) : swatchColor(v), effStyle === v)} />}
                 <span style={swatchLabel(effStyle === v)}>{STYLE_LABELS[v]}</span>
               </button>

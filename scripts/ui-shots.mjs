@@ -1062,6 +1062,10 @@ const SCREENS = [
   // ── 🎨 第 9 回の ui-critic の直し（F1〜F8・2026-10-11・ui-shots/review9-after2/）
   { name: 'r9f-detail-noaction', url: '/?demo=noreading', steps: [{ css: 'button[aria-label="『LIFE SHIFT』の読書を開始する"]' }, { wait: 800 }, { css: 'button[aria-label="『LIFE SHIFT』を開く"]' }, { wait: 1200 }, { scrollTo: 'h2:has-text("行動")' }, { wait: 400 }] },
   // ── 🏷🪙📝 第 9 回の追加（D1〜D3・2026-10-11）: 本 0 冊のボタンの名前・無料プランの残りの見せ方・ホームで保存した知らせ
+  // ── 🎯 第 9 回の 3 回目の採点の直し（H1〜H4・2026-10-11・ui-shots/review9-after4/）
+  { name: 'r9h-share-month', url: '/?share=chooser', steps: [...[{ wait: 800 }, { css: '[role=dialog] button:has-text("写真なし")' }, { wait: 1500 }], { css: '[role=radiogroup][aria-label="どの本を共有するか"] [role=radio]:has-text("今月")' }, { wait: 2500 }] },
+  { name: 'r9h-share-chips-end', url: '/?share=chooser', steps: [...[{ wait: 800 }, { css: '[role=dialog] button:has-text("写真なし")' }, { wait: 1500 }], { eval: "(() => { const g = document.querySelector('[role=radiogroup][aria-label=\"どの本を共有するか\"]'); if (g) g.scrollLeft = g.scrollWidth; })()" }, { wait: 600 }] },
+  { name: 'r9h-share-empty-month', url: '/?demo=fewmemos&share=chooser', steps: [...[{ wait: 800 }, { css: '[role=dialog] button:has-text("写真なし")' }, { wait: 1500 }], { wait: 1500 }] },
   { name: 'r9d-home-new', url: '/?demo=new', steps: [{ css: 'button[aria-label="閉じる"]' }, { wait: 600 }] },
   { name: 'r9d-quickstart-done-free', url: '/?demo=freenew', steps: [{ role: '次へ' }, { css: '[role=dialog] button:has-text("読んだ本に一言ずつ残す")' }, { css: '[role=dialog] button[aria-label^="『イシューからはじめよ』"]' }, { css: '[role=dialog] button:has-text("次へ")' }, { fill: ['[role=dialog] textarea', '答えを出す前に、本当に答えるべき問いかを確かめる'] }, { css: '[role=dialog] button:has-text("相談相手をつくる")' }, { wait: 2500 }, { scrollTo: '#qs-ask' }] },
   { name: 'r9d-consult-free', url: '/?demo=fewmemos', steps: [{ css: nav('相談') }, { wait: 1200 }] },
