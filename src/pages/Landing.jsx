@@ -454,8 +454,8 @@ export default function Landing() {
                 {CTA_LABEL}
               </StoreCta>
             )}
-            {/* ログインはいつも右端（ボタンはその左で出入りする＝出入りしてもログインは動かない） */}
-            <a href="/?auth=signin" className="lp-header-login" onClick={() => lpTrack('login_click', {})}>ログイン</a>
+            {/* 「ログイン」は置かない（2026-10-11 オーナー「アプリでしか使わない想定なので、App Store へ流すボタンに」）。
+                管理者は /?auth=signin を直接開く。右上は「無料プランで始める」1 つ（広い画面・ヒーローのボタンが外れてから）。 */}
           </nav>
         </div>
       </header>

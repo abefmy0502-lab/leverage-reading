@@ -34,13 +34,12 @@ function session() {
 export const WIDE_POINTER = '(min-width: 768px) and (pointer: fine)';
 export const isWidePointer = () => safe(() => window.matchMedia(WIDE_POINTER).matches, false);
 
-// ヒーローの表示方式（2026-10-11 から）: 'photo'（1 冊に相談した答えの実際の画面）が既定。
-// 'illust'（いろいろな本と対話するイラスト・LpIllust.jsx）の A/B は、本番の絵が届くまで止める（同日オーナー）＝
-// VITE_LP_ILLUST=on のビルドだけ、スマホも PC も 'illust' ↔ 'photo' を半々に振り分けて覚える（orime-lp-hero-v2）。
-// そのときだけ VITE_LP_HERO_AB=off で全員 'illust'。?hero=illust は開発中・お試しか VITE_LP_ILLUST=on のときだけ効く。
+// ヒーローの表示方式（2026-10-11 から）: 'illust'（オーナーの本番のイラスト・LpIllust.jsx）↔ 'photo'（1 冊に相談した答えの
+// 実際の画面）を、スマホも PC も半々に振り分けて端末に覚える（orime-lp-hero-v2）。本番の絵が届いたので既定で A/B する（同日）。
+// VITE_LP_ILLUST=off で全員 'photo'（そのとき ?hero=illust は開発中・お試しだけ）。VITE_LP_HERO_AB=off で全員 'illust'。
 // '3d'（three.js）は A/B から外し、?hero=3d のときだけ。記録の variant はこの値＝実際に見せた形（Landing.jsx が同じ値で描く）。
 // api/lp-event.js の LP_VARIANTS と同じ値だけを使う。
-export const ILLUST_ON = String(import.meta.env.VITE_LP_ILLUST || '').trim().toLowerCase() === 'on';
+export const ILLUST_ON = String(import.meta.env.VITE_LP_ILLUST || '').trim().toLowerCase() !== 'off';
 const AB_OFF = String(import.meta.env.VITE_LP_HERO_AB || '').trim().toLowerCase() === 'off';
 const HERO_KEY = 'orime-lp-hero-v2';
 let variant = null;

@@ -1,4 +1,4 @@
-// ヒーローの表示方式（2026-10-11）: 本番の絵が届くまで、イラストの A/B は VITE_LP_ILLUST=on のビルドだけ。
+// ヒーローの表示方式（2026-10-11）: 本番の絵が届いたので既定で イラスト ↔ 写真 の A/B。VITE_LP_ILLUST=off で全員 写真。
 import { describe, it, expect, vi, afterEach } from 'vitest';
 
 const load = async ({ illust = '', search = '', dev = false } = {}) => {
@@ -14,16 +14,20 @@ const load = async ({ illust = '', search = '', dev = false } = {}) => {
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
 describe('lpVariant', () => {
-  it('既定（VITE_LP_ILLUST なし）は全員 photo', async () => {
-    for (let i = 0; i < 5; i += 1) expect((await load()).lpVariant()).toBe('photo');
+  it('既定は illust か photo のどちらか（A/B）', async () => {
+    expect(['illust', 'photo']).toContain((await load()).lpVariant());
   });
-  it('既定の本番では ?hero=illust でもイラストを見せない（記録と見せた形がずれない）', async () => {
-    expect((await load({ search: '?hero=illust' })).lpVariant()).toBe('photo');
+  it('VITE_LP_ILLUST=off は全員 photo', async () => {
+    for (let i = 0; i < 5; i += 1) expect((await load({ illust: 'off' })).lpVariant()).toBe('photo');
   });
-  it('開発中は ?hero=illust で見られる', async () => {
-    expect((await load({ search: '?hero=illust', dev: true })).lpVariant()).toBe('illust');
+  it('off の本番では ?hero=illust でもイラストを見せない（記録と見せた形がずれない）', async () => {
+    expect((await load({ illust: 'off', search: '?hero=illust' })).lpVariant()).toBe('photo');
   });
-  it('VITE_LP_ILLUST=on なら illust か photo のどちらか', async () => {
-    expect(['illust', 'photo']).toContain((await load({ illust: 'on' })).lpVariant());
+  it('off でも開発中は ?hero=illust で見られる', async () => {
+    expect((await load({ illust: 'off', search: '?hero=illust', dev: true })).lpVariant()).toBe('illust');
+  });
+  it('?hero=illust / ?hero=photo で固定できる', async () => {
+    expect((await load({ search: '?hero=illust' })).lpVariant()).toBe('illust');
+    expect((await load({ search: '?hero=photo' })).lpVariant()).toBe('photo');
   });
 });

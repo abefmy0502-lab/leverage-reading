@@ -182,3 +182,11 @@ describe('画面は見本だと示す（景品表示法の優良誤認・2026-10
     expect(src).toMatch(/<figcaption[^>]*>.*\$\{SAMPLE_NOTE\}\$\{VOICE_NOTE\}/);
   });
 });
+
+describe('LP にログインの導線を置かない（2026-10-11 オーナー「アプリでしか使わない想定」）', () => {
+  it('Landing.jsx に ?auth=signin のリンクと「ログイン」の文字ボタンが無い', () => {
+    const src = readFileSync(new URL('./Landing.jsx', import.meta.url), 'utf8').replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/^\s*\/\/.*$/gm, '');
+    expect(src).not.toContain('auth=signin');
+    expect(src).not.toMatch(/>ログイン</);
+  });
+});

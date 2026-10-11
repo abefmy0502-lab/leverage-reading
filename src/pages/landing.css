@@ -238,19 +238,6 @@ body.lp-active {
 /* アプリアイコン画像は iOS のアイコン形状（DESIGN §4 の例外＝中身の形）。UI の角丸ではない */
 .lp-brand img { border-radius: var(--radius-app-icon); }
 .lp-header-nav { display: flex; align-items: center; gap: var(--space-4); }
-/* 文字ボタン（DESIGN §5: --accent・15/600・高さ 44）。押せるので本文色にしない */
-.lp-header-login {
-  display: inline-flex;
-  align-items: center;
-  min-height: var(--tap-min);
-  padding: 0 var(--space-2);
-  /* 押せる範囲の左右の余白ぶん右へ出し、文字の右端をページの端にそろえる */
-  margin-right: calc(-1 * var(--space-2));
-  color: var(--accent) !important;
-  font-size: var(--text-sub);
-  font-weight: 600;
-  text-decoration: none;
-}
 .lp-header-cta { display: none; }
 
 /* ============ ヒーロー ============ */
@@ -335,6 +322,11 @@ body.lp-active {
 /* ヒーローのイラスト「いろいろな本と対話する」（LpIllust.jsx・A/B の 'illust'）。色はトークンだけ（明暗はトークンが切り替える）。
    線の太さ・角の丸みは絵の中の寸法（viewBox の単位）で、絵と一緒に縮む。 */
 .lp-illust { display: block; width: 100%; max-width: calc(var(--lp-shot-w) * 1.4); height: auto; margin: 0 auto; }
+/* 本番の絵（画像）: 角丸 12 の「絵のカード」。明るい画面は地（ベージュ）になじませ、暗い画面は細い線で縁取って絵のカードに見せる */
+.lp-illust-img { border-radius: var(--radius); background: var(--fill); }
+@media (prefers-color-scheme: dark) {
+  .lp-illust-img { border: 1px solid var(--border); box-shadow: var(--shadow-overlay); }
+}
 .lp-ill-book rect { stroke: var(--border); stroke-width: 1.25; }
 .lp-ill-book-a rect { fill: var(--surface); }
 .lp-ill-book-b rect { fill: var(--fill); }
@@ -664,7 +656,7 @@ body.lp-active {
   /* リンクで飛んだ先の見出しがヘッダーの下に隠れないように */
   .lp-root [id] { scroll-margin-top: var(--space-16); }
   .lp-header-cta { display: inline-flex; transition: opacity var(--duration-fast) ease, visibility 0s linear 0s; }
-  /* ヒーローのボタンが見えている間は隠す（場所は残して、出入りで「ログイン」が動かないように） */
+  /* ヒーローのボタンが見えている間は隠す（場所は残す＝ヘッダーの高さが変わらない） */
   .lp-header-cta.is-hidden { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity var(--duration-fast) ease, visibility 0s linear var(--duration-fast); }
   .lp-sticky { display: none; }
 

@@ -7,11 +7,10 @@
 // 動き: 吹き出しと線が左から順にゆっくり現れるだけ（1 回・prefers-reduced-motion では止めて最初から全部見せる）。
 // 読み上げ: 絵の意味を 1 文で（aria-label）。中の形は読ませない。
 //
-// 🖼 差し替え（2026-10-11）: この SVG は仮の絵。本番の絵（オーナーが作る画像）は、public/lp/ に
-//   hero-illust-<light|dark>-<390|780|1560>.webp を置くだけで替わる（明暗は prefers-color-scheme で出し分け）。
-//   本番の絵は横長 4:3（1560×1170 など）。SVG と同じ枠（.lp-illust＝幅いっぱい・最大 420・高さは比のまま）にそのまま入る。
-//   置いていないときは SVG のまま（はじめに hero-illust-light-780.webp を読めるか確かめ、読めたときだけ画像に替える＝
-//   壊れた画像を見せない）。読み上げの文は SVG と同じ（ILLUST_LABEL）。手順は docs/lp-measurement.md。
+// 🖼 本番の絵（2026-10-11 オーナー）: public/lp/hero-illust-light-<390|780|1560>.webp（横長 4:3・元は 1448×1086 の PNG を
+//   sharp で書き出した）。暗い版は作らず、暗い画面でも同じ絵を角丸の「絵のカード」（細い線で縁取り）として出す。
+//   はじめに hero-illust-light-780.webp を読めるか確かめ、読めないときだけ下の SVG（仮の絵）を予備として出す。
+//   差し替えるときは同じ名前で 3 つ置き直す（手順は docs/lp-measurement.md）。読み上げの文は ILLUST_LABEL。
 import { useEffect, useState } from 'react';
 
 const BOOKS = [
@@ -26,11 +25,13 @@ const BOOK_H = 56;
 const CARD = { x: 100, y: 184, w: 160, h: 58 };
 const CX = CARD.x + CARD.w / 2;
 
-export const ILLUST_LABEL = 'いろいろな本から吹き出しが出て、真ん中の「あなたの一行」のメモに集まり、そこから「明日の一歩」へつながる絵';
+export const ILLUST_LABEL = 'スマホで本に相談すると、本棚の本が答えてくれる様子のイラスト';
+// 予備の SVG（画像が読めないとき）の読み上げ
+const SVG_LABEL = 'いろいろな本から吹き出しが出て、真ん中の「あなたの一行」のメモに集まり、そこから「明日の一歩」へつながる絵';
 
 function IllustSvg() {
   return (
-    <svg className="lp-illust" viewBox="0 0 360 300" role="img" aria-label={ILLUST_LABEL}>
+    <svg className="lp-illust" viewBox="0 0 360 300" role="img" aria-label={SVG_LABEL}>
       {BOOKS.map((b, i) => {
         const cx = b.x + BOOK_W / 2;
         const by = b.y + BOOK_H + 14; // 吹き出しの上端
@@ -87,24 +88,32 @@ function IllustSvg() {
   );
 }
 
-const IMG = (scheme, w) => `/lp/hero-illust-${scheme}-${w}.webp`;
-const SET = (scheme) => [390, 780, 1560].map((w) => `${IMG(scheme, w)} ${w}w`).join(', ');
+const IMG = (w) => `/lp/hero-illust-light-${w}.webp`;
+const SET = [390, 780, 1560].map((w) => `${IMG(w)} ${w}w`).join(', ');
 
 export default function LpIllust() {
-  // 画像が置いてあるか（読めたら画像に替える・読めなければ SVG のまま）。
-  const [hasImage, setHasImage] = useState(false);
+  // 画像が読めるか（読めたら画像・読めなければ予備の SVG）。読めるまでは同じ大きさの枠だけを出す（跳ねない）。
+  const [state, setState] = useState('probe');
   useEffect(() => {
     let alive = true;
     const probe = new Image();
-    probe.onload = () => { if (alive && probe.naturalWidth > 0) setHasImage(true); };
-    probe.src = IMG('light', 780);
+    probe.onload = () => { if (alive) setState(probe.naturalWidth > 0 ? 'image' : 'svg'); };
+    probe.onerror = () => { if (alive) setState('svg'); };
+    probe.src = IMG(780);
     return () => { alive = false; };
   }, []);
-  if (!hasImage) return <IllustSvg />;
+  if (state === 'svg') return <IllustSvg />;
   return (
-    <picture>
-      <source media="(prefers-color-scheme: dark)" type="image/webp" srcSet={SET('dark')} sizes="(min-width: 768px) 420px, 92vw" />
-      <img className="lp-illust" src={IMG('light', 780)} srcSet={SET('light')} sizes="(min-width: 768px) 420px, 92vw" width="1560" height="1170" alt={ILLUST_LABEL} decoding="async" />
-    </picture>
+    <img
+      className="lp-illust lp-illust-img"
+      src={IMG(780)}
+      srcSet={SET}
+      sizes="(min-width: 768px) 420px, 92vw"
+      width="1560"
+      height="1170"
+      alt={ILLUST_LABEL}
+      fetchpriority="high"
+      decoding="async"
+    />
   );
 }
