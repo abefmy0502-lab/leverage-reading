@@ -488,6 +488,15 @@ body.lp-active {
 .lp-gallery-dots span { width: var(--space-2); height: var(--space-2); border-radius: 50%; background: var(--separator); }
 .lp-gallery-dots span.is-on { background: var(--accent); }
 .lp-root .lp-flow-head { margin: var(--space-16) 0 var(--space-6); }
+/* 問題の自覚の一文（見出しの下） */
+.lp-root .lp-sec-lead { margin: calc(-1 * var(--space-2)) 0 var(--space-6); color: var(--text-2); max-width: 36em; }
+/* なぜ会話すると残るのか（学習の研究 3 つ・番号つき） */
+.lp-why { margin-top: var(--space-16); }
+.lp-why-list { list-style: none; margin: var(--space-4) 0 0; padding: 0; display: grid; gap: var(--space-3); grid-template-columns: repeat(auto-fit, minmax(min(100%, 16em), 1fr)); counter-reset: why; }
+.lp-why-list li { counter-increment: why; padding: var(--space-4); border: 1px solid var(--separator); border-radius: var(--radius); background: var(--bg); }
+.lp-root .lp-why-head { font-weight: 600; }
+.lp-root .lp-why-head::before { content: counter(why) "  "; color: var(--accent); font-variant-numeric: tabular-nums; }
+.lp-root .lp-why-body { margin-top: var(--space-1); color: var(--text-2); font-size: var(--text-sub); line-height: 1.6; }
 .lp-gallery > li { scroll-snap-align: start; display: flex; flex-direction: column; min-width: 0; }
 .lp-root .lp-gallery-num { color: var(--accent); font-size: var(--text-sub); font-weight: 600; font-variant-numeric: tabular-nums; }
 .lp-root .lp-gallery-title { margin: var(--space-1) 0 0; font-size: var(--text-body); font-weight: 600; line-height: 1.5; }

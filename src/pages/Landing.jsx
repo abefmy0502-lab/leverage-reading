@@ -48,7 +48,7 @@ import LpWaitlist from './LpWaitlist';
 import LpIllust from './LpIllust';
 import LpArt, { hasArt } from './LpArt';
 import Phrases from './LpPhrases';
-import { buildLpCopy, storeHrefOf, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE } from './lpCopy';
+import { buildLpCopy, storeHrefOf, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE, ZERO_RISK_NOTE, PROBLEM_LEAD, WHY_POINTS, WHY_SOURCES } from './lpCopy';
 import qrcode from 'qrcode-generator';
 import { lpTrack, lpVariant, storeUrlFor, isWidePointer } from '../lib/lpTrack';
 import { inject as injectVercelAnalytics } from '@vercel/analytics';
@@ -532,6 +532,8 @@ export default function Landing() {
               </p>
               <div className="lp-cta-block" ref={heroCtaRef}>
                 <Entry loc="hero" wl={wl} qr badge launch />
+                {/* ゼロリスクの一言（行動経済学: ゼロ価格効果・損失回避／2026-10-12・lpCopy の ZERO_RISK_NOTE） */}
+                {!PRELAUNCH && <p className="lp-cta-sub lp-wbr"><Phrases>{ZERO_RISK_NOTE}</Phrases></p>}
                 <div className="lp-hero-links">
                   <a className="lp-textlink" href="#lp-flow" onClick={() => lpTrack('hero_secondary', {})}>
                     <span>会話の様子を見る</span><ChevronDown size="1.1em" aria-hidden="true" />
@@ -580,6 +582,8 @@ export default function Landing() {
               <h2 className="lp-h2" id="lp-flow">
                 <span>一方通行の読書から、</span><span>会話する読書へ。</span>
               </h2>
+              {/* 問題の自覚（損失回避・好奇心のすき間／2026-10-12）。効果の言い切りはしない */}
+              <p className="lp-wbr lp-sec-lead"><Phrases>{PROBLEM_LEAD}</Phrases></p>
               {/* ビフォーアフターの絵（2026-10-12 オーナーの絵・public/lp/illust-dialogue-*.webp・LpArt.jsx）。見出しのすぐ下・2 枚のカードの上 */}
               <div className="lp-ba-wrap">
               <LpArt name="illust-dialogue" ratio="4:3" sizes="(min-width: 768px) 600px, 92vw" className="lp-art-sec lp-art-wide" alt="左は、椅子に座って本を一人で静かに読んでいる人。右は、同じ人が机で本を開き、本と人のあいだを「？」や電球、メモの吹き出しが行き来して、明るい表情でうなずいている" />
@@ -603,6 +607,19 @@ export default function Landing() {
                 ))}
               </ul>
               </div>
+            </div>
+            {/* なぜ会話すると残るのか（権威と理由づけ＝学習の研究 3 つ／2026-10-12）。Orime の効果を言い切らず、研究の一般論と出典 */}
+            <div className="lp-why">
+              <h3 className="lp-h3 lp-wbr"><Phrases>会話すると、なぜ残るのか。</Phrases></h3>
+              <ol className="lp-why-list">
+                {WHY_POINTS.map((w) => (
+                  <li key={w.head}>
+                    <p className="lp-why-head">{w.head}</p>
+                    <p className="lp-why-body lp-wbr"><Phrases>{w.body}</Phrases></p>
+                  </li>
+                ))}
+              </ol>
+              <p className="lp-fine lp-wbr"><Phrases>{WHY_SOURCES}</Phrases></p>
             </div>
             {/* 一番の価値（CLAUDE.md）を、会話の流れ 4 枚の見出しに（2026-10-12 ui-critic） */}
             <h2 className="lp-h2 lp-flow-head" id="lp-grow"><span>読めば読むほど、</span><span>頼れる相談相手に。</span></h2>
@@ -762,7 +779,7 @@ export default function Landing() {
                     ) : (
                       <>
                         <p className="lp-plan-price">{ANNUAL_TEXT}<span>/ 年（税込）</span></p>
-                        <p className="lp-plan-sub"><span className="lp-nb">1 年分を前払い。</span><span className="lp-nb">1 日あたり約 {ANNUAL_PER_DAY_TEXT}。</span>{SAVE && <span className="lp-nb">{SAVE}。</span>}</p>
+                        <p className="lp-plan-sub"><span className="lp-nb">1 年分を前払い（月あたり約 {PER_MONTH_TEXT}）。</span><span className="lp-nb">1 日あたり約 {ANNUAL_PER_DAY_TEXT}。</span>{SAVE && <span className="lp-nb">{SAVE}。</span>}</p>
                       </>
                     )}
                   </div>
