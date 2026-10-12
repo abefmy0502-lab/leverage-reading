@@ -205,7 +205,7 @@ describe('節のイラストの受け皿（LpArt・2026-10-11）', () => {
   });
   it('対話の流れ（実際の画面）はいつも残る', () => {
     const landing = readFileSync(new URL('./Landing.jsx', import.meta.url), 'utf8');
-    expect(landing).toMatch(/<LpFlow onEvent=\{lpTrack\} \/>/);
+    expect(landing).toMatch(/<LpFlow onEvent=\{lpTrack\}/);
   });
 });
 

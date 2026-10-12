@@ -97,6 +97,8 @@ const LAUNCH_LINE = `${LAUNCH_LABEL}に、App Store で公開予定です。`;
 // 狭い幅・最大の文字で割れても「無料プランで／始める」になるよう、2 つの塊に包む（.lp-btn は keep-all）。
 //   .lp-btn は inline-flex なので、外側を 1 つの span にして 2 つの塊を同じ行の中に置く（2 列に割れていた・2026-10-11 ui-critic）。
 const CTA_LABEL = <span className="lp-btn-label"><span className="lp-nb">無料プランで</span><wbr /><span className="lp-nb">始める</span></span>;
+// 料金の欄のボタン（有料のカードのすぐ下・2026-10-12）。押す先は同じ App Store（無料期間はアプリの中で始める）。
+const TRIAL_CTA_LABEL = <span className="lp-btn-label"><span className="lp-nb">7 日間無料で</span><wbr /><span className="lp-nb">試す</span></span>;
 
 // 🗣 お客様の声。実在ユーザーの許可を得た本物の声だけを入れる（捏造・盛りは絶対 NG・本物が届くまで出さない）。
 // 形式: { quote, who: '30代・営業', how: '部下との 1on1 の前に相談している' }。空なら節ごと出ない。
@@ -228,13 +230,13 @@ function StoreQr() {
 }
 
 // 入口: 既定は「無料プランで始める」（＋QR・公式バッジ）、公開前の形のときだけ「公開の日にメールで知らせる」。
-function Entry({ loc, wl, qr = false, badge = false, launch = false, center = false }) {
+function Entry({ loc, wl, qr = false, badge = false, launch = false, center = false, label = CTA_LABEL }) {
   if (PRELAUNCH) {
     return <LpWaitlist loc={loc} done={wl.done} onDone={wl.markDone} launch={launch ? LAUNCH_LINE : ''} center={center} />;
   }
   return (
     <div className="lp-cta-row">
-      <StoreCta className="lp-btn lp-btn-large" loc={loc}>{CTA_LABEL}</StoreCta>
+      <StoreCta className="lp-btn lp-btn-large" loc={loc}>{label}</StoreCta>
       {badge && BADGE_SRC && (
         <a className="lp-badge" href={storeHref(`${loc}_badge`)} onClick={() => lpTrack('cta_click', { loc: `${loc}_badge` })}>
           <img src={BADGE_SRC} alt="App Store からダウンロード" height="40" />
@@ -566,12 +568,13 @@ export default function Landing() {
               {/* 一番の価値（CLAUDE.md）を 1 行で・会話の流れの頭に（2026-10-12 ui-critic でカードの下へ） */}
               <p className="lp-wbr lp-flow-lead"><Phrases>読めば読むほど、頼れる相談相手になっていきます。</Phrases></p>
             </div>
-            <LpFlow onEvent={lpTrack} />
+            <LpFlow onEvent={lpTrack} note={heroVariant !== 'photo'} />
             <div className="lp-asks">
               <p className="lp-asks-title">たとえば、こんな相談</p>
+              {/* 相談の入力の吹き出しの形（アプリの送った相談と同じ見た目・右寄せ） */}
               <ul>
                 {ASK_EXAMPLES.map((x) => (
-                  <li key={x.q}><span className="lp-asks-who">{x.who}</span><span className="lp-wbr"><Phrases>{`「${x.q}」`}</Phrases></span></li>
+                  <li key={x.q}><span className="lp-asks-who">{x.who}</span><span className="lp-asks-bubble lp-wbr"><Phrases>{x.q}</Phrases></span></li>
                 ))}
               </ul>
             </div>
@@ -583,7 +586,7 @@ export default function Landing() {
           <div className="lp-wrap">
             <div className="lp-narrow lp-sec-head">
               <h2 className="lp-h2" id="lp-pillars">
-                <span>続けるための</span><span>仕組みも。</span>
+                <span>読んだあとも、</span><span>続いていく。</span>
               </h2>
             </div>
             <ul className="lp-pillars">
@@ -624,12 +627,6 @@ export default function Landing() {
               ))}
             </ul>
             {!shareArt && <p className="lp-shot-note lp-pillars-note">画像は見本です。</p>}
-            {/* 安心の 4 つ（どれも実装と規約で確かめた事実だけ・2026-10-11） */}
-            <ul className="lp-trust" aria-label="データの扱い">
-              {TRUST_POINTS.map((t) => (
-                <li key={t}><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span className="lp-wbr"><Phrases>{t}</Phrases></span></li>
-              ))}
-            </ul>
           </div>
         </section>
 
@@ -698,11 +695,12 @@ export default function Landing() {
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>写真から書き起こし <span className="lp-nb">毎月 {FREE_OCR_PER_MONTH} 回</span></span></li>
                 </ul>
               </div>
-              <div className="lp-plan">
-                <p className="lp-plan-name"><span>プラン{TRIAL_FIRST && !OFFER.active && <span className="lp-plan-trial">（{TRIAL_FIRST}）</span>}</span></p>
+              <div className="lp-plan is-paid">
+                <p className="lp-plan-name"><span>月額・年額プラン</span>{TRIAL_NOTE && <span className="lp-plan-badge">{OFFER.active ? '月額は 7 日間無料' : TRIAL_NOTE}</span>}</p>
+                <p className="lp-plan-hero"><span className="lp-plan-hero-num">{PAID_CONSULTS}</span><span>AI の答え・毎月</span></p>
                 {/* プランで手に入るもの（具体的に 4 つ・数は lib/tokenAmounts.js のとおり） */}
                 <ul className="lp-included" aria-label="プランに含まれるもの">
-                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span><span className="lp-nb">AI の答え {PAID_CONSULTS}</span><span className="lp-nb">（毎月 {PAID_TOKENS} トークン）</span></span></li>
+                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>毎月 <span className="lp-nb">{PAID_TOKENS} トークン</span>（答え 1 回 約 10）</span></li>
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>すべての <span className="lp-nb">AI 機能</span>（読書計画シート・<span className="lp-nb">AI 選書・</span>写真から書き起こし・メモの凝縮など）</span></li>
                   {TRIAL_NOTE && (
                     <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>無料期間中は <span className="lp-nb">AI の答え {TRIAL_CONSULTS}</span><span className="lp-nb">（{TRIAL_TOKENS} トークン）</span></span></li>
@@ -737,7 +735,7 @@ export default function Landing() {
               <Phrases>{`回数は目安です。${CONSULT_ANSWERS_NOTE}。トークンは翌月に繰り越せません。関係するメモが見つからず答えられなかった相談は、${noBreak(`月 ${NO_INFO_REFUNDS} 回`)}までトークンを返します。`}</Phrases>
             </p>
             <div className="lp-cta-block">
-              <Entry loc="pricing" wl={wl} />
+              <Entry loc="pricing" wl={wl} label={TRIAL_NOTE ? TRIAL_CTA_LABEL : undefined} />
               <p className="lp-cta-note lp-wbr">
                 <Phrases>{COPY.pricingNote[0]}</Phrases>
                 <br />
@@ -747,9 +745,15 @@ export default function Landing() {
           </div>
         </section>
 
-        {/* ============ ⑥ よくある質問 ============ */}
+        {/* ============ ⑥ よくある質問（上に安心の 4 つ） ============ */}
         <section className="lp-sec lp-faq" aria-labelledby="lp-faq" data-lp-sec="faq">
           <div className="lp-wrap lp-narrow">
+            {/* 安心の 4 つ（どれも実装と規約で確かめた事実だけ・2026-10-12 に料金のあと・よくある質問の頭へ） */}
+            <ul className="lp-trust" aria-label="データの扱い">
+              {TRUST_POINTS.map((t) => (
+                <li key={t}><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span className="lp-wbr"><Phrases>{t}</Phrases></span></li>
+              ))}
+            </ul>
             <h2 className="lp-h2" id="lp-faq">よくある質問</h2>
             <div className="lp-faq-list">
               {COPY.faq.map((f, i) => (

@@ -1,17 +1,15 @@
-// 🎞 LP「読んだ本と、会話する」— 1 冊の本との会話を、実際の画面 4 枚で約 15 秒（2026-10-02 → 2026-10-11 作り直し）。
+// 🎞 LP「一方通行の読書から、会話する読書へ」— 1 冊の本との会話を、実際の画面 4 枚で見せる（2026-10-02 → 2026-10-11 → 2026-10-12 作り直し）。
 //
-//   1. 心に響いた一行を残す → 2. 本に相談する → 3. 本の語り口で、聞き返す → 4. 本とページで確かめる
-//   （作戦 company/marketing-master-plan-2026-10.md §0 の柱 ①「本と会話する」。明日の一歩は次の節で見せる）
+//   1. 気になった一行をメモ → 2. 本に相談する → 3. 本の語り口で返ってくる → 4. どのメモからの答えか分かる
 //
 // - 画面はお試しモード（サンプルのメモ）で撮った実際のアプリ（npm run lp:shots の flow-line・flow-talk・flow-voice・flow-source）。
-//   答えの名前の行の著者名は写さない（「（本の語り口で・AI）」は残す）。動画は使わない（軽さ）。
-// - 画面に入ったら 1 回だけ自動で進む（1 枚 3.75 秒・最後で止まる）。画面から外れたら止め、戻ったら続きから。
-// - 動きを減らす設定では自動で進めない（最初の 1 枚を出し、手順を押すと切り替わる）。止める／もう一度見るボタンあり
-//   （5 秒を超えて動くものは止められること・WCAG 2.2.2）。ボタンは進み具合の行の右端（動いている間も見える）。
-//   説明の読み上げ（aria-live）は手順を押したあとだけ。
-// - 写真は「いまの枚と次の枚」まで読む（見えない 3〜4 枚目がヒーローの写真と回線を取り合わないように・2026-10-05）。
-// - 記録: 画面に入った（flow_view・1 回）／手順を押した（flow_step）／もう一度見た（flow_replay）。
-import { useCallback, useEffect, useRef, useState } from 'react';
+//   iPhone のステータスバー・ホームバーを描き足した 390×844 の画面を、端末の枠（landing.css の .lp-shot）に入れる。
+//   答えの名前の行の著者名は写さない（「（本の語り口で・AI）」は残す）。
+// - 2026-10-12（LP を 100 点へ・ui-critic）: 自動で進む 1 枚ずつのタブをやめ、4 枚を並べる。
+//   スマホは横にスワイプ（1 枚ずつ止まる・次の枚の端が見える）、広い画面は 4 枚を横に並べる。
+//   「画面は見本です。」と語り口の注記は、ヒーローが写真のときはヒーローの下にあるので、ここでは出さない（note）。
+// - 記録: 画面に入った（flow_view・1 回）／横にスワイプした（flow_step・どこまで見たか）。
+import { useEffect, useRef } from 'react';
 import { SAMPLE_NOTE, VOICE_NOTE } from './lpCopy';
 import Phrases from './LpPhrases';
 import Shot from './LpShot';
@@ -21,12 +19,12 @@ export const FLOW_STEPS = [
     name: 'flow-line',
     title: '気になった一行をメモ',
     body: '読みながら、引っかかった一行を書いておくだけ。',
-    alt: '『嫌われる勇気』の本の詳細のメモの一覧。いちばん下に今日残した一行「人にどう思われるかより、自分がどうしたいかを先に考える。」、その下に「この本に相談する」',
+    alt: '『嫌われる勇気』の本の詳細のメモの一覧。今日残した一行「人にどう思われるかより、自分がどうしたいかを先に考える。」と、「この本に相談する」',
   },
   {
     name: 'flow-talk',
     title: '本に相談する',
-    body: '悩みをそのまま送ります。1 冊に聞くことも、本棚の本ぜんぶに聞くこともできます。',
+    body: '悩みをそのまま送ります。1 冊にも、本棚の本ぜんぶにも聞けます。',
     alt: '相談の画面。相談相手を『嫌われる勇気』にして「相手が自分をどう思うかが気になって、意見が言えません」と送り、本の語り口の答えを書きはじめている',
   },
   {
@@ -42,131 +40,44 @@ export const FLOW_STEPS = [
     alt: '答えの「根拠を見る」を開いた画面。『嫌われる勇気』p.40 に残したメモの一節と、もとになった本',
   },
 ];
-export const FLOW_STEP_MS = 3750; // 4 枚で 15 秒
 
-function prefersStatic() {
-  if (typeof window === 'undefined') return true;
-  try {
-    // 🧪 開発中だけ ?motion=static で、動きを減らす設定の見た目を撮れる。
-    if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('motion') === 'static') return true;
-    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  } catch {
-    return false;
-  }
-}
-
-export default function LpFlow({ onEvent = () => {} }) {
-  const [still] = useState(prefersStatic);
-  const [step, setStep] = useState(0);
-  const [playing, setPlaying] = useState(false); // 自動で進んでいる
-  const [inView, setInView] = useState(false);
-  const [finished, setFinished] = useState(false); // 最後まで見た（または止めた）
-  // 写真を読む範囲（いまの枚と次の枚まで。一度読んだ枚はそのまま）。
-  const [reach, setReach] = useState(1);
-  useEffect(() => { setReach((r) => Math.max(r, step + 1)); }, [step]);
-  const startedRef = useRef(false);
+export default function LpFlow({ onEvent = () => {}, note = true }) {
   const rootRef = useRef(null);
+  const seenRef = useRef(0);
 
-  // 画面に入ったら 1 回だけ自動で始める。外れたら止める。
+  // 画面に入ったら 1 回だけ記録。横にスワイプしたら、どの枚まで見たかを記録（増えたときだけ）。
   useEffect(() => {
     const el = rootRef.current;
     if (!el || typeof IntersectionObserver === 'undefined') return undefined;
+    let sent = false;
     const io = new IntersectionObserver(([e]) => {
-      setInView(e.isIntersecting);
-      if (e.isIntersecting && !startedRef.current) {
-        startedRef.current = true;
-        onEvent('flow_view', { still });
-        if (!still) setPlaying(true);
-      }
+      if (e.isIntersecting && !sent) { sent = true; onEvent('flow_view', {}); }
     }, { threshold: 0.35 });
     io.observe(el);
-    return () => io.disconnect();
-  }, [onEvent, still]);
-
-  // 1 枚ずつ進める（最後の 1 枚で止まる）。
-  const running = playing && inView;
-  useEffect(() => {
-    if (!running) return undefined;
-    const t = window.setTimeout(() => {
-      setStep((s) => {
-        if (s >= FLOW_STEPS.length - 1) { setPlaying(false); setFinished(true); return s; }
-        return s + 1;
-      });
-    }, FLOW_STEP_MS);
-    return () => window.clearTimeout(t);
-  }, [running, step]);
-
-  // 手順を押したら、その枚に切り替えて自動では進めない。
-  // 読み上げ（aria-live）は、手順を押したあとだけ（自動で進む間に 3.75 秒ごとに読み上げない・2026-10-02 ui-critic）。
-  const [announce, setAnnounce] = useState(false);
-  const pick = useCallback((i) => {
-    setAnnounce(true);
-    setStep(i);
-    setPlaying(false);
-    setFinished(true);
-    onEvent('flow_step', { i });
+    const track = el.querySelector('.lp-gallery');
+    const onScroll = () => {
+      const w = track.firstElementChild?.getBoundingClientRect().width || 1;
+      const i = Math.round(track.scrollLeft / w);
+      if (i > seenRef.current) { seenRef.current = i; onEvent('flow_step', { i }); }
+    };
+    track?.addEventListener('scroll', onScroll, { passive: true });
+    return () => { io.disconnect(); track?.removeEventListener('scroll', onScroll); };
   }, [onEvent]);
-  const replay = () => {
-    setStep(0);
-    setFinished(false);
-    setPlaying(true);
-    onEvent('flow_replay', {});
-  };
-  const pause = () => { setPlaying(false); setFinished(true); };
-  const resume = () => { setFinished(false); setPlaying(true); onEvent('flow_replay', { from: step }); };
-
-  // 止める／もう一度見る／次へ は、進み具合の行の右端（動いている間も見える場所・2026-10-02 ui-critic）。
-  let control = null;
-  if (playing) control = <button type="button" className="lp-textbtn" onClick={pause}>止める</button>;
-  else if (still) {
-    control = step < FLOW_STEPS.length - 1
-      ? <button type="button" className="lp-textbtn" onClick={() => pick(step + 1)}>次へ</button>
-      : <button type="button" className="lp-textbtn" onClick={() => pick(0)}>最初から</button>;
-  } else if (finished && step < FLOW_STEPS.length - 1) {
-    // 止めた・手順を押したあと（途中）: 今の枚から続きを見る（「もう一度見る」で最初に戻さない・2026-10-02 ui-critic）。
-    control = <button type="button" className="lp-textbtn" onClick={resume}>続きを見る</button>;
-  } else if (finished) control = <button type="button" className="lp-textbtn" onClick={replay}>もう一度見る</button>;
 
   return (
-    <div className={`lp-flow${running ? ' is-playing' : ''}`} ref={rootRef}>
-      <div className="lp-flow-progress">
-      <ol className="lp-flow-steps" aria-label="会話の流れ">
-        {FLOW_STEPS.map((s, i) => {
-          const state = i < step ? 'is-done' : i === step ? 'is-active' : '';
-          return (
-            <li key={s.name} className={state}>
-              <button type="button" onClick={() => pick(i)} aria-current={i === step ? 'step' : undefined}>
-                <span className="lp-flow-bar" aria-hidden="true">
-                  {/* 進んでいる枚だけ、時間に合わせて伸びる（key で枚ごとに最初から） */}
-                  <span key={`${i}-${step}-${running}`} className={i === step && running ? 'is-run' : ''} style={{ animationDuration: `${FLOW_STEP_MS}ms` }} />
-                </span>
-                <span className="lp-flow-num">{i + 1}</span>
-                <span className="lp-flow-title">{s.title}</span>
-              </button>
-            </li>
-          );
-        })}
+    <div className="lp-flow" ref={rootRef}>
+      <ol className="lp-gallery" aria-label="会話の流れ">
+        {FLOW_STEPS.map((s, i) => (
+          <li key={s.name}>
+            <p className="lp-gallery-num" aria-hidden="true">{i + 1}</p>
+            <h3 className="lp-gallery-title lp-wbr"><Phrases>{s.title}</Phrases></h3>
+            <p className="lp-gallery-body lp-wbr"><Phrases>{s.body}</Phrases></p>
+            <Shot name={s.name} alt={s.alt} className="lp-shot lp-gallery-shot" sizes="(min-width: 768px) 260px, 68vw" />
+          </li>
+        ))}
       </ol>
-        <div className="lp-flow-controls">{control}</div>
-      </div>
-      <div className="lp-flow-main">
-        <p className="lp-flow-caption" aria-live={announce ? 'polite' : undefined}>
-          <span className="lp-flow-caption-title">{step + 1}. {FLOW_STEPS[step].title}</span>
-          <span className="lp-flow-caption-body">{FLOW_STEPS[step].body}</span>
-        </p>
-        <div className="lp-flow-stage">
-          {FLOW_STEPS.map((s, i) => (
-            <div key={s.name} className={`lp-flow-frame${i === step ? ' is-on' : ''}`}>
-              {i <= reach
-                ? <Shot name={s.name} alt={s.alt} hidden={i !== step} />
-                : <div className="lp-shot lp-shot-blank" aria-hidden="true" />}
-            </div>
-          ))}
-        </div>
-        {/* 注記は写真のすぐ下（広い画面でも写真の列にそろう） */}
-        {/* 「画面は見本です。」と語り口の注記（画面のある場所に 1 か所・ヒーローがイラストのときはここだけ・2026-10-11） */}
-        <p className="lp-shot-note lp-wbr"><Phrases>{`${SAMPLE_NOTE}${VOICE_NOTE}`}</Phrases></p>
-      </div>
+      {/* 「画面は見本です。」と語り口の注記（ヒーローがイラストのときの置き場・写真のときはヒーローの下だけ） */}
+      {note && <p className="lp-shot-note lp-wbr"><Phrases>{`${SAMPLE_NOTE}${VOICE_NOTE}`}</Phrases></p>}
     </div>
   );
 }

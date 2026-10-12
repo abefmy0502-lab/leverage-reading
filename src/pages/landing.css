@@ -359,17 +359,19 @@ body.lp-active {
 }
 @keyframes lp-ill-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 
-/* 画面写真: 中身が主役。写真にだけ影を付ける */
+/* 画面写真: 本物の iPhone の画面（ステータスバー・ホームバーつき・scripts/lp-shots.mjs）を端末の枠に入れる（2026-10-12）。
+   枠は明暗どちらでも同じ濃い色（--focus-bg）。角は端末の形に合わせて幅の 14%（DESIGN の角丸 12 の例外＝写真の中の物の形）。 */
 .lp-shot {
+  --lp-device-w: min(var(--lp-shot-w), 72vw);
   display: block;
-  width: min(var(--lp-shot-w), 72vw);
+  width: var(--lp-device-w);
   height: auto;
   margin: 0 auto;
-  border: 1px solid var(--separator);
-  border-radius: var(--radius);
+  border: calc(var(--lp-device-w) * 0.028) solid var(--focus-bg);
+  border-radius: calc(var(--lp-device-w) * 0.14);
   box-shadow: var(--shadow-overlay);
   /* 読み込むまでの枠（遅延読み込みの間に空白に見せない） */
-  background: var(--fill);
+  background: var(--focus-bg);
 }
 /* まだ読んでいない枚（相談の流れの 3〜4 枚目）の場所取り。写真と同じ縦横の比 */
 .lp-shot-blank { aspect-ratio: 390 / 844; box-shadow: none; }
@@ -424,11 +426,11 @@ body.lp-active {
 .lp-ba .is-after .lp-ba-body { color: var(--text); }
 /* ② 相談の例（会話の流れの下） */
 .lp-asks { margin-top: var(--space-12); max-width: 36em; }
+.lp-asks-bubble { justify-self: end; max-width: 100%; padding: var(--space-3) var(--space-4); border-radius: var(--radius); background: var(--fill); color: var(--text); }
 .lp-asks-title { color: var(--text-2); font-size: var(--text-sub); font-weight: 600; }
-.lp-asks ul { list-style: none; margin: var(--space-3) 0 0; padding: 0; border-top: 1px solid var(--separator); }
-.lp-asks li { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-1); align-items: baseline; padding: var(--space-3) 0; border-bottom: 1px solid var(--separator); }
+.lp-asks ul { list-style: none; margin: var(--space-3) 0 0; padding: 0; display: grid; gap: var(--space-4); }
+.lp-asks li { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-1); justify-items: start; }
 /* 「」の始めの括弧を左の線にそろえる（全角の括弧の左の空きを詰める） */
-.lp-asks li > span:last-child { margin-left: -0.5em; }
 .lp-asks-who { color: var(--text-2); font-size: var(--text-meta); font-weight: 600; }
 
 /* ③ 柱 ②〜⑤（小さな画面写真＋1〜2 文）。スマホは写真を左に、PC は 2×2 */
@@ -441,13 +443,26 @@ body.lp-active {
 .lp-pillar-text > p:not(.lp-pillar-head) { color: var(--text-2); max-width: 30em; }
 .lp-pillars-note { text-align: left; margin-top: var(--space-8) !important; }
 /* 学習に使わないの 1 行（柱の後ろ） */
-.lp-root .lp-sec-head .lp-flow-lead { margin: var(--space-6) 0; }
-.lp-trust { list-style: none; margin: var(--space-8) 0 0; padding: 0; display: grid; gap: var(--space-2) var(--space-8); grid-template-columns: repeat(auto-fit, minmax(min(100%, 24em), 1fr)); color: var(--text-2); font-size: var(--text-sub); line-height: 1.5; }
+.lp-root .lp-sec-head .lp-flow-lead { margin: var(--space-8) 0 0; color: var(--text); font-size: var(--text-heading); font-weight: 600; line-height: 1.5; }
+.lp-trust { list-style: none; margin: 0 0 var(--space-12); padding: 0; display: grid; gap: var(--space-2) var(--space-8); grid-template-columns: repeat(auto-fit, minmax(min(100%, 24em), 1fr)); color: var(--text-2); font-size: var(--text-sub); line-height: 1.5; }
 .lp-trust li { display: flex; gap: var(--space-2); align-items: flex-start; }
 .lp-trust svg { flex-shrink: 0; margin-top: var(--space-1); color: var(--text-2); }
 
 /* ② 相談の流れ（LpFlow.jsx）: 4 枚の実画面を重ねて切り替える */
 .lp-flow-sec { background: var(--surface); border-block: 1px solid var(--separator); }
+/* 会話の流れ（実際の画面 4 枚）: スマホは横にスワイプ（1 枚ずつ止まる・次の枚の端が見える）、広い画面は 4 枚を並べる */
+.lp-gallery {
+  list-style: none; margin: 0 calc(-1 * var(--lp-gutter)); padding: 0 var(--lp-gutter) var(--space-4);
+  display: grid; grid-auto-flow: column; grid-auto-columns: 68vw; gap: var(--space-4);
+  overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-inline: var(--lp-gutter);
+  scrollbar-width: none;
+}
+.lp-gallery::-webkit-scrollbar { display: none; }
+.lp-gallery > li { scroll-snap-align: start; display: flex; flex-direction: column; min-width: 0; }
+.lp-root .lp-gallery-num { color: var(--accent); font-size: var(--text-sub); font-weight: 600; font-variant-numeric: tabular-nums; }
+.lp-root .lp-gallery-title { margin: var(--space-1) 0 0; font-size: var(--text-body); font-weight: 600; line-height: 1.5; }
+.lp-root .lp-gallery-body { margin: var(--space-1) 0 var(--space-4); color: var(--text-2); font-size: var(--text-sub); line-height: 1.5; flex: 1; }
+.lp-gallery .lp-gallery-shot { --lp-device-w: 68vw; width: 100%; margin: 0; box-shadow: var(--shadow-2, var(--shadow-overlay)); }
 .lp-flow { display: grid; gap: var(--space-6); }
 .lp-flow-steps {
   list-style: none;
@@ -533,6 +548,10 @@ body.lp-active {
 /* 料金は 2 枚（無料プラン（ずっと無料）と、プラン）。広い画面では横に並べる */
 .lp-plan-cards { display: grid; gap: var(--space-3); }
 .lp-plan-trial { font-weight: 400; color: var(--text-2); }
+.lp-plan.is-paid { border-color: var(--accent); }
+.lp-plan-badge { padding: 0 var(--space-2); border-radius: var(--radius); background: var(--accent-soft); color: var(--accent); font-size: var(--text-meta); font-weight: 600; line-height: 1.8; }
+.lp-plan-hero { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 var(--space-2); margin-top: var(--space-3) !important; color: var(--text-2); font-size: var(--text-sub); }
+.lp-plan-hero-num { color: var(--text); font-size: var(--text-title); font-weight: 600; line-height: 1.2; }
 /* 年額・月額の 2 行（カードが広いときは横に・文字を大きくすると縦に） */
 .lp-plan-rows { margin-top: var(--space-3); display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 13em), 1fr)); column-gap: var(--space-6); }
 .lp-plan-rows.is-founding { grid-template-columns: minmax(0, 1fr); } /* 期間中は年額の条件が長いので縦に */
@@ -690,7 +709,6 @@ body.lp-active {
   .lp-hero-shot figcaption { width: var(--lp-shot-w); }
 
   /* 相談の流れ: 左に手順（名前つき）、右に説明と画面写真 */
-  .lp-flow { grid-template-columns: minmax(0, 20em) auto; justify-content: start; gap: var(--space-16); align-items: start; }
   .lp-flow-steps { grid-template-columns: minmax(0, 1fr); gap: 0; }
   .lp-flow-steps button {
     grid-template-columns: auto minmax(0, 1fr);
@@ -704,23 +722,27 @@ body.lp-active {
   .lp-flow-controls { justify-content: flex-start; margin-right: 0; margin-left: calc(-1 * var(--space-3)); }
   .lp-flow-num, .lp-flow-title { font-size: var(--text-body); line-height: 1.5; }
   .lp-flow-title { position: static; width: auto; height: auto; overflow: visible; clip: auto; white-space: normal; font-weight: 600; word-break: auto-phrase; }
-  .lp-flow-main { width: var(--lp-shot-w); }
   .lp-flow-stage .lp-shot { margin: 0; }
   .lp-shot-note { text-align: left; }
 
   .lp-media { grid-template-columns: minmax(0, 26em) auto; justify-content: start; gap: var(--space-16); align-items: center; }
   .lp-root { --lp-pillar-w: calc(var(--lp-shot-w) * 4 / 5); }
-  .lp-pillars > li { grid-template-columns: var(--lp-pillar-w) minmax(0, 1fr); }
-  .lp-pillar-shot { order: 0; margin: 0; }
+  /* 広い画面: 柱は文が上・画面が下のカードを横に並べる（2 列 → 1100 以上は 3 列・2026-10-12） */
+  .lp-pillars > li { grid-template-columns: minmax(0, 1fr); align-items: start; align-content: start; }
+  .lp-pillar-shot { order: 2; margin: 0; width: min(100%, 260px); }
+  .lp-pillar-shot .lp-shot { --lp-device-w: 260px; }
   /* 広い画面は手順の名前が左の一覧にあるので、写真の上の題は出さない（題が 2 回出ない） */
   .lp-flow-caption-title { display: none; }
   .lp-flow-caption { min-height: calc(var(--text-sub) * 1.5 * 2); }
   /* 1 行に柱 1 つ（写真｜文） */
-  .lp-pillars { grid-template-columns: repeat(auto-fit, minmax(min(100%, 36em), 1fr)); column-gap: var(--space-12); row-gap: var(--space-16); }
+  .lp-pillars { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--space-12); row-gap: var(--space-16); }
   .lp-ba { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
   .lp-narrow > .lp-ba { max-width: none; }
   .lp-narrow > picture:has(.lp-art-wide) { max-width: 40rem; }
-  .lp-asks li { grid-template-columns: 8em minmax(0, 1fr); gap: var(--space-3); }
+  .lp-asks li { grid-template-columns: 9em auto; justify-content: start; gap: var(--space-3); align-items: center; }
+  /* 会話の流れは 4 枚を横に並べる（スワイプしない） */
+  .lp-gallery { margin: 0; padding: 0; grid-auto-flow: row; grid-auto-columns: auto; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-6); overflow: visible; }
+  .lp-gallery .lp-gallery-shot { --lp-device-w: min(22vw, 260px); }
   .lp-media-shot .lp-shot, .lp-media-shot .lp-share-img { margin: 0; }
   .lp-media-shot { text-align: left; }
   .lp-media-shot figcaption { max-width: var(--lp-share-w); }
@@ -735,14 +757,19 @@ body.lp-active {
 }
 
 @media (min-width: 1100px) {
+  .lp-pillars { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .lp-root { --lp-sec: var(--lp-sec-lg); }
   .lp-shot { width: var(--lp-shot-w-lg); }
   .lp-hero-shot figcaption { width: var(--lp-shot-w-lg); }
-  .lp-flow-main { width: var(--lp-shot-w-lg); }
 }
 
 /* ============ PC 向けの QR コード（App Store の URL があるときだけ） ============ */
 .lp-cta-row { display: flex; align-items: center; gap: var(--space-6); flex-wrap: wrap; }
+/* スマホは主ボタンを全幅に（親指で押しやすく・2026-10-12） */
+@media (max-width: 767px) {
+  .lp-cta-row .lp-btn-large { flex: 1 1 100%; }
+  .lp-root { --lp-pillar-w: min(var(--lp-shot-w), 60vw); }
+}
 .lp-qr { display: none; align-items: center; gap: var(--space-3); }
 .lp-qr svg { border-radius: var(--radius); flex-shrink: 0; }
 .lp-qr p { color: var(--text-2); font-size: var(--text-meta); line-height: 1.5; text-align: left; }

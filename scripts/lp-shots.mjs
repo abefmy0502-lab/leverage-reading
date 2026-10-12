@@ -106,7 +106,9 @@ const SHOTS = {
   hero: async (p) => {
     await askBook(p);
     await hideAuthorName(p);
-    await scrollToText(p, VOICE_Q, 16);
+    // 会話のいちばん上（「メモ N 件から答えます」→ 送った相談 → 本の語り口の答え）を見せる（2026-10-12）
+    await p.waitForTimeout(800);
+    await p.evaluate(() => { const el = document.querySelector('.chat-scroll'); if (el) el.scrollTop = 0; });
   },
   // LP「読んだ本と、対話する」の 4 コマ: 一行を残す → 本に相談する → 本の語り口で聞き返す → 本とページで確かめる
   // 1. 一行を残す: メモを書いて保存し、本の詳細のメモの一覧（いちばん上に今の一行）を見せる
@@ -117,7 +119,9 @@ const SHOTS = {
     await p.locator('[role=dialog] button:has-text("保存")').last().click(); await p.waitForTimeout(2500);
     // 保存の知らせ（ほかの行動へのすすめ）は写さない
     await p.evaluate(() => document.querySelectorAll('[role=status], .toast, [data-toast]').forEach((el) => { el.style.display = 'none'; }));
-    await scrollToTextAny(p, VOICE_LINE, 420);
+    // 前のメモのカードの頭（p.132）を上にそろえる（カードが途中で切れないように・2026-10-12）
+    await scrollToTextAny(p, '承認を求めて', 64);
+    await p.evaluate(() => window.scrollBy(0, 0));
   },
   'flow-talk': async (p) => {
     await openBook(p);
@@ -258,6 +262,9 @@ const SHOTS = {
 };
 // メモのシートは下半分だけを切り出す（背後のぼかしたホームを見せない）。値は @2x の px。
 const CROP_TOP = { memo: 846, 'flow-line': 0 };
+// iPhone のステータスバーとホームバーの高さ（pt・iPhone 15 相当）。
+const STATUS_H = 54;
+const HOME_H = 34;
 
 function browserOptions() {
   if (process.env.PW_EXE) return { executablePath: process.env.PW_EXE };
@@ -336,8 +343,11 @@ const EXTRA = new Set(['answer', 'sources', 'memo', 'recall', 'search', 'flow-wo
 for (const [name, steps] of Object.entries(SHOTS)) {
   if (only.length ? !only.includes(name) : EXTRA.has(name)) continue;
   for (const scheme of ['light', 'dark']) {
+    // 本物の iPhone の画面に見えるように（2026-10-12 オーナー「実際の画面は本物のスクショを」）: アプリは
+    //   上のステータスバー（54）と下のホームバー（34）を除いた高さで撮り、あとで 390×844 に
+    //   「9:41・電波・Wi-Fi・電池」とホームバーを描き足す（iPhone 15 相当・Apple のスクショの決まりの時刻）。
     const ctx = await browser.newContext({
-      viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true,
+      viewport: { width: 390, height: 844 - STATUS_H - HOME_H }, deviceScaleFactor: 2, isMobile: true, hasTouch: true,
       locale: 'ja-JP', colorScheme: scheme,
     });
     const page = await ctx.newPage();
@@ -348,15 +358,43 @@ for (const [name, steps] of Object.entries(SHOTS)) {
       await page.waitForTimeout(700);
       const b64 = (await page.screenshot()).toString('base64');
       for (const w of [390, 780]) {
-        const data = await encoder.evaluate(async ({ b64, w, crop }) => {
+        const data = await encoder.evaluate(async ({ b64, w, crop, top, bottom }) => {
           const img = new Image(); img.src = `data:image/png;base64,${b64}`; await img.decode();
           const sh = img.height - crop;
+          // 1) 390×844 相当（@2x＝780×1688）の画面を作る: 上下の帯はアプリの端の色でつなぐ
+          const k = img.width / 390;
+          const full = document.createElement('canvas');
+          full.width = img.width; full.height = Math.round((sh / k + top + bottom) * k);
+          const f = full.getContext('2d');
+          const probe = document.createElement('canvas'); probe.width = img.width; probe.height = img.height;
+          const pg = probe.getContext('2d'); pg.drawImage(img, 0, 0);
+          const colorAt = (y) => { const d = pg.getImageData(4, y, 1, 1).data; return [d[0], d[1], d[2]]; };
+          const [tc, bc] = [colorAt(crop + 1), colorAt(img.height - 2)];
+          f.fillStyle = `rgb(${tc})`; f.fillRect(0, 0, full.width, top * k);
+          f.drawImage(img, 0, crop, img.width, sh, 0, top * k, img.width, sh);
+          f.fillStyle = `rgb(${bc})`; f.fillRect(0, top * k + sh, full.width, bottom * k);
+          const ink = (rgb) => (0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2] > 140 ? '#000' : '#fff');
+          // 2) ステータスバー（9:41・電波・Wi-Fi・電池）
+          f.save(); f.scale(k, k); f.fillStyle = ink(tc); f.strokeStyle = ink(tc);
+          f.font = '600 17px -apple-system, "SF Pro Text", "Helvetica Neue", sans-serif';
+          f.textAlign = 'center'; f.textBaseline = 'middle'; f.fillText('9:41', 66, 31);
+          const bx = 292; [4, 6.5, 9, 11.5].forEach((h, i) => { f.beginPath(); f.roundRect(bx + i * 4.6, 36 - h, 3, h, 1); f.fill(); });
+          f.lineWidth = 2.2; f.lineCap = 'round';
+          [[9, 0], [5.6, 0], [2.2, 0]].forEach(([r]) => { f.beginPath(); f.arc(319, 37, r, -Math.PI * 0.76, -Math.PI * 0.24); f.stroke(); });
+          f.beginPath(); f.arc(319, 36.4, 1.4, 0, Math.PI * 2); f.fill();
+          f.lineWidth = 1; f.globalAlpha = 0.4; f.beginPath(); f.roundRect(334.5, 25.5, 24, 12, 3.5); f.stroke();
+          f.beginPath(); f.roundRect(360, 29.5, 1.6, 4, 1); f.fill(); f.globalAlpha = 1;
+          f.beginPath(); f.roundRect(336.5, 27.5, 20, 8, 2); f.fill();
+          // 3) ホームバー
+          f.beginPath(); f.roundRect(195 - 67, top + sh / k + bottom - 13, 134, 5, 2.5); f.fill();
+          f.restore();
+          // 4) 書き出す幅に縮める
           const c = document.createElement('canvas');
-          c.width = w; c.height = Math.round(sh * w / img.width);
+          c.width = w; c.height = Math.round(full.height * w / full.width);
           const g = c.getContext('2d'); g.imageSmoothingQuality = 'high';
-          g.drawImage(img, 0, crop, img.width, sh, 0, 0, c.width, c.height);
-          return c.toDataURL('image/webp', 0.8).split(',')[1];
-        }, { b64, w, crop: CROP_TOP[name] || 0 });
+          g.drawImage(full, 0, 0, c.width, c.height);
+          return c.toDataURL('image/webp', 0.86).split(',')[1];
+        }, { b64, w, crop: CROP_TOP[name] || 0, top: STATUS_H, bottom: HOME_H });
         writeFileSync(`${OUT}/${name}-${scheme}-${w}.webp`, Buffer.from(data, 'base64'));
       }
       console.log(`✓ ${name} (${scheme})`);
