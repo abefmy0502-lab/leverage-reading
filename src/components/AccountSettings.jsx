@@ -1000,13 +1000,14 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                     </p>
                   )}
                   {/* 文節の切れ目でだけ折り返す（「でき／ます」と語の途中で切らない・2026-10-04）。 */}
-                  <p style={{ ...noteStyle, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+                  {/* iPhone のアプリでは下の「プランを管理（App Store）」の 1 行に任せ、同じ説明を重ねない（2026-10-12 ui-critic） */}
+                  {!nativeView && <p style={{ ...noteStyle, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
                     {withPhraseBreaks(nativeView
                       ? '解約やプランの変更は、App Store のサブスクリプション設定からいつでもできます。解約してもデータは残ります。'
                       : subscription?.stripeCustomerId
                         ? '解約、カードの変更、請求履歴の確認は、下のボタンからいつでもできます。解約してもデータは残ります。'
-                        : 'アプリで購入した場合は、iPhone の「設定」→ 名前 →「サブスクリプション」からいつでも解約できます。解約してもデータは残ります。')}
-                  </p>
+                        : 'アプリで購入した場合は、iPhone の設定アプリの「サブスクリプション」からいつでも解約できます。解約してもデータは残ります。')}
+                  </p>}
                   {!nativeView && subscription?.stripeCustomerId ? (
                     <button
                       type="button"

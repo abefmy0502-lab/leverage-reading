@@ -121,6 +121,9 @@ export function phrasePieces(text, { scriptBreaks = false } = {}) {
       else if (joined.length && LEAD_MIDDOT_RE.test(ph)) {
         // 「·」で始まる文節は前の文節へ（前の文節の終わりの空きは折り返さない空きに）。
         joined[joined.length - 1] = `${joined[joined.length - 1].replace(/[ \u00a0]+$/, '')}\u00a0${ph.replace(/^[ \u00a0\u2060]+/, '')}`;
+      } else if (joined.length && /^[？！?!。、」』）)]+$/.test(ph.trim())) {
+        // 文末の記号だけの文節（「…本は／？」）は前の文節へ（記号だけが次の行に落ちない・2026-10-12 ui-critic）。
+        joined[joined.length - 1] += ph;
       } else joined.push(ph);
     });
     joined.forEach((ph) => { (scriptBreaks ? scriptBreakPieces(ph) : [ph]).forEach((pc) => out.push(pc)); });

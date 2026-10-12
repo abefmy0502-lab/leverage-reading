@@ -39,7 +39,7 @@ import { TOKEN_COSTS, monthDayLabelJa, remainingAnswersLabel } from '../lib/toke
 import { showFreeTokenCount } from '../lib/tokenAmounts';
 import { isLowTokens } from '../lib/tokenUsage';
 import TokenUsageSheet from './TokenUsageSheet';
-import { shouldShowTrialNudge, trialNudgeCopy, isTrialNudgeDone, markTrialNudgeDone, normalizeTrialLabel, trialCancelShortLine } from '../lib/trialNudge';
+import { shouldShowTrialNudge, trialNudgeCopy, isTrialNudgeDone, markTrialNudgeDone, normalizeTrialLabel, trialCancelShortLine, shouldShowTrialEnding, trialEndingCopy, trialEndingDismissedFor, markTrialEndingDismissed } from '../lib/trialNudge';
 import { getIntroOffer } from '../lib/iap';
 import { firstAnswerTrialGroup, isFirstAnswerTrialMoment, canOfferFirstAnswerTrial, holdGrownNudge, firstAnswerTrialText, isFirstAnswerTrialDone, markFirstAnswerTrialDone } from '../lib/firstAnswerTrial';
 import { shouldAskForReview, markReviewAsked, askForReview } from '../lib/reviewRequest';
@@ -1517,7 +1517,10 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       //   🏁 問いで終わった答え（あなたに聞きたいこと）も同じく、問いの箱（と中の進み具合の 1 行）が見えるところまで（2026-10-08 ui-critic）。
       if (!wasAborted && ((typeof usedDecide === 'boolean' ? usedDecide : expectAction) || answerAsks(assistantContent))) revealStepRef.current = true;
       // 🧪 はじめての相談の答えが出きったら、その下に 1 回だけ 7 日間無料（見せる組だけ・lib/firstAnswerTrial.js）。
-      offerFirstTrialAfter({ id: answerId, isFirst: !prevAskAt && !opts.skipUserInsert, aborted: wasAborted, refunded: !!tokenRefund, grounded, memoCount });
+      //   2026-10-12（_v2）: はじめての相談（聞き返しを含む 1 つの会話）の「結論＋明日からできる一歩」の答えの下に出す。
+      //   はじめの答えは聞き返し（問い）なので、返事を考えている途中にすすめない＝価値の頂点（次にやることが決まった瞬間）で出す。
+      if (!prevAskAt && !opts.skipUserInsert) firstThreadRef.current = true;
+      offerFirstTrialAfter({ id: answerId, isFirst: firstThreadRef.current && !!extractActionLine(assistantContent), aborted: wasAborted, refunded: !!tokenRefund, grounded, memoCount });
       // AI 応答を正常に得て確定できた時のみ計測 (中止/中断パスは除外、PII なし)。
       if (!wasAborted) {
         track(EVENTS.AI_USED, { feature: 'brain', mode: askMode });
@@ -1657,6 +1660,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // clearedAt を「今」にすることで、それ以降の新規メッセージだけが chat に
   // 出るようになる。
   const clearConversation = () => {
+    firstThreadRef.current = false;
     // 境界は「保存済みの最新メッセージの時刻（サーバー時刻）」。端末の時計を使うと、
     // 時計が進んでいる端末で次の質問と答えが会話から消えていた。
     const saved = messages.filter((m) => m.createdAt && !/^(err|streaming|bg-wait)-/.test(String(m.id)) && !isLocalMsg(m));
@@ -1959,6 +1963,15 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     return () => { alive = false; };
   }, [nudgeWanted, trialOffer, hadPlan, user?.id]);
   const showNudge = nudgeWanted && trialOffer !== null;
+  // ⏰ 7 日間無料が終わる前の知らせ（lib/trialNudge.js の shouldShowTrialEnding・2026-10-12）
+  const [trialEndingClosed, setTrialEndingClosed] = useState(false);
+  const showTrialEnding = !trialEndingClosed && shouldShowTrialEnding({ plan, periodEnd: trialEndsAt, dismissedFor: trialEndingDismissedFor() });
+  const trialEndingSeenRef = useRef(false);
+  useEffect(() => {
+    if (!showTrialEnding || trialEndingSeenRef.current) return;
+    trialEndingSeenRef.current = true;
+    track('trial_ending', { action: 'shown' });
+  }, [showTrialEnding]);
   // 🎁 無料のトークンを使い切ったときの案内（FreeUsedCard）のボタン: 7 日間無料を使える人には「7 日間無料で試す」、
   //   使えない・分からない・月額だけに無料期間があるとき（創業メンバー価格のあいだ）は「プランを見る」（2026-10-10）。
   const [freeUsedOffer, setFreeUsedOffer] = useState('');
@@ -2010,6 +2023,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   firstTrialRef.current = { group: trialAbGroup, plan, hadPlan, offer: firstTrialOffer || '',
     // ③ を閉じた・押した（端末の印）か、この画面で ③ を見た。お試しモードの ③ を隠す決まり（nudgeDone）とは別に、本当の印で見る。
     otherNudge: isTrialNudgeDone() || nudgeSeenRef.current };
+  // はじめての相談の会話の中か（はじめの答えで立て、「新しい相談をはじめる」で下ろす）。
+  const firstThreadRef = useRef(false);
   const offerFirstTrialAfter = (answer) => {
     const st = firstTrialRef.current;
     if (!st.group || !isFirstAnswerTrialMoment(answer)) return;
@@ -2376,6 +2391,12 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                     行き止まりにせず、案内カード（プランは文字ボタン）の下に見出しと相談例をいつもどおり出す。 */}
                 {freeUsedUp && (
                   <FreeUsedCard tokenAllowance={tokenNextAllowance ?? tokenAllowance} cta={freeUsedCta} onOpen={() => openPaywall('free_used')} style={{ marginBottom: 'var(--space-6)' }} />
+                )}
+                {showTrialEnding && (
+                  <TrialEndingCard
+                    copy={trialEndingCopy({ periodEnd: trialEndsAt, memoCount: ownMemoTotal || 0 })}
+                    onDismiss={() => { markTrialEndingDismissed(trialEndsAt); setTrialEndingClosed(true); track('trial_ending', { action: 'dismiss' }); }}
+                  />
                 )}
                 {showNudge && (
                   <TrialNudgeCard
@@ -2786,12 +2807,17 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
 // 🌱 相談相手が育ってきました（無料プランで自分のメモが 10 件たまったとき・1 回だけ）。
 // 相談例の上に置く案内カード（DESIGN §5 の案内カード＝.card の面・アイコンなし）。右上の × で閉じる。
 // 主ボタンは有料プランの画面を重ねて開く（reason 'grown'）。答えの途中には出さない（親が empty で決める）。
-function TrialNudgeCard({ copy, onOpen, onDismiss }) {
+// ⏰ 7 日間無料が終わる前の知らせ（事実だけ・すすめるボタンは置かない・閉じられる）。
+function TrialEndingCard({ copy, onDismiss }) {
+  return <TrialNudgeCard copy={{ ...copy, cta: '' }} onDismiss={onDismiss} titleId="brain-trial-ending-title" />;
+}
+
+function TrialNudgeCard({ copy, onOpen, onDismiss, titleId = 'brain-nudge-title' }) {
   return (
-    <section aria-labelledby="brain-nudge-title" style={{ ...cardStyle, marginBottom: 'var(--space-6)' }}>
+    <section aria-labelledby={titleId} style={{ ...cardStyle, marginBottom: 'var(--space-6)' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)' }}>
         {/* 見出しとして読み上げる（見た目は本文の大きさ・600 のまま） */}
-        <h3 id="brain-nudge-title" style={{ flex: 1, minWidth: 0, margin: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5 }}>
+        <h3 id={titleId} style={{ flex: 1, minWidth: 0, margin: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5 }}>
           {copy.title}
         </h3>
         {/* 押せる範囲 44 のまま、負の余白で × の見た目をカードの余白 16 の角にそろえる */}
@@ -2811,9 +2837,12 @@ function TrialNudgeCard({ copy, onOpen, onDismiss }) {
           <span key={i} style={{ display: 'inline-block' }}>{part}</span>
         ))}
       </p>
-      <button type="button" onClick={onOpen} style={{ ...uiBtnPrimary, marginTop: 'var(--space-3)' }}>
-        {copy.cta}
-      </button>
+      {copy.cta && (
+        // 7 日間無料を使えない人（kind 'plan'）には塗りのボタンにしない＝画面の主役（相談を送る）より目立たせない（2026-10-12 ui-critic）
+        <button type="button" onClick={onOpen} style={{ ...(copy.kind === 'plan' ? uiBtnGhost : uiBtnPrimary), marginTop: 'var(--space-3)' }}>
+          {copy.cta}
+        </button>
+      )}
     </section>
   );
 }

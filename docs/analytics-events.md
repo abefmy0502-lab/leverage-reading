@@ -168,3 +168,8 @@ where event = 'action_added' and created_at > now() - interval '30 days' group b
 
 ログインしていない訪問者の記録（`lp_view`・`cta_click`・`section_view`・`waitlist_submit`・`login_click`・`footer_link`・`hero_secondary` など）は `analytics_events` ではなく `lp_events` に入る（`api/lp-event.js`・`supabase_lp_events.sql`）。公開のお知らせの登録そのものは `lp_waitlist`（`api/lp-waitlist.js`）。一覧と集計例は `docs/lp-measurement.md`（2026-10-05）。
 
+
+## 2026-10-12 追加・変更（初ログイン → 有料の転換を測る）
+- `checkout_started` / `checkout_completed` に `reason`（有料プランの画面を開いた入口: free_used・grown・first_answer・feature・free_ocr_used・none など）を足した。`checkout_completed` には `trial`（7 日間無料で始めたか）も。
+- `paywall_closed {reason}` を新設（有料プランの画面を買わずに閉じた）。`paywall_viewed` − `checkout_started` − `paywall_closed` で画面の中の離脱を見る。
+- `first_answer_trial` は実験の名前を `first_answer_trial_2026_11_v2` に改めた（出す場所を「はじめての相談の結論＋明日からできる一歩の答えの下」に変更）。前の組と混ぜて比べない。

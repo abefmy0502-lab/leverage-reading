@@ -50,7 +50,7 @@ export function trialNudgeCopy({ offer = '', offerPlan = 'both' } = {}) {
   if (offer && offerPlan === 'monthly') {
     return {
       title,
-      body: `メモがたまってきました。月額プランは ${offer}で、AI 選書・読書計画シートなど、すべての AI を試せます。`,
+      body: `月額プランは ${offer}。AI 選書や読書計画シートも試せます。`,
       cta: 'プランを見る',
       kind: 'trial',
     };
@@ -58,14 +58,14 @@ export function trialNudgeCopy({ offer = '', offerPlan = 'both' } = {}) {
   if (offer) {
     return {
       title,
-      body: `メモがたまってきました。${offer}で、AI 選書・読書計画シートなど、すべての AI を試せます。`,
+      body: `${offer}で、AI 選書や読書計画シートも試せます。`,
       cta: `${offer}で試す`,
       kind: 'trial',
     };
   }
   return {
     title,
-    body: `メモがたまってきました。AI 選書・読書計画シートなど、すべての AI を使えるプランがあります。`,
+    body: `AI 選書や読書計画シートも使えるプランがあります。`,
     cta: 'プランを見る',
     kind: 'plan',
   };
@@ -158,4 +158,34 @@ export function trialCancelShortLine(periodEnd) {
   if (t == null) return '';
   const d = new Date(t + 9 * 3600 * 1000);
   return `続けないときは ${d.getUTCMonth() + 1}月${d.getUTCDate()}日までに解約（無料プランに戻ります）`;
+}
+
+// ⏰ 7 日間無料が終わる前の知らせ（2026-10-12・オーナー「初ログインから有料にする可能性を最大に」）。
+//   解約の期限（終わる 24 時間前）の 36 時間前から期限まで、相談の画面のいちばん上に 1 回だけ（閉じたら出さない）。
+//   すすめる文ではなく事実だけ（いつまで・そのあとどうなるか・解約の期限・メモは残る）。「あと N 日」は出さない（日付だけ）。
+//   黙って課金されない安心が、7 日間無料を始める人と続ける人を増やす（返金・低い評価も防ぐ）。
+export const TRIAL_ENDING_WINDOW_HOURS = 36;
+export function shouldShowTrialEnding({ plan, periodEnd, now = Date.now(), dismissedFor = '' }) {
+  if (plan !== 'trial') return false;
+  const cancelBy = trialCancelByTime(periodEnd);
+  if (cancelBy == null) return false;
+  if (dismissedFor && dismissedFor === String(periodEnd)) return false;
+  return now >= cancelBy - TRIAL_ENDING_WINDOW_HOURS * 3600 * 1000 && now < cancelBy;
+}
+export function trialEndingCopy({ periodEnd, memoCount = 0 }) {
+  const end = new Date(Date.parse(periodEnd) + 9 * 3600 * 1000);
+  const by = new Date(trialCancelByTime(periodEnd) + 9 * 3600 * 1000);
+  const md = (d) => `${d.getUTCMonth() + 1}月${d.getUTCDate()}日`;
+  const memo = memoCount > 0 ? `あなたのメモ ${memoCount} 件が、相談相手の材料になっています。` : '';
+  return {
+    title: `7 日間無料は ${md(end)}まで`,
+    body: `${memo}このあとは自動で更新されます。続けないときは ${md(by)}までに App Store で解約してください。メモはそのまま残ります。`,
+  };
+}
+const TRIAL_ENDING_KEY = 'orime-trial-ending-dismissed';
+export function trialEndingDismissedFor() {
+  try { return localStorage.getItem(TRIAL_ENDING_KEY) || ''; } catch { return ''; }
+}
+export function markTrialEndingDismissed(periodEnd) {
+  try { localStorage.setItem(TRIAL_ENDING_KEY, String(periodEnd)); } catch { /* ignore */ }
 }

@@ -449,13 +449,13 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
           <div style={body}>
             <h1 style={title}>{withPhraseBreaks('これまで読んで、')}<br />{withPhraseBreaks('印象に残っている本は？')}</h1>
             {/* 1 文にまとめる（SPEC §1-1）。句のまとまりで折り返す（「はじめられ／ます」と割らない） */}
+            {/* 括弧なしの短い 2 文（2026-10-12 ui-critic・句のまとまりで折り返す） */}
             <p style={sub}>
-              <span style={{ display: 'inline-block' }}>{RECOMMENDED_BOOKS}&nbsp;冊ほどがおすすめです</span>
-              {/* 「（」の左の空き（全角の半分）を打ち消す＝行の頭に来ても上の行と文字の頭がそろう（書体の palt に頼らない） */}
-              <span style={{ display: 'inline-block', marginLeft: '-0.5em' }}>（{MIN_BOOKS}&nbsp;冊からはじめられます）</span>
+              <span style={{ display: 'inline-block' }}>{MIN_BOOKS}&nbsp;冊から始められます。</span>
+              <span style={{ display: 'inline-block' }}>{RECOMMENDED_BOOKS}&nbsp;冊ほどがおすすめです。</span>
             </p>
             {onImport && (
-              <button type="button" onClick={onImport} style={{ ...btnLink, padding: 0, marginTop: 'var(--space-1)' }}>
+              <button type="button" onClick={onImport} style={{ ...btnLink, padding: 0, marginTop: 'var(--space-3)' }}>
                 {/* ホーム・初回ガイド・設定と同じ短い名前（語の途中で割れない・2026-09-29） */}
                 ほかのアプリから取り込む
               </button>

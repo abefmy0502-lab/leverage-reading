@@ -139,7 +139,7 @@ const PLAN_COMPARE = [
   // 無料プランは、はじめの月（アカウントを作った月）だけ 60 トークン＝AI の答え 約 6 回。
   // 写真から書き起こしは無料プランでも毎月 10 回（トークンとは別・2026-10-02）。
   // 無料プランの AI は 相談・この本で学べること・写真から書き起こし（2026-10-11 リリース前点検で並べた）。
-  { name: '無料プラン（ずっと無料）', amount: `毎月 ${FREE_TOKENS.toLocaleString()} トークン`, scope: `AI の答え ${answerCountLabel(FREE_TOKENS)}・はじめの月は ${answerCountLabel(FREE_FIRST_MONTH_TOKENS)}`, lead: 'AI：', items: ['相談', 'この本で学べること', `写真から書き起こし 毎月 ${FREE_OCR_PER_MONTH} 回`, 'メモ', '記録', '振り返り', '写真で共有'] },
+  { name: '無料プラン（ずっと無料）', amount: `毎月 ${FREE_TOKENS.toLocaleString()} トークン`, scope: `AI の答え ${answerCountLabel(FREE_TOKENS)}・はじめの月は ${answerCountLabel(FREE_FIRST_MONTH_TOKENS)}`, lead: 'AI：', items: ['相談', 'この本で学べること', `写真から書き起こし 毎月 ${FREE_OCR_PER_MONTH} 回`], more: ['メモ', '記録', '振り返り', '写真で共有'] },
   // 機能名は語の途中で折り返さない（「写真から書き起こし」が割れないよう、名前ごとに nowrap で並べる）。
   { name: 'プラン', amount: `毎月 ${PAID_TOKENS.toLocaleString()} トークン`, scope: `AI の答え ${answerCountLabel(PAID_TOKENS)}`, lead: 'すべての AI：', items: ['AI 選書', '読書計画シート', '写真から書き起こし'] },
 ];
@@ -184,6 +184,12 @@ function PlanCompare({ onlyPlan = false, trial = '', example = TOKEN_EXAMPLE }) 
               ? row.items.map((f, j) => <span key={f}>{j > 0 && '・'}<span style={{ whiteSpace: 'nowrap' }}>{f}</span></span>)
               : row.text}
           </p>
+          {/* AI ではない機能は別の行に（「AI：…・メモ・記録」と並べると全部 AI に読めた・2026-10-12 ui-critic） */}
+          {row.more && (
+            <p style={{ ...metaText, marginTop: 0 }}>
+              {row.more.map((f, j) => <span key={f}>{j > 0 && '・'}<span style={{ whiteSpace: 'nowrap' }}>{f}</span></span>)}
+            </p>
+          )}
         </div>
       ))}
       <p style={{ ...metaText, padding: 'var(--space-2) var(--space-4) var(--space-3)', borderTop: '1px solid var(--separator)' }}>
@@ -395,6 +401,8 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
   // 創業メンバー価格の期間か（LP と同じ env・開くたびに読む＝終わる日を過ぎたら出ない）。
   const [founding] = useState(() => readFoundingOffer());
   // Web のキーボードの Esc で閉じる（アプリの上に重ねて開いたときだけ・2026-09-30）。購入の手続き中・上に設定を
+  // 📊 閉じた（買わずに戻った）ことを入口ごとに数える（2026-10-12・paywall_viewed との差が離脱）。
+  const closePaywall = () => { track('paywall_closed', { reason: reason || 'none' }); onClose?.(); };
   // 開いている間・ほかのダイアログが上にあるときは閉じない（そちらが Esc を受ける）。
   useEffect(() => {
     if (!onClose) return undefined;
@@ -405,7 +413,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
       const above = Array.from(document.querySelectorAll('[role="dialog"][aria-modal="true"], [role="alertdialog"]'))
         .some((el) => !el.hasAttribute('data-paywall-overlay') && !el.closest('[inert]'));
       if (above) return;
-      onClose();
+      closePaywall();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -530,7 +538,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
     setPending(plan);
     // 📊 課金ファネルの計測（購入導線に入る直前・plan の enum だけ・PII なし）。
     // memos: ホームで最後に数えたメモの件数の区分（そのままの数は送らない・数えていなければ unknown・2026-10-10）。
-    track(EVENTS.CHECKOUT_STARTED, { plan, memos: memoCountBucket(lastHomeMemoCount()) });
+    track(EVENTS.CHECKOUT_STARTED, { plan, memos: memoCountBucket(lastHomeMemoCount()), reason: reason || 'none' });
     try {
       // App Store の購入シート（RevenueCat）。
       const res = await purchasePlan(plan, user?.id);
@@ -538,10 +546,11 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
       // 購入成功 → 端末ローカルの entitlement で即アンロック（webhook 反映を待たない）。
       // onPurchased=PaywallGate の refresh → useSubscription が RevenueCat の
       // ローカル権利を見て isActive=true → App が自動で Paywall を外す。
-      track(EVENTS.CHECKOUT_COMPLETED, { plan });
       // 無料期間で始まったか: ストアの答え（periodType）を優先し、取れなければ画面に出した無料期間で判断。
       // INTRO は有料の初回価格（創業メンバー価格）＝無料期間ではない（2026-10-02）。
       const startedTrial = res?.periodType ? /TRIAL/i.test(res.periodType) : !!trial;
+      // trial: 7 日間無料で始めたか／reason: どの入口から開いた画面か（2026-10-12・入口ごとの転換を比べる）
+      track(EVENTS.CHECKOUT_COMPLETED, { plan, trial: startedTrial, reason: reason || 'none' });
       showPurchasedToast(res?.expiresAt || null, startedTrial);
       await onPurchased?.();
       setPending(null);
@@ -642,7 +651,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
           {onClose && (
             <button
               type="button"
-              onClick={onClose}
+              onClick={closePaywall}
               aria-label="閉じる"
               style={{ width: 44, height: 44, marginRight: 'calc(-1 * var(--space-3))', display: 'grid', placeItems: 'center', border: 'none', background: 'transparent', color: 'var(--text-2)', cursor: 'pointer', flexShrink: 0 }}
             >
@@ -657,7 +666,8 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
         >
           {/* 文節ごとの塊（LP の h1 と同じ）。<br> で決め打ちせず、入らないときは塊ごとに次の行へ
               （大きな文字で「読んだ本／が、」と割れていた・2026-10-02 ui-critic）。 */}
-          {(fromFree
+          {/* ③④（メモが 10 件・はじめての相談のあと）から開いたときも、押したカードの約束（「この相談相手と、…もっと話す」）とそろえる（2026-10-12） */}
+          {(fromFree || fromGrown
             // 「この」だけの 1 行を作らない（文字を最大にすると「この／相談相手と、」と割れていた・2026-10-10 ui-critic）。
             ? ['この相談相手と、', 'もっと', '話しませんか']
             : fromFreeOcr
@@ -889,7 +899,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
         {/* 「あとで」は主ボタンのまとまり（自動更新の文・規約の行）のすぐ下に、1 行だけで中央に置く（区切り線より上）。 */}
         {onClose && (
           <div style={{ display: 'flex', justifyContent: 'center', marginTop: 'var(--space-2)' }}>
-            <button type="button" onClick={onClose} style={{ ...linkStyle, width: '100%' }}>
+            <button type="button" onClick={closePaywall} style={{ ...linkStyle, width: '100%' }}>
               あとで
             </button>
           </div>
