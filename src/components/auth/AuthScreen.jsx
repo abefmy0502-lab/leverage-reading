@@ -65,12 +65,12 @@ const fieldHint = { fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHe
 const infoText = { color: 'var(--success)', fontSize: 'var(--text-meta)', lineHeight: 1.5, margin: '0 0 var(--space-3)' };
 
 // 通信やサーバー側の失敗（入力を直しても解決しない）。入力の誤りとは見せ方を分け、ErrorMessage の面で出す。
-const NETWORK_ERROR = 'つながりませんでした。通信の状態を確かめて、もう一度お試しください。';
-const RATE_LIMIT_ERROR = 'リクエストが多すぎます。しばらく経ってから再度お試しください。';
-const UNEXPECTED_ERROR = '予期せぬエラーが発生しました。時間をおいて再度お試しください。';
+const NETWORK_ERROR = 'つながりませんでした。通信状況を確認して、もう一度お試しください。';
+const RATE_LIMIT_ERROR = '短い間に何度も試されました。少し待ってから、もう一度お試しください。';
+const UNEXPECTED_ERROR = '予期せぬエラーが発生しました。時間をおいて、もう一度お試しください。';
 const NOT_CONFIGURED_ERROR = 'アプリの設定が未完了です。管理者にお問い合わせください。';
 // サーバー（Supabase）が止まっている・壊れている（5xx・一時停止）。入力を直しても解決しない。
-const SERVER_DOWN_ERROR = 'サーバーが応答していません。サービスが一時停止している可能性があります。時間をおいて再度お試しください。';
+const SERVER_DOWN_ERROR = 'サーバーにつながりません。時間をおいて、もう一度お試しください。';
 const SYSTEM_ERRORS = new Set([NETWORK_ERROR, RATE_LIMIT_ERROR, UNEXPECTED_ERROR, NOT_CONFIGURED_ERROR]);
 const ERROR_ID = 'auth-error';
 const isSystemError = (e) => !!e && (SYSTEM_ERRORS.has(e) || e.startsWith(UNEXPECTED_ERROR) || e.startsWith(SERVER_DOWN_ERROR));
@@ -122,7 +122,7 @@ function humanizeError(err) {
     return RATE_LIMIT_ERROR;
   }
   if (msg.includes('email not confirmed')) {
-    return 'メール確認が完了していません。確認メールをご確認ください。';
+    return 'メールアドレスの確認が済んでいません。届いたメールのリンクを開いてください。';
   }
   if (msg.includes('not configured')) {
     return NOT_CONFIGURED_ERROR;
@@ -194,7 +194,7 @@ export default function AuthScreen() {
         // 方針とは矛盾しない）。
         console.error('[auth] apple sign-in failed:', err);
         setError(err?.code === 'plugin_missing'
-          ? 'この端末では Apple サインインを利用できません。メールでご登録ください。'
+          ? 'この端末では Apple でサインインを使えません。メールアドレスで登録してください。'
           : humanizeError(err));
       }
     } finally {
@@ -237,7 +237,7 @@ export default function AuthScreen() {
         // このとき確認メールは送られないので、「送りました」画面で永遠に
         // 待たせず、ログイン/リセットへ誘導する。
         if (data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
-          setError('このメールアドレスは既に登録されています。ログイン、またはパスワードをお忘れの場合はリセットをお試しください。');
+          setError('このメールアドレスは登録済みです。ログインするか、パスワードを再設定してください。');
           setMode('signin');
           return;
         }

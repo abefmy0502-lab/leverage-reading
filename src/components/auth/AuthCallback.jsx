@@ -150,8 +150,8 @@ export default function AuthCallback({ onDone }) {
       const msg = String(err?.message || '').toLowerCase();
       setPwError(
         msg.includes('should be different')
-          ? '現在と同じパスワードは設定できません。別のパスワードをお試しください。'
-          : 'パスワードの更新に失敗しました。時間をおいて再度お試しください。',
+          ? '今と同じパスワードは使えません。別のパスワードにしてください。'
+          : 'パスワードを更新できませんでした。時間をおいて、もう一度お試しください。',
       );
     } finally {
       setPwBusy(false);

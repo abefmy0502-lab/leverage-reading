@@ -137,10 +137,10 @@ function toMessageRaw(err, fallback) {
     return OFFLINE_MESSAGE;
   }
   if (err.name === 'AbortError' || lower.includes('timeout') || lower.includes('timed out')) {
-    return '時間がかかりすぎました。通信の状態を確かめて、もう一度お試しください。';
+    return '時間がかかりすぎました。通信状況を確認して、もう一度お試しください。';
   }
   if (err.name === 'TypeError' && lower.includes('fetch')) {
-    return 'つながりませんでした。通信の状態を確かめて、もう一度お試しください。';
+    return 'つながりませんでした。通信状況を確認して、もう一度お試しください。';
   }
   if (
     lower.includes('network') ||
@@ -153,7 +153,7 @@ function toMessageRaw(err, fallback) {
     lower.includes('err_internet') ||
     lower.includes('err_network')
   ) {
-    return 'つながりませんでした。通信の状態を確かめて、もう一度お試しください。';
+    return 'つながりませんでした。通信状況を確認して、もう一度お試しください。';
   }
 
   // Auth
@@ -223,15 +223,15 @@ function toMessageRaw(err, fallback) {
     return '同じものが、もうあります。';
   }
   if (code === '23503' || lower.includes('foreign key')) {
-    return '関連データが見つからず、保存できませんでした。';
+    return 'もとのデータが見つからないため、保存できませんでした。';
   }
   // NOT NULL violation — 必須項目が空のまま保存しようとした
   if (code === '23502' || lower.includes('null value') || lower.includes('violates not-null')) {
-    return '必須の項目が入力されていないため、保存できませんでした。';
+    return '入力されていない項目があります。入力してから保存してください。';
   }
   // CHECK 制約違反 — 想定外の値
   if (code === '23514' || lower.includes('check constraint')) {
-    return '入力された内容では保存できませんでした。内容をご確認ください。';
+    return '保存できませんでした。入力内容を確認してください。';
   }
   if (code === '42501' || lower.includes('row-level security') || lower.includes('permission denied')) {
     return 'この操作はできませんでした。もう一度ログインしてお試しください。';
@@ -241,7 +241,7 @@ function toMessageRaw(err, fallback) {
   // この分岐は 23502（null value in column ...）や 42501（permission denied）等の
   // より具体的な分岐の「後」に置いたまま動かさないこと。
   if (isSchemaError(err)) {
-    return 'データの準備がまだ済んでいません。お手数ですが、お問い合わせください。';
+    return 'データの準備ができていません。お問い合わせください。';
   }
 
   // 汎用 5xx

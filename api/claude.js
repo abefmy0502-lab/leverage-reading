@@ -1226,6 +1226,6 @@ export default async function handler(req, res) {
     if (usageReserved && tier !== 'admin') track(releaseMonthlyUsage(userId, periodKey));
     settleCost(null);
     await flush();
-    return res.status(500).json({ error: { message: 'AI につながりませんでした。通信の状態を確かめて、もう一度お試しください。' } });
+    return res.status(500).json({ error: { message: 'AI につながりませんでした。通信状況を確認して、もう一度お試しください。' } });
   }
 }

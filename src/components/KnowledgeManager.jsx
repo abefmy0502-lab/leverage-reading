@@ -89,7 +89,7 @@ const menuCheck = (on) => (on ? <Check size={16} aria-hidden="true" /> : <span a
 const SORT_OPTIONS = [
   { value: 'newest', label: '新しい順' },
   { value: 'oldest', label: '古い順' },
-  { value: 'title', label: '本の書名順' },
+  { value: 'title', label: '書名順' },
 ];
 
 // 種類の絞り込み（切り替えを 2 段重ねにしないよう、並び順と同じ 1 行のメニューにする・DESIGN §5）。

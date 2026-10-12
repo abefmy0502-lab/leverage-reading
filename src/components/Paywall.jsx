@@ -496,7 +496,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
   const handleSubscribe = async () => {
     if (pending) return;
     if (!isNative && isDemo && preview.buy === 'fail') {
-      toast.error('購入手続きを開始できませんでした。少し時間をおいて、やり直してください。');
+      toast.error('購入手続きを始められませんでした。少し時間をおいて、もう一度お試しください。');
       return;
     }
     if (!isNative && isDemo) {
@@ -546,7 +546,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
       await onPurchased?.();
       setPending(null);
     } catch (e) {
-      toast.error(toMessage(e, '購入手続きを開始できませんでした。少し時間をおいて、やり直してください。'));
+      toast.error(toMessage(e, '購入手続きを始められませんでした。少し時間をおいて、もう一度お試しください。'));
       setPending(null);
     }
   };
@@ -569,7 +569,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
         toast.info('復元できる購入が見つかりませんでした。');
       }
     } catch (e) {
-      toast.error(toMessage(e, '購入の復元に失敗しました。'));
+      toast.error(toMessage(e, '購入を復元できませんでした。'));
     } finally {
       setRestoring(false);
     }
@@ -583,7 +583,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
       const { memos } = await exportMemosAsMarkdown(user?.id);
       toast.success(`メモ ${memos} 件を書き出しました。`);
     } catch (e) {
-      toast.error(toMessage(e, 'データの書き出しに失敗しました。'));
+      toast.error(toMessage(e, 'データを書き出せませんでした。'));
     } finally {
       setExporting(false);
     }
@@ -700,7 +700,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
                 <ErrorMessage
                   icon={null}
                   title="価格を読み込めませんでした"
-                  description="通信の状態を確かめて、もう一度お試しください。"
+                  description="通信状況を確認して、もう一度お試しください。"
                   actions={[{ label: 'もう一度', onClick: () => setPriceTry((n) => n + 1) }]}
                 />
               </div>
@@ -733,12 +733,12 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
                 あわせて、初回特典は 1 つの Apple ID に 1 回であること（App Store の決まり）。 */}
             {priceState === 'ready' && founding.active && (
               <p style={{ ...metaText, ...phraseText, marginTop: 'var(--space-3)' }}>
-                <Phrases>{`${noBreak(founding.endLabel)}までにプランを始めた方は、月額・年額どちらでも創業メンバーです（開発者への直接の窓口・次に作る機能への投票）。`}</Phrases>
+                <Phrases>{`${noBreak(founding.endLabel)}までにプランを始めた方は、月額・年額どちらでも創業メンバーです。開発者に直接連絡でき、次に作る機能の投票にも参加できます。`}</Phrases>
               </p>
             )}
             {priceState === 'ready' && labels.annual?.intro && labels.monthly?.trial && (
               <p style={{ ...metaText, ...phraseText, marginTop: founding.active ? 'var(--space-1)' : 'var(--space-3)' }}>
-                <Phrases>{`初回特典は ${noBreak('1 つ')}の ${noBreak('Apple ID')} に ${noBreak('1 回')}です（月額の ${noBreak(normalizeTrialLabel(labels.monthly.trial))}と、年額の ${noBreak(labels.annual.intro.head)} は、どちらか一方）。`}</Phrases>
+                <Phrases>{`初回特典は ${noBreak('1 つ')}の ${noBreak('Apple ID')} につき ${noBreak('1 回')}です。月額の ${noBreak(normalizeTrialLabel(labels.monthly.trial))}と年額の ${noBreak(labels.annual.intro.head)} は、どちらか一方だけ使えます。`}</Phrases>
               </p>
             )}
 

@@ -540,7 +540,7 @@ export function answerStepToAction(text) {
 //     （まだ送っていない間は、次の相談に prior として渡すのでここには入れない）
 const THREAD_TEMP_ID = /^(err|streaming|bg-wait)-/;
 const THREAD_STOPPED = '回答を中止しました。';
-const THREAD_CUT_NOTE = /\n— (?:ここで中止しました|通信が中断された)/;
+const THREAD_CUT_NOTE = /\n— (?:ここで中止しました|通信が中断された|通信が切れた)/;
 export function isCompletedAnswer(a) {
   if (!a || a.role !== 'assistant' || a.streaming || a.error || a.notice) return false;
   const text = String(a.content || '').trim();

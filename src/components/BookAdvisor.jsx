@@ -789,10 +789,10 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     if (controller.signal.aborted && !finalText.trim()) {
       // ストール中断かつ 1 文字も生成されていない → エラーとして再試行を促す。
       setRecoNotice(false);
-      setRecoError('通信が途切れました。通信の状態を確かめて、もう一度お試しください。');
+      setRecoError('通信が途切れました。通信状況を確認して、もう一度お試しください。');
       setChatHistory(historyBefore);
       setRecoLoading(false);
-      remember({ recoNotice: false, recoError: '通信が途切れました。通信の状態を確かめて、もう一度お試しください。', chatHistory: historyBefore });
+      remember({ recoNotice: false, recoError: '通信が途切れました。通信状況を確認して、もう一度お試しください。', chatHistory: historyBefore });
       settlePending();
       return;
     }
@@ -839,7 +839,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       // 空になった（=JSON だけで打ち切られた等）場合は案内文を出し、袋小路を防ぐ。
       const visible = typeof prose === 'string' && prose
         ? prose
-        : '提案の生成が途中で途切れてしまいました。お手数ですが、もう一度質問を送ってください。';
+        : '本の提案が途中で止まりました。もう一度送ってください。';
       setMessages([{ role: 'assistant', text: visible }]);
       remember({ messages: [{ role: 'assistant', text: visible }] });
     }
@@ -1158,7 +1158,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     appliedAdvisorDraft = draftPreset.nonce;
     if (interviewLoading || recoLoading || (advisorPendingJob && !advisorPendingJob.done)) {
       // 作っている途中は消さない。入れなかったことは知らせる（黙って言葉が消えたように見せない）。
-      advisorToast.info('いまの AI 選書を作っています。できあがってから、もう一度押してください。');
+      advisorToast.info('いまの AI 選書がまだ終わっていません。終わってから、もう一度押してください。');
       return;
     }
     if (messages.length || recommendations || interview || recoError) startNewSession();
@@ -1269,7 +1269,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   // ---------------------------------------------------------------------------
   // 「📚 読みたいに追加」フロー
   //
-  //   1. handleClickAdd(rec): ボタンを即「確かめています…」に切替 (< 5ms)、裏で
+  //   1. handleClickAdd(rec): ボタンを即「確認中…」に切替 (< 5ms)、裏で
   //      searchBooksAPIFlat を走らせる（「追加済み」は実際に追加へ進んだときだけ・2026-09-29）
   //   2. strict match で絞り込んだ candidates が 1 件だけで書名・著者が完全に同じなら確認なしで追加。
   //      それ以外で 1 件以上あれば確認モーダルへ
@@ -1345,7 +1345,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
           next.delete(verifiedRec.title);
           return next;
         });
-        advisorToast.error(toMessage(error, '本の追加に失敗しました。'));
+        advisorToast.error(toMessage(error, '本を追加できませんでした。'));
       }
     });
   };
@@ -1354,7 +1354,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     if (addedTitles.has(rec.title) || checkingTitles.has(rec.title)) return;
     // 触覚で即時 ack (画面の見た目とは別経路で「タップ受付」を確実に伝える)。
     try { advisorHaptic.light(); } catch { /* non-critical */ }
-    // UI を即「確かめています…」に切替 (連打防止 + 視覚 ack)。「追加済み」は proceedAdd で。
+    // UI を即「確認中…」に切替 (連打防止 + 視覚 ack)。「追加済み」は proceedAdd で。
     setCheckingTitles((prev) => {
       const next = new Set(prev);
       next.add(rec.title);
@@ -1490,7 +1490,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
               onDelete={async (sid) => {
                 const ok = await advisorConfirm({
                   title: 'この履歴を削除しますか？',
-                  message: '選んだ会話履歴を削除します。元に戻せません。',
+                  message: 'この会話を削除します。元に戻せません。',
                   confirmLabel: '削除する',
                   cancelLabel: 'キャンセル',
                   danger: true,
@@ -1501,7 +1501,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
                   advisorHaptic.medium();
                   advisorToast.success('履歴を削除しました。');
                 } catch (e) {
-                  advisorToast.error(toMessage(e, '履歴の削除に失敗しました。'));
+                  advisorToast.error(toMessage(e, '履歴を削除できませんでした。'));
                 }
               }}
             />
@@ -1520,7 +1520,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
               session={selectedSession}
               books={books}
               onAddBook={onAddBook}
-              // 追加の前に同じ本かを確かめる（会話中のカードと同じ「確かめています…」→ 確認のシート・2026-10-04）。
+              // 追加の前に同じ本かを確かめる（会話中のカードと同じ「確認中…」→ 確認のシート・2026-10-04）。
               verifyBeforeAdd={verifyThenAdd}
               onBookAdded={(bookId) => {
                 // 履歴詳細からの追加もセッションに記録（一覧の「N 冊追加」を正しく）。
@@ -1662,7 +1662,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         <ErrorMessage
           icon={null}
           title="問いを用意できませんでした"
-          description="通信の状態を確かめて、もう一度お試しください。"
+          description="通信状況を確認して、もう一度お試しください。"
           actions={[
             { label: 'もう一度', onClick: retryInterview, variant: 'secondary' },
             // 答えがまだ無い（最初の問いで失敗）ときは、最初の言葉だけで探す・最初の入力に戻る も選べる
@@ -1874,7 +1874,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         <ErrorMessage
           icon={null}
           title="本を探せませんでした"
-          description="通信の状態を確かめて、もう一度お試しください。"
+          description="通信状況を確認して、もう一度お試しください。"
           actions={[{
             label: 'もう一度',
             // 同じ相談・同じ答えで送り直す（控えが無いときだけ最初から）。
@@ -1894,7 +1894,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       {messages.map((m, i) => {
         const body = m.streaming && !m.text ? (
           // 空の assistant 吹き出し (= 最初の delta 到達前) は skeleton で待ち時間を埋める。
-          <div className="ai-skeleton" aria-label="AI が回答を作成しています">
+          <div className="ai-skeleton" aria-label="本を選んでいます">
             <div className="ai-skeleton-line" style={{ width: '88%' }} />
             <div className="ai-skeleton-line" style={{ width: '74%' }} />
             <div className="ai-skeleton-line" style={{ width: '62%' }} />
@@ -1917,7 +1917,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
           // 完成した AI の文章は Markdown（見出し・箇条書き）として描画（生の ## を出さない）。
           // 書名は確かめた本・本棚の本だけ残す（消して空になったら、もう一度送る案内に替える）。
           const shown = cleanProseTitles(m.text);
-          return <MarkdownSections key={i} text={shown || 'ご提案に確かめられない本が含まれていたため、表示を控えました。お手数ですが、もう一度送ってください。'} />;
+          return <MarkdownSections key={i} text={shown || '確認できない本が含まれていたので、表示していません。もう一度送ってください。'} />;
         })();
       })}
 
@@ -2020,7 +2020,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)', marginTop: 'var(--space-3)', padding: 'var(--space-2) var(--space-3)', background: 'var(--warning-soft)', borderRadius: 'var(--radius)' }}>
                     <IcAlert size={16} aria-hidden="true" style={{ color: 'var(--warning)', flexShrink: 0, marginTop: 'var(--space-1)' }} />
                     <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5, margin: 0 }}>
-                      この本は書誌情報が見つかりませんでした。書名・著者が正しいか、実在する本かご確認ください。
+                      書誌情報が見つかりませんでした。書名と著者を確認してください。
                     </p>
                   </div>
                 )}
@@ -2071,7 +2071,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
                   ) : checkingTitles.has(rec.title) ? (
                     // 同じ本かを確かめている間（確認で追加するまでは「追加済み」にしない）。薄くせず文言で示す。
                     <button type="button" disabled aria-busy="true" style={{ ...uiBtnGhostOff, touchAction: 'manipulation' }}>
-                      確かめています…
+                      確認中…
                     </button>
                   ) : (
                     <button
@@ -2110,7 +2110,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
           )}
           {allUnverifiable && (
             <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, margin: 0 }}>
-              本の実在を確かめられませんでした。購入前に書名を確かめてください。
+              本が実在するか確認できませんでした。購入する前に書名を確認してください。
             </p>
           )}
         </div>

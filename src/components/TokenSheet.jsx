@@ -164,7 +164,7 @@ export default function TokenSheet({ plan, onClose, onPurchased }) {
           <ErrorMessage
             icon={null}
             title="価格を読み込めませんでした"
-            description="通信の状態を確かめて、もう一度お試しください。"
+            description="通信状況を確認して、もう一度お試しください。"
             actions={[{ label: 'もう一度', onClick: () => { if (isNative) setPriceTry((n) => n + 1); } }]}
           />
         </div>
@@ -230,8 +230,8 @@ export default function TokenSheet({ plan, onClose, onPurchased }) {
       <p style={{ ...meta, margin: 'var(--space-3) 0 0', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
         {/* 追加分に期限は無い（App Store 審査ガイドライン 3.1.1・2026-10-11 オーナー裁定）。 */}
         {withPhraseBreaks(`${isTrial
-          ? '無料期間のトークンを使い切ってから使われます。'
-          : 'その月のトークンを使い切ってから使われます。'}プランをやめても相談に使えます。お支払いは App Store を通じて行われます。払い戻しは App Store の決まりに従います。`)}
+          ? '無料期間のトークンを使い切ったあとに使われます。'
+          : 'その月のトークンを使い切ったあとに使われます。'}プランをやめても相談に使えます。お支払いは App Store で行われ、返金は App Store の規定に従います。`)}
       </p>
     </BottomSheet>
   );

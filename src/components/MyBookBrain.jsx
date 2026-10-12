@@ -80,7 +80,7 @@ import { consultPartner, partnerFromScope, bookForRef, shelfBookForTitle, withVo
 import { fetchAllRows } from '../lib/fetchAllRows';
 
 // 相談を送るときのオフラインの文（上の行に「オフラインです。」が出ているので、次にすることだけ・2026-10-10）。
-const OFFLINE_SEND_MESSAGE = 'つながってから、もう一度送ってください。';
+const OFFLINE_SEND_MESSAGE = 'オフラインです。つながってから、もう一度送ってください。';
 
 // 1 文字も出る前に「止める」を押したときの答え（履歴にもこの文で残る）。
 const STOPPED_EMPTY = '回答を中止しました。';
@@ -104,8 +104,8 @@ let session = null;
 //   'perbook'＝本ごとに（本ごとの視点を並べてくらべる）。見る人ごとの好みなので端末にも覚える。
 const ANSWER_MODE_KEY = 'brain-answer-mode';
 const ANSWER_MODES = [
-  { id: 'fused', label: 'まとめて', sub: '選んだ本の考え方を合わせて、1 つの答えに' },
-  { id: 'perbook', label: '本ごとに', sub: '本ごとの視点を並べて、くらべる' },
+  { id: 'fused', label: 'まとめて', sub: '選んだ本の考え方を合わせて、1 つにまとめて答えます' },
+  { id: 'perbook', label: '本ごとに', sub: '本ごとの視点を並べて、くらべられるように答えます' },
 ];
 const answerModeLabel = (id) => (ANSWER_MODES.find((m) => m.id === id) || ANSWER_MODES[0]).label;
 const loadAnswerMode = () => {
@@ -314,7 +314,7 @@ function LearningInline({ onSaved, onDirtyChange, initialTags = null }) {
       dirtyCbRef.current?.(false);
       onSaved?.();
     } catch (e) {
-      toast.error(toMessage(e, '保存に失敗しました。'));
+      toast.error(toMessage(e, '保存できませんでした。'));
     } finally {
       setBusy(false);
     }
@@ -1266,7 +1266,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       return;
     }
     if (!isSupabaseConfigured) {
-      toast.error('Supabase 未接続です。');
+      toast.error('サーバーにつながっていません。');
       return;
     }
     const q = (questionText ?? input).trim();
@@ -1509,7 +1509,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             : m
         ));
         console.warn('[brain] answer insert failed:', saveErr?.message || saveErr);
-        toast.error('回答は表示できましたが、履歴への保存に失敗しました。');
+        toast.error('答えを履歴に保存できませんでした。');
       }
       // 🎯 行動を決める回（2026-09-30 ui-critic）: 書き終えたら「明日からできる一歩」の箱（「行動に追加」まで）が
       //   見えるところまで、会話の欄だけを最小限送る（相談の吹き出しを上端にそろえたままだと、ボタンが画面の下に隠れていた）。
@@ -1563,7 +1563,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 : e?.monthlyLimit
                   ? e.message
                 : partial
-                  ? `${partial}\n\n— 通信が中断されたため、回答はここまでです。`
+                  ? `${partial}\n\n— 通信が切れたため、ここで止まりました。`
                   // 下のボタン（もう一度）と同じ言葉を重ねない。題と説明に分けて ErrorMessage で出す（ChatMessage）。
                   // 答えを書き始める前の失敗は、サーバーがトークンを戻しているので、そのことも言う（streamClaude の notCharged）。
                   : `${ANSWER_FAILED_TITLE}。${e?.notCharged ? 'トークンは使っていません。' : ''}${ANSWER_FAILED_DESC}`,
@@ -1679,7 +1679,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   };
   const handleResolveAndClear = () => {
     clearConversation();
-    toast.success('新しい相談をはじめます。これまでの相談は右上の時計から見返せます。');
+    toast.success('新しい相談をはじめます。前の相談は右上の時計から見られます。');
   };
 
   // 🧵 過去の相談の「この続きを相談する」（2026-10-08）: その会話（相談と答え・相談相手）を今の会話として並べ、
@@ -1771,9 +1771,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       const { error } = await supabase.from('chat_messages').delete().eq('user_id', user.id);
       if (error) throw error;
       setMessages([]);
-      toast.success('履歴をクリアしました。');
+      toast.success('過去の相談をすべて削除しました。');
     } catch (e) {
-      toast.error(toMessage(e, '履歴の削除に失敗しました。'));
+      toast.error(toMessage(e, '過去の相談を削除できませんでした。'));
     }
   };
 
@@ -2273,7 +2273,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               <ErrorMessage
                 title="過去の相談を読み込めませんでした"
                 // 下のボタン（もう一度）と同じ言葉を重ねない。
-                description="通信の状態を確かめてください。"
+                description="通信状況を確認してください。"
                 // ほかの画面の「もう一度」と同じ枠線のボタン（variant: 'secondary'・2026-10-04）。
                 actions={[{ label: 'もう一度', variant: 'secondary', onClick: () => { setHistoryError(false); setHistoryLoaded(false); fetchHistory(); } }]}
               />
@@ -2570,7 +2570,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           {consentDeclined && !busy && !sendNotice && (
             <div data-consent-declined="" role="status" style={{ margin: 'var(--space-4) 0 0', padding: 'var(--space-3) var(--space-4)', borderRadius: 'var(--radius)', background: 'var(--fill)' }}>
               <p style={{ margin: 0, color: 'var(--text)', fontSize: 'var(--text-sub)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-                {withPhraseBreaks('AI に送ることに同意すると、答えます。')}
+                {withPhraseBreaks('AI に答えてもらうには、送信への同意が必要です。')}
               </p>
               <button
                 type="button"
@@ -3360,7 +3360,7 @@ function PerBookCard({ book, streaming, onAsk, askBusy, basisCheck = null, showT
       )}
       {(basis || basisNg) && (
         <p style={{ margin: book.view ? 'var(--space-2) 0 0' : 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
-          {basis}{basisNg && <>{basis ? '　' : ''}メモと一致しない引用だったので、表示していません</>}{cursor}
+          {basis}{basisNg && <>{basis ? '　' : ''}メモと一致しない引用は表示していません</>}{cursor}
         </p>
       )}
       {!book.view && !basis && !basisNg && cursor}
@@ -3731,7 +3731,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
                         <p style={{ ...subText, margin: 'var(--space-1) 0 0', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{c.x}</p>
                       ) : (
                         <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-                          {withPhraseBreaks('メモと一致しない引用だったので、表示していません')}
+                          {withPhraseBreaks('メモと一致しない引用は表示していません')}
                         </p>
                       )}
                     </>

@@ -214,7 +214,7 @@ export async function streamClaude({
     // 終わりの合図（message_stop / 停止理由）が届かずに切れた＝通信が途中で切れた。
     // 途中までの答えを「完成」として保存しないよう、エラーとして扱う（2026-09-27）。
     if (!sawStop && !stopReason && !signal?.aborted) {
-      throw new Error('AI の答えが途中で途切れました。通信の状態を確かめて、もう一度お試しください。');
+      throw new Error('AI の答えが途中で途切れました。通信状況を確認して、もう一度お試しください。');
     }
     // 安全機構で答えを控えた（refusal）ときは、空や途中の答えを保存しないようエラーにする。
     if (stopReason === 'refusal') {

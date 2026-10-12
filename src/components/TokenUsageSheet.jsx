@@ -219,8 +219,8 @@ export default function TokenUsageSheet({ onClose, onAdd, onPlans, from = 'consu
           ))}
           <p style={{ ...meta, marginTop: 'var(--space-2)' }}>
             {withPhraseBreaks(trial
-              ? '無料期間のトークンを使い切ってから、買った順に使われます。'
-              : 'その月のトークンを使い切ってから、買った順に使われます。')}
+              ? '無料期間のトークンを使い切ったあと、買った順に使われます。'
+              : 'その月のトークンを使い切ったあと、買った順に使われます。')}
           </p>
         </section>
       )}
@@ -229,7 +229,7 @@ export default function TokenUsageSheet({ onClose, onAdd, onPlans, from = 'consu
         <section aria-label="追加分" style={sectionGap}>
           <ErrorMessage
             title="追加分を読み込めませんでした"
-            description="通信の状態を確かめて、もう一度お試しください。"
+            description="通信状況を確認して、もう一度お試しください。"
             actions={[{ label: 'もう一度', onClick: () => setLotsTry((n) => n + 1) }]}
           />
         </section>
@@ -247,7 +247,7 @@ export default function TokenUsageSheet({ onClose, onAdd, onPlans, from = 'consu
         <section aria-label={`${periodName}の使い道`} style={sectionGap}>
           <ErrorMessage
             title="使い道を読み込めませんでした"
-            description="通信の状態を確かめて、もう一度お試しください。"
+            description="通信状況を確認して、もう一度お試しください。"
             actions={[{ label: 'もう一度', onClick: () => setUsageTry((n) => n + 1) }]}
           />
         </section>
@@ -285,7 +285,7 @@ export default function TokenUsageSheet({ onClose, onAdd, onPlans, from = 'consu
             </p>
           )}
           <p style={meta}>
-            {withPhraseBreaks('無料プランで使える AI は、相談・この本で学べること・写真から書き起こしです。プランは')}
+            {withPhraseBreaks('無料プランの AI は、相談・この本で学べること・写真から書き起こしの 3 つです。プランなら')}
             <span style={nowrap}>毎月 {fmt(PAID_TOKENS)} トークン</span>
             {withPhraseBreaks('で、すべての AI 機能を使えます。')}
           </p>

@@ -283,7 +283,7 @@ function RecommendationCard({ book, index = 0, isAdded, isChecking, onAdd }) {
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)', marginTop: 'var(--space-3)', padding: 'var(--space-2) var(--space-3)', background: 'var(--warning-soft)', borderRadius: 'var(--radius)' }}>
           <TriangleAlert size={16} aria-hidden="true" style={{ color: 'var(--warning)', flexShrink: 0, marginTop: 'var(--space-1)' }} />
           <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5, margin: 0 }}>
-            {book._verify === 'unknown' ? '確認できませんでした' : 'この本は書誌情報が見つかりませんでした。書名・著者が正しいか、実在する本かご確認ください。'}
+            {book._verify === 'unknown' ? '確認できませんでした' : '書誌情報が見つかりませんでした。書名と著者を確認してください。'}
           </p>
         </div>
       )}
@@ -308,7 +308,7 @@ function RecommendationCard({ book, index = 0, isAdded, isChecking, onAdd }) {
         ) : isChecking ? (
           // 同じ本かを確かめている間（会話中のカードと同じ・確認で追加するまでは「追加済み」にしない）。薄くせず文言で示す。
           <button type="button" disabled aria-busy="true" style={{ ...btnGhostOff, touchAction: 'manipulation' }}>
-            確かめています…
+            確認中…
           </button>
         ) : (
           <button
@@ -393,7 +393,7 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
     const norm = (s) => (s || '').toString().toLowerCase().replace(/\s+/g, '');
     return rec.isbn ? `isbn:${norm(rec.isbn)}` : `ta:${norm(rec.title)}|${norm(rec.author || '')}`;
   };
-  // 同じ本かを確かめている本（会話中のカードと同じ「確かめています…」）。
+  // 同じ本かを確かめている本（会話中のカードと同じ「確認中…」）。
   const [checking, setChecking] = useState(() => new Set());
   const setIn = (setter, key, on) => setter((prev) => {
     if (prev.has(key) === on) return prev;
@@ -423,7 +423,7 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
     if (!onAddBook) return;
     const key = recKey(rec);
     if (locallyAdded.has(key) || checking.has(key)) return; // 連打ガード
-    // 会話中のカードと同じ流れ: すぐ「確かめています…」→ 同じ本か確かめる（候補が複数なら確認のシート）→ 追加。
+    // 会話中のカードと同じ流れ: すぐ「確認中…」→ 同じ本か確かめる（候補が複数なら確認のシート）→ 追加。
     if (verifyBeforeAdd) {
       setIn(setChecking, key, true);
       verifyBeforeAdd(rec, {

@@ -383,7 +383,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
     markReleaseSeen(BUNDLED_RELEASE_ID);
     loadReleaseNotes()
       .then((m) => { setAllReleases(m.RELEASES || []); setWhatsNewOpen(true); })
-      .catch(() => toast.error('読み込めませんでした。つながってから、もう一度押してください。'));
+      .catch(() => toast.error('読み込めませんでした。通信状況を確認して、もう一度お試しください。'));
   };
   // 🪙📊 トークンの使い方（残りの行を押して開く・設定の上に重ねる・2026-10-11）。
   const [usageOpen, setUsageOpen] = useState(false);
@@ -410,7 +410,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
     if (codeBusy) return;
     track('offer_code', { action: 'open' });
     // お試しモード: Apple の画面は開かず、閉じたあとの知らせだけ見せる。
-    if (!canRedeemOfferCode) { toast.info('コードを使ったときは、数秒〜30 秒で反映されます。'); return; }
+    if (!canRedeemOfferCode) { toast.info('コードの反映には、数秒〜30 秒ほどかかります。'); return; }
     setCodeBusy(true);
     try {
       const opened = await presentOfferCodeSheet(user?.id);
@@ -418,7 +418,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
       // Apple の画面を閉じたら 1 回だけ知らせ、少しずつ間をあけて契約の状態を読み直す（使えたかは画面から分からない・
       // 反映は数秒〜数十秒）。閉じたのが分からないまま 3 分たったら、知らせずに読み直しだけ。
       waitForCodeSheetClosed().then((closed) => {
-        if (closed) toast.info('コードを使ったときは、数秒〜30 秒で反映されます。');
+        if (closed) toast.info('コードの反映には、数秒〜30 秒ほどかかります。');
         codeTimersRef.current.forEach(clearTimeout);
         codeTimersRef.current = [1500, 5000, 12000, 30000].map((ms) => setTimeout(async () => {
           await invalidateCustomerInfo();
@@ -552,7 +552,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
         } else if (res.reason === 'unsupported') {
           toast.error('この端末では通知をまだ使えません。');
         } else {
-          toast.error('通知の設定に失敗しました。少し時間をおいて再度お試しください。');
+          toast.error('通知を設定できませんでした。少し時間をおいて、もう一度お試しください。');
         }
       }
     } finally {
@@ -584,7 +584,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
     // 途中で誤タップすると入力が消える。意図的な操作だけ通す。
     const ok = await confirm({
       title: '読み込み直しますか？',
-      message: 'いったん閉じて読み込み直します。\n\n書きかけのメモや AI への入力中の文章は失われます。よろしいですか？',
+      message: '書きかけのメモや、入力中の文章は消えます。',
       confirmLabel: '読み込み直す',
       cancelLabel: 'キャンセル',
     });
@@ -627,7 +627,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
       track(EVENTS.EXPORT_USED, { kind: 'csv' }); // 成功確定後のみ（fire-and-forget）
       toast.success(`本 ${countOf('books')} 冊・メモ ${countOf('book_memos')} 件を書き出しました。`);
     } catch (e) {
-      toast.error(toMessage(e, '書き出しに失敗しました。'));
+      toast.error(toMessage(e, '書き出せませんでした。'));
     } finally {
       setExporting(false);
     }
@@ -644,7 +644,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
       track(EVENTS.EXPORT_USED, { kind: 'markdown' }); // 成功確定後のみ（fire-and-forget）
       toast.success(`Markdown を書き出しました（メモ ${memos} 件）。`);
     } catch (e) {
-      toast.error(toMessage(e, '書き出しに失敗しました。'));
+      toast.error(toMessage(e, '書き出せませんでした。'));
     } finally {
       setExportingMd(false);
     }
@@ -661,7 +661,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
     const ok = await confirm({
       title: 'データを初期化しますか？',
       message:
-        '本・メモ・写真・行動・読書の時間・相談の履歴・タグなど、あなたのデータをすべて消去して、まっさらな状態に戻します。\n\nアカウント（ログイン）は残ります。この操作は取り消せません。',
+        '本・メモ・写真・行動・読書の時間・相談の履歴・タグなど、すべてのデータを消去します。\n\nアカウントは残ります。この操作は取り消せません。',
       confirmLabel: '初期化する',
       cancelLabel: 'キャンセル',
       danger: true,
@@ -702,7 +702,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
 
       if (dbErrors.length > 0) {
         console.error('data reset partial failure:', dbErrors);
-        toast.error('一部のデータ初期化に失敗しました。もう一度お試しください。');
+        toast.error('一部のデータを初期化できませんでした。もう一度お試しください。');
         setResetting(false);
         return;
       }
@@ -710,13 +710,13 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
       // 読書の時間の控え・途中の集中モード・この本で学べること・本の分野の印・写真で共有の選び方なども（lib/deviceData.js）。
       clearDeviceData();
       readingSessions.clearLocal();
-      toast.success('データを初期化しました。まっさらな状態で読み込み直します。');
+      toast.success('データを初期化しました。画面を読み込み直します。');
       // 全 state / キャッシュを確実に空へ戻すためリロード（初期化操作なので妥当）。
       // reload がブロックされた場合でもボタンが「初期化中…」で永久固定しないよう解除。
       setResetting(false);
       setTimeout(() => { try { window.location.reload(); } catch { /* ignore */ } }, 600);
     } catch (e) {
-      toast.error(toMessage(e, '初期化に失敗しました。'));
+      toast.error(toMessage(e, '初期化できませんでした。'));
       setResetting(false);
     }
   };
@@ -735,7 +735,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
     const ok = retry || await confirm({
       title: '本当にすべて削除しますか？',
       message:
-        '本・メモ・写真・行動・読書の時間・相談の履歴・タグ・AI 選書の履歴など、すべてのデータが完全に削除されます。\n\nログイン情報の完全削除は管理者の最終確認後（通常 7 日以内）に実行されます。この操作は取り消せません。',
+        '本・メモ・写真・行動・読書の時間・相談の履歴・タグ・AI 選書の履歴など、すべてのデータを削除します。\n\nログイン情報は、運営が確認したあと、通常 7 日以内に削除します。この操作は取り消せません。',
       confirmLabel: '削除する',
       cancelLabel: 'キャンセル',
       danger: true,
@@ -1002,10 +1002,10 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                   {/* 文節の切れ目でだけ折り返す（「でき／ます」と語の途中で切らない・2026-10-04）。 */}
                   <p style={{ ...noteStyle, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
                     {withPhraseBreaks(nativeView
-                      ? '解約・プラン変更は App Store のサブスクリプションの設定から。いつでも解約でき、データは保持されます。'
+                      ? '解約やプランの変更は、App Store のサブスクリプション設定からいつでもできます。解約してもデータは残ります。'
                       : subscription?.stripeCustomerId
-                        ? '解約・カード変更・請求履歴は下のボタンから。いつでも解約でき、データは保持されます。'
-                        : 'App で購入した場合、解約は iPhone の「設定」→ 名前 →「サブスクリプション」から、いつでもできます。データは保持されます。')}
+                        ? '解約、カードの変更、請求履歴の確認は、下のボタンからいつでもできます。解約してもデータは残ります。'
+                        : 'アプリで購入した場合は、iPhone の「設定」→ 名前 →「サブスクリプション」からいつでも解約できます。解約してもデータは残ります。')}
                   </p>
                   {!nativeView && subscription?.stripeCustomerId ? (
                     <button
@@ -1069,7 +1069,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                 <div style={{ ...blockStyle, ...divider }}>
                   <p style={{ ...noteStyle, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
                     {/* 2 文に分ける（2026-10-11 ui-critic）。トークンの目安（AI の答え 約 N 回）はトークンの使い方のシートに。 */}
-                    <span style={{ display: 'block' }}>{withPhraseBreaks('無料プランはずっと無料。AI は相談・この本で学べること・写真から書き起こし（')}<span style={{ whiteSpace: 'nowrap' }}>毎月 {FREE_OCR_PER_MONTH} 回</span>）。</span>
+                    <span style={{ display: 'block' }}>{withPhraseBreaks('無料プランはずっと無料です。AI は、相談・この本で学べること・写真から書き起こし（')}<span style={{ whiteSpace: 'nowrap' }}>毎月 {FREE_OCR_PER_MONTH} 回</span>）に使えます。</span>
                     <span style={{ display: 'block', marginTop: 'var(--space-1)' }}>{withPhraseBreaks(`プランは毎月 ${PAID_TOKENS.toLocaleString()} トークンで、すべての AI 機能を使えます。`)}</span>
                   </p>
                   <button
@@ -1094,7 +1094,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
             {/* 1 つのスイッチで 2 種類（思い出しの通知・行動の期限）をまとめてオン/オフする。 */}
             <SettingRow
               title="思い出しと行動の通知"
-              desc="思い出しの通知（多くても週に 1 回）と、行動の期限の日の朝 8 時ごろに 1 回。このスイッチでまとめてオン・オフします。"
+              desc="思い出しの通知（週 1 回まで）と、行動の期限の日の朝 8 時ごろの通知です。"
               extra={pushNote}
               control={canTogglePush ? (
                 <ToggleSwitch
@@ -1140,7 +1140,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
               type="button"
               style={rowButtonStyle}
               onClick={() => { requestAiConsent({ mode: 'manage' }); }}
-              aria-label={`AI へのデータ送信（${aiConsentLabel || '確かめています'}）`}
+              aria-label={`AI へのデータ送信（${aiConsentLabel || '確認中'}）`}
             >
               <span style={{ flex: 1, minWidth: 0 }}>
                 <span style={{ ...rowTitleStyle, display: 'block' }}>AI へのデータ送信</span>
@@ -1151,7 +1151,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
             <SettingRow
               style={divider}
               title="利用状況の記録"
-              desc="機能名と回数だけ。外部には送りません。"
+              desc="記録するのは機能名と回数だけです。外部には送りません。"
               control={(
                 <ToggleSwitch
                   checked={analyticsOn}
@@ -1240,7 +1240,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                   cancelLabel: 'キャンセル',
                 });
                 if (!ok) return;
-                try { await signOut(); onClose?.(); } catch { toast.error('ログアウトに失敗しました。'); }
+                try { await signOut(); onClose?.(); } catch { toast.error('ログアウトできませんでした。'); }
               }}
             >
               ログアウト
@@ -1271,7 +1271,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                   {/* 文節の切れ目でだけ折り返す（「くだ／さい」と語の途中で切らない・2026-10-04）。
                       文字は上の行の説明と同じ 13/--text-2（rowDescStyle）。「本・メモ・写真・相談の履歴が消えます」は上の行で言うので繰り返さない。 */}
                   <p style={{ ...rowDescStyle, margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-                    {withPhraseBreaks('ログイン情報の完全な削除は、管理者の確認のあと（通常 7 日以内）に行います。この操作は取り消せません。')}
+                    {withPhraseBreaks('ログイン情報は、運営が確認したあと、通常 7 日以内に削除します。この操作は取り消せません。')}
                   </p>
                   <p style={{ ...rowDescStyle, margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
                     {deleteTarget.byWord
@@ -1332,7 +1332,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                           <div style={{ marginTop: 'var(--space-1)' }}>
                             <ErrorMessage
                               title="削除を受け付けられませんでした"
-                              description="時間をおいてもう一度お試しください。続くときはお問い合わせへ。"
+                              description="時間をおいて、もう一度お試しください。解決しないときはお問い合わせください。"
                               actions={[{ label: 'もう一度', variant: 'secondary', onClick: () => handleDelete({ retry: true }) }]}
                             />
                           </div>

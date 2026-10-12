@@ -84,7 +84,7 @@ export function AiConsentDetails({ first = null }) {
         ))}
       </ul>
       <p style={noteStyle}>
-        {withPhraseBreaks(`ほかの会社で答えられないときは、${AI_PROVIDER_NAMES[AI_FALLBACK_PROVIDER]}${NB}が代わりに答えます。どの会社も、契約により、送った内容を AI${NB}の学習に使いません。`)}
+        {withPhraseBreaks(`ほかの会社で答えられないときは、${AI_PROVIDER_NAMES[AI_FALLBACK_PROVIDER]}${NB}が代わりに答えます。送った内容は、どの会社でも契約により AI${NB}の学習には使われません。`)}
       </p>
       <a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer" style={linkStyle}>
         プライバシーポリシー
@@ -175,7 +175,7 @@ export function AiConsentGate() {
     if (!r) return;
     const ok = await r.withdraw();
     if (ok === true) toast.success('同意を取り消しました。');
-    else if (ok === false) toast.error('取り消せませんでした。通信の状態を確かめて、もう一度お試しください。');
+    else if (ok === false) toast.error('同意を取り消せませんでした。通信状況を確認して、もう一度お試しください。');
   };
 
   const open = !!req;
