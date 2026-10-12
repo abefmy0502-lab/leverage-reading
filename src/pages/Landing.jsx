@@ -39,7 +39,7 @@ import { BUILD_LABEL } from '../lib/buildInfo';
 import { SUPPORT_EMAIL } from '../lib/contact';
 import { isAppStoreLive } from '../lib/appStore';
 import { AI_JEV_ON } from '../lib/aiProcessors';
-import { PAID_TOKENS, TRIAL_TOKENS, FREE_OCR_PER_MONTH } from '../lib/tokenAmounts';
+import { TRIAL_TOKENS, FREE_OCR_PER_MONTH } from '../lib/tokenAmounts';
 import { normalizeTrialLabel } from '../lib/trialLabel';
 import { readFoundingOffer, noBreak, FOUNDING_NAME } from '../lib/foundingOffer';
 import Shot from './LpShot';
@@ -48,7 +48,7 @@ import LpWaitlist from './LpWaitlist';
 import LpIllust from './LpIllust';
 import LpArt, { hasArt } from './LpArt';
 import Phrases from './LpPhrases';
-import { buildLpCopy, storeHrefOf, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, NO_INFO_REFUNDS, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE } from './lpCopy';
+import { buildLpCopy, storeHrefOf, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE } from './lpCopy';
 import qrcode from 'qrcode-generator';
 import { lpTrack, lpVariant, storeUrlFor, isWidePointer } from '../lib/lpTrack';
 import { inject as injectVercelAnalytics } from '@vercel/analytics';
@@ -569,9 +569,9 @@ export default function Landing() {
                 ))}
               </ul>
               </div>
-              {/* 一番の価値（CLAUDE.md）を 1 行で・会話の流れの頭に（2026-10-12 ui-critic でカードの下へ） */}
-              <p className="lp-wbr lp-flow-lead"><Phrases>読めば読むほど、頼れる相談相手になっていきます。</Phrases></p>
             </div>
+            {/* 一番の価値（CLAUDE.md）を、会話の流れ 4 枚の見出しに（2026-10-12 ui-critic） */}
+            <h2 className="lp-h2 lp-flow-head" id="lp-grow"><span>読めば読むほど、</span><span>頼れる相談相手に。</span></h2>
             <LpFlow onEvent={lpTrack} note={heroVariant !== 'photo'} />
             <div className="lp-asks">
               <p className="lp-asks-title">たとえば、こんな相談</p>
@@ -747,7 +747,7 @@ export default function Landing() {
               <Phrases>{COPY.pricingNote[1]}</Phrases>
             </p>
             <p className="lp-fine lp-wbr">
-              <Phrases>{`回数は目安です（プランは毎月 ${PAID_TOKENS} トークン・答え 1 回 約 10 トークン）。${CONSULT_ANSWERS_NOTE}。トークンは翌月に繰り越せません。関係するメモが見つからず答えられなかった相談は、${noBreak(`月 ${NO_INFO_REFUNDS} 回`)}までトークンを返します。`}</Phrases>
+              <Phrases>{`回数は目安です（${CONSULT_ANSWERS_NOTE}）。`}</Phrases>
             </p>
             {PRELAUNCH && (
               <div className="lp-cta-block">
@@ -800,7 +800,11 @@ export default function Landing() {
             </h2>
             <div className="lp-cta-block">
               <Entry loc="final" wl={wl} qr badge launch center />
-              <p className="lp-cta-note lp-wbr">{COPY.priceLine.map((t) => <span key={t}><Phrases>{t}</Phrases></span>)}</p>
+              {/* 2 句目（プランの無料期間）は料金の区画へ戻る文字のリンク（2026-10-12） */}
+              <p className="lp-cta-note lp-wbr">
+                <span><Phrases>{COPY.priceLine[0]}</Phrases></span>
+                <a className="lp-inline-link lp-final-plan" href="#lp-pricing" onClick={() => lpTrack('cta_click', { loc: 'final_plan' })}><Phrases>{COPY.priceLine[1]}</Phrases></a>
+              </p>
             </div>
           </div>
         </section>

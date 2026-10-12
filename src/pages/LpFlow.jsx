@@ -9,7 +9,7 @@
 //   スマホは横にスワイプ（1 枚ずつ止まる・次の枚の端が見える）、広い画面は 4 枚を横に並べる。
 //   「画面は見本です。」と語り口の注記は、ヒーローが写真のときはヒーローの下にあるので、ここでは出さない（note）。
 // - 記録: 画面に入った（flow_view・1 回）／横にスワイプした（flow_step・どこまで見たか）。
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { SAMPLE_NOTE, VOICE_NOTE } from './lpCopy';
 import Phrases from './LpPhrases';
 import Shot from './LpShot';
@@ -44,6 +44,8 @@ export const FLOW_STEPS = [
 export default function LpFlow({ onEvent = () => {}, note = true }) {
   const rootRef = useRef(null);
   const seenRef = useRef(0);
+  // スマホの横スワイプで今どの枚か（下の 4 つの点・2026-10-12）
+  const [at, setAt] = useState(0);
 
   // 画面に入ったら 1 回だけ記録。横にスワイプしたら、どの枚まで見たかを記録（増えたときだけ）。
   useEffect(() => {
@@ -58,6 +60,7 @@ export default function LpFlow({ onEvent = () => {}, note = true }) {
     const onScroll = () => {
       const w = track.firstElementChild?.getBoundingClientRect().width || 1;
       const i = Math.round(track.scrollLeft / w);
+      setAt(Math.min(FLOW_STEPS.length - 1, i));
       if (i > seenRef.current) { seenRef.current = i; onEvent('flow_step', { i }); }
     };
     track?.addEventListener('scroll', onScroll, { passive: true });
@@ -76,6 +79,9 @@ export default function LpFlow({ onEvent = () => {}, note = true }) {
           </li>
         ))}
       </ol>
+      <p className="lp-gallery-dots" aria-hidden="true">
+        {FLOW_STEPS.map((s, i) => <span key={s.name} className={i === at ? 'is-on' : undefined} />)}
+      </p>
       {/* 「画面は見本です。」と語り口の注記（ヒーローがイラストのときの置き場・写真のときはヒーローの下だけ） */}
       {note && <p className="lp-shot-note lp-wbr"><Phrases>{`${SAMPLE_NOTE}${VOICE_NOTE}`}</Phrases></p>}
     </div>

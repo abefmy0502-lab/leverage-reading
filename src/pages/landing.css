@@ -378,10 +378,12 @@ body.lp-active {
   .lp-shot { border-color: var(--separator); box-shadow: 0 0 0 1.5px var(--border), var(--shadow-overlay); }
 }
 /* イラストの型のヒーロー: 右下に実際の相談の画面を少し重ねる */
-.lp-hero-illust { position: relative; padding-bottom: var(--space-12); }
-.lp-hero-illust .lp-hero-mini { --lp-device-w: 34vw; position: absolute; right: var(--space-2); bottom: 0; width: var(--lp-device-w); margin: 0; }
+.lp-hero-illust { position: relative; padding-bottom: calc(var(--space-16) * 2); }
+.lp-hero-illust .lp-hero-mini { --lp-device-w: 46vw; position: absolute; right: var(--space-2); bottom: 0; width: var(--lp-device-w); margin: 0; }
 @media (min-width: 768px) {
-  .lp-hero-illust .lp-hero-mini { --lp-device-w: 180px; right: calc(-1 * var(--space-4)); bottom: calc(-1 * var(--space-8)); }
+  .lp-hero-illust { padding-bottom: var(--space-16); }
+  .lp-root .lp-gallery-dots { display: none; }
+  .lp-hero-illust .lp-hero-mini { --lp-device-w: 240px; right: calc(-1 * var(--space-4)); bottom: calc(-1 * var(--space-12)); }
 }
 /* まだ読んでいない枚（相談の流れの 3〜4 枚目）の場所取り。写真と同じ縦横の比 */
 .lp-shot-blank { aspect-ratio: 390 / 844; box-shadow: none; }
@@ -425,6 +427,12 @@ body.lp-active {
 .lp-ba > li { padding: var(--space-4); border: 1px solid var(--separator); border-radius: var(--radius-md); background: var(--bg); }
 .lp-ba > li.is-after { background: var(--surface); }
 .lp-ba > li.is-after { border-color: var(--accent); }
+@media (max-width: 767px) {
+  /* スマホは 2 枚を 1 枚のカードの中の 2 行に（短く・2026-10-12） */
+  .lp-ba { gap: 0; border: 1px solid var(--separator); border-radius: var(--radius-md); background: var(--surface); }
+  .lp-ba > li, .lp-ba > li.is-after { border: 0; border-radius: 0; background: none; }
+  .lp-ba > li + li { border-top: 1px solid var(--separator); }
+}
 .lp-ba-figure { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-3); color: var(--text-3); }
 .lp-ba-node { display: inline-flex; align-items: center; gap: var(--space-1); font-size: var(--text-sub); font-weight: 600; color: var(--text-2); }
 .lp-ba .is-after .lp-ba-node { color: var(--text); }
@@ -470,6 +478,11 @@ body.lp-active {
   scrollbar-width: none;
 }
 .lp-gallery::-webkit-scrollbar { display: none; }
+/* 今どの枚か（スマホだけ・今の 1 つだけ栗色） */
+.lp-root .lp-gallery-dots { display: flex; justify-content: center; gap: var(--space-2); margin-top: var(--space-2); }
+.lp-gallery-dots span { width: var(--space-2); height: var(--space-2); border-radius: 50%; background: var(--separator); }
+.lp-gallery-dots span.is-on { background: var(--accent); }
+.lp-root .lp-flow-head { margin: var(--space-16) 0 var(--space-6); }
 .lp-gallery > li { scroll-snap-align: start; display: flex; flex-direction: column; min-width: 0; }
 .lp-root .lp-gallery-num { color: var(--accent); font-size: var(--text-sub); font-weight: 600; font-variant-numeric: tabular-nums; }
 .lp-root .lp-gallery-title { margin: var(--space-1) 0 0; font-size: var(--text-body); font-weight: 600; line-height: 1.5; }
@@ -753,8 +766,8 @@ body.lp-active {
   .lp-root { --lp-pillar-w: calc(var(--lp-shot-w) * 4 / 5); }
   /* 広い画面: 柱は文が上・画面が下のカードを横に並べる（2 列 → 1100 以上は 3 列・2026-10-12） */
   .lp-pillars > li { grid-template-columns: minmax(0, 1fr); align-items: start; align-content: start; }
-  .lp-pillar-shot { order: 2; margin: 0; width: min(100%, 260px); }
-  .lp-pillar-shot .lp-shot { --lp-device-w: 260px; }
+  .lp-pillar-shot { order: 2; margin: 0; width: min(100%, 240px); }
+  .lp-pillar-shot .lp-shot { --lp-device-w: 240px; }
   /* 広い画面は手順の名前が左の一覧にあるので、写真の上の題は出さない（題が 2 回出ない） */
   .lp-flow-caption-title { display: none; }
   .lp-flow-caption { min-height: calc(var(--text-sub) * 1.5 * 2); }
@@ -796,8 +809,7 @@ body.lp-active {
   /* 5 つ: 上の段 3 枚・下の段 2 枚（文が左・画面が右の横長）で穴をあけない */
   .lp-pillars { grid-template-columns: repeat(6, minmax(0, 1fr)); }
   .lp-pillars > li { grid-column: span 2; }
-  .lp-pillars > li:nth-child(n+4) { grid-column: span 3; grid-template-columns: minmax(0, 1fr) 220px; column-gap: var(--space-6); align-items: start; }
-  .lp-pillars > li:nth-child(n+4) .lp-shot { --lp-device-w: 220px; }
+  .lp-pillars > li:nth-child(n+4) { grid-column: span 3; grid-template-columns: minmax(0, 1fr) 240px; column-gap: var(--space-6); align-items: start; }
   .lp-pillars > li:nth-child(n+4) .lp-pillar-shot { grid-column: 2; grid-row: 1; }
   .lp-root { --lp-sec: var(--lp-sec-lg); }
   .lp-shot { width: var(--lp-shot-w-lg); }
