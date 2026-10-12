@@ -412,7 +412,7 @@ export default function Landing() {
         revealIo = new IntersectionObserver((entries) => {
           entries.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('is-in'); revealIo.unobserve(e.target); } });
         }, { threshold: 0.2 });
-        document.querySelectorAll('.lp-reveal').forEach((el) => revealIo.observe(el));
+        document.querySelectorAll('.lp-reveal, .lp-sec .lp-h2, .lp-gallery, .lp-pillars > li').forEach((el) => revealIo.observe(el));
       }
       secIo = new IntersectionObserver((entries) => {
         entries.forEach((e) => {
