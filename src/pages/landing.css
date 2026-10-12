@@ -379,11 +379,14 @@ body.lp-active {
 }
 /* イラストの型のヒーロー: 右下に実際の相談の画面を少し重ねる */
 .lp-hero-illust { position: relative; padding-bottom: calc(var(--space-16) * 2); }
-.lp-hero-illust .lp-hero-mini { --lp-device-w: 46vw; position: absolute; right: var(--space-2); bottom: 0; width: var(--lp-device-w); margin: 0; }
+.lp-hero-illust .lp-hero-mini { --lp-device-w: 46vw; position: absolute; right: var(--space-2); bottom: 0; width: var(--lp-device-w); display: grid; }
+.lp-hero-mini-frame { grid-area: 1 / 1; opacity: 0; transition: opacity var(--duration-slow) ease; }
+.lp-hero-mini-frame.is-on { opacity: 1; }
+.lp-hero-mini .lp-shot { --lp-device-w: inherit; width: 100%; margin: 0; }
 @media (min-width: 768px) {
   .lp-hero-illust { padding-bottom: var(--space-16); }
   .lp-root .lp-gallery-dots { display: none; }
-  .lp-hero-illust .lp-hero-mini { --lp-device-w: 240px; right: calc(-1 * var(--space-4)); bottom: calc(-1 * var(--space-12)); }
+  .lp-hero-illust .lp-hero-mini { --lp-device-w: 200px; right: calc(-1 * var(--space-4)); bottom: calc(-1 * var(--space-16)); }
 }
 /* まだ読んでいない枚（相談の流れの 3〜4 枚目）の場所取り。写真と同じ縦横の比 */
 .lp-shot-blank { aspect-ratio: 390 / 844; box-shadow: none; }
@@ -444,12 +447,12 @@ body.lp-active {
 .lp-ba .is-after .lp-ba-body { color: var(--text); }
 /* ② 相談の例（会話の流れの下） */
 .lp-asks { margin-top: var(--space-12); max-width: 36em; }
-.lp-asks-bubble { justify-self: end; max-width: 100%; padding: var(--space-3) var(--space-4); border-radius: var(--radius); background: var(--fill); color: var(--text); }
+.lp-asks-bubble { display: grid; gap: var(--space-1); justify-self: end; max-width: 100%; padding: var(--space-3) var(--space-4); border-radius: var(--radius); background: var(--fill); color: var(--text); }
 .lp-asks-title { color: var(--text-2); font-size: var(--text-sub); font-weight: 600; }
 .lp-asks ul { list-style: none; margin: var(--space-3) 0 0; padding: 0; display: grid; gap: var(--space-4); }
 .lp-asks li { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-1); justify-items: start; }
 /* 「」の始めの括弧を左の線にそろえる（全角の括弧の左の空きを詰める） */
-.lp-asks-who { color: var(--text-2); font-size: var(--text-meta); font-weight: 600; }
+.lp-asks-who { color: var(--text-2); font-size: var(--text-caption); font-weight: 600; }
 
 /* ③ 柱 ②〜⑤（小さな画面写真＋1〜2 文）。スマホは写真を左に、PC は 2×2 */
 .lp-pillars { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-12); }
@@ -785,6 +788,7 @@ body.lp-active {
   .lp-asks { max-width: none; }
   .lp-asks ul { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-6); }
   .lp-asks li { grid-template-columns: minmax(0, 1fr) !important; align-items: start !important; }
+  .lp-asks-bubble { justify-self: stretch; }
   /* よくある質問と扱いの説明は中央の 720 */
   .lp-faq .lp-narrow > * { max-width: 720px; }
   .lp-faq .lp-narrow > .lp-trust { max-width: 720px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -806,6 +810,8 @@ body.lp-active {
 }
 
 @media (min-width: 1100px) {
+  /* 1 段目の 3 枚は、見出しの行数がちがっても端末の上端をそろえる */
+  .lp-pillars > li:nth-child(-n+3) { grid-row: span 2; grid-template-rows: subgrid; row-gap: var(--space-6); }
   /* 5 つ: 上の段 3 枚・下の段 2 枚（文が左・画面が右の横長）で穴をあけない */
   .lp-pillars { grid-template-columns: repeat(6, minmax(0, 1fr)); }
   .lp-pillars > li { grid-column: span 2; }
@@ -825,6 +831,8 @@ body.lp-active {
 }
 .lp-qr { display: none; align-items: center; gap: var(--space-3); }
 .lp-qr svg { border-radius: var(--radius); flex-shrink: 0; }
+/* 暗い画面でも白い札に見せる（QR は白地に黒・読み取りのため色をトークンにしない） */
+@media (prefers-color-scheme: dark) { .lp-qr svg { padding: var(--space-2); background: #fff; } }
 .lp-qr p { color: var(--text-2); font-size: var(--text-meta); line-height: 1.5; text-align: left; }
 /* スマホ・タブレット（タッチ操作の端末）では出さない */
 @media (min-width: 1024px) and (hover: hover) and (pointer: fine) {

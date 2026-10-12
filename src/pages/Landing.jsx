@@ -104,6 +104,35 @@ const TRIAL_CTA_LABEL = <span className="lp-btn-label"><span className="lp-nb">7
 // 形式: { quote, who: '30代・営業', how: '部下との 1on1 の前に相談している' }。空なら節ごと出ない。
 const TESTIMONIALS = [];
 
+// 🎞 イラストの型のヒーローに重ねる端末: 実際の画面 3 枚（メモ → 相談相手を選ぶ → 本の語り口の答え）を
+//   1 回だけ順に切り替えて、最後の答えの画面で止まる（2026-10-12 ui-critic「会話が動いて見える瞬間」）。
+//   動きを減らす設定では、最初から答えの画面だけ。画面はどれも npm run lp:shots の実際のアプリ。
+const HERO_MINI = [
+  { name: 'flow-line', alt: '本の詳細のメモの一覧。今日残した一行' },
+  { name: 'flow-talk', alt: '相談相手を選ぶ画面「誰に相談しますか？」' },
+  { name: 'hero', alt: '相談の画面。『嫌われる勇気』の 1 冊に相談し、本の語り口で答えが返ってきている' },
+];
+function HeroMini() {
+  const [still] = useState(() => {
+    try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches || new URLSearchParams(window.location.search).get('motion') === 'static'; } catch { return true; }
+  });
+  const [i, setI] = useState(still ? HERO_MINI.length - 1 : 0);
+  useEffect(() => {
+    if (still || i >= HERO_MINI.length - 1) return undefined;
+    const t = window.setTimeout(() => setI((n) => n + 1), i === 0 ? 2200 : 2600);
+    return () => window.clearTimeout(t);
+  }, [i, still]);
+  return (
+    <div className="lp-hero-mini" aria-live="off">
+      {HERO_MINI.map((m, k) => (
+        <div key={m.name} className={`lp-hero-mini-frame${k === i ? ' is-on' : ''}`}>
+          <Shot name={m.name} eager={k === HERO_MINI.length - 1} hidden={k !== HERO_MINI.length - 1} alt={m.alt} className="lp-shot" sizes="(min-width: 768px) 220px, 46vw" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ② これまでの読書と、Orime の読書（2026-10-12 オーナー「従来の読書は一方通行。Orime は本と会話できるので、
 //   自分自身のオリジナルの内容で理解できる。ビフォーアフターの世界観を」）。図は 本 → 自分（一方通行）と 本 ⇄ 自分（会話）。
 const BEFORE_AFTER = [
@@ -515,7 +544,7 @@ export default function Landing() {
               <figure className="lp-hero-shot lp-hero-illust">
                 <LpIllust />
                 {/* イラストの右下に、実際の相談の画面を少し重ねる（イラストの型でも最初の画面で製品が見える・2026-10-12） */}
-                <Shot name="hero" eager className="lp-shot lp-hero-mini" sizes="(min-width: 768px) 200px, 34vw" alt="相談の画面。『嫌われる勇気』の 1 冊に相談し、本の語り口で答えが返ってきている" />
+                <HeroMini />
               </figure>
             ) : (
             <figure className="lp-hero-shot">
@@ -578,7 +607,7 @@ export default function Landing() {
               {/* 相談の入力の吹き出しの形（アプリの送った相談と同じ見た目・右寄せ） */}
               <ul>
                 {ASK_EXAMPLES.map((x) => (
-                  <li key={x.q}><span className="lp-asks-who">{x.who}</span><span className="lp-asks-bubble lp-wbr"><Phrases>{x.q}</Phrases></span></li>
+                  <li key={x.q}><span className="lp-asks-bubble"><span className="lp-asks-who">{x.who}</span><span className="lp-wbr"><Phrases>{x.q}</Phrases></span></span></li>
                 ))}
               </ul>
             </div>
@@ -776,7 +805,7 @@ export default function Landing() {
             <h2 className="lp-h2" id="lp-faq">よくある質問</h2>
             <div className="lp-faq-list">
               {COPY.faq.map((f, i) => (
-                <details className="lp-faq-item" key={f.q} onToggle={(e) => { if (e.currentTarget.open) lpTrack('faq_open', { i, q: f.q.slice(0, 40) }); }}>
+                <details className="lp-faq-item" key={f.q} open={i === 0 || undefined} onToggle={(e) => { if (e.currentTarget.open) lpTrack('faq_open', { i, q: f.q.slice(0, 40) }); }}>
                   <summary>
                     <span className="lp-wbr"><Phrases>{f.q}</Phrases></span>
                     <ChevronDown size="1.25em" aria-hidden="true" className="lp-faq-mark" />
