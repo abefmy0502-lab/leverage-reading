@@ -221,6 +221,8 @@ const SCREENS = [
   { name: 'free-ocr-editor-done', url: '/?demo=free', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button:has-text("メモを書く")' }, { css: 'button:has-text("ページ・写真")' }, { css: 'button:has-text("全画面で書く")' }, { wait: 800 }, { upload: ['input[data-ocr-input]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 3000 }] },
   // 🏷 合いそうなタグ（2026-10-02）: メモを書いて保存したあと、一覧の上の「いま書いたメモに合いそうなタグ」（端末の中だけで決める）。
   { name: 'book-memo-saved', url: '/', steps: MEMO_SAVED },
+  // 保存した直後のまま（一覧の上へ戻さない＝保存したメモと合いそうなタグが画面の中に来るか・2026-10-12 点検）
+  { name: 'book-memo-saved-reveal', url: '/', steps: MEMO_SAVED.slice(0, -1) },
   { name: 'book-memo-saved-tag-on', url: '/', steps: [...MEMO_SAVED, { css: 'section[aria-labelledby="tag-suggest-title"] button[aria-pressed="false"] >> nth=0' }, { wait: 800 }] },
   // 保存中（すぐ付いた形＋小さな回る印）・保存に失敗（元に戻して知らせ）・長いタグ（50 字・… に切る）
   { name: 'book-memo-saved-tag-saving', url: '/?save=slow-memo-update', steps: [...MEMO_SAVED, { css: 'section[aria-labelledby="tag-suggest-title"] button[aria-pressed="false"] >> nth=0' }, { wait: 400 }] },

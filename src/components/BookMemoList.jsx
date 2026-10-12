@@ -339,6 +339,28 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
   const openLink = (book, memoId) => {
     if (book?.id) requestOpenMemo(book.id, memoId);
   };
+  // 保存したメモへの案内（タグ・つながるメモ・通知）。top＝一覧の上に置くとき（下に余白）。
+  const savedExtras = (top) => {
+    const mb = top ? { marginBottom: 'var(--space-3)' } : null;
+    return (
+      <>
+        {showTagSuggest && (!top || visibleMemos.length > 0) && (
+          <TagSuggest
+            suggestions={tagSuggestions}
+            applied={appliedTags}
+            busyTag={tagBusy}
+            onToggle={toggleSuggestedTag}
+            onDismiss={() => setDismissedTags(saved.nonce)}
+            style={mb}
+          />
+        )}
+        {savedLinks.length > 0 && (!top || visibleMemos.length > 0) && (
+          <MemoLinks variant="saved" links={savedLinks} onOpen={openLink} onDismiss={() => setDismissedSaved(saved.nonce)} style={mb} />
+        )}
+        {saved?.fromPhoto && <NotifyOptInCard where="ocr" primary={false} style={mb} />}
+      </>
+    );
+  };
 
   const allTags = useMemo(() => {
     const s = new Set();
@@ -358,6 +380,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
     () => (quoteOnly ? memos.filter((m) => Number.isFinite(m.pageNumber)) : memos),
     [memos, quoteOnly]
   );
+  const savedInList = !!savedRow && visibleMemos.some((m) => m.id === savedRow.id);
 
   // メモ本文をクリップボードへ。ページ番号があれば「(p.42)」を併記して引用作業を楽にする。
   const handleCopy = async (memo) => {
@@ -460,16 +483,39 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
   // 📍 保存した新しいメモを画面の中まで送る（ページ順ではページの無いメモは一覧の最後に入り、光っても画面の外だった・
   //   2026-10-04）。並びは変えずに送るだけ。シートが閉じ終わってから（約 250ms）、見えていなければ下の「保存しました。」の
   //   知らせと右下の「メモを書く」の上まで（scroll-margin）。もう見えていれば動かさない（block: 'nearest'）。
-  const revealNewMemo = (id) => {
+  const revealNewMemo = (id, delay = 260) => {
     setTimeout(() => {
       const el = rootRef.current?.querySelector(`[data-memo-id="${typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(String(id)) : String(id)}"]`);
       if (!el) return;
       let reduce = false;
       try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { /* noop */ }
-      el.style.scrollMarginBottom = NEW_MEMO_SCROLL_MARGIN;
-      try { el.scrollIntoView({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' }); } catch { /* ignore */ }
-    }, 260);
+      const target = el.closest('[data-memo-group]') || el;
+      target.style.scrollMarginBottom = NEW_MEMO_SCROLL_MARGIN;
+      // 'nearest' は、下の端が欄の中に入っていると下の空き（知らせ・メモを書く）を数えずに止まる（2026-10-12 点検）。
+      //   下の空きまで入らないときは 'end'（空きを数える）で送る。上にはみ出しているときは今までどおり 'nearest'。
+      let block = 'nearest';
+      try {
+        let sc = target.parentElement;
+        while (sc && !(sc.scrollHeight > sc.clientHeight && /auto|scroll/.test(getComputedStyle(sc).overflowY))) sc = sc.parentElement;
+        const bottom = sc ? sc.getBoundingClientRect().bottom : window.innerHeight;
+        const r = target.getBoundingClientRect();
+        const margin = parseFloat(getComputedStyle(target).scrollMarginBottom) || 0;
+        if (r.bottom + margin > bottom && r.top >= 0) block = 'end';
+      } catch { /* ignore */ }
+      try { target.scrollIntoView({ block, behavior: reduce ? 'auto' : 'smooth' }); } catch { /* ignore */ }
+    }, delay);
   };
+
+  // 合いそうなタグ・つながるメモが少し遅れて出たら、保存したメモと合わせてもう一度画面の中へ（1 回の保存につき 1 回）。
+  const extrasRevealedRef = useRef(null);
+  const hasSavedExtras = savedInList && (showTagSuggest || savedLinks.length > 0);
+  useEffect(() => {
+    if (!hasSavedExtras || !saved?.nonce || extrasRevealedRef.current === saved.nonce) return;
+    extrasRevealedRef.current = saved.nonce;
+    // 先の送り（なめらかに動く間・約 0.5 秒）が終わってから。途中で重ねると先の送りの位置で止まった。
+    revealNewMemo(saved.id, 800);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasSavedExtras, saved?.nonce]);
 
   // 本の詳細の右下の「メモを書く」（App のメモを書くシート）で保存したメモ（savedMemo）も、一覧に入ったら同じように
   //   光らせて画面の中まで送る（2026-10-04）。1 回の保存（nonce）につき 1 回だけ。
@@ -638,29 +684,13 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
         />
       )}
 
-      {/* 🏷 いま保存したメモに合いそうな自分のタグ（一覧のいちばん上・押すと付く・× で閉じる・次に保存するまで） */}
-      {showTagSuggest && visibleMemos.length > 0 && (
-        <TagSuggest
-          suggestions={tagSuggestions}
-          applied={appliedTags}
-          busyTag={tagBusy}
-          onToggle={toggleSuggestedTag}
-          onDismiss={() => setDismissedTags(saved.nonce)}
-          style={{ marginBottom: 'var(--space-3)' }}
-        />
-      )}
-
-      {/* 🔗 いま保存したメモと似たことを、ほかの本でも書いていたら（一覧のいちばん上・× で閉じる・次に保存するまで） */}
-      {savedLinks.length > 0 && visibleMemos.length > 0 && (
-        <MemoLinks variant="saved" links={savedLinks} onOpen={openLink} onDismiss={() => setDismissedSaved(saved.nonce)} style={{ marginBottom: 'var(--space-3)' }} />
-      )}
-
-      {/* 🔔 写真から書き起こしたメモを保存した直後は、通知の案内を 1 回だけ（まだ決めていない人だけ・2026-10-10）。 */}
-      {saved?.fromPhoto && <NotifyOptInCard where="ocr" primary={false} style={{ marginBottom: 'var(--space-3)' }} />}
+      {/* 保存したメモが一覧に見えていないとき（絞り込み中など）だけ、いちばん上に置く。 */}
+      {!savedInList && savedExtras(true)}
 
       {visibleMemos.length > 0 && (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-        {visibleMemos.map((m) => (
+        {visibleMemos.map((m) => {
+          const card = (
           <BookMemoCard
             key={m.id}
             memo={m}
@@ -673,7 +703,18 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
             onExpandChange={onExpandChange}
             onOpenLink={openLink}
           />
-        ))}
+          );
+          // 🏷 いま保存したメモのすぐ下に、合いそうなタグ・つながるメモ・通知の案内（2026-10-12 点検: 一覧の上だと、
+          //   どのメモの話か分からず、保存したメモは下の知らせに隠れていた）。メモと案内をまとめて画面の中へ送る（data-memo-group）。
+          if (!savedInList || m.id !== savedRow.id) return card;
+          return (
+            // メモと案内の間は 8・次のメモまでは 24（どのメモに付いた案内か、余白で分かるように・ui-critic）。
+            <div key={m.id} data-memo-group="" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginBottom: hasSavedExtras || saved?.fromPhoto ? 'var(--space-3)' : 0 }}>
+              {card}
+              {savedExtras(false)}
+            </div>
+          );
+        })}
       </div>
       )}
     </div>
