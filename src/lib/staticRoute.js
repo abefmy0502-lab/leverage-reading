@@ -26,7 +26,9 @@ export function staticPageRoute() {
 //     ＝?auth=・?checkout=・?tab=・?code= などアプリの用事は false
 //   - # にログインの戻り（access_token= / error= など「=」を含むもの）が無い
 //   - ホーム画面に追加した PWA（standalone）・iOS アプリ（Capacitor）ではない
-//   - 端末に「一度ログイン画面まで来た人」（orime-returning）・Supabase のログインの記録（sb-…-auth-token）が無い
+//   - 端末に Supabase のログインの記録（sb-…-auth-token）が無い（ログインしている人はアプリ）
+//     2026-10-12 オーナー「LP の URL を開いたらログイン画面になる・直接 LP に」: 一度ログイン画面まで来た印（orime-returning）では
+//     もう LP を止めない（アプリは iPhone で使う想定・ログインは ?auth=signin）
 //   - お試しモード（npm run demo）ではない（お試しはアプリを見る場所）
 // env: いま見ている window（テストで差し替える）
 const LP_PARAMS = /^(utm_[a-z]+|hero|ref|fbclid|gclid|rev|founding|motion)$/;
@@ -45,7 +47,6 @@ export function landingAtRoot(env = (typeof window !== 'undefined' ? window : nu
     const standalone = (env.matchMedia && env.matchMedia('(display-mode: standalone)').matches) || nav?.standalone === true;
     if (standalone) return false;
     if (!ls) return false;
-    if (ls.getItem('orime-returning') === 'true') return false;
     for (let i = 0; i < ls.length; i += 1) {
       const k = ls.key(i) || '';
       if (/^sb-.*-auth-token$/.test(k)) return false;

@@ -24,7 +24,8 @@ describe('landingAtRoot', () => {
     expect(landingAtRoot(env({ search: '?tab=review&sub=action' }))).toBe(false);
     expect(landingAtRoot(env({ search: '?code=abc' }))).toBe(false);
     expect(landingAtRoot(env({ hash: '#access_token=x&type=magiclink' }))).toBe(false);
-    expect(landingAtRoot(env({ storage: { 'orime-returning': 'true' } }))).toBe(false);
+    // 一度ログイン画面まで来た人でも、ログインしていなければ LP（2026-10-12）
+    expect(landingAtRoot(env({ storage: { 'orime-returning': 'true' } }))).toBe(true);
     expect(landingAtRoot(env({ storage: { 'sb-abcd-auth-token': '{}' } }))).toBe(false);
     expect(landingAtRoot(env({ standalone: true }))).toBe(false);
     expect(landingAtRoot(env({ native: true }))).toBe(false);

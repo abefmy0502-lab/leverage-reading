@@ -7187,7 +7187,7 @@ function shouldShowMarketingLanding() {
       (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
       window.navigator.standalone === true;
     if (standalone) return false;
-    if (window.localStorage.getItem('orime-returning') === 'true') return false;
+    // 2026-10-12: 一度ログイン画面まで来た印（orime-returning）では LP を止めない（オーナー「LP の URL で直接 LP に」）。
     return true;
   } catch {
     return false; // 不明時は従来挙動（AuthScreen）へ安全側に倒す
