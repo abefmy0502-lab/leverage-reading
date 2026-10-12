@@ -245,9 +245,7 @@ export function buildSeed(scenario) {
   // ?demo=trial: 7 日間無料の途中（あと 5 日・150 トークンのうち 40 を使った）。
   // ?demo=trialout: 7 日間無料の途中で 150 トークンを使い切った（無料期間が終わる日の案内の確認用）。
   if (scenario === 'trial' || scenario === 'trialout') {
-    // &trialend=soon: 解約の期限の前日（終わる前の知らせ「7 日間無料は ◯月◯日まで」の確認用・2026-10-12）
-    const soon = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('trialend') === 'soon';
-    const end = soon ? new Date(Date.now() + 36 * 3600 * 1000).toISOString() : iso(-5);
+    const end = iso(-5);
     db.subscriptions[0] = { ...db.subscriptions[0], period_type: 'trial', current_period_end: end };
     const endDay = new Date(Date.parse(end) + 9 * 3600 * 1000).toISOString().slice(0, 10);
     db.ai_usage = [{ user_id: DEMO_USER_ID, period_month: `trial-${endDay}`, calls: scenario === 'trialout' ? 15 : 4, cost_mjpy: scenario === 'trialout' ? 45000 : 12000 }];

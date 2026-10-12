@@ -39,7 +39,7 @@ import { TOKEN_COSTS, monthDayLabelJa, remainingAnswersLabel } from '../lib/toke
 import { showFreeTokenCount } from '../lib/tokenAmounts';
 import { isLowTokens } from '../lib/tokenUsage';
 import TokenUsageSheet from './TokenUsageSheet';
-import { shouldShowTrialNudge, trialNudgeCopy, isTrialNudgeDone, markTrialNudgeDone, normalizeTrialLabel, trialCancelShortLine, shouldShowTrialEnding, trialEndingCopy, trialEndingDismissedFor, markTrialEndingDismissed } from '../lib/trialNudge';
+import { shouldShowTrialNudge, trialNudgeCopy, isTrialNudgeDone, markTrialNudgeDone, normalizeTrialLabel, trialCancelShortLine } from '../lib/trialNudge';
 import { getIntroOffer } from '../lib/iap';
 import { firstAnswerTrialGroup, isFirstAnswerTrialMoment, canOfferFirstAnswerTrial, holdGrownNudge, firstAnswerTrialText, isFirstAnswerTrialDone, markFirstAnswerTrialDone } from '../lib/firstAnswerTrial';
 import { shouldAskForReview, markReviewAsked, askForReview } from '../lib/reviewRequest';
@@ -1963,15 +1963,6 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     return () => { alive = false; };
   }, [nudgeWanted, trialOffer, hadPlan, user?.id]);
   const showNudge = nudgeWanted && trialOffer !== null;
-  // ⏰ 7 日間無料が終わる前の知らせ（lib/trialNudge.js の shouldShowTrialEnding・2026-10-12）
-  const [trialEndingClosed, setTrialEndingClosed] = useState(false);
-  const showTrialEnding = !trialEndingClosed && shouldShowTrialEnding({ plan, periodEnd: trialEndsAt, dismissedFor: trialEndingDismissedFor() });
-  const trialEndingSeenRef = useRef(false);
-  useEffect(() => {
-    if (!showTrialEnding || trialEndingSeenRef.current) return;
-    trialEndingSeenRef.current = true;
-    track('trial_ending', { action: 'shown' });
-  }, [showTrialEnding]);
   // 🎁 無料のトークンを使い切ったときの案内（FreeUsedCard）のボタン: 7 日間無料を使える人には「7 日間無料で試す」、
   //   使えない・分からない・月額だけに無料期間があるとき（創業メンバー価格のあいだ）は「プランを見る」（2026-10-10）。
   const [freeUsedOffer, setFreeUsedOffer] = useState('');
@@ -2392,12 +2383,6 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 {freeUsedUp && (
                   <FreeUsedCard tokenAllowance={tokenNextAllowance ?? tokenAllowance} cta={freeUsedCta} onOpen={() => openPaywall('free_used')} style={{ marginBottom: 'var(--space-6)' }} />
                 )}
-                {showTrialEnding && (
-                  <TrialEndingCard
-                    copy={trialEndingCopy({ periodEnd: trialEndsAt, memoCount: ownMemoTotal || 0 })}
-                    onDismiss={() => { markTrialEndingDismissed(trialEndsAt); setTrialEndingClosed(true); track('trial_ending', { action: 'dismiss' }); }}
-                  />
-                )}
                 {showNudge && (
                   <TrialNudgeCard
                     copy={trialNudgeCopy({ memoCount: ownMemoTotal, offer: trialOffer, offerPlan: trialOfferPlan })}
@@ -2809,11 +2794,6 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
 // 🌱 相談相手が育ってきました（無料プランで自分のメモが 10 件たまったとき・1 回だけ）。
 // 相談例の上に置く案内カード（DESIGN §5 の案内カード＝.card の面・アイコンなし）。右上の × で閉じる。
 // 主ボタンは有料プランの画面を重ねて開く（reason 'grown'）。答えの途中には出さない（親が empty で決める）。
-// ⏰ 7 日間無料が終わる前の知らせ（事実だけ・すすめるボタンは置かない・閉じられる）。
-function TrialEndingCard({ copy, onDismiss }) {
-  return <TrialNudgeCard copy={{ ...copy, cta: '' }} onDismiss={onDismiss} titleId="brain-trial-ending-title" />;
-}
-
 function TrialNudgeCard({ copy, onOpen, onDismiss, titleId = 'brain-nudge-title' }) {
   return (
     <section aria-labelledby={titleId} style={{ ...cardStyle, marginBottom: 'var(--space-6)' }}>
