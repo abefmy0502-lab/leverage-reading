@@ -715,6 +715,7 @@ body.lp-active {
   /* 1 行に柱 1 つ（写真｜文） */
   .lp-pillars { grid-template-columns: repeat(auto-fit, minmax(min(100%, 36em), 1fr)); column-gap: var(--space-12); row-gap: var(--space-16); }
   .lp-ba { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
+  .lp-narrow > .lp-ba { max-width: none; }
   .lp-asks li { grid-template-columns: 8em minmax(0, 1fr); gap: var(--space-3); }
   .lp-media-shot .lp-shot, .lp-media-shot .lp-share-img { margin: 0; }
   .lp-media-shot { text-align: left; }
