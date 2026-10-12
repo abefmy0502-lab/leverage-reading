@@ -104,54 +104,54 @@ const TESTIMONIALS = [];
 
 // ② これまでの読書と、Orime の読書（2 行だけ）
 const BEFORE_AFTER = [
-  { label: 'これまで', steps: ['読む', '閉じる', '終わり'] },
-  { label: 'Orime', steps: ['一行を残す', '本と会話する', '明日の一歩'] },
+  { label: 'これまで', steps: ['読む', '本棚に戻す', 'そのまま'] },
+  { label: 'Orime', steps: ['一行メモする', '本に相談する', '明日やってみる'] },
 ];
 
 // ② 相談の例（幅を持たせて 3 つ・立場で絞らない）
 const ASK_EXAMPLES = [
   { who: '仕事', q: '任せるのが苦手。どうしたらいい？' },
-  { who: '就活・キャリア', q: '自己分析で、自分の強みをどう言う？' },
-  { who: '習慣・自己成長', q: '続けたいのに、三日で終わってしまう' },
+  { who: '就活・キャリア', q: '面接で話せる強みが見つからない' },
+  { who: '習慣・自己成長', q: '何を始めても三日坊主で終わる' },
 ];
 
 // ③ 続けられて、成果が見える（柱 ②〜⑤・1 つ 1〜2 文・画面 1 枚）
 const PILLARS = [
   {
     id: 'action', shot: 'action', artAlt: '相談で決めた一歩を、明日のやることに書き込む様子のイラスト',
-    head: '成果につなげる',
-    title: '会話の最後は、明日の一歩。',
-    body: '決めた一歩は行動リストへ。期限の日の朝にお知らせします。',
+    head: '行動に移す',
+    title: '最後は、明日やることを一つ。',
+    body: '決めたことは行動リストに入り、期限の日の朝に通知が届きます。',
     alt: '振り返りの行動の画面。明日・来週以降に分かれた行動の一覧と、それぞれの本の名前',
   },
   {
     id: 'focus', shot: 'focus', artAlt: '時間を決めて、集中して本を読む様子のイラスト',
     head: '習慣にする',
-    title: '時間を決めて、集中して読む。',
-    body: '集中モードで読んだ時間が、本と分野ごとに残ります。',
+    title: '時間を決めて読む。',
+    body: 'タイマーをかけて読むと、読んだ時間が本ごとに残ります。',
     alt: '集中モードの画面。暗い地に本の表紙と書名、「残り 23 分」の大きな数字と細い輪、下にメモ・おわる・一時停止のボタン',
   },
   {
     id: 'share', share: true, artAlt: '心に残った一文を写真に重ねて共有する様子のイラスト',
-    head: '発信して、続ける',
-    title: '心に残った一文を、1 枚の画像に。',
-    body: '写真に一文と書名を重ねて共有。写真は端末の中で重ね、Orime のサーバーには送りません。',
+    head: '発信する',
+    title: '気に入った一文を、画像にして投稿。',
+    body: '写真に一文と書名をのせて、そのまま SNS へ。',
     alt: '共有の画像の見本（縦長のストーリー）。海辺のカフェの写真の上に、細い明朝の一文「人は、言われたことより、見たことで動く。まず自分がやってみせることだ。」と、読書中の本の書名・著者、Orime のロゴと日付が重なっている',
   },
   {
     id: 'fields', shot: 'fields', artAlt: 'これまでに読んだ本を分野ごとに見渡す様子のイラスト',
-    head: '自分の読書を客観的に見る',
-    title: 'どの分野が手薄か、見える。',
-    body: '読んだ本を分野ごとに。本とメモの数で、手薄な分野が分かります。',
+    head: '読書の偏りに気づく',
+    title: '読んでいない分野が、ひと目で。',
+    body: '読んだ本を分野ごとに並べると、手薄なところが見えてきます。',
     alt: '振り返りの記録の「分野」。仕事・自分と生活の分野ごとの本とメモの数と、「まだ本がない分野」のチップ',
   },
   {
     // AI 選書（2026-10-11 オーナー「おすすめの本と順番、その本を読む戦略まで」）。言い過ぎない: 聞き取り・読んできた本と評価・
     //   最近の相談 → おすすめと読む順番 → 追加した本の読書計画シート。どちらもプランの機能。
     id: 'advisor', shot: 'advisor', artAlt: '悩みを聞いて、次に読む本と読む順番を選ぶ様子のイラスト',
-    head: '次に読む本と、読み方まで',
-    title: 'あなたの読書から、次の一冊を。',
-    body: 'AI 選書が悩みを会話で聞き取り、読んできた本と評価、最近の相談から、おすすめの本と読む順番を出します（プラン）。',
+    head: '次の一冊を選ぶ',
+    title: '次に読む本と、読む順番まで。',
+    body: '悩みを話すと、これまで読んだ本や最近の相談をふまえて、おすすめの本と読む順番を出します。プランで使える機能です。',
     alt: 'AI 選書の画面。受け取った悩みのまとめと、おすすめの本のカード、読む順番',
   },
 ];
@@ -159,18 +159,18 @@ const PILLARS = [
 // ③ の下の安心の 4 つ。学習＝各社の API 規約／同意＝ensureAiConsent（はじめて AI を使う操作のとき）／
 // 書き出し＝設定の CSV（lib/exportData.js）・退会のお申し込みで消去／写真で共有＝端末の中で描く（サーバーに送らない）。
 const TRUST_POINTS = [
-  'メモは、AI の学習に使われません',
-  'AI に送るのは AI の機能を使うときだけ。はじめに同意を聞きます',
-  'いつでも CSV で書き出せて、退会のお申し込みでデータを消去します',
-  '共有の写真は、サーバーに送りません',
+  'メモが AI の学習に使われることはありません',
+  'AI にデータを送るのは、AI の機能を使うときだけです',
+  'いつでも CSV で書き出せます。退会を申し込めばデータは消去されます',
+  '共有する写真は、サーバーにアップロードしません',
 ];
 
 // ④ メモがゼロでも、今日から（0 日目の 4 つの道・SPEC §1-1d）
 const START_POINTS = [
-  { head: '読んだ本に、一言ずつ', body: `覚えている一行を書くだけ。${noBreak('うろ覚え')}で大丈夫です。` },
-  { head: 'ほかのアプリから取り込む', body: 'ブクログ・読書メーター・Kindle の記録を、ファイルを選ぶだけで。' },
-  { head: '本のページを撮る', body: '線を引いたページを撮ると、文字に書き起こします。' },
-  { head: '積読から始める', body: '読む前に「この本で学べること」が分かります。' },
+  { head: '読んだ本に一言', body: `覚えていることを一行だけ。${noBreak('うろ覚え')}でかまいません。` },
+  { head: 'ほかのアプリから取り込む', body: 'ブクログ、読書メーター、Kindle の記録をそのまま移せます。' },
+  { head: '本のページを撮る', body: '線を引いたページを撮ると、文字にしてくれます。' },
+  { head: '積読から始める', body: 'まだ読んでいない本も、何が学べるかを先に確認できます。' },
 ];
 
 const setMeta = (name, content, attr = 'name') => {
@@ -318,7 +318,7 @@ export default function Landing() {
         operatingSystem: 'iOS',
         // ストアの第 1 カテゴリ（仕事効率化）に近いもの
         applicationCategory: 'BusinessApplication',
-        description: '読んだ本と会話する読書メモアプリ。心に響いた一行を残すと、AI がその本の語り口で、あなたのメモから本とページを添えて答え、明日やることを一緒に一つ決める。集中モード・写真で共有・分野ごとの読書の記録も。',
+        description: '読んだ本と会話できる読書メモアプリ。気になった一行をメモしておくと、迷ったときに AI がその本の語り口で、あなたのメモをもとに答えます。',
         offers: [
           { '@type': 'Offer', name: '無料プラン', price: '0', priceCurrency: 'JPY' },
           { '@type': 'Offer', name: '月額プラン', price: String(MONTHLY), priceCurrency: 'JPY' },
@@ -484,18 +484,18 @@ export default function Landing() {
         <section className="lp-hero">
           <div className="lp-wrap lp-hero-grid">
             <div className="lp-hero-text">
-              <p className="lp-eyebrow"><span>AI 読書メモアプリ</span></p>
+              <p className="lp-eyebrow"><span>読書メモアプリ</span></p>
               <h1 className="lp-h1">
                 <span>読んだ本と、</span><span>会話しよう。</span>
               </h1>
               <p className="lp-lead lp-wbr">
-                <Phrases>迷ったことを聞くと、AI が本の語り口で、あなたのメモから答えます。本とページを添えて、明日の一歩まで。</Phrases>
+                <Phrases>迷ったときに聞くと、AI がその本の語り口で答えます。答えのもとは、あなたが読んで残したメモです。</Phrases>
               </p>
               <div className="lp-cta-block" ref={heroCtaRef}>
                 <Entry loc="hero" wl={wl} qr badge launch />
                 <div className="lp-hero-links">
                   <a className="lp-textlink" href="#lp-flow" onClick={() => lpTrack('hero_secondary', {})}>
-                    <span>15 秒で、会話の流れを見る</span><ChevronDown size="1.1em" aria-hidden="true" />
+                    <span>会話の様子を見る</span><ChevronDown size="1.1em" aria-hidden="true" />
                   </a>
                   {/* 創業メンバー価格（期間中だけ）: 押すと料金の中の帯へ */}
                   {OFFER.active && (
@@ -540,7 +540,7 @@ export default function Landing() {
                 <span>読んで、</span><span>終わりにしない。</span>
               </h2>
               {/* 一番の価値（CLAUDE.md）を 1 行で・会話の流れの頭に（2026-10-11 ui-critic） */}
-              <p className="lp-wbr lp-flow-lead"><Phrases>読むほど、あなただけの相談相手が育つ。</Phrases></p>
+              <p className="lp-wbr lp-flow-lead"><Phrases>読めば読むほど、頼れる相談相手になっていきます。</Phrases></p>
               <dl className="lp-ba">
                 {BEFORE_AFTER.map((r, i) => (
                   <div key={r.label} className={i === 1 ? 'is-after' : undefined}>
@@ -569,7 +569,7 @@ export default function Landing() {
           <div className="lp-wrap">
             <div className="lp-narrow lp-sec-head">
               <h2 className="lp-h2" id="lp-pillars">
-                <span>続けられて、</span><span>成果が見える。</span>
+                <span>続けるための</span><span>仕組みも。</span>
               </h2>
             </div>
             <ul className="lp-pillars">
@@ -609,7 +609,7 @@ export default function Landing() {
                 </li>
               ))}
             </ul>
-            {!shareArt && <p className="lp-shot-note lp-pillars-note">共有の画像は、見本の写真でアプリが作ったものです。</p>}
+            {!shareArt && <p className="lp-shot-note lp-pillars-note">画像は見本です。</p>}
             {/* 安心の 4 つ（どれも実装と規約で確かめた事実だけ・2026-10-11） */}
             <ul className="lp-trust" aria-label="データの扱い">
               {TRUST_POINTS.map((t) => (
@@ -624,7 +624,7 @@ export default function Landing() {
           <div className="lp-wrap">
             <div className="lp-narrow lp-sec-head">
               <h2 className="lp-h2" id="lp-start">
-                <span>メモがゼロでも、</span><span>今日から。</span>
+                <span>メモがなくても、</span><span>今日から始められます。</span>
               </h2>
               <LpArt name="illust-start" ratio="4:3" className="lp-art-sec" alt="読んだ本に一言ずつ残したり、ほかのアプリの記録を取り込んだり、本のページを撮ったりして始める様子のイラスト" />
             </div>
@@ -660,7 +660,7 @@ export default function Landing() {
                     見出しに金額を置かない（月あたりの額を請求額より大きく見せない） */}
                 <span>月に</span><span>本{'\u00a0'}1{'\u00a0'}冊ほどの</span><span>値段で、</span><span>読んだ本</span><span>すべてが</span><span>相談相手に。</span>
               </h2>
-              <p className="lp-wbr"><Phrases>{`${noBreak(`月額 ${MONTHLY_TEXT}`)}${noBreak('（1 日あたり')}${noBreak(`約 ${PER_DAY_TEXT}）。`)}まずは無料プラン（ずっと無料）から始められます。`}</Phrases></p>
+              <p className="lp-wbr"><Phrases>{`${noBreak(`月額 ${MONTHLY_TEXT}`)}${noBreak('（1 日あたり')}${noBreak(`約 ${PER_DAY_TEXT}）。`)}無料プランのままでも、ずっと使えます。`}</Phrases></p>
             </div>
 
             {/* 創業メンバー価格（期間中だけ・料金の中の帯 1 枚）。「先着」「通常価格」と書かない・差額を書かない */}
@@ -679,7 +679,7 @@ export default function Landing() {
                 <p className="lp-plan-price">¥0<span>ずっと無料</span></p>
                 <ul className="lp-included" aria-label="無料プランに含まれるもの">
                   {/* li は flex（印と文を横に並べる）なので、文は 1 つの span に包む */}
-                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>本とメモは何件でも（行動・集中モード・記録・写真で共有・取り込みも）</span></li>
+                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>本とメモは何件でも。AI 以外の機能はすべて使えます</span></li>
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>AI の答えは<span className="lp-nb">毎月 {FREE_CONSULTS}</span><span className="lp-nb">（はじめの月は {FIRST_CONSULTS}）</span></span></li>
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>写真から書き起こし <span className="lp-nb">毎月 {FREE_OCR_PER_MONTH} 回</span></span></li>
                 </ul>
@@ -691,7 +691,7 @@ export default function Landing() {
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span><span className="lp-nb">AI の答え {PAID_CONSULTS}</span><span className="lp-nb">（毎月 {PAID_TOKENS} トークン）</span></span></li>
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>すべての <span className="lp-nb">AI 機能</span>（読書計画シート・<span className="lp-nb">AI 選書・</span>写真から書き起こし・メモの凝縮など）</span></li>
                   {TRIAL_NOTE && (
-                    <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>無料期間の間は <span className="lp-nb">{TRIAL_TOKENS} トークン</span><span className="lp-nb">（AI の答え {TRIAL_CONSULTS}）</span></span></li>
+                    <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>無料期間中は <span className="lp-nb">AI の答え {TRIAL_CONSULTS}</span><span className="lp-nb">（{TRIAL_TOKENS} トークン）</span></span></li>
                   )}
                 </ul>
                 <div className={`lp-plan-rows${OFFER.active ? ' is-founding' : ''}`}>
@@ -720,7 +720,7 @@ export default function Landing() {
               </div>
             </div>
             <p className="lp-fine lp-wbr">
-              <Phrases>{`回数は目安です（${CONSULT_ANSWERS_NOTE}）。使わなかったトークンは翌月に繰り越しません。関係するメモが見つからなかった相談は、トークンを戻します（${noBreak(`毎月 ${NO_INFO_REFUNDS} 回`)}まで）。`}</Phrases>
+              <Phrases>{`回数は目安です。${CONSULT_ANSWERS_NOTE}。トークンは翌月に繰り越せません。関係するメモが見つからず答えられなかった相談は、${noBreak(`月 ${NO_INFO_REFUNDS} 回`)}までトークンを返します。`}</Phrases>
             </p>
             <div className="lp-cta-block">
               <Entry loc="pricing" wl={wl} />
