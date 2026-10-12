@@ -378,15 +378,17 @@ body.lp-active {
   .lp-shot { border-color: var(--separator); box-shadow: 0 0 0 1.5px var(--border), var(--shadow-overlay); }
 }
 /* イラストの型のヒーロー: 右下に実際の相談の画面を少し重ねる */
-.lp-hero-illust { position: relative; padding-bottom: calc(var(--space-16) * 2); }
-.lp-hero-illust .lp-hero-mini { --lp-device-w: 46vw; position: absolute; right: var(--space-2); bottom: 0; width: var(--lp-device-w); display: grid; }
+.lp-hero-illust { position: relative; padding-bottom: calc(var(--space-16) * 3); --lp-mini-w: 46vw; }
+/* 注記は絵のすぐ下の左（端末と重ならない幅） */
+.lp-root .lp-hero-illust .lp-hero-note { width: auto; max-width: calc(100% - var(--lp-mini-w) - var(--space-4)); margin: var(--space-3) 0 0; text-align: left; }
+.lp-hero-illust .lp-hero-mini { --lp-device-w: var(--lp-mini-w); position: absolute; right: var(--space-2); bottom: 0; width: var(--lp-device-w); display: grid; }
 .lp-hero-mini-frame { grid-area: 1 / 1; opacity: 0; transition: opacity var(--duration-slow) ease; }
 .lp-hero-mini-frame.is-on { opacity: 1; }
 .lp-hero-mini .lp-shot { --lp-device-w: inherit; width: 100%; margin: 0; }
 @media (min-width: 768px) {
-  .lp-hero-illust { padding-bottom: var(--space-16); }
+  .lp-hero-illust { padding-bottom: var(--space-16); --lp-mini-w: 200px; }
   .lp-root .lp-gallery-dots { display: none; }
-  .lp-hero-illust .lp-hero-mini { --lp-device-w: 200px; right: calc(-1 * var(--space-4)); bottom: calc(-1 * var(--space-16)); }
+  .lp-hero-illust .lp-hero-mini { right: 0; bottom: calc(-1 * var(--space-16)); }
 }
 /* まだ読んでいない枚（相談の流れの 3〜4 枚目）の場所取り。写真と同じ縦横の比 */
 .lp-shot-blank { aspect-ratio: 390 / 844; box-shadow: none; }
@@ -826,6 +828,8 @@ body.lp-active {
 .lp-cta-row { display: flex; align-items: center; gap: var(--space-6); flex-wrap: wrap; }
 /* スマホは主ボタンを全幅に（親指で押しやすく・2026-10-12） */
 @media (max-width: 767px) {
+  /* スマホの 5 つの機能は端末の上 6 割を見せ、下は地の色へ溶かす（後半を短く・2026-10-12） */
+  .lp-pillar-shot { max-height: calc(var(--lp-pillar-w) * 1.3); overflow: hidden; -webkit-mask-image: linear-gradient(to bottom, black 72%, transparent); mask-image: linear-gradient(to bottom, black 72%, transparent); }
   .lp-cta-row .lp-btn-large { flex: 1 1 100%; }
   .lp-root { --lp-pillar-w: min(var(--lp-shot-w), 68vw); }
 }

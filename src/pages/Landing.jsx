@@ -112,6 +112,11 @@ const HERO_MINI = [
   { name: 'flow-talk', alt: '相談相手を選ぶ画面「誰に相談しますか？」' },
   { name: 'hero', alt: '相談の画面。『嫌われる勇気』の 1 冊に相談し、本の語り口で答えが返ってきている' },
 ];
+// 「画面は見本です。」と語り口の注記は LP でここ 1 か所＝ヒーローの画面のすぐ下（イラストの型も重ねた端末で答えを見せるので・2026-10-12）
+function HeroNote() {
+  return <figcaption className="lp-wbr lp-hero-note"><Phrases>{`${SAMPLE_NOTE}${VOICE_NOTE}`}</Phrases></figcaption>;
+}
+
 function HeroMini() {
   const [still] = useState(() => {
     try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches || new URLSearchParams(window.location.search).get('motion') === 'static'; } catch { return true; }
@@ -160,7 +165,7 @@ const PILLARS = [
     id: 'focus', shot: 'focus', artAlt: '時間を決めて、集中して本を読む様子のイラスト',
     head: '習慣にする',
     title: '時間を決めて読む。',
-    body: 'タイマーをかけて読むと、読んだ時間が本ごとに残ります。',
+    body: '読んだ時間が、本ごとに残ります。',
     alt: '集中モードの画面。暗い地に本の表紙と書名、「残り 23 分」の大きな数字と細い輪、下にメモ・おわる・一時停止のボタン',
   },
   {
@@ -174,7 +179,7 @@ const PILLARS = [
     id: 'fields', shot: 'fields', artAlt: 'これまでに読んだ本を分野ごとに見渡す様子のイラスト',
     head: '読書の偏りに気づく',
     title: '読んでいない分野が、ひと目で。',
-    body: '読んだ本を分野ごとに並べると、手薄なところが見えてきます。',
+    body: '手薄な分野が、すぐ分かります。',
     alt: '振り返りの記録の「分野」。仕事・自分と生活の分野ごとの本とメモの数と、「まだ本がない分野」のチップ',
   },
   {
@@ -545,6 +550,7 @@ export default function Landing() {
                 <LpIllust />
                 {/* イラストの右下に、実際の相談の画面を少し重ねる（イラストの型でも最初の画面で製品が見える・2026-10-12） */}
                 <HeroMini />
+                <HeroNote />
               </figure>
             ) : (
             <figure className="lp-hero-shot">
@@ -561,8 +567,7 @@ export default function Landing() {
                   </Suspense>
                 )}
               </div>
-              {/* 「画面は見本です。」と語り口の注記は LP でここ 1 か所（アプリの答えの最後の一行と同じ考え方・2026-10-11） */}
-              <figcaption className="lp-wbr"><Phrases>{`${SAMPLE_NOTE}${VOICE_NOTE}`}</Phrases></figcaption>
+              <HeroNote />
             </figure>
             )}
           </div>
@@ -601,7 +606,7 @@ export default function Landing() {
             </div>
             {/* 一番の価値（CLAUDE.md）を、会話の流れ 4 枚の見出しに（2026-10-12 ui-critic） */}
             <h2 className="lp-h2 lp-flow-head" id="lp-grow"><span>読めば読むほど、</span><span>頼れる相談相手に。</span></h2>
-            <LpFlow onEvent={lpTrack} note={heroVariant !== 'photo'} />
+            <LpFlow onEvent={lpTrack} note={false} />
             <div className="lp-asks">
               <p className="lp-asks-title">たとえば、こんな相談</p>
               {/* 相談の入力の吹き出しの形（アプリの送った相談と同じ見た目・右寄せ） */}
