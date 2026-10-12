@@ -1826,6 +1826,20 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   //   過去の相談・「この続きを相談する」で開き直した答えも、前に行動に追加していれば同じ扱い（2026-10-09・二重に足さない）。
   const lastActionAdded = !!lastVisible && (addedActionIds.includes(lastVisible.id)
     || (lastVisible.role === 'assistant' && !lastVisible.streaming && answerActionAddedBefore(lastVisible, precedingQuestion(visibleMessages, visibleMessages.length - 1), allActions)));
+  // 行動に追加した直後、「新しい相談をはじめる」が入力欄の下に隠れていたら、会話の欄だけを送って見せる（2026-10-12 点検）。
+  const newConsultBtnRef = useRef(null);
+  useEffect(() => {
+    if (!lastActionAdded) return undefined;
+    const id = requestAnimationFrame(() => {
+      const el = chatScrollRef.current;
+      const btn = newConsultBtnRef.current;
+      if (!el || !btn) return;
+      const gap = parseFloat(getComputedStyle(el).getPropertyValue('--space-4')) || 16;
+      const over = btn.getBoundingClientRect().bottom + gap - el.getBoundingClientRect().bottom;
+      if (over > 0) el.scrollTo({ top: el.scrollTop + over, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [lastActionAdded]);
   // 🌱 メモが 0 件の人の答えのあと（2026-10-09）: 見方・返事のチップや「ここで答えと行動を」を並べても、根拠のメモが無いので
   //   続けても同じ答えにしかならない。代わりに主ボタン「読んだ本に一言ずつ残す」（初日クイックスタート）だけ。
   const noMemosYet = !!onQuickstart && memoStatsLoaded && !memoStatsFailed
@@ -2537,7 +2551,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           )}
           {/* 🏁 行動に追加したら一区切り: 「新しい相談をはじめる」を主ボタンで（2026-10-08） */}
           {answerRowShown && lastActionAdded && (
-            <button type="button" onClick={handleResolveAndClear} style={{ ...uiBtnPrimary, marginTop: 'var(--space-4)', marginLeft: ANSWER_COLUMN, width: `calc(100% - ${ANSWER_COLUMN})` }}>
+            <button ref={newConsultBtnRef} type="button" onClick={handleResolveAndClear} style={{ ...uiBtnPrimary, marginTop: 'var(--space-4)', marginLeft: ANSWER_COLUMN, width: `calc(100% - ${ANSWER_COLUMN})` }}>
               新しい相談をはじめる
             </button>
           )}
