@@ -2480,6 +2480,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                     onRetry={() => runMemoAnswerInto(m.id, m.memoAnswer.question || precedingQuestion(visibleMessages, i), m.scopeIds || [], m.memoAnswer.searchQuestion || null)}
                     onPlan={() => { track('brain_memo_answer_plan', {}); openPaywall('free_used'); }}
                     showPlan={freeMode && m.id === firstMemoAnswerId}
+                    // 7 日間無料を使える人には「7 日間無料で試す」（GLOSSARY の ①・2026-10-12 機能の通し確認）
+                    planLabel={freeUsedOffer ? `${freeUsedOffer}で試す` : ''}
                     // メモが 0 件の人だけ初日クイックスタートへ。メモのある人は AI の「関係するメモが無かった答え」と同じ「本を追加」。
                     onAddMemo={ownMemoTotal === 0 && !memoStatsFailed ? (onQuickstart || null) : null}
                     onAddBook={onAddBook || null}

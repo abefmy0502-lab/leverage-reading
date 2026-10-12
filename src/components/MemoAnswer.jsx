@@ -110,7 +110,7 @@ function Skeleton() {
 // 見つからないとき（AI の「関係するメモが無かった答え」と同じ並び・2026-10-01 ui-critic）:
 //   onAddMemo: メモが 0 件の人だけ「これまで読んだ本からメモを足す」（初日クイックスタート）／ほかの人は onAddBook「本を追加」
 //   onWriteLearning: 「学びを書く」
-export default function MemoAnswer({ message, onOpen, onOpenLearning, onRetry, onPlan, showPlan = false, onAddMemo = null, onAddBook = null, onWriteLearning = null, column = 0 }) {
+export default function MemoAnswer({ planLabel = '', message, onOpen, onOpenLearning, onRetry, onPlan, showPlan = false, onAddMemo = null, onAddBook = null, onWriteLearning = null, column = 0 }) {
   const a = message.memoAnswer || { status: 'loading' };
   if (a.status === 'error') {
     return (
@@ -166,7 +166,7 @@ export default function MemoAnswer({ message, onOpen, onOpenLearning, onRetry, o
           押すと有料プランの画面（無料のトークンを使い切ったとき＝GLOSSARY の ①）。 */}
       {showPlan && found && (
         <div style={{ marginLeft: column, marginTop: 'var(--space-1)' }}>
-          <button type="button" onClick={onPlan} style={{ ...btnLink, marginLeft: 'calc(-1 * var(--space-1))' }}>AI に答えてもらう（プラン）</button>
+          <button type="button" onClick={onPlan} style={{ ...btnLink, marginLeft: 'calc(-1 * var(--space-1))' }}>{planLabel || 'AI に答えてもらう（プラン）'}</button>
         </div>
       )}
     </div>
