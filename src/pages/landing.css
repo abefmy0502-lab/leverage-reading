@@ -373,6 +373,10 @@ body.lp-active {
   /* 読み込むまでの枠（遅延読み込みの間に空白に見せない） */
   background: var(--focus-bg);
 }
+/* 暗い画面では端末の枠が地に溶けるので、外側に細い線を足す（2026-10-12） */
+@media (prefers-color-scheme: dark) {
+  .lp-shot { box-shadow: 0 0 0 1px var(--border), var(--shadow-overlay); }
+}
 /* まだ読んでいない枚（相談の流れの 3〜4 枚目）の場所取り。写真と同じ縦横の比 */
 .lp-shot-blank { aspect-ratio: 390 / 844; box-shadow: none; }
 
