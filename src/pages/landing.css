@@ -331,7 +331,7 @@ body.lp-active {
 .lp-narrow > picture:has(.lp-art-wide) { display: block; }
 @media (prefers-color-scheme: dark) {
   .lp-illust-img { border: 1px solid var(--separator); }
-  .lp-illust-img:not(.has-dark) { filter: brightness(0.92); }
+  .lp-illust-img:not(.has-dark) { filter: brightness(0.88); }
 }
 .lp-ill-book rect { stroke: var(--border); stroke-width: 1.25; }
 .lp-ill-book-a rect { fill: var(--surface); }
@@ -375,7 +375,13 @@ body.lp-active {
 }
 /* 暗い画面では端末の枠が地に溶けるので、外側に細い線を足す（2026-10-12） */
 @media (prefers-color-scheme: dark) {
-  .lp-shot { box-shadow: 0 0 0 1px var(--border), var(--shadow-overlay); }
+  .lp-shot { border-color: var(--separator); box-shadow: 0 0 0 1.5px var(--border), var(--shadow-overlay); }
+}
+/* イラストの型のヒーロー: 右下に実際の相談の画面を少し重ねる */
+.lp-hero-illust { position: relative; padding-bottom: var(--space-12); }
+.lp-hero-illust .lp-hero-mini { --lp-device-w: 34vw; position: absolute; right: var(--space-2); bottom: 0; width: var(--lp-device-w); margin: 0; }
+@media (min-width: 768px) {
+  .lp-hero-illust .lp-hero-mini { --lp-device-w: 180px; right: calc(-1 * var(--space-4)); bottom: calc(-1 * var(--space-8)); }
 }
 /* まだ読んでいない枚（相談の流れの 3〜4 枚目）の場所取り。写真と同じ縦横の比 */
 .lp-shot-blank { aspect-ratio: 390 / 844; box-shadow: none; }
@@ -445,7 +451,7 @@ body.lp-active {
 .lp-pillar-shot .lp-shot, .lp-pillar-shot .lp-share-img { width: 100%; margin: 0; }
 .lp-pillar-head { margin-bottom: var(--space-2) !important; color: var(--text-2); font-size: var(--text-sub); font-weight: 600; }
 .lp-pillar-text > p:not(.lp-pillar-head) { color: var(--text-2); max-width: 30em; }
-.lp-pillars-note { text-align: left; margin-top: var(--space-8) !important; }
+.lp-root .lp-pillars-note { text-align: right; margin-top: var(--space-8) !important; font-size: var(--text-caption); }
 /* 学習に使わないの 1 行（柱の後ろ） */
 .lp-root .lp-sec-head .lp-flow-lead { margin: var(--space-8) 0 0; color: var(--text); font-size: var(--text-heading); font-weight: 600; line-height: 1.5; }
 .lp-trust { list-style: none; margin: 0 0 var(--space-16); padding: 0; display: grid; gap: var(--space-3); grid-template-columns: repeat(auto-fit, minmax(min(100%, 16em), 1fr)); line-height: 1.5; }
@@ -601,6 +607,7 @@ body.lp-active {
 /* 含まれるもののチェックは状態（完了）ではないので --success にしない */
 .lp-included svg { flex-shrink: 0; margin-top: var(--space-1); color: var(--text-2); }
 .lp-pricing .lp-cta-note { max-width: 36em; }
+.lp-pricing .lp-renew { margin-top: var(--space-4) !important; }
 
 /* ⑩ FAQ */
 .lp-faq { background: var(--surface); border-block: 1px solid var(--separator); }
@@ -766,8 +773,8 @@ body.lp-active {
   .lp-asks ul { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-6); }
   .lp-asks li { grid-template-columns: minmax(0, 1fr) !important; align-items: start !important; }
   /* よくある質問と扱いの説明は中央の 720 */
-  .lp-faq .lp-wrap.lp-narrow { max-width: calc(720px + 2 * var(--lp-gutter)); }
-  .lp-faq .lp-narrow > * { max-width: none; }
+  .lp-faq .lp-narrow > * { max-width: 720px; }
+  .lp-faq .lp-narrow > .lp-trust { max-width: 720px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .lp-asks li { grid-template-columns: 9em auto; justify-content: start; gap: var(--space-3); align-items: center; }
   /* 会話の流れは 4 枚を横に並べる（スワイプしない） */
   .lp-gallery { margin: 0; padding: 0; grid-auto-flow: row; grid-auto-columns: auto; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-6); overflow: visible; }
@@ -789,7 +796,8 @@ body.lp-active {
   /* 5 つ: 上の段 3 枚・下の段 2 枚（文が左・画面が右の横長）で穴をあけない */
   .lp-pillars { grid-template-columns: repeat(6, minmax(0, 1fr)); }
   .lp-pillars > li { grid-column: span 2; }
-  .lp-pillars > li:nth-child(n+4) { grid-column: span 3; grid-template-columns: minmax(0, 1fr) 260px; column-gap: var(--space-8); align-items: center; }
+  .lp-pillars > li:nth-child(n+4) { grid-column: span 3; grid-template-columns: minmax(0, 1fr) 220px; column-gap: var(--space-6); align-items: start; }
+  .lp-pillars > li:nth-child(n+4) .lp-shot { --lp-device-w: 220px; }
   .lp-pillars > li:nth-child(n+4) .lp-pillar-shot { grid-column: 2; grid-row: 1; }
   .lp-root { --lp-sec: var(--lp-sec-lg); }
   .lp-shot { width: var(--lp-shot-w-lg); }

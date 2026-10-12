@@ -514,6 +514,8 @@ export default function Landing() {
             {heroVariant === 'illust' ? (
               <figure className="lp-hero-shot lp-hero-illust">
                 <LpIllust />
+                {/* イラストの右下に、実際の相談の画面を少し重ねる（イラストの型でも最初の画面で製品が見える・2026-10-12） */}
+                <Shot name="hero" eager className="lp-shot lp-hero-mini" sizes="(min-width: 768px) 200px, 34vw" alt="相談の画面。『嫌われる勇気』の 1 冊に相談し、本の語り口で答えが返ってきている" />
               </figure>
             ) : (
             <figure className="lp-hero-shot">
@@ -739,17 +741,19 @@ export default function Landing() {
                 {!PRELAUNCH && <StoreCta className="lp-btn lp-plan-cta" loc="pricing">{TRIAL_NOTE ? TRIAL_CTA_LABEL : CTA_LABEL}</StoreCta>}
               </div>
             </div>
+            <p className="lp-cta-note lp-wbr lp-renew">
+              <Phrases>{COPY.pricingNote[0]}</Phrases>
+              <br />
+              <Phrases>{COPY.pricingNote[1]}</Phrases>
+            </p>
             <p className="lp-fine lp-wbr">
               <Phrases>{`回数は目安です（プランは毎月 ${PAID_TOKENS} トークン・答え 1 回 約 10 トークン）。${CONSULT_ANSWERS_NOTE}。トークンは翌月に繰り越せません。関係するメモが見つからず答えられなかった相談は、${noBreak(`月 ${NO_INFO_REFUNDS} 回`)}までトークンを返します。`}</Phrases>
             </p>
-            <div className="lp-cta-block">
-              {PRELAUNCH && <Entry loc="pricing" wl={wl} />}
-              <p className="lp-cta-note lp-wbr">
-                <Phrases>{COPY.pricingNote[0]}</Phrases>
-                <br />
-                <Phrases>{COPY.pricingNote[1]}</Phrases>
-              </p>
-            </div>
+            {PRELAUNCH && (
+              <div className="lp-cta-block">
+                <Entry loc="pricing" wl={wl} />
+              </div>
+            )}
           </div>
         </section>
 

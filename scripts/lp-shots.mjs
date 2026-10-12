@@ -129,7 +129,9 @@ const SHOTS = {
     // 送る直前（相談相手が 1 冊の本・入力欄に悩み）を写す（読み込み中の骨組みを売り場に出さない・2026-10-12）
     await p.locator('textarea[aria-label="相談したいこと"]').fill(VOICE_Q);
     await p.locator('textarea[aria-label="相談したいこと"]').blur();
-    await p.waitForTimeout(600);
+    // 相談相手のシート（1 冊／すべての本 を選ぶ）を開いた所（見出しの「1 冊にも、本棚の本ぜんぶにも」と画面を一致させる）
+    await p.locator('button:has-text("相談相手：")').first().click();
+    await p.waitForTimeout(900);
   },
   'flow-voice': async (p) => {
     await askBook(p);
