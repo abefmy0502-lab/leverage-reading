@@ -34,7 +34,7 @@
 //   - CTA は <a href>（長押し・中クリック等のネイティブ挙動を尊重）
 
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowLeftRight, ArrowRight, BookOpen, Check, ChevronDown, Download, Lock, ShieldCheck, Smartphone, User } from 'lucide-react';
+import { ArrowLeftRight, ArrowRight, BookOpen, Check, ChevronDown, Download, Lock, ShieldCheck, User } from 'lucide-react';
 import { BUILD_LABEL } from '../lib/buildInfo';
 import { SUPPORT_EMAIL } from '../lib/contact';
 import { isAppStoreLive } from '../lib/appStore';
@@ -142,7 +142,7 @@ function HeroMini() {
 // ② これまでの読書と、Orime の読書（2026-10-12 オーナー「従来の読書は一方通行。Orime は本と会話できるので、
 //   自分自身のオリジナルの内容で理解できる。ビフォーアフターの世界観を」）。図は 本 → 自分（一方通行）と 本 ⇄ 自分（会話）。
 const BEFORE_AFTER = [
-  { label: 'これまでの読書', title: '読み終えたら、そこで終わり。', body: '書いてあることを、一方的に受け取るだけ。' },
+  { label: 'これまでの読書', title: '読み終えたら、そこで終わり。', body: '書いてあることを受け取って、本棚に戻すだけ。' },
   { label: 'Orime の読書', title: '自分だけの理解が残る。', body: '悩みを本に聞き、聞き返されて、自分で考える。', after: true },
 ];
 
@@ -166,7 +166,7 @@ const PILLARS = [
     id: 'focus', shot: 'focus', artAlt: '時間を決めて、集中して本を読む様子のイラスト',
     head: '習慣にする',
     title: '時間を決めて読む。',
-    body: '読んだ時間が、本ごとに残ります。',
+    body: 'タイマーをかけると、表紙と残り時間だけの画面に。読んだ時間は本ごとに残ります。',
     alt: '集中モードの画面。暗い地に本の表紙と書名、「残り 23 分」の大きな数字と細い輪、下にメモ・おわる・一時停止のボタン',
   },
   {
@@ -199,8 +199,7 @@ const PILLARS = [
 const TRUST_POINTS = [
   { icon: ShieldCheck, head: 'AI の学習に使われません', body: '各社の規約で、学習に使わないと決まっています。' },
   { icon: Lock, head: '送るのは AI を使うときだけ', body: 'はじめて使う前に、送る内容を確認できます。' },
-  { icon: Download, head: 'いつでも書き出せます', body: 'CSV で保存できます。退会すればデータは消えます。' },
-  { icon: Smartphone, head: '共有の写真は手元で作ります', body: '写真はサーバーに送りません。' },
+  { icon: Download, head: 'いつでも書き出せます', body: '本・メモ・行動を CSV で保存できます。' },
 ];
 
 // ④ メモがゼロでも、今日から（0 日目の 4 つの道・SPEC §1-1d）
@@ -529,14 +528,14 @@ export default function Landing() {
                 <span>読んだ本と、</span><span>会話しよう。</span>
               </h1>
               <p className="lp-lead lp-wbr">
-                <Phrases>迷ったときに聞くと、AI がその本の語り口で答えます。答えのもとは、あなたが読んで残したメモです。</Phrases>
+                <Phrases>迷ったら、読んだ本に聞いてみる。AI がその本の語り口で、あなたのメモをもとに答えます。</Phrases>
               </p>
               <div className="lp-cta-block" ref={heroCtaRef}>
                 <Entry loc="hero" wl={wl} qr badge launch />
                 {/* ボタンのすぐ下の安心の一言（2026-10-12・短い言い切り） */}
-                {!PRELAUNCH && <p className="lp-cta-sub lp-cta-meta">{ZERO_RISK_NOTE}</p>}
+                {!PRELAUNCH && <p className="lp-cta-sub lp-cta-meta lp-wbr"><Phrases>{ZERO_RISK_NOTE}</Phrases></p>}
                 <div className="lp-hero-links">
-                  <a className="lp-textlink" href="#lp-flow" onClick={() => lpTrack('hero_secondary', {})}>
+                  <a className="lp-textlink" href="#lp-grow" onClick={() => lpTrack('hero_secondary', {})}>
                     <span>会話の様子を見る</span><ChevronDown size="1.1em" aria-hidden="true" />
                   </a>
                   {/* 創業メンバー価格（期間中だけ）: 押すと料金の中の帯へ */}
@@ -629,7 +628,7 @@ export default function Landing() {
           <div className="lp-wrap">
             <div className="lp-narrow lp-sec-head">
               <h2 className="lp-h2" id="lp-pillars">
-                <span>読んだあとも、</span><span>続いていく。</span>
+                <span>読む前から、</span><span>読んだあとまで。</span>
               </h2>
             </div>
             <ul className="lp-pillars">
@@ -708,6 +707,25 @@ export default function Landing() {
           </section>
         )}
 
+        {/* ============ 書いたメモの扱い（お金の話の前に不安を消す・2026-10-12） ============ */}
+        <section className="lp-sec lp-trust-sec" aria-labelledby="lp-trust" data-lp-sec="trust">
+          <div className="lp-wrap">
+            {/* 安心の 3 つ（どれも実装と規約で確かめた事実だけ・2026-10-12 に料金のあと・よくある質問の頭へ） */}
+            <h2 className="lp-h2 lp-trust-title" id="lp-trust">書いたメモの扱い</h2>
+            <ul className="lp-trust" aria-labelledby="lp-trust">
+              {TRUST_POINTS.map((t) => (
+                <li key={t.head}>
+                  <t.icon size="1.25em" strokeWidth={2} aria-hidden="true" />
+                  <div>
+                    <p className="lp-trust-head">{t.head}</p>
+                    <p className="lp-trust-body lp-wbr"><Phrases>{t.body}</Phrases></p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+
         {/* ============ ⑤ 料金（無料プランを前に） ============ */}
         <section className="lp-sec lp-pricing" aria-labelledby="lp-pricing" data-lp-sec="pricing">
           <div className="lp-wrap">
@@ -715,9 +733,9 @@ export default function Landing() {
               <h2 className="lp-h2" id="lp-pricing">
                 {/* 価値の言い換え（2026-10-11 オーナー「¥1,480 を安く感じさせる」）。比べる値段（通常・定価・他社）は書かない。
                     見出しに金額を置かない（月あたりの額を請求額より大きく見せない） */}
-                <span>月に本{'\u00a0'}1{'\u00a0'}冊ほどの値段で、</span><span>読んだ本すべてが</span><span>相談相手に。</span>
+                <span>月に本{'\u00a0'}1{'\u00a0'}冊ほどの値段で、</span><span>本棚ごと相談相手に。</span>
               </h2>
-              <p className="lp-wbr"><Phrases>{`${noBreak(`月額 ${MONTHLY_TEXT}`)}、${noBreak(`1 日あたり約 ${PER_DAY_TEXT}`)}。`}</Phrases><br /><Phrases>{'無料プランのまま使い続けることもできます。'}</Phrases></p>
+              <p className="lp-wbr"><Phrases>まずは無料プランで。相談が役に立ったら、プランへ。</Phrases></p>
             </div>
 
             {/* 創業メンバー価格（期間中だけ・料金の中の帯 1 枚）。「先着」「通常価格」と書かない・差額を書かない */}
@@ -745,6 +763,7 @@ export default function Landing() {
               <div className="lp-plan is-paid">
                 <p className="lp-plan-name"><span>月額・年額プラン</span>{TRIAL_NOTE && <span className="lp-plan-badge">{OFFER.active ? '月額は 7 日間無料' : TRIAL_NOTE}</span>}</p>
                 <p className="lp-plan-hero"><span className="lp-plan-hero-num">{PAID_CONSULTS}</span><span>AI の答え・毎月</span></p>
+                <p className="lp-plan-hint lp-wbr"><Phrases>{`${CONSULT_ANSWERS_NOTE}`}</Phrases></p>
                 {/* プランで手に入るもの（具体的に 4 つ・数は lib/tokenAmounts.js のとおり） */}
                 <ul className="lp-included" aria-label="プランに含まれるもの">
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span className="lp-wbr"><Phrases>読書計画シートや AI 選書など、すべての AI 機能</Phrases></span></li>
@@ -776,16 +795,10 @@ export default function Landing() {
                   </div>
                 </div>
                 {!PRELAUNCH && <StoreCta className="lp-btn lp-plan-cta" loc="pricing">{TRIAL_NOTE ? TRIAL_CTA_LABEL : CTA_LABEL}</StoreCta>}
+                {/* 自動更新・解約の説明は有料のボタンのすぐ下（App Store 3.1.2・2026-10-12） */}
+                <p className="lp-renew lp-wbr">{COPY.pricingNote.map((t) => <span key={t}><Phrases>{t}</Phrases></span>)}</p>
               </div>
             </div>
-            <p className="lp-cta-note lp-wbr lp-renew">
-              <Phrases>{COPY.pricingNote[0]}</Phrases>
-              <br />
-              <Phrases>{COPY.pricingNote[1]}</Phrases>
-            </p>
-            <p className="lp-fine lp-wbr">
-              <Phrases>{`回数は目安です。${CONSULT_ANSWERS_NOTE}。`}</Phrases>
-            </p>
             {PRELAUNCH && (
               <div className="lp-cta-block">
                 <Entry loc="pricing" wl={wl} />
@@ -797,19 +810,6 @@ export default function Landing() {
         {/* ============ ⑥ よくある質問（上に安心の 4 つ） ============ */}
         <section className="lp-sec lp-faq" aria-labelledby="lp-faq" data-lp-sec="faq">
           <div className="lp-wrap lp-narrow">
-            {/* 安心の 4 つ（どれも実装と規約で確かめた事実だけ・2026-10-12 に料金のあと・よくある質問の頭へ） */}
-            <h2 className="lp-h2 lp-trust-title" id="lp-trust">安心して書けるように</h2>
-            <ul className="lp-trust" aria-labelledby="lp-trust">
-              {TRUST_POINTS.map((t) => (
-                <li key={t.head}>
-                  <t.icon size="1.25em" strokeWidth={2} aria-hidden="true" />
-                  <div>
-                    <p className="lp-trust-head">{t.head}</p>
-                    <p className="lp-trust-body lp-wbr"><Phrases>{t.body}</Phrases></p>
-                  </div>
-                </li>
-              ))}
-            </ul>
             <h2 className="lp-h2" id="lp-faq">よくある質問</h2>
             <div className="lp-faq-list">
               {COPY.faq.map((f, i) => (
@@ -833,7 +833,7 @@ export default function Landing() {
         <section className="lp-final" aria-labelledby="lp-final" data-lp-sec="final">
           <div className={`lp-wrap lp-narrow lp-final-inner${PRELAUNCH ? '' : ' is-live'}`}>
             <h2 className="lp-h2" id="lp-final">
-              <span>次の一冊から、</span><span>本と会話しよう。</span>
+              <span>まずは、</span><span>読んだ本に一言から。</span>
             </h2>
             <div className="lp-cta-block">
               <Entry loc="final" wl={wl} qr badge launch center />

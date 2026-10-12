@@ -38,7 +38,7 @@ export const SAMPLE_NOTE = '画面は見本です。実際の答えは、あな�
 
 // 🧠 行動経済学・心理学に基づく文（2026-10-12・company/lp-behavioral-analysis-2026-10.md）。
 // ゼロリスク（ゼロ価格効果・損失回避）: ヒーローのボタンのすぐ下。無料プランは契約もカードの登録もいらない（事実）。
-export const ZERO_RISK_NOTE = '無料プランはずっと無料・クレジットカードの登録は不要';
+export const ZERO_RISK_NOTE = 'ずっと無料で使えます。クレジットカードの登録もいりません。';
 // 問題の自覚（損失回避・好奇心のすき間）: 「一方通行の読書から、会話する読書へ。」の見出しの下。数字（◯日で◯割）は使わない。
 export const PROBLEM_LEAD = 'いい本を読んでも、いざというときに思い出せない。';
 
@@ -98,13 +98,13 @@ export function buildLpCopy({
         ? `月額プランは${TRIAL_SENT}で、そのあと${noBreak(`月額 ${MONTHLY_TEXT}（税込）`)}で自動更新されます。無料期間が終わる 24 時間前までに解約すれば、料金はかかりません。`
         : `月額プランは${noBreak(`月額 ${MONTHLY_TEXT}（税込）`)}で自動更新されます。`);
   } else if (TRIAL) {
-    renew = `プランは${TRIAL_SENT}。そのあと選んだプラン（月額 ${MONTHLY_TEXT}／年額 ${ANNUAL_TEXT}・税込）で自動更新されます。無料期間が終わる 24 時間前までに解約すれば、料金はかかりません。`;
+    renew = `${TRIAL_SENT}。そのあと月額 ${MONTHLY_TEXT}か年額 ${ANNUAL_TEXT}（税込）で自動更新されます。無料期間が終わる 24 時間前までに解約すれば、料金はかかりません（App Store から）。`;
   } else {
     renew = `プランは、選んだプラン（月額 ${MONTHLY_TEXT} または年額 ${ANNUAL_TEXT}・税込）で自動更新されます。`;
   }
   const pricingNote = [
     renew,
-    'お支払いと解約は App Store から。違約金はなく、解約後もメモは残ります。',
+    '解約後も、メモは残ります。',
   ];
 
   // ── 最後のボタンの下（2 句・句の途中で折り返さない）──
@@ -133,7 +133,7 @@ export function buildLpCopy({
     },
     {
       q: '無料プランで、何ができますか？',
-      a: `本とメモは何件でも残せて、AI 以外の機能はすべて使えます。AI の相談と「この本で学べること」は、あわせて${noBreak(`毎月 ${FREE_TOKENS} トークン`)}（答え ${FREE_CONSULTS}）。${FIRST_MONTH}です。写真から書き起こしは${noBreak(`毎月 ${FREE_OCR_PER_MONTH} 回`)}。使い切った月は、AI の代わりに、あなたのメモから関係しそうな一節を並べます。トークンは翌月に繰り越せません。関係するメモが見つからず答えられなかった相談は、${noBreak(`月 ${NO_INFO_REFUNDS} 回`)}までトークンを返します。期限はなく、ずっと無料です。`,
+      a: `本とメモは何件でも残せて、AI 以外の機能はすべて使えます。AI の相談と「この本で学べること」は、あわせて${noBreak(`毎月 ${FREE_TOKENS} トークン`)}（答え ${FREE_CONSULTS}）、${FIRST_MONTH}。写真から書き起こしは${noBreak(`毎月 ${FREE_OCR_PER_MONTH} 回`)}です。使い切った月も、あなたのメモから関係する一節を並べて答えます。`,
     },
     {
       q: 'メモは AI の学習に使われますか？',
