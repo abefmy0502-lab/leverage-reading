@@ -48,7 +48,7 @@ import LpWaitlist from './LpWaitlist';
 import LpIllust from './LpIllust';
 import LpArt, { hasArt } from './LpArt';
 import Phrases from './LpPhrases';
-import { buildLpCopy, storeHrefOf, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE, ZERO_RISK_NOTE, PROBLEM_LEAD, WHY_POINTS, WHY_SOURCES } from './lpCopy';
+import { buildLpCopy, storeHrefOf, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE, ZERO_RISK_NOTE, PROBLEM_LEAD } from './lpCopy';
 import qrcode from 'qrcode-generator';
 import { lpTrack, lpVariant, storeUrlFor, isWidePointer } from '../lib/lpTrack';
 import { inject as injectVercelAnalytics } from '@vercel/analytics';
@@ -114,7 +114,8 @@ const HERO_MINI = [
 ];
 // 「画面は見本です。」と語り口の注記は LP でここ 1 か所＝ヒーローの画面のすぐ下（イラストの型も重ねた端末で答えを見せるので・2026-10-12）
 function HeroNote() {
-  return <figcaption className="lp-wbr lp-hero-note"><Phrases>{`${SAMPLE_NOTE}${VOICE_NOTE}`}</Phrases></figcaption>;
+  // 2026-10-12 オーナー「無駄な補足」: ヒーローは「画面は見本です。…」だけ（語り口の注記は画面の中の「（本の語り口で・AI）」と、最初から開いているよくある質問の 1 問目）。
+  return <figcaption className="lp-wbr lp-hero-note"><Phrases>{SAMPLE_NOTE}</Phrases></figcaption>;
 }
 
 function HeroMini() {
@@ -179,7 +180,7 @@ const PILLARS = [
     id: 'fields', shot: 'fields', artAlt: 'これまでに読んだ本を分野ごとに見渡す様子のイラスト',
     head: '読書の偏りに気づく',
     title: '読んでいない分野が、ひと目で。',
-    body: '手薄な分野が、すぐ分かります。',
+    body: '読んだ本を分野ごとに並べて見られます。',
     alt: '振り返りの記録の「分野」。仕事・自分と生活の分野ごとの本とメモの数と、「まだ本がない分野」のチップ',
   },
   {
@@ -188,7 +189,7 @@ const PILLARS = [
     id: 'advisor', shot: 'advisor', artAlt: '悩みを聞いて、次に読む本と読む順番を選ぶ様子のイラスト',
     head: '次の一冊を選ぶ',
     title: '次に読む本と、読む順番まで。',
-    body: '悩みを話すと、これまで読んだ本や最近の相談をふまえて、おすすめの本と読む順番を出します。月額・年額プランで使えます。',
+    body: '悩みを話すと、読んできた本や最近の相談をふまえて選びます。', plan: true,
     alt: 'AI 選書の画面。受け取った悩みのまとめと、おすすめの本のカード、読む順番',
   },
 ];
@@ -196,18 +197,18 @@ const PILLARS = [
 // ③ の下の安心の 4 つ。学習＝各社の API 規約／同意＝ensureAiConsent（はじめて AI を使う操作のとき）／
 // 書き出し＝設定の CSV（lib/exportData.js）・退会のお申し込みで消去／写真で共有＝端末の中で描く（サーバーに送らない）。
 const TRUST_POINTS = [
-  { icon: ShieldCheck, head: 'AI の学習に使われません', body: 'メモや相談が、AI の学習に使われることはありません。' },
-  { icon: Lock, head: 'AI に送るのは使うときだけ', body: 'AI の機能を使うときだけ送ります。はじめに送る内容を確認できます。' },
-  { icon: Download, head: 'いつでも書き出せます', body: 'メモは CSV で書き出せます。退会を申し込めばデータは消去されます。' },
-  { icon: Smartphone, head: '共有の写真は手元で作ります', body: '共有する写真は、サーバーにアップロードしません。' },
+  { icon: ShieldCheck, head: 'AI の学習に使われません', body: '各社の規約で、学習に使わないと決まっています。' },
+  { icon: Lock, head: '送るのは AI を使うときだけ', body: 'はじめて使う前に、送る内容を確認できます。' },
+  { icon: Download, head: 'いつでも書き出せます', body: 'CSV で保存できます。退会すればデータは消えます。' },
+  { icon: Smartphone, head: '共有の写真は手元で作ります', body: '写真はサーバーに送りません。' },
 ];
 
 // ④ メモがゼロでも、今日から（0 日目の 4 つの道・SPEC §1-1d）
 const START_POINTS = [
   { head: '読んだ本に一言', body: `覚えていることを一行だけ。${noBreak('うろ覚え')}でかまいません。` },
-  { head: 'ほかのアプリから取り込む', body: 'ブクログ、読書メーター、Kindle の記録をそのまま移せます。' },
-  { head: '本のページを撮る', body: '線を引いたページを撮ると、文字にしてくれます。' },
-  { head: '積読から始める', body: 'まだ読んでいない本も、何が学べるかを先に確認できます。' },
+  { head: 'ほかのアプリから取り込む', body: 'ブクログ・読書メーター・Kindle の記録を移せます。' },
+  { head: '本のページを撮る', body: '線を引いたページを撮れば、文字に起こします。' },
+  { head: '積読から始める', body: '読む前に、その本で学べることが分かります。' },
 ];
 
 const setMeta = (name, content, attr = 'name') => {
@@ -532,8 +533,8 @@ export default function Landing() {
               </p>
               <div className="lp-cta-block" ref={heroCtaRef}>
                 <Entry loc="hero" wl={wl} qr badge launch />
-                {/* ゼロリスクの一言（行動経済学: ゼロ価格効果・損失回避／2026-10-12・lpCopy の ZERO_RISK_NOTE） */}
-                {!PRELAUNCH && <p className="lp-cta-sub lp-wbr"><Phrases>{ZERO_RISK_NOTE}</Phrases></p>}
+                {/* ボタンのすぐ下の安心の一言（2026-10-12・短い言い切り） */}
+                {!PRELAUNCH && <p className="lp-cta-sub lp-cta-meta">{ZERO_RISK_NOTE}</p>}
                 <div className="lp-hero-links">
                   <a className="lp-textlink" href="#lp-flow" onClick={() => lpTrack('hero_secondary', {})}>
                     <span>会話の様子を見る</span><ChevronDown size="1.1em" aria-hidden="true" />
@@ -608,19 +609,6 @@ export default function Landing() {
               </ul>
               </div>
             </div>
-            {/* なぜ会話すると残るのか（権威と理由づけ＝学習の研究 3 つ／2026-10-12）。Orime の効果を言い切らず、研究の一般論と出典 */}
-            <div className="lp-why">
-              <h3 className="lp-h3 lp-wbr"><Phrases>会話すると、なぜ残るのか。</Phrases></h3>
-              <ol className="lp-why-list">
-                {WHY_POINTS.map((w) => (
-                  <li key={w.head}>
-                    <p className="lp-why-head">{w.head}</p>
-                    <p className="lp-why-body lp-wbr"><Phrases>{w.body}</Phrases></p>
-                  </li>
-                ))}
-              </ol>
-              <p className="lp-fine lp-wbr"><Phrases>{WHY_SOURCES}</Phrases></p>
-            </div>
             {/* 一番の価値（CLAUDE.md）を、会話の流れ 4 枚の見出しに（2026-10-12 ui-critic） */}
             <h2 className="lp-h2 lp-flow-head" id="lp-grow"><span>読めば読むほど、</span><span>頼れる相談相手に。</span></h2>
             <LpFlow onEvent={lpTrack} note={false} />
@@ -674,14 +662,13 @@ export default function Landing() {
                     />
                   </div>
                   <div className="lp-pillar-text">
-                    <p className="lp-pillar-head">{x.head}</p>
+                    <p className="lp-pillar-head">{x.head}{x.plan && <span className="lp-plan-badge lp-pillar-plan">プラン</span>}</p>
                     <h3 className="lp-h3 lp-wbr"><Phrases>{x.title}</Phrases></h3>
                     <p className="lp-wbr"><Phrases>{x.body}</Phrases></p>
                   </div>
                 </li>
               ))}
             </ul>
-            {!shareArt && <p className="lp-shot-note lp-pillars-note">画像は見本です。</p>}
           </div>
         </section>
 
@@ -703,7 +690,6 @@ export default function Landing() {
                 </div>
               </div>
             </div>
-            <p className="lp-fine lp-wbr"><Phrases>ブクログ・読書メーター・Kindle は、各社の商標または登録商標です。</Phrases></p>
           </div>
         </section>
 
@@ -729,9 +715,9 @@ export default function Landing() {
               <h2 className="lp-h2" id="lp-pricing">
                 {/* 価値の言い換え（2026-10-11 オーナー「¥1,480 を安く感じさせる」）。比べる値段（通常・定価・他社）は書かない。
                     見出しに金額を置かない（月あたりの額を請求額より大きく見せない） */}
-                <span>月に</span><span>本{'\u00a0'}1{'\u00a0'}冊ほどの</span><span>値段で、</span><span>読んだ本</span><span>すべてが</span><span>相談相手に。</span>
+                <span>月に本{'\u00a0'}1{'\u00a0'}冊ほどの値段で、</span><span>読んだ本すべてが</span><span>相談相手に。</span>
               </h2>
-              <p className="lp-wbr"><Phrases>{`${noBreak(`月額 ${MONTHLY_TEXT}`)}${noBreak('（1 日あたり')}${noBreak(`約 ${PER_DAY_TEXT}）。`)}無料プランのままでも、ずっと使えます。`}</Phrases></p>
+              <p className="lp-wbr"><Phrases>{`${noBreak(`月額 ${MONTHLY_TEXT}`)}、${noBreak(`1 日あたり約 ${PER_DAY_TEXT}`)}。`}</Phrases><br /><Phrases>{'無料プランのまま使い続けることもできます。'}</Phrases></p>
             </div>
 
             {/* 創業メンバー価格（期間中だけ・料金の中の帯 1 枚）。「先着」「通常価格」と書かない・差額を書かない */}
@@ -750,7 +736,7 @@ export default function Landing() {
                 <p className="lp-plan-price">¥0<span>ずっと無料</span></p>
                 <ul className="lp-included" aria-label="無料プランに含まれるもの">
                   {/* li は flex（印と文を横に並べる）なので、文は 1 つの span に包む */}
-                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>本とメモは何件でも。AI 以外の機能はすべて使えます</span></li>
+                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span className="lp-wbr"><Phrases>本とメモは何件でも。AI 以外の機能はすべて使えます。</Phrases></span></li>
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>AI の答えは<span className="lp-nb">毎月 {FREE_CONSULTS}</span><span className="lp-nb">（はじめの月は {FIRST_CONSULTS}）</span></span></li>
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>写真から書き起こし <span className="lp-nb">毎月 {FREE_OCR_PER_MONTH} 回</span></span></li>
                 </ul>
@@ -761,9 +747,9 @@ export default function Landing() {
                 <p className="lp-plan-hero"><span className="lp-plan-hero-num">{PAID_CONSULTS}</span><span>AI の答え・毎月</span></p>
                 {/* プランで手に入るもの（具体的に 4 つ・数は lib/tokenAmounts.js のとおり） */}
                 <ul className="lp-included" aria-label="プランに含まれるもの">
-                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>すべての <span className="lp-nb">AI 機能</span>（読書計画シート・<span className="lp-nb">AI 選書・</span>写真から書き起こし・メモの凝縮など）</span></li>
+                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span className="lp-wbr"><Phrases>読書計画シートや AI 選書など、すべての AI 機能</Phrases></span></li>
                   {TRIAL_NOTE && (
-                    <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>無料期間中は <span className="lp-nb">AI の答え {TRIAL_CONSULTS}</span><span className="lp-nb">（{TRIAL_TOKENS} トークン）</span></span></li>
+                    <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>無料期間中も <span className="lp-nb">AI の答え {TRIAL_CONSULTS}</span></span></li>
                   )}
                 </ul>
                 <div className={`lp-plan-rows${OFFER.active ? ' is-founding' : ''}`}>
@@ -779,7 +765,7 @@ export default function Landing() {
                     ) : (
                       <>
                         <p className="lp-plan-price">{ANNUAL_TEXT}<span>/ 年（税込）</span></p>
-                        <p className="lp-plan-sub"><span className="lp-nb">1 年分を前払い（月あたり約 {PER_MONTH_TEXT}）。</span><span className="lp-nb">1 日あたり約 {ANNUAL_PER_DAY_TEXT}。</span>{SAVE && <span className="lp-nb">{SAVE}。</span>}</p>
+                        <p className="lp-plan-sub"><span className="lp-nb">月あたり約 {PER_MONTH_TEXT}</span>{SAVE && <> · <span className="lp-nb">{SAVE.replace('月額プランより', '月額より')}</span></>}</p>
                       </>
                     )}
                   </div>
@@ -798,7 +784,7 @@ export default function Landing() {
               <Phrases>{COPY.pricingNote[1]}</Phrases>
             </p>
             <p className="lp-fine lp-wbr">
-              <Phrases>{`回数は目安です（${CONSULT_ANSWERS_NOTE}）。`}</Phrases>
+              <Phrases>{`回数は目安です。${CONSULT_ANSWERS_NOTE}。`}</Phrases>
             </p>
             {PRELAUNCH && (
               <div className="lp-cta-block">
@@ -812,7 +798,7 @@ export default function Landing() {
         <section className="lp-sec lp-faq" aria-labelledby="lp-faq" data-lp-sec="faq">
           <div className="lp-wrap lp-narrow">
             {/* 安心の 4 つ（どれも実装と規約で確かめた事実だけ・2026-10-12 に料金のあと・よくある質問の頭へ） */}
-            <h2 className="lp-h2 lp-trust-title" id="lp-trust">メモの扱いについて</h2>
+            <h2 className="lp-h2 lp-trust-title" id="lp-trust">安心して書けるように</h2>
             <ul className="lp-trust" aria-labelledby="lp-trust">
               {TRUST_POINTS.map((t) => (
                 <li key={t.head}>

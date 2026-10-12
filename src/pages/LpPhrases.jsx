@@ -32,7 +32,29 @@ export function phrasesOf(text) {
 // 塊の中の空白だけを折り返さない空白にする（塊の終わりの空白は、そこで折り返せるようにそのまま）。
 const keepSpaces = (t) => t.replace(/ (?=[^ ]*[^ ])/g, '\u00a0');
 
-export default function Phrases({ children }) {
-  const parts = phrasesOf(children);
-  return parts.map((p, i) => <Fragment key={i}>{i > 0 && <wbr />}{keepSpaces(p)}</Fragment>);
+// 2026-10-12 オーナー「改行の違和感」: 短い文（60 字まで＝見出し・カードの説明・リード）は、句読点（、。）の後ろだけで
+// 折り返す（句をひとかたまりの inline-block に包む＝「いざと／いう」「AI／以外」のような割れが出ない）。
+// 句が 1 行より長いときだけ、句の中を文節で割る。長い文（よくある質問の答え・料金の注記）は今までどおり文節で。
+export const CLAUSE_MAX = 60;
+export function clausesOf(parts) {
+  const out = [[]];
+  parts.forEach((p) => {
+    out[out.length - 1].push(p);
+    if (/[、。！？」]$/.test(p.replace(/[\s\u00a0\u2060]+$/, ''))) out.push([]);
+  });
+  return out.filter((c) => c.length);
+}
+
+export default function Phrases({ children, clause }) {
+  const text = String(children ?? '');
+  const parts = phrasesOf(text);
+  const useClause = clause ?? text.length <= CLAUSE_MAX;
+  // 長い文は本の組版と同じく文字の単位で詰めて折り返す（文節で割ると右が大きくでこぼこになる・2026-10-12）。
+  // 数と単位（「24 時間前」）は折り返さない空白でつなぐ。
+  if (!useClause) return <span className="lp-longtext">{keepSpaces(text)}</span>;
+  return clausesOf(parts).map((c, k) => (
+    <span key={k} className="lp-clause">
+      {c.map((p, i) => <Fragment key={i}>{i > 0 && <wbr />}{keepSpaces(p)}</Fragment>)}
+    </span>
+  ));
 }

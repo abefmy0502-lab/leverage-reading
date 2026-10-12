@@ -179,8 +179,8 @@ describe('画面は見本だと示す（景品表示法の優良誤認・2026-10
   });
   it('LP ではヒーローの写真（写真の型）の下の 1 か所に出す', () => {
     const src = readFileSync(new URL('./Landing.jsx', import.meta.url), 'utf8').replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
-    expect(src.match(/\$\{SAMPLE_NOTE\}/g) || []).toHaveLength(1);
-    expect(src).toMatch(/<figcaption[^>]*>.*\$\{SAMPLE_NOTE\}\$\{VOICE_NOTE\}/);
+    expect(src.match(/\$\{SAMPLE_NOTE\}|\{SAMPLE_NOTE\}/g) || []).toHaveLength(1);
+    expect(src).toMatch(/<figcaption[^>]*>.*SAMPLE_NOTE/);
   });
 });
 

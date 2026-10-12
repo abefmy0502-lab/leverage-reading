@@ -262,6 +262,13 @@ body.lp-active {
 /* 文節で折り返す段落（LpPhrases.jsx が BudouX で文節の切れ目に <wbr> を入れる）。keep-all で文節の中では割らない。
    auto-phrase だけでは iOS の Safari で効かない。1 つの文節が行より長いときだけ anywhere で割る。 */
 .lp-root .lp-wbr { word-break: keep-all; overflow-wrap: anywhere; line-break: strict; }
+/* 短い文（見出し・カードの説明・リード）は行の長さをそろえて折り返す（「文字に／してくれます」のような半端な割れを防ぐ・2026-10-12）。
+   長い文（よくある質問の答え・料金の注記）は pretty のまま */
+.lp-root :is(.lp-h1, .lp-h2, .lp-h3, .lp-lead, .lp-sec-lead, .lp-ba-title, .lp-ba-body, .lp-gallery-title, .lp-gallery-body, .lp-pillar-text p, .lp-points p, .lp-trust-head, .lp-trust-body, .lp-plan-sub, .lp-included li, .lp-hero-note, .lp-cta-note span, .lp-asks-bubble) { text-wrap: balance; }
+.lp-root .lp-clause { display: inline-block; max-width: 100%; }
+.lp-root .lp-longtext { word-break: normal; overflow-wrap: anywhere; line-break: strict; text-wrap: pretty; }
+.lp-root .lp-cta-meta { margin-top: var(--space-3) !important; color: var(--text-2); font-size: var(--text-meta); }
+.lp-pillar-plan { margin-left: var(--space-2); vertical-align: middle; }
 /* 語の途中で折り返さない塊（1 行に入るときは塊ごと次の行へ。最大の文字で 1 行より長いときだけ中で折り返す＝はみ出さない） */
 .lp-nb { display: inline-block; max-width: 100%; }
 .lp-btn .lp-nb { white-space: nowrap; }
@@ -491,12 +498,6 @@ body.lp-active {
 /* 問題の自覚の一文（見出しの下） */
 .lp-root .lp-sec-lead { margin: calc(-1 * var(--space-2)) 0 var(--space-6); color: var(--text-2); max-width: 36em; }
 /* なぜ会話すると残るのか（学習の研究 3 つ・番号つき） */
-.lp-why { margin-top: var(--space-16); }
-.lp-why-list { list-style: none; margin: var(--space-4) 0 0; padding: 0; display: grid; gap: var(--space-3); grid-template-columns: repeat(auto-fit, minmax(min(100%, 16em), 1fr)); counter-reset: why; }
-.lp-why-list li { counter-increment: why; padding: var(--space-4); border: 1px solid var(--separator); border-radius: var(--radius); background: var(--bg); }
-.lp-root .lp-why-head { font-weight: 600; }
-.lp-root .lp-why-head::before { content: counter(why) "  "; color: var(--accent); font-variant-numeric: tabular-nums; }
-.lp-root .lp-why-body { margin-top: var(--space-1); color: var(--text-2); font-size: var(--text-sub); line-height: 1.6; }
 .lp-gallery > li { scroll-snap-align: start; display: flex; flex-direction: column; min-width: 0; }
 .lp-root .lp-gallery-num { color: var(--accent); font-size: var(--text-sub); font-weight: 600; font-variant-numeric: tabular-nums; }
 .lp-root .lp-gallery-title { margin: var(--space-1) 0 0; font-size: var(--text-body); font-weight: 600; line-height: 1.5; }
