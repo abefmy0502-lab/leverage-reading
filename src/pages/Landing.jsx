@@ -275,6 +275,8 @@ export default function Landing() {
   const [heroVariant] = useState(() => lpVariant());
   // 写真で共有の柱がイラストに替わったら、「共有の画像は見本の写真で…」の注記は出さない。
   const shareArt = hasArt('illust-share');
+  // ビフォーアフターの絵があれば、カードの簡単な図は出さない（絵と同じことを 2 回言わない）。
+  const dialogueArt = hasArt('illust-dialogue');
   const heroStageRef = useRef(null);
   const heroImgRef = useRef(null);
   // 3D に振り分けた・3D を出せる端末では、最初から 3D の余白を取っておく（あとから余白が足されて見出しが跳ねない・CLS）。
@@ -540,16 +542,21 @@ export default function Landing() {
               <h2 className="lp-h2" id="lp-flow">
                 <span>一方通行の読書から、</span><span>会話する読書へ。</span>
               </h2>
+              {/* ビフォーアフターの絵（2026-10-12 オーナーの絵・public/lp/illust-dialogue-*.webp・LpArt.jsx）。見出しのすぐ下・2 枚のカードの上 */}
+              <LpArt name="illust-dialogue" ratio="4:3" sizes="(min-width: 768px) 640px, 92vw" className="lp-art-sec lp-art-ba" alt="左は、椅子に座って本を一人で静かに読んでいる人。右は、同じ人が机で本を開き、本と人のあいだを「？」や電球、メモの吹き出しが行き来して、明るい表情でうなずいている" />
               <ul className="lp-ba">
                 {BEFORE_AFTER.map((r) => (
                   <li key={r.label} className={r.after ? 'is-after' : undefined}>
-                    <div className="lp-ba-figure" aria-hidden="true">
-                      <span className="lp-ba-node"><BookOpen size="1.25em" strokeWidth={2} /><span>本</span></span>
-                      {r.after
-                        ? <ArrowLeftRight className="lp-ba-arrow" size="1.5em" strokeWidth={2} />
-                        : <ArrowRight className="lp-ba-arrow" size="1.5em" strokeWidth={2} />}
-                      <span className="lp-ba-node"><User size="1.25em" strokeWidth={2} /><span>自分</span></span>
-                    </div>
+                    {/* 絵（illust-dialogue）が無いビルドだけ、簡単な図（本 → 自分／本 ⇄ 自分）を出す */}
+                    {!dialogueArt && (
+                      <div className="lp-ba-figure" aria-hidden="true">
+                        <span className="lp-ba-node"><BookOpen size="1.25em" strokeWidth={2} /><span>本</span></span>
+                        {r.after
+                          ? <ArrowLeftRight className="lp-ba-arrow" size="1.5em" strokeWidth={2} />
+                          : <ArrowRight className="lp-ba-arrow" size="1.5em" strokeWidth={2} />}
+                        <span className="lp-ba-node"><User size="1.25em" strokeWidth={2} /><span>自分</span></span>
+                      </div>
+                    )}
                     <p className="lp-ba-label">{r.label}</p>
                     <p className="lp-ba-title lp-wbr"><Phrases>{r.title}</Phrases></p>
                     <p className="lp-ba-body lp-wbr"><Phrases>{r.body}</Phrases></p>
@@ -558,8 +565,6 @@ export default function Landing() {
               </ul>
               {/* 一番の価値（CLAUDE.md）を 1 行で・会話の流れの頭に（2026-10-12 ui-critic でカードの下へ） */}
               <p className="lp-wbr lp-flow-lead"><Phrases>読めば読むほど、頼れる相談相手になっていきます。</Phrases></p>
-              {/* イメージ図（public/lp/illust-dialogue-*.webp を置いたときだけ・LpArt.jsx）。実際の画面は下の会話の流れに残す */}
-              <LpArt name="illust-dialogue" ratio="4:3" className="lp-art-sec" alt="本から一方的に受け取るのではなく、本と会話しながら自分なりに理解していく様子のイラスト" />
             </div>
             <LpFlow onEvent={lpTrack} />
             <div className="lp-asks">
