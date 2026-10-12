@@ -265,7 +265,7 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
       style={{ background: 'none', border: 'none', padding: 0, minHeight: 44, margin: inHeader ? 'calc(-1 * var(--space-3)) 0' : 'calc(-1 * var(--space-2)) 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', cursor: book ? 'pointer' : 'default', fontFamily: 'inherit', textAlign: 'left', display: 'block', minWidth: 0, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', ...(inHeader ? { flex: '1 1 0', minWidth: '50%' } : {}) }}
     >
       {/* 1 行目は書名だけ（著者は本の詳細にある・長い書名が著者で切れないように・SPEC §4・2026-09-29）。 */}
-      {book?.title || '（本のデータが見つかりません）'}
+      {book?.title || '（本が見つかりません）'}
     </button>
   );
   // 「続きを読む」がカードの最後なら、ボタンの下の余り（44 の押せる範囲の余白）をカードの内側余白に重ねる。
@@ -725,7 +725,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
     setAddingAction(false);
     if (ok) {
       setActionAddedId(memo.id);
-      toast.success('行動に追加しました（期限は明日）。');
+      toast.success('行動に追加しました。期限は明日です。');
     }
   }, [onAddAction, addingAction, booksById, toast]);
 
@@ -944,7 +944,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
       return (
         <EmptyState
           icon={<SearchIcon size={32} strokeWidth={1.5} aria-hidden="true" />}
-          title="このキーワードに関連するメモはまだありません"
+          title="一致するメモはありません"
           actions={onAskConsult && q
             ? [{ label: '相談で聞く', onClick: () => onAskConsult(`「${q}」について、読んだ本から何が言える？`), variant: 'secondary' }]
             : []}
@@ -1009,8 +1009,8 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
           title="メモを読み込めませんでした"
           description={(
             <>
-              通信が不安定なようです。<br />
-              メモは消えていませんので、ご安心ください。
+              通信状況を確認して、もう一度お試しください。<br />
+              メモは消えていません。
             </>
           )}
           actions={[{ label: 'もう一度読み込む', onClick: () => fetchMemos() }]}
@@ -1091,7 +1091,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
               } }]
               : []),
             ...(memoMenu.book && !memoMenu.memo?.synth && (memoMenu.memo?.text || '').trim()
-              ? [{ label: 'この一文をシェア', icon: <Share size="1.1em" aria-hidden="true" />, onClick: () => { haptic.light(); setShareTarget({ book: memoMenu.book, memoId: memoMenu.memo.id }); } }]
+              ? [{ label: '一文を写真で共有', icon: <Share size="1.1em" aria-hidden="true" />, onClick: () => { haptic.light(); setShareTarget({ book: memoMenu.book, memoId: memoMenu.memo.id }); } }]
               : []),
             // 思い出しカードの「…」だけ: 別の 1 枚へ（SPEC §4: 覚えた／もう一度 ＋ …）。
             ...(memoMenu.recall
@@ -1111,8 +1111,8 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                 const ok = await confirm({
                   title: 'このメモを削除しますか？',
                   message: m?.photoPath
-                    ? '写真も削除されます。（取り消した場合、本文は戻りますが写真は戻りません）'
-                    : '削除したあと、しばらくは「取り消す」で戻せます。',
+                    ? '写真も削除されます。「元に戻す」を押しても、写真は戻りません。'
+                    : '削除したあと、少しの間は「元に戻す」で戻せます。',
                   confirmLabel: '削除する',
                   cancelLabel: 'キャンセル',
                   danger: true,
@@ -1147,7 +1147,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
           }}
         >
           <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text)', margin: 0, lineHeight: 1.5 }}>
-            メモの読み込みに失敗しました（メモは消えていません）。
+            一部のメモを読み込めませんでした。メモは消えていません。
           </p>
           <button type="button" style={{ ...btnGhost, flexShrink: 0 }} onClick={() => fetchMemos()}>
             再読み込み
@@ -1176,7 +1176,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
               enterKeyHint="search"
               maxLength={100}
               placeholder="メモを検索"
-              aria-label="メモ横断検索: 本文・書名・著者・タグから探す"
+              aria-label="メモを検索（本文・書名・著者・タグ）"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onFocus={() => setSearchActive(true)}

@@ -34,7 +34,7 @@
 //   - CTA は <a href>（長押し・中クリック等のネイティブ挙動を尊重）
 
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
-import { Check, ChevronDown } from 'lucide-react';
+import { ArrowLeftRight, ArrowRight, BookOpen, Check, ChevronDown, User } from 'lucide-react';
 import { BUILD_LABEL } from '../lib/buildInfo';
 import { SUPPORT_EMAIL } from '../lib/contact';
 import { isAppStoreLive } from '../lib/appStore';
@@ -102,10 +102,11 @@ const CTA_LABEL = <span className="lp-btn-label"><span className="lp-nb">無料�
 // 形式: { quote, who: '30代・営業', how: '部下との 1on1 の前に相談している' }。空なら節ごと出ない。
 const TESTIMONIALS = [];
 
-// ② これまでの読書と、Orime の読書（2 行だけ）
+// ② これまでの読書と、Orime の読書（2026-10-12 オーナー「従来の読書は一方通行。Orime は本と会話できるので、
+//   自分自身のオリジナルの内容で理解できる。ビフォーアフターの世界観を」）。図は 本 → 自分（一方通行）と 本 ⇄ 自分（会話）。
 const BEFORE_AFTER = [
-  { label: 'これまで', steps: ['読む', '本棚に戻す', 'そのまま'] },
-  { label: 'Orime', steps: ['一行メモする', '本に相談する', '明日やってみる'] },
+  { label: 'これまでの読書', title: '読み終えたら、そこで終わり。', body: '書いてあることを、一方的に受け取るだけ。' },
+  { label: 'Orime の読書', title: '自分だけの理解が残る。', body: '悩みを本に聞き、聞き返されて考える。そのやりとりで、本の内容が自分のものになります。', after: true },
 ];
 
 // ② 相談の例（幅を持たせて 3 つ・立場で絞らない）
@@ -537,20 +538,28 @@ export default function Landing() {
           <div className="lp-wrap">
             <div className="lp-narrow lp-sec-head">
               <h2 className="lp-h2" id="lp-flow">
-                <span>読んで、</span><span>終わりにしない。</span>
+                <span>一方通行の読書から、</span><span>会話する読書へ。</span>
               </h2>
-              {/* 一番の価値（CLAUDE.md）を 1 行で・会話の流れの頭に（2026-10-11 ui-critic） */}
-              <p className="lp-wbr lp-flow-lead"><Phrases>読めば読むほど、頼れる相談相手になっていきます。</Phrases></p>
-              <dl className="lp-ba">
-                {BEFORE_AFTER.map((r, i) => (
-                  <div key={r.label} className={i === 1 ? 'is-after' : undefined}>
-                    <dt>{r.label}</dt>
-                    <dd>{r.steps.map((t, k) => <span key={t} className="lp-nb">{k > 0 && <span className="lp-ba-arrow" aria-hidden="true">→</span>}{t}</span>)}</dd>
-                  </div>
+              <ul className="lp-ba">
+                {BEFORE_AFTER.map((r) => (
+                  <li key={r.label} className={r.after ? 'is-after' : undefined}>
+                    <div className="lp-ba-figure" aria-hidden="true">
+                      <span className="lp-ba-node"><BookOpen size="1.25em" strokeWidth={2} /><span>本</span></span>
+                      {r.after
+                        ? <ArrowLeftRight className="lp-ba-arrow" size="1.5em" strokeWidth={2} />
+                        : <ArrowRight className="lp-ba-arrow" size="1.5em" strokeWidth={2} />}
+                      <span className="lp-ba-node"><User size="1.25em" strokeWidth={2} /><span>自分</span></span>
+                    </div>
+                    <p className="lp-ba-label">{r.label}</p>
+                    <p className="lp-ba-title lp-wbr"><Phrases>{r.title}</Phrases></p>
+                    <p className="lp-ba-body lp-wbr"><Phrases>{r.body}</Phrases></p>
+                  </li>
                 ))}
-              </dl>
+              </ul>
+              {/* 一番の価値（CLAUDE.md）を 1 行で・会話の流れの頭に（2026-10-12 ui-critic でカードの下へ） */}
+              <p className="lp-wbr lp-flow-lead"><Phrases>読めば読むほど、頼れる相談相手になっていきます。</Phrases></p>
               {/* イメージ図（public/lp/illust-dialogue-*.webp を置いたときだけ・LpArt.jsx）。実際の画面は下の会話の流れに残す */}
-              <LpArt name="illust-dialogue" ratio="4:3" className="lp-art-sec" alt="読んで終わりにせず、心に残った一行から本と会話し、明日の一歩につなげる様子のイラスト" />
+              <LpArt name="illust-dialogue" ratio="4:3" className="lp-art-sec" alt="本から一方的に受け取るのではなく、本と会話しながら自分なりに理解していく様子のイラスト" />
             </div>
             <LpFlow onEvent={lpTrack} />
             <div className="lp-asks">

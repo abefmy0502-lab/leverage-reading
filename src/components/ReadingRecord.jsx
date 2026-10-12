@@ -565,7 +565,7 @@ export default function ReadingRecord({
         />
         {memoStats?.failed && (
           <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 'var(--space-3) 0 0', lineHeight: 1.5 }}>
-            メモの数を読み込めませんでした。通信の状態を確かめて、開き直してください。
+            メモの数を読み込めませんでした。通信状況を確認して、開き直してください。
           </p>
         )}
       </section>

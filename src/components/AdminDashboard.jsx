@@ -787,7 +787,7 @@ export default function AdminDashboard({ onClose }) {
             <p style={sectionTitle}><Brain size={15} strokeWidth={2} /> 作戦会議（AI参謀）</p>
             <div style={card}>
               <p style={{ margin: '0 0 var(--space-3)', fontSize: 'var(--text-caption)', color: C.ink2, lineHeight: 1.7 }}>
-                経営・マーケ営業・開発・経理の4頭脳に相談できます。現状の数字とこれまでの文脈を踏まえ、対話で打ち手を一緒に作ります（会話は保存されます）。
+                経営・マーケ営業・開発・経理の観点で相談できます。今の数字とこれまでの会話を踏まえて答えます。会話は保存されます。
               </p>
               {advisorMsgs.length > 0 && (
                 <div role="log" aria-live="polite" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
@@ -1019,7 +1019,7 @@ export default function AdminDashboard({ onClose }) {
               <Stat label="D30継続" value={retD30 != null ? `${retD30}%` : '—'} sub={ret ? `${ret.d30_num}/${ret.d30_den}人` : '蓄積中'} />
             </div>
             {(!ret || ret.d1_den === 0) && (
-              <p style={{ margin: 'var(--space-2) var(--space-1) 0', fontSize: 'var(--text-caption)', color: C.ink3, lineHeight: 1.6 }}>※ 利用データが貯まると自動で算出されます（登録から日数が経った人が対象）。</p>
+              <p style={{ margin: 'var(--space-2) var(--space-1) 0', fontSize: 'var(--text-caption)', color: C.ink3, lineHeight: 1.6 }}>※ 登録から日数が経った人の分から、自動で出ます。</p>
             )}
 
             <p style={sectionTitle}><Calculator size={15} strokeWidth={2} /> ユニットエコノミクス（LTV / CAC）</p>

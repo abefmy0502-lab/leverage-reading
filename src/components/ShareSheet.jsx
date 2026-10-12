@@ -799,7 +799,7 @@ export default function ShareSheet({
         : buildShareText({ title: shareVisibility(hidden).title ? lineBook?.title : '', line: card.line, siteUrl: link, tags });
       const result = await shareImage({ blob: card.blob, filename, text });
       if (result !== 'cancelled') track(EVENTS.SHARE_CARD, trackProps(result));
-      if (result === 'saved') toast.info('この端末では共有できないため、画像を保存しました。');
+      if (result === 'saved') toast.info('この端末では共有できないので、画像を保存しました。');
     } catch (e) {
       toast.error(toMessage(e, '共有できませんでした。'));
     } finally {
@@ -960,7 +960,7 @@ export default function ShareSheet({
                 <ErrorMessage
                   className="error-message--fill"
                   title="今年のメモを読み込めませんでした"
-                  description="通信の状態を確かめて、もう一度お試しください。"
+                  description="通信状況を確認して、もう一度お試しください。"
                   actions={[{ label: 'もう一度', onClick: () => { setStatus('loading'); yearM.reload(); } }]}
                 />
               ) : (

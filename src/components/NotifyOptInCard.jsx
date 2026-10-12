@@ -19,7 +19,7 @@ const closeBtn = {
   margin: 'calc(-1 * var(--space-3)) calc(-1 * var(--space-3)) calc(-1 * var(--space-3)) 0',
 };
 
-const BODY = '思い出しの通知は多くても週に 1\u00a0回、前に残したメモを 1\u00a0件だけ。行動は期限の日の朝に 1\u00a0回お知らせします。設定からいつでもオフにできます。';
+const BODY = '前に残したメモを、多くても週に 1\u00a0回お届けします。行動は期限の日の朝にお知らせします。通知は設定からいつでもオフにできます。';
 
 // where: 'action'（はじめて行動に追加した直後）| 'quickstart'（初日クイックスタートを終えた直後）| 'recall' | 'import'（取り込みの完了）| 'ocr'（写真から書き起こしたメモの保存）— 計測だけに使う
 export default function NotifyOptInCard({ where = 'action', primary = true, style = null }) {

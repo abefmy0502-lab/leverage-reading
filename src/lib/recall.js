@@ -37,7 +37,7 @@ export function recallFraming(iso, now = Date.now()) {
   if (Number.isNaN(t)) return '';
   const day = Math.floor((now - t) / 86400000);
   if (day < 1) return ''; // 今日書いたばかり — 想起のフレーズは出さない
-  return `${relativeJa(iso, now)}のあなたのメモ`;
+  return `${relativeJa(iso, now)}に書いたメモ`;
 }
 
 // メモ本文を通知本文向けに短く整える（制御文字除去 + 行頭結合 + clamp）。
@@ -243,7 +243,7 @@ export function nextDueLabel(ts, now = Date.now()) {
   const d = new Date(ts);
   const startOf = (t) => { const x = new Date(t); x.setHours(0, 0, 0, 0); return x.getTime(); };
   const days = Math.round((startOf(ts) - startOf(now)) / 86400000);
-  if (days <= 0) return '次は今日、あとで出します';
+  if (days <= 0) return '今日このあと、また出します';
   if (days === 1) return '次は明日出します';
   return `次は ${d.getMonth() + 1}月${d.getDate()}日に出します`;
 }

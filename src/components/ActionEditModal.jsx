@@ -374,7 +374,7 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete, onS
                 value={reflection}
                 onChange={(e) => setReflection(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter' && e.nativeEvent.isComposing) e.preventDefault(); }}
-                placeholder="やってみてどうだったか (任意)"
+                placeholder="やってみてどうだったか"
                 rows={2}
                 style={taStyle}
                 maxLength={LIMITS.memoText}

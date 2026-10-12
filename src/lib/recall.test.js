@@ -47,7 +47,7 @@ describe('recallFraming', () => {
     expect(recallFraming(iso(3 * 3600 * 1000), NOW)).toBe('');
   });
   it('1日以上前は「◯◯のあなたのメモ」', () => {
-    expect(recallFraming(iso(90 * DAY), NOW)).toBe('3 か月前のあなたのメモ');
+    expect(recallFraming(iso(90 * DAY), NOW)).toBe('3 か月前に書いたメモ');
   });
 });
 
@@ -220,7 +220,7 @@ describe('nextDueAt / nextDueLabel（「今日の思い出しカードは、こ�
   });
   it('文: 今日／明日／◯月◯日', () => {
     const base = new Date(2026, 8, 30, 9, 0, 0).getTime(); // 端末の 9/30 9:00
-    expect(nextDueLabel(base + 3 * 3600 * 1000, base)).toBe('次は今日、あとで出します');
+    expect(nextDueLabel(base + 3 * 3600 * 1000, base)).toBe('今日このあと、また出します');
     expect(nextDueLabel(base + DAY, base)).toBe('次は明日出します');
     expect(nextDueLabel(base + 2 * DAY, base)).toBe('次は 10月2日に出します');
     expect(nextDueLabel(null, base)).toBe('');

@@ -77,8 +77,8 @@ function relativeJa(iso, now) {
 
 function recallFraming(iso, now) {
   const r = relativeJa(iso, now);
-  if (!r || r === 'さっき') return '過去のあなたのメモ';
-  return `${r}のあなたのメモ`;
+  if (!r || r === 'さっき') return '前に書いたメモ';
+  return `${r}に書いたメモ`;
 }
 
 function memoExcerpt(text, max = 120) {
