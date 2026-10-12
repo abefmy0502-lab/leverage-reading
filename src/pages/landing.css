@@ -813,7 +813,7 @@ body.lp-active {
 
 @media (min-width: 1100px) {
   /* 1 段目の 3 枚は、見出しの行数がちがっても端末の上端をそろえる */
-  .lp-pillars > li:nth-child(-n+3) { grid-row: span 2; grid-template-rows: subgrid; row-gap: var(--space-6); }
+  .lp-pillars > li { grid-row: span 2; grid-template-rows: subgrid; row-gap: var(--space-6); }
   /* 5 つ: 上の段 3 枚・下の段 2 枚（文が左・画面が右の横長）で穴をあけない */
   .lp-pillars { grid-template-columns: repeat(6, minmax(0, 1fr)); }
   .lp-pillars > li { grid-column: span 2; }
@@ -832,8 +832,8 @@ body.lp-active {
   .lp-pillar-shot { max-height: calc(var(--lp-pillar-w) * 1.3); overflow: hidden; -webkit-mask-image: linear-gradient(to bottom, black 72%, transparent); mask-image: linear-gradient(to bottom, black 72%, transparent); }
   .lp-cta-row .lp-btn-large { flex: 1 1 100%; }
   /* 共有の画像は下（書名・ロゴ）が要なので、上を溶かして下を見せる */
-  #lp-share .lp-pillar-shot { display: flex; flex-direction: column; justify-content: flex-end; -webkit-mask-image: linear-gradient(to top, black 72%, transparent); mask-image: linear-gradient(to top, black 72%, transparent); }
-  #lp-share .lp-pillar-shot > picture, #lp-share .lp-pillar-shot img { flex-shrink: 0; }
+  /* 共有の画像は一文も書名もロゴも要なので、切らずに少し小さく全体を見せる */
+  #lp-share .lp-pillar-shot { width: 56vw; max-height: none; overflow: visible; -webkit-mask-image: none; mask-image: none; }
   /* ヒーロー（イラストの型）: 端末は絵の右下から下へはみ出し、注記はその下に全幅 */
   .lp-hero-illust { padding-bottom: 0; }
   .lp-hero-illust .lp-hero-mini { bottom: auto; top: calc((100vw - 2 * var(--lp-gutter)) * 0.75 - var(--lp-mini-w) * 0.85); }
