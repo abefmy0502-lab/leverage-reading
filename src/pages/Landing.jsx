@@ -543,7 +543,7 @@ export default function Landing() {
                 <span>一方通行の読書から、</span><span>会話する読書へ。</span>
               </h2>
               {/* ビフォーアフターの絵（2026-10-12 オーナーの絵・public/lp/illust-dialogue-*.webp・LpArt.jsx）。見出しのすぐ下・2 枚のカードの上 */}
-              <LpArt name="illust-dialogue" ratio="4:3" sizes="(min-width: 768px) 640px, 92vw" className="lp-art-sec lp-art-ba" alt="左は、椅子に座って本を一人で静かに読んでいる人。右は、同じ人が机で本を開き、本と人のあいだを「？」や電球、メモの吹き出しが行き来して、明るい表情でうなずいている" />
+              <LpArt name="illust-dialogue" ratio="4:3" sizes="(min-width: 768px) 640px, 92vw" className="lp-art-sec lp-art-wide" alt="左は、椅子に座って本を一人で静かに読んでいる人。右は、同じ人が机で本を開き、本と人のあいだを「？」や電球、メモの吹き出しが行き来して、明るい表情でうなずいている" />
               <ul className="lp-ba">
                 {BEFORE_AFTER.map((r) => (
                   <li key={r.label} className={r.after ? 'is-after' : undefined}>
@@ -640,7 +640,7 @@ export default function Landing() {
               <h2 className="lp-h2" id="lp-start">
                 <span>メモがなくても、</span><span>今日から始められます。</span>
               </h2>
-              <LpArt name="illust-start" ratio="4:3" className="lp-art-sec" alt="読んだ本に一言ずつ残したり、ほかのアプリの記録を取り込んだり、本のページを撮ったりして始める様子のイラスト" />
+              <LpArt name="illust-start" ratio="4:3" sizes="(min-width: 768px) 640px, 92vw" className="lp-art-sec lp-art-wide" alt="机で本のページをスマホで撮る人。まわりに、付箋に一言書く手・本棚の本がスマホに移る様子・本のページを撮る枠の 3 つの丸い絵が浮かんでいる" />
             </div>
             <PointList items={START_POINTS} className="lp-points lp-trio lp-quad" />
             <div className="lp-cta-block">

@@ -327,8 +327,8 @@ body.lp-active {
    ヒーロー（LpIllust.jsx）と節の絵（LpArt.jsx）で同じ扱い。 */
 .lp-illust-img { border-radius: var(--radius); background: var(--fill); }
 /* ② ビフォーアフターの絵（見出しの下・2 枚のカードの上・広い画面はカードと同じ幅） */
-.lp-art-ba { display: block; width: 100%; height: auto; margin: 0 0 var(--space-6); }
-.lp-narrow > picture:has(.lp-art-ba) { display: block; }
+.lp-art-wide { display: block; width: 100%; height: auto; margin: 0 0 var(--space-6); }
+.lp-narrow > picture:has(.lp-art-wide) { display: block; }
 @media (prefers-color-scheme: dark) {
   .lp-illust-img { border: 1px solid var(--separator); }
   .lp-illust-img:not(.has-dark) { filter: brightness(0.92); }
@@ -719,7 +719,7 @@ body.lp-active {
   .lp-pillars { grid-template-columns: repeat(auto-fit, minmax(min(100%, 36em), 1fr)); column-gap: var(--space-12); row-gap: var(--space-16); }
   .lp-ba { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
   .lp-narrow > .lp-ba { max-width: none; }
-  .lp-narrow > picture:has(.lp-art-ba) { max-width: 40rem; }
+  .lp-narrow > picture:has(.lp-art-wide) { max-width: 40rem; }
   .lp-asks li { grid-template-columns: 8em minmax(0, 1fr); gap: var(--space-3); }
   .lp-media-shot .lp-shot, .lp-media-shot .lp-share-img { margin: 0; }
   .lp-media-shot { text-align: left; }

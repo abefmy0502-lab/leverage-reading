@@ -185,7 +185,7 @@ group by 1 order by 2 desc;
 | `illust-share-light-…` | 1:1 | 柱「発信する」（写真で共有） | 共有の画像の見本（絵に替わると「共有の画像は見本の写真で…」の注記も消える） |
 | `illust-fields-light-…` | 1:1 | 柱「読書の偏りに気づく」（分野） | 記録の分野の画面写真 |
 | `illust-advisor-light-…` | 1:1 | 柱「次の一冊を選ぶ」（AI 選書） | AI 選書のおすすめの画面写真 |
-| `illust-start-light-…` | 4:3 | 「メモがなくても、今日から始められます。」の頭 | 何も出さない |
+| `illust-start-light-…` | 4:3 | 「メモがなくても、今日から始められます。」の見出しの下（2026-10-12 にオーナーの絵を入れた） | 何も出さない |
 
 - 例（1:1）: `node -e "const s=require('sharp');[[390,90],[780,90],[1560,92]].forEach(([w,q])=>s('元.png').resize(w,w).webp({quality:q}).toFile('public/lp/illust-action-light-'+w+'.webp'))"`（4:3 は `resize(w, w*3/4)`）
 - 対話の 4 コマ（実際の画面）と見本・語り口の注記は、絵が届いても「一方通行の読書から、会話する読書へ。」の節に残す（証拠）。読み上げの文は `Landing.jsx`（柱は `PILLARS` の `artAlt`）。絵の中身が変わったら合わせて直す。
