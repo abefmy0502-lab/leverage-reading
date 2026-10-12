@@ -34,7 +34,7 @@
 //   - CTA は <a href>（長押し・中クリック等のネイティブ挙動を尊重）
 
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowLeftRight, ArrowRight, BookOpen, Check, ChevronDown, User } from 'lucide-react';
+import { ArrowLeftRight, ArrowRight, BookOpen, Check, ChevronDown, Download, Lock, ShieldCheck, Smartphone, User } from 'lucide-react';
 import { BUILD_LABEL } from '../lib/buildInfo';
 import { SUPPORT_EMAIL } from '../lib/contact';
 import { isAppStoreLive } from '../lib/appStore';
@@ -162,10 +162,10 @@ const PILLARS = [
 // ③ の下の安心の 4 つ。学習＝各社の API 規約／同意＝ensureAiConsent（はじめて AI を使う操作のとき）／
 // 書き出し＝設定の CSV（lib/exportData.js）・退会のお申し込みで消去／写真で共有＝端末の中で描く（サーバーに送らない）。
 const TRUST_POINTS = [
-  'メモが AI の学習に使われることはありません',
-  'AI にデータを送るのは、AI の機能を使うときだけです',
-  'いつでも CSV で書き出せます。退会を申し込めばデータは消去されます',
-  '共有する写真は、サーバーにアップロードしません',
+  { icon: ShieldCheck, head: 'AI の学習に使われません', body: 'メモや相談が、AI の学習に使われることはありません。' },
+  { icon: Lock, head: 'AI に送るのは使うときだけ', body: 'AI の機能を使うときだけ送ります。はじめに送る内容を確認できます。' },
+  { icon: Download, head: 'いつでも書き出せます', body: 'メモは CSV で書き出せます。退会を申し込めばデータは消去されます。' },
+  { icon: Smartphone, head: '共有の写真は手元で作ります', body: '共有する写真は、サーバーにアップロードしません。' },
 ];
 
 // ④ メモがゼロでも、今日から（0 日目の 4 つの道・SPEC §1-1d）
@@ -489,7 +489,7 @@ export default function Landing() {
         <section className="lp-hero">
           <div className="lp-wrap lp-hero-grid">
             <div className="lp-hero-text">
-              <p className="lp-eyebrow"><span>読書メモアプリ</span></p>
+              <p className="lp-eyebrow"><span>本に相談できる読書メモ</span></p>
               <h1 className="lp-h1">
                 <span>読んだ本と、</span><span>会話しよう。</span>
               </h1>
@@ -545,7 +545,8 @@ export default function Landing() {
                 <span>一方通行の読書から、</span><span>会話する読書へ。</span>
               </h2>
               {/* ビフォーアフターの絵（2026-10-12 オーナーの絵・public/lp/illust-dialogue-*.webp・LpArt.jsx）。見出しのすぐ下・2 枚のカードの上 */}
-              <LpArt name="illust-dialogue" ratio="4:3" sizes="(min-width: 768px) 640px, 92vw" className="lp-art-sec lp-art-wide" alt="左は、椅子に座って本を一人で静かに読んでいる人。右は、同じ人が机で本を開き、本と人のあいだを「？」や電球、メモの吹き出しが行き来して、明るい表情でうなずいている" />
+              <div className="lp-ba-wrap">
+              <LpArt name="illust-dialogue" ratio="4:3" sizes="(min-width: 768px) 600px, 92vw" className="lp-art-sec lp-art-wide" alt="左は、椅子に座って本を一人で静かに読んでいる人。右は、同じ人が机で本を開き、本と人のあいだを「？」や電球、メモの吹き出しが行き来して、明るい表情でうなずいている" />
               <ul className="lp-ba">
                 {BEFORE_AFTER.map((r) => (
                   <li key={r.label} className={r.after ? 'is-after' : undefined}>
@@ -565,6 +566,7 @@ export default function Landing() {
                   </li>
                 ))}
               </ul>
+              </div>
               {/* 一番の価値（CLAUDE.md）を 1 行で・会話の流れの頭に（2026-10-12 ui-critic でカードの下へ） */}
               <p className="lp-wbr lp-flow-lead"><Phrases>読めば読むほど、頼れる相談相手になっていきます。</Phrases></p>
             </div>
@@ -637,11 +639,16 @@ export default function Landing() {
               <h2 className="lp-h2" id="lp-start">
                 <span>メモがなくても、</span><span>今日から始められます。</span>
               </h2>
-              <LpArt name="illust-start" ratio="4:3" sizes="(min-width: 768px) 640px, 92vw" className="lp-art-sec lp-art-wide" alt="机で本のページをスマホで撮る人。まわりに、付箋に一言書く手・本棚の本がスマホに移る様子・本のページを撮る枠の 3 つの丸い絵が浮かんでいる" />
             </div>
-            <PointList items={START_POINTS} className="lp-points lp-trio lp-quad" />
-            <div className="lp-cta-block">
-              <Entry loc="start" wl={wl} />
+            {/* 広い画面は 絵（左）と 4 つの始め方＋入口（右）の 2 列（2026-10-12） */}
+            <div className="lp-start-wrap">
+              <LpArt name="illust-start" ratio="4:3" sizes="(min-width: 768px) 600px, 92vw" className="lp-art-sec lp-art-wide" alt="机で本のページをスマホで撮る人。まわりに、付箋に一言書く手・本棚の本がスマホに移る様子・本のページを撮る枠の 3 つの丸い絵が浮かんでいる" />
+              <div>
+                <PointList items={START_POINTS} className="lp-points" />
+                <div className="lp-cta-block">
+                  <Entry loc="start" wl={wl} />
+                </div>
+              </div>
             </div>
             <p className="lp-fine lp-wbr"><Phrases>ブクログ・読書メーター・Kindle は、各社の商標または登録商標です。</Phrases></p>
           </div>
@@ -694,13 +701,13 @@ export default function Landing() {
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>AI の答えは<span className="lp-nb">毎月 {FREE_CONSULTS}</span><span className="lp-nb">（はじめの月は {FIRST_CONSULTS}）</span></span></li>
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>写真から書き起こし <span className="lp-nb">毎月 {FREE_OCR_PER_MONTH} 回</span></span></li>
                 </ul>
+                {!PRELAUNCH && <StoreCta className="lp-btn lp-btn-ghost lp-plan-cta" loc="pricing_free">{CTA_LABEL}</StoreCta>}
               </div>
               <div className="lp-plan is-paid">
                 <p className="lp-plan-name"><span>月額・年額プラン</span>{TRIAL_NOTE && <span className="lp-plan-badge">{OFFER.active ? '月額は 7 日間無料' : TRIAL_NOTE}</span>}</p>
                 <p className="lp-plan-hero"><span className="lp-plan-hero-num">{PAID_CONSULTS}</span><span>AI の答え・毎月</span></p>
                 {/* プランで手に入るもの（具体的に 4 つ・数は lib/tokenAmounts.js のとおり） */}
                 <ul className="lp-included" aria-label="プランに含まれるもの">
-                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>毎月 <span className="lp-nb">{PAID_TOKENS} トークン</span>（答え 1 回 約 10）</span></li>
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>すべての <span className="lp-nb">AI 機能</span>（読書計画シート・<span className="lp-nb">AI 選書・</span>写真から書き起こし・メモの凝縮など）</span></li>
                   {TRIAL_NOTE && (
                     <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>無料期間中は <span className="lp-nb">AI の答え {TRIAL_CONSULTS}</span><span className="lp-nb">（{TRIAL_TOKENS} トークン）</span></span></li>
@@ -729,13 +736,14 @@ export default function Landing() {
                     <p className="lp-plan-sub"><span className="lp-nb">1 日あたり約 {PER_DAY_TEXT}。</span>{OFFER.active && TRIAL_FIRST && <span className="lp-nb">{TRIAL_FIRST}。</span>}</p>
                   </div>
                 </div>
+                {!PRELAUNCH && <StoreCta className="lp-btn lp-plan-cta" loc="pricing">{TRIAL_NOTE ? TRIAL_CTA_LABEL : CTA_LABEL}</StoreCta>}
               </div>
             </div>
             <p className="lp-fine lp-wbr">
-              <Phrases>{`回数は目安です。${CONSULT_ANSWERS_NOTE}。トークンは翌月に繰り越せません。関係するメモが見つからず答えられなかった相談は、${noBreak(`月 ${NO_INFO_REFUNDS} 回`)}までトークンを返します。`}</Phrases>
+              <Phrases>{`回数は目安です（プランは毎月 ${PAID_TOKENS} トークン・答え 1 回 約 10 トークン）。${CONSULT_ANSWERS_NOTE}。トークンは翌月に繰り越せません。関係するメモが見つからず答えられなかった相談は、${noBreak(`月 ${NO_INFO_REFUNDS} 回`)}までトークンを返します。`}</Phrases>
             </p>
             <div className="lp-cta-block">
-              <Entry loc="pricing" wl={wl} label={TRIAL_NOTE ? TRIAL_CTA_LABEL : undefined} />
+              {PRELAUNCH && <Entry loc="pricing" wl={wl} />}
               <p className="lp-cta-note lp-wbr">
                 <Phrases>{COPY.pricingNote[0]}</Phrases>
                 <br />
@@ -749,9 +757,16 @@ export default function Landing() {
         <section className="lp-sec lp-faq" aria-labelledby="lp-faq" data-lp-sec="faq">
           <div className="lp-wrap lp-narrow">
             {/* 安心の 4 つ（どれも実装と規約で確かめた事実だけ・2026-10-12 に料金のあと・よくある質問の頭へ） */}
-            <ul className="lp-trust" aria-label="データの扱い">
+            <h2 className="lp-h2 lp-trust-title" id="lp-trust">メモの扱いについて</h2>
+            <ul className="lp-trust" aria-labelledby="lp-trust">
               {TRUST_POINTS.map((t) => (
-                <li key={t}><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span className="lp-wbr"><Phrases>{t}</Phrases></span></li>
+                <li key={t.head}>
+                  <t.icon size="1.25em" strokeWidth={2} aria-hidden="true" />
+                  <div>
+                    <p className="lp-trust-head">{t.head}</p>
+                    <p className="lp-trust-body lp-wbr"><Phrases>{t.body}</Phrases></p>
+                  </div>
+                </li>
               ))}
             </ul>
             <h2 className="lp-h2" id="lp-faq">よくある質問</h2>

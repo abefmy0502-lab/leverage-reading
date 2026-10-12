@@ -18,11 +18,18 @@ export const AVATAR_SIZE_SMALL = 24;
 // 名前の行の高さ（13・行間 1.5）＋ 名前と吹き出しの間（4）。アイコンは吹き出しの上端に合わせる。
 const NAME_OFFSET = 'calc(var(--text-meta) * 1.5 + var(--space-1))';
 
-function CoverTile({ book }) {
+// 表紙の無い本（1 冊の丸）は、代用表紙の色に書名の 1 文字目を置く（茶色の丸だけだと壊れて見える・2026-10-12）。
+const firstChar = (title) => Array.from(String(title || '').replace(/^[\s『「【〈《"'（(]+/, ''))[0] || '';
+
+function CoverTile({ book, letter = false }) {
   const [from, to] = paletteFor(book?.title || '');
   const [broken, setBroken] = useState(false);
+  const showLetter = letter && (!book?.cover || broken);
   return (
-    <span style={{ position: 'relative', display: 'block', width: '100%', height: '100%', background: `linear-gradient(135deg, ${from}, ${to})` }}>
+    <span style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', background: `linear-gradient(135deg, ${from}, ${to})` }}>
+      {showLetter && (
+        <span style={{ color: 'var(--accent-ink)', fontSize: 'var(--text-sub)', fontWeight: 600, lineHeight: 1, fontFamily: 'var(--font-read)' }}>{firstChar(book?.title)}</span>
+      )}
       {book?.cover && !broken && (
         <img
           src={ensureHttps(book.cover)}
@@ -58,7 +65,7 @@ export default function PartnerAvatar({ partner, size = AVATAR_SIZE, style = nul
   };
   if (!partner) return <span aria-hidden="true" style={{ ...base, background: 'none' }} />;
   if (partner.kind === 'self') return <span aria-hidden="true" style={base}><SelfTile size={size} icon={partner.icon} /><Ring /></span>;
-  if (partner.kind === 'book') return <span aria-hidden="true" style={base}><CoverTile book={partner.books[0]} /><Ring /></span>;
+  if (partner.kind === 'book') return <span aria-hidden="true" style={base}><CoverTile book={partner.books[0]} letter={size >= AVATAR_SIZE_SMALL} /><Ring /></span>;
   const tiles = [...partner.books.slice(0, GROUP_TILES).map((b) => ({ b })), ...(partner.self ? [{ self: true }] : [])].slice(0, GROUP_TILES);
   if (tiles.length === 0) {
     return (

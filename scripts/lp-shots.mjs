@@ -42,7 +42,7 @@ const hideDemoNote = (p) => p.evaluate(() => {
 });
 // 画面ごとの開く URL（既定は /?lpshot=1）。flow-worry は答えを途中で止める設定（&ai=stall）で、
 // 送った悩みと答えの書きはじめ（結論の数行）が出ている所を撮る（読み込み中の骨組みだけの画面にしない・2026-10-05）。
-const SHOT_URL = { 'flow-worry': '/?lpshot=1&ai=stall', 'flow-talk': '/?lpshot=1&ai=stall', focus: '/?lpshot=1&focus=timer' };
+const SHOT_URL = { 'flow-worry': '/?lpshot=1&ai=stall', focus: '/?lpshot=1&focus=timer' };
 const DEFAULT_URL = '/?lpshot=1';
 const ask = async (p) => {
   await p.locator(nav('相談')).click(); await p.waitForTimeout(800);
@@ -126,11 +126,10 @@ const SHOTS = {
   'flow-talk': async (p) => {
     await openBook(p);
     await p.locator('button:has-text("この本に相談する")').first().click(); await p.waitForTimeout(1500);
+    // 送る直前（相談相手が 1 冊の本・入力欄に悩み）を写す（読み込み中の骨組みを売り場に出さない・2026-10-12）
     await p.locator('textarea[aria-label="相談したいこと"]').fill(VOICE_Q);
-    await p.locator('button[aria-label="送信"]').click();
-    await p.waitForTimeout(Number(process.env.FLOW_WORRY_MS || 4500));
-    await hideDemoNote(p);
-    await hideAuthorName(p);
+    await p.locator('textarea[aria-label="相談したいこと"]').blur();
+    await p.waitForTimeout(600);
   },
   'flow-voice': async (p) => {
     await askBook(p);
