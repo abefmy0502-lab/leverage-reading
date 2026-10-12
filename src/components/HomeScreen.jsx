@@ -55,7 +55,7 @@ function StartCard({ onQuickstart, onAddBook, onAdvisor, onImport }) {
       <h2 id="home-start-title" style={{ ...sectionTitle, margin: 0 }}>相談相手をつくる</h2>
       {/* 題の下に 1 行だけ、積み重ねが相談の質になることを言う（2026-10-10 第 9 回 総点検・ボタンの名前と順番は変えない）。 */}
       <p style={{ margin: 'var(--space-1) 0 var(--space-4)', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-        {withPhraseBreaks('メモがたまるほど、あなたのメモから答えます')}
+        {withPhraseBreaks('書いたメモをもとに、相談に答えます')}
       </p>
       {/* data-first-step: 本が 0 冊で「写真で共有」を押したとき、ここへフォーカスを送る印（App.jsx の pointToFirstStep）。 */}
       {/* ボタンは横並びの箱なので、文節の切れ目つきの文字は span で 1 つにまとめる（切れ目ごとに別の項目に割れない）。 */}
@@ -370,7 +370,7 @@ export default function HomeScreen({
         // この画面の主役は「もう一度」（ErrorMessage の主の操作は、どの画面でも枠の同じ形・2026-10-10）。
         <ErrorMessage
           title="本を読み込めませんでした"
-          description="通信の状態を確かめて、もう一度お試しください。"
+          description="通信状況を確認して、もう一度お試しください。"
           actions={onRetry ? [{ label: 'もう一度', onClick: onRetry, variant: 'primary' }] : []}
         />
       ) : books.length === 0 ? (

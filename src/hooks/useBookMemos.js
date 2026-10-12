@@ -220,7 +220,7 @@ export function useBookMemos(bookId, { sortBy = 'page' } = {}) {
   // ===== Mutations =====
   const createMemo = async ({ pageNumber, text, photoFile, tags }) => {
     if (!user || !isUsableBookId || !isSupabaseConfigured) {
-      throw new Error('メモを保存できません（本が未保存の可能性があります）');
+      throw new Error('本を保存してから、メモを書いてください。');
     }
     let photoPath = null;
     if (photoFile) photoPath = await uploadPhoto(photoFile, user.id, bookId);

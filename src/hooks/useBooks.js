@@ -587,7 +587,7 @@ export function useBooks() {
       if (!aErr) knownActionIdsRef.current.set(bookRow.id, new Set(actionRows.map((r) => r.id).filter(Boolean)));
       if (aErr) {
         console.error('行動リスト復元の一部失敗:', aErr);
-        failed.push('行動リスト');
+        failed.push('行動');
       }
     }
 

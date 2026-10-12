@@ -492,7 +492,7 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
           {forPhoto && (
             // 説明と検索欄の間は 16（列の間 12 ＋ 4）。
             <p style={{ margin: '0 0 var(--space-1)', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-              {withPhraseBreaks('まず本を選び、そのあとページを撮ります。')}
+              {withPhraseBreaks('本を選んでから、ページを撮ります。')}
             </p>
           )}
           <BookSearchField

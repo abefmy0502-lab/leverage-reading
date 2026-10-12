@@ -40,7 +40,7 @@ export function BookFieldsInput({ fields = [], onChange, auto = false, autoFrom 
       {/* 付いている分野（選択中の色の面・押しても選ぶシート）＋文字ボタン「変更」／「分野を選ぶ」（2026-10-11 ui-critic）。 */}
       <div style={{ ...chipRow, alignItems: 'center' }} role="group" aria-labelledby="book-fields-label" aria-busy={waiting || undefined}>
         {fields.map((f) => (
-          <button key={f} type="button" style={fieldTag} onClick={() => setOpen(true)} aria-label={`分野「${f}」・押すと選び直せます`}>{f}</button>
+          <button key={f} type="button" style={fieldTag} onClick={() => setOpen(true)} aria-label={`分野「${f}」を選び直す`}>{f}</button>
         ))}
         {waiting && (
           // 骨組みは「分野を選ぶ」の後ろ（order）＝読み込み中 → 失敗で文字ボタンの位置が動かない・行の高さも --tap-min のまま（2026-10-11 ui-critic）
@@ -95,7 +95,7 @@ export function BookFieldsSheet({ selected = [], onDone, onClose }) {
       dismissLabel="キャンセル"
       subheader={(
         <p data-fields-limit="" style={{ margin: 0, fontSize: 'var(--text-meta)', color: full ? 'var(--text)' : 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }} aria-live="polite">
-          {withPhraseBreaks(full ? `${FIELD_MAX} つ選びました。ほかを選ぶときは、どれかを外してください。` : `${FIELD_MAX} つまで選べます`)}
+          {withPhraseBreaks(full ? `選べるのは ${FIELD_MAX} つまでです。ほかを選ぶときは、どれかを外してください。` : `${FIELD_MAX} つまで選べます`)}
         </p>
       )}
     >

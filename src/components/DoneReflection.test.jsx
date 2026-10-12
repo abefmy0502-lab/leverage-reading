@@ -14,7 +14,7 @@ describe('DoneQuestions', () => {
     const html = renderToStaticMarkup(<DoneQuestions questions={DONE_QUESTIONS} onPick={() => {}} onDismiss={() => {}} />);
     expect(text(html)).toContain('読み終えて、ひとこと');
     DONE_QUESTIONS.forEach((q) => expect(text(html)).toContain(q.text));
-    expect(html).toContain('aria-label="読み終えての問いを閉じる"');
+    expect(html).toContain('aria-label="問いを閉じる"');
   });
 });
 

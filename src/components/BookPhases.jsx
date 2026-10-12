@@ -238,7 +238,7 @@ export function WantPhase({ form, setForm, onSave, saving = false, onSearchOpen,
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
             <label htmlFor={titleInputId} style={groupTitle}>書名<span style={fieldNote}>（必須）</span></label>
             <input id={titleInputId} aria-label="書名（必須）" ref={titleRef} value={form.title} onChange={(e) => { setTitleMissing(false); setForm({ ...form, title: e.target.value }); }} aria-invalid={titleMissing || undefined} aria-describedby={titleMissing ? titleErrId : undefined} style={titleMissing ? { ...inp, borderColor: 'var(--error)' } : inp} maxLength={LIMITS.bookTitle} />
-            {titleMissing && <p id={titleErrId} role="alert" style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--error)' }}>書名を入れてください</p>}
+            {titleMissing && <p id={titleErrId} role="alert" style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--error)' }}>書名を入力してください</p>}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
             <label htmlFor={authorInputId} style={groupTitle}>著者<span style={fieldNote}>（任意）</span></label>
@@ -292,7 +292,7 @@ export function WantPhase({ form, setForm, onSave, saving = false, onSearchOpen,
         {/* 読了を選んだら、読み終えた日が何になるかを 1 行で（今日で入る・あとで本の編集から変えられる・2026-09-29）。 */}
         {form.status === 'done' && (
           <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>
-            読み終えた日: {!form.doneDate || form.doneDate === todayLocal() ? '今日' : fmtDateJa(form.doneDate)}（あとで変えられます）
+            読み終えた日：{!form.doneDate || form.doneDate === todayLocal() ? '今日' : fmtDateJa(form.doneDate)}（あとで変えられます）
           </p>
         )}
       </Field>

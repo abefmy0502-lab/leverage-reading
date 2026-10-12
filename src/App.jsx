@@ -1624,7 +1624,7 @@ function AuthedApp() {
       return confirm({
         title: '保存していない変更があります',
         message: '本の情報は元のまま残ります。',
-        confirmLabel: '直したところを捨てる',
+        confirmLabel: '変更を破棄',
         cancelLabel: '編集を続ける',
         danger: true,
       });
@@ -1886,7 +1886,7 @@ function AuthedApp() {
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error('[manual-upload] failed:', err);
-      toast.error(toMessage(err, '表紙のアップロードに失敗しました'));
+      toast.error(toMessage(err, '表紙をアップロードできませんでした'));
     }
   };
 
@@ -1929,7 +1929,7 @@ function AuthedApp() {
         },
       });
     } catch (err) {
-      toast.error(toMessage(err, '表紙の削除に失敗しました'));
+      toast.error(toMessage(err, '表紙を削除できませんでした'));
     }
   };
 
@@ -1945,7 +1945,7 @@ function AuthedApp() {
     // ★ 即時フィードバック — これが無いと数秒の無反応で「動いていない」に見える。
     const busyToastId = toast.show({
       type: 'info',
-      message: '🔄 表紙を取得しています…',
+      message: '表紙を探しています…',
       duration: 15000,
     });
     try {
@@ -1987,7 +1987,7 @@ function AuthedApp() {
         // 自動取得が完璧になることはあり得ない → 手動アップロードを促す。
         toast.show({
           type: 'info',
-          message: '表紙が自動では見つかりませんでした。写真をアップロードできます。',
+          message: '表紙が見つかりませんでした。写真をアップロードできます。',
           duration: 6000,
           action: { label: 'アップロード', onClick: () => triggerManualCoverUpload(book) },
         });
@@ -2017,7 +2017,7 @@ function AuthedApp() {
       toast.success('表紙を更新しました。');
     } catch (e) {
       toast.dismiss?.(busyToastId);
-      toast.error(toMessage(e, '表紙の取得に失敗しました'));
+      toast.error(toMessage(e, '表紙を取得できませんでした'));
     } finally {
       setCoverBusyId(null);
     }
@@ -2042,7 +2042,7 @@ function AuthedApp() {
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error('[cover-modal] DB update failed:', error);
-      toast.error(toMessage(error, '表紙の更新に失敗しました。'));
+      toast.error(toMessage(error, '表紙を更新できませんでした。'));
     }
   };
 
@@ -2261,8 +2261,8 @@ function AuthedApp() {
     // 保存されない。旧: 「📖 既存の本を見る / ← 戻る」で入力破棄が伝わらなかった）。
     const ok = await confirm({
       title: 'この本はもう本棚にあります',
-      message: `『${existing.title}』は「${statusLabel}」として登録済みです。既存の本を開くと、いま入力中の内容は保存されません。`,
-      confirmLabel: '既存の本を開く',
+      message: `『${existing.title}』は「${statusLabel}」で登録されています。開くと、いま入力した内容は保存されません。`,
+      confirmLabel: 'その本を開く',
       cancelLabel: 'このまま編集を続ける',
     });
     if (ok) openDetail(existing);
@@ -2315,7 +2315,7 @@ function AuthedApp() {
       if (!resolvedCover && form.coverIsbn !== 'manual' && form.coverIsbn !== 'removed' && (form.title || form.isbn)) {
         // 表紙解決は複数のネットワーク往復（最大数十秒）になり得る。無反応だと
         // 保存失敗と誤認して離脱するため、その場でフィードバックを出す。
-        resolvingToastId = toast.show({ type: 'info', message: '💾 保存しています…', duration: 30000 });
+        resolvingToastId = toast.show({ type: 'info', message: '保存しています…', duration: 30000 });
         try {
           // サーバー（楽天・NDL・openBD）→ 端末の順で探す（以前は端末だけで、NDL の CORS・
           // Google の 429 で取りこぼしていた）。保存を長く待たせないよう 8 秒で打ち切り、
@@ -2469,7 +2469,7 @@ function AuthedApp() {
       if (isUniqueViolation(error)) {
         toast.error('この本はもう本棚にあります。');
       } else {
-        toast.error(toMessage(error, '保存に失敗しました。もう一度お試しください。'));
+        toast.error(toMessage(error, '保存できませんでした。もう一度お試しください。'));
       }
     } finally {
       savingRef.current = false;
@@ -2513,7 +2513,7 @@ function AuthedApp() {
         // 失敗時は leverageMemo だけ previous 値へ戻す（並行操作の結果は保持）。
         setForm((f) => (f && f.id === bookId ? { ...f, leverageMemo: prevForm?.leverageMemo } : f));
         setCurrent((c) => (c && c.id === bookId ? { ...c, leverageMemo: prevCurrent?.leverageMemo } : c));
-        const msg = toMessage(error, 'この本のまとめの保存に失敗しました。');
+        const msg = toMessage(error, 'この本のまとめを保存できませんでした。');
         toast.error(msg);
         throw new Error(msg);
       }
@@ -2550,7 +2550,7 @@ function AuthedApp() {
         // 失敗時は leverageMemo だけ previous 値へ戻す（並行操作の結果は保持）。
         setCurrent((c) => (c && c.id === bookId ? { ...c, leverageMemo: prevCurrent?.leverageMemo } : c));
         setForm((f) => (f && f.id === bookId ? { ...f, leverageMemo: prevForm?.leverageMemo } : f));
-        const msg = toMessage(error, 'この本のまとめの保存に失敗しました。');
+        const msg = toMessage(error, 'この本のまとめを保存できませんでした。');
         toast.error(msg);
         throw new Error(msg);
       }
@@ -2563,13 +2563,13 @@ function AuthedApp() {
   const performBookDelete = async (book, { fromList = false, undo = true } = {}) => {
     const snapshot = await captureBookSnapshot(book.id);
     if (!snapshot) {
-      toast.error('本のデータを取得できませんでした。削除を中止します。');
+      toast.error('本の情報を読み込めず、削除できませんでした。');
       return;
     }
     dismissStatusUndo(book.id);
     // 同じ本の保存（行動の切り替え・表紙など）と同じ順番待ちに並べる（保存の途中で消して、消した本を書き戻さない）。
     const deletionPromise = enqueueBookMutation(book.id, () => deleteBook(book.id)).catch((error) => {
-      toast.error(toMessage(error, '削除に失敗しました。'));
+      toast.error(toMessage(error, '削除できませんでした。'));
       throw error;
     });
     if (!fromList) goList();
@@ -2612,13 +2612,13 @@ function AuthedApp() {
           // INSERT に失敗した場合は「取り消しました」と誤って伝えない。
           if (result?.failed && result.failed.length > 0) {
             toast.error(
-              `本は復元しましたが、${result.failed.join('・')}の一部を復元できませんでした。`,
+              `本は元に戻しましたが、${result.failed.join('・')}の一部は戻せませんでした。`,
             );
           } else {
             toast.info('削除を取り消しました。');
           }
         } catch (error) {
-          toast.error(toMessage(error, '復元に失敗しました。'));
+          toast.error(toMessage(error, '元に戻せませんでした。'));
         }
       },
     });
@@ -2988,7 +2988,7 @@ function AuthedApp() {
       if (isUniqueViolation(error)) {
         toast.error('この本はもう本棚にあります。');
       } else {
-        toast.error(toMessage(error, '本の追加に失敗しました。'));
+        toast.error(toMessage(error, '本を追加できませんでした。'));
       }
       return null;
     }
@@ -3157,7 +3157,7 @@ function AuthedApp() {
         mutateBookLocal(bookId, (b) => ({ ...b, ...prev }));
         setCurrent((c) => (c && c.id === bookId ? { ...c, ...prev } : c));
         entry.latest = null;
-        toast.error(toMessage(error, '変更に失敗しました。'));
+        toast.error(toMessage(error, '変更できませんでした。'));
       }
     });
   };
@@ -3475,7 +3475,7 @@ function AuthedApp() {
         }
       } catch { /* 基準が読めなければそのまま */ }
       setBriefJustMadeId(bookId);
-      if (briefSaved?.failed) toast.info('作りました。いまは、この端末にだけ保存しています。');
+      if (briefSaved?.failed) toast.info('作成しました。いまはこの端末にだけ保存されています。');
       else toast.success('この本で学べることを作りました');
     } catch (error) {
       // トークンの上限は案内として。プランの案内（402）は有料プランの画面が開くので重ねない。同意をやめたときは何も言わない。
@@ -3486,7 +3486,7 @@ function AuthedApp() {
         // 作り直しの失敗は前の中身が残ることを言う（中身の下に 1 行・BriefBody）。
         message: remaking
           ? '作り直せませんでした。前の内容のままです。'
-          : toMessage(error, 'この本で学べることを作れませんでした。少し時間をおいてから押してください。'),
+          : toMessage(error, 'この本で学べることを作れませんでした。少し時間をおいて、もう一度お試しください。'),
       });
     } finally {
       setBriefGenId(null);
@@ -3655,7 +3655,7 @@ function AuthedApp() {
       // ストリーミング失敗時は元のシートを戻す (undo 履歴は触らない)。
       setForm((f) => (f && f.id === targetId ? { ...f, aiStrategy: prev } : f));
       if (error?.monthlyLimit) planTokensOutToast(error);
-      else if (!error?.paywall) toast.error(toMessage(error, '読書計画シートの修正に失敗しました。'));
+      else if (!error?.paywall) toast.error(toMessage(error, '読書計画シートを修正できませんでした。'));
     } finally {
       setAiLoading(false);
     }
@@ -3767,7 +3767,7 @@ function AuthedApp() {
         if (isUniqueViolation(error)) {
           toast.error('この本はもう本棚にあります。');
         } else {
-          toast.error(toMessage(error, '本の追加に失敗しました。'));
+          toast.error(toMessage(error, '本を追加できませんでした。'));
         }
       }
     });
@@ -5196,7 +5196,7 @@ function AuthedApp() {
                         const ok = await confirm({
                           title: '読む前に、この本から得たいことを決めましょう',
                           message:
-                            'この本から「得たいこと・味わいたいこと」を 1 行だけでも決めると、読んだ後に見返す指針になり、読みっぱなしを防げます。',
+                            '1 行で十分です。読み終えたあとに見返す手がかりになります。',
                           confirmLabel: '得たいことを入力する',
                           cancelLabel: '閉じる',
                         });
@@ -5211,7 +5211,7 @@ function AuthedApp() {
                         const ok = await confirm({
                           title: '読書計画シートを作っておきますか？',
                           message:
-                            '読書計画シートがまだありません。作っておくと、学びの本では「どの 20% を読むか」が分かります（任意）。',
+                            '作っておくと、どこを重点的に読むかが分かります。作らずに読み始めることもできます。',
                           confirmLabel: 'このまま読書を開始',
                           cancelLabel: '読書計画シートを作る',
                         });
@@ -5374,7 +5374,7 @@ function AuthedApp() {
                           sourceMemoId: typeof result?.id === 'string' ? result.id : null,
                           sourcePage: result?.page_number ?? payload?.pageNumber ?? null,
                         });
-                        if (ok) toast.success('行動に追加しました（期限は明日）。');
+                        if (ok) toast.success('行動に追加しました。期限は明日です。');
                       },
                     },
                   }));
@@ -5498,7 +5498,7 @@ function AuthedApp() {
                   onClick: async () => {
                     const ok = await confirm({
                       title: `「${prevLabel}」に戻しますか？`,
-                      message: `状態を「${prevLabel}」に戻します。メモや行動などのデータは保持されます。`,
+                      message: `メモや行動はそのまま残ります。`,
                       confirmLabel: '戻す',
                       cancelLabel: 'キャンセル',
                     });
@@ -5994,7 +5994,7 @@ function AuthedApp() {
                           sourceMemoId: typeof result?.id === 'string' ? result.id : null,
                           sourcePage: result?.page_number ?? payload?.pageNumber ?? null,
                         });
-                        if (ok) toast.success('行動に追加しました（期限は明日）。');
+                        if (ok) toast.success('行動に追加しました。期限は明日です。');
                       },
                     },
                   }));
@@ -6276,7 +6276,7 @@ function AuthedApp() {
                 // アイコン・言い方はホーム・本の検索のエラーとそろえる（既定の AlertCircle）。
                 <ErrorMessage
                   title="本を読み込めませんでした"
-                  description="通信の状態を確かめて、もう一度お試しください。"
+                  description="通信状況を確認して、もう一度お試しください。"
                   actions={[{ label: 'もう一度', onClick: () => refreshBooks(), variant: 'primary' }]}
                 />
               ) : filtered.length === 0 && libraryQuery && librarySearch.memoStatus === 'loading' ? (
@@ -6440,7 +6440,7 @@ function AuthedApp() {
               <div style={{ padding: 'var(--space-4)' }}>
                 <ErrorMessage
                   title="本を読み込めませんでした"
-                  description="通信の状態を確かめて、もう一度お試しください。"
+                  description="通信状況を確認して、もう一度お試しください。"
                   actions={[{ label: 'もう一度', onClick: () => refreshBooks(), variant: 'primary' }]}
                 />
               </div>
@@ -7138,7 +7138,7 @@ function AppShell() {
           {/* ErrorMessage はアイコンを付けない（面と題・説明だけ・DESIGN §5）。 */}
           <ErrorMessage
             title="読み込みに時間がかかっています"
-            description="通信の状態を確かめて、もう一度お試しください。"
+            description="通信状況を確認して、もう一度お試しください。"
             actions={[
               { label: '再読み込み', onClick: () => window.location.reload(), variant: 'primary' },
             ]}

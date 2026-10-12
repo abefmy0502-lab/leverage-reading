@@ -151,14 +151,14 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
       <div ref={trapRef} style={cardStyle} onClick={(e) => e.stopPropagation()}>
         <div style={headerStyle}>
           <h2 id={titleId} style={{ fontSize: 'var(--text-body)', color: 'var(--c-ink)', margin: 0, fontWeight: 600, flex: 1 }}>
-            <ImageIcon size={15} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 'var(--space-2)' }} />正しい表紙を選択
+            <ImageIcon size={15} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 'var(--space-2)' }} />正しい表紙を選ぶ
           </h2>
           <button type="button" style={closeBtnStyle} onClick={onClose} aria-label="閉じる"><X size={20} aria-hidden="true" /></button>
         </div>
 
         <div style={bodyStyle}>
           <p style={{ fontSize: 12, color: 'var(--c-ink-soft)', margin: 0, lineHeight: 1.7 }}>
-            『{book.title}』の別エディションを含めて、見つかった表紙の中から正しいものを選んでください。
+            見つかった表紙から、『{book.title}』の正しいものを選んでください。
           </p>
 
           {loading ? (
@@ -174,7 +174,7 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
                   animation: 'lvg-ptr-spin 0.8s linear infinite',
                 }}
               />
-              <span style={{ fontSize: 12 }}>候補を取得中…</span>
+              <span style={{ fontSize: 12 }}>表紙を探しています…</span>
             </div>
           ) : fetchFailed ? (
             <div
@@ -189,7 +189,7 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
                 textAlign: 'center',
               }}
             >
-              表紙を探せませんでした。通信の状態を確かめてください。
+              表紙を探せませんでした。通信状況を確認してください。
               <button
                 type="button"
                 onClick={() => setRetryNonce((n) => n + 1)}
@@ -211,8 +211,8 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
                 textAlign: 'center',
               }}
             >
-              候補となる表紙が見つかりませんでした。<br />
-              下の「自分でアップロードする」から手動で設定してください。
+              表紙が見つかりませんでした。<br />
+              下の「自分でアップロードする」から設定できます。
             </div>
           ) : (
             <div
@@ -281,7 +281,7 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
           <hr style={{ border: 'none', borderTop: '1px solid var(--c-hairline)', margin: '4px 0' }} />
 
           <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: 0, lineHeight: 1.7 }}>
-            該当する表紙が無い場合や、自分で撮影した写真を使いたい場合:
+            合う表紙がないときや、自分で撮った写真を使うときは
           </p>
           <button
             type="button"

@@ -33,7 +33,7 @@ const INITIAL_DISPLAY = 20;
 const DISPLAY_STEP = 10;
 const MAX_DISPLAY = 50;
 
-const SEARCH_FALLBACK_ERROR = '通信の状態を確かめて、もう一度お試しください。';
+const SEARCH_FALLBACK_ERROR = '通信状況を確認して、もう一度お試しください。';
 
 // ---------------------------------------------------------------------------
 // 検索の振り分け
@@ -53,7 +53,7 @@ export function isbnFromQuery(raw) {
 // 0 件のときの文（ISBN で探したとき・書名や著者で探したとき）。
 export function notFoundText(query) {
   return isbnFromQuery(query)
-    ? { title: 'この ISBN の本が見つかりませんでした', description: '書名で探すか、手で入力してください。' }
+    ? { title: 'この ISBN の本が見つかりませんでした', description: '書名で探すか、手動で入力してください。' }
     : { title: '見つかりませんでした', description: '書名を短くするか、ISBN で探してください' };
 }
 

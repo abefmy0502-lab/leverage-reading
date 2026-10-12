@@ -19,7 +19,7 @@ export const BRIEF_MAX_TOKENS = 700;
 export const BRIEF_MIN_ABOUT_CHARS = 40;
 export const BRIEF_MIN_TOC_LINES = 3;
 // 画面に出す決まった文（作らないとき）。
-export const BRIEF_NO_MATERIAL_TEXT = 'この本の紹介が見つからないため作れません。';
+export const BRIEF_NO_MATERIAL_TEXT = 'この本は紹介が見つからないので、作れません。';
 // 数の上限（AI が多く書いても切る）。
 const MAX_LEARN = 5;
 const MAX_HYP = 3;

@@ -321,7 +321,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
       return;
     }
     if (picked.length >= MAX_BOOKS) {
-      toast.info(`えらべるのは ${MAX_BOOKS} 冊までです。`);
+      toast.info(`選べるのは ${MAX_BOOKS} 冊までです。`);
       return;
     }
     setPicked((arr) => [...arr, { book: b, memo: '' }]);
@@ -501,7 +501,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
               {!searching && searchError && (
                 <ErrorMessage
                   title="検索できませんでした"
-                  description="通信の状態を確かめて、もう一度お試しください。"
+                  description="通信状況を確認して、もう一度お試しください。"
                   actions={[
                     // やり直しは上の「検索」が受け持つ（同じ操作のボタンを 2 か所に出さない・本を追加とそろえる）。
                     // 検索が落ちていても先へ進めるように（書名だけでも相談相手にできる）。
@@ -594,7 +594,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
             {/* 1 冊から進めるが、3 冊ほどあると本をまたいだ答えになる（押せなくはしない・ヒントだけ） */}
             {picked.length > 0 && picked.length < RECOMMENDED_BOOKS && (
               <p style={{ margin: '0 0 var(--space-2)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, textAlign: 'center', fontVariantNumeric: 'tabular-nums' }}>
-                あと {RECOMMENDED_BOOKS - picked.length} 冊でもっと良くなります
+                あと {RECOMMENDED_BOOKS - picked.length} 冊選ぶのがおすすめです
               </p>
             )}
             <button type="button" style={picked.length >= MIN_BOOKS ? btnPrimary : btnPrimaryOff}
@@ -628,7 +628,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
             </div>
 
             <h1 style={{ ...title, marginTop: 'var(--space-6)' }}>{withPhraseBreaks('この本で、いちばん')}<br />{withPhraseBreaks('覚えていることは？')}</h1>
-            <p style={sub}>{withPhraseBreaks('うろ覚え・一言で大丈夫です')}</p>
+            <p style={sub}>{withPhraseBreaks('うろ覚えでも、一言でも大丈夫です')}</p>
             <textarea
               ref={memoRef}
               value={current.memo}
@@ -637,7 +637,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
               maxLength={LIMITS.memoText}
               // 例は本ごと（よく読まれている本はその本の一言・無い本は決まった一言・2026-09-30）。
               //   ほかの本を読んだ人に「やらないことを決める…」の例を出すと、書くことを迷わせていた。
-              placeholder={memoExampleForBook(current.book) ? `例：${memoExampleForBook(current.book)}` : '覚えている一言（うろ覚えでOK）'}
+              placeholder={memoExampleForBook(current.book) ? `例：${memoExampleForBook(current.book)}` : '覚えている一言'}
               aria-label={`『${current.book.title}』でいちばん覚えていること`}
               style={{
                 ...inputStyle, display: 'block', marginTop: 'var(--space-4)', resize: 'none', minHeight: 128,
@@ -683,7 +683,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
           <div style={{ ...body, paddingTop: 'var(--space-8)' }}>
             <ErrorMessage
               title="本を追加できませんでした"
-              description="通信の状態を確かめて、もう一度お試しください。"
+              description="通信状況を確認して、もう一度お試しください。"
               actions={[{ label: 'もう一度', onClick: () => saveAll(picked) }]}
             />
           </div>
@@ -702,9 +702,9 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
             </div>
             {summary.memos > 0 ? (
               <>
-                <h1 style={{ ...title, marginTop: 'var(--space-6)' }}>{withPhraseBreaks('あなたの相談相手が')}<br />{withPhraseBreaks('できました')}</h1>
+                <h1 style={{ ...title, marginTop: 'var(--space-6)' }}>{withPhraseBreaks('相談相手が')}<br />{withPhraseBreaks('できました')}</h1>
                 {/* ホームの相談カードと同じ数え方・同じ言葉（あなたの N 冊・メモ M 件） */}
-                <p style={{ ...sub, fontVariantNumeric: 'tabular-nums' }}>{withPhraseBreaks(`あなたの ${summary.totalBooks || summary.books.length} 冊・メモ ${summary.totalMemos || summary.memos} 件から答えます`)}</p>
+                <p style={{ ...sub, fontVariantNumeric: 'tabular-nums' }}>{withPhraseBreaks(`本 ${summary.totalBooks || summary.books.length} 冊とメモ ${summary.totalMemos || summary.memos} 件をもとに答えます`)}</p>
                 {/* 🌱 メモが 10 件になるまでは、答えがメモとともに深くなることを一行で（ホーム・相談と同じ・2026-10-02）。 */}
                 <GrowthMeter memoCount={summary.totalMemos || summary.memos} style={{ marginTop: 'var(--space-2)' }} />
               </>
@@ -740,7 +740,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
                   rows={2}
                   maxLength={LIMITS.aiQuestion}
                   // 空のときは押せない理由が分かるように（「相談する」は書いてから押せる・2026-10-09）。
-                  placeholder="困っていることを書くと、相談できます（例：上司への報告がうまくいかない）"
+                  placeholder="例：上司への報告がうまくいかない"
                   aria-labelledby="qs-ask"
                   style={{ ...inputStyle, display: 'block', resize: 'none', lineHeight: 1.5 }}
                 />

@@ -202,7 +202,7 @@ export default function BookMemoEditor({
     if (!requirePlan('凝縮')) return;
     const src = text.trim();
     if (src.replace(/\s/g, '').length < 60) {
-      toast.info('もう少し長いメモで凝縮が活きます。');
+      toast.info('凝縮するには、もう少し長いメモが必要です。');
       return;
     }
     // 🤝 はじめて AI に送るときの同意（lib/aiConsent.js）。やめたら何も変えない。
@@ -213,15 +213,15 @@ export default function BookMemoEditor({
       if (out && out.trim() && out.trim() !== src) {
         setCondensedFrom(text); // 元に戻せるよう保持
         setText(out.trim());
-        toast.success('本質だけに凝縮しました。');
+        toast.success('凝縮しました。');
       } else {
-        toast.error('うまく凝縮できませんでした。少し時間をおいて再度お試しください。');
+        toast.error('凝縮できませんでした。少し時間をおいて、もう一度お試しください。');
       }
     } catch (e) {
       // 例外（429/通信断/API エラー）を握り潰すとスピナーが止まるだけで無反応に
       // 見え、連打を誘発する。必ず失敗を伝える（トークンの上限は案内・プランの案内は画面が開くので重ねない）。
       if (e?.notice) { if (!/^この AI 機能は/.test(e.message)) toast.info(e.message); }
-      else toast.error(toMessage(e, '凝縮に失敗しました。少し時間をおいて再度お試しください。'));
+      else toast.error(toMessage(e, '凝縮できませんでした。少し時間をおいて、もう一度お試しください。'));
     } finally {
       setCondensing(false);
     }
@@ -373,7 +373,7 @@ export default function BookMemoEditor({
 
   const validate = (payload) => {
     if (!payload.text && !payload.photoFile && !existingPhotoPath) {
-      return '本文または写真のいずれかを入力してください。';
+      return '本文を入力するか、写真を添えてください。';
     }
     return null;
   };
@@ -410,7 +410,7 @@ export default function BookMemoEditor({
       }
     } catch (e) {
       console.error('memo save error', e);
-      setErrorMsg(toSaveMessage(e, 'メモの保存に失敗しました。'));
+      setErrorMsg(toSaveMessage(e, 'メモを保存できませんでした。'));
     } finally {
       setBusy(false);
     }
@@ -475,13 +475,13 @@ export default function BookMemoEditor({
       const ok = await confirmDialog(isEdit ? {
         title: '保存していない変更があります',
         message: 'メモは元のまま残ります',
-        confirmLabel: '直したところを捨てる',
+        confirmLabel: '変更を破棄',
         cancelLabel: '編集を続ける',
         danger: true,
       } : {
         title: '書きかけのメモがあります',
         message: '消すと、元に戻せません。',
-        confirmLabel: '書いたことを消す',
+        confirmLabel: '破棄する',
         cancelLabel: '編集を続ける',
         danger: true,
       });

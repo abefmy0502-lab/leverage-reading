@@ -117,7 +117,7 @@ export default function PhotoToTextButton({ onText, disabled = false, style }) {
       const text = await extractTextFromImage({ base64, mediaType });
       if (!text) {
         // 同じ写真を送り直しても変わらないので、撮り直し（選び直し）を案内する。
-        setFailure({ title: '文字を読み取れませんでした', message: '明るく・まっすぐ撮ると精度が上がります。', retry: false });
+        setFailure({ title: '文字を読み取れませんでした', message: '明るい場所で、ページをまっすぐ撮ってください。', retry: false });
         return;
       }
       haptic.success();

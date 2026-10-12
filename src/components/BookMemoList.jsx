@@ -92,9 +92,9 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
     if (!(await ensureAiConsent('cards_to_summary'))) return;
     if (text.trim()) {
       const ok = await confirm({
-        title: 'まとめを生成しますか？',
-        message: '今の「この本のまとめ」を、カードから作った内容で置き換えます。よろしいですか？',
-        confirmLabel: '生成する',
+        title: 'メモからまとめを作りますか？',
+        message: 'いまの「この本のまとめ」は、新しい内容に置き換わります。',
+        confirmLabel: '作る',
       });
       if (!ok) return;
     }
@@ -108,11 +108,11 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
       }
       setText(result);
       haptic.success();
-      toast.success('カードからまとめを生成しました。確認して保存してください。');
+      toast.success('まとめを作りました。内容を確認して保存してください。');
     } catch (e) {
       // プランの案内（402）は有料プランの画面が開くので、ここには出さない。
       if (!(e?.notice && /^この AI 機能は/.test(e.message))) {
-        setErrorMsg(toMessage(e, '通信の状態を確かめて、もう一度お試しください。'));
+        setErrorMsg(toMessage(e, '通信状況を確認して、もう一度お試しください。'));
         setErrorKind('generate');
       }
     } finally {
@@ -147,7 +147,7 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
       flashTimerRef.current = setTimeout(() => setSavedFlash(false), 1000);
     } catch (e) {
       console.error('summary save error', e);
-      setErrorMsg(toMessage(e, '通信の状態を確かめて、もう一度お試しください。'));
+      setErrorMsg(toMessage(e, '通信状況を確認して、もう一度お試しください。'));
       setErrorKind('save');
     } finally {
       setSaving(false);
@@ -169,7 +169,7 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
           style={{ ...btnLink, alignSelf: 'flex-start', padding: 0, gap: 'var(--space-1)', ...(generating ? { color: 'var(--text-3)', cursor: 'default' } : null) }}
         >
           <Sparkles size={16} aria-hidden="true" />
-          {generating ? 'まとめを生成中…' : 'メモからまとめを作る'}
+          {generating ? 'まとめを作成中…' : 'メモからまとめを作る'}
         </button>
       )}
       <textarea
@@ -180,7 +180,7 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
             e.preventDefault();
           }
         }}
-        placeholder={'本を読んで得た学び・全体の感想・行動につなげたいポイントなど。'}
+        placeholder={'学んだこと、全体の感想、行動に移したいことなど'}
         style={summaryTextarea}
         maxLength={LIMITS.summaryMemo}
         aria-label="この本のまとめ"
@@ -380,7 +380,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
   // 導線が出ないので（コピー同様）ここでは到達しない想定だが、念のためガードする。
   const handleShare = (memo) => {
     if (!(memo?.text || '').trim()) {
-      toast.error('シェアできる本文がありません。');
+      toast.error('共有できる本文がありません。');
       return;
     }
     haptic.light();
@@ -396,7 +396,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
       sourceMemoId: memo.id || null,
       sourcePage: memo.pageNumber ?? memo.page_number ?? null,
     });
-    if (ok) { haptic.success(); toast.success('行動に追加しました（期限は明日）。'); }
+    if (ok) { haptic.success(); toast.success('行動に追加しました。期限は明日です。'); }
   };
 
   const openEdit = (memo) => {
@@ -501,7 +501,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
     const snapshot = { ...memo };
     let deleteFailed = false;
     const deletionPromise = deleteMemo(memo.id).catch((e) => {
-      toast.error(toMessage(e, 'メモの削除に失敗しました。'));
+      toast.error(toMessage(e, 'メモを削除できませんでした。'));
       deleteFailed = true;
       throw e;
     });
@@ -518,7 +518,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
           await restoreMemoFromSnapshot(snapshot);
           toast.info('削除を取り消しました。');
         } catch (e) {
-          toast.error(toMessage(e, '復元に失敗しました。'));
+          toast.error(toMessage(e, '元に戻せませんでした。'));
         }
       },
     });
@@ -572,7 +572,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
         lineHeight: 1.6,
       }}
     >
-      本を一度保存するとカード形式のメモを追加できます。
+      本を保存すると、メモを書けます。
     </div>
   ) : (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
@@ -614,7 +614,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
       {!loading && memos.length === 0 && loadError && (
         <ErrorMessage
           title="メモを読み込めませんでした"
-          description="通信の状態を確かめて、もう一度お試しください。"
+          description="通信状況を確認して、もう一度お試しください。"
           actions={[{ label: 'もう一度', onClick: () => refresh() }]}
         />
       )}
@@ -633,7 +633,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
         <EmptyState
           icon={<BookOpen size={32} strokeWidth={1.5} aria-hidden="true" />}
           title="ページ番号つきのメモはまだありません"
-          description="メモにページ番号を入れておくと、引用したい一行をここから素早く取り出せます。"
+          description="ページ番号を入れたメモが、ここに並びます。"
           actions={[{ label: 'すべてのメモを表示', onClick: () => setQuoteOnly(false), variant: 'secondary' }]}
         />
       )}
@@ -741,7 +741,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
               ? [{ label: '行動に追加', icon: <Target size="1.1em" aria-hidden="true" />, onClick: () => handleMakeAction(memoMenu.memo) }]
               : []),
             ...((memoMenu.memo?.text || '').trim()
-              ? [{ label: 'この一文をシェア', icon: <Share size="1.1em" aria-hidden="true" />, onClick: () => handleShare(memoMenu.memo) }]
+              ? [{ label: 'この一文を写真で共有', icon: <Share size="1.1em" aria-hidden="true" />, onClick: () => handleShare(memoMenu.memo) }]
               : []),
             { label: '削除', icon: <Trash2 size="1.1em" aria-hidden="true" />, destructive: true, onClick: () => handleDelete(memoMenu.memo) },
           ]}

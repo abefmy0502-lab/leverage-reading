@@ -107,7 +107,7 @@ export function LibrarySearchHitSkeleton({ rows = 3 }) {
     <span style={{ display: 'flex', alignItems: 'center', height: h, ...style }}><SkeletonBlock width={w} height={12} /></span>
   );
   return (
-    <div role="status" aria-label="メモの中を探しています" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+    <div role="status" aria-label="メモを検索しています" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
       {Array.from({ length: rows }).map((_, i) => (
         <div key={i} style={{ background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-3) var(--space-4)' }}>
           <span style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
@@ -155,10 +155,10 @@ export function LibrarySearchResults({ books, hits, renderBookRow, onOpen, onAut
       {(memoStatus === 'loading' || memoStatus === 'error' || onConsult) && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-1)', marginTop: 'calc(-1 * var(--space-3))' }}>
           {/* メモを読んでいる間・読めなかったとき（書名・著者で見つかった本は先に出す）。 */}
-          {memoStatus === 'loading' && <p role="status" style={{ margin: 'var(--space-3) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>メモの中を探しています…</p>}
+          {memoStatus === 'loading' && <p role="status" style={{ margin: 'var(--space-3) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>メモを検索しています…</p>}
           {memoStatus === 'error' && (
             <p role="status" style={{ margin: 'var(--space-3) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-              メモの中は探せませんでした
+              メモを検索できませんでした
               <button type="button" onClick={onRetry} style={{ ...btnLink, minHeight: 44 }}>もう一度</button>
             </p>
           )}

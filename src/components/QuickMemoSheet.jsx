@@ -225,7 +225,7 @@ export default function QuickMemoSheet({
     if (!requirePlan('凝縮')) return;
     const src = text.trim();
     if (src.replace(/\s/g, '').length < 60) {
-      toast.info('もう少し長いメモで凝縮が活きます。');
+      toast.info('凝縮するには、もう少し長いメモが必要です。');
       return;
     }
     // 🤝 はじめて AI に送るときの同意（lib/aiConsent.js）。やめたら何も変えない。
@@ -236,15 +236,15 @@ export default function QuickMemoSheet({
       if (out && out.trim() && out.trim() !== src) {
         setCondensedFrom(text); // 元に戻せるよう保持
         setText(out.trim());
-        toast.success('本質だけに凝縮しました。');
+        toast.success('凝縮しました。');
       } else {
-        toast.error('うまく凝縮できませんでした。少し時間をおいて再度お試しください。');
+        toast.error('凝縮できませんでした。少し時間をおいて、もう一度お試しください。');
       }
     } catch (e) {
       // 例外（429/通信断/API エラー）を握り潰すとスピナーが止まるだけで無反応に
       // 見え、連打を誘発する。必ず失敗を伝える（トークンの上限は案内・プランの案内は画面が開くので重ねない）。
       if (e?.notice) { if (!/^この AI 機能は/.test(e.message)) toast.info(e.message); }
-      else toast.error(toMessage(e, '凝縮に失敗しました。少し時間をおいて再度お試しください。'));
+      else toast.error(toMessage(e, '凝縮できませんでした。少し時間をおいて、もう一度お試しください。'));
     } finally {
       setCondensing(false);
     }
@@ -316,7 +316,7 @@ export default function QuickMemoSheet({
         // 新しいメモの書きかけ（ボタンの「書いたことを消す」と同じ言葉で・2026-09-29）。
         title: '書きかけのメモがあります',
         message: '消すと、元に戻せません。',
-        confirmLabel: '書いたことを消す',
+        confirmLabel: '破棄する',
         cancelLabel: '編集を続ける',
         danger: true,
       });
@@ -414,7 +414,7 @@ export default function QuickMemoSheet({
       });
       animateClose(); // 保存後も滑って閉じる（出入りの所作を統一）
     } catch (e) {
-      setErrorMsg(toSaveMessage(e, 'メモの保存に失敗しました。'));
+      setErrorMsg(toSaveMessage(e, 'メモを保存できませんでした。'));
     } finally {
       setBusy(false);
     }

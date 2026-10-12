@@ -25,7 +25,7 @@ export function DoneQuestions({ questions, onPick, onDismiss }) {
           <button
             type="button"
             onClick={onDismiss}
-            aria-label="読み終えての問いを閉じる"
+            aria-label="問いを閉じる"
             style={{ width: 'var(--tap-min)', height: 'var(--tap-min)', margin: 'calc(-1 * var(--space-3)) calc(-1 * var(--space-3)) 0 0', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', color: 'var(--text-2)', cursor: 'pointer', flexShrink: 0 }}
           >
             <X size="1.2em" aria-hidden="true" />

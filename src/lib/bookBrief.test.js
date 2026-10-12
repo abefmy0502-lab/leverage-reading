@@ -80,7 +80,7 @@ describe('材料が無い本では作らない', () => {
     expect(hasBriefMaterial({ description: '短い紹介。', toc: ['第1章 A'] })).toBe(false);
     expect(hasBriefMaterial({ description: 'あ'.repeat(40), toc: [] })).toBe(true);
     expect(hasBriefMaterial({ description: '', toc: ['1', '2', '3'] })).toBe(true);
-    expect(BRIEF_NO_MATERIAL_TEXT).toBe('この本の紹介が見つからないため作れません。');
+    expect(BRIEF_NO_MATERIAL_TEXT).toBe('この本は紹介が見つからないので、作れません。');
   });
 });
 

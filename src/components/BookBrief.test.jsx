@@ -17,7 +17,7 @@ describe('BookBrief', () => {
     expect(text(html)).not.toContain('今月の残り');
   });
 
-  it('材料が無ければボタンを出さず「この本の紹介が見つからないため作れません。」', () => {
+  it('材料が無ければボタンを出さず「この本は紹介が見つからないので、作れません。」', () => {
     const html = renderToStaticMarkup(<BookBrief variant="inCard" material={false} onMake={() => {}} />);
     expect(text(html)).toContain(BRIEF_NO_MATERIAL_TEXT);
     expect(html).not.toContain('<button');
