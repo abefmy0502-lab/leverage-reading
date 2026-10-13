@@ -18,7 +18,7 @@ export const FLOW_STEPS = [
   {
     name: 'flow-line',
     title: '気になった一行をメモ',
-    body: '読みながら、引っかかった一行を書いておくだけ。',
+    body: '読みながら、引っかかった一行を書いておきます。',
     alt: '『嫌われる勇気』の本の詳細のメモの一覧。今日残した一行「人にどう思われるかより、自分がどうしたいかを先に考える。」と、「この本に相談する」',
   },
   {
@@ -30,7 +30,7 @@ export const FLOW_STEPS = [
   {
     name: 'flow-voice',
     title: '本の語り口で返ってくる',
-    body: 'いきなり結論は出さず、まず状況を聞いてきます。',
+    body: 'いきなり結論は出さず、「どんな会議ですか？」のように、まず状況を聞いてきます。',
     alt: '本の語り口の答え「私の考え方で言えば、他人の課題と自分の課題を分ける」と、「意見を言いにくいのは、どんな会議ですか？」という問い。入力欄の上に答えの候補のチップ',
   },
   {
@@ -72,8 +72,7 @@ export default function LpFlow({ onEvent = () => {}, note = true }) {
       <ol className="lp-gallery" aria-label="会話の流れ">
         {FLOW_STEPS.map((s, i) => (
           <li key={s.name}>
-            <p className="lp-gallery-num" aria-hidden="true">{i + 1}</p>
-            <h3 className="lp-gallery-title lp-wbr"><Phrases>{s.title}</Phrases></h3>
+            <h3 className="lp-gallery-title lp-wbr"><Phrases clause>{s.title}</Phrases></h3>
             <p className="lp-gallery-body lp-wbr"><Phrases>{s.body}</Phrases></p>
             <Shot name={s.name} alt={s.alt} className="lp-shot lp-gallery-shot" sizes="(min-width: 768px) 260px, 68vw" />
           </li>

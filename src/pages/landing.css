@@ -264,11 +264,13 @@ body.lp-active {
 .lp-root .lp-wbr { word-break: keep-all; overflow-wrap: anywhere; line-break: strict; }
 /* 短い文（見出し・カードの説明・リード）は行の長さをそろえて折り返す（「文字に／してくれます」のような半端な割れを防ぐ・2026-10-12）。
    長い文（よくある質問の答え・料金の注記）は pretty のまま */
-.lp-root :is(.lp-h1, .lp-h2, .lp-h3, .lp-lead, .lp-sec-lead, .lp-ba-title, .lp-ba-body, .lp-gallery-title, .lp-gallery-body, .lp-pillar-text p, .lp-points p, .lp-trust-head, .lp-trust-body, .lp-plan-sub, .lp-included li, .lp-hero-note, .lp-cta-note span, .lp-asks-bubble) { text-wrap: balance; }
+.lp-root :is(.lp-h1, .lp-h2, .lp-h3, .lp-ba-title, .lp-gallery-title) { text-wrap: balance; }
+/* 本文は行いっぱいまで流す（そろえる・最後の行を伸ばす組み方は、早すぎる折り返しや階段になり、作った文に見える・2026-10-13） */
+.lp-root :is(.lp-lead, .lp-sec-lead, .lp-ba-body, .lp-gallery-body, .lp-pillar-text p, .lp-points p, .lp-plan-sub, .lp-included li, .lp-hero-note, .lp-cta-note span, .lp-asks-bubble) { text-wrap: wrap; }
 .lp-root .lp-clause { display: inline-block; max-width: 100%; }
 .lp-root .lp-longtext { word-break: normal; overflow-wrap: anywhere; line-break: strict; text-wrap: pretty; }
 .lp-root .lp-cta-meta { margin-top: var(--space-3) !important; color: var(--text-2); font-size: var(--text-meta); }
-.lp-pillar-plan { margin-left: var(--space-2); vertical-align: middle; }
+.lp-pillar-plan { margin-left: var(--space-2); vertical-align: middle; white-space: nowrap; display: inline-block; }
 /* 語の途中で折り返さない塊（1 行に入るときは塊ごと次の行へ。最大の文字で 1 行より長いときだけ中で折り返す＝はみ出さない） */
 .lp-nb { display: inline-block; max-width: 100%; }
 .lp-btn .lp-nb { white-space: nowrap; }
@@ -475,11 +477,8 @@ body.lp-active {
 .lp-root .lp-pillars-note { text-align: right; margin-top: var(--space-8) !important; font-size: var(--text-caption); }
 /* 学習に使わないの 1 行（柱の後ろ） */
 .lp-root .lp-sec-head .lp-flow-lead { margin: var(--space-8) 0 0; color: var(--text); font-size: var(--text-heading); font-weight: 600; line-height: 1.5; }
-.lp-trust { list-style: none; margin: 0 0 var(--space-16); padding: 0; display: grid; gap: var(--space-3); grid-template-columns: repeat(auto-fit, minmax(min(100%, 16em), 1fr)); line-height: 1.5; }
-.lp-trust li { display: flex; gap: var(--space-3); align-items: flex-start; padding: var(--space-4); border: 1px solid var(--separator); border-radius: var(--radius); background: var(--bg); }
-.lp-trust svg { flex-shrink: 0; margin-top: var(--space-1); color: var(--accent); }
-.lp-root .lp-trust-head { font-weight: 600; }
-.lp-root .lp-trust-body { margin-top: var(--space-1); color: var(--text-2); font-size: var(--text-sub); }
+.lp-trust { margin: 0 0 var(--space-16); padding: 0 0 0 var(--space-4); max-width: 36em; list-style-position: outside; display: flex; flex-direction: column; gap: var(--space-2); line-height: 1.7; color: var(--text-2); }
+.lp-trust li::marker { color: var(--text-3); }
 
 /* ② 相談の流れ（LpFlow.jsx）: 4 枚の実画面を重ねて切り替える */
 .lp-flow-sec { background: var(--surface); border-block: 1px solid var(--separator); }
@@ -492,7 +491,7 @@ body.lp-active {
 }
 .lp-gallery::-webkit-scrollbar { display: none; }
 /* 今どの枚か（スマホだけ・今の 1 つだけ栗色） */
-.lp-root .lp-gallery-dots { display: flex; justify-content: center; gap: var(--space-2); margin-top: var(--space-2); }
+.lp-gallery-dots { display: flex; justify-content: center; gap: var(--space-2); margin-top: var(--space-2); }
 .lp-gallery-dots span { width: var(--space-2); height: var(--space-2); border-radius: 50%; background: var(--separator); }
 .lp-gallery-dots span.is-on { background: var(--accent); }
 .lp-root .lp-flow-head { margin: var(--space-16) 0 var(--space-6); }
@@ -671,8 +670,11 @@ body.lp-active {
 /* 見出しとボタンは中央、2 行以上になる文（注記・名前の由来）は左ぞろえ（行頭がそろわない中央ぞろえは読みにくい）。
    箱は中身の幅に縮めて中央に置き、中の文だけ左から組む。 */
 /* メール欄（.lp-wl・30em）と同じ箱にして、最後の節の左端を 1 本にそろえる */
-.lp-final-inner .lp-cta-note, .lp-final-inner .lp-story { width: min(30rem, 100%); max-width: min(30rem, 100%); margin-left: auto; margin-right: auto; text-align: left; text-wrap: balance; }
-.lp-story > span, .lp-final-inner .lp-cta-note > span { display: inline-block; }
+.lp-final-inner .lp-cta-note, .lp-final-inner .lp-story { width: min(30rem, 100%); max-width: min(30rem, 100%); margin-left: auto; margin-right: auto; text-align: left; }
+.lp-story > span { display: inline-block; }
+/* 最後の注記の 2 文は、それぞれ 1 行ずつ（横に 2 列に並んで崩れていた・2026-10-13 ui-critic） */
+.lp-final-inner .lp-cta-note > span, .lp-final-inner .lp-cta-note > a { display: block; }
+.lp-final-inner .lp-cta-note > a { margin: 0; min-height: var(--tap-min); padding-block: var(--space-2); }
 /* 公開済み（ボタンの行が中央）のときは、文も中央にそろえる */
 .lp-final-inner.is-live .lp-cta-note, .lp-final-inner.is-live .lp-story { text-align: center; }
 .lp-story {
@@ -807,7 +809,7 @@ body.lp-active {
   .lp-asks-bubble { justify-self: stretch; }
   /* よくある質問と扱いの説明は中央の 720 */
   .lp-faq .lp-narrow > * { max-width: 720px; }
-  .lp-trust-sec .lp-trust { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 0; }
+  .lp-trust-sec .lp-trust { margin-bottom: 0; }
   .lp-asks li { grid-template-columns: 9em auto; justify-content: start; gap: var(--space-3); align-items: center; }
   /* 会話の流れは 4 枚を横に並べる（スワイプしない） */
   .lp-gallery { margin: 0; padding: 0; grid-auto-flow: row; grid-auto-columns: auto; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-6); overflow: visible; }

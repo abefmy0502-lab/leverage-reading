@@ -34,7 +34,7 @@
 //   - CTA は <a href>（長押し・中クリック等のネイティブ挙動を尊重）
 
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowLeftRight, ArrowRight, BookOpen, Check, ChevronDown, Download, Lock, ShieldCheck, User } from 'lucide-react';
+import { ArrowLeftRight, ArrowRight, BookOpen, Check, ChevronDown, User } from 'lucide-react';
 import { BUILD_LABEL } from '../lib/buildInfo';
 import { SUPPORT_EMAIL } from '../lib/contact';
 import { isAppStoreLive } from '../lib/appStore';
@@ -142,54 +142,49 @@ function HeroMini() {
 // ② これまでの読書と、Orime の読書（2026-10-12 オーナー「従来の読書は一方通行。Orime は本と会話できるので、
 //   自分自身のオリジナルの内容で理解できる。ビフォーアフターの世界観を」）。図は 本 → 自分（一方通行）と 本 ⇄ 自分（会話）。
 const BEFORE_AFTER = [
-  { label: 'これまでの読書', title: '読み終えたら、そこで終わり。', body: '書いてあることを受け取って、本棚に戻すだけ。' },
-  { label: 'Orime の読書', title: '自分だけの理解が残る。', body: '悩みを本に聞き、聞き返されて、自分で考える。', after: true },
+  { label: '', title: '読み終えたら、そこで終わり。', body: 'たいていそのまま本棚に戻ります。' },
+  { label: 'Orime では', title: '自分だけの理解が残る。', body: '本に悩みを話すと、質問が返ってきます。答えているうちに、考えがまとまっていきます。', after: true },
 ];
 
 // ② 相談の例（幅を持たせて 3 つ・立場で絞らない）
 const ASK_EXAMPLES = [
-  { who: '仕事', q: '任せるのが苦手。どうしたらいい？' },
-  { who: '就活・キャリア', q: '面接で話せる強みが見つからない' },
-  { who: '習慣・自己成長', q: '何を始めても三日坊主で終わる' },
+  { q: '部下に任せたいのに、結局自分でやってしまう。どうしたらいい？' },
+  { q: '面接で話せる強みが見つからない' },
+  { q: '何を始めても三日坊主で終わる' },
 ];
 
 // ③ 続けられて、成果が見える（柱 ②〜⑤・1 つ 1〜2 文・画面 1 枚）
 const PILLARS = [
   {
     id: 'action', shot: 'action', artAlt: '相談で決めた一歩を、明日のやることに書き込む様子のイラスト',
-    head: '行動に移す',
-    title: '最後は、明日やることを一つ。',
+    title: '相談の最後に、明日やることを決める',
     body: '決めたことは行動リストに入り、期限の日の朝に通知が届きます。',
     alt: '振り返りの行動の画面。明日・来週以降に分かれた行動の一覧と、それぞれの本の名前',
   },
   {
     id: 'focus', shot: 'focus', artAlt: '時間を決めて、集中して本を読む様子のイラスト',
-    head: '習慣にする',
-    title: '時間を決めて読む。',
-    body: 'タイマーをかけると、表紙と残り時間だけの画面に。読んだ時間は本ごとに残ります。',
+    title: '時間を決めて読む',
+    body: 'タイマーをかけると、表紙と残り⁠時間だけの画面になります。読んだ時間は本ごとに残ります。',
     alt: '集中モードの画面。暗い地に本の表紙と書名、「残り 23 分」の大きな数字と細い輪、下にメモ・おわる・一時停止のボタン',
   },
   {
     id: 'share', share: true, artAlt: '心に残った一文を写真に重ねて共有する様子のイラスト',
-    head: '発信する',
-    title: '気に入った一文を、画像にして投稿。',
-    body: '写真に一文と書名をのせて、そのまま SNS へ。',
+    title: '気に入った一文を画像にして投稿',
+    body: '写真に一文と書名をのせて、SNS に投稿できます。',
     alt: '共有の画像の見本（縦長のストーリー）。海辺のカフェの写真の上に、細い明朝の一文「人は、言われたことより、見たことで動く。まず自分がやってみせることだ。」と、読書中の本の書名・著者、Orime のロゴと日付が重なっている',
   },
   {
     id: 'fields', shot: 'fields', artAlt: 'これまでに読んだ本を分野ごとに見渡す様子のイラスト',
-    head: '読書の偏りに気づく',
-    title: '読んでいない分野が、ひと目で。',
-    body: '読んだ本を分野ごとに並べて見られます。',
+    title: '読んできた分野が見える',
+    body: '読んだ本が分野ごとに並ぶので、偏りに気づけます。',
     alt: '振り返りの記録の「分野」。仕事・自分と生活の分野ごとの本とメモの数と、「まだ本がない分野」のチップ',
   },
   {
     // AI 選書（2026-10-11 オーナー「おすすめの本と順番、その本を読む戦略まで」）。言い過ぎない: 聞き取り・読んできた本と評価・
     //   最近の相談 → おすすめと読む順番 → 追加した本の読書計画シート。どちらもプランの機能。
     id: 'advisor', shot: 'advisor', artAlt: '悩みを聞いて、次に読む本と読む順番を選ぶ様子のイラスト',
-    head: '次の一冊を選ぶ',
-    title: '次に読む本と、読む順番まで。',
-    body: '悩みを話すと、読んできた本や最近の相談をふまえて選びます。', plan: true,
+    title: '次に読む本を選んでもらう',
+    body: '悩みを話すと、これまで読んだ本や最近の相談をもとに、おすすめの本と読む順番を出します。', plan: true,
     alt: 'AI 選書の画面。受け取った悩みのまとめと、おすすめの本のカード、読む順番',
   },
 ];
@@ -197,17 +192,17 @@ const PILLARS = [
 // ③ の下の安心の 4 つ。学習＝各社の API 規約／同意＝ensureAiConsent（はじめて AI を使う操作のとき）／
 // 書き出し＝設定の CSV（lib/exportData.js）・退会のお申し込みで消去／写真で共有＝端末の中で描く（サーバーに送らない）。
 const TRUST_POINTS = [
-  { icon: ShieldCheck, head: 'AI の学習に使われません', body: '各社の規約で、学習に使わないと決まっています。' },
-  { icon: Lock, head: '送るのは AI を使うときだけ', body: 'はじめて使う前に、送る内容を確認できます。' },
-  { icon: Download, head: 'いつでも書き出せます', body: '本・メモ・行動を CSV で保存できます。' },
+  'メモが AI の学習に使われることはありません。使っている AI の会社の規約で決まっています。',
+  'メモを送るのは、AI を使うときだけです。はじめて使う前に、送る⁠内容が表示されます。',
+  '本・メモ・行動は、いつでも CSV で書き出せます。',
 ];
 
 // ④ メモがゼロでも、今日から（0 日目の 4 つの道・SPEC §1-1d）
 const START_POINTS = [
   { head: '読んだ本に一言', body: `覚えていることを一行だけ。${noBreak('うろ覚え')}でかまいません。` },
   { head: 'ほかのアプリから取り込む', body: 'ブクログ・読書メーター・Kindle の記録を移せます。' },
-  { head: '本のページを撮る', body: '線を引いたページを撮れば、文字に起こします。' },
-  { head: '積読から始める', body: '読む前に、その本で学べることが分かります。' },
+  { head: '本のページを撮る', body: '撮ったページを文字に起こします。' },
+  { head: '積読から始める', body: '読む前に、学べる⁠ことが分かります。' },
 ];
 
 const setMeta = (name, content, attr = 'name') => {
@@ -523,12 +518,11 @@ export default function Landing() {
         <section className="lp-hero">
           <div className="lp-wrap lp-hero-grid">
             <div className="lp-hero-text">
-              <p className="lp-eyebrow"><span>本に相談できる読書メモ</span></p>
               <h1 className="lp-h1">
                 <span>読んだ本と、</span><span>会話しよう。</span>
               </h1>
               <p className="lp-lead lp-wbr">
-                <Phrases>迷ったら、読んだ本に聞いてみる。AI がその本の語り口で、あなたのメモをもとに答えます。</Phrases>
+                <Phrases>気になった一行をメモしておくと、迷ったときに、その本に相談できます。AI が本の語り口で、メモをもとに答えます。</Phrases>
               </p>
               <div className="lp-cta-block" ref={heroCtaRef}>
                 <Entry loc="hero" wl={wl} qr badge launch />
@@ -600,8 +594,8 @@ export default function Landing() {
                         <span className="lp-ba-node"><User size="1.25em" strokeWidth={2} /><span>自分</span></span>
                       </div>
                     )}
-                    <p className="lp-ba-label">{r.label}</p>
-                    <p className="lp-ba-title lp-wbr"><Phrases>{r.title}</Phrases></p>
+                    {r.label && <p className="lp-ba-label">{r.label}</p>}
+                    <p className="lp-ba-title lp-wbr"><Phrases clause>{r.title}</Phrases></p>
                     <p className="lp-ba-body lp-wbr"><Phrases>{r.body}</Phrases></p>
                   </li>
                 ))}
@@ -609,14 +603,14 @@ export default function Landing() {
               </div>
             </div>
             {/* 一番の価値（CLAUDE.md）を、会話の流れ 4 枚の見出しに（2026-10-12 ui-critic） */}
-            <h2 className="lp-h2 lp-flow-head" id="lp-grow"><span>読めば読むほど、</span><span>頼れる相談相手に。</span></h2>
+            <h2 className="lp-h2 lp-flow-head" id="lp-grow"><span>メモが増えるほど、</span><span>答えが自分向けになります</span></h2>
             <LpFlow onEvent={lpTrack} note={false} />
             <div className="lp-asks">
-              <p className="lp-asks-title">たとえば、こんな相談</p>
+              <p className="lp-asks-title">相談の例</p>
               {/* 相談の入力の吹き出しの形（アプリの送った相談と同じ見た目・右寄せ） */}
               <ul>
                 {ASK_EXAMPLES.map((x) => (
-                  <li key={x.q}><span className="lp-asks-bubble"><span className="lp-asks-who">{x.who}</span><span className="lp-wbr"><Phrases>{x.q}</Phrases></span></span></li>
+                  <li key={x.q}><span className="lp-asks-bubble"><span className="lp-wbr"><Phrases>{x.q}</Phrases></span></span></li>
                 ))}
               </ul>
             </div>
@@ -628,7 +622,7 @@ export default function Landing() {
           <div className="lp-wrap">
             <div className="lp-narrow lp-sec-head">
               <h2 className="lp-h2" id="lp-pillars">
-                <span>読む前から、</span><span>読んだあとまで。</span>
+                ほかにできること
               </h2>
             </div>
             <ul className="lp-pillars">
@@ -661,8 +655,7 @@ export default function Landing() {
                     />
                   </div>
                   <div className="lp-pillar-text">
-                    <p className="lp-pillar-head">{x.head}{x.plan && <span className="lp-plan-badge lp-pillar-plan">プラン</span>}</p>
-                    <h3 className="lp-h3 lp-wbr"><Phrases>{x.title}</Phrases></h3>
+                    <h3 className="lp-h3 lp-wbr"><Phrases clause>{x.title}</Phrases>{x.plan && <span className="lp-plan-badge lp-pillar-plan">プラン</span>}</h3>
                     <p className="lp-wbr"><Phrases>{x.body}</Phrases></p>
                   </div>
                 </li>
@@ -676,7 +669,7 @@ export default function Landing() {
           <div className="lp-wrap">
             <div className="lp-narrow lp-sec-head">
               <h2 className="lp-h2" id="lp-start">
-                <span>メモがなくても、</span><span>今日から始められます。</span>
+                <span>メモがまだなくても、</span><span>始められます</span>
               </h2>
             </div>
             {/* 広い画面は 絵（左）と 4 つの始め方＋入口（右）の 2 列（2026-10-12） */}
@@ -712,15 +705,10 @@ export default function Landing() {
           <div className="lp-wrap">
             {/* 安心の 3 つ（どれも実装と規約で確かめた事実だけ・2026-10-12 に料金のあと・よくある質問の頭へ） */}
             <h2 className="lp-h2 lp-trust-title" id="lp-trust">書いたメモの扱い</h2>
+            {/* アイコンつきのカードはやめ、ふつうの箇条書きに（2026-10-13 オーナー「AI っぽさを徹底的に排除」） */}
             <ul className="lp-trust" aria-labelledby="lp-trust">
               {TRUST_POINTS.map((t) => (
-                <li key={t.head}>
-                  <t.icon size="1.25em" strokeWidth={2} aria-hidden="true" />
-                  <div>
-                    <p className="lp-trust-head">{t.head}</p>
-                    <p className="lp-trust-body lp-wbr"><Phrases>{t.body}</Phrases></p>
-                  </div>
-                </li>
+                <li key={t} className="lp-wbr"><Phrases>{t}</Phrases></li>
               ))}
             </ul>
           </div>
@@ -733,9 +721,9 @@ export default function Landing() {
               <h2 className="lp-h2" id="lp-pricing">
                 {/* 価値の言い換え（2026-10-11 オーナー「¥1,480 を安く感じさせる」）。比べる値段（通常・定価・他社）は書かない。
                     見出しに金額を置かない（月あたりの額を請求額より大きく見せない） */}
-                <span>月に本{'\u00a0'}1{'\u00a0'}冊ほどの値段で、</span><span>本棚ごと相談相手に。</span>
+                料金
               </h2>
-              <p className="lp-wbr"><Phrases>まずは無料プランで。相談が役に立ったら、プランへ。</Phrases></p>
+              <p className="lp-wbr"><Phrases>{`プランは月 ${MONTHLY_TEXT}、本 1 冊ぶんくらいです。まずは無料プランで試してみてください。`}</Phrases></p>
             </div>
 
             {/* 創業メンバー価格（期間中だけ・料金の中の帯 1 枚）。「先着」「通常価格」と書かない・差額を書かない */}
@@ -833,7 +821,7 @@ export default function Landing() {
         <section className="lp-final" aria-labelledby="lp-final" data-lp-sec="final">
           <div className={`lp-wrap lp-narrow lp-final-inner${PRELAUNCH ? '' : ' is-live'}`}>
             <h2 className="lp-h2" id="lp-final">
-              <span>まずは、</span><span>読んだ本に一言から。</span>
+              <span>まずは、読んだ本に</span><span>一言書いてみてください</span>
             </h2>
             <div className="lp-cta-block">
               <Entry loc="final" wl={wl} qr badge launch center />

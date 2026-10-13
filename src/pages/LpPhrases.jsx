@@ -45,13 +45,15 @@ export function clausesOf(parts) {
   return out.filter((c) => c.length);
 }
 
-export default function Phrases({ children, clause }) {
+// 2026-10-13 オーナー「AI っぽさを徹底的に排除」: 句読点ごとの折り返し（行が階段になる）は見出しだけ（clause を渡したとき）。
+//   短い本文は文節の切れ目で、行いっぱいまで流す（句をかたまりにしない）。長い文は今までどおり文字の単位で。
+export default function Phrases({ children, clause = false }) {
   const text = String(children ?? '');
   const parts = phrasesOf(text);
-  const useClause = clause ?? text.length <= CLAUSE_MAX;
   // 長い文は本の組版と同じく文字の単位で詰めて折り返す（文節で割ると右が大きくでこぼこになる・2026-10-12）。
   // 数と単位（「24 時間前」）は折り返さない空白でつなぐ。
-  if (!useClause) return <span className="lp-longtext">{keepSpaces(text)}</span>;
+  if (!clause && text.length > CLAUSE_MAX) return <span className="lp-longtext">{keepSpaces(text)}</span>;
+  if (!clause) return parts.map((p, i) => <Fragment key={i}>{i > 0 && <wbr />}{keepSpaces(p)}</Fragment>);
   return clausesOf(parts).map((c, k) => (
     <span key={k} className="lp-clause">
       {c.map((p, i) => <Fragment key={i}>{i > 0 && <wbr />}{keepSpaces(p)}</Fragment>)}

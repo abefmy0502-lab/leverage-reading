@@ -93,12 +93,12 @@ describe('創業メンバー価格', () => {
     expect(c.faqLd.some((x) => x.q.includes('創業メンバー価格'))).toBe(false);
     c.faqLd.forEach((x) => expect(x.a).not.toMatch(/[⁠ ]/));
     // 期間中、7 日間無料は月額だけ
-    expect(c.priceLine[1]).toContain('月額プランは 7 日間無料');
+    expect(c.priceLine[1]).toContain('月額プランは最初の 7 日間が無料');
   });
   it('期間外: 創業メンバー価格の問いが無い', () => {
     const c = buildLpCopy({ offer: OFFER_OFF, trialNote: '7 日間無料' });
     expect(c.faq.some((x) => x.q.includes('創業メンバー価格'))).toBe(false);
-    expect(c.priceLine[1]).toContain('プランは 7 日間無料');
+    expect(c.priceLine[1]).toContain('プランは最初の 7 日間が無料');
   });
 });
 
