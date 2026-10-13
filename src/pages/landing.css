@@ -224,6 +224,7 @@ body.lp-active {
   align-items: center;
   justify-content: space-between;
   min-height: var(--btn-h);
+  padding-block: var(--space-1);
 }
 .lp-brand {
   display: inline-flex;
@@ -239,6 +240,34 @@ body.lp-active {
 .lp-brand img { border-radius: var(--radius-app-icon); }
 .lp-header-nav { display: flex; align-items: center; gap: var(--space-4); }
 .lp-header-cta { display: none; }
+/* 🧭 ページの中の案内（2026-10-13）。ヘッダーはスマホでも上に付けたまま（長いページのどこからでも開ける） */
+.lp-header { position: sticky; top: 0; z-index: 50; background: var(--bg); }
+.lp-root [id] { scroll-margin-top: calc(var(--btn-h) + var(--space-2) + var(--space-6)); }
+.lp-header-links { display: none; list-style: none; margin: 0; padding: 0; gap: var(--space-6); }
+.lp-header-links a { display: inline-flex; align-items: center; min-height: var(--tap-min); color: var(--text-2); font-size: var(--text-sub); text-decoration: none; }
+.lp-header-links a:hover { color: var(--text); }
+/* スマホ: 3 本線のボタン（ハンバーガーメニュー）。押すとヘッダーの下に案内が開く */
+.lp-menu-btn { display: inline-flex; align-items: center; justify-content: center; width: var(--tap-min); height: var(--tap-min); margin-right: calc(-1 * var(--space-3)); padding: 0; border: none; background: none; color: var(--text); cursor: pointer; border-radius: var(--radius); }
+.lp-menu-panel { position: absolute; left: 0; right: 0; top: 100%; z-index: 1; padding: 0 var(--lp-gutter) var(--space-2); background: var(--bg); border-bottom: 1px solid var(--separator); }
+/* 後ろのページを暗くする幕（押すと閉じる＝外を押したときの処理） */
+.lp-menu-scrim { position: absolute; left: 0; right: 0; top: 100%; height: 100vh; background: var(--backdrop); }
+.lp-menu-panel ul { list-style: none; margin: 0; padding: 0; }
+.lp-menu-panel li + li { border-top: 1px solid var(--separator); }
+.lp-menu-panel li a { display: flex; align-items: center; min-height: var(--btn-h); color: var(--text); font-size: var(--text-body); text-decoration: none; }
+@media (min-width: 768px) {
+  .lp-header-links { display: flex; }
+  .lp-menu { display: none; }
+}
+/* 🎠 スマホ: 「ほかにできること」の 5 つは横にスワイプ（カルーセル・会話の流れの 4 枚と同じ動き） */
+@media (max-width: 767px) {
+  .lp-root .lp-pillars {
+    margin: 0 calc(-1 * var(--lp-gutter)); padding: 0 var(--lp-gutter) var(--space-4);
+    grid-auto-flow: column; grid-auto-columns: 80vw; gap: var(--space-4) !important;
+    overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-inline: var(--lp-gutter); scrollbar-width: none;
+  }
+  .lp-root .lp-pillars::-webkit-scrollbar { display: none; }
+  .lp-root .lp-pillars > li { scroll-snap-align: start; align-content: start; align-items: start; }
+}
 
 /* ============ ヒーロー ============ */
 /* 見出しの上の 1 行（相手の場面）。押せないので --text-2 */
@@ -492,7 +521,7 @@ body.lp-active {
 .lp-gallery::-webkit-scrollbar { display: none; }
 /* 今どの枚か（スマホだけ・今の 1 つだけ栗色） */
 .lp-gallery-dots { display: flex; justify-content: center; gap: var(--space-2); margin-top: var(--space-2); }
-.lp-gallery-dots span { width: var(--space-2); height: var(--space-2); border-radius: 50%; background: var(--separator); }
+.lp-gallery-dots span { width: var(--space-2); height: var(--space-2); border-radius: 50%; background: var(--text-3); }
 .lp-gallery-dots span.is-on { background: var(--accent); }
 .lp-root .lp-flow-head { margin: var(--space-16) 0 var(--space-6); }
 /* 問題の自覚の一文（見出しの下） */
@@ -746,9 +775,7 @@ body.lp-active {
   .lp-root { --lp-sec: var(--lp-sec-md); --lp-gutter: var(--space-8); }
   /* 広い画面にはスマホの下の固定ボタンが無いので、ヘッダーを上に付けたままにする（ヒーローを過ぎたらヘッダーのボタンが出る）。
      .lp-root は overflow-x: clip（hidden だとスクロールの箱になり sticky が効かない） */
-  .lp-header { position: sticky; top: 0; z-index: 50; background: var(--bg); }
   /* リンクで飛んだ先の見出しがヘッダーの下に隠れないように */
-  .lp-root [id] { scroll-margin-top: var(--space-16); }
   .lp-header-cta { display: inline-flex; transition: opacity var(--duration-fast) ease, visibility 0s linear 0s; }
   /* ヒーローのボタンが見えている間は隠す（場所は残す＝ヘッダーの高さが変わらない） */
   .lp-header-cta.is-hidden { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity var(--duration-fast) ease, visibility 0s linear var(--duration-fast); }

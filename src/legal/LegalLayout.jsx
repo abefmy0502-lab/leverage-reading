@@ -72,7 +72,13 @@ export default function LegalLayout({ title, description, children }) {
     <div className="lp-root">
       <div className="legal-page">
         <header className="legal-header">
-          <a href="/lp" className="back-to-lp">← トップに戻る</a>
+          {/* パンくずリスト（2026-10-13）: いまの場所を示し、押すとトップへ戻れる */}
+          <nav aria-label="パンくずリスト" className="legal-crumbs">
+            <ol>
+              <li><a href="/lp">Orime</a></li>
+              <li aria-current="page">{title}</li>
+            </ol>
+          </nav>
           <h1>{title}</h1>
         </header>
 

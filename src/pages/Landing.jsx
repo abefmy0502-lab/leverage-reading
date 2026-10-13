@@ -34,7 +34,7 @@
 //   - CTA は <a href>（長押し・中クリック等のネイティブ挙動を尊重）
 
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowLeftRight, ArrowRight, BookOpen, Check, ChevronDown, User } from 'lucide-react';
+import { ArrowLeftRight, ArrowRight, BookOpen, Check, ChevronDown, Menu, User, X } from 'lucide-react';
 import { BUILD_LABEL } from '../lib/buildInfo';
 import { SUPPORT_EMAIL } from '../lib/contact';
 import { isAppStoreLive } from '../lib/appStore';
@@ -204,6 +204,98 @@ const START_POINTS = [
   { head: '本のページを撮る', body: '撮ったページを文字に起こします。' },
   { head: '積読から始める', body: '読む前に、学べる⁠ことが分かります。' },
 ];
+
+// 🧭 ページ内の案内（2026-10-13 オーナー「ハンバーガーメニュー等を適宜」）。広い画面はヘッダーに文字のリンク、
+//   スマホは 3 本線のボタン（ハンバーガーメニュー）で開く。行き先はページの中の見出し。
+const NAV_ITEMS = [
+  { href: '#lp-grow', label: '使い方' },
+  { href: '#lp-pillars', label: 'できること' },
+  { href: '#lp-pricing', label: '料金' },
+  { href: '#lp-faq', label: 'よくある質問' },
+];
+
+function MobileMenu() {
+  const [open, setOpen] = useState(false);
+  const btnRef = useRef(null);
+  const panelRef = useRef(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    panelRef.current?.querySelector('a')?.focus();
+    // 開いている間は後ろのページを動かさない（幕を敷いて止める・2026-10-13 ui-critic）
+    const html = document.documentElement;
+    const prevOverflow = html.style.overflow;
+    html.style.overflow = 'hidden';
+    const onKey = (e) => {
+      if (e.key === 'Escape') { setOpen(false); btnRef.current?.focus(); return; }
+      // Tab はメニューの中（× のボタンと 4 つの行）だけを回る
+      if (e.key !== 'Tab') return;
+      const items = [btnRef.current, ...(panelRef.current?.querySelectorAll('a') || [])].filter(Boolean);
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    };
+    const onDown = (e) => {
+      if (panelRef.current?.contains(e.target) || btnRef.current?.contains(e.target)) return;
+      setOpen(false);
+    };
+    const mq = window.matchMedia('(min-width: 768px)');
+    const onWide = () => { if (mq.matches) setOpen(false); };
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('pointerdown', onDown);
+    mq.addEventListener?.('change', onWide);
+    return () => {
+      html.style.overflow = prevOverflow;
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('pointerdown', onDown);
+      mq.removeEventListener?.('change', onWide);
+    };
+  }, [open]);
+  return (
+    <div className="lp-menu">
+      <button
+        ref={btnRef}
+        type="button"
+        className="lp-menu-btn"
+        aria-expanded={open}
+        aria-controls="lp-menu-panel"
+        aria-label={open ? 'メニューを閉じる' : 'メニューを開く'}
+        onClick={() => setOpen((v) => !v)}
+      >
+        {open ? <X size="1.4em" aria-hidden="true" /> : <Menu size="1.4em" aria-hidden="true" />}
+      </button>
+      {open && <div className="lp-menu-scrim" aria-hidden="true" />}
+      {open && (
+        <nav id="lp-menu-panel" ref={panelRef} className="lp-menu-panel" aria-label="ページの中の案内">
+          <ul>
+            {NAV_ITEMS.map((n) => (
+              <li key={n.href}><a href={n.href} onClick={() => setOpen(false)}>{n.label}</a></li>
+            ))}
+          </ul>
+        </nav>
+      )}
+    </div>
+  );
+}
+
+// 🎠 横にスワイプする列（カルーセル）の今の枚（スマホだけ・下の点）。
+function useSnapIndex(ref, count) {
+  const [at, setAt] = useState(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return undefined;
+    const onScroll = () => {
+      const first = el.firstElementChild;
+      const second = first?.nextElementSibling;
+      // 1 枚ぶんの送り＝カードの幅＋カードの間
+      const step = first && second ? second.getBoundingClientRect().left - first.getBoundingClientRect().left : (first?.getBoundingClientRect().width || 1);
+      setAt(Math.max(0, Math.min(count - 1, Math.round(el.scrollLeft / (step || 1)))));
+    };
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, [ref, count]);
+  return at;
+}
 
 const setMeta = (name, content, attr = 'name') => {
   let el = document.querySelector(`meta[${attr}="${name}"]`);
@@ -478,6 +570,8 @@ export default function Landing() {
   }, []);
 
   const footerLink = (to) => () => lpTrack('footer_link', { to });
+  const pillarsRef = useRef(null);
+  const pillarAt = useSnapIndex(pillarsRef, PILLARS.length);
 
   return (
     <div className="lp-root">
@@ -490,6 +584,12 @@ export default function Landing() {
             <span>Orime</span>
           </a>
           <nav className="lp-header-nav" aria-label="ヘッダー">
+            {/* 広い画面だけ: ページの中の案内（スマホは右の 3 本線のボタンから） */}
+            <ul className="lp-header-links">
+              {NAV_ITEMS.map((n) => (
+                <li key={n.href}><a href={n.href}>{n.label}</a></li>
+              ))}
+            </ul>
             {!PRELAUNCH && (
               <StoreCta
                 className={`lp-btn lp-btn-small lp-header-cta${heroCtaVisible ? ' is-hidden' : ''}`}
@@ -503,6 +603,7 @@ export default function Landing() {
             {/* 「ログイン」は置かない（2026-10-11 オーナー「アプリでしか使わない想定なので、App Store へ流すボタンに」）。
                 管理者は /?auth=signin を直接開く。右上は「無料プランで始める」1 つ（広い画面・ヒーローのボタンが外れてから）。 */}
           </nav>
+          <MobileMenu />
         </div>
       </header>
 
@@ -625,7 +726,8 @@ export default function Landing() {
                 ほかにできること
               </h2>
             </div>
-            <ul className="lp-pillars">
+            {/* スマホは横にスワイプ（カルーセル・1 枚ずつ止まる・次の枚の端が見える）、広い画面は並べる（2026-10-13） */}
+            <ul className="lp-pillars" ref={pillarsRef}>
               {PILLARS.map((x) => (
                 <li key={x.id} id={`lp-${x.id}`} data-lp-sec={x.id}>
                   <div className="lp-pillar-shot">
@@ -661,6 +763,9 @@ export default function Landing() {
                 </li>
               ))}
             </ul>
+            <p className="lp-gallery-dots lp-pillars-dots" aria-hidden="true">
+              {PILLARS.map((x, i) => <span key={x.id} className={i === pillarAt ? 'is-on' : undefined} />)}
+            </p>
           </div>
         </section>
 
