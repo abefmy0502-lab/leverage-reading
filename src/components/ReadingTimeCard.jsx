@@ -196,9 +196,9 @@ export default function ReadingTimeCard({ rows, books, onOpenBook, now = Date.no
       <h3 id="reading-time-title" style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', margin: 0 }}>読書の時間</h3>
 
       {/* 週ごと（期間で替わらないので、期間の切り替えより上に置く・2026-10-13 ui-critic） */}
-      <div style={{ marginTop: 'var(--space-3)' }}>
-        <h4 style={subHeading}>週ごと</h4>
-        <p style={{ ...metaText, margin: 'var(--space-1) 0 0' }}>
+      {/* 見出し「週ごと」は置かない（題のすぐ下に見出しが 2 段重なって見えた・2026-10-13 ui-critic）。 */}
+      <div style={{ marginTop: 'var(--space-1)' }}>
+        <p style={{ ...metaText, margin: 0 }}>
           {`直近 ${STATS_WEEKS} 週`}{thisWeek && thisWeek.seconds >= 30 ? <span style={{ whiteSpace: 'nowrap', marginLeft: 'var(--space-3)' }}>今週 {fmtReadingTotal(thisWeek.seconds)}</span> : null}
         </p>
         <WeekBars weeks={weeks} />

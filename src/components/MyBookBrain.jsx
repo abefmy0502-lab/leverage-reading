@@ -2152,7 +2152,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           <span style={{ display: 'block' }}>
             {/* 「無料期間の残り／110 トークン」と切らない（1 つのまとまり）。かっこは重ねない。 */}
             {/* 🪙 無料プランは「AI の答え 約 N 回」だけ。トークンの数は残り 20 以下のときだけ（設定の画面はいつも出す・2026-10-11）。 */}
-            {(!freeMode || showFreeTokenCount(tokensRemaining + (purchasedTokens || 0))) && (
+            {/* 7 日間無料も同じく 1 行（2026-10-13 ui-critic: 無料期間だけ上の行が 2 行で題を押し下げていた）。 */}
+            {(!(freeMode || plan === 'trial') || showFreeTokenCount(tokensRemaining + (purchasedTokens || 0))) && (
               <span style={{ display: 'block', whiteSpace: 'nowrap' }}>{plan === 'trial' ? '無料期間' : '今月'}の残り {fmtTokens(tokensRemaining)}{purchasedTokens > 0 ? <> ＋追加 {fmtTokens(purchasedTokens)}</> : null} トークン{!tokenAnswersShown && tokenChevron}</span>
             )}
             {/* 無料プラン・7 日間無料は「あと何回相談できるか」を添える（トークンだけでは量が分からない・2026-09-29）。追加分も数に入れる。 */}
