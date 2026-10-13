@@ -337,7 +337,8 @@ mkdirSync(OUT, { recursive: true });
 const browser = await chromium.launch(browserOptions());
 const encoder = await browser.newPage();
 let failed = 0;
-if (!only.length || only.includes('share')) failed += await shootShareCard(browser);
+// 2026-10-13: 共有の画像はオーナーが iPhone で作った本物に差し替えた。名前を指定したときだけ作り直す（ふだんは上書きしない）。
+if (only.includes('share')) failed += await shootShareCard(browser);
 // 2026-10-02 の作り直しで LP に載せなくなった画面（ストアの画像などで使うときは名前を指定して撮る）。
 // 2026-10-11 の作り直しで、ヒーローは hero（1 冊の本の語り口）、4 コマは flow-line・flow-talk・flow-voice・flow-source に。
 // 前の 4 コマ（部下の報告の相談）と answer は外した。
