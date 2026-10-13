@@ -1036,15 +1036,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                     <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
                   </button>
                 )}
-                {!nativeView && !subscription?.stripeCustomerId && (
-                  <a
-                    href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('解約・プラン変更について')}`}
-                    style={{ ...rowButtonStyle, ...divider, textDecoration: 'none', boxSizing: 'border-box' }}
-                  >
-                    <span style={{ ...rowTitleStyle, flex: 1 }}>解約・変更について問い合わせる</span>
-                    <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
-                  </a>
-                )}
+                {/* 「解約・変更について問い合わせる」（メール）はやめた: App Store の契約は運営からは解約できず、上の行で足りる（2026-10-13 点検）。 */}
               </>
             ) : (
               <>

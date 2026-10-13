@@ -122,11 +122,11 @@ export function PartnerName({ partner, onOpenList = null, as: Tag = 'p' }) {
 
 // アイコン（左）＋ 名前の行と中身（右）。partner が null のときは同じ幅の空き（列をそろえる）。
 // showName=false は名前の行を出さない（アイコンも出さず、列だけそろえる）。
-// 文字の大きさの設定が大きいとき（ルートの文字 22px 以上）は、アイコンの列を外して名前の行に小さなアイコン（24）を置き、
-//   中身（答えの枠）を全幅にする（2026-10-11 リリース前の採点 3 回目）。MyBookBrain の ANSWER_COLUMN も同じ目安で 0。
-export const partnerRowStacked = () => {
-  try { return typeof document !== 'undefined' && parseFloat(getComputedStyle(document.documentElement).fontSize) >= 22; } catch { return false; }
-};
+// アイコンの列を外して名前の行に小さなアイコン（24）を置き、中身（答えの枠）を全幅にする。
+//   はじめは文字の大きさの設定が大きいとき（ルートの文字 22px 以上）だけだった（2026-10-11 リリース前の採点 3 回目）。
+//   2026-10-12 の点検で、ふつうの文字でも答えが 1 行 13〜14 字と細く読みにくかったので、いつもこの形に。
+//   MyBookBrain の ANSWER_COLUMN もこれで 0。
+export const partnerRowStacked = () => true;
 
 export function PartnerRow({ partner, children, onOpenList = null, showName = true, nameAs = 'p', style = null }) {
   const shown = !!partner && showName;

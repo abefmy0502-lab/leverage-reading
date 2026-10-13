@@ -1,7 +1,8 @@
 // ⏱📊 記録の「読書の時間」（2026-10-10 オーナー「せっかく時間を測るので、どれくらいの読書に費やしたのか記録で
 // 可視化できるように」「どのような分類の本にどの本にどれくらい時間をかけたのかを客観的にみれるように」）。
 //
-// 上から: 今月・これまで の 2 つの数 → 週ごと（直近 12 週の棒）→ 内訳の期間（今月｜これまで）→ 分野ごと
+// 上から: 週ごと（直近 12 週の棒）→ 今月・これまで の 2 つの数（押すと下の内訳の期間が替わる＝2026-10-13 に別の切り替えをやめて一本化・
+// 替わるものの真上に置く）→ 分野ごと
 // （本の分野・分野が複数の本は時間を分野の数で分ける＝足すと合計）→ 本ごと（多い順・5 冊のあとは畳む）。
 // 反ゲーミフィケーション: 目標・連続日数・順位・%・「あと N 分」・ほかの人との比べは出さない。
 // 棒は「その期間の合計に対する長さ」を見せるだけ（数字の % は書かない）。
@@ -41,15 +42,21 @@ const subHeading = {
 
 const metaText = { fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 };
 
-// 2 つの数（今月・これまで）。
-function TotalCell({ label, value }) {
+// 2 つの数（今月・これまで）。収まらない文字の大きさでは 2 段に（幅 8.5em が目安）。セグメントの 1 つずつで、押すと下の内訳の期間が替わる（2026-10-13 点検:
+//   「今月・これまで」の数と、内訳の「今月｜これまで」の切り替えが同じ言葉で 2 回並んでいた）。
+function TotalCell({ label, value, on, onClick }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', minWidth: 0 }}>
-      <span style={metaText}>{label}</span>
+    <button
+      type="button"
+      aria-pressed={on}
+      onClick={onClick}
+      style={{ ...segBtn(on), flex: '1 1 8.5em', minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-1)', padding: 'var(--space-2) var(--space-3)', textAlign: 'left', whiteSpace: 'normal' }}
+    >
+      <span style={{ ...metaText, fontWeight: 400 }}>{label}</span>
       <span style={{ fontSize: 'var(--text-heading)', fontWeight: 600, lineHeight: 1.2, color: 'var(--text)', fontVariantNumeric: 'tabular-nums', wordBreak: 'keep-all' }}>
         {withPhraseBreaks(value)}
       </span>
-    </div>
+    </button>
   );
 }
 
@@ -188,13 +195,8 @@ export default function ReadingTimeCard({ rows, books, onOpenBook, now = Date.no
     >
       <h3 id="reading-time-title" style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', margin: 0 }}>読書の時間</h3>
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 'var(--space-8)', rowGap: 'var(--space-3)', marginTop: 'var(--space-3)' }}>
-        <TotalCell label="今月" value={fmtReadingTotal(monthSec)} />
-        <TotalCell label="これまで" value={fmtReadingTotal(allSec)} />
-      </div>
-
-      {/* 週ごと */}
-      <div style={{ marginTop: 'var(--space-6)' }}>
+      {/* 週ごと（期間で替わらないので、期間の切り替えより上に置く・2026-10-13 ui-critic） */}
+      <div style={{ marginTop: 'var(--space-3)' }}>
         <h4 style={subHeading}>週ごと</h4>
         <p style={{ ...metaText, margin: 'var(--space-1) 0 0' }}>
           {`直近 ${STATS_WEEKS} 週`}{thisWeek && thisWeek.seconds >= 30 ? <span style={{ whiteSpace: 'nowrap', marginLeft: 'var(--space-3)' }}>今週 {fmtReadingTotal(thisWeek.seconds)}</span> : null}
@@ -215,11 +217,10 @@ export default function ReadingTimeCard({ rows, books, onOpenBook, now = Date.no
 
       {/* 内訳（分野ごと・本ごと）の期間 */}
       <div style={{ borderTop: '1px solid var(--separator)', marginTop: 'var(--space-6)', paddingTop: 'var(--space-4)' }}>
-        <div role="group" aria-label="内訳の期間" style={segTrack}>
+        {/* 期間＝2 つの数（今月・これまで）。押すと、すぐ下の分野ごと・本ごとが替わる。 */}
+        <div role="group" aria-label="読書の時間の期間（下の内訳も替わります）" style={{ ...segTrack, display: 'flex', flexWrap: 'wrap', margin: 0 }}>
           {PERIODS.map((p) => (
-            <button key={p.v} type="button" aria-pressed={period === p.v} onClick={() => choosePeriod(p.v)} style={segBtn(period === p.v)}>
-              {p.label}
-            </button>
+            <TotalCell key={p.v} label={p.label} value={fmtReadingTotal(p.v === 'month' ? monthSec : allSec)} on={period === p.v} onClick={() => choosePeriod(p.v)} />
           ))}
         </div>
 

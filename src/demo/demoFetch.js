@@ -437,10 +437,10 @@ function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null
   return [
     '【結論】',
     p2
-      ? `いまの悩みには、${gist(picked[0].text)}という考えがいちばん近そうです。まずこれを、いまの状況に 1 つだけ当てはめてみましょう。`
+      ? `手がかりになりそうなのは、あなたが残した「${clip(picked[0].text)}」です。まずはこれを、いまの状況に 1 つだけ当てはめてみましょう。`
       : memos.every((m) => m.book_id === picked[0].book_id)
-        ? `この本のメモから答えます。${gist(picked[0].text)}という考えを、いまの状況に当てはめてみましょう。`
-        : `この件に関係するメモは 1 件だけでした。${gist(picked[0].text)}という考えを、いまの状況に当てはめてみましょう。`,
+        ? `この本のメモから答えます。「${clip(picked[0].text)}」を、いまの状況に当てはめてみましょう。`
+        : `関係しそうなメモは 1 件でした。「${clip(picked[0].text)}」を、いまの状況に当てはめてみましょう。`,
     '',
     '【参照した本のメモ】',
     quotes,
