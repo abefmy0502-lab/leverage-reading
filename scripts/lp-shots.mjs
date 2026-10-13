@@ -136,7 +136,8 @@ const SHOTS = {
   'flow-voice': async (p) => {
     await askBook(p);
     await hideAuthorName(p);
-    await chatToBottom(p);
+    // 答えの名前の行を上に（2026-10-13 に答えが全幅になって短くなり、いちばん下まで送ると答えの頭が切れた）。
+    await scrollToTextAny(p, '（本の語り口で・AI）', 16);
     await p.waitForTimeout(400);
   },
   'flow-source': async (p) => {
