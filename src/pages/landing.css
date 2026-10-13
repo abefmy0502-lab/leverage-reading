@@ -258,6 +258,11 @@ body.lp-active {
   .lp-header-links { display: flex; }
   .lp-menu { display: none; }
 }
+/* 読書記録の基本（ブクログなどから乗り換える人向けの短い箇条書き・2026-10-13） */
+.lp-basics { margin-top: var(--space-12); padding-top: var(--space-6); border-top: 1px solid var(--separator); }
+.lp-root .lp-basics-title { margin: 0 0 var(--space-3); font-size: var(--text-body); font-weight: 600; color: var(--text); }
+.lp-basics ul { margin: 0; padding: 0 0 0 var(--space-4); display: grid; gap: var(--space-1) var(--space-8); color: var(--text-2); line-height: 1.7; }
+@media (min-width: 768px) { .lp-basics ul { grid-template-columns: repeat(2, minmax(0, max-content)); } }
 /* 🎠 スマホ: 「ほかにできること」の 5 つは横にスワイプ（カルーセル・会話の流れの 4 枚と同じ動き） */
 @media (max-width: 767px) {
   .lp-root .lp-pillars {

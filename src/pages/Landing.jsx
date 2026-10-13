@@ -189,6 +189,16 @@ const PILLARS = [
   },
 ];
 
+// ③ の下の、読書記録アプリとしての基本（2026-10-13 オーナー「ブクログなども意識して、バーコード・フォルダ分けも当たり前にできると」）。
+//   乗り換える人が「今やっていることができるか」を確かめる場所。主役にはしない（見出しは小さく・ふつうの箇条書き）。どれも実装済み。
+const BASICS = [
+  'バーコードを読み取って本を登録',
+  '読みたい・積読・読書中・読了で管理',
+  'フォルダで自由に分ける',
+  '読み終えた本に ★ で評価',
+  'ブクログ・読書メーター・Kindle から取り込み',
+];
+
 // ③ の下の安心の 4 つ。学習＝各社の API 規約／同意＝ensureAiConsent（はじめて AI を使う操作のとき）／
 // 書き出し＝設定の CSV（lib/exportData.js）・退会のお申し込みで消去／写真で共有＝端末の中で描く（サーバーに送らない）。
 const TRUST_POINTS = [
@@ -766,6 +776,13 @@ export default function Landing() {
             <p className="lp-gallery-dots lp-pillars-dots" aria-hidden="true">
               {PILLARS.map((x, i) => <span key={x.id} className={i === pillarAt ? 'is-on' : undefined} />)}
             </p>
+            {/* 読書記録の基本（ブクログなどから乗り換える人向け・2026-10-13） */}
+            <div className="lp-basics">
+              <h3 className="lp-basics-title">本の記録も、ふつうにできます</h3>
+              <ul>
+                {BASICS.map((t) => <li key={t} className="lp-wbr"><Phrases>{t}</Phrases></li>)}
+              </ul>
+            </div>
           </div>
         </section>
 
