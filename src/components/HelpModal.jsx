@@ -242,9 +242,16 @@ function TopicList({ items, limit = 0, moreLabel = '項目' }) {
         </details>
       ))}
       {rest > 0 && (
-        <button type="button" onClick={() => setAll(true)} style={{ ...navRowStyle, ...rowDivider, color: 'var(--accent)', fontWeight: 600 }}>
+        <button type="button" aria-expanded={false} onClick={() => setAll(true)} style={{ ...navRowStyle, ...rowDivider, color: 'var(--accent)', fontWeight: 600 }}>
           <span>{`ほかの${moreLabel}（${rest}）`}</span>
           <ChevronDown size={20} aria-hidden="true" style={{ flexShrink: 0 }} />
+        </button>
+      )}
+      {/* 開いたあとは、最後の行で畳み直せる（2026-10-14） */}
+      {limit > 0 && all && items.length > limit && (
+        <button type="button" aria-expanded onClick={() => setAll(false)} style={{ ...navRowStyle, ...rowDivider, color: 'var(--accent)', fontWeight: 600 }}>
+          <span>少なく表示</span>
+          <ChevronDown size={20} aria-hidden="true" style={{ flexShrink: 0, transform: 'rotate(180deg)' }} />
         </button>
       )}
     </div>
