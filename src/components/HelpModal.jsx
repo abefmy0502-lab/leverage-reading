@@ -7,13 +7,15 @@
 //   4. よくある質問（HELP_FAQ）— 同じ畳む一覧。答えは決まっているので AI は使わない
 //   5. ほかの画面の使い方 — 押すと、閉じずにその画面のヘルプへ切り替える（プラン・お支払いなど画面から開けないものも）。
 //      切り替えたあとは上の行の左に「‹ もとの画面」
+// 2026-10-14 オーナー「項目が多すぎる・いい感じの UI に」: いちばん上に「ヘルプを探す」（すべての画面の項目とよくある質問から、
+//   見出しと中身の言葉で探す・AI は使わない）。くわしくは大事な 5 つだけ見せ、残りは「ほかの N 項目」で開く。よくある質問は 4 つ。
 // 文言は src/lib/helpContent.js（**語** は太字）。見た目は DESIGN §5「ヘルプ」。
 
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
-import { ChevronDown, ChevronRight, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, Search, X } from 'lucide-react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { getHelp, HELP_FAQ, HELP_SCREEN_ORDER } from '../lib/helpContent';
-import { btnLink, card, groupTitle } from '../styles/ui';
+import { btnLink, card, groupTitle, input as uiInput } from '../styles/ui';
 import { withPhraseBreaks } from './TightBubble';
 
 const overlayStyle = {
@@ -166,6 +168,13 @@ const topicLineStyle = {
   color: 'var(--text-2)',
 };
 const lineMarkStyle = { color: 'var(--text-3)', flexShrink: 0 };
+// 探した結果の、どの画面のヘルプか（見出しの下に 13/--text-2）
+// 中身の 1 行で見つかったときは、その行を見出しの下に（なぜ見つかったか分かるように・1 行で …）
+const hitStyle = { display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-2)', marginTop: 'var(--space-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
+const whereStyle = { display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-2)', marginTop: 'var(--space-1)' };
+const searchWrapStyle = { position: 'relative' };
+const clearBtnStyle = { position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)', width: 'var(--tap-min)', height: 'var(--tap-min)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', padding: 0, color: 'var(--text-3)', cursor: 'pointer' };
+const searchIconStyle = { position: 'absolute', left: 'var(--space-3)', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)', pointerEvents: 'none' };
 const navRowStyle = {
   ...topicSummaryStyle,
   width: '100%',
@@ -200,14 +209,26 @@ function rich(text) {
   });
 }
 
+// はじめに見せる数（残りは「ほかの N 項目」で開く・2026-10-14）。
+const TOPICS_SHOWN = 5;
+const FAQ_SHOWN = 4;
+
 // 押すと開く項目の一覧。一覧そのものが目次になる（見出しだけ並べ、中身は 1〜3 行）。
-function TopicList({ items }) {
+// limit を渡すと、はじめはその数だけ見せ、最後の行「ほかの N 項目」で残りを開く。where は探したときの画面の名前。
+function TopicList({ items, limit = 0, moreLabel = '項目' }) {
+  const [all, setAll] = useState(false);
+  const shown = limit && !all ? items.slice(0, limit) : items;
+  const rest = items.length - shown.length;
   return (
     <div style={listCardStyle}>
-      {items.map((t, i) => (
-        <details key={t.title} style={i ? rowDivider : undefined}>
+      {shown.map((t, i) => (
+        <details key={`${t.where || ''}${t.title}`} style={i ? rowDivider : undefined}>
           <summary style={topicSummaryStyle}>
-            <span>{phrased(t.title)}</span>
+            <span style={{ minWidth: 0 }}>
+              {phrased(t.title)}
+              {t.hit && <span style={hitStyle}>{t.hit}</span>}
+              {t.where && <span style={whereStyle}>{t.where}</span>}
+            </span>
             <ChevronDown size={20} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
           </summary>
           <ul style={topicLinesStyle}>
@@ -220,8 +241,37 @@ function TopicList({ items }) {
           </ul>
         </details>
       ))}
+      {rest > 0 && (
+        <button type="button" onClick={() => setAll(true)} style={{ ...navRowStyle, ...rowDivider, color: 'var(--accent)', fontWeight: 600 }}>
+          <span>{`ほかの${moreLabel}（${rest}）`}</span>
+          <ChevronDown size={20} aria-hidden="true" style={{ flexShrink: 0 }} />
+        </button>
+      )}
     </div>
   );
+}
+
+// 探すときの言葉の比べ方（太字の印・空白・大文字小文字を無視）。
+const norm = (t) => String(t || '').replace(/\*\*/g, '').replace(/[\s\u00a0]+/g, '').toLowerCase();
+
+// すべての画面の項目とよくある質問から探す（見出しを先に・最大 20 件）。
+function searchHelp(query, currentKey) {
+  const q0 = norm(query);
+  if (!q0) return [];
+  // 送りがなの違いでも見つける（「取り込み」で「取り込む」「取り込めます」も・漢字を含むときだけ末尾のひらがなを外す）
+  const core = /[\u4e00-\u9fff]/.test(q0) ? q0.replace(/[\u3041-\u3093]+$/, '') : q0;
+  const q = core.length >= 2 ? core : q0;
+  // いま開いている画面の項目を先に。画面の名前は、ほかの画面の項目にだけ添える。
+  const keys = [currentKey, ...HELP_SCREEN_ORDER.filter((k) => k !== currentKey)].filter((k) => getHelp(k));
+  const pool = [
+    ...keys.flatMap((k) => (getHelp(k).topics || []).map((t) => ({ ...t, where: k === currentKey ? '' : getHelp(k).title }))),
+    ...HELP_FAQ.map((t) => ({ ...t, where: 'よくある質問' })),
+  ];
+  const inTitle = pool.filter((t) => norm(t.title).includes(q));
+  const inLines = pool
+    .filter((t) => !norm(t.title).includes(q) && t.lines.some((l) => norm(l).includes(q)))
+    .map((t) => ({ ...t, hit: t.lines.find((l) => norm(l).includes(q)).replace(/\*\*/g, '') }));
+  return [...inTitle, ...inLines].slice(0, 20);
 }
 
 // 開発中だけ: ?helpkey=billing のように、ほかの画面のヘルプを直に開く（スクショ用・本番では消える）。
@@ -236,10 +286,14 @@ export default function HelpModal({ helpKey, onClose, onShowOnboarding }) {
   const entry = getHelp(key);
   const trapRef = useFocusTrap(true);
   const bodyRef = useRef(null);
+  const [query, setQuery] = useState('');
+  const results = searchHelp(query, key);
+  const searching = norm(query).length > 0;
 
   // ほかの画面のヘルプへ切り替える（閉じずに・いちばん上から読めるように送る）。
   const showKey = useCallback((k) => {
     setKey(k);
+    setQuery('');
     requestAnimationFrame(() => { if (bodyRef.current) bodyRef.current.scrollTop = 0; });
   }, []);
 
@@ -290,7 +344,37 @@ export default function HelpModal({ helpKey, onClose, onShowOnboarding }) {
 
         {/* key を変えると、開いていた項目を畳んだ状態で描き直す */}
         <div key={key} ref={bodyRef} className="lvg-help-body" style={bodyStyle}>
-          {entry ? (
+          {/* 🔎 ヘルプを探す（すべての画面の項目とよくある質問から・AI は使わない） */}
+          <div style={searchWrapStyle}>
+            <Search size={18} aria-hidden="true" style={searchIconStyle} />
+            <input
+              type="text"
+              inputMode="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="ヘルプを探す"
+              aria-label="ヘルプを探す"
+              maxLength={40}
+              enterKeyHint="search"
+              style={{ ...uiInput, paddingLeft: 'calc(var(--space-3) + 18px + var(--space-2))', paddingRight: query ? 'var(--tap-min)' : undefined }}
+            />
+            {query && (
+              <button type="button" aria-label="探す言葉を消す" onClick={() => setQuery('')} style={clearBtnStyle}>
+                <X size={18} aria-hidden="true" />
+              </button>
+            )}
+          </div>
+
+          {searching ? (
+            <section aria-live="polite" aria-labelledby="help-results">
+              {results.length
+                ? <h4 id="help-results" style={groupTitleStyle}>{`見つかった項目（${results.length}）`}</h4>
+                : <h4 id="help-results" style={{ fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)', margin: '0 0 var(--space-1)' }}>見つかりませんでした</h4>}
+              {results.length > 0
+                ? <TopicList items={results} />
+                : <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 0, lineHeight: 1.6 }}>{phrased('別の言葉で探すか、下の「ほかの画面の使い方」をご覧ください。')}</p>}
+            </section>
+          ) : entry ? (
             <>
               <section>
                 {entry.summary && <p style={summaryStyle}>{rich(entry.summary)}</p>}
@@ -313,7 +397,7 @@ export default function HelpModal({ helpKey, onClose, onShowOnboarding }) {
               {entry.topics?.length > 0 && (
                 <section aria-labelledby="help-topics">
                   <h4 id="help-topics" style={groupTitleStyle}>くわしく（押すと開きます）</h4>
-                  <TopicList items={entry.topics} />
+                  <TopicList items={entry.topics} limit={TOPICS_SHOWN} moreLabel="項目" />
                 </section>
               )}
             </>
@@ -323,10 +407,12 @@ export default function HelpModal({ helpKey, onClose, onShowOnboarding }) {
             </p>
           )}
 
-          <section aria-labelledby="help-faq">
-            <h4 id="help-faq" style={groupTitleStyle}>よくある質問</h4>
-            <TopicList items={HELP_FAQ} />
-          </section>
+          {!searching && (
+            <section aria-labelledby="help-faq">
+              <h4 id="help-faq" style={groupTitleStyle}>よくある質問</h4>
+              <TopicList items={HELP_FAQ} limit={FAQ_SHOWN} moreLabel="質問" />
+            </section>
+          )}
 
           {otherScreens.length > 0 && (
             <section aria-labelledby="help-others">

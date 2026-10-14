@@ -998,6 +998,10 @@ const SCREENS = [
   { name: 'help-home', url: '/', steps: [{ css: 'button[aria-label="この画面のヘルプを開く"]' }] },
   { name: 'help-home-bottom', url: '/', steps: [{ css: 'button[aria-label="この画面のヘルプを開く"]' }, { scrollBottom: true }] },
   { name: 'help-home-topic', url: '/', steps: [{ css: 'button[aria-label="この画面のヘルプを開く"]' }, { css: '[role=dialog] details summary' }] },
+  // ヘルプを探す・ほかの項目を開く（2026-10-14）
+  { name: 'help-search', url: '/', steps: [{ css: 'button[aria-label="この画面のヘルプを開く"]' }, { fill: ['[role=dialog] input[aria-label="ヘルプを探す"]', '取り込み'] }, { wait: 300 }] },
+  { name: 'help-search-none', url: '/', steps: [{ css: 'button[aria-label="この画面のヘルプを開く"]' }, { fill: ['[role=dialog] input[aria-label="ヘルプを探す"]', 'ぴよぴよ'] }, { wait: 300 }] },
+  { name: 'help-home-more', url: '/', steps: [{ css: 'button[aria-label="この画面のヘルプを開く"]' }, { css: '[role=dialog] button:has-text("ほかの項目（18）")' }, { wait: 300 }] },
   { name: 'help-book-reading', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("ヘルプ")' }] },
   { name: 'help-consult', url: '/', steps: [{ css: nav('相談') }, { css: 'button[aria-label="この画面のヘルプを開く"]' }] },
   { name: 'help-consult-bottom', url: '/', steps: [{ css: nav('相談') }, { css: 'button[aria-label="この画面のヘルプを開く"]' }, { scrollBottom: true }] },
