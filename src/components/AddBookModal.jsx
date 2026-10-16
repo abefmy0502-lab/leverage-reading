@@ -502,12 +502,14 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
             onSubmit={() => runSearch()}
             inputRef={inputRef}
           />
-          <SearchButton
+          {/* 「検索」は書いてから出す（空のうちから塗りの大きなボタンがあると、最初の画面の主役がずれた・2026-10-16 ui-critic）。
+              キーボードの「検索」でも探せる。 */}
+          {(hasQuery || isSearching) && <SearchButton
             empty={!hasQuery}
             searching={isSearching}
             onSearch={() => runSearch()}
             onEmpty={() => inputRef.current?.focus()}
-          />
+          />}
           {/* カメラが使える環境だけ（使えない環境ではボタン自体を出さない）。 */}
           {BARCODE_SUPPORTED && (
             <button type="button" onClick={() => setScanning(true)} style={btnGhost}>

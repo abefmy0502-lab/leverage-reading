@@ -73,24 +73,23 @@ const overlayStyle = {
   backdropFilter: 'var(--backdrop-blur)',
   WebkitBackdropFilter: 'var(--backdrop-blur)',
   display: 'flex',
-  alignItems: 'center',
+  // 下から出るシート（中央に浮かぶカード＋丸いアイコンは、よくある型に見えた・2026-10-16 ui-critic）。
+  alignItems: 'flex-end',
   justifyContent: 'center',
-  // 小型端末でカードがビューポートより高くなったら overlay 自体をスクロール
-  // させて CTA が画面外に押し出されないようにする。セーフエリアも加味。
   overflowY: 'auto',
-  padding: 'max(var(--space-4), env(safe-area-inset-top)) max(var(--space-4), env(safe-area-inset-right)) max(var(--space-4), env(safe-area-inset-bottom)) max(var(--space-4), env(safe-area-inset-left))',
+  paddingTop: 'max(var(--space-4), env(safe-area-inset-top))',
 };
 
 const cardStyle = {
   position: 'relative',
   background: 'var(--surface)',
-  borderRadius: 'var(--radius)',
-  width: 'min(420px, 100%)',
+  borderRadius: 'var(--radius) var(--radius) 0 0',
+  width: 'min(560px, 100%)',
   // 低い画面高 (iPhone SE 等) でも CTA が必ず収まるよう、カード全体の高さを
   // ビューポートに収める。内側のスライド本文だけをスクロールさせ、フッター
   // (ドット + ボタン) は常に見える位置に固定する。
   maxHeight: 'calc(100dvh - var(--space-8))',
-  padding: 'var(--space-6) var(--space-4) var(--space-4)',
+  padding: 'calc(var(--space-12) + var(--space-2)) var(--space-4) max(var(--space-4), env(safe-area-inset-bottom))',
   boxShadow: 'var(--shadow-overlay)',
   fontFamily: 'var(--font-ui)',
   display: 'flex',
@@ -101,7 +100,7 @@ const cardStyle = {
 
 const dotsRow = {
   display: 'flex',
-  justifyContent: 'center',
+  justifyContent: 'flex-start',
   gap: 'var(--space-2)',
   flexShrink: 0,
 };
@@ -305,7 +304,7 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
           style={{
             display: 'flex',
             flexDirection: 'column',
-            alignItems: 'center',
+            alignItems: 'stretch',
             gap: 'var(--space-3)',
             // 本文だけをスクロールさせる領域。フッターは下に固定されるので、
             // 低い画面高でもボタンは常に押せる位置に残る。
@@ -314,33 +313,18 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
             WebkitOverflowScrolling: 'touch',
           }}
         >
-          {/* アイコンの丸は飾りなのでアクセントを使わない（DESIGN §3-2）。 */}
-          <div
-            style={{
-              width: 64,
-              height: 64,
-              borderRadius: '50%',
-              background: 'var(--fill)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'var(--text-2)',
-              flexShrink: 0,
-            }}
-          >
-            <slide.Icon size={30} strokeWidth={1.75} aria-hidden="true" />
-          </div>
+          {/* 丸いアイコンは置かない（題と文だけで伝える・2026-10-16 ui-critic）。 */}
           <h2
             id="onb-title"
             ref={titleRef}
             tabIndex={-1}
-            style={{ fontSize: 'var(--text-heading)', color: 'var(--text)', margin: 0, fontWeight: 600, lineHeight: 1.3, textAlign: 'center', outline: 'none', wordBreak: 'keep-all', overflowWrap: 'anywhere', textWrap: 'balance' }}
+            style={{ fontSize: 'var(--text-title)', color: 'var(--text)', margin: 0, fontWeight: 700, lineHeight: 1.3, textAlign: 'left', outline: 'none', wordBreak: 'keep-all', overflowWrap: 'anywhere', textWrap: 'balance' }}
           >
             {/* 題も文節の切れ目でだけ折り返す（auto-phrase は iOS の Safari が知らない・2026-10-04）。 */}
             {withPhraseBreaks(slide.title)}
           </h2>
           {/* 文節の切れ目（BudouX の <wbr>）でだけ折り返す（「困った／ときに」のように語の途中で割らない・iOS の Safari は auto-phrase を知らない） */}
-          <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, textAlign: 'center', margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere', textWrap: 'pretty' }}>
+          <p style={{ fontSize: 'var(--text-body)', color: 'var(--text-2)', lineHeight: 1.6, textAlign: 'left', margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere', textWrap: 'pretty' }}>
             {withPhraseBreaks(slide.body)}
           </p>
         </div>
@@ -375,9 +359,9 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
             </div>
             {/* signup_source（任意）: 押しつけないよう一番下に小さく畳んでおく（13/--text-2 の一行＋▾）。
                 押したときだけ選択肢を出し、選んだあとは選んだチップを残してお礼だけ。 */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-1)', flexShrink: 0, borderTop: '1px solid var(--separator)', paddingTop: 'var(--space-1)' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-1)', flexShrink: 0, borderTop: '1px solid var(--separator)', paddingTop: 'var(--space-1)' }}>
               {srcOpen ? (
-                <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: 'var(--space-2) 0 0', textAlign: 'center' }} aria-live="polite">
+                <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: 'var(--space-2) 0 0', textAlign: 'left' }} aria-live="polite">
                   {srcPicked ? 'ありがとうございます' : 'Orime をどこで知りましたか？（任意）'}
                 </p>
               ) : (
@@ -392,7 +376,7 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
                 </button>
               )}
               {srcOpen && (
-              <div style={{ display: 'flex', columnGap: 'var(--space-2)', rowGap: 'var(--space-2)', flexWrap: 'wrap', justifyContent: 'center' }}>
+              <div style={{ display: 'flex', columnGap: 'var(--space-2)', rowGap: 'var(--space-2)', flexWrap: 'wrap', justifyContent: 'flex-start' }}>
                 {/* 選んだ後も全チップを残し、選んだものだけ選択中（--accent-soft 面・--accent 文字）に。カードの高さが跳ねないように。 */}
                 {SOURCES.map(([key, label]) => (
                   <button
