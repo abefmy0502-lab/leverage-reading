@@ -88,8 +88,8 @@ const cancelBtn = {
   color: 'var(--text-2)',
   cursor: 'pointer',
   fontFamily: 'inherit',
-  minWidth: 44,
-  minHeight: 44,
+  minWidth: 'var(--tap-min)',
+  minHeight: 'var(--tap-min)',
   padding: 0,
   flexShrink: 0,
 };
@@ -113,7 +113,7 @@ const fieldLabel = {
 
 const inp = {
   width: '100%',
-  minHeight: 48,
+  minHeight: 'var(--btn-h)',
   padding: 'var(--space-3)',
   fontSize: 'max(16px, var(--text-body))',
   border: '1px solid var(--border)',
@@ -128,7 +128,7 @@ const ta = {
   ...inp,
   resize: 'none', // Web のサイズ変更つまみは iOS の作法にない
   display: 'block', // 行の下の余り（インラインの隙間 約 7）を出さない
-  minHeight: 160,
+  minHeight: 'calc(var(--space-8) * 5)',
   // メモは「読む文章」（DESIGN §2: 明朝 18・行間 1.6）
   fontFamily: 'var(--font-read)',
   fontSize: 'var(--text-read)',

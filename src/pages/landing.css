@@ -595,7 +595,8 @@ body.lp-active {
 }
 /* 暗い画面では影が見えないので、イラストのカードと同じ細い縁取り */
 @media (prefers-color-scheme: dark) {
-  .lp-share-img { border: 1px solid var(--separator); }
+  /* 暗い画面でも同じ太さの縁のまま、外に細い線（隣の端末と同じ「端末の形」に見せる・2026-10-16 第 5 回） */
+  .lp-share-img { box-shadow: 0 0 0 1px var(--separator); }
 }
 
 /* ⑨ 料金 */
@@ -902,7 +903,7 @@ body.lp-active {
 @media (min-width: 768px) {
   /* 2 段ぶんの高さの中央に置く（下に穴が見えないように）・題はほかの機能と同じ大きさ */
   .lp-pillar-basics { display: block; padding-top: var(--space-1); }
-  .lp-pillars > li.lp-pillar-basics { grid-row: span 2; grid-template-rows: none; align-self: center; }
+  .lp-pillars > li.lp-pillar-basics { grid-row: span 2; grid-template-rows: none; align-self: start; padding-top: 0; }
   .lp-root .lp-pillar-basics .lp-basics-title { font-size: var(--text-heading); margin-bottom: var(--space-3); }
   .lp-pillar-basics ul { margin: 0; padding: 0 0 0 var(--space-4); display: grid; gap: var(--space-1); color: var(--text-2); line-height: 1.7; list-style: disc; }
   .lp-pillar-basics li::marker { color: var(--text-3); }
@@ -915,8 +916,7 @@ body.lp-active {
   .lp-start-sec .lp-sec-head, .lp-trust-sec .lp-h2, .lp-faq .lp-h2 { margin-top: 0; }
   .lp-start-sec .lp-start-wrap { display: block; }
   .lp-start-sec .lp-h2 > span { display: block; white-space: nowrap; }
-  /* 共有の画像は隣の端末と同じ縦横の比で（下の端をそろえる） */
-  .lp-pillar-shot .lp-share-img { aspect-ratio: 390 / 844; object-fit: cover; }
+  /* 共有の画像は切らない（ロゴは必ず見せる）。広い画面の暗い設定でも、隣の端末と同じ太さの縁で端末らしく */
   .lp-faq .lp-narrow > * { max-width: none; }
   /* 料金の無料プランのカードは中身の高さで（ボタンの上に穴をあけない） */
 }

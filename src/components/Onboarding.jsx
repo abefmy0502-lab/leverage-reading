@@ -369,10 +369,10 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
                   type="button"
                   onClick={() => setSrcOpen(true)}
                   aria-expanded={false}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, padding: '0 var(--space-2)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 'var(--tap-min)', padding: 0, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}
                 >
                   Orime をどこで知りましたか？（任意）
-                  <ChevronDown size={16} aria-hidden="true" />
+                  <ChevronDown size="1em" aria-hidden="true" />
                 </button>
               )}
               {srcOpen && (
