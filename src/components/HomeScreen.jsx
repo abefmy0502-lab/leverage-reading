@@ -14,7 +14,7 @@
 // （相談は下のタブ「相談」から）。思い出しカードはホームから外し「振り返り」へ（SPEC §1）。
 // 上の行の「写真で共有」は App.jsx の全体ヘッダー（ホーム・振り返り・相談で同じ場所）。
 // 見た目は DESIGN.md のトークンのみ。
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Library, ChevronRight, PencilLine, Plus, BookOpen, Timer, Target, Sprout, X } from 'lucide-react';
 import HomeFirstStep, { useHomeMemoState } from './HomeFirstStep';
 import GrowthMeter from './GrowthMeter';
@@ -35,7 +35,7 @@ import ErrorMessage from './ErrorMessage';
 import { btnPrimary, btnGhost, btnLink, btnTonal, card } from '../styles/ui';
 
 // DESIGN §5「行の中の小さい副ボタン」（ui.js の btnRow・高さ 44・文字 15・600）。折り返した行では幅いっぱいに伸びる。
-const btnRow = { ...btnTonal, flex: '1 0 auto' };
+const btnRow = btnTonal;
 // 行の表紙の幅（MiniCover）。「読む」はこの幅＋間 12 だけ右から始めて、書名の列にそろえる。
 const ROW_COVER_W = 40;
 
@@ -78,31 +78,11 @@ function StartCard({ onQuickstart, onAddBook, onAdvisor, onImport }) {
   );
 }
 
-// いま読んでいる本の 1 行（表紙・書名・2 行目・右に副ボタン 1 つ）。読書中の本と、読書中が 0 冊のときの候補で共通。
+// いま読んでいる本の 1 行（表紙・書名・著者、その下に操作のボタン）。読書中の本と、読書中が 0 冊のときの候補で共通。
 function BookRow({ book: b, sub, onOpenBook, onCoverRetry, action, footer, divider = false }) {
-  // 右のボタンが書名の下へ折り返したか（文字が大きいとき）。折り返したら下の「読む」をカードの左端（ボタンの左端）にそろえる
-  //   （書名の列にそろえたままだと、全幅の「メモを書く」と左端がずれていた・2026-10-10 ui-critic）。
-  const rowRef = useRef(null);
-  const [wrapped, setWrapped] = useState(false);
-  useLayoutEffect(() => {
-    const row = rowRef.current;
-    if (!row || !footer || typeof ResizeObserver !== 'function') return undefined;
-    const check = () => {
-      const [first, second] = [...row.children].filter((el) => !el.hasAttribute('data-divider'));
-      if (!first || !second) return;
-      setWrapped(second.offsetTop > first.offsetTop + first.offsetHeight / 2);
-    };
-    check();
-    const ro = new ResizeObserver(check);
-    ro.observe(row);
-    return () => ro.disconnect();
-  }, [footer != null]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
-    // 文字サイズを大きくしたときは、右のボタンを書名の下へ折り返す（横に並べたままだと書名が「数値／化…」と
-    // 2〜3 字で切れて読めなかった・2026-10-04）。ふだんの大きさでは 1 行（書名の欄は 10rem＝170 あれば並ぶ）。
-    // 折り返した行ではボタンが行の幅いっぱいに伸びる（余りはほぼ書名の側へ＝flex-grow 1000:1）。
     // 行はまとまりのカード（GroupCard）の中に並ぶ。2 行目からは上に区切り線（書名の列から右へ・iOS の一覧と同じ）。
-    <div ref={rowRef} style={{ position: 'relative', padding: 'var(--space-3) var(--space-4)', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--space-3)' }}>
+    <div style={{ position: 'relative', padding: 'var(--space-3) var(--space-4)', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--space-3)' }}>
       {divider && <span aria-hidden="true" data-divider="" style={{ position: 'absolute', top: 0, right: 0, left: `calc(var(--space-4) + ${ROW_COVER_W}px + var(--space-3))`, borderTop: '1px solid var(--separator)' }} />}
       <button
         type="button"
@@ -110,7 +90,7 @@ function BookRow({ book: b, sub, onOpenBook, onCoverRetry, action, footer, divid
         aria-label={`『${b.title}』を開く`}
         // 書名の列は 7.5rem（約 8 字）＋表紙 40＋間 12。ふだんの大きさでは「メモを書く」と 1 行に並び（324 の行に 180＋12＋128）、
         // 文字を少しでも大きくしたらボタンを折り返して書名の列を広げる（2026-10-04 ui-critic）。
-        style={{ flex: '1000 1 calc(7.5rem + 52px)', minWidth: 0, minHeight: 44, display: 'flex', alignItems: 'center', gap: 'var(--space-3)', background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', color: 'inherit' }}
+        style={{ flex: '1 1 100%', minWidth: 0, minHeight: 44, display: 'flex', alignItems: 'center', gap: 'var(--space-3)', background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', color: 'inherit' }}
       >
         <MiniCover book={b} width={ROW_COVER_W} onAutoRetry={onCoverRetry} />
         <span style={{ minWidth: 0 }}>
@@ -120,8 +100,12 @@ function BookRow({ book: b, sub, onOpenBook, onCoverRetry, action, footer, divid
           {sub && <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-3)', marginTop: 'var(--space-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sub}</span>}
         </span>
       </button>
-      {action}
-      {typeof footer === 'function' ? footer(wrapped) : footer}
+      {/* 操作は書名の下の 1 行に並べる（書名の列の左端にそろえる・「メモを書く」と「読む」を同じ形・同じ高さに・2026-10-16 第 4 回）。
+          書名の横に置くと著者が「…」で切れ、「読む」だけ別の段に浮いていた。 */}
+      <div style={{ flexBasis: '100%', display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', paddingLeft: `calc(${ROW_COVER_W}px + var(--space-3))` }}>
+        {action}
+        {footer}
+      </div>
     </div>
   );
 }
@@ -129,19 +113,17 @@ function BookRow({ book: b, sub, onOpenBook, onCoverRetry, action, footer, divid
 // ⏱ 読む（集中モード・2026-10-09）: 読書中の本の行の下に、書名の列（表紙 40＋間 12）にそろえた控えめな文字ボタン。
 //   主役の「メモを書く」（枠の副ボタン）より弱く＝枠も塗りもない --text-2 の 15/600＋時計のアイコン。
 //   押せる高さは 44 のまま、上の行との間（12）とカードの下の余白を負の余白で詰めて、カードを 24 だけ伸ばす。
-function ReadLink({ book: b, onRead, alignStart = false }) {
+function ReadLink({ book: b, onRead }) {
   return (
-    <div style={{ flexBasis: '100%', display: 'flex', paddingLeft: alignStart ? 0 : `calc(${ROW_COVER_W}px + var(--space-3))`, margin: 'calc(-1 * var(--space-3)) 0 calc(-1 * var(--space-3))' }}>
-      <button
-        type="button"
-        onClick={() => onRead(b)}
-        aria-label={`『${b.title}』を読む（集中モード）`}
-        data-focus-entry=""
-        style={{ ...btnLink, color: 'var(--text-2)', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}
-      >
-        <Timer size="1.1em" strokeWidth={1.75} aria-hidden="true" style={{ flexShrink: 0 }} />読む
-      </button>
-    </div>
+    <button
+      type="button"
+      onClick={() => onRead(b)}
+      aria-label={`『${b.title}』を読む（集中モード）`}
+      data-focus-entry=""
+      style={{ ...btnTonal, color: 'var(--text-2)' }}
+    >
+      <Timer size="1.1em" strokeWidth={1.75} aria-hidden="true" style={{ flexShrink: 0 }} />読む
+    </button>
   );
 }
 
@@ -189,7 +171,7 @@ function ReadingNow({ books, onOpenBook, onWriteMemo, onStartReading, onAddBook,
         // 本は 1 枚のまとまりに行で並べる（1 冊ずつのカードにしない・iOS の一覧と同じ）。
         <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
           {shown.map((b, i) => (
-            <BookRow key={b.id} divider={i > 0} book={b} sub={b.author} onOpenBook={onOpenBook} onCoverRetry={onCoverRetry} action={memoBtn(b)} footer={onRead ? (wrapped) => <ReadLink book={b} onRead={onRead} alignStart={wrapped} /> : null} />
+            <BookRow key={b.id} divider={i > 0} book={b} sub={b.author} onOpenBook={onOpenBook} onCoverRetry={onCoverRetry} action={memoBtn(b)} footer={onRead ? <ReadLink book={b} onRead={onRead} /> : null} />
           ))}
           {candidates.map((b, i) => (
             <BookRow

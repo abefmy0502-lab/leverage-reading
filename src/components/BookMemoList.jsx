@@ -628,13 +628,13 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
       {/* 件数がまだ分からない（初めて開いた本）ときも、メモがある形で場所を取る（3 枚の形と同じ前提）。 */}
       {/* heading: 見出し「メモ」をこの行に置き、件数を見出しの右に小さく（「メモ」と「3 件」が 2 段に分かれていた・2026-10-16 ui-critic）。 */}
       {heading && !(memos.length > 0 || (waiting && countHint !== 0)) && (
-        <h2 id={heading.id} style={{ ...heading.style, margin: 0 }}>{heading.label}</h2>
+        <h2 id={heading.id} style={{ ...heading.style, margin: 0, scrollMarginTop: 'var(--space-4)' }}>{heading.label}</h2>
       )}
       {(memos.length > 0 || (waiting && countHint !== 0)) && (
         // 行の高さ 44 は押せる範囲のため。見た目では見出しとカードに寄せる（グループ内は詰める）。
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', margin: heading ? 'calc(-1 * var(--space-2)) 0 calc(-1 * var(--space-1))' : 'calc(-1 * var(--space-2)) 0' }}>
           {heading ? (
-            <h2 id={heading.id} style={{ ...heading.style, margin: 0, display: 'flex', alignItems: 'baseline', gap: 'var(--space-2)', minWidth: 0 }}>
+            <h2 id={heading.id} style={{ ...heading.style, margin: 0, display: 'flex', alignItems: 'baseline', gap: 'var(--space-2)', minWidth: 0, scrollMarginTop: 'var(--space-4)' }}>
               {heading.label}
               <span aria-hidden={waiting || undefined} style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', whiteSpace: 'nowrap', ...(waiting ? hidden : null) }}>
                 {quoteOnly ? `ページ番号つき ${visibleMemos.length} 件` : `${memos.length} 件`}

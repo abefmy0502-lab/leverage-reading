@@ -4697,16 +4697,16 @@ function AuthedApp() {
                 const genHere = planGen && planGen.bookId === current.id;
                 return (
                   <div style={{ marginTop: hasPlanFold ? 'var(--space-3)' : 'var(--space-6)' }}>
-                    {/* 枠の大きなボタンにせず、カードの 1 行（右に 1 回の目安）。主役は下の「読書を開始する」1 つ（2026-10-16 ui-critic 第 2 回）。 */}
+                    {/* 枠の大きなボタンにせず、カードの 1 行（15/600・右に 1 回の目安・高さ 48）。主役は下の「読書を開始する」1 つ（2026-10-16 ui-critic 第 2 回）。 */}
                     <button type="button" onClick={() => runStrategyInPlace(current)} disabled={!!planGen}
                       aria-busy={genHere || undefined}
-                      style={{ width: '100%', minHeight: 56, display: 'flex', alignItems: 'center', gap: 'var(--space-3)', padding: 'var(--space-3) var(--space-4)', background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', fontFamily: 'inherit', textAlign: 'left', cursor: planGen ? 'default' : 'pointer', color: planGen ? 'var(--text-2)' : 'var(--text)' }}>
+                      style={{ width: '100%', minHeight: 'var(--btn-h)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', padding: 'var(--space-3) var(--space-4)', background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', fontFamily: 'inherit', textAlign: 'left', cursor: planGen ? 'default' : 'pointer', color: planGen ? 'var(--text-3)' : 'var(--text)' }}>
                       {/* 無料プランには押す前に有料と分かる印（「AI に答えてもらう（プラン）」と同じ作法・2026-10-09） */}
-                      <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-body)', fontWeight: 600 }}>{genHere ? '作成中…' : paywallFree ? '読書計画シートを作る（プラン）' : '読書計画シートを作る'}</span>
+                      <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-sub)', fontWeight: 600 }}>{genHere ? '作成中…' : paywallFree ? '読書計画シートを作る（プラン）' : '読書計画シートを作る'}</span>
                       {!genHere && !paywallFree && planCostLine && planTokensOutId !== current.id && (
                         <span style={{ flexShrink: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{planCostLine.split('・')[0]}</span>
                       )}
-                      {!genHere && <ChevronRight size="1.2em" aria-hidden="true" style={{ flexShrink: 0, color: 'var(--text-3)' }} />}
+                      {/* その場で作る行なので › は付けない（「この本で学べることを見る」の行と同じ形・2026-10-16 第 4 回） */}
                     </button>
                     {/* 残りは少ないときだけ下に 1 行（いつも出すと、メーターが回っているように感じる・2026-10-16 ui-critic 第 2 回） */}
                     {!genHere && !paywallFree && planCostLine && planTokensOutId !== current.id && typeof paywallTokens === 'number' && paywallTokens < TOKEN_COSTS.setupSheet * 5 && (
@@ -5024,7 +5024,7 @@ function AuthedApp() {
             <div style={{ marginTop: 'var(--space-6)', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
               {/* SPEC §2 の並び: メモ一覧 → この本に相談する → この本のまとめ → 行動（→ 計画・AI 解析は下）。
                   「この本に相談する」は BookMemoList の afterList で一覧のすぐ下（まとめの上）に置く。 */}
-              <section aria-labelledby="detail-memo-title">
+              <section aria-labelledby="detail-memo-title" style={{ scrollMarginTop: 'var(--space-4)' }}>
                 <BookMemoList
                   heading={{ id: 'detail-memo-title', label: 'メモ', style: detailH2Style }}
                   bookId={current.id}
