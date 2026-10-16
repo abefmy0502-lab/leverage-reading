@@ -50,10 +50,10 @@ function TotalCell({ label, value, on, onClick }) {
       type="button"
       aria-pressed={on}
       onClick={onClick}
-      style={{ ...segBtn(on), flex: '1 1 8.5em', minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-1)', padding: 'var(--space-2) var(--space-3)', textAlign: 'left', whiteSpace: 'normal' }}
+      style={{ ...segBtn(on), flex: '0 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-1)', padding: '0 0 var(--space-2)', textAlign: 'left', whiteSpace: 'normal' }}
     >
       <span style={{ ...metaText, fontWeight: 400 }}>{label}</span>
-      <span style={{ fontSize: 'var(--text-heading)', fontWeight: 600, lineHeight: 1.2, color: 'var(--text)', fontVariantNumeric: 'tabular-nums', wordBreak: 'keep-all' }}>
+      <span style={{ fontSize: 'var(--text-heading)', fontWeight: 600, lineHeight: 1.2, color: on ? 'var(--text)' : 'var(--text-2)', fontVariantNumeric: 'tabular-nums', wordBreak: 'keep-all' }}>
         {withPhraseBreaks(value)}
       </span>
     </button>
@@ -149,14 +149,15 @@ const rowBtn = (on) => ({
 
 // 期間の切り替え（iOS のセグメント・写真で共有の「投稿｜ストーリー」と同じ見た目・DESIGN §5）。
 // 振り返り・相談の上の切り替え（.sub-tabs__seg）と同じ形: 溝の内側 2・選んだ面は --seg-on＋細い縁（2026-10-16 ui-critic 第 2 回「切り替えの形が 3 種類」）。
-const segTrack = { display: 'inline-flex', gap: 2, padding: 2, background: 'var(--fill)', borderRadius: 'var(--radius)' };
+// 期間の数は切り替えの溝にしない（上のタブと同じ形が 2 つ並んでいた・2026-10-16 第 3 回）。選んだ数の下に栗色の 2 の線。
+const segTrack = { display: 'inline-flex', gap: 'var(--space-6)' };
 const segBtn = (on) => ({
   minHeight: 'var(--tap-min)',
-  padding: '0 var(--space-4)',
+  padding: 0,
   border: 'none',
-  borderRadius: 'var(--radius)',
-  background: on ? 'var(--seg-on)' : 'transparent',
-  boxShadow: on ? '0 0 0 0.5px var(--separator)' : 'none',
+  borderBottom: `2px solid ${on ? 'var(--accent)' : 'transparent'}`,
+  borderRadius: 0,
+  background: 'transparent',
   color: on ? 'var(--text)' : 'var(--text-2)',
   fontFamily: 'inherit',
   fontSize: 'var(--text-sub)',

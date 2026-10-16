@@ -304,7 +304,7 @@ body.lp-active {
 .lp-root .lp-clause { display: inline-block; max-width: 100%; }
 .lp-root .lp-longtext { word-break: normal; overflow-wrap: anywhere; line-break: strict; text-wrap: pretty; }
 .lp-root .lp-cta-meta { margin-top: var(--space-3) !important; color: var(--text-2); font-size: var(--text-meta); }
-.lp-pillar-plan { margin-left: var(--space-2); vertical-align: middle; white-space: nowrap; display: inline-block; }
+.lp-pillar-plan { display: table; margin: var(--space-1) 0 0; white-space: nowrap; }
 /* 語の途中で折り返さない塊（1 行に入るときは塊ごと次の行へ。最大の文字で 1 行より長いときだけ中で折り返す＝はみ出さない） */
 .lp-nb { display: inline-block; max-width: 100%; }
 .lp-btn .lp-nb { white-space: nowrap; }
@@ -893,22 +893,25 @@ body.lp-active {
 .lp-motion .lp-sec .lp-h2.is-in, .lp-motion .lp-gallery.is-in, .lp-motion .lp-pillars > li.is-in { transform: none; }
 
 /* 最後の案内の 3 行目（料金へのリンク）は本文の色・太さで（栗色の太字だと 2 つ目のボタンに見えた・2026-10-16 ui-critic） */
-.lp-root .lp-final-plan { color: var(--text-2) !important; font-weight: 400; text-decoration: underline; text-underline-offset: 0.2em; }
+.lp-root .lp-final-plan { color: var(--text-2) !important; font-weight: 400; }
 
 /* ============ 2026-10-16 第 2 回の手直し ============ */
 /* 記録の基本: スマホは機能の横送りの下に単独で、広い画面は機能の格子の 6 つめに */
 .lp-pillar-basics { display: none; }
 @media (min-width: 768px) {
-  .lp-pillar-basics { display: block; align-self: start; padding-top: var(--space-1); }
-  .lp-pillars > li.lp-pillar-basics { grid-row: auto; grid-template-rows: none; }
-  .lp-pillar-basics ul { margin: 0; padding: 0 0 0 var(--space-4); display: grid; gap: var(--space-1); color: var(--text-2); line-height: 1.7; }
+  /* 2 段ぶんの高さの中央に置く（下に穴が見えないように）・題はほかの機能と同じ大きさ */
+  .lp-pillar-basics { display: block; padding-top: var(--space-1); }
+  .lp-pillars > li.lp-pillar-basics { grid-row: span 2; grid-template-rows: none; align-self: center; }
+  .lp-root .lp-pillar-basics .lp-basics-title { font-size: var(--text-heading); margin-bottom: var(--space-3); }
+  .lp-pillar-basics ul { margin: 0; padding: 0 0 0 var(--space-4); display: grid; gap: var(--space-1); color: var(--text-2); line-height: 1.7; list-style: disc; }
+  .lp-pillar-basics li::marker { color: var(--text-3); }
   .lp-pillars ~ .lp-basics { display: none; }
   /* 機能の画面は広い画面で少し大きく（中の字が読める大きさに近づける） */
   .lp-pillar-shot { width: min(100%, 300px); }
   .lp-pillar-shot .lp-shot { --lp-device-w: 300px; }
   /* 右半分が空かないように: 見出しを左、中身を右に（始め方・メモの扱い・よくある質問） */
-  .lp-start-sec .lp-wrap, .lp-trust-sec .lp-wrap, .lp-faq .lp-wrap.lp-narrow { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); column-gap: var(--space-16); align-items: start; }
-  .lp-start-sec .lp-sec-head, .lp-trust-sec .lp-h2, .lp-faq .lp-h2 { margin-top: 0; }
+  .lp-trust-sec .lp-wrap, .lp-faq .lp-wrap.lp-narrow { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); column-gap: var(--space-16); align-items: start; }
+  .lp-trust-sec .lp-h2, .lp-faq .lp-h2 { margin-top: 0; }
   .lp-faq .lp-narrow > * { max-width: none; }
   /* 料金の無料プランのカードは中身の高さで（ボタンの上に穴をあけない） */
   .lp-plan-cards { align-items: start; }
@@ -917,3 +920,6 @@ body.lp-active {
 .lp-trust-sec { border-top: 1px solid var(--separator); }
 /* これからの一文は、節の見出しより一段小さく（同じ大きさが 2 つ並んで見えた） */
 .lp-root .lp-ba .is-after .lp-ba-title { font-size: var(--text-heading); }
+
+/* 相談の例は 3 つとも自分の問いなので、スマホでも同じ側（左）にそろえる */
+.lp-asks-bubble { justify-self: start; }

@@ -488,11 +488,13 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
                   </button>
                 )}
               </div>
-              {/* 主ボタンは下の「次へ」だけ（DESIGN §0-2）。検索は副ボタン。 */}
-              <button type="button" onClick={() => runSearch()} disabled={!query.trim() || searching}
-                style={{ ...(query.trim() && !searching ? btnGhost : btnGhostOff), width: 'auto', flexShrink: 0 }}>
-                検索
-              </button>
+              {/* 主ボタンは下の「次へ」だけ（DESIGN §0-2）。検索は副ボタンで、書いてから出す（本を追加と同じ・2026-10-16 第 3 回）。 */}
+              {(query.trim() || searching) && (
+                <button type="button" onClick={() => runSearch()} disabled={searching}
+                  style={{ ...(!searching ? btnGhost : btnGhostOff), width: 'auto', flexShrink: 0 }}>
+                  検索
+                </button>
+              )}
             </div>
 
             <div style={{ marginTop: 'var(--space-4)' }} aria-live="polite">
