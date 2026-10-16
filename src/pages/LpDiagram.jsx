@@ -37,14 +37,9 @@ export function DialogueDiagram() {
     <div className="lp-dia" role="img" aria-label="これまでの読書は、本から自分への線が途中で消える一方通行。Orime では、本と自分が 1 つの輪でつながり、問いと答えが行き来する。">
       <figure className="lp-dia-card">
         <svg viewBox="0 0 240 120" aria-hidden="true" className="lp-dia-svg is-before">
-          <defs>
-            <linearGradient id="lp-dia-fade" gradientUnits="userSpaceOnUse" x1="108" x2="172" y1="66" y2="66">
-              <stop offset="0" stopColor="var(--text-2)" stopOpacity="1" />
-              <stop offset="1" stopColor="var(--text-2)" stopOpacity="0" />
-            </linearGradient>
-          </defs>
           <Book x={24} y={84} w={72} />
-          <path d="M108 66 H 168" fill="none" stroke="url(#lp-dia-fade)" strokeWidth="1.75" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+          {/* 本からの線は、自分に届く前に止まる（読んで終わり） */}
+          <path d="M108 66 H 150" {...S} />
           <Person cx={196} y={92} />
         </svg>
         <figcaption><span className="lp-dia-tag">これまで</span>読んで、終わり</figcaption>
@@ -61,8 +56,8 @@ export function DialogueDiagram() {
           {/* 1 つの輪（上は本 → 自分、下は自分 → 本）。矢じりは線の向きに沿う */}
           <path d="M104 46 C 128 20, 164 20, 182 34" fill="none" stroke="var(--accent)" strokeWidth="1.75" strokeLinecap="round" vectorEffect="non-scaling-stroke" markerEnd="url(#lp-dia-arrow)" />
           <path d="M180 98 C 160 116, 124 116, 104 96" fill="none" stroke="var(--accent)" strokeWidth="1.75" strokeLinecap="round" vectorEffect="non-scaling-stroke" markerEnd="url(#lp-dia-arrow)" />
-          <circle cx="143" cy="24" r="3.2" fill="var(--accent)" />
-          <circle cx="142" cy="111" r="3.2" fill="var(--accent)" />
+          <circle cx="143" cy="24" r="4" fill="var(--accent)" />
+          <circle cx="142" cy="111" r="4" fill="var(--accent)" />
         </svg>
         <figcaption><span className="lp-dia-tag is-accent">Orime</span>会話が、続く</figcaption>
       </figure>

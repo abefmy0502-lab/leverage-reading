@@ -142,14 +142,6 @@ function HeroMini() {
 
 
 
-// ③ の下の、読書記録アプリとしての基本（2026-10-13 オーナー「ブクログなども意識して、バーコード・フォルダ分けも当たり前にできると」）。
-//   乗り換える人が「今やっていることができるか」を確かめる場所。主役にはしない（見出しは小さく・ふつうの箇条書き）。どれも実装済み。
-const BASICS = [
-  'バーコードで登録',
-  '読みたい・積読・読書中・読了',
-  'フォルダ分け・★ の評価',
-  'ブクログ・読書メーター・Kindle から取り込み',
-]
 
 // ③ 続けられて、成果が見える（柱 ②〜⑤・1 つ 1〜2 文・画面 1 枚）
 const PILLARS = [
@@ -189,7 +181,7 @@ const PILLARS = [
     // 6 つめ: 読書記録の基本（2026-10-16 第 6 回・ほかの 5 つと同じ形＝画面＋題＋箇条書き。格子の形をそろえる）
     id: 'library', shot: 'library', artAlt: '',
     title: '本の記録も、ふつうに',
-    list: BASICS,
+    sub: 'バーコード登録・フォルダ・★・取り込み',
     alt: 'すべての本の画面。表紙の一覧と、読書中・読了・積読・読みたいの絞り込み、フォルダのチップ',
   },
 ];
@@ -674,7 +666,7 @@ export default function Landing() {
         </section>
 
         {/* ============ ③ 続けられて、成果が見える（柱 ②〜⑤） ============ */}
-        <section className="lp-sec" aria-labelledby="lp-pillars" data-lp-sec="pillars">
+        <section className="lp-sec lp-pillars-sec" aria-labelledby="lp-pillars" data-lp-sec="pillars">
           <div className="lp-wrap">
             <div className="lp-narrow lp-sec-head">
               <h2 className="lp-h2" id="lp-pillars">
@@ -713,6 +705,7 @@ export default function Landing() {
                   </div>
                   <div className="lp-pillar-text">
                     <h3 className="lp-h3 lp-wbr"><Phrases clause>{x.title}</Phrases>{x.plan && <span className="lp-plan-badge lp-pillar-plan">プラン</span>}</h3>
+                    {x.sub && <p className="lp-pillar-sub">{x.sub}</p>}
                     {x.list && (
                       <ul className="lp-pillar-list">
                         {x.list.map((t) => <li key={t} className="lp-wbr"><Phrases>{t}</Phrases></li>)}
