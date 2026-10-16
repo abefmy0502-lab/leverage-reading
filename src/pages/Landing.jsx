@@ -43,7 +43,7 @@ import { TRIAL_TOKENS, FREE_OCR_PER_MONTH } from '../lib/tokenAmounts';
 import { normalizeTrialLabel } from '../lib/trialLabel';
 import { readFoundingOffer, noBreak, FOUNDING_NAME } from '../lib/foundingOffer';
 import Shot from './LpShot';
-import { DialogueDiagram, StartTiles } from './LpDiagram';
+import { DialogueDiagram, StartTiles, TrustRow } from './LpDiagram';
 import LpFlow from './LpFlow';
 import LpWaitlist from './LpWaitlist';
 import LpIllust from './LpIllust';
@@ -199,16 +199,16 @@ const PILLARS = [
 // 書き出し＝設定の CSV（lib/exportData.js）・退会のお申し込みで消去／写真で共有＝端末の中で描く（サーバーに送らない）。
 // 2026-10-16 オーナー「無駄な文字が多い」: 1 行ずつの短い言い切りに（事実だけ・詳しくは FAQ とプライバシーポリシー）。
 const TRUST_POINTS = [
-  'メモは AI の学習に使われません',
-  'AI に送るのは、AI を使うときだけ',
-  'いつでも CSV で書き出せます',
+  { icon: 'learn', label: 'メモは AI の学習に使われません' },
+  { icon: 'send', label: 'AI に送るのは、AI を使うときだけ' },
+  { icon: 'export', label: 'いつでも CSV で書き出せます' },
 ];
 
 // ④ メモがゼロでも、今日から（0 日目の 4 つの道・SPEC §1-1d）
 // 2026-10-16: 説明の文をやめ、小さな線の絵＋短い名前の 4 枚に（LpDiagram.jsx の StartTiles）。
 const START_POINTS = [
   { icon: 'memo', label: '読んだ本に一言' },
-  { icon: 'import', label: 'ほかのアプリから取り込む' },
+  { icon: 'import', label: '記録を取り込む' },
   { icon: 'photo', label: '本のページを撮る' },
   { icon: 'stack', label: '積読から始める' },
 ];
@@ -770,11 +770,7 @@ export default function Landing() {
             {/* 安心の 3 つ（どれも実装と規約で確かめた事実だけ・2026-10-12 に料金のあと・よくある質問の頭へ） */}
             <h2 className="lp-h2 lp-trust-title" id="lp-trust">書いたメモの扱い</h2>
             {/* アイコンつきのカードはやめ、ふつうの箇条書きに（2026-10-13 オーナー「AI っぽさを徹底的に排除」） */}
-            <ul className="lp-trust" aria-labelledby="lp-trust">
-              {TRUST_POINTS.map((t) => (
-                <li key={t} className="lp-wbr"><Phrases>{t}</Phrases></li>
-              ))}
-            </ul>
+            <TrustRow items={TRUST_POINTS} />
           </div>
         </section>
 
@@ -867,7 +863,7 @@ export default function Landing() {
             <h2 className="lp-h2" id="lp-faq">よくある質問</h2>
             <div className="lp-faq-list">
               {COPY.faq.map((f, i) => (
-                <details className="lp-faq-item" key={f.q} open={i === 0 || undefined} onToggle={(e) => { if (e.currentTarget.open) lpTrack('faq_open', { i, q: f.q.slice(0, 40) }); }}>
+                <details className="lp-faq-item" key={f.q} onToggle={(e) => { if (e.currentTarget.open) lpTrack('faq_open', { i, q: f.q.slice(0, 40) }); }}>
                   <summary>
                     <span className="lp-wbr"><Phrases>{f.q}</Phrases></span>
                     <ChevronDown size="1.25em" aria-hidden="true" className="lp-faq-mark" />

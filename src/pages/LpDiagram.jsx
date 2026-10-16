@@ -1,78 +1,68 @@
 // ✏️ LP の図（2026-10-16 オーナー「無駄な文字を減らし、シンプルでわかりやすいデザインで伝わりやすく・リッチに」）。
 //
-// 文の代わりに、線の絵で伝える。絵の線は Instagram の動くイラスト（scripts/marketing/explainer/art.mjs）と同じ手描きの線＝
-// ブランドの見た目を LP と SNS でそろえる。色はトークンだけ（線 --text・強調 --accent・面 --accent-soft / --fill）。
+// 文の代わりに、線の絵で伝える。細い幾何の線（太さ 1.75・画面の大きさで変わらない）で、細部まで整える。色はトークンだけ（線 --text・強調 --accent・面 --accent-soft / --fill）。
 // 絵の中に文字は入れない（スマホで縮むと読めない）。名前は絵の下の HTML の文字。
 //
-//   DialogueDiagram … これまで（本 → 自分・読んで終わり）／Orime（本 ⇄ 自分・会話が続く）
+//   DialogueDiagram … これまで（本 → 自分の線が途中で消える）／Orime（本と自分を 1 つの輪でつなぐ）
 //   StartTiles      … メモがまだなくても始められる 4 つの道（一言・取り込む・撮る・積読）
 
-const S = { fill: 'none', stroke: 'currentColor', strokeWidth: 2.6, strokeLinecap: 'round', strokeLinejoin: 'round' };
+const S = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.75, strokeLinecap: 'round', strokeLinejoin: 'round', vectorEffect: 'non-scaling-stroke' };
 
-// 開いた本（中心 cx・下端 y）
+// 開いた本（左端 x・下端 y・幅 w）。幾何の線でそろえる（手描き風にしない＝細部まで整える）。
 function Book({ x, y, w = 64 }) {
-  const h = w * 0.62;
+  const h = w * 0.6;
   const m = x + w / 2;
   return (
     <g {...S}>
-      <path d={`M${m} ${y - h + 6} C ${m - w * 0.18} ${y - h - 2}, ${x + 8} ${y - h - 2}, ${x} ${y - h + 4} L ${x} ${y} C ${x + 8} ${y - 6}, ${m - w * 0.18} ${y - 6}, ${m} ${y + 2} Z`} />
-      <path d={`M${m} ${y - h + 6} C ${m + w * 0.18} ${y - h - 2}, ${x + w - 8} ${y - h - 2}, ${x + w} ${y - h + 4} L ${x + w} ${y} C ${x + w - 8} ${y - 6}, ${m + w * 0.18} ${y - 6}, ${m} ${y + 2}`} />
-      <path d={`M${x + 9} ${y - h + 16} L ${m - 8} ${y - h + 18} M ${x + 9} ${y - h + 26} L ${m - 8} ${y - h + 28}`} opacity="0.55" />
-      <path d={`M${m + 8} ${y - h + 18} L ${x + w - 9} ${y - h + 16} M ${m + 8} ${y - h + 28} L ${x + w - 9} ${y - h + 26}`} opacity="0.55" />
+      <path d={`M${m} ${y - h + 5} Q ${x + w * 0.22} ${y - h - 3}, ${x} ${y - h + 3} V ${y} Q ${x + w * 0.22} ${y - 6}, ${m} ${y + 2} Z`} />
+      <path d={`M${m} ${y - h + 5} Q ${x + w * 0.78} ${y - h - 3}, ${x + w} ${y - h + 3} V ${y} Q ${x + w * 0.78} ${y - 6}, ${m} ${y + 2}`} />
     </g>
   );
 }
 
 // 人（頭と肩・中心 cx・肩の下端 y）
-function Person({ cx, y, s = 1 }) {
+function Person({ cx, y }) {
   return (
     <g {...S}>
-      <circle cx={cx} cy={y - 50 * s} r={13 * s} />
-      <path d={`M${cx - 26 * s} ${y} C ${cx - 26 * s} ${y - 26 * s}, ${cx + 26 * s} ${y - 26 * s}, ${cx + 26 * s} ${y}`} />
+      <circle cx={cx} cy={y - 44} r="11" />
+      <path d={`M${cx - 22} ${y} Q ${cx - 22} ${y - 24}, ${cx} ${y - 24} Q ${cx + 22} ${y - 24}, ${cx + 22} ${y}`} />
     </g>
   );
 }
 
-function Bubble({ x, y, w = 34, h = 24, mark = '…', tone = 'plain' }) {
-  return (
-    <g>
-      <path
-        d={`M${x + 6} ${y} H ${x + w - 6} Q ${x + w} ${y}, ${x + w} ${y + 6} V ${y + h - 6} Q ${x + w} ${y + h}, ${x + w - 6} ${y + h} H ${x + 14} L ${x + 6} ${y + h + 7} L ${x + 8} ${y + h} H ${x + 6} Q ${x} ${y + h}, ${x} ${y + h - 6} V ${y + 6} Q ${x} ${y}, ${x + 6} ${y} Z`}
-        fill={tone === 'accent' ? 'var(--accent-soft)' : 'var(--surface)'}
-        stroke={tone === 'accent' ? 'var(--accent)' : 'currentColor'}
-        strokeWidth="1.8"
-        strokeLinejoin="round"
-      />
-      <text x={x + w / 2} y={y + h / 2 + 5} textAnchor="middle" fontSize="15" fontWeight="700" fill={tone === 'accent' ? 'var(--accent)' : 'currentColor'}>{mark}</text>
-    </g>
-  );
-}
-
+// これまで: 本 → 自分 の 1 本の線が、自分に届く前に消える（読んで終わり）。
+// Orime: 本と自分を 1 つの閉じた輪でつなぐ（問いと答えが回り続ける）。輪の上の 2 つの点＝行き来する言葉。
 export function DialogueDiagram() {
   return (
-    <div className="lp-dia" role="img" aria-label="これまでの読書は、本から自分への一方通行で、読み終えたら終わり。Orime では、本と自分のあいだで問いと答えが行き来する。">
+    <div className="lp-dia" role="img" aria-label="これまでの読書は、本から自分への線が途中で消える一方通行。Orime では、本と自分が 1 つの輪でつながり、問いと答えが行き来する。">
       <figure className="lp-dia-card">
-        <svg viewBox="0 0 240 150" aria-hidden="true" className="lp-dia-svg is-before">
-          <Book x={22} y={112} w={70} />
-          {/* 本 → 自分（一方通行・先は点線で消えていく） */}
-          <path d="M104 86 H 150" {...S} />
-          <path d="M142 78 L 152 86 L 142 94" {...S} />
-          <Person cx={190} y={118} s={0.95} />
-          <path d="M190 128 V 140" {...S} strokeDasharray="2 6" opacity="0.5" />
+        <svg viewBox="0 0 240 120" aria-hidden="true" className="lp-dia-svg is-before">
+          <defs>
+            <linearGradient id="lp-dia-fade" gradientUnits="userSpaceOnUse" x1="108" x2="172" y1="66" y2="66">
+              <stop offset="0" stopColor="var(--text-2)" stopOpacity="1" />
+              <stop offset="1" stopColor="var(--text-2)" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          <Book x={24} y={84} w={72} />
+          <path d="M108 66 H 168" fill="none" stroke="url(#lp-dia-fade)" strokeWidth="1.75" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+          <Person cx={196} y={92} />
         </svg>
         <figcaption><span className="lp-dia-tag">これまで</span>読んで、終わり</figcaption>
       </figure>
       <figure className="lp-dia-card is-after">
-        <svg viewBox="0 0 240 150" aria-hidden="true" className="lp-dia-svg">
-          <Book x={22} y={112} w={70} />
-          <Person cx={190} y={118} s={0.95} />
-          {/* 本 ⇄ 自分（上は自分から本へ、下は本から自分へ・行き来が続く） */}
-          <path d="M160 56 C 140 34, 108 34, 88 52" {...S} stroke="var(--accent)" />
-          <path d="M96 44 L 87 53 L 99 56" {...S} stroke="var(--accent)" />
-          <path d="M96 122 C 116 138, 146 138, 162 122" {...S} />
-          <path d="M152 118 L 163 121 L 158 132" {...S} />
-          <Bubble x={108} y={6} mark="？" tone="accent" />
-          <Bubble x={140} y={92} w={30} h={20} mark="…" />
+        <svg viewBox="0 0 240 120" aria-hidden="true" className="lp-dia-svg">
+          <defs>
+            <marker id="lp-dia-arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M1 1 L 7 5 L 1 9" fill="none" stroke="var(--accent)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+            </marker>
+          </defs>
+          <Book x={24} y={84} w={72} />
+          <Person cx={196} y={92} />
+          {/* 1 つの輪（上は本 → 自分、下は自分 → 本）。矢じりは線の向きに沿う */}
+          <path d="M104 46 C 128 20, 164 20, 182 34" fill="none" stroke="var(--accent)" strokeWidth="1.75" strokeLinecap="round" vectorEffect="non-scaling-stroke" markerEnd="url(#lp-dia-arrow)" />
+          <path d="M180 98 C 160 116, 124 116, 104 96" fill="none" stroke="var(--accent)" strokeWidth="1.75" strokeLinecap="round" vectorEffect="non-scaling-stroke" markerEnd="url(#lp-dia-arrow)" />
+          <circle cx="143" cy="24" r="3.2" fill="var(--accent)" />
+          <circle cx="142" cy="111" r="3.2" fill="var(--accent)" />
         </svg>
         <figcaption><span className="lp-dia-tag is-accent">Orime</span>会話が、続く</figcaption>
       </figure>
@@ -119,6 +109,42 @@ export function StartTiles({ items }) {
         <li key={t.icon} className="lp-tile">
           <svg viewBox="0 0 64 60" aria-hidden="true" className="lp-tile-svg">{START_ICONS[t.icon]}</svg>
           <span className="lp-tile-label">{t.label}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+// 書いたメモの扱い（3 つ・線の絵＋短い言い切り）
+const TRUST_ICONS = {
+  learn: (
+    <g {...S}>
+      <path d="M32 8 L 52 16 V 30 C 52 42, 43 50, 32 54 C 21 50, 12 42, 12 30 V 16 Z" />
+      <path d="M23 31 L 30 38 L 42 24" stroke="var(--accent)" />
+    </g>
+  ),
+  send: (
+    <g {...S}>
+      <path d="M10 30 L 54 12 L 40 52 L 30 36 Z" />
+      <path d="M30 36 L 54 12" stroke="var(--accent)" />
+    </g>
+  ),
+  export: (
+    <g {...S}>
+      <path d="M14 38 V 50 H 50 V 38" />
+      <path d="M32 10 V 38" stroke="var(--accent)" />
+      <path d="M22 28 L 32 38 L 42 28" stroke="var(--accent)" />
+    </g>
+  ),
+};
+
+export function TrustRow({ items }) {
+  return (
+    <ul className="lp-trust-row">
+      {items.map((t) => (
+        <li key={t.icon}>
+          <svg viewBox="0 0 64 60" aria-hidden="true" className="lp-tile-svg">{TRUST_ICONS[t.icon]}</svg>
+          <span>{t.label}</span>
         </li>
       ))}
     </ul>
