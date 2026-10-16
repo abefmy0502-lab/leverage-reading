@@ -929,3 +929,32 @@ body.lp-active {
 /* 自動更新の説明・相談の目安は文節の切れ目でだけ折り返す（「無／料期間」と語の中で割れていた） */
 .lp-root :is(.lp-renew, .lp-plan-hint) { word-break: keep-all; overflow-wrap: normal; line-break: strict; }
 .lp-wl-note a { text-decoration: underline; text-underline-offset: 0.2em; }
+
+/* ============ 2026-10-16 図で伝える（LpDiagram.jsx） ============ */
+/* これまで ／ Orime の 2 枚の図。絵に文字は入れず、下に短い名前 */
+.lp-dia { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-3); margin-top: var(--space-8); max-width: 44rem; }
+/* スマホは 1 枚ずつ縦に（横に 2 枚だと絵が小さすぎた）。絵の横に名前 */
+@media (max-width: 767px) {
+  .lp-dia-card { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); align-items: center; column-gap: var(--space-4); }
+  .lp-dia-card figcaption { margin-top: 0; font-size: var(--text-body); }
+}
+.lp-dia-card { margin: 0; padding: var(--space-4) var(--space-4) var(--space-3); background: var(--surface); border: 1px solid var(--separator); border-radius: var(--radius); }
+.lp-dia-card.is-after { border-color: color-mix(in srgb, var(--accent) 45%, var(--separator)); }
+.lp-dia-svg { display: block; width: 100%; height: auto; color: var(--text); }
+.lp-dia-svg.is-before { color: var(--text-3); }
+.lp-dia-card figcaption { margin-top: var(--space-2); font-size: var(--text-sub); font-weight: 600; color: var(--text); line-height: 1.4; }
+.lp-dia-tag { display: block; font-size: var(--text-meta); font-weight: 600; color: var(--text-3); letter-spacing: 0.04em; }
+.lp-dia-tag.is-accent { color: var(--accent); }
+.lp-root .lp-ba-line { margin: var(--space-6) 0 0; font-size: var(--text-title); font-weight: 700; line-height: 1.3; color: var(--text); }
+
+/* 始め方の 4 枚（小さな線の絵＋短い名前） */
+.lp-tiles { list-style: none; margin: 0 0 var(--space-6); padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+.lp-tile { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); padding: var(--space-4); background: var(--surface); border: 1px solid var(--separator); border-radius: var(--radius); }
+.lp-tile-svg { width: 48px; height: 45px; color: var(--text); }
+.lp-tile-label { font-size: var(--text-sub); font-weight: 600; color: var(--text); line-height: 1.4; word-break: keep-all; overflow-wrap: anywhere; }
+@media (min-width: 768px) {
+  .lp-dia { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
+  .lp-dia-card { padding: var(--space-6) var(--space-6) var(--space-4); }
+  .lp-root .lp-ba-line { font-size: calc(var(--text-title) * 1.15); margin-top: var(--space-8); }
+  .lp-start-sec .lp-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

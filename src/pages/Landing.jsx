@@ -43,12 +43,13 @@ import { TRIAL_TOKENS, FREE_OCR_PER_MONTH } from '../lib/tokenAmounts';
 import { normalizeTrialLabel } from '../lib/trialLabel';
 import { readFoundingOffer, noBreak, FOUNDING_NAME } from '../lib/foundingOffer';
 import Shot from './LpShot';
+import { DialogueDiagram, StartTiles } from './LpDiagram';
 import LpFlow from './LpFlow';
 import LpWaitlist from './LpWaitlist';
 import LpIllust from './LpIllust';
 import LpArt, { hasArt } from './LpArt';
 import Phrases from './LpPhrases';
-import { buildLpCopy, storeHrefOf, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE, ZERO_RISK_NOTE, PROBLEM_LEAD } from './lpCopy';
+import { buildLpCopy, storeHrefOf, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE, ZERO_RISK_NOTE } from './lpCopy';
 import qrcode from 'qrcode-generator';
 import { lpTrack, lpVariant, storeUrlFor, isWidePointer } from '../lib/lpTrack';
 import { inject as injectVercelAnalytics } from '@vercel/analytics';
@@ -139,35 +140,22 @@ function HeroMini() {
   );
 }
 
-// ② これまでの読書と、Orime の読書（2026-10-12 オーナー「従来の読書は一方通行。Orime は本と会話できるので、
-//   自分自身のオリジナルの内容で理解できる。ビフォーアフターの世界観を」）。図は 本 → 自分（一方通行）と 本 ⇄ 自分（会話）。
-const BEFORE_AFTER = [
-  { label: '', title: '読み終えたら、そこで終わり。', body: 'たいていそのまま本棚に戻ります。' },
-  { label: '', title: '自分だけの理解が残る。', body: '本に悩みを話すと、質問が返ってきます。答えているうちに、考えがまとまっていきます。', after: true },
-];
 
-// ② 相談の例（幅を持たせて 3 つ・立場で絞らない）
-const ASK_EXAMPLES = [
-  { q: '部下に任せたいのに、結局自分でやってしまう。どうしたらいい？' },
-  { q: '面接で話せる強みが見つからない' },
-  { q: '何を始めても三日坊主で終わる' },
-];
 
 // ③ の下の、読書記録アプリとしての基本（2026-10-13 オーナー「ブクログなども意識して、バーコード・フォルダ分けも当たり前にできると」）。
 //   乗り換える人が「今やっていることができるか」を確かめる場所。主役にはしない（見出しは小さく・ふつうの箇条書き）。どれも実装済み。
 const BASICS = [
-  'バーコードを読み取って本を登録',
-  '読みたい・積読・読書中・読了で管理',
-  'フォルダで自由に分ける',
-  '読み終えた本に ★ で評価',
+  'バーコードで登録',
+  '読みたい・積読・読書中・読了',
+  'フォルダ分け・★ の評価',
   'ブクログ・読書メーター・Kindle から取り込み',
-];
+]
 
 // ③ 続けられて、成果が見える（柱 ②〜⑤・1 つ 1〜2 文・画面 1 枚）
 const PILLARS = [
   {
     id: 'action', shot: 'action', artAlt: '相談で決めた一歩を、明日のやることに書き込む様子のイラスト',
-    title: '相談の最後に、明日やることを決める',
+    title: '明日やることを決める',
     body: '決めたことは行動リストに入り、期限の日の朝に通知が届きます。',
     alt: '振り返りの行動の画面。明日・来週以降に分かれた行動の一覧と、それぞれの本の名前',
   },
@@ -179,7 +167,7 @@ const PILLARS = [
   },
   {
     id: 'share', share: true, artAlt: '心に残った一文を写真に重ねて共有する様子のイラスト',
-    title: '気に入った一文を画像にして投稿',
+    title: '一文を画像で投稿',
     body: '写真に一文と書名をのせて、SNS に投稿できます。',
     alt: '写真で共有で作った縦長の画像。海辺のカフェの写真の上に、細い明朝の一文「「人間として何が正しいか」と自分に問い、正しいと信じる道を貫き倒す。」と、読書中の本『考え方』稲盛和夫、Orime のロゴと日付 2026.10.12 が重なっている',
   },
@@ -193,14 +181,14 @@ const PILLARS = [
     // AI 選書（2026-10-11 オーナー「おすすめの本と順番、その本を読む戦略まで」）。言い過ぎない: 聞き取り・読んできた本と評価・
     //   最近の相談 → おすすめと読む順番 → 追加した本の読書計画シート。どちらもプランの機能。
     id: 'advisor', shot: 'advisor', artAlt: '悩みを聞いて、次に読む本と読む順番を選ぶ様子のイラスト',
-    title: '次に読む本を選んでもらう',
+    title: '次の一冊を選んでもらう',
     body: '悩みを話すと、これまで読んだ本や最近の相談をもとに、おすすめの本と読む順番を出します。', plan: true,
     alt: 'AI 選書の画面。受け取った悩みのまとめと、おすすめの本のカード、読む順番',
   },
   {
     // 6 つめ: 読書記録の基本（2026-10-16 第 6 回・ほかの 5 つと同じ形＝画面＋題＋箇条書き。格子の形をそろえる）
     id: 'library', shot: 'library', artAlt: '',
-    title: '本の記録も、ふつうにできます',
+    title: '本の記録も、ふつうに',
     list: BASICS,
     alt: 'すべての本の画面。表紙の一覧と、読書中・読了・積読・読みたいの絞り込み、フォルダのチップ',
   },
@@ -209,18 +197,20 @@ const PILLARS = [
 
 // ③ の下の安心の 4 つ。学習＝各社の API 規約／同意＝ensureAiConsent（はじめて AI を使う操作のとき）／
 // 書き出し＝設定の CSV（lib/exportData.js）・退会のお申し込みで消去／写真で共有＝端末の中で描く（サーバーに送らない）。
+// 2026-10-16 オーナー「無駄な文字が多い」: 1 行ずつの短い言い切りに（事実だけ・詳しくは FAQ とプライバシーポリシー）。
 const TRUST_POINTS = [
-  'メモが AI の学習に使われることはありません。使っている AI の会社の規約で決まっています。',
-  'メモを送るのは、AI を使うときだけです。はじめて使う前に、送る⁠内容が表示されます。',
-  '本・メモ・行動は、いつでも CSV で書き出せます。',
+  'メモは AI の学習に使われません',
+  'AI に送るのは、AI を使うときだけ',
+  'いつでも CSV で書き出せます',
 ];
 
 // ④ メモがゼロでも、今日から（0 日目の 4 つの道・SPEC §1-1d）
+// 2026-10-16: 説明の文をやめ、小さな線の絵＋短い名前の 4 枚に（LpDiagram.jsx の StartTiles）。
 const START_POINTS = [
-  { head: '読んだ本に一言', body: `覚えていることを一行だけ。${noBreak('うろ覚え')}でかまいません。` },
-  { head: 'ほかのアプリから取り込む', body: 'ブクログ・読書メーター・Kindle の記録を移せます。' },
-  { head: '本のページを撮る', body: '撮ったページを文字に起こします。' },
-  { head: '積読から始める', body: '読む前に、学べる⁠ことが分かります。' },
+  { icon: 'memo', label: '読んだ本に一言' },
+  { icon: 'import', label: 'ほかのアプリから取り込む' },
+  { icon: 'photo', label: '本のページを撮る' },
+  { icon: 'stack', label: '積読から始める' },
 ];
 
 // 🧭 ページ内の案内（2026-10-13 オーナー「ハンバーガーメニュー等を適宜」）。広い画面はヘッダーに文字のリンク、
@@ -387,21 +377,6 @@ function Entry({ loc, wl, qr = false, badge = false, launch = false, center = fa
 }
 
 // 節の中の 3〜4 項目（見出し＋本文・上に線）。印を付けるときは check。
-function PointList({ items, check = false, className = 'lp-points' }) {
-  return (
-    <ul className={className}>
-      {items.map((p) => (
-        <li key={p.head}>
-          {check && <Check size="1.1em" strokeWidth={2.4} aria-hidden="true" />}
-          <div>
-            <p className="lp-points-title">{p.head}</p>
-            <p className="lp-wbr"><Phrases>{p.body}</Phrases></p>
-          </div>
-        </li>
-      ))}
-    </ul>
-  );
-}
 
 export default function Landing() {
   const heroCtaRef = useRef(null);
@@ -633,7 +608,7 @@ export default function Landing() {
                 <span>読んだ本と、</span><span>会話しよう。</span>
               </h1>
               <p className="lp-lead lp-wbr">
-                <Phrases>気になった一行をメモしておくと、迷ったときに、その本に相談できます。AI が本の語り口で、メモをもとに答えます。</Phrases>
+                <Phrases>メモした本に、迷ったときに相談できる。AI が本の語り口で答えます。</Phrases>
               </p>
               <div className="lp-cta-block" ref={heroCtaRef}>
                 {/* QR は最後の案内だけ（ヒーローの主ボタンの横の黒い四角がいちばん重く見えた・2026-10-16 ui-critic） */}
@@ -688,35 +663,13 @@ export default function Landing() {
               <h2 className="lp-h2" id="lp-flow">
                 <span>一方通行の読書から、</span><span>会話する読書へ。</span>
               </h2>
-              {/* 問題の自覚（損失回避・好奇心のすき間／2026-10-12）。効果の言い切りはしない */}
-              <p className="lp-wbr lp-sec-lead"><Phrases>{PROBLEM_LEAD}</Phrases></p>
-              {/* ビフォーアフターの絵（2026-10-12 オーナーの絵・public/lp/illust-dialogue-*.webp・LpArt.jsx）。見出しのすぐ下・2 枚のカードの上 */}
-              <div className="lp-ba-wrap">
-              <LpArt name="illust-dialogue" ratio="4:3" sizes="(min-width: 768px) 600px, 92vw" className="lp-art-sec lp-art-wide" alt="左は、椅子に座って本を一人で静かに読んでいる人。右は、同じ人が机で本を開き、本と人のあいだを「？」や電球、メモの吹き出しが行き来して、明るい表情でうなずいている" />
-              <ul className="lp-ba">
-                {BEFORE_AFTER.map((r) => (
-                  <li key={r.title} className={r.after ? 'is-after' : undefined}>
-                    {/* 図やカードは使わず、文の大きさだけで「これまで → これから」を見せる（2026-10-16 ui-critic・LP の文の組み） */}
-                    {r.label && <p className="lp-ba-label">{r.label}</p>}
-                    <p className="lp-ba-title lp-wbr"><Phrases clause>{r.title}</Phrases></p>
-                    <p className="lp-ba-body lp-wbr"><Phrases>{r.body}</Phrases></p>
-                  </li>
-                ))}
-              </ul>
-              </div>
             </div>
+            {/* 2026-10-16: 文の代わりに図（これまで＝本 → 自分で終わり／Orime＝本 ⇄ 自分）。その下に残す言葉 1 行だけ。 */}
+            <DialogueDiagram />
+            <p className="lp-ba-line">自分だけの理解が残る。</p>
             {/* 一番の価値（CLAUDE.md）を、会話の流れ 4 枚の見出しに（2026-10-12 ui-critic） */}
-            <h2 className="lp-h2 lp-flow-head" id="lp-grow"><span>メモが増えるほど、</span><span>答えが自分向けになります</span></h2>
+            <h2 className="lp-h2 lp-flow-head" id="lp-grow"><span>メモが増えるほど、</span><span>答えが自分向けに。</span></h2>
             <LpFlow onEvent={lpTrack} note={false} />
-            <div className="lp-asks">
-              <p className="lp-asks-title">相談の例</p>
-              {/* 相談の入力の吹き出しの形（アプリの送った相談と同じ見た目・右寄せ） */}
-              <ul>
-                {ASK_EXAMPLES.map((x) => (
-                  <li key={x.q}><span className="lp-asks-bubble"><span className="lp-wbr"><Phrases>{x.q}</Phrases></span></span></li>
-                ))}
-              </ul>
-            </div>
           </div>
         </section>
 
@@ -760,7 +713,6 @@ export default function Landing() {
                   </div>
                   <div className="lp-pillar-text">
                     <h3 className="lp-h3 lp-wbr"><Phrases clause>{x.title}</Phrases>{x.plan && <span className="lp-plan-badge lp-pillar-plan">プラン</span>}</h3>
-                    {x.body && <p className="lp-wbr"><Phrases>{x.body}</Phrases></p>}
                     {x.list && (
                       <ul className="lp-pillar-list">
                         {x.list.map((t) => <li key={t} className="lp-wbr"><Phrases>{t}</Phrases></li>)}
@@ -788,7 +740,7 @@ export default function Landing() {
             <div className="lp-start-wrap">
               <LpArt name="illust-start" ratio="4:3" sizes="(min-width: 768px) 600px, 92vw" className="lp-art-sec lp-art-wide" alt="机で本のページをスマホで撮る人。まわりに、付箋に一言書く手・本棚の本がスマホに移る様子・本のページを撮る枠の 3 つの丸い絵が浮かんでいる" />
               <div>
-                <PointList items={START_POINTS} className="lp-points" />
+                <StartTiles items={START_POINTS} />
                 <div className="lp-cta-block">
                   <Entry loc="start" wl={wl} />
                 </div>
@@ -835,7 +787,7 @@ export default function Landing() {
                     見出しに金額を置かない（月あたりの額を請求額より大きく見せない） */}
                 料金
               </h2>
-              <p className="lp-wbr"><Phrases>{`プランは月 ${MONTHLY_TEXT}、本 1 冊ぶんくらいです。まずは無料プランで試してみてください。`}</Phrases></p>
+              <p className="lp-wbr"><Phrases>{`プランは月 ${MONTHLY_TEXT}。本 1 冊ぶんくらいです。`}</Phrases></p>
             </div>
 
             {/* 創業メンバー価格（期間中だけ・料金の中の帯 1 枚）。「先着」「通常価格」と書かない・差額を書かない */}
@@ -871,6 +823,7 @@ export default function Landing() {
                     <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>無料期間中も <span className="lp-nb">AI の答え {TRIAL_CONSULTS}</span></span></li>
                   )}
                 </ul>
+                {/* 量の目安（用語の正典: LP の注記に 1 回・2026-10-09） */}
                 <p className="lp-plan-hint lp-wbr"><Phrases>{`${CONSULT_ANSWERS_NOTE}`}</Phrases></p>
                 <div className={`lp-plan-rows${OFFER.active ? ' is-founding' : ''}`}>
                   <div className="lp-plan-row">
@@ -941,7 +894,6 @@ export default function Landing() {
               {/* 2 句目（プランの無料期間）は料金の区画へ戻る文字のリンク（2026-10-12） */}
               <p className="lp-cta-note lp-wbr">
                 <span><Phrases>{COPY.priceLine[0]}</Phrases></span>
-                <a className="lp-inline-link lp-final-plan" href="#lp-pricing" onClick={() => lpTrack('cta_click', { loc: 'final_plan' })}><Phrases>{COPY.priceLine[1]}</Phrases></a>
               </p>
             </div>
           </div>

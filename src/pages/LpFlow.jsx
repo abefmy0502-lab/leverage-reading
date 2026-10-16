@@ -18,25 +18,25 @@ import Shot from './LpShot';
 export const FLOW_STEPS = [
   {
     name: 'flow-line',
-    title: '気になった一行をメモ',
+    title: '一行メモ',
     body: '読みながら、引っかかった一行を書いておきます。',
     alt: '『嫌われる勇気』の本の詳細のメモの一覧。今日残した一行「人にどう思われるかより、自分がどうしたいかを先に考える。」と、「この本に相談する」',
   },
   {
     name: 'flow-talk',
-    title: '本に相談する',
+    title: '本に相談',
     body: '悩みをそのまま送ります。1 冊にも、本棚の本ぜんぶにも聞けます。',
     alt: '相談の画面。相談相手を『嫌われる勇気』にして「相手が自分をどう思うかが気になって、意見が言えません」と送り、本の語り口の答えを書きはじめている',
   },
   {
     name: 'flow-voice',
-    title: '本の語り口で返ってくる',
+    title: '本の語り口で答える',
     body: 'いきなり結論は出さず、「どんな会議ですか？」のように、まず状況を聞いてきます。',
     alt: '本の語り口の答え「私の考え方で言えば、他人の課題と自分の課題を分ける」と、「意見を言いにくいのは、どんな会議ですか？」という問い。入力欄の上に答えの候補のチップ',
   },
   {
     name: 'flow-source',
-    title: 'どのメモからの答えか分かる',
+    title: '根拠のページが分かる',
     body: 'もとになった本とページが付くので、すぐ読み返せます。',
     alt: '答えの「根拠を見る」を開いた画面。『嫌われる勇気』p.40 に残したメモの一節と、もとになった本',
   },
@@ -74,7 +74,6 @@ export default function LpFlow({ onEvent = () => {}, note = true }) {
         {FLOW_STEPS.map((s, i) => (
           <li key={s.name}>
             <h3 className="lp-gallery-title lp-wbr"><Phrases clause>{s.title}</Phrases></h3>
-            <p className="lp-gallery-body lp-wbr"><Phrases>{s.body}</Phrases></p>
             <Shot name={s.name} alt={s.alt} className="lp-shot lp-gallery-shot" sizes="(min-width: 768px) 260px, 68vw" />
           </li>
         ))}
