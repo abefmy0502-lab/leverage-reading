@@ -4,6 +4,7 @@
 > **公開日 2026-11-17（火）**・創業メンバー期間 **11/17〜12/16（日本時間）**・公開から 90 日＝**2/15（月）**。
 > 担当：**オーナー**（Mac・App Store Connect・Vercel・投稿・連絡）／**Claude**（下書き・画像と動画の準備・確かめ）。中身の文は同じフォルダの各ファイル（X＝`x-posts.md`・動画＝`short-video-scripts.md`・カルーセル＝`instagram-carousels.md`・note＝`note-drafts/`・協業＝`partner-outreach.md`・メール＝`launch-email.md`・ストア＝`../app-store-listing.md`）。
 > 予定が動いたら、この表と `x-posts.md` の日付を直す。
+> **2026-10-16：Instagram と Threads は毎日**（リール 週 5・カルーセル 週 2・Threads 毎日 1・土日にまとめて作る）。頻度・作り方・週の段取りは `../sns-daily-system-2026-10.md` が正。下の表の動画・カルーセルの番号は、その週に出す回の中身として使う。
 > **場は Instagram（リール・カルーセル）・Threads・X・note の 4 つ**（2026-10-11 オーナー決定）。動画はリールと X に同じものを出す。出す前に `sns-playbook.md` §7 の安全策（画面は見本の字幕・「本の著者・出版社とは関係ありません」など）を通す。
 
 ## 毎日・毎週（表には書かない）
