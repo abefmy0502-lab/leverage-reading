@@ -399,7 +399,6 @@ export default function Landing() {
   const heroCtaRef = useRef(null);
   const [showSticky, setShowSticky] = useState(false);
   // ヒーローのボタンが見えている間は、ヘッダーのボタン（広い画面）を隠す＝主ボタンを 2 つ並べない。
-  const [heroCtaVisible, setHeroCtaVisible] = useState(true);
   // 公開のお知らせ: 1 か所で送ったら、ほかの入口も「お知らせします」にする。
   const [wlDone, setWlDone] = useState(false);
   const wl = { done: wlDone, markDone: useCallback(() => setWlDone(true), []) };
@@ -544,10 +543,6 @@ export default function Landing() {
         return r.bottom > top && r.top < vh;
       });
       setShowSticky(!inlineCtaVisible && (el ? el.getBoundingClientRect().bottom < 0 : window.scrollY > 480));
-      if (el) {
-        const hr = el.getBoundingClientRect();
-        setHeroCtaVisible((hr.bottom > top && hr.top < vh) || inlineCtaVisible);
-      }
     };
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
@@ -601,10 +596,8 @@ export default function Landing() {
             </ul>
             {!PRELAUNCH && (
               <StoreCta
-                className={`lp-btn lp-btn-small lp-header-cta${heroCtaVisible ? ' is-hidden' : ''}`}
+                className="lp-btn lp-btn-small lp-btn-ghost lp-header-cta"
                 loc="header"
-                tabIndex={heroCtaVisible ? -1 : undefined}
-                hidden={heroCtaVisible}
               >
                 {CTA_LABEL}
               </StoreCta>
