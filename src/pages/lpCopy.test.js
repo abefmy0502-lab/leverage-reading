@@ -28,7 +28,7 @@ describe('buildLpCopy（全部の組み合わせ）', () => {
     const note = c.pricingNote[0].replace(/\u2060/g, '').replace(/\u00a0/g, ' ');
     expect(note).toMatch(/月額 ¥1,480[^。]*税込/);
     if (cfg.offer.active) expect(note).toContain('2 年目から年額 ¥12,800（税込）で自動更新');
-    if (cfg.trialNote) expect(c.pricingNote[0]).toContain('24 時間前までに解約すれば');
+    if (cfg.trialNote) expect(note).toContain('24 時間前までに解約すれば');
   });
   it.each(combos.map((c) => [name(c), c]))('%s: 使わない言い方（作り話・忘れない・初めての方・先着・通常価格・シェア）が無い', (_, cfg) => {
     const t = allText(buildLpCopy(cfg));

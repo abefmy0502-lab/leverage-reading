@@ -95,10 +95,10 @@ export function buildLpCopy({
   if (active) {
     renew = `${FOUNDING_NAME}の年額プランは、1 年目の ${noBreak(`${FOUNDING_PRICE}（税込）`)}を始めるときにまとめてお支払いいただき、2 年目から${noBreak(`年額 ${ANNUAL_TEXT}（税込）`)}で自動更新されます。`
       + (TRIAL
-        ? `月額プランは${TRIAL_SENT}で、そのあと${noBreak(`月額 ${MONTHLY_TEXT}（税込）`)}で自動更新されます。無料期間が終わる 24 時間前までに解約すれば、料金はかかりません。`
+        ? `月額プランは${TRIAL_SENT}で、そのあと${noBreak(`月額 ${MONTHLY_TEXT}（税込）`)}で自動更新されます。${noBreak('無料期間が終わる')} ${noBreak('24 時間前までに')}解約すれば、${noBreak('料金はかかりません')}。`
         : `月額プランは${noBreak(`月額 ${MONTHLY_TEXT}（税込）`)}で自動更新されます。`);
   } else if (TRIAL) {
-    renew = `${TRIAL_SENT}。そのあと月額\u00a0${MONTHLY_TEXT} か年額\u00a0${ANNUAL_TEXT}（税込）で自動更新されます。無料期間が終わる 24 時間前までに解約すれば、料金はかかりません（App Store から）。`;
+    renew = `${TRIAL_SENT}。そのあと${noBreak(`月額 ${MONTHLY_TEXT}`)} か${noBreak(`年額 ${ANNUAL_TEXT}（税込）`)}で自動更新されます。${noBreak('無料期間が終わる')} ${noBreak('24 時間前までに')}解約すれば、${noBreak('料金はかかりません')}（App Store から）。`;
   } else {
     renew = `プランは、選んだプラン（月額 ${MONTHLY_TEXT} または年額 ${ANNUAL_TEXT}・税込）で自動更新されます。`;
   }
@@ -147,7 +147,7 @@ export function buildLpCopy({
     }] : []),
     ...(TRIAL ? [{
       q: '無料期間のあとは、自動で料金がかかりますか？',
-      a: `${TRIAL_WHO}の無料期間（${TRIAL}）は、AI を ${TRIAL_TOKENS} トークン（答え ${TRIAL_CONSULTS}）まで使えます。無料期間が終わると、${active ? `${noBreak(`月額 ${MONTHLY_TEXT}（税込）`)}` : '選んだプラン（月額か年額）'}で自動更新されます。終わる 24 時間前までに App Store で解約すれば、料金はかかりません。無料期間を使えるのは 1 つの Apple ID につき 1 回で、${ELIGIBLE}が対象です。`,
+      a: `${TRIAL_WHO}の無料期間（${TRIAL}）は、AI を ${TRIAL_TOKENS} トークン（答え ${TRIAL_CONSULTS}）まで使えます。無料期間が終わると、${active ? `${noBreak(`月額 ${MONTHLY_TEXT}（税込）`)}` : '選んだプラン（月額か年額）'}で自動更新されます。終わる 24 時間前までに App Store で解約すれば、${noBreak('料金はかかりません')}。無料期間を使えるのは 1 つの Apple ID につき 1 回で、${ELIGIBLE}が対象です。`,
     }] : []),
     {
       q: '解約すると、メモは消えますか？',
