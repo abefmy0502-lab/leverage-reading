@@ -133,7 +133,8 @@ export function BriefMakeRow({ material, making, waiting = false, costShort = ''
         }}
       >
         {/* その場で作る行なので、› は付けない（ほかの画面へは移らない）。 */}
-        <span style={{ flex: '1 1 auto', minWidth: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+        {/* 押せる行だと分かるよう、文字は栗色（見出し「この本について」と同じ形に見えていた・2026-10-16 第 4 回） */}
+        <span style={{ flex: '1 1 auto', minWidth: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere', ...(off ? null : { color: 'var(--accent)' }) }}>
           {withPhraseBreaks(making ? '作成中…' : error ? 'もう一度作る' : BRIEF_MAKE_LABEL)}
         </span>
         {!off && costShort && <span style={{ flex: '0 0 auto', fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', lineHeight: 1.5 }}>{costShort}</span>}

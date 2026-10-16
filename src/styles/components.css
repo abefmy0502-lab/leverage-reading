@@ -1307,6 +1307,9 @@ textarea[aria-invalid="true"]:not(.no-focus-ring):focus {
 /* 名前の幅のサブタブ＋右端にその画面の操作（相談｜AI 選書 の行・2026-10-01 ui-critic）。
    タブは文字の幅（左右 16）で左に寄せ、右端の操作（44×44 のアイコン）は見た目の右端を余白 16 にそろえる。 */
 .sub-tabs--fit { align-items: center; }
+/* 会話を下へ送ったら、行の下に区切り線（iOS の固定した行と同じ・線の太さぶんはいつも取って高さを変えない） */
+.sub-tabs--fit { border-bottom: 1px solid transparent; }
+.sub-tabs--fit[data-scrolled] { border-bottom-color: var(--separator); }
 .sub-tabs__list { display: flex; gap: var(--space-2); flex-shrink: 0; }
 .sub-tabs--fit .sub-tab { flex: 0 0 auto; padding: var(--space-2) var(--space-4); }
 .sub-tabs__actions {

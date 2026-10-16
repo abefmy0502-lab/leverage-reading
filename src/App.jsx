@@ -741,6 +741,8 @@ function AuthedApp() {
   const [actionShowDoneNonce, setActionShowDoneNonce] = useState(null);
   // 相談の「行動に追加しました 見る」から来たときに光らせる行動（{ bookId, text, nonce }）。
   const [actionFocus, setActionFocus] = useState(null);
+  // 相談の会話を下へ送ったか（上の「相談｜AI 選書」の行の下に線・2026-10-16 第 4 回）
+  const [consultScrolled, setConsultScrolled] = useState(false);
   // 🏠→🧠 本棚ホームの「相談する」から渡す質問。MyBookBrain が履歴読込後に 1 回送る。
   const [askPreset, setAskPreset] = useState(null); // { question, nonce } | null
   // 相談タブのサブタブ（相談｜AI 選書）の行の右端。相談の 🕒・…／AI 選書の履歴・新規はここへ portal で出す（2026-10-01 ui-critic）。
@@ -4702,7 +4704,7 @@ function AuthedApp() {
                       aria-busy={genHere || undefined}
                       style={{ width: '100%', minHeight: 'var(--btn-h)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', padding: 'var(--space-3) var(--space-4)', background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', fontFamily: 'inherit', textAlign: 'left', cursor: planGen ? 'default' : 'pointer', color: planGen ? 'var(--text-3)' : 'var(--text)' }}>
                       {/* 無料プランには押す前に有料と分かる印（「AI に答えてもらう（プラン）」と同じ作法・2026-10-09） */}
-                      <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-sub)', fontWeight: 600 }}>{genHere ? '作成中…' : paywallFree ? '読書計画シートを作る（プラン）' : '読書計画シートを作る'}</span>
+                      <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-sub)', fontWeight: 600, ...(planGen ? null : { color: 'var(--accent)' }) }}>{genHere ? '作成中…' : paywallFree ? '読書計画シートを作る（プラン）' : '読書計画シートを作る'}</span>
                       {!genHere && !paywallFree && planCostLine && planTokensOutId !== current.id && (
                         <span style={{ flexShrink: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{planCostLine.split('・')[0]}</span>
                       )}
@@ -6159,6 +6161,8 @@ function AuthedApp() {
                     // 共有のシートの「どの本？」と同じ・2026-10-11 点検）。
                     margin: 'calc((var(--space-8) - var(--tap-min)) / 2) calc(-1 * var(--space-4))',
                     paddingLeft: 'var(--space-4)',
+                    // 右にも 16（最後のチップまで送り切れる・2026-10-16 第 4 回）
+                    paddingRight: 'var(--space-4)',
                     scrollPaddingLeft: 'var(--space-4)',
                     WebkitOverflowScrolling: 'touch',
                     // 右端をふわっと透過させ「まだ続きがある（横スクロールできる）」を示す。
@@ -6504,7 +6508,7 @@ function AuthedApp() {
             {/* サブタブは名前の幅（相談｜AI 選書）で左に寄せ、同じ行の右端にその画面の操作（相談の 🕒・…／AI 選書の履歴・新規）。
                 上の操作を「サブタブ／アイコンの行／件数の行」と 3 段に積まない（2026-10-01 ui-critic・DESIGN §5）。 */}
             {!(aiSubTab === 'brain' && consultPushed) && !(aiSubTab === 'advisor' && advisorPushed) && (
-            <div className="sub-tabs sub-tabs--fit" style={{ flexShrink: 0 }}>
+            <div className="sub-tabs sub-tabs--fit" data-scrolled={aiSubTab === 'brain' && consultScrolled ? '' : undefined} style={{ flexShrink: 0 }}>
             <div role="tablist" aria-label="相談のサブタブ" className="sub-tabs__list sub-tabs__seg" onKeyDown={onTabListKeyDown}>
               <button
                 type="button"
@@ -6572,6 +6576,7 @@ function AuthedApp() {
                     onOpenActions={(focus) => { setActionFocus(focus && focus.bookId ? { ...focus, nonce: Date.now() } : null); setReviewSubTab('action'); setTab('review'); }}
                     askPreset={askPreset}
                     scopePreset={scopePreset}
+                    onScrolledChange={setConsultScrolled}
                     onSearchMemos={openMemoSearch}
                     onPushedViewChange={setConsultPushed}
                     barSlot={aiBarSlot}

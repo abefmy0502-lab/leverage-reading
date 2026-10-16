@@ -433,7 +433,7 @@ function LearningInline({ onSaved, onDirtyChange, initialTags = null }) {
 // Main MyBookBrain component
 // ============================================================================
 // barSlot: App のサブタブ（相談｜AI 選書）の行の右端の要素。会話の 🕒・… はそこへ出す（上の操作を 3 段に積まない・2026-10-01 ui-critic）。
-export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBooksMutated, onAddActionPickBook, onGoBookshelf, onQuickstart, onAddBook, onOpenActions, askPreset, scopePreset, onPushedViewChange, onSearchMemos, barSlot = null }) {
+export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBooksMutated, onAddActionPickBook, onGoBookshelf, onQuickstart, onAddBook, onOpenActions, askPreset, scopePreset, onPushedViewChange, onSearchMemos, barSlot = null, onScrolledChange = null }) {
   const { user } = useAuth();
   // 文字の大きさの設定が大きいとき（ルートの文字 22px 以上・ImportSheet と同じ目安）。入力欄の案内を短くする。
   const [largeText] = useState(() => {
@@ -2071,6 +2071,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // 中身を下へ送ったか（上部の行の下に線を出す）。画面を切り替えたら戻す。
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => { setScrolled(false); }, [view]);
+  // 会話を下へ送ったかを App に伝える（上の「相談｜AI 選書」の行の下に線を出す・iOS の固定した行と同じ・2026-10-16 第 4 回）。
+  useEffect(() => { onScrolledChange?.(view === 'chat' && scrolled); }, [view, scrolled, onScrolledChange]);
+  useEffect(() => () => onScrolledChange?.(false), [onScrolledChange]);
   const onBodyScroll = (e) => {
     const top = e.currentTarget.scrollTop;
     if (view === 'chat') rememberSession(user?.id, { scrollTop: top });
@@ -2312,8 +2315,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               return (
                 // 相談（会話）どうしの間は 32（中は 12）＝どこからどこまでが 1 つの相談か分かるように（2026-10-08 ui-critic）。
                 <div key={g[0].id} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginBottom: 'calc(var(--space-8) - var(--space-3))' }}>
+                  {/* 過去の相談では「行動に追加」を行の副ボタンに（主ボタンは「この続きを相談する」1 つ・2026-10-16 第 4 回） */}
                   {g.map((m) => (
-                    <ChatMessage key={m.id} message={m} showTime onOpenBook={onOpenBook} books={books} actions={allActions} onAddAction={handleAnswerToAction} onAddActionPickBook={onAddActionPickBook} onRetry={busy ? null : regenerate} question={g[0].role === 'user' ? g[0].content : ''} onAskBook={askAboutBook} askBusy={busy} memoBookIds={memoBookIds} onShowPartner={setPartnerSheet} onOpenActions={onOpenActions} />
+                    <ChatMessage key={m.id} message={m} showTime quietAction onOpenBook={onOpenBook} books={books} actions={allActions} onAddAction={handleAnswerToAction} onAddActionPickBook={onAddActionPickBook} onRetry={busy ? null : regenerate} question={g[0].role === 'user' ? g[0].content : ''} onAskBook={askAboutBook} askBusy={busy} memoBookIds={memoBookIds} onShowPartner={setPartnerSheet} onOpenActions={onOpenActions} />
                   ))}
                   {/* 🧵 この続きを相談する（2026-10-08）: その相談の下に 1 つ。いちばん新しい相談は主ボタン、それより前は文字ボタン
                       （主ボタンを画面に何本も並べない）。押すと相談の画面で、この会話の続きから。 */}
@@ -3457,7 +3461,7 @@ function answerActionAddedBefore(message, question, actions) {
   return answerActionStatus({ answerId: message.id, actionText: text, actions }).added;
 }
 
-function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions = null, onAddAction, onAddActionPickBook, onRetry, onWriteLearning, showTime = false, question = '', onAskBook = null, askBusy = false, onActionAdded = null, onOpenActions = null, memoBookIds = null, onShowPartner = null, askProgress = '', primaryAction = false }) {
+function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions = null, onAddAction, onAddActionPickBook, onRetry, onWriteLearning, showTime = false, question = '', onAskBook = null, askBusy = false, onActionAdded = null, onOpenActions = null, memoBookIds = null, onShowPartner = null, askProgress = '', primaryAction = false, quietAction = false }) {
   const isUser = message.role === 'user';
   const isStreaming = !!message.streaming;
   const hasBody = typeof message.content === 'string' && message.content.length > 0;
@@ -3647,8 +3651,8 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
       <p style={{ ...readText, margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'keep-all', overflowWrap: 'break-word', ...hangIndent(p.action), ...(isStreaming ? { minHeight: STEP_SKELETON_HEIGHT } : null) }}>{renderBoldPhrased(p.action)}{tail === 'action' && cursor}</p>
       {/* 書いている間は、押せない形で同じ場所に置く（書き終わったときに下が押し下がらないように） */}
       {isStreaming && (onAddAction || onAddActionPickBook) && (
-        <button type="button" disabled aria-hidden="true" tabIndex={-1} style={(primaryAction || isActionAnswer(p)) ? { ...uiBtnPrimaryOff, marginTop: 'var(--space-3)', gap: 'var(--space-2)' } : { ...rowBtn, ...rowBtnOffOnFill, marginTop: 'var(--space-3)' }}>
-          <Target size={(primaryAction || isActionAnswer(p)) ? '1.1em' : '1.2em'} aria-hidden="true" />行動に追加
+        <button type="button" disabled aria-hidden="true" tabIndex={-1} style={(!quietAction && (primaryAction || isActionAnswer(p))) ? { ...uiBtnPrimaryOff, marginTop: 'var(--space-3)', gap: 'var(--space-2)' } : { ...rowBtn, ...rowBtnOffOnFill, marginTop: 'var(--space-3)' }}>
+          <Target size={(!quietAction && (primaryAction || isActionAnswer(p))) ? '1.1em' : '1.2em'} aria-hidden="true" />行動に追加
         </button>
       )}
       {canShowAction && (
@@ -3659,8 +3663,8 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
         ) : (
           // はじめての相談で行動が出た回は、主ボタン（次にすることを 1 つに・2026-10-10 第 9 回 総点検）。
           //   行動が決まった回（【明日からできる…】）も、いつも主ボタン（次にすることは行動に追加・2026-10-11 リリース前の採点）。
-          <button type="button" onClick={handleAddAction} disabled={actionBusy} style={(primaryAction || isActionAnswer(p)) ? { ...(actionBusy ? uiBtnPrimaryOff : uiBtnPrimary), marginTop: 'var(--space-3)', gap: 'var(--space-2)' } : { ...rowBtn, marginTop: 'var(--space-3)', ...(actionBusy ? rowBtnOffOnFill : null) }}>
-            <Target size={(primaryAction || isActionAnswer(p)) ? '1.1em' : '1.2em'} aria-hidden="true" />行動に追加
+          <button type="button" onClick={handleAddAction} disabled={actionBusy} style={(!quietAction && (primaryAction || isActionAnswer(p))) ? { ...(actionBusy ? uiBtnPrimaryOff : uiBtnPrimary), marginTop: 'var(--space-3)', gap: 'var(--space-2)' } : { ...rowBtn, marginTop: 'var(--space-3)', ...(actionBusy ? rowBtnOffOnFill : null) }}>
+            <Target size={(!quietAction && (primaryAction || isActionAnswer(p))) ? '1.1em' : '1.2em'} aria-hidden="true" />行動に追加
           </button>
         )
       )}
