@@ -1667,9 +1667,12 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
             { label: 'もう一度', onClick: retryInterview, variant: 'secondary' },
             // 答えがまだ無い（最初の問いで失敗）ときは、最初の言葉だけで探す・最初の入力に戻る も選べる
             { label: (interviewError.answers || []).length === 0 ? '最初の言葉だけで探す' : 'このくらいで探して', onClick: searchAfterError, variant: 'ghost' },
-            ...((interviewError.answers || []).length === 0 ? [{ label: '最初の入力に戻る', onClick: () => { clearInterview(); setInput(concern); }, variant: 'ghost' }] : []),
           ]}
         />
+      )}
+      {/* 3 つめの道（最初の入力に戻る）はカードの外の控えめな文字ボタンに（カードの中の操作は 2 つまで・2026-10-16 第 5 回） */}
+      {interviewError && !interviewLoading && !recoLoading && (interviewError.answers || []).length === 0 && (
+        <button type="button" onClick={() => { clearInterview(); setInput(concern); }} style={{ ...uiBtnLinkQuiet, alignSelf: 'flex-start', marginTop: 'calc(-1 * var(--space-2))' }}>最初の入力に戻る</button>
       )}
 
       {/* いまの問い（1 つだけ・2026-10-08）。自分の言葉が主役: 問いのすぐ下に「自分の言葉で答える」。
@@ -2033,20 +2036,20 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
                 {rec.core && (
                   <div style={{ marginTop: 'var(--space-3)' }}>
                     <p style={fieldLabel}>この本の核心</p>
-                    <p style={fieldText}>{rec.core}</p>
+                    <p style={{ ...fieldText, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(rec.core)}</p>
                   </div>
                 )}
                 {/* 章番号・ページを書いた注目ポイントは出さない（AI は目次を持っていない＝推測・lib/advisorRecs.js の focusText） */}
                 {focusText(rec.focus) && (
                   <div style={{ marginTop: 'var(--space-3)' }}>
                     <p style={fieldLabel}>注目ポイント</p>
-                    <p style={fieldText}>{focusText(rec.focus)}</p>
+                    <p style={{ ...fieldText, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(focusText(rec.focus))}</p>
                   </div>
                 )}
                 {rec.duration && (
                   <div style={{ marginTop: 'var(--space-3)' }}>
                     <p style={fieldLabel}>目安</p>
-                    <p style={fieldText}>{rec.duration}</p>
+                    <p style={{ ...fieldText, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(rec.duration)}</p>
                   </div>
                 )}
                 <div ref={(el) => { if (el) addRowRefs.current[rec.title] = el; else delete addRowRefs.current[rec.title]; }} style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 'var(--space-2)', marginTop: 'var(--space-4)' }}>

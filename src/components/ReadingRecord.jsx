@@ -281,7 +281,8 @@ function MonthBars({ buckets, activeColor, unit = '冊' }) {
 // 濃さはアクセント 1 色の混ぜ具合で表す（暗い画面でも同じトークンで破綻しない）。
 // 記録の無い日は区切り線の色（--separator）。いちばん薄い段（65%）でもカードの面と 3:1 以上
 // （明るい画面 3.1・暗い画面 3.8）にして、記録のあった日が見落とされないようにする。
-const HEAT_COLORS = ['var(--separator)', 'color-mix(in srgb, var(--accent) 65%, var(--surface))', 'color-mix(in srgb, var(--accent) 82%, var(--surface))', 'var(--accent)'];
+// 読まなかった日は --fill（区切り線の色だと、いちばん薄い色との差が 3:1 に届かなかった・2026-10-16 第 5 回）
+const HEAT_COLORS = ['var(--fill)', 'color-mix(in srgb, var(--accent) 65%, var(--surface))', 'color-mix(in srgb, var(--accent) 82%, var(--surface))', 'var(--accent)'];
 function heatColor(n) {
   if (n <= 0) return HEAT_COLORS[0];
   if (n === 1) return HEAT_COLORS[1];
