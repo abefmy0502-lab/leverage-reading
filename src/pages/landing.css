@@ -922,7 +922,7 @@ body.lp-active {
    共有の画像は端末と同じ縦横の比の枠に、切らずに入れる（余りは端末の地の色）＝同じ段の画面と同じ高さ。 */
 @media (min-width: 768px) {
   .lp-pillars > li > .lp-pillar-shot { align-self: start; }
-  .lp-pillar-shot .lp-share-img { aspect-ratio: 390 / 844; object-fit: contain; background: var(--focus-bg); }
+  .lp-pillar-shot .lp-share-img { box-sizing: border-box; aspect-ratio: 300 / 631; object-fit: contain; background: var(--focus-bg); }
 }
 /* 最後の案内: ボタンを中央に、QR はその下（ボタンと QR をまとめて中央にすると、ボタンが見出しの中心からずれた・2026-10-16 第 6 回） */
 @media (min-width: 768px) { .lp-final-inner .lp-cta-row { flex-direction: column; align-items: center; } }
