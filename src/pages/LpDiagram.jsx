@@ -39,7 +39,7 @@ export function DialogueDiagram() {
         <svg viewBox="0 0 240 120" aria-hidden="true" className="lp-dia-svg is-before">
           <Book x={24} y={84} w={72} />
           {/* 本からの線は、自分に届く前に止まる（読んで終わり） */}
-          <path d="M108 66 H 150" {...S} />
+          <path d="M96 66 H 138" {...S} />
           <Person cx={196} y={92} />
         </svg>
         <figcaption><span className="lp-dia-tag">これまで</span>読んで、終わり</figcaption>
