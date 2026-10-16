@@ -60,47 +60,27 @@ function layoutCoverTitle(title) {
 }
 
 // 表紙は外部画像を使わず SVG を data URI で描く（オフラインでも本棚らしく見せる）。
-// 2026-10-16 ui-critic「同じ枠の表紙が並ぶと作り物に見える」: 内側の枠をやめ、本ごとに 3 つの組み方（左上に書名と短い線／
-// 下に帯／中央に書名と細い線）と 2 つの書体（明朝・ゴシック）を回す。左に背の影を細く入れて、本の形に見せる。
+// 2026-10-16: 内側の枠をやめ、左上に明朝の書名と短い線・下に著者・左に細い背の影（本の形に見せる）。
+// 組み方は 1 つにそろえ、本ごとに変えるのは地の色だけ（組み方を混ぜると作り物に見えた・ui-critic 第 2 回）。
 function coverSvg(title, author, i) {
   const [bg, fg] = COLORS[i % COLORS.length];
   const esc = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;');
   const { lines, size } = layoutCoverTitle(title);
   const lineH = Math.round(size * 1.25);
-  const kind = i % 3;
-  const family = i % 2 === 0 ? 'serif' : 'sans-serif';
-  const blockH = lines.length * lineH;
-  // 書名の 1 行目の基準線の y
-  const top = kind === 2 ? Math.round(150 - blockH / 2 + size * 0.85) : 44 + size;
-  const anchor = kind === 2 ? 'middle' : 'start';
-  const tx = kind === 2 ? 100 : 22;
+  const top = 44 + size;
   const titleSvg = lines.map((l, idx) =>
-    `<text x="${tx}" y="${top + idx * lineH}" text-anchor="${anchor}" font-size="${size}" font-weight="700" fill="${fg}" font-family="${family}" letter-spacing="0.02em">${esc(l)}</text>`,
+    `<text x="22" y="${top + idx * lineH}" font-size="${size}" font-weight="700" fill="${fg}" font-family="serif" letter-spacing="0.02em">${esc(l)}</text>`,
   ).join('');
   const lastBase = top + (lines.length - 1) * lineH;
-  let deco = '';
-  let authorSvg = '';
-  if (kind === 0) {
-    deco = `<rect x="22" y="${lastBase + 16}" width="28" height="2" fill="${fg}" fill-opacity="0.7"/>`;
-    authorSvg = `<text x="22" y="268" font-size="12" fill="${fg}" fill-opacity="0.85" font-family="sans-serif" letter-spacing="0.06em">${esc(author)}</text>`;
-  } else if (kind === 1) {
-    deco = `<rect x="0" y="222" width="200" height="78" fill="${fg}" fill-opacity="0.12"/>`;
-    authorSvg = `<text x="22" y="266" font-size="12" fill="${fg}" fill-opacity="0.9" font-family="sans-serif" letter-spacing="0.06em">${esc(author)}</text>`;
-  } else {
-    const upper = top - size - 14;
-    const lower = lastBase + 18;
-    deco = `<rect x="80" y="${upper}" width="40" height="1" fill="${fg}" fill-opacity="0.6"/><rect x="80" y="${lower}" width="40" height="1" fill="${fg}" fill-opacity="0.6"/>`;
-    authorSvg = `<text x="100" y="270" text-anchor="middle" font-size="12" fill="${fg}" fill-opacity="0.85" font-family="sans-serif" letter-spacing="0.06em">${esc(author)}</text>`;
-  }
   const svg =
     `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="300" viewBox="0 0 200 300">` +
     `<rect width="200" height="300" fill="${bg}"/>` +
-    deco +
+    `<rect x="22" y="${lastBase + 16}" width="28" height="2" fill="${fg}" fill-opacity="0.7"/>` +
     // 背（左の細い影と、その右の淡い光）
     `<rect x="0" y="0" width="7" height="300" fill="#000" fill-opacity="0.16"/>` +
     `<rect x="7" y="0" width="1" height="300" fill="#fff" fill-opacity="0.08"/>` +
     titleSvg +
-    authorSvg +
+    `<text x="22" y="268" font-size="12" fill="${fg}" fill-opacity="0.85" font-family="sans-serif" letter-spacing="0.06em">${esc(author)}</text>` +
     `</svg>`;
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }

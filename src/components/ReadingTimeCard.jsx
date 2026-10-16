@@ -148,15 +148,15 @@ const rowBtn = (on) => ({
 });
 
 // 期間の切り替え（iOS のセグメント・写真で共有の「投稿｜ストーリー」と同じ見た目・DESIGN §5）。
-const segTrack = { display: 'inline-flex', gap: 'var(--space-1)', padding: 'var(--space-1)', background: 'var(--fill)', borderRadius: 'var(--radius)' };
+// 振り返り・相談の上の切り替え（.sub-tabs__seg）と同じ形: 溝の内側 2・選んだ面は --seg-on＋細い縁（2026-10-16 ui-critic 第 2 回「切り替えの形が 3 種類」）。
+const segTrack = { display: 'inline-flex', gap: 2, padding: 2, background: 'var(--fill)', borderRadius: 'var(--radius)' };
 const segBtn = (on) => ({
   minHeight: 'var(--tap-min)',
   padding: '0 var(--space-4)',
   border: 'none',
-  borderRadius: 'calc(var(--radius) - var(--space-1))',
+  borderRadius: 'var(--radius)',
   background: on ? 'var(--seg-on)' : 'transparent',
-  // 選んだ方は溝より明るい --seg-on の面＋細い縁（暗い設定でも溝と見分けられる・2026-10-10 ui-critic）。
-  boxShadow: on ? 'inset 0 0 0 1px var(--border)' : 'none',
+  boxShadow: on ? '0 0 0 0.5px var(--separator)' : 'none',
   color: on ? 'var(--text)' : 'var(--text-2)',
   fontFamily: 'inherit',
   fontSize: 'var(--text-sub)',

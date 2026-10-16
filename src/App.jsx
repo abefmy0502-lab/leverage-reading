@@ -4697,19 +4697,26 @@ function AuthedApp() {
                 const genHere = planGen && planGen.bookId === current.id;
                 return (
                   <div style={{ marginTop: hasPlanFold ? 'var(--space-3)' : 'var(--space-6)' }}>
+                    {/* 枠の大きなボタンにせず、カードの 1 行（右に 1 回の目安）。主役は下の「読書を開始する」1 つ（2026-10-16 ui-critic 第 2 回）。 */}
                     <button type="button" onClick={() => runStrategyInPlace(current)} disabled={!!planGen}
-                      aria-busy={genHere || undefined} style={planGen ? btnGhostOff : btnGhost}>
+                      aria-busy={genHere || undefined}
+                      style={{ width: '100%', minHeight: 56, display: 'flex', alignItems: 'center', gap: 'var(--space-3)', padding: 'var(--space-3) var(--space-4)', background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', fontFamily: 'inherit', textAlign: 'left', cursor: planGen ? 'default' : 'pointer', color: planGen ? 'var(--text-2)' : 'var(--text)' }}>
                       {/* 無料プランには押す前に有料と分かる印（「AI に答えてもらう（プラン）」と同じ作法・2026-10-09） */}
-                      {genHere ? '作成中…' : paywallFree ? '読書計画シートを作る（プラン）' : '読書計画シートを作る'}
+                      <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-body)', fontWeight: 600 }}>{genHere ? '作成中…' : paywallFree ? '読書計画シートを作る（プラン）' : '読書計画シートを作る'}</span>
+                      {!genHere && !paywallFree && planCostLine && planTokensOutId !== current.id && (
+                        <span style={{ flexShrink: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{planCostLine.split('・')[0]}</span>
+                      )}
+                      {!genHere && <ChevronRight size="1.2em" aria-hidden="true" style={{ flexShrink: 0, color: 'var(--text-3)' }} />}
                     </button>
+                    {/* 残りは少ないときだけ下に 1 行（いつも出すと、メーターが回っているように感じる・2026-10-16 ui-critic 第 2 回） */}
+                    {!genHere && !paywallFree && planCostLine && planTokensOutId !== current.id && typeof paywallTokens === 'number' && paywallTokens < TOKEN_COSTS.setupSheet * 5 && (
+                      <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--warning)', lineHeight: 1.5, fontVariantNumeric: 'tabular-nums', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(planCostLine)}</p>
+                    )}
                     {/* プラン・7 日間無料の人には 1 回の目安と残り（下 8・13/--text-3・無料プランは「（プラン）」の印だけ）。 */}
                     {!genHere && planTokensOutId === current.id && (
                       <Suspense fallback={null}>
                         <PlanTokensOut style={{ marginTop: 'var(--space-3)' }} />
                       </Suspense>
-                    )}
-                    {!genHere && !paywallFree && planCostLine && planTokensOutId !== current.id && (
-                      <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, fontVariantNumeric: 'tabular-nums', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(planCostLine)}</p>
                     )}
                     {genHere && (
                       <div role="status" aria-live="polite" aria-label="読書計画シートを作っています" style={{ marginTop: 'var(--space-3)' }}>
@@ -4896,7 +4903,7 @@ function AuthedApp() {
                   onClick={() => openShareChooser({ book: current, from: 'detail' })}
                   aria-label="写真で共有"
                   // 文字はタブの画面の上の行と同じ上限（--text-bar-max）で止め、1 行に（文字サイズを大きくすると「写真で共／有」と割れていた・2026-10-04）。
-                  style={{ ...btnLink, color: 'var(--text)', fontSize: 'min(var(--text-sub), var(--text-bar-max))', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', padding: '0 var(--space-2)' }}
+                  style={{ ...btnLink, color: 'var(--text-2)', fontWeight: 400, fontSize: 'min(var(--text-sub), var(--text-bar-max))', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', padding: '0 var(--space-2)' }}
                 >
                   <Camera size={22} strokeWidth={1.75} aria-hidden="true" />
                   写真で共有
@@ -4982,6 +4989,15 @@ function AuthedApp() {
                   </div>
                 </div>
               )}
+              {/* 🏷 分野・🗂 フォルダ（2026-10-11）: 書名の列の中に置く（表紙の左端・見出しの列・行の値の列と、左の端が 3 つに分かれていた・2026-10-16 ui-critic 第 2 回）。
+                  分野は押すと、すべての本をその分野で絞る。フォルダは押すとそのフォルダで絞り、「変更」でフォルダに入れるシート（全状態）。 */}
+              <BookFieldLinks fields={fieldsOf(current)} onPick={openLibraryByField} />
+              <BookFolderLinks
+                folders={current.collections || []}
+                stacked={fieldsOf(current).length > 0}
+                onPick={openLibraryByFolder}
+                onEdit={() => { setNewFolderName(''); setFolderPickerBook(current); }}
+              />
               {/* ⏱ 読む（集中モード・読書中だけ・2026-10-09）。主役の「メモを書く」（右下の塗り）より弱い、枠の小さな副ボタン。 */}
               {current.status === 'reading' && (
                 <button
@@ -4997,15 +5013,6 @@ function AuthedApp() {
             </div>
           </div>
 
-          {/* 🏷 分野（2026-10-11）: 押すと、すべての本をその分野で絞る。分野でない前の版のタグは出さない（フォルダへ移す）。 */}
-          <BookFieldLinks fields={fieldsOf(current)} onPick={openLibraryByField} />
-          {/* 🗂 フォルダ（2026-10-11）: 押すと、すべての本をそのフォルダで絞る。「変更」でフォルダに入れるシート（全状態）。 */}
-          <BookFolderLinks
-            folders={current.collections || []}
-            stacked={fieldsOf(current).length > 0}
-            onPick={openLibraryByFolder}
-            onEdit={() => { setNewFolderName(''); setFolderPickerBook(current); }}
-          />
 
           {/* 読みたい・積読は「読む準備」が主役なので、計画・目的・AI 解析を上に置く。
               読書中・読了はメモが主役（SPEC §2）なので、これらは画面の下（行動の後）へ。 */}
@@ -5259,12 +5266,7 @@ function AuthedApp() {
                     読書中にしてメモを書く
                   </button>
                 )}
-                {/* 積読: メモ欄は無いので、理由だけを 1 行（SPEC §2 エッジケース）。 */}
-                {current.status === 'before' && (
-                  <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', textAlign: 'center', margin: 0, lineHeight: 1.5 }}>
-                    読み始めるとメモが書けます
-                  </p>
-                )}
+                {/* 積読の「読み始めるとメモが書けます」は 2026-10-16 にやめた（説明の文を置かない・DESIGN §0-6・ui-critic 第 2 回）。 */}
               </div>
             )}
             {/* 購入導線は「まだ買っていない可能性が高い」want / before だけ主役。
@@ -5854,7 +5856,7 @@ function AuthedApp() {
         aria-label="写真で共有"
         // 文字は 15 から設定に合わせて大きくなるが、20 で止める（--text-bar-max・1 行に収める）。アイコンは右の ？・⚙️ と同じ 22。
         // 本が 0 冊のときは栗色にしない（--text-2）＝主役は本文の「読んだ本に一言ずつ残す」（アクセントを 2 か所にしない・2026-10-11 第 2 回の採点）。
-        style={{ ...btnLink, color: !booksLoading && books.length === 0 ? 'var(--text-2)' : 'var(--text)', fontSize: 'min(var(--text-sub), var(--text-bar-max))', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', padding: '0 var(--space-2)', whiteSpace: 'nowrap' }}
+        style={{ ...btnLink, color: 'var(--text-2)', fontWeight: 400, fontSize: 'min(var(--text-sub), var(--text-bar-max))', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', padding: '0 var(--space-2)', whiteSpace: 'nowrap' }}
       >
         <Camera size={22} strokeWidth={1.75} aria-hidden="true" />
         写真で共有

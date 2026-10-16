@@ -1329,14 +1329,15 @@ textarea[aria-invalid="true"]:not(.no-focus-ring):focus {
 }
 .sub-tabs--fit .sub-tabs__seg { flex: 0 0 auto; }
 .sub-tabs__seg .sub-tab {
-  min-height: 40px;
-  border-radius: calc(var(--radius) - 2px);
+  min-height: var(--tap-min);
+  border-radius: var(--radius);
   padding-top: var(--space-1);
   padding-bottom: var(--space-1);
 }
 .sub-tab:hover { color: var(--text); }
 .sub-tab.active {
-  background: var(--surface);
+  /* 選んだ面は溝より明るく浮かせる（暗い設定では --surface が溝より暗く沈んでいた・2026-10-16 ui-critic 第 2 回） */
+  background: var(--seg-on);
   color: var(--text);
   font-weight: var(--weight-semibold);
   box-shadow: 0 0 0 0.5px var(--separator);
