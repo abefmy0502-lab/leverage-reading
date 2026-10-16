@@ -7,7 +7,7 @@
 //
 // 使い方:
 //   1. 別ターミナルで  npm run demo            （http://localhost:5173）
-//   2. npm run lp:shots                       → LP に載せる全部（hero・flow-line/talk/voice/source・action・focus・share・fields・advisor）
+//   2. npm run lp:shots                       → LP に載せる全部（hero・flow-line/talk/voice/source・action・focus・share・fields・advisor・library）
 //      npm run lp:shots -- answer recall      → 絞って撮る
 //   （お試しモードを別のポートで動かしているときは UI_SHOTS_URL=http://localhost:5461 などを付ける）
 // 撮る画面: hero（1 冊の本に相談し、本の語り口で答えている所・ヒーロー・2026-10-11）/
@@ -161,6 +161,11 @@ const SHOTS = {
       const sc = [...document.querySelectorAll('*')].find((e) => e.contains(h) && e.scrollHeight > e.clientHeight + 10 && /auto|scroll/.test(getComputedStyle(e).overflowY));
       if (sc) sc.scrollTop -= 88; else window.scrollBy(0, -170);
     });
+  },
+  // 本の記録も、ふつうにできます: すべての本（表紙の一覧・状態とフォルダのチップ・2026-10-16）
+  library: async (p) => {
+    await p.locator('button:has-text("すべての本")').first().click();
+    await p.waitForTimeout(1500);
   },
   // 次に読む本と、読み方まで: AI 選書（悩みを聞き取り → 受け取った悩みを確かめる → おすすめの本と読む順番・2026-10-11）
   advisor: async (p) => {

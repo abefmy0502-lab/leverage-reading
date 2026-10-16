@@ -259,10 +259,6 @@ body.lp-active {
   .lp-menu { display: none; }
 }
 /* 読書記録の基本（ブクログなどから乗り換える人向けの短い箇条書き・2026-10-13） */
-.lp-basics { margin-top: var(--space-12); padding-top: var(--space-6); border-top: 1px solid var(--separator); }
-.lp-root .lp-basics-title { margin: 0 0 var(--space-3); font-size: var(--text-body); font-weight: 600; color: var(--text); }
-.lp-basics ul { margin: 0; padding: 0 0 0 var(--space-4); display: grid; gap: var(--space-1) var(--space-8); color: var(--text-2); line-height: 1.7; }
-@media (min-width: 768px) { .lp-basics ul { grid-template-columns: repeat(2, minmax(0, max-content)); } }
 /* 🎠 スマホ: 「ほかにできること」の 5 つは横にスワイプ（カルーセル・会話の流れの 4 枚と同じ動き） */
 @media (max-width: 767px) {
   .lp-root .lp-pillars {
@@ -898,16 +894,7 @@ body.lp-active {
 .lp-root .lp-final-plan { color: var(--text-2) !important; font-weight: 400; }
 
 /* ============ 2026-10-16 第 2 回の手直し ============ */
-/* 記録の基本: スマホは機能の横送りの下に単独で、広い画面は機能の格子の 6 つめに */
-.lp-pillar-basics { display: none; }
 @media (min-width: 768px) {
-  /* 2 段ぶんの高さの中央に置く（下に穴が見えないように）・題はほかの機能と同じ大きさ */
-  .lp-pillar-basics { display: block; padding-top: var(--space-1); }
-  .lp-pillars > li.lp-pillar-basics { grid-row: span 2; grid-template-rows: none; align-self: start; padding-top: 0; }
-  .lp-root .lp-pillar-basics .lp-basics-title { font-size: var(--text-heading); margin-bottom: var(--space-3); }
-  .lp-pillar-basics ul { margin: 0; padding: 0 0 0 var(--space-4); display: grid; gap: var(--space-1); color: var(--text-2); line-height: 1.7; list-style: disc; }
-  .lp-pillar-basics li::marker { color: var(--text-3); }
-  .lp-pillars ~ .lp-basics { display: none; }
   /* 機能の画面は広い画面で少し大きく（中の字が読める大きさに近づける） */
   .lp-pillar-shot { width: min(100%, 300px); }
   .lp-pillar-shot .lp-shot { --lp-device-w: 300px; }
@@ -925,3 +912,14 @@ body.lp-active {
 /* これからの一文は、節の見出しより一段小さく（同じ大きさが 2 つ並んで見えた） */
 .lp-root .lp-ba .is-after .lp-ba-title { font-size: var(--text-heading); }
 
+
+/* 6 つめの柱（本の記録）の箇条書き：本文と同じ色・大きさ、印は --text-3 */
+.lp-pillar-list { margin: var(--space-2) 0 0; padding: 0 0 0 var(--space-4); display: grid; gap: var(--space-1); color: var(--text-2); line-height: 1.6; list-style: disc; }
+.lp-pillar-list li::marker { color: var(--text-3); }
+/* 広い画面：同じ段の画面は下の端をそろえる（共有の画像は端末より背が低い） */
+@media (min-width: 768px) { .lp-pillars > li > .lp-pillar-shot { align-self: end; } }
+/* 最後の案内: ボタンを中央に、QR はその下（ボタンと QR をまとめて中央にすると、ボタンが見出しの中心からずれた・2026-10-16 第 6 回） */
+@media (min-width: 768px) { .lp-final-inner .lp-cta-row { flex-direction: column; align-items: center; } }
+/* 自動更新の説明・相談の目安は文節の切れ目でだけ折り返す（「無／料期間」と語の中で割れていた） */
+.lp-root :is(.lp-renew, .lp-plan-hint) { word-break: keep-all; overflow-wrap: anywhere; line-break: strict; }
+.lp-wl-note a { text-decoration: underline; text-underline-offset: 0.2em; }

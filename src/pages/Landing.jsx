@@ -153,6 +153,16 @@ const ASK_EXAMPLES = [
   { q: '何を始めても三日坊主で終わる' },
 ];
 
+// ③ の下の、読書記録アプリとしての基本（2026-10-13 オーナー「ブクログなども意識して、バーコード・フォルダ分けも当たり前にできると」）。
+//   乗り換える人が「今やっていることができるか」を確かめる場所。主役にはしない（見出しは小さく・ふつうの箇条書き）。どれも実装済み。
+const BASICS = [
+  'バーコードを読み取って本を登録',
+  '読みたい・積読・読書中・読了で管理',
+  'フォルダで自由に分ける',
+  '読み終えた本に ★ で評価',
+  'ブクログ・読書メーター・Kindle から取り込み',
+];
+
 // ③ 続けられて、成果が見える（柱 ②〜⑤・1 つ 1〜2 文・画面 1 枚）
 const PILLARS = [
   {
@@ -187,17 +197,15 @@ const PILLARS = [
     body: '悩みを話すと、これまで読んだ本や最近の相談をもとに、おすすめの本と読む順番を出します。', plan: true,
     alt: 'AI 選書の画面。受け取った悩みのまとめと、おすすめの本のカード、読む順番',
   },
+  {
+    // 6 つめ: 読書記録の基本（2026-10-16 第 6 回・ほかの 5 つと同じ形＝画面＋題＋箇条書き。格子の形をそろえる）
+    id: 'library', shot: 'library', artAlt: '',
+    title: '本の記録も、ふつうにできます',
+    list: BASICS,
+    alt: 'すべての本の画面。表紙の一覧と、読書中・読了・積読・読みたいの絞り込み、フォルダのチップ',
+  },
 ];
 
-// ③ の下の、読書記録アプリとしての基本（2026-10-13 オーナー「ブクログなども意識して、バーコード・フォルダ分けも当たり前にできると」）。
-//   乗り換える人が「今やっていることができるか」を確かめる場所。主役にはしない（見出しは小さく・ふつうの箇条書き）。どれも実装済み。
-const BASICS = [
-  'バーコードを読み取って本を登録',
-  '読みたい・積読・読書中・読了で管理',
-  'フォルダで自由に分ける',
-  '読み終えた本に ★ で評価',
-  'ブクログ・読書メーター・Kindle から取り込み',
-];
 
 // ③ の下の安心の 4 つ。学習＝各社の API 規約／同意＝ensureAiConsent（はじめて AI を使う操作のとき）／
 // 書き出し＝設定の CSV（lib/exportData.js）・退会のお申し込みで消去／写真で共有＝端末の中で描く（サーバーに送らない）。
@@ -752,29 +760,19 @@ export default function Landing() {
                   </div>
                   <div className="lp-pillar-text">
                     <h3 className="lp-h3 lp-wbr"><Phrases clause>{x.title}</Phrases>{x.plan && <span className="lp-plan-badge lp-pillar-plan">プラン</span>}</h3>
-                    <p className="lp-wbr"><Phrases>{x.body}</Phrases></p>
+                    {x.body && <p className="lp-wbr"><Phrases>{x.body}</Phrases></p>}
+                    {x.list && (
+                      <ul className="lp-pillar-list">
+                        {x.list.map((t) => <li key={t} className="lp-wbr"><Phrases>{t}</Phrases></li>)}
+                      </ul>
+                    )}
                   </div>
                 </li>
               ))}
-              {/* 広い画面だけ: 格子の 6 つめに「本の記録も、ふつうにできます」（5 つの機能の後ろに穴をあけない・2026-10-16 ui-critic 第 2 回）。
-                  スマホの横送りには入れない（下の .lp-basics を出す）。 */}
-              <li className="lp-pillar-basics" aria-hidden="false">
-                <h3 className="lp-basics-title">本の記録も、ふつうにできます</h3>
-                <ul>
-                  {BASICS.map((t) => <li key={t} className="lp-wbr"><Phrases>{t}</Phrases></li>)}
-                </ul>
-              </li>
             </ul>
             <p className="lp-gallery-dots lp-pillars-dots" aria-hidden="true">
               {PILLARS.map((x, i) => <span key={x.id} className={i === pillarAt ? 'is-on' : undefined} />)}
             </p>
-            {/* 読書記録の基本（ブクログなどから乗り換える人向け・2026-10-13） */}
-            <div className="lp-basics">
-              <h3 className="lp-basics-title">本の記録も、ふつうにできます</h3>
-              <ul>
-                {BASICS.map((t) => <li key={t} className="lp-wbr"><Phrases>{t}</Phrases></li>)}
-              </ul>
-            </div>
           </div>
         </section>
 
