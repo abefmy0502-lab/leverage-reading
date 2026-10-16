@@ -34,7 +34,7 @@
 //   - CTA は <a href>（長押し・中クリック等のネイティブ挙動を尊重）
 
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowLeftRight, ArrowRight, BookOpen, Check, ChevronDown, Menu, User, X } from 'lucide-react';
+import { Check, ChevronDown, Menu, X } from 'lucide-react';
 import { BUILD_LABEL } from '../lib/buildInfo';
 import { SUPPORT_EMAIL } from '../lib/contact';
 import { isAppStoreLive } from '../lib/appStore';
@@ -143,7 +143,7 @@ function HeroMini() {
 //   自分自身のオリジナルの内容で理解できる。ビフォーアフターの世界観を」）。図は 本 → 自分（一方通行）と 本 ⇄ 自分（会話）。
 const BEFORE_AFTER = [
   { label: '', title: '読み終えたら、そこで終わり。', body: 'たいていそのまま本棚に戻ります。' },
-  { label: 'Orime では', title: '自分だけの理解が残る。', body: '本に悩みを話すと、質問が返ってきます。答えているうちに、考えがまとまっていきます。', after: true },
+  { label: '', title: '自分だけの理解が残る。', body: '本に悩みを話すと、質問が返ってきます。答えているうちに、考えがまとまっていきます。', after: true },
 ];
 
 // ② 相談の例（幅を持たせて 3 つ・立場で絞らない）
@@ -409,7 +409,6 @@ export default function Landing() {
   // 写真で共有の柱がイラストに替わったら、「共有の画像は見本の写真で…」の注記は出さない。
   const shareArt = hasArt('illust-share');
   // ビフォーアフターの絵があれば、カードの簡単な図は出さない（絵と同じことを 2 回言わない）。
-  const dialogueArt = hasArt('illust-dialogue');
   const heroStageRef = useRef(null);
   const heroImgRef = useRef(null);
   // 3D に振り分けた・3D を出せる端末では、最初から 3D の余白を取っておく（あとから余白が足されて見出しが跳ねない・CLS）。
@@ -636,7 +635,8 @@ export default function Landing() {
                 <Phrases>気になった一行をメモしておくと、迷ったときに、その本に相談できます。AI が本の語り口で、メモをもとに答えます。</Phrases>
               </p>
               <div className="lp-cta-block" ref={heroCtaRef}>
-                <Entry loc="hero" wl={wl} qr badge launch />
+                {/* QR は最後の案内だけ（ヒーローの主ボタンの横の黒い四角がいちばん重く見えた・2026-10-16 ui-critic） */}
+                <Entry loc="hero" wl={wl} badge launch />
                 {/* ボタンのすぐ下の安心の一言（2026-10-12・短い言い切り） */}
                 {!PRELAUNCH && <p className="lp-cta-sub lp-cta-meta lp-wbr"><Phrases>{ZERO_RISK_NOTE}</Phrases></p>}
                 <div className="lp-hero-links">
@@ -694,17 +694,8 @@ export default function Landing() {
               <LpArt name="illust-dialogue" ratio="4:3" sizes="(min-width: 768px) 600px, 92vw" className="lp-art-sec lp-art-wide" alt="左は、椅子に座って本を一人で静かに読んでいる人。右は、同じ人が机で本を開き、本と人のあいだを「？」や電球、メモの吹き出しが行き来して、明るい表情でうなずいている" />
               <ul className="lp-ba">
                 {BEFORE_AFTER.map((r) => (
-                  <li key={r.label} className={r.after ? 'is-after' : undefined}>
-                    {/* 絵（illust-dialogue）が無いビルドだけ、簡単な図（本 → 自分／本 ⇄ 自分）を出す */}
-                    {!dialogueArt && (
-                      <div className="lp-ba-figure" aria-hidden="true">
-                        <span className="lp-ba-node"><BookOpen size="1.25em" strokeWidth={2} /><span>本</span></span>
-                        {r.after
-                          ? <ArrowLeftRight className="lp-ba-arrow" size="1.5em" strokeWidth={2} />
-                          : <ArrowRight className="lp-ba-arrow" size="1.5em" strokeWidth={2} />}
-                        <span className="lp-ba-node"><User size="1.25em" strokeWidth={2} /><span>自分</span></span>
-                      </div>
-                    )}
+                  <li key={r.title} className={r.after ? 'is-after' : undefined}>
+                    {/* 図やカードは使わず、文の大きさだけで「これまで → これから」を見せる（2026-10-16 ui-critic・LP の文の組み） */}
                     {r.label && <p className="lp-ba-label">{r.label}</p>}
                     <p className="lp-ba-title lp-wbr"><Phrases clause>{r.title}</Phrases></p>
                     <p className="lp-ba-body lp-wbr"><Phrases>{r.body}</Phrases></p>
@@ -872,15 +863,16 @@ export default function Landing() {
               </div>
               <div className="lp-plan is-paid">
                 <p className="lp-plan-name"><span>月額・年額プラン</span>{TRIAL_NOTE && <span className="lp-plan-badge">{OFFER.active ? '月額は 7 日間無料' : TRIAL_NOTE}</span>}</p>
-                <p className="lp-plan-hero"><span className="lp-plan-hero-num">{PAID_CONSULTS}</span><span>AI の答え・毎月</span></p>
-                <p className="lp-plan-hint lp-wbr"><Phrases>{`${CONSULT_ANSWERS_NOTE}`}</Phrases></p>
-                {/* プランで手に入るもの（具体的に 4 つ・数は lib/tokenAmounts.js のとおり） */}
+                {/* プランで手に入るもの（数は lib/tokenAmounts.js のとおり）。量は大きな数字にせず、無料プランと同じ箇条書きの 1 行目に
+                    （値段より大きな数字が先に来ていた・2026-10-16 ui-critic）。 */}
                 <ul className="lp-included" aria-label="プランに含まれるもの">
+                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>AI の答えは<span className="lp-nb">毎月 {PAID_CONSULTS}</span></span></li>
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span className="lp-wbr"><Phrases>読書計画シートや AI 選書など、すべての AI 機能</Phrases></span></li>
                   {TRIAL_NOTE && (
                     <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>無料期間中も <span className="lp-nb">AI の答え {TRIAL_CONSULTS}</span></span></li>
                   )}
                 </ul>
+                <p className="lp-plan-hint lp-wbr"><Phrases>{`${CONSULT_ANSWERS_NOTE}`}</Phrases></p>
                 <div className={`lp-plan-rows${OFFER.active ? ' is-founding' : ''}`}>
                   <div className="lp-plan-row">
                     <p className="lp-plan-label">年額プラン<span className="lp-plan-tag">{OFFER.active ? FOUNDING_NAME : 'おすすめ'}</span></p>
