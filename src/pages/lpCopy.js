@@ -98,7 +98,7 @@ export function buildLpCopy({
         ? `月額プランは${TRIAL_SENT}で、そのあと${noBreak(`月額 ${MONTHLY_TEXT}（税込）`)}で自動更新されます。無料期間が終わる 24 時間前までに解約すれば、料金はかかりません。`
         : `月額プランは${noBreak(`月額 ${MONTHLY_TEXT}（税込）`)}で自動更新されます。`);
   } else if (TRIAL) {
-    renew = `${TRIAL_SENT}。そのあと月額 ${MONTHLY_TEXT}か年額 ${ANNUAL_TEXT}（税込）で自動更新されます。無料期間が終わる 24 時間前までに解約すれば、料金はかかりません（App Store から）。`;
+    renew = `${TRIAL_SENT}。そのあと月額\u00a0${MONTHLY_TEXT} か年額\u00a0${ANNUAL_TEXT}（税込）で自動更新されます。無料期間が終わる 24 時間前までに解約すれば、料金はかかりません（App Store から）。`;
   } else {
     renew = `プランは、選んだプラン（月額 ${MONTHLY_TEXT} または年額 ${ANNUAL_TEXT}・税込）で自動更新されます。`;
   }

@@ -848,12 +848,9 @@ body.lp-active {
 @media (min-width: 1100px) {
   /* 1 段目の 3 枚は、見出しの行数がちがっても端末の上端をそろえる */
   .lp-pillars > li { grid-row: span 2; grid-template-rows: subgrid; row-gap: var(--space-6); }
-  /* 5 つ: 上の段 3 枚・下の段 2 枚（文が左・画面が右の横長）で穴をあけない */
-  .lp-pillars { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-  .lp-pillars > li { grid-column: span 2; }
-  /* 下の段の 2 枚は幅を 3 列ぶんに広げ、文が上・画面が下（文の列を狭くしない・2026-10-12） */
-  .lp-pillars > li:nth-child(n+4) { grid-column: span 3; grid-row: span 1; grid-template-rows: auto; grid-template-columns: minmax(0, 1fr) 240px; column-gap: var(--space-8); align-items: center; }
-  .lp-pillars > li:nth-child(n+4) .lp-pillar-shot { order: 2; }
+  /* 5 つの機能＋記録の基本で 3 列 × 2 段（どの段も同じ形・2026-10-16 ui-critic 第 2 回「下の段だけ形が変わる」） */
+  .lp-pillars { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
   .lp-root { --lp-sec: var(--lp-sec-lg); }
   .lp-shot { width: var(--lp-shot-w-lg); }
   .lp-hero-shot figcaption { width: var(--lp-shot-w-lg); }
@@ -897,3 +894,26 @@ body.lp-active {
 
 /* 最後の案内の 3 行目（料金へのリンク）は本文の色・太さで（栗色の太字だと 2 つ目のボタンに見えた・2026-10-16 ui-critic） */
 .lp-root .lp-final-plan { color: var(--text-2) !important; font-weight: 400; text-decoration: underline; text-underline-offset: 0.2em; }
+
+/* ============ 2026-10-16 第 2 回の手直し ============ */
+/* 記録の基本: スマホは機能の横送りの下に単独で、広い画面は機能の格子の 6 つめに */
+.lp-pillar-basics { display: none; }
+@media (min-width: 768px) {
+  .lp-pillar-basics { display: block; align-self: start; padding-top: var(--space-1); }
+  .lp-pillars > li.lp-pillar-basics { grid-row: auto; grid-template-rows: none; }
+  .lp-pillar-basics ul { margin: 0; padding: 0 0 0 var(--space-4); display: grid; gap: var(--space-1); color: var(--text-2); line-height: 1.7; }
+  .lp-pillars ~ .lp-basics { display: none; }
+  /* 機能の画面は広い画面で少し大きく（中の字が読める大きさに近づける） */
+  .lp-pillar-shot { width: min(100%, 300px); }
+  .lp-pillar-shot .lp-shot { --lp-device-w: 300px; }
+  /* 右半分が空かないように: 見出しを左、中身を右に（始め方・メモの扱い・よくある質問） */
+  .lp-start-sec .lp-wrap, .lp-trust-sec .lp-wrap, .lp-faq .lp-wrap.lp-narrow { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); column-gap: var(--space-16); align-items: start; }
+  .lp-start-sec .lp-sec-head, .lp-trust-sec .lp-h2, .lp-faq .lp-h2 { margin-top: 0; }
+  .lp-faq .lp-narrow > * { max-width: none; }
+  /* 料金の無料プランのカードは中身の高さで（ボタンの上に穴をあけない） */
+  .lp-plan-cards { align-items: start; }
+}
+/* メモの扱いは料金と同じ帯に見えないよう、上に区切り線 */
+.lp-trust-sec { border-top: 1px solid var(--separator); }
+/* これからの一文は、節の見出しより一段小さく（同じ大きさが 2 つ並んで見えた） */
+.lp-root .lp-ba .is-after .lp-ba-title { font-size: var(--text-heading); }

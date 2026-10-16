@@ -763,6 +763,14 @@ export default function Landing() {
                   </div>
                 </li>
               ))}
+              {/* 広い画面だけ: 格子の 6 つめに「本の記録も、ふつうにできます」（5 つの機能の後ろに穴をあけない・2026-10-16 ui-critic 第 2 回）。
+                  スマホの横送りには入れない（下の .lp-basics を出す）。 */}
+              <li className="lp-pillar-basics" aria-hidden="false">
+                <h3 className="lp-basics-title">本の記録も、ふつうにできます</h3>
+                <ul>
+                  {BASICS.map((t) => <li key={t} className="lp-wbr"><Phrases>{t}</Phrases></li>)}
+                </ul>
+              </li>
             </ul>
             <p className="lp-gallery-dots lp-pillars-dots" aria-hidden="true">
               {PILLARS.map((x, i) => <span key={x.id} className={i === pillarAt ? 'is-on' : undefined} />)}
@@ -778,7 +786,7 @@ export default function Landing() {
         </section>
 
         {/* ============ ④ メモがゼロでも、今日から ============ */}
-        <section className="lp-sec lp-band" aria-labelledby="lp-start" data-lp-sec="start">
+        <section className="lp-sec lp-band lp-start-sec" aria-labelledby="lp-start" data-lp-sec="start">
           <div className="lp-wrap">
             <div className="lp-narrow lp-sec-head">
               <h2 className="lp-h2" id="lp-start">
