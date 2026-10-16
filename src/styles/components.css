@@ -190,7 +190,7 @@
 .input:focus,
 .textarea:focus {
   border-color: var(--color-accent);
-  box-shadow: 0 0 0 3px var(--color-accent-soft);
+  box-shadow: inset 0 0 0 1px var(--color-accent);
 }
 /* 入力中の枠（DESIGN §5「入力欄」: フォーカス時は --accent）。ui.js の input・formPrimitives の inp など
    インライン style の入力欄にもまとめて効かせる。インラインの border 色に勝つよう border-color だけ !important。
@@ -199,8 +199,9 @@
 :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="file"]):not([type="color"]):not([type="image"]):not(.no-focus-ring)):focus,
 :where(textarea:not(.no-focus-ring)):focus,
 :where(select:not(.no-focus-ring)):focus {
+  /* 外にぼかした輪（Web のフォームの見た目）はやめ、枠を内側に 2px に太らせるだけ（iOS の入力欄・2026-10-16 ui-critic） */
   border-color: var(--accent) !important;
-  box-shadow: 0 0 0 3px var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent);
   outline: none;
   transition: border-color var(--duration-fast) var(--ease-out),
     box-shadow var(--duration-fast) var(--ease-out);
@@ -214,7 +215,7 @@ textarea[aria-invalid="true"]:not(.no-focus-ring) {
 }
 input[aria-invalid="true"]:not(.no-focus-ring):focus,
 textarea[aria-invalid="true"]:not(.no-focus-ring):focus {
-  box-shadow: 0 0 0 3px var(--error-soft);
+  box-shadow: inset 0 0 0 1px var(--error);
 }
 .input:disabled,
 .textarea:disabled {
@@ -895,10 +896,10 @@ textarea[aria-invalid="true"]:not(.no-focus-ring):focus {
      3 列（幅の 1/3）より多くも、2 列（幅の 1/2）より少なくもしない。ふだんの大きさでは 3 列のまま、
      ホームのいま読んでいる本の行がボタンを折り返すのとほぼ同じ大きさ（ルートの文字 約 18.5px 以上）から 2 列になる。 */
   grid-template-columns: repeat(auto-fill, minmax(min(max(6rem, calc((100% - 2 * var(--space-3)) / 3)), calc((100% - var(--space-3)) / 2)), 1fr));
-  /* 横は 12、縦（行と行）は 32（書名 2 行ぶんの高さを取るので、段の中の空きより段の間を広く）。 */
-  gap: var(--space-8) var(--space-3);
+  /* 横は 12、縦（行と行）は 24。同じ段のカードは同じ高さに伸ばし（stretch）、著者・状態を下端へ寄せてそろえる（2026-10-16）。 */
+  gap: var(--space-6) var(--space-3);
   padding: 0 0 var(--space-6);
-  align-items: start;
+  align-items: stretch;
 }
 @media (min-width: 768px) {
   .bookshelf-grid {
@@ -1270,8 +1271,7 @@ textarea[aria-invalid="true"]:not(.no-focus-ring):focus {
 .sub-tabs {
   display: flex;
   gap: var(--space-2);
-  padding: var(--space-3) var(--space-4) var(--space-2);
-  border-bottom: 1px solid var(--separator);
+  padding: var(--space-2) var(--space-4) var(--space-3);
   position: sticky;
   top: 0;
   background: var(--bg);
@@ -1317,11 +1317,29 @@ textarea[aria-invalid="true"]:not(.no-focus-ring):focus {
   gap: var(--space-1);
   min-height: 44px;
 }
-.sub-tab:hover { background: var(--color-bg-hover); }
+/* iOS の切り替え（2026-10-16 ui-critic「タブが Web のナビに見える」）: 灰色の溝（--fill）に、選んだ 1 つだけ白い面（--surface）。
+   色の面（--accent-soft）は使わない＝栗色は画面の主役の操作だけに残す。暗い画面でも明るさの差で見分ける。 */
+.sub-tabs__seg {
+  display: flex;
+  flex: 1 1 auto;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--radius);
+  background: var(--fill);
+}
+.sub-tabs--fit .sub-tabs__seg { flex: 0 0 auto; }
+.sub-tabs__seg .sub-tab {
+  min-height: 40px;
+  border-radius: calc(var(--radius) - 2px);
+  padding-top: var(--space-1);
+  padding-bottom: var(--space-1);
+}
+.sub-tab:hover { color: var(--text); }
 .sub-tab.active {
-  background: var(--accent-soft);
-  color: var(--accent);
+  background: var(--surface);
+  color: var(--text);
   font-weight: var(--weight-semibold);
+  box-shadow: 0 0 0 0.5px var(--separator);
 }
 
 /* ヘッダーの挨拶テキスト用フェード — 開いて 3s ほど表示 → 1s でフェード。

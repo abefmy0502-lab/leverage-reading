@@ -35,7 +35,9 @@ import { completeWithRollback } from '../lib/actionComplete';
 // 余白は辺ごとに書く（padding の一括指定と paddingBottom を混ぜると、描き直しで下の余白が戻らないことがある・2026-09-30）。
 const wrap = { paddingTop: 'var(--space-3)', paddingLeft: 'var(--space-4)', paddingRight: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' };
 const groupTitle = { ...uiGroupTitle, margin: '0 0 var(--space-2)' };
-const card = { position: 'relative', background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4)', display: 'flex', gap: 'var(--space-2)', alignItems: 'flex-start' };
+// 行は期限のまとまりのカード（listStyle）の中に区切り線で並ぶ（1 件ずつのカードにしない・2026-10-16 ui-critic「Things 3 のように」）。
+// 面の色は残す（左へ振ったときに、下の削除の赤を覆う）。
+const card = { position: 'relative', background: 'var(--surface)', padding: 'var(--space-3) var(--space-4)', display: 'flex', gap: 'var(--space-2)', alignItems: 'flex-start' };
 // 行の丸（押せる範囲 44）を文の 1 行目（文字 --text-body・行間 1.5）の高さの中央に置く上下の余白。
 const ROW_ICON_OFFSET = 'calc((1.5em - 44px) / 2)';
 const rowBtn = { display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, padding: 'var(--space-2) var(--space-3)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', fontSize: 'var(--text-sub)', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', flexShrink: 0 };
@@ -159,8 +161,8 @@ function MorphItem({ phaseKey, collapsed, first, entering = false, onCollapsed, 
       el.style.transition = `height ${HEIGHT_EASE}, opacity ${HEIGHT_EASE}, margin ${HEIGHT_EASE}`;
       el.style.height = '0px';
       el.style.opacity = '0';
-      if (first) el.style.marginBottom = 'calc(-1 * var(--space-3))';
-      else el.style.marginTop = 'calc(-1 * var(--space-3))';
+      if (first) el.style.marginBottom = '0px';
+      else el.style.marginTop = '0px';
       const t = setTimeout(() => onCollapsedRef.current?.(), dur + 20);
       return () => clearTimeout(t);
     }
@@ -180,8 +182,8 @@ function MorphItem({ phaseKey, collapsed, first, entering = false, onCollapsed, 
       el.style.overflow = 'hidden';
       el.style.opacity = from.op;
       if (fromZero) {
-        if (first) el.style.marginBottom = 'calc(-1 * var(--space-3))';
-        else el.style.marginTop = 'calc(-1 * var(--space-3))';
+        if (first) el.style.marginBottom = '0px';
+        else el.style.marginTop = '0px';
       } else {
         el.style.marginTop = from.mt;
         el.style.marginBottom = from.mb;
@@ -209,7 +211,13 @@ function MorphItem({ phaseKey, collapsed, first, entering = false, onCollapsed, 
     const t = setTimeout(() => { clear(); lastH.current = el.offsetHeight; }, dur + 20);
     return () => { clearTimeout(t); clear(); };
   }, [phaseKey, collapsed, first]);
-  return <li ref={ref} style={{ listStyle: 'none' }}>{children}</li>;
+  // 2 行目からは上に区切り線（丸の右＝文の頭から右端まで）。
+  return (
+    <li ref={ref} style={{ listStyle: 'none', position: 'relative' }}>
+      {!first && <span aria-hidden="true" style={{ position: 'absolute', zIndex: 1, top: 0, right: 0, left: 'calc(var(--space-4) + 1.4em + var(--space-2))', fontSize: 'var(--text-body)', borderTop: '1px solid var(--separator)', pointerEvents: 'none' }} />}
+      {children}
+    </li>
+  );
 }
 
 // 期限ごとのまとまり（見出し＋行）。まとまりの行がすべて畳まれるとき（collapsing）は、見出しごと
@@ -358,7 +366,7 @@ function ActionRow({ a, completing, swipeable, onCheck, onOpenMenu, onSwipeDelet
         aria-label={`「${String(a.text || '').trim().slice(0, 40)}」の操作`}
         onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); onOpenMenu?.({ x: r.right - 8, y: r.bottom + 4, action: a }); }}
         // 「…」も文の 1 行目の高さの中央に（em で大きさを決める）。右は見た目の右端がカードの余白（16）にそろう位置。
-        style={{ position: 'absolute', top: 'calc(var(--space-4) + 0.75em - 22px)', right: 'calc(var(--space-4) + (1.2em - 44px) / 2)', width: 44, height: 44, fontSize: 'var(--text-body)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', color: 'var(--text-2)', cursor: 'pointer', padding: 0 }}
+        style={{ position: 'absolute', top: 'calc(var(--space-3) + 0.75em - 22px)', right: 'calc(var(--space-4) + (1.2em - 44px) / 2)', width: 44, height: 44, fontSize: 'var(--text-body)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', color: 'var(--text-2)', cursor: 'pointer', padding: 0 }}
       >
         <MoreHorizontal size="1.2em" aria-hidden="true" />
       </button>
@@ -709,7 +717,7 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
     );
   };
 
-  const listStyle = { listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' };
+  const listStyle = { listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', overflow: 'hidden' };
 
   return (
     // 一覧の下の余白はいつも 64（最後の行のチェックが下の知らせに隠れない。知らせが消えるたびに余白を縮めると
@@ -729,8 +737,9 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
         )}
         {canAdd && (
           // 文が行を埋めて右端に。文字を大きくして次の行へ回ったときは左にそろえる（2026-10-10 ui-critic）。
-          <button type="button" onClick={onAddAction} style={weekLine.total > 0 || open.length > 0 ? rowBtn : { ...rowBtn, marginLeft: 'auto' }}>
-            <Plus size="1em" aria-hidden="true" />追加
+          // 枠のボタンにせず、見出しの行の文字ボタン（右端の文字をカードの右端にそろえる・2026-10-16 ui-critic）。
+          <button type="button" onClick={onAddAction} style={{ ...btnLink, gap: 'var(--space-1)', marginRight: 'calc(-1 * var(--space-1))', ...(weekLine.total > 0 || open.length > 0 ? null : { marginLeft: 'auto' }) }}>
+            <Plus size="1.2em" aria-hidden="true" />追加
           </button>
         )}
       </div>
@@ -791,7 +800,7 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
               ? <ChevronDown size={20} aria-hidden="true" style={{ color: 'var(--text-3)' }} />
               : <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)' }} />}
           </button>
-          {showDone && <ul style={{ ...listStyle, marginTop: 0 }}>{doneShown.map(renderItem)}</ul>}
+          {showDone && <ul style={{ ...listStyle, marginTop: 'var(--space-2)' }}>{doneShown.map(renderItem)}</ul>}
         </section>
       )}
 

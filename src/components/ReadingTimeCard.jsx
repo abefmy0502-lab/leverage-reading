@@ -66,16 +66,18 @@ function WeekBars({ weeks }) {
   const last = weeks.length - 1;
   return (
     <div style={{ marginTop: 'var(--space-3)' }}>
-      <div aria-hidden="true" style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--space-1)', height: WEEK_BAR_MAX }}>
+      <div aria-hidden="true" style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--space-1)', height: WEEK_BAR_MAX, borderBottom: '1px solid var(--separator)' }}>
         {weeks.map((w) => {
           const has = w.seconds >= 30;
-          const h = has && peak > 0 ? Math.max(WEEK_BAR_MIN, Math.round((w.seconds / peak) * WEEK_BAR_MAX)) : 2;
+          // 読まなかった週は棒を描かない（下の基準の線だけ・灰色の短い線が並ぶと雑音に見えた・2026-10-16 ui-critic）。
+          const h = has && peak > 0 ? Math.max(WEEK_BAR_MIN, Math.round((w.seconds / peak) * WEEK_BAR_MAX)) : 0;
           return (
             <div key={w.from} style={{ flex: 1, minWidth: 0, display: 'flex', justifyContent: 'center' }}>
               <div
                 style={{
                   width: '100%', maxWidth: 20, height: h, borderRadius: CHART_RADIUS,
-                  background: !has ? 'var(--border)' : w.isCurrent ? 'var(--accent)' : BAR_SOFT,
+                  background: !has ? 'transparent' : w.isCurrent ? 'var(--accent)' : BAR_SOFT,
+                  borderBottomLeftRadius: 0, borderBottomRightRadius: 0,
                 }}
               />
             </div>
@@ -315,10 +317,18 @@ export default function ReadingTimeCard({ rows, books, onOpenBook, now = Date.no
 }
 
 // 本の詳細の 1 行「読書の時間 2 時間 5 分」（読書中・読了・この本で 30 秒以上あるときだけ・2026-10-10）。
-export function BookReadingTime({ bookId, style }) {
+export function BookReadingTime({ bookId, style, inline = false, dot = false }) {
   const { rows } = useReadingSessions();
   const sec = totalSeconds(rows, bookId);
   if (!bookId || sec < MIN_SESSION_SEC) return null;
+  // inline: 本の詳細の見出しの 1 行（状態 · 日付 · 読書の時間）に並べる（2026-10-16）。
+  if (inline) {
+    return (
+      <span data-book-reading-time="" style={{ whiteSpace: 'nowrap', ...style }}>
+        {dot && <span aria-hidden="true">·　</span>}読書の時間 <span style={{ fontVariantNumeric: 'tabular-nums' }}>{fmtReadingTotal(sec)}</span>
+      </span>
+    );
+  }
   return (
     <p data-book-reading-time="" style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 'var(--space-1) 0 0', ...style }}>
       読書の時間 <span style={{ whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{fmtReadingTotal(sec)}</span>

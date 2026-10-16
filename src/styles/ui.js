@@ -181,6 +181,15 @@ export const TOAST_SIZE = { barMax: 420, hudMin: 132, hudMax: 280, hudIcon: 'var
 
 // 共通カード面。
 // DESIGN: 影なし・枠線で区切る・角丸 12・内側 16。
+// 面の副ボタン（2026-10-16 ui-critic「枠の副ボタンが並ぶと Web のフォームに見える」）: btnRow と同じ大きさで、枠の代わりに --fill の面。
+// 1 枚のまとまりの中で、行ごとに同じ副ボタンが並ぶところ（ホームのいま読んでいる本の「メモを書く」）に使う。
+export const btnTonal = {
+  ...btnRow,
+  background: 'var(--fill)',
+  border: '1px solid transparent',
+  color: 'var(--text)',
+};
+
 export const card = {
   background: 'var(--surface)',
   border: '1px solid var(--separator)',

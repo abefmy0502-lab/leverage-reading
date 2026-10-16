@@ -193,52 +193,44 @@ const CHART_RADIUS = 3;
 
 /* ---------- 小さな表示部品 ---------- */
 
+// 読んだ本・メモ・実行した行動の 3 つの数（2026-10-16 ui-critic「→ と › が並ぶ図解に見える」）:
+//   矢印はやめ、縦の細い線で 3 等分した列に。数は左寄せで大きく、その下に名前と ›（押すとその一覧）。
 function FlowRow({ cells }) {
-  const arrow = (
-    <span aria-hidden="true" style={{ color: 'var(--text-3)', fontWeight: 600, fontSize: 'var(--text-meta)', flexShrink: 0, paddingTop: 'var(--space-1)' }}>→</span>
-  );
   return (
-    // 3 つのラベル（「実行した行動 ›」が最長）を 1 行に収めるため、矢印との間は空けない（中身は中央寄せ）。
-    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginTop: 'var(--space-3)' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cells.length}, minmax(0, 1fr))`, marginTop: 'var(--space-3)' }}>
       {cells.map((c, i) => {
         const inner = (
           <>
-            {/* › は数字の右に浮かせる（数字そのものはラベルの真上の中央。320px でもラベルを 1 行に収める）。 */}
-            <span style={{ position: 'relative', fontSize: 'var(--text-heading)', fontWeight: 600, lineHeight: 1, color: c.color, fontVariantNumeric: 'tabular-nums' }}>
-              {c.value}
-              {c.onClick && <ChevronRight size="0.8em" aria-hidden="true" style={{ position: 'absolute', left: '100%', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)' }} />}
-            </span>
-            {/* 文字が大きいときは文節で折り返す（1 行のままだと隣の数と重なってはみ出した・2026-10-10 ui-critic）。 */}
-            <span style={{ maxWidth: '100%', fontSize: 'var(--text-meta)', color: 'var(--text-2)', textAlign: 'center', lineHeight: 1.3, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+            <span style={{ fontSize: 'var(--text-title)', fontWeight: 700, lineHeight: 1.1, color: c.color, fontVariantNumeric: 'tabular-nums' }}>{c.value}</span>
+            {/* 文字が大きいときは文節で折り返す（隣の列にはみ出さない）。 */}
+            <span style={{ display: 'block', maxWidth: '100%', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.3, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
               {withPhraseBreaks(c.label)}
+              {/* › は名前の最後の字のすぐ右（名前が折り返しても離れない） */}
+              {c.onClick && <ChevronRight size="1.1em" aria-hidden="true" style={{ verticalAlign: '-0.2em', color: 'var(--text-3)' }} />}
             </span>
           </>
         );
-        const base = { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-1)', minWidth: 0, flex: 1 };
-        return (
-          <FragmentLike key={c.label} first={i === 0} arrow={arrow}>
-            {c.onClick ? (
-              <button
-                type="button"
-                onClick={c.onClick}
-                aria-label={`${c.label}の一覧を見る`}
-                style={{ ...base, minHeight: 44, background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit' }}
-              >
-                {inner}
-              </button>
-            ) : (
-              <div style={base}>{inner}</div>
-            )}
-          </FragmentLike>
+        const base = {
+          display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-1)', minWidth: 0,
+          paddingLeft: i === 0 ? 0 : 'var(--space-3)', paddingRight: i === cells.length - 1 ? 0 : 'var(--space-2)',
+          borderLeft: i === 0 ? 'none' : '1px solid var(--separator)', textAlign: 'left',
+        };
+        return c.onClick ? (
+          <button
+            key={c.label}
+            type="button"
+            onClick={c.onClick}
+            aria-label={`${c.label} ${c.value}。一覧を見る`}
+            style={{ ...base, minHeight: 44, background: 'none', borderTop: 'none', borderRight: 'none', borderBottom: 'none', paddingTop: 0, paddingBottom: 0, cursor: 'pointer', fontFamily: 'inherit' }}
+          >
+            {inner}
+          </button>
+        ) : (
+          <div key={c.label} style={base}>{inner}</div>
         );
       })}
     </div>
   );
-}
-
-// map 内で「先頭以外は矢印を前置」するための小さなヘルパ。
-function FragmentLike({ first, arrow, children }) {
-  return first ? children : (<>{arrow}{children}</>);
 }
 
 // 月別バー（読了 or メモ）。unit は読み上げの数え方（読了は「冊」・2026-09-29）。
@@ -552,7 +544,6 @@ export default function ReadingRecord({
   return (
     <div style={wrap}>
       <section style={card}>
-        {/* 中の数字の間に → があるので、見出しには矢印を入れない（二重の矢印を避ける）。 */}
         <h3 style={cardTitle}>読書・メモ・行動</h3>
         <FlowRow
           cells={[

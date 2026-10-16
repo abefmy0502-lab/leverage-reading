@@ -180,7 +180,7 @@ import { todayLocal, tomorrowLocal, fmtDateJa, isScheduledLater } from './lib/da
 import { completedActionMessage } from './lib/actionMessages';
 // 🧩 #9 App.jsx 分割: 本フォーム共通プリミティブと Phase エディタは別ファイルへ抽出。
 import { Stars, inp, btnS } from './components/formPrimitives';
-import { btnGhost, btnGhostOff, btnText, btnPrimary, btnPrimaryOff, btnLink, btnRow, groupTitle, SCROLL_FADE_MASK, SCROLL_FADE_MASK_BOTH } from './styles/ui';
+import { btnGhost, btnGhostOff, btnText, btnPrimary, btnPrimaryOff, btnLink, btnRow, btnTonal, groupTitle, SCROLL_FADE_MASK, SCROLL_FADE_MASK_BOTH } from './styles/ui';
 import { WantPhase, BeforePhase, ReadingPhase, DonePhase, EditSaveBar } from './components/lazyParts';
 import { getAmazonLink } from './lib/amazonLink';
 import BookStoreLinks from './components/BookStoreLinks';
@@ -4896,7 +4896,7 @@ function AuthedApp() {
                   onClick={() => openShareChooser({ book: current, from: 'detail' })}
                   aria-label="写真で共有"
                   // 文字はタブの画面の上の行と同じ上限（--text-bar-max）で止め、1 行に（文字サイズを大きくすると「写真で共／有」と割れていた・2026-10-04）。
-                  style={{ ...btnLink, fontSize: 'min(var(--text-sub), var(--text-bar-max))', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', padding: '0 var(--space-2)' }}
+                  style={{ ...btnLink, color: 'var(--text)', fontSize: 'min(var(--text-sub), var(--text-bar-max))', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', padding: '0 var(--space-2)' }}
                 >
                   <Camera size={22} strokeWidth={1.75} aria-hidden="true" />
                   写真で共有
@@ -4943,13 +4943,18 @@ function AuthedApp() {
               {/* 書名＝この画面の主題（28・700）。見出し「メモ」「行動」（20・600）と差をつける。 */}
               <h1 style={{ fontSize: "var(--text-title)", fontWeight: 700, color: "var(--text)", lineHeight: 1.25, margin: 0, overflowWrap: "anywhere", wordBreak: "keep-all", lineBreak: "strict", textWrap: "balance", display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{titleWithPhraseBreaks(current.title)}</h1>
               {current.author && <p style={{ fontSize: 'var(--text-sub)', color: "var(--text-2)", margin: "var(--space-1) 0 0", wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(current.author, { scriptBreaks: true })}</p>}
-              <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-2)', marginTop: "var(--space-2)", flexWrap: "wrap" }}>
+              {/* 状態と日付は 1 行に「·」でつなぐ（縦に段を積むと見出しが重かった・2026-10-16 ui-critic）。 */}
+              <div style={{ display: "flex", alignItems: "center", columnGap: 'var(--space-2)', rowGap: 'var(--space-1)', marginTop: "var(--space-2)", flexWrap: "wrap", fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>
                 {/* 状態は押せない表示なので面を付けない（DESIGN §5「表示用ラベル」）。 */}
                 <StatusLabel status={current.status} />
-                {/* ★ 読了の本は見出しの★を押して付け直せる（同じ★をもう一度押すと 0・押せる範囲 44・2026-10-11）。
-                    ほかの状態は付いているときだけ表示。 */}
                 {current.status !== 'done' && current.rating > 0 && <Stars r={current.rating} size="calc(14rem / 17)" />}
+                {current.startDate && <span style={{ whiteSpace: 'nowrap' }}><span aria-hidden="true">·　</span>開始 {fmtDateJa(current.startDate)}</span>}
+                {current.doneDate && <span style={{ whiteSpace: 'nowrap' }}><span aria-hidden="true">·　</span>読了 {fmtDateJa(current.doneDate)}</span>}
               </div>
+              {/* 読書の時間は次の行に（「·」で続けると折り返した行の頭に「·」が来た） */}
+              {(current.status === 'reading' || current.status === 'done') && (
+                <BookReadingTime bookId={current.id} />
+              )}
               {current.status === 'done' && (
                 <div data-detail-rating="" style={{ marginTop: 'var(--space-1)' }}>
                   {/* 読了にした直後で、まだ評価が無いときだけ淡い 1 行（★の高い本の考えを相談で優先する） */}
@@ -4977,15 +4982,6 @@ function AuthedApp() {
                   </div>
                 </div>
               )}
-              {(current.startDate || current.doneDate) && (
-                <p style={{ fontSize: 'var(--text-meta)', color: "var(--text-3)", margin: 'var(--space-2) 0 0' }}>
-                  {current.startDate && <>開始 {fmtDateJa(current.startDate)}</>}{current.startDate && current.doneDate && '　'}{current.doneDate && <>読了 {fmtDateJa(current.doneDate)}</>}
-                </p>
-              )}
-              {/* ⏱ この本の読書の時間（集中モードで測った合計・読書中と読了だけ・0 なら出さない・2026-10-10）。 */}
-              {(current.status === 'reading' || current.status === 'done') && (
-                <BookReadingTime bookId={current.id} style={current.startDate || current.doneDate ? undefined : { marginTop: 'var(--space-2)' }} />
-              )}
               {/* ⏱ 読む（集中モード・読書中だけ・2026-10-09）。主役の「メモを書く」（右下の塗り）より弱い、枠の小さな副ボタン。 */}
               {current.status === 'reading' && (
                 <button
@@ -4993,7 +4989,7 @@ function AuthedApp() {
                   onClick={() => openFocusStart(current)}
                   aria-label={`『${current.title}』を読む（集中モード）`}
                   data-focus-entry=""
-                  style={{ ...btnRow, marginTop: 'var(--space-3)' }}
+                  style={{ ...btnTonal, marginTop: 'var(--space-3)' }}
                 >
                   <Timer size="1.1em" strokeWidth={1.75} aria-hidden="true" style={{ flexShrink: 0 }} />読む
                 </button>
@@ -5022,8 +5018,8 @@ function AuthedApp() {
               {/* SPEC §2 の並び: メモ一覧 → この本に相談する → この本のまとめ → 行動（→ 計画・AI 解析は下）。
                   「この本に相談する」は BookMemoList の afterList で一覧のすぐ下（まとめの上）に置く。 */}
               <section aria-labelledby="detail-memo-title">
-                <h2 id="detail-memo-title" style={detailH2Style}>メモ</h2>
                 <BookMemoList
+                  heading={{ id: 'detail-memo-title', label: 'メモ', style: detailH2Style }}
                   bookId={current.id}
                   bookTitle={current.title}
                   bookAuthor={current.author || ""}
@@ -5858,7 +5854,7 @@ function AuthedApp() {
         aria-label="写真で共有"
         // 文字は 15 から設定に合わせて大きくなるが、20 で止める（--text-bar-max・1 行に収める）。アイコンは右の ？・⚙️ と同じ 22。
         // 本が 0 冊のときは栗色にしない（--text-2）＝主役は本文の「読んだ本に一言ずつ残す」（アクセントを 2 か所にしない・2026-10-11 第 2 回の採点）。
-        style={{ ...btnLink, ...(!booksLoading && books.length === 0 ? { color: 'var(--text-2)' } : null), fontSize: 'min(var(--text-sub), var(--text-bar-max))', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', padding: '0 var(--space-2)', whiteSpace: 'nowrap' }}
+        style={{ ...btnLink, color: !booksLoading && books.length === 0 ? 'var(--text-2)' : 'var(--text)', fontSize: 'min(var(--text-sub), var(--text-bar-max))', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', padding: '0 var(--space-2)', whiteSpace: 'nowrap' }}
       >
         <Camera size={22} strokeWidth={1.75} aria-hidden="true" />
         写真で共有
@@ -6387,8 +6383,9 @@ function AuthedApp() {
 
         {tab === "review" && (
           <div key={`tab-${tab}`} className="tab-content">
-            <div className="sub-tabs" role="tablist" aria-label="振り返りのサブタブ" onKeyDown={onTabListKeyDown}>
-              {/* 並び: 行動｜メモ｜記録（SPEC §4。「ノート」は GLOSSARY どおり「メモ」）。 */}
+            <div className="sub-tabs">
+            {/* 並び: 行動｜メモ｜記録（SPEC §4。「ノート」は GLOSSARY どおり「メモ」）。iOS の切り替え（灰色の溝に白い面・2026-10-16）。 */}
+            <div className="sub-tabs__seg" role="tablist" aria-label="振り返りのサブタブ" onKeyDown={onTabListKeyDown}>
               <button
                 type="button"
                 role="tab"
@@ -6425,6 +6422,7 @@ function AuthedApp() {
               >
                 記録
               </button>
+            </div>
             </div>
             <div role="tabpanel" id="review-panel" aria-labelledby={`review-tab-${reviewSubTab}`}>
             {reviewSubTab === 'note' ? (
@@ -6505,7 +6503,7 @@ function AuthedApp() {
                 上の操作を「サブタブ／アイコンの行／件数の行」と 3 段に積まない（2026-10-01 ui-critic・DESIGN §5）。 */}
             {!(aiSubTab === 'brain' && consultPushed) && !(aiSubTab === 'advisor' && advisorPushed) && (
             <div className="sub-tabs sub-tabs--fit" style={{ flexShrink: 0 }}>
-            <div role="tablist" aria-label="相談のサブタブ" className="sub-tabs__list" onKeyDown={onTabListKeyDown}>
+            <div role="tablist" aria-label="相談のサブタブ" className="sub-tabs__list sub-tabs__seg" onKeyDown={onTabListKeyDown}>
               <button
                 type="button"
                 role="tab"

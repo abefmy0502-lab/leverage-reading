@@ -132,7 +132,7 @@ const checkCircle = (on, focused) => ({
   border: on ? 'none' : '2px solid var(--border)',
   color: 'var(--accent-ink)',
   // キーボードで触れたときだけ --accent-soft の輪（AuthScreen の同意と同じ）。
-  boxShadow: focused ? '0 0 0 3px var(--accent-soft)' : 'none',
+  boxShadow: focused ? 'inset 0 0 0 1px var(--accent)' : 'none',
 });
 const radioNative = { position: 'absolute', inset: 0, width: '100%', height: '100%', margin: 0, opacity: 0, cursor: 'pointer' };
 

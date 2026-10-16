@@ -212,7 +212,7 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
 // books: 本棚の本（本と本がつながる＝ほかの本の書名・表紙に使う）。
 // savedMemo: いま保存したメモ { id, bookId, text, nonce }（メモを書くシート・全画面の入力で保存したとき・App が渡す）。
 //   ほかの本で似たことを書いていれば、一覧の上に「いま書いたメモと似たメモ」を 1 枚（次に保存するか、本を離れるまで）。
-export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summaryText = '', onSaveSummary, onMakeAction, onShareMemo, afterList = null, focusMemoId = null, editFocusedMemo = false, onEditFocusedOpened, onWriteMemo, books = [], savedMemo = null }) {
+export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summaryText = '', onSaveSummary, onMakeAction, onShareMemo, afterList = null, focusMemoId = null, editFocusedMemo = false, onEditFocusedOpened, onWriteMemo, books = [], savedMemo = null, heading = null }) {
   const [sortBy, setSortBy] = useState('page');
   const [sortMenu, setSortMenu] = useState(null); // { x, y } | null
   const [quoteOnly, setQuoteOnly] = useState(false);
@@ -626,12 +626,25 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
           0 件の画面で最初に見えるのが「ページ順/新しい順/引用のみ」だと、
           書き始めのボタンがその下に埋もれる。 */}
       {/* 件数がまだ分からない（初めて開いた本）ときも、メモがある形で場所を取る（3 枚の形と同じ前提）。 */}
+      {/* heading: 見出し「メモ」をこの行に置き、件数を見出しの右に小さく（「メモ」と「3 件」が 2 段に分かれていた・2026-10-16 ui-critic）。 */}
+      {heading && !(memos.length > 0 || (waiting && countHint !== 0)) && (
+        <h2 id={heading.id} style={{ ...heading.style, margin: 0 }}>{heading.label}</h2>
+      )}
       {(memos.length > 0 || (waiting && countHint !== 0)) && (
         // 行の高さ 44 は押せる範囲のため。見た目では見出しとカードに寄せる（グループ内は詰める）。
-        <div aria-hidden={waiting || undefined} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', margin: 'calc(-1 * var(--space-2)) 0', ...(waiting ? hidden : null) }}>
-          <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', margin: heading ? 'calc(-1 * var(--space-2)) 0 calc(-1 * var(--space-1))' : 'calc(-1 * var(--space-2)) 0' }}>
+          {heading ? (
+            <h2 id={heading.id} style={{ ...heading.style, margin: 0, display: 'flex', alignItems: 'baseline', gap: 'var(--space-2)', minWidth: 0 }}>
+              {heading.label}
+              <span aria-hidden={waiting || undefined} style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', whiteSpace: 'nowrap', ...(waiting ? hidden : null) }}>
+                {quoteOnly ? `ページ番号つき ${visibleMemos.length} 件` : `${memos.length} 件`}
+              </span>
+            </h2>
+          ) : (
+          <span aria-hidden={waiting || undefined} style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', ...(waiting ? hidden : null) }}>
             {quoteOnly ? `ページ番号つき ${visibleMemos.length} 件` : `${memos.length} 件`}
           </span>
+          )}
           {/* メモが 1 件のときは並べ替えるものが無いので「ページ順 ▾」を出さない（行の高さ 44 はそのまま・2026-10-10 第 9 回 総点検）。
               ページ番号つきだけに絞っているときは、外せるように出す。 */}
           {memos.length <= 1 && !quoteOnly && !waiting ? <span aria-hidden="true" style={{ minHeight: 'var(--tap-min)' }} /> : (
@@ -639,7 +652,10 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
             type="button"
             onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setSortMenu({ x: r.right - 8, y: r.bottom + 4 }); }}
             aria-haspopup="menu"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 'var(--tap-min)', padding: '0 0 0 var(--space-2)', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-sub)', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}
+            aria-hidden={waiting || undefined}
+            tabIndex={waiting ? -1 : undefined}
+            // 並べ替えは脇役なので栗色にしない（--text-2・栗色は「メモを書く」だけ・2026-10-16 ui-critic）。
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 'var(--tap-min)', padding: '0 0 0 var(--space-2)', background: 'none', border: 'none', color: 'var(--text-2)', fontSize: 'var(--text-sub)', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', ...(waiting ? hidden : null) }}
           >
             {sortBy === 'page' ? 'ページ順' : '新しい順'}{quoteOnly ? '・ページ番号つき' : ''}
             <ChevronDown size="1.1em" aria-hidden="true" style={{ flexShrink: 0 }} />

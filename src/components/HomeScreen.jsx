@@ -32,10 +32,10 @@ import { MiniCover } from './BookCards';
 import { phrasePieces, withPhraseBreaks } from './TightBubble';
 import { SkeletonBlock } from './Skeleton';
 import ErrorMessage from './ErrorMessage';
-import { btnPrimary, btnGhost, btnLink, btnRow as btnRowBase, card } from '../styles/ui';
+import { btnPrimary, btnGhost, btnLink, btnTonal, card } from '../styles/ui';
 
 // DESIGN §5「行の中の小さい副ボタン」（ui.js の btnRow・高さ 44・文字 15・600）。折り返した行では幅いっぱいに伸びる。
-const btnRow = { ...btnRowBase, flex: '1 0 auto' };
+const btnRow = { ...btnTonal, flex: '1 0 auto' };
 // 行の表紙の幅（MiniCover）。「読む」はこの幅＋間 12 だけ右から始めて、書名の列にそろえる。
 const ROW_COVER_W = 40;
 
@@ -79,7 +79,7 @@ function StartCard({ onQuickstart, onAddBook, onAdvisor, onImport }) {
 }
 
 // いま読んでいる本の 1 行（表紙・書名・2 行目・右に副ボタン 1 つ）。読書中の本と、読書中が 0 冊のときの候補で共通。
-function BookRow({ book: b, sub, onOpenBook, onCoverRetry, action, footer }) {
+function BookRow({ book: b, sub, onOpenBook, onCoverRetry, action, footer, divider = false }) {
   // 右のボタンが書名の下へ折り返したか（文字が大きいとき）。折り返したら下の「読む」をカードの左端（ボタンの左端）にそろえる
   //   （書名の列にそろえたままだと、全幅の「メモを書く」と左端がずれていた・2026-10-10 ui-critic）。
   const rowRef = useRef(null);
@@ -88,7 +88,7 @@ function BookRow({ book: b, sub, onOpenBook, onCoverRetry, action, footer }) {
     const row = rowRef.current;
     if (!row || !footer || typeof ResizeObserver !== 'function') return undefined;
     const check = () => {
-      const [first, second] = row.children;
+      const [first, second] = [...row.children].filter((el) => !el.hasAttribute('data-divider'));
       if (!first || !second) return;
       setWrapped(second.offsetTop > first.offsetTop + first.offsetHeight / 2);
     };
@@ -101,7 +101,9 @@ function BookRow({ book: b, sub, onOpenBook, onCoverRetry, action, footer }) {
     // 文字サイズを大きくしたときは、右のボタンを書名の下へ折り返す（横に並べたままだと書名が「数値／化…」と
     // 2〜3 字で切れて読めなかった・2026-10-04）。ふだんの大きさでは 1 行（書名の欄は 10rem＝170 あれば並ぶ）。
     // 折り返した行ではボタンが行の幅いっぱいに伸びる（余りはほぼ書名の側へ＝flex-grow 1000:1）。
-    <div ref={rowRef} style={{ ...card, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--space-3)' }}>
+    // 行はまとまりのカード（GroupCard）の中に並ぶ。2 行目からは上に区切り線（書名の列から右へ・iOS の一覧と同じ）。
+    <div ref={rowRef} style={{ position: 'relative', padding: 'var(--space-3) var(--space-4)', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--space-3)' }}>
+      {divider && <span aria-hidden="true" data-divider="" style={{ position: 'absolute', top: 0, right: 0, left: `calc(var(--space-4) + ${ROW_COVER_W}px + var(--space-3))`, borderTop: '1px solid var(--separator)' }} />}
       <button
         type="button"
         onClick={() => onOpenBook(b)}
@@ -173,17 +175,26 @@ function ReadingNow({ books, onOpenBook, onWriteMemo, onStartReading, onAddBook,
   );
   return (
     <section aria-labelledby="home-reading-title">
-      <h2 id="home-reading-title" style={sectionTitle}>{heading}</h2>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-          {shown.map((b) => (
-            <BookRow key={b.id} book={b} sub={b.author} onOpenBook={onOpenBook} onCoverRetry={onCoverRetry} action={memoBtn(b)} footer={onRead ? (wrapped) => <ReadLink book={b} onRead={onRead} alignStart={wrapped} /> : null} />
+      {/* 見出しの右に「本を追加」（見出しの行の操作・2026-10-16 ui-critic「本を追加が段の間に浮いている」）。
+          文字ボタンの右の 4 を打ち消して、文字の右端をカードの右端にそろえる。 */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', columnGap: 'var(--space-3)', flexWrap: 'wrap', margin: '0 calc(-1 * var(--space-1)) var(--space-2) 0' }}>
+        <h2 id="home-reading-title" style={{ ...sectionTitle, margin: 0 }}>{heading}</h2>
+        <button type="button" onClick={onAddBook} style={{ ...btnLink, gap: 'var(--space-1)' }}>
+          <Plus size="1.2em" aria-hidden="true" />本を追加
+        </button>
+      </div>
+      {shown.length === 0 && candidates.length === 0 ? (
+        <p style={{ margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5 }}>読書中の本はありません</p>
+      ) : (
+        // 本は 1 枚のまとまりに行で並べる（1 冊ずつのカードにしない・iOS の一覧と同じ）。
+        <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
+          {shown.map((b, i) => (
+            <BookRow key={b.id} divider={i > 0} book={b} sub={b.author} onOpenBook={onOpenBook} onCoverRetry={onCoverRetry} action={memoBtn(b)} footer={onRead ? (wrapped) => <ReadLink book={b} onRead={onRead} alignStart={wrapped} /> : null} />
           ))}
-          {shown.length === 0 && candidates.length === 0 && (
-            <p style={{ margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5 }}>読書中の本はありません</p>
-          )}
-          {candidates.map((b) => (
+          {candidates.map((b, i) => (
             <BookRow
               key={b.id}
+              divider={i > 0}
               book={b}
               sub={b.author}
               onOpenBook={onOpenBook}
@@ -197,22 +208,24 @@ function ReadingNow({ books, onOpenBook, onWriteMemo, onStartReading, onAddBook,
               ) : memoBtn(b)}
             />
           ))}
-          {/* 「本を追加」はいつもここに（ヘルプの「いま読んでいる本の『本を追加』」と同じ場所・2026-09-29）。
-              文字ボタンの左右 4 を打ち消して、文字の端をカードの端（16）にそろえる。 */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', columnGap: 'var(--space-4)', margin: 'calc(-1 * var(--space-1)) calc(-1 * var(--space-1)) 0' }}>
-            <button type="button" onClick={onAddBook} style={{ ...btnLink, gap: 'var(--space-1)' }}>
-              <Plus size="1.2em" aria-hidden="true" />本を追加
-            </button>
-            {reading.length > shown.length && (
-              <button type="button" onClick={onSeeAllReading} style={btnLink}>
-                ほか {reading.length - shown.length} 冊を見る
-              </button>
-            )}
-          </div>
-      </div>
+        </div>
+      )}
+      {reading.length > shown.length && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', margin: 'var(--space-1) calc(-1 * var(--space-1)) 0 0' }}>
+          <button type="button" onClick={onSeeAllReading} style={btnLink}>
+            ほか {reading.length - shown.length} 冊を見る
+          </button>
+        </div>
+      )}
     </section>
   );
 }
+
+// ホームの下の行（今日の行動・すべての本）: 1 枚のまとまりの中の行（2026-10-16 ui-critic「カードが 1 行ずつ並んで重い」）。
+const navRow = { width: '100%', minHeight: 56, display: 'flex', alignItems: 'center', gap: 'var(--space-3)', padding: 'var(--space-3) var(--space-4)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-body)', textAlign: 'left', color: 'inherit' };
+const navValue = { whiteSpace: 'nowrap', fontSize: 'var(--text-sub)', color: 'var(--text-3)', flexShrink: 0 };
+// 行の間の区切り線は、文字の頭（アイコンの右）から右端まで。
+const navDivider = <span aria-hidden="true" style={{ display: 'block', marginLeft: 'calc(var(--space-4) + 1.2em + var(--space-3))', borderTop: '1px solid var(--separator)' }} />;
 
 // 🎯 今日の行動（2026-10-10・SPEC §1）: 期限が今日まで（過ぎたものも）・明日の行動があるときだけ、すべての本の上に 1 行。
 //   形は「すべての本」の行と同じ（カードの面・左にアイコン・右に ›）。2 行目はいちばん先にやる 1 件の文（1 行で … に切る）。
@@ -226,18 +239,17 @@ function HomeActionsRow({ summary, onOpen }) {
       data-home-actions=""
       onClick={() => onOpen?.(summary)}
       aria-label={`${summary.label} ${summary.count} 件。${firstText ? `${firstText.replace(/[。．.！!？?]+$/, '')}。` : ''}行動を開く`}
-      style={{ ...card, width: '100%', minHeight: 56, display: 'flex', alignItems: 'center', gap: 'var(--space-3)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-body)', textAlign: 'left' }}
+      style={navRow}
     >
       <Target size="1.2em" aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
       <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-        <span style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'space-between', columnGap: 'var(--space-3)' }}>
-          <span style={{ whiteSpace: 'nowrap', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>{summary.label}</span>
-          <span style={{ whiteSpace: 'nowrap', fontSize: 'var(--text-sub)', color: 'var(--text-3)' }}>{summary.count} 件</span>
-        </span>
+        <span style={{ whiteSpace: 'nowrap', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>{summary.label}</span>
         {firstText && (
           <span style={{ display: 'block', marginTop: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{firstText}</span>
         )}
       </span>
+      {/* 数は右の › と同じ高さの中央に（行の右の値・iOS の設定の一覧と同じ） */}
+      <span style={navValue}>{summary.count} 件</span>
       <ChevronRight size="1.2em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
     </button>
   );
@@ -285,16 +297,15 @@ function HomeSavedLinks({ books, saved, onOpen, onDismiss }) {
 // カードの形はどれも本物と同じ枠 --separator（明るい画面で背景に溶けないように）。
 const skeletonCard = { border: '1px solid var(--separator)', boxSizing: 'border-box' };
 export function HomeBlocksSkeleton() {
+  // 本物と同じ形: 見出しの行（右に「本を追加」）→ 2 冊の行のまとまり → 下の行のまとまり（2026-10-16）。
   return (
     <>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-        <SkeletonBlock width="40%" height={26} radius="var(--radius)" />
-        <SkeletonBlock height={90} radius="var(--radius)" style={skeletonCard} />
-        <SkeletonBlock height={90} radius="var(--radius)" style={skeletonCard} />
-        {/* 「＋ 本を追加」の文字ボタン（高さ 44・上は本物と同じく 4 詰める）。形は文字の幅だけ。 */}
-        <div style={{ height: 44, marginTop: 'calc(-1 * var(--space-1))', display: 'flex', alignItems: 'center' }}>
-          <SkeletonBlock width={96} height={20} radius="var(--radius)" />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+        <div style={{ height: 44, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <SkeletonBlock width="40%" height={26} radius="var(--radius)" />
+          <SkeletonBlock width={80} height={20} radius="var(--radius)" />
         </div>
+        <SkeletonBlock height={180} radius="var(--radius)" style={skeletonCard} />
       </div>
       <SkeletonBlock height={56} radius="var(--radius)" style={skeletonCard} />
     </>
@@ -383,25 +394,21 @@ export default function HomeScreen({
         <>
           {!memoState.hasMemos && <HomeFirstStep bookCount={books.length} onQuickstart={onQuickstart} onImport={onImport} />}
           <ReadingNow books={books} onOpenBook={onOpenBook} onWriteMemo={onWriteMemo} onStartReading={onStartReading} onAddBook={onAddBook} onSeeAllReading={onSeeAllReading} onCoverRetry={onCoverRetry} onRead={onRead} />
-          {/* 今日の行動とすべての本は、ひとまとまりの行（間 12）。 */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-          {onOpenActions && (
-            <HomeActionsRow
-              summary={actionsSummary}
-              onOpen={(sm) => { track('home_actions_row', { kind: sm.kind, count: sm.count }); onOpenActions(); }}
-            />
+          {/* 今日の行動とすべての本は、1 枚のまとまりの 2 行（区切り線でつなぐ）。 */}
+          <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
+          {onOpenActions && actionsSummary && (
+            <>
+              <HomeActionsRow
+                summary={actionsSummary}
+                onOpen={(sm) => { track('home_actions_row', { kind: sm.kind, count: sm.count }); onOpenActions(); }}
+              />
+              {navDivider}
+            </>
           )}
-          <button
-            type="button"
-            onClick={onOpenLibrary}
-            style={{ ...card, width: '100%', minHeight: 56, display: 'flex', alignItems: 'center', gap: 'var(--space-3)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-body)', textAlign: 'left' }}
-          >
+          <button type="button" onClick={onOpenLibrary} style={navRow}>
             <Library size="1.2em" aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
-            {/* 名前と冊数はそれぞれ割らない。文字が大きくて入りきらないときは冊数のほうが下の行へ回る。 */}
-            <span style={{ flex: 1, minWidth: 0, display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'space-between', columnGap: 'var(--space-3)' }}>
-              <span style={{ whiteSpace: 'nowrap', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>すべての本</span>
-              <span style={{ whiteSpace: 'nowrap', fontSize: 'var(--text-sub)', color: 'var(--text-3)' }}>{books.length} 冊</span>
-            </span>
+            <span style={{ flex: 1, minWidth: 0, whiteSpace: 'nowrap', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>すべての本</span>
+            <span style={navValue}>{books.length} 冊</span>
             <ChevronRight size="1.2em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
           </button>
           </div>

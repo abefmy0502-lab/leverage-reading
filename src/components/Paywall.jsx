@@ -175,9 +175,9 @@ function PlanCompare({ onlyPlan = false, trial = '', example = TOKEN_EXAMPLE }) 
           </p>
           <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5 }}>
             <span style={{ whiteSpace: 'nowrap' }}>{row.amount}</span>
-            {/* かっこの中は文節の切れ目でだけ折り返す（以前の nowrap は文字を大きくした端末で右へはみ出していた・2026-10-10）。 */}
-            <span style={{ fontSize: 'var(--text-sub)', fontWeight: 400, color: 'var(--text-2)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(`（${row.scope}）`)}</span>
           </p>
+          {/* 量の目安は、かっこで続けず次の行に（かっこが重なって読みにくかった・2026-10-16 ui-critic）。 */}
+          <p style={{ margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(row.scope)}</p>
           <p style={{ ...metaText, marginTop: 'var(--space-1)' }}>
             {row.lead && <span style={{ whiteSpace: 'nowrap' }}>{row.lead}</span>}
             {row.items
@@ -277,7 +277,8 @@ function PlanOption({ label, selected, onSelect, placeholder = false, tag = '', 
         minHeight: 44,
         padding: 'var(--space-3) var(--space-4)',
         textAlign: 'left',
-        background: selected ? 'var(--accent-soft)' : 'var(--surface)',
+        // 選んだ方は面を塗らず、枠だけ 2px の栗色（塗った面は暗い設定で濁って見えた・2026-10-16 ui-critic）。
+        background: 'var(--surface)',
         border: `1px solid ${selected ? 'var(--accent)' : 'var(--separator)'}`,
         boxShadow: selected ? 'inset 0 0 0 1px var(--accent)' : 'none',
         borderRadius: 'var(--radius)',

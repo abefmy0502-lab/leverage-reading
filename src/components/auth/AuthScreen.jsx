@@ -55,7 +55,7 @@ const checkCircle = (on, focused) => ({
   border: on ? 'none' : '2px solid var(--border)',
   color: 'var(--accent-ink)',
   // キーボード操作のときだけ、入力欄と同じ --accent-soft の輪で位置を示す。
-  boxShadow: focused ? '0 0 0 3px var(--accent-soft)' : 'none',
+  boxShadow: focused ? 'inset 0 0 0 1px var(--accent)' : 'none',
 });
 // 本物のチェックボックスは丸の上に透明で重ねる（押せる・読み上げ・キーボードはそのまま）。
 const checkboxNative = { position: 'absolute', inset: 0, width: '100%', height: '100%', margin: 0, opacity: 0, cursor: 'pointer' };
