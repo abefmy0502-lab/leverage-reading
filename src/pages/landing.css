@@ -843,7 +843,7 @@ body.lp-active {
   .lp-media-shot { text-align: left; }
   .lp-media-shot figcaption { max-width: var(--lp-share-w); }
   .lp-split { grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: var(--space-16); align-items: start; }
-  .lp-offer { padding: var(--space-6) var(--space-8); }
+  .lp-offer { padding: var(--space-6); }
 }
 
 /* 料金のカードを横に並べる（PC・2026-10-05） */
@@ -869,7 +869,7 @@ body.lp-active {
 @media (min-width: 768px) {
   /* 列の割り方は 始め方・書いたメモの扱いと同じ 5 : 7（右の列の左端をそろえる） */
   .lp-adv { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); column-gap: var(--space-16); align-items: center; }
-  .lp-adv-shot { order: 0; }
+  .lp-adv-shot { order: 0; justify-self: start; }
   /* 5 つは 2 列のとき最後の 1 枚を真ん中に */
   .lp-pillars > li:last-child:nth-child(odd) { grid-column: 1 / -1; justify-self: center; width: calc(50% - var(--space-6)); }
 }
@@ -1009,3 +1009,4 @@ body.lp-active {
 
 /* 書いたメモの扱い → 料金 は同じ地が続くので、料金の上の余白を 1 段だけに（2026-10-17 ui-critic） */
 .lp-root .lp-trust-sec + .lp-pricing { padding-top: var(--space-16); }
+.lp-root .lp-sentence { display: block; }

@@ -221,3 +221,13 @@ describe('イラストがあるかは、ビルドのときに決める（2026-10
     expect(cfg).toContain('__LP_ART__: JSON.stringify(lpArtList())');
   });
 });
+
+// 2026-10-17 オーナー「本の語り口で答える → わかりにくい」: LP の文は「口調」にそろえる（画面の中の「（本の語り口で・AI）」はアプリの表示のまま）。
+describe('「口調」にそろえる', () => {
+  it('説明・会話の流れの題に「語り口で答え」が無い', () => {
+    const flow = readFileSync(new URL('./LpFlow.jsx', import.meta.url), 'utf8');
+    expect(flow).toContain("title: 'その本の口調で、AI が答える'");
+    expect(LP_DESCRIPTION).not.toContain('語り口');
+    expect(LP_OG_DESCRIPTION).not.toContain('語り口');
+  });
+});

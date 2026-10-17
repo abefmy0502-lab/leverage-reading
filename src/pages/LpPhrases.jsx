@@ -47,16 +47,25 @@ export function clausesOf(parts) {
 
 // 2026-10-13 オーナー「AI っぽさを徹底的に排除」: 句読点ごとの折り返し（行が階段になる）は見出しだけ（clause を渡したとき）。
 //   短い本文は文節の切れ目で、行いっぱいまで流す（句をかたまりにしない）。長い文は今までどおり文字の単位で。
-export default function Phrases({ children, clause = false }) {
+export default function Phrases({ children, clause = false, phrase = false }) {
   const text = String(children ?? '');
   const parts = phrasesOf(text);
   // 長い文は本の組版と同じく文字の単位で詰めて折り返す（文節で割ると右が大きくでこぼこになる・2026-10-12）。
   // 数と単位（「24 時間前」）は折り返さない空白でつなぐ。
-  if (!clause && text.length > CLAUSE_MAX) return <span className="lp-longtext">{keepSpaces(text)}</span>;
+  if (!clause && !phrase && text.replace(/\u2060/g, '').length > CLAUSE_MAX) return <span className="lp-longtext">{keepSpaces(text)}</span>;
   if (!clause) return parts.map((p, i) => <Fragment key={i}>{i > 0 && <wbr />}{keepSpaces(p)}</Fragment>);
   return clausesOf(parts).map((c, k) => (
     <span key={k} className="lp-clause">
       {c.map((p, i) => <Fragment key={i}>{i > 0 && <wbr />}{keepSpaces(p)}</Fragment>)}
     </span>
   ));
+}
+
+// 長い文を文（。・）の切れ目で分け、1 文ずつ文節で折り返す（60 字を超える段落が文字の単位で「同／じ」と割れていた・2026-10-17 ui-critic）。
+// block のときは 1 文ずつ行を改める。
+export function Sentences({ children, block = false }) {
+  const list = String(children ?? '').split(/(?<=[。）])/).filter((t) => t.trim());
+  return list.map((t, i) => (block
+    ? <span key={i} className="lp-sentence"><Phrases phrase>{t.trim()}</Phrases></span>
+    : <Fragment key={i}>{i > 0 && <wbr />}<Phrases phrase>{t}</Phrases></Fragment>));
 }

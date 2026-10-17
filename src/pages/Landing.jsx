@@ -48,7 +48,7 @@ import LpFlow from './LpFlow';
 import LpWaitlist from './LpWaitlist';
 import LpIllust from './LpIllust';
 import LpArt, { hasArt } from './LpArt';
-import Phrases from './LpPhrases';
+import Phrases, { Sentences } from './LpPhrases';
 import { buildLpCopy, storeHrefOf, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE } from './lpCopy';
 import qrcode from 'qrcode-generator';
 import { lpTrack, lpVariant, storeUrlFor, isWidePointer } from '../lib/lpTrack';
@@ -182,7 +182,7 @@ const PILLARS = [
 // どれも実装のとおり（lib/advisorInterview.js・lib/advisorRecs.js・ai.js の recentConsultsBlock・読書計画シート）。言い過ぎない。
 const ADVISOR_STEPS = [
   { title: '悩みを聞く', body: '1 回に 1 つずつ問いかけて、本音を言葉にしていきます。' },
-  { title: '受け取った悩みを確かめる', body: '受け取った悩みを短くまとめて見せます。違っていれば直せます。' },
+  { title: '受け取った悩みを確かめる', body: '悩みを短くまとめて見せます。違っていれば直せます。' },
   { title: 'おすすめの本と、読む順番', body: '読んできた本と評価、最近の相談もふまえて選びます。実在を確かめた本だけを出します。' },
   { title: '読む前の準備まで', body: '本棚に入れると、読書計画シートで、どこを重点的に読むかが分かります。' },
 ];
@@ -427,7 +427,7 @@ export default function Landing() {
         operatingSystem: 'iOS',
         // ストアの第 1 カテゴリ（仕事効率化）に近いもの
         applicationCategory: 'BusinessApplication',
-        description: '読んだ本と会話できる読書メモアプリ。気になった一行をメモしておくと、迷ったときに AI がその本の語り口で、あなたのメモをもとに答えます。',
+        description: '読んだ本と会話できる読書メモアプリ。気になった一行をメモしておくと、迷ったときに AI がその本の口調で、あなたのメモをもとに答えます。',
         offers: [
           { '@type': 'Offer', name: '無料プラン', price: '0', priceCurrency: 'JPY' },
           { '@type': 'Offer', name: '月額プラン', price: String(MONTHLY), priceCurrency: 'JPY' },
@@ -740,7 +740,7 @@ export default function Landing() {
                 {ADVISOR_STEPS.map((x) => (
                   <li key={x.title}>
                     <h3 className="lp-h3 lp-wbr"><Phrases clause>{x.title}</Phrases></h3>
-                    <p className="lp-wbr"><Phrases>{x.body}</Phrases></p>
+                    <p className="lp-wbr"><Sentences block>{x.body}</Sentences></p>
                   </li>
                 ))}
               </ol>
@@ -845,7 +845,7 @@ export default function Landing() {
                       <>
                         <p className="lp-plan-price">{OFFER.priceLabel}<span>（税込）</span></p>
                         {/* 条件は金額のすぐ下に（誰の・いつの価格か）。その次の行に 2 年目からの自動更新 */}
-                        <p className="lp-plan-cond lp-wbr"><Phrases>{`${noBreak(OFFER.endLabel)}までに始めた方の ${noBreak('1 年目')}。始めるときに ${noBreak('1 年分')}をまとめてお支払い（同じ Apple ID で初回特典を使っていない方）`}</Phrases></p>
+                        <p className="lp-plan-cond lp-wbr"><Sentences>{`${OFFER.endLabel}までに始めた方の 1 年目。始めるときに 1 年分をまとめてお支払い。同じ Apple ID で初回特典を使っていない方が対象です。`}</Sentences></p>
                         <p className="lp-plan-sub"><span className="lp-nb">2 年目から</span> <span className="lp-nb">年額 {ANNUAL_TEXT}（税込）</span>で自動更新</p>
                       </>
                     ) : (
@@ -863,7 +863,7 @@ export default function Landing() {
                 </div>
                 {!PRELAUNCH && <StoreCta className="lp-btn lp-plan-cta" loc="pricing">{TRIAL_NOTE ? TRIAL_CTA_LABEL : CTA_LABEL}</StoreCta>}
                 {/* 自動更新・解約の説明は有料のボタンのすぐ下（App Store 3.1.2・2026-10-12） */}
-                <p className="lp-renew lp-wbr">{COPY.pricingNote.map((t) => <span key={t}><Phrases>{t}</Phrases></span>)}</p>
+                <p className="lp-renew lp-wbr">{COPY.pricingNote.map((t) => <span key={t}><Sentences>{t}</Sentences></span>)}</p>
               </div>
             </div>
             {/* 創業メンバー価格（期間中だけ・料金の中の帯 1 枚）。2026-10-17 ui-critic: 2 枚のカードの後ろ＝条件の確認として。「先着」「通常価格」と書かない・差額を書かない */}
