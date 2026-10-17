@@ -601,8 +601,7 @@ body.lp-active {
 /* ⑨ 料金 */
 /* 創業メンバー価格の帯（期間中だけ・料金の中の 1 枚） */
 .lp-offer {
-  max-width: 36em;
-  margin-bottom: var(--space-6);
+  margin-top: var(--space-6);
   padding: var(--space-6) var(--space-4);
   border: 1px solid var(--separator);
   border-radius: var(--radius);
@@ -610,13 +609,13 @@ body.lp-active {
 }
 .lp-offer > p:not(.lp-offer-title) { color: var(--text-2); font-size: var(--text-sub); line-height: 1.6; }
 .lp-offer-title { margin-bottom: var(--space-2) !important; font-size: var(--text-heading); font-weight: 600; line-height: 1.4; }
-.lp-offer-title > span { color: var(--text-2); font-size: var(--text-sub); font-weight: 400; }
+.lp-offer-title > span { display: block; color: var(--text-2); font-size: var(--text-sub); font-weight: 400; }
 .lp-offer > p + p { margin-top: var(--space-3); }
 /* 対象・特典・価格・ご注意の 4 行（2026-10-17 オーナー「読みにくい」） */
 .lp-offer-list { margin: var(--space-4) 0 0; display: grid; gap: var(--space-3); }
 .lp-offer-list > div { display: grid; grid-template-columns: 4em minmax(0, 1fr); column-gap: var(--space-3); align-items: baseline; }
 .lp-offer-list dt { color: var(--text-2); font-size: var(--text-meta); font-weight: 600; }
-.lp-offer-list dd { margin: 0; color: var(--text); font-size: var(--text-sub); line-height: 1.6; }
+.lp-offer-list dd { margin: 0; color: var(--text); font-size: var(--text-sub); line-height: 1.6; text-wrap: pretty; }
 .lp-offer-list > div + div { padding-top: var(--space-3); border-top: 1px solid var(--separator); }
 /* 料金は 2 枚（無料プラン（ずっと無料）と、プラン）。広い画面では横に並べる */
 .lp-plan-cards { display: grid; gap: var(--space-3); }
@@ -640,8 +639,8 @@ body.lp-active {
 /* カードの中のボタン（下にそろえる・無料は枠線・有料は塗り＝塗りは 1 つ） */
 .lp-plan-cta { width: 100%; margin-top: auto; }
 .lp-plan > .lp-plan-cta { margin-top: var(--space-6); }
-.lp-plan > ul + .lp-plan-cta { margin-top: auto; padding-top: 0; }
-.lp-plan:not(.is-paid) > .lp-plan-cta { margin-top: auto; }
+.lp-plan > ul + .lp-plan-cta { margin-top: var(--space-6); padding-top: 0; }
+.lp-plan:not(.is-paid) > .lp-plan-cta { margin-top: var(--space-6); }
 .lp-plan:not(.is-paid) > ul { margin-bottom: var(--space-6); }
 .lp-btn-ghost { background: transparent; color: var(--text) !important; box-shadow: inset 0 0 0 1px var(--border); }
 .lp-btn-ghost:hover { background: var(--fill); }
@@ -849,7 +848,7 @@ body.lp-active {
 
 /* 料金のカードを横に並べる（PC・2026-10-05） */
 @media (min-width: 900px) {
-  .lp-plan-cards { grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr); align-items: stretch; gap: var(--space-4); }
+  .lp-plan-cards { grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr); align-items: start; gap: var(--space-4); }
   .lp-plan { padding: var(--space-6); }
 }
 
@@ -862,13 +861,14 @@ body.lp-active {
   content: counter(adv); grid-row: span 2; align-self: start;
   width: var(--space-8); height: var(--space-8); border-radius: 50%;
   display: grid; place-items: center;
-  background: var(--accent-soft); color: var(--accent); font-size: var(--text-meta); font-weight: 700;
+  background: var(--fill); color: var(--text-2); font-size: var(--text-meta); font-weight: 600;
 }
 .lp-adv-steps .lp-h3 { margin: var(--space-1) 0 var(--space-1); }
-.lp-adv-steps p { color: var(--text-2); max-width: 30em; }
+.lp-adv-steps p { color: var(--text-2); max-width: 30em; text-wrap: pretty; }
 .lp-root .lp-adv-note { margin-top: var(--space-6) !important; padding-left: calc(var(--space-8) + var(--space-3)); color: var(--text-2); font-size: var(--text-meta); }
 @media (min-width: 768px) {
-  .lp-adv { grid-template-columns: auto minmax(0, 1fr); gap: var(--space-16); align-items: center; }
+  /* 列の割り方は 始め方・書いたメモの扱いと同じ 5 : 7（右の列の左端をそろえる） */
+  .lp-adv { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); column-gap: var(--space-16); align-items: center; }
   .lp-adv-shot { order: 0; }
   /* 5 つは 2 列のとき最後の 1 枚を真ん中に */
   .lp-pillars > li:last-child:nth-child(odd) { grid-column: 1 / -1; justify-self: center; width: calc(50% - var(--space-6)); }
@@ -961,7 +961,9 @@ body.lp-active {
 /* 最後の案内: ボタンを中央に、QR はその下（ボタンと QR をまとめて中央にすると、ボタンが見出しの中心からずれた・2026-10-16 第 6 回） */
 @media (min-width: 768px) { .lp-final-inner .lp-cta-row { flex-direction: column; align-items: center; } }
 /* 自動更新の説明・相談の目安は文節の切れ目でだけ折り返す（「無／料期間」と語の中で割れていた） */
-.lp-root :is(.lp-renew, .lp-plan-hint) { word-break: keep-all; overflow-wrap: normal; line-break: strict; }
+.lp-root :is(.lp-renew, .lp-plan-hint) { word-break: keep-all; overflow-wrap: normal; line-break: strict; text-wrap: pretty; }
+/* 見本の注記は 1 文ずつ（「変わります。」だけが残らない） */
+.lp-root .lp-hero-note > span { display: inline-block; }
 .lp-wl-note a { text-decoration: underline; text-underline-offset: 0.2em; }
 
 /* ============ 2026-10-16 図で伝える（LpDiagram.jsx・第 2 版） ============ */
@@ -1004,3 +1006,6 @@ body.lp-active {
 .lp-root .lp-pillar-sub { margin: var(--space-1) 0 0; font-size: var(--text-sub); color: var(--text-2); }
 @media (min-width: 768px) { .lp-root .lp-ba-line { text-align: center; } .lp-trust-sec .lp-trust-row { margin-top: 0; } }
 @media (max-width: 767px) { .lp-dia-svg { width: min(100%, 200px); } }
+
+/* 書いたメモの扱い → 料金 は同じ地が続くので、料金の上の余白を 1 段だけに（2026-10-17 ui-critic） */
+.lp-root .lp-trust-sec + .lp-pricing { padding-top: var(--space-16); }

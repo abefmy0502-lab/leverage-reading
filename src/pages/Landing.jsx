@@ -116,7 +116,7 @@ const HERO_MINI = [
 // 「画面は見本です。」と語り口の注記は LP でここ 1 か所＝ヒーローの画面のすぐ下（イラストの型も重ねた端末で答えを見せるので・2026-10-12）
 function HeroNote() {
   // 2026-10-12 オーナー「無駄な補足」: ヒーローは「画面は見本です。…」だけ（語り口の注記は画面の中の「（本の語り口で・AI）」と、最初から開いているよくある質問の 1 問目）。
-  return <figcaption className="lp-wbr lp-hero-note"><Phrases>{SAMPLE_NOTE}</Phrases></figcaption>;
+  return <figcaption className="lp-wbr lp-hero-note">{SAMPLE_NOTE.split(/(?<=。)/).map((t) => <span key={t}>{t}</span>)}</figcaption>;
 }
 
 function HeroMini() {
@@ -812,20 +812,6 @@ export default function Landing() {
               </p>
             </div>
 
-            {/* 創業メンバー価格（期間中だけ・料金の中の帯 1 枚）。「先着」「通常価格」と書かない・差額を書かない */}
-            {OFFER.active && (
-              <div className="lp-offer" id="lp-offer" data-lp-sec="offer">
-                <p className="lp-offer-title">{FOUNDING_NAME}<span className="lp-nb">（{OFFER.endLabel}（日本時間）まで）</span></p>
-                {/* 2026-10-17 オーナー「読みにくい」: 段落をやめ、対象・特典・価格・注意の 4 行に */}
-                <dl className="lp-offer-list">
-                  <div><dt>対象</dt><dd className="lp-wbr"><Phrases>期間中にプランを始めた、すべての方（月額・年額とも）</Phrases></dd></div>
-                  <div><dt>特典</dt><dd className="lp-wbr"><Phrases>開発者への直接の窓口と、次に作る機能への投票</Phrases></dd></div>
-                  <div><dt>価格</dt><dd>年額プランの <span className="lp-nb">1 年目が {OFFER.price}（税込）</span></dd></div>
-                  <div><dt>ご注意</dt><dd className="lp-wbr"><Phrases>{`先に月額プランの ${noBreak('7 日間無料')}を使うと、年額の 1 年目の価格は使えません（App Store の初回特典のため）`}</Phrases></dd></div>
-                </dl>
-              </div>
-            )}
-
             {/* 2 枚（無料プラン（ずっと無料）と、プラン）。広い画面では横に並べる */}
             <div className="lp-plan-cards">
               <div className="lp-plan">
@@ -880,6 +866,20 @@ export default function Landing() {
                 <p className="lp-renew lp-wbr">{COPY.pricingNote.map((t) => <span key={t}><Phrases>{t}</Phrases></span>)}</p>
               </div>
             </div>
+            {/* 創業メンバー価格（期間中だけ・料金の中の帯 1 枚）。2026-10-17 ui-critic: 2 枚のカードの後ろ＝条件の確認として。「先着」「通常価格」と書かない・差額を書かない */}
+            {OFFER.active && (
+              <div className="lp-offer" id="lp-offer" data-lp-sec="offer">
+                <p className="lp-offer-title">{FOUNDING_NAME}<span>{OFFER.endLabel}（日本時間）まで</span></p>
+                {/* 2026-10-17 オーナー「読みにくい」: 段落をやめ、対象・特典・価格・注意の 4 行に */}
+                <dl className="lp-offer-list">
+                  <div><dt>対象</dt><dd className="lp-wbr"><Phrases>期間中にプランを始めた、すべての方（月額・年額とも）</Phrases></dd></div>
+                  <div><dt>特典</dt><dd className="lp-wbr"><Phrases>開発者への直接の窓口と、次に作る機能への投票</Phrases></dd></div>
+                  <div><dt>価格</dt><dd>年額プランの <span className="lp-nb">1 年目が {OFFER.price}（税込）</span></dd></div>
+                  <div><dt>ご注意</dt><dd className="lp-wbr"><Phrases>先に月額プランの 7 日間無料を使うと、年額の 1 年目の価格は使えません（App Store の初回特典のため）</Phrases></dd></div>
+                </dl>
+              </div>
+            )}
+
             {PRELAUNCH && (
               <div className="lp-cta-block">
                 <Entry loc="pricing" wl={wl} />
@@ -894,7 +894,7 @@ export default function Landing() {
             <h2 className="lp-h2" id="lp-faq">よくある質問</h2>
             <div className="lp-faq-list">
               {COPY.faq.map((f, i) => (
-                <details className="lp-faq-item" key={f.q} onToggle={(e) => { if (e.currentTarget.open) lpTrack('faq_open', { i, q: f.q.slice(0, 40) }); }}>
+                <details className="lp-faq-item" key={f.q} open={i === 0} onToggle={(e) => { if (e.currentTarget.open) lpTrack('faq_open', { i, q: f.q.slice(0, 40) }); }}>
                   <summary>
                     <span className="lp-wbr"><Phrases>{f.q}</Phrases></span>
                     <ChevronDown size="1.25em" aria-hidden="true" className="lp-faq-mark" />
