@@ -178,6 +178,22 @@ const PILLARS = [
   },
 ];
 
+// 本と対話すると、変わること（機能の名前ではなく、使う人に起きる変化・どれも実装のとおり）。
+//   1 根拠つきの答え（evidenceCheck・本とページ）/ 2 聞き返してから答える（turnHint）/ 3 見方を変えるチップ（LENS_CHIPS）/ 4 行動に追加・期限の通知
+const CHANGES = [
+  { title: '読んだ本の中身を、必要なときに取り出せる', body: '残したメモから、本とページを添えて答えます。' },
+  { title: '心に残った言葉が、自分の悩みとつながる', body: 'いきなり結論を出さず、まず状況を聞いてから答えます。' },
+  { title: '一冊から、もう一歩深く考えられる', body: '「ほかの本の視点で」など、見方を変えて聞き直せます。' },
+  { title: '読んで得たことが、明日の行動になる', body: '相談で決めた一歩は、期限つきで行動リストに入ります。' },
+];
+
+// ほかのアプリとの違い（相手を否定しない。「よくある形」はどれも事実として言える一般的な形だけ）
+const DIFFS = [
+  { kind: '読書記録アプリ', usual: '読んだ本と感想が、記録として残る', orime: '残したメモが、迷ったときの答えのもとになる' },
+  { kind: '本の要約アプリ', usual: '誰かがまとめた要点を読む', orime: '自分が心に残した言葉から考える' },
+  { kind: 'AI チャット', usual: '幅広い知識から答える', orime: 'あなたのメモと本をもとに、ページを添えて答える' },
+];
+
 // AI 選書の 4 つの段（2026-10-17 オーナー「ここまで丁寧に選書してくれる機能はすごい・別枠でもう少し丁寧に」）。
 // どれも実装のとおり（lib/advisorInterview.js・lib/advisorRecs.js・ai.js の recentConsultsBlock・読書計画シート）。言い過ぎない。
 const ADVISOR_STEPS = [
@@ -427,7 +443,7 @@ export default function Landing() {
         operatingSystem: 'iOS',
         // ストアの第 1 カテゴリ（仕事効率化）に近いもの
         applicationCategory: 'BusinessApplication',
-        description: '読んだ本と会話できる読書メモアプリ。気になった一行をメモしておくと、迷ったときに AI がその本の口調で、あなたのメモをもとに答えます。',
+        description: '読んだ本と対話できる読書メモアプリ。気になった一行をメモしておくと、迷ったときに AI がその本の口調で、あなたのメモをもとに答えます。',
         offers: [
           { '@type': 'Offer', name: '無料プラン', price: '0', priceCurrency: 'JPY' },
           { '@type': 'Offer', name: '月額プラン', price: String(MONTHLY), priceCurrency: 'JPY' },
@@ -597,12 +613,12 @@ export default function Landing() {
           <div className="lp-wrap lp-hero-grid">
             <div className="lp-hero-text">
               <h1 className="lp-h1">
-                <span>読んだ本と、</span><span>会話しよう。</span>
+                <span>読んだ本と、</span><span>対話する。</span>
               </h1>
-              {/* 2026-10-17 オーナー「わかりにくい・改行したほうが」: 2 つの言い切りを 1 行ずつ（語り口の説明は会話の流れの 3 枚目へ） */}
+              {/* 2026-10-17 指示書「読んだ本と、対話する。」: 補足は体験が思い浮かぶ 2 行（残す → 相談する） */}
               <p className="lp-lead lp-lead-lines">
-                <span>読みながら、気になった一行をメモ。</span>
-                <span>迷ったときは、その本に相談できます。</span>
+                <span>心に残った一行を、本ごとにメモしておく。</span>
+                <span>迷ったとき、その本に相談できます。</span>
               </p>
               <div className="lp-cta-block" ref={heroCtaRef}>
                 {/* QR は最後の案内だけ（ヒーローの主ボタンの横の黒い四角がいちばん重く見えた・2026-10-16 ui-critic） */}
@@ -629,6 +645,12 @@ export default function Landing() {
               </figure>
             ) : (
             <figure className="lp-hero-shot">
+              {/* 画面の答えのもとになったメモ（実際の画面の「根拠を見る」と同じ一節・『嫌われる勇気』p.40）。
+                  「残した一行 → 本の答え」を 1 枚で見せる（2026-10-17 指示書「本・引用・対話を中心に」） */}
+              <div className="lp-hero-quote lp-reveal" aria-hidden="true">
+                <p className="lp-hero-quote-meta">『嫌われる勇気』に残したメモ<span>p.40</span></p>
+                <p className="lp-hero-quote-text">他人の課題と、自分の課題を分ける。</p>
+              </div>
               <div className={`lp-hero-stage${slot3D ? ' is-3d-slot' : ''}${ready3D ? ' is-3d' : ''}`} ref={heroStageRef}>
                 <Shot
                   name="hero"
@@ -665,8 +687,24 @@ export default function Landing() {
           </div>
         </section>
 
+        {/* ============ 本と対話すると、変わること（機能ではなく変化・2026-10-17 指示書 Section 3） ============ */}
+        <section className="lp-sec lp-change-sec" aria-labelledby="lp-change" data-lp-sec="change">
+          <div className="lp-wrap">
+            <h2 className="lp-h2" id="lp-change"><span>本と対話すると、</span><span>変わること</span></h2>
+            <ol className="lp-change">
+              {CHANGES.map((x, i) => (
+                <li key={x.title} className="lp-reveal">
+                  <span className="lp-change-num" aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
+                  <h3 className="lp-change-title lp-wbr"><Phrases clause>{x.title}</Phrases></h3>
+                  <p className="lp-wbr"><Phrases>{x.body}</Phrases></p>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </section>
+
         {/* ============ ③ 続けられて、成果が見える（柱 ②〜⑤） ============ */}
-        <section className="lp-sec lp-pillars-sec" aria-labelledby="lp-pillars" data-lp-sec="pillars">
+        <section className="lp-sec lp-band lp-pillars-sec" aria-labelledby="lp-pillars" data-lp-sec="pillars">
           <div className="lp-wrap">
             <div className="lp-narrow lp-sec-head">
               <h2 className="lp-h2" id="lp-pillars">
@@ -721,8 +759,29 @@ export default function Landing() {
           </div>
         </section>
 
+        {/* ============ ほかのアプリとの違い（否定しない・できることを並べる・2026-10-17 指示書 Section 5） ============ */}
+        <section className="lp-sec lp-diff-sec" aria-labelledby="lp-diff" data-lp-sec="diff">
+          <div className="lp-wrap">
+            <h2 className="lp-h2" id="lp-diff"><span>ほかの読書アプリと、</span><span>どこが違う？</span></h2>
+            <div className="lp-diff" role="table" aria-label="ほかのアプリと Orime の違い">
+              <div className="lp-diff-row lp-diff-head" role="row">
+                <span role="columnheader" />
+                <span role="columnheader">よくある形</span>
+                <span role="columnheader">Orime</span>
+              </div>
+              {DIFFS.map((x) => (
+                <div className="lp-diff-row lp-reveal" role="row" key={x.kind}>
+                  <span className="lp-diff-kind" role="rowheader">{x.kind}</span>
+                  <span className="lp-diff-usual lp-wbr" role="cell"><Phrases>{x.usual}</Phrases></span>
+                  <span className="lp-diff-orime lp-wbr" role="cell"><Phrases>{x.orime}</Phrases></span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
         {/* ============ AI 選書（別枠で丁寧に・2026-10-17） ============ */}
-        <section className="lp-sec lp-adv-sec" id="lp-advisor" aria-labelledby="lp-adv" data-lp-sec="advisor">
+        <section className="lp-sec lp-band lp-adv-sec" id="lp-advisor" aria-labelledby="lp-adv" data-lp-sec="advisor">
           <div className="lp-wrap lp-adv">
             <div className="lp-adv-shot">
               {/* 絵（public/lp/illust-advisor-*）は VITE_LP_ILLUST=on のときだけ・ふだんは実際の画面 */}
@@ -751,7 +810,7 @@ export default function Landing() {
         </section>
 
         {/* ============ ④ メモがゼロでも、今日から ============ */}
-        <section className="lp-sec lp-band lp-start-sec" aria-labelledby="lp-start" data-lp-sec="start">
+        <section className="lp-sec lp-start-sec" aria-labelledby="lp-start" data-lp-sec="start">
           <div className="lp-wrap">
             <div className="lp-narrow lp-sec-head">
               <h2 className="lp-h2" id="lp-start">

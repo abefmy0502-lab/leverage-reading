@@ -106,6 +106,10 @@ body.lp-active {
 .lp-h1 > span, .lp-h2 > span { display: inline-block; max-width: 100%; }
 .lp-h1 { font-size: var(--text-display); font-weight: 700; line-height: 1.3; } /* 太さ 700 は画面タイトル（h1）だけ */
 .lp-h2 { font-size: var(--text-display-2); line-height: 1.3; margin-bottom: var(--space-6); }
+/* 2026-10-17 指示書「文学的で知的に・セリフ体とゴシック体を使い分ける」: 大見出し（h1・h2）と引用だけ明朝（--font-read＝OS の明朝・読み込み 0）。
+   本文・ボタン・小見出しはゴシックのまま（日本語の読みやすさ優先）。明朝は細く見えるので h1 は 600・字間を少し広く */
+.lp-root :is(.lp-h1, .lp-h2) { font-family: var(--font-read); letter-spacing: 0.04em; }
+.lp-root .lp-h1 { font-weight: 600; line-height: 1.35; }
 .lp-h3 { font-size: var(--text-heading); line-height: 1.3; margin-bottom: var(--space-3); }
 
 /* ============ ボタン ============ */
@@ -978,7 +982,7 @@ body.lp-active {
 .lp-dia-tag { display: block; margin-bottom: var(--space-1); font-size: var(--text-meta); font-weight: 600; color: var(--text-2); letter-spacing: 0.06em; }
 .lp-dia-tag.is-accent { color: var(--accent); }
 /* 図の結び（見出しより一段小さく・次の見出しまで広く空ける） */
-.lp-root .lp-ba-line { margin: var(--space-8) 0 var(--space-12); font-size: var(--text-title); font-weight: 700; line-height: 1.4; color: var(--text); text-align: left; }
+.lp-root .lp-ba-line { margin: var(--space-8) 0 var(--space-12); font-family: var(--font-read); letter-spacing: 0.04em; font-size: var(--text-title); font-weight: 600; line-height: 1.4; color: var(--text); text-align: left; }
 
 /* 始め方の 4 つ・メモの扱いの 3 つ（枠と面のない、線の絵＋短い名前。押せる物に見せない） */
 .lp-tiles { list-style: none; margin: 0 0 var(--space-6); padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-6) var(--space-4); }
@@ -1010,3 +1014,67 @@ body.lp-active {
 /* 書いたメモの扱い → 料金 は同じ地が続くので、料金の上の余白を 1 段だけに（2026-10-17 ui-critic） */
 .lp-root .lp-trust-sec + .lp-pricing { padding-top: var(--space-16); }
 .lp-root .lp-sentence { display: block; }
+
+/* ============ 2026-10-17 指示書（読んだ本と、対話する。） ============ */
+/* ヒーロー: 画面の答えのもとになったメモの一節（明朝・本の 1 ページの切れ端のように）。スマホは画面の上に少し重ね、広い画面は画面の左下に */
+.lp-hero-shot { position: relative; }
+.lp-hero-quote {
+  position: relative; z-index: 2;
+  width: min(17em, 82%);
+  margin: 0 0 calc(-1 * var(--space-6)) 0;
+  padding: var(--space-4) var(--space-4) var(--space-4) var(--space-4);
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--separator);
+  box-shadow: var(--shadow-2);
+  text-align: left;
+}
+.lp-root .lp-hero-quote-meta { display: flex; white-space: nowrap; justify-content: space-between; gap: var(--space-2); color: var(--text-2); font-size: var(--text-meta); line-height: 1.4; }
+.lp-root .lp-hero-quote-text { margin-top: var(--space-2) !important; font-family: var(--font-read); font-size: var(--text-heading); font-weight: 600; line-height: 1.5; letter-spacing: 0.04em; color: var(--text); word-break: keep-all; overflow-wrap: anywhere; }
+/* 768〜1099 は見出しの列が狭く、重ねると「創業メンバー価格」の行にかかる（2026-10-17 タブレットの幅で確認）＝スマホと同じく画面の上に。
+   広い画面（1100〜）だけ画面の左下に重ねる */
+@media (min-width: 768px) and (max-width: 1099px) {
+  .lp-hero-quote { margin-left: auto; margin-right: auto; }
+}
+@media (min-width: 1100px) {
+  /* 画面の左下（下のタブのあたり）に重ねる＝答えの文を隠さない */
+  .lp-hero-quote { position: absolute; right: calc(50% + var(--lp-shot-w-lg) / 2 - var(--space-16)); bottom: 14%; width: 17em; margin: 0; }
+}
+/* 動き: 一節は画面より少し遅れて、下からふわっと（動きを減らす設定では出たまま） */
+.lp-motion .lp-hero-quote { opacity: 0; transform: translateY(var(--space-3)); transition: opacity var(--duration-slow) ease 0.25s, transform var(--duration-slow) var(--ease-out-expo) 0.25s; }
+.lp-motion .lp-hero-quote.is-in { opacity: 1; transform: none; }
+
+/* 本と対話すると、変わること: カードにせず、細い線で区切った 4 つ（番号は小さく --text-2・題は明朝） */
+.lp-change { list-style: none; margin: var(--space-8) 0 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); }
+.lp-change > li { display: grid; grid-template-columns: var(--space-8) minmax(0, 1fr); column-gap: var(--space-3); padding: var(--space-6) 0; border-top: 1px solid var(--separator); }
+.lp-change > li:last-child { border-bottom: 1px solid var(--separator); }
+.lp-change-num { grid-row: span 2; padding-top: var(--space-1); color: var(--text-2); font-size: var(--text-meta); font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: 0.08em; }
+.lp-root .lp-change-title { margin: 0 0 var(--space-2); font-family: var(--font-read); font-size: var(--text-heading); font-weight: 600; line-height: 1.5; letter-spacing: 0.03em; }
+.lp-change > li p { color: var(--text-2); max-width: 30em; }
+@media (min-width: 900px) {
+  .lp-change { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--space-12); }
+  .lp-root .lp-change-title { font-size: var(--text-title); }
+  .lp-change > li:nth-last-child(2) { border-bottom: 1px solid var(--separator); }
+}
+
+/* ほかのアプリとの違い: 3 列の表（スマホは 1 行ずつ縦に）。Orime の列だけ文字を濃く・左に細い栗色の線 */
+.lp-diff { margin-top: var(--space-8); border-top: 1px solid var(--separator); }
+.lp-diff-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-2); padding: var(--space-6) 0; border-bottom: 1px solid var(--separator); }
+.lp-diff-head { display: none; }
+.lp-diff-kind { color: var(--text); font-size: var(--text-sub); font-weight: 600; }
+.lp-diff-usual { color: var(--text-2); font-size: var(--text-sub); }
+.lp-diff-usual::before { content: 'よくある形　'; color: var(--text-2); font-size: var(--text-meta); }
+.lp-diff-orime { padding-left: var(--space-3); border-left: 2px solid var(--text); color: var(--text); font-family: var(--font-read); font-size: var(--text-heading); font-weight: 600; line-height: 1.5; }
+@media (min-width: 768px) {
+  .lp-diff-row { grid-template-columns: minmax(0, 3fr) minmax(0, 4fr) minmax(0, 5fr); column-gap: var(--space-8); align-items: baseline; }
+  .lp-diff-head { display: grid; padding: var(--space-3) 0; }
+  .lp-diff-head > span { color: var(--text-2); font-size: var(--text-meta); font-weight: 600; }
+  .lp-diff-usual::before { content: none; }
+}
+.lp-motion .lp-change > li, .lp-motion .lp-diff-row:not(.lp-diff-head) { opacity: 0; transform: translateY(var(--space-2)); transition: opacity var(--duration-slow) ease, transform var(--duration-slow) var(--ease-out-expo); }
+.lp-motion .lp-change > li.is-in, .lp-motion .lp-diff-row.is-in { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .lp-motion .lp-hero-quote, .lp-motion .lp-change > li, .lp-motion .lp-diff-row { opacity: 1 !important; transform: none !important; transition: none !important; }
+}
+/* h1 は 2 行に（「読んだ本と、」「対話する。」・1 行に詰めると主役が弱い） */
+.lp-root .lp-h1 > span { display: block; }
