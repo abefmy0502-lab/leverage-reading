@@ -751,10 +751,11 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
     // 空白で区切った言葉は「どれかを含む」メモを探し、多く含むメモから並べる（2026-09-29。相談で
     // トークンを使い切ったときの「メモを検索して探す」が、相談の言葉を空白区切りで入れてくる）。
     const terms = q ? [...new Set(q.split(/[\s　]+/).filter(Boolean))] : [];
+    // 探すのはメモの本文とタグだけ（2026-10-17 オーナー「メモで書いた『考え方』だけが出てくるはずが、書名の『考え方』も出る」）。
+    //   書名・著者で本を探すのは すべての本 の検索（lib/librarySearch.js）。
     const hitsOf = (m) => {
       if (!terms.length) return 1;
-      const book = booksById.get(m.bookId);
-      const hay = [book?.title, book?.author, m.text, ...(m.tags || [])].map((v) => String(v || '').toLowerCase());
+      const hay = [m.text, ...(m.tags || [])].map((v) => String(v || '').toLowerCase());
       return terms.filter((t) => hay.some((h) => h.includes(t))).length;
     };
     const scored = [];
@@ -766,7 +767,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
     });
     if (terms.length > 1) scored.sort((a, b) => b.hits - a.hits || a.i - b.i);
     return scored.map((x) => x.m);
-  }, [allNotes, booksById, deferredSearch, tagFilter, kindFilter]);
+  }, [allNotes, deferredSearch, tagFilter, kindFilter]);
 
   const memosByMonth = useMemo(() => {
     const groups = new Map();
@@ -1176,7 +1177,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
               enterKeyHint="search"
               maxLength={100}
               placeholder="メモを検索"
-              aria-label="メモを検索（本文・書名・著者・タグ）"
+              aria-label="メモを検索（本文・タグ）"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onFocus={() => setSearchActive(true)}
