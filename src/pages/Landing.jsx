@@ -178,7 +178,7 @@ const PILLARS = [
   },
 ];
 
-// 本と対話すると、変わること（機能の名前ではなく、使う人に起きる変化・どれも実装のとおり）。
+// 本と会話すると、変わること（機能の名前ではなく、使う人に起きる変化・どれも実装のとおり）。
 //   1 根拠つきの答え（evidenceCheck・本とページ）/ 2 聞き返してから答える（turnHint）/ 3 見方を変えるチップ（LENS_CHIPS）/ 4 行動に追加・期限の通知
 const CHANGES = [
   { title: '読んだ本の中身を、必要なときに取り出せる', body: '残したメモから、本とページを添えて答えます。' },
@@ -646,7 +646,7 @@ export default function Landing() {
             ) : (
             <figure className="lp-hero-shot">
               {/* 画面の答えのもとになったメモ（実際の画面の「根拠を見る」と同じ一節・『嫌われる勇気』p.40）。
-                  「残した一行 → 本の答え」を 1 枚で見せる（2026-10-17 指示書「本・引用・対話を中心に」） */}
+                  「残した一行 → 本の答え」を 1 枚で見せる（2026-10-17 指示書「本・引用・会話を中心に」） */}
               <div className="lp-hero-quote lp-reveal">
                 <p className="lp-hero-quote-meta"><span>『嫌われる勇気』に残したメモ</span><span>p.40</span></p>
                 <p className="lp-hero-quote-text">他人の課題と、自分の課題を分ける。</p>
@@ -696,7 +696,7 @@ export default function Landing() {
                 <li key={x.title} className="lp-reveal">
                   <span className="lp-change-num" aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
                   <h3 className="lp-change-title lp-wbr"><Phrases clause>{x.title}</Phrases></h3>
-                  <p className="lp-longtext">{x.body}</p>
+                  <p className="lp-wbr"><Phrases>{x.body}</Phrases></p>
                 </li>
               ))}
             </ol>
