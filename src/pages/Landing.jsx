@@ -182,9 +182,9 @@ const PILLARS = [
 //   1 根拠つきの答え（evidenceCheck・本とページ）/ 2 聞き返してから答える（turnHint）/ 3 見方を変えるチップ（LENS_CHIPS）/ 4 行動に追加・期限の通知
 const CHANGES = [
   { title: '読んだ本の中身を、必要なときに取り出せる', body: '残したメモから、本とページを添えて答えます。' },
-  { title: '心に残った言葉が、自分の悩みとつながる', body: 'いきなり結論を出さず、まず状況を聞いてから答えます。' },
-  { title: '一冊から、もう一歩深く考えられる', body: '「ほかの本の視点で」など、見方を変えて聞き直せます。' },
-  { title: '読んで得たことが、明日の行動になる', body: '相談で決めた一歩は、期限つきで行動リストに入ります。' },
+  { title: '心に残った言葉が、自分の悩みとつながる', body: '結論を急がず、まず状況を聞いてから答えます。' },
+  { title: '一冊から、もう一歩深く考えられる', body: '「ほかの本の視点で」など、見方を変えて聞けます。' },
+  { title: '読んで得たことが、明日の行動になる', body: '相談で決めた一歩は、行動リストに入ります。' },
 ];
 
 // ほかのアプリとの違い（相手を否定しない。「よくある形」はどれも事実として言える一般的な形だけ）
@@ -443,7 +443,7 @@ export default function Landing() {
         operatingSystem: 'iOS',
         // ストアの第 1 カテゴリ（仕事効率化）に近いもの
         applicationCategory: 'BusinessApplication',
-        description: '読んだ本と対話できる読書メモアプリ。気になった一行をメモしておくと、迷ったときに AI がその本の口調で、あなたのメモをもとに答えます。',
+        description: '読んだ本と会話できる読書メモアプリ。気になった一行をメモしておくと、迷ったときに AI がその本の口調で、あなたのメモをもとに答えます。',
         offers: [
           { '@type': 'Offer', name: '無料プラン', price: '0', priceCurrency: 'JPY' },
           { '@type': 'Offer', name: '月額プラン', price: String(MONTHLY), priceCurrency: 'JPY' },
@@ -613,9 +613,9 @@ export default function Landing() {
           <div className="lp-wrap lp-hero-grid">
             <div className="lp-hero-text">
               <h1 className="lp-h1">
-                <span>読んだ本と、</span><span>対話する。</span>
+                <span>読んだ本と、</span><span>会話しよう。</span>
               </h1>
-              {/* 2026-10-17 指示書「読んだ本と、対話する。」: 補足は体験が思い浮かぶ 2 行（残す → 相談する） */}
+              {/* 2026-10-17 指示書（見出しは同日オーナー裁定で「会話しよう。」のまま）: 補足は体験が思い浮かぶ 2 行（残す → 相談する） */}
               <p className="lp-lead lp-lead-lines">
                 <span>心に残った一行を、本ごとにメモしておく。</span>
                 <span>迷ったとき、その本に相談できます。</span>
@@ -648,9 +648,8 @@ export default function Landing() {
               {/* 画面の答えのもとになったメモ（実際の画面の「根拠を見る」と同じ一節・『嫌われる勇気』p.40）。
                   「残した一行 → 本の答え」を 1 枚で見せる（2026-10-17 指示書「本・引用・対話を中心に」） */}
               <div className="lp-hero-quote lp-reveal">
-                <p className="lp-hero-quote-meta">『嫌われる勇気』に残したメモ</p>
+                <p className="lp-hero-quote-meta"><span>『嫌われる勇気』に残したメモ</span><span>p.40</span></p>
                 <p className="lp-hero-quote-text">他人の課題と、自分の課題を分ける。</p>
-                <p className="lp-hero-quote-page">p.40</p>
               </div>
               <div className={`lp-hero-stage${slot3D ? ' is-3d-slot' : ''}${ready3D ? ' is-3d' : ''}`} ref={heroStageRef}>
                 <Shot
@@ -688,16 +687,16 @@ export default function Landing() {
           </div>
         </section>
 
-        {/* ============ 本と対話すると、変わること（機能ではなく変化・2026-10-17 指示書 Section 3） ============ */}
+        {/* ============ 本と会話すると、変わること（機能ではなく変化・2026-10-17 指示書 Section 3） ============ */}
         <section className="lp-sec lp-change-sec" aria-labelledby="lp-change" data-lp-sec="change">
           <div className="lp-wrap">
-            <h2 className="lp-h2" id="lp-change"><span>本と対話すると、</span><span>変わること</span></h2>
+            <h2 className="lp-h2" id="lp-change"><span>本と会話すると、</span><span>変わること</span></h2>
             <ol className="lp-change">
               {CHANGES.map((x, i) => (
                 <li key={x.title} className="lp-reveal">
                   <span className="lp-change-num" aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
                   <h3 className="lp-change-title lp-wbr"><Phrases clause>{x.title}</Phrases></h3>
-                  <p className="lp-wbr"><Phrases>{x.body}</Phrases></p>
+                  <p className="lp-longtext">{x.body}</p>
                 </li>
               ))}
             </ol>

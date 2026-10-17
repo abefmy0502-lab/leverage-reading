@@ -27,8 +27,8 @@ export const DEFAULT_LAUNCH_LABEL = '2026 年 11 月';
 // 文書の頭（title・description・OGP）。index.html の静的な meta と同じ言葉にする（lpCopy.test.js が確かめる）。
 // 2026-10-11: 訴求を「読書を、受け身から会話へ」に（company/marketing-master-plan-2026-10.md §0）。
 // 「著者と話せる」とは書かない（「本の語り口で答える」「本と会話する」まで）。
-export const LP_TITLE = 'Orime｜読んだ本と、対話する。読書メモアプリ';
-export const LP_DESCRIPTION = '読んだ本と対話できる読書メモアプリ。気になった一行をメモしておくと、迷ったときに AI がその本の口調で、あなたのメモをもとに答えます。時間を決めて読むタイマーや、読書の記録もあります。ブクログや Kindle の記録を取り込めて、無料プランで始められます。';
+export const LP_TITLE = 'Orime｜読んだ本と、会話しよう。読書メモアプリ';
+export const LP_DESCRIPTION = '読んだ本と会話できる読書メモアプリ。気になった一行をメモしておくと、迷ったときに AI がその本の口調で、あなたのメモをもとに答えます。時間を決めて読むタイマーや、読書の記録もあります。ブクログや Kindle の記録を取り込めて、無料プランで始められます。';
 export const LP_OG_DESCRIPTION = '気になった一行をメモしておくと、迷ったときに AI がその本の口調で答えてくれる読書メモアプリです。';
 // 語り口の答えの注記（アプリの答えの最後の一行と同じ考え方・LP では 1 か所＝ヒーローの写真の下）。
 export const VOICE_NOTE = '答えは AI によるもので、著者本人の言葉ではありません。';
