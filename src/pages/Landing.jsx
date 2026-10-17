@@ -33,7 +33,7 @@
 //   - SEO: SPA のためランタイムで meta/canonical/JSON-LD を注入し、unmount で戻す（静的な og:* は index.html）
 //   - CTA は <a href>（長押し・中クリック等のネイティブ挙動を尊重）
 
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { Fragment, lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { Check, ChevronDown, Menu, X } from 'lucide-react';
 import { BUILD_LABEL } from '../lib/buildInfo';
 import { SUPPORT_EMAIL } from '../lib/contact';
@@ -647,9 +647,10 @@ export default function Landing() {
             <figure className="lp-hero-shot">
               {/* 画面の答えのもとになったメモ（実際の画面の「根拠を見る」と同じ一節・『嫌われる勇気』p.40）。
                   「残した一行 → 本の答え」を 1 枚で見せる（2026-10-17 指示書「本・引用・対話を中心に」） */}
-              <div className="lp-hero-quote lp-reveal" aria-hidden="true">
-                <p className="lp-hero-quote-meta">『嫌われる勇気』に残したメモ<span>p.40</span></p>
+              <div className="lp-hero-quote lp-reveal">
+                <p className="lp-hero-quote-meta">『嫌われる勇気』に残したメモ</p>
                 <p className="lp-hero-quote-text">他人の課題と、自分の課題を分ける。</p>
+                <p className="lp-hero-quote-page">p.40</p>
               </div>
               <div className={`lp-hero-stage${slot3D ? ' is-3d-slot' : ''}${ready3D ? ' is-3d' : ''}`} ref={heroStageRef}>
                 <Shot
@@ -743,7 +744,7 @@ export default function Landing() {
                   </div>
                   <div className="lp-pillar-text">
                     <h3 className="lp-h3 lp-wbr"><Phrases clause>{x.title}</Phrases></h3>
-                    {x.sub && <p className="lp-pillar-sub">{x.sub}</p>}
+                    {x.sub && <p className="lp-pillar-sub">{x.sub.split('・').map((t, i) => <Fragment key={t}>{i > 0 && <>・<wbr /></>}<span className="lp-nb">{t}</span></Fragment>)}</p>}
                     {x.list && (
                       <ul className="lp-pillar-list">
                         {x.list.map((t) => <li key={t} className="lp-wbr"><Phrases>{t}</Phrases></li>)}
@@ -772,8 +773,8 @@ export default function Landing() {
               {DIFFS.map((x) => (
                 <div className="lp-diff-row lp-reveal" role="row" key={x.kind}>
                   <span className="lp-diff-kind" role="rowheader">{x.kind}</span>
-                  <span className="lp-diff-usual lp-wbr" role="cell"><Phrases>{x.usual}</Phrases></span>
-                  <span className="lp-diff-orime lp-wbr" role="cell"><Phrases>{x.orime}</Phrases></span>
+                  <span className="lp-diff-usual lp-wbr" role="cell"><span className="lp-diff-tag">よくある形</span><Phrases>{x.usual}</Phrases></span>
+                  <span className="lp-diff-orime lp-wbr" role="cell"><span className="lp-diff-tag">Orime</span><Phrases>{x.orime}</Phrases></span>
                 </div>
               ))}
             </div>
@@ -814,7 +815,7 @@ export default function Landing() {
           <div className="lp-wrap">
             <div className="lp-narrow lp-sec-head">
               <h2 className="lp-h2" id="lp-start">
-                <span>メモがまだなくても、</span><span>始められます</span>
+                <span>メモがまだなくても、</span><span>始められます。</span>
               </h2>
             </div>
             {/* 広い画面は 絵（左）と 4 つの始め方＋入口（右）の 2 列（2026-10-12） */}
@@ -973,7 +974,7 @@ export default function Landing() {
         <section className="lp-final" aria-labelledby="lp-final" data-lp-sec="final">
           <div className={`lp-wrap lp-narrow lp-final-inner${PRELAUNCH ? '' : ' is-live'}`}>
             <h2 className="lp-h2" id="lp-final">
-              <span>まずは、読んだ本に</span><span>一言書いてみてください</span>
+              <span>まずは、読んだ本に</span><span>一言書いてみてください。</span>
             </h2>
             <div className="lp-cta-block">
               <Entry loc="final" wl={wl} qr badge launch center />

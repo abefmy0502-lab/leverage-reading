@@ -1008,7 +1008,7 @@ body.lp-active {
 @media (max-width: 767px) { .lp-root .lp-pillars-sec { padding-bottom: var(--space-12); } }
 /* 6 つめ（本の記録）の短い 1 行 */
 .lp-root .lp-pillar-sub { margin: var(--space-1) 0 0; font-size: var(--text-sub); color: var(--text-2); }
-@media (min-width: 768px) { .lp-root .lp-ba-line { text-align: center; } .lp-trust-sec .lp-trust-row { margin-top: 0; } }
+@media (min-width: 768px) { .lp-root .lp-ba-line { text-align: left; } .lp-trust-sec .lp-trust-row { margin-top: 0; } }
 @media (max-width: 767px) { .lp-dia-svg { width: min(100%, 200px); } }
 
 /* 書いたメモの扱い → 料金 は同じ地が続くので、料金の上の余白を 1 段だけに（2026-10-17 ui-critic） */
@@ -1021,7 +1021,7 @@ body.lp-active {
 .lp-hero-quote {
   position: relative; z-index: 2;
   width: min(17em, 82%);
-  margin: 0 0 calc(-1 * var(--space-6)) 0;
+  margin: 0 0 calc(-1 * var(--space-12)) 0;
   padding: var(--space-4) var(--space-4) var(--space-4) var(--space-4);
   border-radius: var(--radius);
   background: var(--surface);
@@ -1029,7 +1029,8 @@ body.lp-active {
   box-shadow: var(--shadow-2);
   text-align: left;
 }
-.lp-root .lp-hero-quote-meta { display: flex; white-space: nowrap; justify-content: space-between; gap: var(--space-2); color: var(--text-2); font-size: var(--text-meta); line-height: 1.4; }
+.lp-root .lp-hero-quote-meta { color: var(--text-2); font-size: var(--text-meta); line-height: 1.4; }
+.lp-root .lp-hero-quote-page { margin-top: var(--space-1) !important; color: var(--text-2); font-size: var(--text-meta); line-height: 1.4; text-align: right; }
 .lp-root .lp-hero-quote-text { margin-top: var(--space-2) !important; font-family: var(--font-read); font-size: var(--text-heading); font-weight: 600; line-height: 1.5; letter-spacing: 0.04em; color: var(--text); word-break: keep-all; overflow-wrap: anywhere; }
 /* 768〜1099 は見出しの列が狭く、重ねると「創業メンバー価格」の行にかかる（2026-10-17 タブレットの幅で確認）＝スマホと同じく画面の上に。
    広い画面（1100〜）だけ画面の左下に重ねる */
@@ -1037,8 +1038,8 @@ body.lp-active {
   .lp-hero-quote { margin-left: auto; margin-right: auto; }
 }
 @media (min-width: 1100px) {
-  /* 画面の左下（下のタブのあたり）に重ねる＝答えの文を隠さない */
-  .lp-hero-quote { position: absolute; right: calc(50% + var(--lp-shot-w-lg) / 2 - var(--space-16)); bottom: 14%; width: 17em; margin: 0; }
+  /* 端末の左の枠に 16 だけ重ねる（画面の中身を隠さない）。高さは端末の上の 1/6＝見出しの右・答えの吹き出しより上 */
+  .lp-hero-quote { position: absolute; right: calc(100% - var(--space-4)); top: 16%; width: 15em; margin: 0; } /* 画面は列の左端に置かれる */
 }
 /* 動き: 一節は画面より少し遅れて、下からふわっと（動きを減らす設定では出たまま） */
 .lp-motion .lp-hero-quote { opacity: 0; transform: translateY(var(--space-3)); transition: opacity var(--duration-slow) ease 0.25s, transform var(--duration-slow) var(--ease-out-expo) 0.25s; }
@@ -1050,7 +1051,7 @@ body.lp-active {
 .lp-change > li:last-child { border-bottom: 1px solid var(--separator); }
 .lp-change-num { grid-row: span 2; padding-top: var(--space-1); color: var(--text-2); font-size: var(--text-meta); font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: 0.08em; }
 .lp-root .lp-change-title { margin: 0 0 var(--space-2); font-family: var(--font-read); font-size: var(--text-heading); font-weight: 600; line-height: 1.5; letter-spacing: 0.03em; }
-.lp-change > li p { color: var(--text-2); max-width: 30em; }
+.lp-change > li p { color: var(--text-2); }
 @media (min-width: 900px) {
   .lp-change { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--space-12); }
   .lp-root .lp-change-title { font-size: var(--text-title); }
@@ -1060,16 +1061,16 @@ body.lp-active {
 /* ほかのアプリとの違い: 3 列の表（スマホは 1 行ずつ縦に）。Orime の列だけ文字を濃く・左に細い栗色の線 */
 .lp-diff { margin-top: var(--space-8); border-top: 1px solid var(--separator); }
 .lp-diff-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-2); padding: var(--space-6) 0; border-bottom: 1px solid var(--separator); }
-.lp-diff-head { display: none; }
+.lp-diff-head { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .lp-diff-kind { color: var(--text); font-size: var(--text-sub); font-weight: 600; }
 .lp-diff-usual { color: var(--text-2); font-size: var(--text-sub); }
-.lp-diff-usual::before { content: 'よくある形　'; color: var(--text-2); font-size: var(--text-meta); }
+.lp-diff-tag { display: block; margin-bottom: var(--space-1); color: var(--text-2); font-family: var(--font-ui); font-size: var(--text-meta); font-weight: 600; letter-spacing: 0; }
 .lp-diff-orime { padding-left: var(--space-3); border-left: 2px solid var(--text); color: var(--text); font-family: var(--font-read); font-size: var(--text-heading); font-weight: 600; line-height: 1.5; }
 @media (min-width: 768px) {
   .lp-diff-row { grid-template-columns: minmax(0, 3fr) minmax(0, 4fr) minmax(0, 5fr); column-gap: var(--space-8); align-items: baseline; }
-  .lp-diff-head { display: grid; padding: var(--space-3) 0; }
+  .lp-diff-head { position: static; width: auto; height: auto; overflow: visible; clip: auto; white-space: normal; display: grid; padding: var(--space-3) 0; }
+  .lp-diff-tag { display: none; }
   .lp-diff-head > span { color: var(--text-2); font-size: var(--text-meta); font-weight: 600; }
-  .lp-diff-usual::before { content: none; }
 }
 .lp-motion .lp-change > li, .lp-motion .lp-diff-row:not(.lp-diff-head) { opacity: 0; transform: translateY(var(--space-2)); transition: opacity var(--duration-slow) ease, transform var(--duration-slow) var(--ease-out-expo); }
 .lp-motion .lp-change > li.is-in, .lp-motion .lp-diff-row.is-in { opacity: 1; transform: none; }
