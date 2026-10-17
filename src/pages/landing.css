@@ -1037,7 +1037,7 @@ body.lp-active {
   .lp-root .lp-hero-quote-text { font-size: var(--text-heading); }
 }
 @media (min-width: 768px) and (max-width: 1099px) {
-  .lp-hero-quote { width: calc(var(--lp-shot-w) + var(--space-8)); margin-left: auto; margin-right: auto; }
+  .lp-hero-quote { width: min(calc(var(--lp-shot-w) + var(--space-8)), calc(100% + var(--space-4))); margin-left: calc(-1 * var(--space-4)); margin-right: 0; } /* 画面は列の左端に置かれるので、画面の左右に 16 ずつはみ出す */
 }
 @media (min-width: 1100px) {
   /* 端末の左の枠に 16 だけ重ねる（画面の中身を隠さない）。高さは端末の上の 1/6＝見出しの右・答えの吹き出しより上 */
