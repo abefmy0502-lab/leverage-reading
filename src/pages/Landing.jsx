@@ -49,7 +49,7 @@ import LpWaitlist from './LpWaitlist';
 import LpIllust from './LpIllust';
 import LpArt, { hasArt } from './LpArt';
 import Phrases from './LpPhrases';
-import { buildLpCopy, storeHrefOf, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE, ZERO_RISK_NOTE } from './lpCopy';
+import { buildLpCopy, storeHrefOf, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE } from './lpCopy';
 import qrcode from 'qrcode-generator';
 import { lpTrack, lpVariant, storeUrlFor, isWidePointer } from '../lib/lpTrack';
 import { inject as injectVercelAnalytics } from '@vercel/analytics';
@@ -170,22 +170,22 @@ const PILLARS = [
     alt: '振り返りの記録の「分野」。仕事・自分と生活の分野ごとの本とメモの数と、「まだ本がない分野」のチップ',
   },
   {
-    // AI 選書（2026-10-11 オーナー「おすすめの本と順番、その本を読む戦略まで」）。言い過ぎない: 聞き取り・読んできた本と評価・
-    //   最近の相談 → おすすめと読む順番 → 追加した本の読書計画シート。どちらもプランの機能。
-    id: 'advisor', shot: 'advisor', artAlt: '悩みを聞いて、次に読む本と読む順番を選ぶ様子のイラスト',
-    title: '次の一冊を選んでもらう',
-    body: '悩みを話すと、これまで読んだ本や最近の相談をもとに、おすすめの本と読む順番を出します。', plan: true,
-    alt: 'AI 選書の画面。受け取った悩みのまとめと、おすすめの本のカード、読む順番',
-  },
-  {
-    // 6 つめ: 読書記録の基本（2026-10-16 第 6 回・ほかの 5 つと同じ形＝画面＋題＋箇条書き。格子の形をそろえる）
+    // 読書記録の基本（2026-10-16 第 6 回。2026-10-17 オーナー「本の記録も、ふつうに → わかりにくい」で題を言い切りに）
     id: 'library', shot: 'library', artAlt: '',
-    title: '本の記録も、ふつうに',
-    sub: 'バーコード登録・フォルダ・★・取り込み',
+    title: '読書記録の基本も、そろっています',
+    sub: 'バーコードで登録・フォルダ・★の評価・ほかのアプリから取り込み',
     alt: 'すべての本の画面。表紙の一覧と、読書中・読了・積読・読みたいの絞り込み、フォルダのチップ',
   },
 ];
 
+// AI 選書の 4 つの段（2026-10-17 オーナー「ここまで丁寧に選書してくれる機能はすごい・別枠でもう少し丁寧に」）。
+// どれも実装のとおり（lib/advisorInterview.js・lib/advisorRecs.js・ai.js の recentConsultsBlock・読書計画シート）。言い過ぎない。
+const ADVISOR_STEPS = [
+  { title: '悩みを聞く', body: '1 回に 1 つずつ問いかけて、本音を言葉にしていきます。' },
+  { title: '受け取った悩みを確かめる', body: '受け取った悩みを短くまとめて見せます。違っていれば直せます。' },
+  { title: 'おすすめの本と、読む順番', body: '読んできた本と評価、最近の相談もふまえて選びます。実在を確かめた本だけを出します。' },
+  { title: '読む前の準備まで', body: '本棚に入れると、読書計画シートで、どこを重点的に読むかが分かります。' },
+];
 
 // ③ の下の安心の 4 つ。学習＝各社の API 規約／同意＝ensureAiConsent（はじめて AI を使う操作のとき）／
 // 書き出し＝設定の CSV（lib/exportData.js）・退会のお申し込みで消去／写真で共有＝端末の中で描く（サーバーに送らない）。
@@ -599,14 +599,14 @@ export default function Landing() {
               <h1 className="lp-h1">
                 <span>読んだ本と、</span><span>会話しよう。</span>
               </h1>
-              <p className="lp-lead lp-wbr">
-                <Phrases>メモした本に、迷ったときに相談できる。AI が本の語り口で答えます。</Phrases>
+              {/* 2026-10-17 オーナー「わかりにくい・改行したほうが」: 2 つの言い切りを 1 行ずつ（語り口の説明は会話の流れの 3 枚目へ） */}
+              <p className="lp-lead lp-lead-lines">
+                <span>読みながら、気になった一行をメモ。</span>
+                <span>迷ったときは、その本に相談できます。</span>
               </p>
               <div className="lp-cta-block" ref={heroCtaRef}>
                 {/* QR は最後の案内だけ（ヒーローの主ボタンの横の黒い四角がいちばん重く見えた・2026-10-16 ui-critic） */}
                 <Entry loc="hero" wl={wl} badge launch />
-                {/* ボタンのすぐ下の安心の一言（2026-10-12・短い言い切り） */}
-                {!PRELAUNCH && <p className="lp-cta-sub lp-cta-meta lp-wbr"><Phrases>{ZERO_RISK_NOTE}</Phrases></p>}
                 <div className="lp-hero-links">
                   <a className="lp-textlink" href="#lp-grow" onClick={() => lpTrack('hero_secondary', {})}>
                     <span>会話の様子を見る</span><ChevronDown size="1.1em" aria-hidden="true" />
@@ -704,7 +704,7 @@ export default function Landing() {
                     />
                   </div>
                   <div className="lp-pillar-text">
-                    <h3 className="lp-h3 lp-wbr"><Phrases clause>{x.title}</Phrases>{x.plan && <span className="lp-plan-badge lp-pillar-plan">プラン</span>}</h3>
+                    <h3 className="lp-h3 lp-wbr"><Phrases clause>{x.title}</Phrases></h3>
                     {x.sub && <p className="lp-pillar-sub">{x.sub}</p>}
                     {x.list && (
                       <ul className="lp-pillar-list">
@@ -718,6 +718,35 @@ export default function Landing() {
             <p className="lp-gallery-dots lp-pillars-dots" aria-hidden="true">
               {PILLARS.map((x, i) => <span key={x.id} className={i === pillarAt ? 'is-on' : undefined} />)}
             </p>
+          </div>
+        </section>
+
+        {/* ============ AI 選書（別枠で丁寧に・2026-10-17） ============ */}
+        <section className="lp-sec lp-adv-sec" id="lp-advisor" aria-labelledby="lp-adv" data-lp-sec="advisor">
+          <div className="lp-wrap lp-adv">
+            <div className="lp-adv-shot">
+              {/* 絵（public/lp/illust-advisor-*）は VITE_LP_ILLUST=on のときだけ・ふだんは実際の画面 */}
+              <LpArt
+                name="illust-advisor"
+                ratio="1:1"
+                sizes="(min-width: 768px) 300px, 72vw"
+                alt="悩みを聞いて、次に読む本と読む順番を選ぶ様子のイラスト"
+                fallback={<Shot name="advisor" alt="AI 選書の画面。受け取った悩みのまとめと、おすすめの本のカード、読む順番" sizes="(min-width: 768px) 300px, 72vw" />}
+              />
+            </div>
+            <div>
+              <h2 className="lp-h2" id="lp-adv"><span>次に読む本も、</span><span>相談して選ぶ。</span></h2>
+              <ol className="lp-adv-steps">
+                {ADVISOR_STEPS.map((x) => (
+                  <li key={x.title}>
+                    <h3 className="lp-h3 lp-wbr"><Phrases clause>{x.title}</Phrases></h3>
+                    <p className="lp-wbr"><Phrases>{x.body}</Phrases></p>
+                  </li>
+                ))}
+              </ol>
+              {/* プランの機能であることは、バッジにせず 1 行で（料金の「すべての AI 機能」と同じ事実・優良誤認を避ける） */}
+              <p className="lp-adv-note">月額・年額プランで使えます。</p>
+            </div>
           </div>
         </section>
 
@@ -776,15 +805,24 @@ export default function Landing() {
                     見出しに金額を置かない（月あたりの額を請求額より大きく見せない） */}
                 料金
               </h2>
-              <p className="lp-wbr"><Phrases>{`プランは月 ${MONTHLY_TEXT}。本 1 冊ぶんくらいです。`}</Phrases></p>
+              {/* 2026-10-17 オーナー「1480 円の説明が雑」: 無料で続けられることを先に、プランは「もっと相談したくなったら」 */}
+              <p className="lp-lead lp-lead-lines lp-pricing-lead">
+                <span>メモも記録も、ずっと無料。</span>
+                <span>AI にもっと相談したくなったら、プランへ。</span>
+              </p>
             </div>
 
             {/* 創業メンバー価格（期間中だけ・料金の中の帯 1 枚）。「先着」「通常価格」と書かない・差額を書かない */}
             {OFFER.active && (
               <div className="lp-offer" id="lp-offer" data-lp-sec="offer">
                 <p className="lp-offer-title">{FOUNDING_NAME}<span className="lp-nb">（{OFFER.endLabel}（日本時間）まで）</span></p>
-                <p className="lp-wbr"><Phrases>{`${END}までにプランを始めた方は、月額・年額どちらでも創業メンバーです。特典は、開発者への直接の窓口と、次に作る機能への投票。年額プランは、1 年目が ${noBreak(`${OFFER.price}（税込）`)}です。`}</Phrases></p>
-                <p className="lp-wbr"><Phrases>{`年額の 1 年目の価格は App Store の初回特典なので、先に月額プランの ${noBreak('7 日間無料')}を使うと、年額の${FOUNDING_NAME}は使えなくなります。人数の上限はありません。`}</Phrases></p>
+                {/* 2026-10-17 オーナー「読みにくい」: 段落をやめ、対象・特典・価格・注意の 4 行に */}
+                <dl className="lp-offer-list">
+                  <div><dt>対象</dt><dd className="lp-wbr"><Phrases>期間中にプランを始めた、すべての方（月額・年額とも）</Phrases></dd></div>
+                  <div><dt>特典</dt><dd className="lp-wbr"><Phrases>開発者への直接の窓口と、次に作る機能への投票</Phrases></dd></div>
+                  <div><dt>価格</dt><dd>年額プランの <span className="lp-nb">1 年目が {OFFER.price}（税込）</span></dd></div>
+                  <div><dt>ご注意</dt><dd className="lp-wbr"><Phrases>{`先に月額プランの ${noBreak('7 日間無料')}を使うと、年額の 1 年目の価格は使えません（App Store の初回特典のため）`}</Phrases></dd></div>
+                </dl>
               </div>
             )}
 

@@ -300,7 +300,6 @@ body.lp-active {
 .lp-root .lp-clause { display: inline-block; max-width: 100%; }
 .lp-root .lp-longtext { word-break: normal; overflow-wrap: anywhere; line-break: strict; text-wrap: pretty; }
 .lp-root .lp-cta-meta { margin-top: var(--space-3) !important; color: var(--text-2); font-size: var(--text-meta); }
-.lp-pillar-plan { display: table; margin: var(--space-1) 0 0; white-space: nowrap; }
 /* 語の途中で折り返さない塊（1 行に入るときは塊ごと次の行へ。最大の文字で 1 行より長いときだけ中で折り返す＝はみ出さない） */
 .lp-nb { display: inline-block; max-width: 100%; }
 .lp-btn .lp-nb { white-space: nowrap; }
@@ -329,6 +328,10 @@ body.lp-active {
   color: var(--text);
 }
 .lp-hero-shot { margin: 0; text-align: center; }
+/* 1 文ずつの行（ヒーロー・料金の見出しの下・2026-10-17）。行の途中では割らず、入らないときだけ文節で折り返す */
+.lp-lead-lines > span { display: block; word-break: keep-all; overflow-wrap: anywhere; }
+.lp-lead-lines > span + span { margin-top: var(--space-1); }
+.lp-pricing-lead { color: var(--text-2); }
 /* 3D の舞台。写真の型は余白を取らない。3D に振り分けた端末だけ、最初から 3D の余白（is-3d-slot）を取っておく
    （あとから余白が足されて見出しとボタンが跳ねない・2026-10-05・CLS）。is-3d は写真とキャンバスの入れ替えだけ。 */
 .lp-hero-stage { position: relative; }
@@ -609,6 +612,12 @@ body.lp-active {
 .lp-offer-title { margin-bottom: var(--space-2) !important; font-size: var(--text-heading); font-weight: 600; line-height: 1.4; }
 .lp-offer-title > span { color: var(--text-2); font-size: var(--text-sub); font-weight: 400; }
 .lp-offer > p + p { margin-top: var(--space-3); }
+/* 対象・特典・価格・ご注意の 4 行（2026-10-17 オーナー「読みにくい」） */
+.lp-offer-list { margin: var(--space-4) 0 0; display: grid; gap: var(--space-3); }
+.lp-offer-list > div { display: grid; grid-template-columns: 4em minmax(0, 1fr); column-gap: var(--space-3); align-items: baseline; }
+.lp-offer-list dt { color: var(--text-2); font-size: var(--text-meta); font-weight: 600; }
+.lp-offer-list dd { margin: 0; color: var(--text); font-size: var(--text-sub); line-height: 1.6; }
+.lp-offer-list > div + div { padding-top: var(--space-3); border-top: 1px solid var(--separator); }
 /* 料金は 2 枚（無料プラン（ずっと無料）と、プラン）。広い画面では横に並べる */
 .lp-plan-cards { display: grid; gap: var(--space-3); }
 .lp-plan-trial { font-weight: 400; color: var(--text-2); }
@@ -844,11 +853,35 @@ body.lp-active {
   .lp-plan { padding: var(--space-6); }
 }
 
+/* 🤖 AI 選書（別枠・2026-10-17）。スマホは見出し → 4 つの段 → 画面。広い画面は画面（左）と段（右） */
+.lp-adv { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-8); }
+.lp-adv-shot { order: 2; text-align: center; }
+.lp-adv-steps { list-style: none; margin: var(--space-6) 0 0; padding: 0; counter-reset: adv; display: grid; gap: var(--space-6); }
+.lp-adv-steps > li { counter-increment: adv; display: grid; grid-template-columns: var(--space-8) minmax(0, 1fr); column-gap: var(--space-3); }
+.lp-adv-steps > li::before {
+  content: counter(adv); grid-row: span 2; align-self: start;
+  width: var(--space-8); height: var(--space-8); border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--accent-soft); color: var(--accent); font-size: var(--text-meta); font-weight: 700;
+}
+.lp-adv-steps .lp-h3 { margin: var(--space-1) 0 var(--space-1); }
+.lp-adv-steps p { color: var(--text-2); max-width: 30em; }
+.lp-root .lp-adv-note { margin-top: var(--space-6) !important; padding-left: calc(var(--space-8) + var(--space-3)); color: var(--text-2); font-size: var(--text-meta); }
+@media (min-width: 768px) {
+  .lp-adv { grid-template-columns: auto minmax(0, 1fr); gap: var(--space-16); align-items: center; }
+  .lp-adv-shot { order: 0; }
+  /* 5 つは 2 列のとき最後の 1 枚を真ん中に */
+  .lp-pillars > li:last-child:nth-child(odd) { grid-column: 1 / -1; justify-self: center; width: calc(50% - var(--space-6)); }
+}
+
 @media (min-width: 1100px) {
   /* 1 段目の 3 枚は、見出しの行数がちがっても端末の上端をそろえる */
   .lp-pillars > li { grid-row: span 2; grid-template-rows: subgrid; row-gap: var(--space-6); }
-  /* 5 つの機能＋記録の基本で 3 列 × 2 段（どの段も同じ形・2026-10-16 ui-critic 第 2 回「下の段だけ形が変わる」） */
-  .lp-pillars { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  /* 4 つの機能＋記録の基本で 3 枚 ＋ 2 枚（下の段は真ん中にそろえる・AI 選書は別枠へ＝2026-10-17） */
+  .lp-pillars { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .lp-pillars > li { grid-column: span 2; }
+  .lp-pillars > li:nth-child(4) { grid-column: 2 / span 2; }
+  .lp-pillars > li:last-child:nth-child(odd) { grid-column: span 2; justify-self: stretch; width: auto; }
 
   .lp-root { --lp-sec: var(--lp-sec-lg); }
   .lp-shot { width: var(--lp-shot-w-lg); }

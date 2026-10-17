@@ -171,7 +171,7 @@ describe('FAQ は絞る・1 日あたりの目安（2026-10-11 オーナー「�
 describe('画面は見本だと示す（景品表示法の優良誤認・2026-10-11）', () => {
   it('「画面は見本です。」で始まり、実際の答えはメモで変わると書く', () => {
     expect(SAMPLE_NOTE.startsWith('画面は見本です。')).toBe(true);
-    expect(SAMPLE_NOTE).toContain('あなたのメモによって変わります');
+    expect(SAMPLE_NOTE).toContain('あなたのメモで変わります');
   });
   it('対話の流れ（実際の画面）の下にいつも出す（ヒーローがイラストのときの置き場・2026-10-11）', () => {
     const src = readFileSync(new URL('./LpFlow.jsx', import.meta.url), 'utf8').replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
