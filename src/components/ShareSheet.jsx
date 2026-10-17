@@ -9,7 +9,7 @@
 //   メモから                … 紙＋その一文
 // 変えたいときだけ:
 //   どの本？（ホームから開いたとき）… 今月／（12 月だけ）今年／読書中・読了の本を 1 タップで切り替え
-//   別の一文                         … 1 タップで次のメモへ（記録では「一文を外す」も）
+//   一文を選ぶ                       … 候補の一覧から重ねる一文を選ぶ（記録では「一文を入れない」も・2026-10-17・QuotePickerSheet）
 //   重ね方（見せ方）                 … 記録／数字（大きな数字を縦に積む）／一文／雑誌（本 1 冊でメモがあるときだけ・2026-10-09）。
 //                                      小さな見本を押す・プレビューを左右にスワイプ
 //   形                               … 投稿 4:5 ／ ストーリー 9:16（どちらも SNS で切られない範囲に文字を置く）
@@ -36,11 +36,12 @@
 //   onClose
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ImagePlus, Shuffle, CalendarDays, CalendarRange, ChevronDown, Check, SlidersHorizontal, Camera } from 'lucide-react';
+import { ImagePlus, TextQuote, CalendarDays, CalendarRange, ChevronDown, Check, SlidersHorizontal, Camera } from 'lucide-react';
 import BottomSheet from './BottomSheet';
 import ErrorMessage from './ErrorMessage';
 import ContextMenu from './ContextMenu';
 import ShareEditor from './ShareEditor';
+import QuotePickerSheet from './QuotePickerSheet';
 import { SkeletonBlock } from './Skeleton';
 import { MiniCover } from './BookCards';
 import { useToast } from './Toast';
@@ -64,7 +65,7 @@ import { buildShareText, shareFilename, FORMATS } from '../lib/shareCardLayout';
 import {
   pickShareSubject, subjectChoices, hasFinishedThisMonth, bookRecord, monthRecord, yearRecord, yearChoiceAllowed, orderQuoteCandidates,
   orderYearQuoteCandidates, shareHashtags, yearMemoCountFor, quoteText,
-  swapQuote, swapQuoteLabel, availableVariants, defaultVariant, buildRecordShareText, fmtStamp, fmtMagazineStamp,
+  swapQuoteLabel, availableVariants, defaultVariant, buildRecordShareText, fmtStamp, fmtMagazineStamp,
   shareItemsFor, applyShareItems, shareVisibility, readHiddenItems, writeHiddenItems,
   readSharePrefs, writeSharePrefs, stepVariant,
 } from '../lib/shareOverlay';
@@ -427,6 +428,7 @@ export default function ShareSheet({
     readingBook: !isPeriod && subjectBook?.status === 'reading',
   });
   const [quoteIndex, setQuoteIndex] = useState(0);
+  const [quotePicker, setQuotePicker] = useState(false);
   // 本を切り替えたら、その本のいちばん新しい一文から。
   const subjectKey = period || `b:${subject.bookId}`;
   const lastSubjectKey = useRef(subjectKey);
@@ -845,8 +847,9 @@ export default function ShareSheet({
   ];
 
   const aspect = `${dims.w} / ${dims.h}`;
-  // 数字の重ね方（一文が無い）・記録で一文を隠した（表示する項目）ときは「別の一文」を出さない（替えても画像が変わらない）。
-  const swapLabel = variant === 'stats' || (variant === 'record' && hidden.includes('quote')) ? null : swapQuoteLabel(qi, candidates.length, variant === 'record');
+  // 数字の重ね方（一文が無い）・記録で一文を隠した（表示する項目）ときは「一文を選ぶ」を出さない（替えても画像が変わらない）。
+  // 2026-10-17 オーナー「一文を選択できるように」: 1 つずつ次へ送る「別の一文」をやめ、押すと候補の一覧（QuotePickerSheet）。
+  const swapLabel = variant === 'stats' || (variant === 'record' && hidden.includes('quote')) || !swapQuoteLabel(qi, candidates.length, variant === 'record') ? null : (qi < 0 ? '一文を入れる' : '一文を選ぶ');
   const thumbAspect = effStyle === 'sticker' ? 1 : FORMATS[format].w / FORMATS[format].h;
   const thumbW = Math.round(THUMB_H * thumbAspect);
   const subjectName = period === 'year' ? `${now.getFullYear()}年の読書` : period === 'month' ? `${now.getMonth() + 1}月の読書` : `『${subjectBook?.title || ''}』`;
@@ -974,7 +977,7 @@ export default function ShareSheet({
               )}
             </div>
           )}
-          {/* 別の一文（1 タップで次のメモへ・記録では外すこともできる）と「編集」（大きな画像で直す）。
+          {/* 一文を選ぶ（候補の一覧から・記録では入れないこともできる）と「編集」（大きな画像で直す）。
               描けなかった間も場所は残して見えなくする（描き直せたときに下の部品が上下に動かない・見えない間は押せず読み上げない）。 */}
           {/* 同じ行の右に形（投稿 4:5／ストーリー 9:16）。重ね方の見本に名前の幅を空けるため、見本の行から移した（2026-10-08）。 */}
           <div
@@ -989,10 +992,11 @@ export default function ShareSheet({
               <button
                 type="button"
                 disabled={status !== 'ready'}
-                onClick={() => { setQuoteIndex(swapQuote(qi, candidates.length, variant === 'record')); haptic.light(); }}
+                aria-haspopup="dialog"
+                onClick={() => { setQuotePicker(true); haptic.light(); }}
                 style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', color: status === 'ready' ? 'var(--accent)' : 'var(--text-3)', opacity: 1, cursor: status === 'ready' ? 'pointer' : 'default' }}
               >
-                <Shuffle size="1.1em" aria-hidden="true" />
+                <TextQuote size="1.1em" aria-hidden="true" />
                 {swapLabel}
               </button>
             )}
@@ -1017,7 +1021,7 @@ export default function ShareSheet({
                 aria-haspopup="menu"
                 aria-expanded={!!bgMenu}
                 onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setBgMenu({ x: r.right - 8, y: r.top - 8 }); }}
-                // 控えめな文字ボタン（栗色は「別の一文」「編集」と主ボタンに残す・2026-10-10 ui-critic）。
+                // 控えめな文字ボタン（栗色は「一文を選ぶ」「編集」と主ボタンに残す・2026-10-10 ui-critic）。
                 style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginRight: 'calc(-1 * var(--space-1))' }}
               >
                 {`背景：${STYLE_LABELS[effStyle]}`}
@@ -1082,7 +1086,7 @@ export default function ShareSheet({
                 {VARIANT_LABELS[variant]}
               </div>
             )}
-            {/* 形の切り替え。文字が大きいときは「別の一文／編集」の行の右へ移す（最初の画面で見えるように）。 */}
+            {/* 形の切り替え。文字が大きいときは「一文を選ぶ／編集」の行の右へ移す（最初の画面で見えるように）。 */}
             {effStyle !== 'sticker' && !formatInEditRow && formatSwitch}
         </div>
         )}
@@ -1134,6 +1138,16 @@ export default function ShareSheet({
             if (phrase && !phraseDisplayText(phrase)) setPhrase(null);
             setEditorOpen(false);
           }}
+        />
+      )}
+      {quotePicker && (
+        <QuotePickerSheet
+          candidates={candidates}
+          selected={qi}
+          allowNone={variant === 'record'}
+          bookTitleOf={isPeriod ? (m) => ((books || []).find((b) => b.id === m.bookId)?.title || '') : null}
+          onSelect={(i) => { setQuoteIndex(i); haptic.light(); }}
+          onClose={() => setQuotePicker(false)}
         />
       )}
     </BottomSheet>
