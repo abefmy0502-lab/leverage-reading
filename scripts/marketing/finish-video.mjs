@@ -9,7 +9,7 @@
 //   - H.264 / 30fps / 1080×1920 / 無音の音声トラックつきの final.mp4（Instagram リール・X で読める形）
 //   - 字幕の captions.srt（final.mp4 の時間に合わせる）と、表紙用の cover.jpg（題が出ている 1 秒目）
 // 字幕と題は録画の時点で画面に焼き込んである（--plain で録ったときだけ素の画面＝CapCut で字幕を付ける）。
-// 画面の下の「画面は見本です。実際の答えは、あなたのメモによって変わります。」（notes.mjs の SAMPLE_NOTE）は --plain でも
+// 画面の下の「画面は見本です。答えは、あなたのメモで変わります。」（notes.mjs の SAMPLE_NOTE）は --plain でも
 // 焼き込み済みで、最初から最後まで出る（景品表示法の優良誤認を避ける・切らない・上に字幕を重ねない）。
 //
 // ffmpeg は 環境変数 FFMPEG → npm の ffmpeg-static → PATH の ffmpeg の順に探す。

@@ -33,7 +33,7 @@ export const LP_OG_DESCRIPTION = '気になった一行をメモしておくと�
 // 語り口の答えの注記（アプリの答えの最後の一行と同じ考え方・LP では 1 か所＝ヒーローの写真の下）。
 export const VOICE_NOTE = '答えは AI によるもので、著者本人の言葉ではありません。';
 // 画面は見本（2026-10-11・景品表示法の優良誤認を避ける）: LP の写真・動画の画面はお試しモードの作った答えで、
-// 実際の AI の答えとは違う。LP ではヒーローの写真の下の 1 か所（2026-10-17 に短く。SNS の動画の字幕＝scripts/marketing/notes.mjs は長い形のまま）。
+// 実際の AI の答えとは違う。LP ではヒーローの写真の下の 1 か所（2026-10-17 に短く。SNS の動画の字幕＝scripts/marketing/notes.mjs も同じ文）。
 export const SAMPLE_NOTE = '画面は見本です。答えは、あなたのメモで変わります。';
 
 // 🧠 行動経済学・心理学に基づく文（2026-10-12・company/lp-behavioral-analysis-2026-10.md）。

@@ -5,5 +5,5 @@
 //   LP のヒーローの注記（src/pages/lpCopy.js の SAMPLE_NOTE）と同じ文（notes.test.js が確かめる）。
 // BOOK_DISCLAIMER … 実在の書名を出す投稿の説明欄・本文の最後に添える一文（weekly-drafts.mjs の下書きにも入る）。
 
-export const SAMPLE_NOTE = '画面は見本です。実際の答えは、あなたのメモによって変わります。';
+export const SAMPLE_NOTE = '画面は見本です。答えは、あなたのメモで変わります。';
 export const BOOK_DISCLAIMER = '画面はアプリの実際の動き（サンプルのデータ）です。本の著者・出版社とは関係ありません。';
