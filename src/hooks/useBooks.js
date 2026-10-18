@@ -4,6 +4,7 @@ import { useAuth } from './useAuth';
 import { LIMITS, clamp } from '../lib/limits';
 import { isSchemaError } from '../lib/errors';
 import { invalidateKnowledgeCache } from '../lib/ai';
+import { readLocalFinish, writeLocalFinish, FINISH_PARTIAL } from '../lib/finishKind';
 import { writeLocalBrief, readLocalBrief } from '../lib/bookBrief';
 import { captureBookReadingSessions, restoreBookReadingSessions } from '../lib/readingSessions';
 import { planTaxonomyChange } from '../lib/bookFieldsAuto';
@@ -96,6 +97,8 @@ const transformBook = (book) => ({
   bookReason: book.book_reason || '',
   // 📖 この本で学べること（supabase_books_brief.sql・2026-10-08）。列が無い DB では端末の控え（lib/bookBrief.js）。
   aiBrief: book.ai_brief || readLocalBrief(book.id) || '',
+  // 📗 読み終え方（supabase_books_finish_kind.sql・2026-10-18）。'partial'＝必要なところまで読んで読了。列が無い DB では端末の控え。
+  finishKind: book.finish_kind || readLocalFinish(book.id) || '',
 });
 
 export function useBooks() {
@@ -652,6 +655,28 @@ export function useBooks() {
     return { ok: true, local: false };
   };
 
+  // 📗 読み終え方（'partial' か ''）だけを書く（2026-10-18・lib/finishKind.js）。本の保存（saveBook）は通さない。
+  //   列が無い・つながらないときは端末に控える（読了にはもうなっている＝印だけの話なので止めない）。
+  const saveFinishKind = async (bookId, kind) => {
+    const value = kind === FINISH_PARTIAL ? FINISH_PARTIAL : '';
+    setBooks((prev) => prev.map((b) => (b.id === bookId ? { ...b, finishKind: value } : b)));
+    if (!user || !isSupabaseConfigured || !UUID_RE.test(bookId || '')) { writeLocalFinish(bookId, value); return { ok: true, local: true }; }
+    let error = null;
+    try {
+      ({ error } = await supabase.from('books').update({ finish_kind: value || null }).eq('id', bookId).eq('user_id', user.id));
+    } catch (e) {
+      error = e || new Error('save failed');
+    }
+    if (error) {
+      const missing = isSchemaError(error) || String(error.message || '').toLowerCase().includes('finish_kind');
+      if (!missing) console.warn('読み終え方を本に保存できず端末に控えます:', error?.message || error);
+      writeLocalFinish(bookId, value);
+      return { ok: true, local: true };
+    }
+    writeLocalFinish(bookId, '');
+    return { ok: true, local: false };
+  };
+
   // 🏷 本の分野（book_tags）とフォルダ（book_collections）だけを書く（2026-10-11・lib/bookFields.js）。
   //   本の保存（saveBook）は通さない＝ほかの欄・行動を書き直さない。自動の仕分けと前の版のタグの移し替えで使う。
   //   消してから入れ直さず、差分だけ（入れる → 消す）＝途中で失敗しても、言葉が消えたままにならない。
@@ -724,6 +749,7 @@ export function useBooks() {
     deleteBook,
     mutateBookLocal,
     saveBookBrief,
+    saveFinishKind,
     saveBookTaxonomy,
     captureBookSnapshot,
     restoreBookFromSnapshot,

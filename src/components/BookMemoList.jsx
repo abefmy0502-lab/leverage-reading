@@ -15,8 +15,9 @@ import { LIMITS } from '../lib/limits';
 import ContextMenu from './ContextMenu';
 import BookMemoCard from './BookMemoCard';
 import BookMemoEditor from './BookMemoEditor';
+import MemoReadThrough from './MemoReadThrough';
 import { OverlayFallback } from './lazyParts';
-import { BookOpen, PencilLine, Pencil, Copy, Share, Trash2, Sparkles, Target, ChevronDown, Check } from 'lucide-react';
+import { BookOpen, BookOpenText, PencilLine, Pencil, Copy, Share, Trash2, Sparkles, Target, ChevronDown, Check } from 'lucide-react';
 import { btnGhost, btnGhostOff, btnLink } from '../styles/ui';
 import MemoLinks from './MemoLinks';
 import NotifyOptInCard from './NotifyOptInCard';
@@ -212,9 +213,11 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
 // books: 本棚の本（本と本がつながる＝ほかの本の書名・表紙に使う）。
 // savedMemo: いま保存したメモ { id, bookId, text, nonce }（メモを書くシート・全画面の入力で保存したとき・App が渡す）。
 //   ほかの本で似たことを書いていれば、一覧の上に「いま書いたメモと似たメモ」を 1 枚（次に保存するか、本を離れるまで）。
-export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summaryText = '', onSaveSummary, onMakeAction, onShareMemo, afterList = null, focusMemoId = null, editFocusedMemo = false, onEditFocusedOpened, onWriteMemo, books = [], savedMemo = null, heading = null }) {
+export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summaryText = '', onSaveSummary, onMakeAction, onShareMemo, afterList = null, focusMemoId = null, editFocusedMemo = false, onEditFocusedOpened, onWriteMemo, books = [], savedMemo = null, heading = null, purposeText = '' }) {
   const [sortBy, setSortBy] = useState('page');
   const [sortMenu, setSortMenu] = useState(null); // { x, y } | null
+  // 📖 メモを通して読む（2026-10-18・MemoReadThrough）
+  const [readThrough, setReadThrough] = useState(false);
   const [quoteOnly, setQuoteOnly] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingMemo, setEditingMemo] = useState(null);
@@ -733,6 +736,17 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
         })}
       </div>
       )}
+      {/* 📖 メモが 2 件以上あるときだけ、一覧の下に「メモを通して読む」（1 冊のメモをページ順に 1 枚で読み返す・2026-10-18）。 */}
+      {!loading && memos.filter((m) => (m.text || '').trim()).length >= 2 && (
+        <button
+          type="button"
+          onClick={() => { haptic.light(); setReadThrough(true); }}
+          aria-haspopup="dialog"
+          style={{ ...btnLink, alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', marginLeft: 'calc(-1 * var(--space-1))' }}
+        >
+          <BookOpenText size="1.1em" aria-hidden="true" />メモを通して読む
+        </button>
+      )}
     </div>
   );
 
@@ -769,6 +783,10 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
           </summary>
           <div style={{ paddingBottom: 'var(--space-4)' }}>{summarySection}</div>
         </details>
+      )}
+
+      {readThrough && (
+        <MemoReadThrough title={bookTitle} purpose={purposeText} memos={memos} summary={summaryText} onClose={() => setReadThrough(false)} />
       )}
 
       {sortMenu && (

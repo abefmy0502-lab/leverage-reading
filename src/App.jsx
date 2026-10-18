@@ -222,6 +222,7 @@ import {
 import { useBookMemos } from './hooks/useBookMemos';
 import { useBookInfo } from './hooks/useBookInfo';
 import { hasBriefMaterial, storedBriefOf, briefForPrompt, appendHypothesis, isUsableBrief, parseBrief, briefLabels, BRIEF_NO_MATERIAL_TEXT } from './lib/bookBrief';
+import { FINISH_PARTIAL, isPartialDone } from './lib/finishKind';
 import { loadBookInfo, bookInfoForPrompt, hasBookInfo, peekBookInfo, rememberGenres } from './lib/bookInfo';
 // 🔎 すべての本の検索（書名・著者・タグ＋メモの言葉・2026-09-30）
 import { useLibrarySearch } from './hooks/useLibrarySearch';
@@ -649,6 +650,7 @@ function AuthedApp() {
     deleteBook,
     mutateBookLocal,
     saveBookBrief,
+    saveFinishKind,
     saveBookTaxonomy,
     captureBookSnapshot,
     restoreBookFromSnapshot,
@@ -3028,6 +3030,10 @@ function AuthedApp() {
     if ((newStatus === "reading" || newStatus === "done") && !fresh.startDate) patch.startDate = todayLocal();
     if (newStatus === "done" && !fresh.doneDate) patch.doneDate = todayLocal();
     const updated = { ...fresh, ...patch };
+    // 📗 読み終え方（2026-10-18）: 「ここまでで読み終える」（opts.partial）だけ印を付け、ほかの遷移では外す。
+    const prevFinish = fresh.finishKind || '';
+    const nextFinish = newStatus === 'done' && opts.partial ? FINISH_PARTIAL : '';
+    if (nextFinish !== prevFinish) { updated.finishKind = nextFinish; saveFinishKind(book.id, nextFinish); }
 
     // Optimistic update。ステータスを 1 つ進めるタップは、どの遷移でも本詳細に
     // 着地させる（旧: want→before だけ長い編集フォームに強制連行され「積読に
@@ -3088,6 +3094,7 @@ function AuthedApp() {
         // 取り消しは「元の状態の本の詳細」に戻すだけ（編集フォームに飛ばさない）。
         if (currentRef.current?.id === book.id) setView('detail');
         mutateBookLocal(book.id, (b) => ({ ...b, ...prev }));
+        if (nextFinish !== prevFinish) saveFinishKind(book.id, prevFinish);
         try {
           const saved = await saveBook(reverted);
           entry.latest = saved || reverted;
@@ -3147,6 +3154,8 @@ function AuthedApp() {
     for (const k of Object.keys(patch)) prev[k] = prevRow[k];
     mutateBookLocal(bookId, (b) => ({ ...b, ...patch }));
     setCurrent((c) => (c && c.id === bookId ? { ...c, ...patch } : c));
+    // 状態を読了以外に変えたら「途中まで」の印を外す（2026-10-18）
+    if (patch.status && patch.status !== 'done' && prevRow.finishKind) saveFinishKind(bookId, '');
     enqueueBookMutation(bookId, async (entry) => {
       const base = entry.latest || booksRef.current.find((b) => b.id === bookId);
       if (!base) return;
@@ -4960,6 +4969,10 @@ function AuthedApp() {
                 {current.startDate && <span style={{ whiteSpace: 'nowrap' }}><span aria-hidden="true">·　</span>開始 {fmtDateJa(current.startDate)}</span>}
                 {current.doneDate && <span style={{ whiteSpace: 'nowrap' }}><span aria-hidden="true">·　</span>読了 {fmtDateJa(current.doneDate)}</span>}
               </div>
+              {/* 必要なところまで読んで「ここまでで読み終える」を選んだ本（2026-10-18・lib/finishKind.js）。状態の行に足すと折り返すので次の行に */}
+              {isPartialDone(current) && (
+                <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>必要なところまで読んで読了</p>
+              )}
               {/* 読書の時間は次の行に（「·」で続けると折り返した行の頭に「·」が来た） */}
               {(current.status === 'reading' || current.status === 'done') && (
                 <BookReadingTime bookId={current.id} />
@@ -5015,6 +5028,27 @@ function AuthedApp() {
             </div>
           </div>
 
+          {/* 🎯 読む目的（2026-10-18 オーナー）: 読書中は、積読で書いた「この本から得たいこと」をいつも見えるところに 1 つ。
+              目的を見ながら読むと、どこを読むか・どこを流すかを決めやすい。書いていない本には出さない（書けと迫らない）。
+              押すと読書計画（得たいこと）の編集へ＝openSetup。 */}
+          {current.status === 'reading' && (current.investPurpose || '').trim() && (
+            <button
+              type="button"
+              onClick={() => openSetup(current)}
+              aria-label={`この本から得たいこと：${current.investPurpose.trim()}（押すと直せます）`}
+              style={{
+                display: 'block', width: '100%', marginTop: 'var(--space-4)', padding: 'var(--space-3) var(--space-4)',
+                textAlign: 'left', fontFamily: 'inherit', cursor: 'pointer',
+                background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)',
+              }}
+            >
+              <span style={{ display: 'block', fontSize: 'var(--text-meta)', fontWeight: 600, color: 'var(--text-2)' }}>この本から得たいこと</span>
+              <span style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', marginTop: 'var(--space-1)', fontSize: 'var(--text-body)', lineHeight: 1.6, color: 'var(--text)', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', textWrap: 'pretty' }}>
+                {current.investPurpose.trim()}
+              </span>
+            </button>
+          )}
+
 
           {/* 読みたい・積読は「読む準備」が主役なので、計画・目的・AI 解析を上に置く。
               読書中・読了はメモが主役（SPEC §2）なので、これらは画面の下（行動の後）へ。 */}
@@ -5033,6 +5067,7 @@ function AuthedApp() {
                   bookTitle={current.title}
                   bookAuthor={current.author || ""}
                   summaryText={current.leverageMemo || ""}
+                  purposeText={current.investPurpose || ""}
                   onSaveSummary={handleSaveSummaryFromCurrent}
                   onMakeAction={addActionFromMemo}
                   onShareMemo={(memo) => setShareSheet({ book: current, initialMemoId: memo.id })}
@@ -5237,6 +5272,25 @@ function AuthedApp() {
                 >
                   {nextLabel[current.status]}
                 </button>
+                {/* 📗 読書中だけ: 最後まで読まずに終えてよい（読む目的が満たせたら十分・2026-10-18 オーナー）。
+                    確かめてから読了にし、「途中まで」の印を付ける（lib/finishKind.js・状態の行に「· 途中まで」）。 */}
+                {current.status === 'reading' && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const ok = await confirm({
+                        title: 'ここまでで読み終えますか？',
+                        message: '必要なところが読めたら、それで十分です。読了にして、メモはそのまま残ります。',
+                        confirmLabel: '読了にする',
+                        cancelLabel: 'まだ読む',
+                      });
+                      if (ok) advanceStatus(current, 'done', { partial: true });
+                    }}
+                    style={{ ...btnLink, alignSelf: 'center' }}
+                  >
+                    ここまでで読み終える
+                  </button>
+                )}
                 {/* 読みたい: 読書計画シートは積読から作れる。1 行の説明の代わりに、押せば積読に積んで
                     その場で作り始める文字ボタン（2026-09-29）。無料プランは状態を変える前に有料プランの画面を開く。
                     得たいことがまだ無ければ、積読に積んだうえで読書計画の編集画面へ（runStrategyInPlace と同じ）。 */}
