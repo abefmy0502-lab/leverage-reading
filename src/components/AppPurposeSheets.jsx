@@ -30,7 +30,7 @@ export function AppPurposeEditSheet({ purpose, onClose }) {
     setBusy(true);
     const res = await saveAppPurpose(text);
     track('app_purpose_set', { where: 'settings' });
-    if (res && !res.synced) toast.error('この端末には保存しました。つながってから、もう一度保存してください。');
+    if (res && !res.synced) toast.info('この端末には保存しました。つながってから、もう一度保存してください。');
     onClose();
   };
   return createPortal(

@@ -1385,15 +1385,22 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
       </div>
 
       {feedbackOpen && <FeedbackForm onClose={() => setFeedbackOpen(false)} />}
-      {purposeEditOpen && <AppPurposeEditSheet purpose={appPurpose} onClose={() => setPurposeEditOpen(false)} />}
+      {/* 入れた理由のシートも、中のタップを設定の背景に届けない（「保存」「まだ途中」で設定ごと閉じていた・2026-10-18） */}
+      {purposeEditOpen && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <AppPurposeEditSheet purpose={appPurpose} onClose={() => setPurposeEditOpen(false)} />
+        </div>
+      )}
       {purposeCheck && (
-        <PurposeCheckSheet
-          purpose={appPurpose}
-          where={purposeCheck.where}
-          nextText={purposeCheck.nextText}
-          onClose={() => setPurposeCheck(null)}
-          onContinue={() => { const run = purposeCheck.run; setPurposeCheck(null); run(); }}
-        />
+        <div onClick={(e) => e.stopPropagation()}>
+          <PurposeCheckSheet
+            purpose={appPurpose}
+            where={purposeCheck.where}
+            nextText={purposeCheck.nextText}
+            onClose={() => setPurposeCheck(null)}
+            onContinue={() => { const run = purposeCheck.run; setPurposeCheck(null); run(); }}
+          />
+        </div>
       )}
       {/* 設定の外側（背景）を押すと設定を閉じる仕組みに、シートの中のタップが届かないようにする
           （畳んだ前の版を開こうとしたら設定ごと閉じていた・2026-10-05）。 */}
