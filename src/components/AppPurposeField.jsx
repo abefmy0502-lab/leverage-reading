@@ -3,7 +3,8 @@
 // よくある理由のチップ（押すと欄に入る＝そのまま・直して・書き足して使える）→ 自分の言葉の欄（2 行・80 字まで）。
 // チップは選ぶためのチップ（44・lib/appPurpose.js の APP_PURPOSE_CHOICES）。欄と同じ文のチップだけ選択中に。
 // 欄が空かチップの文のままなら置きかえ、自分の言葉が入っていれば消さずに後ろへ足す（AI 選書の答えのチップと同じ）。
-// hint: 欄の下 4 の 13/--text-2 の 1 行（初回ガイドで、空の間「次へ」を押せない理由）。
+// hint: 欄の下 4 の 13/--text-2 の 1 行（初回ガイドで、空の間「次へ」を押せない理由）。showHint=false でも行の高さは残す
+//   （書いた途端に行が消えてシートが縮み、押したチップが指の下から逃げないように）。
 import { Chip } from './formPrimitives';
 import { input as uiInput } from '../styles/ui';
 import { APP_PURPOSE_CHOICES, APP_PURPOSE_MAX, cleanPurposeText } from '../lib/appPurpose';
@@ -11,12 +12,13 @@ import { APP_PURPOSE_CHOICES, APP_PURPOSE_MAX, cleanPurposeText } from '../lib/a
 export function applyPurposeChoice(value, choice) {
   const cur = cleanPurposeText(value);
   if (!cur || APP_PURPOSE_CHOICES.includes(cur)) return choice;
+  if (cur.includes(choice)) return cur; // 同じチップを続けて押しても重ねない
   return cleanPurposeText(`${cur} ${choice}`);
 }
 
 const fieldStyle = { ...uiInput, minHeight: 'calc(2 * 1.6em + 2 * var(--space-3) + 2px)', lineHeight: 1.6, resize: 'none', display: 'block' };
 
-export default function AppPurposeField({ value, onChange, inputRef = null, id = 'app-purpose-input', hint = '' }) {
+export default function AppPurposeField({ value, onChange, inputRef = null, id = 'app-purpose-input', hint = '', showHint = true }) {
   const current = cleanPurposeText(value);
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
@@ -37,10 +39,10 @@ export default function AppPurposeField({ value, onChange, inputRef = null, id =
         maxLength={APP_PURPOSE_MAX}
         placeholder="自分の言葉で書く"
         aria-label="Orime を入れた理由"
-        aria-describedby={hint ? `${id}-hint` : undefined}
+        aria-describedby={hint && showHint ? `${id}-hint` : undefined}
         style={fieldStyle}
       />
-      {hint && <p id={`${id}-hint`} style={{ margin: 'calc(var(--space-1) - var(--space-3)) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>{hint}</p>}
+      {hint && <p id={`${id}-hint`} style={{ margin: 'calc(var(--space-1) - var(--space-3)) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, visibility: showHint ? 'visible' : 'hidden' }} aria-hidden={!showHint || undefined}>{hint}</p>}
     </div>
   );
 }

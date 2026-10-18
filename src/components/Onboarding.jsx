@@ -374,7 +374,7 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
           </p>
           {isPurpose && (
             <div style={{ marginTop: 'var(--space-1)' }}>
-              <AppPurposeField value={purposeText} onChange={setPurposeText} hint={purposeReady ? '' : '選ぶか、自分の言葉で書くと次へ進めます'} />
+              <AppPurposeField value={purposeText} onChange={setPurposeText} hint="選ぶか、自分の言葉で書くと次へ進めます" showHint={!purposeReady} />
             </div>
           )}
         </div>

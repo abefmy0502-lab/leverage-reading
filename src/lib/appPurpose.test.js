@@ -59,3 +59,13 @@ describe('入れた理由', () => {
     expect(await readAppPurpose()).toBe(null);
   });
 });
+
+import { applyPurposeChoice } from '../components/AppPurposeField';
+describe('チップを押したとき', () => {
+  it('空・チップの文なら置きかえ、自分の言葉なら後ろへ足す・同じ文は重ねない', () => {
+    expect(applyPurposeChoice('', '考えを深めたい')).toBe('考えを深めたい');
+    expect(applyPurposeChoice('読書を習慣にしたい', '考えを深めたい')).toBe('考えを深めたい');
+    expect(applyPurposeChoice('転職の準備', '考えを深めたい')).toBe('転職の準備 考えを深めたい');
+    expect(applyPurposeChoice('転職の準備 考えを深めたい', '考えを深めたい')).toBe('転職の準備 考えを深めたい');
+  });
+});
