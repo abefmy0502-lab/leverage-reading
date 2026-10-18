@@ -3,13 +3,13 @@
 // 書き出しのチップ（「仕事で、」など・lib/appPurpose.js の APP_PURPOSE_STARTERS）→ 自分の言葉の欄（2 行・80 字まで）。
 // 「具体的であればあるほど良い」（オーナー）ので、チップは答えではなく書き出し: 押すと欄に入り、カーソルを末尾に置く
 // （続きを書く）。欄に自分の言葉があるときは書き換えず、下の例だけをその書き出しのものに替える。
-// 欄の下（4）に 13/--text-2 の 3 行ぶんの欄＝まだ足りない間は「どう書けば次へ進めるか」＋例。足りたら隠す（高さは残す＝
+// 欄の下（4）に 13/--text-2 の 3 行ぶんの欄＝空は「書き出しを選んで…」・書きかけは「あと N 字で次へ進めます」＋例・足りたら「あとで設定から書き直せます」（高さは残す＝
 // 書いた途端にシートが縮んで、押したチップが指の下から逃げないように）。
 import { useState } from 'react';
 import { Chip } from './formPrimitives';
 import { withPhraseBreaks } from './TightBubble';
 import { input as uiInput } from '../styles/ui';
-import { APP_PURPOSE_STARTERS, APP_PURPOSE_MAX, cleanPurposeText, purposeStarterOf, isPurposeSpecific } from '../lib/appPurpose';
+import { APP_PURPOSE_STARTERS, APP_PURPOSE_MAX, APP_PURPOSE_MIN_REST, cleanPurposeText, purposeStarterOf, purposeRestLength } from '../lib/appPurpose';
 
 // チップを押したときの欄の文。空か書き出しだけなら置きかえ、続きが書いてあれば変えない。
 export function applyPurposeStarter(value, starter) {
@@ -18,20 +18,25 @@ export function applyPurposeStarter(value, starter) {
   return value;
 }
 
-// 欄の下の案内（まだ足りない間だけ）: { lead: どう書けば進めるか（1 行）, example: 例（2 行まで）}。
-export function purposeGuide(value, picked = null) {
+// 欄の下の案内: { lead: 1 行目, example: 2 行目から（例・足りたら空）}。
+//   空＝書き出しを選ぶ／書きかけ＝あと N 字（押せるかどうかの決まりそのもの）／足りた＝あとで直せる安心。
+export function purposeGuide(value, picked = null, minRest = APP_PURPOSE_MIN_REST, readyText = 'あとで設定から書き直せます') {
   const cur = cleanPurposeText(value);
   const st = picked || purposeStarterOf(cur) || APP_PURPOSE_STARTERS[0];
-  return { lead: cur ? '何を・いつまでに、まで書くと進めます' : '書き出しを選んで、続きを書きます', example: `例：${st.example}` };
+  const left = minRest - purposeRestLength(cur);
+  if (left <= 0) return { lead: readyText, example: '' };
+  return { lead: cur ? `あと ${left} 字で次へ進めます` : '書き出しを選んで、続きを書きます', example: `例：${st.example}` };
 }
 
 const fieldStyle = { ...uiInput, minHeight: 'calc(2 * 1.6em + 2 * var(--space-3) + 2px)', lineHeight: 1.6, resize: 'none', display: 'block' };
 
-export default function AppPurposeField({ value, onChange, id = 'app-purpose-input' }) {
+export default function AppPurposeField({ value, onChange, id = 'app-purpose-input', minRest = APP_PURPOSE_MIN_REST, readyText = undefined }) {
   const [picked, setPicked] = useState(null);
-  const ready = isPurposeSpecific(value);
   const current = purposeStarterOf(value);
-  const guide = purposeGuide(value, picked);
+  // 欄が空か書き出しだけのときだけ、押したチップを選択中に（自分の言葉がある欄では欄の頭の書き出しだけ）。
+  const startOnly = !cleanPurposeText(value) || purposeRestLength(value) === 0;
+  const onStarter = startOnly ? (picked || current) : current;
+  const guide = purposeGuide(value, picked, minRest, readyText);
   const pick = (s) => {
     setPicked(s);
     const next = applyPurposeStarter(value, s.text);
@@ -42,12 +47,14 @@ export default function AppPurposeField({ value, onChange, id = 'app-purpose-inp
       if (!el) return;
       try { el.focus({ preventScroll: true }); el.setSelectionRange(next.length, next.length); } catch { /* ignore */ }
     });
+    // キーボードが出たあとも、欄の下の例が見えるところまで送る
+    setTimeout(() => { try { document.getElementById(`${id}-hint`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch { /* ignore */ } }, 350);
   };
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
       <div role="group" aria-label="書き出し" style={{ display: 'flex', flexWrap: 'wrap', columnGap: 'var(--space-2)', rowGap: 'var(--space-2)' }}>
         {APP_PURPOSE_STARTERS.map((s) => {
-          const on = (picked || current)?.text === s.text;
+          const on = onStarter?.text === s.text;
           return (
             <Chip key={s.text} size="select" aria-pressed={on} active={on} onClick={() => pick(s)}>
               {s.text}
@@ -64,16 +71,16 @@ export default function AppPurposeField({ value, onChange, id = 'app-purpose-inp
         maxLength={APP_PURPOSE_MAX}
         placeholder="自分の言葉で書く"
         aria-label="Orime を入れた理由"
-        aria-describedby={ready ? undefined : `${id}-hint`}
+        aria-describedby={`${id}-hint`}
         style={fieldStyle}
       />
       <p
         id={`${id}-hint`}
-        aria-hidden={ready || undefined}
-        // 高さは 3 行ぶん（案内 1 行＋例 2 行まで）をいつも取る。例は文節の切れ目でだけ折り返す。
-        style={{ margin: 'calc(var(--space-1) - var(--space-3)) 0 0', minHeight: 'calc(3 * 1.5em)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, visibility: ready ? 'hidden' : 'visible', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}
+        // 高さは 3 行ぶん（案内 1 行＋例 2 行まで）をいつも取る（足りても縮めない）。例は文節の切れ目でだけ折り返す。
+        aria-live="polite"
+        style={{ margin: 'calc(var(--space-1) - var(--space-3)) 0 0', minHeight: 'calc(3 * 1.5em)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}
       >
-        {guide.lead}<br />{withPhraseBreaks(guide.example)}
+        {guide.lead}{guide.example && <><br />{withPhraseBreaks(guide.example)}</>}
       </p>
     </div>
   );

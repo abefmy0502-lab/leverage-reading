@@ -20,7 +20,7 @@ const LOCAL_KEY = 'orime.appPurpose.v1';
 // example は欄の下の例（その書き出しで具体的に書いた形）。計測の s1〜s5 はこの順。
 export const APP_PURPOSE_STARTERS = [
   { text: '仕事で、', example: '仕事で、来月から任されるチームのまとめ方を学びたい' },
-  { text: 'いま悩んでいる', example: 'いま悩んでいる部下との話し方を、本から学びたい' },
+  { text: 'いま悩んでいる、', example: 'いま悩んでいる、部下との話し方のヒントを本から得たい' },
   { text: '今年中に、', example: '今年中に、お金の本を 5 冊読んで家計を見直したい' },
   { text: '読んだ本を、', example: '読んだ本を、半年後も人に説明できるようにしたい' },
   { text: '毎日、', example: '毎日、通勤の 20 分で本を読む習慣をつけたい' },
@@ -34,12 +34,16 @@ export function purposeStarterOf(text) {
   return APP_PURPOSE_STARTERS.find((s) => t.startsWith(s.text.replace(/、$/, ''))) || null;
 }
 
-// 次へ進めるだけ具体的か（書き出しを除いた続きが 10 字以上）。
-export function isPurposeSpecific(text) {
+// 書き出しを除いた続きの字数。
+export function purposeRestLength(text) {
   const t = cleanPurposeText(text);
   const st = purposeStarterOf(t);
-  const rest = st ? t.slice(st.text.replace(/、$/, '').length).replace(/^[、,\s]+/, '') : t;
-  return rest.length >= APP_PURPOSE_MIN_REST;
+  return (st ? t.slice(st.text.replace(/、$/, '').length).replace(/^[、,\s]+/, '') : t).length;
+}
+
+// 次へ進めるだけ具体的か（書き出しを除いた続きが 10 字以上）。
+export function isPurposeSpecific(text) {
+  return purposeRestLength(text) >= APP_PURPOSE_MIN_REST;
 }
 
 export function cleanPurposeText(text) {

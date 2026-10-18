@@ -71,6 +71,7 @@ describe('具体的に書く', () => {
   });
   it('どの書き出しで始まるか', () => {
     expect(purposeStarterOf('今年中に、お金の本を読む')?.text).toBe('今年中に、');
+    expect(purposeStarterOf('いま悩んでいる部下のこと')?.text).toBe('いま悩んでいる、');
     expect(purposeStarterOf('自分の言葉')).toBe(null);
   });
   it('チップは空か書き出しだけのときに置きかえ、続きがあれば変えない', () => {
@@ -81,5 +82,7 @@ describe('具体的に書く', () => {
   it('案内は空なら書き出しを、途中なら何を書けばよいかを例つきで', () => {
     expect(purposeGuide('').lead).toMatch(/^書き出しを選んで/);
     expect(purposeGuide('毎日、').example).toMatch(/^例：毎日、/);
+    expect(purposeGuide('毎日、通勤').lead).toBe('あと 8 字で次へ進めます');
+    expect(purposeGuide('毎日、通勤の 20 分で本を読む').lead).toBe('あとで設定から書き直せます');
   });
 });

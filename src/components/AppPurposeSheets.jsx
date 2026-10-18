@@ -41,7 +41,7 @@ export function AppPurposeEditSheet({ purpose, onClose }) {
       layer="dialog"
       footer={<button type="button" onClick={save} disabled={!ok || busy} style={ok ? { ...btnPrimary, opacity: 1 } : btnPrimaryOff}>{busy ? '保存しています…' : '保存'}</button>}
     >
-      <AppPurposeField value={text} onChange={setText} />
+      <AppPurposeField value={text} onChange={setText} readyText="保存すると、書いた日は今日になります" />
     </BottomSheet>,
     document.body,
   );

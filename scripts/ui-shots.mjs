@@ -546,7 +546,7 @@ const SCREENS = [
   { name: 'add-book-notfound', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を追加"]' }, { fill: ['#add-book-query', 'zzzzqqqqxxxx'] }, { css: 'button:has-text("検索")' }, { wait: 1500 }] },
   // 🎯 Orime を入れた理由（2026-10-18）: 2 枚目（空・押した）・設定の行・書き直し・退会の前の確かめ
   { name: 'onboarding-purpose', url: '/?demo=new', steps: [{ role: '次へ' }, { wait: 800 }] },
-  { name: 'onboarding-purpose-starter', url: '/?demo=new', steps: [{ role: '次へ' }, { wait: 800 }, { css: '[role=dialog] button:has-text("いま悩んでいる")' }, { wait: 300 }] },
+  { name: 'onboarding-purpose-starter', url: '/?demo=new', steps: [{ role: '次へ' }, { wait: 800 }, { css: '[role=dialog] button:has-text("いま悩んでいる、")' }, { wait: 300 }] },
   { name: 'onboarding-purpose-filled', url: '/?demo=new', steps: [{ role: '次へ' }, { wait: 800 }, { css: '[role=dialog] button:has-text("仕事で、")' }, { fill: ['#app-purpose-input', '仕事で、来月から任されるチームのまとめ方を学びたい'] }, { wait: 300 }] },
   { name: 'settings-purpose', url: '/?demo=new', steps: [{ role: '次へ' }, { css: '[role=dialog] button:has-text("仕事で、")' }, { fill: ['#app-purpose-input', '仕事で、来月から任されるチームのまとめ方を学びたい'] }, { role: '次へ' }, { css: '[role=dialog] button[aria-label="閉じる"]' }, { wait: 400 }, { css: 'button[aria-label="アカウント設定を開く"]' }, { wait: 400 }] },
   { name: 'settings-purpose-edit', url: '/?demo=new', steps: [{ role: '次へ' }, { css: '[role=dialog] button:has-text("仕事で、")' }, { fill: ['#app-purpose-input', '仕事で、来月から任されるチームのまとめ方を学びたい'] }, { role: '次へ' }, { css: '[role=dialog] button[aria-label="閉じる"]' }, { wait: 400 }, { css: 'button[aria-label="アカウント設定を開く"]' }, { wait: 400 }, { css: 'button:has-text("Orime を入れた理由")' }, { wait: 400 }] },

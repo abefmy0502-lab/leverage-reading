@@ -190,11 +190,14 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
     readAppPurpose().then((r) => {
       if (!alive || !r) return;
       setPurposeText((t) => t || r.text);
+      setLoadedPurpose(r.text);
       setPurposeSaved(true);
     });
     return () => { alive = false; };
   }, []);
-  const purposeReady = isPurposeSpecific(purposeText);
+  // 前に書いた理由（前の版で短く書いた人）は、そのままなら字数を問わず進める。
+  const [loadedPurpose, setLoadedPurpose] = useState('');
+  const purposeReady = isPurposeSpecific(purposeText) || (!!loadedPurpose && purposeText.trim() === loadedPurpose);
   // 理由を書くまでは閉じられない（1 枚目も）。
   const canDismiss = purposeSaved;
   // Lazy initializer — runs once on first render, never on module load.
@@ -375,7 +378,7 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
           </p>
           {isPurpose && (
             <div style={{ marginTop: 'var(--space-1)' }}>
-              <AppPurposeField value={purposeText} onChange={setPurposeText} />
+              <AppPurposeField value={purposeText} onChange={setPurposeText} minRest={loadedPurpose && purposeText.trim() === loadedPurpose ? 0 : undefined} />
             </div>
           )}
         </div>
