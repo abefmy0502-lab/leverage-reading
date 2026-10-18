@@ -25,9 +25,11 @@ export default function ReadTargetSheet({ book, onSelect, onClose }) {
         <div role="radiogroup" aria-label="読む時間の目安" style={{ display: 'flex', flexWrap: 'wrap', columnGap: 'var(--space-2)', rowGap: 'var(--space-2)' }}>
           {READ_TARGET_CHOICES.map((m) => (
             <Chip key={m} size="select" role="radio" aria-checked={current === m} active={current === m} onClick={() => pick(m)}>
-              {fmtTarget(m)}
+              <span style={{ fontVariantNumeric: 'tabular-nums' }}>{fmtTarget(m)}</span>
             </Chip>
           ))}
+          {/* 「決めない」は時間の並びに混ぜず、次の行の頭に */}
+          <span aria-hidden="true" style={{ flexBasis: '100%', height: 0 }} />
           <Chip size="select" role="radio" aria-checked={!current} active={!current} onClick={() => pick(0)}>
             決めない
           </Chip>

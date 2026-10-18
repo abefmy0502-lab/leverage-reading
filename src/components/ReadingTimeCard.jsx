@@ -318,10 +318,15 @@ export default function ReadingTimeCard({ rows, books, onOpenBook, now = Date.no
 }
 
 // 本の詳細の 1 行「読書の時間 2 時間 5 分」（読書中・読了・この本で 30 秒以上あるときだけ・2026-10-10）。
-export function BookReadingTime({ bookId, style, inline = false, dot = false }) {
+// suffix: 行の右に添えるもの（本の詳細の「/ 目安 5 時間」・2026-10-18）。読書の時間がまだ無くても suffix だけ出す。
+export function BookReadingTime({ bookId, style, inline = false, dot = false, suffix = null }) {
   const { rows } = useReadingSessions();
   const sec = totalSeconds(rows, bookId);
-  if (!bookId || sec < MIN_SESSION_SEC) return null;
+  if (!bookId) return null;
+  if (sec < MIN_SESSION_SEC) {
+    if (!suffix || inline) return null;
+    return <p data-book-reading-time="" style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 'var(--space-1) 0 0', ...style }}>{suffix}</p>;
+  }
   // inline: 本の詳細の見出しの 1 行（状態 · 日付 · 読書の時間）に並べる（2026-10-16）。
   if (inline) {
     return (
@@ -333,6 +338,7 @@ export function BookReadingTime({ bookId, style, inline = false, dot = false }) 
   return (
     <p data-book-reading-time="" style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 'var(--space-1) 0 0', ...style }}>
       読書の時間 <span style={{ whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{fmtReadingTotal(sec)}</span>
+      {suffix && <><span aria-hidden="true">{' / '}</span>{suffix}</>}
     </p>
   );
 }

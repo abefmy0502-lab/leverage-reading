@@ -18,7 +18,7 @@ import BookMemoEditor from './BookMemoEditor';
 import MemoReadThrough from './MemoReadThrough';
 import { OverlayFallback } from './lazyParts';
 import { BookOpen, BookOpenText, PencilLine, Pencil, Copy, Share, Trash2, Sparkles, Target, ChevronDown, Check } from 'lucide-react';
-import { btnGhost, btnGhostOff, btnLink } from '../styles/ui';
+import { btnGhost, btnGhostOff, btnLink, btnLinkQuiet } from '../styles/ui';
 import MemoLinks from './MemoLinks';
 import NotifyOptInCard from './NotifyOptInCard';
 import { useMemoLinkFinder } from '../hooks/useMemoLinkFinder';
@@ -755,7 +755,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
           type="button"
           onClick={() => { haptic.light(); setReadThrough(true); }}
           aria-haspopup="dialog"
-          style={{ ...btnLink, alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', marginLeft: 'calc(-1 * var(--space-1))' }}
+          style={{ ...btnLinkQuiet, alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', marginLeft: 'calc(-1 * var(--space-1))' }}
         >
           <BookOpenText size="1.1em" aria-hidden="true" />メモを通して読む
         </button>
@@ -784,31 +784,35 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
         <div aria-hidden="true" style={{ ...hidden, minHeight: 'var(--btn-h)', boxSizing: 'content-box', border: '1px solid var(--separator)', borderRadius: 'var(--radius)' }} />
       )}
       {summarySection && !loading && (
+        // 「コピー」は summary の中に入れない（VoiceOver は summary を 1 つのボタンとして読み、中のボタンに届かない・2026-10-18 ui-critic）。
+        // 畳みの箱を相対の箱で包み、コピーはその右上（シェブロンの左）に重ねる。summary はその幅を右に空ける。
+        <div style={{ position: 'relative' }}>
         <details style={{ background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: '0 var(--space-4)' }}>
           <summary style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', minHeight: 'var(--btn-h)', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', cursor: 'pointer', listStyle: 'none' }}>
             {/* 題は割らない・右の一言は残りの幅で … に切る（文字最大で「この本のま／とめ」と割れていた・2026-10-11 点検）。 */}
             <span style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>この本のまとめ</span>
             <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 'var(--space-2)', minWidth: 0, flex: '1 1 auto' }}>
-              {/* 文字が大きいときは右の一言を出さない（「…」だけが残って読めない・lib/largeText）。 */}
-              {/* 書いてあれば、畳んだままの行から 1 回でコピー（2026-10-18 オーナー「この本のまとめをワンクリックでコピー」）。
-                  押しても畳み・開きは変えない（summary の中なので既定の動きを止める）。 */}
-              {(summaryText || '').trim() ? (
-                <button
-                  type="button"
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); copySummary(); }}
-                  aria-label="この本のまとめをコピー"
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 'var(--tap-min)', padding: '0 var(--space-1)', margin: '0 calc(-1 * var(--space-1))', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-sub)', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap' }}
-                >
-                  <Copy size="1.1em" aria-hidden="true" style={{ flexShrink: 0 }} />コピー
-                </button>
-              ) : (
-                !isLargeText() && <span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>まだありません</span>
-              )}
+              {/* 文字が大きいときは右の一言を出さない（「…」だけが残って読めない・lib/largeText）。書いてあればコピーの空き */}
+              {(summaryText || '').trim()
+                ? <span aria-hidden="true" style={{ width: '5em', flexShrink: 0 }} />
+                : (!isLargeText() && <span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>まだありません</span>)}
               <ChevronDown size="1.2em" aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
             </span>
           </summary>
           <div style={{ paddingBottom: 'var(--space-4)' }}>{summarySection}</div>
         </details>
+        {/* 書いてあれば、畳んだままの行から 1 回でコピー（2026-10-18 オーナー「この本のまとめをワンクリックでコピー」） */}
+        {(summaryText || '').trim() && (
+          <button
+            type="button"
+            onClick={copySummary}
+            aria-label="この本のまとめをコピー"
+            style={{ position: 'absolute', top: 0, right: 'calc(var(--space-4) + 1.2em + var(--space-2))', height: 'var(--btn-h)', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', padding: '0 var(--space-1)', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-sub)', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap' }}
+          >
+            <Copy size="1.1em" aria-hidden="true" style={{ flexShrink: 0 }} />コピー
+          </button>
+        )}
+        </div>
       )}
 
       {readThrough && (

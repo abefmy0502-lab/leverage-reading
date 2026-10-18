@@ -4976,7 +4976,22 @@ function AuthedApp() {
               </div>
               {/* 読書の時間は次の行に（「·」で続けると折り返した行の頭に「·」が来た） */}
               {(current.status === 'reading' || current.status === 'done') && (
-                <BookReadingTime bookId={current.id} />
+                <BookReadingTime
+                  bookId={current.id}
+                  suffix={current.readTargetMin ? (
+                    <button
+                      type="button"
+                      onClick={() => { if (current.status === 'reading') { haptic.light(); setReadTargetBook(current); } }}
+                      disabled={current.status !== 'reading'}
+                      aria-haspopup={current.status === 'reading' ? 'dialog' : undefined}
+                      aria-label={`読む時間の目安 ${fmtTarget(current.readTargetMin)}${current.status === 'reading' ? '（押すと変えられます）' : ''}`}
+                      // 行の高さは変えずに押せる範囲を 44 に（上下の負の余白）
+                      style={{ display: 'inline-flex', alignItems: 'center', minHeight: 'var(--tap-min)', margin: 'calc((var(--tap-min) - 1.5em) / -2) 0', padding: 0, background: 'none', border: 'none', color: 'inherit', font: 'inherit', cursor: current.status === 'reading' ? 'pointer' : 'default', whiteSpace: 'nowrap' }}
+                    >
+                      目安 {fmtTarget(current.readTargetMin)}
+                    </button>
+                  ) : null}
+                />
               )}
               {current.status === 'done' && (
                 <div data-detail-rating="" style={{ marginTop: 'var(--space-1)' }}>
@@ -5026,18 +5041,20 @@ function AuthedApp() {
                 >
                   <Timer size="1.1em" strokeWidth={1.75} aria-hidden="true" style={{ flexShrink: 0 }} />読む
                 </button>
-                {/* ⏳ 読む時間の目安（2026-10-18 オーナー・lib/readTarget.js）。決めていなければ「目安を決める」、決めていれば「目安 5 時間」。
-                    読書の時間（上の行）と並べて見るだけ（%・残り・達成は出さない）。押すと選ぶシート。 */}
+                {/* ⏳ 読む時間の目安（2026-10-18 オーナー・lib/readTarget.js）。決めていないときだけ「目安を決める」。
+                    決めたあとは見出しの「読書の時間 … / 目安 5 時間」の行に並べ、そこを押すと変えられる（比べる数と同じ行・ui-critic）。 */}
+                {!current.readTargetMin && (
                 <button
                   type="button"
                   onClick={() => { haptic.light(); setReadTargetBook(current); }}
                   aria-haspopup="dialog"
-                  aria-label={current.readTargetMin ? `読む時間の目安 ${fmtTarget(current.readTargetMin)}（押すと変えられます）` : '読む時間の目安を決める'}
+                  aria-label="読む時間の目安を決める"
                   style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }}
                 >
-                  {current.readTargetMin ? `目安 ${fmtTarget(current.readTargetMin)}` : '目安を決める'}
+                  目安を決める
                   <ChevronDown size="1.1em" aria-hidden="true" style={{ flexShrink: 0 }} />
                 </button>
+                )}
                 </div>
               )}
             </div>
@@ -5058,7 +5075,7 @@ function AuthedApp() {
                 background: 'var(--fill)', border: 'none', borderRadius: 'var(--radius)',
               }}
             >
-              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', fontSize: 'var(--text-meta)', fontWeight: 600, color: 'var(--text-2)' }}>
+              <span style={{ ...groupTitle, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)' }}>
                 この本から得たいこと
                 <ChevronRight size="1.2em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
               </span>
@@ -5071,8 +5088,8 @@ function AuthedApp() {
                   const mask = more ? 'linear-gradient(to bottom, #000 calc(100% - 1.6em), transparent)' : '';
                   el.style.maskImage = mask; el.style.webkitMaskImage = mask;
                 }}
-                style={{ display: 'block', maxHeight: 'calc(1.6em * 3)', overflow: 'hidden', marginTop: 'var(--space-1)', fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.6, color: 'var(--text)', whiteSpace: 'pre-wrap', wordBreak: 'keep-all', overflowWrap: 'anywhere', lineBreak: 'strict' }}>
-                {withPhraseBreaks(current.investPurpose.trim())}
+                style={{ display: 'block', maxHeight: 'calc(1.6em * 3)', overflow: 'hidden', marginTop: 'var(--space-1)', fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.6, color: 'var(--text)', whiteSpace: 'pre-wrap', wordBreak: 'normal', overflowWrap: 'anywhere', lineBreak: 'strict', textWrap: 'pretty' }}>
+                {current.investPurpose.trim()}
               </span>
             </button>
           )}

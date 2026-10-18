@@ -10,8 +10,7 @@ import { Copy } from 'lucide-react';
 import BottomSheet from './BottomSheet';
 import { useToast } from './Toast';
 import { fmtDateJa } from '../lib/dates';
-import { btnLink } from '../styles/ui';
-import { withPhraseBreaks } from './TightBubble';
+import { btnLink, groupTitle } from '../styles/ui';
 
 const timeOf = (v) => { const t = Date.parse(v || ''); return Number.isFinite(t) ? t : 0; };
 
@@ -36,8 +35,8 @@ export function readThroughText({ title = '', purpose = '', memos = [], summary 
   return out.join('\n').trim();
 }
 
-const label = { display: 'block', fontSize: 'var(--text-meta)', fontWeight: 600, color: 'var(--text-2)' };
-const readText = { margin: 0, fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.6, letterSpacing: '0.02em', color: 'var(--text)', whiteSpace: 'pre-wrap', wordBreak: 'keep-all', lineBreak: 'strict', overflowWrap: 'anywhere' };
+const label = { ...groupTitle, display: 'block' };
+const readText = { margin: 0, fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.6, letterSpacing: '0.02em', color: 'var(--text)', whiteSpace: 'pre-wrap', wordBreak: 'normal', lineBreak: 'strict', overflowWrap: 'anywhere', textWrap: 'pretty' };
 
 export default function MemoReadThrough({ title = '', purpose = '', memos = [], summary = '', onClose }) {
   const toast = useToast();
@@ -62,7 +61,7 @@ export default function MemoReadThrough({ title = '', purpose = '', memos = [], 
         {String(purpose).trim() && (
           <section style={{ padding: 'var(--space-3) var(--space-4)', background: 'var(--fill)', borderRadius: 'var(--radius)' }}>
             <span style={label}>この本から得たいこと</span>
-            <p style={{ ...readText, marginTop: 'var(--space-1)' }}>{withPhraseBreaks(String(purpose).trim())}</p>
+            <p style={{ ...readText, marginTop: 'var(--space-1)' }}>{String(purpose).trim()}</p>
           </section>
         )}
         <ol style={{ listStyle: 'none', margin: 0, padding: 0 }}>
@@ -70,8 +69,8 @@ export default function MemoReadThrough({ title = '', purpose = '', memos = [], 
             const meta = [Number.isFinite(m.pageNumber) ? `p.${m.pageNumber}` : '', fmtDateJa(m.createdAt)].filter(Boolean).join(' · ');
             return (
               <li key={m.id || i} style={{ padding: `${i === 0 ? '0' : 'var(--space-3)'} 0 var(--space-3)`, borderTop: i === 0 ? 'none' : '1px solid var(--separator)' }}>
-                {meta && <span style={{ ...label, fontWeight: 400, marginBottom: 'var(--space-1)', fontVariantNumeric: 'tabular-nums' }}>{meta}</span>}
-                <p style={readText}>{withPhraseBreaks(String(m.text).trim())}</p>
+                {meta && <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-2)', marginBottom: 'var(--space-1)', fontVariantNumeric: 'tabular-nums' }}>{meta}</span>}
+                <p style={readText}>{String(m.text).trim()}</p>
               </li>
             );
           })}
@@ -79,7 +78,7 @@ export default function MemoReadThrough({ title = '', purpose = '', memos = [], 
         {String(summary).trim() && (
           <section style={{ borderTop: '1px solid var(--separator)', paddingTop: 'var(--space-3)', marginTop: 'calc(-1 * var(--space-3))' }}>
             <span style={label}>この本のまとめ</span>
-            <p style={{ ...readText, marginTop: 'var(--space-2)' }}>{withPhraseBreaks(String(summary).trim())}</p>
+            <p style={{ ...readText, marginTop: 'var(--space-2)' }}>{String(summary).trim()}</p>
           </section>
         )}
       </div>
