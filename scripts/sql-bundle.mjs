@@ -23,7 +23,7 @@ export const ORDER = [
   ['supabase_books_setup_fields.sql', '課題・仮説・選書理由'],
   ['supabase_books_reading_progress.sql', 'ページ数（裏で使う）'],
   ['supabase_books_brief.sql', 'この本で学べること'],
-  ['supabase_books_finish_kind.sql', '読み終え方（途中まで）'],
+  ['supabase_books_read_target.sql', '読む時間の目安'],
   ['supabase_book_collections.sql', '本棚のフォルダ'],
   ['supabase_chat_messages.sql', '相談の会話'],
   ['supabase_recall_memory.sql', '思い出しカードの間隔'],

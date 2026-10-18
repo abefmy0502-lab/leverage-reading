@@ -35,6 +35,7 @@ import { frequentMemoTags } from './lib/memoTags';
 const HomeQuickMemo = lazy(() => import('./components/HomeQuickMemo'));
 // ⏱ 集中モード（読書の時間・2026-10-09）。使うときに読む。
 const FocusStartSheet = lazy(() => import('./components/FocusStartSheet'));
+const ReadTargetSheet = lazy(() => import('./components/ReadTargetSheet'));
 const FocusMode = lazy(() => import('./components/FocusMode'));
 import { startFocus, pauseFocus, loadFocusState, saveFocusState } from './lib/readingTime';
 import { BookReadingTime } from './components/ReadingTimeCard';
@@ -180,7 +181,7 @@ import { todayLocal, tomorrowLocal, fmtDateJa, isScheduledLater } from './lib/da
 import { completedActionMessage } from './lib/actionMessages';
 // 🧩 #9 App.jsx 分割: 本フォーム共通プリミティブと Phase エディタは別ファイルへ抽出。
 import { Stars, inp, btnS } from './components/formPrimitives';
-import { btnGhost, btnGhostOff, btnText, btnPrimary, btnPrimaryOff, btnLink, btnRow, btnTonal, groupTitle, SCROLL_FADE_MASK, SCROLL_FADE_MASK_BOTH } from './styles/ui';
+import { btnGhost, btnGhostOff, btnText, btnPrimary, btnPrimaryOff, btnLink, btnLinkQuiet, btnRow, btnTonal, groupTitle, SCROLL_FADE_MASK, SCROLL_FADE_MASK_BOTH } from './styles/ui';
 import { WantPhase, BeforePhase, ReadingPhase, DonePhase, EditSaveBar } from './components/lazyParts';
 import { getAmazonLink } from './lib/amazonLink';
 import BookStoreLinks from './components/BookStoreLinks';
@@ -221,8 +222,8 @@ import {
 } from 'lucide-react';
 import { useBookMemos } from './hooks/useBookMemos';
 import { useBookInfo } from './hooks/useBookInfo';
+import { fmtTarget } from './lib/readTarget';
 import { hasBriefMaterial, storedBriefOf, briefForPrompt, appendHypothesis, isUsableBrief, parseBrief, briefLabels, BRIEF_NO_MATERIAL_TEXT } from './lib/bookBrief';
-import { FINISH_PARTIAL, isPartialDone } from './lib/finishKind';
 import { loadBookInfo, bookInfoForPrompt, hasBookInfo, peekBookInfo, rememberGenres } from './lib/bookInfo';
 // 🔎 すべての本の検索（書名・著者・タグ＋メモの言葉・2026-09-30）
 import { useLibrarySearch } from './hooks/useLibrarySearch';
@@ -650,7 +651,7 @@ function AuthedApp() {
     deleteBook,
     mutateBookLocal,
     saveBookBrief,
-    saveFinishKind,
+    saveReadTarget,
     saveBookTaxonomy,
     captureBookSnapshot,
     restoreBookFromSnapshot,
@@ -3030,10 +3031,6 @@ function AuthedApp() {
     if ((newStatus === "reading" || newStatus === "done") && !fresh.startDate) patch.startDate = todayLocal();
     if (newStatus === "done" && !fresh.doneDate) patch.doneDate = todayLocal();
     const updated = { ...fresh, ...patch };
-    // 📗 読み終え方（2026-10-18）: 「ここまでで読み終える」（opts.partial）だけ印を付け、ほかの遷移では外す。
-    const prevFinish = fresh.finishKind || '';
-    const nextFinish = newStatus === 'done' && opts.partial ? FINISH_PARTIAL : '';
-    if (nextFinish !== prevFinish) { updated.finishKind = nextFinish; saveFinishKind(book.id, nextFinish); }
 
     // Optimistic update。ステータスを 1 つ進めるタップは、どの遷移でも本詳細に
     // 着地させる（旧: want→before だけ長い編集フォームに強制連行され「積読に
@@ -3094,7 +3091,6 @@ function AuthedApp() {
         // 取り消しは「元の状態の本の詳細」に戻すだけ（編集フォームに飛ばさない）。
         if (currentRef.current?.id === book.id) setView('detail');
         mutateBookLocal(book.id, (b) => ({ ...b, ...prev }));
-        if (nextFinish !== prevFinish) saveFinishKind(book.id, prevFinish);
         try {
           const saved = await saveBook(reverted);
           entry.latest = saved || reverted;
@@ -3154,8 +3150,6 @@ function AuthedApp() {
     for (const k of Object.keys(patch)) prev[k] = prevRow[k];
     mutateBookLocal(bookId, (b) => ({ ...b, ...patch }));
     setCurrent((c) => (c && c.id === bookId ? { ...c, ...patch } : c));
-    // 状態を読了以外に変えたら「途中まで」の印を外す（2026-10-18）
-    if (patch.status && patch.status !== 'done' && prevRow.finishKind) saveFinishKind(bookId, '');
     enqueueBookMutation(bookId, async (entry) => {
       const base = entry.latest || booksRef.current.find((b) => b.id === bookId);
       if (!base) return;
@@ -4329,6 +4323,8 @@ function AuthedApp() {
   // ⏱ 集中モード（読書の時間・2026-10-09・SPEC §2-2）。入口は読書中の本の詳細とホームのいま読んでいる本の「読む」。
   //   focusStartBook: 始める前のシートの本。focusRun: { book, state, phase } 画面いっぱいの集中モード。
   const [focusStartBook, setFocusStartBook] = useState(null);
+  // ⏳ 読む時間の目安のシート（本・2026-10-18）
+  const [readTargetBook, setReadTargetBook] = useState(null);
   const [focusRun, setFocusRun] = useState(null);
   const openFocusStart = useCallback((b) => { haptic.light(); setFocusStartBook(b); }, [haptic]);
   // シート（読む前のシート・写真で共有）や集中モードを開いたら、本に結びついた知らせを閉じる
@@ -4387,6 +4383,15 @@ function AuthedApp() {
       {focusStartBook && (
         <Suspense fallback={<OverlayFallback />}>
           <FocusStartSheet book={books.find((x) => x.id === focusStartBook.id) || focusStartBook} onStart={startFocusRun} onClose={() => setFocusStartBook(null)} initialUntil={!!focusStartBook.focusUntil} />
+        </Suspense>
+      )}
+      {readTargetBook && (
+        <Suspense fallback={<OverlayFallback />}>
+          <ReadTargetSheet
+            book={books.find((x) => x.id === readTargetBook.id) || readTargetBook}
+            onSelect={(m) => { saveReadTarget(readTargetBook.id, m); setCurrent((c) => (c && c.id === readTargetBook.id ? { ...c, readTargetMin: m } : c)); }}
+            onClose={() => setReadTargetBook(null)}
+          />
         </Suspense>
       )}
       {focusRun && (
@@ -4969,10 +4974,6 @@ function AuthedApp() {
                 {current.startDate && <span style={{ whiteSpace: 'nowrap' }}><span aria-hidden="true">·　</span>開始 {fmtDateJa(current.startDate)}</span>}
                 {current.doneDate && <span style={{ whiteSpace: 'nowrap' }}><span aria-hidden="true">·　</span>読了 {fmtDateJa(current.doneDate)}</span>}
               </div>
-              {/* 必要なところまで読んで「ここまでで読み終える」を選んだ本（2026-10-18・lib/finishKind.js）。状態の行に足すと折り返すので次の行に */}
-              {isPartialDone(current) && (
-                <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>必要なところまで読みました</p>
-              )}
               {/* 読書の時間は次の行に（「·」で続けると折り返した行の頭に「·」が来た） */}
               {(current.status === 'reading' || current.status === 'done') && (
                 <BookReadingTime bookId={current.id} />
@@ -5015,15 +5016,29 @@ function AuthedApp() {
               />
               {/* ⏱ 読む（集中モード・読書中だけ・2026-10-09）。主役の「メモを書く」（右下の塗り）より弱い、枠の小さな副ボタン。 */}
               {current.status === 'reading' && (
+                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 'var(--space-3)', marginTop: 'var(--space-3)' }}>
                 <button
                   type="button"
                   onClick={() => openFocusStart(current)}
                   aria-label={`『${current.title}』を読む（集中モード）`}
                   data-focus-entry=""
-                  style={{ ...btnTonal, marginTop: 'var(--space-3)' }}
+                  style={{ ...btnTonal }}
                 >
                   <Timer size="1.1em" strokeWidth={1.75} aria-hidden="true" style={{ flexShrink: 0 }} />読む
                 </button>
+                {/* ⏳ 読む時間の目安（2026-10-18 オーナー・lib/readTarget.js）。決めていなければ「目安を決める」、決めていれば「目安 5 時間」。
+                    読書の時間（上の行）と並べて見るだけ（%・残り・達成は出さない）。押すと選ぶシート。 */}
+                <button
+                  type="button"
+                  onClick={() => { haptic.light(); setReadTargetBook(current); }}
+                  aria-haspopup="dialog"
+                  aria-label={current.readTargetMin ? `読む時間の目安 ${fmtTarget(current.readTargetMin)}（押すと変えられます）` : '読む時間の目安を決める'}
+                  style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }}
+                >
+                  {current.readTargetMin ? `目安 ${fmtTarget(current.readTargetMin)}` : '目安を決める'}
+                  <ChevronDown size="1.1em" aria-hidden="true" style={{ flexShrink: 0 }} />
+                </button>
+                </div>
               )}
             </div>
           </div>
@@ -5047,8 +5062,8 @@ function AuthedApp() {
                 この本から得たいこと
                 <ChevronRight size="1.2em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
               </span>
-              {/* 自分で書いた文は明朝 18（読書計画の畳みと同じ組み）・文節で折り返す（-webkit-box の行の切りだと keep-all が効かず語の途中で割れたので、全文を出す） */}
-              <span style={{ display: 'block', marginTop: 'var(--space-1)', fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.6, color: 'var(--text)', whiteSpace: 'pre-wrap', wordBreak: 'keep-all', overflowWrap: 'anywhere', lineBreak: 'strict' }}>
+              {/* 自分で書いた文は明朝 18（読書計画の畳みと同じ組み）・文節で折り返す（-webkit-box の行の切りだと keep-all が効かず語の途中で割れたので、高さで 3 行に切る＝全文は押した先で） */}
+              <span style={{ display: 'block', maxHeight: 'calc(1.6em * 3)', overflow: 'hidden', marginTop: 'var(--space-1)', fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.6, color: 'var(--text)', whiteSpace: 'pre-wrap', wordBreak: 'keep-all', overflowWrap: 'anywhere', lineBreak: 'strict' }}>
                 {withPhraseBreaks(current.investPurpose.trim())}
               </span>
             </button>
@@ -5277,25 +5292,6 @@ function AuthedApp() {
                 >
                   {nextLabel[current.status]}
                 </button>
-                {/* 📗 読書中だけ: 最後まで読まずに終えてよい（読む目的が満たせたら十分・2026-10-18 オーナー）。
-                    確かめてから読了にし、「途中まで」の印を付ける（lib/finishKind.js・状態の行に「· 途中まで」）。 */}
-                {current.status === 'reading' && (
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      const ok = await confirm({
-                        title: 'ここまでで読み終えますか？',
-                        message: '必要なところが読めたら、それで十分です。読了にして、メモはそのまま残ります。',
-                        confirmLabel: '読了にする',
-                        cancelLabel: 'まだ読む',
-                      });
-                      if (ok) advanceStatus(current, 'done', { partial: true });
-                    }}
-                    style={{ ...btnLink, alignSelf: 'center' }}
-                  >
-                    ここまでで読み終える
-                  </button>
-                )}
                 {/* 読みたい: 読書計画シートは積読から作れる。1 行の説明の代わりに、押せば積読に積んで
                     その場で作り始める文字ボタン（2026-09-29）。無料プランは状態を変える前に有料プランの画面を開く。
                     得たいことがまだ無ければ、積読に積んだうえで読書計画の編集画面へ（runStrategyInPlace と同じ）。 */}

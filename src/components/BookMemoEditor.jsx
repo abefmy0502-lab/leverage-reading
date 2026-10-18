@@ -21,6 +21,7 @@ import MemoLinks from './MemoLinks';
 import { useMemoLinkFinder } from '../hooks/useMemoLinkFinder';
 import { requestOpenMemo } from '../lib/openMemo';
 import { isLargeText } from '../lib/largeText';
+import PhotoLightbox from './PhotoLightbox';
 
 // Use 100dvh so iOS Safari URL bar resizes don't break full-screen editor.
 // Older browsers without dvh support gracefully ignore the property.
@@ -188,6 +189,8 @@ export default function BookMemoEditor({
   const [pageNumber, setPageNumber] = useState(
     initial?.pageNumber != null ? String(initial.pageNumber) : (defaultPageNumber !== '' ? String(defaultPageNumber) : '')
   );
+  // 🖼 写真を大きく見る（2026-10-18）
+  const [photoZoom, setPhotoZoom] = useState(false);
   const [text, setText] = useState(initial?.text || defaultText || '');
   // ✨ 凝縮（本田流レバレッジメモ化）— 元テキストを保持して「↩ 元に戻す」可能に。
   const [condensing, setCondensing] = useState(false);
@@ -633,17 +636,26 @@ export default function BookMemoEditor({
           )}
           {shownPreview && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', alignItems: 'flex-start' }}>
-              <img
-                src={ensureHttps(shownPreview)}
-                alt={previewAlt}
-                style={{
-                  maxWidth: '100%',
-                  maxHeight: 280,
-                  borderRadius: 'var(--radius)',
-                  border: '1px solid var(--separator)',
-                  display: 'block',
-                }}
-              />
+              {/* 押すと大きく見る（2026-10-18 オーナー・PhotoLightbox） */}
+              <button
+                type="button"
+                onClick={() => setPhotoZoom(true)}
+                aria-label="写真を拡大表示"
+                style={{ display: 'block', maxWidth: '100%', padding: 0, background: 'none', border: 'none', cursor: 'zoom-in' }}
+              >
+                <img
+                  src={ensureHttps(shownPreview)}
+                  alt={previewAlt}
+                  style={{
+                    maxWidth: '100%',
+                    maxHeight: 280,
+                    borderRadius: 'var(--radius)',
+                    border: '1px solid var(--separator)',
+                    display: 'block',
+                  }}
+                />
+              </button>
+              {photoZoom && <PhotoLightbox src={shownPreview} alt={previewAlt} onClose={() => setPhotoZoom(false)} />}
               <button
                 type="button"
                 onClick={clearPhoto}

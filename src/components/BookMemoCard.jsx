@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { fmtDateJa } from '../lib/dates';
-import { createPortal } from 'react-dom';
 import { useAppDataCache } from '../state/AppDataCache';
 import { ensureHttps } from '../lib/url';
 import { useLongPress } from '../hooks/useLongPress';
 import SwipeableCard from './SwipeableCard';
-import { MoreHorizontal, X } from 'lucide-react';
+import { MoreHorizontal } from 'lucide-react';
+import PhotoLightbox from './PhotoLightbox';
 import MemoLinks from './MemoLinks';
 
 const cardWrap = {
@@ -59,7 +59,7 @@ const kebabBtn = {
   lineHeight: 1,
 };
 
-// ⚠️ 写真拡大モーダルは createPortal で body 直下に出す。
+// ⚠️ 写真拡大モーダルは PhotoLightbox（createPortal で body 直下）に出す。
 // カードは SwipeableCard の transform + overflow:hidden 配下にあり、
 // カード内に描くと position:fixed が transform を containing block として全画面にならない。
 // 「…」のメニューは長押しと同じ ContextMenu（BookMemoList が出す）。
@@ -111,14 +111,7 @@ export default function BookMemoCard({ memo, highlight, onEdit, onSwipeDelete, o
   }, [memo.photoPath, cache]);
 
 
-  // 写真拡大モーダルは背景タップで閉じるが、キーボード利用者向けに Esc でも
-  // 閉じられるようにする（モーダルの基本作法・a11y）。
-  useEffect(() => {
-    if (!zoom) return undefined;
-    const onKey = (e) => { if (e.key === 'Escape') setZoom(false); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [zoom]);
+  // 写真の拡大表示（Esc・× ・どこを押しても閉じる）は PhotoLightbox（2026-10-18 に部品にした）。
 
   const swipeEnabled = Boolean(onSwipeDelete);
 
@@ -280,56 +273,7 @@ export default function BookMemoCard({ memo, highlight, onEdit, onSwipeDelete, o
         <MemoLinks links={links} onOpen={onOpenLink} style={{ marginTop: 'var(--space-1)' }} />
       )}
 
-      {zoom && photoUrl && createPortal(
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="写真の拡大表示。タップで閉じる"
-          // portal でもクリックは React ツリーを辿ってカードに届く（＝編集が開く）ので止める。
-          onClick={(e) => { e.stopPropagation(); setZoom(false); }}
-          // 拡大写真上のパン/長押しが背後のカードのスワイプ削除・長押しメニューに
-          // バブリングしてメモが消える事故を防ぐ（portal は React ツリーを辿る）。
-          onTouchStart={(e) => e.stopPropagation()}
-          onTouchMove={(e) => e.stopPropagation()}
-          onTouchEnd={(e) => e.stopPropagation()}
-          onMouseDown={(e) => e.stopPropagation()}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 400,
-            background: 'var(--photo-backdrop)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 'var(--space-4)',
-            cursor: 'zoom-out',
-          }}
-        >
-          <img
-            src={ensureHttps(photoUrl)}
-            alt={`${photoAlt}（拡大表示）`}
-            style={{ maxWidth: '100%', maxHeight: '100%', borderRadius: 'var(--radius)' }}
-          />
-          {/* ♿ aria-modal ダイアログ内にフォーカス可能要素がゼロだと、SR ユーザーは
-              背景が隠された状態で移動先を失う。閉じるボタンを内包し開時にフォーカス。 */}
-          <button
-            type="button"
-            autoFocus
-            onClick={(e) => { e.stopPropagation(); setZoom(false); }}
-            aria-label="拡大表示を閉じる"
-            style={{
-              position: 'absolute', top: 'max(env(safe-area-inset-top, 0px), var(--space-3))', right: 'var(--space-3)',
-              width: 44, height: 44, borderRadius: 999, border: 'none', cursor: 'pointer',
-              // 写真の上は明暗どちらでも暗いので、白（--on-cover）を薄く混ぜた丸ボタン。
-              background: 'color-mix(in srgb, var(--on-cover) 16%, transparent)', color: 'var(--on-cover)', lineHeight: 1,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}
-          >
-            <X size={20} aria-hidden="true" />
-          </button>
-        </div>,
-        document.body,
-      )}
+      {zoom && photoUrl && <PhotoLightbox src={photoUrl} alt={photoAlt} onClose={() => setZoom(false)} />}
     </div>
   );
 

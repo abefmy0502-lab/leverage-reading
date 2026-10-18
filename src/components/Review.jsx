@@ -11,6 +11,7 @@ import { lazy, startTransition, Suspense, useCallback, useDeferredValue, useEffe
 import { invalidateKnowledgeCache } from '../lib/ai';
 import { supabase, isSupabaseConfigured, isDemo } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
+import PhotoLightbox from './PhotoLightbox';
 import { useAppDataCache } from '../state/AppDataCache';
 import { ensureHttps } from '../lib/url';
 import { useLongPress } from '../hooks/useLongPress';
@@ -175,6 +176,7 @@ function pickCategory(tags) {
 
 function MemoPhoto({ path }) {
   const cache = useAppDataCache();
+  const [zoom, setZoom] = useState(false);
   const initial = path ? cache.getCachedPhotoUrl(path) : null;
   const [url, setUrl] = useState(initial);
   useEffect(() => {
@@ -209,12 +211,23 @@ function MemoPhoto({ path }) {
       />
     );
   }
+  // 押すと大きく見る（カードを押したときの「本を開く・編集」には届かせない・2026-10-18 オーナー）。
   return (
-    <img
-      src={ensureHttps(url)}
-      alt="メモの写真"
-      style={{ width: '70%', maxHeight: 240, objectFit: 'cover', borderRadius: 'var(--radius)', border: '1px solid var(--separator)', marginTop: 'var(--space-2)' }}
-    />
+    <>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setZoom(true); }}
+        aria-label="写真を拡大表示"
+        style={{ display: 'block', width: '70%', padding: 0, marginTop: 'var(--space-2)', background: 'none', border: 'none', cursor: 'zoom-in' }}
+      >
+        <img
+          src={ensureHttps(url)}
+          alt="メモの写真"
+          style={{ display: 'block', width: '100%', maxHeight: 240, objectFit: 'cover', borderRadius: 'var(--radius)', border: '1px solid var(--separator)' }}
+        />
+      </button>
+      {zoom && <PhotoLightbox src={url} onClose={() => setZoom(false)} />}
+    </>
   );
 }
 

@@ -37,7 +37,7 @@ export function readThroughText({ title = '', purpose = '', memos = [], summary 
 }
 
 const label = { display: 'block', fontSize: 'var(--text-meta)', fontWeight: 600, color: 'var(--text-2)' };
-const readText = { margin: 0, fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.6, letterSpacing: '0.02em', color: 'var(--text)', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' };
+const readText = { margin: 0, fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.6, letterSpacing: '0.02em', color: 'var(--text)', whiteSpace: 'pre-wrap', wordBreak: 'keep-all', lineBreak: 'strict', overflowWrap: 'anywhere' };
 
 export default function MemoReadThrough({ title = '', purpose = '', memos = [], summary = '', onClose }) {
   const toast = useToast();
@@ -62,7 +62,7 @@ export default function MemoReadThrough({ title = '', purpose = '', memos = [], 
         {String(purpose).trim() && (
           <section style={{ padding: 'var(--space-3) var(--space-4)', background: 'var(--fill)', borderRadius: 'var(--radius)' }}>
             <span style={label}>この本から得たいこと</span>
-            <p style={{ ...readText, marginTop: 'var(--space-1)', wordBreak: 'keep-all', lineBreak: 'strict' }}>{withPhraseBreaks(String(purpose).trim())}</p>
+            <p style={{ ...readText, marginTop: 'var(--space-1)' }}>{withPhraseBreaks(String(purpose).trim())}</p>
           </section>
         )}
         <ol style={{ listStyle: 'none', margin: 0, padding: 0 }}>
@@ -71,7 +71,7 @@ export default function MemoReadThrough({ title = '', purpose = '', memos = [], 
             return (
               <li key={m.id || i} style={{ padding: `${i === 0 ? '0' : 'var(--space-3)'} 0 var(--space-3)`, borderTop: i === 0 ? 'none' : '1px solid var(--separator)' }}>
                 {meta && <span style={{ ...label, fontWeight: 400, marginBottom: 'var(--space-1)', fontVariantNumeric: 'tabular-nums' }}>{meta}</span>}
-                <p style={readText}>{String(m.text).trim()}</p>
+                <p style={readText}>{withPhraseBreaks(String(m.text).trim())}</p>
               </li>
             );
           })}
@@ -79,7 +79,7 @@ export default function MemoReadThrough({ title = '', purpose = '', memos = [], 
         {String(summary).trim() && (
           <section style={{ borderTop: '1px solid var(--separator)', paddingTop: 'var(--space-3)', marginTop: 'calc(-1 * var(--space-3))' }}>
             <span style={label}>この本のまとめ</span>
-            <p style={{ ...readText, marginTop: 'var(--space-2)' }}>{String(summary).trim()}</p>
+            <p style={{ ...readText, marginTop: 'var(--space-2)' }}>{withPhraseBreaks(String(summary).trim())}</p>
           </section>
         )}
       </div>
