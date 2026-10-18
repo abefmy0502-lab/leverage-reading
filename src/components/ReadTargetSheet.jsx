@@ -18,10 +18,10 @@ export default function ReadTargetSheet({ book, onSelect, onClose }) {
   return (
     <BottomSheet title="読む時間の目安" eyebrow={book?.title ? `『${book.title}』` : ''} onClose={onClose}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-        <p style={{ margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.6 }}>
-          この本にかける時間を決めておきます。
-          {sec >= MIN_SESSION_SEC && <>{' '}<span style={{ whiteSpace: 'nowrap' }}>これまで {fmtReadingTotal(sec)}</span></>}
-        </p>
+        {/* 説明の文は置かない（DESIGN §0-6）。これまでの読書の時間だけをデータの行で */}
+        {sec >= MIN_SESSION_SEC && (
+          <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>これまで {fmtReadingTotal(sec)}</p>
+        )}
         <div role="radiogroup" aria-label="読む時間の目安" style={{ display: 'flex', flexWrap: 'wrap', columnGap: 'var(--space-2)', rowGap: 'var(--space-2)' }}>
           {READ_TARGET_CHOICES.map((m) => (
             <Chip key={m} size="select" role="radio" aria-checked={current === m} active={current === m} onClick={() => pick(m)}>

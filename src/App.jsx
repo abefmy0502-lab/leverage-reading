@@ -5063,7 +5063,15 @@ function AuthedApp() {
                 <ChevronRight size="1.2em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
               </span>
               {/* 自分で書いた文は明朝 18（読書計画の畳みと同じ組み）・文節で折り返す（-webkit-box の行の切りだと keep-all が効かず語の途中で割れたので、高さで 3 行に切る＝全文は押した先で） */}
-              <span style={{ display: 'block', maxHeight: 'calc(1.6em * 3)', overflow: 'hidden', marginTop: 'var(--space-1)', fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.6, color: 'var(--text)', whiteSpace: 'pre-wrap', wordBreak: 'keep-all', overflowWrap: 'anywhere', lineBreak: 'strict' }}>
+              <span
+                // 3 行を超えるときだけ、最後の行を薄めて「続きがある」と分かるように（全文は押した先・2026-10-18 ui-critic）
+                ref={(el) => {
+                  if (!el) return;
+                  const more = el.scrollHeight > el.clientHeight + 1;
+                  const mask = more ? 'linear-gradient(to bottom, #000 calc(100% - 1.6em), transparent)' : '';
+                  el.style.maskImage = mask; el.style.webkitMaskImage = mask;
+                }}
+                style={{ display: 'block', maxHeight: 'calc(1.6em * 3)', overflow: 'hidden', marginTop: 'var(--space-1)', fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.6, color: 'var(--text)', whiteSpace: 'pre-wrap', wordBreak: 'keep-all', overflowWrap: 'anywhere', lineBreak: 'strict' }}>
                 {withPhraseBreaks(current.investPurpose.trim())}
               </span>
             </button>
