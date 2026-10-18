@@ -4971,7 +4971,7 @@ function AuthedApp() {
               </div>
               {/* 必要なところまで読んで「ここまでで読み終える」を選んだ本（2026-10-18・lib/finishKind.js）。状態の行に足すと折り返すので次の行に */}
               {isPartialDone(current) && (
-                <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>必要なところまで読んで読了</p>
+                <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>必要なところまで読みました</p>
               )}
               {/* 読書の時間は次の行に（「·」で続けると折り返した行の頭に「·」が来た） */}
               {(current.status === 'reading' || current.status === 'done') && (
@@ -5039,12 +5039,17 @@ function AuthedApp() {
               style={{
                 display: 'block', width: '100%', marginTop: 'var(--space-4)', padding: 'var(--space-3) var(--space-4)',
                 textAlign: 'left', fontFamily: 'inherit', cursor: 'pointer',
-                background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)',
+                // メモのカード（--surface＋枠）と見分けるため、枠なしの --fill の面（メモを通して読むの得たいことと同じ形・2026-10-18 ui-critic）
+                background: 'var(--fill)', border: 'none', borderRadius: 'var(--radius)',
               }}
             >
-              <span style={{ display: 'block', fontSize: 'var(--text-meta)', fontWeight: 600, color: 'var(--text-2)' }}>この本から得たいこと</span>
-              <span style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', marginTop: 'var(--space-1)', fontSize: 'var(--text-body)', lineHeight: 1.6, color: 'var(--text)', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', textWrap: 'pretty' }}>
-                {current.investPurpose.trim()}
+              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', fontSize: 'var(--text-meta)', fontWeight: 600, color: 'var(--text-2)' }}>
+                この本から得たいこと
+                <ChevronRight size="1.2em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+              </span>
+              {/* 自分で書いた文は明朝 18（読書計画の畳みと同じ組み）・文節で折り返す（-webkit-box の行の切りだと keep-all が効かず語の途中で割れたので、全文を出す） */}
+              <span style={{ display: 'block', marginTop: 'var(--space-1)', fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.6, color: 'var(--text)', whiteSpace: 'pre-wrap', wordBreak: 'keep-all', overflowWrap: 'anywhere', lineBreak: 'strict' }}>
+                {withPhraseBreaks(current.investPurpose.trim())}
               </span>
             </button>
           )}
