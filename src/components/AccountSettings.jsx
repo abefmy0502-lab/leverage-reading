@@ -31,6 +31,8 @@ import ErrorMessage from './ErrorMessage';
 import FeedbackForm from './FeedbackForm';
 import WhatsNewSheet from './WhatsNewSheet';
 import TokenUsageSheet from './TokenUsageSheet';
+import { AppPurposeEditSheet, PurposeCheckSheet } from './AppPurposeSheets';
+import { useAppPurpose } from '../hooks/useAppPurpose';
 import { markReleaseSeen, releaseHeading, loadReleaseNotes, BUNDLED_RELEASE_ID } from '../lib/whatsNew';
 import { exportUserDataAsCSV, exportMemosAsMarkdown } from '../lib/exportData';
 import { forceUpdate as forceAppUpdate } from '../lib/swUpdate';
@@ -372,6 +374,14 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
   // 削除の失敗は、押したボタンのすぐ下に ErrorMessage で残す（消えるトーストだけだと、取り消せない操作の結果を見逃す・2026-10-04）。
   const [deleteError, setDeleteError] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  // 🎯 Orime を入れた理由（2026-10-18）: 設定で見返す・書き直す。解約（プランを管理）と退会の前に一度だけ見せる（止めない）。
+  const { purpose: appPurpose } = useAppPurpose();
+  const [purposeEditOpen, setPurposeEditOpen] = useState(false);
+  const [purposeCheck, setPurposeCheck] = useState(null); // { where, nextText, run }
+  const withPurposeCheck = (where, nextText, run) => {
+    if (appPurpose?.text) setPurposeCheck({ where, nextText, run });
+    else run();
+  };
   const [resetting, setResetting] = useState(false);
   const [confirmText, setConfirmText] = useState('');
   const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -603,12 +613,12 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
       // フィードバックシートが開いている間は、Escape はシート側に任せる
       // （ここで拾うと設定モーダルごと閉じ、送信中の入力が失われる）。
       // IME 変換中の Esc はガード（変換キャンセルで設定ごと閉じない）。
-      if (e.key === 'Escape' && !feedbackOpen && !whatsNewOpen && !usageOpen && !e.isComposing && !e.nativeEvent?.isComposing) animateClose();
+      if (e.key === 'Escape' && !feedbackOpen && !whatsNewOpen && !usageOpen && !purposeEditOpen && !purposeCheck && !e.isComposing && !e.nativeEvent?.isComposing) animateClose();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onClose, feedbackOpen, whatsNewOpen, usageOpen, closing]);
+  }, [onClose, feedbackOpen, whatsNewOpen, usageOpen, purposeEditOpen, purposeCheck, closing]);
 
   // 退会の確認で入れる言葉（メールアドレス／Apple でサインイン・メールを非公開の人は「削除」・lib/deleteConfirm.js・2026-10-11）。
   const deleteTarget = deleteConfirmTarget(user);
@@ -910,6 +920,19 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
             </div>
           </Group>
 
+          {/* 🎯 Orime を入れた理由（2026-10-18）: 初回ガイドで書いた理由を見返す・押して書き直す。 */}
+          <Group ariaLabel="Orime を入れた理由">
+            <button type="button" style={rowButtonStyle} onClick={() => setPurposeEditOpen(true)}>
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ ...rowTitleStyle, display: 'block' }}>Orime を入れた理由</span>
+                <span style={{ ...rowDescStyle, display: 'block', color: appPurpose?.text ? 'var(--text-2)' : 'var(--text-3)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+                  {appPurpose?.text ? withPhraseBreaks(appPurpose.text) : 'まだ書いていません'}
+                </span>
+              </span>
+              <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+            </button>
+          </Group>
+
           {/* 運営（管理者のみ表示） */}
           {isAdmin && (
             <Group label="運営" ariaLabel="運営ダッシュボード">
@@ -1013,7 +1036,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                       type="button"
                       style={billingBusy ? btnGhostOff : btnGhost}
                       disabled={billingBusy}
-                      onClick={handleManageBilling}
+                      onClick={() => withPurposeCheck('cancel', 'どちらを選んでも、プランの管理のページを開きます。', handleManageBilling)}
                     >
                       {billingBusy ? '移動中…' : 'プランを管理する'}
                     </button>
@@ -1024,14 +1047,14 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                     探させる行き止まりだった）。一覧の行として置く（枠のボタンにしない）。 */}
                 {/* iPhone のアプリ: Web と同じ一覧の行（文字＋›）で App Store の管理を開く（枠のボタンにしない・2026-10-09 ui-critic）。 */}
                 {nativeView && (
-                  <button type="button" onClick={handleManageBilling} disabled={billingBusy} style={{ ...(billingBusy ? rowButtonBusy : rowButtonStyle), ...divider }}>
+                  <button type="button" onClick={() => withPurposeCheck('cancel', 'どちらを選んでも、App\u00a0Store のプランの管理を開きます。', handleManageBilling)} disabled={billingBusy} style={{ ...(billingBusy ? rowButtonBusy : rowButtonStyle), ...divider }}>
                     <span style={{ ...rowTitleStyle, flex: 1 }}>{billingBusy ? '移動中…' : 'プランを管理（App\u00a0Store）'}</span>
                     <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
                   </button>
                 )}
                 {/* Web で見ている App Store の契約: App Store のサブスクリプション画面を開ける行（iPhone なら App Store が開く・2026-09-29）。 */}
                 {!nativeView && !subscription?.stripeCustomerId && (
-                  <button type="button" onClick={() => openManageSubscriptions()} style={{ ...rowButtonStyle, ...divider }}>
+                  <button type="button" onClick={() => withPurposeCheck('cancel', 'どちらを選んでも、App\u00a0Store のプランの管理を開きます。', () => openManageSubscriptions())} style={{ ...rowButtonStyle, ...divider }}>
                     <span style={{ ...rowTitleStyle, flex: 1 }}>{'プランを管理（App\u00a0Store）'}</span>
                     <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
                   </button>
@@ -1255,7 +1278,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                 </p>
               )}
               {!deleteOpen ? (
-                <button type="button" aria-label="アカウントの削除を開始" style={btnDestructiveGhost} onClick={() => setDeleteOpen(true)}>
+                <button type="button" aria-label="アカウントの削除を開始" style={btnDestructiveGhost} onClick={() => withPurposeCheck('delete', 'どちらを選んでも、アカウント削除の手続きに進みます。', () => setDeleteOpen(true))}>
                   アカウントの削除を開始
                 </button>
               ) : (
@@ -1362,6 +1385,16 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
       </div>
 
       {feedbackOpen && <FeedbackForm onClose={() => setFeedbackOpen(false)} />}
+      {purposeEditOpen && <AppPurposeEditSheet purpose={appPurpose} onClose={() => setPurposeEditOpen(false)} />}
+      {purposeCheck && (
+        <PurposeCheckSheet
+          purpose={appPurpose}
+          where={purposeCheck.where}
+          nextText={purposeCheck.nextText}
+          onClose={() => setPurposeCheck(null)}
+          onContinue={() => { const run = purposeCheck.run; setPurposeCheck(null); run(); }}
+        />
+      )}
       {/* 設定の外側（背景）を押すと設定を閉じる仕組みに、シートの中のタップが届かないようにする
           （畳んだ前の版を開こうとしたら設定ごと閉じていた・2026-10-05）。 */}
       {whatsNewOpen && allReleases && (

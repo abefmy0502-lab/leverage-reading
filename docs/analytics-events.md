@@ -44,6 +44,15 @@ props は数・真偽・32 字までの短い文字列だけ（本文・書名�
 | `trial_next_consult` | 7 日間無料が始まった知らせの「相談してみる」を押した | なし | `Paywall.jsx` |
 | `notify_optin` `{where:'import'\|'ocr'}` | 通知の案内（取り込みの完了・写真から書き起こしたメモの保存のあと）を出した／答えた | もとからと同じ | `NotifyOptInCard.jsx` |
 
+## 入れた理由のイベント（2026-10-18）
+
+| イベント | いつ | props | 送るところ |
+|---|---|---|---|
+| `app_purpose_set` | 「Orime を入れた理由」を書いた（初回ガイドの 2 枚目で「次へ」・設定で「保存」） | `where`: `onboarding` / `settings`、`choice`（初回ガイドだけ）: よくある理由のどれをそのまま使ったか `c1`〜`c5`／自分の言葉なら `own`（本文は送らない） | `Onboarding.jsx`・`AppPurposeSheets.jsx` |
+| `purpose_check` | 解約（プランを管理）・退会の前の「目的は達成できましたか？」に答えた／閉じた | `where`: `cancel` / `delete`、`result`: `done`（達成できた）/ `ongoing`（まだ途中）/ `closed`（キャンセル） | `AppPurposeSheets.jsx` |
+
+`purpose_check` の `closed` は、確かめたあと解約・退会に進まなかった数。継続との関係は `app_purpose_set` の `choice` ごとの 30 日後の継続（`docs/launch-kpis.md` ③）と並べて見る。
+
 ## もとからあるイベント（同じ流れで使う）
 
 | イベント | 意味 |
