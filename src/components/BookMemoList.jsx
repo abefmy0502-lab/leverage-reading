@@ -386,6 +386,19 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
   const savedInList = !!savedRow && visibleMemos.some((m) => m.id === savedRow.id);
 
   // メモ本文をクリップボードへ。ページ番号があれば「(p.42)」を併記して引用作業を楽にする。
+  // 📋 この本のまとめを 1 回でコピー（2026-10-18）
+  const copySummary = async () => {
+    const body = (summaryText || '').trim();
+    if (!body) return;
+    try {
+      await navigator.clipboard.writeText(body);
+      haptic.light();
+      toast.success('コピーしました。');
+    } catch {
+      toast.error('コピーできませんでした。');
+    }
+  };
+
   const handleCopy = async (memo) => {
     const body = (memo?.text || '').trim();
     if (!body) {
@@ -777,7 +790,20 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
             <span style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>この本のまとめ</span>
             <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 'var(--space-2)', minWidth: 0, flex: '1 1 auto' }}>
               {/* 文字が大きいときは右の一言を出さない（「…」だけが残って読めない・lib/largeText）。 */}
-              {!isLargeText() && <span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{(summaryText || '').trim() ? '書いてあります' : 'まだありません'}</span>}
+              {/* 書いてあれば、畳んだままの行から 1 回でコピー（2026-10-18 オーナー「この本のまとめをワンクリックでコピー」）。
+                  押しても畳み・開きは変えない（summary の中なので既定の動きを止める）。 */}
+              {(summaryText || '').trim() ? (
+                <button
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); copySummary(); }}
+                  aria-label="この本のまとめをコピー"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 'var(--tap-min)', padding: '0 var(--space-1)', margin: '0 calc(-1 * var(--space-1))', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-sub)', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                >
+                  <Copy size="1.1em" aria-hidden="true" style={{ flexShrink: 0 }} />コピー
+                </button>
+              ) : (
+                !isLargeText() && <span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>まだありません</span>
+              )}
               <ChevronDown size="1.2em" aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
             </span>
           </summary>
