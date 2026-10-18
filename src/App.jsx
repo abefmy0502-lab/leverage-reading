@@ -4989,6 +4989,7 @@ function AuthedApp() {
                       style={{ display: 'inline-flex', alignItems: 'center', minHeight: 'var(--tap-min)', margin: 'calc((var(--tap-min) - 1.5em) / -2) 0', padding: 0, background: 'none', border: 'none', color: 'inherit', font: 'inherit', cursor: current.status === 'reading' ? 'pointer' : 'default', whiteSpace: 'nowrap' }}
                     >
                       目安 {fmtTarget(current.readTargetMin)}
+                      {current.status === 'reading' && <ChevronDown size="1.1em" aria-hidden="true" style={{ flexShrink: 0, marginLeft: 'var(--space-1)' }} />}
                     </button>
                   ) : null}
                 />
@@ -5088,8 +5089,8 @@ function AuthedApp() {
                   const mask = more ? 'linear-gradient(to bottom, #000 calc(100% - 1.6em), transparent)' : '';
                   el.style.maskImage = mask; el.style.webkitMaskImage = mask;
                 }}
-                style={{ display: 'block', maxHeight: 'calc(1.6em * 3)', overflow: 'hidden', marginTop: 'var(--space-1)', fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.6, color: 'var(--text)', whiteSpace: 'pre-wrap', wordBreak: 'normal', overflowWrap: 'anywhere', lineBreak: 'strict', textWrap: 'pretty' }}>
-                {current.investPurpose.trim()}
+                style={{ display: 'block', maxHeight: 'calc(1.6em * 3)', overflow: 'hidden', marginTop: 'var(--space-1)', fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.6, color: 'var(--text)', whiteSpace: 'pre-wrap', wordBreak: 'keep-all', overflowWrap: 'anywhere', lineBreak: 'strict', textWrap: 'pretty' }}>
+                {withPhraseBreaks(current.investPurpose.trim())}
               </span>
             </button>
           )}

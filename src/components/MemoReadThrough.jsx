@@ -11,6 +11,7 @@ import BottomSheet from './BottomSheet';
 import { useToast } from './Toast';
 import { fmtDateJa } from '../lib/dates';
 import { btnLink, groupTitle } from '../styles/ui';
+import { withPhraseBreaks } from './TightBubble';
 
 const timeOf = (v) => { const t = Date.parse(v || ''); return Number.isFinite(t) ? t : 0; };
 
@@ -52,7 +53,7 @@ export default function MemoReadThrough({ title = '', purpose = '', memos = [], 
   return createPortal(
     <BottomSheet title="メモを通して読む" eyebrow={title ? `『${title}』` : ''} onClose={onClose}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-3)', marginTop: 'calc(-1 * var(--space-2))' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-3)', margin: 'calc(-1 * var(--space-2)) 0 calc(-1 * var(--space-3))' }}>
           <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>メモ {ordered.length} 件 · ページ順</span>
           <button type="button" onClick={copyAll} style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', marginRight: 'calc(-1 * var(--space-1))' }}>
             <Copy size="1.1em" aria-hidden="true" />すべてコピー
@@ -61,7 +62,8 @@ export default function MemoReadThrough({ title = '', purpose = '', memos = [], 
         {String(purpose).trim() && (
           <section style={{ padding: 'var(--space-3) var(--space-4)', background: 'var(--fill)', borderRadius: 'var(--radius)' }}>
             <span style={label}>この本から得たいこと</span>
-            <p style={{ ...readText, marginTop: 'var(--space-1)' }}>{String(purpose).trim()}</p>
+            {/* 得たいことは短い 1 文なので文節で折り返す（「伸ばし／たい」と割らない）。長いメモとまとめは流す */}
+            <p style={{ ...readText, marginTop: 'var(--space-1)', wordBreak: 'keep-all', textWrap: 'pretty' }}>{withPhraseBreaks(String(purpose).trim())}</p>
           </section>
         )}
         <ol style={{ listStyle: 'none', margin: 0, padding: 0 }}>
@@ -76,7 +78,7 @@ export default function MemoReadThrough({ title = '', purpose = '', memos = [], 
           })}
         </ol>
         {String(summary).trim() && (
-          <section style={{ borderTop: '1px solid var(--separator)', paddingTop: 'var(--space-3)', marginTop: 'calc(-1 * var(--space-3))' }}>
+          <section style={{ borderTop: '1px solid var(--separator)', paddingTop: 'var(--space-3)', marginTop: 'calc(-1 * var(--space-6))' }}>
             <span style={label}>この本のまとめ</span>
             <p style={{ ...readText, marginTop: 'var(--space-2)' }}>{String(summary).trim()}</p>
           </section>
