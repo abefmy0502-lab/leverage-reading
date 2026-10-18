@@ -70,7 +70,7 @@ describe('具体的に書く', () => {
     expect(isPurposeSpecific('転職に向けて、マーケティングの基礎を固めたい')).toBe(true);
   });
   it('どの書き出しで始まるか', () => {
-    expect(purposeStarterOf('今年中に、お金の本を読む')?.text).toBe('今年中に、');
+    expect(purposeStarterOf('5 年後に、独立したい')?.text).toBe('5 年後に、');
     expect(purposeStarterOf('いま悩んでいる部下のこと')?.text).toBe('いま悩んでいる、');
     expect(purposeStarterOf('自分の言葉')).toBe(null);
   });
@@ -84,5 +84,15 @@ describe('具体的に書く', () => {
     expect(purposeGuide('毎日、').example).toMatch(/^例：毎日、/);
     expect(purposeGuide('毎日、通勤').lead).toBe('あと 8 字で次へ進めます');
     expect(purposeGuide('毎日、通勤の 20 分で本を読む').lead).toBe('あとで設定から書き直せます');
+  });
+});
+
+import { APP_PURPOSE_STARTERS } from './appPurpose';
+describe('書き出しの例', () => {
+  it('どの例もその書き出しで始まり、それだけで次へ進めるくらい具体的', () => {
+    for (const s of APP_PURPOSE_STARTERS) {
+      expect(s.example.startsWith(s.text)).toBe(true);
+      expect(isPurposeSpecific(s.example)).toBe(true);
+    }
   });
 });
