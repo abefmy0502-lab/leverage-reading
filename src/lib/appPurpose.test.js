@@ -60,12 +60,26 @@ describe('入れた理由', () => {
   });
 });
 
-import { applyPurposeChoice } from '../components/AppPurposeField';
-describe('チップを押したとき', () => {
-  it('空・チップの文なら置きかえ、自分の言葉なら後ろへ足す・同じ文は重ねない', () => {
-    expect(applyPurposeChoice('', '考えを深めたい')).toBe('考えを深めたい');
-    expect(applyPurposeChoice('読書を習慣にしたい', '考えを深めたい')).toBe('考えを深めたい');
-    expect(applyPurposeChoice('転職の準備', '考えを深めたい')).toBe('転職の準備 考えを深めたい');
-    expect(applyPurposeChoice('転職の準備 考えを深めたい', '考えを深めたい')).toBe('転職の準備 考えを深めたい');
+import { applyPurposeStarter, purposeGuide } from '../components/AppPurposeField';
+import { isPurposeSpecific, purposeStarterOf } from './appPurpose';
+describe('具体的に書く', () => {
+  it('書き出しだけ・短い言い切りでは進めない／続きが 10 字あれば進める', () => {
+    expect(isPurposeSpecific('仕事で、')).toBe(false);
+    expect(isPurposeSpecific('仕事に生かしたい')).toBe(false);
+    expect(isPurposeSpecific('仕事で、来月から任されるチームのまとめ方を学びたい')).toBe(true);
+    expect(isPurposeSpecific('転職に向けて、マーケティングの基礎を固めたい')).toBe(true);
+  });
+  it('どの書き出しで始まるか', () => {
+    expect(purposeStarterOf('今年中に、お金の本を読む')?.text).toBe('今年中に、');
+    expect(purposeStarterOf('自分の言葉')).toBe(null);
+  });
+  it('チップは空か書き出しだけのときに置きかえ、続きがあれば変えない', () => {
+    expect(applyPurposeStarter('', '仕事で、')).toBe('仕事で、');
+    expect(applyPurposeStarter('毎日、', '仕事で、')).toBe('仕事で、');
+    expect(applyPurposeStarter('毎日、通勤の 20 分', '仕事で、')).toBe('毎日、通勤の 20 分');
+  });
+  it('案内は空なら書き出しを、途中なら何を書けばよいかを例つきで', () => {
+    expect(purposeGuide('').lead).toMatch(/^書き出しを選んで/);
+    expect(purposeGuide('毎日、').example).toMatch(/^例：毎日、/);
   });
 });

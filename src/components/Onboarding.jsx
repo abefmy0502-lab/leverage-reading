@@ -6,14 +6,14 @@ import { BookOpen, MessageCircle, X, ChevronLeft, ChevronDown } from 'lucide-rea
 import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnLink } from '../styles/ui';
 import { withPhraseBreaks } from './TightBubble';
 import AppPurposeField from './AppPurposeField';
-import { readAppPurpose, saveAppPurpose, cleanPurposeText, APP_PURPOSE_CHOICES } from '../lib/appPurpose';
+import { readAppPurpose, saveAppPurpose, isPurposeSpecific, purposeStarterOf, APP_PURPOSE_STARTERS } from '../lib/appPurpose';
 
 const STORAGE_KEY = 'onboardingCompleted';
 
 // スライドは 3 枚（2026-09-29 に 2 枚へ絞り、2026-10-18 に「入れた理由」を足した）:
 //   1. 約束 — 一番の価値「読むほど、自分だけの相談相手が育つ」（CLAUDE.md・2026-09-26 裁定）。
 //      メモ → 相談 → 行動 の流れを本文 1 文にまとめる（旧 2〜4 枚目の中身）。
-//   2. Orime を入れた理由（2026-10-18 オーナー「読書にも目的が要る。その世界観を最初に」・必ず書く＝書くまで「次へ」を押せず、
+//   2. Orime を入れた理由（2026-10-18 オーナー「読書にも目的が要る。その世界観を最初に」・必ず具体的に書く＝続きを 10 字書くまで「次へ」を押せず、
 //      × と Esc も出さない）。書いた理由は設定で見返せ、解約・退会の前に「目的は達成できましたか？」で見せる（lib/appPurpose.js）。
 //   3. 最初の一歩 — 無料でできる始め方（2026-10-02: 取り込む／本のページを撮る／読んだ本に一言ずつ残す の順）。
 // 思い出しカード（旧「想起」）は手段なのでここでは触れない（振り返りで出会う）。
@@ -30,7 +30,8 @@ const slides = [
   {
     id: 'purpose',
     title: 'Orime を入れた理由は？',
-    body: '読書と同じで、目的があると続きます。あとで設定から書き直せます。',
+    // 2026-10-18 オーナー「具体的であればあるほど良い」: 書き出しのチップ＋続きは自分の言葉（AppPurposeField）。
+    body: '読書と同じで、目的があると続きます。具体的に書くほど、あとで見返したときに効きます。',
   },
   {
     Icon: BookOpen,
@@ -193,7 +194,7 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
     });
     return () => { alive = false; };
   }, []);
-  const purposeReady = !!cleanPurposeText(purposeText);
+  const purposeReady = isPurposeSpecific(purposeText);
   // 理由を書くまでは閉じられない（1 枚目も）。
   const canDismiss = purposeSaved;
   // Lazy initializer — runs once on first render, never on module load.
@@ -242,9 +243,9 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
   const goPrev = () => setStep((s) => Math.max(0, s - 1));
   const savePurposeAndNext = () => {
     if (!purposeReady) return;
-    const choice = APP_PURPOSE_CHOICES.indexOf(cleanPurposeText(purposeText));
+    const st = purposeStarterOf(purposeText);
     saveAppPurpose(purposeText);
-    track('app_purpose_set', { where: 'onboarding', choice: choice >= 0 ? `c${choice + 1}` : 'own' });
+    track('app_purpose_set', { where: 'onboarding', choice: st ? `s${APP_PURPOSE_STARTERS.indexOf(st) + 1}` : 'own' });
     setPurposeSaved(true);
     setStep((s) => Math.min(slides.length - 1, s + 1));
   };
@@ -374,7 +375,7 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
           </p>
           {isPurpose && (
             <div style={{ marginTop: 'var(--space-1)' }}>
-              <AppPurposeField value={purposeText} onChange={setPurposeText} hint="選ぶか、自分の言葉で書くと次へ進めます" showHint={!purposeReady} />
+              <AppPurposeField value={purposeText} onChange={setPurposeText} />
             </div>
           )}
         </div>

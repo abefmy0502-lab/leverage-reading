@@ -15,15 +15,32 @@ export const APP_PURPOSE_MAX = 80;
 export const APP_PURPOSE_CHANGED_EVENT = 'orime:app-purpose-changed';
 const LOCAL_KEY = 'orime.appPurpose.v1';
 
-// 押すと欄に入る、よくある理由（本人の口から出そうな言い切り・押したあと自分の言葉に直せる）。
-export const APP_PURPOSE_CHOICES = [
-  // 並びは幅で決めた（スマホの幅で 2・2・1 の 3 行に収まる）。計測の c1〜c5 はこの順。
-  '本を仕事に生かしたい',
-  '考えを深めたい',
-  '読んだことを忘れない',
-  '読書を習慣にしたい',
-  '悩みを本で解決したい',
+// 書き出しのチップ（2026-10-18 オーナー「入れた理由は具体的であればあるほど良い」）。
+// 答えそのものではなく書き出し＝押すと欄に入り、続き（何を・いつまでに・どんな場面で）を自分の言葉で書く。
+// example は欄の下の例（その書き出しで具体的に書いた形）。計測の s1〜s5 はこの順。
+export const APP_PURPOSE_STARTERS = [
+  { text: '仕事で、', example: '仕事で、来月から任されるチームのまとめ方を学びたい' },
+  { text: 'いま悩んでいる', example: 'いま悩んでいる部下との話し方を、本から学びたい' },
+  { text: '今年中に、', example: '今年中に、お金の本を 5 冊読んで家計を見直したい' },
+  { text: '読んだ本を、', example: '読んだ本を、半年後も人に説明できるようにしたい' },
+  { text: '毎日、', example: '毎日、通勤の 20 分で本を読む習慣をつけたい' },
 ];
+// 具体的と見なす長さ（書き出しを除いた続きの字数）。「仕事に生かしたい」だけで終わらせない。
+export const APP_PURPOSE_MIN_REST = 10;
+
+// 欄の文がどの書き出しで始まっているか（無ければ null）。
+export function purposeStarterOf(text) {
+  const t = cleanPurposeText(text);
+  return APP_PURPOSE_STARTERS.find((s) => t.startsWith(s.text.replace(/、$/, ''))) || null;
+}
+
+// 次へ進めるだけ具体的か（書き出しを除いた続きが 10 字以上）。
+export function isPurposeSpecific(text) {
+  const t = cleanPurposeText(text);
+  const st = purposeStarterOf(t);
+  const rest = st ? t.slice(st.text.replace(/、$/, '').length).replace(/^[、,\s]+/, '') : t;
+  return rest.length >= APP_PURPOSE_MIN_REST;
+}
 
 export function cleanPurposeText(text) {
   return String(text ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, APP_PURPOSE_MAX);

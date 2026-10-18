@@ -48,7 +48,7 @@ props は数・真偽・32 字までの短い文字列だけ（本文・書名�
 
 | イベント | いつ | props | 送るところ |
 |---|---|---|---|
-| `app_purpose_set` | 「Orime を入れた理由」を書いた（初回ガイドの 2 枚目で「次へ」・設定で「保存」） | `where`: `onboarding` / `settings`、`choice`（初回ガイドだけ）: よくある理由のどれをそのまま使ったか `c1`〜`c5`／自分の言葉なら `own`（本文は送らない） | `Onboarding.jsx`・`AppPurposeSheets.jsx` |
+| `app_purpose_set` | 「Orime を入れた理由」を書いた（初回ガイドの 2 枚目で「次へ」・設定で「保存」） | `where`: `onboarding` / `settings`、`choice`（初回ガイドだけ）: どの書き出しで始めたか `s1`〜`s5`（`APP_PURPOSE_STARTERS` の順）／書き出しを使わなければ `own`（本文は送らない） | `Onboarding.jsx`・`AppPurposeSheets.jsx` |
 | `purpose_check` | 解約（プランを管理）・退会の前の「目的は達成できましたか？」に答えた／閉じた | `where`: `cancel` / `delete`、`result`: `done`（達成できた）/ `ongoing`（まだ途中）/ `closed`（キャンセル） | `AppPurposeSheets.jsx` |
 
 `purpose_check` の `closed` は、確かめたあと解約・退会に進まなかった数。継続との関係は `app_purpose_set` の `choice` ごとの 30 日後の継続（`docs/launch-kpis.md` ③）と並べて見る。

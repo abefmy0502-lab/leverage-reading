@@ -11,7 +11,7 @@ import { createPortal } from 'react-dom';
 import BottomSheet from './BottomSheet';
 import AppPurposeField from './AppPurposeField';
 import { btnPrimary, btnPrimaryOff, btnGhost, groupTitle } from '../styles/ui';
-import { cleanPurposeText, saveAppPurpose } from '../lib/appPurpose';
+import { cleanPurposeText, saveAppPurpose, isPurposeSpecific } from '../lib/appPurpose';
 import { fmtDateJa } from '../lib/dates';
 import { track } from '../lib/analytics';
 import { withPhraseBreaks } from './TightBubble';
@@ -24,7 +24,7 @@ export function AppPurposeEditSheet({ purpose, onClose }) {
   const [busy, setBusy] = useState(false);
   const toast = useToast();
   // 変えていない間は押せない（押すと「M/D に書いた」の日付だけが今日に変わってしまう）。
-  const ok = !!cleanPurposeText(text) && cleanPurposeText(text) !== cleanPurposeText(purpose?.text);
+  const ok = isPurposeSpecific(text) && cleanPurposeText(text) !== cleanPurposeText(purpose?.text);
   const save = async () => {
     if (!ok || busy) return;
     setBusy(true);
