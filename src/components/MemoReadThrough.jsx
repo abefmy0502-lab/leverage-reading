@@ -12,6 +12,7 @@ import { useToast } from './Toast';
 import { fmtDateJa } from '../lib/dates';
 import { btnLink, groupTitle } from '../styles/ui';
 import { withPhraseBreaks } from './TightBubble';
+import { isShortPhrase } from '../lib/shortPhrase';
 
 const timeOf = (v) => { const t = Date.parse(v || ''); return Number.isFinite(t) ? t : 0; };
 
@@ -62,8 +63,8 @@ export default function MemoReadThrough({ title = '', purpose = '', memos = [], 
         {String(purpose).trim() && (
           <section style={{ padding: 'var(--space-3) var(--space-4)', background: 'var(--fill)', borderRadius: 'var(--radius)' }}>
             <span style={label}>この本から得たいこと</span>
-            {/* 得たいことは短い 1 文なので文節で折り返す（「伸ばし／たい」と割らない）。長いメモとまとめは流す */}
-            <p style={{ ...readText, marginTop: 'var(--space-1)', wordBreak: 'keep-all', textWrap: 'pretty' }}>{withPhraseBreaks(String(purpose).trim())}</p>
+            {/* 得たいことは短ければ文節で折り返す（「伸ばし／たい」と割らない）・長ければメモと同じく流す（lib/shortPhrase.js） */}
+            <p style={{ ...readText, marginTop: 'var(--space-1)', ...(isShortPhrase(purpose) ? { wordBreak: 'keep-all' } : null) }}>{isShortPhrase(purpose) ? withPhraseBreaks(String(purpose).trim()) : String(purpose).trim()}</p>
           </section>
         )}
         <ol style={{ listStyle: 'none', margin: 0, padding: 0 }}>

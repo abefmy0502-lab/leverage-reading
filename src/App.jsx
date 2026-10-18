@@ -223,6 +223,7 @@ import {
 import { useBookMemos } from './hooks/useBookMemos';
 import { useBookInfo } from './hooks/useBookInfo';
 import { fmtTarget } from './lib/readTarget';
+import { isShortPhrase } from './lib/shortPhrase';
 import { hasBriefMaterial, storedBriefOf, briefForPrompt, appendHypothesis, isUsableBrief, parseBrief, briefLabels, BRIEF_NO_MATERIAL_TEXT } from './lib/bookBrief';
 import { loadBookInfo, bookInfoForPrompt, hasBookInfo, peekBookInfo, rememberGenres } from './lib/bookInfo';
 // 🔎 すべての本の検索（書名・著者・タグ＋メモの言葉・2026-09-30）
@@ -4329,7 +4330,7 @@ function AuthedApp() {
   const openFocusStart = useCallback((b) => { haptic.light(); setFocusStartBook(b); }, [haptic]);
   // シート（読む前のシート・写真で共有）や集中モードを開いたら、本に結びついた知らせを閉じる
   // （「保存しました。」＋行動に追加などがシートの上に重なっていた・2026-10-10）。元に戻すなどの処理は走らせない。
-  const sheetOverBook = !!(focusStartBook || focusRun || shareSheet || quickMemoOpen);
+  const sheetOverBook = !!(focusStartBook || focusRun || shareSheet || quickMemoOpen || readTargetBook);
   useEffect(() => {
     if (!sheetOverBook) return;
     bookToastsRef.current.forEach((_bookId, id) => toast.dismiss(id, { skipExpire: true }));
@@ -4981,7 +4982,7 @@ function AuthedApp() {
                   suffix={current.readTargetMin ? (
                     <button
                       type="button"
-                      onClick={() => { if (current.status === 'reading') { haptic.light(); setReadTargetBook(current); } }}
+                      onClick={() => { if (current.status === 'reading') { haptic.light(); dismissStatusUndo(current.id); setReadTargetBook(current); } }}
                       disabled={current.status !== 'reading'}
                       aria-haspopup={current.status === 'reading' ? 'dialog' : undefined}
                       aria-label={`読む時間の目安 ${fmtTarget(current.readTargetMin)}${current.status === 'reading' ? '（押すと変えられます）' : ''}`}
@@ -5047,7 +5048,7 @@ function AuthedApp() {
                 {!current.readTargetMin && (
                 <button
                   type="button"
-                  onClick={() => { haptic.light(); setReadTargetBook(current); }}
+                  onClick={() => { haptic.light(); dismissStatusUndo(current.id); setReadTargetBook(current); }}
                   aria-haspopup="dialog"
                   aria-label="読む時間の目安を決める"
                   style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }}
@@ -5089,8 +5090,9 @@ function AuthedApp() {
                   const mask = more ? 'linear-gradient(to bottom, #000 calc(100% - 1.6em), transparent)' : '';
                   el.style.maskImage = mask; el.style.webkitMaskImage = mask;
                 }}
-                style={{ display: 'block', maxHeight: 'calc(1.6em * 3)', overflow: 'hidden', marginTop: 'var(--space-1)', fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.6, color: 'var(--text)', whiteSpace: 'pre-wrap', wordBreak: 'keep-all', overflowWrap: 'anywhere', lineBreak: 'strict', textWrap: 'pretty' }}>
-                {withPhraseBreaks(current.investPurpose.trim())}
+                style={{ display: 'block', maxHeight: 'calc(1.6em * 3)', overflow: 'hidden', marginTop: 'var(--space-1)', fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.6, color: 'var(--text)', whiteSpace: 'pre-wrap', wordBreak: isShortPhrase(current.investPurpose) ? 'keep-all' : 'normal', overflowWrap: 'anywhere', lineBreak: 'strict', textWrap: 'pretty' }}>
+                {/* 短い文は文節で、長い文は流す（lib/shortPhrase.js） */}
+                {isShortPhrase(current.investPurpose) ? withPhraseBreaks(current.investPurpose.trim()) : current.investPurpose.trim()}
               </span>
             </button>
           )}
