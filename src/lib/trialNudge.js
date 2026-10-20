@@ -1,4 +1,5 @@
 import { PLAN_LABELS } from './billing';
+import { PAID_TOKENS, answerCountLabel } from './tokenAmounts';
 
 // 🌱 7 日間無料をすすめる「ちょうどいいとき」（2026-09-28 オーナー裁定）。
 //
@@ -45,12 +46,15 @@ export function shouldShowTrialNudge({ plan, memoCount, done, freeUsedUp = false
 //   （有料プランの画面は年額が先に選ばれているので、「7 日間無料で試す」と押して年額が出る食い違いを作らない）。
 // 件数は文に入れない（相談の上部の「メモ・学びなど N 件」と数え方が違い、並ぶと食い違って見えるため）。
 // （呼び出し側が memoCount を渡しても使わない。）
+// 本文はプランで増える相談の量から（2026-10-20 オーナー「満足度と売り上げを最大化」・育った相談相手に、もっと相談できる）。
+const PLAN_AMOUNT = `相談は毎月 AI の答え ${answerCountLabel(PAID_TOKENS)}、AI 選書も使えます。`;
+const PLAN_VALUE = `プランなら${PLAN_AMOUNT}`;
 export function trialNudgeCopy({ offer = '', offerPlan = 'both' } = {}) {
   const title = '相談相手が育ってきました';
   if (offer && offerPlan === 'monthly') {
     return {
       title,
-      body: `月額プランは ${offer}。AI 選書や読書計画シートも試せます。`,
+      body: `月額プランは ${offer}。${PLAN_AMOUNT}`,
       cta: 'プランを見る',
       kind: 'trial',
     };
@@ -58,14 +62,14 @@ export function trialNudgeCopy({ offer = '', offerPlan = 'both' } = {}) {
   if (offer) {
     return {
       title,
-      body: `${offer}で、AI 選書や読書計画シートも試せます。`,
+      body: PLAN_VALUE,
       cta: `${offer}で試す`,
       kind: 'trial',
     };
   }
   return {
     title,
-    body: `AI 選書や読書計画シートも使えるプランがあります。`,
+    body: PLAN_VALUE,
     cta: 'プランを見る',
     kind: 'plan',
   };

@@ -15,6 +15,7 @@ import { cleanPurposeText, saveAppPurpose, isPurposeSpecific } from '../lib/appP
 import { fmtDateJa } from '../lib/dates';
 import { track } from '../lib/analytics';
 import { withPhraseBreaks } from './TightBubble';
+import { FREE_TOKENS, answerCountLabel } from '../lib/tokenAmounts';
 
 const quoteBox = { padding: 'var(--space-3) var(--space-4)', background: 'var(--fill)', borderRadius: 'var(--radius)' };
 const quoteText = { margin: 'var(--space-1) 0 0', fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.6, color: 'var(--text)', wordBreak: 'keep-all', overflowWrap: 'anywhere' };
@@ -52,6 +53,7 @@ export function AppPurposeEditSheet({ purpose, onClose }) {
   );
 }
 
+export const CANCEL_REASSURE = `プランをやめても、無料プラン（ずっと無料）で続けられます。メモと行動はそのまま残り、相談も毎月 AI の答え ${answerCountLabel(FREE_TOKENS)}。`;
 // where: 'cancel'（プランを管理）| 'delete'（退会）。nextText: どちらを押しても進む先（1 行）。
 export function PurposeCheckSheet({ purpose, where, nextText, onContinue, onClose }) {
   const answer = (result) => {
@@ -76,6 +78,10 @@ export function PurposeCheckSheet({ purpose, where, nextText, onContinue, onClos
           <span style={{ ...groupTitle, display: 'block' }}>{purpose?.at ? `${fmtDateJa(purpose.at)} に書いた、Orime を入れた理由` : 'Orime を入れた理由'}</span>
           <p style={quoteText}>{withPhraseBreaks(purpose?.text || '')}</p>
         </div>
+        {/* 解約の前: やめても続けられることを先に（2026-10-20 オーナー「課金している人・していない人それぞれの満足度」・止めない） */}
+        {where === 'cancel' && (
+          <p style={{ margin: 0, fontSize: 'var(--text-body)', color: 'var(--text)', lineHeight: 1.6, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(CANCEL_REASSURE)}</p>
+        )}
         {nextText && (
           <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(nextText)}</p>
         )}

@@ -64,7 +64,7 @@ describe('trialNudgeCopy', () => {
     const c = trialNudgeCopy({ memoCount: 12, offer: '7 日間無料' });
     expect(c.kind).toBe('trial');
     expect(c.title).toBe('相談相手が育ってきました');
-    expect(c.body).toBe('7 日間無料で、AI 選書や読書計画シートも試せます。');
+    expect(c.body).toBe('プランなら相談は毎月 AI の答え 約 80 回、AI 選書も使えます。');
     // 件数は入れない（相談の上部の「メモ・学びなど N 件」と食い違わないように）
     expect(c.body).not.toMatch(/件/);
     expect(c.cta).toBe('7 日間無料で試す');
@@ -73,7 +73,7 @@ describe('trialNudgeCopy', () => {
   it('創業メンバー価格のあいだ（7 日間無料は月額だけ）は「月額プランは 7 日間無料」＋「プランを見る」', () => {
     const c = trialNudgeCopy({ memoCount: 12, offer: '7 日間無料', offerPlan: 'monthly' });
     expect(c.kind).toBe('trial');
-    expect(c.body).toBe('月額プランは 7 日間無料。AI 選書や読書計画シートも試せます。');
+    expect(c.body).toBe('月額プランは 7 日間無料。相談は毎月 AI の答え 約 80 回、AI 選書も使えます。');
     // 年額が先に選ばれた画面を開くので、「7 日間無料で試す」とは書かない
     expect(c.cta).toBe('プランを見る');
   });
@@ -87,7 +87,7 @@ describe('trialNudgeCopy', () => {
     const c = trialNudgeCopy({ memoCount: 10, offer: '' });
     expect(c.kind).toBe('plan');
     expect(c.body).not.toMatch(/無料/);
-    expect(c.body).toBe('AI 選書や読書計画シートも使えるプランがあります。');
+    expect(c.body).toBe('プランなら相談は毎月 AI の答え 約 80 回、AI 選書も使えます。');
     expect(c.cta).toBe('プランを見る');
   });
 });

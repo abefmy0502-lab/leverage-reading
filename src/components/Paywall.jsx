@@ -497,7 +497,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
   // 契約できたときの知らせ。7 日間無料で始まったら「いつまで・何トークン」を言う（2026-09-29）。
   //   終わる日が分からないときは日付を省く。読める長さなので中央の ✓ を少し長めに出す。
   const showPurchasedToast = (trialEnd, startedTrial) => {
-    if (!startedTrial) { toast.success('ご契約ありがとうございます。'); return; }
+    if (!startedTrial) { toast.success(fromFeature ? `ご契約ありがとうございます。\n${feature || 'この機能'}を、もう一度押すと使えます` : 'ご契約ありがとうございます。'); return; }
     const until = trialEnd ? monthDayLabelJa(trialEnd) : '';
     // 中央の ✓ は幅が狭いので、いつまで・何トークンは 2 行目に（括弧を外して、「トーク／ン」のように
     // 語の途中で折り返さない長さにする・数と単位も離さない）。
@@ -505,6 +505,12 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
     const message = until
       ? `7 日間無料がはじまりました\n${until}まで・${tokens}`
       : `7 日間無料がはじまりました\n${tokens}`;
+    // 機能を押して開いたとき（reason 'feature'）は、閉じるとその画面に戻るので、相談へ移さず「もう一度押せば使える」と知らせる
+    //   （2026-10-20 オーナー「課金した人の満足度」・押した機能へそのまま戻る）。
+    if (fromFeature) {
+      toast.show({ type: 'success', message: `${message}\n${feature || 'この機能'}を、もう一度押すと使えます`, duration: 8000 });
+      return;
+    }
     // 次にすることを 1 つだけ（2026-10-10）: 「相談してみる」で相談を開く（Paywall はアプリの外側に重なるので合図で知らせる）。
     //   残りの日数を数え下げる表示はしない。
     toast.show({

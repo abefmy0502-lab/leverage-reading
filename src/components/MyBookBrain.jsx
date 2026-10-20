@@ -50,7 +50,7 @@ import { composerChrome, answerEndScrollTop, isTouchUi } from '../lib/composerVi
 import { useComposerHeight } from '../hooks/useComposerHeight';
 import { NATIVE_KEYBOARD_EVENT } from '../lib/native';
 import { encodeThreadRef, isThreadRef, threadRootOf, groupConsults, threadScopeOf, threadTitleOf, lastConsultThread } from '../lib/consultThreads';
-import { buildConsultExamples, standaloneAction, shortTitle, hasSummaryMemo, countSummaryMemos, fmtTokens, consultsLeft, memoSearchQuery, answerStepToAction, stripScenePrefix, selectThreadTurns, isCompletedAnswer, parseAskSection, nextStepChips, wantsAction, isBookLookup, lookupTerm, shouldDecide, isLastAnswer, countAsks, askProgressText, answerAsks, lensOf, usedLenses, isWorkConsult, LENS_NEXT_LINE } from '../lib/consultHelpers';
+import { buildConsultExamples, standaloneAction, shortTitle, hasSummaryMemo, countSummaryMemos, fmtTokens, consultsLeft, memoSearchQuery, answerStepToAction, stripScenePrefix, selectThreadTurns, isCompletedAnswer, parseAskSection, nextStepChips, wantsAction, isBookLookup, lookupTerm, shouldDecide, isLastAnswer, countAsks, askProgressText, answerAsks, lensOf, usedLenses, isWorkConsult, LENS_NEXT_LINE, advisorDraftFromConsult } from '../lib/consultHelpers';
 import LibrarySearchHit from './LibrarySearchHit';
 import { buildSnippet, compileTerms, splitQuery } from '../lib/librarySearch';
 import { tomorrowLocal } from '../lib/dates';
@@ -434,7 +434,7 @@ function LearningInline({ onSaved, onDirtyChange, initialTags = null }) {
 // Main MyBookBrain component
 // ============================================================================
 // barSlot: App のサブタブ（相談｜AI 選書）の行の右端の要素。会話の 🕒・… はそこへ出す（上の操作を 3 段に積まない・2026-10-01 ui-critic）。
-export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBooksMutated, onAddActionPickBook, onGoBookshelf, onQuickstart, onAddBook, onOpenActions, askPreset, scopePreset, onPushedViewChange, onSearchMemos, barSlot = null, onScrolledChange = null }) {
+export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBooksMutated, onAddActionPickBook, onGoBookshelf, onQuickstart, onAddBook, onOpenActions, askPreset, scopePreset, onPushedViewChange, onSearchMemos, onFindBooks = null, barSlot = null, onScrolledChange = null }) {
   const { user } = useAuth();
   // 文字の大きさの設定が大きいとき（ルートの文字 22px 以上・ImportSheet と同じ目安）。入力欄の案内を短くする。
   const [largeText] = useState(() => {
@@ -1835,13 +1835,19 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   //   過去の相談・「この続きを相談する」で開き直した答えも、前に行動に追加していれば同じ扱い（2026-10-09・二重に足さない）。
   const lastActionAdded = !!lastVisible && (addedActionIds.includes(lastVisible.id)
     || (lastVisible.role === 'assistant' && !lastVisible.streaming && answerActionAddedBefore(lastVisible, precedingQuestion(visibleMessages, visibleMessages.length - 1), allActions)));
+  // この会話の最初の問い（「この悩みに合う本を AI 選書で探す」の下書き）。
+  const consultFirstQuestion = lastActionAdded
+    ? String(visibleMessages.find((m) => m.role === 'user' && String(m.content || '').trim())?.content || '').trim()
+    : '';
   // 行動に追加した直後、「新しい相談をはじめる」が入力欄の下に隠れていたら、会話の欄だけを送って見せる（2026-10-12 点検）。
   const newConsultBtnRef = useRef(null);
+  const findBooksBtnRef = useRef(null);
   useEffect(() => {
     if (!lastActionAdded) return undefined;
     const id = requestAnimationFrame(() => {
       const el = chatScrollRef.current;
-      const btn = newConsultBtnRef.current;
+      // 下に「この悩みに合う本を AI 選書で探す」があれば、それまで見せる。
+      const btn = findBooksBtnRef.current || newConsultBtnRef.current;
       if (!el || !btn) return;
       const gap = parseFloat(getComputedStyle(el).getPropertyValue('--space-4')) || 16;
       const over = btn.getBoundingClientRect().bottom + gap - el.getBoundingClientRect().bottom;
@@ -2579,6 +2585,13 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             // 7 日間無料の 1 行が上にあるときは、こちらは文字ボタン（次にすることを 1 つに・トークンの残りが少ない人の新しい相談は止まりやすい）。
             <button ref={newConsultBtnRef} type="button" onClick={handleResolveAndClear} style={firstTrialAtEnd ? { ...uiBtnLink, display: 'block', marginTop: 'var(--space-2)', marginLeft: `calc(${typeof ANSWER_COLUMN === 'number' ? `${ANSWER_COLUMN}px` : ANSWER_COLUMN} - var(--space-1))` } : { ...uiBtnPrimary, marginTop: 'var(--space-4)', marginLeft: ANSWER_COLUMN, width: `calc(100% - ${ANSWER_COLUMN})` }}>
               新しい相談をはじめる
+            </button>
+          )}
+          {/* 🔍 一区切りついた相談から、同じ悩みで本を探す（2026-10-20 オーナー「それぞれの満足度と売り上げを最大化」）。
+               相談の最初の問いを AI 選書の悩みに入れて開くだけ（送らない）。7 日間無料の 1 行が出ているときは次の一歩を 1 つにするので出さない。 */}
+          {answerRowShown && lastActionAdded && !firstTrialAtEnd && onFindBooks && consultFirstQuestion && (
+            <button ref={findBooksBtnRef} type="button" onClick={() => { track('consult_find_books'); onFindBooks(advisorDraftFromConsult(consultFirstQuestion)); }} style={{ ...uiBtnLink, display: 'block', marginTop: 'var(--space-2)', marginLeft: `calc(${typeof ANSWER_COLUMN === 'number' ? `${ANSWER_COLUMN}px` : ANSWER_COLUMN} - var(--space-1))` }}>
+              この悩みに合う本を AI 選書で探す
             </button>
           )}
           {/* 🌱 メモが 0 件の人: チップの代わりに「読んだ本に一言ずつ残す」を主ボタンで（2026-10-09） */}

@@ -6029,6 +6029,7 @@ function AuthedApp() {
               onOpenActions={() => { setActionShowDoneNonce(null); setReviewSubTab('action'); setView('list'); setTab('review'); }}
               // 🌱 相談相手が育ちました →「相談してみる」（下書きを入れて相談を開く・送らない）
               onConsultDraft={(q, from) => { track('try_consult', { from }); openConsultWith(q); }}
+              onOpenConsult={() => { setView('list'); setAiSubTab('brain'); setTab('ai'); }}
               // 🌱 育つまでの一行の「一言ずつ残す」（2026-10-20）: メモの無い読了・読書中の本（最大 5 冊）を一言の段から。
               //   どの本にメモがあるか分からないとき（全部のメモをまだ読んでいない）は、いつもの初日クイックスタート。
               onAddOneLines={async () => {
@@ -6680,6 +6681,7 @@ function AuthedApp() {
                     scopePreset={scopePreset}
                     onScrolledChange={setConsultScrolled}
                     onSearchMemos={openMemoSearch}
+                    onFindBooks={openAdvisorWithDraft}
                     onPushedViewChange={setConsultPushed}
                     barSlot={aiBarSlot}
                   />
@@ -7499,7 +7501,7 @@ function PaywallGate() {
 
   // 🪙 残りのトークン（src/lib/tokens.js・表示だけ。止めるのはサーバー）。
   const [usedMjpy, setUsedMjpy] = useState(null); // null=未確認・読めない
-  const tokenKey = plan === 'admin' ? null : periodKeyFor(plan, { periodEnd: trialEndsAt });
+  const tokenKey = plan === 'admin' ? null : periodKeyFor(plan, { periodEnd: trialEndsAt, now: appNow().getTime() });
   // 🪙➕ 追加トークン（買い足し・残りの合計・期限なし）。表が無ければ null＝出さない。
   const [lots, setLots] = useState(null);
   const lotsRef = useRef(null);

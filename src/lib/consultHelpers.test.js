@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { memoExampleForBook, buildConsultExamples, standaloneAction, stripRelativeDayLead, questionGist, needsSubject, WORRY_EXAMPLES, actionGist, stripScenePrefix, recentReflectedAction, memoSearchQuery, answerStepToAction, firstConsultSuggestions, firstConsultQuestion, countBooksWithMemos } from './consultHelpers';
+import { memoExampleForBook, buildConsultExamples, standaloneAction, stripRelativeDayLead, questionGist, needsSubject, WORRY_EXAMPLES, actionGist, stripScenePrefix, recentReflectedAction, memoSearchQuery, answerStepToAction, firstConsultSuggestions, firstConsultQuestion, countBooksWithMemos, advisorDraftFromConsult } from './consultHelpers';
 
 describe('答えの一歩を行動の形に（answerStepToAction・2026-09-29）', () => {
   it('す で終わる動詞は「〜す」', () => {
@@ -390,5 +390,14 @@ describe('残りが答え 1 回ぶんのときは聞き返さない（2026-10-20
     expect(_shouldDecide({ followUp: false, question: '部下が報告をくれない', lastAnswer: true })).toBe(true);
     expect(_shouldDecide({ followUp: false, question: '部下が報告をくれない' })).toBe(false);
     expect(_shouldDecide({ followUp: true, question: 'ほかの本の視点で、同じ悩みに答え直して', lastAnswer: true })).toBe(false);
+  });
+});
+
+describe('advisorDraftFromConsult（相談から AI 選書の下書き）', () => {
+  it('改行をつなぎ、入れた理由の下書きは「…」の中だけにする', () => {
+    expect(advisorDraftFromConsult('上司への報告が\nうまくいかない')).toBe('上司への報告が うまくいかない');
+    expect(advisorDraftFromConsult('「仕事で、3 年後にはリーダーに」と思っています。\n読んだ本から、いまの自分に効くことは？')).toBe('仕事で、3 年後にはリーダーに');
+    expect(advisorDraftFromConsult('あ'.repeat(300))).toHaveLength(200);
+    expect(advisorDraftFromConsult('')).toBe('');
   });
 });

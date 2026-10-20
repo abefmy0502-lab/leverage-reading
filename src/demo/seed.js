@@ -243,6 +243,12 @@ export function buildSeed(scenario) {
     const firstMonth = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('joined') === 'new';
     db.ai_usage = [{ user_id: DEMO_USER_ID, period_month: `free-${jstMonth}`, calls: firstMonth ? 6 : 3, cost_mjpy: firstMonth ? 18000 : 9000 }];
   }
+  // 🔁 &back=1: 先月の無料のトークンを使い切った人（ホームの「今月の相談が戻りました」・月のはじめの 7 日間だけ＝&today=2026-11-02 など）。
+  if (scenario === 'free' && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('back') === '1') {
+    const [yy, mm] = new Date(appNow().getTime() + 9 * 3600 * 1000).toISOString().slice(0, 7).split('-').map(Number);
+    const prev = mm === 1 ? `${yy - 1}-12` : `${yy}-${String(mm - 1).padStart(2, '0')}`;
+    db.ai_usage = [...(db.ai_usage || []), { user_id: DEMO_USER_ID, period_month: `free-${prev}`, calls: 3, cost_mjpy: 9000 }];
+  }
   // 📷 無料プランの写真から書き起こし（毎月 10 回・'freeocr-YYYY-MM'）。無料プランの人は今月 2 回使った（あと 8 回）。
   //   &ocr=used: 今月の 10 回を使い切った（「11月1日に戻ります」と、押すと有料プランの画面が開くことの確認用）。
   if (['free', 'freeused', 'freegrown'].includes(scenario)) {

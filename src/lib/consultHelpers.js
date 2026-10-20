@@ -834,3 +834,12 @@ export function memoConsultQuestion(memoText) {
   if (!gist) return '';
   return `「${gist}」と書いたメモを、いまの自分にどう活かせる？`;
 }
+
+// 🔍 相談の最初の問いを AI 選書の悩みの下書きに（改行をつなぎ、200 字まで・2026-10-20）。
+//   入れた理由から作った下書き（「…」と思っています。\n読んだ本から…）は、「…」の中だけを悩みにする。
+export function advisorDraftFromConsult(question) {
+  const q = String(question || '').trim();
+  const purpose = q.match(/^「(.+)」と思っています。/);
+  const text = purpose ? purpose[1] : q;
+  return text.replace(/\s*\n+\s*/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
+}

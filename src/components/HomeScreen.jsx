@@ -15,8 +15,8 @@
 // 上の行の「写真で共有」は App.jsx の全体ヘッダー（ホーム・振り返り・相談で同じ場所）。
 // 見た目は DESIGN.md のトークンのみ。
 import { useEffect, useMemo, useState } from 'react';
-import { Library, ChevronRight, PencilLine, Plus, BookOpen, Timer, Target, Sprout, X } from 'lucide-react';
-import HomeFirstStep, { useHomeMemoState } from './HomeFirstStep';
+import { Library, ChevronRight, PencilLine, Plus, BookOpen, Timer, Target, Sprout, X, MessageCircle } from 'lucide-react';
+import HomeFirstStep, { useHomeMemoState, MEMO_COUNT_WAIT_MS } from './HomeFirstStep';
 import GrowthMeter from './GrowthMeter';
 import ShareNudge, { useShareNudge } from './ShareNudge';
 import { firstConsultDone, takeMemosReached, growthMeterText, rememberHomeMemoCount, lastHomeMemoCount, showGrowthPlaceholder, grownLinePending, markGrownLineDone, GROWTH_GOAL } from '../lib/firstDay';
@@ -27,6 +27,9 @@ import { appNow } from '../lib/appNow';
 import { firstConsultQuestion } from '../lib/consultHelpers';
 import { appPurposeTextFor, purposeConsultQuestion } from '../lib/appPurpose';
 import { useAuth } from '../hooks/useAuth';
+import { usePaywall } from '../state/PaywallContext';
+import { fetchUsedMjpy } from '../lib/tokens';
+import { prevMonthOf, tokensBackCandidate, shouldShowTokensBack, tokensBackText, readTokensBackDone, markTokensBackDone } from '../lib/tokensBack';
 import MemoLinks from './MemoLinks';
 import { useMemoLinkFinder } from '../hooks/useMemoLinkFinder';
 import { track } from '../lib/analytics';
@@ -242,18 +245,18 @@ function HomeActionsRow({ summary, onOpen }) {
 // 🌱 相談相手が育ちました（2026-10-10）: メモが 10 件になったのを見たあと 1 回だけ、題の下（育つまでの一行と同じ場所）に。
 //   見た目は育つまでの一行（芽 1.2em・--text-3＋13/--text-2）＋右に文字ボタン「相談してみる」と ×。押しても閉じても二度と出さない。
 //   7 日間無料はここではすすめない（ホームではすすめない・相談の画面の案内 ③ はそのまま）。
-function GrownLine({ onConsult, onDismiss }) {
+function GrownLine({ onConsult, onDismiss, text = null, icon: Icon = Sprout, actionLabel = '相談してみる', mark = 'grown' }) {
   return (
-    <div data-grown-line="" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 'var(--space-2)', margin: '0 calc(-1 * var(--space-3)) 0 0' }}>
+    <div data-grown-line={mark} style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 'var(--space-2)', margin: '0 calc(-1 * var(--space-3)) 0 0' }}>
       <p style={{ flex: '1 1 10em', minWidth: 0, display: 'flex', alignItems: 'flex-start', gap: 'var(--space-1)', margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', height: '1.5em', flexShrink: 0 }}>
-          <Sprout size="1.2em" aria-hidden="true" style={{ color: 'var(--text-3)' }} />
+          <Icon size="1.2em" aria-hidden="true" style={{ color: 'var(--text-3)' }} />
         </span>
-        <span style={{ minWidth: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(`メモが ${GROWTH_GOAL}\u00a0件になり、相談相手が育ちました`)}</span>
+        <span style={{ minWidth: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{typeof text === 'string' || !text ? withPhraseBreaks(text || `メモが ${GROWTH_GOAL}\u00a0件になり、相談相手が育ちました`) : text}</span>
       </p>
       {/* 1 行に収まるときは右へ（文が伸びて押す）。折り返したときは文の頭（芽の右）にそろえる（2026-10-10 ui-critic）。 */}
       <span style={{ display: 'flex', alignItems: 'center', paddingLeft: 'calc(var(--text-meta) * 1.2)' }}>
-        <button type="button" onClick={onConsult} style={{ ...btnLink, fontSize: 'min(var(--text-sub), var(--text-bar-max))', whiteSpace: 'nowrap' }}>相談してみる</button>
+        <button type="button" onClick={onConsult} style={{ ...btnLink, fontSize: 'min(var(--text-sub), var(--text-bar-max))', whiteSpace: 'nowrap' }}>{actionLabel}</button>
         <button
           type="button"
           onClick={onDismiss}
@@ -265,6 +268,38 @@ function GrownLine({ onConsult, onDismiss }) {
       </span>
     </div>
   );
+}
+
+// 🔁 「今月の相談が戻りました」（lib/tokensBack.js・2026-10-20）。先月の使った量を読み終えるか MEMO_COUNT_WAIT_MS まで待って
+//   1 回だけ決める（あとから差し込んでホームを押し下げない）。戻り値: { ready, show, text, close(action) }。
+function useTokensBack(active) {
+  const { user } = useAuth();
+  const { freeMode, tokensRemaining } = usePaywall();
+  const [now] = useState(() => appNow().getTime());
+  const [doneMonth] = useState(() => readTokensBackDone(user?.id));
+  const need = active && !!user?.id && tokensBackCandidate({ freeMode, now, doneMonth });
+  const [prevUsed, setPrevUsed] = useState(undefined); // undefined＝まだ・null＝読めない
+  const [timedOut, setTimedOut] = useState(false);
+  useEffect(() => {
+    if (!need) return undefined;
+    let alive = true;
+    fetchUsedMjpy(user.id, `free-${prevMonthOf(now).key}`).then((v) => { if (alive) setPrevUsed(v); });
+    const t = setTimeout(() => { if (alive) setTimedOut(true); }, MEMO_COUNT_WAIT_MS);
+    return () => { alive = false; clearTimeout(t); };
+  }, [need, user?.id, now]);
+  const ready = !need || prevUsed !== undefined || timedOut;
+  const [decided, setDecided] = useState(undefined);
+  const [closed, setClosed] = useState(false);
+  useEffect(() => {
+    if (!ready || decided !== undefined || !active) return;
+    setDecided(need && prevUsed !== undefined && shouldShowTokensBack({ prevUsedMjpy: prevUsed, createdAt: user?.created_at || null, now, remaining: tokensRemaining }));
+  }, [ready, active]); // eslint-disable-line react-hooks/exhaustive-deps
+  const close = (action) => {
+    markTokensBackDone(user?.id, now);
+    setClosed(true);
+    track('tokens_back', { action });
+  };
+  return { ready, show: !!decided && !closed, text: tokensBackText(tokensRemaining ?? 30), close };
 }
 
 // 🔗 ホームのメモを書くで保存したメモと似たことを、ほかの本でも書いていたら題の下に 1 行（MemoLinks の line・× で閉じる）。
@@ -300,7 +335,7 @@ export default function HomeScreen({
   books = [], loading = false, loadError = null, onRetry,
   onQuickstart, onAddBook, onAddReadingBook, onAdvisor, onImport,
   onOpenBook, onWriteMemo, onStartReading, onOpenLibrary, onSeeAllReading, onCoverRetry, onShareNudge, onRead,
-  onOpenActions, onConsultDraft, savedMemo = null, onDismissSavedMemo, onOpenMemo, onAddOneLines = null,
+  onOpenActions, onConsultDraft, savedMemo = null, onDismissSavedMemo, onOpenMemo, onAddOneLines = null, onOpenConsult = null,
 }) {
   const { user } = useAuth();
   // 🌱 育つまでの一行の右の次の一歩（2026-10-20）: はじめての相談の前は「相談してみる」（入れた理由かメモから下書き・送らない）、
@@ -312,7 +347,9 @@ export default function HomeScreen({
   const memoState = useHomeMemoState(books);
   // 月末・12 月の 1 行（数えるのはメモの件数と同じ時点・決まるまでホームは形のまま＝あとから差し込まない）。
   const shareNudge = useShareNudge(books, !!onShareNudge && !loading && !loadError && books.length > 0);
-  const homeKnown = memoState.known && shareNudge.ready;
+  // 無料プランで先月のトークンを使い切った人に、月のはじめの 7 日間だけ「今月の相談が戻りました」（2026-10-20）。
+  const tokensBack = useTokensBack(!!onOpenConsult && !loading && !loadError && books.length > 0);
+  const homeKnown = memoState.known && shareNudge.ready && tokensBack.ready;
   // 📊 memos_reached_10（lib/firstDay.js）: 10 件より少ないのを見たあとで 10 件以上になったら 1 回だけ。
   // 🌱 「相談相手が育ちました」（10 件を越えたのを見たあと 1 回だけ・相談の画面で先に越えても、ホームに戻ったら出す）。
   const [grown, setGrown] = useState(grownLinePending);
@@ -357,6 +394,16 @@ export default function HomeScreen({
         ) : null}
         {/* 🔗 ホームのメモを書くで保存したメモの似たメモ（題の下の静かな 1 行・2026-10-10）。 */}
         {homeKnown && books.length > 0 && <HomeSavedLinks books={books} saved={savedMemo} onOpen={onOpenMemo} onDismiss={onDismissSavedMemo} />}
+        {homeKnown && tokensBack.show && (
+          <GrownLine
+            mark="tokens-back"
+            icon={MessageCircle}
+            text={<>{withPhraseBreaks(tokensBack.text.lead)}<span style={{ whiteSpace: 'nowrap' }}>{tokensBack.text.count}</span></>}
+            actionLabel="相談する"
+            onConsult={() => { tokensBack.close('open'); onOpenConsult(); }}
+            onDismiss={() => tokensBack.close('dismiss')}
+          />
+        )}
         {/* 月末・12 月の 1 行（本を読み込んで、ホームの中身を出すときに一緒に出す＝あとから差し込んで押し下げない）。 */}
         {homeKnown && <ShareNudge nudge={shareNudge.nudge} onOpen={onShareNudge} onDismiss={shareNudge.dismiss} />}
       </div>
