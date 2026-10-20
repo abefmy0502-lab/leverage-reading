@@ -102,7 +102,7 @@ export default function TokenUsageSheet({ onClose, onAdd, onPlans, from = 'consu
   useEffect(() => {
     let alive = true;
     setValue(undefined);
-    fetchPeriodValue(user?.id, periodValueSince({ trial: plan === 'trial', trialEndsAt })).then((v) => { if (alive) setValue(v); });
+    fetchPeriodValue(user?.id, periodValueSince({ trial: plan === 'trial', trialEndsAt })).then((v) => { if (alive) setValue((cur) => (cur === null ? null : v)); }); // 800ms で打ち切ったあとの値は捨てる
     const t = setTimeout(() => { if (alive) setValue((cur) => (cur === undefined ? null : cur)); }, 800);
     return () => { alive = false; clearTimeout(t); };
   }, [user?.id, plan, trialEndsAt]);

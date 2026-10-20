@@ -2395,6 +2395,11 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                       いまのメモで、もう一度相談する
                     </button>
                   )}
+                  {canContinue && isOldConsult(g) && (
+                    <p style={{ margin: 'calc(-1 * var(--space-2)) 0 0', marginLeft: ANSWER_COLUMN, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+                      {withPhraseBreaks('前の答えは使わず、そのあとのメモも根拠に答え直します')}
+                    </p>
+                  )}
                 </div>
               );
             })}
