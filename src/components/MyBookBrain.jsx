@@ -434,6 +434,14 @@ function LearningInline({ onSaved, onDirtyChange, initialTags = null }) {
 // Main MyBookBrain component
 // ============================================================================
 // barSlot: App のサブタブ（相談｜AI 選書）の行の右端の要素。会話の 🕒・… はそこへ出す（上の操作を 3 段に積まない・2026-10-01 ui-critic）。
+// 🔁 「いまのメモで、もう一度相談する」を出す古さ（最後のやりとりから 14 日・2026-10-20）。
+const REASK_AFTER_DAYS = 14;
+function isOldConsult(group, now = Date.now()) {
+  const last = group[group.length - 1]?.createdAt || group[0]?.createdAt;
+  const t = Date.parse(last || '');
+  return Number.isFinite(t) && now - t >= REASK_AFTER_DAYS * 86400000;
+}
+
 export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBooksMutated, onAddActionPickBook, onGoBookshelf, onQuickstart, onAddBook, onOpenActions, askPreset, scopePreset, onPushedViewChange, onSearchMemos, onFindBooks = null, barSlot = null, onScrolledChange = null }) {
   const { user } = useAuth();
   // 文字の大きさの設定が大きいとき（ルートの文字 22px 以上・ImportSheet と同じ目安）。入力欄の案内を短くする。
@@ -1719,6 +1727,25 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     focusOnResumeRef.current = !opts.send;
     sendOnResumeRef.current = opts.send ? { q: opts.send, bookIds: opts.bookIds || null } : null;
   };
+  // 🔁 過去の相談の「いまのメモで、もう一度相談する」（2026-10-20 オーナー「3 か月の人の満足度」）: 14 日以上前の相談を、
+  //   新しい会話として入力欄に入れ直す（送らない・相談相手はその相談のまま）。そのあとに書いたメモも根拠にして答え直す。
+  const reAskThread = (group) => {
+    if (busy) return;
+    const q = String(group.find((m) => m.role === 'user')?.content || '').trim();
+    if (!q) return;
+    clearConversation();
+    setScopeIds(threadScopeOf(group));
+    setView('chat');
+    setInput(q);
+    track('brain_reask', {});
+    focusOnReAskRef.current = true;
+  };
+  const focusOnReAskRef = useRef(false);
+  useLayoutEffect(() => {
+    if (!focusOnReAskRef.current || view !== 'chat') return;
+    focusOnReAskRef.current = false;
+    try { inputRef.current?.focus({ preventScroll: true }); } catch { /* ignore */ }
+  }, [view, input]);
   // 相談例から開いたときは、会話を並べた描画のあとで送る（その会話の続きとして・threadBlock に入る）。
   const sendOnResumeRef = useRef(null);
   useEffect(() => {
@@ -2355,6 +2382,17 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                         : { ...uiBtnLink, alignSelf: 'flex-start', margin: `calc(-1 * var(--space-2)) 0 0 calc(${ANSWER_COLUMN} - var(--space-1))`, ...(busy ? { color: 'var(--text-3)', opacity: 1, cursor: 'default' } : null) }}
                     >
                       この続きを相談する
+                    </button>
+                  )}
+                  {/* 🔁 14 日以上前の相談: いまのメモで答え直す（文字ボタン・続きとは別の新しい相談・2026-10-20） */}
+                  {canContinue && isOldConsult(g) && (
+                    <button
+                      type="button"
+                      onClick={() => reAskThread(g)}
+                      disabled={busy}
+                      style={{ ...uiBtnLink, alignSelf: 'flex-start', margin: `calc(-1 * var(--space-2)) 0 0 calc(${ANSWER_COLUMN} - var(--space-1))`, ...(busy ? { color: 'var(--text-3)', opacity: 1, cursor: 'default' } : null) }}
+                    >
+                      いまのメモで、もう一度相談する
                     </button>
                   )}
                 </div>
