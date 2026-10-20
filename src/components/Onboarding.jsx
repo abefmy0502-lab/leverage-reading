@@ -182,6 +182,8 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
   const slide = slides[step];
   const isLast = step === slides.length - 1;
   const isPurpose = slide.id === 'purpose';
+  // 📊 onboard_step: どの画面まで見たか（2026-10-20・どこで離れるかを見る。閉じた画面は onboard_path の step）。
+  useEffect(() => { track('onboard_step', { step: step + 1, id: slide.id || `s${step + 1}` }); }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
   // 🎯 入れた理由（必ず書く）。前に書いた人（ヘルプから見直す）は、その理由を入れておき、閉じるのも今までどおり。
   const [purposeText, setPurposeText] = useState('');
   const [purposeSaved, setPurposeSaved] = useState(false);

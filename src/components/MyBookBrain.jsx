@@ -2590,7 +2590,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           {/* 🔍 一区切りついた相談から、同じ悩みで本を探す（2026-10-20 オーナー「それぞれの満足度と売り上げを最大化」）。
                相談の最初の問いを AI 選書の悩みに入れて開くだけ（送らない）。7 日間無料の 1 行が出ているときは次の一歩を 1 つにするので出さない。 */}
           {answerRowShown && lastActionAdded && !firstTrialAtEnd && onFindBooks && consultFirstQuestion && (
-            <button ref={findBooksBtnRef} type="button" onClick={() => { track('consult_find_books'); onFindBooks(advisorDraftFromConsult(consultFirstQuestion)); }} style={{ ...uiBtnLink, display: 'block', marginTop: 'var(--space-2)', marginLeft: `calc(${typeof ANSWER_COLUMN === 'number' ? `${ANSWER_COLUMN}px` : ANSWER_COLUMN} - var(--space-1))` }}>
+            <button ref={findBooksBtnRef} type="button" onClick={() => { track('consult_find_books'); onFindBooks(advisorDraftFromConsult(consultFirstQuestion)); }} style={{ ...uiBtnLink, display: 'block', marginTop: 'var(--space-2)', marginLeft: ANSWER_COLUMN, width: `calc(100% - ${ANSWER_COLUMN})`, textAlign: 'center', justifyContent: 'center' }}>
               この悩みに合う本を AI 選書で探す
             </button>
           )}

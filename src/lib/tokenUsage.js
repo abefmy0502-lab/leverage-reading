@@ -160,3 +160,28 @@ export async function fetchTokenLots(userId) {
     return null;
   }
 }
+
+// 🌿 この期間に相談から得たもの（2026-10-20 オーナー「課金している人の満足度」）: 送った相談の数と、完了した行動の数。
+//   数だけ（%・順位・連続日数は出さない）。since は期間のはじめ（ISO）。読めなければ null・両方 0 なら { consults: 0, done: 0 }。
+export async function fetchPeriodValue(userId, since) {
+  if (!isSupabaseConfigured || !userId || !since) return null;
+  try {
+    const [c, a] = await Promise.all([
+      supabase.from('chat_messages').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('role', 'user').gte('created_at', since),
+      supabase.from('actions').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('done', true).gte('completed_at', since),
+    ]);
+    if (c.error) return null;
+    return { consults: c.count || 0, done: a.error ? null : (a.count || 0) };
+  } catch {
+    return null;
+  }
+}
+
+// 期間のはじめ（日本時間の今月 1 日 0 時・7 日間無料は終わる日の 7 日前）。
+export function periodValueSince({ trial = false, trialEndsAt = null, now = Date.now() } = {}) {
+  if (trial && trialEndsAt && Number.isFinite(Date.parse(trialEndsAt))) {
+    return new Date(Date.parse(trialEndsAt) - 7 * 86400000).toISOString();
+  }
+  const jst = new Date(now + 9 * 3600 * 1000);
+  return new Date(Date.UTC(jst.getUTCFullYear(), jst.getUTCMonth(), 1) - 9 * 3600 * 1000).toISOString();
+}

@@ -44,9 +44,9 @@ export function shouldShowTokensBack({ prevUsedMjpy, createdAt = null, now = Dat
   return remaining == null || remaining >= ANSWER_TOKENS;
 }
 
-// { lead, count }（画面は count を 1 行にまとめて出す＝「AI の / 答え」と割らない）。
+// { lead, count }（画面は count を 1 行にまとめて出す＝「AI の / 答え」と割らない・括弧から行を始めない）。
 export function tokensBackText(remaining) {
-  return { lead: '今月の相談が戻りました', count: `（AI の答え ${answerCountLabel(remaining)}）` };
+  return { lead: '今月の相談が戻りました。', count: `AI の答え ${answerCountLabel(remaining)}` };
 }
 
 export function readTokensBackDone(userId) {

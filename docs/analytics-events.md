@@ -50,6 +50,7 @@ props は数・真偽・32 字までの短い文字列だけ（本文・書名�
 |---|---|---|---|
 | `app_purpose_set` | 「Orime を入れた理由」を書いた（初回ガイドの 2 枚目で「次へ」・設定で「保存」） | `where`: `onboarding` / `settings`、`choice`（初回ガイドだけ）: どの書き出しで始めたか `s1`〜`s5`（`APP_PURPOSE_STARTERS` の順）／書き出しを使わなければ `own`（本文は送らない） | `Onboarding.jsx`・`AppPurposeSheets.jsx` |
 | `purpose_check` | 解約（プランを管理）・退会の前の「目的は達成できましたか？」に答えた／閉じた | `where`: `cancel` / `delete`、`result`: `done`（達成できた）/ `ongoing`（まだ途中）/ `closed`（キャンセル） | `AppPurposeSheets.jsx` |
+| `onboard_step` | 初回ガイドの各画面を開いた（2026-10-20・どこで離れるかを見る） | `step`: 1〜3、`id`: 画面の名前（入れた理由は `purpose`・ほかは `s1` など） | `Onboarding.jsx` |
 | `home_growth_action` | ホームの「あと N 件で相談相手が育ちます」の右の文字ボタンを押した（2026-10-20） | `action`: `consult`（相談してみる）/ `one_line`（一言ずつ残す） | `HomeScreen.jsx` |
 | `tokens_back` | ホームの「今月の相談が戻りました」を押した／閉じた（2026-10-20） | `action`: `open` / `dismiss` | `HomeScreen.jsx` |
 | `consult_find_books` | 行動に追加した相談の下の「この悩みに合う本を AI 選書で探す」を押した（2026-10-20） | なし | `MyBookBrain.jsx` |

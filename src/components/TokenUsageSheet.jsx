@@ -18,7 +18,7 @@ import { withPhraseBreaks } from './TightBubble';
 import { useAuth } from '../hooks/useAuth';
 import { usePaywall } from '../state/PaywallContext';
 import { periodKeyFor, remainingAnswersLabel, monthDayLabelJa, FREE_TOKENS, PAID_TOKENS } from '../lib/tokens';
-import { usageBreakdown, isLowTokens, remainingRatio, usageSheetAction, fetchUsageDetail, fetchTokenLots } from '../lib/tokenUsage';
+import { usageBreakdown, isLowTokens, remainingRatio, usageSheetAction, fetchUsageDetail, fetchTokenLots, fetchPeriodValue, periodValueSince } from '../lib/tokenUsage';
 import { nextResetLabelJa } from '../lib/freeTrial';
 import { normalizeTrialLabel } from '../lib/trialNudge';
 import { getIntroOffer } from '../lib/iap';
@@ -96,6 +96,13 @@ export default function TokenUsageSheet({ onClose, onAdd, onPlans, from = 'consu
     fetchUsageDetail(user?.id, periodKey).then((d) => { if (alive) setDetail(d); });
     return () => { alive = false; };
   }, [user?.id, periodKey, usageTry]);
+  // 🌿 この期間に相談から得たもの（相談 N 件・完了した行動 N 件）。読めない・どちらも 0 なら出さない。
+  const [value, setValue] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    fetchPeriodValue(user?.id, periodValueSince({ trial: plan === 'trial', trialEndsAt })).then((v) => { if (alive) setValue(v); });
+    return () => { alive = false; };
+  }, [user?.id, plan, trialEndsAt]);
   useEffect(() => { track('token_usage', { action: 'open', from, plan: plan || 'unknown' }); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const usedUp = tokensRemaining != null && tokensRemaining <= 0;
@@ -232,6 +239,23 @@ export default function TokenUsageSheet({ onClose, onAdd, onPlans, from = 'consu
             description="通信状況を確認して、もう一度お試しください。"
             actions={[{ label: 'もう一度', onClick: () => setLotsTry((n) => n + 1) }]}
           />
+        </section>
+      )}
+
+      {/* 🌿 この期間に相談から得たもの（数だけ・2026-10-20） */}
+      {value && (value.consults > 0 || value.done > 0) && (
+        <section aria-label={`${periodName}の相談`} style={sectionGap}>
+          <h3 style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>{periodName}の相談</h3>
+          <div style={row}>
+            <span style={rowLabel}>送った相談</span>
+            <span style={rowValue}>{fmt(value.consults)} 件</span>
+          </div>
+          {value.done != null && value.done > 0 && (
+            <div style={row}>
+              <span style={rowLabel}>完了した行動</span>
+              <span style={rowValue}>{fmt(value.done)} 件</span>
+            </div>
+          )}
         </section>
       )}
 

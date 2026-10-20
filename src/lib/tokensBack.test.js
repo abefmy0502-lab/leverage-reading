@@ -42,6 +42,6 @@ describe('今月の相談が戻りました', () => {
 
   it('文は答えの回数で', () => {
     const t = tokensBackText(30);
-    expect(t.lead + t.count).toBe('今月の相談が戻りました（AI の答え 約 3 回）');
+    expect(t.lead + t.count).toBe('今月の相談が戻りました。AI の答え 約 3 回');
   });
 });

@@ -53,7 +53,12 @@ export function AppPurposeEditSheet({ purpose, onClose }) {
   );
 }
 
-export const CANCEL_REASSURE = `プランをやめても、無料プラン（ずっと無料）で続けられます。メモと行動はそのまま残り、相談も毎月 AI の答え ${answerCountLabel(FREE_TOKENS)}。`;
+const CANCEL_REASSURE_LEAD = 'プランをやめても、';
+const CANCEL_REASSURE_KEEP = '無料プラン（ずっと無料）で';
+const CANCEL_REASSURE_REST = '続けられます。';
+const CANCEL_REASSURE_NEXT = 'メモと行動はそのまま残り、';
+const CANCEL_REASSURE_AMOUNT = `相談も毎月 AI の答え ${answerCountLabel(FREE_TOKENS)}。`;
+export const CANCEL_REASSURE = `${CANCEL_REASSURE_LEAD}${CANCEL_REASSURE_KEEP}${CANCEL_REASSURE_REST}${CANCEL_REASSURE_NEXT}${CANCEL_REASSURE_AMOUNT}`;
 // where: 'cancel'（プランを管理）| 'delete'（退会）。nextText: どちらを押しても進む先（1 行）。
 export function PurposeCheckSheet({ purpose, where, nextText, onContinue, onClose }) {
   const answer = (result) => {
@@ -80,7 +85,12 @@ export function PurposeCheckSheet({ purpose, where, nextText, onContinue, onClos
         </div>
         {/* 解約の前: やめても続けられることを先に（2026-10-20 オーナー「課金している人・していない人それぞれの満足度」・止めない） */}
         {where === 'cancel' && (
-          <p style={{ margin: 0, fontSize: 'var(--text-body)', color: 'var(--text)', lineHeight: 1.6, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(CANCEL_REASSURE)}</p>
+          // 本文より一段下げる（主役は入れた理由・引き止めの文に見せない）。1 文ずつ改行・「無料プラン（ずっと無料）で」は割らない（2026-10-20 ui-critic）。
+          <p style={{ margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.6, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+            {withPhraseBreaks(CANCEL_REASSURE_LEAD)}<span style={{ whiteSpace: 'nowrap' }}>{CANCEL_REASSURE_KEEP}</span>{withPhraseBreaks(CANCEL_REASSURE_REST)}
+            <br />
+            {withPhraseBreaks(CANCEL_REASSURE_NEXT)}<span style={{ whiteSpace: 'nowrap' }}>{CANCEL_REASSURE_AMOUNT}</span>
+          </p>
         )}
         {nextText && (
           <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(nextText)}</p>
