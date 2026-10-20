@@ -337,7 +337,8 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
   const [myBooks, setMyBooks] = useState([]);
   // 🌱 さっきの相談（2026-10-20 オーナー「はじめての人が課金するような動線を徹底的に」）: はじめての相談の答えのあと・
   //   無料のトークンを使い切ったあとに開いたときは、いちばん新しい相談の問いを 1 行で添える（「その続き」を買う画面にする）。
-  const [lastAsk, setLastAsk] = useState('');
+  // null＝読んでいる途中（1 行ぶんの場所を取っておく＝あとから差し込んでプランが跳ねない）・''＝無い。
+  const [lastAsk, setLastAsk] = useState(() => (['free_used', 'first_answer'].includes(reason) && isSupabaseConfigured ? null : ''));
   useEffect(() => {
     if (!['free_used', 'first_answer'].includes(reason) || !user?.id || !isSupabaseConfigured) return undefined;
     let alive = true;
@@ -348,7 +349,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
         const q = (data || []).map((r) => String(r.content || '').replace(/\s+/g, ' ').trim()).find((t) => t.length >= 12 && !/^ここまでの話で|答え直して|考え直して|もっと聞いて/.test(t)) || '';
         // 問いの返事のチップ（「会議の前」など 10 字前後）や続きを頼む決まり文句ではなく、相談そのもの（12 字以上）を出す。
         if (alive) setLastAsk(q);
-      } catch { /* 無くても画面は出す */ }
+      } catch { if (alive) setLastAsk(''); }
     })();
     return () => { alive = false; };
   }, [reason, user?.id]);
@@ -716,8 +717,9 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
               {myBooks.slice(0, 2).map((b) => <span key={b.id} style={{ display: 'inline-block', maxWidth: 'calc(100% + 0.5em)', marginLeft: '-0.5em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', verticalAlign: 'bottom' }}>『{b.title}』</span>)}{myBooks.length > 2 ? 'など' : ''}のメモを根拠に答える、あなただけの相談相手です。
             </p>
             {/* さっきの相談（問いは 1 行・長ければ … ）。「その続き」を、ここで買えると分かるように。 */}
+            {lastAsk === null && <SkeletonBlock width="70%" height="var(--text-sub)" radius="var(--radius)" style={{ display: 'block', marginTop: 'var(--space-2)' }} />}
             {lastAsk && (
-              <p style={{ fontSize: 'var(--text-body)', lineHeight: 1.6, margin: 'var(--space-2) 0 0', color: 'var(--text-2)', wordBreak: 'keep-all', overflowWrap: 'anywhere', textWrap: 'pretty' }}>
+              <p style={{ fontSize: 'var(--text-sub)', lineHeight: 1.5, margin: 'var(--space-2) 0 0', color: 'var(--text-2)', wordBreak: 'keep-all', overflowWrap: 'anywhere', textWrap: 'pretty' }}>
                 {withPhraseBreaks(`「${[...lastAsk].length > 22 ? `${[...lastAsk].slice(0, 21).join('')}…` : lastAsk}」の続きも、話せます。`)}
               </p>
             )}

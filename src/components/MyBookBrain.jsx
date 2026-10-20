@@ -36,7 +36,7 @@ import ContextMenu from './ContextMenu';
 import { usePaywall } from '../state/PaywallContext';
 import { nextResetLabelJa } from '../lib/freeTrial';
 import { TOKEN_COSTS, monthDayLabelJa, remainingAnswersLabel } from '../lib/tokens';
-import { showFreeTokenCount, answerCountLabel, TRIAL_TOKENS } from '../lib/tokenAmounts';
+import { showFreeTokenCount, answerCountLabel, TRIAL_TOKENS, PAID_TOKENS as PLAN_TOKENS } from '../lib/tokenAmounts';
 import { isLowTokens } from '../lib/tokenUsage';
 import TokenUsageSheet from './TokenUsageSheet';
 import { shouldShowTrialNudge, trialNudgeCopy, isTrialNudgeDone, markTrialNudgeDone, normalizeTrialLabel, trialCancelShortLine } from '../lib/trialNudge';
@@ -2070,7 +2070,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     track('first_answer_trial', { action, group: 'show' });
   };
   // はじめての相談の 7 日間無料の 1 行を、最後の答えのすぐ下（文字ボタンの行の前）に出しているか。
-  const firstTrialAtEnd = !!(answerRowShown && firstTrialId && firstTrialId === visibleMessages[visibleMessages.length - 1]?.id);
+  // 無料のトークンを使い切ったら出さない（下の使い切りのカードが 7 日間無料を案内する＝同じ案内を 2 つ並べない）。
+  const firstTrialAtEnd = !!(answerRowShown && !freeUsedUp && firstTrialId && firstTrialId === visibleMessages[visibleMessages.length - 1]?.id);
   const firstTrialCard = (style) => (
     <FirstAnswerTrialCard
       onSeen={onFirstTrialSeen}
@@ -2199,7 +2200,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       ? (trialEndLabel ? `${trialEndLabel}から${largeText ? '再開' : '相談できます'}` : (largeText ? 'トークンはここまで' : '無料期間のトークンは、ここまでです'))
       : `${nextResetLabelJa()}から${largeText ? '再開' : '相談できます'}`)
     // メモが答える相談（AI を使わない）: 送れることと、何から答えるかを 1 行で（390 幅で 1 行に収まる長さ）。
-    : freeUsedUp ? '困りごと（メモから探します）'
+    : freeUsedUp ? 'メモから探します'
     : carry && !carry.used ? 'この相談の続きを書く'
     // メモが 0 件の人は続けても同じ答えなので、最初の画面と同じ新しい相談の例（2026-10-09 ui-critic）。
     : noMemosYet ? '例：上司への報告がうまくいかない'
@@ -2548,7 +2549,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           {/* 無料プランで今月のトークンを使い切ったら、答えの下（まだ話していなければ例の下）で静かに案内
               （読み終えるまで画面を奪わない） */}
           {freeUsedUp && !busy && lastIsAssistant && !isEmpty && (!lastIsMemoAnswer || (!lastMemoFound && lastMemoAnswer?.status !== 'loading')) && (
-            <FreeUsedCard tokenAllowance={tokenNextAllowance ?? tokenAllowance} cta={freeUsedCta} trial={freeUsedOffer || ''} onOpen={() => openPaywall('free_used')} style={{ marginTop: 'var(--space-6)', marginLeft: ANSWER_COLUMN }} />
+            <FreeUsedCard tokenAllowance={tokenNextAllowance ?? tokenAllowance} cta={freeUsedCta} trial={freeUsedOffer || ''} primary={lastActionAdded || lastIsMemoAnswer} afterAnswer={!lastIsMemoAnswer} onOpen={() => openPaywall('free_used')} style={{ marginTop: 'var(--space-6)', marginLeft: ANSWER_COLUMN }} />
           )}
           {/* 🪙➕ プランの人がトークンを使い切ったら「トークンを追加」（答えの欄に案内が出ているのでボタンだけ。
               まだ話していないときの案内カードは、相談例の代わりに一番上に出す＝上の TokensOutCard） */}
@@ -2569,7 +2570,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
 
           {/* 🧪 はじめての相談の答えのすぐ下に 1 回だけ（2026-10-20: 答えと行動のすぐ下＝いちばん良さを感じた場所へ。
               前は「新しい相談をはじめる」の下で、送らないと見えなかった）。 */}
-          {firstTrialAtEnd && firstTrialCard({ marginTop: 'var(--space-4)', marginLeft: ANSWER_COLUMN })}
+          {firstTrialAtEnd && firstTrialCard({ marginTop: 'var(--space-6)', marginLeft: ANSWER_COLUMN })}
           {/* 🔭 見方を変えた答えの下: 進み具合の行と同じ見た目で、次にできること（問いの箱にはしない・2026-10-08 ui-critic） */}
           {answerRowShown && lensNextShown && !lastActionAdded && !noMemosYet && (
             <p style={{ margin: 'var(--space-2) 0 0', marginLeft: ANSWER_COLUMN, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
@@ -2934,7 +2935,9 @@ function FirstAnswerTrialCard({ text, onOpen, onDismiss, onSeen = null, style = 
 // trial（2026-10-20 オーナー「はじめての人が課金するような動線を徹底的に」）: 7 日間無料を使える人には、何ができるか
 //   （AI の答え 約 15 回）を 1 行で添え、ボタンを塗りにする（すすめてよい ①＝無料のトークンを使い切った）。
 //   使えない人（7 日間無料を使った・分からない）は今までどおり文字ボタン「プランを見る」（押し付けない）。
-function FreeUsedCard({ tokenAllowance, onOpen, cta = 'プランを見る', trial = '', style = null }) {
+// primary: 主ボタンを塗りにするか（答えの「行動に追加」がまだ残っている下では枠のボタン＝塗りを 1 画面 1 つに）。
+// afterAnswer: 答えの下に出すとき（「この相談の続きも」と、いまの会話の続きにつなげる）。
+function FreeUsedCard({ tokenAllowance, onOpen, cta = 'プランを見る', trial = '', primary = true, afterAnswer = false, style = null }) {
   return (
     <section aria-label="今月のトークンは、ここまで" style={{ ...cardStyle, ...style }}>
       <p style={{ margin: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5 }}>
@@ -2946,9 +2949,10 @@ function FreeUsedCard({ tokenAllowance, onOpen, cta = 'プランを見る', tria
       {trial ? (
         <>
           <p style={{ margin: 'var(--space-3) 0 0', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-            {withPhraseBreaks(`${trial}なら、`)}<span style={{ whiteSpace: 'nowrap' }}>AI の答え {answerCountLabel(TRIAL_TOKENS)}まで</span>{withPhraseBreaks('使えます。')}
+            {/* 7 日間の量と、そのあと毎月の量を事実だけで並べる（煽らない・2026-10-20 ui-critic） */}
+            {afterAnswer && withPhraseBreaks('この相談の続きも、')}{withPhraseBreaks(`${trial}なら`)} <span style={{ whiteSpace: 'nowrap' }}>AI の答え {answerCountLabel(TRIAL_TOKENS)}、</span><span style={{ whiteSpace: 'nowrap' }}>その後は毎月 {answerCountLabel(PLAN_TOKENS)}。</span>
           </p>
-          <button type="button" onClick={onOpen} style={{ ...uiBtnPrimary, marginTop: 'var(--space-3)' }}>
+          <button type="button" onClick={onOpen} style={{ ...(primary ? uiBtnPrimary : uiBtnGhost), marginTop: 'var(--space-3)' }}>
             {cta}
           </button>
         </>
