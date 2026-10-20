@@ -190,6 +190,7 @@ import { loadNavState, saveNavState } from './lib/navState';
 import { consultCanLeave } from './lib/consultBack';
 import { actionGist, firstConsultQuestion as firstConsultFromMemos } from './lib/consultHelpers';
 import { appPurposeTextFor, purposeConsultQuestion } from './lib/appPurpose';
+import { peekAllMemoRows, loadAllMemoRows } from './hooks/useAllMemoRows';
 import { takeOnboardPathDone, GROWTH_GOAL } from './lib/firstDay';
 import { withPhraseBreaks } from './components/TightBubble';
 import { isLargeText } from './lib/largeText';
@@ -6028,6 +6029,21 @@ function AuthedApp() {
               onOpenActions={() => { setActionShowDoneNonce(null); setReviewSubTab('action'); setView('list'); setTab('review'); }}
               // 🌱 相談相手が育ちました →「相談してみる」（下書きを入れて相談を開く・送らない）
               onConsultDraft={(q, from) => { track('try_consult', { from }); openConsultWith(q); }}
+              // 🌱 育つまでの一行の「一言ずつ残す」（2026-10-20）: メモの無い読了・読書中の本（最大 5 冊）を一言の段から。
+              //   どの本にメモがあるか分からないとき（全部のメモをまだ読んでいない）は、いつもの初日クイックスタート。
+              onAddOneLines={async () => {
+                let rows = user?.id ? peekAllMemoRows(user.id) : null;
+                // まだ読んでいなければ読む（最大 1.5 秒・読めなければいつもの初日クイックスタート）
+                if (!rows && user?.id) {
+                  try { const res = await Promise.race([loadAllMemoRows(user.id), new Promise((r) => { setTimeout(() => r(null), 1500); })]); rows = res && !res.error ? res.rows : null; } catch { rows = null; }
+                }
+                const withMemo = new Set((Array.isArray(rows) ? rows : []).map((r) => r.book_id).filter(Boolean));
+                const bare = Array.isArray(rows)
+                  ? books.filter((b) => (b.status === 'done' || b.status === 'reading') && !withMemo.has(b.id) && !String(b.leverageMemo || '').trim()).slice(0, 5)
+                  : [];
+                setQuickstartSeed(bare.length > 0 ? bare : null);
+                setShowQuickstart(true);
+              }}
               // 🔗 ホームのメモを書くで保存したメモと似たメモ（ほかの本）
               savedMemo={homeSavedMemo}
               onDismissSavedMemo={() => setHomeSavedMemo(null)}

@@ -74,6 +74,11 @@ export function takeOnboardPathDone(path) {
   return true;
 }
 
+// はじめての相談をもう送ったか（この端末で・ホームの育つまでの一行の次の一歩を決める・2026-10-20）。
+export function firstConsultDone() {
+  return read(KEYS.firstConsult) === '1';
+}
+
 // はじめての相談を送ったとき 1 回だけ true（first_consult_sent）。
 export function takeFirstConsult() {
   if (read(KEYS.firstConsult) === '1') return false;

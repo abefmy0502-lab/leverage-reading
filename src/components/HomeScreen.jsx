@@ -19,7 +19,7 @@ import { Library, ChevronRight, PencilLine, Plus, BookOpen, Timer, Target, Sprou
 import HomeFirstStep, { useHomeMemoState } from './HomeFirstStep';
 import GrowthMeter from './GrowthMeter';
 import ShareNudge, { useShareNudge } from './ShareNudge';
-import { takeMemosReached, growthMeterText, rememberHomeMemoCount, lastHomeMemoCount, showGrowthPlaceholder, grownLinePending, markGrownLineDone, GROWTH_GOAL } from '../lib/firstDay';
+import { firstConsultDone, takeMemosReached, growthMeterText, rememberHomeMemoCount, lastHomeMemoCount, showGrowthPlaceholder, grownLinePending, markGrownLineDone, GROWTH_GOAL } from '../lib/firstDay';
 import { useAllActions } from '../hooks/useAllActions';
 import { homeActionsSummary } from '../lib/homeActions';
 import { stripInlineMd } from '../lib/text';
@@ -300,9 +300,14 @@ export default function HomeScreen({
   books = [], loading = false, loadError = null, onRetry,
   onQuickstart, onAddBook, onAddReadingBook, onAdvisor, onImport,
   onOpenBook, onWriteMemo, onStartReading, onOpenLibrary, onSeeAllReading, onCoverRetry, onShareNudge, onRead,
-  onOpenActions, onConsultDraft, savedMemo = null, onDismissSavedMemo, onOpenMemo,
+  onOpenActions, onConsultDraft, savedMemo = null, onDismissSavedMemo, onOpenMemo, onAddOneLines = null,
 }) {
   const { user } = useAuth();
+  // 🌱 育つまでの一行の右の次の一歩（2026-10-20）: はじめての相談の前は「相談してみる」（入れた理由かメモから下書き・送らない）、
+  //   相談したあとは「一言ずつ残す」（メモの無い読んだ本へ・初日クイックスタートの一言の段）。どちらか 1 つだけ。
+  const growthAction = !onConsultDraft ? null : !firstConsultDone()
+    ? { label: '相談してみる', onClick: () => { track('home_growth_action', { action: 'consult' }); onConsultDraft(purposeConsultQuestion(appPurposeTextFor(user)) || firstConsultQuestion({ books, memoCount: memoState.count }), 'growth'); } }
+    : onAddOneLines ? { label: '一言ずつ残す', onClick: () => { track('home_growth_action', { action: 'one_line' }); onAddOneLines(); } } : null;
   // メモがあるか（はじめの一歩を出すか）。分かるまではスケルトン（カードを遅れて差し込まない・最大 800ms）。
   const memoState = useHomeMemoState(books);
   // 月末・12 月の 1 行（数えるのはメモの件数と同じ時点・決まるまでホームは形のまま＝あとから差し込まない）。
@@ -343,7 +348,7 @@ export default function HomeScreen({
             <SkeletonBlock width="56%" height={14} radius="var(--radius-full)" />
           </span>
         )) : books.length > 0 && growthMeterText(memoState.count) ? (
-          <GrowthMeter memoCount={memoState.count} />
+          <GrowthMeter memoCount={memoState.count} action={growthAction} />
         ) : books.length > 0 && showGrown ? (
           <GrownLine
             onConsult={() => { closeGrown('open'); onConsultDraft(purposeConsultQuestion(appPurposeTextFor(user)) || firstConsultQuestion({ books, memoCount: memoState.count }), 'grown'); }}

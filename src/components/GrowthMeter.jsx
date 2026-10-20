@@ -6,10 +6,24 @@
 import { Sprout } from 'lucide-react';
 import { growthMeterText } from '../lib/firstDay';
 import { withPhraseBreaks } from './TightBubble';
+import { btnLink } from '../styles/ui';
 
-export default function GrowthMeter({ memoCount, style }) {
+// action: { label, onClick }（2026-10-20 オーナー「入れたばかり・1 週間の人の満足度を最大化」）— ホームでだけ、
+//   一行の右に次の一歩の文字ボタンを 1 つ（はじめての相談の前は「相談してみる」・そのあとはメモの無い本へ「一言ずつ残す」）。
+//   見た目は「相談相手が育ちました」（GrownLine）と同じ: 1 行に収まれば右、折り返したら文の頭にそろえる。
+export default function GrowthMeter({ memoCount, style, action = null }) {
   const text = growthMeterText(memoCount);
   if (!text) return null;
+  if (action) {
+    return (
+      <div data-growth-meter="" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 'var(--space-2)', ...style }}>
+        <GrowthMeter memoCount={memoCount} style={{ flex: '1 1 10em', minWidth: 0 }} />
+        <span style={{ display: 'flex', alignItems: 'center', paddingLeft: 'calc(var(--text-meta) * 1.2)' }}>
+          <button type="button" onClick={action.onClick} style={{ ...btnLink, fontSize: 'min(var(--text-sub), var(--text-bar-max))', whiteSpace: 'nowrap', marginRight: 'calc(-1 * var(--space-1))' }}>{action.label}</button>
+        </span>
+      </div>
+    );
+  }
   return (
     <p
       data-growth-meter=""
