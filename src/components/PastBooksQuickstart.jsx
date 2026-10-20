@@ -23,6 +23,7 @@ import { remainingAnswersLabel } from '../lib/tokens';
 import { showFreeTokenCount } from '../lib/tokenAmounts';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
+import { appPurposeTextFor, purposeConsultQuestion } from '../lib/appPurpose';
 import { useToast } from './Toast';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { useBlockEdgeSwipe } from '../hooks/useEdgeSwipeBack';
@@ -216,7 +217,9 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
   const [idx, setIdx] = useState(0);
   const [summary, setSummary] = useState({ books: [], memos: 0, totalMemos: 0, totalBooks: 0, memoBookIds: [] });
   // できあがりの画面の「いま困っていること」（そのまま相談へ送る）
-  const [askText, setAskText] = useState('');
+  // 🌱 入れた理由があれば、はじめから入力欄に（押すだけで、自分の目的への答えが返る・2026-10-20）。
+  const purposeAsk = purposeConsultQuestion(appPurposeTextFor(user));
+  const [askText, setAskText] = useState(purposeAsk);
   // 「たとえば」から入れた相談（そのまま送ったかを計測するだけ）
   const [askedExample, setAskedExample] = useState('');
   const askRef = useRef(null);
@@ -723,7 +726,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
               // 最初の相談は、本からの例ではなく「いま困っていること」をそのまま（相談は困りごとから始まる）。
               <section aria-labelledby="qs-ask" style={{ marginTop: 'var(--space-8)' }}>
                 <h2 id="qs-ask" style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, margin: '0 0 var(--space-3)', ...phraseWrap }}>
-                  {withPhraseBreaks('いま困っていること')}
+                  {withPhraseBreaks(purposeAsk ? '相談したいこと' : 'いま困っていること')}
                 </h2>
                 {freeMode && freeRemaining > 0 && (
                   // 相談の上部の行と同じ形（2026-10-04 ui-critic）: 1 行目「今月の残り N トークン」・2 行目「AI の答え 約 N 回」
@@ -739,7 +742,8 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
                   ref={askRef}
                   value={askText}
                   onChange={(e) => setAskText(e.target.value)}
-                  rows={2}
+                  // 入れた理由の下書きは 3 行になるので、長い文のときは 3 行ぶん（欄の中で切れて見えないように）
+                  rows={askText.length > 36 ? 3 : 2}
                   maxLength={LIMITS.aiQuestion}
                   // 空のときは押せない理由が分かるように（「相談する」は書いてから押せる・2026-10-09）。
                   placeholder="例：上司への報告がうまくいかない"
@@ -765,7 +769,8 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
                   {/* いま一言を書いた本から作った相談を先に、次にその本の困りごと（AI を使わない・2026-10-02 lib/firstDay.js）。
                       押すと入力欄に入る（すぐには送らない＝「相談する」を押したときだけ送る）。 */}
-                  {firstConsultSuggestions({ books: summary.books, memoBookIds: new Set(summary.memoBookIds), memoCount: summary.totalMemos, count: 2 }).map((q) => (
+                  {/* 🌱 入れた理由の相談は、入力欄に入っていなければ先頭に（2026-10-20） */}
+                  {[purposeAsk, ...firstConsultSuggestions({ books: summary.books, memoBookIds: new Set(summary.memoBookIds), memoCount: summary.totalMemos, count: 2 })].filter((q) => q && q !== askText).slice(0, 2).map((q) => (
                     <button key={q} type="button" style={askChip}
                       onClick={() => { setAskText(q); setAskedExample(q); askRef.current?.focus(); }}>
                       {withPhraseBreaks(q)}

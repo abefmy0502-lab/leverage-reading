@@ -45,6 +45,7 @@ import { firstAnswerTrialGroup, isFirstAnswerTrialMoment, canOfferFirstAnswerTri
 import { shouldAskForReview, markReviewAsked, askForReview } from '../lib/reviewRequest';
 import { isNotifyOptInDone, canOfferNotify, notifyPromptedWithin } from '../lib/notifyOptIn';
 import { growthMeterText, firstAnswerEvidence, takeFirstConsult, takeMemosReached, getOnboardPath } from '../lib/firstDay';
+import { earlyShelfUsedCount, isEarlyStage, prefetchEarlyShelf } from '../lib/earlyShelf';
 import { composerChrome, answerEndScrollTop, isTouchUi } from '../lib/composerView';
 import { useComposerHeight } from '../hooks/useComposerHeight';
 import { NATIVE_KEYBOARD_EVENT } from '../lib/native';
@@ -1408,7 +1409,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     // 🗣 著者の語り口で答えるか（書き始める前に分かる・onStage の voice）。
     let liveVoice = null;
     try {
-      const { body, refs, grounded, memoCount, evidence, quoteRefs, tokenRefund, mode: usedMode, perbookBooks, completedActions, voice: usedVoice, decide: usedDecide } = await streamMyBookBrain({
+      const { body, refs, grounded, memoCount, evidence, quoteRefs, tokenRefund, mode: usedMode, perbookBooks, completedActions, voice: usedVoice, decide: usedDecide, earlyShelfTitles } = await streamMyBookBrain({
         userId: user.id,
         question: q,
         bookIds: askBookIds,
@@ -1466,7 +1467,12 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       const grown = wasAborted ? 0 : await growthPromise;
       // 🌱 はじめての相談の答えには、必ず「あなたのメモ N 件から答えました」（2026-10-02・lib/firstDay.js）。
       //   AI の参照から数えられなかったときも、はじめての相談だけは答えに使ったメモの数で出す（関係するメモが無かった答えは除く）。
-      const evidenceLine = firstAnswerEvidence({ evidence, memoCount, isFirst: !prevAskAt && !opts.skipUserInsert, refunded: !!tokenRefund, grounded });
+      const firstLine = firstAnswerEvidence({ evidence, memoCount, isFirst: !prevAskAt && !opts.skipUserInsert, refunded: !!tokenRefund, grounded });
+      // 🌱 育つ前の相談（2026-10-20・lib/earlyShelf.js）: 読んだ本の紹介・目次も補足に使った答えは、それを一行で言う（メモと混ぜて見せない）。
+      const shelfUsed = wasAborted ? 0 : earlyShelfUsedCount(finalBody, earlyShelfTitles);
+      const evidenceLine = shelfUsed > 0
+        ? (firstLine ? firstLine.replace(/から答えました$/, `と、読んだ本の紹介 ${shelfUsed} 冊から答えました`) : `メモがまだ少ないので、読んだ本の紹介 ${shelfUsed} 冊も補足に使いました`)
+        : firstLine;
       // 🧵 同じ会話の目印（はじめの相談の id・相談相手）。過去の相談の一覧で 1 つの相談にまとめる（止めた答えにも付ける・2026-10-08）。
       const threadMark = encodeThreadRef(threadRootAtSend || savedUserId, askBookIds);
       const persistRefs = wasAborted ? (threadMark ? [threadMark] : []) : [
@@ -1913,6 +1919,12 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // （GLOSSARY）なので、読書メーター等の感想を「この本のまとめ」に取り込んだだけの人も相談できる（2026-09-29 オーナー裁定）。
   // 読書計画だけの人は「読んだ本に一言ずつ残す」へ（相談例の「最近のメモから…」が空振りしないように）。
   const ownMemoTotal = memoStats.cards + memoStats.personal + (memoStats.summaryBooks || 0);
+  // 🌱 育つ前（メモ 10 件未満）は、読んだ本の紹介・目次を先に取っておく（送ったときに待たせない・lib/earlyShelf.js）。
+  useEffect(() => {
+    if (!memoStatsLoaded || !isEarlyStage(ownMemoTotal)) return;
+    prefetchEarlyShelf(books, {}, ownMemoTotal, { timeoutMs: 15000 }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [memoStatsLoaded, ownMemoTotal, books.length]);
   ownMemoTotalRef.current = memoStatsLoaded ? ownMemoTotal : -1;
   // 📊 memos_reached_10（lib/firstDay.js）: 10 件より少ないのを見たあとで 10 件以上になったら 1 回だけ（ホームと同じ印）。
   useEffect(() => {

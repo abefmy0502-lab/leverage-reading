@@ -25,6 +25,8 @@ import { homeActionsSummary } from '../lib/homeActions';
 import { stripInlineMd } from '../lib/text';
 import { appNow } from '../lib/appNow';
 import { firstConsultQuestion } from '../lib/consultHelpers';
+import { appPurposeTextFor, purposeConsultQuestion } from '../lib/appPurpose';
+import { useAuth } from '../hooks/useAuth';
 import MemoLinks from './MemoLinks';
 import { useMemoLinkFinder } from '../hooks/useMemoLinkFinder';
 import { track } from '../lib/analytics';
@@ -300,6 +302,7 @@ export default function HomeScreen({
   onOpenBook, onWriteMemo, onStartReading, onOpenLibrary, onSeeAllReading, onCoverRetry, onShareNudge, onRead,
   onOpenActions, onConsultDraft, savedMemo = null, onDismissSavedMemo, onOpenMemo,
 }) {
+  const { user } = useAuth();
   // メモがあるか（はじめの一歩を出すか）。分かるまではスケルトン（カードを遅れて差し込まない・最大 800ms）。
   const memoState = useHomeMemoState(books);
   // 月末・12 月の 1 行（数えるのはメモの件数と同じ時点・決まるまでホームは形のまま＝あとから差し込まない）。
@@ -343,7 +346,7 @@ export default function HomeScreen({
           <GrowthMeter memoCount={memoState.count} />
         ) : books.length > 0 && showGrown ? (
           <GrownLine
-            onConsult={() => { closeGrown('open'); onConsultDraft(firstConsultQuestion({ books, memoCount: memoState.count }), 'grown'); }}
+            onConsult={() => { closeGrown('open'); onConsultDraft(purposeConsultQuestion(appPurposeTextFor(user)) || firstConsultQuestion({ books, memoCount: memoState.count }), 'grown'); }}
             onDismiss={() => closeGrown('dismiss')}
           />
         ) : null}

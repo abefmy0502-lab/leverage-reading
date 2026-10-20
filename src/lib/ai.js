@@ -17,6 +17,7 @@ import { askJev, jevClientOn } from './jev';
 import { bookInfoForPrompt } from './bookInfo';
 import { hasBriefMaterial, finalizeBrief, BRIEF_MAX_TOKENS, BRIEF_NO_MATERIAL_TEXT } from './bookBrief';
 import { unreadBooksBlock } from './unreadBooks';
+import { earlyShelfBlock, prefetchEarlyShelf, isEarlyStage } from './earlyShelf';
 import { decodeThreadRef } from './consultThreads';
 import { relevanceCandidates, relevanceInput, relatedFromScores, JEV_LEXICAL_CANDIDATES } from './consultRelevance';
 
@@ -470,6 +471,11 @@ ${CONSULT_SECURITY_RULES}
    - ★4〜5 の本の考えは、この人が積極的に取り入れたいもの。関係するメモがあれば根拠として優先する。
    - ★1〜2 の本は参考程度。それを主な根拠にしない（ほかに関係するメモが無いときだけ、控えめに添える）。評価の無い本と ★3 はふつうに扱う。
    - ★や評価を答えの中で数字として言わない（「★5 の本」「評価の高い」と書かない）。根拠の選び方に使うだけ。
+13. 読んだ本の公開の書誌（2026-10-20・EARLY_SHELF があるとき＝メモがまだ少ない人）— ユーザーが読んだ本・読んでいる本の紹介と目次。ユーザーのメモではない。
+   - 根拠の中心はいつもユーザーのメモ。メモに関係する一節があれば、まずそれで答える。書誌は、メモだけでは答えが薄いときの補足。
+   - 使うときは「『書名』の紹介によると」「『書名』の目次にある『〈見出し〉』」と書き分ける。【参照した本のメモ】にも REFS にも挙げない。
+   - その本の中身を読んだように語らない（「この本では〜と書かれています」「著者は〜と言っています」と書かない）。紹介・目次に無いことは言わない。
+   - 補足に使った本があれば、答えの最後（【あなたに聞きたいこと】の前）に 1 文だけ「『書名』で心に残った一行をメモに残すと、次はあなたの言葉から答えられます」と添えてよい（毎回は書かない・1 冊だけ）。
 
 【長さ】
 REFS を除いて 450 字前後に収める（スマホで一度に読める長さ・行動を決める回は 550 字前後まで）。【結論】は 1〜2 文、
@@ -1797,8 +1803,26 @@ async function buildBrainContext({ userId, question, onStage, bookIds, mode = 'f
   if (!scoped && Array.isArray(unreadBooks) && unreadBooks.length > 0) {
     try { unreadBlockText = unreadBooksBlock(unreadBooks); } catch { unreadBlockText = ''; }
   }
+  // 🌱 育つ前の相談（2026-10-20・lib/earlyShelf.js）: メモがまだ 10 件未満の人には、読んだ本の公開の書誌を補足で足す。
+  //   すべての本に相談するときだけ・芯の後ろ。書誌の控えが無ければ取りに行く（最大 2.5 秒）。
+  let earlyShelf = { text: '', titles: [] };
+  const memoTotal = (counts?.cardCount || 0) + (counts?.personalCount || 0) + all.filter((m) => m.source_type === 'summary').length;
+  if (!scoped && Array.isArray(unreadBooks) && unreadBooks.length > 0 && isEarlyStage(memoTotal)) {
+    const perBook = {};
+    for (const m of allKnowledge) {
+      if (m.source_type !== 'personal' && (m.source_type === 'summary' || !SYNTH_LABEL[m.source_type])) {
+        const id = m.book_id || m.book?.id;
+        if (id) perBook[id] = (perBook[id] || 0) + 1;
+      }
+    }
+    try {
+      await prefetchEarlyShelf(unreadBooks, perBook, memoTotal);
+      earlyShelf = earlyShelfBlock(unreadBooks, perBook, memoTotal);
+    } catch { earlyShelf = { text: '', titles: [] }; }
+  }
+  const earlyBlockText = earlyShelf.text;
   // 後方互換: 文字列版も残す（構造化 content を使わない経路のため）。
-  const userPrompt = memoBlockText + relatedBlockText + (growthBlock ? `\n${growthBlock}` : '') + unreadBlockText + questionBlockText;
+  const userPrompt = memoBlockText + relatedBlockText + (growthBlock ? `\n${growthBlock}` : '') + unreadBlockText + earlyBlockText + questionBlockText;
   // 構造化 content（メモ=キャッシュ対象 / 質問=毎回変わる）。
   const userBlocks = [
     // 💴 キャッシュの印（5 分）: 指示文＋メモ一覧（芯）までをキャッシュする。深掘りの続き（2026-09-30〜・チップで返事・
@@ -1809,6 +1833,7 @@ async function buildBrainContext({ userId, question, onStage, bookIds, mode = 'f
     ...(relatedBlockText ? [{ type: 'text', text: relatedBlockText }] : []),
     ...(growthBlock ? [{ type: 'text', text: growthBlock }] : []),
     ...(unreadBlockText ? [{ type: 'text', text: unreadBlockText }] : []),
+    ...(earlyBlockText ? [{ type: 'text', text: earlyBlockText }] : []),
     { type: 'text', text: questionBlockText },
   ];
 
@@ -1826,6 +1851,7 @@ async function buildBrainContext({ userId, question, onStage, bookIds, mode = 'f
   }));
   return {
     empty: false, userPrompt, userBlocks, stats, sources, perbookBooks,
+    earlyShelfTitles: earlyShelf.titles,
     voice: persona ? { title: persona.title, author: persona.author } : null,
     decide: hint.decide,
     // 行動を決めない回（最初の答え・続きの返事）は答えが短いので上限も小さく（予約する原価も小さい）
@@ -2119,7 +2145,7 @@ export async function streamMyBookBrain({ userId, question, onStage, onChunk, si
   try { refs = groundRefs(parsed.refs, ctx.sources); } catch { refs = parsed.refs; }
   // grounded: 根拠を 1 件でも渡したメモで確かめられたか（無ければ、はじめての相談でも「メモ N 件から答えました」を付けない）
   const grounded = hasGroundedEvidence(refs, verified);
-  return { body, refs, grounded, ...ctx.stats, truncated, evidence: evidenceFromRefs(refs, ctx.sources, Date.now(), verified), quoteRefs, tokenRefund, mode: ctx.mode || 'fused', perbookBooks: ctx.perbookBooks, voice: ctx.voice || null, decide: !!ctx.decide };
+  return { body, refs, grounded, ...ctx.stats, truncated, evidence: evidenceFromRefs(refs, ctx.sources, Date.now(), verified), quoteRefs, tokenRefund, mode: ctx.mode || 'fused', perbookBooks: ctx.perbookBooks, voice: ctx.voice || null, decide: !!ctx.decide, earlyShelfTitles: ctx.earlyShelfTitles || [] };
 }
 
 // ============================================================================

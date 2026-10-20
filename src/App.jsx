@@ -188,7 +188,8 @@ import BookStoreLinks from './components/BookStoreLinks';
 import { getRakutenLink } from './lib/rakutenLink';
 import { loadNavState, saveNavState } from './lib/navState';
 import { consultCanLeave } from './lib/consultBack';
-import { actionGist, firstConsultQuestion } from './lib/consultHelpers';
+import { actionGist, firstConsultQuestion as firstConsultFromMemos } from './lib/consultHelpers';
+import { appPurposeTextFor, purposeConsultQuestion } from './lib/appPurpose';
 import { takeOnboardPathDone, GROWTH_GOAL } from './lib/firstDay';
 import { withPhraseBreaks } from './components/TightBubble';
 import { isLargeText } from './lib/largeText';
@@ -611,6 +612,8 @@ const OPEN_SETTINGS_EVENT = 'orime:open-settings';
 
 function AuthedApp() {
   const { signOut, user } = useAuth();
+  // 🌱 はじめの相談の下書き（2026-10-20）: 入れた理由があればそれを相談に（lib/appPurpose.js）・無ければメモから作る。
+  const firstConsultQuestion = (args) => purposeConsultQuestion(appPurposeTextFor(user)) || firstConsultFromMemos(args);
   const appCache = useAppDataCache();
   // 📷 写真で共有の「今月」「今年」のメモの控えは、メモが動いたら捨てる（次に開いたときに読み直す・2026-10-08）。
   useEffect(() => appCache?.subscribeAnyMemo?.(clearShareMemoCaches), [appCache]);

@@ -126,5 +126,24 @@ export async function saveAppPurpose(text, now = new Date()) {
   return { record, synced };
 }
 
+// その場で（同期で）分かる理由の文（この起動中に書いた ＞ アカウント ＞ 端末）。分からなければ ''。
+export function appPurposeTextFor(user) {
+  if (!user?.id) return '';
+  const r = resolveAppPurpose({
+    override: override && override.userId === user.id ? override.record : undefined,
+    metadata: user.user_metadata,
+    local: readLocal(user.id),
+  });
+  return r?.text || '';
+}
+
+// 🌱 はじめの相談の下書き（2026-10-20 オーナー「入れた段階から凄さを感じるように」）: 入れた理由があれば、それを相談にする。
+//   本人が書いた目的なので「自分ごとの答え」がはじめから返る。送るのは本人（下書きを入力欄に入れるだけ）。
+export function purposeConsultQuestion(text) {
+  const t = cleanPurposeText(text).replace(/[。．.!！]+$/, '');
+  if (!t) return '';
+  return `「${t}」と思っています。読んだ本から、いま何から始めるといい？`;
+}
+
 // テスト用
 export function __resetAppPurposeForTest() { override = null; }
