@@ -1198,7 +1198,7 @@ export function threadBlock(turns) {
 //   🏁 ゴールが見える相談（2026-10-08）: asked＝これまでの聞き返しの回数（consultHelpers の countAsks）。
 //   ASK_LIMIT（2）回聞いたら、次の答えは聞き返さずに結論＋行動 1 つ（「もっと聞いて」と頼まれたときだけ続けて聞く）。
 //   🔭 見方を変える 3 つ（2026-10-08・lensOf）: usedTitles＝直前の答えが根拠にした本（ほかの本の視点では使わない）。
-export function turnHint({ followUp = false, question = '', asked = 0, usedTitles = [] } = {}) {
+export function turnHint({ followUp = false, question = '', asked = 0, usedTitles = [], lastAnswer = false } = {}) {
   if (isBookLookup(question)) {
     return {
       decide: false,
@@ -1225,8 +1225,17 @@ export function turnHint({ followUp = false, question = '', asked = 0, usedTitle
         '（【あなたに聞きたいこと】も【明日からできる 1 つの行動】も書かず、【あなたの状況に合わせた解釈】で締める）こと）\n',
     };
   }
-  if (shouldDecide({ followUp, question, asked })) {
+  if (shouldDecide({ followUp, question, asked, lastAnswer })) {
     const asked2 = !wantsAction(question);
+    // 残りが答え 1 回ぶん（lastAnswer）のときは、聞き返しの回数に関係なく、ここで答えと行動をまとめる（トークンのことは書かせない）。
+    if (lastAnswer && asked2 && asked < ASK_LIMIT) {
+      return {
+        decide: true,
+        text: '\n===== ACTION_REQUEST =====\n（今回は聞き返さず【あなたに聞きたいこと】を書かない。' +
+          (followUp ? '会話でユーザーが話した状況を使って' : '相談の内容とメモから') +
+          '【結論】で答えをまとめ、最後に【明日からできる 1 つの行動】を 1 つ書くこと。状況が分からないところは、よくある場面を一言で仮定してよい）\n',
+      };
+    }
     return {
       decide: true,
       text: '\n===== ACTION_REQUEST =====\n' + (asked2
@@ -1629,7 +1638,7 @@ export function voiceBlock(persona) {
 // and streaming (streamMyBookBrain) entry points. Pulled out so both paths
 // stay byte-for-byte equivalent on the data-gathering side — only the
 // transport (one-shot vs SSE) differs.
-async function buildBrainContext({ userId, question, onStage, bookIds, mode = 'fused', prior = null, thread = null, unreadBooks = null }) {
+async function buildBrainContext({ userId, question, onStage, bookIds, mode = 'fused', prior = null, thread = null, unreadBooks = null, lastAnswer = false }) {
   if (!isSupabaseConfigured || !userId) {
     throw new Error('Supabase が設定されていません。');
   }
@@ -1651,7 +1660,7 @@ async function buildBrainContext({ userId, question, onStage, bookIds, mode = 'f
   const asked = countAsks([...(priorPart ? [prior] : []), ...threadTurns]);
   //   🔭 ほかの本の視点で（2026-10-08）: 直前の答えが根拠にした本は使わない。
   const lastTurn = threadTurns[threadTurns.length - 1] || (priorPart ? prior : null);
-  const hint = turnHint({ followUp: !!priorPart || threadTurns.length > 0, question: safeQuestion, asked, usedTitles: lastTurn ? citedTitlesOf(lastTurn.answer || '') : [] });
+  const hint = turnHint({ followUp: !!priorPart || threadTurns.length > 0, question: safeQuestion, asked, usedTitles: lastTurn ? citedTitlesOf(lastTurn.answer || '') : [], lastAnswer });
   // 質問に近いメモ・本を選ぶ言葉（短い深掘りでも、直前の相談の話題で選べるように）。
   const searchText = retrievalQuery(safeQuestion, [...(priorPart ? [prior] : []), ...threadTurns]);
 
@@ -2087,8 +2096,8 @@ export async function opsAdvise({ messages = [], stateLine = '' } = {}) {
 // thread: [{ question, answer }]（古い順）いま見えている会話のこれまでのやりとり＝深掘りの続き（2026-09-30・無ければ null）。
 // 返り値の quoteRefs は、答えの引用を渡したメモと突き合わせた結果（refs に足して残す・evidenceCheck.js）。
 // unreadBooks: まだ読んでいない本（積読・読みたいを含む本棚の本・すべての本に相談するときだけ使う・2026-10-11）。
-export async function streamMyBookBrain({ userId, question, onStage, onChunk, signal, bookIds, mode = 'fused', prior = null, thread = null, unreadBooks = null }) {
-  const ctx = await buildBrainContext({ userId, question, onStage, bookIds, mode, prior, thread, unreadBooks });
+export async function streamMyBookBrain({ userId, question, onStage, onChunk, signal, bookIds, mode = 'fused', prior = null, thread = null, unreadBooks = null, lastAnswer = false }) {
+  const ctx = await buildBrainContext({ userId, question, onStage, bookIds, mode, prior, thread, unreadBooks, lastAnswer });
   if (ctx.empty) {
     onStage?.(null);
     return ctx.payload;

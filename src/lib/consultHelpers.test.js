@@ -375,3 +375,20 @@ describe('countBooksWithMemos', () => {
     expect(countBooksWithMemos(books, [])).toBe(1);
   });
 });
+
+import { isLastAnswer as _isLastAnswer, shouldDecide as _shouldDecide } from './consultHelpers';
+describe('残りが答え 1 回ぶんのときは聞き返さない（2026-10-20）', () => {
+  it('無料プラン・7 日間無料で、残り 20 トークン未満のときだけ', () => {
+    expect(_isLastAnswer({ freeMode: true, tokensRemaining: 10 })).toBe(true);
+    expect(_isLastAnswer({ freeMode: true, tokensRemaining: 20 })).toBe(false);
+    expect(_isLastAnswer({ freeMode: true, tokensRemaining: 0 })).toBe(false);
+    expect(_isLastAnswer({ plan: 'trial', tokensRemaining: 5 })).toBe(true);
+    expect(_isLastAnswer({ plan: 'paid', tokensRemaining: 5 })).toBe(false);
+    expect(_isLastAnswer({ freeMode: true, tokensRemaining: 5, purchasedTokens: 300 })).toBe(false);
+  });
+  it('はじめの答えでも行動まで・本を探す問いと見方を変える頼みは別', () => {
+    expect(_shouldDecide({ followUp: false, question: '部下が報告をくれない', lastAnswer: true })).toBe(true);
+    expect(_shouldDecide({ followUp: false, question: '部下が報告をくれない' })).toBe(false);
+    expect(_shouldDecide({ followUp: true, question: 'ほかの本の視点で、同じ悩みに答え直して', lastAnswer: true })).toBe(false);
+  });
+});

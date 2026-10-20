@@ -36,7 +36,7 @@ import ContextMenu from './ContextMenu';
 import { usePaywall } from '../state/PaywallContext';
 import { nextResetLabelJa } from '../lib/freeTrial';
 import { TOKEN_COSTS, monthDayLabelJa, remainingAnswersLabel } from '../lib/tokens';
-import { showFreeTokenCount } from '../lib/tokenAmounts';
+import { showFreeTokenCount, answerCountLabel, TRIAL_TOKENS } from '../lib/tokenAmounts';
 import { isLowTokens } from '../lib/tokenUsage';
 import TokenUsageSheet from './TokenUsageSheet';
 import { shouldShowTrialNudge, trialNudgeCopy, isTrialNudgeDone, markTrialNudgeDone, normalizeTrialLabel, trialCancelShortLine } from '../lib/trialNudge';
@@ -50,7 +50,7 @@ import { composerChrome, answerEndScrollTop, isTouchUi } from '../lib/composerVi
 import { useComposerHeight } from '../hooks/useComposerHeight';
 import { NATIVE_KEYBOARD_EVENT } from '../lib/native';
 import { encodeThreadRef, isThreadRef, threadRootOf, groupConsults, threadScopeOf, threadTitleOf, lastConsultThread } from '../lib/consultThreads';
-import { buildConsultExamples, standaloneAction, shortTitle, hasSummaryMemo, countSummaryMemos, fmtTokens, consultsLeft, memoSearchQuery, answerStepToAction, stripScenePrefix, selectThreadTurns, isCompletedAnswer, parseAskSection, nextStepChips, wantsAction, isBookLookup, lookupTerm, shouldDecide, countAsks, askProgressText, answerAsks, lensOf, usedLenses, isWorkConsult, LENS_NEXT_LINE } from '../lib/consultHelpers';
+import { buildConsultExamples, standaloneAction, shortTitle, hasSummaryMemo, countSummaryMemos, fmtTokens, consultsLeft, memoSearchQuery, answerStepToAction, stripScenePrefix, selectThreadTurns, isCompletedAnswer, parseAskSection, nextStepChips, wantsAction, isBookLookup, lookupTerm, shouldDecide, isLastAnswer, countAsks, askProgressText, answerAsks, lensOf, usedLenses, isWorkConsult, LENS_NEXT_LINE } from '../lib/consultHelpers';
 import LibrarySearchHit from './LibrarySearchHit';
 import { buildSnippet, compileTerms, splitQuery } from '../lib/librarySearch';
 import { tomorrowLocal } from '../lib/dates';
@@ -1302,7 +1302,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     //   🏁 聞き返しは最大 2 回（2026-10-08）: 2 回答えたら、聞き返さずに結論＋行動（shouldDecide＝ai.js の turnHint と同じ判断）。
     // 🧵 この会話のはじめの相談（答えに目印を残す＝過去の相談で 1 つの相談にまとめる・続きを相談した会話は元の会話のはじめ）。
     const threadRootAtSend = threadRootOf(visibleMessages, null);
-    const expectAction = shouldDecide({ followUp: askThread.length > 0 || !!askPrior, question: q, asked: countAsks([...(askPrior ? [askPrior] : []), ...askThread]) });
+    // 🏁 残りが AI の答え 1 回ぶんだけ（無料プラン・7 日間無料）なら、聞き返さずに答えと行動まで（lib/consultHelpers.js の shouldDecide）。
+    const lastAnswer = isLastAnswer({ freeMode, plan, tokensRemaining, purchasedTokens });
+    const expectAction = shouldDecide({ followUp: askThread.length > 0 || !!askPrior, question: q, asked: countAsks([...(askPrior ? [askPrior] : []), ...askThread]), lastAnswer });
     // この相談より前の、いちばん新しい相談の時刻（「前の相談から メモ +N 件」に使う）。
     const before = opts.questionAt || '9999';
     let prevAskAt = null;
@@ -1416,6 +1418,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         mode: askMode,
         // 📕 積読から答える（2026-10-11）: すべての本に相談するときだけ、まだ読んでいない本の書誌も渡す（lib/unreadBooks.js）。
         unreadBooks: Array.isArray(askBookIds) && askBookIds.length > 0 ? null : books,
+        lastAnswer,
         prior: askPrior ? { question: askPrior.question, answer: askPrior.answer, at: askPrior.at } : null,
         thread: askThread.length > 0 ? askThread : null,
         signal: controller.signal,
@@ -1899,7 +1902,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // 🏁 いまどこにいるか（2026-10-08）: 最後の答えが聞き返しなら、その下に「あと 1 つ聞いたら…」「次で…」の 1 行。
   //   見方を変えた答え（🔭 lensOf）の「続けますか？」は聞き返しではないので出さない。
   const askProgress = answerDone && !noMemosYet && !lastLookup && !lensOf(lastAsked) && answerAsks(lastVisible.content)
-    ? askProgressText(countAsks(selectThreadTurns(visibleMessages, { max: 3, carry })))
+    // 残りが答え 1 回ぶんなら、次は聞き返さずにまとめる（shouldDecide の lastAnswer と同じ判断）。
+    ? (isLastAnswer({ freeMode, plan, tokensRemaining, purchasedTokens }) ? '次で答えと行動をまとめます' : askProgressText(countAsks(selectThreadTurns(visibleMessages, { max: 3, carry }))))
     : '';
   // 「別の角度で答えて」は見方を変える 3 つのチップ（🔭 lensChips）に置き換えた（2026-10-08）。止めた・途中までの答えの「もう一度答えて」だけ残す。
   const regenLabel = !chipRowBase || isBookLookup(lastAsked) || !stoppedAnswer ? '' : 'もう一度答えて';
@@ -1997,12 +2001,13 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     if (isDemo) {
       const sp = new URLSearchParams(window.location.search);
       const t = sp.get('trial');
-      setFreeUsedOffer(t === 'off' || ['on', 'store'].includes(sp.get('founding')) ? '' : normalizeTrialLabel(t || '7日間無料'));
+      setFreeUsedOffer(t === 'off' ? '' : normalizeTrialLabel(t || '7日間無料'));
       return undefined;
     }
     let alive = true;
     getIntroOffer(user?.id)
-      .then((r) => { if (alive) setFreeUsedOffer(r.status === 'eligible' && r.plan !== 'monthly' ? normalizeTrialLabel(r.label) : ''); })
+      // 創業メンバー価格のあいだ（7 日間無料は月額だけ）も出す（有料プランの画面が月額を選んで開く・2026-10-20）。
+      .then((r) => { if (alive) setFreeUsedOffer(r.status === 'eligible' ? normalizeTrialLabel(r.label) : ''); })
       .catch(() => { if (alive) setFreeUsedOffer(''); });
     return () => { alive = false; };
   }, [freeUsedUp, hadPlan, user?.id]);
@@ -2064,6 +2069,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     setFirstTrialId(null);
     track('first_answer_trial', { action, group: 'show' });
   };
+  // はじめての相談の 7 日間無料の 1 行を、最後の答えのすぐ下（文字ボタンの行の前）に出しているか。
+  const firstTrialAtEnd = !!(answerRowShown && firstTrialId && firstTrialId === visibleMessages[visibleMessages.length - 1]?.id);
   const firstTrialCard = (style) => (
     <FirstAnswerTrialCard
       onSeen={onFirstTrialSeen}
@@ -2412,7 +2419,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 {/* 🎁 無料プランで今月のトークンを使い切った（2026-10-01）: 相談はメモから探して答える（メモが答える相談）ので、
                     行き止まりにせず、案内カード（プランは文字ボタン）の下に見出しと相談例をいつもどおり出す。 */}
                 {freeUsedUp && (
-                  <FreeUsedCard tokenAllowance={tokenNextAllowance ?? tokenAllowance} cta={freeUsedCta} onOpen={() => openPaywall('free_used')} style={{ marginBottom: 'var(--space-6)' }} />
+                  <FreeUsedCard tokenAllowance={tokenNextAllowance ?? tokenAllowance} cta={freeUsedCta} trial={freeUsedOffer || ''} onOpen={() => openPaywall('free_used')} style={{ marginBottom: 'var(--space-6)' }} />
                 )}
                 {showNudge && (
                   <TrialNudgeCard
@@ -2541,7 +2548,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           {/* 無料プランで今月のトークンを使い切ったら、答えの下（まだ話していなければ例の下）で静かに案内
               （読み終えるまで画面を奪わない） */}
           {freeUsedUp && !busy && lastIsAssistant && !isEmpty && (!lastIsMemoAnswer || (!lastMemoFound && lastMemoAnswer?.status !== 'loading')) && (
-            <FreeUsedCard tokenAllowance={tokenNextAllowance ?? tokenAllowance} cta={freeUsedCta} onOpen={() => openPaywall('free_used')} style={{ marginTop: 'var(--space-6)', marginLeft: ANSWER_COLUMN }} />
+            <FreeUsedCard tokenAllowance={tokenNextAllowance ?? tokenAllowance} cta={freeUsedCta} trial={freeUsedOffer || ''} onOpen={() => openPaywall('free_used')} style={{ marginTop: 'var(--space-6)', marginLeft: ANSWER_COLUMN }} />
           )}
           {/* 🪙➕ プランの人がトークンを使い切ったら「トークンを追加」（答えの欄に案内が出ているのでボタンだけ。
               まだ話していないときの案内カードは、相談例の代わりに一番上に出す＝上の TokensOutCard） */}
@@ -2560,6 +2567,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             </>
           )}
 
+          {/* 🧪 はじめての相談の答えのすぐ下に 1 回だけ（2026-10-20: 答えと行動のすぐ下＝いちばん良さを感じた場所へ。
+              前は「新しい相談をはじめる」の下で、送らないと見えなかった）。 */}
+          {firstTrialAtEnd && firstTrialCard({ marginTop: 'var(--space-4)', marginLeft: ANSWER_COLUMN })}
           {/* 🔭 見方を変えた答えの下: 進み具合の行と同じ見た目で、次にできること（問いの箱にはしない・2026-10-08 ui-critic） */}
           {answerRowShown && lensNextShown && !lastActionAdded && !noMemosYet && (
             <p style={{ margin: 'var(--space-2) 0 0', marginLeft: ANSWER_COLUMN, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
@@ -2568,7 +2578,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           )}
           {/* 🏁 行動に追加したら一区切り: 「新しい相談をはじめる」を主ボタンで（2026-10-08） */}
           {answerRowShown && lastActionAdded && (
-            <button ref={newConsultBtnRef} type="button" onClick={handleResolveAndClear} style={{ ...uiBtnPrimary, marginTop: 'var(--space-4)', marginLeft: ANSWER_COLUMN, width: `calc(100% - ${ANSWER_COLUMN})` }}>
+            // 7 日間無料の 1 行が上にあるときは、こちらは文字ボタン（次にすることを 1 つに・トークンの残りが少ない人の新しい相談は止まりやすい）。
+            <button ref={newConsultBtnRef} type="button" onClick={handleResolveAndClear} style={firstTrialAtEnd ? { ...uiBtnLink, display: 'block', marginTop: 'var(--space-2)', marginLeft: `calc(${typeof ANSWER_COLUMN === 'number' ? `${ANSWER_COLUMN}px` : ANSWER_COLUMN} - var(--space-1))` } : { ...uiBtnPrimary, marginTop: 'var(--space-4)', marginLeft: ANSWER_COLUMN, width: `calc(100% - ${ANSWER_COLUMN})` }}>
               新しい相談をはじめる
             </button>
           )}
@@ -2603,9 +2614,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           {answerRowShown && optinAfterId && optinAfterId === visibleMessages[visibleMessages.length - 1]?.id && (
             <NotifyOptInCard where="action" style={{ marginTop: 'var(--space-6)', marginLeft: ANSWER_COLUMN }} />
           )}
-          {/* 🧪 はじめての相談の答えを読み終えたところ（答えの下の文字ボタンの行の後ろ）に 1 回だけ。 */}
-          {answerRowShown && firstTrialId && firstTrialId === visibleMessages[visibleMessages.length - 1]?.id
-            && firstTrialCard({ marginTop: 'var(--space-6)', marginLeft: ANSWER_COLUMN })}
+
           {consentDeclined && !busy && !sendNotice && (
             <div data-consent-declined="" role="status" style={{ margin: 'var(--space-4) 0 0', padding: 'var(--space-3) var(--space-4)', borderRadius: 'var(--radius)', background: 'var(--fill)' }}>
               <p style={{ margin: 0, color: 'var(--text)', fontSize: 'var(--text-sub)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
@@ -2922,7 +2931,10 @@ function FirstAnswerTrialCard({ text, onOpen, onDismiss, onSeen = null, style = 
 //   「メモを検索して探す」）をやめ、そのことを 1 文で言い、「プランを見る」は文字ボタンに（押し付けない）。
 // tokenAllowance: 来月 1 日に戻る量（はじめの月の人も来月は毎月の量）。
 // cta: ボタンの文字（7 日間無料を使える人は「7 日間無料で試す」・ほかは「プランを見る」・2026-10-10）。
-function FreeUsedCard({ tokenAllowance, onOpen, cta = 'プランを見る', style = null }) {
+// trial（2026-10-20 オーナー「はじめての人が課金するような動線を徹底的に」）: 7 日間無料を使える人には、何ができるか
+//   （AI の答え 約 15 回）を 1 行で添え、ボタンを塗りにする（すすめてよい ①＝無料のトークンを使い切った）。
+//   使えない人（7 日間無料を使った・分からない）は今までどおり文字ボタン「プランを見る」（押し付けない）。
+function FreeUsedCard({ tokenAllowance, onOpen, cta = 'プランを見る', trial = '', style = null }) {
   return (
     <section aria-label="今月のトークンは、ここまで" style={{ ...cardStyle, ...style }}>
       <p style={{ margin: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5 }}>
@@ -2931,9 +2943,20 @@ function FreeUsedCard({ tokenAllowance, onOpen, cta = 'プランを見る', styl
       <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
         <span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}</span>に <span style={{ whiteSpace: 'nowrap' }}>{fmtTokens(tokenAllowance)} トークン</span>に戻ります。{withPhraseBreaks('それまでは、あなたのメモから探して答えます。')}
       </p>
-      <button type="button" onClick={onOpen} style={{ ...uiBtnLink, marginTop: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}>
-        {cta}
-      </button>
+      {trial ? (
+        <>
+          <p style={{ margin: 'var(--space-3) 0 0', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+            {withPhraseBreaks(`${trial}なら、`)}<span style={{ whiteSpace: 'nowrap' }}>AI の答え {answerCountLabel(TRIAL_TOKENS)}まで</span>{withPhraseBreaks('使えます。')}
+          </p>
+          <button type="button" onClick={onOpen} style={{ ...uiBtnPrimary, marginTop: 'var(--space-3)' }}>
+            {cta}
+          </button>
+        </>
+      ) : (
+        <button type="button" onClick={onOpen} style={{ ...uiBtnLink, marginTop: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}>
+          {cta}
+        </button>
+      )}
     </section>
   );
 }

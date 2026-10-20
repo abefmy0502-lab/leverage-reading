@@ -335,6 +335,23 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
   const { signOut, user } = useAuth();
   const toast = useToast();
   const [myBooks, setMyBooks] = useState([]);
+  // 🌱 さっきの相談（2026-10-20 オーナー「はじめての人が課金するような動線を徹底的に」）: はじめての相談の答えのあと・
+  //   無料のトークンを使い切ったあとに開いたときは、いちばん新しい相談の問いを 1 行で添える（「その続き」を買う画面にする）。
+  const [lastAsk, setLastAsk] = useState('');
+  useEffect(() => {
+    if (!['free_used', 'first_answer'].includes(reason) || !user?.id || !isSupabaseConfigured) return undefined;
+    let alive = true;
+    (async () => {
+      try {
+        const { data } = await supabase.from('chat_messages').select('content').eq('user_id', user.id).eq('role', 'user')
+          .order('created_at', { ascending: false }).limit(10);
+        const q = (data || []).map((r) => String(r.content || '').replace(/\s+/g, ' ').trim()).find((t) => t.length >= 12 && !/^ここまでの話で|答え直して|考え直して|もっと聞いて/.test(t)) || '';
+        // 問いの返事のチップ（「会議の前」など 10 字前後）や続きを頼む決まり文句ではなく、相談そのもの（12 字以上）を出す。
+        if (alive) setLastAsk(q);
+      } catch { /* 無くても画面は出す */ }
+    })();
+    return () => { alive = false; };
+  }, [reason, user?.id]);
   useEffect(() => {
     if (!['free_used', 'grown', 'first_answer'].includes(reason) || !user?.id || !isSupabaseConfigured) return undefined;
     let alive = true;
@@ -460,13 +477,14 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
   //   （年額が選ばれていて「7 日間無料」が見当たらない、を作らない）。選び直しは 1 回だけ（あとは本人の選択のまま）。
   const pickedForTrialRef = useRef(false);
   useEffect(() => {
-    if (reason !== 'first_answer' || pickedForTrialRef.current || trialPlan !== 'monthly') return;
+    // 無料のトークンを使い切って「7 日間無料で試す」から開いたときも同じ（2026-10-20）。
+    if (!['first_answer', 'free_used'].includes(reason) || pickedForTrialRef.current || trialPlan !== 'monthly') return;
     pickedForTrialRef.current = true;
     setPlan('monthly');
   }, [reason, trialPlan]);
   // 並び: 「7 日間無料でもっと話す」から開き、7 日間無料が月額だけのときは月額を上に（選んだ行が最初の画面に入るように）。
   //   読み込み中は、創業メンバー価格の期間なら月額を上に（読み込み後に並びが入れ替わって跳ねないように）。
-  const monthlyFirst = reason === 'first_answer' && (priceState === 'ready' ? trialPlan === 'monthly' : founding.active);
+  const monthlyFirst = ['first_answer', 'free_used'].includes(reason) && (priceState === 'ready' ? trialPlan === 'monthly' : founding.active);
   const planOrder = monthlyFirst ? ['monthly', 'annual'] : ['annual', 'monthly'];
   const anyTrial = trialPlan === 'both' ? normalizeTrialLabel(labels.annual?.trial || '') : '';
   const rowTrialNote = (id) => (trialPlan && trialPlan !== 'both' && labels[id]?.trial ? trialFirstPhrase(normalizeTrialLabel(labels[id].trial)) : '');
@@ -697,6 +715,12 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
                   書名は 1 つの塊（長ければ … で切る・文字が大きいときに語の途中で割れた・MemoLinks と同じ）。 */}
               {myBooks.slice(0, 2).map((b) => <span key={b.id} style={{ display: 'inline-block', maxWidth: 'calc(100% + 0.5em)', marginLeft: '-0.5em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', verticalAlign: 'bottom' }}>『{b.title}』</span>)}{myBooks.length > 2 ? 'など' : ''}のメモを根拠に答える、あなただけの相談相手です。
             </p>
+            {/* さっきの相談（問いは 1 行・長ければ … ）。「その続き」を、ここで買えると分かるように。 */}
+            {lastAsk && (
+              <p style={{ fontSize: 'var(--text-body)', lineHeight: 1.6, margin: 'var(--space-2) 0 0', color: 'var(--text-2)', wordBreak: 'keep-all', overflowWrap: 'anywhere', textWrap: 'pretty' }}>
+                {withPhraseBreaks(`「${[...lastAsk].length > 22 ? `${[...lastAsk].slice(0, 21).join('')}…` : lastAsk}」の続きも、話せます。`)}
+              </p>
+            )}
           </>
         )}
 

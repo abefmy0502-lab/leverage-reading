@@ -679,10 +679,23 @@ export function wantsMoreAsk(text) {
 }
 // この回は聞き返さずに結論＋行動 1 つにするか（turnHint と、書いている途中の形を決める画面の両方が使う）。
 //   followUp: 会話の続き（THREAD か前の相談がある）/ asked: これまでの聞き返しの回数（countAsks）。
-export function shouldDecide({ followUp = false, question = '', asked = 0 } = {}) {
-  if (!followUp || isBookLookup(question)) return false;
+// lastAnswer（2026-10-20 オーナー「はじめての人が課金するような動線を徹底的に」）: 無料プラン・7 日間無料で、残りのトークンが
+//   AI の答え 1 回ぶんだけのとき。聞き返したところでトークンが尽きると、答えと行動（相談のいちばんの価値）に届かないので、
+//   はじめの答えでも聞き返さずに結論＋行動を 1 つで答える（本を探す問い・見方を変える頼みは除く）。
+// 残りが AI の答え 1 回ぶんだけか（1 回 約 10 トークン・無料プランと 7 日間無料だけ・追加分も足す）。
+export const ONE_ANSWER_TOKENS = 10;
+export function isLastAnswer({ freeMode = false, plan = '', tokensRemaining = null, purchasedTokens = 0 } = {}) {
+  if (!(freeMode || plan === 'trial') || !Number.isFinite(tokensRemaining)) return false;
+  const left = tokensRemaining + (Number(purchasedTokens) || 0);
+  return left > 0 && left < ONE_ANSWER_TOKENS * 2;
+}
+
+export function shouldDecide({ followUp = false, question = '', asked = 0, lastAnswer = false } = {}) {
+  if (isBookLookup(question)) return false;
   // 見方を変える頼みは、聞き返しの回数に関係なく、その見方で答える（行動は決めない）。
-  if (lensOf(question)) return false;
+  if (followUp && lensOf(question)) return false;
+  if (lastAnswer) return true;
+  if (!followUp) return false;
   if (wantsAction(question)) return true;
   return asked >= ASK_LIMIT && !wantsMoreAsk(question);
 }
