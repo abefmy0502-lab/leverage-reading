@@ -2950,7 +2950,7 @@ function FreeUsedCard({ tokenAllowance, onOpen, cta = 'プランを見る', tria
         <>
           <p style={{ margin: 'var(--space-3) 0 0', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
             {/* 7 日間の量と、そのあと毎月の量を事実だけで並べる（煽らない・2026-10-20 ui-critic） */}
-            {afterAnswer && withPhraseBreaks('この相談の続きも、')}{withPhraseBreaks(`${trial}なら`)} <span style={{ whiteSpace: 'nowrap' }}>AI の答え {answerCountLabel(TRIAL_TOKENS)}、</span><span style={{ whiteSpace: 'nowrap' }}>その後は毎月 {answerCountLabel(PLAN_TOKENS)}。</span>
+            {afterAnswer && withPhraseBreaks('この相談の続きも、')}{withPhraseBreaks(`${trial}なら`)} <span style={{ whiteSpace: 'nowrap' }}>AI の答え {answerCountLabel(TRIAL_TOKENS)}、</span><span style={{ whiteSpace: 'nowrap' }}>その後はプランで</span><span style={{ whiteSpace: 'nowrap' }}>毎月 {answerCountLabel(PLAN_TOKENS)}。</span>
           </p>
           <button type="button" onClick={onOpen} style={{ ...(primary ? uiBtnPrimary : uiBtnGhost), marginTop: 'var(--space-3)' }}>
             {cta}

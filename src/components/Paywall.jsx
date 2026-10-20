@@ -717,7 +717,13 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
               {myBooks.slice(0, 2).map((b) => <span key={b.id} style={{ display: 'inline-block', maxWidth: 'calc(100% + 0.5em)', marginLeft: '-0.5em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', verticalAlign: 'bottom' }}>『{b.title}』</span>)}{myBooks.length > 2 ? 'など' : ''}のメモを根拠に答える、あなただけの相談相手です。
             </p>
             {/* さっきの相談（問いは 1 行・長ければ … ）。「その続き」を、ここで買えると分かるように。 */}
-            {lastAsk === null && <SkeletonBlock width="70%" height="var(--text-sub)" radius="var(--radius)" style={{ display: 'block', marginTop: 'var(--space-2)' }} />}
+            {/* 問いは 22 字で切るので、ふつうは 2 行（骨組みも 2 行ぶん＝読み終わって跳ねない） */}
+            {lastAsk === null && (
+              <span aria-hidden="true" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 'calc(var(--text-sub) * 0.5)', minHeight: 'calc(var(--text-sub) * 1.5 * 2)', marginTop: 'var(--space-2)' }}>
+                <SkeletonBlock width="100%" height="var(--text-sub)" radius="var(--radius)" />
+                <SkeletonBlock width="60%" height="var(--text-sub)" radius="var(--radius)" />
+              </span>
+            )}
             {lastAsk && (
               <p style={{ fontSize: 'var(--text-sub)', lineHeight: 1.5, margin: 'var(--space-2) 0 0', color: 'var(--text-2)', wordBreak: 'keep-all', overflowWrap: 'anywhere', textWrap: 'pretty' }}>
                 {withPhraseBreaks(`「${[...lastAsk].length > 22 ? `${[...lastAsk].slice(0, 21).join('')}…` : lastAsk}」の続きも、話せます。`)}
