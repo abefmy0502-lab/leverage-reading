@@ -83,10 +83,10 @@ describe('メモが答える相談は AI を呼ばない（トークンを使わ
     expect(fn).not.toMatch(/streamMyBookBrain|streamClaude|callClaude/);
   });
 
-  it('相談の画面は、無料のトークンを使い切ったら AI より先にメモの答えへ分ける', () => {
+  it('相談の画面は、無料のトークン・プランのトークンを使い切ったら AI より先にメモの答えへ分ける', () => {
     const src = readFileSync(join(here, '../components/MyBookBrain.jsx'), 'utf8');
     const ask = src.slice(src.indexOf('const askOnce = async'));
-    const branch = ask.indexOf('if (freeUsedUp) { askFromMemos(');
+    const branch = ask.indexOf('if (freeUsedUp || outOfTokens) { askFromMemos(');
     const stream = ask.indexOf('await streamMyBookBrain(');
     expect(branch).toBeGreaterThan(-1);
     expect(stream).toBeGreaterThan(branch);

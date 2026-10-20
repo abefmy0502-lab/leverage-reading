@@ -461,9 +461,11 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const freeUsedUp = freeMode && tokensAvailable != null && tokensAvailable <= 0;
   // 上部の 1 行の言葉: 無料のトークンを使い切ったら AI ではなくメモから探す（メモが答える相談）ので「から探します」。
   const answerVerb = freeUsedUp ? 'から探します' : 'から答えます';
+  // （プランの人が使い切ったときは planOut の後ろで上書き）
   // プランの人（有料・無料期間）がトークンを使い切った（サーバーの 429 か、残りが 0）。
   const planOut = canBuyTokens && (monthLimitHit || (tokensAvailable != null && tokensAvailable <= 0));
   const outOfTokens = monthLimitHit || planOut;
+  const answerVerbNow = outOfTokens ? 'から探します' : answerVerb;
   // 会話が始まったあとの「相談相手と答え方」の入口のメニュー（入力欄の左の 44 のボタン・2026-10-11）。
   const [scopeMenu, setScopeMenu] = useState(null);
   // 無料期間が終わる日（「◯月◯日から、毎月 800 トークン使えます」）。分からなければ空。
@@ -1275,14 +1277,12 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     // 同じ相談を AI にも送らない（二重の吹き出し・トークンの無駄づかいになっていた・2026-10-04）。
     if (!q || busy || lookupBusyRef.current) return;
     // ホームや相談例から渡された相談は、送れないときも入力欄に残す（黙って消えないように）。
-    if (outOfTokens && questionText != null) setInput(q);
     // 💬 無料プランで今月のトークンを使い切っていたら、AI を使わずに自分のメモの一節で答える（メモが答える相談・2026-10-01）。
     //   /api/claude は呼ばない（トークンを使わない）。有料プランの画面は開かない（答えの下に静かに 1 回だけ案内）。
-    if (freeUsedUp) { askFromMemos(q, opts); return; }
+    //   2026-10-20: プランの人（有料・7 日間無料）が使い切ったときも同じ（前は送れなかった）。
+    if (freeUsedUp || outOfTokens) { askFromMemos(q, opts); return; }
     // 🔎 本を探す問いは、まず自分のメモから探す（AI なし）。見つからなければ下の AI へ（lookupFromMemos）。
     if (isBookLookup(q) && !opts.skipUserInsert && await lookupFromMemos(q, opts)) return;
-    // プランのトークンを使い切っていたら送らない（入力は残す。案内とトークンの追加は会話の下に出ている）。
-    if (outOfTokens) return;
     // 🤝 はじめて AI に送るときは、送る内容と送り先を見せて同意をもらう（lib/aiConsent.js）。
     //   「今はやめる」なら送らない（相談は入力欄に残す＝ホーム・相談例から来た相談も消えない）。
     if (!(await ensureAiConsent('consult'))) { setInput(q); setConsentDeclined(true); return; }
@@ -2145,12 +2145,12 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               : <>選んだ <span style={{ whiteSpace: 'nowrap' }}>{scopeIds.length} 冊</span>に相談します</>)
             : scopeMemoCount != null
             ? (scopeIds.length === 1
-              ? <>『{(books.find((b) => b.id === scopeIds[0]) || {}).title || 'この本'}』の<span style={{ whiteSpace: 'nowrap' }}>メモ {scopeMemoCount} 件</span>{answerVerb}</>
-              : <>選んだ <span style={{ whiteSpace: 'nowrap' }}>{scopeIds.length} 冊</span>の<span style={{ whiteSpace: 'nowrap' }}>メモ {scopeMemoCount} 件</span>{answerVerb}</>)
-            : `選んだ本のメモ${answerVerb}`)
+              ? <>『{(books.find((b) => b.id === scopeIds[0]) || {}).title || 'この本'}』の<span style={{ whiteSpace: 'nowrap' }}>メモ {scopeMemoCount} 件</span>{answerVerbNow}</>
+              : <>選んだ <span style={{ whiteSpace: 'nowrap' }}>{scopeIds.length} 冊</span>の<span style={{ whiteSpace: 'nowrap' }}>メモ {scopeMemoCount} 件</span>{answerVerbNow}</>)
+            : `選んだ本のメモ${answerVerbNow}`)
           // 件数は「メモ N 件」＝自分のメモ（カード式＋学び＋この本のまとめ）。ホームの相談カード・初日クイックスタート・
           // 振り返りの記録と同じ数え方・同じ言葉（2026-09-29）。0 件のときは件数を出さない（下の「まだメモがありません」と食い違わないように）。
-          : (ownMemoTotal > 0 ? <><span style={{ whiteSpace: 'nowrap' }}>あなたのメモ {ownMemoTotal} 件</span>{answerVerb}</> : '読んだ本のメモを根拠に答えます')}
+          : (ownMemoTotal > 0 ? <><span style={{ whiteSpace: 'nowrap' }}>あなたのメモ {ownMemoTotal} 件</span>{answerVerbNow}</> : '読んだ本のメモを根拠に答えます')}
         {/* メモが 1〜9 件の間は、答えがメモとともに深くなることを一行で（点数・バッジにしない・2026-10-02）。 */}
         {!headCountPending && growthLine && (
           <span style={{ display: 'block', textIndent: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(growthLine)}</span>
@@ -2195,12 +2195,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
 
   // 入力欄の案内（答えの状態ごと）。案内が変わったら高さも測り直す（Chrome は案内の文の高さも数える・2026-10-10）。
   //   送れない間は文字が大きいと「相談でき／ます」と割れたので、短い「◯月◯日から再開」に（2026-10-11 リリース前の採点）。
-  const composerPlaceholder = outOfTokens
-    ? (plan === 'trial'
-      ? (trialEndLabel ? `${trialEndLabel}から${largeText ? '再開' : '相談できます'}` : (largeText ? 'トークンはここまで' : '無料期間のトークンは、ここまでです'))
-      : `${nextResetLabelJa()}から${largeText ? '再開' : '相談できます'}`)
-    // メモが答える相談（AI を使わない）: 送れることと、何から答えるかを 1 行で（390 幅で 1 行に収まる長さ）。
-    : freeUsedUp ? 'メモから探します'
+  // メモが答える相談（AI を使わない）: 送れることと、何から答えるかを 1 行で（390 幅で 1 行に収まる長さ）。
+  //   プランの人が使い切ったときも同じ（2026-10-20・送れる）。
+  const composerPlaceholder = (freeUsedUp || outOfTokens) ? 'メモから探します'
     : carry && !carry.used ? 'この相談の続きを書く'
     // メモが 0 件の人は続けても同じ答えなので、最初の画面と同じ新しい相談の例（2026-10-09 ui-critic）。
     : noMemosYet ? '例：上司への報告がうまくいかない'
@@ -2410,17 +2407,17 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                   ? [{ label: '読んだ本に一言ずつ残す', variant: 'primary', onClick: onQuickstart }]
                   : onGoBookshelf ? [{ label: '本を開いてメモを書く', variant: 'secondary', onClick: onGoBookshelf }] : []}
               />
-            ) : planOut ? (
-              // 🪙➕ プランの人がトークンを使い切った（SPEC §3）: 押せない相談例は出さず、案内カードを一番上に。
-              <TokensOutCard plan={plan} trialEndLabel={trialEndLabel} cancelLine={trialCancelLine} tokenAllowance={tokenAllowance} onAdd={openTokenSheet} onUsage={() => setUsageOpen(true)}>
-                {searchMemos && <SearchMemosLink onClick={searchMemos} />}
-              </TokensOutCard>
             ) : (
               <section aria-labelledby={input.trim() ? undefined : 'brain-empty-title'}>
                 {/* 🎁 無料プランで今月のトークンを使い切った（2026-10-01）: 相談はメモから探して答える（メモが答える相談）ので、
                     行き止まりにせず、案内カード（プランは文字ボタン）の下に見出しと相談例をいつもどおり出す。 */}
                 {freeUsedUp && (
                   <FreeUsedCard tokenAllowance={tokenNextAllowance ?? tokenAllowance} cta={freeUsedCta} trial={freeUsedOffer || ''} onOpen={() => openPaywall('free_used')} style={{ marginBottom: 'var(--space-6)' }} />
+                )}
+                {/* 🪙➕ プランの人がトークンを使い切った（SPEC §3）: 案内カード（トークンを追加）を一番上に。
+                    2026-10-20 から相談は止めず、無料プランと同じくメモから探して答える（払っている人ほど相談できない、を無くす）。 */}
+                {planOut && (
+                  <TokensOutCard plan={plan} trialEndLabel={trialEndLabel} cancelLine={trialCancelLine} tokenAllowance={tokenAllowance} memoNote onAdd={openTokenSheet} onUsage={() => setUsageOpen(true)} style={{ marginBottom: 'var(--space-6)' }} />
                 )}
                 {showNudge && (
                   <TrialNudgeCard
@@ -2452,15 +2449,15 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                       // 「前に相談した…」は、その会話の全体を開いて続きとして答える。
                       // 初日の下書きのあいだは、押すと入力欄に入れるだけ（選ぶ・送らない）。
                       onClick={() => {
-                        if (busy || outOfTokens) return;
+                        if (busy) return;
                         if (firstDayDraft) { setInput(q); requestAnimationFrame(() => { try { inputRef.current?.focus({ preventScroll: true }); } catch { /* ignore */ } }); return; }
                         // 「前に相談した…」は、その会話の全体を開いて続きとして送る（この続きを相談すると同じ・2026-10-08 ui-critic）。
                         if (kind === 'continue' && lastConsult) { continueThread(lastConsult.group, { send: q }); return; }
                         ask(q);
                       }}
-                      disabled={busy || outOfTokens}
+                      disabled={busy}
                       aria-pressed={firstDayDraft ? picked : undefined}
-                      style={{ ...chipStyle, ...(picked ? chipPicked : null), ...(busy || outOfTokens ? { color: 'var(--text-2)', opacity: 1, cursor: 'default' } : null), ...hangIndent(q) }}
+                      style={{ ...chipStyle, ...(picked ? chipPicked : null), ...(busy ? { color: 'var(--text-2)', opacity: 1, cursor: 'default' } : null), ...hangIndent(q) }}
                     >
                       {withPhraseBreaks(q)}
                     </button>
@@ -2776,7 +2773,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 if (e.nativeEvent.isComposing) return;
                 if (e.key === 'Enter' && (e.shiftKey || e.metaKey || e.ctrlKey)) {
                   e.preventDefault();
-                  if (!outOfTokens) ask();
+                  ask();
                 }
               }}
               placeholder={composerPlaceholder}
@@ -2786,7 +2783,6 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               maxLength={LIMITS.aiQuestion}
               aria-label="相談したいこと"
               // トークンを使い切って送れない間は、入力欄も押せない形（AI 選書と同じ・2026-10-11 リリース前の採点）。
-              disabled={outOfTokens}
             />
             {busy ? (
               // ストリーミング中は送信ボタンを「中止」に切り替える（その時点の内容で確定）。
@@ -2810,7 +2806,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 onMouseDown={(e) => { if (document.activeElement === inputRef.current) e.preventDefault(); }}
                 onClick={() => ask()}
                 // 今月の上限に達したら送れない（押せない主ボタンの見た目＝--fill の面・DESIGN §5）。
-                disabled={!input.trim() || outOfTokens}
+                disabled={!input.trim()}
                 aria-label="送信"
                 title="送信"
               >

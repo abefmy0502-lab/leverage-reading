@@ -16,7 +16,8 @@ export const trialCancelLineStyle = { margin: 'var(--space-2) 0 0', fontSize: 'v
 const nowrap = { whiteSpace: 'nowrap' };
 
 // onUsage: 文字ボタン「トークンの使い方を見る」（使い切ると相談の上の行の残りの数が消えるので、入口をここにも・2026-10-11）。
-export default function TokensOutCard({ plan, trialEndLabel = '', cancelLine = '', tokenAllowance = null, onAdd, onUsage = null, children = null, style = null }) {
+// memoNote: 相談で使うとき「それまでは、あなたのメモから探して答えます。」を添える（使い切っても相談は送れる・2026-10-20）。
+export default function TokensOutCard({ plan, trialEndLabel = '', cancelLine = '', tokenAllowance = null, memoNote = false, onAdd, onUsage = null, children = null, style = null }) {
   const trial = plan === 'trial';
   // 量が分からない（読み込み前・取れなかった）ときは有料の毎月の量（「0 トークンに戻ります」と出さない）。
   const allowance = Number(tokenAllowance) > 0 ? tokenAllowance : PAID_TOKENS;
@@ -28,13 +29,14 @@ export default function TokensOutCard({ plan, trialEndLabel = '', cancelLine = '
       {!trial ? (
         <p style={subStyle}>
           {/* 「800 トークンに戻ります」は 1 つの塊（「に戻ります」だけが次の行に落ちない・2026-10-11 リリース前の採点）。 */}
-          <span style={nowrap}>{nextResetLabelJa()}</span>に <span style={nowrap}>{fmtTokens(allowance)} トークンに戻ります</span>
+          <span style={nowrap}>{nextResetLabelJa()}</span>に <span style={nowrap}>{fmtTokens(allowance)} トークンに戻ります{memoNote ? '。' : ''}</span>
         </p>
       ) : trialEndLabel ? (
         <p style={subStyle}>
           無料期間が終わる<span style={nowrap}>{trialEndLabel}</span>から、<span style={nowrap}>毎月 {fmtTokens(PAID_TOKENS)} トークン使えます。</span>
         </p>
       ) : null}
+      {memoNote && <p style={subStyle}>{withPhraseBreaks('それまでは、あなたのメモから探して答えます。')}</p>}
       {onAdd && (
         <button type="button" onClick={onAdd} style={{ ...(trial ? btnGhost : btnPrimary), marginTop: 'var(--space-3)' }}>
           トークンを追加
