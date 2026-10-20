@@ -100,7 +100,7 @@ describe('書き出しの例', () => {
 import { purposeConsultQuestion } from './appPurpose';
 describe('入れた理由からはじめの相談', () => {
   it('理由を「」に入れて相談の形に・空なら空', () => {
-    expect(purposeConsultQuestion('仕事で、3 年後にはチームを任されるリーダーになりたい。')).toBe('「仕事で、3 年後にはチームを任されるリーダーになりたい」と思っています。読んだ本から、いま何から始めるといい？');
+    expect(purposeConsultQuestion('仕事で、3 年後にはチームを任されるリーダーになりたい。')).toBe('「仕事で、3 年後にはチームを任されるリーダーになりたい」と思っています。\n読んだ本から、いまの自分に効くことは？');
     expect(purposeConsultQuestion('  ')).toBe('');
   });
 });

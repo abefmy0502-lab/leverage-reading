@@ -142,7 +142,8 @@ export function appPurposeTextFor(user) {
 export function purposeConsultQuestion(text) {
   const t = cleanPurposeText(text).replace(/[。．.!！]+$/, '');
   if (!t) return '';
-  return `「${t}」と思っています。読んだ本から、いま何から始めるといい？`;
+  // 2 文目の前で改行（入力欄の中で「読｜んだ」と割れない）。最初の答えは聞き返す決まりなので、結論を求めない問いに。
+  return `「${t}」と思っています。\n読んだ本から、いまの自分に効くことは？`;
 }
 
 // テスト用

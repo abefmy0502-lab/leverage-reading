@@ -742,13 +742,13 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
                   ref={askRef}
                   value={askText}
                   onChange={(e) => setAskText(e.target.value)}
-                  // 入れた理由の下書きは 3 行になるので、長い文のときは 3 行ぶん（欄の中で切れて見えないように）
-                  rows={askText.length > 36 ? 3 : 2}
+                  // 入れた理由の下書きは長いので、文の長さに合わせて 3〜6 行（欄の中で切れない・例を押しても高さが跳ねない）
+                  rows={purposeAsk ? Math.min(6, Math.max(3, askText.split('\n').reduce((n, l) => n + Math.ceil((l.length || 1) / 20), 0))) : 2}
                   maxLength={LIMITS.aiQuestion}
                   // 空のときは押せない理由が分かるように（「相談する」は書いてから押せる・2026-10-09）。
                   placeholder="例：上司への報告がうまくいかない"
                   aria-labelledby="qs-ask"
-                  style={{ ...inputStyle, display: 'block', resize: 'none', lineHeight: 1.5 }}
+                  style={{ ...inputStyle, display: 'block', resize: 'none', lineHeight: 1.5, hangingPunctuation: 'first', lineBreak: 'strict' }}
                 />
                 {/* 空のままは押せない形（DESIGN §5 押せない主ボタン＝薄くしない）。以前は押せる見た目で、押しても何も起きなかった。 */}
                 <button
