@@ -37,11 +37,12 @@ import { markReleaseSeen, releaseHeading, loadReleaseNotes, BUNDLED_RELEASE_ID }
 import { exportUserDataAsCSV, exportMemosAsMarkdown } from '../lib/exportData';
 import { forceUpdate as forceAppUpdate } from '../lib/swUpdate';
 import { useSubscription } from '../hooks/useSubscription';
-import { openBillingPortal } from '../lib/billing';
+import { openBillingPortal, PLAN_LABELS } from '../lib/billing';
 import { deleteConfirmTarget, deleteConfirmMatches } from '../lib/deleteConfirm';
+import { purchasePlan } from '../lib/iap';
 import { isNative, openManageSubscriptions, canRedeemOfferCode, presentOfferCodeSheet, invalidateCustomerInfo, waitForCodeSheetClosed } from '../lib/iap';
 import { usePaywall } from '../state/PaywallContext';
-import { planNameFor, trialRenewalLine, trialCancelNote, trialCancelByTime } from '../lib/trialNudge';
+import { planNameFor, planPeriodOf, trialRenewalLine, trialCancelNote, trialCancelByTime } from '../lib/trialNudge';
 import { PAID_TOKENS, FREE_TOKENS } from '../lib/tokens';
 import { FREE_OCR_PER_MONTH } from '../lib/tokenAmounts';
 import { nextResetLabelJa } from '../lib/freeTrial';
@@ -257,6 +258,8 @@ function ValueRow({ label, value, sub = null, style, onClick = null, ariaLabel }
 }
 
 const inputStyle = uiInput;
+// 年額プランの行の 2 行目（月あたりの金額は billing.js の表示ラベルから・金額の真実はストア）。
+const ANNUAL_UPGRADE_NOTE = (PLAN_LABELS.annual.price.match(/月あたり[^）)]*/) || [''])[0] ? `${(PLAN_LABELS.annual.price.match(/月あたり[^）)]*/) || [''])[0].replace('約¥', '約 ¥')}・1 年ごとの自動更新` : '1 年ごとの自動更新';
 
 // Stripe の status を日本語の短いラベルに。entitlement 判定そのものは
 // useSubscription（status==='active'）が真実。ここは表示専用。
@@ -567,6 +570,33 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
       }
     } finally {
       setPushBusy(false);
+    }
+  };
+
+  // 📅 月額 → 年額（2026-10-20）。値段と自動更新を先に見せてから、App Store（iPhone）・決済の画面（Web）に任せる。
+  const [upgrading, setUpgrading] = useState(false);
+  const handleUpgradeAnnual = async () => {
+    if (upgrading) return;
+    const ok = await confirm({
+      title: '年額プランに変えますか？',
+      message: `${PLAN_LABELS.annual.price.replace(/・月あたり[^）)]*/, '')}。1 年ごとに自動更新されます。切り替えの日と請求は ${nativeView ? 'App Store' : '決済の画面'} の決まりに従います。`,
+      confirmLabel: '年額プランに変える',
+      cancelLabel: 'キャンセル',
+    });
+    if (!ok) return;
+    track('plan_upgrade', { to: 'annual', where: 'settings' });
+    if (!nativeView) { await handleManageBilling(); return; }
+    setUpgrading(true);
+    try {
+      const res = await purchasePlan('annual', user?.id);
+      if (res?.ok) {
+        toast.success('年額プランに変えました。');
+        try { await refreshPlan?.(); } catch { /* 次に開いたときに反映 */ }
+      }
+    } catch (e) {
+      toast.error(toMessage(e, '年額プランに変えられませんでした。少し時間をおいて、もう一度お試しください。'));
+    } finally {
+      setUpgrading(false);
     }
   };
 
@@ -981,6 +1011,17 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                 )}
                 {plan !== 'trial' && formatPeriodEnd(subscription?.currentPeriodEnd) && (
                   <ValueRow label="次回更新" value={formatPeriodEnd(subscription.currentPeriodEnd)} style={divider} />
+                )}
+                {/* 📅 月額プランの人だけ、年額プランへ（2026-10-20 オーナー「課金している人の満足度・売り上げを最大化」）。
+                    月あたりの差を事実だけで。追う通知・案内は作らない（この行があるだけ）。7 日間無料の途中の人には出さない。 */}
+                {plan !== 'trial' && planPeriodOf(subscription?.priceId) === 'monthly' && (
+                  <button type="button" onClick={handleUpgradeAnnual} disabled={upgrading} style={{ ...(upgrading ? rowButtonBusy : rowButtonStyle), ...divider }}>
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ ...rowTitleStyle, display: 'block', color: 'inherit' }}>{upgrading ? '手続き中…' : '年額プランに変える'}</span>
+                      <span style={{ ...rowDescStyle, display: 'block', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(ANNUAL_UPGRADE_NOTE)}</span>
+                    </span>
+                    <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+                  </button>
                 )}
                 {tokensRemaining != null ? (
                   // 有料プランは、いつ戻るかも一緒に（無料プランの行と同じ・2026-09-29）。無料期間のトークンは月で戻らないので出さない。

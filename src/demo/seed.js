@@ -216,6 +216,10 @@ export function buildSeed(scenario) {
     }],
   };
   const jstMonth = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 7);
+  // &plan=monthly: 月額プランの人（設定の「年額プランに変える」の確認用・2026-10-20）。
+  if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('plan') === 'monthly') {
+    db.subscriptions[0].price_id = 'orime_monthly';
+  }
   // ?demo=freenew: 新規ユーザーで、契約なし（無料プラン・初回ガイドから）。
   //   &ocr=used: 今月の写真から書き起こし 10 回を使い切った新規ユーザー（初回ガイドの「本のページを撮る」で 0 回の確認用・2026-10-02）。
   if (scenario === 'freenew') {
