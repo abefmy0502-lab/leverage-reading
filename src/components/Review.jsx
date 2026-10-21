@@ -356,7 +356,7 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
               lineHeight: 1.6,
               whiteSpace: 'pre-wrap',
               margin: 'var(--space-2) 0 0',
-              // 畳むのは常に（思い出しカードは最大 2 行・一覧は 6 行）。はみ出すかは上の測定で判断。
+              // 畳むのは常に（思い出しカードは最大 4 行・一覧は 6 行）。はみ出すかは上の測定で判断。
               ...(!expanded
                 ? {
                     display: '-webkit-box',

@@ -897,7 +897,7 @@ export default function ShareSheet({
       row.scrollLeft = fits ? 0 : Math.max(0, on.offsetLeft - 16);
     });
     return () => cancelAnimationFrame(id);
-  }, [showSwitcher]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [showSwitcher, choices.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <BottomSheet title="写真で共有" onClose={onClose} footer={footer} dismissLabel="キャンセル">
@@ -911,7 +911,7 @@ export default function ShareSheet({
             ref={subjectRowRef}
             role="radiogroup"
             aria-label="どの本を共有するか"
-            style={{ display: 'flex', gap: 'var(--space-2)', overflowX: 'auto', scrollSnapType: 'x proximity', margin: 'calc(-1 * var(--space-1)) calc(-1 * var(--space-4))', padding: 'var(--space-1) 0 var(--space-1) var(--space-4)', scrollPaddingLeft: 'var(--space-4)', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch', WebkitMaskImage: SUBJECT_ROW_MASK, maskImage: SUBJECT_ROW_MASK }}
+            style={{ position: 'relative', display: 'flex', gap: 'var(--space-2)', overflowX: 'auto', scrollSnapType: 'x proximity', margin: 'calc(-1 * var(--space-1)) calc(-1 * var(--space-4))', padding: 'var(--space-1) 0 var(--space-1) var(--space-4)', scrollPaddingLeft: 'var(--space-4)', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch', WebkitMaskImage: SUBJECT_ROW_MASK, maskImage: SUBJECT_ROW_MASK }}
           >
             {choices.map((c) => {
               const on = c.kind === 'book' ? (!isPeriod && subjectBook?.id === c.bookId) : period === c.kind;

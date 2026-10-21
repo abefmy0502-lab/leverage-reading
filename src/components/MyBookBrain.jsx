@@ -3819,22 +3819,26 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
   // 🔖 あなたが書いたメモを 1 つ、結論のすぐ下に（2026-10-20 オーナー「¥1,500 以上の価値に」・点検「一番の価値が畳まれていて見えない」）。
   //   渡したメモと一致した引用（refChecks の s === 'ok'）の最初の 1 つだけ。書名・ページ・いつ書いたか＋本文 3 行まで。押すとそのメモを開く。
   //   一致した引用が無い答え（作った引用・関係するメモが無い答え）には出さない。全部は今までどおり「根拠を見る」の中。
-  const spot = refChecks.find((c) => c.s === 'ok' && c.x);
+  //   結論の中でもう同じ文を引いているメモは飛ばす（同じ文が 2 回続いて繰り返しに見えた・2026-10-21 ui-critic）。
+  const conclusionText = String(parsed?.conclusion || '').replace(/\s+/g, '');
+  const spot = refChecks.find((c) => c.s === 'ok' && c.x && !conclusionText.includes(String(c.x).replace(/\s+/g, '').slice(0, 20)));
   const renderSpotlight = () => {
     if (!spot) return null;
     const ago = spot.c ? consultAgoLabel(spot.c) : '';
-    const head = [spot.t ? `『${spot.t}』` : spot.u ? '自分の学び' : '', spot.p != null ? `p.${spot.p}` : '', ago ? `${ago}のあなた` : 'あなたのメモ'].filter(Boolean).join(' · ');
+    const headTitle = spot.t ? `『${spot.t}』` : spot.u ? '自分の学び' : '';
+    const headTail = [spot.p != null ? `p.${spot.p}` : '', ago ? `${ago}のあなた` : 'あなたのメモ'].filter(Boolean).join(' · ');
+    const head = [headTitle, headTail].filter(Boolean).join(' · ');
     const bookId = spot.b || null;
     const open = bookId && onOpenBook ? () => onOpenBook(bookId, spot.i || undefined) : null;
     const body = (
       <>
-        <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere', fontFeatureSettings: '"palt"', ...(spot.t ? { textIndent: '-0.5em' } : null) }}>{withPhraseBreaks(head)}</span>
-        <span style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 3, overflow: 'hidden', marginTop: 'var(--space-1)', fontFamily: 'var(--font-read)', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.6, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{spot.x}</span>
+        <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere', fontFeatureSettings: '"palt"', ...(spot.t ? { textIndent: '-0.5em' } : null) }}>{headTitle && withPhraseBreaks(headTitle)}<span style={{ whiteSpace: 'nowrap' }}>{headTitle ? ` · ${headTail}` : headTail}</span></span>
+        <span style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 3, overflow: 'hidden', marginTop: 'var(--space-1)', fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', color: 'var(--text)', lineHeight: 1.6, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{spot.x}</span>
       </>
     );
-    const box = { display: 'block', width: '100%', textAlign: 'left', marginTop: 'var(--space-3)', padding: 'var(--space-3) 0 var(--space-3) var(--space-3)', borderLeft: '2px solid var(--border)', background: 'none', borderTop: 'none', borderRight: 'none', borderBottom: 'none', borderRadius: 0, fontFamily: 'inherit', cursor: open ? 'pointer' : 'default' };
+    const box = { position: 'relative', display: 'block', width: '100%', textAlign: 'left', marginTop: 'var(--space-3)', padding: `var(--space-3) ${open ? 'var(--space-6)' : '0'} var(--space-3) var(--space-3)`, borderLeft: '2px solid var(--border)', background: 'none', borderTop: 'none', borderRight: 'none', borderBottom: 'none', borderRadius: 0, fontFamily: 'inherit', cursor: open ? 'pointer' : 'default' };
     return open
-      ? <button type="button" onClick={open} aria-label={`あなたのメモを開く：${head}`} style={box}>{body}</button>
+      ? <button type="button" onClick={open} aria-label={`あなたのメモを開く：${head}`} style={box}>{body}<ChevronRight size="1.2em" aria-hidden="true" style={{ position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)' }} /></button>
       : <div style={box}>{body}</div>;
   };
   // 📕 答えに出てきた、まだ読んでいない本の行（本の行＝表紙 44・書名・状態 · 著者・›）。

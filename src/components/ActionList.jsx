@@ -462,7 +462,7 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
   useEffect(() => {
     if (showDoneNonce == null) return undefined;
     setShowDone(true);
-    const t = setTimeout(() => { try { doneSectionRef.current?.scrollIntoView({ block: 'start', behavior: scrollBehavior() }); } catch { /* ignore */ } }, 80);
+    const t = setTimeout(() => { try { doneSectionRef.current?.scrollIntoView({ block: 'nearest', behavior: scrollBehavior() }); } catch { /* ignore */ } }, 80);
     return () => clearTimeout(t);
   }, [showDoneNonce]);
 
@@ -800,7 +800,7 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
               if (next) requestAnimationFrame(() => { try { doneSectionRef.current?.scrollIntoView({ block: 'start', behavior: prefersReducedMotionSafe() ? 'auto' : 'smooth' }); } catch { /* ignore */ } });
             }}
             aria-expanded={showDone}
-            style={{ width: '100%', minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', background: 'none', border: 'none', borderTop: '1px solid var(--separator)', padding: 'var(--space-2) 0 0', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}
+            style={{ width: '100%', minHeight: 'var(--tap-min)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', background: 'none', border: 'none', borderTop: '1px solid var(--separator)', padding: 'var(--space-2) 0 0', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}
           >
             <span style={uiGroupTitle}>完了した行動（{doneShown.length}）</span>
             {showDone
