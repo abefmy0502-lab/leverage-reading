@@ -189,7 +189,7 @@ import BookStoreLinks from './components/BookStoreLinks';
 import { getRakutenLink } from './lib/rakutenLink';
 import { loadNavState, saveNavState } from './lib/navState';
 import { consultCanLeave } from './lib/consultBack';
-import { actionGist, firstConsultQuestion as firstConsultFromMemos } from './lib/consultHelpers';
+import { actionGist, actionResultQuestion, firstConsultQuestion as firstConsultFromMemos } from './lib/consultHelpers';
 import { appPurposeTextFor, purposeConsultQuestion } from './lib/appPurpose';
 import { peekAllMemoRows, loadAllMemoRows } from './hooks/useAllMemoRows';
 import { takeOnboardPathDone, GROWTH_GOAL } from './lib/firstDay';
@@ -6584,6 +6584,8 @@ function AuthedApp() {
               <Suspense fallback={<TabPanelSkeleton />}>
                 <ReadingRecord
                   books={books}
+                  // やってみたことの「この結果を相談する」（行動の完了のその場と同じ下書き・相談相手はその本・2026-10-21）
+                  onConsultAction={(a) => openConsultWith(actionResultQuestion(a.text, a.reflection), { bookIds: a.bookId ? [a.bookId] : null })}
                   onGoToShelf={() => { navigateTab('books'); goList(); setShelfMode('library'); }}
                   // 📊 統計→中身への 1 タップ動線。既存の絞り込みを一度リセット
                   // してから目的の条件だけを立てる（前の絞り込みが残っていると

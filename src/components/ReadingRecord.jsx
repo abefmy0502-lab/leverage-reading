@@ -39,6 +39,7 @@ import { appNow } from '../lib/appNow';
 import { useAllActions } from '../hooks/useAllActions';
 import { triedActions, TRIED_SHOWN } from '../lib/triedActions';
 import { stripInlineMd } from '../lib/text';
+import { btnLink } from '../styles/ui';
 
 /* ---------- 日付ユーティリティ（ローカル基準・UTC ずれ防止） ---------- */
 
@@ -411,7 +412,8 @@ function Heatmap({ dateStrings, weeks = 16 }) {
 //   onShowActions()     … 振り返り「行動」サブタブへ
 //   （onOpenBook / onFilterTag / onSearchAuthor は旧区画用。呼び出し側の互換のため受け取るだけ）
 // 🎯 やってみたこと（lib/triedActions.js）。ふりかえりは明朝で（自分の言葉＝読む文章）。数字・%・連続日数は出さない。
-function TriedCard({ books, onOpenBook, onShowActions }) {
+// onConsult(action): その結果を相談する（下書きを入れて相談を開く・送らない）。積み重ね → 相談 の輪を記録からも回す（2026-10-21 ui-critic）。
+function TriedCard({ books, onOpenBook, onShowActions, onConsult = null }) {
   const { allActions } = useAllActions(books);
   const list = useMemo(() => triedActions(allActions), [allActions]);
   if (list.length === 0) return null;
@@ -439,6 +441,12 @@ function TriedCard({ books, onOpenBook, onShowActions }) {
               {open ? (
                 <button type="button" onClick={open} style={rowStyle}><span style={{ flex: 1, minWidth: 0 }}>{body}</span><ChevronRight size="1.2em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} /></button>
               ) : <div style={rowStyle}><span style={{ flex: 1, minWidth: 0 }}>{body}</span></div>}
+              {onConsult && (
+                // 行（本を開く）の下に、結果を相談する文字ボタン（栗色・44・行の内側の余白にそろえる）
+                <button type="button" onClick={() => onConsult(a)} style={{ ...btnLink, fontSize: 'var(--text-meta)', minHeight: 'var(--tap-min)', padding: '0 var(--space-1)', margin: `calc(-1 * var(--space-3)) 0 0 calc(-1 * var(--space-1))` }}>
+                  この結果を相談する
+                </button>
+              )}
             </li>
           );
         })}
@@ -454,6 +462,7 @@ function TriedCard({ books, onOpenBook, onShowActions }) {
 
 export default function ReadingRecord({
   books,
+  onConsultAction = null,
   onShowBooks,
   onShowMemos,
   onShowActions,
@@ -609,7 +618,7 @@ export default function ReadingRecord({
       </section>
 
       {/* 🎯 やってみたこと（2026-10-21・完了した行動があるときだけ）: 行動 → ふりかえり → 本。押すとその本。 */}
-      <TriedCard books={books} onOpenBook={onOpenBook} onShowActions={onShowActions} />
+      <TriedCard books={books} onOpenBook={onOpenBook} onShowActions={onShowActions} onConsult={onConsultAction} />
 
       {/* ⏱ 読書の時間（2026-10-10・記録が 1 回も無ければ出さない＝データの無い区画は出さない）。 */}
       {showReadingTime && (
