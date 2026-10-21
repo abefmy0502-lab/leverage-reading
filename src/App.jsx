@@ -5615,7 +5615,7 @@ function AuthedApp() {
                 ? { label: '写真で共有', icon: <Share size="1.1em" aria-hidden="true" />, onClick: () => setShareSheet({ book: current, from: 'menu' }) }
                 : { label: '共有', icon: <Share size="1.1em" aria-hidden="true" />, onClick: () => shareBook(current) },
               // 🧾 AI への指示文（メモのある読書中・読了の本だけ・2026-10-21）。
-              ...(isMemoPhase ? [{ label: 'AI への指示文', icon: <FileText size="1.1em" aria-hidden="true" />, onClick: () => setPromptMakerBookId(current.id) }] : []),
+              ...(isMemoPhase ? [{ label: 'AI への指示文をつくる', icon: <FileText size="1.1em" aria-hidden="true" />, onClick: () => setPromptMakerBookId(current.id) }] : []),
               // 以前の AI 解析は、保存済みのものがある本だけ（本の詳細の畳む見出しから移した・共有の下・ヘルプの上・2026-10-09）。
               ...(hasVisibleSections(current.aiAnalysis, { hideRelatedBooks: true })
                 ? [{ label: '以前の AI 解析を見る', icon: <ScrollText size="1.1em" aria-hidden="true" />, onClick: () => setAnalysisSheetOpen(true) }]

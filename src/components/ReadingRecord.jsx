@@ -430,7 +430,7 @@ function TriedCard({ books, onOpenBook, onShowActions }) {
               {a.reflection && (
                 <span style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 3, overflow: 'hidden', marginTop: 'var(--space-1)', fontFamily: 'var(--font-read)', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.6, overflowWrap: 'anywhere' }}>{a.reflection}</span>
               )}
-              {meta && <span style={{ display: 'block', marginTop: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere', fontFeatureSettings: '"palt"', ...(a.bookTitle ? { textIndent: '-0.5em' } : null) }}>{withPhraseBreaks(meta)}</span>}
+              {meta && <span style={{ display: 'block', marginTop: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(meta)}</span>}
             </>
           );
           const rowStyle = { display: 'flex', alignItems: 'center', gap: 'var(--space-2)', width: '100%', minHeight: 'var(--tap-min)', padding: 'var(--space-3) 0', background: 'none', border: 'none', borderTop: i ? '1px solid var(--separator)' : 'none', textAlign: 'left', fontFamily: 'inherit', cursor: open ? 'pointer' : 'default' };

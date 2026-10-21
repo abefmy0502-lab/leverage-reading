@@ -62,7 +62,7 @@ import { btnPrimary, btnPrimaryOff, btnLink, groupTitle, card } from '../styles/
 import ErrorMessage from './ErrorMessage';
 import { SkeletonBlock } from './Skeleton';
 import { TERMS_URL, PRIVACY_URL, SCT_URL } from '../lib/legalLinks';
-import { FREE_TOKENS, FREE_FIRST_MONTH_TOKENS, PAID_TOKENS, TRIAL_TOKENS, TOKEN_COSTS, CONSULT_ANSWERS_NOTE, answerCountLabel, answersOf, monthDayLabelJa } from '../lib/tokens';
+import { FREE_TOKENS, FREE_FIRST_MONTH_TOKENS, PAID_TOKENS, TRIAL_TOKENS, TOKEN_COSTS, CONSULT_ANSWERS_NOTE, answerCountLabel, monthDayLabelJa } from '../lib/tokens';
 import { FREE_OCR_PER_MONTH } from '../lib/tokenAmounts';
 import { nextResetLabelJa } from '../lib/freeTrial';
 import { normalizeTrialLabel, trialFirstPhrase } from '../lib/trialNudge';
@@ -142,8 +142,8 @@ const PLAN_COMPARE = [
   // 無料プランの AI は 相談・この本で学べること・写真から書き起こし（2026-10-11 リリース前点検で並べた）。
   { name: '無料プラン（ずっと無料）', amount: `毎月 ${FREE_TOKENS.toLocaleString()} トークン`, scope: `AI の答え ${answerCountLabel(FREE_TOKENS)}・はじめの 2 か月は ${answerCountLabel(FREE_FIRST_MONTH_TOKENS)}`, lead: 'AI：', items: ['相談', 'この本で学べること', `写真から書き起こし 毎月 ${FREE_OCR_PER_MONTH} 回`], more: ['メモ', '記録', '振り返り', '写真で共有'] },
   // 機能名は語の途中で折り返さない（「写真から書き起こし」が割れないよう、名前ごとに nowrap で並べる）。
-  // 払うと何が得られるかを相談の数で（2026-10-21 点検「トークンと回数の話ばかり」）。相談 1 つは聞き返しを含めて 2〜3 回の答え＝約 2.5 回で割り、10 件単位に丸める。
-  { name: 'プラン', amount: `毎月 ${PAID_TOKENS.toLocaleString()} トークン`, scope: `AI の答え ${answerCountLabel(PAID_TOKENS)}（相談 約 ${Math.max(10, Math.round(answersOf(PAID_TOKENS) / 2.5 / 10) * 10)} 件）`, lead: 'すべての AI：', items: ['AI 選書', '読書計画シート', '写真から書き起こし'] },
+  // 量の数え方は「AI の答え 約 N 回」だけ（GLOSSARY・2026-10-21 に「相談 約 30 件」を足したが、数え方が 2 つになるのでやめた）。
+  { name: 'プラン', amount: `毎月 ${PAID_TOKENS.toLocaleString()} トークン`, scope: `AI の答え ${answerCountLabel(PAID_TOKENS)}`, lead: 'すべての AI：', items: ['AI 選書', '読書計画シート', '写真から書き起こし'] },
 ];
 // 7 日間無料で使えるトークン（期間まるごと・2026-09-29 オーナー裁定で下の固定の欄に出す）。
 // SPEC §1-3 の書き方「最初の 7 日間は無料（150 トークン・AI の答え 約 15 回）」。かっこの中は 1 かたまり
@@ -155,9 +155,9 @@ const TRIAL_TOKENS_PARTS = [`（${TRIAL_TOKENS.toLocaleString('ja-JP')}\u00a0ト
 const TRIAL_TOKENS_NOTE = TRIAL_TOKENS_PARTS.join('');
 // トークンの目安（1 行）。
 // 相談 1 つが何回の答えかの補足（CONSULT_ANSWERS_NOTE）は、この目安の行で 1 回だけ（2026-10-09）。
-const TOKEN_EXAMPLE = `AI\u00a0の答え 1\u00a0回 約\u00a0${TOKEN_COSTS.consult}・AI\u00a0選書 約\u00a0${TOKEN_COSTS.advisor}\u00a0トークン`;
+const TOKEN_EXAMPLE = `AI\u00a0の答え 1\u00a0回 約\u00a0${TOKEN_COSTS.consult}\u00a0トークン・AI\u00a0選書 約\u00a0${TOKEN_COSTS.advisor}\u00a0トークン`;
 // 無料の写真から書き起こしを使い切って開いたとき（free_ocr_used）は、プランで書き起こすといくつ使うかを先に（上限なしとは言わない）。
-const TOKEN_EXAMPLE_OCR = `写真から書き起こし 1\u00a0回 約\u00a0${TOKEN_COSTS.photoToText}・AI\u00a0の答え 1\u00a0回 約\u00a0${TOKEN_COSTS.consult}\u00a0トークン`;
+const TOKEN_EXAMPLE_OCR = `写真から書き起こし 1\u00a0回 約\u00a0${TOKEN_COSTS.photoToText}\u00a0トークン・AI\u00a0の答え 1\u00a0回 約\u00a0${TOKEN_COSTS.consult}\u00a0トークン`;
 
 // onlyPlan: 無料のトークンを使い切ったあと（本人の本の表紙を出すとき）はプランの行だけ（主ボタンを近くに）。
 // trial: この人が使える無料期間（「7 日間無料」）。あればプランの行の名前に「（最初の 7 日間は無料）」。
