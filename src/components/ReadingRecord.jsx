@@ -39,7 +39,7 @@ import { appNow } from '../lib/appNow';
 import { useAllActions } from '../hooks/useAllActions';
 import { triedActions, TRIED_SHOWN } from '../lib/triedActions';
 import { stripInlineMd } from '../lib/text';
-import { btnLink } from '../styles/ui';
+import { btnLinkQuiet } from '../styles/ui';
 
 /* ---------- 日付ユーティリティ（ローカル基準・UTC ずれ防止） ---------- */
 
@@ -442,8 +442,8 @@ function TriedCard({ books, onOpenBook, onShowActions, onConsult = null }) {
                 <button type="button" onClick={open} style={rowStyle}><span style={{ flex: 1, minWidth: 0 }}>{body}</span><ChevronRight size="1.2em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} /></button>
               ) : <div style={rowStyle}><span style={{ flex: 1, minWidth: 0 }}>{body}</span></div>}
               {onConsult && (
-                // 行（本を開く）の下に、結果を相談する文字ボタン（栗色・44・行の内側の余白にそろえる）
-                <button type="button" onClick={() => onConsult(a)} style={{ ...btnLink, fontSize: 'var(--text-meta)', minHeight: 'var(--tap-min)', padding: '0 var(--space-1)', margin: `calc(-1 * var(--space-3)) 0 0 calc(-1 * var(--space-1))` }}>
+                // 行（本を開く）の下に、結果を相談する控えめな文字ボタン（行ごとに栗色を並べない・押せる範囲 44 は負の余白で行に寄せる）
+                <button type="button" onClick={() => onConsult(a)} style={{ ...btnLinkQuiet, fontSize: 'var(--text-meta)', minHeight: 'var(--tap-min)', padding: '0 var(--space-1)', margin: `calc(-1 * var(--space-4)) 0 calc(-1 * var(--space-2)) calc(-1 * var(--space-1))` }}>
                   この結果を相談する
                 </button>
               )}
