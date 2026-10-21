@@ -16,7 +16,7 @@ import { useFocusTrap } from '../hooks/useFocusTrap';
 import { useBlockEdgeSwipe } from '../hooks/useEdgeSwipeBack';
 import { ArrowUp, Minus, ArrowDown, X } from 'lucide-react';
 import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff, btnLink, groupTitle, input as uiInput } from '../styles/ui';
-import { toLocalYmd } from '../lib/dates';
+import { toLocalYmd, tomorrowLocal } from '../lib/dates';
 import DateInput from './DateInput';
 import { withPhraseBreaks } from './TightBubble';
 
@@ -167,7 +167,10 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete, onS
   const reviewing = !!step;
   const hasNext = !!(step && step.index < step.total);
   const [text, setText] = useState(action?.text || '');
-  const [deadline, setDeadline] = useState(action?.deadline || '');
+  // 追加のときは期限を明日にしておく（相談・メモから足す行動と同じ・期限なしは埋もれて通知も届かない・2026-10-21 点検）。
+  //   呼ぶ側が期限を渡したとき（空文字も）はそのまま。
+  const [initialDeadline] = useState(() => (action?.deadline != null ? action.deadline : isCreate ? tomorrowLocal() : ''));
+  const [deadline, setDeadline] = useState(initialDeadline);
   const [priority, setPriority] = useState(action?.priority || 'medium');
   const [recurrence, setRecurrence] = useState(action?.recurrence || '');
   const [reflection, setReflection] = useState(action?.reflection || '');
@@ -187,7 +190,7 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete, onS
   // 書きかけ・直しかけのまま背景・×・Esc で閉じると、書いたことが黙って消えていた（2026-10-04）。
   //   変えたところがあるときだけ確かめる（メモの書きかけと同じ言葉・ConfirmDialog）。
   const dirty = text !== (action?.text || '')
-    || deadline !== (action?.deadline || '')
+    || deadline !== initialDeadline
     || priority !== (action?.priority || 'medium')
     || (recurrence || '') !== (action?.recurrence || '')
     || reflection !== (action?.reflection || '');

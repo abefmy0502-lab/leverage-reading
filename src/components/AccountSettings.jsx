@@ -579,7 +579,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
     if (upgrading) return;
     const ok = await confirm({
       title: '年額プランに変えますか？',
-      message: `${PLAN_LABELS.annual.price.replace(/・月あたり[^）)]*/, '')}。1 年ごとに自動更新されます。切り替えの日と請求は ${nativeView ? 'App Store' : '決済の画面'} の決まりに従います。`,
+      message: `${PLAN_LABELS.annual.price.replace(/・月あたり[^）)]*/, '')}。1 年ごとに自動更新されます。${nativeView ? '切り替えの日と請求は App Store の決まりに従います。' : 'この先は、お支払いを管理するページで切り替えます。'}`,
       confirmLabel: '年額プランに変える',
       cancelLabel: 'キャンセル',
     });
@@ -1069,8 +1069,8 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                     {withPhraseBreaks(nativeView
                       ? '解約やプランの変更は、App Store のサブスクリプション設定からいつでもできます。解約してもデータは残ります。'
                       : subscription?.stripeCustomerId
-                        ? '解約、カードの変更、請求履歴の確認は、下のボタンからいつでもできます。解約してもデータは残ります。'
-                        : 'アプリで購入した場合は、iPhone の設定アプリの「サブスクリプション」からいつでも解約できます。解約してもデータは残ります。')}
+                        ? `解約、カードの変更、請求履歴の確認は、下のボタンからいつでもできます。${plan === 'trial' ? '' : '解約してもデータは残ります。'}`
+                        : `アプリで購入した場合は、iPhone の設定アプリの「サブスクリプション」からいつでも解約できます。${plan === 'trial' ? '' : '解約してもデータは残ります。'}`)}
                   </p>}
                   {!nativeView && subscription?.stripeCustomerId ? (
                     <button
@@ -1275,7 +1275,8 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
               <button
                 type="button"
                 // 読み上げの名前は見えている文字と同じ（aria-label で別の名前にしない・2026-09-30）。
-                style={resetting ? btnGhostOff : btnDestructiveGhost}
+                // 枠の赤いボタンにしない（ログアウトより目立っていた・2026-10-21 点検）。消す操作なので文字だけ --error・押すと確かめる。
+                style={{ ...btnLink, alignSelf: 'flex-start', marginLeft: 'calc(-1 * var(--space-1))', color: resetting ? 'var(--text-3)' : 'var(--error)' }}
                 aria-busy={resetting || undefined}
                 disabled={resetting}
                 onClick={handleResetData}

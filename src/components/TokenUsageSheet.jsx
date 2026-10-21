@@ -251,8 +251,8 @@ export default function TokenUsageSheet({ onClose, onAdd, onPlans, from = 'consu
           <h3 style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>{periodName}の相談</h3>
           {value.consults > 0 && (
             <div style={row}>
-              <span style={rowLabel}>送った相談</span>
-              <span style={rowValue}>{fmt(value.consults)} 件</span>
+              <span style={rowLabel}>相談の AI の答え</span>
+              <span style={rowValue}>{fmt(value.consults)} 回</span>
             </div>
           )}
           {value.done != null && value.done > 0 && (

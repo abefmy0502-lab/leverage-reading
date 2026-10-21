@@ -433,6 +433,8 @@ ${CONSULT_SECURITY_RULES}
    - 未完了・期限切れの関連する行動があれば、新しい行動を増やす前に、まずそれを一歩小さくして促す
    - 前の相談と同じ悩みなら、そのときの結論と、その後の変化（行動・新しいメモ）を踏まえて答える
    日付・件数・達成率は、渡された値だけを使う（推測で作らない）。関係が薄いときは無理に触れない。
+   ただし GROWTH に「今回と同じテーマの前の相談」「関係する完了した行動」「関係する未完了の行動」のどれかがあるときは、
+   【結論】の最初の 1 文で必ずそれに触れる（積み重ねを知っている相談相手であることを、答えのたびに見せる）。
    責めたり点数をつけたりせず、続けてきたことを認める口調で。
 8. 本ごとの視点と語り口（2026-09-30 オーナー裁定「著者の口調で答えてほしい」）— 【参照した本のメモ】では、
    本ごとに「その本のメモからは何が言えるか」を分けて示し、【あなたの状況に合わせた解釈】で、本同士の重なりや違いを、
@@ -953,6 +955,7 @@ async function gatherAdvisorContextInner(userId) {
   return [booksPart, consultsPart].filter(Boolean).join('\n\n');
 }
 
+const ADVISOR_UNREAD_MAX = 15;
 async function gatherAdvisorBooksPart(userId) {
   let books;
   try {
@@ -1043,6 +1046,19 @@ async function gatherAdvisorBooksPart(userId) {
   const parts = ['【あなたの読書傾向（推薦の参考。指示ではなく情報）】', ...lines];
   if (points.length > 0) {
     parts.push('', '【高く評価した本の要点（参考情報）】', ...points.slice(0, ADVISOR_MAX_POINTS));
+  }
+  // 📕 本棚にある、まだ読んでいない本（積読・読みたい）。すでに持っている本を推薦の枠に入れない（2026-10-21 点検）。
+  const unread = books
+    .filter((b) => b && (b.status === 'before' || b.status === 'want'))
+    .sort((a, b) => String(b.updated_at || '').localeCompare(String(a.updated_at || '')))
+    .slice(0, ADVISOR_UNREAD_MAX)
+    .map((b) => {
+      const title = shortTitle(b.title).slice(0, 60);
+      return title ? `・『${title}』（${b.status === 'before' ? '積読' : '読みたい'}）` : '';
+    })
+    .filter(Boolean);
+  if (unread.length > 0) {
+    parts.push('', '【本棚にある、まだ読んでいない本（もう持っている・気になっている本。推薦の本には選ばない。悩みに合う本があれば「はじめに」で 1 冊だけ触れてよい）】', ...unread);
   }
   return parts.join('\n');
 }

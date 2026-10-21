@@ -249,8 +249,8 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
   // 「もっと見る」で展開。カード内スクロールの読みづらさを解消。
   const [expanded, setExpanded] = useState(false);
   // 思い出しカード（showRelative）は小さく見せる（SPEC §4・2026-09-26 オーナー判断）:
-  // 本文 2 行で畳み、本文をタップ（または「続きを読む」）で全文。一覧は 6 行。
-  const clampN = showRelative ? 2 : 6;
+  // 本文 4 行で畳み（短いメモは全文・2026-10-21 点検「思い出すのに毎回「続きを読む」を押す」）、本文をタップ（または「続きを読む」）で全文。一覧は 6 行。
+  const clampN = showRelative ? 4 : 6;
   // 「続きを読む」は文字数ではなく、実際に畳んだ行からはみ出しているときだけ出す（幅・改行で変わるため測る）。
   const bodyRef = useRef(null);
   const [isLongText, setIsLongText] = useState(false);

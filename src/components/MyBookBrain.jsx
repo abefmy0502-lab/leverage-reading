@@ -17,7 +17,7 @@ import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { setConsultBackGuard } from '../lib/consultBack';
 import { toMessage, toSaveMessage, OFFLINE_SAVE_MESSAGE } from '../lib/errors';
-import { streamMyBookBrain, prewarmKnowledge, invalidateKnowledgeCache, EVIDENCE_PREFIX } from '../lib/ai';
+import { streamMyBookBrain, prewarmKnowledge, invalidateKnowledgeCache, EVIDENCE_PREFIX, consultAgoLabel } from '../lib/ai';
 import { ensureAiConsent } from '../lib/aiConsent';
 import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnText as uiBtnText, btnLink as uiBtnLink, btnLinkQuiet as uiBtnLinkQuiet, groupTitle, fieldNote, input as uiInput, scrollFade } from '../styles/ui';
 import { track, EVENTS } from '../lib/analytics';
@@ -2246,7 +2246,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     : lastLookup && !isNoInfoAnswer(lastVisible) ? '続けて聞く・ほかの言葉で探す'
     // 行動が決まったあとは、特定の続きを言わない汎用の文（2026-10-10 第 9 回 総点検）。
     : lastHasAction ? '続けて相談する'
-    : threadActive && !isNoInfoAnswer(lastVisible) ? '続けて聞く：乗り気でないときは？' : '例：上司への報告がうまくいかない';
+    : threadActive && !isNoInfoAnswer(lastVisible) ? '続けて聞く' : '例：上司への報告がうまくいかない';
   // 描く前に高さを合わせる（useEffect だと、送ったあとに「消えた文字の高さのまま 1 回描く → 縮む」で
   // 入力欄が 2 回動いていた）。文字の大きさが変わったときも測り直す（hooks/useComposerHeight.js・2026-10-08 ui-critic）。
   useComposerHeight(inputRef, input, view === 'chat', composerPlaceholder);
@@ -2727,8 +2727,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 ))}
                 {/* 🎯「行動を決める」は決まった頼み方（DECIDE_REQUEST）で送る。行動の印（Target）つき。 */}
                 {followups.filter((c) => c.kind === 'decide').map((c) => (
-                  // 「ここで答えと行動を」はいつも行の先頭に（横に送る行で切れて見えないことが無いように・2026-10-10 ui-critic）。
-                  <button key="decide" type="button" onClick={() => { track('brain_followup', { kind: 'decide' }); ask(c.send); }} style={{ ...decideChip, order: -1 }}>
+                  // 「ここで答えと行動を」は行の先頭に（横に送る行で切れて見えないことが無いように・2026-10-10 ui-critic）。
+                  //   ただし問いに答える候補が出ている間は候補が先（答えやすさが主役・候補が画面の外に押し出されていた・2026-10-21 点検）。
+                  <button key="decide" type="button" onClick={() => { track('brain_followup', { kind: 'decide' }); ask(c.send); }} style={{ ...decideChip, order: followups.some((x) => x.kind === 'reply') ? 0 : -1 }}>
                     <Target size="1.1em" aria-hidden="true" style={{ flexShrink: 0 }} />
                     {c.label}
                   </button>
@@ -3812,6 +3813,27 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
   // 参照したメモを出すか: 照合の結果があればそのうち出せるもの（'x' 以外）・結果が無い古い答えは AI の文（p.refs）。
   //   全部が渡したメモに無い参照（'x'）で、解釈・もとになった本・踏まえたことも無ければ「根拠を見る」ごと出さない（2026-10-04 ui-critic）。
   const showRefChecks = (p) => (refChecksAll.length > 0 ? refChecks.length > 0 : !!p.refs);
+  // 🔖 あなたが書いたメモを 1 つ、結論のすぐ下に（2026-10-20 オーナー「¥1,500 以上の価値に」・点検「一番の価値が畳まれていて見えない」）。
+  //   渡したメモと一致した引用（refChecks の s === 'ok'）の最初の 1 つだけ。書名・ページ・いつ書いたか＋本文 3 行まで。押すとそのメモを開く。
+  //   一致した引用が無い答え（作った引用・関係するメモが無い答え）には出さない。全部は今までどおり「根拠を見る」の中。
+  const spot = refChecks.find((c) => c.s === 'ok' && c.x);
+  const renderSpotlight = () => {
+    if (!spot) return null;
+    const ago = spot.c ? consultAgoLabel(spot.c) : '';
+    const head = [spot.t ? `『${spot.t}』` : spot.u ? '自分の学び' : '', spot.p != null ? `p.${spot.p}` : '', ago ? `${ago}のあなた` : 'あなたのメモ'].filter(Boolean).join(' · ');
+    const bookId = spot.b || null;
+    const open = bookId && onOpenBook ? () => onOpenBook(bookId, spot.i || undefined) : null;
+    const body = (
+      <>
+        <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere', fontFeatureSettings: '"palt"', ...(spot.t ? { textIndent: '-0.5em' } : null) }}>{withPhraseBreaks(head)}</span>
+        <span style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 3, overflow: 'hidden', marginTop: 'var(--space-1)', fontFamily: 'var(--font-read)', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.6, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{spot.x}</span>
+      </>
+    );
+    const box = { display: 'block', width: '100%', textAlign: 'left', marginTop: 'var(--space-3)', padding: 'var(--space-3) 0 var(--space-3) var(--space-3)', borderLeft: '2px solid var(--border)', background: 'none', borderTop: 'none', borderRight: 'none', borderBottom: 'none', borderRadius: 0, fontFamily: 'inherit', cursor: open ? 'pointer' : 'default' };
+    return open
+      ? <button type="button" onClick={open} aria-label={`あなたのメモを開く：${head}`} style={box}>{body}</button>
+      : <div style={box}>{body}</div>;
+  };
   // 📕 答えに出てきた、まだ読んでいない本の行（本の行＝表紙 44・書名・状態 · 著者・›）。
   const renderUnreadBooks = (mt) => (unreadInAnswer.length > 0 ? (
     <div style={{ marginTop: mt }} role="list" aria-label="まだ読んでいない本">
@@ -4179,6 +4201,8 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
               ))}
             </div>
           )}
+          {/* 🔖 あなたのメモ 1 つ（結論のすぐ下・本を探す問いの答えでは出さない） */}
+          {lookupRows.length === 0 && renderSpotlight()}
           {/* 2. 明日からできる一歩（＋ 行動に追加）か、あなたに聞きたいこと → 使ったメモの一行 → 3. 根拠（畳む） */}
           {/* まだ読んでいない本の行の下は、行の下の余白 12＋12＝24 で行動の箱へ（2026-10-11 ui-critic） */}
           {renderAction(parsed, !parsed.question && unreadInAnswer.length > 0 ? 'var(--space-3)' : 'var(--space-4)')}

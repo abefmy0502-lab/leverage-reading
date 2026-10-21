@@ -291,7 +291,7 @@ function ActionRow({ a, completing, swipeable, onCheck, onOpenMenu, onSwipeDelet
       : `期限 ${fmtShort(a.deadline)}${dow}`;
     // 期限切れも本と同じ 1 行に（「本・期限 9/26」・警告色は期限の部分だけ・2026-09-29）。
     //   期限はまとまりで折り返さない（nowrap）。書名は … で 1 行に切る（下のメタ行）。
-    if (label) meta.push(<span key="dl" style={{ whiteSpace: 'nowrap', ...(isOver ? { color: overdue ? 'var(--warning)' : 'var(--text-3)' } : null) }}>{label}</span>);
+    if (label) meta.push(<span key="dl" style={{ whiteSpace: 'nowrap', fontFeatureSettings: '"palt"', ...(isOver ? { color: overdue ? 'var(--warning)' : 'var(--text-3)' } : null) }}>{label}</span>);
   }
   // 完了した行動は「いつやったか」を出す（優先は、もうやり終えたので出さない・2026-10-04）。
   if (a.done && a.completedAt && fmtShort(a.completedAt)) meta.push(`完了 ${fmtShort(a.completedAt)}`);
@@ -330,7 +330,7 @@ function ActionRow({ a, completing, swipeable, onCheck, onOpenMenu, onSwipeDelet
       >
         {/* overflowWrap は anywhere（break-word だと、文字を大きくしたときに行より長い文節がカードを画面の外まで押し広げた・2026-10-01）。
             折り返しは今までどおり文節の切れ目で、1 つの文節が行に収まらないときだけ中で折る。 */}
-        <p className="text-pretty" style={{ margin: 0, fontSize: 'var(--text-body)', lineHeight: 1.5, color: shownDone ? 'var(--text-3)' : 'var(--text)', textDecoration: shownDone ? 'line-through' : 'none', transition: `color ${HEIGHT_EASE}`, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+        <p className="text-pretty" style={{ margin: 0, fontSize: 'var(--text-body)', lineHeight: 1.5, color: shownDone ? 'var(--text-2)' : 'var(--text)', textDecoration: 'none', transition: `color ${HEIGHT_EASE}`, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
           {/* 右上の「…」の場所は 1 行目だけ空ける（2 行目からは右端まで使う・2026-10-10 ui-critic）。 */}
           <span aria-hidden="true" style={{ float: 'right', width: 'calc(1.2em + var(--space-2))', height: '1.5em' }} />
           {phrasedText}
@@ -452,6 +452,8 @@ function ReflectCard({ a, value, onChange, onSave, saving, onClose, onConsult = 
 
 // showDoneNonce: 記録の「実行した行動」から来たときに変わる。完了した行動を開いた状態で見せる。
 // focusAction: 相談の答えから追加した行動の「見る」で来たとき（{ bookId, text, nonce }）。その行まで送って淡く光らせる。
+const prefersReducedMotionSafe = () => { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; } };
+
 export default function ActionList({ books, onToggleAction, onReflect, onDeleteAction, onEditAction, onOpenBook, onGoToBooks, onAddAction, onGoConsult, onConsultResult = null, showDoneNonce = null, focusAction = null }) {
   const { allActions, stats } = useAllActions(books);
   const toast = useToast();
@@ -791,7 +793,12 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
         <section ref={doneSectionRef} aria-label="完了した行動">
           <button
             type="button"
-            onClick={() => setShowDone((v) => !v)}
+            onClick={() => {
+              const next = !showDone;
+              setShowDone(next);
+              // 開いたら先頭の行まで送る（下に開くだけで何も起きないように見えた・2026-10-21 点検）。
+              if (next) requestAnimationFrame(() => { try { doneSectionRef.current?.scrollIntoView({ block: 'start', behavior: prefersReducedMotionSafe() ? 'auto' : 'smooth' }); } catch { /* ignore */ } });
+            }}
             aria-expanded={showDone}
             style={{ width: '100%', minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', background: 'none', border: 'none', borderTop: '1px solid var(--separator)', padding: 'var(--space-2) 0 0', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}
           >

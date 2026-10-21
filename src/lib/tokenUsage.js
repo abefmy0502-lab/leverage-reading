@@ -167,7 +167,8 @@ export async function fetchPeriodValue(userId, since) {
   if (!isSupabaseConfigured || !userId || !since) return null;
   try {
     const [c, a] = await Promise.all([
-      supabase.from('chat_messages').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('role', 'user').gte('created_at', since),
+      // 数えるのは AI の答え（assistant）＝メモが答えた相談は保存しないので入らない（2026-10-21 点検「使い道と食い違う」）。
+      supabase.from('chat_messages').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('role', 'assistant').gte('created_at', since),
       supabase.from('actions').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('done', true).gte('completed_at', since),
     ]);
     if (c.error) return null;
