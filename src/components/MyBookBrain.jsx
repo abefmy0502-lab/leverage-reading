@@ -31,7 +31,8 @@ import TightBubble, { withPhraseBreaks } from './TightBubble';
 import { createSendGuard } from '../lib/sendGuard';
 import TokensOutCard, { trialCancelLineStyle } from './TokensOutCard';
 import { SkeletonBlock } from './Skeleton';
-import { X, MessageCircle, History, BookOpenCheck, Target, Check, RotateCw, MoreHorizontal, ChevronLeft, ChevronDown, ChevronRight, PencilLine, ArrowUp, Square, Plus, Minus, Sprout, Trash2, SlidersHorizontal } from 'lucide-react';
+import { X, MessageCircle, History, BookOpenCheck, Target, Check, RotateCw, MoreHorizontal, ChevronLeft, ChevronDown, ChevronRight, PencilLine, ArrowUp, Square, Plus, Minus, Sprout, Trash2, SlidersHorizontal, FileText } from 'lucide-react';
+import PromptMakerSheet from './PromptMakerSheet';
 import ContextMenu from './ContextMenu';
 import { usePaywall } from '../state/PaywallContext';
 import { nextResetLabelJa } from '../lib/freeTrial';
@@ -542,6 +543,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const focusOnResumeRef = useRef(false);
   useEffect(() => { rememberSession(user?.id, { resumeThread }); }, [resumeThread, user?.id]);
   const [input, setInput] = useState('');
+  // 🧾 「…」の「AI への指示文をつくる」（2026-10-21・PromptMakerSheet）
+  const [promptMaker, setPromptMaker] = useState(false);
   // 送れなかったときの 1 行（会話の場所のいちばん下に出す・入力欄に重なる赤い帯にしない・2026-10-10）。次に送るときに消す。
   const [sendNotice, setSendNotice] = useState('');
   // 🤝 AI に送る同意を「今はやめる」で閉じた（2026-10-10 第 9 回 総点検）: 黙って何も起きないのではなく、送れない理由と
@@ -2302,8 +2305,12 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           items={[
             { label: '学びを書く', icon: <PencilLine size="1.1em" aria-hidden="true" />, onClick: () => setView('learning') },
             { label: '根拠にできる情報', icon: <BookOpenCheck size="1.1em" aria-hidden="true" />, onClick: () => setView('knowledge') },
+            { label: 'AI への指示文をつくる', icon: <FileText size="1.1em" aria-hidden="true" />, onClick: () => setPromptMaker(true) },
           ]}
         />
+      )}
+      {promptMaker && (
+        <PromptMakerSheet books={books} from="consult" onClose={() => setPromptMaker(false)} />
       )}
       {partnerSheet && (
         <PartnerBooksSheet partner={partnerSheet} onClose={() => setPartnerSheet(null)} onOpenBook={onOpenBook} />

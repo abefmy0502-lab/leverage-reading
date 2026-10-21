@@ -53,6 +53,7 @@ props は数・真偽・32 字までの短い文字列だけ（本文・書名�
 | `onboard_step` | 初回ガイドの各画面を開いた（2026-10-20・どこで離れるかを見る） | `step`: 1〜3、`id`: 画面の名前（入れた理由は `purpose`・ほかは `s1` など） | `Onboarding.jsx` |
 | `home_growth_action` | ホームの「あと N 件で相談相手が育ちます」の右の文字ボタンを押した（2026-10-20） | `action`: `consult`（相談してみる）/ `one_line`（一言ずつ残す） | `HomeScreen.jsx` |
 | `tokens_back` | ホームの「今月の相談が戻りました」を押した／閉じた（2026-10-20） | `action`: `open` / `dismiss` | `HomeScreen.jsx` |
+| `prompt_maker` | AI への指示文のシート（2026-10-21） | `action`: `open` / `create` / `copy` / `open_chatgpt` / `open_claude`、`from`: `book` / `consult`、`books`（create だけ・9 まで）、`format`（create だけ） | `PromptMakerSheet.jsx` |
 | `brain_reask` | 過去の相談（14 日より前）の「いまのメモで、もう一度相談する」を押した（2026-10-20） | なし | `MyBookBrain.jsx` |
 | `consult_find_books` | 行動に追加した相談の下の「この悩みに合う本を AI 選書で探す」を押した（2026-10-20） | なし | `MyBookBrain.jsx` |
 
