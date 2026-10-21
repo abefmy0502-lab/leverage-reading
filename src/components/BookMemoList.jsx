@@ -16,9 +16,8 @@ import ContextMenu from './ContextMenu';
 import BookMemoCard from './BookMemoCard';
 import BookMemoEditor from './BookMemoEditor';
 import MemoReadThrough from './MemoReadThrough';
-import PromptMakerSheet from './PromptMakerSheet';
 import { OverlayFallback } from './lazyParts';
-import { BookOpen, BookOpenText, FileText, PencilLine, Pencil, Copy, Share, Trash2, Sparkles, Target, ChevronDown, Check } from 'lucide-react';
+import { BookOpen, BookOpenText, PencilLine, Pencil, Copy, Share, Trash2, Sparkles, Target, ChevronDown, Check } from 'lucide-react';
 import { btnGhost, btnGhostOff, btnLink, btnLinkQuiet } from '../styles/ui';
 import MemoLinks from './MemoLinks';
 import NotifyOptInCard from './NotifyOptInCard';
@@ -217,8 +216,6 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
 export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summaryText = '', onSaveSummary, onMakeAction, onShareMemo, afterList = null, focusMemoId = null, editFocusedMemo = false, onEditFocusedOpened, onWriteMemo, books = [], savedMemo = null, heading = null, purposeText = '' }) {
   const [sortBy, setSortBy] = useState('page');
   const [sortMenu, setSortMenu] = useState(null); // { x, y } | null
-  // 🧾 AI への指示文をつくる（2026-10-21・PromptMakerSheet）
-  const [promptMaker, setPromptMaker] = useState(false);
   // 📖 メモを通して読む（2026-10-18・MemoReadThrough）
   const [readThrough, setReadThrough] = useState(false);
   const [quoteOnly, setQuoteOnly] = useState(false);
@@ -753,8 +750,8 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
       </div>
       )}
       {/* 📖 メモが 2 件以上あるときだけ、一覧の下に「メモを通して読む」（1 冊のメモをページ順に 1 枚で読み返す・2026-10-18）。
-          🧾 メモが 1 件以上あれば、その右に「AI への指示文」（ChatGPT・Claude に貼る指示文をつくる・2026-10-21）。 */}
-      {!loading && memos.some((m) => (m.text || '').trim()) && (
+          （AI への指示文は 2026-10-21 に本の詳細の「…」へ移した）。 */}
+      {!loading && memos.filter((m) => (m.text || '').trim()).length >= 2 && (
       <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 'var(--space-4)', marginLeft: 'calc(-1 * var(--space-1))' }}>
       {memos.filter((m) => (m.text || '').trim()).length >= 2 && (
         <button
@@ -766,14 +763,6 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
           <BookOpenText size="1.1em" aria-hidden="true" />メモを通して読む
         </button>
       )}
-        <button
-          type="button"
-          onClick={() => { haptic.light(); setPromptMaker(true); }}
-          aria-haspopup="dialog"
-          style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}
-        >
-          <FileText size="1.1em" aria-hidden="true" />AI への指示文
-        </button>
       </div>
       )}
     </div>
@@ -833,9 +822,6 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
 
       {readThrough && (
         <MemoReadThrough title={bookTitle} purpose={purposeText} memos={memos} summary={summaryText} onClose={() => setReadThrough(false)} />
-      )}
-      {promptMaker && (
-        <PromptMakerSheet books={books.length ? books : [{ id: bookId, title: bookTitle, author: bookAuthor, leverageMemo: summaryText, investPurpose: purposeText }]} initialBookIds={[bookId]} from="book" onClose={() => setPromptMaker(false)} />
       )}
 
       {sortMenu && (

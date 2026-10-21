@@ -20,6 +20,7 @@ import { onTabListKeyDown, tabIndexFor } from './lib/tabKeys';
 import { isStrictMatch } from './lib/bookMatch';
 const BookAdvisor = lazy(() => import('./components/BookAdvisor'));
 const QuickMemoSheet = lazy(() => import('./components/QuickMemoSheet'));
+const PromptMakerSheet = lazy(() => import('./components/PromptMakerSheet'));
 // すべての本を開いた最初の描画で出す冊数（残りは手が空いたときに足す）。
 const LIBRARY_FIRST = 12;
 const PastBooksQuickstart = lazy(() => import('./components/PastBooksQuickstart'));
@@ -221,6 +222,7 @@ import {
   Shapes as IcShapes,
   ScrollText,
   Timer,
+  FileText,
 } from 'lucide-react';
 import { useBookMemos } from './hooks/useBookMemos';
 import { useBookInfo } from './hooks/useBookInfo';
@@ -1185,6 +1187,8 @@ function AuthedApp() {
   const [storeSheetOpen, setStoreSheetOpen] = useState(false);
   // 以前の AI 解析（2026-09-27 に廃止した「AIで本を解析する」の保存済みの結果）は「⋯ → 以前の AI 解析を見る」のシートで（2026-10-09）。
   const [analysisSheetOpen, setAnalysisSheetOpen] = useState(false);
+  // 🧾 AI への指示文（2026-10-21・本の詳細の「…」から・メモの下の行から移した＝有料の相談より先に外の AI へ送らない）。
+  const [promptMakerBookId, setPromptMakerBookId] = useState(null);
   // 📷 画像で共有のシート（SPEC §2-1）: { book?, initialMemoId?, photoFile?, fromHome?, initialSubject?, from }。
   //   fromHome＝上の行（ホーム・振り返り・相談のタブ）の入口＝本棚の本を渡して「どの本？」を選べるように。
   //   「写真で共有」の入口（タブの上の行・本の詳細の上の行・読了した直後）は、選ぶシートで選んだ写真（無ければ表紙）で開く。
@@ -5549,6 +5553,11 @@ function AuthedApp() {
             <BookStoreLinks book={current} variant="cta" buy />
           </BottomSheet>
         )}
+        {promptMakerBookId && current && promptMakerBookId === current.id && (
+          <Suspense fallback={null}>
+            <PromptMakerSheet books={books} initialBookIds={[current.id]} from="book" onClose={() => setPromptMakerBookId(null)} />
+          </Suspense>
+        )}
         {analysisSheetOpen && hasVisibleSections(current.aiAnalysis, { hideRelatedBooks: true }) && (
           <BottomSheet title="以前の AI 解析" onClose={() => setAnalysisSheetOpen(false)}>
             {/* 書誌で確かめていないので、本を挙げる節は出さない（「読みたいに追加」も出さない・2026-10-04） */}
@@ -5605,6 +5614,8 @@ function AuthedApp() {
               isMemoPhase
                 ? { label: '写真で共有', icon: <Share size="1.1em" aria-hidden="true" />, onClick: () => setShareSheet({ book: current, from: 'menu' }) }
                 : { label: '共有', icon: <Share size="1.1em" aria-hidden="true" />, onClick: () => shareBook(current) },
+              // 🧾 AI への指示文（メモのある読書中・読了の本だけ・2026-10-21）。
+              ...(isMemoPhase ? [{ label: 'AI への指示文', icon: <FileText size="1.1em" aria-hidden="true" />, onClick: () => setPromptMakerBookId(current.id) }] : []),
               // 以前の AI 解析は、保存済みのものがある本だけ（本の詳細の畳む見出しから移した・共有の下・ヘルプの上・2026-10-09）。
               ...(hasVisibleSections(current.aiAnalysis, { hideRelatedBooks: true })
                 ? [{ label: '以前の AI 解析を見る', icon: <ScrollText size="1.1em" aria-hidden="true" />, onClick: () => setAnalysisSheetOpen(true) }]
