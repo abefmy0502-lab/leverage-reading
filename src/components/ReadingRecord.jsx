@@ -5,6 +5,7 @@
 // そのまま映すだけ。ヒートマップも「足あと」であって streak ではない）。
 //
 //   1. 読書 → メモ → 行動 : 読んだ本・残したメモ・実行した行動（累計。各数字からその一覧へ）
+//   1a. やってみたこと : 完了した行動 → ふりかえり → 本（2026-10-21・lib/triedActions.js・完了した行動があるときだけ）
 //   1b. 読書の時間   : 集中モードで測った時間（2026-10-10・記録があるときだけ・components/ReadingTimeCard.jsx）
 //   2. 読書の足あと   : 直近16週のアクティビティ・ヒートマップ（メモ+読了+集中モードで読んだ日）
 //   3. 月別の読了     : 直近 6 ヶ月の読了数のバー
@@ -35,6 +36,9 @@ import ReadingTimeCard from './ReadingTimeCard';
 import { useReadingSessions } from '../hooks/useReadingSessions';
 import { hasReadingTime } from '../lib/readingStats';
 import { appNow } from '../lib/appNow';
+import { useAllActions } from '../hooks/useAllActions';
+import { triedActions, TRIED_SHOWN } from '../lib/triedActions';
+import { stripInlineMd } from '../lib/text';
 
 /* ---------- 日付ユーティリティ（ローカル基準・UTC ずれ防止） ---------- */
 
@@ -406,6 +410,48 @@ function Heatmap({ dateStrings, weeks = 16 }) {
 //   onShowMemos()       … 振り返り「メモ」サブタブへ
 //   onShowActions()     … 振り返り「行動」サブタブへ
 //   （onOpenBook / onFilterTag / onSearchAuthor は旧区画用。呼び出し側の互換のため受け取るだけ）
+// 🎯 やってみたこと（lib/triedActions.js）。ふりかえりは明朝で（自分の言葉＝読む文章）。数字・%・連続日数は出さない。
+function TriedCard({ books, onOpenBook, onShowActions }) {
+  const { allActions } = useAllActions(books);
+  const list = useMemo(() => triedActions(allActions), [allActions]);
+  if (list.length === 0) return null;
+  const shown = list.slice(0, TRIED_SHOWN);
+  const day = (t) => { if (!t) return ''; const d = new Date(t); return `${d.getMonth() + 1}/${d.getDate()}`; };
+  return (
+    <section style={card} aria-label="やってみたこと">
+      <h3 style={cardTitle}>やってみたこと</h3>
+      <ul style={{ listStyle: 'none', margin: 'var(--space-2) 0 0', padding: 0 }}>
+        {shown.map((a, i) => {
+          const open = onOpenBook && a.bookId ? () => onOpenBook(a.bookId) : null;
+          const meta = [a.bookTitle ? `『${a.bookTitle}』` : '', a.at ? `完了 ${day(a.at)}` : ''].filter(Boolean).join(' · ');
+          const body = (
+            <>
+              <span style={{ display: 'block', fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(stripInlineMd(a.text))}</span>
+              {a.reflection && (
+                <span style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 3, overflow: 'hidden', marginTop: 'var(--space-1)', fontFamily: 'var(--font-read)', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.6, overflowWrap: 'anywhere' }}>{a.reflection}</span>
+              )}
+              {meta && <span style={{ display: 'block', marginTop: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere', fontFeatureSettings: '"palt"', ...(a.bookTitle ? { textIndent: '-0.5em' } : null) }}>{withPhraseBreaks(meta)}</span>}
+            </>
+          );
+          const rowStyle = { display: 'flex', alignItems: 'center', gap: 'var(--space-2)', width: '100%', minHeight: 'var(--tap-min)', padding: 'var(--space-3) 0', background: 'none', border: 'none', borderTop: i ? '1px solid var(--separator)' : 'none', textAlign: 'left', fontFamily: 'inherit', cursor: open ? 'pointer' : 'default' };
+          return (
+            <li key={a.id || `${a.bookId}-${a.actionIdx}`}>
+              {open ? (
+                <button type="button" onClick={open} style={rowStyle}><span style={{ flex: 1, minWidth: 0 }}>{body}</span><ChevronRight size="1.2em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} /></button>
+              ) : <div style={rowStyle}><span style={{ flex: 1, minWidth: 0 }}>{body}</span></div>}
+            </li>
+          );
+        })}
+      </ul>
+      {list.length > TRIED_SHOWN && onShowActions && (
+        <button type="button" onClick={onShowActions} style={{ display: 'inline-flex', alignItems: 'center', minHeight: 'var(--tap-min)', padding: '0 var(--space-1)', margin: 'var(--space-1) 0 0 calc(-1 * var(--space-1))', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-sub)', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}>
+          完了した行動をすべて見る（{list.length}）
+        </button>
+      )}
+    </section>
+  );
+}
+
 export default function ReadingRecord({
   books,
   onShowBooks,
@@ -561,6 +607,9 @@ export default function ReadingRecord({
           </p>
         )}
       </section>
+
+      {/* 🎯 やってみたこと（2026-10-21・完了した行動があるときだけ）: 行動 → ふりかえり → 本。押すとその本。 */}
+      <TriedCard books={books} onOpenBook={onOpenBook} onShowActions={onShowActions} />
 
       {/* ⏱ 読書の時間（2026-10-10・記録が 1 回も無ければ出さない＝データの無い区画は出さない）。 */}
       {showReadingTime && (
