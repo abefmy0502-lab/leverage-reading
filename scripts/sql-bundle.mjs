@@ -57,6 +57,7 @@ export const ORDER = [
   ['supabase_ai_cost.sql', 'AI の原価をトークンで数える'],
   ['supabase_ai_token_credits.sql', 'トークンの買い足し'],
   ['supabase_ai_usage_purpose.sql', 'トークンの使い道（用途ごとの内訳）'],
+  ['supabase_ai_cache_warm.sql', '相談の指示文のキャッシュを温め直す'],
   // 6. 計測・問い合わせ・退会
   ['supabase_analytics_events.sql', '利用状況の記録'],
   ['supabase_feedback.sql', 'フィードバック'],

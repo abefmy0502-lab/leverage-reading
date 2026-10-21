@@ -2208,7 +2208,67 @@ grant execute on function public.add_ai_purpose_cost(uuid, text, text, bigint) t
 
 
 -- ############################################################
--- 40. supabase_analytics_events.sql — 利用状況の記録
+-- 40. supabase_ai_cache_warm.sql — 相談の指示文のキャッシュを温め直す
+-- ############################################################
+-- 🔥 相談の指示文のキャッシュを温め直す時刻（2026-10-21・docs/ai-routing.md §7・冪等）
+--
+-- 相談の指示文（約 6,800 トークン・全員で同じ文）は AI 側に 1 時間キャッシュされ、使うたびに 1 時間延びる。
+-- 1 時間だれも相談しないと消え、次の相談の最初の答えが 1 回 約 ¥1.6 → 約 ¥3.9 になる。
+-- 中継（api/_consultWarm.js）は、温まっているあいだだけ（最後に使ってから 40〜57 分）、アプリが開かれたのを
+-- きっかけに 1 回 約 ¥0.12 の短い呼び出しで延ばす。冷えたキャッシュを先に書くことはしない（相談が来ないと無駄になるため）。
+--
+-- この表は「最後に温まった時刻」を全インスタンスで共有するだけ。利用者の情報は入れない。
+-- RLS 有効・ポリシー無し＝service_role（中継）だけが読み書きする。
+-- 未適用なら温め直しはしない（今までどおり・壊れない）。
+
+create table if not exists public.ai_cache_warm (
+  key text primary key check (char_length(key) <= 32),
+  warmed_at timestamptz not null default now()
+);
+-- （まとめが自動で足した: 前からある表に足りない列を足す）
+ALTER TABLE public.ai_cache_warm ADD COLUMN IF NOT EXISTS key text check (char_length(key) <= 32);
+ALTER TABLE public.ai_cache_warm ADD COLUMN IF NOT EXISTS warmed_at timestamptz not null default now();
+
+alter table public.ai_cache_warm enable row level security;
+
+-- 本物の相談でキャッシュが使われた・書かれたとき（中継が呼ぶ）。
+create or replace function public.touch_ai_cache_warm(p_key text)
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  insert into public.ai_cache_warm (key, warmed_at) values (p_key, now())
+  on conflict (key) do update set warmed_at = now();
+$$;
+
+-- 温め直してよいか（最後に温まってから p_min_age 秒以上・p_max_age 秒未満）を 1 文で確かめて取る。
+-- 取れたら true（時刻を今にする＝ほかのインスタンスは重ねて呼ばない）。冷えている（行が無い・古すぎる）なら false。
+create or replace function public.claim_ai_cache_refresh(p_key text, p_min_age integer, p_max_age integer)
+returns boolean
+language sql
+security definer
+set search_path = public
+as $$
+  with c as (
+    update public.ai_cache_warm
+       set warmed_at = now()
+     where key = p_key
+       and warmed_at <= now() - make_interval(secs => p_min_age)
+       and warmed_at > now() - make_interval(secs => p_max_age)
+    returning 1
+  )
+  select exists (select 1 from c);
+$$;
+
+revoke all on function public.touch_ai_cache_warm(text) from public, anon, authenticated;
+revoke all on function public.claim_ai_cache_refresh(text, integer, integer) from public, anon, authenticated;
+grant execute on function public.touch_ai_cache_warm(text) to service_role;
+grant execute on function public.claim_ai_cache_refresh(text, integer, integer) to service_role;
+
+
+-- ############################################################
+-- 41. supabase_analytics_events.sql — 利用状況の記録
 -- ############################################################
 -- 📊 利用状況の記録（製品改善のためのファーストパーティ計測）
 --
@@ -2270,7 +2330,7 @@ DROP POLICY IF EXISTS "analytics_events_delete_own" ON public.analytics_events;
 
 
 -- ############################################################
--- 41. supabase_feedback.sql — フィードバック
+-- 42. supabase_feedback.sql — フィードバック
 -- ############################################################
 -- 📩 ユーザーフィードバック・要望テーブル。
 --
@@ -2330,7 +2390,7 @@ create policy "feedback_select_own" on public.feedback
 
 
 -- ############################################################
--- 42. supabase_feedback_hardening.sql — フィードバックの守り
+-- 43. supabase_feedback_hardening.sql — フィードバックの守り
 -- ############################################################
 -- 🛡️ feedback テーブルの堅牢化（anon スパム封じ + 長さ CHECK）
 --
@@ -2432,7 +2492,7 @@ END $$;
 
 
 -- ############################################################
--- 43. supabase_account_deletion.sql — 退会の申し込み
+-- 44. supabase_account_deletion.sql — 退会の申し込み
 -- ############################################################
 -- =============================================================================
 -- 🛡️ アカウント削除リクエスト — Supabase migration
@@ -2494,7 +2554,7 @@ $$;
 
 
 -- ############################################################
--- 44. supabase_account_deletion_hardening.sql — 退会の申し込みの守り
+-- 45. supabase_account_deletion_hardening.sql — 退会の申し込みの守り
 -- ############################################################
 -- 🛡️ account_deletion_requests の堅牢化（メール偽装封じ + 二重リクエスト防止）
 --
@@ -2590,7 +2650,7 @@ END $$;
 
 
 -- ############################################################
--- 45. supabase_lp_events.sql — 紹介ページの記録
+-- 46. supabase_lp_events.sql — 紹介ページの記録
 -- ############################################################
 -- 📊 LP（紹介ページ）の閲覧状況の記録 — ダウンロードにつながる導線を数字で決めるため。
 --
@@ -2657,7 +2717,7 @@ alter table public.lp_events add constraint lp_events_event_check check (event i
 
 
 -- ############################################################
--- 46. supabase_lp_waitlist.sql — 公開のお知らせの登録
+-- 47. supabase_lp_waitlist.sql — 公開のお知らせの登録
 -- ############################################################
 -- ✉️ 公開のお知らせの登録（LP・2026-10-05）— App Store の URL が無い間、LP の入口は「公開の日にメールで知らせる」。
 --
@@ -2761,7 +2821,7 @@ grant execute on function public.take_lp_waitlist_slot(text, date, integer) to s
 
 
 -- ############################################################
--- 47. supabase_security_hardening.sql — 本・メモ・行動・写真の権限
+-- 48. supabase_security_hardening.sql — 本・メモ・行動・写真の権限
 -- ############################################################
 -- 🛡️ セキュリティ堅牢化マイグレーション（RLS 再保証 + Storage バケット防御）
 --
@@ -3012,7 +3072,7 @@ UPDATE storage.buckets
 
 
 -- ############################################################
--- 48. supabase_admin_metrics.sql — 運営ダッシュボード（管理者の登録つき）
+-- 49. supabase_admin_metrics.sql — 運営ダッシュボード（管理者の登録つき）
 -- ############################################################
 -- 🛰️ 運営ダッシュボード（KGI/KPI 管制塔）— 管理者だけが見る集計 RPC 群。
 --
@@ -3282,7 +3342,7 @@ on conflict (user_id) do nothing;
 
 
 -- ############################################################
--- 49. supabase_admin_ops.sql — 目標・チケット
+-- 50. supabase_admin_ops.sql — 目標・チケット
 -- ############################################################
 -- 🎛️ 運営オペレーション層（Founder Cockpit）— 目標 ＋ チケット。
 --
@@ -3457,7 +3517,7 @@ grant execute on function public.admin_ticket_from_feedback(uuid) to authenticat
 
 
 -- ############################################################
--- 50. supabase_admin_growth.sql — 継続率
+-- 51. supabase_admin_growth.sql — 継続率
 -- ############################################################
 -- 📈 運営ダッシュボード — 成長・継続率の集計（admin_metrics の上に乗る）。
 -- ※ 先に supabase_admin_metrics.sql を適用すること（_require_admin 依存）。
@@ -3530,7 +3590,7 @@ grant execute on function public.admin_growth() to authenticated;
 
 
 -- ############################################################
--- 51. supabase_admin_exclude_admins.sql — 自分の利用を数えない
+-- 52. supabase_admin_exclude_admins.sql — 自分の利用を数えない
 -- ############################################################
 -- 🧹 運営ダッシュボードの集計から「管理者（app_admins）」を除外する。
 --
@@ -3707,7 +3767,7 @@ grant execute on function public.admin_growth() to authenticated;
 
 
 -- ############################################################
--- 52. supabase_admin_members_tasks.sql — 会員の内訳・売上
+-- 53. supabase_admin_members_tasks.sql — 会員の内訳・売上
 -- ############################################################
 -- 🧩 操縦席の強化: ①会員内訳（有料/無料期間/解約の分離）②日次タスク。
 -- ※ 先に supabase_admin_metrics.sql / _ops / _growth / _exclude_admins を適用済みであること。
@@ -3792,7 +3852,7 @@ grant execute on function public.admin_revenue() to authenticated;
 
 
 -- ############################################################
--- 53. supabase_ops_advisor.sql — 参謀の会話
+-- 54. supabase_ops_advisor.sql — 参謀の会話
 -- ############################################################
 -- 🧠 AI 参謀（作戦会議）の会話履歴 — 運営ダッシュボードの対話相談役。
 --
@@ -3836,7 +3896,7 @@ create policy "ops_advisor_delete_own" on public.ops_advisor_messages
 
 
 -- ############################################################
--- 54. supabase_ops_floor.sql — 作戦司令室の報告
+-- 55. supabase_ops_floor.sql — 作戦司令室の報告
 -- ############################################################
 -- 🏢 作戦司令室（社員フロア）の報告ログ — AI 企業の「記憶」。
 -- 各社員（member_id）の報告と CEO室の統合ブリーフ（member_id='__integration__'）を
@@ -3885,7 +3945,7 @@ create index if not exists ops_floor_reports_user_member_idx
 
 
 -- ############################################################
--- 55. supabase_ops_sales_metrics.sql — 営業の週の数字
+-- 56. supabase_ops_sales_metrics.sql — 営業の週の数字
 -- ############################################################
 -- 📣 営業ウィークリー計測 — 営業戦略（company/sales-strategy-2026-2027.md §7）の
 -- 週次KPI（新規課金/インストール/LPクリック/note PV/Xプロフクリック）を記録する。
@@ -3936,7 +3996,7 @@ create index if not exists ops_sales_metrics_user_week_idx
 
 
 -- ############################################################
--- 56. supabase_admin_launch_kpis.sql — ローンチの 4 つの数字
+-- 57. supabase_admin_launch_kpis.sql — ローンチの 4 つの数字
 -- ############################################################
 -- 🚀 ローンチの 4 つの数字（2026-10-02 オーナー承認・2026 年 11 月ローンチ）— 運営ダッシュボード用の集計。
 --
@@ -4187,7 +4247,7 @@ grant execute on function public.admin_launch_kpis(int) to authenticated;
 
 
 -- ############################################################
--- 57. supabase_admin_goal.sql — 有料ユーザー 1,000 人の目標・毎週の見直し
+-- 58. supabase_admin_goal.sql — 有料ユーザー 1,000 人の目標・毎週の見直し
 -- ############################################################
 -- 🎯 2027 年中に有料ユーザー 1,000 人（2026-10-11 オーナー決定）— 運営ダッシュボードの「目標の進み具合」と毎週の見直し。
 --

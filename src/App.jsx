@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense, memo } from "react";
 import { useAuth } from './hooks/useAuth';
 import { useBooks } from './hooks/useBooks';
-import { sanitizeForPrompt, invalidateKnowledgeCache, generateBookBrief, loadPrompts } from './lib/ai';
+import { sanitizeForPrompt, invalidateKnowledgeCache, generateBookBrief, loadPrompts, nudgeConsultCache } from './lib/ai';
 import { markActivation } from './lib/activation';
 import { OPEN_MEMO_EVENT } from './lib/openMemo';
 import { advisorDraftFor, classifyBook, fieldsOf, isBookField, splitLegacyTags, withFields, BOOK_FIELDS } from './lib/bookFields';
@@ -638,6 +638,14 @@ function AuthedApp() {
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, []);
+  // 🔥 相談の指示文のキャッシュを延ばすきっかけ（ログイン中・開いたとき・前面に戻ったとき・端末ごとに 10 分に 1 回まで）。
+  useEffect(() => {
+    if (!user || typeof document === 'undefined') return undefined;
+    nudgeConsultCache();
+    const onVisible = () => { if (document.visibilityState === 'visible') nudgeConsultCache(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [user?.id]);
   // 🛰️ 管理者判定（is_app_admin RPC）。非管理者・未適用 DB では静かに false。
   useEffect(() => {
     if (!user) { setIsAdmin(false); return; }

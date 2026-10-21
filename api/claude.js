@@ -11,6 +11,7 @@ import { lotBalance, effectiveAllowance, shouldSettleOverflow } from './_tokenLo
 import { resolveRoute, isJevPurpose } from './_aiRouting.js';
 import { handleJevRelay } from './_jevRelay.js';
 import { openRoute, ProviderError } from './_providers.js';
+import { refreshConsultWarm, touchConsultWarm, isWarmableSystem } from './_consultWarm.js';
 
 // 画像として通す種類（2026-10-11）。ほかの種類は落とす（AI の会社が受け付ける画像だけ・アプリは JPEG に縮めて送る）。
 export const IMAGE_MEDIA_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
@@ -642,6 +643,10 @@ export function consentVersionFrom(req) {
   return Number.isInteger(v) && v > 0 && v < 1000 ? v : null;
 }
 
+// 温め直しの確かめは 1 インスタンス 30 秒に 1 回まで（DB への問い合わせを減らす）。
+const WARM_CHECK_GAP_MS = 30 * 1000;
+let lastWarmCheckAt = 0;
+
 export default async function handler(req, res) {
   // iOS アプリ（capacitor://localhost）からの呼び出しを許可（プリフライト込み）。
   if (applyCors(req, res, 'POST, OPTIONS')) return undefined;
@@ -674,6 +679,16 @@ export default async function handler(req, res) {
   const userId = userData.user.id;
   // 🌱 アカウントを作った日時（無料プランのはじめの月を見る・auth が確かめた値だけを使う）。
   const userCreatedAt = userData.user.created_at || null;
+
+  // 🔥 アプリが開かれた知らせ（2026-10-21・api/_consultWarm.js）: 相談の指示文のキャッシュが温まっているあいだだけ延ばす。
+  //    利用者のトークン・分間の上限は使わない。全インスタンスで 40 分に 1 回まで（DB で取る）。返事はいつも 200。
+  if (req.body?.warm === 'consult') {
+    const now = Date.now();
+    if (now - lastWarmCheckAt < WARM_CHECK_GAP_MS) return res.status(200).json({ ok: true });
+    lastWarmCheckAt = now;
+    const out = await refreshConsultWarm({ admin: getServiceSupabase() });
+    return res.status(200).json({ ok: true, refreshed: out.refreshed });
+  }
 
   // 🧭 Jev（文を書かない判断のモデル・TypeSafe AI）への短い道（2026-10-02・api/_jevRelay.js）。
   //    文を書く AI の分間の上限・トークンとは別に数える（相談 1 回につき 1 回ついてくるので、相談の 10 回/分を食わないように）。
@@ -1135,6 +1150,10 @@ export default async function handler(req, res) {
           if (body.purpose === 'consult' && u.seenStart) {
             const cc = u.cache_creation && typeof u.cache_creation === 'object' ? u.cache_creation : {};
             console.info(`[ai-cache] consult in=${u.input_tokens ?? '-'} cw5m=${cc.ephemeral_5m_input_tokens ?? u.cache_creation_input_tokens ?? '-'} cw1h=${cc.ephemeral_1h_input_tokens ?? 0} cr=${u.cache_read_input_tokens ?? '-'} out=${u.output_tokens ?? '-'}`);
+            // 🔥 指示文がキャッシュに乗った（読み出し・1 時間の書き込み）→ 温まった時刻を今に（api/_consultWarm.js）。
+            if (((u.cache_read_input_tokens || 0) > 0 || (cc.ephemeral_1h_input_tokens || 0) > 0) && isWarmableSystem(payload.system)) {
+              touchConsultWarm(getServiceSupabase());
+            }
           }
           if (!refund) {
             if (u.seenStart) {
