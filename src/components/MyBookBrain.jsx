@@ -3834,7 +3834,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
     const open = bookId && onOpenBook ? () => onOpenBook(bookId, spot.i || undefined) : null;
     const body = (
       <>
-        <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere', fontFeatureSettings: '"palt"', ...(spot.t ? { textIndent: '-0.5em' } : null) }}>{headTitle && withPhraseBreaks(headTitle)}<span style={{ whiteSpace: 'nowrap' }}>{headTitle ? ` · ${headTail}` : headTail}</span></span>
+        <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere', fontFeatureSettings: '"palt"', ...(spot.t ? { textIndent: '-0.5em' } : null) }}>{/* 折り返したときに行の頭が「·」にならないよう、塊ごと（書名 p.N ／ いつ）に並べ、間は空きだけ（2026-10-21）。 */}{headTitle && <span style={{ display: 'inline-block', marginRight: 'var(--space-2)' }}>{withPhraseBreaks(headTitle)}{spot.p != null && <span style={{ whiteSpace: 'nowrap' }}>{` p.${spot.p}`}</span>}</span>}<span style={{ display: 'inline-block', whiteSpace: 'nowrap' }}>{headTitle ? (ago ? `${ago}のあなた` : 'あなたのメモ') : headTail}</span></span>
         <span style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 3, overflow: 'hidden', marginTop: 'var(--space-1)', fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', color: 'var(--text)', lineHeight: 1.6, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{spot.x}</span>
       </>
     );
