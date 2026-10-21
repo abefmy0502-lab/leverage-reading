@@ -146,6 +146,10 @@ function matchEntry(entry, t) {
 // 返り値: { terms: [言葉…], searched: 探したメモの数,
 //          groups: [{ bookId|null, book|null, hits: [{ kind, memoId, page, createdAt, label, text, segments, score }] }] }
 //   book が null のまとまりは学び（本に結びつかないメモ）。
+// 広い言葉（探しはするが、軽く数える・それだけでは当たりにしない）。
+export const GENERIC_WORDS = new Set(['仕事', '時間', '人生', '生活', '会社', '職場', '毎日', '人間', '世界', '社会', '日々', '成長', '自信', '未来']);
+const GENERIC_WEIGHT = 0.3;
+
 export function answerFromMemos({ question, books = [], memos = [], scopeIds = [], maxBooks = MEMO_ANSWER_MAX_BOOKS, perBook = MEMO_ANSWER_PER_BOOK } = {}) {
   const corpus = buildMemoAnswerCorpus({ books, memos, scopeIds });
   const searched = countSearchedMemos(corpus);
@@ -165,9 +169,12 @@ export function answerFromMemos({ question, books = [], memos = [], scopeIds = [
     terms.forEach((t, i) => {
       const m = matchEntry(e, t);
       if (!m) return;
-      score += m.w * idf[i];
+      // どの悩みにも出る広い言葉（「仕事」「時間」）は軽く数え、それだけでは当たりにしない（メモが少ない人でも
+      //   「…いちばん大事な仕事。」のような関係の薄い一節が並んでいた・2026-10-21 点検）。
+      const generic = GENERIC_WORDS.has(t.term);
+      score += m.w * idf[i] * (generic ? GENERIC_WEIGHT : 1);
       if (m.inText) { hitTerms.push(t); inText = true; }
-      if (n < COMMON_MIN_CORPUS || df[i] / n <= COMMON_SHARE) rare = true;
+      if (!generic && (n < COMMON_MIN_CORPUS || df[i] / n <= COMMON_SHARE)) rare = true;
     });
     if (!score || !rare || !inText) continue;
     scored.push({ e, score: score * KIND_WEIGHT[e.kind], hitTerms });

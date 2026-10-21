@@ -99,3 +99,19 @@ describe('answerFromMemos: 関係しそうな一節を本ごとに', () => {
     expect(r.groups.some((g) => g.bookId === 'deleted')).toBe(false);
   });
 });
+
+describe('広い言葉だけでは当てない（2026-10-21）', () => {
+  it('「仕事」だけが重なるメモは出さず、「任せ」が重なるメモを出す', async () => {
+    const { answerFromMemos } = await import('./memoAnswer');
+    const books = [{ id: 'b1', title: 'A' }, { id: 'b2', title: 'B' }];
+    const memos = [
+      { id: 'm1', book_id: 'b1', text: '健康は、いちばん大事な仕事。' },
+      { id: 'm2', book_id: 'b2', text: '部下に任せるときは、終わりの形を先に決める。' },
+    ];
+    const r = answerFromMemos({ question: '仕事を部下に任せられない', books, memos });
+    expect(r.groups.map((g) => g.bookId)).toEqual(['b2']);
+    const only = answerFromMemos({ question: '仕事がつらい', books, memos });
+    expect(only.groups).toEqual([]);
+  });
+});
+
