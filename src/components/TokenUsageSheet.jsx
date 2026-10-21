@@ -135,7 +135,7 @@ export default function TokenUsageSheet({ onClose, onAdd, onPlans, from = 'consu
       ? <>無料期間は<span style={nowrap}>{end}まで。</span>そのあとは<span style={nowrap}>毎月 {fmt(PAID_TOKENS)} トークン</span></>
       : <>無料期間のあとは<span style={nowrap}>毎月 {fmt(PAID_TOKENS)} トークン</span></>;
   } else if (free && freeFirstMonth) {
-    resetLine = <><span style={nowrap}>はじめの月だけ {fmt(tokenAllowance)} トークン。</span><span style={nowrap}>{nextResetLabelJa()}から</span> <span style={nowrap}>毎月 {fmt(tokenNextAllowance ?? FREE_TOKENS)} トークン</span></>;
+    resetLine = <><span style={nowrap}>はじめの 2 か月は {fmt(tokenAllowance)} トークン。</span><span style={nowrap}>{nextResetLabelJa()}に</span> <span style={nowrap}>{fmt(tokenNextAllowance ?? FREE_TOKENS)} トークンに戻ります</span></>;
   } else if (tokenAllowance != null) {
     resetLine = usedSome
       ? <><span style={nowrap}>{nextResetLabelJa()}に</span> <span style={nowrap}>{fmt(tokenNextAllowance ?? tokenAllowance)} トークンに戻ります</span></>

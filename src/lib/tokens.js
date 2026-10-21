@@ -14,12 +14,12 @@ import { supabase, isSupabaseConfigured } from './supabase';
 
 import {
   AI_TOKEN_JPY, FREE_TOKENS, FREE_FIRST_MONTH_TOKENS, TRIAL_TOKENS, PAID_TOKENS,
-  ANSWER_TOKENS, CONSULT_ANSWERS_NOTE, answersOf, answerCountLabel, remainingAnswersLabel, isFreeFirstMonth, freeTokensFor,
+  ANSWER_TOKENS, CONSULT_ANSWERS_NOTE, answersOf, answerCountLabel, remainingAnswersLabel, isFreeFirstMonth, freeTokensFor, nextJstMonthStart, FREE_FIRST_MONTHS,
 } from './tokenAmounts';
 
 export {
   AI_TOKEN_JPY, FREE_TOKENS, FREE_FIRST_MONTH_TOKENS, TRIAL_TOKENS, PAID_TOKENS,
-  ANSWER_TOKENS, CONSULT_ANSWERS_NOTE, answersOf, answerCountLabel, remainingAnswersLabel, isFreeFirstMonth, freeTokensFor,
+  ANSWER_TOKENS, CONSULT_ANSWERS_NOTE, answersOf, answerCountLabel, remainingAnswersLabel, isFreeFirstMonth, freeTokensFor, nextJstMonthStart, FREE_FIRST_MONTHS,
 };
 
 // 1 回あたりの目安（表示だけ。実際は材料の長さで前後する）。api/_aiCost.js の単価と、ふつうの大きさの
@@ -92,7 +92,9 @@ export function allowanceFor(plan, { createdAt = null, now = Date.now() } = {}) 
 }
 
 // 来月 1 日に戻る量（無料のはじめの月の人も、来月は毎月の 30）。
-export function nextMonthAllowanceFor(plan) {
+//   無料プランのはじめの 2 か月の人は、来月がまだその中なら 60（2026-10-21）。
+export function nextMonthAllowanceFor(plan, { createdAt = null, now = Date.now() } = {}) {
+  if (plan === 'free' && createdAt) return freeTokensFor(createdAt, nextJstMonthStart(now));
   return allowanceFor(plan);
 }
 

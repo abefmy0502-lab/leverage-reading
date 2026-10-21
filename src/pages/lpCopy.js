@@ -79,7 +79,7 @@ export function buildLpCopy({
   const FREE_CONSULTS = consultsOf(FREE_TOKENS);
   // 🌱 無料プランのはじめの月（アカウントを作った月）だけ 60 トークン（2026-10-09）。
   const FIRST_CONSULTS = consultsOf(FREE_FIRST_MONTH_TOKENS);
-  const FIRST_MONTH = `はじめの月は ${noBreak(`${FREE_FIRST_MONTH_TOKENS} トークン`)}（${FIRST_CONSULTS}）`;
+  const FIRST_MONTH = `はじめの 2 か月は ${noBreak(`${FREE_FIRST_MONTH_TOKENS} トークン`)}（${FIRST_CONSULTS}）`;
   const PAID_CONSULTS = consultsOf(PAID_TOKENS);
   const TRIAL_CONSULTS = consultsOf(TRIAL_TOKENS);
   const LAUNCH = noBreak(launchLabel || DEFAULT_LAUNCH_LABEL);

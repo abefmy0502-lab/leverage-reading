@@ -7539,7 +7539,7 @@ function PaywallGate() {
   const tokenAllowance = allowanceForPlan(plan, { createdAt: userCreatedAt, now: appNow().getTime() });
   const freeFirstMonth = plan === 'free' && isFreeFirstMonth(userCreatedAt, appNow().getTime());
   // 来月 1 日に戻る量（はじめの月の人も来月は毎月の量）。
-  const tokenNextAllowance = nextMonthAllowanceFor(plan);
+  const tokenNextAllowance = nextMonthAllowanceFor(plan, { createdAt: userCreatedAt, now: appNow().getTime() });
   const tokensRemaining = usedMjpy == null || tokenAllowance == null ? null : remainingTokens(tokenAllowance, usedMjpy);
   const purchasedTokens = plan === 'admin' ? 0 : (lots?.balance || 0);
   const freeMode = plan === 'free';

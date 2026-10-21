@@ -63,7 +63,7 @@ describe('🌱 無料プランのはじめの月（アカウントを作った�
   it('既定: はじめの月 60・それ以降 30', () => {
     expect(freeFirstMonthTokens(ENV)).toBe(60);
     expect(freeTokensFor({ createdAt: '2026-10-09T01:00:00Z', monthKey: '2026-10', env: ENV })).toBe(60);
-    expect(freeTokensFor({ createdAt: '2026-09-30T01:00:00Z', monthKey: '2026-10', env: ENV })).toBe(30);
+    expect(freeTokensFor({ createdAt: '2026-08-30T01:00:00Z', monthKey: '2026-10', env: ENV })).toBe(30);
     expect(allowanceFor('free', ENV, { createdAt: '2026-10-09T01:00:00Z', monthKey: '2026-10' })).toBe(60);
     expect(allowanceFor('free', ENV)).toBe(30); // opts なし＝毎月の量
     expect(fallbackCallsFor('free', ENV, { createdAt: '2026-10-09T01:00:00Z', monthKey: '2026-10' })).toBe(6);
@@ -73,13 +73,17 @@ describe('🌱 無料プランのはじめの月（アカウントを作った�
     const justBefore = new Date(NOV1_JST - 1000).toISOString(); // 日本時間 10 月 31 日 23:59:59
     const justAfter = new Date(NOV1_JST).toISOString(); // 日本時間 11 月 1 日 0:00
     expect(isFreeFirstMonth(justBefore, '2026-10')).toBe(true);
-    expect(isFreeFirstMonth(justBefore, '2026-11')).toBe(false);
+    expect(isFreeFirstMonth(justBefore, '2026-11')).toBe(true); // 2026-10-21: はじめの 2 か月
+    expect(isFreeFirstMonth(justBefore, '2026-12')).toBe(false);
     expect(isFreeFirstMonth(justAfter, '2026-10')).toBe(false);
     expect(isFreeFirstMonth(justAfter, '2026-11')).toBe(true);
   });
   it('月をまたいだら 30 に戻る（12 月をまたいで年が変わっても）', () => {
-    expect(freeTokensFor({ createdAt: '2026-10-20T00:00:00Z', monthKey: '2026-11', env: ENV })).toBe(30);
-    expect(freeTokensFor({ createdAt: '2026-12-20T00:00:00Z', monthKey: '2027-01', env: ENV })).toBe(30);
+    expect(freeTokensFor({ createdAt: '2026-10-20T00:00:00Z', monthKey: '2026-11', env: ENV })).toBe(60); // 翌月まで
+    expect(freeTokensFor({ createdAt: '2026-10-20T00:00:00Z', monthKey: '2026-12', env: ENV })).toBe(30);
+    expect(freeTokensFor({ createdAt: '2026-12-20T00:00:00Z', monthKey: '2027-01', env: ENV })).toBe(60); // 年をまたいでも
+    expect(freeTokensFor({ createdAt: '2026-12-20T00:00:00Z', monthKey: '2027-02', env: ENV })).toBe(30);
+    expect(freeTokensFor({ createdAt: '2026-10-20T00:00:00Z', monthKey: '2026-11', env: { ...ENV, AI_FREE_FIRST_MONTHS: '1' } })).toBe(30);
     expect(freeTokensFor({ createdAt: '2025-10-20T00:00:00Z', monthKey: '2026-10', env: ENV })).toBe(30); // 1 年前の同じ月
   });
   it('作った日が読めない・無い → 30（fail-closed）', () => {

@@ -652,6 +652,10 @@ export const DECIDE_REQUEST = 'ここまでの話で答えをまとめて、私�
 // 聞き返すのは 1 つの相談で最大 2 回まで。2 回答えたら、次の答えは聞き返さずに結論＋行動 1 つ（ai.js の turnHint）。
 //   ユーザーが「もっと聞いて」と頼んだときだけ続けて聞く（wantsMoreAsk）。行動を決めた答えのあとは数え直す。
 export const ASK_LIMIT = 2;
+// 💸 無料プランは聞き返し 1 回まで（2026-10-21 オーナー「費用・粗利を想定して売上を最大化」）: 毎月のトークンで
+//   相談が「聞かれただけ」で終わらず、答えと行動まで届くように（原価はほぼ同じ・相談 1 件が答え 2 回ぶんになる）。
+export const FREE_ASK_LIMIT = 1;
+export const askLimitFor = ({ freeMode = false } = {}) => (freeMode ? FREE_ASK_LIMIT : ASK_LIMIT);
 const ASK_SECTION_RE = /【\s*[^】]*聞きたい[^】]*】\s*([\s\S]*?)(?:\n\s*【|REFS_START|$)/;
 const ACTION_SECTION_RE = /【\s*明日からできる[^】]*】/;
 // その答えが状況を聞き返したか（【あなたに聞きたいこと】に問いがある・行動を決めた答えではない）。
@@ -690,19 +694,19 @@ export function isLastAnswer({ freeMode = false, plan = '', tokensRemaining = nu
   return left > 0 && left < ONE_ANSWER_TOKENS * 2;
 }
 
-export function shouldDecide({ followUp = false, question = '', asked = 0, lastAnswer = false } = {}) {
+export function shouldDecide({ followUp = false, question = '', asked = 0, lastAnswer = false, askLimit = ASK_LIMIT } = {}) {
   if (isBookLookup(question)) return false;
   // 見方を変える頼みは、聞き返しの回数に関係なく、その見方で答える（行動は決めない）。
   if (followUp && lensOf(question)) return false;
   if (lastAnswer) return true;
   if (!followUp) return false;
   if (wantsAction(question)) return true;
-  return asked >= ASK_LIMIT && !wantsMoreAsk(question);
+  return asked >= askLimit && !wantsMoreAsk(question);
 }
 // 聞き返しの答えの下の 1 行（いまどこにいるか・13/--text-2）。k＝この答えまでの聞き返しの回数（countAsks）。
-export function askProgressText(k) {
+export function askProgressText(k, limit = ASK_LIMIT) {
   if (!Number.isFinite(k) || k < 1) return '';
-  return k < ASK_LIMIT ? 'あと 1 つ聞いたら、答えと行動をまとめます' : '次で答えと行動をまとめます';
+  return k < limit ? 'あと 1 つ聞いたら、答えと行動をまとめます' : '次で答えと行動をまとめます';
 }
 // 候補の行の頭の印（指示は「・」。- * • → や「1.」も受ける）。
 const ASK_REPLY_RE = /^\s*(?:[・•\-*→＞>]|[0-9０-９]+\s*[.．)）、])\s*(.+?)\s*$/;

@@ -42,12 +42,21 @@ export function showFreeTokenCount(remaining) {
 
 // 🌱 はじめの月か（アカウントを作った日本時間の月＝いまの日本時間の月）。表示だけ（決めるのはサーバー）。
 //    createdAt が読めなければ false（サーバーと同じく毎月の量で見せる）。
+// はじめの 2 か月（作った月と翌月・2026-10-21・サーバーの AI_FREE_FIRST_MONTHS の写し）。
+export const FREE_FIRST_MONTHS = 2;
 export function isFreeFirstMonth(createdAt, now = Date.now()) {
   const t = typeof createdAt === 'number' ? createdAt : Date.parse(createdAt || '');
   const n = now instanceof Date ? now.getTime() : Number(now);
   if (!Number.isFinite(t) || !Number.isFinite(n)) return false;
-  const month = (x) => new Date(x + 9 * 3600 * 1000).toISOString().slice(0, 7);
-  return month(t) === month(n);
+  const idx = (x) => { const d = new Date(x + 9 * 3600 * 1000); return d.getUTCFullYear() * 12 + d.getUTCMonth(); };
+  const diff = idx(n) - idx(t);
+  return diff >= 0 && diff < FREE_FIRST_MONTHS;
+}
+// 来月 1 日（日本時間）の時刻。
+export function nextJstMonthStart(now = Date.now()) {
+  const n = now instanceof Date ? now.getTime() : Number(now);
+  const d = new Date(n + 9 * 3600 * 1000);
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1) - 9 * 3600 * 1000;
 }
 // この人の今月の無料のトークン（はじめの月は 60・それ以降は 30）。
 export function freeTokensFor(createdAt, now = Date.now()) {

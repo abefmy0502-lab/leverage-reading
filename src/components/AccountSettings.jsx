@@ -1115,7 +1115,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                     // まだ使っていない（残り＝その月の分）ときは「戻ります」を出さない（2026-09-30）。
                     // 🌱 はじめの月（アカウントを作った月）は、今月だけ多いことと来月からの量を（2026-10-09）。
                     sub={freeFirstMonth
-                      ? <><span style={{ whiteSpace: 'nowrap' }}>はじめの月だけ {fmtTokens(tokenAllowance)} トークン。</span><span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}から</span> <span style={{ whiteSpace: 'nowrap' }}>毎月 {fmtTokens(tokenNextAllowance ?? FREE_TOKENS)} トークン</span></>
+                      ? <><span style={{ whiteSpace: 'nowrap' }}>はじめの 2 か月は {fmtTokens(tokenAllowance)} トークン。</span><span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}に</span> <span style={{ whiteSpace: 'nowrap' }}>{fmtTokens(tokenNextAllowance ?? FREE_TOKENS)} トークンに戻ります</span></>
                       : tokensRemaining >= tokenAllowance ? null : <><span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}に</span> <span style={{ whiteSpace: 'nowrap' }}>{fmtTokens(tokenNextAllowance ?? tokenAllowance)} トークンに戻ります</span></>}
                     style={divider}
                   />

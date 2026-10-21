@@ -77,17 +77,28 @@ export function freeFirstMonthTokens(env = process.env) {
 // はじめの月＝アカウントを作った日本時間の月（作ってから翌月 1 日 0 時まで）。
 // createdAt は auth.users.created_at（サーバーが auth.getUser で確かめたもの・アプリの申告は使わない）。
 // 読めないときは false（はじめの月として扱わない＝fail-closed）。
-export function isFreeFirstMonth(createdAt, monthKey) {
+// 2026-10-21 オーナー「費用・粗利を想定して売上を最大化できるなら」: はじめの月だけ → はじめの 2 か月（作った月と翌月）。
+//   増える原価は 1 人 最大 ¥9（30 トークン）。有料 1 人の手取り ¥900／月・平均 8 か月なら、千人に 1 人増えれば足りる
+//   （相談相手が育つ前に止まって離れる人を減らす）。AI_FREE_FIRST_MONTHS で変えられる（1 で前の決まり）。
+export function freeFirstMonths(env = process.env) {
+  return Math.max(1, Math.min(12, Math.floor(num(env.AI_FREE_FIRST_MONTHS, 2))));
+}
+const monthIndex = (key) => {
+  const m = /^(\d{4})-(\d{2})$/.exec(String(key || ''));
+  return m ? Number(m[1]) * 12 + Number(m[2]) - 1 : NaN;
+};
+export function isFreeFirstMonth(createdAt, monthKey, env = process.env) {
   const t = typeof createdAt === 'number' ? createdAt : Date.parse(createdAt || '');
   if (!Number.isFinite(t) || typeof monthKey !== 'string' || !monthKey) return false;
-  return jstParts(t).month === monthKey;
+  const diff = monthIndex(monthKey) - monthIndex(jstParts(t).month);
+  return Number.isFinite(diff) && diff >= 0 && diff < freeFirstMonths(env);
 }
 // この人のこの月の無料のトークン。AI_FREE_TOKENS=0（無料の AI をやめる）のときは、はじめの月も 0。
 // はじめの月の量が毎月の量より少なく設定されたときは、毎月の量（減らさない）。
 export function freeTokensFor({ createdAt, monthKey, env = process.env } = {}) {
   const base = freeTokens(env);
   if (!(base > 0)) return 0;
-  return isFreeFirstMonth(createdAt, monthKey) ? Math.max(base, freeFirstMonthTokens(env)) : base;
+  return isFreeFirstMonth(createdAt, monthKey, env) ? Math.max(base, freeFirstMonthTokens(env)) : base;
 }
 export function trialTokens(env = process.env) {
   const yen = num(env.AI_TRIAL_BUDGET_JPY, NaN);

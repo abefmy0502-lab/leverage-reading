@@ -735,7 +735,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
                   <p style={{ ...sub, margin: 'calc(-1 * var(--space-2)) 0 var(--space-3)', fontVariantNumeric: 'tabular-nums' }}>
                     {/* 🪙 「AI の答え 約 N 回」だけ。トークンの数は残り 20 以下のときだけ・はじめの月は数を言わない（2026-10-11）。 */}
                     {showFreeTokenCount(freeRemaining) && <span style={{ display: 'block', whiteSpace: 'nowrap' }}>今月の残り {fmtTokens(freeRemaining)} トークン</span>}
-                    <span style={{ display: 'block' }}><span style={{ whiteSpace: 'nowrap' }}>AI の答え {remainingAnswersLabel(freeRemaining)}</span>{freeFirstMonth && <span style={{ whiteSpace: 'nowrap' }}>（はじめの月）</span>}</span>
+                    <span style={{ display: 'block' }}><span style={{ whiteSpace: 'nowrap' }}>AI の答え {remainingAnswersLabel(freeRemaining)}</span>{freeFirstMonth && <span style={{ whiteSpace: 'nowrap' }}>（はじめの 2 か月）</span>}</span>
                   </p>
                 )}
                 <textarea

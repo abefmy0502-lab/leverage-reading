@@ -496,7 +496,7 @@ describe('🌱 無料プランのはじめの月のトークン（アカウン�
     expect(allowanceOfReserve()).toBe(60);
   });
   it('先月以前に作ったアカウント → 30', async () => {
-    db.createdAt = new Date(Date.now() - 40 * 86400000).toISOString();
+    db.createdAt = new Date(Date.now() - 75 * 86400000).toISOString(); // 2 か月より前（はじめの 2 か月は 60）
     stubJson();
     await handler(consultReq(), mockRes());
     expect(allowanceOfReserve()).toBe(30);
@@ -511,7 +511,7 @@ describe('🌱 無料プランのはじめの月のトークン（アカウン�
     }
   });
   it('アプリが送った作成日（body）は信じない', async () => {
-    db.createdAt = new Date(Date.now() - 40 * 86400000).toISOString();
+    db.createdAt = new Date(Date.now() - 75 * 86400000).toISOString(); // 2 か月より前（はじめの 2 か月は 60）
     stubJson();
     await handler(req({ model: 'claude-haiku-4-5', purpose: 'consult', max_tokens: 1024, created_at: new Date().toISOString(), messages: [{ role: 'user', content: 'こんにちは' }] }), mockRes());
     expect(allowanceOfReserve()).toBe(30);
@@ -523,7 +523,7 @@ describe('🌱 無料プランのはじめの月のトークン（アカウン�
     await handler(consultReq(), mockRes());
     expect(db.rpcArgs.reserve_ai_usage).toMatchObject({ p_period_month: `free-${jstMonth()}`, p_limit: 6 });
     resetDb(); db.sub = null; db.costFail = true; clockOffset += 61_000;
-    db.createdAt = new Date(Date.now() - 40 * 86400000).toISOString();
+    db.createdAt = new Date(Date.now() - 75 * 86400000).toISOString(); // 2 か月より前（はじめの 2 か月は 60）
     stubJson();
     await handler(consultReq(), mockRes());
     expect(db.rpcArgs.reserve_ai_usage).toMatchObject({ p_limit: 3 });

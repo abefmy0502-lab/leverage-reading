@@ -401,3 +401,16 @@ describe('advisorDraftFromConsult（相談から AI 選書の下書き）', () =
     expect(advisorDraftFromConsult('')).toBe('');
   });
 });
+
+describe('無料プランは聞き返し 1 回まで（2026-10-21）', () => {
+  it('askLimit 1 なら 1 回聞いたあとの返事でまとめる', async () => {
+    const { shouldDecide, askLimitFor, askProgressText } = await import('./consultHelpers');
+    expect(askLimitFor({ freeMode: true })).toBe(1);
+    expect(askLimitFor({ freeMode: false })).toBe(2);
+    expect(shouldDecide({ followUp: true, question: '会議の前', asked: 1, askLimit: 1 })).toBe(true);
+    expect(shouldDecide({ followUp: true, question: '会議の前', asked: 1, askLimit: 2 })).toBe(false);
+    expect(askProgressText(1, 1)).toBe('次で答えと行動をまとめます');
+    expect(askProgressText(1, 2)).toBe('あと 1 つ聞いたら、答えと行動をまとめます');
+  });
+});
+

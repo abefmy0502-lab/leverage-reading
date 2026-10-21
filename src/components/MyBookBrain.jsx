@@ -52,7 +52,7 @@ import { composerChrome, answerEndScrollTop, isTouchUi } from '../lib/composerVi
 import { useComposerHeight } from '../hooks/useComposerHeight';
 import { NATIVE_KEYBOARD_EVENT } from '../lib/native';
 import { encodeThreadRef, isThreadRef, threadRootOf, groupConsults, threadScopeOf, threadTitleOf, lastConsultThread } from '../lib/consultThreads';
-import { buildConsultExamples, standaloneAction, shortTitle, hasSummaryMemo, countSummaryMemos, fmtTokens, consultsLeft, memoSearchQuery, answerStepToAction, stripScenePrefix, selectThreadTurns, isCompletedAnswer, parseAskSection, nextStepChips, wantsAction, isBookLookup, lookupTerm, shouldDecide, isLastAnswer, countAsks, askProgressText, answerAsks, lensOf, usedLenses, isWorkConsult, LENS_NEXT_LINE, advisorDraftFromConsult } from '../lib/consultHelpers';
+import { buildConsultExamples, standaloneAction, shortTitle, hasSummaryMemo, countSummaryMemos, fmtTokens, consultsLeft, memoSearchQuery, answerStepToAction, stripScenePrefix, selectThreadTurns, isCompletedAnswer, parseAskSection, nextStepChips, wantsAction, isBookLookup, lookupTerm, shouldDecide, isLastAnswer, countAsks, askProgressText, answerAsks, lensOf, usedLenses, isWorkConsult, LENS_NEXT_LINE, advisorDraftFromConsult, askLimitFor } from '../lib/consultHelpers';
 import LibrarySearchHit from './LibrarySearchHit';
 import { buildSnippet, compileTerms, splitQuery } from '../lib/librarySearch';
 import { tomorrowLocal } from '../lib/dates';
@@ -1318,7 +1318,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     const threadRootAtSend = threadRootOf(visibleMessages, null);
     // 🏁 残りが AI の答え 1 回ぶんだけ（無料プラン・7 日間無料）なら、聞き返さずに答えと行動まで（lib/consultHelpers.js の shouldDecide）。
     const lastAnswer = isLastAnswer({ freeMode, plan, tokensRemaining, purchasedTokens });
-    const expectAction = shouldDecide({ followUp: askThread.length > 0 || !!askPrior, question: q, asked: countAsks([...(askPrior ? [askPrior] : []), ...askThread]), lastAnswer });
+    const askLimit = askLimitFor({ freeMode });
+    const expectAction = shouldDecide({ followUp: askThread.length > 0 || !!askPrior, question: q, asked: countAsks([...(askPrior ? [askPrior] : []), ...askThread]), lastAnswer, askLimit });
     // この相談より前の、いちばん新しい相談の時刻（「前の相談から メモ +N 件」に使う）。
     const before = opts.questionAt || '9999';
     let prevAskAt = null;
@@ -1433,6 +1434,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         // 📕 積読から答える（2026-10-11）: すべての本に相談するときだけ、まだ読んでいない本の書誌も渡す（lib/unreadBooks.js）。
         unreadBooks: Array.isArray(askBookIds) && askBookIds.length > 0 ? null : books,
         lastAnswer,
+        askLimit,
         prior: askPrior ? { question: askPrior.question, answer: askPrior.answer, at: askPrior.at } : null,
         thread: askThread.length > 0 ? askThread : null,
         signal: controller.signal,
@@ -1942,7 +1944,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   //   見方を変えた答え（🔭 lensOf）の「続けますか？」は聞き返しではないので出さない。
   const askProgress = answerDone && !noMemosYet && !lastLookup && !lensOf(lastAsked) && answerAsks(lastVisible.content)
     // 残りが答え 1 回ぶんなら、次は聞き返さずにまとめる（shouldDecide の lastAnswer と同じ判断）。
-    ? (isLastAnswer({ freeMode, plan, tokensRemaining, purchasedTokens }) ? '次で答えと行動をまとめます' : askProgressText(countAsks(selectThreadTurns(visibleMessages, { max: 3, carry }))))
+    ? (isLastAnswer({ freeMode, plan, tokensRemaining, purchasedTokens }) ? '次で答えと行動をまとめます' : askProgressText(countAsks(selectThreadTurns(visibleMessages, { max: 3, carry })), askLimitFor({ freeMode })))
     : '';
   // 「別の角度で答えて」は見方を変える 3 つのチップ（🔭 lensChips）に置き換えた（2026-10-08）。止めた・途中までの答えの「もう一度答えて」だけ残す。
   const regenLabel = !chipRowBase || isBookLookup(lastAsked) || !stoppedAnswer ? '' : 'もう一度答えて';
@@ -2223,7 +2225,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             {/* 数える単位は「AI の答え」（1 回 約 10 トークン・2026-10-09）。 */}
             {/* 🌱 無料プランのはじめの月は「（はじめの月）」を添える（数は言わない＝60 を 2 回言わない・2026-10-11）。 */}
             {/* 無料プランでトークンの数を出さないときは「AI の答えは今月あと約 N 回 ›」（何の数かを言う・2026-10-11 ui-critic・2026-10-13 に言い回しを直した＝「今月の残り AI の答え」は読みにくかった）。 */}
-            {(freeMode || plan === 'trial') && tokensRemaining + (purchasedTokens || 0) > 0 && <span style={{ display: 'block' }}><span style={{ whiteSpace: 'nowrap' }}>{`AI の答えは${freeMode && !showFreeTokenCount(tokensRemaining + (purchasedTokens || 0)) ? '今月' : ''}あと${remainingAnswersLabel(tokensRemaining + (purchasedTokens || 0))}`}</span>{freeMode && freeFirstMonth && <span style={{ whiteSpace: 'nowrap' }}>（はじめの月）</span>}{tokenChevron}</span>}
+            {(freeMode || plan === 'trial') && tokensRemaining + (purchasedTokens || 0) > 0 && <span style={{ display: 'block' }}><span style={{ whiteSpace: 'nowrap' }}>{`AI の答えは${freeMode && !showFreeTokenCount(tokensRemaining + (purchasedTokens || 0)) ? '今月' : ''}あと${remainingAnswersLabel(tokensRemaining + (purchasedTokens || 0))}`}</span>{freeMode && freeFirstMonth && <span style={{ whiteSpace: 'nowrap' }}>（はじめの 2 か月）</span>}{tokenChevron}</span>}
           </span>
           </button>
         )}
