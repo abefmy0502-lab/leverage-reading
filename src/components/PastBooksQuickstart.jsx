@@ -34,7 +34,7 @@ import { findDuplicateBook } from '../lib/checkDuplicate';
 import { invalidateKnowledgeCache } from '../lib/ai';
 import { LIMITS, clamp } from '../lib/limits';
 import { track, EVENTS } from '../lib/analytics';
-import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff, btnLink, btnLinkQuiet, input as inputStyle, card, groupTitle } from '../styles/ui';
+import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff, btnLink, input as inputStyle, card, groupTitle } from '../styles/ui';
 import { MiniCover } from './BookCards';
 import { subtitleStyle } from './BookSearchModal';
 import EmptyState from './EmptyState';
@@ -575,7 +575,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
                   </div>
                   {/* 取り込みは脇道（初回ガイドで主ボタンとして一度見せている）。問い → 検索 → チップ の流れの後ろに控えめに（2026-10-21 ui-critic） */}
                   {onImport && (
-                    <button type="button" onClick={onImport} style={{ ...btnLinkQuiet, padding: 0, marginTop: 'var(--space-4)' }}>
+                    <button type="button" onClick={onImport} style={{ ...btnLink, padding: 0, marginTop: 'var(--space-4)' }}>
                       ほかのアプリから取り込む
                     </button>
                   )}

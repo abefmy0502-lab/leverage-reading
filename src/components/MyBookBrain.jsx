@@ -3863,7 +3863,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
     const open = bookId && onOpenBook ? () => onOpenBook(bookId, spot.i || undefined) : null;
     const body = (
       <>
-        <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{/* 書名だけ別の塊・後ろの「p.N · いつ」は 1 つの塊（行の頭に「·」が来ない・「p.184 か月」と数字が続いて読めない・2026-10-21 ui-critic）。 */}{headTitle && <>{withPhraseBreaks(headTitle)}{' '}</>}<span style={{ display: 'inline-block', whiteSpace: 'nowrap' }}>{headTail}</span></span>
+        <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{/* 書名だけ別の塊・後ろの「p.N · いつ」は 1 つの塊（行の頭に「·」が来ない・「p.184 か月」と数字が続いて読めない・2026-10-21 ui-critic）。 */}{headTitle && <>{withPhraseBreaks(headTitle)}{' · '}</>}<span style={{ display: 'inline-block', whiteSpace: 'nowrap' }}>{headTail}</span></span>
         <span style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 3, overflow: 'hidden', marginTop: 'var(--space-1)', fontFamily: 'var(--font-read)', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.6, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{spot.x}</span>
       </>
     );
@@ -3937,7 +3937,8 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
         {p.interp && (
           <div>
             <p style={subLabel}>あなたの状況に合わせると</p>
-            <div style={subText}><PlainAnswer text={p.interp} /></div>
+            {/* 解釈は答えそのもの（長い段落）なので読む文章の 18（根拠の引用だけ 15・2026-10-21 ui-critic 2 回目） */}
+            <div style={readText}><PlainAnswer text={p.interp} /></div>
           </div>
         )}
         {refsList.length > 0 && (
