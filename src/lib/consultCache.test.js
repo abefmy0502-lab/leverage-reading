@@ -28,7 +28,14 @@ const consult = async (args) => {
   await ai.streamMyBookBrain({ userId: USER, ...args });
   return sent[0];
 };
+// 芯（指示文＋メモ一覧＝最初の印まで）。相談が違っても同じ文字。
 const cachedPrefix = (p) => {
+  const blocks = p.messages[0].content;
+  const first = blocks.findIndex((b) => !!b.cache_control);
+  return JSON.stringify({ system: p.system, blocks: blocks.slice(0, first + 1) });
+};
+// 印の付いたところ全部（芯＋歩みなどの会話の間は変わらない塊）。同じ会話の中では同じ文字。
+const cachedAll = (p) => {
   const blocks = p.messages[0].content;
   const last = blocks.map((b) => !!b.cache_control).lastIndexOf(true);
   return JSON.stringify({ system: p.system, blocks: blocks.slice(0, last + 1) });
@@ -44,14 +51,42 @@ describe('相談の頭（指示文＋メモ一覧）は、相談ごとに同じ�
     });
     expect(cachedPrefix(a)).toBe(cachedPrefix(b));
     expect(cachedPrefix(a)).toBe(cachedPrefix(c));
-    // 印は 指示文（system）とメモ一覧の 2 つだけ（上限 4）。メモ一覧はいちばん前のブロック。
+    // 印は 指示文（system）・メモ一覧・歩みなどの塊 の 3 つ（上限 4）。メモ一覧はいちばん前のブロック。
     expect(a.cacheSystem).toBe(true);
     expect(a.messages[0].content[0].cache_control).toEqual({ type: 'ephemeral' });
-    expect(a.messages[0].content.filter((x) => x.cache_control)).toHaveLength(1);
+    expect(a.messages[0].content.filter((x) => x.cache_control)).toHaveLength(2);
     expect(a.messages[0].content[0].text).toContain('===== MEMOS_START =====');
-    // 質問・歩み・今日の何か は印より後ろ
-    expect(cachedPrefix(a)).not.toContain('部下に仕事を任せるのが苦手で、つい');
+    // 質問・質問に近いメモ は印より後ろ。歩みは 2 つめの印（芯には入れない）
+    expect(cachedAll(a)).not.toContain('部下に仕事を任せるのが苦手で、つい');
+    expect(cachedAll(a)).not.toContain('RELATED_MEMOS_START');
     expect(cachedPrefix(a)).not.toContain('GROWTH_START');
+    expect(cachedAll(a)).toContain('GROWTH_START');
+  });
+
+  it('同じ会話の続き（1 回目の相談が保存されたあと）でも、歩みの塊まで 1 文字も変わらない（2026-10-21）', async () => {
+    const { supabase } = await import('./supabase');
+    const q = '部下に仕事を任せるのが苦手で、つい自分でやってしまう';
+    const a = await consult({ question: q });
+    // 1 回目の答えが保存される（過去の相談に 1 件増える）
+    const { data: ins } = await supabase.from('chat_messages').insert([
+      { user_id: USER, role: 'user', content: q, created_at: new Date().toISOString() },
+      { user_id: USER, role: 'assistant', content: '【結論】\n終わりの形を決める。\n\n【あなたに聞きたいこと】\nどんな仕事？', created_at: new Date(Date.now() + 1000).toISOString() },
+    ]).select('id');
+    try {
+      const b = await consult({ question: '資料づくり', thread: [{ question: q, answer: '【結論】\n終わりの形を決める。\n\n【あなたに聞きたいこと】\nどんな仕事？' }] });
+      expect(cachedAll(b)).toBe(cachedAll(a));
+      // 確かめの確かめ: この会話の問いでない相談が増えれば、歩みは変わる（保存が歩みに届いている）
+      const { data: other } = await supabase.from('chat_messages').insert([
+        { user_id: USER, role: 'user', content: '別の相談です', created_at: new Date(Date.now() + 2000).toISOString() },
+        { user_id: USER, role: 'assistant', content: '【結論】\n別の答え。', created_at: new Date(Date.now() + 3000).toISOString() },
+      ]).select('id');
+      ins.push(...(other || []));
+      const c = await consult({ question: '資料づくり', thread: [{ question: q, answer: '【結論】\n終わりの形を決める。' }] });
+      expect(cachedAll(c)).not.toBe(cachedAll(a));
+      expect(cachedPrefix(c)).toBe(cachedPrefix(a));
+    } finally {
+      for (const r of ins || []) await supabase.from('chat_messages').delete().eq('id', r.id);
+    }
   });
 
   it('質問に近いメモは、メモ一覧の後ろ（キャッシュしないところ）に目印で渡す', async () => {

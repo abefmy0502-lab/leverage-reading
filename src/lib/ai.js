@@ -1237,7 +1237,9 @@ export async function buildGrowthBlock(userId, { scopeSet = null, info = null, s
     if (ans && !/^回答を中止しました/.test(String(ans.content || '').trim())) pairs.push({ at: day(m.created_at), q: safeLine(m.content, 80), a: conclusionOf(ans.content) });
   });
   const skip = new Set((Array.isArray(skipQuestions) ? skipQuestions : []).map((q) => safeLine(q, 80)).filter(Boolean));
-  const recentPairs = pairs.slice(-GROWTH_MAX_CHATS).filter((p) => !skip.has(p.q)).reverse();
+  // この会話の問いを外してから直近 N 件を取る（外してから取らないと、会話の 2 回目で窓が 1 つずれて
+  // 歩みの文字が変わり、キャッシュが効かない・2026-10-21）。
+  const recentPairs = pairs.filter((p) => !skip.has(p.q)).slice(-GROWTH_MAX_CHATS).reverse();
   if (recentPairs.length > 0) {
     lines.push('', '■ 過去の相談（新しい順）');
     recentPairs.forEach((p) => lines.push(`- ${p.at}「${p.q}」 → そのときの結論: ${p.a}`));
@@ -1708,7 +1710,9 @@ async function buildBrainContext({ userId, question, onStage, bookIds, mode = 'f
   }
   const earlyBlockText = earlyShelf.text;
   // 後方互換: 文字列版も残す（構造化 content を使わない経路のため）。
-  const userPrompt = memoBlockText + relatedBlockText + (growthBlock ? `\n${growthBlock}` : '') + unreadBlockText + earlyBlockText + questionBlockText;
+  // 順番: 芯 → 歩み・積読・読んだ本の紹介（会話の間は変わらない＝5 分のキャッシュ・2026-10-21）→ 質問に近いメモ → 質問。
+  const stableTail = (growthBlock ? `\n${growthBlock}` : '') + unreadBlockText + earlyBlockText;
+  const userPrompt = memoBlockText + stableTail + relatedBlockText + questionBlockText;
   // 構造化 content（メモ=キャッシュ対象 / 質問=毎回変わる）。
   const userBlocks = [
     // 💴 キャッシュの印（5 分）: 指示文＋メモ一覧（芯）までをキャッシュする。深掘りの続き（2026-09-30〜・チップで返事・
@@ -1716,10 +1720,10 @@ async function buildBrainContext({ userId, question, onStage, bookIds, mode = 'f
     //   Haiku 4.5 は 4,096 トークン未満の頭はキャッシュしない → 指示文（約 5,600 字）＋芯で必ず超える。
     //   指示文の印は中継（api/claude.js）が 1 時間にする（全員で同じ文）。docs/ai-routing.md §7。
     { type: 'text', text: memoBlockText, cache_control: { type: 'ephemeral' } },
+    // 🔁 歩み・積読・読んだ本の紹介は会話の間は同じ文字なので、3 つめの印でまとめてキャッシュする（2026-10-21）。
+    //   質問に近いメモ（質問ごとに変わる）はこの後ろ。印は 3 つ（上限 4）。
+    ...(stableTail ? [{ type: 'text', text: stableTail, cache_control: { type: 'ephemeral' } }] : []),
     ...(relatedBlockText ? [{ type: 'text', text: relatedBlockText }] : []),
-    ...(growthBlock ? [{ type: 'text', text: growthBlock }] : []),
-    ...(unreadBlockText ? [{ type: 'text', text: unreadBlockText }] : []),
-    ...(earlyBlockText ? [{ type: 'text', text: earlyBlockText }] : []),
     { type: 'text', text: questionBlockText },
   ];
 
