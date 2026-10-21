@@ -111,6 +111,23 @@ select p.path, count(*) as users,
 from p group by p.path order by users desc;
 ```
 
+初回ガイド 2 枚目「入れた理由」（必須入力）の通過率（2026-10-21・離脱点になっていないかを公開から 2 週間で見る）：
+
+```sql
+-- 2 枚目を開いた人のうち、「次へ」で書いた人・そこで閉じた人
+with v as (select distinct user_id from analytics_events where event = 'onboard_step' and props->>'id' = 'purpose'),
+     w as (select distinct user_id from analytics_events where event = 'app_purpose_set' and props->>'where' = 'onboarding'),
+     x as (select distinct user_id from analytics_events where event = 'onboard_path' and props->>'path' = 'skip' and props->>'step' = '2')
+select count(*) as opened,
+       count(*) filter (where exists (select 1 from w where w.user_id = v.user_id)) as wrote,
+       count(*) filter (where exists (select 1 from x where x.user_id = v.user_id)) as closed_here
+from v;
+```
+
+2 枚目では「次へ」まで × を出さない（`canDismiss`）ので、`closed_here` はふつう 0。離れた人＝`opened − wrote`（アプリごと閉じた人）。
+
+決まり：`wrote ÷ opened` が **80% 未満**なら必須をやめて「あとで書く」を足す（書いた人の `choice` ごとの 30 日後の継続と並べて、必須の価値も同時に見る）。80% 以上なら今のまま。
+
 D30（30 日後も使っている）と 7 日間無料 → 有料は、運営ダッシュボードの `admin_growth()`（`supabase_admin_growth.sql`）と
 `subscriptions.period_type` で数える（このイベントは使わない）。
 

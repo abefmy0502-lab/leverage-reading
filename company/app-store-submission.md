@@ -21,6 +21,7 @@
 | 自前利用計測 | analytics_events（ファーストパーティ・外部送信なし） |
 | 追加トークンに期限なし（3.1.1「買ったクレジットを期限切れにしない」） | ✅ 2026-10-11（`supabase_ai_token_credits.sql` を流し直す） |
 | 通知のスイッチは通知を出せるビルドだけ | ✅ 2026-10-11（`VITE_NATIVE_PUSH=on` のときだけ iPhone に出す・既定は隠す） |
+| **iPhone の通知を 1.0 から出す（ローンチ前の必須・2026-10-21）** | ⬜ APNs の鍵・capability・プラグイン・`supabase_push_native.sql` をそろえ、**1.0 のビルドを `VITE_NATIVE_PUSH=on` で出す**（§12）。思い出しの通知・行動の期限の通知が、2 日目・7 日目・30 日目に戻るきっかけになる（30 日後も使う 25% の柱）。入れないと iPhone には何も届かない |
 
 ---
 
@@ -308,6 +309,21 @@ AI 機能ごとに、Anthropic（相談・AI 選書の推薦）／Google の Gem
 
 > サーバーの関数にする（鍵を Vercel に入れて、管理者の操作で revoke を呼ぶ）のは、Apple でサインインの退会が増えてからでよい。
 
+## 12. 🔔 iPhone の通知（ローンチ前の必須・2026-10-21 に「宿題」から上げた）
+
+**なぜ必須か**：思い出しの通知（週 1 まで）と行動の期限の通知（期限の日の朝）は、アプリを閉じた人が 2 日目・7 日目・30 日目に戻ってくる唯一の外からのきっかけ。これが無いと「30 日後も使う 25%」（`docs/launch-kpis.md` ③）は、本人が思い出して開くのを待つだけになる。コードは全部ある（`src/lib/nativePush.js`・`api/push-cron.js`・`supabase_push_native.sql`）。足りないのは Apple 側の鍵と設定だけ。
+
+| # | やること（Mac・約 1 時間） | 確かめ方 |
+|---|---|---|
+| 1 | Apple Developer → Keys → **APNs 用のキー（.p8）** を 1 つ作る（Key ID・Team ID を控える） | .p8 は 1 回しか落とせないので安全な場所に |
+| 2 | App ID `jp.orime.app` の Capability に **Push Notifications** を足す | — |
+| 3 | Vercel の環境変数 `APNS_KEY_ID` / `APNS_TEAM_ID` / `APNS_PRIVATE_KEY`（.p8 の全文）/ `APNS_BUNDLE_ID=jp.orime.app` / `APNS_PRODUCTION=true`（TestFlight は `false`） | `CRON_SECRET` も入っていること |
+| 4 | Supabase で `supabase_push_native.sql`（`supabase_all_in_order.sql` に入っている） | `push_subscriptions` に `platform` 列 |
+| 5 | Mac で `npm i @capacitor/push-notifications && npx cap sync ios`、Xcode の Signing & Capabilities に **Push Notifications** と **Background Modes → Remote notifications** | ビルドが通る |
+| 6 | **`VITE_NATIVE_PUSH=on` で 1.0 のビルド** | iPhone の設定に「通知」のスイッチが出る |
+| 7 | TestFlight で 通知をオン → 行動に今日が期限のものを 1 つ作る → 翌朝 8 時台に届く | `vercel.json` の Cron が毎日動いている |
+
+間に合わないときは、1.0 は `VITE_NATIVE_PUSH` 無しで出し（スイッチは隠れる・審査は通る）、**1.0.1 を公開から 2 週間以内**に出す。
+
 ## 宿題（ローンチ後でよい）
-- 🔔 ネイティブ Push（APNs / @capacitor/push-notifications）— コードはある（`src/lib/nativePush.js`・`api/push-cron.js`）。出すときは `npm i @capacitor/push-notifications && npx cap sync ios`・Push Notifications の capability・APNs の鍵（`APNS_*`）・`supabase_push_native.sql` をそろえ、**`VITE_NATIVE_PUSH=on` でビルドする**（既定は iPhone では通知のスイッチを隠す・2026-10-11）。
 - 🧾 RevenueCat → subscriptions webhook（会員数の自動同期）。未実装なら課金は通るがダッシュボード会員数が手動確認になる。
