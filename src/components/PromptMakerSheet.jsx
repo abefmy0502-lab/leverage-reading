@@ -11,9 +11,10 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Copy, ExternalLink, Check } from 'lucide-react';
+import { Copy, ExternalLink, Check, Plus, FileText } from 'lucide-react';
 import BottomSheet from './BottomSheet';
 import ErrorMessage from './ErrorMessage';
+import EmptyState from './EmptyState';
 import { SkeletonBlock } from './Skeleton';
 import { Chip } from './formPrimitives';
 import { withPhraseBreaks } from './TightBubble';
@@ -26,7 +27,7 @@ import {
   buildExternalPrompt, cleanTheme, isThemeReady, THEME_MAX,
   PROMPT_FORMATS, PROMPT_AUDIENCES, PROMPT_LENGTHS, EXTERNAL_AI_LINKS,
 } from '../lib/externalPrompt';
-import { btnPrimary, btnPrimaryOff, btnGhost, btnLink, fieldNote, input as uiInput } from '../styles/ui';
+import { btnPrimary, btnPrimaryOff, btnGhost, btnLink, fieldNote, groupTitle, input as uiInput } from '../styles/ui';
 
 const question = { fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)', margin: 0, lineHeight: 1.5 };
 const meta = { margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' };
@@ -84,7 +85,8 @@ export default function PromptMakerSheet({ books = [], initialBookIds = null, fr
   // 何について の候補: 選んだ本の「得たいこと」と、選んだ本のメモのタグ（多い順）から 4 つまで。
   const themeIdeas = useMemo(() => {
     const ideas = [];
-    for (const b of selectedBooks) {
+    // 得たいことは 1 冊のときだけ（複数の本では 1 冊の目的がテーマに見えてしまう・2026-10-21 ui-critic）。
+    for (const b of selectedBooks.length === 1 ? selectedBooks : []) {
       const p = cleanTheme(b.investPurpose || '');
       if (p && p.length <= 24) ideas.push(p);
     }
@@ -120,9 +122,9 @@ export default function PromptMakerSheet({ books = [], initialBookIds = null, fr
     const ok = await copyText(result.text);
     if (ok) setCopied(true);
     track('prompt_maker', { action: where, from });
+    // コピーできたことは主ボタンの「コピーしました」で伝える（知らせを重ねない）。
     if (where === 'copy') {
-      if (ok) toast.success('コピーしました。');
-      else toast.error('コピーできませんでした。');
+      if (!ok) toast.error('コピーできませんでした。指示文を長押しして、コピーしてください。');
     } else if (!ok) {
       toast.error('コピーできませんでした。指示文を長押しして、コピーしてください。');
     }
@@ -145,23 +147,27 @@ export default function PromptMakerSheet({ books = [], initialBookIds = null, fr
       actions={[{ label: 'もう一度', onClick: () => setTryN((n) => n + 1) }]}
     />
   ) : memoBooks.length === 0 ? (
-    <p style={{ ...meta, fontSize: 'var(--text-sub)' }}>{withPhraseBreaks('メモを書いた本がまだありません。メモを書くと、そのメモから指示文をつくれます。')}</p>
+    <EmptyState titleAs="h3" icon={<FileText size={32} strokeWidth={1.5} aria-hidden="true" />} title="メモを書いた本がまだありません" description="メモを書くと、そのメモから指示文をつくれます。" />
   ) : result ? (
     <div data-prompt-result="" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', scrollMarginTop: 'var(--space-12)' }}>
-      <p style={meta}>
-        <span style={{ whiteSpace: 'nowrap' }}>{fmt(result.books)} 冊・メモ {fmt(result.used)} 件</span>
-        {result.used < result.total && <span style={{ whiteSpace: 'nowrap' }}>（{fmt(result.total)} 件のうち、近いものから）</span>}
-        <span style={{ whiteSpace: 'nowrap' }}>・約 {fmt(Math.round(result.text.length / 100) * 100)} 字</span>
-      </p>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', margin: 'calc(-1 * var(--space-3)) 0' }}>
+        <p style={meta}>
+          <span style={{ whiteSpace: 'nowrap' }}>{fmt(result.books)} 冊・メモ {fmt(result.used)} 件</span>
+          {result.used < result.total && <span style={{ whiteSpace: 'nowrap' }}>（{fmt(result.total)} 件のうち、近いものから）</span>}
+          <span style={{ whiteSpace: 'nowrap' }}>・約 {fmt(Math.round(result.text.length / 100) * 100)} 字</span>
+        </p>
+        <button type="button" onClick={() => setResult(null)} style={{ ...btnLink, flexShrink: 0, marginRight: 'calc(-1 * var(--space-1))' }}>
+          聞き方を変える
+        </button>
+      </div>
       <pre
         tabIndex={0}
         aria-label="できた指示文"
-        style={{ margin: 0, maxHeight: '40vh', overflow: 'auto', padding: 'var(--space-3) var(--space-4)', background: 'var(--fill)', borderRadius: 'var(--radius)', fontFamily: 'inherit', fontSize: 'var(--text-meta)', lineHeight: 1.6, color: 'var(--text)', whiteSpace: 'pre-wrap', wordBreak: 'normal', overflowWrap: 'anywhere', userSelect: 'text', WebkitUserSelect: 'text' }}
+        style={{ margin: 0, maxHeight: '30vh', overflow: 'auto', WebkitMaskImage: 'linear-gradient(180deg, black calc(100% - var(--space-6)), transparent)', maskImage: 'linear-gradient(180deg, black calc(100% - var(--space-6)), transparent)', paddingBottom: 'var(--space-6)', padding: 'var(--space-3) var(--space-4)', background: 'var(--fill)', borderRadius: 'var(--radius)', fontFamily: 'inherit', fontSize: 'var(--text-meta)', lineHeight: 1.6, color: 'var(--text)', whiteSpace: 'pre-wrap', wordBreak: 'normal', overflowWrap: 'anywhere', userSelect: 'text', WebkitUserSelect: 'text' }}
       >
         {result.text}
       </pre>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-        <p style={meta}>{withPhraseBreaks('コピーしてから開きます。開いた画面に貼りつけて、送ってください。')}</p>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
           {EXTERNAL_AI_LINKS.map((l) => (
             <a
@@ -170,21 +176,18 @@ export default function PromptMakerSheet({ books = [], initialBookIds = null, fr
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => { doCopy(`open_${l.key}`); }}
-              style={{ ...btnGhost, flex: '1 1 9em', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)', textDecoration: 'none', boxSizing: 'border-box' }}
+              style={{ ...btnGhost, flex: '1 1 0', minWidth: 0, padding: '0 var(--space-3)', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)', textDecoration: 'none', boxSizing: 'border-box' }}
             >
-              {l.label}<ExternalLink size="1em" aria-hidden="true" />
+              {l.label}<ExternalLink size="1em" aria-hidden="true" style={{ flexShrink: 0 }} />
             </a>
           ))}
         </div>
-        <p style={{ ...meta, marginTop: 'var(--space-2)' }}>{withPhraseBreaks('送るのはあなたです。送ったあとの扱いは、それぞれのサービスの決まりに従います。')}</p>
+        <p style={{ ...meta, color: 'var(--text-3)' }}>{withPhraseBreaks('コピーしてから開きます。貼りつけて送るのはあなたです（扱いはそれぞれの決まりに従います）。')}</p>
       </div>
-      <button type="button" onClick={() => setResult(null)} style={{ ...btnLink, alignSelf: 'flex-start', marginLeft: 'calc(-1 * var(--space-1))' }}>
-        聞き方を変える
-      </button>
     </div>
   ) : (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
-      <p style={meta}>{withPhraseBreaks('あなたのメモから、ChatGPT や Claude に貼りつけて使える指示文をつくります。AI は使わないので、トークンもかかりません。')}</p>
+      <p style={meta}>{withPhraseBreaks('ChatGPT・Claude に貼る文をつくります。トークンはかかりません。')}</p>
 
       <section style={section} aria-label="どの本から？">
         <h3 style={question}>どの本から？</h3>
@@ -198,8 +201,8 @@ export default function PromptMakerSheet({ books = [], initialBookIds = null, fr
             {memoBooks.map((b) => {
               const on = picked.includes(b.id);
               return (
-                <label key={b.id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minHeight: 48, padding: 'var(--space-2) 0', borderBottom: '1px solid var(--separator)', cursor: 'pointer' }}>
-                  <input type="checkbox" checked={on} onChange={() => togglePick(b.id)} style={{ width: 20, height: 20, accentColor: 'var(--accent)', flexShrink: 0, margin: 0 }} />
+                <label key={b.id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minHeight: 'var(--btn-h)', padding: 'var(--space-2) 0', borderBottom: '1px solid var(--separator)', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={on} onChange={() => togglePick(b.id)} style={{ width: '1.25em', height: '1.25em', accentColor: 'var(--accent)', flexShrink: 0, margin: 0 }} />
                   <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</span>
                   <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', whiteSpace: 'nowrap' }}>メモ {fmt(counts.get(b.id) || 0)} 件</span>
                 </label>
@@ -209,15 +212,14 @@ export default function PromptMakerSheet({ books = [], initialBookIds = null, fr
         ) : (
           <p style={meta}>
             {scope === 'this' && single
-              ? <>『{single.title}』・<span style={{ whiteSpace: 'nowrap' }}>メモ {fmt(counts.get(single.id) || 0)} 件</span></>
+              ? <span style={{ whiteSpace: 'nowrap' }}>メモ {fmt(counts.get(single.id) || 0)} 件</span>
               : <><span style={{ whiteSpace: 'nowrap' }}>{fmt(memoBooks.length)} 冊</span>・<span style={{ whiteSpace: 'nowrap' }}>メモ {fmt(memoTotal)} 件</span></>}
           </p>
         )}
-        {multi && freeMode && <p style={meta}>{withPhraseBreaks('2 冊以上の本からつくるのは、プランの機能です。')}</p>}
       </section>
 
       <section style={section} aria-label="何についてまとめる？">
-        <h3 style={question}>何についてまとめる？</h3>
+        <h3 style={question}>何についてまとめる？<span style={fieldNote}>（必須）</span></h3>
         <input
           value={theme}
           onChange={(e) => setTheme(e.target.value)}
@@ -229,12 +231,16 @@ export default function PromptMakerSheet({ books = [], initialBookIds = null, fr
           style={uiInput}
         />
         {themeIdeas.length > 0 && (
-          <div style={chipRow} aria-label="候補">
-            {themeIdeas.map((t) => (
-              <Chip key={t} size="select" shrink active={cleanTheme(theme) === t} aria-pressed={cleanTheme(theme) === t} onClick={() => setTheme(t)}>
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{t}</span>
-              </Chip>
-            ))}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+            <span style={groupTitle}>候補</span>
+            <div style={chipRow} aria-label="候補">
+              {themeIdeas.map((t) => (
+                <Chip key={t} size="select" shrink active={cleanTheme(theme) === t} aria-pressed={cleanTheme(theme) === t} onClick={() => setTheme(t)}>
+                  <Plus size="1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{t}</span>
+                </Chip>
+              ))}
+            </div>
           </div>
         )}
       </section>
@@ -274,12 +280,12 @@ export default function PromptMakerSheet({ books = [], initialBookIds = null, fr
     </button>
   ) : (
     <button type="button" onClick={create} disabled={!ready} style={ready ? btnPrimary : btnPrimaryOff}>
-      指示文をつくる{multi && freeMode ? <span style={{ ...fieldNote, color: 'inherit' }}>（プラン）</span> : null}
+      <span>指示文をつくる{multi && freeMode ? <span style={{ ...fieldNote, color: 'inherit', marginLeft: 'var(--space-1)' }}>（プラン）</span> : null}</span>
     </button>
   )) : null;
 
   return createPortal(
-    <BottomSheet title="AI への指示文" eyebrow={scope === 'this' && single ? `『${single.title}』` : ''} onClose={onClose} footer={footer}>
+    <BottomSheet title="AI への指示文" eyebrow={single ? `『${single.title}』` : ''} dismissLabel={result ? '完了' : 'キャンセル'} onClose={onClose} footer={footer}>
       {body}
     </BottomSheet>,
     document.body,
