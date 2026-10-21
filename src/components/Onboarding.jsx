@@ -79,7 +79,8 @@ const overlayStyle = {
   position: 'fixed',
   inset: 0,
   zIndex: 'var(--z-overlay)',
-  background: 'var(--backdrop)',
+  // 後ろのホームの栗色の主ボタンが透けて「塗りの主ボタンが 2 つ」に見えないように、地の色を濃く敷く（2026-10-21 ui-critic）。
+  background: 'color-mix(in srgb, var(--bg) 88%, var(--backdrop))',
   backdropFilter: 'var(--backdrop-blur)',
   WebkitBackdropFilter: 'var(--backdrop-blur)',
   display: 'flex',

@@ -34,7 +34,7 @@ import { findDuplicateBook } from '../lib/checkDuplicate';
 import { invalidateKnowledgeCache } from '../lib/ai';
 import { LIMITS, clamp } from '../lib/limits';
 import { track, EVENTS } from '../lib/analytics';
-import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff, btnLink, input as inputStyle, card, groupTitle } from '../styles/ui';
+import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff, btnLink, btnLinkQuiet, input as inputStyle, card, groupTitle } from '../styles/ui';
 import { MiniCover } from './BookCards';
 import { subtitleStyle } from './BookSearchModal';
 import EmptyState from './EmptyState';
@@ -453,16 +453,11 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
             <h1 style={title}>{withPhraseBreaks('これまで読んで、')}<br />{withPhraseBreaks('印象に残っている本は？')}</h1>
             {/* 1 文にまとめる（SPEC §1-1）。句のまとまりで折り返す（「はじめられ／ます」と割らない） */}
             {/* 括弧なしの短い 2 文（2026-10-12 ui-critic・句のまとまりで折り返す） */}
+            {/* なぜ本を選ぶのか（＝一言が相談の根拠になる）を 1 文で（2026-10-21 ui-critic「冊数の話だけ」）。括弧なし・句のまとまりで折り返す */}
             <p style={sub}>
+              <span style={{ display: 'inline-block' }}>えらんだ本の一言が、相談の根拠になります。</span>
               <span style={{ display: 'inline-block' }}>{MIN_BOOKS}&nbsp;冊から始められます。</span>
-              <span style={{ display: 'inline-block' }}>{RECOMMENDED_BOOKS}&nbsp;冊ほどがおすすめです。</span>
             </p>
-            {onImport && (
-              <button type="button" onClick={onImport} style={{ ...btnLink, padding: 0, marginTop: 'var(--space-3)' }}>
-                {/* ホーム・初回ガイド・設定と同じ短い名前（語の途中で割れない・2026-09-29） */}
-                ほかのアプリから取り込む
-              </button>
-            )}
 
             <div role="search" style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-6)' }}>
               <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
@@ -578,6 +573,12 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
                       );
                     })}
                   </div>
+                  {/* 取り込みは脇道（初回ガイドで主ボタンとして一度見せている）。問い → 検索 → チップ の流れの後ろに控えめに（2026-10-21 ui-critic） */}
+                  {onImport && (
+                    <button type="button" onClick={onImport} style={{ ...btnLinkQuiet, padding: 0, marginTop: 'var(--space-4)' }}>
+                      ほかのアプリから取り込む
+                    </button>
+                  )}
                 </section>
               )}
             </div>

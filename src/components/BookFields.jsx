@@ -133,7 +133,8 @@ export function BookFieldsSheet({ selected = [], onDone, onClose }) {
 const detailRowLabel = { flexShrink: 0, minWidth: '4.5em', fontSize: 'var(--text-meta)', color: 'var(--text-2)' };
 
 // 本の詳細: 付いている分野（押すと、すべての本をその分野で絞る）。
-export function BookFieldLinks({ fields = [], onPick }) {
+// onEdit: 「変更」（本の編集画面の分野へ）。フォルダの行と同じ形にして、2 行で操作の有無が違わないように（2026-10-21 ui-critic）。
+export function BookFieldLinks({ fields = [], onPick, onEdit = null }) {
   if (!fields.length) return null;
   return (
     // チップの見た目は 32（--space-8）・押せる範囲は 44。下の余りは負の余白で行の外へ（見た目の間隔をそろえる）。
@@ -144,6 +145,11 @@ export function BookFieldLinks({ fields = [], onPick }) {
           ? <Chip key={f} onClick={() => onPick(f)} aria-label={`分野「${f}」の本を見る`}>{f}</Chip>
           : <span key={f} style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>{f}</span>
       ))}
+      {onEdit && (
+        <button type="button" onClick={onEdit} aria-label="分野を変更" style={{ ...btnLink, fontSize: 'var(--text-meta)', minWidth: 'var(--tap-min)', justifyContent: 'center' }}>
+          変更
+        </button>
+      )}
     </div>
   );
 }

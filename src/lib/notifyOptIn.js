@@ -15,17 +15,32 @@ import { isDemo } from './supabase';
 
 export const PUSH_OPTIN_KEY = 'orime-recall-push-optin-v1';
 
-export function isNotifyOptInDone() {
+// 閉じた（まだ価値を感じる前の ×）は 14 日たったらもう一度だけ出してよい。受け取る・断った（'1'）はずっと出さない。
+export const OPTIN_DISMISS_DAYS = 14;
+export function isNotifyOptInDone(now = Date.now()) {
   try {
     if (typeof localStorage === 'undefined') return true;
-    return localStorage.getItem(PUSH_OPTIN_KEY) === '1';
+    const v = localStorage.getItem(PUSH_OPTIN_KEY);
+    if (v === '1') return true;
+    if (!v) return false;
+    const m = /^dismissed:(\d+):(\d+)$/.exec(v);
+    if (!m) return true;
+    const [, at, times] = m;
+    if (Number(times) >= 2) return true; // もう一度閉じたら、それ以上は出さない
+    return now - Number(at) < OPTIN_DISMISS_DAYS * 86400000;
   } catch {
     return true; // 覚えられない環境では出さない（毎回出るよりよい）
   }
 }
 
-export function markNotifyOptInDone() {
-  try { localStorage.setItem(PUSH_OPTIN_KEY, '1'); } catch { /* ignore */ }
+// action: 'enabled' / 'denied' はずっと出さない。'dismiss'（×）は 14 日後にもう一度だけ。
+export function markNotifyOptInDone(action = 'enabled', now = Date.now()) {
+  try {
+    if (action !== 'dismiss') { localStorage.setItem(PUSH_OPTIN_KEY, '1'); return; }
+    const m = /^dismissed:\d+:(\d+)$/.exec(localStorage.getItem(PUSH_OPTIN_KEY) || '');
+    const times = m ? Number(m[1]) + 1 : 1;
+    localStorage.setItem(PUSH_OPTIN_KEY, `dismissed:${now}:${times}`);
+  } catch { /* ignore */ }
 }
 
 // お試しモード（開発専用）: &notify=1 のときだけ「通知を使える人」として案内を出す（ほかの撮影を変えない）。

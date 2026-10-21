@@ -30,6 +30,9 @@ import { useAuth } from '../hooks/useAuth';
 import { usePaywall } from '../state/PaywallContext';
 import { fetchUsedMjpy } from '../lib/tokens';
 import { prevMonthOf, tokensBackCandidate, shouldShowTokensBack, tokensBackText, readTokensBackDone, markTokensBackDone } from '../lib/tokensBack';
+import { reaskCandidate, pickReask, reaskText, readReaskDone, markReaskDone } from '../lib/reaskNudge';
+import { loadAllMemoRows } from '../hooks/useAllMemoRows';
+import { supabase } from '../lib/supabase';
 import MemoLinks from './MemoLinks';
 import { useMemoLinkFinder } from '../hooks/useMemoLinkFinder';
 import { track } from '../lib/analytics';
@@ -37,7 +40,7 @@ import { MiniCover } from './BookCards';
 import { phrasePieces, withPhraseBreaks } from './TightBubble';
 import { SkeletonBlock } from './Skeleton';
 import ErrorMessage from './ErrorMessage';
-import { btnPrimary, btnGhost, btnLink, btnTonal, card } from '../styles/ui';
+import { btnPrimary, btnGhost, btnLink, btnLinkQuiet, btnTonal, card } from '../styles/ui';
 
 // DESIGN §5「行の中の小さい副ボタン」（ui.js の btnRow・高さ 44・文字 15・600）。折り返した行では幅いっぱいに伸びる。
 const btnRow = btnTonal;
@@ -125,7 +128,8 @@ function ReadLink({ book: b, onRead }) {
       onClick={() => onRead(b)}
       aria-label={`『${b.title}』を読む（集中モード）`}
       data-focus-entry=""
-      style={{ ...btnTonal, color: 'var(--text-2)' }}
+      // 主役は「メモを書く」1 つ（SPEC §1）。読むは控えめな文字ボタン（面にしない・2026-10-21 ui-critic「主役が 2 つに見える」）。
+      style={{ ...btnLinkQuiet, gap: 'var(--space-1)' }}
     >
       <Timer size="1.1em" strokeWidth={1.75} aria-hidden="true" style={{ flexShrink: 0 }} />読む
     </button>
@@ -147,6 +151,11 @@ const byDone = (a, b) => (b.doneDate || '').localeCompare(a.doneDate || '') || b
 function ReadingNow({ books, onOpenBook, onWriteMemo, onStartReading, onAddBook, onSeeAllReading, onCoverRetry, onRead }) {
   const reading = books.filter((b) => b.status === 'reading').sort(byUpdated);
   const shown = reading.slice(0, 3);
+  // 📗 読み終えてから 14 日以内の本（メモがいちばん出る時期・読了の 3 つの問いがある間）は、読書中があっても最後に 1 冊だけ
+  //   （3 冊の上限の中で・2026-10-21）。2 行目に「読了」と書いて読書中の本と見分ける。
+  const justDone = shown.length > 0 && shown.length < 3
+    ? books.filter((b) => b.status === 'done' && b.doneDate && appNow() - Date.parse(b.doneDate) < 14 * 86400000).sort(byDone).slice(0, 1)
+    : [];
   // 読書中 0 冊（2026-10-01 ui-critic・オーナー承認・SPEC §1）: 次に読む候補を最大 3 冊。見出しで何の一覧かを言う
   //   （積読＝「次に読む本」・読了＝「最近読み終えた本」）ので、2 行目は著者だけ（「積読 ·」を重ねない）。
   //   積読（新しく触った順）は「読み始める」（読み上げは「読書を開始する」・読書中へ・その場で変わる）、読了は「メモを書く」。
@@ -177,6 +186,9 @@ function ReadingNow({ books, onOpenBook, onWriteMemo, onStartReading, onAddBook,
         <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
           {shown.map((b, i) => (
             <BookRow key={b.id} divider={i > 0} book={b} sub={b.author} onOpenBook={onOpenBook} onCoverRetry={onCoverRetry} action={memoBtn(b)} footer={onRead ? <ReadLink book={b} onRead={onRead} /> : null} />
+          ))}
+          {justDone.map((b) => (
+            <BookRow key={b.id} divider book={b} sub={`読了 · ${b.author || ''}`.replace(/ · $/, '')} onOpenBook={onOpenBook} onCoverRetry={onCoverRetry} action={memoBtn(b)} />
           ))}
           {candidates.map((b, i) => (
             <BookRow
@@ -232,7 +244,7 @@ function HomeActionsRow({ summary, onOpen }) {
       <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         <span style={{ whiteSpace: 'nowrap', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>{summary.label}</span>
         {firstText && (
-          <span style={{ display: 'block', marginTop: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{firstText}</span>
+          <span style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2, marginTop: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, overflow: 'hidden', overflowWrap: 'anywhere' }}>{firstText}</span>
         )}
       </span>
       {/* 数は右の › と同じ高さの中央に（行の右の値・iOS の設定の一覧と同じ） */}
@@ -302,6 +314,40 @@ function useTokensBack(active) {
   return { ready, show: !!decided && !closed, text: tokensBackText(tokensRemaining ?? 30), close };
 }
 
+// 🔁 「先月の相談『…』のあと、メモが N 件増えました」→ もう一度相談する（月のはじめの 7 日間・lib/reaskNudge.js・2026-10-21）。
+function useReaskNudge(active) {
+  const { user } = useAuth();
+  const [now] = useState(() => appNow().getTime());
+  const [doneMonth] = useState(() => readReaskDone(user?.id));
+  const need = active && !!user?.id && reaskCandidate({ now, doneMonth });
+  const [picked, setPicked] = useState(undefined); // undefined＝まだ・null＝出さない
+  const [timedOut, setTimedOut] = useState(false);
+  useEffect(() => {
+    if (!need) return undefined;
+    let alive = true;
+    (async () => {
+      try {
+        const [{ data }, memos] = await Promise.all([
+          supabase.from('chat_messages').select('content, created_at').eq('user_id', user.id).eq('role', 'user').order('created_at', { ascending: false }).limit(20),
+          loadAllMemoRows(user.id),
+        ]);
+        const memoTimes = (memos?.rows || []).map((m) => Date.parse(m.created_at || '')).filter(Number.isFinite);
+        if (alive) setPicked(pickReask({ consults: data || [], memoTimes, now }));
+      } catch { if (alive) setPicked(null); }
+    })();
+    const t = setTimeout(() => { if (alive) setTimedOut(true); }, MEMO_COUNT_WAIT_MS);
+    return () => { alive = false; clearTimeout(t); };
+  }, [need, user?.id, now]);
+  const ready = !need || picked !== undefined || timedOut;
+  const [closed, setClosed] = useState(false);
+  const close = (action) => {
+    markReaskDone(user?.id, now);
+    setClosed(true);
+    track('reask_nudge', { action });
+  };
+  return { ready, show: !!picked && !closed, question: picked?.question || '', text: picked ? reaskText(picked) : null, close };
+}
+
 // 🔗 ホームのメモを書くで保存したメモと似たことを、ほかの本でも書いていたら題の下に 1 行（MemoLinks の line・× で閉じる）。
 //   見つからなければ何も出さない（全部のメモを読むのは保存したときだけ）。
 function HomeSavedLinks({ books, saved, onOpen, onDismiss }) {
@@ -349,7 +395,8 @@ export default function HomeScreen({
   const shareNudge = useShareNudge(books, !!onShareNudge && !loading && !loadError && books.length > 0);
   // 無料プランで先月のトークンを使い切った人に、月のはじめの 7 日間だけ「今月の相談が戻りました」（2026-10-20）。
   const tokensBack = useTokensBack(!!onOpenConsult && !loading && !loadError && books.length > 0);
-  const homeKnown = memoState.known && shareNudge.ready && tokensBack.ready;
+  const reask = useReaskNudge(!!onConsultDraft && !loading && !loadError && books.length > 0);
+  const homeKnown = memoState.known && shareNudge.ready && tokensBack.ready && reask.ready;
   // 📊 memos_reached_10（lib/firstDay.js）: 10 件より少ないのを見たあとで 10 件以上になったら 1 回だけ。
   // 🌱 「相談相手が育ちました」（10 件を越えたのを見たあと 1 回だけ・相談の画面で先に越えても、ホームに戻ったら出す）。
   const [grown, setGrown] = useState(grownLinePending);
@@ -402,6 +449,17 @@ export default function HomeScreen({
             actionLabel="相談する"
             onConsult={() => { tokensBack.close('open'); onOpenConsult(); }}
             onDismiss={() => tokensBack.close('dismiss')}
+          />
+        )}
+        {/* 🔁 先月の相談をいまのメモでもう一度（月のはじめ 7 日・「今月の相談が戻りました」が出る月は出さない＝2 行にしない）。 */}
+        {homeKnown && reask.show && !tokensBack.show && !showGrown && (
+          <GrownLine
+            mark="reask"
+            icon={MessageCircle}
+            text={reask.text.lead}
+            actionLabel={reask.text.action}
+            onConsult={() => { reask.close('open'); onConsultDraft(reask.question, 'reask'); }}
+            onDismiss={() => reask.close('dismiss')}
           />
         )}
         {/* 月末・12 月の 1 行（本を読み込んで、ホームの中身を出すときに一緒に出す＝あとから差し込んで押し下げない）。 */}

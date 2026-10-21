@@ -100,7 +100,8 @@ export function takeMemosReached(memoCount) {
   write(KEYS.reached, '1');
   const crossed = read(KEYS.below) === '1';
   // 10 件を越えたのをこの端末で見たときだけ、ホームに 1 回「相談相手が育ちました」を出す（前からのユーザーには出さない）。
-  if (crossed && read(KEYS.grown) !== 'done') write(KEYS.grown, '1');
+  // 取り込みなどではじめから 10 件以上の人も、まだ相談をしていなければ 1 回だけ出す（取り込んだメモが何に効くかを言う・2026-10-21）。
+  if ((crossed || !firstConsultDone()) && read(KEYS.grown) !== 'done') write(KEYS.grown, '1');
   return crossed;
 }
 

@@ -116,7 +116,12 @@ describe('計測の印（1 回だけ送る）', () => {
     expect(grownLinePending()).toBe(false);
   });
 
-  it('前からのユーザーには「育ちました」を出さない', () => {
+  it('はじめから 10 件以上でも、まだ相談していなければ「育ちました」を 1 回出す（取り込みの人・2026-10-21）', () => {
+    takeMemosReached(40);
+    expect(grownLinePending()).toBe(true);
+  });
+  it('はじめから 10 件以上で、もう相談した人には出さない', () => {
+    takeFirstConsult();
     takeMemosReached(40);
     expect(grownLinePending()).toBe(false);
   });

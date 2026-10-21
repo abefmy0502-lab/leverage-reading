@@ -183,7 +183,8 @@ const isActionAnswer = (p) => !!(p && p.action) && !/心に残る/.test(p.action
 // 根拠の中の小さな見出し（DESIGN §5 groupTitle: 12/600/--text-2）。
 const subLabel = { ...groupTitle, margin: '0 0 var(--space-1)' };
 // 根拠の本文（参照したメモ・解釈）も答えの一部＝読む文章（明朝 18・行間 1.6・DESIGN §2/§7）。
-const subText = { fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', color: 'var(--text)', lineHeight: 1.6 };
+// 2026-10-21: 根拠は結論より 1 段小さく（15 の明朝・結論の下のメモの欄と同じ級＝「結論 > 根拠」の階層・ui-critic）。
+const subText = { fontFamily: 'var(--font-read)', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.6 };
 const refBtn = { width: '100%', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minHeight: 44, padding: 'var(--space-2) 0', background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5 };
 // 学びを書くの入力欄は ui.js の input（高さ 48）をそのまま使う。
 const inp = uiInput;
@@ -463,12 +464,15 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const [usageOpen, setUsageOpen] = useState(false);
   const tokensLow = isLowTokens(tokensRemaining, tokenAllowance, purchasedTokens);
   // 上の行の残りの数の「›」は、最後の行の文のすぐ後ろに置く（2 行のとき 1 行目の横に浮かない・2026-10-11 ui-critic）。
-  const tokenAnswersShown = (freeMode || plan === 'trial') && tokensRemaining != null && tokensRemaining + (purchasedTokens || 0) > 0;
+  // プランの人にも回数を添える（「800 トークン」だけでは何ができる量か伝わらない・2026-10-21 ui-critic）。
+  const tokenAnswersShown = tokensRemaining != null && tokensRemaining + (purchasedTokens || 0) > 0;
   const tokenChevron = <ChevronRight size="1.2em" aria-hidden="true" style={{ verticalAlign: '-0.25em', marginLeft: '0.15em' }} />;
   const [monthLimitHit, setMonthLimitHit] = useState(false); // トークンの上限に達した（サーバーの 429）
   // 🪙➕ トークンを買い足したら、上限の状態を解く（送れるように戻す）。
   useEffect(() => { if (purchasedTokens > 0) setMonthLimitHit(false); }, [purchasedTokens]);
   const freeUsedUp = freeMode && tokensAvailable != null && tokensAvailable <= 0;
+  // 無料プランで残りが少ない（この相談が今月の最後）ときは、相談例を押しても送らず入力欄に入れる（2026-10-21）。
+  const examplesDraftOnly = isLastAnswer({ freeMode, plan, tokensRemaining, purchasedTokens });
   // 上部の 1 行の言葉: 無料のトークンを使い切ったら AI ではなくメモから探す（メモが答える相談）ので「から探します」。
   const answerVerb = freeUsedUp ? 'から探します' : 'から答えます';
   // （プランの人が使い切ったときは planOut の後ろで上書き）
@@ -1960,6 +1964,27 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     () => groupConsults(messages, { skip: isLocalMsg }),
     [messages],
   );
+  // 🌿 過去の相談のあとに増えた自分のメモの数（「いまのメモで、もう一度相談する」に添える・2026-10-21）。
+  //   過去の相談を開いたときに 1 回だけ全メモの作成日時を読む（検索・つながるメモと同じ控え）。読めなければ出さない。
+  const [memoTimes, setMemoTimes] = useState(null);
+  useEffect(() => {
+    if (view !== 'history' || !user?.id || memoTimes) return undefined;
+    let alive = true;
+    loadAllMemoRows(user.id).then((r) => {
+      if (!alive) return;
+      const times = (r?.rows || []).map((m) => Date.parse(m.created_at || '')).filter(Number.isFinite).sort((a, b) => a - b);
+      setMemoTimes(times);
+    }).catch(() => { if (alive) setMemoTimes([]); });
+    return () => { alive = false; };
+  }, [view, user?.id, memoTimes]);
+  const memosSince = (group) => {
+    if (!memoTimes || memoTimes.length === 0) return 0;
+    const t = Date.parse(group[group.length - 1]?.createdAt || group[0]?.createdAt || '');
+    if (!Number.isFinite(t)) return 0;
+    let lo = 0; let hi = memoTimes.length;
+    while (lo < hi) { const mid = (lo + hi) >> 1; if (memoTimes[mid] > t) hi = mid; else lo = mid + 1; }
+    return memoTimes.length - lo;
+  };
   // 空の画面の出し分けはメモ（カード式＋学び＋この本のまとめ）の件数で決める（SPEC §3）。メモ＝カード式＋まとめ式
   // （GLOSSARY）なので、読書メーター等の感想を「この本のまとめ」に取り込んだだけの人も相談できる（2026-09-29 オーナー裁定）。
   // 読書計画だけの人は「読んだ本に一言ずつ残す」へ（相談例の「最近のメモから…」が空振りしないように）。
@@ -2225,7 +2250,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             {/* 数える単位は「AI の答え」（1 回 約 10 トークン・2026-10-09）。 */}
             {/* 🌱 無料プランのはじめの月は「（はじめの月）」を添える（数は言わない＝60 を 2 回言わない・2026-10-11）。 */}
             {/* 無料プランでトークンの数を出さないときは「AI の答えは今月あと約 N 回 ›」（何の数かを言う・2026-10-11 ui-critic・2026-10-13 に言い回しを直した＝「今月の残り AI の答え」は読みにくかった）。 */}
-            {(freeMode || plan === 'trial') && tokensRemaining + (purchasedTokens || 0) > 0 && <span style={{ display: 'block' }}><span style={{ whiteSpace: 'nowrap' }}>{`AI の答えは${freeMode && !showFreeTokenCount(tokensRemaining + (purchasedTokens || 0)) ? '今月' : ''}あと${remainingAnswersLabel(tokensRemaining + (purchasedTokens || 0))}`}</span>{freeMode && freeFirstMonth && <span style={{ whiteSpace: 'nowrap' }}>（はじめの 2 か月）</span>}{tokenChevron}</span>}
+            {tokensRemaining != null && tokensRemaining + (purchasedTokens || 0) > 0 && <span style={{ display: 'block' }}><span style={{ whiteSpace: 'nowrap' }}>{`AI の答えは${freeMode && !showFreeTokenCount(tokensRemaining + (purchasedTokens || 0)) ? '今月' : ''}あと${remainingAnswersLabel(tokensRemaining + (purchasedTokens || 0))}`}</span>{freeMode && freeFirstMonth && <span style={{ whiteSpace: 'nowrap' }}>（はじめの 2 か月）</span>}{tokenChevron}</span>}
           </span>
           </button>
         )}
@@ -2409,7 +2434,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                   )}
                   {canContinue && isOldConsult(g) && (
                     <p style={{ margin: 'calc(-1 * var(--space-2)) 0 0', marginLeft: ANSWER_COLUMN, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-                      {withPhraseBreaks('前の答えは使わず、そのあとのメモも根拠に答え直します')}
+                      {withPhraseBreaks(memosSince(g) > 0 ? `このあと、メモが ${memosSince(g)}\u00a0件増えました。前の答えは使わず、そのメモも根拠に答え直します` : '前の答えは使わず、そのあとのメモも根拠に答え直します')}
                     </p>
                   )}
                 </div>
@@ -2511,7 +2536,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                       // 初日の下書きのあいだは、押すと入力欄に入れるだけ（選ぶ・送らない）。
                       onClick={() => {
                         if (busy) return;
-                        if (firstDayDraft) { setInput(q); requestAnimationFrame(() => { try { inputRef.current?.focus({ preventScroll: true }); } catch { /* ignore */ } }); return; }
+                        // 無料プランで残りが答え 2 回分より少ないときも、押すと入力欄に入れるだけ（見ようとして押した 1 回で
+                        // 今月の相談がほぼ終わらないように・2026-10-21）。送るのは本人。
+                        if (firstDayDraft || examplesDraftOnly) { setInput(q); requestAnimationFrame(() => { try { inputRef.current?.focus({ preventScroll: true }); } catch { /* ignore */ } }); return; }
                         // 「前に相談した…」は、その会話の全体を開いて続きとして送る（この続きを相談すると同じ・2026-10-08 ui-critic）。
                         if (kind === 'continue' && lastConsult) { continueThread(lastConsult.group, { send: q }); return; }
                         ask(q);
@@ -3821,9 +3848,11 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
   // 🔖 あなたが書いたメモを 1 つ、結論のすぐ下に（2026-10-20 オーナー「¥1,500 以上の価値に」・点検「一番の価値が畳まれていて見えない」）。
   //   渡したメモと一致した引用（refChecks の s === 'ok'）の最初の 1 つだけ。書名・ページ・いつ書いたか＋本文 3 行まで。押すとそのメモを開く。
   //   一致した引用が無い答え（作った引用・関係するメモが無い答え）には出さない。全部は今までどおり「根拠を見る」の中。
-  //   結論の中でもう同じ文を引いているメモは飛ばす（同じ文が 2 回続いて繰り返しに見えた・2026-10-21 ui-critic）。
+  //   結論が引いているメモを先に（結論の下のメモが結論を裏づける＝「自分のメモから答えた」が一目で分かる・2026-10-21 ui-critic 2 回目。
+  //   結論の引用は短い断片で、ここは全文なので繰り返しには見えない）。引いていなければ最初に確かめられたメモ。
   const conclusionText = String(parsed?.conclusion || '').replace(/\s+/g, '');
-  const spot = refChecks.find((c) => c.s === 'ok' && c.x && !conclusionText.includes(String(c.x).replace(/\s+/g, '').slice(0, 20)));
+  const cited = (c) => c.s === 'ok' && c.x && conclusionText.includes(String(c.x).replace(/\s+/g, '').slice(0, 20));
+  const spot = refChecks.find(cited) || refChecks.find((c) => c.s === 'ok' && c.x);
   const renderSpotlight = () => {
     if (!spot) return null;
     const ago = spot.c ? consultAgoLabel(spot.c) : '';

@@ -1041,9 +1041,12 @@ textarea[aria-invalid="true"]:not(.no-focus-ring):focus {
   margin-top: auto;
   font-size: var(--text-meta);
   color: var(--text-2); /* リスト表示の著者と同じ（DESIGN §5） */
-  white-space: nowrap;
+  /* 書名と同じく 2 行まで（1 行だと「エリック・シュ…」で半数が読めない・2026-10-21 ui-critic） */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 
 /* View-mode switch (grid / list) */

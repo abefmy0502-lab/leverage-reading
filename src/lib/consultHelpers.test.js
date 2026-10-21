@@ -49,10 +49,13 @@ describe('やってみた行動の次（相談例の 1 つ目・2026-09-29）', 
     expect(ex[0]).toEqual({ text: 'やってみた「週に1回、結論から話す場をつくる」、次はどうする？', kind: 'acted' });
     expect(ex[1].kind).toBe('continue');
   });
-  it('7 日より前・ふりかえりが無い・まだの行動は使わない', () => {
-    expect(recentReflectedAction(acts.slice(1), now)).toBeNull();
+  it('ふりかえりの無い完了も拾う（文は「どうだった？」）・7 日より前・まだの行動は使わない（2026-10-21）', () => {
+    expect(recentReflectedAction(acts.slice(1), now)).toBe(acts[2]);
     const ex = buildConsultExamples({ books: [], actions: acts.slice(1), now, count: 2 });
-    expect(ex.some((e) => e.kind === 'acted')).toBe(false);
+    expect(ex[0]).toEqual({ text: 'やってみた「ふりかえりの無い行動」、どうだった？', kind: 'acted' });
+    expect(recentReflectedAction([acts[1], acts[3]], now)).toBeNull();
+    // ふりかえりを書いたものが古くても、無いものより先
+    expect(recentReflectedAction(acts, now)).toBe(acts[0]);
   });
   it('行動の短い形: 相談の要約の頭を外し、長ければ切ってかっこを閉じる', () => {
     expect(actionGist('上司への報告：毎朝「結論・理由・次の一歩」を三行で送る')).toMatch(/^毎朝「結論・理由・次の一歩」/);

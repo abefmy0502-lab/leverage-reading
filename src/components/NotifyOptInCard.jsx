@@ -43,7 +43,7 @@ export default function NotifyOptInCard({ where = 'action', primary = true, styl
   if (state !== 'shown') return null;
 
   const close = (action) => {
-    markNotifyOptInDone();
+    markNotifyOptInDone(action);
     setState('hidden');
     track('notify_optin', { action, where });
   };

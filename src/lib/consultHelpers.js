@@ -322,17 +322,21 @@ function nestQuotes(t) {
 }
 
 const REFLECTED_DAYS = 7;
-// この 7 日で、ふりかえり（やってみてどうだったか）を書いて完了した行動のうち、いちばん新しいもの。無ければ null。
+// この 7 日で完了した行動のうち、いちばん新しいもの。無ければ null。ふりかえりを書いたものを先に（書いていなくても拾う＝
+//   2026-10-21・ふりかえりは任意の欄なので、書かない人にも「行動 → 相談」の輪がつながるように）。
 //   actions: useAllActions の allActions など（done / completedAt / reflection / text）。
 export function recentReflectedAction(actions, now = Date.now()) {
   const since = now - REFLECTED_DAYS * 86400000;
   let best = null;
   let bestAt = -Infinity;
+  let bestReflected = false;
   (Array.isArray(actions) ? actions : []).forEach((a) => {
-    if (!a?.done || !oneLine(a.reflection) || !oneLine(a.text)) return;
+    if (!a?.done || !oneLine(a.text)) return;
+    const reflected = !!oneLine(a.reflection);
+    if (bestReflected && !reflected) return;
     const at = Date.parse(a.completedAt || a.completed_at || '');
     if (!Number.isFinite(at) || at < since || at > now + 86400000) return;
-    if (at > bestAt) { best = a; bestAt = at; }
+    if ((reflected && !bestReflected) || at > bestAt) { best = a; bestAt = at; bestReflected = reflected; }
   });
   return best;
 }
@@ -356,7 +360,7 @@ export function buildConsultExamples({ books = [], memoBookIds = null, lastConsu
   // やってみた行動の次（読んで → 行動して → また相談する、の輪をつなぐ）。
   const acted = recentReflectedAction(actions, now);
   const actedGist = acted ? actionGist(acted.text) : '';
-  if (actedGist) push(`やってみた「${nestQuotes(actedGist)}」、次はどうする？`, 'acted');
+  if (actedGist) push(oneLine(acted.reflection) ? `やってみた「${nestQuotes(actedGist)}」、次はどうする？` : `やってみた「${nestQuotes(actedGist)}」、どうだった？`, 'acted');
   const gist = lastConsult?.question && !freeUsedUp ? questionGist(lastConsult.question, 18) : '';
   if (gist) push(`前に相談した「${gist}」、その後どう進める？`, 'continue');
 

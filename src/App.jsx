@@ -745,6 +745,16 @@ function AuthedApp() {
   //   （SPEC §4・端末には覚えない）。
   const lastReviewSubRef = useRef('action');
   useEffect(() => { lastReviewSubRef.current = reviewSubTab; }, [reviewSubTab]);
+  // 🪴 行動がまだ 1 つも無い人（メモを書き始めたばかり）は、振り返りを開いたらメモ（思い出しカード・月ごとのメモ）から
+  //   （2026-10-21・空の「行動」の画面に当たらないように）。行動が 1 つでもできたら今までどおり行動から。
+  const hasAnyAction = useMemo(() => (rawBooks || []).some((b) => (b.actions || []).some((a) => a?.text?.trim())), [rawBooks]);
+  const reviewHomeSub = hasAnyAction ? 'action' : 'note';
+  const reviewSubAutoRef = useRef(false);
+  useEffect(() => {
+    if (booksLoading || reviewSubAutoRef.current) return;
+    reviewSubAutoRef.current = true;
+    if (!hasAnyAction && reviewSubTab === 'action' && lastReviewSubRef.current === 'action') setReviewSubTab('note');
+  }, [booksLoading, hasAnyAction]); // eslint-disable-line react-hooks/exhaustive-deps
   const [aiSubTab, setAiSubTab] = useState(() => (
     // テーマまとめ（'report'）は 2026-09-30 に廃止。前に開いていた人は相談から（下の一覧に無いので 'brain'）。
     ['advisor', 'brain'].includes(resumeNav?.aiSubTab) ? resumeNav.aiSubTab : 'brain'
@@ -839,7 +849,7 @@ function AuthedApp() {
     if (t === 'review' && tab === 'books' && libraryFrom === 'record') { leaveLibrary(); return; }
     // 記録から開いた「すべての本」は寄り道なので、別のタブへ移ったらホームに戻しておく。
     if (tab === 'books' && libraryFrom) { setShelfMode('home'); setLibraryFrom(null); }
-    if (t === 'review') { setActionShowDoneNonce(null); setReviewSubTab(lastReviewSubRef.current || 'action'); }
+    if (t === 'review') { setActionShowDoneNonce(null); setReviewSubTab(lastReviewSubRef.current || reviewHomeSub); }
     else if (t === 'ai') setAiSubTab('brain');
     setTab(t);
   };
@@ -5040,7 +5050,7 @@ function AuthedApp() {
               )}
               {/* 🏷 分野・🗂 フォルダ（2026-10-11）: 書名の列の中に置く（表紙の左端・見出しの列・行の値の列と、左の端が 3 つに分かれていた・2026-10-16 ui-critic 第 2 回）。
                   分野は押すと、すべての本をその分野で絞る。フォルダは押すとそのフォルダで絞り、「変更」でフォルダに入れるシート（全状態）。 */}
-              <BookFieldLinks fields={fieldsOf(current)} onPick={openLibraryByField} />
+              <BookFieldLinks fields={fieldsOf(current)} onPick={openLibraryByField} onEdit={() => openEdit(current)} />
               <BookFolderLinks
                 folders={current.collections || []}
                 stacked={fieldsOf(current).length > 0}
