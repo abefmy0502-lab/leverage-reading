@@ -111,7 +111,7 @@ export default function PromptMakerSheet({ books = [], initialBookIds = null, fr
     // 無料プランは 1 冊まで（複数の本はプランの機能・すすめてよい ②）。
     if (multi && freeMode && !requirePlan('複数の本の指示文')) return;
     const r = buildExternalPrompt({ books: selectedBooks, memos: rows, theme, format, audience, length });
-    setResult(r);
+    setResult({ ...r, format });
     setCopied(false);
     // できあがりは先頭から見せる（フォームの下のほうで押しても、指示文の頭から）。
     requestAnimationFrame(() => { try { document.querySelector('[data-prompt-result]')?.scrollIntoView({ block: 'start' }); } catch { /* ignore */ } });
@@ -182,6 +182,9 @@ export default function PromptMakerSheet({ books = [], initialBookIds = null, fr
             </a>
           ))}
         </div>
+        {result.format === 'diagram' && (
+          <p style={meta}>{withPhraseBreaks('図がコードのまま出たときは、「図にして」と頼んでください。')}</p>
+        )}
         <p style={{ ...meta, color: 'var(--text-3)' }}>{withPhraseBreaks('コピーしてから開きます。貼りつけて送るのはあなたです（扱いはそれぞれの決まりに従います）。')}</p>
       </div>
     </div>

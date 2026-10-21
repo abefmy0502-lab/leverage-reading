@@ -64,4 +64,13 @@ describe('AI への指示文', () => {
     const { text } = buildExternalPrompt({ books: [books[0]], memos: [{ id: 'z', book_id: 'b1', text: 'a\u0000b\u0007c', created_at: '' }], theme: 'テスト' });
     expect(text).toContain('- a b c');
   });
+
+  it('図解を選ぶと、Mermaid の図と言葉の短さの決まりを入れる（ほかの形には入れない）', () => {
+    const { text } = buildExternalPrompt({ books, memos, theme: '部下への任せ方', format: 'diagram' });
+    expect(text).toContain('```mermaid');
+    expect(text).toContain('15 字以内');
+    expect(text).toContain('の図解を、日本語でつくってください');
+    const other = buildExternalPrompt({ books, memos, theme: '部下への任せ方', format: 'one' }).text;
+    expect(other).not.toContain('mermaid');
+  });
 });
