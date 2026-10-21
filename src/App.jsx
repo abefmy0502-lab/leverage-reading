@@ -5756,7 +5756,7 @@ function AuthedApp() {
                 {/* 📷 本のページを撮るから来たときは、本を選んだあとも何をしているかを 1 行で（本を選ぶ画面と同じ文・2026-10-10 第 9 回 総点検）。 */}
                 {!current && ocrIntentActive && (
                   <p style={{ margin: 'calc(-1 * var(--space-2)) 0 var(--space-4)', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-                    {withPhraseBreaks('まず本を選び、そのあとページを撮ります。')}
+                    {withPhraseBreaks('本を選んでから、ページを撮ります。')}
                   </p>
                 )}
 

@@ -299,7 +299,7 @@ export function WantPhase({ form, setForm, onSave, saving = false, onSearchOpen,
 
       {/* 押した瞬間から「保存中…」（薄くしない・文言だけ変える＝DESIGN §5 押せないボタン）。 */}
       <button type="button" onClick={handleSaveClick} aria-busy={saving || undefined} style={btnPrimary}>
-        {saving ? '保存中…' : (form.status === 'reading' || form.status === 'done') ? '保存してメモを書く' : '保存'}
+        {saving ? '保存中…' : (form.status === 'reading' || form.status === 'done') ? (forPhoto ? '保存してページを撮る' : '保存してメモを書く') : '保存'}
       </button>
 
       {/* 分野・フォルダは任意なので、主ボタンより下に（最初の画面で「保存」が見えるように）。 */}

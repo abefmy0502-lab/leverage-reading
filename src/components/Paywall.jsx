@@ -37,6 +37,7 @@
 //   &founding=on（ストアの初回価格＋期間中）/ store（ストアの初回価格だけ）/ env（期間中だけ）で創業メンバー価格を確かめる。
 //   プレビュー中は実際の購入・復元（RevenueCat）を一切呼ばない（isNative のときだけ呼ぶ）。
 
+import { recentConsultAsk } from '../lib/lastConsultAsk';
 import { Fragment, useEffect, useRef, useState, lazy, Suspense } from 'react';
 import { Check, X } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
@@ -341,6 +342,9 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
   const [lastAsk, setLastAsk] = useState(() => (['free_used', 'first_answer'].includes(reason) && isSupabaseConfigured ? null : ''));
   useEffect(() => {
     if (!['free_used', 'first_answer'].includes(reason) || !user?.id || !isSupabaseConfigured) return undefined;
+    // メモが答えた相談（保存しない）をさっき聞いていれば、それを先に（前の相談の名前を出さない・2026-10-21 点検）。
+    const recent = recentConsultAsk();
+    if (recent) { setLastAsk(recent); return undefined; }
     let alive = true;
     (async () => {
       try {

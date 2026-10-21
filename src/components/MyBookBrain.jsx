@@ -33,6 +33,7 @@ import TokensOutCard, { trialCancelLineStyle } from './TokensOutCard';
 import { SkeletonBlock } from './Skeleton';
 import { X, MessageCircle, History, BookOpenCheck, Target, Check, RotateCw, MoreHorizontal, ChevronLeft, ChevronDown, ChevronRight, PencilLine, ArrowUp, Square, Plus, Minus, Sprout, Trash2, SlidersHorizontal, FileText } from 'lucide-react';
 import PromptMakerSheet from './PromptMakerSheet';
+import { rememberConsultAsk } from '../lib/lastConsultAsk';
 import ContextMenu from './ContextMenu';
 import { usePaywall } from '../state/PaywallContext';
 import { nextResetLabelJa } from '../lib/freeTrial';
@@ -1245,6 +1246,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     // 「まだ、この悩みに近いメモがありません」になっていた。はじめの相談と合わせて探す（2026-10-10）。
     const firstQ = (visibleMessages.find((m) => m.role === 'user' && String(m.content || '').trim())?.content || carry?.question || '').trim();
     const searchQ = firstQ && firstQ !== q ? `${firstQ}\n${q}` : null;
+    // 有料プランの画面の「「…」の続きも、話せます。」に、いま聞いた相談を出す（メモが答えた相談は保存しない）。
+    rememberConsultAsk(firstQ || q);
     const ts = Date.now();
     const at = new Date().toISOString();
     const answerId = `memo-a-${ts}`;

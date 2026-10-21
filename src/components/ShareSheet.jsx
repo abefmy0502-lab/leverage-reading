@@ -884,6 +884,21 @@ export default function ShareSheet({
     </div>
   );
 
+  // 「どの本？」の行は、選んでいる本が最初の画面に入るなら先頭（今月）から見せる（シートを開いたときに選んでいる本まで送られ、
+  //   「今月」が左の外に出ていた・2026-10-21 点検）。入らないときだけ選んでいる本まで送る。
+  const subjectRowRef = useRef(null);
+  useEffect(() => {
+    const row = subjectRowRef.current;
+    if (!row) return undefined;
+    const id = requestAnimationFrame(() => {
+      const on = row.querySelector('[aria-checked="true"]');
+      if (!on) { row.scrollLeft = 0; return; }
+      const fits = on.offsetLeft + on.offsetWidth <= row.clientWidth;
+      row.scrollLeft = fits ? 0 : Math.max(0, on.offsetLeft - 16);
+    });
+    return () => cancelAnimationFrame(id);
+  }, [showSwitcher]); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <BottomSheet title="写真で共有" onClose={onClose} footer={footer} dismissLabel="キャンセル">
       <input ref={fileRef} type="file" accept="image/*" onChange={onPhotoPicked} style={{ display: 'none' }} aria-hidden="true" tabIndex={-1} />
@@ -893,6 +908,7 @@ export default function ShareSheet({
         {/* どの本？（ホームから開いたとき・今月 →（12 月だけ）今年 → 読書中 → 読了） */}
         {showSwitcher && (
           <div
+            ref={subjectRowRef}
             role="radiogroup"
             aria-label="どの本を共有するか"
             style={{ display: 'flex', gap: 'var(--space-2)', overflowX: 'auto', scrollSnapType: 'x proximity', margin: 'calc(-1 * var(--space-1)) calc(-1 * var(--space-4))', padding: 'var(--space-1) 0 var(--space-1) var(--space-4)', scrollPaddingLeft: 'var(--space-4)', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch', WebkitMaskImage: SUBJECT_ROW_MASK, maskImage: SUBJECT_ROW_MASK }}
