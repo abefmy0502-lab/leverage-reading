@@ -29,7 +29,7 @@
 | **配信** | main への push で Vercel に本番配信 | `.github/workflows/deploy.yml` |
 | **文書の同期のテスト** | `supabase_*.sql` が CLAUDE.md の表に無い・SKILL.md の形が違う・`mkt:*` が手順書に無い、で赤 | `scripts/docsSync.test.js`・`scripts/sqlBundle.test.js` |
 | **編集のあとの一言** | Claude がファイルを触るたびに「次の一手」を 1 行（SQL → まとめを作り直す／画面 → 撮って採点／AI → 同意の送り先 …） | `.claude/settings.json` → `scripts/hooks/post-edit.mjs` |
-| **土曜の投稿キット** | 毎週土曜 05:47 JST に新しいセッションが `/mkt-week` を回し、`company/weekly/<日付>.md` を `claude/weekly-posts` ブランチへ push して通知 | スケジュールされたタスク「土曜の投稿キット」（claude.ai/code の「スケジュールされたタスク」。**作り方**: Claude Code のセッションで「土曜 5:47（日本時間）に新しいセッションで /mkt-week を回して claude/weekly-posts に push するスケジュールされたタスクを作って」と頼む＝`.claude/skills/mkt-week/SKILL.md` の末尾に頼み方の全文。止めるのも同じ場所） |
+| **土曜の投稿キット** | 毎週土曜 05:47 JST に新しいセッションが `/mkt-week` を回し、`company/weekly/<日付>.md` を `claude/weekly-posts` ブランチへ push して通知 | スケジュールされたタスク「土曜の投稿キット」（2026-10-22 に作成済み・最初の回は 2026-10-24（土）。claude.ai/code の「スケジュールされたタスク」で止める・直す。作り直すときの頼み方は `.claude/skills/mkt-week/SKILL.md` の末尾） |
 | **ui-critic** | 画面の採点（16/20 で合格）。実装した本人の目だけで合格にしない | `.claude/agents/ui-critic.md` |
 | **note チーム** | 企画 → 市場 → 構成 → 執筆 → 販売設計 → 管理の 7 役 | `.claude/agents/note-*.md`・`company/note/board.md` |
 
