@@ -53,7 +53,7 @@ const CHART_RADIUS = 3;
 const BAR_MAX = 64;
 const BAR_SOFT = 'color-mix(in srgb, var(--accent) 65%, var(--surface))';
 const visuallyHidden = { position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0 };
-const blockTitle = { margin: 0, fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, wordBreak: 'keep-all', overflowWrap: 'break-word' };
+const blockTitle = { margin: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, wordBreak: 'keep-all', overflowWrap: 'break-word' };
 const yenSigned = (v) => (v < 0 ? `−${yen(-v)}` : yen(v));
 
 // 月ごとの棒。segments(x) は下から積む [{ v, color }]。見えない表で読み上げ（列の名前は cols）。
@@ -70,7 +70,7 @@ function MonthBars({ items, segments, cols, rowsOf, caption, outlined = false })
             <div key={x.month || i} style={{ flex: 1, minWidth: 0, display: 'flex', justifyContent: 'center', alignItems: 'flex-end', height: '100%' }}>
               {total > 0 ? (
                 <div style={{ width: '100%', maxWidth: 20, display: 'flex', flexDirection: 'column-reverse', borderRadius: `${CHART_RADIUS}px ${CHART_RADIUS}px 0 0`, overflow: 'hidden', boxSizing: 'border-box', border: outlined ? '1px solid var(--border)' : 'none', borderBottom: 'none', background: outlined ? 'var(--surface)' : 'transparent' }}>
-                  {segs.map((g, k) => <div key={k} style={{ height: Math.max(2, Math.round((g.v / max) * (outlined ? BAR_MAX - 1 : BAR_MAX))), background: g.color }} />)}
+                  {segs.map((g, k) => <div key={k} style={{ height: Math.max(2, Math.round((g.v / max) * (outlined ? BAR_MAX - 1 : BAR_MAX))), background: g.color, borderBottom: k > 0 ? '1px solid var(--surface)' : 'none', boxSizing: 'border-box' }} />)}
                 </div>
               ) : <div style={{ width: '100%', maxWidth: 20, height: 2, background: 'var(--border)' }} />}
             </div>
@@ -98,7 +98,7 @@ function MonthBars({ items, segments, cols, rowsOf, caption, outlined = false })
 function Block({ id, title, children }) {
   return (
     <div id={id} style={{ ...rowBox, paddingTop: 'var(--space-3)' }}>
-      <p style={{ ...blockTitle, marginBottom: 'var(--space-2) ' }}>{withPhraseBreaks(title)}</p>
+      <p style={{ ...blockTitle, marginBottom: 'var(--space-2)' }}>{withPhraseBreaks(title)}</p>
       {children}
     </div>
   );
@@ -118,7 +118,7 @@ function SeriesBlock({ series }) {
         segments={(x) => [{ v: Math.max(0, x.grossYen), color: x === last ? 'var(--accent)' : BAR_SOFT }, { v: Math.max(0, x.revenueYen - Math.max(0, x.grossYen)), color: 'transparent' }]}
         cols={['月', '売上', '粗利', '有料', '解約']}
         rowsOf={(x) => [x.month, yen(x.revenueYen), yenSigned(x.grossYen), `${x.paid.total} 人`, `${x.churned} 人`]}
-        caption="枠＝売上・塗り＝粗利・栗色＝今月"
+        caption="枠＝売上・塗り＝粗利・いちばん右＝今月"
       />
       <p style={{ ...sub, marginTop: 'var(--space-2)' }}>
         <Parts items={[
@@ -145,7 +145,7 @@ function RenewalsBlock({ renewals }) {
         segments={(x) => [{ v: x.monthlyYen, color: BAR_SOFT }, { v: x.annualYen, color: 'var(--accent)' }]}
         cols={['月', '月額の更新', '年額の更新', '合計']}
         rowsOf={(x) => [x.month, yen(x.monthlyYen), `${yen(x.annualYen)}（${x.annualCount} 人）`, yen(x.totalYen)]}
-        caption="下＝月額の更新・濃い栗色＝年額の更新"
+        caption="下＝月額の更新・上＝年額の更新"
       />
       <p style={{ ...sub, marginTop: 'var(--space-2)' }}>
         <Parts items={[
@@ -167,7 +167,7 @@ function PurposeBlock({ data }) {
         {rows.map((r) => (
           <div key={r.label}>
             <div style={rowHead}>
-              <span>{r.label}</span><span style={num}><span style={{ color: 'var(--text-3)', fontWeight: 400, marginRight: 'var(--space-2)' }}>{Math.round(r.share * 100)}%</span>{yen(r.yen)}</span>
+              <span>{r.label}</span><span style={num}><span style={{ display: 'inline-block', minWidth: '3.5ch', textAlign: 'right', color: 'var(--text-3)', fontWeight: 400, marginRight: 'var(--space-2)' }}>{Math.round(r.share * 100)}%</span><span style={{ display: 'inline-block', minWidth: '7ch', textAlign: 'right' }}>{yen(r.yen)}</span></span>
             </div>
             <div aria-hidden="true" style={{ height: 6, background: 'var(--fill)', borderRadius: CHART_RADIUS, marginTop: 'var(--space-1)', overflow: 'hidden' }}>
               <div style={{ height: '100%', width: `${Math.max(1, r.share * 100)}%`, minWidth: 3, background: BAR_SOFT, borderRadius: CHART_RADIUS }} />
@@ -286,8 +286,8 @@ export default function ProfitCard({ data, missing = false, error = null, onRetr
           )}
         </div>
         {/* 推移・更新の見込み・使い道・人数ごとは「くわしく」に畳む（最初の画面は 目標 → 今日の一手 が主役・2026-10-22 ui-critic） */}
-        <details style={{ marginTop: 'var(--space-2)' }} open={typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('profit') === 'open'}>
-          <summary style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', cursor: 'pointer', listStyle: 'none', marginLeft: 'calc(-1 * var(--space-1))' }}>
+        <details style={{ marginTop: 'var(--space-3)' }} open={typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('profit') === 'open'}>
+          <summary style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', cursor: 'pointer', listStyle: 'none', margin: 'calc((var(--tap-min) - var(--text-sub) * 1.5) / -2) 0 calc((var(--tap-min) - var(--text-sub) * 1.5) / -2) calc(-1 * var(--space-1))' }}>
             くわしく<ChevronDown size={16} aria-hidden="true" className="fold-chevron" style={{ flexShrink: 0 }} />
           </summary>
           <SeriesBlock series={seriesEst} />
@@ -300,9 +300,9 @@ export default function ProfitCard({ data, missing = false, error = null, onRetr
   }
   return (
     <section aria-labelledby="profit-title" style={{ margin: 'var(--space-6) 0' }}>
-      <p id="profit-title" style={{ ...caption, display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
+      <h2 id="profit-title" style={{ margin: '0 0 var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontSize: 'var(--text-meta)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.4 }}>
         <Coins size="1.2em" strokeWidth={2} aria-hidden="true" /> {monthLabel(data?.month)}の売上と推定の粗利
-      </p>
+      </h2>
       <div style={card}>{body}</div>
     </section>
   );
