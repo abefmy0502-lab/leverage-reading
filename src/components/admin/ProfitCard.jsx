@@ -6,8 +6,8 @@
 // 固定費は手入力（端末に保存）。閉じる入口は「完了」1 つ。SQL が無い間は「流すと出ます」の 1 行、通信の失敗は ErrorMessage、
 // 読み込み中は SkeletonBlock（ほかの区画と同じ形）。見た目は DESIGN のトークンだけ（2026-10-22 ui-critic の直し）。
 import { useMemo, useState } from 'react';
-import { Coins, Pencil } from 'lucide-react';
-import { btnGhost, btnLink, input } from '../../styles/ui';
+import { ChevronDown, Coins, Pencil } from 'lucide-react';
+import { btnGhost, btnLink, btnLinkQuiet, input } from '../../styles/ui';
 import { SkeletonBlock } from '../Skeleton';
 import ErrorMessage from '../ErrorMessage';
 import { withPhraseBreaks } from '../TightBubble';
@@ -52,13 +52,12 @@ const MILESTONES = [50, 200, 400, 650, 1000];
 const CHART_RADIUS = 3;
 const BAR_MAX = 64;
 const BAR_SOFT = 'color-mix(in srgb, var(--accent) 65%, var(--surface))';
-const BAR_LIGHT = 'color-mix(in srgb, var(--accent) 30%, var(--surface))';
 const visuallyHidden = { position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0 };
 const blockTitle = { margin: 0, fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, wordBreak: 'keep-all', overflowWrap: 'break-word' };
 const yenSigned = (v) => (v < 0 ? `−${yen(-v)}` : yen(v));
 
 // 月ごとの棒。segments(x) は下から積む [{ v, color }]。見えない表で読み上げ（列の名前は cols）。
-function MonthBars({ items, segments, cols, rowsOf, caption }) {
+function MonthBars({ items, segments, cols, rowsOf, caption, outlined = false }) {
   const totals = items.map((x) => segments(x).reduce((s, g) => s + Math.max(0, g.v), 0));
   const max = Math.max(1, ...totals);
   return (
@@ -70,8 +69,8 @@ function MonthBars({ items, segments, cols, rowsOf, caption }) {
           return (
             <div key={x.month || i} style={{ flex: 1, minWidth: 0, display: 'flex', justifyContent: 'center', alignItems: 'flex-end', height: '100%' }}>
               {total > 0 ? (
-                <div style={{ width: '100%', maxWidth: 20, display: 'flex', flexDirection: 'column-reverse', borderRadius: `${CHART_RADIUS}px ${CHART_RADIUS}px 0 0`, overflow: 'hidden' }}>
-                  {segs.map((g, k) => <div key={k} style={{ height: Math.max(2, Math.round((g.v / max) * BAR_MAX)), background: g.color }} />)}
+                <div style={{ width: '100%', maxWidth: 20, display: 'flex', flexDirection: 'column-reverse', borderRadius: `${CHART_RADIUS}px ${CHART_RADIUS}px 0 0`, overflow: 'hidden', boxSizing: 'border-box', border: outlined ? '1px solid var(--border)' : 'none', borderBottom: 'none', background: outlined ? 'var(--surface)' : 'transparent' }}>
+                  {segs.map((g, k) => <div key={k} style={{ height: Math.max(2, Math.round((g.v / max) * (outlined ? BAR_MAX - 1 : BAR_MAX))), background: g.color }} />)}
                 </div>
               ) : <div style={{ width: '100%', maxWidth: 20, height: 2, background: 'var(--border)' }} />}
             </div>
@@ -85,7 +84,7 @@ function MonthBars({ items, segments, cols, rowsOf, caption }) {
           </span>
         ))}
       </div>
-      {caption && <p style={{ ...sub, fontSize: 'var(--text-caption)', marginTop: 'var(--space-1)' }}>{caption}</p>}
+      {caption && <p style={{ ...sub, marginTop: 'var(--space-1)' }}>{caption}</p>}
       <div style={visuallyHidden}>
         <table>
           <thead><tr>{cols.map((c) => <th key={c}>{c}</th>)}</tr></thead>
@@ -105,7 +104,7 @@ function Block({ id, title, children }) {
   );
 }
 
-// 月ごとの推移（直近 12 か月・薄い棒＝売上・濃い棒＝粗利・今月は栗色）。
+// 月ごとの推移（直近 12 か月・枠＝売上・塗り＝粗利・今月は栗色。薄い塗りは面に対して 3:1 に届かないので枠で見せる）。
 function SeriesBlock({ series }) {
   if (!series || series.length === 0) return null;
   const last = series[series.length - 1];
@@ -115,10 +114,11 @@ function SeriesBlock({ series }) {
     <Block id="profit-series" title="月ごとの推移">
       <MonthBars
         items={series}
-        segments={(x) => [{ v: Math.max(0, x.grossYen), color: x === last ? 'var(--accent)' : BAR_SOFT }, { v: Math.max(0, x.revenueYen - Math.max(0, x.grossYen)), color: BAR_LIGHT }]}
+        outlined
+        segments={(x) => [{ v: Math.max(0, x.grossYen), color: x === last ? 'var(--accent)' : BAR_SOFT }, { v: Math.max(0, x.revenueYen - Math.max(0, x.grossYen)), color: 'transparent' }]}
         cols={['月', '売上', '粗利', '有料', '解約']}
         rowsOf={(x) => [x.month, yen(x.revenueYen), yenSigned(x.grossYen), `${x.paid.total} 人`, `${x.churned} 人`]}
-        caption="薄い＝売上・濃い＝粗利・栗色＝今月"
+        caption="枠＝売上・塗り＝粗利・栗色＝今月"
       />
       <p style={{ ...sub, marginTop: 'var(--space-2)' }}>
         <Parts items={[
@@ -166,8 +166,8 @@ function PurposeBlock({ data }) {
       <div style={{ display: 'grid', gap: 'var(--space-2)' }}>
         {rows.map((r) => (
           <div key={r.label}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--space-3)', fontSize: 'var(--text-meta)', color: 'var(--text)' }}>
-              <span>{r.label}</span><span style={num}>{yen(r.yen)}<span style={{ color: 'var(--text-3)', fontWeight: 400 }}>（{Math.round(r.share * 100)}%）</span></span>
+            <div style={rowHead}>
+              <span>{r.label}</span><span style={num}><span style={{ color: 'var(--text-3)', fontWeight: 400, marginRight: 'var(--space-2)' }}>{Math.round(r.share * 100)}%</span>{yen(r.yen)}</span>
             </div>
             <div aria-hidden="true" style={{ height: 6, background: 'var(--fill)', borderRadius: CHART_RADIUS, marginTop: 'var(--space-1)', overflow: 'hidden' }}>
               <div style={{ height: '100%', width: `${Math.max(1, r.share * 100)}%`, minWidth: 3, background: BAR_SOFT, borderRadius: CHART_RADIUS }} />
@@ -287,7 +287,9 @@ export default function ProfitCard({ data, missing = false, error = null, onRetr
         </div>
         {/* 推移・更新の見込み・使い道・人数ごとは「くわしく」に畳む（最初の画面は 目標 → 今日の一手 が主役・2026-10-22 ui-critic） */}
         <details style={{ marginTop: 'var(--space-2)' }} open={typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('profit') === 'open'}>
-          <summary style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', cursor: 'pointer', listStyle: 'none' }}>くわしく（推移・更新の見込み・AI の使い道・人数ごと）</summary>
+          <summary style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', cursor: 'pointer', listStyle: 'none', marginLeft: 'calc(-1 * var(--space-1))' }}>
+            くわしく<ChevronDown size={16} aria-hidden="true" className="fold-chevron" style={{ flexShrink: 0 }} />
+          </summary>
           <SeriesBlock series={seriesEst} />
           <RenewalsBlock renewals={renewEst} />
           <PurposeBlock data={data} />

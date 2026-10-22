@@ -245,6 +245,9 @@ export function demoAdminRpc(name, params, args = {}) {
   }
   if (['admin_goal_plan', 'admin_goal_weekly', 'admin_set_goal_plan'].includes(name) && goalMode(params) === 'missing') return missing(name);
   if (['admin_profit', 'admin_profit_series', 'admin_renewals'].includes(name) && params.get('profit') === 'missing') return missing(name);
+  // &profit=error＝読み込みの失敗・&profit=loading＝読み込み中のまま（ProfitCard の状態の撮影用）。
+  if (['admin_profit', 'admin_profit_series', 'admin_renewals'].includes(name) && params.get('profit') === 'error') return { data: null, error: { code: '57014', message: 'canceling statement due to statement timeout' } };
+  if (['admin_profit', 'admin_profit_series', 'admin_renewals'].includes(name) && params.get('profit') === 'loading') return new Promise(() => {});
   if (name === 'admin_set_goal_plan') {
     savedPlan = { metric: 'paid_users', target: args.p_target, deadline: args.p_deadline, milestones: args.p_milestones, launch_date: args.p_launch || LAUNCH };
     return { data: null, error: null };

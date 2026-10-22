@@ -1182,6 +1182,8 @@ const SCREENS = [
     ['admin-profit-renewals', '/?admin=1&profit=open', [{ eval: ADMIN_SCROLL('#profit-renewals') }]],
     ['admin-profit-milestones', '/?admin=1&profit=open', [{ eval: ADMIN_SCROLL('#profit-purpose') }]],
     ['admin-profit-missing', '/?admin=1&profit=missing', [{ eval: ADMIN_SCROLL('section[aria-labelledby="profit-title"]') }]],
+    ['admin-profit-loading', '/?admin=1&profit=loading', [{ eval: ADMIN_SCROLL('section[aria-labelledby="profit-title"]') }]],
+    ['admin-profit-error', '/?admin=1&profit=error', [{ eval: ADMIN_SCROLL('section[aria-labelledby="profit-title"]') }]],
     ['admin-action', '/?admin=1', [{ css: '[role=tab]:has-text("アクション")' }]],
   ].map(([name, url, extra]) => ({
     name, url,
