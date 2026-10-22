@@ -978,7 +978,7 @@ export default function Landing() {
           <div className={`lp-wrap lp-narrow lp-final-inner${PRELAUNCH ? '' : ' is-live'}`}>
             <h2 className="lp-h2" id="lp-final">
               {/* 2026-10-22 オーナー: メモは本に書いてある一文を写すもの＝ヒーローの「心に残った一行」と同じ言い方に */}
-              <span>まずは、心に残った一行を</span><span>書いてみてください。</span>
+              <span>読んだ本の、</span><span>心に残った一行を</span><span>書いてみてください。</span>
             </h2>
             <div className="lp-cta-block">
               <Entry loc="final" wl={wl} qr badge launch center />
