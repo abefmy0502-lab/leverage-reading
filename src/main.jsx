@@ -35,6 +35,33 @@ const ENTRIES = {
 ENTRIES[route ? 'static' : 'app']()
   .then((m) => m.mount(rootEl, route))
   .catch((err) => {
-    // 読み込みに失敗（通信・古い版）。vite:preloadError で再読み込みされないときのために記録だけ残す。
+    // 読み込み・起動に失敗（通信・古い版・環境の値）。真っ暗のままにせず、何が起きたかを画面に出す
+    // （2026-10-22 オーナー「真っ暗のまま」= ここで黙っていた）。アプリの部品が無い前提なので素の DOM で描く。
     console.error('[orime] failed to start', err);
+    try { window.__orimeStartError = err; } catch { /* ignore */ }
+    showStartFailure(rootEl, err);
   });
+
+// 起動に失敗したときの最低限の画面（部品・トークンを読めない前提・端末の明暗に合わせた 2 色だけ）。
+// 「もう一度」は、古い控え（サービスワーカーとキャッシュ）を消してから再読み込みする。
+function showStartFailure(el, err) {
+  if (!el) return;
+  const dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const detail = String((err && (err.message || err)) || '不明なエラー').slice(0, 300);
+  const esc = (t) => t.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  el.innerHTML = `
+    <div role="alert" style="max-width:480px;margin:0 auto;padding:48px 16px;font:15px/1.6 -apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;color:${dark ? '#f1ece4' : '#2a2520'}">
+      <p style="margin:0 0 8px;font-size:17px;font-weight:600">アプリを起動できませんでした。</p>
+      <p style="margin:0 0 16px;font-size:13px;opacity:.75;word-break:break-all">${esc(detail)}</p>
+      <button type="button" id="orime-start-retry" style="min-height:48px;padding:0 24px;border-radius:12px;border:1px solid currentColor;background:transparent;color:inherit;font:inherit;font-weight:600">もう一度</button>
+      <p style="margin:16px 0 0;font-size:13px;opacity:.75">直らないときは、この画面の文字をそのまま伝えてください。</p>
+    </div>`;
+  const btn = document.getElementById('orime-start-retry');
+  if (btn) btn.addEventListener('click', async () => {
+    try {
+      if (navigator.serviceWorker) { const regs = await navigator.serviceWorker.getRegistrations(); await Promise.all(regs.map((r) => r.unregister())); }
+      if (window.caches) { const keys = await caches.keys(); await Promise.all(keys.map((k) => caches.delete(k))); }
+    } catch { /* 消せなくても再読み込みはする */ }
+    window.location.reload();
+  });
+}
