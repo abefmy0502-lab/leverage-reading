@@ -1178,9 +1178,9 @@ const SCREENS = [
     // 💰 今月の売上と推定の粗利（2026-10-22）
     ['admin-profit', '/?admin=1', [{ eval: ADMIN_SCROLL('section[aria-labelledby="profit-title"]') }]],
     ['admin-profit-edit', '/?admin=1', [{ eval: ADMIN_SCROLL('section[aria-labelledby="profit-title"]') }, { css: 'section[aria-labelledby="profit-title"] button:has-text("直す")' }, { wait: 300 }]],
-    ['admin-profit-series', '/?admin=1', [{ eval: ADMIN_SCROLL('#profit-series') }]],
-    ['admin-profit-renewals', '/?admin=1', [{ eval: ADMIN_SCROLL('#profit-renewals') }]],
-    ['admin-profit-milestones', '/?admin=1', [{ eval: ADMIN_SCROLL('#profit-purpose') }]],
+    ['admin-profit-series', '/?admin=1&profit=open', [{ eval: ADMIN_SCROLL('#profit-series') }]],
+    ['admin-profit-renewals', '/?admin=1&profit=open', [{ eval: ADMIN_SCROLL('#profit-renewals') }]],
+    ['admin-profit-milestones', '/?admin=1&profit=open', [{ eval: ADMIN_SCROLL('#profit-purpose') }]],
     ['admin-profit-missing', '/?admin=1&profit=missing', [{ eval: ADMIN_SCROLL('section[aria-labelledby="profit-title"]') }]],
     ['admin-action', '/?admin=1', [{ css: '[role=tab]:has-text("アクション")' }]],
   ].map(([name, url, extra]) => ({

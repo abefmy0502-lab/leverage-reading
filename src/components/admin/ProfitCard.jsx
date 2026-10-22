@@ -31,10 +31,7 @@ const FIXED_LABELS = [['apple', 'Apple Developer'], ['supabase', 'Supabase'], ['
 function Parts({ items }) {
   const list = items.filter(Boolean);
   return list.map((t, i) => (
-    <span key={t}>
-      {i > 0 && '・'}
-      <span style={{ display: 'inline-block' }}>{t}</span>
-    </span>
+    <span key={t} style={{ display: 'inline-block' }}>{withPhraseBreaks(t)}{i < list.length - 1 ? '・' : ''}</span>
   ));
 }
 
@@ -51,28 +48,50 @@ function Row({ label, value, children }) {
 }
 
 const MILESTONES = [50, 200, 400, 650, 1000];
-// 棒の角（ReadingTimeCard と同じ 3＝グラフの棒は角丸 12 の例外）。
+// 棒の決まりは記録の「読書の時間」と同じ（角 3・幅 20・最大 64・濃淡はアクセントの color-mix・0 は高さ 2 の基線・2026-10-22）。
 const CHART_RADIUS = 3;
+const BAR_MAX = 64;
+const BAR_SOFT = 'color-mix(in srgb, var(--accent) 65%, var(--surface))';
+const BAR_LIGHT = 'color-mix(in srgb, var(--accent) 30%, var(--surface))';
+const visuallyHidden = { position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0 };
+const blockTitle = { margin: 0, fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, wordBreak: 'keep-all', overflowWrap: 'break-word' };
 const yenSigned = (v) => (v < 0 ? `−${yen(-v)}` : yen(v));
 
-// 月ごとの棒（薄い棒＝売上・濃い棒＝粗利。負の粗利は棒を出さず数だけ）。目盛りは無し・名前は 3 本に 1 つ。
-function MonthBars({ items, valueOf, baseOf, ariaLabel, strong = () => false }) {
-  const max = Math.max(1, ...items.map((x) => Math.max(baseOf ? baseOf(x) : 0, valueOf(x))));
+// 月ごとの棒。segments(x) は下から積む [{ v, color }]。見えない表で読み上げ（列の名前は cols）。
+function MonthBars({ items, segments, cols, rowsOf, caption }) {
+  const totals = items.map((x) => segments(x).reduce((s, g) => s + Math.max(0, g.v), 0));
+  const max = Math.max(1, ...totals);
   return (
-    <div role="img" aria-label={ariaLabel} style={{ display: 'grid', gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))`, gap: 'var(--space-1)', alignItems: 'end', height: 88 }}>
-      {items.map((x, i) => {
-        const v = Math.max(0, valueOf(x));
-        const b = baseOf ? Math.max(0, baseOf(x)) : 0;
-        return (
-          <div key={x.month || i} style={{ display: 'grid', alignItems: 'end', height: '100%', position: 'relative' }}>
-            {baseOf && <div style={{ gridArea: '1 / 1', height: `${(b / max) * 72}px`, background: 'var(--fill)', borderRadius: `${CHART_RADIUS}px ${CHART_RADIUS}px 0 0`, width: '100%', maxWidth: 24, justifySelf: 'center' }} />}
-            <div style={{ gridArea: '1 / 1', height: `${(v / max) * 72}px`, background: strong(x) ? 'var(--accent)' : 'var(--text-3)', borderRadius: `${CHART_RADIUS}px ${CHART_RADIUS}px 0 0`, opacity: strong(x) ? 1 : 0.75, width: '100%', maxWidth: 24, justifySelf: 'center' }} />
-            <span style={{ position: 'absolute', left: 0, right: 0, bottom: -16, textAlign: 'center', fontSize: 'var(--text-caption)', color: 'var(--text-3)', whiteSpace: 'nowrap', overflow: 'hidden' }}>
-              {(i === items.length - 1 || i % 3 === 0) ? monthShort(x.month) : ''}
-            </span>
-          </div>
-        );
-      })}
+    <div>
+      <div aria-hidden="true" style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--space-1)', height: BAR_MAX, borderBottom: '1px solid var(--separator)' }}>
+        {items.map((x, i) => {
+          const segs = segments(x).filter((g) => g.v > 0);
+          const total = totals[i];
+          return (
+            <div key={x.month || i} style={{ flex: 1, minWidth: 0, display: 'flex', justifyContent: 'center', alignItems: 'flex-end', height: '100%' }}>
+              {total > 0 ? (
+                <div style={{ width: '100%', maxWidth: 20, display: 'flex', flexDirection: 'column-reverse', borderRadius: `${CHART_RADIUS}px ${CHART_RADIUS}px 0 0`, overflow: 'hidden' }}>
+                  {segs.map((g, k) => <div key={k} style={{ height: Math.max(2, Math.round((g.v / max) * BAR_MAX)), background: g.color }} />)}
+                </div>
+              ) : <div style={{ width: '100%', maxWidth: 20, height: 2, background: 'var(--border)' }} />}
+            </div>
+          );
+        })}
+      </div>
+      <div aria-hidden="true" style={{ display: 'flex', gap: 'var(--space-1)', marginTop: 'var(--space-1)', height: 'max(var(--space-4), calc(var(--text-caption) * 1.3))' }}>
+        {items.map((x, i) => (
+          <span key={x.month || i} style={{ flex: 1, minWidth: 0, textAlign: 'center', fontSize: 'var(--text-caption)', color: 'var(--text-3)', whiteSpace: 'nowrap', overflow: 'hidden' }}>
+            {(items.length - 1 - i) % 3 === 0 ? monthShort(x.month) : ''}
+          </span>
+        ))}
+      </div>
+      {caption && <p style={{ ...sub, fontSize: 'var(--text-caption)', marginTop: 'var(--space-1)' }}>{caption}</p>}
+      <div style={visuallyHidden}>
+        <table>
+          <thead><tr>{cols.map((c) => <th key={c}>{c}</th>)}</tr></thead>
+          <tbody>{items.map((x, i) => <tr key={x.month || i}>{rowsOf(x).map((c, k) => <td key={k}>{c}</td>)}</tr>)}</tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -80,7 +99,7 @@ function MonthBars({ items, valueOf, baseOf, ariaLabel, strong = () => false }) 
 function Block({ id, title, children }) {
   return (
     <div id={id} style={{ ...rowBox, paddingTop: 'var(--space-3)' }}>
-      <p style={{ ...caption, marginBottom: 'var(--space-2)' }}>{title}</p>
+      <p style={{ ...blockTitle, marginBottom: 'var(--space-2) ' }}>{withPhraseBreaks(title)}</p>
       {children}
     </div>
   );
@@ -93,11 +112,15 @@ function SeriesBlock({ series }) {
   const prev = series.length > 1 ? series[series.length - 2] : null;
   const diff = prev ? last.grossYen - prev.grossYen : null;
   return (
-    <Block id="profit-series" title="月ごとの推移（薄い棒＝売上・濃い棒＝粗利）">
-      <div style={{ paddingBottom: 'var(--space-4)' }}>
-        <MonthBars items={series} valueOf={(x) => x.grossYen} baseOf={(x) => x.revenueYen} strong={(x) => x === last} ariaLabel={`直近 ${series.length} か月の売上と粗利`} />
-      </div>
-      <p style={sub}>
+    <Block id="profit-series" title="月ごとの推移">
+      <MonthBars
+        items={series}
+        segments={(x) => [{ v: Math.max(0, x.grossYen), color: x === last ? 'var(--accent)' : BAR_SOFT }, { v: Math.max(0, x.revenueYen - Math.max(0, x.grossYen)), color: BAR_LIGHT }]}
+        cols={['月', '売上', '粗利', '有料', '解約']}
+        rowsOf={(x) => [x.month, yen(x.revenueYen), yenSigned(x.grossYen), `${x.paid.total} 人`, `${x.churned} 人`]}
+        caption="薄い＝売上・濃い＝粗利・栗色＝今月"
+      />
+      <p style={{ ...sub, marginTop: 'var(--space-2)' }}>
         <Parts items={[
           prev && `先月の粗利 ${yenSigned(prev.grossYen)}`,
           diff != null && `今月は${diff >= 0 ? '＋' : '−'}${yen(Math.abs(diff))}`,
@@ -110,21 +133,24 @@ function SeriesBlock({ series }) {
   );
 }
 
-// 次の 12 か月の更新の入金（税込・ストアの請求額・月額は毎月・年額は更新の月に山）。
+// 次の 12 か月の更新の入金（税込・ストアの請求額・下＝月額ぶん・上（栗色）＝年額の更新）。
 function RenewalsBlock({ renewals }) {
   if (!renewals || renewals.length === 0) return null;
   const peak = renewals.reduce((a, b) => (b.annualYen > (a?.annualYen || 0) ? b : a), null);
   const total = renewals.reduce((s, x) => s + x.totalYen, 0);
   return (
-    <Block id="profit-renewals" title="更新の見込み（次の 12 か月・税込の請求額）">
-      <div style={{ paddingBottom: 'var(--space-4)' }}>
-        <MonthBars items={renewals} valueOf={(x) => x.totalYen} strong={(x) => x.annualCount > 0} ariaLabel="次の 12 か月の更新の見込み" />
-      </div>
-      <p style={sub}>
+    <Block id="profit-renewals" title="更新の見込み（次の 12 か月・税込・月額は今の人数のまま）">
+      <MonthBars
+        items={renewals}
+        segments={(x) => [{ v: x.monthlyYen, color: BAR_SOFT }, { v: x.annualYen, color: 'var(--accent)' }]}
+        cols={['月', '月額の更新', '年額の更新', '合計']}
+        rowsOf={(x) => [x.month, yen(x.monthlyYen), `${yen(x.annualYen)}（${x.annualCount} 人）`, yen(x.totalYen)]}
+        caption="下＝月額の更新・濃い栗色＝年額の更新"
+      />
+      <p style={{ ...sub, marginTop: 'var(--space-2)' }}>
         <Parts items={[
           `12 か月で ${yen(total)}`,
           peak && peak.annualCount > 0 && `年額の更新がいちばん多いのは ${monthShort(peak.month)}（${peak.annualCount} 人・${yen(peak.annualYen)}）`,
-          '月額は今の人数が毎月そのまま更新する前提',
         ]} />
       </p>
     </Block>
@@ -143,8 +169,8 @@ function PurposeBlock({ data }) {
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--space-3)', fontSize: 'var(--text-meta)', color: 'var(--text)' }}>
               <span>{r.label}</span><span style={num}>{yen(r.yen)}<span style={{ color: 'var(--text-3)', fontWeight: 400 }}>（{Math.round(r.share * 100)}%）</span></span>
             </div>
-            <div style={{ height: 4, background: 'var(--fill)', borderRadius: 'var(--radius-full)', marginTop: 4 }}>
-              <div style={{ height: '100%', width: `${Math.max(2, r.share * 100)}%`, background: 'var(--text-3)', borderRadius: 'var(--radius-full)' }} />
+            <div aria-hidden="true" style={{ height: 6, background: 'var(--fill)', borderRadius: CHART_RADIUS, marginTop: 'var(--space-1)', overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${Math.max(1, r.share * 100)}%`, minWidth: 3, background: BAR_SOFT, borderRadius: CHART_RADIUS }} />
             </div>
           </div>
         ))}
@@ -153,24 +179,19 @@ function PurposeBlock({ data }) {
   );
 }
 
-// 道しるべごとの粗利の見込み（今の 1 人あたりの手残り × 人数 − 固定費）。
+// 人数ごとの粗利の見込み（今の 1 人あたりの手残り × 人数 − 固定費・行の形・達成した人数は文字で）。
 function MilestoneBlock({ p, fixed }) {
   const cur = p.paid.total;
   return (
-    <Block id="profit-milestones" title="有料の人数ごとの粗利の見込み（今の 1 人あたりの手残りで）">
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 'var(--space-2)' }}>
-        {MILESTONES.map((n) => {
-          const reached = cur >= n;
-          return (
-            <div key={n} style={{ textAlign: 'center', padding: 'var(--space-2) 0', borderRadius: 'var(--radius)', background: reached ? 'var(--accent-soft)' : 'var(--fill)' }}>
-              <p style={{ margin: 0, fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-2)' }}>{n.toLocaleString('ja-JP')} 人</p>
-              <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-meta)', fontWeight: 600, color: 'var(--text)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{yenSigned(projectAt(n, p, fixed))}</p>
-            </div>
-          );
-        })}
-      </div>
-      <p style={{ ...sub, marginTop: 'var(--space-2)' }}>
-        <Parts items={[`今は ${cur} 人`, cur > 0 ? `1 人あたりの手残り ${yen(p.perPaidYen)}` : '有料 0 人のあいだは月額と年額が半々・AI 1 人 ¥79 で置く', '固定費は今の値']} />
+    <Block id="profit-milestones" title="有料の人数ごとの粗利の見込み">
+      {MILESTONES.map((n, i) => (
+        <div key={n} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-3)', padding: 'var(--space-2) 0', borderTop: i === 0 ? 'none' : '1px solid var(--separator)', fontSize: 'var(--text-sub)', color: 'var(--text)' }}>
+          <span>{n.toLocaleString('ja-JP')} 人{cur >= n && <span style={{ marginLeft: 'var(--space-2)', fontSize: 'var(--text-caption)', color: 'var(--text-3)' }}>達成</span>}</span>
+          <span style={num}>{yenSigned(projectAt(n, p, fixed))}</span>
+        </div>
+      ))}
+      <p style={{ ...sub, marginTop: 'var(--space-1)' }}>
+        <Parts items={[`今は ${cur} 人`, cur > 0 ? `1 人あたりの手残り ${yen(p.perPaidYen)} で計算` : '有料 0 人のあいだは月額と年額が半々・AI 1 人 ¥79 で計算', '固定費は今の値']} />
       </p>
     </Block>
   );
@@ -264,10 +285,14 @@ export default function ProfitCard({ data, missing = false, error = null, onRetr
             </div>
           )}
         </div>
-        <SeriesBlock series={seriesEst} />
-        <RenewalsBlock renewals={renewEst} />
-        <PurposeBlock data={data} />
-        <MilestoneBlock p={p} fixed={fixed} />
+        {/* 推移・更新の見込み・使い道・人数ごとは「くわしく」に畳む（最初の画面は 目標 → 今日の一手 が主役・2026-10-22 ui-critic） */}
+        <details style={{ marginTop: 'var(--space-2)' }} open={typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('profit') === 'open'}>
+          <summary style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', cursor: 'pointer', listStyle: 'none' }}>くわしく（推移・更新の見込み・AI の使い道・人数ごと）</summary>
+          <SeriesBlock series={seriesEst} />
+          <RenewalsBlock renewals={renewEst} />
+          <PurposeBlock data={data} />
+          <MilestoneBlock p={p} fixed={fixed} />
+        </details>
       </>
     );
   }
