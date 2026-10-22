@@ -684,7 +684,7 @@ export default function Landing() {
             </div>
             {/* 2026-10-16: 文の代わりに図（これまで＝本 → 自分で終わり／Orime＝本 ⇄ 自分）。その下に残す言葉 1 行だけ。 */}
             <DialogueDiagram />
-            <p className="lp-ba-line lp-wbr"><Phrases>{DIAGRAM_LINE}</Phrases></p>
+            <p className="lp-ba-line lp-wbr"><Phrases clause>{DIAGRAM_LINE}</Phrases></p>
             {/* 一番の価値（CLAUDE.md）を、会話の流れ 4 枚の見出しに（2026-10-12 ui-critic） */}
             <h2 className="lp-h2 lp-flow-head" id="lp-grow"><span>メモが増えるほど、</span><span>答えが自分向けに。</span></h2>
             <LpFlow onEvent={lpTrack} note={false} />

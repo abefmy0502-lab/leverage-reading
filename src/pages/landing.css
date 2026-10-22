@@ -982,7 +982,7 @@ body.lp-active {
 .lp-dia-tag { display: block; margin-bottom: var(--space-1); font-size: var(--text-meta); font-weight: 600; color: var(--text-2); letter-spacing: 0.06em; }
 .lp-dia-tag.is-accent { color: var(--accent); }
 /* 図の結び（見出しより一段小さく・次の見出しまで広く空ける） */
-.lp-root .lp-ba-line { margin: var(--space-8) 0 var(--space-12); font-family: var(--font-read); letter-spacing: 0.04em; font-size: var(--text-title); font-weight: 600; line-height: 1.4; color: var(--text); text-align: left; }
+.lp-root .lp-ba-line { margin: var(--space-8) 0 var(--space-12); font-family: var(--font-read); letter-spacing: 0.04em; font-size: var(--text-heading); font-weight: 600; line-height: 1.4; color: var(--text); text-align: left; }
 
 /* 始め方の 4 つ・メモの扱いの 3 つ（枠と面のない、線の絵＋短い名前。押せる物に見せない） */
 .lp-tiles { list-style: none; margin: 0 0 var(--space-6); padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-6) var(--space-4); }
