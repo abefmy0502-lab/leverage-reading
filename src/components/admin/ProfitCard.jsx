@@ -12,7 +12,8 @@ import { SkeletonBlock } from '../Skeleton';
 import ErrorMessage from '../ErrorMessage';
 import { withPhraseBreaks } from '../TightBubble';
 import {
-  estimateProfit, loadFixed, saveFixed, yen, monthLabel,
+  estimateProfit, loadFixed, saveFixed, yen, monthLabel, monthShort,
+  estimateSeries, renewalsYen, projectAt, purposeBreakdown,
   PRICE_MONTHLY_YEN, PRICE_ANNUAL_YEN, PRICE_FOUNDING_YEN, STORE_FEE_RATE, FIELDS_AI_YEN_PER_BOOK,
 } from '../../lib/adminProfit';
 
@@ -49,11 +50,139 @@ function Row({ label, value, children }) {
   );
 }
 
+const MILESTONES = [50, 200, 400, 650, 1000];
+// 棒の角（ReadingTimeCard と同じ 3＝グラフの棒は角丸 12 の例外）。
+const CHART_RADIUS = 3;
+const yenSigned = (v) => (v < 0 ? `−${yen(-v)}` : yen(v));
+
+// 月ごとの棒（薄い棒＝売上・濃い棒＝粗利。負の粗利は棒を出さず数だけ）。目盛りは無し・名前は 3 本に 1 つ。
+function MonthBars({ items, valueOf, baseOf, ariaLabel, strong = () => false }) {
+  const max = Math.max(1, ...items.map((x) => Math.max(baseOf ? baseOf(x) : 0, valueOf(x))));
+  return (
+    <div role="img" aria-label={ariaLabel} style={{ display: 'grid', gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))`, gap: 'var(--space-1)', alignItems: 'end', height: 88 }}>
+      {items.map((x, i) => {
+        const v = Math.max(0, valueOf(x));
+        const b = baseOf ? Math.max(0, baseOf(x)) : 0;
+        return (
+          <div key={x.month || i} style={{ display: 'grid', alignItems: 'end', height: '100%', position: 'relative' }}>
+            {baseOf && <div style={{ gridArea: '1 / 1', height: `${(b / max) * 72}px`, background: 'var(--fill)', borderRadius: `${CHART_RADIUS}px ${CHART_RADIUS}px 0 0`, width: '100%', maxWidth: 24, justifySelf: 'center' }} />}
+            <div style={{ gridArea: '1 / 1', height: `${(v / max) * 72}px`, background: strong(x) ? 'var(--accent)' : 'var(--text-3)', borderRadius: `${CHART_RADIUS}px ${CHART_RADIUS}px 0 0`, opacity: strong(x) ? 1 : 0.75, width: '100%', maxWidth: 24, justifySelf: 'center' }} />
+            <span style={{ position: 'absolute', left: 0, right: 0, bottom: -16, textAlign: 'center', fontSize: 'var(--text-caption)', color: 'var(--text-3)', whiteSpace: 'nowrap', overflow: 'hidden' }}>
+              {(i === items.length - 1 || i % 3 === 0) ? monthShort(x.month) : ''}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function Block({ id, title, children }) {
+  return (
+    <div id={id} style={{ ...rowBox, paddingTop: 'var(--space-3)' }}>
+      <p style={{ ...caption, marginBottom: 'var(--space-2)' }}>{title}</p>
+      {children}
+    </div>
+  );
+}
+
+// 月ごとの推移（直近 12 か月・薄い棒＝売上・濃い棒＝粗利・今月は栗色）。
+function SeriesBlock({ series }) {
+  if (!series || series.length === 0) return null;
+  const last = series[series.length - 1];
+  const prev = series.length > 1 ? series[series.length - 2] : null;
+  const diff = prev ? last.grossYen - prev.grossYen : null;
+  return (
+    <Block id="profit-series" title="月ごとの推移（薄い棒＝売上・濃い棒＝粗利）">
+      <div style={{ paddingBottom: 'var(--space-4)' }}>
+        <MonthBars items={series} valueOf={(x) => x.grossYen} baseOf={(x) => x.revenueYen} strong={(x) => x === last} ariaLabel={`直近 ${series.length} か月の売上と粗利`} />
+      </div>
+      <p style={sub}>
+        <Parts items={[
+          prev && `先月の粗利 ${yenSigned(prev.grossYen)}`,
+          diff != null && `今月は${diff >= 0 ? '＋' : '−'}${yen(Math.abs(diff))}`,
+          `今月の有料 ${last.paid.total} 人`,
+          prev && prev.churned > 0 && `先月の解約 ${prev.churned} 人`,
+          series.some((x) => x.unknown) && '契約の履歴が無い月は人数 0',
+        ]} />
+      </p>
+    </Block>
+  );
+}
+
+// 次の 12 か月の更新の入金（税込・ストアの請求額・月額は毎月・年額は更新の月に山）。
+function RenewalsBlock({ renewals }) {
+  if (!renewals || renewals.length === 0) return null;
+  const peak = renewals.reduce((a, b) => (b.annualYen > (a?.annualYen || 0) ? b : a), null);
+  const total = renewals.reduce((s, x) => s + x.totalYen, 0);
+  return (
+    <Block id="profit-renewals" title="更新の見込み（次の 12 か月・税込の請求額）">
+      <div style={{ paddingBottom: 'var(--space-4)' }}>
+        <MonthBars items={renewals} valueOf={(x) => x.totalYen} strong={(x) => x.annualCount > 0} ariaLabel="次の 12 か月の更新の見込み" />
+      </div>
+      <p style={sub}>
+        <Parts items={[
+          `12 か月で ${yen(total)}`,
+          peak && peak.annualCount > 0 && `年額の更新がいちばん多いのは ${monthShort(peak.month)}（${peak.annualCount} 人・${yen(peak.annualYen)}）`,
+          '月額は今の人数が毎月そのまま更新する前提',
+        ]} />
+      </p>
+    </Block>
+  );
+}
+
+// AI の使い道（用途ごとの実原価・多い順・細い棒）。
+function PurposeBlock({ data }) {
+  const rows = purposeBreakdown(data?.purpose_mjpy);
+  if (rows.length === 0) return null;
+  return (
+    <Block id="profit-purpose" title="AI の原価の使い道（今月）">
+      <div style={{ display: 'grid', gap: 'var(--space-2)' }}>
+        {rows.map((r) => (
+          <div key={r.label}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--space-3)', fontSize: 'var(--text-meta)', color: 'var(--text)' }}>
+              <span>{r.label}</span><span style={num}>{yen(r.yen)}<span style={{ color: 'var(--text-3)', fontWeight: 400 }}>（{Math.round(r.share * 100)}%）</span></span>
+            </div>
+            <div style={{ height: 4, background: 'var(--fill)', borderRadius: 'var(--radius-full)', marginTop: 4 }}>
+              <div style={{ height: '100%', width: `${Math.max(2, r.share * 100)}%`, background: 'var(--text-3)', borderRadius: 'var(--radius-full)' }} />
+            </div>
+          </div>
+        ))}
+      </div>
+    </Block>
+  );
+}
+
+// 道しるべごとの粗利の見込み（今の 1 人あたりの手残り × 人数 − 固定費）。
+function MilestoneBlock({ p, fixed }) {
+  const cur = p.paid.total;
+  return (
+    <Block id="profit-milestones" title="有料の人数ごとの粗利の見込み（今の 1 人あたりの手残りで）">
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 'var(--space-2)' }}>
+        {MILESTONES.map((n) => {
+          const reached = cur >= n;
+          return (
+            <div key={n} style={{ textAlign: 'center', padding: 'var(--space-2) 0', borderRadius: 'var(--radius)', background: reached ? 'var(--accent-soft)' : 'var(--fill)' }}>
+              <p style={{ margin: 0, fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-2)' }}>{n.toLocaleString('ja-JP')} 人</p>
+              <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-meta)', fontWeight: 600, color: 'var(--text)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{yenSigned(projectAt(n, p, fixed))}</p>
+            </div>
+          );
+        })}
+      </div>
+      <p style={{ ...sub, marginTop: 'var(--space-2)' }}>
+        <Parts items={[`今は ${cur} 人`, cur > 0 ? `1 人あたりの手残り ${yen(p.perPaidYen)}` : '有料 0 人のあいだは月額と年額が半々・AI 1 人 ¥79 で置く', '固定費は今の値']} />
+      </p>
+    </Block>
+  );
+}
+
 // data: admin_profit() の返り値（null＝未取得）。missing: RPC が無い（SQL 未適用）。error: ほかの失敗（通信など）。onRetry: もう一度。
-export default function ProfitCard({ data, missing = false, error = null, onRetry }) {
+export default function ProfitCard({ data, missing = false, error = null, onRetry, series = null, renewals = null }) {
   const [fixed, setFixed] = useState(() => loadFixed());
   const [editing, setEditing] = useState(false);
   const p = useMemo(() => estimateProfit(data, fixed), [data, fixed]);
+  const seriesEst = useMemo(() => (series ? estimateSeries(series, fixed) : null), [series, fixed]);
+  const renewEst = useMemo(() => (renewals ? renewalsYen(renewals) : null), [renewals]);
   const onFixed = (k, v) => {
     const next = { ...fixed, [k]: Math.max(0, Math.round(Number(v) || 0)) };
     setFixed(next);
@@ -135,6 +264,10 @@ export default function ProfitCard({ data, missing = false, error = null, onRetr
             </div>
           )}
         </div>
+        <SeriesBlock series={seriesEst} />
+        <RenewalsBlock renewals={renewEst} />
+        <PurposeBlock data={data} />
+        <MilestoneBlock p={p} fixed={fixed} />
       </>
     );
   }

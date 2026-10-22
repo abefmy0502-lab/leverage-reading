@@ -79,3 +79,58 @@ export function monthLabel(m) {
   const mm = /^\d{4}-(\d{2})$/.exec(String(m || ''));
   return mm ? `${Number(mm[1])} 月` : '今月';
 }
+
+// ── 進化（2026-10-22 オーナー「めっちゃいいものにガンガン進化させて」）────────────────────────────
+
+// 月ごとの推移（admin_profit_series の行 × 固定費）。各月の 売上・手取り・AI・粗利・有料の人数・解約。
+export function estimateSeries(rows, fixed = DEFAULT_FIXED) {
+  return (Array.isArray(rows) ? rows : []).map((r) => {
+    const p = estimateProfit(r, fixed);
+    return { month: r?.month || '', ...p, churned: n0(r?.churned), unknown: !!r?.paid?.unknown };
+  });
+}
+
+// 次の月々の更新の入金の見込み（admin_renewals の行）。年額は 2 年目から ¥12,800（創業メンバーも）。税込・ストアの請求額。
+export function renewalsYen(rows) {
+  return (Array.isArray(rows) ? rows : []).map((r) => {
+    const monthly = n0(r?.monthly) * PRICE_MONTHLY_YEN;
+    const annual = (n0(r?.annual) + n0(r?.founding)) * PRICE_ANNUAL_YEN;
+    return { month: r?.month || '', monthlyYen: Math.round(monthly), annualYen: Math.round(annual), totalYen: Math.round(monthly + annual), annualCount: n0(r?.annual) + n0(r?.founding) };
+  });
+}
+
+// 有料 N 人のときの推定の粗利（今の 1 人あたりの手残り × N − 固定費）。道しるべ（50/200/400/650/1,000）に使う。
+// perPaidYen が無い（有料 0 人）ときは、月額と年額が半々・AI は 1 人 ¥79（docs/ai-routing.md の見込み）で置く。
+export const DEFAULT_AI_YEN_PER_PAID = 79;
+export function perPaidDefaultYen() {
+  const rev = (PRICE_MONTHLY_YEN + PRICE_ANNUAL_YEN / 12) / 2;
+  return Math.round((rev / (1 + TAX_RATE)) * (1 - STORE_FEE_RATE) - DEFAULT_AI_YEN_PER_PAID);
+}
+export function projectAt(n, p, fixed = DEFAULT_FIXED) {
+  const per = p && p.paid?.total > 0 ? p.perPaidYen : perPaidDefaultYen();
+  const fixedYen = Object.values(fixed || {}).reduce((s, v) => s + n0(v), 0);
+  return Math.round(per * n0(n) - fixedYen);
+}
+
+// AI の用途ごとの原価（purpose_mjpy）→ 画面の名前でまとめて多い順（lib/tokenUsage.js の分け方と同じ）。
+export const PURPOSE_GROUPS = [
+  ['相談', ['consult']], ['AI 選書', ['book_advisor', 'advisor_interview']], ['読書計画シート', ['setup_sheet', 'setup_sheet_edit']],
+  ['この本で学べること', ['book_brief']], ['写真から書き起こし', ['ocr']], ['凝縮', ['condense']], ['この本のまとめ', ['cards_to_summary']],
+  ['そのほか', ['ops_advise', 'other']],
+];
+export function purposeBreakdown(purposeMjpy) {
+  const src = purposeMjpy && typeof purposeMjpy === 'object' ? purposeMjpy : {};
+  const rest = { ...src };
+  const out = PURPOSE_GROUPS.map(([label, keys]) => {
+    let m = 0;
+    for (const k of keys) { m += n0(rest[k]); delete rest[k]; }
+    return { label, yen: m / 1000 };
+  });
+  const other = out.find((x) => x.label === 'そのほか');
+  for (const v of Object.values(rest)) other.yen += n0(v) / 1000;
+  const total = out.reduce((s, x) => s + x.yen, 0);
+  return out.filter((x) => x.yen > 0).map((x) => ({ ...x, yen: Math.round(x.yen), share: total > 0 ? x.yen / total : 0 })).sort((a, b) => b.yen - a.yen);
+}
+
+// 「2026-11」→「11月」（棒の下の短い名前）。
+export const monthShort = (m) => { const mm = /^\d{4}-(\d{2})$/.exec(String(m || '')); return mm ? `${Number(mm[1])}月` : ''; };

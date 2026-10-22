@@ -206,6 +206,8 @@ export default function AdminDashboard({ onClose }) {
   const [profit, setProfit] = useState(null);
   const [profitMissing, setProfitMissing] = useState(false);
   const [profitError, setProfitError] = useState(null);
+  const [profitSeries, setProfitSeries] = useState(null);
+  const [renewals, setRenewals] = useState(null);
   const [feedback, setFeedback] = useState([]);
   const [goal, setGoal] = useState(null);
   const [tickets, setTickets] = useState([]);
@@ -333,7 +335,7 @@ export default function AdminDashboard({ onClose }) {
   const load = useCallback(async (d) => {
     setLoading(true); setErr(''); setWarn('');
     // 各 RPC を独立に扱い、1つ失敗しても他は表示する（graceful degradation）。
-    const [ov, se, us, au, rv, fb, gl, tk, gr, lk, gp, gw, pf] = await Promise.all([
+    const [ov, se, us, au, rv, fb, gl, tk, gr, lk, gp, gw, pf, ps, rn] = await Promise.all([
       supabase.rpc('admin_overview'),
       supabase.rpc('admin_active_series', { p_days: d }),
       supabase.rpc('admin_feature_usage', { p_days: d }),
@@ -348,6 +350,8 @@ export default function AdminDashboard({ onClose }) {
       supabase.rpc('admin_goal_plan'),
       supabase.rpc('admin_goal_weekly', { p_weeks: 12 }),
       supabase.rpc('admin_profit', { p_month: null }),
+      supabase.rpc('admin_profit_series', { p_months: 12 }),
+      supabase.rpc('admin_renewals', { p_months: 12 }),
     ]);
     const all = [ov, se, us, au, rv, fb, gl, tk, gr, lk, gp, gw];
 
@@ -374,6 +378,8 @@ export default function AdminDashboard({ onClose }) {
     const pfMissing = !!pf.error && (pf.error.code === 'PGRST202' || /could not find the function/i.test(pf.error.message || ''));
     setProfitMissing(pfMissing);
     setProfitError(pf.error && !pfMissing ? pf.error : null);
+    setProfitSeries(ps.error || !Array.isArray(ps.data) ? null : ps.data);
+    setRenewals(rn.error || !Array.isArray(rn.data) ? null : rn.data);
     setFeedback(fb.error ? [] : (fb.data || []));
     // jsonb numeric は文字列で届くことがあるため target を数値に正規化。
     setGoal(gl.error || !gl.data ? null : { ...gl.data, target: Number(gl.data.target) || 0 });
@@ -666,7 +672,7 @@ export default function AdminDashboard({ onClose }) {
             />
 
             {/* 💰 今月の売上と推定の粗利（2026-10-22 オーナー「現在の売り上げと推定の粗利」・目標のすぐ下） */}
-            <ProfitCard data={profit} missing={profitMissing} error={profitError} onRetry={() => load(days)} />
+            <ProfitCard data={profit} missing={profitMissing} error={profitError} onRetry={() => load(days)} series={profitSeries} renewals={renewals} />
 
             {/* 🎯 今日の一手（曜日の台本・配信前の出荷） */}
             <TodayCard phase={phase} launchDate={launchDate} weekly={salesRows} rules={rulesEval} shipChecks={shipChecks} />

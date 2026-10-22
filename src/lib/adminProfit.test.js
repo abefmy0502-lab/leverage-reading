@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { estimateProfit, loadFixed, saveFixed, DEFAULT_FIXED, monthLabel, yen } from './adminProfit';
+import { estimateProfit, loadFixed, saveFixed, DEFAULT_FIXED, monthLabel, yen, estimateSeries, renewalsYen, projectAt, perPaidDefaultYen, purposeBreakdown, monthShort } from './adminProfit';
 
 describe('今月の売上と推定の粗利（運営ダッシュボード・2026-10-22）', () => {
   it('月額・年額・創業・追加トークンを月あたりに均して足し、税と手数料を引く', () => {
@@ -38,5 +38,22 @@ describe('今月の売上と推定の粗利（運営ダッシュボード・2026
     expect(monthLabel('2026-11')).toBe('11 月');
     expect(monthLabel('')).toBe('今月');
     expect(yen(24800)).toBe('¥24,800');
+  });
+
+  it('推移・更新の見込み・道しるべごとの粗利・AI の使い道', () => {
+    const fixed = { apple: 1000, supabase: 0, vercel: 0, other: 0 };
+    const series = estimateSeries([{ month: '2026-11', paid: { monthly: 2, annual: 0, founding: 0, trial: 1 }, packs: {}, ai_cost_mjpy: 1000, churned: 1 }], fixed);
+    expect(series[0].month).toBe('2026-11');
+    expect(series[0].revenueYen).toBe(2960);
+    expect(series[0].churned).toBe(1);
+    expect(renewalsYen([{ month: '2027-11', monthly: 3, annual: 2, founding: 4 }])[0]).toEqual({ month: '2027-11', monthlyYen: 4440, annualYen: 76800, totalYen: 81240, annualCount: 6 });
+    const p = estimateProfit({ paid: { monthly: 10, annual: 0, founding: 0, trial: 0 }, ai_cost_mjpy: 790000 }, fixed);
+    expect(projectAt(1000, p, fixed)).toBe(Math.round(p.perPaidYen * 1000 - 1000));
+    expect(projectAt(50, null, fixed)).toBe(perPaidDefaultYen() * 50 - 1000);
+    expect(perPaidDefaultYen()).toBeGreaterThan(800);
+    const b = purposeBreakdown({ consult: 8000, book_advisor: 1000, advisor_interview: 500, ocr: 0, weird: 500 });
+    expect(b.map((x) => x.label)).toEqual(['相談', 'AI 選書', 'そのほか']);
+    expect(b[0]).toEqual({ label: '相談', yen: 8, share: 0.8 });
+    expect(monthShort('2026-11')).toBe('11月');
   });
 });

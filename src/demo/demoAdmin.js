@@ -185,6 +185,27 @@ function samples(params) {
       paid: { monthly: Math.max(0, s.paid - s.annual - s.founding), annual: s.annual, founding: s.founding, trial: s.mode === 'behind' ? 9 : 21 },
       packs: pre ? {} : { orime_tokens_300: 6, orime_tokens_1000: 2 },
       ai_cost_mjpy: pre ? 0 : s.paid * 79000, fields_ai_calls: pre ? 0 : 340,
+      purpose_mjpy: pre ? {} : { consult: s.paid * 63000, book_advisor: s.paid * 7000, advisor_interview: s.paid * 2000, setup_sheet: s.paid * 3000, book_brief: s.paid * 1500, ocr: s.paid * 1500, condense: s.paid * 500, cards_to_summary: s.paid * 500 },
+      paid_users_ai: pre ? { users: 0, over_half: 0, top_mjpy: 0 } : { users: Math.round(s.paid * 0.7), over_half: 3, top_mjpy: 236000 },
+    }),
+    // 直近 12 か月の推移（公開の月から有料が増える・解約は少し）。
+    admin_profit_series: () => Array.from({ length: 12 }, (_, i) => {
+      const m = new Date(ref.getFullYear(), ref.getMonth() - (11 - i), 1);
+      const month = `${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, '0')}`;
+      const t = Math.max(0, i - 8); // 公開は 4 か月前
+      const paid = pre ? 0 : Math.round(s.paid * Math.min(1, t / 3));
+      const annual = Math.round(paid * 0.5);
+      const founding = Math.min(s.founding, Math.round(paid * 0.12));
+      return { month, paid: { monthly: paid - annual - founding, annual, founding, trial: paid > 0 ? 12 : 0 },
+        packs: paid > 0 ? { orime_tokens_300: Math.round(paid / 20), orime_tokens_1000: Math.round(paid / 60) } : {},
+        ai_cost_mjpy: paid * 79000, fields_ai_calls: paid > 0 ? 200 + i * 10 : 0, churned: paid > 0 ? Math.round(paid * 0.03) : 0 };
+    }),
+    // 次の 12 か月の更新の見込み（年額は 11〜12 月に山＝創業メンバー）。
+    admin_renewals: () => Array.from({ length: 12 }, (_, i) => {
+      const m = new Date(ref.getFullYear(), ref.getMonth() + i, 1);
+      const month = `${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, '0')}`;
+      const mo = m.getMonth() + 1;
+      return { month, monthly: pre ? 0 : Math.max(0, s.paid - s.annual - s.founding), annual: pre ? 0 : (mo === 11 || mo === 12 ? Math.round(s.annual * 0.4) : Math.round(s.annual * 0.02)), founding: pre ? 0 : (mo === 11 ? Math.round(s.founding * 0.6) : mo === 12 ? Math.round(s.founding * 0.4) : 0) };
     }),
   };
 }
@@ -223,7 +244,7 @@ export function demoAdminRpc(name, params, args = {}) {
     return { data: launchKpis(kpi, params), error: null };
   }
   if (['admin_goal_plan', 'admin_goal_weekly', 'admin_set_goal_plan'].includes(name) && goalMode(params) === 'missing') return missing(name);
-  if (name === 'admin_profit' && params.get('profit') === 'missing') return missing(name);
+  if (['admin_profit', 'admin_profit_series', 'admin_renewals'].includes(name) && params.get('profit') === 'missing') return missing(name);
   if (name === 'admin_set_goal_plan') {
     savedPlan = { metric: 'paid_users', target: args.p_target, deadline: args.p_deadline, milestones: args.p_milestones, launch_date: args.p_launch || LAUNCH };
     return { data: null, error: null };
