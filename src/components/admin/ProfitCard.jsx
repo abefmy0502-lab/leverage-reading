@@ -53,7 +53,7 @@ const CHART_RADIUS = 3;
 const BAR_MAX = 64;
 const BAR_SOFT = 'color-mix(in srgb, var(--accent) 65%, var(--surface))';
 const visuallyHidden = { position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0 };
-const blockTitle = { margin: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, wordBreak: 'keep-all', overflowWrap: 'break-word' };
+const blockTitle = { margin: 0, fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, wordBreak: 'keep-all', overflowWrap: 'break-word' };
 const yenSigned = (v) => (v < 0 ? `−${yen(-v)}` : yen(v));
 
 // 月ごとの棒。segments(x) は下から積む [{ v, color }]。見えない表で読み上げ（列の名前は cols）。
@@ -97,7 +97,7 @@ function MonthBars({ items, segments, cols, rowsOf, caption, outlined = false })
 
 function Block({ id, title, children }) {
   return (
-    <div id={id} style={{ ...rowBox, paddingTop: 'var(--space-3)' }}>
+    <div id={id} style={{ ...rowBox, padding: 'var(--space-3) 0' }}>
       <p style={{ ...blockTitle, marginBottom: 'var(--space-2)' }}>{withPhraseBreaks(title)}</p>
       {children}
     </div>
@@ -139,13 +139,13 @@ function RenewalsBlock({ renewals }) {
   const peak = renewals.reduce((a, b) => (b.annualYen > (a?.annualYen || 0) ? b : a), null);
   const total = renewals.reduce((s, x) => s + x.totalYen, 0);
   return (
-    <Block id="profit-renewals" title="更新の見込み（次の 12 か月・税込・月額は今の人数のまま）">
+    <Block id="profit-renewals" title="更新の見込み（次の 12 か月）">
       <MonthBars
         items={renewals}
         segments={(x) => [{ v: x.monthlyYen, color: BAR_SOFT }, { v: x.annualYen, color: 'var(--accent)' }]}
         cols={['月', '月額の更新', '年額の更新', '合計']}
         rowsOf={(x) => [x.month, yen(x.monthlyYen), `${yen(x.annualYen)}（${x.annualCount} 人）`, yen(x.totalYen)]}
-        caption="下＝月額の更新・上＝年額の更新"
+        caption="下＝月額の更新・上＝年額の更新・税込・月額は今の人数のまま"
       />
       <p style={{ ...sub, marginTop: 'var(--space-2)' }}>
         <Parts items={[
@@ -170,7 +170,7 @@ function PurposeBlock({ data }) {
               <span>{r.label}</span><span style={num}><span style={{ display: 'inline-block', minWidth: '3.5ch', textAlign: 'right', color: 'var(--text-3)', fontWeight: 400, marginRight: 'var(--space-2)' }}>{Math.round(r.share * 100)}%</span><span style={{ display: 'inline-block', minWidth: '7ch', textAlign: 'right' }}>{yen(r.yen)}</span></span>
             </div>
             <div aria-hidden="true" style={{ height: 6, background: 'var(--fill)', borderRadius: CHART_RADIUS, marginTop: 'var(--space-1)', overflow: 'hidden' }}>
-              <div style={{ height: '100%', width: `${Math.max(1, r.share * 100)}%`, minWidth: 3, background: BAR_SOFT, borderRadius: CHART_RADIUS }} />
+              <div style={{ height: '100%', width: `${Math.max(1, r.share * 100)}%`, minWidth: 3, background: 'var(--accent)', borderRadius: CHART_RADIUS }} />
             </div>
           </div>
         ))}
@@ -222,11 +222,12 @@ export default function ProfitCard({ data, missing = false, error = null, onRetr
         <SkeletonBlock width="55%" height={12} />
         <SkeletonBlock width="45%" height={28} />
         {[3, 1, 2, 1].map((lines, i) => (
-          <div key={i} style={{ ...rowBox, display: 'grid', gap: 'var(--space-1)' }}>
+          <div key={i} style={{ ...rowBox, display: 'grid', gap: 'var(--space-2)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}><SkeletonBlock width="30%" height={18} /><SkeletonBlock width="26%" height={18} /></div>
             {Array.from({ length: lines }, (_, k) => <SkeletonBlock key={k} width={k === lines - 1 ? '70%' : '100%'} height={13} />)}
           </div>
         ))}
+        <SkeletonBlock width="5em" height={44} />
       </div>
     );
   } else {
@@ -275,7 +276,7 @@ export default function ProfitCard({ data, missing = false, error = null, onRetr
               <p style={{ ...caption, marginBottom: 'var(--space-2)' }}>月あたり（円）</p>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 'var(--space-2)' }}>
                 {FIXED_LABELS.map(([k, label]) => (
-                  <label key={k} style={{ display: 'grid', gap: 'var(--space-1)', minWidth: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                  <label key={k} style={{ display: 'grid', gap: 'var(--space-1)', minWidth: 0, fontSize: 'var(--text-caption)', color: 'var(--text-2)', fontWeight: 600, whiteSpace: 'nowrap' }}>
                     {label}
                     <input type="number" inputMode="numeric" min="0" value={fixed[k]} onChange={(e) => onFixed(k, e.target.value)} style={{ ...input, width: '100%', minWidth: 0, boxSizing: 'border-box' }} />
                   </label>
