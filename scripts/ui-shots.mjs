@@ -1175,6 +1175,10 @@ const SCREENS = [
     // 運営の上の「今日の一手」（スクロールを戻す）・営業タブ・アクションタブ（色はトークン・絵文字なし・2026-10-04）
     ['admin-top', '/?admin=1', [{ eval: "document.querySelector('[role=dialog][aria-label=\"運営ダッシュボード\"]').scrollTop = 0" }]],
     ['admin-sales', '/?admin=1', [{ css: '[role=tab]:has-text("営業")' }]],
+    // 💰 今月の売上と推定の粗利（2026-10-22）
+    ['admin-profit', '/?admin=1', [{ eval: ADMIN_SCROLL('section[aria-labelledby="profit-title"]') }]],
+    ['admin-profit-edit', '/?admin=1', [{ eval: ADMIN_SCROLL('section[aria-labelledby="profit-title"]') }, { css: 'section[aria-labelledby="profit-title"] button:has-text("直す")' }, { wait: 300 }]],
+    ['admin-profit-missing', '/?admin=1&profit=missing', [{ eval: ADMIN_SCROLL('section[aria-labelledby="profit-title"]') }]],
     ['admin-action', '/?admin=1', [{ css: '[role=tab]:has-text("アクション")' }]],
   ].map(([name, url, extra]) => ({
     name, url,

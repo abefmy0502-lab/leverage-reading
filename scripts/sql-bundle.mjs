@@ -79,6 +79,7 @@ export const ORDER = [
   ['supabase_ops_sales_metrics.sql', '営業の週の数字'],
   ['supabase_admin_launch_kpis.sql', 'ローンチの 4 つの数字'],
   ['supabase_admin_goal.sql', '有料ユーザー 1,000 人の目標・毎週の見直し'],
+  ['supabase_admin_profit.sql', '今月の売上と推定の粗利'],
 ];
 
 // まとめに入れないもの（理由は docs/sql-runbook.md §4）。

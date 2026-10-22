@@ -179,6 +179,13 @@ function samples(params) {
     admin_growth: () => ({ retention: { d1_num: 900, d1_den: 1720, d7_num: 400, d7_den: 1580, d30_num: 50, d30_den: 210 }, paid_new_by_month: [], subs_total: 160, subs_active: s.paid, subs_canceled: 12, paid_new_this_month: 60 }),
     admin_goal_plan: () => savedPlan,
     admin_goal_weekly: () => goalWeekly(params),
+    // 💰 今月の売上と推定の粗利（supabase_admin_profit.sql）。&profit=missing で SQL が無い DB。
+    admin_profit: () => ({
+      month: jst(ref).slice(0, 7), generated_at: ref.toISOString(),
+      paid: { monthly: Math.max(0, s.paid - s.annual - s.founding), annual: s.annual, founding: s.founding, trial: s.mode === 'behind' ? 9 : 21 },
+      packs: pre ? {} : { orime_tokens_300: 6, orime_tokens_1000: 2 },
+      ai_cost_mjpy: pre ? 0 : s.paid * 79000, fields_ai_calls: pre ? 0 : 340,
+    }),
   };
 }
 
@@ -216,6 +223,7 @@ export function demoAdminRpc(name, params, args = {}) {
     return { data: launchKpis(kpi, params), error: null };
   }
   if (['admin_goal_plan', 'admin_goal_weekly', 'admin_set_goal_plan'].includes(name) && goalMode(params) === 'missing') return missing(name);
+  if (name === 'admin_profit' && params.get('profit') === 'missing') return missing(name);
   if (name === 'admin_set_goal_plan') {
     savedPlan = { metric: 'paid_users', target: args.p_target, deadline: args.p_deadline, milestones: args.p_milestones, launch_date: args.p_launch || LAUNCH };
     return { data: null, error: null };

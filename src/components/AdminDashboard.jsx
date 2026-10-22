@@ -29,6 +29,8 @@ import Spinner from './Spinner';
 import TodayCard from './admin/TodayCard';
 import LaunchKpiCard from './admin/LaunchKpiCard';
 import GoalPanel from './admin/GoalPanel';
+import ProfitCard from './admin/ProfitCard';
+import { estimateProfit, loadFixed } from '../lib/adminProfit';
 import { loadTargets } from '../lib/launchKpis';
 import { appNow } from '../lib/appNow';
 import { normalizePlan, goalStatus, normalizeWeeks, jstDateIso, needsReviewNudge } from '../lib/goal1000';
@@ -200,6 +202,9 @@ export default function AdminDashboard({ onClose }) {
   const [usage, setUsage] = useState(null);
   const [ai, setAi] = useState([]);
   const [revenue, setRevenue] = useState(null);
+  // 💰 今月の売上と推定の粗利（admin_profit・supabase_admin_profit.sql・2026-10-22）。無ければ missing。
+  const [profit, setProfit] = useState(null);
+  const [profitMissing, setProfitMissing] = useState(false);
   const [feedback, setFeedback] = useState([]);
   const [goal, setGoal] = useState(null);
   const [tickets, setTickets] = useState([]);
@@ -327,7 +332,7 @@ export default function AdminDashboard({ onClose }) {
   const load = useCallback(async (d) => {
     setLoading(true); setErr(''); setWarn('');
     // 各 RPC を独立に扱い、1つ失敗しても他は表示する（graceful degradation）。
-    const [ov, se, us, au, rv, fb, gl, tk, gr, lk, gp, gw] = await Promise.all([
+    const [ov, se, us, au, rv, fb, gl, tk, gr, lk, gp, gw, pf] = await Promise.all([
       supabase.rpc('admin_overview'),
       supabase.rpc('admin_active_series', { p_days: d }),
       supabase.rpc('admin_feature_usage', { p_days: d }),
@@ -341,6 +346,7 @@ export default function AdminDashboard({ onClose }) {
       supabase.rpc('admin_launch_kpis', { p_weeks: 12 }),
       supabase.rpc('admin_goal_plan'),
       supabase.rpc('admin_goal_weekly', { p_weeks: 12 }),
+      supabase.rpc('admin_profit', { p_month: null }),
     ]);
     const all = [ov, se, us, au, rv, fb, gl, tk, gr, lk, gp, gw];
 
@@ -362,6 +368,8 @@ export default function AdminDashboard({ onClose }) {
     setUsage(us.error ? null : (us.data || null));
     setAi(au.error ? [] : (au.data || []));
     setRevenue(rv.error ? null : (rv.data || null));
+    setProfit(pf.error ? null : (pf.data || null));
+    setProfitMissing(!!pf.error);
     setFeedback(fb.error ? [] : (fb.data || []));
     // jsonb numeric は文字列で届くことがあるため target を数値に正規化。
     setGoal(gl.error || !gl.data ? null : { ...gl.data, target: Number(gl.data.target) || 0 });
@@ -487,10 +495,12 @@ export default function AdminDashboard({ onClose }) {
   // 💰 売上・粗利の概算。MRR = 有料会員 × 月額（創業メンバー価格の人は ¥9,800 ÷ 12）。粗利 = MRR − 決済手数料 − AI原価。
   //   founding は admin_revenue の内訳（supabase_admin_members_tasks.sql・未適用の古い定義なら 0＝従来どおり）。
   const foundingPaid = Math.min(revenue?.founding || 0, revenue?.active || 0);
-  const mrr = ((revenue?.active || 0) - foundingPaid) * MONTHLY_PRICE_JPY + foundingPaid * FOUNDING_MONTHLY_JPY;
+  // 2026-10-22: admin_profit があれば実額（月額／年額／創業の人数・追加トークン・AI の実原価・固定費）で置きかえる（lib/adminProfit.js）。
+  const profitEst = profit ? estimateProfit(profit, loadFixed()) : null;
+  const mrr = profitEst ? profitEst.revenueYen : ((revenue?.active || 0) - foundingPaid) * MONTHLY_PRICE_JPY + foundingPaid * FOUNDING_MONTHLY_JPY;
   const aiCallsThisMonth = ai && ai[0] ? ai[0].calls : 0;
-  const aiCostThisMonth = aiCallsThisMonth * AI_COST_PER_CALL_JPY;
-  const grossProfit = Math.max(0, Math.round(mrr - mrr * PAYMENT_FEE_RATE - aiCostThisMonth));
+  const aiCostThisMonth = profitEst ? profitEst.aiYen : aiCallsThisMonth * AI_COST_PER_CALL_JPY;
+  const grossProfit = profitEst ? Math.max(0, profitEst.grossYen) : Math.max(0, Math.round(mrr - mrr * PAYMENT_FEE_RATE - aiCostThisMonth));
 
   // 🎯 1,000 人の目標（GoalPanel と参謀の現状サマリーが使う）。
   //   今日＝集計した時刻（日本時間）。お試しモードはサンプルの日付（demoAdmin.js の &goal=…）。
@@ -650,6 +660,9 @@ export default function AdminDashboard({ onClose }) {
               salesRows={salesRows} salesMissing={salesMissing} paidNow={paidNow} annualNow={annualNow}
               reviews={reviews} reviewsMissing={reviewsMissing} onSaveReview={saveReview} onAddTask={addGoalTask}
             />
+
+            {/* 💰 今月の売上と推定の粗利（2026-10-22 オーナー「現在の売り上げと推定の粗利」・目標のすぐ下） */}
+            <ProfitCard data={profit} missing={profitMissing} />
 
             {/* 🎯 今日の一手（曜日の台本・配信前の出荷） */}
             <TodayCard phase={phase} launchDate={launchDate} weekly={salesRows} rules={rulesEval} shipChecks={shipChecks} />
@@ -978,7 +991,7 @@ export default function AdminDashboard({ onClose }) {
               <Stat label="30日内に更新期限" value={revenue?.expiring_30d ?? 0} sub="要フォロー" />
             </div>
             <div style={{ ...card, marginTop: 'var(--space-2)' }}>
-              <p style={{ margin: 0, fontSize: 'var(--text-caption)', color: C.ink2, fontWeight: 600 }}>月次粗利（概算）</p>
+              <p style={{ margin: 0, fontSize: 'var(--text-caption)', color: C.ink2, fontWeight: 600 }}>月次粗利（{profitEst ? '実額ベース・上の「売上と推定の粗利」と同じ' : '概算'}）</p>
               <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-title)', fontWeight: 700, color: C.ink, lineHeight: 1.1 }}>¥{grossProfit.toLocaleString()}</p>
               <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-caption)', color: C.ink3, lineHeight: 1.6 }}>
                 売上 ¥{mrr.toLocaleString()} − App手数料({(PAYMENT_FEE_RATE * 100).toFixed(0)}%) ¥{Math.round(mrr * PAYMENT_FEE_RATE).toLocaleString()} − AI原価 ¥{aiCostThisMonth.toLocaleString()}（{aiCallsThisMonth}コール×¥{AI_COST_PER_CALL_JPY}）
