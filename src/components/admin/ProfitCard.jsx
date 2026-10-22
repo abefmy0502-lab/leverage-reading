@@ -23,7 +23,7 @@ const rowBox = { padding: 'var(--space-2) 0', borderTop: '1px solid var(--separa
 const rowHead = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-3)', fontSize: 'var(--text-sub)', color: 'var(--text)', minHeight: 'calc(var(--text-sub) * 1.5)' };
 const num = { fontWeight: 600, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' };
 // 行の右の文字ボタン: 44 の押せる高さは保ち、行の高さは文字ぶんだけ（負の余白で吸収）。
-const inlineLink = { ...btnLink, minWidth: 44, padding: '0 var(--space-2)', margin: 'calc((44px - var(--text-sub) * 1.5) / -2) 0 calc((44px - var(--text-sub) * 1.5) / -2) calc(-1 * var(--space-2))', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-1)' };
+const inlineLink = { ...btnLink, minWidth: 'var(--tap-min)', padding: '0 var(--space-2)', margin: 'calc((var(--tap-min) - var(--text-sub) * 1.5) / -2) 0 calc((var(--tap-min) - var(--text-sub) * 1.5) / -2) calc(-1 * var(--space-2))', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-1)' };
 const FIXED_LABELS = [['apple', 'Apple Developer'], ['supabase', 'Supabase'], ['vercel', 'Vercel'], ['other', 'そのほか']];
 
 // 内訳の項目: 「・」で区切り、1 項目は途中で割らない（inline-block）。
@@ -88,7 +88,7 @@ export default function ProfitCard({ data, missing = false, error = null, onRetr
         </p>
         <Row label="売上" value={yen(p.revenueYen)}>
           <Parts items={[
-            '税込・年額は月あたりに均す・価格の真実はストア',
+            '税込',
             `月額 ${p.paid.monthly} 人 × ${yen(PRICE_MONTHLY_YEN)}`,
             `年額 ${p.paid.annual} 人 × ${yen(PRICE_ANNUAL_YEN)} ÷ 12`,
             p.paid.founding > 0 && `創業メンバー ${p.paid.founding} 人 × ${yen(PRICE_FOUNDING_YEN)} ÷ 12`,
@@ -125,7 +125,7 @@ export default function ProfitCard({ data, missing = false, error = null, onRetr
               <p style={{ ...caption, marginBottom: 'var(--space-2)' }}>月あたり（円）</p>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 'var(--space-2)' }}>
                 {FIXED_LABELS.map(([k, label]) => (
-                  <label key={k} style={{ display: 'grid', gap: 'var(--space-1)', minWidth: 0, fontSize: 'var(--text-caption)', color: 'var(--text-2)', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                  <label key={k} style={{ display: 'grid', gap: 'var(--space-1)', minWidth: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', fontWeight: 600, whiteSpace: 'nowrap' }}>
                     {label}
                     <input type="number" inputMode="numeric" min="0" value={fixed[k]} onChange={(e) => onFixed(k, e.target.value)} style={{ ...input, width: '100%', minWidth: 0, boxSizing: 'border-box' }} />
                   </label>
