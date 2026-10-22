@@ -205,6 +205,7 @@ export default function AdminDashboard({ onClose }) {
   // 💰 今月の売上と推定の粗利（admin_profit・supabase_admin_profit.sql・2026-10-22）。無ければ missing。
   const [profit, setProfit] = useState(null);
   const [profitMissing, setProfitMissing] = useState(false);
+  const [profitError, setProfitError] = useState(null);
   const [feedback, setFeedback] = useState([]);
   const [goal, setGoal] = useState(null);
   const [tickets, setTickets] = useState([]);
@@ -369,7 +370,10 @@ export default function AdminDashboard({ onClose }) {
     setAi(au.error ? [] : (au.data || []));
     setRevenue(rv.error ? null : (rv.data || null));
     setProfit(pf.error ? null : (pf.data || null));
-    setProfitMissing(!!pf.error);
+    // 関数が無い（SQL 未適用）とそれ以外の失敗（通信など）を分ける。
+    const pfMissing = !!pf.error && (pf.error.code === 'PGRST202' || /could not find the function/i.test(pf.error.message || ''));
+    setProfitMissing(pfMissing);
+    setProfitError(pf.error && !pfMissing ? pf.error : null);
     setFeedback(fb.error ? [] : (fb.data || []));
     // jsonb numeric は文字列で届くことがあるため target を数値に正規化。
     setGoal(gl.error || !gl.data ? null : { ...gl.data, target: Number(gl.data.target) || 0 });
@@ -662,7 +666,7 @@ export default function AdminDashboard({ onClose }) {
             />
 
             {/* 💰 今月の売上と推定の粗利（2026-10-22 オーナー「現在の売り上げと推定の粗利」・目標のすぐ下） */}
-            <ProfitCard data={profit} missing={profitMissing} />
+            <ProfitCard data={profit} missing={profitMissing} error={profitError} onRetry={() => load(days)} />
 
             {/* 🎯 今日の一手（曜日の台本・配信前の出荷） */}
             <TodayCard phase={phase} launchDate={launchDate} weekly={salesRows} rules={rulesEval} shipChecks={shipChecks} />
@@ -990,14 +994,7 @@ export default function AdminDashboard({ onClose }) {
                 : `有料 ${revenue?.active ?? 0}人 × ¥${MONTHLY_PRICE_JPY.toLocaleString()}`} />
               <Stat label="30日内に更新期限" value={revenue?.expiring_30d ?? 0} sub="要フォロー" />
             </div>
-            <div style={{ ...card, marginTop: 'var(--space-2)' }}>
-              <p style={{ margin: 0, fontSize: 'var(--text-caption)', color: C.ink2, fontWeight: 600 }}>月次粗利（{profitEst ? '実額ベース・上の「売上と推定の粗利」と同じ' : '概算'}）</p>
-              <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-title)', fontWeight: 700, color: C.ink, lineHeight: 1.1 }}>¥{grossProfit.toLocaleString()}</p>
-              <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-caption)', color: C.ink3, lineHeight: 1.6 }}>
-                売上 ¥{mrr.toLocaleString()} − App手数料({(PAYMENT_FEE_RATE * 100).toFixed(0)}%) ¥{Math.round(mrr * PAYMENT_FEE_RATE).toLocaleString()} − AI原価 ¥{aiCostThisMonth.toLocaleString()}（{aiCallsThisMonth}コール×¥{AI_COST_PER_CALL_JPY}）
-                <br />※ App内課金（Apple小規模事業者プログラム 15%）想定の直接原価ベース。人件費・固定費は含みません。係数は実測で調整。
-              </p>
-            </div>
+            {/* 月次粗利の概算のカードは 2026-10-22 にやめた（粗利は上の「売上と推定の粗利」1 つ・LTV の材料には grossProfit を使う） */}
 
             {/* ── 📈 ファネル ＆ 継続率 ＆ ユニットエコノミクス ── */}
             <p style={sectionTitle}><Activity size={15} strokeWidth={2} /> ファネル（登録→課金→継続）</p>
