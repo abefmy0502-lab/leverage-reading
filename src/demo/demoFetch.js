@@ -1005,6 +1005,22 @@ export function installDemoFetch(store) {
       }
       return json({ content: [{ type: 'text', text }], stop_reason: stopReason });
     }
+    // 🚀 公開の準備（運営ダッシュボード・api/launch-health.js の見本）。&launch=ready＝全部そろっている・&launch=none＝何も無い・
+    //   &launch=error＝確かめられない。付けなければ「売るために必須」は 1 つ残し、iPhone の通知と計測が途中の形。
+    if (url.includes('/api/launch-health')) {
+      const mode = new URLSearchParams(window.location.search).get('launch');
+      await wait(300, signal);
+      if (mode === 'error') return json({ error: 'Supabase not configured' }, 500);
+      const { HEALTH_ENV_KEYS, HEALTH_SQL_KEYS } = await import('../../api/_launchHealthKeys.js');
+      const on = mode === 'ready';
+      const env = Object.fromEntries(HEALTH_ENV_KEYS.map((k) => [k, on]));
+      const sql = Object.fromEntries(HEALTH_SQL_KEYS.map((k) => [k, on]));
+      if (!mode) {
+        for (const k of ['supabase_service_role', 'anthropic', 'gemini', 'rakuten', 'cron_secret', 'revenuecat_webhook_auth', 'google_books']) env[k] = true;
+        for (const k of HEALTH_SQL_KEYS) sql[k] = !['push_subscriptions_platform', 'lp_events'].includes(k);
+      }
+      return json({ env, sql, admin: mode !== 'none', checkedAt: new Date().toISOString() });
+    }
     if (url.includes('/api/cover') && /[?&]search=/.test(url)) {
       // 本の検索（2026-10-02・本番は楽天の売上順 → Google → NDL）。&search=fail は失敗（端末の検索に切り替わる）・
       //   &search=old は「サーバーの検索が無い」（直す前と同じく端末だけで探す・比べる用）。

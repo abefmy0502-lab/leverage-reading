@@ -28,6 +28,7 @@ import { C, btnPrimary, btnPrimaryOff, btnGhost } from '../styles/ui';
 import Spinner from './Spinner';
 import TodayCard from './admin/TodayCard';
 import LaunchKpiCard from './admin/LaunchKpiCard';
+import LaunchGateCard from './admin/LaunchGateCard';
 import GoalPanel from './admin/GoalPanel';
 import ProfitCard from './admin/ProfitCard';
 import { estimateProfit, loadFixed } from '../lib/adminProfit';
@@ -684,6 +685,9 @@ export default function AdminDashboard({ onClose }) {
 
             {/* 🎯 今日の一手（曜日の台本・配信前の出荷） */}
             <TodayCard phase={phase} launchDate={launchDate} weekly={salesRows} rules={rulesEval} shipChecks={shipChecks} />
+
+            {/* 🚀 公開の準備（売上までの関門・2026-10-22）: サーバーが env と SQL の有無を真偽で返し、まだを並べる */}
+            <LaunchGateCard />
 
             {/* ── 🚀 ローンチの 4 つの数字（2026-10-02 オーナー承認） ── */}
             <LaunchKpiCard data={launchKpis ? { ...launchKpis, cohorts: (launchKpis.cohorts || []).slice(0, 8) } : null} missing={launchKpisMissing} />
