@@ -111,6 +111,9 @@ UI 文言・トースト・ヘルプ・LP・プロンプト出力で使う名前
 ├── scripts/share-images.mjs            # 🖼 写真で共有の「共有される画像そのもの」を重ね方×形×地で書き出す（`npm run demo` → `node scripts/share-images.mjs` → ui-shots/share-after/images/）
 ├── scripts/marketing/                  # 🎬 SNS の縦動画を台本（scenarios.mjs）どおりお試しモードで録って字幕つき mp4 に（`npm run demo` → `npm run mkt:record`）・週の投稿の下書き（`npm run mkt:drafts`・鍵が無ければプロンプトだけ）→ marketing-out/（git 管理外）。手順は docs/ai-marketing-automation.md
 ├── SPEC.md / DESIGN.md                 # 🎨 画面の役割 / 見た目のルール（UI を触る前に必ず読む）
+├── docs/leverage-system.md             # ⚙️ マーケと開発のレバレッジの仕組み（1 ページ・2026-10-22）: /feature・/ship・/mkt-week の型、CI、文書の同期のテスト、編集のあとの一言（hook）、土曜の投稿キットの自動化、オーナーの週 約 5 時間
+├── .claude/skills/{feature,ship,mkt-week}/SKILL.md  # 🧭 型（作る・出す・今週の投稿キット）。.claude/settings.json の hook は scripts/hooks/post-edit.mjs
+├── company/weekly/                     # 📅 土曜の投稿キット（自動の下書き → オーナーが直して予約）
 ├── src/
 │   ├── App.jsx                         # メインルーティング、状態管理、画面切替
 │   ├── demo/                           # 🧪 お試しモード（npm run demo・開発専用・本番バンドル外）

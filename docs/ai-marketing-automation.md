@@ -18,6 +18,7 @@
 | 作るもの | 0 円の道具 | 出てくるもの |
 |---|---|---|
 | 縦の動画（15〜40 秒） | `npm run mkt:record`（Playwright＋ffmpeg） | `marketing-out/videos/<日付>/<台本>/final.mp4`・`captions.srt`・`cover.jpg` |
+| 録画を mp4 に仕上げ直す（`--no-finish` で録ったとき・`meta.cuts` で途中を切ったとき） | `npm run mkt:finish -- marketing-out/videos/<日付>/<台本>` | 同じフォルダの `final.mp4`・`captions.srt`・`cover.jpg` を作り直す |
 | 動くイラストの縦の動画（新しい読書のあり方を伝える回・画面は映さない） | `npm run mkt:explainer`（台本は `scripts/marketing/explainer/reels.mjs`・線の絵は `art.mjs`・2026-10-16 オーナーの見本「太字の箱＋1 2 3＋線の絵が描かれていく」） | `marketing-out/videos/<日付>/<台本>/final.mp4`・`cover.jpg`・`post.txt`（説明欄の下書き） |
 | 文（X・説明欄・ナレーション・note の構成） | `npm run mkt:drafts` → Claude Code | `marketing-out/drafts/<日付>/prompt.md`（＋鍵があれば `drafts.md`） |
 | 画像（共有の 1 枚・アプリの画面） | `node scripts/share-images.mjs`・`npm run ui:shots`・`npm run lp:shots` | `ui-shots/…`・`public/lp/*.webp` |

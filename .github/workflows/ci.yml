@@ -1,0 +1,29 @@
+# 🧪 CI（2026-10-22・開発のレバレッジ）: どのブランチへ push しても、テストとビルドと SQL のまとめを確かめる。
+# main への配信（deploy.yml）は別。ここが赤いうちは main に入れない（Claude のセッションも人も同じ基準）。
+name: CI
+
+on:
+  push:
+    branches-ignore: [main]
+  pull_request: {}
+  workflow_dispatch: {}
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: テスト（vitest・SQL のまとめ・文書の同期も含む）
+        run: npx vitest run
+      - name: ビルド
+        run: npm run build
