@@ -4,6 +4,23 @@ import { SUPPORT_EMAIL } from '../lib/contact';
 import { btnPrimary, btnGhost, btnLink } from '../styles/ui';
 import { withPhraseBreaks } from './TightBubble';
 
+// あとから読む JS（lazy の import）が取れなかったときの文（ブラウザごと）。
+export function isChunkLoadError(err) {
+  const m = String(err?.message || err || '');
+  return /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module|ChunkLoadError|Loading chunk|Loading CSS chunk/i.test(m);
+}
+
+// 同じ URL で 1 回だけ（端末に残せないときは読み直さない＝無限に回さない）。
+const RELOAD_KEY = 'orime.reloadOnce';
+export function reloadOnce(storage = (typeof window !== 'undefined' ? window.sessionStorage : null), href = (typeof window !== 'undefined' ? window.location.href : '')) {
+  try {
+    if (!storage) return false;
+    if (storage.getItem(RELOAD_KEY) === href) return false;
+    storage.setItem(RELOAD_KEY, href);
+    return true;
+  } catch { return false; }
+}
+
 export default class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
@@ -18,6 +35,10 @@ export default class ErrorBoundary extends React.Component {
     console.error('App crashed:', error, info);
     // Sentry が初期化されていれば送信、無ければ no-op。
     captureError(error, { componentStack: info?.componentStack });
+    // 🔁 画面の部品（あとから読む JS）が読めなかっただけなら、1 回だけ読み込み直す（2026-10-22・LP で「予期せぬエラー」）。
+    //   新しい版を出した直後に古い HTML が残っていたとき・通信が途中で切れたときに起きる。中身の誤りではないので
+    //   利用者に見せず、同じ URL で 1 回だけ自動で読み直す（2 回目は見せる＝無限に読み直さない）。
+    if (isChunkLoadError(error) && reloadOnce()) window.location.reload();
   }
 
   handleReload = () => {
@@ -70,6 +91,12 @@ export default class ErrorBoundary extends React.Component {
             <a href={mailto} style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginTop: 'var(--space-3)', textDecoration: 'none' }}>
               このエラーを報告する
             </a>
+            {/* 何が起きたかの 1 行（スタックや内部の状態は出さない・報告のとき役に立つ・2026-10-22） */}
+            {!isDev && this.state.error && (
+              <p style={{ fontSize: 'var(--text-caption)', color: 'var(--text-3)', marginTop: 'var(--space-8)', wordBreak: 'break-word' }}>
+                {String(this.state.error?.message || this.state.error).slice(0, 160)}
+              </p>
+            )}
             {isDev && (
               <pre
                 style={{
