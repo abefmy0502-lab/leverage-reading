@@ -189,7 +189,7 @@ export default async function handler(req, res) {
 
   const supabase = getServiceSupabase();
   if (!supabase) {
-    return res.status(500).json({ error: 'Supabase service role not configured' });
+    return res.status(500).json({ error: 'server_not_configured' });
   }
 
   // event / eventId は catch 節（claim 解放）でも参照するため try の外で宣言する。
@@ -357,7 +357,7 @@ export default async function handler(req, res) {
       // 匿名 ID 等で user.id に解決できない → 行を作らずスキップ（200 で受け流し）。
       console.warn('RevenueCat webhook: unresolvable app_user_id, skipping', {
         type,
-        app_user_id: appUserId,
+        app_user_id: String(appUserId || '').slice(0, 8), // 方針「利用者は書かない」に合わせ先頭だけ
       });
       return res.status(200).json({ received: true, skipped: 'unresolvable_app_user_id' });
     }

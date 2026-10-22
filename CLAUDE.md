@@ -352,6 +352,7 @@ want(読みたい) → before(積読) → reading(読書中) → done(読了)
 - [ ] **CSP**: 新しい外部ドメインへの `connect-src` / `img-src` 接続が必要なら `vercel.json` の CSP を更新
 - [ ] **RLS**: 新しい Supabase テーブルには Row Level Security と適切なポリシーを設定（SQL マイグレーションファイルに含める）
 - [ ] **エラーメッセージ**: スタックトレースや内部 ID を露出させない（`toMessage()` 経由で humanize）
+- [ ] **認証の前の回数制限**: Bearer を確かめる新しい API は `auth.getUser` の前に `api/_ipRate.js` の `ipGate(req, res, { max, bucket })`（IP ごと 1 分の固定窓・保存しない）・利用者ごとの応答には `Cache-Control: no-store`（2026-10-22 監査＝`company/security-audit-2026-10-22.md`）
 - [ ] **AI に送る前の同意**: 新しい AI 機能は入口で `ensureAiConsent('<purpose>')`・`src/lib/aiProcessors.js` に送るものと送り先を足す（`api/_aiRouting.js` とテストで一致を確かめる）。送り先を変えたら `AI_CONSENT_VERSION` を上げる
 
 ### Supabase ダッシュボード設定（商用化時に確認）

@@ -4,12 +4,13 @@
 // Authorization ヘッダー付きの POST はプリフライト（OPTIONS）が先に飛ぶため、許可する
 // オリジンのときだけ Access-Control-* を返す。Web（同じオリジン）には何も足さない。
 // ファイル名が _ で始まるので Vercel のルート（/api/_cors）にはならない。
-const NATIVE_ORIGINS = new Set([
-  'capacitor://localhost',
-  'ionic://localhost',
-  'http://localhost',
-  'https://localhost',
-]);
+// 本番（VERCEL_ENV=production）ではアプリの殻（capacitor:// / ionic://）だけ。http(s)://localhost は開発中と
+// プレビューだけ（開発サーバー上の任意のページから本番 API へ Bearer つきで呼べないように・2026-10-22）。
+const NATIVE_ORIGINS = new Set(
+  process.env.VERCEL_ENV === 'production'
+    ? ['capacitor://localhost', 'ionic://localhost']
+    : ['capacitor://localhost', 'ionic://localhost', 'http://localhost', 'https://localhost'],
+);
 
 // 戻り値 true = OPTIONS に応答済み（呼び出し側はそのまま return する）
 export function applyCors(req, res, methods = 'GET, POST, OPTIONS') {

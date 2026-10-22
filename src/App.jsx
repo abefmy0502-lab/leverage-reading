@@ -1040,7 +1040,9 @@ function AuthedApp() {
     let removeListener = null;
     initNativePushNav((url) => {
       if (cancelled || !url) return;
-      try { window.history.replaceState(null, '', url); } catch { /* ignore */ }
+      // 通知の url は同一オリジンの相対パスだけ（public/sw.js の safeRecallPath と同じ決まり・2026-10-22）。
+      const safe = typeof url === 'string' && url.startsWith('/') && !url.startsWith('//') && /^\/[A-Za-z0-9/_?=&%.,~+-]*$/.test(url) ? url : '/';
+      try { window.history.replaceState(null, '', safe); } catch { /* ignore */ }
       handleRecallDeepLink();
     }).then((remove) => {
       if (cancelled) { try { remove?.(); } catch { /* ignore */ } }

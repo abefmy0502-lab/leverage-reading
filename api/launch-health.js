@@ -10,6 +10,7 @@
 //   - 1 人 1 分 6 回まで。service_role が無ければ sql は全部 false・admin は false（画面は「確かめられませんでした」）。
 import { createClient } from '@supabase/supabase-js';
 import { applyCors } from './_cors.js';
+import { ipGate } from './_ipRate.js';
 import { HEALTH_ENV, HEALTH_ENV_FLAGS, HEALTH_SQL } from './_launchHealthKeys.js';
 
 const RATE_WINDOW_MS = 60 * 1000;
@@ -95,6 +96,7 @@ export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
   res.setHeader('Cache-Control', 'no-store');
 
+  if (ipGate(req, res, { max: 20, bucket: 'launch-health' })) return;
   const token = bearer(req);
   if (!token) return res.status(401).json({ error: 'Unauthorized' });
   const anon = getAnon();

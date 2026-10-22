@@ -41,6 +41,7 @@ export const GATES = [
   { id: 'sql_cache_warm', group: 'boost', label: '相談のキャッシュを温め直す表', sql: ['ai_cache_warm'], where: 'docs/sql-runbook.md' },
   { id: 'env_founding', group: 'boost', label: '創業メンバー価格（公開から 30 日）', env: ['founding_offer'], where: 'company/launch-founding-offer.md' },
   { id: 'env_referral', group: 'boost', label: '友だちに紹介する（オファーコード）', env: ['referral_code'], where: 'CLAUDE.md の VITE_REFERRAL_CODE' },
+  { id: 'env_lp_ip_salt', group: 'measure', label: 'LP の登録の回数を数える鍵（LP_IP_SALT・サーバーの鍵の使い回しをやめる）', env: ['lp_ip_salt'], where: 'CLAUDE.md の LP_IP_SALT' },
   { id: 'env_vapid', group: 'boost', label: 'Web の通知（VAPID）', env: ['vapid'], where: 'CLAUDE.md の VAPID_*' },
 ];
 

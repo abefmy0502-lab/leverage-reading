@@ -30,7 +30,7 @@ function rateLimited(ip) {
   const rec = hits.get(ip);
   if (!rec || now - rec.start > 60_000) {
     hits.set(ip, { start: now, n: 1 });
-    if (hits.size > 5000) hits.clear();
+    if (hits.size > 5000) for (const [k, r] of hits) if (now - r.start > 60_000) hits.delete(k); // 期限切れだけ掃く（全員ぶんを消さない）
     return false;
   }
   rec.n += 1;

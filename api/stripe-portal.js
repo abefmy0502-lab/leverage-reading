@@ -13,6 +13,7 @@
 // 依存: `stripe`（package.json に未追加 → `npm i stripe` が必要）。
 
 import { createClient } from '@supabase/supabase-js';
+import { ipGate } from './_ipRate.js';
 import Stripe from 'stripe';
 
 // In-memory レート制限（per serverless instance）。api/stripe-checkout.js と
@@ -119,6 +120,8 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: '決済機能が一時的に利用できません。' });
   }
 
+  if (ipGate(req, res, { max: 30, bucket: 'portal' })) return;
+  res.setHeader('Cache-Control', 'no-store');
   const { data: userData, error: userError } = await supabase.auth.getUser(token);
   if (userError || !userData?.user) {
     return res.status(401).json({ error: 'Unauthorized: invalid token' });

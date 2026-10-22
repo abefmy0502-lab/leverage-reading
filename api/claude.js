@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { applyCors } from './_cors.js';
+import { ipGate } from './_ipRate.js';
 import { estimateCost, costFromUsage, createUsageSniffer, cacheSegments } from './_aiCost.js';
 import {
   decideAiAccess, decideFreeReservation, periodKeyFor, reserveBudgetMjpy, allowanceFor, meteredCallLimit,
@@ -672,6 +673,9 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'AI機能が一時的に利用できません。' });
   }
 
+  // 認証の前に IP で数える（でたらめな Bearer の連打で Auth の枠を食いつぶさせない・2026-10-22）。
+  if (ipGate(req, res, { max: 120, bucket: 'claude' })) return;
+  res.setHeader('Cache-Control', 'no-store');
   const { data: userData, error: userError } = await supabase.auth.getUser(token);
   if (userError || !userData?.user) {
     return res.status(401).json({ error: 'Unauthorized: invalid token' });
@@ -1089,7 +1093,7 @@ export default async function handler(req, res) {
       const upstreamType = response.headers.get('content-type') || '';
       if (upstreamType.includes('text/event-stream')) {
         res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
-        res.setHeader('Cache-Control', 'no-cache, no-transform');
+        res.setHeader('Cache-Control', 'no-store, no-cache, no-transform');
         res.setHeader('Connection', 'keep-alive');
         // Vercel-specific: tell the edge layer not to buffer.
         res.setHeader('X-Accel-Buffering', 'no');

@@ -92,7 +92,7 @@ export default class ErrorBoundary extends React.Component {
               このエラーを報告する
             </a>
             {/* 何が起きたかの 1 行（スタックや内部の状態は出さない・報告のとき役に立つ・2026-10-22） */}
-            {!isDev && this.state.error && (
+            {!isDev && this.state.error && isChunkLoadError(this.state.error) && (
               <p style={{ fontSize: 'var(--text-caption)', color: 'var(--text-3)', marginTop: 'var(--space-8)', wordBreak: 'break-word' }}>
                 {String(this.state.error?.message || this.state.error).slice(0, 160)}
               </p>

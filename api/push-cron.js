@@ -595,7 +595,7 @@ export default async function handler(req, res) {
 
   const supabase = getServiceSupabase();
   if (!supabase) {
-    return res.status(500).json({ error: 'Supabase service credentials not configured' });
+    return res.status(500).json({ error: 'server_not_configured' });
   }
 
   const webpush = getWebPush();
@@ -766,6 +766,7 @@ export default async function handler(req, res) {
       await webpush.sendNotification(
         { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
         payload,
+        { timeout: 10000 }, // 1 件が固まってバッチ全体（maxDuration 300）を食いつぶさない（2026-10-22）
       );
       return 'sent';
     } catch (sendErr) {

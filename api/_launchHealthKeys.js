@@ -20,6 +20,7 @@ export const HEALTH_ENV = {
   sentry: ['VITE_SENTRY_DSN'],
   release_notes_since: ['VITE_RELEASE_NOTES_SINCE'],
   referral_code: ['VITE_REFERRAL_CODE'],
+  lp_ip_salt: ['LP_IP_SALT'],
 };
 // 値が決まった形のときだけ true にするもの（空でない、だけでは足りない）。
 export const HEALTH_ENV_FLAGS = {

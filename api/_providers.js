@@ -402,15 +402,22 @@ export function anthropicBody(model, base) {
   return body;
 }
 
-async function openAnthropic({ model, base, apiKey, signal, fetchImpl }) {
+async function openAnthropic({ model, base, apiKey, signal, fetchImpl, timeouts }) {
+  // 最初の応答（ヘッダー）が firstOutputMs までに来なければ打ち切る（上流が黙ると予約した原価が戻らないまま関数が居座る・2026-10-22）。
+  const ctl = linkedController(signal, timeouts?.firstOutputMs || providerTimeouts().firstOutputMs);
   const call = (m) => fetchImpl(ANTHROPIC_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
     body: JSON.stringify(anthropicBody(m, base)),
-    signal,
+    signal: ctl.signal,
   });
   let served = model;
-  let response = await call(served);
+  let response;
+  try {
+    response = await call(served);
+  } finally {
+    ctl.clear(); // ヘッダーが来たら打ち切りの時計を止める（本文のストリームは中継が見る）
+  }
   if (response && response.status === 404 && served !== ANTHROPIC_LAST_RESORT) {
     const next = ANTHROPIC_404_FALLBACK[served] || ANTHROPIC_LAST_RESORT;
     console.warn('[claude] model not found, falling back:', served, '→', next);
@@ -425,7 +432,7 @@ async function openAnthropic({ model, base, apiKey, signal, fetchImpl }) {
 // 戻り値 { response, model, provider }。response は Anthropic の形（OpenAI / Gemini は直したもの）。
 export async function openRoute({ provider, model, base, signal, env = process.env, estimatedInputTokens = 0, fetchImpl = fetch } = {}) {
   if (provider === 'anthropic') {
-    const r = await openAnthropic({ model, base, apiKey: env.ANTHROPIC_API_KEY, signal, fetchImpl });
+    const r = await openAnthropic({ model, base, apiKey: env.ANTHROPIC_API_KEY, signal, fetchImpl, timeouts: providerTimeouts(env) });
     return { ...r, provider };
   }
   const key = provider === 'openai' ? env.OPENAI_API_KEY : provider === 'gemini' ? env.GEMINI_API_KEY : null;

@@ -16,6 +16,13 @@
 //     優先する判断。
 
 const DSN = import.meta.env.VITE_SENTRY_DSN;
+// 送る文字から、メール・URL の識別子（?recall= / ?book= / ?checkout= / ?auth= と REST の eq.<uuid>）を落とす。
+export function scrubText(s) {
+  return (typeof s === 'string' ? s : '')
+    .replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g, '[email]')
+    .replace(/([?&](recall|book|checkout|auth)=)[^&\s]+/g, '$1[redacted]')
+    .replace(/=eq\.[0-9a-f-]{20,}/gi, '=eq.[id]');
+}
 // このビルドで Sentry を使うか（プライバシーポリシーの委託先の行を出す・2026-10-11）。
 export const SENTRY_ON = Boolean(DSN);
 
@@ -43,12 +50,24 @@ export function initSentry() {
       sendDefaultPii: false,
       // 送信直前のスクラブ。将来 captureException(任意エラー) が増えても、メッセージ・
       // breadcrumb・リクエストURL に紛れ込んだメールや ?recall=<id> 等の識別子を落とす。
+      // パンくず（fetch の URL＝Supabase REST の ?book_id=eq.<uuid> など）と、トランザクション名も同じ洗い方で（2026-10-22 監査）。
+      beforeBreadcrumb(b) {
+        try {
+          if (b?.data?.url) b.data.url = scrubText(b.data.url);
+          if (b?.message) b.message = scrubText(b.message);
+        } catch { /* no-op */ }
+        return b;
+      },
+      beforeSendTransaction(t) {
+        try {
+          if (t?.transaction) t.transaction = scrubText(t.transaction);
+          if (t?.request?.url) t.request.url = scrubText(t.request.url);
+        } catch { /* no-op */ }
+        return t;
+      },
       beforeSend(event) {
         try {
-          const scrub = (s) =>
-            (typeof s === 'string' ? s : '')
-              .replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g, '[email]')
-              .replace(/([?&](recall|book|checkout|auth)=)[^&\s]+/g, '$1[redacted]');
+          const scrub = scrubText;
           if (event.message) event.message = scrub(event.message);
           if (event.request?.url) event.request.url = scrub(event.request.url);
           if (Array.isArray(event.exception?.values)) {

@@ -65,10 +65,17 @@ function getServiceSupabase() {
 }
 
 // req（Node IncomingMessage）の生バイト列を Buffer にまとめる。
+const RAW_BODY_MAX = 1024 * 1024; // Stripe の event は数十 KB。署名を確かめる前に無制限に積まない（2026-10-22）
 function readRawBody(req) {
   return new Promise((resolve, reject) => {
     const chunks = [];
-    req.on('data', (chunk) => chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk));
+    let total = 0;
+    req.on('data', (chunk) => {
+      const buf = typeof chunk === 'string' ? Buffer.from(chunk) : chunk;
+      total += buf.length;
+      if (total > RAW_BODY_MAX) { req.destroy(); reject(new Error('body too large')); return; }
+      chunks.push(buf);
+    });
     req.on('end', () => resolve(Buffer.concat(chunks)));
     req.on('error', reject);
   });

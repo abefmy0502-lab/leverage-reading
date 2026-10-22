@@ -98,7 +98,16 @@ async function signOut() {
   // クエリ/結果）をサインアウト時に消す。設定（オンボ完了・メモモード・解析
   // オプトアウト等）は保持。in-memory のメモ/写真キャッシュは AppDataCache 側で
   // onAuthStateChange('SIGNED_OUT') を購読して clearAll される。
-  try { window.localStorage.removeItem('bookSearchCache'); } catch { /* ignore */ }
+  try {
+    const ls = window.localStorage;
+    ls.removeItem('bookSearchCache'); // 前の版のキー
+    ls.removeItem('bookSearchCache:v2'); // lib/bookSearch.js の今のキー（2026-10-22 監査で名前のずれを直した）
+    // 本人の id の付いた端末の控え（読書の時間・入れた理由）も共有端末では残さない。
+    for (let i = ls.length - 1; i >= 0; i -= 1) {
+      const k = ls.key(i) || '';
+      if (/^orime\.(readingSessions|appPurpose)\.v\d+:/.test(k)) ls.removeItem(k);
+    }
+  } catch { /* ignore */ }
   // 初日の印（はじめての相談・10 件・選んだ道）と、ホームの前回のメモの件数（lib/firstDay.js・2026-10-02）。
   try { clearFirstDayDeviceData(); } catch { /* ignore */ }
 }

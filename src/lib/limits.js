@@ -86,7 +86,8 @@ export function validateImageFile(file) {
   // fail-closed: MIME か拡張子のいずれかが「許可された画像」だと積極的に確認できない
   // 限り拒否する（旧実装は MIME 空 + 拡張子不明を素通しさせていた）。正規の画像は
   // ファイルピッカー/カメラ由来で image/* の MIME を持つため誤拒否しない。
-  if (!mimeOk && !extOk) {
+  // MIME があるときは MIME で決める（拡張子 .png で MIME が svg のような取り違えを通さない・2026-10-22）。
+  if (type ? !mimeOk : !extOk) {
     return '対応している画像形式は JPEG / PNG / WebP のみです。';
   }
   return null;
