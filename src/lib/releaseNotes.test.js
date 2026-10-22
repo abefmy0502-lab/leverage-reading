@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { RELEASES, CURRENT_RELEASE_ID, WHERE_NAMES, releasesSince, RELEASE_NOTES_SINCE } from './releaseNotes';
+import { RELEASES, RELEASE_RECORDS, visibleReleases, CURRENT_RELEASE_ID, WHERE_NAMES, releasesSince, RELEASE_NOTES_SINCE } from './releaseNotes';
 import {
   decideWhatsNew, releasesNewerThan, sanitizeReleases, compareReleaseId, releaseHeading, groupReleasesByDay,
 } from './whatsNew';
@@ -21,15 +21,15 @@ const NG_WORDS = [
 // 技術用語・ファイル名。英字は製品名などの決まった語だけ。
 const ALLOWED_LATIN = new Set(['Orime', 'AI', 'App', 'Store', 'Apple', 'ID']);
 
-const allItems = () => RELEASES.flatMap((r) => r.items.map((it, i) => ({ ...it, _where: `${r.id}[${i}]` })));
+const allItems = () => RELEASE_RECORDS.flatMap((r) => r.items.map((it, i) => ({ ...it, _where: `${r.id}[${i}]` })));
 
 describe('RELEASES（新しくなったこと）', () => {
   it('版は新しい順・id は日付の形・重ならない', () => {
-    expect(RELEASES.length).toBeGreaterThan(0);
-    expect(CURRENT_RELEASE_ID).toBe(RELEASES[0].id);
-    const ids = RELEASES.map((r) => r.id);
+    expect(RELEASE_RECORDS.length).toBeGreaterThan(0);
+    expect(CURRENT_RELEASE_ID).toBe(RELEASE_RECORDS[0].id);
+    const ids = RELEASE_RECORDS.map((r) => r.id);
     expect(new Set(ids).size).toBe(ids.length);
-    for (const r of RELEASES) {
+    for (const r of RELEASE_RECORDS) {
       expect(r.id, r.id).toMatch(/^\d{4}-\d{2}-\d{2}[a-z]?$/);
       expect(r.date, r.id).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       expect(r.id.startsWith(r.date), `${r.id} の date`).toBe(true);
@@ -37,11 +37,21 @@ describe('RELEASES（新しくなったこと）', () => {
     for (let i = 1; i < ids.length; i += 1) expect(compareReleaseId(ids[i - 1], ids[i])).toBe(1);
   });
 
-  it('1 つの版は 3〜8 項目', () => {
-    for (const r of RELEASES) {
+  it('1 つの版は 3〜8 項目（記録）', () => {
+    for (const r of RELEASE_RECORDS) {
       expect(r.items.length, `${r.id} は 3 項目以上`).toBeGreaterThanOrEqual(3);
       expect(r.items.length, `${r.id} は 8 項目まで`).toBeLessThanOrEqual(8);
     }
+  });
+
+  it('画面に出すのはワクワクする項目だけ（quiet を外す・空の版は出さない）', () => {
+    for (const r of RELEASES) {
+      expect(r.items.length, `${r.id} は 1 項目以上`).toBeGreaterThanOrEqual(1);
+      for (const it of r.items) expect(it.quiet, `${r.id}「${it.what}」`).toBeFalsy();
+    }
+    expect(RELEASES.length).toBeLessThanOrEqual(RELEASE_RECORDS.length);
+    expect(visibleReleases([{ id: 'a', items: [{ quiet: true }] }, { id: 'b', items: [{ what: 'x' }, { quiet: true }] }])).toEqual([{ id: 'b', items: [{ what: 'x' }] }]);
+    for (const it of allItems()) expect([true, undefined], `${it._where}.quiet`).toContain(it.quiet);
   });
 
   it('どの項目にも 6 つの欄（どこの・何が・これまで・これから・影響・意図）がそろい、空でない', () => {
@@ -76,7 +86,7 @@ describe('RELEASES（新しくなったこと）', () => {
   });
 
   it('GLOSSARY の使わない言い方が入っていない', () => {
-    const text = JSON.stringify(RELEASES);
+    const text = JSON.stringify(RELEASE_RECORDS);
     for (const ng of NG_WORDS) expect(text.includes(ng), `「${ng}」は使わない`).toBe(false);
   });
 
