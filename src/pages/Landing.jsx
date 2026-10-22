@@ -49,7 +49,7 @@ import LpWaitlist from './LpWaitlist';
 import LpIllust from './LpIllust';
 import LpArt, { hasArt } from './LpArt';
 import Phrases, { Sentences } from './LpPhrases';
-import { buildLpCopy, storeHrefOf, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE } from './lpCopy';
+import { buildLpCopy, storeHrefOf, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE, PROBLEM_LINES, DIAGRAM_LINE } from './lpCopy';
 import qrcode from 'qrcode-generator';
 import { lpTrack, lpVariant, storeUrlFor, isWidePointer } from '../lib/lpTrack';
 import { inject as injectVercelAnalytics } from '@vercel/analytics';
@@ -677,10 +677,14 @@ export default function Landing() {
               <h2 className="lp-h2" id="lp-flow">
                 <span>一方通行の読書から、</span><span>会話する読書へ。</span>
               </h2>
+              {/* 問題の自覚（2026-10-22 LP の見直し）: 読む人の口から出る 2 つの場面。数字は使わない */}
+              <p className="lp-lead lp-lead-lines lp-problem">
+                {PROBLEM_LINES.map((t) => <span key={t}>{t}</span>)}
+              </p>
             </div>
             {/* 2026-10-16: 文の代わりに図（これまで＝本 → 自分で終わり／Orime＝本 ⇄ 自分）。その下に残す言葉 1 行だけ。 */}
             <DialogueDiagram />
-            <p className="lp-ba-line">自分だけの理解が残る。</p>
+            <p className="lp-ba-line lp-wbr"><Phrases>{DIAGRAM_LINE}</Phrases></p>
             {/* 一番の価値（CLAUDE.md）を、会話の流れ 4 枚の見出しに（2026-10-12 ui-critic） */}
             <h2 className="lp-h2 lp-flow-head" id="lp-grow"><span>メモが増えるほど、</span><span>答えが自分向けに。</span></h2>
             <LpFlow onEvent={lpTrack} note={false} />
