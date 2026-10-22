@@ -740,8 +740,9 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       // 入力コスト（−70〜90%）と TTFT が大きく下がる。読書傾向データの扱い方（既読の
       // 非再推薦・高評価を足場にしたパーソナル化）は system 側に恒常ルールとして内包済み。
       // 永続化するのは newHistory のみ（readerContext は毎回その場で注入し直す）。
+      // 💴 読書傾向の塊に 5 分の印（2026-10-22）: 「追加」「もう一度」の続きの回で 0.1 倍で読む（Sonnet の最小 1,024 は指示文で超える）。
       const sendMessages = readerContext
-        ? [{ role: 'user', content: readerContext }, ...newHistory]
+        ? [{ role: 'user', content: [{ type: 'text', text: readerContext, cache_control: { type: 'ephemeral' } }] }, ...newHistory]
         : newHistory;
       const PROMPTS = await loadPrompts();
       finalText = await streamClaude({
@@ -1485,6 +1486,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
             <AdvisorHistoryList
               sessions={sessionApi?.sessions || []}
               loaded={!!sessionApi?.loaded}
+              onLoad={() => { if (sessionApi && !sessionApi.loaded) sessionApi.listSessions?.(); }}
               onSelect={(s) => { setSelectedSession(s); setView('detail'); }}
               onClose={() => setView('chat')}
               onDelete={async (sid) => {

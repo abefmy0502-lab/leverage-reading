@@ -101,8 +101,9 @@ export async function isSubscribed() {
 async function upsertSubscription(sub, { frequency = 'weekly' } = {}) {
   if (!isSupabaseConfigured || !supabase || !sub) return false;
   try {
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData?.user?.id;
+    // 端末のセッションから（Auth サーバーへの往復をしない・2026-10-22）。
+    const { data: sessData } = await supabase.auth.getSession();
+    const userId = sessData?.session?.user?.id;
     if (!userId) return false;
 
     const json = sub.toJSON();
@@ -110,6 +111,11 @@ async function upsertSubscription(sub, { frequency = 'weekly' } = {}) {
     const p256dh = json.keys && json.keys.p256dh;
     const auth = json.keys && json.keys.auth;
     if (!endpoint || !p256dh || !auth) return false;
+
+    // 前回と同じ endpoint・設定なら書かない（起動のたびの upsert をやめる）。設定を変えたとき・購読が変わったときは必ず書く。
+    const stampKey = `orime.push.sent.v1:${userId}`;
+    const stamp = `${endpoint}|${frequency}`;
+    try { if (window.localStorage.getItem(stampKey) === stamp) return true; } catch { /* ignore */ }
 
     const tzOffsetMin = -new Date().getTimezoneOffset(); // JST = +540
 
@@ -133,6 +139,7 @@ async function upsertSubscription(sub, { frequency = 'weekly' } = {}) {
       console.warn('[push] upsert failed (ignored):', error.message);
       return false;
     }
+    try { window.localStorage.setItem(stampKey, stamp); } catch { /* ignore */ }
     return true;
   } catch (e) {
     console.warn('[push] upsert threw (ignored):', e?.message);
@@ -202,6 +209,7 @@ export async function unsubscribeFromPush() {
                 .delete()
                 .eq('user_id', userId)
                 .eq('endpoint', endpoint);
+              try { window.localStorage.removeItem(`orime.push.sent.v1:${userId}`); } catch { /* ignore */ }
             }
           } catch { /* ignore */ }
         }

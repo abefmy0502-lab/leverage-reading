@@ -4,7 +4,7 @@
 // chat 画面 (.chat-scroll) と同じ flex column 内に置かれ、AI タブの
 // レイアウトを乱さない。session オブジェクトは useAdvisorSessions から。
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState , useEffect } from 'react';
 import {
   History,
   ChevronLeft,
@@ -159,7 +159,9 @@ function HistoryListSkeleton() {
   );
 }
 
-export function AdvisorHistoryList({ sessions, loaded, onSelect, onClose, onDelete }) {
+export function AdvisorHistoryList({ sessions, loaded, onSelect, onClose, onDelete, onLoad = null }) {
+  // 開いたときに読む（起動のたびには読まない・2026-10-22）。
+  useEffect(() => { onLoad?.(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div style={pageStyle}>
       {/* 上の「‹ AI 選書」の行は BookAdvisor がスクロールの箱の外に置く（AdvisorNavBar）。 */}

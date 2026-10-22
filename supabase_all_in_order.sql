@@ -545,6 +545,17 @@ create index if not exists book_memos_book_id_idx
 create index if not exists books_user_updated_idx
   on public.books (user_id, updated_at desc);
 
+-- 2026-10-22（インフラの監査）: 起動の books クエリが毎回結合する book_tags / actions の book_id と、
+-- RLS の user_id。行が少ないうちは体感できないが、利用者が増えると結合側が全件走査になる。
+create index if not exists book_tags_book_id_idx
+  on public.book_tags (book_id);
+
+create index if not exists book_tags_user_id_idx
+  on public.book_tags (user_id);
+
+create index if not exists actions_book_id_idx
+  on public.actions (book_id);
+
 
 -- ############################################################
 -- 15. supabase_advisor_sessions.sql — 過去の AI 選書

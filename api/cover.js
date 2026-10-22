@@ -793,7 +793,7 @@ export default async function handler(req, res) {
       if (author) params.push(`creator=${encodeURIComponent(author)}`);
       params.push('cnt=5');
       const ndlUrl = `https://ndlsearch.ndl.go.jp/api/opensearch?${params.join('&')}`;
-      const r = await fetch(ndlUrl);
+      const r = await fetch(ndlUrl, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
       const xml = await r.text();
       const isbns = [];
       const re = /97[89][\d-]{10,17}/g;
@@ -802,11 +802,11 @@ export default async function handler(req, res) {
       dbg.steps.ndl = { url: ndlUrl, status: r.status, ok: r.ok, xmlLength: xml.length, xmlHead: xml.slice(0, 400), isbns };
       if (isbns[0]) {
         const u13 = `https://ndlsearch.ndl.go.jp/thumbnail/${isbns[0]}.jpg`;
-        const ir = await fetch(u13, { headers: BROWSER_HEADERS });
+        const ir = await fetch(u13, { headers: BROWSER_HEADERS, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
         const buf = ir.ok ? await ir.arrayBuffer() : null;
         dbg.steps.ndlThumb = { url: u13, status: ir.status, contentType: ir.headers.get('content-type'), bytes: buf ? buf.byteLength : 0 };
         const ob = `https://cover.openbd.jp/${isbns[0]}.jpg`;
-        const obr = await fetch(ob, { headers: BROWSER_HEADERS });
+        const obr = await fetch(ob, { headers: BROWSER_HEADERS, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
         const obuf = obr.ok ? await obr.arrayBuffer() : null;
         dbg.steps.openbd = { url: ob, status: obr.status, contentType: obr.headers.get('content-type'), bytes: obuf ? obuf.byteLength : 0 };
       }
@@ -818,7 +818,7 @@ export default async function handler(req, res) {
     // 著者で広く引いた時の上位（ナインが重松清の本として Google に在るか確認）。
     try {
       const gq = author ? `inauthor:${author}` : coreTitle(title);
-      const gr = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(gq)}&maxResults=20&country=JP${process.env.GOOGLE_BOOKS_API_KEY ? '&key=' + process.env.GOOGLE_BOOKS_API_KEY : ''}`);
+      const gr = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(gq)}&maxResults=20&country=JP${process.env.GOOGLE_BOOKS_API_KEY ? '&key=' + process.env.GOOGLE_BOOKS_API_KEY : ''}`, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
       const gj = gr.ok ? await gr.json() : null;
       dbg.steps.google = {
         q: gq, status: gr.status, ok: gr.ok, hasKey: !!process.env.GOOGLE_BOOKS_API_KEY,

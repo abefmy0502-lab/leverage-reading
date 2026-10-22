@@ -985,7 +985,9 @@ async function fetchRecentChats(userId) {
       .select('role, content, created_at')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
-      .limit(GROWTH_MAX_CHATS * 4);
+      // この会話のやりとり（THREAD・最大 3 組）を外したあとに過去の相談が 3 組残るように、窓を広めに取る
+      // （4 往復の会話で過去の相談が 2 組になり歩みの文字が変わって印が冷えていた・2026-10-22）。
+      .limit(GROWTH_MAX_CHATS * 4 + THREAD_MAX_TURNS * 4);
     if (error) return [];
     return data || [];
   } catch {
@@ -1595,9 +1597,11 @@ async function buildBrainContext({ userId, question, onStage, bookIds, mode = 'f
         system: PERBOOK_SYSTEM,
         maxTokens: PERBOOK_MAX_TOKENS,
         userPrompt: booksBlockText + (growthBlock ? `\n${growthBlock}` : '') + questionBlockText,
+        // 💴 本ごとも、本のメモ（芯）と歩みに 5 分の印（2026-10-22 原価の監査・それまでは印が無く毎回 全額＝約 ¥3.3）。
+        //   答え方は端末に覚えて続きも同じ答え方なので、続きの回は芯を 0.1 倍で読む。指示文＋本で 4,096 を必ず超える。
         userBlocks: [
-          { type: 'text', text: booksBlockText },
-          ...(growthBlock ? [{ type: 'text', text: growthBlock }] : []),
+          { type: 'text', text: booksBlockText, cache_control: { type: 'ephemeral' } },
+          ...(growthBlock ? [{ type: 'text', text: growthBlock, cache_control: { type: 'ephemeral' } }] : []),
           { type: 'text', text: questionBlockText },
         ],
         stats: {

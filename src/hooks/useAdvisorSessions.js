@@ -140,6 +140,8 @@ export function useAdvisorSessions() {
       set.add(bookId);
       pendingAddsRef.current.set(sessionId, set);
       const run = addChainRef.current.then(async () => {
+        // 起動時に読まなくなったので、手元に無ければここで読む（2026-10-22）。
+        if (!sessionsRef.current.find((s) => s.id === sessionId)) { try { await listSessions(); } catch { /* 下で無ければ戻る */ } }
         const session = sessionsRef.current.find((s) => s.id === sessionId);
         if (!session) return;
         const next = Array.from(new Set([...(session.added_book_ids || []), ...set]));
@@ -148,12 +150,14 @@ export function useAdvisorSessions() {
       addChainRef.current = run.catch(() => { /* 失敗しても後続の追加を止めない */ });
       return run;
     },
-    [available, updateSession],
+    [available, updateSession, listSessions],
   );
 
+  // 起動のたびに 50 件・全列（会話の jsonb ごと）を読んでいたのをやめ、過去の AI 選書を開いたとき・本を足すときに読む
+  // （2026-10-22 インフラの監査）。available は読んだときに決まる（それまでは true＝入口は出す）。
   useEffect(() => {
     if (user) {
-      listSessions();
+      setLoaded(false);
     } else {
       setSessions([]);
       setLoaded(false);
