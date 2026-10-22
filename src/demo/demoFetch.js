@@ -1010,6 +1010,7 @@ export function installDemoFetch(store) {
     if (url.includes('/api/launch-health')) {
       const mode = new URLSearchParams(window.location.search).get('launch');
       await wait(300, signal);
+      if (mode === 'loading') await wait(60000, signal);
       if (mode === 'error') return json({ error: 'Supabase not configured' }, 500);
       const { HEALTH_ENV_KEYS, HEALTH_SQL_KEYS } = await import('../../api/_launchHealthKeys.js');
       const on = mode === 'ready';

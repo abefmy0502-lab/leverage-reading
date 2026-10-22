@@ -6,14 +6,14 @@
 // 名前の下に「どこで」（手順書の場所）。管理者でない・確かめられないときは ErrorMessage「確かめられませんでした」＋「もう一度」。
 // 手順の順番は docs/revenue-gates.md。
 import { useEffect, useMemo, useState } from 'react';
-import { Rocket, Check, Circle } from 'lucide-react';
+import { ListChecks, Check, Circle } from 'lucide-react';
 import ErrorMessage from '../ErrorMessage';
 import { SkeletonBlock } from '../Skeleton';
 import { withPhraseBreaks } from '../TightBubble';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { evaluateGates, groupGates, gateHeadline } from '../../lib/launchGates';
 
-const card = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 'var(--space-4)' };
+const card = { background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4)' };
 const sub = { margin: 0, fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', lineHeight: 1.6, wordBreak: 'keep-all', overflowWrap: 'break-word' };
 const groupTitle = { margin: 0, fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3 };
 const rowBox = { padding: 'var(--space-2) 0', borderTop: '1px solid var(--separator)' };
@@ -77,14 +77,13 @@ export default function LaunchGateCard() {
   } else {
     body = (
       <>
-        <p style={{ margin: 0, fontSize: 'var(--text-title)', fontWeight: 700, lineHeight: 1.2, color: 'var(--text)', letterSpacing: '-0.01em' }}>{headline}</p>
-        <p style={{ ...sub, marginTop: 'var(--space-1)', marginBottom: 'var(--space-3)' }}>
-          {pendingAll === 0 ? 'ぜんぶそろっています。' : `ぜんぶで あと ${pendingAll} つ。順番は docs/revenue-gates.md。`}
+        <p style={{ margin: 0, fontSize: 'var(--text-heading)', fontWeight: 600, lineHeight: 1.3, color: 'var(--text)' }}>{headline}</p>
+        <p style={{ ...sub, marginTop: 'var(--space-1)', marginBottom: 'var(--space-2)' }}>
+          {pendingAll === 0 ? 'ぜんぶそろっています' : `ぜんぶで あと ${pendingAll} つ`} · docs/revenue-gates.md
         </p>
         {groups.map((g) => (
-          <div key={g.id} style={{ paddingTop: 'var(--space-3)' }}>
-            <p style={groupTitle}>{g.title}{g.pending > 0 && <span style={{ marginLeft: 'var(--space-2)', fontSize: 'var(--text-caption)', fontWeight: 400, color: 'var(--text-3)' }}>あと {g.pending}</span>}</p>
-            <p style={{ ...sub, marginTop: 'var(--space-1)', marginBottom: 'var(--space-2)' }}>{withPhraseBreaks(g.note)}</p>
+          <div key={g.id} style={{ paddingTop: 'var(--space-4)' }}>
+            <p style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>{g.title}{g.pending > 0 && <span style={{ marginLeft: 'var(--space-2)', fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)' }}>あと {g.pending}</span>}</p>
             {g.items.map((it) => <Row key={it.id} item={it} />)}
           </div>
         ))}
@@ -95,7 +94,7 @@ export default function LaunchGateCard() {
   return (
     <section aria-labelledby="launch-gate-title" style={{ margin: 'var(--space-6) 0' }}>
       <h2 id="launch-gate-title" style={{ margin: '0 0 var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontSize: 'var(--text-meta)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.4 }}>
-        <Rocket size="1.2em" strokeWidth={2} aria-hidden="true" /> 公開の準備（売上までの関門）
+        <ListChecks size="1.2em" strokeWidth={2} aria-hidden="true" /> 公開の準備
       </h2>
       <div style={card}>{body}</div>
     </section>

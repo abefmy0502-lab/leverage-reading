@@ -8,10 +8,10 @@
 // 1 つの関門は env か sql の 1 つ以上のキーで決まる（all = 全部 true のときだけ ✓）。
 
 export const GATE_GROUPS = [
-  { id: 'sell', title: '売るために必須', note: 'ここが全部そろうと、App 内課金と AI が本番で回ります。' },
-  { id: 'ios', title: 'iPhone の 1.0 に必須', note: '審査に出す前にそろえるもの。' },
-  { id: 'measure', title: '数字が見えるために', note: '運営ダッシュボードと LP の計測。' },
-  { id: 'boost', title: 'あると効く', note: '無くても売れるが、入れると伸びる。' },
+  { id: 'sell', title: '売るために必須' },
+  { id: 'ios', title: 'iPhone の 1.0 に必須' },
+  { id: 'measure', title: '数字が見えるために' },
+  { id: 'boost', title: 'あると効く' },
 ];
 
 // where: どの手順書のどこを見るか（画面にそのまま出す・短く）。

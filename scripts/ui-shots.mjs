@@ -1184,6 +1184,7 @@ const SCREENS = [
     ['admin-profit-missing', '/?admin=1&profit=missing', [{ eval: ADMIN_SCROLL('section[aria-labelledby="profit-title"]') }]],
     ['admin-launch', '/?admin=1', [{ eval: ADMIN_SCROLL('section[aria-labelledby="launch-gate-title"]') }]],
     ['admin-launch-ready', '/?admin=1&launch=ready', [{ eval: ADMIN_SCROLL('section[aria-labelledby="launch-gate-title"]') }]],
+    ['admin-launch-loading', '/?admin=1&launch=loading', [{ eval: ADMIN_SCROLL('section[aria-labelledby="launch-gate-title"]') }]],
     ['admin-launch-error', '/?admin=1&launch=error', [{ eval: ADMIN_SCROLL('section[aria-labelledby="launch-gate-title"]') }]],
     ['admin-profit-loading', '/?admin=1&profit=loading', [{ eval: ADMIN_SCROLL('section[aria-labelledby="profit-title"]') }]],
     ['admin-profit-error', '/?admin=1&profit=error', [{ eval: ADMIN_SCROLL('section[aria-labelledby="profit-title"]') }]],
