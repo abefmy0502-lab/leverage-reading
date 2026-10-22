@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { TERMS_URL, PRIVACY_URL } from '../../lib/legalLinks';
 import { useAuth } from '../../hooks/useAuth';
-import { isSupabaseConfigured } from '../../lib/supabase';
+import { isSupabaseConfigured, supabaseConfigProblem } from '../../lib/supabase';
 import { LIMITS, validatePassword } from '../../lib/limits';
 import { signInWithApple, isNativeApple, isAppleSignInAvailable } from '../../lib/appleAuth';
 import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnLink as uiBtnLink, input } from '../../styles/ui';
@@ -302,7 +302,7 @@ export default function AuthScreen() {
       <div style={{ ...screenStyle, textAlign: 'center' }}>
         <h1 style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, margin: '0 0 var(--space-3)' }}>設定が未完了です</h1>
         <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, maxWidth: 360, margin: 0 }}>
-          Supabase の環境変数が設定されていません。<br />
+          {supabaseConfigProblem || 'Supabase の環境変数が設定されていません。'}<br />
           <code style={{ fontSize: 'var(--text-meta)' }}>VITE_SUPABASE_URL</code> と{' '}
           <code style={{ fontSize: 'var(--text-meta)' }}>VITE_SUPABASE_ANON_KEY</code> を設定してください。
         </p>
