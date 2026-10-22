@@ -212,7 +212,8 @@ export function buildSeed(scenario) {
     analytics_events: [], feedback: [], account_deletion_requests: [], ai_token_lots: [],
     subscriptions: [{
       user_id: DEMO_USER_ID, status: 'active', provider: 'demo', price_id: 'orime_annual', // 設定の「プラン」は年額プラン
-      current_period_end: iso(-30), created_at: iso(200), updated_at: now,
+      // 次回更新は 4 か月先（30 日以内だとホームに「更新の前の 1 行」が出る＝?demo=renewal で確かめる・2026-10-22）。
+      current_period_end: iso(-120), created_at: iso(200), updated_at: now,
     }],
   };
   const jstMonth = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 7);
@@ -255,6 +256,8 @@ export function buildSeed(scenario) {
     const ocrUsed = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('ocr') === 'used';
     db.ai_usage = [...(db.ai_usage || []), { user_id: DEMO_USER_ID, period_month: `freeocr-${jstMonth}`, calls: ocrUsed ? 10 : 2, cost_mjpy: 0 }];
   }
+  // ?demo=renewal: 年額プランの更新まで 20 日（ホームの「年額プランの更新まで 20 日。この 1 年で、…」の確認用・2026-10-22）。
+  if (scenario === 'renewal') db.subscriptions[0] = { ...db.subscriptions[0], price_id: 'orime_annual', current_period_end: iso(-20) };
   // ?demo=paywall: 使い込んだデータのまま、購読だけ無い（有料プランの画面の確認用）。
   if (scenario === 'paywall') db.subscriptions = [];
   // ?demo=trial: 7 日間無料の途中（あと 5 日・150 トークンのうち 40 を使った）。

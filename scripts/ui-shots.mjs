@@ -352,6 +352,11 @@ const SCREENS = [
     ];
   })(),
   { name: 'settings', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }] },
+  // 📅 年額の更新の前の 1 行（?demo=renewal・30 日以内）／12〜1 月の月額の人への年額の 1 行／設定の「友だちに紹介する」（2026-10-22）
+  { name: 'home-renewal', url: '/?demo=renewal', steps: [{ wait: 1500 }] },
+  { name: 'home-annual', url: '/?demo=full&plan=monthly&today=2026-12-05', steps: [{ eval: "localStorage.setItem('orime.share.nudges', JSON.stringify({ year: '2026' }))" }, { reload: true }, { wait: 1500 }] },
+  { name: 'home-annual-jan', url: '/?demo=full&plan=monthly&today=2027-01-05', steps: [{ wait: 1500 }] },
+  { name: 'settings-referral', url: '/?demo=full&referral=1&native=1', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { eval: () => { Array.from(document.querySelectorAll('button')).find((b) => b.textContent.includes('友だちに紹介する'))?.scrollIntoView?.({ block: 'center' }); } }] },
   { name: 'auth', url: '/?demo=auth&auth=signin' },
   { name: 'landing', url: '/?demo=auth' },
   // メールのリンクから戻ったとき（2026-10-04）: 期限切れのリンク／パスワードを決め直す画面（入れ直しのエラーつき）

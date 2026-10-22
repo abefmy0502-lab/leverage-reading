@@ -15,7 +15,7 @@
 // 上の行の「写真で共有」は App.jsx の全体ヘッダー（ホーム・振り返り・相談で同じ場所）。
 // 見た目は DESIGN.md のトークンのみ。
 import { useEffect, useMemo, useState } from 'react';
-import { Library, ChevronRight, PencilLine, Plus, BookOpen, Timer, Target, Sprout, X, MessageCircle } from 'lucide-react';
+import { Library, ChevronRight, PencilLine, Plus, BookOpen, Timer, Target, Sprout, X, MessageCircle, CalendarCheck, CalendarDays } from 'lucide-react';
 import HomeFirstStep, { useHomeMemoState, MEMO_COUNT_WAIT_MS } from './HomeFirstStep';
 import GrowthMeter from './GrowthMeter';
 import ShareNudge, { useShareNudge } from './ShareNudge';
@@ -31,6 +31,9 @@ import { usePaywall } from '../state/PaywallContext';
 import { fetchUsedMjpy } from '../lib/tokens';
 import { prevMonthOf, tokensBackCandidate, shouldShowTokensBack, tokensBackText, readTokensBackDone, markTokensBackDone } from '../lib/tokensBack';
 import { reaskCandidate, pickReask, reaskText, readReaskDone, markReaskDone } from '../lib/reaskNudge';
+import { renewalCandidate, yearReviewStats, hasAnything, renewalText, daysUntil, readRenewalDone, markRenewalDone } from '../lib/renewalReview';
+import { annualNudgeCandidate, annualNudgeText, readAnnualNudgeDone, markAnnualNudgeDone } from '../lib/annualNudge';
+import { readingSessions } from '../hooks/useReadingSessions';
 import { loadAllMemoRows } from '../hooks/useAllMemoRows';
 import { supabase } from '../lib/supabase';
 import MemoLinks from './MemoLinks';
@@ -257,10 +260,11 @@ function HomeActionsRow({ summary, onOpen }) {
 // 🌱 相談相手が育ちました（2026-10-10）: メモが 10 件になったのを見たあと 1 回だけ、題の下（育つまでの一行と同じ場所）に。
 //   見た目は育つまでの一行（芽 1.2em・--text-3＋13/--text-2）＋右に文字ボタン「相談してみる」と ×。押しても閉じても二度と出さない。
 //   7 日間無料はここではすすめない（ホームではすすめない・相談の画面の案内 ③ はそのまま）。
-function GrownLine({ onConsult, onDismiss, text = null, icon: Icon = Sprout, actionLabel = '相談してみる', mark = 'grown' }) {
+// stack: 文が長い 1 行（更新の前・年額）は文を全幅にし、ボタンと × を次の行の右へ（1 行 14 字に縮めない・2026-10-22 ui-critic）。
+function GrownLine({ onConsult, onDismiss, text = null, icon: Icon = Sprout, actionLabel = '相談してみる', mark = 'grown', stack = false }) {
   return (
     <div data-grown-line={mark} style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 'var(--space-2)', margin: '0 calc(-1 * var(--space-3)) 0 0' }}>
-      <p style={{ flex: '1 1 10em', minWidth: 0, display: 'flex', alignItems: 'flex-start', gap: 'var(--space-1)', margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>
+      <p style={{ flex: stack ? '1 1 100%' : '1 1 10em', minWidth: 0, display: 'flex', alignItems: 'flex-start', gap: 'var(--space-1)', margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', height: '1.5em', flexShrink: 0 }}>
           <Icon size="1.2em" aria-hidden="true" style={{ color: 'var(--text-3)' }} />
         </span>
@@ -348,6 +352,56 @@ function useReaskNudge(active) {
   return { ready, show: !!picked && !closed, question: picked?.question || '', text: picked ? reaskText(picked) : null, close };
 }
 
+// 📅 年額プランの更新の前に「この 1 年に残したもの」（lib/renewalReview.js・2026-10-22）。更新まで 30 日以内の年額の人だけ。
+//   メモの作成日時と読書の時間を読み終えるか MEMO_COUNT_WAIT_MS まで待って 1 回だけ決める（あとから差し込まない）。
+function useRenewalReview(active, books) {
+  const { user } = useAuth();
+  const { plan, planPeriod, periodEnd } = usePaywall();
+  const [now] = useState(() => appNow().getTime());
+  const [doneKey] = useState(() => readRenewalDone(user?.id));
+  const need = active && !!user?.id && renewalCandidate({ plan, priceId: planPeriod, periodEnd, now, doneKey });
+  const [stats, setStats] = useState(undefined); // undefined＝まだ・null＝出さない
+  const [timedOut, setTimedOut] = useState(false);
+  useEffect(() => {
+    if (!need) return undefined;
+    let alive = true;
+    (async () => {
+      try {
+        const [memos] = await Promise.all([loadAllMemoRows(user.id), readingSessions.load(user.id).catch(() => {})]);
+        const memoTimes = (memos?.rows || []).map((m) => Date.parse(m.created_at || '')).filter(Number.isFinite);
+        const st = yearReviewStats({ books, memoTimes, sessions: readingSessions.rows(), now });
+        if (alive) setStats(hasAnything(st) ? st : null);
+      } catch { if (alive) setStats(null); }
+    })();
+    const t = setTimeout(() => { if (alive) setTimedOut(true); }, MEMO_COUNT_WAIT_MS);
+    return () => { alive = false; clearTimeout(t); };
+  }, [need, user?.id, now]); // eslint-disable-line react-hooks/exhaustive-deps
+  const ready = !need || stats !== undefined || timedOut;
+  const [closed, setClosed] = useState(false);
+  const close = (action) => {
+    markRenewalDone(user?.id, periodEnd);
+    setClosed(true);
+    track('renewal_review', { action });
+  };
+  return { ready, show: !!stats && !closed, text: stats ? renewalText({ days: daysUntil(periodEnd, now) ?? 0, stats }) : null, close };
+}
+
+// 📅 12 月・1 月に、月額プランの人へ年額プランを 1 行（lib/annualNudge.js・2026-10-22）。
+function useAnnualNudge(active) {
+  const { user } = useAuth();
+  const { plan, planPeriod } = usePaywall();
+  const [now] = useState(() => appNow().getTime());
+  const [doneSeason] = useState(() => readAnnualNudgeDone(user?.id));
+  const show0 = active && !!user?.id && annualNudgeCandidate({ plan, priceId: planPeriod, now, doneSeason });
+  const [closed, setClosed] = useState(false);
+  const close = (action) => {
+    markAnnualNudgeDone(user?.id, now);
+    setClosed(true);
+    track('annual_nudge', { action });
+  };
+  return { show: show0 && !closed, text: show0 ? annualNudgeText(now) : null, close };
+}
+
 // 🔗 ホームのメモを書くで保存したメモと似たことを、ほかの本でも書いていたら題の下に 1 行（MemoLinks の line・× で閉じる）。
 //   見つからなければ何も出さない（全部のメモを読むのは保存したときだけ）。
 function HomeSavedLinks({ books, saved, onOpen, onDismiss }) {
@@ -382,6 +436,7 @@ export default function HomeScreen({
   onQuickstart, onAddBook, onAddReadingBook, onAdvisor, onImport,
   onOpenBook, onWriteMemo, onStartReading, onOpenLibrary, onSeeAllReading, onCoverRetry, onShareNudge, onRead,
   onOpenActions, onConsultDraft, savedMemo = null, onDismissSavedMemo, onOpenMemo, onAddOneLines = null, onOpenConsult = null,
+  onOpenRecord = null, onOpenPlan = null,
 }) {
   const { user } = useAuth();
   // 🌱 育つまでの一行の右の次の一歩（2026-10-20）: はじめての相談の前は「相談してみる」（入れた理由かメモから下書き・送らない）、
@@ -396,7 +451,10 @@ export default function HomeScreen({
   // 無料プランで先月のトークンを使い切った人に、月のはじめの 7 日間だけ「今月の相談が戻りました」（2026-10-20）。
   const tokensBack = useTokensBack(!!onOpenConsult && !loading && !loadError && books.length > 0);
   const reask = useReaskNudge(!!onConsultDraft && !loading && !loadError && books.length > 0);
-  const homeKnown = memoState.known && shareNudge.ready && tokensBack.ready && reask.ready;
+  // 年額の更新の前の 1 行（30 日前から）と、12〜1 月の月額の人への年額の 1 行（2026-10-22）。どちらも 1 行ずつ・ほかの 1 行より先。
+  const renewal = useRenewalReview(!!onOpenRecord && !loading && !loadError && books.length > 0, books);
+  const annual = useAnnualNudge(!!onOpenPlan && !loading && !loadError && books.length > 0);
+  const homeKnown = memoState.known && shareNudge.ready && tokensBack.ready && reask.ready && renewal.ready;
   // 📊 memos_reached_10（lib/firstDay.js）: 10 件より少ないのを見たあとで 10 件以上になったら 1 回だけ。
   // 🌱 「相談相手が育ちました」（10 件を越えたのを見たあと 1 回だけ・相談の画面で先に越えても、ホームに戻ったら出す）。
   const [grown, setGrown] = useState(grownLinePending);
@@ -452,7 +510,30 @@ export default function HomeScreen({
           />
         )}
         {/* 🔁 先月の相談をいまのメモでもう一度（月のはじめ 7 日・「今月の相談が戻りました」が出る月は出さない＝2 行にしない）。 */}
-        {homeKnown && reask.show && !tokensBack.show && !showGrown && (
+        {homeKnown && renewal.show && (
+          <GrownLine
+            mark="renewal"
+            stack
+            icon={CalendarCheck}
+            text={renewal.text.lead}
+            actionLabel={renewal.text.action}
+            onConsult={() => { renewal.close('open'); onOpenRecord(); }}
+            onDismiss={() => renewal.close('dismiss')}
+          />
+        )}
+        {/* 12 月は「今年の読書を、1 枚の画像に」が先（2 行重ねない・閉じた次に出る）。 */}
+        {homeKnown && annual.show && !renewal.show && !shareNudge.nudge && (
+          <GrownLine
+            mark="annual"
+            stack
+            icon={CalendarDays}
+            text={annual.text.lead}
+            actionLabel={annual.text.action}
+            onConsult={() => { annual.close('open'); onOpenPlan(); }}
+            onDismiss={() => annual.close('dismiss')}
+          />
+        )}
+        {homeKnown && reask.show && !tokensBack.show && !showGrown && !renewal.show && !annual.show && (
           <GrownLine
             mark="reask"
             icon={MessageCircle}

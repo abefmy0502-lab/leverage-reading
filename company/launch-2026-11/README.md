@@ -20,6 +20,10 @@
 | [`note-drafts/03-読書メモは視点の在庫.md`](note-drafts/03-読書メモは視点の在庫.md) | 視点の在庫（出典の了解は `partner-outreach.md` §7） | 11/10（火） |
 | [`note-drafts/06-Orimeを作った理由.md`](note-drafts/06-Orimeを作った理由.md) | 公開記念・開発の物語 | **11/17（火）** |
 | [`note-drafts/02-notes-for-people-who-forget.md`](note-drafts/02-notes-for-people-who-forget.md) | メモの残し方（10-08 版・冒頭と導線を直してから） | 11/24（火） |
+| [`seasonal-2027.md`](seasonal-2027.md) | 1 月「今年こそ読む」・4 月 新生活・12 月「今年の読書」の素材（X 30・Threads 12・リール 4・カルーセル 2・note 2・2026-10-22） | 1/4〜・3/22〜・12/1〜 |
+| [`threads-posts.md`](threads-posts.md) | Threads 20 本（公開前 5・公開日 3・公開後 12・2026-10-22） | 11/3〜 |
+| [`review-request.md`](review-request.md) | App Store のレビューを最初の 20 件集める文（テスター・創業メンバーの部屋・X）と返信の型。**出すかはオーナー判断**（sns-playbook §6 の「頼まない」との線引きは冒頭） | 11/17 |
+| [`user-voices.md`](user-voices.md) | 利用者の声を LP・ストアに載せる集め方・許可の文・法律の注意 | 11/24〜 |
 | [`partner-outreach.md`](partner-outreach.md) | 本要約・読書術の発信者・読書会・大学の読書サークルへの連絡文・オファーコード・事実のまとめ | 11/4〜 |
 | [`launch-email.md`](launch-email.md) | 公開の日のメール（1 通だけ） | **11/17 朝 7:30** |
 | [`line-openchat.md`](line-openchat.md) | 創業メンバーの部屋 | 11/10 に作る |

@@ -41,6 +41,7 @@ import { openBillingPortal, PLAN_LABELS } from '../lib/billing';
 import { deleteConfirmTarget, deleteConfirmMatches } from '../lib/deleteConfirm';
 import { purchasePlan } from '../lib/iap';
 import { isNative, openManageSubscriptions, canRedeemOfferCode, presentOfferCodeSheet, invalidateCustomerInfo, waitForCodeSheetClosed } from '../lib/iap';
+import { REFERRAL_ON, REFERRAL_CODE, referralMessage, shareReferral } from '../lib/referral';
 import { usePaywall } from '../state/PaywallContext';
 import { planNameFor, planPeriodOf, trialRenewalLine, trialCancelNote, trialCancelByTime } from '../lib/trialNudge';
 import { PAID_TOKENS, FREE_TOKENS } from '../lib/tokens';
@@ -451,6 +452,30 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
       <span style={{ flex: 1, minWidth: 0 }}>
         <span style={{ ...rowTitleStyle, display: 'block' }}>コードを使う</span>
         <span style={{ ...rowDescStyle, display: 'block', margin: 0 }}>App Store のオファーコード</span>
+      </span>
+      <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+    </button>
+  ) : null;
+  // 🤝 友だちに紹介する（2026-10-22・lib/referral.js）: オファーコード（VITE_REFERRAL_CODE）があるビルドだけ。
+  //   端末の共有シートに文を渡す。無ければ文をコピー。お試しモードは &referral=1 で行を出す。
+  const referralPreview = isDemo && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('referral') === '1';
+  const showReferralRow = REFERRAL_ON || referralPreview;
+  const handleReferral = async () => {
+    track('referral_share', { action: 'open' });
+    const msg = referralMessage(REFERRAL_CODE || 'ORIME', undefined);
+    if (await shareReferral(msg)) return;
+    try {
+      await navigator.clipboard?.writeText(msg);
+      toast.success('紹介の文をコピーしました。');
+    } catch {
+      toast.error('紹介の文を用意できませんでした。');
+    }
+  };
+  const referralRow = showReferralRow ? (
+    <button type="button" onClick={handleReferral} style={{ ...rowButtonStyle, ...divider }}>
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ ...rowTitleStyle, display: 'block' }}>友だちに紹介する</span>
+        <span style={{ ...rowDescStyle, display: 'block', margin: 0 }}>オファーコードつきの紹介文</span>
       </span>
       <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
     </button>
@@ -1046,7 +1071,8 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                     <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
                   </button>
                 )}
-                <div style={{ ...blockStyle, ...divider }}>
+                {/* iPhone のアプリで有料のときは中身が無いので、区切り線ごと出さない（空の行が 2 本の線に挟まれていた・2026-10-22 ui-critic）。 */}
+                {(plan === 'trial' || !nativeView) && <div style={{ ...blockStyle, ...divider }}>
                   {/* 管理ボタンを出せる状態かどうかで説明文を出し分ける。
                       出せない（Web で stripeCustomerId 未同期 / 付与契約 等）のに
                       「こちらから」と書くと、ボタンが無いのに導線を匂わせて分かりにくいため。 */}
@@ -1082,7 +1108,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                       {billingBusy ? '移動中…' : 'プランを管理する'}
                     </button>
                   ) : null}
-                </div>
+                </div>}
                 {/* 管理ボタンを出せない契約状態では、探させずにその場で連絡導線を置く
                     （旧: 「画面下部のお問い合わせから」と下端リンクを自力で
                     探させる行き止まりだった）。一覧の行として置く（枠のボタンにしない）。 */}
@@ -1143,6 +1169,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
             )}
             {/* 🎟 コードを使う（iPhone のアプリだけ・契約の有無にかかわらずグループの最後に）。 */}
             {!subLoading && codeRow}
+            {!subLoading && referralRow}
           </Group>
 
           {/* ── 通知 ── 準備中（鍵が未設定）の間はグループごと出さない。 */}

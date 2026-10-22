@@ -125,6 +125,7 @@ const ShareSheet = lazy(() => import('./components/ShareSheet'));
 import { hasFinishedThisMonth, yearChoiceAllowed, pickShareSubject } from './lib/shareSubject';
 import { checkSharePhoto, canUseNativePhoto, pickNativePhoto, photoPickErrorText, nativePhotoDeniedMessage, photoFailAction, PHOTO_FAIL_TOAST_MS } from './lib/sharePhotoPick';
 import { appNow } from './lib/appNow';
+import { planPeriodOf } from './lib/trialNudge';
 import { clearShareMemoCaches } from './lib/shareMemoCache';
 const Landing = lazy(() => import('./pages/Landing'));
 const TermsPage = lazy(() => import('./legal/TermsPage'));
@@ -6059,6 +6060,8 @@ function AuthedApp() {
               // 🌱 相談相手が育ちました →「相談してみる」（下書きを入れて相談を開く・送らない）
               onConsultDraft={(q, from) => { track('try_consult', { from }); openConsultWith(q); }}
               onOpenConsult={() => { setView('list'); setAiSubTab('brain'); setTab('ai'); }}
+              onOpenRecord={() => { setReviewSubTab('record'); setView('list'); setTab('review'); }}
+              onOpenPlan={() => setSettingsOpen(true)}
               // 🌱 育つまでの一行の「一言ずつ残す」（2026-10-20）: メモの無い読了・読書中の本（最大 5 冊）を一言の段から。
               //   どの本にメモがあるか分からないとき（全部のメモをまだ読んでいない）は、いつもの初日クイックスタート。
               onAddOneLines={async () => {
@@ -7612,6 +7615,9 @@ function PaywallGate() {
       plan,
       freeMode,
       trialEndsAt,
+      // 📅 契約の種類（'annual' | 'monthly' | ''）と次回更新（ISO）。ホームの年額の更新の前の 1 行・12〜1 月の年額の 1 行に使う（2026-10-22）。
+      planPeriod: planPeriodOf(subscription?.priceId),
+      periodEnd: subscription?.currentPeriodEnd || null,
       tokenAllowance,
       // 🌱 無料プランのはじめの月か・来月 1 日に戻る量（「11月1日に 30 トークンに戻ります」）。
       freeFirstMonth,
