@@ -1,5 +1,7 @@
 # 📱 Orime iOS アプリ ビルド & 申請ガイド（Mac作業用）
 
+> ⚠️ 2026-10-24: このガイドは古い部分があります。**申請の手順は `company/app-store-submission.md`（全体）と `docs/iap-setup-runbook.md`（課金）を正**とし、こちらと食い違ったらそちらに従ってください（Xcode 26 が要る・`npx cap add ios` は最初の 1 回・App 名・Review Notes など）。
+
 > 更新 2026-06-22。Web版（Stripe・¥1,280）はコード完成・別途デプロイ。本書は **iOS版（App内課金 / IAP・¥1,480）** を Mac でビルドして App Store 審査に出すための手順。コード側（Capacitor土台 + RevenueCat配線）は本リポジトリに実装済み。**この環境（クラウド）ではネイティブビルドができないため、ここから先は Mac + Xcode が必要**。
 
 ## 0. 前提（価格・チャネル）

@@ -3,6 +3,24 @@
 > 対象: iOS / Capacitor + RevenueCat(IAP)。Bundle ID `jp.orime.app`、表示名 `Orime`。
 > このドキュメントは「コード側は提出可能水準」を前提に、**Apple 側でやる作業**を順に網羅する。
 > ✅=実装/準備済み、⬜=あなた（Mac/Apple アカウント）が行う作業。
+> **最終更新 2026-10-24**。課金の画面の操作は `docs/iap-setup-runbook.md` が正（このファイルと食い違ったらそちら）。
+
+### 2026-10-24 の見直しで変わったこと（前に読んだ人へ）
+
+| 項目 | 前の書き方 | 今 |
+|---|---|---|
+| Mac の道具 | 指定なし | **Xcode 26 以降（iOS 26 の SDK）でないと App Store Connect に上げられない**（Apple の決まり・2026-04-28 から）。Capacitor 8 も Xcode 26 が要る |
+| iOS のプロジェクト | `npx cap sync ios` から | リポジトリに `ios/` がまだ無い。**最初の 1 回だけ `npx cap add ios`**（§5） |
+| 通知の部品 | `npm i @capacitor/push-notifications` | **もう package.json に入っている**。`npm install` だけでよい（§12） |
+| App 名 | Orime | **`Orime - 読んだ本と会話する読書メモ`**（2026-10-11 オーナー決定・`company/app-store-listing.md`）。ホーム画面の名前は Orime のまま |
+| サブスクのグループ名 | Orime Premium | **Orime プラン**（`docs/iap-setup-runbook.md` C） |
+| RevenueCat → Supabase の Webhook | 未実装なら別途 | **実装済み**（`api/revenuecat-webhook.js`）。F-8 で URL と合言葉を入れるだけ |
+| 無料プランの AI | 毎月 30 トークン | **毎月 30・はじめの 2 か月は 60**（2026-10-21）。Review Notes を直した（§7） |
+| 年齢レーティング | 4+ と書くだけ | **新しい質問票**（4+／9+／13+／16+／18+）に答える。答え方は §7 |
+| デモアカウント | 「課金済みにしておく」だけ | **課金済みにする SQL** を §7 に |
+| Mac で作るときの値 | 書いていない | `.env.production.local` に `VITE_` の値（§4-1） |
+| 出し直し | Vercel の Redeploy | **GitHub の Actions の Run workflow**（Redeploy は使えない）。`VITE_` は **Config** |
+| スクショ | 生成器だけ | 2026-10-11 に作った 6.9 / 6.5 インチの画像が `company/launch-2026-11/screenshots/` にある。その後に足した機能（読む時間の目安など）は入っていないので、出す前に見直す（§9） |
 
 ---
 
@@ -21,21 +39,22 @@
 | 自前利用計測 | analytics_events（ファーストパーティ・外部送信なし） |
 | 追加トークンに期限なし（3.1.1「買ったクレジットを期限切れにしない」） | ✅ 2026-10-11（`supabase_ai_token_credits.sql` を流し直す） |
 | 通知のスイッチは通知を出せるビルドだけ | ✅ 2026-10-11（`VITE_NATIVE_PUSH=on` のときだけ iPhone に出す・既定は隠す） |
-| **iPhone の通知を 1.0 から出す（ローンチ前の必須・2026-10-21）** | ⬜ APNs の鍵・capability・プラグイン・`supabase_push_native.sql` をそろえ、**1.0 のビルドを `VITE_NATIVE_PUSH=on` で出す**（§12）。思い出しの通知・行動の期限の通知が、2 日目・7 日目・30 日目に戻るきっかけになる（30 日後も使う 25% の柱）。入れないと iPhone には何も届かない |
+| **iPhone の通知を 1.0 から出す（ローンチ前の必須・2026-10-21）** | ⬜ APNs の鍵・capability をそろえ（プラグインは package.json に入っている・`supabase_push_native.sql` は 2026-10-24 に流した）、**1.0 のビルドを `VITE_NATIVE_PUSH=on` で出す**（§12）。思い出しの通知・行動の期限の通知が、2 日目・7 日目・30 日目に戻るきっかけになる（30 日後も使う 25% の柱）。入れないと iPhone には何も届かない |
 
 ---
 
 ## 1. Apple Developer / 証明書（⬜）
 
 1. **Apple Developer Program** 登録（年 ¥12,980）。
+   - **Mac に Xcode 26 以降**（App Store から入れる・macOS は Xcode 26 が動く版に）。古い Xcode で作ったビルドは App Store Connect が受け付けない（2026-04-28 から）
 2. **App ID** を作成: `jp.orime.app`。Capability で **In-App Purchase** と **Sign in with Apple** を有効化。**Push Notifications** は、通知を出すビルド（`VITE_NATIVE_PUSH=on`・APNs の鍵 `APNS_*` を Vercel に入れた）のときだけ足す。入れないビルドでは iPhone の設定に通知のスイッチは出ない（2026-10-11）。
 3. 署名は **Xcode の Automatically manage signing** に任せるのが最速（Team を選ぶだけ）。
 
 ## 2. App Store Connect でアプリ作成（⬜）
 
 1. [App Store Connect](https://appstoreconnect.apple.com) → My Apps → ＋ → New App。
-   - Platform: iOS / Name: **Orime** / Primary Language: 日本語 / Bundle ID: `jp.orime.app` / SKU: `orime-ios-001`。
-2. **サブスク商品（Auto-Renewable Subscription）を2つ**登録（App内課金 → サブスクリプショングループ「Orime Premium」を作りその中に）:
+   - Platform: iOS / Name: **Orime - 読んだ本と会話する読書メモ**（ホーム画面の名前は Orime のまま）/ Primary Language: 日本語 / Bundle ID: `jp.orime.app` / SKU: `orime-ios-001`。
+2. **サブスク商品（Auto-Renewable Subscription）を2つ**登録（App内課金 → サブスクリプショングループ「Orime プラン」を作りその中に・画面の操作は `docs/iap-setup-runbook.md` C）:
    - 月額: Product ID `orime_monthly` / ¥1,480 / 期間1ヶ月
    - 年額: Product ID `orime_annual` / ¥12,800 / 期間1年
    - ローカリゼーション（表示名・説明）を各商品に記入。**審査用に最低1商品をアプリのバイナリと一緒に提出**。
@@ -50,7 +69,7 @@
 2. **Entitlement** を1つ作成（例 `premium`）。コードは「active な entitlement が1つでもあれば有効」判定なので名称は任意（`src/lib/iap.js` 参照）。
 3. **Offering（current）** を作り、**Packages を Monthly / Annual** で登録し、上の Product ID を割り当てる（コードは packageType=MONTHLY/ANNUAL で引く）。
 4. **公開 SDK キー（Apple 用）** を取得 → 環境変数 `VITE_REVENUECAT_IOS_KEY` に設定（下記）。
-5. **Webhook → Supabase**: RevenueCat の Webhook を、`subscriptions` テーブルへ status / period_type を書く中継に向ける（既存 Stripe webhook と同型。未実装なら別途。最悪 webhook 無しでも端末ローカル entitlement で課金は通るが、ダッシュボードの会員数は更新されない）。
+5. **Webhook → Supabase**: 中継は実装済み（`api/revenuecat-webhook.js`）。RevenueCat の Webhook に `https://orime.vercel.app/api/revenuecat-webhook` と合言葉を入れる（`docs/iap-setup-runbook.md` F-8・G）。
 
 ## 4. 環境変数（本番ビルドに必要・⬜ 確認）
 
@@ -88,19 +107,22 @@ VITE_RELEASE_NOTES_SINCE=（公開日 YYYY-MM-DD）
 ## 5. Xcode / ネイティブプロジェクト（⬜）
 
 ```bash
-# Mac で
+# Mac で（リポジトリを clone したフォルダで・先に §4-1 の .env.production.local を作る）
 npm install
 npm run build
+npx cap add ios    # 最初の 1 回だけ（ios/ を作る・2 回目からは不要）
 npx cap sync ios
 npx cap open ios   # Xcode が開く
 ```
+
+- `npx cap add ios` で作った `ios/` は、Info.plist と PrivacyInfo を入れたあとでリポジトリにコミットする（次から作り直さないため・Pods とビルドの中身は .gitignore 済み）
 Xcode で:
 1. Signing & Capabilities → Team を選択、**In-App Purchase** と **Sign in with Apple** の capability を追加（**Push Notifications** と Background Modes の Remote notifications は `VITE_NATIVE_PUSH=on` で出すビルドだけ）。
 2. General → **Version 1.0.0 / Build 1**、Display Name `Orime`。
 3. App アイコン: `public/icons/icon-1024.png` を AppIcon にセット（1024 必須）。
 4. **PrivacyInfo.xcprivacy** を `ios/App/App/` に追加（下記 §8 の内容をコピー）。
 5. 実機（あなたの iPhone）で一度ビルド＆起動して、**課金（Sandbox）と復元**が動くか確認。
-6. **Info.plist** に次の 3 つの説明文を入れる（`@capacitor/camera` は package.json に入っているので `npm install && npx cap sync ios` で入る・無いと開いた瞬間に落ちる・2026-10-11 に文を決めた）:
+6. **Info.plist** に `ITSAppUsesNonExemptEncryption` = `NO`（Boolean・暗号化は HTTPS だけ）と、次の 3 つの説明文を入れる（`@capacitor/camera` は package.json に入っているので `npm install && npx cap sync ios` で入る・無いと開いた瞬間に落ちる・2026-10-11 に文を決めた）:
 
    | キー | 文 |
    |---|---|
@@ -164,11 +186,26 @@ AI 機能ごとに、Anthropic（相談・AI 選書の推薦）／Google の Gem
 
 ## 7. App 審査情報（⬜）
 
-- **デモアカウント**を用意（審査官がペイウォール内を見られるよう、課金済みの test アカウント or Sandbox 手順を Review Notes に明記）。（2026-09-27〜フリーミアム: 契約しなくてもアプリは使え、AI は相談・この本で学べること（あわせて毎月 30 トークン）と写真から書き起こし（毎月 10 回）。AI 選書・読書計画シートなどプランの機能を審査官が確かめられるよう、課金済みのデモアカウントは引き続き用意する）
+- **デモアカウント**を用意（審査官がペイウォール内を見られるよう、課金済みの test アカウント or Sandbox 手順を Review Notes に明記）。
+  - 作り方（2026-10-24）: ①アプリでふつうにアカウントを作る（例 `orime.review@gmail.com`・ふだん使わないメール）②本を 3 冊・メモを 10 件ほど入れておく（相談が答えられるように）③Supabase の SQL Editor で次を Run して課金済みにする ④設定 → プライバシー →「AI へのデータ送信」で同意を取り消す（§6-1）
+    ```sql
+    insert into public.subscriptions (user_id, status, provider, period_type, current_period_end)
+    select id, 'active', 'manual', 'normal', now() + interval '1 year' from auth.users where email = 'orime.review@gmail.com'
+    on conflict (user_id) do update set status = 'active', provider = 'manual', period_type = 'normal', current_period_end = excluded.current_period_end;
+    ```
+  - このアカウントは運営ダッシュボードの有料の数に 1 人として入る。公開のあとに `update public.subscriptions set status = 'canceled' where user_id = (select id from auth.users where email = 'orime.review@gmail.com');` で外す（`app_admins` に入れると運営ダッシュボードが審査官に見えるので入れない）（2026-09-27〜フリーミアム: 契約しなくてもアプリは使え、AI は相談・この本で学べること（あわせて毎月 30 トークン）と写真から書き起こし（毎月 10 回）。AI 選書・読書計画シートなどプランの機能を審査官が確かめられるよう、課金済みのデモアカウントは引き続き用意する）
 - Review Notes 文例:
-  > サブスクリプション制アプリです。審査用デモアカウント: email=____ / pass=____（このアカウントは課金済み状態にしてあります）。課金は RevenueCat 経由の App 内課金、購入の復元・自動更新条件・利用規約・プライバシーポリシーを Paywall に明示しています。アカウント削除はアプリ内（設定→アカウント削除）で可能です。
+  > 審査用デモアカウント: email=____ / pass=____（このアカウントはプラン契約中にしてあり、AI 選書・読書計画シートなどプランの機能を確かめられます）。
+> 契約しなくても、本・メモ・振り返り・写真で共有などはすべて使えます（無料プラン）。無料プランの AI は、相談とこの本で学べること（あわせて毎月 30 トークン・アカウントを作った月と翌月は 60）と、写真から書き起こし（毎月 10 回）です。プランは月額 ¥1,480・年額 ¥12,800 で、毎月 800 トークンとすべての AI 機能が使えます（月額は最初の 7 日間無料）。追加トークン（300・1,000）は消耗型で、期限はありません。
+> 課金は App 内課金（RevenueCat 経由）です。購入の復元・自動更新の条件・利用規約・プライバシーポリシーを有料プランの画面に示しています。アカウント削除はアプリ内（設定 → アカウント削除）でできます。
+> AI 機能は、はじめて使うときに送る内容と送り先（Anthropic・Google）を示して同意をいただき、同意のあと機能に必要な内容だけを各社の API に送ります（各社の API の規約で学習には使われません）。写真を送るのは「写真から書き起こし」だけです。同意は 設定 → プライバシー →「AI へのデータ送信」から取り消せます。
 - **サポートURL** / **マーケティングURL** / **プライバシーポリシーURL**（`/legal/privacy`）/ **利用規約(EULA)URL**（`/legal/terms`）を登録。
-- 年齢レーティング: 4+（不適切コンテンツ無し）。
+- 年齢レーティング: **新しい質問票**（2025-07 に変わった・結果は 4+／9+／13+／16+／18+）に答える。Apple は「AI のアシスタントやチャットの機能も含めて、出てくる内容の頻度で答える」としている。Orime の答え方の目安:
+  - 暴力・性的な内容・ギャンブル・薬物など: **なし**（相談は本人のメモと本に沿って答え、AI 選書は本を推す）
+  - 医療・健康の情報: 健康の本を推すことはあるが、診断・治療はしない（答えの補足で「医師や専門家にも相談を」と添える）→ **ほとんど無い／まれ** のどちらかを選ぶ
+  - ほかの人とのやりとり（メッセージ・投稿の公開）: **なし**（写真で共有は端末の共有シートに渡すだけ）
+  - 制限の無いウェブの閲覧: **なし**（Amazon・楽天などの本のページを Safari で開くだけ）
+  - 結果は 4+ か 9+ の見込み。画面の質問が増えていたら、その画面を撮って確かめる
 
 ## 8. PrivacyInfo.xcprivacy（⬜ `ios/App/App/` に追加）
 
@@ -282,7 +319,7 @@ AI 機能ごとに、Anthropic（相談・AI 選書の推薦）／Google の Gem
 
 ## 9. スクリーンショット（⬜）
 
-- 必須: **6.9インチ（1320×2868）**（最低3枚、推奨5枚）。生成器 `appstore-screenshots/index.html` は 6.9 対応済み。
+- 必須: **6.9インチ（1320×2868）**（最低3枚、推奨5枚）。2026-10-11 に作った画像が `company/launch-2026-11/screenshots/`（`base-1〜6` が本番用・6.9 と 6.5 の両方）。生成器は `company/appstore-screenshots/index.html`。その後に変わった画面があれば撮り直す
 - 推奨カット: ①相談（メモを根拠にした答え）②ホーム（いま読んでいる本・メモを書く）③振り返り（行動・思い出しカード）④写真で共有 ⑤AI 選書。
 - Xcode のシミュレータ or 実機でキャプチャ。日本語UIで。
 
@@ -303,7 +340,7 @@ AI 機能ごとに、Anthropic（相談・AI 選書の推薦）／Google の Gem
 - ✅ アカウント削除（5.1.1(v)）→ 実装済み。
 - ✅ 第三者の AI に送る前の同意（5.1.2(i)）→ 2026-10-01 実装済み（§6-1）。デモアカウントは同意を取り消した状態で渡す。
 - △ **価格の二重表示に注意**: アプリ内の価格表記は App Store の実価格と一致させる（コードは ¥1,480 固定フォールバックだが、実際は RevenueCat のストア価格で上書きされる）。
-- △ Review Notes に「無料プラン: 本・メモ・記録・写真で共有、相談とこの本で学べること（あわせて毎月 30 トークン）、写真から書き起こし（毎月 10 回）／プラン: 毎月 800 トークンとすべての AI 機能（月額は最初の 7 日間無料）」と明記し、デモアカウントを渡すこと（2026-09-27 フリーミアム・2026-10-11 更新）。
+- ✅ Review Notes の文は §7 にまとめた（無料プランの量・プラン・追加トークン・AI の同意・デモアカウント・2026-10-24）。
 
 ## 11. 退会したときの管理者の作業（Apple でサインインの人は Apple のトークンも取り消す・⬜）
 
@@ -338,11 +375,11 @@ AI 機能ごとに、Anthropic（相談・AI 選書の推薦）／Google の Gem
 | 2 | App ID `jp.orime.app` の Capability に **Push Notifications** を足す | — |
 | 3 | Vercel の環境変数 `APNS_KEY_ID` / `APNS_TEAM_ID` / `APNS_PRIVATE_KEY`（.p8 の全文）/ `APNS_BUNDLE_ID=jp.orime.app` / `APNS_PRODUCTION=true`（TestFlight は `false`） | `CRON_SECRET` も入っていること |
 | 4 | Supabase で `supabase_push_native.sql`（`supabase_all_in_order.sql` に入っている） | `push_subscriptions` に `platform` 列 |
-| 5 | Mac で `npm i @capacitor/push-notifications && npx cap sync ios`、Xcode の Signing & Capabilities に **Push Notifications** と **Background Modes → Remote notifications** | ビルドが通る |
+| 5 | Mac で `npm install && npx cap sync ios`（プラグインは package.json に入っている）、Xcode の Signing & Capabilities に **Push Notifications** と **Background Modes → Remote notifications** | ビルドが通る |
 | 6 | **`VITE_NATIVE_PUSH=on` で 1.0 のビルド** | iPhone の設定に「通知」のスイッチが出る |
 | 7 | TestFlight で 通知をオン → 行動に今日が期限のものを 1 つ作る → 翌朝 8 時台に届く | `vercel.json` の Cron が毎日動いている |
 
 間に合わないときは、1.0 は `VITE_NATIVE_PUSH` 無しで出し（スイッチは隠れる・審査は通る）、**1.0.1 を公開から 2 週間以内**に出す。
 
 ## 宿題（ローンチ後でよい）
-- 🧾 RevenueCat → subscriptions webhook（会員数の自動同期）。未実装なら課金は通るがダッシュボード会員数が手動確認になる。
+- （2026-10-24）RevenueCat → subscriptions の webhook は実装済み。残りなし。
