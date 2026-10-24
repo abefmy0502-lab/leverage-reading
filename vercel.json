@@ -39,7 +39,31 @@
       ]
     },
     {
-      "source": "/(og-image.png|logo-lockup.png|apple-touch-icon.png|icons/(.*)|lp/(.*))",
+      "source": "/og-image.png",
+      "headers": [
+        { "key": "Cross-Origin-Resource-Policy", "value": "cross-origin" }
+      ]
+    },
+    {
+      "source": "/logo-lockup.png",
+      "headers": [
+        { "key": "Cross-Origin-Resource-Policy", "value": "cross-origin" }
+      ]
+    },
+    {
+      "source": "/apple-touch-icon.png",
+      "headers": [
+        { "key": "Cross-Origin-Resource-Policy", "value": "cross-origin" }
+      ]
+    },
+    {
+      "source": "/icons/(.*)",
+      "headers": [
+        { "key": "Cross-Origin-Resource-Policy", "value": "cross-origin" }
+      ]
+    },
+    {
+      "source": "/lp/(.*)",
       "headers": [
         { "key": "Cross-Origin-Resource-Policy", "value": "cross-origin" }
       ]

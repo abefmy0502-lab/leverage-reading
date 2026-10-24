@@ -45,6 +45,16 @@ jobs:
       - name: Pull Vercel project settings & env (production)
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
 
+      # VITE_ で始まる変数はビルドでアプリに書き込む値。Vercel で Secret にすると `vercel pull` が取り出せず
+      # "[SENSITIVE]" という文字が入り、アプリが起動できない（2026-10-24 に本番が真っ暗になった原因）。名前だけ出して止める。
+      - name: Check VITE_ variables are not Secret
+        run: |
+          bad=$(grep -oE '^VITE_[A-Z0-9_]+="?\[SENSITIVE\]' .vercel/.env.production.local | cut -d= -f1 || true)
+          if [ -n "$bad" ]; then
+            echo "::error::Vercel で Secret になっている VITE_ の変数があります。Type を Config にして作り直してください: $(echo $bad | tr '\n' ' ')"
+            exit 1
+          fi
+
       - name: Build (production)
         run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
 
