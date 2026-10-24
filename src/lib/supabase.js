@@ -11,7 +11,9 @@ export function isHttpUrl(v) {
   try { const u = new URL(v); return u.protocol === 'https:' || u.protocol === 'http:'; } catch { return false; }
 }
 const supabaseUrlRaw = cleanEnv(import.meta.env.VITE_SUPABASE_URL);
-const supabaseUrl = isHttpUrl(supabaseUrlRaw) ? supabaseUrlRaw.replace(/\/+$/, '') : '';
+// Supabase の Data API の画面の「API URL」をそのまま貼った（…/rest/v1/）ときも、プロジェクトの URL に戻す（2026-10-24）。
+export function projectUrlOf(v) { return String(v || '').replace(/\/+$/, '').replace(/\/rest\/v1$/i, ''); }
+const supabaseUrl = isHttpUrl(supabaseUrlRaw) ? projectUrlOf(supabaseUrlRaw) : '';
 const supabaseAnonKey = cleanEnv(import.meta.env.VITE_SUPABASE_ANON_KEY);
 // 値はあるのに形が違うとき（設定の画面で理由を出す）。
 export const supabaseConfigProblem = supabaseUrlRaw && !supabaseUrl ? 'VITE_SUPABASE_URL が URL の形ではありません（https://〜.supabase.co・引用符や空白なし）。' : '';
