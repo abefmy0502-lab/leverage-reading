@@ -66,6 +66,25 @@
 | `VITE_RELEASE_NOTES_SINCE` | **App Store 1.0 のビルドには公開日（`YYYY-MM-DD`）を入れる**。それより前の「新しくなったこと」（公開前にたまった 27 の版）を、設定の一覧・更新したあとのシート・「何が変わった？」に出さない（2026-10-11）。Vercel の Web にも同じ値 |
 | `VITE_NATIVE_PUSH`（任意） | `on` のビルドだけ iPhone に通知のスイッチを出す。APNs の鍵・capability・プラグインがそろうまでは入れない（既定は隠す・2026-10-11） |
 
+### 4-1. Mac でアプリを作るときの値（2026-10-24）
+
+iPhone のアプリは、Mac で `npm run build` したときの `VITE_` の値を中に焼き込む（Vercel の値は使われない）。リポジトリのいちばん上に **`.env.production.local`** を作り、次を書く（git には入らない・`.gitignore` 済み）。値は Vercel の Environment Variables と同じもの。
+
+```
+VITE_SUPABASE_URL=https://tkrinnopfssdibgxuqzl.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJ…（Supabase の API Keys の anon public）
+VITE_REVENUECAT_IOS_KEY=appl_…（docs/iap-setup-runbook.md F-7）
+VITE_SITE_URL=https://orime.vercel.app
+VITE_RELEASE_NOTES_SINCE=（公開日 YYYY-MM-DD）
+# 通知を 1.0 から出すとき（§12 がそろってから）
+# VITE_NATIVE_PUSH=on
+# 入れているなら
+# VITE_SENTRY_DSN=…
+```
+
+- 抜けているとアプリは「設定が未完了です」の画面になる（`VITE_SUPABASE_URL`・`VITE_SUPABASE_ANON_KEY`）か、買うボタンが出ない（`VITE_REVENUECAT_IOS_KEY`）
+- 値を変えたら `npm run build && npx cap sync ios` をやり直してから Xcode でビルドする
+
 ## 5. Xcode / ネイティブプロジェクト（⬜）
 
 ```bash

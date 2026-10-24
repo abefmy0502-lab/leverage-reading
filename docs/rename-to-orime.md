@@ -57,7 +57,7 @@
    - URL の末尾に `/` を付けない。
    - `RAKUTEN_APP_URL` がすでにある場合は、⋯ → Edit で値を書き換える。
 3. ✅ **楽天ウェブサービス**：2026-09-26 に新しいアプリ「Orime」（許可サイト orime.vercel.app・楽天ブックスAPIのみ・**有効期限 2027-09-27、期限前に「有効期限延長」**）を作り、Vercel の `RAKUTEN_APPLICATION_ID` / `RAKUTEN_ACCESS_KEY` / `RAKUTEN_APP_URL` を差し替え済み。旧アプリ（leverage-reading.vercel.app・期限 2027-07-06）は、本番で表紙が出るのを確かめてから削除する。
-4. 反映させるには再デプロイする：**Deployments** → 一番上の Production の行の ⋯ → **Redeploy**。
+4. 反映させるには出し直す：GitHub の Actions →「Deploy to Vercel (Production)」→「Run workflow」（Vercel の Redeploy はこのプロジェクトでは使えない＝GitHub から作った版は Vercel で作り直せない・2026-10-24）。
    - 作業ブランチを main に取り込むときも自動で再デプロイされるので、そのタイミングでもよい。
 
 ## ついでにやること（0 円）

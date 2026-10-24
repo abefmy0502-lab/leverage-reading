@@ -1,6 +1,6 @@
 # App 内課金をつなぐ手順書（App Store Connect → RevenueCat → Vercel）
 
-最終更新: 2026-10-10。前提: Apple Developer Program は登録済み。App Store Connect のアプリはまだ無い。
+最終更新: 2026-10-24（出し直しは GitHub から・VITE_ は Config）。前提: Apple Developer Program は登録済み。App Store Connect のアプリはまだ無い。
 
 これが終わると、iPhone のアプリで「7 日間無料で試す」「年額プランで始める」「トークンを追加」が押せるようになり、買った人に AI が開きます。
 画面の名前は Apple / RevenueCat が変えることがあります。見つからないときはその画面を撮って聞いてください。
@@ -108,7 +108,7 @@ RevenueCat が「誰が何を買ったか」を Apple に確かめるための�
    - URL: **https://orime.vercel.app/api/revenuecat-webhook**
    - Authorization header: 自分で作った長い文字列（Mac のターミナルで `openssl rand -hex 32`）→ 同じ文字列を G の `REVENUECAT_WEBHOOK_AUTH` に
    - 環境: Production と Sandbox の両方に送る
-   - 保存して **Send test event** → 200 なら OK（G を入れて Redeploy したあとに押す）
+   - 保存して **Send test event** → 200 なら OK（G を入れて出し直したあとに押す）
 
 ## G. Vercel に入れる（3 分）
 
@@ -120,7 +120,9 @@ Settings → Environment Variables（Production）:
 | `REVENUECAT_SECRET_API_KEY` | Secret | `sk_…`（V1） |
 | `REVENUECAT_WEBHOOK_AUTH` | Secret | F-8 で作った文字列 |
 
-→ Deployments → いちばん上の「…」→ **Redeploy**。そのあと F-8 の **Send test event**。
+→ 出し直す: GitHub の Actions →「Deploy to Vercel (Production)」→「Run workflow」（Vercel の Redeploy はこのプロジェクトでは使えない＝GitHub から作った版は Vercel で作り直せない・2026-10-24）。緑のチェックが付いたら F-8 の **Send test event**。
+
+- **`VITE_` で始まる変数は必ず Config**。Secret にするとアプリに値が入らず、デプロイが「Secret になっている VITE_ の変数があります」で止まる（2026-10-24 に本番が真っ暗になった原因）
 
 `VITE_REVENUECAT_IOS_KEY` はアプリの中に組み込む値なので、**Mac で iOS アプリを作るときにも要る**（Mac の作業の手順で入れる）。
 
@@ -139,6 +141,6 @@ Settings → Environment Variables（Production）:
 |---|---|
 | アプリに買うボタン・値段が出ない | A の契約が有効でない／`VITE_REVENUECAT_IOS_KEY` が iOS のビルドに入っていない／F-6 の Offering が Current でない |
 | RevenueCat に商品を取り込めない | A の契約が有効でない |
-| 買ったのに「プランが必要です」 | G の `REVENUECAT_SECRET_API_KEY` が無い・V2 の鍵／Redeploy していない |
+| 買ったのに「プランが必要です」 | G の `REVENUECAT_SECRET_API_KEY` が無い・V2 の鍵／入れたあとに出し直していない |
 | Webhook の Send test event が 401 | F-8 と G の `REVENUECAT_WEBHOOK_AUTH` が 1 文字でも違う |
 | トークンだけ買った人が「プラン契約中」になる | F-5 でトークンを Entitlement に付けてしまった |
