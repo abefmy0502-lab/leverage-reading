@@ -38,6 +38,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ImagePlus, TextQuote, CalendarDays, CalendarRange, ChevronDown, Check, SlidersHorizontal, Camera } from 'lucide-react';
 import BottomSheet from './BottomSheet';
+import SegThumb from './SegThumb';
 import ErrorMessage from './ErrorMessage';
 import ContextMenu from './ContextMenu';
 import ShareEditor from './ShareEditor';
@@ -122,15 +123,18 @@ const SELECTED_RING = '0 0 0 2px var(--surface), 0 0 0 4px var(--text)';
 // 形の切り替え（投稿／ストーリー）＝ iOS のセグメント（DESIGN §5「セグメント」・2026-10-10 ui-critic）。
 //   --fill の溝の中に 2 つ並べ、選んでいる方だけ --surface の面。太さは 600 のまま変えない（選ぶたびに幅が変わって跳ねない）。
 //   選んだ面は --seg-on（明るい設定は --surface・暗い設定は溝より 1 段明るい面）。暗い設定で --surface だと溝より暗く凹んで見えた（2026-10-10 ui-critic）。
-const segTrack = { display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', padding: 'var(--space-1)', background: 'var(--fill)', borderRadius: 'var(--radius)' };
+// 選んだ面は SegThumb（face-strong）が描いて押した所へ滑る（2026-10-28）。ボタン自身は透明。
+const segTrack = { display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', padding: 'var(--space-1)', background: 'var(--fill)', borderRadius: 'var(--radius)', position: 'relative' };
 const segBtn = (on) => ({
   minHeight: 'var(--tap-min)', // 押せる範囲 44 のまま（溝の内側 2 はその外）
   padding: '0 var(--space-3)',
   border: 'none',
   borderRadius: 'calc(var(--radius) - var(--space-1))', // 溝の角丸と同心（溝の内側の余白ぶん小さく）
-  background: on ? 'var(--seg-on)' : 'transparent',
-  // 選んだ側に細い縁（暗い設定で溝と面の差が小さく、どちらを選んでいるか見分けにくかった・2026-10-11 ui-critic）。
-  boxShadow: on ? 'inset 0 0 0 1px var(--border)' : 'none',
+  background: 'transparent',
+  // 選んだ側の面と細い縁（暗い設定で溝と面の差が小さく、どちらを選んでいるか見分けにくかった・2026-10-11 ui-critic）は SegThumb が描く。
+  boxShadow: 'none',
+  position: 'relative',
+  zIndex: 1,
   color: on ? 'var(--text)' : 'var(--text-2)',
   fontFamily: 'inherit',
   fontSize: 'var(--text-sub)',
@@ -876,6 +880,7 @@ export default function ShareSheet({
   const formatInEditRow = effStyle !== 'sticker';
   const formatSwitch = (
     <div role="radiogroup" aria-label="画像の形" style={{ ...segTrack, ...(formatInEditRow ? { flexDirection: 'row' } : null), flexShrink: 0 }}>
+      <SegThumb activeKey={format} activeSelector='[role="radio"][aria-checked="true"]' variant="face-strong" />
       {FORMAT_OPTIONS.map((o) => (
         <button key={o.v} type="button" role="radio" aria-checked={format === o.v} aria-label={o.aria} onClick={() => setFormat(o.v)} style={{ ...segBtn(format === o.v), padding: '0 var(--space-2)' }}>
           {o.label}

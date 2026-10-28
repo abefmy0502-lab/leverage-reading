@@ -6,7 +6,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { useBlockEdgeSwipe } from '../hooks/useEdgeSwipeBack';
-import { closeDelayMs } from '../lib/motion';
+import { closeDelayMs, DURATION_FAST_MS } from '../lib/motion';
 import { withPhraseBreaks } from './TightBubble';
 
 const backdrop = {
@@ -14,7 +14,7 @@ const backdrop = {
   inset: 0,
   background: 'var(--backdrop)',
   zIndex: 700,
-  animation: 'leverage-fade-in .15s ease',
+  animation: 'leverage-fade-in var(--duration-fast) var(--ease-out)',
   WebkitBackdropFilter: 'var(--backdrop-blur-strong)',
   backdropFilter: 'var(--backdrop-blur-strong)',
 };
@@ -32,7 +32,8 @@ const sheetWrap = {
   display: 'flex',
   flexDirection: 'column',
   maxHeight: '85vh',
-  animation: 'leverage-sheet-up .25s cubic-bezier(0.2,0.9,0.3,1)',
+  // せり上がりは 0.3 秒・減速（motion-prompt #051 ボトムシート: easeOutCubic・2026-10-28 にトークンへ）
+  animation: 'leverage-sheet-up var(--duration-base) var(--ease-out-expo)',
   fontFamily: 'var(--font-ui)',
 };
 
@@ -55,7 +56,7 @@ export default function BottomSheet({ title, eyebrow = '', onClose, children, fo
   const animateClose = () => {
     if (closing || !dismissible) return;
     // 動きを減らす設定では待たずに閉じる（2026-09-30）。
-    const wait = closeDelayMs(220);
+    const wait = closeDelayMs(DURATION_FAST_MS);
     if (!wait) { onClose?.(); return; }
     setClosing(true);
     setTimeout(() => onClose?.(), wait);
@@ -88,10 +89,10 @@ export default function BottomSheet({ title, eyebrow = '', onClose, children, fo
     draggingRef.current = false;
     const dy = Math.max(0, (e.changedTouches?.[0]?.clientY ?? startY) - startY);
     const el = sheetRef.current;
-    el.style.transition = 'transform .22s cubic-bezier(0.2,0.9,0.3,1)';
+    el.style.transition = 'transform var(--duration-fast) var(--ease-out-quart)';
     if (dy > 110) {
       el.style.transform = 'translateY(100%)';
-      setTimeout(() => onClose?.(), 200);
+      setTimeout(() => onClose?.(), DURATION_FAST_MS);
     } else {
       el.style.transform = '';
     }
@@ -100,7 +101,7 @@ export default function BottomSheet({ title, eyebrow = '', onClose, children, fo
   return (
     <>
       <div
-        style={{ ...backdrop, ...(onTop ? { zIndex: 'var(--z-dialog)' } : {}), ...(closing ? { opacity: 0, transition: 'opacity .18s ease' } : {}) }}
+        style={{ ...backdrop, ...(onTop ? { zIndex: 'var(--z-dialog)' } : {}), ...(closing ? { opacity: 0, transition: 'opacity var(--duration-fast) var(--ease-out)' } : {}) }}
         onClick={animateClose}
         aria-hidden="true"
       />
@@ -112,7 +113,7 @@ export default function BottomSheet({ title, eyebrow = '', onClose, children, fo
           // 下の安全域は 1 回だけ: 決定ボタンの欄（footer）があればそちらが持つ。
           paddingBottom: footer ? 0 : 'env(safe-area-inset-bottom, 0px)',
           animation: closing
-            ? 'leverage-sheet-down .22s cubic-bezier(0.3,0,0.8,0.3) forwards'
+            ? 'leverage-sheet-down var(--duration-fast) var(--ease-in-out-cubic) forwards'
             : sheetWrap.animation,
         }}
         role="dialog"

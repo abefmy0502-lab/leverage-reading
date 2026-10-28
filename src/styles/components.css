@@ -1332,6 +1332,8 @@ textarea[aria-invalid="true"]:not(.no-focus-ring):focus {
   padding: 2px;
   border-radius: var(--radius);
   background: var(--fill);
+  /* 選んだ面を滑らせる飾り（.seg-thumb）の基準 */
+  position: relative;
 }
 .sub-tabs--fit .sub-tabs__seg { flex: 0 0 auto; }
 .sub-tabs__seg .sub-tab {
@@ -1348,6 +1350,30 @@ textarea[aria-invalid="true"]:not(.no-focus-ring):focus {
   font-weight: var(--weight-semibold);
   box-shadow: 0 0 0 0.5px var(--separator);
 }
+/* 滑る面（SegThumb.jsx・2026-10-28）: 溝の中で、選んだボタンの位置と大きさに合わせて 0.2 秒で移る（motion-prompt #057/#060）。
+   面があるときはボタン自身の面を消す（二重に描かない）。初回（data-ready=0）は動かさずに置く。 */
+.sub-tab { position: relative; z-index: 1; }
+.seg-thumb {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  will-change: transform;
+  transition: transform var(--duration-fast) var(--ease-in-out-cubic), width var(--duration-fast) var(--ease-in-out-cubic), height var(--duration-fast) var(--ease-in-out-cubic);
+}
+.seg-thumb[data-ready="0"] { transition: none; }
+.seg-thumb--face { border-radius: var(--radius); background: var(--seg-on); box-shadow: 0 0 0 0.5px var(--separator); }
+.seg-thumb--face-strong { border-radius: calc(var(--radius) - var(--space-1)); background: var(--seg-on); box-shadow: inset 0 0 0 1px var(--border); }
+.seg-thumb--underline { background: var(--accent); }
+/* 面があるときはボタン自身の面を消す（:has に頼らない＝古い iOS でも二重に描かない） */
+.sub-tabs__seg > .seg-thumb ~ .sub-tab.active { background: transparent; box-shadow: none; }
+/* サブタブの中身の入れ替わり（motion-prompt #057: 前の面が消えて次の面が 0.2 秒で出る）。位置は動かさない（transform を使うと
+   固定した入力欄などの基準が変わるため・透明度だけ）。 */
+@keyframes lvg-sub-panel-in { from { opacity: 0; } to { opacity: 1; } }
+.sub-panel { animation: lvg-sub-panel-in var(--duration-fast) var(--ease-out) backwards; }
+
 
 /* ヘッダーの挨拶テキスト用フェード — 開いて 3s ほど表示 → 1s でフェード。
    ユーザーは挨拶を読みたければ読めるが、メイン操作には邪魔にならない。 */
@@ -1519,8 +1545,29 @@ body.keyboard-open .app-top-bar--fold > * {
 /* 畳む見出し（details > summary）: Safari の三角を消し、右端のシェブロンを開閉で回す。
    使い方: <summary> の中の lucide ChevronDown に className="fold-chevron"（DESIGN §5「畳む見出し」）。 */
 summary::-webkit-details-marker { display: none; }
-.fold-chevron { transition: transform var(--duration-fast) var(--ease-out-quart); }
+.fold-chevron { transition: transform var(--duration-base) var(--ease-in-out-cubic); }
 details[open] > summary .fold-chevron { transform: rotate(180deg); }
+/* 畳む見出しの開閉を滑らかに（2026-10-28・motion-prompt #052 アコーディオンの数字: 0.3 秒ほど・easeInOutCubic・
+   中身の高さが伸び縮みして下の段を押し下げる）。対応していないブラウザ（古い iOS など）は今までどおり一瞬で開閉する。
+   開いている間は overflow を visible に戻す（中のカードの影や、はみ出す印を切らない）。閉じるときはすぐ clip。
+   interpolate-size は details だけに（ほかの auto の高さの動きを変えない）。動きを減らす設定は index.css の全体の決まりで止まる。 */
+@supports (interpolate-size: allow-keywords) {
+  details { interpolate-size: allow-keywords; }
+  details::details-content {
+    block-size: 0;
+    overflow: clip;
+    transition: block-size var(--duration-base) var(--ease-in-out-cubic), content-visibility var(--duration-base) allow-discrete, overflow 0s;
+  }
+  details[open]::details-content {
+    block-size: auto;
+    overflow: visible;
+    transition: block-size var(--duration-base) var(--ease-in-out-cubic), content-visibility var(--duration-base) allow-discrete, overflow 0s var(--duration-base);
+  }
+}
+/* 動きを減らす設定: index.css の全体の決まり（*・::before・::after）は ::details-content に届かないので、ここで止める。 */
+@media (prefers-reduced-motion: reduce) {
+  details::details-content, details[open]::details-content { transition: none; }
+}
 
 /* 空状態: 説明文が無いときも、題名とボタンの間を詰めすぎない */
 .empty-state-title + .empty-state-actions { margin-top: var(--space-4); }

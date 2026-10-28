@@ -13,6 +13,7 @@ import { ChevronDown, X } from 'lucide-react';
 import { MiniCover } from './BookCards';
 import { withPhraseBreaks } from './TightBubble';
 import { btnLink } from '../styles/ui';
+import SegThumb from './SegThumb';
 import {
   STATS_WEEKS, BOOKS_COLLAPSED, NO_TAG,
   periodSeconds, defaultPeriod, weeklyTotals, bookTotals, tagTotals, bookInTag,
@@ -150,12 +151,13 @@ const rowBtn = (on) => ({
 // 期間の切り替え（iOS のセグメント・写真で共有の「投稿｜ストーリー」と同じ見た目・DESIGN §5）。
 // 振り返り・相談の上の切り替え（.sub-tabs__seg）と同じ形: 溝の内側 2・選んだ面は --seg-on＋細い縁（2026-10-16 ui-critic 第 2 回「切り替えの形が 3 種類」）。
 // 期間の数は切り替えの溝にしない（上のタブと同じ形が 2 つ並んでいた・2026-10-16 第 3 回）。選んだ数の下に栗色の 2 の線。
-const segTrack = { display: 'inline-flex', gap: 'var(--space-6)' };
+// 選んだ数の下の 2 の線は SegThumb（underline）が描き、押した所へ滑る（2026-10-28）。ボタン自身の線は場所取りだけ（透明）。
+const segTrack = { display: 'inline-flex', gap: 'var(--space-6)', position: 'relative' };
 const segBtn = (on) => ({
   minHeight: 'var(--tap-min)',
   padding: 0,
   border: 'none',
-  borderBottom: `2px solid ${on ? 'var(--accent)' : 'transparent'}`,
+  borderBottom: '2px solid transparent',
   borderRadius: 0,
   background: 'transparent',
   color: on ? 'var(--text)' : 'var(--text-2)',
@@ -222,6 +224,7 @@ export default function ReadingTimeCard({ rows, books, onOpenBook, now = Date.no
       <div style={{ borderTop: '1px solid var(--separator)', marginTop: 'var(--space-6)', paddingTop: 'var(--space-4)' }}>
         {/* 期間＝2 つの数（今月・これまで）。押すと、すぐ下の分野ごと・本ごとが替わる。 */}
         <div role="group" aria-label="読書の時間の期間（下の内訳も替わります）" style={{ ...segTrack, display: 'flex', flexWrap: 'wrap', margin: 0 }}>
+          <SegThumb activeKey={period} activeSelector='[aria-pressed="true"]' variant="underline" />
           {PERIODS.map((p) => (
             <TotalCell key={p.v} label={p.label} value={fmtReadingTotal(p.v === 'month' ? monthSec : allSec)} on={period === p.v} onClick={() => choosePeriod(p.v)} />
           ))}

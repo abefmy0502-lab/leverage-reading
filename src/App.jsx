@@ -40,6 +40,7 @@ const ReadTargetSheet = lazy(() => import('./components/ReadTargetSheet'));
 const FocusMode = lazy(() => import('./components/FocusMode'));
 import { startFocus, pauseFocus, loadFocusState, saveFocusState } from './lib/readingTime';
 import { BookReadingTime } from './components/ReadingTimeCard';
+import SegThumb from './components/SegThumb';
 // 📗 読了の 3 つの問い・読む前と読んだ後（2026-10-11・AI なし）
 import { DoneQuestions, BeforeAfter } from './components/DoneReflection';
 import { visibleDoneQuestions, readDoneQuestionState, markDoneQuestionAnswered, dismissDoneQuestions, visibleBeforeItems, foundAnswerDraft, promptedMemoText } from './lib/doneReflection';
@@ -6529,6 +6530,7 @@ function AuthedApp() {
             <div className="sub-tabs">
             {/* 並び: 行動｜メモ｜記録（SPEC §4。「ノート」は GLOSSARY どおり「メモ」）。iOS の切り替え（灰色の溝に白い面・2026-10-16）。 */}
             <div className="sub-tabs__seg" role="tablist" aria-label="振り返りのサブタブ" onKeyDown={onTabListKeyDown}>
+              <SegThumb activeKey={reviewSubTab} />
               <button
                 type="button"
                 role="tab"
@@ -6567,7 +6569,7 @@ function AuthedApp() {
               </button>
             </div>
             </div>
-            <div role="tabpanel" id="review-panel" aria-labelledby={`review-tab-${reviewSubTab}`}>
+            <div key={`review-${reviewSubTab}`} className="sub-panel" role="tabpanel" id="review-panel" aria-labelledby={`review-tab-${reviewSubTab}`}>
             {reviewSubTab === 'note' ? (
               <Suspense fallback={<ReviewNoteFallback />}>
                 <Review books={books} onOpenBook={(b, memoId, opts) => { openDetail(b, memoId, opts); }} onAddAction={addActionFromMemo} onAddNote={() => setAddNoteSheet('pick')} onGoToShelf={() => { navigateTab('books'); goList(); setShelfMode('library'); }}
@@ -6649,6 +6651,7 @@ function AuthedApp() {
             {!(aiSubTab === 'brain' && consultPushed) && !(aiSubTab === 'advisor' && advisorPushed) && (
             <div className="sub-tabs sub-tabs--fit" data-scrolled={aiSubTab === 'brain' && consultScrolled ? '' : undefined} style={{ flexShrink: 0 }}>
             <div role="tablist" aria-label="相談のサブタブ" className="sub-tabs__list sub-tabs__seg" onKeyDown={onTabListKeyDown}>
+              <SegThumb activeKey={aiSubTab} />
               <button
                 type="button"
                 role="tab"
@@ -6681,7 +6684,7 @@ function AuthedApp() {
             </div>
             )}
             {/* サブタブ（相談｜AI 選書）の下に説明文は置かない（各画面の見出しで伝わる・DESIGN §0-6）。 */}
-            <div className="ai-page-body" role="tabpanel" id="ai-panel" aria-labelledby={`ai-tab-${aiSubTab}`}>
+            <div key={`ai-${aiSubTab}`} className="ai-page-body sub-panel" role="tabpanel" id="ai-panel" aria-labelledby={`ai-tab-${aiSubTab}`}>
               {aiSubTab === 'advisor' ? (
                 <Suspense fallback={<TabPanelSkeleton />}>
                   <BookAdvisor

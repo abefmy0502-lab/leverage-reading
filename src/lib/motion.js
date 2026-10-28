@@ -16,6 +16,10 @@ export function scrollBehavior() {
 }
 
 // 閉じる動きを待つ時間（ms）。動きを減らす設定なら 0。
+// 動きの秒数（tokens.css の --duration-fast / --duration-base の写し・テストで一致を確かめる）。JS の setTimeout で待つときはこれを使う。
+export const DURATION_FAST_MS = 200;
+export const DURATION_BASE_MS = 300;
+
 export function closeDelayMs(ms) {
   return prefersReducedMotion() ? 0 : ms;
 }
