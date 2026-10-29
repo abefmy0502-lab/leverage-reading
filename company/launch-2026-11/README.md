@@ -33,7 +33,7 @@
 
 ## App Store の画像（`screenshots/`）
 
-- 見出しと並びの正は `../aso-store-listing.md` §8（6 枚＝5 つの柱の順）・§8-2（CPP ①本と会話する ②習慣にする ③乗り換え・撮る）。いまの `screenshots/` の画像は 10-08 の見出しのまま。**新しい 3 枚（本の語り口の答え・集中モード・分野）と CPP ② の 2 枚を撮って、見出しを差し替えて書き出し直す**（Claude・10/12 の週）。
+- 見出しと並びの正は `../aso-store-listing.md` §8（6 枚＝5 つの柱の順）・§8-2（CPP ①本と会話する ②習慣にする ③乗り換え・撮る）。**2026-10-29 に作り直した**: `screenshots/` の `base-1〜6` が §8 の 6 枚（本の語り口・根拠・一歩・集中モード・雑誌・分野）、`base-7-import`・`base-8-photo` が任意の 7・8 枚目、`cpp-habit-1〜3` が CPP ②（4〜6 枚目は base-1〜3 を使う）、`cpp-import-*`・`cpp-photo-*`・`cpp-ask-*` は CPP ③①。見出しは `appstore-screenshots/index.html` の `SETS`。
 - ファイル名：`<名前>-6.9in-1320x2868.png`・`<名前>-6.5in-1284x2778.png`。価格はどの画像にも入れない。
 
 ### 作り直し方（画面を変えたら）

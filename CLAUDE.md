@@ -66,7 +66,7 @@ UI 文言・トースト・ヘルプ・LP・プロンプト出力で使う名前
 1. **トークン必須・直書き禁止**：UI は必ず `src/styles/tokens.css` のトークン（`var(--…)`）を使う。**色（#hex・rgb）・文字サイズ・余白・角丸の数値を直書きしない**。JS から使うときは `src/styles/ui.js` の定数経由。
    - 既存コードには直書きが大量に残っている（色 約290・文字サイズ 約820・角丸 約250 か所）。**触ったファイルの直書きは、その変更のついでにトークンへ置き換える**（DESIGN.md §8 の順で段階移行）
    - 使ってよい値：余白 4/8/12/16/24/32/48/64、角丸 12 の 1 種類（円は例外）、文字 12 以上、太さ 400/600/700、色はニュートラル＋アクセント（栗色）1 色＋状態色 3 色
-2. **既存部品を先に使う**：新しい部品を作る前に、`src/styles/ui.js`（`btnPrimary` / `btnGhost` / `btnDanger` / `input` / `card`）、`components.css`（`.btn` `.card` など）、`EmptyState` / `ErrorMessage` / `SectionHeader` / `StatCard` / `Skeleton` / `BottomSheet` / `ContextMenu` を探して再利用する。無いときだけ作り、作ったら DESIGN.md §5 の表に追記する
+2. **既存部品を先に使う**：切り替えの「選んだ面・下線」は `SegThumb.jsx`（押した所へ滑る・DESIGN §5「滑る面」・2026-10-28）、畳む見出しは `<details>` のまま（開閉は `components.css` が伸び縮みさせる）、JS で待つ秒数は `lib/motion.js` の `DURATION_FAST_MS` / `DURATION_BASE_MS`（`tokens.css` と一致をテスト）。新しい部品を作る前に、`src/styles/ui.js`（`btnPrimary` / `btnGhost` / `btnDanger` / `input` / `card`）、`components.css`（`.btn` `.card` など）、`EmptyState` / `ErrorMessage` / `SectionHeader` / `StatCard` / `Skeleton` / `BottomSheet` / `ContextMenu` を探して再利用する。無いときだけ作り、作ったら DESIGN.md §5 の表に追記する
 3. **UI を変えたら、明暗両方のスクショで比較してから直す**
    1. 変更前に `npm run demo`（別ターミナル）→ `npm run ui:shots -- before <画面名…>` で撮る
    2. 変更後に `npm run ui:shots -- after <画面名…>` で撮る（`ui-shots/<ラベル>/<画面>-light.png` / `-dark.png`・git 管理外）
@@ -107,6 +107,7 @@ UI 文言・トースト・ヘルプ・LP・プロンプト出力で使う名前
 ├── public/                             # 静的アセット (manifest.json, icons/, sw.js)
 ├── scripts/generate-icons.js           # PWA アイコン生成 (`npm run icons`)
 ├── scripts/ui-shots.mjs                # 📸 主要画面の明暗スクショ（`npm run ui:shots -- <ラベル> [画面名…]`）
+├── scripts/ios-prepare.mjs             # 📱 `npm run ios:prepare`＝`npx cap add ios` のあとに Info.plist の説明文・暗号化の免除・ja・縦だけ・PrivacyInfo.xcprivacy（Xcode に登録）を冪等に入れる（`--check` で足りないものだけ・2026-10-29）
 ├── scripts/lp-shots.mjs                # 📸 LP に載せるアプリ画面の写真を撮り直す（`npm run demo` → `npm run lp:shots` → public/lp/*.webp・2026-10-11 からヒーローは 1 冊の本の語り口＝hero・対話の 4 コマ・行動・集中モード・分野・共有）
 ├── scripts/share-images.mjs            # 🖼 写真で共有の「共有される画像そのもの」を重ね方×形×地で書き出す（`npm run demo` → `node scripts/share-images.mjs` → ui-shots/share-after/images/）
 ├── scripts/marketing/                  # 🎬 SNS の縦動画を台本（scenarios.mjs）どおりお試しモードで録って字幕つき mp4 に（`npm run demo` → `npm run mkt:record`）・週の投稿の下書き（`npm run mkt:drafts`・鍵が無ければプロンプトだけ）→ marketing-out/（git 管理外）。手順は docs/ai-marketing-automation.md
@@ -373,7 +374,7 @@ want(読みたい) → before(積読) → reading(読書中) → done(読了)
 - `X-Frame-Options: DENY`、`X-Content-Type-Options: nosniff`、`Referrer-Policy: strict-origin-when-cross-origin`
 - `Permissions-Policy: camera=(self), microphone=(), geolocation=()`
 - `Strict-Transport-Security: max-age=31536000; includeSubDomains`
-- `Content-Security-Policy`: `default-src 'self'` ベースでホワイトリスト制（Supabase / Anthropic / Google Books / openBD / NDL / Amazon 画像（images-na・images-fe・m.media-amazon）/ 楽天ブックス画像(`thumbnail.image.rakuten.co.jp`, img-src のみ) / Open Library の表紙の転送先 `*.archive.org`（img-src のみ・2026-09-30）を許可。表紙の配信元を足したら `img-src` と `api/_coverImageUrl.js` の許可リストの両方に。楽天 API 本体はサーバー(`api/cover.js` の表紙リゾルバ)経由なので connect-src 不要）。**iOS アプリ**はヘッダーが付かないので、ビルドのときに同じ CSP を `<meta http-equiv>` で index.html に入れる（`vite.config.js` の `cspMeta`＝`scripts/cspMeta.mjs`・connect-src と img-src に `VITE_SITE_URL` の絶対 URL を足し・meta で効かない frame-ancestors は外す・開発中とお試しモードには入れない・2026-10-11）。vercel.json の CSP を変えれば両方に効く
+- `Content-Security-Policy`: `default-src 'self'` ベースでホワイトリスト制（Supabase は自分のホスト `https://tkrinnopfssdibgxuqzl.supabase.co` だけ＝2026-10-29・プロジェクトを作り直したら `vercel.json` の connect-src と img-src の 2 か所を直す / Anthropic / Google Books / openBD / NDL / Amazon 画像（images-na・images-fe・m.media-amazon）/ 楽天ブックス画像(`thumbnail.image.rakuten.co.jp`, img-src のみ) / Open Library の表紙の転送先 `*.archive.org`（img-src のみ・2026-09-30）を許可。表紙の配信元を足したら `img-src` と `api/_coverImageUrl.js` の許可リストの両方に。楽天 API 本体はサーバー(`api/cover.js` の表紙リゾルバ)経由なので connect-src 不要）。**iOS アプリ**はヘッダーが付かないので、ビルドのときに同じ CSP を `<meta http-equiv>` で index.html に入れる（`vite.config.js` の `cspMeta`＝`scripts/cspMeta.mjs`・connect-src と img-src に `VITE_SITE_URL` の絶対 URL を足し・meta で効かない frame-ancestors は外す・開発中とお試しモードには入れない・2026-10-11）。vercel.json の CSP を変えれば両方に効く
 
 ### AI に送る前の同意（App Review 5.1.2(i)・2026-10-01）
 

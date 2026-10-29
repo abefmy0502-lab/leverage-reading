@@ -11,6 +11,7 @@
 |---|---|---|
 | Mac の道具 | 指定なし | **Xcode 26 以降（iOS 26 の SDK）でないと App Store Connect に上げられない**（Apple の決まり・2026-04-28 から）。Capacitor 8 も Xcode 26 が要る |
 | iOS のプロジェクト | `npx cap sync ios` から | リポジトリに `ios/` がまだ無い。**最初の 1 回だけ `npx cap add ios`**（§5） |
+| Apple でサインインの部品 | 指定なし | `@capacitor-community/apple-sign-in` は 7.1.0 が最新で、`npx cap add ios` に「Capacitor 7 向け」の黄色い warn が出る（2026-10-29 時点・8 向けはまだ無い）。そのまま使える見込みだが、**iPhone で最初に動かすときに「Apple でサインイン」を 1 回試す**。ビルドで止まったら、その画面を送る（最悪はメールのログインだけで出し、1.0.1 で戻す） |
 | 通知の部品 | `npm i @capacitor/push-notifications` | **もう package.json に入っている**。`npm install` だけでよい（§12） |
 | App 名 | Orime | **`Orime - 読んだ本と会話する読書メモ`**（2026-10-11 オーナー決定・`company/app-store-listing.md`）。ホーム画面の名前は Orime のまま |
 | サブスクのグループ名 | Orime Premium | **Orime プラン**（`docs/iap-setup-runbook.md` C） |

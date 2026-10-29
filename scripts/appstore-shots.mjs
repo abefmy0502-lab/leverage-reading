@@ -29,6 +29,11 @@ const GEN = 'company/appstore-screenshots/index.html';
 const [mode = 'all', ...only] = process.argv.slice(2);
 const nav = (n) => `nav button[aria-label="${n}"]`;
 const Q = '部下が報告をくれなくて困っています';
+// 1 冊の本に相談（本の語り口の答え・LP のヒーローと同じ・2026-10-29）。名前の行の著者名は隠す（実在の著者が話しているように見せない）。
+const VOICE_BOOK = '嫌われる勇気';
+const VOICE_Q = '相手が自分をどう思うかが気になって、意見が言えません';
+// 画面ごとの URL（無ければ /?lpshot=1）。集中モードはお試しの入口から。
+const SHOT_URL = { focus: '/?lpshot=1&focus=timer', 'focus-until': '/?lpshot=1&focus=until' };
 
 const hideDemoNote = (p) => p.evaluate(() => {
   document.querySelectorAll('p,div,span').forEach((el) => {
@@ -52,6 +57,29 @@ const scrollToText = (p, re, offset = 0) => p.evaluate(({ src, offset }) => {
   const sc = [...document.querySelectorAll('*')].find((e) => e.scrollHeight > e.clientHeight + 10 && e.contains(el) && getComputedStyle(e).overflowY !== 'visible');
   if (sc) sc.scrollTop -= offset;
 }, { src: re.source, offset });
+const askBook = async (p) => {
+  await openBook(p, VOICE_BOOK);
+  await p.locator('button:has-text("この本に相談する")').first().click(); await p.waitForTimeout(1500);
+  await p.locator('textarea[aria-label="相談したいこと"]').fill(VOICE_Q);
+  await p.locator('button[aria-label="送信"]').click();
+  await p.waitForTimeout(8000);
+  await hideDemoNote(p);
+};
+const hideAuthorName = (p) => p.evaluate(() => {
+  document.querySelectorAll('span').forEach((el) => {
+    if (el.textContent.trim() !== '（本の語り口で・AI）') return;
+    const name = el.previousElementSibling;
+    if (name) name.style.display = 'none';
+  });
+});
+const scrollToTextAny = (p, text, gap) => p.evaluate(({ text, gap }) => {
+  const el = [...document.querySelectorAll('*')].reverse().find((e) => e.textContent.includes(text) && e.children.length < 3);
+  if (!el) return;
+  let sc = el.parentElement;
+  while (sc && !(sc.scrollHeight > sc.clientHeight + 10 && /auto|scroll/.test(getComputedStyle(sc).overflowY))) sc = sc.parentElement;
+  if (sc) sc.scrollTop += el.getBoundingClientRect().top - sc.getBoundingClientRect().top - gap;
+  else window.scrollBy(0, el.getBoundingClientRect().top - gap);
+}, { text, gap });
 const openBook = async (p, title) => {
   await p.locator('button:has-text("すべての本")').first().click(); await p.waitForTimeout(800);
   await p.locator(`.lvg-page button:has-text("${title}")`).first().click(); await p.waitForTimeout(1000);
@@ -82,8 +110,8 @@ const SHOTS = {
   action: async (p) => {
     await ask(p);
     await p.locator('[aria-label="続けて聞く"] button >> nth=0').click();
-    await p.locator('[aria-label="続けて聞く"] button:has-text("行動を決める")').waitFor({ timeout: 15000 });
-    await p.locator('[aria-label="続けて聞く"] button:has-text("行動を決める")').click();
+    await p.locator('[aria-label="続けて聞く"] button:has-text("ここで答えと行動を")').waitFor({ timeout: 15000 });
+    await p.locator('[aria-label="続けて聞く"] button:has-text("ここで答えと行動を")').click();
     await p.locator('[aria-label="相談への答え"]:not([aria-busy]) button:has-text("行動に追加")').waitFor({ timeout: 15000 });
     await p.waitForTimeout(800);
     await hideDemoNote(p);
@@ -119,6 +147,53 @@ const SHOTS = {
   },
   // 相談のはじめ（「あなたのメモ N 件から答えます」と相談の例）
   'consult-start': async (p) => { await p.locator(nav('相談')).click(); await p.waitForTimeout(1200); },
+  // ── 2026-10-11 の作り直し（aso-store-listing §8・§8-2）──
+  // 1 冊の本に相談し、本の語り口で答えているところ（名前の行「（本の語り口で・AI）」を上に）
+  voice: async (p) => {
+    await askBook(p);
+    await hideAuthorName(p);
+    await scrollToTextAny(p, '（本の語り口で・AI）', 16);
+    await p.waitForTimeout(400);
+  },
+  // 集中モード（タイマー・暗い地）
+  focus: async (p) => { await p.waitForTimeout(1500); },
+  // 始める前のシート（「時刻まで」）
+  'focus-until': async (p) => { await p.waitForTimeout(1200); },
+  // 写真で共有の「雑誌」（読了の本から・写真を敷く）
+  magazine: async (p) => {
+    await openBook(p, 'イシューからはじめよ');
+    await p.locator('button[aria-label="その他の操作"]').click(); await p.waitForTimeout(500);
+    await p.locator('[role=menu] [role=menuitem]:has-text("写真で共有")').click(); await p.waitForTimeout(1200);
+    await p.locator('[role=dialog] input[type=file]').first().setInputFiles('scripts/fixtures/share-photo.jpg'); await p.waitForTimeout(1500);
+    await p.locator('[role=dialog] [role=radiogroup][aria-label="見せ方"] [role=radio]:has-text("雑誌")').click(); await p.waitForTimeout(1800);
+  },
+  // 振り返り › 記録の「分野」（まだ本がない分野のチップが見える）
+  fields: async (p) => {
+    await p.locator(nav('振り返り')).click(); await p.waitForTimeout(800);
+    await p.locator('button[role=tab]:has-text("記録")').click();
+    await p.locator('#book-fields-record-title').waitFor({ timeout: 20000 }); await p.waitForTimeout(800);
+    await p.evaluate(() => {
+      const h = document.getElementById('book-fields-record-title');
+      if (!h) return;
+      h.scrollIntoView({ block: 'start' });
+      const sc = [...document.querySelectorAll('*')].find((e) => e.contains(h) && e.scrollHeight > e.clientHeight + 10 && /auto|scroll/.test(getComputedStyle(e).overflowY));
+      if (sc) sc.scrollTop -= 88; else window.scrollBy(0, -170);
+    });
+  },
+  // 振り返り › 記録の「読書の時間」
+  readtime: async (p) => {
+    await p.locator(nav('振り返り')).click(); await p.waitForTimeout(800);
+    await p.locator('button[role=tab]:has-text("記録")').click(); await p.waitForTimeout(800);
+    await p.evaluate(() => {
+      const el = document.querySelector('[data-reading-time]');
+      if (!el) return;
+      el.scrollIntoView({ block: 'start' });
+      const sc = [...document.querySelectorAll('*')].find((e) => e.contains(el) && e.scrollHeight > e.clientHeight + 10 && /auto|scroll/.test(getComputedStyle(e).overflowY));
+      const bars = [...document.querySelectorAll('.sub-tabs')].map((b) => b.getBoundingClientRect().bottom);
+      const top = Math.max(0, ...bars);
+      if (sc) sc.scrollTop -= top + 12; else window.scrollBy(0, -(top + 12));
+    });
+  },
 };
 
 function browserOptions() {
@@ -151,7 +226,7 @@ async function shoot(browser) {
     });
     const page = await ctx.newPage();
     try {
-      await page.goto(`${BASE}/?lpshot=1`, { waitUntil: 'networkidle' });
+      await page.goto(`${BASE}${SHOT_URL[name] || '/?lpshot=1'}`, { waitUntil: 'networkidle' });
       await page.waitForTimeout(1200);
       await steps(page);
       await page.waitForTimeout(700);

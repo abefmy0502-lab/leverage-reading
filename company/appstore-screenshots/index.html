@@ -38,6 +38,17 @@
   .frame.bg-a{background:linear-gradient(180deg,#faf7f2 0%,#f1e9da 100%);}
   .frame.bg-b{background:linear-gradient(180deg,#efe7d8 0%,#e3d6bf 100%);}
   .frame.bg-c{background:linear-gradient(180deg,#f3eee4 0%,#e8ddc9 100%);}
+  /* 暗い地（集中モードの画面に合わせる・tokens.css の --focus-bg と同じ系統）。文字は明るい側に。 */
+  .frame.bg-dark{background:linear-gradient(180deg,#2a251f 0%,#1d1a16 100%);}
+  .frame.bg-dark .eyebrow{color:#cdb08c;}
+  .frame.bg-dark .headline{color:#e6ddcf;}
+  .frame.bg-dark .headline .em{color:#e0a07a;}
+  .frame.bg-dark .sub{color:#bdb7ae;}
+  .frame.bg-dark .device{background:#3a3430;box-shadow:0 60px 110px rgba(0,0,0,.45);}
+  /* 画面のいちばん上が暗いときは時計の行も明るい文字に（撮った画面の色で決める） */
+  .statusbar.dark{color:#f2ebe0;}
+  .statusbar.dark .sb-bars i,.statusbar.dark .sb-bat span,.statusbar.dark .sb-bat::after{background:#f2ebe0;}
+  .statusbar.dark .sb-bat{border-color:#f2ebe0;}
 
   .cap{padding:150px 100px 0;text-align:center;width:100%;}
   .eyebrow{font-family:var(--sans);font-size:36px;font-weight:700;letter-spacing:.12em;color:var(--accent);margin:0 0 26px;}
@@ -77,20 +88,36 @@
   //   実在の著者が話し手に見える画面を使わない（相談の画面は「2 冊の本と自分の学び」）。
   // shot は ui-shots/appstore-raw/<名前>.png（scripts/appstore-shots.mjs の SHOTS と同じ名前）。
   const SETS = {
-    // 基本の 6 枚: 相談 → 根拠 → 行動 → 取り込み → 撮る → 写真で共有
+    // 基本の 6 枚（2026-10-11 の作り直し・aso-store-listing §8＝5 つの柱の順）: 本の語り口 → 根拠 → 一歩 → 集中モード → 雑誌 → 分野
     base: [
-      { out:'base-1-consult', bg:'bg-c', shot:'answer', eyebrow:'ASK YOUR BOOKS',
-        head:'読んだ本が、<br><span class="em">あなたの相談相手になる。</span>', sub:'困ったことを書くと、あなたの読書メモから答えます。' },
+      { out:'base-1-consult', bg:'bg-c', shot:'voice', eyebrow:'TALK WITH YOUR BOOKS',
+        head:'読んだ本と、<br><span class="em">会話しよう。</span>', sub:'心に響いた一行から、AI が本の語り口で答えます。' },
       { out:'base-2-evidence', bg:'bg-a', shot:'sources', eyebrow:'FROM YOUR NOTES',
-        head:'答えの根拠は、<br><span class="em">あなたが残した一行。</span>', sub:'要約ではなく、あなたの読書メモから。本とページつき。' },
+        head:'答えには、<br><span class="em">本とページ。</span>', sub:'材料はあなたのメモ。無いときは無いと答えます。' },
       { out:'base-3-action', bg:'bg-b', shot:'action', eyebrow:'INTO ACTION',
-        head:'話しながら、<br><span class="em">明日の一歩を一つ。</span>', sub:'決めた行動は、期限と完了まで見届ける。' },
-      { out:'base-4-import', bg:'bg-c', shot:'import', eyebrow:'BRING YOUR RECORDS',
+        head:'会話の最後は、<br><span class="em">明日の一歩。</span>', sub:'行動リストに、期限つきで。' },
+      { out:'base-4-focus', bg:'bg-dark', shot:'focus', eyebrow:'FOCUS MODE',
+        head:'時間を決めて、<br><span class="em">本だけに。</span>', sub:'表紙と時間だけの画面で読む。読んだ時間は記録に。' },
+      { out:'base-5-share', bg:'bg-a', shot:'magazine', eyebrow:'SHARE A PAGE',
+        head:'心に残った一文を、<br><span class="em">1 枚に。</span>', sub:'雑誌の 1 ページのような画像で発信。' },
+      { out:'base-6-fields', bg:'bg-c', shot:'fields', eyebrow:'SEE YOUR READING',
+        head:'自分の読書を、<br><span class="em">分野で見る。</span>', sub:'まだ本がない分野も、ひと目で。' },
+    ],
+    // 7・8 枚目（任意・aso §8「取り込み・撮るは 7・8 枚目に回す」）
+    extra: [
+      { out:'base-7-import', bg:'bg-b', shot:'import', eyebrow:'BRING YOUR RECORDS',
         head:'これまでの読書記録も、<br><span class="em">今日から相談の材料に。</span>', sub:'ほかの読書アプリの書き出しファイルを選ぶだけ。' },
-      { out:'base-5-photo', bg:'bg-a', shot:'ocr-done', eyebrow:'SNAP A PAGE',
+      { out:'base-8-photo', bg:'bg-a', shot:'ocr-done', eyebrow:'SNAP A PAGE',
         head:'紙の本は、<br><span class="em">ページを撮るだけ。</span>', sub:'写真から書き起こして、読書メモに。' },
-      { out:'base-6-share', bg:'bg-b', shot:'share', eyebrow:'SHARE A PHOTO',
-        head:'読んだ本を、<br><span class="em">写真で共有。</span>', sub:'心に残った一文を、1 枚に重ねて。' },
+    ],
+    // カスタムプロダクトページ② 習慣にする（aso §8-2・4〜6 枚目は基本の 1・2・3 を使う）
+    'cpp-habit': [
+      { out:'cpp-habit-1', bg:'bg-dark', shot:'focus', eyebrow:'FOCUS MODE',
+        head:'時間を決めて、<br><span class="em">本だけに。</span>', sub:'表紙と時間だけの画面で読む。' },
+      { out:'cpp-habit-2', bg:'bg-c', shot:'focus-until', eyebrow:'UNTIL YOUR STOP',
+        head:'降りる駅まで、<br><span class="em">読む。</span>', sub:'時刻を決めて始める。終わったらそっと知らせます。' },
+      { out:'cpp-habit-3', bg:'bg-a', shot:'readtime', eyebrow:'TIME BY FIELD',
+        head:'どの分野に、<br><span class="em">どれだけ読んだか。</span>', sub:'週ごと・分野ごと・本ごとに、読んだ時間を記録に。' },
     ],
     // カスタムプロダクトページ①: ほかの読書アプリから乗り換える人
     'cpp-import': [
@@ -120,7 +147,7 @@
         head:'根拠の本とページが、<br><span class="em">いつも見える。</span>', sub:'関係するメモが無いときは、無いと答えます。' },
     ],
   };
-  const TITLES = { base:'基本の 6 枚', 'cpp-import':'カスタムプロダクトページ① 乗り換え', 'cpp-photo':'カスタムプロダクトページ② 紙の本を撮る', 'cpp-ask':'カスタムプロダクトページ③ 自分のメモに聞く' };
+  const TITLES = { base:'基本の 6 枚', extra:'7・8 枚目（任意）', 'cpp-habit':'カスタムプロダクトページ② 習慣にする', 'cpp-import':'カスタムプロダクトページ③ 乗り換え', 'cpp-photo':'カスタムプロダクトページ③ 紙の本を撮る', 'cpp-ask':'カスタムプロダクトページ① 自分のメモに聞く' };
 
   const qs = new URLSearchParams(location.search);
   const render = qs.get('render') === '1';
@@ -128,6 +155,8 @@
   const size = qs.get('size') === '65' ? { w:1284, h:2778 } : { w:1320, h:2868 };
   const shotsDir = qs.get('shots') || '../../ui-shots/appstore-raw/';
   const bars = window.__BARS || {};
+  // rgb(…) の明るさ（撮った画面のいちばん上の色が暗いか）
+  const isDarkColor = (c) => { const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(c || ''); if (!m) return false; return (0.299 * +m[1] + 0.587 * +m[2] + 0.114 * +m[3]) < 128; };
   const root = document.documentElement.style;
   root.setProperty('--w', size.w + 'px');
   root.setProperty('--h', size.h + 'px');
@@ -155,7 +184,7 @@
               </div>
               <div class="device">
                 <div class="screen">
-                  <div class="statusbar" style="background:${bars[s.shot] || '#f6f4f0'}">
+                  <div class="statusbar ${isDarkColor(bars[s.shot]) ? 'dark' : ''}" style="background:${bars[s.shot] || '#f6f4f0'}">
                     <span class="time">9:41</span>
                     <span class="right">
                       <span class="sb-bars"><i style="height:10px"></i><i style="height:16px"></i><i style="height:22px"></i><i style="height:30px"></i></span>
