@@ -16,6 +16,7 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { createHash } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
 
 const args = process.argv.slice(2);
 const check = args.includes('--check');
@@ -146,4 +147,5 @@ function main() {
   console.log('\n次は Xcode で: Signing & Capabilities → Team・In-App Purchase・Sign in with Apple（通知は APNs がそろってから）。');
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === new URL(import.meta.url).pathname) main();
+// 置き場所に空白や日本語があっても（URL の %20 と比べない）直接の実行だけ main を動かす。import（テスト）では動かさない。
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();

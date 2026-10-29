@@ -32,6 +32,9 @@ export default function SegThumb({ activeKey, activeSelector = '.sub-tab.active'
     const place = () => {
       const on = seg.querySelector(activeSelector);
       if (!on) { el.style.opacity = '0'; return; }
+      // 溝ごと隠れている間（相談の入力中は body.keyboard-open でサブタブを display: none）は 0×0 を書かない
+      // ＝戻ったときに左上の角から滑ってこない。
+      if (seg.offsetParent === null || on.offsetWidth === 0) return;
       el.style.opacity = '';
       const bx = thumbBox(on, variant);
       el.style.transform = `translate(${bx.x}px, ${bx.y}px)`;
@@ -47,7 +50,15 @@ export default function SegThumb({ activeKey, activeSelector = '.sub-tab.active'
       ro.observe(seg);
       seg.querySelectorAll(':scope > *').forEach((c) => { if (c !== el) ro.observe(c); });
     }
-    return () => { cancelAnimationFrame(raf); ro?.disconnect(); };
+    // 大きさは変わらず位置だけ変わる並べ替え（横→縦）や、フォントの読み込み・画面の回転も測り直す。
+    window.addEventListener('resize', place);
+    document.fonts?.addEventListener?.('loadingdone', place);
+    return () => {
+      cancelAnimationFrame(raf);
+      ro?.disconnect();
+      window.removeEventListener('resize', place);
+      document.fonts?.removeEventListener?.('loadingdone', place);
+    };
   }, [activeKey, activeSelector, variant]);
 
   return <span ref={ref} aria-hidden="true" className={`seg-thumb seg-thumb--${variant}`} data-ready={ready ? '1' : '0'} />;

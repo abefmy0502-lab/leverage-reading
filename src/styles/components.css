@@ -1550,7 +1550,8 @@ details[open] > summary .fold-chevron { transform: rotate(180deg); }
 /* 畳む見出しの開閉を滑らかに（2026-10-28・motion-prompt #052 アコーディオンの数字: 0.3 秒ほど・easeInOutCubic・
    中身の高さが伸び縮みして下の段を押し下げる）。対応していないブラウザ（古い iOS など）は今までどおり一瞬で開閉する。
    開いている間は overflow を visible に戻す（中のカードの影や、はみ出す印を切らない）。閉じるときはすぐ clip。
-   interpolate-size は details だけに（ほかの auto の高さの動きを変えない）。動きを減らす設定は index.css の全体の決まりで止まる。 */
+   interpolate-size は details の中だけに（継承する性質なので、その中の子にも及ぶ＝auto へ動かす transition を中に書かない限り変わらない）。
+   動きを減らす設定は index.css の全体の決まりで止まる。 */
 @supports (interpolate-size: allow-keywords) {
   details { interpolate-size: allow-keywords; }
   details::details-content {
