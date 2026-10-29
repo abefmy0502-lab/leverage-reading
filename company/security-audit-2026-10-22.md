@@ -34,7 +34,7 @@
 
 | 場所 | 内容 | 理由 |
 |---|---|---|
-| `vercel.json` の CSP | `connect-src` / `img-src` の `https://*.supabase.co` がワイルドカード | 自分のプロジェクトのホストは env にしか無く、`vercel.json` は値を差し込めない。**公開前に `*.supabase.co` を自分のホスト（`https://xxxx.supabase.co`）に書き換える**（§3）。iOS の meta CSP は `vercel.json` から作るので自動で揃う |
+| `vercel.json` の CSP | `connect-src` / `img-src` の `https://*.supabase.co` がワイルドカード | 自分のプロジェクトのホストは env にしか無く、`vercel.json` は値を差し込めない。**2026-10-29 に `https://tkrinnopfssdibgxuqzl.supabase.co` だけに絞った**（§3 は済み）。iOS の meta CSP は `vercel.json` から作るので自動で揃う。Supabase のプロジェクトを作り直したら、この 2 か所も直す |
 | `style-src 'unsafe-inline'` | React の `style={}` に必要 | 全廃には全画面の書き直しが要る。`script-src` は `'self'` だけで `unsafe-inline` / `unsafe-eval` 無し |
 | `api/cover.js?health=1` | 未認証で設定の真偽を返す | 鍵の中身は返さず、IP の回数制限と 5 分キャッシュの内側。表紙が取れないときの切り分けに要る |
 | 追加トークンのサンドボックス購入を記録 | TestFlight のテスターが無料で AI を使える | App 審査で「買ったものが届かない」却下を避けるためのオーナー裁定。**審査が終わったら `RC_SANDBOX_TOKENS=false`** |
@@ -44,7 +44,7 @@
 ## 3. オーナーがやること
 
 1. Vercel の env に `LP_IP_SALT`（長いランダムな文字列・サーバーだけ）を入れる → 「公開の準備」の行が ✓ に
-2. 公開前に `vercel.json` の CSP の `https://*.supabase.co https://*.supabase.in`（connect-src と img-src の 2 か所）を、自分の Supabase のホストだけに書き換える（Claude に「CSP の Supabase を https://xxxx.supabase.co に絞って」と頼めばよい）
+2. ✅ 2026-10-29: `vercel.json` の CSP（connect-src と img-src）を `https://tkrinnopfssdibgxuqzl.supabase.co` だけにした
 3. App 審査が終わったら `RC_SANDBOX_TOKENS=false`
 
 ## 4. 問題なしと確かめた点（再監査のときの出発点）

@@ -111,18 +111,21 @@ VITE_RELEASE_NOTES_SINCE=（公開日 YYYY-MM-DD）
 npm install
 npm run build
 npx cap add ios    # 最初の 1 回だけ（ios/ を作る・2 回目からは不要）
+npm run ios:prepare   # 申請に要る決まりごとを入れる（下の 4・6 を自動で＝2026-10-29・何度流しても同じ）
 npx cap sync ios
 npx cap open ios   # Xcode が開く
 ```
+
+`npm run ios:prepare`（`scripts/ios-prepare.mjs`）が入れるもの: Info.plist の 3 つの説明文（カメラ・写真・写真の保存）・`ITSAppUsesNonExemptEncryption=NO`・`CFBundleDevelopmentRegion=ja`・iPhone は縦だけ、`PrivacyInfo.xcprivacy`（§8 と同じ・`VITE_SENTRY_DSN` があるときだけクラッシュとパフォーマンスを足す）と Xcode のプロジェクトへの登録。手で直した説明文は上書きしない。`npm run ios:prepare -- --check` で足りないものだけ見られる。Signing と Capability は Xcode で（下の 1）。
 
 - `npx cap add ios` で作った `ios/` は、Info.plist と PrivacyInfo を入れたあとでリポジトリにコミットする（次から作り直さないため・Pods とビルドの中身は .gitignore 済み）
 Xcode で:
 1. Signing & Capabilities → Team を選択、**In-App Purchase** と **Sign in with Apple** の capability を追加（**Push Notifications** と Background Modes の Remote notifications は `VITE_NATIVE_PUSH=on` で出すビルドだけ）。
 2. General → **Version 1.0.0 / Build 1**、Display Name `Orime`。
 3. App アイコン: `public/icons/icon-1024.png` を AppIcon にセット（1024 必須）。
-4. **PrivacyInfo.xcprivacy** を `ios/App/App/` に追加（下記 §8 の内容をコピー）。
+4. **PrivacyInfo.xcprivacy** は `npm run ios:prepare` が置いて登録する（中身は下記 §8）。Xcode の左の一覧の App の中に `PrivacyInfo.xcprivacy` があるか見るだけでよい。
 5. 実機（あなたの iPhone）で一度ビルド＆起動して、**課金（Sandbox）と復元**が動くか確認。
-6. **Info.plist** に `ITSAppUsesNonExemptEncryption` = `NO`（Boolean・暗号化は HTTPS だけ）と、次の 3 つの説明文を入れる（`@capacitor/camera` は package.json に入っているので `npm install && npx cap sync ios` で入る・無いと開いた瞬間に落ちる・2026-10-11 に文を決めた）:
+6. **Info.plist** の `ITSAppUsesNonExemptEncryption` = `NO`（Boolean・暗号化は HTTPS だけ）と、次の 3 つの説明文は `npm run ios:prepare` が入れる（入っているかを見る）（`@capacitor/camera` は package.json に入っているので `npm install && npx cap sync ios` で入る・無いと開いた瞬間に落ちる・2026-10-11 に文を決めた）:
 
    | キー | 文 |
    |---|---|

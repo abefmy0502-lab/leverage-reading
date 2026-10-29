@@ -14,7 +14,7 @@
 | # | 関門 | 時間 | やること | 終わった印（ダッシュボードの行） |
 |---|---|---|---|---|
 | 1 | **SQL** | 10 分 | Supabase の SQL Editor に `supabase_all_in_order.sql` を貼って Run → `supabase_verify_rls.sql` → `app_admins` に自分を入れる（`docs/sql-runbook.md`） | 「契約の表」「AI の原価」「運営ダッシュボードの表と関数」「契約の履歴…」「通知の表に iPhone の列」が ✓ |
-| 2 | **Vercel の env（売る分）** | 15 分 | `SUPABASE_SERVICE_ROLE_KEY`・`ANTHROPIC_API_KEY`・`GEMINI_API_KEY`・`CRON_SECRET`・`LP_IP_SALT`・楽天の 3 つ（CLAUDE.md の表）。公開前に `vercel.json` の CSP の `*.supabase.co` を自分のホストに絞る（`company/security-audit-2026-10-22.md` §3） | 「サーバーの Supabase の鍵」「Claude の鍵」「Gemini」「楽天」「合言葉」が ✓ |
+| 2 | **Vercel の env（売る分）** | 15 分 | `SUPABASE_SERVICE_ROLE_KEY`・`ANTHROPIC_API_KEY`・`GEMINI_API_KEY`・`CRON_SECRET`・`LP_IP_SALT`・楽天の 3 つ（CLAUDE.md の表）。CSP の Supabase のホストは 2026-10-29 に絞った（済み） | 「サーバーの Supabase の鍵」「Claude の鍵」「Gemini」「楽天」「合言葉」が ✓ |
 | 3 | **App Store Connect と RevenueCat** | 90 分 | `docs/iap-setup-runbook.md` A〜G（契約・税・口座 → アプリ → プラン 2 つ → トークン 2 つ → 鍵 → RevenueCat → Vercel に `REVENUECAT_WEBHOOK_AUTH`・`REVENUECAT_SECRET_API_KEY`） | 「RevenueCat の Webhook …」が ✓ |
 | 4 | **iPhone の通知（Mac）** | 60 分 | `company/app-store-submission.md` §12: APNs の鍵（.p8）→ Vercel に `APNS_*` 4 つ → Xcode の Push Notifications → `npm i @capacitor/push-notifications && npx cap sync ios` → 1.0 のビルドは `VITE_NATIVE_PUSH=on` | 「iPhone の通知」「ビルドに通知のスイッチ」が ✓ |
 | 5 | **ビルドと提出（Mac）** | 半日 | `company/app-store-submission.md` §1〜§10（証明書・Xcode・App Privacy・審査情報・PrivacyInfo・スクショ `company/launch-2026-11/screenshots/`・提出）。提出前に 審査用アカウントの AI の同意を取り消す（§6-1）。`VITE_RELEASE_NOTES_SINCE=<公開日>` | 「1.0 の公開日」が ✓ |
