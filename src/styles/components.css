@@ -1576,6 +1576,24 @@ details[open] > summary .fold-chevron { transform: rotate(180deg); }
 /* 読む文章・一覧の題名の最後の行に 1〜2 文字だけ残る折り返しを避ける */
 .text-pretty { text-wrap: pretty; }
 
+/* 📝 メモ本文（本の詳細のメモ・振り返りのメモ・思い出しカード・読み通す）＝読む文章（DESIGN §2・2026-10-30）。
+   - 幅をそろえる: 全体の p は text-wrap: pretty だが、iOS Safari は短い段落の行を均等に詰めて幅を縮めるので、
+     3〜4 行のメモだけ細く見えてカードごとに幅がばらついていた（オーナー指摘）。メモ本文は wrap（詰めない）。
+   - 行末の句読点はぶら下げ（右端がそろう）・行間 1.7・わずかな字間（明朝が読みやすい）。 */
+.memo-body {
+  margin: 0;
+  font-family: var(--font-read);
+  font-size: var(--text-read);
+  line-height: 1.7;
+  letter-spacing: 0.01em;
+  color: var(--text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  text-wrap: wrap;
+  hanging-punctuation: allow-end;
+  text-align: start;
+}
+
 /* AI の答え・計画シートのカード: 最後の要素の下の余白を 0 にして、カードの上下の内側余白をそろえる。 */
 .md-section > :last-child { margin-bottom: 0 !important; }
 

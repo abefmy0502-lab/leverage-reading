@@ -38,7 +38,7 @@ export function readThroughText({ title = '', purpose = '', memos = [], summary 
 }
 
 const label = { ...groupTitle, display: 'block' };
-const readText = { margin: 0, fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.6, letterSpacing: '0.02em', color: 'var(--text)', whiteSpace: 'pre-wrap', wordBreak: 'normal', lineBreak: 'strict', overflowWrap: 'anywhere', textWrap: 'pretty' };
+const readText = { margin: 0, fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.7, letterSpacing: '0.02em', textWrap: 'wrap', hangingPunctuation: 'allow-end', color: 'var(--text)', whiteSpace: 'pre-wrap', wordBreak: 'normal', lineBreak: 'strict', overflowWrap: 'anywhere', textWrap: 'pretty' };
 
 export default function MemoReadThrough({ title = '', purpose = '', memos = [], summary = '', onClose }) {
   const toast = useToast();

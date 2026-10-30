@@ -227,17 +227,11 @@ export default function BookMemoCard({ memo, highlight, onEdit, onSwipeDelete, o
 
       {memo.text && (
         <>
-          {/* メモ本文は「読む文章」（DESIGN §2: 明朝 18・行間 1.6）。長文は 4 行で畳み、
+          {/* メモ本文は「読む文章」（DESIGN §2: 明朝 18・行間 1.7・幅をそろえる＝components.css の .memo-body）。長文は 4 行で畳み、
               「続きを読む」で全文（カード内の入れ子スクロールはやめた・SPEC §2）。 */}
           <p
+            className="memo-body"
             style={{
-              fontFamily: 'var(--font-read)',
-              fontSize: 'var(--text-read)',
-              color: 'var(--text)',
-              lineHeight: 1.6,
-              whiteSpace: 'pre-wrap',
-              margin: 0,
-              overflowWrap: 'anywhere',
               ...(isLongBody && !expanded
                 ? { display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }
                 : {}),

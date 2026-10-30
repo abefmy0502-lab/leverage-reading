@@ -348,13 +348,9 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
         <>
           <p
             ref={bodyRef}
+            className="memo-body"
             style={{
-              // メモ本文＝読む文章（明朝 18・行間 1.6・DESIGN §2）
-              fontFamily: 'var(--font-read)',
-              fontSize: 'var(--text-read)',
-              color: 'var(--text)',
-              lineHeight: 1.6,
-              whiteSpace: 'pre-wrap',
+              // メモ本文＝読む文章（明朝 18・行間 1.7・幅をそろえる＝.memo-body・DESIGN §2）
               margin: 'var(--space-2) 0 0',
               // 畳むのは常に（思い出しカードは最大 4 行・一覧は 6 行）。はみ出すかは上の測定で判断。
               ...(!expanded
