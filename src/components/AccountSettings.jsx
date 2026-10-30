@@ -236,7 +236,8 @@ function ValueRow({ label, value, sub = null, style, onClick = null, ariaLabel }
       {sub ? (
         <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', minWidth: 0, textAlign: 'right', marginLeft: onClick ? 'auto' : 0 }}>
           <span style={{ fontSize: 'var(--text-body)', color: 'var(--text-2)' }}>{value}</span>
-          <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>{sub}</span>
+          {/* 2 行目は割らない塊（nowrap の span）ごとに折り返す。文まるごと nowrap だと見出しに重なった（2026-10-30 ui-critic） */}
+          <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, minWidth: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{sub}</span>
         </span>
       ) : (
         <span style={{ fontSize: 'var(--text-body)', color: 'var(--text-2)', textAlign: 'right', marginLeft: onClick ? 'auto' : 0 }}>{value}</span>
@@ -1142,7 +1143,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                     // 🌱 はじめの月（アカウントを作った月）は、今月だけ多いことと来月からの量を（2026-10-09）。
                     sub={freeFirstMonth && (tokenNextAllowance ?? FREE_TOKENS) === tokenAllowance
                       // 来月も同じ量なら、同じ数を 2 回言わない（2026-10-30 点検）
-                      ? <span style={{ whiteSpace: 'nowrap' }}>はじめの 2 か月は {fmtTokens(tokenAllowance)} トークン使えます</span>
+                      ? <><span style={{ whiteSpace: 'nowrap' }}>はじめの 2 か月は</span> <span style={{ whiteSpace: 'nowrap' }}>{fmtTokens(tokenAllowance)} トークン</span><span style={{ whiteSpace: 'nowrap' }}>使えます</span></>
                       : freeFirstMonth
                       ? <><span style={{ whiteSpace: 'nowrap' }}>はじめの 2 か月は {fmtTokens(tokenAllowance)} トークン。</span><span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}に</span> <span style={{ whiteSpace: 'nowrap' }}>{fmtTokens(tokenNextAllowance ?? FREE_TOKENS)} トークンに戻ります</span></>
                       : tokensRemaining >= tokenAllowance ? null : <><span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}に</span> <span style={{ whiteSpace: 'nowrap' }}>{fmtTokens(tokenNextAllowance ?? tokenAllowance)} トークンに戻ります</span></>}

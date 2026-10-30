@@ -4599,15 +4599,16 @@ function AuthedApp() {
       { label: '表紙を選び直す', icon: ImagePlus, onClick: () => { close(); setCoverFixForBook(liveBook); } },
       { label: '表紙を取り直す', icon: IcRefresh, onClick: () => { close(); refreshCoverFor(liveBook); } },
       { label: '表紙を手動でアップロード', icon: Upload, onClick: () => { close(); triggerManualCoverUpload(liveBook); } },
-      ...(liveBook.cover ? [{ label: '表紙を削除', icon: ImageOff, onClick: () => { close(); removeCoverFor(liveBook); } }] : []),
+      // 消す操作はいつも最後・エラー色（DESIGN §5）
+      ...(liveBook.cover ? [{ label: '表紙を削除', icon: ImageOff, destructive: true, onClick: () => { close(); removeCoverFor(liveBook); } }] : []),
     ];
     return (
-      <BottomSheet title="表紙を変える" onClose={close}>
-        <p style={sheetSubtitle}>『{liveBook.title}』</p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+      // 決定の無い 4 択なので右上は「キャンセル」・本の名前は題の上の小さな 1 行（DESIGN §5 シート・2026-10-30 ui-critic）
+      <BottomSheet title="表紙を変える" eyebrow={`『${liveBook.title}』`} dismissLabel="キャンセル" onClose={close}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
           {options.map((o) => (
-            <button key={o.label} type="button" onClick={o.onClick} style={sheetOption(false)}>
-              <o.icon size={18} aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
+            <button key={o.label} type="button" onClick={o.onClick} style={{ ...sheetOption(false), ...(o.destructive ? { color: 'var(--error)' } : null) }}>
+              <o.icon size={18} aria-hidden="true" style={{ color: o.destructive ? 'var(--error)' : 'var(--text-2)', flexShrink: 0 }} />
               <span>{o.label}</span>
             </button>
           ))}
@@ -5682,11 +5683,9 @@ function AuthedApp() {
               ...(current.status !== 'want'
                 ? [{ label: 'この本を買う', icon: <ShoppingBag size="1.1em" aria-hidden="true" />, onClick: () => setStoreSheetOpen(true) }]
                 : []),
-              // 読書中・読了は画像で共有（写真なしで開く・シートの中で写真も選べる）。読みたい・積読は書名とお店のリンクの文を共有。
-              isMemoPhase
-                // ほかの入口（上の行のカメラ・読了を写真で共有・集中モード）と同じく、まず選ぶシート（2026-10-30 点検）。
-                ? { label: '写真で共有', icon: <Share size="1.1em" aria-hidden="true" />, onClick: () => openShareChooser({ book: current, from: 'menu' }) }
-                : { label: '共有', icon: <Share size="1.1em" aria-hidden="true" />, onClick: () => shareBook(current) },
+              // 読みたい・積読は書名とお店のリンクの文を共有。読書中・読了の「写真で共有」は上の行のカメラ 1 つ
+              //（同じ操作を 2 か所に出さない＝DESIGN §5・2026-10-30 ui-critic。前は「…」にもあり、選ぶシートを飛ばしていた）。
+              ...(isMemoPhase ? [] : [{ label: '共有', icon: <Share size="1.1em" aria-hidden="true" />, onClick: () => shareBook(current) }]),
               // 🧾 AI への指示文（メモのある読書中・読了の本だけ・2026-10-21）。
               ...(isMemoPhase ? [{ label: 'AI への指示文をつくる', icon: <FileText size="1.1em" aria-hidden="true" />, onClick: () => setPromptMakerBookId(current.id) }] : []),
               // 以前の AI 解析は、保存済みのものがある本だけ（本の詳細の畳む見出しから移した・共有の下・ヘルプの上・2026-10-09）。
