@@ -658,7 +658,7 @@ export function DonePhase({ form, setForm, onSave, allFolders }) {
       {/* 「この本の学びを分析」は 2026-09-27 に廃止（本詳細の「この本に相談する」と重なる）。
           以前に保存した分析は「この本のAI まとめ」に残り、編集できる。 */}
       {form.aiSummary?.trim() && (
-        <Field label="以前の AI まとめ">
+        <Field label="AI まとめ（以前の）">
           <textarea value={form.aiSummary} onChange={(e) => setForm({ ...form, aiSummary: e.target.value })} rows={3} style={ta} maxLength={LIMITS.memoText} />
         </Field>
       )}

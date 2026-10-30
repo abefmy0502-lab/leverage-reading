@@ -134,6 +134,9 @@ export default function TokenUsageSheet({ onClose, onAdd, onPlans, from = 'consu
     resetLine = end
       ? <>無料期間は<span style={nowrap}>{end}まで。</span>そのあとは<span style={nowrap}>毎月 {fmt(PAID_TOKENS)} トークン</span></>
       : <>無料期間のあとは<span style={nowrap}>毎月 {fmt(PAID_TOKENS)} トークン</span></>;
+  } else if (free && freeFirstMonth && (tokenNextAllowance ?? FREE_TOKENS) === tokenAllowance) {
+    // 来月も同じ量なら、同じ数を 2 回言わない（2026-10-30 点検）
+    resetLine = <><span style={nowrap}>はじめの 2 か月は {fmt(tokenAllowance)} トークン使えます</span></>;
   } else if (free && freeFirstMonth) {
     resetLine = <><span style={nowrap}>はじめの 2 か月は {fmt(tokenAllowance)} トークン。</span><span style={nowrap}>{nextResetLabelJa()}に</span> <span style={nowrap}>{fmt(tokenNextAllowance ?? FREE_TOKENS)} トークンに戻ります</span></>;
   } else if (tokenAllowance != null) {
@@ -246,10 +249,11 @@ export default function TokenUsageSheet({ onClose, onAdd, onPlans, from = 'consu
       )}
 
       {/* 🌿 この期間に相談から得たもの（数だけ・2026-10-20） */}
-      {value && detail !== undefined && (value.consults > 0 || value.done > 0) && (
+      {/* 答えの回数は、トークンを使っているときだけ（払い戻した回・メモが答えた回だけだと「まだ使っていません」と並んで矛盾して見えた・2026-10-30 点検） */}
+      {value && detail !== undefined && ((value.consults > 0 && usedSome) || value.done > 0) && (
         <section aria-label={`${periodName}の相談`} style={sectionGap}>
           <h3 style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>{periodName}の相談</h3>
-          {value.consults > 0 && (
+          {value.consults > 0 && usedSome && (
             <div style={row}>
               <span style={rowLabel}>相談の AI の答え</span>
               <span style={rowValue}>{fmt(value.consults)} 回</span>

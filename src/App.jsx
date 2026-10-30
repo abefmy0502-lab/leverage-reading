@@ -9,7 +9,7 @@ import { ACCOUNT_FIELDS_USER_KEY, isAutoChosen, markFieldStage, readFieldStages 
 import { fetchServerFields, sendFieldVotes } from './lib/bookFieldsServer';
 import { FIELDS_WAIT_MS, applyAutoFields, markFieldsWaiting, settleServerFields } from './lib/bookFieldsForm';
 import { useBookFieldsAuto, infoFeatures } from './hooks/useBookFieldsAuto';
-import { BookFieldLinks, BookFolderLinks } from './components/BookFields';
+import { BookFieldLinks, BookFieldsSheet, BookFolderLinks } from './components/BookFields';
 import { useAppDataCache } from './state/AppDataCache';
 import { streamClaude } from './lib/streamClaude';
 // ⚡ 最初の画面に要らない重い部品は、使うときに読む（Suspense 付きの薄い包み・components/lazyParts.jsx）。
@@ -1197,6 +1197,10 @@ function AuthedApp() {
   // 本を開かずにその場で管理できるようにする（管理の最頻操作を1手に）。
   const [statusPickerBook, setStatusPickerBook] = useState(null);
   const [folderPickerBook, setFolderPickerBook] = useState(null);
+  // 🏷 本の詳細の分野「変更」をその場のシートで（フォルダの「変更」と同じ動き・前は編集画面へ飛んでいた・2026-10-30 点検）
+  const [fieldsPickerBook, setFieldsPickerBook] = useState(null);
+  // 🖼 本の詳細の「…」→「表紙を変える」の 4 択のシート（2026-10-30 点検）
+  const [coverMenuBook, setCoverMenuBook] = useState(null);
   const [newFolderName, setNewFolderName] = useState('');
   // 詳細画面の「⋯」kebab メニュー位置 (button 近くに表示する)
   const [detailKebab, setDetailKebab] = useState(null);
@@ -4567,6 +4571,50 @@ function AuthedApp() {
   // 🗂 フォルダ割当てシート（本棚の長押し・本の詳細の「変更」／「フォルダに入れる」→ フォルダに入れる）。
   //   タップでフォルダの出し入れをトグル（複数フォルダ可）。新規フォルダもその場で作成できる。
   //   シートは開いたまま＝複数割当てが一気にできる。本の詳細（早い return）とすべての本の両方で出す（2026-10-11）。
+  // 🏷 分野を選び直すシート（本の詳細の「変更」）。保存は分野の列（tags の中の分野）だけ・本人が選んだ印を付けて自動で付け直さない。
+  const fieldsPickerSheet = fieldsPickerBook ? (() => {
+    const liveBook = books.find((b) => b.id === fieldsPickerBook.id) || fieldsPickerBook;
+    const have = fieldsOf(liveBook);
+    return (
+      <BookFieldsSheet
+        selected={have}
+        onClose={() => setFieldsPickerBook(null)}
+        onDone={(next) => {
+          setFieldsPickerBook(null);
+          const same = next.length === have.length && next.every((f) => have.includes(f));
+          if (same) return;
+          if (user?.id) {
+            if (isAutoChosen(user.id, readFieldStages(user.id), liveBook.id)) sendFieldVotes(liveBook, have, next);
+            bookFieldsAuto.markUserChosen(liveBook.id);
+          }
+          applyBookPatchQuiet(liveBook.id, { tags: withFields(liveBook.tags || [], next) }, null);
+        }}
+      />
+    );
+  })() : null;
+  const coverMenuSheet = coverMenuBook ? (() => {
+    const liveBook = books.find((b) => b.id === coverMenuBook.id) || coverMenuBook;
+    const close = () => setCoverMenuBook(null);
+    const options = [
+      { label: '表紙を選び直す', icon: ImagePlus, onClick: () => { close(); setCoverFixForBook(liveBook); } },
+      { label: '表紙を取り直す', icon: IcRefresh, onClick: () => { close(); refreshCoverFor(liveBook); } },
+      { label: '表紙を手動でアップロード', icon: Upload, onClick: () => { close(); triggerManualCoverUpload(liveBook); } },
+      ...(liveBook.cover ? [{ label: '表紙を削除', icon: ImageOff, onClick: () => { close(); removeCoverFor(liveBook); } }] : []),
+    ];
+    return (
+      <BottomSheet title="表紙を変える" onClose={close}>
+        <p style={sheetSubtitle}>『{liveBook.title}』</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+          {options.map((o) => (
+            <button key={o.label} type="button" onClick={o.onClick} style={sheetOption(false)}>
+              <o.icon size={18} aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
+              <span>{o.label}</span>
+            </button>
+          ))}
+        </div>
+      </BottomSheet>
+    );
+  })() : null;
   const folderPickerSheet = folderPickerBook ? (() => {
         const liveBook = books.find((b) => b.id === folderPickerBook.id) || folderPickerBook;
         const cols = liveBook.collections || [];
@@ -5054,7 +5102,7 @@ function AuthedApp() {
               )}
               {/* 🏷 分野・🗂 フォルダ（2026-10-11）: 書名の列の中に置く（表紙の左端・見出しの列・行の値の列と、左の端が 3 つに分かれていた・2026-10-16 ui-critic 第 2 回）。
                   分野は押すと、すべての本をその分野で絞る。フォルダは押すとそのフォルダで絞り、「変更」でフォルダに入れるシート（全状態）。 */}
-              <BookFieldLinks fields={fieldsOf(current)} onPick={openLibraryByField} onEdit={() => openEdit(current)} />
+              <BookFieldLinks fields={fieldsOf(current)} onPick={openLibraryByField} onEdit={() => setFieldsPickerBook(current)} />
               <BookFolderLinks
                 folders={current.collections || []}
                 stacked={fieldsOf(current).length > 0}
@@ -5083,7 +5131,8 @@ function AuthedApp() {
                   aria-label="読む時間の目安を決める"
                   style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }}
                 >
-                  目安を決める
+                  {/* 何の目安かが名前で分かるように（「目安を決める」だけでは読む時間のことと伝わらなかった・2026-10-30 点検） */}
+                  読む時間の目安
                   <ChevronDown size="1.1em" aria-hidden="true" style={{ flexShrink: 0 }} />
                 </button>
                 )}
@@ -5570,6 +5619,8 @@ function AuthedApp() {
         {focusLayer}
         {/* 🗂 フォルダに入れる（本の詳細の「変更」／「フォルダに入れる」・2026-10-11） */}
         {folderPickerSheet}
+        {fieldsPickerSheet}
+        {coverMenuSheet}
         {storeSheetOpen && (
           <BottomSheet title="この本を買う" onClose={() => setStoreSheetOpen(false)}>
             <BookStoreLinks book={current} variant="cta" buy />
@@ -5625,16 +5676,16 @@ function AuthedApp() {
                   },
                 }];
               })()),
-              { label: '表紙を選び直す', icon: <ImagePlus size="1.1em" aria-hidden="true" />, onClick: () => setCoverFixForBook(current) },
-              { label: '表紙を取り直す', icon: <IcRefresh size="1.1em" aria-hidden="true" />, onClick: () => refreshCoverFor(current) },
-              { label: '表紙を手動でアップロード', icon: <Upload size="1.1em" aria-hidden="true" />, onClick: () => triggerManualCoverUpload(current) },
-              ...(current.cover ? [{ label: '表紙を削除', icon: <ImageOff size="1.1em" aria-hidden="true" />, onClick: () => removeCoverFor(current) }] : []),
+              // 表紙の 4 つ（選び直す・取り直す・手動でアップロード・削除）は 1 項目にまとめ、押すとその 4 択のシート
+              //（「…」が 12 項目で、毎晩使う 編集・読書計画・共有 が埋もれていた・2026-10-30 点検）。
+              { label: '表紙を変える', icon: <ImagePlus size="1.1em" aria-hidden="true" />, onClick: () => setCoverMenuBook(current) },
               ...(current.status !== 'want'
                 ? [{ label: 'この本を買う', icon: <ShoppingBag size="1.1em" aria-hidden="true" />, onClick: () => setStoreSheetOpen(true) }]
                 : []),
               // 読書中・読了は画像で共有（写真なしで開く・シートの中で写真も選べる）。読みたい・積読は書名とお店のリンクの文を共有。
               isMemoPhase
-                ? { label: '写真で共有', icon: <Share size="1.1em" aria-hidden="true" />, onClick: () => setShareSheet({ book: current, from: 'menu' }) }
+                // ほかの入口（上の行のカメラ・読了を写真で共有・集中モード）と同じく、まず選ぶシート（2026-10-30 点検）。
+                ? { label: '写真で共有', icon: <Share size="1.1em" aria-hidden="true" />, onClick: () => openShareChooser({ book: current, from: 'menu' }) }
                 : { label: '共有', icon: <Share size="1.1em" aria-hidden="true" />, onClick: () => shareBook(current) },
               // 🧾 AI への指示文（メモのある読書中・読了の本だけ・2026-10-21）。
               ...(isMemoPhase ? [{ label: 'AI への指示文をつくる', icon: <FileText size="1.1em" aria-hidden="true" />, onClick: () => setPromptMakerBookId(current.id) }] : []),
@@ -6061,7 +6112,8 @@ function AuthedApp() {
               // 🎯 今日の行動の 1 行 → 振り返り › 行動（2026-10-10）
               onOpenActions={() => { setActionShowDoneNonce(null); setReviewSubTab('action'); setView('list'); setTab('review'); }}
               // 🌱 相談相手が育ちました →「相談してみる」（下書きを入れて相談を開く・送らない）
-              onConsultDraft={(q, from) => { track('try_consult', { from }); openConsultWith(q); }}
+              // from（growth / grown / import …）を相談にも渡す（はじめての相談の入口として見出しと「たとえば」を残すため・2026-10-30 点検）
+              onConsultDraft={(q, from) => { track('try_consult', { from }); openConsultWith(q, { from }); }}
               onOpenConsult={() => { setView('list'); setAiSubTab('brain'); setTab('ai'); }}
               onOpenRecord={() => { setReviewSubTab('record'); setView('list'); setTab('review'); }}
               onOpenPlan={() => setSettingsOpen(true)}
@@ -6371,7 +6423,9 @@ function AuthedApp() {
                       maskImage: chipRowsScrolled.folder ? SCROLL_FADE_MASK_BOTH : SCROLL_FADE_MASK,
                     }}
                   >
-                    {allFolders.map((f) => {
+                    {allFolders.filter((f) => folderFilter === f.name || (folderChipCounts.get(f.name) || 0) > 0 || !(statusFilter !== 'all' || tagFilter.length > 0 || minRating > 0 || !!libraryHits)).map((f) => {
+                      // ほかの絞り込み（状態・分野・評価・検索）が効いているときは、0 冊のフォルダは出さない
+                      //（分野で絞った一覧に関係ないフォルダが「0」で並んでいた・2026-10-30 点検）。絞っていなければ全部。
                       const active = folderFilter === f.name;
                       // 冊数はほかの絞り込み（状態・分野・評価・検索）を効かせた数（状態のチップと同じ）。
                       //   冊数の決まりは状態の行と同じ数え方・数字はいつも --text-2（--fill の上の --text-3 は 4.5:1 に届かない）。
@@ -6572,7 +6626,7 @@ function AuthedApp() {
             <div key={`review-${reviewSubTab}`} className="sub-panel" role="tabpanel" id="review-panel" aria-labelledby={`review-tab-${reviewSubTab}`}>
             {reviewSubTab === 'note' ? (
               <Suspense fallback={<ReviewNoteFallback />}>
-                <Review books={books} onOpenBook={(b, memoId, opts) => { openDetail(b, memoId, opts); }} onAddAction={addActionFromMemo} onAddNote={() => setAddNoteSheet('pick')} onGoToShelf={() => { navigateTab('books'); goList(); setShelfMode('library'); }}
+                <Review books={books} onOpenBook={(b, memoId, opts) => { openDetail(b, memoId, opts); }} onAddAction={addActionFromMemo} onAddNote={() => setAddNoteSheet('pick')} onGoToShelf={() => { navigateTab('books'); goList(); setShelfMode('library'); }} onQuickstart={() => { setQuickstartSeed(null); setShowQuickstart(true); }}
                   // メモ検索で見つからなかった言葉を、相談の入力欄に入れて開く（送らない・2026-09-29）。
                   // 思い出しカードの「このメモで相談する」は、相談相手をそのメモの本に絞る（opts.bookIds・2026-10-10）。
                   onAskConsult={(q, opts) => openConsultWith(q, { bookIds: opts?.bookIds || null })}
@@ -6784,7 +6838,7 @@ function AuthedApp() {
               ? {
                   label: '写真で共有',
                   icon: <Share size="1.1em" aria-hidden="true" />,
-                  onClick: () => setShareSheet({ book: bookContextMenu.book, from: 'menu' }),
+                  onClick: () => openShareChooser({ book: bookContextMenu.book, from: 'menu' }),
                 }
               : {
                   label: '共有',

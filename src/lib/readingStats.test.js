@@ -50,17 +50,25 @@ describe('weeklyTotals', () => {
     const w = weeklyTotals([row('a', at(2026, 10, 13, 23, 50), 40)], books, { now: NOW });
     expect(w[11].seconds).toBe(40 * 60);
   });
-  it('月の名前は 1 日がある週（いちばん左はその月）', () => {
+  it('月の名前は 1 日がある週（1 日が金〜日なら次の週・いちばん左はその月）', () => {
     const w = weeklyTotals([], books, { now: NOW });
-    expect(w[0].monthLabel).toBe('8月'); // 7/27〜8/2 に 8/1
-    // 10/10（土）なら左端は 7/20〜26（1 日なし）・すぐ右に 8/1 があるので左端は出さない。
+    // 7/27〜8/2 の 8/1 は土曜（週の大半は 7 月）→ 名前は次の週 8/3〜 に。左端はすぐ右に名前が付くので出さない。
+    expect(w[0].monthLabel).toBe('');
+    expect(w[1].monthLabel).toBe('8月');
+    // 10/10（土）なら左端は 7/20〜26（1 日なし）・すぐ右の週の 8/1 は土曜で名前がその次の週に行くので、左端は 7 月。
     const w2 = weeklyTotals([], books, { now: at(2026, 10, 10, 12) });
-    expect(w2[0].monthLabel).toBe('');
-    expect(w2[1].monthLabel).toBe('8月');
+    expect(w2[0].monthLabel).toBe('7月');
+    expect(w2[1].monthLabel).toBe('');
+    expect(w2[2].monthLabel).toBe('8月');
     // 左端の週に 1 日が無く、すぐ右にも無いときは、その月の名前。
     expect(weeklyTotals([], books, { now: at(2026, 10, 21, 12) })[0].monthLabel).toBe('8月');
+    // 10/1 は木曜（週の前半）→ 9/28〜10/4 の週に。
     const oct = w.findIndex((x) => x.monthLabel === '10月');
-    expect(new Date(w[oct].from).getDate()).toBe(28); // 9/28〜10/4
+    expect(new Date(w[oct].from).getDate()).toBe(28);
+    // 11/1 は日曜 → 10/26〜11/1 の今週には付けず、11/2〜 の週に（「今週＝11 月」に見えない・2026-10-30）。
+    const w3 = weeklyTotals([], books, { now: at(2026, 11, 4, 12) });
+    expect(w3[10].monthLabel).toBe('');
+    expect(w3[11].monthLabel).toBe('11月');
   });
   it('本棚に無い本の行は数えない', () => {
     const w = weeklyTotals([row('zz', at(2026, 10, 13, 8), 30)], books, { now: NOW });

@@ -81,21 +81,33 @@ export function weeklyTotals(rows, books, { weeks = STATS_WEEKS, now = Date.now(
   const list = rowsOfShelf(rows, books);
   const current = weekStartOf(now);
   const out = [];
+  // 1 日が週の後ろ（金〜日）にある月は、その週の大半が前の月なので、名前は次の週に付ける
+  //（10/26〜11/1 の今週に「11月」が付くと「今週＝11月」に見えた・2026-10-30 点検）。
+  let carried = null;
   for (let w = weeks - 1; w >= 0; w -= 1) {
     const s = new Date(current);
     const from = new Date(s.getFullYear(), s.getMonth(), s.getDate() - w * 7).getTime();
     const fromD = new Date(from);
     const to = new Date(fromD.getFullYear(), fromD.getMonth(), fromD.getDate() + 7).getTime();
     let firstOfMonth = null;
+    let firstIdx = -1;
     for (let i = 0; i < 7; i += 1) {
       const d = new Date(fromD.getFullYear(), fromD.getMonth(), fromD.getDate() + i);
-      if (d.getDate() === 1) firstOfMonth = d.getMonth();
+      if (d.getDate() === 1) { firstOfMonth = d.getMonth(); firstIdx = i; }
     }
-    // いちばん左の週は 1 日が無くてもその月の名前（すぐ右の週に 1 日があるときは、名前が重なるので出さない＝読書の足あとと同じ）。
-    let month = firstOfMonth;
+    let month = carried;
+    carried = null;
+    if (firstOfMonth != null) {
+      if (firstIdx >= 4) carried = firstOfMonth; else month = firstOfMonth;
+    }
+    // いちばん左の週は名前が付かなければその月の名前（すぐ右の週に次の月の名前が付くときは、名前が並ぶので出さない＝読書の足あとと同じ）。
     if (month == null && w === weeks - 1) {
-      const nextHasFirst = new Date(fromD.getFullYear(), fromD.getMonth(), fromD.getDate() + 13).getDate() <= 7;
-      month = nextHasFirst ? null : fromD.getMonth();
+      const nextFrom = new Date(fromD.getFullYear(), fromD.getMonth(), fromD.getDate() + 7);
+      let nextLabeled = carried != null;
+      for (let i = 0; i < 4 && !nextLabeled; i += 1) {
+        if (new Date(nextFrom.getFullYear(), nextFrom.getMonth(), nextFrom.getDate() + i).getDate() === 1) nextLabeled = true;
+      }
+      month = nextLabeled ? null : fromD.getMonth();
     }
     out.push({
       from,

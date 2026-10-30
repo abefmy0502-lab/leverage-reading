@@ -363,7 +363,8 @@ function LearningInline({ onSaved, onDirtyChange, initialTags = null }) {
           style={{ ...uiBtnLink, padding: 0, gap: 'var(--space-1)' }}
         >
           {moreOpen ? <Minus size={16} aria-hidden="true" /> : <Plus size={16} aria-hidden="true" />}
-          分類・タグ
+          {/* 「分類」は GLOSSARY で避ける語（分野と紛れる）。学びの種類（会話・経験…）とタグ（2026-10-30 点検） */}
+          種類・タグ
           {!moreOpen && (
             <span style={{ fontWeight: 400, color: 'var(--text-2)' }}>
               （{[category, ...tags].join('・')}）
@@ -1639,7 +1640,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     // 下書き（すべての本の「相談で探す」・振り返りの「相談で聞く」）は入力欄に入れてカーソルを置く（送らない＝トークンは送ったときだけ）。
     if (askPreset.draft) {
       setInput(askPreset.question);
-      setFirstDayDraft(askPreset.from === 'firstDay' ? askPreset.question : null);
+      // ホームの育つまでの一行・「相談相手が育ちました」の「相談してみる」（growth / grown）も、はじめての相談の主な入口なので
+      // 初日と同じく見出しと「たとえば」を残す（2026-10-30 点検: 下書きだけ入って上が真っ白になっていた）。
+      setFirstDayDraft(['firstDay', 'growth', 'grown'].includes(askPreset.from) ? askPreset.question : null);
       setBeforeAfterDraft(askPreset.from === 'beforeAfter' ? askPreset.question : null);
       // カーソルは、下書きが入って入力欄が描き直されたあと（下の effect）で置く（setTimeout の 80ms では、
       // 相談タブを開く動きの途中で入力欄がまだ無いことがあり、フォーカスの輪が出なかった・2026-10-02 ui-critic）。
@@ -2699,7 +2702,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               ) : null}
               {/* 「別の角度で答えて」は入力欄の上のチップの行へ（2026-09-30）。ここは会話を区切る操作だけ。 */}
               {/* 無料のトークンを使い切ったあとは、プランの案内（上の文字ボタン）を次の一歩にして、こちらは控えめに（2026-10-10 ui-critic）。 */}
-              <button type="button" onClick={handleResolveAndClear} style={{ ...(freeUsedUp ? uiBtnLinkQuiet : uiBtnLink), marginLeft: 'calc(-1 * var(--space-1))' }}>
+              {/* 聞き返しの途中（問いの箱に「あと 1 つ聞いたら…」が出ている回）は、返事が次の一歩なので控えめに（2026-10-30 点検）。 */}
+              <button type="button" onClick={handleResolveAndClear} style={{ ...(freeUsedUp || askProgress ? uiBtnLinkQuiet : uiBtnLink), marginLeft: 'calc(-1 * var(--space-1))' }}>
                 新しい相談をはじめる
               </button>
             </div>
@@ -3283,7 +3287,10 @@ export function parseAnswer(text) {
   const sections = {};
   let key = null;
   let actionLabel = '明日からできる一歩';
-  body.split('\n').forEach((line) => {
+  const lines = body.split('\n');
+  // 書いている途中の、まだ閉じていない見出し（「【参照した本のメモ」）は本文に混ぜない（1〜2 秒見えて壊れて見えた・2026-10-30 点検）。
+  if (lines.length && /^\s*【[^】]*$/.test(lines[lines.length - 1])) lines.pop();
+  lines.forEach((line) => {
     const h = line.match(/^\s*【(.+?)】\s*(.*)$/);
     if (h) {
       const name = h[1];
