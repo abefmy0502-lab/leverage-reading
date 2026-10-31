@@ -67,7 +67,7 @@ const infoText = { color: 'var(--success)', fontSize: 'var(--text-meta)', lineHe
 // 通信やサーバー側の失敗（入力を直しても解決しない）。入力の誤りとは見せ方を分け、ErrorMessage の面で出す。
 const NETWORK_ERROR = 'つながりませんでした。通信状況を確認して、もう一度お試しください。';
 const RATE_LIMIT_ERROR = '短い間に何度も試されました。少し待ってから、もう一度お試しください。';
-const UNEXPECTED_ERROR = '予期せぬエラーが発生しました。時間をおいて、もう一度お試しください。';
+const UNEXPECTED_ERROR = 'ログインできませんでした。時間をおいて、もう一度お試しください。';
 const NOT_CONFIGURED_ERROR = 'アプリの設定が未完了です。管理者にお問い合わせください。';
 // サーバー（Supabase）が止まっている・壊れている（5xx・一時停止）。入力を直しても解決しない。
 const SERVER_DOWN_ERROR = 'サーバーにつながりません。時間をおいて、もう一度お試しください。';

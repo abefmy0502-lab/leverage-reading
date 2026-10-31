@@ -110,8 +110,9 @@ export function toSaveMessage(err, fallback = '保存できませんでした。
   return isOffline() ? OFFLINE_SAVE_MESSAGE : toMessage(err, fallback);
 }
 
-export function toMessage(err, fallback = '予期せぬエラーが発生しました。') {
-  return tidyUserMessage(toMessageRaw(err, fallback), tidyUserMessage(fallback, '予期せぬエラーが発生しました。'));
+// 曖昧に謝らず、何が起きたかと次の一歩を言う（frontend-design の文の決まり・2026-10-31。前は「予期せぬエラーが発生しました。」）
+export function toMessage(err, fallback = 'うまくいきませんでした。通信状況を確かめて、もう一度お試しください。') {
+  return tidyUserMessage(toMessageRaw(err, fallback), tidyUserMessage(fallback, 'うまくいきませんでした。通信状況を確かめて、もう一度お試しください。'));
 }
 
 function toMessageRaw(err, fallback) {

@@ -498,7 +498,9 @@ export default function Landing() {
         revealIo = new IntersectionObserver((entries) => {
           entries.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('is-in'); revealIo.unobserve(e.target); } });
         }, { threshold: 0.2 });
-        document.querySelectorAll('.lp-reveal, .lp-sec .lp-h2, .lp-gallery, .lp-pillars > li').forEach((el) => revealIo.observe(el));
+        // 動きはヒーローの 1 回だけ（引用が画面より少し遅れて出る）。区画ごとの「ふわっと出る」は 2026-10-31 にやめた
+        //（frontend-design の原則: 区画ごとの登場の動きは生成された画面の癖・1 回の演出のほうが効く）。
+        document.querySelectorAll('.lp-reveal').forEach((el) => revealIo.observe(el));
       }
       secIo = new IntersectionObserver((entries) => {
         entries.forEach((e) => {
@@ -695,10 +697,11 @@ export default function Landing() {
         <section className="lp-sec lp-change-sec" aria-labelledby="lp-change" data-lp-sec="change">
           <div className="lp-wrap">
             <h2 className="lp-h2" id="lp-change"><span>本と会話すると、</span><span>変わること</span></h2>
+            {/* 番号（01〜04）は 2026-10-31 にやめた: 順番のない 4 つに番号を振るのは生成された画面の癖（frontend-design の原則＝
+                番号は本当に順番があるものだけ）。細い線で区切るだけにする */}
             <ol className="lp-change">
-              {CHANGES.map((x, i) => (
-                <li key={x.title} className="lp-reveal">
-                  <span className="lp-change-num" aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
+              {CHANGES.map((x) => (
+                <li key={x.title}>
                   <h3 className="lp-change-title lp-wbr"><Phrases clause>{x.title}</Phrases></h3>
                   <p className="lp-wbr"><Phrases>{x.body}</Phrases></p>
                 </li>
@@ -774,7 +777,7 @@ export default function Landing() {
                 <span role="columnheader">Orime</span>
               </div>
               {DIFFS.map((x) => (
-                <div className="lp-diff-row lp-reveal" role="row" key={x.kind}>
+                <div className="lp-diff-row" role="row" key={x.kind}>
                   <span className="lp-diff-kind" role="rowheader">{x.kind}</span>
                   <span className="lp-diff-usual lp-wbr" role="cell"><span className="lp-diff-tag">よくある形</span><Phrases>{x.usual}</Phrases></span>
                   <span className="lp-diff-orime lp-wbr" role="cell"><span className="lp-diff-tag">Orime</span><Phrases>{x.orime}</Phrases></span>

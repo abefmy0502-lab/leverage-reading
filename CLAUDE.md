@@ -67,13 +67,14 @@ UI 文言・トースト・ヘルプ・LP・プロンプト出力で使う名前
    - 既存コードには直書きが大量に残っている（色 約290・文字サイズ 約820・角丸 約250 か所）。**触ったファイルの直書きは、その変更のついでにトークンへ置き換える**（DESIGN.md §8 の順で段階移行）
    - 使ってよい値：余白 4/8/12/16/24/32/48/64、角丸 12 の 1 種類（円は例外）、文字 12 以上、太さ 400/600/700、色はニュートラル＋アクセント（栗色）1 色＋状態色 3 色
 2. **既存部品を先に使う**：切り替えの「選んだ面・下線」は `SegThumb.jsx`（押した所へ滑る・DESIGN §5「滑る面」・2026-10-28）、畳む見出しは `<details>` のまま（開閉は `components.css` が伸び縮みさせる）、JS で待つ秒数は `lib/motion.js` の `DURATION_FAST_MS` / `DURATION_BASE_MS`（`tokens.css` と一致をテスト）。新しい部品を作る前に、`src/styles/ui.js`（`btnPrimary` / `btnGhost` / `btnDanger` / `input` / `card`）、`components.css`（`.btn` `.card` など）、`EmptyState` / `ErrorMessage` / `SectionHeader` / `StatCard` / `Skeleton` / `BottomSheet` / `ContextMenu` を探して再利用する。無いときだけ作り、作ったら DESIGN.md §5 の表に追記する
-3. **UI を変えたら、明暗両方のスクショで比較してから直す**
+3. **見た目を新しく作る・作り直すときは `/frontend-design`**（`.claude/skills/frontend-design/SKILL.md`・2026-10-31）: 固定された軸（この DESIGN.md）と自由な軸を分け、生成された画面の癖（番号の飾り・全大文字の小見出し・eyebrow・区画ごとの fade-and-slide・同じカードの連打・`→` つきのボタン・謝る／曖昧なエラー文）を照合してから作る。動かして確かめるときは `/webapp-testing`（偵察は `node scripts/ui-probe.mjs <URL>`）
+4. **UI を変えたら、明暗両方のスクショで比較してから直す**
    1. 変更前に `npm run demo`（別ターミナル）→ `npm run ui:shots -- before <画面名…>` で撮る
    2. 変更後に `npm run ui:shots -- after <画面名…>` で撮る（`ui-shots/<ラベル>/<画面>-light.png` / `-dark.png`・git 管理外）
    3. before / after（または DESIGN.md の手本）を見比べて**差分を箇条書きにしてから**修正する
    4. サブエージェント **`ui-critic`**（`.claude/agents/ui-critic.md`）に採点させ、**20 点中 16 点以上**で完了。実装した本人の目だけで合格にしない
    - iOS 実機に近い確認は Mac の iOS シミュレータで行う（`ios-simulator-mcp`・手順は下の「iOS シミュレータでの確認」）。Web 版で先に確認し、節目でシミュレータでも撮る
-4. 画面の構成を変えたら `SPEC.md`、トークン・部品を変えたら `DESIGN.md` も同じコミットで更新する
+5. 画面の構成を変えたら `SPEC.md`、トークン・部品を変えたら `DESIGN.md` も同じコミットで更新する
 
 ### iOS シミュレータでの確認（Mac でのみ・任意）
 
@@ -107,6 +108,7 @@ UI 文言・トースト・ヘルプ・LP・プロンプト出力で使う名前
 ├── public/                             # 静的アセット (manifest.json, icons/, sw.js)
 ├── scripts/generate-icons.js           # PWA アイコン生成 (`npm run icons`)
 ├── scripts/ui-shots.mjs                # 📸 主要画面の明暗スクショ（`npm run ui:shots -- <ラベル> [画面名…]`）
+├── scripts/ui-probe.mjs                # 🔍 画面の偵察（URL を開いて押せるもの・見出し・入力欄の今の文言を並べる・`--click`・`--shot`・2026-10-31・/webapp-testing）
 ├── scripts/ios-prepare.mjs             # 📱 `npm run ios:prepare`＝`npx cap add ios` のあとに Info.plist の説明文・暗号化の免除・ja・縦だけ・PrivacyInfo.xcprivacy（Xcode に登録）を冪等に入れる（`--check` で足りないものだけ・2026-10-29）
 ├── scripts/lp-shots.mjs                # 📸 LP に載せるアプリ画面の写真を撮り直す（`npm run demo` → `npm run lp:shots` → public/lp/*.webp・2026-10-11 からヒーローは 1 冊の本の語り口＝hero・対話の 4 コマ・行動・集中モード・分野・共有）
 ├── scripts/share-images.mjs            # 🖼 写真で共有の「共有される画像そのもの」を重ね方×形×地で書き出す（`npm run demo` → `node scripts/share-images.mjs` → ui-shots/share-after/images/）
@@ -114,7 +116,7 @@ UI 文言・トースト・ヘルプ・LP・プロンプト出力で使う名前
 ├── SPEC.md / DESIGN.md                 # 🎨 画面の役割 / 見た目のルール（UI を触る前に必ず読む）
 ├── docs/revenue-gates.md               # 🚀 売上までの関門（オーナーがやる順番・SQL → env → App Store Connect/RevenueCat → iPhone の通知 → 提出 → 公開の日 → 知らせる）。どこまで通ったかは 運営ダッシュボード 概況「公開の準備」＝api/launch-health.js（管理者だけ・env と SQL の有無を真偽で返す・値は返さない・一覧は src/lib/launchGates.js＝api/_launchHealthKeys.js とテストで一致・お試しは `/?admin=1&launch=ready|none|error`・2026-10-22）
 ├── docs/leverage-system.md             # ⚙️ マーケと開発のレバレッジの仕組み（1 ページ・2026-10-22）: /feature・/ship・/mkt-week の型、CI、文書の同期のテスト、編集のあとの一言（hook）、土曜の投稿キットの自動化、オーナーの週 約 5 時間
-├── .claude/skills/{feature,ship,mkt-week}/SKILL.md  # 🧭 型（作る・出す・今週の投稿キット）。.claude/settings.json の hook は scripts/hooks/post-edit.mjs
+├── .claude/skills/{feature,ship,mkt-week,frontend-design,webapp-testing}/SKILL.md  # 🧭 型（作る・出す・今週の投稿キット・見た目を作る・動かして確かめる）。.claude/settings.json の hook は scripts/hooks/post-edit.mjs
 ├── company/weekly/                     # 📅 土曜の投稿キット（自動の下書き → オーナーが直して予約）
 ├── src/
 │   ├── App.jsx                         # メインルーティング、状態管理、画面切替

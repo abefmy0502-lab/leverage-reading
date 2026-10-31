@@ -774,7 +774,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       });
     } catch (e) {
       const expected = !!(e?.monthlyLimit || e?.paywall || e?.consentDeclined);
-      const errText = expected ? e.message : toMessage(e, '通信エラーが発生しました。もう一度お試しください。');
+      const errText = expected ? e.message : toMessage(e, '本を探せませんでした。通信状況を確かめて、もう一度お試しください。');
       setRecoNotice(expected);
       setRecoError(errText);
       setChatHistory(historyBefore); // 答えの無い相談を履歴に残さない（送り直しで二重にならないように）

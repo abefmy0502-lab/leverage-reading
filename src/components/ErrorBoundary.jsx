@@ -79,7 +79,7 @@ export default class ErrorBoundary extends React.Component {
         >
           <div style={{ width: '100%', maxWidth: 400, textAlign: 'center' }}>
             <h1 style={{ fontSize: 'var(--text-heading)', fontWeight: 600, lineHeight: 1.3, color: 'var(--text)', margin: '0 0 var(--space-3)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-              {withPhraseBreaks('予期せぬエラーが起きました')}
+              {withPhraseBreaks('画面を表示できませんでした')}
             </h1>
             <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, margin: '0 0 var(--space-6)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
               {withPhraseBreaks('ホームに戻るか、読み込み直してください。')}
