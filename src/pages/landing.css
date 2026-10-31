@@ -511,6 +511,7 @@ body.lp-active {
 .lp-gallery::-webkit-scrollbar { display: none; }
 /* 今どの枚か（スマホだけ・今の 1 つだけ栗色） */
 .lp-gallery-dots { display: flex; justify-content: center; gap: var(--space-2); margin-top: var(--space-2); }
+.lp-root .lp-pillars-dots { margin-top: var(--space-6); } /* 柱の写真と点の間は 24（ui-critic 2026-10-31） */
 .lp-gallery-dots span { width: var(--space-2); height: var(--space-2); border-radius: 50%; background: var(--text-3); }
 .lp-gallery-dots span.is-on { background: var(--accent); }
 .lp-root .lp-flow-head { margin: var(--space-16) 0 var(--space-6); }
@@ -902,7 +903,7 @@ body.lp-active {
 .lp-qr { display: none; align-items: center; gap: var(--space-3); }
 .lp-qr svg { border-radius: var(--radius); flex-shrink: 0; }
 /* 暗い画面でも白い札に見せる（QR は白地に黒・読み取りのため色をトークンにしない） */
-@media (prefers-color-scheme: dark) { .lp-qr svg { padding: var(--space-2); background: #fff; } }
+@media (prefers-color-scheme: dark) { .lp-qr svg { padding: var(--space-2); background: var(--on-cover); } } /* QR は読み取りのために白（トークン --on-cover） */
 .lp-qr p { color: var(--text-2); font-size: var(--text-meta); line-height: 1.5; text-align: left; }
 /* スマホ・タブレット（タッチ操作の端末）では出さない */
 @media (min-width: 1024px) and (hover: hover) and (pointer: fine) {
@@ -964,7 +965,7 @@ body.lp-active {
 .lp-dia-svg { display: block; width: min(100%, 240px); height: auto; margin: 0 auto; color: var(--text); }
 .lp-dia-svg.is-before { color: var(--text-2); }
 .lp-dia-card figcaption { margin-top: var(--space-3); font-size: var(--text-body); font-weight: 600; color: var(--text); line-height: 1.4; }
-.lp-dia-tag { display: block; margin-bottom: var(--space-1); font-size: var(--text-meta); font-weight: 600; color: var(--text-2); letter-spacing: 0.06em; }
+.lp-dia-tag { display: block; margin-bottom: var(--space-1); font-size: var(--text-meta); font-weight: 600; color: var(--text-2); letter-spacing: 0; } /* 字間を広げた小見出しは癖（2026-10-31） */
 .lp-dia-tag.is-accent { color: var(--accent); }
 /* 図の結び（見出しより一段小さく・次の見出しまで広く空ける） */
 .lp-root .lp-ba-line { margin: var(--space-8) 0 var(--space-12); font-family: var(--font-read); letter-spacing: 0.04em; font-size: var(--text-heading); font-weight: 600; line-height: 1.4; color: var(--text); text-align: left; }

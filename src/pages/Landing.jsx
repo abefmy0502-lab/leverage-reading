@@ -632,7 +632,7 @@ export default function Landing() {
                   {/* 創業メンバー価格（期間中だけ）: 押すと料金の中の帯へ */}
                   {OFFER.active && (
                     <a className="lp-textlink" href="#lp-offer" onClick={() => lpTrack('offer_badge', {})}>
-                      {FOUNDING_NAME}・<span className="lp-nb">{OFFER.endLabel}</span>まで
+                      {FOUNDING_NAME}（<span className="lp-nb">{OFFER.endLabel}</span>まで）
                     </a>
                   )}
                 </div>
@@ -779,7 +779,8 @@ export default function Landing() {
               {DIFFS.map((x) => (
                 <div className="lp-diff-row" role="row" key={x.kind}>
                   <span className="lp-diff-kind" role="rowheader">{x.kind}</span>
-                  <span className="lp-diff-usual lp-wbr" role="cell"><span className="lp-diff-tag">よくある形</span><Phrases>{x.usual}</Phrases></span>
+                  {/* 「よくある形」の小ラベルは 2026-10-31 にやめた（行ごとに繰り返す小見出しは癖・灰色の文と栗色の線の行で区別できる）。Orime の印は情報なので残す */}
+                  <span className="lp-diff-usual lp-wbr" role="cell"><span className="lp-sr">よくある形</span><Phrases>{x.usual}</Phrases></span>
                   <span className="lp-diff-orime lp-wbr" role="cell"><span className="lp-diff-tag">Orime</span><Phrases>{x.orime}</Phrases></span>
                 </div>
               ))}
