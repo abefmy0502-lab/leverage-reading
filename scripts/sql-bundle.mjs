@@ -81,6 +81,7 @@ export const ORDER = [
   ['supabase_admin_launch_kpis.sql', 'ローンチの 4 つの数字'],
   ['supabase_admin_goal.sql', '有料ユーザー 1,000 人の目標・毎週の見直し'],
   ['supabase_admin_profit.sql', '今月の売上と推定の粗利'],
+  ['supabase_admin_mcp.sql', '運営ダッシュボードを AI と連携から読む'],
 ];
 
 // まとめに入れないもの（理由は docs/sql-runbook.md §4）。

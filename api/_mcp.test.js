@@ -39,6 +39,11 @@ function resetDb() {
 // supabase-js の形を最低限まねた偽のクエリ
 function fake() {
   return {
+    rpc(name, args) {
+      if (name !== 'admin_snapshot_for') return Promise.resolve({ data: null, error: { code: 'PGRST202', message: 'Could not find the function' } });
+      if (db.admins?.includes(args.p_user_id)) return Promise.resolve({ data: { overview: { users_total: 12, new_users_7d: 2, new_users_30d: 5, mau: 9, wau: 6, dau: 2, books_total: 40, memos_total: 300, actions_total: 20, actions_done: 7, feedback_open: 1 }, profit: { paid: { monthly: 3, annual: 1, founding: 2, trial: 1 } } }, error: null });
+      return Promise.resolve({ data: null, error: { message: 'not authorized' } });
+    },
     from(table) {
       const f = [];
       let op = 'select';
@@ -219,6 +224,21 @@ describe('読む（本人のものだけ）', () => {
     expect(sc(r).stats.books[0]).toMatchObject({ title: '考え方', seconds: 2400 });
     db.reading_sessions = [];
     expect(text(await call('reading_stats'))).toContain('記録はまだありません');
+  });
+});
+
+describe('運営だけの道具', () => {
+  it('ops_dashboard は管理者だけ・数字のまとめと structuredContent', async () => {
+    const no = await call('ops_dashboard');
+    expect(no.result.isError).toBe(true);
+    expect(text(no)).toContain('運営者だけ');
+    db.admins = [ME];
+    const r = await call('ops_dashboard');
+    expect(r.result.isError).toBe(false);
+    expect(text(r)).toContain('利用者 12 人');
+    expect(text(r)).toContain('月額 3・年額 1・創業メンバー 2・無料期間 1');
+    expect(sc(r).overview.mau).toBe(9);
+    expect(TOOLS.find((t) => t.name === 'ops_dashboard')._meta).toBeUndefined();
   });
 });
 

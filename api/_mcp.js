@@ -168,6 +168,11 @@ export const TOOLS = [
     },
   },
   {
+    name: 'ops_dashboard',
+    description: '（運営者だけ）Orime の運営の数字をまとめて読む: 利用者数・会員・売上と粗利の材料・ローンチの 4 つの数字・目標・週ごとの数字・更新の見込み。Admin only: one snapshot of operations metrics.',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
     name: 'add_book',
     description: '書名（と著者）から本を探して本棚に足す。既定は積読。Search a book by title (and author) and add it to the shelf (default status: before=積読).',
     inputSchema: {
@@ -441,6 +446,25 @@ const handlers = {
     catch { rows = await run(db.from('actions').update({ done: true }).eq('user_id', userId).eq('id', action_id).select('id, text')); } // completed_at の列が無い DB
     if (!rows.length) throw new ToolError('その id の行動はありません');
     return { text: `「${rows[0].text}」を完了にしました。`, structuredContent: { message: `「${rows[0].text}」を完了にしました`, action_id } };
+  },
+
+  // 運営ダッシュボード（アーティファクト）が「Orime」コネクタで 1 回呼ぶ。管理者だけ（supabase_admin_mcp.sql の admin_snapshot_for）。
+  async ops_dashboard(_args, { db, userId }) {
+    const { data, error } = await db.rpc('admin_snapshot_for', { p_user_id: userId });
+    if (error) {
+      if (/not authorized/i.test(error.message || '')) throw new ToolError('この道具は運営者だけが使えます');
+      if (/could not find|does not exist|PGRST202|42883/i.test(`${error.code || ''} ${error.message || ''}`)) throw new ToolError('運営の数字を読む準備がまだです（supabase_admin_mcp.sql を流してください）');
+      throw new ToolError('運営の数字を読めませんでした');
+    }
+    const o = data?.overview || {};
+    const p = data?.profit?.paid || {};
+    const text = [
+      `利用者 ${o.users_total ?? '?'} 人（7 日で +${o.new_users_7d ?? '?'}・30 日で +${o.new_users_30d ?? '?'}）・MAU ${o.mau ?? '?'}・WAU ${o.wau ?? '?'}・DAU ${o.dau ?? '?'}`,
+      `契約: 月額 ${p.monthly ?? '?'}・年額 ${p.annual ?? '?'}・創業メンバー ${p.founding ?? '?'}・無料期間 ${p.trial ?? '?'}`,
+      `本 ${o.books_total ?? '?'} 冊・メモ ${o.memos_total ?? '?'} 件・行動 ${o.actions_total ?? '?'}（完了 ${o.actions_done ?? '?'}）・未対応のフィードバック ${o.feedback_open ?? '?'}`,
+      '（くわしい数字は structuredContent に: overview / revenue / growth / launch / goal / weekly / profit / profit_series / renewals / active_series / feedback_open）',
+    ];
+    return { text: text.join('\n'), structuredContent: data || {} };
   },
 
   async add_book({ title, author, status, reason }, { db, userId, searchBooks }) {
