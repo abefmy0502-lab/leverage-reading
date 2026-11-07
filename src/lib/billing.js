@@ -1,7 +1,7 @@
 // 💳 課金（Stripe）クライアントヘルパー。
 //
 // Web 版のハードペイウォール用。Checkout / Customer Portal の各サーバーレス
-// 関数（api/stripe-checkout.js / api/stripe-portal.js）を Bearer 付きで叩き、
+// 関数（api/stripe.js（_stripeCheckout.js / _stripePortal.js・URL は rewrite で /api/stripe-checkout と /api/stripe-portal のまま））を Bearer 付きで叩き、
 // 返ってきた `url` へリダイレクトするための薄いラッパ。
 //
 // ★ 価格の実数はここに持たない（Stripe 側の Price 設定が真実）。
