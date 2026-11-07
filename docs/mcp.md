@@ -61,5 +61,18 @@ Orime の中の相談（Haiku）とは別の道で、**Orime のトークンは�
 - 相談（Orime の AI）を MCP から呼ぶ道具は作らない（トークンの原価が本人の会話の外で動くので）。代わりにプロンプト `consult` が、つないだ AI に「メモを探してから、根拠つきで答える」型を渡す。
 - 読める量の上限（1 回 50 件・メモ 200 件）は AI の文脈に収まる範囲。足りなければ `search_memos` で絞る。
 
-## 6. 開発の道具としての MCP（`.mcp.json`）
-リポジトリの `.mcp.json` に、Orime 自身（`ORIME_MCP_TOKEN` を環境変数に入れた Claude Code からこの MCP を呼ぶ＝自分のメモで動作を確かめる）と iOS シミュレータ（`ios-simulator-mcp`・Mac だけ）を置いた。鍵はファイルに書かない（`${ORIME_MCP_TOKEN}`）。
+## 6. アプリを作るための MCP（開発者側・`.mcp.json`・2026-11-07 オーナー「アプリ構築のための MCP も」）
+リポジトリの `.mcp.json` に、Claude Code（オーナーの Mac とクラウド）から使う MCP を置いた。鍵はファイルに書かず環境変数で渡す（`${…}`・無ければそのサーバーだけ起動しない）。はじめて使うとき Claude Code が「このプロジェクトの MCP を使うか」を聞くので許可する。
+
+| 名前 | 何のため | 入れ方・鍵 |
+|---|---|---|
+| `orime` | 本番の Orime の MCP（自分のメモで動作を確かめる・利用者と同じ道具） | 設定の「AI と連携」で作った接続キーを `ORIME_MCP_TOKEN` に（`~/.zshrc` などで `export`・チャットに貼らない）。クラウドの作業環境は本番ドメインを許していないので 403＝Mac で使う |
+| `supabase` | 表・列・RLS・ログを Claude Code から直接読む（SQL の有無の確認・データの点検）。**読むだけ**（`--read-only`） | Supabase → Account → Access Tokens で個人のトークンを作り `SUPABASE_ACCESS_TOKEN` に。本番のデータなので書く形には変えない |
+| `vercel` | 公開の状態・ログ・環境変数の名前（値は読まない）・ドメイン | OAuth（はじめて使うときブラウザでログイン）。鍵の設定なし |
+| `sentry` | 本番のエラーをその場で読む・直す | OAuth。鍵の設定なし |
+| `playwright` | 画面を動かして確かめる（`/webapp-testing` の道具版・390×844） | 鍵なし。クラウドの作業環境は Chromium が `/opt/pw-browsers/chromium` にあるので、動かないときは `--executable-path /opt/pw-browsers/chromium` を args に足す |
+| `context7` | ライブラリの最新の使い方（Capacitor・Supabase・Vite・RevenueCat）を本家の文書から引く | 鍵なし |
+| `ios-simulator` | iOS シミュレータの撮影・操作（CLAUDE.md「iOS シミュレータでの確認」） | Mac だけ。`brew install idb-companion`・`pip3 install fb-idb` |
+
+GitHub は Claude Code のクラウドが最初から持っている（PR・Actions・ログ）。RevenueCat・App Store Connect は MCP が無い（手順は `docs/iap-setup-runbook.md`・`company/app-store-submission.md`）。
+鍵の置き場: Mac は `~/.zshrc` の `export`、クラウドは環境の「Network secrets」か環境変数（チャットには貼らない）。

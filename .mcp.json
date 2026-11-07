@@ -5,6 +5,27 @@
       "url": "https://orime.vercel.app/api/mcp",
       "headers": { "Authorization": "Bearer ${ORIME_MCP_TOKEN}" }
     },
+    "supabase": {
+      "command": "npx",
+      "args": ["-y", "@supabase/mcp-server-supabase@latest", "--read-only", "--project-ref=tkrinnopfssdibgxuqzl"],
+      "env": { "SUPABASE_ACCESS_TOKEN": "${SUPABASE_ACCESS_TOKEN}" }
+    },
+    "vercel": {
+      "type": "http",
+      "url": "https://mcp.vercel.com"
+    },
+    "sentry": {
+      "type": "http",
+      "url": "https://mcp.sentry.dev/mcp"
+    },
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest", "--browser", "chromium", "--viewport-size", "390,844"]
+    },
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp@latest"]
+    },
     "ios-simulator": {
       "command": "npx",
       "args": ["-y", "ios-simulator-mcp"]

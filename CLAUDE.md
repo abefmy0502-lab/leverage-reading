@@ -107,7 +107,7 @@ UI 文言・トースト・ヘルプ・LP・プロンプト出力で使う名前
 .
 ├── api/claude.js                       # Vercel Serverless Function (Claude 中継 + RLS Auth)
 ├── api/mcp.js                          # 🔌 AI と連携（MCP）の入口（Streamable HTTP・接続キー）。本体は api/_mcp.js・会話の中のカードは api/_mcpWidget.js・docs/mcp.md・2026-11-07
-├── .mcp.json                           # 開発の道具としての MCP（Orime 自身＝ORIME_MCP_TOKEN・ios-simulator）。鍵は書かない
+├── .mcp.json                           # アプリを作るための MCP（Orime 自身＝ORIME_MCP_TOKEN・supabase 読むだけ＝SUPABASE_ACCESS_TOKEN・vercel・sentry・playwright・context7・ios-simulator）。鍵は環境変数で・docs/mcp.md §6
 ├── public/                             # 静的アセット (manifest.json, icons/, sw.js)
 ├── scripts/generate-icons.js           # PWA アイコン生成 (`npm run icons`)
 ├── scripts/ui-shots.mjs                # 📸 主要画面の明暗スクショ（`npm run ui:shots -- <ラベル> [画面名…]`）
