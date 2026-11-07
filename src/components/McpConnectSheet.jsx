@@ -141,17 +141,17 @@ export default function McpConnectSheet({ onClose }) {
             <div key={howTo} id="mcp-howto-panel" role="tabpanel" aria-labelledby={`mcp-tab-${howTo}`} className="sub-panel" style={section}>
               {howTo === 'claude' && (
                 <ol style={steps}>
-                  <li>{withPhraseBreaks('Claude の 設定 →「コネクタ」→ いちばん下の「カスタムコネクタを追加」')}</li>
+                  <li>{withPhraseBreaks('Claude の設定の「コネクタ」で、いちばん下の「カスタムコネクタを追加」を押す')}</li>
                   <li>{withPhraseBreaks('名前に「Orime」、URL に上の URL を貼る')}</li>
                   <li>{withPhraseBreaks('「認証」は「サインインなし」を選ぶ。ほかの欄はそのまま')}</li>
-                  <li>{withPhraseBreaks('「追加」→ Orime の「連携させる」を押す')}</li>
+                  <li>{withPhraseBreaks('「追加」のあと、Orime の「連携させる」を押す')}</li>
                   <li>{withPhraseBreaks('新しい会話で Orime をオンにして「最近のメモを見せて」と聞く。本やメモはカードで出ます')}</li>
                 </ol>
               )}
               {howTo === 'chatgpt' && (
                 <ol style={steps}>
-                  <li>{withPhraseBreaks('ChatGPT の 設定 →「アプリとコネクタ」→「詳細設定」で「開発者モード」をオン')}</li>
-                  <li>{withPhraseBreaks('「コネクタ」の「作成」→ 名前に「Orime」、MCP サーバーの URL に上の URL を貼る')}</li>
+                  <li>{withPhraseBreaks('ChatGPT の設定の「アプリとコネクタ」の「詳細設定」で、「開発者モード」をオンにする')}</li>
+                  <li>{withPhraseBreaks('「コネクタ」の「作成」で、名前に「Orime」、MCP サーバーの URL に上の URL を貼る')}</li>
                   <li>{withPhraseBreaks('「認証」は「認証なし」を選んで「作成」')}</li>
                   <li>{withPhraseBreaks('新しい会話で「＋」から Orime を選んで「読了した本を一覧して」と聞く。本やメモはカードで出ます')}</li>
                 </ol>
