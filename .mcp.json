@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "orime": {
+      "type": "http",
+      "url": "https://orime.vercel.app/api/mcp",
+      "headers": { "Authorization": "Bearer ${ORIME_MCP_TOKEN}" }
+    },
+    "ios-simulator": {
+      "command": "npx",
+      "args": ["-y", "ios-simulator-mcp"]
+    }
+  }
+}

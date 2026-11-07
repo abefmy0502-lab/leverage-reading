@@ -152,6 +152,7 @@ export default function PrivacyPage() {
         <li>送信したデータは、各社の API の規約により、AI モデルの学習には使われません。Anthropic は API 経由のデータを学習に使いません。Google は有料の Gemini API に送られたデータを製品の改善に使わず、当方は有料の API だけを使います。{AI_JEV_ON ? 'TypeSafe AI は、顧客のデータをモデルの学習に使わないと定めています。' : ''}各社は不正利用の監視等のため、送信されたデータを一定期間保存することがあります。</li>
         <li>ユーザーのメモ・質問・写真などを OpenAI に送信することはありません。OpenAI は、運営者だけが使う運営の分析の補助(第5条)に、集計した数字だけを送ります(OpenAI は API のデータを既定で学習に使わず、当方はデータを共有する設定を有効にしていません)。</li>
         <li>送信される情報には、ユーザー個人を直接特定する情報(氏名、メールアドレス、住所等)は含めない設計としています。</li>
+        <li><strong>AI と連携(ユーザー自身がつなぐ外部の AI):</strong> ユーザーが設定の「AI と連携」で接続キーを作り、ご自身が使う Claude・ChatGPT 等の外部サービスに登録した場合、その外部サービスは当該ユーザーの本・メモ・行動を読み、メモと行動を追加できます。送信先と送信される内容はユーザーが選んだ外部サービスの規約に従い、当方は当該外部サービスにデータを送信しません(外部サービスがユーザーの操作に応じて当方のサーバーから読み取ります)。接続キーは設定から随時取り消せ、取り消し後は読み取りできなくなります。当方は接続キーそのものを保存せず、照合用のハッシュ値のみを保存します。</li>
         <li>詳細は各社の方針をご参照ください:
           <a href="https://www.anthropic.com/legal/privacy" target="_blank" rel="noopener noreferrer">Anthropic Privacy Policy</a>、
           <a href="https://ai.google.dev/gemini-api/terms" target="_blank" rel="noopener noreferrer">Gemini API 追加利用規約</a>(運営の分析の補助は <a href="https://openai.com/enterprise-privacy/" target="_blank" rel="noopener noreferrer">OpenAI Enterprise privacy</a>)。</li>

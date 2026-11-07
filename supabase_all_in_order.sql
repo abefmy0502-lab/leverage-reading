@@ -891,7 +891,77 @@ grant execute on function public.reserve_book_field_ai(date, integer) to service
 
 
 -- ############################################################
--- 19. supabase_actions_full.sql — 行動の期限・繰り返し・ふりかえり
+-- 19. supabase_mcp_tokens.sql — AI と連携（MCP）の接続キー
+-- ############################################################
+-- 🔌 AI と連携（MCP）の接続キー（2026-11-07 オーナー「アプリと AI が繋がるようにしたい」）
+--
+-- 利用者が Claude・ChatGPT・Claude Code などの AI から、自分の本・メモ・行動を呼べるようにする
+-- Orime の MCP サーバー（api/mcp.js）の鍵。キーそのものは保存せず、SHA-256 のハッシュだけを持つ
+-- （キーは作ったその場で 1 回だけ見せる・なくしたら作り直す）。
+--
+-- 書き手:
+--   - アプリ（本人・RLS）: 作る（insert）・名前を変える／取り消す（update）・消す（delete）・一覧（select）
+--   - サーバー（service_role）: ハッシュで探して本人を決め、last_used_at を更新する
+-- 取り消したキー（revoked_at が入った行）は、サーバーが受け付けない。
+-- 退会はアプリが本人の行を消す（auth.users の削除でも ON DELETE CASCADE で消える）。
+-- 未適用でも壊れない: 設定の「AI と連携」が「まだ使えません」の案内になるだけ。
+-- 冪等（何度流しても同じ）。Supabase の SQL Editor に貼って実行する。
+
+create table if not exists public.mcp_tokens (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  token_hash text not null,
+  name text not null default '',
+  created_at timestamptz not null default now(),
+  last_used_at timestamptz,
+  revoked_at timestamptz
+);
+-- （まとめが自動で足した: 前からある表に足りない列を足す）
+ALTER TABLE public.mcp_tokens ADD COLUMN IF NOT EXISTS id uuid default gen_random_uuid();
+ALTER TABLE public.mcp_tokens ADD COLUMN IF NOT EXISTS user_id uuid not null default auth.uid() references auth.users(id) on delete cascade;
+ALTER TABLE public.mcp_tokens ADD COLUMN IF NOT EXISTS token_hash text;
+ALTER TABLE public.mcp_tokens ADD COLUMN IF NOT EXISTS name text not null default '';
+ALTER TABLE public.mcp_tokens ADD COLUMN IF NOT EXISTS created_at timestamptz not null default now();
+ALTER TABLE public.mcp_tokens ADD COLUMN IF NOT EXISTS last_used_at timestamptz;
+ALTER TABLE public.mcp_tokens ADD COLUMN IF NOT EXISTS revoked_at timestamptz;
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'mcp_tokens_hash_check') then
+    -- SHA-256 の 16 進（64 字・小文字）だけ。
+    alter table public.mcp_tokens add constraint mcp_tokens_hash_check check (token_hash ~ '^[0-9a-f]{64}$');
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'mcp_tokens_name_check') then
+    alter table public.mcp_tokens add constraint mcp_tokens_name_check check (char_length(name) <= 60);
+  end if;
+end $$;
+
+-- サーバーがハッシュで探す（1 つのキーは 1 行）。
+create unique index if not exists mcp_tokens_hash_uq on public.mcp_tokens (token_hash);
+create index if not exists mcp_tokens_user_idx on public.mcp_tokens (user_id, created_at desc);
+
+-- RLS: 本人の行だけ。
+alter table public.mcp_tokens enable row level security;
+
+drop policy if exists "mcp_tokens_select_own" on public.mcp_tokens;
+create policy "mcp_tokens_select_own" on public.mcp_tokens
+  for select to authenticated using (auth.uid() = user_id);
+
+drop policy if exists "mcp_tokens_insert_own" on public.mcp_tokens;
+create policy "mcp_tokens_insert_own" on public.mcp_tokens
+  for insert to authenticated with check (auth.uid() = user_id);
+
+drop policy if exists "mcp_tokens_update_own" on public.mcp_tokens;
+create policy "mcp_tokens_update_own" on public.mcp_tokens
+  for update to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists "mcp_tokens_delete_own" on public.mcp_tokens;
+create policy "mcp_tokens_delete_own" on public.mcp_tokens
+  for delete to authenticated using (auth.uid() = user_id);
+
+
+-- ############################################################
+-- 20. supabase_actions_full.sql — 行動の期限・繰り返し・ふりかえり
 -- ############################################################
 -- 🎯 行動タブをフル機能のタスク管理に進化させる
 --
@@ -980,7 +1050,7 @@ END $$;
 
 
 -- ############################################################
--- 20. supabase_actions_id_default.sql — 行動の id
+-- 21. supabase_actions_id_default.sql — 行動の id
 -- ############################################################
 -- 🩹 actions.id に gen_random_uuid() の DEFAULT が設定されていない環境で、
 -- INSERT 時に「null value in column "id" of relation "actions" violates
@@ -1011,7 +1081,7 @@ END $$;
 
 
 -- ############################################################
--- 21. supabase_actions_completed_at_backfill.sql — 昔の完了日を埋める
+-- 22. supabase_actions_completed_at_backfill.sql — 昔の完了日を埋める
 -- ############################################################
 -- 行動 (actions) の completed_at バックフィル。
 --
@@ -1049,7 +1119,7 @@ UPDATE public.actions
 
 
 -- ############################################################
--- 22. supabase_actions_scheduled.sql — 繰り返しの次回分
+-- 23. supabase_actions_scheduled.sql — 繰り返しの次回分
 -- ############################################################
 -- 行動 (actions) の繰り返しタスク無限生成バグ対策。
 --
@@ -1096,7 +1166,7 @@ COMMENT ON COLUMN public.actions.scheduled_for IS
 
 
 -- ############################################################
--- 23. supabase_push_subscriptions.sql — 通知の登録
+-- 24. supabase_push_subscriptions.sql — 通知の登録
 -- ############################################################
 -- 🔔 Web Push 購読情報 + 通知設定（想起プッシュ通知）。
 --
@@ -1179,7 +1249,7 @@ CREATE POLICY "push_subs_delete_own" ON public.push_subscriptions
 
 
 -- ############################################################
--- 24. supabase_push_native.sql — iPhone の通知
+-- 25. supabase_push_native.sql — iPhone の通知
 -- ############################################################
 -- 🔔📱 想起プッシュ通知の「ネイティブ(iOS/APNs)対応」列追加。
 --
@@ -1220,7 +1290,7 @@ CREATE INDEX IF NOT EXISTS push_subscriptions_platform_idx
 
 
 -- ############################################################
--- 25. supabase_push_deadline.sql — 行動の期限の通知
+-- 26. supabase_push_deadline.sql — 行動の期限の通知
 -- ############################################################
 -- 🎯🔔 行動の期限の通知（2026-09-29 オーナー裁定）— 1 日 1 回のガード列。
 --
@@ -1253,7 +1323,7 @@ CREATE INDEX IF NOT EXISTS actions_user_deadline_idx
 
 
 -- ############################################################
--- 26. supabase_subscriptions.sql — 契約
+-- 27. supabase_subscriptions.sql — 契約
 -- ############################################################
 -- 💳 Stripe サブスクリプション状態テーブル
 --
@@ -1335,7 +1405,7 @@ CREATE POLICY "subscriptions_select_own" ON public.subscriptions
 
 
 -- ############################################################
--- 27. supabase_subscriptions_provider.sql — App Store の契約
+-- 28. supabase_subscriptions_provider.sql — App Store の契約
 -- ############################################################
 -- 💳 subscriptions に決済プロバイダ（Stripe / RevenueCat）を識別する列を追加
 --
@@ -1371,7 +1441,7 @@ CREATE INDEX IF NOT EXISTS subscriptions_rc_app_user_idx
 
 
 -- ############################################################
--- 28. supabase_subscriptions_provider_backfill.sql — 昔の契約の種類を埋める
+-- 29. supabase_subscriptions_provider_backfill.sql — 昔の契約の種類を埋める
 -- ############################################################
 -- 💳 subscriptions.provider のバックフィル（冪等・1 回実行）
 --
@@ -1388,7 +1458,7 @@ update public.subscriptions
 
 
 -- ############################################################
--- 29. supabase_subscriptions_canceled_at.sql — 解約した日
+-- 30. supabase_subscriptions_canceled_at.sql — 解約した日
 -- ############################################################
 -- 💳 解約時刻の記録 — チャーン率（月次解約÷月初active）の正確な算出に必須。
 -- これまで status='canceled' への遷移時刻が残らず、「いつ解約したか」を後から
@@ -1404,7 +1474,7 @@ comment on column public.subscriptions.canceled_at is
 
 
 -- ############################################################
--- 30. supabase_stripe_events.sql — Web の決済の二重処理を防ぐ
+-- 31. supabase_stripe_events.sql — Web の決済の二重処理を防ぐ
 -- ############################################################
 -- 💳 Stripe Webhook の冪等化（M1 是正）。
 -- Stripe は at-least-once 配信＝同じイベントが複数回／順序前後で届く。冪等性が
@@ -1433,7 +1503,7 @@ alter table public.stripe_events enable row level security;
 
 
 -- ############################################################
--- 31. supabase_revenuecat_events.sql — App Store の決済の二重処理を防ぐ
+-- 32. supabase_revenuecat_events.sql — App Store の決済の二重処理を防ぐ
 -- ############################################################
 -- 💳 RevenueCat Webhook の冪等化（stripe_events と同一パターン）。
 -- RevenueCat も at-least-once 配信＝同じイベントが複数回届きうる。TRANSFER
@@ -1465,7 +1535,7 @@ alter table public.revenuecat_events enable row level security;
 
 
 -- ############################################################
--- 32. supabase_subscription_events.sql — 契約の履歴（7 日間無料 → 有料）
+-- 33. supabase_subscription_events.sql — 契約の履歴（7 日間無料 → 有料）
 -- ############################################################
 -- 💳📜 契約の履歴（subscription_events）— 追記だけの記録（2026-10-02・ローンチの 4 つの数字）。
 --
@@ -1574,7 +1644,7 @@ end $$;
 
 
 -- ############################################################
--- 33. supabase_ai_usage.sql — AI の利用回数
+-- 34. supabase_ai_usage.sql — AI の利用回数
 -- ############################################################
 -- 🤖 AI 利用量メータリング（KGI 原価ガード）
 --
@@ -1667,7 +1737,7 @@ GRANT EXECUTE ON FUNCTION public.increment_ai_usage(uuid, text) TO service_role;
 
 
 -- ############################################################
--- 34. supabase_ai_usage_atomic.sql — AI の上限を同時に超えない
+-- 35. supabase_ai_usage_atomic.sql — AI の上限を同時に超えない
 -- ############################################################
 -- 🧮 AI 月次利用上限の「原子的な予約（check-and-increment）」RPC。
 --
@@ -1722,7 +1792,7 @@ revoke all on function public.reserve_ai_usage(uuid, text, int) from public, ano
 
 
 -- ############################################################
--- 35. supabase_ai_usage_release.sql — 答えられなかった回を返す
+-- 36. supabase_ai_usage_release.sql — 答えられなかった回を返す
 -- ############################################################
 -- 🧾 AI 月次利用量の払い戻し RPC + reserve の GRANT 補修（冪等）
 --
@@ -1768,7 +1838,7 @@ grant execute on function public.release_ai_usage(uuid, text) to service_role;
 
 
 -- ############################################################
--- 36. supabase_ai_rate_limit.sql — AI の連打を止める
+-- 37. supabase_ai_rate_limit.sql — AI の連打を止める
 -- ############################################################
 -- 🚦 AI 中継の「インスタンス横断」レート制限（H3 是正）。
 -- 旧実装は api/claude.js の in-memory Map で、Vercel の各 lambda インスタンス
@@ -1833,7 +1903,7 @@ grant execute on function public.check_ai_rate_limit(uuid, integer, integer) to 
 
 
 -- ############################################################
--- 37. supabase_ai_cost.sql — AI の原価をトークンで数える
+-- 38. supabase_ai_cost.sql — AI の原価をトークンで数える
 -- ############################################################
 -- 💴 AI の原価を「円」で数えて、1 人・1 か月の上限を守る（2026-09-27）
 --
@@ -1926,7 +1996,7 @@ grant execute on function public.adjust_ai_cost(uuid, text, bigint) to service_r
 
 
 -- ############################################################
--- 38. supabase_ai_token_credits.sql — トークンの買い足し
+-- 39. supabase_ai_token_credits.sql — トークンの買い足し
 -- ############################################################
 -- 🪙➕ 追加トークン（買い足し）— 2026-09-27 オーナー裁定
 --
@@ -2134,7 +2204,7 @@ grant execute on function public.settle_token_overflow(uuid, text, integer, inte
 
 
 -- ############################################################
--- 39. supabase_ai_usage_purpose.sql — トークンの使い道（用途ごとの内訳）
+-- 40. supabase_ai_usage_purpose.sql — トークンの使い道（用途ごとの内訳）
 -- ############################################################
 -- 🪙📊 トークンの使い道（用途ごとの内訳・2026-10-11 オーナー「現在のトークン利用料の可視化をしたい」）
 --
@@ -2219,7 +2289,7 @@ grant execute on function public.add_ai_purpose_cost(uuid, text, text, bigint) t
 
 
 -- ############################################################
--- 40. supabase_ai_cache_warm.sql — 相談の指示文のキャッシュを温め直す
+-- 41. supabase_ai_cache_warm.sql — 相談の指示文のキャッシュを温め直す
 -- ############################################################
 -- 🔥 相談の指示文のキャッシュを温め直す時刻（2026-10-21・docs/ai-routing.md §7・冪等）
 --
@@ -2279,7 +2349,7 @@ grant execute on function public.claim_ai_cache_refresh(text, integer, integer) 
 
 
 -- ############################################################
--- 41. supabase_analytics_events.sql — 利用状況の記録
+-- 42. supabase_analytics_events.sql — 利用状況の記録
 -- ############################################################
 -- 📊 利用状況の記録（製品改善のためのファーストパーティ計測）
 --
@@ -2341,7 +2411,7 @@ DROP POLICY IF EXISTS "analytics_events_delete_own" ON public.analytics_events;
 
 
 -- ############################################################
--- 42. supabase_feedback.sql — フィードバック
+-- 43. supabase_feedback.sql — フィードバック
 -- ############################################################
 -- 📩 ユーザーフィードバック・要望テーブル。
 --
@@ -2401,7 +2471,7 @@ create policy "feedback_select_own" on public.feedback
 
 
 -- ############################################################
--- 43. supabase_feedback_hardening.sql — フィードバックの守り
+-- 44. supabase_feedback_hardening.sql — フィードバックの守り
 -- ############################################################
 -- 🛡️ feedback テーブルの堅牢化（anon スパム封じ + 長さ CHECK）
 --
@@ -2503,7 +2573,7 @@ END $$;
 
 
 -- ############################################################
--- 44. supabase_account_deletion.sql — 退会の申し込み
+-- 45. supabase_account_deletion.sql — 退会の申し込み
 -- ############################################################
 -- =============================================================================
 -- 🛡️ アカウント削除リクエスト — Supabase migration
@@ -2565,7 +2635,7 @@ $$;
 
 
 -- ############################################################
--- 45. supabase_account_deletion_hardening.sql — 退会の申し込みの守り
+-- 46. supabase_account_deletion_hardening.sql — 退会の申し込みの守り
 -- ############################################################
 -- 🛡️ account_deletion_requests の堅牢化（メール偽装封じ + 二重リクエスト防止）
 --
@@ -2661,7 +2731,7 @@ END $$;
 
 
 -- ############################################################
--- 46. supabase_lp_events.sql — 紹介ページの記録
+-- 47. supabase_lp_events.sql — 紹介ページの記録
 -- ############################################################
 -- 📊 LP（紹介ページ）の閲覧状況の記録 — ダウンロードにつながる導線を数字で決めるため。
 --
@@ -2728,7 +2798,7 @@ alter table public.lp_events add constraint lp_events_event_check check (event i
 
 
 -- ############################################################
--- 47. supabase_lp_waitlist.sql — 公開のお知らせの登録
+-- 48. supabase_lp_waitlist.sql — 公開のお知らせの登録
 -- ############################################################
 -- ✉️ 公開のお知らせの登録（LP・2026-10-05）— App Store の URL が無い間、LP の入口は「公開の日にメールで知らせる」。
 --
@@ -2832,7 +2902,7 @@ grant execute on function public.take_lp_waitlist_slot(text, date, integer) to s
 
 
 -- ############################################################
--- 48. supabase_security_hardening.sql — 本・メモ・行動・写真の権限
+-- 49. supabase_security_hardening.sql — 本・メモ・行動・写真の権限
 -- ############################################################
 -- 🛡️ セキュリティ堅牢化マイグレーション（RLS 再保証 + Storage バケット防御）
 --
@@ -3083,7 +3153,7 @@ UPDATE storage.buckets
 
 
 -- ############################################################
--- 49. supabase_admin_metrics.sql — 運営ダッシュボード（管理者の登録つき）
+-- 50. supabase_admin_metrics.sql — 運営ダッシュボード（管理者の登録つき）
 -- ############################################################
 -- 🛰️ 運営ダッシュボード（KGI/KPI 管制塔）— 管理者だけが見る集計 RPC 群。
 --
@@ -3353,7 +3423,7 @@ on conflict (user_id) do nothing;
 
 
 -- ############################################################
--- 50. supabase_admin_ops.sql — 目標・チケット
+-- 51. supabase_admin_ops.sql — 目標・チケット
 -- ############################################################
 -- 🎛️ 運営オペレーション層（Founder Cockpit）— 目標 ＋ チケット。
 --
@@ -3528,7 +3598,7 @@ grant execute on function public.admin_ticket_from_feedback(uuid) to authenticat
 
 
 -- ############################################################
--- 51. supabase_admin_growth.sql — 継続率
+-- 52. supabase_admin_growth.sql — 継続率
 -- ############################################################
 -- 📈 運営ダッシュボード — 成長・継続率の集計（admin_metrics の上に乗る）。
 -- ※ 先に supabase_admin_metrics.sql を適用すること（_require_admin 依存）。
@@ -3601,7 +3671,7 @@ grant execute on function public.admin_growth() to authenticated;
 
 
 -- ############################################################
--- 52. supabase_admin_exclude_admins.sql — 自分の利用を数えない
+-- 53. supabase_admin_exclude_admins.sql — 自分の利用を数えない
 -- ############################################################
 -- 🧹 運営ダッシュボードの集計から「管理者（app_admins）」を除外する。
 --
@@ -3778,7 +3848,7 @@ grant execute on function public.admin_growth() to authenticated;
 
 
 -- ############################################################
--- 53. supabase_admin_members_tasks.sql — 会員の内訳・売上
+-- 54. supabase_admin_members_tasks.sql — 会員の内訳・売上
 -- ############################################################
 -- 🧩 操縦席の強化: ①会員内訳（有料/無料期間/解約の分離）②日次タスク。
 -- ※ 先に supabase_admin_metrics.sql / _ops / _growth / _exclude_admins を適用済みであること。
@@ -3863,7 +3933,7 @@ grant execute on function public.admin_revenue() to authenticated;
 
 
 -- ############################################################
--- 54. supabase_ops_advisor.sql — 参謀の会話
+-- 55. supabase_ops_advisor.sql — 参謀の会話
 -- ############################################################
 -- 🧠 AI 参謀（作戦会議）の会話履歴 — 運営ダッシュボードの対話相談役。
 --
@@ -3907,7 +3977,7 @@ create policy "ops_advisor_delete_own" on public.ops_advisor_messages
 
 
 -- ############################################################
--- 55. supabase_ops_floor.sql — 作戦司令室の報告
+-- 56. supabase_ops_floor.sql — 作戦司令室の報告
 -- ############################################################
 -- 🏢 作戦司令室（社員フロア）の報告ログ — AI 企業の「記憶」。
 -- 各社員（member_id）の報告と CEO室の統合ブリーフ（member_id='__integration__'）を
@@ -3956,7 +4026,7 @@ create index if not exists ops_floor_reports_user_member_idx
 
 
 -- ############################################################
--- 56. supabase_ops_sales_metrics.sql — 営業の週の数字
+-- 57. supabase_ops_sales_metrics.sql — 営業の週の数字
 -- ############################################################
 -- 📣 営業ウィークリー計測 — 営業戦略（company/sales-strategy-2026-2027.md §7）の
 -- 週次KPI（新規課金/インストール/LPクリック/note PV/Xプロフクリック）を記録する。
@@ -4007,7 +4077,7 @@ create index if not exists ops_sales_metrics_user_week_idx
 
 
 -- ############################################################
--- 57. supabase_admin_launch_kpis.sql — ローンチの 4 つの数字
+-- 58. supabase_admin_launch_kpis.sql — ローンチの 4 つの数字
 -- ############################################################
 -- 🚀 ローンチの 4 つの数字（2026-10-02 オーナー承認・2026 年 11 月ローンチ）— 運営ダッシュボード用の集計。
 --
@@ -4258,7 +4328,7 @@ grant execute on function public.admin_launch_kpis(int) to authenticated;
 
 
 -- ############################################################
--- 58. supabase_admin_goal.sql — 有料ユーザー 1,000 人の目標・毎週の見直し
+-- 59. supabase_admin_goal.sql — 有料ユーザー 1,000 人の目標・毎週の見直し
 -- ############################################################
 -- 🎯 2027 年中に有料ユーザー 1,000 人（2026-10-11 オーナー決定）— 運営ダッシュボードの「目標の進み具合」と毎週の見直し。
 --
@@ -4590,7 +4660,7 @@ grant execute on function public.admin_goal_weekly(int) to authenticated;
 
 
 -- ############################################################
--- 59. supabase_admin_profit.sql — 今月の売上と推定の粗利
+-- 60. supabase_admin_profit.sql — 今月の売上と推定の粗利
 -- ############################################################
 -- 💰 今月の売上と推定の粗利（2026-10-22 オーナー「現在の売り上げと推定の粗利がわかったりもしたい」「めっちゃいいものにガンガン進化させて」）
 --   運営ダッシュボードの概況（admin/ProfitCard.jsx・src/lib/adminProfit.js）。

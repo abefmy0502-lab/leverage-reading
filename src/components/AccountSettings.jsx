@@ -31,6 +31,7 @@ import ErrorMessage from './ErrorMessage';
 import FeedbackForm from './FeedbackForm';
 import WhatsNewSheet from './WhatsNewSheet';
 import TokenUsageSheet from './TokenUsageSheet';
+import McpConnectSheet from './McpConnectSheet';
 import { AppPurposeEditSheet, PurposeCheckSheet } from './AppPurposeSheets';
 import { useAppPurpose } from '../hooks/useAppPurpose';
 import { markReleaseSeen, releaseHeading, loadReleaseNotes, BUNDLED_RELEASE_ID } from '../lib/whatsNew';
@@ -402,6 +403,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
   };
   // 🪙📊 トークンの使い方（残りの行を押して開く・設定の上に重ねる・2026-10-11）。
   const [usageOpen, setUsageOpen] = useState(false);
+  const [mcpOpen, setMcpOpen] = useState(false); // 🔌 AI と連携（接続キー・2026-11-07）
   const [updating, setUpdating] = useState(false);
   // フィードバック（入れ子モーダル）を開いている間は、そちらのトラップに譲るため無効化。
   const trapRef = useFocusTrap(!feedbackOpen);
@@ -867,6 +869,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
       await deleteOwn('advisor_sessions');  // 🕒 AI 選書の会話履歴
       await deleteOwn('reading_sessions');  // ⏱ 読書の時間（集中モード・2026-10-09）
       await deleteOwn('push_subscriptions');// 🔔 想起プッシュ購読
+      await deleteOwn('mcp_tokens');        // 🔌 AI と連携の接続キー（2026-11-07・つないだ AI もすぐ読めなくなる）
       await deleteOwn('books');             // 親（残った子に CASCADE）
 
       // 3. Record the deletion request so the admin can finish off auth.users.
@@ -1209,6 +1212,17 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
             </Group>
           )}
 
+          {/* ── 🔌 AI と連携（MCP・2026-11-07）: Claude・ChatGPT・Claude Code から自分の本・メモ・行動を呼べる接続キー ── */}
+          <Group label="AI と連携">
+            <button type="button" style={rowButtonStyle} onClick={() => setMcpOpen(true)}>
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ ...rowTitleStyle, display: 'block' }}>Claude・ChatGPT とつなぐ</span>
+                <span style={{ ...rowDescStyle, display: 'block' }}>いつもの AI から、自分のメモを呼べます</span>
+              </span>
+              <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+            </button>
+          </Group>
+
           {/* ── データをダウンロード ── */}
           <Group label="データをダウンロード">
             <button type="button" aria-label="表で見る（CSV をダウンロード）" style={exporting ? rowButtonBusy : rowButtonStyle} aria-busy={exporting || undefined} disabled={exporting} onClick={handleExport}>
@@ -1484,6 +1498,11 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
       )}
       {/* 🪙📊 トークンの使い方（設定の上に重ねる）。「トークンを追加」は設定を閉じてから開く（閉じたら設定に戻る）。
           有料プランの画面は設定の上に重なるので、シートだけ閉じて開く。 */}
+      {mcpOpen && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <McpConnectSheet onClose={() => setMcpOpen(false)} />
+        </div>
+      )}
       {usageOpen && (
         <div onClick={(e) => e.stopPropagation()}>
           <TokenUsageSheet

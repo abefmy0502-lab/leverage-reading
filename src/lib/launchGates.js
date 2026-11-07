@@ -39,6 +39,7 @@ export const GATES = [
   { id: 'env_rakuten', group: 'boost', label: '楽天ブックス（表紙・検索・分野）', env: ['rakuten'], where: 'CLAUDE.md の RAKUTEN_*' },
   { id: 'sql_fields_cache', group: 'boost', label: '本の分野の覚え書きの表', sql: ['book_field_cache'], where: 'docs/sql-runbook.md' },
   { id: 'sql_cache_warm', group: 'boost', label: '相談のキャッシュを温め直す表', sql: ['ai_cache_warm'], where: 'docs/sql-runbook.md' },
+  { id: 'sql_mcp_tokens', group: 'boost', label: 'AI と連携（接続キー）の表', sql: ['mcp_tokens'], where: 'docs/sql-runbook.md（supabase_mcp_tokens.sql）' },
   { id: 'env_founding', group: 'boost', label: '創業メンバー価格（公開から 30 日）', env: ['founding_offer'], where: 'company/launch-founding-offer.md' },
   { id: 'env_referral', group: 'boost', label: '友だちに紹介する（オファーコード）', env: ['referral_code'], where: 'CLAUDE.md の VITE_REFERRAL_CODE' },
   { id: 'env_lp_ip_salt', group: 'measure', label: 'LP の登録の回数を数える鍵（LP_IP_SALT・サーバーの鍵の使い回しをやめる）', env: ['lp_ip_salt'], where: 'CLAUDE.md の LP_IP_SALT' },

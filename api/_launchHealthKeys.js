@@ -37,6 +37,7 @@ export const HEALTH_SQL = {
   ai_token_lots: { table: 'ai_token_lots' },
   push_subscriptions_platform: { table: 'push_subscriptions', column: 'platform' },
   reading_sessions: { table: 'reading_sessions' },
+  mcp_tokens: { table: 'mcp_tokens' },
   analytics_events: { table: 'analytics_events' },
   lp_events: { table: 'lp_events' },
   book_field_cache: { table: 'book_field_cache' },
