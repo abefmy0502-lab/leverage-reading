@@ -21,7 +21,7 @@
     { "source": "/mcp/:key", "destination": "/api/mcp?key=:key" },
     { "source": "/api/stripe-checkout", "destination": "/api/stripe?op=checkout" },
     { "source": "/api/stripe-portal", "destination": "/api/stripe?op=portal" },
-    { "source": "/((?!api/|assets/|mcp/).*)", "destination": "/index.html" }
+    { "source": "/((?!api/|assets/|mcp/|\\.well-known/).*)", "destination": "/index.html" }
   ],
   "headers": [
     {

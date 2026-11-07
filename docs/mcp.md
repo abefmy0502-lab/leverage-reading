@@ -5,12 +5,12 @@
 Orime の中の相談（Haiku）とは別の道で、**Orime のトークンは使わない**（AI 側の会話の中で、AI が Orime を材料として読む）。
 
 ## 1. 利用者から見た流れ
-1. 設定 →「AI と連携」→「Claude・ChatGPT とつなぐ」→ 名前（例：Claude）を入れて **「接続キーを作る」**
-2. その場だけ出る **接続 URL**（`https://orime.vercel.app/mcp/orime_mcp_…`）を「URL をコピー」
-3. つなぎ方の切り替え（Claude／ChatGPT／Claude Code）に沿って AI に登録
-   - Claude: 設定の「コネクタ」→「カスタムコネクタを追加」→ 名前 Orime・URL を貼る（OAuth の欄は空）
-   - ChatGPT: 設定の「コネクタ」（開発者モード）→「作成」→ MCP サーバーの URL に貼る・認証「なし」
-   - Claude Code: `claude mcp add --transport http orime https://orime.vercel.app/api/mcp --header "Authorization: Bearer orime_mcp_…"`（JSON の例も同じ画面）
+1. 設定 →「AI と連携」→「Claude・ChatGPT とつなぐ」→ **どこにつなぐかを選ぶ**（Claude／ChatGPT／Claude Code・名前は自動）→ **「〈先〉用の接続キーを作る」**
+2. その場だけ出る **接続 URL**（`https://orime.vercel.app/mcp/orime_mcp_…`・Claude Code はコマンド）を「コピー」
+3. 選んだ先の手順に沿って登録
+   - Claude: 設定 →「コネクタ」→「カスタムコネクタを追加」→ 名前 Orime・URL を貼る → **認証は「サインインなし」**（OAuth のままだと「サインインサービスに登録できませんでした」になる・2026-11-08 に実際に起きた）→「追加」→「連携させる」。URL にキーを入れたくない人は URL を `…/api/mcp` にして「リクエストヘッダー」に `Authorization: Bearer orime_mcp_…` でも通る
+   - ChatGPT: 設定 →「アプリとコネクタ」→「詳細設定」→ 開発者モード → コネクタの「作成」→ MCP サーバーの URL に貼る・認証「認証なし」
+   - Claude Code: `claude mcp add --transport http orime https://orime.vercel.app/api/mcp --header "Authorization: Bearer orime_mcp_…"` を**ターミナル（Claude Code の外）**に 1 行で貼る（画面の箱で折れた所から貼ると「Invalid header format」になる＝必ず「コマンドをコピー」）。`.well-known/*` は SPA の rewrite から外した（OAuth の探り当てに HTML を返さない・`vercel.json`）
 4. 「つないでいる AI」に名前・作った日・最後に使った日が並ぶ。**「取り消す」**で行を消すと、その AI はすぐ読めなくなる。キーは 5 つまで。
 
 ## 2. 道具（tools）・プロンプト・資料

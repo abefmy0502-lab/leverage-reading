@@ -20,8 +20,8 @@ import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
 import { toMessage } from '../lib/errors';
 import { track } from '../lib/analytics';
-import { listKeys, createKey, deleteKey, connectUrl, claudeCodeCommand, jsonConfigSnippet, lastUsedLabel, cleanKeyName, KEY_NAME_MAX, MAX_KEYS } from '../lib/mcpTokens';
-import { btnPrimary, btnPrimaryOff, btnGhost, btnLink, btnLinkQuiet, groupTitle, fieldNote, input as uiInput } from '../styles/ui';
+import { listKeys, createKey, deleteKey, connectUrl, claudeCodeCommand, jsonConfigSnippet, lastUsedLabel, MAX_KEYS } from '../lib/mcpTokens';
+import { btnPrimary, btnPrimaryOff, btnGhost, btnLink, btnLinkQuiet } from '../styles/ui';
 
 const DEFAULT_NAME = 'Claude';
 const body = { margin: 0, fontSize: 'var(--text-body)', color: 'var(--text)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' };
@@ -55,7 +55,9 @@ function CopyButton({ text, label, style = btnGhost }) {
   );
 }
 
+// つなぐ先（2026-11-08 オーナー「どの AI に繋ぎますか？の入力は必要？」→ 自由入力をやめ、先に選ぶ。名前はこの表示名）
 const HOW_TO = [['claude', 'Claude'], ['chatgpt', 'ChatGPT'], ['code', 'Claude Code']];
+const labelOf = (k) => (HOW_TO.find(([x]) => x === k) || [])[1] || DEFAULT_NAME;
 
 export default function McpConnectSheet({ onClose }) {
   const { user } = useAuth();
@@ -64,7 +66,6 @@ export default function McpConnectSheet({ onClose }) {
   const [keys, setKeys] = useState(undefined); // undefined＝読み込み中
   const [missing, setMissing] = useState(false);
   const [loadError, setLoadError] = useState(null);
-  const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
   const [fresh, setFresh] = useState(null); // { token, row }＝いま作ったキー（閉じるまで）
   const [howTo, setHowTo] = useState('claude');
@@ -81,10 +82,9 @@ export default function McpConnectSheet({ onClose }) {
     if (busy) return;
     setBusy(true);
     try {
-      const r = await createKey(supabase, { userId: user?.id, name: cleanKeyName(name) || DEFAULT_NAME });
+      const r = await createKey(supabase, { userId: user?.id, name: labelOf(howTo) });
       if (r.error) { if (r.missing) setMissing(true); else toast.error(toMessage(r.error, '接続キーを作れませんでした。通信状況を確かめて、もう一度お試しください。')); return; }
       setFresh(r);
-      setName('');
       setKeys((prev) => [r.row, ...(prev || [])]);
       track('mcp_connect', { action: 'create' });
     } finally { setBusy(false); }
@@ -102,6 +102,14 @@ export default function McpConnectSheet({ onClose }) {
 
   const atMax = (keys?.length || 0) >= MAX_KEYS;
   const freshName = fresh?.row?.name || DEFAULT_NAME;
+  const seg = (
+    <div className="sub-tabs__seg" role="tablist" aria-labelledby="mcp-howto-title">
+      <SegThumb activeKey={howTo} />
+      {HOW_TO.map(([k, label]) => (
+        <button key={k} type="button" role="tab" id={`mcp-tab-${k}`} aria-selected={howTo === k} aria-controls="mcp-howto-panel" className={`sub-tab${howTo === k ? ' active' : ''}`} onClick={() => setHowTo(k)}>{label}</button>
+      ))}
+    </div>
+  );
 
   return (
     <BottomSheet title="AI と連携" onClose={onClose} layer="dialog">
@@ -113,38 +121,47 @@ export default function McpConnectSheet({ onClose }) {
           <ErrorMessage title="まだ使えません" description="この機能の準備がまだです。しばらくしてから、もう一度お試しください。" />
         ) : fresh ? (
           <div style={section}>
-            <h3 style={h}>{freshName} の接続 URL</h3>
-            <p style={lead}>{withPhraseBreaks('この URL は今だけ見られます。先にコピーして AI に登録してください。URL を知っている人はあなたのメモを読めるので、人に送らないでください。')}</p>
-            <pre style={codeBox}>{connectUrl(fresh.token)}</pre>
-            <CopyButton text={connectUrl(fresh.token)} label="URL をコピー" style={btnPrimary} />
-            <h3 style={{ ...h, marginTop: 'var(--space-2)' }} id="mcp-howto-title">つなぎ方</h3>
-            {/* 切り替えは振り返り・相談と同じ溝の形（.sub-tabs__seg＋SegThumb）。塗りの主ボタンは「URL をコピー」1 つだけ。 */}
-            <div className="sub-tabs__seg" role="tablist" aria-labelledby="mcp-howto-title">
-              <SegThumb activeKey={howTo} />
-              {HOW_TO.map(([k, label]) => (
-                <button key={k} type="button" role="tab" id={`mcp-tab-${k}`} aria-selected={howTo === k} aria-controls="mcp-howto-panel" className={`sub-tab${howTo === k ? ' active' : ''}`} onClick={() => setHowTo(k)}>{label}</button>
-              ))}
-            </div>
+            <h3 style={h}>{freshName} の接続キーができました</h3>
+            <p style={lead}>{withPhraseBreaks(howTo === 'code' ? 'このコマンドは今だけ見られます。先にコピーしてターミナルに貼ってください。キーを知っている人はあなたのメモを読めるので、人に送らないでください。' : 'この URL は今だけ見られます。先にコピーして登録してください。URL を知っている人はあなたのメモを読めるので、人に送らないでください。')}</p>
+            {howTo !== 'code' && (
+              <>
+                <pre style={codeBox}>{connectUrl(fresh.token)}</pre>
+                <CopyButton text={connectUrl(fresh.token)} label="URL をコピー" style={btnPrimary} />
+              </>
+            )}
+            {howTo === 'code' && (
+              <>
+                <pre style={codeBox}>{claudeCodeCommand(fresh.token)}</pre>
+                <CopyButton text={claudeCodeCommand(fresh.token)} label="コマンドをコピー" style={btnPrimary} />
+              </>
+            )}
+            <h3 style={{ ...h, marginTop: 'var(--space-2)' }} id="mcp-howto-title">{freshName} でのつなぎ方</h3>
+            {/* 切り替えは振り返り・相談と同じ溝の形（.sub-tabs__seg＋SegThumb）。塗りの主ボタンは「コピー」1 つだけ。 */}
+            {seg}
             <div key={howTo} id="mcp-howto-panel" role="tabpanel" aria-labelledby={`mcp-tab-${howTo}`} className="sub-panel" style={section}>
               {howTo === 'claude' && (
                 <ol style={steps}>
-                  <li>{withPhraseBreaks('Claude の設定の「コネクタ」で「カスタムコネクタを追加」を開く')}</li>
-                  <li>{withPhraseBreaks('名前に「Orime」、URL に上の URL を貼る（OAuth の欄は空のまま）')}</li>
-                  <li>{withPhraseBreaks('会話で Orime を有効にして「最近のメモを見せて」と聞く（本やメモはカードで出ます）')}</li>
+                  <li>{withPhraseBreaks('Claude の 設定 →「コネクタ」→ いちばん下の「カスタムコネクタを追加」')}</li>
+                  <li>{withPhraseBreaks('名前に「Orime」、URL に上の URL を貼る')}</li>
+                  <li>{withPhraseBreaks('「認証」は「サインインなし」を選ぶ。ほかの欄はそのまま')}</li>
+                  <li>{withPhraseBreaks('「追加」→ Orime の「連携させる」を押す')}</li>
+                  <li>{withPhraseBreaks('新しい会話で Orime をオンにして「最近のメモを見せて」と聞く。本やメモはカードで出ます')}</li>
                 </ol>
               )}
               {howTo === 'chatgpt' && (
                 <ol style={steps}>
-                  <li>{withPhraseBreaks('ChatGPT の設定の「コネクタ」（開発者モード）で「作成」を開く')}</li>
-                  <li>{withPhraseBreaks('名前に「Orime」、MCP サーバーの URL に上の URL を貼る。認証は「なし」')}</li>
-                  <li>{withPhraseBreaks('会話で Orime を選んで「読了した本を一覧して」と聞く（本やメモはカードで出ます）')}</li>
+                  <li>{withPhraseBreaks('ChatGPT の 設定 →「アプリとコネクタ」→「詳細設定」で「開発者モード」をオン')}</li>
+                  <li>{withPhraseBreaks('「コネクタ」の「作成」→ 名前に「Orime」、MCP サーバーの URL に上の URL を貼る')}</li>
+                  <li>{withPhraseBreaks('「認証」は「認証なし」を選んで「作成」')}</li>
+                  <li>{withPhraseBreaks('新しい会話で「＋」から Orime を選んで「読了した本を一覧して」と聞く。本やメモはカードで出ます')}</li>
                 </ol>
               )}
               {howTo === 'code' && (
                 <>
-                  <p style={lead}>{withPhraseBreaks('ターミナルで 1 行貼ります。')}</p>
-                  <pre style={codeBox}>{claudeCodeCommand(fresh.token)}</pre>
-                  <CopyButton text={claudeCodeCommand(fresh.token)} label="コマンドをコピー" />
+                  <ol style={steps}>
+                    <li>{withPhraseBreaks('ターミナル（Claude Code を起動する前の画面）に上のコマンドを貼って Enter')}</li>
+                    <li>{withPhraseBreaks('「Added HTTP MCP server orime」と出たら、Claude Code を起動して「Orime の最近のメモを見せて」')}</li>
+                  </ol>
                   <details>
                     {/* 畳む見出し（DESIGN §5）: 高さ 48・15/600・右端に ChevronDown */}
                     <summary style={{ ...h, cursor: 'pointer', minHeight: 48, display: 'flex', alignItems: 'center', justifyContent: 'space-between', listStyle: 'none' }}>Cursor などの設定ファイルに貼る形<ChevronDown size={20} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} /></summary>
@@ -161,13 +178,11 @@ export default function McpConnectSheet({ onClose }) {
           </div>
         ) : (
           <div style={section}>
-            <h3 style={h}>接続キーを作る</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-              <label htmlFor="mcp-key-name" style={groupTitle}>どの AI につなぎますか？ <span style={fieldNote}>（任意）</span></label>
-              <input id="mcp-key-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={KEY_NAME_MAX} placeholder={`例：${DEFAULT_NAME}`} style={uiInput} disabled={atMax} />
-            </div>
+            <h3 style={h} id="mcp-howto-title">どこにつなぎますか？</h3>
+            {seg}
+            <p style={meta}>{withPhraseBreaks(howTo === 'claude' ? 'Claude のアプリ・Web（iPhone でも）。本やメモはカードで出ます。' : howTo === 'chatgpt' ? 'ChatGPT（開発者モードが要ります）。本やメモはカードで出ます。' : 'ターミナルの Claude Code や Cursor。文字で答えます。')}</p>
             <button type="button" style={busy || atMax ? btnPrimaryOff : btnPrimary} disabled={busy || atMax} onClick={create}>
-              {busy ? '作っています…' : '接続キーを作る'}
+              {busy ? '作っています…' : `${labelOf(howTo)} 用の接続キーを作る`}
             </button>
             {atMax && <p style={meta}>{withPhraseBreaks(`接続キーは ${MAX_KEYS} つまでです。使っていないものを取り消してください。`)}</p>}
           </div>
