@@ -31,7 +31,7 @@ Orime の中の相談（Haiku）とは別の道で、**Orime のトークンは�
 消す・本の状態を変える道具は作らない（アプリで）。返すのは AI が読みやすい文字（Markdown 風・book_id / memo_id / action_id 入り・利用者 id は返さない）＋ `structuredContent`（下のカードが読む）。
 `initialize` の `instructions` で「根拠にした本とメモを添える・メモは言い換えず引用・順位やバッジの言い方をしない・書く道具は頼まれたときだけ」と伝える。
 
-**プロンプト**（`prompts/list` / `prompts/get`・Claude の「＋」や ChatGPT の入力欄から選べる決まった型）: `consult`（自分のメモに相談する・引数 question）・`book_review`（1 冊を振り返る・book_title）・`weekly_actions`（今週の行動を決める）・`reading_report`（読書の記録をまとめる）。
+**プロンプト**（`prompts/list` / `prompts/get`・Claude の「＋」や ChatGPT の入力欄から選べる決まった型）: `consult`（自分のメモに相談する・引数 question）・`book_review`（1 冊を振り返る・book_title）・`weekly_actions`（今週の行動を決める）・`reading_report`（読書の記録をまとめる）・`save_conversation`（この会話を Orime に残す＝結論・根拠の本・次の一歩を確かめてから add_memo／add_action・2026-11-08 オーナー「Claude の情報をアプリが拾うことはできる？」）。
 
 **資料**（`resources/list` / `resources/read`・AI が会話に添える）: `orime://books`・`orime://memos/recent`・`orime://actions`・`orime://books/{book_id}`（Markdown）と、下のカードの HTML。
 

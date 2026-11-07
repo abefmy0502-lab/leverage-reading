@@ -189,6 +189,7 @@ export const PROMPTS = [
   { name: 'book_review', title: '1 冊を振り返る', description: '1 冊のメモから、いちばん効いた主張・明日から変えること・反論を整理する', arguments: [{ name: 'book_title', description: '書名（一部でよい）', required: true }] },
   { name: 'weekly_actions', title: '今週の行動を決める', description: 'まだの行動と最近のメモから、今週やる 3 つを決める', arguments: [] },
   { name: 'reading_report', title: '読書の記録をまとめる', description: '読書の時間・メモ・行動の数から、最近の読書を短くまとめる', arguments: [] },
+  { name: 'save_conversation', title: 'この会話を Orime に残す', description: 'いまの会話の結論・根拠にした本・次の一歩を、Orime のメモと行動に残す（本人が頼んだときだけ書く）', arguments: [{ name: 'note', description: '添えたい一言（任意）', required: false }] },
 ];
 
 function promptText(name, args = {}) {
@@ -201,6 +202,17 @@ function promptText(name, args = {}) {
       return `Orime の list_books で『${t || '（書名）'}』を探し、get_book でメモと読書準備を読んでください。そのうえで「いちばん効いた主張」「明日から何を変えるか」「あえて反論するなら」を、メモの引用を根拠に 1 つずつ書いてください。最後に、行動にするなら add_action で足せることを伝えてください。`;
     case 'weekly_actions':
       return 'Orime の list_actions（まだの行動）と recent_memos（最近 14 日）を読んで、今週やる行動を 3 つに絞ってください。期限が近いもの・メモで何度も触れていることを優先し、それぞれ「なぜ今週か」を 1 行で。決まったら add_action か complete_action で反映してよいか聞いてください。';
+    case 'save_conversation': {
+      const extra = clean(args.note, 500);
+      return `この会話の中身を Orime に残してください。手順:
+1. 会話を読み返し、「結論（3 行まで・本人の言葉を活かす）」「根拠にした本と一節（『書名』p.N があれば）」「次の一歩（1 つ・できれば期限）」を書き出し、保存する前に本人に見せて確かめる。
+2. 本が特定できれば list_books でその book_id を探し、add_memo に book_id を付けて結論と根拠を 1 件のメモとして足す（本文の頭に「Claude との相談：」）。本が無ければ book_id なしで足す（本なしの学び）。
+3. 次の一歩があり、本人がよいと言えば add_action で足す（本の id は 2 と同じ・期限は YYYY-MM-DD）。
+4. 保存した memo_id / action_id を伝える。書き直したいときは update_memo で直せると添える。
+会話に無いことは書かない。順位やバッジの言い方はしない。${extra ? `
+
+本人の一言: ${extra}` : ''}`;
+    }
     case 'reading_report':
       return 'Orime の reading_stats と recent_memos（最近 30 日）を読んで、最近の読書を 5 行でまとめてください。数字は reading_stats のものだけを使い、順位やバッジのような言い方はしないでください。最後に、いちばん心に残っていそうなメモを 1 つ引用してください。';
     default:

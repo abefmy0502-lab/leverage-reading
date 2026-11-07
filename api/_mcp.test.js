@@ -158,6 +158,9 @@ describe('会話の中に描く画面（MCP Apps・ChatGPT）', () => {
     expect(get.result.messages[0].content.text).toContain('相談: 部下が 育たない');
     expect(get.result.messages[0].content.text).toContain('search_memos');
     expect((await handleRpc({ jsonrpc: '2.0', id: 1, method: 'prompts/get', params: { name: 'nope' } }, ctx())).error.code).toBe(-32602);
+    const save = await handleRpc({ jsonrpc: '2.0', id: 1, method: 'prompts/get', params: { name: 'save_conversation', arguments: { note: '仕事の軸' } } }, ctx());
+    expect(save.result.messages[0].content.text).toContain('add_memo');
+    expect(save.result.messages[0].content.text).toContain('本人の一言: 仕事の軸');
     for (const p of PROMPTS) expect((await handleRpc({ jsonrpc: '2.0', id: 1, method: 'prompts/get', params: { name: p.name, arguments: {} } }, ctx())).result.messages).toHaveLength(1);
   });
 });
