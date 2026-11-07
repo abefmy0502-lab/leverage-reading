@@ -5,6 +5,7 @@
 -- admin_goal_plan / admin_goal_weekly / admin_profit / admin_profit_series / admin_renewals）は auth.uid() で管理者を確かめるので、
 -- service_role から呼ぶときは、このラッパーが「その利用者としての JWT の claims」を同じトランザクションの中だけ置いてから呼ぶ。
 --
+-- フィードバックの本文（名前・メール）は渡さない＝件数だけ（admin_overview の feedback_open）。
 -- 守り: 実行できるのは service_role だけ（REVOKE/GRANT）。p_user_id が app_admins に無ければ例外。無い関数は null（未適用の SQL があっても壊れない）。
 -- 依存: supabase_admin_metrics.sql（app_admins）。ほかの admin_* は有無を確かめてから呼ぶ。冪等。
 
@@ -45,8 +46,6 @@ begin
   v := v || jsonb_build_object('renewals', part);
   begin select public.admin_active_series(30) into part; exception when others then part := null; end;
   v := v || jsonb_build_object('active_series', part);
-  begin select public.admin_feedback('open') into part; exception when others then part := null; end;
-  v := v || jsonb_build_object('feedback_open', part);
 
   return v || jsonb_build_object('generated_at', now());
 end;

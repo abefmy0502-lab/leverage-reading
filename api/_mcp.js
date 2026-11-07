@@ -462,7 +462,7 @@ const handlers = {
       `利用者 ${o.users_total ?? '?'} 人（7 日で +${o.new_users_7d ?? '?'}・30 日で +${o.new_users_30d ?? '?'}）・MAU ${o.mau ?? '?'}・WAU ${o.wau ?? '?'}・DAU ${o.dau ?? '?'}`,
       `契約: 月額 ${p.monthly ?? '?'}・年額 ${p.annual ?? '?'}・創業メンバー ${p.founding ?? '?'}・無料期間 ${p.trial ?? '?'}`,
       `本 ${o.books_total ?? '?'} 冊・メモ ${o.memos_total ?? '?'} 件・行動 ${o.actions_total ?? '?'}（完了 ${o.actions_done ?? '?'}）・未対応のフィードバック ${o.feedback_open ?? '?'}`,
-      '（くわしい数字は structuredContent に: overview / revenue / growth / launch / goal / weekly / profit / profit_series / renewals / active_series / feedback_open）',
+      '（くわしい数字は structuredContent に: overview / revenue / growth / launch / goal / weekly / profit / profit_series / renewals / active_series）',
     ];
     return { text: text.join('\n'), structuredContent: data || {} };
   },
