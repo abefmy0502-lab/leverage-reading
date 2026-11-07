@@ -7,7 +7,7 @@
 //   ④ つないでいる AI（名前・作った日・最後に使った日・「取り消す」）。空は EmptyState
 // SQL（supabase_mcp_tokens.sql）が未適用なら ErrorMessage「まだ使えません」。AI は使わない（トークンを使わない）。
 import { useEffect, useState } from 'react';
-import { Copy, Check, Plug } from 'lucide-react';
+import { Copy, Check, Plug, ChevronDown } from 'lucide-react';
 import BottomSheet from './BottomSheet';
 import SegThumb from './SegThumb';
 import ErrorMessage from './ErrorMessage';
@@ -113,8 +113,8 @@ export default function McpConnectSheet({ onClose }) {
           <ErrorMessage title="まだ使えません" description="この機能の準備がまだです。しばらくしてから、もう一度お試しください。" />
         ) : fresh ? (
           <div style={section}>
-            <h3 style={h}>「{freshName}」の接続 URL</h3>
-            <p style={meta}>{withPhraseBreaks('この URL は今だけ見られます。先にコピーして AI に登録してください。URL を知っている人はあなたのメモを読めるので、人に送らないでください。読めるのは自分のものだけで、Orime のトークンは使いません。')}</p>
+            <h3 style={h}>{freshName} の接続 URL</h3>
+            <p style={lead}>{withPhraseBreaks('この URL は今だけ見られます。先にコピーして AI に登録してください。URL を知っている人はあなたのメモを読めるので、人に送らないでください。')}</p>
             <pre style={codeBox}>{connectUrl(fresh.token)}</pre>
             <CopyButton text={connectUrl(fresh.token)} label="URL をコピー" style={btnPrimary} />
             <h3 style={{ ...h, marginTop: 'var(--space-2)' }} id="mcp-howto-title">つなぎ方</h3>
@@ -130,23 +130,24 @@ export default function McpConnectSheet({ onClose }) {
                 <ol style={steps}>
                   <li>{withPhraseBreaks('Claude の設定の「コネクタ」で「カスタムコネクタを追加」を開く')}</li>
                   <li>{withPhraseBreaks('名前に「Orime」、URL に上の URL を貼る（OAuth の欄は空のまま）')}</li>
-                  <li>{withPhraseBreaks('会話で Orime を有効にして「最近のメモを見せて」と聞く')}</li>
+                  <li>{withPhraseBreaks('会話で Orime を有効にして「最近のメモを見せて」と聞く（本やメモはカードで出ます）')}</li>
                 </ol>
               )}
               {howTo === 'chatgpt' && (
                 <ol style={steps}>
                   <li>{withPhraseBreaks('ChatGPT の設定の「コネクタ」（開発者モード）で「作成」を開く')}</li>
                   <li>{withPhraseBreaks('名前に「Orime」、MCP サーバーの URL に上の URL を貼る。認証は「なし」')}</li>
-                  <li>{withPhraseBreaks('会話で Orime を選んで「読了した本を一覧して」と聞く')}</li>
+                  <li>{withPhraseBreaks('会話で Orime を選んで「読了した本を一覧して」と聞く（本やメモはカードで出ます）')}</li>
                 </ol>
               )}
               {howTo === 'code' && (
                 <>
-                  <p style={meta}>{withPhraseBreaks('ターミナルで 1 行貼ります。')}</p>
+                  <p style={lead}>{withPhraseBreaks('ターミナルで 1 行貼ります。')}</p>
                   <pre style={codeBox}>{claudeCodeCommand(fresh.token)}</pre>
                   <CopyButton text={claudeCodeCommand(fresh.token)} label="コマンドをコピー" />
                   <details>
-                    <summary style={{ ...meta, cursor: 'pointer', minHeight: 'var(--tap-min)', display: 'flex', alignItems: 'center' }}>Cursor などの設定ファイルに貼る形</summary>
+                    {/* 畳む見出し（DESIGN §5）: 高さ 48・15/600・右端に ChevronDown */}
+                    <summary style={{ ...h, cursor: 'pointer', minHeight: 48, display: 'flex', alignItems: 'center', justifyContent: 'space-between', listStyle: 'none' }}>Cursor などの設定ファイルに貼る形<ChevronDown size={20} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} /></summary>
                     <div style={{ ...section, paddingTop: 'var(--space-3)' }}>
                       <pre style={codeBox}>{jsonConfigSnippet(fresh.token)}</pre>
                       <CopyButton text={jsonConfigSnippet(fresh.token)} label="設定をコピー" />
@@ -182,7 +183,7 @@ export default function McpConnectSheet({ onClose }) {
             ) : loadError ? (
               <ErrorMessage title="読み込めませんでした" description={toMessage(loadError, '通信状況を確かめて、もう一度お試しください。')} actions={[{ label: 'もう一度', variant: 'secondary', onClick: load }]} />
             ) : keys.length === 0 ? (
-              <EmptyState titleAs="h4" title="まだつないでいません" description="上で接続キーを作ると、ここに並びます。" />
+              <div className="recall-done"><EmptyState titleAs="h4" title="まだつないでいません" description="上で接続キーを作ると、ここに並びます。" /></div>
             ) : (
               <div>
                 {keys.map((k, i) => (

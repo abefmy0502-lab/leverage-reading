@@ -12,6 +12,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { ipGate } from './_ipRate.js';
 import { handleBatch, resolveToken, touchToken, looksLikeToken, PROTOCOL_VERSION } from './_mcp.js';
+import { searchBooksServer } from './_bookSearch.js';
 
 const USER_WINDOW_MS = 60 * 1000;
 const USER_MAX = 120;
@@ -77,7 +78,9 @@ export default async function handler(req, res) {
   if (typeof body === 'string') { try { body = JSON.parse(body); } catch { body = null; } }
   if (!body || typeof body !== 'object') return res.status(400).json({ jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } });
 
-  const out = await handleBatch(body, { db, userId: who.userId });
+  // add_book の書誌の検索は、本の検索と同じサーバーの道（楽天 → Google → NDL・6 秒まで）。
+  const searchBooks = (q) => searchBooksServer(q, { budgetMs: 6000 });
+  const out = await handleBatch(body, { db, userId: who.userId, searchBooks });
   if (!out.length) return res.status(202).end();
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   return res.status(200).json(Array.isArray(body) ? out : out[0]);
