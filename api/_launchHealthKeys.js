@@ -18,6 +18,9 @@ export const HEALTH_ENV = {
   app_store_url: ['VITE_APP_STORE_URL'],
   app_store_pt: ['VITE_APP_STORE_PT'],
   sentry: ['VITE_SENTRY_DSN'],
+  x_api: ['X_API_KEY', 'X_API_SECRET', 'X_ACCESS_TOKEN', 'X_ACCESS_SECRET'],
+  threads_api: ['THREADS_USER_ID', 'THREADS_ACCESS_TOKEN'],
+  instagram_api: ['IG_USER_ID', 'IG_ACCESS_TOKEN'],
   release_notes_since: ['VITE_RELEASE_NOTES_SINCE'],
   referral_code: ['VITE_REFERRAL_CODE'],
   lp_ip_salt: ['LP_IP_SALT'],
@@ -48,5 +51,7 @@ export const HEALTH_SQL = {
   admin_profit: { rpc: 'admin_profit', args: { p_month: null } },
   admin_goal_plan: { rpc: 'admin_goal_plan', args: {} },
   admin_launch_kpis: { rpc: 'admin_launch_kpis', args: { p_weeks: 1 } },
+  admin_act_for: { rpc: 'admin_act_for', args: { p_user_id: null, p_action: 'probe', p_args: {} } },
+  ops_posts: { table: 'ops_posts' },
 };
 export const HEALTH_SQL_KEYS = Object.keys(HEALTH_SQL);

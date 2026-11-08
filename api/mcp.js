@@ -9,6 +9,7 @@
 //   - キーが無い／違う → 401 ＋ WWW-Authenticate（MCP のクライアントが「キーが要る」と分かる）。
 //   - 本体は api/_mcp.js（テストはそちら）。service_role で読み書きし、いつも本人の user_id で絞る。
 //   - 利用者ごとの応答なので Cache-Control: no-store。
+import { postTo, makeImage, configured } from './_social.js';
 import { createClient } from '@supabase/supabase-js';
 import { ipGate } from './_ipRate.js';
 import { handleBatch, resolveToken, touchToken, looksLikeToken, PROTOCOL_VERSION } from './_mcp.js';
@@ -80,7 +81,7 @@ export default async function handler(req, res) {
 
   // add_book の書誌の検索は、本の検索と同じサーバーの道（楽天 → Google → NDL・6 秒まで）。
   const searchBooks = (q) => searchBooksServer(q, { budgetMs: 6000 });
-  const out = await handleBatch(body, { db, userId: who.userId, searchBooks });
+  const out = await handleBatch(body, { db, userId: who.userId, searchBooks, social: { postTo, makeImage, configured, storage: db.storage } });
   if (!out.length) return res.status(202).end();
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   return res.status(200).json(Array.isArray(body) ? out : out[0]);

@@ -206,17 +206,50 @@ export const TOOLS = [
   },
   {
     name: 'ops_tasks',
-    description: '（運営者だけ）運営者のやること（日付つき）を読む・足す・完了にする・消す。action=list（include_done）/ add（title・due_date YYYY-MM-DD・dept）/ done（id・done）/ delete（id）。Admin only: the operator\'s dated to-do list.',
+    description: '（運営者だけ）運営者のやること（日付つき）を読む・足す・進める。担当 assignee=claude のやることは Claude Code が自動で取りに来て進める（担当 me は自分がやる）。action=list（include_done・assignee・status）/ add（title・due_date YYYY-MM-DD・dept・assignee）/ update（id・status: todo・doing・done・blocked・result・title・due_date・dept・assignee）/ claim（担当 claude の todo を 1 つ doing にして返す）/ done（id・done・result）/ delete（id）。Admin only: the operator\'s dated to-do list; assignee=claude tasks are picked up by Claude Code.',
     inputSchema: {
       type: 'object',
       properties: {
-        action: { type: 'string', enum: ['list', 'add', 'done', 'delete'] },
+        action: { type: 'string', enum: ['list', 'add', 'update', 'claim', 'done', 'delete'] },
         id: { type: 'string' },
-        title: { type: 'string', description: 'add: やること（200 字まで）' },
-        due_date: { type: 'string', description: 'add: 期日 YYYY-MM-DD（省略は今日・日本時間）' },
-        dept: { type: 'string', description: 'add: 区分（例: 経営・マーケ・開発・経理・任意）' },
+        title: { type: 'string', description: 'add / update: やること（200 字まで・Claude に任せるなら、何をどうしたいかを具体的に）' },
+        due_date: { type: 'string', description: '期日 YYYY-MM-DD（add の省略は今日・日本時間）' },
+        dept: { type: 'string', description: '区分（例: 経営・マーケ・開発・経理・任意）' },
+        assignee: { type: 'string', enum: ['me', 'claude'], description: 'me＝自分／claude＝Claude Code が自動で進める' },
+        status: { type: 'string', enum: ['todo', 'doing', 'done', 'blocked'], description: 'update: 状態' },
+        result: { type: 'string', description: 'update / done: 結果（何をしたか・コミット・止まった理由・4,000 字まで）' },
         done: { type: 'boolean', description: 'done: false で未完了に戻す' },
         include_done: { type: 'boolean', description: 'list: 完了も含める' },
+      },
+      required: ['action'],
+    },
+  },
+  {
+    name: 'ops_image',
+    description: '（運営者だけ）投稿の画像を作る（ChatGPT と同じ画像の仕組み gpt-image-1）。公開の置き場に置いて URL を返す。size=1024x1024（正方形）/ 1024x1536（縦）/ 1536x1024（横）・quality=low/medium/high。1 枚 約 ¥6〜25。Admin only: generate a post image and return its public URL.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        prompt: { type: 'string', description: '画像の指示（4,000 字まで・日本語でよい・文字を入れるなら短く）' },
+        size: { type: 'string', enum: ['1024x1024', '1024x1536', '1536x1024'] },
+        quality: { type: 'string', enum: ['low', 'medium', 'high'] },
+      },
+      required: ['prompt'],
+    },
+  },
+  {
+    name: 'ops_post',
+    description: '（運営者だけ）SNS の投稿の予定を読む・入れる・直す・取り消す・出す。platform=x / threads / instagram。action=list（status）/ add（platform・text・image_url・scheduled_at ISO＝省略は今すぐの予定）/ update（id・text・image_url・scheduled_at）/ cancel（id）/ now（platform・text・image_url＝いますぐ出す）/ flush（時刻の来た予定を出す・自動のセッションが毎時呼ぶ）/ status（鍵がそろっている送り先）。Admin only: schedule and publish social posts.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['list', 'add', 'update', 'cancel', 'now', 'flush', 'status'] },
+        id: { type: 'string' },
+        platform: { type: 'string', enum: ['x', 'threads', 'instagram'] },
+        text: { type: 'string', description: '本文（X 280・Threads 500・Instagram 2,200 字まで）' },
+        image_url: { type: 'string', description: 'ops_image が返した URL（Instagram は必須）' },
+        scheduled_at: { type: 'string', description: '出す時刻（ISO 8601・例 2026-11-10T21:00:00+09:00）' },
+        status: { type: 'string', enum: ['scheduled', 'posted', 'failed', 'canceled'], description: 'list: この状態だけ' },
       },
       required: ['action'],
     },
@@ -579,11 +612,74 @@ const handlers = {
   },
   async ops_tasks(args, ctx) {
     const { action } = args || {};
-    if (action === 'list') { const rows = await opsAct(ctx, 'task_list', { include_done: !!args.include_done }); return { text: rows.length ? `やること ${rows.length} 件` : 'やることはありません', structuredContent: { tasks: rows } }; }
-    if (action === 'add') { const title = clean(args.title, 200); if (!title) throw new ToolError('title（やること）を入れてください'); if (args.due_date && !/^\d{4}-\d{2}-\d{2}$/.test(args.due_date)) throw new ToolError('due_date は YYYY-MM-DD'); const r = await opsAct(ctx, 'task_add', { title, due_date: args.due_date || null, dept: clean(args.dept, 40) || null }); return { text: `「${title}」を足しました`, structuredContent: r }; }
-    if (action === 'done') { needId(args.id); const r = await opsAct(ctx, 'task_done', { id: args.id, done: args.done !== false }); return { text: args.done === false ? '未完了に戻しました' : '完了にしました', structuredContent: r }; }
+    const ASSIGNEES = ['me', 'claude']; const STATUSES = ['todo', 'doing', 'done', 'blocked'];
+    if (args?.assignee && !ASSIGNEES.includes(args.assignee)) throw new ToolError('assignee は me か claude');
+    if (args?.status && !STATUSES.includes(args.status)) throw new ToolError('status は todo・doing・done・blocked のどれか');
+    if (args?.due_date && !/^\d{4}-\d{2}-\d{2}$/.test(args.due_date)) throw new ToolError('due_date は YYYY-MM-DD');
+    if (action === 'list') { const rows = await opsAct(ctx, 'task_list', { include_done: !!args.include_done, assignee: args.assignee || null, status: args.status || null }); return { text: rows.length ? `やること ${rows.length} 件` : 'やることはありません', structuredContent: { tasks: rows } }; }
+    if (action === 'add') { const title = clean(args.title, 200); if (!title) throw new ToolError('title（やること）を入れてください'); const r = await opsAct(ctx, 'task_add', { title, due_date: args.due_date || null, dept: clean(args.dept, 40) || null, assignee: args.assignee || 'me' }); return { text: `「${title}」を足しました${args.assignee === 'claude' ? '（Claude Code が次の回に取りに来ます）' : ''}`, structuredContent: r }; }
+    if (action === 'update') { needId(args.id); const r = await opsAct(ctx, 'task_update', { id: args.id, status: args.status || null, result: clean(args.result, 4000) || null, title: clean(args.title, 200) || null, due_date: args.due_date || null, dept: clean(args.dept, 40) || null, assignee: args.assignee || null }); return { text: r?.ok ? 'やることを更新しました' : 'その id のやることはありません', structuredContent: r }; }
+    if (action === 'claim') { const r = await opsAct(ctx, 'task_claim', {}); return r && r.id ? { text: `取りかかります: 「${r.title}」（期日 ${r.due_date}）`, structuredContent: { task: r } } : { text: 'Claude に任せたやることは、いまありません', structuredContent: { task: null } }; }
+    if (action === 'done') { needId(args.id); const r = await opsAct(ctx, 'task_done', { id: args.id, done: args.done !== false, result: clean(args.result, 4000) || null }); return { text: args.done === false ? '未完了に戻しました' : '完了にしました', structuredContent: r }; }
     if (action === 'delete') { needId(args.id); const r = await opsAct(ctx, 'task_delete', { id: args.id }); return { text: '消しました', structuredContent: r }; }
-    throw new ToolError('action は list・add・done・delete のどれか');
+    throw new ToolError('action は list・add・update・claim・done・delete のどれか');
+  },
+  async ops_image(args, ctx) {
+    const prompt = clean(args?.prompt, 4000); if (!prompt) throw new ToolError('prompt（画像の指示）を入れてください');
+    const social = ctx.social; if (!social?.makeImage) throw new ToolError('画像の仕組みがこのサーバーにありません');
+    // 管理者かどうかは admin_act_for の goal_get で確かめる（画像の原価を利用者に使わせない）
+    await opsAct(ctx, 'goal_get', {});
+    try {
+      const r = await social.makeImage({ prompt, size: args.size, quality: args.quality, userId: ctx.userId }, { storage: social.storage });
+      return { text: r.url ? `画像を作りました: ${r.url}` : '画像は作れましたが、置き場（ops-media）に置けませんでした', structuredContent: { url: r.url, path: r.path || null, revised_prompt: r.revised_prompt || null } };
+    } catch (e) { throw new ToolError(e?.message || '画像を作れませんでした'); }
+  },
+  async ops_post(args, ctx) {
+    const { action } = args || {};
+    const PLATFORMS = ['x', 'threads', 'instagram']; const LIMIT = { x: 280, threads: 500, instagram: 2200 };
+    const social = ctx.social;
+    const checkPost = (platform, text, imageUrl) => {
+      if (!PLATFORMS.includes(platform)) throw new ToolError('platform は x・threads・instagram のどれか');
+      const t = clean(text, 4000); if (!t) throw new ToolError('text（本文）を入れてください');
+      if ([...t].length > LIMIT[platform]) throw new ToolError(`${platform} の本文は ${LIMIT[platform]} 字まで（いま ${[...t].length} 字）`);
+      if (imageUrl && !/^https:\/\//.test(imageUrl)) throw new ToolError('image_url は https の URL');
+      if (platform === 'instagram' && !imageUrl) throw new ToolError('Instagram は image_url が要ります（ops_image で作ってから）');
+      return t;
+    };
+    const publish = async (row) => {
+      try {
+        const r = await social.postTo(row.platform, { text: row.text, imageUrl: row.image_url || null });
+        await opsAct(ctx, 'post_update', { id: row.id, status: 'posted', posted_id: String(r.id), posted_url: r.url || null });
+        return { id: row.id, platform: row.platform, ok: true, url: r.url || null };
+      } catch (e) {
+        const retry = !!e?.retryable;
+        await opsAct(ctx, 'post_update', { id: row.id, status: retry ? 'scheduled' : 'failed', error: String(e?.message || e).slice(0, 1000) });
+        return { id: row.id, platform: row.platform, ok: false, error: String(e?.message || e).slice(0, 300), retry };
+      }
+    };
+    if (action === 'status') { await opsAct(ctx, 'goal_get', {}); const c = social?.configured ? social.configured() : {}; return { text: `鍵: X ${c.x ? 'あり' : 'なし'}・Threads ${c.threads ? 'あり' : 'なし'}・Instagram ${c.instagram ? 'あり' : 'なし'}・画像 ${c.image ? 'あり' : 'なし'}`, structuredContent: { configured: c } }; }
+    if (action === 'list') { const rows = await opsAct(ctx, 'post_list', { status: args.status || null }); return { text: rows.length ? `投稿の予定・記録 ${rows.length} 件` : '投稿の予定はありません', structuredContent: { posts: rows } }; }
+    if (action === 'add') {
+      const t = checkPost(args.platform, args.text, args.image_url);
+      if (args.scheduled_at && Number.isNaN(Date.parse(args.scheduled_at))) throw new ToolError('scheduled_at は ISO 8601（例 2026-11-10T21:00:00+09:00）');
+      const r = await opsAct(ctx, 'post_add', { platform: args.platform, text: t, image_url: args.image_url || null, scheduled_at: args.scheduled_at || null });
+      return { text: `${args.platform} の投稿を予定に入れました（${args.scheduled_at || 'いますぐの予定・次の回に出ます'}）`, structuredContent: r };
+    }
+    if (action === 'update') { needId(args.id); if (args.scheduled_at && Number.isNaN(Date.parse(args.scheduled_at))) throw new ToolError('scheduled_at は ISO 8601'); const r = await opsAct(ctx, 'post_update', { id: args.id, text: clean(args.text, 4000) || null, image_url: args.image_url || null, scheduled_at: args.scheduled_at || null }); return { text: '投稿の予定を直しました', structuredContent: r }; }
+    if (action === 'cancel') { needId(args.id); const r = await opsAct(ctx, 'post_update', { id: args.id, status: 'canceled' }); return { text: '投稿の予定を取り消しました', structuredContent: r }; }
+    if (action === 'now') {
+      const t = checkPost(args.platform, args.text, args.image_url);
+      const added = await opsAct(ctx, 'post_add', { platform: args.platform, text: t, image_url: args.image_url || null, scheduled_at: new Date().toISOString() });
+      const r = await publish({ id: added.id, platform: args.platform, text: t, image_url: args.image_url || null });
+      return { text: r.ok ? `${args.platform} に出しました${r.url ? ': ' + r.url : ''}` : `${args.platform} に出せませんでした: ${r.error}`, structuredContent: r };
+    }
+    if (action === 'flush') {
+      const due = await opsAct(ctx, 'post_due', {});
+      const results = []; for (const row of due) results.push(await publish(row));
+      const ok = results.filter((r) => r.ok).length;
+      return { text: due.length ? `時刻の来た投稿 ${due.length} 件のうち ${ok} 件を出しました` : '出す時刻の来た投稿はありません', structuredContent: { results } };
+    }
+    throw new ToolError('action は list・add・update・cancel・now・flush・status のどれか');
   },
   async ops_goal(args, ctx) {
     const { action } = args || {};

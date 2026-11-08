@@ -45,6 +45,9 @@ function fake() {
         db.acts = db.acts || []; db.acts.push([args.p_action, args.p_args]);
         if (args.p_action === 'task_list') return Promise.resolve({ data: [{ id: 'a', due_date: '2026-11-08', title: 'LP を直す', done: false }], error: null });
         if (args.p_action === 'goal_get') return Promise.resolve({ data: { target: 1000, deadline: '2027-12-31' }, error: null });
+        if (args.p_action === 'task_claim') return Promise.resolve({ data: db.claim === false ? null : { id: 'c1', title: 'LP の見出しを直す', due_date: '2026-11-09' }, error: null });
+        if (args.p_action === 'post_due') return Promise.resolve({ data: db.due || [], error: null });
+        if (args.p_action === 'post_list') return Promise.resolve({ data: [], error: null });
         return Promise.resolve({ data: { ok: true, id: '11111111-1111-4111-8111-111111111111' }, error: null });
       }
       if (name !== 'admin_snapshot_for') return Promise.resolve({ data: null, error: { code: 'PGRST202', message: 'Could not find the function' } });
@@ -256,7 +259,7 @@ describe('運営だけの道具', () => {
     expect(text(list)).toContain('やること 1 件');
     const add = await call('ops_tasks', { action: 'add', title: '  note を書く ', due_date: '2026-11-10', dept: 'マーケ' });
     expect(add.result.isError).toBe(false);
-    expect(db.acts.at(-1)).toEqual(['task_add', { title: 'note を書く', due_date: '2026-11-10', dept: 'マーケ' }]);
+    expect(db.acts.at(-1)).toEqual(['task_add', { title: 'note を書く', due_date: '2026-11-10', dept: 'マーケ', assignee: 'me' }]);
     const bad = await call('ops_tasks', { action: 'add', title: 'x', due_date: '来週' });
     expect(bad.result.isError).toBe(true);
     const goal = await call('ops_goal', { action: 'get' });
@@ -270,7 +273,36 @@ describe('運営だけの道具', () => {
     expect(text(tk)).toContain('表紙が出ない');
     const wk = await call('ops_week', { action: 'sales', new_paid: 2, lp_clicks: 30 });
     expect(wk.result.isError).toBe(false);
-    for (const n of ['ops_feedback', 'ops_tickets', 'ops_tasks', 'ops_goal', 'ops_week']) expect(TOOLS.find((t) => t.name === n)._meta).toBeUndefined();
+    for (const n of ['ops_feedback', 'ops_tickets', 'ops_tasks', 'ops_goal', 'ops_week', 'ops_image', 'ops_post']) expect(TOOLS.find((t) => t.name === n)._meta).toBeUndefined();
+  });
+  it('Claude に任せたやること: claim・update・SNS の予定と出す', async () => {
+    db.admins = [ME];
+    const social = { configured: () => ({ x: true, threads: false, instagram: false, image: true }), postTo: async (platform, p) => { if (platform === 'threads') { const e = new Error('Threads の鍵がありません'); throw e; } return { id: '9', url: 'https://x.com/i/web/status/9' }; }, makeImage: async () => ({ url: 'https://example.supabase.co/storage/v1/object/public/ops-media/a.png', path: 'a.png' }), storage: {} };
+    const claimed = await call('ops_tasks', { action: 'claim' }, { social });
+    expect(text(claimed)).toContain('LP の見出しを直す');
+    const upd = await call('ops_tasks', { action: 'update', id: '11111111-1111-4111-8111-111111111111', status: 'done', result: 'commit abc' }, { social });
+    expect(upd.result.isError).toBe(false);
+    expect(db.acts.at(-1)).toEqual(['task_update', { id: '11111111-1111-4111-8111-111111111111', status: 'done', result: 'commit abc', title: null, due_date: null, dept: null, assignee: null }]);
+    const bad = await call('ops_tasks', { action: 'update', id: '11111111-1111-4111-8111-111111111111', status: 'later' }, { social });
+    expect(bad.result.isError).toBe(true);
+    const added = await call('ops_tasks', { action: 'add', title: 'note を 1 本', assignee: 'claude' }, { social });
+    expect(text(added)).toContain('Claude Code が次の回に');
+    const img = await call('ops_image', { prompt: '秋の読書' }, { social });
+    expect(text(img)).toContain('ops-media');
+    const tooLong = await call('ops_post', { action: 'add', platform: 'x', text: 'あ'.repeat(281) }, { social });
+    expect(tooLong.result.isError).toBe(true);
+    const noImg = await call('ops_post', { action: 'add', platform: 'instagram', text: 'x' }, { social });
+    expect(noImg.result.isError).toBe(true);
+    const sched = await call('ops_post', { action: 'add', platform: 'x', text: '今日の一文', scheduled_at: '2026-11-10T21:00:00+09:00' }, { social });
+    expect(sched.result.isError).toBe(false);
+    db.due = [{ id: 'p1', platform: 'x', text: 'a', image_url: null }, { id: 'p2', platform: 'threads', text: 'b', image_url: null }];
+    const fl = await call('ops_post', { action: 'flush' }, { social });
+    expect(text(fl)).toContain('2 件のうち 1 件');
+    const updates = db.acts.filter((a) => a[0] === 'post_update');
+    expect(updates.find((a) => a[1].id === 'p1')[1].status).toBe('posted');
+    expect(updates.find((a) => a[1].id === 'p2')[1].status).toBe('failed');
+    const st = await call('ops_post', { action: 'status' }, { social });
+    expect(text(st)).toContain('X あり');
   });
 });
 

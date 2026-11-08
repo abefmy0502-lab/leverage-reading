@@ -5,7 +5,7 @@ description: 今週の投稿キット（X 10 本・Threads 7 本・Instagram の
 
 # /mkt-week — 今週の投稿キット（2026-10-22・マーケのレバレッジ）
 
-**自動では投稿しない。** 作るのはファイル 1 つ。オーナーが土曜に読んで直し、自分の手で予約する（`company/sns-daily-system-2026-10.md` §4）。
+作るのはファイル 1 つ＋**投稿の予約**（2026-11-08 オーナー「投稿の文章や画像の作成も自動で・計画どおり投稿も」）。ファイルは土曜にオーナーが読んで直せる。予約は「Orime」の運営の道具 `ops_post`（`node scripts/ops-mcp.mjs ops_post '{"action":"add",…}'`）に入れ、毎時の自動のセッションが時刻の来たものを出す（`docs/mcp.md` §7）。鍵の無い送り先（`ops_post status` で「なし」）は予約せず、ファイルに残すだけ（オーナーが手で出す）。画像は `ops_image`（ChatGPT と同じ画像の仕組み・Instagram は必須・X と Threads は週に 2〜3 本だけ）。予約の時刻は **月曜から**（土曜と日曜はオーナーが直す時間）・`company/sns-daily-system-2026-10.md` §3 の曜日と時刻。直したいときはダッシュボードの横で「火曜の X の投稿を直して」「水曜の Instagram を取り消して」。
 
 ## 読むもの（この順・全部）
 1. `company/marketing-master-plan-2026-10.md` §0〜§3（訴求の軸「読書を、受け身から会話へ」・5 つの柱・使わない言葉）
@@ -38,6 +38,12 @@ description: 今週の投稿キット（X 10 本・Threads 7 本・Instagram の
 ## 終わったら
 - `git add company/weekly && git commit -m "docs: 今週の投稿キット（YYYY-MM-DD）"` → 作業ブランチへ push（main には入れない・オーナーが読んでから）。
 - オーナーへ 5 行: 今週の芯・増やす型・ファイルの場所・直してほしい所（迷った 2 か所）・確かめられなかったこと。
+
+## 予約の入れ方（スケジュールされたセッションがやる）
+1. `node scripts/ops-mcp.mjs ops_post '{"action":"status"}'` で鍵のそろいを見る
+2. 画像: `node scripts/ops-mcp.mjs ops_image '{"prompt":"…","size":"1024x1024","quality":"medium"}'` → 返った `url` を使う（Instagram 7 本ぶん＋X/Threads 2〜3 本）
+3. 1 本ずつ `node scripts/ops-mcp.mjs ops_post '{"action":"add","platform":"x","text":"…","scheduled_at":"2026-11-10T21:00:00+09:00"}'`（文字数は X 280・Threads 500・Instagram 2,200 の中・本文にリンクを入れない決まりはそのまま）
+4. ファイルの各本の下に「予約: 済（id …）／手で出す（鍵なし）」を書く
 
 ## 毎週自動で回す（スケジュールされたタスクの頼み方・1 回だけ）
 Claude Code のセッションで次をそのまま頼む（claude.ai/code の「スケジュールされたタスク」に入る・止めるのも同じ場所）:

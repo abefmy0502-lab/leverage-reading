@@ -30,9 +30,11 @@ Orime の中の相談（Haiku）とは別の道で、**Orime のトークンは�
 | `ops_dashboard` | （運営者だけ）運営の数字を 1 回でまとめて読む（利用者・会員・売上と粗利の材料・ローンチの 4 つの数字・目標・週ごと・更新の見込み）。中身は `supabase_admin_mcp.sql` の `admin_snapshot_for`（その人として既存の集計関数を呼ぶ）。Claude の会話の中の運営ダッシュボード（アーティファクト）が「Orime」コネクタでこれを呼んで描く。管理者でなければ「運営者だけ」・SQL が無ければその旨 | 読む（管理者） | |
 | `ops_feedback` | （運営者だけ）フィードバックを読む（`list`・status で絞る）・状態と運営のメモを変える（`update`） | 読む・書く（管理者） | |
 | `ops_tickets` | （運営者だけ）運営の作業チケットを読む・作る・進める（`list` / `create` / `update`・不具合・要望・作業・優先度 1〜3） | 読む・書く（管理者） | |
-| `ops_tasks` | （運営者だけ）運営者の期日つきのやることを読む・足す・完了にする・消す（`list` / `add` / `done` / `delete`） | 読む・書く（管理者） | |
+| `ops_tasks` | （運営者だけ）運営者の期日つきのやることを読む・足す・進める・消す（`list` / `add` / `update` / `claim` / `done` / `delete`）。担当 `assignee=claude` のやることは自動のセッションが `claim` で 1 つ取って進め、`update` で 状態（doing / done / blocked）と結果を書く | 読む・書く（管理者） | |
 | `ops_goal` | （運営者だけ）有料ユーザーの目標（人数・期限・道しるべ・公開日）を読む・決め直す（`get` / `set`） | 読む・書く（管理者） | |
 | `ops_week` | （運営者だけ）週の記録＝毎週の見直し（`review`）と手入力の週の数字（`sales`・ストア表示・インストール・note PV・X など）。同じ週は上書き | 書く（管理者） | |
+| `ops_image` | （運営者だけ）投稿の画像を作る（OpenAI gpt-image-1＝ChatGPT と同じ画像の仕組み・`api/_social.js` の `makeImage`）→ 公開バケット `ops-media` に置いて URL を返す。1 枚 約 ¥6〜25 | 書く（管理者） | |
+| `ops_post` | （運営者だけ）SNS の投稿の予定を読む・入れる・直す・取り消す・いますぐ出す・時刻の来たものを出す（`list` / `add` / `update` / `cancel` / `now` / `flush` / `status`）。送り先は X（OAuth 1.0a・v2 tweets＋v1.1 media）・Threads（Threads API）・Instagram（Graph API・画像が必須）。鍵は Vercel の env（`X_API_KEY` ほか・`THREADS_*`・`IG_*`）。記録は `ops_posts` | 書く（管理者） | |
 
 運営ダッシュボードのアーティファクト（Claude の会話の中・オーナーだけ・2026-11-08 にアプリの中の運営ダッシュボードはやめて、ここに一本化）: https://claude.ai/artifact/RmXcpzbgaNftAjZrJi6FDX ＝「Orime」コネクタの `ops_dashboard` を 1 回呼び、5 つの区分（概況＝タイル・目標までの棒・ローンチの 4 つの数字・12 週の登録と有料／集客と定着＝LP から有料までの段・残っている率・日ごとに使った人・週ごとの表・登録した週ごとの表／売上と粗利＝12 か月の推移・更新の見込み・今月の内訳・AI の使い道・有料 N 人の見込み／やること・声＝横のチャットで頼める例・やること・開いているフィードバックとチケット・毎週の見直し・手で入れた週の数字／公開の準備＝環境変数と SQL のそろい）に描く。計算は旧 `src/lib/adminProfit.js` と同じ決まり（月額 ¥1,480・年額 ÷12・創業 ¥9,800 ÷12・÷1.1・手数料 15%・AI の実額＋分野 1 冊 ¥0.13・固定費 Apple ¥1,082）。開く人の自分の接続キーで読むので、管理者（`app_admins`）でない人には数字が出ない。**指示は横のチャットから**＝運営の道具 5 つ（上の表）を Claude が呼ぶ（「来週までに〜を足して」「3 件目を対応済みに」「目標を 1,200 人に」「今週の見直し：…」）。
 
@@ -84,3 +86,15 @@ Orime の中の相談（Haiku）とは別の道で、**Orime のトークンは�
 
 GitHub は Claude Code のクラウドが最初から持っている（PR・Actions・ログ）。RevenueCat・App Store Connect は MCP が無い（手順は `docs/iap-setup-runbook.md`・`company/app-store-submission.md`）。
 鍵の置き場: Mac は `~/.zshrc` の `export`、クラウドは環境の「Network secrets」か環境変数（チャットには貼らない）。
+
+
+## 7. 自動で動く Claude Code と SNS の投稿（2026-11-08）
+
+オーナー「ダッシュボードにやることを載せておいたら、自動的に Claude Code が常に動く」「SNS の投稿の文章と画像も自動で作って、計画どおりに投稿」。
+
+- **仕組み**: claude.ai の「スケジュールされたタスク」が、専用の作業環境 `leverage-reading`（リポジトリを clone して `npm ci`）で新しいセッションを起こす。セッションは `node scripts/ops-mcp.mjs <道具> '<JSON>'` で Orime の MCP（運営の道具）を呼ぶ。鍵はリポジトリに置かず、その環境の**ネットワークのシークレット**（ホスト `orime.vercel.app`・`Authorization: Bearer <接続キー>`）が差し替える（claude.ai → 環境 → leverage-reading → ネットワークのシークレット。接続キーは設定の「AI と連携」で「Claude Code 用」を作る）。
+- **やることを進める**（2 時間ごと・名前「Claude のやること」）: ①`ops_post flush`（時刻の来た投稿を出す）②`ops_tasks claim`（担当 claude・todo の中で期日の早い 1 つを doing に）③無ければ静かに終わる。あれば CLAUDE.md・SPEC・DESIGN の決まりで実装 → `npx vitest run`・`npm run build`・UI なら明暗のスクショと ui-critic → 文書の同期 → コミット → `main` へ push（Vercel が公開） → `ops_tasks update status=done result=…`。分からない・危ない（課金・鍵・SQL の破壊・利用者のデータ・ops_post 以外の外への送信）は `blocked` に理由と質問を書いて止まる。1 回 1 つ・90 分まで。
+- **土曜の投稿キット**（毎週土曜 5:47・名前「土曜の投稿キット」）: `/mkt-week` の手順で `company/weekly/<土曜>.md` を書き（ブランチ `claude/weekly-posts`・main には入れない）、鍵のある送り先だけ `ops_post add` で**月曜から**の予約に入れる（画像は `ops_image`）。オーナーは土曜・日曜にダッシュボードの「やること・声」の「SNS の投稿」で読み、横のチャットで直す・取り消す。
+- **ダッシュボードで見える**: やること（担当・状態・結果）・SNS の投稿（予定・出した・出せなかった・鍵のそろい）。
+- **止める・変える**: claude.ai の「スケジュールされたタスク」で止める。頻度は同じ場所で変えられる。
+- **オーナーの準備**: ① `supabase_admin_mcp.sql` を流す（`ops_tasks` の列・`ops_posts`・`ops-media` バケット）② Vercel の env に X（`X_API_KEY` `X_API_SECRET` `X_ACCESS_TOKEN` `X_ACCESS_SECRET`＝X Developer Portal・Read and Write）・Threads（`THREADS_USER_ID` `THREADS_ACCESS_TOKEN`＝Meta for Developers の Threads API・長期トークン）・Instagram（`IG_USER_ID` `IG_ACCESS_TOKEN`＝Instagram Graph API・ビジネス／クリエイターアカウント）を入れる（無い送り先は予約せず、ファイルに残る）③ 環境 `leverage-reading` のネットワークのシークレットに Orime の接続キー。

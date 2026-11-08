@@ -4903,6 +4903,66 @@ grant execute on function public.admin_renewals(int) to authenticated;
 -- 守り: 実行できるのは service_role だけ（REVOKE/GRANT）。p_user_id が app_admins に無ければ例外。無い関数は null（未適用の SQL があっても壊れない）。
 -- 依存: supabase_admin_metrics.sql（app_admins）・admin_ops（ops_tickets）・admin_members_tasks（ops_tasks）・admin_goal（ops_weekly_reviews）・ops_sales_metrics。ほかの admin_* は有無を確かめてから呼ぶ。冪等。
 
+-- ── 自動で動く Claude Code と SNS の投稿（2026-11-08 オーナー「やることを載せておいたら自動的に Claude Code が常に動く」「SNS の投稿も自動で」）────
+-- ops_tasks に 担当（me＝自分・claude＝Claude Code が取りに来る）・状態（todo / doing / done / blocked）・結果 を足す。done（真偽）は状態と同期。
+alter table if exists public.ops_tasks add column if not exists assignee text not null default 'me';
+alter table if exists public.ops_tasks add column if not exists status text not null default 'todo';
+alter table if exists public.ops_tasks add column if not exists result text;
+alter table if exists public.ops_tasks add column if not exists started_at timestamptz;
+alter table if exists public.ops_tasks add column if not exists finished_at timestamptz;
+do $$ begin
+  if to_regclass('public.ops_tasks') is not null then
+    if not exists (select 1 from pg_constraint where conname = 'ops_tasks_assignee_chk') then
+      alter table public.ops_tasks add constraint ops_tasks_assignee_chk check (assignee in ('me', 'claude'));
+    end if;
+    if not exists (select 1 from pg_constraint where conname = 'ops_tasks_status_chk') then
+      alter table public.ops_tasks add constraint ops_tasks_status_chk check (status in ('todo', 'doing', 'done', 'blocked'));
+    end if;
+    if not exists (select 1 from pg_constraint where conname = 'ops_tasks_result_len') then
+      alter table public.ops_tasks add constraint ops_tasks_result_len check (result is null or char_length(result) <= 4000);
+    end if;
+    update public.ops_tasks set status = 'done' where done = true and status <> 'done';
+  end if;
+end $$;
+
+-- SNS の投稿の予定と記録。書くのは MCP の道具 ops_post（管理者だけ・service_role）。RLS 有効・ポリシー無し。
+create table if not exists public.ops_posts (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  platform text not null check (platform in ('x', 'threads', 'instagram')),
+  text text not null check (char_length(text) <= 4000),
+  image_url text check (image_url is null or char_length(image_url) <= 1000),
+  scheduled_at timestamptz not null default now(),
+  status text not null default 'scheduled' check (status in ('scheduled', 'posted', 'failed', 'canceled')),
+  posted_id text,
+  posted_url text,
+  error text,
+  posted_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+-- （まとめが自動で足した: 前からある表に足りない列を足す）
+ALTER TABLE public.ops_posts ADD COLUMN IF NOT EXISTS id uuid default gen_random_uuid();
+ALTER TABLE public.ops_posts ADD COLUMN IF NOT EXISTS user_id uuid references auth.users(id) on delete cascade;
+ALTER TABLE public.ops_posts ADD COLUMN IF NOT EXISTS platform text check (platform in ('x', 'threads', 'instagram'));
+ALTER TABLE public.ops_posts ADD COLUMN IF NOT EXISTS text text check (char_length(text) <= 4000);
+ALTER TABLE public.ops_posts ADD COLUMN IF NOT EXISTS image_url text check (image_url is null or char_length(image_url) <= 1000);
+ALTER TABLE public.ops_posts ADD COLUMN IF NOT EXISTS scheduled_at timestamptz not null default now();
+ALTER TABLE public.ops_posts ADD COLUMN IF NOT EXISTS status text not null default 'scheduled' check (status in ('scheduled', 'posted', 'failed', 'canceled'));
+ALTER TABLE public.ops_posts ADD COLUMN IF NOT EXISTS posted_id text;
+ALTER TABLE public.ops_posts ADD COLUMN IF NOT EXISTS posted_url text;
+ALTER TABLE public.ops_posts ADD COLUMN IF NOT EXISTS error text;
+ALTER TABLE public.ops_posts ADD COLUMN IF NOT EXISTS posted_at timestamptz;
+ALTER TABLE public.ops_posts ADD COLUMN IF NOT EXISTS created_at timestamptz not null default now();
+ALTER TABLE public.ops_posts ADD COLUMN IF NOT EXISTS updated_at timestamptz not null default now();
+create index if not exists ops_posts_due_idx on public.ops_posts(status, scheduled_at);
+alter table public.ops_posts enable row level security;
+
+-- 投稿の画像の置き場（公開・Threads と Instagram は公開 URL の画像しか受け取らない）。
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('ops-media', 'ops-media', true, 5242880, array['image/png', 'image/jpeg', 'image/webp'])
+on conflict (id) do update set public = true, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
+
 create or replace function public.admin_snapshot_for(p_user_id uuid)
 returns jsonb
 language plpgsql
@@ -4953,10 +5013,15 @@ begin
   exception when others then part := null; end;
   v := v || jsonb_build_object('tickets', part);
   begin
-    select coalesce(jsonb_agg(jsonb_build_object('id', k.id, 'due_date', k.due_date, 'dept', k.dept, 'title', k.title, 'done', k.done) order by k.due_date, k.created_at), '[]'::jsonb)
-      into part from (select * from public.ops_tasks where user_id = p_user_id and (done = false or due_date >= (now() at time zone 'Asia/Tokyo')::date - 7) and due_date <= (now() at time zone 'Asia/Tokyo')::date + 14 order by due_date limit 200) k;
+    select coalesce(jsonb_agg(jsonb_build_object('id', k.id, 'due_date', k.due_date, 'dept', k.dept, 'title', k.title, 'done', k.done, 'assignee', k.assignee, 'status', k.status, 'result', left(k.result, 400), 'started_at', k.started_at, 'finished_at', k.finished_at) order by k.due_date, k.created_at), '[]'::jsonb)
+      into part from (select * from public.ops_tasks where user_id = p_user_id and (done = false or coalesce(finished_at, created_at) >= now() - interval '7 days') and due_date <= (now() at time zone 'Asia/Tokyo')::date + 14 order by due_date limit 200) k;
   exception when others then part := null; end;
   v := v || jsonb_build_object('tasks', part);
+  begin
+    select coalesce(jsonb_agg(jsonb_build_object('id', q.id, 'platform', q.platform, 'text', left(q.text, 300), 'image_url', q.image_url, 'scheduled_at', q.scheduled_at, 'status', q.status, 'posted_url', q.posted_url, 'error', left(q.error, 200), 'posted_at', q.posted_at) order by q.scheduled_at desc), '[]'::jsonb)
+      into part from (select * from public.ops_posts where user_id = p_user_id and (status = 'scheduled' or scheduled_at >= now() - interval '14 days') order by scheduled_at desc limit 100) q;
+  exception when others then part := null; end;
+  v := v || jsonb_build_object('posts', part);
   begin
     select coalesce(jsonb_agg(jsonb_build_object('week_start', r.week_start, 'numbers', r.numbers, 'actions', r.actions, 'weakest', r.weakest, 'memo', r.memo, 'updated_at', r.updated_at) order by r.week_start desc), '[]'::jsonb)
       into part from (select * from public.ops_weekly_reviews where user_id = p_user_id order by week_start desc limit 8) r;
@@ -5015,16 +5080,68 @@ begin
       perform public.admin_ticket_update((a->>'id')::uuid, a->>'status', (a->>'priority')::int);
       out := jsonb_build_object('ok', true);
     when 'task_list' then
-      select coalesce(jsonb_agg(jsonb_build_object('id', k.id, 'due_date', k.due_date, 'dept', k.dept, 'title', k.title, 'done', k.done) order by k.due_date, k.created_at), '[]'::jsonb)
-        into out from (select * from public.ops_tasks where user_id = p_user_id and (coalesce((a->>'include_done')::boolean, false) or done = false) order by due_date limit 300) k;
+      select coalesce(jsonb_agg(jsonb_build_object('id', k.id, 'due_date', k.due_date, 'dept', k.dept, 'title', k.title, 'done', k.done, 'assignee', k.assignee, 'status', k.status, 'result', k.result, 'started_at', k.started_at, 'finished_at', k.finished_at, 'created_at', k.created_at) order by k.due_date, k.created_at), '[]'::jsonb)
+        into out from (select * from public.ops_tasks where user_id = p_user_id
+                        and (coalesce((a->>'include_done')::boolean, false) or done = false)
+                        and ((a->>'assignee') is null or assignee = (a->>'assignee'))
+                        and ((a->>'status') is null or status = (a->>'status'))
+                       order by due_date, created_at limit 300) k;
     when 'task_add' then
-      insert into public.ops_tasks (user_id, due_date, dept, title)
-      values (p_user_id, coalesce((a->>'due_date')::date, (now() at time zone 'Asia/Tokyo')::date), left(a->>'dept', 40), left(coalesce(nullif(trim(a->>'title'), ''), '(無題)'), 200))
+      insert into public.ops_tasks (user_id, due_date, dept, title, assignee)
+      values (p_user_id, coalesce((a->>'due_date')::date, (now() at time zone 'Asia/Tokyo')::date), left(a->>'dept', 40), left(coalesce(nullif(trim(a->>'title'), ''), '(無題)'), 200), coalesce(a->>'assignee', 'me'))
       returning id into new_id;
       out := jsonb_build_object('ok', true, 'id', new_id);
     when 'task_done' then
-      update public.ops_tasks set done = coalesce((a->>'done')::boolean, true) where id = (a->>'id')::uuid and user_id = p_user_id;
+      update public.ops_tasks
+         set done = coalesce((a->>'done')::boolean, true),
+             status = case when coalesce((a->>'done')::boolean, true) then 'done' else 'todo' end,
+             finished_at = case when coalesce((a->>'done')::boolean, true) then now() else null end,
+             result = coalesce(left(a->>'result', 4000), result)
+       where id = (a->>'id')::uuid and user_id = p_user_id;
       out := jsonb_build_object('ok', found);
+    when 'task_update' then
+      -- Claude Code が「取りかかった・終わった・止まった」を書く。状態・結果・題・期日・担当のどれでも。
+      if (a->>'status') is not null and (a->>'status') not in ('todo', 'doing', 'done', 'blocked') then raise exception 'invalid status'; end if;
+      update public.ops_tasks
+         set status = coalesce(a->>'status', status),
+             done = case when coalesce(a->>'status', status) = 'done' then true else false end,
+             result = coalesce(left(a->>'result', 4000), result),
+             title = coalesce(left(nullif(trim(a->>'title'), ''), 200), title),
+             due_date = coalesce((a->>'due_date')::date, due_date),
+             dept = coalesce(left(a->>'dept', 40), dept),
+             assignee = coalesce(a->>'assignee', assignee),
+             started_at = case when (a->>'status') = 'doing' and started_at is null then now() else started_at end,
+             finished_at = case when (a->>'status') in ('done', 'blocked') then now() when (a->>'status') in ('todo', 'doing') then null else finished_at end
+       where id = (a->>'id')::uuid and user_id = p_user_id;
+      out := jsonb_build_object('ok', found);
+    when 'task_claim' then
+      -- 担当 claude・todo の中で期日の早い 1 つを doing にして返す（同時に 2 つのセッションが取っても 1 つだけ）。
+      update public.ops_tasks set status = 'doing', started_at = now()
+       where id = (select id from public.ops_tasks where user_id = p_user_id and assignee = 'claude' and status = 'todo' order by due_date, created_at limit 1 for update skip locked)
+       returning jsonb_build_object('id', id, 'title', title, 'due_date', due_date, 'dept', dept, 'created_at', created_at) into out;
+    when 'post_list' then
+      select coalesce(jsonb_agg(jsonb_build_object('id', q.id, 'platform', q.platform, 'text', q.text, 'image_url', q.image_url, 'scheduled_at', q.scheduled_at, 'status', q.status, 'posted_url', q.posted_url, 'error', q.error, 'posted_at', q.posted_at) order by q.scheduled_at), '[]'::jsonb)
+        into out from (select * from public.ops_posts where user_id = p_user_id and ((a->>'status') is null or status = (a->>'status')) order by scheduled_at limit 200) q;
+    when 'post_add' then
+      if (a->>'platform') not in ('x', 'threads', 'instagram') then raise exception 'invalid platform'; end if;
+      insert into public.ops_posts (user_id, platform, text, image_url, scheduled_at)
+      values (p_user_id, a->>'platform', left(a->>'text', 4000), left(a->>'image_url', 1000), coalesce((a->>'scheduled_at')::timestamptz, now()))
+      returning id into new_id;
+      out := jsonb_build_object('ok', true, 'id', new_id);
+    when 'post_update' then
+      if (a->>'status') is not null and (a->>'status') not in ('scheduled', 'posted', 'failed', 'canceled') then raise exception 'invalid status'; end if;
+      update public.ops_posts
+         set text = coalesce(left(a->>'text', 4000), text), image_url = coalesce(left(a->>'image_url', 1000), image_url),
+             scheduled_at = coalesce((a->>'scheduled_at')::timestamptz, scheduled_at), status = coalesce(a->>'status', status),
+             posted_id = coalesce(a->>'posted_id', posted_id), posted_url = coalesce(left(a->>'posted_url', 1000), posted_url),
+             error = case when (a->>'status') = 'posted' then null else coalesce(left(a->>'error', 1000), error) end,
+             posted_at = case when (a->>'status') = 'posted' then now() else posted_at end, updated_at = now()
+       where id = (a->>'id')::uuid and user_id = p_user_id;
+      out := jsonb_build_object('ok', found);
+    when 'post_due' then
+      -- 出す時刻が来た予定を 1 回につき 5 つまで。読むだけ（出せたかは post_update で書く）。
+      select coalesce(jsonb_agg(jsonb_build_object('id', q.id, 'platform', q.platform, 'text', q.text, 'image_url', q.image_url, 'scheduled_at', q.scheduled_at) order by q.scheduled_at), '[]'::jsonb)
+        into out from (select * from public.ops_posts where user_id = p_user_id and status = 'scheduled' and scheduled_at <= now() order by scheduled_at limit 5) q;
     when 'task_delete' then
       delete from public.ops_tasks where id = (a->>'id')::uuid and user_id = p_user_id;
       out := jsonb_build_object('ok', found);
