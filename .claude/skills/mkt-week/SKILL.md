@@ -44,6 +44,7 @@ description: 今週の投稿キット（X 10 本・Threads 7 本・Instagram の
 2. 画像: `node scripts/ops-mcp.mjs ops_image '{"prompt":"…","size":"1024x1024","quality":"medium"}'` → 返った `url` を使う（Instagram 7 本ぶん＋X/Threads 2〜3 本）
 3. 1 本ずつ `node scripts/ops-mcp.mjs ops_post '{"action":"add","platform":"x","text":"…","scheduled_at":"2026-11-10T21:00:00+09:00"}'`（文字数は X 280・Threads 500・Instagram 2,200 の中・本文にリンクを入れない決まりはそのまま）
 4. ファイルの各本の下に「予約: 済（id …）／手で出す（鍵なし）」を書く
+5. **note**（note には投稿の API が無い）: 本文まで書いて `company/weekly/note-<日付>.md` に置き（note-shippitsu の型・2,000〜3,500 字・見出し 3〜5・最後に Orime の紹介 1 段落と App Store の案内）、`node scripts/ops-mcp.mjs ops_tasks '{"action":"add","title":"note を投稿する: company/weekly/note-<日付>.md（クロード in Chrome で下書きに貼る→読んで公開）","due_date":"<来週の水曜>","dept":"マーケ","assignee":"me"}'` でオーナーのやることに入れる。公開はオーナー（`docs/claude-in-chrome-setup.md` の「6. note」）
 
 ## 毎週自動で回す（スケジュールされたタスクの頼み方・1 回だけ）
 Claude Code のセッションで次をそのまま頼む（claude.ai/code の「スケジュールされたタスク」に入る・止めるのも同じ場所）:
