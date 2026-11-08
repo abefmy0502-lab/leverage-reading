@@ -88,8 +88,6 @@ const EDIT_PHRASE = [{ css: `${EDIT} button:has-text("言葉を入れる")` }, {
 const EDIT_PHRASE_DRAG = { eval: `(() => { const st = document.querySelector('${EDIT} canvas').parentElement; const r = st.getBoundingClientRect(); const x = r.left + r.width / 2; const y0 = r.top + r.height * 0.24; const ev = (type, y) => st.dispatchEvent(new PointerEvent(type, { pointerId: 7, pointerType: 'touch', isPrimary: true, clientX: x, clientY: y, bubbles: true, cancelable: true })); ev('pointerdown', y0); for (let i = 1; i <= 10; i += 1) ev('pointermove', y0 - (r.height * 0.12 * i) / 10); ev('pointerup', y0 - r.height * 0.12); })()` };
 const EDIT_PHRASE_GROW = editWheel({ deltaY: -30, ctrlKey: true }, 0.14);
 
-// 運営ダッシュボード（全画面の重なり）の中を、sel の要素が上から 130px に来るまで送る。
-const ADMIN_SCROLL = (sel) => `(() => { const box = document.querySelector('[role=dialog][aria-label="運営ダッシュボード"]'); const el = document.querySelector('${sel.replace(/'/g, "\\'")}'); if (!box || !el) return; box.scrollTop += el.getBoundingClientRect().top - box.getBoundingClientRect().top - 130; })()`;
 // 本の詳細でメモを書いて保存し、一覧のいちばん上（保存したあとのカード）まで送る（タグの提案・つながるメモ）。
 const MEMO_SAVED = [
   { css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button:has-text("メモを書く")' },
@@ -1164,51 +1162,6 @@ const SCREENS = [
   { name: 'focus3-start-timer', url: '/?focus=start', steps: [{ wait: 600 }] },
   { name: 'focus3-start-count', url: '/?focus=start', steps: [{ css: '[role=radiogroup][aria-label="時間の測り方"] [role=radio]:has-text("計測")' }] },
   { name: 'focus3-paused', url: '/?focus=paused', steps: [{ wait: 800 }] },
-  // ── 運営ダッシュボード「ローンチの 4 つの数字」（2026-10-02・管理者だけ・?admin=1 は src/demo/demoAdmin.js）
-  // 見出し（または表）を、上に貼りつく見出しとタブの下（上から 130px）に来るまで送る。
-  ...[
-    ['admin-kpis', '/?admin=1', []],
-    ['admin-kpis-table', '/?admin=1', [{ eval: ADMIN_SCROLL('section[aria-labelledby="launch-kpi-title"] table') }]],
-    ['admin-kpis-edit', '/?admin=1', [{ css: 'button[aria-label="目標を変える"]' }]],
-    ['admin-kpis-notrial', '/?admin=1&kpi=notrial', []],
-    ['admin-kpis-empty', '/?admin=1&kpi=empty', []],
-    ['admin-kpis-missing', '/?admin=1&kpi=missing', []],
-    // 運営の上の「今日の一手」（スクロールを戻す）・営業タブ・アクションタブ（色はトークン・絵文字なし・2026-10-04）
-    ['admin-top', '/?admin=1', [{ eval: "document.querySelector('[role=dialog][aria-label=\"運営ダッシュボード\"]').scrollTop = 0" }]],
-    ['admin-sales', '/?admin=1', [{ css: '[role=tab]:has-text("営業")' }]],
-    // 💰 今月の売上と推定の粗利（2026-10-22）
-    ['admin-profit', '/?admin=1', [{ eval: ADMIN_SCROLL('section[aria-labelledby="profit-title"]') }]],
-    ['admin-profit-edit', '/?admin=1', [{ eval: ADMIN_SCROLL('section[aria-labelledby="profit-title"]') }, { css: 'section[aria-labelledby="profit-title"] button:has-text("直す")' }, { wait: 300 }]],
-    ['admin-profit-series', '/?admin=1&profit=open', [{ eval: ADMIN_SCROLL('#profit-series') }]],
-    ['admin-profit-renewals', '/?admin=1&profit=open', [{ eval: ADMIN_SCROLL('#profit-renewals') }]],
-    ['admin-profit-milestones', '/?admin=1&profit=open', [{ eval: ADMIN_SCROLL('#profit-purpose') }]],
-    ['admin-profit-missing', '/?admin=1&profit=missing', [{ eval: ADMIN_SCROLL('section[aria-labelledby="profit-title"]') }]],
-    ['admin-launch', '/?admin=1', [{ eval: ADMIN_SCROLL('section[aria-labelledby="launch-gate-title"]') }]],
-    ['admin-launch-ready', '/?admin=1&launch=ready', [{ eval: ADMIN_SCROLL('section[aria-labelledby="launch-gate-title"]') }]],
-    ['admin-launch-loading', '/?admin=1&launch=loading', [{ eval: ADMIN_SCROLL('section[aria-labelledby="launch-gate-title"]') }]],
-    ['admin-launch-error', '/?admin=1&launch=error', [{ eval: ADMIN_SCROLL('section[aria-labelledby="launch-gate-title"]') }]],
-    ['admin-profit-loading', '/?admin=1&profit=loading', [{ eval: ADMIN_SCROLL('section[aria-labelledby="profit-title"]') }]],
-    ['admin-profit-error', '/?admin=1&profit=error', [{ eval: ADMIN_SCROLL('section[aria-labelledby="profit-title"]') }]],
-    ['admin-action', '/?admin=1', [{ css: '[role=tab]:has-text("アクション")' }]],
-  ].map(([name, url, extra]) => ({
-    name, url,
-    steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:has-text("運営ダッシュボード")' }, { wait: 1200 }, { eval: ADMIN_SCROLL('#launch-kpi-title') }, ...extra],
-  })),
-  // 🎯 運営ダッシュボード「有料ユーザー 1,000 人」（2026-10-11・ui-shots/admin-goal/・&goal=… は src/demo/demoAdmin.js）
-  ...[
-    ['admin-goal', '/?admin=1', []],
-    ['admin-goal-behind', '/?admin=1&goal=behind', []],
-    ['admin-goal-funnel', '/?admin=1', [{ eval: ADMIN_SCROLL('#funnel-title') }]],
-    ['admin-goal-diag', '/?admin=1&goal=behind', [{ eval: ADMIN_SCROLL('#diag-title') }]],
-    ['admin-goal-season', '/?admin=1', [{ eval: ADMIN_SCROLL('#season-title') }]],
-    ['admin-goal-review', '/?admin=1', [{ eval: ADMIN_SCROLL('#review-title') }]],
-    ['admin-goal-edit', '/?admin=1', [{ css: 'button[aria-label="目標と道しるべを変える"]' }]],
-    ['admin-goal-missing', '/?admin=1&goal=missing', []],
-    ['admin-goal-prelaunch', '/?admin=1&goal=prelaunch', []],
-  ].map(([name, url, extra]) => ({
-    name, url,
-    steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:has-text("運営ダッシュボード")' }, { wait: 1200 }, ...extra, { wait: 300 }],
-  })),
   // ⏱📊 記録の「読書の時間」（2026-10-10）。明暗＋文字最大（-xxl）。中のスクロールの箱だけを送る（文書ごと送るとタブの行がずれる）。
   ...[
     ['readtime-record', '/', [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }, { wait: 600 }, { eval: RT_SCROLL('[data-reading-time]') }, { wait: 300 }]],

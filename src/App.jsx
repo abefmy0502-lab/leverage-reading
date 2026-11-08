@@ -136,7 +136,6 @@ import { supabase as supabaseClient, isDemo, demoScenario } from './lib/supabase
 import { track, trackAppOpen, EVENTS } from './lib/analytics';
 import ShareSourceSheet from './components/ShareSourceSheet';
 const AccountSettings = lazy(() => import('./components/AccountSettings'));
-const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
 import SplashScreen from './components/SplashScreen';
 import { markAppReady } from './lib/appReady';
 import Spinner from './components/Spinner';
@@ -648,18 +647,6 @@ function AuthedApp() {
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, [user?.id]);
-  // 🛰️ 管理者判定（is_app_admin RPC）。非管理者・未適用 DB では静かに false。
-  useEffect(() => {
-    if (!user) { setIsAdmin(false); return; }
-    let alive = true;
-    (async () => {
-      try {
-        const { data, error } = await supabaseClient.rpc('is_app_admin');
-        if (alive && !error) setIsAdmin(data === true);
-      } catch { /* 未適用 DB 等は false のまま */ }
-    })();
-    return () => { alive = false; };
-  }, [user]);
   const {
     books: rawBooks,
     loading: booksLoading,
@@ -1188,9 +1175,6 @@ function AuthedApp() {
   const [detailFocusMemoId, setDetailFocusMemoId] = useState(null);
   // 振り返りの月ごとのメモを押したとき: そのメモまで送ってから編集を開く（2026-09-30）。
   const [detailEditMemoId, setDetailEditMemoId] = useState(null);
-  // 🛰️ 運営ダッシュボード（管理者のみ）。isAdmin は起動時に1回だけ判定。
-  const [adminOpen, setAdminOpen] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
   // Long-press context menu (book cards on bookshelf)
   const [bookContextMenu, setBookContextMenu] = useState(null); // { x, y, book }
   // 📗🗂 本棚の長押しから開く「ステータスを変える」「フォルダに入れる」シート。
@@ -1426,7 +1410,6 @@ function AuthedApp() {
     window.addEventListener(OPEN_SETTINGS_EVENT, reopen);
     return () => window.removeEventListener(OPEN_SETTINGS_EVENT, reopen);
   }, []);
-  useBackLayer(adminOpen, () => setAdminOpen(false));
   useBackLayer(helpModalOpen, () => setHelpModalOpen(false));
   useBackLayer(addBookModalOpen, () => setAddBookModalOpen(false));
   const [quickMemoOpen, setQuickMemoOpen] = useState(false);
@@ -4505,7 +4488,7 @@ function AuthedApp() {
   const whatsNew = useWhatsNew({
     ready: !booksLoading && !booksLoadError,
     isNewUser: () => !isOnboardingCompleted() || books.length === 0,
-    safe: safeForUpdate && !focusRun && !focusStartBook && !booksLoading && !showQuickstart && !showImport && !shareSheet && !adminOpen && !coverFixForBook,
+    safe: safeForUpdate && !focusRun && !focusStartBook && !booksLoading && !showQuickstart && !showImport && !shareSheet && !coverFixForBook,
   });
 
   // 📚 初日クイックスタート。初回ガイドはどの画面（一覧/詳細/編集）でも出るので、
@@ -6877,18 +6860,9 @@ function AuthedApp() {
           <AccountSettings
             onClose={() => setSettingsOpen(false)}
             onAfterDelete={() => setSettingsOpen(false)}
-            isAdmin={isAdmin}
-            onOpenAdmin={() => { setSettingsOpen(false); setAdminOpen(true); }}
             onOpenImport={() => { setSettingsOpen(false); setShowImport(true); }}
             onOpenHelp={() => { setSettingsOpen(false); setHelpModalOpen(true); }}
           />
-        </Suspense>
-      )}
-
-      {/* 🛰️ 運営ダッシュボード（管理者のみ。設定モーダルの「運営」から開く） */}
-      {adminOpen && (
-        <Suspense fallback={<OverlayFallback />}>
-          <AdminDashboard onClose={() => setAdminOpen(false)} />
         </Suspense>
       )}
 

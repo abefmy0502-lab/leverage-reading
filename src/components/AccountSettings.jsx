@@ -350,7 +350,7 @@ async function listAllUserPhotos(userId, bucket = 'book-memo-photos') {
 // 🧪 お試しモードの通知のオン・オフ（設定を閉じて開き直しても残す・再読み込みで初期化）。
 let demoPushOn = false;
 
-export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpenAdmin, onOpenImport, onOpenHelp, focusDelete = false }) {
+export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, onOpenHelp, focusDelete = false }) {
   const { user, signOut } = useAuth();
   // 有料プランの画面の「アカウントを削除」から開いたときは、削除の欄まで送る。
   const deleteRef = useRef(null);
@@ -991,16 +991,6 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
               <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
             </button>
           </Group>
-
-          {/* 運営（管理者のみ表示） */}
-          {isAdmin && (
-            <Group label="運営" ariaLabel="運営ダッシュボード">
-              <button type="button" style={rowButtonStyle} onClick={onOpenAdmin}>
-                <span style={{ ...rowTitleStyle, flex: 1 }}>運営ダッシュボード</span>
-                <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
-              </button>
-            </Group>
-          )}
 
           {/* ── プラン・お支払い ── */}
           <Group label="プラン・お支払い">

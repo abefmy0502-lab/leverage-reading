@@ -14,6 +14,7 @@
 //   - 一覧は offset で続きを取れる（limit は 50 まで）。
 import { createHash } from 'node:crypto';
 import { WIDGET_URI_MCP, WIDGET_URI_OPENAI, WIDGET_MIME_MCP, WIDGET_MIME_OPENAI, widgetHtml } from './_mcpWidget.js';
+import { launchGates } from './_launchHealth.js';
 
 export const PROTOCOL_VERSION = '2025-06-18';
 export const SERVER_INFO = { name: 'orime', version: '1.1.0' };
@@ -169,8 +170,88 @@ export const TOOLS = [
   },
   {
     name: 'ops_dashboard',
-    description: '（運営者だけ）Orime の運営の数字をまとめて読む: 利用者数・会員・売上と粗利の材料・ローンチの 4 つの数字・目標・週ごとの数字・更新の見込み。Admin only: one snapshot of operations metrics.',
+    description: '（運営者だけ）Orime の運営の数字をまとめて読む: 利用者数・会員・売上と粗利の材料・ローンチの 4 つの数字・目標・週ごとの数字・更新の見込み・開いているフィードバックとチケット・やること・公開の準備。Admin only: one snapshot of operations metrics.',
     inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'ops_feedback',
+    description: '（運営者だけ）利用者からのフィードバックを読む・状態を変える。action=list（status で絞る）/ update（id と status: open・in_progress・resolved・wont_fix、note）。Admin only: list or triage user feedback.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['list', 'update'], description: 'list か update' },
+        status: { type: 'string', enum: ['open', 'in_progress', 'resolved', 'wont_fix'], description: 'list: この状態だけ／update: 新しい状態' },
+        id: { type: 'string', description: 'update: フィードバックの id' },
+        note: { type: 'string', description: 'update: 運営のメモ（任意・2,000 字まで）' },
+      },
+      required: ['action'],
+    },
+  },
+  {
+    name: 'ops_tickets',
+    description: '（運営者だけ）運営の作業チケット（bug・feature・task）を読む・作る・進める。action=list（status で絞る）/ create（title・body・kind・priority 1〜3）/ update（id・status: open・in_progress・done・wont_fix・priority）。Admin only.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['list', 'create', 'update'] },
+        status: { type: 'string', enum: ['open', 'in_progress', 'done', 'wont_fix'] },
+        id: { type: 'string' },
+        title: { type: 'string', description: 'create: 題（200 字まで）' },
+        body: { type: 'string', description: 'create: 中身（任意・4,000 字まで）' },
+        kind: { type: 'string', enum: ['bug', 'feature', 'task'] },
+        priority: { type: 'integer', minimum: 1, maximum: 3, description: '1=高・2=中・3=低' },
+      },
+      required: ['action'],
+    },
+  },
+  {
+    name: 'ops_tasks',
+    description: '（運営者だけ）運営者のやること（日付つき）を読む・足す・完了にする・消す。action=list（include_done）/ add（title・due_date YYYY-MM-DD・dept）/ done（id・done）/ delete（id）。Admin only: the operator\'s dated to-do list.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['list', 'add', 'done', 'delete'] },
+        id: { type: 'string' },
+        title: { type: 'string', description: 'add: やること（200 字まで）' },
+        due_date: { type: 'string', description: 'add: 期日 YYYY-MM-DD（省略は今日・日本時間）' },
+        dept: { type: 'string', description: 'add: 区分（例: 経営・マーケ・開発・経理・任意）' },
+        done: { type: 'boolean', description: 'done: false で未完了に戻す' },
+        include_done: { type: 'boolean', description: 'list: 完了も含める' },
+      },
+      required: ['action'],
+    },
+  },
+  {
+    name: 'ops_goal',
+    description: '（運営者だけ）有料ユーザーの目標（人数・期限・道しるべ・公開日）を読む・決め直す。action=get / set（target・deadline YYYY-MM-DD・milestones・launch_date）。Admin only.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['get', 'set'] },
+        target: { type: 'integer', minimum: 0 },
+        deadline: { type: 'string', description: 'YYYY-MM-DD' },
+        launch_date: { type: 'string', description: 'YYYY-MM-DD（任意）' },
+        milestones: { type: 'array', description: '道しるべ（24 個まで・{date, paid, label} など自由）', items: { type: 'object' } },
+      },
+      required: ['action'],
+    },
+  },
+  {
+    name: 'ops_week',
+    description: '（運営者だけ）週の記録を残す。action=review（毎週の見直し: week_start・numbers・actions・weakest・memo）/ sales（手入力の週の数字: new_paid・installs・lp_clicks・note_pv・x_profile_clicks・store_page_views・memo）。同じ週は上書き。Admin only.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['review', 'sales'] },
+        week_start: { type: 'string', description: 'その週の月曜 YYYY-MM-DD（省略は今週）' },
+        numbers: { type: 'object', description: 'review: 見直した数字（自由な形）' },
+        actions: { type: 'array', description: 'review: 来週やること（文字列の配列）', items: { type: 'string' } },
+        weakest: { type: 'string', description: 'review: いちばん弱い段階（40 字まで）' },
+        memo: { type: 'string', description: 'メモ（review 1,000 字・sales 500 字まで）' },
+        new_paid: { type: 'integer' }, installs: { type: 'integer' }, lp_clicks: { type: 'integer' }, note_pv: { type: 'integer' }, x_profile_clicks: { type: 'integer' }, store_page_views: { type: 'integer' },
+      },
+      required: ['action'],
+    },
   },
   {
     name: 'add_book',
@@ -292,6 +373,19 @@ function jstDayStart(now) {
   const t = new Date(now + 9 * 3600000);
   return Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate()) - 9 * 3600000;
 }
+
+// 運営の指示（admin_act_for）。管理者でなければ「運営者だけ」。
+async function opsAct({ db, userId }, action, args) {
+  const { data, error } = await db.rpc('admin_act_for', { p_user_id: userId, p_action: action, p_args: args || {} });
+  if (error) {
+    if (/not authorized/i.test(error.message || '')) throw new ToolError('この道具は運営者だけが使えます');
+    if (/could not find|does not exist|PGRST202|42883/i.test(`${error.code || ''} ${error.message || ''}`)) throw new ToolError('運営の道具の準備がまだです（supabase_admin_mcp.sql を流してください）');
+    if (/invalid status|invalid kind|unknown action|invalid input/i.test(error.message || '')) throw new ToolError('値の形が違います（status / kind / 日付を確かめてください）');
+    throw new ToolError('運営の操作ができませんでした');
+  }
+  return data;
+}
+function needId(id) { if (!isUuid(id)) throw new ToolError('id の形が違います'); }
 
 const handlers = {
   async list_books({ status, field, query, limit, offset }, { db, userId }) {
@@ -462,9 +556,52 @@ const handlers = {
       `利用者 ${o.users_total ?? '?'} 人（7 日で +${o.new_users_7d ?? '?'}・30 日で +${o.new_users_30d ?? '?'}）・MAU ${o.mau ?? '?'}・WAU ${o.wau ?? '?'}・DAU ${o.dau ?? '?'}`,
       `契約: 月額 ${p.monthly ?? '?'}・年額 ${p.annual ?? '?'}・創業メンバー ${p.founding ?? '?'}・無料期間 ${p.trial ?? '?'}`,
       `本 ${o.books_total ?? '?'} 冊・メモ ${o.memos_total ?? '?'} 件・行動 ${o.actions_total ?? '?'}（完了 ${o.actions_done ?? '?'}）・未対応のフィードバック ${o.feedback_open ?? '?'}`,
-      '（くわしい数字は structuredContent に: overview / revenue / growth / launch / goal / weekly / profit / profit_series / renewals / active_series）',
+      `開いているフィードバック ${Array.isArray(data?.feedback) ? data.feedback.length : '?'} 件・開いているチケット ${Array.isArray(data?.tickets) ? data.tickets.length : '?'} 件・やること ${Array.isArray(data?.tasks) ? data.tasks.filter((t) => !t.done).length : '?'} 件`,
+      '（くわしい数字は structuredContent に: overview / revenue / growth / launch / goal / weekly / profit / profit_series / renewals / active_series / feedback / tickets / tasks / weekly_reviews / sales_metrics / launch_gates）',
     ];
-    return { text: text.join('\n'), structuredContent: data || {} };
+    const gates = await launchGates(db);
+    return { text: text.join('\n'), structuredContent: { ...(data || {}), launch_gates: gates } };
+  },
+
+  // ── 指示を受ける（運営者だけ・supabase_admin_mcp.sql の admin_act_for）────────────────────────────
+  async ops_feedback(args, ctx) {
+    const { action } = args || {};
+    if (action === 'list') { const rows = await opsAct(ctx, 'feedback_list', { status: args.status || null }); return { text: rows.length ? `フィードバック ${rows.length} 件` : 'フィードバックはありません', structuredContent: { feedback: rows } }; }
+    if (action === 'update') { needId(args.id); await opsAct(ctx, 'feedback_update', { id: args.id, status: args.status || null, note: clean(args.note, 2000) || null }); return { text: 'フィードバックを更新しました', structuredContent: { ok: true, id: args.id } }; }
+    throw new ToolError('action は list か update');
+  },
+  async ops_tickets(args, ctx) {
+    const { action } = args || {};
+    if (action === 'list') { const rows = await opsAct(ctx, 'ticket_list', { status: args.status || null }); return { text: rows.length ? `チケット ${rows.length} 件` : 'チケットはありません', structuredContent: { tickets: rows } }; }
+    if (action === 'create') { const title = clean(args.title, 200); if (!title) throw new ToolError('title（題）を入れてください'); const r = await opsAct(ctx, 'ticket_create', { title, body: clean(args.body, 4000) || null, kind: args.kind || 'task', priority: args.priority ?? 2 }); return { text: `チケット「${title}」を作りました`, structuredContent: r }; }
+    if (action === 'update') { needId(args.id); await opsAct(ctx, 'ticket_update', { id: args.id, status: args.status || null, priority: args.priority ?? null }); return { text: 'チケットを更新しました', structuredContent: { ok: true, id: args.id } }; }
+    throw new ToolError('action は list・create・update のどれか');
+  },
+  async ops_tasks(args, ctx) {
+    const { action } = args || {};
+    if (action === 'list') { const rows = await opsAct(ctx, 'task_list', { include_done: !!args.include_done }); return { text: rows.length ? `やること ${rows.length} 件` : 'やることはありません', structuredContent: { tasks: rows } }; }
+    if (action === 'add') { const title = clean(args.title, 200); if (!title) throw new ToolError('title（やること）を入れてください'); if (args.due_date && !/^\d{4}-\d{2}-\d{2}$/.test(args.due_date)) throw new ToolError('due_date は YYYY-MM-DD'); const r = await opsAct(ctx, 'task_add', { title, due_date: args.due_date || null, dept: clean(args.dept, 40) || null }); return { text: `「${title}」を足しました`, structuredContent: r }; }
+    if (action === 'done') { needId(args.id); const r = await opsAct(ctx, 'task_done', { id: args.id, done: args.done !== false }); return { text: args.done === false ? '未完了に戻しました' : '完了にしました', structuredContent: r }; }
+    if (action === 'delete') { needId(args.id); const r = await opsAct(ctx, 'task_delete', { id: args.id }); return { text: '消しました', structuredContent: r }; }
+    throw new ToolError('action は list・add・done・delete のどれか');
+  },
+  async ops_goal(args, ctx) {
+    const { action } = args || {};
+    if (action === 'get') { const g = await opsAct(ctx, 'goal_get', {}); return { text: g ? `目標 有料 ${g.target ?? '?'} 人・期限 ${g.deadline ?? '?'}` : '目標はまだありません', structuredContent: { goal: g } }; }
+    if (action === 'set') {
+      if (!Number.isFinite(Number(args.target))) throw new ToolError('target（人数）を入れてください');
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(args.deadline || '')) throw new ToolError('deadline は YYYY-MM-DD');
+      await opsAct(ctx, 'goal_set', { target: Number(args.target), deadline: args.deadline, milestones: Array.isArray(args.milestones) ? args.milestones.slice(0, 24) : null, launch_date: args.launch_date || null });
+      return { text: `目標を 有料 ${Number(args.target)} 人・期限 ${args.deadline} にしました`, structuredContent: { ok: true } };
+    }
+    throw new ToolError('action は get か set');
+  },
+  async ops_week(args, ctx) {
+    const { action } = args || {};
+    if (args?.week_start && !/^\d{4}-\d{2}-\d{2}$/.test(args.week_start)) throw new ToolError('week_start は YYYY-MM-DD');
+    if (action === 'review') { const r = await opsAct(ctx, 'week_review_save', { week_start: args.week_start || null, numbers: args.numbers && typeof args.numbers === 'object' ? args.numbers : {}, actions: Array.isArray(args.actions) ? args.actions.map((x) => clean(String(x), 200)).filter(Boolean).slice(0, 20) : [], weakest: clean(args.weakest, 40) || null, memo: clean(args.memo, 1000) || null }); return { text: `今週の見直しを残しました（${r?.week_start || ''} の週）`, structuredContent: r }; }
+    if (action === 'sales') { const n = (v) => (Number.isFinite(Number(v)) ? Math.round(Number(v)) : null); const r = await opsAct(ctx, 'sales_week_save', { week_start: args.week_start || null, new_paid: n(args.new_paid), installs: n(args.installs), lp_clicks: n(args.lp_clicks), note_pv: n(args.note_pv), x_profile_clicks: n(args.x_profile_clicks), store_page_views: n(args.store_page_views), memo: clean(args.memo, 500) || null }); return { text: `週の数字を残しました（${r?.week_start || ''} の週）`, structuredContent: r }; }
+    throw new ToolError('action は review か sales');
   },
 
   async add_book({ title, author, status, reason }, { db, userId, searchBooks }) {

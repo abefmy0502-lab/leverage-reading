@@ -40,6 +40,13 @@ function resetDb() {
 function fake() {
   return {
     rpc(name, args) {
+      if (name === 'admin_act_for') {
+        if (!db.admins?.includes(args.p_user_id)) return Promise.resolve({ data: null, error: { message: 'not authorized' } });
+        db.acts = db.acts || []; db.acts.push([args.p_action, args.p_args]);
+        if (args.p_action === 'task_list') return Promise.resolve({ data: [{ id: 'a', due_date: '2026-11-08', title: 'LP を直す', done: false }], error: null });
+        if (args.p_action === 'goal_get') return Promise.resolve({ data: { target: 1000, deadline: '2027-12-31' }, error: null });
+        return Promise.resolve({ data: { ok: true, id: '11111111-1111-4111-8111-111111111111' }, error: null });
+      }
       if (name !== 'admin_snapshot_for') return Promise.resolve({ data: null, error: { code: 'PGRST202', message: 'Could not find the function' } });
       if (db.admins?.includes(args.p_user_id)) return Promise.resolve({ data: { overview: { users_total: 12, new_users_7d: 2, new_users_30d: 5, mau: 9, wau: 6, dau: 2, books_total: 40, memos_total: 300, actions_total: 20, actions_done: 7, feedback_open: 1 }, profit: { paid: { monthly: 3, annual: 1, founding: 2, trial: 1 } } }, error: null });
       return Promise.resolve({ data: null, error: { message: 'not authorized' } });
@@ -239,6 +246,31 @@ describe('運営だけの道具', () => {
     expect(text(r)).toContain('月額 3・年額 1・創業メンバー 2・無料期間 1');
     expect(sc(r).overview.mau).toBe(9);
     expect(TOOLS.find((t) => t.name === 'ops_dashboard')._meta).toBeUndefined();
+    expect(sc(r).launch_gates).toBeTruthy();
+  });
+  it('指示の道具は管理者だけ・admin_act_for に正しい動作名で渡す', async () => {
+    const no = await call('ops_tasks', { action: 'list' });
+    expect(no.result.isError).toBe(true);
+    db.admins = [ME];
+    const list = await call('ops_tasks', { action: 'list' });
+    expect(text(list)).toContain('やること 1 件');
+    const add = await call('ops_tasks', { action: 'add', title: '  note を書く ', due_date: '2026-11-10', dept: 'マーケ' });
+    expect(add.result.isError).toBe(false);
+    expect(db.acts.at(-1)).toEqual(['task_add', { title: 'note を書く', due_date: '2026-11-10', dept: 'マーケ' }]);
+    const bad = await call('ops_tasks', { action: 'add', title: 'x', due_date: '来週' });
+    expect(bad.result.isError).toBe(true);
+    const goal = await call('ops_goal', { action: 'get' });
+    expect(text(goal)).toContain('1000 人');
+    const setGoal = await call('ops_goal', { action: 'set', target: 1200, deadline: '2027-12-31' });
+    expect(setGoal.result.isError).toBe(false);
+    const fb = await call('ops_feedback', { action: 'update', id: '11111111-1111-4111-8111-111111111111', status: 'resolved', note: '直した' });
+    expect(fb.result.isError).toBe(false);
+    expect(db.acts.at(-1)[0]).toBe('feedback_update');
+    const tk = await call('ops_tickets', { action: 'create', title: '表紙が出ない', kind: 'bug', priority: 1 });
+    expect(text(tk)).toContain('表紙が出ない');
+    const wk = await call('ops_week', { action: 'sales', new_paid: 2, lp_clicks: 30 });
+    expect(wk.result.isError).toBe(false);
+    for (const n of ['ops_feedback', 'ops_tickets', 'ops_tasks', 'ops_goal', 'ops_week']) expect(TOOLS.find((t) => t.name === n)._meta).toBeUndefined();
   });
 });
 

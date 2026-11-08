@@ -9,7 +9,7 @@
 | ③ | 30 日後も使っている人の割合 | **25%** | 習慣になっているか |
 | ④ | 7 日間無料 → 有料の人の割合 | **40%** | 試した人がお金を払う価値を感じたか |
 
-画面: 運営ダッシュボード（⚙️ 設定 →「運営」）→ 概況タブの「ローンチの 4 つの数字」（その上は「有料ユーザー 1,000 人」＝`docs/goal-1000.md`。4 つの数字はそこの 9 段階の ④⑤⑦⑧ にも使う）。目標は ✏️ で変えられる（その端末に保存）。
+画面: 運営ダッシュボード（2026-11-08 から Claude の会話の中のアーティファクト・`docs/mcp.md` §2）→「概況」の「ローンチの 4 つの数字」と「集客と定着」の登録した週ごとの表（その上は「有料ユーザー 1,000 人」＝`docs/goal-1000.md`。4 つの数字はそこの 9 段階の ④⑤⑦⑧ にも使う）。目標は ✏️ で変えられる（その端末に保存）。
 
 ---
 
@@ -115,5 +115,5 @@ Supabase の SQL Editor で、この順に実行する（どれも冪等＝何�
 
 - 集計: `supabase_admin_launch_kpis.sql`（`admin_launch_kpis(p_weeks)`）／契約の履歴: `supabase_subscription_events.sql`・`api/_subscriptionEvents.js`
 - 画面: `src/components/admin/LaunchKpiCard.jsx`／並べ方・目標・一手: `src/lib/launchKpis.js`
-- お試しモード: `npm run demo` → `/?admin=1`（`&kpi=missing` / `notrial` / `empty`）→ ⚙️ →「運営ダッシュボード」。スクショは `npm run ui:shots -- <ラベル> admin-kpis admin-kpis-table …`
+- （旧）お試しモード `/?admin=1` と `admin-kpis` のスクショは 2026-11-08 に画面ごと削除（アーティファクトは本番の数字だけ）
 - ファネル全体: `company/funnel-measurement.md`／イベント: `company/analytics-plan.md`・初日の体験のイベント（`onboard_path` / `onboard_path_done` / `try_consult` / `first_consult_sent` / `memos_reached_10`）は `docs/analytics-events.md`
