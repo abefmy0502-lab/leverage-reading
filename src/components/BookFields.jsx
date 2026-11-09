@@ -233,7 +233,11 @@ export function BookFieldsRecord({ record, onOpenField, onFindBooks }) {
       {groups.map((c, ci) => (
         // 大分類の間は 24（見出しの下の最初だけ 16・2026-10-11 ui-critic）
         <div key={c.id} data-field-group={c.id} style={{ marginTop: ci === 0 ? 'var(--space-4)' : 'var(--space-6)' }}>
-          <p style={{ ...groupTitle, margin: 0 }}>{c.name}</p>
+          {/* 大分類の行: 左に名前、右に本の合計（その大分類に本があるときだけ・2026-11-09 オーナー「UI を磨きたい」＝どの大分類に本が寄っているかが一目で） */}
+          <p style={{ ...groupTitle, margin: 0, display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 'var(--space-2)' }}>
+            <span>{c.name}</span>
+            {c.fields.length > 0 && <span style={{ fontWeight: 400, color: 'var(--text-3)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{`本 ${c.fields.reduce((n, f) => n + (f.books || 0), 0)} 冊`}</span>}
+          </p>
           {c.fields.length > 0 && (
           <ul style={{ listStyle: 'none', margin: 'var(--space-1) 0 0', padding: 0 }}>
             {c.fields.map((f, i) => {
@@ -249,14 +253,15 @@ export function BookFieldsRecord({ record, onOpenField, onFindBooks }) {
                     onClick={() => onOpenField?.(f.name)}
                     aria-label={`${f.name}・${parts.map((x) => (x === avg ? `評価の平均 ${f.avgRating.toFixed(1)}` : x)).join('・')}・本を見る`}
                     style={{
-                      display: 'flex', alignItems: 'center', gap: 'var(--space-2)', width: '100%', minHeight: 'var(--btn-h)',
-                      padding: 'var(--space-2) 0', background: 'none', border: 'none', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', gap: 'var(--space-2)', width: '100%', minHeight: 'var(--tap-min)',
+                      // 行の上下は 6（2 行の中身が 44 を超えるので、8 だと行が間延びして見えた・2026-11-09）
+                      padding: 'calc(var(--space-2) - 2px) 0', background: 'none', border: 'none', cursor: 'pointer',
                       fontFamily: 'inherit', fontSize: 'var(--text-sub)', textAlign: 'left', color: 'var(--text)',
                     }}
                   >
                     {/* 1 行目＝分野の名前・2 行目＝「本 N 冊 · メモ N 件」（区切りは「 · 」に統一）（どの行も同じ位置・2026-10-11 ui-critic）。
                         分野ごとの読書の時間は「読書の時間」カードの「分野ごと」に一本化した（同じ数を 2 か所に出さない・2026-10-11 オーナー裁定）。 */}
-                    <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-1)' }}>
+                    <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
                       <span style={{ fontSize: 'var(--text-sub)', lineHeight: 1.3, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{f.name}</span>
                       <span style={{ fontSize: 'var(--text-meta)', lineHeight: 1.3, color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
                         {/* 「·」は前の塊の末尾に付け、折り返すのは記号の後ろの空白だけ（行頭に「·」を出さない・2026-10-11 ui-critic）。 */}

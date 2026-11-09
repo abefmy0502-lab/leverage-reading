@@ -5094,15 +5094,19 @@ function AuthedApp() {
                 onPick={openLibraryByFolder}
                 onEdit={() => { setNewFolderName(''); setFolderPickerBook(current); }}
               />
-              {/* ⏱ 読む（集中モード・読書中だけ・2026-10-09）。主役の「メモを書く」（右下の塗り）より弱い、枠の小さな副ボタン。 */}
+            </div>
+          </div>
+          {/* ⏱ 読む（集中モード・読書中だけ・2026-10-09）。主役の「メモを書く」（右下の塗り）より弱い、面の副ボタン。
+              2026-11-09: 書名の列の中から出して、表紙と書名の下の全幅の行に（表紙の下が空いたまま「読む」だけが右の列の左端に浮いていた＝
+              オーナーの iPhone の画面・ui-critic の提案。ボタンは行いっぱいに伸ばし、目安を決めていないときはその右に「読む時間の目安 ▾」）。 */}
               {current.status === 'reading' && (
-                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 'var(--space-3)', marginTop: 'var(--space-3)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', columnGap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
                 <button
                   type="button"
                   onClick={() => openFocusStart(current)}
                   aria-label={`『${current.title}』を読む（集中モード）`}
                   data-focus-entry=""
-                  style={{ ...btnTonal }}
+                  style={{ ...btnTonal, flex: '1 1 0', minWidth: 0, justifyContent: 'center' }}
                 >
                   <Timer size="1.1em" strokeWidth={1.75} aria-hidden="true" style={{ flexShrink: 0 }} />読む
                 </button>
@@ -5114,7 +5118,7 @@ function AuthedApp() {
                   onClick={() => { haptic.light(); dismissStatusUndo(current.id); setReadTargetBook(current); }}
                   aria-haspopup="dialog"
                   aria-label="読む時間の目安を決める"
-                  style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }}
+                  style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', flexShrink: 0, whiteSpace: 'nowrap' }}
                 >
                   {/* 何の目安かが名前で分かるように（「目安を決める」だけでは読む時間のことと伝わらなかった・2026-10-30 点検） */}
                   読む時間の目安
@@ -5123,8 +5127,6 @@ function AuthedApp() {
                 )}
                 </div>
               )}
-            </div>
-          </div>
 
           {/* 🎯 読む目的（2026-10-18 オーナー）: 読書中は、積読で書いた「この本から得たいこと」をいつも見えるところに 1 つ。
               目的を見ながら読むと、どこを読むか・どこを流すかを決めやすい。書いていない本には出さない（書けと迫らない）。

@@ -403,7 +403,7 @@ export default function HelpModal({ helpKey, onClose, onShowOnboarding }) {
 
               {entry.topics?.length > 0 && (
                 <section aria-labelledby="help-topics">
-                  <h4 id="help-topics" style={groupTitleStyle}>くわしく（押すと開きます）</h4>
+                  <h4 id="help-topics" style={groupTitleStyle}>くわしく</h4>
                   <TopicList items={entry.topics} limit={TOPICS_SHOWN} moreLabel="項目" />
                 </section>
               )}
