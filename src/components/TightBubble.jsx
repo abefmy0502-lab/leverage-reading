@@ -135,7 +135,7 @@ export function phrasePieces(text, { scriptBreaks = false } = {}) {
 //   「と／いう」（「…」という悩み）・「いちばん／…」（「いちばん」だけの半端な 1 行を作らない）も割らない（2026-10-08 AI 選書）。
 //   「手が／かり」も割らない（AI 選書の推薦の文・2026-10-10 ui-critic）。
 //   「伸ば／したい」のように「したい」を前の語から割らない（読書中の得たいこと・2026-10-18 ui-critic）。
-const GLUED_PHRASES = [['もう', '一度'], ['と', 'いう'], ['いちばん', ''], ['手が', 'かり'], ['困った', 'とき'], ['迷った', 'とき'], ['', 'したい']];
+const GLUED_PHRASES = [['もう', '一度'], ['と', 'いう'], ['いちばん', ''], ['まだ', ''], ['手が', 'かり'], ['困った', 'とき'], ['迷った', 'とき'], ['', 'したい']];
 export const isGluedPhrase = (prev, pc) => GLUED_PHRASES.some(([a, b]) => prev.endsWith(a) && pc.startsWith(b));
 
 // 文を文節の切れ目（<wbr>）入りの React ノードにする。改行はそのまま（white-space: pre-wrap）。

@@ -210,8 +210,9 @@ function FlowRow({ cells }) {
             {/* 文字が大きいときは文節で折り返す（隣の列にはみ出さない）。 */}
             <span style={{ display: 'block', maxWidth: '100%', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.3, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
               {withPhraseBreaks(c.label)}
-              {/* › は名前の最後の字のすぐ右（名前が折り返しても離れない） */}
-              {c.onClick && <ChevronRight size="1.1em" aria-hidden="true" style={{ verticalAlign: '-0.2em', color: 'var(--text-3)' }} />}
+              {/* › は名前の最後の字のすぐ右（名前が折り返しても離れない）。U+2060（結合子）で前の字との間に切れ目を作らない＝
+                  文字を大きくしたとき › だけが次の行に落ちていた（2026-11-09） */}
+              {c.onClick && <span style={{ whiteSpace: 'nowrap' }}>{'⁠'}<ChevronRight size="1.1em" aria-hidden="true" style={{ verticalAlign: '-0.2em', color: 'var(--text-3)' }} /></span>}
             </span>
           </>
         );

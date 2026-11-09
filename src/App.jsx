@@ -5034,8 +5034,9 @@ function AuthedApp() {
                 {/* 状態は押せない表示なので面を付けない（DESIGN §5「表示用ラベル」）。 */}
                 <StatusLabel status={current.status} />
                 {current.status !== 'done' && current.rating > 0 && <Stars r={current.rating} size="calc(14rem / 17)" />}
-                {current.startDate && <span style={{ whiteSpace: 'nowrap' }}><span aria-hidden="true">·　</span>開始 {fmtDateJa(current.startDate)}</span>}
-                {current.doneDate && <span style={{ whiteSpace: 'nowrap' }}><span aria-hidden="true">·　</span>読了 {fmtDateJa(current.doneDate)}</span>}
+                {/* 区切りの「·」は独立した項目にして、前後の空きを columnGap（8）で等しく（前は「·　」の全角の空きで右だけ広かった・2026-11-09） */}
+                {current.startDate && <><span aria-hidden="true">·</span><span style={{ whiteSpace: 'nowrap' }}>開始 {fmtDateJa(current.startDate)}</span></>}
+                {current.doneDate && <><span aria-hidden="true">·</span><span style={{ whiteSpace: 'nowrap' }}>読了 {fmtDateJa(current.doneDate)}</span></>}
               </div>
               {/* 読書の時間は次の行に（「·」で続けると折り返した行の頭に「·」が来た） */}
               {(current.status === 'reading' || current.status === 'done') && (
