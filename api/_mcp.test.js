@@ -297,10 +297,20 @@ describe('運営だけの道具', () => {
     expect(sched.result.isError).toBe(false);
     db.due = [{ id: 'p1', platform: 'x', text: 'a', image_url: null }, { id: 'p2', platform: 'threads', text: 'b', image_url: null }];
     const fl = await call('ops_post', { action: 'flush' }, { social });
-    expect(text(fl)).toContain('2 件のうち 1 件');
+    // 鍵の無い送り先（threads）は出さずに待たせる＝failed にしない（鍵が入った回に出る・2026-11-09）
+    expect(text(fl)).toContain('1 件のうち 1 件');
+    expect(text(fl)).toContain('待たせています（threads）');
     const updates = db.acts.filter((a) => a[0] === 'post_update');
     expect(updates.find((a) => a[1].id === 'p1')[1].status).toBe('posted');
-    expect(updates.find((a) => a[1].id === 'p2')[1].status).toBe('failed');
+    expect(updates.find((a) => a[1].id === 'p2')).toBeUndefined();
+    expect(fl.result.structuredContent.waiting).toEqual([{ id: 'p2', platform: 'threads' }]);
+    // 鍵はあるが X が 429 を返し続けるとき: 予定の時刻から 6 時間を過ぎていれば failed で止める
+    const tired = { ...social, postTo: async () => { const e = new Error('429'); e.retryable = true; throw e; } };
+    db.due = [{ id: 'p3', platform: 'x', text: 'c', image_url: null, scheduled_at: new Date(Date.now() - 7 * 3600000).toISOString() }, { id: 'p4', platform: 'x', text: 'd', image_url: null, scheduled_at: new Date().toISOString() }];
+    await call('ops_post', { action: 'flush' }, { social: tired });
+    const u2 = db.acts.filter((a) => a[0] === 'post_update');
+    expect(u2.find((a) => a[1].id === 'p3')[1].status).toBe('failed');
+    expect(u2.find((a) => a[1].id === 'p4')[1].status).toBe('scheduled');
     const st = await call('ops_post', { action: 'status' }, { social });
     expect(text(st)).toContain('X あり');
   });

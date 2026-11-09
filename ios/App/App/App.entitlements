@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Apple でサインイン（@capacitor-community/apple-sign-in）。Xcode の Signing & Capabilities で Team を選ぶと、この権利が App ID に付く。
+	     In-App Purchase は権利の項目が無い（capability を足すだけ）。iPhone の通知（aps-environment）は APNs がそろってから Xcode で足す。 -->
+	<key>com.apple.developer.applesignin</key>
+	<array>
+		<string>Default</string>
+	</array>
+</dict>
+</plist>

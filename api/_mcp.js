@@ -685,12 +685,17 @@ const handlers = {
     }
     if (action === 'flush') {
       needSocial();
-      const due = await opsAct(ctx, 'post_due', {});
+      const dueAll = await opsAct(ctx, 'post_due', {});
+      // 鍵の無い送り先の予定は出さずに待たせる（failed にしない＝鍵が入った回に出る・2026-11-09）
+      const conf = social.configured ? social.configured() : {};
+      const waiting = dueAll.filter((row) => conf[row.platform] === false);
+      const due = dueAll.filter((row) => conf[row.platform] !== false);
       // 送り先ごとに並べて送る（同じ送り先は順に・別の送り先は同時＝5 件でも 1 回の呼び出しに収まる）
       const byPlatform = new Map(); for (const row of due) { if (!byPlatform.has(row.platform)) byPlatform.set(row.platform, []); byPlatform.get(row.platform).push(row); }
       const results = (await Promise.all([...byPlatform.values()].map(async (rows) => { const out = []; for (const row of rows) out.push(await publish(row)); return out; }))).flat();
       const ok = results.filter((r) => r.ok).length;
-      return { text: due.length ? `時刻の来た投稿 ${due.length} 件のうち ${ok} 件を出しました` : '出す時刻の来た投稿はありません', structuredContent: { results } };
+      const waitText = waiting.length ? `・鍵の無い送り先の ${waiting.length} 件は待たせています（${[...new Set(waiting.map((r) => r.platform))].join('・')}）` : '';
+      return { text: (due.length ? `時刻の来た投稿 ${due.length} 件のうち ${ok} 件を出しました` : '出す時刻の来た投稿はありません') + waitText, structuredContent: { results, waiting: waiting.map((r) => ({ id: r.id, platform: r.platform })) } };
     }
     throw new ToolError('action は list・add・update・cancel・now・flush・status のどれか');
   },
