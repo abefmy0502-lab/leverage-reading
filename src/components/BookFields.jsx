@@ -128,66 +128,95 @@ export function BookFieldsSheet({ selected = [], onDone, onClose }) {
   );
 }
 
-// 本の詳細の分野・フォルダの行の見出し（13/--text-2・幅をそろえて値の列を合わせる・2026-10-11 ui-critic）。
-//   幅は em（文字を大きくしても「フォルダ」が 1 行に入り、分野の行と値の列がそろう・2026-10-11 第 3 回の採点）。
-const detailRowLabel = { flexShrink: 0, minWidth: '4.5em', fontSize: 'var(--text-meta)', color: 'var(--text-2)' };
+// 本の詳細の分野・フォルダの行（2026-11-09 に作り直し・オーナー「もっと UI よくできる」）。
+//   見出し列（幅 64・13/--text-2・SPEC §2）＋値の列（チップ・折り返す）＋操作の列（文字ボタン「変更」・いつも 1 行目の右端）。
+//   前は 1 つの flex に見出しも操作も入っていたので、文字を大きくすると「変更」だけが見出しの下へ落ちて行の間が 44 空いていた。
+//   操作を 3 列目に固定すると、チップがいくつ折り返しても「変更」は孤立した行にならない（ui-critic 18/20 の指摘 1）。
+//   チップの見た目は 32・押せる範囲は 44（折り返した行の見た目の間は 44 − 32 ＝ 12）。
+//   見出しは 1 行目の中央にそろえ、上下の余り（押せる範囲 − 見た目）は負の余白で行の外へ。
+const detailRowLabel = { flexShrink: 0, width: 'var(--space-16)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', display: 'inline-flex', alignItems: 'center', minHeight: 'var(--tap-min)' };
+const detailTapExtra = 'calc((var(--space-8) - var(--tap-min)) / 2)'; // 押せる範囲 44 と見た目 32 の差の半分（負）
+const detailActionBtn = { ...btnLink, fontSize: 'var(--text-meta)', minWidth: 'var(--tap-min)', justifyContent: 'center', flexShrink: 0, alignSelf: 'flex-start' };
+
+function DetailRow({ label, ariaLabel, stacked = false, action = null, children, ...rest }) {
+  return (
+    <div
+      {...rest}
+      role="group"
+      aria-label={ariaLabel}
+      style={{
+        display: 'flex', alignItems: 'flex-start', columnGap: 'var(--space-2)',
+        // 1 行目の上の余りも行の外へ（見出しの文字と前の行の間を 8 に）
+        marginTop: stacked ? 'calc(var(--space-1) + 2 * ' + detailTapExtra + ')' : `calc(var(--space-2) + ${detailTapExtra})`,
+        marginBottom: detailTapExtra,
+      }}
+    >
+      <span aria-hidden="true" style={detailRowLabel}>{label}</span>
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 'var(--space-2)', rowGap: 0, minWidth: 0, flex: '1 1 0' }}>
+        {children}
+      </div>
+      {action}
+    </div>
+  );
+}
 
 // 本の詳細: 付いている分野（押すと、すべての本をその分野で絞る）。
-// onEdit: 「変更」（本の編集画面の分野へ）。フォルダの行と同じ形にして、2 行で操作の有無が違わないように（2026-10-21 ui-critic）。
+// onEdit: 「変更」（分野を選ぶシート）。フォルダの行と同じ形にして、2 行で操作の有無が違わないように（2026-10-21 ui-critic）。
 export function BookFieldLinks({ fields = [], onPick, onEdit = null }) {
   if (!fields.length) return null;
   return (
-    // チップの見た目は 32（--space-8）・押せる範囲は 44。下の余りは負の余白で行の外へ（見た目の間隔をそろえる）。
-    <div data-book-fields="" role="group" aria-label="分野" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 'var(--space-2)', marginTop: 'var(--space-2)', marginBottom: 'calc((var(--space-8) - var(--tap-min)) / 2)' }}>
-      <span aria-hidden="true" style={detailRowLabel}>分野</span>
+    <DetailRow
+      data-book-fields=""
+      label="分野"
+      ariaLabel="分野"
+      action={onEdit && (
+        <button type="button" onClick={onEdit} aria-label="分野を変更" style={detailActionBtn}>
+          変更
+        </button>
+      )}
+    >
       {fields.map((f) => (
         onPick
           ? <Chip key={f} onClick={() => onPick(f)} aria-label={`分野「${f}」の本を見る`}>{f}</Chip>
           : <span key={f} style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>{f}</span>
       ))}
-      {onEdit && (
-        <button type="button" onClick={onEdit} aria-label="分野を変更" style={{ ...btnLink, fontSize: 'var(--text-meta)', minWidth: 'var(--tap-min)', justifyContent: 'center' }}>
-          変更
-        </button>
-      )}
-    </div>
+    </DetailRow>
   );
 }
 
 // 本の詳細: 入っているフォルダ（押すと、すべての本をそのフォルダで絞る）＋文字ボタン「変更」（フォルダが無ければ「フォルダに入れる」）。
-//   形は BookFieldLinks と同じ（見出し「フォルダ」13/--text-2・チップ 32・押せる範囲 44）。分野の行のすぐ下（stacked）なら行の間を 8 に。
+//   形は BookFieldLinks と同じ。分野の行のすぐ下（stacked）なら行の間を詰める。
 //   全状態の本で出す（フォルダは本人が自由に作る分け方・2026-10-11 オーナー「この画面でもフォルダ分けできるように」）。
 export function BookFolderLinks({ folders = [], onPick, onEdit, stacked = false }) {
-  const tapExtra = 'calc((var(--space-8) - var(--tap-min)) / 2)'; // 押せる範囲 44 と見た目 32 の差の半分（負）
   return (
-    <div
+    <DetailRow
       data-book-folders=""
-      role="group"
-      aria-label="フォルダ"
-      style={{
-        display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 'var(--space-2)',
-        marginTop: stacked ? `calc(${tapExtra} + var(--space-2))` : 'var(--space-2)',
-        marginBottom: tapExtra,
-      }}
+      label="フォルダ"
+      ariaLabel="フォルダ"
+      stacked={stacked}
+      action={onEdit && folders.length > 0 && (
+        <button type="button" onClick={onEdit} aria-label={`フォルダを変更（いま ${folders.join('、')}）`} style={detailActionBtn}>
+          変更
+        </button>
+      )}
     >
-      <span aria-hidden="true" style={detailRowLabel}>フォルダ</span>
       {folders.map((f) => (
         <Chip key={f} shrink onClick={() => onPick?.(f)} aria-label={`フォルダ「${f}」の本を見る`}>
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{f}</span>
         </Chip>
       ))}
-      {onEdit && (
+      {onEdit && folders.length === 0 && (
+        // フォルダが無いときは見出し「フォルダ」＋文字ボタンだけ（文字の左端を値の列＝チップの左端にそろえる）
         <button
           type="button"
           onClick={onEdit}
-          aria-label={folders.length ? `フォルダを変更（いま ${folders.join('、')}）` : 'フォルダに入れる'}
-          // フォルダが無いときも見出し「フォルダ」＋文字ボタン（文字の左端を値の列＝チップの左端にそろえる）
-          style={{ ...btnLink, fontSize: 'var(--text-meta)', minWidth: 'var(--tap-min)', justifyContent: 'center', ...(folders.length ? null : { marginLeft: 'calc(-1 * var(--space-1))' }) }}
+          aria-label="フォルダに入れる"
+          style={{ ...detailActionBtn, alignSelf: 'auto', marginLeft: 'calc(-1 * var(--space-1))' }}
         >
-          {folders.length ? '変更' : 'フォルダに入れる'}
+          フォルダに入れる
         </button>
       )}
-    </div>
+    </DetailRow>
   );
 }
 
