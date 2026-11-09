@@ -13,13 +13,22 @@ export function envHealth(env = process.env) {
   return out;
 }
 
-const MISSING_RELATION = new Set(['42P01', 'PGRST205', 'PGRST204']);
-const MISSING_COLUMN = new Set(['42703']);
+const MISSING_RELATION = new Set(['42P01', 'PGRST205']);
+const MISSING_COLUMN = new Set(['42703', 'PGRST204']);
 const MISSING_FUNCTION = new Set(['42883', 'PGRST202']);
+// 文で見分けるときは、何が無いのかまで見る（2026-11-09: 「column subscriptions.id does not exist」を表が無いと読んで、
+// id 列の無い表＝subscriptions / app_admins / book_field_cache / ai_cache_warm が公開の準備で「ない」になっていた）。
+const RELATION_RE = /relation .* does not exist|could not find the table|could not find a relationship/i;
+const COLUMN_RE = /column .* does not exist|could not find the .* column/i;
+const FUNCTION_RE = /function .* does not exist|could not find the function/i;
 function isMissing(error, sets) {
   if (!error) return false;
   if (sets.has(error.code)) return true;
-  return /could not find|does not exist/i.test(error.message || '');
+  const msg = error.message || '';
+  if (sets === MISSING_RELATION) return RELATION_RE.test(msg);
+  if (sets === MISSING_COLUMN) return COLUMN_RE.test(msg);
+  if (sets === MISSING_FUNCTION) return FUNCTION_RE.test(msg);
+  return false;
 }
 
 // 1 つの SQL の有無を確かめる。失敗は false（無いか、確かめられない）。
@@ -33,9 +42,10 @@ export async function probeSql(client, spec) {
     const col = spec.column || 'id';
     const { error } = await client.from(spec.table).select(col).limit(0);
     if (!error) return true;
+    // 列が無いという答えは「表はある」（確かめたい列なら「ない」・id を仮に選んだだけなら「ある」）。表の有無より先に見る。
+    if (isMissing(error, MISSING_COLUMN)) return !spec.column;
     if (isMissing(error, MISSING_RELATION)) return false;
-    if (spec.column && isMissing(error, MISSING_COLUMN)) return false;
-    // 表はあるが id 列が無い表（PK が別の名前）でも「ある」とみなす。
+    // ほかの失敗（権限など）は、確かめたい列が無いときだけ「ない」とみなす。
     return !spec.column;
   } catch {
     return false;
