@@ -5090,7 +5090,6 @@ function AuthedApp() {
               <BookFieldLinks fields={fieldsOf(current)} onPick={openLibraryByField} onEdit={() => setFieldsPickerBook(current)} />
               <BookFolderLinks
                 folders={current.collections || []}
-                stacked={fieldsOf(current).length > 0}
                 onPick={openLibraryByFolder}
                 onEdit={() => { setNewFolderName(''); setFolderPickerBook(current); }}
               />

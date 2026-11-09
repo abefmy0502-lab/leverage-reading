@@ -15,6 +15,7 @@
 import { createHash } from 'node:crypto';
 import { WIDGET_URI_MCP, WIDGET_URI_OPENAI, WIDGET_MIME_MCP, WIDGET_MIME_OPENAI, widgetHtml } from './_mcpWidget.js';
 import { launchGates } from './_launchHealth.js';
+import { textLength } from './_social.js';
 
 export const PROTOCOL_VERSION = '2025-06-18';
 export const SERVER_INFO = { name: 'orime', version: '1.1.0' };
@@ -413,7 +414,7 @@ async function opsAct({ db, userId }, action, args) {
   if (error) {
     if (/not authorized/i.test(error.message || '')) throw new ToolError('この道具は運営者だけが使えます');
     if (/could not find|does not exist|PGRST202|42883/i.test(`${error.code || ''} ${error.message || ''}`)) throw new ToolError('運営の道具の準備がまだです（supabase_admin_mcp.sql を流してください）');
-    if (/invalid status|invalid kind|unknown action|invalid input/i.test(error.message || '')) throw new ToolError('値の形が違います（status / kind / 日付を確かめてください）');
+    if (/invalid status|invalid kind|invalid platform|unknown action|invalid input/i.test(error.message || '')) throw new ToolError('値の形が違います（status / kind / platform / 日付を確かめてください）');
     throw new ToolError('運営の操作ができませんでした');
   }
   return data;
@@ -641,20 +642,27 @@ const handlers = {
     const checkPost = (platform, text, imageUrl) => {
       if (!PLATFORMS.includes(platform)) throw new ToolError('platform は x・threads・instagram のどれか');
       const t = clean(text, 4000); if (!t) throw new ToolError('text（本文）を入れてください');
-      if ([...t].length > LIMIT[platform]) throw new ToolError(`${platform} の本文は ${LIMIT[platform]} 字まで（いま ${[...t].length} 字）`);
+      // X は重みで数える（漢字・かな・絵文字は 1 字で 2・URL は 23＝日本語なら約 140 字・api/_social.js の xWeightedLength）
+      const len = textLength(platform, t);
+      if (len > LIMIT[platform]) throw new ToolError(platform === 'x' ? `X の本文は重み 280 まで（日本語は 1 字で 2・URL は 23。いま ${len}）` : `${platform} の本文は ${LIMIT[platform]} 字まで（いま ${len} 字）`);
       if (imageUrl && !/^https:\/\//.test(imageUrl)) throw new ToolError('image_url は https の URL');
       if (platform === 'instagram' && !imageUrl) throw new ToolError('Instagram は image_url が要ります（ops_image で作ってから）');
       return t;
     };
+    const needSocial = () => { if (!social?.postTo) throw new ToolError('投稿の仕組みがこのサーバーにありません'); };
+    // やり直すのは予定の時刻から 6 時間まで（それを過ぎたら failed にして止める＝429 が続いても永久に打ち直さない・2026-11-09）
+    const RETRY_WINDOW_MS = 6 * 3600000;
     const publish = async (row) => {
       try {
         const r = await social.postTo(row.platform, { text: row.text, imageUrl: row.image_url || null });
         await opsAct(ctx, 'post_update', { id: row.id, status: 'posted', posted_id: String(r.id), posted_url: r.url || null });
         return { id: row.id, platform: row.platform, ok: true, url: r.url || null };
       } catch (e) {
-        const retry = !!e?.retryable;
-        await opsAct(ctx, 'post_update', { id: row.id, status: retry ? 'scheduled' : 'failed', error: String(e?.message || e).slice(0, 1000) });
-        return { id: row.id, platform: row.platform, ok: false, error: String(e?.message || e).slice(0, 300), retry };
+        const since = Date.now() - (Date.parse(row.scheduled_at || '') || Date.now());
+        const retry = !!e?.retryable && since < RETRY_WINDOW_MS;
+        const msg = String(e?.message || e);
+        await opsAct(ctx, 'post_update', { id: row.id, status: retry ? 'scheduled' : 'failed', error: (retry ? msg : (e?.retryable ? '6 時間やり直しても出せませんでした: ' + msg : msg)).slice(0, 1000) });
+        return { id: row.id, platform: row.platform, ok: false, error: msg.slice(0, 300), retry };
       }
     };
     if (action === 'status') { await opsAct(ctx, 'goal_get', {}); const c = social?.configured ? social.configured() : {}; return { text: `鍵: X ${c.x ? 'あり' : 'なし'}・Threads ${c.threads ? 'あり' : 'なし'}・Instagram ${c.instagram ? 'あり' : 'なし'}・画像 ${c.image ? 'あり' : 'なし'}`, structuredContent: { configured: c } }; }
@@ -668,14 +676,19 @@ const handlers = {
     if (action === 'update') { needId(args.id); if (args.scheduled_at && Number.isNaN(Date.parse(args.scheduled_at))) throw new ToolError('scheduled_at は ISO 8601'); const r = await opsAct(ctx, 'post_update', { id: args.id, text: clean(args.text, 4000) || null, image_url: args.image_url || null, scheduled_at: args.scheduled_at || null }); return { text: '投稿の予定を直しました', structuredContent: r }; }
     if (action === 'cancel') { needId(args.id); const r = await opsAct(ctx, 'post_update', { id: args.id, status: 'canceled' }); return { text: '投稿の予定を取り消しました', structuredContent: r }; }
     if (action === 'now') {
+      needSocial();
       const t = checkPost(args.platform, args.text, args.image_url);
-      const added = await opsAct(ctx, 'post_add', { platform: args.platform, text: t, image_url: args.image_url || null, scheduled_at: new Date().toISOString() });
-      const r = await publish({ id: added.id, platform: args.platform, text: t, image_url: args.image_url || null });
+      const at = new Date().toISOString();
+      const added = await opsAct(ctx, 'post_add', { platform: args.platform, text: t, image_url: args.image_url || null, scheduled_at: at });
+      const r = await publish({ id: added.id, platform: args.platform, text: t, image_url: args.image_url || null, scheduled_at: at });
       return { text: r.ok ? `${args.platform} に出しました${r.url ? ': ' + r.url : ''}` : `${args.platform} に出せませんでした: ${r.error}`, structuredContent: r };
     }
     if (action === 'flush') {
+      needSocial();
       const due = await opsAct(ctx, 'post_due', {});
-      const results = []; for (const row of due) results.push(await publish(row));
+      // 送り先ごとに並べて送る（同じ送り先は順に・別の送り先は同時＝5 件でも 1 回の呼び出しに収まる）
+      const byPlatform = new Map(); for (const row of due) { if (!byPlatform.has(row.platform)) byPlatform.set(row.platform, []); byPlatform.get(row.platform).push(row); }
+      const results = (await Promise.all([...byPlatform.values()].map(async (rows) => { const out = []; for (const row of rows) out.push(await publish(row)); return out; }))).flat();
       const ok = results.filter((r) => r.ok).length;
       return { text: due.length ? `時刻の来た投稿 ${due.length} 件のうち ${ok} 件を出しました` : '出す時刻の来た投稿はありません', structuredContent: { results } };
     }

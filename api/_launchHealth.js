@@ -9,7 +9,7 @@ import { HEALTH_ENV, HEALTH_ENV_FLAGS, HEALTH_SQL } from './_launchHealthKeys.js
 export function envHealth(env = process.env) {
   const out = {};
   for (const [k, vars] of Object.entries(HEALTH_ENV)) out[k] = vars.every((v) => Boolean(String(env[v] || '').trim()));
-  for (const [k, fn] of Object.entries(HEALTH_ENV_FLAGS)) out[k] = Boolean(fn());
+  for (const [k, fn] of Object.entries(HEALTH_ENV_FLAGS)) out[k] = Boolean(fn(env));
   return out;
 }
 

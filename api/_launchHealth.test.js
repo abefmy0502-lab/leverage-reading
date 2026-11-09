@@ -48,14 +48,10 @@ describe('probeSql（関数）', () => {
 describe('envHealth', () => {
   it('全部そろって true・旗は形まで見る', () => {
     const env = { VITE_FOUNDING_OFFER: 'on', VITE_FOUNDING_OFFER_END: '2026-12-16', RAKUTEN_APPLICATION_ID: 'a', RAKUTEN_ACCESS_KEY: 'b' };
-    const saved = { ...process.env };
-    Object.assign(process.env, env);
-    try {
-      const h = envHealth(env);
-      expect(h.rakuten).toBe(false);
-      expect(h.founding_offer).toBe(true);
-    } finally {
-      for (const k of Object.keys(env)) { if (saved[k] === undefined) delete process.env[k]; else process.env[k] = saved[k]; }
-    }
+    const h = envHealth(env);
+    expect(h.rakuten).toBe(false);
+    expect(h.founding_offer).toBe(true);
+    expect(h.native_push_flag).toBe(false);
+    expect(envHealth({ ...env, VITE_FOUNDING_OFFER_END: '12/16' }).founding_offer).toBe(false);
   });
 });

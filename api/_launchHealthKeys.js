@@ -27,8 +27,8 @@ export const HEALTH_ENV = {
 };
 // 値が決まった形のときだけ true にするもの（空でない、だけでは足りない）。
 export const HEALTH_ENV_FLAGS = {
-  native_push_flag: () => process.env.VITE_NATIVE_PUSH === 'on',
-  founding_offer: () => process.env.VITE_FOUNDING_OFFER === 'on' && /^\d{4}-\d{2}-\d{2}$/.test(process.env.VITE_FOUNDING_OFFER_END || ''),
+  native_push_flag: (env = process.env) => env.VITE_NATIVE_PUSH === 'on',
+  founding_offer: (env = process.env) => env.VITE_FOUNDING_OFFER === 'on' && /^\d{4}-\d{2}-\d{2}$/.test(env.VITE_FOUNDING_OFFER_END || ''),
 };
 export const HEALTH_ENV_KEYS = [...Object.keys(HEALTH_ENV), ...Object.keys(HEALTH_ENV_FLAGS)];
 

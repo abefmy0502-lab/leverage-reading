@@ -13,6 +13,24 @@ export const PLATFORMS = ['x', 'threads', 'instagram'];
 export const PLATFORM_LABEL = { x: 'X', threads: 'Threads', instagram: 'Instagram' };
 export const TEXT_LIMIT = { x: 280, threads: 500, instagram: 2200 };
 
+// X の文字数は「重み」で数える（X の twitter-text と同じ決まり・2026-11-09）: URL は 1 つ 23、
+// ラテン文字・数字・記号・結合文字などの範囲（U+0000–U+10FF・U+2000–U+200D・U+2010–U+201F・U+2032–U+2037）は 1、
+// それ以外（漢字・かな・全角・絵文字）は 2。日本語の本文は約 140 字が上限。
+const X_URL_RE = /https?:\/\/[^\s]+|(?:^|(?<=\s))(?:[a-z0-9-]+\.)+(?:com|net|org|jp|io|app|co|me|dev)(?:\/[^\s]*)?/gi;
+export function xWeightedLength(text) {
+  const t = String(text || '').normalize('NFC').replace(X_URL_RE, '');
+  const urls = (String(text || '').match(X_URL_RE) || []).length;
+  let n = urls * 23;
+  for (const ch of t) {
+    const c = ch.codePointAt(0);
+    const light = c <= 0x10ff || (c >= 0x2000 && c <= 0x200d) || (c >= 0x2010 && c <= 0x201f) || (c >= 0x2032 && c <= 0x2037);
+    n += light ? 1 : 2;
+  }
+  return n;
+}
+// 送り先ごとの長さ（X は重み・ほかはコードポイント）と上限。
+export function textLength(platform, text) { return platform === 'x' ? xWeightedLength(text) : [...String(text || '')].length; }
+
 export function configured(env = process.env) {
   return {
     x: ['X_API_KEY', 'X_API_SECRET', 'X_ACCESS_TOKEN', 'X_ACCESS_SECRET'].every((k) => Boolean(String(env[k] || '').trim())),
@@ -56,7 +74,8 @@ async function readJson(res) {
 
 async function fetchImageBytes(url, fetchImpl) {
   const res = await fetchImpl(url);
-  if (!res.ok) throw new SocialError(`画像を読めませんでした（${res.status}）`);
+  // 置き場の一時的な失敗（5xx・429）はやり直せる
+  if (!res.ok) throw new SocialError(`画像を読めませんでした（${res.status}）`, { retryable: res.status >= 500 || res.status === 429 });
   const type = res.headers.get('content-type') || 'image/png';
   const buf = Buffer.from(await res.arrayBuffer());
   if (buf.length > 5 * 1024 * 1024) throw new SocialError('画像が 5MB を超えています');

@@ -50,3 +50,15 @@ describe('SNS の投稿', () => {
     await expect(makeImage({ prompt: '秋' }, { env: {}, fetchImpl, storage })).rejects.toThrow(/OPENAI_API_KEY/);
   });
 });
+
+describe('X の文字数（重み）', () => {
+  it('ラテン文字は 1・日本語は 2・URL は 23', async () => {
+    const { xWeightedLength, textLength } = await import('./_social.js');
+    expect(xWeightedLength('hello')).toBe(5);
+    expect(xWeightedLength('読んだ本と、会話しよう。')).toBe(24);
+    expect(xWeightedLength('見てね https://orime.vercel.app/lp')).toBe(6 + 1 + 23);
+    expect(xWeightedLength('a'.repeat(280))).toBe(280);
+    expect(xWeightedLength('あ'.repeat(141))).toBe(282);
+    expect(textLength('threads', 'あ'.repeat(141))).toBe(141);
+  });
+});

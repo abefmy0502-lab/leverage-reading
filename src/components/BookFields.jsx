@@ -139,7 +139,7 @@ const detailTapExtra = 'calc((var(--space-8) - var(--tap-min)) / 2)'; // 押せ�
 // 「変更」の文字の右端を右の余白 16 にそろえる（押せる幅 44 は左へ伸ばす・2026-11-09 ui-critic）
 const detailActionBtn = { ...btnLink, fontSize: 'var(--text-meta)', minWidth: 'var(--tap-min)', justifyContent: 'flex-end', padding: 0, flexShrink: 0, alignSelf: 'flex-start' };
 
-function DetailRow({ label, ariaLabel, stacked = false, action = null, children, ...rest }) {
+function DetailRow({ label, ariaLabel, action = null, children, ...rest }) {
   return (
     <div
       {...rest}
@@ -148,8 +148,9 @@ function DetailRow({ label, ariaLabel, stacked = false, action = null, children,
       style={{
         display: 'flex', alignItems: 'flex-start', columnGap: 'var(--space-2)',
         // 1 行目の上の余りも行の外へ（見出しの文字と前の行の間を 8 に）
-        // 前の行の下の余り（−6）とこの行の上の余りは margin の相殺で片方しか効かない＝stacked は +2 で見た目 8・押せる箱は接するだけ（重ねない・2026-11-09 ui-critic）
-        marginTop: stacked ? `calc(var(--space-2) + ${detailTapExtra})` : `calc(var(--space-2) + ${detailTapExtra})`,
+        // 1 行目の上の余りも行の外へ（前の行との見た目の間は 8）。続く行も同じ＝前の行の下の余り（−6）とは margin の相殺で片方しか効かず、
+        // 見た目 8・押せる箱は接するだけで重ならない（2026-11-09 ui-critic）
+        marginTop: `calc(var(--space-2) + ${detailTapExtra})`,
         marginBottom: detailTapExtra,
       }}
     >
@@ -187,15 +188,14 @@ export function BookFieldLinks({ fields = [], onPick, onEdit = null }) {
 }
 
 // 本の詳細: 入っているフォルダ（押すと、すべての本をそのフォルダで絞る）＋文字ボタン「変更」（フォルダが無ければ「フォルダに入れる」）。
-//   形は BookFieldLinks と同じ。分野の行のすぐ下（stacked）なら行の間を詰める。
+//   形は BookFieldLinks と同じ（分野の行のすぐ下でも、行の間は同じ 8）。
 //   全状態の本で出す（フォルダは本人が自由に作る分け方・2026-10-11 オーナー「この画面でもフォルダ分けできるように」）。
-export function BookFolderLinks({ folders = [], onPick, onEdit, stacked = false }) {
+export function BookFolderLinks({ folders = [], onPick, onEdit }) {
   return (
     <DetailRow
       data-book-folders=""
       label="フォルダ"
       ariaLabel="フォルダ"
-      stacked={stacked}
       action={onEdit && folders.length > 0 && (
         <button type="button" onClick={onEdit} aria-label={`フォルダを変更（いま ${folders.join('、')}）`} style={detailActionBtn}>
           変更
