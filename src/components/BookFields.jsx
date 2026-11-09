@@ -136,7 +136,8 @@ export function BookFieldsSheet({ selected = [], onDone, onClose }) {
 //   見出しは 1 行目の中央にそろえ、上下の余り（押せる範囲 − 見た目）は負の余白で行の外へ。
 const detailRowLabel = { flexShrink: 0, width: 'var(--space-16)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', display: 'inline-flex', alignItems: 'center', minHeight: 'var(--tap-min)' };
 const detailTapExtra = 'calc((var(--space-8) - var(--tap-min)) / 2)'; // 押せる範囲 44 と見た目 32 の差の半分（負）
-const detailActionBtn = { ...btnLink, fontSize: 'var(--text-meta)', minWidth: 'var(--tap-min)', justifyContent: 'center', flexShrink: 0, alignSelf: 'flex-start' };
+// 「変更」の文字の右端を右の余白 16 にそろえる（押せる幅 44 は左へ伸ばす・2026-11-09 ui-critic）
+const detailActionBtn = { ...btnLink, fontSize: 'var(--text-meta)', minWidth: 'var(--tap-min)', justifyContent: 'flex-end', padding: 0, flexShrink: 0, alignSelf: 'flex-start' };
 
 function DetailRow({ label, ariaLabel, stacked = false, action = null, children, ...rest }) {
   return (
@@ -147,7 +148,8 @@ function DetailRow({ label, ariaLabel, stacked = false, action = null, children,
       style={{
         display: 'flex', alignItems: 'flex-start', columnGap: 'var(--space-2)',
         // 1 行目の上の余りも行の外へ（見出しの文字と前の行の間を 8 に）
-        marginTop: stacked ? 'calc(var(--space-1) + 2 * ' + detailTapExtra + ')' : `calc(var(--space-2) + ${detailTapExtra})`,
+        // 前の行の下の余り（−6）とこの行の上の余りは margin の相殺で片方しか効かない＝stacked は +2 で見た目 8・押せる箱は接するだけ（重ねない・2026-11-09 ui-critic）
+        marginTop: stacked ? `calc(var(--space-2) + ${detailTapExtra})` : `calc(var(--space-2) + ${detailTapExtra})`,
         marginBottom: detailTapExtra,
       }}
     >
@@ -236,7 +238,7 @@ export function BookFieldsRecord({ record, onOpenField, onFindBooks }) {
           {/* 大分類の行: 左に名前、右に本の合計（その大分類に本があるときだけ・2026-11-09 オーナー「UI を磨きたい」＝どの大分類に本が寄っているかが一目で） */}
           <p style={{ ...groupTitle, margin: 0, display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 'var(--space-2)' }}>
             <span>{c.name}</span>
-            {c.fields.length > 0 && <span style={{ fontWeight: 400, color: 'var(--text-3)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{`本 ${c.fields.reduce((n, f) => n + (f.books || 0), 0)} 冊`}</span>}
+            {c.fields.length > 0 && <span style={{ fontWeight: 400, fontSize: 'var(--text-meta)', letterSpacing: 0, color: 'var(--text-3)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{`本 ${c.fields.reduce((n, f) => n + (f.books || 0), 0)} 冊`}</span>}
           </p>
           {c.fields.length > 0 && (
           <ul style={{ listStyle: 'none', margin: 'var(--space-1) 0 0', padding: 0 }}>
@@ -254,14 +256,14 @@ export function BookFieldsRecord({ record, onOpenField, onFindBooks }) {
                     aria-label={`${f.name}・${parts.map((x) => (x === avg ? `評価の平均 ${f.avgRating.toFixed(1)}` : x)).join('・')}・本を見る`}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 'var(--space-2)', width: '100%', minHeight: 'var(--tap-min)',
-                      // 行の上下は 6（2 行の中身が 44 を超えるので、8 だと行が間延びして見えた・2026-11-09）
-                      padding: 'calc(var(--space-2) - 2px) 0', background: 'none', border: 'none', cursor: 'pointer',
+                      // 行の上下は 4（2 行の中身で 48 以上になる・8 だと行が間延びして見えた・2026-11-09）
+                      padding: 'var(--space-1) 0', background: 'none', border: 'none', cursor: 'pointer',
                       fontFamily: 'inherit', fontSize: 'var(--text-sub)', textAlign: 'left', color: 'var(--text)',
                     }}
                   >
                     {/* 1 行目＝分野の名前・2 行目＝「本 N 冊 · メモ N 件」（区切りは「 · 」に統一）（どの行も同じ位置・2026-10-11 ui-critic）。
                         分野ごとの読書の時間は「読書の時間」カードの「分野ごと」に一本化した（同じ数を 2 か所に出さない・2026-10-11 オーナー裁定）。 */}
-                    <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
+                    <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-1)' }}>
                       <span style={{ fontSize: 'var(--text-sub)', lineHeight: 1.3, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{f.name}</span>
                       <span style={{ fontSize: 'var(--text-meta)', lineHeight: 1.3, color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
                         {/* 「·」は前の塊の末尾に付け、折り返すのは記号の後ろの空白だけ（行頭に「·」を出さない・2026-10-11 ui-critic）。 */}
