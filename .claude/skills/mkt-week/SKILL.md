@@ -14,6 +14,7 @@ description: 今週の投稿キット（X 10 本・Threads 7 本・Instagram の
 4. `company/launch-2026-11/calendar.md`・`x-posts.md`・`threads-posts.md`・`sns-playbook.md`（見本・今週に当たる暦の予定）
 5. `src/lib/releaseNotes.js` の **直近 14 日**の `quiet` でない項目（＝利用者がワクワクすること。`node scripts/marketing/weekly-drafts.mjs --dry` が `marketing-out/drafts/<日付>/prompt.md` に材料をまとめる）
 6. 前の週の `company/weekly/<日付>.md` の「数字と学び」（あれば。伸びた型を増やし、伸びない型を減らす）
+7. **`company/sns-quality-guide-2026-11.md` §0・§2・§3**（どう書けば読まれるか: 1 行目は読む人の瞬間か意外な一言＝製品名・機能の知らせから始めない／1 本に具体 1 つ・伏せ字のまま出さない／アプリが無くても役に立つ「保存版」を X に週 2 本／締めの決まり文句を連発しない／X も 3 本に 1 本は問いで終える／画像は画面より手元。2026-11-10）
 
 ## 書くもの: `company/weekly/<今週の土曜 YYYY-MM-DD>.md`
 ```
@@ -29,6 +30,7 @@ description: 今週の投稿キット（X 10 本・Threads 7 本・Instagram の
 ```
 
 ## 決まり
+- 書き終えたら `node scripts/marketing/weekly-drafts.mjs --check company/weekly/<日付>.md`。⚠️（言葉）は 0 行になるまで直す。ℹ️（形＝1 行目のつかみ・X の重み・決まり文句の連発・Threads の問い）は直すか、直さない理由を末尾「直してほしい所」に書く（2026-11-10）。
 - 1 本ずつ `node scripts/marketing/weekly-drafts.mjs --check company/weekly/<日付>.md` を通す（使わない言い方が 0 行になるまで）。
 - 実在の書名を出す投稿の最後には「画面はアプリの実際の動き（サンプルのデータ）です。本の著者・出版社とは関係ありません。」
 - 「著者と話せる」「必ず」「先着」「AI 要約」「無料トライアル」は書かない。無料は「無料プラン（ずっと無料）」と「7 日間無料」の 2 つだけ。

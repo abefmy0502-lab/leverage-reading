@@ -124,6 +124,7 @@ UI 文言・トースト・ヘルプ・LP・プロンプト出力で使う名前
 ├── docs/leverage-system.md             # ⚙️ マーケと開発のレバレッジの仕組み（1 ページ・2026-10-22）: /feature・/ship・/mkt-week の型、CI、文書の同期のテスト、編集のあとの一言（hook）、土曜の投稿キットの自動化、オーナーの週 約 5 時間
 ├── .claude/skills/{feature,ship,mkt-week,frontend-design,webapp-testing}/SKILL.md  # 🧭 型（作る・出す・今週の投稿キット・見た目を作る・動かして確かめる）。.claude/settings.json の hook は scripts/hooks/post-edit.mjs
 ├── company/weekly/                     # 📅 土曜の投稿キット（自動の下書き → オーナーが直して予約）
+├── company/sns-quality-guide-2026-11.md # ✍️ SNS 投稿の質（どう書けば読まれるか: 1 行目は読む人の瞬間・具体 1 つ・決まり文句を連発しない・X も問い・画像は手元。根拠は company/research/sns-quality-research-2026-11.md。`weekly-drafts.mjs --check` が形の注意を出す・2026-11-10）
 ├── src/
 │   ├── App.jsx                         # メインルーティング、状態管理、画面切替
 │   ├── demo/                           # 🧪 お試しモード（npm run demo・開発専用・本番バンドル外）

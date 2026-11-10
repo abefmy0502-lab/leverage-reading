@@ -41,6 +41,61 @@ export const BANNED = [
   [/マイ読書脳|アクション|タスク|ステータス|無料トライアル|お試し期間|クーポン|招待コード/, 'GLOSSARY の旧称・揺れ（相談・行動・状態・7 日間無料・オファーコード）'],
 ];
 
+// 投稿の形を確かめる（2026-11-10・company/sns-quality-guide-2026-11.md）。キットの Markdown の ``` の中を 1 本の投稿として読む。
+//   - 1 行目のつかみ: 製品名・機能の知らせ（「Orime の」「〜を入れました」）から始めない＝読む人の場面か意外な一言から
+//   - X の文字数: X と同じ重み（漢字・かな・絵文字 2・URL 23）で 280 まで＝直前の見出しが「### X」か「P」で始まる投稿
+//   - 決まり文句の連発: 同じ締めの 1 行（「読んで終わりにしない。」など）が 1 つの文書で 3 回以上
+//   - Threads: 「### T」の投稿は問いで終わるものを半分以上（文書ぜんたいで数える）
+// 最初の 1 文で見る（「〜が普通だと思う。だから入口を 4 つ作りました。」のように、読む人の話から始めて知らせに続く文は通す）
+const HOOK_WEAK = [
+  [/^(Orime|オリメ)\s?(の|に|は|では|を)/, '1 行目が製品名から。読む人の場面か、意外な一言から始める'],
+  [/^[^。]*(入れました|足しました|作りました|追加しました|できるようにしました)。?$/, '1 行目の最初の 1 文が機能の知らせ。知らせは 2 文目以降に回し、最初は読む人の話に'],
+];
+const SLOGANS = ['読んで終わりにしない', '読書を、受け身から会話へ', '読んだ本と、会話しよう', '読書が、受け身から会話に変わる'];
+// AI っぽい文の定型（company/research/sns-quality-research-2026-11.md §6）。3〜4 個重なると「AI っぽい」と感じるので 1 つでも指す
+const AI_TONE = [/することが重要です|が重要です。/, /いかがでしたか/, /ぜひ[^。]{0,12}てみてください/, /まず第一に|次に、|最後に、/, /探っていきましょう|見ていきましょう/, /と言われています/];
+const X_WEIGHT_LIMIT = 280;
+function xWeight(text) {
+  const urlRe = /https?:\/\/[^\s]+/g;
+  const urls = (text.match(urlRe) || []).length;
+  let n = urls * 23;
+  for (const ch of text.normalize('NFC').replace(urlRe, '')) {
+    const c = ch.codePointAt(0);
+    n += (c <= 0x10ff || (c >= 0x2000 && c <= 0x200d) || (c >= 0x2010 && c <= 0x201f) || (c >= 0x2032 && c <= 0x2037)) ? 1 : 2;
+  }
+  return n;
+}
+export function checkShape(text) {
+  const out = [];
+  const lines = String(text || '').split('\n');
+  let heading = ''; let inBlock = false; let block = []; let blockStart = 0;
+  const sloganCount = new Map();
+  let threads = 0; let threadsAsk = 0;
+  const flush = (endLine) => {
+    const body = block.join('\n').trim();
+    if (!body) return;
+    const firstLine = block.find((l) => l.trim())?.trim() || '';
+    const isX = /^(X\d|P\d|スレッド|\d\/\d)/.test(heading) || /^X/.test(heading);
+    const isThreads = /^(T\d|Threads)/.test(heading);
+    const isPost = isX || isThreads || /^(IG|C\d|D\d|A\d)/.test(heading);
+    if (!isPost && !/^#{2,3}\s/.test('## ' + heading)) return;
+    const firstSentence = firstLine.split('。')[0] + (firstLine.includes('。') ? '。' : '');
+    for (const [re, why] of HOOK_WEAK) { if (re.test(firstSentence) && isPost) { out.push({ line: blockStart, word: firstLine.slice(0, 24), why }); break; } }
+    if (isX) { const w = xWeight(body); if (w > X_WEIGHT_LIMIT) out.push({ line: blockStart, word: `重み ${w}`, why: `X は重み ${X_WEIGHT_LIMIT} まで（日本語は 1 字で 2＝約 140 字）` }); }
+    for (const sl of SLOGANS) if (body.includes(sl)) sloganCount.set(sl, (sloganCount.get(sl) || 0) + 1);
+    if (isPost) for (const re of AI_TONE) { const m = body.match(re); if (m) { out.push({ line: blockStart, word: m[0], why: 'AI っぽい文の定型。具体（数字・固有名詞・起きたこと）に置き換える' }); break; } }
+    if (isThreads) { threads += 1; const last = block.filter((l) => l.trim()).pop() || ''; if (/[？?]\s*$/.test(last)) threadsAsk += 1; }
+  };
+  lines.forEach((line, i) => {
+    const h = line.match(/^#{2,4}\s+(.*)$/); if (h && !inBlock) { heading = h[1].trim(); return; }
+    if (/^```/.test(line)) { if (inBlock) { flush(i); block = []; inBlock = false; } else { inBlock = true; blockStart = i + 2; } return; }
+    if (inBlock) block.push(line);
+  });
+  for (const [sl, n] of sloganCount) if (n >= 3) out.push({ line: 0, word: sl, why: `同じ締めの決まり文句が ${n} 回。投稿ごとに違う一言で締める（連発すると広告に見える）` });
+  if (threads >= 4 && threadsAsk * 2 < threads) out.push({ line: 0, word: `Threads ${threadsAsk}/${threads}`, why: 'Threads は問いで終わる投稿を半分以上に（返信をもらう場）' });
+  return out;
+}
+
 // 文を確かめる。見つかった行を [{ line, word, why }] で返す（コードブロックと引用の見本「使わない言葉」の行は除く）。
 export function checkCopy(text) {
   const out = [];
@@ -145,9 +200,11 @@ async function callClaude({ system, user }) {
 
 function reportCheck(text, label) {
   const hits = checkCopy(text);
-  if (!hits.length) { console.log(`✓ ${label}: 言葉の決まりに引っかかる行はありません`); return hits; }
-  console.log(`⚠️ ${label}: 直してから使う行が ${hits.length} か所`);
-  for (const h of hits) console.log(`  ${h.line} 行目「${h.word}」— ${h.why}`);
+  if (!hits.length) console.log(`✓ ${label}: 言葉の決まりに引っかかる行はありません`);
+  else { console.log(`⚠️ ${label}: 直してから使う行が ${hits.length} か所`); for (const h of hits) console.log(`  ${h.line} 行目「${h.word}」— ${h.why}`); }
+  // 形（つかみ・X の重み・決まり文句の連発・Threads の問い）は注意として出す（止めない＝判断はオーナー）
+  const shape = checkShape(text);
+  if (shape.length) { console.log(`ℹ️ ${label}: 形で見直したい所が ${shape.length} か所（company/sns-quality-guide-2026-11.md）`); for (const h of shape) console.log(`  ${h.line ? h.line + ' 行目' : '全体'}「${h.word}」— ${h.why}`); }
   return hits;
 }
 
