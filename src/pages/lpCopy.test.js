@@ -222,13 +222,15 @@ describe('イラストがあるかは、ビルドのときに決める（2026-10
   });
 });
 
-// 2026-10-17 オーナー「本の語り口で答える → わかりにくい」: LP の文は「口調」にそろえる（画面の中の「（本の語り口で・AI）」はアプリの表示のまま）。
-describe('「口調」にそろえる', () => {
-  it('説明・会話の流れの題に「語り口で答え」が無い', () => {
-    const flow = readFileSync(new URL('./LpFlow.jsx', import.meta.url), 'utf8');
+// 2026-10-17 オーナー「本の語り口で答える → わかりにくい」→ 2026-11-11 オーナー「その本の口調で、AI が答える という日本語が違和感」:
+// LP の文は「その本の考え方で答える」にそろえる（「語り口」「口調」は使わない。画面の中の「（本の語り口で・AI）」はアプリの表示のまま）。
+describe('「その本の考え方で答える」にそろえる', () => {
+  it('説明・会話の流れ・よくある質問に「語り口」「口調」が無い', () => {
+    const flow = readFileSync(new URL('./LpFlow.jsx', import.meta.url), 'utf8').replace(/\/\/.*$/gm, '');
     expect(flow).toContain("title: 'あなたのメモを根拠に、AI が答える'");
-    expect(flow).not.toContain('語り口で答え');
-    expect(LP_DESCRIPTION).not.toContain('語り口');
-    expect(LP_OG_DESCRIPTION).not.toContain('語り口');
+    expect(flow).not.toMatch(/語り口|口調/);
+    for (const t of [LP_DESCRIPTION, LP_OG_DESCRIPTION, JSON.stringify(buildLpCopy({}).faq)]) {
+      expect(t).not.toMatch(/語り口|口調/);
+    }
   });
 });

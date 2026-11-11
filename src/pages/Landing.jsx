@@ -111,7 +111,7 @@ const TESTIMONIALS = [];
 const HERO_MINI = [
   { name: 'flow-line', alt: '本の詳細のメモの一覧。今日残した一行' },
   { name: 'flow-talk', alt: '相談相手を選ぶ画面「誰に相談しますか？」' },
-  { name: 'hero', alt: '相談の画面。『嫌われる勇気』の 1 冊に相談し、その本の口調で答えが返ってきている' },
+  { name: 'hero', alt: '相談の画面。『嫌われる勇気』の 1 冊に相談し、その本の考え方で答えが返ってきている' },
 ];
 // 「画面は見本です。」と語り口の注記は LP でここ 1 か所＝ヒーローの画面のすぐ下（イラストの型も重ねた端末で答えを見せるので・2026-10-12）
 function HeroNote() {
@@ -418,7 +418,7 @@ export default function Landing() {
         operatingSystem: 'iOS',
         // ストアの第 1 カテゴリ（仕事効率化）に近いもの
         applicationCategory: 'BusinessApplication',
-        description: '読んだ本と会話できる読書メモアプリ。気になった一行をメモしておくと、迷ったときに AI がその本の口調で、あなたのメモをもとに答えます。',
+        description: '読んだ本と会話できる読書メモアプリ。気になった一行をメモしておくと、迷ったときに AI が、あなたのメモをもとに、その本の考え方で答えます。',
         offers: [
           { '@type': 'Offer', name: '無料プラン', price: '0', priceCurrency: 'JPY' },
           { '@type': 'Offer', name: '月額プラン', price: String(MONTHLY), priceCurrency: 'JPY' },
