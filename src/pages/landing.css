@@ -1084,9 +1084,11 @@ body.lp-active {
 .lp-hero-grid.is-talk > .lp-hero-text > .lp-cta-block { order: 4; margin-top: 0; }
 .lp-hero-art .lp-illust { max-width: 30em; margin: 0 auto; }
 @media (min-width: 768px) {
-  .lp-hero-grid.is-talk > .lp-hero-text { display: block; grid-column: 1; }
+  /* 広い画面: 文と絵を上下の中央でそろえ、絵は右の列いっぱい（1440 で約 440）。列の比は 1.15 : 0.85 → 1 : 1 に（絵を大きく・2026-11-11 仕上げ） */
+  .lp-hero-grid.is-talk { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; }
+  .lp-hero-grid.is-talk > .lp-hero-text { display: block; grid-column: 1; padding-top: 0; }
   .lp-hero-grid.is-talk > .lp-hero-art { grid-column: 2; }
-  .lp-hero-art .lp-illust { margin-left: 0; }
+  .lp-hero-art .lp-illust { max-width: none; margin-left: 0; }
   .lp-hero-grid.is-talk > .lp-hero-text > .lp-lead { margin-top: var(--space-6) !important; }
   .lp-hero-grid.is-talk > .lp-hero-text > .lp-cta-block { margin-top: var(--space-8); }
 }
