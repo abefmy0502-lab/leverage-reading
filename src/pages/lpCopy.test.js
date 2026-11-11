@@ -86,10 +86,8 @@ describe('本の語り口（著者と話せる、とは書かない）', () => {
 describe('創業メンバー価格', () => {
   it('期間中: 月額の 7 日間無料を使うと年額の創業メンバー価格が使えないことが分かる', () => {
     const c = buildLpCopy({ offer: OFFER_ON, trialNote: '7 日間無料' });
-    const f = c.faq.find((x) => x.q.includes('創業メンバー価格'));
-    expect(plainText(f.a)).toContain('先に月額プランの 7 日間無料を使うと、年額の創業メンバー価格は使えなくなります');
-    expect(f.a).toContain('同じ Apple ID でプランの初回特典を使ったことがない方');
-    // 期間ものの問いは検索結果に入れない・見えない印も外す
+    // 2026-11-11: 創業メンバー価格の問いは料金の 4 行の表（対象・特典・価格・ご注意）に任せ、よくある質問からは外した（ui-critic）
+    expect(c.faq.some((x) => x.q.includes('創業メンバー価格'))).toBe(false);
     expect(c.faqLd.some((x) => x.q.includes('創業メンバー価格'))).toBe(false);
     c.faqLd.forEach((x) => expect(x.a).not.toMatch(/[⁠ ]/));
     // 期間中、7 日間無料は月額だけ

@@ -43,7 +43,6 @@ import { TRIAL_TOKENS, FREE_OCR_PER_MONTH } from '../lib/tokenAmounts';
 import { normalizeTrialLabel } from '../lib/trialLabel';
 import { readFoundingOffer, noBreak, FOUNDING_NAME } from '../lib/foundingOffer';
 import Shot from './LpShot';
-import { AskModes } from './LpDiagram';
 import LpFlow from './LpFlow';
 import LpTalkFlow from './LpTalkFlow';
 import LpWaitlist from './LpWaitlist';
@@ -51,7 +50,7 @@ import LpIllust from './LpIllust';
 import LpWhy from './LpWhy';
 import LpArt, { hasArt } from './LpArt';
 import Phrases, { Sentences } from './LpPhrases';
-import { buildLpCopy, storeHrefOf, HERO_TALK, ASK, WHY, PLAN, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE } from './lpCopy';
+import { buildLpCopy, storeHrefOf, HERO_TALK, ASK, WHY, PLAN, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE, PROBLEM_LINES, MORE } from './lpCopy';
 import qrcode from 'qrcode-generator';
 import { lpTrack, lpVariant, storeUrlFor, isWidePointer } from '../lib/lpTrack';
 import { inject as injectVercelAnalytics } from '@vercel/analytics';
@@ -146,50 +145,6 @@ function HeroMini() {
 
 
 
-
-// ③ 続けられて、成果が見える（柱 ②〜⑤・1 つ 1〜2 文・画面 1 枚）
-const PILLARS = [
-  {
-    id: 'action', shot: 'action', artAlt: '相談で決めた一歩を、明日のやることに書き込む様子のイラスト',
-    title: '明日やることを決める',
-    body: '決めたことは行動リストに入り、期限の日の朝に通知が届きます。',
-    alt: '振り返りの行動の画面。「今週の期限 1 件・完了 0 件」と、今週の行動「日曜日の夜に今週読む時間を確保する」（レバレッジ・リーディング・期限 11/15・毎週）',
-  },
-  {
-    id: 'focus', shot: 'focus', artAlt: '時間を決めて、集中して本を読む様子のイラスト',
-    title: '時間を決めて読む',
-    body: 'タイマーをかけると、表紙と残り⁠時間だけの画面になります。読んだ時間は本ごとに残ります。',
-    alt: '集中モードの画面。暗い地に『イシューからはじめよ』の表紙と書名、「残り 21 分」の大きな数字と「22:45 まで」、細い輪、下にメモ・おわる・一時停止のボタン',
-  },
-  {
-    id: 'share', share: true, artAlt: '心に残った一文を写真に重ねて共有する様子のイラスト',
-    title: '一文を画像で投稿',
-    body: '写真に一文と書名をのせて、SNS に投稿できます。',
-    alt: '写真で共有で作った縦長の画像。海辺のカフェの写真の上に、細い明朝の一文「「人間として何が正しいか」と自分に問い、正しいと信じる道を貫き倒す。」と、読書中の本『考え方』稲盛和夫、Orime のロゴと日付 2026.10.12 が重なっている',
-  },
-  {
-    id: 'fields', shot: 'fields', artAlt: 'これまでに読んだ本を分野ごとに見渡す様子のイラスト',
-    title: '読んできた分野が見える',
-    body: '読んだ本が分野ごとに並ぶので、偏りに気づけます。',
-    alt: '振り返りの記録の画面。読んだ本 2・メモ 51・実行した行動 0 の数字と、読書の時間の直近 12 週の棒、今月 53 分・これまで 1 時間 44 分、分野ごとの時間（キャリア・働き方 45 分 ほか）',
-  },
-  {
-    // 読書記録の基本（2026-10-16 第 6 回。2026-10-17 オーナー「本の記録も、ふつうに → わかりにくい」で題を言い切りに）
-    id: 'library', shot: 'library', artAlt: '',
-    title: '読書記録の基本も、そろっています',
-    sub: 'バーコードで登録・フォルダ・★の評価・ほかのアプリから取り込み',
-    alt: 'すべての本の画面。10 冊の表紙の一覧と、読書中 5・読了 2・積読 1・読みたい 2 の絞り込み、フォルダ（マインド・営業・考え方）のチップ',
-  },
-];
-
-// AI 選書の 4 つの段（2026-10-17 オーナー「ここまで丁寧に選書してくれる機能はすごい・別枠でもう少し丁寧に」）。
-// どれも実装のとおり（lib/advisorInterview.js・lib/advisorRecs.js・ai.js の recentConsultsBlock・読書計画シート）。言い過ぎない。
-const ADVISOR_STEPS = [
-  { title: '悩みを聞く', body: '1 回に 1 つずつ問いかけて、本音を言葉にしていきます。' },
-  { title: '受け取った悩みを確かめる', body: '悩みを短くまとめて見せます。違っていれば直せます。' },
-  { title: 'おすすめの本と、読む順番', body: '読んできた本と評価、最近の相談から選びます。実在を確かめた本だけを出します。' },
-  { title: '読む前の準備まで', body: '本棚に入れると、読書計画シートで、どこを重点的に読むかが分かります。' },
-];
 
 // ③ の下の安心の 4 つ。学習＝各社の API 規約／同意＝ensureAiConsent（はじめて AI を使う操作のとき）／
 // 書き出し＝設定の CSV（lib/exportData.js）・退会のお申し込みで消去／写真で共有＝端末の中で描く（サーバーに送らない）。
@@ -539,8 +494,6 @@ export default function Landing() {
   }, []);
 
   const footerLink = (to) => () => lpTrack('footer_link', { to });
-  const pillarsRef = useRef(null);
-  const pillarAt = useSnapIndex(pillarsRef, PILLARS.length);
 
   return (
     <div className="lp-root">
@@ -649,25 +602,23 @@ export default function Landing() {
           </div>
         </section>
 
+        {/* ============ 共感（黄金の流れの 2 番目・2026-11-11）: 読む人の困りごとを 2 行だけ。数字は使わない ============ */}
+        <section className="lp-sec lp-problem-sec" aria-label="こんなことは、ありませんか" data-lp-sec="problem">
+          <div className="lp-wrap lp-narrow">
+            <p className="lp-problem-lines">{PROBLEM_LINES.map((t) => <span key={t}>{t}</span>)}</p>
+            <p className="lp-problem-answer">読んだ本に、聞けるようにしました。</p>
+          </div>
+        </section>
+
         {/* ============ ② 使い方は 3 つ（2026-11-11 オーナー「初めての読み手でもすぐに理解できる構成に」: 読む順＝何ができる（ヒーロー）→ どう使う（ここ）→ 誰に聞ける → なぜ残る → ほかに → 値段） ============ */}
         <section className="lp-sec lp-flow-sec" aria-labelledby="lp-grow" data-lp-sec="flow">
           <div className="lp-wrap">
             <div className="lp-narrow lp-sec-head">
               <h2 className="lp-h2" id="lp-grow">{heroVariant === 'talk' ? <><span>本に相談すると、</span><span>こうなる。</span></> : <><span>使い方は、</span><span>3 つだけ。</span></>}</h2>
+              {heroVariant === 'talk' && <p className="lp-lead lp-sec-lead">相談相手は、1 冊でも、何冊かでも、本棚ぜんぶでも。</p>}
             </div>
             {/* 2026-11-11 オーナー「スマホ画面を再現しなくてもいい」: 画面写真 3 枚（LpFlow）の代わりに、実際の相談を会話として組む */}
             {heroVariant === 'talk' ? <LpTalkFlow /> : <LpFlow onEvent={lpTrack} note={false} />}
-          </div>
-        </section>
-
-        {/* ============ 著者には聞けない。本には、聞ける。（2026-11-11 オーナー「複数の著者の考えを比べて、混ぜて相談できる みたいな」） ============ */}
-        <section className="lp-sec lp-band lp-ask-sec" aria-labelledby="lp-ask" data-lp-sec="ask">
-          <div className="lp-wrap">
-            <div className="lp-narrow lp-sec-head">
-              <h2 className="lp-h2" id="lp-ask">{ASK.h2.map((t) => <span key={t}>{t}</span>)}</h2>
-              <p className="lp-lead lp-sec-lead">{ASK.lead}</p>
-            </div>
-            <AskModes items={ASK.modes} />
           </div>
         </section>
 
@@ -682,121 +633,21 @@ export default function Landing() {
           </div>
         </section>
 
-        {/* ============ 読む前に、読み方が決まる（読書計画シート・2026-11-11 オーナー「読書戦略を立てられることも伝えたい」） ============ */}
-        <section className="lp-sec lp-plan-sec" id="lp-plan" aria-labelledby="lp-plan-h" data-lp-sec="plan">
-          <div className="lp-wrap lp-adv">
-            <div className="lp-adv-shot lp-plan-sample">
-              {/* 実物: 積読の本の読書計画シート（抜粋・画面写真ではなく文で） */}
-              <div className="lp-plan-card" aria-label="読書計画シートの例">
-                <p className="lp-plan-card-head"><span className="lp-plan-card-tag">読書計画シート</span>{PLAN.sample.book}</p>
-                <p className="lp-plan-card-want"><span>この本から得たいこと</span>{PLAN.sample.want}</p>
-                {PLAN.sample.sections.map((sec) => (
-                  <div className="lp-plan-card-sec" key={sec.h}>
-                    <p className="lp-plan-card-h">{sec.h}</p>
-                    <ul>{sec.items.map((t) => <li key={t}>{t}</li>)}</ul>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div>
-              <h2 className="lp-h2" id="lp-plan-h">{PLAN.h2.map((t) => <span key={t}>{t}</span>)}</h2>
-              <ol className="lp-adv-steps">
-                {PLAN.steps.map((x) => (
-                  <li key={x.title}>
-                    <h3 className="lp-h3 lp-wbr"><Phrases clause>{x.title}</Phrases></h3>
-                    <p className="lp-wbr"><Sentences block>{x.body}</Sentences></p>
-                  </li>
-                ))}
-              </ol>
-              <p className="lp-adv-note">{PLAN.note}</p>
-            </div>
-          </div>
-        </section>
-
-        {/* ============ ③ 続けられて、成果が見える（柱 ②〜⑤） ============ */}
-        <section className="lp-sec lp-band lp-pillars-sec" aria-labelledby="lp-pillars" data-lp-sec="pillars">
+        {/* ============ ほかにできること（2026-11-11 オーナー「情報過多・黄金の流れに」: 画面写真と 3 つの節（聞き方・読書計画・AI 選書）を、1 節の短い一覧にまとめた） ============ */}
+        <section className="lp-sec lp-band lp-more-sec" id="lp-pillars" aria-labelledby="lp-more" data-lp-sec="more">
           <div className="lp-wrap">
             <div className="lp-narrow lp-sec-head">
-              <h2 className="lp-h2" id="lp-pillars">
-                ほかにできること
-              </h2>
+              <h2 className="lp-h2" id="lp-more">ほかにできること</h2>
             </div>
-            {/* スマホは横にスワイプ（カルーセル・1 枚ずつ止まる・次の枚の端が見える）、広い画面は並べる（2026-10-13） */}
-            <ul className="lp-pillars" ref={pillarsRef}>
-              {PILLARS.map((x) => (
-                <li key={x.id} id={`lp-${x.id}`} data-lp-sec={x.id}>
-                  <div className="lp-pillar-shot">
-                    {/* 柱のイラスト（public/lp/illust-<id>-*.webp・1:1）を置いたら絵に、無ければ今の画面写真 */}
-                    <LpArt
-                      name={`illust-${x.id}`}
-                      ratio="1:1"
-                      sizes="(min-width: 768px) 240px, 72vw"
-                      alt={x.artAlt}
-                      fallback={(
-                        <>
-                        {x.share ? (
-                          <img
-                            className="lp-share-img"
-                            src="/lp/share-story-540.webp"
-                            srcSet="/lp/share-story-540.webp 540w, /lp/share-story-1080.webp 1080w"
-                            sizes="(min-width: 768px) 240px, 72vw"
-                            width="1080"
-                            height="1920"
-                            loading="lazy"
-                            decoding="async"
-                            alt={x.alt}
-                          />
-                        ) : <Shot name={x.shot} alt={x.alt} className="lp-shot lp-shot-sm" sizes="(min-width: 768px) 240px, 40vw" />}
-                        </>
-                      )}
-                    />
-                  </div>
-                  <div className="lp-pillar-text">
-                    <h3 className="lp-h3 lp-wbr"><Phrases clause>{x.title}</Phrases></h3>
-                    {/* 1 行の説明（body）も出す＝5 枚とも同じ形（題＋1 行）・前は題だけだった（2026-11-11） */}
-                    {x.body && <p className="lp-pillar-sub lp-wbr"><Sentences block>{x.body}</Sentences></p>}
-                    {x.sub && <p className="lp-pillar-sub">{x.sub.split('・').map((t, i) => <Fragment key={t}>{i > 0 && <>・<wbr /></>}<span className="lp-nb">{t}</span></Fragment>)}</p>}
-                    {x.list && (
-                      <ul className="lp-pillar-list">
-                        {x.list.map((t) => <li key={t} className="lp-wbr"><Phrases>{t}</Phrases></li>)}
-                      </ul>
-                    )}
-                  </div>
+            <ul className="lp-more">
+              {MORE.map((x) => (
+                <li key={x.title}>
+                  <h3 className="lp-more-title lp-wbr"><Phrases clause>{x.title}</Phrases>{x.plan && <span className="lp-more-plan">プラン</span>}</h3>
+                  <p className="lp-more-body lp-wbr"><Sentences block>{x.body}</Sentences></p>
                 </li>
               ))}
             </ul>
-            <p className="lp-gallery-dots lp-pillars-dots" aria-hidden="true">
-              {PILLARS.map((x, i) => <span key={x.id} className={i === pillarAt ? 'is-on' : undefined} />)}
-            </p>
-          </div>
-        </section>
-
-        {/* ============ AI 選書（別枠で丁寧に・2026-10-17） ============ */}
-        <section className="lp-sec lp-band lp-adv-sec" id="lp-advisor" aria-labelledby="lp-adv" data-lp-sec="advisor">
-          <div className="lp-wrap lp-adv">
-            <div className="lp-adv-shot">
-              {/* 絵（public/lp/illust-advisor-*）は VITE_LP_ILLUST=on のときだけ・ふだんは実際の画面 */}
-              <LpArt
-                name="illust-advisor"
-                ratio="1:1"
-                sizes="(min-width: 768px) 300px, 72vw"
-                alt="悩みを聞いて、次に読む本と読む順番を選ぶ様子のイラスト"
-                fallback={<Shot name="advisor" alt="AI 選書の画面。「仕事を抱えすぎて、いつも時間が足りない。読むならどの本？」の相談と、受け取った悩み、選んだ理由の前置き、1 冊目『エッセンシャル思考』のカード（なぜあなたに・この本の核心）" sizes="(min-width: 768px) 300px, 72vw" />}
-              />
-            </div>
-            <div>
-              <h2 className="lp-h2" id="lp-adv"><span>次に読む本も、</span><span>相談して選ぶ。</span></h2>
-              <ol className="lp-adv-steps">
-                {ADVISOR_STEPS.map((x) => (
-                  <li key={x.title}>
-                    <h3 className="lp-h3 lp-wbr"><Phrases clause>{x.title}</Phrases></h3>
-                    <p className="lp-wbr"><Sentences block>{x.body}</Sentences></p>
-                  </li>
-                ))}
-              </ol>
-              {/* プランの機能であることは、バッジにせず 1 行で（料金の「すべての AI 機能」と同じ事実・優良誤認を避ける） */}
-              <p className="lp-adv-note">月額・年額プランで使えます。</p>
-            </div>
+            <p className="lp-more-note">「プラン」は月額・年額プランで使えます。</p>
           </div>
         </section>
 
@@ -829,7 +680,7 @@ export default function Landing() {
               <p className="lp-lead lp-lead-lines lp-pricing-lead">
                 {/* 2026-11-11 オーナー「プランへ がわかりにくい」: 何が無料で、何が有料かを言い切る */}
                 <span>本とメモの記録は、ずっと無料。</span>
-                <span>AI への相談をたくさん使うなら、<span className="lp-nb">月額・年額プラン</span>。</span>
+                <span>AI への相談をたくさん使うなら、<span className="lp-nb">月額か年額のプランへ。</span></span>
               </p>
             </div>
 

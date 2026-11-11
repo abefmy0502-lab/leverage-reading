@@ -58,7 +58,7 @@ export default function LpTalkFlow() {
           </div>
         </li>
       </ol>
-      <p className="lp-shot-note lp-wbr">実際の相談です。答えは、あなたのメモで変わります。{VOICE_NOTE}</p>
+      <p className="lp-shot-note lp-wbr">実際の相談です。{VOICE_NOTE}あなたのメモで、答えは変わります。</p>
     </>
   );
 }

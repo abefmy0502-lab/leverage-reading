@@ -1173,3 +1173,22 @@ body.lp-active {
 .lp-plan-card-sec li { position: relative; padding-left: var(--space-3); font-family: var(--font-read); font-size: var(--text-sub); line-height: 1.5; color: var(--text); word-break: normal; line-break: strict; }
 .lp-plan-card-sec li::before { content: '・'; position: absolute; left: 0; color: var(--text-3); }
 @media (min-width: 768px) { .lp-plan-card { margin: 0; max-width: 28em; } }
+
+/* ============ 共感の 2 行（黄金の流れの 2 番目・2026-11-11） ============ */
+.lp-problem-sec { padding-top: 0; }
+.lp-root .lp-problem-lines { display: grid; gap: var(--space-1); margin: 0; font-family: var(--font-read); font-size: var(--text-heading); line-height: 1.5; letter-spacing: 0.03em; color: var(--text-2); }
+.lp-root .lp-problem-answer { margin: var(--space-4) 0 0; font-size: var(--text-body); font-weight: 600; color: var(--text); }
+
+/* ============ ほかにできること＝短い一覧（2026-11-11・画面写真をやめた） ============ */
+.lp-more { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+.lp-more > li { padding: var(--space-4) 0; border-top: 1px solid var(--separator); }
+.lp-more > li:last-child { border-bottom: 1px solid var(--separator); }
+.lp-root .lp-more-title { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); margin: 0; font-size: var(--text-body); font-weight: 600; color: var(--text); }
+.lp-more-plan { color: var(--text-2); font-size: var(--text-caption); font-weight: 600; }
+.lp-root .lp-more-body { margin: var(--space-1) 0 0; color: var(--text-2); font-size: var(--text-sub); line-height: 1.5; max-width: 36em; }
+.lp-root .lp-more-note { margin: var(--space-4) 0 0; color: var(--text-3); font-size: var(--text-meta); }
+@media (min-width: 768px) {
+  .lp-more { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--space-16); }
+  .lp-more > li:last-child { border-bottom: 0; }
+  .lp-more > li:nth-last-child(-n+2) { border-bottom: 1px solid var(--separator); }
+}
