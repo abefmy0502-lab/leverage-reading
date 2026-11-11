@@ -50,7 +50,7 @@ import LpIllust from './LpIllust';
 import LpWhy from './LpWhy';
 import LpArt, { hasArt } from './LpArt';
 import Phrases, { Sentences } from './LpPhrases';
-import { buildLpCopy, storeHrefOf, HERO_TALK, ASK, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE } from './lpCopy';
+import { buildLpCopy, storeHrefOf, HERO_TALK, ASK, WHY, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE } from './lpCopy';
 import qrcode from 'qrcode-generator';
 import { lpTrack, lpVariant, storeUrlFor, isWidePointer } from '../lib/lpTrack';
 import { inject as injectVercelAnalytics } from '@vercel/analytics';
@@ -100,6 +100,8 @@ const LAUNCH_LINE = `${LAUNCH_LABEL}に、App Store で公開予定です。`;
 //   .lp-btn は inline-flex なので、外側を 1 つの span にして 2 つの塊を同じ行の中に置く（2 列に割れていた・2026-10-11 ui-critic）。
 const CTA_LABEL = <span className="lp-btn-label"><span className="lp-nb">無料プランで</span><wbr /><span className="lp-nb">始める</span></span>;
 // 料金の欄のボタン（有料のカードのすぐ下・2026-10-12）。押す先は同じ App Store（無料期間はアプリの中で始める）。
+// 期間中（創業メンバー価格）の有料のボタン: 7 日間無料は月額だけなので、ボタンでは言わない（ui-critic 2026-11-11）
+const PLAN_CTA_LABEL = <span className="lp-btn-label"><span className="lp-nb">App Store で</span><wbr /><span className="lp-nb">プランを始める</span></span>;
 const TRIAL_CTA_LABEL = <span className="lp-btn-label"><span className="lp-nb">7 日間無料で</span><wbr /><span className="lp-nb">試す</span></span>;
 
 // 🗣 お客様の声。実在ユーザーの許可を得た本物の声だけを入れる（捏造・盛りは絶対 NG・本物が届くまで出さない）。
@@ -596,11 +598,11 @@ export default function Landing() {
                 <Entry loc="hero" wl={wl} badge launch />
                 <div className="lp-hero-links">
                   <a className="lp-textlink" href="#lp-grow" onClick={() => lpTrack('hero_secondary', {})}>
-                    <span>会話の様子を見る</span><ChevronDown size="1.1em" aria-hidden="true" />
+                    <span>使い方を見る</span><ChevronDown size="1.1em" aria-hidden="true" />
                   </a>
                   {/* 創業メンバー価格（期間中だけ）: 押すと料金の中の帯へ */}
                   {OFFER.active && (
-                    <a className="lp-textlink" href="#lp-offer" onClick={() => lpTrack('offer_badge', {})}>
+                    <a className="lp-textlink lp-textlink-quiet" href="#lp-offer" onClick={() => lpTrack('offer_badge', {})}>
                       {/* 1 つの span に包む＝リンクは inline-flex なので、包まないと「（」「日付」「まで）」が別々の項目になって gap の空きが入る（2026-11-11） */}
                       <span>{FOUNDING_NAME}（<span className="lp-nb">{OFFER.endLabel}</span>まで）</span>
                     </a>
@@ -651,7 +653,6 @@ export default function Landing() {
           <div className="lp-wrap">
             <div className="lp-narrow lp-sec-head">
               <h2 className="lp-h2" id="lp-grow"><span>使い方は、</span><span>3 つだけ。</span></h2>
-              <p className="lp-lead lp-sec-lead">一行メモを残す。本に相談する。メモを根拠にした答えが返る。メモが増えるほど、答えはあなた向けになります。</p>
             </div>
             <LpFlow onEvent={lpTrack} note={heroVariant === 'talk'} />
           </div>
@@ -673,7 +674,7 @@ export default function Landing() {
           <div className="lp-wrap">
             <div className="lp-narrow lp-sec-head">
               <h2 className="lp-h2" id="lp-why"><span>読むだけだと、</span><span>薄れていく。</span></h2>
-              <p className="lp-lead lp-sec-lead">読んだ本と会話すると、残り方が変わります。</p>
+              <p className="lp-lead lp-sec-lead">読んだ本に相談すると、残り方が変わります。</p>
             </div>
             <LpWhy />
           </div>
@@ -789,10 +790,15 @@ export default function Landing() {
                 料金
               </h2>
               {/* 2026-10-17 オーナー「1480 円の説明が雑」: 無料で続けられることを先に、プランは「もっと相談したくなったら」 */}
+            {/* 「月 ¥1,480 は、本 1 冊分。」の帯は「なぜ残る」の節から料金の頭へ（ui-critic 2026-11-11: 無料プランしか知らない位置で値段を出さない） */}
               <p className="lp-lead lp-lead-lines lp-pricing-lead">
                 <span>メモも記録も、ずっと無料。</span>
                 <span>AI にもっと相談したくなったら、プランへ。</span>
               </p>
+            </div>
+            <div className="lp-why-cost lp-pricing-cost">
+              <p className="lp-why-cost-title">{WHY.costTitle}</p>
+              <p className="lp-why-cost-body">{WHY.costBody}</p>
             </div>
 
             {/* 2 枚（無料プラン（ずっと無料）と、プラン）。広い画面では横に並べる */}
@@ -809,7 +815,7 @@ export default function Landing() {
                 {!PRELAUNCH && <StoreCta className="lp-btn lp-btn-ghost lp-plan-cta" loc="pricing_free">{CTA_LABEL}</StoreCta>}
               </div>
               <div className="lp-plan is-paid">
-                <p className="lp-plan-name"><span>月額・年額プラン</span>{TRIAL_NOTE && <span className="lp-plan-badge">{OFFER.active ? '月額は 7 日間無料' : TRIAL_NOTE}</span>}</p>
+                <p className="lp-plan-name"><span>月額・年額プラン</span>{TRIAL_NOTE && !OFFER.active && <span className="lp-plan-badge">{TRIAL_NOTE}</span>}</p>
                 {/* プランで手に入るもの（数は lib/tokenAmounts.js のとおり）。量は大きな数字にせず、無料プランと同じ箇条書きの 1 行目に
                     （値段より大きな数字が先に来ていた・2026-10-16 ui-critic）。 */}
                 <ul className="lp-included" aria-label="プランに含まれるもの">
@@ -827,8 +833,7 @@ export default function Landing() {
                     {OFFER.active ? (
                       <>
                         <p className="lp-plan-price">{OFFER.priceLabel}<span>（税込）</span></p>
-                        {/* 条件は金額のすぐ下に（誰の・いつの価格か）。その次の行に 2 年目からの自動更新 */}
-                        <p className="lp-plan-cond lp-wbr"><Sentences>{`${OFFER.endLabel}までに始めた方の 1 年目。始めるときに 1 年分をまとめてお支払い。同じ Apple ID で初回特典を使っていない方が対象です。`}</Sentences></p>
+                        {/* 条件（誰の・いつの価格か・まとめ払い）は下の帯の 対象・価格・ご注意 に 1 回だけ（ui-critic 2026-11-11: 同じ事実を 3 回書いていた） */}
                         <p className="lp-plan-sub"><span className="lp-nb">2 年目から</span> <span className="lp-nb">年額 {ANNUAL_TEXT}（税込）</span>で自動更新</p>
                       </>
                     ) : (
@@ -839,12 +844,12 @@ export default function Landing() {
                     )}
                   </div>
                   <div className="lp-plan-row">
-                    <p className="lp-plan-label">月額プラン</p>
+                    <p className="lp-plan-label">月額プラン{TRIAL_NOTE && OFFER.active && <span className="lp-plan-badge">7 日間無料</span>}</p>
                     <p className="lp-plan-price">{MONTHLY_TEXT}<span>/ 月（税込）</span></p>
-                    <p className="lp-plan-sub"><span className="lp-nb">1 日あたり約 {PER_DAY_TEXT}。</span>{OFFER.active && TRIAL_FIRST && <span className="lp-nb">{TRIAL_FIRST}。</span>}</p>
+                    <p className="lp-plan-sub"><span className="lp-nb">月に本 1 冊ほど。</span>{OFFER.active && TRIAL_FIRST && <span className="lp-nb">{TRIAL_FIRST}。</span>}</p>
                   </div>
                 </div>
-                {!PRELAUNCH && <StoreCta className="lp-btn lp-plan-cta" loc="pricing">{TRIAL_NOTE ? TRIAL_CTA_LABEL : CTA_LABEL}</StoreCta>}
+                {!PRELAUNCH && <StoreCta className="lp-btn lp-plan-cta" loc="pricing">{TRIAL_NOTE && !OFFER.active ? TRIAL_CTA_LABEL : PLAN_CTA_LABEL}</StoreCta>}
                 {/* 自動更新・解約の説明は有料のボタンのすぐ下（App Store 3.1.2・2026-10-12） */}
                 <p className="lp-renew lp-wbr">{COPY.pricingNote.map((t) => <span key={t}><Sentences>{t}</Sentences></span>)}</p>
               </div>
@@ -857,8 +862,8 @@ export default function Landing() {
                 <dl className="lp-offer-list">
                   <div><dt>対象</dt><dd className="lp-wbr"><Phrases>期間中にプランを始めた、すべての方（月額・年額とも）</Phrases></dd></div>
                   <div><dt>特典</dt><dd className="lp-wbr"><Phrases>開発者への直接の窓口と、次に作る機能への投票</Phrases></dd></div>
-                  <div><dt>価格</dt><dd>年額プランの <span className="lp-nb">1 年目が {OFFER.price}（税込）</span></dd></div>
-                  <div><dt>ご注意</dt><dd className="lp-wbr"><Phrases>先に月額プランの 7 日間無料を使うと、年額の 1 年目の価格は使えません（App Store の初回特典のため）</Phrases></dd></div>
+                  <div><dt>価格</dt><dd className="lp-wbr"><Phrases>{`年額プランの 1 年目が ${OFFER.price}（税込）。始めるときに 1 年分をまとめてお支払い。`}</Phrases></dd></div>
+                  <div><dt>ご注意</dt><dd className="lp-wbr"><Phrases>同じ Apple ID で初回特典を使っていない方が対象です。先に月額プランの 7 日間無料を使うと、年額の 1 年目の価格は使えません（App Store の初回特典のため）</Phrases></dd></div>
                 </dl>
               </div>
             )}

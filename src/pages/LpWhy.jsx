@@ -25,7 +25,7 @@ function RetentionChart() {
       </svg>
       {/* 文字は SVG に入れない（スマホで縮むと 12 を切る・DESIGN §2）。軸と凡例は HTML で */}
       <p className="lp-why-axis" aria-hidden="true"><span>読んだ日</span><span>1 週間</span><span>1 か月</span></p>
-      <p className="lp-why-legend" aria-hidden="true"><span className="is-talk">会話する（点は相談）</span><span className="is-read">読むだけ</span></p>
+      <p className="lp-why-legend" aria-hidden="true"><span className="is-talk">相談する（点は相談）</span><span className="is-read">読むだけ</span></p>
       <figcaption>{WHY.chartCaption}</figcaption>
     </figure>
   );
@@ -42,10 +42,7 @@ export default function LpWhy() {
         <p className="lp-why-summary">{WHY.summary}</p>
         <p className="lp-why-sources">{WHY.sources}</p>
       </div>
-      <div className="lp-why-cost">
-        <p className="lp-why-cost-title">{WHY.costTitle}</p>
-        <p className="lp-why-cost-body">{WHY.costBody}</p>
-      </div>
+      {/* 「月 ¥1,480 は、本 1 冊分。」の帯は料金の頭へ（ui-critic 2026-11-11） */}
     </div>
   );
 }

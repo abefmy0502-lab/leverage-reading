@@ -228,7 +228,7 @@ describe('「その本の考え方で答える」にそろえる', () => {
   it('説明・会話の流れ・よくある質問に「語り口」「口調」が無い', () => {
     // コメント（// と {/* */}）は見ない＝経緯に前の言葉が残る
     const flow = readFileSync(new URL('./LpFlow.jsx', import.meta.url), 'utf8').replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/^\s*\/\/.*$/gm, '').replace(/\/\/[^'\n]*$/gm, '');
-    expect(flow).toContain("title: 'あなたのメモを根拠に、AI が答える'");
+    expect(flow).toContain("title: 'メモを根拠に、AI が答える'");
     expect(flow).not.toMatch(/語り口|口調/);
     for (const t of [LP_DESCRIPTION, LP_OG_DESCRIPTION, JSON.stringify(buildLpCopy({}).faq)]) {
       expect(t).not.toMatch(/語り口|口調/);
