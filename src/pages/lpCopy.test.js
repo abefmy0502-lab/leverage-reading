@@ -226,7 +226,8 @@ describe('イラストがあるかは、ビルドのときに決める（2026-10
 describe('「口調」にそろえる', () => {
   it('説明・会話の流れの題に「語り口で答え」が無い', () => {
     const flow = readFileSync(new URL('./LpFlow.jsx', import.meta.url), 'utf8');
-    expect(flow).toContain("title: 'その本の口調で、AI が答える'");
+    expect(flow).toContain("title: 'あなたのメモを根拠に、AI が答える'");
+    expect(flow).not.toContain('語り口で答え');
     expect(LP_DESCRIPTION).not.toContain('語り口');
     expect(LP_OG_DESCRIPTION).not.toContain('語り口');
   });

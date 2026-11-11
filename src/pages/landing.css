@@ -838,9 +838,9 @@ body.lp-active {
   /* よくある質問と扱いの説明は中央の 720 */
   .lp-faq .lp-narrow > * { max-width: 720px; }
   .lp-trust-sec .lp-trust { margin-bottom: 0; }
-  /* 会話の流れは 4 枚を横に並べる（スワイプしない） */
-  .lp-gallery { margin: 0; padding: 0; grid-auto-flow: row; grid-auto-columns: auto; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-6); overflow: visible; }
-  .lp-gallery .lp-gallery-shot { --lp-device-w: min(22vw, 260px); }
+  /* 会話の流れは 3 枚を横に並べる */
+  .lp-gallery { margin: 0; padding: 0; grid-auto-flow: row; grid-auto-columns: auto; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-8); overflow: visible; } /* 2026-11-11: 4 枚 → 3 枚 */
+  .lp-gallery .lp-gallery-shot { --lp-device-w: min(26vw, 280px); }
   .lp-media-shot .lp-shot, .lp-media-shot .lp-share-img { margin: 0; }
   .lp-media-shot { text-align: left; }
   .lp-media-shot figcaption { max-width: var(--lp-share-w); }
