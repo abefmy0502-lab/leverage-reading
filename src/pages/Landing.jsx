@@ -43,7 +43,7 @@ import { TRIAL_TOKENS, FREE_OCR_PER_MONTH } from '../lib/tokenAmounts';
 import { normalizeTrialLabel } from '../lib/trialLabel';
 import { readFoundingOffer, noBreak, FOUNDING_NAME } from '../lib/foundingOffer';
 import Shot from './LpShot';
-import { StartTiles, TrustRow } from './LpDiagram';
+import { TrustRow } from './LpDiagram';
 import LpFlow from './LpFlow';
 import LpWaitlist from './LpWaitlist';
 import LpIllust from './LpIllust';
@@ -194,15 +194,6 @@ const TRUST_POINTS = [
   { icon: 'learn', label: 'メモは AI の学習に使われません' },
   { icon: 'send', label: 'AI に送るのは、AI を使うときだけ' },
   { icon: 'export', label: 'いつでも CSV で書き出せます' },
-];
-
-// ④ メモがゼロでも、今日から（0 日目の 4 つの道・SPEC §1-1d）
-// 2026-10-16: 説明の文をやめ、小さな線の絵＋短い名前の 4 枚に（LpDiagram.jsx の StartTiles）。
-const START_POINTS = [
-  { icon: 'memo', label: '読んだ本に一言' },
-  { icon: 'import', label: '記録を取り込む' },
-  { icon: 'photo', label: '本のページを撮る' },
-  { icon: 'stack', label: '積読から始める' },
 ];
 
 // 🧭 ページ内の案内（2026-10-13 オーナー「ハンバーガーメニュー等を適宜」）。広い画面はヘッダーに文字のリンク、
@@ -754,27 +745,6 @@ export default function Landing() {
               </ol>
               {/* プランの機能であることは、バッジにせず 1 行で（料金の「すべての AI 機能」と同じ事実・優良誤認を避ける） */}
               <p className="lp-adv-note">月額・年額プランで使えます。</p>
-            </div>
-          </div>
-        </section>
-
-        {/* ============ ④ メモがゼロでも、今日から ============ */}
-        <section className="lp-sec lp-start-sec" aria-labelledby="lp-start" data-lp-sec="start">
-          <div className="lp-wrap">
-            <div className="lp-narrow lp-sec-head">
-              <h2 className="lp-h2" id="lp-start">
-                <span>メモがまだなくても、</span><span>始められます。</span>
-              </h2>
-            </div>
-            {/* 広い画面は 絵（左）と 4 つの始め方＋入口（右）の 2 列（2026-10-12） */}
-            <div className="lp-start-wrap">
-              <LpArt name="illust-start" ratio="4:3" sizes="(min-width: 768px) 600px, 92vw" className="lp-art-sec lp-art-wide" alt="机で本のページをスマホで撮る人。まわりに、付箋に一言書く手・本棚の本がスマホに移る様子・本のページを撮る枠の 3 つの丸い絵が浮かんでいる" />
-              <div>
-                <StartTiles items={START_POINTS} />
-                <div className="lp-cta-block">
-                  <Entry loc="start" wl={wl} />
-                </div>
-              </div>
             </div>
           </div>
         </section>
