@@ -12,6 +12,8 @@ describe('displayTitle', () => {
     expect(displayTitle('LIFE SHIFT')).toBe('LIFE SHIFT');
     expect(displayTitle('7=3の法則')).toBe('7=3の法則');
     expect(displayTitle('A：B')).toBe('A：B');
+    expect(displayTitle('Re：ゼロから始める異世界生活')).toBe('Re：ゼロから始める異世界生活');
+    expect(displayTitle('Dr.：外科医の記録')).toBe('Dr.：外科医の記録');
     expect(displayTitle('')).toBe('');
   });
 });
