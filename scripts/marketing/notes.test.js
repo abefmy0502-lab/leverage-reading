@@ -9,8 +9,10 @@ const src = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 
 describe('画面は見本だと示す（2026-10-11・景品表示法の優良誤認）', () => {
   it('動画の注記は LP と同じ文', () => {
-    expect(SAMPLE_NOTE).toBe(LP_SAMPLE_NOTE);
+    // 2026-11-11: LP はオーナーの実際の画面を貼ったので「画面は実際のものです。」。動画はお試しモードで録るので「見本」のまま＝同じ文ではなくなった。
     expect(SAMPLE_NOTE.startsWith('画面は見本です。')).toBe(true);
+    expect(LP_SAMPLE_NOTE.startsWith('画面は実際のものです。')).toBe(true);
+    expect(SAMPLE_NOTE).toContain('答えは、あなたのメモで変わります');
   });
   it('録画の舞台に焼き込み、仕上げは注記の無い録画を断る', () => {
     expect(src('./record-demo.mjs')).toMatch(/<p id="sample">\$\{escapeHtml\(SAMPLE_NOTE\)\}<\/p>/);
