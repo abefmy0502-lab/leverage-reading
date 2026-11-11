@@ -708,7 +708,7 @@ export default function Landing() {
               <p className="lp-lead lp-lead-lines lp-pricing-lead">
                 {/* 2026-11-11 オーナー「プランへ がわかりにくい」: 何が無料で、何が有料かを言い切る */}
                 <span>本とメモの記録は、ずっと無料。</span>
-                <span>AI への相談をたくさん使うなら、<span className="lp-nb">月額か年額のプランへ。</span></span>
+                <span>AI への相談をたくさん使うなら、<span className="lp-nb">月額・年額プラン</span>。</span>
               </p>
             </div>
 
