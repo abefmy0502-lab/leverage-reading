@@ -45,6 +45,7 @@ import { readFoundingOffer, noBreak, FOUNDING_NAME } from '../lib/foundingOffer'
 import Shot from './LpShot';
 import { AskModes } from './LpDiagram';
 import LpFlow from './LpFlow';
+import LpTalkFlow from './LpTalkFlow';
 import LpWaitlist from './LpWaitlist';
 import LpIllust from './LpIllust';
 import LpWhy from './LpWhy';
@@ -654,7 +655,8 @@ export default function Landing() {
             <div className="lp-narrow lp-sec-head">
               <h2 className="lp-h2" id="lp-grow"><span>使い方は、</span><span>3 つだけ。</span></h2>
             </div>
-            <LpFlow onEvent={lpTrack} note={heroVariant === 'talk'} />
+            {/* 2026-11-11 オーナー「スマホ画面を再現しなくてもいい」: 画面写真 3 枚（LpFlow）の代わりに、実際の相談を会話として組む */}
+            {heroVariant === 'talk' ? <LpTalkFlow /> : <LpFlow onEvent={lpTrack} note={false} />}
           </div>
         </section>
 

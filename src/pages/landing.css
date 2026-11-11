@@ -1132,3 +1132,28 @@ body.lp-active {
 .lp-root .lp-textlink-quiet { color: var(--text-2) !important; font-weight: 400; }
 /* 料金の頭の帯（なぜ残る から移した） */
 .lp-pricing-cost { margin: var(--space-6) 0 0; }
+
+/* ============ 🗣 使い方＝実際の相談を会話として（LpTalkFlow.jsx・2026-11-11） ============ */
+.lp-tf { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-12); max-width: 36em; }
+.lp-tf-step { display: grid; gap: var(--space-4); }
+.lp-root .lp-tf-title { display: flex; align-items: center; margin: 0; font-size: var(--text-body); font-weight: 600; color: var(--text); }
+.lp-root .lp-tf-ask { display: flex; justify-content: flex-end; margin: 0; }
+.lp-root .lp-tf-ask > span { display: inline-block; max-width: 85%; padding: var(--space-3) var(--space-4); border-radius: var(--radius); background: var(--fill); color: var(--text); font-size: var(--text-body); line-height: 1.5; font-weight: 600; word-break: normal; line-break: strict; text-wrap: pretty; }
+.lp-tf-ask-meta { display: block; margin-bottom: var(--space-1); color: var(--text-2); font-size: var(--text-caption); font-weight: 400; }
+.lp-tf-answer { display: grid; gap: var(--space-3); }
+.lp-root .lp-tf-from { display: flex; align-items: center; gap: var(--space-2); margin: 0; color: var(--text-2); font-size: var(--text-caption); font-weight: 600; }
+.lp-tf-avatar { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); }
+.lp-root .lp-tf-text { margin: 0; font-family: var(--font-read); font-size: var(--text-read); line-height: 1.7; color: var(--text); word-break: normal; line-break: strict; text-wrap: pretty; }
+.lp-tf-evidence { margin: 0; padding: var(--space-2) 0 var(--space-2) var(--space-4); border-left: 2px solid var(--accent); }
+.lp-root .lp-tf-evidence-meta { margin: 0 0 var(--space-1); color: var(--text-2); font-size: var(--text-caption); }
+.lp-root .lp-tf-evidence-text { margin: 0; font-family: var(--font-read); font-size: var(--text-sub); line-height: 1.6; color: var(--text); word-break: normal; line-break: strict; }
+.lp-tf-box { padding: var(--space-4); border-radius: var(--radius); background: var(--surface); border: 1px solid var(--separator); }
+.lp-root .lp-tf-box-label { display: flex; align-items: center; gap: var(--space-1); margin: 0 0 var(--space-1); color: var(--text-2); font-size: var(--text-caption); font-weight: 600; }
+.lp-root .lp-tf-box-text { margin: 0; font-size: var(--text-body); line-height: 1.6; color: var(--text); word-break: normal; line-break: strict; text-wrap: pretty; }
+.lp-root .lp-tf-action { font-family: var(--font-read); font-size: var(--text-read); line-height: 1.7; }
+/* 「行動に追加」は実物の形を見せるだけ（押せない＝aria-hidden・塗りは本物のボタンと同じ） */
+.lp-root .lp-tf-fake-btn { display: flex; align-items: center; justify-content: center; gap: var(--space-2); margin: var(--space-4) 0 0; min-height: var(--btn-h, 48px); border-radius: var(--radius); background: var(--accent); color: var(--accent-ink); font-size: var(--text-body); font-weight: 600; }
+@media (min-width: 768px) {
+  .lp-tf { max-width: none; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-8); align-items: start; }
+  .lp-tf-step { padding-top: var(--space-4); border-top: 1px solid var(--separator); }
+}
