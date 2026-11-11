@@ -14,7 +14,7 @@ const S = { fill: 'none', strokeLinecap: 'round', strokeLinejoin: 'round', vecto
 function RetentionChart() {
   return (
     <figure className="lp-why-chart">
-      <svg viewBox="0 0 360 170" role="img" aria-label={WHY.chartLabel}>
+      <svg viewBox="0 0 360 150" role="img" aria-label={WHY.chartLabel}>
         {/* 軸 */}
         <path d="M28 18 V 140 H 344" stroke="var(--separator)" strokeWidth="1" {...S} />
         {/* 読むだけ: 下がったまま */}
@@ -25,16 +25,10 @@ function RetentionChart() {
         <circle cx="128" cy="36" r="4.5" fill="var(--accent)" />
         <circle cx="232" cy="32" r="4.5" fill="var(--accent)" />
         <circle cx="28" cy="30" r="4.5" fill="var(--accent)" />
-        {/* 文字（幅 360 の viewBox に 12＝スマホで縮んでも 12px 相当） */}
-        <text x="28" y="156" fontSize="12" fill="var(--text-2)" textAnchor="start">読んだ日</text>
-        <text x="186" y="156" fontSize="12" fill="var(--text-2)" textAnchor="middle">1 週間</text>
-        <text x="344" y="156" fontSize="12" fill="var(--text-2)" textAnchor="end">1 か月</text>
-        <text x="40" y="26" fontSize="12" fill="var(--text-2)">一行メモ</text>
-        <text x="138" y="30" fontSize="12" fill="var(--accent)">相談</text>
-        <text x="242" y="26" fontSize="12" fill="var(--accent)">相談</text>
-        <text x="344" y="126" fontSize="12" fill="var(--text-3)" textAnchor="end">読むだけ</text>
-        <text x="344" y="74" fontSize="12" fill="var(--accent)" textAnchor="end">会話する</text>
       </svg>
+      {/* 文字は SVG に入れない（スマホで縮むと 12 を切る・DESIGN §2）。軸と凡例は HTML で */}
+      <p className="lp-why-axis" aria-hidden="true"><span>読んだ日</span><span>1 週間</span><span>1 か月</span></p>
+      <p className="lp-why-legend" aria-hidden="true"><span className="is-talk">会話する（点は相談）</span><span className="is-read">読むだけ</span></p>
       <figcaption>{WHY.chartCaption}</figcaption>
     </figure>
   );

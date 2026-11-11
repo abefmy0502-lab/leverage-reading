@@ -43,7 +43,7 @@ import { TRIAL_TOKENS, FREE_OCR_PER_MONTH } from '../lib/tokenAmounts';
 import { normalizeTrialLabel } from '../lib/trialLabel';
 import { readFoundingOffer, noBreak, FOUNDING_NAME } from '../lib/foundingOffer';
 import Shot from './LpShot';
-import { TrustRow, AskModes } from './LpDiagram';
+import { AskModes } from './LpDiagram';
 import LpFlow from './LpFlow';
 import LpWaitlist from './LpWaitlist';
 import LpIllust from './LpIllust';
@@ -190,13 +190,6 @@ const ADVISOR_STEPS = [
 
 // ③ の下の安心の 4 つ。学習＝各社の API 規約／同意＝ensureAiConsent（はじめて AI を使う操作のとき）／
 // 書き出し＝設定の CSV（lib/exportData.js）・退会のお申し込みで消去／写真で共有＝端末の中で描く（サーバーに送らない）。
-// 2026-10-16 オーナー「無駄な文字が多い」: 1 行ずつの短い言い切りに（事実だけ・詳しくは FAQ とプライバシーポリシー）。
-const TRUST_POINTS = [
-  { icon: 'learn', label: 'メモは AI の学習に使われません' },
-  { icon: 'send', label: 'AI に送るのは、AI を使うときだけ' },
-  { icon: 'export', label: 'いつでも CSV で書き出せます' },
-];
-
 // 🧭 ページ内の案内（2026-10-13 オーナー「ハンバーガーメニュー等を適宜」）。広い画面はヘッダーに文字のリンク、
 //   スマホは 3 本線のボタン（ハンバーガーメニュー）で開く。行き先はページの中の見出し。
 const NAV_ITEMS = [
@@ -786,16 +779,6 @@ export default function Landing() {
             </div>
           </section>
         )}
-
-        {/* ============ 書いたメモの扱い（お金の話の前に不安を消す・2026-10-12） ============ */}
-        <section className="lp-sec lp-trust-sec" aria-labelledby="lp-trust" data-lp-sec="trust">
-          <div className="lp-wrap">
-            {/* 安心の 3 つ（どれも実装と規約で確かめた事実だけ・2026-10-12 に料金のあと・よくある質問の頭へ） */}
-            <h2 className="lp-h2 lp-trust-title" id="lp-trust">書いたメモの扱い</h2>
-            {/* アイコンつきのカードはやめ、ふつうの箇条書きに（2026-10-13 オーナー「AI っぽさを徹底的に排除」） */}
-            <TrustRow items={TRUST_POINTS} />
-          </div>
-        </section>
 
         {/* ============ ⑤ 料金（無料プランを前に） ============ */}
         <section className="lp-sec lp-pricing" aria-labelledby="lp-pricing" data-lp-sec="pricing">
