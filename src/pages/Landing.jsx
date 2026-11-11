@@ -43,14 +43,14 @@ import { TRIAL_TOKENS, FREE_OCR_PER_MONTH } from '../lib/tokenAmounts';
 import { normalizeTrialLabel } from '../lib/trialLabel';
 import { readFoundingOffer, noBreak, FOUNDING_NAME } from '../lib/foundingOffer';
 import Shot from './LpShot';
-import { TrustRow } from './LpDiagram';
+import { TrustRow, AskModes } from './LpDiagram';
 import LpFlow from './LpFlow';
 import LpWaitlist from './LpWaitlist';
 import LpIllust from './LpIllust';
 import LpWhy from './LpWhy';
 import LpArt, { hasArt } from './LpArt';
 import Phrases, { Sentences } from './LpPhrases';
-import { buildLpCopy, storeHrefOf, HERO_TALK, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE } from './lpCopy';
+import { buildLpCopy, storeHrefOf, HERO_TALK, ASK, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE } from './lpCopy';
 import qrcode from 'qrcode-generator';
 import { lpTrack, lpVariant, storeUrlFor, isWidePointer } from '../lib/lpTrack';
 import { inject as injectVercelAnalytics } from '@vercel/analytics';
@@ -650,6 +650,17 @@ export default function Landing() {
               <HeroNote />
             </figure>
             )}
+          </div>
+        </section>
+
+        {/* ============ 著者には聞けない。本には、聞ける。（2026-11-11 オーナー「複数の著者の考えを比べて、混ぜて相談できる みたいな」） ============ */}
+        <section className="lp-sec lp-ask-sec" aria-labelledby="lp-ask" data-lp-sec="ask">
+          <div className="lp-wrap">
+            <div className="lp-narrow lp-sec-head">
+              <h2 className="lp-h2" id="lp-ask">{ASK.h2.map((t) => <span key={t}>{t}</span>)}</h2>
+              <p className="lp-lead lp-sec-lead">{ASK.lead}</p>
+            </div>
+            <AskModes items={ASK.modes} />
           </div>
         </section>
 

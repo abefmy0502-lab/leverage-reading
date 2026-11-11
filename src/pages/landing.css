@@ -1117,3 +1117,14 @@ body.lp-active {
   .lp-why-cost { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: var(--space-8); align-items: center; }
   .lp-root .lp-why-cost-body { margin-top: 0; }
 }
+
+/* ============ 📚 著者には聞けない。本には、聞ける。（AskModes・2026-11-11） ============ */
+.lp-ask { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); }
+.lp-ask-card { border: 1px solid var(--separator); text-align: center; }
+.lp-ask-card:last-child { background: var(--accent-soft); border-color: transparent; }
+.lp-ask-card .lp-dia-svg { color: var(--text); }
+.lp-root .lp-ask-title { margin: var(--space-3) 0 0; font-size: var(--text-body); font-weight: 600; color: var(--text); line-height: 1.4; }
+.lp-root .lp-ask-body { margin: var(--space-1) 0 0; font-size: var(--text-sub); color: var(--text-2); line-height: 1.5; word-break: keep-all; overflow-wrap: anywhere; text-wrap: pretty; }
+@media (min-width: 768px) {
+  .lp-ask { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-6); }
+}

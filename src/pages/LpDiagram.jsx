@@ -87,6 +87,70 @@ export function DialogueLoop() {
   );
 }
 
+// 📚 3 つの聞き方（2026-11-11 オーナー「著者と会話するのは難しいが、Orime なら…複数の著者の考えを比べて、混ぜて相談できる」）。
+//   1 冊に聞く（本 1 冊 ⇄ 自分）／何冊かを比べる（本 2 冊から自分へ 2 本の線）／本棚ぜんぶに聞く（並んだ本の列から自分へ 1 本の太い流れ）。
+//   「著者と話せる」とは書かない（法務）＝絵も人ではなく本。
+const ARROW = (id) => (
+  <defs>
+    <marker id={id} viewBox="0 0 10 10" refX="6" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M1 1 L 7 5 L 1 9" fill="none" stroke="var(--accent)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </marker>
+  </defs>
+);
+const A = { fill: 'none', stroke: 'var(--accent)', strokeWidth: 1.75, strokeLinecap: 'round', vectorEffect: 'non-scaling-stroke' };
+export function AskModes({ items }) {
+  const svgs = [
+    (
+      <svg viewBox="0 0 240 120" aria-hidden="true" className="lp-dia-svg" key="one">
+        {ARROW('lp-ask-a1')}
+        <Book x={28} y={86} w={68} />
+        <Person cx={192} y={92} />
+        <path d="M104 50 C 128 26, 160 26, 178 38" {...A} markerEnd="url(#lp-ask-a1)" />
+        <path d="M176 96 C 156 112, 124 112, 104 94" {...A} markerEnd="url(#lp-ask-a1)" />
+      </svg>
+    ),
+    (
+      <svg viewBox="0 0 240 120" aria-hidden="true" className="lp-dia-svg" key="some">
+        {ARROW('lp-ask-a2')}
+        <Book x={14} y={56} w={54} />
+        <Book x={14} y={112} w={54} />
+        <Person cx={192} y={92} />
+        <path d="M76 38 C 120 30, 150 44, 176 58" {...A} markerEnd="url(#lp-ask-a2)" />
+        <path d="M76 100 C 120 108, 150 92, 176 72" {...A} markerEnd="url(#lp-ask-a2)" />
+        {/* 比べる印: 2 本の線が合わさる所 */}
+        <circle cx="150" cy="65" r="4" fill="var(--accent)" />
+      </svg>
+    ),
+    (
+      <svg viewBox="0 0 240 120" aria-hidden="true" className="lp-dia-svg" key="all">
+        {ARROW('lp-ask-a3')}
+        {/* 本棚: 立てた本の列 */}
+        <g fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke">
+          <path d="M14 100 H 100" />
+          <rect x="18" y="52" width="12" height="48" rx="1.5" />
+          <rect x="34" y="40" width="14" height="60" rx="1.5" />
+          <rect x="52" y="48" width="11" height="52" rx="1.5" />
+          <rect x="67" y="36" width="13" height="64" rx="1.5" />
+          <rect x="84" y="46" width="12" height="54" rx="1.5" />
+        </g>
+        <Person cx={192} y={92} />
+        <path d="M104 60 C 130 46, 154 52, 176 64" {...A} strokeWidth="2.5" markerEnd="url(#lp-ask-a3)" />
+      </svg>
+    ),
+  ];
+  return (
+    <ol className="lp-ask">
+      {items.map((it, i) => (
+        <li key={it.title} className="lp-dia-card lp-ask-card">
+          {svgs[i]}
+          <p className="lp-ask-title">{it.title}</p>
+          <p className="lp-ask-body">{it.body}</p>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 // 始め方の 4 つの小さな絵（同じ線の太さ・同じ大きさの枠）
 const START_ICONS = {
   memo: (
