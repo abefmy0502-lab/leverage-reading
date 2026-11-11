@@ -43,14 +43,14 @@ import { TRIAL_TOKENS, FREE_OCR_PER_MONTH } from '../lib/tokenAmounts';
 import { normalizeTrialLabel } from '../lib/trialLabel';
 import { readFoundingOffer, noBreak, FOUNDING_NAME } from '../lib/foundingOffer';
 import Shot from './LpShot';
-import { DialogueDiagram, StartTiles, TrustRow } from './LpDiagram';
+import { StartTiles, TrustRow } from './LpDiagram';
 import LpFlow from './LpFlow';
 import LpHeroTalk from './LpHeroTalk';
 import LpWaitlist from './LpWaitlist';
 import LpIllust from './LpIllust';
 import LpArt, { hasArt } from './LpArt';
 import Phrases, { Sentences } from './LpPhrases';
-import { buildLpCopy, storeHrefOf, HERO_TALK, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE, PROBLEM_LINES, DIAGRAM_LINE } from './lpCopy';
+import { buildLpCopy, storeHrefOf, HERO_TALK, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE } from './lpCopy';
 import qrcode from 'qrcode-generator';
 import { lpTrack, lpVariant, storeUrlFor, isWidePointer } from '../lib/lpTrack';
 import { inject as injectVercelAnalytics } from '@vercel/analytics';
@@ -177,22 +177,6 @@ const PILLARS = [
     sub: 'バーコードで登録・フォルダ・★の評価・ほかのアプリから取り込み',
     alt: 'すべての本の画面。10 冊の表紙の一覧と、読書中 5・読了 2・積読 1・読みたい 2 の絞り込み、フォルダ（マインド・営業・考え方）のチップ',
   },
-];
-
-// 本と会話すると、変わること（機能の名前ではなく、使う人に起きる変化・どれも実装のとおり）。
-//   1 根拠つきの答え（evidenceCheck・本とページ）/ 2 聞き返してから答える（turnHint）/ 3 見方を変えるチップ（LENS_CHIPS）/ 4 行動に追加・期限の通知
-const CHANGES = [
-  { title: '読んだ本の中身を、必要なときに取り出せる', body: '残したメモから、本とページを添えて答えます。' },
-  { title: '心に残った言葉が、自分の悩みとつながる', body: '結論を急がず、まず状況を聞いてから答えます。' },
-  { title: '一冊から、もう一歩深く考えられる', body: '「ほかの本の視点で」など、見方を変えて聞けます。' },
-  { title: '読んで得たことが、明日の行動になる', body: '相談で決めた一歩は、行動リストに入ります。' },
-];
-
-// ほかのアプリとの違い（相手を否定しない。「よくある形」はどれも事実として言える一般的な形だけ）
-const DIFFS = [
-  { kind: '読書記録アプリ', usual: '読んだ本と感想が、記録として残る', orime: '残したメモが、迷ったときの答えのもとになる' },
-  { kind: '本の要約アプリ', usual: '誰かがまとめた要点を読む', orime: '自分が心に残した言葉から考える' },
-  { kind: 'AI チャット', usual: '幅広い知識から答える', orime: 'あなたのメモと本をもとに、ページを添えて答える' },
 ];
 
 // AI 選書の 4 つの段（2026-10-17 オーナー「ここまで丁寧に選書してくれる機能はすごい・別枠でもう少し丁寧に」）。
@@ -676,41 +660,15 @@ export default function Landing() {
           </div>
         </section>
 
-        {/* ============ ② 受け身から会話へ ============ */}
-        <section className="lp-sec lp-flow-sec" aria-labelledby="lp-flow" data-lp-sec="flow">
+        {/* ============ ② 会話の流れ（2026-11-11 オーナー「進めてください」: 一方通行の図・問題の 2 行・「変わること」・「違い」の節をやめ、
+            ヒーロー → 会話の流れ → できること → 料金 → よくある質問 に絞った） ============ */}
+        <section className="lp-sec lp-flow-sec" aria-labelledby="lp-grow" data-lp-sec="flow">
           <div className="lp-wrap">
-            <div className="lp-narrow lp-sec-head">
-              <h2 className="lp-h2" id="lp-flow">
-                <span>一方通行の読書から、</span><span>会話する読書へ。</span>
-              </h2>
-              {/* 問題の自覚（2026-10-22 LP の見直し）: 読む人の口から出る 2 つの場面。数字は使わない */}
-              <p className="lp-lead lp-lead-lines lp-problem">
-                {PROBLEM_LINES.map((t) => <span key={t}>{t}</span>)}
-              </p>
-            </div>
-            {/* 2026-10-16: 文の代わりに図（これまで＝本 → 自分で終わり／Orime＝本 ⇄ 自分）。その下に残す言葉 1 行だけ。 */}
-            <DialogueDiagram />
-            <p className="lp-ba-line lp-wbr"><Phrases clause>{DIAGRAM_LINE}</Phrases></p>
             {/* 一番の価値（CLAUDE.md）を、会話の流れ 4 枚の見出しに（2026-10-12 ui-critic） */}
-            <h2 className="lp-h2 lp-flow-head" id="lp-grow"><span>メモが増えるほど、</span><span>答えが自分向けに。</span></h2>
+            <div className="lp-narrow lp-sec-head">
+              <h2 className="lp-h2" id="lp-grow"><span>メモが増えるほど、</span><span>答えが自分向けに。</span></h2>
+            </div>
             <LpFlow onEvent={lpTrack} note={false} />
-          </div>
-        </section>
-
-        {/* ============ 本と会話すると、変わること（機能ではなく変化・2026-10-17 指示書 Section 3） ============ */}
-        <section className="lp-sec lp-change-sec" aria-labelledby="lp-change" data-lp-sec="change">
-          <div className="lp-wrap">
-            <h2 className="lp-h2" id="lp-change"><span>本と会話すると、</span><span>変わること</span></h2>
-            {/* 番号（01〜04）は 2026-10-31 にやめた: 順番のない 4 つに番号を振るのは生成された画面の癖（frontend-design の原則＝
-                番号は本当に順番があるものだけ）。細い線で区切るだけにする */}
-            <ol className="lp-change">
-              {CHANGES.map((x) => (
-                <li key={x.title}>
-                  <h3 className="lp-change-title lp-wbr"><Phrases clause>{x.title}</Phrases></h3>
-                  <p className="lp-wbr"><Phrases>{x.body}</Phrases></p>
-                </li>
-              ))}
-            </ol>
           </div>
         </section>
 
@@ -767,28 +725,6 @@ export default function Landing() {
             <p className="lp-gallery-dots lp-pillars-dots" aria-hidden="true">
               {PILLARS.map((x, i) => <span key={x.id} className={i === pillarAt ? 'is-on' : undefined} />)}
             </p>
-          </div>
-        </section>
-
-        {/* ============ ほかのアプリとの違い（否定しない・できることを並べる・2026-10-17 指示書 Section 5） ============ */}
-        <section className="lp-sec lp-diff-sec" aria-labelledby="lp-diff" data-lp-sec="diff">
-          <div className="lp-wrap">
-            <h2 className="lp-h2" id="lp-diff"><span>ほかの読書アプリと、</span><span>どこが違う？</span></h2>
-            <div className="lp-diff" role="table" aria-label="ほかのアプリと Orime の違い">
-              <div className="lp-diff-row lp-diff-head" role="row">
-                <span role="columnheader" />
-                <span role="columnheader">よくある形</span>
-                <span role="columnheader">Orime</span>
-              </div>
-              {DIFFS.map((x) => (
-                <div className="lp-diff-row" role="row" key={x.kind}>
-                  <span className="lp-diff-kind" role="rowheader">{x.kind}</span>
-                  {/* 「よくある形」の小ラベルは 2026-10-31 にやめた（行ごとに繰り返す小見出しは癖・灰色の文と栗色の線の行で区別できる）。Orime の印は情報なので残す */}
-                  <span className="lp-diff-usual lp-wbr" role="cell"><span className="lp-sr">よくある形</span><Phrases>{x.usual}</Phrases></span>
-                  <span className="lp-diff-orime lp-wbr" role="cell"><span className="lp-diff-tag">Orime</span><Phrases>{x.orime}</Phrases></span>
-                </div>
-              ))}
-            </div>
           </div>
         </section>
 

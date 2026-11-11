@@ -91,7 +91,11 @@ export default async function handler(req, res) {
 
   try {
     const supabase = createClient(url, key, { auth: { persistSession: false } });
-    await supabase.from('lp_events').insert(row);
+    const { error } = await supabase.from('lp_events').insert(row);
+    // variant の CHECK が古い（新しい形の名前をまだ流していない）ときは、形だけ落として記録を残す（2026-11-11）
+    if (error && row.variant && /variant_check/.test(String(error.message || ''))) {
+      await supabase.from('lp_events').insert({ ...row, variant: null });
+    }
   } catch { /* 記録できなくても訪問者には影響させない */ }
   return res.status(204).end();
 }
