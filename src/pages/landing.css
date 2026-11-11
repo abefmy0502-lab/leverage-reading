@@ -659,7 +659,7 @@ body.lp-active {
 /* 創業メンバー価格の条件（金額のすぐ下・本文の色で読ませる） */
 .lp-plan-cond { word-break: auto-phrase; margin-top: var(--space-1) !important; color: var(--text); font-size: var(--text-sub); line-height: 1.5; }
 /* プランに含まれるもの（カードの中・名前の下）。本文より一段小さく */
-.lp-included { list-style: none; margin: var(--space-3) 0 0; padding: 0; display: grid; gap: var(--space-2); font-size: var(--text-sub); line-height: 1.5; }
+.lp-included { list-style: none; margin: var(--space-4) 0 0; padding: 0; display: grid; gap: var(--space-3); font-size: var(--text-sub); line-height: 1.6; max-width: 26em; }
 .lp-included li { display: flex; gap: var(--space-2); align-items: flex-start; word-break: auto-phrase; text-wrap: pretty; }
 /* 含まれるもののチェックは状態（完了）ではないので --success にしない */
 .lp-included svg { flex-shrink: 0; margin-top: var(--space-1); color: var(--text-2); }
@@ -1131,4 +1131,4 @@ body.lp-active {
 /* ヒーローの控えめな文字リンク（創業メンバー価格・ui-critic 2026-11-11: 栗色の太字はボタンと 1 つのリンクだけ） */
 .lp-root .lp-textlink-quiet { color: var(--text-2) !important; font-weight: 400; }
 /* 料金の頭の帯（なぜ残る から移した） */
-.lp-pricing-cost { margin: 0 0 var(--space-8); }
+.lp-pricing-cost { margin: var(--space-6) 0 0; }

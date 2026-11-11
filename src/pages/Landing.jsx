@@ -792,13 +792,10 @@ export default function Landing() {
               {/* 2026-10-17 オーナー「1480 円の説明が雑」: 無料で続けられることを先に、プランは「もっと相談したくなったら」 */}
             {/* 「月 ¥1,480 は、本 1 冊分。」の帯は「なぜ残る」の節から料金の頭へ（ui-critic 2026-11-11: 無料プランしか知らない位置で値段を出さない） */}
               <p className="lp-lead lp-lead-lines lp-pricing-lead">
-                <span>メモも記録も、ずっと無料。</span>
-                <span>AI にもっと相談したくなったら、プランへ。</span>
+                {/* 2026-11-11 オーナー「プランへ がわかりにくい」: 何が無料で、何が有料かを言い切る */}
+                <span>本とメモの記録は、ずっと無料。</span>
+                <span>AI への相談をたくさん使うなら、<span className="lp-nb">月額・年額プラン</span>。</span>
               </p>
-            </div>
-            <div className="lp-why-cost lp-pricing-cost">
-              <p className="lp-why-cost-title">{WHY.costTitle}</p>
-              <p className="lp-why-cost-body">{WHY.costBody}</p>
             </div>
 
             {/* 2 枚（無料プラン（ずっと無料）と、プラン）。広い画面では横に並べる */}
@@ -809,7 +806,7 @@ export default function Landing() {
                 <ul className="lp-included" aria-label="無料プランに含まれるもの">
                   {/* li は flex（印と文を横に並べる）なので、文は 1 つの span に包む */}
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span className="lp-wbr"><Phrases>本とメモは何件でも。AI 以外の機能はすべて使えます。</Phrases></span></li>
-                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>AI の答えは<span className="lp-nb">毎月 {FREE_CONSULTS}</span><span className="lp-nb">（はじめの 2 か月は {FIRST_CONSULTS}）</span></span></li>
+                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>AI の答えは<span className="lp-nb">毎月 {FREE_CONSULTS}</span><br /><span className="lp-nb" style={{ color: "var(--text-2)" }}>（はじめの 2 か月は {FIRST_CONSULTS}）</span></span></li>
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>写真から書き起こし <span className="lp-nb">毎月 {FREE_OCR_PER_MONTH} 回</span></span></li>
                 </ul>
                 {!PRELAUNCH && <StoreCta className="lp-btn lp-btn-ghost lp-plan-cta" loc="pricing_free">{CTA_LABEL}</StoreCta>}
@@ -853,6 +850,11 @@ export default function Landing() {
                 {/* 自動更新・解約の説明は有料のボタンのすぐ下（App Store 3.1.2・2026-10-12） */}
                 <p className="lp-renew lp-wbr">{COPY.pricingNote.map((t) => <span key={t}><Sentences>{t}</Sentences></span>)}</p>
               </div>
+            </div>
+            {/* 「月 ¥1,480 は、本 1 冊分。」（2 枚のカードのあと＝無料と有料の違いを見てから値段の意味・2026-11-11） */}
+            <div className="lp-why-cost lp-pricing-cost">
+              <p className="lp-why-cost-title">{WHY.costTitle}</p>
+              <p className="lp-why-cost-body">{WHY.costBody}</p>
             </div>
             {/* 創業メンバー価格（期間中だけ・料金の中の帯 1 枚）。2026-10-17 ui-critic: 2 枚のカードの後ろ＝条件の確認として。「先着」「通常価格」と書かない・差額を書かない */}
             {OFFER.active && (
