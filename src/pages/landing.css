@@ -1075,48 +1075,17 @@ body.lp-active {
 /* h1 は 2 行に（「読んだ本と、」「会話しよう。」・1 行に詰めると主役が弱い） */
 .lp-root .lp-h1 > span { display: block; }
 
-/* ============ 🗣 会話そのもののヒーロー（?hero=talk・2026-11-11） ============ */
-/* 相談の吹き出し → 答え（あなたの本棚・明朝）→ 根拠のメモ → 聞き返し。アプリの相談の画面と同じ形を、読める大きさで。 */
-.lp-talk-wrap { text-align: left; }
-.lp-talk { display: flex; flex-direction: column; gap: var(--space-4); max-width: 30em; margin: 0 auto; }
-.lp-root .lp-talk-ask { display: flex; justify-content: flex-end; margin: 0; }
-.lp-root .lp-talk-ask > span { display: inline-block; max-width: 85%; padding: var(--space-3) var(--space-4); border-radius: var(--radius); background: var(--fill); color: var(--text); font-size: var(--text-body); line-height: 1.5; font-weight: 600; word-break: keep-all; overflow-wrap: anywhere; }
-.lp-talk-answer { display: flex; flex-direction: column; gap: var(--space-3); }
-.lp-root .lp-talk-from { display: flex; align-items: center; gap: var(--space-2); margin: 0; color: var(--text-2); font-size: var(--text-caption); font-weight: 600; }
-.lp-talk-avatar { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); border: 1px solid var(--separator); }
-.lp-root .lp-talk-text { margin: 0; font-family: var(--font-read); font-size: var(--text-read); line-height: 1.7; color: var(--text); word-break: normal; line-break: strict; text-wrap: pretty; }
-.lp-talk-evidence { margin: 0; padding: var(--space-2) 0 var(--space-2) var(--space-4); border-left: 2px solid var(--accent); }
-.lp-root .lp-talk-evidence-meta { margin: 0 0 var(--space-1); color: var(--text-2); font-size: var(--text-caption); }
-.lp-root .lp-talk-evidence-text { margin: 0; font-family: var(--font-read); font-size: var(--text-sub); line-height: 1.6; color: var(--text); word-break: normal; line-break: strict; }
-.lp-talk-question { padding: var(--space-3) var(--space-4); border-radius: var(--radius); background: var(--surface); border: 1px solid var(--separator); }
-.lp-root .lp-talk-question-label { margin: 0 0 var(--space-1); color: var(--text-2); font-size: var(--text-caption); font-weight: 600; }
-.lp-root .lp-talk-question-text { margin: 0; font-size: var(--text-body); line-height: 1.5; color: var(--text); word-break: normal; line-break: strict; text-wrap: pretty; }
-.lp-root .lp-talk-wrap .lp-hero-note { width: auto; max-width: 30em; margin: var(--space-4) auto 0; text-align: left; }
-@media (min-width: 768px) {
-  .lp-hero-grid > .lp-talk-wrap { margin: 0; }
-  .lp-talk, .lp-root .lp-talk-wrap .lp-hero-note { margin-left: 0; }
-}
-/* 動き: 開いたときに上から順に（1 回だけ・動きを減らす設定では最初から全部） */
-.lp-motion .lp-talk > * { opacity: 0; transform: translateY(var(--space-2)); transition: opacity var(--duration-slow) ease, transform var(--duration-slow) var(--ease-out-expo); }
-.lp-motion .lp-talk.is-in > .lp-talk-ask { opacity: 1; transform: none; transition-delay: 0.2s; }
-.lp-motion .lp-talk.is-in > .lp-talk-answer { opacity: 1; transform: none; transition-delay: 0.9s; }
-@media (prefers-reduced-motion: reduce) {
-  .lp-motion .lp-talk > * { opacity: 1 !important; transform: none !important; transition: none !important; }
-}
-/* イラストの置き場（2026-11-11）: スマホは 見出し → 絵 → 補足 → ボタン → 会話（文の列を格子に溶かして順番を入れ替える）。
-   広い画面は 左に文、右の列の上に絵・その下に会話 */
+/* 🗣 約束の見出しとイラストのヒーロー（?hero=talk・2026-11-11）: スマホは 見出し → 絵 → 補足 → ボタン（文の列を格子に溶かして順番を入れ替える）。
+   広い画面は 左に文、右に絵 */
 .lp-hero-grid.is-talk > .lp-hero-text { display: contents; }
 .lp-hero-grid.is-talk > .lp-hero-text > .lp-h1 { order: 1; }
 .lp-hero-grid.is-talk > .lp-hero-art { order: 2; }
 .lp-hero-grid.is-talk > .lp-hero-text > .lp-lead { order: 3; margin-top: 0 !important; }
 .lp-hero-grid.is-talk > .lp-hero-text > .lp-cta-block { order: 4; margin-top: 0; }
-.lp-hero-grid.is-talk > .lp-talk-wrap { order: 5; }
 .lp-hero-art .lp-illust { max-width: 30em; margin: 0 auto; }
 @media (min-width: 768px) {
-  .lp-hero-grid.is-talk { grid-template-rows: auto auto; }
-  .lp-hero-grid.is-talk > .lp-hero-text { display: block; grid-column: 1; grid-row: 1 / span 2; }
-  .lp-hero-grid.is-talk > .lp-hero-art { grid-column: 2; grid-row: 1; }
-  .lp-hero-grid.is-talk > .lp-talk-wrap { grid-column: 2; grid-row: 2; }
+  .lp-hero-grid.is-talk > .lp-hero-text { display: block; grid-column: 1; }
+  .lp-hero-grid.is-talk > .lp-hero-art { grid-column: 2; }
   .lp-hero-art .lp-illust { margin-left: 0; }
   .lp-hero-grid.is-talk > .lp-hero-text > .lp-lead { margin-top: var(--space-6) !important; }
   .lp-hero-grid.is-talk > .lp-hero-text > .lp-cta-block { margin-top: var(--space-8); }

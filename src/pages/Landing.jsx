@@ -45,7 +45,6 @@ import { readFoundingOffer, noBreak, FOUNDING_NAME } from '../lib/foundingOffer'
 import Shot from './LpShot';
 import { StartTiles, TrustRow } from './LpDiagram';
 import LpFlow from './LpFlow';
-import LpHeroTalk from './LpHeroTalk';
 import LpWaitlist from './LpWaitlist';
 import LpIllust from './LpIllust';
 import LpArt, { hasArt } from './LpArt';
@@ -625,11 +624,9 @@ export default function Landing() {
               </div>
             </div>
             {heroVariant === 'talk' ? (
-              <>
-                {/* 2026-11-11 オーナー「最初はイラストや図などでわかりやすくインパクトを」: オーナーのイラストを、スマホでは見出しのすぐ下・広い画面では右の列の上（会話の上）に */}
-                <div className="lp-hero-art"><LpIllust force /></div>
-                <LpHeroTalk note={<HeroNote />} />
-              </>
+              /* 2026-11-11 オーナー「最初はイラストや図などでわかりやすくインパクトを」「（会話の実物は）不要かな」: オーナーのイラストだけ。
+                 スマホでは見出しのすぐ下・広い画面では右の列。注記（画面は実際のものです。…）は会話の流れの下へ */
+              <div className="lp-hero-art"><LpIllust force /></div>
             ) : heroVariant === 'illust' ? (
               <figure className="lp-hero-shot lp-hero-illust">
                 <LpIllust />
@@ -672,7 +669,7 @@ export default function Landing() {
             <div className="lp-narrow lp-sec-head">
               <h2 className="lp-h2" id="lp-grow"><span>メモが増えるほど、</span><span>答えが自分向けに。</span></h2>
             </div>
-            <LpFlow onEvent={lpTrack} note={false} />
+            <LpFlow onEvent={lpTrack} note={heroVariant === 'talk'} />
           </div>
         </section>
 
