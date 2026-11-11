@@ -64,7 +64,7 @@ export const TALK = {
   replyFrom: '2 冊の本',
   // 行動リストに入った形（実際の行動の画面と同じ: 文・『本』· 期限）
   todo: '顧客との接点で試す 1 つの工夫を手帳に書く',
-  todoMeta: '考え方 · 期限 明日',
+  todoMeta: '期限 明日',
   steps: [
     {
       title: '本に相談する',
