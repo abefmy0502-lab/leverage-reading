@@ -36,10 +36,6 @@ export default function LpTalkFlow() {
         <Me meta={`相談相手：${ask.partner}`}>{ask.ask}</Me>
         <Book from={answer.from}>
           <p className="lp-chat-text is-read">{answer.answer}</p>
-          <blockquote className="lp-chat-evidence">
-            <p className="lp-chat-evidence-meta">{answer.evidenceMeta}</p>
-            <p className="lp-chat-evidence-text">{answer.evidence}</p>
-          </blockquote>
           <p className="lp-chat-label">あなたに聞きたいこと</p>
           <p className="lp-chat-text">{answer.question}</p>
         </Book>
