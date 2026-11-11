@@ -69,9 +69,12 @@ export function scriptBreakPieces(phrase, minLen = SCRIPT_BREAK_MIN) {
   }
   if (cur) pieces.push(cur);
   // 2 字に満たない切れ端は隣とまとめる（先頭は次へ、それ以外は前へ）。
+  // カタカナの語の直後の漢字 1 字＋空白（「スタンフォード／式 最高の睡眠」）は、漢字 1 字だけ前へ（「式」が行頭に落ちない・2026-11-11 ui-critic）。
   const merged = [];
   pieces.forEach((pc) => {
-    if (merged.length && [...pc].length < 2) merged[merged.length - 1] += pc;
+    const lone = merged.length && /[\u30a0-\u30ff]$/.test(merged[merged.length - 1]) && pc.match(/^([\u3400-\u9fff])([ \u00a0][\s\S]+)$/);
+    if (lone) { merged[merged.length - 1] += lone[1]; merged.push(lone[2]); } // 空きは次の切れ端の頭に残す（「式最高の」とつながらない）
+    else if (merged.length && [...pc].length < 2) merged[merged.length - 1] += pc;
     else merged.push(pc);
   });
   if (merged.length > 1 && [...merged[0]].length < 2) { merged[1] = merged[0] + merged[1]; merged.shift(); }

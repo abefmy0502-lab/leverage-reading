@@ -18,6 +18,8 @@ describe('scriptBreakPieces', () => {
   it('短い文節（6 字まで）は分けない', () => {
     expect(scriptBreakPieces('考え方')).toEqual(['考え方']);
     expect(scriptBreakPieces('数値化の鬼')).toEqual(['数値化の鬼']);
+    // カタカナの語の直後の漢字 1 字は前へ（「式」だけが行頭に落ちない・2026-11-11）
+    expect(phrasePieces('スタンフォード式 最高の睡眠', { scriptBreaks: true })).toEqual(['スタンフォード式', ' 最高の', '睡眠']);
   });
   it('ひらがなの前後では分けない（送りがな「動／かす」・「やり／抜く」を割らない）', () => {
     expect(scriptBreakPieces('人を動かす技術の本')).toEqual(['人を動かす技術の本']);

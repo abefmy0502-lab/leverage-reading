@@ -213,9 +213,12 @@ function Marked({ segments, text }) {
 // Swipeable + long-pressable book row used on the bookshelf list.
 // highlight: すべての本の検索で書名・著者・タグで見つかったとき、その部分に印（{ title, author: 印の配列 | null, tag: タグ | null }・2026-09-30）。
 // 表紙の下の著者は「・」「、」の後ろでだけ折り返す（keep-all）。前は「グレッグ・マ／キューン」と名前の途中で折れていた（2026-11-11）。
+// 著者が 2 人以上なら「最初の著者 ほか」（2 行で 2 人目が途中で消えていた・写真で共有の formatAuthors と同じ決まり・2026-11-11）
 function authorBreaks(author) {
-  const parts = String(author).split(/([・、,，]\s*)/).filter(Boolean);
-  return parts.map((t, i) => (/^[・、,，]\s*$/.test(t) ? <span key={i}>{t}<wbr /></span> : <span key={i}>{t}</span>));
+  const list = String(author).split(/[、,，]\s*/).map((t) => t.trim()).filter(Boolean);
+  const shown = list.length > 1 ? `${list[0]} ほか` : (list[0] || String(author));
+  const parts = shown.split(/(・\s*)/).filter(Boolean);
+  return parts.map((t, i) => (/^・\s*$/.test(t) ? <span key={i}>{t}<wbr /></span> : <span key={i}>{t}</span>));
 }
 
 export const SwipeableBookCard = memo(function SwipeableBookCard({ book, index, isJustDone, onOpen, onSwipeDelete, onLongPress, onAutoRetry, showStatus = true, highlight = null }) {
