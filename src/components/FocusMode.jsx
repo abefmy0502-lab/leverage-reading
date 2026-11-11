@@ -17,6 +17,7 @@ import { createPortal } from 'react-dom';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { PencilLine, Pause, Play, Square } from 'lucide-react';
 import { MiniCover } from './BookCards';
+import { displayTitle } from '../lib/bookTitle';
 import HomeQuickMemo from './HomeQuickMemo';
 import { useHaptic } from '../hooks/useHaptic';
 import { useFocusTrap } from '../hooks/useFocusTrap';
@@ -360,7 +361,7 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
       <header style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-3)', maxWidth: '20em', textAlign: 'center' }}>
         <MiniCover book={book} width={40} />
         <h1 style={{ margin: 0, fontFamily: 'var(--font-read)', fontSize: 'var(--text-sub)', fontWeight: 400, color: 'var(--focus-ink-2)', lineHeight: 1.5, letterSpacing: '0.04em', wordBreak: 'keep-all', overflowWrap: 'anywhere', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-          {withPhraseBreaks(book.title || '')}
+          {withPhraseBreaks(displayTitle(book.title || ''))}
         </h1>
       </header>
 

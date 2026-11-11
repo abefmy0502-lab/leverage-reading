@@ -1046,6 +1046,7 @@ textarea[aria-invalid="true"]:not(.no-focus-ring):focus {
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   overflow: hidden;
+  word-break: keep-all; /* 「・」「、」の後ろ（<wbr>）でだけ折り返す。1 つの名前が行より長いときだけ anywhere で折る（2026-11-11） */
   overflow-wrap: anywhere;
 }
 

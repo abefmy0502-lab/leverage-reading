@@ -15,6 +15,7 @@ import { btnPrimary, btnPrimaryOff, groupTitle, input } from '../styles/ui';
 import { FOCUS_MINUTES, loadFocusPrefs, saveFocusPrefs, defaultUntilTime, checkUntil } from '../lib/readingTime';
 import TimeInput from './TimeInput';
 import { withPhraseBreaks } from './TightBubble';
+import { displayTitle } from '../lib/bookTitle';
 
 // 選ぶボタン（DESIGN §5「選ぶためのチップ」: 44・15・選択中は --accent-soft の面＋--accent の文字 600）。
 const choice = (on) => ({
@@ -104,7 +105,7 @@ export default function FocusStartSheet({ book = null, onStart, onClose, initial
   return (
     <BottomSheet
       title="読む"
-      eyebrow={book?.title ? `『${book.title}』` : ''}
+      eyebrow={book?.title ? `『${displayTitle(book.title)}』` : ''}
       onClose={onClose}
       dismissLabel="キャンセル"
       footer={<button type="button" onClick={start} disabled={blocked} aria-disabled={blocked || undefined} style={blocked ? btnPrimaryOff : btnPrimary} data-focus-start="">はじめる</button>}

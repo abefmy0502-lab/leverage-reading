@@ -7,6 +7,7 @@
 import { memo, useState, useEffect } from 'react';
 import { useLongPress } from '../hooks/useLongPress';
 import { paletteFor } from '../lib/coverPalette';
+import { displayTitle } from '../lib/bookTitle';
 import { ensureHttps } from '../lib/url';
 import { isCoverLikeSize } from '../lib/bookCover';
 import { ChevronRight } from 'lucide-react';
@@ -69,7 +70,7 @@ export const BookCoverCard = memo(function BookCoverCard({ book, isJustDone, onO
           className="book-cover-placeholder"
           style={{ background: `linear-gradient(135deg, ${from}, ${to})` }}
         >
-          {withPhraseBreaks(book.title, { scriptBreaks: true })}
+          {withPhraseBreaks(displayTitle(book.title), { scriptBreaks: true })}
         </div>
         {!showPlaceholder && (
           <img
@@ -98,9 +99,9 @@ export const BookCoverCard = memo(function BookCoverCard({ book, isJustDone, onO
         )}
       </div>
       {/* 文節の切れ目でだけ折り返す（「チーズはどこへ消／えた？」と語の途中で割れていた・2026-10-04）。 */}
-      <p className="book-cover-title">{withPhraseBreaks(book.title, { scriptBreaks: true })}</p>
+      <p className="book-cover-title">{withPhraseBreaks(displayTitle(book.title), { scriptBreaks: true })}</p>
       {/* 著者が無い本も 1 行ぶん空けて、状態の行をとなりのカードとそろえる。 */}
-      <p className="book-cover-author" aria-hidden={book.author ? undefined : true}>{book.author || '\u00a0'}</p>
+      <p className="book-cover-author" aria-hidden={book.author ? undefined : true}>{book.author ? authorBreaks(book.author) : '\u00a0'}</p>
       {/* 状態は表紙に重ねず、著者の下に面なしのラベルで（DESIGN §5「表示用ラベル」）。
           状態で絞り込んでいるときは全部同じなので出さない（showStatus=false）。 */}
       {showStatus && book.status && <StatusLabel status={book.status} style={{ marginTop: 'var(--space-1)', maxWidth: '100%' }} />}
@@ -169,7 +170,7 @@ export function MiniCover({ book, width = 44, radius = 4, onAutoRetry, forceTitl
         {/* さらに、いちばん長い文節が 1 行に収まる表紙にだけ出す（字 12 × 字数 ≦ 幅 − 内側の余白 8・2026-09-29）。 */}
         {showTitle && (
           <span style={{ display: '-webkit-box', WebkitLineClamp: Math.max(1, Math.floor((height - 8) / 16)), WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-            {withPhraseBreaks(forceTitle ? balanceLongRuns(book.title, (width - 8) / 12) : book.title, { scriptBreaks: true })}
+            {withPhraseBreaks(forceTitle ? balanceLongRuns(displayTitle(book.title), (width - 8) / 12) : displayTitle(book.title), { scriptBreaks: true })}
           </span>
         )}
       </div>
@@ -211,6 +212,12 @@ function Marked({ segments, text }) {
 
 // Swipeable + long-pressable book row used on the bookshelf list.
 // highlight: すべての本の検索で書名・著者・タグで見つかったとき、その部分に印（{ title, author: 印の配列 | null, tag: タグ | null }・2026-09-30）。
+// 表紙の下の著者は「・」「、」の後ろでだけ折り返す（keep-all）。前は「グレッグ・マ／キューン」と名前の途中で折れていた（2026-11-11）。
+function authorBreaks(author) {
+  const parts = String(author).split(/([・、,，]\s*)/).filter(Boolean);
+  return parts.map((t, i) => (/^[・、,，]\s*$/.test(t) ? <span key={i}>{t}<wbr /></span> : <span key={i}>{t}</span>));
+}
+
 export const SwipeableBookCard = memo(function SwipeableBookCard({ book, index, isJustDone, onOpen, onSwipeDelete, onLongPress, onAutoRetry, showStatus = true, highlight = null }) {
   const longPress = useLongPress({
     onLongPress: ({ clientX, clientY }) => onLongPress?.({ x: clientX, y: clientY, book }),
@@ -252,7 +259,7 @@ export const SwipeableBookCard = memo(function SwipeableBookCard({ book, index, 
           {/* 表紙は共通の MiniCover（読込フェード・失敗検知・代用表紙つき・角丸 4）。 */}
           <MiniCover book={book} width={44} onAutoRetry={onAutoRetry} />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><Marked segments={highlight?.title} text={book.title} /></div>
+            <div style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><Marked segments={highlight?.title} text={highlight?.title ? book.title : displayTitle(book.title)} /></div>
             {/* 状態 → 評価 · 著者 を 1 行に（行を短く）。長さが変わる著者を最後に置き、
                 省略されても区切りの位置が本ごとにずれないようにする。状態は押せないラベル＝面なし。 */}
             <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-2)', marginTop: 'var(--space-1)', minWidth: 0 }}>

@@ -15,6 +15,7 @@ import { streamClaude } from './lib/streamClaude';
 // ⚡ 最初の画面に要らない重い部品は、使うときに読む（Suspense 付きの薄い包み・components/lazyParts.jsx）。
 import { AuthScreen, AuthCallback, BookMemoList, BookSearchModal, BookMemoEditor, ActionList, MarkdownSections, AuthorThankYou, OverlayFallback, BookAbout, BookBrief } from './components/lazyParts';
 import { BookCoverCard, SwipeableBookCard, MiniCover, StatusLabel } from './components/BookCards';
+import { displayTitle } from './lib/bookTitle';
 import { STATUSES, getSt } from './lib/status';
 import { onTabListKeyDown, tabIndexFor } from './lib/tabKeys';
 import { isStrictMatch } from './lib/bookMatch';
@@ -350,7 +351,8 @@ function HomeLoadingSkeleton() {
 // 英語などで 1 文節が行より長いときは overflow-wrap: anywhere で折る。
 function titleWithPhraseBreaks(title) {
   // 長い 1 文節の中も文字の種類の切れ目（「アウトプット／大全」「エリック・／シュミット」）で折り返してよい（2026-10-04）。
-  return withPhraseBreaks(title, { scriptBreaks: true });
+  // 書誌の並列書名・副題は見出しに出さない（displayTitle・2026-11-11）。
+  return withPhraseBreaks(displayTitle(title), { scriptBreaks: true });
 }
 
 // カードの中の 1 まとまり（小さな見出し＋本文・長い文は 4 行で切って「すべて表示」）。

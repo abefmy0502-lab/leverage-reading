@@ -1765,7 +1765,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
             <p style={{ ...fieldLabel, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('あなたの悩みを、こう受け取りました')}</p>
             {/* 受け取った悩みは、聞き取りの問いと同じ見た目（17/600・2026-10-10 ui-critic「確かめる一歩だけ明朝 18 で大きかった」）。 */}
             {/* 長い文なので太さは 400（全部 600 だと重く読みにくかった・2026-10-10 ui-critic）。 */}
-            <p style={{ ...questionText, fontWeight: 400, margin: 'var(--space-2) 0 0' }}>{withPhraseBreaks(text)}</p>
+            <p style={{ ...questionText, fontWeight: 400, margin: 'var(--space-2) 0 0', wordBreak: 'normal', lineBreak: 'strict', textWrap: 'pretty' }}>{text}</p>
             {/* 命に関わる言葉があるときは、まとめのすぐ後に相談窓口（15/--text・外部リンク 44）。 */}
             {showCare && careNote}
             {asking && !correcting && (
@@ -1982,7 +1982,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
           )}
           {recommendations.before && (() => {
             const intro = introTextOf(cleanProseTitles(recommendations.before));
-            return intro ? <p style={{ ...introText, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(intro)}</p> : null;
+            return intro ? <p style={{ ...introText, wordBreak: 'normal', lineBreak: 'strict', textWrap: 'pretty', overflowWrap: 'anywhere' }}>{intro}</p> : null; /* AI の文は文節で止めず流す（2026-11-11） */
           })()}
           {recommendations.items.map((rec, i) => {
             const added = addedTitles.has(rec.title);
@@ -2032,20 +2032,20 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
                 {rec.why && (
                   <div style={{ marginTop: 'var(--space-3)' }}>
                     <p style={fieldLabel}>なぜあなたに</p>
-                    <p style={{ ...readText, margin: 'var(--space-1) 0 0', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(rec.why)}</p>
+                    <p style={{ ...readText, margin: 'var(--space-1) 0 0', wordBreak: 'normal', lineBreak: 'strict', textWrap: 'pretty', overflowWrap: 'anywhere' }}>{rec.why}</p>
                   </div>
                 )}
                 {rec.core && (
                   <div style={{ marginTop: 'var(--space-3)' }}>
                     <p style={fieldLabel}>この本の核心</p>
-                    <p style={{ ...fieldText, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(rec.core)}</p>
+                    <p style={{ ...fieldText, wordBreak: 'normal', lineBreak: 'strict', textWrap: 'pretty', overflowWrap: 'anywhere' }}>{rec.core}</p>
                   </div>
                 )}
                 {/* 章番号・ページを書いた注目ポイントは出さない（AI は目次を持っていない＝推測・lib/advisorRecs.js の focusText） */}
                 {focusText(rec.focus) && (
                   <div style={{ marginTop: 'var(--space-3)' }}>
                     <p style={fieldLabel}>注目ポイント</p>
-                    <p style={{ ...fieldText, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(focusText(rec.focus))}</p>
+                    <p style={{ ...fieldText, wordBreak: 'normal', lineBreak: 'strict', textWrap: 'pretty', overflowWrap: 'anywhere' }}>{focusText(rec.focus)}</p>
                   </div>
                 )}
                 {rec.duration && (

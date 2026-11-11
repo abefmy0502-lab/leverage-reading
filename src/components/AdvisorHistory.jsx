@@ -120,7 +120,7 @@ const backBtn = { ...btnText, fontSize: 'min(var(--text-body), var(--text-bar-ma
 // 読む文章（AI の答え・推薦理由）＝明朝 18・行間 1.6。
 const readText = { fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.6, color: 'var(--text)' };
 // 推薦の前置き＝本のカードより控えめな 1 段落（15/--text-2・見出しもカードも付けない・会話中と同じ）。
-const introText = { fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.6, margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' };
+const introText = { fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.6, margin: 0, wordBreak: 'normal', lineBreak: 'strict', textWrap: 'pretty', overflowWrap: 'anywhere' }; // AI の文は文節で止めず流す（2026-11-11）
 
 // pushed: 全体の見出しを隠した画面（行が画面の最上部＝ノッチを避ける）。scrolled: 中身を下へ送った（下に線）。
 export function AdvisorNavBar({ backLabel, onBack, title, pushed = false, scrolled = false }) {
@@ -293,7 +293,7 @@ function RecommendationCard({ book, index = 0, isAdded, isChecking, onAdd }) {
       {book.why && (
         <div style={{ marginTop: 'var(--space-3)' }}>
           <p style={fieldLabel}>なぜあなたに</p>
-          <p style={{ ...readText, margin: 'var(--space-1) 0 0', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(book.why)}</p>
+          <p style={{ ...readText, margin: 'var(--space-1) 0 0', wordBreak: 'normal', lineBreak: 'strict', textWrap: 'pretty', overflowWrap: 'anywhere' }}>{book.why}</p>
         </div>
       )}
       {book.core && <RecField label="この本の核心" text={book.core} />}
@@ -340,8 +340,8 @@ function RecField({ label, text }) {
   return (
     <div style={{ marginTop: 'var(--space-3)' }}>
       <p style={fieldLabel}>{label}</p>
-      {/* カードは keep-all なので、文節の切れ目（<wbr>）を入れて読点・かっこの位置だけで折り返さないようにする。 */}
-      <p style={{ fontSize: 'var(--text-sub)', lineHeight: 1.6, color: 'var(--text)', margin: 'var(--space-1) 0 0' }}>{withPhraseBreaks(text)}</p>
+      {/* AI の文は文節で止めずに流す（前は文節の切れ目だけで折り返し、右に半行の空きが並んだ・2026-11-11） */}
+      <p style={{ fontSize: 'var(--text-sub)', lineHeight: 1.6, color: 'var(--text)', margin: 'var(--space-1) 0 0', wordBreak: 'normal', lineBreak: 'strict', textWrap: 'pretty', overflowWrap: 'anywhere' }}>{text}</p>
     </div>
   );
 }
@@ -500,7 +500,7 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
               return (
                 <div key={i} role="article" aria-label="AI の提案" style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-                    {intro && <p style={introText}>{withPhraseBreaks(intro)}</p>}
+                    {intro && <p style={introText}>{intro}</p>}
                     {recsSection}
                   </div>
                   {after && <MarkdownSections text={after} />}
@@ -521,7 +521,7 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
                 {conf?.summary && (
                   <div role="note" aria-label="受け取った悩み">
                     <p style={{ ...groupTitle, margin: 0 }}>受け取った悩み</p>
-                    <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.6, margin: 'var(--space-1) 0 0', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(conf.summary)}</p>
+                    <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.6, margin: 'var(--space-1) 0 0', wordBreak: 'normal', lineBreak: 'strict', textWrap: 'pretty', overflowWrap: 'anywhere' }}>{conf.summary}</p>
                   </div>
                 )}
                 {conf?.correction && (

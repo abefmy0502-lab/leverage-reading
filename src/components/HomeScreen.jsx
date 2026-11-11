@@ -23,6 +23,7 @@ import { firstConsultDone, takeMemosReached, growthMeterText, rememberHomeMemoCo
 import { useAllActions } from '../hooks/useAllActions';
 import { homeActionsSummary } from '../lib/homeActions';
 import { stripInlineMd } from '../lib/text';
+import { displayTitle } from '../lib/bookTitle';
 import { appNow } from '../lib/appNow';
 import { firstConsultQuestion } from '../lib/consultHelpers';
 import { appPurposeTextFor, purposeConsultQuestion } from '../lib/appPurpose';
@@ -142,7 +143,7 @@ function ReadLink({ book: b, onRead }) {
 // 書名を切れ端ごとの inline-block に。切れ端は文節、長い文節はその中の文字の種類の切れ目（「アウトプット／大全」）まで分ける。
 // 切れ端の切れ目でだけ折り返し、それでも列より長い切れ端だけ 1 行で … に切る（語の途中では割らない・2026-10-04）。
 function phraseChunks(title) {
-  const list = phrasePieces(title, { scriptBreaks: true }).filter((p) => p && p !== '\n');
+  const list = phrasePieces(displayTitle(title), { scriptBreaks: true }).filter((p) => p && p !== '\n');
   return list.map((p, i) => (
     <span key={i} style={{ display: 'inline-block', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', verticalAlign: 'top' }}>{p}</span>
   ));
