@@ -51,7 +51,7 @@ import LpIllust from './LpIllust';
 import LpWhy from './LpWhy';
 import LpArt, { hasArt } from './LpArt';
 import Phrases, { Sentences } from './LpPhrases';
-import { buildLpCopy, storeHrefOf, HERO_TALK, ASK, WHY, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE } from './lpCopy';
+import { buildLpCopy, storeHrefOf, HERO_TALK, ASK, WHY, PLAN, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE } from './lpCopy';
 import qrcode from 'qrcode-generator';
 import { lpTrack, lpVariant, storeUrlFor, isWidePointer } from '../lib/lpTrack';
 import { inject as injectVercelAnalytics } from '@vercel/analytics';
@@ -679,6 +679,37 @@ export default function Landing() {
               <p className="lp-lead lp-sec-lead">読んだ本に相談すると、残り方が変わります。</p>
             </div>
             <LpWhy />
+          </div>
+        </section>
+
+        {/* ============ 読む前に、読み方が決まる（読書計画シート・2026-11-11 オーナー「読書戦略を立てられることも伝えたい」） ============ */}
+        <section className="lp-sec lp-plan-sec" id="lp-plan" aria-labelledby="lp-plan-h" data-lp-sec="plan">
+          <div className="lp-wrap lp-adv">
+            <div className="lp-adv-shot lp-plan-sample">
+              {/* 実物: 積読の本の読書計画シート（抜粋・画面写真ではなく文で） */}
+              <div className="lp-plan-card" aria-label="読書計画シートの例">
+                <p className="lp-plan-card-head"><span className="lp-plan-card-tag">読書計画シート</span>{PLAN.sample.book}</p>
+                <p className="lp-plan-card-want"><span>この本から得たいこと</span>{PLAN.sample.want}</p>
+                {PLAN.sample.sections.map((sec) => (
+                  <div className="lp-plan-card-sec" key={sec.h}>
+                    <p className="lp-plan-card-h">{sec.h}</p>
+                    <ul>{sec.items.map((t) => <li key={t}>{t}</li>)}</ul>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <h2 className="lp-h2" id="lp-plan-h">{PLAN.h2.map((t) => <span key={t}>{t}</span>)}</h2>
+              <ol className="lp-adv-steps">
+                {PLAN.steps.map((x) => (
+                  <li key={x.title}>
+                    <h3 className="lp-h3 lp-wbr"><Phrases clause>{x.title}</Phrases></h3>
+                    <p className="lp-wbr"><Sentences block>{x.body}</Sentences></p>
+                  </li>
+                ))}
+              </ol>
+              <p className="lp-adv-note">{PLAN.note}</p>
+            </div>
           </div>
         </section>
 

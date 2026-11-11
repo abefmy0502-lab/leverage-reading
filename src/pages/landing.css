@@ -1159,3 +1159,17 @@ body.lp-active {
 .lp-root .lp-chat-todo-text { margin: 0; color: var(--text); font-size: var(--text-sub); font-weight: 600; line-height: 1.5; }
 .lp-root .lp-chat-todo-meta { margin: var(--space-1) 0 0; color: var(--text-2); font-size: var(--text-caption); }
 @media (min-width: 768px) { .lp-chat { max-width: 40em; } }
+
+/* ============ 📖 読む前に、読み方が決まる（読書計画シート・2026-11-11） ============ */
+/* 実物の抜粋を 1 枚のカードで（画面写真にしない）。AI 選書と同じ 5 : 7 の列・左に実物 */
+.lp-plan-card { text-align: left; padding: var(--space-4); border-radius: var(--radius); background: var(--surface); border: 1px solid var(--separator); display: grid; gap: var(--space-3); max-width: 24em; margin: 0 auto; }
+.lp-root .lp-plan-card-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin: 0; font-size: var(--text-sub); font-weight: 600; color: var(--text); }
+.lp-plan-card-tag { color: var(--text-2); font-size: var(--text-caption); font-weight: 600; }
+.lp-root .lp-plan-card-want { margin: 0; padding: var(--space-2) var(--space-3); border-radius: var(--radius); background: var(--fill); font-size: var(--text-sub); line-height: 1.5; color: var(--text); word-break: normal; line-break: strict; }
+.lp-plan-card-want > span { display: block; margin-bottom: var(--space-1); color: var(--text-2); font-size: var(--text-caption); font-weight: 600; }
+.lp-plan-card-sec { display: grid; gap: var(--space-1); }
+.lp-root .lp-plan-card-h { margin: 0; color: var(--text-2); font-size: var(--text-caption); font-weight: 600; }
+.lp-plan-card-sec ul { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-1); }
+.lp-plan-card-sec li { position: relative; padding-left: var(--space-3); font-family: var(--font-read); font-size: var(--text-sub); line-height: 1.5; color: var(--text); word-break: normal; line-break: strict; }
+.lp-plan-card-sec li::before { content: '・'; position: absolute; left: 0; color: var(--text-3); }
+@media (min-width: 768px) { .lp-plan-card { margin: 0; max-width: 28em; } }
