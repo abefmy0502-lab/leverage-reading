@@ -522,7 +522,7 @@ body.lp-active {
 .lp-root .lp-sec-lead { margin: calc(-1 * var(--space-2)) 0 var(--space-6); color: var(--text-2); max-width: 36em; }
 /* なぜ会話すると残るのか（学習の研究 3 つ・番号つき） */
 .lp-gallery > li { scroll-snap-align: start; display: flex; flex-direction: column; min-width: 0; }
-.lp-root .lp-gallery-num { color: var(--accent); font-size: var(--text-sub); font-weight: 600; font-variant-numeric: tabular-nums; }
+.lp-root .lp-gallery-num { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; margin-right: var(--space-2); border-radius: 50%; background: var(--fill); color: var(--text-2); font-size: var(--text-meta); font-weight: 600; font-variant-numeric: tabular-nums; vertical-align: middle; } /* AI 選書の 4 段と同じ丸（アクセントは使わない） */
 .lp-root .lp-gallery-title { margin: var(--space-1) 0 0; font-size: var(--text-body); font-weight: 600; line-height: 1.5; }
 .lp-root .lp-gallery-body { margin: var(--space-1) 0 var(--space-4); color: var(--text-2); font-size: var(--text-sub); line-height: 1.5; flex: 1; }
 .lp-gallery .lp-gallery-shot { --lp-device-w: 68vw; width: 100%; margin: 0; box-shadow: var(--shadow-2, var(--shadow-overlay)); }

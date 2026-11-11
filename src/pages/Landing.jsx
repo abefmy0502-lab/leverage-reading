@@ -720,6 +720,8 @@ export default function Landing() {
                   </div>
                   <div className="lp-pillar-text">
                     <h3 className="lp-h3 lp-wbr"><Phrases clause>{x.title}</Phrases></h3>
+                    {/* 1 行の説明（body）も出す＝5 枚とも同じ形（題＋1 行）・前は題だけだった（2026-11-11） */}
+                    {x.body && <p className="lp-pillar-sub lp-wbr"><Sentences block>{x.body}</Sentences></p>}
                     {x.sub && <p className="lp-pillar-sub">{x.sub.split('・').map((t, i) => <Fragment key={t}>{i > 0 && <>・<wbr /></>}<span className="lp-nb">{t}</span></Fragment>)}</p>}
                     {x.list && (
                       <ul className="lp-pillar-list">

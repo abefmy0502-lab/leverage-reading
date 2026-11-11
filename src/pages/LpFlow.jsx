@@ -68,7 +68,8 @@ export default function LpFlow({ onEvent = () => {}, note = true }) {
       <ol className="lp-gallery" aria-label="会話の流れ">
         {FLOW_STEPS.map((s, i) => (
           <li key={s.name}>
-            <h3 className="lp-gallery-title lp-wbr"><Phrases clause>{s.title}</Phrases></h3>
+            {/* 本当に順番のある 3 つなので番号を付ける（frontend-design の原則・2026-11-11） */}
+            <h3 className="lp-gallery-title lp-wbr"><span className="lp-gallery-num" aria-hidden="true">{i + 1}</span><Phrases clause>{s.title}</Phrases></h3>
             <Shot name={s.name} alt={s.alt} className="lp-shot lp-gallery-shot" sizes="(min-width: 768px) 260px, 68vw" />
           </li>
         ))}
