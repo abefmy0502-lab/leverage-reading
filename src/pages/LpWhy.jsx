@@ -1,9 +1,8 @@
 // 📈 なぜ会話すると残るのか（2026-11-11 オーナー「本と会話することで通常の読書の効果よりどれくらいアップするのかを簡単に論理的に示したい・月 ¥1,480 が安く感じるように」）。
 //   図: 思い出せる量の時間の線（読むだけ＝薄れていく／会話する＝相談のたびに戻る）＝忘却曲線と分散学習のイメージ（参考）
-//   3 つの研究（参考・出典つき）→ 月 ¥1,480 の意味。
+//   研究 3 つは 3 つの言葉＋1 文＋出典 1 行（数字は出さない）→ 月 ¥1,480 の意味。
 //   法務（company/brand-messaging.md・seo-articles-batch1.md）: 「○倍になる」「○円損している」の断定は書かない。数字は引用した研究の結果で、
 //   Orime の効果を測ったものではないと添える。
-import Phrases from './LpPhrases';
 import { WHY } from './lpCopy';
 
 const S = { fill: 'none', strokeLinecap: 'round', strokeLinejoin: 'round', vectorEffect: 'non-scaling-stroke' };
@@ -37,16 +36,12 @@ export default function LpWhy() {
     <div className="lp-why">
       {/* 本と自分の輪（DialogueLoop）は「著者には聞けない」の 3 枚と重なるのでやめた（2026-11-11 オーナー「情報が錯綜」） */}
       <RetentionChart />
-      <ol className="lp-why-facts">
-        {WHY.facts.map((f) => (
-          <li key={f.title}>
-            <h3 className="lp-why-fact-title lp-wbr"><Phrases clause>{f.title}</Phrases></h3>
-            <p className="lp-why-fact-body">{f.body}<span className="lp-why-src">（{f.source}）</span></p>
-            <p className="lp-why-fact-orime"><span className="lp-dia-tag is-accent">Orime では</span>{f.orime}</p>
-          </li>
-        ))}
-      </ol>
-      <p className="lp-why-note">{WHY.note}</p>
+      {/* 研究 3 つは 1 段に（2026-11-11 オーナー「ここまで細かくなくて良い」）: 3 つの言葉 → 1 文 → 出典 1 行 */}
+      <div className="lp-why-keys">
+        <p className="lp-why-keys-row">{WHY.keys.map((k) => <span key={k}>{k}</span>)}</p>
+        <p className="lp-why-summary">{WHY.summary}</p>
+        <p className="lp-why-sources">{WHY.sources}</p>
+      </div>
       <div className="lp-why-cost">
         <p className="lp-why-cost-title">{WHY.costTitle}</p>
         <p className="lp-why-cost-body">{WHY.costBody}</p>
