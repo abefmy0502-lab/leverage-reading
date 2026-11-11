@@ -1151,6 +1151,11 @@ body.lp-active {
 .lp-root .lp-chat-evidence-meta { margin: 0 0 var(--space-1); color: var(--text-2); font-size: var(--text-caption); }
 .lp-root .lp-chat-evidence-text { margin: 0; font-family: var(--font-read); font-size: var(--text-meta); line-height: 1.5; color: var(--text-2); word-break: normal; line-break: strict; }
 .lp-root .lp-chat-label { display: flex; align-items: center; gap: var(--space-1); margin: 0; color: var(--text-2); font-size: var(--text-caption); font-weight: 600; }
-/* 「行動に追加」は実物の形を見せるだけ（押せない） */
-.lp-root .lp-chat-fake-btn { display: flex; align-items: center; justify-content: center; gap: var(--space-2); margin: var(--space-1) 0 0; min-height: var(--tap-min, 44px); border-radius: var(--radius); background: var(--accent); color: var(--accent-ink); font-size: var(--text-body); font-weight: 600; }
+/* 会話の最後: 一歩が「明日の行動」になった結果（押せないボタンの絵の代わり・2026-11-11） */
+.lp-chat-row.is-result { justify-content: center; margin-top: var(--space-2); }
+.lp-chat-result { display: grid; gap: var(--space-2); width: 100%; max-width: 88%; margin-left: calc(28px + var(--space-2)); }
+.lp-root .lp-chat-result-lead { margin: 0; color: var(--text-2); font-size: var(--text-caption); text-align: left; }
+.lp-chat-todo { display: flex; align-items: flex-start; gap: var(--space-3); padding: var(--space-3) var(--space-4); border-radius: var(--radius); background: var(--surface); border: 1px solid var(--separator); color: var(--text-3); }
+.lp-root .lp-chat-todo-text { margin: 0; color: var(--text); font-size: var(--text-sub); font-weight: 600; line-height: 1.5; }
+.lp-root .lp-chat-todo-meta { margin: var(--space-1) 0 0; color: var(--text-2); font-size: var(--text-caption); }
 @media (min-width: 768px) { .lp-chat { max-width: 40em; } }
