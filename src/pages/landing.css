@@ -1103,3 +1103,21 @@ body.lp-active {
 @media (prefers-reduced-motion: reduce) {
   .lp-motion .lp-talk > * { opacity: 1 !important; transform: none !important; transition: none !important; }
 }
+/* イラストの置き場（2026-11-11）: スマホは 見出し → 絵 → 補足 → ボタン → 会話（文の列を格子に溶かして順番を入れ替える）。
+   広い画面は 左に文、右の列の上に絵・その下に会話 */
+.lp-hero-grid.is-talk > .lp-hero-text { display: contents; }
+.lp-hero-grid.is-talk > .lp-hero-text > .lp-h1 { order: 1; }
+.lp-hero-grid.is-talk > .lp-hero-art { order: 2; }
+.lp-hero-grid.is-talk > .lp-hero-text > .lp-lead { order: 3; margin-top: 0 !important; }
+.lp-hero-grid.is-talk > .lp-hero-text > .lp-cta-block { order: 4; margin-top: 0; }
+.lp-hero-grid.is-talk > .lp-talk-wrap { order: 5; }
+.lp-hero-art .lp-illust { max-width: 30em; margin: 0 auto; }
+@media (min-width: 768px) {
+  .lp-hero-grid.is-talk { grid-template-rows: auto auto; }
+  .lp-hero-grid.is-talk > .lp-hero-text { display: block; grid-column: 1; grid-row: 1 / span 2; }
+  .lp-hero-grid.is-talk > .lp-hero-art { grid-column: 2; grid-row: 1; }
+  .lp-hero-grid.is-talk > .lp-talk-wrap { grid-column: 2; grid-row: 2; }
+  .lp-hero-art .lp-illust { margin-left: 0; }
+  .lp-hero-grid.is-talk > .lp-hero-text > .lp-lead { margin-top: var(--space-6) !important; }
+  .lp-hero-grid.is-talk > .lp-hero-text > .lp-cta-block { margin-top: var(--space-8); }
+}

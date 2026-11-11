@@ -30,8 +30,8 @@ const PRESENT = new Set(typeof __LP_ART__ !== 'undefined' ? __LP_ART__ : []);
 // 2026-10-16 オーナー「AI で作った感じはとにかく排除」: 節のイラストは既定で出さない（実際の画面と文で伝える）。
 // 置いた絵のファイルは残し、VITE_LP_ILLUST=on のビルドだけ使う（ヒーローの A/B と同じスイッチ）。
 const ART_ON = String(import.meta.env.VITE_LP_ILLUST || '').trim().toLowerCase() === 'on';
-export function hasArt(name, scheme = 'light') {
-  return ART_ON && PRESENT.has(`${name}-${scheme}`);
+export function hasArt(name, scheme = 'light', { force = false } = {}) {
+  return (ART_ON || force) && PRESENT.has(`${name}-${scheme}`);
 }
 // 前の形（フック）の名前のまま使えるように。中身はビルドの一覧を見るだけ。
 export const useArt = hasArt;

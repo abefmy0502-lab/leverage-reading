@@ -93,10 +93,11 @@ const IMG = (w) => `/lp/hero-illust-light-${w}.webp`;
 const SET = [390, 780, 1560].map((w) => `${IMG(w)} ${w}w`).join(', ');
 const SIZES = '(min-width: 768px) 420px, 92vw';
 
-export default function LpIllust() {
+// force: 会話そのもののヒーロー（LpHeroTalk・2026-11-11 オーナー「最初はイラストや図で」）は VITE_LP_ILLUST の印に関係なく絵を出す。
+export default function LpIllust({ force = false } = {}) {
   // 絵が置いてあるか（ビルドのときの一覧）。暗い画面用の版（hero-illust-dark-*.webp）があれば出し分ける。
-  const dark = hasArt('hero-illust', 'dark');
-  if (!hasArt('hero-illust')) return <IllustSvg />;
+  const dark = hasArt('hero-illust', 'dark', { force });
+  if (!hasArt('hero-illust', 'light', { force })) return <IllustSvg />;
   return (
     <picture>
       {dark && <source media="(prefers-color-scheme: dark)" type="image/webp" srcSet={artSet('hero-illust', 'dark')} sizes={SIZES} />}

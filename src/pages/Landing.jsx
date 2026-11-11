@@ -597,7 +597,7 @@ export default function Landing() {
       <main id="lp-main">
         {/* ============ ① ヒーロー ============ */}
         <section className="lp-hero">
-          <div className="lp-wrap lp-hero-grid">
+          <div className={`lp-wrap lp-hero-grid${heroVariant === 'talk' ? ' is-talk' : ''}`}>
             <div className="lp-hero-text">
               {/* 会話そのもののヒーロー（?hero=talk・2026-11-11）は見出しを約束の形に。ほかは 2026-10-17 指示書の見出しのまま */}
               <h1 className="lp-h1">
@@ -625,7 +625,11 @@ export default function Landing() {
               </div>
             </div>
             {heroVariant === 'talk' ? (
-              <LpHeroTalk note={<HeroNote />} />
+              <>
+                {/* 2026-11-11 オーナー「最初はイラストや図などでわかりやすくインパクトを」: オーナーのイラストを、スマホでは見出しのすぐ下・広い画面では右の列の上（会話の上）に */}
+                <div className="lp-hero-art"><LpIllust force /></div>
+                <LpHeroTalk note={<HeroNote />} />
+              </>
             ) : heroVariant === 'illust' ? (
               <figure className="lp-hero-shot lp-hero-illust">
                 <LpIllust />
