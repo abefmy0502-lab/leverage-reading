@@ -65,6 +65,28 @@ export function DialogueDiagram() {
   );
 }
 
+// 本と自分の輪だけ（2026-11-11・LpWhy の図 1）。これまで／Orime の 2 枚はやめ、会話できる感じを 1 枚で。
+export function DialogueLoop() {
+  return (
+    <figure className="lp-dia-card is-after lp-why-loop">
+      <svg viewBox="0 0 240 120" aria-hidden="true" className="lp-dia-svg">
+        <defs>
+          <marker id="lp-why-arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M1 1 L 7 5 L 1 9" fill="none" stroke="var(--accent)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+          </marker>
+        </defs>
+        <Book x={24} y={84} w={72} />
+        <Person cx={196} y={92} />
+        <path d="M104 46 C 128 20, 164 20, 182 34" fill="none" stroke="var(--accent)" strokeWidth="1.75" strokeLinecap="round" vectorEffect="non-scaling-stroke" markerEnd="url(#lp-why-arrow)" />
+        <path d="M180 98 C 160 116, 124 116, 104 96" fill="none" stroke="var(--accent)" strokeWidth="1.75" strokeLinecap="round" vectorEffect="non-scaling-stroke" markerEnd="url(#lp-why-arrow)" />
+        <circle cx="143" cy="24" r="4" fill="var(--accent)" />
+        <circle cx="142" cy="111" r="4" fill="var(--accent)" />
+      </svg>
+      <figcaption><span className="lp-dia-tag is-accent">本と自分</span>残した一行が答えになり、答えが次の一行になる</figcaption>
+    </figure>
+  );
+}
+
 // 始め方の 4 つの小さな絵（同じ線の太さ・同じ大きさの枠）
 const START_ICONS = {
   memo: (

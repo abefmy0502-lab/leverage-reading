@@ -47,6 +47,7 @@ import { TrustRow } from './LpDiagram';
 import LpFlow from './LpFlow';
 import LpWaitlist from './LpWaitlist';
 import LpIllust from './LpIllust';
+import LpWhy from './LpWhy';
 import LpArt, { hasArt } from './LpArt';
 import Phrases, { Sentences } from './LpPhrases';
 import { buildLpCopy, storeHrefOf, HERO_TALK, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE } from './lpCopy';
@@ -649,6 +650,17 @@ export default function Landing() {
               <HeroNote />
             </figure>
             )}
+          </div>
+        </section>
+
+        {/* ============ なぜ会話すると残るのか（2026-11-11 オーナー「直感的に本と会話できる感じを図で・効果を論理的に・¥1,480 が安く感じるように」） ============ */}
+        <section className="lp-sec lp-band lp-why-sec" aria-labelledby="lp-why" data-lp-sec="why">
+          <div className="lp-wrap">
+            <div className="lp-narrow lp-sec-head">
+              <h2 className="lp-h2" id="lp-why"><span>読むだけだと、</span><span>薄れていく。</span></h2>
+              <p className="lp-lead lp-sec-lead">読んだ本と会話すると、残り方が変わります。</p>
+            </div>
+            <LpWhy />
           </div>
         </section>
 

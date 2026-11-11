@@ -1,0 +1,66 @@
+// 📈 なぜ会話すると残るのか（2026-11-11 オーナー「本と会話することで通常の読書の効果よりどれくらいアップするのかを簡単に論理的に示したい・月 ¥1,480 が安く感じるように」）。
+//   図 1: 本と自分の輪（LpDiagram の DialogueLoop・本 ⇄ 自分）＝会話できる感じ
+//   図 2: 思い出せる量の時間の線（読むだけ＝薄れていく／会話する＝相談のたびに戻る）＝忘却曲線と分散学習のイメージ（参考）
+//   3 つの研究（参考・出典つき）→ 月 ¥1,480 の意味。
+//   法務（company/brand-messaging.md・seo-articles-batch1.md）: 「○倍になる」「○円損している」の断定は書かない。数字は引用した研究の結果で、
+//   Orime の効果を測ったものではないと添える。
+import { DialogueLoop } from './LpDiagram';
+import Phrases from './LpPhrases';
+import { WHY } from './lpCopy';
+
+const S = { fill: 'none', strokeLinecap: 'round', strokeLinejoin: 'round', vectorEffect: 'non-scaling-stroke' };
+
+// 思い出せる量の線（イメージ）。横＝時間（読んだ日 → 1 週間 → 1 か月）・縦＝思い出せる量。
+function RetentionChart() {
+  return (
+    <figure className="lp-why-chart">
+      <svg viewBox="0 0 360 170" role="img" aria-label={WHY.chartLabel}>
+        {/* 軸 */}
+        <path d="M28 18 V 140 H 344" stroke="var(--separator)" strokeWidth="1" {...S} />
+        {/* 読むだけ: 下がったまま */}
+        <path d="M28 30 C 70 70, 110 110, 160 122 S 300 134, 344 136" stroke="var(--text-3)" strokeWidth="1.75" strokeDasharray="4 5" {...S} />
+        {/* 会話する: 相談のたびに戻って、落ち方がゆるくなる */}
+        <path d="M28 30 C 60 56, 90 74, 118 84 L 128 36 C 170 54, 200 66, 222 74 L 232 32 C 280 44, 318 50, 344 54" stroke="var(--accent)" strokeWidth="2" {...S} />
+        {/* 相談の印 */}
+        <circle cx="128" cy="36" r="4.5" fill="var(--accent)" />
+        <circle cx="232" cy="32" r="4.5" fill="var(--accent)" />
+        <circle cx="28" cy="30" r="4.5" fill="var(--accent)" />
+        {/* 文字（幅 360 の viewBox に 12＝スマホで縮んでも 12px 相当） */}
+        <text x="28" y="156" fontSize="12" fill="var(--text-2)" textAnchor="start">読んだ日</text>
+        <text x="186" y="156" fontSize="12" fill="var(--text-2)" textAnchor="middle">1 週間</text>
+        <text x="344" y="156" fontSize="12" fill="var(--text-2)" textAnchor="end">1 か月</text>
+        <text x="40" y="26" fontSize="12" fill="var(--text-2)">一行メモ</text>
+        <text x="138" y="30" fontSize="12" fill="var(--accent)">相談</text>
+        <text x="242" y="26" fontSize="12" fill="var(--accent)">相談</text>
+        <text x="344" y="126" fontSize="12" fill="var(--text-3)" textAnchor="end">読むだけ</text>
+        <text x="344" y="74" fontSize="12" fill="var(--accent)" textAnchor="end">会話する</text>
+      </svg>
+      <figcaption>{WHY.chartCaption}</figcaption>
+    </figure>
+  );
+}
+
+export default function LpWhy() {
+  return (
+    <div className="lp-why">
+      <div className="lp-why-figs">
+        <DialogueLoop />
+        <RetentionChart />
+      </div>
+      <ol className="lp-why-facts">
+        {WHY.facts.map((f) => (
+          <li key={f.title}>
+            <h3 className="lp-why-fact-title lp-wbr"><Phrases clause>{f.title}</Phrases></h3>
+            <p className="lp-why-fact-body">{f.body}<span className="lp-why-src">（{f.source}）</span></p>
+            <p className="lp-why-fact-orime"><span className="lp-dia-tag is-accent">Orime では</span>{f.orime}</p>
+          </li>
+        ))}
+      </ol>
+      <p className="lp-why-note">{WHY.note}</p>
+      <div className="lp-why-cost">
+        <p className="lp-why-cost-title">{WHY.costTitle}</p>
+        <p className="lp-why-cost-body">{WHY.costBody}</p>
+      </div>
+    </div>
+  );
+}
