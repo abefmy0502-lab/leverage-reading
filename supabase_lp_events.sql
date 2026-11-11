@@ -30,7 +30,7 @@ alter table public.lp_events enable row level security;
 
 -- （2026-10-11）ヒーローの表示方式に 'illust'（いろいろな本と対話するイラスト）を足した。流し直すと CHECK を作り直す。
 alter table public.lp_events drop constraint if exists lp_events_variant_check;
-alter table public.lp_events add constraint lp_events_variant_check check (variant in ('3d', 'photo', 'illust'));
+alter table public.lp_events add constraint lp_events_variant_check check (variant in ('3d', 'photo', 'illust', 'talk')); -- 2026-11-11 'talk' を足した（流し直すこと）
 
 -- ポリシーは作らない（= anon / authenticated からは読めず書けない。service_role のみ）。
 

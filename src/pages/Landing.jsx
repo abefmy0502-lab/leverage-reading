@@ -45,11 +45,12 @@ import { readFoundingOffer, noBreak, FOUNDING_NAME } from '../lib/foundingOffer'
 import Shot from './LpShot';
 import { DialogueDiagram, StartTiles, TrustRow } from './LpDiagram';
 import LpFlow from './LpFlow';
+import LpHeroTalk from './LpHeroTalk';
 import LpWaitlist from './LpWaitlist';
 import LpIllust from './LpIllust';
 import LpArt, { hasArt } from './LpArt';
 import Phrases, { Sentences } from './LpPhrases';
-import { buildLpCopy, storeHrefOf, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE, PROBLEM_LINES, DIAGRAM_LINE } from './lpCopy';
+import { buildLpCopy, storeHrefOf, HERO_TALK, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE, PROBLEM_LINES, DIAGRAM_LINE } from './lpCopy';
 import qrcode from 'qrcode-generator';
 import { lpTrack, lpVariant, storeUrlFor, isWidePointer } from '../lib/lpTrack';
 import { inject as injectVercelAnalytics } from '@vercel/analytics';
@@ -614,13 +615,13 @@ export default function Landing() {
         <section className="lp-hero">
           <div className="lp-wrap lp-hero-grid">
             <div className="lp-hero-text">
+              {/* 会話そのもののヒーロー（?hero=talk・2026-11-11）は見出しを約束の形に。ほかは 2026-10-17 指示書の見出しのまま */}
               <h1 className="lp-h1">
-                <span>読んだ本と、</span><span>会話しよう。</span>
+                {heroVariant === 'talk' ? HERO_TALK.h1.map((t) => <span key={t}>{t}</span>) : <><span>読んだ本と、</span><span>会話しよう。</span></>}
               </h1>
               {/* 2026-10-17 指示書（見出しは同日オーナー裁定で「会話しよう。」のまま）: 補足は体験が思い浮かぶ 2 行（残す → 相談する） */}
               <p className="lp-lead lp-lead-lines">
-                <span>心に残った一行を、本ごとにメモしておく。</span>
-                <span>迷ったとき、その本に相談できます。</span>
+                {heroVariant === 'talk' ? HERO_TALK.lead.map((t) => <span key={t}>{t}</span>) : <><span>心に残った一行を、本ごとにメモしておく。</span><span>迷ったとき、その本に相談できます。</span></>}
               </p>
               <div className="lp-cta-block" ref={heroCtaRef}>
                 {/* QR は最後の案内だけ（ヒーローの主ボタンの横の黒い四角がいちばん重く見えた・2026-10-16 ui-critic） */}
@@ -639,7 +640,9 @@ export default function Landing() {
                 </div>
               </div>
             </div>
-            {heroVariant === 'illust' ? (
+            {heroVariant === 'talk' ? (
+              <LpHeroTalk note={<HeroNote />} />
+            ) : heroVariant === 'illust' ? (
               <figure className="lp-hero-shot lp-hero-illust">
                 <LpIllust />
                 {/* イラストの右下に、実際の相談の画面を少し重ねる（イラストの型でも最初の画面で製品が見える・2026-10-12） */}

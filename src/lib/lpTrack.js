@@ -44,10 +44,13 @@ export const ILLUST_ON = String(import.meta.env.VITE_LP_ILLUST || '').trim().toL
 const AB_OFF = String(import.meta.env.VITE_LP_HERO_AB || '').trim().toLowerCase() === 'off';
 const HERO_KEY = 'orime-lp-hero-v2';
 let variant = null;
+// 'talk'（2026-11-11）＝ヒーローを会話そのものにする形。?hero=talk のとき、または VITE_LP_HERO=talk で全員。
+const TALK_DEFAULT = String(import.meta.env.VITE_LP_HERO || '').trim().toLowerCase() === 'talk';
 export function lpVariant() {
   if (variant) return variant;
   const q = safe(() => new URLSearchParams(window.location.search).get('hero'));
-  if (q === '3d' || q === 'photo') { variant = q; return variant; }
+  if (q === '3d' || q === 'photo' || q === 'talk') { variant = q; return variant; }
+  if (TALK_DEFAULT) { variant = 'talk'; return variant; }
   if (q === 'illust' && (ILLUST_ON || DEV)) { variant = q; return variant; }
   if (!ILLUST_ON) { variant = 'photo'; return variant; }
   if (AB_OFF) { variant = 'illust'; return variant; }

@@ -20,7 +20,7 @@ import { clientIp, ipHash } from './_clientIp.js';
 
 // ヒーローの表示方式（src/lib/lpTrack.js の lpVariant・supabase_lp_events.sql / supabase_lp_waitlist.sql の variant の CHECK と同じ）。
 // 2026-10-11: 'illust'（いろいろな本と対話するイラスト）を足した。'3d' は ?hero=3d のときだけ。
-export const LP_VARIANTS = ['3d', 'photo', 'illust'];
+export const LP_VARIANTS = ['3d', 'photo', 'illust', 'talk'];
 
 const LIMIT_PER_MIN = 5;
 export const LIMIT_PER_DAY = 5;

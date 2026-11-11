@@ -11,7 +11,8 @@ import { clientIp } from './_clientIp.js';
 
 // ヒーローの表示方式（src/lib/lpTrack.js の lpVariant・supabase_lp_events.sql / supabase_lp_waitlist.sql の variant の CHECK と同じ）。
 // 2026-10-11: 'illust'（いろいろな本と対話するイラスト）を足した。'3d' は ?hero=3d のときだけ。
-export const LP_VARIANTS = ['3d', 'photo', 'illust'];
+// 2026-11-11: 'talk'（会話そのもののヒーロー）を足した＝SQL の CHECK を流し直すこと。
+export const LP_VARIANTS = ['3d', 'photo', 'illust', 'talk'];
 
 // demo_* は 2026-10-02 まで LP にあった「試しに、相談してみる」の記録（過去の行の読み分けのために残す）。
 // flow_* は相談の流れの 4 枚（LpFlow.jsx）・section_view は節が画面に入った（1 回）・offer_badge は創業メンバー価格の印。
