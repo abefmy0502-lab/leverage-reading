@@ -646,8 +646,19 @@ export default function Landing() {
           </div>
         </section>
 
+        {/* ============ ② 使い方は 3 つ（2026-11-11 オーナー「初めての読み手でもすぐに理解できる構成に」: 読む順＝何ができる（ヒーロー）→ どう使う（ここ）→ 誰に聞ける → なぜ残る → ほかに → 値段） ============ */}
+        <section className="lp-sec lp-flow-sec" aria-labelledby="lp-grow" data-lp-sec="flow">
+          <div className="lp-wrap">
+            <div className="lp-narrow lp-sec-head">
+              <h2 className="lp-h2" id="lp-grow"><span>使い方は、</span><span>3 つだけ。</span></h2>
+              <p className="lp-lead lp-sec-lead">一行メモを残す。本に相談する。メモを根拠にした答えが返る。メモが増えるほど、答えはあなた向けになります。</p>
+            </div>
+            <LpFlow onEvent={lpTrack} note={heroVariant === 'talk'} />
+          </div>
+        </section>
+
         {/* ============ 著者には聞けない。本には、聞ける。（2026-11-11 オーナー「複数の著者の考えを比べて、混ぜて相談できる みたいな」） ============ */}
-        <section className="lp-sec lp-ask-sec" aria-labelledby="lp-ask" data-lp-sec="ask">
+        <section className="lp-sec lp-band lp-ask-sec" aria-labelledby="lp-ask" data-lp-sec="ask">
           <div className="lp-wrap">
             <div className="lp-narrow lp-sec-head">
               <h2 className="lp-h2" id="lp-ask">{ASK.h2.map((t) => <span key={t}>{t}</span>)}</h2>
@@ -658,25 +669,13 @@ export default function Landing() {
         </section>
 
         {/* ============ なぜ会話すると残るのか（2026-11-11 オーナー「直感的に本と会話できる感じを図で・効果を論理的に・¥1,480 が安く感じるように」） ============ */}
-        <section className="lp-sec lp-band lp-why-sec" aria-labelledby="lp-why" data-lp-sec="why">
+        <section className="lp-sec lp-why-sec" aria-labelledby="lp-why" data-lp-sec="why">
           <div className="lp-wrap">
             <div className="lp-narrow lp-sec-head">
               <h2 className="lp-h2" id="lp-why"><span>読むだけだと、</span><span>薄れていく。</span></h2>
               <p className="lp-lead lp-sec-lead">読んだ本と会話すると、残り方が変わります。</p>
             </div>
             <LpWhy />
-          </div>
-        </section>
-
-        {/* ============ ② 会話の流れ（2026-11-11 オーナー「進めてください」: 一方通行の図・問題の 2 行・「変わること」・「違い」の節をやめ、
-            ヒーロー → 会話の流れ → できること → 料金 → よくある質問 に絞った） ============ */}
-        <section className="lp-sec lp-flow-sec" aria-labelledby="lp-grow" data-lp-sec="flow">
-          <div className="lp-wrap">
-            {/* 一番の価値（CLAUDE.md）を、会話の流れ 4 枚の見出しに（2026-10-12 ui-critic） */}
-            <div className="lp-narrow lp-sec-head">
-              <h2 className="lp-h2" id="lp-grow"><span>メモが増えるほど、</span><span>答えが自分向けに。</span></h2>
-            </div>
-            <LpFlow onEvent={lpTrack} note={heroVariant === 'talk'} />
           </div>
         </section>
 

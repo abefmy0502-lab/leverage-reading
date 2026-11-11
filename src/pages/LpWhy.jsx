@@ -1,10 +1,8 @@
 // 📈 なぜ会話すると残るのか（2026-11-11 オーナー「本と会話することで通常の読書の効果よりどれくらいアップするのかを簡単に論理的に示したい・月 ¥1,480 が安く感じるように」）。
-//   図 1: 本と自分の輪（LpDiagram の DialogueLoop・本 ⇄ 自分）＝会話できる感じ
-//   図 2: 思い出せる量の時間の線（読むだけ＝薄れていく／会話する＝相談のたびに戻る）＝忘却曲線と分散学習のイメージ（参考）
+//   図: 思い出せる量の時間の線（読むだけ＝薄れていく／会話する＝相談のたびに戻る）＝忘却曲線と分散学習のイメージ（参考）
 //   3 つの研究（参考・出典つき）→ 月 ¥1,480 の意味。
 //   法務（company/brand-messaging.md・seo-articles-batch1.md）: 「○倍になる」「○円損している」の断定は書かない。数字は引用した研究の結果で、
 //   Orime の効果を測ったものではないと添える。
-import { DialogueLoop } from './LpDiagram';
 import Phrases from './LpPhrases';
 import { WHY } from './lpCopy';
 
@@ -37,10 +35,8 @@ function RetentionChart() {
 export default function LpWhy() {
   return (
     <div className="lp-why">
-      <div className="lp-why-figs">
-        <DialogueLoop />
-        <RetentionChart />
-      </div>
+      {/* 本と自分の輪（DialogueLoop）は「著者には聞けない」の 3 枚と重なるのでやめた（2026-11-11 オーナー「情報が錯綜」） */}
+      <RetentionChart />
       <ol className="lp-why-facts">
         {WHY.facts.map((f) => (
           <li key={f.title}>
