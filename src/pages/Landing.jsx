@@ -653,7 +653,7 @@ export default function Landing() {
         <section className="lp-sec lp-flow-sec" aria-labelledby="lp-grow" data-lp-sec="flow">
           <div className="lp-wrap">
             <div className="lp-narrow lp-sec-head">
-              <h2 className="lp-h2" id="lp-grow"><span>使い方は、</span><span>3 つだけ。</span></h2>
+              <h2 className="lp-h2" id="lp-grow">{heroVariant === 'talk' ? <><span>本に相談すると、</span><span>こうなる。</span></> : <><span>使い方は、</span><span>3 つだけ。</span></>}</h2>
             </div>
             {/* 2026-11-11 オーナー「スマホ画面を再現しなくてもいい」: 画面写真 3 枚（LpFlow）の代わりに、実際の相談を会話として組む */}
             {heroVariant === 'talk' ? <LpTalkFlow /> : <LpFlow onEvent={lpTrack} note={false} />}
