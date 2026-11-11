@@ -611,7 +611,7 @@ export default function Landing() {
         </section>
 
         {/* ============ ② 使い方は 3 つ（2026-11-11 オーナー「初めての読み手でもすぐに理解できる構成に」: 読む順＝何ができる（ヒーロー）→ どう使う（ここ）→ 誰に聞ける → なぜ残る → ほかに → 値段） ============ */}
-        <section className="lp-sec lp-flow-sec" aria-labelledby="lp-grow" data-lp-sec="flow">
+        <section className={`lp-sec lp-flow-sec${heroVariant === 'talk' ? ' is-talk' : ''}`} aria-labelledby="lp-grow" data-lp-sec="flow">
           <div className="lp-wrap">
             <div className="lp-narrow lp-sec-head">
               <h2 className="lp-h2" id="lp-grow">{heroVariant === 'talk' ? <><span>本に相談すると、</span><span>こうなる。</span></> : <><span>使い方は、</span><span>3 つだけ。</span></>}</h2>

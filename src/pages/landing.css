@@ -1153,12 +1153,18 @@ body.lp-active {
 .lp-root .lp-chat-label { display: flex; align-items: center; gap: var(--space-1); margin: 0; color: var(--text-2); font-size: var(--text-caption); font-weight: 600; }
 /* 会話の最後: 一歩が「明日の行動」になった結果（押せないボタンの絵の代わり・2026-11-11） */
 .lp-chat-row.is-result { justify-content: center; margin-top: var(--space-2); }
-.lp-chat-result { display: grid; gap: var(--space-2); width: 100%; max-width: 88%; margin-left: calc(28px + var(--space-2)); }
+.lp-chat-result { display: grid; gap: var(--space-2); width: calc(88% - 28px - var(--space-2)); margin-left: calc(28px + var(--space-2)); } /* 左端は本の吹き出しの列・右端も吹き出しとそろえる（ui-critic 2026-11-11） */
 .lp-root .lp-chat-result-lead { margin: 0; color: var(--text-2); font-size: var(--text-caption); text-align: left; }
 .lp-chat-todo { display: flex; align-items: flex-start; gap: var(--space-3); padding: var(--space-3) var(--space-4); border-radius: var(--radius); background: var(--surface); border: 1px solid var(--separator); color: var(--text-3); }
 .lp-root .lp-chat-todo-text { margin: 0; color: var(--text); font-size: var(--text-sub); font-weight: 600; line-height: 1.5; }
 .lp-root .lp-chat-todo-meta { margin: var(--space-1) 0 0; color: var(--text-2); font-size: var(--text-caption); }
-@media (min-width: 768px) { .lp-chat { max-width: 40em; } }
+/* 広い画面: 見出しを左の列、会話を右の列に（会話だけ左に寄って右が空いていた・ui-critic 2026-11-11） */
+@media (min-width: 768px) {
+  .lp-flow-sec.is-talk .lp-wrap { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); column-gap: var(--space-16); align-items: start; }
+  .lp-flow-sec.is-talk .lp-sec-head { margin-bottom: 0; }
+  .lp-flow-sec.is-talk .lp-chat { max-width: none; }
+  .lp-flow-sec.is-talk .lp-shot-note { grid-column: 2; }
+}
 
 /* ============ 📖 読む前に、読み方が決まる（読書計画シート・2026-11-11） ============ */
 /* 実物の抜粋を 1 枚のカードで（画面写真にしない）。AI 選書と同じ 5 : 7 の列・左に実物 */
