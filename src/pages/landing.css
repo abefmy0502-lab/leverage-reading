@@ -782,7 +782,10 @@ body.lp-active {
 
   .lp-hero { padding: var(--space-16) 0 var(--lp-sec); }
   .lp-hero-stage.is-3d-slot { padding: var(--space-16) 0; margin-top: 0; }
-  .lp-hero-grid { grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); align-items: center; gap: var(--space-16); }
+  /* 2026-11-11: 列は上でそろえる（前は中央＝高さの低いノート PC では見出しの上に大きな空きができ、画面が折り目で切れていた）。
+     文の列は端末の上の端から 48 下げ、見出しが画面の上のまとまり（一節のカードの横）に並ぶ */
+  .lp-hero-grid { grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); align-items: start; gap: var(--space-16); }
+  .lp-hero-grid > .lp-hero-text { padding-top: var(--space-12); }
   .lp-lead { font-size: var(--text-heading); margin-top: var(--space-6) !important; }
   .lp-hero .lp-cta-block { margin-top: var(--space-8); }
   .lp-shot { width: var(--lp-shot-w); }
@@ -1003,11 +1006,12 @@ body.lp-active {
 
 /* ============ 2026-10-17 指示書（見出しは「読んだ本と、会話しよう。」のまま） ============ */
 /* ヒーロー: 画面の答えのもとになったメモの一節（明朝・本の 1 ページの切れ端のように）。スマホは画面の上に少し重ね、広い画面は画面の左下に */
-.lp-hero-shot { position: relative; }
+.lp-hero-shot { position: relative; --lp-device-w: min(var(--lp-shot-w), 72vw); } /* 一節のカードの重ねる量に端末の幅を使う（.lp-shot と同じ式） */
 .lp-hero-quote {
   position: relative; z-index: 2;
   width: 100%; /* スマホは端末の上の端（ステータスバー）を覆う幅 */
-  margin: 0 0 calc(-1 * (var(--space-16) + var(--space-4))) 0;
+  /* 2026-11-11: 重ねるのは端末の枠とステータスバーのぶん（約 40）だけ。前の 80 はアプリの上の行（ロゴ・写真で共有）まで隠し、画面が「端末」に見えなかった */
+  margin: 0 0 calc(-1 * (var(--lp-device-w, 0px) * 0.028 + var(--space-8))) 0; /* 端末の枠の太さ（幅の 2.8%）＋ステータスバー 32 */
   padding: var(--space-4) var(--space-4) var(--space-4) var(--space-4);
   border-radius: var(--radius);
   background: var(--surface);
@@ -1027,7 +1031,7 @@ body.lp-active {
 }
 @media (min-width: 1100px) {
   /* 端末の左の枠に 16 だけ重ねる（画面の中身を隠さない）。高さは端末の上の 1/6＝見出しの右・答えの吹き出しより上 */
-  .lp-hero-quote { position: absolute; right: calc(100% - var(--space-4)); top: 16%; width: 17em; margin: 0; } /* 画面は列の左端に置かれる */
+  .lp-hero-quote { position: absolute; right: calc(100% - var(--space-4)); top: var(--space-12); width: 17em; margin: 0; } /* 画面は列の左端に置かれる。高さは文の列と同じ 48（2026-11-11 に 16% から・列を上でそろえたので、見出しの横に並べて補足の行にかからないように） */
 }
 /* 動き: 一節は画面より少し遅れて、下からふわっと（動きを減らす設定では出たまま） */
 .lp-motion .lp-hero-quote { opacity: 0; transform: translateY(var(--space-3)); transition: opacity var(--duration-slow) ease 0.25s, transform var(--duration-slow) var(--ease-out-expo) 0.25s; }

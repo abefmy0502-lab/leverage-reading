@@ -632,7 +632,8 @@ export default function Landing() {
                   {/* 創業メンバー価格（期間中だけ）: 押すと料金の中の帯へ */}
                   {OFFER.active && (
                     <a className="lp-textlink" href="#lp-offer" onClick={() => lpTrack('offer_badge', {})}>
-                      {FOUNDING_NAME}（<span className="lp-nb">{OFFER.endLabel}</span>まで）
+                      {/* 1 つの span に包む＝リンクは inline-flex なので、包まないと「（」「日付」「まで）」が別々の項目になって gap の空きが入る（2026-11-11） */}
+                      <span>{FOUNDING_NAME}（<span className="lp-nb">{OFFER.endLabel}</span>まで）</span>
                     </a>
                   )}
                 </div>
