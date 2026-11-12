@@ -32,7 +32,14 @@ export default function LpTalkFlow() {
   const [ask, answer, step] = T.steps;
   return (
     <>
-      <ol className="lp-chat" aria-label="実際の相談の流れ">
+      <ol className="lp-chat" aria-label="相談の流れの見本">
+        {/* 3 週間前のメモ（会話の材料）を最初に見せる＝どこがメモ由来かが見える（2026-11-12 読み手テスト） */}
+        <li className="lp-chat-row is-memo">
+          <div className="lp-chat-memo">
+            <p className="lp-chat-memo-meta">{T.memoMeta}</p>
+            <p className="lp-chat-memo-text">{T.memo}</p>
+          </div>
+        </li>
         <Me meta="相談する本：稲盛和夫『考え方』">{ask.ask}</Me>
         <Book from={answer.from}>
           <p className="lp-chat-text is-read">{answer.answer}</p>
@@ -61,7 +68,7 @@ export default function LpTalkFlow() {
       </ol>
       {/* ChatGPT との違いを、実例のすぐ下で 1 文（読み手テスト 2026-11-12） */}
       <p className="lp-chat-diff">ChatGPT との違い：答えの根拠は、ネットの一般論ではなく、あなたが残したメモです。本を一から説明する必要もありません。</p>
-      <p className="lp-shot-note lp-wbr">実際の相談です。{VOICE_NOTE}あなたのメモで、答えは変わります。</p>
+      <p className="lp-shot-note lp-wbr">画面は見本です。{VOICE_NOTE}あなたのメモで、答えは変わります。</p>
     </>
   );
 }

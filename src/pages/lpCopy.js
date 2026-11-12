@@ -42,8 +42,9 @@ export const HERO_TALK = {
   h1: ['読んだ本が、', '相談相手になる。'],
   // 2026-11-11 オーナー「この文章も微妙」: 仕組みの説明（AI が・根拠に）をやめ、やることの小ささ → 起きること → 一番の価値（読むほど育つ）の 3 行に
   // 2026-11-12 オーナー「もっとわかりやすく」: 比喩（本が答える・相談相手が育つ）をやめ、やること → 起きること → 続けると の具体の言葉に
-  facts: 'iPhone アプリ・無料で始められます。ブクログや Kindle の記録を取り込めば、その日から相談できます。',
-  lead: ['読んだ本の気になった一行を、メモするだけ。', '困ったとき、その本がメモをもとに答えます。', 'メモが増えるほど、あなたの事情を知った答えになります。'],
+  // 2026-11-12 読み手テスト 2 回目「冒頭で AI だと分からない」「Kindle で何が取り込めるか分からない」（見出しと補足は本を主語のまま＝オーナー「AI というのが微妙」）
+  facts: ['答えるのは、あなたのメモを読んだ AI です。', 'Kindle のハイライトやブクログの記録を取り込めば、その日から相談できます。', 'iPhone アプリ・無料で始められます。'],
+  lead: ['読んだ本の気になった一行を、メモするだけ。', '困ったとき、その本がメモをもとに答えます。', 'メモが増えるほど、あなたが読んできたことを踏まえた答えになります。'],
 };
 
 // 📚 著者には聞けない。本には、聞ける。（2026-11-11 オーナー「著者と会話するのは難しいが Orime なら…複数の著者の考えを比べて、混ぜて相談できる」）。
@@ -62,10 +63,13 @@ export const ASK = {
 // 🗣 使い方＝実際の 1 つの相談（2026-11-11 オーナーの実際の画面から・LpTalkFlow.jsx）。言い換えない。
 export const TALK = {
   // 2 往復目（実際の画面: 聞き返しへの返事 → 2 冊をまとめた答えの最後に「明日からできる一歩」）
+  // 会話のいちばん上に置く、3 週間前のメモ（見本・2026-11-12 読み手テスト「どこがメモ由来か見分けられない・例のメモが読みにくい」）
+  memo: '「できる」と信じ切れないと、少し難しいと思っただけで手が止まる。',
+  memoMeta: '3 週間前・『考え方』に残した一行',
   reply: '営業の数字が伸びない。課題が見えない',
   replyFrom: '稲盛和夫『考え方』', // 1 冊の相談として見せる（2026-11-12 読み手テスト「2 冊なのに 1 冊しか答えない」）
   // 行動リストに入った形（実際の行動の画面と同じ: 文・『本』· 期限）
-  todo: '顧客との接点で試す 1 つの工夫を手帳に書く',
+  todo: '前日の夜と当日の朝に、明日試す工夫を 1 つ手帳に書く',
   todoMeta: '期限 明日',
   steps: [
     {
@@ -79,7 +83,7 @@ export const TALK = {
       // 2026-11-11 オーナー「根拠の部分は消して、相談で答えてくれた文章は全て出して」: 答えは全文・根拠のメモは出さない
       answer: '自信の喪失は、「できると信じ切る」という心の土台が揺らいでいるサインです。その土台を立て直すには、小さな創意工夫の積み重ねと、朝の時間を使った思考のリセットが有効です。',
       // 2026-11-12 読み手テスト「自分のメモが根拠になった場面が無いと ChatGPT と見分けがつかない」: 根拠の 1 行だけ戻す
-      evidenceLine: 'あなたが 3 週間前に残したメモ「これはちょっと難しいと思っただけで、もうできません」をもとに答えています。',
+      evidenceLine: '上の、3 週間前のあなたのメモから答えています。',
       question: '自信が持てなくなった仕事は、どんな場面で、より強く感じますか？',
     },
     {
@@ -130,10 +134,10 @@ export const WHY = {
   chartCaption: '思い出せる量のイメージ（参考: 忘却曲線・分散学習）',
   // 2026-11-11 オーナー「ここまで細かくなくて良い・いい感じにまとめる」: 研究 3 つを 1 段に（数字は出さない・出典は 1 行）
   keys: ['思い出す・間をあける・自分の言葉で書く'],
-  summary: 'この 3 つで、読んだことは残りやすくなると、学習の研究で分かっています。Orime の一行メモと相談は、この 3 つをそのまま形にしたものです。',
+  summary: 'この 3 つで、読んだことは残りやすくなると、学習の研究で分かっています。Orime では、一行メモが「自分の言葉で書く」、相談が「思い出す」、忘れた頃に届く思い出しカードが「間をあける」です。',
   sources: '参考: Roediger & Karpicke 2006／Dunlosky ほか 2013／Slamecka & Graf 1978',
   costTitle: '月 ¥1,480 は、本 1 冊分。',
-  costBody: '読んだ本の中身が薄れていくなら、本代の多くは残りません。本 1 冊分で、読んだ本が相談相手として残ります。',
+  costBody: '月に本を 1 冊買うのと同じ値段で、これまで読んだ本がずっと相談相手として残ります。',
 };
 
 // 🧠 行動経済学・心理学に基づく文（2026-10-12・company/lp-behavioral-analysis-2026-10.md）。
@@ -189,13 +193,19 @@ export function buildLpCopy({
   const FIRST_CONSULTS = consultsOf(FREE_FIRST_MONTH_TOKENS);
   const FIRST_MONTH = `はじめの 2 か月は ${noBreak(`${FREE_FIRST_MONTH_TOKENS} トークン`)}（${FIRST_CONSULTS}）`;
   const PAID_CONSULTS = consultsOf(PAID_TOKENS);
+  // 2026-11-12 読み手テスト「答え・相談・トークンが混ざって分からない」: LP は「相談 何件」にそろえる（相談 1 件＝聞き返しを含めて答え 2〜3 回）
+  const talksOf = (tokens) => { const n = tokens / 10 / 2.5; const v = n >= 10 ? Math.round(n / 5) * 5 : Math.max(1, Math.round(n)); return `約 ${v} 件`; };
+  const FREE_TALKS = talksOf(FREE_TOKENS);
+  const FIRST_TALKS = talksOf(FREE_FIRST_MONTH_TOKENS);
+  const PAID_TALKS = talksOf(PAID_TOKENS);
+  const TRIAL_TALKS = talksOf(TRIAL_TOKENS);
   const TRIAL_CONSULTS = consultsOf(TRIAL_TOKENS);
   const LAUNCH = noBreak(launchLabel || DEFAULT_LAUNCH_LABEL);
   // 初回特典の対象（App Store の決まり＝同じサブスクのグループで 1 つの Apple ID に 1 回）。「初めての方」と書かない。
   const ELIGIBLE = '同じ Apple ID でプランの初回特典を使ったことがない方';
   const SENDERS = jev
-    ? 'Anthropic 社の API に送って答えを作ります（関係するメモを選ぶ判断に TypeSafe AI 社を使うことがあります）'
-    : 'Anthropic 社の API に送って答えを作ります';
+    ? 'Anthropic 社（Claude の会社）の API に送って答えを作ります（関係するメモを選ぶ判断に TypeSafe AI 社を使うことがあります）'
+    : 'Anthropic 社（Claude の会社）の API に送って答えを作ります';
 
   // ── 料金の欄のボタンの下の注記（2 段落）──
   let renew;
@@ -252,13 +262,13 @@ export function buildLpCopy({
     },
     {
       q: '無料プランで、何ができますか？',
-      a: `本とメモは何件でも残せて、AI 以外の機能はすべて使えます。AI の相談は${noBreak(`毎月 ${FREE_CONSULTS}`)}（はじめの 2 か月は ${FIRST_CONSULTS}）。写真から文字にする機能は${noBreak(`毎月 ${FREE_OCR_PER_MONTH} 回`)}です。使い切った月も、あなたのメモから関係する一節を並べて答えます。`,
+      a: `本とメモは何件でも残せて、AI 以外の機能はすべて使えます。AI の相談は${noBreak(`毎月 ${FREE_TALKS}`)}（はじめの 2 か月は ${FIRST_TALKS}）。相談 1 件は、聞き返しを含めて AI の答え 2〜3 回ぶんです。写真から文字にする機能は${noBreak(`毎月 ${FREE_OCR_PER_MONTH} 回`)}です。使い切った月も、あなたのメモから関係する一節を並べて答えます。`,
     },
     {
       // 2026-10-22: 無料期間と解約を 1 問に（問いは 7 問まで・オーナー「もっとシンプルに」）。
       q: TRIAL ? '無料期間のあとは、どうなりますか？' : '解約すると、メモは消えますか？',
       a: (TRIAL
-        ? `${TRIAL_WHO}の無料期間（${TRIAL}）は、AI を ${TRIAL_TOKENS} トークン（答え ${TRIAL_CONSULTS}）まで使えます。無料期間が終わると、${active ? `${noBreak(`月額 ${MONTHLY_TEXT}（税込）`)}` : '選んだプラン（月額か年額）'}で自動更新されます。終わる 24 時間前までに App Store で解約すれば、${noBreak('料金はかかりません')}（違約金もありません）。無料期間を使えるのは 1 つの Apple ID につき 1 回です。`
+        ? `${TRIAL_WHO}の無料期間（${TRIAL}）は、AI の相談を ${noBreak(TRIAL_TALKS)}まで使えます。無料期間が終わると、${active ? `${noBreak(`月額 ${MONTHLY_TEXT}（税込）`)}` : '選んだプラン（月額か年額）'}で自動更新されます。終わる 24 時間前までに App Store で解約すれば、${noBreak('料金はかかりません')}（違約金もありません）。無料期間を使えるのは 1 つの Apple ID につき 1 回です。`
         : '')
         + (TRIAL ? '解約してもメモは消えず、無料プランのまま使えます。' : '解約は App Store からいつでもでき、違約金もかかりません。解約してもメモは消えず、無料プランのまま使えます。')
         + '本・メモ・行動・相談の記録は、設定から CSV で書き出せます。',
@@ -272,7 +282,7 @@ export function buildLpCopy({
   ].map((f) => ({ ld: true, ...f }));
 
   return {
-    MONTHLY_TEXT, ANNUAL_TEXT, PER_MONTH_TEXT, PER_DAY_TEXT, ANNUAL_PER_DAY_TEXT, SAVE,
+    MONTHLY_TEXT, ANNUAL_TEXT, PER_MONTH_TEXT, PER_DAY_TEXT, ANNUAL_PER_DAY_TEXT, SAVE, FREE_TALKS, FIRST_TALKS, PAID_TALKS, TRIAL_TALKS,
     TRIAL_FIRST, TRIAL_SENT, TRIAL_WHO,
     FREE_CONSULTS, FIRST_CONSULTS, PAID_CONSULTS, TRIAL_CONSULTS,
     LAUNCH, ELIGIBLE, END,

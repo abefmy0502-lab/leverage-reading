@@ -94,7 +94,7 @@ const LAUNCH_LABEL = (import.meta.env.VITE_LAUNCH_LABEL || DEFAULT_LAUNCH_LABEL)
 // ヒーローと最後のボタンの横に出す（高さ 40 以上・周りに高さの 1/4 の余白・Apple のガイドライン）。
 const BADGE_SRC = (import.meta.env.VITE_APP_STORE_BADGE || '').trim();
 const COPY = buildLpCopy({ offer: OFFER, trialNote: TRIAL_NOTE, prelaunch: PRELAUNCH, jev: AI_JEV_ON, launchLabel: LAUNCH_LABEL });
-const { MONTHLY_TEXT, ANNUAL_TEXT, PER_MONTH_TEXT, PER_DAY_TEXT, ANNUAL_PER_DAY_TEXT, SAVE, TRIAL_FIRST, TRIAL_CONSULTS, FREE_CONSULTS, FIRST_CONSULTS, PAID_CONSULTS, END } = COPY;
+const { FREE_TALKS, FIRST_TALKS, PAID_TALKS, TRIAL_TALKS, MONTHLY_TEXT, ANNUAL_TEXT, PER_MONTH_TEXT, PER_DAY_TEXT, ANNUAL_PER_DAY_TEXT, SAVE, TRIAL_FIRST, TRIAL_CONSULTS, FREE_CONSULTS, FIRST_CONSULTS, PAID_CONSULTS, END } = COPY;
 const LAUNCH_LINE = `${LAUNCH_LABEL}に、App Store で公開予定です。`;
 // ボタンの文言（2026-10-02 オーナー承認）: アプリは無料プラン（ずっと無料）で使える（押すと App Store）。
 // 狭い幅・最大の文字で割れても「無料プランで／始める」になるよう、2 つの塊に包む（.lp-btn は keep-all）。
@@ -557,7 +557,7 @@ export default function Landing() {
                   </a>
                 </div>
                 {/* 2026-11-12 読み手テスト「対応端末と初日の価値が見えない」「創業メンバー価格が分からない」: リンクをやめ、事実を 1 行に */}
-                {heroVariant === 'talk' && <p className="lp-hero-facts lp-wbr"><Phrases>{HERO_TALK.facts}</Phrases></p>}
+                {heroVariant === 'talk' && <ul className="lp-hero-facts">{HERO_TALK.facts.map((t) => <li key={t} className="lp-wbr"><Phrases>{t}</Phrases></li>)}</ul>}
               </div>
             </div>
             {heroVariant === 'talk' ? (
@@ -686,7 +686,7 @@ export default function Landing() {
                 <ul className="lp-included" aria-label="無料プランに含まれるもの">
                   {/* li は flex（印と文を横に並べる）なので、文は 1 つの span に包む */}
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span className="lp-wbr"><Phrases>本とメモは何件でも。AI 以外の機能はすべて使えます。</Phrases></span></li>
-                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>AI の答えは<span className="lp-nb">毎月 {FREE_CONSULTS}</span><br /><span className="lp-nb" style={{ color: "var(--text-2)" }}>（はじめの 2 か月は {FIRST_CONSULTS}）</span></span></li>
+                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>AI の相談は<span className="lp-nb">毎月 {FREE_TALKS}</span><br /><span className="lp-nb" style={{ color: "var(--text-2)" }}>（はじめの 2 か月は {FIRST_TALKS}）</span></span></li>
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>写真から書き起こし <span className="lp-nb">毎月 {FREE_OCR_PER_MONTH} 回</span></span></li>
                 </ul>
                 {!PRELAUNCH && <StoreCta className="lp-btn lp-btn-ghost lp-plan-cta" loc="pricing_free">{CTA_LABEL}</StoreCta>}
@@ -697,15 +697,15 @@ export default function Landing() {
                     （値段より大きな数字が先に来ていた・2026-10-16 ui-critic）。 */}
                 <ul className="lp-included" aria-label="プランに含まれるもの">
                   {/* 量の前に「できること」（ui-critic 2026-11-12: 有料に価値を感じる段がここしか無い） */}
-                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>AI の答えは<span className="lp-nb">毎月 {PAID_CONSULTS}</span>。迷うたびに聞けます</span></li>
+                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>AI の相談は<span className="lp-nb">毎月 {PAID_TALKS}</span>。迷うたびに聞けます</span></li>
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span className="lp-wbr"><Phrases>読む前に、読み方を AI が書いてくれる</Phrases></span></li>
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span className="lp-wbr"><Phrases>次に読む本を、相談して選べる</Phrases></span></li>
                   {TRIAL_NOTE && (
-                    <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>最初の 7 日間は無料（そのあいだも <span className="lp-nb">AI の答え {TRIAL_CONSULTS}</span>）</span></li>
+                    <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>最初の 7 日間は無料（そのあいだも <span className="lp-nb">AI の相談 {TRIAL_TALKS}</span>）</span></li>
                   )}
                 </ul>
                 {/* 量の目安（用語の正典: LP の注記に 1 回・2026-10-09） */}
-                <p className="lp-plan-hint lp-wbr"><Phrases>{`${CONSULT_ANSWERS_NOTE}`}</Phrases></p>
+                <p className="lp-plan-hint lp-wbr"><Phrases>相談 1 件は、聞き返しを含めて AI の答え 2〜3 回ぶんです</Phrases></p>
                 <div className={`lp-plan-rows${OFFER.active ? ' is-founding' : ''}`}>
                   <div className="lp-plan-row">
                     <p className="lp-plan-label">年額プラン<span className="lp-plan-tag">{OFFER.active ? FOUNDING_NAME : 'おすすめ'}</span></p>
@@ -729,6 +729,7 @@ export default function Landing() {
                   </div>
                 </div>
                 {!PRELAUNCH && <StoreCta className="lp-btn lp-plan-cta" loc="pricing">{TRIAL_NOTE && !OFFER.active ? TRIAL_CTA_LABEL : PLAN_CTA_LABEL}</StoreCta>}
+                <p className="lp-plan-pick">月額か年額かは、App Store の画面で選べます。</p>
                 {/* 自動更新・解約の説明は有料のボタンのすぐ下（App Store 3.1.2・2026-10-12） */}
                 <p className="lp-renew lp-wbr">{COPY.pricingNote.map((t) => <span key={t}><Sentences>{t}</Sentences></span>)}</p>
               </div>
@@ -742,7 +743,7 @@ export default function Landing() {
                   <div><dt>対象</dt><dd className="lp-wbr"><Phrases>期間中にプランを始めた、すべての方（月額・年額とも）</Phrases></dd></div>
                   <div><dt>特典</dt><dd className="lp-wbr"><Phrases>開発者への直接の窓口と、次に作る機能への投票</Phrases></dd></div>
                   <div><dt>価格</dt><dd className="lp-wbr"><Phrases>{`年額プランの 1 年目が ${OFFER.price}（税込）。始めるときに 1 年分をまとめてお支払い。`}</Phrases></dd></div>
-                  <div><dt>ご注意</dt><dd className="lp-wbr"><Phrases>年額の 1 年目の価格は、はじめてのお申し込みが年額のときだけです（App Store の決まり）</Phrases></dd></div>
+                  <div><dt>ご注意</dt><dd className="lp-wbr"><Phrases>年額の 1 年目 ¥9,800 を使うなら、最初から年額でお申し込みください。先に月額の 7 日間無料を使うと対象外になります（App Store の決まり）</Phrases></dd></div>
                 </dl>
               </div>
             )}
@@ -782,7 +783,7 @@ export default function Landing() {
           <div className={`lp-wrap lp-narrow lp-final-inner${PRELAUNCH ? '' : ' is-live'}`}>
             <h2 className="lp-h2" id="lp-final">
               {/* 2026-10-22 オーナー: メモは本に書いてある一文を写すもの＝ヒーローの「心に残った一行」と同じ言い方に */}
-              <span>読んだ本の、</span><span>心に残った一行を</span><span>書いてみてください。</span>
+              <span>まずは、読んだ本の</span><span>一行から。</span>
             </h2>
             <div className="lp-cta-block">
               <Entry loc="final" wl={wl} qr badge launch center />

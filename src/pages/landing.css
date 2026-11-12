@@ -1243,7 +1243,16 @@ body.lp-active {
 .lp-faq .lp-faq-a, .lp-faq details > div, .lp-faq details > p { max-width: 40em; }
 
 /* 2026-11-12 読み手テスト: ヒーローの事実の 1 行・答えの根拠の 1 行・ChatGPT との違い */
-.lp-root .lp-hero-facts { margin: var(--space-3) 0 0; color: var(--text-2); font-size: var(--text-sub); line-height: 1.5; max-width: 30em; }
+.lp-root .lp-hero-facts { list-style: none; margin: var(--space-3) 0 0; padding: 0; display: grid; gap: var(--space-1); color: var(--text-2); font-size: var(--text-sub); line-height: 1.5; max-width: 30em; }
+.lp-root .lp-hero-facts li { position: relative; padding-left: var(--space-4); }
+.lp-root .lp-hero-facts li::before { content: ''; position: absolute; left: var(--space-1); top: 0.7em; width: 4px; height: 4px; border-radius: 50%; background: var(--text-3); }
 .lp-root .lp-chat-evidence-line { margin: 0; padding-left: var(--space-3); border-left: 2px solid var(--accent); color: var(--text-2); font-size: var(--text-meta); line-height: 1.5; word-break: normal; line-break: strict; }
 .lp-root .lp-chat-diff { margin: var(--space-6) 0 0; padding: var(--space-3) var(--space-4); border-radius: var(--radius); background: var(--accent-soft); color: var(--text); font-size: var(--text-sub); font-weight: 600; line-height: 1.5; max-width: 36em; word-break: normal; line-break: strict; text-wrap: pretty; }
 @media (min-width: 768px) { .lp-flow-sec.is-talk .lp-chat-diff { grid-column: 2; } }
+
+/* 会話のいちばん上の、3 週間前のメモ（見本の材料・2026-11-12） */
+.lp-chat-row.is-memo { justify-content: flex-start; }
+.lp-chat-memo { width: 100%; padding: var(--space-3) var(--space-4); border-radius: var(--radius); border: 1px dashed var(--border); background: transparent; }
+.lp-root .lp-chat-memo-meta { margin: 0 0 var(--space-1); color: var(--text-2); font-size: var(--text-meta); font-weight: 600; }
+.lp-root .lp-chat-memo-text { margin: 0; font-family: var(--font-read); font-size: var(--text-body); line-height: 1.6; color: var(--text); word-break: normal; line-break: strict; text-wrap: pretty; }
+.lp-root .lp-plan-pick { margin: var(--space-2) 0 0; color: var(--text-2); font-size: var(--text-meta); text-align: center; }
