@@ -47,7 +47,7 @@ export default function LpTalkFlow() {
         {/* 2026-11-11 オーナー「行動に追加ボタンは初めて見た人だとわからない」: ボタンの絵をやめ、押したあとに起きること（明日の行動リストに入る）を見せる */}
         <li className="lp-chat-row is-result">
           <div className="lp-chat-result">
-            <p className="lp-chat-result-lead">この一歩は、そのまま「明日の行動」になります</p>
+            <p className="lp-chat-result-lead">この一歩が、「明日の行動」になります</p>
             <div className="lp-chat-todo" aria-label="行動リストに入った例">
               <Circle size={20} aria-hidden="true" />
               <div>

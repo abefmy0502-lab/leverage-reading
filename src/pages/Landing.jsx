@@ -616,7 +616,7 @@ export default function Landing() {
           <div className="lp-wrap">
             <div className="lp-narrow lp-sec-head">
               <h2 className="lp-h2" id="lp-grow">{heroVariant === 'talk' ? <><span>本に相談すると、</span><span>こうなる。</span></> : <><span>使い方は、</span><span>3 つだけ。</span></>}</h2>
-              {heroVariant === 'talk' && <p className="lp-lead lp-sec-lead">相談相手は、1 冊でも、何冊かでも、本棚ぜんぶでも。</p>}
+              {heroVariant === 'talk' && <p className="lp-lead lp-sec-lead">相談する相手は、1 冊でも、本棚ぜんぶでも。</p>}
             </div>
             {/* 2026-11-11 オーナー「スマホ画面を再現しなくてもいい」: 画面写真 3 枚（LpFlow）の代わりに、実際の相談を会話として組む */}
             {heroVariant === 'talk' ? <LpTalkFlow /> : <LpFlow onEvent={lpTrack} note={false} />}
@@ -674,7 +674,7 @@ export default function Landing() {
               <p className="lp-lead lp-lead-lines lp-pricing-lead">
                 {/* 2026-11-11 オーナー「プランへ がわかりにくい」: 何が無料で、何が有料かを言い切る */}
                 <span>本とメモの記録は、ずっと無料。</span>
-                <span>AI への相談をたくさん使うなら、<span className="lp-nb">月額・年額プラン</span>。</span>
+                <span>AI への相談をたくさん使うなら、<span className="lp-nb">有料プランへ。</span></span>
               </p>
             </div>
 
