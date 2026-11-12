@@ -45,12 +45,13 @@ import { readFoundingOffer, noBreak, FOUNDING_NAME } from '../lib/foundingOffer'
 import Shot from './LpShot';
 import LpFlow from './LpFlow';
 import LpTalkFlow from './LpTalkFlow';
+import { FeatureTiles } from './LpDiagram';
 import LpWaitlist from './LpWaitlist';
 import LpIllust from './LpIllust';
 import LpWhy from './LpWhy';
 import LpArt, { hasArt } from './LpArt';
 import Phrases, { Sentences } from './LpPhrases';
-import { buildLpCopy, storeHrefOf, HERO_TALK, ASK, WHY, PLAN, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE, PROBLEM_LINES, MORE, FEATURED } from './lpCopy';
+import { buildLpCopy, storeHrefOf, HERO_TALK, ASK, WHY, PLAN, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE, PROBLEM_LINES, FEATURES } from './lpCopy';
 import qrcode from 'qrcode-generator';
 import { lpTrack, lpVariant, storeUrlFor, isWidePointer } from '../lib/lpTrack';
 import { inject as injectVercelAnalytics } from '@vercel/analytics';
@@ -633,48 +634,13 @@ export default function Landing() {
           </div>
         </section>
 
-        {/* ============ ほかにできること（2026-11-11 オーナー「情報過多・黄金の流れに」: 画面写真と 3 つの節（聞き方・読書計画・AI 選書）を、1 節の短い一覧にまとめた） ============ */}
+        {/* ============ ほかにできること（2026-11-12 オーナー「わかりにくすぎる・実際の画面を使わずに抽象化」: 6 つを線の絵＋題＋1 行の同じ形で） ============ */}
         <section className="lp-sec lp-band lp-more-sec" id="lp-pillars" aria-labelledby="lp-more" data-lp-sec="more">
           <div className="lp-wrap">
             <div className="lp-narrow lp-sec-head">
               <h2 className="lp-h2" id="lp-more">ほかにできること</h2>
             </div>
-            {/* Orime らしい 2 つは実物つき（読書計画シート＝実物の抜粋のカード・AI 選書＝実際の画面）・2026-11-11 オーナー「まとめすぎ」 */}
-            <ul className="lp-featured">
-              {FEATURED.map((x) => (
-                <li key={x.key} className="lp-featured-item">
-                  <div className="lp-featured-media">
-                    {x.key === 'plan' ? (
-                      <div className="lp-plan-card" aria-label="読書計画シートの例">
-                        <p className="lp-plan-card-head"><span className="lp-plan-card-tag">読書計画シート</span>{PLAN.sample.book}</p>
-                        <p className="lp-plan-card-want"><span>この本から得たいこと</span>{PLAN.sample.want}</p>
-                        {PLAN.sample.sections.slice(0, 3).map((sec) => (
-                          <div className="lp-plan-card-sec" key={sec.h}>
-                            <p className="lp-plan-card-h">{sec.h}</p>
-                            <ul>{sec.items.slice(0, 1).map((t) => <li key={t}>{t}</li>)}</ul>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <Shot name={x.shot} alt={x.alt} className="lp-shot lp-featured-shot" sizes="(min-width: 768px) 260px, 60vw" />
-                    )}
-                  </div>
-                  <div className="lp-featured-text">
-                    <h3 className="lp-h3 lp-wbr"><Phrases clause>{x.title}</Phrases>{x.plan && <span className="lp-more-plan">プラン</span>}</h3>
-                    {x.body.map((t) => <p key={t} className="lp-wbr"><Sentences block>{t}</Sentences></p>)}
-                  </div>
-                </li>
-              ))}
-            </ul>
-            <h3 className="lp-more-sub">そのほか</h3>
-            <ul className="lp-more">
-              {MORE.map((x) => (
-                <li key={x.title}>
-                  <h3 className="lp-more-title lp-wbr"><Phrases clause>{x.title}</Phrases>{x.plan && <span className="lp-more-plan">プラン</span>}</h3>
-                  <p className="lp-more-body lp-wbr"><Sentences block>{x.body}</Sentences></p>
-                </li>
-              ))}
-            </ul>
+            <FeatureTiles items={FEATURES} />
             <p className="lp-more-note">「プラン」は月額・年額プランで使えます。</p>
           </div>
         </section>

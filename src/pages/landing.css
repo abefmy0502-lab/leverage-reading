@@ -1217,3 +1217,13 @@ body.lp-active {
 }
 
 .lp-root .lp-sec-lead { text-wrap: pretty; } /* 「でも。」だけが落ちない（ui-critic 2026-11-11） */
+
+/* ============ 🧩 ほかにできること＝線の絵＋題＋1 行（FeatureTiles・2026-11-12） ============ */
+.lp-feat { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-6); }
+.lp-feat-item { display: grid; grid-template-columns: 48px minmax(0, 1fr); column-gap: var(--space-4); align-items: start; }
+.lp-feat-svg { width: 48px; height: 48px; color: var(--text); }
+.lp-root .lp-feat-title { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin: 0; font-size: var(--text-body); font-weight: 600; color: var(--text); line-height: 1.4; }
+.lp-root .lp-feat-body { margin: var(--space-1) 0 0; color: var(--text-2); font-size: var(--text-sub); line-height: 1.5; max-width: 30em; word-break: normal; line-break: strict; text-wrap: pretty; }
+@media (min-width: 768px) {
+  .lp-feat { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-8) var(--space-16); }
+}

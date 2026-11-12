@@ -151,6 +151,37 @@ export function AskModes({ items }) {
   );
 }
 
+// 🧩 ほかにできること の 6 つの絵（2026-11-12 オーナー「わかりにくすぎる・実際の画面を使わずに抽象化」）。同じ 64×64 の枠・同じ線・強調は --accent 1 か所
+const FEATURE_ICONS = {
+  // 読書計画シート: 紙の上に 3 本の行、1 本だけ栗色（重点的に読む箇所）
+  plan: (<g {...S}><rect x="14" y="8" width="36" height="48" rx="4" /><path d="M22 20 H 42" /><path d="M22 30 H 42" stroke="var(--accent)" strokeWidth="2.5" /><path d="M22 40 H 36" /></g>),
+  // AI 選書: 並んだ本 3 冊、1 冊だけ栗色で少し前に
+  advisor: (<g {...S}><rect x="10" y="20" width="12" height="36" rx="1.5" /><rect x="26" y="12" width="12" height="44" rx="1.5" stroke="var(--accent)" /><rect x="42" y="20" width="12" height="36" rx="1.5" /></g>),
+  // 行動: チェックつきの丸と 2 本の行
+  action: (<g {...S}><circle cx="18" cy="24" r="7" stroke="var(--accent)" /><path d="M15 24 L 17.5 26.5 L 21.5 21.5" stroke="var(--accent)" /><path d="M32 24 H 54" /><circle cx="18" cy="42" r="7" /><path d="M32 42 H 50" /></g>),
+  // 集中モード: 輪と針
+  focus: (<g {...S}><circle cx="32" cy="34" r="20" /><path d="M32 34 V 18" stroke="var(--accent)" /><path d="M32 34 L 42 40" /><path d="M26 8 H 38" /></g>),
+  // 一文を画像で: 写真の枠と引用の線
+  share: (<g {...S}><rect x="10" y="12" width="44" height="40" rx="4" /><path d="M10 44 L 24 32 L 34 40 L 42 34 L 54 44" /><path d="M20 20 H 40" stroke="var(--accent)" /></g>),
+  // 記録の基本: 本棚
+  library: (<g {...S}><path d="M8 56 H 56" /><rect x="12" y="24" width="10" height="32" rx="1.5" /><rect x="26" y="16" width="12" height="40" rx="1.5" /><rect x="42" y="28" width="10" height="28" rx="1.5" stroke="var(--accent)" /></g>),
+};
+export function FeatureTiles({ items }) {
+  return (
+    <ul className="lp-feat">
+      {items.map((it) => (
+        <li key={it.key} className="lp-feat-item">
+          <svg className="lp-feat-svg" viewBox="0 0 64 64" aria-hidden="true">{FEATURE_ICONS[it.key]}</svg>
+          <div className="lp-feat-text">
+            <h3 className="lp-feat-title">{it.title}{it.plan && <span className="lp-more-plan">プラン</span>}</h3>
+            <p className="lp-feat-body">{it.body}</p>
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 // 始め方の 4 つの小さな絵（同じ線の太さ・同じ大きさの枠）
 const START_ICONS = {
   memo: (
