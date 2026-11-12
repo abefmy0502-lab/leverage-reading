@@ -33,9 +33,10 @@ export default function LpTalkFlow() {
   return (
     <>
       <ol className="lp-chat" aria-label="実際の相談の流れ">
-        <Me meta="相談する本：2 冊">{ask.ask}</Me>
+        <Me meta="相談する本：稲盛和夫『考え方』">{ask.ask}</Me>
         <Book from={answer.from}>
           <p className="lp-chat-text is-read">{answer.answer}</p>
+          <p className="lp-chat-evidence-line">{answer.evidenceLine}</p>
           <p className="lp-chat-label">あなたに聞きたいこと</p>
           <p className="lp-chat-text">{answer.question}</p>
         </Book>
@@ -58,6 +59,8 @@ export default function LpTalkFlow() {
           </div>
         </li>
       </ol>
+      {/* ChatGPT との違いを、実例のすぐ下で 1 文（読み手テスト 2026-11-12） */}
+      <p className="lp-chat-diff">ChatGPT との違い：答えの根拠は、ネットの一般論ではなく、あなたが残したメモです。本を一から説明する必要もありません。</p>
       <p className="lp-shot-note lp-wbr">実際の相談です。{VOICE_NOTE}あなたのメモで、答えは変わります。</p>
     </>
   );

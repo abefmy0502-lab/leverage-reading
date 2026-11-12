@@ -1241,3 +1241,9 @@ body.lp-active {
 
 /* よくある質問の答え: PC で 1 行 44 字を超えない（ui-critic 2026-11-12） */
 .lp-faq .lp-faq-a, .lp-faq details > div, .lp-faq details > p { max-width: 40em; }
+
+/* 2026-11-12 読み手テスト: ヒーローの事実の 1 行・答えの根拠の 1 行・ChatGPT との違い */
+.lp-root .lp-hero-facts { margin: var(--space-3) 0 0; color: var(--text-2); font-size: var(--text-sub); line-height: 1.5; max-width: 30em; }
+.lp-root .lp-chat-evidence-line { margin: 0; padding-left: var(--space-3); border-left: 2px solid var(--accent); color: var(--text-2); font-size: var(--text-meta); line-height: 1.5; word-break: normal; line-break: strict; }
+.lp-root .lp-chat-diff { margin: var(--space-6) 0 0; padding: var(--space-3) var(--space-4); border-radius: var(--radius); background: var(--accent-soft); color: var(--text); font-size: var(--text-sub); font-weight: 600; line-height: 1.5; max-width: 36em; word-break: normal; line-break: strict; text-wrap: pretty; }
+@media (min-width: 768px) { .lp-flow-sec.is-talk .lp-chat-diff { grid-column: 2; } }

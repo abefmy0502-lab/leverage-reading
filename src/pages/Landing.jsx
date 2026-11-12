@@ -555,14 +555,9 @@ export default function Landing() {
                   <a className="lp-textlink" href="#lp-grow" onClick={() => lpTrack('hero_secondary', {})}>
                     <span>使い方を見る</span><ChevronDown size="1.1em" aria-hidden="true" />
                   </a>
-                  {/* 創業メンバー価格（期間中だけ）: 押すと料金の中の帯へ */}
-                  {OFFER.active && (
-                    <a className="lp-textlink lp-textlink-quiet" href="#lp-offer" onClick={() => lpTrack('offer_badge', {})}>
-                      {/* 1 つの span に包む＝リンクは inline-flex なので、包まないと「（」「日付」「まで）」が別々の項目になって gap の空きが入る（2026-11-11） */}
-                      <span>{FOUNDING_NAME}（<span className="lp-nb">{OFFER.endLabel}</span>まで）</span>
-                    </a>
-                  )}
                 </div>
+                {/* 2026-11-12 読み手テスト「対応端末と初日の価値が見えない」「創業メンバー価格が分からない」: リンクをやめ、事実を 1 行に */}
+                {heroVariant === 'talk' && <p className="lp-hero-facts lp-wbr"><Phrases>{HERO_TALK.facts}</Phrases></p>}
               </div>
             </div>
             {heroVariant === 'talk' ? (
@@ -702,11 +697,11 @@ export default function Landing() {
                     （値段より大きな数字が先に来ていた・2026-10-16 ui-critic）。 */}
                 <ul className="lp-included" aria-label="プランに含まれるもの">
                   {/* 量の前に「できること」（ui-critic 2026-11-12: 有料に価値を感じる段がここしか無い） */}
-                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>相談は<span className="lp-nb">毎月 {PAID_CONSULTS}</span>。迷うたびに聞けます</span></li>
+                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>AI の答えは<span className="lp-nb">毎月 {PAID_CONSULTS}</span>。迷うたびに聞けます</span></li>
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span className="lp-wbr"><Phrases>読む前に、読み方を AI が書いてくれる</Phrases></span></li>
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span className="lp-wbr"><Phrases>次に読む本を、相談して選べる</Phrases></span></li>
                   {TRIAL_NOTE && (
-                    <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>無料期間中も <span className="lp-nb">AI の答え {TRIAL_CONSULTS}</span></span></li>
+                    <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>最初の 7 日間は無料（そのあいだも <span className="lp-nb">AI の答え {TRIAL_CONSULTS}</span>）</span></li>
                   )}
                 </ul>
                 {/* 量の目安（用語の正典: LP の注記に 1 回・2026-10-09） */}
@@ -747,7 +742,7 @@ export default function Landing() {
                   <div><dt>対象</dt><dd className="lp-wbr"><Phrases>期間中にプランを始めた、すべての方（月額・年額とも）</Phrases></dd></div>
                   <div><dt>特典</dt><dd className="lp-wbr"><Phrases>開発者への直接の窓口と、次に作る機能への投票</Phrases></dd></div>
                   <div><dt>価格</dt><dd className="lp-wbr"><Phrases>{`年額プランの 1 年目が ${OFFER.price}（税込）。始めるときに 1 年分をまとめてお支払い。`}</Phrases></dd></div>
-                  <div><dt>ご注意</dt><dd className="lp-wbr"><Phrases>同じ Apple ID で初回特典を使っていない方が対象です。先に月額プランの 7 日間無料を使うと、年額の 1 年目の価格は使えません（App Store の初回特典のため）</Phrases></dd></div>
+                  <div><dt>ご注意</dt><dd className="lp-wbr"><Phrases>年額の 1 年目の価格は、はじめてのお申し込みが年額のときだけです（App Store の決まり）</Phrases></dd></div>
                 </dl>
               </div>
             )}
@@ -766,7 +761,7 @@ export default function Landing() {
             <h2 className="lp-h2" id="lp-faq">よくある質問</h2>
             <div className="lp-faq-list">
               {COPY.faq.map((f, i) => (
-                <details className="lp-faq-item" key={f.q} open={i === 0} onToggle={(e) => { if (e.currentTarget.open) lpTrack('faq_open', { i, q: f.q.slice(0, 40) }); }}>
+                <details className="lp-faq-item" key={f.q} open={i === 0 || f.q.startsWith('ChatGPT')} onToggle={(e) => { if (e.currentTarget.open) lpTrack('faq_open', { i, q: f.q.slice(0, 40) }); }}>
                   <summary>
                     <span className="lp-wbr"><Phrases>{f.q}</Phrases></span>
                     <ChevronDown size="1.25em" aria-hidden="true" className="lp-faq-mark" />
