@@ -33,7 +33,7 @@ export default function LpTalkFlow() {
   return (
     <>
       <ol className="lp-chat" aria-label="実際の相談の流れ">
-        <Me meta={`相談相手：${ask.partner}`}>{ask.ask}</Me>
+        <Me meta="相談する本：2 冊">{ask.ask}</Me>
         <Book from={answer.from}>
           <p className="lp-chat-text is-read">{answer.answer}</p>
           <p className="lp-chat-label">あなたに聞きたいこと</p>

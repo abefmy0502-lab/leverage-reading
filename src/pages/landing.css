@@ -1132,6 +1132,7 @@ body.lp-active {
 .lp-root .lp-textlink-quiet { color: var(--text-2) !important; font-weight: 400; }
 /* 料金の頭の帯（なぜ残る から移した） */
 .lp-pricing-cost { margin: var(--space-6) 0 0; }
+.lp-pricing-cost.is-top { margin: 0 0 var(--space-8); }
 
 /* ============ 💬 使い方＝実際の相談をチャットの形で（LpTalkFlow.jsx・2026-11-11） ============ */
 .lp-chat { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); max-width: 36em; } /* スマホの 1 画面に流れが入る間隔（2026-11-11） */
@@ -1237,3 +1238,6 @@ body.lp-active {
   .lp-feat-big { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-8); }
   .lp-feat-big-item { padding: var(--space-6); }
 }
+
+/* よくある質問の答え: PC で 1 行 44 字を超えない（ui-critic 2026-11-12） */
+.lp-faq .lp-faq-a, .lp-faq details > div, .lp-faq details > p { max-width: 40em; }

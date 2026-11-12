@@ -25,7 +25,7 @@ function RetentionChart() {
       </svg>
       {/* 文字は SVG に入れない（スマホで縮むと 12 を切る・DESIGN §2）。軸と凡例は HTML で */}
       <p className="lp-why-axis" aria-hidden="true"><span>読んだ日</span><span>1 週間</span><span>1 か月</span></p>
-      <p className="lp-why-legend" aria-hidden="true"><span className="is-talk">相談する（点は相談）</span><span className="is-read">読むだけ</span></p>
+      <p className="lp-why-legend" aria-hidden="true"><span className="is-talk">相談した日に戻る</span><span className="is-read">読むだけ</span></p>
       <figcaption>{WHY.chartCaption}</figcaption>
     </figure>
   );
