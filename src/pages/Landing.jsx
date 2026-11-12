@@ -641,7 +641,7 @@ export default function Landing() {
               <h2 className="lp-h2" id="lp-more">ほかにできること</h2>
             </div>
             <FeatureTiles items={FEATURES} />
-            <p className="lp-more-note">「プラン」は月額・年額プランで使えます。</p>
+            <p className="lp-more-note">「有料プラン」は、月額・年額プランで使えます。</p>
           </div>
         </section>
 

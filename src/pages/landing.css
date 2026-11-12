@@ -1227,3 +1227,13 @@ body.lp-active {
 @media (min-width: 768px) {
   .lp-feat { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-8) var(--space-16); }
 }
+
+/* 有料プランの 2 つはイメージの絵つきで上に（2026-11-12） */
+.lp-feat-big { list-style: none; margin: 0 0 var(--space-8); padding: 0; display: grid; gap: var(--space-6); }
+.lp-feat-big-item { padding: var(--space-4); border-radius: var(--radius); background: var(--bg); border: 1px solid var(--separator); }
+.lp-feat-art { display: block; width: min(100%, 240px); height: auto; margin: 0 auto var(--space-3); color: var(--text); }
+.lp-feat-art text { font-family: var(--font-ui); }
+@media (min-width: 768px) {
+  .lp-feat-big { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-8); }
+  .lp-feat-big-item { padding: var(--space-6); }
+}

@@ -166,14 +166,68 @@ const FEATURE_ICONS = {
   // 記録の基本: 本棚
   library: (<g {...S}><path d="M8 56 H 56" /><rect x="12" y="24" width="10" height="32" rx="1.5" /><rect x="26" y="16" width="12" height="40" rx="1.5" /><rect x="42" y="28" width="10" height="28" rx="1.5" stroke="var(--accent)" /></g>),
 };
+// 有料プランの 2 つのイメージの絵（2026-11-12 オーナー「イメージイラストみたいのをつけたい」）。240×140・同じ線・強調は --accent
+const FEATURE_ART = {
+  // 読書計画シート: 開いた本の右に 1 枚の紙。紙の中の行のうち 2 本が栗色（重点的に読む箇所）、下の 2 本は薄い（流し読み）。本と紙を矢印でつなぐ
+  plan: (
+    <g {...S}>
+      <Book x={16} y={104} w={84} />
+      <path d="M108 70 H 132" stroke="var(--accent)" />
+      <path d="M126 64 L 132 70 L 126 76" stroke="var(--accent)" />
+      <rect x="144" y="28" width="80" height="96" rx="6" />
+      <path d="M158 46 H 210" stroke="var(--accent)" strokeWidth="2.5" />
+      <path d="M158 60 H 202" stroke="var(--accent)" strokeWidth="2.5" />
+      <path d="M158 78 H 206" opacity="0.5" />
+      <path d="M158 92 H 196" opacity="0.5" />
+      <path d="M158 106 H 184" opacity="0.5" />
+    </g>
+  ),
+  // AI 選書: 本棚の列から 3 冊が選ばれて、人の前に並ぶ（1 冊目だけ栗色＝読む順番の最初）
+  advisor: (
+    <g {...S}>
+      <path d="M16 112 H 108" />
+      <rect x="20" y="64" width="12" height="48" rx="1.5" opacity="0.5" />
+      <rect x="36" y="52" width="14" height="60" rx="1.5" opacity="0.5" />
+      <rect x="54" y="60" width="11" height="52" rx="1.5" opacity="0.5" />
+      <rect x="69" y="48" width="13" height="64" rx="1.5" opacity="0.5" />
+      <rect x="86" y="58" width="12" height="54" rx="1.5" opacity="0.5" />
+      <path d="M116 84 C 130 84, 134 72, 146 72" stroke="var(--accent)" />
+      <path d="M140 66 L 146 72 L 140 78" stroke="var(--accent)" />
+      <rect x="156" y="40" width="16" height="48" rx="2" stroke="var(--accent)" strokeWidth="2.25" />
+      <rect x="178" y="48" width="16" height="40" rx="2" />
+      <rect x="200" y="56" width="16" height="32" rx="2" />
+      <text x="164" y="104" fontSize="10" textAnchor="middle" fill="var(--accent)" stroke="none" fontWeight="600">1</text>
+      <text x="186" y="104" fontSize="10" textAnchor="middle" fill="currentColor" stroke="none" opacity="0.6">2</text>
+      <text x="208" y="104" fontSize="10" textAnchor="middle" fill="currentColor" stroke="none" opacity="0.6">3</text>
+    </g>
+  ),
+};
 export function FeatureTiles({ items }) {
+  const big = items.filter((it) => FEATURE_ART[it.key]);
+  const small = items.filter((it) => !FEATURE_ART[it.key]);
+  return (
+    <>
+      <ul className="lp-feat-big">
+        {big.map((it) => (
+          <li key={it.key} className="lp-feat-big-item">
+            <svg className="lp-feat-art" viewBox="0 0 240 140" aria-hidden="true">{FEATURE_ART[it.key]}</svg>
+            <h3 className="lp-feat-title">{it.title}{it.plan && <span className="lp-more-plan">有料プラン</span>}</h3>
+            <p className="lp-feat-body">{it.body}</p>
+          </li>
+        ))}
+      </ul>
+      <FeatureList items={small} />
+    </>
+  );
+}
+function FeatureList({ items }) {
   return (
     <ul className="lp-feat">
       {items.map((it) => (
         <li key={it.key} className="lp-feat-item">
           <svg className="lp-feat-svg" viewBox="0 0 64 64" aria-hidden="true">{FEATURE_ICONS[it.key]}</svg>
           <div className="lp-feat-text">
-            <h3 className="lp-feat-title">{it.title}{it.plan && <span className="lp-more-plan">プラン</span>}</h3>
+            <h3 className="lp-feat-title">{it.title}{it.plan && <span className="lp-more-plan">有料プラン</span>}</h3>
             <p className="lp-feat-body">{it.body}</p>
           </div>
         </li>
