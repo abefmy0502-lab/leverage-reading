@@ -705,7 +705,7 @@ export default function Landing() {
                   )}
                 </ul>
                 {/* 量の目安（用語の正典: LP の注記に 1 回・2026-10-09） */}
-                <p className="lp-plan-hint lp-wbr"><Phrases>相談 1 件は、聞き返しを含めて AI の答え 2〜3 回ぶんです</Phrases></p>
+                
                 <div className={`lp-plan-rows${OFFER.active ? ' is-founding' : ''}`}>
                   <div className="lp-plan-row">
                     <p className="lp-plan-label">年額プラン<span className="lp-plan-tag">{OFFER.active ? FOUNDING_NAME : 'おすすめ'}</span></p>

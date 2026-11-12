@@ -1256,3 +1256,7 @@ body.lp-active {
 .lp-root .lp-chat-memo-meta { margin: 0 0 var(--space-1); color: var(--text-2); font-size: var(--text-meta); font-weight: 600; }
 .lp-root .lp-chat-memo-text { margin: 0; font-family: var(--font-read); font-size: var(--text-body); line-height: 1.6; color: var(--text); word-break: normal; line-break: strict; text-wrap: pretty; }
 .lp-root .lp-plan-pick { margin: var(--space-2) 0 0; color: var(--text-2); font-size: var(--text-meta); text-align: center; }
+
+.lp-chat-memo-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-1); }
+.lp-root .lp-chat-memo-list .lp-chat-memo-text { position: relative; padding-left: var(--space-3); font-size: var(--text-sub); }
+.lp-root .lp-chat-memo-list .lp-chat-memo-text::before { content: '・'; position: absolute; left: 0; color: var(--text-3); }
