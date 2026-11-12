@@ -72,7 +72,7 @@ export function freeTokens(env = process.env) {
 // 🌱 無料プランのはじめの月のトークン（2026-10-09 オーナー裁定「中期的な売り上げ最大化で考えて」）。
 // はじめての相談（2〜3 回の答え）を最後までして、2 つ目の相談の途中で 7 日間無料に出会う量。
 export function freeFirstMonthTokens(env = process.env) {
-  return Math.max(0, Math.floor(num(env.AI_FREE_FIRST_MONTH_TOKENS, 60)));
+  return Math.max(0, Math.floor(num(env.AI_FREE_FIRST_MONTH_TOKENS, 130))); // 2026-11-12 オーナー承認: 60 → 130（はじめの 2 か月は相談 約 5 件＝無料で価値を確かめられる量）
 }
 // はじめの月＝アカウントを作った日本時間の月（作ってから翌月 1 日 0 時まで）。
 // createdAt は auth.users.created_at（サーバーが auth.getUser で確かめたもの・アプリの申告は使わない）。

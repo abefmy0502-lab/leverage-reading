@@ -82,10 +82,10 @@ describe('runCostLine（AI 選書・読書計画シートのボタンのそば�
 });
 
 describe('🌱 無料プランのはじめの月（画面の写しはサーバーと同じ）', () => {
-  it('既定の量（60）はサーバーの AI_FREE_FIRST_MONTH_TOKENS の既定と同じ', async () => {
+  it('既定の量（130）はサーバーの AI_FREE_FIRST_MONTH_TOKENS の既定と同じ', async () => {
     const { FREE_FIRST_MONTH_TOKENS } = await import('./tokens.js');
     expect(FREE_FIRST_MONTH_TOKENS).toBe(server.freeFirstMonthTokens({}));
-    expect(FREE_FIRST_MONTH_TOKENS).toBe(60);
+    expect(FREE_FIRST_MONTH_TOKENS).toBe(130);
   });
   it('はじめの月の判定と量は、サーバーと同じ（日本時間の月・月をまたぐ・読めない）', async () => {
     const { isFreeFirstMonth, freeTokensFor } = await import('./tokens.js');
@@ -109,11 +109,11 @@ describe('🌱 無料プランのはじめの月（画面の写しはサーバ�
 });
 
 describe('量の目安（単位は AI の答え・1 回 約 10 トークン）', () => {
-  it('無料 約 3 回・はじめの月 約 6 回・7 日間無料 約 15 回・プラン 約 80 回・追加 約 30／100 回分', async () => {
+  it('無料 約 3 回・はじめの月 約 13 回・7 日間無料 約 15 回・プラン 約 80 回・追加 約 30／100 回分', async () => {
     const { answerCountLabel, ANSWER_TOKENS, FREE_FIRST_MONTH_TOKENS, TOKEN_PACKS } = await import('./tokens.js');
     expect(ANSWER_TOKENS).toBe(TOKEN_COSTS.consult);
     expect(answerCountLabel(FREE_TOKENS)).toBe('約 3 回');
-    expect(answerCountLabel(FREE_FIRST_MONTH_TOKENS)).toBe('約 6 回');
+    expect(answerCountLabel(FREE_FIRST_MONTH_TOKENS)).toBe('約 13 回');
     expect(answerCountLabel(TRIAL_TOKENS)).toBe('約 15 回');
     expect(answerCountLabel(PAID_TOKENS)).toBe('約 80 回');
     expect(TOKEN_PACKS.map((p) => p.consults)).toEqual(['約 30 回', '約 100 回']);

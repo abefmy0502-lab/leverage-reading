@@ -37,7 +37,7 @@ export default function LpTalkFlow() {
         <li className="lp-chat-row is-memo">
           <div className="lp-chat-memo">
             <p className="lp-chat-memo-meta">{T.memoMeta}</p>
-            <ul className="lp-chat-memo-list">{T.memos.map((t) => <li key={t} className="lp-chat-memo-text">{t}</li>)}</ul>
+            <ul className="lp-chat-memo-list">{T.memos.map((m) => <li key={m.text} className="lp-chat-memo-text"><span className="lp-chat-memo-when">{m.when}</span>{m.text}</li>)}</ul>
           </div>
         </li>
         <Me meta="相談する本：稲盛和夫『考え方』">{ask.ask}</Me>

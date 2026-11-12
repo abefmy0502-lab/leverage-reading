@@ -4,7 +4,7 @@ export const AI_TOKEN_JPY = 0.3;
 export const FREE_TOKENS = 30;
 // 🌱 無料プランのはじめの月（アカウントを作った日本時間の月）だけのトークン（2026-10-09 オーナー裁定）。
 //    api/_aiAccess.js の AI_FREE_FIRST_MONTH_TOKENS の既定と揃える。
-export const FREE_FIRST_MONTH_TOKENS = 60;
+export const FREE_FIRST_MONTH_TOKENS = 130; // 2026-11-12 オーナー承認: 60 → 130（はじめの 2 か月は相談 約 5 件）。サーバーの AI_FREE_FIRST_MONTH_TOKENS の既定と同じ
 export const TRIAL_TOKENS = 150;
 export const PAID_TOKENS = 800;
 // 📷 無料プランの写真から書き起こし（1 か月の回数・2026-10-02）。api/_aiAccess.js の AI_FREE_OCR_PER_MONTH の既定と揃える。

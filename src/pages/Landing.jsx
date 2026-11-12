@@ -51,7 +51,7 @@ import LpIllust from './LpIllust';
 import LpWhy from './LpWhy';
 import LpArt, { hasArt } from './LpArt';
 import Phrases, { Sentences } from './LpPhrases';
-import { buildLpCopy, storeHrefOf, HERO_TALK, ASK, WHY, PLAN, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE, PROBLEM_LINES, FEATURES } from './lpCopy';
+import { buildLpCopy, storeHrefOf, HERO_TALK, ASK, WHY, PLAN, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE, PROBLEM_LINES, FEATURES, DAY1 } from './lpCopy';
 import qrcode from 'qrcode-generator';
 import { lpTrack, lpVariant, storeUrlFor, isWidePointer } from '../lib/lpTrack';
 import { inject as injectVercelAnalytics } from '@vercel/analytics';
@@ -82,7 +82,9 @@ function canUse3D() {
 const OFFER = readFoundingOffer();
 // 🎁 プランの無料期間の表記（既定は正典どおり「7 日間無料」・VITE_TRIAL_NOTE で変える・'off' で出さない）。
 const TRIAL_RAW = (import.meta.env.VITE_TRIAL_NOTE ?? '7 日間無料').trim();
-const TRIAL_NOTE = TRIAL_RAW === 'off' ? '' : normalizeTrialLabel(TRIAL_RAW);
+// 2026-11-12 オーナー承認: 創業メンバーのあいだは 7 日間無料をやめる（試すのは無料プラン＝はじめの 2 か月は相談 約 5 件）。
+//   「月額の 7 日間無料を使うと年額の 1 年目 ¥9,800 が使えない」罠を無くすため。App Store Connect で月額の初回特典（7 日間無料）を外すのはオーナーの作業。
+const TRIAL_NOTE = TRIAL_RAW === 'off' || OFFER.active ? '' : normalizeTrialLabel(TRIAL_RAW);
 // 🚀 公開前の形（メールでお知らせ・公開予定・公開前の FAQ）は VITE_LP_PRELAUNCH=on のときだけ（2026-10-11 から既定は公開済み）。
 // 🧪 開発中だけ ?prelaunch=1 で公開前の形を見られる。
 const PRELAUNCH = String(import.meta.env.VITE_LP_PRELAUNCH || '').trim().toLowerCase() === 'on'
@@ -640,6 +642,30 @@ export default function Landing() {
           </div>
         </section>
 
+        {/* ============ 今日から、こう始めます（2026-11-12 読み手テスト「毎日どう触るかが見えない」・オーナー承認） ============ */}
+        <section className="lp-sec lp-day1-sec" aria-labelledby="lp-day1" data-lp-sec="day1">
+          <div className="lp-wrap">
+            <div className="lp-narrow lp-sec-head">
+              <h2 className="lp-h2" id="lp-day1"><span>今日から、</span><span>こう始めます。</span></h2>
+            </div>
+            <ol className="lp-day1">
+              {DAY1.map((x, i) => (
+                <li key={x.title} className="lp-day1-step">
+                  <h3 className="lp-day1-title"><span className="lp-gallery-num" aria-hidden="true">{i + 1}</span>{x.title}</h3>
+                  <p className="lp-day1-body lp-wbr">{x.body}</p>
+                  {x.sub && <p className="lp-day1-sub lp-wbr">{x.sub}</p>}
+                  {x.shot && (
+                    <picture>
+                      <source media="(prefers-color-scheme: dark)" type="image/webp" srcSet={`/lp/${x.shot}-dark-390.webp 390w, /lp/${x.shot}-dark-780.webp 780w`} sizes="(min-width: 768px) 320px, 80vw" />
+                      <img className="lp-day1-shot" src={`/lp/${x.shot}-light-780.webp`} srcSet={`/lp/${x.shot}-light-390.webp 390w, /lp/${x.shot}-light-780.webp 780w`} sizes="(min-width: 768px) 320px, 80vw" width="390" height="391" loading="lazy" decoding="async" alt="メモを書く画面。『1兆ドルコーチ』に「任せることで、人は育つ。」と書いて、下に保存のボタン" />
+                    </picture>
+                  )}
+                </li>
+              ))}
+            </ol>
+          </div>
+        </section>
+
         {/* ============ 利用者の声（実在の声があるときだけ） ============ */}
         {TESTIMONIALS.length > 0 && (
           <section className="lp-sec" aria-labelledby="lp-voices">
@@ -743,7 +769,8 @@ export default function Landing() {
                   <div><dt>対象</dt><dd className="lp-wbr"><Phrases>期間中にプランを始めた、すべての方（月額・年額とも）</Phrases></dd></div>
                   <div><dt>特典</dt><dd className="lp-wbr"><Phrases>開発者への直接の窓口と、次に作る機能への投票</Phrases></dd></div>
                   <div><dt>価格</dt><dd className="lp-wbr"><Phrases>{`年額プランの 1 年目が ${OFFER.price}（税込）。始めるときに 1 年分をまとめてお支払い。`}</Phrases></dd></div>
-                  <div><dt>ご注意</dt><dd className="lp-wbr"><Phrases>年額の 1 年目 ¥9,800 を使うなら、最初から年額でお申し込みください。先に月額の 7 日間無料を使うと対象外になります（App Store の決まり）</Phrases></dd></div>
+                  {/* 「ご注意」は 7 日間無料があるときだけ（2026-11-12: 創業メンバーのあいだは 7 日間無料をやめた＝罠が無い） */}
+                  {TRIAL_NOTE && <div><dt>ご注意</dt><dd className="lp-wbr"><Phrases>年額の 1 年目 ¥9,800 を使うなら、最初から年額でお申し込みください。先に月額の 7 日間無料を使うと対象外になります（App Store の決まり）</Phrases></dd></div>}
                 </dl>
               </div>
             )}

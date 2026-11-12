@@ -32,11 +32,11 @@ describe('今月の相談が戻りました', () => {
     expect(shouldShowTokensBack({ prevUsedMjpy: 30 * T, createdAt, now, remaining: 5 })).toBe(false);
   });
 
-  it('先月がはじめの月（60）なら 60 を使い切ったときだけ・先月にアカウントが無ければ出さない', () => {
+  it('先月がはじめの月（130）なら 130 を使い切ったときだけ・先月にアカウントが無ければ出さない', () => {
     const now = at('2026-11-02T09:00:00+09:00');
     const createdAt = '2026-10-10T00:00:00+09:00';
     expect(shouldShowTokensBack({ prevUsedMjpy: 30 * T, createdAt, now, remaining: 30 })).toBe(false);
-    expect(shouldShowTokensBack({ prevUsedMjpy: 55 * T, createdAt, now, remaining: 30 })).toBe(true);
+    expect(shouldShowTokensBack({ prevUsedMjpy: 125 * T, createdAt, now, remaining: 30 })).toBe(true);
     expect(shouldShowTokensBack({ prevUsedMjpy: 30 * T, createdAt: '2026-11-01T10:00:00+09:00', now, remaining: 30 })).toBe(false);
   });
 

@@ -486,14 +486,14 @@ describe('🌱 無料プランのはじめの月のトークン（アカウン�
   beforeEach(() => { db.sub = null; });
   afterEach(() => { delete process.env.AI_FREE_FIRST_MONTH_TOKENS; });
 
-  it('今月作ったアカウント → 60 トークンで予約（行は free-YYYY-MM のまま）', async () => {
+  it('今月作ったアカウント → 130 トークンで予約（行は free-YYYY-MM のまま）', async () => {
     db.createdAt = new Date(Date.now() - 60_000).toISOString();
     stubJson();
     const res = mockRes();
     await handler(consultReq(), res);
     expect(res.statusCode).toBe(200);
     expect(db.rpcArgs.reserve_ai_cost.p_period_month).toBe(`free-${jstMonth()}`);
-    expect(allowanceOfReserve()).toBe(60);
+    expect(allowanceOfReserve()).toBe(130);
   });
   it('先月以前に作ったアカウント → 30', async () => {
     db.createdAt = new Date(Date.now() - 75 * 86400000).toISOString(); // 2 か月より前（はじめの 2 か月は 60）
@@ -516,12 +516,12 @@ describe('🌱 無料プランのはじめの月のトークン（アカウン�
     await handler(req({ model: 'claude-haiku-4-5', purpose: 'consult', max_tokens: 1024, created_at: new Date().toISOString(), messages: [{ role: 'user', content: 'こんにちは' }] }), mockRes());
     expect(allowanceOfReserve()).toBe(30);
   });
-  it('原価を数えられない DB では回数で: はじめの月 6 回・それ以降 3 回', async () => {
+  it('原価を数えられない DB では回数で: はじめの月 13 回・それ以降 3 回', async () => {
     db.costFail = true;
     db.createdAt = new Date(Date.now() - 60_000).toISOString();
     stubJson();
     await handler(consultReq(), mockRes());
-    expect(db.rpcArgs.reserve_ai_usage).toMatchObject({ p_period_month: `free-${jstMonth()}`, p_limit: 6 });
+    expect(db.rpcArgs.reserve_ai_usage).toMatchObject({ p_period_month: `free-${jstMonth()}`, p_limit: 13 });
     resetDb(); db.sub = null; db.costFail = true; clockOffset += 61_000;
     db.createdAt = new Date(Date.now() - 75 * 86400000).toISOString(); // 2 か月より前（はじめの 2 か月は 60）
     stubJson();
