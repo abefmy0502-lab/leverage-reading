@@ -1343,4 +1343,5 @@ body.lp-active {
 .lp-goal-shot { margin: 0; display: flex; flex-direction: column; align-items: center; gap: var(--space-3); }
 .lp-goal-shot .lp-shot { width: 100%; }
 .lp-goal-shot figcaption { font-size: var(--text-sub); color: var(--text-2); line-height: 1.6; text-align: center; }
-.lp-goal-grow { margin-top: var(--space-8); font-size: var(--text-body); line-height: 1.8; text-align: center; color: var(--text); }
+.lp-goal-sec .lp-goal-grow { margin-top: var(--space-12); margin-bottom: 0; font-size: var(--text-body); line-height: 1.8; color: var(--text); }
+.lp-goal-sec .lp-shot-note { margin-top: var(--space-3); }

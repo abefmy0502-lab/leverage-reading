@@ -42,7 +42,7 @@ const hideDemoNote = (p) => p.evaluate(() => {
 });
 // 画面ごとの開く URL（既定は /?lpshot=1）。flow-worry は答えを途中で止める設定（&ai=stall）で、
 // 送った悩みと答えの書きはじめ（結論の数行）が出ている所を撮る（読み込み中の骨組みだけの画面にしない・2026-10-05）。
-const SHOT_URL = { 'flow-worry': '/?lpshot=1&ai=stall', focus: '/?lpshot=1&focus=timer' };
+const SHOT_URL = { 'flow-worry': '/?lpshot=1&ai=stall', focus: '/?lpshot=1&focus=timer', 'goal-road': '/?lpshot=1&goals=on', 'goal-plan': '/?lpshot=1&goals=on' };
 const DEFAULT_URL = '/?lpshot=1';
 const ask = async (p) => {
   await p.locator(nav('相談')).click(); await p.waitForTimeout(800);
@@ -100,6 +100,20 @@ const scrollToText = (p, text, gap) => p.evaluate(({ text, gap }) => {
 }, { text, gap });
 
 const SHOTS = {
+  // 🧭 目標とロードマップ・読書計画（2026-11-15 オーナー「この内容も LP に」）: ロードマップの道のり／読書計画のカレンダー。
+  'goal-road': async (p) => {
+    await p.locator(nav('振り返り')).click(); await p.waitForTimeout(600);
+    await p.locator('button[role=tab]:has-text("行動")').click(); await p.waitForTimeout(400);
+    await p.locator('button.goal-entry').click(); await p.waitForTimeout(900);
+    await p.evaluate(() => { const sc = document.querySelector('.goal-scroll'); const h = document.querySelector('#rm-road'); if (sc && h) sc.scrollTop += h.getBoundingClientRect().top - sc.getBoundingClientRect().top - 8; });
+  },
+  'goal-plan': async (p) => {
+    await p.locator(nav('振り返り')).click(); await p.waitForTimeout(600);
+    await p.locator('button[role=tab]:has-text("行動")').click(); await p.waitForTimeout(400);
+    await p.locator('button.goal-entry').click(); await p.waitForTimeout(900);
+    await p.locator('button:has-text("読書計画をカレンダーにする")').click(); await p.waitForTimeout(900);
+    await p.evaluate(() => { const sc = document.querySelector('.goal-scroll'); const h = document.querySelector('[aria-labelledby="plan-minutes"]'); if (sc && h) sc.scrollTop += h.getBoundingClientRect().top - sc.getBoundingClientRect().top - 8; });
+  },
   // ── 2026-10-11 の作り直し（読書を、受け身から対話へ）──
   // ヒーロー: 1 冊の本（『嫌われる勇気』）に相談して、本の語り口で答え、状況を 1 つ聞き返しているところ。
   //   名前の行の著者名だけは隠す（実在の著者が話しているように見せない・LP の画像の決まり）。「（本の語り口で・AI）」は残す。

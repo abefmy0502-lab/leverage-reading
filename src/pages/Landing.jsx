@@ -661,7 +661,7 @@ export default function Landing() {
               ))}
             </div>
             <p className="lp-narrow lp-goal-grow lp-lines">{GOAL_SEC.grow.map((t) => <span key={t}>{t}</span>)}</p>
-            <p className="lp-shot-note">{GOAL_SEC.note}</p>
+            <p className="lp-narrow lp-shot-note">{GOAL_SEC.note}</p>
           </div>
         </section>
 
