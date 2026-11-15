@@ -1910,7 +1910,7 @@ function AuthedApp() {
         // stale クロージャの current 同士を比較すると常に一致してしまうため関数形式で。
         setCurrent((c) => (c && c.id === next.id ? next : c));
       });
-      toast.success('表紙をアップロードしました。');
+      toast.success('表紙を更新しました。');
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error('[manual-upload] failed:', err);
@@ -2661,7 +2661,7 @@ function AuthedApp() {
     if (!book) return;
     const ok = await confirm({
       title: 'この本を削除しますか？',
-      message: `『${book.title}』のメモ（写真を含む）と行動も、いっしょに削除されます。\n削除した直後なら「元に戻す」で戻せます。`,
+      message: `『${book.title}』のメモ（写真を含む）と行動も、いっしょに削除されます。\n削除したあと、少しの間は「元に戻す」で戻せます。`,
       confirmLabel: '削除する',
       cancelLabel: 'キャンセル',
       danger: true,
@@ -3508,7 +3508,7 @@ function AuthedApp() {
       } catch { /* 基準が読めなければそのまま */ }
       setBriefJustMadeId(bookId);
       if (briefSaved?.failed) toast.info('作成しました。いまはこの端末にだけ保存されています。');
-      else toast.success('この本で学べることを作りました');
+      else toast.success('この本で学べることを作りました。');
     } catch (error) {
       // トークンの上限は案内として。プランの案内（402）は有料プランの画面が開くので重ねない。同意をやめたときは何も言わない。
       // 作れなかったときは、ボタンの下に理由の 1 行（ボタンは「もう一度作る」・2026-10-08 ui-critic）。
@@ -3532,7 +3532,7 @@ function AuthedApp() {
       title: `${briefLabels(storedBriefOf(book)).title}を作り直しますか？`,
       message: `いまの内容は新しい内容に置き換わります。${briefCostLine || `1 回 約 ${TOKEN_COSTS.bookBrief} トークン`}`,
       confirmLabel: '作り直す',
-      cancelLabel: 'やめる',
+      cancelLabel: 'キャンセル',
     });
     if (ok) makeBookBrief(book);
   };
@@ -3553,7 +3553,7 @@ function AuthedApp() {
   const pickHypothesisInEdit = (h) => {
     setForm((f) => ({ ...f, hypothesis: appendHypothesis(f.hypothesis, h) }));
     // 知らせは下に固定の保存の欄の上に浮かぶ（EditSaveBar の data-toast-above・2026-10-09）。
-    toast.success('仮説の欄に入れました');
+    toast.success('仮説の欄に入れました。');
     revealHypothesisField();
   };
   // 本の詳細（積読）で仮説の例を押したとき（2026-10-09）: 編集画面に移らず、詳細のまま本の仮説に足して保存し、
@@ -3838,7 +3838,7 @@ function AuthedApp() {
     cur.session.saves = [];
     const results = await Promise.all(saves);
     const n = results.filter((r) => r === 'saved').length;
-    if (n > 1) toast.success(`${n} 件の期限を更新しました`);
+    if (n > 1) toast.success(`${n} 件の期限を更新しました。`);
     else if (n === 1) toast.success('行動を更新しました。');
   };
   // 🎯 行動タブの「＋追加」フロー — null | 'pick'（本選択シート） | { bookId }（入力モーダル）
@@ -4115,7 +4115,7 @@ function AuthedApp() {
         syncActionSnapshots(next);
       });
       track(EVENTS.ACTION_ADDED, { source: payload.source === 'consult' ? 'consult' : 'manual' });
-      if (!payload.quiet) toast.success('🎯 行動を追加しました。');
+      if (!payload.quiet) toast.success('行動を追加しました。');
       return true;
     } catch (error) {
       const msg = toSaveMessage(error, '行動の追加に失敗しました。');
@@ -4195,7 +4195,7 @@ function AuthedApp() {
         title: '行動を削除しますか？',
         message: 'この行動を、期限とふりかえりも含めて削除します。元に戻せません。',
         confirmLabel: '削除する',
-        cancelLabel: 'やめる',
+        cancelLabel: 'キャンセル',
         danger: true,
       });
       if (!ok) return;
@@ -6288,7 +6288,7 @@ function AuthedApp() {
                     inputMode="search"
                     enterKeyHint="search"
                     maxLength={100}
-                    aria-label="本を検索（書名・著者・タグ・メモの言葉）"
+                    aria-label="本を検索（書名・著者・分野・メモの言葉）"
                     // メモ（この本のまとめ・読書準備も）に書いた言葉からも本を探せる（2026-09-30）。
                     placeholder="書名・著者・メモの言葉で探す"
                     value={search}
@@ -6947,7 +6947,7 @@ function AuthedApp() {
                 syncActionSnapshots(saved || updated);
                 outcome = 'saved';
                 // 「期限を見直す」の途中は、ここでは知らせない（最後に件数をまとめて知らせる）。
-                if (!reviewing) toast.success('🎯 行動を更新しました。');
+                if (!reviewing) toast.success('行動を更新しました。');
               } catch (error) {
                 mutateBookLocal(bookId, () => book);
                 entry.latest = book;

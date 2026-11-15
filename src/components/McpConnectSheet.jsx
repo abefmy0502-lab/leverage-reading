@@ -48,7 +48,7 @@ function CopyButton({ text, label, style = btnGhost }) {
   const [done, setDone] = useState(false);
   useEffect(() => { if (!done) return undefined; const t = setTimeout(() => setDone(false), 1500); return () => clearTimeout(t); }, [done]);
   return (
-    <button type="button" style={style} onClick={async () => { const ok = await copyText(text); if (ok) { setDone(true); toast.success('コピーしました'); } else toast.error('コピーできませんでした。箱を押して選び、長押しでコピーしてください。'); }}>
+    <button type="button" style={style} onClick={async () => { const ok = await copyText(text); if (ok) { setDone(true); toast.success('コピーしました。'); } else toast.error('コピーできませんでした。箱を押して選び、長押しでコピーしてください。'); }}>
       {done ? <Check size="1.1em" aria-hidden="true" /> : <Copy size="1.1em" aria-hidden="true" />}
       <span style={{ marginLeft: 'var(--space-2)' }}>{label}</span>
     </button>
@@ -83,7 +83,7 @@ export default function McpConnectSheet({ onClose }) {
     setBusy(true);
     try {
       const r = await createKey(supabase, { userId: user?.id, name: labelOf(howTo) });
-      if (r.error) { if (r.missing) setMissing(true); else toast.error(toMessage(r.error, '接続キーを作れませんでした。通信状況を確かめて、もう一度お試しください。')); return; }
+      if (r.error) { if (r.missing) setMissing(true); else toast.error(toMessage(r.error, '接続キーを作れませんでした。通信状況を確認して、もう一度お試しください。')); return; }
       setFresh(r);
       setKeys((prev) => [r.row, ...(prev || [])]);
       track('mcp_connect', { action: 'create' });
@@ -94,7 +94,7 @@ export default function McpConnectSheet({ onClose }) {
     const ok = await confirm({ title: `「${k.name || DEFAULT_NAME}」の接続を取り消しますか？`, message: 'この接続キーを使っている AI は、すぐに読み書きできなくなります。もう一度つなぐには、新しいキーを作ります。', confirmLabel: '取り消す', cancelLabel: 'キャンセル', destructive: true });
     if (!ok) return;
     const { error } = await deleteKey(supabase, k.id);
-    if (error) { toast.error(toMessage(error, '取り消せませんでした。通信状況を確かめて、もう一度お試しください。')); return; }
+    if (error) { toast.error(toMessage(error, '取り消せませんでした。通信状況を確認して、もう一度お試しください。')); return; }
     setKeys((prev) => (prev || []).filter((x) => x.id !== k.id));
     if (fresh?.row?.id === k.id) setFresh(null);
     track('mcp_connect', { action: 'revoke' });
@@ -118,7 +118,7 @@ export default function McpConnectSheet({ onClose }) {
         {!fresh && <p style={lead}>{withPhraseBreaks('いつもの Claude や ChatGPT が、あなたの本・メモ・行動を読めるようになります。')}</p>}
 
         {missing ? (
-          <ErrorMessage title="まだ使えません" description="この機能の準備がまだです。しばらくしてから、もう一度お試しください。" />
+          <ErrorMessage title="まだ使えません" description="この機能の準備がまだです。少し時間をおいて、もう一度お試しください。" />
         ) : fresh ? (
           <div style={section}>
             <h3 style={h}>{freshName} の接続キーができました</h3>
@@ -196,7 +196,7 @@ export default function McpConnectSheet({ onClose }) {
               // 本物の行（17 の 1 行＋13 の 1 行＋上下 12）と同じ高さ
               <div style={row}><SkeletonBlock width={20} height={20} /><span style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}><SkeletonBlock width="40%" height={17} /><SkeletonBlock width="70%" height={13} /></span></div>
             ) : loadError ? (
-              <ErrorMessage title="読み込めませんでした" description={toMessage(loadError, '通信状況を確かめて、もう一度お試しください。')} actions={[{ label: 'もう一度', variant: 'secondary', onClick: load }]} />
+              <ErrorMessage title="読み込めませんでした" description={toMessage(loadError, '通信状況を確認して、もう一度お試しください。')} actions={[{ label: 'もう一度', variant: 'secondary', onClick: load }]} />
             ) : keys.length === 0 ? (
               <div className="recall-done"><EmptyState titleAs="h4" title="まだつないでいません" description="上で接続キーを作ると、ここに並びます。" /></div>
             ) : (

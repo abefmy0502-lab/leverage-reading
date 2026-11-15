@@ -593,7 +593,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
       message: memo.photoPath
         // 内部の名前（Storage）は見せない。スワイプの確認と同じ文（2026-10-04）。
         ? '写真もいっしょに削除されます。元に戻しても、写真は戻りません。'
-        : '5 秒以内なら「元に戻す」で戻せます。',
+        : '削除したあと、少しの間は「元に戻す」で戻せます。',
       confirmLabel: '削除する',
       cancelLabel: 'キャンセル',
       danger: true,

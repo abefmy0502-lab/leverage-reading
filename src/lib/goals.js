@@ -18,7 +18,7 @@ const LOCAL_KEY = 'orime.goals.v1';
 export const GOAL_HORIZONS = [
   { key: 'y1', years: 1, label: '1 年後', example: '1 年後に、チームの会議を自分で回せるようになりたい' },
   { key: 'y3', years: 3, label: '3 年後', example: '3 年後に、チームを任されるリーダーになりたい' },
-  { key: 'y5', years: 5, label: '5 年後', example: '5 年後に、自分の名前で仕事ができる力をつけたい' },
+  { key: 'y5', years: 5, label: '5 年後', example: '5 年後に、自分の名前で仕事をしたい' },
 ];
 export const GOAL_KEYS = GOAL_HORIZONS.map((h) => h.key);
 export const horizonOf = (key) => GOAL_HORIZONS.find((h) => h.key === key) || null;

@@ -807,7 +807,7 @@ function PlanView({ goal, record, books, sessions, onOpenBook, onAddReadingActio
           );
         })}
         {!monthHasBooks && (
-          <p className="plan-cal-empty">{withPhraseBreaks(nextAfterMonth ? `この月は読む本の予定がありません。次は ${fmtMd(nextAfterMonth.start, year)} から。` : 'この月は読む本の予定がありません。')}</p>
+          <p className="plan-cal-empty">{withPhraseBreaks(nextAfterMonth ? `この月は読む本の予定がありません。ロードマップのやることを進める期間です。次の本は ${fmtMd(nextAfterMonth.start, year)} から。` : 'この月は読む本の予定がありません。')}</p>
         )}
       </section>
 

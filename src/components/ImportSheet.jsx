@@ -123,7 +123,7 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
       title: '取り込みを取り消しますか？',
       message: 'この取り込みで入れた本・メモ・まとめを消します。もとから本棚にあった本は残ります。',
       confirmLabel: '取り消す',
-      cancelLabel: 'やめる',
+      cancelLabel: 'キャンセル',
       danger: true,
     });
     if (!ok) return;

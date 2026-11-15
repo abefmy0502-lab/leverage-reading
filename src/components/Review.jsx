@@ -22,6 +22,7 @@ import SwipeableCard from './SwipeableCard';
 import ContextMenu from './ContextMenu';
 import PullToRefresh from './PullToRefresh';
 import EmptyState from './EmptyState';
+import ErrorMessage from './ErrorMessage';
 import Spinner from './Spinner';
 import { SkeletonBlock } from './Skeleton';
 import { isAiWritten, relativeJa, recallFraming, pickRecallMemo, pickFallbackMemo, pickExtraMemo, nextDueAt, nextDueLabel, applyLocalRecall, recallPatch, dueGapDays } from '../lib/recall';
@@ -1014,16 +1015,11 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
   if (fetchFailed && allNotes.length === 0) {
     return (
       <div style={wrap}>
-        <EmptyState
-          icon={<StickyNote size={34} aria-hidden="true" />}
+        {/* 読み込みの失敗は ErrorMessage（ほかの画面と同じ形・「もう一度」・2026-11-15 統一） */}
+        <ErrorMessage
           title="メモを読み込めませんでした"
-          description={(
-            <>
-              通信状況を確認して、もう一度お試しください。<br />
-              メモは消えていません。
-            </>
-          )}
-          actions={[{ label: 'もう一度読み込む', onClick: () => fetchMemos() }]}
+          description="通信状況を確認して、もう一度お試しください。メモは消えていません。"
+          actions={[{ label: 'もう一度', variant: 'primary', onClick: () => fetchMemos() }]}
         />
       </div>
     );
@@ -1037,7 +1033,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
           title={<>{/* 句の途中で折り返さない */}<span style={{ display: 'inline-block' }}>メモを残すと、</span><span style={{ display: 'inline-block' }}>忘れた頃にここへ戻ってきます</span></>}
           actions={
             onAddNote && hasMemoableBooks
-              ? [{ label: 'メモを追加', icon: <Plus size={18} aria-hidden="true" />, onClick: onAddNote, variant: 'secondary' }]
+              ? [{ label: 'メモを書く', icon: <Plus size={18} aria-hidden="true" />, onClick: onAddNote, variant: 'secondary' }]
               // メモできる本がまだ無い（＝本が無い/全て読みたい積読）ときは行き止まりに
               // せず、本棚へ誘導する（そこで本を追加・読書中にできる）。
               // 本が 0 冊なら空の本棚へ送らず、初日クイックスタート（読んだ本に一言ずつ残す）へ（2026-10-30 点検）
@@ -1406,7 +1402,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
               style={{ ...btnLink, gap: 'var(--space-1)', whiteSpace: 'nowrap', ...(showMonthly ? { paddingRight: 0 } : { paddingLeft: 0 }) }}
             >
               <Plus size="1.1em" strokeWidth={2} aria-hidden="true" />
-              メモを追加
+              メモを書く
             </button>
           )}
         </div>

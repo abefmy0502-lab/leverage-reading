@@ -632,7 +632,7 @@ export function ReadingPhase({ form, setForm, onSave, onSaveSummary, onMakeActio
         <DateInput value={form.startDate || ""} onChange={(e) => setForm({ ...form, startDate: e.target.value })} style={dateInp(form.startDate)} aria-label="読書開始日" />
       </Field>
 
-      <ActionsEditor form={form} setForm={setForm} title="この本から決めた行動" placeholder="例：明日の朝、学んだ手法を1つ試す" />
+      <ActionsEditor form={form} setForm={setForm} title="この本から決めた行動" placeholder="例：明日の朝、学んだ手法を 1 つ試す" />
 
       <FieldsAndFolders form={form} setForm={setForm} allFolders={allFolders} />
     </div>

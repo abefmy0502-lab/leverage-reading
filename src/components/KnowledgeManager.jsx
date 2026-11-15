@@ -688,7 +688,7 @@ export default function KnowledgeManager({ onChanged, onBooksMutated, onWriteMem
     if (meta?.column) {
       const ok = await confirm({
         title: `${meta.label}を消しますか？`,
-        message: '本とメモは残ります。相談の根拠には使わなくなります。\n5 秒以内なら「元に戻す」で戻せます。',
+        message: '本とメモは残ります。相談の根拠には使わなくなります。\n削除したあと、少しの間は「元に戻す」で戻せます。',
         confirmLabel: '消す',
         cancelLabel: 'キャンセル',
         danger: true,
@@ -700,8 +700,8 @@ export default function KnowledgeManager({ onChanged, onBooksMutated, onWriteMem
       const ok = await confirm({
         title: isPersonal ? 'この学びを削除しますか？' : 'このメモを削除しますか？',
         message: isPersonal
-          ? '相談の根拠からも外れます。\n5 秒以内なら「元に戻す」で戻せます。'
-          : `本のメモからも削除されます。\n5 秒以内なら「元に戻す」で戻せます。${item.photo_path ? '\n写真は元に戻せません。' : ''}`,
+          ? '相談の根拠からも外れます。\n削除したあと、少しの間は「元に戻す」で戻せます。'
+          : `本のメモからも削除されます。\n削除したあと、少しの間は「元に戻す」で戻せます。${item.photo_path ? '\n写真は元に戻せません。' : ''}`,
         confirmLabel: '削除する',
         cancelLabel: 'キャンセル',
         danger: true,

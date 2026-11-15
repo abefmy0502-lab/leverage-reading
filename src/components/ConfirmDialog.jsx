@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
+import { btnPrimary, btnDanger } from '../styles/ui';
 import { withPhraseBreaks } from './TightBubble';
 
 const ConfirmContext = createContext({ confirm: async () => false });
@@ -69,23 +70,12 @@ const cancelBtnStyle = {
   fontWeight: 600,
 };
 
+// 主・破壊のボタンは ui.js の正典（btnPrimary / btnDanger）から作る（2026-11-15 アプリ全体の統一・同じ見た目を二重に書かない）。
+//   ダイアログの 2 つ並びでは幅を分け合う（flex: 1・width は auto）。
 const confirmBtnStyle = (danger) => ({
+  ...(danger ? btnDanger : btnPrimary),
   flex: 1,
-  wordBreak: 'keep-all',
-  overflowWrap: 'anywhere',
-  minHeight: 48,
-  padding: 'var(--space-3) var(--space-4)',
-  borderRadius: 'var(--radius)',
-  border: 'none',
-  // 破壊的アクションの色はブランドのレンガ色（--c-critical）に統一。
-  // 以前の鮮やかな iOS 純赤 #ff3b30 は暖色世界観から浮き、削除メニュー側の
-  // --c-critical と2色に割れていた。--color-error はシステムエラー帯専用に隔離。
-  background: danger ? 'var(--error)' : 'var(--accent)',
-  color: 'var(--accent-ink)',
-  cursor: 'pointer',
-  fontFamily: 'inherit',
-  fontSize: 'var(--text-body)',
-  fontWeight: 600,
+  width: 'auto',
 });
 
 export function ConfirmProvider({ children }) {

@@ -1338,7 +1338,10 @@ body.lp-active {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-4);
   max-width: 560px;
-  margin: var(--space-8) auto 0;
+  margin: var(--space-8) 0 0;
+}
+@media (min-width: 768px) {
+  .lp-root .lp-goal-shot figcaption.lp-lines > span { display: inline; }
 }
 .lp-goal-shot { margin: 0; display: flex; flex-direction: column; align-items: center; gap: var(--space-3); }
 .lp-goal-shot .lp-shot { width: 100%; }

@@ -204,13 +204,13 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete, onS
     const ok = await confirm(isCreate ? {
       title: '書きかけの行動があります',
       message: '消すと、元に戻せません。',
-      confirmLabel: '書いたことを消す',
+      confirmLabel: '破棄する',
       cancelLabel: '編集を続ける',
       danger: true,
     } : {
       title: '保存していない変更があります',
       message: '行動は元のまま残ります。',
-      confirmLabel: '直したところを捨てる',
+      confirmLabel: '変更を破棄',
       cancelLabel: '編集を続ける',
       danger: true,
     });
@@ -256,7 +256,7 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete, onS
       title: '行動を削除しますか？',
       message: '削除した行動は元に戻せません。',
       confirmLabel: '削除する',
-      cancelLabel: 'やめる',
+      cancelLabel: 'キャンセル',
       danger: true,
     });
     if (!ok) return;

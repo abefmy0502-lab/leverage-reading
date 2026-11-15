@@ -36,7 +36,7 @@ export default function OfflineNotice({ style }) {
     } else if (!prevOnline.current && offlineSince != null) {
       const away = Date.now() - offlineSince;
       offlineSince = null;
-      if (away >= RECONNECT_TOAST_MIN_MS) toast.success('つながりました');
+      if (away >= RECONNECT_TOAST_MIN_MS) toast.success('つながりました。');
     } else if (online) {
       offlineSince = null;
     }

@@ -40,7 +40,7 @@ export function AppPurposeEditSheet({ purpose, onClose }) {
       onClose={onClose}
       dismissLabel="キャンセル"
       layer="dialog"
-      footer={<button type="button" onClick={save} disabled={!ok || busy} style={ok ? { ...btnPrimary, opacity: 1 } : btnPrimaryOff}>{busy ? '保存しています…' : '保存'}</button>}
+      footer={<button type="button" onClick={save} disabled={!ok || busy} style={ok ? { ...btnPrimary, opacity: 1 } : btnPrimaryOff}>{busy ? '保存中…' : '保存'}</button>}
     >
       {/* 変えたときだけ「書いた日は今日に」・変えていない間は書いた日をそのまま */}
       <AppPurposeField

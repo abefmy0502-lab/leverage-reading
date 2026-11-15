@@ -84,7 +84,7 @@ export function BookFieldsSheet({ selected = [], onDone, onClose }) {
     setPicked((cur) => (cur.includes(name) ? cur.filter((x) => x !== name) : (cur.length >= FIELD_MAX ? cur : [...cur, name])));
   };
   const footer = (
-    <button type="button" style={{ ...btnPrimary, width: '100%' }} onClick={() => onDone(picked)}>決定</button>
+    <button type="button" style={{ ...btnPrimary, width: '100%' }} onClick={() => onDone(picked)}>保存</button>
   );
   return (
     // 選べる数の補足は題の行の直下に固定（スクロールで隠れない・3 つ選んだら外し方を言う・読み上げにも出る・2026-10-11 ui-critic）

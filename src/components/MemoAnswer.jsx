@@ -153,7 +153,7 @@ export default function MemoAnswer({ planLabel = '', message, onOpen, onOpenLear
               {(onAddMemo || onAddBook || onWriteLearning) && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 'var(--space-4)', marginTop: 'var(--space-2)', marginLeft: 'calc(-1 * var(--space-1))' }}>
                   {onAddMemo
-                    ? <button type="button" onClick={onAddMemo} style={btnLink}>これまで読んだ本からメモを足す</button>
+                    ? <button type="button" onClick={onAddMemo} style={btnLink}>これまで読んだ本にメモを書く</button>
                     : onAddBook && <button type="button" onClick={onAddBook} style={btnLink}>本を追加</button>}
                   {onWriteLearning && <button type="button" onClick={onWriteLearning} style={btnLink}>学びを書く</button>}
                 </div>

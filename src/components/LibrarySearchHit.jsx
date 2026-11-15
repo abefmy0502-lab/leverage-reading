@@ -150,7 +150,7 @@ export function LibrarySearchResults({ books, hits, renderBookRow, onOpen, onAut
   return (
     // 見出しがあるときは、上の状態のチップの行（下 16）から見出しまでを 24 に（グループの間・DESIGN §1）。
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)', marginTop: showHeads ? 'var(--space-2)' : 0 }}>
-      {meta.length > 0 && group(showHeads ? '書名・著者・タグ' : null, meta, 0)}
+      {meta.length > 0 && group(showHeads ? '書名・著者・分野' : null, meta, 0)}
       {fromMemo.length > 0 && group('メモから', fromMemo, meta.length)}
       {(memoStatus === 'loading' || memoStatus === 'error' || onConsult) && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-1)', marginTop: 'calc(-1 * var(--space-3))' }}>

@@ -88,6 +88,7 @@
   color: var(--text);
   word-break: keep-all;
   overflow-wrap: anywhere;
+  text-wrap: pretty;
 }
 .goal-empty {
   margin: var(--space-2) 0 0;
@@ -166,9 +167,9 @@
 .goal-summary {
   margin: 0 0 var(--space-8);
   font-family: var(--font-read);
-  font-size: var(--text-read);
-  line-height: 1.7;
-  color: var(--text);
+  font-size: var(--text-body);
+  line-height: 1.6;
+  color: var(--text-2);
   word-break: keep-all;
   overflow-wrap: anywhere;
 }

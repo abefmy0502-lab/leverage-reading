@@ -786,7 +786,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       });
     } catch (e) {
       const expected = !!(e?.monthlyLimit || e?.paywall || e?.consentDeclined);
-      const errText = expected ? e.message : toMessage(e, '本を探せませんでした。通信状況を確かめて、もう一度お試しください。');
+      const errText = expected ? e.message : toMessage(e, '本を探せませんでした。通信状況を確認して、もう一度お試しください。');
       setRecoNotice(expected);
       setRecoError(errText);
       setChatHistory(historyBefore); // 答えの無い相談を履歴に残さない（送り直しで二重にならないように）
@@ -1027,7 +1027,9 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
           setInterview(interview);
           setInterviewAnswers(interviewAnswers);
           setInterviewTrail(interviewTrail);
-          if (!unsure) { setAnswerText(a); setAnswerOff(!!entry.off); }
+          // 頼み直した答え（いちばん後ろ）を入力欄に戻す（2026-11-15: 前は定義の無い名前を参照して止まっていた）。
+          const lastAns = Array.isArray(err.answers) ? err.answers[err.answers.length - 1] : null;
+          if (lastAns && !lastAns.unsure) { setAnswerText(String(lastAns.a || '')); setAnswerOff(!!lastAns.off); }
           showLimitNotice(step.stop);
           remember({ recoNotice: true, recoError: step.stop });
           settle();
@@ -1550,7 +1552,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   if (view === 'detail' && selectedSession) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-        <AdvisorNavBar backLabel="一覧" title={advisorSessionDate(selectedSession?.created_at)} onBack={stepBack} pushed={!!onPushedViewChange} scrolled={pushedScrolled} />
+        <AdvisorNavBar backLabel="過去の AI 選書" title={advisorSessionDate(selectedSession?.created_at)} onBack={stepBack} pushed={!!onPushedViewChange} scrolled={pushedScrolled} />
         <div className="chat-scroll" style={{ padding: 0 }} onScroll={onPushedScroll}>
           <Suspense fallback={<TabPanelSkeleton />}>
             <AdvisorSessionDetail
