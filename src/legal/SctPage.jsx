@@ -9,7 +9,7 @@
 
 import LegalLayout from './LegalLayout';
 import { SUPPORT_EMAIL } from '../lib/contact';
-import { FREE_TOKENS, PAID_TOKENS, TRIAL_TOKENS, FREE_OCR_PER_MONTH } from '../lib/tokenAmounts';
+import { FREE_TOKENS, FREE_FIRST_MONTH_TOKENS, PAID_TOKENS, TRIAL_TOKENS, FREE_OCR_PER_MONTH } from '../lib/tokenAmounts';
 import { FOUNDING_PRICE_YEN, readFoundingOffer } from '../lib/foundingOffer';
 
 const FOUNDING_YEN = FOUNDING_PRICE_YEN.toLocaleString('ja-JP');
@@ -54,7 +54,7 @@ export default function SctPage() {
           <tr>
             <th>販売価格</th>
             <td>
-              無料プラン:0円(期間の定めはありません。AI は相談に使える毎月 {FREE_TOKENS} トークンと、写真から書き起こし 毎月 {FREE_OCR_PER_MONTH} 回まで)<br />
+              無料プラン:0円(期間の定めはありません。AI は相談に使える毎月 {FREE_TOKENS} トークン(アカウントを作った月とその翌月は {FREE_FIRST_MONTH_TOKENS} トークン)と、写真から書き起こし 毎月 {FREE_OCR_PER_MONTH} 回まで)<br />
               月額プラン:月額 1,480円(税込)<br />
               年額プラン:年額 12,800円(税込)<br />
               (有料プランは毎月 {PAID_TOKENS} トークン・すべての AI 機能。使わなかったトークンは翌月に繰り越しません)<br />
@@ -69,13 +69,13 @@ export default function SctPage() {
               初回特典は、同じ Apple ID で本サービスの有料プランの初回特典を使ったことがない方が対象です(1 つの Apple ID につき 1 回)。<br />
               <br />
               【7日間無料】<br />
-              月額プラン(創業メンバー価格の期間のあとは年額プランも)は、最初の 7 日間が無料です(その間に使えるトークンは {TRIAL_TOKENS} トークン)。無料期間が終わると、解約しない限り、自動で選んだプランの料金(月額 1,480円(税込)または年額 12,800円(税込))で課金されます。無料期間が終わる 24 時間前までに解約すれば、料金はかかりません。<br />
+              創業メンバー価格の期間のあと、月額プラン・年額プランは最初の 7 日間が無料です(創業メンバー価格の期間中は、7 日間無料は付きません)(その間に使えるトークンは {TRIAL_TOKENS} トークン)。無料期間が終わると、解約しない限り、自動で選んだプランの料金(月額 1,480円(税込)または年額 12,800円(税込))で課金されます。無料期間が終わる 24 時間前までに解約すれば、料金はかかりません。<br />
               <br />
               【創業メンバー価格(年額プラン)】<br />
               {founding.active && founding.endLabel
                 ? `いま(${founding.endLabel}(日本時間)まで)`
                 : '当方が定める期間(本サービスの公開から 30 日間。終わる日は、本サービス内と App Store の購入画面に表示します)'}
-              に年額プランを始めた方は、1 年目が {FOUNDING_YEN}円(税込)です。お申し込み時に 1 年分を一括でお支払いいただき、2 年目からは、解約しない限り年額 12,800円(税込)で自動更新されます。月額プランの 7 日間無料をすでに使った Apple ID には適用されません。期間中は、年額プランに 7 日間無料は付きません。
+              に年額プランを始めた方は、1 年目が {FOUNDING_YEN}円(税込)です。お申し込み時に 1 年分を一括でお支払いいただき、2 年目からは、解約しない限り年額 12,800円(税込)で自動更新されます。月額プランの 7 日間無料をすでに使った Apple ID には適用されません。期間中は、月額プラン・年額プランとも 7 日間無料は付きません。
             </td>
           </tr>
           <tr>
