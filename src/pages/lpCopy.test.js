@@ -235,10 +235,11 @@ describe('「その本の考え方で答える」にそろえる', () => {
 });
 
 describe('料金のカード（2026-11-15）', () => {
-  it('月額は「毎月自動更新」、創業メンバーの年額は「2 年目から … で自動更新」をカードに出す', async () => {
+  it('月額は「毎月自動更新」、創業メンバーの年額は「年額 … 。◯月◯日までの登録で、1 年目は …」をカードに出す', async () => {
     const { readFileSync } = await import('node:fs');
     const src = readFileSync(new URL('./Landing.jsx', import.meta.url), 'utf8');
     expect(src).toContain('毎月自動更新。');
-    expect(src).toContain('で自動更新</p>');
+    expect(src).toContain('までの登録で、');
+    expect(src).not.toMatch(/lp-plan-sub[^\n]*通常/);
   });
 });

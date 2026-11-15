@@ -740,7 +740,8 @@ export default function Landing() {
                       <>
                         <p className="lp-plan-price">{OFFER.priceLabel}<span>（税込）</span></p>
                         {/* 条件（誰の・いつの価格か・まとめ払い）は下の帯の 対象・価格・ご注意 に 1 回だけ（ui-critic 2026-11-11: 同じ事実を 3 回書いていた） */}
-                        <p className="lp-plan-sub"><span className="lp-nb">2 年目から</span> <span className="lp-nb">年額 {ANNUAL_TEXT}（税込）</span>で自動更新</p>
+                        {/* 2026-11-15 オーナー「年額 ¥12,800。12/16 までの登録で ¥9,800 と書いて」（二重価格表示の決まりで、比べる言葉は使わない） */}
+                        <p className="lp-plan-sub"><span className="lp-nb">{OFFER.endLabel}までの登録で、</span><span className="lp-nb">年額 {ANNUAL_TEXT}（税込）が</span><span className="lp-nb">1 年目はこの価格に。</span></p>
                       </>
                     ) : (
                       <>
