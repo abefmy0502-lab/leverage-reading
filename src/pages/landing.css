@@ -1307,3 +1307,20 @@ body.lp-active {
 .lp-root .lp-cost-what { margin: 0; font-size: var(--text-meta); color: var(--text-2); line-height: 1.5; word-break: keep-all; }
 .lp-root .lp-cost-eq { margin: 0; font-family: var(--font-read); font-size: var(--text-heading); color: var(--text-3); }
 .lp-root .lp-cost-note { margin: var(--space-3) 0 0; font-size: var(--text-caption); line-height: 1.5; color: var(--text-3); }
+
+/* 🔁 読書が回り続ける図（2026-11-15）: 栗色の輪と 4 つの矢印・上下左右に段・真ん中に一言。押せる形にしない */
+.lp-cost-rows > div.is-cycle { grid-template-columns: minmax(0, 1fr); }
+.lp-cycle { margin: var(--space-4) auto 0; width: min(100%, 300px); }
+.lp-cycle-ring { position: relative; width: 100%; aspect-ratio: 1 / 1; }
+.lp-cycle-svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.lp-cycle-line { stroke: var(--accent); stroke-width: 2; opacity: 0.55; }
+.lp-cycle-arrow { fill: none; stroke: var(--accent); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.lp-root .lp-cycle-center { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); margin: 0; text-align: center; font-family: var(--font-read); font-size: var(--text-sub); font-weight: 600; line-height: 1.5; color: var(--text); white-space: nowrap; }
+.lp-cycle-center > span { display: block; }
+.lp-cycle-step { position: absolute; display: flex; flex-direction: column; align-items: center; gap: var(--space-1); text-align: center; background: var(--accent-soft); padding: var(--space-1); border-radius: var(--radius); }
+.lp-cycle-step.is-top { left: 50%; top: 0; transform: translate(-50%, -8%); }
+.lp-cycle-step.is-bottom { left: 50%; bottom: 0; transform: translate(-50%, 8%); }
+.lp-cycle-step.is-right { right: 0; top: 50%; transform: translate(10%, -50%); }
+.lp-cycle-step.is-left { left: 0; top: 50%; transform: translate(-10%, -50%); }
+.lp-cycle-icon { font-size: calc(var(--text-sub) * 1.5); color: var(--text); line-height: 1; }
+.lp-root .lp-cycle-label { display: flex; flex-direction: column; font-size: var(--text-meta); font-weight: 600; line-height: 1.35; color: var(--text); white-space: nowrap; }
