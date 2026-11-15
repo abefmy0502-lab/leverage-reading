@@ -649,7 +649,7 @@ export default function Landing() {
           <div className="lp-wrap">
             <div className="lp-narrow lp-sec-head">
               <h2 className="lp-h2" id="lp-goal">{GOAL_SEC.title.map((t) => <span key={t}>{t}</span>)}</h2>
-              <p className="lp-lead lp-sec-lead lp-lines">{GOAL_SEC.lead.map((t) => <span key={t}>{t}</span>)}</p>
+              <p className="lp-lead lp-sec-lead lp-lines lp-wbr">{GOAL_SEC.lead.map((t) => <span key={t}><Phrases>{t}</Phrases></span>)}</p>
             </div>
             <div className="lp-narrow"><LpGoalDiagram /></div>
             <div className="lp-goal-shots">
@@ -660,8 +660,8 @@ export default function Landing() {
                 </figure>
               ))}
             </div>
-            <p className="lp-narrow lp-goal-grow lp-lines">{GOAL_SEC.grow.map((t) => <span key={t}>{t}</span>)}</p>
-            <p className="lp-narrow lp-shot-note">{GOAL_SEC.note}</p>
+            <p className="lp-narrow lp-goal-grow lp-lines lp-wbr">{GOAL_SEC.grow.map((t) => <span key={t}><Phrases>{t}</Phrases></span>)}</p>
+            <p className="lp-narrow lp-shot-note lp-wbr"><Phrases>{GOAL_SEC.note}</Phrases></p>
           </div>
         </section>
 

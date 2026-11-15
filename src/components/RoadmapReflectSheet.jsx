@@ -88,7 +88,7 @@ export default function RoadmapReflectSheet({ source, books = [], onClose, onOpe
   })();
 
   return (
-    <BottomSheet title="ロードマップを見直す" onClose={onClose} dismissLabel={stage === 'loading' ? null : '閉じる'} dismissible={stage !== 'loading'} footer={footer}>
+    <BottomSheet title="ロードマップを見直す" onClose={onClose} dismissLabel={stage === 'loading' ? null : stage === 'confirm' ? 'キャンセル' : '完了'} dismissible={stage !== 'loading'} footer={footer}>
       {!loaded && <SkeletonBlock width="100%" height="var(--space-16)" />}
       {loaded && stage === 'confirm' && (
         <>

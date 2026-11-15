@@ -4389,7 +4389,7 @@ function AnswerModeSheet({ value, onClose, onSelect }) {
     border: '1px solid var(--separator)', background: 'var(--surface)',
   };
   return (
-    <BottomSheet title="答え方" onClose={onClose} dismissLabel="キャンセル">
+    <BottomSheet title="答え方" onClose={onClose}>
       <div role="radiogroup" aria-label="答え方" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', paddingBottom: 'var(--space-2)' }}>
         {ANSWER_MODES.map((m) => {
           const on = value === m.id;

@@ -78,7 +78,7 @@ export default function QuotePickerSheet({ candidates, selected, selectedPart = 
   const check = <Check size="1.2em" color="var(--accent)" aria-hidden="true" style={{ marginTop: 'var(--space-1)' }} />;
   // 共有のシートの中から開くので、document.body に出す（親のシートの動きに位置が引きずられない）
   return createPortal(
-    <BottomSheet title="一文を選ぶ" onClose={onClose} dismissLabel="閉じる" layer="dialog">
+    <BottomSheet title="一文を選ぶ" onClose={onClose} layer="dialog">
       <p style={{ margin: '0 0 var(--space-3)', color: 'var(--text-2)', fontSize: 'var(--text-sub)', lineHeight: 1.6, wordBreak: 'keep-all', overflowWrap: 'break-word' }}>{withPhraseBreaks(lead)}</p>
       <ul role="radiogroup" aria-label="画像に重ねる一文" style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--space-2)' }}>
         {allowNone && (
