@@ -60,6 +60,19 @@
   .device{position:absolute;left:50%;transform:translateX(-50%);bottom:-40px;width:980px;background:#1d1813;border-radius:96px;padding:20px;box-shadow:0 60px 110px rgba(60,48,30,.30);}
   .screen{position:relative;border-radius:78px;overflow:hidden;background:#f6f4f0;}
   .shot{display:block;width:100%;height:auto;}
+  /* 実際に作った 1 枚を大きく見せる（写真で共有・2026-11-15） */
+  .poster{position:absolute;left:50%;transform:translateX(-50%);bottom:110px;width:960px;border-radius:44px;overflow:hidden;box-shadow:0 60px 110px rgba(60,48,30,.32);}
+  .poster img{display:block;width:100%;height:auto;}
+  /* iPad 13 インチ（2064×2752・?size=ipad・撮った画面は iPad の大きさ 1032×1376pt） */
+  body.ipad .stage{width:2064px;height:2752px;transform:none;}
+  body.ipad .cap{padding:150px 200px 0;}
+  body.ipad .eyebrow{font-size:40px;}
+  body.ipad .headline{font-size:108px;}
+  body.ipad .sub{font-size:50px;}
+  body.ipad .device{width:1640px;border-radius:76px;padding:24px;bottom:-90px;}
+  body.ipad .screen{border-radius:54px;}
+  body.ipad .statusbar{display:none;}
+  body.ipad .poster{width:1060px;bottom:120px;}
   .shot-empty{width:100%;aspect-ratio:440/902;background:repeating-linear-gradient(45deg,#efe7d8,#efe7d8 24px,#e6dcc9 24px,#e6dcc9 48px);display:flex;align-items:center;justify-content:center;color:#8a7c5f;font-family:var(--sans);font-size:40px;text-align:center;line-height:1.6;padding:40px;}
   .statusbar{height:115px;display:flex;align-items:center;justify-content:space-between;padding:12px 76px 0 92px;font-family:var(--sans);color:#1d1813;}
   .statusbar .time{font-size:44px;font-weight:700;letter-spacing:.01em;}
@@ -98,8 +111,9 @@
         head:'会話の最後は、<br><span class="em">明日の一歩。</span>', sub:'行動リストに、期限つきで。' },
       { out:'base-4-focus', bg:'bg-dark', shot:'focus', eyebrow:'FOCUS MODE',
         head:'時間を決めて、<br><span class="em">本だけに。</span>', sub:'表紙と時間だけの画面で読む。読んだ時間は記録に。' },
-      { out:'base-5-share', bg:'bg-a', shot:'magazine', eyebrow:'SHARE A PAGE',
-        head:'心に残った一文を、<br><span class="em">1 枚に。</span>', sub:'雑誌の 1 ページのような画像で発信。' },
+      // 2026-11-15 オーナー「写真共有の写真がしょぼい」: アプリの画面ではなく、実際に作った 1 枚（share-story.jpg）を大きく見せる。
+      { out:'base-5-share', bg:'bg-a', shot:'magazine', poster:'share-story.jpg', eyebrow:'SHARE A PAGE',
+        head:'心に残った一文を、<br><span class="em">1 枚に。</span>', sub:'撮った写真に重ねて、そのまま発信。' },
       { out:'base-6-fields', bg:'bg-c', shot:'fields', eyebrow:'SEE YOUR READING',
         head:'自分の読書を、<br><span class="em">分野で見る。</span>', sub:'まだ本がない分野も、ひと目で。' },
     ],
@@ -152,7 +166,8 @@
   const qs = new URLSearchParams(location.search);
   const render = qs.get('render') === '1';
   const setKey = qs.get('set') || 'all';
-  const size = qs.get('size') === '65' ? { w:1284, h:2778 } : { w:1320, h:2868 };
+  const sizeKey = qs.get('size');
+  const size = sizeKey === 'ipad' ? { w:2064, h:2752, ipad:true } : sizeKey === '65' ? { w:1284, h:2778 } : { w:1320, h:2868 };
   const shotsDir = qs.get('shots') || '../../ui-shots/appstore-raw/';
   const bars = window.__BARS || {};
   // rgb(…) の明るさ（撮った画面のいちばん上の色が暗いか）
@@ -161,6 +176,7 @@
   root.setProperty('--w', size.w + 'px');
   root.setProperty('--h', size.h + 'px');
   root.setProperty('--k', String(size.w / 1320));
+  if (size.ipad) { document.body.classList.add('ipad'); root.setProperty('--k', '1'); }
   if (render) { document.body.classList.add('render'); root.setProperty('--scale', '1'); }
 
   const grid = document.getElementById('grid');
@@ -182,7 +198,7 @@
                 <h2 class="headline" contenteditable="true">${s.head}</h2>
                 <p class="sub" contenteditable="true">${s.sub}</p>
               </div>
-              <div class="device">
+              ${s.poster ? `<div class="poster"><img src="${s.poster}" alt=""></div>` : `              <div class="device">
                 <div class="screen">
                   <div class="statusbar ${isDarkColor(bars[s.shot]) ? 'dark' : ''}" style="background:${bars[s.shot] || '#f6f4f0'}">
                     <span class="time">9:41</span>
@@ -194,7 +210,7 @@
                   <img class="shot" src="${src}" alt=""
                        onerror="this.outerHTML='<div class=&quot;shot-empty&quot;>${s.shot}.png がありません</div>'">
                 </div>
-              </div>
+              </div>`}
             </div>
           </div>
         </div>`;

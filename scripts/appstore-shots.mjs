@@ -11,6 +11,7 @@
 //   2. node scripts/appstore-shots.mjs                      → 撮る＋重ねる（全部）
 //      node scripts/appstore-shots.mjs raw answer sources   → 撮るだけ（名前で絞る）
 //      node scripts/appstore-shots.mjs compose              → 重ねるだけ（撮った画面を使い回す）
+//      node scripts/appstore-shots.mjs ipad                 → iPad 13 インチの 6 枚（2064×2752）を撮って書き出す
 //   URL を変えるときは UI_SHOTS_URL=http://localhost:5198
 //
 // 撮り方の決まり: どの URL にも &lpshot=1 を付ける（「部下が報告をくれない」の相談に、根拠が自分の学び＋2 冊の本の
@@ -23,7 +24,12 @@ import { pathToFileURL } from 'node:url';
 import { chromium } from 'playwright-core';
 
 const BASE = process.env.UI_SHOTS_URL || 'http://localhost:5173';
-const RAW = 'ui-shots/appstore-raw';
+const [mode0 = 'all'] = process.argv.slice(2);
+// iPad 13 インチ（2026-11-15・iPad 対応のまま出すため）: node scripts/appstore-shots.mjs ipad
+//   → iPad の大きさ（1032×1376pt・@2x）で基本の 6 枚の画面を撮り、2064×2752 の PNG を書き出す（…-ipad13-2064x2752.png）。
+const IPAD = mode0 === 'ipad';
+const IPAD_SHOTS = ['voice', 'sources', 'action', 'focus', 'fields'];
+const RAW = IPAD ? 'ui-shots/appstore-raw-ipad' : 'ui-shots/appstore-raw';
 const OUT = 'company/launch-2026-11/screenshots';
 const GEN = 'company/appstore-screenshots/index.html';
 const [mode = 'all', ...only] = process.argv.slice(2);
@@ -220,8 +226,9 @@ async function shoot(browser) {
   let failed = 0;
   for (const [name, steps] of Object.entries(SHOTS)) {
     if (only.length && !only.includes(name)) continue;
+    if (IPAD && !IPAD_SHOTS.includes(name)) continue;
     const ctx = await browser.newContext({
-      viewport: { width: 440, height: 902 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true,
+      viewport: IPAD ? { width: 1032, height: 1376 } : { width: 440, height: 902 }, deviceScaleFactor: IPAD ? 2 : 3, isMobile: true, hasTouch: true,
       locale: 'ja-JP', colorScheme: 'light',
     });
     const page = await ctx.newPage();
@@ -246,10 +253,11 @@ async function shoot(browser) {
 }
 
 // 生成器の SETS（index.html）を、2 つの大きさで書き出す。
-const SIZES = [{ key: '69', w: 1320, h: 2868 }, { key: '65', w: 1284, h: 2778 }];
+const SIZES = IPAD ? [{ key: 'ipad', w: 2064, h: 2752 }] : [{ key: '69', w: 1320, h: 2868 }, { key: '65', w: 1284, h: 2778 }];
+const SIZE_SUFFIX = { '69': '6.9in-1320x2868', '65': '6.5in-1284x2778', ipad: 'ipad13-2064x2752' };
 async function compose(browser) {
   mkdirSync(OUT, { recursive: true });
-  const ctx = await browser.newContext({ viewport: { width: 1400, height: 3000 }, deviceScaleFactor: 1, locale: 'ja-JP' });
+  const ctx = await browser.newContext({ viewport: IPAD ? { width: 2200, height: 2900 } : { width: 1400, height: 3000 }, deviceScaleFactor: 1, locale: 'ja-JP' });
   const page = await ctx.newPage();
   await page.route(/cdnjs\.cloudflare\.com/, (r) => r.abort());
   // 時計の行の色（撮った画面のいちばん上の色）を生成器に渡す。
@@ -259,7 +267,7 @@ async function compose(browser) {
   const shotsDir = pathToFileURL(resolve(RAW)).href + '/';
   let failed = 0;
   for (const size of SIZES) {
-    const url = `${pathToFileURL(resolve(GEN)).href}?render=1&set=all&size=${size.key}&shots=${encodeURIComponent(shotsDir)}`;
+    const url = `${pathToFileURL(resolve(GEN)).href}?render=1&set=${IPAD ? 'base' : 'all'}&size=${size.key}&shots=${encodeURIComponent(shotsDir)}`;
     await page.goto(url, { waitUntil: 'load' });
     await page.evaluate(() => document.fonts.ready);
     await page.waitForTimeout(800);
@@ -269,7 +277,7 @@ async function compose(browser) {
       if (only.length && !only.some((o) => name.includes(o))) continue;
       const missing = await page.locator('.frame').nth(i).locator('.shot-empty').count();
       if (missing) { failed += 1; console.error(`✗ ${name}: 撮った画面がありません`); continue; }
-      const file = `${OUT}/${name}-${size.key === '69' ? '6.9in-1320x2868' : '6.5in-1284x2778'}.png`;
+      const file = `${OUT}/${name}-${SIZE_SUFFIX[size.key]}.png`;
       await page.locator('.frame').nth(i).screenshot({ path: file });
       console.log(`✓ ${file}`);
     }
@@ -280,7 +288,7 @@ async function compose(browser) {
 
 const browser = await chromium.launch(browserOptions());
 let failed = 0;
-if (mode === 'all' || mode === 'raw') failed += await shoot(browser);
-if (mode === 'all' || mode === 'compose') failed += await compose(browser);
+if (mode === 'all' || mode === 'raw' || mode === 'ipad') failed += await shoot(browser);
+if (mode === 'all' || mode === 'compose' || mode === 'ipad') failed += await compose(browser);
 await browser.close();
 if (failed) process.exit(1);
