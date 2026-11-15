@@ -1231,14 +1231,15 @@ function drawRecordOverlay(ctx, o, place) {
   //   上の安全な枠に入らないときは描かない（文字の塊を押し上げない）。
   const hiddenNow = new Set(Array.isArray(o.hidden) ? o.hidden : []);
   if (o.record?.titleIsBook && o.cover && !hiddenNow.has('photoCover') && lay.height > 0) {
-    const w = Math.round(F.W * 0.17);
+    // 小さく（画像の幅の 11%・2026-11-15 オーナー「本の表紙は小さくいれたい」）。
+    const w = Math.round(F.W * 0.11);
     const h = Math.round(w * 1.48);
-    const y = at.top - h - Math.round(F.W * 0.035);
+    const y = at.top - h - Math.round(F.W * 0.028);
     if (y >= (Number.isFinite(F.safeTop) ? F.safeTop : 0)) {
       ctx.save();
       ctx.shadowColor = 'rgba(0,0,0,0.35)';
-      ctx.shadowBlur = 24 * sb;
-      ctx.shadowOffsetY = 6 * sb;
+      ctx.shadowBlur = 16 * sb;
+      ctx.shadowOffsetY = 4 * sb;
       drawCover(ctx, { x: F.margin, y, w, h, cover: o.cover, title: o.title, theme: o.theme, fonts: o.fonts, showText: false });
       ctx.restore();
     }
