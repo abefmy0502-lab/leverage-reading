@@ -21,8 +21,7 @@ function Book({ from, children }) {
     <li className="lp-chat-row is-book">
       <span className="lp-chat-avatar" aria-hidden="true"><BookOpen size={16} /></span>
       <div className="lp-chat-col">
-        {/* 2026-11-15: 下の「画面は見本です。…著者本人の言葉ではありません。」をやめた代わりに、アプリの答えと同じ印（本の語り口で・AI）を名前の横に */}
-        {from && <p className="lp-chat-from">{from}<span className="lp-chat-from-ai">（本の語り口で・AI）</span></p>}
+        {from && <p className="lp-chat-from">{from}</p>}
         <div className="lp-chat-bubble">{children}</div>
       </div>
     </li>
@@ -62,6 +61,8 @@ export default function LpTalkFlow() {
       </ol>
       {/* 通常の AI との違いを、実例のすぐ下で 1 文（読み手テスト 2026-11-12・2026-11-15 に ChatGPT から言い換え） */}
       <p className="lp-chat-diff">通常の AI との違い：答えの根拠は、ネットの一般論ではなく、あなたが残したメモです。本を一から説明する必要もありません。</p>
+      {/* 2026-11-15 オーナー「改行を自然に」: 1 文ずつ改行（一度消したが戻した） */}
+      <p className="lp-shot-note lp-shot-note--lines"><span>画面は見本です。</span><span>答えは AI によるもので、著者本人の言葉ではありません。</span><span>あなたのメモで、答えは変わります。</span></p>
     </>
   );
 }
