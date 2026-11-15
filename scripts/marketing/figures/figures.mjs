@@ -10,6 +10,7 @@
 //     'compare' { title?, before: { label, text, sub? }, after: { label, text, sub? } }   これまで → これから
 //     'flow'    { title, steps: [{ head, text }]（2〜4） }                                 順番のある流れ（番号は順番があるときだけ）
 //     'quote'   { text, sub? }                                                            大きな一文（明朝）
+//     'brand'   { text, sub? }                                                            ロゴ（印と文字の縦組み）＋一文（ヘッダー向け）
 //     'points'  { title, points: [string]（2〜4） }                                       言いたいことを並べる（番号なし）
 //   art?: 画像の URL か public/ からのパス（右か下に置く・無くてもよい）
 //   footer?: 右下のロゴの横の 1 行（既定「読んだ本と、会話しよう。」）
@@ -64,6 +65,20 @@ export const FIGURES = [
     sub: '読んで閉じて終わりだった読書を、変えたこと',
   },
   {
+    name: 'x-header-brand',
+    size: 'xheader',
+    type: 'brand',
+    text: '読んだ本と、会話しよう。',
+    sub: '読書メモから、AI が本の語り口で答える読書アプリ',
+  },
+  {
+    name: 'note-header-brand',
+    size: 'note',
+    type: 'brand',
+    text: '読書を、受け身から会話へ。',
+    sub: '読書アプリ「Orime」を作っている人の記録',
+  },
+  {
     name: 'free-plan-points',
     size: 'x',
     type: 'points',
@@ -95,7 +110,7 @@ export function checkFigure(fig) {
   const errs = [];
   if (!fig.name || !/^[a-z0-9-]+$/.test(fig.name)) errs.push('name は英小文字・数字・- だけ');
   if (!SIZES[fig.size]) errs.push(`size が違う: ${fig.size}`);
-  if (!['compare', 'flow', 'quote', 'points'].includes(fig.type)) errs.push(`type が違う: ${fig.type}`);
+  if (!['compare', 'flow', 'quote', 'points', 'brand'].includes(fig.type)) errs.push(`type が違う: ${fig.type}`);
   if (fig.type === 'flow' && !(fig.steps?.length >= 2 && fig.steps.length <= 4)) errs.push('flow の steps は 2〜4');
   if (fig.type === 'points' && !(fig.points?.length >= 2 && fig.points.length <= 4)) errs.push('points は 2〜4');
   for (const t of textsOf(fig)) {

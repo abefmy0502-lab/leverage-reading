@@ -17,6 +17,7 @@ const C = { bg: '#f7f5f1', surface: '#fffefb', text: '#2b2825', text2: '#5f5a53'
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const dataUri = (p) => `data:image/png;base64,${readFileSync(p).toString('base64')}`;
 const LOGO = dataUri(join(ROOT, 'public/icons/icon-512.png'));
+const LOCKUP = dataUri(join(ROOT, 'public/logo-lockup.png'));
 
 function artSrc(art) {
   if (!art) return '';
@@ -45,6 +46,8 @@ function body(fig, s) {
           ${i ? `<svg class="arrow" viewBox="0 0 40 40" width="${px(44)}"><path d="M6 20 H32 M22 10 L33 20 L22 30" fill="none" stroke="${C.accent}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>` : ''}
           <div class="step"><div class="num">${i + 1}</div><div class="head">${esc(st.head)}</div><div class="sub">${esc(st.text)}</div></div>`).join('')}
         </div>${art}`;
+    case 'brand':
+      return `<div class="brandrow"><img class="lockup" src="${LOCKUP}" alt=""><div class="brandtext"><div class="qt">${esc(fig.text)}</div>${fig.sub ? `<div class="qs">${esc(fig.sub)}</div>` : ''}</div></div>`;
     case 'quote':
       return `<div class="quote"><div class="qt">${esc(fig.text)}</div>${fig.sub ? `<div class="qs">${esc(fig.sub)}</div>` : ''}</div>${art}`;
     case 'points':
@@ -96,7 +99,7 @@ body{background:${C.bg};color:${C.text};font-family:"Noto Sans JP",sans-serif;pa
 .brand{display:flex;align-items:center;gap:${px(14)};color:${C.text};font-family:"Noto Serif JP",serif;font-weight:600;font-size:${px(36)}}
 .brand img{width:${px(56)};height:${px(56)};border-radius:${px(13)}}
 ${header ? `body{padding:0 ${px(150)} 0 ${px(520)};align-items:flex-end;justify-content:center;gap:0}.quote{border-left:none;padding-left:0;align-items:flex-end;text-align:right;gap:${px(20)}}.qt{font-size:${px(84)};white-space:nowrap}.qs{font-size:${px(40)};white-space:nowrap}.foot{display:none}` : ''}
-</style></head><body>
+${fig.type === 'brand' ? `body{padding:0;align-items:center;justify-content:center}.foot{display:none}.brandrow{display:flex;align-items:center;gap:${px(64)};${header ? `margin-left:${px(250)}` : ''}}.lockup{height:${px(header ? 270 : 400)};mix-blend-mode:multiply}.brandtext{display:flex;flex-direction:column;gap:${px(18)};padding-left:${px(56)};border-left:${px(4)} solid ${C.line}}.qt{font-family:"Noto Serif JP",serif;font-weight:600;font-size:${px(header ? 60 : 64)};line-height:1.35;white-space:nowrap}.qs{font-size:${px(header ? 30 : 32)};color:${C.text2};white-space:nowrap}` : ''}</style></head><body>
 ${body(fig, s)}
 <div class="foot"><span>${esc(footer)}</span><span class="brand"><img src="${LOGO}" alt="">Orime</span></div>
 </body></html>`;
