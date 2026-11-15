@@ -14,6 +14,12 @@ describe('stripBookSummaries', () => {
     expect(out).not.toContain('著者は…');
     expect(out).not.toContain('二行目');
   });
+  it('読書計画シートの行も外す', () => {
+    const t = '【本: イシューからはじめよ / 種別: 読書計画シート】## 📖 この本の概要 世の中で…\n【本: イシューからはじめよ / p.3】自分のメモ';
+    const out = stripBookSummaries(t);
+    expect(out).not.toContain('この本の概要');
+    expect(out).toContain('自分のメモ');
+  });
   it('どちらも無ければそのまま', () => {
     expect(stripBookSummaries('ふつうの相談')).toBe('ふつうの相談');
   });

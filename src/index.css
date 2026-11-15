@@ -109,6 +109,14 @@ html, body, #root {
 html.vv-fit, html.vv-fit body, html.vv-fit #root {
   height: var(--vv-height, 100dvh);
 }
+/* アプリ（#root）を見えている範囲そのものに固定する。Safari がページを送っても、上の行と会話は画面の中に残り、
+   会話の欄の中で上へ送れる（2026-11-15 オーナー「入力の画面を開くと上の方を見られない・上へスクロールできない」） */
+html.vv-fit #root {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: var(--vv-top, 0px);
+}
 /* キーボードが開いている間は下の安全域を 0 に（tokens.css の --safe-bottom-kb・2026-10-08）。 */
 body.keyboard-open {
   --safe-bottom-kb: 0px;

@@ -605,7 +605,7 @@ async function gatherKnowledge(userId) {
       synthFromBook(b, 'book_reason', b.book_reason),
       // AI が作った本のまとめ（ai_summary）は相談の材料にしない（2026-11-15 オーナー「本の概要を根拠にされるのは微妙」）
       synthFromBook(b, 'roi_summary', b.roi_summary),
-      synthFromBook(b, 'ai_strategy', b.ai_strategy),
+      // 読書計画シート（ai_strategy）も相談の材料にしない（AI が書いた「この本の概要」が「参照したメモ」に出ていた・2026-11-15）
     ].filter(Boolean);
     synthRows.push(...rows);
   }

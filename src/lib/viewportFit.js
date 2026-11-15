@@ -27,12 +27,16 @@ export function installViewportFit({ win = typeof window !== 'undefined' ? windo
     const open = keyboardShown(win.innerHeight, vv.height);
     if (open) {
       root.style.setProperty('--vv-height', `${Math.round(vv.height)}px`);
+      // 見えている範囲の上端（Safari がページを上へ送った量）。アプリをその位置に固定して、
+      // ページが送られても上の行と会話が画面の外へ出ないようにする（2026-11-15 オーナー「入力を開くと上へ送れない」）。
+      root.style.setProperty('--vv-top', `${Math.max(0, Math.round(vv.offsetTop))}px`);
       root.classList.add(VIEWPORT_FIT_CLASS);
       // Safari がページを上へ送った分を戻す（アプリの高さを見えている範囲にしたので、入力欄はもう見えている）。
       if (win.scrollY || vv.offsetTop) win.scrollTo(0, 0);
     } else if (root.classList.contains(VIEWPORT_FIT_CLASS)) {
       root.classList.remove(VIEWPORT_FIT_CLASS);
       root.style.removeProperty('--vv-height');
+      root.style.removeProperty('--vv-top');
     }
   };
   const schedule = () => { if (!raf) raf = win.requestAnimationFrame(apply); };
@@ -47,5 +51,6 @@ export function installViewportFit({ win = typeof window !== 'undefined' ? windo
     if (raf) win.cancelAnimationFrame(raf);
     root.classList.remove(VIEWPORT_FIT_CLASS);
     root.style.removeProperty('--vv-height');
+    root.style.removeProperty('--vv-top');
   };
 }
