@@ -145,7 +145,7 @@ export const WHY = {
   summary: 'この 3 つで、読んだことは残りやすくなると、学習の研究で分かっています。Orime では、一行メモが「自分の言葉で書く」、相談が「思い出す」、忘れた頃に昔のメモが 1 枚ずつ通知で届くのが「間をあける」です。',
   sources: '参考: Roediger & Karpicke 2006／Dunlosky ほか 2013／Slamecka & Graf 1978',
   costTitle: '月 ¥1,480 で、読んだ本が相談相手に。',
-  costBody: '本 1 冊ほどの値段で、これまで読んだ本に、迷うたびに聞けます。読み返さなくても、あなたのメモから答えが返ってきます。',
+  // costBody は 2026-11-15 に物差し 3 つ（Landing.jsx の lp-cost-rows）へ
 };
 
 // 🧠 行動経済学・心理学に基づく文（2026-10-12・company/lp-behavioral-analysis-2026-10.md）。

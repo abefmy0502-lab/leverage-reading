@@ -4,6 +4,7 @@
 //   文はオーナーの実際の相談そのまま（lpCopy.js の TALK）。色・余白・角丸はトークンだけ。
 import { BookOpen, Target, Circle } from 'lucide-react';
 import { TALK as T } from './lpCopy';
+import LpPartnerDiagram from './LpPartnerDiagram';
 
 function Me({ meta, children }) {
   return (
@@ -59,6 +60,9 @@ export default function LpTalkFlow() {
           </div>
         </li>
       </ol>
+      {/* 相談する相手（2026-11-15 オーナー「1 冊でも、本棚ぜんぶでも、をデザインで」・ui-critic: 節の頭の図は 1 つにし、見本の 1 冊の相談のあとに「ほかの相手も」として置く） */}
+      <h3 className="lp-partner-h">相談する相手は、選べます。</h3>
+      <LpPartnerDiagram />
       {/* 通常の AI との違いを、実例のすぐ下で 1 文（読み手テスト 2026-11-12・2026-11-15 に ChatGPT から言い換え） */}
       <p className="lp-chat-diff">通常の AI との違い：答えの根拠は、ネットの一般論ではなく、あなたが残したメモです。本を一から説明する必要もありません。</p>
       {/* 2026-11-15 オーナー「改行を自然に」: 1 文ずつ改行（一度消したが戻した） */}

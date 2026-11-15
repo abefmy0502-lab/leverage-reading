@@ -46,7 +46,6 @@ import Shot from './LpShot';
 import LpFlow from './LpFlow';
 import LpTalkFlow from './LpTalkFlow';
 import LpTalkDiagram from './LpTalkDiagram';
-import LpPartnerDiagram from './LpPartnerDiagram';
 import { FeatureTiles } from './LpDiagram';
 import LpWaitlist from './LpWaitlist';
 import LpIllust from './LpIllust';
@@ -616,8 +615,6 @@ export default function Landing() {
               <h2 className="lp-h2" id="lp-grow">{heroVariant === 'talk' ? <><span>Orime に相談すると、</span><span>こうなる。</span></> : <><span>使い方は、</span><span>3 つだけ。</span></>}</h2>
               {/* 2026-11-15 オーナー「相談する相手は…をわかりやすくデザインで」: 文を短くし、3 つの相手を図で */}
               {heroVariant === 'talk' && <LpTalkDiagram />}
-              {heroVariant === 'talk' && <p className="lp-lead lp-sec-lead lp-partner-lead">相談する相手は、選べます。</p>}
-              {heroVariant === 'talk' && <LpPartnerDiagram />}
             </div>
             {/* 2026-11-11 オーナー「スマホ画面を再現しなくてもいい」: 画面写真 3 枚（LpFlow）の代わりに、実際の相談を会話として組む */}
             {heroVariant === 'talk' ? <LpTalkFlow /> : <LpFlow onEvent={lpTrack} note={false} />}
@@ -705,7 +702,12 @@ export default function Landing() {
             {/* 値段の物差しの帯は値段を見る前に（ui-critic 2026-11-12: 物差しを先に渡す。料金の節の中なので「無料しか知らない位置」には当たらない） */}
             <div className="lp-why-cost lp-pricing-cost is-top">
               <p className="lp-why-cost-title lp-wbr"><Phrases>{WHY.costTitle}</Phrases></p>
-              <p className="lp-why-cost-body">{WHY.costBody}</p>
+              {/* 2026-11-15 オーナー「確かに考えたら安いか、となるように」: 段落をやめ、物差し 3 つ（1 日あたり・本 1 冊・読み返す時間）。比べる値段（他社・定価）は書かない */}
+              <dl className="lp-cost-rows">
+                <div><dt>1 日 約 {PER_DAY_TEXT}</dt><dd>月額 {MONTHLY_TEXT} を 1 日にすると。年額なら 1 日 約 {ANNUAL_PER_DAY_TEXT}。</dd></div>
+                <div><dt>本 1 冊ぶん</dt><dd>月の料金は、本 1 冊ほど。それで、これまで読んだ本すべてに、毎月 {PAID_TALKS} 相談できます。</dd></div>
+                <div><dt>読み返し 0 分</dt><dd>1 冊を読み返すと数時間。残したメモから答えが返るので、読み返さずに使えます。</dd></div>
+              </dl>
             </div>
 
             {/* 2 枚（無料プラン（ずっと無料）と、プラン）。広い画面では横に並べる */}
