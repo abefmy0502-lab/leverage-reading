@@ -144,6 +144,57 @@ export function parseRoadmap(text, keyToId, phaseCount) {
   return { needs, issues, phases, missing };
 }
 
+// ---- 見直し（相談・AI 選書から・2026-11-15 オーナー「自分が認識していない課題を新たに見つけたら、課題もロードマップもカレンダーも更新」） ----
+
+// いまのロードマップを AI に渡す文（本は B1… の印で・本棚の一覧に無い本は書名だけ）。
+export function roadmapPromptText(roadmap, keyToId, books = [], specs = []) {
+  const idToKey = Object.fromEntries(Object.entries(keyToId || {}).map(([k, id]) => [id, k]));
+  const titleOf = new Map((books || []).map((b) => [b.id, b.title]));
+  const lines = [];
+  lines.push(`必要なこと: ${(roadmap?.needs || []).map((n) => n.name).join('・') || '（なし）'}`);
+  lines.push(`今の課題: ${(roadmap?.issues || []).join(' / ') || '（なし）'}`);
+  (roadmap?.phases || []).forEach((p, i) => {
+    const bs = (p.books || []).map((b) => idToKey[b.bookId] || (titleOf.get(b.bookId) ? `『${cut(titleOf.get(b.bookId), 40)}』` : '')).filter(Boolean).join('・');
+    lines.push(`${i + 1}. ${specs[i]?.label || ''}: ${p.focus || ''}${p.todos?.length ? `（${p.todos.join(' / ')}）` : ''}${bs ? ` 本: ${bs}` : ''}`);
+  });
+  return lines.join('\n');
+}
+
+// 見直しの答え。{ found:false } か { found:true, newIssues, note, roadmap }（読めなければ null）。
+//   いまの区切りより前の区切りは、前のロードマップのまま残す（AI が過去を書き換えない）。
+export function parseRoadmapUpdate(text, keyToId, prev, hereIndex = 0) {
+  if (typeof text !== 'string') return null;
+  const s = text.indexOf('{');
+  const e = text.lastIndexOf('}');
+  if (s < 0 || e <= s) return null;
+  let obj;
+  try { obj = JSON.parse(text.slice(s, e + 1)); } catch { return null; }
+  if (!obj || typeof obj !== 'object') return null;
+  if (obj.found !== true) return { found: false };
+  const n = prev?.phases?.length || 1;
+  const next = parseRoadmap(JSON.stringify(obj), keyToId, n);
+  if (!next) return { found: false };
+  const keep = Math.max(0, Math.min(hereIndex, n));
+  for (let i = 0; i < keep; i += 1) if (prev?.phases?.[i]) next.phases[i] = prev.phases[i];
+  // 前に残した区切りの本と、直した区切りの本が重ならないように（前に残した方を優先）。
+  const seen = new Set();
+  next.phases = next.phases.map((p) => ({ ...p, books: (p.books || []).filter((b) => (seen.has(b.bookId) ? false : (seen.add(b.bookId), true))) }));
+  const newIssues = (Array.isArray(obj.newIssues) ? obj.newIssues : []).map((x) => soften(cut(x, 60))).filter(Boolean).slice(0, 2);
+  if (!newIssues.length) return { found: false };
+  return { found: true, newIssues, note: soften(cut(obj.note, 80)), roadmap: next };
+}
+
+// 見直しの履歴（新しい順・5 件まで）。source: 'consult' | 'advisor'。
+export function withUpdateLog(record, { source, newIssues, note, at = new Date().toISOString(), prevRoadmap }) {
+  const updates = [{ at, source, newIssues, note }, ...(record?.updates || [])].slice(0, 5);
+  return { ...record, updates, prevRoadmap: prevRoadmap || record?.roadmap || null };
+}
+
+// ロードマップのある目標（近い順）。
+export function roadmapHorizons(goals, records) {
+  return ['y1', 'y3', 'y5'].filter((k) => goals?.[k]?.text && records?.[k]?.roadmap);
+}
+
 // 本棚から消えた本を外す（開くたびに）。
 export function pruneRoadmapBooks(roadmap, books) {
   if (!roadmap) return roadmap;

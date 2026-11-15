@@ -3,7 +3,7 @@
 // マイ読書脳だけは、実際に入っているメモから質問に近いものを選んで
 // 本番と同じ書式（【結論】…REFS_START/END）で答えるので、画面の流れを確かめられる。
 
-import { goalInterviewAnswer, goalRoadmapAnswer } from './demoGoals';
+import { goalInterviewAnswer, goalRoadmapAnswer, goalRoadmapUpdateAnswer } from './demoGoals';
 import { SEARCH_CATALOG, DEMO_BOOK_INFO, DEMO_GENRES, DEMO_AI_FIELDS, DEMO_MESSY_RELATED } from './seed';
 import { classifyBookDetailed } from '../../api/_bookFieldsCore.js';
 
@@ -796,6 +796,7 @@ function aiReply(store, payload, aiMode = '') {
   if (payload.purpose === 'book_brief') return bookBriefAnswer(userText);
   // 🧭 目標の深掘り・ロードマップ（2026-11-15・demoGoals.js）
   if (payload.purpose === 'goal_interview') return goalInterviewAnswer(userText);
+  if (payload.purpose === 'goal_roadmap' && userText.includes('【いまのロードマップ】')) return goalRoadmapUpdateAnswer(userText, new URLSearchParams(window.location.search));
   if (payload.purpose === 'goal_roadmap') return goalRoadmapAnswer(userText);
   // 📖 読書計画シート（2026-10-02）: 本番と同じく、渡された「本の紹介」「目次」だけから概要と重点箇所を書く。
   if (system.includes('『読書計画シート』を作成')) return planSheetAnswer(userText);

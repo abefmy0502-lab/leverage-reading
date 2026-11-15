@@ -6735,6 +6735,8 @@ function AuthedApp() {
                 <Suspense fallback={<TabPanelSkeleton />}>
                   <BookAdvisor
                     onAddBook={(rec, payload) => addFromAdvisor(rec, payload)}
+                    // 🔁 AI 選書からロードマップを見直したあと「ロードマップを見る」（2026-11-15）
+                    onOpenGoals={(s) => setGoalScreen(s || { view: 'goals' })}
                     // 確認の候補に目当ての本が無いとき: 書名で探す（検索を開いて自動で探す）／手動で入力する。戻り先は「‹ AI 選書」。
                     // 読書準備（課題・得たいこと・選書理由）も渡す（「読みたいに追加」と同じ中身・2026-10-04）。
                     onSearchBook={(q, setup) => { addStatusPresetRef.current = ''; advisorSetupRef.current = setup || null; setAddOrigin('advisor'); setAddFromSearchQuery(q || ''); setAddBookModalOpen(true); }}
@@ -6750,6 +6752,8 @@ function AuthedApp() {
               ) : (
                 <Suspense fallback={<TabPanelSkeleton />}>
                   <MyBookBrain
+                    // 🔁 相談からロードマップを見直したあと「ロードマップを見る」（2026-11-15）
+                    onOpenGoals={(s) => setGoalScreen(s || { view: 'goals' })}
                     // 本を探す問いの答えのメモの行は、その本のそのメモまで開く（2026-09-30）。
                     onOpenBook={(b, memoId) => { openDetail(b, memoId); }}
                     books={books}

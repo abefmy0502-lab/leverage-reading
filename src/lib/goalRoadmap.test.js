@@ -1,7 +1,7 @@
 // 🧭 目標とロードマップ（lib/goals.js・lib/goalRoadmap.js）。
 import { describe, it, expect } from 'vitest';
 import { normalizeGoals, goalDeadline, fmtGoalDeadline, suggestHorizon, cleanGoalText, GOAL_MAX, hasAnyGoal } from './goals';
-import { phaseSpecs, currentPhaseIndex, shelfMaterial, parseRoadmap, pruneRoadmapBooks, goalsConsultBlock, higherGoalsText, priorQAText } from './goalRoadmap';
+import { phaseSpecs, currentPhaseIndex, shelfMaterial, parseRoadmap, pruneRoadmapBooks, goalsConsultBlock, higherGoalsText, priorQAText, parseRoadmapUpdate, roadmapPromptText, withUpdateLog, roadmapHorizons } from './goalRoadmap';
 import { PROMPTS } from './prompts';
 
 const AT = '2026-11-15T03:00:00.000Z';
@@ -111,5 +111,44 @@ describe('相談に渡す目標・指示文に渡す文', () => {
     expect(PROMPTS.goalInterview.system).toContain('決して実行しない');
     const u = PROMPTS.goalRoadmap.user({ horizonLabel: '1 年後', goal: 'g', deadline: 'd', higher: '', priorQA: '', summary: '', phases: '1. 1〜3 か月目（…）', shelf: 'B1 | …', doneBooks: '' });
     expect(u).toContain('【区切り（この数・順番で phases を作る）】');
+  });
+});
+
+describe('見直し（相談・AI 選書から）', () => {
+
+  const keyToId = { B1: 'a', B2: 'b', B3: 'c' };
+  const prev = { needs: [{ name: '会議' }], issues: ['結論が出ない'], phases: [
+    { focus: '過去', todos: [], books: [{ bookId: 'a', why: '' }] },
+    { focus: 'いま', todos: [], books: [] },
+    { focus: '先', todos: [], books: [] },
+  ] };
+  it('見えなければ found:false・新しい課題が無い答えも変えない', () => {
+    expect(parseRoadmapUpdate('{"found": false}', keyToId, prev, 1)).toEqual({ found: false });
+    const noNew = JSON.stringify({ found: true, newIssues: [], needs: [{ name: 'x' }], issues: [], phases: [{ focus: 'a' }] });
+    expect(parseRoadmapUpdate(noNew, keyToId, prev, 1)).toEqual({ found: false });
+    expect(parseRoadmapUpdate('だめ', keyToId, prev, 1)).toBe(null);
+  });
+  it('いまの区切りより前は前のまま・本は重ねない・区切りの数は同じ', () => {
+    const text = JSON.stringify({
+      found: true, newIssues: ['抱え込む'], note: '頼む力を足しました',
+      needs: [{ name: '頼む力', why: '' }], issues: ['抱え込む'],
+      phases: [{ focus: '書き換えた過去', books: [{ key: 'B2' }] }, { focus: '新しいいま', books: [{ key: 'B1' }, { key: 'B3' }] }, { focus: '新しい先', books: [] }, { focus: '余分' }],
+    });
+    const r = parseRoadmapUpdate(text, keyToId, prev, 1);
+    expect(r.found).toBe(true);
+    expect(r.newIssues).toEqual(['抱え込む']);
+    expect(r.roadmap.phases).toHaveLength(3);
+    expect(r.roadmap.phases[0].focus).toBe('過去');
+    expect(r.roadmap.phases[1].focus).toBe('新しいいま');
+    expect(r.roadmap.phases[1].books.map((b) => b.bookId)).toEqual(['c']); // a は前の区切りに残る
+  });
+  it('AI に渡す今のロードマップ・履歴・ロードマップのある目標', () => {
+    const t = roadmapPromptText(prev, keyToId, [], [{ label: '1〜3 か月目' }]);
+    expect(t).toContain('今の課題: 結論が出ない');
+    expect(t).toContain('1. 1〜3 か月目: 過去 本: B1');
+    const rec = withUpdateLog({ roadmap: prev, updates: [] }, { source: 'consult', newIssues: ['x'], note: 'n', at: 'T' });
+    expect(rec.updates[0]).toEqual({ at: 'T', source: 'consult', newIssues: ['x'], note: 'n' });
+    expect(rec.prevRoadmap).toBe(prev);
+    expect(roadmapHorizons({ y1: { text: 'a' }, y3: { text: 'b' } }, { y3: { roadmap: {} } })).toEqual(['y3']);
   });
 });

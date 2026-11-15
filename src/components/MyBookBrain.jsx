@@ -78,6 +78,9 @@ const consumePreset = (kind, nonce) => {
 };
 
 import BottomSheet from './BottomSheet';
+import RoadmapReflectSheet from './RoadmapReflectSheet';
+import { useGoals } from '../hooks/useGoals';
+import { roadmapHorizons } from '../lib/goalRoadmap';
 import PartnerAvatar, { PartnerRow, PartnerBooksSheet, AVATAR_SIZE, AVATAR_SIZE_SMALL, partnerRowStacked } from './PartnerAvatar';
 import { unreadBooksInAnswer } from '../lib/unreadBooks';
 import { consultPartner, partnerFromScope, bookForRef, shelfBookForTitle, withVoice, decodeVoice, encodeVoice, perbookSummaryPartner, VOICE_PREFIX } from '../lib/consultPartner';
@@ -447,7 +450,7 @@ function isOldConsult(group, now = Date.now()) {
   return Number.isFinite(t) && now - t >= REASK_AFTER_DAYS * 86400000;
 }
 
-export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBooksMutated, onAddActionPickBook, onGoBookshelf, onQuickstart, onAddBook, onOpenActions, askPreset, scopePreset, onPushedViewChange, onSearchMemos, onFindBooks = null, barSlot = null, onScrolledChange = null }) {
+export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBooksMutated, onAddActionPickBook, onGoBookshelf, onQuickstart, onAddBook, onOpenActions, askPreset, scopePreset, onPushedViewChange, onSearchMemos, onFindBooks = null, onOpenGoals = null, barSlot = null, onScrolledChange = null }) {
   const { user } = useAuth();
   // 文字の大きさの設定が大きいとき（ルートの文字 22px 以上・ImportSheet と同じ目安）。入力欄の案内を短くする。
   const [largeText] = useState(() => {
@@ -1882,6 +1885,19 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const consultFirstQuestion = lastActionAdded
     ? String(visibleMessages.find((m) => m.role === 'user' && String(m.content || '').trim())?.content || '').trim()
     : '';
+  // 🔁 この相談からロードマップを見直す（2026-11-15 オーナー「相談でも、気づいていない課題が見つかったら更新」）。
+  //   ロードマップのある目標があるときだけ・答えが出たあと。送るのはこの会話の問いと答え（参照の印は外す）。
+  const { goals: myGoals, roadmaps: myRoadmaps } = useGoals();
+  const canReflect = !!onOpenGoals && roadmapHorizons(myGoals, myRoadmaps).length > 0;
+  const [reflectSource, setReflectSource] = useState(null);
+  const openReflect = () => {
+    const turns = visibleMessages
+      .filter((m) => (m.role === 'user' || m.role === 'assistant') && !m.memoAnswer && !m.error && !m.notice)
+      .slice(-6)
+      .map((m) => `${m.role === 'user' ? '相談' : '答え'}: ${String(m.content || '').replace(/REFS_START[\s\S]*?REFS_END/g, '').replace(/🧵[^\n]*/g, '').trim().slice(0, 500)}`);
+    track('roadmap_reflect_open', { from: 'consult' });
+    setReflectSource({ kind: 'consult', text: turns.join('\n') });
+  };
   // 行動に追加した直後、「新しい相談をはじめる」が入力欄の下に隠れていたら、会話の欄だけを送って見せる（2026-10-12 点検）。
   const newConsultBtnRef = useRef(null);
   const findBooksBtnRef = useRef(null);
@@ -2678,6 +2694,11 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               この悩みに合う本を AI 選書で探す
             </button>
           )}
+          {answerRowShown && lastActionAdded && canReflect && (
+            <button type="button" onClick={openReflect} style={{ ...uiBtnLinkQuiet, display: 'block', marginLeft: ANSWER_COLUMN, width: `calc(100% - ${ANSWER_COLUMN})`, textAlign: 'center', justifyContent: 'center' }}>
+              この相談からロードマップを見直す
+            </button>
+          )}
           {/* 🌱 メモが 0 件の人: チップの代わりに「読んだ本に一言ずつ残す」を主ボタンで（2026-10-09） */}
           {answerRowShown && !lastActionAdded && noMemosYet && !lastIsMemoAnswer && (
             <button type="button" onClick={onQuickstart} style={{ ...uiBtnPrimary, marginTop: 'var(--space-4)', marginLeft: ANSWER_COLUMN, width: `calc(100% - ${ANSWER_COLUMN})` }}>
@@ -2705,12 +2726,21 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               <button type="button" onClick={handleResolveAndClear} style={{ ...(freeUsedUp || askProgress ? uiBtnLinkQuiet : uiBtnLink), marginLeft: 'calc(-1 * var(--space-1))' }}>
                 新しい相談をはじめる
               </button>
+              {/* 🔁 答えが出たら、ロードマップの見直しも（聞き返しの途中・メモの答え・関係するメモが無かった答えでは出さない） */}
+              {canReflect && !askProgress && !lastIsMemoAnswer && !isNoInfoAnswer(visibleMessages[visibleMessages.length - 1]) && (
+                <button type="button" onClick={openReflect} style={{ ...uiBtnLinkQuiet, marginLeft: 'calc(-1 * var(--space-1))' }}>
+                  ロードマップを見直す
+                </button>
+              )}
             </div>
           )}
           {answerRowShown && optinAfterId && optinAfterId === visibleMessages[visibleMessages.length - 1]?.id && (
             <NotifyOptInCard where="action" style={{ marginTop: 'var(--space-6)', marginLeft: ANSWER_COLUMN }} />
           )}
 
+          {reflectSource && (
+            <RoadmapReflectSheet source={reflectSource} books={books} onClose={() => setReflectSource(null)} onOpenRoadmap={(h) => onOpenGoals?.({ view: 'roadmap', horizon: h })} />
+          )}
           {consentDeclined && !busy && !sendNotice && (
             <div data-consent-declined="" role="status" style={{ margin: 'var(--space-4) 0 0', padding: 'var(--space-3) var(--space-4)', borderRadius: 'var(--radius)', background: 'var(--fill)' }}>
               <p style={{ margin: 0, color: 'var(--text)', fontSize: 'var(--text-sub)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>

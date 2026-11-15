@@ -142,3 +142,17 @@ export function goalRoadmapAnswer(userText) {
     missing: [{ theme: '人を育てる対話', why: '本棚に、コーチングの基本を学べる本がまだありません。' }],
   });
 }
+
+// ロードマップの見直し（お試しの AI）。&reflect=same で「見えなかった」。
+export function goalRoadmapUpdateAnswer(userText, params) {
+  if (params?.get?.('reflect') === 'same') return JSON.stringify({ found: false });
+  const base = JSON.parse(goalRoadmapAnswer(userText));
+  base.issues = ['「会議で結論が出ないまま終わる」ことが多い。', '忙しくなると、自分で抱え込んで人に頼めない。'];
+  base.needs = [{ name: '頼む力', why: '抱え込まずに任せるには、早めに頼む言い方が要ります。' }, ...base.needs.slice(0, 3)];
+  return JSON.stringify({
+    found: true,
+    newIssues: ['忙しくなると、自分で抱え込んで人に頼めない。'],
+    note: '「頼む力」を必要なことに足し、次の区切りに任せ方の本を前に出しました。',
+    ...base,
+  });
+}

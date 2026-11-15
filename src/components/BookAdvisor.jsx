@@ -24,6 +24,9 @@ import { MODEL_FAST, MODEL_ADVISOR } from '../lib/models';
 import { LIMITS, clamp } from '../lib/limits';
 import { toMessage } from '../lib/errors';
 import { track } from '../lib/analytics';
+import RoadmapReflectSheet from './RoadmapReflectSheet';
+import { useGoals } from '../hooks/useGoals';
+import { roadmapHorizons } from '../lib/goalRoadmap';
 import { isStrictMatch, isExactMatch } from '../lib/bookMatch';
 import { verifyBookExists, checkImageExists } from '../lib/bookCover';
 import { normalizeAdvisorRecs, resolveMixedRec, focusText, emptyReasonOf } from '../lib/advisorRecs';
@@ -162,7 +165,7 @@ let appliedAdvisorDraft = null;
 // barSlot: App のサブタブ（相談｜AI 選書）の行の右端の要素。履歴・新規のアイコンはそこへ出す（🕒 だけの行を作らない・2026-10-01 ui-critic）。
 // onPushedViewChange(level): 過去の AI 選書（1）・その中身（2）を開いている間は、親が全体の見出しとサブタブを隠す
 //   （押し込まれた画面は「‹ 戻り先」の行 1 本だけ＝相談の過去の相談と同じ・2026-10-04）。0 で戻す。
-export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook, onManualBook, onOpenBook, barSlot = null, onPushedViewChange = null, draftPreset = null }) {
+export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook, onManualBook, onOpenBook, barSlot = null, onPushedViewChange = null, draftPreset = null, onOpenGoals = null }) {
   // 🎁 AI 選書はプランの機能（フリーミアム・2026-09-27）。無料プランの人が送ったら、有料プランの画面を
   //    重ねて開く（入力は残す・画面はそのまま見せる）。サーバーも 402 plan_required で止める。
   const { requirePlan, canBuyTokens, openTokenSheet, plan, freeMode, tokensRemaining, purchasedTokens, trialEndsAt, tokenAllowance } = usePaywall();
@@ -1227,6 +1230,25 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   // 検証が終わって、どの本も確かめられなかった（検索元が使えなかった）＝カードの下に 1 行の注意だけを出す
   //   （同じ「確認できませんでした」をカードごとに並べない）。
   const recoItems = Array.isArray(recommendations?.items) ? recommendations.items : [];
+  // 🔁 この AI 選書からロードマップを見直す（2026-11-15 オーナー「AI 選書で自分が認識していない課題を新たに見つけたら、
+  //   読書計画カレンダーも更新されていく感じ」）。ロードマップのある目標があるときだけ・推薦が出たあと。
+  //   送るのは 最初の悩み・聞き取りの答え・受け取った悩み・すすめた本と本棚に入れた本の書名。
+  const { goals: myGoals, roadmaps: myRoadmaps } = useGoals();
+  const canReflect = !!onOpenGoals && roadmapHorizons(myGoals, myRoadmaps).length > 0;
+  const [reflectSource, setReflectSource] = useState(null);
+  const openReflect = () => {
+    const lines = [];
+    if (concern) lines.push(`最初の悩み: ${String(concern).slice(0, 300)}`);
+    (interviewAnswers || []).slice(0, 4).forEach((x) => { if (x?.q) lines.push(`問い: ${String(x.q).slice(0, 120)} → 答え: ${String(x.a || '').slice(0, 200)}`); });
+    const summary = confirmed?.summary || summaryStep?.summary || '';
+    if (summary) lines.push(`受け取った悩み: ${String(summary).slice(0, 300)}`);
+    const titles = recoItems.map((r) => r?.title).filter(Boolean).slice(0, 5);
+    if (titles.length) lines.push(`すすめた本: ${titles.map((t) => `『${t}』`).join('・')}`);
+    const added = [...addedTitles].slice(0, 5);
+    if (added.length) lines.push(`本棚に入れた本: ${added.map((t) => `『${t}』`).join('・')}`);
+    track('roadmap_reflect_open', { from: 'advisor' });
+    setReflectSource({ kind: 'advisor', text: lines.join('\n') });
+  };
   const allUnverifiable = recommendations?.checked !== false && recoItems.length > 0 && recoItems.every((r) => r?._verify === 'unknown');
   // 2 冊を混ぜたカード（_alts）を確かめている途中（カード 1 枚ぶんの骨組みを出す）
   const mixedPending = recommendations?.checked === false && recoItems.length < 5
@@ -2147,10 +2169,18 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
             <IcRetry size={16} aria-hidden="true" />
             別の条件で探す
           </button>
+          {canReflect && (
+            <button type="button" onClick={openReflect} style={{ ...uiBtnLinkQuiet, alignSelf: 'flex-start', marginLeft: 'calc(-1 * var(--space-1))', marginTop: 'calc(-1 * var(--space-3))' }}>
+              この AI 選書からロードマップを見直す
+            </button>
+          )}
         </div>
         </div>
       )}
 
+      {reflectSource && (
+        <RoadmapReflectSheet source={reflectSource} books={books} onClose={() => setReflectSource(null)} onOpenRoadmap={(h) => onOpenGoals?.({ view: 'roadmap', horizon: h })} />
+      )}
       <div ref={messagesEndRef} />
       </div>
       </div>{/* /chat-scroll */}

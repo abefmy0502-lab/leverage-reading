@@ -1977,6 +1977,46 @@ export async function generateGoalRoadmap({ goal, goals, roadmaps, qa, summary, 
   return { roadmap };
 }
 
+// 🔁 ロードマップの見直し（相談・AI 選書の会話から・2026-11-15）。
+//   source: { kind: 'consult' | 'advisor', text }（その会話の要点・呼ぶ側で組む）。
+//   返り値: { found:false } / { found:true, newIssues, note, roadmap }。失敗は Error（案内は err.notice）。
+export async function updateGoalRoadmap({ goal, record, source, books, now = new Date() }) {
+  const PROMPTS = await loadPrompts();
+  const { phaseSpecs, currentPhaseIndex, shelfMaterial, roadmapPromptText, parseRoadmapUpdate, ROADMAP_MAX_TOKENS } = await import('./goalRoadmap');
+  const { horizonOf, fmtGoalDeadline } = await import('./goals');
+  const h = horizonOf(goal.key);
+  const at = record.goalAt || goal.at;
+  const specs = phaseSpecs(goal.key, at);
+  const here = currentPhaseIndex(goal.key, at, now);
+  const shelf = shelfMaterial(books);
+  const result = await callClaude(
+    PROMPTS.goalRoadmapUpdate.system,
+    PROMPTS.goalRoadmapUpdate.user({
+      horizonLabel: h.label,
+      goal: clamp(sanitizeForPrompt(goal.text), 120),
+      deadline: fmtGoalDeadline(goal.at, h.years),
+      current: sanitizeForPrompt(roadmapPromptText(record.roadmap, shelf.keyToId, books, specs)),
+      hereLabel: specs[here]?.label || '',
+      phases: specs.map((s, i) => `${i + 1}. ${s.label}（${s.range}）`).join('\n'),
+      source: clamp(sanitizeForPrompt(source?.text || ''), 1800),
+      shelf: sanitizeForPrompt(shelf.text),
+      doneBooks: sanitizeForPrompt(shelf.doneText),
+    }),
+    // ロードマップと同じ行き先（質を取る・年に数回より少し多い程度）。無料プランも、ロードマップのある目標なら使える。
+    { max_tokens: ROADMAP_MAX_TOKENS, cacheSystem: true, model: MODEL_SMART, purpose: 'goal_roadmap' },
+  );
+  if (typeof result !== 'string' || isClaudeErrorString(result)) {
+    const notice = isAiNoticeString(result);
+    const err = new Error(notice ? result : 'ロードマップを見直せませんでした。少し時間をおいてから、もう一度押してください。');
+    if (notice) err.notice = true;
+    throw err;
+  }
+  const r = parseRoadmapUpdate(isSuspiciousOutput(result) ? '' : result, shelf.keyToId, record.roadmap, here);
+  if (!r) throw new Error('ロードマップを見直せませんでした。もう一度押してください。');
+  track('ai_used', { feature: 'goal_roadmap_update' });
+  return r;
+}
+
 // 📝 カード→まとめ生成 — 1冊に貯めたカードメモ（断片）を AI が1枚の
 // まとめメモに統合する。まとめ式の手書きの手間を消す（A3: メモ概念の統合）。
 // cards: カードメモのテキスト配列。返り値はまとめ本文の文字列 / 失敗時 null。
