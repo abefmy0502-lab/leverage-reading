@@ -41,7 +41,7 @@ import { isAppStoreLive } from '../lib/appStore';
 import { AI_JEV_ON } from '../lib/aiProcessors';
 import { TRIAL_TOKENS, FREE_OCR_PER_MONTH } from '../lib/tokenAmounts';
 import { normalizeTrialLabel } from '../lib/trialLabel';
-import { readFoundingOffer, noBreak, FOUNDING_NAME } from '../lib/foundingOffer';
+import { readFoundingOffer, noBreak, FOUNDING_NAME, FOUNDING_PRICE_YEN } from '../lib/foundingOffer';
 import Shot from './LpShot';
 import LpFlow from './LpFlow';
 import LpTalkFlow from './LpTalkFlow';
@@ -83,6 +83,8 @@ function canUse3D() {
 
 // 🌱 創業メンバー価格（期間中だけ・日本時間の終わる日の翌 0 時で自動で消える）。
 const OFFER = readFoundingOffer();
+// 創業メンバー価格の 1 日あたり（¥9,800 ÷ 365 ≒ ¥27・2026-11-15）
+const FOUNDING_PER_DAY_TEXT = `¥${Math.round(FOUNDING_PRICE_YEN / 365)}`;
 // 🎁 プランの無料期間の表記（既定は正典どおり「7 日間無料」・VITE_TRIAL_NOTE で変える・'off' で出さない）。
 const TRIAL_RAW = (import.meta.env.VITE_TRIAL_NOTE ?? '7 日間無料').trim();
 // 2026-11-12 オーナー承認: 創業メンバーのあいだは 7 日間無料をやめる（試すのは無料プラン＝はじめの 2 か月は相談 約 5 件）。
@@ -556,6 +558,8 @@ export default function Landing() {
               <div className="lp-cta-block" ref={heroCtaRef}>
                 {/* QR は最後の案内だけ（ヒーローの主ボタンの横の黒い四角がいちばん重く見えた・2026-10-16 ui-critic） */}
                 <Entry loc="hero" wl={wl} badge launch />
+                {/* 2026-11-15 プロの目線「今始める理由を最初の画面に」: 創業メンバー価格の期間中だけ */}
+                {OFFER.active && <p className="lp-hero-offer lp-wbr"><Phrases>{`${OFFER.endLabel}まで、年額プランの 1 年目 ${OFFER.price}`}</Phrases></p>}
                 <div className="lp-hero-links">
                   <a className="lp-textlink" href="#lp-grow" onClick={() => lpTrack('hero_secondary', {})}>
                     <span>使い方を見る</span><ChevronDown size="1.1em" aria-hidden="true" />
@@ -632,6 +636,12 @@ export default function Landing() {
               <p className="lp-lead lp-sec-lead lp-lines"><span>相談するたびに思い出すから、記憶に残り、</span><span>行動につながる。</span></p>
             </div>
             <LpWhy />
+            {/* 2026-11-15 プロの目線「値段の帯から、なぜ効くの節へ」: 読書が回り続ける図 */}
+            <div className="lp-narrow lp-cycle-block">
+              <h3 className="lp-cycle-h">読むほど、効いてくる</h3>
+              <p className="lp-cycle-lead">読みっぱなしで終わらず、読書が回り始める。なりたい自分への、レバレッジに。</p>
+              <LpCycleDiagram />
+            </div>
           </div>
         </section>
 
@@ -682,16 +692,11 @@ export default function Landing() {
             </div>
             {/* 値段の物差しの帯は値段を見る前に（ui-critic 2026-11-12: 物差しを先に渡す。料金の節の中なので「無料しか知らない位置」には当たらない） */}
             <div className="lp-why-cost lp-pricing-cost is-top">
-              <p className="lp-why-cost-title lp-wbr"><Phrases>{WHY.costTitle}</Phrases></p>
+              <p className="lp-why-cost-title lp-wbr"><Phrases>{`1 日 約 ${OFFER.active ? FOUNDING_PER_DAY_TEXT : ANNUAL_PER_DAY_TEXT} から、${WHY.costTitleRest}`}</Phrases></p>
               {/* 2026-11-15 オーナー「確かに考えたら安いか、となるように」: 段落をやめ、物差し 3 つ（1 日あたり・本 1 冊・読み返す時間）。比べる値段（他社・定価）は書かない */}
               {/* 2026-11-15 オーナー「安く感じるようなイラスト図を」: 「本 1 冊分」を絵に（その行は図に任せて外した） */}
               <LpCostDiagram talks={PAID_TALKS} />
-              <dl className="lp-cost-rows">
-                {/* 2026-11-15 オーナー「年額の行は不要・読みっぱなしから考えと行動が変わり、成果が上がってさらに読む＝レバレッジ」（効果は言い切らない＝ガードレール） */}
-                <div className="is-cycle"><dt>読むほど、効いてくる</dt><dd>読みっぱなしで終わらず、読書が回り始める。月に本 1 冊分で、なりたい自分へのレバレッジに。<LpCycleDiagram /></dd></div>
-                <div><dt>読み返さずに</dt><dd>1 冊を読み返すと数時間。残したメモから答えが返るので、本を開き直さずに使えます。</dd></div>
-              </dl>
-              <p className="lp-cost-note">1 日 約 {ANNUAL_PER_DAY_TEXT} は年額プラン（{ANNUAL_TEXT}）のとき。月額 {MONTHLY_TEXT} なら 1 日 約 {PER_DAY_TEXT}。</p>
+              <p className="lp-cost-note">{OFFER.active ? `1 日 約 ${FOUNDING_PER_DAY_TEXT} は創業メンバー価格の年額プラン（1 年目 ${OFFER.price}）のとき。` : `1 日 約 ${ANNUAL_PER_DAY_TEXT} は年額プラン（${ANNUAL_TEXT}）のとき。`}月額 {MONTHLY_TEXT} なら 1 日 約 {PER_DAY_TEXT}。</p>
             </div>
 
             {/* 2 枚（無料プラン（ずっと無料）と、プラン）。広い画面では横に並べる */}
@@ -702,7 +707,7 @@ export default function Landing() {
                 <ul className="lp-included" aria-label="無料プランに含まれるもの">
                   {/* li は flex（印と文を横に並べる）なので、文は 1 つの span に包む */}
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span className="lp-wbr"><Phrases>本とメモは何件でも。AI 以外の機能はすべて使えます。</Phrases></span></li>
-                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>AI の相談は<span className="lp-nb">毎月 {FREE_TALKS}</span><br /><span className="lp-nb" style={{ color: "var(--text-2)" }}>（はじめの 2 か月は {FIRST_TALKS}）</span></span></li>
+                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>{/* 2026-11-15 プロの目線「約 1 件は弱く見える」: はじめの 2 か月を先に */}AI の相談：<span className="lp-nb">はじめの 2 か月は毎月 {FIRST_TALKS}</span><br /><span className="lp-nb" style={{ color: "var(--text-2)" }}>（そのあとは毎月 {FREE_TALKS}）</span></span></li>
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>写真から書き起こし <span className="lp-nb">毎月 {FREE_OCR_PER_MONTH} 回</span></span></li>
                 </ul>
                 {!PRELAUNCH && <StoreCta className="lp-btn lp-btn-ghost lp-plan-cta" loc="pricing_free">{CTA_LABEL}</StoreCta>}
@@ -742,7 +747,7 @@ export default function Landing() {
                   <div className="lp-plan-row">
                     <p className="lp-plan-label">月額プラン{TRIAL_NOTE && OFFER.active && <span className="lp-plan-badge">7 日間無料</span>}</p>
                     <p className="lp-plan-price">{MONTHLY_TEXT}<span>/ 月（税込）</span></p>
-                    <p className="lp-plan-sub"><span className="lp-nb">月に本 1 冊ほど。</span><span className="lp-nb">毎月自動更新。</span>{OFFER.active && TRIAL_FIRST && <span className="lp-nb">{TRIAL_FIRST}。</span>}</p>
+                    <p className="lp-plan-sub"><span className="lp-nb">毎月自動更新。</span>{OFFER.active && TRIAL_FIRST && <span className="lp-nb">{TRIAL_FIRST}。</span>}</p>
                   </div>
                 </div>
                 {!PRELAUNCH && <StoreCta className="lp-btn lp-plan-cta" loc="pricing">{TRIAL_NOTE && !OFFER.active ? TRIAL_CTA_LABEL : PLAN_CTA_LABEL}</StoreCta>}
@@ -760,7 +765,6 @@ export default function Landing() {
                   {/* 2026-11-15 オーナー「年間払いのみに絞りたい」: 創業メンバーは年額プランだけ（アプリの画面は 1.0.1 で合わせる・それまでに月額で始めた方も約束どおり創業メンバー） */}
                   <div><dt>対象</dt><dd className="lp-wbr"><Phrases>期間中に年額プランを始めた方</Phrases></dd></div>
                   <div><dt>特典</dt><dd className="lp-wbr"><Phrases>開発者への直接の窓口と、次に作る機能への投票</Phrases></dd></div>
-                  <div><dt>価格</dt><dd className="lp-wbr"><Phrases>{`年額プランの 1 年目が ${OFFER.price}（税込）。始めるときに 1 年分をまとめてお支払い。`}</Phrases></dd></div>
                   {/* 「ご注意」は 7 日間無料があるときだけ（2026-11-12: 創業メンバーのあいだは 7 日間無料をやめた＝罠が無い） */}
                   {TRIAL_NOTE && <div><dt>ご注意</dt><dd className="lp-wbr"><Phrases>年額の 1 年目 ¥9,800 を使うなら、最初から年額でお申し込みください。先に月額の 7 日間無料を使うと対象外になります（App Store の決まり）</Phrases></dd></div>}
                 </dl>

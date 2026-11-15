@@ -24,7 +24,7 @@ function arrowAt(deg) {
 export default function LpCycleDiagram() {
   const arrows = [-45, 45, 135, 225].map(arrowAt);
   return (
-    <figure className="lp-cycle" aria-label="読む、相談して考えが整う、明日の一歩を試す、手応えが次の 1 冊へ、の順に回り続ける図。月に本 1 冊分の料金で回り続ける">
+    <figure className="lp-cycle" aria-label="読む、相談して考えが整う、明日の一歩を試す、手応えが次の 1 冊へ、の順に回り続ける図">
       <div className="lp-cycle-ring">
         <svg viewBox="0 0 260 260" aria-hidden="true" className="lp-cycle-svg">
           <circle cx={C} cy={C} r={R} fill="none" className="lp-cycle-line" />
@@ -32,7 +32,7 @@ export default function LpCycleDiagram() {
             <path key={rot} d="M -7 -7 L 2 0 L -7 7" transform={`translate(${x} ${y}) rotate(${rot})`} className="lp-cycle-arrow" />
           ))}
         </svg>
-        <p className="lp-cycle-center"><span>月 本 1 冊分で、</span><span>回り続ける</span></p>
+        <p className="lp-cycle-center"><span>回り続ける</span><span>読書</span></p>
         {STEPS.map(({ pos, Icon, label }) => (
           <div key={pos} className={`lp-cycle-step is-${pos}`}>
             <span className="lp-cycle-icon" aria-hidden="true"><Icon size="1em" strokeWidth={1.75} /></span>
