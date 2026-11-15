@@ -5,7 +5,7 @@
 // 言葉は CLAUDE.md の GLOSSARY と company/brand-guardrails.md（figures.test.js が使わない言葉を確かめる）。
 //
 // 1 枚 = { name, size, type, ... }
-//   size: 'x'（1600×900・X と Threads）／ 'note'（1280×670・note の見出し画像）／ 'square'（1080×1080・Instagram）
+//   size: 'x'（1600×900・X と Threads）／ 'note'（1280×670・note の見出し画像）／ 'square'（1080×1080・Instagram）／ 'xheader'（1500×500・X のヘッダー）
 //   type:
 //     'compare' { title?, before: { label, text, sub? }, after: { label, text, sub? } }   これまで → これから
 //     'flow'    { title, steps: [{ head, text }]（2〜4） }                                 順番のある流れ（番号は順番があるときだけ）
@@ -42,6 +42,28 @@ export const FIGURES = [
     sub: '読書を、受け身から会話へ。',
   },
   {
+    name: 'x-header',
+    size: 'xheader',
+    type: 'quote',
+    text: '読んだ本と、会話しよう。',
+    sub: '読書を、受け身から会話へ。',
+    footer: '',
+  },
+  {
+    name: 'note-profile-header',
+    size: 'note',
+    type: 'quote',
+    text: '読書を、受け身から会話へ。',
+    sub: '読書アプリ「Orime」を作っている人の記録',
+  },
+  {
+    name: 'note04-header',
+    size: 'note',
+    type: 'quote',
+    text: '読書が、受け身から会話に変わった話',
+    sub: '読んで閉じて終わりだった読書を、変えたこと',
+  },
+  {
     name: 'free-plan-points',
     size: 'x',
     type: 'points',
@@ -54,6 +76,7 @@ export const SIZES = {
   x: { width: 1600, height: 900 },
   note: { width: 1280, height: 670 },
   square: { width: 1080, height: 1080 },
+  xheader: { width: 1500, height: 500 }, // X のヘッダー（左下はアイコンが重なるので、文字は右寄せ）
 };
 
 // 使わない言葉（brand-guardrails・x-posts §0）

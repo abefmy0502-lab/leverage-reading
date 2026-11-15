@@ -61,6 +61,7 @@ export function html(fig) {
   const k = s.width / 1600;
   const px = (n) => `${Math.round(n * k)}px`;
   const footer = fig.footer ?? '読んだ本と、会話しよう。';
+  const header = fig.size === 'xheader';
   return `<!doctype html><html lang="ja"><head><meta charset="utf-8">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;600;700&family=Noto+Serif+JP:wght@400;600&display=block" rel="stylesheet">
@@ -94,6 +95,7 @@ body{background:${C.bg};color:${C.text};font-family:"Noto Sans JP",sans-serif;pa
 .foot{position:absolute;left:${px(104)};right:${px(104)};bottom:${px(52)};display:flex;align-items:center;justify-content:space-between;color:${C.text2};font-size:${px(28)}}
 .brand{display:flex;align-items:center;gap:${px(14)};color:${C.text};font-family:"Noto Serif JP",serif;font-weight:600;font-size:${px(36)}}
 .brand img{width:${px(56)};height:${px(56)};border-radius:${px(13)}}
+${header ? `body{padding:0 ${px(150)} 0 ${px(520)};align-items:flex-end;justify-content:center;gap:0}.quote{border-left:none;padding-left:0;align-items:flex-end;text-align:right;gap:${px(20)}}.qt{font-size:${px(84)};white-space:nowrap}.qs{font-size:${px(40)};white-space:nowrap}.foot{display:none}` : ''}
 </style></head><body>
 ${body(fig, s)}
 <div class="foot"><span>${esc(footer)}</span><span class="brand"><img src="${LOGO}" alt="">Orime</span></div>

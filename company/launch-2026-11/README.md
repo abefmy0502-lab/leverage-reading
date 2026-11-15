@@ -13,6 +13,9 @@
 | [`chrome-asc-prompt.md`](chrome-asc-prompt.md) | App Store Connect の登録を Claude in Chrome に任せる指示文（アプリ・App 情報・年齢・プライバシー・サブスク・初回特典・追加トークン・1.0 の文・審査メモ） | 11/15 |
 | [`chrome-revenuecat-prompt.md`](chrome-revenuecat-prompt.md) | RevenueCat の設定を Claude in Chrome に任せる指示文（秘密の鍵はオーナーが扱う） | 11/15 |
 | [`chrome-supabase-demo-prompt.md`](chrome-supabase-demo-prompt.md) | SQL を最新に・審査用のデモアカウントを作って課金済みに・審査の欄に入れる（Claude in Chrome） | 11/15 |
+| [`chrome-day-before-prompt.md`](chrome-day-before-prompt.md) | 公開の前日（11/16）: SQL・公開のメールの試し送り・P17 の予約・note 06 の下書き（Claude in Chrome） | 11/16 |
+| [`chrome-x-setup-prompt.md`](chrome-x-setup-prompt.md) | X を Orime のアカウントに整える（プロフィール・ロゴ・ヘッダー・プライバシー・図つきの固定ポスト）。画像は `x-assets/` | 11/15〜16 |
+| [`chrome-note-setup-prompt.md`](chrome-note-setup-prompt.md) | note を Orime のアカウントに整え、04・06 を下書きに（マガジン「Orime を作る記録」）。画像は `note-assets/` | 11/15〜16 |
 | [`mac-build-prompt.md`](mac-build-prompt.md) | Mac の Claude Code に、iOS 1.0.0 を作って App Store Connect へ上げてもらう指示文（鍵はチャットに出さない） | 11/15 |
 | [`calendar.md`](calendar.md) | 10/11〜2/15 の**週ごと**の予定（オーナー／発信／Claude）と毎週の数字の表 | 毎週月曜 |
 | [`sns-playbook.md`](sns-playbook.md) | X・Instagram（リール・カルーセル）・Threads・note の役割・週の本数・型・ハッシュタグ・時刻・判断の数字（0 円）・**守ること（法律上の安全策）** | 投稿の前に |
