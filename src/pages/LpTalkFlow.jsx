@@ -59,7 +59,7 @@ export default function LpTalkFlow() {
           </div>
         </li>
       </ol>
-      {/* ChatGPT との違いを、実例のすぐ下で 1 文（読み手テスト 2026-11-12） */}
+      {/* 通常の AI との違いを、実例のすぐ下で 1 文（読み手テスト 2026-11-12・2026-11-15 に ChatGPT から言い換え） */}
       <p className="lp-chat-diff">通常の AI との違い：答えの根拠は、ネットの一般論ではなく、あなたが残したメモです。本を一から説明する必要もありません。</p>
       <p className="lp-shot-note lp-wbr">画面は見本です。{VOICE_NOTE}あなたのメモで、答えは変わります。</p>
     </>

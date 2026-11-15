@@ -31,7 +31,8 @@ describe('buildLpCopy（全部の組み合わせ）', () => {
     if (cfg.trialNote) expect(note).toContain('24 時間前までに解約すれば');
   });
   it.each(combos.map((c) => [name(c), c]))('%s: 使わない言い方（作り話・忘れない・初めての方・先着・通常価格・シェア）が無い', (_, cfg) => {
-    const t = allText(buildLpCopy(cfg));
+    // 「通常の」は二重価格表示（通常の価格）を防ぐため。「通常の AI と、何が違いますか？」（2026-11-15 オーナー）だけは値段ではないので除く
+    const t = allText(buildLpCopy(cfg)).replaceAll('通常の AI', '');
     ['作り話', '忘れない', '初めての方', '初めて登録', '先着', '通常価格', '通常の', 'シェア', '全部ダウンロード', 'すべて消去', 'マイ読書脳', 'お試し', '無料トライアル']
       .forEach((w) => expect(t).not.toContain(w));
   });
