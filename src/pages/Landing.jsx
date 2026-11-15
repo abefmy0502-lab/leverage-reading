@@ -686,9 +686,11 @@ export default function Landing() {
               {/* 2026-11-15 オーナー「安く感じるようなイラスト図を」: 「本 1 冊分」を絵に（その行は図に任せて外した） */}
               <LpCostDiagram talks={PAID_TALKS} />
               <dl className="lp-cost-rows">
-                <div><dt>年額 {ANNUAL_TEXT}</dt><dd><span className="lp-nb">1 日にすると 約 {ANNUAL_PER_DAY_TEXT}。</span><span className="lp-nb">月額 {MONTHLY_TEXT} なら 約 {PER_DAY_TEXT}。</span></dd></div>
+                {/* 2026-11-15 オーナー「年額の行は不要・読みっぱなしから考えと行動が変わり、成果が上がってさらに読む＝レバレッジ」（効果は言い切らない＝ガードレール） */}
+                <div><dt>読むほど、効いてくる</dt><dd>読みっぱなしで終わらず、相談で考えが整い、明日の一歩につながる。試した手応えが、次の 1 冊を読む理由になる。</dd></div>
                 <div><dt>読み返さずに</dt><dd>1 冊を読み返すと数時間。残したメモから答えが返るので、本を開き直さずに使えます。</dd></div>
               </dl>
+              <p className="lp-cost-note">1 日 約 {ANNUAL_PER_DAY_TEXT} は年額プラン（{ANNUAL_TEXT}）のとき。月額 {MONTHLY_TEXT} なら 1 日 約 {PER_DAY_TEXT}。</p>
             </div>
 
             {/* 2 枚（無料プラン（ずっと無料）と、プラン）。広い画面では横に並べる */}

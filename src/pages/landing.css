@@ -1306,3 +1306,4 @@ body.lp-active {
 .lp-root .lp-cost-name { margin: 0; font-size: var(--text-body); font-weight: 600; color: var(--text); line-height: 1.4; word-break: keep-all; }
 .lp-root .lp-cost-what { margin: 0; font-size: var(--text-meta); color: var(--text-2); line-height: 1.5; word-break: keep-all; }
 .lp-root .lp-cost-eq { margin: 0; font-family: var(--font-read); font-size: var(--text-heading); color: var(--text-3); }
+.lp-root .lp-cost-note { margin: var(--space-3) 0 0; font-size: var(--text-caption); line-height: 1.5; color: var(--text-3); }
