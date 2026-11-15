@@ -7,6 +7,7 @@
 // chat_messages live in Supabase; book_memos with source_type='personal'
 // are written for personal learnings and surface in the Review tab too.
 
+import { useChatImmersive } from '../hooks/useChatImmersive';
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { markActivation } from '../lib/activation';
@@ -2163,8 +2164,11 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // 会話を下へ送ったかを App に伝える（上の「相談｜AI 選書」の行の下に線を出す・iOS の固定した行と同じ・2026-10-16 第 4 回）。
   useEffect(() => { onScrolledChange?.(view === 'chat' && scrolled); }, [view, scrolled, onScrolledChange]);
   useEffect(() => () => onScrolledChange?.(false), [onScrolledChange]);
+  // 会話が始まったら画面を広く使う（上の行を畳み、読み進めている間は下のタブも隠す・2026-11-15）。
+  const onImmersiveScroll = useChatImmersive(view === 'chat' && messages.length > 0);
   const onBodyScroll = (e) => {
     const top = e.currentTarget.scrollTop;
+    onImmersiveScroll(top);
     if (view === 'chat') rememberSession(user?.id, { scrollTop: top });
     const s = top > 0;
     if (s !== scrolled) setScrolled(s);

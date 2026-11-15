@@ -2,6 +2,7 @@
 // Claude による推薦 → セットアップシート引き継ぎ + 会話履歴。App.jsx から
 // 切り出した自己完結コンポーネント。props: onAddBook / sessionApi / books。
 
+import { useChatImmersive } from '../hooks/useChatImmersive';
 import { Fragment, useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import TokenUsageSheet from './TokenUsageSheet';
@@ -1262,7 +1263,10 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   const chatScrollRef = useRef(null);
   // 中身を下へ送ったら、上の行の下に線を出す（相談と同じ・iOS のナビゲーションバーと同じ）。
   const [scrolled, setScrolled] = useState(false);
+  // 会話が始まったら画面を広く使う（上の行を畳み、読み進めている間は下のタブも隠す・2026-11-15）。
+  const onImmersiveScroll = useChatImmersive(messages.length > 0 || !!interview || interviewLoading || interviewAnswers.length > 0);
   const onChatScroll = (e) => {
+    onImmersiveScroll(e.currentTarget.scrollTop);
     const s = e.currentTarget.scrollTop > 0;
     if (s !== scrolled) setScrolled(s);
   };

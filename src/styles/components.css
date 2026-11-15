@@ -1753,3 +1753,22 @@ details[open] > summary .fold-chevron { transform: rotate(180deg); }
   .focus-glow { animation: none; opacity: 0.7; }
   .focus-hold, .focus-hold.is-holding { display: none; }
 }
+
+/* 💬 会話の画面を広く使う（2026-11-15 オーナー「チャットの画面が小さい」・hooks/useChatImmersive.js）。
+   会話を下へ読み進めている間は、上の行（ロゴ・写真で共有・？・⚙️）と下のタブを畳む（キーボードのときと同じ畳み方）。
+   上へ少し戻すか先頭近くでは両方出る（？・⚙️・写真で共有にいつでも戻れる・2026-11-15 ui-critic）。 */
+body.chat-active.chat-scroll-down .app-top-bar--fold {
+  min-height: 0 !important;
+  padding-bottom: 0 !important;
+  border-bottom-color: transparent !important;
+}
+body.chat-active.chat-scroll-down .app-top-bar--fold > * {
+  display: none !important;
+}
+body.chat-active.chat-scroll-down .bottom-nav {
+  max-height: 0 !important;
+  opacity: 0 !important;
+  padding: 0 !important;
+  border-top: none !important;
+  pointer-events: none !important;
+}

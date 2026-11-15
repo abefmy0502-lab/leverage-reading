@@ -3,7 +3,7 @@
 > 対象: iOS / Capacitor + RevenueCat(IAP)。Bundle ID `jp.orime.app`、表示名 `Orime`。
 > このドキュメントは「コード側は提出可能水準」を前提に、**Apple 側でやる作業**を順に網羅する。
 > ✅=実装/準備済み、⬜=あなた（Mac/Apple アカウント）が行う作業。
-> **最終更新 2026-11-15**（無料プランのはじめの 2 か月は 130・創業メンバー期間は 7 日間無料なし。公開日の順番は `company/launch-2026-11/release-day-checklist.md`）。課金の画面の操作は `docs/iap-setup-runbook.md` が正（このファイルと食い違ったらそちら）。
+> **最終更新 2026-11-15**（**iPhone 専用**＝`TARGETED_DEVICE_FAMILY = 1`・iPad のスクリーンショットは不要・ビルド 2 から。無料プランのはじめの 2 か月は 130・創業メンバー期間は 7 日間無料なし。公開日の順番は `company/launch-2026-11/release-day-checklist.md`）。課金の画面の操作は `docs/iap-setup-runbook.md` が正（このファイルと食い違ったらそちら）。
 
 ### 2026-10-24 の見直しで変わったこと（前に読んだ人へ）
 
