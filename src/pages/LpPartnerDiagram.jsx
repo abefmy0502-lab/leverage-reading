@@ -4,9 +4,9 @@
 import { Book, BookCopy, LibraryBig } from 'lucide-react';
 
 const PARTNERS = [
-  { Icon: Book, title: '1 冊', sub: 'その本の考え方で' },
-  { Icon: BookCopy, title: '何冊か', sub: '選んだ本を比べて' },
-  { Icon: LibraryBig, title: '本棚ぜんぶ', sub: '読んだ本すべてから' },
+  { Icon: Book, title: '1 冊', sub: ['その本の', '考え方で'] },
+  { Icon: BookCopy, title: '何冊か', sub: ['選んだ本を', '比べて'] },
+  { Icon: LibraryBig, title: '本棚ぜんぶ', sub: ['読んだ本', 'すべてから'] },
 ];
 
 export default function LpPartnerDiagram() {
@@ -16,7 +16,7 @@ export default function LpPartnerDiagram() {
         <li key={title} className="lp-partner-item">
           <Icon className="lp-partner-icon" size="1em" strokeWidth={1.5} aria-hidden="true" />
           <span className="lp-partner-title">{title}</span>
-          <span className="lp-partner-sub">{sub}</span>
+          <span className="lp-partner-sub">{sub.map((t) => <span key={t}>{t}</span>)}</span>
         </li>
       ))}
     </ul>
