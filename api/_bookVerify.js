@@ -84,6 +84,9 @@ function personVariants(s) {
   const out = new Set();
   const k = personKey(raw);
   if (k) out.add(k);
+  // 「デール・カーネギー」と「D・カーネギー」を同じ人とみなす（中黒で区切った外国の名前は、最後の姓だけでも比べる・3 字以上）。
+  const dotParts = raw.split(/[・･·]/).map((p) => personKey(p)).filter(Boolean);
+  if (dotParts.length >= 2 && dotParts[dotParts.length - 1].length >= 3) out.add(dotParts[dotParts.length - 1]);
   const parts = raw.split(/[,，]/).map((p) => p.trim()).filter(Boolean);
   if (parts.length === 2) {
     const rev = personKey(`${parts[1]} ${parts[0]}`);
@@ -128,6 +131,18 @@ export function findStrongMatch(items, title, author) {
       continue;
     }
     if (authorMatches(wantAuthor, authors)) return it;
+  }
+  // 書名の前に著者名などが付いた本（「話し方入門」→『カーネギー話し方入門』・2026-11-15）: 4 字以上の書名がそのまま含まれ、
+  //   著者もはっきり一致するときだけ同じ本とみなす（著者の指定が無いときは使わない）。
+  if (wantAuthor) {
+    const fw = flatTitle(title);
+    if (fw.length >= 4) {
+      for (const it of Array.isArray(items) ? items : []) {
+        if (!it || !it.title) continue;
+        const authors = Array.isArray(it.authors) ? it.authors.filter(Boolean) : [it.authors].filter(Boolean);
+        if (authors.length && flatTitle(it.title).includes(fw) && authorMatches(wantAuthor, authors)) return it;
+      }
+    }
   }
   return null;
 }

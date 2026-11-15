@@ -349,7 +349,7 @@ function RecField({ label, text }) {
 export function AdvisorSessionDetail({ session, books, onResume, onNewSession, onClose, onAddBook, onBookAdded, verifyBeforeAdd = null }) {
   const messages = useMemo(() => Array.isArray(session?.messages) ? session.messages : [], [session]);
   // 書名の欄に 2 冊を混ぜたカードは出さない（「この会話を続ける」で確かめ直して 1 冊にする）・AI が付けた表紙と ISBN は捨てる（2026-10-04）
-  const recs = useMemo(() => normalizeAdvisorRecs(Array.isArray(session?.recommended_books) ? session.recommended_books : []).filter((r) => !r._alts), [session]);
+  const recs = useMemo(() => normalizeAdvisorRecs(Array.isArray(session?.recommended_books) ? session.recommended_books : []).filter((r) => !r._alts && r._verify !== 'suspect'), [session]); // 見つからなかった本は出さない（2026-11-15）
   // AI の文の書名は、実在を確かめたカードの本（_verify==='ok'）と本棚の本だけ残す（会話中と同じ・lib/advisorProse.js）。
   //   確かめた結果を持たない古い会話は、本棚の本以外の書名を出さない（「この会話を続ける」で確かめ直せる）。
   const proseLists = useMemo(() => proseTitleLists(recs, books), [recs, books]);

@@ -581,6 +581,15 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
           // eslint-disable-next-line no-await-in-loop
           v = await verifyOne({ title: rec.title, author: rec.author });
         } catch { v = { exists: null }; }
+        // 確かめられなかった（検索元が混んでいた・通信の途切れ）ときは、少し待って 1 回だけ確かめ直す（2026-11-15）。
+        if (v.exists == null && !stale()) {
+          // eslint-disable-next-line no-await-in-loop
+          await new Promise((r) => { setTimeout(r, 1500); });
+          try {
+            // eslint-disable-next-line no-await-in-loop
+            v = await verifyOne({ title: rec.title, author: rec.author });
+          } catch { v = { exists: null }; }
+        }
       }
       // 表紙: rec.cover → サーバー cover → candidates を <img> 実在検証で採用。
       let cover = (rec.cover || '').trim();
@@ -606,11 +615,10 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     const verified = results.filter((r) => r._verify === 'ok');       // 実在を確かめた
     const unknown = results.filter((r) => r._verify === 'unknown');   // 確かめられなかった（罰しないが、確かめた扱いにもしない）
     const suspects = results.filter((r) => r._verify === 'suspect');  // 実在しない疑い
-    // ハルシネーション（実在の著者＋架空の書名）は原則カードに出さない。
-    // ただし疑い以外が 3 冊未満（検証 API が不調な日）は suspects を落とすとカードが
-    // 1〜2 枚に痩せるため、⚠️警告バッジ付きで残して枚数を維持する（正直に「確認できていない」を見せる方を選ぶ）。
-    const solid = [...verified, ...unknown];
-    const items = (solid.length >= 3 ? solid : [...solid, ...suspects]).slice(0, 5);
+    // 書誌で見つからなかった本（実在しない疑い）は、どんなときもカードに出さない（2026-11-15 オーナー「存在しない本が
+    //   お勧めされた」。前は確かめられた本が 3 冊未満のとき、注意書きつきで残していた）。枚数が減っても、無い本は見せない。
+    void suspects;
+    const items = [...verified, ...unknown].slice(0, 5);
     // カードが 0 枚のときの言い方: どの書名も「無い」と分かった（'none'）か、確かめられなかった（'unknown'）か
     const emptyReason = emptyReasonOf(items, droppedMixed);
     setRecommendations((prev) => (prev ? { ...prev, items, checked: true, emptyReason } : prev));

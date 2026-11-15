@@ -150,3 +150,16 @@ describe('api/cover.js ?verify=1', () => {
     expect(v.body.verified).toBe(false);
   });
 });
+
+import { findStrongMatch as fsm2 } from './_bookVerify.js';
+describe('書名の前に著者名が付いた本（2026-11-15）', () => {
+  it('4 字以上の書名がそのまま含まれ、著者が一致すれば同じ本', () => {
+    const items = [{ title: 'D・カーネギー話し方入門', authors: ['デール・カーネギー'] }];
+    expect(fsm2(items, '話し方入門', 'D・カーネギー')).toBeTruthy();
+  });
+  it('著者が違えば同じ本にしない・著者の指定が無ければ使わない', () => {
+    const items = [{ title: 'ザ・プレゼンテーション', authors: ['ナンシー・デュアルテ'] }];
+    expect(fsm2(items, 'ザ・プレゼンテーション', 'ガー・レイノルズ')).toBeNull();
+    expect(fsm2([{ title: 'カーネギー話し方入門', authors: ['デール・カーネギー'] }], '話し方入門', '')).toBeNull();
+  });
+});
