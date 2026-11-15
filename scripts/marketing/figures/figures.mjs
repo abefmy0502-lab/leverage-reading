@@ -73,7 +73,7 @@ export const FIGURES = [
   },
   {
     name: 'note-header-brand',
-    size: 'note',
+    size: 'noteprofile',
     type: 'brand',
     text: '読書を、受け身から会話へ。',
     sub: '読書アプリ「Orime」を作っている人の記録',
@@ -91,6 +91,7 @@ export const SIZES = {
   x: { width: 1600, height: 900 },
   note: { width: 1280, height: 670 },
   square: { width: 1080, height: 1080 },
+  noteprofile: { width: 3000, height: 600 }, // note のクリエイターページの上（横に長く切られる＝中身は真ん中に小さく）
   xheader: { width: 1500, height: 500 }, // X のヘッダー（左下はアイコンが重なるので、文字は右寄せ）
 };
 
