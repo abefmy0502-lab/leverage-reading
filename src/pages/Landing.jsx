@@ -559,7 +559,6 @@ export default function Landing() {
                   </a>
                 </div>
                 {/* 2026-11-12 読み手テスト「対応端末と初日の価値が見えない」「創業メンバー価格が分からない」: リンクをやめ、事実を 1 行に */}
-                {heroVariant === 'talk' && <ul className="lp-hero-facts">{HERO_TALK.facts.map((t) => <li key={t} className="lp-wbr"><Phrases>{t}</Phrases></li>)}</ul>}
               </div>
             </div>
             {heroVariant === 'talk' ? (
