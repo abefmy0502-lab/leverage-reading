@@ -783,12 +783,12 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
             </div>
             )}
 
-            {/* 創業メンバー（期間中・2026-10-02 コーディネーター裁定）: 特典は期間中にプランを始めた全員（月額・年額・7 日間無料で
-                始めた人も）。¥9,800 は年額だけ。特典は値段の約束ではないので、ストアの初回価格が無くても期間中なら出す。
+            {/* 創業メンバー（期間中・2026-11-15 オーナー裁定で年額だけに。前は 2026-10-02 コーディネーター裁定の「月額・年額・7 日間無料で
+                始めた人も」）。¥9,800 は年額だけ。特典は値段の約束ではないので、ストアの初回価格が無くても期間中なら出す。
                 あわせて、初回特典は 1 つの Apple ID に 1 回であること（App Store の決まり）。 */}
             {priceState === 'ready' && founding.active && (
               <p style={{ ...metaText, ...phraseText, marginTop: 'var(--space-3)' }}>
-                <Phrases>{`${noBreak(founding.endLabel)}までにプランを始めた方は、月額・年額どちらでも創業メンバーです。開発者に直接連絡でき、次に作る機能の投票にも参加できます。`}</Phrases>
+                <Phrases>{`${noBreak(founding.endLabel)}までに年額プランを始めた方は、創業メンバーです。開発者に直接連絡でき、次に作る機能の投票にも参加できます。`}</Phrases>
               </p>
             )}
             {priceState === 'ready' && labels.annual?.intro && labels.monthly?.trial && (

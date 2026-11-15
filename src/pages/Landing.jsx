@@ -768,7 +768,8 @@ export default function Landing() {
                 <p className="lp-offer-title">{FOUNDING_NAME}<span>{OFFER.endLabel}（日本時間）まで</span></p>
                 {/* 2026-10-17 オーナー「読みにくい」: 段落をやめ、対象・特典・価格・注意の 4 行に */}
                 <dl className="lp-offer-list">
-                  <div><dt>対象</dt><dd className="lp-wbr"><Phrases>期間中にプランを始めた、すべての方（月額・年額とも）</Phrases></dd></div>
+                  {/* 2026-11-15 オーナー「年間払いのみに絞りたい」: 創業メンバーは年額プランだけ（アプリの画面は 1.0.1 で合わせる・それまでに月額で始めた方も約束どおり創業メンバー） */}
+                  <div><dt>対象</dt><dd className="lp-wbr"><Phrases>期間中に年額プランを始めた方</Phrases></dd></div>
                   <div><dt>特典</dt><dd className="lp-wbr"><Phrases>開発者への直接の窓口と、次に作る機能への投票</Phrases></dd></div>
                   <div><dt>価格</dt><dd className="lp-wbr"><Phrases>{`年額プランの 1 年目が ${OFFER.price}（税込）。始めるときに 1 年分をまとめてお支払い。`}</Phrases></dd></div>
                   {/* 「ご注意」は 7 日間無料があるときだけ（2026-11-12: 創業メンバーのあいだは 7 日間無料をやめた＝罠が無い） */}
