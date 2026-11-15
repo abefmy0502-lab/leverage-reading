@@ -91,7 +91,7 @@ export const SIZES = {
   x: { width: 1600, height: 900 },
   note: { width: 1280, height: 670 },
   square: { width: 1080, height: 1080 },
-  noteprofile: { width: 3000, height: 600 }, // note のクリエイターページの上（横に長く切られる＝中身は真ん中に小さく）
+  noteprofile: { width: 2560, height: 1340 }, // note のクリエイターページの上（取り込みは 1280×670 の形・表示は真ん中の横長の帯だけ＝中身は高さ 3 割に収める）
   xheader: { width: 1500, height: 500 }, // X のヘッダー（左下はアイコンが重なるので、文字は右寄せ）
 };
 
