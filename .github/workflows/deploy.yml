@@ -17,6 +17,12 @@ name: Deploy to Vercel (Production)
 on:
   push:
     branches: [main]
+    # 文書だけの変更では出し直さない（Vercel の無料プランは 1 日 100 回まで・2026-11-15 に使い切った）
+    paths-ignore:
+      - 'company/**'
+      - 'docs/**'
+      - '**/*.md'
+      - 'marketing-out/**'
   workflow_dispatch: {}
 
 # 同時に複数デプロイが走らないよう直列化（新しい push が来たら古い実行は中断）
