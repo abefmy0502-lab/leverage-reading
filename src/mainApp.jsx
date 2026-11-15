@@ -9,6 +9,8 @@ import { AppDataCacheProvider } from './state/AppDataCache';
 import { AuthProvider } from './hooks/useAuth';
 import { initSentry } from './lib/sentry';
 import { initNative } from './lib/native';
+import { installViewportFit } from './lib/viewportFit';
+import { Capacitor } from '@capacitor/core';
 import { prefetchAppParts } from './components/lazyParts';
 import { installPressFeedback } from './lib/pressFeedback';
 
@@ -26,6 +28,8 @@ export function mount(rootEl) {
   // ネイティブ (Capacitor / iOS) のみ StatusBar / Keyboard / SplashScreen を
   // 初期化する。Web / PWA では内部で即 return するので無害。
   initNative();
+  // キーボードを開いても、画面を見えている範囲に合わせる（Web だけ・2026-11-15）。
+  installViewportFit({ native: Capacitor.isNativePlatform() });
 
   // 👆 指で押した瞬間に押した形を出す（:active が遅れる／付かない端末のため・lib/pressFeedback.js）。
   installPressFeedback();

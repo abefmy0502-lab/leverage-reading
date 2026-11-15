@@ -104,6 +104,11 @@ html, body, #root {
   padding: 0;
   overflow: hidden;
 }
+/* キーボードを開いている間（Web）は、アプリの高さを見えている範囲に（lib/viewportFit.js・2026-11-15「LINE のように」）。
+   会話の欄はその中で送れ、入力欄はキーボードのすぐ上に残る。 */
+html.vv-fit, html.vv-fit body, html.vv-fit #root {
+  height: var(--vv-height, 100dvh);
+}
 /* キーボードが開いている間は下の安全域を 0 に（tokens.css の --safe-bottom-kb・2026-10-08）。 */
 body.keyboard-open {
   --safe-bottom-kb: 0px;
