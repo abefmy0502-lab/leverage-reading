@@ -625,8 +625,9 @@ export default function Landing() {
         <section className="lp-sec lp-why-sec" aria-labelledby="lp-why" data-lp-sec="why">
           <div className="lp-wrap">
             <div className="lp-narrow lp-sec-head">
-              <h2 className="lp-h2" id="lp-why"><span>読むだけだと、</span><span>薄れていく。</span></h2>
-              <p className="lp-lead lp-sec-lead">読んだ本に相談すると、残り方が変わります。</p>
+              <h2 className="lp-h2" id="lp-why"><span>読むだけだと、</span><span>記憶は薄れていく。</span></h2>
+              {/* 2026-11-15 オーナー「記憶が定着し行動が変わる、を短くいい感じに」（「行動が変わる」の言い切りは使わない＝ガードレール） */}
+              <p className="lp-lead lp-sec-lead lp-wbr"><Phrases>相談するたびに思い出すから、記憶に残り、行動につながる。</Phrases></p>
             </div>
             <LpWhy />
           </div>
