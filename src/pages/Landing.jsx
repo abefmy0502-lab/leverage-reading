@@ -603,7 +603,7 @@ export default function Landing() {
         <section className="lp-sec lp-problem-sec" aria-label="こんなことは、ありませんか" data-lp-sec="problem">
           <div className="lp-wrap lp-narrow">
             <p className="lp-problem-lines">{PROBLEM_LINES.map((t) => <span key={t}>{t}</span>)}</p>
-            <p className="lp-problem-answer">その本に、そのとき聞けたら。Orime なら、それができます。</p>
+            <p className="lp-problem-answer">その本に、そのとき聞けたら。<br />Orime なら、それができます。</p>
           </div>
         </section>
 
