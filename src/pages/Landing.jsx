@@ -52,7 +52,7 @@ import LpIllust from './LpIllust';
 import LpWhy from './LpWhy';
 import LpArt, { hasArt } from './LpArt';
 import Phrases, { Sentences } from './LpPhrases';
-import { buildLpCopy, storeHrefOf, HERO_TALK, ASK, WHY, PLAN, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE, PROBLEM_LINES, FEATURES, DAY1 } from './lpCopy';
+import { buildLpCopy, storeHrefOf, HERO_TALK, ASK, WHY, PLAN, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE, PROBLEM_LINES, FEATURES } from './lpCopy';
 import qrcode from 'qrcode-generator';
 import { lpTrack, lpVariant, storeUrlFor, isWidePointer } from '../lib/lpTrack';
 import { inject as injectVercelAnalytics } from '@vercel/analytics';
@@ -644,29 +644,7 @@ export default function Landing() {
           </div>
         </section>
 
-        {/* ============ 今日から、こう始めます（2026-11-12 読み手テスト「毎日どう触るかが見えない」・オーナー承認） ============ */}
-        <section className="lp-sec lp-day1-sec" aria-labelledby="lp-day1" data-lp-sec="day1">
-          <div className="lp-wrap">
-            <div className="lp-narrow lp-sec-head">
-              <h2 className="lp-h2" id="lp-day1"><span>今日から、</span><span>こう始めます。</span></h2>
-            </div>
-            <ol className="lp-day1">
-              {DAY1.map((x, i) => (
-                <li key={x.title} className="lp-day1-step">
-                  <h3 className="lp-day1-title"><span className="lp-gallery-num" aria-hidden="true">{i + 1}</span>{x.title}</h3>
-                  <p className="lp-day1-body lp-wbr">{x.body}</p>
-                  {x.sub && <p className="lp-day1-sub lp-wbr">{x.sub}</p>}
-                  {x.shot && (
-                    <picture>
-                      <source media="(prefers-color-scheme: dark)" type="image/webp" srcSet={`/lp/${x.shot}-dark-390.webp 390w, /lp/${x.shot}-dark-780.webp 780w`} sizes="(min-width: 768px) 320px, 80vw" />
-                      <img className="lp-day1-shot" src={`/lp/${x.shot}-light-780.webp`} srcSet={`/lp/${x.shot}-light-390.webp 390w, /lp/${x.shot}-light-780.webp 780w`} sizes="(min-width: 768px) 320px, 80vw" width="390" height="391" loading="lazy" decoding="async" alt="メモを書く画面。『1兆ドルコーチ』に「任せることで、人は育つ。」と書いて、下に保存のボタン" />
-                    </picture>
-                  )}
-                </li>
-              ))}
-            </ol>
-          </div>
-        </section>
+        {/* 2026-11-15 オーナー「今日から、こう始めます。は必要かな？」: 節をやめた（始め方は流れの図と会話の見本で伝わる）。文は lpCopy.js の DAY1 に残す */}
 
         {/* ============ 利用者の声（実在の声があるときだけ） ============ */}
         {TESTIMONIALS.length > 0 && (
@@ -819,8 +797,10 @@ export default function Landing() {
           <div className={`lp-wrap lp-narrow lp-final-inner${PRELAUNCH ? '' : ' is-live'}`}>
             <h2 className="lp-h2" id="lp-final">
               {/* 2026-10-22 オーナー: メモは本に書いてある一文を写すもの＝ヒーローの「心に残った一行」と同じ言い方に */}
-              <span>まずは、読んだ本の</span><span>一行から。</span>
+              {/* 2026-11-15 オーナー「インパクトのある締めの言葉を」: 一番の価値（読んで、忘れかけていたことが答えになる）を 1 文に。前の「まずは、読んだ本の一行から。」は下の 1 行へ */}
+              <span>今日の一行が、</span><span>いつかのあなたの答えになる。</span>
             </h2>
+            <p className="lp-final-sub">まずは、読んだ本の一行から。</p>
             <div className="lp-cta-block">
               <Entry loc="final" wl={wl} qr badge launch center />
               {/* 2 句目（プランの無料期間）は料金の区画へ戻る文字のリンク（2026-10-12） */}

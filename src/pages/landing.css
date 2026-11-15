@@ -1296,3 +1296,4 @@ body.lp-active {
 @media (min-width: 768px) { .lp-flow-sec.is-talk .lp-partner { grid-column: 2; } }
 @media (max-width: 767px) { .lp-chat-result { width: calc(100% - 28px - var(--space-2)); } } /* 行動のカードの 1 行目（読点まで）が折り返さない幅 */
 .lp-root .lp-lines > span { display: block; }
+.lp-root .lp-final-sub { margin: var(--space-3) auto 0; max-width: none; color: var(--text-2); font-size: var(--text-body); text-align: center; }
