@@ -1247,20 +1247,10 @@ body.lp-active {
 .lp-root .lp-chat-diff { margin: var(--space-6) 0 0; padding: var(--space-3) var(--space-4); border-radius: var(--radius); background: var(--accent-soft); color: var(--text); font-size: var(--text-sub); font-weight: 600; line-height: 1.5; max-width: 36em; word-break: normal; line-break: strict; text-wrap: pretty; }
 @media (min-width: 768px) { .lp-flow-sec.is-talk .lp-chat-diff { grid-column: 2; } }
 
-/* 会話のいちばん上の、3 週間前のメモ（見本の材料・2026-11-12） */
-.lp-chat-row.is-memo { justify-content: flex-start; }
-.lp-chat-memo { width: 100%; padding: var(--space-3) var(--space-4); border-radius: var(--radius); border: 1px dashed var(--border); background: transparent; }
-.lp-root .lp-chat-memo-meta { margin: 0 0 var(--space-1); color: var(--text-2); font-size: var(--text-meta); font-weight: 600; }
-.lp-root .lp-chat-memo-text { margin: 0; font-family: var(--font-read); font-size: var(--text-body); line-height: 1.6; color: var(--text); word-break: normal; line-break: strict; text-wrap: pretty; }
 .lp-root .lp-plan-pick { margin: var(--space-2) 0 0; color: var(--text-2); font-size: var(--text-meta); text-align: center; }
 .lp-root .lp-plan-define { margin: 0 auto var(--space-6); max-width: 32em; text-align: left; line-height: 1.6; }
 
-.lp-chat-memo-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-1); }
-.lp-root .lp-chat-memo-list .lp-chat-memo-text { position: relative; padding-left: var(--space-3); font-size: var(--text-sub); }
-.lp-root .lp-chat-memo-list .lp-chat-memo-text::before { content: '・'; position: absolute; left: 0; color: var(--text-3); }
 
-/* 見本のメモに、いつ書いたか（2026-11-12） */
-.lp-root .lp-chat-memo-when { display: inline-block; min-width: 4.5em; margin-right: var(--space-2); color: var(--text-2); font-family: var(--font-ui); font-size: var(--text-meta); font-weight: 600; }
 
 /* ============ 🌅 今日から、こう始めます（3 段・2026-11-12） ============ */
 .lp-day1 { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-8); }
