@@ -122,12 +122,12 @@ export function fmtSpan(days) {
   if (d < 60) return `約 ${Math.round(d / 7)} 週間`;
   return `約 ${Math.round(d / 30)} か月`;
 }
-// 「11/16」「12/3」。refYear と違う年なら「2027/2/1」。
+// 「11/16」「12/3」。refYear と違う年なら「2027.2.1」（区切りの「2026.11–2027.1」と同じ点の書き方）。
 export function fmtMd(s, refYear = null) {
   const d = parseYmd(s);
   if (!d) return '';
   const md = `${d.getMonth() + 1}/${d.getDate()}`;
-  return refYear != null && d.getFullYear() !== refYear ? `${d.getFullYear()}/${md}` : md;
+  return refYear != null && d.getFullYear() !== refYear ? `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}` : md;
 }
 // 読む期間「11/16〜11/25」「11/26」（1 日だけなら 1 つ）。
 export function fmtRange(start, end, refYear = null) {

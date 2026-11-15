@@ -81,7 +81,7 @@ describe('書き方', () => {
     expect(fmtSpan(3)).toBe('3 日');
     expect(fmtSpan(20)).toBe('約 3 週間');
     expect(fmtSpan(90)).toBe('約 3 か月');
-    expect(fmtMd('2027-02-01', 2026)).toBe('2027/2/1');
+    expect(fmtMd('2027-02-01', 2026)).toBe('2027.2.1');
     expect(fmtMd('2026-12-03', 2026)).toBe('12/3');
     expect(fmtRange('2026-11-16', '2026-11-16', 2026)).toBe('11/16');
     expect(fmtRange('2026-11-16', '2026-11-25', 2026)).toBe('11/16〜11/25');

@@ -930,6 +930,12 @@ export function installDemoFetch(store) {
       const nextFirst = `${(jstNow.getUTCMonth() + 1) % 12 + 1}\u2060月\u20601\u2060日`;
       const sub = store.table('subscriptions').find((r) => r.status === 'active');
       const tier = !sub ? 'free' : sub.period_type === 'trial' ? 'trial' : 'paid';
+      // 🧭 目標の深掘り・ロードマップの状態の確認（2026-11-15）: &goalai=fail＝失敗・&goalai=slow＝つくっている間のまま。
+      const goalAi = new URLSearchParams(window.location.search).get('goalai');
+      if ((payload.purpose === 'goal_interview' || payload.purpose === 'goal_roadmap') && goalAi) {
+        if (goalAi === 'slow' || (goalAi === 'slowmap' && payload.purpose === 'goal_roadmap')) await wait(60000, signal);
+        if (goalAi === 'fail') return json({ error: { message: 'upstream error' } }, 500);
+      }
       // 📷 無料プランの写真から書き起こし: 相談のトークンとは別に、毎月 10 回（'freeocr-YYYY-MM' の calls・2026-10-02）。
       if (tier === 'free' && payload.purpose === 'ocr') {
         const rows = store.table('ai_usage');

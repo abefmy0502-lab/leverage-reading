@@ -1,5 +1,6 @@
 /* 🧭 目標・ロードマップ・読書計画カレンダー（2026-11-15）。値はトークンだけ（DESIGN.md）。
-   大胆さは 1 か所＝「道」（いま → 1 年後 → 3 年後 → 5 年後、ロードマップの区切り）の 1 本の線と丸。ほかは静かに。 */
+   大胆さは 1 か所＝「道」（いま → 1 年後 → 3 年後 → 5 年後、ロードマップの区切り）の線と丸。ほかは静かに。
+   栗色は 主ボタン・リンク・道の丸・カレンダーの今日の本 だけ（飾りのラベルには使わない・DESIGN §3-2）。 */
 
 .goal-screen {
   position: fixed;
@@ -20,7 +21,6 @@
   overscroll-behavior: contain;
   padding: var(--space-2) var(--space-4) calc(var(--space-12) + env(safe-area-inset-bottom, 0px));
 }
-.goal-inner { max-width: 560px; margin: 0 auto; }
 .goal-lead {
   margin: 0 0 var(--space-8);
   font-size: var(--text-sub);
@@ -38,19 +38,19 @@
 }
 .goal-sec { margin-top: var(--space-8); }
 
-/* ---- 道（1 本の線と丸） ---- */
-.goal-road { list-style: none; margin: 0; padding: 0; position: relative; }
-.goal-road::before {
+/* ---- 道（線は丸と丸の間だけ＝最後の丸で終わる） ---- */
+.goal-road { list-style: none; margin: 0; padding: 0; }
+.goal-road > li { position: relative; padding-left: var(--space-8); padding-bottom: var(--space-8); }
+.goal-road > li:last-child { padding-bottom: 0; }
+.goal-road > li:not(:last-child)::before {
   content: "";
   position: absolute;
   left: 7px;
-  top: var(--space-3);
-  bottom: var(--space-4);
+  top: var(--space-5);
+  bottom: calc(-1 * var(--space-1));
   width: 2px;
   background: var(--separator);
 }
-.goal-road > li { position: relative; padding-left: var(--space-8); padding-bottom: var(--space-8); }
-.goal-road > li:last-child { padding-bottom: 0; }
 .goal-dot {
   position: absolute;
   left: 0;
@@ -62,7 +62,7 @@
   background: var(--bg);
   border: 2px solid var(--border);
 }
-.goal-dot.is-now { left: 3px; top: 5px; width: 10px; height: 10px; border: none; background: var(--text-3); }
+.goal-dot.is-now { left: 3px; top: 6px; width: 10px; height: 10px; border: none; background: var(--text-3); }
 .goal-dot.is-set { border-color: var(--accent); }
 .goal-dot.is-here { border-color: var(--accent); background: var(--accent); }
 
@@ -88,37 +88,44 @@
   color: var(--text);
   word-break: keep-all;
   overflow-wrap: anywhere;
-  text-wrap: pretty;
 }
 .goal-empty {
   margin: var(--space-2) 0 0;
   font-size: var(--text-sub);
   color: var(--text-3);
   line-height: 1.6;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
 }
 .goal-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); margin-top: var(--space-3); }
-.goal-needs-peek {
+.goal-peek {
   margin: var(--space-3) 0 0;
   font-size: var(--text-meta);
   color: var(--text-2);
   line-height: 1.6;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
 }
 
-/* はじめに書いた目標（入れた理由）を移すカード */
-.goal-carry {
+/* 枠のあるまとまり（はじめに書いた目標・見直すシートの目標） */
+.goal-box {
   margin: 0 0 var(--space-8);
   padding: var(--space-4);
   border-radius: var(--radius);
-  background: var(--fill);
+  background: var(--surface);
+  border: 1px solid var(--separator);
 }
-.goal-carry-quote {
-  margin: var(--space-2) 0 var(--space-3);
+.goal-quote {
+  margin: var(--space-2) 0 var(--space-4);
   font-family: var(--font-read);
   font-size: var(--text-read);
   line-height: 1.6;
   word-break: keep-all;
   overflow-wrap: anywhere;
 }
+
+/* どれか 1 つを選ぶ（サブタブと同じ溝と面・SegThumb） */
+.goal-seg .sub-tab { font-variant-numeric: tabular-nums; }
 
 /* ---- 深掘り ---- */
 .goal-head { margin-bottom: var(--space-6); }
@@ -139,7 +146,7 @@
 }
 .goal-q-progress { margin: var(--space-4) 0 0; font-size: var(--text-meta); color: var(--text-2); line-height: 1.5; }
 .goal-chip {
-  min-height: 44px;
+  min-height: var(--tap-min);
   max-width: 100%;
   padding: var(--space-2) var(--space-3);
   text-align: left;
@@ -157,16 +164,18 @@
 .goal-chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent-soft); color: var(--accent); font-weight: 600; }
 .goal-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-3); }
 .goal-summary {
-  margin: 0 0 var(--space-4);
+  margin: 0 0 var(--space-8);
   font-family: var(--font-read);
   font-size: var(--text-read);
   line-height: 1.7;
   color: var(--text);
+  word-break: keep-all;
+  overflow-wrap: anywhere;
 }
 
 /* つくっている間（道の骨組み） */
 .goal-building { display: flex; flex-direction: column; gap: var(--space-4); }
-.goal-building-note { margin: 0; font-size: var(--text-sub); color: var(--text-2); line-height: 1.6; }
+.goal-building-note { margin: 0; font-size: var(--text-sub); color: var(--text-2); line-height: 1.6; word-break: keep-all; overflow-wrap: anywhere; }
 
 /* ---- ロードマップ ---- */
 .rm-list {
@@ -179,23 +188,19 @@
 }
 .rm-list > li { padding: var(--space-3) var(--space-4); }
 .rm-list > li + li { border-top: 1px solid var(--separator); }
-.rm-need-name { margin: 0; font-size: var(--text-body); font-weight: 600; line-height: 1.5; }
-.rm-need-why { margin: var(--space-1) 0 0; font-size: var(--text-sub); color: var(--text-2); line-height: 1.6; }
-.rm-issue { margin: 0; font-size: var(--text-body); line-height: 1.7; word-break: normal; line-break: strict; text-wrap: pretty; overflow-wrap: anywhere; }
+.rm-need-name { margin: 0; font-size: var(--text-body); font-weight: 600; line-height: 1.5; word-break: keep-all; overflow-wrap: anywhere; }
+.rm-need-why { margin: var(--space-1) 0 0; font-size: var(--text-sub); color: var(--text-2); line-height: 1.6; word-break: keep-all; overflow-wrap: anywhere; }
+.rm-issue { margin: 0; font-size: var(--text-body); line-height: 1.7; word-break: keep-all; overflow-wrap: anywhere; }
 
-.rm-phase-focus { margin: var(--space-2) 0 0; font-size: var(--text-body); font-weight: 600; line-height: 1.5; text-wrap: pretty; }
-.rm-here {
-  display: inline-block;
-  font-size: var(--text-caption);
-  font-weight: 600;
-  color: var(--accent);
-}
-.rm-todos { list-style: none; margin: var(--space-2) 0 0; padding: 0; }
+.rm-phase-focus { margin: var(--space-2) 0 0; font-size: var(--text-body); font-weight: 600; line-height: 1.5; word-break: keep-all; overflow-wrap: anywhere; }
+.rm-here { font-size: var(--text-caption); font-weight: 600; color: var(--text); }
+.rm-todos { list-style: none; margin: var(--space-1) 0 0; padding: 0; }
 .rm-todo { display: flex; align-items: flex-start; gap: var(--space-1); }
 .rm-todo-text {
   flex: 1;
   min-width: 0;
-  padding: calc((var(--tap-min) - 1.6em) / 2) 0;
+  padding: calc((var(--tap-min) - 1.6em) / 2) 0 calc((var(--tap-min) - 1.6em) / 2) 1em;
+  text-indent: -1em;
   font-size: var(--text-sub);
   line-height: 1.6;
   color: var(--text);
@@ -204,8 +209,8 @@
 }
 .rm-todo-text::before { content: "・"; color: var(--text-3); }
 .rm-icon-btn {
-  width: 44px;
-  height: 44px;
+  width: var(--tap-min);
+  height: var(--tap-min);
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
@@ -218,14 +223,14 @@
   cursor: pointer;
   font-family: inherit;
 }
-.rm-icon-btn[aria-pressed="true"] { color: var(--success); }
-.rm-books { display: flex; flex-direction: column; margin-top: var(--space-2); }
+.rm-icon-btn:disabled { color: var(--text-3); cursor: default; opacity: 1; }
+.rm-books { display: flex; flex-direction: column; margin-top: var(--space-1); }
 .rm-book {
   display: flex;
   align-items: flex-start;
   gap: var(--space-3);
   width: 100%;
-  min-height: 44px;
+  min-height: var(--tap-min);
   padding: var(--space-2) 0;
   background: none;
   border: none;
@@ -235,37 +240,57 @@
   cursor: pointer;
 }
 .rm-book-title { margin: 0; font-size: var(--text-sub); font-weight: 600; line-height: 1.5; word-break: keep-all; overflow-wrap: anywhere; }
-.rm-book-why { margin: var(--space-1) 0 0; font-size: var(--text-meta); color: var(--text-2); line-height: 1.6; }
+.rm-book-why { margin: var(--space-1) 0 0; font-size: var(--text-meta); color: var(--text-2); line-height: 1.6; word-break: keep-all; overflow-wrap: anywhere; }
 .rm-missing { display: flex; align-items: center; gap: var(--space-3); }
 .rm-missing > div { flex: 1; min-width: 0; }
-.rm-footnote { margin: var(--space-6) 0 0; font-size: var(--text-meta); color: var(--text-3); line-height: 1.6; }
+.rm-footnote { margin: var(--space-6) 0 0; font-size: var(--text-meta); color: var(--text-3); line-height: 1.6; word-break: keep-all; overflow-wrap: anywhere; }
+.rm-update-line { margin: 0; font-size: var(--text-sub); line-height: 1.6; word-break: keep-all; overflow-wrap: anywhere; }
+.rm-update-when { display: block; margin-bottom: var(--space-1); font-size: var(--text-meta); color: var(--text-2); }
 
 /* ---- 読書計画カレンダー ---- */
-.plan-summary { margin: var(--space-3) 0 0; font-size: var(--text-meta); color: var(--text-2); line-height: 1.6; }
-.plan-minutes { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-2); margin-top: var(--space-2); }
-.plan-cal {
+.plan-summary { margin: var(--space-3) 0 0; font-size: var(--text-meta); color: var(--text-2); line-height: 1.6; word-break: keep-all; overflow-wrap: anywhere; }
+.plan-today {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
   margin-top: var(--space-6);
-  padding: var(--space-3) var(--space-3) var(--space-2);
+  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--separator);
+  border-radius: var(--radius);
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.plan-today:disabled { cursor: default; opacity: 1; }
+.plan-today-body { flex: 1; min-width: 0; }
+.plan-today-label { margin: 0; font-size: var(--text-caption); font-weight: 600; color: var(--text-2); }
+.plan-today-title { margin: var(--space-1) 0 0; font-size: var(--text-body); font-weight: 600; line-height: 1.45; word-break: keep-all; overflow-wrap: anywhere; }
+.plan-today-meta { margin: var(--space-1) 0 0; font-size: var(--text-meta); color: var(--text-2); line-height: 1.5; }
+.plan-cal {
+  margin-top: var(--space-3);
+  padding: var(--space-2) var(--space-3);
   background: var(--surface);
   border: 1px solid var(--separator);
   border-radius: var(--radius);
 }
-.plan-cal-head { display: flex; align-items: center; justify-content: space-between; min-height: 44px; }
+.plan-cal-head { display: flex; align-items: center; justify-content: space-between; min-height: var(--tap-min); }
 .plan-cal-month { margin: 0; font-family: var(--font-read); font-size: var(--text-heading); font-weight: 600; }
-.plan-cal-nav { display: flex; }
-.plan-cal-nav button:disabled { color: var(--text-3); cursor: default; opacity: 1; }
+.plan-cal-nav { display: flex; margin-right: calc(-1 * var(--space-2)); }
 .plan-dow {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  margin-top: var(--space-2);
+  margin-top: var(--space-1);
   padding-bottom: var(--space-1);
   font-size: var(--text-caption);
   color: var(--text-3);
   text-align: center;
 }
-.plan-week { border-top: 1px solid var(--separator); padding: var(--space-1) 0 var(--space-2); }
+.plan-week { border-top: 1px solid var(--separator); padding: var(--space-1) 0; }
 .plan-days { display: grid; grid-template-columns: repeat(7, 1fr); }
-.plan-day { display: flex; justify-content: center; font-size: var(--text-meta); line-height: 1; }
+.plan-day { display: flex; justify-content: center; font-size: var(--text-meta); line-height: 1; font-variant-numeric: tabular-nums; }
 .plan-day > span {
   display: inline-flex;
   align-items: center;
@@ -275,9 +300,10 @@
   border-radius: 50%;
   color: var(--text);
 }
-.plan-day.is-out > span { color: var(--text-3); }
+.plan-day.is-out > span,
+.plan-day.is-past > span { color: var(--text-3); }
 .plan-day.is-today > span { background: var(--text); color: var(--bg); font-weight: 600; }
-.plan-lane { position: relative; height: var(--space-6); margin-top: var(--space-1); }
+.plan-lane { position: relative; height: var(--space-6); margin: var(--space-1) 0; }
 .plan-band {
   position: absolute;
   top: 0;
@@ -287,27 +313,42 @@
   min-width: 0;
   padding: 0 var(--space-2);
   box-sizing: border-box;
-  overflow: hidden;
+  border: none;
+  font-family: inherit;
   white-space: nowrap;
   font-size: var(--text-caption);
   font-weight: 600;
+  cursor: pointer;
   background: var(--accent-soft);
   color: var(--accent);
 }
-.plan-band.is-alt { background: var(--fill); color: var(--text-2); }
+/* 押せる範囲は上下 44（見た目は 24 のまま） */
+.plan-band::after { content: ""; position: absolute; left: 0; right: 0; top: calc((var(--tap-min) - var(--space-6)) / -2); bottom: calc((var(--tap-min) - var(--space-6)) / -2); }
+.plan-band.is-alt { background: color-mix(in srgb, var(--text) 12%, var(--surface)); color: var(--text); }
 .plan-band.is-now { background: var(--accent); color: var(--accent-ink); }
 .plan-band.is-head { border-top-left-radius: var(--radius); border-bottom-left-radius: var(--radius); }
 .plan-band.is-tail { border-top-right-radius: var(--radius); border-bottom-right-radius: var(--radius); }
 .plan-band > span { overflow: hidden; text-overflow: ellipsis; }
+.plan-cal-empty { margin: var(--space-3) 0 var(--space-2); font-size: var(--text-meta); color: var(--text-2); line-height: 1.5; text-align: center; }
 
-.plan-order { list-style: none; margin: 0; padding: 0; counter-reset: none; }
-.plan-order > li + li { border-top: 1px solid var(--separator); }
+.plan-group { margin-top: var(--space-6); }
+.plan-group-head { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--space-2); margin: 0 0 var(--space-2); font-size: var(--text-sub); font-weight: 600; color: var(--text); }
+.plan-group-head span { font-size: var(--text-meta); font-weight: 400; color: var(--text-2); }
+.plan-order {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: var(--surface);
+  border: 1px solid var(--separator);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
 .plan-row {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--space-3);
   width: 100%;
-  padding: var(--space-3) 0;
+  padding: 0 0 0 var(--space-4);
   background: none;
   border: none;
   text-align: left;
@@ -315,10 +356,13 @@
   font: inherit;
   cursor: pointer;
 }
+.plan-row-body { flex: 1; min-width: 0; padding: var(--space-3) var(--space-4) var(--space-3) 0; }
+.plan-order > li + li .plan-row-body { border-top: 1px solid var(--separator); }
 .plan-row-title { margin: 0; font-size: var(--text-body); font-weight: 600; line-height: 1.45; word-break: keep-all; overflow-wrap: anywhere; }
-.plan-row-meta { margin: var(--space-1) 0 0; font-size: var(--text-meta); color: var(--text-2); line-height: 1.5; }
-.plan-row-now { color: var(--accent); font-weight: 600; }
-.plan-phase-label { margin: var(--space-6) 0 var(--space-1); font-size: var(--text-caption); font-weight: 600; color: var(--text-2); }
+.plan-row-meta { display: flex; flex-wrap: wrap; column-gap: var(--space-1); margin: var(--space-1) 0 0; font-size: var(--text-meta); color: var(--text-2); line-height: 1.5; }
+.plan-row-meta > span { white-space: nowrap; }
+.plan-row-meta > span + span::before { content: "· "; color: var(--text-3); }
+.plan-row-now { color: var(--text); font-weight: 600; }
 
 /* ---- 行動リストの上の 1 行 ---- */
 .goal-entry {
@@ -326,8 +370,8 @@
   align-items: center;
   gap: var(--space-3);
   width: 100%;
-  min-height: 64px;
-  padding: var(--space-3) var(--space-4);
+  min-height: var(--space-16);
+  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
   background: var(--surface);
   border: 1px solid var(--separator);
   border-radius: var(--radius);
@@ -345,12 +389,9 @@
   font-weight: 600;
   line-height: 1.5;
   color: var(--text);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
   overflow: hidden;
-  word-break: keep-all;
-  overflow-wrap: anywhere;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.goal-entry-next { margin: var(--space-1) 0 0; font-size: var(--text-meta); color: var(--text-2); line-height: 1.5; }
+.goal-entry-next { margin: var(--space-1) 0 0; font-size: var(--text-meta); color: var(--text-2); line-height: 1.5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .goal-entry-chev { flex-shrink: 0; color: var(--text-3); }

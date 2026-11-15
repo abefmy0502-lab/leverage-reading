@@ -9,7 +9,7 @@ import { useMemo, useState } from 'react';
 import BottomSheet from './BottomSheet';
 import ErrorMessage from './ErrorMessage';
 import { SkeletonBlock } from './Skeleton';
-import { Chip } from './formPrimitives';
+import { SegChoice } from './GoalScreen';
 import { withPhraseBreaks } from './TightBubble';
 import { useToast } from './Toast';
 import { btnPrimary, btnGhost, btnLinkQuiet } from '../styles/ui';
@@ -97,16 +97,14 @@ export default function RoadmapReflectSheet({ source, books = [], onClose, onOpe
             {withPhraseBreaks(`${name}から、まだロードマップに書いていない課題が見えたかを、AI が確かめます。見えたときだけ、今の課題・必要なこと・これからの道のりと読書計画が変わります。`)}
           </p>
           {horizons.length > 1 && (
-            <div role="radiogroup" aria-label="見直す目標" className="plan-minutes" style={{ gridTemplateColumns: `repeat(${horizons.length}, 1fr)`, marginTop: 0, marginBottom: 'var(--space-3)' }}>
-              {horizons.map((k) => (
-                <Chip key={k} size="select" stretch active={pick === k} role="radio" aria-checked={pick === k} onClick={() => setKey(k)}>{horizonOf(k).label}</Chip>
-              ))}
+            <div style={{ marginBottom: 'var(--space-3)' }}>
+              <SegChoice label="見直す目標" options={horizons.map((k) => [k, horizonOf(k).label])} value={pick} onChange={setKey} />
             </div>
           )}
           {pick && (
-            <div className="goal-carry" style={{ marginBottom: 0 }}>
+            <div className="goal-box" style={{ marginBottom: 0 }}>
               <p className="goal-sec-title" style={{ margin: 0 }}>{`${horizonOf(pick).label}の目標`}</p>
-              <p className="goal-carry-quote" style={{ marginBottom: 0 }}>{withPhraseBreaks(goals[pick]?.text || '')}</p>
+              <p className="goal-quote" style={{ marginBottom: 0 }}>{withPhraseBreaks(goals[pick]?.text || '')}</p>
             </div>
           )}
         </>
