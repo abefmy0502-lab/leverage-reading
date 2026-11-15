@@ -1271,3 +1271,4 @@ body.lp-active {
 .lp-talk-diagram-node.is-last .lp-talk-diagram-icon { color: var(--accent); }
 .lp-talk-diagram-arrow { flex: none; padding-top: calc(var(--text-sub) * 0.4); color: var(--text-3); font-size: var(--text-sub); }
 .lp-root .lp-talk-diagram-label { color: var(--text-2); font-size: var(--text-sub); font-weight: 400; line-height: 1.4; word-break: keep-all; display: flex; flex-direction: column; }
+.lp-root .lp-chat-from-ai { margin-left: var(--space-1); font-weight: 400; color: var(--text-3); }

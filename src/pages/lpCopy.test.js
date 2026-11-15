@@ -23,12 +23,10 @@ describe('buildLpCopy（全部の組み合わせ）', () => {
     expect(t).not.toMatch(/[{}$]/);
     expect(t).not.toMatch(/undefined|null|NaN/);
   });
-  it.each(combos.map((c) => [name(c), c]))('%s: 料金の注記に、自動更新のあとの月額の金額がある', (_, cfg) => {
+  // 2026-11-15 オーナー「この記載は不要」: 料金の下の自動更新の段落はやめ、料金のカードに「毎月自動更新」「2 年目から年額 … で自動更新」を残す
+  it.each(combos.map((c) => [name(c), c]))('%s: 料金の注記に自動更新の段落を出さない', (_, cfg) => {
     const c = buildLpCopy(cfg);
-    const note = c.pricingNote[0].replace(/\u2060/g, '').replace(/\u00a0/g, ' ');
-    expect(note).toMatch(/月額 ¥1,480[^。]*税込/);
-    if (cfg.offer.active) expect(note).toContain('2 年目から年額 ¥12,800（税込）で自動更新');
-    if (cfg.trialNote) expect(note).toContain('24 時間前までに解約すれば');
+    expect(c.pricingNote.join('')).not.toContain('自動更新');
   });
   it.each(combos.map((c) => [name(c), c]))('%s: 使わない言い方（作り話・忘れない・初めての方・先着・通常価格・シェア）が無い', (_, cfg) => {
     // 「通常の」は二重価格表示（通常の価格）を防ぐため。「通常の AI と、何が違いますか？」（2026-11-15 オーナー）だけは値段ではないので除く
@@ -151,7 +149,7 @@ describe('値段と（税込）を割らない', () => {
     // 検索向けの JSON-LD（faqLd）は文字のまま（つなぎ文字を外す）なので除く
     const text = JSON.stringify({ pricingNote: c.pricingNote, faq: c.faq });
     expect(text).not.toMatch(/¥[\d,]+[ \n]?（税込）/);
-    expect(text).toMatch(/¥\u20609\u2060,/);
+    // 2026-11-15: 料金の注記から金額の段落をやめたので、つなぎ文字の有無は確かめない（残った文に折り返せる空白が無いことだけ）
   });
 });
 
@@ -233,5 +231,14 @@ describe('「その本の考え方で答える」にそろえる', () => {
     for (const t of [LP_DESCRIPTION, LP_OG_DESCRIPTION, JSON.stringify(buildLpCopy({}).faq)]) {
       expect(t).not.toMatch(/語り口|口調/);
     }
+  });
+});
+
+describe('料金のカード（2026-11-15）', () => {
+  it('月額は「毎月自動更新」、創業メンバーの年額は「2 年目から … で自動更新」をカードに出す', async () => {
+    const { readFileSync } = await import('node:fs');
+    const src = readFileSync(new URL('./Landing.jsx', import.meta.url), 'utf8');
+    expect(src).toContain('毎月自動更新。');
+    expect(src).toContain('で自動更新</p>');
   });
 });

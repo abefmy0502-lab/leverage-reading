@@ -704,8 +704,6 @@ export default function Landing() {
               <p className="lp-why-cost-title lp-wbr"><Phrases>{WHY.costTitle}</Phrases></p>
               <p className="lp-why-cost-body">{WHY.costBody}</p>
             </div>
-            {/* 2026-11-12 読み手テスト: 「1 件」とは何か・使い切ったらどうなるか */}
-            <p className="lp-plan-pick lp-plan-define lp-wbr"><Phrases>相談 1 件は、1 つの悩みについてのやり取りです。聞き返しも 1 件に含みます。使い切った月も、AI を使わずに、相談に関係するあなたのメモを並べて見せます。</Phrases></p>
 
             {/* 2 枚（無料プラン（ずっと無料）と、プラン）。広い画面では横に並べる */}
             <div className="lp-plan-cards">
@@ -754,7 +752,7 @@ export default function Landing() {
                   <div className="lp-plan-row">
                     <p className="lp-plan-label">月額プラン{TRIAL_NOTE && OFFER.active && <span className="lp-plan-badge">7 日間無料</span>}</p>
                     <p className="lp-plan-price">{MONTHLY_TEXT}<span>/ 月（税込）</span></p>
-                    <p className="lp-plan-sub"><span className="lp-nb">月に本 1 冊ほど。</span>{OFFER.active && TRIAL_FIRST && <span className="lp-nb">{TRIAL_FIRST}。</span>}</p>
+                    <p className="lp-plan-sub"><span className="lp-nb">月に本 1 冊ほど。</span><span className="lp-nb">毎月自動更新。</span>{OFFER.active && TRIAL_FIRST && <span className="lp-nb">{TRIAL_FIRST}。</span>}</p>
                   </div>
                 </div>
                 {!PRELAUNCH && <StoreCta className="lp-btn lp-plan-cta" loc="pricing">{TRIAL_NOTE && !OFFER.active ? TRIAL_CTA_LABEL : PLAN_CTA_LABEL}</StoreCta>}

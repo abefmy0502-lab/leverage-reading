@@ -227,8 +227,9 @@ export function buildLpCopy({
   } else {
     renew = `プランは、選んだプラン（月額 ${MONTHLY_TEXT} または年額 ${ANNUAL_TEXT}・税込）で自動更新されます。`;
   }
+  // 2026-11-15 オーナー「この記載は不要」: 自動更新の段落（renew）は出さない。値段と「2 年目から」は料金のカードに出ている
+  void renew;
   const pricingNote = [
-    renew,
     '解約後も、メモは残ります。',
   ];
 

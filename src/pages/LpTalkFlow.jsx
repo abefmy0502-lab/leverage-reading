@@ -3,7 +3,7 @@
 //   本の吹き出しの中に、根拠のメモ（小さく・左に栗色の線）。最後の「明日からできる一歩」も本からの吹き出し＋塗りの「行動に追加」の形。
 //   文はオーナーの実際の相談そのまま（lpCopy.js の TALK）。色・余白・角丸はトークンだけ。
 import { BookOpen, Target, Circle } from 'lucide-react';
-import { TALK as T, VOICE_NOTE } from './lpCopy';
+import { TALK as T } from './lpCopy';
 
 function Me({ meta, children }) {
   return (
@@ -21,7 +21,8 @@ function Book({ from, children }) {
     <li className="lp-chat-row is-book">
       <span className="lp-chat-avatar" aria-hidden="true"><BookOpen size={16} /></span>
       <div className="lp-chat-col">
-        {from && <p className="lp-chat-from">{from}</p>}
+        {/* 2026-11-15: 下の「画面は見本です。…著者本人の言葉ではありません。」をやめた代わりに、アプリの答えと同じ印（本の語り口で・AI）を名前の横に */}
+        {from && <p className="lp-chat-from">{from}<span className="lp-chat-from-ai">（本の語り口で・AI）</span></p>}
         <div className="lp-chat-bubble">{children}</div>
       </div>
     </li>
@@ -61,7 +62,6 @@ export default function LpTalkFlow() {
       </ol>
       {/* 通常の AI との違いを、実例のすぐ下で 1 文（読み手テスト 2026-11-12・2026-11-15 に ChatGPT から言い換え） */}
       <p className="lp-chat-diff">通常の AI との違い：答えの根拠は、ネットの一般論ではなく、あなたが残したメモです。本を一から説明する必要もありません。</p>
-      <p className="lp-shot-note lp-wbr">画面は見本です。{VOICE_NOTE}あなたのメモで、答えは変わります。</p>
     </>
   );
 }
