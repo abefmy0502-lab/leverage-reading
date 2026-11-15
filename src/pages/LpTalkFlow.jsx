@@ -69,7 +69,7 @@ export default function LpTalkFlow() {
       {/* 2026-11-15 オーナー「見やすく」: 題の行と 2 文を分ける */}
       <div className="lp-chat-diff">
         <p className="lp-chat-diff-title">通常の AI との違い</p>
-        <p className="lp-chat-diff-body"><span>答えの根拠は、ネットの一般論ではなく、あなたが残したメモです。</span><span>本を一から説明する必要もありません。</span></p>
+        <p className="lp-chat-diff-body"><span>答えの根拠は、ネットの一般論ではなく、</span><span>あなたが残したメモです。</span><span>本を一から説明する必要もありません。</span></p>
       </div>
       {/* 2026-11-15 オーナー「改行を自然に」: 1 文ずつ改行（一度消したが戻した） */}
       <p className="lp-shot-note lp-shot-note--lines"><span>画面は見本です。</span><span>答えは AI によるもので、著者本人の言葉ではありません。</span><span>あなたのメモで、答えは変わります。</span></p>
