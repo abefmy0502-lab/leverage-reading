@@ -1326,7 +1326,6 @@ body.lp-active {
 .lp-root .lp-cycle-label { display: flex; flex-direction: column; font-size: var(--text-meta); font-weight: 600; line-height: 1.35; color: var(--text); white-space: nowrap; }
 
 /* 2026-11-15 プロの目線: 最初の画面の創業メンバー価格の 1 行・なぜ効くの節の回る図 */
-.lp-root .lp-hero-offer { margin: var(--space-2) 0 0; font-size: var(--text-meta); line-height: 1.5; color: var(--accent); font-weight: 600; }
 .lp-cycle-block { margin-top: var(--space-12); }
 .lp-root .lp-cycle-h { margin: 0; font-family: var(--font-read); font-size: var(--text-heading); font-weight: 600; line-height: 1.4; color: var(--text); }
 .lp-root .lp-cycle-lead { margin: var(--space-2) 0 0; font-size: var(--text-body); line-height: 1.6; color: var(--text-2); }

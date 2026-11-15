@@ -558,8 +558,6 @@ export default function Landing() {
               <div className="lp-cta-block" ref={heroCtaRef}>
                 {/* QR は最後の案内だけ（ヒーローの主ボタンの横の黒い四角がいちばん重く見えた・2026-10-16 ui-critic） */}
                 <Entry loc="hero" wl={wl} badge launch />
-                {/* 2026-11-15 プロの目線「今始める理由を最初の画面に」: 創業メンバー価格の期間中だけ */}
-                {OFFER.active && <p className="lp-hero-offer lp-wbr"><Phrases>{`${OFFER.endLabel}まで、年額プランの 1 年目 ${OFFER.price}`}</Phrases></p>}
                 <div className="lp-hero-links">
                   <a className="lp-textlink" href="#lp-grow" onClick={() => lpTrack('hero_secondary', {})}>
                     <span>使い方を見る</span><ChevronDown size="1.1em" aria-hidden="true" />
