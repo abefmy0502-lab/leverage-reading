@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   MAX_INTERVIEW_QUESTIONS, OPT_OFF, OPT_UNSURE,
-  cleanOptions, parseInterviewStep, interviewChips, applyStarter, starterText, starterOf, ownWords, onlyStarter,
+  cleanOptions, parseInterviewStep, interviewChips, applyStarter, toggleChoice, choiceSelected, starterText, starterOf, ownWords, onlyStarter,
   buildPriorQA, spokenAnswers, buildRecoMessage, needsCareLine,
 } from './advisorInterview';
 import { concernOf, interviewPairsOf, confirmedOf, displayUserText, advisorSetupPayload } from './advisorText';
@@ -194,5 +194,27 @@ describe('候補を使った答え（AI が本人の言葉として引くのは�
     const t2 = buildPriorQA([{ q: '何に出ていく？', a: '家賃と生活費で残らない', starter: '家賃と生活費で残らない' }]);
     expect(t2).toContain('（候補「家賃と生活費で残らない」をそのまま選んだ。本人の言葉としては引かない）');
     expect(PROMPTS.advisorInterview.system).toMatch(/候補「…」をそのまま選んだ」とあれば、その言葉は本人の言葉として「」で引かない/);
+  });
+});
+
+describe('toggleChoice（答えの候補を複数選ぶ・2026-11-15）', () => {
+  const labels = ['自分しかできない確認が多くて停滞する', '本来はもっと手離れできるはずの調整だ'];
+  it('押すと足し、別の候補も足せる', () => {
+    let t = toggleChoice('', labels[0], labels);
+    expect(t).toBe(labels[0]);
+    t = toggleChoice(t, labels[1], labels);
+    expect(t).toBe(`${labels[0]}、${labels[1]}`);
+    expect(choiceSelected(t, labels[0])).toBe(true);
+    expect(choiceSelected(t, labels[1])).toBe(true);
+  });
+  it('もう一度押すと、その候補だけ外す', () => {
+    const t = `${labels[0]}、${labels[1]}`;
+    expect(toggleChoice(t, labels[0], labels)).toBe(labels[1]);
+    expect(toggleChoice(t, labels[1], labels)).toBe(labels[0]);
+  });
+  it('本人が書いた文は残す', () => {
+    const t = toggleChoice('会議が多くて', labels[0], labels);
+    expect(t).toBe(`会議が多くて、${labels[0]}`);
+    expect(toggleChoice(t, labels[0], labels)).toBe('会議が多くて');
   });
 });

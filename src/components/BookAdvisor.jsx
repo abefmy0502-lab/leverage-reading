@@ -48,7 +48,7 @@ import ErrorMessage from './ErrorMessage';
 import { SkeletonBlock } from './Skeleton';
 import TightBubble, { withPhraseBreaks, withBulletLines } from './TightBubble';
 import { displayUserText, concernOf, interviewPairsOf, confirmedOf, advisorSetupPayload } from '../lib/advisorText';
-import { MAX_INTERVIEW_QUESTIONS, OPT_UNSURE, OFF_PLACEHOLDER, parseInterviewStep, interviewChips, applyStarter, starterOf, buildPriorQA, buildRecoMessage, spokenAnswers, needsCareLine, CARE_LINE, CARE_LINK } from '../lib/advisorInterview';
+import { MAX_INTERVIEW_QUESTIONS, OPT_UNSURE, OFF_PLACEHOLDER, parseInterviewStep, interviewChips, applyStarter, starterOf, toggleChoice, choiceSelected, buildPriorQA, buildRecoMessage, spokenAnswers, needsCareLine, CARE_LINE, CARE_LINK } from '../lib/advisorInterview';
 import { usePaywall } from '../state/PaywallContext';
 import { findDuplicateBook } from '../lib/checkDuplicate';
 import { filterProseTitles, proseTitleLists } from '../lib/advisorProse';
@@ -1069,7 +1069,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       focusAnswer();
       return;
     }
-    setAnswerText((t) => applyStarter(t, chip.label, labels));
+    // 複数選べる（押すと足す・もう一度押すと外す・2026-11-15）
+    setAnswerText((t) => toggleChoice(t, chip.label, labels));
     focusAnswer();
   };
 
@@ -1699,7 +1700,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         const escapes = chips.filter((c) => c.kind !== 'start');
         const chipBtn = (c) => {
           // 入力欄に入っている書き出しのチップも選んだ形に（同じ言葉が 2 つ並んで見えないように・2026-10-09）
-          const on = (c.kind === 'off' && answerOff) || (c.kind === 'start' && starterOf(answerText, [c.label]) === c.label);
+          const on = (c.kind === 'off' && answerOff) || (c.kind === 'start' && choiceSelected(answerText, c.label));
           return (
             <button
               type="button"
@@ -1746,7 +1747,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
             </button>
           </div>
           {starts.length > 0 && (
-            <div role="group" aria-label="答えの候補" style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
+            <div role="group" aria-label="答えの候補（いくつでも選べます）" style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
               {starts.map(chipBtn)}
             </div>
           )}

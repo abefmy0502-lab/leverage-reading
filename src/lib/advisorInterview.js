@@ -91,6 +91,35 @@ export function applyStarter(current, label, chipLabels = []) {
   return `${cur.replace(/\s+$/u, '')}${/[、。,.!?！？…]$/u.test(t) ? '' : '、'}${next}`;
 }
 
+// 答えの候補を複数選べる（2026-11-15 オーナー「複数選択ができるように」）。押すと入力欄に足し、もう一度押すと外す。
+//   選んだ候補は「、」でつなぐ。本人が書いた文は消さない（外すのは、その候補の言葉だけ）。
+export function toggleChoice(current, label, chipLabels = []) {
+  const cur = String(current || '');
+  const lab = str(label);
+  if (!lab) return cur;
+  if (choiceSelected(cur, lab)) {
+    const out = cur
+      .replace(new RegExp(`(^|[、,，\\s]*)${escapeRe(lab)}`, 'u'), '')
+      .replace(/^[、,，\s]+/u, '')
+      .replace(/[、,，\s]+$/u, '');
+    return out;
+  }
+  void chipLabels;
+  const t = cur.replace(/\s+$/u, '');
+  if (!t) return lab;
+  return `${t}${/[、。,.!?！？…]$/u.test(t) ? '' : '、'}${lab}`;
+}
+
+// その候補が入力欄に入っているか（選んだ形に見せる）。
+export function choiceSelected(current, label) {
+  const lab = str(label);
+  return !!lab && String(current || '').includes(lab);
+}
+
+function escapeRe(t) {
+  return t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 // 答えが書き出しのチップから始まっていれば、その書き出し（チップの言葉）を返す。無ければ ''。
 export function starterOf(answer, labels = []) {
   const a = str(answer);
