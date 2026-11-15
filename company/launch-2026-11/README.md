@@ -11,6 +11,7 @@
 |---|---|---|
 | [`release-day-checklist.md`](release-day-checklist.md) | **公開日の前後にやること**（審査・ストアの文・初回特典・env・メール・iPhone で通しの確認・30 日後の戻し）の順番 | **11/15〜11/17・12/17** |
 | [`chrome-asc-prompt.md`](chrome-asc-prompt.md) | App Store Connect の登録を Claude in Chrome に任せる指示文（アプリ・App 情報・年齢・プライバシー・サブスク・初回特典・追加トークン・1.0 の文・審査メモ） | 11/15 |
+| [`chrome-revenuecat-prompt.md`](chrome-revenuecat-prompt.md) | RevenueCat の設定を Claude in Chrome に任せる指示文（秘密の鍵はオーナーが扱う） | 11/15 |
 | [`mac-build-prompt.md`](mac-build-prompt.md) | Mac の Claude Code に、iOS 1.0.0 を作って App Store Connect へ上げてもらう指示文（鍵はチャットに出さない） | 11/15 |
 | [`calendar.md`](calendar.md) | 10/11〜2/15 の**週ごと**の予定（オーナー／発信／Claude）と毎週の数字の表 | 毎週月曜 |
 | [`sns-playbook.md`](sns-playbook.md) | X・Instagram（リール・カルーセル）・Threads・note の役割・週の本数・型・ハッシュタグ・時刻・判断の数字（0 円）・**守ること（法律上の安全策）** | 投稿の前に |
