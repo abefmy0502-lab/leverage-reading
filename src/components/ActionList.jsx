@@ -23,6 +23,7 @@ import { completedActionMessage } from '../lib/actionMessages';
 import { actionResultQuestion } from '../lib/consultHelpers';
 import { track, EVENTS } from '../lib/analytics';
 import EmptyState from './EmptyState';
+import GoalEntry from './GoalEntry';
 import { withPhraseBreaks } from './TightBubble';
 import ContextMenu from './ContextMenu';
 import SwipeableCard from './SwipeableCard';
@@ -454,7 +455,7 @@ function ReflectCard({ a, value, onChange, onSave, saving, onClose, onConsult = 
 // focusAction: 相談の答えから追加した行動の「見る」で来たとき（{ bookId, text, nonce }）。その行まで送って淡く光らせる。
 const prefersReducedMotionSafe = () => { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; } };
 
-export default function ActionList({ books, onToggleAction, onReflect, onDeleteAction, onEditAction, onOpenBook, onGoToBooks, onAddAction, onGoConsult, onConsultResult = null, showDoneNonce = null, focusAction = null }) {
+export default function ActionList({ books, onOpenGoals = null, onToggleAction, onReflect, onDeleteAction, onEditAction, onOpenBook, onGoToBooks, onAddAction, onGoConsult, onConsultResult = null, showDoneNonce = null, focusAction = null }) {
   const { allActions, stats } = useAllActions(books);
   const toast = useToast();
   const [showDone, setShowDone] = useState(showDoneNonce != null);
@@ -663,6 +664,7 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
   if (stats.total === 0 && completing.length === 0) {
     return (
       <div style={{ ...wrap, paddingBottom: 'var(--space-8)' }}>
+        {onOpenGoals && <GoalEntry onOpen={onOpenGoals} />}
         <EmptyState
           icon={<ListTodo size={32} strokeWidth={1.5} aria-hidden="true" />}
           title={<>{/* 句の途中で折り返さない */}<span style={{ display: 'inline-block' }}>相談の答えや、</span><span style={{ display: 'inline-block' }}>メモから行動を作れます</span></>}
@@ -725,6 +727,8 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
     // 一覧の下の余白はいつも 64（最後の行のチェックが下の知らせに隠れない。知らせが消えるたびに余白を縮めると
     // 中身が下がって見えた・2026-09-30）。
     <div style={{ ...wrap, paddingBottom: 'var(--space-16)' }}>
+      {/* 🧭 いちばん上に目標（2026-11-15 オーナー決定・GoalEntry）。 */}
+      {onOpenGoals && <GoalEntry onOpen={onOpenGoals} />}
       {/* 上: 今週の完了数 1 行（数字の演出はしない）＋ 追加。完了一覧は最後の 1 行から。 */}
       {/* 文字を大きくして 1 行の文が「追加」の横に収まらないときは、「追加」を次の行へ（flex-wrap・文の幅の下限 12em）。
           文は短く 2 つのまとまりに（「今週の期限 3 件」「完了 0 件」・語の途中で割らない・2026-10-01 ui-critic）。 */}

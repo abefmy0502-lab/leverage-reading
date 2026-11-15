@@ -27,6 +27,7 @@ export const EXPORT_TABLES = [
   'theme_reports',      // 📐 テーマまとめの履歴（機能は 2026-09-30 に廃止・過去のまとめは書き出しに残す）
   'advisor_sessions',   // 🕒 AI 選書の会話履歴
   'book_collections',   // 🗂 本棚フォルダの割当
+  'goal_roadmaps',      // 🧭 目標のロードマップと読書計画（2026-11-15・表がまだ無い DB は skipped）
   'reading_sessions',   // ⏱ 読書の時間（集中モード・2026-10-09・表がまだ無い DB は skipped。端末だけの控えは入らない）
 ];
 

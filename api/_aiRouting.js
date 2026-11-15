@@ -41,6 +41,10 @@ export const ROUTES = {
   //   無料プランでも使える（相談と同じ無料のトークンから・api/_aiAccess.js の FREE_PURPOSES）。freeRouted＝無料プランでも
   //   この表の行き先で答える（相談のように Claude に固定しない・1 回 約 1〜2 トークン）。
   book_brief: { primary: `gemini:${FLASH_LITE}`, claude: H, freeRouted: true },
+  // 🧭 目標の深掘り（2026-11-15）: AI 選書の聞き取りと同じ安い行き先。ロードマップは年に数回なので質を取る（AI 選書の推薦と同じ Sonnet）。
+  //   どちらも無料プランで使える（相談と同じ無料のトークンから・無料プランは目標 1 つまで＝画面で止める）。
+  goal_interview: { primary: `gemini:${FLASH_LITE}`, claude: H, freeRouted: true },
+  goal_roadmap: { primary: 'anthropic:claude-sonnet-5-5', claude: 'claude-sonnet-5', claudeOnly: true, freeRouted: true },
   ops_advise: { primary: `openai:${GPT_MINI}`, claude: H },
   condense: { primary: `gemini:${FLASH_LITE}`, claude: H },
   cards_to_summary: { primary: `gemini:${FLASH_LITE}`, claude: H },

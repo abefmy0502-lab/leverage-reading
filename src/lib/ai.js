@@ -1155,6 +1155,13 @@ export function retrievalQuery(question, turns = []) {
 //   （答えの「根拠を見る」の「踏まえたこと: 完了した行動 N 件」・2026-09-29）。
 // skipQuestions: この会話のこれまでの相談の問い（THREAD・前の相談で渡すもの）。③ 過去の相談からは外す
 //   （同じやりとりを 2 回渡さない・深掘りの続きの材料を少しでも小さく・2026-10-01）。
+// 🧭 相談に渡す目標の文（lib/goals.js・lib/goalRoadmap.js）。無ければ ''。
+async function goalsConsultText(userId) {
+  const [{ readGoals }, { roadmapsFor, goalsConsultBlock }] = await Promise.all([import('./goals'), import('./goalRoadmap')]);
+  const goals = await readGoals();
+  return sanitizeForPrompt(goalsConsultBlock(goals, roadmapsFor(userId)));
+}
+
 export async function buildGrowthBlock(userId, { scopeSet = null, info = null, skipQuestions = [] } = {}) {
   if (info) info.completedActions = 0;
   if (!isSupabaseConfigured || !userId) return '';
@@ -1168,6 +1175,13 @@ export async function buildGrowthBlock(userId, { scopeSet = null, info = null, s
   const lines = [];
   // 「最近完了した行動」の行（上限で切ったあと、いくつ渡せたかを数える）。
   const doneLines = new Set();
+
+  // ⓪ 目標（1・3・5 年後）とロードマップの要点（2026-11-15 オーナー決定「目標とロードマップを相談の材料に入れる」）。
+  //   いちばん上に置く（長さで切られない）。会話の間は変わらないので歩みの塊のキャッシュも効く。
+  try {
+    const goalBlock = await goalsConsultText(userId);
+    if (goalBlock) lines.push('■ あなたの目標', goalBlock, '');
+  } catch { /* 目標が読めなくても相談は続ける */ }
 
   // ① 読書の歩み
   const readBooks = books
@@ -1892,6 +1906,75 @@ export async function generateBookBrief({ book, info }) {
   if (!text) throw new Error('紹介と目次から、うまくまとめられませんでした。');
   track('ai_used', { feature: 'book_brief' });
   return text;
+}
+
+// 🧭 目標の深掘り・ロードマップ（2026-11-15・lib/goalRoadmap.js）。
+//   goal＝{ key, text, at }・qa＝[{ q, a }]。
+//   深掘り: { done, question, options, summary }（lib/advisorInterview.js の parseInterviewStep）/ { stop: 案内の文 } / null（失敗）。
+//   ロードマップ: { roadmap } / 失敗は Error（案内は err.notice）。
+export async function runGoalInterview({ goal, goals, roadmaps, qa, round }) {
+  const PROMPTS = await loadPrompts();
+  const { parseInterviewStep } = await import('./advisorInterview');
+  const { higherGoalsText, priorQAText, GOAL_ASK_LIMIT, INTERVIEW_MAX_TOKENS } = await import('./goalRoadmap');
+  const { horizonOf, fmtGoalDeadline } = await import('./goals');
+  const h = horizonOf(goal.key);
+  let text = '';
+  try {
+    text = await callClaude(
+      PROMPTS.goalInterview.system,
+      PROMPTS.goalInterview.user({
+        horizonLabel: h.label,
+        goal: clamp(sanitizeForPrompt(goal.text), 120),
+        deadline: fmtGoalDeadline(goal.at, h.years),
+        higher: sanitizeForPrompt(higherGoalsText(goal.key, goals, roadmaps)),
+        priorQA: sanitizeForPrompt(priorQAText(qa)),
+        round,
+        maxRounds: GOAL_ASK_LIMIT,
+      }),
+      // AI 選書の聞き取りと同じ安いモデル（docs/ai-routing.md）。無料プランも使える（相談と同じ無料のトークンから）。
+      { max_tokens: INTERVIEW_MAX_TOKENS, cacheSystem: true, model: MODEL_FAST, purpose: 'goal_interview' },
+    );
+  } catch {
+    return null;
+  }
+  if (isAiNoticeString(text)) return { stop: text };
+  if (isClaudeErrorString(text)) return null;
+  return parseInterviewStep(text);
+}
+
+export async function generateGoalRoadmap({ goal, goals, roadmaps, qa, summary, books }) {
+  const PROMPTS = await loadPrompts();
+  const { higherGoalsText, priorQAText, phaseSpecs, shelfMaterial, parseRoadmap, ROADMAP_MAX_TOKENS } = await import('./goalRoadmap');
+  const { horizonOf, fmtGoalDeadline } = await import('./goals');
+  const h = horizonOf(goal.key);
+  const specs = phaseSpecs(goal.key, goal.at);
+  const shelf = shelfMaterial(books);
+  const result = await callClaude(
+    PROMPTS.goalRoadmap.system,
+    PROMPTS.goalRoadmap.user({
+      horizonLabel: h.label,
+      goal: clamp(sanitizeForPrompt(goal.text), 120),
+      deadline: fmtGoalDeadline(goal.at, h.years),
+      higher: sanitizeForPrompt(higherGoalsText(goal.key, goals, roadmaps)),
+      priorQA: sanitizeForPrompt(priorQAText(qa)),
+      summary: clamp(sanitizeForPrompt(summary || ''), 300),
+      phases: specs.map((s, i) => `${i + 1}. ${s.label}（${s.range}）`).join('\n'),
+      shelf: sanitizeForPrompt(shelf.text),
+      doneBooks: sanitizeForPrompt(shelf.doneText),
+    }),
+    // 年に数回なので質を取る（AI 選書の推薦と同じ Claude Sonnet・docs/ai-routing.md）。無料プランは目標 1 つまで（画面で止める）。
+    { max_tokens: ROADMAP_MAX_TOKENS, cacheSystem: true, model: MODEL_SMART, purpose: 'goal_roadmap' },
+  );
+  if (typeof result !== 'string' || isClaudeErrorString(result)) {
+    const notice = isAiNoticeString(result);
+    const err = new Error(notice ? result : 'ロードマップを作れませんでした。少し時間をおいてから、もう一度押してください。');
+    if (notice) err.notice = true;
+    throw err;
+  }
+  const roadmap = parseRoadmap(isSuspiciousOutput(result) ? '' : result, shelf.keyToId, specs.length);
+  if (!roadmap) throw new Error('ロードマップをうまくまとめられませんでした。もう一度押してください。');
+  track('ai_used', { feature: 'goal_roadmap' });
+  return { roadmap };
 }
 
 // 📝 カード→まとめ生成 — 1冊に貯めたカードメモ（断片）を AI が1枚の

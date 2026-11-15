@@ -50,7 +50,7 @@ const BASE_FEATURES = [
     // シートで 1 行に収める（390 幅で 13pt は約 25 字・2026-10-02 ui-critic: Jev を入れたときにシートが 85vh を超えた）。
     // 量（lib/ai.js の CONSULT_TOTAL_CHARS＝メモと読書準備で約 9,000 字）はプライバシーポリシー第 7 条に書く。
     // 量を書くときは CONSULT_TOTAL_CHARS と同じ数にする（aiProcessors.test.js）。
-    sends: '質問・メモ・読書準備・行動・過去の相談',
+    sends: '質問・メモ・読書準備・行動・目標・過去の相談',
     purposes: ['consult'],
   },
   {
@@ -58,8 +58,10 @@ const BASE_FEATURES = [
     name: 'AI 選書',
     // 2026-10-11: 推薦に「最近の相談」（相談のテーマとそのときの結論・4 件・600 字まで・ai.js の recentConsultsBlock）を足した。
     //   送り先は同じ Anthropic（相談で既に送っている自分のデータ）なので AI_CONSENT_VERSION は上げない（版は会社と用途の組み合わせ）。
-    sends: '困りごと・聞き返しへの答え・読んだ本とメモの一部・最近の相談',
-    purposes: ['book_advisor', 'advisor_interview'],
+    // 2026-11-15: 🧭 目標とロードマップ（goal_interview＝Google・goal_roadmap＝Anthropic）も同じ行（送るのは 目標・聞き取りへの答え・本棚の書名＝
+    //   この行の送るものと同じ種類・送り先の会社も同じ）。CONSENT_COVERED_BY を見る。
+    sends: '困りごと・目標・聞き返しへの答え・本棚の本とメモの一部・最近の相談',
+    purposes: ['book_advisor', 'advisor_interview', 'goal_interview', 'goal_roadmap'],
   },
   {
     id: 'setup_sheet',
@@ -89,6 +91,8 @@ const BASE_PURPOSE_PROVIDER = {
   setup_sheet: 'gemini',
   setup_sheet_edit: 'gemini',
   book_brief: 'gemini',
+  goal_interview: 'gemini',
+  goal_roadmap: 'anthropic',
   condense: 'gemini',
   cards_to_summary: 'gemini',
   ocr: 'gemini',
@@ -150,6 +154,8 @@ export function featureForPurpose(purpose, features = AI_FEATURES) {
 //   book_brief（この本で学べること・2026-10-08）: 書名・著者・得たいこと・本の紹介と目次 → Google（読書計画シートと同じ）。
 export const CONSENT_COVERED_BY = {
   book_brief: 'setup_sheet',
+  goal_interview: 'advisor_interview',
+  goal_roadmap: 'book_advisor',
 };
 
 // 版を決める元（会社と用途の組み合わせ）。これが変わったら AI_CONSENT_VERSION を上げる（テストで確かめる）。

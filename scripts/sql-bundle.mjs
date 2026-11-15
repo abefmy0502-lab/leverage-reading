@@ -33,6 +33,7 @@ export const ORDER = [
   ['supabase_reading_sessions.sql', '読む（集中モード）の読書の時間'],
   ['supabase_book_field_cache.sql', '本の分野（本ごとに 1 回決めて全員で使う）'],
   ['supabase_mcp_tokens.sql', 'AI と連携（MCP）の接続キー'],
+  ['supabase_goal_roadmaps.sql', '目標のロードマップと読書計画'],
   // 2. 行動
   ['supabase_actions_full.sql', '行動の期限・繰り返し・ふりかえり'],
   ['supabase_actions_id_default.sql', '行動の id'],

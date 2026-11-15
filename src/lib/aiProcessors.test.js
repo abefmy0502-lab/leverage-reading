@@ -52,7 +52,7 @@ describe('送り先は api/_aiRouting.js の既定と同じ', () => {
   });
 
   it('ほかの用途の同意に含まれる用途（この本で学べること）は、同じ機能の行・同じ会社で、送るものもその行に書いてある', () => {
-    expect(CONSENT_COVERED_BY).toEqual({ book_brief: 'setup_sheet' });
+    expect(CONSENT_COVERED_BY).toEqual({ book_brief: 'setup_sheet', goal_interview: 'advisor_interview', goal_roadmap: 'book_advisor' });
     for (const [p, parent] of Object.entries(CONSENT_COVERED_BY)) {
       expect(ROUTES[p], p).toBeTruthy();
       expect(AI_PURPOSE_PROVIDER[p], p).toBe(AI_PURPOSE_PROVIDER[parent]);

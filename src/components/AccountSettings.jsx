@@ -764,6 +764,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
       await deleteOwn('actions');
       await deleteOwn('theme_reports');
       await deleteOwn('advisor_sessions');
+      await deleteOwn('goal_roadmaps'); // 🧭 目標のロードマップ（未適用 DB はスキップ）
       await deleteOwn('reading_sessions'); // ⏱ 読書の時間（集中モード・未適用 DB はスキップ）
       await deleteOwn('push_subscriptions');
       await deleteOwn('books');
@@ -867,6 +868,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
       await deleteOwn('actions');           // 行動リスト
       await deleteOwn('theme_reports');     // 📊 テーマまとめの履歴（機能は 2026-09-30 に廃止・過去の行は消す）
       await deleteOwn('advisor_sessions');  // 🕒 AI 選書の会話履歴
+      await deleteOwn('goal_roadmaps');     // 🧭 目標のロードマップ（2026-11-15）
       await deleteOwn('reading_sessions');  // ⏱ 読書の時間（集中モード・2026-10-09）
       await deleteOwn('push_subscriptions');// 🔔 想起プッシュ購読
       await deleteOwn('mcp_tokens');        // 🔌 AI と連携の接続キー（2026-11-07・つないだ AI もすぐ読めなくなる）

@@ -39,7 +39,9 @@
 // （select/insert/update/upsert/delete、eq/neq/in/is/not/or/contains/order/
 // limit/range/single/maybeSingle、埋め込み select、count/head、auth、storage）。
 
-import { buildSeed, DEMO_USER_ID } from './seed';
+import { buildSeed, DEMO_USER_ID, coverSvg } from './seed';
+import { applyGoalsDemo } from './demoGoals';
+import { appNow } from '../lib/appNow';
 import { applyTokenUsageDemo } from './demoTokenUsage';
 import { installDemoFetch, LP_SHOT_MEMO } from './demoFetch';
 import { AI_CONSENT_VERSION } from '../lib/aiProcessors';
@@ -370,6 +372,8 @@ export function createDemoClient() {
   const db = buildSeed(scenario);
   // 🪙📊 トークンの使い方のシートのデータ（使い道の内訳・?demo=low|freelow・&usage=…・2026-10-11）。
   applyTokenUsageDemo(db, scenario, params, DEMO_USER_ID);
+  // 🧭 &goals=on|noroadmap|purpose: 目標とロードマップ（2026-11-15・demoGoals.js）。
+  applyGoalsDemo(db, demoUser, params, { userId: DEMO_USER_ID, now: appNow(), coverSvg });
   // &fields=none: 本の分野と前の版のタグを全部外す（開くと書名から分野が自動で付く・2026-10-11）。
   if (params.get('fields') === 'none') db.book_tags = [];
   // &fields=zero: 分野の付いた本が 1 冊も無い人（記録の「分野」が出ない形・自動でも付けない＝本人が選んだ印を付ける・2026-10-11）。

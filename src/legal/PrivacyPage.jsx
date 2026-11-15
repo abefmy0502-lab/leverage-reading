@@ -11,6 +11,7 @@
 // 2026-10-11: 第 7 条に「本の分野」（本の公開の書誌だけ → Google、使えないときは Anthropic・利用者のメモや個人の情報は送らない・
 //   同意のシートは出さない＝利用者のデータを送らないため）を足した。
 // 2026-10-08: 第 7 条に「この本で学べること」（書名・著者・得たいこと・公開の紹介文と目次 → Google）を足した。
+// 2026-11-15: 第 7 条に「目標とロードマップ」を足し、相談の送るものに目標を足した（同意のシートと同じ）。
 // 2026-10-04: 第 7 条の AI 選書の送るものを同意のシート（lib/aiProcessors.js の sends）に合わせて「メモの一部」を足した。
 //   紹介ページの「公開の日にメールで知らせる」で預かるメールアドレスの取得・利用目的・保管期間を第 2・3・12 条に足し、
 //   利用目的から送っていない「メールマガジン」を外した。
@@ -113,9 +114,9 @@ export default function PrivacyPage() {
       <ul>
         <li><strong>Supabase, Inc.(米国):</strong> データベースおよび認証基盤の提供</li>
         <li><strong>Vercel, Inc.(米国):</strong> ホスティングサービスの提供、紹介用 Web ページの閲覧状況の集計(Vercel Web Analytics)</li>
-        <li><strong>Anthropic, PBC(米国):</strong> AI 機能(相談、AI 選書の推薦)の提供</li>
+        <li><strong>Anthropic, PBC(米国):</strong> AI 機能(相談、AI 選書の推薦、目標のロードマップ)の提供</li>
         <li><strong>OpenAI(米国):</strong> 運営者だけが使う運営の分析の補助(集計した数字だけを送り、利用者のメモ・質問・写真などは送りません)</li>
-        <li><strong>Google LLC(米国):</strong> AI 機能(読書計画シート、この本で学べること、AI 選書の質問づくり、メモの凝縮、メモからまとめ、写真から書き起こし)の提供(Gemini API)</li>
+        <li><strong>Google LLC(米国):</strong> AI 機能(読書計画シート、この本で学べること、AI 選書と目標の質問づくり、メモの凝縮、メモからまとめ、写真から書き起こし)の提供(Gemini API)</li>
         {AI_JEV_ON && <li><strong>TypeSafe AI(米国):</strong> AI 機能の判断の補助(相談で関係するメモを選ぶ)。文章は作らず、選択と確率だけを返します(Jev)</li>}
         <li><strong>Apple Inc.(米国):</strong> App Store でのアプリ内課金・決済処理(iOS アプリ)</li>
         <li><strong>RevenueCat, Inc.(米国):</strong> 購読の状態(トランザクション識別子等)の管理</li>
@@ -137,8 +138,9 @@ export default function PrivacyPage() {
       <ol>
         <li>本サービスは、AI 機能を使ったときに限り、その機能に必要な情報を、次の AI 事業者の API に送信して答えを作ります。
           <ul>
-            <li><strong>相談:</strong> 質問と、答えの根拠にするメモ・本の情報(書名・著者・評価・読書計画シートの内容等。合わせて約 9,000 字まで)・行動の記録・これまでの相談 → Anthropic(Claude)</li>
+            <li><strong>相談:</strong> 質問と、答えの根拠にするメモ・本の情報(書名・著者・評価・読書計画シートの内容等。合わせて約 9,000 字まで)・行動の記録・目標(1 年後・3 年後・5 年後)とロードマップの要点・これまでの相談 → Anthropic(Claude)</li>
             <li><strong>AI 選書:</strong> 困りごと(相談内容)と聞き返しへの回答・読んだ本(書名・著者・評価)とメモの一部 → おすすめの本は Anthropic(Claude)、途中の質問づくりは Google(Gemini)</li>
+            <li><strong>目標とロードマップ:</strong> 目標(1 年後・3 年後・5 年後)・聞き取りへの回答・本棚の本(書名・著者・状態・分野・この本から得たいこと)と読み終えた本の書名・評価 → ロードマップは Anthropic(Claude)、途中の質問づくりは Google(Gemini)</li>
             <li><strong>読書計画シート(作る・直す):</strong> 書名・著者・この本から得たいこと・よく使うメモのタグ・今のシートと直したい点(あわせて、出版社・書店が公開しているその本の紹介文と目次) → Google(Gemini)</li>
             <li><strong>この本で学べること:</strong> 書名・著者・この本から得たいこと・出版社・書店が公開しているその本の紹介文と目次 → Google(Gemini)</li>
             <li><strong>メモの凝縮・メモからまとめ:</strong> そのメモの本文(まとめは書名とその本のメモ) → Google(Gemini)</li>

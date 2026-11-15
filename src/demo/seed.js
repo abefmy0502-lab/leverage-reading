@@ -62,7 +62,7 @@ function layoutCoverTitle(title) {
 // 表紙は外部画像を使わず SVG を data URI で描く（オフラインでも本棚らしく見せる）。
 // 2026-10-16: 内側の枠をやめ、左上に明朝の書名と短い線・下に著者・左に細い背の影（本の形に見せる）。
 // 組み方は 1 つにそろえ、本ごとに変えるのは地の色だけ（組み方を混ぜると作り物に見えた・ui-critic 第 2 回）。
-function coverSvg(title, author, i) {
+export function coverSvg(title, author, i) {
   const [bg, fg] = COLORS[i % COLORS.length];
   const esc = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;');
   const { lines, size } = layoutCoverTitle(title);

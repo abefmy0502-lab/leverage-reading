@@ -3,6 +3,7 @@
 // マイ読書脳だけは、実際に入っているメモから質問に近いものを選んで
 // 本番と同じ書式（【結論】…REFS_START/END）で答えるので、画面の流れを確かめられる。
 
+import { goalInterviewAnswer, goalRoadmapAnswer } from './demoGoals';
 import { SEARCH_CATALOG, DEMO_BOOK_INFO, DEMO_GENRES, DEMO_AI_FIELDS, DEMO_MESSY_RELATED } from './seed';
 import { classifyBookDetailed } from '../../api/_bookFieldsCore.js';
 
@@ -793,6 +794,9 @@ function aiReply(store, payload, aiMode = '') {
   }
   // 📖 この本で学べること（2026-10-08）
   if (payload.purpose === 'book_brief') return bookBriefAnswer(userText);
+  // 🧭 目標の深掘り・ロードマップ（2026-11-15・demoGoals.js）
+  if (payload.purpose === 'goal_interview') return goalInterviewAnswer(userText);
+  if (payload.purpose === 'goal_roadmap') return goalRoadmapAnswer(userText);
   // 📖 読書計画シート（2026-10-02）: 本番と同じく、渡された「本の紹介」「目次」だけから概要と重点箇所を書く。
   if (system.includes('『読書計画シート』を作成')) return planSheetAnswer(userText);
   return [
@@ -938,7 +942,7 @@ export function installDemoFetch(store) {
         return json({ content: [{ type: 'text', text: aiReply(store, payload, aiMode) }], stop_reason: 'end_turn' });
       }
       // 📖 この本で学べること（book_brief）も無料プランで使える（相談と同じ無料のトークンから・2026-10-08）。
-      if (tier === 'free' && payload.purpose !== 'consult' && payload.purpose !== 'book_brief') {
+      if (tier === 'free' && !['consult', 'book_brief', 'goal_interview', 'goal_roadmap'].includes(payload.purpose)) {
         return json({ error: { message: 'この AI 機能は、プランでご利用いただけます。' }, error_code: 'plan_required' }, 402);
       }
       const trialEnd = sub?.current_period_end ? new Date(Date.parse(sub.current_period_end) + 9 * 3600 * 1000) : null;

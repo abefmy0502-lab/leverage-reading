@@ -105,6 +105,7 @@ const Review = lazy(() => import('./components/Review'));
 const MyBookBrain = lazy(() => import('./components/MyBookBrain'));
 import { useAdvisorSessions } from './hooks/useAdvisorSessions';
 const ActionEditModal = lazy(() => import('./components/ActionEditModal'));
+const GoalScreen = lazy(() => import('./components/GoalScreen'));
 // 📊 記録サブタブ（読了/メモ/行動の累計・月別推移・成果/定着のつながり・タグ分布）。
 // 開いた時だけロードする。
 const ReadingRecord = lazy(() => import('./components/ReadingRecord'));
@@ -3836,6 +3837,10 @@ function AuthedApp() {
   };
   // 🎯 行動タブの「＋追加」フロー — null | 'pick'（本選択シート） | { bookId }（入力モーダル）
   const [addActionSheet, setAddActionSheet] = useState(null);
+  // 🧭 目標とロードマップ・読書計画の全画面（振り返り › 行動 の上の 1 行から・2026-11-15）。{ view, horizon } か null。
+  const [goalScreen, setGoalScreen] = useState(null);
+  // 🧭 目標の全画面も端末の戻るで閉じる（中の画面の戻りは GoalScreen の ‹ と左端スワイプ）。
+  useBackLayer(!!goalScreen, () => setGoalScreen(null));
   // 💭 ノート（振り返り）タブの「＋メモを追加」フロー — null | 'pick'（本選択シート）。
   // メモは本に紐づくので、本を選んだらその本の詳細を開いてクイックメモを起動する
   // （既存の実績あるメモ作成 UI をそのまま使う＝メモ挿入ロジックを重複させない）。
@@ -6665,6 +6670,7 @@ function AuthedApp() {
               <PullToRefresh onRefresh={async () => { await refreshBooks(); haptic.light(); }}>
               <ActionList
                 books={books}
+                onOpenGoals={(s) => setGoalScreen(s || { view: 'goals' })}
                 showDoneNonce={actionShowDoneNonce}
                 focusAction={actionFocus}
                 onToggleAction={toggleAction}
@@ -6968,6 +6974,30 @@ function AuthedApp() {
           ① どの本の行動かを選ぶ（読書中→読了→積読→読みたい順）。
           prefillText があれば ② の入力欄に初期表示する（本を解決できなかった
           AI 回答の「明日の一歩」を、本を選んで行動化できるようにする）。 */}
+      {/* 🧭 目標とロードマップ・読書計画（2026-11-15）。本を開く・本を探すときは閉じて、その画面へ。 */}
+      {goalScreen && (
+        <Suspense fallback={null}>
+          <GoalScreen
+            start={goalScreen}
+            books={books}
+            onClose={() => setGoalScreen(null)}
+            onOpenBook={(b) => { setGoalScreen(null); setTab('books'); openDetail(b); }}
+            // ロードマップの「やること」→ 今の「行動を追加」のシート（本を選ぶ → 書いた文が入る）。
+            onAddActionText={(text) => { setAddActionSheet({ step: 'pick', prefillText: text }); return false; }}
+            onAddReadingActions={async (list) => {
+              let n = 0;
+              for (const it of list) {
+                // eslint-disable-next-line no-await-in-loop
+                const ok = await addActionFromMemo(it.bookId, { text: it.text, deadline: it.deadline, source: 'plan' });
+                if (ok) n += 1;
+              }
+              return n;
+            }}
+            onFindBooks={(draft) => { setGoalScreen(null); openAdvisorWithDraft(draft); }}
+          />
+        </Suspense>
+      )}
+
       {addActionSheet?.step === 'pick' && (() => {
         const rank = { reading: 0, done: 1, before: 2, want: 3 };
         const sorted = [...books].sort((a, b) => {

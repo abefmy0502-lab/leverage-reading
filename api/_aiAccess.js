@@ -32,7 +32,8 @@ const num = (v, d) => {
 
 // 無料で使える用途（purpose）。相談の本ごとの答え方も purpose は 'consult'。
 // 📖 この本で学べること（'book_brief'・2026-10-08）も、相談と同じ無料のトークンから（1 回 約 1〜2 トークン・Flash-Lite）。
-export const FREE_PURPOSES = new Set(['consult', 'book_brief']);
+// 🧭 目標の深掘り・ロードマップ（'goal_interview' / 'goal_roadmap'・2026-11-15 オーナー決定「無料プランは目標 1 つまで」）も同じ無料のトークンから。
+export const FREE_PURPOSES = new Set(['consult', 'book_brief', 'goal_interview', 'goal_roadmap']);
 export function isFreePurpose(purpose) {
   return typeof purpose === 'string' && FREE_PURPOSES.has(purpose);
 }
@@ -42,7 +43,7 @@ export function isFreePurpose(purpose) {
 //   画面の名前（相談・AI 選書 …）にまとめるのはアプリ（src/lib/tokenUsage.js の USAGE_GROUPS）。
 export const USAGE_PURPOSES = new Set([
   'consult', 'book_advisor', 'advisor_interview', 'setup_sheet', 'setup_sheet_edit', 'book_brief',
-  'ops_advise', 'condense', 'cards_to_summary', 'ocr',
+  'ops_advise', 'condense', 'cards_to_summary', 'ocr', 'goal_interview', 'goal_roadmap',
 ]);
 export function usagePurposeKey(purpose) {
   return typeof purpose === 'string' && USAGE_PURPOSES.has(purpose) ? purpose : 'other';
