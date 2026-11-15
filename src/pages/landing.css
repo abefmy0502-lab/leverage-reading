@@ -1272,3 +1272,13 @@ body.lp-active {
 .lp-talk-diagram-arrow { flex: none; padding-top: calc(var(--text-sub) * 0.4); color: var(--text-3); font-size: var(--text-sub); }
 .lp-root .lp-talk-diagram-label { color: var(--text-2); font-size: var(--text-sub); font-weight: 400; line-height: 1.4; word-break: keep-all; display: flex; flex-direction: column; }
 .lp-root .lp-shot-note--lines span { display: block; word-break: keep-all; overflow-wrap: anywhere; }
+
+/* 📚 相談する相手の図（2026-11-15）: 線の絵 3 つ・間に細い線・押せる形にしない */
+.lp-partner-diagram { list-style: none; margin: var(--space-4) 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 30em; }
+.lp-partner-item { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-1); padding: 0 var(--space-3); border-left: 1px solid var(--separator); min-width: 0; }
+.lp-partner-item:first-child { padding-left: 0; border-left: none; }
+.lp-partner-icon { font-size: calc(var(--text-sub) * 1.75); color: var(--text); margin-bottom: var(--space-1); }
+.lp-partner-item.is-last .lp-partner-icon { color: var(--accent); }
+.lp-root .lp-partner-title { color: var(--text); font-size: var(--text-body); font-weight: 600; line-height: 1.4; word-break: keep-all; }
+.lp-root .lp-partner-sub { color: var(--text-2); font-size: var(--text-meta); line-height: 1.5; display: flex; flex-direction: column; word-break: keep-all; }
+.lp-root .lp-sec-lead.lp-partner-lead { margin-top: var(--space-8) !important; } /* .lp-lead の !important に勝つ（流れの図と相手の図を分ける） */

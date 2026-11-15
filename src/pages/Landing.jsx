@@ -46,6 +46,7 @@ import Shot from './LpShot';
 import LpFlow from './LpFlow';
 import LpTalkFlow from './LpTalkFlow';
 import LpTalkDiagram from './LpTalkDiagram';
+import LpPartnerDiagram from './LpPartnerDiagram';
 import { FeatureTiles } from './LpDiagram';
 import LpWaitlist from './LpWaitlist';
 import LpIllust from './LpIllust';
@@ -613,8 +614,10 @@ export default function Landing() {
           <div className="lp-wrap">
             <div className="lp-narrow lp-sec-head">
               <h2 className="lp-h2" id="lp-grow">{heroVariant === 'talk' ? <><span>Orime に相談すると、</span><span>こうなる。</span></> : <><span>使い方は、</span><span>3 つだけ。</span></>}</h2>
-              {heroVariant === 'talk' && <p className="lp-lead lp-sec-lead">相談する相手は、1 冊でも、本棚ぜんぶでも。</p>}
+              {/* 2026-11-15 オーナー「相談する相手は…をわかりやすくデザインで」: 文を短くし、3 つの相手を図で */}
               {heroVariant === 'talk' && <LpTalkDiagram />}
+              {heroVariant === 'talk' && <p className="lp-lead lp-sec-lead lp-partner-lead">相談する相手は、選べます。</p>}
+              {heroVariant === 'talk' && <LpPartnerDiagram />}
             </div>
             {/* 2026-11-11 オーナー「スマホ画面を再現しなくてもいい」: 画面写真 3 枚（LpFlow）の代わりに、実際の相談を会話として組む */}
             {heroVariant === 'talk' ? <LpTalkFlow /> : <LpFlow onEvent={lpTrack} note={false} />}
