@@ -46,6 +46,7 @@ import Shot from './LpShot';
 import LpFlow from './LpFlow';
 import LpTalkFlow from './LpTalkFlow';
 import LpTalkDiagram from './LpTalkDiagram';
+import LpCostDiagram from './LpCostDiagram';
 import { FeatureTiles } from './LpDiagram';
 import LpWaitlist from './LpWaitlist';
 import LpIllust from './LpIllust';
@@ -682,9 +683,10 @@ export default function Landing() {
             <div className="lp-why-cost lp-pricing-cost is-top">
               <p className="lp-why-cost-title lp-wbr"><Phrases>{WHY.costTitle}</Phrases></p>
               {/* 2026-11-15 オーナー「確かに考えたら安いか、となるように」: 段落をやめ、物差し 3 つ（1 日あたり・本 1 冊・読み返す時間）。比べる値段（他社・定価）は書かない */}
+              {/* 2026-11-15 オーナー「安く感じるようなイラスト図を」: 「本 1 冊分」を絵に（その行は図に任せて外した） */}
+              <LpCostDiagram talks={PAID_TALKS} />
               <dl className="lp-cost-rows">
                 <div><dt>年額 {ANNUAL_TEXT}</dt><dd><span className="lp-nb">1 日にすると 約 {ANNUAL_PER_DAY_TEXT}。</span><span className="lp-nb">月額 {MONTHLY_TEXT} なら 約 {PER_DAY_TEXT}。</span></dd></div>
-                <div><dt>本 1 冊分</dt><dd>月の料金は本 1 冊ほど。読んだ本すべてに、毎月 {PAID_TALKS}相談できます。</dd></div>
                 <div><dt>読み返さずに</dt><dd>1 冊を読み返すと数時間。残したメモから答えが返るので、本を開き直さずに使えます。</dd></div>
               </dl>
             </div>

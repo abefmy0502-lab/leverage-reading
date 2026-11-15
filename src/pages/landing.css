@@ -1297,3 +1297,12 @@ body.lp-active {
 @media (max-width: 767px) { .lp-chat-result { width: calc(100% - 28px - var(--space-2)); } } /* 行動のカードの 1 行目（読点まで）が折り返さない幅 */
 .lp-root .lp-lines > span { display: block; }
 .lp-root .lp-final-sub { margin: var(--space-3) auto 0; max-width: none; color: var(--text-2); font-size: var(--text-body); text-align: center; }
+
+/* 💴 料金の帯の図（2026-11-15）: 本 1 冊 ≒ Orime の 1 か月。線の絵・面なし・強調は右の本棚の線だけ */
+.lp-cost-diagram { max-width: 30em; margin: var(--space-4) 0 0; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: var(--space-3); padding: var(--space-4) 0; border-top: 1px solid var(--separator); }
+.lp-cost-side { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--space-1); min-width: 0; }
+.lp-cost-icon { font-size: calc(var(--text-sub) * 2.4); color: var(--text-2); margin-bottom: var(--space-1); }
+.lp-cost-side.is-orime .lp-cost-icon { color: var(--accent); }
+.lp-root .lp-cost-name { margin: 0; font-size: var(--text-body); font-weight: 600; color: var(--text); line-height: 1.4; word-break: keep-all; }
+.lp-root .lp-cost-what { margin: 0; font-size: var(--text-meta); color: var(--text-2); line-height: 1.5; word-break: keep-all; }
+.lp-root .lp-cost-eq { margin: 0; font-family: var(--font-read); font-size: var(--text-heading); color: var(--text-3); }
