@@ -4682,7 +4682,7 @@ function AuthedApp() {
     const nextStatus = { want: "before", before: "reading", reading: "done" };
     // 「積読へ進む」は日本語として変（積読は進む先ではなく積む場所）。
     // 定義（読みたい=気になる / 積読=手元にある）に合わせ「積読に積む」へ。
-    const nextLabel = { want: "積読に積む", before: "読書を開始する", reading: "読了にする" };
+    const nextLabel = { want: "積読に積む", before: "読み始める", reading: "読了にする" };
     const isMemoPhase = current.status === "reading" || current.status === "done";
     // 詳細画面の部品（DESIGN.md のトークンのみ）。
     const cardStyle = { background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4)' };
@@ -5378,7 +5378,7 @@ function AuthedApp() {
                           title: '読書計画シートを作っておきますか？',
                           message:
                             '作っておくと、どこを重点的に読むかが分かります。作らずに読み始めることもできます。',
-                          confirmLabel: 'このまま読書を開始',
+                          confirmLabel: 'このまま読み始める',
                           cancelLabel: '読書計画シートを作る',
                         });
                         if (!ok) {

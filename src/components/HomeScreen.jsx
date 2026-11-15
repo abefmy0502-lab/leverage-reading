@@ -203,7 +203,7 @@ function ReadingNow({ books, onOpenBook, onWriteMemo, onStartReading, onAddBook,
               onOpenBook={onOpenBook}
               onCoverRetry={onCoverRetry}
               action={b.status === 'before' && onStartReading ? (
-                <button type="button" onClick={() => onStartReading(b)} aria-label={`『${b.title}』の読書を開始する`} style={btnRow}>
+                <button type="button" onClick={() => onStartReading(b)} aria-label={`『${b.title}』を読み始める`} style={btnRow}>
                   {/* 見える名前は短い「読み始める」（「読書を開始する」だとボタンが折り返してカードが伸び、「すべての本」が 1 画面目から消えた・
                       2026-10-11 ui-critic）。読み上げは本の詳細と同じ「読書を開始する」。 */}
                   <BookOpen size="1.1em" aria-hidden="true" style={{ flexShrink: 0 }} />読み始める

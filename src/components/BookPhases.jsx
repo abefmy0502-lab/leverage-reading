@@ -611,7 +611,7 @@ export function EditSaveBar({ onSave, onStart = null, label = '保存', saving =
         aria-busy={(saving && pressed === 'start') || undefined}
         style={{ ...(off ? btnPrimaryOff : btnPrimary), flex: '2 1 11em', width: 'auto' }}
       >
-        {saving && pressed === 'start' ? '保存中…' : '保存して読書を開始'}
+        {saving && pressed === 'start' ? '保存中…' : '保存して読み始める'}
       </button>
     </div>
   );
