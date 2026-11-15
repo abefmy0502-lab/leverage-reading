@@ -1331,3 +1331,16 @@ body.lp-active {
 .lp-root .lp-cycle-lead { margin: var(--space-2) 0 0; font-size: var(--text-body); line-height: 1.6; color: var(--text-2); }
 .lp-cycle-step { background: var(--bg); }
 .lp-why-sec .lp-cycle-step { background: var(--surface); }
+
+/* 🧭 目標から逆算して読む（2026-11-15）: 図 → 2 台の画面（横に並べる・下に 2 行の説明）→ 育っていく 1 文。 */
+.lp-goal-shots {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  max-width: 560px;
+  margin: var(--space-8) auto 0;
+}
+.lp-goal-shot { margin: 0; display: flex; flex-direction: column; align-items: center; gap: var(--space-3); }
+.lp-goal-shot .lp-shot { width: 100%; }
+.lp-goal-shot figcaption { font-size: var(--text-sub); color: var(--text-2); line-height: 1.6; text-align: center; }
+.lp-goal-grow { margin-top: var(--space-8); font-size: var(--text-body); line-height: 1.8; text-align: center; color: var(--text); }

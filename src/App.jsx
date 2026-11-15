@@ -1116,6 +1116,8 @@ function AuthedApp() {
   const [addBookModalOpen, setAddBookModalOpen] = useState(false);
   // 検索結果の「追加済み」から開いた本の id（詳細の ‹・戻るで検索結果へ戻すため）。
   const [detailFromSearchId, setDetailFromSearchId] = useState(null);
+  // 🧭 目標の画面（ロードマップ・読書計画）から開いた本: { bookId, screen }。戻ると同じ目標の画面へ（2026-11-15 磨き）。
+  const [detailFromGoal, setDetailFromGoal] = useState(null);
   // 新しく本を追加するフォームの「‹ 戻り先」。openAdd を押した場所（'home' / 'library'）と、
   // 検索（AddBookModal）から来たときの検索語（null＝検索を通っていない）。
   const [addOrigin, setAddOrigin] = useState('library');
@@ -2245,14 +2247,18 @@ function AuthedApp() {
   // quickMemoOpen / fullEditorPrefill もリセットする — edge-swipe back や BottomNav
   // は QuickMemoSheet の onClose を経由しないため、開いたまま一覧へ戻ると次に
   // 開いた別の本の詳細でシートが勝手に開いてしまう。
-  const goList = () => { setJustDoneId(null); setView("list"); setCurrent(null); setEditPhaseOverride(null); setQuickMemoOpen(false); setQuickMemoPrompt(null); setFullEditorPrefill(null); setDetailKebab(null); setStoreSheetOpen(false); setAnalysisSheetOpen(false); setDetailFromSearchId(null); setJustMadePlanId(null); };
+  const goList = () => { setJustDoneId(null); setView("list"); setCurrent(null); setEditPhaseOverride(null); setQuickMemoOpen(false); setQuickMemoPrompt(null); setFullEditorPrefill(null); setDetailKebab(null); setStoreSheetOpen(false); setAnalysisSheetOpen(false); setDetailFromSearchId(null); setDetailFromGoal(null); setJustMadePlanId(null); };
   // 本の詳細から 1 段戻る: 検索結果の「追加済み」から開いた本なら、さっきの検索結果へ戻す（2026-09-29）。
   const leaveDetail = () => {
     const toSearch = !!detailFromSearchId && current?.id === detailFromSearchId;
+    const toGoal = detailFromGoal && current?.id === detailFromGoal.bookId ? detailFromGoal.screen : null;
     goList();
+    setDetailFromGoal(null);
     if (toSearch) setAddBookModalOpen(true);
+    if (toGoal) setGoalScreen(toGoal);
   };
   const detailBackToSearch = !!detailFromSearchId && current?.id === detailFromSearchId;
+  const detailBackToGoal = detailFromGoal && current?.id === detailFromGoal.bookId ? (detailFromGoal.screen?.view === 'plan' ? '読書計画' : 'ロードマップ') : '';
   // 新しく本を追加するフォームから 1 段戻る: 検索から来たら検索へ（さっきの言葉のまま）、それ以外は一覧へ。
   const leaveNewBookForm = () => {
     const fromSearch = addFromSearchQuery !== null;
@@ -4978,7 +4984,7 @@ function AuthedApp() {
             {/* iOS ナビ風: 指が最初に探す左上の戻るは、背景に沈まない重みで。 */}
             {/* 戻るは「すべての本」の ‹ ホーム と同じ形（ChevronLeft 20・間 0・見た目の左端 16・本文サイズ・--accent）。 */}
             <button onClick={leaveDetail} style={{ display: 'inline-flex', alignItems: 'center', gap: 0, minHeight: 44, padding: '0 var(--space-2) 0 0', marginLeft: BACK_CHEVRON_PULL, background: 'none', border: 'none', color: 'var(--accent)', fontSize: BACK_LABEL_SIZE, whiteSpace: 'nowrap', fontFamily: 'inherit', cursor: 'pointer' }}>
-              <ChevronLeft size={20} aria-hidden="true" />{detailBackToSearch ? '検索' : tab === 'review' ? '振り返り' : tab === 'ai' ? (aiSubTab === 'advisor' ? 'AI 選書' : '相談') : shelfMode === 'library' ? 'すべての本' : 'ホーム'}
+              <ChevronLeft size={20} aria-hidden="true" />{detailBackToGoal || (detailBackToSearch ? '検索' : null) || (tab === 'review' ? '振り返り' : tab === 'ai' ? (aiSubTab === 'advisor' ? 'AI 選書' : '相談') : shelfMode === 'library' ? 'すべての本' : 'ホーム')}
             </button>
             <div style={{ display: "flex", gap: 'var(--space-1)', marginRight: 'calc(-1 * var(--space-3))' }}>
               {/* 📷 写真で共有（読書中・読了・SPEC §2-1）: ホームと同じ文字つき（アイコンだけだと「写真から書き起こす」と
@@ -6471,7 +6477,7 @@ function AuthedApp() {
                 rawBooks.length === 0 ? (
                   <EmptyState
                     icon={<IcLibrary size={34} aria-hidden="true" />}
-                    title="最初の1冊から"
+                    title="最初の 1 冊から"
                     actions={[
                       { label: '本を追加', onClick: openAdd, variant: 'primary', icon: <IcPlus size={18} aria-hidden="true" /> },
                     ]}
@@ -6985,17 +6991,21 @@ function AuthedApp() {
             start={goalScreen}
             books={books}
             onClose={() => setGoalScreen(null)}
-            onOpenBook={(b) => { setGoalScreen(null); setTab('books'); openDetail(b); }}
+            onOpenBook={(b, screen) => { setGoalScreen(null); setDetailFromGoal(screen ? { bookId: b.id, screen } : null); openDetail(b); }}
             // ロードマップの「やること」→ 今の「行動を追加」のシート（本を選ぶ → 書いた文が入る）。
             onAddActionText={(text) => { setAddActionSheet({ step: 'pick', prefillText: text }); return false; }}
             onAddReadingActions={async (list) => {
-              let n = 0;
+              // 同じ本にまだ終わっていない「『書名』を読み始める」があれば足さない（二重に入れない）。
+              let added = 0;
+              let skipped = 0;
               for (const it of list) {
+                const book = booksRef.current.find((b) => b.id === it.bookId);
+                if ((book?.actions || []).some((a) => !a.done && String(a.text || '').trim() === it.text)) { skipped += 1; continue; }
                 // eslint-disable-next-line no-await-in-loop
                 const ok = await addActionFromMemo(it.bookId, { text: it.text, deadline: it.deadline, source: 'plan' });
-                if (ok) n += 1;
+                if (ok) added += 1;
               }
-              return n;
+              return { added, skipped };
             }}
             onFindBooks={(draft) => { setGoalScreen(null); openAdvisorWithDraft(draft); }}
           />

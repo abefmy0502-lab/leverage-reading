@@ -12,7 +12,7 @@ import { SkeletonBlock } from './Skeleton';
 import { SegChoice } from './GoalScreen';
 import { withPhraseBreaks } from './TightBubble';
 import { useToast } from './Toast';
-import { btnPrimary, btnGhost, btnLinkQuiet } from '../styles/ui';
+import { btnPrimary, btnLinkQuiet } from '../styles/ui';
 import { useGoals } from '../hooks/useGoals';
 import { ensureAiConsent } from '../lib/aiConsent';
 import { updateGoalRoadmap } from '../lib/ai';
@@ -65,7 +65,7 @@ export default function RoadmapReflectSheet({ source, books = [], onClose, onOpe
   const undo = async () => {
     if (!prevRecord || !pick) return;
     await saveRoadmap(pick, prevRecord);
-    toast.show?.('ロードマップを、見直す前に戻しました');
+    toast.show?.('ロードマップを、見直す前に戻しました。');
     onClose?.();
   };
 
@@ -84,7 +84,6 @@ export default function RoadmapReflectSheet({ source, books = [], onClose, onOpe
         </button>
       );
     }
-    if (stage === 'same') return <button type="button" style={btnGhost} onClick={onClose}>閉じる</button>;
     return null;
   })();
 
@@ -94,7 +93,7 @@ export default function RoadmapReflectSheet({ source, books = [], onClose, onOpe
       {loaded && stage === 'confirm' && (
         <>
           <p className="goal-lead" style={{ marginBottom: 'var(--space-4)' }}>
-            {withPhraseBreaks(`${name}から、まだロードマップに書いていない課題が見えたかを、AI が確かめます。見えたときだけ、今の課題・必要なこと・これからの道のりと読書計画が変わります。`)}
+            {withPhraseBreaks(`${name}から、まだロードマップに書いていない課題が見えたかを、AI が確かめます。見えたら、今の課題・必要なこと・これからの道のりと読書計画が変わります。`)}
           </p>
           {horizons.length > 1 && (
             <div style={{ marginBottom: 'var(--space-3)' }}>
@@ -124,7 +123,7 @@ export default function RoadmapReflectSheet({ source, books = [], onClose, onOpe
           </ul>
           {result.note && <p className="plan-summary">{withPhraseBreaks(result.note)}</p>}
           <p className="plan-summary" style={{ marginTop: 'var(--space-2)' }}>{withPhraseBreaks('読書計画のカレンダーも、新しい道のりに合わせて変わります。')}</p>
-          <button type="button" style={{ ...btnLinkQuiet, marginTop: 'var(--space-2)', marginLeft: 'calc(-1 * var(--space-1))' }} onClick={undo}>元に戻す</button>
+          <button type="button" style={{ ...btnLinkQuiet, marginTop: 'var(--space-2)', marginLeft: 'calc(-1 * var(--space-1))' }} onClick={undo}>見直す前に戻す</button>
         </div>
       )}
       {stage === 'same' && (
@@ -137,7 +136,7 @@ export default function RoadmapReflectSheet({ source, books = [], onClose, onOpe
         <ErrorMessage
           title={error.notice ? 'AI のトークンについて' : '見直せませんでした'}
           description={error.message}
-          actions={error.notice ? [{ label: '閉じる', onClick: onClose }] : [{ label: 'もう一度', variant: 'primary', onClick: run }, { label: '閉じる', onClick: onClose }]}
+          actions={error.notice ? [] : [{ label: 'もう一度', variant: 'primary', onClick: run }]}
         />
       )}
     </BottomSheet>

@@ -87,13 +87,15 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
   useEffect(() => { scrollRef.current?.scrollTo?.({ top: 0 }); setScrolled(false); }, [view, horizon]);
 
   const open = (key, v) => { setHorizon(key); setView(v); };
+  // 本を開いて戻ってきたら、同じ目標の同じ画面へ（App が覚えておく）。
+  const openBook = (b) => onOpenBook?.(b, { view, horizon });
 
   // 無料プランは目標 1 つまで（2026-11-15 オーナー決定）。ほかの目標でもうロードマップを作っていたら、プランの画面へ。
   const canBuild = (key) => {
     if (!pay?.freeMode) return true;
     const others = Object.keys(roadmaps || {}).filter((k) => k !== key && roadmaps[k]?.roadmap);
     if (others.length === 0) return true;
-    pay.openPaywall?.('feature', '2 つ目の目標のロードマップ');
+    pay.openPaywall?.('feature', '2 つ目のロードマップ');
     return false;
   };
 
@@ -119,7 +121,7 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
               onEdit={(key) => setEditing({ key, text: goals[key]?.text || '' })}
               onCarry={async (key, text) => {
                 const r = await saveGoal(key, text);
-                if (r) toast.success?.(`${horizonOf(key).label}の目標に入れました`);
+                if (r) toast.success?.(`${horizonOf(key).label}の目標に入れました。`);
               }}
               onInterview={startInterview}
               onRoadmap={(key) => open(key, 'roadmap')}
@@ -140,14 +142,14 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
               goal={goal}
               record={record}
               books={books}
-              onOpenBook={onOpenBook}
+              onOpenBook={openBook}
               onAddActionText={onAddActionText}
               onFindBooks={onFindBooks}
               onPlan={() => setView('plan')}
               onRebuild={() => startInterview(goal.key)}
               onUndoUpdate={async () => {
                 await saveRoadmap(goal.key, { ...record, roadmap: record.prevRoadmap, prevRoadmap: null, updates: (record.updates || []).slice(1) });
-                toast.show?.('ロードマップを、見直す前に戻しました');
+                toast.show?.('ロードマップを、見直す前に戻しました。');
               }}
             />
           )}
@@ -160,7 +162,7 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
               record={record}
               books={books}
               sessions={sessions}
-              onOpenBook={onOpenBook}
+              onOpenBook={openBook}
               onAddReadingActions={onAddReadingActions}
             />
           )}
@@ -176,7 +178,7 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
             const key = editing.key;
             const r = await saveGoal(key, text);
             setEditing(null);
-            if (!r) { toast.error?.('目標を保存できませんでした。もう一度押してください。'); return; }
+            if (!r) { toast.error?.('目標を保存できませんでした。通信状況を確認して、もう一度押してください。'); return; }
             track('goal_saved', { horizon: key, cleared: !cleanGoalText(text) });
             if (cleanGoalText(text) && roadmaps[key]?.roadmap && cleanGoalText(text) !== roadmaps[key]?.goalText) {
               toast.show?.('目標を書き直しました。ロードマップは「つくり直す」で新しい目標に合わせられます。');
@@ -293,7 +295,7 @@ function GoalEditSheet({ horizonKey, initial, hasRoadmap, onClose, onSave }) {
       dismissLabel="キャンセル"
       footer={(
         <button type="button" style={dirty && !saving ? btnPrimary : btnPrimaryOff} disabled={!dirty || saving} onClick={save}>
-          {saving ? '保存しています…' : '保存'}
+          {saving ? '保存中…' : '保存'}
         </button>
       )}
     >
@@ -371,7 +373,7 @@ function InterviewView({ goal, goals, roadmaps, books, onDone, onCancel }) {
     const res = round > GOAL_ASK_LIMIT ? { done: true, summary: summaryRef.current } : await runGoalInterview({ goal, goals, roadmaps, qa: nextQa, round });
     busyRef.current = false;
     setLoading(false);
-    if (!res) { setError({ message: '問いを用意できませんでした。少し時間をおいてから、もう一度押してください。', stage: 'ask', qa: nextQa }); return; }
+    if (!res) { setError({ message: 'AI からの返事が届きませんでした。つながりを確かめて「もう一度」を押してください。', stage: 'ask', qa: nextQa }); return; }
     if (res.stop) { setError({ message: res.stop, notice: true, stage: 'ask' }); return; }
     if (res.summary) summaryRef.current = res.summary;
     if (res.done) { setStep(null); build(nextQa); return; }
@@ -610,8 +612,8 @@ function RoadmapView({ goal, record, books, onOpenBook, onAddActionText, onFindB
                         <button key={rb.bookId} type="button" className="rm-book" onClick={() => onOpenBook?.(b)}>
                           <MiniCover book={b} width={36} />
                           <span style={{ flex: 1, minWidth: 0 }}>
-                            <p className="rm-book-title">{withPhraseBreaks(`『${b.title}』`)}</p>
-                            {rb.why && <p className="rm-book-why">{rb.why}</p>}
+                            <span className="rm-book-title">{withPhraseBreaks(`『${b.title}』`)}</span>
+                            {rb.why && <span className="rm-book-why">{rb.why}</span>}
                           </span>
                         </button>
                       );
@@ -634,7 +636,7 @@ function RoadmapView({ goal, record, books, onOpenBook, onAddActionText, onFindB
                   <p className="rm-need-name">{withPhraseBreaks(m.theme)}</p>
                   {m.why && <p className="rm-need-why">{m.why}</p>}
                 </div>
-                <button type="button" style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', flexShrink: 0 }} onClick={() => onFindBooks?.(`${goal.text}。そのために「${m.theme}」の本を探したい`)}>
+                <button type="button" style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }} onClick={() => onFindBooks?.(`${goal.text}。そのために「${m.theme}」の本を探したい`)}>
                   <Search size="1em" aria-hidden="true" />本を探す
                 </button>
               </li>
@@ -649,7 +651,7 @@ function RoadmapView({ goal, record, books, onOpenBook, onAddActionText, onFindB
         ) : (
           <p className="plan-summary" style={{ marginTop: 0 }}>{withPhraseBreaks('本棚に、この目標に合う本がまだありません。「本を探す」で見つけた本を入れると、読書計画をつくれます。')}</p>
         )}
-        <button type="button" style={{ ...btnLinkQuiet, marginTop: 'var(--space-2)' }} onClick={onRebuild}>つくり直す（約 25 トークン）</button>
+        <button type="button" style={{ ...btnLinkQuiet, marginTop: 'var(--space-2)', marginLeft: 'calc(-1 * var(--space-1))' }} onClick={onRebuild}>つくり直す（約 25 トークン）</button>
         <p className="rm-footnote">{withPhraseBreaks('AI があなたの目標と答えから作った道のりです。合わないところは、つくり直すか、目標を書き直してください。')}</p>
       </div>
     </>
@@ -698,12 +700,16 @@ function PlanView({ goal, record, books, sessions, onOpenBook, onAddReadingActio
   const addActions = async () => {
     if (adding || !soon.length) return;
     setAdding(true);
-    const n = await onAddReadingActions?.(soon.map((x) => ({ bookId: x.bookId, text: `『${byId.get(x.bookId)?.title || ''}』を読み始める`, deadline: x.start })));
+    const r = await onAddReadingActions?.(soon.map((x) => ({ bookId: x.bookId, text: `『${byId.get(x.bookId)?.title || ''}』を読み始める`, deadline: x.start })));
     setAdding(false);
-    if (n > 0) {
+    const added = r?.added || 0;
+    const skipped = r?.skipped || 0;
+    if (added > 0) {
       savePlan({ minutesPerDay: minutes, actionsAddedAt: new Date().toISOString() });
-      toast.success?.(`読み始める日を、行動に ${n} 件入れました`);
-      track('reading_plan_actions', { count: n });
+      toast.success?.(skipped ? `行動に ${added} 件追加しました（${skipped} 件は追加済み）。` : `読み始める日を、行動に ${added} 件追加しました。`);
+      track('reading_plan_actions', { count: added });
+    } else if (skipped > 0) {
+      toast.show?.('どの本も、もう行動に入っています。');
     }
   };
 
@@ -743,9 +749,9 @@ function PlanView({ goal, record, books, sessions, onOpenBook, onAddReadingActio
         <button type="button" className="plan-today" onClick={() => onOpenBook?.(todayBook)}>
           <MiniCover book={todayBook} width={32} />
           <span className="plan-today-body">
-            <p className="plan-today-label">{nowItem ? '今日の本' : `次の本 · ${fmtMd(nextItem.start, year)} から`}</p>
-            <p className="plan-today-title">{withPhraseBreaks(`『${todayBook.title}』`)}</p>
-            <p className="plan-today-meta">{nowItem ? `${minutes} 分 · ${fmtMd(nowItem.end, year)} まで` : '今日は読む本の予定がありません'}</p>
+            <span className="plan-today-label">{nowItem ? '今日の本' : `次の本 · ${fmtMd(nextItem.start, year)} から`}</span>
+            <span className="plan-today-title">{withPhraseBreaks(`『${todayBook.title}』`)}</span>
+            <span className="plan-today-meta">{nowItem ? `${minutes} 分 · ${fmtMd(nowItem.end, year)} まで` : '今日は読む本の予定がありません'}</span>
           </span>
           <ChevronRight className="goal-entry-chev" size={20} aria-hidden="true" />
         </button>
@@ -820,12 +826,12 @@ function PlanView({ goal, record, books, sessions, onOpenBook, onAddReadingActio
                     <button type="button" className="plan-row" onClick={() => onOpenBook?.(b)}>
                       <MiniCover book={b} width={36} />
                       <span className="plan-row-body">
-                        <p className="plan-row-title">{withPhraseBreaks(`『${b.title}』`)}</p>
-                        <p className="plan-row-meta">
+                        <span className="plan-row-title">{withPhraseBreaks(`『${b.title}』`)}</span>
+                        <span className="plan-row-meta">
                           {isNow && <span className="plan-row-now">今日の本</span>}
                           <span>{fmtRange(x.start, x.end)}</span>
                           <span>{x.days > 1 ? `${fmtSpan(x.days)} · 合わせて ${fmtHoursMin(x.minutes)}` : fmtHoursMin(x.minutes)}</span>
-                        </p>
+                        </span>
                       </span>
                     </button>
                   </li>
@@ -838,12 +844,12 @@ function PlanView({ goal, record, books, sessions, onOpenBook, onAddReadingActio
 
       <div className="goal-sec">
         <button type="button" style={adding || !soon.length ? btnPrimaryOff : btnPrimary} disabled={adding || !soon.length} onClick={addActions}>
-          {adding ? '入れています…' : `読み始める日を行動に入れる（${soon.length} 件）`}
+          {adding ? '追加中…' : `読み始める日を行動に追加（${soon.length} 件）`}
         </button>
         <p className="plan-summary">
           {withPhraseBreaks(addedAt
-            ? `前に入れたのは ${fmtMd(toLocalYmd(new Date(addedAt)), year)} です。もう一度入れると、新しい日付で足されます。`
-            : 'これから 3 か月のうちに読み始める本を「『書名』を読み始める」として入れます。')}
+            ? `前に追加したのは ${fmtMd(toLocalYmd(new Date(addedAt)), year)} です。まだ追加していない本だけを足します。`
+            : 'これから 3 か月のうちに読み始める本を「『書名』を読み始める」として追加します。')}
         </p>
       </div>
     </>

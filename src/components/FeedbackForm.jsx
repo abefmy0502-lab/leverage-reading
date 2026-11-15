@@ -203,7 +203,7 @@ export default function FeedbackForm({ onClose }) {
 
   const submit = async () => {
     if (!category) {
-      toast.error('カテゴリを選んでください。');
+      toast.error('種類を選んでください。');
       return;
     }
     if (!content.trim()) {
@@ -257,8 +257,8 @@ export default function FeedbackForm({ onClose }) {
 
         <div style={bodyStyle}>
           {/* Category */}
-          <div role="radiogroup" aria-label="カテゴリ（必須）">
-            <span style={labelStyle}>カテゴリ<span style={reqStyle}>（必須）</span></span>
+          <div role="radiogroup" aria-label="種類（必須）">
+            <span style={labelStyle}>種類<span style={reqStyle}>（必須）</span></span>
             <div style={radioRowStyle}>
               {FEEDBACK_CATEGORIES.map((c, i) => {
                 const on = category === c.value;

@@ -4320,7 +4320,7 @@ function scopeLabelFor(ids, books) {
   if (!ids || ids.length === 0) return SCOPE_ALL_LABEL;
   if (ids.length === 1) {
     const b = (books || []).find((x) => x.id === ids[0]);
-    return b ? `『${b.title}』` : '1冊';
+    return b ? `『${b.title}』` : '1 冊';
   }
   return `選んだ ${ids.length} 冊`;
 }

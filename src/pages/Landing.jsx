@@ -48,13 +48,14 @@ import LpTalkFlow from './LpTalkFlow';
 import LpTalkDiagram from './LpTalkDiagram';
 import LpCostDiagram from './LpCostDiagram';
 import LpCycleDiagram from './LpCycleDiagram';
+import LpGoalDiagram from './LpGoalDiagram';
 import { FeatureTiles } from './LpDiagram';
 import LpWaitlist from './LpWaitlist';
 import LpIllust from './LpIllust';
 import LpWhy from './LpWhy';
 import LpArt, { hasArt } from './LpArt';
 import Phrases, { Sentences } from './LpPhrases';
-import { buildLpCopy, storeHrefOf, HERO_TALK, ASK, WHY, PLAN, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE, PROBLEM_LINES, FEATURES } from './lpCopy';
+import { buildLpCopy, storeHrefOf, HERO_TALK, ASK, WHY, PLAN, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE, PROBLEM_LINES, FEATURES, GOAL_SEC } from './lpCopy';
 import qrcode from 'qrcode-generator';
 import { lpTrack, lpVariant, storeUrlFor, isWidePointer } from '../lib/lpTrack';
 import { inject as injectVercelAnalytics } from '@vercel/analytics';
@@ -640,6 +641,27 @@ export default function Landing() {
               <p className="lp-cycle-lead">読みっぱなしで終わらず、読書が回り始める。なりたい自分への、レバレッジに。</p>
               <LpCycleDiagram />
             </div>
+          </div>
+        </section>
+
+        {/* ============ 目標から逆算して読む（2026-11-15 オーナー「目標・ロードマップ・読書計画カレンダーの内容も LP に入れたい」） ============ */}
+        <section className="lp-sec lp-goal-sec" aria-labelledby="lp-goal" data-lp-sec="goal">
+          <div className="lp-wrap">
+            <div className="lp-narrow lp-sec-head">
+              <h2 className="lp-h2" id="lp-goal">{GOAL_SEC.title.map((t) => <span key={t}>{t}</span>)}</h2>
+              <p className="lp-lead lp-sec-lead lp-lines">{GOAL_SEC.lead.map((t) => <span key={t}>{t}</span>)}</p>
+            </div>
+            <div className="lp-narrow"><LpGoalDiagram /></div>
+            <div className="lp-goal-shots">
+              {GOAL_SEC.shots.map((s) => (
+                <figure key={s.name} className="lp-goal-shot">
+                  <Shot name={s.name} alt={s.alt} className="lp-shot" sizes="(min-width: 768px) 240px, 44vw" />
+                  <figcaption className="lp-lines">{s.caption.map((t) => <span key={t}>{t}</span>)}</figcaption>
+                </figure>
+              ))}
+            </div>
+            <p className="lp-narrow lp-goal-grow lp-lines">{GOAL_SEC.grow.map((t) => <span key={t}>{t}</span>)}</p>
+            <p className="lp-shot-note">{GOAL_SEC.note}</p>
           </div>
         </section>
 
