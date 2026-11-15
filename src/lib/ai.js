@@ -949,10 +949,10 @@ const CONSULT_RELATED_CHARS = 6000; // そのうち、質問に近いメモの�
 //     （合わせて約 9,500 字＝今までの約 9,000 字とほぼ同じ。質問に近いメモの選び方は今までと同じ pickRelatedMemos）
 export const CONSULT_CORE_CHARS = 5000;
 export const CONSULT_EXTRA_CHARS = 4500;
-const CONSULT_MAX_TOKENS = 1600; // 行動を決める回の答えは 550 字前後
-// 🎯 行動は会話で決める（2026-09-30）: 行動を決めない回（最初の答え・続きの返事）は 450 字前後なので上限も小さく
+const CONSULT_MAX_TOKENS = 2000; // 行動を決める回の答えは 800 字前後（2026-11-15 に 550 → 800）
+// 🎯 行動は会話で決める（2026-09-30）: 行動を決めない回（最初の答え・続きの返事）は 650 字前後なので上限も小さく
 //   （予約する原価＝max_tokens ぶんの出力も小さくなる）。
-const CONSULT_ASK_MAX_TOKENS = 1200;
+const CONSULT_ASK_MAX_TOKENS = 1600;
 // 📚 答え方「本ごとに」: 材料は同じ約 9,000 字を本の数で分ける。答えは 800〜900 字前後なので上限は約 1.3 倍。
 const PERBOOK_MAX_BOOKS = 4;
 const PERBOOK_MIN_BOOKS = 3; // 質問に近いメモのある本が少ないときは、メモの多い本で 3 冊まで埋める
@@ -2002,7 +2002,7 @@ export async function streamMyBookBrain({ userId, question, onStage, onChunk, si
     system: ctx.system || BRAIN_SYSTEM,
     cacheSystem: true,
     messages: [{ role: 'user', content: ctx.userBlocks }],
-    // 答えは 450 字前後（行動を決める回は 550 字前後・BRAIN_SYSTEM の長さのルール）。上限は 1,200／1,600。
+    // 答えは 650 字前後（行動を決める回は 800 字前後・BRAIN_SYSTEM の長さのルール）。上限は 1,600／2,000。
     // 本ごとには 800〜900 字前後なので 2,100（PERBOOK_MAX_TOKENS）。
     max_tokens: ctx.maxTokens || CONSULT_MAX_TOKENS,
     purpose: 'consult',
