@@ -45,6 +45,7 @@ import { readFoundingOffer, noBreak, FOUNDING_NAME } from '../lib/foundingOffer'
 import Shot from './LpShot';
 import LpFlow from './LpFlow';
 import LpTalkFlow from './LpTalkFlow';
+import LpTalkDiagram from './LpTalkDiagram';
 import { FeatureTiles } from './LpDiagram';
 import LpWaitlist from './LpWaitlist';
 import LpIllust from './LpIllust';
@@ -611,8 +612,9 @@ export default function Landing() {
         <section className={`lp-sec lp-flow-sec${heroVariant === 'talk' ? ' is-talk' : ''}`} aria-labelledby="lp-grow" data-lp-sec="flow">
           <div className="lp-wrap">
             <div className="lp-narrow lp-sec-head">
-              <h2 className="lp-h2" id="lp-grow">{heroVariant === 'talk' ? <><span>本に相談すると、</span><span>こうなる。</span></> : <><span>使い方は、</span><span>3 つだけ。</span></>}</h2>
+              <h2 className="lp-h2" id="lp-grow">{heroVariant === 'talk' ? <><span>Orime に相談すると、</span><span>こうなる。</span></> : <><span>使い方は、</span><span>3 つだけ。</span></>}</h2>
               {heroVariant === 'talk' && <p className="lp-lead lp-sec-lead">相談する相手は、1 冊でも、本棚ぜんぶでも。</p>}
+              {heroVariant === 'talk' && <LpTalkDiagram />}
             </div>
             {/* 2026-11-11 オーナー「スマホ画面を再現しなくてもいい」: 画面写真 3 枚（LpFlow）の代わりに、実際の相談を会話として組む */}
             {heroVariant === 'talk' ? <LpTalkFlow /> : <LpFlow onEvent={lpTrack} note={false} />}
