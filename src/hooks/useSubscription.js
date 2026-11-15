@@ -4,6 +4,26 @@ import { useAuth } from './useAuth';
 import { isNative, hasActiveEntitlement } from '../lib/iap';
 import { isSchemaError } from '../lib/errors';
 
+// ⏱ 課金の確認は起動のゲート（読み込み表示）を止めるので、返らない通信でアプリが永久に固まらないよう
+//   上限の秒数で打ち切る（2026-11-15: iOS のシミュレータで RevenueCat の返事が来ず、ログイン後に
+//   ホームの形の読み込み表示のまま止まった）。打ち切ったら「確かめられなかった」として先へ進む。
+export const SUB_DB_TIMEOUT_MS = 8000;
+export const SUB_NATIVE_TIMEOUT_MS = 5000;
+export function withTimeout(promise, ms, onTimeout) {
+  return new Promise((resolve, reject) => {
+    let done = false;
+    const t = setTimeout(() => {
+      if (done) return;
+      done = true;
+      try { resolve(onTimeout()); } catch (e) { reject(e); }
+    }, ms);
+    Promise.resolve(promise).then(
+      (v) => { if (!done) { done = true; clearTimeout(t); resolve(v); } },
+      (e) => { if (!done) { done = true; clearTimeout(t); reject(e); } },
+    );
+  });
+}
+
 // 💳 ログインユーザーの課金状態を取得するフック。
 //
 // フリーミアム（2026-09-27〜）: 契約が無くてもアプリは使える（無料プラン）。ここはプランの判定に使う。
@@ -98,11 +118,15 @@ export function useSubscription() {
     if (loadedForRef.current !== forUserId) setLoading(true);
     let dbActive = false;
     try {
-      const { data, error: dbError } = await supabase
-        .from('subscriptions')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle();
+      const { data, error: dbError } = await withTimeout(
+        supabase
+          .from('subscriptions')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle(),
+        SUB_DB_TIMEOUT_MS,
+        () => { throw new Error('subscription_timeout'); },
+      );
 
       if (!isCurrent()) return; // ユーザーが切り替わった — この応答は破棄
       if (dbError) {
@@ -136,7 +160,7 @@ export function useSubscription() {
     // Web では hasActiveEntitlement が即 false を返す＝無害。
     if (!dbActive && isNative) {
       try {
-        setNativeEntitled(await hasActiveEntitlement(user.id));
+        setNativeEntitled(await withTimeout(hasActiveEntitlement(user.id), SUB_NATIVE_TIMEOUT_MS, () => false));
       } catch {
         /* keep previous */
       }
