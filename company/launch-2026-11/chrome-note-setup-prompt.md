@@ -3,7 +3,7 @@
 > 使い方: 下の「---」から最後までを全部コピーして、Claude in Chrome に貼る。Chrome で note（https://note.com）と GitHub にログインしておく。
 > 決まりの正は `sns-playbook.md` §1（どの場もロゴ）。記事の中身は `note-drafts/04-読書が受け身から会話に変わった話.md`。
 > **画像のアップロードはオーナー**（Chrome はファイルを選べない）。使う画像は Mac の `company/launch-2026-11/note-assets/`（`git pull` のあと）:
-> - `orime-icon.png`（アイコン）・`note-profile-header.png`（プロフィールのヘッダー）・`note04-header.png`（04 の見出し画像）・`note06-header.png`（06 の見出し画像）
+> - `orime-icon-lockup.png`（アイコン）・`note-profile-header.png`（プロフィールのヘッダー）・`note04-header.png`（04 の見出し画像）・`note06-header.png`（06 の見出し画像）
 
 ---
 
@@ -23,7 +23,7 @@
 
 ## ステップ 1: プロフィール
 右上のアイコン →「プロフィール」→「編集」（か「設定」→「アカウント」のプロフィール）:
-1. **アイコン**: ここで止まる →「`orime-icon.png` を選んでください」。
+1. **アイコン**: ここで止まる →「`orime-icon-lockup.png` を選んでください」。
 2. **ヘッダー画像**（クリエイターページの上の画像）: ここで止まる →「`note-profile-header.png` を選んでください」。
 3. **クリエイター名**: `Orime｜読んだ本と、会話しよう`
 4. **自己紹介**:
