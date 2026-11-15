@@ -1227,6 +1227,22 @@ function drawRecordOverlay(ctx, o, place) {
     ({ theme: ink, foot } = drawBlockScrim(ctx, o, place, F, at.top, at.top + lay.height));
   }
   const sb = o.shadowScale || 1;
+  // 写真の上の表紙（表示する項目の「表紙」をオンにしたときだけ・1 冊の本・2026-11-15）。文字の塊のすぐ上に左揃え。
+  //   上の安全な枠に入らないときは描かない（文字の塊を押し上げない）。
+  const hiddenNow = new Set(Array.isArray(o.hidden) ? o.hidden : []);
+  if (o.record?.titleIsBook && o.cover && !hiddenNow.has('photoCover') && lay.height > 0) {
+    const w = Math.round(F.W * 0.17);
+    const h = Math.round(w * 1.48);
+    const y = at.top - h - Math.round(F.W * 0.035);
+    if (y >= (Number.isFinite(F.safeTop) ? F.safeTop : 0)) {
+      ctx.save();
+      ctx.shadowColor = 'rgba(0,0,0,0.35)';
+      ctx.shadowBlur = 24 * sb;
+      ctx.shadowOffsetY = 6 * sb;
+      drawCover(ctx, { x: F.margin, y, w, h, cover: o.cover, title: o.title, theme: o.theme, fonts: o.fonts, showText: false });
+      ctx.restore();
+    }
+  }
   ctx.save();
   ctx.shadowColor = ink.shadow;
   ctx.shadowBlur = 18 * sb;
@@ -1251,7 +1267,9 @@ function drawRecordPoster(ctx, o) {
   drawGround(ctx, F.W, F.H, theme, o.cover);
   const { lay, place } = fitRecord(ctx, o, F);
   // 言葉を入れたときは、上の空きは言葉が主役（表紙と重ねない）。
-  const covers = o.phrase && phraseDisplayText(o.phrase)
+  // 表示する項目で「表紙」を外したときも描かない（2026-11-15）。
+  const coverOff = Array.isArray(o.hidden) && o.hidden.includes('cover');
+  const covers = (o.phrase && phraseDisplayText(o.phrase)) || coverOff
     ? []
     : (o.covers && o.covers.length ? o.covers : (o.record?.titleIsBook ? [{ cover: o.cover, title: o.title }] : [])).slice(0, 4);
   const titleOnly = lay.plan.elements.length === 1 && lay.plan.elements[0].kind === 'title';

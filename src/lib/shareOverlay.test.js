@@ -341,7 +341,7 @@ describe('表示する項目（2026-10-01）', () => {
     const mem = new Map();
     const storage = { getItem: (k) => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => mem.set(k, v) };
     // 何も選んでいない＝日付だけ隠す（既定で隠す項目）
-    expect(readHiddenItems(storage)).toEqual(['date']);
+    expect(readHiddenItems(storage)).toEqual(['date', 'photoCover']);
     expect(writeHiddenItems(storage, ['author', 'nope', 'date'])).toBe(true);
     expect(readHiddenItems(storage)).toEqual(['author', 'date']);
     // 日付をオンにしたら覚える
@@ -350,15 +350,15 @@ describe('表示する項目（2026-10-01）', () => {
     mem.set(SHARE_ITEMS_STORAGE_KEY, '{broken');
     expect(readHiddenItems(storage)).toEqual([]);
     const throwing = { getItem: () => { throw new Error('private'); }, setItem: () => { throw new Error('quota'); } };
-    expect(readHiddenItems(throwing)).toEqual(['date']);
+    expect(readHiddenItems(throwing)).toEqual(['date', 'photoCover']);
     expect(writeHiddenItems(throwing, ['author'])).toBe(false);
-    expect(readHiddenItems(null)).toEqual(['date']);
+    expect(readHiddenItems(null)).toEqual(['date', 'photoCover']);
   });
   it('以前に「ロゴを隠す」を選んだ端末でも、ロゴは隠さない（読むときに捨てる・書くときにも残さない）', () => {
     const mem = new Map();
     const storage = { getItem: (k) => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => mem.set(k, v) };
     mem.set(SHARE_ITEMS_STORAGE_KEY, JSON.stringify(['logo', 'stamp', 'author']));
-    expect(readHiddenItems(storage)).toEqual(['stamp', 'author', 'date']);
+    expect(readHiddenItems(storage)).toEqual(['stamp', 'author', 'date', 'photoCover']);
     writeHiddenItems(storage, ['logo', 'author']);
     expect(JSON.parse(mem.get(SHARE_ITEMS_STORAGE_KEY))).toEqual(['author']);
   });
@@ -658,5 +658,21 @@ describe('長いメモから 1 文を選ぶ（splitQuoteSentences）', () => {
       .toEqual(['「できる。」と信じ切る。', '小さな工夫を重ねる。']);
     expect(splitQuoteSentences('大事なのは続けること。はい。そして毎日やる。'))
       .toEqual(['大事なのは続けること。はい。', 'そして毎日やる。']);
+  });
+});
+
+import { shareItemsFor as itemsFor2, readHiddenItems as readHidden2 } from './shareOverlay';
+describe('表示する項目の「表紙」（2026-11-15）', () => {
+  const rec = { titleIsBook: true, kicker: '読了', title: '考え方', sub: '稲盛和夫', stats: [] };
+  it('1 冊の記録だけ「表紙」の行が出る（地で名前が変わる）', () => {
+    expect(itemsFor2({ record: rec, variant: 'record', coverKey: 'photoCover' }).map((i) => i.key)).toContain('photoCover');
+    expect(itemsFor2({ record: rec, variant: 'record', coverKey: 'cover' }).find((i) => i.key === 'cover')?.label).toBe('表紙');
+    expect(itemsFor2({ record: rec, variant: 'record' }).map((i) => i.key)).not.toContain('cover');
+    expect(itemsFor2({ record: { ...rec, titleIsBook: false }, variant: 'record', coverKey: 'cover' }).map((i) => i.key)).not.toContain('cover');
+  });
+  it('写真の表紙は既定で出さない・紙の表紙は既定で出す', () => {
+    const h = readHidden2(null);
+    expect(h).toContain('photoCover');
+    expect(h).not.toContain('cover');
   });
 });

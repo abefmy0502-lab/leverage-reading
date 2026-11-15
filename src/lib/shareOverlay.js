@@ -712,7 +712,9 @@ export function placeStatsStack(frame, blockH, { phrase = false, coverCount = 0,
 // ロゴは項目に無い＝隠せない（2026-10-05 オーナー裁定「Orime のロゴはマストで入るように」）。以前に隠した人の
 // 端末に残る 'logo' は、読むときに捨てる（readHiddenItems が SHARE_ITEM_KEYS に無い名前を落とす）。
 
-export const SHARE_ITEM_KEYS = ['status', 'title', 'author', 'date', 'books', 'memos', 'actions', 'reading', 'quote', 'stamp'];
+// 表紙（2026-11-15 オーナー「本の表紙の画像を入れるかどうかを選択できるように」）: 記録の 1 冊の本だけ。
+//   紙・夜・表紙の色の地は 'cover'（今までどおり出す）、写真の地は 'photoCover'（既定は出さない＝写真が主役）。
+export const SHARE_ITEM_KEYS = ['status', 'title', 'author', 'cover', 'photoCover', 'date', 'books', 'memos', 'actions', 'reading', 'quote', 'stamp'];
 export const SHARE_ITEMS_STORAGE_KEY = 'orime.share.hiddenItems';
 
 const STAT_ITEM_LABEL = { books: '読了の冊数', memos: 'メモの数', actions: '実行した行動', reading: '読書の時間' };
@@ -723,13 +725,14 @@ const STAT_ITEM_LABEL = { books: '読了の冊数', memos: 'メモの数', actio
 //   一文: 書名・著者（一文は主役なので隠せない）
 //   雑誌: 書名・著者・今日の日付（引用は主役なので隠せない）
 // ロゴは出さない（必ず入る・2026-10-05）。
-export function shareItemsFor({ record = null, variant = 'record', hasQuote = false, hasAuthor = false } = {}) {
+export function shareItemsFor({ record = null, variant = 'record', hasQuote = false, hasAuthor = false, coverKey = null } = {}) {
   const out = [];
   const book = !!record?.titleIsBook;
   if ((variant === 'record' || variant === 'stats') && record) {
     if (record.kicker) out.push({ key: 'status', label: book ? '状態' : '年' });
     if (record.title) out.push({ key: 'title', label: book ? '書名' : `「${record.title}」` });
     if (record.sub) out.push({ key: 'author', label: book ? '著者' : '読み終えた本' });
+    if (book && variant === 'record' && coverKey) out.push({ key: coverKey, label: '表紙' });
     if (record.date?.text) out.push({ key: 'date', label: record.date.label });
     for (const st of record.stats || []) {
       if (st?.key) out.push({ key: st.key, label: STAT_ITEM_LABEL[st.key] || st.label });
@@ -780,7 +783,7 @@ export function shareVisibility(hidden) {
 
 // 既定で隠す項目（本人がオンにしたときだけ出す）。日付は画像の主役にしない（2026-10-09）。
 // オンにした項目は別の名前（orime.share.shownItems）で覚える（隠した項目の一覧は今までの形のまま）。
-export const SHARE_ITEMS_DEFAULT_OFF = ['date'];
+export const SHARE_ITEMS_DEFAULT_OFF = ['date', 'photoCover'];
 export const SHARE_SHOWN_STORAGE_KEY = 'orime.share.shownItems';
 
 function readList(storage, key) {

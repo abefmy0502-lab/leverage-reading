@@ -637,7 +637,9 @@ export default function ShareSheet({
   const drawPhoto = useMemo(() => (effStyle === 'film' && photo ? filmPhoto(photo) : photo), [effStyle, photo]);
   styleRef.current = drawStyle;
   // 雑誌は写真・透明の上にも本のカード（表紙）を描くので、表紙を待つ。
-  const needCover = variant === 'magazine' || (drawStyle !== 'photo' && drawStyle !== 'sticker');
+  // 写真の記録で「表紙」をオンにしたとき（2026-11-15）も表紙を待つ。
+  const needCover = variant === 'magazine' || (drawStyle !== 'photo' && drawStyle !== 'sticker')
+    || (variant === 'record' && drawStyle === 'photo' && !isPeriod && !hidden.includes('photoCover'));
   const assets = baseAssets
     ? {
       ...baseAssets,
@@ -768,7 +770,11 @@ export default function ShareSheet({
 
   // ---- 編集画面（写真を動かす・拡大／言葉／表示する項目）。写真を動かせるのは写真の地のときだけ。
   const canPan = drawStyle === 'photo' && !!photo;
-  const items = shareItemsFor({ record, variant, hasQuote: !!chosen && variant === 'record', hasAuthor: !!String(lineBook?.author || '').trim() });
+  // 表紙の行（記録・1 冊の本だけ）。写真・フィルムの地は 'photoCover'（既定は出さない）、それ以外は 'cover'（既定は出す）。
+  const coverItemKey = variant === 'record' && !isPeriod && subjectBook && effStyle !== 'sticker'
+    ? (effStyle === 'photo' || effStyle === 'film' ? 'photoCover' : 'cover')
+    : null;
+  const items = shareItemsFor({ record, variant, hasQuote: !!chosen && variant === 'record', hasAuthor: !!String(lineBook?.author || '').trim(), coverKey: coverItemKey });
   const getEditorOpts = useCallback(() => cardOpts(), [drawKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const openEditor = () => { if (status === 'ready') { haptic.light(); setEditorOpen(true); } };
 
