@@ -7,7 +7,7 @@
 
 > App Store Connect の画面の登録は Claude in Chrome に任せられる: 指示文は `chrome-asc-prompt.md`（契約の同意・画像のアップロード・最後の「審査に提出」はオーナー）。
 
-- [ ] **審査の状態**: App Store Connect でバージョン 1.0.0 が「審査待ち／審査中／配信準備完了」のどれか。
+- [x] **審査の状態**（11/15 15:5x 提出・ビルド 4・「審査待ち」）: App Store Connect でバージョン 1.0.0 が「審査待ち／審査中／配信準備完了」のどれか。
   - **まだ提出していないなら今日出す**（初回の審査は 24〜48 時間。11/17 に間に合わせるには今日が最後）。手順は `company/app-store-submission.md` §10。
   - 「バージョンのリリース」は **手動でリリース** にしておき、11/17 の朝に自分で押す（審査が早く通っても勝手に出ない）。
 - [ ] **ストアに貼る文を、2026-11-15 版に貼り直す**（`company/app-store-listing.md`）。直したのは次の 3 つ:
@@ -22,6 +22,7 @@
 
 ## 1. 前日（11/16・月）
 
+- [ ] （Chrome に任せる: `chrome-day-before-prompt.md`＝SQL・メールの試し送り・P17 の予約・note 06 の下書き）
 - [ ] SQL を流し直す: `supabase_all_in_order.sql` → `supabase_verify_rls.sql`（LP の記録の CHECK・追加トークンの期限なし）。`docs/sql-runbook.md`
 - [ ] 公開のメール（`launch-email.md`）を自分宛てにもう一度試し送り。送信者名・連絡先・配信停止の方法が入っているか（特定電子メール法）
 - [ ] X の P17・固定ポストの差し替え文・スレッド 8 本を予約（`x-posts.md`・`calendar.md`）
