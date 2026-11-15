@@ -48,7 +48,7 @@ import { firstAnswerTrialGroup, isFirstAnswerTrialMoment, canOfferFirstAnswerTri
 import { shouldAskForReview, markReviewAsked, askForReview } from '../lib/reviewRequest';
 import { isNotifyOptInDone, canOfferNotify, notifyPromptedWithin } from '../lib/notifyOptIn';
 import { growthMeterText, firstAnswerEvidence, takeFirstConsult, takeMemosReached, getOnboardPath } from '../lib/firstDay';
-import { earlyShelfUsedCount, isEarlyStage, prefetchEarlyShelf } from '../lib/earlyShelf';
+import { earlyShelfUsedCount } from '../lib/earlyShelf';
 import { composerChrome, answerEndScrollTop, isTouchUi } from '../lib/composerView';
 import { useComposerHeight } from '../hooks/useComposerHeight';
 import { NATIVE_KEYBOARD_EVENT } from '../lib/native';
@@ -1993,12 +1993,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // （GLOSSARY）なので、読書メーター等の感想を「この本のまとめ」に取り込んだだけの人も相談できる（2026-09-29 オーナー裁定）。
   // 読書計画だけの人は「読んだ本に一言ずつ残す」へ（相談例の「最近のメモから…」が空振りしないように）。
   const ownMemoTotal = memoStats.cards + memoStats.personal + (memoStats.summaryBooks || 0);
-  // 🌱 育つ前（メモ 10 件未満）は、読んだ本の紹介・目次を先に取っておく（送ったときに待たせない・lib/earlyShelf.js）。
-  useEffect(() => {
-    if (!memoStatsLoaded || !isEarlyStage(ownMemoTotal)) return;
-    prefetchEarlyShelf(books, {}, ownMemoTotal, { timeoutMs: 15000 }).catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [memoStatsLoaded, ownMemoTotal, books.length]);
+  // 🌱 読んだ本の紹介の先取りは 2026-11-15 にやめた（相談の補足に使わない＝ai.js の EARLY_SHELF_ON）
   ownMemoTotalRef.current = memoStatsLoaded ? ownMemoTotal : -1;
   // 📊 memos_reached_10（lib/firstDay.js）: 10 件より少ないのを見たあとで 10 件以上になったら 1 回だけ（ホームと同じ印）。
   useEffect(() => {

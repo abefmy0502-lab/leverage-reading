@@ -1,3 +1,4 @@
+import { stripBookSummaries } from './_consultMaterial.js';
 import { createClient } from '@supabase/supabase-js';
 import { applyCors } from './_cors.js';
 import { ipGate } from './_ipRate.js';
@@ -993,13 +994,15 @@ export default async function handler(req, res) {
         const role = m?.role === 'assistant' ? 'assistant' : m?.role === 'user' ? 'user' : null;
         if (!role) continue;
         const c = m.content;
-        if (typeof c === 'string') { cleanMsgs.push({ role, content: c }); continue; }
+        // 相談は、本の概要（読んだ本の紹介・AI の本のまとめ）を材料から外す（api/_consultMaterial.js・2026-11-15）
+        const tidy = (t) => (body.purpose === 'consult' && role === 'user' ? stripBookSummaries(t) : t);
+        if (typeof c === 'string') { cleanMsgs.push({ role, content: tidy(c) }); continue; }
         if (Array.isArray(c)) {
           const blocks = [];
           for (const b of c) {
             if (!b || typeof b !== 'object') continue;
             if (b.type === 'text' && typeof b.text === 'string') {
-              const blk = { type: 'text', text: b.text };
+              const blk = { type: 'text', text: tidy(b.text) };
               if (b.cache_control?.type === 'ephemeral') blk.cache_control = { type: 'ephemeral' };
               blocks.push(blk);
             } else if (

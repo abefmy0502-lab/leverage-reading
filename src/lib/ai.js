@@ -330,6 +330,9 @@ function pickCategory(tags) {
 
 // SYNTH_LABEL は formatMemo と gatherKnowledge(synth 列の収集)で共有する単一の真実。
 // book_reason(選書理由) を含め、「なぜこの本を選んだか」という“想い”も凝縮の根拠に入れる。
+// 相談の材料に、読んだ本の公開の紹介（育つ前の補足）を使うか（2026-11-15 にやめた）
+const EARLY_SHELF_ON = false;
+
 const SYNTH_LABEL = {
   summary: 'まとめメモ',
   invest_purpose: '得たいこと',
@@ -600,7 +603,7 @@ async function gatherKnowledge(userId) {
       synthFromBook(b, 'current_challenge', b.current_challenge),
       synthFromBook(b, 'hypothesis', b.hypothesis),
       synthFromBook(b, 'book_reason', b.book_reason),
-      synthFromBook(b, 'ai_summary', b.ai_summary),
+      // AI が作った本のまとめ（ai_summary）は相談の材料にしない（2026-11-15 オーナー「本の概要を根拠にされるのは微妙」）
       synthFromBook(b, 'roi_summary', b.roi_summary),
       synthFromBook(b, 'ai_strategy', b.ai_strategy),
     ].filter(Boolean);
@@ -1699,7 +1702,8 @@ async function buildBrainContext({ userId, question, onStage, bookIds, mode = 'f
   //   すべての本に相談するときだけ・芯の後ろ。書誌の控えが無ければ取りに行く（最大 2.5 秒）。
   let earlyShelf = { text: '', titles: [] };
   const memoTotal = (counts?.cardCount || 0) + (counts?.personalCount || 0) + all.filter((m) => m.source_type === 'summary').length;
-  if (!scoped && Array.isArray(unreadBooks) && unreadBooks.length > 0 && isEarlyStage(memoTotal)) {
+  // 2026-11-15 オーナー「本の概要の情報を相談の根拠にされるのは微妙」: 読んだ本の紹介を補足に使うのをやめた（EARLY_SHELF_ON=false・中継も外す＝api/_consultMaterial.js）
+  if (EARLY_SHELF_ON && !scoped && Array.isArray(unreadBooks) && unreadBooks.length > 0 && isEarlyStage(memoTotal)) {
     const perBook = {};
     for (const m of allKnowledge) {
       if (m.source_type !== 'personal' && (m.source_type === 'summary' || !SYNTH_LABEL[m.source_type])) {
