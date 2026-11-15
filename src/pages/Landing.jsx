@@ -627,7 +627,7 @@ export default function Landing() {
             <div className="lp-narrow lp-sec-head">
               <h2 className="lp-h2" id="lp-why"><span>読むだけだと、</span><span>記憶は薄れていく。</span></h2>
               {/* 2026-11-15 オーナー「記憶が定着し行動が変わる、を短くいい感じに」（「行動が変わる」の言い切りは使わない＝ガードレール） */}
-              <p className="lp-lead lp-sec-lead lp-wbr"><Phrases>相談するたびに思い出すから、記憶に残り、行動につながる。</Phrases></p>
+              <p className="lp-lead lp-sec-lead lp-lines"><span>相談するたびに思い出すから、記憶に残り、</span><span>行動につながる。</span></p>
             </div>
             <LpWhy />
           </div>
