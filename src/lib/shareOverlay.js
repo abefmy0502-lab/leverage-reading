@@ -284,6 +284,38 @@ export function quoteText(text, variant = 'quote') {
   return clampLine(text, variant === 'record' ? RECORD_QUOTE_MAX : undefined).text;
 }
 
+// 長いメモから「この 1 文だけ」を選ぶための区切り（2026-11-15 オーナー「自分がメモした文章を選択できるように・
+//   いろんなパターンを想定してわかりやすく」）。句点・感嘆符・疑問符・改行で分け、「」の中の句点では分けない。
+//   短すぎる切れ端（4 字未満）は前の文に戻す。2 文以上に分かれたときだけ返す（1 文なら [] ＝丸ごと使う）。
+export function splitQuoteSentences(text) {
+  const src = String(text || '').replace(/\r/g, '').trim();
+  if (!src) return [];
+  const out = [];
+  let buf = '';
+  let depth = 0;
+  for (const ch of src) {
+    if (ch === '「' || ch === '『' || ch === '（' || ch === '(') depth += 1;
+    else if ((ch === '」' || ch === '』' || ch === '）' || ch === ')') && depth > 0) depth -= 1;
+    if (ch === '\n') {
+      if (buf.trim()) out.push(buf.trim());
+      buf = '';
+      depth = 0;
+      continue;
+    }
+    buf += ch;
+    if (depth === 0 && /[。！？!?]/.test(ch)) { out.push(buf.trim()); buf = ''; }
+  }
+  if (buf.trim()) out.push(buf.trim());
+  const merged = [];
+  for (const t of out) {
+    const s = t.replace(/^[、，,\s]+/, '');
+    if (!s) continue;
+    if (merged.length && [...s.replace(/[。！？!?」』）)\s]/g, '')].length < 4) merged[merged.length - 1] += s;
+    else merged.push(s);
+  }
+  return merged.length >= 2 ? merged : [];
+}
+
 // 「別の一文」を押したときの次（index -1 ＝ 一文なし）。
 // 記録（allowNone）は 候補 1 → 2 → … → なし → 1 と回る。一文の見せ方は なし にしない。
 export function swapQuote(index, count, allowNone = false) {

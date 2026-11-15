@@ -643,3 +643,20 @@ describe('雑誌（2026-10-09・大きな引用＋続きの文＋本のカード
     }
   });
 });
+
+import { splitQuoteSentences } from './shareOverlay';
+describe('長いメモから 1 文を選ぶ（splitQuoteSentences）', () => {
+  it('句点・改行で分ける・1 文なら空', () => {
+    expect(splitQuoteSentences('他人の課題と自分の課題を分ける。相手が自分をどう評価するかは相手の課題。'))
+      .toEqual(['他人の課題と自分の課題を分ける。', '相手が自分をどう評価するかは相手の課題。']);
+    expect(splitQuoteSentences('今ここに集中する。')).toEqual([]);
+    expect(splitQuoteSentences('読んでおくべきビジネス書、原理原則の本')).toEqual([]);
+    expect(splitQuoteSentences('一行目\n二行目の文')).toEqual(['一行目', '二行目の文']);
+  });
+  it('「」の中の句点では分けない・短い切れ端は前に戻す', () => {
+    expect(splitQuoteSentences('「できる。」と信じ切る。小さな工夫を重ねる。'))
+      .toEqual(['「できる。」と信じ切る。', '小さな工夫を重ねる。']);
+    expect(splitQuoteSentences('大事なのは続けること。はい。そして毎日やる。'))
+      .toEqual(['大事なのは続けること。はい。', 'そして毎日やる。']);
+  });
+});

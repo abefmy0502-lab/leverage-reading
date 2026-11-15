@@ -9,7 +9,7 @@
 //   メモから                … 紙＋その一文
 // 変えたいときだけ:
 //   どの本？（ホームから開いたとき）… 今月／（12 月だけ）今年／読書中・読了の本を 1 タップで切り替え
-//   一文を選ぶ                       … 候補の一覧から重ねる一文を選ぶ（記録では「一文を入れない」も・2026-10-17・QuotePickerSheet）
+//   画像に入れる一文（行）           … いま重ねている一文と「変える ›」。押すと一覧（記録では「一文を入れない」も・長いメモは 1 文ずつ・2026-11-15・QuotePickerSheet）
 //   重ね方（見せ方）                 … 記録／数字（大きな数字を縦に積む）／一文／雑誌（本 1 冊でメモがあるときだけ・2026-10-09）。
 //                                      小さな見本を押す・プレビューを左右にスワイプ
 //   形                               … 投稿 4:5 ／ ストーリー 9:16（どちらも SNS で切られない範囲に文字を置く）
@@ -36,7 +36,7 @@
 //   onClose
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ImagePlus, TextQuote, CalendarDays, CalendarRange, ChevronDown, Check, SlidersHorizontal, Camera } from 'lucide-react';
+import { ImagePlus, TextQuote, CalendarDays, CalendarRange, ChevronDown, ChevronRight, Check, SlidersHorizontal, Camera } from 'lucide-react';
 import BottomSheet from './BottomSheet';
 import SegThumb from './SegThumb';
 import ErrorMessage from './ErrorMessage';
@@ -66,7 +66,7 @@ import { buildShareText, shareFilename, FORMATS } from '../lib/shareCardLayout';
 import {
   pickShareSubject, subjectChoices, hasFinishedThisMonth, bookRecord, monthRecord, yearRecord, yearChoiceAllowed, orderQuoteCandidates,
   orderYearQuoteCandidates, shareHashtags, yearMemoCountFor, quoteText,
-  swapQuoteLabel, availableVariants, defaultVariant, buildRecordShareText, fmtStamp, fmtMagazineStamp,
+  availableVariants, defaultVariant, buildRecordShareText, fmtStamp, fmtMagazineStamp,
   shareItemsFor, applyShareItems, shareVisibility, readHiddenItems, writeHiddenItems,
   readSharePrefs, writeSharePrefs, stepVariant,
 } from '../lib/shareOverlay';
@@ -337,6 +337,35 @@ function useYearMemos(enabled, now) {
 }
 
 
+// 画像に入れる一文の行（押すと一覧）。面は surface・枠は separator・角丸 12（DESIGN §5 の行）。
+const quoteRowBtn = (on) => ({
+  alignSelf: 'stretch',
+  display: 'flex',
+  alignItems: 'flex-start',
+  gap: 'var(--space-3)',
+  width: '100%',
+  minHeight: 'var(--tap-min)',
+  padding: 'var(--space-2) var(--space-4)',
+  border: '1px solid var(--separator)',
+  borderRadius: 'var(--radius)',
+  background: 'var(--surface)',
+  color: 'var(--text)',
+  textAlign: 'left',
+  font: 'inherit',
+  cursor: on ? 'pointer' : 'default',
+});
+const quoteRowText = (empty) => ({
+  display: '-webkit-box',
+  WebkitLineClamp: 1,
+  WebkitBoxOrient: 'vertical',
+  overflow: 'hidden',
+  fontSize: 'var(--text-body)',
+  lineHeight: 1.5,
+  color: empty ? 'var(--text-2)' : 'var(--text)',
+  wordBreak: 'keep-all',
+  overflowWrap: 'break-word',
+});
+
 export default function ShareSheet({
   book: bookProp = null,
   books = null,
@@ -433,16 +462,20 @@ export default function ShareSheet({
   });
   const [quoteIndex, setQuoteIndex] = useState(0);
   const [quotePicker, setQuotePicker] = useState(false);
+  // 長いメモの中から選んだ 1 文（{ id, text }・null＝全文）。2026-11-15 オーナー「自分がメモした文章を選択できるように」。
+  const [quotePart, setQuotePart] = useState(null);
   // 本を切り替えたら、その本のいちばん新しい一文から。
   const subjectKey = period || `b:${subject.bookId}`;
   const lastSubjectKey = useRef(subjectKey);
   useEffect(() => {
-    if (lastSubjectKey.current !== subjectKey) { lastSubjectKey.current = subjectKey; setQuoteIndex(0); }
+    if (lastSubjectKey.current !== subjectKey) { lastSubjectKey.current = subjectKey; setQuoteIndex(0); setQuotePart(null); }
   }, [subjectKey]);
     // 一文・雑誌は一文が主役なので「なし」にしない。
   const quoteLed = variant === 'quote' || variant === 'magazine';
   const qi = candidates.length === 0 ? -1 : (quoteLed && quoteIndex < 0 ? 0 : Math.min(quoteIndex, candidates.length - 1));
-  const chosen = qi >= 0 ? candidates[qi] : null;
+  const chosenMemo = qi >= 0 ? candidates[qi] : null;
+  // 1 文だけを選んでいるときは、その文を重ねる（ページ・日付・本はそのメモのまま）。
+  const chosen = chosenMemo && quotePart && quotePart.id === chosenMemo.id ? { ...chosenMemo, text: quotePart.text } : chosenMemo;
   // 一文の本（今月・今年の一文は、その一文を書いた本）。
   const lineBook = chosen && isPeriod ? ((books || []).find((b) => b.id === chosen.bookId) || null) : subjectBook;
   const knownMaxPage = useMemo(
@@ -853,7 +886,11 @@ export default function ShareSheet({
   const aspect = `${dims.w} / ${dims.h}`;
   // 数字の重ね方（一文が無い）・記録で一文を隠した（表示する項目）ときは「一文を選ぶ」を出さない（替えても画像が変わらない）。
   // 2026-10-17 オーナー「一文を選択できるように」: 1 つずつ次へ送る「別の一文」をやめ、押すと候補の一覧（QuotePickerSheet）。
-  const swapLabel = variant === 'stats' || (variant === 'record' && hidden.includes('quote')) || !swapQuoteLabel(qi, candidates.length, variant === 'record') ? null : (qi < 0 ? '一文を入れる' : '一文を選ぶ');
+  // 画像に入れる一文の行: 'pick'＝いまの一文と「変える」／'empty'＝メモが無い（理由を 1 行）／null＝出さない
+  //   （大きな数字・表示する項目で一文を隠した記録・数字だけの今月）。
+  const quoteRowMode = variant === 'stats' || (variant === 'record' && hidden.includes('quote'))
+    ? null
+    : candidates.length > 0 ? 'pick' : (memosLoading ? null : 'empty');
   const thumbAspect = effStyle === 'sticker' ? 1 : FORMATS[format].w / FORMATS[format].h;
   const thumbW = Math.round(THUMB_H * thumbAspect);
   const subjectName = period === 'year' ? `${now.getFullYear()}年の読書` : period === 'month' ? `${now.getMonth() + 1}月の読書` : `『${subjectBook?.title || ''}』`;
@@ -998,6 +1035,38 @@ export default function ShareSheet({
               )}
             </div>
           )}
+          {/* 画像に入れる一文（2026-11-15 オーナー「ここら辺の操作がわかりにくい・いろんなパターンを想定してわかりやすく」）。
+              前は小さな「一文を選ぶ」の文字ボタンだけで、メモが 1 件の本では出ず、長いメモは丸ごとしか使えなかった。
+              今は、いま重ねている一文をそのまま見せる行（押すと一覧＝QuotePickerSheet・長いメモは 1 文ずつ選べる）。
+              ・一文が入らない重ね方（大きな数字）・表示する項目で一文を隠した記録では出さない
+              ・メモが無い本は「この本のメモがまだありません」と、一文が入る理由を 1 行で */}
+          {quoteRowMode && status !== 'error' && (
+            quoteRowMode === 'empty' ? (
+              <p style={{ alignSelf: 'stretch', margin: 0, color: 'var(--text-2)', fontSize: 'var(--text-sub)', lineHeight: 1.6 }}>
+                {isPeriod ? 'この期間のメモがまだありません。' : 'この本のメモがまだありません。'}メモを書くと、心に残った一文を画像に入れられます。
+              </p>
+            ) : (
+              <button
+                type="button"
+                disabled={status !== 'ready'}
+                aria-haspopup="dialog"
+                onClick={() => { setQuotePicker(true); haptic.light(); }}
+                style={quoteRowBtn(status === 'ready')}
+              >
+                <TextQuote size="1.2em" aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0, alignSelf: 'center' }} />
+                <span style={{ minWidth: 0, flex: 1, display: 'grid', gap: 'var(--space-1)' }}>
+                  <span style={{ color: 'var(--text-2)', fontSize: 'var(--text-meta)' }}>
+                    {quotePart && chosenMemo ? '画像に入れる一文（メモの一部）' : '画像に入れる一文'}
+                  </span>
+                  <span style={quoteRowText(!chosen)}>{chosen ? String(chosen.text || '').trim() : '一文を入れていません'}</span>
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', color: status === 'ready' ? 'var(--accent)' : 'var(--text-3)', fontSize: 'var(--text-sub)', fontWeight: 600, flexShrink: 0, alignSelf: 'center' }}>
+                  {chosen ? '変える' : '入れる'}
+                  <ChevronRight size="1.1em" aria-hidden="true" />
+                </span>
+              </button>
+            )
+          )}
           {/* 一文を選ぶ（候補の一覧から・記録では入れないこともできる）と「編集」（大きな画像で直す）。
               描けなかった間も場所は残して見えなくする（描き直せたときに下の部品が上下に動かない・見えない間は押せず読み上げない）。 */}
           {/* 同じ行の右に形（投稿 4:5／ストーリー 9:16）。重ね方の見本に名前の幅を空けるため、見本の行から移した（2026-10-08）。 */}
@@ -1008,19 +1077,6 @@ export default function ShareSheet({
           >
             {/* 文字ボタンの左右 4 は、文字の端を 16 にそろえるためにこの 2 つにだけ負の余白で打ち消す。 */}
             <div aria-hidden={status === 'error' || undefined} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginLeft: 'calc(-1 * var(--space-1))', visibility: status === 'error' ? 'hidden' : 'visible' }}>
-            {swapLabel && (
-              // 画像を作っている間は押せない（違う一文の画像のまま共有しない）。薄くせず色だけ変える（DESIGN §5 押せないボタン）。
-              <button
-                type="button"
-                disabled={status !== 'ready'}
-                aria-haspopup="dialog"
-                onClick={() => { setQuotePicker(true); haptic.light(); }}
-                style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', color: status === 'ready' ? 'var(--accent)' : 'var(--text-3)', opacity: 1, cursor: status === 'ready' ? 'pointer' : 'default' }}
-              >
-                <TextQuote size="1.1em" aria-hidden="true" />
-                {swapLabel}
-              </button>
-            )}
             <button
               type="button"
               disabled={status !== 'ready'}
@@ -1165,9 +1221,10 @@ export default function ShareSheet({
         <QuotePickerSheet
           candidates={candidates}
           selected={qi}
+          selectedPart={quotePart && chosenMemo && quotePart.id === chosenMemo.id ? quotePart.text : null}
           allowNone={variant === 'record'}
           bookTitleOf={isPeriod ? (m) => ((books || []).find((b) => b.id === m.bookId)?.title || '') : null}
-          onSelect={(i) => { setQuoteIndex(i); haptic.light(); }}
+          onSelect={(i, part) => { setQuoteIndex(i); setQuotePart(i >= 0 && part ? { id: candidates[i]?.id, text: part } : null); haptic.light(); }}
           onClose={() => setQuotePicker(false)}
         />
       )}
