@@ -10,6 +10,7 @@
 | ファイル | 中身 | 使う日 |
 |---|---|---|
 | [`release-day-checklist.md`](release-day-checklist.md) | **公開日の前後にやること**（審査・ストアの文・初回特典・env・メール・iPhone で通しの確認・30 日後の戻し）の順番 | **11/15〜11/17・12/17** |
+| [`chrome-asc-prompt.md`](chrome-asc-prompt.md) | App Store Connect の登録を Claude in Chrome に任せる指示文（アプリ・App 情報・年齢・プライバシー・サブスク・初回特典・追加トークン・1.0 の文・審査メモ） | 11/15 |
 | [`calendar.md`](calendar.md) | 10/11〜2/15 の**週ごと**の予定（オーナー／発信／Claude）と毎週の数字の表 | 毎週月曜 |
 | [`sns-playbook.md`](sns-playbook.md) | X・Instagram（リール・カルーセル）・Threads・note の役割・週の本数・型・ハッシュタグ・時刻・判断の数字（0 円）・**守ること（法律上の安全策）** | 投稿の前に |
 | [`x-posts.md`](x-posts.md) | 固定ポスト・公開前 17 本・**公開日のスレッド 8 本**・**公開後 30 日の 30 本**・AI 選書の 3 本（§3-2）・その後の型 | 10/13〜12/17 |
