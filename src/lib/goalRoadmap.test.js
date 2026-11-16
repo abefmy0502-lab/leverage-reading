@@ -1,7 +1,7 @@
 // 🧭 目標とロードマップ（lib/goals.js・lib/goalRoadmap.js）。
 import { describe, it, expect } from 'vitest';
 import { normalizeGoals, goalDeadline, fmtGoalDeadline, suggestHorizon, cleanGoalText, GOAL_MAX, hasAnyGoal } from './goals';
-import { phaseSpecs, currentPhaseIndex, shelfMaterial, parseRoadmap, pruneRoadmapBooks, goalsConsultBlock, higherGoalsText, priorQAText, parseRoadmapUpdate, roadmapPromptText, withUpdateLog, roadmapHorizons } from './goalRoadmap';
+import { phaseBookCaps, phasesPromptText, goalsPromptText, phaseSpecs, currentPhaseIndex, shelfMaterial, parseRoadmap, pruneRoadmapBooks, goalsConsultBlock, higherGoalsText, priorQAText, parseRoadmapUpdate, roadmapPromptText, withUpdateLog, roadmapHorizons } from './goalRoadmap';
 import { PROMPTS } from './prompts';
 
 const AT = '2026-11-15T03:00:00.000Z';
@@ -88,12 +88,12 @@ describe('本棚の一覧と答えの解析', () => {
 
 describe('相談に渡す目標・指示文に渡す文', () => {
   const goals = normalizeGoals({ y1: { text: '会議を回す', at: AT }, y3: { text: 'リーダーになる', at: AT } });
-  const records = { y1: { goalAt: AT, roadmap: { needs: [{ name: '会議の進め方' }, { name: '聞き方' }], issues: ['結論が出ない'], phases: [{ focus: '型をつくる', todos: ['議題を送る'] }] } } };
+  const records = { all: { goalAt: AT, roadmap: { needs: [{ name: '会議の進め方' }, { name: '聞き方' }], issues: ['結論が出ない'], phases: [{ focus: '型をつくる', todos: ['議題を送る'] }] } } };
   it('目標と、いちばん近い目標のいまの区切り（600 字まで）', () => {
     const t = goalsConsultBlock(goals, records, new Date(2026, 10, 20));
     expect(t).toContain('- 1 年後（2027 年 11 月まで）: 会議を回す');
     expect(t).toContain('- 3 年後（2029 年 11 月まで）: リーダーになる');
-    expect(t).toContain('必要なこと（1 年後の目標）: 会議の進め方・聞き方');
+    expect(t).toContain('必要なこと: 会議の進め方・聞き方');
     expect(t).toContain('今の課題: 結論が出ない');
     expect(t).toContain('いまの区切りで取り組むこと: 型をつくる（議題を送る）');
     expect(t.length).toBeLessThanOrEqual(600);
@@ -149,6 +149,38 @@ describe('見直し（相談・AI 選書から）', () => {
     const rec = withUpdateLog({ roadmap: prev, updates: [] }, { source: 'consult', newIssues: ['x'], note: 'n', at: 'T' });
     expect(rec.updates[0]).toEqual({ at: 'T', source: 'consult', newIssues: ['x'], note: 'n' });
     expect(rec.prevRoadmap).toBe(prev);
-    expect(roadmapHorizons({ y1: { text: 'a' }, y3: { text: 'b' } }, { y3: { roadmap: {} } })).toEqual(['y3']);
+    expect(roadmapHorizons({ y1: { text: 'a' }, y3: { text: 'b' } }, { y3: { roadmap: {} } })).toEqual([]);
+    expect(roadmapHorizons({}, { all: { roadmap: {} } })).toEqual(['all']);
+  });
+});
+
+describe('3 つの目標をつなぐ 1 本（2026-11-16）', () => {
+  it('区切りは 1 年目の 3 か月ずつ 4 つ → 2・3 年目（3 年後へ）→ 4・5 年目（5 年後へ）', () => {
+    const sp = phaseSpecs('all', AT);
+    expect(sp.map((x) => x.label)).toEqual(['1〜3 か月目', '4〜6 か月目', '7〜9 か月目', '10〜12 か月目', '2 年目', '3 年目', '4 年目', '5 年目']);
+    expect(sp.map((x) => x.goal)).toEqual(['y1', 'y1', 'y1', 'y1', 'y3', 'y3', 'y5', 'y5']);
+    expect(sp[4].startYm).toBe('2027-11');
+  });
+  it('読める冊数の目安: 3 か月 × 1 日 30 分 ÷ 1 冊 400 分 ＝ 6 冊・1 年は 8 冊まで', () => {
+    const caps = phaseBookCaps(phaseSpecs('all', AT), [], { minutesPerDay: 30 });
+    expect(caps.slice(0, 4)).toEqual([6, 6, 6, 6]);
+    expect(caps[4]).toBe(8);
+    expect(phaseBookCaps(phaseSpecs('all', AT), [], { minutesPerDay: 15 })[0]).toBe(3);
+  });
+  it('目安までなら、区切りに 3 冊より多く入る（前は 3 冊まで＝2 冊で期間が空いていた）', () => {
+    const keyToId = Object.fromEntries(Array.from({ length: 8 }, (_, i) => [`B${i + 1}`, `id${i + 1}`]));
+    const books = Array.from({ length: 8 }, (_, i) => ({ key: `B${i + 1}`, why: 'w' }));
+    const text = JSON.stringify({ needs: [{ name: 'n', why: 'w' }], issues: [], phases: [{ focus: 'f', todos: [], books }], missing: [] });
+    expect(parseRoadmap(text, keyToId, 1, [6]).phases[0].books).toHaveLength(6);
+    expect(parseRoadmap(text, keyToId, 1).phases[0].books).toHaveLength(3);
+  });
+  it('AI に渡す文: 3 つの目標・区切りの行き先と目安', () => {
+    const g = normalizeGoals({ y1: { text: 'A', at: AT }, y3: { text: 'B', at: AT }, y5: { text: 'C', at: AT } });
+    expect(goalsPromptText(g).split('\n')).toEqual(['1 年後（2027 年 11 月まで）: A', '3 年後（2029 年 11 月まで）: B', '5 年後（2031 年 11 月まで）: C']);
+    const sp = phaseSpecs('all', AT);
+    expect(phasesPromptText(sp, [6]).split('\n')[0]).toBe('1. 1〜3 か月目（2026.11–2027.1）→ 1 年後の目標へ・読める目安 約 6 冊');
+    const u = PROMPTS.goalRoadmap.user({ goalsText: goalsPromptText(g), priorQA: '', summary: '', phases: phasesPromptText(sp), shelf: '', doneBooks: '' });
+    expect(u).toContain('【目標（1 年後・3 年後・5 年後）】');
+    expect(PROMPTS.goalRoadmap.system).toContain('読める目安 約 N 冊');
   });
 });

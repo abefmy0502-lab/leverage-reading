@@ -1,23 +1,22 @@
 // 🔁 相談・AI 選書の会話から、ロードマップを見直すシート（2026-11-15 オーナー「AI 選書で自分が認識していない課題を新たに見つけたら、
 //   読書計画カレンダーも更新されていく感じ。自分が記載した課題も・ロードマップも。AI 選書のみならず相談でも」）。
 //
-// 流れ: どの目標か（ロードマップのある目標が 2 つ以上のときだけ選ぶ）→「見直す（約 25 トークン）」→ AI が、その会話から
+// 流れ: 3 つの目標をつなぐロードマップ（1 本・2026-11-16）→「見直す（約 35 トークン）」→ AI が、その会話から
 //   まだロードマップに無い課題が見えたかを確かめる → 見えたら 今の課題・必要なこと・まだ先の区切り を直して保存（カレンダーは
 //   ロードマップから作るので一緒に変わる）・「元に戻す」 / 見えなければ「いまのロードマップのままで大丈夫そうです」。
 // 勝手には見直さない（押したときだけ・トークンを使うので）。いまの区切りより前は変えない。
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import BottomSheet from './BottomSheet';
 import ErrorMessage from './ErrorMessage';
 import { SkeletonBlock } from './Skeleton';
-import { SegChoice } from './GoalScreen';
 import { withPhraseBreaks } from './TightBubble';
 import { useToast } from './Toast';
 import { btnPrimary, btnLinkQuiet } from '../styles/ui';
 import { useGoals } from '../hooks/useGoals';
 import { ensureAiConsent } from '../lib/aiConsent';
 import { updateGoalRoadmap } from '../lib/ai';
-import { horizonOf } from '../lib/goals';
-import { roadmapHorizons, saveRoadmap, withUpdateLog } from '../lib/goalRoadmap';
+import { ALL_GOALS_KEY, GOAL_HORIZONS } from '../lib/goals';
+import { saveRoadmap, withUpdateLog, ROADMAP_TOKENS_LABEL } from '../lib/goalRoadmap';
 import { appNow } from '../lib/appNow';
 import { track } from '../lib/analytics';
 import './goals.css';
@@ -27,9 +26,7 @@ const SOURCE_NAME = { consult: 'この相談', advisor: 'この AI 選書' };
 export default function RoadmapReflectSheet({ source, books = [], onClose, onOpenRoadmap }) {
   const { goals, roadmaps, loaded } = useGoals();
   const toast = useToast();
-  const horizons = useMemo(() => roadmapHorizons(goals, roadmaps), [goals, roadmaps]);
-  const [key, setKey] = useState(null);
-  const pick = key || horizons[0] || null;
+  const pick = roadmaps?.[ALL_GOALS_KEY]?.roadmap ? ALL_GOALS_KEY : null;
   const [stage, setStage] = useState('confirm'); // confirm | loading | changed | same | error
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
@@ -40,11 +37,10 @@ export default function RoadmapReflectSheet({ source, books = [], onClose, onOpe
     if (!pick) return;
     if (!(await ensureAiConsent('goal_roadmap'))) return;
     const record = roadmaps[pick];
-    const goal = { key: pick, ...goals[pick] };
     setStage('loading');
     setError(null);
     try {
-      const r = await updateGoalRoadmap({ goal, record, source, books, now: appNow() });
+      const r = await updateGoalRoadmap({ goals, record, source, books, now: appNow() });
       if (!r.found) {
         setStage('same');
         track('goal_roadmap_reflect', { source: source?.kind || 'other', found: false });
@@ -73,7 +69,7 @@ export default function RoadmapReflectSheet({ source, books = [], onClose, onOpe
     if (stage === 'confirm') {
       return (
         <button type="button" style={btnPrimary} onClick={run} disabled={!pick}>
-          見直す（約 25 トークン）
+          {`見直す（${ROADMAP_TOKENS_LABEL}）`}
         </button>
       );
     }
@@ -95,15 +91,14 @@ export default function RoadmapReflectSheet({ source, books = [], onClose, onOpe
           <p className="goal-lead" style={{ marginBottom: 'var(--space-4)' }}>
             {withPhraseBreaks(`${name}から、まだロードマップに書いていない課題が見えたかを、AI が確かめます。見えたら、今の課題・必要なこと・これからの道のりと読書計画が変わります。`)}
           </p>
-          {horizons.length > 1 && (
-            <div style={{ marginBottom: 'var(--space-3)' }}>
-              <SegChoice label="見直す目標" options={horizons.map((k) => [k, horizonOf(k).label])} value={pick} onChange={setKey} />
-            </div>
-          )}
           {pick && (
             <div className="goal-box" style={{ marginBottom: 0 }}>
-              <p className="goal-sec-title" style={{ margin: 0 }}>{`${horizonOf(pick).label}の目標`}</p>
-              <p className="goal-quote" style={{ marginBottom: 0 }}>{withPhraseBreaks(goals[pick]?.text || '')}</p>
+              {GOAL_HORIZONS.filter((h) => goals[h.key]?.text).map((h, i) => (
+                <div key={h.key} style={i ? { marginTop: 'var(--space-3)' } : undefined}>
+                  <p className="goal-sec-title" style={{ margin: 0 }}>{`${h.label}の目標`}</p>
+                  <p className="goal-quote" style={{ marginBottom: 0 }}>{withPhraseBreaks(goals[h.key].text)}</p>
+                </div>
+              ))}
             </div>
           )}
         </>

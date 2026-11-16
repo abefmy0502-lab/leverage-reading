@@ -65,6 +65,26 @@
 .goal-dot.is-now { left: var(--space-1); top: calc((1.5em - var(--space-2)) / 2); width: var(--space-2); height: var(--space-2); border: none; background: var(--text-3); }
 .goal-dot.is-set { border-color: var(--accent); }
 .goal-dot.is-here { border-color: var(--accent); background: var(--accent); }
+/* 道のりの途中の目標（1 年後 → 3 年後 → 5 年後・2026-11-16） */
+.goal-dot.is-goal { border-color: var(--text); border-width: var(--space-1); background: var(--bg); }
+.rm-mile-text {
+  margin: var(--space-1) 0 0;
+  font-family: var(--font-read);
+  font-size: var(--text-read);
+  font-weight: 600;
+  line-height: 1.55;
+  color: var(--text);
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+/* 3 つの目標の見出し */
+.goal-trio { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-4); }
+.goal-trio .goal-text { margin-top: var(--space-1); }
+.goal-trio.is-compact { gap: var(--space-3); }
+.goal-trio.is-compact .goal-text { font-size: var(--text-body); }
+/* 目標の画面の下のボタン（3 つとも書くとつくれる） */
+.goal-cta { margin-top: var(--space-6); padding-top: var(--space-6); border-top: 1px solid var(--separator); }
 
 .goal-when {
   display: flex;

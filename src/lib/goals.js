@@ -21,7 +21,11 @@ export const GOAL_HORIZONS = [
   { key: 'y5', years: 5, label: '5 年後', example: '5 年後に、自分の名前で仕事をしたい' },
 ];
 export const GOAL_KEYS = GOAL_HORIZONS.map((h) => h.key);
-export const horizonOf = (key) => GOAL_HORIZONS.find((h) => h.key === key) || null;
+// 3 つの目標をつなぐ 1 本のロードマップ（2026-11-16 オーナー「1 年後・3 年後・5 年後の目標をすべて入れたら AI を動かす」）。
+//   ロードマップ・読書計画は 'all' の 1 つだけ（目標ごとには作らない）。
+export const ALL_GOALS_KEY = 'all';
+const ALL_HORIZON = { key: ALL_GOALS_KEY, years: 5, label: '3 つの目標' };
+export const horizonOf = (key) => (key === ALL_GOALS_KEY ? ALL_HORIZON : GOAL_HORIZONS.find((h) => h.key === key) || null);
 
 export function cleanGoalText(text) {
   return String(text ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, GOAL_MAX);
@@ -43,6 +47,21 @@ export function normalizeGoals(raw) {
 }
 
 export const hasAnyGoal = (goals) => GOAL_KEYS.some((k) => goals?.[k]?.text);
+export const allGoalsSet = (goals) => GOAL_KEYS.every((k) => goals?.[k]?.text);
+export const missingGoalCount = (goals) => GOAL_KEYS.filter((k) => !goals?.[k]?.text).length;
+
+// 3 つの目標をまとめた 1 つ（ロードマップの起点は、いちばん早く書いた日＝1 年後の区切りがそこから始まる）。
+//   text は「1 年後：…／3 年後：…／5 年後：…」（本を探す下書きなどに使う）。
+export function combinedGoal(goals) {
+  if (!allGoalsSet(goals)) return null;
+  const ats = GOAL_KEYS.map((k) => goals[k].at).sort();
+  return {
+    key: ALL_GOALS_KEY,
+    at: ats[0],
+    text: GOAL_HORIZONS.map((h) => `${h.label}：${goals[h.key].text}`).join('／'),
+    goals: Object.fromEntries(GOAL_KEYS.map((k) => [k, goals[k]])),
+  };
+}
 
 // 期限の日（書いた日の年に years を足す・月末は丸める）。
 export function goalDeadline(at, years) {

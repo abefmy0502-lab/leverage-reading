@@ -1,6 +1,6 @@
 -- 🧭 目標のロードマップと読書計画（2026-11-15 オーナー「1 年後・3 年後・5 年後の目標を、達成するには？で深掘りしてロードマップに・本棚の本で読書計画カレンダーに」）
 --
--- 1 人・1 つの目標（horizon＝'y1' / 'y3' / 'y5'）に 1 行。data（jsonb）に 深掘りの問いと答え・受け取ったまとめ・
+-- 1 人に 1 行（horizon＝'all'＝1 年後・3 年後・5 年後の目標をつなぐ 1 本・2026-11-16。前の版の 'y1' / 'y3' / 'y5' の行も読める）。data（jsonb）に 深掘りの問いと答え・受け取ったまとめ・
 -- ロードマップ（必要なこと・今の課題・区切りごとにやること・読む本の id・本棚に無いテーマ）・読書計画（1 日の分・始めた日）を持つ。
 -- 目標の文そのものは Supabase Auth の user_metadata.app_goals（lib/goals.js）。ここの goal_text は作ったときの写し。
 --
@@ -22,8 +22,13 @@ create table if not exists public.goal_roadmaps (
 
 do $$
 begin
+  -- 2026-11-16: 3 つの目標をつなぐ 1 本（'all'）を足した。前の版の制約（'y1'/'y3'/'y5' だけ）は作り直す。
+  if exists (select 1 from pg_constraint where conname = 'goal_roadmaps_horizon_check'
+             and pg_get_constraintdef(oid) not like '%all%') then
+    alter table public.goal_roadmaps drop constraint goal_roadmaps_horizon_check;
+  end if;
   if not exists (select 1 from pg_constraint where conname = 'goal_roadmaps_horizon_check') then
-    alter table public.goal_roadmaps add constraint goal_roadmaps_horizon_check check (horizon in ('y1', 'y3', 'y5'));
+    alter table public.goal_roadmaps add constraint goal_roadmaps_horizon_check check (horizon in ('y1', 'y3', 'y5', 'all'));
   end if;
   if not exists (select 1 from pg_constraint where conname = 'goal_roadmaps_text_check') then
     alter table public.goal_roadmaps add constraint goal_roadmaps_text_check check (char_length(goal_text) <= 200);

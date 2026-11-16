@@ -1,6 +1,7 @@
 // 🧭 お試しモードの目標とロードマップ（2026-11-15）。
-//   &goals=on        … 1 年後・3 年後の目標＋1 年後のロードマップ（本棚の本で道のりと読書計画）
-//   &goals=noroadmap … 目標だけ（ロードマップはまだ）
+//   &goals=on        … 1 年後・3 年後・5 年後の目標＋3 つをつなぐロードマップ（本棚の本で道のりと読書計画）
+//   &goals=noroadmap … 3 つの目標だけ（ロードマップはまだ＝「ロードマップをつくる」）
+//   &goals=partial   … 1 年後・3 年後だけ（5 年後がまだ＝つくれない）
 //   &goals=purpose   … 目標は空・はじめに書いた目標（入れた理由）だけある（どの欄に入れるかのカード）
 //   付けなければ目標は空（行動の上は「1 年後・3 年後・5 年後の目標を書く」）。
 
@@ -23,10 +24,10 @@ export function applyGoalsDemo(db, user, params, { userId, now = new Date(), cov
     app_goals: {
       y1: { text: '1 年後に、チームの会議を自分で回し、メンバーの力を引き出せるようになりたい', at },
       y3: { text: '3 年後に、10 人のチームを任されるリーダーになりたい', at },
-      y5: null,
+      y5: mode === 'partial' ? null : { text: '5 年後に、新しい事業を立ち上げて任せられる人になりたい', at },
     },
   };
-  if (mode === 'noroadmap') return;
+  if (mode === 'noroadmap' || mode === 'partial') return;
 
   // 本棚に、まだ読んでいない本を少し足す（読書計画のカレンダーが数か月にまたがるように）。
   const extraIds = EXTRA_BOOKS.map((_, i) => `00000000-0000-4000-8000-0000000b09${String(i).padStart(2, '0')}`);
@@ -70,16 +71,21 @@ export function applyGoalsDemo(db, user, params, { userId, now = new Date(), cov
       { focus: '次の 2 年に向けて広げる', todos: ['この 1 年でうまくいったことを 3 つ書き出す'], books: [
         { bookId: idOf('LIFE SHIFT'), why: '3 年後のリーダー像を、長い働き方の中で考え直せます。' },
       ] },
+      { focus: 'チームの数を増やして任せる', todos: ['リーダーを 1 人育て、会議を任せる'], books: [] },
+      { focus: '10 人のチームの仕組みをつくる', todos: ['チームの役割と決め方を 1 枚に書く'], books: [] },
+      { focus: '新しい事業の種を探す', todos: ['社内の困りごとを 10 個集める'], books: [] },
+      { focus: '小さく始めて、任せる', todos: ['小さな企画を 1 つ立ち上げ、メンバーに任せる'], books: [] },
     ],
     missing: [{ theme: '人を育てる対話', why: '本棚に、コーチングの基本を学べる本がまだありません。' }],
   };
   roadmap.phases.forEach((p) => { p.books = p.books.filter((b) => b.bookId); });
   db.goal_roadmaps = [{
     user_id: userId,
-    horizon: 'y1',
+    horizon: 'all',
     goal_text: user.user_metadata.app_goals.y1.text,
     goal_at: at,
     data: {
+      goals: user.user_metadata.app_goals,
       qa: [
         { q: '会議を回すうえで、いまいちばん引っかかっているのは、どんなところですか？', a: '会議で結論が出ないまま終わる' },
         { q: '「会議で結論が出ないまま終わる」とき、メンバーとはどう関わっていますか？', a: '忙しいと話を途中で引き取ってしまう' },
@@ -105,7 +111,7 @@ export function goalInterviewAnswer(userText) {
   if (round === 1) {
     return JSON.stringify({
       done: false,
-      question: 'その目標に向けて、いまいちばん足りないと感じるのは、どんなところですか？',
+      question: '1 年後の目標に向けて、いまいちばん足りないと感じるのは、どんなところですか？',
       options: ['会議で結論が出ないまま終わる', 'メンバーに任せきれない', '自分の仕事で手一杯になる'],
       summary,
     });
@@ -121,13 +127,17 @@ export function goalInterviewAnswer(userText) {
 // ロードマップ（お試しの AI）。本番と同じく、渡された本棚の印（B1…）だけで本を挙げる。
 export function goalRoadmapAnswer(userText) {
   const keys = [...userText.matchAll(/^(B\d+) \|/gm)].map((m) => m[1]);
-  const phaseCount = [...userText.matchAll(/^\d+\. .+（.+）$/gm)].length || 4;
+  const phaseLines = [...userText.matchAll(/^\d+\. .+（.+）.*$/gm)].map((m) => m[0]);
+  const phaseCount = phaseLines.length || 8;
+  const caps = phaseLines.map((l) => Number((l.match(/約 (\d+) 冊/) || [])[1] || 2));
   const phases = [];
+  let k = 0;
   for (let i = 0; i < phaseCount; i += 1) {
-    const ks = keys.slice(i * 2, i * 2 + 2);
+    const ks = keys.slice(k, k + (caps[i] || 2));
+    k += ks.length;
     phases.push({
-      focus: ['土台になる型をつくる', '成果を見える形にする', '任せて、育てる', '次に向けて広げる', '振り返って整える'][i] || '続ける',
-      todos: [['毎週の振り返りを 15 分とる', '気づいたことを 1 行メモに残す'], ['目標を 1 つの数字にして週に 1 回見る'], ['仕事を 1 つ人に任せて振り返る'], ['この期間でうまくいったことを 3 つ書き出す'], ['次の目標を書き直す']][i] || [],
+      focus: ['土台になる型をつくる', '成果を見える形にする', '任せて、育てる', '次に向けて広げる', 'チームを広げる', '仕組みにする', '新しい種を探す', '小さく始めて任せる'][i] || '続ける',
+      todos: [['毎週の振り返りを 15 分とる', '気づいたことを 1 行メモに残す'], ['目標を 1 つの数字にして週に 1 回見る'], ['仕事を 1 つ人に任せて振り返る'], ['この期間でうまくいったことを 3 つ書き出す'], ['リーダーを 1 人育てる'], ['役割と決め方を 1 枚に書く'], ['困りごとを 10 個集める'], ['小さな企画を 1 つ立ち上げる']][i] || [],
       books: ks.map((k) => ({ key: k, why: 'いまの区切りで取り組むことに、まっすぐ効く本です。' })),
     });
   }

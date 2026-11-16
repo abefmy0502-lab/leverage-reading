@@ -3,7 +3,7 @@
 import { ChevronRight } from 'lucide-react';
 import './goals.css';
 import { useGoals } from '../hooks/useGoals';
-import { GOAL_HORIZONS, fmtGoalDeadline } from '../lib/goals';
+import { GOAL_HORIZONS, ALL_GOALS_KEY, fmtGoalDeadline, allGoalsSet } from '../lib/goals';
 import { currentPhaseIndex } from '../lib/goalRoadmap';
 import { appNow } from '../lib/appNow';
 import { withPhraseBreaks } from './TightBubble';
@@ -24,11 +24,15 @@ export default function GoalEntry({ onOpen }) {
     );
   }
   const g = goals[h.key];
-  const rm = roadmaps[h.key]?.roadmap;
-  const phase = rm ? rm.phases?.[currentPhaseIndex(h.key, roadmaps[h.key].goalAt || g.at, appNow())] : null;
-  const next = rm ? (phase?.focus ? `いま：${phase.focus}` : 'ロードマップを見る') : '達成するには？を考える';
+  // ロードマップは 3 つの目標をつなぐ 1 本（2026-11-16）。
+  const rec = roadmaps[ALL_GOALS_KEY];
+  const rm = rec?.roadmap;
+  const phase = rm ? rm.phases?.[currentPhaseIndex(ALL_GOALS_KEY, rec.goalAt || g.at, appNow())] : null;
+  const next = rm
+    ? (phase?.focus ? `いま：${phase.focus}` : 'ロードマップを見る')
+    : allGoalsSet(goals) ? 'ロードマップをつくる' : '3 つの目標を書くと、ロードマップをつくれます';
   return (
-    <button type="button" className="goal-entry" onClick={() => onOpen?.({ view: rm ? 'roadmap' : 'goals', horizon: h.key })}>
+    <button type="button" className="goal-entry" onClick={() => onOpen?.({ view: rm ? 'roadmap' : 'goals', horizon: rm ? ALL_GOALS_KEY : null })}>
       <span className="goal-entry-body">
         <span className="goal-entry-label">{`${h.label}の目標 · ${fmtGoalDeadline(g.at, h.years)}`}</span>
         <span className="goal-entry-text">{g.text}</span>

@@ -1909,24 +1909,20 @@ export async function generateBookBrief({ book, info }) {
 }
 
 // 🧭 目標の深掘り・ロードマップ（2026-11-15・lib/goalRoadmap.js）。
-//   goal＝{ key, text, at }・qa＝[{ q, a }]。
+//   2026-11-16 オーナー「1 年後・3 年後・5 年後の目標をすべて入れたら AI を動かす」: 3 つの目標をつなぐ 1 本だけを作る
+//   （goals＝{ y1, y3, y5 }・3 つとも書いてあるときだけ画面が呼ぶ）。qa＝[{ q, a }]。
 //   深掘り: { done, question, options, summary }（lib/advisorInterview.js の parseInterviewStep）/ { stop: 案内の文 } / null（失敗）。
-//   ロードマップ: { roadmap } / 失敗は Error（案内は err.notice）。
-export async function runGoalInterview({ goal, goals, roadmaps, qa, round }) {
+//   ロードマップ: { roadmap, specs } / 失敗は Error（案内は err.notice）。
+export async function runGoalInterview({ goals, qa, round }) {
   const PROMPTS = await loadPrompts();
   const { parseInterviewStep } = await import('./advisorInterview');
-  const { higherGoalsText, priorQAText, GOAL_ASK_LIMIT, INTERVIEW_MAX_TOKENS } = await import('./goalRoadmap');
-  const { horizonOf, fmtGoalDeadline } = await import('./goals');
-  const h = horizonOf(goal.key);
+  const { goalsPromptText, priorQAText, GOAL_ASK_LIMIT, INTERVIEW_MAX_TOKENS } = await import('./goalRoadmap');
   let text = '';
   try {
     text = await callClaude(
       PROMPTS.goalInterview.system,
       PROMPTS.goalInterview.user({
-        horizonLabel: h.label,
-        goal: clamp(sanitizeForPrompt(goal.text), 120),
-        deadline: fmtGoalDeadline(goal.at, h.years),
-        higher: sanitizeForPrompt(higherGoalsText(goal.key, goals, roadmaps)),
+        goalsText: sanitizeForPrompt(goalsPromptText(goals)),
         priorQA: sanitizeForPrompt(priorQAText(qa)),
         round,
         maxRounds: GOAL_ASK_LIMIT,
@@ -1942,27 +1938,30 @@ export async function runGoalInterview({ goal, goals, roadmaps, qa, round }) {
   return parseInterviewStep(text);
 }
 
-export async function generateGoalRoadmap({ goal, goals, roadmaps, qa, summary, books }) {
+// 区切り・読める冊数の目安・本棚（つくる・見直すで同じ）。
+async function goalRoadmapMaterial({ goals, at, books, minutesPerDay }) {
+  const { phaseSpecs, phaseBookCaps, phasesPromptText, goalsPromptText, shelfMaterial } = await import('./goalRoadmap');
+  const { ALL_GOALS_KEY } = await import('./goals');
+  const specs = phaseSpecs(ALL_GOALS_KEY, at);
+  const caps = phaseBookCaps(specs, books, { minutesPerDay });
+  return { specs, caps, phasesText: phasesPromptText(specs, caps), goalsText: sanitizeForPrompt(goalsPromptText(goals)), shelf: shelfMaterial(books) };
+}
+
+export async function generateGoalRoadmap({ goals, at, qa, summary, books, minutesPerDay }) {
   const PROMPTS = await loadPrompts();
-  const { higherGoalsText, priorQAText, phaseSpecs, shelfMaterial, parseRoadmap, ROADMAP_MAX_TOKENS } = await import('./goalRoadmap');
-  const { horizonOf, fmtGoalDeadline } = await import('./goals');
-  const h = horizonOf(goal.key);
-  const specs = phaseSpecs(goal.key, goal.at);
-  const shelf = shelfMaterial(books);
+  const { priorQAText, parseRoadmap, ROADMAP_MAX_TOKENS } = await import('./goalRoadmap');
+  const { specs, caps, phasesText, goalsText, shelf } = await goalRoadmapMaterial({ goals, at, books, minutesPerDay });
   const result = await callClaude(
     PROMPTS.goalRoadmap.system,
     PROMPTS.goalRoadmap.user({
-      horizonLabel: h.label,
-      goal: clamp(sanitizeForPrompt(goal.text), 120),
-      deadline: fmtGoalDeadline(goal.at, h.years),
-      higher: sanitizeForPrompt(higherGoalsText(goal.key, goals, roadmaps)),
+      goalsText,
       priorQA: sanitizeForPrompt(priorQAText(qa)),
       summary: clamp(sanitizeForPrompt(summary || ''), 300),
-      phases: specs.map((s, i) => `${i + 1}. ${s.label}（${s.range}）`).join('\n'),
+      phases: phasesText,
       shelf: sanitizeForPrompt(shelf.text),
       doneBooks: sanitizeForPrompt(shelf.doneText),
     }),
-    // 年に数回なので質を取る（AI 選書の推薦と同じ Claude Sonnet・docs/ai-routing.md）。無料プランは目標 1 つまで（画面で止める）。
+    // 年に数回なので質を取る（AI 選書の推薦と同じ Claude Sonnet・docs/ai-routing.md）。
     { max_tokens: ROADMAP_MAX_TOKENS, cacheSystem: true, model: MODEL_SMART, purpose: 'goal_roadmap' },
   );
   if (typeof result !== 'string' || isClaudeErrorString(result)) {
@@ -1971,38 +1970,34 @@ export async function generateGoalRoadmap({ goal, goals, roadmaps, qa, summary, 
     if (notice) err.notice = true;
     throw err;
   }
-  const roadmap = parseRoadmap(isSuspiciousOutput(result) ? '' : result, shelf.keyToId, specs.length);
+  const roadmap = parseRoadmap(isSuspiciousOutput(result) ? '' : result, shelf.keyToId, specs.length, caps);
   if (!roadmap) throw new Error('ロードマップをうまくまとめられませんでした。もう一度押してください。');
   track('ai_used', { feature: 'goal_roadmap' });
-  return { roadmap };
+  return { roadmap, specs };
 }
 
 // 🔁 ロードマップの見直し（相談・AI 選書の会話から・2026-11-15）。
 //   source: { kind: 'consult' | 'advisor', text }（その会話の要点・呼ぶ側で組む）。
 //   返り値: { found:false } / { found:true, newIssues, note, roadmap }。失敗は Error（案内は err.notice）。
-export async function updateGoalRoadmap({ goal, record, source, books, now = new Date() }) {
+export async function updateGoalRoadmap({ goals, record, source, books, now = new Date() }) {
   const PROMPTS = await loadPrompts();
-  const { phaseSpecs, currentPhaseIndex, shelfMaterial, roadmapPromptText, parseRoadmapUpdate, ROADMAP_MAX_TOKENS } = await import('./goalRoadmap');
-  const { horizonOf, fmtGoalDeadline } = await import('./goals');
-  const h = horizonOf(goal.key);
-  const at = record.goalAt || goal.at;
-  const specs = phaseSpecs(goal.key, at);
-  const here = currentPhaseIndex(goal.key, at, now);
-  const shelf = shelfMaterial(books);
+  const { currentPhaseIndex, roadmapPromptText, parseRoadmapUpdate, ROADMAP_MAX_TOKENS } = await import('./goalRoadmap');
+  const { ALL_GOALS_KEY } = await import('./goals');
+  const at = record.goalAt;
+  const { specs, caps, phasesText, goalsText, shelf } = await goalRoadmapMaterial({ goals, at, books, minutesPerDay: record.plan?.minutesPerDay });
+  const here = currentPhaseIndex(ALL_GOALS_KEY, at, now);
   const result = await callClaude(
     PROMPTS.goalRoadmapUpdate.system,
     PROMPTS.goalRoadmapUpdate.user({
-      horizonLabel: h.label,
-      goal: clamp(sanitizeForPrompt(goal.text), 120),
-      deadline: fmtGoalDeadline(goal.at, h.years),
+      goalsText,
       current: sanitizeForPrompt(roadmapPromptText(record.roadmap, shelf.keyToId, books, specs)),
       hereLabel: specs[here]?.label || '',
-      phases: specs.map((s, i) => `${i + 1}. ${s.label}（${s.range}）`).join('\n'),
+      phases: phasesText,
       source: clamp(sanitizeForPrompt(source?.text || ''), 1800),
       shelf: sanitizeForPrompt(shelf.text),
       doneBooks: sanitizeForPrompt(shelf.doneText),
     }),
-    // ロードマップと同じ行き先（質を取る・年に数回より少し多い程度）。無料プランも、ロードマップのある目標なら使える。
+    // ロードマップと同じ行き先（質を取る）。無料プランも、ロードマップがあれば使える。
     { max_tokens: ROADMAP_MAX_TOKENS, cacheSystem: true, model: MODEL_SMART, purpose: 'goal_roadmap' },
   );
   if (typeof result !== 'string' || isClaudeErrorString(result)) {
@@ -2011,7 +2006,7 @@ export async function updateGoalRoadmap({ goal, record, source, books, now = new
     if (notice) err.notice = true;
     throw err;
   }
-  const r = parseRoadmapUpdate(isSuspiciousOutput(result) ? '' : result, shelf.keyToId, record.roadmap, here);
+  const r = parseRoadmapUpdate(isSuspiciousOutput(result) ? '' : result, shelf.keyToId, record.roadmap, here, caps);
   if (!r) throw new Error('ロードマップを見直せませんでした。もう一度押してください。');
   track('ai_used', { feature: 'goal_roadmap_update' });
   return r;

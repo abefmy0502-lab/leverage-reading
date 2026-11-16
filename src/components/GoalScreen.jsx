@@ -2,14 +2,15 @@
 //   ロードマップに。課題ややるべきことが見える」「本棚からいつまでにどの本をどの順番に読むのかをカレンダーに・読むスピードを調整」）。
 //
 // 画面（振り返り › 行動 のいちばん上の 1 行から開く・押し込まれた全画面）:
-//   goals    … 道（いま → 1 年後 → 3 年後 → 5 年後）。目標を書く・書き直す・「達成するには？」・ロードマップを見る
-//   interview … 「達成するには？」の深掘り（AI が 1 つずつ聞く・2 つまで・答えの候補はいくつでも選べる）
+//   goals    … 道（いま → 1 年後 → 3 年後 → 5 年後）。目標を書く・書き直す。3 つとも書くと「ロードマップをつくる」
+//             （2026-11-16 オーナー「すべて入れたら AI を動かす」＝目標ごとではなく、3 つをつなぐ 1 本だけ）
+//   interview … 「達成するには？」の深掘り（3 つの目標について AI が 1 つずつ聞く・2 つまで・答えの候補はいくつでも選べる）
 //   roadmap  … 必要なこと・今の課題・道のり（区切りごとにやること・読む本）・本棚に無いテーマ
 //   plan     … 読書計画カレンダー（1 日に読む時間を選ぶと、今日から日付を割り振る・遅れは出さない）
 // 言葉は GLOSSARY（目標・行動・積読・トークン）。%・連続日数・「あと N 冊」は出さない。
 // 見た目は goals.css（トークンだけ）。
 
-import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, Plus, Search } from 'lucide-react';
 import './goals.css';
 import { AdvisorNavBar } from './AdvisorHistory';
@@ -24,12 +25,11 @@ import { btnPrimary, btnPrimaryOff, btnGhost, btnLink, btnLinkQuiet, input as ui
 import { useEdgeSwipeBack } from '../hooks/useEdgeSwipeBack';
 import { useReadingSessions } from '../hooks/useReadingSessions';
 import { useGoals } from '../hooks/useGoals';
-import { PaywallContext } from '../state/PaywallContext';
 import { ensureAiConsent } from '../lib/aiConsent';
 import { runGoalInterview, generateGoalRoadmap } from '../lib/ai';
 import { interviewChips, toggleChoice, choiceSelected, OPT_OFF, OPT_UNSURE, OFF_PLACEHOLDER } from '../lib/advisorInterview';
-import { GOAL_HORIZONS, GOAL_MAX, horizonOf, fmtGoalDeadline, saveGoal, suggestHorizon, cleanGoalText } from '../lib/goals';
-import { GOAL_ASK_LIMIT, phaseSpecs, currentPhaseIndex, saveRoadmap, pruneRoadmapBooks } from '../lib/goalRoadmap';
+import { GOAL_HORIZONS, GOAL_MAX, ALL_GOALS_KEY, horizonOf, fmtGoalDeadline, saveGoal, suggestHorizon, cleanGoalText, allGoalsSet, combinedGoal } from '../lib/goals';
+import { GOAL_ASK_LIMIT, ROADMAP_TOKENS_LABEL, phaseSpecs, currentPhaseIndex, saveRoadmap, pruneRoadmapBooks } from '../lib/goalRoadmap';
 import {
   PLAN_MINUTES, PLAN_DEFAULT_MINUTES, readingSpeedFactor, planItemsFromRoadmap, scheduleBooks, monthWeeks, weekBands,
   planMonths, bookOnDay, fmtSpan, fmtMd, fmtRange, fmtHoursMin, parseYmd,
@@ -66,7 +66,6 @@ function gluedEnd(text) {
 
 export default function GoalScreen({ start = null, books = [], onClose, onOpenBook, onAddActionText, onAddReadingActions, onFindBooks }) {
   const { goals, roadmaps, purpose, loaded } = useGoals();
-  const pay = useContext(PaywallContext);
   const toast = useToast();
   const { rows: sessions } = useReadingSessions();
   const [view, setView] = useState(start?.view || 'goals');
@@ -75,8 +74,9 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
   const [scrolled, setScrolled] = useState(false);
   const scrollRef = useRef(null);
 
-  const goal = horizon && goals[horizon] ? { key: horizon, ...goals[horizon] } : null;
-  const record = horizon ? roadmaps[horizon] : null;
+  // ロードマップは 3 つの目標をつなぐ 1 本だけ（'all'）。
+  const goal = horizon === ALL_GOALS_KEY ? combinedGoal(goals) : null;
+  const record = goal ? roadmaps[ALL_GOALS_KEY] : null;
 
   const back = useCallback(() => {
     if (view === 'plan') { setView('roadmap'); return; }
@@ -90,20 +90,12 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
   // 本を開いて戻ってきたら、同じ目標の同じ画面へ（App が覚えておく）。
   const openBook = (b) => onOpenBook?.(b, { view, horizon });
 
-  // 無料プランは目標 1 つまで（2026-11-15 オーナー決定）。ほかの目標でもうロードマップを作っていたら、プランの画面へ。
-  const canBuild = (key) => {
-    if (!pay?.freeMode) return true;
-    const others = Object.keys(roadmaps || {}).filter((k) => k !== key && roadmaps[k]?.roadmap);
-    if (others.length === 0) return true;
-    pay.openPaywall?.('feature', '2 つ目のロードマップ');
-    return false;
-  };
-
-  const startInterview = async (key) => {
-    if (!canBuild(key)) return;
+  // 3 つとも書いたときだけ（ロードマップは 1 本＝無料プランもこの 1 本を作れる・トークンの量で守る）。
+  const startInterview = async () => {
+    if (!allGoalsSet(goals)) return;
     if (!(await ensureAiConsent('goal_interview'))) return;
-    track('goal_interview_start', { horizon: key });
-    open(key, 'interview');
+    track('goal_interview_start', { horizon: ALL_GOALS_KEY });
+    open(ALL_GOALS_KEY, 'interview');
   };
 
   const backLabel = view === 'goals' ? '行動' : view === 'plan' ? 'ロードマップ' : '目標';
@@ -124,7 +116,7 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
                 if (r) toast.success?.(`${horizonOf(key).label}の目標に入れました。`);
               }}
               onInterview={startInterview}
-              onRoadmap={(key) => open(key, 'roadmap')}
+              onRoadmap={() => open(ALL_GOALS_KEY, 'roadmap')}
             />
           )}
           {view === 'interview' && goal && (
@@ -146,15 +138,15 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
               onAddActionText={onAddActionText}
               onFindBooks={onFindBooks}
               onPlan={() => setView('plan')}
-              onRebuild={() => startInterview(goal.key)}
+              onRebuild={startInterview}
               onUndoUpdate={async () => {
-                await saveRoadmap(goal.key, { ...record, roadmap: record.prevRoadmap, prevRoadmap: null, updates: (record.updates || []).slice(1) });
+                await saveRoadmap(ALL_GOALS_KEY, { ...record, roadmap: record.prevRoadmap, prevRoadmap: null, updates: (record.updates || []).slice(1) });
                 toast.show?.('ロードマップを、見直す前に戻しました。');
               }}
             />
           )}
           {view === 'roadmap' && goal && !record?.roadmap && (
-            <ErrorMessage title="ロードマップがまだありません" description="「達成するには？」に答えると、ロードマップができます。" actions={[{ label: '達成するには？を考える', variant: 'primary', onClick: () => startInterview(goal.key) }]} />
+            <ErrorMessage title="ロードマップがまだありません" description="「達成するには？」に答えると、ロードマップができます。" actions={[{ label: 'ロードマップをつくる', variant: 'primary', onClick: startInterview }]} />
           )}
           {view === 'plan' && goal && record?.roadmap && (
             <PlanView
@@ -172,7 +164,7 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
         <GoalEditSheet
           horizonKey={editing.key}
           initial={editing.text}
-          hasRoadmap={!!roadmaps[editing.key]?.roadmap}
+          hasRoadmap={!!roadmaps[ALL_GOALS_KEY]?.roadmap}
           onClose={() => setEditing(null)}
           onSave={async (text) => {
             const key = editing.key;
@@ -180,8 +172,11 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
             setEditing(null);
             if (!r) { toast.error?.('目標を保存できませんでした。通信状況を確認して、もう一度押してください。'); return; }
             track('goal_saved', { horizon: key, cleared: !cleanGoalText(text) });
-            if (cleanGoalText(text) && roadmaps[key]?.roadmap && cleanGoalText(text) !== roadmaps[key]?.goalText) {
+            const rec = roadmaps[ALL_GOALS_KEY];
+            if (cleanGoalText(text) && rec?.roadmap && cleanGoalText(text) !== cleanGoalText(rec.goals?.[key]?.text || '')) {
               toast.show?.('目標を書き直しました。ロードマップは「つくり直す」で新しい目標に合わせられます。');
+            } else if (!rec?.roadmap && allGoalsSet(r.goals)) {
+              toast.success?.('3 つの目標がそろいました。下の「ロードマップをつくる」から始められます。');
             }
           }}
         />
@@ -195,7 +190,11 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
 // ---------------------------------------------------------------------------
 function GoalsView({ goals, roadmaps, purpose, loaded, onEdit, onCarry, onInterview, onRoadmap }) {
   const anyGoal = GOAL_HORIZONS.some((h) => goals[h.key]?.text);
-  const anyRoadmap = GOAL_HORIZONS.some((h) => goals[h.key]?.text && roadmaps[h.key]?.roadmap);
+  const rec = roadmaps[ALL_GOALS_KEY];
+  const anyRoadmap = !!rec?.roadmap;
+  const allSet = allGoalsSet(goals);
+  const missing = GOAL_HORIZONS.filter((h) => !goals[h.key]?.text).map((h) => h.label);
+  const needs = (rec?.roadmap?.needs || []).map((n) => n.name);
   const carryText = purpose?.text && !anyGoal ? purpose.text : '';
   const [carryKey, setCarryKey] = useState(() => suggestHorizon(carryText));
   useEffect(() => { setCarryKey(suggestHorizon(carryText)); }, [carryText]);
@@ -211,7 +210,7 @@ function GoalsView({ goals, roadmaps, purpose, loaded, onEdit, onCarry, onInterv
   return (
     <>
       {/* 説明は、まだロードマップが 1 つも無いあいだだけ（はじめて開いた人に・DESIGN §0-6 補足文を常に置かない）。 */}
-      {!anyRoadmap && <p className="goal-lead">{withPhraseBreaks('目標ごとに「達成するには？」を一緒に考えて、やることと読む本の順番にします。')}</p>}
+      {!anyRoadmap && <p className="goal-lead">{withPhraseBreaks('1 年後・3 年後・5 年後の目標を書くと、「達成するには？」を一緒に考えて、3 つをつなぐやることと読む本の順番にします。')}</p>}
       {carryText && (
         <section className="goal-box" aria-label="はじめに書いた目標">
           <p className="goal-sec-title" style={{ margin: 0 }}>はじめに書いた目標</p>
@@ -229,11 +228,9 @@ function GoalsView({ goals, roadmaps, purpose, loaded, onEdit, onCarry, onInterv
         </li>
         {GOAL_HORIZONS.map((h) => {
           const g = goals[h.key];
-          const rec = roadmaps[h.key];
-          const needs = (rec?.roadmap?.needs || []).map((n) => n.name);
           return (
             <li key={h.key}>
-              <span className={`goal-dot${g?.text ? (rec?.roadmap ? ' is-here' : ' is-set') : ''}`} aria-hidden="true" />
+              <span className={`goal-dot${g?.text ? (anyRoadmap ? ' is-here' : ' is-set') : ''}`} aria-hidden="true" />
               <p className="goal-when">
                 <strong>{h.label}</strong>
                 {g?.text && <span>{fmtGoalDeadline(g.at, h.years)}</span>}
@@ -241,20 +238,8 @@ function GoalsView({ goals, roadmaps, purpose, loaded, onEdit, onCarry, onInterv
               {g?.text ? (
                 <>
                   <p className="goal-text">{withPhraseBreaks(g.text)}</p>
-                  {needs.length > 0 && (
-                    <p className="goal-peek">{withPhraseBreaks(`必要なこと：${needs.join('・')}`)}</p>
-                  )}
                   <div className="goal-actions">
-                    {rec?.roadmap ? (
-                      <button type="button" style={{ ...btnGhost, width: 'auto', paddingLeft: 'var(--space-4)', paddingRight: 'var(--space-3)', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }} onClick={() => onRoadmap(h.key)}>
-                        ロードマップを見る<ChevronRight size="1em" aria-hidden="true" />
-                      </button>
-                    ) : (
-                      <button type="button" style={{ ...btnGhost, width: 'auto', paddingLeft: 'var(--space-4)', paddingRight: 'var(--space-4)' }} onClick={() => onInterview(h.key)}>
-                        達成するには？を考える
-                      </button>
-                    )}
-                    <button type="button" style={btnLinkQuiet} onClick={() => onEdit(h.key)}>書き直す</button>
+                    <button type="button" style={{ ...btnLinkQuiet, marginLeft: 'calc(-1 * var(--space-1))' }} onClick={() => onEdit(h.key)}>書き直す</button>
                   </div>
                 </>
               ) : (
@@ -271,6 +256,26 @@ function GoalsView({ goals, roadmaps, purpose, loaded, onEdit, onCarry, onInterv
           );
         })}
       </ol>
+
+      {/* 3 つとも書いたら、つなぐロードマップを 1 本（2026-11-16 オーナー「すべて入れたら AI を動かす」）。 */}
+      <section className="goal-cta" aria-label="ロードマップ">
+        {anyRoadmap ? (
+          <>
+            {needs.length > 0 && <p className="goal-peek" style={{ marginTop: 0 }}>{withPhraseBreaks(`必要なこと：${needs.join('・')}`)}</p>}
+            <button type="button" style={btnPrimary} onClick={onRoadmap}>ロードマップを見る</button>
+          </>
+        ) : allSet ? (
+          <>
+            <button type="button" style={btnPrimary} onClick={onInterview}>ロードマップをつくる</button>
+            <p className="plan-summary">{withPhraseBreaks(`「達成するには？」を 2 つまで聞いてから、3 つの目標をつなぐ道のりと読む本の順番をつくります（${ROADMAP_TOKENS_LABEL}）。`)}</p>
+          </>
+        ) : (
+          <>
+            <button type="button" style={btnPrimaryOff} disabled aria-describedby="goal-cta-note">ロードマップをつくる</button>
+            <p id="goal-cta-note" className="plan-summary">{withPhraseBreaks(`3 つの目標を書くと、つくれます。まだ書いていない目標：${missing.join('・')}`)}</p>
+          </>
+        )}
+      </section>
     </>
   );
 }
@@ -329,8 +334,21 @@ function GoalEditSheet({ horizonKey, initial, hasRoadmap, onClose, onSave }) {
 // ---------------------------------------------------------------------------
 // 「達成するには？」の深掘り
 // ---------------------------------------------------------------------------
+// 3 つの目標の見出し（深掘り・ロードマップ・読書計画の上）。compact は 1 行ずつ小さく。
+function GoalTrio({ goals, compact = false }) {
+  return (
+    <ul className={`goal-trio${compact ? ' is-compact' : ''}`} aria-label="3 つの目標">
+      {GOAL_HORIZONS.filter((h) => goals?.[h.key]?.text).map((h) => (
+        <li key={h.key}>
+          <p className="goal-when"><strong>{h.label}</strong><span>{fmtGoalDeadline(goals[h.key].at, h.years)}</span></p>
+          <p className="goal-text">{withPhraseBreaks(goals[h.key].text)}</p>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function InterviewView({ goal, goals, roadmaps, books, onDone, onCancel }) {
-  const h = horizonOf(goal.key);
   const [qa, setQa] = useState([]);
   const [step, setStep] = useState(null); // { question, options, summary }
   const [loading, setLoading] = useState(true);
@@ -347,14 +365,16 @@ function InterviewView({ goal, goals, roadmaps, books, onDone, onCancel }) {
     setError(null);
     if (!(await ensureAiConsent('goal_roadmap'))) { setBuilding(false); onCancel(); return; }
     try {
-      const { roadmap } = await generateGoalRoadmap({ goal, goals, roadmaps, qa: finalQa, summary: summaryRef.current, books });
-      await saveRoadmap(goal.key, {
-        goalText: goal.text,
+      const prev = roadmaps?.[ALL_GOALS_KEY];
+      const { roadmap } = await generateGoalRoadmap({ goals, at: goal.at, qa: finalQa, summary: summaryRef.current, books, minutesPerDay: prev?.plan?.minutesPerDay });
+      await saveRoadmap(ALL_GOALS_KEY, {
+        goalText: cleanGoalText(goals.y1?.text || ''),
         goalAt: goal.at,
+        goals: { y1: goals.y1, y3: goals.y3, y5: goals.y5 },
         qa: finalQa,
         summary: summaryRef.current,
         roadmap,
-        plan: roadmaps?.[goal.key]?.plan || null,
+        plan: prev?.plan || null,
       });
       track('goal_roadmap_built', { horizon: goal.key, asks: finalQa.length });
       onDone();
@@ -370,7 +390,7 @@ function InterviewView({ goal, goals, roadmaps, books, onDone, onCancel }) {
     setLoading(true);
     setError(null);
     const round = nextQa.length + 1;
-    const res = round > GOAL_ASK_LIMIT ? { done: true, summary: summaryRef.current } : await runGoalInterview({ goal, goals, roadmaps, qa: nextQa, round });
+    const res = round > GOAL_ASK_LIMIT ? { done: true, summary: summaryRef.current } : await runGoalInterview({ goals, qa: nextQa, round });
     busyRef.current = false;
     setLoading(false);
     if (!res) { setError({ message: 'AI からの返事が届きませんでした。つながりを確かめて「もう一度」を押してください。', stage: 'ask', qa: nextQa }); return; }
@@ -381,7 +401,7 @@ function InterviewView({ goal, goals, roadmaps, books, onDone, onCancel }) {
     setAnswer('');
     setOff(false);
     setTimeout(() => answerRef.current?.focus?.({ preventScroll: true }), 50);
-  }, [goal, goals, roadmaps, build]);
+  }, [goals, build]);
 
   useEffect(() => { ask([]); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -417,8 +437,7 @@ function InterviewView({ goal, goals, roadmaps, books, onDone, onCancel }) {
   return (
     <>
       <header className="goal-head">
-        <p className="goal-when"><strong>{h.label}</strong><span>{fmtGoalDeadline(goal.at, h.years)}</span></p>
-        <p className="goal-text">{withPhraseBreaks(goal.text)}</p>
+        <GoalTrio goals={goals} compact />
       </header>
 
       {error && (
@@ -517,19 +536,18 @@ function Building({ building }) {
 // ---------------------------------------------------------------------------
 function RoadmapView({ goal, record, books, onOpenBook, onAddActionText, onFindBooks, onPlan, onRebuild, onUndoUpdate }) {
   const latest = record.updates?.[0] || null;
-  const h = horizonOf(goal.key);
   const roadmap = useMemo(() => pruneRoadmapBooks(record.roadmap, books), [record.roadmap, books]);
   const specs = phaseSpecs(goal.key, record.goalAt || goal.at);
   const here = currentPhaseIndex(goal.key, record.goalAt || goal.at, appNow());
   const byId = useMemo(() => new Map(books.map((b) => [b.id, b])), [books]);
   const planBooks = roadmap.phases.some((p) => p.books.some((b) => byId.get(b.bookId)?.status !== 'done'));
-  const stale = record.goalText && cleanGoalText(record.goalText) !== cleanGoalText(goal.text);
+  // 作ったときの目標の文と、いまの文が違えば（書き直した）。
+  const stale = GOAL_HORIZONS.some((h) => record.goals?.[h.key]?.text && cleanGoalText(record.goals[h.key].text) !== cleanGoalText(goal.goals?.[h.key]?.text || ''));
 
   return (
     <>
       <header className="goal-head">
-        <p className="goal-when"><strong>{h.label}</strong><span>{fmtGoalDeadline(goal.at, h.years)}</span></p>
-        <p className="goal-text">{withPhraseBreaks(goal.text)}</p>
+        <GoalTrio goals={goal.goals} compact />
         {stale && (
           <p className="goal-peek">{withPhraseBreaks('このロードマップは、前の目標の文で作りました。新しい目標に合わせるときは、下の「つくり直す」から。')}</p>
         )}
@@ -581,8 +599,12 @@ function RoadmapView({ goal, record, books, onOpenBook, onAddActionText, onFindB
           {roadmap.phases.map((p, i) => {
             const spec = specs[i] || { label: `${i + 1}`, range: '' };
             const isHere = i === here;
+            // その目標へ向かう最後の区切りの後ろに、目標そのもの（1 年後 → 3 年後 → 5 年後）。
+            const mile = spec.goal && specs[i + 1]?.goal !== spec.goal ? horizonOf(spec.goal) : null;
+            const mileGoal = mile ? goal.goals?.[mile.key] : null;
             return (
-              <li key={spec.label} aria-current={isHere ? 'step' : undefined}>
+              <Fragment key={spec.label}>
+              <li aria-current={isHere ? 'step' : undefined}>
                 <span className={`goal-dot${isHere ? ' is-here' : i < here ? ' is-set' : ''}`} aria-hidden="true" />
                 <p className="goal-when">
                   <strong>{spec.label}</strong>
@@ -621,6 +643,14 @@ function RoadmapView({ goal, record, books, onOpenBook, onAddActionText, onFindB
                   </div>
                 )}
               </li>
+              {mileGoal && (
+                <li className="rm-mile">
+                  <span className="goal-dot is-goal" aria-hidden="true" />
+                  <p className="goal-when"><strong>{`${mile.label}の目標`}</strong><span>{fmtGoalDeadline(mileGoal.at, mile.years)}</span></p>
+                  <p className="rm-mile-text">{withPhraseBreaks(mileGoal.text)}</p>
+                </li>
+              )}
+              </Fragment>
             );
           })}
         </ol>
@@ -636,7 +666,7 @@ function RoadmapView({ goal, record, books, onOpenBook, onAddActionText, onFindB
                   <p className="rm-need-name">{withPhraseBreaks(m.theme)}</p>
                   {m.why && <p className="rm-need-why">{m.why}</p>}
                 </div>
-                <button type="button" style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }} onClick={() => onFindBooks?.(`${goal.text}。そのために「${m.theme}」の本を探したい`)}>
+                <button type="button" style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }} onClick={() => onFindBooks?.(`${goal.goals?.y1?.text || goal.text}。そのために「${m.theme}」の本を探したい`)}>
                   <Search size="1em" aria-hidden="true" />本を探す
                 </button>
               </li>
@@ -649,9 +679,9 @@ function RoadmapView({ goal, record, books, onOpenBook, onAddActionText, onFindB
         {planBooks ? (
           <button type="button" style={btnPrimary} onClick={onPlan}>読書計画をカレンダーにする</button>
         ) : (
-          <p className="plan-summary" style={{ marginTop: 0 }}>{withPhraseBreaks('本棚に、この目標に合う本がまだありません。「本を探す」で見つけた本を入れると、読書計画をつくれます。')}</p>
+          <p className="plan-summary" style={{ marginTop: 0 }}>{withPhraseBreaks('本棚に、目標に合う本がまだありません。「本を探す」で見つけた本を入れると、読書計画をつくれます。')}</p>
         )}
-        <button type="button" style={{ ...btnLinkQuiet, marginTop: 'var(--space-2)', marginLeft: 'calc(-1 * var(--space-1))' }} onClick={onRebuild}>つくり直す（約 25 トークン）</button>
+        <button type="button" style={{ ...btnLinkQuiet, marginTop: 'var(--space-2)', marginLeft: 'calc(-1 * var(--space-1))' }} onClick={onRebuild}>{`つくり直す（${ROADMAP_TOKENS_LABEL}）`}</button>
         <p className="rm-footnote">{withPhraseBreaks('AI があなたの目標と答えから作った道のりです。合わないところは、つくり直すか、目標を書き直してください。')}</p>
       </div>
     </>
@@ -665,7 +695,6 @@ function PlanView({ goal, record, books, sessions, onOpenBook, onAddReadingActio
   const toast = useToast();
   const today = toLocalYmd(appNow());
   const year = Number(today.slice(0, 4));
-  const h = horizonOf(goal.key);
   const roadmap = useMemo(() => pruneRoadmapBooks(record.roadmap, books), [record.roadmap, books]);
   const specs = useMemo(() => phaseSpecs(goal.key, record.goalAt || goal.at), [goal.key, record.goalAt, goal.at]);
   const here = currentPhaseIndex(goal.key, record.goalAt || goal.at, appNow());
@@ -686,8 +715,8 @@ function PlanView({ goal, record, books, sessions, onOpenBook, onAddReadingActio
   const addedAt = record.plan?.actionsAddedAt || null;
 
   const savePlan = useCallback((patch) => {
-    saveRoadmap(goal.key, { ...record, plan: { ...(record.plan || {}), ...patch } });
-  }, [goal.key, record]);
+    saveRoadmap(ALL_GOALS_KEY, { ...record, plan: { ...(record.plan || {}), ...patch } });
+  }, [record]);
 
   const pickMinutes = (m) => {
     if (m === minutes) return;
@@ -732,8 +761,6 @@ function PlanView({ goal, record, books, sessions, onOpenBook, onAddReadingActio
   return (
     <>
       <header className="goal-head" style={{ marginBottom: 'var(--space-4)' }}>
-        <p className="goal-when"><strong>{h.label}</strong><span>{fmtGoalDeadline(goal.at, h.years)}</span></p>
-        <p className="goal-text">{withPhraseBreaks(goal.text)}</p>
         {roadmap.phases[here]?.focus && (
           <p className="goal-peek">{withPhraseBreaks(`いまの区切り（${specs[here]?.label}）：${roadmap.phases[here].focus}`)}</p>
         )}
@@ -815,7 +842,7 @@ function PlanView({ goal, record, books, sessions, onOpenBook, onAddReadingActio
         <h3 id="plan-order" className="goal-sec-title">読む順番</h3>
         {groups.map((g) => (
           <div key={g.phase} className="plan-group" style={g === groups[0] ? { marginTop: 0 } : undefined}>
-            {specs[g.phase] && <p className="plan-group-head">{specs[g.phase].label}<span>{specs[g.phase].range}</span></p>}
+            {specs[g.phase] && <p className="plan-group-head">{specs[g.phase].label}<span>{`${specs[g.phase].range}${specs[g.phase].goal && specs[g.phase].goal !== specs[groups[groups.indexOf(g) - 1]?.phase]?.goal ? ` · ${horizonOf(specs[g.phase].goal).label}の目標へ` : ''}`}</span></p>}
             <ol className="plan-order">
               {g.items.map((x) => {
                 const b = byId.get(x.bookId);

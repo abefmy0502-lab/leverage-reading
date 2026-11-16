@@ -7,11 +7,15 @@
 // 言い切らない（「達成できます」「必ず」）・数字の目標（%・あと N 冊）を作らない＝指示文（prompts.js の goalRoadmap）で頼み、ここでも消す。
 
 import { supabase, isSupabaseConfigured } from './supabase';
-import { horizonOf, goalDeadline } from './goals';
+import { horizonOf, goalDeadline, fmtGoalDeadline, GOAL_HORIZONS, ALL_GOALS_KEY } from './goals';
+import { estimateBookMinutes, PLAN_DEFAULT_MINUTES } from './readingPlan';
 
 // 聞き返しは 2 つまで（相談と同じ・ゴールが見えるように）。
 export const GOAL_ASK_LIMIT = 2;
-export const ROADMAP_MAX_TOKENS = 2800;
+// 3 つの目標の 8 つの区切り・本は読める目安まで入るので、前より長い（2026-11-16）。
+export const ROADMAP_MAX_TOKENS = 5000;
+// 画面の目安（つくる・つくり直す・見直す）。
+export const ROADMAP_TOKENS_LABEL = '約 35 トークン';
 export const INTERVIEW_MAX_TOKENS = 600;
 
 const str = (v) => (typeof v === 'string' ? v.trim() : '');
@@ -27,24 +31,59 @@ const SOFTEN = [
 ];
 const soften = (s) => SOFTEN.reduce((t, [re, to]) => t.replace(re, to), s).replace(/\s{2,}/g, ' ').trim();
 
-// ---- 区切り（1 年後＝3 か月ずつ 4 つ・3 年後＝1 年ずつ 3 つ・5 年後＝1 年ずつ 5 つ） ----
+// ---- 区切り ----
+//   3 つの目標（'all'）: 1 年目は 3 か月ずつ 4 つ（→ 1 年後の目標）、2・3 年目（→ 3 年後）、4・5 年目（→ 5 年後）の 8 つ。
+//   1 つの目標だけ（前の版の記録）: 1 年後＝3 か月ずつ 4 つ・3 年後＝1 年ずつ 3 つ・5 年後＝1 年ずつ 5 つ。
+const SEGMENTS = {
+  [ALL_GOALS_KEY]: [{ n: 4, months: 3, goal: 'y1' }, { n: 2, months: 12, goal: 'y3' }, { n: 2, months: 12, goal: 'y5' }],
+  y1: [{ n: 4, months: 3, goal: 'y1' }],
+  y3: [{ n: 3, months: 12, goal: 'y3' }],
+  y5: [{ n: 5, months: 12, goal: 'y5' }],
+};
 export function phaseSpecs(horizonKey, at) {
-  const h = horizonOf(horizonKey);
+  const segs = SEGMENTS[horizonKey];
   const start = new Date(at);
-  if (!h || !Number.isFinite(start.getTime())) return [];
-  const months = h.key === 'y1' ? 3 : 12;
-  const count = h.key === 'y1' ? 4 : h.years;
+  if (!segs || !Number.isFinite(start.getTime())) return [];
   const out = [];
-  for (let i = 0; i < count; i += 1) {
-    const a = new Date(start.getFullYear(), start.getMonth() + i * months, 1);
-    const b = new Date(start.getFullYear(), start.getMonth() + (i + 1) * months - 1, 1);
-    const label = h.key === 'y1' ? `${i * 3 + 1}〜${i * 3 + 3} か月目` : `${i + 1} 年目`;
-    const range = a.getFullYear() === b.getFullYear()
-      ? `${a.getFullYear()}.${a.getMonth() + 1}–${b.getMonth() + 1}`
-      : `${a.getFullYear()}.${a.getMonth() + 1}–${b.getFullYear()}.${b.getMonth() + 1}`;
-    out.push({ label, range, startYm: `${a.getFullYear()}-${String(a.getMonth() + 1).padStart(2, '0')}` });
+  let offset = 0; // 起点から何か月目
+  for (const seg of segs) {
+    for (let i = 0; i < seg.n; i += 1) {
+      const a = new Date(start.getFullYear(), start.getMonth() + offset, 1);
+      const b = new Date(start.getFullYear(), start.getMonth() + offset + seg.months - 1, 1);
+      const label = seg.months === 3 ? `${offset + 1}〜${offset + 3} か月目` : `${Math.floor(offset / 12) + 1} 年目`;
+      const range = a.getFullYear() === b.getFullYear()
+        ? `${a.getFullYear()}.${a.getMonth() + 1}–${b.getMonth() + 1}`
+        : `${a.getFullYear()}.${a.getMonth() + 1}–${b.getFullYear()}.${b.getMonth() + 1}`;
+      out.push({ label, range, months: seg.months, goal: seg.goal, startYm: `${a.getFullYear()}-${String(a.getMonth() + 1).padStart(2, '0')}` });
+      offset += seg.months;
+    }
   }
   return out;
+}
+
+// その区切りで読める冊数の目安（1 日の分 × 日数 ÷ 本棚の本の 1 冊の平均の分・1〜8 冊）。
+//   2026-11-16 オーナー「該当期間でなぜか 2 冊まで」＝前は AI に「0〜3 冊」と頼んでいて、3 か月で 2 冊・残りが空いていた。
+export const PHASE_BOOK_MAX = 8;
+export function phaseBookCaps(specs, books = [], { minutesPerDay = PLAN_DEFAULT_MINUTES, speed = 1 } = {}) {
+  const unread = (Array.isArray(books) ? books : []).filter((b) => b && b.status !== 'done');
+  const avg = unread.length ? unread.reduce((t, b) => t + estimateBookMinutes(b, { speed }), 0) / unread.length : 400 * speed;
+  const per = Math.max(5, Number(minutesPerDay) || PLAN_DEFAULT_MINUTES);
+  return (specs || []).map((sp) => Math.max(1, Math.min(PHASE_BOOK_MAX, Math.floor((sp.months * 30 * per) / Math.max(60, avg)))));
+}
+
+// AI に渡す 3 つの目標（「1 年後（2027 年 11 月まで）: …」）。
+export function goalsPromptText(goals) {
+  return GOAL_HORIZONS.filter((h) => goals?.[h.key]?.text)
+    .map((h) => `${h.label}（${fmtGoalDeadline(goals[h.key].at, h.years)}）: ${cut(goals[h.key].text, 120)}`)
+    .join('\n');
+}
+
+// AI に渡す区切り（「1. 1〜3 か月目（2026.11–2027.1）→ 1 年後の目標へ・読める目安 約 6 冊」）。
+export function phasesPromptText(specs, caps = []) {
+  return (specs || []).map((s, i) => {
+    const goal = horizonOf(s.goal)?.label;
+    return `${i + 1}. ${s.label}（${s.range}）${goal ? `→ ${goal}の目標へ` : ''}${caps[i] ? `・読める目安 約 ${caps[i]} 冊` : ''}`;
+  }).join('\n');
 }
 
 // いまどの区切りにいるか（0 から）。
@@ -58,7 +97,7 @@ export function currentPhaseIndex(horizonKey, at, now = new Date()) {
 
 // ---- AI に渡す本棚（本の id は渡さず B1… の印で） ----
 const STATUS_JA = { want: '読みたい', before: '積読', reading: '読書中', done: '読了' };
-export function shelfMaterial(books, { maxUnread = 30, maxDone = 20 } = {}) {
+export function shelfMaterial(books, { maxUnread = 40, maxDone = 20 } = {}) {
   const list = Array.isArray(books) ? books : [];
   const unread = list.filter((b) => b && b.status !== 'done' && str(b.title))
     .sort((a, b) => ({ reading: 0, before: 1, want: 2 }[a.status] ?? 3) - ({ reading: 0, before: 1, want: 2 }[b.status] ?? 3))
@@ -100,7 +139,7 @@ export function higherGoalsText(horizonKey, goals, roadmaps = {}) {
 
 // ---- ロードマップの答えを解く ----
 //   { needs:[{name, why}], issues:[string], phases:[{focus, todos:[string], books:[{bookId, why}]}], missing:[{theme, why}] } | null
-export function parseRoadmap(text, keyToId, phaseCount) {
+export function parseRoadmap(text, keyToId, phaseCount, caps = []) {
   if (typeof text !== 'string') return null;
   const s = text.indexOf('{');
   const e = text.lastIndexOf('}');
@@ -111,14 +150,14 @@ export function parseRoadmap(text, keyToId, phaseCount) {
   const needs = (Array.isArray(obj.needs) ? obj.needs : [])
     .map((n) => ({ name: soften(cut(n?.name, 24)), why: soften(cut(n?.why, 90)) }))
     .filter((n) => n.name)
-    .slice(0, 5);
+    .slice(0, 6);
   const issues = (Array.isArray(obj.issues) ? obj.issues : [])
     .map((x) => soften(cut(typeof x === 'string' ? x : x?.text, 110)))
     .filter(Boolean)
     .slice(0, 3);
   const used = new Set();
   const rawPhases = Array.isArray(obj.phases) ? obj.phases : [];
-  const n = Math.max(1, Math.min(phaseCount || rawPhases.length || 1, 5));
+  const n = Math.max(1, Math.min(phaseCount || rawPhases.length || 1, 8));
   const phases = [];
   for (let i = 0; i < n; i += 1) {
     const p = rawPhases[i] || {};
@@ -126,9 +165,9 @@ export function parseRoadmap(text, keyToId, phaseCount) {
     for (const rb of Array.isArray(p.books) ? p.books : []) {
       const key = str(rb?.key || rb?.id).toUpperCase();
       const bookId = keyToId?.[key];
-      if (!bookId || used.has(bookId) || books.length >= 3) continue;
+      if (!bookId || used.has(bookId) || books.length >= Math.max(3, caps[i] || 0)) continue;
       used.add(bookId);
-      books.push({ bookId, why: soften(cut(rb?.why, 80)) });
+      books.push({ bookId, why: soften(cut(rb?.why, 60)) });
     }
     phases.push({
       focus: soften(cut(p.focus, 60)),
@@ -162,7 +201,7 @@ export function roadmapPromptText(roadmap, keyToId, books = [], specs = []) {
 
 // 見直しの答え。{ found:false } か { found:true, newIssues, note, roadmap }（読めなければ null）。
 //   いまの区切りより前の区切りは、前のロードマップのまま残す（AI が過去を書き換えない）。
-export function parseRoadmapUpdate(text, keyToId, prev, hereIndex = 0) {
+export function parseRoadmapUpdate(text, keyToId, prev, hereIndex = 0, caps = []) {
   if (typeof text !== 'string') return null;
   const s = text.indexOf('{');
   const e = text.lastIndexOf('}');
@@ -172,7 +211,7 @@ export function parseRoadmapUpdate(text, keyToId, prev, hereIndex = 0) {
   if (!obj || typeof obj !== 'object') return null;
   if (obj.found !== true) return { found: false };
   const n = prev?.phases?.length || 1;
-  const next = parseRoadmap(JSON.stringify(obj), keyToId, n);
+  const next = parseRoadmap(JSON.stringify(obj), keyToId, n, caps);
   if (!next) return { found: false };
   const keep = Math.max(0, Math.min(hereIndex, n));
   for (let i = 0; i < keep; i += 1) if (prev?.phases?.[i]) next.phases[i] = prev.phases[i];
@@ -190,9 +229,9 @@ export function withUpdateLog(record, { source, newIssues, note, at = new Date()
   return { ...record, updates, prevRoadmap: prevRoadmap || record?.roadmap || null };
 }
 
-// ロードマップのある目標（近い順）。
+// ロードマップがあれば ['all']（3 つの目標をつなぐ 1 本・2026-11-16）。無ければ []。
 export function roadmapHorizons(goals, records) {
-  return ['y1', 'y3', 'y5'].filter((k) => goals?.[k]?.text && records?.[k]?.roadmap);
+  return records?.[ALL_GOALS_KEY]?.roadmap ? [ALL_GOALS_KEY] : [];
 }
 
 // 本棚から消えた本を外す（開くたびに）。
@@ -213,14 +252,13 @@ export function goalsConsultBlock(goals, records = {}, now = new Date()) {
     lines.push(`- ${horizonOf(k).label}${d ? `（${d.getFullYear()} 年 ${d.getMonth() + 1} 月まで）` : ''}: ${g.text}`);
   }
   if (!lines.length) return '';
-  const nearKey = ['y1', 'y3', 'y5'].find((k) => goals?.[k]?.text && records?.[k]?.roadmap);
-  if (nearKey) {
-    const r = records[nearKey];
+  const r = records?.[ALL_GOALS_KEY];
+  if (r?.roadmap) {
     const rm = r.roadmap;
-    const idx = currentPhaseIndex(nearKey, goals[nearKey].at, now);
+    const idx = currentPhaseIndex(ALL_GOALS_KEY, r.goalAt, now);
     const ph = rm.phases?.[idx];
     const needs = (rm.needs || []).map((x) => x.name).slice(0, 5).join('・');
-    if (needs) lines.push(`必要なこと（${horizonOf(nearKey).label}の目標）: ${needs}`);
+    if (needs) lines.push(`必要なこと: ${needs}`);
     if (rm.issues?.length) lines.push(`今の課題: ${rm.issues.slice(0, 2).join(' / ')}`);
     if (ph?.focus) lines.push(`いまの区切りで取り組むこと: ${ph.focus}${ph.todos?.length ? `（${ph.todos.slice(0, 2).join(' / ')}）` : ''}`);
   }
