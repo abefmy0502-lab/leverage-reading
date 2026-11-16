@@ -114,7 +114,7 @@ export default function RoadmapReflectSheet({ source, books = [], onClose, onOpe
         <div aria-live="polite">
           <p className="goal-sec-title">新しく見えた課題</p>
           <ul className="rm-list">
-            {result.newIssues.map((t) => <li key={t}><p className="rm-issue" style={{ fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)' }}>{t}</p></li>)}
+            {result.newIssues.map((t) => <li key={t}><p className="rm-issue" style={{ fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)' }}>{withPhraseBreaks(t)}</p></li>)}
           </ul>
           {result.note && <p className="plan-summary">{withPhraseBreaks(result.note)}</p>}
           <p className="plan-summary" style={{ marginTop: 'var(--space-2)' }}>{withPhraseBreaks('読書計画のカレンダーも、新しい道のりに合わせて変わります。')}</p>

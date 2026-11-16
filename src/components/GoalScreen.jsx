@@ -626,7 +626,7 @@ function RoadmapView({ goal, record, books, onOpenBook, onAddActionText, onFindB
         <section className="goal-sec" aria-labelledby="rm-issues">
           <h3 id="rm-issues" className="goal-sec-title">今の課題</h3>
           <ul className="rm-list">
-            {roadmap.issues.map((t) => <li key={t}><p className="rm-issue">{t}</p></li>)}
+            {roadmap.issues.map((t) => <li key={t}><p className="rm-issue">{withPhraseBreaks(t)}</p></li>)}
           </ul>
         </section>
       )}
@@ -656,9 +656,9 @@ function RoadmapView({ goal, record, books, onOpenBook, onAddActionText, onFindB
                     {p.todos.map((t) => (
                       <li key={t} className="rm-todo">
                         <span className="rm-todo-text">{withPhraseBreaks(t)}</span>
-                        {/* 押すと「行動を追加」のシート（本を選ぶ → この文が入る）。 */}
-                        <button type="button" className="rm-icon-btn" aria-label={`「${t}」を行動に追加`} title="行動に追加" onClick={() => onAddActionText?.(t)}>
-                          <Plus size={20} aria-hidden="true" />
+                        {/* 押すと「行動を追加」のシート（本を選ぶ → この文が入る）。記号だけでは分からないので文字も（2026-11-16 オーナー「プラスマークの意味がわからない」）。 */}
+                        <button type="button" className="rm-add-btn" aria-label={`「${t}」を行動に追加`} onClick={() => onAddActionText?.(t)}>
+                          <Plus size="1em" aria-hidden="true" />行動に追加
                         </button>
                       </li>
                     ))}

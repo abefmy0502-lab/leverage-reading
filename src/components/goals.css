@@ -250,6 +250,22 @@
   cursor: pointer;
   font-family: inherit;
 }
+.rm-add-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--tap-min);
+  padding: 0 0 0 var(--space-2);
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-family: inherit;
+  font-size: var(--text-meta);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
 .rm-icon-btn:disabled { color: var(--text-3); cursor: default; opacity: 1; }
 .rm-books { display: flex; flex-direction: column; margin-top: var(--space-1); }
 .rm-book {
