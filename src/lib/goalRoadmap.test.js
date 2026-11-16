@@ -95,7 +95,8 @@ describe('相談に渡す目標・指示文に渡す文', () => {
     expect(t).toContain('- 3 年後（2029 年 11 月まで）: リーダーになる');
     expect(t).toContain('必要なこと: 会議の進め方・聞き方');
     expect(t).toContain('今の課題: 結論が出ない');
-    expect(t).toContain('いまの区切りで取り組むこと: 型をつくる（議題を送る）');
+    expect(t).toContain('いまの区切りで取り組むこと: 型をつくる');
+    expect(t).not.toContain('議題を送る');
     expect(t.length).toBeLessThanOrEqual(600);
     expect(goalsConsultBlock(normalizeGoals(null), {})).toBe('');
   });

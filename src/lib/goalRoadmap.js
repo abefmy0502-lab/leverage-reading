@@ -208,7 +208,8 @@ export function parseRoadmap(text, keyToId, phaseCount, caps = [], titleToId = {
     }
     phases.push({
       focus: soften(cut(p.focus, 60)),
-      todos: (Array.isArray(p.todos) ? p.todos : []).map((t) => soften(cut(t, 70))).filter(Boolean).slice(0, 3),
+      // やること（AI の一般論）は作らない（2026-11-16 オーナー「行動は本を読まないと見つけられない」）。前の版の答えに入っていても捨てる。
+      todos: [],
       books,
     });
   }
@@ -216,7 +217,7 @@ export function parseRoadmap(text, keyToId, phaseCount, caps = [], titleToId = {
     .map((m) => ({ theme: soften(cut(m?.theme, 30)), why: soften(cut(m?.why, 80)) }))
     .filter((m) => m.theme)
     .slice(0, 3);
-  if (!needs.length && !phases.some((p) => p.focus || p.todos.length)) return null;
+  if (!needs.length && !phases.some((p) => p.focus)) return null;
   return { needs, issues, phases, missing };
 }
 
@@ -231,7 +232,7 @@ export function roadmapPromptText(roadmap, keyToId, books = [], specs = []) {
   lines.push(`今の課題: ${(roadmap?.issues || []).join(' / ') || '（なし）'}`);
   (roadmap?.phases || []).forEach((p, i) => {
     const bs = (p.books || []).map((b) => (b.bookId ? (idToKey[b.bookId] || (titleOf.get(b.bookId) ? `『${cut(titleOf.get(b.bookId), 40)}』` : '')) : (b.title ? `『${cut(b.title, 40)}』（本棚に無い）` : ''))).filter(Boolean).join('・');
-    lines.push(`${i + 1}. ${specs[i]?.label || ''}: ${p.focus || ''}${p.todos?.length ? `（${p.todos.join(' / ')}）` : ''}${bs ? ` 本: ${bs}` : ''}`);
+    lines.push(`${i + 1}. ${specs[i]?.label || ''}: ${p.focus || ''}${bs ? ` 本: ${bs}` : ''}`);
   });
   return lines.join('\n');
 }
@@ -369,7 +370,7 @@ export function goalsConsultBlock(goals, records = {}, now = new Date()) {
     const needs = (rm.needs || []).map((x) => x.name).slice(0, 5).join('・');
     if (needs) lines.push(`必要なこと: ${needs}`);
     if (rm.issues?.length) lines.push(`今の課題: ${rm.issues.slice(0, 2).join(' / ')}`);
-    if (ph?.focus) lines.push(`いまの区切りで取り組むこと: ${ph.focus}${ph.todos?.length ? `（${ph.todos.slice(0, 2).join(' / ')}）` : ''}`);
+    if (ph?.focus) lines.push(`いまの区切りで取り組むこと: ${ph.focus}`);
   }
   const text = lines.join('\n');
   return text.length > 600 ? text.slice(0, 600) : text;

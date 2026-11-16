@@ -669,7 +669,7 @@ function RoadmapView({ goal, record, books, onOpenBook, onAddActionText, onFindB
 
       <section className="goal-sec" aria-labelledby="rm-road">
         <h3 id="rm-road" className="goal-sec-title">道のり</h3>
-        <p className="plan-summary" style={{ marginTop: 0, marginBottom: 'var(--space-4)' }}>{withPhraseBreaks('本は、この先 3 か月に読む分を選んでいます。先の区切りは、やることで道すじだけ。読む順番は、読書計画で自由に変えられます。')}</p>
+        <p className="plan-summary" style={{ marginTop: 0, marginBottom: 'var(--space-4)' }}>{withPhraseBreaks('本は、この先 3 か月に読む分をすすめています。行動は、読んでメモした言葉から、相談しながら決めます。')}</p>
         <ol className="goal-road">
           {roadmap.phases.map((p, i) => {
             const spec = specs[i] || { label: `${i + 1}`, range: '' };
@@ -685,22 +685,11 @@ function RoadmapView({ goal, record, books, onOpenBook, onAddActionText, onFindB
                   <strong>{spec.label}</strong>
                   <span>{spec.range}</span>
                   {isHere && <span className="rm-here">いまここ</span>}
-                  {onSaveRoadmap && <button type="button" className="rm-edit-link rm-edit-inline" aria-label={`${spec.label}のやることを直す`} onClick={() => setEditing({ kind: 'phase', index: i })}>直す</button>}
+                  {onSaveRoadmap && <button type="button" className="rm-edit-link rm-edit-inline" aria-label={`${spec.label}の取り組むことを直す`} onClick={() => setEditing({ kind: 'phase', index: i })}>直す</button>}
                 </p>
                 {p.focus && <p className="rm-phase-focus">{withPhraseBreaks(p.focus)}</p>}
-                {p.todos.length > 0 && (
-                  <ul className="rm-todos">
-                    {p.todos.map((t) => (
-                      <li key={t} className="rm-todo">
-                        <span className="rm-todo-text">{withPhraseBreaks(t)}</span>
-                        {/* 押すと「行動を追加」のシート（本を選ぶ → この文が入る）。記号だけでは分からないので文字も（2026-11-16 オーナー「プラスマークの意味がわからない」）。 */}
-                        <button type="button" className="rm-add-btn" aria-label={`「${t}」を行動に追加`} onClick={() => onAddActionText?.(t)}>
-                          <Plus size="1em" aria-hidden="true" />行動に追加
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                {/* やること（AI の一般論）は 2026-11-16 にやめた（オーナー「行動は本を読まないと見つけられない・一般的な考えで見つけるのはこのアプリを使う意味がない」）。
+                    行動は、読んでメモして相談しながら決める（相談の「明日からできる一歩」→ 行動）。 */}
                 {p.books.length > 0 && (
                   <div className="rm-books">
                     {p.books.map((rb) => {
@@ -806,19 +795,18 @@ function GrowTextarea(props) {
 const EDIT_LIMITS = {
   needs: { title: '必要なこと', max: 6, len: 24, placeholder: '例：会議の進め方' },
   issues: { title: '今の課題', max: 3, len: 110, placeholder: '例：会議で結論が出ないまま終わる' },
-  phase: { title: 'やること', max: 3, len: 70, placeholder: '例：毎週の議題を前日に送る' },
+  phase: { title: '取り組むこと', max: 1, len: 60, placeholder: '例：会議と 1on1 の型をつくる' },
 };
 function RoadmapEditSheet({ editing, roadmap, specs, onClose, onSave }) {
   const lim = EDIT_LIMITS[editing.kind];
   const phase = editing.kind === 'phase' ? roadmap.phases[editing.index] : null;
   const initial = editing.kind === 'needs' ? roadmap.needs.map((n) => n.name)
-    : editing.kind === 'issues' ? [...roadmap.issues] : [...(phase?.todos || [])];
+    : editing.kind === 'issues' ? [...roadmap.issues] : [phase?.focus || ''];
   const [rows, setRows] = useState(initial.length ? initial : ['']);
-  const [focus, setFocus] = useState(phase?.focus || '');
   const [saving, setSaving] = useState(false);
   const clean = (t) => String(t || '').replace(/\s+/g, ' ').trim();
   const list = rows.map(clean).filter(Boolean);
-  const dirty = list.join('\n') !== initial.map(clean).filter(Boolean).join('\n') || (phase && clean(focus) !== clean(phase.focus));
+  const dirty = list.join('\n') !== initial.map(clean).filter(Boolean).join('\n');
   const save = async () => {
     if (!dirty || saving) return;
     setSaving(true);
@@ -829,7 +817,7 @@ function RoadmapEditSheet({ editing, roadmap, specs, onClose, onSave }) {
     } else if (editing.kind === 'issues') {
       next = { ...roadmap, issues: list };
     } else {
-      next = { ...roadmap, phases: roadmap.phases.map((p, i) => (i === editing.index ? { ...p, focus: clean(focus), todos: list } : p)) };
+      next = { ...roadmap, phases: roadmap.phases.map((p, i) => (i === editing.index ? { ...p, focus: list[0] || '', todos: [] } : p)) };
     }
     await onSave(next);
     setSaving(false);
@@ -842,13 +830,6 @@ function RoadmapEditSheet({ editing, roadmap, specs, onClose, onSave }) {
       dismissLabel="キャンセル"
       footer={<button type="button" style={dirty && !saving ? btnPrimary : btnPrimaryOff} disabled={!dirty || saving} onClick={save}>{saving ? '保存中…' : '保存'}</button>}
     >
-      {phase && (
-        <>
-          <p className="goal-sec-title">取り組むこと</p>
-          <input value={focus} onChange={(e) => setFocus(e.target.value)} maxLength={60} aria-label="取り組むこと" style={{ ...uiInput, marginBottom: 'var(--space-4)' }} />
-          <p className="goal-sec-title">やること</p>
-        </>
-      )}
       <ul className="rm-edit-rows" aria-label={lim.title}>
         {rows.map((r, i) => (
           <li key={i} className="rm-edit-row">
@@ -873,7 +854,7 @@ function RoadmapEditSheet({ editing, roadmap, specs, onClose, onSave }) {
           <Plus size="1em" aria-hidden="true" />{`${lim.title}を足す`}
         </button>
       )}
-      <p className="plan-summary">{withPhraseBreaks(`${lim.max} つまで。AI は使わないので、トークンは減りません。`)}</p>
+      <p className="plan-summary">{withPhraseBreaks(`${lim.max > 1 ? `${lim.max} つまで。` : ''}AI は使わないので、トークンは減りません。`)}</p>
     </BottomSheet>
   );
 }
