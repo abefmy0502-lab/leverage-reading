@@ -162,15 +162,22 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
       </div>
       {editing && (
         <GoalEditSheet
+          key={editing.key}
           horizonKey={editing.key}
+          nextLabel={nextEmptyAfter(goals, editing.key)?.label || null}
           initial={editing.text}
           hasRoadmap={!!roadmaps[ALL_GOALS_KEY]?.roadmap}
           onClose={() => setEditing(null)}
           onSave={async (text) => {
             const key = editing.key;
             const r = await saveGoal(key, text);
-            setEditing(null);
-            if (!r) { toast.error?.('目標を保存できませんでした。通信状況を確認して、もう一度押してください。'); return; }
+            if (!r) { setEditing(null); toast.error?.('目標を保存できませんでした。通信状況を確認して、もう一度押してください。'); return; }
+            // まだ書いていない次の目標があれば、そのままその欄へ（はじめての人が 3 回開き直さなくていい・2026-11-16）。
+            const next = cleanGoalText(text) ? nextEmptyAfter(r.goals, key) : null;
+            setEditing(next ? { key: next.key, text: '' } : null);
+            if (!next && allGoalsSet(r.goals) && !roadmaps[ALL_GOALS_KEY]?.roadmap) {
+              setTimeout(() => { const el = scrollRef.current; if (el) el.scrollTo?.({ top: el.scrollHeight, behavior: 'smooth' }); }, 350);
+            }
             track('goal_saved', { horizon: key, cleared: !cleanGoalText(text) });
             const rec = roadmaps[ALL_GOALS_KEY];
             if (cleanGoalText(text) && rec?.roadmap && cleanGoalText(text) !== cleanGoalText(rec.goals?.[key]?.text || '')) {
@@ -280,7 +287,14 @@ function GoalsView({ goals, roadmaps, purpose, loaded, onEdit, onCarry, onInterv
   );
 }
 
-function GoalEditSheet({ horizonKey, initial, hasRoadmap, onClose, onSave }) {
+// まだ書いていない、次の目標（1 年後 → 3 年後 → 5 年後の順・いまの欄より後ろ → 前）。
+function nextEmptyAfter(goals, key) {
+  const i = GOAL_HORIZONS.findIndex((h) => h.key === key);
+  const order = [...GOAL_HORIZONS.slice(i + 1), ...GOAL_HORIZONS.slice(0, i)];
+  return order.find((h) => !goals?.[h.key]?.text) || null;
+}
+
+function GoalEditSheet({ horizonKey, initial, hasRoadmap, nextLabel, onClose, onSave }) {
   const h = horizonOf(horizonKey);
   const [text, setText] = useState(initial || '');
   const [saving, setSaving] = useState(false);
@@ -300,7 +314,7 @@ function GoalEditSheet({ horizonKey, initial, hasRoadmap, onClose, onSave }) {
       dismissLabel="キャンセル"
       footer={(
         <button type="button" style={dirty && !saving ? btnPrimary : btnPrimaryOff} disabled={!dirty || saving} onClick={save}>
-          {saving ? '保存中…' : '保存'}
+          {saving ? '保存中…' : nextLabel && !initial ? `保存して ${nextLabel}へ` : '保存'}
         </button>
       )}
     >
@@ -555,6 +569,17 @@ function RoadmapView({ goal, record, books, onOpenBook, onAddActionText, onFindB
 
       {record.summary && <p className="goal-summary">{withPhraseBreaks(record.summary)}</p>}
 
+      {/* いまの 3 か月（はじめての人が最初の画面で「次に何をするか」が分かるように・2026-11-16）。 */}
+      <section className="goal-box rm-now" aria-labelledby="rm-now">
+        <p id="rm-now" className="goal-sec-title" style={{ margin: 0 }}>{`いまの 3 か月 · ${specs[here]?.label || ''}`}</p>
+        {roadmap.phases[here]?.focus && <p className="rm-phase-focus" style={{ marginTop: 'var(--space-1)' }}>{withPhraseBreaks(roadmap.phases[here].focus)}</p>}
+        {planBooks ? (
+          <button type="button" style={{ ...btnPrimary, marginTop: 'var(--space-4)' }} onClick={onPlan}>読書計画をカレンダーにする</button>
+        ) : (
+          <p className="plan-summary">{withPhraseBreaks('本棚に、目標に合う本がまだありません。下の「本を探す」で見つけた本を入れると、読書計画をつくれます。')}</p>
+        )}
+      </section>
+
       {/* 🔁 相談・AI 選書から見直したとき（いちばん新しい 1 回・見直す前に戻せる）。 */}
       {latest && (
         <section className="goal-sec" style={{ marginTop: 0, marginBottom: 'var(--space-8)' }} aria-labelledby="rm-update">
@@ -677,10 +702,8 @@ function RoadmapView({ goal, record, books, onOpenBook, onAddActionText, onFindB
       )}
 
       <div className="goal-sec">
-        {planBooks ? (
-          <button type="button" style={btnPrimary} onClick={onPlan}>読書計画をカレンダーにする</button>
-        ) : (
-          <p className="plan-summary" style={{ marginTop: 0 }}>{withPhraseBreaks('本棚に、目標に合う本がまだありません。「本を探す」で見つけた本を入れると、読書計画をつくれます。')}</p>
+        {planBooks && (
+          <button type="button" style={btnGhost} onClick={onPlan}>読書計画をカレンダーにする</button>
         )}
         <button type="button" style={{ ...btnLinkQuiet, marginTop: 'var(--space-2)', marginLeft: 'calc(-1 * var(--space-1))' }} onClick={onRebuild}>{`つくり直す（${ROADMAP_TOKENS_LABEL}）`}</button>
         <p className="rm-footnote">{withPhraseBreaks('AI があなたの目標と答えから作った道のりです。合わないところは、つくり直すか、目標を書き直してください。')}</p>
