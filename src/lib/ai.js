@@ -1940,10 +1940,11 @@ export async function runGoalInterview({ goals, qa, round }) {
 
 // 区切り・読める冊数の目安・本棚（つくる・見直すで同じ）。
 async function goalRoadmapMaterial({ goals, at, books, minutesPerDay }) {
-  const { phaseSpecs, phaseBookCaps, phasesPromptText, goalsPromptText, shelfMaterial } = await import('./goalRoadmap');
+  const { phaseSpecs, phaseBookCaps, focusBookCaps, currentPhaseIndex, phasesPromptText, goalsPromptText, shelfMaterial } = await import('./goalRoadmap');
   const { ALL_GOALS_KEY } = await import('./goals');
   const specs = phaseSpecs(ALL_GOALS_KEY, at);
-  const caps = phaseBookCaps(specs, books, { minutesPerDay });
+  // 本を選ぶのは、いまの区切り（この先 3 か月）と次の区切りの候補だけ。
+  const caps = focusBookCaps(phaseBookCaps(specs, books, { minutesPerDay }), currentPhaseIndex(ALL_GOALS_KEY, at, new Date()));
   return { specs, caps, phasesText: phasesPromptText(specs, caps), goalsText: sanitizeForPrompt(goalsPromptText(goals)), shelf: shelfMaterial(books) };
 }
 

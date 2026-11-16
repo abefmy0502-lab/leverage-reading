@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   readingSpeedFactor, estimateBookMinutes, scheduleBooks, planItemsFromRoadmap, monthWeeks, weekBands,
-  planMonths, bookOnDay, fmtSpan, fmtMd, fmtRange, fmtHoursMin, addDays, DEFAULT_BOOK_MINUTES, MIN_LEFT_MINUTES,
+  planItemsFromOrder, planMonths, bookOnDay, fmtSpan, fmtMd, fmtRange, fmtHoursMin, addDays, DEFAULT_BOOK_MINUTES, MIN_LEFT_MINUTES,
 } from './readingPlan';
 
 describe('1 冊にかかる時間', () => {
@@ -49,6 +49,14 @@ describe('日付の割り振り', () => {
     const roadmap = { phases: [{ books: [{ bookId: 'a' }, { bookId: 'b' }] }, { books: [{ bookId: 'a' }, { bookId: 'c' }, { bookId: 'x' }] }] };
     const items = planItemsFromRoadmap(roadmap, books, { phaseStarts: ['2026-11-01', '2027-02-01'] });
     expect(items.map((i) => [i.bookId, i.phase, i.notBefore])).toEqual([['a', 0, '2026-11-01'], ['c', 1, '2027-02-01']]);
+  });
+});
+
+describe('本人が決めた順番', () => {
+  it('並べた順に今日から（読了・消えた本・重なりは外す・区切りの始まりは待たない）', () => {
+    const books = [{ id: 'a', status: 'want' }, { id: 'b', status: 'done' }, { id: 'c', status: 'before' }];
+    const items = planItemsFromOrder(['c', 'x', 'b', 'a', 'c'], books, { phaseOf: new Map([['a', 1]]), fallbackPhase: 0 });
+    expect(items.map((i) => [i.bookId, i.phase, i.notBefore])).toEqual([['c', 0, null], ['a', 1, null]]);
   });
 });
 

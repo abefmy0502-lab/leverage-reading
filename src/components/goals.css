@@ -84,6 +84,12 @@
 .goal-trio.is-compact { gap: var(--space-3); }
 .goal-trio.is-compact .goal-text { font-size: var(--text-body); }
 /* 目標の画面の下のボタン（3 つとも書くとつくれる） */
+.plan-order-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); margin-bottom: var(--space-3); }
+.plan-sort { list-style: none; margin: var(--space-3) 0 0; padding: 0; }
+.plan-sort-row { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) 0; border-bottom: 1px solid var(--separator); }
+.plan-sort-row:last-child { border-bottom: none; }
+.plan-sort-title { flex: 1; min-width: 0; font-size: var(--text-sub); font-weight: 600; color: var(--text); line-height: 1.5; word-break: keep-all; overflow-wrap: anywhere; }
+.plan-sort-meta { display: block; font-size: var(--text-meta); font-weight: 400; color: var(--text-2); }
 .goal-cta { margin-top: var(--space-6); padding-top: var(--space-6); border-top: 1px solid var(--separator); }
 
 .goal-when {

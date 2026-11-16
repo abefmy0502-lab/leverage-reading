@@ -115,6 +115,23 @@ export function planItemsFromRoadmap(roadmap, books, { speed = 1, sessions = [],
   return out;
 }
 
+// 本人が決めた順番（2026-11-16 オーナー「自由に本の順番も入れられるようにしたい」）。
+//   order＝本の id の並び。読み終えた本・本棚から消えた本・重なりは外す。区切りの始まりは待たずに今日から順に読む。
+//   phaseOf＝ロードマップのどの区切りの本か（無い本＝本人が足した本は fallbackPhase）。
+export function planItemsFromOrder(order, books, { speed = 1, sessions = [], phaseOf = new Map(), fallbackPhase = 0 } = {}) {
+  const byId = new Map((Array.isArray(books) ? books : []).map((b) => [b.id, b]));
+  const read = minutesByBook(sessions);
+  const seen = new Set();
+  const out = [];
+  for (const id of Array.isArray(order) ? order : []) {
+    const b = byId.get(id);
+    if (!b || b.status === 'done' || seen.has(id)) continue;
+    seen.add(id);
+    out.push({ bookId: id, phase: phaseOf.get(id) ?? fallbackPhase, notBefore: null, minutes: estimateBookMinutes(b, { speed, readMinutes: read.get(id) || 0 }) });
+  }
+  return out;
+}
+
 // 「3 日」「約 2 週間」「約 2 か月」
 export function fmtSpan(days) {
   const d = Math.max(1, Math.round(days));

@@ -71,6 +71,13 @@ export function phaseBookCaps(specs, books = [], { minutesPerDay = PLAN_DEFAULT_
   return (specs || []).map((sp) => Math.max(1, Math.min(PHASE_BOOK_MAX, Math.floor((sp.months * 30 * per) / Math.max(60, avg)))));
 }
 
+// 本を選ぶのは「この先 3 か月」が中心（2026-11-16 オーナー「5 年間の本を決めるのはしんどい。将来を見据えつつ、この先 3 か月の
+//   読むべき本を決めていく」）。いまの区切り＝読める目安まで・次の区切り＝候補 2 冊まで・それより先＝本は選ばない（やることで示す）。
+export const NEXT_PHASE_CANDIDATES = 2;
+export function focusBookCaps(caps, here = 0) {
+  return (caps || []).map((c, i) => (i === here ? c : i === here + 1 ? Math.min(NEXT_PHASE_CANDIDATES, c) : 0));
+}
+
 // AI に渡す 3 つの目標（「1 年後（2027 年 11 月まで）: …」）。
 export function goalsPromptText(goals) {
   return GOAL_HORIZONS.filter((h) => goals?.[h.key]?.text)
@@ -82,7 +89,8 @@ export function goalsPromptText(goals) {
 export function phasesPromptText(specs, caps = []) {
   return (specs || []).map((s, i) => {
     const goal = horizonOf(s.goal)?.label;
-    return `${i + 1}. ${s.label}（${s.range}）${goal ? `→ ${goal}の目標へ` : ''}${caps[i] ? `・読める目安 約 ${caps[i]} 冊` : ''}`;
+    const books = caps.length === 0 ? '' : caps[i] > 0 ? `・本は ${caps[i]} 冊まで` : '・本は選ばない';
+    return `${i + 1}. ${s.label}（${s.range}）${goal ? `→ ${goal}の目標へ` : ''}${books}`;
   }).join('\n');
 }
 
@@ -165,7 +173,9 @@ export function parseRoadmap(text, keyToId, phaseCount, caps = []) {
     for (const rb of Array.isArray(p.books) ? p.books : []) {
       const key = str(rb?.key || rb?.id).toUpperCase();
       const bookId = keyToId?.[key];
-      if (!bookId || used.has(bookId) || books.length >= Math.max(3, caps[i] || 0)) continue;
+      // caps があれば区切りごとの上限（0＝本を選ばない区切り）・無ければ前の版と同じ 3 冊まで。
+      const cap = caps.length ? (caps[i] || 0) : 3;
+      if (!bookId || used.has(bookId) || books.length >= cap) continue;
       used.add(bookId);
       books.push({ bookId, why: soften(cut(rb?.why, 60)) });
     }

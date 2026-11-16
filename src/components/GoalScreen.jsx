@@ -11,7 +11,7 @@
 // 見た目は goals.css（トークンだけ）。
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Search } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Plus, Search, X } from 'lucide-react';
 import './goals.css';
 import { AdvisorNavBar } from './AdvisorHistory';
 import BottomSheet from './BottomSheet';
@@ -31,7 +31,7 @@ import { interviewChips, toggleChoice, choiceSelected, OPT_OFF, OPT_UNSURE, OFF_
 import { GOAL_HORIZONS, GOAL_MAX, ALL_GOALS_KEY, horizonOf, fmtGoalDeadline, saveGoal, suggestHorizon, cleanGoalText, allGoalsSet, combinedGoal } from '../lib/goals';
 import { GOAL_ASK_LIMIT, ROADMAP_TOKENS_LABEL, phaseSpecs, currentPhaseIndex, saveRoadmap, pruneRoadmapBooks } from '../lib/goalRoadmap';
 import {
-  PLAN_MINUTES, PLAN_DEFAULT_MINUTES, readingSpeedFactor, planItemsFromRoadmap, scheduleBooks, monthWeeks, weekBands,
+  PLAN_MINUTES, PLAN_DEFAULT_MINUTES, readingSpeedFactor, planItemsFromRoadmap, planItemsFromOrder, scheduleBooks, monthWeeks, weekBands,
   planMonths, bookOnDay, fmtSpan, fmtMd, fmtRange, fmtHoursMin, parseYmd,
 } from '../lib/readingPlan';
 import { appNow } from '../lib/appNow';
@@ -595,6 +595,7 @@ function RoadmapView({ goal, record, books, onOpenBook, onAddActionText, onFindB
 
       <section className="goal-sec" aria-labelledby="rm-road">
         <h3 id="rm-road" className="goal-sec-title">道のり</h3>
+        <p className="plan-summary" style={{ marginTop: 0, marginBottom: 'var(--space-4)' }}>{withPhraseBreaks('本は、この先 3 か月に読む分を選んでいます。先の区切りは、やることで道すじだけ。読む順番は、読書計画で自由に変えられます。')}</p>
         <ol className="goal-road">
           {roadmap.phases.map((p, i) => {
             const spec = specs[i] || { label: `${i + 1}`, range: '' };
@@ -702,7 +703,17 @@ function PlanView({ goal, record, books, sessions, onOpenBook, onAddReadingActio
   const speed = useMemo(() => readingSpeedFactor(books, sessions), [books, sessions]);
   // 区切りの本は、その区切りが始まる日から（ロードマップと同じ時期に読む）。
   const phaseStarts = useMemo(() => specs.map((x) => `${x.startYm}-01`), [specs]);
-  const items = useMemo(() => planItemsFromRoadmap(roadmap, books, { speed, sessions, phaseStarts }), [roadmap, books, speed, sessions, phaseStarts]);
+  // 本人が順番を決めていれば、その順に今日から（2026-11-16 オーナー「自由に本の順番も入れられるように」）。
+  const customOrder = Array.isArray(record.plan?.order) && record.plan.order.length ? record.plan.order : null;
+  const phaseOf = useMemo(() => {
+    const m = new Map();
+    roadmap.phases.forEach((p, i) => p.books.forEach((b) => { if (!m.has(b.bookId)) m.set(b.bookId, i); }));
+    return m;
+  }, [roadmap]);
+  const items = useMemo(() => (customOrder
+    ? planItemsFromOrder(customOrder, books, { speed, sessions, phaseOf, fallbackPhase: here })
+    : planItemsFromRoadmap(roadmap, books, { speed, sessions, phaseStarts })), [customOrder, roadmap, books, speed, sessions, phaseStarts, phaseOf, here]);
+  const [ordering, setOrdering] = useState(false);
   const schedule = useMemo(() => scheduleBooks(items, { minutesPerDay: minutes, start: today }), [items, minutes, today]);
   const months = useMemo(() => planMonths(schedule, today), [schedule, today]);
   const [mi, setMi] = useState(0);
@@ -742,8 +753,37 @@ function PlanView({ goal, record, books, sessions, onOpenBook, onAddReadingActio
     }
   };
 
+  const orderSheet = ordering && (
+    <PlanOrderSheet
+      books={books}
+      initial={items.map((x) => x.bookId)}
+      custom={!!customOrder}
+      onClose={() => setOrdering(false)}
+      onSave={(order) => {
+        savePlan({ minutesPerDay: minutes, order });
+        setOrdering(false);
+        toast.success?.('読む順番を保存しました。');
+        track('reading_plan_order', { count: order.length });
+      }}
+      onReset={() => {
+        savePlan({ minutesPerDay: minutes, order: null });
+        setOrdering(false);
+        toast.show?.('ロードマップの順番に戻しました。');
+      }}
+    />
+  );
+
   if (!schedule.length) {
-    return <ErrorMessage title="読む本がありません" description="ロードマップの本は、もう読み終えています。ロードマップの「本を探す」から次の本を入れてください。" />;
+    return (
+      <>
+        <ErrorMessage
+          title="読む本がありません"
+          description="ロードマップの本は、もう読み終えています。本棚から、この先 3 か月に読む本を選んでください。"
+          actions={[{ label: '本棚から選ぶ', variant: 'primary', onClick: () => setOrdering(true) }]}
+        />
+        {orderSheet}
+      </>
+    );
   }
   const last = schedule[schedule.length - 1];
   const m = months[mi] || months[0];
@@ -753,7 +793,9 @@ function PlanView({ goal, record, books, sessions, onOpenBook, onAddReadingActio
   const nextAfterMonth = !monthHasBooks ? schedule.find((x) => m && x.start > `${m.year}-${String(m.month + 1).padStart(2, '0')}-31`) : null;
   const todayBook = nowItem ? byId.get(nowItem.bookId) : nextItem ? byId.get(nextItem.bookId) : null;
   const groups = [];
-  schedule.forEach((x) => {
+  // 自分で決めた順のときは区切りで分けない（区切りの名前と読む日がずれるので）。
+  if (customOrder) groups.push({ phase: -1, items: schedule });
+  else schedule.forEach((x) => {
     const g = groups[groups.length - 1];
     if (g && g.phase === x.phase) g.items.push(x); else groups.push({ phase: x.phase, items: [x] });
   });
@@ -839,7 +881,10 @@ function PlanView({ goal, record, books, sessions, onOpenBook, onAddReadingActio
       </section>
 
       <section className="goal-sec" aria-labelledby="plan-order">
-        <h3 id="plan-order" className="goal-sec-title">読む順番</h3>
+        <div className="plan-order-head">
+          <h3 id="plan-order" className="goal-sec-title" style={{ margin: 0 }}>{customOrder ? '読む順番（自分で決めた順）' : '読む順番'}</h3>
+          <button type="button" style={{ ...btnLink, paddingRight: 0 }} onClick={() => setOrdering(true)}>順番を変える</button>
+        </div>
         {groups.map((g) => (
           <div key={g.phase} className="plan-group" style={g === groups[0] ? { marginTop: 0 } : undefined}>
             {specs[g.phase] && <p className="plan-group-head">{specs[g.phase].label}<span>{`${specs[g.phase].range}${specs[g.phase].goal && specs[g.phase].goal !== specs[groups[groups.indexOf(g) - 1]?.phase]?.goal ? ` · ${horizonOf(specs[g.phase].goal).label}の目標へ` : ''}`}</span></p>}
@@ -879,7 +924,73 @@ function PlanView({ goal, record, books, sessions, onOpenBook, onAddReadingActio
             : 'これから 3 か月のうちに読み始める本を「『書名』を読み始める」として追加します。')}
         </p>
       </div>
+      {orderSheet}
     </>
+  );
+}
+
+// 読む順番を変える（↑↓ で並べ替え・× で外す・本棚から足す）。2026-11-16 オーナー「自由に本の順番も入れられるように」。
+const STATUS_NAME = { reading: '読書中', before: '積読', want: '読みたい' };
+function PlanOrderSheet({ books, initial, custom, onClose, onSave, onReset }) {
+  const [order, setOrder] = useState(initial);
+  const byId = useMemo(() => new Map(books.map((b) => [b.id, b])), [books]);
+  const rest = books.filter((b) => b.status !== 'done' && !order.includes(b.id))
+    .sort((a, b) => ({ reading: 0, before: 1, want: 2 }[a.status] ?? 3) - ({ reading: 0, before: 1, want: 2 }[b.status] ?? 3));
+  const dirty = order.join() !== initial.join();
+  const move = (i, d) => setOrder((o) => {
+    const j = i + d;
+    if (j < 0 || j >= o.length) return o;
+    const n = [...o];
+    [n[i], n[j]] = [n[j], n[i]];
+    return n;
+  });
+  return (
+    <BottomSheet
+      title="読む順番"
+      onClose={onClose}
+      dismissLabel="キャンセル"
+      footer={(
+        <button type="button" style={dirty && order.length ? btnPrimary : btnPrimaryOff} disabled={!dirty || !order.length} onClick={() => onSave(order)}>保存</button>
+      )}
+    >
+      <p className="plan-summary" style={{ marginTop: 0 }}>{withPhraseBreaks('上から順に、今日から読みます。この先 3 か月に読む本を中心に並べてください。')}</p>
+      <ol className="plan-sort" aria-label="読む順番">
+        {order.map((id, i) => {
+          const b = byId.get(id);
+          if (!b) return null;
+          return (
+            <li key={id} className="plan-sort-row">
+              <MiniCover book={b} width={32} />
+              <span className="plan-sort-title">{withPhraseBreaks(`『${b.title}』`)}</span>
+              <button type="button" className="rm-icon-btn" onClick={() => move(i, -1)} disabled={i === 0} aria-label={`『${b.title}』を上へ`}><ChevronUp size={20} aria-hidden="true" /></button>
+              <button type="button" className="rm-icon-btn" onClick={() => move(i, 1)} disabled={i === order.length - 1} aria-label={`『${b.title}』を下へ`}><ChevronDown size={20} aria-hidden="true" /></button>
+              <button type="button" className="rm-icon-btn" onClick={() => setOrder((o) => o.filter((x) => x !== id))} aria-label={`『${b.title}』を外す`}><X size={20} aria-hidden="true" /></button>
+            </li>
+          );
+        })}
+      </ol>
+      {!order.length && <p className="plan-summary">{withPhraseBreaks('下の本棚から、読む本を足してください。')}</p>}
+      {rest.length > 0 && (
+        <>
+          <h3 className="goal-sec-title" style={{ marginTop: 'var(--space-6)' }}>本棚から足す</h3>
+          <ul className="plan-sort" aria-label="本棚の本">
+            {rest.map((b) => (
+              <li key={b.id} className="plan-sort-row">
+                <MiniCover book={b} width={32} />
+                <span className="plan-sort-title">
+                  {withPhraseBreaks(`『${b.title}』`)}
+                  <span className="plan-sort-meta">{STATUS_NAME[b.status] || ''}</span>
+                </span>
+                <button type="button" className="rm-icon-btn" onClick={() => setOrder((o) => [...o, b.id])} aria-label={`『${b.title}』を足す`}><Plus size={20} aria-hidden="true" /></button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      {custom && (
+        <button type="button" style={{ ...btnLinkQuiet, marginTop: 'var(--space-4)', marginLeft: 'calc(-1 * var(--space-1))' }} onClick={onReset}>ロードマップの順番に戻す</button>
+      )}
+    </BottomSheet>
   );
 }
 
