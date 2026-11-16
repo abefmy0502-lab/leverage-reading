@@ -139,6 +139,12 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
               onFindBooks={onFindBooks}
               onPlan={() => setView('plan')}
               onRebuild={startInterview}
+              onEditGoals={() => setView('goals')}
+              onSaveRoadmap={async (next) => {
+                await saveRoadmap(ALL_GOALS_KEY, { ...record, roadmap: next, editedAt: new Date().toISOString() });
+                toast.success?.('ロードマップを直しました。');
+                track('goal_roadmap_edit', {});
+              }}
               onUndoUpdate={async () => {
                 await saveRoadmap(ALL_GOALS_KEY, { ...record, roadmap: record.prevRoadmap, prevRoadmap: null, updates: (record.updates || []).slice(1) });
                 toast.show?.('ロードマップを、見直す前に戻しました。');
@@ -549,8 +555,10 @@ function Building({ building }) {
 // ---------------------------------------------------------------------------
 // ロードマップ
 // ---------------------------------------------------------------------------
-function RoadmapView({ goal, record, books, onOpenBook, onAddActionText, onFindBooks, onPlan, onRebuild, onUndoUpdate }) {
+function RoadmapView({ goal, record, books, onOpenBook, onAddActionText, onFindBooks, onPlan, onRebuild, onUndoUpdate, onEditGoals, onSaveRoadmap }) {
   const latest = record.updates?.[0] || null;
+  // 自分の手で直す（2026-11-16 オーナー「目標や課題は定期的に変わるので、常に修正できるように」・AI もトークンも使わない）。
+  const [editing, setEditing] = useState(null); // { kind: 'needs' | 'issues' | 'phase', index }
   const roadmap = useMemo(() => pruneRoadmapBooks(record.roadmap, books), [record.roadmap, books]);
   const specs = phaseSpecs(goal.key, record.goalAt || goal.at);
   const here = currentPhaseIndex(goal.key, record.goalAt || goal.at, appNow());
@@ -567,6 +575,9 @@ function RoadmapView({ goal, record, books, onOpenBook, onAddActionText, onFindB
     <>
       <header className="goal-head">
         <GoalTrio goals={goal.goals} compact />
+        {onEditGoals && (
+          <button type="button" style={{ ...btnLink, marginTop: 'var(--space-2)', marginLeft: 'calc(-1 * var(--space-1))' }} onClick={onEditGoals}>目標を書き直す</button>
+        )}
         {stale && (
           <p className="goal-peek">{withPhraseBreaks('このロードマップは、前の目標の文で作りました。新しい目標に合わせるときは、下の「つくり直す」から。')}</p>
         )}
@@ -608,9 +619,12 @@ function RoadmapView({ goal, record, books, onOpenBook, onAddActionText, onFindB
         </section>
       )}
 
-      {roadmap.needs.length > 0 && (
-        <section className="goal-sec" style={{ marginTop: 0 }} aria-labelledby="rm-needs">
+      <section className="goal-sec" style={{ marginTop: 0 }} aria-labelledby="rm-needs">
+        <div className="rm-sec-head">
           <h3 id="rm-needs" className="goal-sec-title">必要なこと</h3>
+          {onSaveRoadmap && <button type="button" className="rm-edit-link" aria-label="必要なことを直す" onClick={() => setEditing({ kind: 'needs' })}>直す</button>}
+        </div>
+        {roadmap.needs.length > 0 ? (
           <ul className="rm-list">
             {roadmap.needs.map((n) => (
               <li key={n.name}>
@@ -619,17 +633,20 @@ function RoadmapView({ goal, record, books, onOpenBook, onAddActionText, onFindB
               </li>
             ))}
           </ul>
-        </section>
-      )}
+        ) : <p className="plan-summary" style={{ marginTop: 0 }}>まだありません。「直す」から足せます。</p>}
+      </section>
 
-      {roadmap.issues.length > 0 && (
-        <section className="goal-sec" aria-labelledby="rm-issues">
+      <section className="goal-sec" aria-labelledby="rm-issues">
+        <div className="rm-sec-head">
           <h3 id="rm-issues" className="goal-sec-title">今の課題</h3>
+          {onSaveRoadmap && <button type="button" className="rm-edit-link" aria-label="今の課題を直す" onClick={() => setEditing({ kind: 'issues' })}>直す</button>}
+        </div>
+        {roadmap.issues.length > 0 ? (
           <ul className="rm-list">
             {roadmap.issues.map((t) => <li key={t}><p className="rm-issue">{withPhraseBreaks(t)}</p></li>)}
           </ul>
-        </section>
-      )}
+        ) : <p className="plan-summary" style={{ marginTop: 0 }}>まだありません。「直す」から足せます。</p>}
+      </section>
 
       <section className="goal-sec" aria-labelledby="rm-road">
         <h3 id="rm-road" className="goal-sec-title">道のり</h3>
@@ -649,6 +666,7 @@ function RoadmapView({ goal, record, books, onOpenBook, onAddActionText, onFindB
                   <strong>{spec.label}</strong>
                   <span>{spec.range}</span>
                   {isHere && <span className="rm-here">いまここ</span>}
+                  {onSaveRoadmap && <button type="button" className="rm-edit-link rm-edit-inline" aria-label={`${spec.label}のやることを直す`} onClick={() => setEditing({ kind: 'phase', index: i })}>直す</button>}
                 </p>
                 {p.focus && <p className="rm-phase-focus">{withPhraseBreaks(p.focus)}</p>}
                 {p.todos.length > 0 && (
@@ -719,9 +737,106 @@ function RoadmapView({ goal, record, books, onOpenBook, onAddActionText, onFindB
           <button type="button" style={btnGhost} onClick={onPlan}>読書計画をカレンダーにする</button>
         )}
         <button type="button" style={{ ...btnLinkQuiet, marginTop: 'var(--space-2)', marginLeft: 'calc(-1 * var(--space-1))' }} onClick={onRebuild}>{`つくり直す（${ROADMAP_TOKENS_LABEL}）`}</button>
-        <p className="rm-footnote">{withPhraseBreaks('AI があなたの目標と答えから作った道のりです。合わないところは、つくり直すか、目標を書き直してください。')}</p>
+        <p className="rm-footnote">{withPhraseBreaks('AI があなたの目標と答えから作った道のりです。合わないところは「直す」で自分の言葉に直せます（トークンは使いません）。')}</p>
       </div>
+      {editing && (
+        <RoadmapEditSheet
+          editing={editing}
+          roadmap={record.roadmap}
+          specs={specs}
+          onClose={() => setEditing(null)}
+          onSave={async (next) => { setEditing(null); await onSaveRoadmap?.(next); }}
+        />
+      )}
     </>
+  );
+}
+
+// 中身に合わせて伸びる欄（ロードマップを直すシート）。
+function GrowTextarea(props) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight + 2}px`;
+  }, [props.value]);
+  return <textarea ref={ref} rows={1} {...props} />;
+}
+
+// ロードマップを自分の手で直す（必要なこと・今の課題・区切りの取り組むことと やること）。AI を使わない。
+const EDIT_LIMITS = {
+  needs: { title: '必要なこと', max: 6, len: 24, placeholder: '例：会議の進め方' },
+  issues: { title: '今の課題', max: 3, len: 110, placeholder: '例：会議で結論が出ないまま終わる' },
+  phase: { title: 'やること', max: 3, len: 70, placeholder: '例：毎週の議題を前日に送る' },
+};
+function RoadmapEditSheet({ editing, roadmap, specs, onClose, onSave }) {
+  const lim = EDIT_LIMITS[editing.kind];
+  const phase = editing.kind === 'phase' ? roadmap.phases[editing.index] : null;
+  const initial = editing.kind === 'needs' ? roadmap.needs.map((n) => n.name)
+    : editing.kind === 'issues' ? [...roadmap.issues] : [...(phase?.todos || [])];
+  const [rows, setRows] = useState(initial.length ? initial : ['']);
+  const [focus, setFocus] = useState(phase?.focus || '');
+  const [saving, setSaving] = useState(false);
+  const clean = (t) => String(t || '').replace(/\s+/g, ' ').trim();
+  const list = rows.map(clean).filter(Boolean);
+  const dirty = list.join('\n') !== initial.map(clean).filter(Boolean).join('\n') || (phase && clean(focus) !== clean(phase.focus));
+  const save = async () => {
+    if (!dirty || saving) return;
+    setSaving(true);
+    let next;
+    if (editing.kind === 'needs') {
+      const why = new Map(roadmap.needs.map((n) => [n.name, n.why]));
+      next = { ...roadmap, needs: list.map((name) => ({ name, why: why.get(name) || '' })) };
+    } else if (editing.kind === 'issues') {
+      next = { ...roadmap, issues: list };
+    } else {
+      next = { ...roadmap, phases: roadmap.phases.map((p, i) => (i === editing.index ? { ...p, focus: clean(focus), todos: list } : p)) };
+    }
+    await onSave(next);
+    setSaving(false);
+  };
+  const title = editing.kind === 'phase' ? `${specs[editing.index]?.label || ''}を直す` : `${lim.title}を直す`;
+  return (
+    <BottomSheet
+      title={title}
+      onClose={onClose}
+      dismissLabel="キャンセル"
+      footer={<button type="button" style={dirty && !saving ? btnPrimary : btnPrimaryOff} disabled={!dirty || saving} onClick={save}>{saving ? '保存中…' : '保存'}</button>}
+    >
+      {phase && (
+        <>
+          <p className="goal-sec-title">取り組むこと</p>
+          <input value={focus} onChange={(e) => setFocus(e.target.value)} maxLength={60} aria-label="取り組むこと" style={{ ...uiInput, marginBottom: 'var(--space-4)' }} />
+          <p className="goal-sec-title">やること</p>
+        </>
+      )}
+      <ul className="rm-edit-rows" aria-label={lim.title}>
+        {rows.map((r, i) => (
+          <li key={i} className="rm-edit-row">
+            {/* 長い文も全部見えるように、文の長さで 1〜4 行（改行は入れない＝Enter は無視）。 */}
+            <GrowTextarea
+              value={r}
+              onChange={(e) => setRows((xs) => xs.map((x, j) => (j === i ? e.target.value.replace(/\n/g, ' ') : x)))}
+              onKeyDown={(e) => { if (e.nativeEvent.isComposing) return; if (e.key === 'Enter') e.preventDefault(); }}
+              maxLength={lim.len}
+              placeholder={lim.placeholder}
+              aria-label={`${lim.title} ${i + 1}`}
+              style={{ ...uiInput, flex: 1, minWidth: 0, resize: 'none', lineHeight: 1.6 }}
+            />
+            <button type="button" className="rm-icon-btn" aria-label={`${lim.title} ${i + 1} を消す`} onClick={() => setRows((xs) => (xs.length > 1 ? xs.filter((_, j) => j !== i) : ['']))}>
+              <X size={20} aria-hidden="true" />
+            </button>
+          </li>
+        ))}
+      </ul>
+      {rows.length < lim.max && (
+        <button type="button" style={{ ...btnLink, marginTop: 'var(--space-2)', marginLeft: 'calc(-1 * var(--space-1))', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }} onClick={() => setRows((xs) => [...xs, ''])}>
+          <Plus size="1em" aria-hidden="true" />{`${lim.title}を足す`}
+        </button>
+      )}
+      <p className="plan-summary">{withPhraseBreaks(`${lim.max} つまで。AI は使わないので、トークンは減りません。`)}</p>
+    </BottomSheet>
   );
 }
 
