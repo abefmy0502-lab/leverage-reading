@@ -61,7 +61,7 @@ export default function RoadmapReflectSheet({ source, books = [], onClose, onOpe
   const undo = async () => {
     if (!prevRecord || !pick) return;
     await saveRoadmap(pick, prevRecord);
-    toast.show?.('ロードマップを、見直す前に戻しました。');
+    toast.info?.('ロードマップを、見直す前に戻しました。');
     onClose?.();
   };
 

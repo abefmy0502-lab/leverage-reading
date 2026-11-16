@@ -153,7 +153,7 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
               }}
               onUndoUpdate={async () => {
                 await saveRoadmap(ALL_GOALS_KEY, { ...record, roadmap: record.prevRoadmap, prevRoadmap: null, updates: (record.updates || []).slice(1) });
-                toast.show?.('ロードマップを、見直す前に戻しました。');
+                toast.info?.('ロードマップを、見直す前に戻しました。');
               }}
             />
           )}
@@ -194,7 +194,7 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
             track('goal_saved', { horizon: key, cleared: !cleanGoalText(text) });
             const rec = roadmaps[ALL_GOALS_KEY];
             if (cleanGoalText(text) && rec?.roadmap && cleanGoalText(text) !== cleanGoalText(rec.goals?.[key]?.text || '')) {
-              toast.show?.('目標を書き直しました。ロードマップは「つくり直す」で新しい目標に合わせられます。');
+              toast.info?.('目標を書き直しました。ロードマップは「つくり直す」で新しい目標に合わせられます。');
             } else if (!rec?.roadmap && allGoalsSet(r.goals)) {
               toast.success?.('3 つの目標がそろいました。下の「ロードマップをつくる」から始められます。');
             }
@@ -892,8 +892,6 @@ function PlanView({ goal, record, books, sessions, onFindBooks, onOpenBook, onAd
   const nowItem = bookOnDay(schedule, today);
   const nextItem = nowItem ? null : schedule.find((x) => x.start > today) || null;
   const indexOf = useMemo(() => new Map(schedule.map((x, i) => [x.bookId, i])), [schedule]);
-  const [adding, setAdding] = useState(false);
-  const addedAt = record.plan?.actionsAddedAt || null;
 
   const savePlan = useCallback((patch) => {
     saveRoadmap(ALL_GOALS_KEY, { ...record, plan: { ...(record.plan || {}), ...patch } });
@@ -904,23 +902,6 @@ function PlanView({ goal, record, books, sessions, onFindBooks, onOpenBook, onAd
     setMinutes(m);
     savePlan({ minutesPerDay: m });
     track('reading_plan_minutes', { minutes: m });
-  };
-
-  const soon = schedule.filter((x) => x.start <= addDaysYmd(today, 90));
-  const addActions = async () => {
-    if (adding || !soon.length) return;
-    setAdding(true);
-    const r = await onAddReadingActions?.(soon.map((x) => ({ bookId: x.bookId, text: `『${byId.get(x.bookId)?.title || ''}』を読み始める`, deadline: x.start })));
-    setAdding(false);
-    const added = r?.added || 0;
-    const skipped = r?.skipped || 0;
-    if (added > 0) {
-      savePlan({ minutesPerDay: minutes, actionsAddedAt: new Date().toISOString() });
-      toast.success?.(skipped ? `行動に ${added} 件追加しました（${skipped} 件は追加済み）。` : `読み始める日を、行動に ${added} 件追加しました。`);
-      track('reading_plan_actions', { count: added });
-    } else if (skipped > 0) {
-      toast.show?.('どの本も、もう行動に入っています。');
-    }
   };
 
   const orderSheet = ordering && (
@@ -938,7 +919,7 @@ function PlanView({ goal, record, books, sessions, onFindBooks, onOpenBook, onAd
       onReset={() => {
         savePlan({ minutesPerDay: minutes, order: null });
         setOrdering(false);
-        toast.show?.('ロードマップの順番に戻しました。');
+        toast.info?.('ロードマップの順番に戻しました。');
       }}
     />
   );
@@ -1095,16 +1076,7 @@ function PlanView({ goal, record, books, sessions, onFindBooks, onOpenBook, onAd
         ))}
       </section>
 
-      <div className="goal-sec">
-        <button type="button" style={adding || !soon.length ? btnPrimaryOff : btnPrimary} disabled={adding || !soon.length} onClick={addActions}>
-          {adding ? '追加中…' : `読み始める日を行動に追加（${soon.length} 件）`}
-        </button>
-        <p className="plan-summary">
-          {withPhraseBreaks(addedAt
-            ? `前に追加したのは ${fmtMd(toLocalYmd(new Date(addedAt)), year)} です。まだ追加していない本だけを足します。`
-            : 'これから 3 か月のうちに読み始める本を「『書名』を読み始める」として追加します。')}
-        </p>
-      </div>
+      {/* 「読み始める日を行動に追加」は 2026-11-16 にやめた（オーナー「不要じゃない？」＝行動は読んで相談して決める）。 */}
       {orderSheet}
     </>
   );

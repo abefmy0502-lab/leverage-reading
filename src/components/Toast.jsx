@@ -336,7 +336,9 @@ export function ToastProvider({ children }) {
   );
 
   const show = useCallback(
-    (opts) => {
+    (raw) => {
+      // 文字だけを渡されても中身の無い知らせにしない（2026-11-16 読書計画で空の知らせが出ていた）。
+      const opts = typeof raw === 'string' ? { message: raw } : (raw || {});
       const id = makeId();
       // ボタン（取消・行動にする・開く など）付きの成功は、押せない中央の ✓ ではなく
       // 下のバーで出す（中央の ✓ はボタンを持てず、押せる操作が黙って消えていた・2026-09-27）。
