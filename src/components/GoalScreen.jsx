@@ -64,7 +64,7 @@ function gluedEnd(text) {
   return <>{withPhraseBreaks(m[1])}<span style={{ whiteSpace: 'nowrap' }}>{m[2]}</span></>;
 }
 
-export default function GoalScreen({ start = null, books = [], onClose, onOpenBook, onAddActionText, onAddReadingActions, onFindBooks }) {
+export default function GoalScreen({ start = null, books = [], onClose, onOpenBook, onAddActionText, onAddReadingActions, onFindBooks, onAddRecBook }) {
   const { goals, roadmaps, purpose, loaded } = useGoals();
   const toast = useToast();
   const { rows: sessions } = useReadingSessions();
@@ -140,6 +140,12 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
               onPlan={() => setView('plan')}
               onRebuild={startInterview}
               onEditGoals={() => setView('goals')}
+              onAddRec={onAddRecBook ? async (rb) => {
+                const saved = await onAddRecBook({ title: rb.title, author: rb.author, isbn: rb.isbn || '', cover: rb.cover || '', why: rb.why || '' }, {
+                  sourceQuery: '', investPurpose: cleanGoalText(goals.y1?.text || ''), currentChallenge: '', hypothesis: '', bookReason: rb.why || '',
+                });
+                if (saved?.id) track('goal_rec_added', {});
+              } : null}
               onSaveRoadmap={async (next) => {
                 await saveRoadmap(ALL_GOALS_KEY, { ...record, roadmap: next, editedAt: new Date().toISOString() });
                 toast.success?.('ロードマップを直しました。');
@@ -555,7 +561,13 @@ function Building({ building }) {
 // ---------------------------------------------------------------------------
 // ロードマップ
 // ---------------------------------------------------------------------------
-function RoadmapView({ goal, record, books, onOpenBook, onAddActionText, onFindBooks, onPlan, onRebuild, onUndoUpdate, onEditGoals, onSaveRoadmap }) {
+function RoadmapView({ goal, record, books, onOpenBook, onAddActionText, onFindBooks, onPlan, onRebuild, onUndoUpdate, onEditGoals, onSaveRoadmap, onAddRec }) {
+  const [addingRec, setAddingRec] = useState(null);
+  const addRec = async (rb) => {
+    if (addingRec) return;
+    setAddingRec(rb.title);
+    try { await onAddRec?.(rb); } finally { setAddingRec(null); }
+  };
   const latest = record.updates?.[0] || null;
   // 自分の手で直す（2026-11-16 オーナー「目標や課題は定期的に変わるので、常に修正できるように」・AI もトークンも使わない）。
   const [editing, setEditing] = useState(null); // { kind: 'needs' | 'issues' | 'phase', index }
@@ -566,6 +578,7 @@ function RoadmapView({ goal, record, books, onOpenBook, onAddActionText, onFindB
   const planBooks = roadmap.phases.some((p) => p.books.some((b) => byId.get(b.bookId)?.status !== 'done'));
   // 本棚に読んでいない本があれば、ロードマップに本が無くても読書計画は自分で選んでつくれる（2026-11-16 オーナー「本棚の本がほぼない状態だとどうなる？」）。
   const hasUnread = books.some((b) => b.status !== 'done');
+  const recsNow = (roadmap.phases[here]?.books || []).filter((b) => !b.bookId).length;
   // この 3 か月に読む本を AI 選書で探す下書き（送らない）。
   const findDraft = `${goal.goals?.y1?.text || ''}。いまは「${roadmap.phases[here]?.focus || ''}」に取り組みたいので、この 3 か月に読む本を探したい`.replace(/^。/, '');
   // 作ったときの目標の文と、いまの文が違えば（書き直した）。
@@ -593,10 +606,16 @@ function RoadmapView({ goal, record, books, onOpenBook, onAddActionText, onFindB
           <button type="button" style={{ ...btnPrimary, marginTop: 'var(--space-4)' }} onClick={onPlan}>読書計画をカレンダーにする</button>
         ) : (
           <>
-            <p className="plan-summary">{withPhraseBreaks('本棚に、目標に合う本がまだありません。AI 選書で、この 3 か月に読む本を探しましょう。')}</p>
-            <button type="button" style={{ ...btnPrimary, marginTop: 'var(--space-3)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)' }} onClick={() => onFindBooks?.(findDraft)}>
-              <Search size="1em" aria-hidden="true" />この 3 か月に読む本を探す
-            </button>
+            {recsNow > 0 ? (
+              <p className="plan-summary">{withPhraseBreaks(`この 3 か月に読む本を ${recsNow} 冊すすめています。下の「本棚に入れる」で入れると、読書計画のカレンダーになります。`)}</p>
+            ) : (
+              <>
+                <p className="plan-summary">{withPhraseBreaks('この 3 か月に読む本は、まだ決まっていません。AI 選書で探しましょう。')}</p>
+                <button type="button" style={{ ...btnPrimary, marginTop: 'var(--space-3)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)' }} onClick={() => onFindBooks?.(findDraft)}>
+                  <Search size="1em" aria-hidden="true" />この 3 か月に読む本を探す
+                </button>
+              </>
+            )}
             {hasUnread && (
               <button type="button" style={{ ...btnLink, marginTop: 'var(--space-2)', marginLeft: 'calc(-1 * var(--space-1))' }} onClick={onPlan}>本棚の本から選んで読書計画にする</button>
             )}
@@ -685,6 +704,25 @@ function RoadmapView({ goal, record, books, onOpenBook, onAddActionText, onFindB
                 {p.books.length > 0 && (
                   <div className="rm-books">
                     {p.books.map((rb) => {
+                      // すすめた本（まだ本棚に無い）: 表紙・書名・著者・なぜ＋「本棚に入れる」（読みたいに入る・入れると読書計画に入る）。
+                      if (!rb.bookId) {
+                        const busy = addingRec === rb.title;
+                        return (
+                          <div key={`t:${rb.title}`} className="rm-book rm-book-rec">
+                            <MiniCover book={{ id: `rec:${rb.title}`, title: rb.title, cover: rb.cover || '' }} width={36} />
+                            <span style={{ flex: 1, minWidth: 0 }}>
+                              <span className="rm-book-title">{withPhraseBreaks(`『${rb.title}』`)}</span>
+                              {rb.author && <span className="rm-book-author">{rb.author}</span>}
+                              {rb.why && <span className="rm-book-why">{rb.why}</span>}
+                              {onAddRec && (
+                                <button type="button" className="rm-add-btn rm-add-rec" disabled={busy} onClick={() => addRec(rb)}>
+                                  <Plus size="1em" aria-hidden="true" />{busy ? '入れています…' : '本棚に入れる'}
+                                </button>
+                              )}
+                            </span>
+                          </div>
+                        );
+                      }
                       const b = byId.get(rb.bookId);
                       if (!b) return null;
                       return (

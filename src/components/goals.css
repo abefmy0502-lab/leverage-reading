@@ -266,6 +266,10 @@
 .rm-edit-inline { min-height: 0; margin: calc(-1 * var(--space-3)) 0 calc(-1 * var(--space-3)) auto; padding: var(--space-3) 0 var(--space-3) var(--space-3); }
 .rm-edit-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
 .rm-edit-row { display: flex; align-items: center; gap: var(--space-1); }
+.rm-book-rec { cursor: default; }
+.rm-book-author { display: block; margin-top: var(--space-1); font-size: var(--text-meta); color: var(--text-2); }
+.rm-add-rec { padding-left: 0; margin-left: calc(-1 * var(--space-1)); }
+.rm-add-btn:disabled { color: var(--text-3); cursor: default; }
 .rm-add-btn {
   flex-shrink: 0;
   display: inline-flex;

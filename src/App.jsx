@@ -7012,6 +7012,7 @@ function AuthedApp() {
               return { added, skipped };
             }}
             onFindBooks={(draft) => { setGoalScreen(null); openAdvisorWithDraft(draft); }}
+            onAddRecBook={(rec, payload) => addFromAdvisor(rec, payload)}
           />
         </Suspense>
       )}

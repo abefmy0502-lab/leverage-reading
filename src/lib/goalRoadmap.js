@@ -122,8 +122,18 @@ export function shelfMaterial(books, { maxUnread = 40, maxDone = 20 } = {}) {
     return `${key} | ${STATUS_JA[b.status] || ''} | 『${cut(b.title, 60)}』${b.author ? ` ${cut(b.author, 30)}` : ''}${fields ? ` | 分野: ${fields}` : ''}${purpose ? ` | 得たいこと: ${purpose}` : ''}`;
   });
   const doneLines = done.map((b) => `『${cut(b.title, 60)}』${b.rating ? ` ★${b.rating}` : ''}`);
-  return { text: lines.join('\n'), doneText: doneLines.join('\n'), keyToId, count: lines.length };
+  // AI がすすめた本の書名が本棚の本と同じなら、その本にする（読了の本はすすめない）。
+  const titleToId = {};
+  for (const b of list) if (b?.id && str(b.title)) titleToId[titleKey(b.title)] = { id: b.id, done: b.status === 'done' };
+  return { text: lines.join('\n'), doneText: doneLines.join('\n'), keyToId, titleToId, count: lines.length };
 }
+
+// 書名の比べ方（『』・空白・記号・大小を無視）。
+export function titleKey(t) {
+  return String(t || '').replace(/[『』「」\s\u3000・:：\-－—=＝!！?？]/g, '').toLowerCase();
+}
+// ロードマップの本の 1 冊の目印（本棚の本は id・すすめた本は書名）。
+export const roadmapBookKey = (b) => (b?.bookId ? `id:${b.bookId}` : `t:${titleKey(b?.title)}`);
 
 // ---- 深掘りの問いと答え（AI に渡す形） ----
 export function priorQAText(qa) {
@@ -149,7 +159,10 @@ export function higherGoalsText(horizonKey, goals, roadmaps = {}) {
 
 // ---- ロードマップの答えを解く ----
 //   { needs:[{name, why}], issues:[string], phases:[{focus, todos:[string], books:[{bookId, why}]}], missing:[{theme, why}] } | null
-export function parseRoadmap(text, keyToId, phaseCount, caps = []) {
+//   books の 1 冊は 本棚の本 { bookId, why } か、すすめる本 { title, author, why }（2026-11-16 オーナー
+//   「持っている本を無理やり当てはめるのは嫌だ。読むべき本を勧めて欲しい」）。すすめる本は画面に出す前に実在を確かめる
+//   （verifyRoadmapRecs）。titleToId があれば、すすめた本が本棚にあるときはその本に（読了の本は外す）。
+export function parseRoadmap(text, keyToId, phaseCount, caps = [], titleToId = {}) {
   if (typeof text !== 'string') return null;
   const s = text.indexOf('{');
   const e = text.lastIndexOf('}');
@@ -172,14 +185,26 @@ export function parseRoadmap(text, keyToId, phaseCount, caps = []) {
   for (let i = 0; i < n; i += 1) {
     const p = rawPhases[i] || {};
     const books = [];
+    // caps があれば区切りごとの上限（0＝本を選ばない区切り）・無ければ前の版と同じ 3 冊まで。
+    const cap = caps.length ? (caps[i] || 0) : 3;
     for (const rb of Array.isArray(p.books) ? p.books : []) {
+      if (books.length >= cap) break;
+      const why = soften(cut(rb?.why, 60));
       const key = str(rb?.key || rb?.id).toUpperCase();
-      const bookId = keyToId?.[key];
-      // caps があれば区切りごとの上限（0＝本を選ばない区切り）・無ければ前の版と同じ 3 冊まで。
-      const cap = caps.length ? (caps[i] || 0) : 3;
-      if (!bookId || used.has(bookId) || books.length >= cap) continue;
-      used.add(bookId);
-      books.push({ bookId, why: soften(cut(rb?.why, 60)) });
+      let bookId = key ? keyToId?.[key] : null;
+      let rec = null;
+      if (!bookId) {
+        const title = cut(str(rb?.title).replace(/^[『「]|[』」]$/g, ''), 80);
+        if (!title) continue;
+        const shelf = titleToId?.[titleKey(title)];
+        if (shelf?.done) continue;
+        if (shelf) bookId = shelf.id;
+        else rec = { title, author: cut(rb?.author, 40), why };
+      }
+      const k = bookId ? `id:${bookId}` : `t:${titleKey(rec.title)}`;
+      if (used.has(k)) continue;
+      used.add(k);
+      books.push(bookId ? { bookId, why } : rec);
     }
     phases.push({
       focus: soften(cut(p.focus, 60)),
@@ -205,7 +230,7 @@ export function roadmapPromptText(roadmap, keyToId, books = [], specs = []) {
   lines.push(`必要なこと: ${(roadmap?.needs || []).map((n) => n.name).join('・') || '（なし）'}`);
   lines.push(`今の課題: ${(roadmap?.issues || []).join(' / ') || '（なし）'}`);
   (roadmap?.phases || []).forEach((p, i) => {
-    const bs = (p.books || []).map((b) => idToKey[b.bookId] || (titleOf.get(b.bookId) ? `『${cut(titleOf.get(b.bookId), 40)}』` : '')).filter(Boolean).join('・');
+    const bs = (p.books || []).map((b) => (b.bookId ? (idToKey[b.bookId] || (titleOf.get(b.bookId) ? `『${cut(titleOf.get(b.bookId), 40)}』` : '')) : (b.title ? `『${cut(b.title, 40)}』（本棚に無い）` : ''))).filter(Boolean).join('・');
     lines.push(`${i + 1}. ${specs[i]?.label || ''}: ${p.focus || ''}${p.todos?.length ? `（${p.todos.join(' / ')}）` : ''}${bs ? ` 本: ${bs}` : ''}`);
   });
   return lines.join('\n');
@@ -213,7 +238,7 @@ export function roadmapPromptText(roadmap, keyToId, books = [], specs = []) {
 
 // 見直しの答え。{ found:false } か { found:true, newIssues, note, roadmap }（読めなければ null）。
 //   いまの区切りより前の区切りは、前のロードマップのまま残す（AI が過去を書き換えない）。
-export function parseRoadmapUpdate(text, keyToId, prev, hereIndex = 0, caps = []) {
+export function parseRoadmapUpdate(text, keyToId, prev, hereIndex = 0, caps = [], titleToId = {}) {
   if (typeof text !== 'string') return null;
   const s = text.indexOf('{');
   const e = text.lastIndexOf('}');
@@ -223,13 +248,13 @@ export function parseRoadmapUpdate(text, keyToId, prev, hereIndex = 0, caps = []
   if (!obj || typeof obj !== 'object') return null;
   if (obj.found !== true) return { found: false };
   const n = prev?.phases?.length || 1;
-  const next = parseRoadmap(JSON.stringify(obj), keyToId, n, caps);
+  const next = parseRoadmap(JSON.stringify(obj), keyToId, n, caps, titleToId);
   if (!next) return { found: false };
   const keep = Math.max(0, Math.min(hereIndex, n));
   for (let i = 0; i < keep; i += 1) if (prev?.phases?.[i]) next.phases[i] = prev.phases[i];
   // 前に残した区切りの本と、直した区切りの本が重ならないように（前に残した方を優先）。
   const seen = new Set();
-  next.phases = next.phases.map((p) => ({ ...p, books: (p.books || []).filter((b) => (seen.has(b.bookId) ? false : (seen.add(b.bookId), true))) }));
+  next.phases = next.phases.map((p) => ({ ...p, books: (p.books || []).filter((b) => { const k = roadmapBookKey(b); return seen.has(k) ? false : (seen.add(k), true); }) }));
   const newIssues = (Array.isArray(obj.newIssues) ? obj.newIssues : []).map((x) => soften(cut(x, 60))).filter(Boolean).slice(0, 2);
   if (!newIssues.length) return { found: false };
   return { found: true, newIssues, note: soften(cut(obj.note, 80)), roadmap: next };
@@ -250,7 +275,51 @@ export function roadmapHorizons(goals, records) {
 export function pruneRoadmapBooks(roadmap, books) {
   if (!roadmap) return roadmap;
   const ids = new Set((books || []).map((b) => b.id));
-  return { ...roadmap, phases: (roadmap.phases || []).map((p) => ({ ...p, books: (p.books || []).filter((b) => ids.has(b.bookId)) })) };
+  // すすめた本（まだ本棚に無い・bookId が無い）は残す。本棚に入ったら（同じ書名）その本にする。
+  const byTitle = new Map((books || []).map((b) => [titleKey(b.title), b]));
+  return {
+    ...roadmap,
+    phases: (roadmap.phases || []).map((p) => ({
+      ...p,
+      books: (p.books || []).map((b) => {
+        if (b.bookId) return ids.has(b.bookId) ? b : null;
+        const shelf = byTitle.get(titleKey(b.title));
+        if (shelf) return shelf.status === 'done' ? null : { bookId: shelf.id, why: b.why };
+        return b;
+      }).filter(Boolean),
+    })),
+  };
+}
+
+// ---- すすめた本の実在を確かめる（AI 選書と同じ・lib/bookCover.js の verifyBookExists） ----
+//   実在を確かめられた本だけを残す（書誌で見つからない・確かめられない本は出さない＝無い本をすすめない）。
+//   確かめられなかった本は少し待って 1 回だけ確かめ直す。ISBN と表紙の候補を付ける。
+export async function verifyRoadmapRecs(roadmap, verify, { pause = 250, timeoutMs = 6000 } = {}) {
+  if (!roadmap || typeof verify !== 'function') return roadmap;
+  const once = (b) => Promise.race([
+    Promise.resolve().then(() => verify({ title: b.title, author: b.author })).catch(() => ({ exists: null })),
+    new Promise((r) => { setTimeout(() => r({ exists: null }), timeoutMs); }),
+  ]);
+  const phases = [];
+  for (const p of roadmap.phases || []) {
+    const books = [];
+    for (const b of p.books || []) {
+      if (b.bookId) { books.push(b); continue; }
+      // eslint-disable-next-line no-await-in-loop
+      let v = await once(b);
+      if (v?.exists == null) {
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise((r) => { setTimeout(r, 1500); });
+        // eslint-disable-next-line no-await-in-loop
+        v = await once(b);
+      }
+      if (v?.exists === true) books.push({ ...b, isbn: v.isbn || '', cover: v.cover || (v.candidates || [])[0] || '' });
+      // eslint-disable-next-line no-await-in-loop
+      if (pause) await new Promise((r) => { setTimeout(r, pause); });
+    }
+    phases.push({ ...p, books });
+  }
+  return { ...roadmap, phases };
 }
 
 // ---- 読書計画の日付（読書計画の画面とホームの「読書計画」の行で同じ割り振り） ----

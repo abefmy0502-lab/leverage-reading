@@ -1971,8 +1971,12 @@ export async function generateGoalRoadmap({ goals, at, qa, summary, books, minut
     if (notice) err.notice = true;
     throw err;
   }
-  const roadmap = parseRoadmap(isSuspiciousOutput(result) ? '' : result, shelf.keyToId, specs.length, caps);
-  if (!roadmap) throw new Error('ロードマップをうまくまとめられませんでした。もう一度押してください。');
+  const parsed = parseRoadmap(isSuspiciousOutput(result) ? '' : result, shelf.keyToId, specs.length, caps, shelf.titleToId);
+  if (!parsed) throw new Error('ロードマップをうまくまとめられませんでした。もう一度押してください。');
+  // すすめた本は、実在を確かめた本だけ（AI 選書と同じ・無い本をすすめない）。
+  const { verifyRoadmapRecs } = await import('./goalRoadmap');
+  const { verifyBookExists } = await import('./bookCover');
+  const roadmap = await verifyRoadmapRecs(parsed, verifyBookExists);
   track('ai_used', { feature: 'goal_roadmap' });
   return { roadmap, specs };
 }
@@ -2007,8 +2011,13 @@ export async function updateGoalRoadmap({ goals, record, source, books, now = ne
     if (notice) err.notice = true;
     throw err;
   }
-  const r = parseRoadmapUpdate(isSuspiciousOutput(result) ? '' : result, shelf.keyToId, record.roadmap, here, caps);
+  const r = parseRoadmapUpdate(isSuspiciousOutput(result) ? '' : result, shelf.keyToId, record.roadmap, here, caps, shelf.titleToId);
   if (!r) throw new Error('ロードマップを見直せませんでした。もう一度押してください。');
+  if (r.found) {
+    const { verifyRoadmapRecs } = await import('./goalRoadmap');
+    const { verifyBookExists } = await import('./bookCover');
+    r.roadmap = await verifyRoadmapRecs(r.roadmap, verifyBookExists);
+  }
   track('ai_used', { feature: 'goal_roadmap_update' });
   return r;
 }
