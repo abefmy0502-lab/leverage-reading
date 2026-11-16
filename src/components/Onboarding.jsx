@@ -5,17 +5,14 @@ import { rememberOnboardPath } from '../lib/firstDay';
 import { BookOpen, MessageCircle, X, ChevronLeft, ChevronDown } from 'lucide-react';
 import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnLink } from '../styles/ui';
 import { withPhraseBreaks } from './TightBubble';
-import AppPurposeField from './AppPurposeField';
-import { readAppPurpose, saveAppPurpose, isPurposeSpecific, purposeStarterOf, APP_PURPOSE_STARTERS } from '../lib/appPurpose';
 
 const STORAGE_KEY = 'onboardingCompleted';
 
-// スライドは 3 枚（2026-09-29 に 2 枚へ絞り、2026-10-18 に「入れた理由」を足した）:
+// スライドは 2 枚（2026-09-29 に 2 枚へ絞り、2026-10-18 に「入れた理由」を足し、2026-11-16 オーナー「入れた理由は不要」で外した
+//   ＝目標は 振り返り › 行動 の「1 年後・3 年後・5 年後の目標」で書く）:
 //   1. 約束 — 一番の価値「読むほど、自分だけの相談相手が育つ」（CLAUDE.md・2026-09-26 裁定）。
 //      メモ → 相談 → 行動 の流れを本文 1 文にまとめる（旧 2〜4 枚目の中身）。
-//   2. Orime を入れた理由（2026-10-18 オーナー「読書にも目的が要る。その世界観を最初に」・必ず具体的に書く＝続きを 10 字書くまで「次へ」を押せず、
-//      × と Esc も出さない）。書いた理由は設定で見返せ、解約・退会の前に「目的は達成できましたか？」で見せる（lib/appPurpose.js）。
-//   3. 最初の一歩 — 無料でできる始め方（2026-10-02: 取り込む／本のページを撮る／読んだ本に一言ずつ残す の順）。
+//   2. 最初の一歩 — 無料でできる始め方（2026-10-02: 取り込む／本のページを撮る／読んだ本に一言ずつ残す の順）。
 // 思い出しカード（旧「想起」）は手段なのでここでは触れない（振り返りで出会う）。
 // 文体注意: 引用符強調（"凝縮" 等）とダーシ（——）は翻訳調に見えるため使わない。
 // 本文は 2 行程度まで（DESIGN 原則 6: なくても伝わる補足は置かない）。
@@ -26,12 +23,6 @@ const slides = [
     // 行動は会話で決める（2026-09-30）ので「一歩まで答える」とは約束しない。
     // 2026-10-12 ui-critic: 主語（何が答えるか）を出し、詰め込みを減らす。
     body: '心に残った一行をメモしておくと、困ったときに、そのメモから答えが返ってきます。',
-  },
-  {
-    id: 'purpose',
-    title: 'Orime を入れた理由は？',
-    // 2026-10-18 オーナー「具体的であればあるほど良い」: 書き出しのチップ＋続きは自分の言葉（AppPurposeField）。
-    body: '読書と同じで、目的があると続きます。数年先の目標まで具体的に書くほど、あとで見返したときに効きます。',
   },
   {
     Icon: BookOpen,
@@ -182,27 +173,9 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
   const [step, setStep] = useState(0);
   const slide = slides[step];
   const isLast = step === slides.length - 1;
-  const isPurpose = slide.id === 'purpose';
   // 📊 onboard_step: どの画面まで見たか（2026-10-20・どこで離れるかを見る。閉じた画面は onboard_path の step）。
   useEffect(() => { track('onboard_step', { step: step + 1, id: slide.id || `s${step + 1}` }); }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
-  // 🎯 入れた理由（必ず書く）。前に書いた人（ヘルプから見直す）は、その理由を入れておき、閉じるのも今までどおり。
-  const [purposeText, setPurposeText] = useState('');
-  const [purposeSaved, setPurposeSaved] = useState(false);
-  useEffect(() => {
-    let alive = true;
-    readAppPurpose().then((r) => {
-      if (!alive || !r) return;
-      setPurposeText((t) => t || r.text);
-      setLoadedPurpose(r.text);
-      setPurposeSaved(true);
-    });
-    return () => { alive = false; };
-  }, []);
-  // 前に書いた理由（前の版で短く書いた人）は、そのままなら字数を問わず進める。
-  const [loadedPurpose, setLoadedPurpose] = useState('');
-  const purposeReady = isPurposeSpecific(purposeText) || (!!loadedPurpose && purposeText.trim() === loadedPurpose);
-  // 理由を書くまでは閉じられない（1 枚目も）。
-  const canDismiss = purposeSaved;
+  const canDismiss = true;
   // Lazy initializer — runs once on first render, never on module load.
   // 📊 signup_source: 「どこで知りましたか」の1タップ計測（任意・スキップ可）。
   // チャネル別の獲得効率（note/X/検索）を測る唯一の一次データ。値は analytics の
@@ -247,16 +220,7 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
     } catch { /* 動かせない環境はそのまま */ }
   });
   const goPrev = () => setStep((s) => Math.max(0, s - 1));
-  const savePurposeAndNext = () => {
-    if (!purposeReady) return;
-    const st = purposeStarterOf(purposeText);
-    saveAppPurpose(purposeText);
-    track('app_purpose_set', { where: 'onboarding', choice: st ? `s${APP_PURPOSE_STARTERS.indexOf(st) + 1}` : 'own' });
-    setPurposeSaved(true);
-    setStep((s) => Math.min(slides.length - 1, s + 1));
-  };
   const goNext = () => {
-    if (slides[step]?.id === 'purpose') { savePurposeAndNext(); return; }
     setStep((s) => Math.min(slides.length - 1, s + 1));
   };
   const touchStart = useRef(null);
@@ -379,11 +343,6 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
           <p style={{ fontSize: 'var(--text-body)', color: 'var(--text-2)', lineHeight: 1.6, textAlign: 'left', margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere', textWrap: 'pretty' }}>
             {withPhraseBreaks(slide.body)}
           </p>
-          {isPurpose && (
-            <div style={{ marginTop: 'var(--space-1)' }}>
-              <AppPurposeField value={purposeText} onChange={setPurposeText} minRest={loadedPurpose && purposeText.trim() === loadedPurpose ? 0 : undefined} />
-            </div>
-          )}
         </div>
 
         {/* 読み上げでは「1 / 4」と今の位置を伝える（点そのものは読ませない）。 */}
@@ -455,9 +414,8 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
             {/* 戻るは左上の ‹ だけ（最後の画面でも同じ場所にある・同じ操作を 2 か所に出さない）→「次へ」は常に全幅。 */}
             <button
               type="button"
-              style={isPurpose && !purposeReady ? btnPrimaryOff : btnPrimary}
+              style={btnPrimary}
               onClick={goNext}
-              disabled={isPurpose && !purposeReady}
             >
               次へ
             </button>

@@ -8,7 +8,9 @@
 
 import { supabase, isSupabaseConfigured } from './supabase';
 import { horizonOf, goalDeadline, fmtGoalDeadline, GOAL_HORIZONS, ALL_GOALS_KEY } from './goals';
-import { estimateBookMinutes, PLAN_DEFAULT_MINUTES } from './readingPlan';
+import {
+  estimateBookMinutes, PLAN_DEFAULT_MINUTES, readingSpeedFactor, planItemsFromRoadmap, planItemsFromOrder, scheduleBooks, bookOnDay,
+} from './readingPlan';
 
 // 聞き返しは 2 つまで（相談と同じ・ゴールが見えるように）。
 export const GOAL_ASK_LIMIT = 2;
@@ -249,6 +251,34 @@ export function pruneRoadmapBooks(roadmap, books) {
   if (!roadmap) return roadmap;
   const ids = new Set((books || []).map((b) => b.id));
   return { ...roadmap, phases: (roadmap.phases || []).map((p) => ({ ...p, books: (p.books || []).filter((b) => ids.has(b.bookId)) })) };
+}
+
+// ---- 読書計画の日付（読書計画の画面とホームの「読書計画」の行で同じ割り振り） ----
+//   返り値: { schedule, here, specs }（ロードマップが無い・読む本が無ければ schedule は []）。
+export function planScheduleFor(record, books, sessions, today) {
+  const roadmap = record?.roadmap ? pruneRoadmapBooks(record.roadmap, books) : null;
+  if (!roadmap) return { schedule: [], here: 0, specs: [] };
+  const specs = phaseSpecs(ALL_GOALS_KEY, record.goalAt);
+  const here = currentPhaseIndex(ALL_GOALS_KEY, record.goalAt, new Date(`${today}T12:00:00`));
+  const speed = readingSpeedFactor(books, sessions);
+  const order = Array.isArray(record.plan?.order) && record.plan.order.length ? record.plan.order : null;
+  const phaseOf = new Map();
+  roadmap.phases.forEach((p, i) => p.books.forEach((b) => { if (!phaseOf.has(b.bookId)) phaseOf.set(b.bookId, i); }));
+  const items = order
+    ? planItemsFromOrder(order, books, { speed, sessions, phaseOf, fallbackPhase: here })
+    : planItemsFromRoadmap(roadmap, books, { speed, sessions, phaseStarts: specs.map((x) => `${x.startYm}-01`) });
+  const schedule = scheduleBooks(items, { minutesPerDay: record.plan?.minutesPerDay || PLAN_DEFAULT_MINUTES, start: today });
+  return { schedule, here, specs };
+}
+
+// ホームの 1 行: 今日読む本（無ければ次の本と始める日）。読書計画が無ければ null。
+export function todayPlanItem(record, books, sessions, today) {
+  const { schedule } = planScheduleFor(record, books, sessions, today);
+  if (!schedule.length) return null;
+  const now = bookOnDay(schedule, today);
+  if (now) return { kind: 'today', ...now };
+  const next = schedule.find((x) => x.start > today);
+  return next ? { kind: 'next', ...next } : null;
 }
 
 // ---- 相談の材料（短く・2026-11-15 オーナー決定「目標とロードマップを相談の材料に入れる」） ----

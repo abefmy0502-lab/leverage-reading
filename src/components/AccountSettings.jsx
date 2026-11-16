@@ -981,19 +981,8 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
             </div>
           </Group>
 
-          {/* 🎯 Orime を入れた理由（2026-10-18）: 初回ガイドで書いた理由を見返す・押して書き直す。 */}
-          <Group ariaLabel="Orime を入れた理由">
-            <button type="button" style={rowButtonStyle} onClick={() => setPurposeEditOpen(true)}>
-              <span style={{ flex: 1, minWidth: 0 }}>
-                <span style={{ ...rowTitleStyle, display: 'block' }}>Orime を入れた理由</span>
-                <span style={{ ...rowDescStyle, display: 'block', color: appPurpose?.text ? 'var(--text-2)' : 'var(--text-3)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-                  {appPurpose?.text ? withPhraseBreaks(appPurpose.text) : 'まだ書いていません'}
-                </span>
-              </span>
-              <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
-            </button>
-          </Group>
-
+          {/* 🎯 Orime を入れた理由の行は 2026-11-16 にやめた（オーナー「不要」・目標は 振り返り › 行動 の 1 年後・3 年後・5 年後）。
+              前に書いた人には、解約・退会の前の確かめ（PurposeCheckSheet）でだけ見せる。 */}
           {/* ── プラン・お支払い ── */}
           <Group label="プラン・お支払い">
             {subLoading ? (

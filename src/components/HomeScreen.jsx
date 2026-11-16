@@ -34,7 +34,12 @@ import { prevMonthOf, tokensBackCandidate, shouldShowTokensBack, tokensBackText,
 import { reaskCandidate, pickReask, reaskText, readReaskDone, markReaskDone } from '../lib/reaskNudge';
 import { renewalCandidate, yearReviewStats, hasAnything, renewalText, daysUntil, readRenewalDone, markRenewalDone } from '../lib/renewalReview';
 import { annualNudgeCandidate, annualNudgeText, readAnnualNudgeDone, markAnnualNudgeDone } from '../lib/annualNudge';
-import { readingSessions } from '../hooks/useReadingSessions';
+import { readingSessions, useReadingSessions } from '../hooks/useReadingSessions';
+import { useGoals } from '../hooks/useGoals';
+import { todayPlanItem } from '../lib/goalRoadmap';
+import { ALL_GOALS_KEY } from '../lib/goals';
+import { toLocalYmd } from '../lib/dates';
+import { fmtMd } from '../lib/readingPlan';
 import { loadAllMemoRows } from '../hooks/useAllMemoRows';
 import { supabase } from '../lib/supabase';
 import MemoLinks from './MemoLinks';
@@ -233,6 +238,37 @@ const navDivider = <span aria-hidden="true" style={{ display: 'block', marginLef
 // 🎯 今日の行動（2026-10-10・SPEC §1）: 期限が今日まで（過ぎたものも）・明日の行動があるときだけ、すべての本の上に 1 行。
 //   形は「すべての本」の行と同じ（カードの面・左にアイコン・右に ›）。2 行目はいちばん先にやる 1 件の文（1 行で … に切る）。
 //   押すと 振り返り › 行動。数字の演出（%・連続日数）はしない。
+// 📅 読書計画の 1 行（2026-11-16 オーナー C 案「読書計画を作った人だけ、ホームに今日の本を 1 行」）。
+//   作っていない人には出さない（ホームで機能をすすめない）。押すと読書計画（GoalScreen の plan）。
+function usePlanToday(books, enabled) {
+  const { roadmaps, loaded } = useGoals();
+  const { rows: sessions } = useReadingSessions();
+  return useMemo(() => {
+    if (!enabled || !loaded) return null;
+    const rec = roadmaps?.[ALL_GOALS_KEY];
+    if (!rec?.roadmap) return null;
+    const item = todayPlanItem(rec, books, sessions, toLocalYmd(appNow()));
+    if (!item) return null;
+    const book = books.find((b) => b.id === item.bookId);
+    return book ? { ...item, book } : null;
+  }, [enabled, loaded, roadmaps, books, sessions]);
+}
+
+function HomePlanRow({ plan, onOpen }) {
+  const title = displayTitle(plan.book.title || '');
+  const sub = plan.kind === 'today' ? `今日は『${title}』` : `${fmtMd(plan.start)} から『${title}』`;
+  return (
+    <button type="button" data-home-plan="" onClick={onOpen} aria-label={`読書計画。${sub}。読書計画を開く`} style={navRow}>
+      <CalendarDays size="1.2em" aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
+      <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+        <span style={{ whiteSpace: 'nowrap', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>読書計画</span>
+        <span style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2, marginTop: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, overflow: 'hidden', overflowWrap: 'anywhere' }}>{sub}</span>
+      </span>
+      <ChevronRight size="1.2em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+    </button>
+  );
+}
+
 function HomeActionsRow({ summary, onOpen }) {
   if (!summary) return null;
   const firstText = stripInlineMd(String(summary.first?.text || '')).replace(/\s+/g, ' ').trim();
@@ -437,7 +473,7 @@ export default function HomeScreen({
   onQuickstart, onAddBook, onAddReadingBook, onAdvisor, onImport,
   onOpenBook, onWriteMemo, onStartReading, onOpenLibrary, onSeeAllReading, onCoverRetry, onShareNudge, onRead,
   onOpenActions, onConsultDraft, savedMemo = null, onDismissSavedMemo, onOpenMemo, onAddOneLines = null, onOpenConsult = null,
-  onOpenRecord = null, onOpenPlan = null,
+  onOpenRecord = null, onOpenPlan = null, onOpenReadingPlan = null,
 }) {
   const { user } = useAuth();
   // 🌱 育つまでの一行の右の次の一歩（2026-10-20）: はじめての相談の前は「相談してみる」（入れた理由かメモから下書き・送らない）、
@@ -455,6 +491,7 @@ export default function HomeScreen({
   // 年額の更新の前の 1 行（30 日前から）と、12〜1 月の月額の人への年額の 1 行（2026-10-22）。どちらも 1 行ずつ・ほかの 1 行より先。
   const renewal = useRenewalReview(!!onOpenRecord && !loading && !loadError && books.length > 0, books);
   const annual = useAnnualNudge(!!onOpenPlan && !loading && !loadError && books.length > 0);
+  const planToday = usePlanToday(books, !!onOpenReadingPlan && !loading && !loadError && books.length > 0);
   const homeKnown = memoState.known && shareNudge.ready && tokensBack.ready && reask.ready && renewal.ready;
   // 📊 memos_reached_10（lib/firstDay.js）: 10 件より少ないのを見たあとで 10 件以上になったら 1 回だけ。
   // 🌱 「相談相手が育ちました」（10 件を越えたのを見たあと 1 回だけ・相談の画面で先に越えても、ホームに戻ったら出す）。
@@ -573,6 +610,12 @@ export default function HomeScreen({
           <ReadingNow books={books} onOpenBook={onOpenBook} onWriteMemo={onWriteMemo} onStartReading={onStartReading} onAddBook={onAddBook} onSeeAllReading={onSeeAllReading} onCoverRetry={onCoverRetry} onRead={onRead} />
           {/* 今日の行動とすべての本は、1 枚のまとまりの 2 行（区切り線でつなぐ）。 */}
           <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
+          {planToday && (
+            <>
+              <HomePlanRow plan={planToday} onOpen={() => { track('home_plan_row', { kind: planToday.kind }); onOpenReadingPlan(); }} />
+              {navDivider}
+            </>
+          )}
           {onOpenActions && actionsSummary && (
             <>
               <HomeActionsRow

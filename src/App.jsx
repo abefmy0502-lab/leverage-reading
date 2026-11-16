@@ -128,6 +128,7 @@ const ShareSheet = lazy(() => import('./components/ShareSheet'));
 import { hasFinishedThisMonth, yearChoiceAllowed, pickShareSubject } from './lib/shareSubject';
 import { checkSharePhoto, canUseNativePhoto, pickNativePhoto, photoPickErrorText, nativePhotoDeniedMessage, photoFailAction, PHOTO_FAIL_TOAST_MS } from './lib/sharePhotoPick';
 import { appNow } from './lib/appNow';
+import { hasAnyGoal, goalsFor } from './lib/goals';
 import { planPeriodOf } from './lib/trialNudge';
 import { clearShareMemoCaches } from './lib/shareMemoCache';
 const Landing = lazy(() => import('./pages/Landing'));
@@ -740,13 +741,15 @@ function AuthedApp() {
   // 🪴 行動がまだ 1 つも無い人（メモを書き始めたばかり）は、振り返りを開いたらメモ（思い出しカード・月ごとのメモ）から
   //   （2026-10-21・空の「行動」の画面に当たらないように）。行動が 1 つでもできたら今までどおり行動から。
   const hasAnyAction = useMemo(() => (rawBooks || []).some((b) => (b.actions || []).some((a) => a?.text?.trim())), [rawBooks]);
-  const reviewHomeSub = hasAnyAction ? 'action' : 'note';
+  // 目標を書いた人も行動から（入口＝目標の行は 行動 のいちばん上・2026-11-16 オーナー C 案）。
+  const hasGoals = useMemo(() => hasAnyGoal(goalsFor(user)), [user]);
+  const reviewHomeSub = hasAnyAction || hasGoals ? 'action' : 'note';
   const reviewSubAutoRef = useRef(false);
   useEffect(() => {
     if (booksLoading || reviewSubAutoRef.current) return;
     reviewSubAutoRef.current = true;
-    if (!hasAnyAction && reviewSubTab === 'action' && lastReviewSubRef.current === 'action') setReviewSubTab('note');
-  }, [booksLoading, hasAnyAction]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!hasAnyAction && !hasGoals && reviewSubTab === 'action' && lastReviewSubRef.current === 'action') setReviewSubTab('note');
+  }, [booksLoading, hasAnyAction, hasGoals]); // eslint-disable-line react-hooks/exhaustive-deps
   const [aiSubTab, setAiSubTab] = useState(() => (
     // テーマまとめ（'report'）は 2026-09-30 に廃止。前に開いていた人は相談から（下の一覧に無いので 'brain'）。
     ['advisor', 'brain'].includes(resumeNav?.aiSubTab) ? resumeNav.aiSubTab : 'brain'
@@ -6114,6 +6117,7 @@ function AuthedApp() {
               onOpenConsult={() => { setView('list'); setAiSubTab('brain'); setTab('ai'); }}
               onOpenRecord={() => { setReviewSubTab('record'); setView('list'); setTab('review'); }}
               onOpenPlan={() => setSettingsOpen(true)}
+              onOpenReadingPlan={() => setGoalScreen({ view: 'plan', horizon: 'all' })}
               // 🌱 育つまでの一行の「一言ずつ残す」（2026-10-20）: メモの無い読了・読書中の本（最大 5 冊）を一言の段から。
               //   どの本にメモがあるか分からないとき（全部のメモをまだ読んでいない）は、いつもの初日クイックスタート。
               onAddOneLines={async () => {
