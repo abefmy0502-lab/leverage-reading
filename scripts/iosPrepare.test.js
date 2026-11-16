@@ -1,6 +1,6 @@
 // scripts/ios-prepare.mjs（2026-10-29）: Info.plist と project.pbxproj を冪等に直す。
 import { describe, it, expect } from 'vitest';
-import { patchPlist, patchPbxproj, privacyManifest, USAGE_STRINGS } from './ios-prepare.mjs';
+import { patchPlist, patchPbxproj, patchPbxprojScene, privacyManifest, USAGE_STRINGS, SCENE_DELEGATE_SWIFT } from './ios-prepare.mjs';
 
 const PLIST = `<?xml version="1.0" encoding="UTF-8"?>
 <plist version="1.0">
@@ -53,7 +53,7 @@ describe('ios-prepare', () => {
     expect(plist).toMatch(/<key>UISupportedInterfaceOrientations<\/key>\s*<array>\s*<string>UIInterfaceOrientationPortrait<\/string>\s*<\/array>/);
     // iPad の向きは触らない
     expect(plist).toMatch(/~ipad<\/key>\s*<array>\s*<string>UIInterfaceOrientationPortrait<\/string>\s*<string>UIInterfaceOrientationLandscapeLeft/);
-    expect(todo.length).toBe(6);
+    expect(todo.length).toBe(7);
     const again = patchPlist(plist);
     expect(again.todo).toEqual([]);
     expect(again.plist).toBe(plist);
@@ -83,5 +83,38 @@ describe('ios-prepare', () => {
     expect(withSentry).toContain('NSPrivacyCollectedDataTypeCrashData');
     expect(withSentry).toContain('NSPrivacyCollectedDataTypePerformanceData');
     expect((base.match(/NSPrivacyCollectedDataType</g) || []).length).toBe(8);
+  });
+
+  it('UIScene の起動（iOS 27 の SDK で必要）: シーンの設定を足し、古い UIMainStoryboardFile を外す', () => {
+    const src = PLIST.replace('</dict>\n</plist>', '\t<key>UIMainStoryboardFile</key>\n\t<string>Main</string>\n</dict>\n</plist>');
+    const { plist, todo } = patchPlist(src);
+    expect(plist).toMatch(/<key>UIApplicationSceneManifest<\/key>/);
+    expect(plist).toContain('<string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>');
+    expect(plist).toMatch(/<key>UISceneStoryboardFile<\/key>\s*<string>Main<\/string>/);
+    expect(plist).not.toContain('UIMainStoryboardFile');
+    expect(todo).toContain('UIMainStoryboardFile を外す');
+    expect(patchPlist(plist).todo).toEqual([]);
+    expect(SCENE_DELEGATE_SWIFT).toContain('class SceneDelegate: UIResponder, UIWindowSceneDelegate');
+    expect(SCENE_DELEGATE_SWIFT).toContain('SceneDelegateProxy.shared.scene(scene, willConnectTo: session, options: connectionOptions)');
+  });
+
+  it('project.pbxproj に SceneDelegate.swift を Sources として登録し、2 回目は何もしない', () => {
+    const pbx = `/* Begin PBXBuildFile section */
+\t\tB1 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3071FED79650016851F /* AppDelegate.swift */; };
+/* End PBXBuildFile section */
+/* Begin PBXFileReference section */
+/* End PBXFileReference section */
+\t\t\tchildren = (
+\t\t\t\t504EC3071FED79650016851F /* AppDelegate.swift */,
+\t\t\t);
+\t\t\tfiles = (
+\t\t\t\t504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
+\t\t\t);
+`;
+    const { pbx: out, added } = patchPbxprojScene(pbx);
+    expect(added).toBe(true);
+    expect(out).toMatch(/[0-9A-F]{24} \/\* SceneDelegate\.swift \*\/ = \{isa = PBXFileReference/);
+    expect(out).toMatch(/[0-9A-F]{24} \/\* SceneDelegate\.swift in Sources \*\/,/);
+    expect(patchPbxprojScene(out)).toEqual({ pbx: out, added: false });
   });
 });

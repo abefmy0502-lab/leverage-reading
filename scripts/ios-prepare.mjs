@@ -25,6 +25,53 @@ const APP_DIR = resolve(dirIdx >= 0 ? args[dirIdx + 1] : 'ios/App/App');
 const PLIST = join(APP_DIR, 'Info.plist');
 const PRIVACY = join(APP_DIR, 'PrivacyInfo.xcprivacy');
 const PBXPROJ = join(APP_DIR, '..', 'App.xcodeproj', 'project.pbxproj');
+const SCENE = join(APP_DIR, 'SceneDelegate.swift');
+
+// 🪟 UIScene の起動（2026-11-16・App 審査 2.1(a)「iPadOS 27.2 の iPad で起動したとたんに落ちる」）。
+//   iOS 27 の SDK で作ったアプリは、UIScene の起動に移っていないと立ち上がらない（Apple TN3187）。
+//   Capacitor 8.5 の雛形はまだ AppDelegate だけなので、ここで Info.plist の UIApplicationSceneManifest と
+//   SceneDelegate.swift（URL・ユニバーサルリンクは Capacitor の SceneDelegateProxy へ渡す）を足す。
+export const SCENE_DELEGATE_SWIFT = `import UIKit
+import Capacitor
+
+// UIScene の起動（iOS 27 の SDK で必要・scripts/ios-prepare.mjs が置く）。
+// 画面は Info.plist の UISceneStoryboardFile（Main）から作られ、window はここに入る。
+class SceneDelegate: UIResponder, UIWindowSceneDelegate {
+
+    var window: UIWindow?
+
+    func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
+        SceneDelegateProxy.shared.scene(scene, willConnectTo: session, options: connectionOptions)
+    }
+
+    func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
+        SceneDelegateProxy.shared.scene(scene, openURLContexts: URLContexts)
+    }
+
+    func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
+        SceneDelegateProxy.shared.scene(scene, continue: userActivity)
+    }
+}
+`;
+
+export const SCENE_MANIFEST_XML = `<dict>
+\t\t<key>UIApplicationSupportsMultipleScenes</key>
+\t\t<false/>
+\t\t<key>UISceneConfigurations</key>
+\t\t<dict>
+\t\t\t<key>UIWindowSceneSessionRoleApplication</key>
+\t\t\t<array>
+\t\t\t\t<dict>
+\t\t\t\t\t<key>UISceneConfigurationName</key>
+\t\t\t\t\t<string>Default Configuration</string>
+\t\t\t\t\t<key>UISceneDelegateClassName</key>
+\t\t\t\t\t<string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>
+\t\t\t\t\t<key>UISceneStoryboardFile</key>
+\t\t\t\t\t<string>Main</string>
+\t\t\t\t</dict>
+\t\t\t</array>
+\t\t</dict>
+\t</dict>`;
 
 // Info.plist に入れる文字列（2026-10-11 に決めた文・company/app-store-submission.md §5）
 export const USAGE_STRINGS = {
@@ -90,6 +137,12 @@ export function patchPlist(plist) {
   };
   for (const [k, v] of Object.entries(USAGE_STRINGS)) add(k, `<string>${esc(v)}</string>`);
   add('ITSAppUsesNonExemptEncryption', '<false/>');
+  add('UIApplicationSceneManifest', SCENE_MANIFEST_XML);
+  // UIScene では画面は UISceneStoryboardFile から作る。古い UIMainStoryboardFile は外す（二重に作らない）
+  if (/<key>UIMainStoryboardFile<\/key>/.test(out)) {
+    out = out.replace(/\n?[ \t]*<key>UIMainStoryboardFile<\/key>\s*<string>[^<]*<\/string>/, '');
+    todo.push('UIMainStoryboardFile を外す');
+  }
   // 言語: en → ja（App Store の「主言語」と同じ・ホーム画面の名前 Orime は変えない）
   if (/<key>CFBundleDevelopmentRegion<\/key>\s*<string>en<\/string>/.test(out)) {
     out = out.replace(/(<key>CFBundleDevelopmentRegion<\/key>\s*<string>)en(<\/string>)/, '$1ja$2');
@@ -124,6 +177,22 @@ export function patchPbxproj(pbx) {
   return { pbx: out, added: true };
 }
 
+// project.pbxproj に SceneDelegate.swift を Sources として登録（AppDelegate.swift と同じ所）
+export function patchPbxprojScene(pbx) {
+  if (/SceneDelegate\.swift/.test(pbx)) return { pbx, added: false };
+  const id = (seed) => createHash('sha1').update(`orime-scene-${seed}`).digest('hex').slice(0, 24).toUpperCase();
+  const fileRef = id('fileref');
+  const buildFile = id('buildfile');
+  let out = pbx;
+  out = out.replace('/* End PBXFileReference section */', `\t\t${fileRef} /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };\n/* End PBXFileReference section */`);
+  out = out.replace('/* End PBXBuildFile section */', `\t\t${buildFile} /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = ${fileRef} /* SceneDelegate.swift */; };\n/* End PBXBuildFile section */`);
+  out = out.replace(/(\t+[0-9A-F]{24} \/\* AppDelegate\.swift \*\/,\n)/, `$1\t\t\t\t${fileRef} /* SceneDelegate.swift */,\n`);
+  out = out.replace(/(\t+[0-9A-F]{24} \/\* AppDelegate\.swift in Sources \*\/,\n)/, `$1\t\t\t\t${buildFile} /* SceneDelegate.swift in Sources */,\n`);
+  const ok = out.includes(`${fileRef} /* SceneDelegate.swift */,`) && out.includes(`${buildFile} /* SceneDelegate.swift in Sources */,`);
+  if (!ok) throw new Error('project.pbxproj の形が想定と違います（AppDelegate.swift の行が見つかりません）');
+  return { pbx: out, added: true };
+}
+
 function main() {
   if (!existsSync(PLIST)) {
     console.error(`Info.plist がありません: ${PLIST}\n先に  npm run build && npx cap add ios  を実行してください。`);
@@ -134,7 +203,10 @@ function main() {
   const needPrivacy = !existsSync(PRIVACY);
   const pbx = existsSync(PBXPROJ) ? readFileSync(PBXPROJ, 'utf8') : null;
   const needPbx = pbx != null && !/PrivacyInfo\.xcprivacy/.test(pbx);
-  const items = [...todo, ...(needPrivacy ? ['PrivacyInfo.xcprivacy'] : []), ...(needPbx ? ['project.pbxproj に PrivacyInfo を登録'] : [])];
+  const needScene = !existsSync(SCENE);
+  const needPbxScene = pbx != null && !/SceneDelegate\.swift/.test(pbx);
+  const items = [...todo, ...(needPrivacy ? ['PrivacyInfo.xcprivacy'] : []), ...(needPbx ? ['project.pbxproj に PrivacyInfo を登録'] : []),
+    ...(needScene ? ['SceneDelegate.swift'] : []), ...(needPbxScene ? ['project.pbxproj に SceneDelegate を登録'] : [])];
   if (check) {
     if (items.length === 0) { console.log('iOS の準備はそろっています。'); return; }
     console.log('まだ入っていないもの:\n' + items.map((x) => `  - ${x}`).join('\n'));
@@ -142,7 +214,13 @@ function main() {
   }
   if (todo.length) writeFileSync(PLIST, nextPlist);
   if (needPrivacy) writeFileSync(PRIVACY, privacyManifest());
-  if (needPbx) writeFileSync(PBXPROJ, patchPbxproj(pbx).pbx);
+  if (needScene) writeFileSync(SCENE, SCENE_DELEGATE_SWIFT);
+  if (needPbx || needPbxScene) {
+    let next = pbx;
+    if (needPbx) next = patchPbxproj(next).pbx;
+    if (needPbxScene) next = patchPbxprojScene(next).pbx;
+    writeFileSync(PBXPROJ, next);
+  }
   console.log(items.length ? '入れました:\n' + items.map((x) => `  - ${x}`).join('\n') : 'すでにそろっています（変更なし）。');
   console.log('\n次は Xcode で: Signing & Capabilities → Team・In-App Purchase・Sign in with Apple（通知は APNs がそろってから）。');
 }

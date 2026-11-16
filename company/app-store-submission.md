@@ -337,6 +337,7 @@ AI 機能ごとに、Anthropic（相談・AI 選書の推薦）／Google の Gem
 ---
 
 ## ⚠️ 審査で落ちやすい点（事前対策・本アプリの状態）
+- ❗ **2026-11-16 build 4 が 2.1(a) で差し戻し**（iPad Air 11 インチ（M3）・iPadOS 27.2 で「起動したとたんに落ちる」）。見立て: iOS 27 の SDK で作ったアプリは **UIScene の起動**に移っていないと立ち上がらない（Apple TN3187）のに、Capacitor 8.5 の雛形は AppDelegate だけだった。→ `npm run ios:prepare` が Info.plist に `UIApplicationSceneManifest`（Main の storyboard・`SceneDelegate`）を足し、`UIMainStoryboardFile` を外し、`ios/App/App/SceneDelegate.swift`（URL は Capacitor の `SceneDelegateProxy` へ）を置いて Xcode に登録する（リポジトリにはもう入れた）。**出し直す前に**: Mac で `git pull && npm install && npm run build && npx cap sync ios && npm run ios:prepare -- --check` → Xcode でビルド番号を **5** に → **iPad の iPadOS 27 のシミュレータ**と iPhone で起動・ログイン・相談・購入画面まで確かめる → Archive → 提出。審査の添付のクラッシュログ（App Store Connect の「App Review」のメッセージ）の 1 行目（Exception Type・どの関数で落ちたか）が別の原因を指していないかも見る。
 - ❗ **デモアカウント未提供** → プランの機能（AI 選書・読書計画シート等）が確かめられず差し戻されうる。§7 必須。
 - ✅ 追加トークン（消耗型）は期限なし（3.1.1）→ 2026-10-11。**提出の前に `supabase_ai_token_credits.sql` を流し直す**（前の版の期限を null に）。
 - ✅ 退会（5.1.1(v)）: Apple でサインインの人の退会は、管理者がアカウントを消すときに Apple のトークンも取り消す（§11）。
