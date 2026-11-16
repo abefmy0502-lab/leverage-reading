@@ -154,6 +154,7 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
               record={record}
               books={books}
               sessions={sessions}
+              onFindBooks={onFindBooks}
               onOpenBook={openBook}
               onAddReadingActions={onAddReadingActions}
             />
@@ -555,6 +556,10 @@ function RoadmapView({ goal, record, books, onOpenBook, onAddActionText, onFindB
   const here = currentPhaseIndex(goal.key, record.goalAt || goal.at, appNow());
   const byId = useMemo(() => new Map(books.map((b) => [b.id, b])), [books]);
   const planBooks = roadmap.phases.some((p) => p.books.some((b) => byId.get(b.bookId)?.status !== 'done'));
+  // 本棚に読んでいない本があれば、ロードマップに本が無くても読書計画は自分で選んでつくれる（2026-11-16 オーナー「本棚の本がほぼない状態だとどうなる？」）。
+  const hasUnread = books.some((b) => b.status !== 'done');
+  // この 3 か月に読む本を AI 選書で探す下書き（送らない）。
+  const findDraft = `${goal.goals?.y1?.text || ''}。いまは「${roadmap.phases[here]?.focus || ''}」に取り組みたいので、この 3 か月に読む本を探したい`.replace(/^。/, '');
   // 作ったときの目標の文と、いまの文が違えば（書き直した）。
   const stale = GOAL_HORIZONS.some((h) => record.goals?.[h.key]?.text && cleanGoalText(record.goals[h.key].text) !== cleanGoalText(goal.goals?.[h.key]?.text || ''));
 
@@ -576,7 +581,15 @@ function RoadmapView({ goal, record, books, onOpenBook, onAddActionText, onFindB
         {planBooks ? (
           <button type="button" style={{ ...btnPrimary, marginTop: 'var(--space-4)' }} onClick={onPlan}>読書計画をカレンダーにする</button>
         ) : (
-          <p className="plan-summary">{withPhraseBreaks('本棚に、目標に合う本がまだありません。下の「本を探す」で見つけた本を入れると、読書計画をつくれます。')}</p>
+          <>
+            <p className="plan-summary">{withPhraseBreaks('本棚に、目標に合う本がまだありません。AI 選書で、この 3 か月に読む本を探しましょう。')}</p>
+            <button type="button" style={{ ...btnPrimary, marginTop: 'var(--space-3)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)' }} onClick={() => onFindBooks?.(findDraft)}>
+              <Search size="1em" aria-hidden="true" />この 3 か月に読む本を探す
+            </button>
+            {hasUnread && (
+              <button type="button" style={{ ...btnLink, marginTop: 'var(--space-2)', marginLeft: 'calc(-1 * var(--space-1))' }} onClick={onPlan}>本棚の本から選んで読書計画にする</button>
+            )}
+          </>
         )}
       </section>
 
@@ -702,7 +715,7 @@ function RoadmapView({ goal, record, books, onOpenBook, onAddActionText, onFindB
       )}
 
       <div className="goal-sec">
-        {planBooks && (
+        {(planBooks || hasUnread) && (
           <button type="button" style={btnGhost} onClick={onPlan}>読書計画をカレンダーにする</button>
         )}
         <button type="button" style={{ ...btnLinkQuiet, marginTop: 'var(--space-2)', marginLeft: 'calc(-1 * var(--space-1))' }} onClick={onRebuild}>{`つくり直す（${ROADMAP_TOKENS_LABEL}）`}</button>
@@ -715,7 +728,7 @@ function RoadmapView({ goal, record, books, onOpenBook, onAddActionText, onFindB
 // ---------------------------------------------------------------------------
 // 読書計画カレンダー
 // ---------------------------------------------------------------------------
-function PlanView({ goal, record, books, sessions, onOpenBook, onAddReadingActions }) {
+function PlanView({ goal, record, books, sessions, onFindBooks, onOpenBook, onAddReadingActions }) {
   const toast = useToast();
   const today = toLocalYmd(appNow());
   const year = Number(today.slice(0, 4));
@@ -799,11 +812,22 @@ function PlanView({ goal, record, books, sessions, onOpenBook, onAddReadingActio
   if (!schedule.length) {
     return (
       <>
-        <ErrorMessage
-          title="読む本がありません"
-          description="ロードマップの本は、もう読み終えています。本棚から、この先 3 か月に読む本を選んでください。"
-          actions={[{ label: '本棚から選ぶ', variant: 'primary', onClick: () => setOrdering(true) }]}
-        />
+        {books.some((b) => b.status !== 'done') ? (
+          <ErrorMessage
+            title="読む本を選びましょう"
+            description="本棚から、この 3 か月に読む本を選ぶと、1 日に読む時間に合わせて日付を割り振ります。"
+            actions={[
+              { label: '本棚から選ぶ', variant: 'primary', onClick: () => setOrdering(true) },
+              ...(onFindBooks ? [{ label: 'AI 選書で探す', onClick: () => onFindBooks(`${goal.goals?.y1?.text || ''}。この 3 か月に読む本を探したい`.replace(/^。/, '')) }] : []),
+            ]}
+          />
+        ) : (
+          <ErrorMessage
+            title="本棚に、まだ読む本がありません"
+            description="AI 選書で、この 3 か月に読む本を探しましょう。本棚に入れたら、ここで選べます。"
+            actions={onFindBooks ? [{ label: 'この 3 か月に読む本を探す', variant: 'primary', onClick: () => onFindBooks(`${goal.goals?.y1?.text || ''}。この 3 か月に読む本を探したい`.replace(/^。/, '')) }] : []}
+          />
+        )}
         {orderSheet}
       </>
     );
