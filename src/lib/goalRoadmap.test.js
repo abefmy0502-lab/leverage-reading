@@ -1,7 +1,7 @@
 // 🧭 目標とロードマップ（lib/goals.js・lib/goalRoadmap.js）。
 import { describe, it, expect } from 'vitest';
 import { normalizeGoals, goalDeadline, fmtGoalDeadline, suggestHorizon, cleanGoalText, GOAL_MAX, hasAnyGoal } from './goals';
-import { titleKey, verifyRoadmapRecs, focusBookCaps, phaseBookCaps, phasesPromptText, goalsPromptText, phaseSpecs, currentPhaseIndex, shelfMaterial, parseRoadmap, pruneRoadmapBooks, goalsConsultBlock, higherGoalsText, priorQAText, parseRoadmapUpdate, roadmapPromptText, withUpdateLog, roadmapHorizons } from './goalRoadmap';
+import { advisorDraftFor, titleKey, verifyRoadmapRecs, focusBookCaps, phaseBookCaps, phasesPromptText, goalsPromptText, phaseSpecs, currentPhaseIndex, shelfMaterial, parseRoadmap, pruneRoadmapBooks, goalsConsultBlock, higherGoalsText, priorQAText, parseRoadmapUpdate, roadmapPromptText, withUpdateLog, roadmapHorizons } from './goalRoadmap';
 import { PROMPTS } from './prompts';
 
 const AT = '2026-11-15T03:00:00.000Z';
@@ -227,5 +227,15 @@ describe('読むべき本をすすめる（2026-11-16 オーナー「持って�
     const rm = { phases: [{ books: [{ title: 'イシューからはじめよ', author: '安宅和人', why: 'w' }, { title: '未登録', author: '', why: 'w' }] }] };
     expect(pruneRoadmapBooks(rm, [{ id: 'i', title: 'イシューからはじめよ', status: 'want' }]).phases[0].books)
       .toEqual([{ bookId: 'i', why: 'w' }, { title: '未登録', author: '', why: 'w' }]);
+  });
+});
+
+describe('AI 選書に入れる下書き（2026-11-16 オーナー「本を探すの指示文がズレている」）', () => {
+  const goals = { y1: { text: '副業で月10万円稼げている。 仕事ではマネージャーに昇進している。' } };
+  it('目標の文はかっこに入れ、学びたいことと問いを分ける', () => {
+    expect(advisorDraftFor(goals, { theme: 'マネージャーの仕事術' }))
+      .toBe('1 年後の目標は「副業で月10万円稼げている、仕事ではマネージャーに昇進している」です。そのために、マネージャーの仕事術について学べる本を読みたいです。いまの自分に合う本は？');
+    expect(advisorDraftFor(goals, { focus: '時間を空ける' })).toContain('いまは「時間を空ける」に取り組んでいます。この 3 か月で読むなら、どの本？');
+    expect(advisorDraftFor({})).toBe('この 3 か月で読むなら、どの本？');
   });
 });

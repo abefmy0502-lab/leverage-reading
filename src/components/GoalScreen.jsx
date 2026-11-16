@@ -29,7 +29,7 @@ import { ensureAiConsent } from '../lib/aiConsent';
 import { runGoalInterview, generateGoalRoadmap } from '../lib/ai';
 import { interviewChips, toggleChoice, choiceSelected, OPT_OFF, OPT_UNSURE, OFF_PLACEHOLDER } from '../lib/advisorInterview';
 import { GOAL_HORIZONS, GOAL_MAX, ALL_GOALS_KEY, horizonOf, fmtGoalDeadline, saveGoal, suggestHorizon, cleanGoalText, allGoalsSet, combinedGoal } from '../lib/goals';
-import { GOAL_ASK_LIMIT, ROADMAP_TOKENS_LABEL, phaseSpecs, currentPhaseIndex, saveRoadmap, pruneRoadmapBooks } from '../lib/goalRoadmap';
+import { advisorDraftFor, GOAL_ASK_LIMIT, ROADMAP_TOKENS_LABEL, phaseSpecs, currentPhaseIndex, saveRoadmap, pruneRoadmapBooks } from '../lib/goalRoadmap';
 import {
   PLAN_MINUTES, PLAN_DEFAULT_MINUTES, readingSpeedFactor, planItemsFromRoadmap, planItemsFromOrder, scheduleBooks, monthWeeks, weekBands,
   planMonths, bookOnDay, fmtSpan, fmtMd, fmtRange, fmtHoursMin, parseYmd,
@@ -580,7 +580,7 @@ function RoadmapView({ goal, record, books, onOpenBook, onAddActionText, onFindB
   const hasUnread = books.some((b) => b.status !== 'done');
   const recsNow = (roadmap.phases[here]?.books || []).filter((b) => !b.bookId).length;
   // この 3 か月に読む本を AI 選書で探す下書き（送らない）。
-  const findDraft = `${goal.goals?.y1?.text || ''}。いまは「${roadmap.phases[here]?.focus || ''}」に取り組みたいので、この 3 か月に読む本を探したい`.replace(/^。/, '');
+  const findDraft = advisorDraftFor(goal.goals, { focus: roadmap.phases[here]?.focus || '' });
   // 作ったときの目標の文と、いまの文が違えば（書き直した）。
   const stale = GOAL_HORIZONS.some((h) => record.goals?.[h.key]?.text && cleanGoalText(record.goals[h.key].text) !== cleanGoalText(goal.goals?.[h.key]?.text || ''));
 
@@ -742,7 +742,7 @@ function RoadmapView({ goal, record, books, onOpenBook, onAddActionText, onFindB
 
       {roadmap.missing.length > 0 && (
         <section className="goal-sec" aria-labelledby="rm-missing">
-          <h3 id="rm-missing" className="goal-sec-title">本棚に、まだ無いテーマ</h3>
+          <h3 id="rm-missing" className="goal-sec-title">ほかに学ぶとよいテーマ</h3>
           <ul className="rm-list">
             {roadmap.missing.map((m) => (
               <li key={m.theme} className="rm-missing">
@@ -750,7 +750,7 @@ function RoadmapView({ goal, record, books, onOpenBook, onAddActionText, onFindB
                   <p className="rm-need-name">{withPhraseBreaks(m.theme)}</p>
                   {m.why && <p className="rm-need-why">{m.why}</p>}
                 </div>
-                <button type="button" style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }} onClick={() => onFindBooks?.(`${goal.goals?.y1?.text || goal.text}。そのために「${m.theme}」の本を探したい`)}>
+                <button type="button" style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }} onClick={() => onFindBooks?.(advisorDraftFor(goal.goals, { theme: m.theme }))}>
                   <Search size="1em" aria-hidden="true" />本を探す
                 </button>
               </li>
@@ -952,14 +952,14 @@ function PlanView({ goal, record, books, sessions, onFindBooks, onOpenBook, onAd
             description="本棚から、この 3 か月に読む本を選ぶと、1 日に読む時間に合わせて日付を割り振ります。"
             actions={[
               { label: '本棚から選ぶ', variant: 'primary', onClick: () => setOrdering(true) },
-              ...(onFindBooks ? [{ label: 'AI 選書で探す', onClick: () => onFindBooks(`${goal.goals?.y1?.text || ''}。この 3 か月に読む本を探したい`.replace(/^。/, '')) }] : []),
+              ...(onFindBooks ? [{ label: 'AI 選書で探す', onClick: () => onFindBooks(advisorDraftFor(goal.goals)) }] : []),
             ]}
           />
         ) : (
           <ErrorMessage
             title="本棚に、まだ読む本がありません"
             description="AI 選書で、この 3 か月に読む本を探しましょう。本棚に入れたら、ここで選べます。"
-            actions={onFindBooks ? [{ label: 'この 3 か月に読む本を探す', variant: 'primary', onClick: () => onFindBooks(`${goal.goals?.y1?.text || ''}。この 3 か月に読む本を探したい`.replace(/^。/, '')) }] : []}
+            actions={onFindBooks ? [{ label: 'この 3 か月に読む本を探す', variant: 'primary', onClick: () => onFindBooks(advisorDraftFor(goal.goals)) }] : []}
           />
         )}
         {orderSheet}

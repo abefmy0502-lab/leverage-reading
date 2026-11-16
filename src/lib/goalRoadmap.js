@@ -323,6 +323,18 @@ export async function verifyRoadmapRecs(roadmap, verify, { pause = 250, timeoutM
   return { ...roadmap, phases };
 }
 
+// AI 選書に入れる相談の下書き（送らない）。目標の文（「〜している」の叶った姿）をそのままつなげず、
+//   「1 年後の目標は「…」。」＋学びたいこと＋問い、の形に（2026-11-16 オーナー「本を探すの指示文がズレている」）。
+export function advisorDraftFor(goals, { theme = '', focus = '' } = {}) {
+  const g = String(goals?.y1?.text || '').replace(/[。．.\s]+$/u, '').replace(/。\s*/g, '、');
+  const parts = [];
+  if (g) parts.push(`1 年後の目標は「${g}」です。`);
+  if (theme) parts.push(`そのために、${theme}について学べる本を読みたいです。`);
+  else if (focus) parts.push(`いまは「${focus}」に取り組んでいます。`);
+  parts.push(theme ? 'いまの自分に合う本は？' : 'この 3 か月で読むなら、どの本？');
+  return parts.join('');
+}
+
 // ---- 読書計画の日付（読書計画の画面とホームの「読書計画」の行で同じ割り振り） ----
 //   返り値: { schedule, here, specs }（ロードマップが無い・読む本が無ければ schedule は []）。
 export function planScheduleFor(record, books, sessions, today) {
