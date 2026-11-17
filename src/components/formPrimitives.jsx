@@ -114,7 +114,7 @@ export function Field({ label, sub, children }) {
 // size="select": DESIGN §5「選ぶためのチップ」＝押すことが主目的の選択肢（本の状態・タグ・フォルダ）。
 //   見た目も高さ 44・15px・余白 8/12（負の余白で押せる範囲を重ねない）。選択中は 600（2026-09-29）。
 const CHIP_HEIGHT = 32;
-const SELECT_CHIP_HEIGHT = 44;
+const SELECT_CHIP_HEIGHT = "var(--tap-min)";
 // shrink: 長い文字（タグの提案の 50 字のタグなど）でも並びの幅を超えない（中の文字は呼び出し側で … に切る）。
 // wrap: 長い名前を文節で折り返す（高さは内容に合わせて伸びる・文字を大きくしても枠からはみ出さない・2026-10-11 記録の「分野」）
 export function Chip({ active = false, stretch = false, shrink = false, wrap = false, size, onClick, children, ...rest }) {
@@ -125,7 +125,7 @@ export function Chip({ active = false, stretch = false, shrink = false, wrap = f
       onClick={onClick}
       {...rest}
       style={{
-        display: "inline-flex", alignItems: "center", minHeight: 44, minWidth: 44, padding: 0,
+        display: "inline-flex", alignItems: "center", minHeight: "var(--tap-min)", minWidth: "var(--tap-min)", padding: 0,
         background: "none", border: "none", cursor: "pointer", fontFamily: "inherit",
         flex: stretch ? "1 1 0" : "0 0 auto",
         ...(shrink ? { maxWidth: "100%", minWidth: 0 } : null),
@@ -140,6 +140,10 @@ export function Chip({ active = false, stretch = false, shrink = false, wrap = f
           borderRadius: "var(--radius)", fontSize: select ? "var(--text-sub)" : "var(--text-meta)", fontWeight: active ? 600 : 400, whiteSpace: "nowrap",
           background: active ? "var(--accent-soft)" : "var(--fill)",
           color: active ? "var(--accent)" : "var(--text)",
+          // 選ぶためのチップは、面の色（--fill・--accent-soft とカードの差 約 1.1〜1.3:1）だけでは見分けにくいので
+          // 内側に 1px の枠＝選んでいない --border（明 3.3〜3.9:1・暗 3.3〜4.1:1）／選んだ --accent（選んだ方がいちばん強く見える）。
+          // outline（offset -1）なので高さ・幅は変わらず、強制カラーモードでも消えない（2026-11-17 ui-critic）。
+          ...(select ? { outline: `1px solid var(${active ? "--accent" : "--border"})`, outlineOffset: -1 } : null),
           ...(shrink ? { maxWidth: "100%", minWidth: 0, boxSizing: "border-box" } : null),
           ...(wrap ? { height: "auto", minHeight: select ? SELECT_CHIP_HEIGHT : CHIP_HEIGHT, whiteSpace: "normal", wordBreak: "keep-all", overflowWrap: "anywhere", textAlign: "left", boxSizing: "border-box", paddingTop: "var(--space-1)", paddingBottom: "var(--space-1)" } : null),
         }}

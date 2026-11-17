@@ -234,6 +234,9 @@ const SCREENS = [
   // 表紙を削除（元に戻すつき）
   { name: 'book-cover-deleted', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: '[role=menuitem]:has-text("表紙を削除")' }, { wait: 600 }] },
   // 全画面のメモの編集（タグは本の編集と同じ選ぶチップ・つながるメモ）
+  // 選ぶためのチップの枠（2026-11-17）: 読む時間の目安・AI への指示文のシート
+  { name: 'chip-read-target', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("数値化の鬼")' }, { css: 'button[aria-label="読む時間の目安を決める"]' }, { wait: 600 }] },
+  { name: 'chip-prompt-maker', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: '[role=menuitem]:has-text("AI への指示文をつくる")' }, { wait: 800 }] },
   { name: 'book-memo-editor-tags', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: '[data-memo-id] p >> nth=1' }, { wait: 800 }, { scrollTo: 'label:has-text("タグ")' }] },
   // メモの「ページ順 ▾」メニュー（✓ と空きだけ）
   { name: 'book-memo-sort-menu', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { scrollTo: 'h2:has-text("メモ")' }, { css: 'button[aria-haspopup="menu"]:has-text("ページ順")' }] },
