@@ -88,6 +88,8 @@ export function takeFirstConsult() {
 
 // メモの件数を見るたびに呼ぶ。10 件より少ないのを見たあとで 10 件以上になったとき 1 回だけ true（memos_reached_10）。
 // はじめから 10 件以上（前からのユーザー・別の端末）は送らずに印だけ付ける（リリースの日に一斉に数えないように）。
+// はじめから 10 件以上のときに「育ちました」を出すのは、この件数より少ないとき（取り込んだばかりの人）。
+export const GROWN_IMPORT_MAX = 60;
 export function takeMemosReached(memoCount) {
   if (memoCount == null || memoCount === '') return false;
   const n = Number(memoCount);
@@ -101,7 +103,8 @@ export function takeMemosReached(memoCount) {
   const crossed = read(KEYS.below) === '1';
   // 10 件を越えたのをこの端末で見たときだけ、ホームに 1 回「相談相手が育ちました」を出す（前からのユーザーには出さない）。
   // 取り込みなどではじめから 10 件以上の人も、まだ相談をしていなければ 1 回だけ出す（取り込んだメモが何に効くかを言う・2026-10-21）。
-  if ((crossed || !firstConsultDone()) && read(KEYS.grown) !== 'done') write(KEYS.grown, '1');
+  //   ただし何百件もメモがある人（使い込んだ人が新しい端末に入れ直した）には出さない（2026-11-17 点検）。
+  if ((crossed || (!firstConsultDone() && n < GROWN_IMPORT_MAX)) && read(KEYS.grown) !== 'done') write(KEYS.grown, '1');
   return crossed;
 }
 

@@ -43,3 +43,12 @@ describe('findImportDuplicate（取り込みだけのゆるい判定・2026-09-2
     expect(findImportDuplicate(shelf, { title: 'エッセンシャル思考', author: '' })?.id).toBe('e');
   });
 });
+
+describe('共著の片方で入れた本（2026-11-17）', () => {
+  it('著者のどれかが同じなら同じ本', async () => {
+    const { findDuplicateBook } = await import('./checkDuplicate');
+    const books = [{ id: 'a', title: '嫌われる勇気', author: '岸見一郎・古賀史健' }];
+    expect(findDuplicateBook(books, { title: '嫌われる勇気', author: '岸見一郎' })?.id).toBe('a');
+    expect(findDuplicateBook(books, { title: '嫌われる勇気', author: '別の人' })).toBeNull();
+  });
+});

@@ -63,8 +63,14 @@ const menuCheck = (on) => (on ? <Check size={16} aria-hidden="true" /> : <span a
 const summarySaveBtn = (off) => (off ? btnGhostOff : btnGhost);
 
 
+// 保存していない「この本のまとめ」の書きかけを端末に控える（画面を離れても消えない・2026-11-17 点検）。
+const SUMMARY_DRAFT_KEY = 'orime.summaryDraft.v1:';
+function readSummaryDraft(bookId) { try { return bookId ? localStorage.getItem(SUMMARY_DRAFT_KEY + bookId) : null; } catch { return null; } }
+function writeSummaryDraft(bookId, text) { try { if (!bookId) return; if (text == null) localStorage.removeItem(SUMMARY_DRAFT_KEY + bookId); else localStorage.setItem(SUMMARY_DRAFT_KEY + bookId, text); } catch { /* ignore */ } }
+
 function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSummary }) {
-  const [text, setText] = useState(summaryText || '');
+  const [text, setTextRaw] = useState(() => { const d = readSummaryDraft(bookId); return d != null && d !== (summaryText || '') ? d : (summaryText || ''); });
+  const setText = (v) => { setTextRaw(v); writeSummaryDraft(bookId, v === (summaryText || '') ? null : v); };
   // 保存してある内容（変えていないときは「保存」を押せない見た目にする・2026-09-29）。
   const [savedText, setSavedText] = useState(summaryText || '');
   const dirty = text !== savedText;
@@ -124,7 +130,8 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
   // Reset local text only when the underlying book changes,
   // so unsaved typing is preserved when toggling tabs.
   useEffect(() => {
-    setText(summaryText || '');
+    const d = readSummaryDraft(bookId);
+    setTextRaw(d != null && d !== (summaryText || '') ? d : (summaryText || ''));
     setSavedText(summaryText || '');
     setErrorMsg('');
     setSavedFlash(false);
@@ -142,6 +149,7 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
     try {
       await onSaveSummary(text);
       setSavedText(text);
+      writeSummaryDraft(bookId, null);
       haptic.success();
       setSavedFlash(true);
       if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
@@ -186,6 +194,7 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
         maxLength={LIMITS.summaryMemo}
         aria-label="この本のまとめ"
       />
+      {dirty && !saving && <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>保存していない書きかけです。この端末に残しています。</p>}
       {errorMsg && (
         // 題（何が起きたか）＋説明（どうすればいいか）。アイコンは付けない（DESIGN §5）。
         <ErrorMessage
@@ -792,7 +801,8 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
         // 「コピー」は summary の中に入れない（VoiceOver は summary を 1 つのボタンとして読み、中のボタンに届かない・2026-10-18 ui-critic）。
         // 畳みの箱を相対の箱で包み、コピーはその右上（シェブロンの左）に重ねる。summary はその幅を右に空ける。
         <div style={{ position: 'relative' }}>
-        <details style={{ background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: '0 var(--space-4)' }}>
+        {/* 保存していない書きかけがあれば開いておく（2026-11-17）。 */}
+        <details open={readSummaryDraft(bookId) != null && readSummaryDraft(bookId) !== (summaryText || '') ? true : undefined} style={{ background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: '0 var(--space-4)' }}>
           <summary style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', minHeight: 'var(--btn-h)', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', cursor: 'pointer', listStyle: 'none' }}>
             {/* 題は割らない・右の一言は残りの幅で … に切る（文字最大で「この本のま／とめ」と割れていた・2026-10-11 点検）。 */}
             <span style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>この本のまとめ</span>

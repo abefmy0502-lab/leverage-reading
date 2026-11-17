@@ -5650,7 +5650,8 @@ function AuthedApp() {
               // 仕切り直せる。want は本格的な読書計画前なので除外。
               ...(current.status !== 'want'
                 ? [{
-                    label: '読書計画シートを編集',
+                    // まだ作っていない本は「作る」（「編集」だと中身があるように見える・2026-11-17 点検）。
+                    label: String(current.aiStrategy || '').trim() ? '読書計画シートを編集' : '読書計画シートを作る',
                     icon: <IcMap size="1.1em" aria-hidden="true" />,
                     onClick: () => openSetup(current),
                   }]

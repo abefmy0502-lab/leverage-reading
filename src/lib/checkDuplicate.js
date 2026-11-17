@@ -57,6 +57,14 @@ const normalizeText = (raw) => {
  * @param {Object} candidate   { isbn?, title?, author? } 追加候補
  * @returns {Object|null}      重複している既存 book、または null
  */
+const AUTHOR_SPLIT = /[・,、，/／&＆]|\s+(?:and|と)\s+/;
+function authorOverlap(a, b) {
+  const names = (x) => x.split(AUTHOR_SPLIT).map((t) => t.replace(/\s+/g, '').replace(/[(（].*?[)）]/g, '')).filter((t) => t.length >= 2);
+  const na = names(a);
+  const nb = names(b);
+  return na.some((x) => nb.includes(x));
+}
+
 export function findDuplicateBook(books, candidate) {
   if (!Array.isArray(books) || books.length === 0) return null;
   if (!candidate) return null;
@@ -80,7 +88,8 @@ export function findDuplicateBook(books, candidate) {
       if (bTitle !== candTitle) return false;
       const bAuthor = normalizeText(b.author);
       // 著者は片方が空なら通す (空＝指定無し)。両方ある時だけ一致を要求。
-      if (candAuthor && bAuthor && candAuthor !== bAuthor) return false;
+      // 共著（「岸見一郎・古賀史健」）で、片方が名前のどれかなら同じ本（手で入れた「岸見一郎」で 2 冊目ができていた・2026-11-17 点検）。
+      if (candAuthor && bAuthor && candAuthor !== bAuthor && !authorOverlap(candAuthor, bAuthor)) return false;
       return true;
     }) || null
   );

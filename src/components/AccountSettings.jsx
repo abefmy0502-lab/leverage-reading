@@ -384,10 +384,8 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
   const { purpose: appPurpose } = useAppPurpose();
   const [purposeEditOpen, setPurposeEditOpen] = useState(false);
   const [purposeCheck, setPurposeCheck] = useState(null); // { where, nextText, run }
-  const withPurposeCheck = (where, nextText, run) => {
-    if (appPurpose?.text) setPurposeCheck({ where, nextText, run });
-    else run();
-  };
+  // 2026-11-17: 「Orime を入れた理由」は 2026-11-16 にやめたので、解約・退会の前にはさまない（審査 5.1.1(v)・すぐ次へ）。
+  const withPurposeCheck = (where, nextText, run) => { void where; void nextText; void appPurpose; run(); };
   const [resetting, setResetting] = useState(false);
   const [confirmText, setConfirmText] = useState('');
   const [feedbackOpen, setFeedbackOpen] = useState(false);

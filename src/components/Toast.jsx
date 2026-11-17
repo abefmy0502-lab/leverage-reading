@@ -52,7 +52,12 @@ function hasBottomBar() {
 // 下のタブが無い画面（本の編集＝下に固定の保存の欄）でも、印があればその上に浮かべる（保存のボタンに重なっていた・2026-10-09）。
 function barBottom() {
   if (typeof document === 'undefined') return BOTTOM_PLAIN;
-  if (!hasBottomBar() && (document.body?.classList.contains('keyboard-open') || !document.querySelector('[data-toast-above]'))) return BOTTOM_PLAIN;
+  // キーボードが出ていても、開いているシートの下の欄（保存）に印があればその上に浮かべる
+  //   （状態を変えてすぐメモのシートを開くと「元に戻す」の知らせが「保存」に約 4 秒重なっていた・2026-11-17 点検）。
+  const kbOpen = document.body?.classList.contains('keyboard-open');
+  const topDialog = [...document.querySelectorAll(OPEN_DIALOG)].pop();
+  const dialogMark = !!topDialog?.querySelector('[data-toast-above]');
+  if (!hasBottomBar() && ((kbOpen && !dialogMark) || !document.querySelector('[data-toast-above]'))) return BOTTOM_PLAIN;
   const dialogs = document.querySelectorAll(OPEN_DIALOG);
   const marks = dialogs.length
     ? [...dialogs[dialogs.length - 1].querySelectorAll('[data-toast-above]')]
