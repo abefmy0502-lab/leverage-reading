@@ -15,12 +15,28 @@ describe('cspForMeta', () => {
   });
   it('ほかの許可はヘッダーと同じ・meta で効かない frame-ancestors は外す', () => {
     expect(meta).not.toMatch(/frame-ancestors/);
-    for (const name of ['default-src', 'script-src', 'style-src', 'font-src', 'object-src', 'base-uri', 'form-action']) {
+    // 読み込み元（capacitor://localhost）だけは *-src の後ろに足す（iOS 27・2026-11-17）。ほかはヘッダーと同じ。
+    for (const name of ['default-src', 'script-src', 'style-src', 'font-src']) {
+      expect(dir(meta, name)).toBe(`${dir(header, name)} capacitor://localhost`);
+    }
+    for (const name of ['object-src', 'base-uri', 'form-action']) {
       expect(dir(meta, name)).toBe(dir(header, name));
     }
     expect(dir(meta, 'connect-src').startsWith(dir(header, 'connect-src'))).toBe(true);
   });
   it('同じ URL を 2 回足さない', () => {
     expect(cspForMeta(meta, 'https://orime.vercel.app')).toBe(meta);
+  });
+});
+
+describe('iOS 27 の WKWebView（2026-11-17）', () => {
+  it('読み込み元の capacitor://localhost を *-src に足し、upgrade-insecure-requests は外す', async () => {
+    const { cspForMeta } = await import('./cspMeta.mjs');
+    const out = cspForMeta("default-src 'self'; script-src 'self'; img-src 'self' data:; frame-ancestors 'none'; upgrade-insecure-requests", 'https://orime.vercel.app');
+    expect(out).toContain("script-src 'self' capacitor://localhost");
+    expect(out).toContain("default-src 'self' capacitor://localhost");
+    expect(out).toContain('img-src');
+    expect(out).not.toContain('upgrade-insecure-requests');
+    expect(out).not.toContain('frame-ancestors');
   });
 });
