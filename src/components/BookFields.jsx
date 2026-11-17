@@ -111,13 +111,15 @@ export function BookFieldsSheet({ selected = [], onDone, onClose }) {
                 <Chip
                   key={f.name}
                   size="select"
+                  wrap
+                  shrink
                   active={on}
                   aria-pressed={on}
                   aria-disabled={off || undefined}
                   onClick={() => toggle(f.name)}
                 >
                   {on && <Check size="1em" aria-hidden="true" />}
-                  <span style={off ? { color: 'var(--text-3)' } : undefined}>{f.name}</span>
+                  <span style={off ? { color: 'var(--text-3)' } : undefined}>{withPhraseBreaks(f.name, { scriptBreaks: true })}</span>
                 </Chip>
               );
             })}
@@ -180,7 +182,8 @@ export function BookFieldLinks({ fields = [], onPick, onEdit = null }) {
     >
       {fields.map((f) => (
         onPick
-          ? <Chip key={f} onClick={() => onPick(f)} aria-label={`分野「${f}」の本を見る`}>{f}</Chip>
+          // 長い分野の名前（起業・新規事業・テクノロジー など）は「・」の後ろで折り返す＝「変更」に重ならない（2026-11-17 ui-critic）
+          ? <Chip key={f} shrink wrap onClick={() => onPick(f)} aria-label={`分野「${f}」の本を見る`}>{withPhraseBreaks(f, { scriptBreaks: true })}</Chip>
           : <span key={f} style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>{f}</span>
       ))}
     </DetailRow>
@@ -238,7 +241,9 @@ export function BookFieldsRecord({ record, onOpenField, onFindBooks }) {
           {/* 大分類の行: 左に名前、右に本の合計（その大分類に本があるときだけ・2026-11-09 オーナー「UI を磨きたい」＝どの大分類に本が寄っているかが一目で） */}
           <p style={{ ...groupTitle, margin: 0, display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 'var(--space-2)' }}>
             <span>{c.name}</span>
-            {c.fields.length > 0 && <span style={{ fontWeight: 400, fontSize: 'var(--text-meta)', letterSpacing: 0, color: 'var(--text-3)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{`本 ${c.fields.reduce((n, f) => n + (f.books || 0), 0)} 冊`}</span>}
+            {/* 本の合計は、その大分類の分野を 1 つでも持つ本の数（2 つの分野の本を二重に数えない）。分野が 1 つだけの大分類は、
+                すぐ下の行と同じ数になるので出さない（2026-11-17 ui-critic） */}
+            {c.fields.length > 0 && c.size > 1 && <span style={{ fontWeight: 400, fontSize: 'var(--text-meta)', letterSpacing: 0, color: 'var(--text-3)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{`本 ${c.books} 冊`}</span>}
           </p>
           {c.fields.length > 0 && (
           <ul style={{ listStyle: 'none', margin: 'var(--space-1) 0 0', padding: 0 }}>

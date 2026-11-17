@@ -529,7 +529,7 @@ export function pickThinFields(stat, max = 2) {
  *   books: アプリの本（tags） / memoCountByBook: { [bookId]: N } / secondsByBook: { [bookId]: 秒 }
  *   minutesByField: { [分野]: 分 }＝読書の時間の「分野ごと」と同じ最大剰余で配った分（lib/readingStats.js の
  *     allottedFieldMinutes・これまで）。渡されたら行の時間はこの分を出す（同じ分野で 1 分ずれないように）。
- * 戻り値: { groups: [{ id, name, fields: [{ name, books, memos, seconds, minutes }], empty: [分野の名前…] }], any }
+ * 戻り値: { groups: [{ id, name, size（分野の数）, books（本の数・重ねない）, fields: [{ name, books, memos, seconds, minutes }], empty: [分野の名前…] }], any }
  */
 export function buildFieldRecord(books = [], { memoCountByBook = {}, secondsByBook = {}, minutesByField = null } = {}) {
   const stat = new Map(BOOK_FIELDS.map((f) => [f, { name: f, books: 0, memos: 0, seconds: 0, minutes: 0, rated: 0, ratingSum: 0, avgRating: null }]));
@@ -554,9 +554,16 @@ export function buildFieldRecord(books = [], { memoCountByBook = {}, secondsByBo
     // 評価の平均は、評価の付いた本が 2 冊以上のときだけ（1 冊の★を「平均」と見せない・小数 1 桁・2026-10-11）
     s.avgRating = s.rated >= 2 ? Math.round((s.ratingSum / s.rated) * 10) / 10 : null;
   }
+  // 大分類ごとの本の数（その大分類の分野を 1 つでも持つ本・二重に数えない・2026-11-17 ui-critic）
+  const groupBooks = new Map(BOOK_FIELD_GROUPS.map((c) => [c.id, new Set()]));
+  for (const b of Array.isArray(books) ? books : []) {
+    for (const f of fieldsOf(b)) groupBooks.get(GROUP_OF.get(f))?.add(b.id ?? b);
+  }
   const groups = BOOK_FIELD_GROUPS.map((c) => ({
     id: c.id,
     name: c.name,
+    size: c.fields.length,
+    books: groupBooks.get(c.id).size,
     fields: c.fields.map((f) => stat.get(f.name)).filter((s) => s.books > 0),
     empty: c.fields.map((f) => f.name).filter((f) => !(stat.get(f).books > 0)),
   }));

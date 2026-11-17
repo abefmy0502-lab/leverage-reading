@@ -224,6 +224,9 @@ describe('記録の「分野」', () => {
   it('大分類 4 つはいつも全部・本がまだ無い分野は empty に（一覧の順）・合わせて 13 分野', () => {
     const r = buildFieldRecord(books);
     expect(r.groups.map((g) => g.name)).toEqual(['ビジネス', '考え方', '自分を伸ばす', 'ほかの本']);
+    // 大分類の本の数は重ねない（b は思考法と生産性の 2 つ＝考え方 2 冊・自分を伸ばす 3 冊）
+    expect(r.groups.map((g) => g.books)).toEqual([0, 2, 3, 0]);
+    expect(r.groups.map((g) => g.size)).toEqual([6, 3, 3, 1]);
     const biz = r.groups.find((g) => g.id === 'biz');
     expect(biz.fields).toEqual([]);
     expect(biz.empty).toEqual(BOOK_FIELD_GROUPS.find((g) => g.id === 'biz').fields.map((f) => f.name));
