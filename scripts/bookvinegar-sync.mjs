@@ -47,12 +47,13 @@ function addToQueue(books) {
 
 function sendExt(items) {
   let saved = 0;
-  for (const part of chunks(items.filter((x) => x && x.isbn), 50)) {
+  // 10 冊ずつ（要約 4,000 字 × 50 冊はコマンドの引数 1 つの上限 128KB を超えて送れなかった・2026-11-17）
+  for (const part of chunks(items.filter((x) => x && x.isbn), 10)) {
     if (DRY) { saved += part.length; continue; }
     try {
       const out = execFileSync('node', ['scripts/ops-mcp.mjs', 'ops_books', JSON.stringify({ action: 'ext', items: part })], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] });
       saved += JSON.parse(out).saved || 0;
-    } catch { /* 書評データの表がまだ・届かない → 待ち行列だけ進める */ }
+    } catch (e) { console.error(`書評データを送れませんでした（${String(e?.message || e).split("\n")[0].slice(0, 120)}）`); }
   }
   return saved;
 }
