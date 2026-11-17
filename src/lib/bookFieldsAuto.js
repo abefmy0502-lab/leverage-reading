@@ -19,7 +19,8 @@ const LEGACY = 'orime.fields.legacy.v1:';
 //   v2（2026-10-11）: 「小説家」「文庫完全版」で小説・物語になっていた本（『半径5メートルの野望 完全版』）を直す。
 //   v3（2026-10-11）: 分野をサーバーが本ごとに決める形（/api/cover?fields=1・AI）に。自動の分野の本は、サーバーに聞き直す。
 //   v4（2026-10-11）: 分野「仕事の進め方」→「段取り・効率」・ビジネスの棚だけで決めきれない本は付けない。
-export const REFINE_VERSION = 4;
+//   v5（2026-11-17）: 分野をビジネスの 12＋教養・その他 に作り直した。自動の分野の本は、サーバーに聞き直す。
+export const REFINE_VERSION = 5;
 const REFINED = `orime.fields.refined.v${REFINE_VERSION}:`;
 
 function store() {

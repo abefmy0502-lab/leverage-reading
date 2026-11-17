@@ -12,7 +12,7 @@ beforeEach(() => { globalThis.localStorage = memStore(); _resetServerFieldsMemor
 
 describe('サーバーの分野', () => {
   it('一覧の名前だけ・2 つまで', () => {
-    expect(normalizeServerFields({ fields: ['歴史', 'x', '心理学', '哲学・思想'], source: 'ai' })).toEqual({ fields: ['歴史', '心理学'], source: 'ai' });
+    expect(normalizeServerFields({ fields: ['教養・その他', 'x', '心理学・行動経済学', '教養・その他'], source: 'ai' })).toEqual({ fields: ['教養・その他', '心理学・行動経済学'], source: 'ai' });
     expect(normalizeServerFields({ fields: [], source: 'ai' })).toEqual({ fields: [], source: 'none' });
   });
   it('送るのは本の書誌だけ・AI とジャンルの答えは控える（言葉の仕分けは控えない）', async () => {
@@ -25,7 +25,7 @@ describe('サーバーの分野', () => {
     expect(url).not.toContain('b1');
     await fetchServerFields(book, { fetchImpl });
     expect(fetchImpl).toHaveBeenCalledTimes(1);
-    const kw = vi.fn(async () => ok({ fields: ['伝える力'], source: 'keywords' }));
+    const kw = vi.fn(async () => ok({ fields: ['営業・交渉'], source: 'keywords' }));
     await fetchServerFields({ title: '伝え方が9割' }, { fetchImpl: kw });
     await fetchServerFields({ title: '伝え方が9割' }, { fetchImpl: kw });
     expect(kw).toHaveBeenCalledTimes(2);
@@ -37,24 +37,24 @@ describe('サーバーの分野', () => {
   });
   it('選び直した声: 足した分野と外した分野だけ・変わらなければ送らない', async () => {
     const fetchImpl = vi.fn(async () => ok({ ok: true }));
-    expect(sendFieldVotes({ title: '本の名前' }, ['小説・物語'], ['キャリア・働き方'], { fetchImpl, getToken: async () => 'jwt' })).toBe(true);
+    expect(sendFieldVotes({ title: '本の名前' }, ['教養・その他'], ['キャリア・働き方'], { fetchImpl, getToken: async () => 'jwt' })).toBe(true);
     await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalled());
     expect(fetchImpl.mock.calls[0][1].headers.Authorization).toBe('Bearer jwt');
     const url = decodeURIComponent(fetchImpl.mock.calls[0][0]);
     expect(url).toContain('fieldvote=1');
     expect(url).toContain('add=キャリア・働き方');
-    expect(url).toContain('remove=小説・物語');
-    expect(sendFieldVotes({ title: '本の名前' }, ['歴史'], ['歴史'], { fetchImpl })).toBe(false);
+    expect(url).toContain('remove=教養・その他');
+    expect(sendFieldVotes({ title: '本の名前' }, ['教養・その他'], ['教養・その他'], { fetchImpl })).toBe(false);
   });
   it('ログインの鍵を Authorization に付ける・無ければ付けない（声はログインしていなければ送らない）', async () => {
-    const fetchImpl = vi.fn(async () => ok({ fields: ['歴史'], source: 'ai' }));
-    await fetchServerFields({ title: '日本の歴史' }, { fetchImpl, getToken: async () => 'tok' });
+    const fetchImpl = vi.fn(async () => ok({ fields: ['教養・その他'], source: 'ai' }));
+    await fetchServerFields({ title: '日本の教養・その他' }, { fetchImpl, getToken: async () => 'tok' });
     expect(fetchImpl.mock.calls[0][1].headers.Authorization).toBe('Bearer tok');
-    const anon = vi.fn(async () => ok({ fields: ['歴史'], source: 'keywords' }));
-    await fetchServerFields({ title: '日本の歴史 2' }, { fetchImpl: anon, getToken: async () => null });
+    const anon = vi.fn(async () => ok({ fields: ['教養・その他'], source: 'keywords' }));
+    await fetchServerFields({ title: '日本の教養・その他 2' }, { fetchImpl: anon, getToken: async () => null });
     expect(anon.mock.calls[0][1]?.headers).toBeUndefined();
     const vote = vi.fn(async () => ok({ ok: true }));
-    sendFieldVotes({ title: '本の名前' }, ['歴史'], ['哲学・思想'], { fetchImpl: vote, getToken: async () => null });
+    sendFieldVotes({ title: '本の名前' }, ['教養・その他'], ['教養・その他'], { fetchImpl: vote, getToken: async () => null });
     await new Promise((r) => setTimeout(r, 0));
     expect(vote).not.toHaveBeenCalled();
   });

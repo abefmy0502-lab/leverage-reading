@@ -66,10 +66,10 @@ describe('集める決まり', () => {
 });
 
 describe('AI の答え', () => {
-  const ok = { summary: '習慣を作る本。', points: ['小さく始める', '環境を整える', '記録する'], for_whom: ['続かない人に', '三日坊主のとき', '朝が弱い人に'], reason: '仕組みで続ける方法が具体的', keywords: ['習慣', '継続', '三日坊主', '行動'], fields: ['習慣・自己成長', '架空の分野'], level: '実践' };
+  const ok = { summary: '習慣を作る本。', points: ['小さく始める', '環境を整える', '記録する'], for_whom: ['続かない人に', '三日坊主のとき', '朝が弱い人に'], reason: '仕組みで続ける方法が具体的', keywords: ['習慣', '継続', '三日坊主', '行動'], fields: ['生産性・伝える力', '架空の分野'], level: '実践' };
   it('読める・分野は一覧にあるものだけ・段階は決まった 4 つ', () => {
     const p = parseSummary(`前置き ${JSON.stringify(ok)} おわり`);
-    expect(p.fields).toEqual(['習慣・自己成長']);
+    expect(p.fields).toEqual(['生産性・伝える力']);
     expect(p.level).toBe('実践');
     expect(parseSummary(JSON.stringify({ ...ok, level: 'すごい' })).level).toBe('');
   });

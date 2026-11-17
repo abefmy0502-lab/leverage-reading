@@ -28,7 +28,8 @@ import { createHash } from 'node:crypto';
 
 // 決め方の版。一覧・指示文・ジャンルの結びつけを変えたら上げる（覚えている分野を決め直す）。
 //   2（2026-10-11 の 4 回目）: 分野「仕事の進め方」→「段取り・効率」・大分類の名前・指示文の例を変えた。
-export const BOOK_FIELDS_VERSION = 2;
+// 3（2026-11-17）: 分野をビジネスの 12＋教養・その他 に作り直した＝覚えている分野を決め直す。
+export const BOOK_FIELDS_VERSION = 3;
 const KEYWORDS_TTL_MS = 24 * 60 * 60 * 1000;
 const STALE_VOTES = 3;
 const GENRE_NAME = new Map(GENRE_RULES.map((g) => [g.id, g.name]));
@@ -203,8 +204,10 @@ export async function classifyBookServer({ isbn = '', title = '', author = '' } 
   const save = async (r) => { if (canWrite) await writeCache(supabase, r); };
 
   // 3. ジャンルが 1 つの分野にしか結びつかない
+  //    ただし受け皿だけの棚（小説・エッセイ）でも、自己啓発のエッセイのように言葉がビジネスの分野を指す本は AI に聞く（2026-11-17）。
   const g = genreCandidates(genreIds);
-  if (g && g.fields.length === 1) {
+  const local = g && g.fields.length === 1 ? classifyBookDetailed(features) : null;
+  if (g && g.fields.length === 1 && (!local.fields.length || local.fields.includes(g.fields[0]))) {
     const fields = [g.fields[0]];
     await save({ ...row, fields, source: 'genre', model: null });
     return { fields, source: 'genre', genreIds, version: BOOK_FIELDS_VERSION, cached: false };

@@ -72,7 +72,7 @@ export const TOOLS = [
       type: 'object',
       properties: {
         status: { type: 'string', enum: STATUS_KEYS, description: 'want=読みたい / before=積読 / reading=読書中 / done=読了' },
-        field: { type: 'string', description: '分野の名前（例: マーケティング・習慣・小説・物語）' },
+        field: { type: 'string', description: '分野の名前（例: マーケティング・ブランド／思考法・問題解決／教養・その他）' },
         query: { type: 'string', description: '書名・著者に含まれる言葉' },
         ...pageProps(20),
       },

@@ -11,7 +11,8 @@ import { isBookField } from './bookFields';
 import { bookInfoKey } from './bookInfo';
 
 // v2（2026-10-11）: 分野の名前を変えた（仕事の進め方 → 段取り・効率）ので、前の控えは使わない。
-const LS_PREFIX = 'orime.bookFields.server.v2:';
+// v3（2026-11-17）: 分野をビジネスの 12＋教養・その他 に作り直した。
+const LS_PREFIX = 'orime.bookFields.server.v3:';
 const TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const TIMEOUT_MS = 12000;
 const mem = new Map();

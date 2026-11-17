@@ -2,7 +2,7 @@
 //
 //   BookFieldsInput  … 本の追加・編集画面の「分野」欄。付いている分野のチップ（押しても選ぶシート）＋「変更」（押すと BookFieldsSheet）。
 //                      サーバーの見立てを待っている間は骨組み・失敗したら 1 行（pending / failed・2026-10-11 ui-critic）
-//   BookFieldsSheet  … 分野を選ぶシート。大分類 4 つ（仕事・自分と生活・教養・文芸・エンタメ）の見出し → 分野のチップ（選ぶためのチップ 44）・3 つまで
+//   BookFieldsSheet  … 分野を選ぶシート。大分類 4 つ（ビジネス・考え方・自分を伸ばす・ほかの本）の見出し → 分野のチップ（選ぶためのチップ 44）・3 つまで
 //   BookFieldLinks   … 本の詳細の分野（押すと、すべての本をその分野で絞る）
 //   BookFolderLinks  … 本の詳細のフォルダ（押すと、すべての本をそのフォルダで絞る・右に「変更」／「フォルダに入れる」・2026-10-11）
 //   BookFieldsRecord … 振り返り › 記録の「分野」（大分類 4 つをいつも全部・本のある分野は行＝本とメモの数・本がまだ無い分野は
@@ -279,7 +279,7 @@ export function BookFieldsRecord({ record, onOpenField, onFindBooks }) {
             })}
           </ul>
           )}
-          {/* 本がまだ無い分野は、大分類ごとにまとめて 1 行（全体の 20 分野が見える・押すと AI 選書の最初の悩みに入れて開く＝送らない・2026-10-11 オーナー）。 */}
+          {/* 本がまだ無い分野は、大分類ごとにまとめて 1 行（全体の 13 分野が見える・押すと AI 選書の最初の悩みに入れて開く＝送らない・2026-10-11 オーナー）。 */}
           {c.empty?.length > 0 && <EmptyFieldsLine names={c.empty} divided={c.fields.length > 0} onFindBooks={onFindBooks} />}
         </div>
       ))}
