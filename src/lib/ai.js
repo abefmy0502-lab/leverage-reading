@@ -1370,6 +1370,23 @@ function rankConsultCore(all, day) {
   ).slice(0, MAX_MEMOS);
 }
 
+// 忘れかけた古いメモ（100 日より前）を、その日の並びで。★4〜5 の本・「覚えた」の多いメモを先に、同じくらいなら日ごとに入れ替える。
+export const REDISCOVER_MIN_DAYS = 100;
+function dayHash(str) {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i += 1) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return (h >>> 0) % 1000;
+}
+export function rediscoverMemos(pool, day, exclude = new Set()) {
+  const cutoff = day - REDISCOVER_MIN_DAYS * 86400000;
+  const dayKey = String(Math.floor(day / 86400000));
+  return (Array.isArray(pool) ? pool : [])
+    .filter((m) => m && !exclude.has(m) && m.created_at && Date.parse(m.created_at) < cutoff && String(m.text || '').trim())
+    .map((m) => ({ m, s: ratingPriority(m.book?.rating) + Math.min(5, Number(m.recall_count) || 0) * 8 + dayHash(`${m.id}:${dayKey}`) / 20 }))
+    .sort((a, b) => b.s - a.s || String(a.m.id ?? '').localeCompare(String(b.m.id ?? '')))
+    .map((x) => x.m);
+}
+
 // 相談（まとめて）に渡すメモを選ぶ（2026-10-01）。
 //   core: 質問に左右されないメモ一覧（キャッシュする芯）。全部が CONSULT_TOTAL_CHARS に収まれば全部。
 //   related: 質問に近いメモ（今までと同じ pickRelatedMemos・近い順）
@@ -1386,11 +1403,25 @@ export function selectConsultMemos(searchText, all, { now = Date.now(), related:
   const budget = fitsAll ? Infinity : CONSULT_CORE_CHARS;
   const core = [];
   let used = 0;
+  // 入りきらないとき、芯の 4 分の 1 は「忘れかけた古いメモ」の枠（2026-11-17・何年使っても一番の価値＝
+  //   「自分が読んで、忘れかけていたこと」が答えに出るように）。新しさの点が 0 になる 100 日より前のメモから、
+  //   ★の高い本・「覚えた」を押したメモを重く、日ごとに入れ替えて選ぶ（その日のうちは同じ＝キャッシュは効く）。
+  const recentBudget = fitsAll ? Infinity : Math.round(CONSULT_CORE_CHARS * 0.75);
   for (const m of rankedAll) {
     const len = consultMemoCost(m);
-    if (core.length > 0 && used + len > budget) break;
+    if (core.length > 0 && used + len > recentBudget) break;
     core.push(m);
     used += len;
+  }
+  if (!fitsAll) {
+    const inCore = new Set(core);
+    for (const m of rediscoverMemos(pool, day, inCore)) {
+      const len = consultMemoCost(m);
+      if (used + len > budget) continue;
+      core.push(m);
+      inCore.add(m);
+      used += len;
+    }
   }
   const related = Array.isArray(relatedIn)
     ? capRelated(relatedIn.filter((m) => pool.includes(m)), { max: 12, budget: CONSULT_RELATED_CHARS })
