@@ -162,17 +162,19 @@ describe('運営が選んで足す本（ops_books の add）', () => {
   });
 
   // 待ち行列と本の表だけの小さな偽物
-  function queueDb(queue) {
-    const t = { q: queue.map((x, i) => ({ id: i + 1, status: 'queued', attempts: 0, note: '', ...x })), books: new Map() };
+  function queueDb(queue, books = []) {
+    const t = { q: queue.map((x, i) => ({ id: i + 1, status: 'queued', attempts: 0, note: '', ...x })), books: new Map(books.map((b) => [b.isbn, { ...b }])), calls: 0 };
     return {
       t,
       from(table) {
         const st = { filters: [], patch: null };
+        const rowsOf = () => (table === 'advisor_books' ? [...t.books.values()] : t.q);
         const api = {
           select() { return api; },
+          in(k, vs) { return Promise.resolve({ data: rowsOf().filter((r) => vs.includes(r[k])), error: null }); },
           eq(k, v) {
             st.filters.push([k, v]);
-            if (st.patch) { for (const r of t.q) if (r[k] === v) Object.assign(r, st.patch); return Promise.resolve({ error: null }); }
+            if (st.patch) { for (const r of rowsOf()) if (r[k] === v) Object.assign(r, st.patch); return Promise.resolve({ error: null }); }
             return api;
           },
           order() { return api; },
@@ -195,7 +197,7 @@ describe('運営が選んで足す本（ops_books の add）', () => {
       return page([item(9, { title: '似ているけど違う本' })]);
     };
     const r = await queueStep({ db, env, now: () => 0, deadline: 1e9, rakutenGetImpl: get, pause: 0 });
-    expect(r).toEqual({ done: 3, added: 2, notfound: 1 });
+    expect(r).toEqual({ done: 3, added: 2, notfound: 1, marked: 0 });
     expect(db.t.books.get('9784000000001')).toMatchObject({ curated: true, title: '本1' });
     expect(db.t.books.get('9784000000007')).toMatchObject({ curated: true, source: 'add' });
     expect(db.t.books.get('9784000000001')).not.toHaveProperty('sales_rank');
@@ -207,5 +209,16 @@ describe('運営が選んで足す本（ops_books の add）', () => {
     expect(r.done).toBe(0);
     expect(db.t.q[0].status).toBe('failed');
     expect(db.t.q[1].status).toBe('queued');
+  });
+  it('もうデータにある本は楽天に聞かずに印だけ・60 冊を超えても時間の許す限り続ける', async () => {
+    const queue = Array.from({ length: 130 }, (_, i) => ({ isbn: `97840000${String(i).padStart(5, '0')}` }));
+    const db = queueDb(queue, [{ isbn: queue[0].isbn, curated: false, title: 'もうある本' }]);
+    let calls = 0;
+    const get = async (url) => { calls += 1; const isbn = new URL(url).searchParams.get('isbn'); return page([item(1, { isbn })]); };
+    const r = await queueStep({ db, env, now: () => 0, deadline: 1e9, rakutenGetImpl: get, pause: 0 });
+    expect(r).toMatchObject({ done: 130, added: 129, marked: 1 });
+    expect(calls).toBe(129);
+    expect(db.t.books.get(queue[0].isbn)).toMatchObject({ curated: true, title: 'もうある本' });
+    expect(db.t.q.every((x) => x.status === 'done')).toBe(true);
   });
 });
