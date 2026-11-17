@@ -103,65 +103,71 @@
   const SETS = {
     // 基本の 6 枚（2026-10-11 の作り直し・aso-store-listing §8＝5 つの柱の順）: 本の語り口 → 根拠 → 一歩 → 集中モード → 雑誌 → 分野
     base: [
-      { out:'base-1-consult', bg:'bg-c', shot:'voice', eyebrow:'TALK WITH YOUR BOOKS',
-        head:'読んだ本と、<br><span class="em">会話しよう。</span>', sub:'心に響いた一行から、AI が本の語り口で答えます。' },
-      { out:'base-2-evidence', bg:'bg-a', shot:'sources', eyebrow:'FROM YOUR NOTES',
-        head:'答えには、<br><span class="em">本とページ。</span>', sub:'材料はあなたのメモ。無いときは無いと答えます。' },
-      { out:'base-3-action', bg:'bg-b', shot:'action', eyebrow:'INTO ACTION',
-        head:'会話の最後は、<br><span class="em">明日の一歩。</span>', sub:'行動リストに、期限つきで。' },
-      { out:'base-4-focus', bg:'bg-dark', shot:'focus', eyebrow:'FOCUS MODE',
+      // 2026-11-17 作り直し（company/lp-axis-2026-11-15.md の流れ＝会話 → 根拠 → 一歩 → 目標 → 習慣 → 育つ）。
+      //   英字の小見出しはやめた（.claude/skills/frontend-design の癖）。著者が答えるとは書かない（答えの主語は本）。
+      { out:'base-1-consult', bg:'bg-c', shot:'voice', eyebrow:'',
+        head:'読んだ本と、<br><span class="em">会話できる。</span>', sub:'答えのもとは、あなたが残したメモ。' },
+      { out:'base-2-evidence', bg:'bg-a', shot:'sources', eyebrow:'',
+        head:'答えには、<br><span class="em">本とページ。</span>', sub:'ネットの一般論ではなく、あなたのメモから。' },
+      { out:'base-3-action', bg:'bg-b', shot:'action', eyebrow:'',
+        head:'会話の最後は、<br><span class="em">明日の一歩。</span>', sub:'決めた行動は、期限つきで行動リストに。' },
+      { out:'base-4-goal', bg:'bg-c', shot:'goal-plan', eyebrow:'',
+        head:'1 年後の自分から、<br><span class="em">逆算して読む。</span>', sub:'目標から、この 3 か月に読む本と順番を。' },
+      { out:'base-5-focus', bg:'bg-dark', shot:'focus', eyebrow:'',
         head:'時間を決めて、<br><span class="em">本だけに。</span>', sub:'表紙と時間だけの画面で読む。読んだ時間は記録に。' },
-      // 2026-11-15 オーナー「写真共有の写真がしょぼい」: アプリの画面ではなく、実際に作った 1 枚（share-story.jpg）を大きく見せる。
-      { out:'base-5-share', bg:'bg-a', shot:'magazine', poster:'share-story.jpg', eyebrow:'SHARE A PAGE',
-        head:'心に残った一文を、<br><span class="em">1 枚に。</span>', sub:'撮った写真に重ねて、そのまま発信。' },
-      { out:'base-6-fields', bg:'bg-c', shot:'fields', eyebrow:'SEE YOUR READING',
-        head:'自分の読書を、<br><span class="em">分野で見る。</span>', sub:'まだ本がない分野も、ひと目で。' },
+      { out:'base-6-grow', bg:'bg-a', shot:'consult-start', eyebrow:'',
+        head:'読むほど、<br><span class="em">相談相手が育つ。</span>', sub:'今日の一行が、いつかのあなたの答えになる。' },
     ],
-    // 7・8 枚目（任意・aso §8「取り込み・撮るは 7・8 枚目に回す」）
+    // 7〜10 枚目（任意）
     extra: [
-      { out:'base-7-import', bg:'bg-b', shot:'import', eyebrow:'BRING YOUR RECORDS',
+      // 2026-11-15 オーナー「写真共有の写真がしょぼい」: アプリの画面ではなく、実際に作った 1 枚（share-story.jpg）を大きく見せる。
+      { out:'base-7-share', bg:'bg-a', shot:'magazine', poster:'share-story.jpg', eyebrow:'',
+        head:'心に残った一文を、<br><span class="em">1 枚に。</span>', sub:'撮った写真に重ねて、そのまま発信。' },
+      { out:'base-8-fields', bg:'bg-c', shot:'fields', eyebrow:'',
+        head:'自分の読書を、<br><span class="em">分野で見る。</span>', sub:'まだ本がない分野も、ひと目で。' },
+      { out:'base-9-import', bg:'bg-b', shot:'import', eyebrow:'',
         head:'これまでの読書記録も、<br><span class="em">今日から相談の材料に。</span>', sub:'ほかの読書アプリの書き出しファイルを選ぶだけ。' },
-      { out:'base-8-photo', bg:'bg-a', shot:'ocr-done', eyebrow:'SNAP A PAGE',
+      { out:'base-10-photo', bg:'bg-a', shot:'ocr-done', eyebrow:'',
         head:'紙の本は、<br><span class="em">ページを撮るだけ。</span>', sub:'写真から書き起こして、読書メモに。' },
     ],
     // カスタムプロダクトページ② 習慣にする（aso §8-2・4〜6 枚目は基本の 1・2・3 を使う）
     'cpp-habit': [
-      { out:'cpp-habit-1', bg:'bg-dark', shot:'focus', eyebrow:'FOCUS MODE',
+      { out:'cpp-habit-1', bg:'bg-dark', shot:'focus', eyebrow:'',
         head:'時間を決めて、<br><span class="em">本だけに。</span>', sub:'表紙と時間だけの画面で読む。' },
-      { out:'cpp-habit-2', bg:'bg-c', shot:'focus-until', eyebrow:'UNTIL YOUR STOP',
+      { out:'cpp-habit-2', bg:'bg-c', shot:'focus-until', eyebrow:'',
         head:'降りる駅まで、<br><span class="em">読む。</span>', sub:'時刻を決めて始める。終わったらそっと知らせます。' },
-      { out:'cpp-habit-3', bg:'bg-a', shot:'readtime', eyebrow:'TIME BY FIELD',
+      { out:'cpp-habit-3', bg:'bg-a', shot:'readtime', eyebrow:'',
         head:'どの分野に、<br><span class="em">どれだけ読んだか。</span>', sub:'週ごと・分野ごと・本ごとに、読んだ時間を記録に。' },
     ],
     // カスタムプロダクトページ①: ほかの読書アプリから乗り換える人
     'cpp-import': [
-      { out:'cpp-import-1', bg:'bg-c', shot:'import-pick', eyebrow:'BRING YOUR RECORDS',
+      { out:'cpp-import-1', bg:'bg-c', shot:'import-pick', eyebrow:'',
         head:'今までの読書記録を、<br><span class="em">そのまま持ってくる。</span>', sub:'ほかの読書アプリの書き出しファイルを選ぶだけ。' },
-      { out:'cpp-import-2', bg:'bg-a', shot:'import', eyebrow:'REVIEWS & NOTES',
+      { out:'cpp-import-2', bg:'bg-a', shot:'import', eyebrow:'',
         head:'感想もメモも、<br><span class="em">まとめて取り込む。</span>', sub:'ファイルは端末の中で読み取ります。' },
-      { out:'cpp-import-3', bg:'bg-b', shot:'answer', eyebrow:'ASK YOUR BOOKS',
+      { out:'cpp-import-3', bg:'bg-b', shot:'answer', eyebrow:'',
         head:'眠っていた記録が、<br><span class="em">今日から相談相手に。</span>', sub:'困ったことを書くと、取り込んだメモからも答えます。' },
     ],
     // カスタムプロダクトページ②: 紙の本を読む人
     'cpp-photo': [
-      { out:'cpp-photo-1', bg:'bg-a', shot:'ocr', eyebrow:'FOR PAPER BOOKS',
+      { out:'cpp-photo-1', bg:'bg-a', shot:'ocr', eyebrow:'',
         head:'付箋の代わりに、<br><span class="em">ページを撮る。</span>', sub:'写真から書き起こして、読書メモに。' },
-      { out:'cpp-photo-2', bg:'bg-c', shot:'ocr-done', eyebrow:'NO RETYPING',
+      { out:'cpp-photo-2', bg:'bg-c', shot:'ocr-done', eyebrow:'',
         head:'撮ったページを、<br><span class="em">文字のメモに。</span>', sub:'直してから保存できます。ページ番号も一緒に。' },
-      { out:'cpp-photo-3', bg:'bg-b', shot:'sources', eyebrow:'PAGE BY PAGE',
+      { out:'cpp-photo-3', bg:'bg-b', shot:'sources', eyebrow:'',
         head:'あのページが、<br><span class="em">相談の根拠になる。</span>', sub:'答えには、本とページが付きます。' },
     ],
     // カスタムプロダクトページ③: 一般論の AI ではなく、自分のメモに聞きたい人
     'cpp-ask': [
-      { out:'cpp-ask-1', bg:'bg-c', shot:'consult-start', eyebrow:'NOT GENERAL ADVICE',
+      { out:'cpp-ask-1', bg:'bg-c', shot:'consult-start', eyebrow:'',
         head:'一般論ではなく、<br><span class="em">あなたのメモに聞く。</span>', sub:'メモを貼り付けなくていい。読んだ本から答えます。' },
-      { out:'cpp-ask-2', bg:'bg-a', shot:'answer', eyebrow:'ASK YOUR BOOKS',
+      { out:'cpp-ask-2', bg:'bg-a', shot:'answer', eyebrow:'',
         head:'答えるのは、<br><span class="em">あなたが読んだ本たち。</span>', sub:'状況を聞き返してから、一歩ずつ深く。' },
-      { out:'cpp-ask-3', bg:'bg-b', shot:'sources', eyebrow:'FROM YOUR NOTES',
+      { out:'cpp-ask-3', bg:'bg-b', shot:'sources', eyebrow:'',
         head:'根拠の本とページが、<br><span class="em">いつも見える。</span>', sub:'関係するメモが無いときは、無いと答えます。' },
     ],
   };
-  const TITLES = { base:'基本の 6 枚', extra:'7・8 枚目（任意）', 'cpp-habit':'カスタムプロダクトページ② 習慣にする', 'cpp-import':'カスタムプロダクトページ③ 乗り換え', 'cpp-photo':'カスタムプロダクトページ③ 紙の本を撮る', 'cpp-ask':'カスタムプロダクトページ① 自分のメモに聞く' };
+  const TITLES = { base:'基本の 6 枚', extra:'7〜10 枚目（任意）', 'cpp-habit':'カスタムプロダクトページ② 習慣にする', 'cpp-import':'カスタムプロダクトページ③ 乗り換え', 'cpp-photo':'カスタムプロダクトページ③ 紙の本を撮る', 'cpp-ask':'カスタムプロダクトページ① 自分のメモに聞く' };
 
   const qs = new URLSearchParams(location.search);
   const render = qs.get('render') === '1';
@@ -194,7 +200,7 @@
           <div class="frame ${s.bg}" data-out="${s.out}">
             <div class="stage">
               <div class="cap">
-                <p class="eyebrow" contenteditable="true">${s.eyebrow}</p>
+                ${s.eyebrow ? `<p class="eyebrow" contenteditable="true">${s.eyebrow}</p>` : ''}
                 <h2 class="headline" contenteditable="true">${s.head}</h2>
                 <p class="sub" contenteditable="true">${s.sub}</p>
               </div>

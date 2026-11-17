@@ -28,7 +28,7 @@ const [mode0 = 'all'] = process.argv.slice(2);
 // iPad 13 インチ（2026-11-15・iPad 対応のまま出すため）: node scripts/appstore-shots.mjs ipad
 //   → iPad の大きさ（1032×1376pt・@2x）で基本の 6 枚の画面を撮り、2064×2752 の PNG を書き出す（…-ipad13-2064x2752.png）。
 const IPAD = mode0 === 'ipad';
-const IPAD_SHOTS = ['voice', 'sources', 'action', 'focus', 'fields'];
+const IPAD_SHOTS = ['voice', 'sources', 'action', 'goal-plan', 'focus', 'consult-start'];
 const RAW = IPAD ? 'ui-shots/appstore-raw-ipad' : 'ui-shots/appstore-raw';
 const OUT = 'company/launch-2026-11/screenshots';
 const GEN = 'company/appstore-screenshots/index.html';
@@ -39,7 +39,7 @@ const Q = '部下が報告をくれなくて困っています';
 const VOICE_BOOK = '嫌われる勇気';
 const VOICE_Q = '相手が自分をどう思うかが気になって、意見が言えません';
 // 画面ごとの URL（無ければ /?lpshot=1）。集中モードはお試しの入口から。
-const SHOT_URL = { focus: '/?lpshot=1&focus=timer', 'focus-until': '/?lpshot=1&focus=until' };
+const SHOT_URL = { focus: '/?lpshot=1&focus=timer', 'focus-until': '/?lpshot=1&focus=until', 'goal-plan': '/?lpshot=1&goals=on&plan=set', goal: '/?lpshot=1&goals=on&plan=set' };
 
 const hideDemoNote = (p) => p.evaluate(() => {
   document.querySelectorAll('p,div,span').forEach((el) => {
@@ -185,6 +185,19 @@ const SHOTS = {
       const sc = [...document.querySelectorAll('*')].find((e) => e.contains(h) && e.scrollHeight > e.clientHeight + 10 && /auto|scroll/.test(getComputedStyle(e).overflowY));
       if (sc) sc.scrollTop -= 88; else window.scrollBy(0, -170);
     });
+  },
+  // 🧭 目標 → ロードマップ（2026-11-17・いまの 3 か月が最初の画面に）
+  goal: async (p) => {
+    await p.locator(nav('振り返り')).click(); await p.waitForTimeout(800);
+    await p.locator('button[role=tab]:has-text("行動")').click(); await p.waitForTimeout(500);
+    await p.locator('button.goal-entry').click(); await p.waitForTimeout(1200);
+  },
+  // 🧭 読書計画のカレンダー（目標から決めた本を日付に）
+  'goal-plan': async (p) => {
+    await p.locator(nav('振り返り')).click(); await p.waitForTimeout(800);
+    await p.locator('button[role=tab]:has-text("行動")').click(); await p.waitForTimeout(500);
+    await p.locator('button.goal-entry').click(); await p.waitForTimeout(1000);
+    await p.locator('button:has-text("読書計画をカレンダーにする")').first().click(); await p.waitForTimeout(1200);
   },
   // 振り返り › 記録の「読書の時間」
   readtime: async (p) => {
