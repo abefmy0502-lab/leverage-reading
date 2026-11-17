@@ -3869,14 +3869,14 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
       </span>
       <span style={{ minWidth: 0 }}>
         {/* 文節の切れ目でだけ折り返す（「いちば／ん古いのは」のように語の途中で割らない・2026-10-02 ui-critic）。 */}
-        {/* 「（…）」は別の塊に（その前で折り返せる）・「（」は左の空き（半字）を詰める＝行の頭に来ても字下げに見えない（2026-10-10 ui-critic）。 */}
+        {/* 「（…）」は別の塊に（その前で折り返せる）・「（」は字の幅を半分に（halt）＝行の頭でも字下げに見えず、行の途中でも前の字に重ならない（前は -0.5em で「た」に重なっていた・2026-11-17 点検）。 */}
         {evidence && (() => {
           const i = evidence.indexOf('（');
           if (i <= 0) return <span style={{ display: 'block', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(evidence)}</span>;
           return (
             <span style={{ display: 'block', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
               {withPhraseBreaks(evidence.slice(0, i))}<wbr />
-              <span style={{ marginLeft: '-0.5em' }}>（</span>{withPhraseBreaks(evidence.slice(i + 1))}
+              <span style={{ fontFeatureSettings: '"halt"' }}>（</span>{withPhraseBreaks(evidence.slice(i + 1))}
             </span>
           );
         })()}
