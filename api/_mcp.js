@@ -628,7 +628,7 @@ const handlers = {
     if (admErr || !adm) throw new ToolError('この道具は運営者だけが使えます');
     const action = args?.action;
     const lim = Math.max(1, Math.min(50, Math.floor(Number(args?.limit) || 30)));
-    const cols = 'isbn, title, author, publisher, pub_date, cover, summary, points, for_whom, reason, keywords, fields, level, status, first_seen_at';
+    const cols = 'isbn, title, author, publisher, pub_date, cover, summary, points, for_whom, reason, keywords, fields, level, difficulty, prereq, status, first_seen_at';
     const missing = (e) => /relation .* does not exist|42P01|PGRST205|Could not find the table/i.test(`${e?.code || ''} ${e?.message || ''}`);
     if (action === 'stats') {
       try {
