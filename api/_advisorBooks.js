@@ -325,7 +325,8 @@ export const SUMMARY_SYSTEM =
   '- for_whom: この本が効く悩み・状況を 3 つ（「〜な人に」「〜とき」の形・各 30 字以内・具体的に）。\n' +
   '- reason: おすすめする理由を 1 文（60 字以内・この本ならではの点）。\n' +
   '- keywords: 書店でこの本に行き着く検索の言葉を 6〜10 個（各 2〜10 字の名詞句・悩みの言葉と考え方の名前を混ぜる・書名と著者名は入れない）。\n' +
-  `- fields: 次の分野から 1〜2 個: ${BOOK_FIELDS.join('・')}。\n` +
+  // 分野の名前には「・」が入る（経営・組織）ので「」で 1 つずつ囲む（2026-11-17・「・」でつなぐと切れ端が返って全部捨てられていた）
+  `- fields: 次の分野から 1〜2 個。「」の中の名前をそのまま書く: ${BOOK_FIELDS.map((f) => `「${f}」`).join('')}\n` +
   '- level: 「入門」「実践」「深掘り」「物語」のどれか 1 つ。\n' +
   '# 出力（純粋な JSON だけ・前置きやコードブロックなし）\n' +
   '{"summary":"…","points":["…","…","…"],"for_whom":["…","…","…"],"reason":"…","keywords":["…"],"fields":["…"],"level":"入門"}';
@@ -362,7 +363,7 @@ export function parseSummary(text) {
   const forWhom = arr(o.for_whom, 3, 60);
   const reason = clip(o.reason, 200);
   const keywords = arr(o.keywords, 10, 20).filter((k) => k.length >= 2);
-  const fields = arr(o.fields, 2, 20).filter((f) => BOOK_FIELDS.includes(f));
+  const fields = arr(o.fields, 2, 20).map((f) => f.replace(/^[「『]|[」』]$/g, '')).filter((f) => BOOK_FIELDS.includes(f));
   const level = ['入門', '実践', '深掘り', '物語'].includes(o.level) ? o.level : '';
   if (!summary || points.length === 0 || forWhom.length === 0 || keywords.length < 3) return null;
   return { summary, points, for_whom: forWhom, reason, keywords, fields, level };

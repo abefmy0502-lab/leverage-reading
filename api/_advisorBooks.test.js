@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { expandPlan, usableItem, rowFromRakuten, parseSummary, summaryUserText, collectStep, summarizeStep, runAdvisorBooks, PLAN_VERSION, REFRESH_DAYS, parseAddList, queueStep, QUEUE_ADD_MAX } from './_advisorBooks.js';
+import { expandPlan, usableItem, rowFromRakuten, parseSummary, summaryUserText, collectStep, summarizeStep, runAdvisorBooks, PLAN_VERSION, REFRESH_DAYS, parseAddList, queueStep, QUEUE_ADD_MAX, SUMMARY_SYSTEM } from './_advisorBooks.js';
 
 // supabase の最小の偽物（使う形だけ）。
 function fakeDb({ state = null, books = [], noTable = false } = {}) {
@@ -76,6 +76,9 @@ describe('AI の答え', () => {
   it('読める・分野は一覧にあるものだけ・段階は決まった 4 つ', () => {
     const p = parseSummary(`前置き ${JSON.stringify(ok)} おわり`);
     expect(p.fields).toEqual(['習慣・自己管理']);
+    expect(parseSummary(JSON.stringify({ ...ok, fields: ['「経営・組織」', '経営'] })).fields).toEqual(['経営・組織']);
+    // 指示文の分野の一覧は 1 つずつ「」で囲む（名前の中の「・」と区切りを混ぜない）
+    expect(SUMMARY_SYSTEM).toContain('「経営・組織」');
     expect(p.level).toBe('実践');
     expect(parseSummary(JSON.stringify({ ...ok, level: 'すごい' })).level).toBe('');
   });
