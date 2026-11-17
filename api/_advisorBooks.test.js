@@ -298,6 +298,7 @@ describe('難しさの列がまだ無い本番でも止まらない', () => {
     const row = db.t.advisor_books.get('9784000000021');
     expect(row.status).toBe('ready');
     expect(row).not.toHaveProperty('difficulty');
+    expect(row.prompt_version).toBe(PV - 1); // SQL のあとで書き直される
   });
 });
 
