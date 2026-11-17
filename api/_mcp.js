@@ -16,7 +16,7 @@ import { createHash } from 'node:crypto';
 import { WIDGET_URI_MCP, WIDGET_URI_OPENAI, WIDGET_MIME_MCP, WIDGET_MIME_OPENAI, widgetHtml } from './_mcpWidget.js';
 import { launchGates } from './_launchHealth.js';
 import { textLength } from './_social.js';
-import { advisorBooksStats, parseAddList, QUEUE_ADD_MAX, queueStep, summarizeStep } from './_advisorBooks.js';
+import { advisorBooksStats, parseAddList, QUEUE_ADD_MAX, queueStep, summarizeStep, PROMPT_VERSION as BOOKS_PROMPT_VERSION, parseExtList, EXT_ADD_MAX } from './_advisorBooks.js';
 
 export const PROTOCOL_VERSION = '2025-06-18';
 export const SERVER_INFO = { name: 'orime', version: '1.1.0' };
@@ -290,11 +290,11 @@ export const TOOLS = [
   },
   {
     name: 'ops_books',
-    description: '（運営者だけ）AI 選書の推薦用の本のデータ（毎日少しずつ集めて AI が概要・こんな悩みの人に・おすすめする理由を書いたもの）。action=stats（冊数と集め方の進み具合）/ new（直近 N 日に入った本・既定 7 日・50 冊まで）/ search（言葉で探す）/ hide・show（isbn の本を候補から外す・戻す）/ add（運営が選んだ本を足す: books に ISBN か「書名 / 著者」か {isbn,title,author} を 200 冊まで・毎晩の処理が楽天の書誌で確かめてから足し、概要を書く）/ queue（足した本の待ち行列: status=queued・done・notfound・failed）/ process（待ち行列と概要づくりを今すすめる・1 回 約 45 秒・毎晩を待たない）/ redo（概要を書き直す: isbn の 1 冊か、省くと分野が空の本を 200 冊まで）。Admin only.',
+    description: '（運営者だけ）AI 選書の推薦用の本のデータ（毎日少しずつ集めて AI が概要・こんな悩みの人に・おすすめする理由を書いたもの）。action=stats（冊数と集め方の進み具合）/ new（直近 N 日に入った本・既定 7 日・50 冊まで）/ search（言葉で探す）/ hide・show（isbn の本を候補から外す・戻す）/ add（運営が選んだ本を足す: books に ISBN か「書名 / 著者」か {isbn,title,author} を 200 冊まで・毎晩の処理が楽天の書誌で確かめてから足し、概要を書く）/ queue（足した本の待ち行列: status=queued・done・notfound・failed）/ process（待ち行列と概要づくりを今すすめる・1 回 約 45 秒・毎晩を待たない）/ redo（概要を書き直す: isbn の 1 冊か、省くと分野が空の本を 200 冊まで・old=true で前の版の書き方の本）/ ext（書評サイトの推薦の事実と要約を保存: items に { isbn, url, points, endorsers:[{name,note}], tags, summary } を 50 冊まで）。Admin only.',
     inputSchema: {
       type: 'object',
       properties: {
-        action: { type: 'string', enum: ['stats', 'new', 'search', 'hide', 'show', 'add', 'queue', 'process', 'redo'] },
+        action: { type: 'string', enum: ['stats', 'new', 'search', 'hide', 'show', 'add', 'queue', 'process', 'redo', 'ext'] },
         books: { type: 'array', description: `add: 足す本（${QUEUE_ADD_MAX} 冊まで）。ISBN の文字列・「書名 / 著者」の文字列・{ isbn, title, author } のどれか`, items: { anyOf: [{ type: 'string' }, { type: 'object', properties: { isbn: { type: 'string' }, title: { type: 'string' }, author: { type: 'string' } } }] } },
         note: { type: 'string', description: 'add: どこから選んだかのメモ（60 字まで・例: 創業メンバーのすすめ）' },
         status: { type: 'string', enum: ['queued', 'done', 'notfound', 'failed'], description: 'queue: 絞る状態（省略はすべて）' },
@@ -302,6 +302,8 @@ export const TOOLS = [
         limit: { type: 'integer', description: 'new / search: 何冊（1〜50・既定 30）' },
         q: { type: 'string', description: 'search: 探す言葉（空白で区切ると複数）' },
         isbn: { type: 'string', description: 'hide / show / redo: ISBN-13' },
+        old: { type: 'boolean', description: 'redo: true で前の版の書き方の本を書き直す' },
+        items: { type: 'array', description: 'ext: 書評サイトの本ごとのデータ（50 冊まで）', items: { type: 'object', properties: { isbn: { type: 'string' }, url: { type: 'string' }, points: { type: 'integer' }, endorsers: { type: 'array', items: { type: 'object', properties: { name: { type: 'string' }, note: { type: 'string' } } } }, tags: { type: 'array', items: { type: 'string' } }, summary: { type: 'string' } } } },
       },
       required: ['action'],
     },
@@ -681,18 +683,29 @@ const handlers = {
       // 無ければ「使える・分野が空」の本を 200 冊まで「整える前」に戻す＝次の process か毎晩の処理が書き直す。
       const one = String(args?.isbn || '').replace(/-/g, '');
       if (one && !/^97[89]\d{10}$/.test(one)) throw new ToolError('isbn は 13 けた（978 か 979 で始まる）');
+      // old: true＝前の版の書き方の本（紹介文が短くて使わなかった本も・書評の要約が届いていれば使えるようになる）
+      const old = args?.old === true;
       let targets = [];
       if (one) targets = [one];
       else {
-        const { data, error } = await db.from('advisor_books').select('isbn, fields').eq('status', 'ready').limit(5000);
+        const { data, error } = await db.from('advisor_books').select('isbn, fields, status, prompt_version').in('status', old ? ['ready', 'thin'] : ['ready']).limit(10000);
         if (error) throw new ToolError(missing(error) ? '推薦用の本のデータの準備がまだです（supabase_advisor_books.sql を流してください）' : '推薦用の本のデータを読めませんでした');
-        targets = (data || []).filter((b) => !Array.isArray(b.fields) || b.fields.length === 0).map((b) => b.isbn).slice(0, 200);
+        targets = (data || []).filter((b) => (old ? (b.prompt_version || 0) < BOOKS_PROMPT_VERSION : (!Array.isArray(b.fields) || b.fields.length === 0))).map((b) => b.isbn).slice(0, 200);
       }
-      if (!targets.length) return { text: '書き直す本はありません（分野が空の本は 0 冊）', structuredContent: { redo: 0 } };
+      if (!targets.length) return { text: old ? '書き直す本はありません（前の版の本は 0 冊）' : '書き直す本はありません（分野が空の本は 0 冊）', structuredContent: { redo: 0 } };
       const { data: upd, error: uErr } = await db.from('advisor_books').update({ status: 'pending', attempts: 0, updated_at: new Date().toISOString() }).in('isbn', targets).in('status', ['ready', 'thin', 'failed']).select('isbn');
       if (uErr) throw new ToolError('戻せませんでした');
       const n = Array.isArray(upd) ? upd.length : 0;
       return { text: `${n} 冊を「整える前」に戻しました。次の process（か毎晩の処理）で概要から書き直します。`, structuredContent: { redo: n } };
+    }
+    if (action === 'ext') {
+      // 書評サイトの、本ごとの推薦の事実と要約（2026-11-17・supabase_advisor_books_ext.sql）。推薦の AI の参考にだけ使う。
+      const { rows, invalid } = parseExtList(args?.items);
+      if (!rows.length) throw new ToolError(`items に { isbn, url, points, endorsers, tags, summary } を 1 冊以上（${EXT_ADD_MAX} 冊まで）入れてください`);
+      const stamp = new Date().toISOString();
+      const { error } = await db.from('advisor_book_ext').upsert(rows.map((r) => ({ ...r, updated_at: stamp })), { onConflict: 'isbn' });
+      if (error) throw new ToolError(missing(error) ? '書評データの準備がまだです（supabase_advisor_books_ext.sql を流してください）' : '書評データを保存できませんでした');
+      return { text: `書評データを ${rows.length} 冊ぶん保存しました（読めなかった ${invalid} 件）。`, structuredContent: { saved: rows.length, invalid } };
     }
     if (action === 'process') {
       // 待ち行列と概要づくりを今すすめる（毎晩の Cron を待たない・スケジュールされたタスクが 1 時間ごとに呼ぶ・2026-11-17）。
@@ -717,7 +730,7 @@ const handlers = {
         : `待ち行列 ${q.done || 0} 冊を処理（足した ${q.added || 0}・印だけ ${q.marked || 0}・見つからない ${q.notfound || 0}）・概要を ${sm.ready || 0} 冊。残りの待ち行列 ${left ?? '?'} 冊。`;
       return { text, structuredContent: { ...out, queued_left: left } };
     }
-    throw new ToolError('action は stats・new・search・hide・show・add・queue・process・redo のどれか');
+    throw new ToolError('action は stats・new・search・hide・show・add・queue・process・redo・ext のどれか');
   },
 
   // ── 指示を受ける（運営者だけ・supabase_admin_mcp.sql の admin_act_for）────────────────────────────

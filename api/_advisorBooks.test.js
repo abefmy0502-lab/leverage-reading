@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { expandPlan, usableItem, rowFromRakuten, parseSummary, summaryUserText, collectStep, summarizeStep, runAdvisorBooks, PLAN_VERSION, REFRESH_DAYS, parseAddList, queueStep, QUEUE_ADD_MAX, SUMMARY_SYSTEM } from './_advisorBooks.js';
+import { expandPlan, usableItem, rowFromRakuten, parseSummary, summaryUserText, collectStep, summarizeStep, runAdvisorBooks, PLAN_VERSION, REFRESH_DAYS, parseAddList, queueStep, QUEUE_ADD_MAX, SUMMARY_SYSTEM, cCodeLabel, parseOpenbdMeta, PROMPT_VERSION as PV, parseExtList } from './_advisorBooks.js';
 
 // supabase の最小の偽物（使う形だけ）。
 function fakeDb({ state = null, books = [], noTable = false } = {}) {
@@ -37,7 +37,7 @@ function fakeDb({ state = null, books = [], noTable = false } = {}) {
   return db;
 }
 
-const env = { RAKUTEN_APPLICATION_ID: 'id', RAKUTEN_ACCESS_KEY: 'pk', RAKUTEN_APP_URL: 'https://x', GEMINI_API_KEY: 'g' };
+const env = { RAKUTEN_APPLICATION_ID: 'id', RAKUTEN_ACCESS_KEY: 'pk', RAKUTEN_APP_URL: 'https://x', GEMINI_API_KEY: 'g', ADVISOR_BOOKS_OPENBD: 'off' };
 const item = (n, extra = {}) => ({ title: `本${n}`, subTitle: '', author: '稲盛和夫/見本花子', publisherName: '見本社', isbn: `97840000000${String(n).padStart(2, '0')}`, salesDate: '2024年05月10日', largeImageUrl: 'http://img/x.jpg?_ex=200x200', itemCaption: `【内容情報】${'この本は習慣の作り方を書いた本です。'.repeat(4)}【目次】第1章 はじめに`, reviewCount: 12, reviewAverage: '4.2', booksGenreId: '001006009', ...extra });
 const page = (items) => ({ status: 200, body: JSON.stringify({ Items: items.map((Item) => ({ Item })) }) });
 
@@ -225,3 +225,79 @@ describe('運営が選んで足す本（ops_books の add）', () => {
     expect(db.t.q.every((x) => x.status === 'done')).toBe(true);
   });
 });
+
+describe('難しさと書評のデータ（2026-11-17）', () => {
+  it('出版社の分類コードを言葉に・openBD から分類とページ数', () => {
+    expect(cCodeLabel('3034')).toBe('専門・単行本（C3034）');
+    expect(cCodeLabel('C0230')).toBe('一般・新書（C0230）');
+    expect(cCodeLabel('abc')).toBe('');
+    const rec = { onix: { DescriptiveDetail: { Subject: [{ SubjectSchemeIdentifier: '79', SubjectCode: 'x' }, { SubjectSchemeIdentifier: '78', SubjectCode: '0034' }], Extent: [{ ExtentType: '11', ExtentValue: '288' }] } } };
+    expect(parseOpenbdMeta(rec)).toEqual({ c_code: '0034', pages: 288 });
+  });
+  it('難しさ（1〜3）と前提知識を読む・範囲の外は 0', () => {
+    const ok = { summary: 's', points: ['p'], for_whom: ['f'], reason: 'r', keywords: ['k1', 'k2', 'k3'], fields: [], level: '実践' };
+    expect(parseSummary(JSON.stringify({ ...ok, difficulty: 3, prereq: '会計の基礎' }))).toMatchObject({ difficulty: 3, prereq: '会計の基礎' });
+    expect(parseSummary(JSON.stringify({ ...ok, difficulty: 7, prereq: 'なし' }))).toMatchObject({ difficulty: 0, prereq: '' });
+    expect(PV).toBeGreaterThanOrEqual(2);
+  });
+  it('材料に書評サイトの要約・分類・ページ数・推薦者の数（写さない注意つき）', () => {
+    const text = summaryUserText({ title: '本', description: '', ext_summary: '書評の要約です', ext_endorsers: 4, c_code: '3034', pages: 512 });
+    expect(text).toContain('書評サイトの要約（参考・写さない）');
+    expect(text).toContain('専門・単行本');
+    expect(text).toContain('ページ数: 512');
+    expect(text).toContain('4 件');
+    expect(SUMMARY_SYSTEM).toContain('difficulty');
+  });
+  it('出版社の紹介文が短くても、書評の要約が十分あれば整える・分類とページ数も残す', async () => {
+    const db = fakeDb({ books: [{ isbn: '9784000000011', title: '古い名著', description: '短い', sales_rank: 1 }] });
+    const base = db.from.bind(db);
+    db.from = (table) => (table === 'advisor_book_ext'
+      ? { select: () => ({ in: async () => ({ data: [{ isbn: '9784000000011', summary: 'あ'.repeat(300), rec_points: 12, endorsers: [{ name: '甲' }] }] }) }) }
+      : base(table));
+    let seen = null;
+    const ai = async (b) => { seen = b; return { parsed: { summary: 's', points: ['p'], for_whom: ['f'], reason: 'r', keywords: ['k1', 'k2', 'k3'], fields: [], level: '', difficulty: 3, prereq: '' }, model: 'm', mjpy: 1 }; };
+    const r = await summarizeStep({ db, env: { ...env, ADVISOR_BOOKS_OPENBD: '' }, now: () => 0, deadline: 1e9, aiImpl: ai, metaImpl: async () => new Map([['9784000000011', { c_code: '3034', pages: 600 }]]) });
+    expect(r.ready).toBe(1);
+    expect(seen).toMatchObject({ ext_endorsers: 1, c_code: '3034', pages: 600 });
+    expect(db.t.advisor_books.get('9784000000011')).toMatchObject({ status: 'ready', difficulty: 3, c_code: '3034', pages: 600, prompt_version: PV });
+  });
+});
+
+describe('書評サイトのデータ（ops_books の ext）', () => {
+  it('ISBN を 13 けたに・注記を外す・数の範囲・同じ本は 1 つ', () => {
+    const r = parseExtList([
+      { isbn: '4478017298', url: 'https://bookvinegar.jp/1/', points: 10, endorsers: [{ name: '中原淳 教授', note: '※肩書きは推薦当時のものです。' }, { name: '' }], tags: ['経営'], summary: ' 要約\r\n\n\n\n続き ' },
+      { isbn: 'abc' },
+      { isbn: '9784478017296', points: -3 },
+    ]);
+    expect(r.invalid).toBe(1);
+    expect(r.rows).toHaveLength(1);
+    expect(r.rows[0]).toMatchObject({ isbn: '9784478017296', rec_points: null, url: '', endorsers: [] });
+    const one = parseExtList([{ isbn: '4478017298', url: 'https://bookvinegar.jp/1/', points: 10, endorsers: [{ name: '中原淳 教授', note: '※肩書きは推薦当時のものです。' }], summary: ' 要約\r\n\n\n\n続き ' }]).rows[0];
+    expect(one).toMatchObject({ rec_points: 10, endorsers: [{ name: '中原淳 教授', note: '' }], summary: '要約\n\n続き' });
+  });
+});
+
+describe('難しさの列がまだ無い本番でも止まらない', () => {
+  it('列が無いと言われたら、今までの列だけで保存し直す（整える前に残らない）', async () => {
+    const db = fakeDb({ books: [{ isbn: '9784000000021', title: '本', description: 'この本は習慣の作り方を書いた本です。'.repeat(4), sales_rank: 1 }] });
+    const base = db.from.bind(db);
+    let first = true;
+    db.from = (table) => {
+      const api = base(table);
+      if (table !== 'advisor_books') return api;
+      const upd = api.update.bind(api);
+      api.update = (patch) => {
+        if (first && 'difficulty' in patch) { first = false; return { eq: async () => ({ error: { code: '42703', message: 'column "difficulty" does not exist' } }) }; }
+        return upd(patch);
+      };
+      return api;
+    };
+    const ai = async () => ({ parsed: { summary: 's', points: ['p'], for_whom: ['f'], reason: 'r', keywords: ['k1', 'k2', 'k3'], fields: [], level: '', difficulty: 2, prereq: '' }, model: 'm', mjpy: 1 });
+    await summarizeStep({ db, env, now: () => 0, deadline: 1e9, aiImpl: ai });
+    const row = db.t.advisor_books.get('9784000000021');
+    expect(row.status).toBe('ready');
+    expect(row).not.toHaveProperty('difficulty');
+  });
+});
+

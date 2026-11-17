@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parsePostSitemap, postSitemapUrls, recentPosts, bookFromPage, toAddBooks, chunks } from './bookvinegarCore.js';
+import { parsePostSitemap, postSitemapUrls, recentPosts, bookFromPage, extFromPage, textOf, toAddBooks, chunks } from './bookvinegarCore.js';
 
 describe('bookvinegar の事実だけを読む', () => {
   it('サイトマップから本の記事と更新日', () => {
@@ -31,3 +31,22 @@ describe('bookvinegar の事実だけを読む', () => {
     expect(chunks(Array.from({ length: 450 }), 200).map((c) => c.length)).toEqual([200, 200, 50]);
   });
 });
+
+describe('推薦の事実と要約（書評データ）', () => {
+  const ld = { '@type': 'Review', itemReviewed: { '@type': 'Book', name: '本', author: [{ name: '著者' }], isbn: '4815647100', genre: ['自己啓発', '読書術・ノート術'] } };
+  const html = `<script type="application/ld+json">${JSON.stringify(ld)}</script>
+    <div class="p-recommend-point"><i></i>推薦ポイント 2P </div>
+    <ul><li><span class="bv-recl__name">落合陽一<small>筑波大学 学長補佐</small></span></li><li><span class="bv-recl__name">日本経済新聞</span></li></ul>
+    <div class="entry-content"><h3>見出し</h3><p>本文の&amp;一段落。</p><ul><li>項目</li></ul></div><div class="bv-related">関連</div>`;
+  it('推薦ポイント・推薦者（名前と肩書き）・テーマ・要約の本文', () => {
+    expect(extFromPage(html, 'https://bookvinegar.jp/1/')).toEqual({
+      isbn: '4815647100', url: 'https://bookvinegar.jp/1/', points: 2,
+      endorsers: [{ name: '落合陽一', note: '筑波大学 学長補佐' }, { name: '日本経済新聞', note: '' }],
+      tags: ['自己啓発', '読書術・ノート術'],
+      summary: '見出し\n本文の&一段落。\n項目',
+    });
+    expect(extFromPage('<p>no</p>')).toBeNull();
+    expect(textOf('<p>a<br>b</p>')).toBe('a\nb');
+  });
+});
+
