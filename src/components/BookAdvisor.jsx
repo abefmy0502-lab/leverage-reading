@@ -1366,7 +1366,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   // 会話が始まったら画面を広く使う（上の行を畳み、読み進めている間は下のタブも隠す・2026-11-15）。
   const onImmersiveScroll = useChatImmersive(messages.length > 0 || !!interview || interviewLoading || interviewAnswers.length > 0);
   const onChatScroll = (e) => {
-    onImmersiveScroll(e.currentTarget.scrollTop);
+    onImmersiveScroll(e.currentTarget);
     const s = e.currentTarget.scrollTop > 0;
     if (s !== scrolled) setScrolled(s);
   };

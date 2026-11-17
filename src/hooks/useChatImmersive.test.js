@@ -12,3 +12,13 @@ describe('会話を広く使う（下のタブを隠すか）', () => {
     expect(nextScrollDown(10, 40, true)).toBe(false);
   });
 });
+
+describe('いちばん下で震えない（2026-11-17）', () => {
+  it('隠したまま、いちばん下で位置が押し戻されても出さない', () => {
+    expect(nextScrollDown(900, 800, true, { atBottom: true })).toBe(true);
+    expect(nextScrollDown(900, 800, true, { atBottom: false })).toBe(false);
+  });
+  it('先頭近くは、いちばん下でも出す', () => {
+    expect(nextScrollDown(60, 20, true, { atBottom: true })).toBe(false);
+  });
+});

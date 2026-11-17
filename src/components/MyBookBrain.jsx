@@ -2181,7 +2181,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const onImmersiveScroll = useChatImmersive(view === 'chat' && messages.length > 0);
   const onBodyScroll = (e) => {
     const top = e.currentTarget.scrollTop;
-    onImmersiveScroll(top);
+    onImmersiveScroll(e.currentTarget);
     if (view === 'chat') rememberSession(user?.id, { scrollTop: top });
     const s = top > 0;
     if (s !== scrolled) setScrolled(s);
