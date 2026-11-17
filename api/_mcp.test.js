@@ -316,6 +316,15 @@ describe('運営だけの道具', () => {
   });
 });
 
+describe('ops_books の process', () => {
+  it('待ち行列と概要づくりを今すすめる動作があり、1 回の時間は MCP の上限の内側', async () => {
+    const t = TOOLS.find((x) => x.name === 'ops_books');
+    expect(t.inputSchema.properties.action.enum).toContain('process');
+    const vercel = JSON.parse((await import('node:fs')).readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'));
+    expect(vercel.functions['api/mcp.js'].maxDuration).toBeGreaterThanOrEqual(60);
+  });
+});
+
 describe('書く', () => {
   it('add_memo は自分の本にだけ・本なしは personal・制御文字を除く', async () => {
     const r = await call('add_memo', { book_id: B1, text: 'あたらしい\u0007メモ', page_number: 3, tags: ['a', ''] });

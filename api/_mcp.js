@@ -16,7 +16,7 @@ import { createHash } from 'node:crypto';
 import { WIDGET_URI_MCP, WIDGET_URI_OPENAI, WIDGET_MIME_MCP, WIDGET_MIME_OPENAI, widgetHtml } from './_mcpWidget.js';
 import { launchGates } from './_launchHealth.js';
 import { textLength } from './_social.js';
-import { advisorBooksStats, parseAddList, QUEUE_ADD_MAX } from './_advisorBooks.js';
+import { advisorBooksStats, parseAddList, QUEUE_ADD_MAX, queueStep, summarizeStep } from './_advisorBooks.js';
 
 export const PROTOCOL_VERSION = '2025-06-18';
 export const SERVER_INFO = { name: 'orime', version: '1.1.0' };
@@ -290,11 +290,11 @@ export const TOOLS = [
   },
   {
     name: 'ops_books',
-    description: '（運営者だけ）AI 選書の推薦用の本のデータ（毎日少しずつ集めて AI が概要・こんな悩みの人に・おすすめする理由を書いたもの）。action=stats（冊数と集め方の進み具合）/ new（直近 N 日に入った本・既定 7 日・50 冊まで）/ search（言葉で探す）/ hide・show（isbn の本を候補から外す・戻す）/ add（運営が選んだ本を足す: books に ISBN か「書名 / 著者」か {isbn,title,author} を 200 冊まで・毎晩の処理が楽天の書誌で確かめてから足し、概要を書く）/ queue（足した本の待ち行列: status=queued・done・notfound・failed）。Admin only.',
+    description: '（運営者だけ）AI 選書の推薦用の本のデータ（毎日少しずつ集めて AI が概要・こんな悩みの人に・おすすめする理由を書いたもの）。action=stats（冊数と集め方の進み具合）/ new（直近 N 日に入った本・既定 7 日・50 冊まで）/ search（言葉で探す）/ hide・show（isbn の本を候補から外す・戻す）/ add（運営が選んだ本を足す: books に ISBN か「書名 / 著者」か {isbn,title,author} を 200 冊まで・毎晩の処理が楽天の書誌で確かめてから足し、概要を書く）/ queue（足した本の待ち行列: status=queued・done・notfound・failed）/ process（待ち行列と概要づくりを今すすめる・1 回 約 45 秒・毎晩を待たない）。Admin only.',
     inputSchema: {
       type: 'object',
       properties: {
-        action: { type: 'string', enum: ['stats', 'new', 'search', 'hide', 'show', 'add', 'queue'] },
+        action: { type: 'string', enum: ['stats', 'new', 'search', 'hide', 'show', 'add', 'queue', 'process'] },
         books: { type: 'array', description: `add: 足す本（${QUEUE_ADD_MAX} 冊まで）。ISBN の文字列・「書名 / 著者」の文字列・{ isbn, title, author } のどれか`, items: { anyOf: [{ type: 'string' }, { type: 'object', properties: { isbn: { type: 'string' }, title: { type: 'string' }, author: { type: 'string' } } }] } },
         note: { type: 'string', description: 'add: どこから選んだかのメモ（60 字まで・例: 創業メンバーのすすめ）' },
         status: { type: 'string', enum: ['queued', 'done', 'notfound', 'failed'], description: 'queue: 絞る状態（省略はすべて）' },
@@ -381,6 +381,10 @@ async function run(q) {
 const fieldsOf = (row) => (Array.isArray(row.book_tags) ? row.book_tags.map((t) => t?.tag_name).filter(Boolean) : []);
 const bookOut = (b) => ({ id: b.id, title: b.title || '（無題）', author: b.author || '', status: b.status, rating: b.rating || 0, cover: typeof b.cover === 'string' && /^https:/.test(b.cover) ? b.cover : '', start_date: dateOnly(b.start_date), done_date: dateOnly(b.done_date), fields: fieldsOf(b) });
 const memoOut = (m, title) => ({ id: m.id, book_id: m.book_id || null, book_title: title || '', text: String(m.text || ''), page_number: m.page_number ?? null, tags: Array.isArray(m.tags) ? m.tags : [], created_at: m.created_at || '' });
+// ops_books の process の時間（api/mcp.js の maxDuration 60 秒の内側）
+const PROCESS_QUEUE_MS = 30000;
+const PROCESS_TOTAL_MS = 50000;
+
 const actionOut = (a, title) => ({ id: a.id, book_id: a.book_id || null, book_title: title || '', text: a.text || '', deadline: dateOnly(a.deadline) || null, done: !!a.done, completed_at: a.completed_at || null, reflection: a.reflection || '' });
 
 function bookLine(b) {
@@ -672,7 +676,30 @@ const handlers = {
       if (error) throw new ToolError(missing(error) ? '待ち行列の準備がまだです（supabase_advisor_books.sql を流してください）' : '待ち行列を読めませんでした');
       return { text: `待ち行列 ${data.length} 件`, structuredContent: { queue: data } };
     }
-    throw new ToolError('action は stats・new・search・hide・show・add・queue のどれか');
+    if (action === 'process') {
+      // 待ち行列と概要づくりを今すすめる（毎晩の Cron を待たない・スケジュールされたタスクが 1 時間ごとに呼ぶ・2026-11-17）。
+      // 1 回 約 45 秒（api/mcp.js の maxDuration 60 の内側）。楽天は本の検索と分け合うので 1.5 秒に 1 回。
+      const started = Date.now();
+      const out = {};
+      try {
+        out.queue = await queueStep({ db, deadline: started + PROCESS_QUEUE_MS, pause: 1500 });
+      } catch (e) {
+        out.queue = { error: String(e?.code || e?.message || 'error').slice(0, 80) };
+      }
+      try {
+        out.summarize = await summarizeStep({ db, deadline: started + PROCESS_TOTAL_MS });
+      } catch (e) {
+        out.summarize = { error: String(e?.code || e?.message || 'error').slice(0, 80) };
+      }
+      let left = null;
+      try { const { count } = await db.from('advisor_books_queue').select('id', { count: 'exact', head: true }).eq('status', 'queued'); left = count ?? null; } catch { left = null; }
+      const q = out.queue || {}; const sm = out.summarize || {};
+      const text = q.skipped === 'no_queue_table'
+        ? '待ち行列の準備がまだです（supabase_advisor_books.sql を流してください）'
+        : `待ち行列 ${q.done || 0} 冊を処理（足した ${q.added || 0}・印だけ ${q.marked || 0}・見つからない ${q.notfound || 0}）・概要を ${sm.ready || 0} 冊。残りの待ち行列 ${left ?? '?'} 冊。`;
+      return { text, structuredContent: { ...out, queued_left: left } };
+    }
+    throw new ToolError('action は stats・new・search・hide・show・add・queue・process のどれか');
   },
 
   // ── 指示を受ける（運営者だけ・supabase_admin_mcp.sql の admin_act_for）────────────────────────────

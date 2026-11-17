@@ -8,7 +8,7 @@
     "api/push-cron.js": { "maxDuration": 300 },
     "api/cover.js": { "maxDuration": 20 },
     "api/claude.js": { "maxDuration": 60 },
-    "api/mcp.js": { "maxDuration": 20 },
+    "api/mcp.js": { "maxDuration": 60 },
     "api/keepalive.js": { "maxDuration": 300 }
   },
   "redirects": [
