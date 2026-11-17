@@ -16,6 +16,7 @@ import { createHash } from 'node:crypto';
 import { WIDGET_URI_MCP, WIDGET_URI_OPENAI, WIDGET_MIME_MCP, WIDGET_MIME_OPENAI, widgetHtml } from './_mcpWidget.js';
 import { launchGates } from './_launchHealth.js';
 import { textLength } from './_social.js';
+import { advisorBooksStats } from './_advisorBooks.js';
 
 export const PROTOCOL_VERSION = '2025-06-18';
 export const SERVER_INFO = { name: 'orime', version: '1.1.0' };
@@ -283,6 +284,21 @@ export const TOOLS = [
         weakest: { type: 'string', description: 'review: いちばん弱い段階（40 字まで）' },
         memo: { type: 'string', description: 'メモ（review 1,000 字・sales 500 字まで）' },
         new_paid: { type: 'integer' }, installs: { type: 'integer' }, lp_clicks: { type: 'integer' }, note_pv: { type: 'integer' }, x_profile_clicks: { type: 'integer' }, store_page_views: { type: 'integer' },
+      },
+      required: ['action'],
+    },
+  },
+  {
+    name: 'ops_books',
+    description: '（運営者だけ）AI 選書の推薦用の本のデータ（毎日少しずつ集めて AI が概要・こんな悩みの人に・おすすめする理由を書いたもの）を読む。action=stats（冊数と集め方の進み具合）/ new（直近 N 日に入った本・既定 7 日・50 冊まで）/ search（言葉で探す）/ hide・show（isbn の本を候補から外す・戻す）。Admin only.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['stats', 'new', 'search', 'hide', 'show'] },
+        days: { type: 'integer', description: 'new: 何日分（1〜60・既定 7）' },
+        limit: { type: 'integer', description: 'new / search: 何冊（1〜50・既定 30）' },
+        q: { type: 'string', description: 'search: 探す言葉（空白で区切ると複数）' },
+        isbn: { type: 'string', description: 'hide / show: ISBN-13' },
       },
       required: ['action'],
     },
@@ -595,6 +611,50 @@ const handlers = {
     ];
     const gates = await launchGates(db);
     return { text: text.join('\n'), structuredContent: { ...(data || {}), launch_gates: gates } };
+  },
+
+  // 📚 AI 選書の推薦用の本のデータ（運営者だけ・supabase_advisor_books.sql・2026-11-17）。
+  async ops_books(args, { db, userId }) {
+    const { data: adm, error: admErr } = await db.from('app_admins').select('user_id').eq('user_id', userId).maybeSingle();
+    if (admErr || !adm) throw new ToolError('この道具は運営者だけが使えます');
+    const action = args?.action;
+    const lim = Math.max(1, Math.min(50, Math.floor(Number(args?.limit) || 30)));
+    const cols = 'isbn, title, author, publisher, pub_date, cover, summary, points, for_whom, reason, keywords, fields, level, status, first_seen_at';
+    const missing = (e) => /relation .* does not exist|42P01|PGRST205|Could not find the table/i.test(`${e?.code || ''} ${e?.message || ''}`);
+    if (action === 'stats') {
+      try {
+        const st = await advisorBooksStats(db);
+        return { text: `推薦用の本: 使える ${st.ready} 冊・整える前 ${st.pending} 冊・紹介が短い ${st.thin} 冊・失敗 ${st.failed} 冊・この 7 日に入った ${st.new_this_week} 冊`, structuredContent: st };
+      } catch (e) {
+        if (missing(e)) throw new ToolError('推薦用の本のデータの準備がまだです（supabase_advisor_books.sql を流してください）');
+        throw new ToolError('推薦用の本のデータを読めませんでした');
+      }
+    }
+    if (action === 'new') {
+      const days = Math.max(1, Math.min(60, Math.floor(Number(args?.days) || 7)));
+      const since = new Date(Date.now() - days * 24 * 3600 * 1000).toISOString();
+      const { data, error } = await db.from('advisor_books').select(cols).eq('status', 'ready').gte('first_seen_at', since).order('sales_rank', { ascending: true, nullsFirst: false }).limit(lim);
+      if (error) throw new ToolError(missing(error) ? '推薦用の本のデータの準備がまだです（supabase_advisor_books.sql を流してください）' : '推薦用の本のデータを読めませんでした');
+      return { text: `直近 ${days} 日に入った本 ${data.length} 冊`, structuredContent: { books: data } };
+    }
+    if (action === 'search') {
+      const terms = clean(args?.q, 100).split(/\s+/).filter(Boolean).slice(0, 6);
+      if (!terms.length) throw new ToolError('q（探す言葉）を入れてください');
+      const { data, error } = await db.rpc('search_advisor_books', { p_terms: terms, p_exclude: [], p_limit: lim });
+      if (error) throw new ToolError(missing(error) || /PGRST202|42883/.test(`${error.code || ''}`) ? '推薦用の本のデータの準備がまだです（supabase_advisor_books.sql を流してください）' : '推薦用の本のデータを読めませんでした');
+      return { text: `「${terms.join(' ')}」で ${data.length} 冊`, structuredContent: { books: data } };
+    }
+    if (action === 'hide' || action === 'show') {
+      const isbn = String(args?.isbn || '').replace(/-/g, '');
+      if (!/^97[89]\d{10}$/.test(isbn)) throw new ToolError('isbn は 13 けた（978 か 979 で始まる）');
+      let q = db.from('advisor_books').update({ status: action === 'hide' ? 'hidden' : 'ready', updated_at: new Date().toISOString() }).eq('isbn', isbn).in('status', action === 'hide' ? ['ready', 'pending', 'thin', 'failed'] : ['hidden']);
+      if (action === 'show') q = q.neq('summary', ''); // 整えた本だけ候補に戻す
+      const { data, error } = await q.select('isbn, title');
+      if (error) throw new ToolError('変えられませんでした');
+      if (!data?.length) throw new ToolError('その isbn の本は見つかりませんでした');
+      return { text: `『${data[0].title}』を${action === 'hide' ? '候補から外しました' : '候補に戻しました'}`, structuredContent: { ok: true, isbn } };
+    }
+    throw new ToolError('action は stats・new・search・hide・show のどれか');
   },
 
   // ── 指示を受ける（運営者だけ・supabase_admin_mcp.sql の admin_act_for）────────────────────────────

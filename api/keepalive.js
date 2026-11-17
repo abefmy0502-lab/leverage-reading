@@ -14,6 +14,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { timingSafeEqual as cryptoTimingSafeEqual } from 'node:crypto';
+import { runAdvisorBooks } from './_advisorBooks.js';
 
 function getBearerToken(req) {
   const raw = (req.headers && (req.headers.authorization || req.headers.Authorization)) || '';
@@ -59,5 +60,14 @@ export default async function handler(req, res) {
     console.error('[keepalive] query failed:', error.message);
     return res.status(502).json({ ok: false });
   }
-  return res.status(200).json({ ok: true });
+  // 📚 AI 選書の推薦用の本のデータを少しずつ集めて整える（2026-11-17・api/_advisorBooks.js）。
+  //   失敗しても keepalive の答えは変えない（DB の生存確認が本業）。数だけ返す（本の中身や鍵は返さない）。
+  let books = null;
+  try {
+    const r = await runAdvisorBooks({ db: supabase, budgetMs: 270000 });
+    books = { collected: r?.collect?.upserted ?? 0, summarized: r?.summarize?.ready ?? 0, skipped: r?.skipped || null };
+  } catch (e) {
+    console.warn('[keepalive] advisor books failed:', e?.message || e);
+  }
+  return res.status(200).json({ ok: true, books });
 }

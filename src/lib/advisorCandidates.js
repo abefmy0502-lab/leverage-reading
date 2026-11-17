@@ -6,12 +6,19 @@
 //   **実在する本の候補**（書名・著者・出版社・年・ISBN・表紙）を集めておく。推薦の AI には候補を C1〜 の印つきで渡し、
 //   候補から選んでもらう（JSON に "key"）。候補から選んだ本は、書誌で確かめた本として扱う（表紙も ISBN もそのまま使う）。
 //   候補の外の本は今までどおり 1 冊ずつ確かめ、確かめられない本は出さない（BookAdvisor の verifyAndEnrich）。
+// 2026-11-17 その 2（オーナー「推薦できる本を徹底的に集めて、概要やおすすめする理由をデータとして整えて」）:
+//   先に「推薦用の本のデータ」（advisor_books・毎日少しずつ集めて AI が概要・こんな悩みの人に・おすすめする理由を書いた表・
+//   supabase_advisor_books.sql / api/_advisorBooks.js）から引き、足りない分を書店の検索で埋める。表の本は概要と
+//   「こんな悩みの人に」つきで AI に渡す（選ぶ根拠が増える）。表が無い・つながらないときは書店の検索だけ。
 // ここは画面に依存しない小道具（検索の言葉を整える・候補を集める・AI に渡す文・AI の答えと候補を結ぶ）。
 import { searchBooksOnServer } from './bookSearch';
+import { supabase, isSupabaseConfigured } from './supabase';
 import { flatTitle, strongTitleMatch, authorMatches } from '../../api/_bookVerify.js';
 
 export const KEYWORDS_MAX = 4;
 export const CANDIDATES_MAX = 24;
+// 推薦用の本のデータから引く数（残りを書店の検索で埋める）
+export const CATALOG_MAX = 14;
 const PER_QUERY = 8;
 // 候補を集める時間の上限（推薦を待たせすぎない。間に合った分だけ使う）。
 export const CANDIDATES_BUDGET_MS = 9000;
@@ -65,12 +72,44 @@ function onShelf(b, shelf) {
  *   言葉ごとの上位を交互に並べる（1 つの言葉の本だけで埋めない）。本棚にある本・同じ本・推薦に向かない本は除く。
  *   検索は 1 つずつ順に（楽天は続けて呼ぶと混む）。時間の上限を過ぎたら、集まった分だけ返す。失敗しても例外にしない。
  */
-export async function gatherCandidates(keywords, { shelf = [], search = searchBooksOnServer, budgetMs = CANDIDATES_BUDGET_MS, signal, now = () => Date.now() } = {}) {
+// 推薦用の本のデータ（advisor_books）から引く。失敗・未適用は空（例外にしない）。
+export async function searchCatalog(words, { shelf = [], rpc = defaultRpc, limit = CATALOG_MAX } = {}) {
+  if (!rpc || !Array.isArray(words) || words.length === 0) return [];
+  const exclude = (Array.isArray(shelf) ? shelf : []).map((b) => String(b?.isbn || '').replace(/-/g, '')).filter((x) => /^\d{13}$/.test(x)).slice(0, 500);
+  try {
+    const { data, error } = await rpc('search_advisor_books', { p_terms: words, p_exclude: exclude, p_limit: limit });
+    if (error || !Array.isArray(data)) return [];
+    return data
+      .filter((b) => b && str(b.title) && /^\d{13}$/.test(String(b.isbn || '')))
+      .filter((b) => !onShelf({ title: b.title, isbn: b.isbn }, shelf))
+      .map((b) => ({
+        title: str(b.title),
+        subtitle: str(b.subtitle),
+        author: str(b.author),
+        publisher: str(b.publisher),
+        pubYear: str(b.pub_date).slice(0, 4),
+        isbn: String(b.isbn),
+        cover: /^https:\/\//.test(String(b.cover || '')) ? String(b.cover) : '',
+        summary: str(b.summary),
+        forWhom: (Array.isArray(b.for_whom) ? b.for_whom : []).map(str).filter(Boolean).slice(0, 3),
+        reason: str(b.reason),
+        level: str(b.level),
+      }));
+  } catch { return []; }
+}
+function defaultRpc(name, args) {
+  if (!isSupabaseConfigured || !supabase) return Promise.resolve({ data: null, error: { message: 'no supabase' } });
+  return supabase.rpc(name, args);
+}
+
+export async function gatherCandidates(keywords, { shelf = [], search = searchBooksOnServer, rpc = defaultRpc, budgetMs = CANDIDATES_BUDGET_MS, signal, now = () => Date.now() } = {}) {
   const words = cleanKeywords(keywords);
   if (words.length === 0) return [];
   const started = now();
-  const lists = [];
-  for (const q of words) {
+  // まず推薦用の本のデータから（概要つき）。足りない分を書店の検索で。
+  const catalog = await searchCatalog(words, { shelf, rpc });
+  const lists = [catalog];
+  for (const q of catalog.length >= CANDIDATES_MAX - 4 ? [] : words) {
     if (signal?.aborted) break;
     const left = budgetMs - (now() - started);
     if (left < 1500) break;
@@ -93,6 +132,9 @@ export async function gatherCandidates(keywords, { shelf = [], search = searchBo
     seen.add(`t:${fkey}`);
     out.push(b);
   };
+  // 推薦用の本のデータの本は先にすべて（点の高い順）。
+  for (const b of lists[0]) take(b);
+  lists[0] = [];
   // 言葉ごとに上位から交互に（1 つの言葉の本は最大 PER_QUERY 冊）。
   const taken = lists.map(() => 0);
   const idx = lists.map(() => 0);
@@ -109,7 +151,7 @@ export async function gatherCandidates(keywords, { shelf = [], search = searchBo
       }
     }
   }
-  return out.map((b, i) => ({
+  return out.slice(0, CANDIDATES_MAX).map((b, i) => ({
     key: `C${i + 1}`,
     title: str(b.title),
     subtitle: str(b.subtitle),
@@ -118,6 +160,9 @@ export async function gatherCandidates(keywords, { shelf = [], search = searchBo
     pubYear: str(b.pubYear),
     isbn: b.isbn || '',
     cover: b.cover || '',
+    summary: str(b.summary),
+    forWhom: Array.isArray(b.forWhom) ? b.forWhom : [],
+    reason: str(b.reason),
   }));
 }
 
@@ -128,7 +173,10 @@ export function candidatesBlock(cands) {
   const lines = list.map((c) => {
     const sub = c.subtitle ? ` ${c.subtitle.slice(0, 40)}` : '';
     const meta = [c.author, c.publisher, c.pubYear].filter(Boolean).join('・');
-    return `${c.key}『${c.title}』${sub}${meta ? `（${meta}）` : ''}`;
+    // 推薦用の本のデータの本は、概要とこんな悩みの人に（短く）を添える
+    const about = c.summary ? `\n　概要: ${c.summary.slice(0, 90)}` : '';
+    const who = c.forWhom && c.forWhom.length ? `\n　こんな人に: ${c.forWhom.slice(0, 2).join('／').slice(0, 70)}` : '';
+    return `${c.key}『${c.title}』${sub}${meta ? `（${meta}）` : ''}${about}${who}`;
   });
   return (
     '【本の候補（書店の書誌で確かめた、実在する本）】\n' +
