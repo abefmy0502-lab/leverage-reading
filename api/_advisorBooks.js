@@ -527,7 +527,9 @@ export async function summarizeStep({ db, env = process.env, now = () => Date.no
         // 難しさなどの列がまだ無い（supabase_advisor_books_ext.sql の前）→ 今までの列だけで保存し直す
         //   （保存に失敗したまま整える前に残ると、同じ本を何度も AI に書かせてしまう）
         if (res?.error && /42703|PGRST204|column/i.test(`${res.error.code || ''} ${res.error.message || ''}`)) {
+          //   書き方の版は 1 つ前のままに＝SQL を流したあと ops_books の redo（old）でもう一度書き直される（難しさが付く）。
           const { difficulty: _d, prereq: _p, c_code: _c, pages: _g, ...rest } = patch;
+          if ('prompt_version' in rest) rest.prompt_version = PROMPT_VERSION - 1;
           // eslint-disable-next-line no-await-in-loop
           await db.from('advisor_books').update({ ...rest, updated_at: new Date(now()).toISOString() }).eq('isbn', b.isbn);
         }
