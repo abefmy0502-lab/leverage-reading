@@ -14,15 +14,16 @@ export default function AdvisorStoreLinks({ book }) {
   const amazon = getAmazonLink(book);
   const rakuten = getRakutenLink(book);
   return (
-    // 文字の左端をカードの本文にそろえる（btnLink の左右 4 を打ち消す）。
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-4)', marginLeft: 'calc(-1 * var(--space-1))' }}>
+    // 文字の左端をカードの本文にそろえる（btnLink の左右 4 を打ち消す）。押せる高さ 44 のうち文字より下の分は
+    //   カードの下の余白に見えるので、12 だけ打ち消して見た目の下を上の 16 にそろえる（押せる範囲は 44 のまま・2026-11-17 ui-critic）。
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-4)', marginLeft: 'calc(-1 * var(--space-1))', marginBottom: 'calc(-1 * var(--space-3))' }}>
       <a
         href={amazon} target="_blank" rel={AMAZON_LINK_REL}
         onClick={(e) => { e.stopPropagation(); handleAmazonClick(e, amazon); }}
         aria-label={`Amazon で『${title}』を見る（外部リンク）`}
         style={storeLink}
       >
-        Amazon<IcExternal size={16} aria-hidden="true" />
+        Amazon<IcExternal size="1.1em" aria-hidden="true" />
       </a>
       <a
         href={rakuten} target="_blank" rel={RAKUTEN_LINK_REL}
@@ -30,7 +31,7 @@ export default function AdvisorStoreLinks({ book }) {
         aria-label={`楽天ブックス で『${title}』を見る（外部リンク）`}
         style={storeLink}
       >
-        楽天ブックス<IcExternal size={16} aria-hidden="true" />
+        楽天ブックス<IcExternal size="1.1em" aria-hidden="true" />
       </a>
     </div>
   );

@@ -587,13 +587,17 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     ]);
     // 古い会話のカードも同じ形に（書名の欄の 2 冊・AI が付けた表紙と ISBN・lib/advisorRecs.js）
     const norm = normalizeAdvisorRecs(pool);
-    // 確かめた本ができるたびに、AI の順のままカードを出す（全部を待たない・まだ確かめていない本のうち、
-    //   候補から選んだ本＝はじめから 'ok' もそのまま並べる＝カードが一度減って見えない・2026-11-17）。
+    // 確かめた本ができるたびにカードを出す（全部を待たない・2026-11-17）。一度出したカードの順は変えず、
+    //   あとから確かめた本は下（骨組みの場所）に足す＝読んでいるカードが押し下がらない（ui-critic）。
+    //   はじめから 'ok' の本（候補から選んだ本）は最初から並べる＝カードが一度減って見えない。
+    const shownOrder = norm.filter((r) => !r._alts && r._verify === 'ok').slice(0, 5);
+    const sameRec = (a, b) => a === b || (a && b && a.title === b.title && (a.author || '') === (b.author || ''));
     const publish = () => {
-      const shown = norm
-        .map((r, i) => (i < results.length ? results[i] : r))
-        .filter((r) => r && !r._alts && r._verify === 'ok')
-        .slice(0, 5);
+      for (const r of results) {
+        if (r && !r._alts && r._verify === 'ok' && shownOrder.length < 5 && !shownOrder.some((x) => sameRec(x, r))) shownOrder.push(r);
+      }
+      // 確かめた結果（表紙・ISBN つき）があればそれに差し替える（順はそのまま）
+      const shown = shownOrder.map((x) => results.find((r) => r && sameRec(r, x)) || x);
       setRecommendations((prev) => (prev && prev.checked === false ? { ...prev, items: shown } : prev));
     };
     for (const raw of norm) {
@@ -652,7 +656,9 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     if (stale()) return null;
     // 出すのは実在を確かめた本だけ（AI の順のまま）。書誌で見つからなかった本（2026-11-15）も、確かめられなかった本
     //   （2026-11-17 オーナー「また世の中にない本が出てきた」＝前は「確認できませんでした」をつけて出していた）も出さない。
-    const items = results.filter((r) => r && r._verify === 'ok').slice(0, 5);
+    // 並びは、確かめている間に出した順のまま（そのあとに残りの確かめた本）。
+    publish();
+    const items = [...shownOrder.map((x) => results.find((r) => r && sameRec(r, x)) || x), ...results.filter((r) => r && r._verify === 'ok' && !shownOrder.some((x) => sameRec(x, r)))].slice(0, 5);
     // カードが 0 枚のときの言い方: どの書名も「無い」と分かった（'none'）か、確かめられなかった（'unknown'）か
     const dropped = [
       ...droppedMixed,
@@ -2124,7 +2130,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
                     // 「✓ 追加済み・開く」に替える（行の高さが変わらない・トーストを見逃してもここから本の詳細へ）。
                     const shelfBook = onOpenBook ? findDuplicateBook(books || [], rec) : null;
                     const label = added ? '追加済み' : '本棚にあります';
-                    const check = <IcCheck size={18} aria-hidden="true" style={{ color: 'var(--success)', flexShrink: 0 }} />;
+                    const check = <IcCheck size="1.2em" aria-hidden="true" style={{ color: 'var(--success)', flexShrink: 0 }} />;
                     return shelfBook ? (
                       <button type="button" onClick={(e) => { e.stopPropagation(); onOpenBook(shelfBook); }}
                         aria-label={`『${rec.title}』は${label === '追加済み' ? '追加済みです' : '本棚にあります'}。開く`}
@@ -2152,7 +2158,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
                       // カードの主役の操作なので全幅の副ボタン（48・17/600）。下の「別の条件で探す」より強く見せる。
                       style={{ ...uiBtnGhost, touchAction: 'manipulation' }}
                     >
-                      <IcPlus size={18} aria-hidden="true" />読みたいに追加
+                      <IcPlus size="1.2em" aria-hidden="true" />読みたいに追加
                     </button>
                   )}
                   {/* Amazon + 楽天 の両方（統一）は控えめな文字リンク。開示は推薦の最後にまとめて 1 回 */}
@@ -2191,7 +2197,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
           </p>
           {/* やり直しは脇役＝文字ボタン（本のカードの「読みたいに追加」より弱く）。文字の左端を注記にそろえる。 */}
           <button type="button" onClick={resetToConcern} style={{ ...uiBtnLink, gap: 'var(--space-1)', alignSelf: 'flex-start', marginLeft: 'calc(-1 * var(--space-1))' }}>
-            <IcRetry size={16} aria-hidden="true" />
+            <IcRetry size="1.1em" aria-hidden="true" />
             別の条件で探す
           </button>
           {canReflect && (
