@@ -2,7 +2,7 @@
 //
 // 流れ（毎日の Cron＝api/keepalive.js から runAdvisorBooks を 1 回）:
 //   1. 集める（collectStep）: 楽天ブックスの売上順を、分野（ジャンル）ごと・言葉ごとに 1 ページずつ順に引く
-//      （ADVISOR_BOOKS_PLAN・1 回の Cron で時間の許す分だけ・続きは advisor_books_state.cursor から）。
+//      出版社ごと（2026-11-17）も（ADVISOR_BOOKS_PLAN・1 回の Cron で時間の許す分だけ・続きは advisor_books_state.cursor から）。
 //      見つけた本は ISBN で 1 行。新しい本は「pending」、前からある本は売上の順位・レビューの数・紹介文だけ新しくする。
 //      最後まで引いたら 1 回り（pass）終わり。次の 1 回りは、前の 1 回りを始めてから 7 日たってから＝週に 1 回、新しい本が入る。
 //   2. 整える（summarizeStep）: pending の本（売上の順位の高い順）を、出版社の紹介文だけを材料に AI（Gemini Flash-Lite →
@@ -51,8 +51,18 @@ const KEYWORD_PLAN = [
   '心理学', '行動経済学', 'メンタル', 'ストレス', '自己肯定感', '人間関係', 'コミュニケーション', '子育て', '夫婦', '睡眠',
   '健康', '食事', '運動', '哲学', '歴史', '教養', '読書術', '勉強法', '記憶', '生成AI',
   'データ分析', 'デザイン', '創造性', '幸福', '生き方', '死生観', '禅', '仏教', '地政学', '科学',
+  // 2026-11-17 追加（company/research/bookvinegar-2026-11.md §5-1・ビジネス書の書評サイトで多いのに言葉で集めていなかったテーマ）。
+  // 末尾に足す＝PLAN_VERSION は上げない（今の 1 回りの続きからそのまま新しい手順に入る）。
+  '起業', 'イノベーション', 'スタートアップ', '新規事業', 'ビジネスモデル', 'DX', 'テクノロジー', 'ものづくり', '組織', '人事',
+  '会計', 'ファイナンス', '決算書', '日本経済', '社会課題', 'ビジネスマナー', '教育', '名著', 'ロングセラー', 'MBA',
 ];
 const KEYWORD_PAGES = 2;
+// 出版社（ビジネス・経済・就職の棚の中・売上順・2026-11-17）。翻訳の名著と定番のビジネス書が多い版元
+// （同じ調査 §3-4・§5-3）。売上順だけだと入りにくい少し前の定番を拾う。pages × 30 冊。
+const PUBLISHER_PLAN = [
+  ['ダイヤモンド社', 2], ['日経BP', 2], ['東洋経済新報社', 2], ['英治出版', 2],
+  ['かんき出版', 2], ['ディスカヴァー・トゥエンティワン', 2], ['PHP研究所', 2], ['日本経済新聞出版', 2],
+];
 
 // プランを 1 ページずつの手順に（同じ順で並ぶ＝cursor で続きから）。
 export function expandPlan() {
@@ -62,6 +72,9 @@ export function expandPlan() {
   }
   for (const kw of KEYWORD_PLAN) {
     for (let p = 1; p <= KEYWORD_PAGES; p += 1) steps.push({ api: 'BooksTotal/Search', params: { keyword: kw, booksGenreId: '001', page: String(p) }, label: `${kw} p${p}`, offset: (p - 1) * HITS, source: `kw:${kw}`.slice(0, 60) });
+  }
+  for (const [publisher, pages] of PUBLISHER_PLAN) {
+    for (let p = 1; p <= pages; p += 1) steps.push({ api: 'BooksBook/Search', params: { publisherName: publisher, booksGenreId: '001006', page: String(p) }, label: `${publisher} p${p}`, offset: (p - 1) * HITS, source: `pub:${publisher}`.slice(0, 60) });
   }
   return steps;
 }

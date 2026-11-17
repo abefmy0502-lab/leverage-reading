@@ -42,11 +42,17 @@ const item = (n, extra = {}) => ({ title: `本${n}`, subTitle: '', author: '稲�
 const page = (items) => ({ status: 200, body: JSON.stringify({ Items: items.map((Item) => ({ Item })) }) });
 
 describe('集める決まり', () => {
-  it('分野 55 ページ＋言葉 120 ページ', () => {
+  it('分野 55 ページ＋言葉 160 ページ＋出版社 16 ページ', () => {
     const steps = expandPlan();
-    expect(steps.length).toBe(55 + 120);
+    expect(steps.length).toBe(55 + 160 + 16);
     expect(steps[0].params).toMatchObject({ booksGenreId: '001006', page: '1' });
-    expect(steps.at(-1).api).toBe('BooksTotal/Search');
+    expect(steps.filter((s) => s.api === 'BooksTotal/Search')).toHaveLength(160);
+    expect(steps.at(-1)).toMatchObject({ api: 'BooksBook/Search', params: { publisherName: '日本経済新聞出版', booksGenreId: '001006', page: '2' } });
+  });
+  it('足した言葉と出版社は末尾（今の 1 回りの順番を崩さない）', () => {
+    const steps = expandPlan();
+    expect(steps[175].params).toMatchObject({ keyword: '起業', page: '1' });
+    expect(new Set(steps.map((s) => s.source)).size).toBe(8 + 80 + 8);
   });
   it('漫画・問題集・雑誌は集めない', () => {
     const r = (o) => rowFromRakuten(item(1, o), 1, 'x');
