@@ -32,7 +32,7 @@ Orime の中の相談（Haiku）とは別の道で、**Orime のトークンは�
 | `ops_tickets` | （運営者だけ）運営の作業チケットを読む・作る・進める（`list` / `create` / `update`・不具合・要望・作業・優先度 1〜3） | 読む・書く（管理者） | |
 | `ops_tasks` | （運営者だけ）運営者の期日つきのやることを読む・足す・進める・消す（`list` / `add` / `update` / `claim` / `done` / `delete`）。担当 `assignee=claude` のやることは自動のセッションが `claim` で 1 つ取って進め、`update` で 状態（doing / done / blocked）と結果を書く | 読む・書く（管理者） | |
 | `ops_goal` | （運営者だけ）有料ユーザーの目標（人数・期限・道しるべ・公開日）を読む・決め直す（`get` / `set`） | 読む・書く（管理者） | |
-| `ops_books` | （運営者だけ）AI 選書の推薦用の本のデータ＝冊数と集め方の進み具合（`stats`）・直近 N 日に入った本と概要・おすすめする理由（`new`・週に 1 回の新しい本）・言葉で探す（`search`）・候補から外す／戻す（`hide` / `show`）・運営が選んだ本を足す（`add`＝ISBN か「書名 / 著者」を 200 冊まで・毎晩の処理が楽天の書誌で確かめてから足す）と、その待ち行列（`queue`）・待ち行列と概要づくりを今すすめる（`process`＝1 回 約 45 秒・毎晩を待たずにスケジュールされたタスクから 1 時間ごと・2026-11-17）。`supabase_advisor_books.sql` | 読む・書く（管理者） | |
+| `ops_books` | （運営者だけ）AI 選書の推薦用の本のデータ＝冊数と集め方の進み具合（`stats`）・直近 N 日に入った本と概要・おすすめする理由（`new`・週に 1 回の新しい本）・言葉で探す（`search`）・候補から外す／戻す（`hide` / `show`）・運営が選んだ本を足す（`add`＝ISBN か「書名 / 著者」を 200 冊まで・毎晩の処理が楽天の書誌で確かめてから足す）と、その待ち行列（`queue`）・待ち行列と概要づくりを今すすめる（`process`＝1 回 約 45 秒・毎晩を待たずにスケジュールされたタスクから 1 時間ごと・2026-11-17）・概要を書き直す（`redo`＝isbn の 1 冊か、分野が空の本）。`supabase_advisor_books.sql` | 読む・書く（管理者） | |
 | `ops_week` | （運営者だけ）週の記録＝毎週の見直し（`review`）と手入力の週の数字（`sales`・ストア表示・インストール・note PV・X など）。同じ週は上書き | 書く（管理者） | |
 | `ops_image` | （運営者だけ）投稿の画像を作る（OpenAI gpt-image-1＝ChatGPT と同じ画像の仕組み・`api/_social.js` の `makeImage`）→ 公開バケット `ops-media` に置いて URL を返す。1 枚 約 ¥6〜25 | 書く（管理者） | |
 | `ops_post` | （運営者だけ）SNS の投稿の予定を読む・入れる・直す・取り消す・いますぐ出す・時刻の来たものを出す（`list` / `add` / `update` / `cancel` / `now` / `flush` / `status`）。送り先は X（OAuth 1.0a・v2 tweets＋v1.1 media）・Threads（Threads API）・Instagram（Graph API・画像が必須）。鍵は Vercel の env（`X_API_KEY` ほか・`THREADS_*`・`IG_*`）。記録は `ops_posts` | 書く（管理者） | |

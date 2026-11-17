@@ -290,18 +290,18 @@ export const TOOLS = [
   },
   {
     name: 'ops_books',
-    description: '（運営者だけ）AI 選書の推薦用の本のデータ（毎日少しずつ集めて AI が概要・こんな悩みの人に・おすすめする理由を書いたもの）。action=stats（冊数と集め方の進み具合）/ new（直近 N 日に入った本・既定 7 日・50 冊まで）/ search（言葉で探す）/ hide・show（isbn の本を候補から外す・戻す）/ add（運営が選んだ本を足す: books に ISBN か「書名 / 著者」か {isbn,title,author} を 200 冊まで・毎晩の処理が楽天の書誌で確かめてから足し、概要を書く）/ queue（足した本の待ち行列: status=queued・done・notfound・failed）/ process（待ち行列と概要づくりを今すすめる・1 回 約 45 秒・毎晩を待たない）。Admin only.',
+    description: '（運営者だけ）AI 選書の推薦用の本のデータ（毎日少しずつ集めて AI が概要・こんな悩みの人に・おすすめする理由を書いたもの）。action=stats（冊数と集め方の進み具合）/ new（直近 N 日に入った本・既定 7 日・50 冊まで）/ search（言葉で探す）/ hide・show（isbn の本を候補から外す・戻す）/ add（運営が選んだ本を足す: books に ISBN か「書名 / 著者」か {isbn,title,author} を 200 冊まで・毎晩の処理が楽天の書誌で確かめてから足し、概要を書く）/ queue（足した本の待ち行列: status=queued・done・notfound・failed）/ process（待ち行列と概要づくりを今すすめる・1 回 約 45 秒・毎晩を待たない）/ redo（概要を書き直す: isbn の 1 冊か、省くと分野が空の本を 200 冊まで）。Admin only.',
     inputSchema: {
       type: 'object',
       properties: {
-        action: { type: 'string', enum: ['stats', 'new', 'search', 'hide', 'show', 'add', 'queue', 'process'] },
+        action: { type: 'string', enum: ['stats', 'new', 'search', 'hide', 'show', 'add', 'queue', 'process', 'redo'] },
         books: { type: 'array', description: `add: 足す本（${QUEUE_ADD_MAX} 冊まで）。ISBN の文字列・「書名 / 著者」の文字列・{ isbn, title, author } のどれか`, items: { anyOf: [{ type: 'string' }, { type: 'object', properties: { isbn: { type: 'string' }, title: { type: 'string' }, author: { type: 'string' } } }] } },
         note: { type: 'string', description: 'add: どこから選んだかのメモ（60 字まで・例: 創業メンバーのすすめ）' },
         status: { type: 'string', enum: ['queued', 'done', 'notfound', 'failed'], description: 'queue: 絞る状態（省略はすべて）' },
         days: { type: 'integer', description: 'new: 何日分（1〜60・既定 7）' },
         limit: { type: 'integer', description: 'new / search: 何冊（1〜50・既定 30）' },
         q: { type: 'string', description: 'search: 探す言葉（空白で区切ると複数）' },
-        isbn: { type: 'string', description: 'hide / show: ISBN-13' },
+        isbn: { type: 'string', description: 'hide / show / redo: ISBN-13' },
       },
       required: ['action'],
     },
@@ -676,6 +676,24 @@ const handlers = {
       if (error) throw new ToolError(missing(error) ? '待ち行列の準備がまだです（supabase_advisor_books.sql を流してください）' : '待ち行列を読めませんでした');
       return { text: `待ち行列 ${data.length} 件`, structuredContent: { queue: data } };
     }
+    if (action === 'redo') {
+      // 概要を書き直す（2026-11-17・分野が空のまま保存された本の作り直し）。isbn があればその 1 冊、
+      // 無ければ「使える・分野が空」の本を 200 冊まで「整える前」に戻す＝次の process か毎晩の処理が書き直す。
+      const one = String(args?.isbn || '').replace(/-/g, '');
+      if (one && !/^97[89]\d{10}$/.test(one)) throw new ToolError('isbn は 13 けた（978 か 979 で始まる）');
+      let targets = [];
+      if (one) targets = [one];
+      else {
+        const { data, error } = await db.from('advisor_books').select('isbn, fields').eq('status', 'ready').limit(5000);
+        if (error) throw new ToolError(missing(error) ? '推薦用の本のデータの準備がまだです（supabase_advisor_books.sql を流してください）' : '推薦用の本のデータを読めませんでした');
+        targets = (data || []).filter((b) => !Array.isArray(b.fields) || b.fields.length === 0).map((b) => b.isbn).slice(0, 200);
+      }
+      if (!targets.length) return { text: '書き直す本はありません（分野が空の本は 0 冊）', structuredContent: { redo: 0 } };
+      const { data: upd, error: uErr } = await db.from('advisor_books').update({ status: 'pending', attempts: 0, updated_at: new Date().toISOString() }).in('isbn', targets).in('status', ['ready', 'thin', 'failed']).select('isbn');
+      if (uErr) throw new ToolError('戻せませんでした');
+      const n = Array.isArray(upd) ? upd.length : 0;
+      return { text: `${n} 冊を「整える前」に戻しました。次の process（か毎晩の処理）で概要から書き直します。`, structuredContent: { redo: n } };
+    }
     if (action === 'process') {
       // 待ち行列と概要づくりを今すすめる（毎晩の Cron を待たない・スケジュールされたタスクが 1 時間ごとに呼ぶ・2026-11-17）。
       // 1 回 約 45 秒（api/mcp.js の maxDuration 60 の内側）。楽天は本の検索と分け合うので 1.5 秒に 1 回。
@@ -699,7 +717,7 @@ const handlers = {
         : `待ち行列 ${q.done || 0} 冊を処理（足した ${q.added || 0}・印だけ ${q.marked || 0}・見つからない ${q.notfound || 0}）・概要を ${sm.ready || 0} 冊。残りの待ち行列 ${left ?? '?'} 冊。`;
       return { text, structuredContent: { ...out, queued_left: left } };
     }
-    throw new ToolError('action は stats・new・search・hide・show・add・queue・process のどれか');
+    throw new ToolError('action は stats・new・search・hide・show・add・queue・process・redo のどれか');
   },
 
   // ── 指示を受ける（運営者だけ・supabase_admin_mcp.sql の admin_act_for）────────────────────────────

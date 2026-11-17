@@ -320,6 +320,7 @@ describe('ops_books の process', () => {
   it('待ち行列と概要づくりを今すすめる動作があり、1 回の時間は MCP の上限の内側', async () => {
     const t = TOOLS.find((x) => x.name === 'ops_books');
     expect(t.inputSchema.properties.action.enum).toContain('process');
+    expect(t.inputSchema.properties.action.enum).toContain('redo');
     const vercel = JSON.parse((await import('node:fs')).readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'));
     expect(vercel.functions['api/mcp.js'].maxDuration).toBeGreaterThanOrEqual(60);
   });
