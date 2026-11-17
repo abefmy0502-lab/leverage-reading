@@ -234,6 +234,7 @@ import { fmtTarget } from './lib/readTarget';
 import { isShortPhrase } from './lib/shortPhrase';
 import { hasBriefMaterial, storedBriefOf, briefForPrompt, appendHypothesis, isUsableBrief, parseBrief, briefLabels, BRIEF_NO_MATERIAL_TEXT } from './lib/bookBrief';
 import { loadBookInfo, bookInfoForPrompt, hasBookInfo, peekBookInfo, rememberGenres } from './lib/bookInfo';
+import { loadBookRef, refForPrompt } from './lib/bookRef';
 // 🔎 すべての本の検索（書名・著者・タグ＋メモの言葉・2026-09-30）
 import { useLibrarySearch } from './hooks/useLibrarySearch';
 import { LibrarySearchResults, ConsultSearchLink, LibrarySearchHitSkeleton } from './components/LibrarySearchHit';
@@ -3306,9 +3307,13 @@ function AuthedApp() {
   //   本の事実は紹介と目次からだけ書かせる（章の名前を作らせない）。本の詳細で読んでいれば控えから即座に。
   //   取れない・6 秒待っても来ないときは無しで作る（紹介・目次が無い前提の書き方になる）。
   const streamSetupSheet = async (src, onChunk) => {
-    const info = await Promise.race([
-      loadBookInfo(src).catch(() => null),
-      new Promise((resolve) => { setTimeout(() => resolve(null), 6000); }),
+    // 📚 書評の参考（難しさ・前提知識・書評サイトの要約・lib/bookRef.js・2026-11-17）も紹介と並べて取る（3 秒で打ち切り・無ければ無しで）。
+    const [info, ref] = await Promise.all([
+      Promise.race([
+        loadBookInfo(src).catch(() => null),
+        new Promise((resolve) => { setTimeout(() => resolve(null), 6000); }),
+      ]),
+      loadBookRef(src).catch(() => null),
     ]);
     const { about, aboutSource, toc } = bookInfoForPrompt(info);
     const PROMPTS = await loadPrompts();
@@ -3328,6 +3333,7 @@ function AuthedApp() {
           toc: toc.map((l) => sanitizeForPrompt(l)).filter(Boolean),
           // 📖 この本で学べること（作ってあれば・概要と学べることだけ・500 字まで・lib/bookBrief.js・2026-10-08）
           brief: sanitizeForPrompt(briefForPrompt(storedBriefOf(src))),
+          ref: sanitizeForPrompt(refForPrompt(ref)),
         }),
       }],
       // 読書計画シートは「各節 3 行・1,000 字以内」（prompts.setupSheet）。2048 → 1600（2026-09-27）
