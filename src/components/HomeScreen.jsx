@@ -248,15 +248,16 @@ function usePlanToday(books, enabled) {
     const rec = roadmaps?.[ALL_GOALS_KEY];
     if (!rec?.roadmap) return null;
     const item = todayPlanItem(rec, books, sessions, toLocalYmd(appNow()));
-    if (!item) return null;
+    // 読書計画を作った人で、読む本が尽きたら（区切りが進んだ・読み終えた）次の 3 か月の本を選ぶ入口に（2026-11-17）。
+    if (!item) return rec.plan ? { kind: 'choose' } : null;
     const book = books.find((b) => b.id === item.bookId);
     return book ? { ...item, book } : null;
   }, [enabled, loaded, roadmaps, books, sessions]);
 }
 
 function HomePlanRow({ plan, onOpen }) {
-  const title = displayTitle(plan.book.title || '');
-  const sub = plan.kind === 'today' ? `今日は『${title}』` : `${fmtMd(plan.start)} から『${title}』`;
+  const title = displayTitle(plan.book?.title || '');
+  const sub = plan.kind === 'choose' ? '次に読む本を選びましょう' : plan.kind === 'today' ? `今日は『${title}』` : `${fmtMd(plan.start)} から『${title}』`;
   return (
     <button type="button" data-home-plan="" onClick={onOpen} aria-label={`読書計画。${sub}。読書計画を開く`} style={navRow}>
       <CalendarDays size="1.2em" aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
@@ -612,7 +613,7 @@ export default function HomeScreen({
           <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
           {planToday && (
             <>
-              <HomePlanRow plan={planToday} onOpen={() => { track('home_plan_row', { kind: planToday.kind }); onOpenReadingPlan(); }} />
+              <HomePlanRow plan={planToday} onOpen={() => { track('home_plan_row', { kind: planToday.kind }); onOpenReadingPlan(planToday.kind === 'choose' ? 'roadmap' : 'plan'); }} />
               {navDivider}
             </>
           )}

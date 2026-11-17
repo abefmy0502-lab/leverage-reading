@@ -157,6 +157,32 @@ export function higherGoalsText(horizonKey, goals, roadmaps = {}) {
   return out.join('\n');
 }
 
+// 本の並び（AI の答え）を解く: 本棚の本 { bookId, why } か、すすめる本 { title, author, why }。
+//   used（既に挙げた本の印）と重ならない・読了の本は外す・cap 冊まで。
+function parseBookList(list, cap, used, keyToId, titleToId) {
+  const books = [];
+  for (const rb of Array.isArray(list) ? list : []) {
+    if (books.length >= cap) break;
+    const why = soften(cut(rb?.why, 60));
+    const key = str(rb?.key || rb?.id).toUpperCase();
+    let bookId = key ? keyToId?.[key] : null;
+    let rec = null;
+    if (!bookId) {
+      const title = cut(str(rb?.title).replace(/^[『「]|[』」]$/g, ''), 80);
+      if (!title) continue;
+      const shelf = titleToId?.[titleKey(title)];
+      if (shelf?.done) continue;
+      if (shelf) bookId = shelf.id;
+      else rec = { title, author: cut(rb?.author, 40), why };
+    }
+    const k = bookId ? `id:${bookId}` : `t:${titleKey(rec.title)}`;
+    if (used.has(k)) continue;
+    used.add(k);
+    books.push(bookId ? { bookId, why } : rec);
+  }
+  return books;
+}
+
 // ---- ロードマップの答えを解く ----
 //   { needs:[{name, why}], issues:[string], phases:[{focus, todos:[string], books:[{bookId, why}]}], missing:[{theme, why}] } | null
 //   books の 1 冊は 本棚の本 { bookId, why } か、すすめる本 { title, author, why }（2026-11-16 オーナー
@@ -184,28 +210,9 @@ export function parseRoadmap(text, keyToId, phaseCount, caps = [], titleToId = {
   const phases = [];
   for (let i = 0; i < n; i += 1) {
     const p = rawPhases[i] || {};
-    const books = [];
     // caps があれば区切りごとの上限（0＝本を選ばない区切り）・無ければ前の版と同じ 3 冊まで。
     const cap = caps.length ? (caps[i] || 0) : 3;
-    for (const rb of Array.isArray(p.books) ? p.books : []) {
-      if (books.length >= cap) break;
-      const why = soften(cut(rb?.why, 60));
-      const key = str(rb?.key || rb?.id).toUpperCase();
-      let bookId = key ? keyToId?.[key] : null;
-      let rec = null;
-      if (!bookId) {
-        const title = cut(str(rb?.title).replace(/^[『「]|[』」]$/g, ''), 80);
-        if (!title) continue;
-        const shelf = titleToId?.[titleKey(title)];
-        if (shelf?.done) continue;
-        if (shelf) bookId = shelf.id;
-        else rec = { title, author: cut(rb?.author, 40), why };
-      }
-      const k = bookId ? `id:${bookId}` : `t:${titleKey(rec.title)}`;
-      if (used.has(k)) continue;
-      used.add(k);
-      books.push(bookId ? { bookId, why } : rec);
-    }
+    const books = parseBookList(p.books, cap, used, keyToId, titleToId);
     phases.push({
       focus: soften(cut(p.focus, 60)),
       // やること（AI の一般論）は作らない（2026-11-16 オーナー「行動は本を読まないと見つけられない」）。前の版の答えに入っていても捨てる。
@@ -260,6 +267,63 @@ export function parseRoadmapUpdate(text, keyToId, prev, hereIndex = 0, caps = []
   if (!newIssues.length) return { found: false };
   return { found: true, newIssues, note: soften(cut(obj.note, 80)), roadmap: next };
 }
+
+// ---- この 3 か月の本を選ぶ（2026-11-17 オーナー「1 か月・3 か月・1 年でも使えるか」） ----
+//   ロードマップは最初の 3 か月（と次の候補）にしか本を選ばないので、区切りが進むと本が無くなる。
+//   いまの区切り＋次の区切りの本だけを、読み終えた本とその評価を踏まえて選び直す（ほかの区切り・必要なこと・課題は変えない）。
+export const PHASE_BOOKS_MAX_TOKENS = 1500;
+export const PHASE_BOOKS_TOKENS_LABEL = '約 15 トークン';
+
+// いまの区切りに、まだ読んでいない本（本棚の本かすすめた本）が無い。
+export function phaseNeedsBooks(roadmap, books, here) {
+  const p = roadmap?.phases?.[here];
+  if (!p) return false;
+  const byId = new Map((books || []).map((b) => [b.id, b]));
+  return !(p.books || []).some((b) => !b.bookId || (byId.get(b.bookId) && byId.get(b.bookId).status !== 'done'));
+}
+
+// 答え {"now":{"books":[…]},"next":{"books":[…]}} を、いまのロードマップの 2 つの区切りに入れる（読めなければ null）。
+export function parsePhaseBooks(text, keyToId, prev, here, caps = [], titleToId = {}) {
+  if (typeof text !== 'string' || !prev?.phases?.length) return null;
+  const s = text.indexOf('{');
+  const e = text.lastIndexOf('}');
+  if (s < 0 || e <= s) return null;
+  let obj;
+  try { obj = JSON.parse(text.slice(s, e + 1)); } catch { return null; }
+  if (!obj || typeof obj !== 'object') return null;
+  const n = prev.phases.length;
+  const idx = Math.max(0, Math.min(here, n - 1));
+  // ほかの区切りに入っている本とは重ねない。
+  const used = new Set();
+  prev.phases.forEach((p, i) => { if (i !== idx && i !== idx + 1) (p.books || []).forEach((b) => used.add(roadmapBookKey(b))); });
+  const nowBooks = parseBookList(obj.now?.books, Math.max(1, caps[idx] || 3), used, keyToId, titleToId);
+  const nextBooks = idx + 1 < n ? parseBookList(obj.next?.books, Math.min(NEXT_PHASE_CANDIDATES, caps[idx + 1] || NEXT_PHASE_CANDIDATES), used, keyToId, titleToId) : [];
+  if (!nowBooks.length) return null;
+  const phases = prev.phases.map((p, i) => {
+    if (i === idx) return { ...p, books: nowBooks };
+    if (i === idx + 1) return { ...p, books: nextBooks };
+    return p;
+  });
+  return { ...prev, phases };
+}
+
+// 期限を過ぎた目標（書いた日から 1・3・5 年）。[{ key, label, deadline }]
+export function overdueGoals(goals, now = new Date()) {
+  return GOAL_HORIZONS.filter((h) => goals?.[h.key]?.text).map((h) => {
+    const d = goalDeadline(goals[h.key].at, h.years);
+    return d && d.getTime() < now.getTime() ? { key: h.key, label: h.label, deadline: d } : null;
+  }).filter(Boolean);
+}
+
+// ロードマップが、いまの目標と合っていない（目標を書き直した・1 年後の目標を延ばして起点が 60 日以上動いた）。
+export function isRoadmapStale(record, goals) {
+  if (!record?.roadmap) return false;
+  const textChanged = GOAL_HORIZONS.some((h) => record.goals?.[h.key]?.text && cleanText(record.goals[h.key].text) !== cleanText(goals?.[h.key]?.text || ''));
+  const a = new Date(record.goalAt).getTime();
+  const b = new Date(goals?.y1?.at).getTime();
+  return textChanged || (Number.isFinite(a) && Number.isFinite(b) && b - a > 60 * 86400000);
+}
+const cleanText = (t) => String(t || '').replace(/\s+/g, ' ').trim();
 
 // 見直しの履歴（新しい順・5 件まで）。source: 'consult' | 'advisor'。
 export function withUpdateLog(record, { source, newIssues, note, at = new Date().toISOString(), prevRoadmap }) {

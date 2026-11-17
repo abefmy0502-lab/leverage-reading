@@ -2022,6 +2022,57 @@ export async function updateGoalRoadmap({ goals, record, source, books, now = ne
   return r;
 }
 
+// 📚 この 3 か月の本を選ぶ（2026-11-17・区切りが進んで本が無くなったとき）。いまの区切りと次の区切りの本だけを選び直す。
+//   返り値: 新しい roadmap（失敗は throw）。
+export async function chooseGoalPhaseBooks({ goals, record, books, now = new Date() }) {
+  const PROMPTS = await loadPrompts();
+  const { currentPhaseIndex, parsePhaseBooks, verifyRoadmapRecs, PHASE_BOOKS_MAX_TOKENS } = await import('./goalRoadmap');
+  const { ALL_GOALS_KEY } = await import('./goals');
+  const at = record.goalAt;
+  const { specs, caps, goalsText, shelf } = await goalRoadmapMaterial({ goals, at, books, minutesPerDay: record.plan?.minutesPerDay });
+  const here = currentPhaseIndex(ALL_GOALS_KEY, at, now);
+  const rm = record.roadmap || {};
+  const phaseText = (i) => (specs[i] ? `${specs[i].label}（${specs[i].range}）${rm.phases?.[i]?.focus ? `: ${rm.phases[i].focus}` : ''}${i === here ? `・本は ${caps[i] || 3} 冊まで` : ''}` : '');
+  // 最近のメモ（本人の言葉だけ・12 件・各 80 字）。読めなくても選べる。
+  let memos = '';
+  try {
+    const { data: sess } = await supabase.auth.getSession();
+    const uid = sess?.session?.user?.id;
+    if (uid) {
+      const { data } = await supabase.from('book_memos').select('text, book:books(title)').eq('user_id', uid).order('created_at', { ascending: false }).limit(12);
+      memos = (data || []).filter((m) => m?.text).map((m) => `${m.book?.title ? `『${clamp(m.book.title, 40)}』` : ''}${clamp(String(m.text).replace(/\s+/g, ' '), 80)}`).join('\n');
+    }
+  } catch { /* メモが読めなくても選ぶ */ }
+  const result = await callClaude(
+    PROMPTS.goalPhaseBooks.system,
+    PROMPTS.goalPhaseBooks.user({
+      goalsText,
+      needs: sanitizeForPrompt((rm.needs || []).map((n) => `・${n.name}`).join('\n')),
+      issues: sanitizeForPrompt((rm.issues || []).map((t) => `・${t}`).join('\n')),
+      hereText: sanitizeForPrompt(phaseText(here)),
+      nextText: sanitizeForPrompt(phaseText(here + 1)),
+      shelf: sanitizeForPrompt(shelf.text),
+      doneBooks: sanitizeForPrompt(shelf.doneText),
+      memos: sanitizeForPrompt(memos),
+    }),
+    { max_tokens: PHASE_BOOKS_MAX_TOKENS, cacheSystem: true, model: MODEL_SMART, purpose: 'goal_roadmap' },
+  );
+  if (typeof result !== 'string' || isClaudeErrorString(result)) {
+    const notice = isAiNoticeString(result);
+    const err = new Error(notice ? result : '本を選べませんでした。少し時間をおいてから、もう一度押してください。');
+    if (notice) err.notice = true;
+    throw err;
+  }
+  const next = parsePhaseBooks(isSuspiciousOutput(result) ? '' : result, shelf.keyToId, rm, here, caps, shelf.titleToId);
+  if (!next) throw new Error('本を選べませんでした。もう一度押してください。');
+  const { verifyBookExists } = await import('./bookCover');
+  const verified = await verifyRoadmapRecs(next, verifyBookExists);
+  if (!phaseHasBooks(verified.phases?.[here])) throw new Error('この 3 か月に合う本を、確かめられませんでした。もう一度押してください。');
+  track('ai_used', { feature: 'goal_phase_books' });
+  return verified;
+}
+const phaseHasBooks = (p) => (p?.books || []).length > 0;
+
 // 📝 カード→まとめ生成 — 1冊に貯めたカードメモ（断片）を AI が1枚の
 // まとめメモに統合する。まとめ式の手書きの手間を消す（A3: メモ概念の統合）。
 // cards: カードメモのテキスト配列。返り値はまとめ本文の文字列 / 失敗時 null。

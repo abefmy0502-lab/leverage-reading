@@ -26,10 +26,10 @@ import { useEdgeSwipeBack } from '../hooks/useEdgeSwipeBack';
 import { useReadingSessions } from '../hooks/useReadingSessions';
 import { useGoals } from '../hooks/useGoals';
 import { ensureAiConsent } from '../lib/aiConsent';
-import { runGoalInterview, generateGoalRoadmap } from '../lib/ai';
+import { runGoalInterview, generateGoalRoadmap, chooseGoalPhaseBooks } from '../lib/ai';
 import { interviewChips, toggleChoice, choiceSelected, OPT_OFF, OPT_UNSURE, OFF_PLACEHOLDER } from '../lib/advisorInterview';
-import { GOAL_HORIZONS, GOAL_MAX, ALL_GOALS_KEY, horizonOf, fmtGoalDeadline, saveGoal, suggestHorizon, cleanGoalText, allGoalsSet, combinedGoal } from '../lib/goals';
-import { advisorDraftFor, GOAL_ASK_LIMIT, ROADMAP_TOKENS_LABEL, phaseSpecs, currentPhaseIndex, saveRoadmap, pruneRoadmapBooks } from '../lib/goalRoadmap';
+import { GOAL_HORIZONS, GOAL_MAX, ALL_GOALS_KEY, horizonOf, fmtGoalDeadline, fmtGoalDeadlineNow, saveGoal, suggestHorizon, cleanGoalText, allGoalsSet, combinedGoal } from '../lib/goals';
+import { advisorDraftFor, GOAL_ASK_LIMIT, ROADMAP_TOKENS_LABEL, PHASE_BOOKS_TOKENS_LABEL, phaseSpecs, currentPhaseIndex, saveRoadmap, pruneRoadmapBooks, phaseNeedsBooks, overdueGoals, isRoadmapStale } from '../lib/goalRoadmap';
 import {
   PLAN_MINUTES, PLAN_DEFAULT_MINUTES, readingSpeedFactor, planItemsFromRoadmap, planItemsFromOrder, scheduleBooks, monthWeeks, weekBands,
   planMonths, bookOnDay, fmtSpan, fmtMd, fmtRange, fmtHoursMin, parseYmd,
@@ -117,6 +117,12 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
               }}
               onInterview={startInterview}
               onRoadmap={() => open(ALL_GOALS_KEY, 'roadmap')}
+              onExtend={async (key) => {
+                const r = await saveGoal(key, goals[key]?.text || '');
+                if (!r) { toast.error?.('目標を保存できませんでした。通信状況を確認して、もう一度押してください。'); return; }
+                toast.success?.(`${horizonOf(key).label}の目標の期限を、${fmtGoalDeadline(r.goals[key].at, horizonOf(key).years)}に延ばしました。`);
+                track('goal_extended', { horizon: key });
+              }}
             />
           )}
           {view === 'interview' && goal && (
@@ -140,6 +146,14 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
               onPlan={() => setView('plan')}
               onRebuild={startInterview}
               onEditGoals={() => setView('goals')}
+              onChooseBooks={async () => {
+                if (!(await ensureAiConsent('goal_roadmap'))) return false;
+                const next = await chooseGoalPhaseBooks({ goals, record, books, now: appNow() });
+                await saveRoadmap(ALL_GOALS_KEY, { ...record, roadmap: next, prevRoadmap: record.roadmap });
+                toast.success?.('この 3 か月に読む本を選びました。');
+                track('goal_phase_books', {});
+                return true;
+              }}
               onAddRec={onAddRecBook ? async (rb) => {
                 const saved = await onAddRecBook({ title: rb.title, author: rb.author, isbn: rb.isbn || '', cover: rb.cover || '', why: rb.why || '' }, {
                   sourceQuery: '', investPurpose: cleanGoalText(goals.y1?.text || ''), currentChallenge: '', hypothesis: '', bookReason: rb.why || '',
@@ -169,6 +183,7 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
               onFindBooks={onFindBooks}
               onOpenBook={openBook}
               onAddReadingActions={onAddReadingActions}
+              onRoadmap={() => setView('roadmap')}
             />
           )}
         </div>
@@ -208,7 +223,8 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
 // ---------------------------------------------------------------------------
 // 道（いま → 1 年後 → 3 年後 → 5 年後）
 // ---------------------------------------------------------------------------
-function GoalsView({ goals, roadmaps, purpose, loaded, onEdit, onCarry, onInterview, onRoadmap }) {
+function GoalsView({ goals, roadmaps, purpose, loaded, onEdit, onCarry, onInterview, onRoadmap, onExtend }) {
+  const overdueKeys = new Set(overdueGoals(goals, appNow()).map((o) => o.key));
   const anyGoal = GOAL_HORIZONS.some((h) => goals[h.key]?.text);
   const rec = roadmaps[ALL_GOALS_KEY];
   const anyRoadmap = !!rec?.roadmap;
@@ -230,7 +246,7 @@ function GoalsView({ goals, roadmaps, purpose, loaded, onEdit, onCarry, onInterv
   return (
     <>
       {/* 説明は、まだロードマップが 1 つも無いあいだだけ（はじめて開いた人に・DESIGN §0-6 補足文を常に置かない）。 */}
-      {!anyRoadmap && <p className="goal-lead">{withPhraseBreaks('1 年後・3 年後・5 年後の目標を書くと、「達成するには？」を一緒に考えて、3 つをつなぐやることと読む本の順番にします。')}</p>}
+      {!anyRoadmap && <p className="goal-lead">{withPhraseBreaks('1 年後・3 年後・5 年後の目標を書くと、「達成するには？」を一緒に考えて、3 つをつなぐ道のりと読む本にします。')}</p>}
       {carryText && (
         <section className="goal-box" aria-label="はじめに書いた目標">
           <p className="goal-sec-title" style={{ margin: 0 }}>はじめに書いた目標</p>
@@ -253,13 +269,16 @@ function GoalsView({ goals, roadmaps, purpose, loaded, onEdit, onCarry, onInterv
               <span className={`goal-dot${g?.text ? (anyRoadmap ? ' is-here' : ' is-set') : ''}`} aria-hidden="true" />
               <p className="goal-when">
                 <strong>{h.label}</strong>
-                {g?.text && <span>{fmtGoalDeadline(g.at, h.years)}</span>}
+                {g?.text && <span style={overdueKeys.has(h.key) ? { color: 'var(--warning)' } : undefined}>{fmtGoalDeadlineNow(g.at, h.years, appNow())}</span>}
               </p>
               {g?.text ? (
                 <>
                   <p className="goal-text">{withPhraseBreaks(g.text)}</p>
                   <div className="goal-actions">
-                    <button type="button" style={{ ...btnLinkQuiet, marginLeft: 'calc(-1 * var(--space-1))' }} onClick={() => onEdit(h.key)}>書き直す</button>
+                    <button type="button" style={{ ...(overdueKeys.has(h.key) ? btnLink : btnLinkQuiet), marginLeft: 'calc(-1 * var(--space-1))' }} onClick={() => onEdit(h.key)}>書き直す</button>
+                    {overdueKeys.has(h.key) && onExtend && (
+                      <button type="button" style={btnLinkQuiet} onClick={() => onExtend(h.key)}>この目標で続ける</button>
+                    )}
                   </div>
                 </>
               ) : (
@@ -279,7 +298,13 @@ function GoalsView({ goals, roadmaps, purpose, loaded, onEdit, onCarry, onInterv
 
       {/* 3 つとも書いたら、つなぐロードマップを 1 本（2026-11-16 オーナー「すべて入れたら AI を動かす」）。 */}
       <section className="goal-cta" aria-label="ロードマップ">
-        {anyRoadmap ? (
+        {anyRoadmap && allSet && isRoadmapStale(rec, goals) ? (
+          <>
+            <button type="button" style={btnPrimary} onClick={onInterview}>新しい目標でつくり直す</button>
+            <p className="plan-summary">{withPhraseBreaks(`目標が新しくなりました。「達成するには？」を聞き直して、いまから 5 年の道のりをつくります（${ROADMAP_TOKENS_LABEL}）。`)}</p>
+            <button type="button" style={{ ...btnLink, marginLeft: 'calc(-1 * var(--space-1))' }} onClick={onRoadmap}>いまのロードマップを見る</button>
+          </>
+        ) : anyRoadmap ? (
           <>
             {needs.length > 0 && <p className="goal-peek" style={{ marginTop: 0 }}>{withPhraseBreaks(`必要なこと：${needs.join('・')}`)}</p>}
             <button type="button" style={btnPrimary} onClick={onRoadmap}>ロードマップを見る</button>
@@ -363,11 +388,12 @@ function GoalEditSheet({ horizonKey, initial, hasRoadmap, nextLabel, onClose, on
 // ---------------------------------------------------------------------------
 // 3 つの目標の見出し（深掘り・ロードマップ・読書計画の上）。compact は 1 行ずつ小さく。
 function GoalTrio({ goals, compact = false }) {
+  const overdue = new Set(overdueGoals(goals, appNow()).map((o) => o.key));
   return (
     <ul className={`goal-trio${compact ? ' is-compact' : ''}`} aria-label="3 つの目標">
       {GOAL_HORIZONS.filter((h) => goals?.[h.key]?.text).map((h) => (
         <li key={h.key}>
-          <p className="goal-when"><strong>{h.label}</strong><span>{fmtGoalDeadline(goals[h.key].at, h.years)}</span></p>
+          <p className="goal-when"><strong>{h.label}</strong><span style={overdue.has(h.key) ? { color: 'var(--warning)' } : undefined}>{fmtGoalDeadlineNow(goals[h.key].at, h.years, appNow())}</span></p>
           <p className="goal-text">{withPhraseBreaks(goals[h.key].text)}</p>
         </li>
       ))}
@@ -561,7 +587,16 @@ function Building({ building }) {
 // ---------------------------------------------------------------------------
 // ロードマップ
 // ---------------------------------------------------------------------------
-function RoadmapView({ goal, record, books, onOpenBook, onAddActionText, onFindBooks, onPlan, onRebuild, onUndoUpdate, onEditGoals, onSaveRoadmap, onAddRec }) {
+function RoadmapView({ goal, record, books, onOpenBook, onAddActionText, onFindBooks, onPlan, onRebuild, onUndoUpdate, onEditGoals, onSaveRoadmap, onAddRec, onChooseBooks }) {
+  // この 3 か月の本を選ぶ（区切りが進んで本が無くなったとき・2026-11-17）。
+  const [choosing, setChoosing] = useState(false);
+  const [chooseError, setChooseError] = useState(null);
+  const choose = async () => {
+    if (choosing || !onChooseBooks) return;
+    setChoosing(true);
+    setChooseError(null);
+    try { await onChooseBooks(); } catch (e) { setChooseError(e?.message || '本を選べませんでした。もう一度押してください。'); } finally { setChoosing(false); }
+  };
   const [addingRec, setAddingRec] = useState(null);
   const addRec = async (rb) => {
     if (addingRec) return;
@@ -575,26 +610,43 @@ function RoadmapView({ goal, record, books, onOpenBook, onAddActionText, onFindB
   const specs = phaseSpecs(goal.key, record.goalAt || goal.at);
   const here = currentPhaseIndex(goal.key, record.goalAt || goal.at, appNow());
   const byId = useMemo(() => new Map(books.map((b) => [b.id, b])), [books]);
-  const planBooks = roadmap.phases.some((p) => p.books.some((b) => byId.get(b.bookId)?.status !== 'done'));
+  const planBooks = roadmap.phases.some((p) => p.books.some((b) => b.bookId && byId.get(b.bookId) && byId.get(b.bookId).status !== 'done'));
   // 本棚に読んでいない本があれば、ロードマップに本が無くても読書計画は自分で選んでつくれる（2026-11-16 オーナー「本棚の本がほぼない状態だとどうなる？」）。
   const hasUnread = books.some((b) => b.status !== 'done');
   const recsNow = (roadmap.phases[here]?.books || []).filter((b) => !b.bookId).length;
   // この 3 か月に読む本を AI 選書で探す下書き（送らない）。
   const findDraft = advisorDraftFor(goal.goals, { focus: roadmap.phases[here]?.focus || '' });
   // 作ったときの目標の文と、いまの文が違えば（書き直した）。
-  const stale = GOAL_HORIZONS.some((h) => record.goals?.[h.key]?.text && cleanGoalText(record.goals[h.key].text) !== cleanGoalText(goal.goals?.[h.key]?.text || ''));
+  const stale = isRoadmapStale(record, goal.goals);
+  // いまの区切りに読む本が無い（最初の 3 か月が過ぎた・読み終えた）＝この 3 か月の本を選ぶ。
+  const needBooks = phaseNeedsBooks(roadmap, books, here);
+  // 期限を過ぎた目標（1 年たった・2026-11-17）。書き直すと、そこから新しい 1 年の道のりをつくれる。
+  const overdue = overdueGoals(goal.goals, appNow());
+  const chooseBtn = (primary) => (
+    <button type="button" disabled={choosing} style={primary ? { ...(choosing ? btnPrimaryOff : btnPrimary), marginTop: 'var(--space-3)' } : { ...btnLink, marginTop: 'var(--space-2)', marginLeft: 'calc(-1 * var(--space-1))' }} onClick={choose}>
+      {choosing ? '本を選んでいます…' : `この 3 か月の本を選ぶ（${PHASE_BOOKS_TOKENS_LABEL}）`}
+    </button>
+  );
 
   return (
     <>
       <header className="goal-head">
         <GoalTrio goals={goal.goals} compact />
-        {onEditGoals && (
+        {onEditGoals && !(overdue.length > 0 && !stale) && (
           <button type="button" style={{ ...btnLink, marginTop: 'var(--space-2)', marginLeft: 'calc(-1 * var(--space-1))' }} onClick={onEditGoals}>目標を書き直す</button>
         )}
         {stale && (
-          <p className="goal-peek">{withPhraseBreaks('このロードマップは、前の目標の文で作りました。新しい目標に合わせるときは、下の「つくり直す」から。')}</p>
+          <p className="goal-peek">{withPhraseBreaks('このロードマップは、前の目標で作りました。新しい目標に合わせるときは、下の「つくり直す」から。')}</p>
         )}
       </header>
+
+      {overdue.length > 0 && !stale && (
+        <section className="goal-box rm-overdue" aria-labelledby="rm-overdue">
+          <p id="rm-overdue" className="goal-sec-title" style={{ margin: 0 }}>{`${overdue.map((o) => o.label).join('・')}の目標の期限が過ぎました`}</p>
+          <p className="plan-summary">{withPhraseBreaks('目標の画面で、書き直すか、同じ目標で続けるかを選べます。そこから新しい道のりをつくれます。')}</p>
+          {onEditGoals && <button type="button" style={{ ...btnPrimary, marginTop: 'var(--space-3)' }} onClick={onEditGoals}>目標を書き直す</button>}
+        </section>
+      )}
 
       {record.summary && <p className="goal-summary">{withPhraseBreaks(record.summary)}</p>}
 
@@ -602,8 +654,20 @@ function RoadmapView({ goal, record, books, onOpenBook, onAddActionText, onFindB
       <section className="goal-box rm-now" aria-labelledby="rm-now">
         <p id="rm-now" className="goal-sec-title" style={{ margin: 0 }}>{`いまの 3 か月 · ${specs[here]?.label || ''}`}</p>
         {roadmap.phases[here]?.focus && <p className="rm-phase-focus" style={{ marginTop: 'var(--space-1)' }}>{withPhraseBreaks(roadmap.phases[here].focus)}</p>}
+        {needBooks && onChooseBooks && (
+          <p className="plan-summary">{withPhraseBreaks(planBooks ? 'この 3 か月に読む本は、まだ選んでいません。読み終えた本とメモを踏まえて、次に読む本を選べます。' : 'この 3 か月に読む本は、まだ選んでいません。読み終えた本とメモを踏まえて選びます。')}</p>
+        )}
+        {chooseError && <p className="plan-summary" role="alert" style={{ color: 'var(--error)' }}>{chooseError}</p>}
+        {needBooks && onChooseBooks && !planBooks && chooseBtn(true)}
         {planBooks ? (
-          <button type="button" style={{ ...btnPrimary, marginTop: 'var(--space-4)' }} onClick={onPlan}>読書計画をカレンダーにする</button>
+          <>
+            <button type="button" style={overdue.length > 0 && !stale ? { ...btnLink, marginTop: 'var(--space-3)', marginLeft: 'calc(-1 * var(--space-1))' } : { ...btnPrimary, marginTop: 'var(--space-4)' }} onClick={onPlan}>読書計画をカレンダーにする</button>
+            {needBooks && onChooseBooks && chooseBtn(false)}
+          </>
+        ) : needBooks && onChooseBooks ? (
+          hasUnread && (
+            <button type="button" style={{ ...btnLink, marginTop: 'var(--space-2)', marginLeft: 'calc(-1 * var(--space-1))' }} onClick={onPlan}>本棚の本から選んで読書計画にする</button>
+          )
         ) : (
           <>
             {recsNow > 0 ? (
@@ -862,7 +926,7 @@ function RoadmapEditSheet({ editing, roadmap, specs, onClose, onSave }) {
 // ---------------------------------------------------------------------------
 // 読書計画カレンダー
 // ---------------------------------------------------------------------------
-function PlanView({ goal, record, books, sessions, onFindBooks, onOpenBook, onAddReadingActions }) {
+function PlanView({ goal, record, books, sessions, onFindBooks, onOpenBook, onAddReadingActions, onRoadmap }) {
   const toast = useToast();
   const today = toLocalYmd(appNow());
   const year = Number(today.slice(0, 4));
@@ -933,6 +997,7 @@ function PlanView({ goal, record, books, sessions, onFindBooks, onOpenBook, onAd
             description="本棚から、この 3 か月に読む本を選ぶと、1 日に読む時間に合わせて日付を割り振ります。"
             actions={[
               { label: '本棚から選ぶ', variant: 'primary', onClick: () => setOrdering(true) },
+              ...(onRoadmap && phaseNeedsBooks(roadmap, books, here) ? [{ label: 'ロードマップで本を選ぶ', onClick: onRoadmap }] : []),
               ...(onFindBooks ? [{ label: 'AI 選書で探す', onClick: () => onFindBooks(advisorDraftFor(goal.goals)) }] : []),
             ]}
           />
@@ -940,7 +1005,10 @@ function PlanView({ goal, record, books, sessions, onFindBooks, onOpenBook, onAd
           <ErrorMessage
             title="本棚に、まだ読む本がありません"
             description="AI 選書で、この 3 か月に読む本を探しましょう。本棚に入れたら、ここで選べます。"
-            actions={onFindBooks ? [{ label: 'この 3 か月に読む本を探す', variant: 'primary', onClick: () => onFindBooks(advisorDraftFor(goal.goals)) }] : []}
+            actions={[
+              ...(onRoadmap && phaseNeedsBooks(roadmap, books, here) ? [{ label: 'ロードマップで本を選ぶ', variant: 'primary', onClick: onRoadmap }] : []),
+              ...(onFindBooks ? [{ label: 'この 3 か月に読む本を探す', variant: onRoadmap && phaseNeedsBooks(roadmap, books, here) ? undefined : 'primary', onClick: () => onFindBooks(advisorDraftFor(goal.goals)) }] : []),
+            ]}
           />
         )}
         {orderSheet}
@@ -1038,7 +1106,7 @@ function PlanView({ goal, record, books, sessions, onFindBooks, onOpenBook, onAd
           );
         })}
         {!monthHasBooks && (
-          <p className="plan-cal-empty">{withPhraseBreaks(nextAfterMonth ? `この月は読む本の予定がありません。ロードマップのやることを進める期間です。次の本は ${fmtMd(nextAfterMonth.start, year)} から。` : 'この月は読む本の予定がありません。')}</p>
+          <p className="plan-cal-empty">{withPhraseBreaks(nextAfterMonth ? `この月は読む本の予定がありません。次の本は ${fmtMd(nextAfterMonth.start, year)} から。` : 'この月は読む本の予定がありません。')}</p>
         )}
       </section>
 

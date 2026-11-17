@@ -2,6 +2,7 @@
 //   &goals=on        … 1 年後・3 年後・5 年後の目標＋3 つをつなぐロードマップ（本棚の本で道のりと読書計画）
 //   &goals=noroadmap … 3 つの目標だけ（ロードマップはまだ＝「ロードマップをつくる」）
 //   &goals=partial   … 1 年後・3 年後だけ（5 年後がまだ＝つくれない）
+//   &goalage=N   … 作ってから N 日たった状態・&goalread=1 … ロードマップの本を読み終えた（長く使ったときの確認）
 //   &goals=purpose   … 目標は空・はじめに書いた目標（入れた理由）だけある（どの欄に入れるかのカード）
 //   付けなければ目標は空（行動の上は「1 年後・3 年後・5 年後の目標を書く」）。
 
@@ -14,7 +15,9 @@ const EXTRA_BOOKS = [
 export function applyGoalsDemo(db, user, params, { userId, now = new Date(), coverSvg } = {}) {
   const mode = params.get('goals');
   if (!mode) return;
-  const at = new Date(now.getFullYear(), now.getMonth(), Math.max(1, now.getDate() - 3)).toISOString();
+  // &goalage=30|90|200|400 … 目標とロードマップを作ってから N 日たった状態（長く使ったときの確認用）。
+  const age = Math.max(3, Math.min(2000, Number(params.get('goalage')) || 3));
+  const at = new Date(now.getTime() - age * 86400000).toISOString();
   if (mode === 'purpose') {
     user.user_metadata = { ...user.user_metadata, app_purpose: { text: '3 年後には、チームを任されるリーダーになりたい', at } };
     return;
@@ -77,6 +80,11 @@ export function applyGoalsDemo(db, user, params, { userId, now = new Date(), cov
     missing: [{ theme: '人を育てる対話', why: '本棚に、コーチングの基本を学べる本がまだありません。' }],
   };
   roadmap.phases.forEach((p) => { p.books = p.books.filter((b) => b.bookId); });
+  // &goalread=1 … ロードマップの本を全部読み終えた（読書計画の本が尽きた状態の確認用）。
+  if (params.get('goalread')) {
+    const ids = new Set(roadmap.phases.flatMap((p) => p.books.map((b) => b.bookId)));
+    db.books.forEach((b) => { if (ids.has(b.id)) { b.status = 'done'; b.done_date = b.done_date || new Date(now.getTime() - 10 * 86400000).toISOString().slice(0, 10); } });
+  }
   db.goal_roadmaps = [{
     user_id: userId,
     horizon: 'all',
@@ -168,5 +176,17 @@ export function goalRoadmapUpdateAnswer(userText, params) {
     newIssues: ['忙しくなると、自分で抱え込んで人に頼めない。'],
     note: '「頼む力」を必要なことに足し、次の区切りに任せ方の本を前に出しました。',
     ...base,
+  });
+}
+
+// この 3 か月の本を選ぶ（お試しの AI）。お試しの書誌で実在する本＋見つからない 1 冊（消える）。
+export function goalPhaseBooksAnswer() {
+  return JSON.stringify({
+    now: { books: [
+      { title: '伝え方が9割', author: '佐々木圭一', why: '任せるときに、短く伝える型が身につきます。' },
+      { title: '思考の整理学', author: '外山滋比古', why: 'メモに残した考えを寝かせて整える習慣になります。' },
+      { title: '存在しない本の書名', author: '架空', why: '（お試し: 書誌で見つからないので消える）' },
+    ] },
+    next: { books: [{ title: '大事なことに集中する', author: 'カル・ニューポート', why: '次の区切りで、深く考える時間をつくる候補です。' }] },
   });
 }

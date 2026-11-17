@@ -50,14 +50,14 @@ export const hasAnyGoal = (goals) => GOAL_KEYS.some((k) => goals?.[k]?.text);
 export const allGoalsSet = (goals) => GOAL_KEYS.every((k) => goals?.[k]?.text);
 export const missingGoalCount = (goals) => GOAL_KEYS.filter((k) => !goals?.[k]?.text).length;
 
-// 3 つの目標をまとめた 1 つ（ロードマップの起点は、いちばん早く書いた日＝1 年後の区切りがそこから始まる）。
+// 3 つの目標をまとめた 1 つ（ロードマップの起点は 1 年後の目標を書いた日＝1 年後の区切りがそこから始まる）。
+//   2026-11-17: 前は「いちばん早く書いた日」。1 年たって 1 年後の目標だけ書き直すと、起点が古いまま区切りが過去から始まっていた。
 //   text は「1 年後：…／3 年後：…／5 年後：…」（本を探す下書きなどに使う）。
 export function combinedGoal(goals) {
   if (!allGoalsSet(goals)) return null;
-  const ats = GOAL_KEYS.map((k) => goals[k].at).sort();
   return {
     key: ALL_GOALS_KEY,
-    at: ats[0],
+    at: goals.y1.at,
     text: GOAL_HORIZONS.map((h) => `${h.label}：${goals[h.key].text}`).join('／'),
     goals: Object.fromEntries(GOAL_KEYS.map((k) => [k, goals[k]])),
   };
@@ -77,6 +77,13 @@ export function goalDeadline(at, years) {
 export function fmtGoalDeadline(at, years) {
   const d = goalDeadline(at, years);
   return d ? `${d.getFullYear()} 年 ${d.getMonth() + 1} 月まで` : '';
+}
+
+// 画面の期限（過ぎていれば「2026 年 10 月まで（過ぎました）」・2026-11-17 長く使ったときの確認）。
+export function fmtGoalDeadlineNow(at, years, now = new Date()) {
+  const d = goalDeadline(at, years);
+  if (!d) return '';
+  return `${fmtGoalDeadline(at, years)}${d.getTime() < now.getTime() ? '（過ぎました）' : ''}`;
 }
 
 // 入れた理由の文から、入れる欄の見当（「1 年」「来年」→ 1 年後・「5 年」「10 年」→ 5 年後・ほかは 3 年後）。

@@ -239,3 +239,40 @@ describe('AI 選書に入れる下書き（2026-11-16 オーナー「本を探�
     expect(advisorDraftFor({})).toBe('この 3 か月で読むなら、どの本？');
   });
 });
+
+describe('長く使ったとき（2026-11-17）', async () => {
+  const { phaseNeedsBooks, parsePhaseBooks, overdueGoals, isRoadmapStale } = await import('./goalRoadmap');
+  const books = [{ id: 'a', title: 'A', status: 'done' }, { id: 'b', title: 'B', status: 'want' }];
+  const rm = { needs: [], issues: [], missing: [], phases: [
+    { focus: '1', todos: [], books: [{ bookId: 'a', why: '' }] },
+    { focus: '2', todos: [], books: [{ bookId: 'b', why: '' }] },
+    { focus: '3', todos: [], books: [] },
+    { focus: '4', todos: [], books: [] },
+  ] };
+  it('いまの区切りに読む本が無いと選ぶ', () => {
+    expect(phaseNeedsBooks(rm, books, 0)).toBe(true); // 読了だけ
+    expect(phaseNeedsBooks(rm, books, 1)).toBe(false);
+    expect(phaseNeedsBooks(rm, books, 2)).toBe(true);
+    expect(phaseNeedsBooks({ ...rm, phases: [{ books: [{ title: 'X' }] }] }, books, 0)).toBe(false);
+  });
+  it('いまの区切りと次の区切りだけを入れ替え、ほかの区切りの本と重ねない', () => {
+    const text = JSON.stringify({ now: { books: [{ key: 'B1', why: 'w' }, { title: '新しい本', author: 'X', why: 'y' }] }, next: { books: [{ title: '次の本', why: 'z' }, { title: '2', why: '' }, { title: '3', why: '' }] } });
+    const out = parsePhaseBooks(text, { B1: 'b' }, rm, 2, [3, 2, 3, 2], {});
+    expect(out.phases[2].books).toEqual([{ title: '新しい本', author: 'X', why: 'y' }]); // b は 2 つめの区切りにある
+    expect(out.phases[3].books).toHaveLength(2);
+    expect(out.phases[1]).toBe(rm.phases[1]);
+    expect(parsePhaseBooks('{"now":{"books":[]}}', {}, rm, 2, [], {})).toBeNull();
+  });
+  it('期限が過ぎた目標', () => {
+    const g = { y1: { text: 'a', at: '2025-10-01T00:00:00Z' }, y3: { text: 'b', at: '2025-10-01T00:00:00Z' }, y5: null };
+    expect(overdueGoals(g, new Date('2026-11-17')).map((x) => x.key)).toEqual(['y1']);
+    expect(overdueGoals(g, new Date('2026-09-01'))).toEqual([]);
+  });
+  it('目標の文か起点が変わったらつくり直しを出す', () => {
+    const goals = { y1: { text: 'a', at: '2026-01-01T00:00:00Z' }, y3: { text: 'b', at: '2026-01-01T00:00:00Z' }, y5: { text: 'c', at: '2026-01-01T00:00:00Z' } };
+    const rec = { roadmap: rm, goalAt: '2026-01-01T00:00:00Z', goals };
+    expect(isRoadmapStale(rec, goals)).toBe(false);
+    expect(isRoadmapStale(rec, { ...goals, y1: { text: 'a', at: '2027-01-05T00:00:00Z' } })).toBe(true);
+    expect(isRoadmapStale(rec, { ...goals, y3: { text: 'B', at: goals.y3.at } })).toBe(true);
+  });
+});
