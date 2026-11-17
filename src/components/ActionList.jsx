@@ -577,7 +577,7 @@ export default function ActionList({ books, onOpenGoals = null, onToggleAction, 
       // 取り消すのは「完了」（ふりかえりを消すのではない）ので、何が戻るかはボタンの文言で言う（2026-09-29）。
       // 文は「残しました」だけ（ふりかえりの欄の「残す」を押した直後なので何をかは分かる・「完了を取り消す」と
       // 並んで 390 幅で 1 行に収まる・2026-09-30）。
-      lastToastRef.current = toast.success('残しました。', {
+      lastToastRef.current = toast.success('ふりかえりを残しました。', {
         duration: TOAST_MS,
         action: { label: '完了を取り消す', onClick: () => undoComplete(c.a) },
       });

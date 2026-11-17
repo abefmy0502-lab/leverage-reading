@@ -272,7 +272,7 @@ describe('長く使ったとき（2026-11-17）', async () => {
     const goals = { y1: { text: 'a', at: '2026-01-01T00:00:00Z' }, y3: { text: 'b', at: '2026-01-01T00:00:00Z' }, y5: { text: 'c', at: '2026-01-01T00:00:00Z' } };
     const rec = { roadmap: rm, goalAt: '2026-01-01T00:00:00Z', goals };
     expect(isRoadmapStale(rec, goals)).toBe(false);
-    expect(isRoadmapStale(rec, { ...goals, y1: { text: 'a', at: '2027-01-05T00:00:00Z' } })).toBe(true);
+    expect(isRoadmapStale(rec, { ...goals, y1: { text: 'a', at: '2027-01-05T00:00:00Z' } })).toBe(false); // 延ばしただけ
     expect(isRoadmapStale(rec, { ...goals, y3: { text: 'B', at: goals.y3.at } })).toBe(true);
   });
 });

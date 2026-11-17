@@ -21,6 +21,7 @@ import { MiniCover } from './BookCards';
 import SegThumb from './SegThumb';
 import { withPhraseBreaks } from './TightBubble';
 import { useToast } from './Toast';
+import { useConfirm } from './ConfirmDialog';
 import { btnPrimary, btnPrimaryOff, btnGhost, btnLink, btnLinkQuiet, input as uiInput } from '../styles/ui';
 import { useEdgeSwipeBack } from '../hooks/useEdgeSwipeBack';
 import { useReadingSessions } from '../hooks/useReadingSessions';
@@ -79,11 +80,14 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
   const goal = horizon === ALL_GOALS_KEY ? combinedGoal(goals) : null;
   const record = goal ? roadmaps[ALL_GOALS_KEY] : null;
 
+  // ホームから開いた画面は、1 回の戻るでホームへ（読書計画 → ロードマップ → 目標 → と 3 回戻っていた・2026-11-17 点検）。
+  const fromHome = start?.from === 'home' && view === (start?.view || 'goals');
   const back = useCallback(() => {
+    if (fromHome) { onClose?.(); return; }
     if (view === 'plan') { setView('roadmap'); return; }
     if (view === 'roadmap' || view === 'interview') { setView('goals'); return; }
     onClose?.();
-  }, [view, onClose]);
+  }, [view, onClose, fromHome]);
   useEdgeSwipeBack({ onBack: back, enabled: !editing });
   useEffect(() => { scrollRef.current?.scrollTo?.({ top: 0 }); setScrolled(false); }, [view, horizon]);
 
@@ -99,7 +103,7 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
     open(ALL_GOALS_KEY, 'interview');
   };
 
-  const backLabel = view === 'goals' ? (start?.from === 'home' ? 'ホーム' : '行動') : view === 'plan' ? 'ロードマップ' : '目標';
+  const backLabel = fromHome ? 'ホーム' : view === 'goals' ? '行動' : view === 'plan' ? 'ロードマップ' : '目標';
   return (
     <div className="goal-screen" role="dialog" aria-modal="true" aria-label={NAV_TITLE[view]}>
       <AdvisorNavBar backLabel={backLabel} title={NAV_TITLE[view]} onBack={back} pushed scrolled={scrolled} />
@@ -157,9 +161,8 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
                   if (!r) break;
                 }
                 if (!r) { toast.error?.('目標を保存できませんでした。通信状況を確認して、もう一度押してください。'); return; }
-                toast.success?.('期限を延ばしました。新しい目標に合わせるときは「新しい目標でつくり直す」から。');
+                toast.success?.('この目標で続けます。期限を延ばしました。');
                 track('goal_extended', { horizon: keys.join('+') });
-                setView('goals');
               }}
               onChooseBooks={async ({ count, recentDone } = {}) => {
                 if (!(await ensureAiConsent('goal_roadmap'))) return false;
@@ -305,7 +308,7 @@ function GoalsView({ goals, roadmaps, purpose, loaded, onEdit, onCarry, onInterv
                 <>
                   <p className="goal-empty">{withPhraseBreaks(`例：${h.example}`)}</p>
                   <div className="goal-actions">
-                    <button type="button" style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', paddingLeft: 0 }} onClick={() => onEdit(h.key)}>
+                    <button type="button" style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', padding: '0 var(--space-1) 0 0' }} onClick={() => onEdit(h.key)}>
                       <Plus size="1em" aria-hidden="true" />{h.label}の目標を書く
                     </button>
                   </div>
@@ -352,6 +355,16 @@ function nextEmptyAfter(goals, key) {
   return order.find((h) => !goals?.[h.key]?.text) || null;
 }
 
+// 書きかけのシートを閉じる前に確かめる（行動の追加と同じ言葉・2026-11-17 点検）。
+function useGuardedClose(dirty, onClose, { message = '消すと、元に戻せません。' } = {}) {
+  const confirm = useConfirm();
+  return useCallback(async () => {
+    if (!dirty) { onClose?.(); return; }
+    const ok = await confirm({ title: '保存していない変更があります', message, confirmLabel: '変更を破棄', cancelLabel: '編集を続ける', danger: true });
+    if (ok) onClose?.();
+  }, [dirty, onClose, confirm, message]);
+}
+
 function GoalEditSheet({ horizonKey, initial, hasRoadmap, nextLabel, onClose, onSave }) {
   const h = horizonOf(horizonKey);
   const [text, setText] = useState(initial || '');
@@ -359,6 +372,7 @@ function GoalEditSheet({ horizonKey, initial, hasRoadmap, nextLabel, onClose, on
   const ref = useRef(null);
   useEffect(() => { const t = setTimeout(() => ref.current?.focus(), 250); return () => clearTimeout(t); }, []);
   const dirty = cleanGoalText(text) !== cleanGoalText(initial);
+  const guardedClose = useGuardedClose(dirty, onClose, { message: initial ? '目標は元のまま残ります。' : '消すと、元に戻せません。' });
   const save = async () => {
     if (saving || !dirty) return;
     setSaving(true);
@@ -368,7 +382,7 @@ function GoalEditSheet({ horizonKey, initial, hasRoadmap, nextLabel, onClose, on
   return (
     <BottomSheet
       title={`${h.label}の目標`}
-      onClose={onClose}
+      onClose={guardedClose}
       dismissLabel="キャンセル"
       footer={(
         <button type="button" style={dirty && !saving ? btnPrimary : btnPrimaryOff} disabled={!dirty || saving} onClick={save}>
@@ -988,6 +1002,7 @@ function RoadmapEditSheet({ editing, roadmap, specs, onClose, onSave }) {
   const clean = (t) => String(t || '').replace(/\s+/g, ' ').trim();
   const list = rows.map(clean).filter(Boolean);
   const dirty = list.join('\n') !== initial.map(clean).filter(Boolean).join('\n');
+  const guardedClose = useGuardedClose(dirty, onClose, { message: 'ロードマップは元のまま残ります。' });
   const save = async () => {
     if (!dirty || saving) return;
     setSaving(true);
@@ -1007,7 +1022,7 @@ function RoadmapEditSheet({ editing, roadmap, specs, onClose, onSave }) {
   return (
     <BottomSheet
       title={title}
-      onClose={onClose}
+      onClose={guardedClose}
       dismissLabel="キャンセル"
       footer={<button type="button" style={dirty && !saving ? btnPrimary : btnPrimaryOff} disabled={!dirty || saving} onClick={save}>{saving ? '保存中…' : '保存'}</button>}
     >
@@ -1167,7 +1182,7 @@ function PlanView({ goal, record, books, sessions, onFindBooks, onOpenBook, onAd
           <span className="plan-today-body">
             <span className="plan-today-label">{nowItem ? '今日の本' : `次の本 · ${fmtMd(nextItem.start, year)} から`}</span>
             <span className="plan-today-title">{withPhraseBreaks(`『${todayBook.title}』`)}</span>
-            <span className="plan-today-meta">{nowItem ? `${minutes} 分 · ${fmtMd(nowItem.end, year)} まで` : '今日は読む本の予定がありません'}</span>
+            <span className="plan-today-meta">{nowItem ? `1 日 ${minutes} 分 · ${fmtMd(nowItem.end, year)} まで` : '今日は読む本の予定がありません'}</span>
           </span>
           <ChevronRight className="goal-entry-chev" size={20} aria-hidden="true" />
         </button>
@@ -1249,7 +1264,7 @@ function PlanView({ goal, record, books, sessions, onFindBooks, onOpenBook, onAd
                         <span className="plan-row-meta">
                           {isNow && <span className="plan-row-now">今日の本</span>}
                           <span>{fmtRange(x.start, x.end)}</span>
-                          <span>{x.days > 1 ? `${fmtSpan(x.days)} · 合わせて ${fmtHoursMin(x.minutes)}` : fmtHoursMin(x.minutes)}</span>
+                          <span>{x.days > 1 ? `${fmtSpan(x.days)} · 合わせて ${fmtHoursMin(x.minutes)}` : `残り ${fmtHoursMin(x.minutes)}`}</span>
                         </span>
                       </span>
                     </button>
@@ -1275,6 +1290,7 @@ function PlanOrderSheet({ books, initial, custom, onClose, onSave, onReset }) {
   const rest = books.filter((b) => b.status !== 'done' && !order.includes(b.id))
     .sort((a, b) => ({ reading: 0, before: 1, want: 2 }[a.status] ?? 3) - ({ reading: 0, before: 1, want: 2 }[b.status] ?? 3));
   const dirty = order.join() !== initial.join();
+  const guardedClose = useGuardedClose(dirty, onClose, { message: '読む順番は元のまま残ります。' });
   const move = (i, d) => setOrder((o) => {
     const j = i + d;
     if (j < 0 || j >= o.length) return o;
@@ -1285,7 +1301,7 @@ function PlanOrderSheet({ books, initial, custom, onClose, onSave, onReset }) {
   return (
     <BottomSheet
       title="読む順番"
-      onClose={onClose}
+      onClose={guardedClose}
       dismissLabel="キャンセル"
       footer={(
         <button type="button" style={dirty && order.length ? btnPrimary : btnPrimaryOff} disabled={!dirty || !order.length} onClick={() => onSave(order)}>保存</button>

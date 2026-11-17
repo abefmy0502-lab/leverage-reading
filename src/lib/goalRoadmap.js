@@ -390,9 +390,8 @@ export function overdueGoals(goals, now = new Date()) {
 export function isRoadmapStale(record, goals) {
   if (!record?.roadmap) return false;
   const textChanged = GOAL_HORIZONS.some((h) => record.goals?.[h.key]?.text && cleanText(record.goals[h.key].text) !== cleanText(goals?.[h.key]?.text || ''));
-  const a = new Date(record.goalAt).getTime();
-  const b = new Date(goals?.y1?.at).getTime();
-  return textChanged || (Number.isFinite(a) && Number.isFinite(b) && b - a > 60 * 86400000);
+  // 期限を延ばしただけ（「この目標で続ける」＝文は同じ）は古くない（2026-11-17 点検: 続けると選んだ人に、つくり直しを主ボタンですすめていた）。
+  return textChanged;
 }
 const cleanText = (t) => String(t || '').replace(/\s+/g, ' ').trim();
 
