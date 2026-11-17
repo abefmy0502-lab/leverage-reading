@@ -736,7 +736,8 @@ function aiReply(store, payload, aiMode = '') {
   if (payload.purpose === 'ocr') return '成果を上げるには、まず自分の時間がどこに使われているかを知ることから始めなければならない。時間の記録をとり、ムダな仕事を捨て、まとまった時間をつくる。';
   const system = textOf(payload.system);
   // AI 選書: 聞き取り（1 回に問い 1 つ・前の言葉を引く・毎回まとめつき・2026-10-08）と、おすすめ（本番と同じ JSON ブロック）
-  if (system.includes('本を選ぶための聞き取り')) return JSON.stringify(demoInterviewStep(userText));
+  // 本を探す言葉（本番は聞き取りの AI が毎回出す・本の候補を集める・2026-11-17）
+  if (system.includes('本を選ぶための聞き取り')) return JSON.stringify({ ...demoInterviewStep(userText), keywords: ['時間術', '集中', 'マネジャー'] });
   if (system.includes('RECOMMENDATIONS_START')) {
     // 「なぜあなたに」は、ヒアリングで実際に選んだ答え（「A. …」の行）だけを引く。選んでいない選択肢は言わない（2026-09-29）。
     const answers = userText.split('\n').filter((l) => l.startsWith('A. ')).join('\n');
@@ -772,6 +773,19 @@ function aiReply(store, payload, aiMode = '') {
         why: '自分で選んで動く「主体性」の考え方が、任せ方の土台になります。',
         core: '反応する前に、自分で選ぶ。', focus: '主体性の考え方', duration: '3週間で読了、1か月で実践' }] : []),
     ];
+    // &ai=fakebook: 候補の外の、世の中に無い本（本番で起きた『ザ・マネジャー』・2026-11-17）。書誌に無いのでカードに出ない。
+    if (aiMode === 'fakebook') {
+      recs.splice(1, 0, { title: 'ザ・マネジャー', author: '架空太郎', why: '任せ方の型が分かります。', core: '結果で任せる。', focus: '任せ方', duration: '2週間で読了' });
+    }
+    // 📚 本の候補（本番はアプリが書店の検索で集めて渡す・2026-11-17）: 候補にある本は、その印（C1 など）を付ける。
+    //   &verify=down|mixed|slow のときは付けない（1 冊ずつ確かめる形を確かめるため）。
+    const candLines = [...userText.matchAll(/^(C\d+)『([^』]+)』/gm)];
+    if (candLines.length && !new URLSearchParams(window.location.search).get('verify')) {
+      for (const r of recs) {
+        const hit = candLines.find((m) => m[2] === r.title);
+        if (hit) r.key = hit[1];
+      }
+    }
     // &ai=allmixed: どのカードも 2 冊を混ぜた書名で、どれも確かめられない（出せるカードが 0 枚＝ErrorMessage の確認用・2026-10-04）
     if (aiMode === 'allmixed') {
       recs.splice(0, recs.length,

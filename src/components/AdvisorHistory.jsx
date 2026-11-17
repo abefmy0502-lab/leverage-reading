@@ -13,7 +13,6 @@ import {
   Trash2,
   MessageSquare,
   Plus,
-  TriangleAlert,
 } from 'lucide-react';
 import EmptyState from './EmptyState.jsx';
 import MarkdownSections from './MarkdownSections';
@@ -283,16 +282,6 @@ function RecommendationCard({ book, index = 0, isAdded, isChecking, onAdd }) {
           )}
         </div>
       </div>
-      {/* 実在の検証の結果（会話中のカードと同じ文言・2026-09-30）。確かめた本と、結果を持たない古い会話には出さない。 */}
-      {(book._verify === 'unknown' || book._verify === 'suspect') && (
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)', marginTop: 'var(--space-3)', padding: 'var(--space-2) var(--space-3)', background: 'var(--warning-soft)', borderRadius: 'var(--radius)' }}>
-          <TriangleAlert size={16} aria-hidden="true" style={{ color: 'var(--warning)', flexShrink: 0, marginTop: 'var(--space-1)' }} />
-          <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5, margin: 0 }}>
-            {book._verify === 'unknown' ? '確認できませんでした' : '書誌情報が見つかりませんでした。書名と著者を確認してください。'}
-          </p>
-        </div>
-      )}
-
       {book.why && (
         <div style={{ marginTop: 'var(--space-3)' }}>
           <p style={fieldLabel}>なぜあなたに</p>
@@ -352,7 +341,7 @@ function RecField({ label, text }) {
 export function AdvisorSessionDetail({ session, books, onResume, onNewSession, onClose, onAddBook, onBookAdded, verifyBeforeAdd = null }) {
   const messages = useMemo(() => Array.isArray(session?.messages) ? session.messages : [], [session]);
   // 書名の欄に 2 冊を混ぜたカードは出さない（「この会話を続ける」で確かめ直して 1 冊にする）・AI が付けた表紙と ISBN は捨てる（2026-10-04）
-  const recs = useMemo(() => normalizeAdvisorRecs(Array.isArray(session?.recommended_books) ? session.recommended_books : []).filter((r) => !r._alts && r._verify !== 'suspect'), [session]); // 見つからなかった本は出さない（2026-11-15）
+  const recs = useMemo(() => normalizeAdvisorRecs(Array.isArray(session?.recommended_books) ? session.recommended_books : []).filter((r) => !r._alts && r._verify !== 'suspect' && r._verify !== 'unknown'), [session]); // 見つからなかった本（2026-11-15）・確かめられなかった本（2026-11-17）は出さない
   // AI の文の書名は、実在を確かめたカードの本（_verify==='ok'）と本棚の本だけ残す（会話中と同じ・lib/advisorProse.js）。
   //   確かめた結果を持たない古い会話は、本棚の本以外の書名を出さない（「この会話を続ける」で確かめ直せる）。
   const proseLists = useMemo(() => proseTitleLists(recs, books), [recs, books]);

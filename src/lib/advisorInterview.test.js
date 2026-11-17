@@ -73,11 +73,11 @@ describe('選択肢の解析', () => {
 
 describe('AI の答え（JSON）の解析', () => {
   it('問い 1 つ・選択肢・まとめ', () => {
-    const r = parseInterviewStep('前置き {"done": false, "question": "どんな場面でしたか？", "options": ["会議で", "どれも違う"], "summary": "「忙しい」ということでしょうか。"} おわり');
-    expect(r).toEqual({ done: false, question: 'どんな場面でしたか？', options: ['会議で'], summary: '「忙しい」ということでしょうか。' });
+    const r = parseInterviewStep('前置き {"done": false, "question": "どんな場面でしたか？", "options": ["会議で", "どれも違う"], "summary": "「忙しい」ということでしょうか。", "keywords": ["時間術", "「集中」"]} おわり');
+    expect(r).toEqual({ done: false, question: 'どんな場面でしたか？', options: ['会議で'], summary: '「忙しい」ということでしょうか。', keywords: ['時間術', '集中'] });
   });
   it('done はまとめだけ・問いが空なら done 扱い', () => {
-    expect(parseInterviewStep('{"done": true, "summary": "まとめ"}')).toEqual({ done: true, question: '', options: [], summary: 'まとめ' });
+    expect(parseInterviewStep('{"done": true, "summary": "まとめ"}')).toEqual({ done: true, question: '', options: [], summary: 'まとめ', keywords: [] });
     expect(parseInterviewStep('{"done": false, "question": "", "options": ["a"]}').done).toBe(true);
   });
   it('以前の形（questions の配列）も 1 問目だけ読む', () => {

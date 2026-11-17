@@ -7,6 +7,7 @@
 // ここは画面に依存しない小道具（AI の答えの解析・AI に渡す文の組み立て・深刻な言葉の見張り）。
 // AI に渡す本人の言葉の sanitize（sanitizeForPrompt）は呼ぶ側（BookAdvisor）で済ませる。ここは長さだけを切る。
 import { clamp } from './limits';
+import { cleanKeywords } from './advisorCandidates';
 
 // 問いの数の上限（悩みの芯が見えたら AI が先に止める・原価を増やしすぎない）。
 export const MAX_INTERVIEW_QUESTIONS = 4;
@@ -45,7 +46,7 @@ export function cleanOptions(list) {
 }
 
 // AI の答え（JSON）を解く。前後に余計な文字があっても最初の { 〜 最後の } を読む。
-//   返り値: { done, question, options, summary } | null（読めない）。
+//   返り値: { done, question, options, summary, keywords } | null（読めない）。
 //   以前の形（{ done, questions: [{ q, options }] }）も読む（1 問目だけを使う）。
 export function parseInterviewStep(text) {
   if (typeof text !== 'string') return null;
@@ -62,9 +63,11 @@ export function parseInterviewStep(text) {
     options = obj.questions[0].options;
   }
   const summary = clamp(str(obj.summary), SUMMARY_MAX);
+  // 書店で本を探すときの言葉（本の候補を集める・lib/advisorCandidates.js・2026-11-17）。
+  const keywords = cleanKeywords(obj.keywords);
   const done = obj.done === true || !question;
-  if (done) return { done: true, question: '', options: [], summary };
-  return { done: false, question: clamp(question, QUESTION_MAX), options: cleanOptions(options), summary };
+  if (done) return { done: true, question: '', options: [], summary, keywords };
+  return { done: false, question: clamp(question, QUESTION_MAX), options: cleanOptions(options), summary, keywords };
 }
 
 // 入力欄の上に並べるチップ（AI の書き出し＋いつもの逃げ道 2 つ）。kind: 'start' | 'off' | 'unsure'。
