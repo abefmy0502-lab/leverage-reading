@@ -433,8 +433,9 @@ const goalInterview = {
     `# 出力フォーマット（必ず純粋な JSON のみ。Markdown・前置き・コードブロック禁止）\n` +
     `{"done": false, "question": "問い（1 つ）", "options": ["答えの候補", "答えの候補"], "summary": "受け取ったまとめ"}\n` +
     `※ 止めるときは {"done": true, "question": "", "options": [], "summary": "受け取ったまとめ"}。`,
-  user: ({ goalsText, priorQA, round, maxRounds }) =>
+  user: ({ goalsText, priorQA, round, maxRounds, history }) =>
     `【目標（1 年後・3 年後・5 年後）】\n${goalsText}\n` +
+    (history ? `\n【これまでの道のり（前のロードマップ・参考）】\n${history}\n（前の道のりから何が進み、何が残ったかが分かる問いにする。前と同じ問いを繰り返さない）\n` : '') +
     `\n【これまでの問いと答え】\n${priorQA || '（まだ答えなし＝これが最初の問い）'}\n\n` +
     `【次の問いの番号】${round}（上限 ${maxRounds}）\n\n` +
     `次に聞く問いを 1 つと、受け取ったまとめを JSON で返してください。`,
@@ -467,10 +468,11 @@ const goalRoadmap = {
 
     `# 出力フォーマット（必ず純粋な JSON のみ。Markdown・前置き・コードブロック禁止）\n` +
     `{"needs":[{"name":"","why":""}],"issues":[""],"phases":[{"focus":"","books":[{"title":"","author":"","why":""}]}],"missing":[{"theme":"","why":""}]}`,
-  user: ({ goalsText, priorQA, summary, phases, shelf, doneBooks }) =>
+  user: ({ goalsText, priorQA, summary, phases, shelf, doneBooks, history }) =>
     `【目標（1 年後・3 年後・5 年後）】\n${goalsText}\n` +
     `\n【聞き取り】\n${priorQA || '（なし）'}\n` +
     (summary ? `【受け取ったまとめ】${summary}\n` : '') +
+    (history ? `\n【これまでの道のり（前のロードマップ・参考）】\n${history}\n（読み終えた本と同じ内容を避け、残った課題から積み上げる）\n` : '') +
     `\n【区切り（この数・順番で phases を作る）】\n${phases}\n\n` +
     `【本棚のまだ読み終えていない本（印 | 状態 | 書名 著者 | 分野 | 得たいこと）】\n${shelf || '（なし）'}\n\n` +
     `【読み終えた本（参考・books には入れない）】\n${doneBooks || '（なし）'}\n\n` +
@@ -528,17 +530,19 @@ const goalPhaseBooks = {
     `- 【いまの区切り】で取り組むことに効く「いま読むべき本」を now に、【次の区切り】の候補を next に選ぶ。\n` +
     `- 本は {"title":"正確な書名","author":"著者","why":"なぜいまこの本か 1 文・40 字以内"}。本棚の本が本当に合うときだけ {"key":"B3","why":"…"}（合わない本を当てはめない）。\n` +
     `- 【読み終えた本】と【最近のメモ】から、本人がもう学んだこと・引っかかっていることを踏まえ、次の一歩になる本を選ぶ（同じ内容の本を重ねない・読み終えた本は挙げない）。\n` +
-    `- now は「本は N 冊まで」を超えない（少なくてよい・本当に効く本だけ）。next は 2 冊まで。\n\n` +
+    `- now は「本は N 冊まで」を超えない（少なくてよい・本当に効く本だけ）。next は 2 冊まで。\n` +
+    `- 冊数は本人の読むペースに合わせてアプリが決めている。読むペースが遅い人には、短く読みやすい本を先に（無理に分厚い本を挙げない）。\n\n` +
     `# 言い方\n` +
     `- 「必ず」「確実に」「達成できます」と言い切らない。やさしい口語。\n\n` +
     `# 出力フォーマット（必ず純粋な JSON のみ。Markdown・前置き・コードブロック禁止）\n` +
     `{"now":{"books":[{"title":"","author":"","why":""}]},"next":{"books":[{"title":"","author":"","why":""}]}}`,
-  user: ({ goalsText, needs, issues, hereText, nextText, shelf, doneBooks, memos }) =>
+  user: ({ goalsText, needs, issues, hereText, nextText, shelf, doneBooks, memos, recentDone }) =>
     `【目標（1 年後・3 年後・5 年後）】\n${goalsText}\n\n` +
     `【必要なこと】\n${needs || '（なし）'}\n【今の課題】\n${issues || '（なし）'}\n\n` +
     `【いまの区切り】${hereText}\n【次の区切り】${nextText || '（なし）'}\n\n` +
     `【本棚のまだ読み終えていない本（印 | 状態 | 書名 著者 | 分野 | 得たいこと）】\n${shelf || '（なし）'}\n\n` +
     `【読み終えた本（参考・books には入れない）】\n${doneBooks || '（なし）'}\n\n` +
+    `【前の 3 か月に読み終えた本】\n${recentDone || '（なし＝読む時間が取れなかった・責めない。読みやすく、いまの課題にまっすぐ効く本から）'}\n\n` +
     `【最近のメモ（本人の言葉・参考）】\n${memos || '（なし）'}\n\n` +
     `この 3 か月に読む本を JSON で返してください。`,
 };

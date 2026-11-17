@@ -283,7 +283,7 @@ export function phaseNeedsBooks(roadmap, books, here) {
 }
 
 // 答え {"now":{"books":[…]},"next":{"books":[…]}} を、いまのロードマップの 2 つの区切りに入れる（読めなければ null）。
-export function parsePhaseBooks(text, keyToId, prev, here, caps = [], titleToId = {}) {
+export function parsePhaseBooks(text, keyToId, prev, here, caps = [], titleToId = {}, doneIds = null) {
   if (typeof text !== 'string' || !prev?.phases?.length) return null;
   const s = text.indexOf('{');
   const e = text.lastIndexOf('}');
@@ -296,15 +296,86 @@ export function parsePhaseBooks(text, keyToId, prev, here, caps = [], titleToId 
   // ほかの区切りに入っている本とは重ねない。
   const used = new Set();
   prev.phases.forEach((p, i) => { if (i !== idx && i !== idx + 1) (p.books || []).forEach((b) => used.add(roadmapBookKey(b))); });
+  (prev.phases[idx]?.books || []).forEach((b) => { if (b.bookId && doneIds?.has(b.bookId)) used.add(roadmapBookKey(b)); });
   const nowBooks = parseBookList(obj.now?.books, Math.max(1, caps[idx] || 3), used, keyToId, titleToId);
   const nextBooks = idx + 1 < n ? parseBookList(obj.next?.books, Math.min(NEXT_PHASE_CANDIDATES, caps[idx + 1] || NEXT_PHASE_CANDIDATES), used, keyToId, titleToId) : [];
   if (!nowBooks.length) return null;
+  // いまの区切りで読み終えた本は残す（その 3 か月に読んだ記録）・まだの本は入れ替える。
+  const keptDone = (prev.phases[idx].books || []).filter((b) => b.bookId && doneIds?.has(b.bookId));
   const phases = prev.phases.map((p, i) => {
-    if (i === idx) return { ...p, books: nowBooks };
+    if (i === idx) return { ...p, books: [...keptDone, ...nowBooks.filter((b) => !keptDone.some((k) => k.bookId && k.bookId === b.bookId))] };
     if (i === idx + 1) return { ...p, books: nextBooks };
     return p;
   });
   return { ...prev, phases };
+}
+
+// ---- 読むペース（2026-11-17 オーナー「本を読むペースがバラバラでも、心地よく自分を引き上げてくれる設計に」） ----
+//   前の 3 か月（90 日）に読み終えた本と読書の時間。次の 3 か月に選ぶ冊数は「前の 3 か月より 1 冊だけ多く」
+//   （読めなかった 3 か月のあとは 1 冊から）。ただし 1 日に読む時間で読める分（fallback）を超えない。
+//   前の区切りの本が残っていれば、その分は新しく選ばない（積み上げない）。遅れ・%・「あと N 冊」は出さない。
+export const PACE_DAYS = 90;
+const dayMs = 86400000;
+export function readingPace(books, sessions, now = new Date(), days = PACE_DAYS) {
+  const to = now.getTime();
+  const from = to - days * dayMs;
+  const inWin = (v) => { const t = new Date(v).getTime(); return Number.isFinite(t) && t >= from && t <= to + dayMs; };
+  const doneBooks = (Array.isArray(books) ? books : [])
+    .filter((b) => b?.status === 'done' && inWin(b.doneDate || b.done_date))
+    .sort((a, b) => String(b.doneDate || b.done_date).localeCompare(String(a.doneDate || a.done_date)));
+  const minutes = (Array.isArray(sessions) ? sessions : [])
+    .filter((r) => inWin(r?.started_at))
+    .reduce((t, r) => t + (Number(r?.seconds) || 0) / 60, 0);
+  return { doneBooks, doneCount: doneBooks.length, minutes: Math.round(minutes) };
+}
+
+// 前の区切りから残っている本（本棚にある・まだ読み終えていない）。
+export function leftoverBooks(roadmap, books, here) {
+  const byId = new Map((books || []).map((b) => [b.id, b]));
+  const out = [];
+  (roadmap?.phases || []).slice(0, Math.max(0, here)).forEach((p) => (p.books || []).forEach((rb) => {
+    const b = rb.bookId ? byId.get(rb.bookId) : null;
+    if (b && b.status !== 'done' && !out.includes(b)) out.push(b);
+  }));
+  return out;
+}
+
+// 次の 3 か月に選ぶ冊数。{ count, base, mode: 'first'|'pace'|'rest' }
+//   first＝記録がまだ無い（1 日の時間で読める分）・pace＝前の 3 か月＋1 冊・rest＝読めなかった 3 か月のあと（1 冊から）。
+export function quarterBookCount({ pace, fallback = 3, leftover = 0, hasHistory = false }) {
+  const cap = Math.max(1, Math.min(PHASE_BOOK_MAX, fallback || 1));
+  let base;
+  let mode;
+  if (!hasHistory) { base = cap; mode = 'first'; } else if (!pace?.doneCount) { base = 1; mode = 'rest'; } else { base = Math.min(cap, pace.doneCount + 1); mode = 'pace'; }
+  return { count: Math.max(0, base - Math.max(0, leftover)), base, mode };
+}
+
+// これまでの道のり（作り直す・見直すときに AI に渡す・600 字まで）。前のまとめ・課題・作ってから読み終えた本。
+export function historyText(record, books) {
+  if (!record?.roadmap) return '';
+  const since = new Date(record.goalAt).getTime();
+  const read = (books || []).filter((b) => b?.status === 'done' && new Date(b.doneDate || b.done_date).getTime() >= since)
+    .slice(0, 12).map((b) => `『${cut(b.title, 40)}』${b.rating ? `★${b.rating}` : ''}`);
+  const lines = [];
+  if (record.summary) lines.push(`前のまとめ: ${cut(record.summary, 160)}`);
+  if (record.roadmap.issues?.length) lines.push(`前の課題: ${record.roadmap.issues.map((t) => cut(t, 60)).join(' / ')}`);
+  lines.push(`ロードマップを作ってから読み終えた本: ${read.length ? read.join('、') : 'なし'}`);
+  return cut(lines.join('\n'), 600);
+}
+
+// 次の 3 か月の本の決め方（画面と AI で同じ）。record が無い（はじめてつくる）ときは at から。
+export function quarterPlanFor({ record = null, at = null, books = [], sessions = [], now = new Date(), minutesPerDay, usedBefore = false } = {}) {
+  const anchor = record?.goalAt || at;
+  const specs = phaseSpecs(ALL_GOALS_KEY, anchor);
+  const here = currentPhaseIndex(ALL_GOALS_KEY, anchor, now);
+  const speed = readingSpeedFactor(books, sessions);
+  const fallback = phaseBookCaps(specs, books, { minutesPerDay: minutesPerDay || record?.plan?.minutesPerDay || PLAN_DEFAULT_MINUTES, speed })[here] || 3;
+  const pace = readingPace(books, sessions, now);
+  const roadmap = record?.roadmap ? pruneRoadmapBooks(record.roadmap, books) : null;
+  const leftover = roadmap ? leftoverBooks(roadmap, books, here) : [];
+  const ageDays = record?.goalAt ? (now.getTime() - new Date(record.goalAt).getTime()) / dayMs : 0;
+  const hasHistory = pace.doneCount > 0 || ageDays >= 60 || usedBefore;
+  return { here, pace, leftover, fallback, hasHistory, ...quarterBookCount({ pace, fallback, leftover: leftover.length, hasHistory }) };
 }
 
 // 期限を過ぎた目標（書いた日から 1・3・5 年）。[{ key, label, deadline }]

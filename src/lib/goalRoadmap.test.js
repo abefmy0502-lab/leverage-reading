@@ -276,3 +276,40 @@ describe('長く使ったとき（2026-11-17）', async () => {
     expect(isRoadmapStale(rec, { ...goals, y3: { text: 'B', at: goals.y3.at } })).toBe(true);
   });
 });
+
+describe('読むペース（2026-11-17）', async () => {
+  const { readingPace, quarterBookCount, leftoverBooks, historyText, quarterPlanFor } = await import('./goalRoadmap');
+  const now = new Date('2026-11-17T12:00:00');
+  const books = [
+    { id: 'a', title: 'A', status: 'done', doneDate: '2026-10-01', rating: 5 },
+    { id: 'b', title: 'B', status: 'done', doneDate: '2026-06-01' },
+    { id: 'c', title: 'C', status: 'reading', totalPages: 200 },
+  ];
+  it('前の 90 日に読み終えた本と時間', () => {
+    const p = readingPace(books, [{ started_at: '2026-11-01T10:00:00', seconds: 1800 }, { started_at: '2026-01-01T10:00:00', seconds: 9999 }], now);
+    expect(p.doneCount).toBe(1);
+    expect(p.minutes).toBe(30);
+  });
+  it('前の 3 か月より 1 冊だけ多く・読めなかったら 1 冊から・はじめては時間の分・残りは引く', () => {
+    expect(quarterBookCount({ pace: { doneCount: 2 }, fallback: 6, hasHistory: true })).toMatchObject({ count: 3, mode: 'pace' });
+    expect(quarterBookCount({ pace: { doneCount: 9 }, fallback: 6, hasHistory: true }).count).toBe(6);
+    expect(quarterBookCount({ pace: { doneCount: 0 }, fallback: 6, hasHistory: true })).toMatchObject({ count: 1, mode: 'rest' });
+    expect(quarterBookCount({ pace: { doneCount: 0 }, fallback: 4, hasHistory: false })).toMatchObject({ count: 4, mode: 'first' });
+    expect(quarterBookCount({ pace: { doneCount: 2 }, fallback: 6, hasHistory: true, leftover: 5 }).count).toBe(0);
+  });
+  it('前の区切りの残り・これまでの道のり', () => {
+    const rm = { issues: ['壁'], phases: [{ books: [{ bookId: 'c' }, { bookId: 'a' }, { title: 'X' }] }, { books: [] }] };
+    expect(leftoverBooks(rm, books, 1).map((b) => b.id)).toEqual(['c']);
+    const h = historyText({ roadmap: rm, summary: 'まとめ', goalAt: '2026-05-01' }, books);
+    expect(h).toContain('『A』★5');
+    expect(h).toContain('『B』');
+    expect(h).toContain('前の課題: 壁');
+    expect(historyText(null, books)).toBe('');
+  });
+  it('画面と AI で同じ決め方', () => {
+    const q = quarterPlanFor({ record: { goalAt: '2026-05-01T00:00:00', roadmap: { phases: [{ books: [] }, { books: [] }, { books: [] }] }, plan: { minutesPerDay: 30 } }, books, sessions: [], now });
+    expect(q.hasHistory).toBe(true);
+    expect(q.mode).toBe('pace');
+    expect(q.count).toBe(2);
+  });
+});

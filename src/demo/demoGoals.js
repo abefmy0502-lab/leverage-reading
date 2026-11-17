@@ -2,7 +2,7 @@
 //   &goals=on        … 1 年後・3 年後・5 年後の目標＋3 つをつなぐロードマップ（本棚の本で道のりと読書計画）
 //   &goals=noroadmap … 3 つの目標だけ（ロードマップはまだ＝「ロードマップをつくる」）
 //   &goals=partial   … 1 年後・3 年後だけ（5 年後がまだ＝つくれない）
-//   &goalage=N   … 作ってから N 日たった状態・&goalread=1 … ロードマップの本を読み終えた（長く使ったときの確認）
+//   &goalage=N   … 作ってから N 日たった状態・&goalread=1 … ロードマップの本を読み終えた・&goalread=old … 読み終えたのは 4 か月前（この 3 か月は読めなかった）
 //   &goals=purpose   … 目標は空・はじめに書いた目標（入れた理由）だけある（どの欄に入れるかのカード）
 //   付けなければ目標は空（行動の上は「1 年後・3 年後・5 年後の目標を書く」）。
 
@@ -81,9 +81,14 @@ export function applyGoalsDemo(db, user, params, { userId, now = new Date(), cov
   };
   roadmap.phases.forEach((p) => { p.books = p.books.filter((b) => b.bookId); });
   // &goalread=1 … ロードマップの本を全部読み終えた（読書計画の本が尽きた状態の確認用）。
+  if (params.get('goalread') === 'old') {
+    // この 3 か月は読めなかった（読み終えた日を 4 か月より前に・読書の時間も前に）。
+    db.books.forEach((b) => { if (b.status === 'done' && b.done_date) b.done_date = new Date(now.getTime() - 130 * 86400000).toISOString().slice(0, 10); });
+    (db.reading_sessions || []).forEach((r) => { r.started_at = new Date(now.getTime() - 130 * 86400000).toISOString(); });
+  }
   if (params.get('goalread')) {
     const ids = new Set(roadmap.phases.flatMap((p) => p.books.map((b) => b.bookId)));
-    db.books.forEach((b) => { if (ids.has(b.id)) { b.status = 'done'; b.done_date = b.done_date || new Date(now.getTime() - 10 * 86400000).toISOString().slice(0, 10); } });
+    db.books.forEach((b) => { if (ids.has(b.id)) { b.status = 'done'; b.done_date = new Date(now.getTime() - (params.get('goalread') === 'old' ? 120 : 10) * 86400000).toISOString().slice(0, 10); } });
   }
   db.goal_roadmaps = [{
     user_id: userId,

@@ -1913,7 +1913,7 @@ export async function generateBookBrief({ book, info }) {
 //   （goals＝{ y1, y3, y5 }・3 つとも書いてあるときだけ画面が呼ぶ）。qa＝[{ q, a }]。
 //   深掘り: { done, question, options, summary }（lib/advisorInterview.js の parseInterviewStep）/ { stop: 案内の文 } / null（失敗）。
 //   ロードマップ: { roadmap, specs } / 失敗は Error（案内は err.notice）。
-export async function runGoalInterview({ goals, qa, round }) {
+export async function runGoalInterview({ goals, qa, round, history = '' }) {
   const PROMPTS = await loadPrompts();
   const { parseInterviewStep } = await import('./advisorInterview');
   const { goalsPromptText, priorQAText, GOAL_ASK_LIMIT, INTERVIEW_MAX_TOKENS } = await import('./goalRoadmap');
@@ -1926,6 +1926,7 @@ export async function runGoalInterview({ goals, qa, round }) {
         priorQA: sanitizeForPrompt(priorQAText(qa)),
         round,
         maxRounds: GOAL_ASK_LIMIT,
+        history: clamp(sanitizeForPrompt(history || ''), 600),
       }),
       // AI 選書の聞き取りと同じ安いモデル（docs/ai-routing.md）。無料プランも使える（相談と同じ無料のトークンから）。
       { max_tokens: INTERVIEW_MAX_TOKENS, cacheSystem: true, model: MODEL_FAST, purpose: 'goal_interview' },
@@ -1939,25 +1940,29 @@ export async function runGoalInterview({ goals, qa, round }) {
 }
 
 // 区切り・読める冊数の目安・本棚（つくる・見直すで同じ）。
-async function goalRoadmapMaterial({ goals, at, books, minutesPerDay }) {
+async function goalRoadmapMaterial({ goals, at, books, minutesPerDay, nowCount = null, now = new Date() }) {
   const { phaseSpecs, phaseBookCaps, focusBookCaps, currentPhaseIndex, phasesPromptText, goalsPromptText, shelfMaterial } = await import('./goalRoadmap');
   const { ALL_GOALS_KEY } = await import('./goals');
   const specs = phaseSpecs(ALL_GOALS_KEY, at);
   // 本を選ぶのは、いまの区切り（この先 3 か月）と次の区切りの候補だけ。
-  const caps = focusBookCaps(phaseBookCaps(specs, books, { minutesPerDay }), currentPhaseIndex(ALL_GOALS_KEY, at, new Date()));
+  const here = currentPhaseIndex(ALL_GOALS_KEY, at, now);
+  const caps = focusBookCaps(phaseBookCaps(specs, books, { minutesPerDay }), here);
+  // 読むペースから決めた冊数（quarterPlanFor）があれば、いまの区切りはその数（2026-11-17）。
+  if (Number.isFinite(nowCount) && nowCount > 0 && caps[here] != null) caps[here] = nowCount;
   return { specs, caps, phasesText: phasesPromptText(specs, caps), goalsText: sanitizeForPrompt(goalsPromptText(goals)), shelf: shelfMaterial(books) };
 }
 
-export async function generateGoalRoadmap({ goals, at, qa, summary, books, minutesPerDay }) {
+export async function generateGoalRoadmap({ goals, at, qa, summary, books, minutesPerDay, nowCount = null, history = '' }) {
   const PROMPTS = await loadPrompts();
   const { priorQAText, parseRoadmap, ROADMAP_MAX_TOKENS } = await import('./goalRoadmap');
-  const { specs, caps, phasesText, goalsText, shelf } = await goalRoadmapMaterial({ goals, at, books, minutesPerDay });
+  const { specs, caps, phasesText, goalsText, shelf } = await goalRoadmapMaterial({ goals, at, books, minutesPerDay, nowCount });
   const result = await callClaude(
     PROMPTS.goalRoadmap.system,
     PROMPTS.goalRoadmap.user({
       goalsText,
       priorQA: sanitizeForPrompt(priorQAText(qa)),
       summary: clamp(sanitizeForPrompt(summary || ''), 300),
+      history: clamp(sanitizeForPrompt(history || ''), 600),
       phases: phasesText,
       shelf: sanitizeForPrompt(shelf.text),
       doneBooks: sanitizeForPrompt(shelf.doneText),
@@ -2024,12 +2029,12 @@ export async function updateGoalRoadmap({ goals, record, source, books, now = ne
 
 // 📚 この 3 か月の本を選ぶ（2026-11-17・区切りが進んで本が無くなったとき）。いまの区切りと次の区切りの本だけを選び直す。
 //   返り値: 新しい roadmap（失敗は throw）。
-export async function chooseGoalPhaseBooks({ goals, record, books, now = new Date() }) {
+export async function chooseGoalPhaseBooks({ goals, record, books, now = new Date(), nowCount = null, recentDone = [] }) {
   const PROMPTS = await loadPrompts();
   const { currentPhaseIndex, parsePhaseBooks, verifyRoadmapRecs, PHASE_BOOKS_MAX_TOKENS } = await import('./goalRoadmap');
   const { ALL_GOALS_KEY } = await import('./goals');
   const at = record.goalAt;
-  const { specs, caps, goalsText, shelf } = await goalRoadmapMaterial({ goals, at, books, minutesPerDay: record.plan?.minutesPerDay });
+  const { specs, caps, goalsText, shelf } = await goalRoadmapMaterial({ goals, at, books, minutesPerDay: record.plan?.minutesPerDay, nowCount, now });
   const here = currentPhaseIndex(ALL_GOALS_KEY, at, now);
   const rm = record.roadmap || {};
   const phaseText = (i) => (specs[i] ? `${specs[i].label}（${specs[i].range}）${rm.phases?.[i]?.focus ? `: ${rm.phases[i].focus}` : ''}${i === here ? `・本は ${caps[i] || 3} 冊まで` : ''}` : '');
@@ -2054,6 +2059,7 @@ export async function chooseGoalPhaseBooks({ goals, record, books, now = new Dat
       shelf: sanitizeForPrompt(shelf.text),
       doneBooks: sanitizeForPrompt(shelf.doneText),
       memos: sanitizeForPrompt(memos),
+      recentDone: sanitizeForPrompt((recentDone || []).slice(0, 10).map((b) => `『${clamp(String(b.title || ''), 40)}』${b.rating ? ` ★${b.rating}` : ''}`).join('、')),
     }),
     { max_tokens: PHASE_BOOKS_MAX_TOKENS, cacheSystem: true, model: MODEL_SMART, purpose: 'goal_roadmap' },
   );
@@ -2063,7 +2069,8 @@ export async function chooseGoalPhaseBooks({ goals, record, books, now = new Dat
     if (notice) err.notice = true;
     throw err;
   }
-  const next = parsePhaseBooks(isSuspiciousOutput(result) ? '' : result, shelf.keyToId, rm, here, caps, shelf.titleToId);
+  const doneIds = new Set((books || []).filter((b) => b.status === 'done').map((b) => b.id));
+  const next = parsePhaseBooks(isSuspiciousOutput(result) ? '' : result, shelf.keyToId, rm, here, caps, shelf.titleToId, doneIds);
   if (!next) throw new Error('本を選べませんでした。もう一度押してください。');
   const { verifyBookExists } = await import('./bookCover');
   const verified = await verifyRoadmapRecs(next, verifyBookExists);

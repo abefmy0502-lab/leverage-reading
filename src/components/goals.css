@@ -460,3 +460,23 @@
 }
 .goal-entry-next { display: block; margin: var(--space-1) 0 0; font-size: var(--text-meta); color: var(--text-2); line-height: 1.5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .goal-entry-chev { flex-shrink: 0; color: var(--text-3); }
+
+/* ロードマップの上の目標（畳む・いちばん近い目標だけ見せる・2026-11-17） */
+.goal-trio-fold > summary { display: block; cursor: pointer; list-style: none; border-radius: var(--radius); }
+.goal-trio-fold > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+.goal-trio-first { display: block; }
+.goal-trio-first .goal-text { display: block; font-size: var(--text-body); }
+.goal-text-clamp { display: -webkit-box !important; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.goal-trio-fold[open] .goal-text-clamp { -webkit-line-clamp: unset; }
+.goal-trio-more {
+  display: inline-flex; align-items: center; gap: var(--space-1);
+  min-height: 44px; margin-top: var(--space-1);
+  font-size: var(--text-meta); color: var(--accent);
+}
+.goal-trio-fold > .goal-trio { margin-top: var(--space-2); }
+
+/* いまの 3 か月の「前の 3 か月」（読み終えた本・読書の時間） */
+.rm-pace { margin: var(--space-4) 0 0; padding: var(--space-3) 0 0; border-top: 1px solid var(--separator); display: grid; gap: var(--space-2); }
+.rm-pace > div { display: grid; gap: var(--space-1); }
+.rm-pace dt { font-size: var(--text-meta); color: var(--text-2); line-height: 1.5; }
+.rm-pace dd { margin: 0; font-size: var(--text-body); color: var(--text); line-height: 1.6; word-break: keep-all; overflow-wrap: anywhere; }
