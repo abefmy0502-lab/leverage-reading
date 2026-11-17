@@ -53,5 +53,7 @@ export const HEALTH_SQL = {
   admin_launch_kpis: { rpc: 'admin_launch_kpis', args: { p_weeks: 1 } },
   admin_act_for: { rpc: 'admin_act_for', args: { p_user_id: null, p_action: 'probe', p_args: {} } },
   ops_posts: { table: 'ops_posts' },
+  // AI 選書の推薦用の本のデータ（supabase_advisor_books.sql・待ち行列まで入っていれば最新）
+  advisor_books: { table: 'advisor_books_queue' },
 };
 export const HEALTH_SQL_KEYS = Object.keys(HEALTH_SQL);
