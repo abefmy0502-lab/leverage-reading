@@ -567,6 +567,8 @@ async function gatherKnowledge(userId) {
         .select('*, book:books(id, title, author, rating)')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
+        // 同じ時刻のメモ（日付の無い取り込み）がページの境目で重なる・抜けないように id でも並べる。
+        .order('id', { ascending: false })
         .range(from, from + PAGE - 1);
       if (error) throw error;
       rows.push(...(data || []));

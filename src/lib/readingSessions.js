@@ -14,6 +14,7 @@
 //     控えから外す。ほかの理由で入らない行も、続けて MAX_SYNC_TRIES 回入らなければ外す（いつまでも送り続けない）。
 import { isSchemaError } from './errors';
 import { readFocusState, saveFocusState, sessionRow } from './readingTime';
+import { fetchAllRows } from './fetchAllRows';
 
 // 前の版の鍵（利用者なし）。ログインしていない・設定の無い環境の控えにも使う。
 export const LOCAL_SESSIONS_KEY = 'orime.readingSessions.v1';
@@ -185,12 +186,13 @@ export function createReadingSessionStore({ getClient = () => null, storage = de
     loadTok = tok;
     const run = (async () => {
       try {
-        const { data, error } = await client
+        // 1 回 1,000 行ずつ読む（毎日読む人は 1〜3 年で 1,000 回を超える＝黙って欠けないように・2026-11-17）。
+        const { data, error } = await fetchAllRows(() => client
           .from('reading_sessions')
           .select(SELECT)
           .eq('user_id', userId)
           .order('started_at', { ascending: false })
-          .limit(5000);
+          .order('id', { ascending: false }), { maxPages: 10 });
         if (error) throw error;
         if (currentUser !== userId) return rows(); // 読んでいる間に利用者が替わった＝捨てる
         serverRows = Array.isArray(data) ? data : [];

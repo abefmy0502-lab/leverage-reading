@@ -44,3 +44,14 @@ describe('相談の下書き', () => {
     expect(memoConsultQuestion('あ'.repeat(60)).length).toBeLessThan(80);
   });
 });
+
+describe('しばらく前の期限（2026-11-17）', () => {
+  it('60 日より前に過ぎた行動はホームに出さない', () => {
+    const now = new Date('2026-11-17T09:00:00');
+    const ago = (n) => { const d = new Date(now); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); };
+    expect(homeActionsSummary([{ text: '昔', deadline: ago(400) }], now)).toBeNull();
+    const s = homeActionsSummary([{ text: '昔', deadline: ago(400) }, { text: '先週', deadline: ago(5) }], now);
+    expect(s).toMatchObject({ count: 1 });
+    expect(s.first.text).toBe('先週');
+  });
+});

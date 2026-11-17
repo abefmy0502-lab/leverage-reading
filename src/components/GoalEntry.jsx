@@ -11,7 +11,9 @@ import { withPhraseBreaks } from './TightBubble';
 export default function GoalEntry({ onOpen }) {
   const { goals, roadmaps, loaded } = useGoals();
   if (!loaded) return null;
-  const h = GOAL_HORIZONS.find((x) => goals[x.key]?.text);
+  // いちばん近い、まだ期限の来ていない目標（全部過ぎていればいちばん近い目標・2026-11-17 長く使ったとき）。
+  const passed = new Set(overdueGoals(goals, appNow()).map((o) => o.key));
+  const h = GOAL_HORIZONS.find((x) => goals[x.key]?.text && !passed.has(x.key)) || GOAL_HORIZONS.find((x) => goals[x.key]?.text);
   if (!h) {
     return (
       <button type="button" className="goal-entry" onClick={() => onOpen?.({ view: 'goals' })}>

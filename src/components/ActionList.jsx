@@ -62,11 +62,16 @@ function daysUntil(deadline) {
   return Math.round((d - today) / 86400000);
 }
 
+// 今年の期限は「11/19」、ほかの年は「2024/11/19」（何年も前の期限が先の予定に見えないように・2026-11-17）。
 function fmtShort(deadline) {
   const d = parseDeadline(deadline);
   if (Number.isNaN(d.getTime())) return '';
-  return `${d.getMonth() + 1}/${d.getDate()}`;
+  const md = `${d.getMonth() + 1}/${d.getDate()}`;
+  return d.getFullYear() === new Date().getFullYear() ? md : `${d.getFullYear()}/${md}`;
 }
+
+// 期限を 60 日より前に過ぎた行動は「しばらく前の期限」に畳む（何年も使って積もっても、上が埋まらない）。
+export const STALE_OVERDUE_DAYS = 60;
 
 const GROUPS = [
   { key: 'overdue', label: '期限を過ぎた行動' },
@@ -75,6 +80,7 @@ const GROUPS = [
   { key: 'week', label: '今週' },
   { key: 'later', label: '来週以降' },
   { key: 'none', label: '期限なし' },
+  { key: 'stale', label: 'しばらく前の期限' },
 ];
 
 // 今日から今週の日曜までの日数（月曜はじまり＝useAllActions の「今週の予定」と同じ暦の週）。
@@ -86,6 +92,7 @@ function daysLeftInWeek() {
 function groupOf(a) {
   const n = daysUntil(a.deadline);
   if (n == null) return 'none';
+  if (n < -STALE_OVERDUE_DAYS) return 'stale';
   if (n < 0) return 'overdue';
   if (n === 0) return 'today';
   // 明日は週をまたいでも（日曜の翌日＝月曜でも）「明日」に出す。日曜に「明日まで」の行動が
@@ -765,6 +772,20 @@ export default function ActionList({ books, onOpenGoals = null, onToggleAction, 
         const phaseOf = (a) => completing.find((c) => c.key === rowKeyOf(a));
         const collapsing = items.every((a) => phaseOf(a)?.phase === 'collapse');
         const entering = items.every((a) => { const c = phaseOf(a); return c?.phase === 'restore' && c.enter; });
+        // しばらく前の期限は畳む（開けばいつでも見直せる・完了も削除もふつうどおり）。
+        if (g.key === 'stale') {
+          return (
+            <GroupSection key={g.key} collapsing={collapsing} entering={entering} aria-labelledby={`act-${g.key}`}>
+              <details>
+                <summary style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', minHeight: 'var(--tap-min)', cursor: 'pointer', listStyle: 'none' }}>
+                  <h2 id={`act-${g.key}`} style={{ ...groupTitle, margin: 0 }}>{`${g.label}（${items.length}）`}</h2>
+                  <ChevronDown className="fold-chevron" size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+                </summary>
+                <ul style={listStyle}>{items.map(renderItem)}</ul>
+              </details>
+            </GroupSection>
+          );
+        }
         return (
           <GroupSection key={g.key} collapsing={collapsing} entering={entering} aria-labelledby={`act-${g.key}`}>
             {/* 期限切れが多い（3 件以上）ときだけ、見出しの右に「期限を見直す」（責めない・見出しは 1 つ）。 */}

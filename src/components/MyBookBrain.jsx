@@ -761,16 +761,17 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       setHistoryLoaded(true);
       return;
     }
-    // 新しい順に最大 300 件（過去の相談の一覧に十分。全件だと使うほど重くなる）。
+    // 新しい順に最大 3,000 行（相談と答えで約 1,500 件・何年使っても過去の相談が黙って欠けないように・2026-11-17。
+    //   前は 300 行＝約 150 件で、古い相談が消えて件数も半分に見えていた）。1 回 1,000 行ずつ読む。
     let data = null;
     let error = null;
     try {
-      ({ data, error } = await supabase
+      ({ data, error } = await fetchAllRows(() => supabase
         .from('chat_messages')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
-        .limit(300));
+        .order('id', { ascending: false }), { maxPages: 3 }));
     } catch (e) {
       error = e;
     }
@@ -862,13 +863,14 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     let alive = true;
     (async () => {
       try {
-        const { data, error } = await supabase
+        // メモのある本（何年分でも・1 回 1,000 行ずつ・2026-11-17）。
+        const { data, error } = await fetchAllRows(() => supabase
           .from('book_memos')
           .select('book_id')
           .eq('user_id', user.id)
           .not('book_id', 'is', null)
           .order('created_at', { ascending: false })
-          .limit(1000);
+          .order('id', { ascending: false }), { maxPages: 10 });
         if (alive && !error) setMemoBookIds(new Set((data || []).map((r) => r.book_id)));
       } catch { /* 取れなければ従来どおり（本の状態で選ぶ） */ }
     })();

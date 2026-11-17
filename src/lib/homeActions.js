@@ -30,9 +30,12 @@ const byUrgency = (a, b) => (
 
 // allActions: useAllActions の allActions（{ text, deadline, done, priority, bookId, … }）。
 // 返り値: { kind: 'today' | 'tomorrow', label, count, first } | null
+// 60 日より前に期限が過ぎた行動はホームに出さない（何年も前の 1 件が毎日先頭に出続けないように・2026-11-17）。
+//   振り返り › 行動 の「しばらく前の期限」に畳んである。
+export const HOME_STALE_DAYS = 60;
 export function homeActionsSummary(allActions, now = new Date()) {
   const open = (Array.isArray(allActions) ? allActions : []).filter((a) => a && !a.done && String(a.text || '').trim());
-  const dueToday = open.filter((a) => { const n = daysUntilDeadline(a.deadline, now); return n != null && n <= 0; }).sort(byUrgency);
+  const dueToday = open.filter((a) => { const n = daysUntilDeadline(a.deadline, now); return n != null && n <= 0 && n >= -HOME_STALE_DAYS; }).sort(byUrgency);
   if (dueToday.length) {
     const overdue = dueToday.some((a) => daysUntilDeadline(a.deadline, now) < 0);
     return { kind: 'today', label: overdue ? '今日までの行動' : '今日の行動', count: dueToday.length, first: dueToday[0] };

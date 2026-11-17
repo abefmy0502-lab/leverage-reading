@@ -9,7 +9,7 @@ function memStore() {
   return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k) };
 }
 
-// supabase-js の使う形だけ（from().select().eq().order().limit() / insert().select().single()）。
+// supabase-js の使う形だけ（from().select().eq().order().order().range() / insert().select().single()）。
 function fakeClient({ selectResult, insertResult, upsertResult = { error: null } }) {
   const inserted = [];
   const upserted = [];
@@ -17,7 +17,7 @@ function fakeClient({ selectResult, insertResult, upsertResult = { error: null }
     inserted,
     upserted,
     from: () => ({
-      select: () => ({ eq: () => ({ order: () => ({ limit: async () => (typeof selectResult === 'function' ? selectResult() : selectResult) }) }) }),
+      select: () => ({ eq: () => ({ order: () => ({ order: () => ({ range: async () => (typeof selectResult === 'function' ? selectResult() : selectResult) }) }) }) }),
       upsert: async (rows, opts) => {
         const res = typeof upsertResult === 'function' ? upsertResult(rows, opts) : upsertResult;
         if (!res.error) upserted.push(...rows);
@@ -257,7 +257,7 @@ describe('入らない行・利用者の切り替え・ログアウト（2026-10
     const gate = new Promise((r) => { release = r; });
     const client = {
       from: () => ({
-        select: () => ({ eq: (k, uid) => ({ order: () => ({ limit: async () => { if (uid === 'u1') await gate; return { data: [{ ...row, id: `srv-${uid}` }], error: null }; } }) }) }),
+        select: () => ({ eq: (k, uid) => ({ order: () => ({ order: () => ({ range: async () => { if (uid === 'u1') await gate; return { data: [{ ...row, id: `srv-${uid}` }], error: null }; } }) }) }) }),
         upsert: async () => ({ error: null }),
       }),
     };
