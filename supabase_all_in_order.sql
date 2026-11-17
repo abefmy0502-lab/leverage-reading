@@ -1133,6 +1133,41 @@ ALTER TABLE public.advisor_books_state ADD COLUMN IF NOT EXISTS last_result json
 alter table public.advisor_books_state enable row level security;
 insert into public.advisor_books_state (id) values (1) on conflict (id) do nothing;
 
+-- 運営が選んで足す本（MCP の ops_books の add・2026-11-17）。書名か ISBN の一覧をここに入れ、毎晩の処理（api/_advisorBooks.js の
+--   queueStep）が楽天の書誌で確かめてから advisor_books に足す（curated=true）。見つからない本は notfound。
+alter table public.advisor_books add column if not exists curated boolean not null default false;
+
+create table if not exists public.advisor_books_queue (
+  id           bigserial primary key,
+  isbn         text check (isbn is null or isbn ~ '^97[89][0-9]{10}$'),
+  title        text not null default '' check (char_length(title) <= 300),
+  author       text not null default '' check (char_length(author) <= 200),
+  note         text not null default '' check (char_length(note) <= 60),
+  status       text not null default 'queued' check (status in ('queued', 'done', 'notfound', 'failed')),
+  attempts     integer not null default 0,
+  result_isbn  text,
+  created_at   timestamptz not null default now(),
+  processed_at timestamptz,
+  -- 同じ本を二重に入れない（ISBN、無ければ書名＋著者・MCP は on conflict (dedupe_key) do nothing で入れる）
+  dedupe_key   text generated always as (coalesce(isbn, '') || '|' || lower(title) || '|' || lower(author)) stored,
+  check (isbn is not null or char_length(title) >= 1)
+);
+-- （まとめが自動で足した: 前からある表に足りない列を足す）
+ALTER TABLE public.advisor_books_queue ADD COLUMN IF NOT EXISTS id bigserial;
+ALTER TABLE public.advisor_books_queue ADD COLUMN IF NOT EXISTS isbn text check (isbn is null or isbn ~ '^97[89][0-9]{10}$');
+ALTER TABLE public.advisor_books_queue ADD COLUMN IF NOT EXISTS title text not null default '' check (char_length(title) <= 300);
+ALTER TABLE public.advisor_books_queue ADD COLUMN IF NOT EXISTS author text not null default '' check (char_length(author) <= 200);
+ALTER TABLE public.advisor_books_queue ADD COLUMN IF NOT EXISTS note text not null default '' check (char_length(note) <= 60);
+ALTER TABLE public.advisor_books_queue ADD COLUMN IF NOT EXISTS status text not null default 'queued' check (status in ('queued', 'done', 'notfound', 'failed'));
+ALTER TABLE public.advisor_books_queue ADD COLUMN IF NOT EXISTS attempts integer not null default 0;
+ALTER TABLE public.advisor_books_queue ADD COLUMN IF NOT EXISTS result_isbn text;
+ALTER TABLE public.advisor_books_queue ADD COLUMN IF NOT EXISTS created_at timestamptz not null default now();
+ALTER TABLE public.advisor_books_queue ADD COLUMN IF NOT EXISTS processed_at timestamptz;
+ALTER TABLE public.advisor_books_queue ADD COLUMN IF NOT EXISTS dedupe_key text generated always as (coalesce(isbn, '') || '|' || lower(title) || '|' || lower(author)) stored;
+create unique index if not exists advisor_books_queue_key on public.advisor_books_queue (dedupe_key);
+create index if not exists advisor_books_queue_status_idx on public.advisor_books_queue (status, id);
+alter table public.advisor_books_queue enable row level security;
+
 -- AI 選書の候補を引く（ログインした人・紹介文は返さない）。
 --   言葉ごとに: 探す言葉に含まれる 4 点・書名 3 点・こんな悩みの人に 2 点・概要と学べること 1 点。点の合計が高い順 → 売上順。
 --   p_exclude: 除く ISBN（本棚の本）。言葉の % と _ はそのままの文字として比べる。
@@ -1168,7 +1203,7 @@ as $$
          s.summary, s.points, s.for_whom, s.reason, s.fields, s.level, s.score
   from scored s
   where s.score > 0
-  order by s.score desc, s.sales_rank asc nulls last, s.review_count desc
+  order by s.score desc, s.curated desc, s.sales_rank asc nulls last, s.review_count desc
   limit least(greatest(coalesce(p_limit, 16), 1), 40);
 $$;
 

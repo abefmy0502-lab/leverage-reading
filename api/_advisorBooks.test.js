@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { expandPlan, usableItem, rowFromRakuten, parseSummary, summaryUserText, collectStep, summarizeStep, runAdvisorBooks, PLAN_VERSION, REFRESH_DAYS } from './_advisorBooks.js';
+import { expandPlan, usableItem, rowFromRakuten, parseSummary, summaryUserText, collectStep, summarizeStep, runAdvisorBooks, PLAN_VERSION, REFRESH_DAYS, parseAddList, queueStep, QUEUE_ADD_MAX } from './_advisorBooks.js';
 
 // supabase の最小の偽物（使う形だけ）。
 function fakeDb({ state = null, books = [], noTable = false } = {}) {
@@ -140,5 +140,66 @@ describe('runAdvisorBooks', () => {
   it('ADVISOR_BOOKS=off で止める・表が無ければ静かに', async () => {
     expect(await runAdvisorBooks({ db: fakeDb(), env: { ...env, ADVISOR_BOOKS: 'off' } })).toEqual({ skipped: 'off' });
     expect(await runAdvisorBooks({ db: fakeDb({ noTable: true }), env, budgetMs: 40000 })).toEqual({ skipped: 'no_table' });
+  });
+});
+
+describe('運営が選んで足す本（ops_books の add）', () => {
+  it('ISBN（10・13 桁・ハイフン）・「書名 / 著者」・{ isbn, title, author } を読み、同じ本は 1 つに', () => {
+    const r = parseAddList(['978-4-479-79573-5', '4479795731', '『イシューからはじめよ』 / 安宅和人', { title: '考え方', author: '稲盛和夫' }, '', 12, { isbn: '9784479795735' }], '創業メンバーのすすめ');
+    expect(r.rows).toEqual([
+      { isbn: '9784479795735', title: '', author: '', note: '創業メンバーのすすめ' },
+      { isbn: null, title: 'イシューからはじめよ', author: '安宅和人', note: '創業メンバーのすすめ' },
+      { isbn: null, title: '考え方', author: '稲盛和夫', note: '創業メンバーのすすめ' },
+    ]);
+    expect(r.invalid).toBe(2);
+    expect(parseAddList(Array.from({ length: QUEUE_ADD_MAX + 50 }, (_, i) => `本${i}`)).rows).toHaveLength(QUEUE_ADD_MAX);
+  });
+
+  // 待ち行列と本の表だけの小さな偽物
+  function queueDb(queue) {
+    const t = { q: queue.map((x, i) => ({ id: i + 1, status: 'queued', attempts: 0, note: '', ...x })), books: new Map() };
+    return {
+      t,
+      from(table) {
+        const st = { filters: [], patch: null };
+        const api = {
+          select() { return api; },
+          eq(k, v) {
+            st.filters.push([k, v]);
+            if (st.patch) { for (const r of t.q) if (r[k] === v) Object.assign(r, st.patch); return Promise.resolve({ error: null }); }
+            return api;
+          },
+          order() { return api; },
+          limit(n) { return Promise.resolve({ data: t.q.filter((r) => st.filters.every(([k, v]) => r[k] === v)).slice(0, n), error: null }); },
+          update(patch) { st.patch = patch; return api; },
+          upsert(rows) { for (const r of rows) t.books.set(r.isbn, { ...(t.books.get(r.isbn) || {}), ...r }); return Promise.resolve({ error: null }); },
+        };
+        if (table !== 'advisor_books_queue' && table !== 'advisor_books') throw new Error(table);
+        return api;
+      },
+    };
+  }
+
+  it('楽天の書誌で確かめてから足す（ISBN は一致・書名は書名と著者がはっきり一致）・見つからない本は notfound', async () => {
+    const db = queueDb([{ isbn: '9784000000001' }, { title: '本7', author: '稲盛和夫' }, { title: '世の中に無い本', author: '架空太郎' }]);
+    const get = async (url) => {
+      const u = new URL(url);
+      if (u.searchParams.get('isbn')) return page([item(1)]);
+      if (u.searchParams.get('title') === '本7') return page([item(8), item(7)]);
+      return page([item(9, { title: '似ているけど違う本' })]);
+    };
+    const r = await queueStep({ db, env, now: () => 0, deadline: 1e9, rakutenGetImpl: get, pause: 0 });
+    expect(r).toEqual({ done: 3, added: 2, notfound: 1 });
+    expect(db.t.books.get('9784000000001')).toMatchObject({ curated: true, title: '本1' });
+    expect(db.t.books.get('9784000000007')).toMatchObject({ curated: true, source: 'add' });
+    expect(db.t.books.get('9784000000001')).not.toHaveProperty('sales_rank');
+    expect(db.t.q.map((x) => x.status)).toEqual(['done', 'done', 'notfound']);
+  });
+  it('混んでいたら止めて次の Cron へ（3 回で failed）', async () => {
+    const db = queueDb([{ isbn: '9784000000001', attempts: 2 }, { isbn: '9784000000002' }]);
+    const r = await queueStep({ db, env, now: () => 0, deadline: 1e9, rakutenGetImpl: async () => ({ status: 429, body: '' }), pause: 0 });
+    expect(r.done).toBe(0);
+    expect(db.t.q[0].status).toBe('failed');
+    expect(db.t.q[1].status).toBe('queued');
   });
 });

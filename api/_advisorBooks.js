@@ -21,6 +21,7 @@ import { BOOK_FIELDS } from './_bookFieldsCore.js';
 import { openRoute, ProviderError } from './_providers.js';
 import { parseRouteSpec } from './_aiRouting.js';
 import { costFromUsage } from './_aiCost.js';
+import { strongTitleMatch, authorMatches } from './_bookVerify.js';
 
 // 集め方の決まりを変えたら上げる（上げると、次の Cron から 1 回りを最初からやり直す）。
 export const PLAN_VERSION = 1;
@@ -177,6 +178,103 @@ export async function collectStep({ db, env = process.env, now = () => Date.now(
   return { pages, seen, upserted, cursor, total: steps.length, done: cursor >= steps.length };
 }
 
+// ── 運営が選んで足す本（ops_books の add・2026-11-17）─────────────────────────────
+export const QUEUE_ADD_MAX = 200;
+
+/**
+ * add に渡された本の一覧を、待ち行列の行に整える。
+ *   1 冊は ISBN（10 か 13 桁・ハイフン可）・{ isbn } ・{ title, author } ・「書名 / 著者」の文字列のどれか。
+ *   返り値: { rows: [{ isbn|null, title, author, note }], invalid: N }（同じ本は 1 つに）。
+ */
+export function parseAddList(list, note = '') {
+  const rows = [];
+  const seen = new Set();
+  let invalid = 0;
+  const n = clip(note, 60);
+  for (const raw of (Array.isArray(list) ? list : []).slice(0, QUEUE_ADD_MAX)) {
+    let isbn = '';
+    let title = '';
+    let author = '';
+    if (raw && typeof raw === 'object') {
+      isbn = toIsbn13(String(raw.isbn || ''));
+      title = clip(raw.title, 300);
+      author = clip(raw.author, 200);
+    } else if (typeof raw === 'string') {
+      const t = raw.trim();
+      const asIsbn = toIsbn13(t);
+      if (asIsbn && /^[0-9xX-\s]+$/.test(t)) isbn = asIsbn;
+      else {
+        const [a, ...b] = t.split(/\s*[/／]\s*/);
+        title = clip(a.replace(/^[『「]|[』」]$/g, ''), 300);
+        author = clip(b.join(' '), 200);
+      }
+    }
+    if (!isbn && !title) { invalid += 1; continue; }
+    const key = isbn || `${title.toLowerCase()}|${author.toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    rows.push({ isbn: isbn || null, title, author, note: n });
+  }
+  return { rows, invalid };
+}
+
+/** 待ち行列の本を楽天の書誌で確かめて、advisor_books に足す（時間の許す分だけ）。 */
+export async function queueStep({ db, env = process.env, now = () => Date.now(), deadline, rakutenGetImpl = rakutenGet, pause = PAGE_GAP_MS } = {}) {
+  const creds = rakutenCreds(env);
+  if (!creds.configured) return { skipped: 'no_rakuten_key', done: 0 };
+  const { data: items, error } = await db.from('advisor_books_queue')
+    .select('id, isbn, title, author, note, attempts')
+    .eq('status', 'queued')
+    .order('id', { ascending: true })
+    .limit(60);
+  if (error) {
+    if (/relation .* does not exist|42P01|PGRST205|Could not find the table/i.test(`${error.code || ''} ${error.message || ''}`)) return { skipped: 'no_queue_table', done: 0 };
+    throw Object.assign(new Error('queue'), { code: error.code, message: error.message });
+  }
+  let done = 0; let added = 0; let notfound = 0;
+  for (const q of items || []) {
+    if (now() >= deadline - 3000) break;
+    const params = { format: 'json', applicationId: creds.appId, accessKey: creds.accessKey, hits: q.isbn ? '3' : '10', outOfStockFlag: '1', elements: ELEMENTS };
+    if (q.isbn) params.isbn = q.isbn;
+    else {
+      params.title = q.title;
+      const first = String(q.author || '').split(/[/／、,，;；&＆]/)[0].trim();
+      if (first) params.author = first;
+    }
+    let resp = null;
+    try { resp = await rakutenGetImpl(rakutenUrl('BooksBook/Search', params), creds.referer); } catch { resp = null; }
+    const stamp = new Date(now()).toISOString();
+    if (!resp || resp.status === 429 || resp.status >= 500) {
+      const attempts = (q.attempts || 0) + 1;
+      await db.from('advisor_books_queue').update({ attempts, status: attempts >= 3 ? 'failed' : 'queued', processed_at: stamp }).eq('id', q.id);
+      if (!resp || resp.status === 429) break; // 混んでいる → 次の Cron で
+      continue;
+    }
+    let data = null;
+    try { data = JSON.parse(resp.body); } catch { data = null; }
+    const rows = rakutenItems(data).map((it, i) => rowFromRakuten(it, null, 'add'));
+    // ISBN で引いたときは ISBN が一致する本、書名で引いたときは書名（と著者）がはっきり一致する本
+    const hit = q.isbn
+      ? rows.find((r) => r.isbn === q.isbn) || null
+      : rows.find((r) => r.isbn && (strongTitleMatch(q.title, r.title) || strongTitleMatch(q.title, `${r.title} ${r.subtitle}`))
+        && (!q.author || authorMatches(q.author, [r.author]))) || null;
+    if (hit && hit.isbn) {
+      const row = { ...hit, sales_rank: undefined, curated: true, source: clip(`add${q.note ? `:${q.note}` : ''}`, 60), last_seen_at: stamp, updated_at: stamp };
+      delete row.sales_rank; // 売上の順位は、売上順の一覧で見つけたときだけ
+      const { error: upErr } = await db.from('advisor_books').upsert([row], { onConflict: 'isbn' });
+      if (upErr) throw Object.assign(new Error('upsert'), { code: upErr.code, message: upErr.message });
+      await db.from('advisor_books_queue').update({ status: 'done', result_isbn: hit.isbn, processed_at: stamp }).eq('id', q.id);
+      added += 1;
+    } else {
+      await db.from('advisor_books_queue').update({ status: 'notfound', processed_at: stamp }).eq('id', q.id);
+      notfound += 1;
+    }
+    done += 1;
+    await sleep(pause);
+  }
+  return { done, added, notfound };
+}
+
 // ── AI で整える ──────────────────────────────────────────────────────────
 export const SUMMARY_SYSTEM =
   'あなたは書店の目利きです。渡された 1 冊の本の「書誌と出版社の紹介文」だけを材料に、読書の相談相手が本をすすめるためのデータを JSON で書きます。\n' +
@@ -276,6 +374,7 @@ export async function summarizeStep({ db, env = process.env, now = () => Date.no
     const { data: rows, error } = await db.from('advisor_books')
       .select('isbn, title, subtitle, author, publisher, pub_date, description, attempts')
       .eq('status', 'pending')
+      .order('curated', { ascending: false })
       .order('sales_rank', { ascending: true, nullsFirst: false })
       .limit(take);
     if (error) throw Object.assign(new Error('select'), { code: error.code, message: error.message });
@@ -312,6 +411,12 @@ export async function runAdvisorBooks({ db, env = process.env, now = () => Date.
   const deadline = started + budgetMs;
   const collectShare = Math.max(30000, Math.floor(budgetMs * 0.4));
   const result = { at: new Date(started).toISOString() };
+  // 運営が選んで足した本を先に（数が少ない・すぐ候補に入れたい）
+  try {
+    result.queue = await queueStep({ db, env, now, deadline: Math.min(deadline, started + Math.floor(collectShare / 2)), ...deps });
+  } catch (e) {
+    result.queue = { error: String(e.code || e.message || 'error').slice(0, 80) };
+  }
   try {
     result.collect = await collectStep({ db, env, now, deadline: Math.min(deadline, started + collectShare), ...deps });
   } catch (e) {
@@ -341,5 +446,14 @@ export async function advisorBooksStats(db, { now = Date.now() } = {}) {
     count(base().eq('status', 'ready').gte('first_seen_at', weekAgo)),
   ]);
   const { data: state } = await db.from('advisor_books_state').select('*').eq('id', 1).maybeSingle();
-  return { ready, pending, thin, failed, new_this_week: newWeek, plan_steps: expandPlan().length, state: state || null };
+  // 運営が足した本の待ち行列（表が無ければ null）
+  let queue = null;
+  try {
+    const qb = () => db.from('advisor_books_queue').select('id', { count: 'exact', head: true });
+    const [queued, done, notfound, failedQ] = await Promise.all([
+      count(qb().eq('status', 'queued')), count(qb().eq('status', 'done')), count(qb().eq('status', 'notfound')), count(qb().eq('status', 'failed')),
+    ]);
+    queue = { queued, done, notfound, failed: failedQ };
+  } catch { queue = null; }
+  return { ready, pending, thin, failed, new_this_week: newWeek, plan_steps: expandPlan().length, queue, state: state || null };
 }
