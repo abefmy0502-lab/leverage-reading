@@ -73,11 +73,15 @@ function onShelf(b, shelf) {
  *   検索は 1 つずつ順に（楽天は続けて呼ぶと混む）。時間の上限を過ぎたら、集まった分だけ返す。失敗しても例外にしない。
  */
 // 推薦用の本のデータ（advisor_books）から引く。失敗・未適用は空（例外にしない）。
-export async function searchCatalog(words, { shelf = [], rpc = defaultRpc, limit = CATALOG_MAX } = {}) {
+//   level（この人の読書の慣れ 1〜3・0＝見ない）で難しさの離れた本を下げる（supabase_advisor_books_ext.sql）。
+//   その SQL の前の本番（引数 3 つの関数）では、level を外してもう一度引く。
+export async function searchCatalog(words, { shelf = [], rpc = defaultRpc, limit = CATALOG_MAX, level = 0 } = {}) {
   if (!rpc || !Array.isArray(words) || words.length === 0) return [];
   const exclude = (Array.isArray(shelf) ? shelf : []).map((b) => String(b?.isbn || '').replace(/-/g, '')).filter((x) => /^\d{13}$/.test(x)).slice(0, 500);
   try {
-    const { data, error } = await rpc('search_advisor_books', { p_terms: words, p_exclude: exclude, p_limit: limit });
+    const args = { p_terms: words, p_exclude: exclude, p_limit: limit };
+    let { data, error } = await rpc('search_advisor_books', level >= 1 && level <= 3 ? { ...args, p_level: level } : args);
+    if (error && level) ({ data, error } = await rpc('search_advisor_books', args));
     if (error || !Array.isArray(data)) return [];
     return data
       .filter((b) => b && str(b.title) && /^\d{13}$/.test(String(b.isbn || '')))
@@ -94,6 +98,11 @@ export async function searchCatalog(words, { shelf = [], rpc = defaultRpc, limit
         forWhom: (Array.isArray(b.for_whom) ? b.for_whom : []).map(str).filter(Boolean).slice(0, 3),
         reason: str(b.reason),
         level: str(b.level),
+        difficulty: Number(b.difficulty) >= 1 && Number(b.difficulty) <= 3 ? Number(b.difficulty) : 0,
+        prereq: str(b.prereq),
+        recPoints: Number.isFinite(Number(b.rec_points)) && b.rec_points !== null ? Number(b.rec_points) : null,
+        endorsers: (Array.isArray(b.endorsers) ? b.endorsers : []).map(str).filter(Boolean).slice(0, 5),
+        extSummary: str(b.ext_summary),
       }));
   } catch { return []; }
 }
@@ -102,12 +111,12 @@ function defaultRpc(name, args) {
   return supabase.rpc(name, args);
 }
 
-export async function gatherCandidates(keywords, { shelf = [], search = searchBooksOnServer, rpc = defaultRpc, budgetMs = CANDIDATES_BUDGET_MS, signal, now = () => Date.now() } = {}) {
+export async function gatherCandidates(keywords, { shelf = [], search = searchBooksOnServer, rpc = defaultRpc, budgetMs = CANDIDATES_BUDGET_MS, signal, now = () => Date.now(), level = 0 } = {}) {
   const words = cleanKeywords(keywords);
   if (words.length === 0) return [];
   const started = now();
   // まず推薦用の本のデータから（概要つき）。足りない分を書店の検索で。
-  const catalog = await searchCatalog(words, { shelf, rpc });
+  const catalog = await searchCatalog(words, { shelf, rpc, level });
   const lists = [catalog];
   for (const q of catalog.length >= CANDIDATES_MAX - 4 ? [] : words) {
     if (signal?.aborted) break;
@@ -163,8 +172,15 @@ export async function gatherCandidates(keywords, { shelf = [], search = searchBo
     summary: str(b.summary),
     forWhom: Array.isArray(b.forWhom) ? b.forWhom : [],
     reason: str(b.reason),
+    difficulty: b.difficulty || 0,
+    prereq: str(b.prereq),
+    recPoints: b.recPoints ?? null,
+    endorsers: Array.isArray(b.endorsers) ? b.endorsers : [],
+    extSummary: str(b.extSummary),
   }));
 }
+
+const DIFF_LABEL = { 1: '入門', 2: '中級', 3: '上級' };
 
 // AI に渡す候補の塊（無ければ空文字）。
 export function candidatesBlock(cands) {
@@ -176,7 +192,13 @@ export function candidatesBlock(cands) {
     // 推薦用の本のデータの本は、概要とこんな悩みの人に（短く）を添える
     const about = c.summary ? `\n　概要: ${c.summary.slice(0, 90)}` : '';
     const who = c.forWhom && c.forWhom.length ? `\n　こんな人に: ${c.forWhom.slice(0, 2).join('／').slice(0, 70)}` : '';
-    return `${c.key}『${c.title}』${sub}${meta ? `（${meta}）` : ''}${about}${who}`;
+    // 難しさ・前提知識・書評サイトの推薦（2026-11-17・supabase_advisor_books_ext.sql）
+    const diff = c.difficulty ? `\n　難しさ: ${DIFF_LABEL[c.difficulty]}${c.prereq ? `（前提: ${c.prereq.slice(0, 30)}）` : ''}` : '';
+    const rec = c.endorsers && c.endorsers.length
+      ? `\n　推薦: ${c.endorsers.slice(0, 3).join('・').slice(0, 60)}${c.endorsers.length > 3 ? ' ほか' : ''}${c.recPoints ? `（${c.recPoints}P）` : ''}`
+      : '';
+    const ext = c.extSummary ? `\n　書評サイトの要約（参考・写さない）: ${c.extSummary.replace(/\s+/g, ' ').slice(0, 160)}` : '';
+    return `${c.key}『${c.title}』${sub}${meta ? `（${meta}）` : ''}${about}${who}${diff}${rec}${ext}`;
   });
   return (
     '【本の候補（書店の書誌で確かめた、実在する本）】\n' +

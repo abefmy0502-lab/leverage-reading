@@ -30,6 +30,8 @@ import { isStrictMatch, isExactMatch } from '../lib/bookMatch';
 import { verifyBookExists, checkImageExists } from '../lib/bookCover';
 import { normalizeAdvisorRecs, resolveMixedRec, focusText, emptyReasonOf } from '../lib/advisorRecs';
 import { gatherCandidates, candidatesBlock, matchCandidate, applyCandidate, cleanKeywords } from '../lib/advisorCandidates';
+import { readerLevel, levelBlock, levelNote, loadLevelPref, saveLevelPref, LEVEL_PREFS, LEVEL_PREF_LABELS } from '../lib/readerLevel';
+import { Chip } from './formPrimitives';
 import { searchBooksFlat as searchBooksAPIFlat } from '../lib/bookSearch';
 import { STORE_DISCLOSURE_TEXT } from '../lib/rakutenLink';
 import AdvisorStoreLinks from './AdvisorStoreLinks';
@@ -184,12 +186,20 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   //   その言葉で集めている候補（{ key: 言葉をつないだ文字, promise }）。同じ言葉なら集め直さない。
   const keywordsRef = useRef([]);
   const candidatesRef = useRef(null);
+  // 📚 読書の慣れ（2026-11-17・lib/readerLevel.js）: おまかせ（本棚の読了の冊数から）か、確かめのカードで本人が選んだ難しさ。
+  //   候補を引くときに難しさの離れた本を下げ、推薦の AI にも渡す。選んだ難しさは端末に覚える。
+  const [levelPref, setLevelPref] = useState(() => loadLevelPref());
+  const levelPrefRef = useRef(levelPref);
+  levelPrefRef.current = levelPref;
+  const chooseLevel = (v) => { setLevelPref(v); saveLevelPref(v); };
+  const currentLevel = () => readerLevel(books || [], levelPrefRef.current);
   const candidatesFor = (keywords) => {
     const words = cleanKeywords(keywords);
     if (words.length === 0) return Promise.resolve([]);
-    const key = words.join('|');
+    const { level } = currentLevel();
+    const key = `${words.join('|')}#${level}`;
     if (candidatesRef.current?.key === key) return candidatesRef.current.promise;
-    const promise = gatherCandidates(words, { shelf: books || [] }).catch(() => []);
+    const promise = gatherCandidates(words, { shelf: books || [], level }).catch(() => []);
     candidatesRef.current = { key, promise };
     return promise;
   };
@@ -777,6 +787,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     // 待つのは 6 秒まで（先に集め始めていれば、ほとんど待たない・間に合わなければ候補なしで選ぶ）。
     try { cands = await Promise.race([candsPromise, new Promise((r) => { setTimeout(() => r([]), 6000); })]); } catch { cands = []; }
     const candText = candidatesBlock(cands);
+    const lvText = levelBlock(currentLevel());
 
     // 🕐 無通信ウォッチドッグ: SSE がストール（モバイル回線切替等）しても
     // 「選んでいます…」で無期限に固まらないよう、チャンク間 45 秒無通信で中断する。
@@ -802,7 +813,9 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       // 永続化するのは newHistory のみ（readerContext は毎回その場で注入し直す）。
       // 💴 読書傾向の塊に 5 分の印（2026-10-22）: 「追加」「もう一度」の続きの回で 0.1 倍で読む（Sonnet の最小 1,024 は指示文で超える）。
       // 本の候補は、この回の相談のすぐ後ろに足す（会話の記録には残さない＝次の回は、その回の候補を集め直す）。
-      const lastTurn = candText ? [...newHistory.slice(0, -1), { role: 'user', content: `${safeMsg}\n\n${candText}` }] : newHistory;
+      // 読書の慣れ（1 行）も、この回の相談のすぐ後ろに（会話の記録には残さない）。
+      const extra = [lvText, candText].filter(Boolean).join('\n\n');
+      const lastTurn = extra ? [...newHistory.slice(0, -1), { role: 'user', content: `${safeMsg}\n\n${extra}` }] : newHistory;
       const sendMessages = readerContext
         ? [{ role: 'user', content: [{ type: 'text', text: readerContext, cache_control: { type: 'ephemeral' } }] }, ...lastTurn]
         : lastTurn;
@@ -1859,6 +1872,24 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
             <p style={{ ...questionText, fontWeight: 400, margin: 'var(--space-2) 0 0', wordBreak: 'normal', lineBreak: 'strict', textWrap: 'pretty' }}>{text}</p>
             {/* 命に関わる言葉があるときは、まとめのすぐ後に相談窓口（15/--text・外部リンク 44）。 */}
             {showCare && careNote}
+            {/* 読む本の難しさ（2026-11-17・lib/readerLevel.js）: おまかせ＝読了の冊数から。選んだら端末に覚える。
+                見出しは設問の格（15/600・カードの題 12 と分ける）→ 8 → 選ぶためのチップ（Chip size="select"・44）を等分
+                （文字が大きいときは 2 つずつ 2 段＝rootTextLarge）→ 8 → 13/--text-2 の案内（チップと同じ言葉）→ 16。 */}
+            {asking && !correcting && (
+              <div style={{ marginTop: 'var(--space-4)' }}>
+                <p id="advisor-level-label" style={{ margin: 0, fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)' }}>読む本の難しさ</p>
+                <div role="radiogroup" aria-labelledby="advisor-level-label" style={{ display: 'grid', gridTemplateColumns: rootTextLarge() ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
+                  {LEVEL_PREFS.map((v) => (
+                    <Chip key={v} size="select" stretch role="radio" aria-checked={levelPref === v} active={levelPref === v} onClick={() => chooseLevel(v)}>
+                      {LEVEL_PREF_LABELS[v]}
+                    </Chip>
+                  ))}
+                </div>
+                <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+                  {withPhraseBreaks(levelNote(readerLevel(books || [], levelPref)))}
+                </p>
+              </div>
+            )}
             {asking && !correcting && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginTop: 'var(--space-4)' }}>
                 {/* 危機の言葉があるときは「合っている」を塗りの主ボタンにしない（本を急がせない） */}
