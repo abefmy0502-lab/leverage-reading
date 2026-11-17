@@ -481,7 +481,7 @@
 .goal-trio-fold > .goal-trio { margin-top: var(--space-2); }
 
 /* いまの 3 か月の「前の 3 か月」（読み終えた本・読書の時間） */
-.rm-pace { margin: var(--space-4) 0 0; padding: var(--space-3) 0 0; border-top: 1px solid var(--separator); display: grid; gap: var(--space-2); }
+.rm-pace { margin: var(--space-4) 0 0; padding: var(--space-3) 0 0; border-top: 1px solid var(--separator); display: grid; gap: var(--space-3); }
 .rm-pace > div { display: grid; gap: var(--space-1); }
 .rm-pace dt { font-size: var(--text-meta); color: var(--text-2); line-height: 1.5; }
 .rm-pace dd { margin: 0; font-size: var(--text-sub); color: var(--text); line-height: 1.6; word-break: keep-all; overflow-wrap: anywhere; }
@@ -490,3 +490,5 @@
 .rm-overdue-title { margin: 0; font-size: var(--text-body); font-weight: 600; color: var(--text); line-height: 1.5; word-break: keep-all; overflow-wrap: anywhere; }
 /* いまの 3 か月・期限の枠の中の説明（主ボタンが何をするか＝補足説明 15） */
 .rm-now-note { margin: var(--space-3) 0 0; font-size: var(--text-sub); color: var(--text-2); line-height: 1.6; word-break: keep-all; overflow-wrap: anywhere; }
+/* 枠のいちばん下の文字ボタンは、押せる高さはそのままで、見た目の下の余白を内側 16 にそろえる */
+.goal-box > .rm-link:last-child { margin-bottom: calc((var(--tap-min) - 1.5em) / -2); }

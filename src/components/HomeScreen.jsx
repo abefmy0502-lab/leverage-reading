@@ -271,16 +271,17 @@ function useGoalNudge(enabled, uid) {
 
 function HomeGoalRow({ onOpen, onClose }) {
   return (
-    <div data-home-goal="" style={{ ...card, padding: 0, display: 'flex', alignItems: 'stretch', overflow: 'hidden' }}>
-      <button type="button" onClick={onOpen} aria-label="目標を書く。1 年後・3 年後・5 年後の目標から、読む本を決めます" style={{ ...navRow, flex: 1, minWidth: 0, paddingRight: 0 }}>
+    <div data-home-goal="" style={{ ...card, padding: 0, position: 'relative', overflow: 'hidden' }}>
+      {/* × は右上の 44 に重ねる（› はほかの枠の行と同じ右の列に・2026-11-17 ui-critic）。 */}
+      <button type="button" onClick={onOpen} aria-label="目標を書く。1 年後・3 年後・5 年後の目標から、読む本を決めます" style={navRow}>
         <Compass size="1.2em" aria-hidden="true" style={{ color: 'var(--accent)', flexShrink: 0 }} />
         <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-          <span style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('目標を書く')}</span>
+          <span style={{ paddingRight: 'var(--tap-min)', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('目標を書く')}</span>
           <span style={{ marginTop: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('1 年後・3 年後・5 年後の目標から、読む本を決めます')}</span>
         </span>
         <ChevronRight size="1.2em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
       </button>
-      <button type="button" onClick={onClose} aria-label="目標の案内を閉じる" style={{ width: 'var(--tap-min)', minHeight: 'var(--tap-min)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)' }}>
+      <button type="button" onClick={onClose} aria-label="目標の案内を閉じる" style={{ position: 'absolute', top: 0, right: 0, width: 'var(--tap-min)', height: 'var(--tap-min)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)' }}>
         <X size="1.1em" aria-hidden="true" />
       </button>
     </div>

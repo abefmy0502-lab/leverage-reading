@@ -149,6 +149,18 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
               onPlan={() => setView('plan')}
               onRebuild={startInterview}
               onEditGoals={() => setView('goals')}
+              onExtend={async (keys) => {
+                let r = null;
+                for (const k of keys) {
+                  // eslint-disable-next-line no-await-in-loop
+                  r = await saveGoal(k, goals[k]?.text || '');
+                  if (!r) break;
+                }
+                if (!r) { toast.error?.('目標を保存できませんでした。通信状況を確認して、もう一度押してください。'); return; }
+                toast.success?.('期限を延ばしました。新しい目標に合わせるときは「新しい目標でつくり直す」から。');
+                track('goal_extended', { horizon: keys.join('+') });
+                setView('goals');
+              }}
               onChooseBooks={async ({ count, recentDone } = {}) => {
                 if (!(await ensureAiConsent('goal_roadmap'))) return false;
                 const next = await chooseGoalPhaseBooks({ goals, record, books, now: appNow(), nowCount: count, recentDone });
@@ -630,7 +642,7 @@ function Building({ building }) {
 // ---------------------------------------------------------------------------
 // ロードマップ
 // ---------------------------------------------------------------------------
-function RoadmapView({ goal, record, books, sessions = [], onOpenBook, onAddActionText, onFindBooks, onPlan, onRebuild, onUndoUpdate, onEditGoals, onSaveRoadmap, onAddRec, onChooseBooks }) {
+function RoadmapView({ goal, record, books, sessions = [], onOpenBook, onAddActionText, onFindBooks, onPlan, onRebuild, onUndoUpdate, onEditGoals, onSaveRoadmap, onAddRec, onChooseBooks, onExtend }) {
   // この 3 か月の本を選ぶ（区切りが進んで本が無くなったとき・2026-11-17）。
   const [choosing, setChoosing] = useState(false);
   const [chooseError, setChooseError] = useState(null);
@@ -672,14 +684,29 @@ function RoadmapView({ goal, record, books, sessions = [], onOpenBook, onAddActi
   // 縦に積む文字ボタン（行の中に並べると行の高さで間が広がるので、1 つずつ 1 行に）。
   const linkStyle = { ...btnLink, display: 'flex', width: 'fit-content', marginTop: 'var(--space-2)', marginLeft: 'calc(-1 * var(--space-1))' };
   const primaryStyle = { ...btnPrimary, marginTop: 'var(--space-4)' };
-  const chooseBtn = (primary, count, label) => (
-    <button type="button" disabled={choosing} aria-busy={choosing || undefined} style={primary && !quiet ? { ...(choosing ? btnPrimaryOff : btnPrimary), marginTop: 'var(--space-4)' } : primary ? linkStyle : quiet ? { ...linkStyle, color: btnLinkQuiet.color } : linkStyle} onClick={() => choose(count)}>
-      {choosing ? '本を選んでいます…' : `${chooseError ? 'もう一度選ぶ' : label}（${PHASE_BOOKS_TOKENS_LABEL}）`}
-    </button>
-  );
-  const planBtn = (primary) => (
-    <button type="button" disabled={choosing} style={primary && !quiet ? primaryStyle : primary || !quiet ? linkStyle : { ...linkStyle, color: btnLinkQuiet.color }} onClick={onPlan}>読書計画をカレンダーにする</button>
-  );
+  // 文字ボタンが 2 つ続くときの 2 つめは上の間を 0 に（押せる高さ 44 どうしが接して、見た目の間は文と同じくらい）。
+  const second = { marginTop: 0 };
+  const quietColor = { color: btnLinkQuiet.color };
+  const isLink = (primary) => !primary || quiet;
+  const chooseBtn = (primary, count, label, extra = null) => {
+    const link = isLink(primary);
+    // 選んでいる途中の文字ボタンは、押せないまま読める色で（薄くしない・2026-11-17 ui-critic）。
+    const style = !link
+      ? { ...(choosing ? btnPrimaryOff : btnPrimary), marginTop: 'var(--space-4)' }
+      : choosing ? { ...linkStyle, color: 'var(--text-2)', opacity: 1, cursor: 'default', ...extra }
+      : { ...linkStyle, ...(quiet && !primary ? quietColor : null), ...extra };
+    return (
+      <button type="button" className={link ? 'rm-link' : undefined} disabled={choosing} aria-busy={choosing || undefined} aria-live="polite" style={style} onClick={() => choose(count)}>
+        {choosing ? '本を選んでいます…' : `${chooseError ? 'もう一度選ぶ' : label}（${PHASE_BOOKS_TOKENS_LABEL}）`}
+      </button>
+    );
+  };
+  const planBtn = (primary, extra = null) => {
+    const link = isLink(primary);
+    return (
+      <button type="button" className={link ? 'rm-link' : undefined} disabled={choosing} style={!link ? primaryStyle : { ...linkStyle, ...(quiet && !primary ? quietColor : null), ...extra }} onClick={onPlan}>読書計画をカレンダーにする</button>
+    );
+  };
   // 次の 3 か月の決め方を 1 文で（数は「選ぶ冊数」の説明だけ・遅れ・%・あと N 冊は出さない）。
   const leftN = quarter.leftover.length;
   const paceLine = leftN > 0 && quarter.count === 0
@@ -707,6 +734,9 @@ function RoadmapView({ goal, record, books, sessions = [], onOpenBook, onAddActi
           <h3 id="rm-overdue" className="rm-overdue-title">{withPhraseBreaks(`${overdue.map((o) => o.label).join('・')}の目標の期限が過ぎました`)}</h3>
           <p className="rm-now-note">{withPhraseBreaks('書き直すか、この目標で続けるかを選べます。')}</p>
           {onEditGoals && <button type="button" style={{ ...btnPrimary, marginTop: 'var(--space-3)' }} onClick={onEditGoals}>目標を書き直す</button>}
+          {onExtend && (
+            <button type="button" className="rm-link" style={{ ...linkStyle, ...quietColor }} onClick={() => onExtend(overdue.map((o) => o.key))}>この目標で続ける</button>
+          )}
         </section>
       )}
 
@@ -738,13 +768,13 @@ function RoadmapView({ goal, record, books, sessions = [], onOpenBook, onAddActi
             {quarter.count === 0 ? (
               <>
                 {planBtn(true)}
-                {chooseBtn(false, 1, 'それでも新しい本を選ぶ')}
+                {chooseBtn(false, 1, 'それでも新しい本を選ぶ', isLink(true) ? second : null)}
               </>
             ) : (
               <>
                 {chooseBtn(true, quarter.count, 'この 3 か月の本を選ぶ')}
-                {planBooks ? (choosing ? null : planBtn(false)) : hasUnread && (
-                  <button type="button" disabled={choosing} style={quiet ? { ...linkStyle, color: btnLinkQuiet.color } : linkStyle} onClick={onPlan}>本棚の本から選んで読書計画にする</button>
+                {planBooks ? (choosing ? null : planBtn(false, isLink(true) ? second : null)) : hasUnread && (
+                  <button type="button" className="rm-link" disabled={choosing} style={{ ...linkStyle, ...(quiet ? quietColor : null), ...(isLink(true) ? second : null) }} onClick={onPlan}>本棚の本から選んで読書計画にする</button>
                 )}
               </>
             )}
@@ -764,7 +794,7 @@ function RoadmapView({ goal, record, books, sessions = [], onOpenBook, onAddActi
               </>
             )}
             {hasUnread && (
-              <button type="button" style={linkStyle} onClick={onPlan}>本棚の本から選んで読書計画にする</button>
+              <button type="button" className="rm-link" style={linkStyle} onClick={onPlan}>本棚の本から選んで読書計画にする</button>
             )}
           </>
         )}
