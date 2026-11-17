@@ -696,7 +696,7 @@ function RoadmapView({ goal, record, books, sessions = [], onOpenBook, onAddActi
       : choosing ? { ...linkStyle, color: 'var(--text-2)', opacity: 1, cursor: 'default', ...extra }
       : { ...linkStyle, ...(quiet && !primary ? quietColor : null), ...extra };
     return (
-      <button type="button" className={link ? 'rm-link' : undefined} disabled={choosing} aria-busy={choosing || undefined} aria-live="polite" style={style} onClick={() => choose(count)}>
+      <button type="button" className={link ? 'rm-link' : undefined} disabled={choosing} aria-busy={choosing || undefined} style={style} onClick={() => choose(count)}>
         {choosing ? '本を選んでいます…' : `${chooseError ? 'もう一度選ぶ' : label}（${PHASE_BOOKS_TOKENS_LABEL}）`}
       </button>
     );
@@ -764,7 +764,8 @@ function RoadmapView({ goal, record, books, sessions = [], onOpenBook, onAddActi
               </dl>
             )}
             <p className="rm-now-note">{withPhraseBreaks(paceLine)}</p>
-            {chooseError && <p className="rm-now-note" role="alert" style={{ color: 'var(--error)' }}>{chooseError}</p>}
+            {chooseError && <p className="rm-now-note" role="alert" style={{ color: 'var(--error)' }}>{withPhraseBreaks(chooseError)}</p>}
+            <p role="status" className="sr-only" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }}>{choosing ? '本を選んでいます' : ''}</p>
             {quarter.count === 0 ? (
               <>
                 {planBtn(true)}
