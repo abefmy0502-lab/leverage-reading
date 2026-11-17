@@ -226,12 +226,16 @@ export function matchCandidate(rec, cands) {
 export function applyCandidate(rec, cand) {
   if (!cand) return rec;
   const { key: _key, ...rest } = rec || {};
+  // AI が書いた書名は _aiTitle に残す（読む順番などの本文は AI の書き方のまま＝書誌の書名に置き換えると
+  //   同じ本と判定できずに行が消えていた・2026-11-17 オーナー「読む順番のおすすめが一部しか出ない」）。
+  const aiTitle = String(rest.title || '').trim();
   return {
     ...rest,
     title: cand.title,
     author: cand.author || rest.author || '',
     isbn: cand.isbn || '',
     cover: cand.cover || '',
+    ...(aiTitle && aiTitle !== cand.title ? { _aiTitle: aiTitle } : {}),
     _verify: 'ok',
     _cand: true,
   };
