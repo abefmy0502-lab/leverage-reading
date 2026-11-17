@@ -2065,13 +2065,13 @@ export async function chooseGoalPhaseBooks({ goals, record, books, now = new Dat
   );
   if (typeof result !== 'string' || isClaudeErrorString(result)) {
     const notice = isAiNoticeString(result);
-    const err = new Error(notice ? result : '本を選べませんでした。少し時間をおいてから、もう一度押してください。');
+    const err = new Error(notice ? result : 'AI につながらず、本を選べませんでした。トークンは使っていません。もう一度押してください。');
     if (notice) err.notice = true;
     throw err;
   }
   const doneIds = new Set((books || []).filter((b) => b.status === 'done').map((b) => b.id));
   const next = parsePhaseBooks(isSuspiciousOutput(result) ? '' : result, shelf.keyToId, rm, here, caps, shelf.titleToId, doneIds);
-  if (!next) throw new Error('本を選べませんでした。もう一度押してください。');
+  if (!next) throw new Error('AI の答えを読み取れず、本を選べませんでした。もう一度押してください。');
   const { verifyBookExists } = await import('./bookCover');
   const verified = await verifyRoadmapRecs(next, verifyBookExists);
   if (!phaseHasBooks(verified.phases?.[here])) throw new Error('この 3 か月に合う本を、確かめられませんでした。もう一度押してください。');

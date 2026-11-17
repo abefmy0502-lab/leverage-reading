@@ -315,7 +315,7 @@ function GoalsView({ goals, roadmaps, purpose, loaded, onEdit, onCarry, onInterv
         ) : anyRoadmap ? (
           <>
             {needs.length > 0 && <p className="goal-peek" style={{ marginTop: 0 }}>{withPhraseBreaks(`必要なこと：${needs.join('・')}`)}</p>}
-            <button type="button" style={btnPrimary} onClick={onRoadmap}>ロードマップを見る</button>
+            <button type="button" style={{ ...btnPrimary, marginTop: needs.length > 0 ? 'var(--space-3)' : 0 }} onClick={onRoadmap}>ロードマップを見る</button>
           </>
         ) : allSet ? (
           <>
@@ -672,8 +672,8 @@ function RoadmapView({ goal, record, books, sessions = [], onOpenBook, onAddActi
   const linkStyle = { ...btnLink, marginTop: 'var(--space-2)', marginLeft: 'calc(-1 * var(--space-1))' };
   const primaryStyle = { ...btnPrimary, marginTop: 'var(--space-4)' };
   const chooseBtn = (primary, count, label) => (
-    <button type="button" disabled={choosing} aria-busy={choosing || undefined} style={primary && !quiet ? { ...(choosing ? btnPrimaryOff : btnPrimary), marginTop: 'var(--space-4)' } : linkStyle} onClick={() => choose(count)}>
-      {choosing ? '本を選んでいます…' : `${label}（${PHASE_BOOKS_TOKENS_LABEL}）`}
+    <button type="button" disabled={choosing} aria-busy={choosing || undefined} style={primary && !quiet ? { ...(choosing ? btnPrimaryOff : btnPrimary), marginTop: 'var(--space-4)' } : quiet ? { ...linkStyle, ...btnLinkQuiet, marginTop: 'var(--space-2)', marginLeft: 'calc(-1 * var(--space-1))' } : linkStyle} onClick={() => choose(count)}>
+      {choosing ? '本を選んでいます…' : `${chooseError ? 'もう一度選ぶ' : label}（${PHASE_BOOKS_TOKENS_LABEL}）`}
     </button>
   );
   const planBtn = (primary) => (
@@ -703,7 +703,7 @@ function RoadmapView({ goal, record, books, sessions = [], onOpenBook, onAddActi
 
       {overdue.length > 0 && !stale && (
         <section className="goal-box rm-overdue" aria-labelledby="rm-overdue">
-          <p id="rm-overdue" className="goal-sec-title" style={{ margin: 0 }}>{`${overdue.map((o) => o.label).join('・')}の目標の期限が過ぎました`}</p>
+          <h3 id="rm-overdue" className="rm-overdue-title">{withPhraseBreaks(`${overdue.map((o) => o.label).join('・')}の目標の期限が過ぎました`)}</h3>
           <p className="plan-summary">{withPhraseBreaks('目標の画面で、書き直すか、同じ目標で続けるかを選べます。そこから新しい道のりをつくれます。')}</p>
           {onEditGoals && <button type="button" style={{ ...btnPrimary, marginTop: 'var(--space-3)' }} onClick={onEditGoals}>目標を書き直す</button>}
         </section>
@@ -742,8 +742,8 @@ function RoadmapView({ goal, record, books, sessions = [], onOpenBook, onAddActi
             ) : (
               <>
                 {chooseBtn(true, quarter.count, 'この 3 か月の本を選ぶ')}
-                {planBooks ? planBtn(false) : hasUnread && (
-                  <button type="button" style={linkStyle} onClick={onPlan}>本棚の本から選んで読書計画にする</button>
+                {planBooks ? (choosing ? null : planBtn(false)) : hasUnread && (
+                  <button type="button" disabled={choosing} style={linkStyle} onClick={onPlan}>本棚の本から選んで読書計画にする</button>
                 )}
               </>
             )}

@@ -213,11 +213,12 @@
   border: 1px solid var(--separator);
   border-radius: var(--radius);
 }
-.rm-list > li { padding: var(--space-3) var(--space-4); }
-.rm-list > li + li { border-top: 1px solid var(--separator); }
+.rm-list > li { position: relative; padding: var(--space-3) var(--space-4); }
+/* 区切り線は文字の頭から（ホームの行と同じ・2026-11-17 ui-critic） */
+.rm-list > li + li::before { content: ''; position: absolute; top: 0; left: var(--space-4); right: 0; border-top: 1px solid var(--separator); }
 .rm-need-name { margin: 0; font-size: var(--text-body); font-weight: 600; line-height: 1.5; word-break: keep-all; overflow-wrap: anywhere; }
 .rm-need-why { margin: var(--space-1) 0 0; font-size: var(--text-sub); color: var(--text-2); line-height: 1.6; word-break: keep-all; overflow-wrap: anywhere; }
-.rm-issue { margin: 0; font-size: var(--text-body); line-height: 1.7; word-break: keep-all; overflow-wrap: anywhere; }
+.rm-issue { margin: 0; font-size: var(--text-body); line-height: 1.6; word-break: keep-all; overflow-wrap: anywhere; }
 
 .rm-phase-focus { margin: var(--space-2) 0 0; font-size: var(--text-body); font-weight: 600; line-height: 1.5; word-break: keep-all; overflow-wrap: anywhere; }
 .rm-here { font-size: var(--text-caption); font-weight: 600; color: var(--text); }
@@ -470,8 +471,8 @@
 .goal-trio-fold[open] .goal-text-clamp { -webkit-line-clamp: unset; }
 .goal-trio-more {
   display: inline-flex; align-items: center; gap: var(--space-1);
-  min-height: 44px; margin-top: var(--space-1);
-  font-size: var(--text-meta); color: var(--accent);
+  min-height: var(--tap-min); margin-top: var(--space-1);
+  font-size: var(--text-sub); font-weight: 600; color: var(--accent);
 }
 .goal-trio-fold > .goal-trio { margin-top: var(--space-2); }
 
@@ -479,4 +480,7 @@
 .rm-pace { margin: var(--space-4) 0 0; padding: var(--space-3) 0 0; border-top: 1px solid var(--separator); display: grid; gap: var(--space-2); }
 .rm-pace > div { display: grid; gap: var(--space-1); }
 .rm-pace dt { font-size: var(--text-meta); color: var(--text-2); line-height: 1.5; }
-.rm-pace dd { margin: 0; font-size: var(--text-body); color: var(--text); line-height: 1.6; word-break: keep-all; overflow-wrap: anywhere; }
+.rm-pace dd { margin: 0; font-size: var(--text-sub); color: var(--text-2); line-height: 1.6; word-break: keep-all; overflow-wrap: anywhere; }
+
+/* 期限が過ぎた目標の枠の題（閉じられる案内カードの題と同じ 17/600） */
+.rm-overdue-title { margin: 0; font-size: var(--text-body); font-weight: 600; color: var(--text); line-height: 1.5; word-break: keep-all; overflow-wrap: anywhere; }
