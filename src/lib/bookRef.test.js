@@ -8,6 +8,8 @@ describe('読書準備に使う書評の参考', () => {
   beforeEach(() => clearBookRefCache());
   it('書名から検索の言葉（副題の前まで・20 字まで）', () => {
     expect(refTerm('イシューからはじめよ ― 知的生産の「シンプルな本質」')).toBe('イシューからはじめよ');
+    expect(refTerm('確率思考の戦略論 どうすれば売上は増えるのか')).toBe('確率思考の戦略論');
+    expect(refTerm('THE MODEL 新版')).toBe('THE MODEL 新版');
     expect(refTerm('あ')).toBe('');
   });
   it('ISBN が合う本だけ・ISBN が無ければ書名がほぼ同じ本', () => {

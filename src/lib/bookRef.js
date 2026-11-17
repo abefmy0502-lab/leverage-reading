@@ -17,7 +17,10 @@ const isbn13 = (v) => {
 
 /** 書名から検索の言葉（2〜20 字・副題や括弧の前まで）。 */
 export function refTerm(title) {
-  const t = String(title || '').split(/[（(：:―—\-〜~]/)[0].replace(/\s+/g, ' ').trim();
+  let t = String(title || '').split(/[（(：:―—\-〜~「『]/)[0].replace(/\s+/g, ' ').trim();
+  // 空白の後ろは副題のことが多い（「確率思考の戦略論 どうすれば売上は増えるのか」）。前が 4 字以上なら前だけで探す。
+  const head = t.split(' ')[0];
+  if (head.length >= 4) t = head;
   return t.length >= 2 ? t.slice(0, 20) : '';
 }
 
