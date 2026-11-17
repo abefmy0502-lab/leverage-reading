@@ -21,11 +21,11 @@ describe('読書の慣れ', () => {
   it('画面の案内はチップと同じ言葉・読了 0 冊ははじめての方向け', () => {
     expect(levelNote({ level: 2, done: 7, chosen: false })).toBe('読了 7 冊から「ふつう」の本を中心に探します');
     expect(levelNote({ level: 1, done: 0, chosen: false })).toBe('はじめての方向けに、やさしめの本を中心に探します');
-    expect(levelNote({ level: 3, done: 0, chosen: true })).toBe('「歯ごたえ」の本を中心に探します');
+    expect(levelNote({ level: 3, done: 0, chosen: true })).toBe('「難しめ」の本を中心に探します');
   });
   it('AI に渡す 1 段', () => {
     expect(levelBlock({ level: 1, done: 2, chosen: false })).toContain('入門（本棚の読了 2 冊から見立てた）');
-    expect(levelBlock({ level: 3, done: 2, chosen: true })).toContain('「歯ごたえ」');
+    expect(levelBlock({ level: 3, done: 2, chosen: true })).toContain('「難しめ」');
   });
 });
 

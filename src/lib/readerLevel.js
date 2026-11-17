@@ -1,12 +1,12 @@
 // 📚 その人の読書の慣れ（AI 選書で難しすぎる本をすすめないため・2026-11-17 オーナー「読書初心者に難しい本を進めても微妙」）。
-//   自動＝本棚の読了の冊数から決める。本人が AI 選書で「やさしめ／ふつう／歯ごたえ」を選んだら、そちらを使う（端末に覚える）。
+//   自動＝本棚の読了の冊数から決める。本人が AI 選書で「やさしめ／ふつう／難しめ」を選んだら、そちらを使う（端末に覚える）。
 //   難しさの段階は推薦用の本のデータ（advisor_books.difficulty）と同じ 1 入門・2 中級・3 上級。
 
 export const LEVEL_PREFS = ['auto', 'easy', 'normal', 'hard'];
-export const LEVEL_PREF_LABELS = { auto: 'おまかせ', easy: 'やさしめ', normal: 'ふつう', hard: '歯ごたえ' };
+export const LEVEL_PREF_LABELS = { auto: 'おまかせ', easy: 'やさしめ', normal: 'ふつう', hard: '難しめ' };
 export const DIFFICULTY_LABELS = { 1: '入門', 2: '中級', 3: '上級' };
 // 画面の言葉（チップと同じ物差し・2026-11-17 ui-critic「チップはやさしめ、案内は入門で結びつかない」）
-export const LEVEL_WORDS = { 1: 'やさしめ', 2: 'ふつう', 3: '歯ごたえ' };
+export const LEVEL_WORDS = { 1: 'やさしめ', 2: 'ふつう', 3: '難しめ' };
 
 /** 確かめのカードの案内の 1 行。 */
 export function levelNote({ level, done, chosen }) {
