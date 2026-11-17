@@ -15,6 +15,7 @@ import { parseAskSection, wantsAction, isBookLookup, shouldDecide, wantsMoreAsk,
 import { checkAiConsentForSend, AI_CONSENT_HEADER, AI_CONSENT_DECLINED_TEXT } from './aiConsent';
 import { askJev, jevClientOn } from './jev';
 import { bookInfoForPrompt } from './bookInfo';
+import { loadBookRef, refForPrompt } from './bookRef';
 import { hasBriefMaterial, finalizeBrief, BRIEF_MAX_TOKENS, BRIEF_NO_MATERIAL_TEXT } from './bookBrief';
 import { unreadBooksBlock } from './unreadBooks';
 import { earlyShelfBlock, prefetchEarlyShelf, isEarlyStage } from './earlyShelf';
@@ -1916,6 +1917,8 @@ export async function generateBookBrief({ book, info }) {
   if (!hasBriefMaterial(info)) throw new Error(BRIEF_NO_MATERIAL_TEXT);
   const { about, aboutSource, toc } = bookInfoForPrompt(info);
   const cleanToc = toc.map((l) => sanitizeForPrompt(l)).filter(Boolean);
+  // 📚 書評の参考（難しさ・前提知識・書評サイトの要約・lib/bookRef.js・2026-11-17）。無ければ今までどおり。
+  const ref = sanitizeForPrompt(refForPrompt(await loadBookRef(book).catch(() => null)));
   const result = await callClaude(
     PROMPTS.bookBrief.system,
     PROMPTS.bookBrief.user({
@@ -1925,6 +1928,7 @@ export async function generateBookBrief({ book, info }) {
       about: sanitizeForPrompt(about),
       aboutSource,
       toc: cleanToc,
+      ref,
     }),
     // purpose 'book_brief': 読書計画シートと同じ安いモデルへ（docs/ai-routing.md・失敗したら Claude）。無料プランも使える。
     { max_tokens: BRIEF_MAX_TOKENS, cacheSystem: true, model: MODEL_FAST, purpose: 'book_brief' },
@@ -1935,7 +1939,7 @@ export async function generateBookBrief({ book, info }) {
     if (isAiNoticeString(result)) err.notice = true;
     throw err;
   }
-  const text = finalizeBrief(isSuspiciousOutput(result) ? '' : result, { toc: cleanToc, title: book?.title || '', about: sanitizeForPrompt(about) });
+  const text = finalizeBrief(isSuspiciousOutput(result) ? '' : result, { toc: cleanToc, title: book?.title || '', about: [sanitizeForPrompt(about), ref].filter(Boolean).join('\n') });
   if (!text) throw new Error('紹介と目次から、うまくまとめられませんでした。');
   track('ai_used', { feature: 'book_brief' });
   return text;
