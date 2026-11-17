@@ -559,6 +559,14 @@ export default function ReadingRecord({
   // 「メモ」＝カード式＋学び（book_memos の全件）＋「この本のまとめ」の入っている本（1 冊 1 件）。
   const summaryMemos = useMemo(() => countSummaryMemos(books), [books]);
   const memoTotal = (memoStats?.total || 0) + summaryMemos;
+  // 年ごとの読了とメモ（新しい年から・記録のある年だけ）。
+  const yearRows = useMemo(() => {
+    const m = new Map();
+    const add = (y, k) => { if (!y) return; const r = m.get(y) || { year: y, done: 0, memos: 0 }; r[k] += 1; m.set(y, r); };
+    (bookStats.doneDates || []).forEach((d) => add(Number(String(d).slice(0, 4)) || null, 'done'));
+    (memoStats?.failed ? [] : (memoStats?.createdDates || [])).forEach((d) => { const t = new Date(d); add(Number.isFinite(t.getTime()) ? t.getFullYear() : null, 'memos'); });
+    return [...m.values()].sort((a, b) => b.year - a.year);
+  }, [bookStats.doneDates, memoStats]);
   const hasAnything = (books?.length || 0) > 0 || memoTotal > 0;
   // 🏷 分野（2026-10-11）: 本の分野ごとの本・メモ。メモを読めなかったときはメモの数を 0 と偽装しない（数えない）。
   //   分野ごとの読書の時間は「読書の時間」カードの「分野ごと」に一本化した（同じ数を 2 か所に出さない・2026-10-11 オーナー裁定）。
@@ -641,6 +649,22 @@ export default function ReadingRecord({
         <h3 style={cardTitle}>月別の読了</h3>
         <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>{'直近 6\u00a0か月'}</p>
         <MonthBars buckets={doneBuckets} activeColor="var(--accent)" />
+      </section>
+      )}
+
+      {/* 📅 年ごとの記録（2026-11-17・使い続けたときの確認＝去年と比べる手段が無かった）。2 年以上の記録があるときだけ。
+          読了とメモの数を並べるだけ（%・順位・増減の矢印は出さない）。 */}
+      {yearRows.length >= 2 && (
+      <section style={card}>
+        <h3 style={cardTitle}>年ごとの記録</h3>
+        <ul style={{ listStyle: 'none', margin: 'var(--space-3) 0 0', padding: 0 }}>
+          {yearRows.map((r, i) => (
+            <li key={r.year} style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 'var(--space-3)', padding: 'var(--space-2) 0', borderTop: i ? '1px solid var(--separator)' : 'none' }}>
+              <span style={{ fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>{`${r.year} 年`}</span>
+              <span style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums', textAlign: 'right' }}>{`読了 ${r.done.toLocaleString()} 冊 · メモ ${r.memos.toLocaleString()} 件`}</span>
+            </li>
+          ))}
+        </ul>
       </section>
       )}
 

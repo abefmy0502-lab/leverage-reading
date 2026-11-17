@@ -115,3 +115,20 @@ describe('広い言葉だけでは当てない（2026-10-21）', () => {
   });
 });
 
+
+describe('言い換え（2026-11-17）', () => {
+  it('「部下に任せる」で、1on1・チーム・頼むのメモにも当たる', async () => {
+    const { answerFromMemos } = await import('./memoAnswer');
+    const memos = [
+      { id: 'a', book_id: 'b1', text: '1on1 は仕事の話の前に、相手の近況を聞く。', created_at: '2026-10-01' },
+      { id: 'b', book_id: 'b2', text: '命令ではなく、どうすればいいかを質問で頼む。', created_at: '2026-10-02' },
+      { id: 'c', book_id: 'b3', text: '朝は散歩をしてから仕事を始める。', created_at: '2026-10-03' },
+      { id: 'd', book_id: 'b3', text: '睡眠を 7 時間とる。', created_at: '2026-10-03' },
+    ];
+    const books = [{ id: 'b1', title: 'A' }, { id: 'b2', title: 'B' }, { id: 'b3', title: 'C' }];
+    const r = answerFromMemos({ question: '部下に仕事を任せるのが苦手です', books, memos });
+    const ids = r.groups.flatMap((g) => g.hits.map((h) => h.memoId));
+    expect(ids).toEqual(expect.arrayContaining(['a', 'b']));
+    expect(ids).not.toContain('c');
+  });
+});

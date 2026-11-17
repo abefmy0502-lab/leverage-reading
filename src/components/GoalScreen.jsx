@@ -1234,6 +1234,19 @@ function PlanView({ goal, record, books, sessions, onFindBooks, onOpenBook, onAd
                   })}
                 </div>
               )}
+              {/* 1 日だけの帯は書名が入らないので、週の下に「17 日『書名』」を押せる形で（2026-11-17 点検）。 */}
+              {bands.some((b) => b.head && b.span < 2) && (
+                <p className="plan-week-note">
+                  {bands.filter((b) => b.head && b.span < 2).map((b) => {
+                    const book = byId.get(b.bookId);
+                    return (
+                      <button key={b.bookId} type="button" className="plan-week-note-btn" onClick={() => book && onOpenBook?.(book)}>
+                        {`${week[b.col]?.day} 日『${book?.title || ''}』`}
+                      </button>
+                    );
+                  })}
+                </p>
+              )}
             </div>
           );
         })}

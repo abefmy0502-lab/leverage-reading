@@ -29,6 +29,45 @@ const KANJI = '一-鿿々〆ヶ';
 const TOKEN = new RegExp(`[${KANJI}]+[ぁ-ゟ]*|[ァ-ヿー]+|[A-Za-z0-9]+|[ぁ-ゟ]+`, 'gu');
 const REDUP = /^([ぁ-ゟ]{2})\1$/u; // 「もやもや」「だらだら」
 
+// 言い換え（2026-11-17 点検: 「部下に仕事を任せるのが苦手」で、メモの「1on1」「チーム」「頼む」に当たらなかった）。
+//   困りごとの言葉と同じまとまりの言葉も、軽く（ALT_WEIGHT）探す。「~」で始まるのは 1 文字の漢字の動詞（任せる・頼む）。
+export const SYNONYM_GROUPS = [
+  ['部下', 'メンバー', 'チーム', '後輩', '1on1', '新人'],
+  ['上司', 'マネージャー', '管理職', 'リーダー', '経営者'],
+  ['~任', '~頼', '~委', '権限', '分担'],
+  ['会議', 'ミーティング', '打ち合わせ', '定例', '議題'],
+  ['不安', '心配', '焦り', '緊張', '~怖'],
+  ['習慣', '継続', '~続'],
+  ['集中', 'スマホ', '気が散'],
+  ['説明', '話し方', 'プレゼン', '~伝'],
+  ['怒り', 'イライラ', '感情'],
+  ['疲れ', '休息', '睡眠', '~眠'],
+  ['貯金', '投資', '節約', 'お金'],
+  ['転職', 'キャリア', '異動'],
+  ['評価', 'フィードバック', '~褒', '~叱'],
+  ['目標', 'ゴール', '計画'],
+  ['優先', '後回し', '先延ばし', '締め切り', '期限'],
+  ['人間関係', '付き合い', '相手', '同僚'],
+  ['育成', '~育', '教育', '指導'],
+  ['決断', '判断', '~迷', '~決'],
+];
+const ALT_WEIGHT = 0.6;
+const MAX_ALT = 10;
+function synonymTerms(terms) {
+  const have = new Set(terms.map((t) => (t.kind === 'verb' ? `~${t.term}` : t.term)));
+  const out = [];
+  for (const g of SYNONYM_GROUPS) {
+    const keys = g.map((w) => (w.startsWith('~') ? `~${normalizeSearch(w.slice(1))}` : normalizeSearch(w)));
+    if (!keys.some((k) => have.has(k))) continue;
+    keys.forEach((k, i) => {
+      if (have.has(k) || out.length >= MAX_ALT) return;
+      have.add(k);
+      out.push(k.startsWith('~') ? { term: k.slice(1), kind: 'verb', raw: g[i].slice(1), alt: true } : { term: k, kind: 'word', raw: g[i], alt: true });
+    });
+  }
+  return out;
+}
+
 // 困りごとの文 → 探す言葉 [{ term, kind: 'word'|'verb', raw }]（正規化済み・重複なし・多くて 8 つ）。
 export function extractConsultTerms(question) {
   // 数と助数詞（「3回目」「2週間」）は探す言葉にしない。
@@ -154,7 +193,7 @@ export function answerFromMemos({ question, books = [], memos = [], scopeIds = [
   const corpus = buildMemoAnswerCorpus({ books, memos, scopeIds });
   const searched = countSearchedMemos(corpus);
   const extracted = extractConsultTerms(question);
-  const terms = extracted.map((t) => ({ ...t, ct: t.kind === 'word' ? compileTerms([t.term])[0] : null }));
+  const terms = [...extracted, ...synonymTerms(extracted)].map((t) => ({ ...t, ct: t.kind === 'word' ? compileTerms([t.term])[0] : null }));
   if (!terms.length || !corpus.length) return { terms: extracted.map((t) => t.raw), searched, groups: [] };
   const n = corpus.length;
   // 言葉ごとに、当たる文の数（多い言葉ほど軽く）
@@ -172,7 +211,7 @@ export function answerFromMemos({ question, books = [], memos = [], scopeIds = [
       // どの悩みにも出る広い言葉（「仕事」「時間」）は軽く数え、それだけでは当たりにしない（メモが少ない人でも
       //   「…いちばん大事な仕事。」のような関係の薄い一節が並んでいた・2026-10-21 点検）。
       const generic = GENERIC_WORDS.has(t.term);
-      score += m.w * idf[i] * (generic ? GENERIC_WEIGHT : 1);
+      score += m.w * idf[i] * (generic ? GENERIC_WEIGHT : 1) * (t.alt ? ALT_WEIGHT : 1);
       if (m.inText) { hitTerms.push(t); inText = true; }
       if (!generic && (n < COMMON_MIN_CORPUS || df[i] / n <= COMMON_SHARE)) rare = true;
     });

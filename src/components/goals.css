@@ -492,3 +492,6 @@
 .rm-now-note { margin: var(--space-3) 0 0; font-size: var(--text-sub); color: var(--text-2); line-height: 1.6; word-break: keep-all; overflow-wrap: anywhere; }
 /* 枠のいちばん下の文字ボタンは、押せる高さはそのままで、見た目の下の余白を内側 16 にそろえる */
 .goal-box > .rm-link:last-child { margin-bottom: calc((var(--tap-min) - 1.5em) / -2); }
+/* 1 日だけ読む本の書名（週の下・押すと本を開く） */
+.plan-week-note { margin: var(--space-1) 0 0; display: flex; flex-wrap: wrap; gap: 0 var(--space-3); }
+.plan-week-note-btn { min-height: var(--tap-min); padding: 0; background: none; border: none; font-family: inherit; font-size: var(--text-meta); color: var(--text-2); text-align: left; cursor: pointer; overflow-wrap: anywhere; }

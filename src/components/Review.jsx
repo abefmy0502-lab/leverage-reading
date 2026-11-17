@@ -789,6 +789,16 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
     });
     return Array.from(groups.entries()).sort(([a], [b]) => b.localeCompare(a));
   }, [allNotes]);
+  // 直近 12 か月（今月から数えて）と、それより前の年ごとのまとまり。
+  const { recentMonths, olderYears } = useMemo(() => {
+    const d = new Date();
+    const cut = new Date(d.getFullYear(), d.getMonth() - 11, 1);
+    const cutKey = `${cut.getFullYear()}-${String(cut.getMonth() + 1).padStart(2, '0')}`;
+    const recent = memosByMonth.filter(([k]) => k >= cutKey);
+    const byYear = new Map();
+    memosByMonth.filter(([k]) => k < cutKey).forEach((e) => { const y = e[0].slice(0, 4); if (!byYear.has(y)) byYear.set(y, []); byYear.get(y).push(e); });
+    return { recentMonths: recent, olderYears: [...byYear.entries()].sort(([a], [b]) => b.localeCompare(a)) };
+  }, [memosByMonth]);
 
   // Flip the random-memo card and swap its content at the back-facing midpoint.
   // 🧠 間隔反復のフィードバック（覚えた/もう一度）。実メモ行(synth:false)だけ
@@ -1047,6 +1057,58 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
       </div>
     );
   }
+
+  // 月ごとのメモの 1 行（押すと開く）。
+  const renderMonth = ([key, group]) => {
+
+            const open = expanded.has(key);
+            return (
+              <div key={key} style={{ borderTop: '1px solid var(--separator)' }}>
+                <button
+                  type="button"
+                  aria-expanded={open}
+                  onClick={() => toggleMonth(key)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    width: '100%',
+                    minHeight: 44,
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  <span style={{ fontSize: 'var(--text-sub)', color: 'var(--text)', fontWeight: 600 }}>
+                    {monthLabel(key)}
+                  </span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>
+                    {group.length} 件
+                    {open ? <ChevronDown size="1.2em" aria-hidden="true" /> : <ChevronRight size="1.2em" aria-hidden="true" />}
+                  </span>
+                </button>
+                {open && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', margin: 'var(--space-1) 0 var(--space-4)' }}>
+                    {group.map((m) => (
+                      <ReviewMemoCard
+                        key={m.id}
+                        memo={m}
+                        book={booksById.get(m.bookId)}
+                        onOpenBook={onOpenBook}
+                        onSwipeDelete={handleSwipeDelete}
+                        onLongPress={(payload) => setMemoMenu(payload)}
+                        // ほかのメモのカードと同じ「…」と、押して編集（2026-09-30）。
+                        onOpenMenu={(payload) => setMemoMenu(payload)}
+                        tapToEdit
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+  };
 
   return (
     <PullToRefresh onRefresh={handleRefresh}>
@@ -1409,55 +1471,20 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
         {/* 月は素の開閉行（カードの中にカードを入れない＝左端をメモカードとそろえる）。 */}
         {showMonthly && (
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          {memosByMonth.map(([key, group]) => {
-            const open = expanded.has(key);
-            return (
-              <div key={key} style={{ borderTop: '1px solid var(--separator)' }}>
-                <button
-                  type="button"
-                  aria-expanded={open}
-                  onClick={() => toggleMonth(key)}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    padding: 0,
-                    width: '100%',
-                    minHeight: 44,
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    cursor: 'pointer',
-                    fontFamily: 'inherit',
-                  }}
-                >
-                  <span style={{ fontSize: 'var(--text-sub)', color: 'var(--text)', fontWeight: 600 }}>
-                    {monthLabel(key)}
-                  </span>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>
-                    {group.length} 件
-                    {open ? <ChevronDown size="1.2em" aria-hidden="true" /> : <ChevronRight size="1.2em" aria-hidden="true" />}
-                  </span>
-                </button>
-                {open && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', margin: 'var(--space-1) 0 var(--space-4)' }}>
-                    {group.map((m) => (
-                      <ReviewMemoCard
-                        key={m.id}
-                        memo={m}
-                        book={booksById.get(m.bookId)}
-                        onOpenBook={onOpenBook}
-                        onSwipeDelete={handleSwipeDelete}
-                        onLongPress={(payload) => setMemoMenu(payload)}
-                        // ほかのメモのカードと同じ「…」と、押して編集（2026-09-30）。
-                        onOpenMenu={(payload) => setMemoMenu(payload)}
-                        tapToEdit
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+          {/* 直近 12 か月はそのまま、それより前は年ごとに畳む（3 年使うと月が 37 個並んでいた・2026-11-17 使い続けたときの確認）。 */}
+          {recentMonths.map(renderMonth)}
+          {olderYears.map(([y, months]) => (
+            <details key={y} style={{ borderTop: '1px solid var(--separator)' }}>
+              <summary style={{ minHeight: 44, display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', listStyle: 'none' }}>
+                <span style={{ fontSize: 'var(--text-sub)', color: 'var(--text)', fontWeight: 600 }}>{`${y} 年`}</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>
+                  {`${months.reduce((n, [, g]) => n + g.length, 0)} 件`}
+                  <ChevronDown className="fold-chevron" size="1.2em" aria-hidden="true" />
+                </span>
+              </summary>
+              <div style={{ paddingLeft: 'var(--space-3)' }}>{months.map(renderMonth)}</div>
+            </details>
+          ))}
         </div>
         )}
       </section>
