@@ -111,7 +111,8 @@ const pageStyle = { display: 'flex', flexDirection: 'column', gap: 'var(--space-
 // 2026-10-04: スクロールの箱の外（上）に置き、全体の見出しとサブタブを隠したときはノッチの分をこの行が吸収する。
 //   線は中身を下へ送ったときだけ（太さぶんはいつも取る）。シェブロンの見た目の左端を余白 16 に。
 const navRow = { flexShrink: 0, display: 'flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 52, paddingTop: 'var(--space-1)', paddingBottom: 'var(--space-1)', paddingLeft: 'var(--space-4)', paddingRight: 'var(--space-4)' };
-const navSide = { width: 96, flexShrink: 0 };
+// 左右は戻るの文字の幅（長い「‹ 過去の AI 選書」でも題と重ならない・右は同じ幅の見えない写しで題を真ん中に・2026-11-17 点検）。
+const navSide = { minWidth: 96, flexShrink: 0 };
 const navTitle = { flex: 1, minWidth: 0, margin: 0, textAlign: 'center', fontSize: 'min(var(--text-body), var(--text-bar-max))', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
 // 文字は App の BACK_LABEL_SIZE と同じ上限（文字サイズを最大にしても「‹ AI 選書」を 1 行に・2026-10-04）。
 const backBtn = { ...btnText, fontSize: 'min(var(--text-body), var(--text-bar-max))', fontWeight: 400, padding: 'var(--space-2) 0', marginLeft: 'calc(-1 * var(--space-2))', gap: 0, lineHeight: 1.3, whiteSpace: 'nowrap' };
@@ -139,7 +140,9 @@ export function AdvisorNavBar({ backLabel, onBack, title, pushed = false, scroll
         </button>
       </div>
       <h2 style={navTitle}>{title}</h2>
-      <div style={navSide} aria-hidden="true" />
+      <div style={{ ...navSide, visibility: 'hidden' }} aria-hidden="true">
+        <span style={{ ...backBtn, display: 'inline-flex' }}><ChevronLeft size={20} />{backLabel}</span>
+      </div>
     </div>
   );
 }

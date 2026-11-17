@@ -99,8 +99,7 @@ const FILTER_OPTIONS = [
   // カードの種類の名前と同じ「この本のまとめ」（2026-10-04 ui-critic）。読了の「一番の収穫」は別の種類に分ける（まとめと名乗らない）。
   { value: 'summary', label: 'この本のまとめ' },
   { value: 'harvest', label: '一番の収穫' },
-  // AI が書いたもの（AI まとめ）は自分のまとめと分ける（2026-10-04）。
-  { value: 'ai', label: 'AI まとめ' },
+  // AI まとめは相談の材料にしないので、ここには出さない（2026-11-17）。
   { value: 'plan', label: '読書計画' },
   { value: 'learning', label: '学び' },
 ];
@@ -402,9 +401,8 @@ export default function KnowledgeManager({ onChanged, onBooksMutated, onWriteMem
         ['current_challenge', 'current_challenge'],
         ['hypothesis',        'hypothesis'],
         ['book_reason',       'book_reason'],
-        ['ai_summary',        'ai_summary'],
+        // AI が書いたまとめ・読書計画シートは相談の材料にしないので、根拠にできる情報には出さない（2026-11-17 点検・ai.js の gatherKnowledge と同じ）。
         ['roi_summary',       'roi_summary'],
-        ['ai_strategy',       'ai_strategy'],
       ];
       const fieldItems = [];
       for (const b of bookRows) {

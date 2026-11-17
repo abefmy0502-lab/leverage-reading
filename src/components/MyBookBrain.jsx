@@ -2518,7 +2518,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 {/* 🎁 無料プランで今月のトークンを使い切った（2026-10-01）: 相談はメモから探して答える（メモが答える相談）ので、
                     行き止まりにせず、案内カード（プランは文字ボタン）の下に見出しと相談例をいつもどおり出す。 */}
                 {freeUsedUp && (
-                  <FreeUsedCard tokenAllowance={tokenNextAllowance ?? tokenAllowance} cta={freeUsedCta} trial={freeUsedOffer || ''} onOpen={() => openPaywall('free_used')} style={{ marginBottom: 'var(--space-6)' }} />
+                  <FreeUsedCard tokenAllowance={tokenNextAllowance ?? tokenAllowance} cta={freeUsedCta} trial={freeUsedOffer || ''} onOpen={() => openPaywall('free_used')} onUsage={() => setUsageOpen(true)} style={{ marginBottom: 'var(--space-6)' }} />
                 )}
                 {/* 🪙➕ プランの人がトークンを使い切った（SPEC §3）: 案内カード（トークンを追加）を一番上に。
                     2026-10-20 から相談は止めず、無料プランと同じくメモから探して答える（払っている人ほど相談できない、を無くす）。 */}
@@ -3064,7 +3064,7 @@ function FirstAnswerTrialCard({ text, onOpen, onDismiss, onSeen = null, style = 
 //   使えない人（7 日間無料を使った・分からない）は今までどおり文字ボタン「プランを見る」（押し付けない）。
 // primary: 主ボタンを塗りにするか（答えの「行動に追加」がまだ残っている下では枠のボタン＝塗りを 1 画面 1 つに）。
 // afterAnswer: 答えの下に出すとき（「この相談の続きも」と、いまの会話の続きにつなげる）。
-function FreeUsedCard({ tokenAllowance, onOpen, cta = 'プランを見る', trial = '', primary = true, afterAnswer = false, style = null }) {
+function FreeUsedCard({ tokenAllowance, onOpen, cta = 'プランを見る', trial = '', primary = true, afterAnswer = false, onUsage = null, style = null }) {
   return (
     <section aria-label="今月のトークンは、ここまで" style={{ ...cardStyle, ...style }}>
       <p style={{ margin: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5 }}>
@@ -3086,6 +3086,12 @@ function FreeUsedCard({ tokenAllowance, onOpen, cta = 'プランを見る', tria
       ) : (
         <button type="button" onClick={onOpen} style={{ ...uiBtnLink, marginTop: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}>
           {cta}
+        </button>
+      )}
+      {/* 使い切ると相談の上の行の残りの数が消えるので、トークンの使い方の入口をここにも（プランの人の案内と同じ・2026-11-17 点検）。 */}
+      {onUsage && (
+        <button type="button" onClick={onUsage} style={{ ...uiBtnLinkQuiet, display: 'flex', width: 'fit-content', marginTop: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}>
+          トークンの使い方を見る
         </button>
       )}
     </section>
