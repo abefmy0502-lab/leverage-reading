@@ -704,7 +704,7 @@ function RoadmapView({ goal, record, books, sessions = [], onOpenBook, onAddActi
   const planBtn = (primary, extra = null) => {
     const link = isLink(primary);
     return (
-      <button type="button" className={link ? 'rm-link' : undefined} disabled={choosing} style={!link ? primaryStyle : { ...linkStyle, ...(quiet && !primary ? quietColor : null), ...extra }} onClick={onPlan}>読書計画をカレンダーにする</button>
+      <button type="button" className={link ? 'rm-link' : undefined} disabled={choosing} style={!link ? { ...(choosing ? btnPrimaryOff : btnPrimary), marginTop: 'var(--space-4)' } : choosing ? { ...linkStyle, color: 'var(--text-3)', opacity: 1, cursor: 'default', ...extra } : { ...linkStyle, ...(quiet && !primary ? quietColor : null), ...extra }} onClick={onPlan}>読書計画をカレンダーにする</button>
     );
   };
   // 次の 3 か月の決め方を 1 文で（数は「選ぶ冊数」の説明だけ・遅れ・%・あと N 冊は出さない）。
