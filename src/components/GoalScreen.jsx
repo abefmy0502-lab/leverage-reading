@@ -669,10 +669,11 @@ function RoadmapView({ goal, record, books, sessions = [], onOpenBook, onAddActi
   const overdue = overdueGoals(goal.goals, appNow());
   // 期限の過ぎた目標の枠に主ボタンがあるときは、ここは文字のボタンだけ（塗りの主ボタンは 1 画面に 1 つ）。
   const quiet = overdue.length > 0 && !stale;
-  const linkStyle = { ...btnLink, marginTop: 'var(--space-2)', marginLeft: 'calc(-1 * var(--space-1))' };
+  // 縦に積む文字ボタン（行の中に並べると行の高さで間が広がるので、1 つずつ 1 行に）。
+  const linkStyle = { ...btnLink, display: 'flex', width: 'fit-content', marginTop: 'var(--space-2)', marginLeft: 'calc(-1 * var(--space-1))' };
   const primaryStyle = { ...btnPrimary, marginTop: 'var(--space-4)' };
   const chooseBtn = (primary, count, label) => (
-    <button type="button" disabled={choosing} aria-busy={choosing || undefined} style={primary && !quiet ? { ...(choosing ? btnPrimaryOff : btnPrimary), marginTop: 'var(--space-4)' } : quiet ? { ...linkStyle, ...btnLinkQuiet, marginTop: 'var(--space-2)', marginLeft: 'calc(-1 * var(--space-1))' } : linkStyle} onClick={() => choose(count)}>
+    <button type="button" disabled={choosing} aria-busy={choosing || undefined} style={primary && !quiet ? { ...(choosing ? btnPrimaryOff : btnPrimary), marginTop: 'var(--space-4)' } : quiet ? { ...linkStyle, color: btnLinkQuiet.color } : linkStyle} onClick={() => choose(count)}>
       {choosing ? '本を選んでいます…' : `${chooseError ? 'もう一度選ぶ' : label}（${PHASE_BOOKS_TOKENS_LABEL}）`}
     </button>
   );
