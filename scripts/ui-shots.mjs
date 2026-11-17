@@ -335,6 +335,8 @@ const SCREENS = [
   { name: 'goal-choosing', url: '/?goals=on&plan=set&goalage=200&goalread=1&goalai=slow', steps: [{ css: '[data-home-plan]' }, { wait: 900 }, { css: 'button:has-text("この 3 か月の本を選ぶ")' }, { wait: 800 }, { eval: "document.querySelector('.rm-now')?.scrollIntoView({ block: 'center' })" }, { wait: 300 }] },
   { name: 'goal-choose-error', url: '/?goals=on&plan=set&goalage=200&goalread=1&goalai=fail', steps: [{ css: '[data-home-plan]' }, { wait: 900 }, { css: 'button:has-text("この 3 か月の本を選ぶ")' }, { wait: 2500 }, { eval: "document.querySelector('.rm-now')?.scrollIntoView({ block: 'center' })" }, { wait: 300 }] },
   { name: 'goal-stale', url: '/?goals=on&plan=set&goalage=400', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("行動")' }, { css: 'button.goal-entry' }, { css: 'button:has-text("この目標で続ける")' }, { wait: 1500 }, { eval: "document.querySelector('.goal-scroll').scrollTop = 1e6" }, { wait: 300 }] },
+  { name: 'home-goal', url: '/', steps: [{ wait: 1200 }] },
+  { name: 'home-goal-set', url: '/?goals=on&plan=set', steps: [{ wait: 1200 }] },
   { name: 'goal-plan-order', url: '/?goals=on', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("行動")' }, { css: 'button.goal-entry' }, { css: 'button:has-text("読書計画をカレンダーにする")' }, { wait: 800 }, { eval: "document.querySelector('#plan-order')?.scrollIntoView()" }, { wait: 300 }] },
   { name: 'review-action-bottom', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("行動")' }, { scrollBottom: true }] },
   { name: 'review-memo', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("ノート"), button[role=tab]:has-text("メモ")' }] },

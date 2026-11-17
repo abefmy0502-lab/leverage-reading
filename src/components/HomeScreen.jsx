@@ -15,7 +15,7 @@
 // 上の行の「写真で共有」は App.jsx の全体ヘッダー（ホーム・振り返り・相談で同じ場所）。
 // 見た目は DESIGN.md のトークンのみ。
 import { useEffect, useMemo, useState } from 'react';
-import { Library, ChevronRight, PencilLine, Plus, BookOpen, Timer, Target, Sprout, X, MessageCircle, CalendarCheck, CalendarDays } from 'lucide-react';
+import { Library, ChevronRight, PencilLine, Plus, BookOpen, Timer, Target, Sprout, X, MessageCircle, CalendarCheck, CalendarDays, Compass } from 'lucide-react';
 import HomeFirstStep, { useHomeMemoState, MEMO_COUNT_WAIT_MS } from './HomeFirstStep';
 import GrowthMeter from './GrowthMeter';
 import ShareNudge, { useShareNudge } from './ShareNudge';
@@ -37,7 +37,7 @@ import { annualNudgeCandidate, annualNudgeText, readAnnualNudgeDone, markAnnualN
 import { readingSessions, useReadingSessions } from '../hooks/useReadingSessions';
 import { useGoals } from '../hooks/useGoals';
 import { todayPlanItem } from '../lib/goalRoadmap';
-import { ALL_GOALS_KEY } from '../lib/goals';
+import { ALL_GOALS_KEY, hasAnyGoal } from '../lib/goals';
 import { toLocalYmd } from '../lib/dates';
 import { fmtMd } from '../lib/readingPlan';
 import { loadAllMemoRows } from '../hooks/useAllMemoRows';
@@ -253,6 +253,38 @@ function usePlanToday(books, enabled) {
     const book = books.find((b) => b.id === item.bookId);
     return book ? { ...item, book } : null;
   }, [enabled, loaded, roadmaps, books, sessions]);
+}
+
+// 🧭 目標を書いていない人のホームの 1 行（2026-11-17 オーナー「目立たないので知らないまま進みそう・わかりやすいところに」）。
+//   本が 1 冊以上・メモがある（初日のメモ → 相談の流れは邪魔しない）・目標が 1 つも無い・閉じていないときだけ。
+//   × で閉じたら、その端末とその人には出さない（振り返り › 行動 のいちばん上からはいつでも書ける）。
+const GOAL_NUDGE_KEY = 'orime.home.goalNudge.closed:';
+function readGoalNudgeClosed(uid) { try { return !!uid && localStorage.getItem(GOAL_NUDGE_KEY + uid) === '1'; } catch { return false; } }
+function useGoalNudge(enabled, uid) {
+  const { goals, loaded } = useGoals();
+  const [closed, setClosed] = useState(() => readGoalNudgeClosed(uid));
+  useEffect(() => { setClosed(readGoalNudgeClosed(uid)); }, [uid]);
+  const show = enabled && loaded && !closed && !hasAnyGoal(goals);
+  const close = () => { setClosed(true); try { if (uid) localStorage.setItem(GOAL_NUDGE_KEY + uid, '1'); } catch { /* ignore */ } };
+  return { show, close };
+}
+
+function HomeGoalRow({ onOpen, onClose }) {
+  return (
+    <div data-home-goal="" style={{ ...card, padding: 0, display: 'flex', alignItems: 'stretch', overflow: 'hidden' }}>
+      <button type="button" onClick={onOpen} aria-label="目標を書く。1 年後・3 年後・5 年後の目標から、読む本を決めます" style={{ ...navRow, flex: 1, minWidth: 0, paddingRight: 0 }}>
+        <Compass size="1.2em" aria-hidden="true" style={{ color: 'var(--accent)', flexShrink: 0 }} />
+        <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+          <span style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('目標を書く')}</span>
+          <span style={{ marginTop: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('1 年後・3 年後・5 年後の目標から、読む本を決めます')}</span>
+        </span>
+        <ChevronRight size="1.2em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+      </button>
+      <button type="button" onClick={onClose} aria-label="目標の案内を閉じる" style={{ width: 44, minHeight: 44, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)' }}>
+        <X size="1.1em" aria-hidden="true" />
+      </button>
+    </div>
+  );
 }
 
 function HomePlanRow({ plan, onOpen }) {
@@ -474,7 +506,7 @@ export default function HomeScreen({
   onQuickstart, onAddBook, onAddReadingBook, onAdvisor, onImport,
   onOpenBook, onWriteMemo, onStartReading, onOpenLibrary, onSeeAllReading, onCoverRetry, onShareNudge, onRead,
   onOpenActions, onConsultDraft, savedMemo = null, onDismissSavedMemo, onOpenMemo, onAddOneLines = null, onOpenConsult = null,
-  onOpenRecord = null, onOpenPlan = null, onOpenReadingPlan = null,
+  onOpenRecord = null, onOpenPlan = null, onOpenReadingPlan = null, onOpenGoals = null,
 }) {
   const { user } = useAuth();
   // 🌱 育つまでの一行の右の次の一歩（2026-10-20）: はじめての相談の前は「相談してみる」（入れた理由かメモから下書き・送らない）、
@@ -493,6 +525,8 @@ export default function HomeScreen({
   const renewal = useRenewalReview(!!onOpenRecord && !loading && !loadError && books.length > 0, books);
   const annual = useAnnualNudge(!!onOpenPlan && !loading && !loadError && books.length > 0);
   const planToday = usePlanToday(books, !!onOpenReadingPlan && !loading && !loadError && books.length > 0);
+  // 🧭 目標を書いていない人に、ホームで 1 行（初日のメモがまだの人には出さない）。
+  const goalNudge = useGoalNudge(!!onOpenGoals && !loading && !loadError && books.length > 0 && memoState.known && memoState.hasMemos, user?.id);
   const homeKnown = memoState.known && shareNudge.ready && tokensBack.ready && reask.ready && renewal.ready;
   // 📊 memos_reached_10（lib/firstDay.js）: 10 件より少ないのを見たあとで 10 件以上になったら 1 回だけ。
   // 🌱 「相談相手が育ちました」（10 件を越えたのを見たあと 1 回だけ・相談の画面で先に越えても、ホームに戻ったら出す）。
@@ -607,6 +641,12 @@ export default function HomeScreen({
         </div>
       ) : (
         <>
+          {goalNudge.show && (
+            <HomeGoalRow
+              onOpen={() => { track('home_goal_row', { action: 'open' }); onOpenGoals(); }}
+              onClose={() => { track('home_goal_row', { action: 'close' }); goalNudge.close(); }}
+            />
+          )}
           {!memoState.hasMemos && <HomeFirstStep bookCount={books.length} onQuickstart={onQuickstart} onImport={onImport} />}
           <ReadingNow books={books} onOpenBook={onOpenBook} onWriteMemo={onWriteMemo} onStartReading={onStartReading} onAddBook={onAddBook} onSeeAllReading={onSeeAllReading} onCoverRetry={onCoverRetry} onRead={onRead} />
           {/* 今日の行動とすべての本は、1 枚のまとまりの 2 行（区切り線でつなぐ）。 */}

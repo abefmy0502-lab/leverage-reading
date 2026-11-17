@@ -99,7 +99,7 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
     open(ALL_GOALS_KEY, 'interview');
   };
 
-  const backLabel = view === 'goals' ? '行動' : view === 'plan' ? 'ロードマップ' : '目標';
+  const backLabel = view === 'goals' ? (start?.from === 'home' ? 'ホーム' : '行動') : view === 'plan' ? 'ロードマップ' : '目標';
   return (
     <div className="goal-screen" role="dialog" aria-modal="true" aria-label={NAV_TITLE[view]}>
       <AdvisorNavBar backLabel={backLabel} title={NAV_TITLE[view]} onBack={back} pushed scrolled={scrolled} />

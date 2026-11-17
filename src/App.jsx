@@ -6118,6 +6118,7 @@ function AuthedApp() {
               onOpenRecord={() => { setReviewSubTab('record'); setView('list'); setTab('review'); }}
               onOpenPlan={() => setSettingsOpen(true)}
               onOpenReadingPlan={(v = 'plan') => setGoalScreen({ view: v === 'roadmap' ? 'roadmap' : 'plan', horizon: 'all' })}
+              onOpenGoals={() => setGoalScreen({ view: 'goals', from: 'home' })}
               // 🌱 育つまでの一行の「一言ずつ残す」（2026-10-20）: メモの無い読了・読書中の本（最大 5 冊）を一言の段から。
               //   どの本にメモがあるか分からないとき（全部のメモをまだ読んでいない）は、いつもの初日クイックスタート。
               onAddOneLines={async () => {
