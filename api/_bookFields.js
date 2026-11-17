@@ -28,8 +28,9 @@ import { createHash } from 'node:crypto';
 
 // 決め方の版。一覧・指示文・ジャンルの結びつけを変えたら上げる（覚えている分野を決め直す）。
 //   2（2026-10-11 の 4 回目）: 分野「仕事の進め方」→「段取り・効率」・大分類の名前・指示文の例を変えた。
-// 3（2026-11-17）: 分野をビジネスの 12＋教養・その他 に作り直した＝覚えている分野を決め直す。
-export const BOOK_FIELDS_VERSION = 3;
+// 3（2026-11-17）: 分野をビジネスの 12＋小説・教養 に作り直した＝覚えている分野を決め直す。
+// 4（同日の夕方）: 名前を縮め（起業・テクノロジー・お金・会計・小説・教養）・生産性・伝える力を 2 つに分けた。
+export const BOOK_FIELDS_VERSION = 4;
 const KEYWORDS_TTL_MS = 24 * 60 * 60 * 1000;
 const STALE_VOTES = 3;
 const GENRE_NAME = new Map(GENRE_RULES.map((g) => [g.id, g.name]));

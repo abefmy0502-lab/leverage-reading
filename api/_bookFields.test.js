@@ -94,15 +94,15 @@ describe('部品', () => {
   });
   it('AI の答えは一覧の名前だけ・2 つまで・JSON の外の文字は無視', () => {
     expect(parseFieldsAnswer('{"fields":["キャリア・働き方","心理学・行動経済学"]}')).toEqual(['キャリア・働き方', '心理学・行動経済学']);
-    expect(parseFieldsAnswer('```json\n{"fields":["教養・その他","ないもの","教養・その他","心理学・行動経済学"]}\n```')).toEqual(['教養・その他', '心理学・行動経済学']);
+    expect(parseFieldsAnswer('```json\n{"fields":["小説・教養","ないもの","小説・教養","心理学・行動経済学"]}\n```')).toEqual(['小説・教養', '心理学・行動経済学']);
     expect(parseFieldsAnswer('わかりません')).toEqual([]);
   });
   it('覚えた分野: 版が同じ・言葉の仕分けは 1 日だけ', () => {
     const now = Date.now();
-    expect(cacheUsable({ fields: ['教養・その他'], source: 'ai', version: BOOK_FIELDS_VERSION }, now)).toBe(true);
-    expect(cacheUsable({ fields: ['教養・その他'], source: 'ai', version: 0 }, now)).toBe(false);
+    expect(cacheUsable({ fields: ['小説・教養'], source: 'ai', version: BOOK_FIELDS_VERSION }, now)).toBe(true);
+    expect(cacheUsable({ fields: ['小説・教養'], source: 'ai', version: 0 }, now)).toBe(false);
     expect(cacheUsable({ fields: ['人の心理'], source: 'ai', version: BOOK_FIELDS_VERSION }, now)).toBe(false);
-    expect(cacheUsable({ fields: ['教養・その他'], source: 'keywords', version: BOOK_FIELDS_VERSION, updated_at: new Date(now - 2 * 86400000).toISOString() }, now)).toBe(false);
+    expect(cacheUsable({ fields: ['小説・教養'], source: 'keywords', version: BOOK_FIELDS_VERSION, updated_at: new Date(now - 2 * 86400000).toISOString() }, now)).toBe(false);
   });
   it('行き先: Gemini Flash-Lite → Claude Haiku・鍵が無ければ使わない', () => {
     expect(bookFieldsRoutes(ENV)).toEqual([{ provider: 'gemini', model: 'gemini-3.1-flash-lite' }, { provider: 'anthropic', model: 'claude-haiku-4-5' }]);
@@ -133,7 +133,7 @@ describe('classifyBookServer（本 1 冊）', () => {
   it('ジャンルが 1 つの分野にしか結びつかない（漫画）なら AI を呼ばない', async () => {
     const fetchImpl = vi.fn();
     const r = await classifyBookServer({ isbn: '9784088835310', title: 'ONE PIECE 107' }, { supabase: fakeDb(), getInfo: async () => ({ genreIds: ['001001001'] }), env: ENV, fetchImpl });
-    expect(r).toMatchObject({ fields: ['教養・その他'], source: 'genre' });
+    expect(r).toMatchObject({ fields: ['小説・教養'], source: 'genre' });
     expect(fetchImpl).not.toHaveBeenCalled();
   });
   it('AI の答えが一覧に無い・失敗・1 日の上限・紹介文なし → 言葉の仕分け（端末と同じ）', async () => {
@@ -141,14 +141,14 @@ describe('classifyBookServer（本 1 冊）', () => {
     const env1 = { GEMINI_API_KEY: 'g' };
     const r1 = await classifyBookServer({ title: '半径5メートルの野望 完全版' }, { supabase: fakeDb(), getInfo: async () => HANKEI, env: env1, fetchImpl: bad });
     expect(r1.source).toBe('keywords');
-    expect(r1.fields).not.toContain('教養・その他');
+    expect(r1.fields).not.toContain('小説・教養');
     const never = vi.fn();
     const r2 = await classifyBookServer({ title: '半径5メートルの野望 完全版' }, { supabase: fakeDb({ limitHit: true }), getInfo: async () => HANKEI, env: ENV, fetchImpl: never });
     expect(r2.source).toBe('keywords');
     expect(never).not.toHaveBeenCalled();
     // 1 日の上限を数えられない（表が無い）ときも AI は呼ばない
     const r3 = await classifyBookServer({ title: '伝え方が9割' }, { supabase: fakeDb({ missing: true }), getInfo: async () => ({ description: '伝え方の技術。' }), env: ENV, fetchImpl: never });
-    expect(r3).toMatchObject({ fields: ['生産性・伝える力'], source: 'keywords' });
+    expect(r3).toMatchObject({ fields: ['伝える力・人間関係'], source: 'keywords' });
     expect(never).not.toHaveBeenCalled();
     // 紹介文も目次も無い本は AI に聞かない
     const r4 = await classifyBookServer({ title: 'ノルウェイの森' }, { supabase: fakeDb(), getInfo: async () => ({}), env: ENV, fetchImpl: never });
@@ -157,17 +157,17 @@ describe('classifyBookServer（本 1 冊）', () => {
   it('Gemini が失敗したら Claude Haiku で 1 回', async () => {
     const fetchImpl = vi.fn(async (url) => {
       if (String(url).includes('googleapis')) return new Response('{}', { status: 503 });
-      return new Response(JSON.stringify({ type: 'message', model: 'claude-haiku-4-5', content: [{ type: 'text', text: '{"fields":["教養・その他"]}' }], usage: { input_tokens: 2000, output_tokens: 10 } }), { status: 200 });
+      return new Response(JSON.stringify({ type: 'message', model: 'claude-haiku-4-5', content: [{ type: 'text', text: '{"fields":["小説・教養"]}' }], usage: { input_tokens: 2000, output_tokens: 10 } }), { status: 200 });
     });
     const r = await classifyBookServer({ title: '平日5分で作りおき' }, { supabase: fakeDb(), getInfo: async () => ({ description: 'おかずの作り方。' }), env: ENV, fetchImpl });
-    expect(r).toMatchObject({ fields: ['教養・その他'], source: 'ai' });
+    expect(r).toMatchObject({ fields: ['小説・教養'], source: 'ai' });
     expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
   it('1 つの IP から AI で決めるのは 1 時間に上限まで', async () => {
-    const fetchImpl = vi.fn(geminiAnswer('{"fields":["教養・その他"]}'));
+    const fetchImpl = vi.fn(geminiAnswer('{"fields":["小説・教養"]}'));
     const env = { ...ENV, BOOK_FIELDS_IP_PER_HOUR: '1' };
-    const a = await classifyBookServer({ title: '本その一' }, { supabase: fakeDb(), getInfo: async () => ({ description: '江戸の教養・その他。' }), env, fetchImpl, ip: 'x' });
-    const b = await classifyBookServer({ title: '本その二' }, { supabase: fakeDb(), getInfo: async () => ({ description: '江戸の教養・その他。' }), env, fetchImpl, ip: 'x' });
+    const a = await classifyBookServer({ title: '本その一' }, { supabase: fakeDb(), getInfo: async () => ({ description: '江戸の小説・教養。' }), env, fetchImpl, ip: 'x' });
+    const b = await classifyBookServer({ title: '本その二' }, { supabase: fakeDb(), getInfo: async () => ({ description: '江戸の小説・教養。' }), env, fetchImpl, ip: 'x' });
     expect(a.source).toBe('ai');
     expect(b.source).toBe('keywords');
   });
@@ -176,11 +176,11 @@ describe('classifyBookServer（本 1 冊）', () => {
 describe('選び直した声', () => {
   const T = '半径5メートルの野望 完全版';
   const A = 'はあちゅう';
-  const minus = [{ field: '教養・その他', delta: -1 }, { field: 'キャリア・働き方', delta: 1 }];
+  const minus = [{ field: '小説・教養', delta: -1 }, { field: 'キャリア・働き方', delta: 1 }];
   it('今の分野を決めた後に別々の 3 人が -1 を入れたら決め直す（利用者 id は残さずハッシュだけ）', async () => {
     const db = fakeDb();
     const key = bookFieldKey({ title: T, author: A });
-    db.tables.book_field_cache.set(key, { book_key: key, fields: ['教養・その他'], source: 'keywords', version: BOOK_FIELDS_VERSION, updated_at: '2026-01-01T00:00:00.000Z' });
+    db.tables.book_field_cache.set(key, { book_key: key, fields: ['小説・教養'], source: 'keywords', version: BOOK_FIELDS_VERSION, updated_at: '2026-01-01T00:00:00.000Z' });
     const vote = (userId) => recordFieldVotes({ title: T, author: A, votes: minus }, { supabase: db, userId });
     expect((await vote('user-1')).stale).toBe(false);
     expect((await vote('user-2')).stale).toBe(false);
@@ -194,7 +194,7 @@ describe('選び直した声', () => {
   it('同じ人は 1 冊 1 回（何度押しても 1 人ぶん）', async () => {
     const db = fakeDb();
     const key = bookFieldKey({ title: T, author: A });
-    db.tables.book_field_cache.set(key, { book_key: key, fields: ['教養・その他'], source: 'ai', version: BOOK_FIELDS_VERSION, updated_at: '2026-01-01T00:00:00.000Z' });
+    db.tables.book_field_cache.set(key, { book_key: key, fields: ['小説・教養'], source: 'ai', version: BOOK_FIELDS_VERSION, updated_at: '2026-01-01T00:00:00.000Z' });
     for (let i = 0; i < 5; i += 1) {
       // eslint-disable-next-line no-await-in-loop
       expect((await recordFieldVotes({ title: T, author: A, votes: minus }, { supabase: db, userId: 'same' })).stale).toBe(false);
@@ -206,7 +206,7 @@ describe('選び直した声', () => {
     const db = fakeDb();
     const key = bookFieldKey({ title: T, author: A });
     db.clock = () => '2026-03-01T00:00:00.000Z';
-    db.tables.book_field_cache.set(key, { book_key: key, fields: ['教養・その他'], source: 'ai', version: BOOK_FIELDS_VERSION, updated_at: '2026-02-01T00:00:00.000Z' });
+    db.tables.book_field_cache.set(key, { book_key: key, fields: ['小説・教養'], source: 'ai', version: BOOK_FIELDS_VERSION, updated_at: '2026-02-01T00:00:00.000Z' });
     const now = Date.parse('2026-03-02T00:00:00.000Z');
     await recordFieldVotes({ title: T, author: A, votes: minus }, { supabase: db, userId: 'u1', now });
     await recordFieldVotes({ title: T, author: A, votes: minus }, { supabase: db, userId: 'u2', now });
@@ -220,7 +220,7 @@ describe('選び直した声', () => {
   it('ログインしていない（userId なし）・一覧に無い分野・おかしな値は残さない', async () => {
     const db = fakeDb();
     expect((await recordFieldVotes({ title: '本の名前', votes: minus }, { supabase: db })).ok).toBe(false);
-    const r = await recordFieldVotes({ title: '本の名前', votes: [{ field: 'x', delta: 1 }, { field: '教養・その他', delta: 5 }] }, { supabase: db, userId: 'u' });
+    const r = await recordFieldVotes({ title: '本の名前', votes: [{ field: 'x', delta: 1 }, { field: '小説・教養', delta: 5 }] }, { supabase: db, userId: 'u' });
     expect(r.ok).toBe(false);
     expect(db.tables.book_field_votes).toHaveLength(0);
   });
@@ -256,9 +256,9 @@ describe('覚え書きを書き換えられない（2026-10-10 監査）', () =>
     expect(db.tables.book_field_cache.size).toBe(0);
     expect(['keywords', 'none']).toContain(r.source);
     // 覚え書きにあれば、それは読める
-    db.tables.book_field_cache.set(`i:${ISBN}`, { book_key: `i:${ISBN}`, fields: ['教養・その他'], source: 'ai', version: BOOK_FIELDS_VERSION });
+    db.tables.book_field_cache.set(`i:${ISBN}`, { book_key: `i:${ISBN}`, fields: ['小説・教養'], source: 'ai', version: BOOK_FIELDS_VERSION });
     const r2 = await classifyBookServer({ isbn: ISBN, title: 'x' }, { supabase: db, getInfo, env: ENV, fetchImpl, write: false });
-    expect(r2).toMatchObject({ fields: ['教養・その他'], cached: true });
+    expect(r2).toMatchObject({ fields: ['小説・教養'], cached: true });
   });
   it('利用者ごとの回数（1 時間）', () => {
     const env = { BOOK_FIELDS_VOTES_PER_HOUR: '2' };

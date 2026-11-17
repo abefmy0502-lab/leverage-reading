@@ -129,12 +129,12 @@ describe('tagTotals', () => {
     expect(sumOf(t)).toBe(105);
   });
   it('3 つの分野で割り切れなくても、丸めた分の和は合計と同じ', () => {
-    const bs = [{ id: 'p', title: '三つ', tags: ['お金・会計・ファイナンス', '生産性・伝える力', '思考法・問題解決'] }, { id: 'q', title: '二つ', tags: ['お金・会計・ファイナンス', 'お金・会計・ファイナンス'] }];
+    const bs = [{ id: 'p', title: '三つ', tags: ['お金・会計', '習慣・自己管理', '思考法・問題解決'] }, { id: 'q', title: '二つ', tags: ['お金・会計', 'お金・会計'] }];
     const r = [row('p', at(2026, 10, 13, 7), 50), row('q', at(2026, 10, 13, 9), 7)];
     const t = tagTotals(r, bs, 'all', NOW);
     expect(t.totalMinutes).toBe(57);
     expect(sumOf(t)).toBe(57);
-    expect(t.items[0].tag).toBe('お金・会計・ファイナンス'); // 50/3 ＋ 7/2 ＝ 20.2
+    expect(t.items[0].tag).toBe('お金・会計'); // 50/3 ＋ 7/2 ＝ 20.2
   });
   it('上位のあとは「ほか」にまとめ、それでも和は合計と同じ', () => {
     const many = Array.from({ length: 8 }, (_, i) => ({ id: `t${i}`, title: `本${i}`, tags: [BOOK_FIELDS[i]] }));

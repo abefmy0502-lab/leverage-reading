@@ -11,9 +11,9 @@ describe('本の追加のフォームの分野', () => {
   it('待っている間 → 答えが届いたら入れる', () => {
     const waiting = markFieldsWaiting(form, 'f1', true);
     expect(waiting).toMatchObject({ fieldsPending: true, fieldsFailed: false });
-    const done = settleServerFields(waiting, 'f1', ['教養・その他', '生産性・伝える力']);
+    const done = settleServerFields(waiting, 'f1', ['小説・教養', '習慣・自己管理']);
     expect(done).toMatchObject({ fieldsPending: false, fieldsFailed: false, fieldsAuto: true, fieldsAutoStage: 'info' });
-    expect(done.tags).toEqual(['生産性・伝える力', '教養・その他']);
+    expect(done.tags).toEqual(['習慣・自己管理', '小説・教養']);
   });
   it('答えが無い・8 秒たった → 「自動では選べませんでした。」の印', () => {
     expect(settleServerFields(markFieldsWaiting(form, 'f1', true), 'f1', [])).toMatchObject({ fieldsPending: false, fieldsFailed: true });
@@ -21,14 +21,14 @@ describe('本の追加のフォームの分野', () => {
   });
   it('本人が選んだら、あとで届いたサーバーの答えで上書きしない', () => {
     const waiting = markFieldsWaiting(form, 'f1', true);
-    const chosen = { ...waiting, tags: ['教養・その他'], fieldsTouched: true, fieldsAuto: false };
-    expect(settleServerFields(chosen, 'f1', ['教養・その他'])).toBe(chosen);
+    const chosen = { ...waiting, tags: ['小説・教養'], fieldsTouched: true, fieldsAuto: false };
+    expect(settleServerFields(chosen, 'f1', ['小説・教養'])).toBe(chosen);
     expect(applyAutoFields(chosen, 'f1', ['心理学・行動経済学'], 'info')).toBe(chosen);
     expect(markFieldsWaiting(chosen, 'f1', false)).toBe(chosen);
   });
   it('ほかの本のフォームには入れない・自動で選んだ分野は答えで置きかえる', () => {
-    expect(settleServerFields(form, 'other', ['教養・その他'])).toBe(form);
+    expect(settleServerFields(form, 'other', ['小説・教養'])).toBe(form);
     const auto = applyAutoFields(form, 'f1', ['数字・データ分析'], 'title');
-    expect(settleServerFields(auto, 'f1', ['教養・その他']).tags).toEqual(['教養・その他']);
+    expect(settleServerFields(auto, 'f1', ['小説・教養']).tags).toEqual(['小説・教養']);
   });
 });
