@@ -46,7 +46,7 @@
   content: "";
   position: absolute;
   left: calc(var(--space-4) / 2 - 1px);
-  top: var(--space-5);
+  top: calc((1.5em + var(--space-4)) / 2);
   bottom: calc(-1 * var(--space-1));
   width: 2px;
   background: var(--separator);
@@ -255,6 +255,10 @@
 .rm-sec-head .goal-sec-title { margin: 0; }
 .rm-edit-link {
   min-height: var(--tap-min);
+  min-width: var(--tap-min);
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
   padding: 0 0 0 var(--space-3);
   background: none;
   border: none;
@@ -480,7 +484,9 @@
 .rm-pace { margin: var(--space-4) 0 0; padding: var(--space-3) 0 0; border-top: 1px solid var(--separator); display: grid; gap: var(--space-2); }
 .rm-pace > div { display: grid; gap: var(--space-1); }
 .rm-pace dt { font-size: var(--text-meta); color: var(--text-2); line-height: 1.5; }
-.rm-pace dd { margin: 0; font-size: var(--text-sub); color: var(--text-2); line-height: 1.6; word-break: keep-all; overflow-wrap: anywhere; }
+.rm-pace dd { margin: 0; font-size: var(--text-sub); color: var(--text); line-height: 1.6; word-break: keep-all; overflow-wrap: anywhere; }
 
 /* 期限が過ぎた目標の枠の題（閉じられる案内カードの題と同じ 17/600） */
 .rm-overdue-title { margin: 0; font-size: var(--text-body); font-weight: 600; color: var(--text); line-height: 1.5; word-break: keep-all; overflow-wrap: anywhere; }
+/* いまの 3 か月・期限の枠の中の説明（主ボタンが何をするか＝補足説明 15） */
+.rm-now-note { margin: var(--space-3) 0 0; font-size: var(--text-sub); color: var(--text-2); line-height: 1.6; word-break: keep-all; overflow-wrap: anywhere; }

@@ -673,12 +673,12 @@ function RoadmapView({ goal, record, books, sessions = [], onOpenBook, onAddActi
   const linkStyle = { ...btnLink, display: 'flex', width: 'fit-content', marginTop: 'var(--space-2)', marginLeft: 'calc(-1 * var(--space-1))' };
   const primaryStyle = { ...btnPrimary, marginTop: 'var(--space-4)' };
   const chooseBtn = (primary, count, label) => (
-    <button type="button" disabled={choosing} aria-busy={choosing || undefined} style={primary && !quiet ? { ...(choosing ? btnPrimaryOff : btnPrimary), marginTop: 'var(--space-4)' } : quiet ? { ...linkStyle, color: btnLinkQuiet.color } : linkStyle} onClick={() => choose(count)}>
+    <button type="button" disabled={choosing} aria-busy={choosing || undefined} style={primary && !quiet ? { ...(choosing ? btnPrimaryOff : btnPrimary), marginTop: 'var(--space-4)' } : primary ? linkStyle : quiet ? { ...linkStyle, color: btnLinkQuiet.color } : linkStyle} onClick={() => choose(count)}>
       {choosing ? '本を選んでいます…' : `${chooseError ? 'もう一度選ぶ' : label}（${PHASE_BOOKS_TOKENS_LABEL}）`}
     </button>
   );
   const planBtn = (primary) => (
-    <button type="button" style={primary && !quiet ? primaryStyle : linkStyle} onClick={onPlan}>読書計画をカレンダーにする</button>
+    <button type="button" disabled={choosing} style={primary && !quiet ? primaryStyle : primary || !quiet ? linkStyle : { ...linkStyle, color: btnLinkQuiet.color }} onClick={onPlan}>読書計画をカレンダーにする</button>
   );
   // 次の 3 か月の決め方を 1 文で（数は「選ぶ冊数」の説明だけ・遅れ・%・あと N 冊は出さない）。
   const leftN = quarter.leftover.length;
@@ -705,7 +705,7 @@ function RoadmapView({ goal, record, books, sessions = [], onOpenBook, onAddActi
       {overdue.length > 0 && !stale && (
         <section className="goal-box rm-overdue" aria-labelledby="rm-overdue">
           <h3 id="rm-overdue" className="rm-overdue-title">{withPhraseBreaks(`${overdue.map((o) => o.label).join('・')}の目標の期限が過ぎました`)}</h3>
-          <p className="plan-summary">{withPhraseBreaks('目標の画面で、書き直すか、同じ目標で続けるかを選べます。そこから新しい道のりをつくれます。')}</p>
+          <p className="rm-now-note">{withPhraseBreaks('書き直すか、この目標で続けるかを選べます。')}</p>
           {onEditGoals && <button type="button" style={{ ...btnPrimary, marginTop: 'var(--space-3)' }} onClick={onEditGoals}>目標を書き直す</button>}
         </section>
       )}
@@ -722,7 +722,7 @@ function RoadmapView({ goal, record, books, sessions = [], onOpenBook, onAddActi
                 <div>
                   <dt>前の 3 か月に読み終えた本</dt>
                   <dd>{quarter.pace.doneCount > 0
-                    ? withPhraseBreaks(quarter.pace.doneBooks.slice(0, 3).map((b) => `『${displayTitle(b.title)}』`).join('') + (quarter.pace.doneCount > 3 ? ` ほか ${quarter.pace.doneCount - 3} 冊` : ''))
+                    ? <>{quarter.pace.doneBooks.slice(0, 3).map((b) => <span key={b.id} style={{ display: 'inline-block' }}>{`『${displayTitle(b.title)}』`}</span>)}{quarter.pace.doneCount > 3 ? ` ほか ${quarter.pace.doneCount - 3} 冊` : ''}</>
                     : 'ありませんでした'}</dd>
                 </div>
                 {quarter.pace.minutes > 0 && (
@@ -733,8 +733,8 @@ function RoadmapView({ goal, record, books, sessions = [], onOpenBook, onAddActi
                 )}
               </dl>
             )}
-            <p className="plan-summary">{withPhraseBreaks(paceLine)}</p>
-            {chooseError && <p className="plan-summary" role="alert" style={{ color: 'var(--error)' }}>{chooseError}</p>}
+            <p className="rm-now-note">{withPhraseBreaks(paceLine)}</p>
+            {chooseError && <p className="rm-now-note" role="alert" style={{ color: 'var(--error)' }}>{chooseError}</p>}
             {quarter.count === 0 ? (
               <>
                 {planBtn(true)}
@@ -744,7 +744,7 @@ function RoadmapView({ goal, record, books, sessions = [], onOpenBook, onAddActi
               <>
                 {chooseBtn(true, quarter.count, 'この 3 か月の本を選ぶ')}
                 {planBooks ? (choosing ? null : planBtn(false)) : hasUnread && (
-                  <button type="button" disabled={choosing} style={linkStyle} onClick={onPlan}>本棚の本から選んで読書計画にする</button>
+                  <button type="button" disabled={choosing} style={quiet ? { ...linkStyle, color: btnLinkQuiet.color } : linkStyle} onClick={onPlan}>本棚の本から選んで読書計画にする</button>
                 )}
               </>
             )}

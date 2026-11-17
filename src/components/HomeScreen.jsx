@@ -281,7 +281,7 @@ function HomeGoalRow({ onOpen, onClose }) {
         <ChevronRight size="1.2em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
       </button>
       <button type="button" onClick={onClose} aria-label="目標の案内を閉じる" style={{ width: 'var(--tap-min)', minHeight: 'var(--tap-min)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)' }}>
-        <X size={18} aria-hidden="true" />
+        <X size="1.1em" aria-hidden="true" />
       </button>
     </div>
   );
