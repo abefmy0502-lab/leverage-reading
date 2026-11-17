@@ -122,6 +122,7 @@ UI 文言・トースト・ヘルプ・LP・プロンプト出力で使う名前
 ├── scripts/lp-shots.mjs                # 📸 LP に載せるアプリ画面の写真を撮り直す（`npm run demo` → `npm run lp:shots` → public/lp/*.webp・2026-10-11 からヒーローは 1 冊の本の語り口＝hero・対話の 4 コマ・行動・集中モード・分野・共有）
 ├── scripts/share-images.mjs            # 🖼 写真で共有の「共有される画像そのもの」を重ね方×形×地で書き出す（`npm run demo` → `node scripts/share-images.mjs` → ui-shots/share-after/images/）
 ├── scripts/ops-mcp.mjs                 # 🤖 自動のセッションから Orime の運営の道具を呼ぶ（`node scripts/ops-mcp.mjs ops_tasks '{"action":"claim"}'`・鍵は環境のネットワークのシークレット・docs/mcp.md §7・2026-11-08）
+├── scripts/bookvinegar-sync.mjs        # 📚 ビジネス書の書評サイト bookvinegar が推す本の事実（ISBN・書名・著者だけ・要約の文章は読まない）を AI 選書の推薦用の本の待ち行列へ（`ops_books` の add・メモ「bookvinegar」）。月に 1 回のスケジュールされたタスク「bookvinegar の新しい本」が直近 35 日に更新された記事を読む・1.2 秒に 1 回・`--dry-run`・はじめの 1 回は `--from-jsonl`。関数は scripts/bookvinegarCore.js・company/research/bookvinegar-2026-11.md §5-5（2026-11-17）
 ├── scripts/marketing/                  # 🎬 SNS の縦動画を台本（scenarios.mjs）どおりお試しモードで録って字幕つき mp4 に（`npm run demo` → `npm run mkt:record`）・週の投稿の下書き（`npm run mkt:drafts`・鍵が無ければプロンプトだけ）→ marketing-out/（git 管理外）。手順は docs/ai-marketing-automation.md
 ├── SPEC.md / DESIGN.md                 # 🎨 画面の役割 / 見た目のルール（UI を触る前に必ず読む）
 ├── docs/revenue-gates.md               # 🚀 売上までの関門（オーナーがやる順番・SQL → env → App Store Connect/RevenueCat → iPhone の通知 → 提出 → 公開の日 → 知らせる）。どこまで通ったかは Claude のアーティファクトの運営ダッシュボード「公開の準備」＝MCP の ops_dashboard が添える `launch_gates`（api/_launchHealth.js・管理者だけ・env と SQL の有無を真偽で返す・値は返さない・一覧は api/_launchHealthKeys.js・2026-10-22・2026-11-08 にアプリの中の画面と api/launch-health.js をやめた）
