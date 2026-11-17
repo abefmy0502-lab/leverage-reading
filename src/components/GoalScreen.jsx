@@ -704,7 +704,7 @@ function RoadmapView({ goal, record, books, sessions = [], onOpenBook, onAddActi
   const planBtn = (primary, extra = null) => {
     const link = isLink(primary);
     return (
-      <button type="button" className={link ? 'rm-link' : undefined} disabled={choosing} style={!link ? { ...(choosing ? btnPrimaryOff : btnPrimary), marginTop: 'var(--space-4)' } : choosing ? { ...linkStyle, color: 'var(--text-3)', opacity: 1, cursor: 'default', ...extra } : { ...linkStyle, ...(quiet && !primary ? quietColor : null), ...extra }} onClick={onPlan}>読書計画をカレンダーにする</button>
+      <button type="button" className={link ? 'rm-link' : undefined} disabled={choosing} style={!link ? { ...(choosing ? btnPrimaryOff : btnPrimary), marginTop: 'var(--space-4)' } : choosing ? { ...linkStyle, color: 'var(--text-2)', opacity: 1, cursor: 'default', ...extra } : { ...linkStyle, ...(quiet && !primary ? quietColor : null), ...extra }} onClick={onPlan}>読書計画をカレンダーにする</button>
     );
   };
   // 次の 3 か月の決め方を 1 文で（数は「選ぶ冊数」の説明だけ・遅れ・%・あと N 冊は出さない）。
@@ -752,7 +752,7 @@ function RoadmapView({ goal, record, books, sessions = [], onOpenBook, onAddActi
                 <div>
                   <dt>前の 3 か月に読み終えた本</dt>
                   <dd>{quarter.pace.doneCount > 0
-                    ? <>{quarter.pace.doneBooks.slice(0, 3).map((b) => <span key={b.id} style={{ display: 'inline-block' }}>{`『${displayTitle(b.title)}』`}</span>)}{quarter.pace.doneCount > 3 ? ` ほか ${quarter.pace.doneCount - 3} 冊` : ''}</>
+                    ? <>{quarter.pace.doneBooks.slice(0, 3).map((b, i, arr) => <span key={b.id} style={{ display: 'block' }}>{`『${displayTitle(b.title)}』`}{i === arr.length - 1 && quarter.pace.doneCount > 3 ? ` ほか ${quarter.pace.doneCount - 3} 冊` : ''}</span>)}</>
                     : 'ありませんでした'}</dd>
                 </div>
                 {quarter.pace.minutes > 0 && (
@@ -773,7 +773,7 @@ function RoadmapView({ goal, record, books, sessions = [], onOpenBook, onAddActi
             ) : (
               <>
                 {chooseBtn(true, quarter.count, 'この 3 か月の本を選ぶ')}
-                {planBooks ? (choosing ? null : planBtn(false, isLink(true) ? second : null)) : hasUnread && (
+                {planBooks ? (choosing ? null : planBtn(false, isLink(true) ? second : null)) : hasUnread && !choosing && (
                   <button type="button" className="rm-link" disabled={choosing} style={{ ...linkStyle, ...(quiet ? quietColor : null), ...(isLink(true) ? second : null) }} onClick={onPlan}>本棚の本から選んで読書計画にする</button>
                 )}
               </>

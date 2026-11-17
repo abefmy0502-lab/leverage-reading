@@ -483,7 +483,7 @@
 /* いまの 3 か月の「前の 3 か月」（読み終えた本・読書の時間） */
 .rm-pace { margin: var(--space-4) 0 0; padding: var(--space-3) 0 0; border-top: 1px solid var(--separator); display: grid; gap: var(--space-3); }
 .rm-pace > div { display: grid; gap: var(--space-1); }
-.rm-pace dt { font-size: var(--text-meta); color: var(--text-2); line-height: 1.5; }
+.rm-pace dt { font-size: var(--text-caption); font-weight: 600; color: var(--text-2); line-height: 1.5; }
 .rm-pace dd { margin: 0; font-size: var(--text-sub); color: var(--text); line-height: 1.6; word-break: keep-all; overflow-wrap: anywhere; }
 
 /* 期限が過ぎた目標の枠の題（閉じられる案内カードの題と同じ 17/600） */
