@@ -1,0 +1,27 @@
+{
+  "_about": "AI 選書の「賞・年間ベストの印」のはじめの分（2026-11-18）。MCP の ops_books に action=mark・marks=この items をそのまま渡す。出典は company/research/research_notes/ビジネス書 データ源 連携の可能性/ の curation_reviews_awards.md と sales_rankings_libraries.md（検索結果の抜粋から集めた事実。入れる前に URL で書名・部門を確かめること）。書名と著者だけで入れた本は、待ち行列が楽天の書誌で確かめてから ISBN が付く（見つからない本は ops_books の marks で unlinked=true）。",
+  "items": [
+    { "title": "億までの人 億からの人", "author": "田中渓", "source": "読者が選ぶビジネス書グランプリ", "year": 2026, "label": "総合グランプリ", "kind": "award", "url": "https://www.flierinc.com/column/grandprix2026" },
+    { "title": "億までの人 億からの人", "author": "田中渓", "source": "読者が選ぶビジネス書グランプリ", "year": 2026, "label": "経済・マネー部門", "kind": "award", "url": "https://www.flierinc.com/column/grandprix2026" },
+    { "title": "1つの習慣", "author": "横山直宏", "source": "読者が選ぶビジネス書グランプリ", "year": 2026, "label": "イノベーション部門", "kind": "award", "url": "https://www.flierinc.com/column/grandprix2026" },
+    { "title": "ハーバード、スタンフォード、オックスフォード… 科学的に証明された すごい習慣大百科", "author": "", "source": "読者が選ぶビジネス書グランプリ", "year": 2026, "label": "自己啓発部門", "kind": "award", "url": "https://www.flierinc.com/column/grandprix2026" },
+    { "title": "アフターAI", "author": "シバタナオキ", "source": "読者が選ぶビジネス書グランプリ", "year": 2026, "label": "グロービス経営大学院賞", "kind": "award", "url": "https://www.flierinc.com/column/grandprix2026" },
+    { "title": "「人の器」の磨き方", "author": "加藤洋平", "source": "TOPPOINT 大賞", "year": 2026, "label": "上半期 大賞", "kind": "selection", "url": "https://koubo.jp/press-release/prtimes/c31087_r35" },
+    { "title": "アメリカの新右翼", "author": "", "source": "TOPPOINT 大賞", "year": 2025, "label": "下半期 大賞", "kind": "selection", "url": "https://koubo.jp/press-release/prtimes/c31087_r34" },
+    { "title": "企業変革のジレンマ", "author": "宇田川元一", "source": "TOPPOINT 大賞", "year": 2024, "label": "下半期 大賞", "kind": "selection", "url": "https://koubo.jp/press-release/prtimes/c31087_r31" },
+    { "title": "戦略の要諦", "author": "", "source": "TOPPOINT 大賞", "year": 2024, "label": "上半期 大賞", "kind": "selection", "url": "https://koubo.jp/press-release/prtimes/c31087_r31" },
+    { "title": "エンジニアの持続的成長37のヒント", "author": "阪上誠", "source": "ITエンジニア本大賞", "year": 2026, "label": "ビジネス書部門 大賞", "kind": "award", "url": "https://codezine.jp/article/detail/22917" },
+    { "title": "改訂版 本当の自由を手に入れる お金の大学", "author": "両@リベ大学長", "source": "日販 年間ベストセラー", "year": 2025, "label": "ビジネス 1位", "kind": "annual", "url": "https://www.sakigake.jp/news/article/20251201CO0014/" },
+    { "title": "改訂版 本当の自由を手に入れる お金の大学", "author": "両@リベ大学長", "source": "トーハン 年間ベストセラー", "year": 2025, "label": "ビジネス 1位", "kind": "annual", "url": "https://www.sakigake.jp/news/article/20251201CO0014/" },
+    { "title": "ハーバード、スタンフォード、オックスフォード… 科学的に証明された すごい習慣大百科", "author": "", "source": "日販 上半期ベストセラー", "year": 2026, "label": "総合 1位", "kind": "annual", "url": "https://kumanichi.com/articles/1997374" },
+    { "title": "ハーバード、スタンフォード、オックスフォード… 科学的に証明された すごい習慣大百科", "author": "", "source": "トーハン 上半期ベストセラー", "year": 2026, "label": "総合 1位", "kind": "annual", "url": "https://kumanichi.com/articles/1997374" },
+    { "title": "物価を考える", "author": "渡辺努", "source": "ダイヤモンド ベスト経済書", "year": 2026, "label": "1位", "kind": "selection", "url": "https://bookplus.nikkei.com/atcl/column/041500053/042900505/" },
+    { "title": "日本経済の死角", "author": "", "source": "東洋経済 ベスト経済書", "year": 2025, "label": "1位", "kind": "selection", "url": "https://toyokeizai.net/articles/-/924859" },
+    { "title": "マッチング理論とマーケットデザイン", "author": "小島武仁", "source": "日経・経済図書文化賞", "year": 2025, "label": "第68回", "kind": "award", "url": "https://www.jcer.or.jp/wp-content/uploads/2026/06/Bunka_All_68.pdf" },
+    { "title": "現代日本の金融システム", "author": "内田浩史", "source": "日経・経済図書文化賞", "year": 2025, "label": "第68回", "kind": "award", "url": "https://www.jcer.or.jp/wp-content/uploads/2026/06/Bunka_All_68.pdf" },
+    { "title": "男女賃金格差の経済学", "author": "大湾秀雄", "source": "日経・経済図書文化賞", "year": 2025, "label": "第68回", "kind": "award", "url": "https://www.jcer.or.jp/wp-content/uploads/2026/06/Bunka_All_68.pdf" },
+    { "title": "可視化される差別", "author": "五十嵐彰", "source": "日経・経済図書文化賞", "year": 2025, "label": "第68回", "kind": "award", "url": "https://www.jcer.or.jp/wp-content/uploads/2026/06/Bunka_All_68.pdf" },
+    { "title": "男女賃金格差の経済学", "author": "大湾秀雄", "source": "日経 エコノミストが選ぶ経済図書ベスト10", "year": 2025, "label": "3位", "kind": "selection", "url": "https://bookplus.nikkei.com/atcl/column/041500053/111200454/" },
+    { "title": "ファイナンスの世界史", "author": "大村敬一", "source": "日経 エコノミストが選ぶ経済図書ベスト10", "year": 2025, "label": "8位", "kind": "selection", "url": "https://bookplus.nikkei.com/atcl/column/041500053/111200454/" }
+  ]
+}

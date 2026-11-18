@@ -36,6 +36,7 @@ export const ORDER = [
   ['supabase_goal_roadmaps.sql', '目標のロードマップと読書計画'],
   ['supabase_advisor_books.sql', 'AI 選書の推薦用の本のデータ'],
   ['supabase_advisor_books_ext.sql', 'AI 選書の推薦用の本の難しさと書評のデータ'],
+  ['supabase_advisor_books_signals.sql', 'AI 選書の推薦用の本の売れ方と賞・年間ベストの印（候補を引く関数もここ）'],
   // 2. 行動
   ['supabase_actions_full.sql', '行動の期限・繰り返し・ふりかえり'],
   ['supabase_actions_id_default.sql', '行動の id'],

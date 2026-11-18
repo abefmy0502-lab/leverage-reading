@@ -103,6 +103,9 @@ export async function searchCatalog(words, { shelf = [], rpc = defaultRpc, limit
         recPoints: Number.isFinite(Number(b.rec_points)) && b.rec_points !== null ? Number(b.rec_points) : null,
         endorsers: (Array.isArray(b.endorsers) ? b.endorsers : []).map(str).filter(Boolean).slice(0, 5),
         extSummary: str(b.ext_summary),
+        // 売れ方と賞・年間ベストの印（2026-11-18・supabase_advisor_books_signals.sql。前の本番には無い＝空）
+        trend: TREND_LABEL[b.trend] ? b.trend : '',
+        marks: (Array.isArray(b.marks) ? b.marks : []).map(str).filter(Boolean).slice(0, 3),
       }));
   } catch { return []; }
 }
@@ -177,10 +180,14 @@ export async function gatherCandidates(keywords, { shelf = [], search = searchBo
     recPoints: b.recPoints ?? null,
     endorsers: Array.isArray(b.endorsers) ? b.endorsers : [],
     extSummary: str(b.extSummary),
+    trend: TREND_LABEL[b.trend] ? b.trend : '',
+    marks: Array.isArray(b.marks) ? b.marks : [],
   }));
 }
 
 const DIFF_LABEL = { 1: '入門', 2: '中級', 3: '上級' };
+// 売れ方（refresh_advisor_book_trends が決める・分野の売上順 100 位以内を直近 21 日に見た本）
+export const TREND_LABEL = { new: '出て 1 年以内で、いま分野の売上上位', steady: '出て 3 年以上たっても、いま分野の売上上位' };
 
 // AI に渡す候補の塊（無ければ空文字）。
 export function candidatesBlock(cands) {
@@ -198,7 +205,9 @@ export function candidatesBlock(cands) {
       ? `\n　推薦: ${c.endorsers.slice(0, 3).join('・').slice(0, 60)}${c.endorsers.length > 3 ? ' ほか' : ''}${c.recPoints ? `（${c.recPoints}P）` : ''}`
       : '';
     const ext = c.extSummary ? `\n　書評サイトの要約（参考・写さない）: ${c.extSummary.replace(/\s+/g, ' ').slice(0, 160)}` : '';
-    return `${c.key}『${c.title}』${sub}${meta ? `（${meta}）` : ''}${about}${who}${diff}${rec}${ext}`;
+    const sold = c.trend && TREND_LABEL[c.trend] ? `\n　売れ方: ${TREND_LABEL[c.trend]}` : '';
+    const marks = c.marks && c.marks.length ? `\n　受賞: ${c.marks.slice(0, 3).join('／').slice(0, 90)}` : '';
+    return `${c.key}『${c.title}』${sub}${meta ? `（${meta}）` : ''}${about}${who}${diff}${rec}${sold}${marks}${ext}`;
   });
   return (
     '【本の候補（書店の書誌で確かめた、実在する本）】\n' +
