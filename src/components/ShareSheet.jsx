@@ -1063,16 +1063,17 @@ export default function ShareSheet({
                 aria-haspopup="dialog"
                 onClick={() => { setQuotePicker(true); haptic.light(); }}
                 // 画像（本を選ぶ＋見本）と、整える欄（一文・編集・重ね方）の間は 24（まとまりの間・DESIGN §1・2026-11-18 ui-critic）。
-                style={{ ...quoteRowBtn(status === 'ready'), marginTop: formatInEditRow ? 'var(--space-2)' : 0 }}
+                // 文字が大きいときは 2 段（一文を 3 行まで・「変える ›」は下の行・左のアイコンは出さない＝一文の列を広く・2026-11-18 文字最大の点検）。
+                style={{ ...quoteRowBtn(status === 'ready'), marginTop: formatInEditRow ? 'var(--space-2)' : 0, ...(largeText ? { flexWrap: 'wrap', rowGap: 'var(--space-1)' } : null) }}
               >
-                <TextQuote size="1.2em" aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0, alignSelf: 'center' }} />
+                {!largeText && <TextQuote size="1.2em" aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0, alignSelf: 'center' }} />}
                 <span style={{ minWidth: 0, flex: 1, display: 'grid', gap: 'var(--space-1)' }}>
                   <span style={{ color: 'var(--text-2)', fontSize: 'var(--text-meta)' }}>
                     {quotePart && chosenMemo ? '画像に入れる一文（メモの一部）' : '画像に入れる一文'}
                   </span>
-                  <span style={quoteRowText(!chosen || status !== 'ready', showSwitcher && !largeText ? 1 : 2)}>{chosen ? String(chosen.text || '').trim() : '一文を入れていません'}</span>
+                  <span style={quoteRowText(!chosen || status !== 'ready', largeText ? 3 : showSwitcher ? 1 : 2)}>{chosen ? String(chosen.text || '').trim() : '一文を入れていません'}</span>
                 </span>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', color: status === 'ready' ? 'var(--accent)' : 'var(--text-3)', fontSize: 'var(--text-sub)', fontWeight: 600, flexShrink: 0, alignSelf: 'center' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', color: status === 'ready' ? 'var(--accent)' : 'var(--text-3)', fontSize: 'var(--text-sub)', fontWeight: 600, flexShrink: 0, alignSelf: 'center', ...(largeText ? { flexBasis: '100%', whiteSpace: 'nowrap' } : null) }}>
                   {chosen ? '変える' : '入れる'}
                   <ChevronRight size="1.1em" aria-hidden="true" />
                 </span>
@@ -1102,7 +1103,7 @@ export default function ShareSheet({
             </button>
             {/* 「編集」を出さない（画像を作れなかった）ときは左に寄せる（右に浮いて左が大きく空いた・2026-11-18 ui-critic）。 */}
             {(formatInEditRow || photo) && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 'var(--space-3)', rowGap: 'var(--space-1)', marginLeft: status === 'error' ? 0 : 'auto' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 'var(--space-3)', rowGap: 'var(--space-1)', marginLeft: status === 'error' ? 'var(--space-1)' : 'auto' }}>
             {formatInEditRow && formatSwitch}
             {photo && (
               // 背景（写真・フィルム・紙…）と、撮り直す・アルバムから選ぶは「背景：写真 ▾」のメニュー 1 つに（2026-10-10）。

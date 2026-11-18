@@ -182,7 +182,7 @@ export default function TokenSheet({ plan, onClose, onPurchased }) {
           // 価格の欄: Web は既定の表示・アプリ版はストアの値だけ（読み込み中は骨組み・取れなければ何も出さない）。
           let price = null;
           if (!showNative) price = prices[p.id] || p.fallbackPrice;
-          else if (priceState === 'loading') price = <SkeletonBlock width={56} height="var(--text-body)" radius="var(--radius)" style={{ display: 'inline-block', verticalAlign: 'middle' }} />;
+          else if (priceState === 'loading') price = <SkeletonBlock width="3.2em" height="var(--text-body)" radius="var(--radius)" style={{ display: 'inline-block', verticalAlign: 'middle' }} />;
           else if (priceState === 'ready' && prices[p.id]) price = prices[p.id];
           return (
             <button

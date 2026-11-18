@@ -178,9 +178,9 @@ export function useBookQuerySearch() {
 export function BookSearchField({ id, value, onChange, onSubmit, inputRef, autoFocus = false }) {
   const [focused, setFocused] = useState(false);
   return (
-    <div style={{ position: 'relative' }}>
+    <div style={{ position: 'relative', fontSize: 'var(--text-body)' }}>
       <Search
-        size={20}
+        size="1.1em"
         aria-hidden="true"
         style={{ position: 'absolute', left: 'var(--space-4)', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)', pointerEvents: 'none' }}
       />
@@ -210,7 +210,7 @@ export function BookSearchField({ id, value, onChange, onSubmit, inputRef, autoF
         style={{
           ...input,
           outline: 'none',
-          paddingLeft: 'var(--space-12)',
+          paddingLeft: 'calc(var(--space-4) + 1.1em + var(--space-2))',
           paddingRight: value ? 'var(--space-12)' : 'var(--space-4)',
           // DESIGN §5: 入力中の枠はアクセント
           // border の一括指定と borderColor を混ぜると React が警告するので、枠は丸ごと差し替える
@@ -232,7 +232,7 @@ export function BookSearchField({ id, value, onChange, onSubmit, inputRef, autoF
             color: 'var(--text-3)',
           }}
         >
-          <X size={18} aria-hidden="true" />
+          <X size="1em" aria-hidden="true" />
         </button>
       )}
     </div>
@@ -345,7 +345,7 @@ function ResultRow({ book, existing, onPick, divider }) {
             <span style={{ ...oneLine, fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>{meta}</span>
           ) : null}
         </span>
-        <ChevronRight size={20} aria-hidden="true" style={{ flexShrink: 0, color: 'var(--text-3)' }} />
+        <ChevronRight size="1.1em" aria-hidden="true" style={{ flexShrink: 0, color: 'var(--text-3)' }} />
       </button>
     </li>
   );

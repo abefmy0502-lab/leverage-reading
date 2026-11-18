@@ -107,13 +107,19 @@ export function keepUnitsTogether(text) {
 }
 
 // 文節（scriptBreaks のときは長い文節の中の文字の種類の切れ目でも）に分ける。改行は '\n' の要素で残す。
-// 長い 1 文節（8 字以上）の終わりの「ませんでした／ません／ました／でした」を分ける（その前で折り返せる）。
-const POLITE_END_RE = /^(.{3,}?)(ませんでした|ません|ました|でした)([。、？！?!」』）)]*)$/;
+// 長い 1 文節（10 字以上）の終わりの「ませんでした／ません／ました／でした」を分ける（その前で折り返せる）。
+//   長い終わりを先に見る（「確かめられ／ませんでした」）。短い文節（「使っていません」「書けませんでした」）は 1 つのまま。
+const POLITE_ENDINGS = ['ませんでした', 'ません', 'ました', 'でした'];
 export function splitPoliteEnding(ph) {
   const t = String(ph || '');
-  if (t.replace(/\s/g, '').length < 8) return [t];
-  const m = t.match(POLITE_END_RE);
-  return m ? [m[1], m[2] + m[3]] : [t];
+  if (t.replace(/\s/g, '').length < 10) return [t];
+  const m = t.match(/^(.*?)([。、？！?!」』）)]*)$/);
+  const body = m ? m[1] : t;
+  const tail = m ? m[2] : '';
+  for (const end of POLITE_ENDINGS) {
+    if (body.endsWith(end) && body.length - end.length >= 3) return [body.slice(0, -end.length), end + tail];
+  }
+  return [t];
 }
 
 export function phrasePieces(text, { scriptBreaks = false } = {}) {
@@ -148,7 +154,7 @@ export function phrasePieces(text, { scriptBreaks = false } = {}) {
 //   「と／いう」（「…」という悩み）・「いちばん／…」（「いちばん」だけの半端な 1 行を作らない）も割らない（2026-10-08 AI 選書）。
 //   「手が／かり」も割らない（AI 選書の推薦の文・2026-10-10 ui-critic）。
 //   「伸ば／したい」のように「したい」を前の語から割らない（読書中の得たいこと・2026-10-18 ui-critic）。
-const GLUED_PHRASES = [['ここ', 'まで'], ['もう', '一度'], ['と', 'いう'], ['いちばん', ''], ['まだ', ''], ['手が', 'かり'], ['困った', 'とき'], ['迷った', 'とき'], ['', 'したい']];
+const GLUED_PHRASES = [['ません', 'でした'], ['ここ', 'まで'], ['もう', '一度'], ['と', 'いう'], ['いちばん', ''], ['まだ', ''], ['手が', 'かり'], ['困った', 'とき'], ['迷った', 'とき'], ['', 'したい']];
 export const isGluedPhrase = (prev, pc) => GLUED_PHRASES.some(([a, b]) => prev.endsWith(a) && pc.startsWith(b));
 
 // 文を文節の切れ目（<wbr>）入りの React ノードにする。改行はそのまま（white-space: pre-wrap）。

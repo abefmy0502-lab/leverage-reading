@@ -5163,7 +5163,7 @@ function AuthedApp() {
                   onClick={() => { haptic.light(); dismissStatusUndo(current.id); setReadTargetBook(current); }}
                   aria-haspopup="dialog"
                   aria-label="読む時間の目安を決める"
-                  style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', flexShrink: 0, whiteSpace: 'nowrap' }}
+                  style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', flexShrink: 0, whiteSpace: 'nowrap', paddingLeft: 0 }}
                 >
                   {/* 何の目安かが名前で分かるように（「目安を決める」だけでは読む時間のことと伝わらなかった・2026-10-30 点検） */}
                   読む時間の目安
@@ -6319,8 +6319,8 @@ function AuthedApp() {
                 )}
               </div>
               {(librarySearchOpen || search) && (
-                <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-                  <IcSearch size={18} aria-hidden="true" style={{ position: "absolute", left: 'var(--space-3)', color: "var(--text-3)", pointerEvents: "none" }} />
+                <div style={{ position: "relative", display: "flex", alignItems: "center", fontSize: 'var(--text-body)' }}>
+                  <IcSearch size="1.1em" aria-hidden="true" style={{ position: "absolute", left: 'var(--space-3)', color: "var(--text-3)", pointerEvents: "none" }} />
                   {/* type="search" は端末の青い × が出るので、ふつうの入力欄＋自前の消すボタンにする。 */}
                   <input
                     type="text"
@@ -6334,7 +6334,7 @@ function AuthedApp() {
                     autoFocus={librarySearchOpen && !search}
                     onChange={(e) => setSearch(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter" && e.nativeEvent.isComposing) e.preventDefault(); }}
-                    style={{ ...inp, flex: 1, minHeight: 48, background: "var(--surface)", border: '1px solid var(--border)', borderRadius: 'var(--radius)', paddingLeft: 'calc(var(--space-3) + 18px + var(--space-2))', paddingRight: 44 }}
+                    style={{ ...inp, flex: 1, minHeight: 48, background: "var(--surface)", border: '1px solid var(--border)', borderRadius: 'var(--radius)', paddingLeft: 'calc(var(--space-3) + 1.1em + var(--space-2))', paddingRight: 'var(--tap-min)' }}
                   />
                   {search && (
                     <button
@@ -6343,7 +6343,7 @@ function AuthedApp() {
                       aria-label="検索の言葉を消す"
                       style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer', padding: 0 }}
                     >
-                      <IcX size={18} aria-hidden="true" />
+                      <IcX size="1em" aria-hidden="true" />
                     </button>
                   )}
                 </div>

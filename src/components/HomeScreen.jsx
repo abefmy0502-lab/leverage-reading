@@ -494,9 +494,10 @@ export function HomeBlocksSkeleton() {
   return (
     <>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-        <div style={{ height: 44, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <SkeletonBlock width="40%" height={26} radius="var(--radius)" />
-          <SkeletonBlock width={80} height={20} radius="var(--radius)" />
+        {/* 大きさは文字に比例（文字最大でも本物と同じ形・見出しの下に「本を追加」が回るのも同じ・2026-11-18） */}
+        <div style={{ minHeight: 'var(--tap-min)', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', rowGap: 'var(--space-2)', fontSize: 'var(--text-heading)' }}>
+          <SkeletonBlock width="7.5em" height="1.2em" radius="var(--radius)" style={{ maxWidth: '100%' }} />
+          <SkeletonBlock width="4em" height="1em" radius="var(--radius)" style={{ fontSize: 'var(--text-sub)' }} />
         </div>
         {/* いま読んでいる本の行カードの形（表紙・書名と著者の 2 行・「メモを書く」の面）を 2 冊ぶん。高さも本物にそろえて、
             読み込んだあとに下が跳ばないように（2026-11-18 ui-critic）。区切り線は本物と同じ書名の列から。 */}
@@ -505,9 +506,12 @@ export function HomeBlocksSkeleton() {
             <div key={i} style={{ display: 'flex', gap: 'var(--space-3)' }}>
               <SkeletonBlock width={40} height={57} radius="var(--radius-sm, 4px)" style={{ marginTop: i ? 'calc(var(--space-4) + 1px)' : 0 }} />
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', paddingTop: i ? 'var(--space-4)' : 0, borderTop: i ? '1px solid var(--separator)' : 'none' }}>
-                <SkeletonBlock width="70%" height={20} radius="var(--radius)" />
-                <SkeletonBlock width="45%" height={16} radius="var(--radius)" />
-                <SkeletonBlock width={112} height="var(--tap-min)" radius="var(--radius)" style={{ marginTop: 'var(--space-2)' }} />
+                <SkeletonBlock width="70%" height="calc(var(--text-body) * 1.2)" radius="var(--radius)" />
+                <SkeletonBlock width="45%" height="var(--text-meta)" radius="var(--radius)" />
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', marginTop: 'var(--space-2)', fontSize: 'var(--text-sub)' }}>
+                  <SkeletonBlock width="7em" height="var(--tap-min)" radius="var(--radius)" style={{ maxWidth: '100%', minHeight: 'calc(1.5em + var(--space-4))' }} />
+                  <SkeletonBlock width="3.5em" height="var(--tap-min)" radius="var(--radius)" />
+                </div>
               </div>
             </div>
           ))}

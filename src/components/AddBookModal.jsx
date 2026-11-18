@@ -44,6 +44,7 @@ const headerStyle = {
   display: 'grid',
   // 右の「キャンセル」は割らない（文字最大で「キャン／セル」と割れていた・2026-11-18）。題は真ん中の列で縮む。
   gridTemplateColumns: 'minmax(0, 1fr) auto minmax(max-content, 1fr)',
+  columnGap: 'var(--space-3)',
   alignItems: 'center',
   minHeight: 'var(--tap-min)',
   padding: 'var(--space-1) var(--space-4)',

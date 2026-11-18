@@ -2272,7 +2272,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             {/* 数える単位は「AI の答え」（1 回 約 10 トークン・2026-10-09）。 */}
             {/* 🌱 無料プランのはじめの月は「（はじめの月）」を添える（数は言わない＝60 を 2 回言わない・2026-10-11）。 */}
             {/* 無料プランでトークンの数を出さないときは「AI の答えは今月あと約 N 回 ›」（何の数かを言う・2026-10-11 ui-critic・2026-10-13 に言い回しを直した＝「今月の残り AI の答え」は読みにくかった）。 */}
-            {tokensRemaining != null && tokensRemaining + (purchasedTokens || 0) > 0 && <span style={{ display: 'block' }}><span style={{ whiteSpace: 'nowrap' }}>{`AI の答えは${plan !== 'trial' && !showFreeTokenCount(tokensRemaining + (purchasedTokens || 0)) ? '今月' : ''}あと${remainingAnswersLabel(tokensRemaining + (purchasedTokens || 0))}`}{!(freeMode && freeFirstMonth) && tokenChevron}</span>{freeMode && freeFirstMonth && <span style={{ whiteSpace: 'nowrap' }}>（はじめの 2 か月）{tokenChevron}</span>}</span>}
+            {tokensRemaining != null && tokensRemaining + (purchasedTokens || 0) > 0 && <span style={{ display: 'block' }}>{/* 「AI の答えは今月」と「あと約 N 回 ›」の 2 つの塊（文字最大でも右へはみ出さず、› は数のすぐ後ろ・2026-11-18） */}<span style={{ whiteSpace: 'nowrap' }}>{`AI の答えは${plan !== 'trial' && !showFreeTokenCount(tokensRemaining + (purchasedTokens || 0)) ? '今月' : ''}`}</span><wbr /><span style={{ whiteSpace: 'nowrap' }}>{`あと${remainingAnswersLabel(tokensRemaining + (purchasedTokens || 0))}`}{!(freeMode && freeFirstMonth) && tokenChevron}</span>{freeMode && freeFirstMonth && <span style={{ whiteSpace: 'nowrap' }}>（はじめの 2 か月）{tokenChevron}</span>}</span>}
           </span>
           </button>
         )}
@@ -2299,7 +2299,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     // 行動が決まったあとは、特定の続きを言わない汎用の文（2026-10-10 第 9 回 総点検）。
     : lastHasAction ? '続けて相談する'
     // 会話が始まると入力欄の左に 44 のボタンが入るので、短い例（16 字だと「うまくいか／ない」と割れて 2 行になった・2026-11-18 ui-critic）。
-    : threadActive && !isNoInfoAnswer(lastVisible) ? '続けて聞く' : messages.length > 0 ? (largeText ? '例：報告が遅れる' : '例：報告がうまくいかない') : (largeText ? '例：報告が遅れる' : '例：上司への報告がうまくいかない');
+    : threadActive && !isNoInfoAnswer(lastVisible) ? '続けて聞く' : messages.length > 0 ? (largeText ? '例：報告が遅い' : '例：報告がうまくいかない') : (largeText ? '例：報告が遅れる' : '例：上司への報告がうまくいかない');
   // 描く前に高さを合わせる（useEffect だと、送ったあとに「消えた文字の高さのまま 1 回描く → 縮む」で
   // 入力欄が 2 回動いていた）。文字の大きさが変わったときも測り直す（hooks/useComposerHeight.js・2026-10-08 ui-critic）。
   useComposerHeight(inputRef, input, view === 'chat', composerPlaceholder);

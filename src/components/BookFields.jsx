@@ -136,7 +136,7 @@ export function BookFieldsSheet({ selected = [], onDone, onClose }) {
 //   操作を 3 列目に固定すると、チップがいくつ折り返しても「変更」は孤立した行にならない（ui-critic 18/20 の指摘 1）。
 //   チップの見た目は 32・押せる範囲は 44（折り返した行の見た目の間は 44 − 32 ＝ 12）。
 //   見出しは 1 行目の中央にそろえ、上下の余り（押せる範囲 − 見た目）は負の余白で行の外へ。
-const detailRowLabel = { flexShrink: 0, width: 'var(--space-16)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', display: 'inline-flex', alignItems: 'center', minHeight: 'var(--tap-min)' };
+const detailRowLabel = { flexShrink: 0, minWidth: 'var(--space-16)', whiteSpace: 'nowrap', fontSize: 'var(--text-meta)', color: 'var(--text-2)', display: 'inline-flex', alignItems: 'center', minHeight: 'var(--tap-min)' }; // 文字が大きくても見出しを割らない（「フォ／ルダ」・2026-11-18）
 const detailTapExtra = 'calc((var(--space-8) - var(--tap-min)) / 2)'; // 押せる範囲 44 と見た目 32 の差の半分（負）
 // 「変更」の文字の右端を右の余白 16 にそろえる（押せる幅 44 は左へ伸ばす・2026-11-09 ui-critic）
 const detailActionBtn = { ...btnLink, fontSize: 'var(--text-meta)', minWidth: 'var(--tap-min)', justifyContent: 'flex-end', padding: 0, flexShrink: 0, alignSelf: 'flex-start' };

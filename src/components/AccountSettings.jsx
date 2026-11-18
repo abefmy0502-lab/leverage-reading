@@ -235,7 +235,7 @@ function SettingRow({ title, desc, extra, control, style }) {
 //   （文字最大で「800 /／800／トークン」「2027年3月／19日」と割れていた・2026-11-18）。文字列でなければそのまま。
 function valueChunks(value) {
   if (typeof value !== 'string') return value;
-  const parts = value.split(/(?<=年)|(?<= \/) /).filter(Boolean);
+  const parts = value.split(/(?<=年)|(?<= \/ )/).filter(Boolean);
   return parts.map((p, i) => <Fragment key={i}>{i > 0 && <wbr />}<span style={{ whiteSpace: 'nowrap' }}>{p}</span></Fragment>);
 }
 
@@ -253,7 +253,7 @@ function ValueRow({ label, value, sub = null, style, onClick = null, ariaLabel }
         // 入らないときは名前の下の行へ回る（右寄せ・iOS の値つきの行と同じ）。
         <span style={{ fontSize: 'var(--text-body)', color: 'var(--text-2)', textAlign: 'right', marginLeft: 'auto', minWidth: 0 }}>{valueChunks(value)}</span>
       )}
-      {onClick && <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0, marginLeft: 'calc(-1 * var(--space-1))' }} />}
+      {onClick && <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0, marginLeft: 'calc(-1 * var(--space-1))' }} />}
     </>
   );
   if (onClick) {
@@ -469,7 +469,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
         <span style={{ ...rowTitleStyle, display: 'block' }}>コードを使う</span>
         <span style={{ ...rowDescStyle, display: 'block', margin: 0 }}>App Store のオファーコード</span>
       </span>
-      <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+      <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
     </button>
   ) : null;
   // 🤝 友だちに紹介する（2026-10-22・lib/referral.js）: オファーコード（VITE_REFERRAL_CODE）があるビルドだけ。
@@ -493,7 +493,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
         <span style={{ ...rowTitleStyle, display: 'block' }}>友だちに紹介する</span>
         <span style={{ ...rowDescStyle, display: 'block', margin: 0 }}>オファーコードつきの紹介文</span>
       </span>
-      <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+      <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
     </button>
   ) : null;
   // 🪙➕ 追加トークンの行（残りがあるときだけ・期限なし＝2026-10-11 App Store 3.1.1）。
@@ -1043,7 +1043,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
                       <span style={{ ...rowTitleStyle, display: 'block', color: 'inherit' }}>{upgrading ? '手続き中…' : '年額プランに変える'}</span>
                       <span style={{ ...rowDescStyle, display: 'block', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(ANNUAL_UPGRADE_NOTE)}</span>
                     </span>
-                    <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+                    <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
                   </button>
                 )}
                 {tokensRemaining != null ? (
@@ -1066,7 +1066,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
                   // シートを閉じたとき・「戻る」で設定に戻る（from: 'settings'・App の PaywallGate）。
                   <button type="button" onClick={() => { onClose?.(); openTokenSheet({ from: 'settings' }); }} style={{ ...rowButtonStyle, ...divider }}>
                     <span style={{ ...rowTitleStyle, flex: 1 }}>トークンを追加</span>
-                    <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+                    <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
                   </button>
                 )}
                 {/* iPhone のアプリで有料のときは中身が無いので、区切り線ごと出さない（空の行が 2 本の線に挟まれていた・2026-10-22 ui-critic）。 */}
@@ -1114,14 +1114,14 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
                 {nativeView && (
                   <button type="button" onClick={() => withPurposeCheck('cancel', 'どちらを選んでも、App\u00a0Store のプランの管理を開きます。', handleManageBilling)} disabled={billingBusy} style={{ ...(billingBusy ? rowButtonBusy : rowButtonStyle), ...divider }}>
                     <span style={{ ...rowTitleStyle, flex: 1 }}>{billingBusy ? '移動中…' : 'プランを管理（App\u00a0Store）'}</span>
-                    <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+                    <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
                   </button>
                 )}
                 {/* Web で見ている App Store の契約: App Store のサブスクリプション画面を開ける行（iPhone なら App Store が開く・2026-09-29）。 */}
                 {!nativeView && !subscription?.stripeCustomerId && (
                   <button type="button" onClick={() => withPurposeCheck('cancel', 'どちらを選んでも、App\u00a0Store のプランの管理を開きます。', () => openManageSubscriptions())} style={{ ...rowButtonStyle, ...divider }}>
                     <span style={{ ...rowTitleStyle, flex: 1 }}>{'プランを管理（App\u00a0Store）'}</span>
-                    <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+                    <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
                   </button>
                 )}
                 {/* 「解約・変更について問い合わせる」（メール）はやめた: App Store の契約は運営からは解約できず、上の行で足りる（2026-10-13 点検）。 */}
@@ -1201,7 +1201,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
                   <span style={{ ...rowTitleStyle, display: 'block' }}>ほかのアプリから取り込む</span>
                   <span style={{ ...rowDescStyle, display: 'block' }}>ブクログ・読書メーター・Kindle</span>
                 </span>
-                <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+                <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
               </button>
             </Group>
           )}
@@ -1213,7 +1213,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
                 <span style={{ ...rowTitleStyle, display: 'block' }}>Claude・ChatGPT とつなぐ</span>
                 <span style={{ ...rowDescStyle, display: 'block' }}>いつもの AI から、自分のメモを呼べます</span>
               </span>
-              <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+              <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
             </button>
           </Group>
 
@@ -1242,7 +1242,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
                 <span style={{ ...rowTitleStyle, display: 'block' }}>AI へのデータ送信</span>
                 <span style={{ ...rowDescStyle, display: 'block', ...(aiConsentLabel ? {} : { visibility: 'hidden' }) }}>{aiConsentLabel || 'まだ同意していません'}</span>
               </span>
-              <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+              <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
             </button>
             <SettingRow
               style={divider}
@@ -1264,7 +1264,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
             {onOpenHelp && (
               <button type="button" style={rowButtonStyle} onClick={onOpenHelp}>
                 <span style={{ ...rowTitleStyle, flex: 1 }}>ヘルプ・使い方</span>
-                <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+                <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
               </button>
             )}
             {/* 新しくなったこと（2026-10-05）: 版ごとの どこの・何が・これまで → これから・影響・意図。下はいちばん新しい版の日付。 */}
@@ -1278,7 +1278,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
                   <span style={{ ...rowTitleStyle, display: 'block' }}>新しくなったこと</span>
                   <span style={{ ...rowDescStyle, display: 'block' }}>{releaseHeading({ id: BUNDLED_RELEASE_ID })}</span>
                 </span>
-                <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+                <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
               </button>
             )}
             {/* 通常は自動更新（autoApply）。困った時の復旧用に顧客語で控えめに置く。
@@ -1299,7 +1299,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
             </button>
             <button type="button" aria-label="フィードバックを送る" style={{ ...rowButtonStyle, ...divider }} onClick={() => setFeedbackOpen(true)}>
               <span style={{ ...rowTitleStyle, flex: 1 }}>フィードバック・要望を送る</span>
-              <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+              <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
             </button>
           </Group>
 

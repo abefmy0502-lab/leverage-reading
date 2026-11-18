@@ -98,7 +98,7 @@ function PriceText({ text }) {
   return (
     <>
       {/* 円の金額には「（税込）」（ストアの値には付いていないので、月額・年額・1 年目の行をそろえる・2026-10-02） */}
-      <span style={{ display: 'block' }}>{withTax(main)}</span>
+      <span style={{ display: 'block' }}>{priceText(withTax(main))}</span>
       {perMonth && (
         <span style={planNote}>{perMonth}</span>
       )}

@@ -796,7 +796,7 @@ export default function ActionList({ books, onOpenGoals = null, onToggleAction, 
             {/* 期限切れが多い（3 件以上）ときだけ、見出しの右に「期限を見直す」（責めない・見出しは 1 つ）。 */}
             {g.key === 'overdue' && overdueCount >= 3 && onEditAction ? (
               // 文字が大きいときは「期限を見直す」を見出しの下へ回す（「期限を見／直す」と割れていた・2026-11-18 文字最大の点検）。
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', columnGap: 'var(--space-3)', rowGap: 0, margin: `${largeRoot() ? '0' : 'calc(-1 * var(--space-3))'} 0 calc(var(--space-2) - var(--space-3))` }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', columnGap: 'var(--space-3)', rowGap: 0, margin: largeRoot() ? '0 0 var(--space-2)' : 'calc(-1 * var(--space-3)) 0 calc(var(--space-2) - var(--space-3))' }}>
                 <h2 id={`act-${g.key}`} style={{ ...uiGroupTitle }}>{g.label}<span style={{ whiteSpace: 'nowrap' }}>（{overdueCount}）</span></h2>
                 <button
                   type="button"

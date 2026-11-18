@@ -471,7 +471,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
             </p>
 
             <div role="search" style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-6)' }}>
-              <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
+              <div style={{ position: 'relative', flex: 1, minWidth: 0, fontSize: 'var(--text-body)' }}>
                 <Search size="1.2em" aria-hidden="true"
                   style={{ position: 'absolute', left: 'var(--space-3)', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)', pointerEvents: 'none' }} />
                 <input
@@ -493,7 +493,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
                     onClick={() => { setQuery(''); setResults(null); setSearched(''); setSearchError(false); searchRef.current?.focus(); }}
                     style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 44, display: 'grid', placeItems: 'center', border: 'none', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer' }}
                   >
-                    <X size={18} aria-hidden="true" />
+                    <X size="1em" aria-hidden="true" />
                   </button>
                 )}
               </div>
@@ -520,7 +520,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
                       label: titlePicked ? '追加しました' : '書名だけで追加',
                       ariaLabel: titlePicked ? `「${searched}」を外す` : `「${searched}」を書名だけで追加`,
                       variant: 'secondary',
-                      icon: titlePicked ? <Check size={20} /> : <Plus size={20} />,
+                      icon: titlePicked ? <Check size="1em" /> : <Plus size="1em" />,
                       onClick: () => toggle(titleOnlyBook),
                     }] : []),
                   ]}
@@ -535,7 +535,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
                     label: titlePicked ? '追加しました' : '書名だけで追加',
                     ariaLabel: titlePicked ? `「${searched}」を外す` : `「${searched}」を書名だけで追加`,
                     variant: 'secondary',
-                    icon: titlePicked ? <Check size={20} /> : <Plus size={20} />,
+                    icon: titlePicked ? <Check size="1em" /> : <Plus size="1em" />,
                     onClick: () => toggle(titleOnlyBook),
                   }]}
                 />
@@ -550,7 +550,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
                   </ul>
                   <button type="button" onClick={() => toggle(titleOnlyBook)} aria-pressed={!!titlePicked}
                     style={{ ...btnLink, padding: 'var(--space-3) 0', marginTop: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))', justifyContent: 'flex-start', textAlign: 'left', maxWidth: '100%' }}>
-                    {titlePicked ? <Check size={20} aria-hidden="true" style={{ flexShrink: 0 }} /> : <Plus size={20} aria-hidden="true" style={{ flexShrink: 0 }} />}
+                    {titlePicked ? <Check size="1em" aria-hidden="true" style={{ flexShrink: 0 }} /> : <Plus size="1em" aria-hidden="true" style={{ flexShrink: 0 }} />}
                     {/* 「 の左の空き（全角の半分）を打ち消し、＋ から文字までをほかの文字ボタンと同じ 8 に（書体の palt に頼らない）。 */}
                     <span style={{ ...oneLine, minWidth: 0, marginLeft: '-0.5em' }}>「{searched}」を書名だけで追加</span>
                   </button>
