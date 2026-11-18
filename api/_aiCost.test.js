@@ -87,8 +87,8 @@ describe('会社ごとの単価（2026-10-01・docs/ai-routing.md）', () => {
     expect(costFromUsage('gpt-5-mini', { cache_read_input_tokens: 100000 })).toBe(costFromUsage('gpt-5-mini', { input_tokens: 10000 }));
     expect(costFromUsage('gemini-3.1-flash-lite', { cache_read_input_tokens: 100000 })).toBe(costFromUsage('gemini-3.1-flash-lite', { input_tokens: 10000 }));
   });
-  it('Sonnet 5.5 は Sonnet 5 と同じ単価', () => {
-    expect(PRICES['claude-sonnet-5-5']).toEqual(PRICES['claude-sonnet-5']);
+  it('Sonnet 5.5 は Sonnet 5 と同じ単価（キャッシュの読み出しだけ半分・2026-11-18）', () => {
+    expect({ ...PRICES['claude-sonnet-5-5'], cr: 0.2 }).toEqual(PRICES['claude-sonnet-5']);
   });
   it('日付つきの版の名前でも数える・いちばん長く一致する名前', () => {
     expect(priceFor('gpt-5-mini-2025-08-07')).toBe(PRICES['gpt-5-mini']);
@@ -176,5 +176,28 @@ describe('キャッシュの単価と、見積もりの分け方', () => {
     expect(consult.output).toBe(legacy.output);
     const actual = costFromUsage('claude-haiku-4-5', { cache_read_input_tokens: 5600, cache_creation_input_tokens: 5000, input_tokens: 4400, output_tokens: 600 });
     expect(actual).toBeLessThan(consult.total);
+  });
+});
+
+describe('Haiku 5.5 と Sonnet 5.5 の単価（2026-11-18・公式の料金ページ）', () => {
+  it('Haiku 5.5 は Haiku 4.5 の 1/10', () => {
+    const u = { input_tokens: 20000, cache_read_input_tokens: 10000, output_tokens: 1000 };
+    expect(costFromUsage('claude-haiku-5-5', u)).toBe(Math.ceil((20000 * 0.1 + 10000 * 0.01 + 1000 * 0.5) / 1e6 * 160 * 1.1 * 1000));
+    expect(costFromUsage('claude-haiku-5-5', u) * 9).toBeLessThan(costFromUsage('claude-haiku-4-5', u));
+  });
+  it('プロンプトが 10 万トークンを超える回は全部 5 倍', () => {
+    const small = costFromUsage('claude-haiku-5-5', { input_tokens: 100000, output_tokens: 100 });
+    const big = costFromUsage('claude-haiku-5-5', { input_tokens: 60000, cache_read_input_tokens: 40001, output_tokens: 100 });
+    expect(big).toBeGreaterThan(small * 2);
+    expect(estimateCost('claude-haiku-5-5', { textChars: 70000, maxTokens: 1000 }).total)
+      .toBeGreaterThan(estimateCost('claude-haiku-5-5', { textChars: 60000, maxTokens: 1000 }).total * 4);
+  });
+  it('見積もりは新しいトークナイザーの分（1.3 倍）多めに', () => {
+    const a = estimateCost('claude-haiku-5-5', { textChars: 1000, maxTokens: 0 }).total;
+    expect(a).toBe(Math.ceil(((Math.ceil(1000 * 1.2 * 1.3) + 600) * 0.125) / 1e6 * 160 * 1.1 * 1000));
+  });
+  it('Sonnet 5.5 のキャッシュ読み出しは $0.10（Sonnet 5 は $0.20）', () => {
+    expect(PRICES['claude-sonnet-5-5'].cr).toBe(0.1);
+    expect(PRICES['claude-sonnet-5'].cr).toBe(0.2);
   });
 });

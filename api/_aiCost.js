@@ -32,11 +32,16 @@ const num = (v, d) => {
 //   TypeSafe AI: Jev 1.13（文を書かず、決めた形の答え＝選ぶ・はい/いいえ・点数と確率だけを返す判断のモデル・2026-09-15 発表）は
 //     入力 $0.042 / 100 万トークン・出力は無料（2026-10-02 に公開の資料で確認・docs/jev-plan.md）。キャッシュの割増も無い。
 //     名前は 'jev-1.13'（TypeSafe の 'jev-1.13.0'・OpenRouter の 'typesafe/jev-1.13' も同じ単価で数える＝matchPriceKey）。
+//   2026-11-18（公式の料金ページで確認）: Sonnet 5.5 のキャッシュ読み出しは 0.05 倍＝$0.10（Sonnet 5 は $0.20 のまま）。
+//   Haiku 5.5（Haiku 4.5 の後継）は $0.10 / $0.50（書き込み 5 分 $0.125・1 時間 $0.20・読み出し $0.01）。
+//     ただしプロンプト（入力・キャッシュの読み書きの合計）が 10 万トークンを超える回は、全部が 5 倍（$0.50 / $2.50）＝ long。
+//     トークナイザーが新しく、同じ文で Haiku 4.5 の約 1.3 倍のトークンになる＝tok（呼ぶ前の見積もりだけに使う・実額は usage）。
 export const PRICES = {
-  'claude-sonnet-5-5': { in: 2, cw: 2.5, cw1h: 4, cr: 0.2, out: 10 },
+  'claude-sonnet-5-5': { in: 2, cw: 2.5, cw1h: 4, cr: 0.1, out: 10 },
   'claude-sonnet-5': { in: 2, cw: 2.5, cw1h: 4, cr: 0.2, out: 10 },
   'claude-sonnet-4-6': { in: 3, cw: 3.75, cw1h: 6, cr: 0.3, out: 15 },
   'claude-haiku-4-5': { in: 1, cw: 1.25, cw1h: 2, cr: 0.1, out: 5 },
+  'claude-haiku-5-5': { in: 0.1, cw: 0.125, cw1h: 0.2, cr: 0.01, out: 0.5, long: { above: 100000, mult: 5 }, tok: 1.3 },
   'gpt-5-mini': { in: 0.25, cw: 0.25, cw1h: 0.25, cr: 0.025, out: 2 },
   'gpt-5.4-mini': { in: 0.75, cw: 0.75, cw1h: 0.75, cr: 0.075, out: 4.5 },
   'gemini-3.1-flash-lite': { in: 0.25, cw: 0.25, cw1h: 0.25, cr: 0.025, out: 1.5 },
@@ -45,7 +50,13 @@ export const PRICES = {
 // 表に無いモデルは、表の中でいちばん高い値で数える（安全側）。
 const FALLBACK_PRICE = Object.values(PRICES).reduce((m, p) => ({
   in: Math.max(m.in, p.in), cw: Math.max(m.cw, p.cw), cw1h: Math.max(m.cw1h, p.cw1h), cr: Math.max(m.cr, p.cr), out: Math.max(m.out, p.out),
-}), { in: 0, cw: 0, cw1h: 0, cr: 0, out: 0 });
+  tok: Math.max(m.tok, p.tok || 1),
+}), { in: 0, cw: 0, cw1h: 0, cr: 0, out: 0, tok: 1 });
+
+// 長いプロンプトの割増（Haiku 5.5 は入力の合計が 10 万トークンを超えると全部 5 倍）。無いモデルは 1。
+function longMult(p, promptTokens) {
+  return p.long && promptTokens > p.long.above ? p.long.mult : 1;
+}
 
 // モデル名 → 単価。日付つきの版（'claude-haiku-4-5-20251001' / 'gpt-5-mini-2025-08-07' など、応答に入ってくる名前）は
 // いちばん長く一致する表の名前で数える。分からない名前は表でいちばん高い単価（安全側）。
@@ -101,14 +112,16 @@ function cacheWriteSplit(usage) {
 export function costFromUsage(model, usage = {}) {
   const p = priceFor(model);
   const { w5m, w1h } = cacheWriteSplit(usage);
+  const input = num(usage.input_tokens, 0);
+  const read = num(usage.cache_read_input_tokens, 0);
   const usd = (
-    (num(usage.input_tokens, 0) * p.in)
+    (input * p.in)
     + (w5m * p.cw)
     + (w1h * p.cw1h)
-    + (num(usage.cache_read_input_tokens, 0) * p.cr)
+    + (read * p.cr)
     + (num(usage.output_tokens, 0) * p.out)
   ) / 1e6;
-  return toMjpy(usd);
+  return toMjpy(usd * longMult(p, input + w5m + w1h + read));
 }
 
 // 🧭 Jev（判断のモデル）の 1 回の原価（mjpy）。出力は無料なので入力のトークンだけ。
@@ -127,18 +140,24 @@ export function jevCostMjpy({ inputTokens, chars = 0, model = 'jev-1.13' } = {})
 // 無ければ今までどおり全部を 5 分の書き込みの単価で（上振れ側）。
 export function estimateCost(model, { textChars = 0, images = 0, maxTokens = 0, segments = null } = {}) {
   const p = priceFor(model);
+  // 1 字あたりのトークン（日本語 1.2・新しいトークナイザーのモデルはその倍率をかける＝上振れ側）
+  const perChar = 1.2 * (p.tok || 1);
   let inUsd;
+  let promptTokens;
   if (segments && typeof segments === 'object') {
-    const tok = (c) => Math.ceil(Math.max(0, num(c, 0)) * 1.2);
+    const tok = (c) => Math.ceil(Math.max(0, num(c, 0)) * perChar);
     const w1h = tok(segments.w1h);
     const w5m = tok(segments.w5m);
-    const plain = Math.max(0, Math.ceil(textChars * 1.2) - w1h - w5m) + (images * 1600) + 600;
+    const plain = Math.max(0, Math.ceil(textChars * perChar) - w1h - w5m) + (images * 1600) + 600;
     inUsd = (w1h * p.cw1h) + (w5m * p.cw) + (plain * p.in);
+    promptTokens = w1h + w5m + plain;
   } else {
-    inUsd = (Math.ceil(textChars * 1.2) + (images * 1600) + 600) * p.cw;
+    promptTokens = Math.ceil(textChars * perChar) + (images * 1600) + 600;
+    inUsd = promptTokens * p.cw;
   }
+  const mult = longMult(p, promptTokens);
   const usd = (inUsd + (maxTokens * p.out)) / 1e6;
-  return { total: toMjpy(usd), output: toMjpy((maxTokens * p.out) / 1e6) };
+  return { total: toMjpy(usd * mult), output: toMjpy((maxTokens * p.out * mult) / 1e6) };
 }
 
 // 送る中身（Anthropic の形の body）を、キャッシュの印（cache_control）ごとに文字数で分ける（見積もり用）。

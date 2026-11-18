@@ -277,3 +277,45 @@
 - **選び直した声**: 自動の分野を本人が選び直したら `/api/cover?fieldvote=1&add=…&remove=…`（本の書誌と分野だけ・だれかは残さない）→ `book_field_votes`。覚えている分野に -1 が 3 つで version を 0 に＝次に聞かれたとき決め直す（次の一歩: 決め直しの指示文に「選び直された分野」を渡す）
 - **端末**: `src/lib/bookFieldsServer.js`（AI・ジャンルの答えは端末に 30 日）。本を追加した直後・開いたとき（自動の分野の本 5 冊・3 秒おき）・本の詳細を開いたときに聞き、自動の分野を置きかえる（本人が選んだ本は変えない）。端末の言葉の仕分けは、すぐ出す最初の見立てとつながらないときの代わり
 - **確かめ**: `api/_bookFields.test.js`（AI は差し替えた fetch）・`node scripts/fields-eval.mjs`（言葉だけ／ジャンル＋言葉の正しさ・決まり方・原価）
+
+## 11. Claude Haiku 5.5（2026-11-18・切り替えの準備だけ・既定はまだ変えていない）
+
+オーナー依頼（2026-11-18）:「AI の API の費用対性能をベストにしたい」。Haiku 4.5 の後継 **Claude Haiku 5.5** が出ていて、単価は Haiku 4.5 の 1/10（[Pricing](https://platform.claude.com/docs/en/about-claude/pricing) で 2026-11-18 に確認）。
+
+| モデル | 入力 | 書き込み 5 分 | 1 時間 | 読み出し | 出力 |
+|---|---|---|---|---|---|
+| Haiku 4.5（今の相談） | $1.00 | $1.25 | $2.00 | $0.10 | $5.00 |
+| **Haiku 5.5**（プロンプト 10 万トークンまで） | **$0.10** | $0.125 | $0.20 | $0.01 | **$0.50** |
+| Haiku 5.5（10 万トークンを超える回は全部 5 倍） | $0.50 | $0.625 | $1.00 | $0.05 | $2.50 |
+| Gemini 3.1 Flash-Lite（今の読書計画シートなど） | $0.25 | — | — | $0.025 | $1.50 |
+
+- トークナイザーが新しく、同じ文で **約 1.3 倍**のトークンになる。それでも実質 Haiku 4.5 の約 13%・Flash-Lite の約半分
+- キャッシュできる最小の長さは 4,096 → **512** トークン（相談の指示文は今どおりキャッシュに乗る・短い指示文も乗るようになる）
+- Sonnet 5.5 のキャッシュの読み出しは $0.10（Sonnet 5 の半分）に表を直した（AI 選書の推薦の原価が少しだけ正しく下がる）
+
+**中継の対応（このコミット）**:
+
+- 単価の表に `claude-haiku-5-5`（10 万トークンを超える回の 5 倍・見積もりの 1.3 倍＝`api/_aiCost.js` の `long` / `tok`）
+- 使ってよいモデルに足した（`api/claude.js` の `ALLOWED_MODELS`・`api/_aiRouting.js` の `ANTHROPIC_MODELS`）
+- 送る形: Haiku 5.5 は何も送らないと考える（考えた分は出力として請求）ので `thinking: {type: 'disabled'}`＝Haiku 4.5 と同じ「考えない」（`api/_providers.js` の `anthropicBody`）
+- **断ったときの代わり**: Haiku 5.5 は安全の判定で断ることがあり（`stop_reason: 'refusal'`）、Anthropic 側の代わり（fallbacks）が無い。文を 1 文字も書く前に断った・混んでいる（429 / 5xx）ときは、中継が **Haiku 4.5 で 1 回だけ**やり直す（`ANTHROPIC_RETRY_MODEL`・ストリームは最初の文字が見えるまで読んでから流す＝`peekAnthropicStream`）。断られた 1 回の入力の原価は数えない（まれ）
+- 無料プランの相談は、`AI_CONSULT_MODEL` が安い Haiku（4.5 / 5.5）ならそれに従う（1 つの env で有料と無料プランの両方が切り替わる・`FREE_CONSULT_MODELS`）。キャッシュを温め直す仕組み（§7）も同じモデルを温める
+
+**切り替え方（Vercel の env だけ・アプリの出し直し不要・すぐ戻せる）**:
+
+| やること | env |
+|---|---|
+| 相談（有料・無料プラン・本ごと）を Haiku 5.5 に | `AI_CONSULT_MODEL=claude-haiku-5-5` |
+| 読書計画シート・聞き返し・この本で学べること・凝縮・まとめ・写真から書き起こし・目標の深掘りを Haiku 5.5 に（Gemini より安く、Claude にそろう） | `AI_ROUTE_SETUP_SHEET` / `AI_ROUTE_SETUP_SHEET_EDIT` / `AI_ROUTE_ADVISOR_INTERVIEW` / `AI_ROUTE_BOOK_BRIEF` / `AI_ROUTE_CONDENSE` / `AI_ROUTE_CARDS_TO_SUMMARY` / `AI_ROUTE_OCR` / `AI_ROUTE_GOAL_INTERVIEW` に `anthropic:claude-haiku-5-5` |
+| 戻す | その env を消す |
+
+**見込み**（§3 と同じ使い方・有料会員 1 人・1 か月）: 相談 約 ¥62 → 約 ¥8、Flash-Lite の用途 約 ¥9 → 約 ¥5、AI 選書の推薦 約 ¥8（変えない）。合計 **約 ¥78 → 約 ¥21**。本番の `ai_usage.cost_mjpy` で前後を比べる。
+
+**変えないもの**: AI 選書の推薦とロードマップは Sonnet 5.5（実在の本を挙げる力が要る）。画面の「1 回 約 10 トークン」も変えない（実際に引かれるのは少ないほう＝同じトークンで相談できる回数が増える）。
+
+**切り替える前・あとに見ること**:
+
+1. 答えの質（日本語・【結論】の形・著者の語り口・根拠の REFS）。新しいモデルは指示に忠実と言われるが、相談は一番の価値なので 1〜2 週は過去の相談で読み比べる
+2. Vercel のログの `[ai-route] anthropic:claude-haiku-5-5 failed (refusal)` の数（多ければ戻す）
+3. 関係するメモが無いときの払い戻し（`noInfoRefundEligible`）が今どおり効くか（決まり文句「情報がまだありません」を書くか）
+4. 審査中のアプリにも効くので、切り替えは App Store の審査が終わってから

@@ -64,7 +64,13 @@ export const RETIRE_SUCCESSOR = {
 };
 
 // Anthropic で使ってよいモデル（api/claude.js の許可リストと同じ）。
-export const ANTHROPIC_MODELS = new Set(['claude-sonnet-5-5', 'claude-sonnet-5', 'claude-haiku-4-5', 'claude-sonnet-4-6']);
+// claude-haiku-5-5（2026-11-18・Haiku 4.5 の後継・単価は 1/10）は env で選んだときだけ（既定の行き先にはまだしない）。
+export const ANTHROPIC_MODELS = new Set(['claude-sonnet-5-5', 'claude-sonnet-5', 'claude-haiku-5-5', 'claude-haiku-4-5', 'claude-sonnet-4-6']);
+// 答える前に失敗・断ったとき（安全の止めで 1 文字も返らない）の Claude の代わり。Haiku 5.5 には Anthropic 側の
+// 代わり（fallbacks）が無いので、中継が Haiku 4.5 で 1 回だけやり直す（api/_providers.js の openAnthropic）。
+export const CLAUDE_RETRY_MODEL = { 'claude-haiku-5-5': H };
+// 無料プランの相談に使ってよいモデル（安い Haiku だけ）。AI_CONSULT_MODEL がこのどれかなら無料プランも同じモデルで答える。
+export const FREE_CONSULT_MODELS = new Set(['claude-haiku-4-5', 'claude-haiku-5-5']);
 
 // 会社ごとに、単価の分かるモデルだけ。
 function knownModel(provider, model) {
@@ -112,10 +118,14 @@ export function isRetired(model, now = Date.now()) {
 //   reason … 'route' | 'legacy' | 'free' | 'off' | 'no_key' | 'retired' | 'successor'（ログ用・内容は含めない）
 export function resolveRoute({ purpose, requestedModel, free = false, freeModel = H, env = process.env, now = Date.now() } = {}) {
   const fallbackModel = ANTHROPIC_MODELS.has(requestedModel) ? requestedModel : H;
-  const claude = (model, reason, p = null) => ({ provider: 'anthropic', model, claudeModel: model, purpose: p, reason });
+  const claude = (model, reason, p = null) => ({ provider: 'anthropic', model, claudeModel: CLAUDE_RETRY_MODEL[model] || model, purpose: p, reason });
   const route = typeof purpose === 'string' && Object.prototype.hasOwnProperty.call(ROUTES, purpose) ? ROUTES[purpose] : null;
   // 無料プランの AI は、相談ならいちばん安い Claude に固定。freeRouted の用途（この本で学べること）だけは表の行き先で。
-  if (free && !route?.freeRouted) return claude(freeModel, 'free', 'consult');
+  //   AI_CONSULT_MODEL が安い Haiku（FREE_CONSULT_MODELS）なら、無料プランの相談も同じモデル（1 つの env で両方を切り替える）。
+  if (free && !route?.freeRouted) {
+    const freeConsult = FREE_CONSULT_MODELS.has(env.AI_CONSULT_MODEL) ? env.AI_CONSULT_MODEL : freeModel;
+    return claude(freeConsult, 'free', 'consult');
+  }
   if (!route) return claude(fallbackModel, 'legacy');
 
   // 💬 相談は、今までどおり AI_CONSULT_MODEL（Claude だけ）→ AI_ROUTE_CONSULT（Claude だけ）→ アプリの指定。

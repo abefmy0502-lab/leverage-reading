@@ -285,3 +285,63 @@ describe('Anthropic は素通し・404 なら 1 回だけ別のモデル', () =>
     warn.mockRestore();
   });
 });
+
+describe('Haiku 5.5（2026-11-18）: 考えない・断ったら Haiku 4.5 で 1 回だけ', () => {
+  const text = (t) => ({ type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: t } });
+  const start = { type: 'message_start', message: { model: 'claude-haiku-5-5', usage: { input_tokens: 10, output_tokens: 0 } } };
+  it('thinking は disabled・sampling は外す', () => {
+    const b = anthropicBody('claude-haiku-5-5', { max_tokens: 1, temperature: 0, top_p: 0.5, top_k: 3 });
+    expect(b.thinking).toEqual({ type: 'disabled' });
+    expect(b).not.toHaveProperty('temperature');
+    expect(b).not.toHaveProperty('top_p');
+    expect(b).not.toHaveProperty('top_k');
+  });
+  it('ストリームで文の前に断られたら Haiku 4.5 でやり直す', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const bodies = [];
+    const fetchImpl = vi.fn(async (url, init) => {
+      bodies.push(JSON.parse(init.body));
+      return bodies.length === 1
+        ? sseResponse([start, { type: 'message_delta', delta: { stop_reason: 'refusal' }, usage: { output_tokens: 0 } }, { type: 'message_stop' }])
+        : sseResponse([{ ...start, message: { ...start.message, model: 'claude-haiku-4-5' } }, text('こたえ'), { type: 'message_stop' }]);
+    });
+    const r = await openRoute({ provider: 'anthropic', model: 'claude-haiku-5-5', base: { ...BASE, stream: true }, env: ENV, fetchImpl });
+    expect(bodies.map((b) => b.model)).toEqual(['claude-haiku-5-5', 'claude-haiku-4-5']);
+    expect(r.model).toBe('claude-haiku-4-5');
+    expect(await r.response.text()).toContain('こたえ');
+    warn.mockRestore();
+  });
+  it('ふつうの答えは読んだ分も含めてそのまま流す（やり直さない）', async () => {
+    const fetchImpl = vi.fn(async () => sseResponse([start, text('前半'), text('後半'), { type: 'message_delta', delta: { stop_reason: 'end_turn' } }, { type: 'message_stop' }]));
+    const r = await openRoute({ provider: 'anthropic', model: 'claude-haiku-5-5', base: { ...BASE, stream: true }, env: ENV, fetchImpl });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(r.model).toBe('claude-haiku-5-5');
+    const all = await r.response.text();
+    expect(all).toContain('message_start');
+    expect(all).toContain('前半');
+    expect(all).toContain('後半');
+    expect(all).toContain('message_stop');
+  });
+  it('ストリームでない答えが断りなら やり直す・混んでいる（529）ときも', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const ok = () => new Response(JSON.stringify({ content: [{ type: 'text', text: 'ok' }], stop_reason: 'end_turn' }), { status: 200, headers: { 'content-type': 'application/json' } });
+    const refused = () => new Response(JSON.stringify({ content: [], stop_reason: 'refusal' }), { status: 200, headers: { 'content-type': 'application/json' } });
+    let f = vi.fn().mockResolvedValueOnce(refused()).mockResolvedValueOnce(ok());
+    let r = await openRoute({ provider: 'anthropic', model: 'claude-haiku-5-5', base: BASE, env: ENV, fetchImpl: f });
+    expect(r.model).toBe('claude-haiku-4-5');
+    f = vi.fn().mockResolvedValueOnce(new Response('{}', { status: 529 })).mockResolvedValueOnce(ok());
+    r = await openRoute({ provider: 'anthropic', model: 'claude-haiku-5-5', base: BASE, env: ENV, fetchImpl: f });
+    expect(r.model).toBe('claude-haiku-4-5');
+    f = vi.fn().mockResolvedValueOnce(ok());
+    r = await openRoute({ provider: 'anthropic', model: 'claude-haiku-5-5', base: BASE, env: ENV, fetchImpl: f });
+    expect(r.model).toBe('claude-haiku-5-5');
+    expect((await r.response.json()).content[0].text).toBe('ok');
+    warn.mockRestore();
+  });
+  it('Haiku 4.5 は今までどおり（覗かない・やり直さない）', async () => {
+    const f = vi.fn(async () => new Response('{}', { status: 529 }));
+    const r = await openRoute({ provider: 'anthropic', model: 'claude-haiku-4-5', base: BASE, env: ENV, fetchImpl: f });
+    expect(f).toHaveBeenCalledTimes(1);
+    expect(r.response.status).toBe(529);
+  });
+});

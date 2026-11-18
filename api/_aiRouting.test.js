@@ -106,3 +106,19 @@ describe('env での差し替え（AI_ROUTE_<用途>）', () => {
     warn.mockRestore();
   });
 });
+
+describe('Haiku 5.5（2026-11-18・env で選んだときだけ）', () => {
+  it('既定の相談は Haiku 4.5 のまま', () => {
+    expect(r('consult').model).toBe('claude-haiku-4-5');
+    expect(r('consult', KEYS, { free: true }).model).toBe('claude-haiku-4-5');
+  });
+  it('AI_CONSULT_MODEL=claude-haiku-5-5 で有料も無料プランも Haiku 5.5・やり直しは Haiku 4.5', () => {
+    const env = { ...KEYS, AI_CONSULT_MODEL: 'claude-haiku-5-5' };
+    expect(r('consult', env)).toMatchObject({ model: 'claude-haiku-5-5', claudeModel: 'claude-haiku-4-5' });
+    expect(r('consult', env, { free: true })).toMatchObject({ model: 'claude-haiku-5-5', claudeModel: 'claude-haiku-4-5', reason: 'free' });
+  });
+  it('ほかの用途も AI_ROUTE_<用途>=anthropic:claude-haiku-5-5 で', () => {
+    expect(r('setup_sheet', { ...KEYS, AI_ROUTE_SETUP_SHEET: 'anthropic:claude-haiku-5-5' })).toMatchObject({ provider: 'anthropic', model: 'claude-haiku-5-5', claudeModel: 'claude-haiku-4-5' });
+    expect(parseRouteSpec('anthropic:claude-haiku-5-5')).toEqual({ provider: 'anthropic', model: 'claude-haiku-5-5' });
+  });
+});

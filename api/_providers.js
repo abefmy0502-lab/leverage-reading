@@ -394,12 +394,87 @@ async function openJson({ provider, model, key, body, signal, timeouts, fetchImp
 export const ANTHROPIC_404_FALLBACK = { 'claude-sonnet-5-5': 'claude-sonnet-5' };
 const ANTHROPIC_LAST_RESORT = 'claude-sonnet-4-6';
 
+//   claude-haiku-5-5（2026-11-18）は thinking を省くと考える（adaptive・effort は medium）のが既定。考えた分は出力として
+//   請求されるので、Haiku 4.5 と同じ「考えない」に { type: 'disabled' }（effort が high 以下なら受け付ける・既定の medium のまま）。
+//   temperature / top_p / top_k は 400（中継はもともと送らない・念のため外す）。
 export function anthropicBody(model, base) {
   const body = { ...base, model };
   delete body.thinking;
   if (model === 'claude-sonnet-5') body.thinking = { type: 'disabled' };
   if (model === 'claude-sonnet-5-5') body.thinking = { type: 'between_tools' };
+  if (model === 'claude-haiku-5-5') {
+    body.thinking = { type: 'disabled' };
+    delete body.temperature; delete body.top_p; delete body.top_k;
+  }
   return body;
+}
+
+// Haiku 5.5 には Anthropic 側の代わり（fallbacks）が無い。答える前に断った（stop_reason 'refusal' で文が 0 字）・
+// 混んでいる（429 / 5xx）ときは、Haiku 4.5 で 1 回だけやり直す（api/_aiRouting.js の CLAUDE_RETRY_MODEL と同じ）。
+//   断られた 1 回の入力の原価は数えない（まれ・中継の精算はやり直した答えの usage で数える）。
+export const ANTHROPIC_RETRY_MODEL = { 'claude-haiku-5-5': 'claude-haiku-4-5' };
+
+// SSE を最初の文字（text_delta）か止まった理由が見えるまで読む。断られていれば { refused: true }、
+// そうでなければ読んだ分を先頭に戻した Response を返す（中継はそのまま流す）。
+export async function peekAnthropicStream(response) {
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  const chunks = [];
+  let buf = '';
+  let text = 0;
+  let stop = null;
+  let done = false;
+  while (!done && text === 0 && !stop) {
+    // eslint-disable-next-line no-await-in-loop
+    const r = await reader.read();
+    if (r.done) { done = true; break; }
+    chunks.push(r.value);
+    buf += typeof r.value === 'string' ? r.value : decoder.decode(r.value, { stream: true });
+    let i;
+    while ((i = buf.indexOf('\n')) >= 0) {
+      const line = buf.slice(0, i).trim();
+      buf = buf.slice(i + 1);
+      if (!line.startsWith('data:')) continue;
+      let ev;
+      try { ev = JSON.parse(line.slice(5).trim()); } catch { continue; }
+      if (ev?.type === 'content_block_delta' && ev.delta?.type === 'text_delta' && ev.delta.text) text += ev.delta.text.length;
+      if (ev?.type === 'message_delta' && ev.delta?.stop_reason) stop = ev.delta.stop_reason;
+    }
+    if (buf.length > 1_000_000) buf = '';
+  }
+  if (text === 0 && stop === 'refusal') {
+    try { await reader.cancel(); } catch { /* no-op */ }
+    return { refused: true };
+  }
+  let i = 0;
+  const body = new ReadableStream({
+    async pull(controller) {
+      if (i < chunks.length) { controller.enqueue(chunks[i]); i += 1; return; }
+      if (done) { controller.close(); return; }
+      const r = await reader.read();
+      if (r.done) controller.close();
+      else controller.enqueue(r.value);
+    },
+    cancel(reason) { return reader.cancel(reason); },
+  });
+  return { refused: false, response: new Response(body, { status: response.status, headers: response.headers }) };
+}
+
+async function refusedBeforeText(response, stream) {
+  if (!response?.ok) return { refused: false, response };
+  const type = response.headers.get('content-type') || '';
+  if (stream && response.body && type.includes('text/event-stream')) return peekAnthropicStream(response);
+  if (!stream && type.includes('application/json')) {
+    try {
+      const data = await response.clone().json();
+      const hasText = Array.isArray(data?.content) && data.content.some((b) => b?.type === 'text' && b.text);
+      if (data?.stop_reason === 'refusal' && !hasText) {
+        try { await response.body?.cancel(); } catch { /* no-op */ }
+        return { refused: true };
+      }
+    } catch { /* 読めなければそのまま返す */ }
+  }
+  return { refused: false, response };
 }
 
 async function openAnthropic({ model, base, apiKey, signal, fetchImpl, timeouts }) {
@@ -419,11 +494,30 @@ async function openAnthropic({ model, base, apiKey, signal, fetchImpl, timeouts 
     ctl.clear(); // ヘッダーが来たら打ち切りの時計を止める（本文のストリームは中継が見る）
   }
   if (response && response.status === 404 && served !== ANTHROPIC_LAST_RESORT) {
-    const next = ANTHROPIC_404_FALLBACK[served] || ANTHROPIC_LAST_RESORT;
+    const next = ANTHROPIC_404_FALLBACK[served] || ANTHROPIC_RETRY_MODEL[served] || ANTHROPIC_LAST_RESORT;
     console.warn('[claude] model not found, falling back:', served, '→', next);
     try { await response.body?.cancel(); } catch { /* no-op */ }
     served = next;
     response = await call(served);
+    return { response, model: served };
+  }
+  const retryModel = ANTHROPIC_RETRY_MODEL[served];
+  if (retryModel && response) {
+    let reason = null;
+    if (response.status === 429 || response.status >= 500) {
+      reason = `status ${response.status}`;
+      try { await response.body?.cancel(); } catch { /* no-op */ }
+    } else {
+      const peek = await refusedBeforeText(response, !!base?.stream);
+      if (peek.refused) reason = 'refusal';
+      else response = peek.response;
+    }
+    if (reason) {
+      // ログは会社・モデル・理由だけ（中身は書かない）
+      console.warn(`[ai-route] anthropic:${served} failed (${reason}) → anthropic:${retryModel}`);
+      served = retryModel;
+      response = await call(served);
+    }
   }
   return { response, model: served };
 }
