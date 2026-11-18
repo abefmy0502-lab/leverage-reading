@@ -314,12 +314,15 @@ export async function queueStep({ db, env = process.env, now = () => Date.now(),
   if (!creds.configured) return { skipped: 'no_rakuten_key', done: 0 };
   let done = 0; let added = 0; let notfound = 0; let marked = 0;
   let busy = false;
+  // 賞・年間ベストの印から入れた本（note が mark: で始まる）を先に（2026-11-18・印に早く ISBN を付ける）。無くなったら古い順。
+  const fetchBatch = (marksFirst) => {
+    let q = db.from('advisor_books_queue').select('id, isbn, title, author, note, attempts').eq('status', 'queued');
+    if (marksFirst) q = q.like('note', 'mark:%');
+    return q.order('id', { ascending: true }).limit(QUEUE_BATCH);
+  };
   while (!busy && now() < deadline - 3000) {
-    const { data: items, error } = await db.from('advisor_books_queue')
-      .select('id, isbn, title, author, note, attempts')
-      .eq('status', 'queued')
-      .order('id', { ascending: true })
-      .limit(QUEUE_BATCH);
+    let { data: items, error } = await fetchBatch(true);
+    if (!error && (!items || items.length === 0)) ({ data: items, error } = await fetchBatch(false));
     if (error) {
       if (/relation .* does not exist|42P01|PGRST205|Could not find the table/i.test(`${error.code || ''} ${error.message || ''}`)) return { skipped: 'no_queue_table', done: 0 };
       throw Object.assign(new Error('queue'), { code: error.code, message: error.message });

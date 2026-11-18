@@ -1,4 +1,5 @@
 import { stripBookSummaries } from './_consultMaterial.js';
+import { addBookRef } from './_bookRefRelay.js';
 import { createClient } from '@supabase/supabase-js';
 import { applyCors } from './_cors.js';
 import { ipGate } from './_ipRate.js';
@@ -1020,7 +1021,9 @@ export default async function handler(req, res) {
       // 除去の結果 assistant 先頭になったら user-first を再適用。
       let finalMsgs = cleanMsgs;
       while (finalMsgs.length > 0 && finalMsgs[0].role === 'assistant') finalMsgs = finalMsgs.slice(1);
-      payload.messages = finalMsgs;
+      // 📚 読書計画シートに書評の参考を足す（今の iPhone のアプリは付けないので中継で・api/_bookRefRelay.js・2026-11-17）。
+      //    探せない・1.5 秒を超えるときは何もしない。足しても 1,000 字ほど（原価は精算で実額に）。
+      payload.messages = await addBookRef({ db: getServiceSupabase(), purpose: body.purpose, messages: finalMsgs });
     }
     // ⚠️ temperature は Anthropic へ転送しない（サーバー側の最終防波堤）。
     // claude-sonnet-5 / haiku-4-5 世代（Opus 4.7 以降と同系）は sampling params
