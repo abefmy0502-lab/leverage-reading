@@ -334,6 +334,7 @@
   color: inherit;
   font: inherit;
   cursor: pointer;
+  font-size: var(--text-body); /* 中の › (1.1em) を文字の大きさに合わせる（2026-11-18） */
 }
 .plan-today:disabled { cursor: default; opacity: 1; }
 .plan-today-body { flex: 1; min-width: 0; }

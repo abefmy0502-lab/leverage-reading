@@ -144,13 +144,16 @@ const detailTapExtra = 'calc((var(--space-8) - var(--tap-min)) / 2)'; // 押せ�
 const detailActionBtn = { ...btnLink, fontSize: 'var(--text-meta)', minWidth: 'var(--tap-min)', justifyContent: 'flex-end', padding: 0, flexShrink: 0, alignSelf: 'flex-start' };
 
 function DetailRow({ label, ariaLabel, action = null, children, ...rest }) {
+  // 文字が大きいとき（ルート 22px 以上）は、見出しと「変更」を 1 行目、値（チップ）を 2 行目の全幅に
+  //  （値の列が狭く「リーダーシップ／・人材育成」と割れていた・2026-11-18 文字最大の点検）。
+  const stacked = (() => { try { return parseFloat(getComputedStyle(document.documentElement).fontSize) >= 22; } catch { return false; } })();
   return (
     <div
       {...rest}
       role="group"
       aria-label={ariaLabel}
       style={{
-        display: 'flex', alignItems: 'flex-start', columnGap: 'var(--space-2)',
+        display: 'flex', flexWrap: stacked ? 'wrap' : 'nowrap', alignItems: 'flex-start', columnGap: 'var(--space-2)',
         // 1 行目の上の余りも行の外へ（見出しの文字と前の行の間を 8 に）
         // 1 行目の上の余りも行の外へ（前の行との見た目の間は 8）。続く行も同じ＝前の行の下の余り（−6）とは margin の相殺で片方しか効かず、
         // 見た目 8・押せる箱は接するだけで重ならない（2026-11-09 ui-critic）
@@ -159,10 +162,10 @@ function DetailRow({ label, ariaLabel, action = null, children, ...rest }) {
       }}
     >
       <span aria-hidden="true" style={detailRowLabel}>{label}</span>
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 'var(--space-2)', rowGap: 0, minWidth: 0, flex: '1 1 0' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 'var(--space-2)', rowGap: 0, minWidth: 0, flex: stacked ? '1 1 100%' : '1 1 0', order: stacked ? 3 : 0 }}>
         {children}
       </div>
-      {action}
+      {action && stacked ? <span style={{ marginLeft: 'auto', order: 2, display: 'inline-flex' }}>{action}</span> : action}
     </div>
   );
 }
