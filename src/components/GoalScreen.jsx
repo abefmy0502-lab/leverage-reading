@@ -626,7 +626,7 @@ function clampAnswer(t) {
 function Building({ building }) {
   return (
     <div className="goal-building" role="status" aria-live="polite">
-      <p className="goal-building-note">{building ? 'ロードマップをつくっています。本棚の本から、読む順番も選んでいます…' : '問いを考えています…'}</p>
+      <p className="goal-building-note">{building ? 'ロードマップをつくっています。目標に合う本も探しています…' : '問いを考えています…'}</p>
       {building ? (
         <ol className="goal-road" aria-hidden="true">
           {[0, 1, 2].map((i) => (
@@ -816,7 +816,8 @@ function RoadmapView({ goal, record, books, sessions = [], onOpenBook, onAddActi
       </section>
 
       {/* 受け取ったまとめ（作ったときの壁）は、いまの 3 か月の下に（いまの 3 か月を最初の画面に・2026-11-17）。 */}
-      {record.summary && <p className="goal-summary">{withPhraseBreaks(record.summary)}</p>}
+      {/* AI のまとめは文節で止めずに流す（DESIGN §2・2026-11-18 ui-critic「2 行目が『話を』で止まって右が空いた」） */}
+      {record.summary && <p className="goal-summary">{record.summary}</p>}
 
       {/* 🔁 相談・AI 選書から見直したとき（いちばん新しい 1 回・見直す前に戻せる）。 */}
       {latest && (
@@ -1215,7 +1216,7 @@ function PlanView({ goal, record, books, sessions, onFindBooks, onOpenBook, onAd
                     const item = schedule[indexOf.get(b.bookId) || 0];
                     const idx = indexOf.get(b.bookId) || 0;
                     const isNow = nowItem?.bookId === b.bookId;
-                    const cls = `plan-band${isNow ? ' is-now' : idx % 2 ? ' is-alt' : ''}${b.head ? ' is-head' : ''}${b.tail ? ' is-tail' : ''}`;
+                    const cls = `plan-band${isNow ? ' is-now' : idx % 2 ? ' is-alt' : ''}${b.head ? ' is-head' : ''}${b.tail ? ' is-tail' : ''}${b.head && b.span < 2 && !isNow ? ' is-solo' : ''}`;
                     return (
                       <button
                         key={b.bookId}
@@ -1223,9 +1224,10 @@ function PlanView({ goal, record, books, sessions, onFindBooks, onOpenBook, onAd
                         className={cls}
                         onClick={() => book && onOpenBook?.(book)}
                         aria-label={`『${book?.title || ''}』 ${fmtRange(item.start, item.end, year)}${isNow ? '（今日の本）' : ''}`}
+                        // 本と本の間だけ 4 空ける（週の端では空けない＝週ごとに帯の左端がずれていた・2026-11-18 ui-critic）。
                         style={{
-                          left: `calc(${b.col} / 7 * 100% + ${b.head ? 'var(--space-1)' : '0px'})`,
-                          width: `calc(${b.span} / 7 * 100% - ${b.head ? 'var(--space-1)' : '0px'} - ${b.tail ? 'var(--space-1)' : '0px'})`,
+                          left: `calc(${b.col} / 7 * 100% + ${b.head && b.col > 0 ? 'var(--space-1)' : '0px'})`,
+                          width: `calc(${b.span} / 7 * 100% - ${b.head && b.col > 0 ? 'var(--space-1)' : '0px'} - ${b.tail && b.col + b.span < 7 ? 'var(--space-1)' : '0px'})`,
                         }}
                       >
                         {(b.head || b.col === 0) && b.span >= 2 && <span>{book?.title || ''}</span>}

@@ -141,7 +141,7 @@ const PLAN_COMPARE = [
   // 写真から書き起こしは無料プランでも毎月 10 回（トークンとは別・2026-10-02）。
   // 無料プランの AI は 相談・この本で学べること・写真から書き起こし（2026-10-11 リリース前点検で並べた）。
   // 払うのは「AI の答えの回数」（会話で行動まで届く量）なので回数を主に、トークンは脇（2026-10-21 ui-critic・GLOSSARY「量の目安は AI の答え 約 N 回」）。
-  { name: '無料プラン（ずっと無料）', amount: `AI の答え ${answerCountLabel(FREE_TOKENS)}`, scope: `毎月 ${FREE_TOKENS.toLocaleString()} トークン・はじめの 2 か月は ${FREE_FIRST_MONTH_TOKENS.toLocaleString()} トークン`, lead: 'AI：', items: ['相談', 'この本で学べること', `写真から書き起こし 毎月 ${FREE_OCR_PER_MONTH} 回`], more: ['メモ', '記録', '振り返り', '写真で共有'] },
+  { name: '無料プラン（ずっと無料）', amount: `AI の答え ${answerCountLabel(FREE_TOKENS)}`, amountNote: `（はじめの 2 か月は${answerCountLabel(FREE_FIRST_MONTH_TOKENS)}）`, lead: 'AI：', items: ['相談', 'この本で学べること', `写真から書き起こし 毎月 ${FREE_OCR_PER_MONTH} 回`], more: ['メモ', '記録', '振り返り', '写真で共有'] },
   // 機能名は語の途中で折り返さない（「写真から書き起こし」が割れないよう、名前ごとに nowrap で並べる）。
   // 量の数え方は「AI の答え 約 N 回」だけ（GLOSSARY・2026-10-21 に「相談 約 30 件」を足したが、数え方が 2 つになるのでやめた）。
   { name: 'プラン', amount: `AI の答え ${answerCountLabel(PAID_TOKENS)}`, scope: `毎月 ${PAID_TOKENS.toLocaleString()} トークン`, lead: 'すべての AI：', items: ['AI 選書', '読書計画シート', '写真から書き起こし'] },
@@ -178,13 +178,15 @@ function PlanCompare({ onlyPlan = false, trial = '', example = TOKEN_EXAMPLE }) 
           </p>
           <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5 }}>
             <span style={{ whiteSpace: 'nowrap' }}>{row.amount}</span>
+            {/* はじめの 2 か月の量（130 トークン）と食い違わないよう、かっこで添える（細く・別の塊で折り返す・2026-11-18 ui-critic） */}
+            {row.amountNote && <span style={{ ...chunk, fontSize: 'var(--text-sub)', fontWeight: 400, color: 'var(--text-2)' }}>{row.amountNote}</span>}
           </p>
           {/* 量の目安は、かっこで続けず次の行に（かっこが重なって読みにくかった・2026-10-16 ui-critic）。 */}
-          <p style={{ margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(row.scope)}</p>
+          {row.scope && <p style={{ margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(row.scope)}</p>}
           <p style={{ ...metaText, marginTop: 'var(--space-1)' }}>
             {row.lead && <span style={{ whiteSpace: 'nowrap' }}>{row.lead}</span>}
             {row.items
-              ? row.items.map((f, j) => <span key={f}>{j > 0 && '・'}<span style={{ whiteSpace: 'nowrap' }}>{f}</span></span>)
+              ? row.items.map((f, j) => <span key={f} style={{ whiteSpace: 'nowrap' }}>{f}{j < row.items.length - 1 && '・'}</span>)
               : row.text}
           </p>
           {/* AI ではない機能は別の行に（「AI：…・メモ・記録」と並べると全部 AI に読めた・2026-10-12 ui-critic） */}
@@ -677,9 +679,8 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
       <div style={{ maxWidth: '36em', margin: '0 auto', display: 'flex', flexDirection: 'column', paddingBottom: 'calc(var(--space-8) + env(safe-area-inset-bottom, 0px))' }}>
         {/* 見出し。無料のトークンを使い切ったあとは「自分の相談相手」、機能から開いたときは機能の名前 */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', minHeight: 44 }}>
-          <p style={{ ...groupTitle, lineHeight: 1.5 }}>
-            Orime
-          </p>
+          {/* 見出しの上の「Orime」は要らない小さなラベル（eyebrow）なのでやめた（2026-11-18 ui-critic）。閉じるは右に。 */}
+          <span aria-hidden="true" />
           {onClose && (
             <button
               type="button"
@@ -767,7 +768,14 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
               style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}
             >
               {priceState === 'loading' ? (
-                planOrder.map((id) => <PlanOption key={id} label={labels[id]} selected={false} placeholder />)
+                // 創業メンバー価格の期間中は、読み込み後と同じ行数の骨組み（年額＝初回価格の 2 行・月額＝無料期間の行つき）
+                //   ＝読み込み後に下が跳ねない（2026-11-18 ui-critic・SPEC §1-3）。中身は隠すので文言は形だけ。
+                planOrder.map((id) => {
+                  const shape = founding.active
+                    ? (id === 'annual' ? { name: labels[id]?.name, intro: { head: '¥0', after: '¥0' } } : { name: labels[id]?.name, price: labels[id]?.price })
+                    : labels[id];
+                  return <PlanOption key={id} label={shape} selected={false} trialNote={founding.active && id !== 'annual' ? '7 日間無料' : ''} placeholder />;
+                })
               ) : (
                 planOrder.map((id) => (
                   <PlanOption
@@ -786,14 +794,23 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
             {/* 創業メンバー（期間中・2026-11-15 オーナー裁定で年額だけに。前は 2026-10-02 コーディネーター裁定の「月額・年額・7 日間無料で
                 始めた人も」）。¥9,800 は年額だけ。特典は値段の約束ではないので、ストアの初回価格が無くても期間中なら出す。
                 あわせて、初回特典は 1 つの Apple ID に 1 回であること（App Store の決まり）。 */}
-            {priceState === 'ready' && founding.active && (
+            {/* 期間中かどうかはストアを待たずに分かるので、読み込み中から出す（読み込み後に下が跳ねない・2026-11-18 ui-critic）。 */}
+            {priceState !== 'failed' && founding.active && (
               <p style={{ ...metaText, ...phraseText, marginTop: 'var(--space-3)' }}>
-                <Phrases>{`${noBreak(founding.endLabel)}までに年額プランを始めた方は、創業メンバーです。開発者に直接連絡でき、次に作る機能の投票にも参加できます。`}</Phrases>
+                {/* 短く（プランの間の説明が長かった・2026-11-18 ui-critic）。 */}
+                <Phrases>{`${noBreak(founding.endLabel)}までに年額プランを始めた方は創業メンバーです（開発者への直接の窓口・次に作る機能への投票）。`}</Phrases>
               </p>
             )}
+            {/* 読み込み中は、下の「どちらか一方」の注記の場所を骨組みで取っておく。 */}
+            {priceState === 'loading' && founding.active && (
+              <div aria-hidden="true" style={{ marginTop: 'var(--space-2)', minHeight: 'calc(var(--text-meta) * 1.6 * 2)', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 'calc(var(--text-meta) * 0.6)' }}>
+                <SkeletonBlock width="100%" height="var(--text-meta)" radius="var(--radius)" />
+                <SkeletonBlock width="60%" height="var(--text-meta)" radius="var(--radius)" />
+              </div>
+            )}
             {priceState === 'ready' && labels.annual?.intro && labels.monthly?.trial && (
-              <p style={{ ...metaText, ...phraseText, marginTop: founding.active ? 'var(--space-1)' : 'var(--space-3)' }}>
-                <Phrases>{`初回特典は ${noBreak('1 つ')}の ${noBreak('Apple ID')} につき ${noBreak('1 回')}です。月額の ${noBreak(normalizeTrialLabel(labels.monthly.trial))}と年額の ${noBreak(labels.annual.intro.head)} は、どちらか一方だけ使えます。`}</Phrases>
+              <p style={{ ...metaText, ...phraseText, marginTop: founding.active ? 'var(--space-2)' : 'var(--space-3)' }}>
+                <Phrases>{`月額の ${noBreak(normalizeTrialLabel(labels.monthly.trial))}と年額の ${noBreak(labels.annual.intro.head)} は、どちらか一方だけ使えます（${noBreak('1 つ')}の ${noBreak('Apple ID')} に ${noBreak('1 回')}）。`}</Phrases>
               </p>
             )}
 
@@ -835,10 +852,18 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
               )}
               {priceState === 'loading' && (
                 // 読み込み中も請求額の行と同じ高さを取っておく（価格が届いたときに欄が伸びて跳ねないように）。
+                founding.active && !compactFooter ? (
+                  // 創業メンバー価格の期間中は、請求額が 2 行（1 年目 … ／ 2 年目から …）になる高さを取る（主ボタンが跳ねない・2026-11-18 ui-critic）。
+                  <div aria-hidden="true" style={{ minHeight: 'calc(var(--text-body) * 1.5 * 2)', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 'calc(var(--text-body) * 0.5)', margin: '0 0 var(--space-3)' }}>
+                    <SkeletonBlock width="70%" height="var(--text-body)" />
+                    <SkeletonBlock width="90%" height="var(--text-body)" />
+                  </div>
+                ) : (
                 <div aria-hidden="true" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', margin: '0 0 var(--space-3)', paddingTop: 'var(--space-1)' }}>
                   {trial && <SkeletonBlock width="40%" height="var(--space-4)" />}
                   <SkeletonBlock width="70%" height="calc(var(--space-4) + var(--space-1))" />
                 </div>
+                )
               )}
               <button
                 type="button"
@@ -855,6 +880,12 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
                 {ctaLabel}
               </button>
               {/* ボタンのすぐ下の注記（無料期間の解約・先払いの 1 年分）。大きな文字のときは上の中身へ移す。 */}
+              {!compactFooter && priceState === 'loading' && founding.active && (
+                // 読み込み後に出る「¥9,800 は始めるときに 1 年分を…」の 1 行の場所を取っておく。
+                <div aria-hidden="true" style={{ marginTop: 'var(--space-2)', minHeight: 'calc(var(--text-meta) * 1.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <SkeletonBlock width="60%" height="var(--text-meta)" />
+                </div>
+              )}
               {!compactFooter && priceState === 'ready' && noteBelow && (
                 <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, margin: 'var(--space-2) 0 0', textAlign: 'center' }}>
                   {noteBelow}

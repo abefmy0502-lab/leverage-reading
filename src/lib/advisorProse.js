@@ -201,8 +201,9 @@ function dropEmptyTables(lines) {
 export function proseTitleLists(items, books) {
   const list = Array.isArray(items) ? items : [];
   return {
-    allowed: list.filter((r) => r && r._verify === 'ok' && r.title).map((r) => r.title),
-    pool: list.filter((r) => r && r.title).map((r) => r.title),
+    // 確かめた本は、書誌の書名と AI が書いた書名（_aiTitle・候補から選んだ本）の両方を同じ本とみなす
+    allowed: list.filter((r) => r && r._verify === 'ok' && r.title).flatMap((r) => [r.title, r._aiTitle].filter(Boolean)),
+    pool: list.filter((r) => r && r.title).flatMap((r) => [r.title, r._aiTitle].filter(Boolean)),
     shelf: (Array.isArray(books) ? books : []).map((b) => b && b.title).filter(Boolean),
   };
 }

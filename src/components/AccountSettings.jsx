@@ -53,7 +53,7 @@ import { ChevronRight, Download as IcDownload, RefreshCw as IcRefresh } from 'lu
 import { SkeletonBlock } from './Skeleton';
 import { withPhraseBreaks } from './TightBubble';
 import { track, EVENTS, isAnalyticsOptedOut, setAnalyticsOptOut } from '../lib/analytics';
-import { closeDelayMs } from '../lib/motion';
+import { closeDelayMs, scrollBehavior } from '../lib/motion';
 import ToggleSwitch from './ToggleSwitch';
 import { readAiConsent, requestAiConsent, isAiConsentCurrent, AI_CONSENT_CHANGED_EVENT } from '../lib/aiConsent';
 import {
@@ -170,6 +170,7 @@ const noteStyle = { fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin
 const rowButtonStyle = {
   width: '100%',
   minHeight: 44,
+  lineHeight: 1.5,
   display: 'flex',
   alignItems: 'center',
   gap: 'var(--space-3)',
@@ -254,7 +255,7 @@ function ValueRow({ label, value, sub = null, style, onClick = null, ariaLabel }
     );
   }
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', minHeight: 44, padding: 'var(--space-3) 0', ...style }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', minHeight: 'var(--tap-min)', padding: 'var(--space-3) 0', lineHeight: 1.5, ...style }}>
       {inner}
     </div>
   );
@@ -379,6 +380,11 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
   const [deleting, setDeleting] = useState(false);
   // 削除の失敗は、押したボタンのすぐ下に ErrorMessage で残す（消えるトーストだけだと、取り消せない操作の結果を見逃す・2026-10-04）。
   const [deleteError, setDeleteError] = useState(false);
+  // 退会の失敗の知らせが出たら、1 回だけそこまで送る（ボタンの下で画面の外に出ていた・下端に余白を残す・2026-11-18 ui-critic）。
+  const deleteErrorRef = useRef(null);
+  useEffect(() => {
+    if (deleteError) deleteErrorRef.current?.scrollIntoView?.({ block: 'nearest', behavior: scrollBehavior() });
+  }, [deleteError]);
   const [deleteOpen, setDeleteOpen] = useState(false);
   // 🎯 Orime を入れた理由（2026-10-18）: 設定で見返す・書き直す。解約（プランを管理）と退会の前に一度だけ見せる（止めない）。
   const { purpose: appPurpose } = useAppPurpose();
@@ -1076,10 +1082,10 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
                   {/* iPhone のアプリでは下の「プランを管理（App Store）」の 1 行に任せ、同じ説明を重ねない（2026-10-12 ui-critic） */}
                   {!nativeView && <p style={{ ...noteStyle, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
                     {withPhraseBreaks(nativeView
-                      ? '解約やプランの変更は、App Store のサブスクリプション設定からいつでもできます。解約してもデータは残ります。'
+                      ? '解約やプランの変更は、App Store のサブスクリプション設定からいつでもできます。解約しても無料プランで使えます。メモは残ります。'
                       : subscription?.stripeCustomerId
-                        ? `解約、カードの変更、請求履歴の確認は、下のボタンからいつでもできます。${plan === 'trial' ? '' : '解約してもデータは残ります。'}`
-                        : `アプリで購入した場合は、iPhone の設定アプリの「サブスクリプション」からいつでも解約できます。${plan === 'trial' ? '' : '解約してもデータは残ります。'}`)}
+                        ? `解約、カードの変更、請求履歴の確認は、下のボタンからいつでもできます。${plan === 'trial' ? '' : '解約しても無料プランで使えます。メモは残ります。'}`
+                        : `アプリで購入した場合は、iPhone の設定アプリの「サブスクリプション」からいつでも解約できます。${plan === 'trial' ? '' : '解約しても無料プランで使えます。メモは残ります。'}`)}
                   </p>}
                   {!nativeView && subscription?.stripeCustomerId ? (
                     <button
@@ -1411,7 +1417,8 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
                         </div>
                         {deleteError && !deleting && (
                           // ほかの画面の失敗と同じ ErrorMessage（題＋次にすること＋「もう一度」）。中の理由は出さない（toMessage はログだけ）。
-                          <div style={{ marginTop: 'var(--space-1)' }}>
+                          // 出たらそこまで送る（ボタンの下で画面の外に出て、押しても何も変わらないように見えた・2026-11-18 ui-critic）。
+                          <div ref={deleteErrorRef} style={{ marginTop: 'var(--space-1)', scrollMarginBottom: 'calc(var(--space-6) + env(safe-area-inset-bottom, 0px))' }}>
                             <ErrorMessage
                               title="削除を受け付けられませんでした"
                               description="時間をおいて、もう一度お試しください。解決しないときはお問い合わせください。"

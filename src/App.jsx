@@ -78,6 +78,9 @@ function ShelfChip({ active, onClick, children, ariaLabel }) {
           borderRadius: 'var(--radius)', fontSize: 'var(--text-meta)', fontWeight: active ? 600 : 400, whiteSpace: 'nowrap',
           background: active ? 'var(--accent-soft)' : 'var(--fill)',
           color: active ? 'var(--accent)' : 'var(--text)',
+          // 内側 1px の枠（DESIGN §5・面の差だけでは見分けられない・2026-11-18 ui-critic）。幅・高さは変えない。
+          outline: `1px solid var(${active ? '--accent' : '--border'})`,
+          outlineOffset: -1,
         }}
       >
         {children}
@@ -234,6 +237,7 @@ import { fmtTarget } from './lib/readTarget';
 import { isShortPhrase } from './lib/shortPhrase';
 import { hasBriefMaterial, storedBriefOf, briefForPrompt, appendHypothesis, isUsableBrief, parseBrief, briefLabels, BRIEF_NO_MATERIAL_TEXT } from './lib/bookBrief';
 import { loadBookInfo, bookInfoForPrompt, hasBookInfo, peekBookInfo, rememberGenres } from './lib/bookInfo';
+import { loadBookRef, refForPrompt } from './lib/bookRef';
 // 🔎 すべての本の検索（書名・著者・タグ＋メモの言葉・2026-09-30）
 import { useLibrarySearch } from './hooks/useLibrarySearch';
 import { LibrarySearchResults, ConsultSearchLink, LibrarySearchHitSkeleton } from './components/LibrarySearchHit';
@@ -766,6 +770,22 @@ function AuthedApp() {
   const [actionFocus, setActionFocus] = useState(null);
   // 相談の会話を下へ送ったか（上の「相談｜AI 選書」の行の下に線・2026-10-16 第 4 回）
   const [consultScrolled, setConsultScrolled] = useState(false);
+  // AI 選書も、下へ送ったら同じ線（送った中身が行の下に半分のぞいていた・2026-11-18 ui-critic）。どの箱が送られても拾う。
+  const [advisorScrolled, setAdvisorScrolled] = useState(false);
+  useEffect(() => {
+    if (!(tab === 'ai' && aiSubTab === 'advisor')) { setAdvisorScrolled(false); return undefined; }
+    const onScroll = (e) => {
+      const t = e.target;
+      // 横に送るチップの行などは数えない（縦に送れる箱と画面だけ）。
+      if (t && t.nodeType === 1 && t !== document.documentElement && t !== document.body && t.scrollHeight <= t.clientHeight + 1) return;
+      const top = t === document || t === document.documentElement || t === document.body
+        ? (window.scrollY || document.documentElement.scrollTop || 0)
+        : (t && typeof t.scrollTop === 'number' ? t.scrollTop : 0);
+      setAdvisorScrolled(top > 0);
+    };
+    document.addEventListener('scroll', onScroll, { capture: true, passive: true });
+    return () => document.removeEventListener('scroll', onScroll, { capture: true });
+  }, [tab, aiSubTab]);
   // 🏠→🧠 本棚ホームの「相談する」から渡す質問。MyBookBrain が履歴読込後に 1 回送る。
   const [askPreset, setAskPreset] = useState(null); // { question, nonce } | null
   // 相談タブのサブタブ（相談｜AI 選書）の行の右端。相談の 🕒・…／AI 選書の履歴・新規はここへ portal で出す（2026-10-01 ui-critic）。
@@ -3306,9 +3326,13 @@ function AuthedApp() {
   //   本の事実は紹介と目次からだけ書かせる（章の名前を作らせない）。本の詳細で読んでいれば控えから即座に。
   //   取れない・6 秒待っても来ないときは無しで作る（紹介・目次が無い前提の書き方になる）。
   const streamSetupSheet = async (src, onChunk) => {
-    const info = await Promise.race([
-      loadBookInfo(src).catch(() => null),
-      new Promise((resolve) => { setTimeout(() => resolve(null), 6000); }),
+    // 📚 書評の参考（難しさ・前提知識・書評サイトの要約・lib/bookRef.js・2026-11-17）も紹介と並べて取る（3 秒で打ち切り・無ければ無しで）。
+    const [info, ref] = await Promise.all([
+      Promise.race([
+        loadBookInfo(src).catch(() => null),
+        new Promise((resolve) => { setTimeout(() => resolve(null), 6000); }),
+      ]),
+      loadBookRef(src).catch(() => null),
     ]);
     const { about, aboutSource, toc } = bookInfoForPrompt(info);
     const PROMPTS = await loadPrompts();
@@ -3328,6 +3352,7 @@ function AuthedApp() {
           toc: toc.map((l) => sanitizeForPrompt(l)).filter(Boolean),
           // 📖 この本で学べること（作ってあれば・概要と学べることだけ・500 字まで・lib/bookBrief.js・2026-10-08）
           brief: sanitizeForPrompt(briefForPrompt(storedBriefOf(src))),
+          ref: sanitizeForPrompt(refForPrompt(ref)),
         }),
       }],
       // 読書計画シートは「各節 3 行・1,000 字以内」（prompts.setupSheet）。2048 → 1600（2026-09-27）
@@ -4452,6 +4477,10 @@ function AuthedApp() {
   );
   // フォルダ（コレクション）一覧 — 本に付いた collection 名の集合（冊数つき・名前順）。
   const allFolders = useMemo(() => folderCounts(books), [books]);
+  // 並べるフォルダ: ほかの絞り込み（状態・分野・評価・検索）が効いているときは 0 冊のフォルダを出さない。
+  //   1 つも残らなければ行ごと出さない（見出し「フォルダ」だけが残っていた・2026-11-18 ui-critic）。
+  const visibleFolders = allFolders.filter((f) => folderFilter === f.name || (folderChipCounts.get(f.name) || 0) > 0 || !(statusFilter !== 'all' || tagFilter.length > 0 || minRating > 0 || !!libraryHits));
+  const showFolderRow = showFolderChips && visibleFolders.length > 0;
   // 外から（本の詳細のフォルダ）フォルダを選んで開いたときは、選んだチップをフォルダの行の見える所へ送る（1 回だけ・横だけ）。
   useEffect(() => {
     if (!folderChipRevealRef.current || shelfMode !== 'library' || view !== 'list' || !folderFilter) return undefined;
@@ -4941,8 +4970,8 @@ function AuthedApp() {
           {/* 読みたい・積読: 読む準備が主役なので、得たいこと・課題・仮説は開いて見せる。
               シートは、あるときだけ畳んで置く。 */}
           {!isMemoPhase && hasPlanFold && (
-          // この本についてのカードの下は 12（読む準備の 1 つのまとまり）。カードが出ない本は 24。
-          <section style={{ marginTop: aboutShown && (bookAbout.loading || hasBookInfo(bookAbout.info) || hasBrief) ? 'var(--space-3)' : 'var(--space-6)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+          // カードとカードの間は 24（「この本について」と読む準備は別の区画・2026-11-18 ui-critic）。
+          <section style={{ marginTop: 'var(--space-6)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
           {current.status === 'before' && planItems.length > 0
             ? <PlanCard items={planItems} style={{ marginTop: 0 }} />
             : planItems.map((p) => <Card key={p.label} label={p.label} text={p.text} style={{ marginTop: 0 }} />)}
@@ -5429,7 +5458,7 @@ function AuthedApp() {
                     onClick={() => { advanceStatus(current, "reading"); setQuickMemoOpen(true); }}
                     style={{ ...btnLink, alignSelf: 'center' }}
                   >
-                    読書中にしてメモを書く
+                    読み始めてメモを書く
                   </button>
                 )}
                 {/* 積読の「読み始めるとメモが書けます」は 2026-10-16 にやめた（説明の文を置かない・DESIGN §0-6・ui-critic 第 2 回）。 */}
@@ -6232,6 +6261,8 @@ function AuthedApp() {
                   <ChevronLeft size={20} aria-hidden="true" />{libraryFrom === 'record' ? '記録' : libraryFrom === 'book' ? 'この本' : 'ホーム'}
                 </button>
                 <div style={{ display: 'flex', alignItems: 'center', marginRight: 'calc(-1 * var(--space-3))' }}>
+                  {/* 本が 0 冊のときは探すものが無いので出さない（2026-11-18 ui-critic） */}
+                  {books.length > 0 && (
                   <button
                     type="button"
                     // 開いているときにもう一度押すと閉じる（入っていた言葉も消して一覧を元に戻す）。
@@ -6245,6 +6276,7 @@ function AuthedApp() {
                   >
                     <IcSearch size={22} aria-hidden="true" />
                   </button>
+                  )}
                   <button
                     type="button"
                     onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setLibraryMenu({ x: r.right - 8, y: r.bottom + 4 }); }}
@@ -6346,7 +6378,7 @@ function AuthedApp() {
                     display: 'flex', gap: 'var(--space-2)', overflowX: 'auto',
                     // 下にフォルダの行があるときは見た目の間 12（押せる範囲の余り 6 を引く＝押せる範囲 44 どうしは重ならず接するだけ・
                     // 負の余白は相殺で 1 つ分しか効かない・2026-10-11 点検で 8 → 12）。
-                    paddingBottom: showFolderChips ? 'calc(var(--space-3) - (var(--tap-min) - var(--space-8)) / 2)' : 'var(--space-4)',
+                    paddingBottom: showFolderRow ? 'calc(var(--space-3) - (var(--tap-min) - var(--space-8)) / 2)' : 'var(--space-4)',
                     // チップの見た目は 32・押せる範囲は 44。上下の余り（6 ずつ）を行の外側で相殺し、
                     // 見た目の間隔を 見出し→チップ 12・チップ→一覧 16 にそろえる（チップ自体に負の余白を
                     // 付けると横スクロールの枠で押せる範囲が切れ、シートの折り返しでは行が詰まるため行の側で）。
@@ -6403,7 +6435,7 @@ function AuthedApp() {
                   見出し「フォルダ」はスクロールの外の固定の列・各フォルダ（冊数）を選ぶと folderFilter（絞り込みシートと同じ）・
                   同じチップをもう一度押すと解除（「すべて」は置かない）。分野・評価の絞り込みと重ねられ、評価順に並べると
                   フォルダごとの評価が見える。状態のチップの行があれば行の間 8・一覧との間 16。 */}
-              {showFolderChips && (
+              {showFolderRow && (
                 <div
                   data-folder-chips=""
                   role="group"
@@ -6426,7 +6458,7 @@ function AuthedApp() {
                       maskImage: chipRowsScrolled.folder ? SCROLL_FADE_MASK_BOTH : SCROLL_FADE_MASK,
                     }}
                   >
-                    {allFolders.filter((f) => folderFilter === f.name || (folderChipCounts.get(f.name) || 0) > 0 || !(statusFilter !== 'all' || tagFilter.length > 0 || minRating > 0 || !!libraryHits)).map((f) => {
+                    {visibleFolders.map((f) => {
                       // ほかの絞り込み（状態・分野・評価・検索）が効いているときは、0 冊のフォルダは出さない
                       //（分野で絞った一覧に関係ないフォルダが「0」で並んでいた・2026-10-30 点検）。絞っていなければ全部。
                       const active = folderFilter === f.name;
@@ -6707,7 +6739,7 @@ function AuthedApp() {
             {/* サブタブは名前の幅（相談｜AI 選書）で左に寄せ、同じ行の右端にその画面の操作（相談の 🕒・…／AI 選書の履歴・新規）。
                 上の操作を「サブタブ／アイコンの行／件数の行」と 3 段に積まない（2026-10-01 ui-critic・DESIGN §5）。 */}
             {!(aiSubTab === 'brain' && consultPushed) && !(aiSubTab === 'advisor' && advisorPushed) && (
-            <div className="sub-tabs sub-tabs--fit" data-scrolled={aiSubTab === 'brain' && consultScrolled ? '' : undefined} style={{ flexShrink: 0 }}>
+            <div className="sub-tabs sub-tabs--fit" data-scrolled={(aiSubTab === 'brain' && consultScrolled) || (aiSubTab === 'advisor' && advisorScrolled) ? '' : undefined} style={{ flexShrink: 0 }}>
             <div role="tablist" aria-label="相談のサブタブ" className="sub-tabs__list sub-tabs__seg" onKeyDown={onTabListKeyDown}>
               <SegThumb activeKey={aiSubTab} />
               <button

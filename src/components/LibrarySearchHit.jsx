@@ -15,6 +15,9 @@ import { canBreakAfter } from '../lib/librarySearch';
 // 見つかった言葉の印（DESIGN §5「検索の一致の印」・styles/searchMark.js）。
 import { searchMarkStyle as markStyle } from '../styles/searchMark';
 
+// メモを検索している間・検索できなかったときの 1 行（どちらも同じ高さ）。
+const statusRow = { margin: 0, minHeight: 'var(--tap-min)', display: 'flex', alignItems: 'center', fontSize: 'var(--text-meta)', color: 'var(--text-2)' };
+
 export function hitLabel(hit) {
   if (!hit) return '';
   // メモはページと書いた日（「p.64 · 5/27」・ページの無いメモは「5/27」＝本の詳細のメモと同じ書き方・2026-09-30）
@@ -155,11 +158,12 @@ export function LibrarySearchResults({ books, hits, renderBookRow, onOpen, onAut
       {(memoStatus === 'loading' || memoStatus === 'error' || onConsult) && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-1)', marginTop: 'calc(-1 * var(--space-3))' }}>
           {/* メモを読んでいる間・読めなかったとき（書名・著者で見つかった本は先に出す）。 */}
-          {memoStatus === 'loading' && <p role="status" style={{ margin: 'var(--space-3) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>メモを検索しています…</p>}
+          {/* 読み込み中もエラーも同じ高さの 1 行（--tap-min・文字は縦の中央）＝カードからの見た目の間は 24 で、切り替わっても「相談で探す」が動かない（2026-11-18 ui-critic）。 */}
+          {memoStatus === 'loading' && <p role="status" style={statusRow}>メモを検索しています…</p>}
           {memoStatus === 'error' && (
-            <p role="status" style={{ margin: 'var(--space-3) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+            <p role="status" style={{ ...statusRow, gap: 'var(--space-2)', flexWrap: 'wrap' }}>
               メモを検索できませんでした
-              <button type="button" onClick={onRetry} style={{ ...btnLink, minHeight: 44 }}>もう一度</button>
+              <button type="button" onClick={onRetry} style={{ ...btnLink, minHeight: 'var(--tap-min)' }}>もう一度</button>
             </p>
           )}
           {onConsult && <ConsultSearchLink onClick={onConsult} />}

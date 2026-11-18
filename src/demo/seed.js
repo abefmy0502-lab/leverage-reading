@@ -26,7 +26,8 @@ function unitWidth(u, size) {
 function wrapTitle(title, size) {
   // 行頭に来てはいけない字（小さいかな・ー・閉じ括弧・句読点）は前の字とひとかたまりにする。
   const units = [];
-  for (const u of title.match(/[A-Za-z0-9.,'!?&:\-]+|\s+|./gu) || []) {
+  // 語のまとまり（カタカナの続き・漢字＋送りがな・ひらがなの続き・英数字）でだけ折り返す（「スタンフォー／ド式」と語の途中で割れていた・2026-11-18 ui-critic）。
+  for (const u of title.match(/[A-Za-z0-9.,'!?&:\-]+|\s+|[\p{Script=Katakana}ー]+|\p{Script=Han}+\p{Script=Hiragana}*|\p{Script=Hiragana}+|./gu) || []) {
     if (units.length && /^[ぁぃぅぇぉっゃゅょァィゥェォッャュョー）」』、。・！？]$/.test(u) && !/^\s+$/.test(units[units.length - 1])) units[units.length - 1] += u;
     else units.push(u);
   }
@@ -52,7 +53,7 @@ function layoutCoverTitle(title) {
   for (let size = 24; size >= 14; size -= 2) {
     const lines = wrapTitle(title, size);
     const maxLines = Math.floor(COVER_TITLE_H / (size * 1.25));
-    const tooLongWord = (title.match(/[A-Za-z0-9.,'!?&:\-]+/g) || []).some((w) => unitWidth(w, size) > COVER_TITLE_W);
+    const tooLongWord = (title.match(/[A-Za-z0-9.,'!?&:\-]+|[\p{Script=Katakana}ー]+|\p{Script=Han}+\p{Script=Hiragana}*/gu) || []).some((w) => unitWidth(w, size) > COVER_TITLE_W);
     if (lines.length <= maxLines && !tooLongWord) return { lines, size };
   }
   const size = 14;

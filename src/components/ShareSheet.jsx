@@ -113,7 +113,8 @@ function safeStorage() {
 }
 
 // プレビューの高さ（シートが 1 画面に収まるように・形が変わっても高さは同じ）。
-const PREVIEW_H = 'min(28vh, 248px)';
+//   重ね方の見本の名前（2 行）まで下の固定の欄の上に収まる高さ（390×844 で名前が欄に隠れていた・2026-11-18 ui-critic）。
+const PREVIEW_H = 'min(23vh, 208px)';
 // 見せ方の見本の高さ（幅は形に合わせる）。
 const THUMB_H = 64;
 
@@ -211,7 +212,7 @@ const thumbBtn = {
   display: 'inline-flex',
   flexDirection: 'column',
   alignItems: 'center',
-  gap: 'var(--space-1)',
+  gap: 'var(--space-2)',
   padding: 'var(--space-1)',
   minWidth: 'var(--tap-min)',
   border: 'none',
@@ -352,11 +353,13 @@ const quoteRowBtn = (on) => ({
   color: 'var(--text)',
   textAlign: 'left',
   font: 'inherit',
+  opacity: 1, // 読み込み中も薄くしない（押せないことは「変える」の色で伝える・DESIGN §5）
   cursor: on ? 'pointer' : 'default',
 });
-const quoteRowText = (empty) => ({
+// 一文は 2 行まで。「どの本？」の行があるときは 1 行（見本の名前の 2 行目まで最初の画面に収める・2026-11-18 ui-critic）。
+const quoteRowText = (empty, lines = 2) => ({
   display: '-webkit-box',
-  WebkitLineClamp: 1,
+  WebkitLineClamp: lines,
   WebkitBoxOrient: 'vertical',
   overflow: 'hidden',
   fontSize: 'var(--text-body)',
@@ -858,6 +861,7 @@ export default function ShareSheet({
     try {
       const result = await saveImage({ blob: card.blob, filename });
       if (result !== 'cancelled') track(EVENTS.SHARE_CARD, trackProps('saved'));
+      if (result === 'photos') { haptic.success(); toast.success('写真に保存しました。'); }
       if (result === 'saved') { haptic.success(); toast.success('画像を保存しました。'); }
     } catch (e) {
       toast.error(toMessage(e, '保存できませんでした。'));
@@ -989,7 +993,7 @@ export default function ShareSheet({
         {/* プレビュー＝外に出る画像そのもの。押すと大きな画像の編集画面（写真を動かす・言葉・表示する項目）。
             左右に振ると隣の重ね方（記録 → 数字 → 一文）。縦の動きはシートのスクロール・下へ振って閉じるに渡す（pan-y）。 */}
         {/* 形の切り替えが「編集」の行にあるとき（52 の高さ）は、プレビューとの間を 12 に（4 だと詰まって見えた・2026-10-11 ui-critic）。 */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: formatInEditRow ? 'var(--space-3)' : 'var(--space-1)' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: formatInEditRow ? 'var(--space-4)' : 'var(--space-1)' }}>
           <button
             type="button"
             onClick={onPreviewClick}
@@ -1021,7 +1025,8 @@ export default function ShareSheet({
           </button>
           {/* 失敗の案内はプレビューと同じ高さの場所に出す（地を変えて描き直せたときに、下の部品が上下に動かない）。 */}
           {status === 'error' && (
-            <div style={{ alignSelf: 'stretch', minHeight: PREVIEW_H, display: 'grid' }}>
+            // 下の整える欄との間は、見本があるときと同じ 24（2026-11-18 ui-critic）。
+            <div style={{ alignSelf: 'stretch', minHeight: PREVIEW_H, display: 'grid', marginBottom: formatInEditRow ? 'var(--space-2)' : 0 }}>
               {yearError ? (
                 // 今年のメモを読めなかった（数字の欠けた 1 枚は作らない・「もう一度」で読み直す）。
                 <ErrorMessage
@@ -1057,14 +1062,15 @@ export default function ShareSheet({
                 disabled={status !== 'ready'}
                 aria-haspopup="dialog"
                 onClick={() => { setQuotePicker(true); haptic.light(); }}
-                style={quoteRowBtn(status === 'ready')}
+                // 画像（本を選ぶ＋見本）と、整える欄（一文・編集・重ね方）の間は 24（まとまりの間・DESIGN §1・2026-11-18 ui-critic）。
+                style={{ ...quoteRowBtn(status === 'ready'), marginTop: formatInEditRow ? 'var(--space-2)' : 0 }}
               >
                 <TextQuote size="1.2em" aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0, alignSelf: 'center' }} />
                 <span style={{ minWidth: 0, flex: 1, display: 'grid', gap: 'var(--space-1)' }}>
                   <span style={{ color: 'var(--text-2)', fontSize: 'var(--text-meta)' }}>
                     {quotePart && chosenMemo ? '画像に入れる一文（メモの一部）' : '画像に入れる一文'}
                   </span>
-                  <span style={quoteRowText(!chosen)}>{chosen ? String(chosen.text || '').trim() : '一文を入れていません'}</span>
+                  <span style={quoteRowText(!chosen || status !== 'ready', showSwitcher ? 1 : 2)}>{chosen ? String(chosen.text || '').trim() : '一文を入れていません'}</span>
                 </span>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', color: status === 'ready' ? 'var(--accent)' : 'var(--text-3)', fontSize: 'var(--text-sub)', fontWeight: 600, flexShrink: 0, alignSelf: 'center' }}>
                   {chosen ? '変える' : '入れる'}
@@ -1081,21 +1087,22 @@ export default function ShareSheet({
             //   描けなかった間は文字ボタンの行だけ隠す（形と背景は見せる＝背景を変えて作り直せる・2026-10-11 4 回目）。
             style={{ alignSelf: 'stretch', display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 'var(--space-2)' }}
           >
-            {/* 文字ボタンの左右 4 は、文字の端を 16 にそろえるためにこの 2 つにだけ負の余白で打ち消す。 */}
-            <div aria-hidden={status === 'error' || undefined} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginLeft: 'calc(-1 * var(--space-1))', visibility: status === 'error' ? 'hidden' : 'visible' }}>
+            {/* 「編集」と、形・「背景：写真 ▾」は 1 つの行に（2 段だと重ね方の見本が下の固定の欄に隠れ、最初の画面で選べなかった・2026-11-18 ui-critic）。
+                幅が足りないとき（文字を大きくした端末）だけ、形と背景が次の行へ折り返す。文字ボタンの左右 4 は負の余白で打ち消す。 */}
+            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 'var(--space-3)', rowGap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}>
             <button
               type="button"
               disabled={status !== 'ready'}
               onClick={openEditor}
-              style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', color: status === 'ready' ? 'var(--accent)' : 'var(--text-3)', opacity: 1, cursor: status === 'ready' ? 'pointer' : 'default' }}
+              aria-hidden={status === 'error' || undefined}
+              style={{ ...btnLink, alignItems: 'center', gap: 'var(--space-2)', color: status === 'ready' ? 'var(--accent)' : 'var(--text-3)', opacity: 1, cursor: status === 'ready' ? 'pointer' : 'default', display: status === 'error' ? 'none' : 'inline-flex' }}
             >
               <SlidersHorizontal size="1.1em" aria-hidden="true" />
               編集
             </button>
-            </div>
-            {/* 形の切り替えと「背景：写真 ▾」は、いつも左揃えの独立した行（右の列がガタガタに見えた・2026-10-11 リリース前の採点）。 */}
+            {/* 「編集」を出さない（画像を作れなかった）ときは左に寄せる（右に浮いて左が大きく空いた・2026-11-18 ui-critic）。 */}
             {(formatInEditRow || photo) && (
-            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 'var(--space-3)', rowGap: 'var(--space-1)', justifyContent: 'flex-start' }}>
+            <div style={{ display: 'flex', alignItems: 'center', columnGap: 'var(--space-3)', marginLeft: status === 'error' ? 0 : 'auto' }}>
             {formatInEditRow && formatSwitch}
             {photo && (
               // 背景（写真・フィルム・紙…）と、撮り直す・アルバムから選ぶは「背景：写真 ▾」のメニュー 1 つに（2026-10-10）。
@@ -1113,6 +1120,7 @@ export default function ShareSheet({
             )}
             </div>
             )}
+            </div>
             {photo && bgMenu && <ContextMenu x={bgMenu.x} y={bgMenu.y} onClose={() => setBgMenu(null)} items={bgItems} />}
           </div>
         </div>
@@ -1123,7 +1131,7 @@ export default function ShareSheet({
         {/* 重ね方の見本（名前は 2 行ぶんの高さでそろえる）と、同じ行の右に形（投稿 4:5／ストーリー 9:16・縦に 2 つ）。
             シートの段を 1 つ減らす（2026-10-10 ui-critic）。透明（形が無い）のときは形を出さない。 */}
         {variants.length > 1 && (
-        <div aria-hidden={yearError || undefined} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: 'var(--space-2)', visibility: yearError ? 'hidden' : 'visible' }}>
+        <div aria-hidden={yearError || undefined} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: 'var(--space-2)', marginTop: 'calc(-1 * var(--space-1))', visibility: yearError ? 'hidden' : 'visible' }}>
             {/* 列の幅は名前の字の大きさで決める（文字が大きいときは 3 列＋次の行・形の切り替えは下の行へ回る＝名前が重ならない）。 */}
             {variants.length > 1 && (
             // 列は見本の数で決めた等分（名前の太さ・メニューの開け閉めで幅が動かない・2026-10-10 ui-critic）。

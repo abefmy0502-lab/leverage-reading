@@ -129,6 +129,9 @@ export function Chip({ active = false, stretch = false, shrink = false, wrap = f
         background: "none", border: "none", cursor: "pointer", fontFamily: "inherit",
         flex: stretch ? "1 1 0" : "0 0 auto",
         ...(shrink ? { maxWidth: "100%", minWidth: 0 } : null),
+        // 折り返すチップは、見た目の上下にいつも押せる範囲の余り（6）を残す＝2 行に伸びても、
+        //   次の行との見た目の間が 8 のまま（伸びた分だけ余りが消えて 4 に詰まっていた・2026-11-18 ui-critic）。
+        ...(wrap && !select ? { paddingTop: "calc((var(--tap-min) - 32px) / 2)", paddingBottom: "calc((var(--tap-min) - 32px) / 2)" } : null),
       }}
     >
       <span

@@ -260,7 +260,7 @@ function RecommendationCard({ book, index = 0, isAdded, isChecking, onAdd }) {
         overflowWrap: 'anywhere',
       }}
     >
-      {/* 上の段は会話中のカードと同じ（表紙＝あれば 52×74・角丸 4 → #番号 → 書名 → 著者）。 */}
+      {/* 上の段は会話中のカードと同じ（表紙＝あれば 52×74・角丸 4 → 書名 → 著者・番号は付けない＝並びは読む順番ではない・2026-11-18）。 */}
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-3)' }}>
         {book.cover && (
           <img
@@ -273,9 +273,9 @@ function RecommendationCard({ book, index = 0, isAdded, isChecking, onAdd }) {
           />
         )}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 0 }}>{index + 1} 冊目</p>
-          <p style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, margin: 'var(--space-1) 0 0', textIndent: '-0.5em' }}>
-            『{book.title}』
+          <p style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, margin: 0 }}>
+            {/* 会話中のカードと同じく、『 は字の幅を半分に（2026-11-18） */}
+            <span style={{ fontFeatureSettings: '"halt"' }}>『</span>{book.title}』
           </p>
           {book.author && (
             <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: 'var(--space-1) 0 0' }}>{book.author}</p>

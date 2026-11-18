@@ -216,7 +216,8 @@ export function BookFolderLinks({ folders = [], onPick, onEdit }) {
           type="button"
           onClick={onEdit}
           aria-label="フォルダに入れる"
-          style={{ ...detailActionBtn, alignSelf: 'auto', marginLeft: 'calc(-1 * var(--space-1))' }}
+          // 文字の左端をチップの左端（値の列）にそろえる（負の余白で 4 ずれていた・2026-11-18 ui-critic）。
+          style={{ ...detailActionBtn, alignSelf: 'auto', paddingLeft: 0 }}
         >
           フォルダに入れる
         </button>
@@ -292,7 +293,7 @@ export function BookFieldsRecord({ record, onOpenField, onFindBooks }) {
   );
 }
 
-// 本がまだ無い分野。見出し「まだ本がない分野」（13/--text-2）を 1 行にし、その下 4 に探す印つきのチップを折り返す。
+// 本がまだ無い分野。見出し「まだ本がない分野」（12/--text-3）を 1 行にし、その下 4 に探す印つきのチップを折り返す。
 //   チップは塗らない（枠 --border・文字 --text-2・名前の前に虫めがね）＝押すと探しに行く（AI 選書）と分かり、
 //   自分の本がある行より弱く、本の詳細の分野チップ（絞り込み）とも別物に見える（DESIGN §5「探す印のチップ」・2026-10-11 ui-critic）。
 //   区切り線 → 見出しは 12・チップの行の間は 12（押せる範囲 44・見た目 32）・最後の行の下の余りは行の外へ。
@@ -310,7 +311,8 @@ function EmptyFieldsLine({ names, divided, onFindBooks }) {
         borderTop: divided ? '1px solid var(--separator)' : 'none',
       }}
     >
-      <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>まだ本がない分野</p>
+      {/* 大分類の名前（12/600/--text-2）より弱く（13 だと大分類より強く見えた・2026-11-18 ui-critic） */}
+      <p style={{ margin: 0, fontSize: 'var(--text-caption)', color: 'var(--text-3)', lineHeight: 1.5 }}>まだ本がない分野</p>
       <div
         style={{
           display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 'var(--space-2)', rowGap: 0,

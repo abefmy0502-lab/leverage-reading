@@ -4,7 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { isSupabaseConfigured, supabaseConfigProblem } from '../../lib/supabase';
 import { LIMITS, validatePassword } from '../../lib/limits';
 import { signInWithApple, isNativeApple, isAppleSignInAvailable } from '../../lib/appleAuth';
-import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnLink as uiBtnLink, input } from '../../styles/ui';
+import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnLink as uiBtnLink, btnGhost as uiBtnGhost, input } from '../../styles/ui';
 import { isNative } from '../../lib/iap';
 import { MailCheck, Check } from 'lucide-react';
 import ErrorMessage from '../ErrorMessage';
@@ -493,10 +493,12 @@ export default function AuthScreen() {
         )}
         {mode === 'signin' && (
           <>
-            <button type="button" onClick={() => switchMode('signup')} style={btnLink}>
+            {/* はじめての人がいちばん押すので、枠の副ボタン（パスワードの文字ボタンと同じ強さにしない・2026-11-18 ui-critic） */}
+            <button type="button" onClick={() => switchMode('signup')} style={{ ...uiBtnGhost, width: '100%', marginBottom: 'var(--space-2)' }}>
               アカウントを作成
             </button>
-            <button type="button" onClick={() => switchMode('reset')} style={btnLink}>
+            {/* 脇の文字ボタンは同じ控えめな色（栗色とグレーの 2 色が並んでいた・2026-11-18 ui-critic）。 */}
+            <button type="button" onClick={() => switchMode('reset')} style={{ ...btnLink, color: 'var(--text-2)' }}>
               パスワードをお忘れの方
             </button>
             {/* サービス紹介はログインの画面だけ（新規登録は「ログインに戻る」1 つにして、押すものを減らす・2026-09-29）。 */}

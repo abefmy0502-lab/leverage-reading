@@ -44,7 +44,7 @@ export default function TokensOutCard({ plan, trialEndLabel = '', cancelLine = '
       )}
       {onAdd && cancelLine && <p style={trialCancelLineStyle}>{withPhraseBreaks(cancelLine)}</p>}
       {onUsage && (
-        <button type="button" onClick={onUsage} style={{ ...btnLinkQuiet, width: '100%', marginTop: 'var(--space-2)' }}>
+        <button type="button" onClick={onUsage} style={{ ...btnLinkQuiet, width: '100%', marginTop: 'var(--space-2)', marginBottom: 'calc(-1 * var(--space-3))' }}>
           トークンの使い方を見る
         </button>
       )}

@@ -39,7 +39,7 @@ import { appNow } from '../lib/appNow';
 import { useAllActions } from '../hooks/useAllActions';
 import { triedActions, TRIED_SHOWN } from '../lib/triedActions';
 import { stripInlineMd } from '../lib/text';
-import { btnLinkQuiet } from '../styles/ui';
+import { btnLink } from '../styles/ui';
 
 /* ---------- 日付ユーティリティ（ローカル基準・UTC ずれ防止） ---------- */
 
@@ -442,9 +442,11 @@ function TriedCard({ books, onOpenBook, onShowActions, onConsult = null }) {
               {open ? (
                 <button type="button" onClick={open} style={rowStyle}><span style={{ flex: 1, minWidth: 0 }}>{body}</span><ChevronRight size="1.2em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} /></button>
               ) : <div style={rowStyle}><span style={{ flex: 1, minWidth: 0 }}>{body}</span></div>}
-              {onConsult && (
-                // 行（本を開く）の下に、結果を相談する控えめな文字ボタン（行ごとに栗色を並べない・押せる範囲 44 は負の余白で行に寄せる）
-                <button type="button" onClick={() => onConsult(a)} style={{ ...btnLinkQuiet, fontSize: 'var(--text-meta)', minHeight: 'var(--tap-min)', padding: '0 var(--space-1)', margin: `calc(-1 * var(--space-4)) 0 calc(-1 * var(--space-2)) calc(-1 * var(--space-1))` }}>
+              {onConsult && i === 0 && (
+                // いちばん新しい 1 件の下にだけ、結果を相談する文字ボタン（栗色・押せる範囲 44・2026-11-18 ui-critic
+                //   「日付の行と同じに見えてボタンと分からない」→「4 回並んで数字のカードより目立つ」）。前の行動の相談は行動の一覧から。
+                //   行の下の空き（12）だけ重ね、行の文字には重ねない。
+                <button type="button" onClick={() => onConsult(a)} style={{ ...btnLink, margin: `calc(-1 * var(--space-3)) 0 var(--space-1) calc(-1 * var(--space-1))` }}>
                   この結果を相談する
                 </button>
               )}

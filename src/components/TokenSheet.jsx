@@ -21,8 +21,6 @@ import { isDemo, supabase } from '../lib/supabase';
 import { toMessage } from '../lib/errors';
 import { btnPrimary, btnPrimaryOff } from '../styles/ui';
 
-// 選んだ行（--accent-soft の面）の上の骨組みの棒。
-const skeletonOnAccent = { background: 'linear-gradient(90deg, var(--separator) 0%, var(--accent-soft) 50%, var(--separator) 100%)', backgroundSize: '200% 100%' };
 
 const optionBase = {
   display: 'flex', alignItems: 'center', gap: 'var(--space-3)', width: '100%', minHeight: 44,
@@ -178,14 +176,13 @@ export default function TokenSheet({ plan, onClose, onPurchased }) {
       )}
       <div role="radiogroup" aria-label="追加するトークン" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
         {TOKEN_PACKS.map((p) => {
-          const off = unavailable(p.id);
-          const on = !off && current === p.id && !(showNative && priceState === 'failed');
+          // 価格を読めなかった間は選べない形に（押しても何も変わらない行を残さない・2026-11-18 ui-critic）。
+          const off = unavailable(p.id) || (showNative && priceState === 'failed');
+          const on = !off && current === p.id;
           // 価格の欄: Web は既定の表示・アプリ版はストアの値だけ（読み込み中は骨組み・取れなければ何も出さない）。
           let price = null;
           if (!showNative) price = prices[p.id] || p.fallbackPrice;
-          // 選んだ行の --accent-soft の面の上では、棒を --separator に（ふつうの骨組みの色は暗い画面でこの面に溶けて見えない・
-          //   光の流れは --separator ↔ --accent-soft・相談の --fill の箱の上の骨組みと同じ考え・2026-10-04）。
-          else if (priceState === 'loading') price = <SkeletonBlock width={56} height="var(--text-body)" radius="var(--radius)" style={{ display: 'inline-block', verticalAlign: 'middle', ...(on ? skeletonOnAccent : null) }} />;
+          else if (priceState === 'loading') price = <SkeletonBlock width={56} height="var(--text-body)" radius="var(--radius)" style={{ display: 'inline-block', verticalAlign: 'middle' }} />;
           else if (priceState === 'ready' && prices[p.id]) price = prices[p.id];
           return (
             <button
@@ -198,10 +195,12 @@ export default function TokenSheet({ plan, onClose, onPurchased }) {
               onClick={() => { if (!busy && !off) setSelected(p.id); }}
               style={{
                 ...optionBase,
-                background: on ? 'var(--accent-soft)' : 'var(--surface)',
+                // 有料プランの画面と同じ形＝面は塗らず、枠だけ 2px の栗色（2026-11-18 ui-critic「選んだ行の見た目が画面で違う」）。
+                background: 'var(--surface)',
                 border: `1px solid ${on ? 'var(--accent)' : 'var(--separator)'}`,
                 boxShadow: on ? 'inset 0 0 0 1px var(--accent)' : 'none',
                 color: off ? 'var(--text-3)' : 'var(--text)',
+                opacity: 1,
                 cursor: off ? 'default' : 'pointer',
               }}
             >
@@ -231,7 +230,7 @@ export default function TokenSheet({ plan, onClose, onPurchased }) {
         {/* 追加分に期限は無い（App Store 審査ガイドライン 3.1.1・2026-10-11 オーナー裁定）。 */}
         {withPhraseBreaks(`${isTrial
           ? '無料期間のトークンを使い切ったあとに使われます。'
-          : 'その月のトークンを使い切ったあとに使われます。'}プランをやめても相談に使えます。お支払いは App Store で行われ、返金は App Store の規定に従います。`)}
+          : 'その月のトークンを使い切ったあとに使われます。'}期限はありません。プランをやめても相談に使えます。お支払いは App Store で行われ、返金は App Store の規定に従います。`)}
       </p>
     </BottomSheet>
   );

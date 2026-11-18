@@ -75,3 +75,19 @@ describe('renumberLists', () => {
     expect(renumberLists('1. a\n3. b\n\n5. c\n本文\n2. d')).toBe('1. a\n2. b\n\n3. c\n本文\n1. d');
   });
 });
+
+describe('候補から選んだ本（書誌の書名に置き換えた本）の読む順番', () => {
+  it('AI が書いた書名の行も残す（書誌の書名とずれていても消さない）', async () => {
+    const { applyCandidate } = await import('./advisorCandidates');
+    const rec = applyCandidate({ title: 'マインドセット', author: 'キャロル・S・ドゥエック' }, { title: 'マインドセット「やればできる！」の研究', author: 'キャロル・S・ドゥエック', isbn: '9784794221780' });
+    expect(rec).toMatchObject({ title: 'マインドセット「やればできる！」の研究', _aiTitle: 'マインドセット', _verify: 'ok' });
+    const after = '## 📋 読む順番のおすすめ\n1. 『マインドセット』 — 土台をつくる\n2. 『世の中に無い本』 — 架空';
+    const out = filterProseTitles(after, proseTitleLists([rec], []));
+    expect(out).toContain('『マインドセット』');
+    expect(out).not.toContain('世の中に無い本');
+  });
+  it('書名が同じなら _aiTitle は付けない', async () => {
+    const { applyCandidate } = await import('./advisorCandidates');
+    expect(applyCandidate({ title: '時間術大全' }, { title: '時間術大全', isbn: '1' })).not.toHaveProperty('_aiTitle');
+  });
+});

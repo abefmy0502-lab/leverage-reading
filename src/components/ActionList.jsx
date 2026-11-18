@@ -222,7 +222,7 @@ function MorphItem({ phaseKey, collapsed, first, entering = false, onCollapsed, 
   // 2 行目からは上に区切り線（丸の右＝文の頭から右端まで）。
   return (
     <li ref={ref} style={{ listStyle: 'none', position: 'relative' }}>
-      {!first && <span aria-hidden="true" style={{ position: 'absolute', zIndex: 1, top: 0, right: 0, left: 'calc(var(--space-4) + 1.4em + var(--space-2))', fontSize: 'var(--text-body)', borderTop: '1px solid var(--separator)', pointerEvents: 'none' }} />}
+      {!first && <span aria-hidden="true" style={{ position: 'absolute', zIndex: 1, top: 0, right: 0, left: 'calc(var(--space-4) + 0.7em + var(--tap-min) / 2 + var(--space-2))', fontSize: 'var(--text-body)', borderTop: '1px solid var(--separator)', pointerEvents: 'none' }} />}
       {children}
     </li>
   );
@@ -739,7 +739,9 @@ export default function ActionList({ books, onOpenGoals = null, onToggleAction, 
       {/* 上: 今週の完了数 1 行（数字の演出はしない）＋ 追加。完了一覧は最後の 1 行から。 */}
       {/* 文字を大きくして 1 行の文が「追加」の横に収まらないときは、「追加」を次の行へ（flex-wrap・文の幅の下限 12em）。
           文は短く 2 つのまとまりに（「今週の期限 3 件」「完了 0 件」・語の途中で割らない・2026-10-01 ui-critic）。 */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
+      {/* 件数の行は一覧の見出しなので、下の一覧に寄せる（「＋ 追加」の 44 の下の余りを打ち消す＝見た目の間 16・
+          上の目標カードより一覧に近く見えるように・2026-11-18 ui-critic）。 */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', marginBottom: 'calc(-1 * (var(--space-4) + var(--space-1)))' }}>
         {/* やることが 0 件のときは「やること 0 件」と書かない（下の「すべて完了しています」と同じことを言う・2026-10-04 ui-critic）。 */}
         {(weekLine.total > 0 || open.length > 0) && (
         <p style={{ margin: 0, flex: '1 1 12em', minWidth: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5 }}>

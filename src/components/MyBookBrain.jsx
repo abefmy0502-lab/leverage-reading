@@ -20,7 +20,7 @@ import { setConsultBackGuard } from '../lib/consultBack';
 import { toMessage, toSaveMessage, OFFLINE_SAVE_MESSAGE } from '../lib/errors';
 import { streamMyBookBrain, prewarmKnowledge, invalidateKnowledgeCache, EVIDENCE_PREFIX, consultAgoLabel } from '../lib/ai';
 import { ensureAiConsent } from '../lib/aiConsent';
-import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnText as uiBtnText, btnLink as uiBtnLink, btnLinkQuiet as uiBtnLinkQuiet, groupTitle, fieldNote, input as uiInput, scrollFade } from '../styles/ui';
+import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, btnText as uiBtnText, btnLink as uiBtnLink, btnLinkQuiet as uiBtnLinkQuiet, groupTitle, fieldNote, input as uiInput, scrollFade } from '../styles/ui';
 import { track, EVENTS } from '../lib/analytics';
 import { LIMITS } from '../lib/limits';
 import { answerActionStatus, rememberAnswerActionAdded } from '../lib/consultActionAdded';
@@ -85,6 +85,7 @@ import PartnerAvatar, { PartnerRow, PartnerBooksSheet, AVATAR_SIZE, AVATAR_SIZE_
 import { unreadBooksInAnswer } from '../lib/unreadBooks';
 import { consultPartner, partnerFromScope, bookForRef, shelfBookForTitle, withVoice, decodeVoice, encodeVoice, perbookSummaryPartner, VOICE_PREFIX } from '../lib/consultPartner';
 import { fetchAllRows } from '../lib/fetchAllRows';
+import { nestQuotes } from '../lib/nestQuotes';
 
 // 相談を送るときのオフラインの文（上の行に「オフラインです。」が出ているので、次にすることだけ・2026-10-10）。
 const OFFLINE_SEND_MESSAGE = 'オフラインです。つながってから、もう一度送ってください。';
@@ -2181,7 +2182,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const onImmersiveScroll = useChatImmersive(view === 'chat' && messages.length > 0);
   const onBodyScroll = (e) => {
     const top = e.currentTarget.scrollTop;
-    onImmersiveScroll(top);
+    onImmersiveScroll(e.currentTarget);
     if (view === 'chat') rememberSession(user?.id, { scrollTop: top });
     const s = top > 0;
     if (s !== scrolled) setScrolled(s);
@@ -2262,7 +2263,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             {/* 「無料期間の残り／110 トークン」と切らない（1 つのまとまり）。かっこは重ねない。 */}
             {/* 🪙 無料プランは「AI の答え 約 N 回」だけ。トークンの数は残り 20 以下のときだけ（設定の画面はいつも出す・2026-10-11）。 */}
             {/* 7 日間無料も同じく 1 行（2026-10-13 ui-critic: 無料期間だけ上の行が 2 行で題を押し下げていた）。 */}
-            {(!(freeMode || plan === 'trial') || showFreeTokenCount(tokensRemaining + (purchasedTokens || 0))) && (
+            {/* プランの人も同じ（上の 3 行が見出しより目立っていた・2026-11-18 ui-critic）。トークンの数は残りが少ないときと、押して開くシートで。 */}
+            {showFreeTokenCount(tokensRemaining + (purchasedTokens || 0)) && (
               <span style={{ display: 'block', whiteSpace: 'nowrap' }}>{plan === 'trial' ? '無料期間' : '今月'}の残り {fmtTokens(tokensRemaining)}{purchasedTokens > 0 ? <> ＋追加 {fmtTokens(purchasedTokens)}</> : null} トークン{!tokenAnswersShown && tokenChevron}</span>
             )}
             {/* 無料プラン・7 日間無料は「あと何回相談できるか」を添える（トークンだけでは量が分からない・2026-09-29）。追加分も数に入れる。 */}
@@ -2270,7 +2272,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             {/* 数える単位は「AI の答え」（1 回 約 10 トークン・2026-10-09）。 */}
             {/* 🌱 無料プランのはじめの月は「（はじめの月）」を添える（数は言わない＝60 を 2 回言わない・2026-10-11）。 */}
             {/* 無料プランでトークンの数を出さないときは「AI の答えは今月あと約 N 回 ›」（何の数かを言う・2026-10-11 ui-critic・2026-10-13 に言い回しを直した＝「今月の残り AI の答え」は読みにくかった）。 */}
-            {tokensRemaining != null && tokensRemaining + (purchasedTokens || 0) > 0 && <span style={{ display: 'block' }}><span style={{ whiteSpace: 'nowrap' }}>{`AI の答えは${freeMode && !showFreeTokenCount(tokensRemaining + (purchasedTokens || 0)) ? '今月' : ''}あと${remainingAnswersLabel(tokensRemaining + (purchasedTokens || 0))}`}</span>{freeMode && freeFirstMonth && <span style={{ whiteSpace: 'nowrap' }}>（はじめの 2 か月）</span>}{tokenChevron}</span>}
+            {tokensRemaining != null && tokensRemaining + (purchasedTokens || 0) > 0 && <span style={{ display: 'block' }}><span style={{ whiteSpace: 'nowrap' }}>{`AI の答えは${plan !== 'trial' && !showFreeTokenCount(tokensRemaining + (purchasedTokens || 0)) ? '今月' : ''}あと${remainingAnswersLabel(tokensRemaining + (purchasedTokens || 0))}`}</span>{freeMode && freeFirstMonth && <span style={{ whiteSpace: 'nowrap' }}>（はじめの 2 か月）</span>}{tokenChevron}</span>}
           </span>
           </button>
         )}
@@ -2296,7 +2298,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     : lastLookup && !isNoInfoAnswer(lastVisible) ? '続けて聞く・ほかの言葉で探す'
     // 行動が決まったあとは、特定の続きを言わない汎用の文（2026-10-10 第 9 回 総点検）。
     : lastHasAction ? '続けて相談する'
-    : threadActive && !isNoInfoAnswer(lastVisible) ? '続けて聞く' : '例：上司への報告がうまくいかない';
+    // 会話が始まると入力欄の左に 44 のボタンが入るので、短い例（16 字だと「うまくいか／ない」と割れて 2 行になった・2026-11-18 ui-critic）。
+    : threadActive && !isNoInfoAnswer(lastVisible) ? '続けて聞く' : messages.length > 0 ? '例：報告がうまくいかない' : '例：上司への報告がうまくいかない';
   // 描く前に高さを合わせる（useEffect だと、送ったあとに「消えた文字の高さのまま 1 回描く → 縮む」で
   // 入力欄が 2 回動いていた）。文字の大きさが変わったときも測り直す（hooks/useComposerHeight.js・2026-10-08 ui-critic）。
   useComposerHeight(inputRef, input, view === 'chat', composerPlaceholder);
@@ -2434,8 +2437,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                       onClick={() => continueThread(g)}
                       disabled={busy}
                       // いちばん新しい相談だけ主ボタン。2 つ目からは文字ボタン（一覧がボタンの列に見えないように・2026-10-08 ui-critic）。
+                      // いちばん新しい相談は枠の副ボタン（塗りの主ボタンが画面に何本も見えないように・2026-11-18 ui-critic）。
                       style={gi === 0
-                        ? { ...(busy ? uiBtnPrimaryOff : uiBtnPrimary), marginLeft: ANSWER_COLUMN, width: `calc(100% - ${ANSWER_COLUMN})` }
+                        ? { ...(busy ? uiBtnGhostOff : uiBtnGhost), marginLeft: ANSWER_COLUMN, width: `calc(100% - ${ANSWER_COLUMN})` }
                         : { ...uiBtnLink, alignSelf: 'flex-start', margin: `calc(-1 * var(--space-2)) 0 0 calc(${ANSWER_COLUMN} - var(--space-1))`, ...(busy ? { color: 'var(--text-3)', opacity: 1, cursor: 'default' } : null) }}
                     >
                       この続きを相談する
@@ -2772,7 +2776,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               会話の面積を削るので、会話の流れの最後（空の画面・答えの下）に置く。 */}
           {historyLoaded && !busy && (isEmpty ? ((!input.trim() || firstDayDraft) && memoStatsLoaded && (ownMemoTotal > 0 || memoStatsFailed) && !planOut && !freeUsedUp && !(scopeIds.length > 0 && scopeMemoCount === 0)) : (lastIsAssistant && !lastIsMemoAnswer && !visibleMessages[visibleMessages.length - 1]?.notice && !visibleMessages[visibleMessages.length - 1]?.error)) && (
             <p style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', marginTop: 'var(--space-6)', marginRight: 0, marginBottom: 0, marginLeft: isEmpty ? 0 : ANSWER_COLUMN, lineHeight: 1.5 }}>
-              AI の回答には誤りが含まれることがあります
+              AI の答えには誤りが含まれることがあります
             </p>
           )}
           {/* 📏 送った相談を上端へ揃えるための下の余白（高さは sizeSpacer が決める） */}
@@ -3090,7 +3094,7 @@ function FreeUsedCard({ tokenAllowance, onOpen, cta = 'プランを見る', tria
       )}
       {/* 使い切ると相談の上の行の残りの数が消えるので、トークンの使い方の入口をここにも（プランの人の案内と同じ・2026-11-17 点検）。 */}
       {onUsage && (
-        <button type="button" onClick={onUsage} style={{ ...uiBtnLinkQuiet, display: 'flex', width: 'fit-content', marginTop: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}>
+        <button type="button" onClick={onUsage} style={{ ...uiBtnLinkQuiet, display: 'flex', width: 'fit-content', marginTop: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))', marginBottom: 'calc(-1 * var(--space-3))' }}>
           トークンの使い方を見る
         </button>
       )}
@@ -3357,12 +3361,13 @@ export function parseAnswer(text) {
   // 📚 答え方「本ごとに」（【本ごとの視点】があるときだけ books を返す。無ければ null＝いつもの答え）
   const bookViews = sections.books ? parseBookViews(join('books')) : null;
   return {
-    conclusion,
+    // 引用の入れ子（「…「…」…」）は中を『』に（nestQuotes・2026-11-18）。
+    conclusion: nestQuotes(conclusion),
     refs: join('refs'),
-    interp: join('interp'),
-    action: (actionHead || '').trim(),
+    interp: nestQuotes(join('interp')),
+    action: nestQuotes((actionHead || '').trim()),
     actionLabel,
-    question: ask ? ask.question : '',
+    question: ask ? nestQuotes(ask.question) : '',
     replies: ask ? ask.replies : [],
     note: [...actionRest.map((t) => t.trim()).filter(Boolean), ...(ask && ask.rest ? [ask.rest] : []), ...notes].join('\n'),
     books: bookViews ? bookViews.books : null,
@@ -3850,7 +3855,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
   const renderAsk = (p, marginTop) => (p.question ? (
     <div data-ask-box="" style={{ marginTop, ...nextStepBox, containerType: 'inline-size' }}>
       <p style={subLabel}>{ASK_LABEL}</p>
-      <p style={{ ...readText, ...askQuestionSize, margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'keep-all', overflowWrap: 'break-word', ...hangIndent(p.question), ...(isStreaming ? { minHeight: ASK_SKELETON_HEIGHT } : null) }}>{renderBoldPhrased(p.question)}{tail === 'ask' && cursor}</p>
+      <p style={{ ...readText, ...askQuestionSize, margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'normal', lineBreak: 'strict', textWrap: 'pretty', overflowWrap: 'break-word', ...hangIndent(p.question), ...(isStreaming ? { minHeight: ASK_SKELETON_HEIGHT } : null) }}>{/* AI の文は文節で止めずに流す（DESIGN §2・右が空いていた・2026-11-18 ui-critic） */}{renderBoldInline(p.question)}{tail === 'ask' && cursor}</p>
       {/* 🏁 いまどこにいるか（2026-10-08）: 問いの下 8 に 13/--text-2 の 1 行（状態色・段階のバーは使わない）。
           送った直後の 1 画面（答えの上端＝問いの箱が見える位置）で読めるよう、答えの下ではなく箱の中に置く。 */}
       {askProgress && !isStreaming && (
@@ -4020,9 +4025,14 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
   const renderVoiceLine = () => (voice && !isStreaming ? (
     <p style={{ margin: 'var(--space-3) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(VOICE_FOOT_TEXT)}</p>
   ) : null);
-  // 注記は段落ごとに分け、先頭の「（」をぶら下げ・文節で折り返す（DESIGN・SPEC §3）。
+  // 注記は段落ごとに分け、文節で折り返す（DESIGN・SPEC §3）。先頭の「（」はぶら下げず、字の幅を半分に（halt）＝
+  //   文字の左端が本文の左端にそろう（ぶら下げると本文より約 5pt 左に出ていた・2026-11-18 ui-critic）。
   const renderNote = (p) => (p.note ? p.note.split(/\n+/).map((l) => l.trim()).filter(Boolean).map((line, i) => (
-    <p key={i} style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, margin: 'var(--space-2) 0 0', wordBreak: 'keep-all', overflowWrap: 'anywhere', ...hangIndent(line) }}>{withPhraseBreaks(line)}</p>
+    <p key={i} style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, margin: 'var(--space-2) 0 0', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+      {/^[（「『]/.test(line)
+        ? <><span style={{ fontFeatureSettings: '"halt"' }}>{line[0]}</span>{withPhraseBreaks(line.slice(1))}</>
+        : withPhraseBreaks(line)}
+    </p>
   )) : null);
 
   // 答えが 1 文字も返らなかった失敗は、答えのカードに入れず ErrorMessage だけを置く

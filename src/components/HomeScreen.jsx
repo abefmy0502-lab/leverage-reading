@@ -270,18 +270,19 @@ function useGoalNudge(enabled, uid) {
 }
 
 function HomeGoalRow({ onOpen, onClose }) {
+  // › はほかの枠の行と同じ縦の中央。× は › の右の別の列（押せる 44・縦は行いっぱい）に置いて、
+  //   進む › と閉じる × を横に離す（右上に重ねると › と近すぎた／› を下にそろえると行ごとに位置が違った・2026-11-18 ui-critic 3 回）。
   return (
-    <div data-home-goal="" style={{ ...card, padding: 0, position: 'relative', overflow: 'hidden' }}>
-      {/* × は右上の 44 に重ねる（› はほかの枠の行と同じ右の列に・2026-11-17 ui-critic）。 */}
-      <button type="button" onClick={onOpen} aria-label="目標を書く。1 年後・3 年後・5 年後の目標から、読む本を決めます" style={navRow}>
-        <Compass size="1.2em" aria-hidden="true" style={{ color: 'var(--accent)', flexShrink: 0 }} />
+    <div data-home-goal="" style={{ ...card, padding: 0, display: 'flex', alignItems: 'stretch', overflow: 'hidden' }}>
+      <button type="button" onClick={onOpen} aria-label="目標を書く。目標から、読む本を決めます" style={{ ...navRow, flex: 1, minWidth: 0, width: 'auto', paddingRight: 'var(--space-1)' }}>
+        <Compass size="1.2em" aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
         <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-          <span style={{ paddingRight: 'var(--tap-min)', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('目標を書く')}</span>
-          <span style={{ marginTop: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('1 年後・3 年後・5 年後の目標から、読む本を決めます')}</span>
+          <span style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('目標を書く')}</span>
+          <span style={{ marginTop: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('目標から、読む本を決めます')}</span>
         </span>
         <ChevronRight size="1.2em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
       </button>
-      <button type="button" onClick={onClose} aria-label="目標の案内を閉じる" style={{ position: 'absolute', top: 0, right: 0, width: 'var(--tap-min)', height: 'var(--tap-min)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)' }}>
+      <button type="button" onClick={onClose} aria-label="目標の案内を閉じる" style={{ width: 'var(--tap-min)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', borderLeft: '1px solid var(--separator)', cursor: 'pointer', color: 'var(--text-3)', padding: 0 }}>
         <X size="1.1em" aria-hidden="true" />
       </button>
     </div>
@@ -318,7 +319,8 @@ function HomeActionsRow({ summary, onOpen }) {
       <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         <span style={{ whiteSpace: 'nowrap', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>{summary.label}</span>
         {firstText && (
-          <span style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2, marginTop: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, overflow: 'hidden', overflowWrap: 'anywhere' }}>{firstText}</span>
+          // 1 行で … （SPEC §1・2 行目が「誰か／に話す」と語の途中で折れていた・2026-11-18 ui-critic）
+          <span style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 1, marginTop: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, overflow: 'hidden', overflowWrap: 'anywhere' }}>{firstText}</span>
         )}
       </span>
       {/* 数は右の › と同じ高さの中央に（行の右の値・iOS の設定の一覧と同じ） */}
@@ -495,9 +497,36 @@ export function HomeBlocksSkeleton() {
           <SkeletonBlock width="40%" height={26} radius="var(--radius)" />
           <SkeletonBlock width={80} height={20} radius="var(--radius)" />
         </div>
-        <SkeletonBlock height={180} radius="var(--radius)" style={skeletonCard} />
+        {/* いま読んでいる本の行カードの形（表紙・書名と著者の 2 行・「メモを書く」の面）を 2 冊ぶん。高さも本物にそろえて、
+            読み込んだあとに下が跳ばないように（2026-11-18 ui-critic）。区切り線は本物と同じ書名の列から。 */}
+        <div style={{ ...skeletonCard, background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+          {[0, 1].map((i) => (
+            <div key={i} style={{ display: 'flex', gap: 'var(--space-3)' }}>
+              <SkeletonBlock width={40} height={57} radius="var(--radius-sm, 4px)" style={{ marginTop: i ? 'calc(var(--space-4) + 1px)' : 0 }} />
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', paddingTop: i ? 'var(--space-4)' : 0, borderTop: i ? '1px solid var(--separator)' : 'none' }}>
+                <SkeletonBlock width="70%" height={20} radius="var(--radius)" />
+                <SkeletonBlock width="45%" height={16} radius="var(--radius)" />
+                <SkeletonBlock width={112} height="var(--tap-min)" radius="var(--radius)" style={{ marginTop: 'var(--space-2)' }} />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
-      <SkeletonBlock height={56} radius="var(--radius)" style={skeletonCard} />
+      {/* 下の行のまとまり（行動＝題と 1 行の 2 段・すべての本＝1 段）。本物の行と同じ高さ・同じ区切り線の位置。 */}
+      <div style={{ ...skeletonCard, background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)' }}>
+        <div style={{ minHeight: 68, display: 'flex', alignItems: 'center', gap: 'var(--space-3)', padding: 'var(--space-3) var(--space-4)', boxSizing: 'border-box' }}>
+          <SkeletonBlock width="1.2em" height="1.2em" radius="var(--radius)" />
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+            <SkeletonBlock width="40%" height={20} radius="var(--radius)" />
+            <SkeletonBlock width="75%" height={14} radius="var(--radius)" />
+          </div>
+        </div>
+        {navDivider}
+        <div style={{ minHeight: 56, display: 'flex', alignItems: 'center', gap: 'var(--space-3)', padding: 'var(--space-3) var(--space-4)', boxSizing: 'border-box' }}>
+          <SkeletonBlock width="1.2em" height="1.2em" radius="var(--radius)" />
+          <SkeletonBlock width="35%" height={20} radius="var(--radius)" />
+        </div>
+      </div>
     </>
   );
 }
@@ -642,12 +671,6 @@ export default function HomeScreen({
         </div>
       ) : (
         <>
-          {goalNudge.show && (
-            <HomeGoalRow
-              onOpen={() => { track('home_goal_row', { action: 'open' }); onOpenGoals(); }}
-              onClose={() => { track('home_goal_row', { action: 'close' }); goalNudge.close(); }}
-            />
-          )}
           {!memoState.hasMemos && <HomeFirstStep bookCount={books.length} onQuickstart={onQuickstart} onImport={onImport} />}
           <ReadingNow books={books} onOpenBook={onOpenBook} onWriteMemo={onWriteMemo} onStartReading={onStartReading} onAddBook={onAddBook} onSeeAllReading={onSeeAllReading} onCoverRetry={onCoverRetry} onRead={onRead} />
           {/* 今日の行動とすべての本は、1 枚のまとまりの 2 行（区切り線でつなぐ）。 */}
@@ -674,6 +697,13 @@ export default function HomeScreen({
             <ChevronRight size="1.2em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
           </button>
           </div>
+          {/* 目標の案内は、いま読んでいる本（主役）の下に（上にあると「メモを書く」を押し下げていた・2026-11-18 ui-critic）。 */}
+          {goalNudge.show && (
+            <HomeGoalRow
+              onOpen={() => { track('home_goal_row', { action: 'open' }); onOpenGoals(); }}
+              onClose={() => { track('home_goal_row', { action: 'close' }); goalNudge.close(); }}
+            />
+          )}
         </>
       )}
     </div>

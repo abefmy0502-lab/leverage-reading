@@ -9,12 +9,17 @@ import { useCallback, useEffect, useRef } from 'react';
 export const CHAT_ACTIVE_CLASS = 'chat-active';
 export const CHAT_SCROLL_DOWN_CLASS = 'chat-scroll-down';
 // 指の小さな揺れでは切り替えない（8 未満は無視）・先頭近く（48 以内）では必ず出す。
-export function nextScrollDown(prevTop, top, wasDown) {
+//   いちばん下（残り 2 以内）で隠しているときは、上に動いても出さない＝畳んで箱が伸びた分だけ位置が押し戻されたのを
+//   「上へ戻した」と読み違えて、出す → 縮む → 隠す…を繰り返し、画面がブルブル震えていた（2026-11-17 オーナー）。
+export function nextScrollDown(prevTop, top, wasDown, { atBottom = false } = {}) {
   if (top <= 48) return false;
+  if (wasDown && atBottom) return true;
   const d = top - prevTop;
   if (Math.abs(d) < 8) return wasDown;
   return d > 0;
 }
+// 畳んだ・出した直後は箱の高さが変わって位置が勝手に動くので、少しのあいだ切り替えない（そのあと今の位置から数え直す）。
+export const SETTLE_MS = 400;
 
 function setNavInert(on) {
   const nav = typeof document !== 'undefined' ? document.querySelector('.bottom-nav') : null;
@@ -36,12 +41,20 @@ export function useChatImmersive(active) {
       down.current = false;
     };
   }, [active]);
-  return useCallback((top) => {
+  const settleUntil = useRef(0);
+  // 会話のスクロールの箱の onScroll から、箱そのもの（e.currentTarget）か scrollTop の数を渡す。
+  return useCallback((target) => {
     if (!active || typeof document === 'undefined') return;
-    const next = nextScrollDown(lastTop.current, top, down.current);
+    const el = target && typeof target === 'object' ? target : null;
+    const top = el ? el.scrollTop : Number(target) || 0;
+    const now = Date.now();
+    if (now < settleUntil.current) { lastTop.current = top; return; }
+    const atBottom = !!el && el.scrollHeight - el.clientHeight - top <= 2;
+    const next = nextScrollDown(lastTop.current, top, down.current, { atBottom });
     lastTop.current = top;
     if (next !== down.current) {
       down.current = next;
+      settleUntil.current = now + SETTLE_MS;
       document.body.classList.toggle(CHAT_SCROLL_DOWN_CLASS, next);
       setNavInert(next);
     }

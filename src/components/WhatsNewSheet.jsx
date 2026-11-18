@@ -170,7 +170,8 @@ function ReleaseItem({ item }) {
         {ROWS.map(([key, label]) => (
           <div key={key} style={rowStyle}>
             <dt style={labelStyle}>{label}</dt>
-            <dd style={valueStyle}>{phrased(item[key])}</dd>
+            {/* 読んでほしいのは「これから」。ほかの 3 つは --text-2 で一歩下げる（項目が長く、どこが大事か分かりにくかった・2026-11-18 ui-critic）。 */}
+            <dd style={key === 'after' ? valueStyle : { ...valueStyle, color: 'var(--text-2)' }}>{phrased(item[key])}</dd>
           </div>
         ))}
       </dl>
