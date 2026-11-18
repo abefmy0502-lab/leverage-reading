@@ -803,7 +803,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
             )}
             {/* 読み込み中は、下の「どちらか一方」の注記の場所を骨組みで取っておく。 */}
             {priceState === 'loading' && founding.active && (
-              <div aria-hidden="true" style={{ marginTop: 'var(--space-2)', display: 'grid', gap: 'var(--space-1)' }}>
+              <div aria-hidden="true" style={{ marginTop: 'var(--space-2)', minHeight: 'calc(var(--text-meta) * 1.5 * 2)', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 'calc(var(--text-meta) * 0.5)' }}>
                 <SkeletonBlock width="100%" height="var(--text-meta)" radius="var(--radius)" />
                 <SkeletonBlock width="60%" height="var(--text-meta)" radius="var(--radius)" />
               </div>
@@ -852,10 +852,18 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
               )}
               {priceState === 'loading' && (
                 // 読み込み中も請求額の行と同じ高さを取っておく（価格が届いたときに欄が伸びて跳ねないように）。
+                founding.active && !compactFooter ? (
+                  // 創業メンバー価格の期間中は、請求額が 2 行（1 年目 … ／ 2 年目から …）になる高さを取る（主ボタンが跳ねない・2026-11-18 ui-critic）。
+                  <div aria-hidden="true" style={{ minHeight: 'calc(var(--text-body) * 1.5 * 2)', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 'calc(var(--text-body) * 0.5)', margin: '0 0 var(--space-3)' }}>
+                    <SkeletonBlock width="70%" height="var(--text-body)" />
+                    <SkeletonBlock width="90%" height="var(--text-body)" />
+                  </div>
+                ) : (
                 <div aria-hidden="true" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', margin: '0 0 var(--space-3)', paddingTop: 'var(--space-1)' }}>
                   {trial && <SkeletonBlock width="40%" height="var(--space-4)" />}
                   <SkeletonBlock width="70%" height="calc(var(--space-4) + var(--space-1))" />
                 </div>
+                )
               )}
               <button
                 type="button"
@@ -872,6 +880,12 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
                 {ctaLabel}
               </button>
               {/* ボタンのすぐ下の注記（無料期間の解約・先払いの 1 年分）。大きな文字のときは上の中身へ移す。 */}
+              {!compactFooter && priceState === 'loading' && founding.active && (
+                // 読み込み後に出る「¥9,800 は始めるときに 1 年分を…」の 1 行の場所を取っておく。
+                <div aria-hidden="true" style={{ marginTop: 'var(--space-2)', minHeight: 'calc(var(--text-meta) * 1.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <SkeletonBlock width="60%" height="var(--text-meta)" />
+                </div>
+              )}
               {!compactFooter && priceState === 'ready' && noteBelow && (
                 <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, margin: 'var(--space-2) 0 0', textAlign: 'center' }}>
                   {noteBelow}

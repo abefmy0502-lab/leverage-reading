@@ -4477,6 +4477,10 @@ function AuthedApp() {
   );
   // フォルダ（コレクション）一覧 — 本に付いた collection 名の集合（冊数つき・名前順）。
   const allFolders = useMemo(() => folderCounts(books), [books]);
+  // 並べるフォルダ: ほかの絞り込み（状態・分野・評価・検索）が効いているときは 0 冊のフォルダを出さない。
+  //   1 つも残らなければ行ごと出さない（見出し「フォルダ」だけが残っていた・2026-11-18 ui-critic）。
+  const visibleFolders = allFolders.filter((f) => folderFilter === f.name || (folderChipCounts.get(f.name) || 0) > 0 || !(statusFilter !== 'all' || tagFilter.length > 0 || minRating > 0 || !!libraryHits));
+  const showFolderRow = showFolderChips && visibleFolders.length > 0;
   // 外から（本の詳細のフォルダ）フォルダを選んで開いたときは、選んだチップをフォルダの行の見える所へ送る（1 回だけ・横だけ）。
   useEffect(() => {
     if (!folderChipRevealRef.current || shelfMode !== 'library' || view !== 'list' || !folderFilter) return undefined;
@@ -6374,7 +6378,7 @@ function AuthedApp() {
                     display: 'flex', gap: 'var(--space-2)', overflowX: 'auto',
                     // 下にフォルダの行があるときは見た目の間 12（押せる範囲の余り 6 を引く＝押せる範囲 44 どうしは重ならず接するだけ・
                     // 負の余白は相殺で 1 つ分しか効かない・2026-10-11 点検で 8 → 12）。
-                    paddingBottom: showFolderChips ? 'calc(var(--space-3) - (var(--tap-min) - var(--space-8)) / 2)' : 'var(--space-4)',
+                    paddingBottom: showFolderRow ? 'calc(var(--space-3) - (var(--tap-min) - var(--space-8)) / 2)' : 'var(--space-4)',
                     // チップの見た目は 32・押せる範囲は 44。上下の余り（6 ずつ）を行の外側で相殺し、
                     // 見た目の間隔を 見出し→チップ 12・チップ→一覧 16 にそろえる（チップ自体に負の余白を
                     // 付けると横スクロールの枠で押せる範囲が切れ、シートの折り返しでは行が詰まるため行の側で）。
@@ -6431,7 +6435,7 @@ function AuthedApp() {
                   見出し「フォルダ」はスクロールの外の固定の列・各フォルダ（冊数）を選ぶと folderFilter（絞り込みシートと同じ）・
                   同じチップをもう一度押すと解除（「すべて」は置かない）。分野・評価の絞り込みと重ねられ、評価順に並べると
                   フォルダごとの評価が見える。状態のチップの行があれば行の間 8・一覧との間 16。 */}
-              {showFolderChips && (
+              {showFolderRow && (
                 <div
                   data-folder-chips=""
                   role="group"
@@ -6454,7 +6458,7 @@ function AuthedApp() {
                       maskImage: chipRowsScrolled.folder ? SCROLL_FADE_MASK_BOTH : SCROLL_FADE_MASK,
                     }}
                   >
-                    {allFolders.filter((f) => folderFilter === f.name || (folderChipCounts.get(f.name) || 0) > 0 || !(statusFilter !== 'all' || tagFilter.length > 0 || minRating > 0 || !!libraryHits)).map((f) => {
+                    {visibleFolders.map((f) => {
                       // ほかの絞り込み（状態・分野・評価・検索）が効いているときは、0 冊のフォルダは出さない
                       //（分野で絞った一覧に関係ないフォルダが「0」で並んでいた・2026-10-30 点検）。絞っていなければ全部。
                       const active = folderFilter === f.name;

@@ -2126,7 +2126,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
                   )}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     {/* 「1 冊目」は外した（カードの並びは読む順番ではない＝番号は飾りになる・2026-11-18 ui-critic） */}
-                    <p style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, margin: 0, overflowWrap: 'anywhere', wordBreak: 'keep-all' }}>{/* 『 はぶら下げず字の幅を半分に（halt）＝上の「1 冊目」と左端がそろう（約 10pt 左に出ていた・2026-11-18 ui-critic） */}<span style={{ fontFeatureSettings: '"halt"' }}>『</span>{withPhraseBreaks(rec.title, { scriptBreaks: true })}』</p>
+                    <p style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, margin: 0, overflowWrap: 'anywhere', wordBreak: 'keep-all' }}>{/* 『 はぶら下げず字の幅を半分に（halt）＝著者の左端とそろう（約 10pt 左に出ていた・2026-11-18 ui-critic） */}<span style={{ fontFeatureSettings: '"halt"' }}>『</span>{withPhraseBreaks(rec.title, { scriptBreaks: true })}』</p>
                     {rec.author && (
                       <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: 'var(--space-1) 0 0' }}>{rec.author}</p>
                     )}

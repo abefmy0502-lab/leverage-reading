@@ -1061,7 +1061,8 @@ export default function ShareSheet({
                 disabled={status !== 'ready'}
                 aria-haspopup="dialog"
                 onClick={() => { setQuotePicker(true); haptic.light(); }}
-                style={quoteRowBtn(status === 'ready')}
+                // 画像（本を選ぶ＋見本）と、整える欄（一文・編集・重ね方）の間は 24（まとまりの間・DESIGN §1・2026-11-18 ui-critic）。
+                style={{ ...quoteRowBtn(status === 'ready'), marginTop: formatInEditRow ? 'var(--space-2)' : 0 }}
               >
                 <TextQuote size="1.2em" aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0, alignSelf: 'center' }} />
                 <span style={{ minWidth: 0, flex: 1, display: 'grid', gap: 'var(--space-1)' }}>
@@ -1093,13 +1094,14 @@ export default function ShareSheet({
               disabled={status !== 'ready'}
               onClick={openEditor}
               aria-hidden={status === 'error' || undefined}
-              style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', color: status === 'ready' ? 'var(--accent)' : 'var(--text-3)', opacity: 1, cursor: status === 'ready' ? 'pointer' : 'default', visibility: status === 'error' ? 'hidden' : 'visible' }}
+              style={{ ...btnLink, alignItems: 'center', gap: 'var(--space-2)', color: status === 'ready' ? 'var(--accent)' : 'var(--text-3)', opacity: 1, cursor: status === 'ready' ? 'pointer' : 'default', display: status === 'error' ? 'none' : 'inline-flex' }}
             >
               <SlidersHorizontal size="1.1em" aria-hidden="true" />
               編集
             </button>
+            {/* 「編集」を出さない（画像を作れなかった）ときは左に寄せる（右に浮いて左が大きく空いた・2026-11-18 ui-critic）。 */}
             {(formatInEditRow || photo) && (
-            <div style={{ display: 'flex', alignItems: 'center', columnGap: 'var(--space-3)', marginLeft: 'auto' }}>
+            <div style={{ display: 'flex', alignItems: 'center', columnGap: 'var(--space-3)', marginLeft: status === 'error' ? 0 : 'auto' }}>
             {formatInEditRow && formatSwitch}
             {photo && (
               // 背景（写真・フィルム・紙…）と、撮り直す・アルバムから選ぶは「背景：写真 ▾」のメニュー 1 つに（2026-10-10）。
@@ -1128,7 +1130,7 @@ export default function ShareSheet({
         {/* 重ね方の見本（名前は 2 行ぶんの高さでそろえる）と、同じ行の右に形（投稿 4:5／ストーリー 9:16・縦に 2 つ）。
             シートの段を 1 つ減らす（2026-10-10 ui-critic）。透明（形が無い）のときは形を出さない。 */}
         {variants.length > 1 && (
-        <div aria-hidden={yearError || undefined} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: 'var(--space-2)', visibility: yearError ? 'hidden' : 'visible' }}>
+        <div aria-hidden={yearError || undefined} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: 'var(--space-2)', marginTop: 'calc(-1 * var(--space-1))', visibility: yearError ? 'hidden' : 'visible' }}>
             {/* 列の幅は名前の字の大きさで決める（文字が大きいときは 3 列＋次の行・形の切り替えは下の行へ回る＝名前が重ならない）。 */}
             {variants.length > 1 && (
             // 列は見本の数で決めた等分（名前の太さ・メニューの開け閉めで幅が動かない・2026-10-10 ui-critic）。

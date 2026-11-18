@@ -626,7 +626,7 @@ function clampAnswer(t) {
 function Building({ building }) {
   return (
     <div className="goal-building" role="status" aria-live="polite">
-      <p className="goal-building-note">{building ? 'ロードマップをつくっています。本棚の本から、読む順番も選んでいます…' : '問いを考えています…'}</p>
+      <p className="goal-building-note">{building ? 'ロードマップをつくっています。目標に合う本も探しています…' : '問いを考えています…'}</p>
       {building ? (
         <ol className="goal-road" aria-hidden="true">
           {[0, 1, 2].map((i) => (

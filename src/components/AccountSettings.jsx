@@ -1412,7 +1412,8 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
                         </div>
                         {deleteError && !deleting && (
                           // ほかの画面の失敗と同じ ErrorMessage（題＋次にすること＋「もう一度」）。中の理由は出さない（toMessage はログだけ）。
-                          <div style={{ marginTop: 'var(--space-1)' }}>
+                          // 出たらそこまで送る（ボタンの下で画面の外に出て、押しても何も変わらないように見えた・2026-11-18 ui-critic）。
+                          <div ref={(el) => { if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }} style={{ marginTop: 'var(--space-1)' }}>
                             <ErrorMessage
                               title="削除を受け付けられませんでした"
                               description="時間をおいて、もう一度お試しください。解決しないときはお問い合わせください。"

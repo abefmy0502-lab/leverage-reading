@@ -498,24 +498,34 @@ export function HomeBlocksSkeleton() {
           <SkeletonBlock width={80} height={20} radius="var(--radius)" />
         </div>
         {/* いま読んでいる本の行カードの形（表紙・書名と著者の 2 行・「メモを書く」の面）を 2 冊ぶん。高さも本物にそろえて、
-            読み込んだあとに下が跳ばないように（2026-11-18 ui-critic）。 */}
+            読み込んだあとに下が跳ばないように（2026-11-18 ui-critic）。区切り線は本物と同じ書名の列から。 */}
         <div style={{ ...skeletonCard, background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
           {[0, 1].map((i) => (
-            <div key={i} style={{ display: 'flex', gap: 'var(--space-3)', paddingTop: i ? 'var(--space-4)' : 0, borderTop: i ? '1px solid var(--separator)' : 'none' }}>
-              <SkeletonBlock width={40} height={57} radius="var(--radius-sm, 4px)" />
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+            <div key={i} style={{ display: 'flex', gap: 'var(--space-3)' }}>
+              <SkeletonBlock width={40} height={57} radius="var(--radius-sm, 4px)" style={{ marginTop: i ? 'calc(var(--space-4) + 1px)' : 0 }} />
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', paddingTop: i ? 'var(--space-4)' : 0, borderTop: i ? '1px solid var(--separator)' : 'none' }}>
                 <SkeletonBlock width="70%" height={20} radius="var(--radius)" />
                 <SkeletonBlock width="45%" height={16} radius="var(--radius)" />
-                <SkeletonBlock width={112} height={44} radius="var(--radius)" style={{ marginTop: 'var(--space-2)' }} />
+                <SkeletonBlock width={112} height="var(--tap-min)" radius="var(--radius)" style={{ marginTop: 'var(--space-2)' }} />
               </div>
             </div>
           ))}
         </div>
       </div>
-      {/* 下の行のまとまり（行動・すべての本の 2 行） */}
-      <div style={{ ...skeletonCard, background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-3) var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-        <SkeletonBlock width="60%" height={20} radius="var(--radius)" />
-        <SkeletonBlock width="40%" height={20} radius="var(--radius)" />
+      {/* 下の行のまとまり（行動＝題と 1 行の 2 段・すべての本＝1 段）。本物の行と同じ高さ・同じ区切り線の位置。 */}
+      <div style={{ ...skeletonCard, background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)' }}>
+        <div style={{ minHeight: 68, display: 'flex', alignItems: 'center', gap: 'var(--space-3)', padding: 'var(--space-3) var(--space-4)', boxSizing: 'border-box' }}>
+          <SkeletonBlock width="1.2em" height="1.2em" radius="var(--radius)" />
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+            <SkeletonBlock width="40%" height={20} radius="var(--radius)" />
+            <SkeletonBlock width="75%" height={14} radius="var(--radius)" />
+          </div>
+        </div>
+        {navDivider}
+        <div style={{ minHeight: 56, display: 'flex', alignItems: 'center', gap: 'var(--space-3)', padding: 'var(--space-3) var(--space-4)', boxSizing: 'border-box' }}>
+          <SkeletonBlock width="1.2em" height="1.2em" radius="var(--radius)" />
+          <SkeletonBlock width="35%" height={20} radius="var(--radius)" />
+        </div>
       </div>
     </>
   );
