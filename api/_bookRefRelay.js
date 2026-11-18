@@ -60,17 +60,41 @@ export function insertRef(text, block) {
   return s.slice(0, i) + block + s.slice(i);
 }
 
+/** ISBN を 13 桁に（10 桁は 978 を付けて検査数字を計算し直す）。読めなければ ''。 */
+export function toIsbn13(v) {
+  const s = String(v || '').replace(/[^0-9Xx]/g, '').toUpperCase();
+  if (/^97[89]\d{10}$/.test(s)) return s;
+  if (!/^\d{9}[\dX]$/.test(s)) return '';
+  const b = `978${s.slice(0, 9)}`;
+  const sum = [...b].reduce((n, d, i) => n + Number(d) * (i % 2 ? 3 : 1), 0);
+  return b + String((10 - (sum % 10)) % 10);
+}
+
 const cache = new Map();
-async function lookup(db, book) {
-  const key = `${flatTitle(book.title)}|${book.author}`;
+const COLS = 'isbn, title, subtitle, author, difficulty, prereq';
+async function lookup(db, book, userId) {
+  // ① 本人の本棚の同じ書名の本の ISBN で探す（いちばん確か・別の版を取らない・2026-11-18 本番の確かめで、
+  //    書名だけでは副題の持ち方の違いで同じ本と分からなかった）。② ISBN が無いときだけ、書名がまるごと同じ＋著者。
+  let isbn = '';
+  if (userId) {
+    const { data: mine } = await db.from('books').select('isbn, title').eq('user_id', userId).eq('title', book.title).limit(3);
+    const isbns = [...new Set((mine || []).map((b) => toIsbn13(b.isbn)).filter(Boolean))];
+    if (isbns.length === 1) [isbn] = isbns;
+  }
+  const key = isbn || `${flatTitle(book.title)}|${book.author}`;
   if (cache.has(key)) return cache.get(key);
-  const head = String(book.title).split(/[\s:：―—(（]/)[0].replace(/[%_\\]/g, '').slice(0, 30);
-  if (head.length < 2) return '';
-  const { data: rows, error } = await db.from('advisor_books')
-    .select('isbn, title, subtitle, author, difficulty, prereq')
-    .ilike('title', `${head}%`).in('status', ['ready', 'thin']).limit(20);
-  if (error) return '';
-  const hit = pickSameBook(rows, book);
+  let hit = null;
+  if (isbn) {
+    const { data } = await db.from('advisor_books').select(COLS).eq('isbn', isbn).in('status', ['ready', 'thin']).limit(1);
+    hit = data?.[0] || null;
+  } else {
+    const head = String(book.title).split(/[\s:：―—(（]/)[0].replace(/[%_\\]/g, '').slice(0, 30);
+    if (head.length < 2) return '';
+    const { data: rows, error } = await db.from('advisor_books').select(COLS)
+      .ilike('title', `${head}%`).in('status', ['ready', 'thin']).limit(20);
+    if (error) return '';
+    hit = pickSameBook(rows, book);
+  }
   let block = '';
   if (hit) {
     const { data: ext } = await db.from('advisor_book_ext').select('endorsers, summary').eq('isbn', hit.isbn).maybeSingle();
@@ -85,7 +109,7 @@ async function lookup(db, book) {
  * 中継が組み立てた messages の最後の利用者の文に、書評の参考を足す（足さないときは同じ配列を返す）。
  * 失敗・遅いときは何もしない。
  */
-export async function addBookRef({ db, purpose, messages, timeoutMs = LOOKUP_MS }) {
+export async function addBookRef({ db, userId = '', purpose, messages, timeoutMs = LOOKUP_MS }) {
   if (!db || !REF_PURPOSES.has(purpose) || !Array.isArray(messages) || messages.length === 0) return messages;
   const idx = messages.length - 1;
   const m = messages[idx];
@@ -96,7 +120,7 @@ export async function addBookRef({ db, purpose, messages, timeoutMs = LOOKUP_MS 
   if (!book) return messages;
   let block = '';
   try {
-    block = await Promise.race([lookup(db, book), new Promise((r) => { setTimeout(() => r(''), timeoutMs); })]);
+    block = await Promise.race([lookup(db, book, userId), new Promise((r) => { setTimeout(() => r(''), timeoutMs); })]);
   } catch { block = ''; }
   if (!block) return messages;
   const out = messages.slice();

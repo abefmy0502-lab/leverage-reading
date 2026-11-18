@@ -1,15 +1,17 @@
 import { describe, it, expect } from 'vitest';
-import { bookFromSheetPrompt, pickSameBook, refBlockText, insertRef, addBookRef, REF_MARK } from './_bookRefRelay.js';
+import { bookFromSheetPrompt, pickSameBook, refBlockText, insertRef, addBookRef, toIsbn13, REF_MARK } from './_bookRefRelay.js';
 import { PROMPTS } from '../src/lib/prompts.js';
 
 const sheet = (extra = {}) => PROMPTS.setupSheet.user({ title: '確率思考の戦略論 どうすれば売上は増えるのか', author: '森岡毅、今西聖貴', purpose: '売上', ...extra });
 const diamond = { isbn: '9784478115282', title: '確率思考の戦略論', subtitle: 'どうすれば売上は増えるのか', author: '森岡毅、今西聖貴', difficulty: 2, prereq: '基本的なマーケティング用語の知識' };
 
-function fakeDb(rows, ext) {
+function fakeDb(rows, ext, mine = []) {
   const q = (table) => {
+    const rowsOf = () => (table === 'books' ? mine : rows);
     const api = {
-      select: () => api, ilike: () => api, in: () => api, limit: async () => ({ data: rows, error: null }),
-      eq: () => api, maybeSingle: async () => ({ data: table === 'advisor_book_ext' ? ext : null, error: null }),
+      select: () => api, ilike: () => api, in: () => api, eq: () => api,
+      limit: async () => ({ data: rowsOf(), error: null }),
+      maybeSingle: async () => ({ data: table === 'advisor_book_ext' ? ext : null, error: null }),
     };
     return api;
   };
@@ -55,5 +57,19 @@ describe('読書計画シートに書評の参考をサーバーで足す', () =
     const msgs = [{ role: 'user', content: sheet({ title: '遅い本' }) }];
     expect(await addBookRef({ db: slow, purpose: 'setup_sheet', messages: msgs, timeoutMs: 20 })).toBe(msgs);
     expect(await addBookRef({ db: null, purpose: 'setup_sheet', messages: msgs })).toBe(msgs);
+  });
+  it('本人の本棚の同じ書名の本の ISBN で探す（書名の副題の持ち方が違っても同じ本）', async () => {
+    const msgs = [{ role: 'user', content: PROMPTS.setupSheet.user({ title: '確率思考の戦略論', author: '森岡毅、今西聖貴' }) }];
+    const db = fakeDb([diamond], null, [{ isbn: '978-4-478-11528-2', title: '確率思考の戦略論' }]);
+    const out = await addBookRef({ db, userId: 'u1', purpose: 'setup_sheet', messages: msgs });
+    expect(out[0].content).toContain('前提: 基本的なマーケティング用語の知識');
+    // 本棚の本が別の版（ISBN が違う）なら、書名が同じでも足さない
+    const otherEdition = fakeDb([], null, [{ isbn: '4041041171', title: '確率思考の戦略論' }]);
+    expect(await addBookRef({ db: otherEdition, userId: 'u2', purpose: 'setup_sheet', messages: msgs })).toBe(msgs);
+  });
+  it('ISBN を 13 桁に', () => {
+    expect(toIsbn13('4087370089')).toBe('9784087370089');
+    expect(toIsbn13('978-4-478-11528-2')).toBe('9784478115282');
+    expect(toIsbn13('abc')).toBe('');
   });
 });
