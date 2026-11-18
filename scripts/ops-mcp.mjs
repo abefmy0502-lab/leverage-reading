@@ -4,16 +4,22 @@
 //   node scripts/ops-mcp.mjs <道具の名前> '<JSON の引数>'
 //   例: node scripts/ops-mcp.mjs ops_tasks '{"action":"claim"}'
 //       node scripts/ops-mcp.mjs ops_post '{"action":"flush"}'
+//       node scripts/ops-mcp.mjs ops_books @/tmp/summaries.json   （長い JSON はファイルから・2026-11-18）
 //
 // 鍵は送らない: Authorization には仮の値を入れ、作業環境のネットワークのシークレット（ホスト orime.vercel.app・Authorization: Bearer <接続キー>）が
 // 本物に差し替える（claude.ai の環境の設定で入れる・このリポジトリには置かない）。手元で使うときは ORIME_MCP_TOKEN を入れる。
 // curl を使うのは、作業環境の HTTPS の経路（HTTPS_PROXY）を素直に通るため。出力は structuredContent（JSON）だけを標準出力に。
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 
 const [tool, rawArgs] = process.argv.slice(2);
 if (!tool) { console.error('使い方: node scripts/ops-mcp.mjs <tool> \'<json>\''); process.exit(2); }
 let args = {};
-if (rawArgs) { try { args = JSON.parse(rawArgs); } catch { console.error('引数は JSON で'); process.exit(2); } }
+if (rawArgs) {
+  let text = rawArgs;
+  if (rawArgs.startsWith('@')) { try { text = readFileSync(rawArgs.slice(1), 'utf8'); } catch { console.error('ファイルを読めません: ' + rawArgs.slice(1)); process.exit(2); } }
+  try { args = JSON.parse(text); } catch { console.error('引数は JSON で'); process.exit(2); }
+}
 const url = process.env.ORIME_MCP_URL || 'https://orime.vercel.app/api/mcp';
 const token = process.env.ORIME_MCP_TOKEN || 'orime_mcp_proxy-injects-the-real-key';
 const body = JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: tool, arguments: args } });

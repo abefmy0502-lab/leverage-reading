@@ -16,7 +16,7 @@ import { createHash } from 'node:crypto';
 import { WIDGET_URI_MCP, WIDGET_URI_OPENAI, WIDGET_MIME_MCP, WIDGET_MIME_OPENAI, widgetHtml } from './_mcpWidget.js';
 import { launchGates } from './_launchHealth.js';
 import { textLength } from './_social.js';
-import { advisorBooksStats, parseAddList, QUEUE_ADD_MAX, queueStep, summarizeStep, PROMPT_VERSION as BOOKS_PROMPT_VERSION, parseExtList, EXT_ADD_MAX, parseMarkList, MARK_ADD_MAX, MARK_KINDS, refreshSignals } from './_advisorBooks.js';
+import { advisorBooksStats, parseAddList, QUEUE_ADD_MAX, queueStep, summarizeStep, pendingForSession, saveSessionSummaries, SESSION_BATCH_MAX, PROMPT_VERSION as BOOKS_PROMPT_VERSION, parseExtList, EXT_ADD_MAX, parseMarkList, MARK_ADD_MAX, MARK_KINDS, refreshSignals } from './_advisorBooks.js';
 
 export const PROTOCOL_VERSION = '2025-06-18';
 export const SERVER_INFO = { name: 'orime', version: '1.1.0' };
@@ -290,11 +290,11 @@ export const TOOLS = [
   },
   {
     name: 'ops_books',
-    description: '（運営者だけ）AI 選書の推薦用の本のデータ（毎日少しずつ集めて AI が概要・こんな悩みの人に・おすすめする理由を書いたもの）。action=stats（冊数と集め方の進み具合）/ new（直近 N 日に入った本・既定 7 日・50 冊まで）/ search（言葉で探す）/ hide・show（isbn の本を候補から外す・戻す）/ add（運営が選んだ本を足す: books に ISBN か「書名 / 著者」か {isbn,title,author} を 200 冊まで・毎晩の処理が楽天の書誌で確かめてから足し、概要を書く）/ queue（足した本の待ち行列: status=queued・done・notfound・failed）/ process（待ち行列と概要づくりを今すすめる・1 回 約 45 秒・毎晩を待たない）/ redo（概要を書き直す: isbn の 1 冊か、省くと分野が空の本を 200 冊まで・old=true で前の版の書き方の本）/ ext（書評サイトの推薦の事実と要約を保存: items に { isbn, url, points, endorsers:[{name,note}], tags, summary } を 50 冊まで）/ mark（賞・年間ベスト・選出の印を足す: marks に { isbn か title と author, source（例: 読者が選ぶビジネス書グランプリ）, year, label（例: 総合グランプリ・1位）, kind（award・annual・selection）, url } を 100 件まで・事実だけで選評の文は入れない・まだデータに無い本は待ち行列に入れて書誌を確かめる）/ marks（入れた印の一覧・unlinked=true で ISBN がまだ付いていない印だけ）。AI 選書は印のある本を少し上に出し、理由の材料にする。Admin only.',
+    description: '（運営者だけ）AI 選書の推薦用の本のデータ（毎日少しずつ集めて AI が概要・こんな悩みの人に・おすすめする理由を書いたもの）。action=stats（冊数と集め方の進み具合）/ new（直近 N 日に入った本・既定 7 日・50 冊まで）/ search（言葉で探す）/ hide・show（isbn の本を候補から外す・戻す）/ add（運営が選んだ本を足す: books に ISBN か「書名 / 著者」か {isbn,title,author} を 200 冊まで・毎晩の処理が楽天の書誌で確かめてから足し、概要を書く）/ queue（足した本の待ち行列: status=queued・done・notfound・failed）/ process（待ち行列と概要づくりを今すすめる・1 回 約 45 秒・毎晩を待たない）/ redo（概要を書き直す: isbn の 1 冊か、省くと分野が空の本を 200 冊まで・old=true で前の版の書き方の本）/ ext（書評サイトの推薦の事実と要約を保存: items に { isbn, url, points, endorsers:[{name,note}], tags, summary } を 50 冊まで）/ mark（賞・年間ベスト・選出の印を足す: marks に { isbn か title と author, source（例: 読者が選ぶビジネス書グランプリ）, year, label（例: 総合グランプリ・1位）, kind（award・annual・selection）, url } を 100 件まで・事実だけで選評の文は入れない・まだデータに無い本は待ち行列に入れて書誌を確かめる）/ marks（入れた印の一覧・unlinked=true で ISBN がまだ付いていない印だけ）/ pending（整える前の本を limit 冊（30 まで）、書く決まり instructions と本ごとの材料つきで受け取る）/ summaries（pending の決まりで書いた概要を保存: items に { isbn, summary: その本の JSON } を 30 冊まで・形を確かめてから入れる）。AI 選書は印のある本を少し上に出し、理由の材料にする。Admin only.',
     inputSchema: {
       type: 'object',
       properties: {
-        action: { type: 'string', enum: ['stats', 'new', 'search', 'hide', 'show', 'add', 'queue', 'process', 'redo', 'ext', 'mark', 'marks'] },
+        action: { type: 'string', enum: ['stats', 'new', 'search', 'hide', 'show', 'add', 'queue', 'process', 'redo', 'ext', 'mark', 'marks', 'pending', 'summaries'] },
         books: { type: 'array', description: `add: 足す本（${QUEUE_ADD_MAX} 冊まで）。ISBN の文字列・「書名 / 著者」の文字列・{ isbn, title, author } のどれか`, items: { anyOf: [{ type: 'string' }, { type: 'object', properties: { isbn: { type: 'string' }, title: { type: 'string' }, author: { type: 'string' } } }] } },
         note: { type: 'string', description: 'add: どこから選んだかのメモ（60 字まで・例: 創業メンバーのすすめ）' },
         status: { type: 'string', enum: ['queued', 'done', 'notfound', 'failed'], description: 'queue: 絞る状態（省略はすべて）' },
@@ -305,6 +305,7 @@ export const TOOLS = [
         old: { type: 'boolean', description: 'redo: true で前の版の書き方の本を書き直す' },
         marks: { type: 'array', description: `mark: 賞・年間ベスト・選出の印（${MARK_ADD_MAX} 件まで）`, items: { type: 'object', properties: { isbn: { type: 'string' }, title: { type: 'string' }, author: { type: 'string' }, source: { type: 'string', description: '賞やランキングの名前（60 字まで）' }, year: { type: 'integer' }, label: { type: 'string', description: '部門・順位（40 字まで）' }, kind: { type: 'string', enum: MARK_KINDS }, url: { type: 'string', description: '出典の https の URL' } }, required: ['source', 'year'] } },
         unlinked: { type: 'boolean', description: 'marks: true で ISBN がまだ付いていない印だけ' },
+        summaries: { type: 'array', description: `summaries: 書いた概要（${SESSION_BATCH_MAX} 冊まで）`, items: { type: 'object', properties: { isbn: { type: 'string' }, summary: { description: 'pending の instructions の形の JSON（object か文字列）。材料が足りなければ {"skip": true}' } }, required: ['isbn', 'summary'] } },
         items: { type: 'array', description: 'ext: 書評サイトの本ごとのデータ（50 冊まで）', items: { type: 'object', properties: { isbn: { type: 'string' }, url: { type: 'string' }, points: { type: 'integer' }, endorsers: { type: 'array', items: { type: 'object', properties: { name: { type: 'string' }, note: { type: 'string' } } } }, tags: { type: 'array', items: { type: 'string' } }, summary: { type: 'string' } } } },
       },
       required: ['action'],
@@ -732,6 +733,22 @@ const handlers = {
       if (error) throw new ToolError(missing(error) ? '印の準備がまだです（supabase_advisor_books_signals.sql を流してください）' : '印を読めませんでした');
       return { text: `印 ${data.length} 件${args?.unlinked === true ? '（ISBN がまだ付いていないもの）' : ''}`, structuredContent: { marks: data } };
     }
+    if (action === 'pending') {
+      // 整える前の本と書く材料（2026-11-18・Claude のサブスクのスケジュールされたタスクが書く＝API の請求を出さない）
+      const n = Math.max(1, Math.min(SESSION_BATCH_MAX, Math.floor(Number(args?.limit) || 20)));
+      try {
+        const r = await pendingForSession({ db, limit: n });
+        return { text: `整える本 ${r.books.length} 冊（材料が短くて飛ばした ${r.thin} 冊）。instructions の決まりで 1 冊ずつ JSON を書き、summaries で返してください。`, structuredContent: r };
+      } catch (e) {
+        throw new ToolError(missing(e) ? '推薦用の本のデータの準備がまだです（supabase_advisor_books.sql を流してください）' : '整える前の本を読めませんでした');
+      }
+    }
+    if (action === 'summaries') {
+      const list = Array.isArray(args?.summaries) ? args.summaries : (Array.isArray(args?.items) ? args.items : []);
+      if (!list.length) throw new ToolError(`summaries に { isbn, summary } を 1 冊以上（${SESSION_BATCH_MAX} 冊まで）入れてください`);
+      const r = await saveSessionSummaries({ db, items: list });
+      return { text: `概要を保存しました: 使える ${r.ready} 冊・材料不足 ${r.thin} 冊・形が読めずやり直し ${r.failed} 冊・入れられなかった ${r.invalid} 件`, structuredContent: r };
+    }
     if (action === 'process') {
       // 待ち行列と概要づくりを今すすめる（毎晩の Cron を待たない・スケジュールされたタスクが 1 時間ごとに呼ぶ・2026-11-17）。
       // 1 回 約 45 秒（api/mcp.js の maxDuration 60 の内側）。楽天は本の検索と分け合うので 1.5 秒に 1 回。
@@ -756,7 +773,7 @@ const handlers = {
         : `待ち行列 ${q.done || 0} 冊を処理（足した ${q.added || 0}・印だけ ${q.marked || 0}・見つからない ${q.notfound || 0}）・概要を ${sm.ready || 0} 冊。残りの待ち行列 ${left ?? '?'} 冊。`;
       return { text, structuredContent: { ...out, queued_left: left } };
     }
-    throw new ToolError('action は stats・new・search・hide・show・add・queue・process・redo・ext・mark・marks のどれか');
+    throw new ToolError('action は stats・new・search・hide・show・add・queue・process・redo・ext・mark・marks・pending・summaries のどれか');
   },
 
   // ── 指示を受ける（運営者だけ・supabase_admin_mcp.sql の admin_act_for）────────────────────────────

@@ -363,3 +363,11 @@
 | 運営の参謀（使われていない） | 中の事実を今に（無料のはじめの 2 か月は 130・目標は 2027 年中に有料 1,000 人・運営の数字はアーティファクト） |
 
 変えていないもの: 見出し・記号・JSON の項目（画面が読む）、メモを根拠にする決まり、作り話を防ぐ決まり、安全の決まり、数字の目標・連続日数を作らない決まり。
+
+**推薦用の本のデータの概要は、API ではなく Claude のサブスクで書く（2026-11-18 オーナー「API のところから出る仕組みから変えることはできる？」→「2 でやろう」）**:
+
+- サーバー（毎晩の Cron・MCP の `ops_books` の `process`）は、本を集めて書誌を確かめるだけ。概要は書かない（`summaryMode`＝既定 `'session'`・`summarizeStep` は `{skipped:'session'}`）
+- スケジュールされたタスク「AI 選書の本の待ち行列」（1 時間ごと・専用の環境 `leverage-reading`）が `node scripts/ops-mcp.mjs ops_books '{"action":"pending","limit":20}'` で材料と書く決まり（`SUMMARY_SYSTEM` と同じ）を受け取り、セッションの中で 1 冊ずつ JSON を書いて `ops_books @<ファイル>`（`{"action":"summaries","summaries":[{isbn, summary}]}`）で返す。サーバーは `parseSummary` で形を確かめ、整える前の本だけ書き換える（`model='session'`・読めない答えは 3 回で failed）
+- 費用: API の請求は 0。使うのはオーナーの Claude のサブスクの使える量（開発の作業と同じ枠）。1 時間 2 回まで × 20 冊
+- 前に戻すとき: Vercel に `ADVISOR_BOOKS_SUMMARY=api`（サーバーが Claude Haiku 5.5 の API で書く・1 冊 約 ¥0.1〜0.2）
+- 本の分野（`api/_bookFields.js`）は本を足したその場で決めるので、今までどおり API（1 冊 約 ¥0.1・本ごとに 1 回）
