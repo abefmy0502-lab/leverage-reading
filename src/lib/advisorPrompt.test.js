@@ -40,6 +40,7 @@ describe('AI 選書の推薦の指示文', () => {
   it('短くした長さを保つ（Sonnet のキャッシュの最小 512 は大きく超える）', () => {
     const n = approxTokens(s);
     expect(n).toBeGreaterThan(1024);
-    expect(n).toBeLessThan(4200);
+    // 2026-11-18: 「読書で成果が上がる」ための 2 行（共通の土台・選ぶ基準）を足して 約 4,380。1 回 約 +¥0.05（Sonnet のキャッシュの書き込み）
+    expect(n).toBeLessThan(4600);
   });
 });
