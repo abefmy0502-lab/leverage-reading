@@ -803,7 +803,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
             )}
             {/* 読み込み中は、下の「どちらか一方」の注記の場所を骨組みで取っておく。 */}
             {priceState === 'loading' && founding.active && (
-              <div aria-hidden="true" style={{ marginTop: 'var(--space-2)', minHeight: 'calc(var(--text-meta) * 1.5 * 2)', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 'calc(var(--text-meta) * 0.5)' }}>
+              <div aria-hidden="true" style={{ marginTop: 'var(--space-2)', minHeight: 'calc(var(--text-meta) * 1.6 * 2)', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 'calc(var(--text-meta) * 0.6)' }}>
                 <SkeletonBlock width="100%" height="var(--text-meta)" radius="var(--radius)" />
                 <SkeletonBlock width="60%" height="var(--text-meta)" radius="var(--radius)" />
               </div>

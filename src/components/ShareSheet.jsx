@@ -1025,7 +1025,8 @@ export default function ShareSheet({
           </button>
           {/* 失敗の案内はプレビューと同じ高さの場所に出す（地を変えて描き直せたときに、下の部品が上下に動かない）。 */}
           {status === 'error' && (
-            <div style={{ alignSelf: 'stretch', minHeight: PREVIEW_H, display: 'grid' }}>
+            // 下の整える欄との間は、見本があるときと同じ 24（2026-11-18 ui-critic）。
+            <div style={{ alignSelf: 'stretch', minHeight: PREVIEW_H, display: 'grid', marginBottom: formatInEditRow ? 'var(--space-2)' : 0 }}>
               {yearError ? (
                 // 今年のメモを読めなかった（数字の欠けた 1 枚は作らない・「もう一度」で読み直す）。
                 <ErrorMessage

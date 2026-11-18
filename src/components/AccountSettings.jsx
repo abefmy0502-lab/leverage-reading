@@ -380,6 +380,11 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
   const [deleting, setDeleting] = useState(false);
   // 削除の失敗は、押したボタンのすぐ下に ErrorMessage で残す（消えるトーストだけだと、取り消せない操作の結果を見逃す・2026-10-04）。
   const [deleteError, setDeleteError] = useState(false);
+  // 退会の失敗の知らせが出たら、1 回だけそこまで送る（ボタンの下で画面の外に出ていた・下端に余白を残す・2026-11-18 ui-critic）。
+  const deleteErrorRef = useRef(null);
+  useEffect(() => {
+    if (deleteError) deleteErrorRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+  }, [deleteError]);
   const [deleteOpen, setDeleteOpen] = useState(false);
   // 🎯 Orime を入れた理由（2026-10-18）: 設定で見返す・書き直す。解約（プランを管理）と退会の前に一度だけ見せる（止めない）。
   const { purpose: appPurpose } = useAppPurpose();
@@ -1413,7 +1418,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
                         {deleteError && !deleting && (
                           // ほかの画面の失敗と同じ ErrorMessage（題＋次にすること＋「もう一度」）。中の理由は出さない（toMessage はログだけ）。
                           // 出たらそこまで送る（ボタンの下で画面の外に出て、押しても何も変わらないように見えた・2026-11-18 ui-critic）。
-                          <div ref={(el) => { if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }} style={{ marginTop: 'var(--space-1)' }}>
+                          <div ref={deleteErrorRef} style={{ marginTop: 'var(--space-1)', scrollMarginBottom: 'calc(var(--space-6) + env(safe-area-inset-bottom, 0px))' }}>
                             <ErrorMessage
                               title="削除を受け付けられませんでした"
                               description="時間をおいて、もう一度お試しください。解決しないときはお問い合わせください。"
