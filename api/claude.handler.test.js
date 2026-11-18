@@ -374,7 +374,7 @@ describe('用途ごとに会社とモデルを選ぶ（失敗したら Claude �
     vi.stubGlobal('fetch', fetchMock);
     await handler(consultReq(), mockRes());
     expect(fetchMock.mock.calls[0][0]).toBe('https://api.anthropic.com/v1/messages');
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body).model).toBe('claude-haiku-4-5');
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({ model: 'claude-haiku-5-5', thinking: { type: 'disabled' } });
   });
 
   it('AI 選書の推薦は Claude Sonnet 5.5（考えない設定は between_tools）', async () => {

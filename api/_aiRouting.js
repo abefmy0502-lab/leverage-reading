@@ -24,12 +24,14 @@ import { PRICES } from './_aiCost.js';
 export const PROVIDERS = ['anthropic', 'openai', 'gemini'];
 
 const H = 'claude-haiku-4-5';
+// 💬 相談の既定（2026-11-18 オーナー「切り替えて」・Haiku 4.5 の後継・単価は 1/10・断ったら Haiku 4.5 で 1 回やり直す）。
+export const CONSULT_MODEL = 'claude-haiku-5-5';
 const GPT_MINI = 'gpt-5-mini';
 const FLASH_LITE = 'gemini-3.1-flash-lite';
 
 // 用途 → { primary: '会社:モデル', claude: 失敗したときの Claude, claudeOnly: Claude 以外に差し替えない }
 export const ROUTES = {
-  consult: { primary: `anthropic:${H}`, claude: H, claudeOnly: true },
+  consult: { primary: `anthropic:${CONSULT_MODEL}`, claude: H, claudeOnly: true },
   book_advisor: { primary: 'anthropic:claude-sonnet-5-5', claude: 'claude-sonnet-5', claudeOnly: true },
   // 2026-10-01（2 回目）: AI 選書の聞き返し・読書計画シートは Gemini Flash-Lite に（gpt-5-mini は 12/11 で終わるので、
   // いまから長く使える行き先にそろえる・いちばん安い）。読書計画シートの「関連書籍」は、アプリが書誌で実在を
@@ -64,7 +66,7 @@ export const RETIRE_SUCCESSOR = {
 };
 
 // Anthropic で使ってよいモデル（api/claude.js の許可リストと同じ）。
-// claude-haiku-5-5（2026-11-18・Haiku 4.5 の後継・単価は 1/10）は env で選んだときだけ（既定の行き先にはまだしない）。
+// claude-haiku-5-5（2026-11-18・Haiku 4.5 の後継・単価は 1/10）は相談の既定（CONSULT_MODEL）。ほかの用途は env で選んだときだけ。
 export const ANTHROPIC_MODELS = new Set(['claude-sonnet-5-5', 'claude-sonnet-5', 'claude-haiku-5-5', 'claude-haiku-4-5', 'claude-sonnet-4-6']);
 // 答える前に失敗・断ったとき（安全の止めで 1 文字も返らない）の Claude の代わり。Haiku 5.5 には Anthropic 側の
 // 代わり（fallbacks）が無いので、中継が Haiku 4.5 で 1 回だけやり直す（api/_providers.js の openAnthropic）。
@@ -116,7 +118,7 @@ export function isRetired(model, now = Date.now()) {
 // 戻り値: { provider, model, claudeModel, purpose, reason }
 //   claudeModel … provider が Claude 以外のとき、失敗したら 1 回だけ切り替える Claude のモデル
 //   reason … 'route' | 'legacy' | 'free' | 'off' | 'no_key' | 'retired' | 'successor'（ログ用・内容は含めない）
-export function resolveRoute({ purpose, requestedModel, free = false, freeModel = H, env = process.env, now = Date.now() } = {}) {
+export function resolveRoute({ purpose, requestedModel, free = false, freeModel = CONSULT_MODEL, env = process.env, now = Date.now() } = {}) {
   const fallbackModel = ANTHROPIC_MODELS.has(requestedModel) ? requestedModel : H;
   const claude = (model, reason, p = null) => ({ provider: 'anthropic', model, claudeModel: CLAUDE_RETRY_MODEL[model] || model, purpose: p, reason });
   const route = typeof purpose === 'string' && Object.prototype.hasOwnProperty.call(ROUTES, purpose) ? ROUTES[purpose] : null;
@@ -128,7 +130,7 @@ export function resolveRoute({ purpose, requestedModel, free = false, freeModel 
   }
   if (!route) return claude(fallbackModel, 'legacy');
 
-  // 💬 相談は、今までどおり AI_CONSULT_MODEL（Claude だけ）→ AI_ROUTE_CONSULT（Claude だけ）→ アプリの指定。
+  // 💬 相談は AI_CONSULT_MODEL（Claude だけ）→ AI_ROUTE_CONSULT（Claude だけ）→ 既定の CONSULT_MODEL（2026-11-18 からアプリの指定ではなく）。
   if (purpose === 'consult') {
     const fromConsultEnv = ANTHROPIC_MODELS.has(env.AI_CONSULT_MODEL) ? env.AI_CONSULT_MODEL : null;
     const spec = parseRouteSpec(env[routeEnvName(purpose)]);
@@ -136,7 +138,7 @@ export function resolveRoute({ purpose, requestedModel, free = false, freeModel 
       console.warn(`[ai-route] ${routeEnvName(purpose)} ignored: consult stays on Claude`);
     }
     const fromRoute = spec?.provider === 'anthropic' ? spec.model : null;
-    return claude(fromConsultEnv || fromRoute || fallbackModel, 'route', purpose);
+    return claude(fromConsultEnv || fromRoute || CONSULT_MODEL, 'route', purpose);
   }
 
   if (String(env.AI_ROUTING || '').toLowerCase() === 'off') return claude(route.claude, 'off', purpose);

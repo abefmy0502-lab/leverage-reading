@@ -15,7 +15,7 @@
 
 | 用途（purpose） | 機能 | 行き先（既定） | 失敗したら | 以前 |
 |---|---|---|---|---|
-| `consult` | 💬 相談（まとめて・本ごと・無料プランも） | Anthropic `claude-haiku-4-5` **固定** | — | 同じ |
+| `consult` | 💬 相談（まとめて・本ごと・無料プランも） | Anthropic `claude-haiku-5-5`（2026-11-18 から・§11） | 断った・混んでいる（429 / 5xx）なら `claude-haiku-4-5` で 1 回 | `claude-haiku-4-5` |
 | `book_advisor` | 🔍 AI 選書の推薦 | Anthropic `claude-sonnet-5-5`（Claude だけ） | 404 なら `claude-sonnet-5` | `claude-sonnet-5` |
 | `advisor_interview` | AI 選書の聞き返し（JSON の質問） | Google `gemini-3.1-flash-lite`（2026-10-01 に gpt-5-mini から） | `claude-haiku-4-5` | Haiku |
 | `setup_sheet` | 読書計画シートを作る（関連書籍は書誌で確かめる） | Google `gemini-3.1-flash-lite`（同上） | `claude-haiku-4-5` | Haiku |
@@ -278,7 +278,7 @@
 - **端末**: `src/lib/bookFieldsServer.js`（AI・ジャンルの答えは端末に 30 日）。本を追加した直後・開いたとき（自動の分野の本 5 冊・3 秒おき）・本の詳細を開いたときに聞き、自動の分野を置きかえる（本人が選んだ本は変えない）。端末の言葉の仕分けは、すぐ出す最初の見立てとつながらないときの代わり
 - **確かめ**: `api/_bookFields.test.js`（AI は差し替えた fetch）・`node scripts/fields-eval.mjs`（言葉だけ／ジャンル＋言葉の正しさ・決まり方・原価）
 
-## 11. Claude Haiku 5.5（2026-11-18・切り替えの準備だけ・既定はまだ変えていない）
+## 11. Claude Haiku 5.5（2026-11-18・相談は切り替えた・ほかの用途は env で）
 
 オーナー依頼（2026-11-18）:「AI の API の費用対性能をベストにしたい」。Haiku 4.5 の後継 **Claude Haiku 5.5** が出ていて、単価は Haiku 4.5 の 1/10（[Pricing](https://platform.claude.com/docs/en/about-claude/pricing) で 2026-11-18 に確認）。
 
@@ -301,11 +301,13 @@
 - **断ったときの代わり**: Haiku 5.5 は安全の判定で断ることがあり（`stop_reason: 'refusal'`）、Anthropic 側の代わり（fallbacks）が無い。文を 1 文字も書く前に断った・混んでいる（429 / 5xx）ときは、中継が **Haiku 4.5 で 1 回だけ**やり直す（`ANTHROPIC_RETRY_MODEL`・ストリームは最初の文字が見えるまで読んでから流す＝`peekAnthropicStream`）。断られた 1 回の入力の原価は数えない（まれ）
 - 無料プランの相談は、`AI_CONSULT_MODEL` が安い Haiku（4.5 / 5.5）ならそれに従う（1 つの env で有料と無料プランの両方が切り替わる・`FREE_CONSULT_MODELS`）。キャッシュを温め直す仕組み（§7）も同じモデルを温める
 
+**2026-11-18 オーナー「切り替えて」で、相談（有料・無料プラン・本ごと）の既定を Haiku 5.5 にした**（`api/_aiRouting.js` の `CONSULT_MODEL`・`api/claude.js` の `FREE_MODEL`）。前に戻すときは `AI_CONSULT_MODEL=claude-haiku-4-5`（無料プランも戻る）。ほかの用途は、送り先が Google から Anthropic に変わる＝アプリの同意のシートの送り先の一覧（`src/lib/aiProcessors.js`）とテストを合わせる必要があるので、まだ env で選んだときだけ。
+
 **切り替え方（Vercel の env だけ・アプリの出し直し不要・すぐ戻せる）**:
 
 | やること | env |
 |---|---|
-| 相談（有料・無料プラン・本ごと）を Haiku 5.5 に | `AI_CONSULT_MODEL=claude-haiku-5-5` |
+| 相談を前の Haiku 4.5 に戻す | `AI_CONSULT_MODEL=claude-haiku-4-5` |
 | 読書計画シート・聞き返し・この本で学べること・凝縮・まとめ・写真から書き起こし・目標の深掘りを Haiku 5.5 に（Gemini より安く、Claude にそろう） | `AI_ROUTE_SETUP_SHEET` / `AI_ROUTE_SETUP_SHEET_EDIT` / `AI_ROUTE_ADVISOR_INTERVIEW` / `AI_ROUTE_BOOK_BRIEF` / `AI_ROUTE_CONDENSE` / `AI_ROUTE_CARDS_TO_SUMMARY` / `AI_ROUTE_OCR` / `AI_ROUTE_GOAL_INTERVIEW` に `anthropic:claude-haiku-5-5` |
 | 戻す | その env を消す |
 
@@ -318,4 +320,4 @@
 1. 答えの質（日本語・【結論】の形・著者の語り口・根拠の REFS）。新しいモデルは指示に忠実と言われるが、相談は一番の価値なので 1〜2 週は過去の相談で読み比べる
 2. Vercel のログの `[ai-route] anthropic:claude-haiku-5-5 failed (refusal)` の数（多ければ戻す）
 3. 関係するメモが無いときの払い戻し（`noInfoRefundEligible`）が今どおり効くか（決まり文句「情報がまだありません」を書くか）
-4. 審査中のアプリにも効くので、切り替えは App Store の審査が終わってから
+4. 審査中のアプリにも効く（オーナーの判断で審査中に切り替えた）。審査で相談の答えに問題があれば、まず `AI_CONSULT_MODEL=claude-haiku-4-5` で戻す

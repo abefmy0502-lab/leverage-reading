@@ -462,9 +462,9 @@ export async function peekAnthropicStream(response) {
 
 async function refusedBeforeText(response, stream) {
   if (!response?.ok) return { refused: false, response };
-  const type = response.headers.get('content-type') || '';
+  const type = (typeof response.headers?.get === 'function' && response.headers.get('content-type')) || '';
   if (stream && response.body && type.includes('text/event-stream')) return peekAnthropicStream(response);
-  if (!stream && type.includes('application/json')) {
+  if (!stream && type.includes('application/json') && typeof response.clone === 'function') {
     try {
       const data = await response.clone().json();
       const hasText = Array.isArray(data?.content) && data.content.some((b) => b?.type === 'text' && b.text);

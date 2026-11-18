@@ -49,7 +49,8 @@ const MAX_TEXT_CHARS = 150_000;
 // 🎁 無料プラン（契約なし）の相談 1 回の上限。相談の材料（約 9,000 字＋歩み・本ごとの答え方も）が入る大きさ。
 const FREE_MAX_TEXT_CHARS = 30_000;
 const FREE_MAX_TOKENS = 3000;
-const FREE_MODEL = 'claude-haiku-4-5';
+// 無料プランの相談（2026-11-18 から Haiku 5.5・api/_aiRouting.js の CONSULT_MODEL と同じ・断ったら Haiku 4.5 で 1 回やり直す）。
+const FREE_MODEL = 'claude-haiku-5-5';
 // 📷 無料プランの写真から書き起こし（月 AI_FREE_OCR_PER_MONTH 回・2026-10-02）の 1 回の大きさ。
 //   アプリは写真 1 枚（長辺 1568px に縮小済み）＋短い指示文（約 300 字）・max_tokens 1024 を送る。
 //   それより大きいもの（写真を何枚も・長い文章）は 413 で断る（無料の枠を汎用の AI として使わせない）。
