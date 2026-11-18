@@ -1769,7 +1769,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         <ErrorMessage
           icon={null}
           title="問いを用意できませんでした"
-          description="通信状況を確認して、もう一度お試しください。"
+          description="通信の状態を確かめてください。"
           actions={[
             { label: 'もう一度', onClick: retryInterview, variant: 'secondary' },
             // 答えがまだ無い（最初の問いで失敗）ときは、最初の言葉だけで探す・最初の入力に戻る も選べる
@@ -1847,7 +1847,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
             {escapes.map(chipBtn)}
           </div>
           {/* 脇役の 2 つ（--text-2 の文字ボタン・カードで栗色をいちばん強くしない）: 前の問いに戻る／このくらいで探して。 */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 'var(--space-2)', marginTop: 'var(--space-4)', marginLeft: 'calc(-1 * var(--space-1))' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 'var(--space-2)', marginTop: 'var(--space-4)', marginLeft: 'calc(-1 * var(--space-1))', marginRight: 'calc(-1 * var(--space-1))', marginBottom: 'calc(-1 * var(--space-3))' }}>
             <button type="button" onClick={goBackQuestion} style={{ ...quietLink, gap: 'var(--space-1)' }}>
               <IcBack size="1em" aria-hidden="true" style={{ flexShrink: 0 }} />
               {interviewTrail.length === 0 ? '最初の入力に戻る' : '前の問いに戻る'}
@@ -1893,7 +1893,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
               </div>
             )}
             {asking && !correcting && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginTop: 'var(--space-4)' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
                 {/* 危機の言葉があるときは「合っている」を塗りの主ボタンにしない（本を急がせない） */}
                 <button type="button" onClick={confirmSummary} style={showCare ? uiBtnGhost : uiBtnPrimary}>合っている</button>
                 <button type="button" onClick={startCorrect} style={uiBtnGhost}>少し違う（直す）</button>
@@ -2125,8 +2125,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
                     />
                   )}
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 0 }}>{i + 1} 冊目</p>
-                    <p style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, margin: 'var(--space-1) 0 0', overflowWrap: 'anywhere', wordBreak: 'keep-all' }}>{/* 『 はぶら下げず字の幅を半分に（halt）＝上の「1 冊目」と左端がそろう（約 10pt 左に出ていた・2026-11-18 ui-critic） */}<span style={{ fontFeatureSettings: '"halt"' }}>『</span>{withPhraseBreaks(rec.title, { scriptBreaks: true })}』</p>
+                    {/* 「1 冊目」は外した（カードの並びは読む順番ではない＝番号は飾りになる・2026-11-18 ui-critic） */}
+                    <p style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, margin: 0, overflowWrap: 'anywhere', wordBreak: 'keep-all' }}>{/* 『 はぶら下げず字の幅を半分に（halt）＝上の「1 冊目」と左端がそろう（約 10pt 左に出ていた・2026-11-18 ui-critic） */}<span style={{ fontFeatureSettings: '"halt"' }}>『</span>{withPhraseBreaks(rec.title, { scriptBreaks: true })}』</p>
                     {rec.author && (
                       <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: 'var(--space-1) 0 0' }}>{rec.author}</p>
                     )}

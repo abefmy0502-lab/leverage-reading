@@ -3094,7 +3094,7 @@ function FreeUsedCard({ tokenAllowance, onOpen, cta = 'プランを見る', tria
       )}
       {/* 使い切ると相談の上の行の残りの数が消えるので、トークンの使い方の入口をここにも（プランの人の案内と同じ・2026-11-17 点検）。 */}
       {onUsage && (
-        <button type="button" onClick={onUsage} style={{ ...uiBtnLinkQuiet, display: 'flex', width: 'fit-content', marginTop: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}>
+        <button type="button" onClick={onUsage} style={{ ...uiBtnLinkQuiet, display: 'flex', width: 'fit-content', marginTop: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))', marginBottom: 'calc(-1 * var(--space-3))' }}>
           トークンの使い方を見る
         </button>
       )}
