@@ -1719,7 +1719,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       )}
 
       {/* 会話（相談 → 質問 → 推薦）。chat-scroll が overflow を担うため、ここは縦並びのみ。 */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', marginTop: 'var(--space-4)' }}>
+      {/* 見出しと例が無い（会話が始まった）ときは上に空けない＝スクロールの箱の上の余白 24 だけ（約 54pt あいていた・2026-11-18 ui-critic）。 */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', marginTop: showConcernInput && !showErrorState ? 'var(--space-4)' : 0 }}>
 
       {/* ユーザーの相談（右寄せの --fill 吹き出し。相談と同じ） */}
       {concern && (!showConcernInput || showErrorState) && (
@@ -1778,7 +1779,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       )}
       {/* 3 つめの道（最初の入力に戻る）はカードの外の控えめな文字ボタンに（カードの中の操作は 2 つまで・2026-10-16 第 5 回） */}
       {interviewError && !interviewLoading && !recoLoading && (interviewError.answers || []).length === 0 && (
-        <button type="button" onClick={() => { clearInterview(); setInput(concern); }} style={{ ...uiBtnLinkQuiet, alignSelf: 'flex-start', marginTop: 'calc(-1 * var(--space-2))' }}>最初の入力に戻る</button>
+        <button type="button" onClick={() => { clearInterview(); setInput(concern); }} style={{ ...uiBtnLinkQuiet, alignSelf: 'flex-start', marginTop: 'calc(-1 * var(--space-2))', marginLeft: 'calc(-1 * var(--space-1))' }}>最初の入力に戻る</button>
       )}
 
       {/* いまの問い（1 つだけ・2026-10-08）。自分の言葉が主役: 問いのすぐ下に「自分の言葉で答える」。

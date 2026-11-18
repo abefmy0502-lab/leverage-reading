@@ -220,8 +220,8 @@
 /* 区切り線は文字の頭から（ホームの行と同じ・2026-11-17 ui-critic） */
 .rm-list > li + li::before { content: ''; position: absolute; top: 0; left: var(--space-4); right: 0; border-top: 1px solid var(--separator); }
 .rm-need-name { margin: 0; font-size: var(--text-body); font-weight: 600; line-height: 1.5; word-break: keep-all; overflow-wrap: anywhere; }
-.rm-need-why { margin: var(--space-1) 0 0; font-size: var(--text-sub); color: var(--text-2); line-height: 1.6; word-break: keep-all; overflow-wrap: anywhere; }
-.rm-issue { margin: 0; font-size: var(--text-body); line-height: 1.6; word-break: keep-all; overflow-wrap: anywhere; }
+.rm-need-why { margin: var(--space-1) 0 0; font-size: var(--text-sub); color: var(--text-2); line-height: 1.6; word-break: normal; line-break: strict; text-wrap: pretty; overflow-wrap: anywhere; }
+.rm-issue { margin: 0; font-size: var(--text-body); line-height: 1.6; word-break: normal; line-break: strict; text-wrap: pretty; overflow-wrap: anywhere; }
 
 .rm-phase-focus { margin: var(--space-2) 0 0; font-size: var(--text-body); font-weight: 600; line-height: 1.5; word-break: keep-all; overflow-wrap: anywhere; }
 .rm-here { font-size: var(--text-caption); font-weight: 600; color: var(--text); }
@@ -312,7 +312,7 @@
   cursor: pointer;
 }
 .rm-book-title { display: block; margin: 0; font-size: var(--text-sub); font-weight: 600; line-height: 1.5; word-break: keep-all; overflow-wrap: anywhere; }
-.rm-book-why { display: block; margin: var(--space-1) 0 0; font-size: var(--text-meta); color: var(--text-2); line-height: 1.6; word-break: keep-all; overflow-wrap: anywhere; }
+.rm-book-why { display: block; margin: var(--space-1) 0 0; font-size: var(--text-meta); color: var(--text-2); line-height: 1.6; word-break: normal; line-break: strict; text-wrap: pretty; overflow-wrap: anywhere; }
 .rm-missing { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-1); }
 .rm-footnote { margin: var(--space-6) 0 0; font-size: var(--text-meta); color: var(--text-3); line-height: 1.6; word-break: keep-all; overflow-wrap: anywhere; }
 .rm-update-line { margin: 0; font-size: var(--text-sub); line-height: 1.6; word-break: keep-all; overflow-wrap: anywhere; }
@@ -399,6 +399,8 @@
 /* 押せる範囲は上下 44（見た目は 24 のまま） */
 .plan-band::after { content: ""; position: absolute; left: 50%; width: max(100%, var(--tap-min)); transform: translateX(-50%); top: calc((var(--tap-min) - var(--space-6)) / -2); bottom: calc((var(--tap-min) - var(--space-6)) / -2); }
 .plan-band.is-alt { background: color-mix(in srgb, var(--text) 30%, var(--surface)); color: var(--text); }
+/* 文字の無い 1 日だけの帯は、枠で押せる物と分かるように（面だけでは地との差が 3:1 に届かない・2026-11-18 ui-critic） */
+.plan-band.is-solo { box-shadow: inset 0 0 0 1px var(--border); }
 .plan-band.is-now { background: var(--accent); color: var(--accent-ink); }
 .plan-band.is-head { border-top-left-radius: var(--radius); border-bottom-left-radius: var(--radius); }
 .plan-band.is-tail { border-top-right-radius: var(--radius); border-bottom-right-radius: var(--radius); }

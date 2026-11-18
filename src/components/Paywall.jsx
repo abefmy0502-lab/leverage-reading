@@ -141,7 +141,7 @@ const PLAN_COMPARE = [
   // 写真から書き起こしは無料プランでも毎月 10 回（トークンとは別・2026-10-02）。
   // 無料プランの AI は 相談・この本で学べること・写真から書き起こし（2026-10-11 リリース前点検で並べた）。
   // 払うのは「AI の答えの回数」（会話で行動まで届く量）なので回数を主に、トークンは脇（2026-10-21 ui-critic・GLOSSARY「量の目安は AI の答え 約 N 回」）。
-  { name: '無料プラン（ずっと無料）', amount: `AI の答え ${answerCountLabel(FREE_TOKENS)}`, amountNote: `（はじめの 2 か月は${answerCountLabel(FREE_FIRST_MONTH_TOKENS)}）`, scope: `毎月 ${FREE_TOKENS.toLocaleString()} トークン・はじめの 2 か月は ${FREE_FIRST_MONTH_TOKENS.toLocaleString()} トークン`, lead: 'AI：', items: ['相談', 'この本で学べること', `写真から書き起こし 毎月 ${FREE_OCR_PER_MONTH} 回`], more: ['メモ', '記録', '振り返り', '写真で共有'] },
+  { name: '無料プラン（ずっと無料）', amount: `AI の答え ${answerCountLabel(FREE_TOKENS)}`, amountNote: `（はじめの 2 か月は${answerCountLabel(FREE_FIRST_MONTH_TOKENS)}）`, lead: 'AI：', items: ['相談', 'この本で学べること', `写真から書き起こし 毎月 ${FREE_OCR_PER_MONTH} 回`], more: ['メモ', '記録', '振り返り', '写真で共有'] },
   // 機能名は語の途中で折り返さない（「写真から書き起こし」が割れないよう、名前ごとに nowrap で並べる）。
   // 量の数え方は「AI の答え 約 N 回」だけ（GLOSSARY・2026-10-21 に「相談 約 30 件」を足したが、数え方が 2 つになるのでやめた）。
   { name: 'プラン', amount: `AI の答え ${answerCountLabel(PAID_TOKENS)}`, scope: `毎月 ${PAID_TOKENS.toLocaleString()} トークン`, lead: 'すべての AI：', items: ['AI 選書', '読書計画シート', '写真から書き起こし'] },
@@ -182,11 +182,11 @@ function PlanCompare({ onlyPlan = false, trial = '', example = TOKEN_EXAMPLE }) 
             {row.amountNote && <span style={{ ...chunk, fontSize: 'var(--text-sub)', fontWeight: 400, color: 'var(--text-2)' }}>{row.amountNote}</span>}
           </p>
           {/* 量の目安は、かっこで続けず次の行に（かっこが重なって読みにくかった・2026-10-16 ui-critic）。 */}
-          <p style={{ margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(row.scope)}</p>
+          {row.scope && <p style={{ margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(row.scope)}</p>}
           <p style={{ ...metaText, marginTop: 'var(--space-1)' }}>
             {row.lead && <span style={{ whiteSpace: 'nowrap' }}>{row.lead}</span>}
             {row.items
-              ? row.items.map((f, j) => <span key={f}>{j > 0 && '・'}<span style={{ whiteSpace: 'nowrap' }}>{f}</span></span>)
+              ? row.items.map((f, j) => <span key={f} style={{ whiteSpace: 'nowrap' }}>{f}{j < row.items.length - 1 && '・'}</span>)
               : row.text}
           </p>
           {/* AI ではない機能は別の行に（「AI：…・メモ・記録」と並べると全部 AI に読めた・2026-10-12 ui-critic） */}

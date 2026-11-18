@@ -20,7 +20,7 @@ import { setConsultBackGuard } from '../lib/consultBack';
 import { toMessage, toSaveMessage, OFFLINE_SAVE_MESSAGE } from '../lib/errors';
 import { streamMyBookBrain, prewarmKnowledge, invalidateKnowledgeCache, EVIDENCE_PREFIX, consultAgoLabel } from '../lib/ai';
 import { ensureAiConsent } from '../lib/aiConsent';
-import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnText as uiBtnText, btnLink as uiBtnLink, btnLinkQuiet as uiBtnLinkQuiet, groupTitle, fieldNote, input as uiInput, scrollFade } from '../styles/ui';
+import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, btnText as uiBtnText, btnLink as uiBtnLink, btnLinkQuiet as uiBtnLinkQuiet, groupTitle, fieldNote, input as uiInput, scrollFade } from '../styles/ui';
 import { track, EVENTS } from '../lib/analytics';
 import { LIMITS } from '../lib/limits';
 import { answerActionStatus, rememberAnswerActionAdded } from '../lib/consultActionAdded';
@@ -2298,7 +2298,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     : lastLookup && !isNoInfoAnswer(lastVisible) ? '続けて聞く・ほかの言葉で探す'
     // 行動が決まったあとは、特定の続きを言わない汎用の文（2026-10-10 第 9 回 総点検）。
     : lastHasAction ? '続けて相談する'
-    : threadActive && !isNoInfoAnswer(lastVisible) ? '続けて聞く' : '例：上司への報告がうまくいかない';
+    // 会話が始まると入力欄の左に 44 のボタンが入るので、短い例（16 字だと「うまくいか／ない」と割れて 2 行になった・2026-11-18 ui-critic）。
+    : threadActive && !isNoInfoAnswer(lastVisible) ? '続けて聞く' : messages.length > 0 ? '例：報告がうまくいかない' : '例：上司への報告がうまくいかない';
   // 描く前に高さを合わせる（useEffect だと、送ったあとに「消えた文字の高さのまま 1 回描く → 縮む」で
   // 入力欄が 2 回動いていた）。文字の大きさが変わったときも測り直す（hooks/useComposerHeight.js・2026-10-08 ui-critic）。
   useComposerHeight(inputRef, input, view === 'chat', composerPlaceholder);
@@ -2436,8 +2437,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                       onClick={() => continueThread(g)}
                       disabled={busy}
                       // いちばん新しい相談だけ主ボタン。2 つ目からは文字ボタン（一覧がボタンの列に見えないように・2026-10-08 ui-critic）。
+                      // いちばん新しい相談は枠の副ボタン（塗りの主ボタンが画面に何本も見えないように・2026-11-18 ui-critic）。
                       style={gi === 0
-                        ? { ...(busy ? uiBtnPrimaryOff : uiBtnPrimary), marginLeft: ANSWER_COLUMN, width: `calc(100% - ${ANSWER_COLUMN})` }
+                        ? { ...(busy ? uiBtnGhostOff : uiBtnGhost), marginLeft: ANSWER_COLUMN, width: `calc(100% - ${ANSWER_COLUMN})` }
                         : { ...uiBtnLink, alignSelf: 'flex-start', margin: `calc(-1 * var(--space-2)) 0 0 calc(${ANSWER_COLUMN} - var(--space-1))`, ...(busy ? { color: 'var(--text-3)', opacity: 1, cursor: 'default' } : null) }}
                     >
                       この続きを相談する

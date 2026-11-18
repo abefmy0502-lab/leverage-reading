@@ -254,7 +254,7 @@ function ValueRow({ label, value, sub = null, style, onClick = null, ariaLabel }
     );
   }
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', minHeight: 44, padding: 'var(--space-3) 0', ...style }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', minHeight: 'var(--tap-min)', padding: 'var(--space-3) 0', lineHeight: 1.5, ...style }}>
       {inner}
     </div>
   );

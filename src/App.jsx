@@ -4966,8 +4966,8 @@ function AuthedApp() {
           {/* 読みたい・積読: 読む準備が主役なので、得たいこと・課題・仮説は開いて見せる。
               シートは、あるときだけ畳んで置く。 */}
           {!isMemoPhase && hasPlanFold && (
-          // この本についてのカードの下は 12（読む準備の 1 つのまとまり）。カードが出ない本は 24。
-          <section style={{ marginTop: aboutShown && (bookAbout.loading || hasBookInfo(bookAbout.info) || hasBrief) ? 'var(--space-3)' : 'var(--space-6)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+          // カードとカードの間は 24（「この本について」と読む準備は別の区画・2026-11-18 ui-critic）。
+          <section style={{ marginTop: 'var(--space-6)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
           {current.status === 'before' && planItems.length > 0
             ? <PlanCard items={planItems} style={{ marginTop: 0 }} />
             : planItems.map((p) => <Card key={p.label} label={p.label} text={p.text} style={{ marginTop: 0 }} />)}
@@ -6257,6 +6257,8 @@ function AuthedApp() {
                   <ChevronLeft size={20} aria-hidden="true" />{libraryFrom === 'record' ? '記録' : libraryFrom === 'book' ? 'この本' : 'ホーム'}
                 </button>
                 <div style={{ display: 'flex', alignItems: 'center', marginRight: 'calc(-1 * var(--space-3))' }}>
+                  {/* 本が 0 冊のときは探すものが無いので出さない（2026-11-18 ui-critic） */}
+                  {books.length > 0 && (
                   <button
                     type="button"
                     // 開いているときにもう一度押すと閉じる（入っていた言葉も消して一覧を元に戻す）。
@@ -6270,6 +6272,7 @@ function AuthedApp() {
                   >
                     <IcSearch size={22} aria-hidden="true" />
                   </button>
+                  )}
                   <button
                     type="button"
                     onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setLibraryMenu({ x: r.right - 8, y: r.bottom + 4 }); }}

@@ -279,7 +279,9 @@ function HomeGoalRow({ onOpen, onClose }) {
           <span style={{ paddingRight: 'var(--tap-min)', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('目標を書く')}</span>
           <span style={{ marginTop: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('1 年後・3 年後・5 年後の目標から、読む本を決めます')}</span>
         </span>
-        {/* › は出さない（右上の × と縦に近く並び、どちらを押すか迷う・2026-11-18 ui-critic）。行のどこを押しても開く。 */}
+        {/* › はほかの枠の行と同じ右の列に置き、下の行（説明）にそろえる＝右上の × と縦に離す（× だけだと閉じるだけの知らせに見え、
+            › を真ん中に置くと × と近すぎた・2026-11-18 ui-critic 2 回）。 */}
+        <ChevronRight size="1.2em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0, alignSelf: 'flex-end', marginBottom: 'var(--space-1)' }} />
       </button>
       <button type="button" onClick={onClose} aria-label="目標の案内を閉じる" style={{ position: 'absolute', top: 0, right: 0, width: 'var(--tap-min)', height: 'var(--tap-min)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)' }}>
         <X size="1.1em" aria-hidden="true" />
@@ -496,9 +498,26 @@ export function HomeBlocksSkeleton() {
           <SkeletonBlock width="40%" height={26} radius="var(--radius)" />
           <SkeletonBlock width={80} height={20} radius="var(--radius)" />
         </div>
-        <SkeletonBlock height={180} radius="var(--radius)" style={skeletonCard} />
+        {/* いま読んでいる本の行カードの形（表紙・書名と著者の 2 行・「メモを書く」の面）を 2 冊ぶん。高さも本物にそろえて、
+            読み込んだあとに下が跳ばないように（2026-11-18 ui-critic）。 */}
+        <div style={{ ...skeletonCard, background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+          {[0, 1].map((i) => (
+            <div key={i} style={{ display: 'flex', gap: 'var(--space-3)', paddingTop: i ? 'var(--space-4)' : 0, borderTop: i ? '1px solid var(--separator)' : 'none' }}>
+              <SkeletonBlock width={40} height={57} radius="var(--radius-sm, 4px)" />
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                <SkeletonBlock width="70%" height={20} radius="var(--radius)" />
+                <SkeletonBlock width="45%" height={16} radius="var(--radius)" />
+                <SkeletonBlock width={112} height={44} radius="var(--radius)" style={{ marginTop: 'var(--space-2)' }} />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
-      <SkeletonBlock height={56} radius="var(--radius)" style={skeletonCard} />
+      {/* 下の行のまとまり（行動・すべての本の 2 行） */}
+      <div style={{ ...skeletonCard, background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-3) var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+        <SkeletonBlock width="60%" height={20} radius="var(--radius)" />
+        <SkeletonBlock width="40%" height={20} radius="var(--radius)" />
+      </div>
     </>
   );
 }

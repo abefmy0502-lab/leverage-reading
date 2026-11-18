@@ -212,7 +212,7 @@ const thumbBtn = {
   display: 'inline-flex',
   flexDirection: 'column',
   alignItems: 'center',
-  gap: 'var(--space-1)',
+  gap: 'var(--space-2)',
   padding: 'var(--space-1)',
   minWidth: 'var(--tap-min)',
   border: 'none',
@@ -357,7 +357,7 @@ const quoteRowBtn = (on) => ({
 });
 const quoteRowText = (empty) => ({
   display: '-webkit-box',
-  WebkitLineClamp: 1,
+  WebkitLineClamp: 2,
   WebkitBoxOrient: 'vertical',
   overflow: 'hidden',
   fontSize: 'var(--text-body)',
@@ -1126,7 +1126,7 @@ export default function ShareSheet({
         {/* 重ね方の見本（名前は 2 行ぶんの高さでそろえる）と、同じ行の右に形（投稿 4:5／ストーリー 9:16・縦に 2 つ）。
             シートの段を 1 つ減らす（2026-10-10 ui-critic）。透明（形が無い）のときは形を出さない。 */}
         {variants.length > 1 && (
-        <div aria-hidden={yearError || undefined} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: 'var(--space-2)', visibility: yearError ? 'hidden' : 'visible' }}>
+        <div aria-hidden={yearError || undefined} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: 'var(--space-2)', marginTop: 'var(--space-3)', visibility: yearError ? 'hidden' : 'visible' }}>
             {/* 列の幅は名前の字の大きさで決める（文字が大きいときは 3 列＋次の行・形の切り替えは下の行へ回る＝名前が重ならない）。 */}
             {variants.length > 1 && (
             // 列は見本の数で決めた等分（名前の太さ・メニューの開け閉めで幅が動かない・2026-10-10 ui-critic）。

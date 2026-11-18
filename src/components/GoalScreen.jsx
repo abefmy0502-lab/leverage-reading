@@ -1216,7 +1216,7 @@ function PlanView({ goal, record, books, sessions, onFindBooks, onOpenBook, onAd
                     const item = schedule[indexOf.get(b.bookId) || 0];
                     const idx = indexOf.get(b.bookId) || 0;
                     const isNow = nowItem?.bookId === b.bookId;
-                    const cls = `plan-band${isNow ? ' is-now' : idx % 2 ? ' is-alt' : ''}${b.head ? ' is-head' : ''}${b.tail ? ' is-tail' : ''}`;
+                    const cls = `plan-band${isNow ? ' is-now' : idx % 2 ? ' is-alt' : ''}${b.head ? ' is-head' : ''}${b.tail ? ' is-tail' : ''}${b.head && b.span < 2 && !isNow ? ' is-solo' : ''}`;
                     return (
                       <button
                         key={b.bookId}

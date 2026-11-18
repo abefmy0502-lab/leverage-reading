@@ -1038,7 +1038,8 @@ textarea[aria-invalid="true"]:not(.no-focus-ring):focus {
      著者をカードの下端へ寄せてそろえる（同じ行のカードは格子で同じ高さになる・2026-10-11 第 2 回の採点）。 */
 }
 .book-cover-author {
-  margin-top: auto;
+  /* 書名のすぐ下に詰める（下にそろえると、書名が 1 行の本で書名の下に 1 行ぶんの穴が空いた・2026-11-18 ui-critic） */
+  margin-top: 0;
   font-size: var(--text-meta);
   color: var(--text-2); /* リスト表示の著者と同じ（DESIGN §5） */
   /* 書名と同じく 2 行まで（1 行だと「エリック・シュ…」で半数が読めない・2026-10-21 ui-critic） */
