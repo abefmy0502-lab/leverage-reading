@@ -1498,6 +1498,11 @@ function AuthedApp() {
   });
   // 🔗 ホームのメモを書くを開いたら、似たメモを探す準備をしておく（保存したときに似たメモがあれば、知らせを「保存しました。」だけに＝次の一歩を 1 つに・2026-10-10）。
   const homeLinkFinder = useMemoLinkFinder({ books, enabled: !!homeMemoBook || !!homeSavedMemo });
+  // 読書計画シートの関連書籍で、もう本棚にある本（同じ書名）は「追加済み」に（2026-11-17 本番の確かめで、
+  //   本棚の本に「読みたいに追加」が出ていた。押しても重複の確かめで止まるが、先に分かるように）。
+  const relatedOwnedTitles = useMemo(() => ({
+    has: (t) => addedRelatedTitles.has(t) || !!findDuplicateBook(books, { title: t }),
+  }), [addedRelatedTitles, books]);
   // 非同期処理（表紙リトライ・行動トグル直列化など）が「実行時点の最新 books」を
   // 読めるようにする ref。古いスナップショットで saveBook すると差分同期で
   // ユーザー編集が巻き戻るため、保存直前の rebase に使う。
@@ -4937,7 +4942,7 @@ function AuthedApp() {
                     flat
                     text={current.aiStrategy}
                     onAddRelatedBook={addRelatedBookFromAi}
-                    addingTitles={addedRelatedTitles}
+                    addingTitles={relatedOwnedTitles}
                   />
                 )}
               </div>
@@ -4964,7 +4969,7 @@ function AuthedApp() {
                   flat
                   text={current.aiStrategy}
                   onAddRelatedBook={addRelatedBookFromAi}
-                  addingTitles={addedRelatedTitles}
+                  addingTitles={relatedOwnedTitles}
                 />
               </div>
             </details>
@@ -5867,7 +5872,7 @@ function AuthedApp() {
                       strategyHistoryTick >= 0 && hasStrategyHistory(form?.id)
                     }
                     onAddRelatedBook={addRelatedBookFromAi}
-                    addingTitles={addedRelatedTitles}
+                    addingTitles={relatedOwnedTitles}
                     savedAsBefore={current?.status === 'before'}
                     allFolders={folderNames}
                     // 📖 この本で学べること（畳んで置く・仮説の例を押すと仮説の欄に入る・2026-10-08）
