@@ -168,6 +168,7 @@ const noteStyle = { fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin
 
 // 行全体が押せるボタン（iOS「設定」の一覧行）。
 const rowButtonStyle = {
+  fontSize: 'var(--text-body)', // 右の › を文字の大きさに合わせる（文字最大で小さく見えた・2026-11-18）
   width: '100%',
   minHeight: 44,
   lineHeight: 1.5,

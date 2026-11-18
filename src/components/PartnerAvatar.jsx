@@ -5,6 +5,7 @@
 //   - 自分の学び: --fill の丸に電球
 // アイコンは飾り（aria-hidden）。名前の行が文字として読まれる。
 
+import { withPhraseBreaks } from './TightBubble';
 import { useState } from 'react';
 import { Lightbulb, Library, ChevronRight, NotebookText } from 'lucide-react';
 import { paletteFor } from '../lib/coverPalette';
@@ -94,7 +95,8 @@ export default function PartnerAvatar({ partner, size = AVATAR_SIZE, style = nul
 // 名前の行（13/--text-2・1 行で … 省略）。数冊のときは押すと本の一覧（押せる範囲 44・見た目の高さは変えない）。
 export function PartnerName({ partner, onOpenList = null, as: Tag = 'p' }) {
   if (!partner) return null;
-  const text = { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
+  // 2 行まで出す（文字が大きいと 1 行で「…」になり、どの本と話したか読めなかった・2026-11-18 文字最大の点検）。
+  const text = { minWidth: 0, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', wordBreak: 'keep-all', overflowWrap: 'anywhere' };
   const line = { display: 'flex', alignItems: 'center', margin: '0 0 var(--space-1)', fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-2)', lineHeight: 1.5 };
   if (onOpenList && partner.kind === 'group' && partner.books.length > 0) {
     return (
@@ -105,8 +107,8 @@ export function PartnerName({ partner, onOpenList = null, as: Tag = 'p' }) {
           aria-haspopup="dialog"
           style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', maxWidth: '100%', minHeight: 44, margin: 'calc((var(--text-meta) * 1.5 - 44px) / 2) 0', padding: 0, background: 'none', border: 'none', color: 'inherit', font: 'inherit', cursor: 'pointer', textAlign: 'left' }}
         >
-          <span style={text}>{partner.label}</span>
-          <ChevronRight size={14} aria-hidden="true" style={{ flexShrink: 0, color: 'var(--text-3)' }} />
+          <span style={text}>{withPhraseBreaks(partner.label, { scriptBreaks: true })}</span>
+          <ChevronRight size="1.1em" aria-hidden="true" style={{ flexShrink: 0, color: 'var(--text-3)' }} />
         </button>
       </Tag>
     );
@@ -114,7 +116,7 @@ export function PartnerName({ partner, onOpenList = null, as: Tag = 'p' }) {
   // 語り口の答え（2026-09-30）: 「著者名」は長ければ … で省き、「（本の語り口で・AI）」はいつも見せる（切らない）。
   return (
     <Tag style={line}>
-      <span style={text}>{partner.label}</span>
+      <span style={text}>{withPhraseBreaks(partner.label, { scriptBreaks: true })}</span>
       {partner.suffix && <span style={{ flexShrink: 0, whiteSpace: 'nowrap' }}>{partner.suffix}</span>}
     </Tag>
   );

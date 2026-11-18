@@ -491,7 +491,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
                     type="button"
                     aria-label="入力を消す"
                     onClick={() => { setQuery(''); setResults(null); setSearched(''); setSearchError(false); searchRef.current?.focus(); }}
-                    style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 44, display: 'grid', placeItems: 'center', border: 'none', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer' }}
+                    style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 'var(--tap-min)', fontSize: 'inherit', display: 'grid', placeItems: 'center', border: 'none', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer' }}
                   >
                     <X size="1em" aria-hidden="true" />
                   </button>

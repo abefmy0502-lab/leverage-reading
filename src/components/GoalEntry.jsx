@@ -41,7 +41,7 @@ export default function GoalEntry({ onOpen }) {
     <button type="button" className="goal-entry" onClick={() => onOpen?.({ view: rm && !overdue ? 'roadmap' : 'goals', horizon: rm && !overdue ? ALL_GOALS_KEY : null })}>
       <span className="goal-entry-body">
         <span className="goal-entry-label"><span style={{ whiteSpace: 'nowrap' }}>{`${h.label}の目標`}</span>{' · '}<span style={{ whiteSpace: 'nowrap' }}>{fmtGoalDeadlineNow(g.at, h.years, now)}</span></span>
-        <span className="goal-entry-text">{g.text}</span>
+        <span className="goal-entry-text">{withPhraseBreaks(g.text)}</span>
         <span className="goal-entry-next">{withPhraseBreaks(next)}</span>
       </span>
       <ChevronRight className="goal-entry-chev" size="1.1em" aria-hidden="true" />

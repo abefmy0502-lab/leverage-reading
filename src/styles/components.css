@@ -664,7 +664,8 @@ textarea[aria-invalid="true"]:not(.no-focus-ring):focus {
   flex-direction: column;
   gap: var(--space-2);
   margin: 0 auto var(--space-3);
-  max-width: 300px;
+  /* 文字が大きいときはボタンの幅も広がる（「書名だけで追／加」と割れていた・2026-11-18 文字最大の点検） */
+  max-width: min(100%, max(300px, 13em));
 }
 .empty-state-actions:last-child { margin-bottom: 0; }
 .empty-state-tip {

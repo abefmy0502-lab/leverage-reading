@@ -437,7 +437,7 @@ function GoalTrio({ goals, compact = false, fold = false, onEdit = null }) {
         <summary>
           <span className="goal-trio-first">
             {when(first)}
-            <span className="goal-text goal-text-clamp">{goals[first.key].text}</span>
+            <span className="goal-text goal-text-clamp">{withPhraseBreaks(goals[first.key].text)}</span>
           </span>
           <span className="goal-trio-more">{`${rest.map((h) => h.label).join('・')}の目標`}<ChevronDown className="fold-chevron" size="1em" aria-hidden="true" /></span>
         </summary>

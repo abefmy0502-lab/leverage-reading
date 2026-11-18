@@ -40,6 +40,9 @@ const overlayStyle = {
 };
 const overlayClosingAnim = 'leverage-sheet-down var(--duration-fast) var(--ease-in-out) forwards';
 
+// 文字の大きさの設定が大きいとき（ルート 22px 以上）。
+const isLargeRoot = () => { try { return parseFloat(getComputedStyle(document.documentElement).fontSize) >= 22; } catch { return false; } };
+
 const headerStyle = {
   display: 'grid',
   // 右の「キャンセル」は割らない（文字最大で「キャン／セル」と割れていた・2026-11-18）。題は真ん中の列で縮む。
@@ -452,14 +455,16 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
   // 手動入力の入口は、どの状態でも下の文字ボタン 1 か所だけ。
   const showManualLink = true;
 
+  const largeHeader = isLargeRoot();
   return (
     <div ref={trapRef} style={closing ? { ...overlayStyle, animation: overlayClosingAnim } : overlayStyle} role="dialog" aria-modal="true" aria-labelledby="add-book-title">
       {scanning && (
         <BarcodeScanner onDetect={handleScanDetect} onClose={closeScanner} onTypeIsbn={focusQuery} />
       )}
 
-      <div style={headerStyle}>
-        <span />
+      {/* 文字が大きいときは題を左に寄せる（中央に置くと、右の「キャンセル」の幅で題がどこにもそろわなかった・2026-11-18） */}
+      <div style={largeHeader ? { ...headerStyle, gridTemplateColumns: 'minmax(0, 1fr) auto' } : headerStyle}>
+        {!largeHeader && <span />}
         <h2 id="add-book-title" style={{ margin: 0, fontSize: 'var(--text-body)', fontWeight: 600, lineHeight: 1.3, color: 'var(--text)' }}>
           {forPhoto ? '本を選ぶ' : '本を追加'}
         </h2>

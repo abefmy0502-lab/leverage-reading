@@ -6341,7 +6341,7 @@ function AuthedApp() {
                       type="button"
                       onClick={() => setSearch('')}
                       aria-label="検索の言葉を消す"
-                      style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer', padding: 0 }}
+                      style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 'var(--tap-min)', fontSize: 'inherit', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer', padding: 0 }}
                     >
                       <IcX size="1em" aria-hidden="true" />
                     </button>

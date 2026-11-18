@@ -57,7 +57,7 @@ export default function ErrorMessage({
               aria-label={a.ariaLabel || a.label}
             >
               {a.icon ? <span aria-hidden="true">{a.icon}</span> : null}
-              {a.label}
+              <span style={{ wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{typeof a.label === 'string' ? withPhraseBreaks(a.label) : a.label}</span>
             </button>
           ))}
         </div>

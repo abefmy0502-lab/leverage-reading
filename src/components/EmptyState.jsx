@@ -50,7 +50,7 @@ export default function EmptyState({ icon, title, description, actions = [], tip
               aria-label={a.ariaLabel || a.label}
             >
               {a.icon ? <span aria-hidden="true">{a.icon}</span> : null}
-              {a.label}
+              <span style={phraseStyle}>{phrased(a.label)}</span>
             </button>
           ))}
         </div>

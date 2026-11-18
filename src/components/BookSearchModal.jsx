@@ -226,7 +226,7 @@ export function BookSearchField({ id, value, onChange, onSubmit, inputRef, autoF
           }}
           aria-label="入力を消す"
           style={{
-            position: 'absolute', top: 0, bottom: 0, right: 0, width: 'var(--btn-h)',
+            position: 'absolute', top: 0, bottom: 0, right: 0, width: 'var(--btn-h)', fontSize: 'inherit',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             background: 'none', border: 'none', padding: 0, cursor: 'pointer',
             color: 'var(--text-3)',
@@ -269,6 +269,7 @@ const listStyle = {
 };
 
 const rowStyle = {
+  fontSize: 'var(--text-body)', // 中のアイコン（› ✓）を文字の大きさに合わせる
   display: 'flex',
   alignItems: 'center',
   gap: 'var(--space-3)',
