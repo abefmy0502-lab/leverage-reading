@@ -270,20 +270,19 @@ function useGoalNudge(enabled, uid) {
 }
 
 function HomeGoalRow({ onOpen, onClose }) {
+  // › はほかの枠の行と同じ縦の中央。× は › の右の別の列（押せる 44・縦は行いっぱい）に置いて、
+  //   進む › と閉じる × を横に離す（右上に重ねると › と近すぎた／› を下にそろえると行ごとに位置が違った・2026-11-18 ui-critic 3 回）。
   return (
-    <div data-home-goal="" style={{ ...card, padding: 0, position: 'relative', overflow: 'hidden' }}>
-      {/* × は右上の 44 に重ねる。 */}
-      <button type="button" onClick={onOpen} aria-label="目標を書く。1 年後・3 年後・5 年後の目標から、読む本を決めます" style={navRow}>
+    <div data-home-goal="" style={{ ...card, padding: 0, display: 'flex', alignItems: 'stretch', overflow: 'hidden' }}>
+      <button type="button" onClick={onOpen} aria-label="目標を書く。1・3・5 年後の目標から、読む本を決めます" style={{ ...navRow, flex: 1, minWidth: 0, width: 'auto', paddingRight: 'var(--space-1)' }}>
         <Compass size="1.2em" aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
         <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-          <span style={{ paddingRight: 'var(--tap-min)', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('目標を書く')}</span>
-          <span style={{ marginTop: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('1 年後・3 年後・5 年後の目標から、読む本を決めます')}</span>
+          <span style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('目標を書く')}</span>
+          <span style={{ marginTop: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('1・3・5 年後の目標から、読む本を決めます')}</span>
         </span>
-        {/* › はほかの枠の行と同じ右の列に置き、下の行（説明）にそろえる＝右上の × と縦に離す（× だけだと閉じるだけの知らせに見え、
-            › を真ん中に置くと × と近すぎた・2026-11-18 ui-critic 2 回）。 */}
-        <ChevronRight size="1.2em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0, alignSelf: 'flex-end', marginBottom: 'var(--space-1)' }} />
+        <ChevronRight size="1.2em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
       </button>
-      <button type="button" onClick={onClose} aria-label="目標の案内を閉じる" style={{ position: 'absolute', top: 0, right: 0, width: 'var(--tap-min)', height: 'var(--tap-min)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)' }}>
+      <button type="button" onClick={onClose} aria-label="目標の案内を閉じる" style={{ width: 'var(--tap-min)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', borderLeft: '1px solid var(--separator)', cursor: 'pointer', color: 'var(--text-3)', padding: 0 }}>
         <X size="1.1em" aria-hidden="true" />
       </button>
     </div>

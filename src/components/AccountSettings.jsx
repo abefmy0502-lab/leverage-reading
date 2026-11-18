@@ -170,6 +170,7 @@ const noteStyle = { fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin
 const rowButtonStyle = {
   width: '100%',
   minHeight: 44,
+  lineHeight: 1.5,
   display: 'flex',
   alignItems: 'center',
   gap: 'var(--space-3)',

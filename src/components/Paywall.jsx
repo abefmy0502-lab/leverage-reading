@@ -768,7 +768,14 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
               style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}
             >
               {priceState === 'loading' ? (
-                planOrder.map((id) => <PlanOption key={id} label={labels[id]} selected={false} placeholder />)
+                // 創業メンバー価格の期間中は、読み込み後と同じ行数の骨組み（年額＝初回価格の 2 行・月額＝無料期間の行つき）
+                //   ＝読み込み後に下が跳ねない（2026-11-18 ui-critic・SPEC §1-3）。中身は隠すので文言は形だけ。
+                planOrder.map((id) => {
+                  const shape = founding.active
+                    ? (id === 'annual' ? { name: labels[id]?.name, intro: { head: '¥0', after: '¥0' } } : { name: labels[id]?.name, price: labels[id]?.price })
+                    : labels[id];
+                  return <PlanOption key={id} label={shape} selected={false} trialNote={founding.active && id !== 'annual' ? '7 日間無料' : ''} placeholder />;
+                })
               ) : (
                 planOrder.map((id) => (
                   <PlanOption
@@ -787,11 +794,19 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
             {/* 創業メンバー（期間中・2026-11-15 オーナー裁定で年額だけに。前は 2026-10-02 コーディネーター裁定の「月額・年額・7 日間無料で
                 始めた人も」）。¥9,800 は年額だけ。特典は値段の約束ではないので、ストアの初回価格が無くても期間中なら出す。
                 あわせて、初回特典は 1 つの Apple ID に 1 回であること（App Store の決まり）。 */}
-            {priceState === 'ready' && founding.active && (
+            {/* 期間中かどうかはストアを待たずに分かるので、読み込み中から出す（読み込み後に下が跳ねない・2026-11-18 ui-critic）。 */}
+            {priceState !== 'failed' && founding.active && (
               <p style={{ ...metaText, ...phraseText, marginTop: 'var(--space-3)' }}>
                 {/* 短く（プランの間の説明が長かった・2026-11-18 ui-critic）。 */}
                 <Phrases>{`${noBreak(founding.endLabel)}までに年額プランを始めた方は創業メンバーです（開発者への直接の窓口・次に作る機能への投票）。`}</Phrases>
               </p>
+            )}
+            {/* 読み込み中は、下の「どちらか一方」の注記の場所を骨組みで取っておく。 */}
+            {priceState === 'loading' && founding.active && (
+              <div aria-hidden="true" style={{ marginTop: 'var(--space-2)', display: 'grid', gap: 'var(--space-1)' }}>
+                <SkeletonBlock width="100%" height="var(--text-meta)" radius="var(--radius)" />
+                <SkeletonBlock width="60%" height="var(--text-meta)" radius="var(--radius)" />
+              </div>
             )}
             {priceState === 'ready' && labels.annual?.intro && labels.monthly?.trial && (
               <p style={{ ...metaText, ...phraseText, marginTop: founding.active ? 'var(--space-2)' : 'var(--space-3)' }}>

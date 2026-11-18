@@ -353,11 +353,13 @@ const quoteRowBtn = (on) => ({
   color: 'var(--text)',
   textAlign: 'left',
   font: 'inherit',
+  opacity: 1, // 読み込み中も薄くしない（押せないことは「変える」の色で伝える・DESIGN §5）
   cursor: on ? 'pointer' : 'default',
 });
-const quoteRowText = (empty) => ({
+// 一文は 2 行まで。「どの本？」の行があるときは 1 行（見本の名前の 2 行目まで最初の画面に収める・2026-11-18 ui-critic）。
+const quoteRowText = (empty, lines = 2) => ({
   display: '-webkit-box',
-  WebkitLineClamp: 2,
+  WebkitLineClamp: lines,
   WebkitBoxOrient: 'vertical',
   overflow: 'hidden',
   fontSize: 'var(--text-body)',
@@ -991,7 +993,7 @@ export default function ShareSheet({
         {/* プレビュー＝外に出る画像そのもの。押すと大きな画像の編集画面（写真を動かす・言葉・表示する項目）。
             左右に振ると隣の重ね方（記録 → 数字 → 一文）。縦の動きはシートのスクロール・下へ振って閉じるに渡す（pan-y）。 */}
         {/* 形の切り替えが「編集」の行にあるとき（52 の高さ）は、プレビューとの間を 12 に（4 だと詰まって見えた・2026-10-11 ui-critic）。 */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: formatInEditRow ? 'var(--space-3)' : 'var(--space-1)' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: formatInEditRow ? 'var(--space-4)' : 'var(--space-1)' }}>
           <button
             type="button"
             onClick={onPreviewClick}
@@ -1066,7 +1068,7 @@ export default function ShareSheet({
                   <span style={{ color: 'var(--text-2)', fontSize: 'var(--text-meta)' }}>
                     {quotePart && chosenMemo ? '画像に入れる一文（メモの一部）' : '画像に入れる一文'}
                   </span>
-                  <span style={quoteRowText(!chosen)}>{chosen ? String(chosen.text || '').trim() : '一文を入れていません'}</span>
+                  <span style={quoteRowText(!chosen || status !== 'ready', showSwitcher ? 1 : 2)}>{chosen ? String(chosen.text || '').trim() : '一文を入れていません'}</span>
                 </span>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', color: status === 'ready' ? 'var(--accent)' : 'var(--text-3)', fontSize: 'var(--text-sub)', fontWeight: 600, flexShrink: 0, alignSelf: 'center' }}>
                   {chosen ? '変える' : '入れる'}
@@ -1126,7 +1128,7 @@ export default function ShareSheet({
         {/* 重ね方の見本（名前は 2 行ぶんの高さでそろえる）と、同じ行の右に形（投稿 4:5／ストーリー 9:16・縦に 2 つ）。
             シートの段を 1 つ減らす（2026-10-10 ui-critic）。透明（形が無い）のときは形を出さない。 */}
         {variants.length > 1 && (
-        <div aria-hidden={yearError || undefined} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: 'var(--space-2)', marginTop: 'var(--space-3)', visibility: yearError ? 'hidden' : 'visible' }}>
+        <div aria-hidden={yearError || undefined} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: 'var(--space-2)', visibility: yearError ? 'hidden' : 'visible' }}>
             {/* 列の幅は名前の字の大きさで決める（文字が大きいときは 3 列＋次の行・形の切り替えは下の行へ回る＝名前が重ならない）。 */}
             {variants.length > 1 && (
             // 列は見本の数で決めた等分（名前の太さ・メニューの開け閉めで幅が動かない・2026-10-10 ui-critic）。

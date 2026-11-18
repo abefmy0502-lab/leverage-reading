@@ -222,7 +222,7 @@ function MorphItem({ phaseKey, collapsed, first, entering = false, onCollapsed, 
   // 2 行目からは上に区切り線（丸の右＝文の頭から右端まで）。
   return (
     <li ref={ref} style={{ listStyle: 'none', position: 'relative' }}>
-      {!first && <span aria-hidden="true" style={{ position: 'absolute', zIndex: 1, top: 0, right: 0, left: 'calc(var(--space-4) + 1.4em + var(--space-2))', fontSize: 'var(--text-body)', borderTop: '1px solid var(--separator)', pointerEvents: 'none' }} />}
+      {!first && <span aria-hidden="true" style={{ position: 'absolute', zIndex: 1, top: 0, right: 0, left: 'calc(var(--space-4) + 0.7em + var(--tap-min) / 2 + var(--space-2))', fontSize: 'var(--text-body)', borderTop: '1px solid var(--separator)', pointerEvents: 'none' }} />}
       {children}
     </li>
   );

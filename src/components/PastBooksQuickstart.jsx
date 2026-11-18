@@ -508,7 +508,8 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
                     ...(searched ? [{
                       label: titlePicked ? '追加しました' : '書名だけで追加',
                       ariaLabel: titlePicked ? `「${searched}」を外す` : `「${searched}」を書名だけで追加`,
-                      variant: 'ghost',
+                      variant: 'secondary',
+                      icon: titlePicked ? <Check size={20} /> : <Plus size={20} />,
                       onClick: () => toggle(titleOnlyBook),
                     }] : []),
                   ]}

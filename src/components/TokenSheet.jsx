@@ -176,8 +176,9 @@ export default function TokenSheet({ plan, onClose, onPurchased }) {
       )}
       <div role="radiogroup" aria-label="追加するトークン" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
         {TOKEN_PACKS.map((p) => {
-          const off = unavailable(p.id);
-          const on = !off && current === p.id && !(showNative && priceState === 'failed');
+          // 価格を読めなかった間は選べない形に（押しても何も変わらない行を残さない・2026-11-18 ui-critic）。
+          const off = unavailable(p.id) || (showNative && priceState === 'failed');
+          const on = !off && current === p.id;
           // 価格の欄: Web は既定の表示・アプリ版はストアの値だけ（読み込み中は骨組み・取れなければ何も出さない）。
           let price = null;
           if (!showNative) price = prices[p.id] || p.fallbackPrice;
@@ -199,6 +200,7 @@ export default function TokenSheet({ plan, onClose, onPurchased }) {
                 border: `1px solid ${on ? 'var(--accent)' : 'var(--separator)'}`,
                 boxShadow: on ? 'inset 0 0 0 1px var(--accent)' : 'none',
                 color: off ? 'var(--text-3)' : 'var(--text)',
+                opacity: 1,
                 cursor: off ? 'default' : 'pointer',
               }}
             >
