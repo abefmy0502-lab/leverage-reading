@@ -349,8 +349,8 @@
   border: 1px solid var(--separator);
   border-radius: var(--radius);
 }
-.plan-cal-head { display: flex; align-items: center; justify-content: space-between; min-height: var(--tap-min); }
-.plan-cal-month { margin: 0; font-size: var(--text-heading); font-weight: 600; } /* 見出しは UI の書体（明朝は読む文章だけ・DESIGN §2・2026-11-18） */
+.plan-cal-head { display: flex; align-items: flex-start; justify-content: space-between; min-height: var(--tap-min); }
+.plan-cal-month { margin: 0; flex: 1; min-width: 0; align-self: center; font-size: min(var(--text-heading), var(--text-heading-max)); font-weight: 600; word-break: keep-all; line-break: strict; } /* 見出しは UI の書体（明朝は読む文章だけ・DESIGN §2・2026-11-18） */
 .plan-cal-nav { display: flex; margin-right: calc(-1 * var(--space-2)); }
 .plan-dow {
   display: grid;

@@ -1195,7 +1195,7 @@ function PlanView({ goal, record, books, sessions, onFindBooks, onOpenBook, onAd
 
       <section className="plan-cal" aria-label="読書計画のカレンダー">
         <div className="plan-cal-head">
-          <h3 className="plan-cal-month" aria-live="polite">{m ? `${m.year} 年 ${m.month + 1} 月` : ''}</h3>
+          <h3 className="plan-cal-month" aria-live="polite">{m ? `${m.year}\u00a0年 ${m.month + 1}\u00a0月` : ''}</h3>
           <div className="plan-cal-nav">
             <button type="button" className="rm-icon-btn" onClick={() => setMi((i) => Math.max(0, i - 1))} disabled={mi === 0} aria-label="前の月"><ChevronLeft size={20} aria-hidden="true" /></button>
             <button type="button" className="rm-icon-btn" onClick={() => setMi((i) => Math.min(months.length - 1, i + 1))} disabled={mi >= months.length - 1} aria-label="次の月"><ChevronRight size={20} aria-hidden="true" /></button>
