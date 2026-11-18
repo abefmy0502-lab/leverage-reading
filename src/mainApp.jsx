@@ -13,6 +13,7 @@ import { installViewportFit } from './lib/viewportFit';
 import { Capacitor } from '@capacitor/core';
 import { prefetchAppParts } from './components/lazyParts';
 import { installPressFeedback } from './lib/pressFeedback';
+import { installTextSizeCap } from './lib/textSizeCap';
 
 // 🧪 開発中だけ: ?crash=1 でエラーの画面（ErrorBoundary）を出す（撮影・確認用・本番では描かない）。
 function CrashProbe() {
@@ -33,6 +34,8 @@ export function mount(rootEl) {
 
   // 👆 指で押した瞬間に押した形を出す（:active が遅れる／付かない端末のため・lib/pressFeedback.js）。
   installPressFeedback();
+  // 🔠 文字の大きさは本文の 2 倍で止める（アクセシビリティの最大でも文節で折り返せる・lib/textSizeCap.js）。
+  installTextSizeCap();
 
   ReactDOM.createRoot(rootEl).render(
     <React.StrictMode>

@@ -1348,7 +1348,7 @@ for (const scheme of ['light', 'dark']) {
     if (process.env.UI_SHOTS_ROOT_PX) {
       const px = Number(process.env.UI_SHOTS_ROOT_PX);
       await ctx.addInitScript((size) => {
-        const put = () => { const st = document.createElement('style'); st.textContent = `html{font-size:${size}px !important}`; document.head.appendChild(st); };
+        const put = () => { const st = document.createElement('style'); st.textContent = `html{font-size:${size}px}`; document.head.appendChild(st); };
         if (document.head) put(); else document.addEventListener('DOMContentLoaded', put);
       }, px);
     }
