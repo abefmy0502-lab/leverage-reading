@@ -186,7 +186,11 @@ describe('運営が選んで足す本（ops_books の add）', () => {
             return api;
           },
           order() { return api; },
-          limit(n) { return Promise.resolve({ data: t.q.filter((r) => st.filters.every(([k, v]) => r[k] === v)).slice(0, n), error: null }); },
+          like(k, p) { st.like = [k, p]; return api; },
+          limit(n) {
+            const okLike = (r) => !st.like || String(r[st.like[0]] || '').startsWith(st.like[1].replace(/%$/, ''));
+            return Promise.resolve({ data: t.q.filter((r) => st.filters.every(([k, v]) => r[k] === v) && okLike(r)).slice(0, n), error: null });
+          },
           update(patch) { st.patch = patch; return api; },
           upsert(rows) { for (const r of rows) t.books.set(r.isbn, { ...(t.books.get(r.isbn) || {}), ...r }); return Promise.resolve({ error: null }); },
         };
@@ -210,6 +214,13 @@ describe('運営が選んで足す本（ops_books の add）', () => {
     expect(db.t.books.get('9784000000007')).toMatchObject({ curated: true, source: 'add' });
     expect(db.t.books.get('9784000000001')).not.toHaveProperty('sales_rank');
     expect(db.t.q.map((x) => x.status)).toEqual(['done', 'done', 'notfound']);
+  });
+  it('賞・年間ベストの印から入れた本（mark:）を先に処理する', async () => {
+    const db = queueDb([{ isbn: '9784000000001' }, { isbn: '9784000000002', note: 'mark:読者が選ぶビジネス書グランプリ' }]);
+    const order = [];
+    const get = async (url) => { const i = new URL(url).searchParams.get('isbn'); order.push(i); return page([item(Number(i.slice(-2)))]); };
+    await queueStep({ db, env, now: () => 0, deadline: 1e9, rakutenGetImpl: get, pause: 0 });
+    expect(order).toEqual(['9784000000002', '9784000000001']);
   });
   it('混んでいたら止めて次の Cron へ（3 回で failed）', async () => {
     const db = queueDb([{ isbn: '9784000000001', attempts: 2 }, { isbn: '9784000000002' }]);
