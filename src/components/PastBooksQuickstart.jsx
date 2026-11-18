@@ -13,6 +13,7 @@
 // 説明の補足文は置かない（§0-6）・選択はアクセント色の丸いチェック（iOS の選択リストの作法）。
 
 import { useEffect, useRef, useState } from 'react';
+import { scrollBehavior } from '../lib/motion';
 import NotifyOptInCard from './NotifyOptInCard';
 import GrowthMeter from './GrowthMeter';
 import { withPhraseBreaks } from './TightBubble';
@@ -226,6 +227,16 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
   const [saveProgress, setSaveProgress] = useState({ done: 0, total: 0 }); // 保存中の進み具合（冊）
   const memoRef = useRef(null);
   const searchRef = useRef(null);
+  // 検索が終わったら、結果（見つからない・検索できなかった）の頭を見える所へ送る（文字が大きいと問いが画面の半分を使い、
+  //   結果が下の固定の欄の下に隠れていた・2026-11-18 文字最大の点検）。動きを減らす設定ではすぐ移る。
+  const resultsRef = useRef(null);
+  useEffect(() => {
+    if (searching || (!searchError && results == null)) return;
+    const el = resultsRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    if (r.top > window.innerHeight * 0.55) el.scrollIntoView({ block: 'start', behavior: scrollBehavior() });
+  }, [searching, results, searchError]);
   // 選んだ本・書いた一言がまだ保存されていない間は、ブラウザの「戻る」でアプリごと離れて消えないようにする。
   useBlockEdgeSwipe((seeded ? picked.some((p) => p.memo.trim()) : picked.length > 0) && (step === 'pick' || step === 'memo' || step === 'saving'));
   // ブラウザ / Android の「戻る」は、左上の ‹ と同じ 1 段だけ戻る（重ねた画面として 1 枚積む・2026-09-29）。
@@ -450,7 +461,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
       {step === 'pick' && (
         <>
           <div style={body}>
-            <h1 style={title}>{withPhraseBreaks('これまで読んで、')}<br />{withPhraseBreaks('印象に残っている本は？')}</h1>
+            <h1 style={title}>{withPhraseBreaks('これまで読んで、')}<br />{withPhraseBreaks('印象に残っている')}<wbr /><span style={{ whiteSpace: 'nowrap' }}>本は？</span></h1>
             {/* 1 文にまとめる（SPEC §1-1）。句のまとまりで折り返す（「はじめられ／ます」と割らない） */}
             {/* 括弧なしの短い 2 文（2026-10-12 ui-critic・句のまとまりで折り返す） */}
             {/* なぜ本を選ぶのか（＝一言が相談の根拠になる）を 1 文で（2026-10-21 ui-critic「冊数の話だけ」）。括弧なし・句のまとまりで折り返す */}
@@ -461,7 +472,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
 
             <div role="search" style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-6)' }}>
               <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
-                <Search size={20} aria-hidden="true"
+                <Search size="1.2em" aria-hidden="true"
                   style={{ position: 'absolute', left: 'var(--space-3)', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)', pointerEvents: 'none' }} />
                 <input
                   value={query}
@@ -473,7 +484,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
                   enterKeyHint="search"
                   autoComplete="off"
                   ref={searchRef}
-                  style={{ ...inputStyle, paddingLeft: 'calc(var(--space-3) + 20px + var(--space-2))', paddingRight: query ? 'var(--space-12)' : undefined }}
+                  style={{ ...inputStyle, paddingLeft: 'calc(var(--space-3) + 1.2em + var(--space-2))', paddingRight: query ? 'var(--space-12)' : undefined }}
                 />
                 {query && (
                   <button
@@ -495,7 +506,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
               )}
             </div>
 
-            <div style={{ marginTop: 'var(--space-4)' }} aria-live="polite">
+            <div ref={resultsRef} style={{ marginTop: 'var(--space-4)', scrollMarginTop: 'var(--space-4)' }} aria-live="polite">
               {searching && <ResultsSkeleton />}
 
               {!searching && searchError && (
@@ -567,8 +578,8 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
                       return (
                         <button key={b.title} type="button" onClick={() => toggle(b)} aria-pressed={on} aria-label={`『${b.title}』${b.author}`} style={pickChip(on)}>
                           {on
-                            ? <Check size={16} aria-hidden="true" style={{ flexShrink: 0 }} />
-                            : <Plus size={16} aria-hidden="true" style={{ flexShrink: 0, color: 'var(--text-2)' }} />}
+                            ? <Check size="0.95em" aria-hidden="true" style={{ flexShrink: 0 }} />
+                            : <Plus size="0.95em" aria-hidden="true" style={{ flexShrink: 0, color: 'var(--text-2)' }} />}
                           {b.title}
                         </button>
                       );
@@ -592,7 +603,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
                   <button key={bookKey(p.book)} type="button" onClick={() => toggle(p.book)} aria-label={`『${p.book.title}』を外す`} style={chipHit}>
                     <span style={chipFace}>
                       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.book.title}</span>
-                      <X size={16} aria-hidden="true" style={{ flexShrink: 0, color: 'var(--text-2)' }} />
+                      <X size="0.95em" aria-hidden="true" style={{ flexShrink: 0, color: 'var(--text-2)' }} />
                     </span>
                   </button>
                 ))}

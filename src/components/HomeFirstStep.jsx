@@ -8,6 +8,7 @@
 //     カードが遅れて差し込まれて、いま読んでいる本が下へ押し出されないように（ui-critic・2026-10-01）
 // 「メモ N 件」の数え方は相談・記録と同じ（カード式＋学び＋「この本のまとめ」の入っている本・lib/consultHelpers.js）。
 // 見た目は DESIGN.md のトークンのみ（主ボタンはこの 1 つ）。
+import { withPhraseBreaks } from './TightBubble';
 import { useEffect, useMemo, useState } from 'react';
 import { supabase, isSupabaseConfigured, isDemo } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
@@ -99,7 +100,7 @@ export default function HomeFirstStep({ bookCount = 0, onQuickstart, onImport })
           文字ボタンの上下の余り（高さ 44）をカードの内側余白と相殺）。開くのは ImportSheet。 */}
       {onImport && (
         <div style={{ display: 'flex', justifyContent: 'center', margin: 'var(--space-3) 0 calc(-1 * var(--space-2))' }}>
-          <button type="button" onClick={onImport} style={btnLink}>ほかのアプリから取り込む</button>
+          <button type="button" onClick={onImport} style={btnLink}><span style={{ wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('ほかのアプリから取り込む')}</span></button>
         </div>
       )}
     </section>

@@ -583,7 +583,7 @@ function InterviewView({ goal, goals, roadmaps, books, sessions, onDone, onCance
               ref={answerRef}
               value={answer}
               onChange={(e) => setAnswer(e.target.value)}
-              placeholder={off ? OFF_PLACEHOLDER : '自分の言葉で答える'}
+              placeholder={off ? OFF_PLACEHOLDER : (parseFloat(getComputedStyle(document.documentElement).fontSize) >= 22 ? '言葉で答える' : '自分の言葉で答える')}
               aria-label={off ? OFF_PLACEHOLDER : '自分の言葉で答える'}
               rows={1}
               maxLength={400}
@@ -718,7 +718,7 @@ function RoadmapView({ goal, record, books, sessions = [], onOpenBook, onAddActi
   const planBtn = (primary, extra = null) => {
     const link = isLink(primary);
     return (
-      <button type="button" className={link ? 'rm-link' : undefined} disabled={choosing} style={!link ? { ...(choosing ? btnPrimaryOff : btnPrimary), marginTop: 'var(--space-4)' } : choosing ? { ...linkStyle, color: 'var(--text-2)', opacity: 1, cursor: 'default', ...extra } : { ...linkStyle, ...(quiet && !primary ? quietColor : null), ...extra }} onClick={onPlan}>読書計画をカレンダーにする</button>
+      <button type="button" className={link ? 'rm-link' : undefined} disabled={choosing} style={!link ? { ...(choosing ? btnPrimaryOff : btnPrimary), marginTop: 'var(--space-4)' } : choosing ? { ...linkStyle, color: 'var(--text-2)', opacity: 1, cursor: 'default', ...extra } : { ...linkStyle, ...(quiet && !primary ? quietColor : null), ...extra }} onClick={onPlan}><span style={{ wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('読書計画をカレンダーにする')}</span></button>
     );
   };
   // 次の 3 か月の決め方を 1 文で（数は「選ぶ冊数」の説明だけ・遅れ・%・あと N 冊は出さない）。
@@ -957,7 +957,7 @@ function RoadmapView({ goal, record, books, sessions = [], onOpenBook, onAddActi
 
       <div className="goal-sec">
         {(planBooks || hasUnread) && (
-          <button type="button" style={btnGhost} onClick={onPlan}>読書計画をカレンダーにする</button>
+          <button type="button" style={btnGhost} onClick={onPlan}><span style={{ wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('読書計画をカレンダーにする')}</span></button>
         )}
         <button type="button" style={{ ...btnLinkQuiet, marginTop: 'var(--space-2)', marginLeft: 'calc(-1 * var(--space-1))' }} onClick={onRebuild}>{`つくり直す（${ROADMAP_TOKENS_LABEL}）`}</button>
         <p className="rm-footnote">{withPhraseBreaks('AI があなたの目標と答えから作った道のりです。合わないところは「直す」で自分の言葉に直せます（トークンは使いません）。')}</p>

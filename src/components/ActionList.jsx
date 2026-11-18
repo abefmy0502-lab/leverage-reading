@@ -462,6 +462,9 @@ function ReflectCard({ a, value, onChange, onSave, saving, onClose, onConsult = 
 // focusAction: 相談の答えから追加した行動の「見る」で来たとき（{ bookId, text, nonce }）。その行まで送って淡く光らせる。
 const prefersReducedMotionSafe = () => { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; } };
 
+// 文字の大きさの設定が大きいとき（ルート 22px 以上）。
+const largeRoot = () => { try { return parseFloat(getComputedStyle(document.documentElement).fontSize) >= 22; } catch { return false; } };
+
 export default function ActionList({ books, onOpenGoals = null, onToggleAction, onReflect, onDeleteAction, onEditAction, onOpenBook, onGoToBooks, onAddAction, onGoConsult, onConsultResult = null, showDoneNonce = null, focusAction = null }) {
   const { allActions, stats } = useAllActions(books);
   const toast = useToast();
@@ -678,8 +681,8 @@ export default function ActionList({ books, onOpenGoals = null, onToggleAction, 
           // 相談へ（主な入口）＋ 自分で書く「行動を追加」（2026-09-29・相談しなくても行動を置ける）。
           actions={[
             ...(onGoConsult ? [{ label: '相談する', icon: <MessageCircle size="1.1em" aria-hidden="true" />, onClick: onGoConsult, variant: 'primary' }] : []),
-            ...(canAdd ? [{ label: '行動を追加', icon: <Plus size={18} aria-hidden="true" />, onClick: onAddAction, variant: onGoConsult ? 'ghost' : 'secondary' }] : []),
-            ...(!onGoConsult && !canAdd && onGoToBooks ? [{ label: '本を追加する', icon: <BookOpen size={18} aria-hidden="true" />, onClick: onGoToBooks, variant: 'secondary' }] : []),
+            ...(canAdd ? [{ label: '行動を追加', icon: <Plus size="1.1em" aria-hidden="true" />, onClick: onAddAction, variant: onGoConsult ? 'ghost' : 'secondary' }] : []),
+            ...(!onGoConsult && !canAdd && onGoToBooks ? [{ label: '本を追加する', icon: <BookOpen size="1.1em" aria-hidden="true" />, onClick: onGoToBooks, variant: 'secondary' }] : []),
           ]}
         />
       </div>
@@ -753,7 +756,7 @@ export default function ActionList({ books, onOpenGoals = null, onToggleAction, 
         {canAdd && (
           // 文が行を埋めて右端に。文字を大きくして次の行へ回ったときは左にそろえる（2026-10-10 ui-critic）。
           // 枠のボタンにせず、見出しの行の文字ボタン（右端の文字をカードの右端にそろえる・2026-10-16 ui-critic）。
-          <button type="button" onClick={onAddAction} style={{ ...btnLink, gap: 'var(--space-1)', marginRight: 'calc(-1 * var(--space-1))', ...(weekLine.total > 0 || open.length > 0 ? null : { marginLeft: 'auto' }) }}>
+          <button type="button" onClick={onAddAction} style={{ ...btnLink, gap: 'var(--space-1)', marginRight: 'calc(-1 * var(--space-1))', ...(weekLine.total > 0 || open.length > 0 ? (largeRoot() ? { marginLeft: 'calc(-1 * var(--space-2))' } : null) : { marginLeft: 'auto' }) }}>
             <Plus size="1.2em" aria-hidden="true" />追加
           </button>
         )}
@@ -792,8 +795,9 @@ export default function ActionList({ books, onOpenGoals = null, onToggleAction, 
           <GroupSection key={g.key} collapsing={collapsing} entering={entering} aria-labelledby={`act-${g.key}`}>
             {/* 期限切れが多い（3 件以上）ときだけ、見出しの右に「期限を見直す」（責めない・見出しは 1 つ）。 */}
             {g.key === 'overdue' && overdueCount >= 3 && onEditAction ? (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', margin: 'calc(-1 * var(--space-3)) 0 calc(var(--space-2) - var(--space-3))' }}>
-                <h2 id={`act-${g.key}`} style={{ ...uiGroupTitle }}>{g.label}（{overdueCount}）</h2>
+              // 文字が大きいときは「期限を見直す」を見出しの下へ回す（「期限を見／直す」と割れていた・2026-11-18 文字最大の点検）。
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', columnGap: 'var(--space-3)', rowGap: 0, margin: `${largeRoot() ? '0' : 'calc(-1 * var(--space-3))'} 0 calc(var(--space-2) - var(--space-3))` }}>
+                <h2 id={`act-${g.key}`} style={{ ...uiGroupTitle }}>{g.label}<span style={{ whiteSpace: 'nowrap' }}>（{overdueCount}）</span></h2>
                 <button
                   type="button"
                   onClick={() => {
@@ -802,7 +806,7 @@ export default function ActionList({ books, onOpenGoals = null, onToggleAction, 
                     const a = list[0];
                     if (a) onEditAction(a.bookId, a.actionIdx, a, { queue: list.slice(1), total: list.length });
                   }}
-                  style={{ ...btnLink, marginRight: 'calc(-1 * var(--space-1))' }}
+                  style={{ ...btnLink, whiteSpace: 'nowrap', marginRight: 'calc(-1 * var(--space-1))', ...(largeRoot() ? { marginLeft: 'calc(-1 * var(--space-1))' } : null) }}
                 >
                   期限を見直す
                 </button>

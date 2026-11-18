@@ -201,8 +201,11 @@ const CHART_RADIUS = 3;
 // 読んだ本・メモ・実行した行動の 3 つの数（2026-10-16 ui-critic「→ と › が並ぶ図解に見える」）:
 //   矢印はやめ、縦の細い線で 3 等分した列に。数は左寄せで大きく、その下に名前と ›（押すとその一覧）。
 function FlowRow({ cells }) {
+  // 文字が大きいとき（ルート 22px 以上）は 3 列に収まらないので、縦に積んで上の線で区切る
+  //  （「305」が隣の列に重なり、「実行し／た」と割れていた・2026-11-18 文字最大の点検）。
+  const stacked = (() => { try { return parseFloat(getComputedStyle(document.documentElement).fontSize) >= 22; } catch { return false; } })();
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cells.length}, minmax(0, 1fr))`, marginTop: 'var(--space-3)' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: stacked ? '1fr' : `repeat(${cells.length}, minmax(0, 1fr))`, marginTop: 'var(--space-3)' }}>
       {cells.map((c, i) => {
         const inner = (
           <>
@@ -216,7 +219,11 @@ function FlowRow({ cells }) {
             </span>
           </>
         );
-        const base = {
+        const base = stacked ? {
+          display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-1)', minWidth: 0,
+          padding: i === 0 ? '0 0 var(--space-3)' : 'var(--space-3) 0', borderLeft: 'none',
+          boxShadow: i === 0 ? 'none' : 'inset 0 1px 0 var(--separator)', textAlign: 'left',
+        } : {
           display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-1)', minWidth: 0,
           paddingLeft: i === 0 ? 0 : 'var(--space-3)', paddingRight: i === cells.length - 1 ? 0 : 'var(--space-2)',
           borderLeft: i === 0 ? 'none' : '1px solid var(--separator)', textAlign: 'left',
@@ -227,7 +234,7 @@ function FlowRow({ cells }) {
             type="button"
             onClick={c.onClick}
             aria-label={`${c.label} ${c.value}。一覧を見る`}
-            style={{ ...base, minHeight: 44, background: 'none', borderTop: 'none', borderRight: 'none', borderBottom: 'none', paddingTop: 0, paddingBottom: 0, cursor: 'pointer', fontFamily: 'inherit' }}
+            style={{ ...base, minHeight: 'var(--tap-min)', background: 'none', borderTop: 'none', borderRight: 'none', borderBottom: 'none', ...(stacked ? null : { paddingTop: 0, paddingBottom: 0 }), cursor: 'pointer', fontFamily: 'inherit' }}
           >
             {inner}
           </button>

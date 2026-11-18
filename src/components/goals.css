@@ -367,15 +367,16 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: var(--space-6);
-  height: var(--space-6);
-  border-radius: 50%;
+  /* 文字と一緒に大きくなる（文字最大で「18」が 24 の丸からはみ出して読めなかった・2026-11-18） */
+  min-width: max(var(--space-6), 1.8em);
+  height: max(var(--space-6), 1.8em);
+  border-radius: 999px;
   color: var(--text);
 }
 .plan-day.is-out > span,
 .plan-day.is-past > span { color: var(--text-3); }
 .plan-day.is-today > span { background: var(--text); color: var(--bg); font-weight: 600; }
-.plan-lane { position: relative; height: var(--space-6); margin: var(--space-1) 0; }
+.plan-lane { position: relative; height: max(var(--space-6), 1.4em); margin: var(--space-1) 0; }
 .plan-band {
   position: absolute;
   top: 0;
@@ -480,7 +481,7 @@
 .goal-trio-fold > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
 .goal-trio-first { display: block; }
 .goal-trio-first .goal-text { display: block; font-size: var(--text-body); }
-.goal-text-clamp { display: -webkit-box !important; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.goal-text-clamp { display: -webkit-box !important; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
 .goal-trio-fold[open] .goal-text-clamp { -webkit-line-clamp: unset; }
 .goal-trio-more {
   display: inline-flex; align-items: center; gap: var(--space-1);

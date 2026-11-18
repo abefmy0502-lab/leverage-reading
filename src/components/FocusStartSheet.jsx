@@ -92,7 +92,8 @@ export default function FocusStartSheet({ book = null, onStart, onClose, initial
           {/* 1 つを選ぶので、タイマー｜計測 と同じ溝と面（2026-11-18 ui-critic「栗色の面のチップと選び方が違う」）。
               「時刻まで」は溝の中の 2 行目を全幅で（5 つ並べると文字を大きくしたときに詰まる・2026-10-10 ui-critic）。 */}
           <div role="radiogroup" aria-labelledby="focus-min-title" style={{ ...segTrack, flexDirection: 'column' }}>
-            <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+            {/* 文字が大きくて 4 つが入らないときは 2 つずつ 2 段（選んだ面と字が詰まっていた・2026-11-18 文字最大の点検）。 */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 4.5em), 1fr))', gap: 'var(--space-1)' }}>
               {FOCUS_MINUTES.map((m) => (
                 <button key={m} type="button" role="radio" tabIndex={mode === 'timer' ? undefined : -1} aria-checked={!useUntil && minutes === m} aria-label={`${m} 分`} onClick={() => pickMinutes(m)} style={seg(!useUntil && minutes === m)}>
                   {m} 分

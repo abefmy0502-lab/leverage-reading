@@ -4719,7 +4719,7 @@ function AuthedApp() {
     // 詳細画面の部品（DESIGN.md のトークンのみ）。
     const cardStyle = { background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4)' };
     const detailsStyle = { ...cardStyle, marginTop: 'var(--space-3)', padding: '0 var(--space-4)' };
-    const summaryStyle = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', minHeight: 'var(--btn-h)', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', cursor: 'pointer', listStyle: 'none' };
+    const summaryStyle = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', minHeight: 'var(--btn-h)', paddingBlock: 'var(--space-2)', boxSizing: 'border-box', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', cursor: 'pointer', listStyle: 'none' };
     // 見出し「メモ」「行動」「読書計画」は同じ形（20・600・下 8）。
     const detailH2Style = { fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', margin: '0 0 var(--space-2)', lineHeight: 1.3 };
     // 押せる行（この本に相談する）の中の文字ボタンの縦の余り（高さ 44 のうち文字の上下）を詰める。
@@ -5144,13 +5144,14 @@ function AuthedApp() {
               2026-11-09: 書名の列の中から出して、表紙と書名の下の全幅の行に（表紙の下が空いたまま「読む」だけが右の列の左端に浮いていた＝
               オーナーの iPhone の画面・ui-critic の提案。ボタンは行いっぱいに伸ばし、目安を決めていないときはその右に「読む時間の目安 ▾」）。 */}
               {current.status === 'reading' && (
-                <div style={{ display: 'flex', alignItems: 'center', columnGap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
+                // 文字が大きくて入らないときは「読む時間の目安 ▾」を次の行へ（「読／む」と割れていた・2026-11-18 文字最大の点検）。
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 'var(--space-3)', rowGap: 'var(--space-2)', marginTop: 'var(--space-4)' }}>
                 <button
                   type="button"
                   onClick={() => openFocusStart(current)}
                   aria-label={`『${current.title}』を読む（集中モード）`}
                   data-focus-entry=""
-                  style={{ ...btnTonal, flex: '1 1 0', minWidth: 0, justifyContent: 'center' }}
+                  style={{ ...btnTonal, flex: '1 0 auto', minWidth: 0, whiteSpace: 'nowrap', justifyContent: 'center' }}
                 >
                   <Timer size="1.1em" strokeWidth={1.75} aria-hidden="true" style={{ flexShrink: 0 }} />読む
                 </button>
@@ -5342,7 +5343,7 @@ function AuthedApp() {
           {current.status === 'done' && !(current.roiSummary || '').trim() && doneQuestionsNow.length === 0 && (currentMemoOps.memos || []).length > 0 && (
             // 上の行動の区画は下の余りを負の余白で詰めているので、ほかの区画の間（24）より広く 32 を取って区切る（2026-10-11 第 2 回の採点）。
             <div style={{ ...cardStyle, marginTop: 'var(--space-8)' }}>
-              <p style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', margin: 0 }}>一番の収穫を 1 行だけ残す</p>
+              <p style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('一番の収穫を 1 行だけ残す')}</p>
               <button type="button" onClick={() => openEdit(current)} style={textBtnInCard}>
                 1 行を書く
               </button>
@@ -6517,7 +6518,7 @@ function AuthedApp() {
                     icon={<IcLibrary size={34} aria-hidden="true" />}
                     title="最初の 1 冊から"
                     actions={[
-                      { label: '本を追加', onClick: openAdd, variant: 'primary', icon: <IcPlus size={18} aria-hidden="true" /> },
+                      { label: '本を追加', onClick: openAdd, variant: 'primary', icon: <IcPlus size="1.2em" aria-hidden="true" /> },
                     ]}
                     // 脇の入口は「読んだ本に一言ずつ残す」（ホームの本 0 冊と同じ入口・無料で使える）。
                     // AI 選書は有料プランだけなので、最初の一歩には出さない。

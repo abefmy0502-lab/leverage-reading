@@ -18,7 +18,7 @@
 import { clearDeviceData } from '../lib/deviceData';
 import { readingSessions } from '../hooks/useReadingSessions';
 import { TERMS_URL, PRIVACY_URL, SCT_URL } from '../lib/legalLinks';
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { supabase, isSupabaseConfigured, isDemo } from '../lib/supabase';
 import { SUPPORT_EMAIL } from '../lib/contact';
@@ -231,31 +231,40 @@ function SettingRow({ title, desc, extra, control, style }) {
 // 値を右に出すだけの行（状態・次回更新など）。
 // sub: 値の下に小さく 1 行（無料プランの「M月1日に 30 トークンに戻ります」など）。
 // onClick: 行全体を押せる（右に ›・トークンの残りの行＝トークンの使い方を開く・2026-10-11）。ariaLabel はそのときの読み上げ。
+// 値の文字を、割ってはいけない塊（「2027年」「3月19日」「800 /」「800 トークン」）ごとに 1 つの nowrap にして並べる
+//   （文字最大で「800 /／800／トークン」「2027年3月／19日」と割れていた・2026-11-18）。文字列でなければそのまま。
+function valueChunks(value) {
+  if (typeof value !== 'string') return value;
+  const parts = value.split(/(?<=年)|(?<= \/) /).filter(Boolean);
+  return parts.map((p, i) => <Fragment key={i}>{i > 0 && <wbr />}<span style={{ whiteSpace: 'nowrap' }}>{p}</span></Fragment>);
+}
+
 function ValueRow({ label, value, sub = null, style, onClick = null, ariaLabel }) {
   const inner = (
     <>
       <span style={{ fontSize: 'var(--text-body)', color: 'var(--text)', flexShrink: 0 }}>{label}</span>
       {sub ? (
         <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', minWidth: 0, textAlign: 'right', marginLeft: onClick ? 'auto' : 0 }}>
-          <span style={{ fontSize: 'var(--text-body)', color: 'var(--text-2)' }}>{value}</span>
+          <span style={{ fontSize: 'var(--text-body)', color: 'var(--text-2)' }}>{valueChunks(value)}</span>
           {/* 2 行目は割らない塊（nowrap の span）ごとに折り返す。文まるごと nowrap だと見出しに重なった（2026-10-30 ui-critic） */}
           <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, minWidth: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{sub}</span>
         </span>
       ) : (
-        <span style={{ fontSize: 'var(--text-body)', color: 'var(--text-2)', textAlign: 'right', marginLeft: onClick ? 'auto' : 0 }}>{value}</span>
+        // 入らないときは名前の下の行へ回る（右寄せ・iOS の値つきの行と同じ）。
+        <span style={{ fontSize: 'var(--text-body)', color: 'var(--text-2)', textAlign: 'right', marginLeft: 'auto', minWidth: 0 }}>{valueChunks(value)}</span>
       )}
       {onClick && <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0, marginLeft: 'calc(-1 * var(--space-1))' }} />}
     </>
   );
   if (onClick) {
     return (
-      <button type="button" onClick={onClick} aria-label={ariaLabel} style={{ ...rowButtonStyle, justifyContent: 'space-between', ...style }}>
+      <button type="button" onClick={onClick} aria-label={ariaLabel} style={{ ...rowButtonStyle, justifyContent: 'space-between', flexWrap: 'wrap', rowGap: 'var(--space-1)', ...style }}>
         {inner}
       </button>
     );
   }
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', minHeight: 'var(--tap-min)', padding: 'var(--space-3) 0', lineHeight: 1.5, ...style }}>
+    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', columnGap: 'var(--space-3)', rowGap: 'var(--space-1)', minHeight: 'var(--tap-min)', padding: 'var(--space-3) 0', lineHeight: 1.5, ...style }}>
       {inner}
     </div>
   );
@@ -981,7 +990,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
           <Group ariaLabel="ログイン中のアカウント">
             <div style={{ padding: 'var(--space-3) 0' }}>
               <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: 0, lineHeight: 1.5 }}>ログイン中</p>
-              <p style={{ fontSize: 'var(--text-body)', color: 'var(--text)', margin: 0, lineHeight: 1.5, overflowWrap: 'anywhere' }}>{user?.email || '(未取得)'}</p>
+              <p style={{ fontSize: 'var(--text-body)', color: 'var(--text)', margin: 0, lineHeight: 1.5, overflowWrap: 'anywhere' }}>{user?.email ? user.email.split('@').map((p, i) => <Fragment key={i}>{i > 0 && <><wbr />@</>}{p}</Fragment>) : '(未取得)'}</p>
             </div>
           </Group>
 

@@ -56,7 +56,7 @@ const foldStyle = { ...cardStyle, padding: '0 var(--space-4)' };
 const cardTitle = { fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)', margin: 0, lineHeight: 1.3 };
 const foldSummary = {
   display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)',
-  minHeight: 'var(--btn-h)', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', cursor: 'pointer', listStyle: 'none',
+  minHeight: 'var(--btn-h)', paddingBlock: 'var(--space-2)', boxSizing: 'border-box', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', cursor: 'pointer', listStyle: 'none',
 };
 // 紹介文＝読む文章（明朝 18・行間 1.6・文節で折り返す・DESIGN §2）。
 const descStyle = {

@@ -98,6 +98,8 @@ const answerChip = {
   overflowWrap: 'anywhere',
 };
 // 問いのカードの脇役の文字ボタン（前の問いに戻る・このくらいで探して）。栗色にしない＝控えめな文字ボタン（DESIGN §5）。
+// 文字の大きさの設定が大きいとき（ルートの文字 22px 以上）。入力欄の例を短くする（右の送るボタンの横で 1 行に収める）。
+const isLargeText = () => { try { return parseFloat(getComputedStyle(document.documentElement).fontSize) >= 22; } catch { return false; } };
 const quietLink = uiBtnLinkQuiet;
 // 答えた問い（会話の流れとして残す・いまの問いより控えめ＝15/--text-2）。
 const askedText = { fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.6, margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere', textWrap: 'pretty' };
@@ -1751,9 +1753,9 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
             <span className="ai-thinking-dot" aria-hidden="true" />
             <span>
               {/* 待っている間の文は、いま何をしているかを 1 つだけ言う（2026-09-29・2026-10-08）。 */}
-              {interviewAnswers.length === 0 ? 'あなたに聞くことを考えています…'
+              {withPhraseBreaks(interviewAnswers.length === 0 ? 'あなたに聞くことを考えています…'
                 : interviewAnswers[interviewAnswers.length - 1]?.unsure ? '答えやすい聞き方を考えています…'
-                  : '次に聞くことを考えています…'}
+                  : '次に聞くことを考えています…')}
             </span>
           </div>
           <div className="ai-skeleton" aria-label="問いを準備中" style={{ marginTop: 'var(--space-2)' }}>
@@ -1814,7 +1816,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
               ref={answerRef}
               value={answerText}
               onChange={(e) => setAnswerText(e.target.value)}
-              placeholder={answerOff ? OFF_PLACEHOLDER : '自分の言葉で答える'}
+              placeholder={answerOff ? OFF_PLACEHOLDER : (isLargeText() ? '言葉で答える' : '自分の言葉で答える')}
               rows={1}
               maxLength={LIMITS.advisorAnswer}
               aria-label={answerOff ? OFF_PLACEHOLDER : '自分の言葉で答える'}

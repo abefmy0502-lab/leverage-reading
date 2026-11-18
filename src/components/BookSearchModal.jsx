@@ -226,7 +226,7 @@ export function BookSearchField({ id, value, onChange, onSubmit, inputRef, autoF
           }}
           aria-label="入力を消す"
           style={{
-            position: 'absolute', top: 0, right: 0, width: 48, height: 48,
+            position: 'absolute', top: 0, bottom: 0, right: 0, width: 'var(--btn-h)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             background: 'none', border: 'none', padding: 0, cursor: 'pointer',
             color: 'var(--text-3)',

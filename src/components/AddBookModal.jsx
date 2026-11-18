@@ -42,9 +42,10 @@ const overlayClosingAnim = 'leverage-sheet-down var(--duration-fast) var(--ease-
 
 const headerStyle = {
   display: 'grid',
-  gridTemplateColumns: '1fr auto 1fr',
+  // 右の「キャンセル」は割らない（文字最大で「キャン／セル」と割れていた・2026-11-18）。題は真ん中の列で縮む。
+  gridTemplateColumns: 'minmax(0, 1fr) auto minmax(max-content, 1fr)',
   alignItems: 'center',
-  minHeight: 44,
+  minHeight: 'var(--tap-min)',
   padding: 'var(--space-1) var(--space-4)',
   borderBottom: '1px solid var(--separator)',
 };
@@ -468,6 +469,7 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
           onClick={closeAnimated}
           style={{
             justifySelf: 'end',
+            whiteSpace: 'nowrap',
             minWidth: 'var(--tap-min)',
             minHeight: 'var(--tap-min)',
             padding: 0,
@@ -513,7 +515,7 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
           {/* カメラが使える環境だけ（使えない環境ではボタン自体を出さない）。 */}
           {BARCODE_SUPPORTED && (
             <button type="button" onClick={() => setScanning(true)} style={btnGhost}>
-              <ScanBarcode size={20} aria-hidden="true" />
+              <ScanBarcode size="1.2em" aria-hidden="true" />
               バーコードで探す
             </button>
           )}

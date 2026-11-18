@@ -84,7 +84,7 @@ function StartCard({ onQuickstart, onAddBook, onAdvisor, onImport }) {
         <div style={{ display: 'flex', justifyContent: 'center', margin: 'var(--space-3) 0 calc(-1 * var(--space-2))' }}>
           {/* 1 行に収まる短い名前（「読書メー／ター」「取り／込む」のように語の途中で割れていた・2026-09-29）。
               どのアプリから取り込めるかは、開いたシートの題名の下で言う。設定の「ほかのアプリから取り込む」と同じ名前。 */}
-          <button type="button" onClick={onImport} style={textRow}>ほかのアプリから取り込む</button>
+          <button type="button" onClick={onImport} style={textRow}><span style={{ wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('ほかのアプリから取り込む')}</span></button>
         </div>
       ) : onAdvisor ? (
         <div style={{ display: 'flex', justifyContent: 'center', margin: 'var(--space-3) 0 calc(-1 * var(--space-2))' }}>
@@ -138,7 +138,7 @@ function ReadLink({ book: b, onRead }) {
       aria-label={`『${b.title}』を読む（集中モード）`}
       data-focus-entry=""
       // 主役は「メモを書く」1 つ（SPEC §1）。読むは控えめな文字ボタン（面にしない・2026-10-21 ui-critic「主役が 2 つに見える」）。
-      style={{ ...btnLinkQuiet, gap: 'var(--space-1)' }}
+      style={{ ...btnLinkQuiet, gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}
     >
       <Timer size="1.1em" strokeWidth={1.75} aria-hidden="true" style={{ flexShrink: 0 }} />読む
     </button>
@@ -184,7 +184,8 @@ function ReadingNow({ books, onOpenBook, onWriteMemo, onStartReading, onAddBook,
           文字ボタンの右の 4 を打ち消して、文字の右端をカードの右端にそろえる。 */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', columnGap: 'var(--space-3)', flexWrap: 'wrap', margin: '0 calc(-1 * var(--space-1)) var(--space-2) 0' }}>
         <h2 id="home-reading-title" style={{ ...sectionTitle, margin: 0 }}>{heading}</h2>
-        <button type="button" onClick={onAddBook} style={{ ...btnLink, gap: 'var(--space-1)' }}>
+        {/* 見出しの下に折り返したときも左端を見出しにそろえる（＋ の内側の空きと文字ボタンの左の余白のぶん左へ・文字最大の点検 2026-11-18） */}
+        <button type="button" onClick={onAddBook} style={{ ...btnLink, gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-2))' }}>
           <Plus size="1.2em" aria-hidden="true" />本を追加
         </button>
       </div>

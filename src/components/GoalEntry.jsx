@@ -21,7 +21,7 @@ export default function GoalEntry({ onOpen }) {
           <span className="goal-entry-text" style={{ marginTop: 0 }}>{withPhraseBreaks('1 年後・3 年後・5 年後の目標を書く')}</span>
           <span className="goal-entry-next">{withPhraseBreaks('目標から、読む本と読む順番を決めます')}</span>
         </span>
-        <ChevronRight className="goal-entry-chev" size={20} aria-hidden="true" />
+        <ChevronRight className="goal-entry-chev" size="1.1em" aria-hidden="true" />
       </button>
     );
   }
@@ -40,11 +40,11 @@ export default function GoalEntry({ onOpen }) {
   return (
     <button type="button" className="goal-entry" onClick={() => onOpen?.({ view: rm && !overdue ? 'roadmap' : 'goals', horizon: rm && !overdue ? ALL_GOALS_KEY : null })}>
       <span className="goal-entry-body">
-        <span className="goal-entry-label">{`${h.label}の目標 · ${fmtGoalDeadlineNow(g.at, h.years, now)}`}</span>
+        <span className="goal-entry-label"><span style={{ whiteSpace: 'nowrap' }}>{`${h.label}の目標`}</span>{' · '}<span style={{ whiteSpace: 'nowrap' }}>{fmtGoalDeadlineNow(g.at, h.years, now)}</span></span>
         <span className="goal-entry-text">{g.text}</span>
         <span className="goal-entry-next">{withPhraseBreaks(next)}</span>
       </span>
-      <ChevronRight className="goal-entry-chev" size={20} aria-hidden="true" />
+      <ChevronRight className="goal-entry-chev" size="1.1em" aria-hidden="true" />
     </button>
   );
 }

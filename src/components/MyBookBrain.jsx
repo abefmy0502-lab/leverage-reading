@@ -2272,7 +2272,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             {/* 数える単位は「AI の答え」（1 回 約 10 トークン・2026-10-09）。 */}
             {/* 🌱 無料プランのはじめの月は「（はじめの月）」を添える（数は言わない＝60 を 2 回言わない・2026-10-11）。 */}
             {/* 無料プランでトークンの数を出さないときは「AI の答えは今月あと約 N 回 ›」（何の数かを言う・2026-10-11 ui-critic・2026-10-13 に言い回しを直した＝「今月の残り AI の答え」は読みにくかった）。 */}
-            {tokensRemaining != null && tokensRemaining + (purchasedTokens || 0) > 0 && <span style={{ display: 'block' }}><span style={{ whiteSpace: 'nowrap' }}>{`AI の答えは${plan !== 'trial' && !showFreeTokenCount(tokensRemaining + (purchasedTokens || 0)) ? '今月' : ''}あと${remainingAnswersLabel(tokensRemaining + (purchasedTokens || 0))}`}</span>{freeMode && freeFirstMonth && <span style={{ whiteSpace: 'nowrap' }}>（はじめの 2 か月）</span>}{tokenChevron}</span>}
+            {tokensRemaining != null && tokensRemaining + (purchasedTokens || 0) > 0 && <span style={{ display: 'block' }}><span style={{ whiteSpace: 'nowrap' }}>{`AI の答えは${plan !== 'trial' && !showFreeTokenCount(tokensRemaining + (purchasedTokens || 0)) ? '今月' : ''}あと${remainingAnswersLabel(tokensRemaining + (purchasedTokens || 0))}`}{!(freeMode && freeFirstMonth) && tokenChevron}</span>{freeMode && freeFirstMonth && <span style={{ whiteSpace: 'nowrap' }}>（はじめの 2 か月）{tokenChevron}</span>}</span>}
           </span>
           </button>
         )}
@@ -2299,7 +2299,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     // 行動が決まったあとは、特定の続きを言わない汎用の文（2026-10-10 第 9 回 総点検）。
     : lastHasAction ? '続けて相談する'
     // 会話が始まると入力欄の左に 44 のボタンが入るので、短い例（16 字だと「うまくいか／ない」と割れて 2 行になった・2026-11-18 ui-critic）。
-    : threadActive && !isNoInfoAnswer(lastVisible) ? '続けて聞く' : messages.length > 0 ? '例：報告がうまくいかない' : '例：上司への報告がうまくいかない';
+    : threadActive && !isNoInfoAnswer(lastVisible) ? '続けて聞く' : messages.length > 0 ? (largeText ? '例：報告が遅れる' : '例：報告がうまくいかない') : (largeText ? '例：報告が遅れる' : '例：上司への報告がうまくいかない');
   // 描く前に高さを合わせる（useEffect だと、送ったあとに「消えた文字の高さのまま 1 回描く → 縮む」で
   // 入力欄が 2 回動いていた）。文字の大きさが変わったときも測り直す（hooks/useComposerHeight.js・2026-10-08 ui-critic）。
   useComposerHeight(inputRef, input, view === 'chat', composerPlaceholder);
@@ -2330,7 +2330,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 <ChevronLeft size={20} aria-hidden="true" />相談
               </button>
             </div>
-            <h2 style={{ flex: 1, minWidth: 0, margin: 0, textAlign: 'center', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3 }}>{viewTitle}</h2>
+            {/* 題は戻ると同じ上限（文字最大でも 1 行の上の行・「過去の相／談」と割れていた・2026-11-18） */}
+            <h2 style={{ flex: 1, minWidth: 0, margin: 0, textAlign: 'center', fontSize: 'min(var(--text-body), var(--text-bar-max))', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(viewTitle)}</h2>
             {/* 左の戻ると同じ幅で、題名を画面中央に。過去の相談だけ、右端に「…」（すべて削除はこの中＝一番目立つ場所に赤を置かない）。 */}
             {view === 'history' && historyGroups.length > 0 ? (
               <div style={{ width: 96, flexShrink: 0, display: 'flex', justifyContent: 'flex-end' }}>
@@ -3071,8 +3072,8 @@ function FirstAnswerTrialCard({ text, onOpen, onDismiss, onSeen = null, style = 
 function FreeUsedCard({ tokenAllowance, onOpen, cta = 'プランを見る', trial = '', primary = true, afterAnswer = false, onUsage = null, style = null }) {
   return (
     <section aria-label="今月のトークンは、ここまで" style={{ ...cardStyle, ...style }}>
-      <p style={{ margin: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5 }}>
-        今月のトークンは、ここまでです
+      <p style={{ margin: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+        {withPhraseBreaks('今月のトークンは、ここまでです')}
       </p>
       <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
         <span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}</span>に <span style={{ whiteSpace: 'nowrap' }}>{fmtTokens(tokenAllowance)} トークン</span>に戻ります。{withPhraseBreaks('それまでは、あなたのメモから探して答えます。')}

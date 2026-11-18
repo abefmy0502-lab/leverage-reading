@@ -1501,7 +1501,10 @@ body.keyboard-open .app-top-bar--fold > * {
 
 .ai-thinking {
   display: inline-flex;
-  align-items: center;
+  /* 文が 2 行になっても点は 1 行目の中央に（文字最大で 2 行の真ん中に浮いていた・2026-11-18） */
+  align-items: flex-start;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
   gap: var(--space-2);
   font-size: var(--text-sub);
   color: var(--text-2);
@@ -1512,6 +1515,8 @@ body.keyboard-open .app-top-bar--fold > * {
 .ai-thinking-dot {
   width: 8px;
   height: 8px;
+  flex-shrink: 0;
+  margin-top: calc((1.5em - 8px) / 2);
   border-radius: 50%;
   /* 飾りなので栗色は使わない（DESIGN §3-2: アクセントは主ボタン・リンク・選択中・入力中だけ）。 */
   background: var(--text-3);

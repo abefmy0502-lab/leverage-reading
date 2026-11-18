@@ -1070,7 +1070,7 @@ export default function ShareSheet({
                   <span style={{ color: 'var(--text-2)', fontSize: 'var(--text-meta)' }}>
                     {quotePart && chosenMemo ? '画像に入れる一文（メモの一部）' : '画像に入れる一文'}
                   </span>
-                  <span style={quoteRowText(!chosen || status !== 'ready', showSwitcher ? 1 : 2)}>{chosen ? String(chosen.text || '').trim() : '一文を入れていません'}</span>
+                  <span style={quoteRowText(!chosen || status !== 'ready', showSwitcher && !largeText ? 1 : 2)}>{chosen ? String(chosen.text || '').trim() : '一文を入れていません'}</span>
                 </span>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', color: status === 'ready' ? 'var(--accent)' : 'var(--text-3)', fontSize: 'var(--text-sub)', fontWeight: 600, flexShrink: 0, alignSelf: 'center' }}>
                   {chosen ? '変える' : '入れる'}
@@ -1102,7 +1102,7 @@ export default function ShareSheet({
             </button>
             {/* 「編集」を出さない（画像を作れなかった）ときは左に寄せる（右に浮いて左が大きく空いた・2026-11-18 ui-critic）。 */}
             {(formatInEditRow || photo) && (
-            <div style={{ display: 'flex', alignItems: 'center', columnGap: 'var(--space-3)', marginLeft: status === 'error' ? 0 : 'auto' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 'var(--space-3)', rowGap: 'var(--space-1)', marginLeft: status === 'error' ? 0 : 'auto' }}>
             {formatInEditRow && formatSwitch}
             {photo && (
               // 背景（写真・フィルム・紙…）と、撮り直す・アルバムから選ぶは「背景：写真 ▾」のメニュー 1 つに（2026-10-10）。
@@ -1112,7 +1112,7 @@ export default function ShareSheet({
                 aria-expanded={!!bgMenu}
                 onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setBgMenu({ x: r.right - 8, y: r.top - 8 }); }}
                 // 控えめな文字ボタン（栗色は「一文を選ぶ」「編集」と主ボタンに残す・2026-10-10 ui-critic）。
-                style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginRight: 'calc(-1 * var(--space-1))' }}
+                style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', whiteSpace: 'nowrap', marginRight: 'calc(-1 * var(--space-1))' }}
               >
                 {`背景：${STYLE_LABELS[effStyle]}`}
                 <ChevronDown size="1.1em" aria-hidden="true" />

@@ -141,7 +141,7 @@ const PLAN_COMPARE = [
   // 写真から書き起こしは無料プランでも毎月 10 回（トークンとは別・2026-10-02）。
   // 無料プランの AI は 相談・この本で学べること・写真から書き起こし（2026-10-11 リリース前点検で並べた）。
   // 払うのは「AI の答えの回数」（会話で行動まで届く量）なので回数を主に、トークンは脇（2026-10-21 ui-critic・GLOSSARY「量の目安は AI の答え 約 N 回」）。
-  { name: '無料プラン（ずっと無料）', amount: `AI の答え ${answerCountLabel(FREE_TOKENS)}`, amountNote: `（はじめの 2 か月は${answerCountLabel(FREE_FIRST_MONTH_TOKENS)}）`, lead: 'AI：', items: ['相談', 'この本で学べること', `写真から書き起こし 毎月 ${FREE_OCR_PER_MONTH} 回`], more: ['メモ', '記録', '振り返り', '写真で共有'] },
+  { name: '無料プラン（ずっと無料）', amount: `AI の答え ${answerCountLabel(FREE_TOKENS)}`, amountNote: `（はじめの 2 か月は${noBreak(answerCountLabel(FREE_FIRST_MONTH_TOKENS))}）`, lead: 'AI：', items: ['相談', 'この本で学べること', `写真から書き起こし 毎月 ${FREE_OCR_PER_MONTH} 回`], more: ['メモ', '記録', '振り返り', '写真で共有'] },
   // 機能名は語の途中で折り返さない（「写真から書き起こし」が割れないよう、名前ごとに nowrap で並べる）。
   // 量の数え方は「AI の答え 約 N 回」だけ（GLOSSARY・2026-10-21 に「相談 約 30 件」を足したが、数え方が 2 つになるのでやめた）。
   { name: 'プラン', amount: `AI の答え ${answerCountLabel(PAID_TOKENS)}`, scope: `毎月 ${PAID_TOKENS.toLocaleString()} トークン`, lead: 'すべての AI：', items: ['AI 選書', '読書計画シート', '写真から書き起こし'] },
@@ -259,6 +259,13 @@ const metaText = {
 const planName = { fontSize: 'var(--text-sub)', fontWeight: 400, color: 'var(--text-2)', lineHeight: 1.3 };
 // 「おすすめ」は押せない表示なので面を付けない（DESIGN §5「表示用ラベル」）。
 const recommendTag = { fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-2)' };
+// 金額（「¥9,800（税込）」）は 1 つの塊（文字最大で「（税／込）」と割れていた・2026-11-18）。ほかは文節で折り返す。
+function priceText(text) {
+  const parts = String(text || '').split(/([¥￥][\d,]+(?:（税込）)?)/).filter(Boolean);
+  return parts.map((p, i) => (/^[¥￥]/.test(p)
+    ? <span key={i} style={{ whiteSpace: 'nowrap' }}>{p}</span>
+    : <Fragment key={i}>{withPhraseBreaks(p)}</Fragment>));
+}
 const billedAmount = { display: 'block', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5, marginTop: 'var(--space-1)', fontVariantNumeric: 'tabular-nums' };
 // 補足の 2 行（月あたり・割引）は同じ大きさ・色にそろえる。
 const planNote = { display: 'block', fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-2)', lineHeight: 1.5 };
@@ -315,8 +322,8 @@ function PlanOption({ label, selected, onSelect, placeholder = false, tag = '', 
             有料の初回価格（創業メンバー価格）は「1 年目 ¥9,800」を強く、「2 年目から ¥12,800」を補足に。 */}
         {label.intro ? (
           <>
-            <span style={billedAmount}>{withTax(label.intro.head)}</span>
-            {label.intro.after && <span style={planNote}>{withTax(label.intro.after)}</span>}
+            <span style={billedAmount}>{priceText(withTax(label.intro.head))}</span>
+            {label.intro.after && <span style={planNote}>{priceText(withTax(label.intro.after))}</span>}
           </>
         ) : (
           <span style={billedAmount}>
@@ -838,8 +845,9 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
                   {compactFooter && trial && (
                     <span style={{ display: 'block', fontSize: 'var(--text-meta)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{trialFirstPhrase(trial)}</span>
                   )}
-                  {/* 実際に請求される金額の行は、大きな文字でも小さくしない（塊の切れ目で 2 行・2026-10-11 リリース前の採点 3 回目）。 */}
-                  <span style={{ display: 'block', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>
+                  {/* 実際に請求される金額の行は、主ボタンの文字より小さくしない（大きな文字のときは主ボタンと同じ大きさ＝押すものより強く見えない・
+                      塊の切れ目で 2 行・2026-10-11／2026-11-18 文字最大の点検）。 */}
+                  <span style={{ display: 'block', fontSize: compactFooter ? COMPACT_TEXT : 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>
                     {billedLineParts({ ...selected, trial }).map((part) => (
                       <Fragment key={part}>
                         {/* 塊の中は語の途中で割らない（keep-all・「年／額」と割れていた・2026-10-04）。1 行に入らないときは塊の中の空白で。 */}
