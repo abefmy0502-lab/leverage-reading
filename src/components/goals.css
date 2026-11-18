@@ -193,9 +193,10 @@
 .goal-summary {
   margin: 0 0 var(--space-8);
   font-family: var(--font-read);
-  font-size: var(--text-body);
-  line-height: 1.6;
-  color: var(--text-2);
+  /* 受け取ったまとめは読む文章（明朝 18・--text・2026-11-18 ui-critic「SPEC と違う」） */
+  font-size: var(--text-read);
+  line-height: 1.7;
+  color: var(--text);
   word-break: keep-all;
   overflow-wrap: anywhere;
 }
@@ -264,7 +265,8 @@
   border: none;
   color: var(--accent);
   font-family: inherit;
-  font-size: var(--text-meta);
+  /* 「順番を変える」と同じ大きさ（2026-11-18 ui-critic「13 と 17 で揃っていない・小さくて押しにくい」） */
+  font-size: var(--text-sub);
   font-weight: 600;
   cursor: pointer;
 }
@@ -337,7 +339,8 @@
 .plan-today-title { display: block; margin: var(--space-1) 0 0; font-size: var(--text-body); font-weight: 600; line-height: 1.45; word-break: keep-all; overflow-wrap: anywhere; }
 .plan-today-meta { display: block; margin: var(--space-1) 0 0; font-size: var(--text-meta); color: var(--text-2); line-height: 1.5; }
 .plan-cal {
-  margin-top: var(--space-3);
+  /* 今日の本（すぐ読む）とカレンダー（先の見通し）は役割が違うので 24 空ける（2026-11-18 ui-critic） */
+  margin-top: var(--space-6);
   padding: var(--space-2) var(--space-4);
   background: var(--surface);
   border: 1px solid var(--separator);
@@ -386,12 +389,13 @@
   font-size: var(--text-caption);
   font-weight: 600;
   cursor: pointer;
-  background: var(--accent-soft);
-  color: var(--accent);
+  /* 暗い画面で --accent-soft の帯が地に溶けていた（2026-11-18 ui-critic）＝栗色を地に混ぜて、明暗とも帯と地の差を出す */
+  background: color-mix(in srgb, var(--accent) 40%, var(--surface));
+  color: var(--text);
 }
 /* 押せる範囲は上下 44（見た目は 24 のまま） */
 .plan-band::after { content: ""; position: absolute; left: 50%; width: max(100%, var(--tap-min)); transform: translateX(-50%); top: calc((var(--tap-min) - var(--space-6)) / -2); bottom: calc((var(--tap-min) - var(--space-6)) / -2); }
-.plan-band.is-alt { background: color-mix(in srgb, var(--text) 12%, var(--surface)); color: var(--text); }
+.plan-band.is-alt { background: color-mix(in srgb, var(--text) 20%, var(--surface)); color: var(--text); }
 .plan-band.is-now { background: var(--accent); color: var(--accent-ink); }
 .plan-band.is-head { border-top-left-radius: var(--radius); border-bottom-left-radius: var(--radius); }
 .plan-band.is-tail { border-top-right-radius: var(--radius); border-bottom-right-radius: var(--radius); }
@@ -494,4 +498,6 @@
 .goal-box > .rm-link:last-child { margin-bottom: calc((var(--tap-min) - 1.5em) / -2); }
 /* 1 日だけ読む本の書名（週の下・押すと本を開く） */
 .plan-week-note { margin: var(--space-1) 0 0; display: flex; flex-wrap: wrap; gap: 0 var(--space-3); }
-.plan-week-note-btn { min-height: var(--tap-min); padding: 0; background: none; border: none; font-family: inherit; font-size: var(--text-meta); color: var(--text-2); text-align: left; cursor: pointer; overflow-wrap: anywhere; }
+/* 見た目は詰めて（行の間 45 は空きすぎ・2026-11-18 ui-critic）、押せる範囲は ::after で上下 44 */
+.plan-week-note-btn { position: relative; min-height: 0; padding: var(--space-1) 0; background: none; border: none; font-family: inherit; font-size: var(--text-meta); line-height: 1.5; color: var(--text-2); text-align: left; cursor: pointer; overflow-wrap: anywhere; }
+.plan-week-note-btn::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: var(--tap-min); transform: translateY(-50%); }

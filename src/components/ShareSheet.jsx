@@ -858,6 +858,7 @@ export default function ShareSheet({
     try {
       const result = await saveImage({ blob: card.blob, filename });
       if (result !== 'cancelled') track(EVENTS.SHARE_CARD, trackProps('saved'));
+      if (result === 'photos') { haptic.success(); toast.success('写真に保存しました。'); }
       if (result === 'saved') { haptic.success(); toast.success('画像を保存しました。'); }
     } catch (e) {
       toast.error(toMessage(e, '保存できませんでした。'));
@@ -1081,21 +1082,21 @@ export default function ShareSheet({
             //   描けなかった間は文字ボタンの行だけ隠す（形と背景は見せる＝背景を変えて作り直せる・2026-10-11 4 回目）。
             style={{ alignSelf: 'stretch', display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 'var(--space-2)' }}
           >
-            {/* 文字ボタンの左右 4 は、文字の端を 16 にそろえるためにこの 2 つにだけ負の余白で打ち消す。 */}
-            <div aria-hidden={status === 'error' || undefined} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginLeft: 'calc(-1 * var(--space-1))', visibility: status === 'error' ? 'hidden' : 'visible' }}>
+            {/* 「編集」と、形・「背景：写真 ▾」は 1 つの行に（2 段だと重ね方の見本が下の固定の欄に隠れ、最初の画面で選べなかった・2026-11-18 ui-critic）。
+                幅が足りないとき（文字を大きくした端末）だけ、形と背景が次の行へ折り返す。文字ボタンの左右 4 は負の余白で打ち消す。 */}
+            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 'var(--space-3)', rowGap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}>
             <button
               type="button"
               disabled={status !== 'ready'}
               onClick={openEditor}
-              style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', color: status === 'ready' ? 'var(--accent)' : 'var(--text-3)', opacity: 1, cursor: status === 'ready' ? 'pointer' : 'default' }}
+              aria-hidden={status === 'error' || undefined}
+              style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', color: status === 'ready' ? 'var(--accent)' : 'var(--text-3)', opacity: 1, cursor: status === 'ready' ? 'pointer' : 'default', visibility: status === 'error' ? 'hidden' : 'visible' }}
             >
               <SlidersHorizontal size="1.1em" aria-hidden="true" />
               編集
             </button>
-            </div>
-            {/* 形の切り替えと「背景：写真 ▾」は、いつも左揃えの独立した行（右の列がガタガタに見えた・2026-10-11 リリース前の採点）。 */}
             {(formatInEditRow || photo) && (
-            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 'var(--space-3)', rowGap: 'var(--space-1)', justifyContent: 'flex-start' }}>
+            <div style={{ display: 'flex', alignItems: 'center', columnGap: 'var(--space-3)', marginLeft: 'auto' }}>
             {formatInEditRow && formatSwitch}
             {photo && (
               // 背景（写真・フィルム・紙…）と、撮り直す・アルバムから選ぶは「背景：写真 ▾」のメニュー 1 つに（2026-10-10）。
@@ -1113,6 +1114,7 @@ export default function ShareSheet({
             )}
             </div>
             )}
+            </div>
             {photo && bgMenu && <ContextMenu x={bgMenu.x} y={bgMenu.y} onClose={() => setBgMenu(null)} items={bgItems} />}
           </div>
         </div>

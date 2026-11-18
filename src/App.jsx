@@ -5435,7 +5435,7 @@ function AuthedApp() {
                     onClick={() => { advanceStatus(current, "reading"); setQuickMemoOpen(true); }}
                     style={{ ...btnLink, alignSelf: 'center' }}
                   >
-                    読書中にしてメモを書く
+                    読み始めてメモを書く
                   </button>
                 )}
                 {/* 積読の「読み始めるとメモが書けます」は 2026-10-16 にやめた（説明の文を置かない・DESIGN §0-6・ui-critic 第 2 回）。 */}

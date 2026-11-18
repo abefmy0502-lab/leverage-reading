@@ -76,10 +76,60 @@ export async function shareImage({ blob, filename, text = '' }) {
   return 'saved';
 }
 
-// 「画像を保存」: Web はダウンロード。iOS アプリはダウンロードできないので共有シート
-// （「画像を保存」が並ぶ）を開く。
-export async function saveImage({ blob, filename }) {
-  if (isNative) return shareImage({ blob, filename });
+// iPhone・iPad のブラウザ（ホーム画面に置いた Orime も）。iPadOS は Mac と名乗るので触れる点で見分ける。
+export function isAppleTouchWeb(nav = typeof navigator !== 'undefined' ? navigator : null) {
+  if (!nav) return false;
+  const ua = String(nav.userAgent || '');
+  if (/iPad|iPhone|iPod/.test(ua)) return true;
+  return /Macintosh/.test(ua) && Number(nav.maxTouchPoints || 0) > 1;
+}
+
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result || ''));
+    r.onerror = () => reject(r.error || new Error('画像を読み込めませんでした。'));
+    r.readAsDataURL(blob);
+  });
+}
+
+const isPhotoDenied = (e) => /denied|not authori[sz]ed|permission|access/i.test(String(e?.message || e || ''));
+
+// 「画像を保存」（2026-11-18 オーナー「画像を保存を押したらファイルの画面になる・そのまま保存に」）:
+//   - iPhone のアプリ: 写真にそのまま保存（@capacitor-community/media・要 Mac で `npx cap sync ios`）。
+//     プラグインの無いビルドは、今までどおり共有シート（「画像を保存」が並ぶ）。
+//   - iPhone・iPad のブラウザ: a[download] はファイルの画面（プレビューで開く）になって写真に入らないので、
+//     画像だけを共有シートに渡す（いちばん上に「画像を保存」が出る）。await を挟まずに呼ぶ。
+//   - ほか（Android・パソコン）: ダウンロード。
+// 戻り値: 'photos'（写真に保存した）| 'saved'（ダウンロードした）| 'shared'（共有シートを開いた）| 'cancelled'
+export async function saveImage({ blob, filename, nav = typeof navigator !== 'undefined' ? navigator : null }) {
+  if (isNative) {
+    try {
+      const { Media } = await import('@capacitor-community/media');
+      await Media.savePhoto({ path: await blobToDataUrl(blob) });
+      return 'photos';
+    } catch (e) {
+      if (isPhotoDenied(e)) {
+        throw new Error('写真への保存が許可されていません。設定アプリの「Orime」→「写真」で許可してください。');
+      }
+      // プラグインが入っていないビルド・保存に失敗したとき: 共有シートから保存できるようにする。
+      return shareImage({ blob, filename });
+    }
+  }
+  if (isAppleTouchWeb(nav) && nav?.share) {
+    const file = new File([blob], filename, { type: blob?.type || 'image/png' });
+    let ok = false;
+    try { ok = !!nav.canShare?.({ files: [file] }); } catch { ok = false; }
+    if (ok) {
+      try {
+        await nav.share({ files: [file] });
+        return 'shared';
+      } catch (e) {
+        if (isAbort(e)) return 'cancelled';
+        // 共有シートを開けなかったときだけ、下のダウンロードに回す。
+      }
+    }
+  }
   downloadBlob(blob, filename);
   return 'saved';
 }

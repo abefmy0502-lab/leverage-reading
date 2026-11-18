@@ -85,6 +85,7 @@ import PartnerAvatar, { PartnerRow, PartnerBooksSheet, AVATAR_SIZE, AVATAR_SIZE_
 import { unreadBooksInAnswer } from '../lib/unreadBooks';
 import { consultPartner, partnerFromScope, bookForRef, shelfBookForTitle, withVoice, decodeVoice, encodeVoice, perbookSummaryPartner, VOICE_PREFIX } from '../lib/consultPartner';
 import { fetchAllRows } from '../lib/fetchAllRows';
+import { nestQuotes } from '../lib/nestQuotes';
 
 // 相談を送るときのオフラインの文（上の行に「オフラインです。」が出ているので、次にすることだけ・2026-10-10）。
 const OFFLINE_SEND_MESSAGE = 'オフラインです。つながってから、もう一度送ってください。';
@@ -3357,12 +3358,13 @@ export function parseAnswer(text) {
   // 📚 答え方「本ごとに」（【本ごとの視点】があるときだけ books を返す。無ければ null＝いつもの答え）
   const bookViews = sections.books ? parseBookViews(join('books')) : null;
   return {
-    conclusion,
+    // 引用の入れ子（「…「…」…」）は中を『』に（nestQuotes・2026-11-18）。
+    conclusion: nestQuotes(conclusion),
     refs: join('refs'),
-    interp: join('interp'),
-    action: (actionHead || '').trim(),
+    interp: nestQuotes(join('interp')),
+    action: nestQuotes((actionHead || '').trim()),
     actionLabel,
-    question: ask ? ask.question : '',
+    question: ask ? nestQuotes(ask.question) : '',
     replies: ask ? ask.replies : [],
     note: [...actionRest.map((t) => t.trim()).filter(Boolean), ...(ask && ask.rest ? [ask.rest] : []), ...notes].join('\n'),
     books: bookViews ? bookViews.books : null,
@@ -3850,7 +3852,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
   const renderAsk = (p, marginTop) => (p.question ? (
     <div data-ask-box="" style={{ marginTop, ...nextStepBox, containerType: 'inline-size' }}>
       <p style={subLabel}>{ASK_LABEL}</p>
-      <p style={{ ...readText, ...askQuestionSize, margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'keep-all', overflowWrap: 'break-word', ...hangIndent(p.question), ...(isStreaming ? { minHeight: ASK_SKELETON_HEIGHT } : null) }}>{renderBoldPhrased(p.question)}{tail === 'ask' && cursor}</p>
+      <p style={{ ...readText, ...askQuestionSize, margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'normal', lineBreak: 'strict', textWrap: 'pretty', overflowWrap: 'break-word', ...hangIndent(p.question), ...(isStreaming ? { minHeight: ASK_SKELETON_HEIGHT } : null) }}>{/* AI の文は文節で止めずに流す（DESIGN §2・右が空いていた・2026-11-18 ui-critic） */}{renderBoldInline(p.question)}{tail === 'ask' && cursor}</p>
       {/* 🏁 いまどこにいるか（2026-10-08）: 問いの下 8 に 13/--text-2 の 1 行（状態色・段階のバーは使わない）。
           送った直後の 1 画面（答えの上端＝問いの箱が見える位置）で読めるよう、答えの下ではなく箱の中に置く。 */}
       {askProgress && !isStreaming && (

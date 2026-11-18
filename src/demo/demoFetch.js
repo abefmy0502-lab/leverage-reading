@@ -13,6 +13,7 @@ const relatedMessy = () => typeof window !== 'undefined' && new URLSearchParams(
 import { demoServerSearch, demoNdlXml } from './demoBookSearch';
 import { lensOf } from '../lib/consultHelpers';
 import { addDemoPurposeCost } from './demoTokenUsage';
+import { quotable } from '../lib/nestQuotes';
 
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
@@ -232,7 +233,8 @@ function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null
   ].join('\n');
 
   // 結論・解釈は、引いたメモに書いてあることだけで組み立てる（メモに無い主張を足さない・2026-09-29）。
-  const clip = (t) => { const x = String(t || '').replace(/\s+/g, ' ').trim(); return x.length > 40 ? `${x.slice(0, 40)}…` : x; };
+  // 「」の中に入れるので、メモの中の「」は『』に・途中で切った『』は閉じる（quotable・2026-11-18 ui-critic）。
+  const clip = (t) => { const x = String(t || '').replace(/\s+/g, ' ').trim(); return quotable(x.length > 40 ? `${x.slice(0, 40)}…` : x); };
   // 結論には書名・引用のかぎかっこを入れない（出典は「根拠を見る」の中・SPEC §3・本番の BRAIN_SYSTEM と同じ）。
   // 「…という考え」に入れる要旨: 最初の 1 文（長ければ 40 字までの最後の読点まで）。文の途中を … で切らない（2026-10-02 ui-critic）。
   const gist = (t) => {
@@ -241,7 +243,7 @@ function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null
     const cut = first.slice(0, 40).lastIndexOf('、');
     return cut > 8 ? first.slice(0, cut) : first;
   };
-  const short16 = (t) => { const x = String(t || '').replace(/\s+/g, ' ').replace(/[「」『』]/g, '').split(/[。．.、]/)[0].trim(); return x.length > 16 ? `${x.slice(0, 16)}…` : x; };
+  const short16 = (t) => { const x = String(t || '').replace(/\s+/g, ' ').split(/[。．.、]/)[0].trim(); return quotable(x.length > 16 ? `${x.slice(0, 16)}…` : x); };
   // &ai=fakeref-only（2026-10-04）: 参照がどれも渡したメモに無い本（解釈も無い）。画面は参照を出さず、
   //   ほかに見せるものが無ければ「根拠を見る」ごと出さない（MyBookBrain の showRefChecks）。
   if (aiMode === 'fakeref-only') {

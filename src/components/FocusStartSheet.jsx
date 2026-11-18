@@ -17,27 +17,7 @@ import TimeInput from './TimeInput';
 import { withPhraseBreaks } from './TightBubble';
 import { displayTitle } from '../lib/bookTitle';
 
-// 選ぶボタン（DESIGN §5「選ぶためのチップ」: 44・15・選択中は --accent-soft の面＋--accent の文字 600）。
-const choice = (on) => ({
-  flex: '1 1 0',
-  minWidth: 0,
-  minHeight: 'var(--tap-min)',
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  padding: 'var(--space-2) var(--space-2)',
-  border: 'none',
-  borderRadius: 'var(--radius)',
-  background: on ? 'var(--accent-soft)' : 'var(--fill)',
-  color: on ? 'var(--accent)' : 'var(--text)',
-  fontSize: 'var(--text-sub)',
-  fontWeight: on ? 600 : 400,
-  fontFamily: 'inherit',
-  cursor: 'pointer',
-  whiteSpace: 'nowrap',
-  fontVariantNumeric: 'tabular-nums',
-});
-
+// 分の選び方も、タイマー｜計測と同じ溝と面（2026-11-18・SPEC §4-0「1 つを選ぶものは溝と面」）。
 // 切り替え（タイマー｜計測）は iOS のセグメント（DESIGN §5・記録の「今月｜これまで」・写真で共有の「投稿｜ストーリー」と同じ形）:
 // --fill の溝に、選んだ方だけ --seg-on の面＋細い縁。等分の 2 列（2026-10-11 第 2 回の採点で下線の形から改めた）。
 const segTrack = { display: 'flex', gap: 'var(--space-1)', padding: 'var(--space-1)', background: 'var(--fill)', borderRadius: 'var(--radius)' };
@@ -53,8 +33,9 @@ const seg = (on) => ({
   fontSize: 'var(--text-sub)',
   fontWeight: 600,
   fontFamily: 'inherit',
-  cursor: 'pointer',
   whiteSpace: 'nowrap',
+  fontVariantNumeric: 'tabular-nums',
+  cursor: 'pointer',
 });
 
 // initialUntil: 初めから「時刻」を選んで開く（お試しモードの &focus=until）。
@@ -123,16 +104,17 @@ export default function FocusStartSheet({ book = null, onStart, onClose, initial
         {mode === 'timer' && (
         <div>
           <p id="focus-min-title" style={{ ...groupTitle, margin: '0 0 var(--space-2)' }}>時間</p>
-          <div role="radiogroup" aria-labelledby="focus-min-title" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-            <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+          {/* 1 つを選ぶので、タイマー｜計測 と同じ溝と面（2026-11-18 ui-critic「栗色の面のチップと選び方が違う」）。
+              「時刻まで」は溝の中の 2 行目を全幅で（5 つ並べると文字を大きくしたときに詰まる・2026-10-10 ui-critic）。 */}
+          <div role="radiogroup" aria-labelledby="focus-min-title" style={{ ...segTrack, flexDirection: 'column' }}>
+            <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
               {FOCUS_MINUTES.map((m) => (
-                <button key={m} type="button" role="radio" tabIndex={mode === 'timer' ? undefined : -1} aria-checked={!useUntil && minutes === m} aria-label={`${m} 分`} onClick={() => pickMinutes(m)} style={choice(!useUntil && minutes === m)}>
+                <button key={m} type="button" role="radio" tabIndex={mode === 'timer' ? undefined : -1} aria-checked={!useUntil && minutes === m} aria-label={`${m} 分`} onClick={() => pickMinutes(m)} style={seg(!useUntil && minutes === m)}>
                   {m} 分
                 </button>
               ))}
             </div>
-            {/* 「時刻まで」は分のチップの下の 1 行を全幅で（5 つ並べると文字を大きくしたときに詰まる・2026-10-10 ui-critic）。 */}
-            <button type="button" role="radio" tabIndex={mode === 'timer' ? undefined : -1} aria-checked={useUntil} aria-label="時刻まで" onClick={pickUntil} style={{ ...choice(useUntil), flex: 'none', width: '100%' }} data-focus-until="">
+            <button type="button" role="radio" tabIndex={mode === 'timer' ? undefined : -1} aria-checked={useUntil} aria-label="時刻まで" onClick={pickUntil} style={{ ...seg(useUntil), flex: 'none', width: '100%' }} data-focus-until="">
               時刻まで
             </button>
           </div>

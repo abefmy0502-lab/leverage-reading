@@ -274,7 +274,7 @@ function HomeGoalRow({ onOpen, onClose }) {
     <div data-home-goal="" style={{ ...card, padding: 0, position: 'relative', overflow: 'hidden' }}>
       {/* × は右上の 44 に重ねる（› はほかの枠の行と同じ右の列に・2026-11-17 ui-critic）。 */}
       <button type="button" onClick={onOpen} aria-label="目標を書く。1 年後・3 年後・5 年後の目標から、読む本を決めます" style={navRow}>
-        <Compass size="1.2em" aria-hidden="true" style={{ color: 'var(--accent)', flexShrink: 0 }} />
+        <Compass size="1.2em" aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
         <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
           <span style={{ paddingRight: 'var(--tap-min)', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('目標を書く')}</span>
           <span style={{ marginTop: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('1 年後・3 年後・5 年後の目標から、読む本を決めます')}</span>
@@ -318,7 +318,8 @@ function HomeActionsRow({ summary, onOpen }) {
       <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         <span style={{ whiteSpace: 'nowrap', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>{summary.label}</span>
         {firstText && (
-          <span style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2, marginTop: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, overflow: 'hidden', overflowWrap: 'anywhere' }}>{firstText}</span>
+          // 1 行で … （SPEC §1・2 行目が「誰か／に話す」と語の途中で折れていた・2026-11-18 ui-critic）
+          <span style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 1, marginTop: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, overflow: 'hidden', overflowWrap: 'anywhere' }}>{firstText}</span>
         )}
       </span>
       {/* 数は右の › と同じ高さの中央に（行の右の値・iOS の設定の一覧と同じ） */}
@@ -642,12 +643,6 @@ export default function HomeScreen({
         </div>
       ) : (
         <>
-          {goalNudge.show && (
-            <HomeGoalRow
-              onOpen={() => { track('home_goal_row', { action: 'open' }); onOpenGoals(); }}
-              onClose={() => { track('home_goal_row', { action: 'close' }); goalNudge.close(); }}
-            />
-          )}
           {!memoState.hasMemos && <HomeFirstStep bookCount={books.length} onQuickstart={onQuickstart} onImport={onImport} />}
           <ReadingNow books={books} onOpenBook={onOpenBook} onWriteMemo={onWriteMemo} onStartReading={onStartReading} onAddBook={onAddBook} onSeeAllReading={onSeeAllReading} onCoverRetry={onCoverRetry} onRead={onRead} />
           {/* 今日の行動とすべての本は、1 枚のまとまりの 2 行（区切り線でつなぐ）。 */}
@@ -674,6 +669,13 @@ export default function HomeScreen({
             <ChevronRight size="1.2em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
           </button>
           </div>
+          {/* 目標の案内は、いま読んでいる本（主役）の下に（上にあると「メモを書く」を押し下げていた・2026-11-18 ui-critic）。 */}
+          {goalNudge.show && (
+            <HomeGoalRow
+              onOpen={() => { track('home_goal_row', { action: 'open' }); onOpenGoals(); }}
+              onClose={() => { track('home_goal_row', { action: 'close' }); goalNudge.close(); }}
+            />
+          )}
         </>
       )}
     </div>

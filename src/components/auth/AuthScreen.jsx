@@ -4,7 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { isSupabaseConfigured, supabaseConfigProblem } from '../../lib/supabase';
 import { LIMITS, validatePassword } from '../../lib/limits';
 import { signInWithApple, isNativeApple, isAppleSignInAvailable } from '../../lib/appleAuth';
-import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnLink as uiBtnLink, input } from '../../styles/ui';
+import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnLink as uiBtnLink, btnGhost as uiBtnGhost, input } from '../../styles/ui';
 import { isNative } from '../../lib/iap';
 import { MailCheck, Check } from 'lucide-react';
 import ErrorMessage from '../ErrorMessage';
@@ -493,7 +493,8 @@ export default function AuthScreen() {
         )}
         {mode === 'signin' && (
           <>
-            <button type="button" onClick={() => switchMode('signup')} style={btnLink}>
+            {/* はじめての人がいちばん押すので、枠の副ボタン（パスワードの文字ボタンと同じ強さにしない・2026-11-18 ui-critic） */}
+            <button type="button" onClick={() => switchMode('signup')} style={{ ...uiBtnGhost, width: '100%', marginBottom: 'var(--space-2)' }}>
               アカウントを作成
             </button>
             <button type="button" onClick={() => switchMode('reset')} style={btnLink}>
