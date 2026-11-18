@@ -442,7 +442,7 @@ ${CONSULT_SECURITY_RULES}
    前の結論・問い・一歩を繰り返さない。メモに無いことを一般論で補わない。
 
 【長さ】
-REFS を除いて 800 字前後。1 冊あたり「視点」2〜3 文＋「根拠」1 行。削るのは前置きと言い換え。
+REFS を除いて 1,200 字前後（2026-11-18 に 800 字から）。1 冊あたり「視点」3〜5 文（その本の考え方・この人の状況への当てはめ方・具体的な場面や言い回し 1 つ）＋「根拠」1 行。削るのは前置きと言い換え。足すのは、この人の状況に合わせた具体だけ。
 
 【回答の構造（この順序・この記号で出力する。見出しや記号を変えない）】
 
@@ -952,14 +952,14 @@ const CONSULT_RELATED_CHARS = 6000; // そのうち、質問に近いメモの�
 //     （合わせて約 9,500 字＝今までの約 9,000 字とほぼ同じ。質問に近いメモの選び方は今までと同じ pickRelatedMemos）
 export const CONSULT_CORE_CHARS = 5000;
 export const CONSULT_EXTRA_CHARS = 4500;
-const CONSULT_MAX_TOKENS = 2000; // 行動を決める回の答えは 800 字前後（2026-11-15 に 550 → 800）
+const CONSULT_MAX_TOKENS = 3400; // 行動を決める回の答えは 1,300 字前後（2026-11-15 に 550 → 800・2026-11-18 に 1,300・Haiku 5.5 は同じ文で約 1.3 倍のトークン）
 // 🎯 行動は会話で決める（2026-09-30）: 行動を決めない回（最初の答え・続きの返事）は 650 字前後なので上限も小さく
 //   （予約する原価＝max_tokens ぶんの出力も小さくなる）。
-const CONSULT_ASK_MAX_TOKENS = 1600;
+const CONSULT_ASK_MAX_TOKENS = 2800; // 1,000 字前後（2026-11-18 に 650 字から）
 // 📚 答え方「本ごとに」: 材料は同じ約 9,000 字を本の数で分ける。答えは 800〜900 字前後なので上限は約 1.3 倍。
 const PERBOOK_MAX_BOOKS = 4;
 const PERBOOK_MIN_BOOKS = 3; // 質問に近いメモのある本が少ないときは、メモの多い本で 3 冊まで埋める
-const PERBOOK_MAX_TOKENS = 2100;
+const PERBOOK_MAX_TOKENS = 3600; // 1,200 字前後（2026-11-18 に 800〜900 字から）
 const GROWTH_MAX_CHARS = 2000; // 「あなたの歩み」の上限
 
 const GROWTH_MAX_BOOKS = 10;
@@ -2137,7 +2137,7 @@ export async function summarizeCards({ title, cards }) {
     result = await callClaude(
       PROMPTS.cardsToSummary.system,
       PROMPTS.cardsToSummary.user({ title, cards: src }),
-      { max_tokens: 700, cacheSystem: true, model: MODEL_FAST, purpose: 'cards_to_summary' },
+      { max_tokens: 1300, cacheSystem: true, model: MODEL_FAST, purpose: 'cards_to_summary' }, // 8〜12 行（2026-11-18 に 700 から）
     );
   } catch (e) {
     console.warn('[summarizeCards] claude failed:', e?.message);
@@ -2225,8 +2225,8 @@ export async function streamMyBookBrain({ userId, question, onStage, onChunk, si
     system: ctx.system || BRAIN_SYSTEM,
     cacheSystem: true,
     messages: [{ role: 'user', content: ctx.userBlocks }],
-    // 答えは 650 字前後（行動を決める回は 800 字前後・BRAIN_SYSTEM の長さのルール）。上限は 1,600／2,000。
-    // 本ごとには 800〜900 字前後なので 2,100（PERBOOK_MAX_TOKENS）。
+    // 答えは 1,000 字前後（行動を決める回は 1,300 字前後・BRAIN_SYSTEM の長さのルール・2026-11-18）。上限は 2,800／3,400。
+    // 本ごとには 1,200 字前後なので 3,600（PERBOOK_MAX_TOKENS）。
     max_tokens: ctx.maxTokens || CONSULT_MAX_TOKENS,
     purpose: 'consult',
     signal,
