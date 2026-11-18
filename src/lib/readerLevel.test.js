@@ -46,3 +46,25 @@ describe('候補に難しさと書評サイトの推薦', () => {
     expect(text).toContain('書評サイトの要約（参考・写さない）: 書評の 要約');
   });
 });
+
+describe('候補に売れ方と賞・年間ベストの印（2026-11-18）', () => {
+  it('引いた本の売れ方と印を読む・知らない売れ方と前の本番（列なし）は空', async () => {
+    const rows = [
+      { isbn: '9784000000001', title: '本', author: '著', trend: 'steady', marks: ['読者が選ぶビジネス書グランプリ 2026 総合グランプリ', 'TOPPOINT 大賞 2026 上半期', 'C', 'D'] },
+      { isbn: '9784000000002', title: '本 2', author: '著', trend: 'hot' },
+    ];
+    const list = await searchCatalog(['習慣'], { rpc: async () => ({ data: rows, error: null }) });
+    expect(list[0]).toMatchObject({ trend: 'steady', marks: ['読者が選ぶビジネス書グランプリ 2026 総合グランプリ', 'TOPPOINT 大賞 2026 上半期', 'C'] });
+    expect(list[1]).toMatchObject({ trend: '', marks: [] });
+  });
+  it('AI に渡す候補の塊に「売れ方」「受賞」の行（無ければ出さない）', () => {
+    const text = candidatesBlock([
+      { key: 'C1', title: '本', author: '著', trend: 'new', marks: ['読者が選ぶビジネス書グランプリ 2026 総合グランプリ'] },
+      { key: 'C2', title: '本 2', author: '著', trend: '', marks: [] },
+    ]);
+    expect(text).toContain('売れ方: 出て 1 年以内で、いま分野の売上上位');
+    expect(text).toContain('受賞: 読者が選ぶビジネス書グランプリ 2026 総合グランプリ');
+    expect(text.match(/売れ方:/g)).toHaveLength(1);
+    expect(text.match(/受賞:/g)).toHaveLength(1);
+  });
+});

@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { expandPlan, usableItem, rowFromRakuten, parseSummary, summaryUserText, collectStep, summarizeStep, runAdvisorBooks, PLAN_VERSION, REFRESH_DAYS, parseAddList, queueStep, QUEUE_ADD_MAX, SUMMARY_SYSTEM, cCodeLabel, parseOpenbdMeta, PROMPT_VERSION as PV, parseExtList } from './_advisorBooks.js';
+import { expandPlan, usableItem, rowFromRakuten, parseSummary, summaryUserText, collectStep, summarizeStep, runAdvisorBooks, PLAN_VERSION, REFRESH_DAYS, parseAddList, queueStep, QUEUE_ADD_MAX, SUMMARY_SYSTEM, cCodeLabel, parseOpenbdMeta, PROMPT_VERSION as PV, parseExtList, parseMarkList, MARK_ADD_MAX, refreshSignals, jstDay } from './_advisorBooks.js';
 
 // supabase の最小の偽物（使う形だけ）。
-function fakeDb({ state = null, books = [], noTable = false } = {}) {
-  const t = { advisor_books: new Map(books.map((b) => [b.isbn, { status: 'pending', attempts: 0, summary: '', ...b }])), state };
+function fakeDb({ state = null, books = [], noTable = false, noRanks = false } = {}) {
+  const t = { advisor_books: new Map(books.map((b) => [b.isbn, { status: 'pending', attempts: 0, summary: '', ...b }])), state, other: {} };
   const err = noTable ? { code: '42P01', message: 'relation "advisor_books_state" does not exist' } : null;
   const db = {
     t,
@@ -27,6 +27,11 @@ function fakeDb({ state = null, books = [], noTable = false } = {}) {
         upsert(rows) {
           if (err) return Promise.resolve({ error: err });
           if (table === 'advisor_books_state') { t.state = { ...(t.state || {}), ...rows }; return Promise.resolve({ error: null }); }
+          if (table !== 'advisor_books') {
+            if (noRanks && table === 'advisor_book_ranks') return Promise.resolve({ error: { code: 'PGRST205', message: "Could not find the table 'public.advisor_book_ranks'" } });
+            t.other[table] = [...(t.other[table] || []), ...rows];
+            return Promise.resolve({ error: null });
+          }
           for (const r of rows) t.advisor_books.set(r.isbn, { status: 'pending', attempts: 0, summary: '', ...(t.advisor_books.get(r.isbn) || {}), ...r });
           return Promise.resolve({ error: null });
         },
@@ -302,3 +307,61 @@ describe('難しさの列がまだ無い本番でも止まらない', () => {
   });
 });
 
+
+describe('売上順の記録（advisor_book_ranks・2026-11-18）', () => {
+  const clock = () => { let t = Date.parse('2026-11-17T18:00:00Z'); return () => { t += 10; return t; }; };
+  it('日本時間の日付', () => {
+    expect(jstDay(Date.parse('2026-11-17T15:30:00Z'))).toBe('2026-11-18');
+    expect(jstDay(Date.parse('2026-11-17T14:59:00Z'))).toBe('2026-11-17');
+  });
+  it('集めた本の、その一覧での順位を日付つきで残す', async () => {
+    const db = fakeDb();
+    const now = clock();
+    const get = async () => page([item(1), item(2)]);
+    const r = await collectStep({ db, env, now, deadline: now() + 3000 + 200, rakutenGetImpl: get, pause: 0 });
+    const ranks = db.t.other.advisor_book_ranks || [];
+    expect(r.ranked).toBe(ranks.length);
+    expect(ranks[0]).toEqual({ isbn: '9784000000001', list: expandPlan()[0].source, observed_on: '2026-11-18', rank: 1 });
+    expect(ranks[1]).toMatchObject({ isbn: '9784000000002', rank: 2 });
+  });
+  it('記録の表が無くても本は集める（記録しないだけ）', async () => {
+    const db = fakeDb({ noRanks: true });
+    const now = clock();
+    const r = await collectStep({ db, env, now, deadline: now() + 3000 + 200, rakutenGetImpl: async () => page([item(3)]), pause: 0 });
+    expect(r.ranked).toBe(0);
+    expect(db.t.advisor_books.has('9784000000003')).toBe(true);
+  });
+  it('売れ方と印の紐づけは、関数が無い・失敗しても止めない', async () => {
+    expect(await refreshSignals({ rpc: async (fn) => ({ data: fn === 'link_advisor_book_marks' ? 2 : 5, error: null }) })).toEqual({ linked: 2, trends: 5 });
+    expect(await refreshSignals({ rpc: async () => ({ data: null, error: { code: '42883' } }) })).toEqual({ linked: null, trends: null });
+    expect(await refreshSignals({})).toEqual({ linked: null, trends: null });
+  });
+});
+
+describe('賞・年間ベストの印（ops_books の mark・2026-11-18）', () => {
+  it('ISBN か書名と著者・出典と年が要る・待ち行列と同じ整え方', () => {
+    const { marks, queue, invalid } = parseMarkList([
+      { title: '『億までの人 億からの人』', author: '田中 渓', source: '読者が選ぶビジネス書グランプリ', year: 2026, label: '総合グランプリ', url: 'https://example.com/a' },
+      { title: '億までの人 億からの人', author: '田中 渓', source: '読者が選ぶビジネス書グランプリ', year: 2026, label: '経済・マネー部門' },
+      { isbn: '978-4-00-000000-2', source: 'TOPPOINT 大賞', year: '2026', label: '上半期 大賞', kind: 'selection', url: 'http://not-https' },
+      { title: '年が無い', source: 'どこか' },
+      { source: '本が無い', year: 2026 },
+      'ただの文字',
+    ]);
+    expect(invalid).toBe(3);
+    expect(marks).toHaveLength(3);
+    expect(marks[0]).toMatchObject({ given_isbn: null, isbn: null, title: '億までの人 億からの人', author: '田中 渓', kind: 'award', year: 2026, label: '総合グランプリ', url: 'https://example.com/a' });
+    expect(marks[2]).toMatchObject({ given_isbn: '9784000000002', isbn: '9784000000002', kind: 'selection', url: '' });
+    // 同じ本の待ち行列は 1 つ・書名と著者は parseAddList と同じ形（印の book_key と待ち行列の dedupe_key がそろう）
+    expect(queue).toHaveLength(2);
+    const added = parseAddList([{ title: '億までの人 億からの人', author: '田中 渓' }]).rows[0];
+    expect({ isbn: queue[0].isbn, title: queue[0].title, author: queue[0].author }).toEqual({ isbn: added.isbn, title: added.title, author: added.author });
+    expect(queue[0].note).toBe('mark:読者が選ぶビジネス書グランプリ');
+  });
+  it('同じ印は 1 つ・上限の件数まで', () => {
+    const one = { isbn: '9784000000003', source: '賞', year: 2025, label: '大賞' };
+    expect(parseMarkList([one, one]).marks).toHaveLength(1);
+    const many = Array.from({ length: MARK_ADD_MAX + 5 }, (_, i) => ({ isbn: `97840000${String(i).padStart(5, '0')}`, source: '賞', year: 2025 }));
+    expect(parseMarkList(many).marks.length).toBeLessThanOrEqual(MARK_ADD_MAX);
+  });
+});

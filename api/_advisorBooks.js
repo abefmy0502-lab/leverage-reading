@@ -127,6 +127,10 @@ export function rowFromRakuten(it, rank, source) {
 }
 
 const sleep = (ms) => new Promise((r) => { setTimeout(r, ms); });
+// 表・関数がまだ無い（SQL を流す前）
+const isMissing = (e) => /relation .* does not exist|42P01|42883|PGRST202|PGRST205|Could not find the (table|function)/i.test(`${e?.code || ''} ${e?.message || ''}`);
+// 日本時間の日付（YYYY-MM-DD）
+export function jstDay(ms) { return new Date(ms + 9 * 3600 * 1000).toISOString().slice(0, 10); }
 const num = (v, d) => { const n = Number(v); return Number.isFinite(n) ? n : d; };
 
 async function readState(db) {
@@ -154,7 +158,9 @@ export async function collectStep({ db, env = process.env, now = () => Date.now(
     cursor = 0;
     passStarted = new Date(now()).toISOString();
   }
-  let pages = 0; let seen = 0; let upserted = 0; let failures = 0;
+  let pages = 0; let seen = 0; let upserted = 0; let failures = 0; let ranked = 0;
+  // 売上順の記録（advisor_book_ranks・supabase_advisor_books_signals.sql・2026-11-18）。表が無ければ記録しないだけ。
+  let ranksOn = true;
   while (cursor < steps.length && now() < deadline - 3000) {
     const step = steps[cursor];
     const params = { format: 'json', applicationId: creds.appId, accessKey: creds.accessKey, hits: String(HITS), sort: 'sales', outOfStockFlag: '0', elements: ELEMENTS, ...step.params };
@@ -183,13 +189,20 @@ export async function collectStep({ db, env = process.env, now = () => Date.now(
         const { error } = await db.from('advisor_books').upsert(rows.map((r) => ({ ...r, last_seen_at: stamp, updated_at: stamp })), { onConflict: 'isbn' });
         if (error) throw Object.assign(new Error('upsert'), { code: error.code, message: error.message });
         upserted += rows.length;
+        // その一覧で何位だったかを日付つきで残す（同じ日・同じ一覧の 2 回目は入れない）
+        const ranks = rows.filter((r) => Number.isInteger(r.sales_rank) && r.sales_rank >= 1)
+          .map((r) => ({ isbn: r.isbn, list: step.source, observed_on: jstDay(now()), rank: r.sales_rank }));
+        if (ranksOn && ranks.length) {
+          const { error: rkErr } = await db.from('advisor_book_ranks').upsert(ranks, { onConflict: 'isbn,list,observed_on', ignoreDuplicates: true });
+          if (rkErr) { if (isMissing(rkErr)) ranksOn = false; } else ranked += ranks.length;
+        }
       }
     }
     cursor += 1;
     await writeState(db, { plan_version: PLAN_VERSION, cursor, pass_started_at: passStarted, pass_done_at: cursor >= steps.length ? new Date(now()).toISOString() : null });
     if (cursor < steps.length) await sleep(pause);
   }
-  return { pages, seen, upserted, cursor, total: steps.length, done: cursor >= steps.length };
+  return { pages, seen, upserted, ranked, cursor, total: steps.length, done: cursor >= steps.length };
 }
 
 // ── 運営が選んで足す本（ops_books の add・2026-11-17）─────────────────────────────
@@ -253,6 +266,43 @@ export function parseExtList(list) {
     byIsbn.set(isbn, { isbn, source: 'bookvinegar', url, rec_points: Number.isFinite(p) && p >= 0 && p <= 1000 ? p : null, endorsers, tags, summary });
   }
   return { rows: [...byIsbn.values()], invalid };
+}
+
+// 賞・年間ベスト・選出の印（ops_books の mark・supabase_advisor_books_signals.sql・2026-11-18）。事実だけ（選評の文は持たない）。
+export const MARK_ADD_MAX = 100;
+export const MARK_KINDS = ['award', 'annual', 'selection'];
+/**
+ * mark に渡された一覧を、印の行と待ち行列の行に。
+ *   1 件は { isbn?, title, author, source, year, label?, kind?, url? }（isbn か title のどちらかは要る）。
+ *   書名と著者は待ち行列と同じ整え方（parseAddList）＝同じ本の行どうしで突き合わせられる（book_key＝dedupe_key）。
+ *   返り値: { marks: [...], queue: [...], invalid }（同じ印は 1 つに・同じ本の待ち行列は 1 つに）。
+ */
+export function parseMarkList(list) {
+  const marks = [];
+  const queue = [];
+  const seenMark = new Set();
+  const seenBook = new Set();
+  let invalid = 0;
+  for (const raw of (Array.isArray(list) ? list : []).slice(0, MARK_ADD_MAX)) {
+    if (!raw || typeof raw !== 'object') { invalid += 1; continue; }
+    const book = parseAddList([{ isbn: raw.isbn, title: String(raw.title ?? '').trim().replace(/^[『「]|[』」]$/g, ''), author: raw.author }]).rows[0];
+    const source = clip(raw.source, 60);
+    const year = Math.floor(Number(raw.year));
+    if (!book || !source || !(year >= 1950 && year <= 2100)) { invalid += 1; continue; }
+    const kind = MARK_KINDS.includes(raw.kind) ? raw.kind : 'award';
+    const label = clip(raw.label, 40);
+    const url = /^https:\/\//.test(String(raw.url || '')) ? clip(raw.url, 300) : '';
+    const bookKey = `${book.isbn || ''}|${book.title.toLowerCase()}|${book.author.toLowerCase()}`;
+    const markKey = `${bookKey}|${source}|${year}|${label}`;
+    if (seenMark.has(markKey)) continue;
+    seenMark.add(markKey);
+    marks.push({ given_isbn: book.isbn, isbn: book.isbn, title: book.title, author: book.author, kind, source, year, label, url });
+    if (!seenBook.has(bookKey)) {
+      seenBook.add(bookKey);
+      queue.push({ ...book, note: clip(`mark:${source}`, 60) });
+    }
+  }
+  return { marks, queue, invalid };
 }
 
 /** 待ち行列の本を楽天の書誌で確かめて、advisor_books に足す（時間の許す分だけ）。 */
@@ -543,6 +593,22 @@ export async function summarizeStep({ db, env = process.env, now = () => Date.no
   return { done, ready, thin, failed, mjpy };
 }
 
+/**
+ * 売れ方を決め直し、書名で入れた賞・年間ベストの印に ISBN を付ける（supabase_advisor_books_signals.sql）。
+ *   { trends, linked }（それぞれ変えた数・関数が無ければ null）。失敗しても例外にしない。
+ */
+export async function refreshSignals(db) {
+  const out = { trends: null, linked: null };
+  for (const [key, fn] of [['linked', 'link_advisor_book_marks'], ['trends', 'refresh_advisor_book_trends']]) {
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      const { data, error } = await db.rpc(fn);
+      out[key] = error ? null : (Number.isFinite(Number(data)) ? Number(data) : 0);
+    } catch { out[key] = null; }
+  }
+  return out;
+}
+
 /** Cron から 1 回。集める → 整える。結果は advisor_books_state.last_result にも残す。 */
 export async function runAdvisorBooks({ db, env = process.env, now = () => Date.now(), budgetMs = 270000, ...deps } = {}) {
   if (String(env.ADVISOR_BOOKS || '').toLowerCase() === 'off') return { skipped: 'off' };
@@ -574,6 +640,7 @@ export async function runAdvisorBooks({ db, env = process.env, now = () => Date.
   } catch (e) {
     result.summarize = { error: String(e.code || e.message || 'error').slice(0, 80) };
   }
+  result.signals = await refreshSignals(db);
   try { await writeState(db, { last_run_at: new Date(now()).toISOString(), last_result: result }); } catch { /* 残せないだけ */ }
   console.info('[advisor-books]', JSON.stringify(result));
   return result;
