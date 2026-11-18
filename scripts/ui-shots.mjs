@@ -1344,6 +1344,14 @@ for (const scheme of ['light', 'dark']) {
       locale: 'ja-JP', colorScheme: scheme,
       ...(process.env.UI_SHOTS_PROXY ? { ignoreHTTPSErrors: true } : {}),
     });
+    // UI_SHOTS_ROOT_PX=28 などで、全画面を文字の大きい設定で撮る（iOS の「文字サイズ」＝html の font-size を上書き）。
+    if (process.env.UI_SHOTS_ROOT_PX) {
+      const px = Number(process.env.UI_SHOTS_ROOT_PX);
+      await ctx.addInitScript((size) => {
+        const put = () => { const st = document.createElement('style'); st.textContent = `html{font-size:${size}px}`; document.head.appendChild(st); };
+        if (document.head) put(); else document.addEventListener('DOMContentLoaded', put);
+      }, px);
+    }
     const page = await ctx.newPage();
     const errors = [];
     page.on('pageerror', (e) => errors.push(e.message));
