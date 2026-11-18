@@ -6,7 +6,7 @@
 //   - 💬 相談（consult）は Anthropic の Claude だけ（一番の価値＝メモを根拠にした答え・著者の語り口）。
 //     無料プランの相談も同じ。ほかの会社への差し替え（AI_ROUTE_CONSULT=openai:… など）は受け付けない。
 //   - 🔍 AI 選書の推薦（book_advisor）も Claude だけ（存在しない本を挙げる事故を増やさないため）。
-//   - ほかの用途は、十分な品質で一番安いモデルへ（下の ROUTES）。
+//   - ほかの用途は、十分な品質で一番安いモデルへ（下の ROUTES・2026-11-18 からは Claude Haiku 5.5 がいちばん安い）。
 //   - 鍵（OPENAI_API_KEY / GEMINI_API_KEY）が無い・提供終了の日を過ぎた・その会社が答える前に失敗した
 //     ときは、その用途の Claude（claude）で答える（api/claude.js が 1 回だけ切り替える）。
 //   - 用途（purpose）が無い呼び出し（出し直す前の iOS アプリ）は、今までどおりアプリが指定した Claude のモデル。
@@ -36,21 +36,26 @@ export const ROUTES = {
   // 2026-10-01（2 回目）: AI 選書の聞き返し・読書計画シートは Gemini Flash-Lite に（gpt-5-mini は 12/11 で終わるので、
   // いまから長く使える行き先にそろえる・いちばん安い）。読書計画シートの「関連書籍」は、アプリが書誌で実在を
   // 確かめ、見つからない本を消してから保存する（lib/planRelatedBooks.js）。戻すときは AI_ROUTE_SETUP_SHEET=openai:gpt-5-mini など。
-  advisor_interview: { primary: `gemini:${FLASH_LITE}`, claude: H },
-  setup_sheet: { primary: `gemini:${FLASH_LITE}`, claude: H },
-  setup_sheet_edit: { primary: `gemini:${FLASH_LITE}`, claude: H },
+  // 2026-11-18 オーナー「切り替えて・進めてください」: Gemini Flash-Lite（$0.25 / $1.50）から Claude Haiku 5.5（$0.10 / $0.50）へ。
+  //   トークナイザーの 1.3 倍を入れても約半分の原価で、送り先も Anthropic の 1 社にそろう（失敗したら Haiku 4.5 で 1 回）。
+  //   Gemini に戻すときは AI_ROUTE_<用途>=gemini:gemini-3.1-flash-lite（同意のシートの送り先は Anthropic のままなので、
+  //   戻すなら src/lib/aiProcessors.js と同意の版も合わせる）。読書計画シートの関連書籍は今までどおり書誌で確かめる。
+  advisor_interview: { primary: `anthropic:${CONSULT_MODEL}`, claude: H },
+  setup_sheet: { primary: `anthropic:${CONSULT_MODEL}`, claude: H },
+  setup_sheet_edit: { primary: `anthropic:${CONSULT_MODEL}`, claude: H },
   // 📖 この本で学べること（2026-10-08）: 公開の紹介文と目次から、概要・学べること・仮説の例（読書計画シートと同じ行き先）。
   //   無料プランでも使える（相談と同じ無料のトークンから・api/_aiAccess.js の FREE_PURPOSES）。freeRouted＝無料プランでも
-  //   この表の行き先で答える（相談のように Claude に固定しない・1 回 約 1〜2 トークン）。
-  book_brief: { primary: `gemini:${FLASH_LITE}`, claude: H, freeRouted: true },
+  //   この表の行き先で答える（相談のように無料のモデルに固定しない）。
+  book_brief: { primary: `anthropic:${CONSULT_MODEL}`, claude: H, freeRouted: true },
   // 🧭 目標の深掘り（2026-11-15）: AI 選書の聞き取りと同じ安い行き先。ロードマップは年に数回なので質を取る（AI 選書の推薦と同じ Sonnet）。
   //   どちらも無料プランで使える（相談と同じ無料のトークンから・無料プランは目標 1 つまで＝画面で止める）。
-  goal_interview: { primary: `gemini:${FLASH_LITE}`, claude: H, freeRouted: true },
+  goal_interview: { primary: `anthropic:${CONSULT_MODEL}`, claude: H, freeRouted: true },
   goal_roadmap: { primary: 'anthropic:claude-sonnet-5-5', claude: 'claude-sonnet-5', claudeOnly: true, freeRouted: true },
-  ops_advise: { primary: `openai:${GPT_MINI}`, claude: H },
-  condense: { primary: `gemini:${FLASH_LITE}`, claude: H },
-  cards_to_summary: { primary: `gemini:${FLASH_LITE}`, claude: H },
-  ocr: { primary: `gemini:${FLASH_LITE}`, claude: H },
+  // 運営の参謀（管理者だけ）も Haiku 5.5（gpt-5-mini は 2026-12-11 に終わる）。
+  ops_advise: { primary: `anthropic:${CONSULT_MODEL}`, claude: H },
+  condense: { primary: `anthropic:${CONSULT_MODEL}`, claude: H },
+  cards_to_summary: { primary: `anthropic:${CONSULT_MODEL}`, claude: H },
+  ocr: { primary: `anthropic:${CONSULT_MODEL}`, claude: H },
 };
 export const PURPOSES = Object.keys(ROUTES);
 

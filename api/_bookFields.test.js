@@ -66,7 +66,7 @@ const HANKEI = {
   toc: ['はじめに', '第1章 負を燃料に変える', '第2章 機動力を鍛える', '第4章 夢を叶え続ける'],
   genreIds: ['001004003', '001019001'],
 };
-const ENV = { GEMINI_API_KEY: 'g', ANTHROPIC_API_KEY: 'a' };
+const ENV = { GEMINI_API_KEY: 'g', ANTHROPIC_API_KEY: 'a', AI_ROUTE_BOOK_FIELDS: 'gemini:gemini-3.1-flash-lite' };
 
 beforeEach(() => { _resetBookFieldsMemory(); vi.spyOn(console, 'info').mockImplementation(() => {}); vi.spyOn(console, 'warn').mockImplementation(() => {}); });
 
@@ -105,8 +105,9 @@ describe('部品', () => {
     expect(cacheUsable({ fields: ['小説・教養'], source: 'keywords', version: BOOK_FIELDS_VERSION, updated_at: new Date(now - 2 * 86400000).toISOString() }, now)).toBe(false);
   });
   it('行き先: Gemini Flash-Lite → Claude Haiku・鍵が無ければ使わない', () => {
+    expect(bookFieldsRoutes({ GEMINI_API_KEY: 'g', ANTHROPIC_API_KEY: 'a' })).toEqual([{ provider: 'anthropic', model: 'claude-haiku-5-5' }]);
+    expect(bookFieldsRoutes({ ANTHROPIC_API_KEY: 'a' })).toEqual([{ provider: 'anthropic', model: 'claude-haiku-5-5' }]);
     expect(bookFieldsRoutes(ENV)).toEqual([{ provider: 'gemini', model: 'gemini-3.1-flash-lite' }, { provider: 'anthropic', model: 'claude-haiku-4-5' }]);
-    expect(bookFieldsRoutes({ ANTHROPIC_API_KEY: 'a' })).toEqual([{ provider: 'anthropic', model: 'claude-haiku-4-5' }]);
     expect(bookFieldsRoutes({})).toEqual([]);
     expect(genreNamesOf(['001004003', '001019001'])).toEqual(['小説・エッセイ', '文庫']);
   });
@@ -138,7 +139,7 @@ describe('classifyBookServer（本 1 冊）', () => {
   });
   it('AI の答えが一覧に無い・失敗・1 日の上限・紹介文なし → 言葉の仕分け（端末と同じ）', async () => {
     const bad = vi.fn(geminiAnswer('{"fields":["自己啓発"]}'));
-    const env1 = { GEMINI_API_KEY: 'g' };
+    const env1 = { GEMINI_API_KEY: 'g', AI_ROUTE_BOOK_FIELDS: 'gemini:gemini-3.1-flash-lite' };
     const r1 = await classifyBookServer({ title: '半径5メートルの野望 完全版' }, { supabase: fakeDb(), getInfo: async () => HANKEI, env: env1, fetchImpl: bad });
     expect(r1.source).toBe('keywords');
     expect(r1.fields).not.toContain('小説・教養');

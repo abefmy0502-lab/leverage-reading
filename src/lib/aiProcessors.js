@@ -7,6 +7,7 @@
 // 送り先や送るものを変えたら:
 //   1. ここ（AI_FEATURES・AI_PROCESSORS）を api/_aiRouting.js に合わせる
 //   2. AI_CONSENT_VERSION を 1 つ上げる（同意した人にも、次に AI を使うときにもう一度確かめる）
+//      ただし、送り先が狭まるだけ（どの用途も、前の版の送り先か失敗したときの代わりの会社）なら上げない（2026-11-18・テストで確かめる）
 //   3. aiProcessors.test.js の CONSENT_SIGNATURES に新しい版を足す
 //   4. プライバシーポリシー第 7 条（src/legal/PrivacyPage.jsx・legal/privacy.md）も合わせる
 //
@@ -74,7 +75,7 @@ const BASE_FEATURES = [
     sends: '書名・著者・得たいこと・メモのタグ・本の紹介と目次・直してほしいこと', // 「タグ」→「メモのタグ」（GLOSSARY・2026-10-11・送るものと送り先は同じ＝同意の版は上げない）
     purposes: ['setup_sheet', 'setup_sheet_edit', 'book_brief'],
   },
-  // 凝縮・まとめ・写真から書き起こしは同じ送り先（Google）なので 1 行に（シートの高さ・2026-10-02 ui-critic）。
+  // 凝縮・まとめ・写真から書き起こしは同じ送り先（2026-11-18 から Anthropic）なので 1 行に（シートの高さ・2026-10-02 ui-critic）。
   {
     id: 'memo',
     name: '凝縮・まとめ・写真から書き起こし',
@@ -84,18 +85,21 @@ const BASE_FEATURES = [
 ];
 
 // 用途 → 既定の会社（api/_aiRouting.js の ROUTES.primary の会社と同じ）。
+// 2026-11-18: Google（Gemini）に送っていた用途も Anthropic（Claude Haiku 5.5）に。前の版 1 の同意で、Anthropic は
+//   「失敗したときの代わり」としてどの用途の送り先にも入っていた＝送り先が狭まっただけなので、同意の版は上げない
+//   （aiProcessors.test.js の CONSENT_SIGNATURES と、狭まっただけかを確かめるテスト）。
 const BASE_PURPOSE_PROVIDER = {
   consult: 'anthropic',
   book_advisor: 'anthropic',
-  advisor_interview: 'gemini',
-  setup_sheet: 'gemini',
-  setup_sheet_edit: 'gemini',
-  book_brief: 'gemini',
-  goal_interview: 'gemini',
+  advisor_interview: 'anthropic',
+  setup_sheet: 'anthropic',
+  setup_sheet_edit: 'anthropic',
+  book_brief: 'anthropic',
+  goal_interview: 'anthropic',
   goal_roadmap: 'anthropic',
-  condense: 'gemini',
-  cards_to_summary: 'gemini',
-  ocr: 'gemini',
+  condense: 'anthropic',
+  cards_to_summary: 'anthropic',
+  ocr: 'anthropic',
 };
 
 // 🧭 Jev の用途 → どの機能の送り先に TypeSafe AI を足すか（api/_aiRouting.js の JEV_ROUTES.feature と同じ・テストで確かめる）。
@@ -125,6 +129,7 @@ const BUILT = buildAiProcessors({ jev: AI_JEV_ON });
 
 // 同意の版。送り先（会社と用途の組み合わせ）が変わったら上げる。
 // 版 1 = AI 選書の聞き返し・読書計画シートも Google（2026-10-01 の 2 回目の振り分け・api/_aiRouting.js）。
+//   2026-11-18 から Google の用途もすべて Anthropic（狭まっただけなので版 1 のまま）。
 // （OpenAI に送っていた振り分けのときの版はアプリに出していないので、1 のまま書き直した。）
 // 版 2 = 1 に TypeSafe AI（Jev・相談の関係するメモの判断）を足したもの（VITE_AI_JEV=on のときだけ・2026-10-02）。
 export const AI_CONSENT_VERSION = BUILT.version;

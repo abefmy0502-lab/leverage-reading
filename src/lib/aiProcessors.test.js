@@ -11,10 +11,22 @@ import {
 
 // 版ごとの「会社と用途の組み合わせ」。送り先を変えたら、AI_CONSENT_VERSION を上げてここに足す
 // （同意した人にも、次に AI を使うときにもう一度確かめるため）。
+// 同じ版の中の 2 つめ以降は「送り先が狭まっただけ」の組み合わせ（どの用途も、はじめの組み合わせの会社か、失敗したときの代わりの会社）。
+//   2026-11-18: Google（Gemini）の用途をすべて Anthropic（Claude Haiku 5.5）に。
 const CONSENT_SIGNATURES = {
-  1: 'advisor_interview:gemini,book_advisor:anthropic,cards_to_summary:gemini,condense:gemini,consult:anthropic,ocr:gemini,setup_sheet:gemini,setup_sheet_edit:gemini|fallback:anthropic',
+  1: [
+    'advisor_interview:gemini,book_advisor:anthropic,cards_to_summary:gemini,condense:gemini,consult:anthropic,ocr:gemini,setup_sheet:gemini,setup_sheet_edit:gemini|fallback:anthropic',
+    'advisor_interview:anthropic,book_advisor:anthropic,cards_to_summary:anthropic,condense:anthropic,consult:anthropic,ocr:anthropic,setup_sheet:anthropic,setup_sheet_edit:anthropic|fallback:anthropic',
+  ],
   // 2 = 1 ＋ TypeSafe AI（Jev・VITE_AI_JEV=on のときだけ・2026-10-02）
-  2: 'advisor_interview:gemini,book_advisor:anthropic,cards_to_summary:gemini,condense:gemini,consult:anthropic,intent:typesafe,memo_relevance:typesafe,ocr:gemini,setup_sheet:gemini,setup_sheet_edit:gemini|fallback:anthropic',
+  2: [
+    'advisor_interview:gemini,book_advisor:anthropic,cards_to_summary:gemini,condense:gemini,consult:anthropic,intent:typesafe,memo_relevance:typesafe,ocr:gemini,setup_sheet:gemini,setup_sheet_edit:gemini|fallback:anthropic',
+    'advisor_interview:anthropic,book_advisor:anthropic,cards_to_summary:anthropic,condense:anthropic,consult:anthropic,intent:typesafe,memo_relevance:typesafe,ocr:anthropic,setup_sheet:anthropic,setup_sheet_edit:anthropic|fallback:anthropic',
+  ],
+};
+const parseSig = (sig) => {
+  const [pairs, fb] = sig.split('|');
+  return { map: Object.fromEntries(pairs.split(',').map((x) => x.split(':'))), fallback: fb.split(':')[1] };
 };
 
 describe('送り先は api/_aiRouting.js の既定と同じ', () => {
@@ -40,15 +52,29 @@ describe('送り先は api/_aiRouting.js の既定と同じ', () => {
 
   it('画面に出す会社名', () => {
     expect(providersFor(featureForPurpose('consult'))).toEqual(['Anthropic']);
-    expect(providersFor(featureForPurpose('advisor_interview'))).toEqual(['Anthropic', 'Google']);
-    expect(providersFor(featureForPurpose('setup_sheet_edit'))).toEqual(['Google']);
-    expect(providersFor(featureForPurpose('ocr'))).toEqual(['Google']);
+    expect(providersFor(featureForPurpose('advisor_interview'))).toEqual(['Anthropic']);
+    expect(providersFor(featureForPurpose('setup_sheet_edit'))).toEqual(['Anthropic']);
+    expect(providersFor(featureForPurpose('ocr'))).toEqual(['Anthropic']);
     expect(featureForPurpose('ops_advise')).toBe(null);
     expect(Object.keys(AI_PROVIDER_NAMES).sort()).toEqual(['anthropic', 'gemini', 'openai', 'typesafe']);
   });
 
   it('送り先を変えたら版を上げる（いまの版の組み合わせと同じ）', () => {
-    expect(CONSENT_SIGNATURES[AI_CONSENT_VERSION], `AI_CONSENT_VERSION ${AI_CONSENT_VERSION} の組み合わせを CONSENT_SIGNATURES に足す`).toBe(processorSignature());
+    expect(CONSENT_SIGNATURES[AI_CONSENT_VERSION], `AI_CONSENT_VERSION ${AI_CONSENT_VERSION} の組み合わせを CONSENT_SIGNATURES に足す`).toContain(processorSignature());
+  });
+
+  it('同じ版の中で組み合わせを変えたのは、送り先が狭まっただけ（はじめの会社か、失敗したときの代わりの会社）', () => {
+    for (const [v, sigs] of Object.entries(CONSENT_SIGNATURES)) {
+      const first = parseSig(sigs[0]);
+      for (const sig of sigs.slice(1)) {
+        const next = parseSig(sig);
+        expect(Object.keys(next.map).sort(), `版 ${v}`).toEqual(Object.keys(first.map).sort());
+        expect(next.fallback, `版 ${v}`).toBe(first.fallback);
+        for (const [p, prov] of Object.entries(next.map)) {
+          expect([first.map[p], first.fallback], `版 ${v} の ${p}`).toContain(prov);
+        }
+      }
+    }
   });
 
   it('ほかの用途の同意に含まれる用途（この本で学べること）は、同じ機能の行・同じ会社で、送るものもその行に書いてある', () => {
@@ -61,7 +87,7 @@ describe('送り先は api/_aiRouting.js の既定と同じ', () => {
     // この本で学べることが送るもの（lib/ai.js の generateBookBrief）は、読書計画シートの行の「送るもの」に入っている
     const sends = featureForPurpose('book_brief').sends;
     for (const w of ['書名', '著者', '得たいこと', '本の紹介と目次']) expect(sends).toContain(w);
-    expect(providersFor(featureForPurpose('book_brief'))).toEqual(['Google']);
+    expect(providersFor(featureForPurpose('book_brief'))).toEqual(['Anthropic']);
   });
 
   it('VITE_AI_JEV が無ければ（既定）Jev は入らず版 1', () => {
@@ -79,8 +105,8 @@ describe('🧭 Jev を入れたとき（VITE_AI_JEV=on）', () => {
   it('版はサーバーの JEV_CONSENT_VERSION（2）と同じ・止めたときは 1', () => {
     expect(on.version).toBe(JEV_CONSENT_VERSION);
     expect(off.version).toBe(1);
-    expect(CONSENT_SIGNATURES[on.version]).toBe(processorSignature(on.purposeProvider));
-    expect(CONSENT_SIGNATURES[off.version]).toBe(processorSignature(off.purposeProvider));
+    expect(CONSENT_SIGNATURES[on.version]).toContain(processorSignature(on.purposeProvider));
+    expect(CONSENT_SIGNATURES[off.version]).toContain(processorSignature(off.purposeProvider));
   });
 
   it('Jev の用途はすべて api/_aiRouting.js の JEV_ROUTES の会社・機能と同じ', () => {

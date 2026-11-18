@@ -17,14 +17,14 @@
 |---|---|---|---|---|
 | `consult` | 💬 相談（まとめて・本ごと・無料プランも） | Anthropic `claude-haiku-5-5`（2026-11-18 から・§11） | 断った・混んでいる（429 / 5xx）なら `claude-haiku-4-5` で 1 回 | `claude-haiku-4-5` |
 | `book_advisor` | 🔍 AI 選書の推薦 | Anthropic `claude-sonnet-5-5`（Claude だけ） | 404 なら `claude-sonnet-5` | `claude-sonnet-5` |
-| `advisor_interview` | AI 選書の聞き返し（JSON の質問） | Google `gemini-3.1-flash-lite`（2026-10-01 に gpt-5-mini から） | `claude-haiku-4-5` | Haiku |
-| `setup_sheet` | 読書計画シートを作る（関連書籍は書誌で確かめる） | Google `gemini-3.1-flash-lite`（同上） | `claude-haiku-4-5` | Haiku |
-| `setup_sheet_edit` | 読書計画シートを直す（同上） | Google `gemini-3.1-flash-lite`（同上） | `claude-haiku-4-5` | Haiku |
-| `book_brief` | 📖 この本で学べること（2026-10-08・公開の紹介文と目次から 概要・学べること・仮説の例・**無料プランも**＝相談と同じ無料のトークンから。無料プランでも Claude に固定しない＝`freeRouted`） | Google `gemini-3.1-flash-lite` | `claude-haiku-4-5` | （新しい用途） |
-| `ops_advise` | 運営ダッシュボードの参謀（管理者だけ） | OpenAI `gpt-5-mini`（12/11 から `gemini-3.1-flash-lite`） | `claude-haiku-4-5` | Haiku |
-| `condense` | ✨ メモの凝縮 | Google `gemini-3.1-flash-lite` | `claude-haiku-4-5` | Haiku |
-| `cards_to_summary` | メモからまとめを作る | Google `gemini-3.1-flash-lite` | `claude-haiku-4-5` | Haiku |
-| `ocr` | 📷 写真から書き起こし（画像） | Google `gemini-3.1-flash-lite` | `claude-haiku-4-5` | Haiku |
+| `advisor_interview` | AI 選書の聞き返し（JSON の質問） | Anthropic `claude-haiku-5-5`（2026-11-18 から・§11・それまで Google `gemini-3.1-flash-lite`（2026-10-01 に gpt-5-mini から）） | `claude-haiku-4-5` | Haiku |
+| `setup_sheet` | 読書計画シートを作る（関連書籍は書誌で確かめる） | Anthropic `claude-haiku-5-5`（2026-11-18 から・§11・それまで Google `gemini-3.1-flash-lite`（同上）） | `claude-haiku-4-5` | Haiku |
+| `setup_sheet_edit` | 読書計画シートを直す（同上） | Anthropic `claude-haiku-5-5`（2026-11-18 から・§11・それまで Google `gemini-3.1-flash-lite`（同上）） | `claude-haiku-4-5` | Haiku |
+| `book_brief` | 📖 この本で学べること（2026-10-08・公開の紹介文と目次から 概要・学べること・仮説の例・**無料プランも**＝相談と同じ無料のトークンから。無料プランでも Claude に固定しない＝`freeRouted`） | Anthropic `claude-haiku-5-5`（2026-11-18 から・§11・それまで Google `gemini-3.1-flash-lite`） | `claude-haiku-4-5` | （新しい用途） |
+| `ops_advise` | 運営ダッシュボードの参謀（管理者だけ） | Anthropic `claude-haiku-5-5`（2026-11-18 から・§11・それまで OpenAI `gpt-5-mini`（12/11 から `gemini-3.1-flash-lite`）） | `claude-haiku-4-5` | Haiku |
+| `condense` | ✨ メモの凝縮 | Anthropic `claude-haiku-5-5`（2026-11-18 から・§11・それまで Google `gemini-3.1-flash-lite`） | `claude-haiku-4-5` | Haiku |
+| `cards_to_summary` | メモからまとめを作る | Anthropic `claude-haiku-5-5`（2026-11-18 から・§11・それまで Google `gemini-3.1-flash-lite`） | `claude-haiku-4-5` | Haiku |
+| `ocr` | 📷 写真から書き起こし（画像） | Anthropic `claude-haiku-5-5`（2026-11-18 から・§11・それまで Google `gemini-3.1-flash-lite`） | `claude-haiku-4-5` | Haiku |
 | （なし） | 出し直す前の iOS アプリからの呼び出し | アプリが指定した Claude（今までどおり） | — | 同じ |
 
 - **失敗したら**: 鍵が無い・HTTP の失敗（401 / 429 / 5xx）・つながらない・最初の文字が 20 秒（`AI_PROVIDER_FIRST_OUTPUT_MS`）以内に来ない・ストリームでない呼び出しが 45 秒（`AI_PROVIDER_TIMEOUT_MS`）を過ぎた・安全の止めや断りで 1 文字も返らない → その用途の Claude で **1 回だけ**やり直す。書き始めたあとに切れたときは切り替えない（アプリは「途中で止まりました」を出す。Anthropic で切れたときと同じ）
@@ -278,7 +278,7 @@
 - **端末**: `src/lib/bookFieldsServer.js`（AI・ジャンルの答えは端末に 30 日）。本を追加した直後・開いたとき（自動の分野の本 5 冊・3 秒おき）・本の詳細を開いたときに聞き、自動の分野を置きかえる（本人が選んだ本は変えない）。端末の言葉の仕分けは、すぐ出す最初の見立てとつながらないときの代わり
 - **確かめ**: `api/_bookFields.test.js`（AI は差し替えた fetch）・`node scripts/fields-eval.mjs`（言葉だけ／ジャンル＋言葉の正しさ・決まり方・原価）
 
-## 11. Claude Haiku 5.5（2026-11-18・相談は切り替えた・ほかの用途は env で）
+## 11. Claude Haiku 5.5（2026-11-18・相談も、Gemini・OpenAI だった用途も切り替えた）
 
 オーナー依頼（2026-11-18）:「AI の API の費用対性能をベストにしたい」。Haiku 4.5 の後継 **Claude Haiku 5.5** が出ていて、単価は Haiku 4.5 の 1/10（[Pricing](https://platform.claude.com/docs/en/about-claude/pricing) で 2026-11-18 に確認）。
 
@@ -301,14 +301,14 @@
 - **断ったときの代わり**: Haiku 5.5 は安全の判定で断ることがあり（`stop_reason: 'refusal'`）、Anthropic 側の代わり（fallbacks）が無い。文を 1 文字も書く前に断った・混んでいる（429 / 5xx）ときは、中継が **Haiku 4.5 で 1 回だけ**やり直す（`ANTHROPIC_RETRY_MODEL`・ストリームは最初の文字が見えるまで読んでから流す＝`peekAnthropicStream`）。断られた 1 回の入力の原価は数えない（まれ）
 - 無料プランの相談は、`AI_CONSULT_MODEL` が安い Haiku（4.5 / 5.5）ならそれに従う（1 つの env で有料と無料プランの両方が切り替わる・`FREE_CONSULT_MODELS`）。キャッシュを温め直す仕組み（§7）も同じモデルを温める
 
-**2026-11-18 オーナー「切り替えて」で、相談（有料・無料プラン・本ごと）の既定を Haiku 5.5 にした**（`api/_aiRouting.js` の `CONSULT_MODEL`・`api/claude.js` の `FREE_MODEL`）。前に戻すときは `AI_CONSULT_MODEL=claude-haiku-4-5`（無料プランも戻る）。ほかの用途は、送り先が Google から Anthropic に変わる＝アプリの同意のシートの送り先の一覧（`src/lib/aiProcessors.js`）とテストを合わせる必要があるので、まだ env で選んだときだけ。
+**2026-11-18 オーナー「切り替えて」で、相談（有料・無料プラン・本ごと）の既定を Haiku 5.5 にした**（`api/_aiRouting.js` の `CONSULT_MODEL`・`api/claude.js` の `FREE_MODEL`）。前に戻すときは `AI_CONSULT_MODEL=claude-haiku-4-5`（無料プランも戻る）。同日 2 回目（オーナー「進めてください」）: Gemini Flash-Lite・gpt-5-mini だった用途（運営の参謀・AI 選書の聞き返し・目標の深掘り・読書計画シート・この本で学べること・凝縮・まとめ・写真から書き起こし）と、本の分野・AI 選書の推薦用の本のデータ（公開の書誌だけ）も Haiku 5.5 に（`ROUTES`・`bookFieldsRoutes`・`summaryRoutes`）。同意のシートの送り先は Anthropic だけになった（`src/lib/aiProcessors.js`）。前の版 1 の同意でも Anthropic は「失敗したときの代わり」としてすべての用途の送り先だった＝狭まっただけなので、同意の版は上げない（`aiProcessors.test.js` が、同じ版の中で変えた組み合わせが狭まっただけかを確かめる）。プライバシーポリシー第 7 条も Anthropic に（Google は本の分野の公開の書誌だけ）。iPhone のアプリの同意のシートは次のビルドまで Google も書いてある（多めに書いてあるだけで、送り先は増えていない）。
 
 **切り替え方（Vercel の env だけ・アプリの出し直し不要・すぐ戻せる）**:
 
 | やること | env |
 |---|---|
 | 相談を前の Haiku 4.5 に戻す | `AI_CONSULT_MODEL=claude-haiku-4-5` |
-| 読書計画シート・聞き返し・この本で学べること・凝縮・まとめ・写真から書き起こし・目標の深掘りを Haiku 5.5 に（Gemini より安く、Claude にそろう） | `AI_ROUTE_SETUP_SHEET` / `AI_ROUTE_SETUP_SHEET_EDIT` / `AI_ROUTE_ADVISOR_INTERVIEW` / `AI_ROUTE_BOOK_BRIEF` / `AI_ROUTE_CONDENSE` / `AI_ROUTE_CARDS_TO_SUMMARY` / `AI_ROUTE_OCR` / `AI_ROUTE_GOAL_INTERVIEW` に `anthropic:claude-haiku-5-5` |
+| ほかの用途をどれか前の Gemini に戻す | `AI_ROUTE_<用途>=gemini:gemini-3.1-flash-lite`（同意のシートの送り先も Google を足して版を上げる） |
 | 戻す | その env を消す |
 
 **見込み**（§3 と同じ使い方・有料会員 1 人・1 か月）: 相談 約 ¥62 → 約 ¥8、Flash-Lite の用途 約 ¥9 → 約 ¥5、AI 選書の推薦 約 ¥8（変えない）。合計 **約 ¥78 → 約 ¥21**。本番の `ai_usage.cost_mjpy` で前後を比べる。

@@ -497,7 +497,8 @@ export function parseSummary(text) {
 export function summaryRoutes(env = process.env) {
   const off = String(env.AI_ROUTING || '').toLowerCase() === 'off';
   const spec = !off && parseRouteSpec(env.AI_ROUTE_ADVISOR_BOOKS || '');
-  const first = spec || (!off ? { provider: 'gemini', model: 'gemini-3.1-flash-lite' } : null);
+  // 2026-11-18: 既定を Gemini Flash-Lite から Claude Haiku 5.5 に（単価が約半分・断った／混んでいるときは中継が Haiku 4.5 で 1 回やり直す）。
+  const first = spec || (!off ? { provider: 'anthropic', model: 'claude-haiku-5-5' } : null);
   const hasKey = (p) => (p === 'gemini' ? !!env.GEMINI_API_KEY : p === 'openai' ? !!env.OPENAI_API_KEY : !!env.ANTHROPIC_API_KEY);
   const routes = [];
   if (first && hasKey(first.provider)) routes.push(first);

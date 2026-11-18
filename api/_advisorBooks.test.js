@@ -42,7 +42,7 @@ function fakeDb({ state = null, books = [], noTable = false, noRanks = false } =
   return db;
 }
 
-const env = { RAKUTEN_APPLICATION_ID: 'id', RAKUTEN_ACCESS_KEY: 'pk', RAKUTEN_APP_URL: 'https://x', GEMINI_API_KEY: 'g', ADVISOR_BOOKS_OPENBD: 'off' };
+const env = { RAKUTEN_APPLICATION_ID: 'id', RAKUTEN_ACCESS_KEY: 'pk', RAKUTEN_APP_URL: 'https://x', GEMINI_API_KEY: 'g', AI_ROUTE_ADVISOR_BOOKS: 'gemini:gemini-3.1-flash-lite', ADVISOR_BOOKS_OPENBD: 'off' };
 const item = (n, extra = {}) => ({ title: `本${n}`, subTitle: '', author: '稲盛和夫/見本花子', publisherName: '見本社', isbn: `97840000000${String(n).padStart(2, '0')}`, salesDate: '2024年05月10日', largeImageUrl: 'http://img/x.jpg?_ex=200x200', itemCaption: `【内容情報】${'この本は習慣の作り方を書いた本です。'.repeat(4)}【目次】第1章 はじめに`, reviewCount: 12, reviewAverage: '4.2', booksGenreId: '001006009', ...extra });
 const page = (items) => ({ status: 200, body: JSON.stringify({ Items: items.map((Item) => ({ Item })) }) });
 
