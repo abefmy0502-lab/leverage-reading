@@ -4,7 +4,7 @@
 // AI選書の推薦カード / 話題の本の詳細シート すべてここを使う。
 //
 // variant:
-//   'cta'     … want/before の本詳細向け。全幅の目立つ2ボタン（買う導線が主役）。
+//   'cta'     … want/before の本詳細向け。等分の 2 ボタンを 1 行に（文字が大きいときは縦に 2 つ）。
 //   'compact' … reading/done・推薦カード・話題の本向け。控えめな横並びリンク。
 
 import { getAmazonLink, handleAmazonClick, AMAZON_LINK_REL } from '../lib/amazonLink';
@@ -36,15 +36,16 @@ export default function BookStoreLinks({ book, variant = 'compact', showDisclosu
   const cta = variant === 'cta';
   const linkStyle = cta
     // 高さ 48 のボタンは DESIGN §5 どおり 17/600（44 の行ボタンだけ 15）。
-    // 目立つ版は全幅で縦に 2 つ（横並びだと狭い端末・大きい文字ではみ出す・DESIGN §6）。
-    ? { ...linkBase, width: '100%', minHeight: 48, padding: 'var(--space-2) var(--space-4)', fontSize: 'var(--text-body)' }
+    // 目立つ版は等分の 2 つを 1 行に（全幅を 2 段重ねると画面の下半分を取っていた・2026-11-18 ui-critic）。
+    //   文字を大きくして 1 つが 9em に収まらないときだけ折り返して縦に 2 つ（DESIGN §6）。
+    ? { ...linkBase, flex: '1 1 9em', minHeight: 48, padding: 'var(--space-2) var(--space-3)', fontSize: 'var(--text-body)' }
     : { ...linkBase, minHeight: 44, padding: 'var(--space-2) var(--space-3)', fontSize: 'var(--text-sub)' };
   const icon = <ExternalLink size={16} aria-hidden="true" style={{ color: 'var(--text-3)' }} />;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', width: cta ? '100%' : undefined }}>
       {/* ボタン同士は 12（DESIGN §1）。 */}
-      <div style={{ display: 'flex', flexDirection: cta ? 'column' : 'row', gap: 'var(--space-3)', alignItems: cta ? 'stretch' : 'center', flexWrap: cta ? 'nowrap' : 'wrap' }}>
+      <div style={{ display: 'flex', flexDirection: 'row', gap: 'var(--space-3)', alignItems: cta ? 'stretch' : 'center', flexWrap: 'wrap' }}>
         <a
           href={amazon} target="_blank" rel={AMAZON_LINK_REL} onClick={onAmazon}
           // 読み上げ名は見えている文字から始める（音声操作で「Amazon で…」と言えば押せるように）。

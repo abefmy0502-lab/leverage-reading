@@ -2263,7 +2263,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             {/* 「無料期間の残り／110 トークン」と切らない（1 つのまとまり）。かっこは重ねない。 */}
             {/* 🪙 無料プランは「AI の答え 約 N 回」だけ。トークンの数は残り 20 以下のときだけ（設定の画面はいつも出す・2026-10-11）。 */}
             {/* 7 日間無料も同じく 1 行（2026-10-13 ui-critic: 無料期間だけ上の行が 2 行で題を押し下げていた）。 */}
-            {(!(freeMode || plan === 'trial') || showFreeTokenCount(tokensRemaining + (purchasedTokens || 0))) && (
+            {/* プランの人も同じ（上の 3 行が見出しより目立っていた・2026-11-18 ui-critic）。トークンの数は残りが少ないときと、押して開くシートで。 */}
+            {showFreeTokenCount(tokensRemaining + (purchasedTokens || 0)) && (
               <span style={{ display: 'block', whiteSpace: 'nowrap' }}>{plan === 'trial' ? '無料期間' : '今月'}の残り {fmtTokens(tokensRemaining)}{purchasedTokens > 0 ? <> ＋追加 {fmtTokens(purchasedTokens)}</> : null} トークン{!tokenAnswersShown && tokenChevron}</span>
             )}
             {/* 無料プラン・7 日間無料は「あと何回相談できるか」を添える（トークンだけでは量が分からない・2026-09-29）。追加分も数に入れる。 */}
@@ -2271,7 +2272,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             {/* 数える単位は「AI の答え」（1 回 約 10 トークン・2026-10-09）。 */}
             {/* 🌱 無料プランのはじめの月は「（はじめの月）」を添える（数は言わない＝60 を 2 回言わない・2026-10-11）。 */}
             {/* 無料プランでトークンの数を出さないときは「AI の答えは今月あと約 N 回 ›」（何の数かを言う・2026-10-11 ui-critic・2026-10-13 に言い回しを直した＝「今月の残り AI の答え」は読みにくかった）。 */}
-            {tokensRemaining != null && tokensRemaining + (purchasedTokens || 0) > 0 && <span style={{ display: 'block' }}><span style={{ whiteSpace: 'nowrap' }}>{`AI の答えは${freeMode && !showFreeTokenCount(tokensRemaining + (purchasedTokens || 0)) ? '今月' : ''}あと${remainingAnswersLabel(tokensRemaining + (purchasedTokens || 0))}`}</span>{freeMode && freeFirstMonth && <span style={{ whiteSpace: 'nowrap' }}>（はじめの 2 か月）</span>}{tokenChevron}</span>}
+            {tokensRemaining != null && tokensRemaining + (purchasedTokens || 0) > 0 && <span style={{ display: 'block' }}><span style={{ whiteSpace: 'nowrap' }}>{`AI の答えは${plan !== 'trial' && !showFreeTokenCount(tokensRemaining + (purchasedTokens || 0)) ? '今月' : ''}あと${remainingAnswersLabel(tokensRemaining + (purchasedTokens || 0))}`}</span>{freeMode && freeFirstMonth && <span style={{ whiteSpace: 'nowrap' }}>（はじめの 2 か月）</span>}{tokenChevron}</span>}
           </span>
           </button>
         )}
@@ -2773,7 +2774,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               会話の面積を削るので、会話の流れの最後（空の画面・答えの下）に置く。 */}
           {historyLoaded && !busy && (isEmpty ? ((!input.trim() || firstDayDraft) && memoStatsLoaded && (ownMemoTotal > 0 || memoStatsFailed) && !planOut && !freeUsedUp && !(scopeIds.length > 0 && scopeMemoCount === 0)) : (lastIsAssistant && !lastIsMemoAnswer && !visibleMessages[visibleMessages.length - 1]?.notice && !visibleMessages[visibleMessages.length - 1]?.error)) && (
             <p style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', marginTop: 'var(--space-6)', marginRight: 0, marginBottom: 0, marginLeft: isEmpty ? 0 : ANSWER_COLUMN, lineHeight: 1.5 }}>
-              AI の回答には誤りが含まれることがあります
+              AI の答えには誤りが含まれることがあります
             </p>
           )}
           {/* 📏 送った相談を上端へ揃えるための下の余白（高さは sizeSpacer が決める） */}
@@ -4022,9 +4023,14 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
   const renderVoiceLine = () => (voice && !isStreaming ? (
     <p style={{ margin: 'var(--space-3) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(VOICE_FOOT_TEXT)}</p>
   ) : null);
-  // 注記は段落ごとに分け、先頭の「（」をぶら下げ・文節で折り返す（DESIGN・SPEC §3）。
+  // 注記は段落ごとに分け、文節で折り返す（DESIGN・SPEC §3）。先頭の「（」はぶら下げず、字の幅を半分に（halt）＝
+  //   文字の左端が本文の左端にそろう（ぶら下げると本文より約 5pt 左に出ていた・2026-11-18 ui-critic）。
   const renderNote = (p) => (p.note ? p.note.split(/\n+/).map((l) => l.trim()).filter(Boolean).map((line, i) => (
-    <p key={i} style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, margin: 'var(--space-2) 0 0', wordBreak: 'keep-all', overflowWrap: 'anywhere', ...hangIndent(line) }}>{withPhraseBreaks(line)}</p>
+    <p key={i} style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, margin: 'var(--space-2) 0 0', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+      {/^[（「『]/.test(line)
+        ? <><span style={{ fontFeatureSettings: '"halt"' }}>{line[0]}</span>{withPhraseBreaks(line.slice(1))}</>
+        : withPhraseBreaks(line)}
+    </p>
   )) : null);
 
   // 答えが 1 文字も返らなかった失敗は、答えのカードに入れず ErrorMessage だけを置く

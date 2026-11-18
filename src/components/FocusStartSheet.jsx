@@ -10,8 +10,9 @@
 // いまより前・6 時間を超える時刻は、その下に理由を出して「はじめる」を押せなくする。
 // 前回「時刻」を選んでいたら、次も「時刻」を選んだ形で開く（時刻は いま＋20 分 に出し直す）。
 import { useEffect, useState } from 'react';
+import { Clock } from 'lucide-react';
 import BottomSheet from './BottomSheet';
-import { btnPrimary, btnPrimaryOff, groupTitle, input } from '../styles/ui';
+import { btnPrimary, btnPrimaryOff, groupTitle, input, segTrack, segOption } from '../styles/ui';
 import { FOCUS_MINUTES, loadFocusPrefs, saveFocusPrefs, defaultUntilTime, checkUntil } from '../lib/readingTime';
 import TimeInput from './TimeInput';
 import { withPhraseBreaks } from './TightBubble';
@@ -20,23 +21,7 @@ import { displayTitle } from '../lib/bookTitle';
 // 分の選び方も、タイマー｜計測と同じ溝と面（2026-11-18・SPEC §4-0「1 つを選ぶものは溝と面」）。
 // 切り替え（タイマー｜計測）は iOS のセグメント（DESIGN §5・記録の「今月｜これまで」・写真で共有の「投稿｜ストーリー」と同じ形）:
 // --fill の溝に、選んだ方だけ --seg-on の面＋細い縁。等分の 2 列（2026-10-11 第 2 回の採点で下線の形から改めた）。
-const segTrack = { display: 'flex', gap: 'var(--space-1)', padding: 'var(--space-1)', background: 'var(--fill)', borderRadius: 'var(--radius)' };
-const seg = (on) => ({
-  flex: '1 1 0',
-  minWidth: 0,
-  minHeight: 'var(--tap-min)',
-  border: 'none',
-  borderRadius: 'calc(var(--radius) - var(--space-1))',
-  background: on ? 'var(--seg-on)' : 'transparent',
-  boxShadow: on ? 'inset 0 0 0 1px var(--border)' : 'none',
-  color: on ? 'var(--text)' : 'var(--text-2)',
-  fontSize: 'var(--text-sub)',
-  fontWeight: 600,
-  fontFamily: 'inherit',
-  whiteSpace: 'nowrap',
-  fontVariantNumeric: 'tabular-nums',
-  cursor: 'pointer',
-});
+const seg = segOption;
 
 // initialUntil: 初めから「時刻」を選んで開く（お試しモードの &focus=until）。
 // 「21 分」「1 時間 5 分」「2 時間」。
@@ -114,7 +99,9 @@ export default function FocusStartSheet({ book = null, onStart, onClose, initial
                 </button>
               ))}
             </div>
-            <button type="button" role="radio" tabIndex={mode === 'timer' ? undefined : -1} aria-checked={useUntil} aria-label="時刻まで" onClick={pickUntil} style={{ ...seg(useUntil), flex: 'none', width: '100%' }} data-focus-until="">
+            <button type="button" role="radio" tabIndex={mode === 'timer' ? undefined : -1} aria-checked={useUntil} aria-label="時刻まで" onClick={pickUntil} style={{ ...seg(useUntil), flex: 'none', width: '100%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)' }} data-focus-until="">
+              {/* 文字だけだと選べる項目に見えにくい（2026-11-18 ui-critic）ので、時計の印を添える。 */}
+              <Clock size="1.1em" aria-hidden="true" />
               時刻まで
             </button>
           </div>

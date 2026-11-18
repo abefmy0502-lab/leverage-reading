@@ -497,7 +497,8 @@ export default function AuthScreen() {
             <button type="button" onClick={() => switchMode('signup')} style={{ ...uiBtnGhost, width: '100%', marginBottom: 'var(--space-2)' }}>
               アカウントを作成
             </button>
-            <button type="button" onClick={() => switchMode('reset')} style={btnLink}>
+            {/* 脇の文字ボタンは同じ控えめな色（栗色とグレーの 2 色が並んでいた・2026-11-18 ui-critic）。 */}
+            <button type="button" onClick={() => switchMode('reset')} style={{ ...btnLink, color: 'var(--text-2)' }}>
               パスワードをお忘れの方
             </button>
             {/* サービス紹介はログインの画面だけ（新規登録は「ログインに戻る」1 つにして、押すものを減らす・2026-09-29）。 */}

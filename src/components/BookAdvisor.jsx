@@ -31,7 +31,6 @@ import { verifyBookExists, checkImageExists } from '../lib/bookCover';
 import { normalizeAdvisorRecs, resolveMixedRec, focusText, emptyReasonOf } from '../lib/advisorRecs';
 import { gatherCandidates, candidatesBlock, matchCandidate, applyCandidate, cleanKeywords } from '../lib/advisorCandidates';
 import { readerLevel, levelBlock, levelNote, loadLevelPref, saveLevelPref, LEVEL_PREFS, LEVEL_PREF_LABELS } from '../lib/readerLevel';
-import { Chip } from './formPrimitives';
 import { searchBooksFlat as searchBooksAPIFlat } from '../lib/bookSearch';
 import { STORE_DISCLOSURE_TEXT } from '../lib/rakutenLink';
 import AdvisorStoreLinks from './AdvisorStoreLinks';
@@ -39,7 +38,7 @@ import { nextResetLabelJa, requestPaywall } from '../lib/freeTrial';
 import { TOKEN_COSTS, runCostLine, monthDayLabelJa } from '../lib/tokens';
 import { trialCancelShortLine } from '../lib/trialNudge';
 import TokensOutCard from './TokensOutCard';
-import { groupTitle, btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, btnLink as uiBtnLink, btnLinkQuiet as uiBtnLinkQuiet, card as uiCard } from '../styles/ui';
+import { groupTitle, btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, btnLink as uiBtnLink, btnLinkQuiet as uiBtnLinkQuiet, card as uiCard, segTrack, segOption } from '../styles/ui';
 import { useAuth } from '../hooks/useAuth';
 import { useHaptic } from '../hooks/useHaptic';
 import { useToast } from './Toast';
@@ -103,7 +102,8 @@ const quietLink = uiBtnLinkQuiet;
 // 答えた問い（会話の流れとして残す・いまの問いより控えめ＝15/--text-2）。
 const askedText = { fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.6, margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere', textWrap: 'pretty' };
 // いまの問い（17/600・文節で折り返す）。
-const questionText = { fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5, margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' };
+// AI の問いは文節で止めずに流す（DESIGN §2・右が大きく空いていた・2026-11-18 ui-critic）。終わりの「？」だけ前の 2 字とつなぐ。
+const questionText = { fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5, margin: 0, wordBreak: 'normal', lineBreak: 'strict', textWrap: 'pretty', overflowWrap: 'anywhere' };
 // 「読みたいに追加」後の表示（押せない状態はボタンではなく文字で示す。相談の「行動に追加しました」と同じ）。
 // ユーザーの相談＝右寄せの --fill 吹き出し（相談と同じ）。
 // 相談の吹き出しと同じ: 文字に沿って縮む（TightBubble・最大 85%）・文節の切れ目でだけ折り返す（BudouX の <wbr>＋keep-all・2026-09-29）。
@@ -117,11 +117,11 @@ const introText = { fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHei
 
 // 問いの終わりの「？」「。」を前の 2 文字とつなぐ（行頭に「？」だけを残さない・2026-10-09 ui-critic）。
 //   文字を大きくして最後の文節が 1 行に入らないとき、ブラウザは記号の前でも割るので、末尾は折り返さない塊にする。
-function phrasesGluedEnd(text) {
+function flowGluedEnd(text) {
   const t = String(text || '');
   const m = t.match(/^([\s\S]*?)([^\s]{2}[？?。！!]+)$/u);
-  if (!m) return withPhraseBreaks(t);
-  return <>{withPhraseBreaks(m[1])}<span style={{ whiteSpace: "nowrap" }}>{m[2]}</span></>;
+  if (!m) return t;
+  return <>{m[1]}<span style={{ whiteSpace: 'nowrap' }}>{m[2]}</span></>;
 }
 
 // 案内文の「10月1日」を途中で改行させない（サーバーの文に結合文字が無い場合の保険）。
@@ -1807,7 +1807,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         return (
         <div ref={stepCardRef} style={{ ...advisorWizardCard, scrollMarginTop: 'var(--space-4)' }} role="group" aria-label="AI 選書からの問い">
           {/* 読み上げは問いの文だけ（カード全体を読み直さない） */}
-          <p ref={questionRef} tabIndex={-1} aria-live="polite" style={{ ...questionText, outline: 'none' }}>{phrasesGluedEnd(interview.question)}</p>
+          <p ref={questionRef} tabIndex={-1} aria-live="polite" style={{ ...questionText, outline: 'none' }}>{flowGluedEnd(interview.question)}</p>
           <div className="ai-answer-field" style={{ marginTop: 'var(--space-3)' }}>
             <textarea
               ref={answerRef}
@@ -1878,11 +1878,12 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
             {asking && !correcting && (
               <div style={{ marginTop: 'var(--space-4)' }}>
                 <p id="advisor-level-label" style={{ margin: 0, fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)' }}>読む本の難しさ</p>
-                <div role="radiogroup" aria-labelledby="advisor-level-label" style={{ display: 'grid', gridTemplateColumns: rootTextLarge() ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
+                {/* 1 つを選ぶので、ほかの画面と同じ溝と面（segTrack・2026-11-18 ui-critic「選び方が画面ごとに違う」）。 */}
+                <div role="radiogroup" aria-labelledby="advisor-level-label" style={{ ...segTrack, display: 'grid', gridTemplateColumns: rootTextLarge() ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', marginTop: 'var(--space-2)' }}>
                   {LEVEL_PREFS.map((v) => (
-                    <Chip key={v} size="select" stretch role="radio" aria-checked={levelPref === v} active={levelPref === v} onClick={() => chooseLevel(v)}>
+                    <button key={v} type="button" role="radio" aria-checked={levelPref === v} onClick={() => chooseLevel(v)} style={segOption(levelPref === v)}>
                       {LEVEL_PREF_LABELS[v]}
-                    </Chip>
+                    </button>
                   ))}
                 </div>
                 <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
@@ -2124,7 +2125,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
                   )}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 0 }}>{i + 1} 冊目</p>
-                    <p style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, margin: 'var(--space-1) 0 0', overflowWrap: 'anywhere', wordBreak: 'keep-all', textIndent: '-0.5em' }}>『{withPhraseBreaks(rec.title, { scriptBreaks: true })}』</p>
+                    <p style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, margin: 'var(--space-1) 0 0', overflowWrap: 'anywhere', wordBreak: 'keep-all' }}>{/* 『 はぶら下げず字の幅を半分に（halt）＝上の「1 冊目」と左端がそろう（約 10pt 左に出ていた・2026-11-18 ui-critic） */}<span style={{ fontFeatureSettings: '"halt"' }}>『</span>{withPhraseBreaks(rec.title, { scriptBreaks: true })}』</p>
                     {rec.author && (
                       <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: 'var(--space-1) 0 0' }}>{rec.author}</p>
                     )}

@@ -221,3 +221,24 @@ export const scrollFade = { WebkitMaskImage: SCROLL_FADE_MASK, maskImage: SCROLL
 //   左の内側の余白 12 までは完全に透明（フォルダの見出しの横で送ったチップの字が半分だけ残って「フォルダ図書 2」と
 //   続けて読めていた・2026-10-11 第 3 回の採点）→ そこから 1.5em で濃く。
 export const SCROLL_FADE_MASK_BOTH = 'linear-gradient(90deg, transparent var(--space-3), black calc(var(--space-3) + 1.5em), black 90%, transparent 100%)';
+
+// 1 つを選ぶ溝と面（iOS のセグメント・DESIGN §5「1 つを選ぶ」・2026-11-18）。
+//   溝は --fill、選んだものだけ --seg-on の面＋細い縁。タイマー｜計測・分・読む本の難しさで同じ形。
+//   選択肢が多いときは溝の中を grid にして 2 段でもよい（segTrack に gridTemplateColumns を足す）。
+export const segTrack = { display: 'flex', gap: 'var(--space-1)', padding: 'var(--space-1)', background: 'var(--fill)', borderRadius: 'var(--radius)' };
+export const segOption = (on) => ({
+  flex: '1 1 0',
+  minWidth: 0,
+  minHeight: 'var(--tap-min)',
+  border: 'none',
+  borderRadius: 'calc(var(--radius) - var(--space-1))',
+  background: on ? 'var(--seg-on)' : 'transparent',
+  boxShadow: on ? 'inset 0 0 0 1px var(--border)' : 'none',
+  color: on ? 'var(--text)' : 'var(--text-2)',
+  fontSize: 'var(--text-sub)',
+  fontWeight: 600,
+  fontFamily: 'inherit',
+  whiteSpace: 'nowrap',
+  fontVariantNumeric: 'tabular-nums',
+  cursor: 'pointer',
+});

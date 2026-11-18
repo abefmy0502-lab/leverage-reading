@@ -1076,10 +1076,10 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
                   {/* iPhone のアプリでは下の「プランを管理（App Store）」の 1 行に任せ、同じ説明を重ねない（2026-10-12 ui-critic） */}
                   {!nativeView && <p style={{ ...noteStyle, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
                     {withPhraseBreaks(nativeView
-                      ? '解約やプランの変更は、App Store のサブスクリプション設定からいつでもできます。解約してもデータは残ります。'
+                      ? '解約やプランの変更は、App Store のサブスクリプション設定からいつでもできます。解約しても無料プランで使えます。メモは残ります。'
                       : subscription?.stripeCustomerId
-                        ? `解約、カードの変更、請求履歴の確認は、下のボタンからいつでもできます。${plan === 'trial' ? '' : '解約してもデータは残ります。'}`
-                        : `アプリで購入した場合は、iPhone の設定アプリの「サブスクリプション」からいつでも解約できます。${plan === 'trial' ? '' : '解約してもデータは残ります。'}`)}
+                        ? `解約、カードの変更、請求履歴の確認は、下のボタンからいつでもできます。${plan === 'trial' ? '' : '解約しても無料プランで使えます。メモは残ります。'}`
+                        : `アプリで購入した場合は、iPhone の設定アプリの「サブスクリプション」からいつでも解約できます。${plan === 'trial' ? '' : '解約しても無料プランで使えます。メモは残ります。'}`)}
                   </p>}
                   {!nativeView && subscription?.stripeCustomerId ? (
                     <button

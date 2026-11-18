@@ -78,6 +78,9 @@ function ShelfChip({ active, onClick, children, ariaLabel }) {
           borderRadius: 'var(--radius)', fontSize: 'var(--text-meta)', fontWeight: active ? 600 : 400, whiteSpace: 'nowrap',
           background: active ? 'var(--accent-soft)' : 'var(--fill)',
           color: active ? 'var(--accent)' : 'var(--text)',
+          // 内側 1px の枠（DESIGN §5・面の差だけでは見分けられない・2026-11-18 ui-critic）。幅・高さは変えない。
+          outline: `1px solid var(${active ? '--accent' : '--border'})`,
+          outlineOffset: -1,
         }}
       >
         {children}
@@ -767,6 +770,22 @@ function AuthedApp() {
   const [actionFocus, setActionFocus] = useState(null);
   // 相談の会話を下へ送ったか（上の「相談｜AI 選書」の行の下に線・2026-10-16 第 4 回）
   const [consultScrolled, setConsultScrolled] = useState(false);
+  // AI 選書も、下へ送ったら同じ線（送った中身が行の下に半分のぞいていた・2026-11-18 ui-critic）。どの箱が送られても拾う。
+  const [advisorScrolled, setAdvisorScrolled] = useState(false);
+  useEffect(() => {
+    if (!(tab === 'ai' && aiSubTab === 'advisor')) { setAdvisorScrolled(false); return undefined; }
+    const onScroll = (e) => {
+      const t = e.target;
+      // 横に送るチップの行などは数えない（縦に送れる箱と画面だけ）。
+      if (t && t.nodeType === 1 && t !== document.documentElement && t !== document.body && t.scrollHeight <= t.clientHeight + 1) return;
+      const top = t === document || t === document.documentElement || t === document.body
+        ? (window.scrollY || document.documentElement.scrollTop || 0)
+        : (t && typeof t.scrollTop === 'number' ? t.scrollTop : 0);
+      setAdvisorScrolled(top > 0);
+    };
+    document.addEventListener('scroll', onScroll, { capture: true, passive: true });
+    return () => document.removeEventListener('scroll', onScroll, { capture: true });
+  }, [tab, aiSubTab]);
   // 🏠→🧠 本棚ホームの「相談する」から渡す質問。MyBookBrain が履歴読込後に 1 回送る。
   const [askPreset, setAskPreset] = useState(null); // { question, nonce } | null
   // 相談タブのサブタブ（相談｜AI 選書）の行の右端。相談の 🕒・…／AI 選書の履歴・新規はここへ portal で出す（2026-10-01 ui-critic）。
@@ -6713,7 +6732,7 @@ function AuthedApp() {
             {/* サブタブは名前の幅（相談｜AI 選書）で左に寄せ、同じ行の右端にその画面の操作（相談の 🕒・…／AI 選書の履歴・新規）。
                 上の操作を「サブタブ／アイコンの行／件数の行」と 3 段に積まない（2026-10-01 ui-critic・DESIGN §5）。 */}
             {!(aiSubTab === 'brain' && consultPushed) && !(aiSubTab === 'advisor' && advisorPushed) && (
-            <div className="sub-tabs sub-tabs--fit" data-scrolled={aiSubTab === 'brain' && consultScrolled ? '' : undefined} style={{ flexShrink: 0 }}>
+            <div className="sub-tabs sub-tabs--fit" data-scrolled={(aiSubTab === 'brain' && consultScrolled) || (aiSubTab === 'advisor' && advisorScrolled) ? '' : undefined} style={{ flexShrink: 0 }}>
             <div role="tablist" aria-label="相談のサブタブ" className="sub-tabs__list sub-tabs__seg" onKeyDown={onTabListKeyDown}>
               <SegThumb activeKey={aiSubTab} />
               <button

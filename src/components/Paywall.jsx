@@ -789,12 +789,13 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
                 あわせて、初回特典は 1 つの Apple ID に 1 回であること（App Store の決まり）。 */}
             {priceState === 'ready' && founding.active && (
               <p style={{ ...metaText, ...phraseText, marginTop: 'var(--space-3)' }}>
-                <Phrases>{`${noBreak(founding.endLabel)}までに年額プランを始めた方は、創業メンバーです。開発者に直接連絡でき、次に作る機能の投票にも参加できます。`}</Phrases>
+                {/* 短く（プランの間の説明が長かった・2026-11-18 ui-critic）。 */}
+                <Phrases>{`${noBreak(founding.endLabel)}までに年額プランを始めた方は創業メンバーです（開発者への直接の窓口・次に作る機能への投票）。`}</Phrases>
               </p>
             )}
             {priceState === 'ready' && labels.annual?.intro && labels.monthly?.trial && (
-              <p style={{ ...metaText, ...phraseText, marginTop: founding.active ? 'var(--space-1)' : 'var(--space-3)' }}>
-                <Phrases>{`初回特典は ${noBreak('1 つ')}の ${noBreak('Apple ID')} につき ${noBreak('1 回')}です。月額の ${noBreak(normalizeTrialLabel(labels.monthly.trial))}と年額の ${noBreak(labels.annual.intro.head)} は、どちらか一方だけ使えます。`}</Phrases>
+              <p style={{ ...metaText, ...phraseText, marginTop: founding.active ? 'var(--space-2)' : 'var(--space-3)' }}>
+                <Phrases>{`月額の ${noBreak(normalizeTrialLabel(labels.monthly.trial))}と年額の ${noBreak(labels.annual.intro.head)} は、どちらか一方だけ使えます（${noBreak('1 つ')}の ${noBreak('Apple ID')} に ${noBreak('1 回')}）。`}</Phrases>
               </p>
             )}
 

@@ -197,7 +197,9 @@
   font-size: var(--text-read);
   line-height: 1.7;
   color: var(--text);
-  word-break: keep-all;
+  word-break: normal;
+  line-break: strict;
+  text-wrap: pretty;
   overflow-wrap: anywhere;
 }
 
@@ -389,13 +391,14 @@
   font-size: var(--text-caption);
   font-weight: 600;
   cursor: pointer;
-  /* 暗い画面で --accent-soft の帯が地に溶けていた（2026-11-18 ui-critic）＝栗色を地に混ぜて、明暗とも帯と地の差を出す */
-  background: color-mix(in srgb, var(--accent) 40%, var(--surface));
+  /* 栗色は「今日の本」だけ（色に意味を 1 つ・2026-11-18 ui-critic）。ほかの本は灰の 2 段を交互に（隣の本と見分ける）。
+     暗い画面でも地に溶けない濃さ（--text 18% / 30%）。 */
+  background: color-mix(in srgb, var(--text) 18%, var(--surface));
   color: var(--text);
 }
 /* 押せる範囲は上下 44（見た目は 24 のまま） */
 .plan-band::after { content: ""; position: absolute; left: 50%; width: max(100%, var(--tap-min)); transform: translateX(-50%); top: calc((var(--tap-min) - var(--space-6)) / -2); bottom: calc((var(--tap-min) - var(--space-6)) / -2); }
-.plan-band.is-alt { background: color-mix(in srgb, var(--text) 20%, var(--surface)); color: var(--text); }
+.plan-band.is-alt { background: color-mix(in srgb, var(--text) 30%, var(--surface)); color: var(--text); }
 .plan-band.is-now { background: var(--accent); color: var(--accent-ink); }
 .plan-band.is-head { border-top-left-radius: var(--radius); border-bottom-left-radius: var(--radius); }
 .plan-band.is-tail { border-top-right-radius: var(--radius); border-bottom-right-radius: var(--radius); }

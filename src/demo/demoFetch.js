@@ -649,7 +649,8 @@ function demoInterviewStep(userText) {
     return { done: false, question: `最近「${c}」と感じた場面を、1 つ思い出せますか？`, options: ['きのうの夕方、', '会議が終わったあと', '週末に仕事を思い出したとき'], summary };
   }
   if (spoken.length === 0) {
-    return { done: false, question: `「${c}」と書いていましたが、いちばん引っかかっているのは、どんなところですか？`, options: ['気づくと一日が終わっている', '大事なことほど後回しになる', '人に頼まれると断れない'], summary };
+    // 最初の問いは、すぐ上に見えている悩みの文を「」で引き直さない（本番の指示文と同じ・2026-11-18 ui-critic）。
+    return { done: false, question: 'いま、いちばん引っかかっているのは、どんなところですか？', options: ['気づくと一日が終わっている', '大事なことほど後回しになる', '人に頼まれると断れない'], summary };
   }
   return { done: false, question: `「${demoQuote(spoken[0])}」とありましたが、本当は、どうなっていたいですか？`, options: ['夕方に自分の仕事を進めたい', '定時に帰れるようになりたい', '大事なことに集中したい'], summary };
 }

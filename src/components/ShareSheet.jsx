@@ -113,7 +113,8 @@ function safeStorage() {
 }
 
 // プレビューの高さ（シートが 1 画面に収まるように・形が変わっても高さは同じ）。
-const PREVIEW_H = 'min(28vh, 248px)';
+//   重ね方の見本の名前（2 行）まで下の固定の欄の上に収まる高さ（390×844 で名前が欄に隠れていた・2026-11-18 ui-critic）。
+const PREVIEW_H = 'min(23vh, 208px)';
 // 見せ方の見本の高さ（幅は形に合わせる）。
 const THUMB_H = 64;
 

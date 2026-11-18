@@ -10,7 +10,7 @@
 //                     その下の線の下に「この本で学べること」（briefSlot）。主ボタン「読書を開始する」を最初の画面に残すため。
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
-import { groupTitle, btnLink } from '../styles/ui';
+import { groupTitle, btnLinkQuiet } from '../styles/ui';
 import { SkeletonBlock } from './Skeleton';
 import { withPhraseBreaks } from './TightBubble';
 import { BOOK_INFO_SOURCE_LABELS, bookInfoMetaLine, hasBookInfo } from '../lib/bookInfo';
@@ -125,8 +125,9 @@ function Description({ text, clamp }) {
           type="button"
           onClick={() => setExpanded((v) => !v)}
           aria-expanded={expanded}
-          // 文字の端を本文の左端にそろえる（btnLink の左右 4 を打ち消す）。
-          style={{ ...btnLink, marginLeft: 'calc(-1 * var(--space-1))', marginBottom: 'calc(-1 * var(--space-2))' }}
+          // 文字の端を本文の左端にそろえる（左右 4 を打ち消す）。読むための操作なので控えめな文字ボタン
+          //   （栗色の文字が画面に 5 つ並んで主ボタンと競っていた・2026-11-18 ui-critic）。
+          style={{ ...btnLinkQuiet, marginLeft: 'calc(-1 * var(--space-1))', marginBottom: 'calc(-1 * var(--space-2))' }}
         >
           {expanded ? '閉じる' : '続きを読む'}
         </button>
