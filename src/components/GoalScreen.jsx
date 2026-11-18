@@ -66,6 +66,9 @@ function gluedEnd(text) {
   return <>{withPhraseBreaks(m[1])}<span style={{ whiteSpace: 'nowrap' }}>{m[2]}</span></>;
 }
 
+// 文字の大きさの設定が大きいとき（ルート 22px 以上）。
+const largeRootText = () => { try { return parseFloat(getComputedStyle(document.documentElement).fontSize) >= 22; } catch { return false; } };
+
 export default function GoalScreen({ start = null, books = [], onClose, onOpenBook, onAddActionText, onAddReadingActions, onFindBooks, onAddRecBook }) {
   const { goals, roadmaps, purpose, loaded } = useGoals();
   const toast = useToast();
@@ -1179,13 +1182,14 @@ function PlanView({ goal, record, books, sessions, onFindBooks, onOpenBook, onAd
 
       {todayBook && (
         <button type="button" className="plan-today" onClick={() => onOpenBook?.(todayBook)}>
-          <MiniCover book={todayBook} width={32} />
+          {/* 文字が大きいときは表紙を出さない（本文の列を広く・「『…／』」「まで」が割れていた・2026-11-18 文字最大の点検） */}
+          {!largeRootText() && <MiniCover book={todayBook} width={32} />}
           <span className="plan-today-body">
             <span className="plan-today-label">{nowItem ? '今日の本' : `次の本 · ${fmtMd(nextItem.start, year)} から`}</span>
-            <span className="plan-today-title">{withPhraseBreaks(`『${todayBook.title}』`)}</span>
-            <span className="plan-today-meta">{nowItem ? `1 日 ${minutes} 分 · ${fmtMd(nowItem.end, year)} まで` : '今日は読む本の予定がありません'}</span>
+            <span className="plan-today-title">{withPhraseBreaks(`『\u2060${todayBook.title}\u2060』`, { scriptBreaks: true })}</span>
+            <span className="plan-today-meta">{nowItem ? <><span style={{ whiteSpace: 'nowrap' }}>{`1 日 ${minutes} 分`}</span>{' · '}<span style={{ whiteSpace: 'nowrap' }}>{`${fmtMd(nowItem.end, year)} まで`}</span></> : withPhraseBreaks('今日は読む本の予定がありません')}</span>
           </span>
-          <ChevronRight className="goal-entry-chev" size="1.1em" aria-hidden="true" />
+          <ChevronRight className="goal-entry-chev" size="1.1em" aria-hidden="true" style={{ marginRight: 'calc(-1 * var(--space-1))' }} />
         </button>
       )}
 

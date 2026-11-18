@@ -339,8 +339,8 @@
 .plan-today:disabled { cursor: default; opacity: 1; }
 .plan-today-body { flex: 1; min-width: 0; }
 .plan-today-label { display: block; margin: 0; font-size: var(--text-caption); font-weight: 600; color: var(--text-2); }
-.plan-today-title { display: block; margin: var(--space-1) 0 0; font-size: var(--text-body); font-weight: 600; line-height: 1.45; word-break: keep-all; overflow-wrap: anywhere; }
-.plan-today-meta { display: block; margin: var(--space-1) 0 0; font-size: var(--text-meta); color: var(--text-2); line-height: 1.5; }
+.plan-today-title { display: block; margin: var(--space-1) 0 0; font-size: var(--text-body); font-weight: 600; line-height: 1.45; word-break: keep-all; overflow-wrap: anywhere; line-break: strict; }
+.plan-today-meta { display: block; margin: var(--space-1) 0 0; font-size: var(--text-meta); color: var(--text-2); line-height: 1.5; word-break: keep-all; line-break: strict; }
 .plan-cal {
   /* 今日の本（すぐ読む）とカレンダー（先の見通し）は役割が違うので 24 空ける（2026-11-18 ui-critic） */
   margin-top: var(--space-6);

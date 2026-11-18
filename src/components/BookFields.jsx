@@ -157,12 +157,13 @@ function DetailRow({ label, ariaLabel, action = null, children, ...rest }) {
         // 1 行目の上の余りも行の外へ（見出しの文字と前の行の間を 8 に）
         // 1 行目の上の余りも行の外へ（前の行との見た目の間は 8）。続く行も同じ＝前の行の下の余り（−6）とは margin の相殺で片方しか効かず、
         // 見た目 8・押せる箱は接するだけで重ならない（2026-11-09 ui-critic）
-        marginTop: `calc(var(--space-2) + ${detailTapExtra})`,
+        // 縦に積むときは行と行の間を 16（見出し→自分のチップより広く・2026-11-18 ui-critic）。
+        marginTop: stacked ? `calc(var(--space-4) + ${detailTapExtra})` : `calc(var(--space-2) + ${detailTapExtra})`,
         marginBottom: detailTapExtra,
       }}
     >
-      <span aria-hidden="true" style={detailRowLabel}>{label}</span>
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 'var(--space-2)', rowGap: 0, minWidth: 0, flex: stacked ? '1 1 100%' : '1 1 0', order: stacked ? 3 : 0 }}>
+      <span aria-hidden="true" style={stacked ? { ...detailRowLabel, minHeight: 'auto', alignSelf: 'center' } : detailRowLabel}>{label}</span>
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 'var(--space-2)', rowGap: 0, minWidth: 0, flex: stacked ? '1 1 100%' : '1 1 0', order: stacked ? 3 : 0, marginTop: stacked ? detailTapExtra : 0 }}>
         {children}
       </div>
       {action && stacked ? <span style={{ marginLeft: 'auto', order: 2, display: 'inline-flex' }}>{action}</span> : action}
