@@ -244,17 +244,20 @@ function ValueRow({ label, value, sub = null, style, onClick = null, ariaLabel }
   const inner = (
     <>
       <span style={{ fontSize: 'var(--text-body)', color: 'var(--text)', flexShrink: 0 }}>{label}</span>
+      {/* 値と › は 1 つの塊（文字が大きくて値が名前の下へ回っても、› は値の右に付いたまま・2026-11-18） */}
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'auto', minWidth: 0 }}>
       {sub ? (
-        <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', minWidth: 0, textAlign: 'right', marginLeft: onClick ? 'auto' : 0 }}>
+        <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', minWidth: 0, textAlign: 'right' }}>
           <span style={{ fontSize: 'var(--text-body)', color: 'var(--text-2)' }}>{valueChunks(value)}</span>
           {/* 2 行目は割らない塊（nowrap の span）ごとに折り返す。文まるごと nowrap だと見出しに重なった（2026-10-30 ui-critic） */}
           <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, minWidth: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{sub}</span>
         </span>
       ) : (
         // 入らないときは名前の下の行へ回る（右寄せ・iOS の値つきの行と同じ）。
-        <span style={{ fontSize: 'var(--text-body)', color: 'var(--text-2)', textAlign: 'right', marginLeft: 'auto', minWidth: 0 }}>{valueChunks(value)}</span>
+        <span style={{ fontSize: 'var(--text-body)', color: 'var(--text-2)', textAlign: 'right', minWidth: 0 }}>{valueChunks(value)}</span>
       )}
-      {onClick && <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0, marginLeft: 'calc(-1 * var(--space-1))' }} />}
+      {onClick && <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />}
+      </span>
     </>
   );
   if (onClick) {

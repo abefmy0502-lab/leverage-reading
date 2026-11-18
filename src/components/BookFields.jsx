@@ -136,6 +136,8 @@ export function BookFieldsSheet({ selected = [], onDone, onClose }) {
 //   操作を 3 列目に固定すると、チップがいくつ折り返しても「変更」は孤立した行にならない（ui-critic 18/20 の指摘 1）。
 //   チップの見た目は 32・押せる範囲は 44（折り返した行の見た目の間は 44 − 32 ＝ 12）。
 //   見出しは 1 行目の中央にそろえ、上下の余り（押せる範囲 − 見た目）は負の余白で行の外へ。
+// 「・」を前の字につなぐ（行頭に「・」が来ない＝「リーダーシップ／・人材育成」と割れていた・2026-11-18）。
+const glueMiddot = (t) => String(t || '').replace(/(.)・/g, '$1\u2060・');
 const detailRowLabel = { flexShrink: 0, minWidth: 'max(var(--space-16), 4em)', whiteSpace: 'nowrap', fontSize: 'var(--text-meta)', color: 'var(--text-2)', display: 'inline-flex', alignItems: 'center', minHeight: 'var(--tap-min)' }; // 文字が大きくても見出しを割らない（「フォ／ルダ」・2026-11-18）
 const detailTapExtra = 'calc((var(--space-8) - var(--tap-min)) / 2)'; // 押せる範囲 44 と見た目 32 の差の半分（負）
 // 「変更」の文字の右端を右の余白 16 にそろえる（押せる幅 44 は左へ伸ばす・2026-11-09 ui-critic）
@@ -183,7 +185,7 @@ export function BookFieldLinks({ fields = [], onPick, onEdit = null }) {
       {fields.map((f) => (
         onPick
           // 長い分野の名前（起業・テクノロジー など）は「・」の後ろで折り返す＝「変更」に重ならない（2026-11-17 ui-critic）
-          ? <Chip key={f} shrink wrap onClick={() => onPick(f)} aria-label={`分野「${f}」の本を見る`}>{withPhraseBreaks(f, { scriptBreaks: true })}</Chip>
+          ? <Chip key={f} shrink wrap onClick={() => onPick(f)} aria-label={`分野「${f}」の本を見る`}>{withPhraseBreaks(glueMiddot(f), { scriptBreaks: true })}</Chip>
           : <span key={f} style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>{f}</span>
       ))}
     </DetailRow>
@@ -208,7 +210,7 @@ export function BookFolderLinks({ folders = [], onPick, onEdit }) {
       {folders.map((f) => (
         // 分野のチップと同じく折り返す（文字が大きいと「会社の課題…」と切れていた・2026-11-18）
         <Chip key={f} shrink wrap onClick={() => onPick?.(f)} aria-label={`フォルダ「${f}」の本を見る`}>
-          {withPhraseBreaks(f, { scriptBreaks: true })}
+          {withPhraseBreaks(glueMiddot(f), { scriptBreaks: true })}
         </Chip>
       ))}
       {onEdit && folders.length === 0 && (

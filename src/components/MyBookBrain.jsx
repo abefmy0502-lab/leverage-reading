@@ -3917,7 +3917,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
         <span style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 3, overflow: 'hidden', marginTop: 'var(--space-1)', fontFamily: 'var(--font-read)', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.6, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{spot.x}</span>
       </>
     );
-    const box = { position: 'relative', display: 'block', width: '100%', textAlign: 'left', marginTop: 'var(--space-3)', padding: `var(--space-3) ${open ? 'var(--space-6)' : '0'} var(--space-3) var(--space-3)`, borderLeft: '2px solid var(--border)', background: 'none', borderTop: 'none', borderRight: 'none', borderBottom: 'none', borderRadius: 0, fontFamily: 'inherit', cursor: open ? 'pointer' : 'default' };
+    const box = { position: 'relative', display: 'block', width: '100%', fontSize: 'var(--text-sub)', textAlign: 'left', marginTop: 'var(--space-3)', padding: `var(--space-3) ${open ? 'var(--space-6)' : '0'} var(--space-3) var(--space-3)`, borderLeft: '2px solid var(--border)', background: 'none', borderTop: 'none', borderRight: 'none', borderBottom: 'none', borderRadius: 0, fontFamily: 'inherit', cursor: open ? 'pointer' : 'default' };
     return open
       ? <button type="button" onClick={open} aria-label={`あなたのメモを開く：${head}`} style={box}>{body}<ChevronRight size="1.2em" aria-hidden="true" style={{ position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)' }} /></button>
       : <div style={box}>{body}</div>;

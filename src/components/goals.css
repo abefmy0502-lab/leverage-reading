@@ -455,6 +455,7 @@
   text-align: left;
   color: inherit;
   font: inherit;
+  font-size: var(--text-body); /* 中の › (1.1em) を文字の大きさに合わせる（2026-11-18） */
   cursor: pointer;
 }
 .goal-entry-body { flex: 1; min-width: 0; }

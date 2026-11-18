@@ -1185,7 +1185,7 @@ function PlanView({ goal, record, books, sessions, onFindBooks, onOpenBook, onAd
             <span className="plan-today-title">{withPhraseBreaks(`『${todayBook.title}』`)}</span>
             <span className="plan-today-meta">{nowItem ? `1 日 ${minutes} 分 · ${fmtMd(nowItem.end, year)} まで` : '今日は読む本の予定がありません'}</span>
           </span>
-          <ChevronRight className="goal-entry-chev" size={20} aria-hidden="true" />
+          <ChevronRight className="goal-entry-chev" size="1.1em" aria-hidden="true" />
         </button>
       )}
 

@@ -324,7 +324,7 @@ function ResultRow({ book, existing, onPick, divider }) {
             style={{
               fontSize: 'var(--text-body)', lineHeight: 1.3,
               display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-              wordBreak: 'keep-all', overflowWrap: 'anywhere',
+              wordBreak: 'keep-all', overflowWrap: 'anywhere', textWrap: 'balance',
               ...(book.subtitle ? { fontWeight: 400, color: 'var(--text-3)' } : titleInk),
             }}
           >
@@ -335,18 +335,18 @@ function ResultRow({ book, existing, onPick, divider }) {
             )}
           </span>
           {book.author && (
-            <span style={{ ...oneLine, fontSize: 'var(--text-sub)', color: 'var(--text-2)' }}>{book.author}</span>
+            <span style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', wordBreak: 'keep-all', overflowWrap: 'anywhere', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{withPhraseBreaks(book.author, { scriptBreaks: true })}</span>
           )}
           {existing ? (
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>
-              <Check size={14} aria-hidden="true" />
+              <Check size="1em" aria-hidden="true" />
               追加済み・{statusLabel}
             </span>
           ) : meta ? (
-            <span style={{ ...oneLine, fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>{meta}</span>
+            <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(meta)}</span>
           ) : null}
         </span>
-        <ChevronRight size="1.1em" aria-hidden="true" style={{ flexShrink: 0, color: 'var(--text-3)' }} />
+        <ChevronRight size="1.1em" aria-hidden="true" style={{ flexShrink: 0, color: 'var(--text-3)', marginInline: '-0.3em' }} />
       </button>
     </li>
   );
