@@ -53,7 +53,7 @@ import { ChevronRight, Download as IcDownload, RefreshCw as IcRefresh } from 'lu
 import { SkeletonBlock } from './Skeleton';
 import { withPhraseBreaks } from './TightBubble';
 import { track, EVENTS, isAnalyticsOptedOut, setAnalyticsOptOut } from '../lib/analytics';
-import { closeDelayMs } from '../lib/motion';
+import { closeDelayMs, scrollBehavior } from '../lib/motion';
 import ToggleSwitch from './ToggleSwitch';
 import { readAiConsent, requestAiConsent, isAiConsentCurrent, AI_CONSENT_CHANGED_EVENT } from '../lib/aiConsent';
 import {
@@ -383,7 +383,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
   // 退会の失敗の知らせが出たら、1 回だけそこまで送る（ボタンの下で画面の外に出ていた・下端に余白を残す・2026-11-18 ui-critic）。
   const deleteErrorRef = useRef(null);
   useEffect(() => {
-    if (deleteError) deleteErrorRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+    if (deleteError) deleteErrorRef.current?.scrollIntoView?.({ block: 'nearest', behavior: scrollBehavior() });
   }, [deleteError]);
   const [deleteOpen, setDeleteOpen] = useState(false);
   // 🎯 Orime を入れた理由（2026-10-18）: 設定で見返す・書き直す。解約（プランを管理）と退会の前に一度だけ見せる（止めない）。
