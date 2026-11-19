@@ -181,7 +181,7 @@ function PlanCompare({ onlyPlan = false, trial = '', example = TOKEN_EXAMPLE, gu
           <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5 }}>
             <span style={{ whiteSpace: 'nowrap' }}>{row.amount}</span>
             {/* はじめの 2 か月の量（130 トークン）と食い違わないよう、かっこで添える（細く・別の塊で折り返す・2026-11-18 ui-critic） */}
-            {row.amountNote && <span style={{ ...chunk, fontSize: 'var(--text-sub)', fontWeight: 400, color: 'var(--text-2)' }}>{guest ? `（アカウントを作ると、始めた月と翌月は${noBreak(answerCountLabel(FREE_FIRST_MONTH_TOKENS))}）` : row.amountNote}</span>}
+            {row.amountNote && <span style={{ ...chunk, fontSize: 'var(--text-sub)', fontWeight: 400, color: 'var(--text-2)' }}>{guest ? withPhraseBreaks(`（アカウントを作ると、始めた月と翌月は${noBreak(answerCountLabel(FREE_FIRST_MONTH_TOKENS))}）`) : row.amountNote}</span>}
           </p>
           {/* 量の目安は、かっこで続けず次の行に（かっこが重なって読みにくかった・2026-10-16 ui-critic）。 */}
           {row.scope && <p style={{ margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(row.scope)}</p>}

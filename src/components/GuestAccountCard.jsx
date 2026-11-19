@@ -1,7 +1,7 @@
 // 👤 登録せずに始めた人の「アカウントを作る」（設定のいちばん上・2026-11-19・App 審査 5.1.1(v)）。
 // Apple ID かメールアドレスを、いまのアカウントにつなぐ。本・メモ・行動・プランはそのまま（利用者の id は変わらない）。
 // 登録は任意。つながない間は「アプリを消すと戻れない」ことだけを伝える（押しつけない・赤くしない）。
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
 import { isNativeApple, linkAppleToCurrentUser } from '../lib/appleAuth';
@@ -14,11 +14,15 @@ import { withPhraseBreaks } from './TightBubble';
 import { track, EVENTS } from '../lib/analytics';
 
 const titleStyle = { fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', margin: 0, lineHeight: 1.5 };
-const descStyle = { fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: 'var(--space-1) 0 0', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' };
+const descStyle = { fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 'var(--space-1) 0 0', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' };
 const errStyle = { fontSize: 'var(--text-sub)', color: 'var(--error)', margin: 0, lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' };
-const hintStyle = { fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: '0 0 var(--space-3)', lineHeight: 1.5 };
-const infoStyle = { fontSize: 'var(--text-meta)', color: 'var(--text)', margin: 0, lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' };
+const hintStyle = { fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: '0 0 var(--space-3)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' };
+const infoStyle = { fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 0, lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' };
 const inp = { ...uiInput, marginBottom: 'var(--space-2)' };
+// 間違えた欄は枠を --error に（入力中の --accent の枠のままだとエラーに見えない）
+const inpBad = { borderColor: 'var(--error)' };
+// 主ボタンのすぐ上に置くエラー（どのボタンの話か分かるように・2026-11-19 ui-critic）
+const errAbove = { ...errStyle, margin: '0 0 var(--space-2)' };
 
 // Apple のブランドの黒いボタン（ログインの画面と同じ例外の色）
 const appleBtn = { ...btnPrimary, width: '100%', background: 'var(--apple-btn-bg)', color: 'var(--apple-btn-ink)', opacity: 1, fontWeight: 600 };
@@ -42,6 +46,9 @@ export default function GuestAccountCard() {
   const [error, setError] = useState('');
   const [email, setEmail] = useState(pendingEmail);
   const [pwSkipped, setPwSkipped] = useState(false);
+  const [badField, setBadField] = useState(''); // '' | 'email' | 'password'
+  const emailRef = useRef(null);
+  const passwordRef = useRef(null);
 
   // 設定を開いたら、いまの状態を取り直す（メールのリンクを開いてつながっていれば、ふつうの表示に変わる＝useAuth）
   useEffect(() => {
@@ -93,9 +100,14 @@ export default function GuestAccountCard() {
     e.preventDefault();
     if (busy) return;
     setError('');
-    if (!email.trim()) { setError('メールアドレスを入力してください。'); return; }
+    setBadField('');
+    const at = email.trim();
+    if (!at || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(at)) {
+      setError(at ? 'メールアドレスの形を確かめてください。' : 'メールアドレスを入力してください。');
+      setBadField('email'); emailRef.current?.focus(); return;
+    }
     const pwProblem = validatePassword(password);
-    if (pwProblem) { setError(pwProblem); return; }
+    if (pwProblem) { setError(pwProblem); setBadField('password'); passwordRef.current?.focus(); return; }
     setBusy('email');
     try {
       const r = await linkEmailToCurrentUser(email.trim(), password);
@@ -114,13 +126,13 @@ export default function GuestAccountCard() {
       <div style={cardBody} role="status">
         <p style={titleStyle}>確認のメールを送りました</p>
         <p style={infoStyle}>{withPhraseBreaks(`${email.trim()} に届いたメールのリンクを開くと、アカウントができます。${pwSkipped || (pendingEmail && !password) ? 'ほかの端末では、ログインの画面の「パスワードをお忘れの方」からパスワードを決めてログインできます。' : 'ほかの端末では、このメールアドレスとパスワードでログインできます。'}`)}</p>
+        {error && <p role="alert" style={{ ...errStyle, marginBottom: 'calc(-1 * var(--space-1))' }}>{withPhraseBreaks(error)}</p>}
         <button type="button" style={{ ...btnPrimary, width: '100%', opacity: 1, cursor: busy ? 'default' : 'pointer' }} onClick={checkLinked} disabled={Boolean(busy)}>
           {busy === 'check' ? '確かめています…' : 'リンクを開いたので、確かめる'}
         </button>
         <button type="button" style={{ ...btnLinkQuiet, width: '100%' }} onClick={() => { setMode('email'); setError(''); }}>
           メールアドレスを直す
         </button>
-        {error && <p role="alert" style={errStyle}>{withPhraseBreaks(error)}</p>}
       </div>
     );
   }
@@ -145,34 +157,39 @@ export default function GuestAccountCard() {
         </>
       )}
       {mode === 'email' && (
-        <form onSubmit={sendEmail} style={{ display: 'flex', flexDirection: 'column' }}>
+        <form onSubmit={sendEmail} noValidate style={{ display: 'flex', flexDirection: 'column' }}>
           <input
-            style={inp}
+            ref={emailRef}
+            style={badField === 'email' ? { ...inp, ...inpBad } : inp}
+            aria-invalid={badField === 'email' || undefined}
             type="email"
             placeholder="メールアドレス"
             aria-label="メールアドレス"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => { setEmail(e.target.value); if (badField === 'email') setBadField(''); }}
             onKeyDown={(e) => { if (e.key === 'Enter' && e.nativeEvent.isComposing) e.preventDefault(); }}
             required
             autoComplete="email"
             maxLength={LIMITS.email}
           />
           <input
-            style={{ ...inp, marginBottom: 'var(--space-1)' }}
+            ref={passwordRef}
+            style={{ ...inp, marginBottom: 'var(--space-1)', ...(badField === 'password' ? inpBad : null) }}
+            aria-invalid={badField === 'password' || undefined}
             type="password"
             placeholder="パスワード"
             aria-label="パスワード"
             aria-describedby="guest-pw-rule"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) => { setPassword(e.target.value); if (badField === 'password') setBadField(''); }}
             onKeyDown={(e) => { if (e.key === 'Enter' && e.nativeEvent.isComposing) e.preventDefault(); }}
             required
             minLength={8}
             maxLength={LIMITS.password}
             autoComplete="new-password"
           />
-          <p id="guest-pw-rule" style={hintStyle}>パスワードは 8&nbsp;文字以上で、英字と数字を含めてください</p>
+          <p id="guest-pw-rule" style={hintStyle}>{withPhraseBreaks('パスワードは 8\u00a0文字以上で、英字と数字を含めてください')}</p>
+          {error && <p role="alert" style={errAbove}>{withPhraseBreaks(error)}</p>}
           {/* 押せない状態にしない（暗い設定のカードの面と同じ色で消えた・2026-11-19 ui-critic）。押したときに確かめる。 */}
           <button type="submit" style={{ ...btnPrimary, width: '100%', opacity: 1, cursor: busy ? 'default' : 'pointer' }} disabled={Boolean(busy)}>
             {busy === 'email' ? '送っています…' : '確認のメールを送る'}
@@ -182,7 +199,7 @@ export default function GuestAccountCard() {
           </button>
         </form>
       )}
-      {error && <p role="alert" style={errStyle}>{withPhraseBreaks(error)}</p>}
+      {mode === 'choose' && error && <p role="alert" style={errStyle}>{withPhraseBreaks(error)}</p>}
     </div>
   );
 }

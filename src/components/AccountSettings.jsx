@@ -1343,7 +1343,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
                 // 登録せずに始めた人は、ログアウトすると同じアカウントに戻れない（2026-11-19）。
                 const ok = await confirm(guest ? {
                   title: 'ログアウトしますか？',
-                  message: 'アカウントを作っていないので、ログアウトすると、いまの本・メモと追加したトークンには戻れなくなります。先に、設定のいちばん上から Apple かメールアドレスでアカウントを作っておくと安心です。',
+                  message: 'アカウントを作っていないので、ログアウトすると、いまの本・メモ・行動と追加したトークンに戻れなくなります。先に、設定のいちばん上から Apple かメールアドレスでアカウントを作っておくと安心です。',
                   confirmLabel: 'ログアウトする',
                   cancelLabel: 'キャンセル',
                   danger: true,
