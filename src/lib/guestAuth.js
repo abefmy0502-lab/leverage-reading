@@ -57,7 +57,7 @@ export function linkErrorMessage(err) {
     return 'この Apple ID は、もう別のアカウントで使われています。いまのアカウントには、メールアドレスでつないでください。';
   }
   if (code === 'email_exists' || msg.includes('already been registered') || msg.includes('already registered')) {
-    return 'このメールアドレスは、もう別のアカウントで使われています。ほかのメールアドレスか、Apple でつないでください。';
+    return 'このメールアドレスは、もう別のアカウントで使われています。ほかのメールアドレスを入れるか、「やめる」から Apple で登録してください。';
   }
   if (code === 'manual_linking_disabled' || msg.includes('manual linking')) {
     return 'いまはアカウントをつなげません。しばらくしてから、もう一度お試しください。';

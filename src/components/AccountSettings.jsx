@@ -1341,18 +1341,26 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
               onClick={async () => {
                 // 押し間違いで出てしまわないように、ひと声かける（消す操作ではないので赤くしない・2026-09-29）。
                 // 登録せずに始めた人は、ログアウトすると同じアカウントに戻れない（2026-11-19）。
+                //   脇のボタンは「先にアカウントを作る」＝いちばん上のカードへ戻す（言葉で場所を案内しない・ui-critic）。外を押したら何もしない。
                 const ok = await confirm(guest ? {
                   title: 'ログアウトしますか？',
-                  message: 'アカウントを作っていないので、ログアウトすると、いまの本・メモ・行動と追加したトークンに戻れなくなります。先に、設定のいちばん上から Apple かメールアドレスでアカウントを作っておくと安心です。',
+                  message: 'アカウントを作っていないので、ログアウトすると、いまの本・メモ・行動と追加したトークンに戻れなくなります。',
                   confirmLabel: 'ログアウトする',
-                  cancelLabel: 'キャンセル',
+                  cancelLabel: '先にアカウントを作る',
                   danger: true,
+                  dismissValue: null,
                 } : {
                   title: 'ログアウトしますか？',
                   message: 'メモはアカウントに残ります',
                   confirmLabel: 'ログアウト',
                   cancelLabel: 'キャンセル',
                 });
+                if (guest && ok === false) {
+                  const card = document.querySelector('[aria-label="アカウントを作る"]');
+                  card?.scrollIntoView?.({ behavior: scrollBehavior(), block: 'start' });
+                  setTimeout(() => card?.querySelector('button')?.focus?.(), 300);
+                  return;
+                }
                 if (!ok) return;
                 try { await signOut(); onClose?.(); } catch { toast.error('ログアウトできませんでした。'); }
               }}

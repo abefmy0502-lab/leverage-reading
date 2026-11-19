@@ -51,8 +51,6 @@ const errorText = { color: 'var(--error)', fontSize: 'var(--text-meta)', lineHei
 const jpWrap = { textWrap: 'pretty' };
 // 規約・プライバシーポリシーのリンク（文字ボタン＝btnLink の 15/600・高さ 44）。字下げで文字の頭に揃えるので左右の余白は 0。
 const legalLink = { ...uiBtnLink, padding: 0, textDecoration: 'none' };
-// 文の中のリンク（確かめるダイアログの規約・2026-11-19）
-const inlineLink = { color: 'var(--accent)', fontWeight: 600, textDecoration: 'underline', textUnderlineOffset: '0.2em', whiteSpace: 'nowrap' };
 // 同意のチェック（24 の丸・初日クイックスタートの選択と同じ見た目）。リンク行はチェック＋間隔ぶん字下げして文字の頭に揃える。
 const checkboxSize = 'var(--space-6)';
 const checkCircle = (on, focused) => ({
@@ -179,6 +177,7 @@ export default function AuthScreen() {
   const [resending, setResending] = useState(false);
   const [appleBusy, setAppleBusy] = useState(false);
   const [guestBusy, setGuestBusy] = useState(false);
+  const [guestError, setGuestError] = useState('');
   // いまの Apple の回（「やめる」で戻したあとに、前の回の結果で画面を書きかえない・2026-11-19）
   const appleAttempt = useRef(0);
   const confirm = useConfirm();
@@ -224,18 +223,18 @@ export default function AuthScreen() {
     if (guestBusy || appleBusy || loading) return;
     setError('');
     setInfo('');
+    setGuestError('');
     const ok = await confirm({
       title: '登録せずに始めますか？',
       // 伝えることは 2 つ（どこに残るか・同意）。規約は開けるリンクにする（開けないものに同意させない・2026-11-19 ui-critic）。
       message: (
         <>
           <span style={{ display: 'block' }}>{withPhraseBreaks('本とメモは、この端末に残ります。アプリを消す前に、設定からアカウントを作れます。')}</span>
-          <span style={{ display: 'block', marginTop: 'var(--space-2)' }}>
-            {withPhraseBreaks('始めると、')}
-            <a href={TERMS_URL} target="_blank" rel="noopener noreferrer" style={inlineLink}>利用規約</a>
-            {'と'}
-            <a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer" style={inlineLink}>プライバシーポリシー</a>
-            {withPhraseBreaks('に同意したことになります。')}
+          <span style={{ display: 'block', marginTop: 'var(--space-2)' }}>{withPhraseBreaks('始めると、利用規約とプライバシーポリシーに同意したことになります。')}</span>
+          {/* リンクは文の中に置かず、高さ 44 の文字ボタンで 1 行に（押しやすく・新規登録と同じ形・2026-11-19 ui-critic） */}
+          <span style={{ display: 'flex', flexWrap: 'wrap', columnGap: 'var(--space-6)' }}>
+            <a href={TERMS_URL} target="_blank" rel="noopener noreferrer" style={legalLink}>利用規約</a>
+            <a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer" style={legalLink}>プライバシーポリシー</a>
           </span>
         </>
       ),
@@ -250,7 +249,8 @@ export default function AuthScreen() {
       // 成功時は onAuthStateChange がセッションを拾い、上位が画面遷移する。
     } catch (err) {
       console.error('[auth] guest start failed:', err);
-      setError(humanizeError(err));
+      // 押した「登録せずに始める」のすぐ上に出す（フォームの上に出すと、どのボタンの話か分からない・2026-11-19 ui-critic）
+      setGuestError(humanizeError(err));
     } finally {
       setGuestBusy(false);
     }
@@ -443,7 +443,7 @@ export default function AuthScreen() {
                 cursor: appleBusy ? 'default' : 'pointer', opacity: 1,
               }}
             >
-              <svg width="16" height="19" viewBox="0 0 16 19" fill="currentColor" aria-hidden="true">
+              <svg width="0.94em" height="1.12em" viewBox="0 0 16 19" fill="currentColor" aria-hidden="true" style={{ flexShrink: 0 }}>
                 <path d="M13.09 10.06c-.02-2.14 1.75-3.17 1.83-3.22-1-1.46-2.55-1.66-3.1-1.68-1.32-.13-2.58.78-3.25.78-.67 0-1.7-.76-2.8-.74-1.44.02-2.77.84-3.51 2.13-1.5 2.6-.38 6.44 1.07 8.55.71 1.03 1.55 2.19 2.66 2.15 1.07-.04 1.47-.69 2.76-.69 1.29 0 1.65.69 2.78.67 1.15-.02 1.87-1.05 2.57-2.09.81-1.2 1.14-2.36 1.16-2.42-.03-.01-2.22-.85-2.24-3.37zM10.94 3.78c.59-.72.99-1.71.88-2.71-.85.03-1.89.57-2.5 1.28-.55.63-1.03 1.65-.9 2.62.95.07 1.92-.48 2.52-1.19z"/>
               </svg>
               {appleBusy ? 'サインイン中…' : 'Appleでサインイン'}
@@ -534,6 +534,12 @@ export default function AuthScreen() {
         >
           {submitLabel}
         </button>
+        {/* パスワードの欄とログインのすぐ下に（下の文字ボタンの並びから離れていた・2026-11-19 ui-critic） */}
+        {mode === 'signin' && (
+          <button type="button" onClick={() => switchMode('reset')} style={{ ...btnLink, color: 'var(--text-2)', width: '100%', marginTop: 'var(--space-1)' }}>
+            パスワードをお忘れの方
+          </button>
+        )}
         {mode === 'signup' && !isNative && (
           /* App-only 配信方針: Web で登録しても利用はアプリから。登録前に伝えて
              「登録したのに使えない」という期待外れ（最悪の初回体験）を防ぐ。
@@ -558,15 +564,14 @@ export default function AuthScreen() {
               アカウントを作成
             </button>
             {/* 登録は任意（App 審査 5.1.1(v)・2026-11-19）。アプリだけ。押すと確かめてから始める。 */}
+            {GUEST_START_AVAILABLE && guestError && (
+              <p role="alert" style={{ ...errorText, margin: 0, textAlign: 'center', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(guestError)}</p>
+            )}
             {GUEST_START_AVAILABLE && (
-              <button type="button" onClick={handleGuest} disabled={guestBusy} style={{ ...btnLink, ...(guestBusy ? { cursor: 'default' } : null) }}>
+              <button type="button" onClick={handleGuest} disabled={guestBusy || appleBusy} style={{ ...btnLink, ...(guestBusy || appleBusy ? { cursor: 'default' } : null) }}>
                 {guestBusy ? '準備しています…' : '登録せずに始める'}
               </button>
             )}
-            {/* 脇の文字ボタンは同じ控えめな色（栗色とグレーの 2 色が並んでいた・2026-11-18 ui-critic）。 */}
-            <button type="button" onClick={() => switchMode('reset')} style={{ ...btnLink, color: 'var(--text-2)' }}>
-              パスワードをお忘れの方
-            </button>
             {/* サービス紹介はログインの画面だけ（新規登録は「ログインに戻る」1 つにして、押すものを減らす・2026-09-29）。 */}
             {!isNative && (
               <a href="/lp" style={{ ...btnLink, color: 'var(--text-2)', textDecoration: 'none' }}>サービス紹介を見る</a>
