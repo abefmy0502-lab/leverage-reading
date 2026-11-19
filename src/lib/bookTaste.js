@@ -16,7 +16,7 @@ const TASTE_NOTES = {
   trend: 'いま書店でよく売れている本を中心に探します',
 };
 // おすすめの上の 1 行（何で選んだか）
-const TASTE_RESULTS = { classic: '名著を中心に選びました', new: '新しい本を中心に選びました', trend: 'いま話題の本を中心に選びました' };
+const TASTE_RESULTS = { classic: '名著を中心に探しました', new: '新しい本を中心に探しました', trend: 'いま話題の本を中心に探しました' };
 export function tasteResultLine(pref) {
   return TASTE_RESULTS[pref] || '';
 }

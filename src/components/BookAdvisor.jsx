@@ -207,7 +207,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   // 📚 本の選び方（2026-11-19・lib/bookTaste.js）: おまかせ／名著／新しい本／いま話題。その回だけ（端末に覚えない＝次の相談はおまかせから）。
   //   候補の並びをこの選び方に合う本が先になるように並べ替え、推薦の AI にも 1 段で渡す。
   const [tastePref, setTastePref] = useState('auto');
-  // おすすめを作ったときの選び方（結果の上に「名著を中心に選びました」を残す）
+  // おすすめを作ったときの選び方（結果の上に「名著を中心に探しました」を残す）
   const [recoTaste, setRecoTaste] = useState('auto');
   // 畳んだ「本の選び方」を開いているか（開いて選んだら開いたまま・おまかせに戻しても閉じない）
   const [tasteOpen, setTasteOpen] = useState(false);
