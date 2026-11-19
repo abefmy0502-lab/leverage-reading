@@ -1,7 +1,8 @@
 // 👤 登録せずに始めた人の「アカウントを作る」（設定のいちばん上・2026-11-19・App 審査 5.1.1(v)）。
 // Apple ID かメールアドレスを、いまのアカウントにつなぐ。本・メモ・行動・プランはそのまま（利用者の id は変わらない）。
 // 登録は任意。つながない間は「アプリを消すと戻れない」ことだけを伝える（押しつけない・赤くしない）。
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
 import { isNativeApple, linkAppleToCurrentUser } from '../lib/appleAuth';
 import { GUEST_START_AVAILABLE, linkEmailToCurrentUser, linkErrorMessage } from '../lib/guestAuth';
@@ -14,7 +15,7 @@ import { track, EVENTS } from '../lib/analytics';
 
 const titleStyle = { fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', margin: 0, lineHeight: 1.5 };
 const descStyle = { fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: 'var(--space-1) 0 0', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' };
-const errStyle = { fontSize: 'var(--text-sub)', color: 'var(--error)', margin: 0, lineHeight: 1.5 };
+const errStyle = { fontSize: 'var(--text-sub)', color: 'var(--error)', margin: 0, lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' };
 const hintStyle = { fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: '0 0 var(--space-3)', lineHeight: 1.5 };
 const infoStyle = { fontSize: 'var(--text-meta)', color: 'var(--text)', margin: 0, lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' };
 const inp = { ...uiInput, marginBottom: 'var(--space-2)' };
@@ -33,10 +34,37 @@ function AppleMark() {
 
 export default function GuestAccountCard() {
   const toast = useToast();
-  const [mode, setMode] = useState('choose'); // choose | email | sent
+  const { user } = useAuth();
+  // 確認のメールを送ったあと（まだリンクを開いていない）は、設定を開き直しても「送りました」から（Supabase の new_email）
+  const pendingEmail = user?.new_email || '';
+  const [mode, setMode] = useState(pendingEmail ? 'sent' : 'choose'); // choose | email | sent
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(pendingEmail);
+  const [pwSkipped, setPwSkipped] = useState(false);
+
+  // 設定を開いたら、いまの状態を取り直す（メールのリンクを開いてつながっていれば、ふつうの表示に変わる＝useAuth）
+  useEffect(() => {
+    supabase.auth.refreshSession().catch(() => { /* 次の更新で */ });
+  }, []);
+
+  const checkLinked = async () => {
+    if (busy) return;
+    setError('');
+    setBusy('check');
+    try {
+      const { data } = await supabase.auth.refreshSession();
+      if (data?.user && !data.user.is_anonymous) {
+        toast.success('アカウントができました。ほかの端末でも同じ本とメモが使えます。');
+      } else {
+        setError('まだ確認できていません。届いたメールのリンクを開いてから、もう一度押してください。');
+      }
+    } catch (err) {
+      fail(err);
+    } finally {
+      setBusy('');
+    }
+  };
   const [password, setPassword] = useState('');
   const showApple = isNativeApple || GUEST_START_AVAILABLE;
 
@@ -70,7 +98,8 @@ export default function GuestAccountCard() {
     if (pwProblem) { setError(pwProblem); return; }
     setBusy('email');
     try {
-      await linkEmailToCurrentUser(email.trim(), password);
+      const r = await linkEmailToCurrentUser(email.trim(), password);
+      setPwSkipped(Boolean(r?.passwordSkipped));
       track(EVENTS.GUEST_LINKED, { via: 'email_sent' });
       setMode('sent');
     } catch (err) {
@@ -84,10 +113,14 @@ export default function GuestAccountCard() {
     return (
       <div style={cardBody} role="status">
         <p style={titleStyle}>確認のメールを送りました</p>
-        <p style={infoStyle}>{withPhraseBreaks(`${email.trim()} に届いたメールのリンクを開くと、アカウントができます。ほかの端末では、このメールアドレスとパスワードでログインできます。`)}</p>
-        <button type="button" style={{ ...btnGhost, width: '100%' }} onClick={() => { setMode('email'); setError(''); }}>
+        <p style={infoStyle}>{withPhraseBreaks(`${email.trim()} に届いたメールのリンクを開くと、アカウントができます。${pwSkipped || (pendingEmail && !password) ? 'ほかの端末では、ログインの画面の「パスワードをお忘れの方」からパスワードを決めてログインできます。' : 'ほかの端末では、このメールアドレスとパスワードでログインできます。'}`)}</p>
+        <button type="button" style={{ ...btnPrimary, width: '100%', opacity: 1, cursor: busy ? 'default' : 'pointer' }} onClick={checkLinked} disabled={Boolean(busy)}>
+          {busy === 'check' ? '確かめています…' : 'リンクを開いたので、確かめる'}
+        </button>
+        <button type="button" style={{ ...btnLinkQuiet, width: '100%' }} onClick={() => { setMode('email'); setError(''); }}>
           メールアドレスを直す
         </button>
+        {error && <p role="alert" style={errStyle}>{withPhraseBreaks(error)}</p>}
       </div>
     );
   }
@@ -149,7 +182,7 @@ export default function GuestAccountCard() {
           </button>
         </form>
       )}
-      {error && <p role="alert" style={errStyle}>{error}</p>}
+      {error && <p role="alert" style={errStyle}>{withPhraseBreaks(error)}</p>}
     </div>
   );
 }

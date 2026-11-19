@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { TERMS_URL, PRIVACY_URL } from '../../lib/legalLinks';
 import { useAuth } from '../../hooks/useAuth';
 import { isSupabaseConfigured, supabaseConfigProblem } from '../../lib/supabase';
@@ -177,6 +177,8 @@ export default function AuthScreen() {
   const [resending, setResending] = useState(false);
   const [appleBusy, setAppleBusy] = useState(false);
   const [guestBusy, setGuestBusy] = useState(false);
+  // いまの Apple の回（「やめる」で戻したあとに、前の回の結果で画面を書きかえない・2026-11-19）
+  const appleAttempt = useRef(0);
   const confirm = useConfirm();
 
   // 🍎 Apple でサインイン。iOS は常時表示（HIG 準拠）。Web は Apple/Supabase の
@@ -184,15 +186,17 @@ export default function AuthScreen() {
   const showAppleButton = isAppleSignInAvailable() && (isNativeApple || import.meta.env.VITE_APPLE_SIGNIN_WEB === 'true');
 
   const handleApple = async () => {
-    if (appleBusy) return;
+    if (appleBusy || guestBusy) return;
     setError('');
     setInfo('');
     setAppleBusy(true);
+    const attempt = ++appleAttempt.current;
     try {
       await signInWithApple();
       // 成功時は onAuthStateChange がセッションを拾い、上位が画面遷移する
       // （Web はリダイレクトで離脱）。ここで明示的な遷移は不要。
     } catch (err) {
+      if (attempt !== appleAttempt.current) return; // 「やめる」で戻したあとの前の回
       // ユーザーキャンセルはエラー表示しない（静かに戻す）。
       if (!err?.canceled) {
         // 画面には安全な汎用文のみ表示し、生のエラーはコンソールにだけ残す
@@ -207,9 +211,11 @@ export default function AuthScreen() {
             : humanizeError(err));
       }
     } finally {
-      setAppleBusy(false);
+      if (attempt === appleAttempt.current) setAppleBusy(false);
     }
   };
+  // Apple の画面が出ない・終わらないときに、待たずに戻す
+  const cancelApple = () => { appleAttempt.current += 1; setAppleBusy(false); };
 
   // 👤 登録せずに始める（2026-11-19・App 審査 5.1.1(v)）。メール・名前は聞かない。あとで設定から Apple かメールにつなぐ。
   const handleGuest = async () => {
@@ -426,7 +432,7 @@ export default function AuthScreen() {
             <button
               type="button"
               onClick={handleApple}
-              disabled={appleBusy}
+              disabled={appleBusy || guestBusy}
               aria-label="Appleでサインイン"
               style={{
                 ...btnPrimary,
@@ -440,6 +446,12 @@ export default function AuthScreen() {
               </svg>
               {appleBusy ? 'サインイン中…' : 'Appleでサインイン'}
             </button>
+            {/* 待っている間だけ（Apple の画面が出ないとき・終わらないときに戻せる・2026-11-19 審査 2.1(a)） */}
+            {appleBusy && (
+              <button type="button" onClick={cancelApple} style={{ ...btnLink, color: 'var(--text-2)', width: '100%', marginTop: 'var(--space-1)' }}>
+                やめる
+              </button>
+            )}
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', margin: 'var(--space-4) 0' }}>
               <span style={{ flex: 1, height: 1, background: 'var(--separator)' }} />
               <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-3)' }}>または</span>

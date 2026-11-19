@@ -28,10 +28,17 @@ export async function startAsGuest() {
 /** いまのアカウントにメールアドレスをつなぐ（確認のメールのリンクを開くとつながる）。パスワードは同時に決める。 */
 export async function linkEmailToCurrentUser(email, password) {
   const redirect = typeof window !== 'undefined' && !isNativeApple ? window.location.origin : undefined;
+  const opts = redirect ? { emailRedirectTo: redirect } : undefined;
   const attrs = password ? { email, password } : { email };
-  const { data, error } = await supabase.auth.updateUser(attrs, redirect ? { emailRedirectTo: redirect } : undefined);
-  if (error) throw error;
-  return data;
+  const { data, error } = await supabase.auth.updateUser(attrs, opts);
+  if (!error) return data;
+  // メールと同時のパスワードを断る設定・版のときは、メールだけで送る（パスワードはメールの確認のあと「パスワードをお忘れの方」で決められる）
+  if (password && /password/i.test(String(error.message || '')) && !/weak|short|least|characters/i.test(String(error.message || ''))) {
+    const retry = await supabase.auth.updateUser({ email }, opts);
+    if (retry.error) throw retry.error;
+    return { ...retry.data, passwordSkipped: true };
+  }
+  throw error;
 }
 
 /** つなぐときのエラーを利用者の言葉に（null＝ほかの共通の文に任せる） */

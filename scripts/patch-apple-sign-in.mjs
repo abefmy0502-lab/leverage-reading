@@ -19,7 +19,8 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 export const PLUGIN_SWIFT = join(ROOT, 'node_modules/@capacitor-community/apple-sign-in/ios/Sources/SignInWithApple/Plugin.swift');
-export const MARK = '// orime-patch: apple-sign-in v2';
+export const MARK_PREFIX = '// orime-patch: apple-sign-in';
+export const MARK = `${MARK_PREFIX} v3`;
 
 // 置きかえる前の目印（7.1.0 の中身）。これが無く、印も無ければ版が違うので触らない
 const ORIGINAL_HINTS = ['authorizationController.performRequests()', 'extension SignInWithApple: ASAuthorizationControllerDelegate'];
@@ -101,6 +102,8 @@ public class SignInWithApple: CAPPlugin, CAPBridgedPlugin {
 
 extension SignInWithApple: ASAuthorizationControllerDelegate {
     public func authorizationController(controller: ASAuthorizationController, didCompleteWithAuthorization authorization: ASAuthorization) {
+        // 前の回の controller が遅れて返したときは無視する（新しい回を横取りしない）
+        guard controller === self.authController else { return }
         guard let call = takePendingCall() else { return }
         // Apple ID の答えで、identityToken があるときだけ成功（④）
         guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
@@ -126,6 +129,7 @@ extension SignInWithApple: ASAuthorizationControllerDelegate {
     }
 
     public func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
+        guard controller === self.authController else { return }
         guard let call = takePendingCall() else { return }
         let code = (error as NSError).code
         call.reject(error.localizedDescription, String(code))
@@ -152,7 +156,8 @@ extension SignInWithApple: ASAuthorizationControllerPresentationContextProviding
 /** いまの Plugin.swift の状態: 'missing' | 'patched' | 'original' | 'unknown' */
 export function pluginState(text) {
   if (text == null) return 'missing';
-  if (text.startsWith(MARK)) return text === PATCHED_SWIFT ? 'patched' : 'original';
+  // 前の版の直し（印の版が違う・中身が違う）は置きかえ直す
+  if (text.startsWith(MARK_PREFIX)) return text === PATCHED_SWIFT ? 'patched' : 'original';
   return ORIGINAL_HINTS.every((h) => text.includes(h)) ? 'original' : 'unknown';
 }
 
