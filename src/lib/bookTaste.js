@@ -8,12 +8,18 @@ export const TASTE_PREFS = ['auto', 'classic', 'new', 'trend'];
 export const TASTE_LABELS = { auto: 'おまかせ', classic: '名著', new: '新しい本', trend: 'いま話題' };
 
 // 確かめのカードの案内の 1 行（390 幅で 1 行に収まる長さ）
+//   難しさの案内と同じ「…を中心に探します」（「先に」は時間の順に読めた・2026-11-19 ui-critic）
 const TASTE_NOTES = {
-  auto: '悩みに合う本を、名著も新しい本も混ぜて探します',
-  classic: '長く読まれ、評価の定まった本を先に探します',
-  new: '出て 1 年ほどの新しい本を先に探します',
-  trend: 'いま書店でよく売れている本を先に探します',
+  auto: '出た時期を問わず、悩みに合う本を探します',
+  classic: '長く読まれ、評価の定まった本を中心に探します',
+  new: '去年と今年に出た本を中心に探します',
+  trend: 'いま書店でよく売れている本を中心に探します',
 };
+// おすすめの上の 1 行（何で選んだか）
+const TASTE_RESULTS = { classic: '名著を中心に選びました', new: '新しい本を中心に選びました', trend: 'いま話題の本を中心に選びました' };
+export function tasteResultLine(pref) {
+  return TASTE_RESULTS[pref] || '';
+}
 export function tasteNote(pref) {
   return TASTE_NOTES[TASTE_PREFS.includes(pref) ? pref : 'auto'];
 }

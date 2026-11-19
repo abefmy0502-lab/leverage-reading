@@ -468,9 +468,12 @@ const SCREENS = [
   { name: 'advisor-interview-second', url: '/', steps: [...ADVISOR_START, ...ADVISOR_ANSWER("大事なことほど後回しになる", "大事なことほど後回しになる。メールと会議で一日が終わってしまう")] },
   { name: 'advisor-search-now', url: '/', steps: [...ADVISOR_START, { css: 'button:has-text("このくらいで探して")' }] },
   { name: 'advisor-summary', url: '/', steps: [...ADVISOR_START, ...ADVISOR_TO_SUMMARY] },
-  // 📚 本の選び方（2026-11-19・lib/bookTaste.js）: 確かめのカードで「名著」を選んだところ・文字サイズ最大
-  { name: 'advisor-summary-taste', url: '/', steps: [...ADVISOR_START, ...ADVISOR_TO_SUMMARY, { css: '[role=radiogroup][aria-labelledby="advisor-taste-label"] button:has-text("名著")' }, { scrollTo: '#advisor-taste-label' }] },
-  { name: 'advisor-summary-taste-xxl', url: '/', steps: [{ eval: () => { document.documentElement.style.fontSize = '28px'; } }, { wait: 300 }, ...ADVISOR_START, ...ADVISOR_TO_SUMMARY, { scrollTo: '#advisor-taste-label' }] },
+  // 📚 本の選び方（2026-11-19・lib/bookTaste.js）: ふだんは畳んだ 1 行・開いて「名著」・文字サイズ最大・1 段大きい文字（4 列のまま）・直している間・名著で選んだおすすめ
+  { name: 'advisor-summary-taste', url: '/', steps: [...ADVISOR_START, ...ADVISOR_TO_SUMMARY, { css: 'summary:has(#advisor-taste-label)' }, { css: '[role=radiogroup][aria-labelledby="advisor-taste-label"] button:has-text("名著")' }, { scrollTo: '#advisor-taste-label' }] },
+  { name: 'advisor-summary-taste-xxl', url: '/', steps: [{ eval: () => { document.documentElement.style.fontSize = '28px'; } }, { wait: 300 }, ...ADVISOR_START, ...ADVISOR_TO_SUMMARY, { css: 'summary:has(#advisor-taste-label)' }, { scrollTo: '#advisor-taste-label' }] },
+  { name: 'advisor-summary-taste-21', url: '/', steps: [{ eval: () => { document.documentElement.style.fontSize = '21px'; } }, { wait: 300 }, ...ADVISOR_START, ...ADVISOR_TO_SUMMARY, { css: 'summary:has(#advisor-taste-label)' }, { scrollTo: '#advisor-taste-label' }] },
+  { name: 'advisor-summary-taste-correct', url: '/', steps: [...ADVISOR_START, ...ADVISOR_TO_SUMMARY, { css: 'button:has-text("少し違う（直す）")' }, { css: 'summary:has(#advisor-taste-label)' }, { scrollTo: '#advisor-taste-label' }] },
+  { name: 'advisor-reco-taste', url: '/', steps: [...ADVISOR_START, ...ADVISOR_TO_SUMMARY, { css: 'summary:has(#advisor-taste-label)' }, { css: '[role=radiogroup][aria-labelledby="advisor-taste-label"] button:has-text("名著")' }, { css: 'button:has-text("合っている")' }, { wait: 8000 }, { scrollTo: 'p:has-text("名著を中心に選びました")' }] },
   { name: 'advisor-summary-correct', url: '/', steps: [...ADVISOR_START, ...ADVISOR_TO_SUMMARY, { css: 'button:has-text("少し違う（直す）")' }, { fill: ['textarea[aria-label="違うところを、自分の言葉で"]', '時間というより、頼まれると断れないのがつらい'] }] },
   { name: 'advisor-reco-corrected', url: '/', steps: [...ADVISOR_START, ...ADVISOR_TO_SUMMARY, { css: 'button:has-text("少し違う（直す）")' }, { fill: ['textarea[aria-label="違うところを、自分の言葉で"]', '時間というより、頼まれると断れないのがつらい'] }, { css: 'button[aria-label="直して探す"]' }, { wait: 8000 }] },
   { name: 'advisor-interview-xxl-text', url: '/', steps: [...ADVISOR_START, { eval: () => { document.documentElement.style.fontSize = '28px'; } }, { wait: 500 }] },

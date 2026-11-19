@@ -32,7 +32,8 @@ import { normalizeAdvisorRecs, resolveMixedRec, focusText, emptyReasonOf } from 
 import { gatherCandidates, candidatesBlock, matchCandidate, applyCandidate, cleanKeywords } from '../lib/advisorCandidates';
 import { readerLevel, levelBlock, levelNote, loadLevelPref, saveLevelPref, LEVEL_PREFS, LEVEL_PREF_LABELS } from '../lib/readerLevel';
 import { appNow } from '../lib/appNow';
-import { TASTE_PREFS, TASTE_LABELS, tasteNote, rankByTaste, tasteBlock } from '../lib/bookTaste';
+import { ChevronDown } from 'lucide-react';
+import { TASTE_PREFS, TASTE_LABELS, tasteNote, tasteResultLine, rankByTaste, tasteBlock } from '../lib/bookTaste';
 import { searchBooksFlat as searchBooksAPIFlat } from '../lib/bookSearch';
 import { STORE_DISCLOSURE_TEXT } from '../lib/rakutenLink';
 import AdvisorStoreLinks from './AdvisorStoreLinks';
@@ -153,6 +154,12 @@ const rootTextLarge = () => {
   try { return parseFloat(getComputedStyle(document.documentElement).fontSize) >= 22; } catch { return false; }
 };
 
+// 4 つの切り替え（難しさ・本の選び方）を 2 つずつ 2 段にする目安（ルートの文字 20px 以上・
+//   21px で「おまかせ」「いま話題」が面の端に触れた・2026-11-19 ui-critic）
+const segTwoRows = () => {
+  try { return parseFloat(getComputedStyle(document.documentElement).fontSize) >= 20; } catch { return false; }
+};
+
 // 聞き取りの問いの上限は lib/advisorInterview.js の MAX_INTERVIEW_QUESTIONS（芯が見えたら AI が先に止める）。
 
 // 🧭 画面を離れても、おすすめ・会話を覚えておく（アプリの起動中だけ・ログイン中の人ごと）。
@@ -200,6 +207,10 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   // 📚 本の選び方（2026-11-19・lib/bookTaste.js）: おまかせ／名著／新しい本／いま話題。その回だけ（端末に覚えない＝次の相談はおまかせから）。
   //   候補の並びをこの選び方に合う本が先になるように並べ替え、推薦の AI にも 1 段で渡す。
   const [tastePref, setTastePref] = useState('auto');
+  // おすすめを作ったときの選び方（結果の上に「名著を中心に選びました」を残す）
+  const [recoTaste, setRecoTaste] = useState('auto');
+  // 畳んだ「本の選び方」を開いているか（開いて選んだら開いたまま・おまかせに戻しても閉じない）
+  const [tasteOpen, setTasteOpen] = useState(false);
   const tastePrefRef = useRef(tastePref);
   tastePrefRef.current = tastePref;
   const nowYear = () => appNow().getFullYear();
@@ -567,6 +578,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   const proceedToRecommend = (answers, conf = null) => {
     const msg = buildRecoMessage({ concern, answers, summary: conf?.summary || '', correction: conf?.correction || '' });
     setConfirmed(conf);
+    setRecoTaste(tastePrefRef.current);
     setInterview(null);
     setSummaryStep(null);
     setCorrecting(false);
@@ -986,6 +998,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     setInterviewError(null);
     keywordsRef.current = []; // 前の相談の検索の言葉で、次の相談の候補を集めない
     setTastePref('auto'); // 本の選び方はその回だけ（次の相談はおまかせから）
+    setRecoTaste('auto');
+    setTasteOpen(false);
   };
 
   // 初回の相談を受けて、最初の問いを 1 つ考えてもらう。
@@ -1894,32 +1908,43 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
               <div style={{ marginTop: 'var(--space-4)' }}>
                 <p id="advisor-level-label" style={{ margin: 0, fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)' }}>読む本の難しさ</p>
                 {/* 1 つを選ぶので、ほかの画面と同じ溝と面（segTrack・2026-11-18 ui-critic「選び方が画面ごとに違う」）。 */}
-                <div role="radiogroup" aria-labelledby="advisor-level-label" style={{ ...segTrack, display: 'grid', gridTemplateColumns: rootTextLarge() ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', marginTop: 'var(--space-2)' }}>
+                <div role="radiogroup" aria-labelledby="advisor-level-label" aria-describedby="advisor-level-note" style={{ ...segTrack, display: 'grid', gridTemplateColumns: segTwoRows() ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', marginTop: 'var(--space-2)' }}>
                   {LEVEL_PREFS.map((v) => (
                     <button key={v} type="button" role="radio" aria-checked={levelPref === v} onClick={() => chooseLevel(v)} style={segOption(levelPref === v)}>
                       {LEVEL_PREF_LABELS[v]}
                     </button>
                   ))}
                 </div>
-                <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+                <p id="advisor-level-note" style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
                   {withPhraseBreaks(levelNote(readerLevel(books || [], levelPref)))}
                 </p>
-                {/* 本の選び方（2026-11-19）: 難しさと同じ形（見出し 15/600 → 8 → 溝と面 → 8 → 13/--text-2 の案内）。間は 16。 */}
-                <p id="advisor-taste-label" style={{ margin: 'var(--space-4) 0 0', fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)' }}>本の選び方</p>
-                <div role="radiogroup" aria-labelledby="advisor-taste-label" style={{ ...segTrack, display: 'grid', gridTemplateColumns: rootTextLarge() ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', marginTop: 'var(--space-2)' }}>
+              </div>
+            )}
+
+            {/* 本の選び方（2026-11-19・lib/bookTaste.js）: ふだんは畳んだ 1 行（多くの回はおまかせのまま＝主ボタンを悩みのまとめから離さない・ui-critic）。
+                開くと難しさと同じ形（溝と面 → 8 → 13/--text-2 の案内）。おまかせ以外を選んだら開いたまま。直している間も選べる。 */}
+            {asking && !correcting && (
+              <details open={tasteOpen} onToggle={(e) => setTasteOpen(e.currentTarget.open)} style={{ marginTop: 'var(--space-4)' }}>
+                <summary style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minHeight: 'var(--tap-min)', cursor: 'pointer', listStyle: 'none' }}>
+                  <span id="advisor-taste-label" style={{ flex: 1, fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)' }}>本の選び方</span>
+                  <span style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', whiteSpace: 'nowrap' }}>{TASTE_LABELS[tastePref]}</span>
+                  <ChevronDown className="fold-chevron" size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+                </summary>
+                <div role="radiogroup" aria-labelledby="advisor-taste-label" aria-describedby="advisor-taste-note" style={{ ...segTrack, display: 'grid', gridTemplateColumns: segTwoRows() ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', marginTop: 'var(--space-1)' }}>
                   {TASTE_PREFS.map((v) => (
                     <button key={v} type="button" role="radio" aria-checked={tastePref === v} onClick={() => setTastePref(v)} style={segOption(tastePref === v)}>
                       {TASTE_LABELS[v]}
                     </button>
                   ))}
                 </div>
-                <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+                <p id="advisor-taste-note" style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
                   {withPhraseBreaks(tasteNote(tastePref))}
                 </p>
-              </div>
+              </details>
             )}
             {asking && !correcting && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}>
+                {/* 決める段の前は 24（設定の段の中 16 より広く・DESIGN §1） */}
                 {/* 危機の言葉があるときは「合っている」を塗りの主ボタンにしない（本を急がせない） */}
                 <button type="button" onClick={confirmSummary} style={showCare ? uiBtnGhost : uiBtnPrimary}>合っている</button>
                 <button type="button" onClick={startCorrect} style={uiBtnGhost}>少し違う（直す）</button>
@@ -1954,6 +1979,27 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
                   <IcSend size={20} strokeWidth={2.25} aria-hidden="true" />
                 </button>
               </div>
+            )}
+            {/* 本の選び方（2026-11-19・lib/bookTaste.js）: ふだんは畳んだ 1 行（多くの回はおまかせのまま＝主ボタンを悩みのまとめから離さない・ui-critic）。
+                開くと難しさと同じ形（溝と面 → 8 → 13/--text-2 の案内）。おまかせ以外を選んだら開いたまま。直している間も選べる。 */}
+            {asking && correcting && (
+              <details open={tasteOpen} onToggle={(e) => setTasteOpen(e.currentTarget.open)} style={{ marginTop: 'var(--space-4)' }}>
+                <summary style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minHeight: 'var(--tap-min)', cursor: 'pointer', listStyle: 'none' }}>
+                  <span id="advisor-taste-label" style={{ flex: 1, fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)' }}>本の選び方</span>
+                  <span style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', whiteSpace: 'nowrap' }}>{TASTE_LABELS[tastePref]}</span>
+                  <ChevronDown className="fold-chevron" size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+                </summary>
+                <div role="radiogroup" aria-labelledby="advisor-taste-label" aria-describedby="advisor-taste-note" style={{ ...segTrack, display: 'grid', gridTemplateColumns: segTwoRows() ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', marginTop: 'var(--space-1)' }}>
+                  {TASTE_PREFS.map((v) => (
+                    <button key={v} type="button" role="radio" aria-checked={tastePref === v} onClick={() => setTastePref(v)} style={segOption(tastePref === v)}>
+                      {TASTE_LABELS[v]}
+                    </button>
+                  ))}
+                </div>
+                <p id="advisor-taste-note" style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+                  {withPhraseBreaks(tasteNote(tastePref))}
+                </p>
+              </details>
             )}
             {asking && (
               <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 'var(--space-2)', marginTop: 'var(--space-4)', marginLeft: 'calc(-1 * var(--space-1))' }}>
@@ -2129,6 +2175,10 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
             <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, margin: 0, overflowWrap: 'anywhere' }}>
               {spokenAnswers(interviewAnswers).map((x) => x.a).join('・')}
             </p>
+          )}
+          {/* 本の選び方を選んだ回は、何で選んだかを 1 行（データの 1 行・13/--text-2・2026-11-19） */}
+          {recoTaste !== 'auto' && (
+            <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, margin: 0 }}>{tasteResultLine(recoTaste)}</p>
           )}
           {recommendations.before && (() => {
             const intro = introTextOf(cleanProseTitles(recommendations.before));
