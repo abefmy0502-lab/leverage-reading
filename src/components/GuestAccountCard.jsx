@@ -165,9 +165,9 @@ export default function GuestAccountCard() {
 
   if (mode === 'sent') {
     return (
-      <div style={cardBody} role="status">
+      <div style={cardBody}>
         <div>
-          <p style={titleStyle}>確認のメールを送りました</p>
+          <p style={titleStyle} aria-live="polite">確認のメールを送りました</p>
           <p style={{ ...infoStyle, marginTop: 'var(--space-2)' }}>{withPhraseBreaks(`${email.trim()} に届いたメールのリンクを開くと、アカウントができます。${pwSkipped ? 'ほかの端末では、ログインの画面の「パスワードをお忘れの方」からパスワードを決めてログインできます。' : 'ほかの端末では、このメールアドレスとパスワードでログインできます。'}`)}</p>
         </div>
         {alertP({ ...errStyle, marginBottom: 'calc(-1 * var(--space-1))' })}
@@ -177,10 +177,10 @@ export default function GuestAccountCard() {
         {resent && <p role="status" style={infoStyle}>{withPhraseBreaks('もう一度送りました。迷惑メールのフォルダも見てください。')}</p>}
         {/* 文字ボタンの間は 8（文字を大きくすると 1 つの塊に見える・AuthScreen と同じ） */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-          <button type="button" style={{ ...btnLinkQuiet, width: '100%', ...(resendWait ? { color: 'var(--text-3)', cursor: 'default' } : null) }} onClick={resend} disabled={Boolean(busy) || resendWait}>
-            {busy === 'resend' ? '送っています…' : resendWait ? '60 秒後に、もう一度送れます' : 'メールが届かないときは、もう一度送る'}
+          <button type="button" style={{ ...btnLinkQuiet, width: '100%', ...(resendWait ? { color: 'var(--text-3)', cursor: 'default' } : null), opacity: 1 }} onClick={resend} disabled={Boolean(busy) || resendWait}>
+            {busy === 'resend' ? '送っています…' : resendWait ? '1 分ほどしてから、もう一度送れます' : 'メールが届かないときは、もう一度送る'}
           </button>
-          <button type="button" style={{ ...btnLinkQuiet, width: '100%' }} onClick={() => go('email')} disabled={Boolean(busy)}>
+          <button type="button" style={{ ...btnLinkQuiet, width: '100%', opacity: 1 }} onClick={() => go('email')} disabled={Boolean(busy)}>
             メールアドレスを直す
           </button>
         </div>
@@ -253,7 +253,7 @@ export default function GuestAccountCard() {
           <button type="submit" style={{ ...btnPrimary, width: '100%', opacity: 1, cursor: busy ? 'default' : 'pointer' }} disabled={Boolean(busy)}>
             {busy === 'email' ? '送っています…' : '確認のメールを送る'}
           </button>
-          <button type="button" style={{ ...btnLinkQuiet, width: '100%', marginTop: 'var(--space-2)' }} onClick={() => go('choose')}>
+          <button type="button" style={{ ...btnLinkQuiet, width: '100%', marginTop: 'var(--space-2)', opacity: 1 }} onClick={() => go('choose')}>
             やめる
           </button>
         </form>
