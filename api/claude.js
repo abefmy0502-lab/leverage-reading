@@ -48,8 +48,9 @@ const MAX_BODY_BYTES = 1.5 * 1024 * 1024;
 const MAX_TEXT_CHARS = 150_000;
 // 🎁 無料プラン（契約なし）の相談 1 回の上限。相談の材料（約 9,000 字＋歩み・本ごとの答え方も）が入る大きさ。
 const FREE_MAX_TEXT_CHARS = 30_000;
-const FREE_MAX_TOKENS = 3000;
-const FREE_MODEL = 'claude-haiku-4-5';
+const FREE_MAX_TOKENS = 4000; // 本ごとの答え（1,200 字前後・max_tokens 3,600）が入る大きさ（2026-11-18 に 3000 から）
+// 無料プランの相談（2026-11-18 から Haiku 5.5・api/_aiRouting.js の CONSULT_MODEL と同じ・断ったら Haiku 4.5 で 1 回やり直す）。
+const FREE_MODEL = 'claude-haiku-5-5';
 // 📷 無料プランの写真から書き起こし（月 AI_FREE_OCR_PER_MONTH 回・2026-10-02）の 1 回の大きさ。
 //   アプリは写真 1 枚（長辺 1568px に縮小済み）＋短い指示文（約 300 字）・max_tokens 1024 を送る。
 //   それより大きいもの（写真を何枚も・長い文章）は 413 で断る（無料の枠を汎用の AI として使わせない）。
@@ -93,7 +94,7 @@ const MAX_MESSAGES = 60;
 //   用途が無い呼び出し（出し直す前の iOS アプリ）は、今までどおりアプリが指定した Claude（この許可リストで矯正）。
 //   旧 claude-sonnet-4-6 も後方互換で許可（未デプロイのクライアントからの要求を弾かない）。
 //   指定のモデルが 404 のときのやり直し先は api/_providers.js（claude-sonnet-5-5 → claude-sonnet-5、ほか → claude-sonnet-4-6）。
-const ALLOWED_MODELS = new Set(['claude-sonnet-5-5', 'claude-sonnet-5', 'claude-haiku-4-5', 'claude-sonnet-4-6']);
+const ALLOWED_MODELS = new Set(['claude-sonnet-5-5', 'claude-sonnet-5', 'claude-haiku-5-5', 'claude-haiku-4-5', 'claude-sonnet-4-6']);
 // 指定なし・許可外はいちばん安い Haiku に寄せる（原価の安全側）。
 const DEFAULT_MODEL = 'claude-haiku-4-5';
 // 💬 相談だけの差し替え（AI_CONSULT_MODEL・Claude だけ）は api/_aiRouting.js の resolveRoute が読む。

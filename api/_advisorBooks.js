@@ -10,6 +10,7 @@
 //      紹介文が短すぎる本は「thin」（候補にしない）。3 回失敗したら「failed」。
 // 守ること: 漫画・写真集・資格の問題集・雑誌は集めない。材料に無いこと（数字・章の名前・著者の経歴）を書かせない。
 //   1 回の Cron の AI は ADVISOR_BOOKS_AI_PER_RUN 冊まで（既定 400・1 冊 約 ¥0.1）。ADVISOR_BOOKS=off で止める。
+//   2026-11-18 から概要は Claude のサブスクのスケジュールされたタスクが書く（summaryMode='session'・既定）。サーバーが API で書くのは ADVISOR_BOOKS_SUMMARY=api のときだけ。
 // 外への呼び出しは差し替えられる（テスト・rakutenGetImpl / aiImpl）。
 
 import { rakutenCreds, rakutenGet, rakutenUrl, rakutenItems, rakutenUpscale, rakutenRealImage } from './_rakuten.js';
@@ -158,7 +159,8 @@ export async function collectStep({ db, env = process.env, now = () => Date.now(
     cursor = 0;
     passStarted = new Date(now()).toISOString();
   }
-  let pages = 0; let seen = 0; let upserted = 0; let failures = 0; let ranked = 0;
+  let pages = 0; let seen = 0; let upserted = 0; let failures = 0; let ranked = 0; let rejected = 0;
+  const rejectedChecks = [];
   // 売上順の記録（advisor_book_ranks・supabase_advisor_books_signals.sql・2026-11-18）。表が無ければ記録しないだけ。
   let ranksOn = true;
   while (cursor < steps.length && now() < deadline - 3000) {
@@ -186,9 +188,24 @@ export async function collectStep({ db, env = process.env, now = () => Date.now(
       if (rows.length) {
         const stamp = new Date(now()).toISOString();
         // 前からある本の要約・状態は変えない（送る列だけが書き換わる）
-        const { error } = await db.from('advisor_books').upsert(rows.map((r) => ({ ...r, last_seen_at: stamp, updated_at: stamp })), { onConflict: 'isbn' });
-        if (error) throw Object.assign(new Error('upsert'), { code: error.code, message: error.message });
-        upserted += rows.length;
+        const stamped = rows.map((r) => ({ ...r, last_seen_at: stamp, updated_at: stamp }));
+        const { error } = await db.from('advisor_books').upsert(stamped, { onConflict: 'isbn' });
+        if (error && error.code === '23514') {
+          // 表の決まり（CHECK）に合わない本が 1 冊あるだけで、その一覧の残りまで止めない（2026-11-19・同じ頁で毎晩止まっていた）。
+          // 1 冊ずつ入れ直し、合わない本は飛ばして、どの決まりだったかを残す
+          for (const row of stamped) {
+            const { error: oneErr } = await db.from('advisor_books').upsert([row], { onConflict: 'isbn' });
+            if (!oneErr) { upserted += 1; continue; }
+            if (oneErr.code !== '23514') throw Object.assign(new Error('upsert'), { code: oneErr.code, message: oneErr.message });
+            rejected += 1;
+            const chk = String(oneErr.message || '').match(/constraint "([^"]{1,60})"/);
+            if (chk && !rejectedChecks.includes(chk[1]) && rejectedChecks.length < 3) rejectedChecks.push(chk[1]);
+          }
+        } else if (error) {
+          throw Object.assign(new Error('upsert'), { code: error.code, message: error.message });
+        } else {
+          upserted += rows.length;
+        }
         // その一覧で何位だったかを日付つきで残す（同じ日・同じ一覧の 2 回目は入れない）
         const ranks = rows.filter((r) => Number.isInteger(r.sales_rank) && r.sales_rank >= 1)
           .map((r) => ({ isbn: r.isbn, list: step.source, observed_on: jstDay(now()), rank: r.sales_rank }));
@@ -202,7 +219,7 @@ export async function collectStep({ db, env = process.env, now = () => Date.now(
     await writeState(db, { plan_version: PLAN_VERSION, cursor, pass_started_at: passStarted, pass_done_at: cursor >= steps.length ? new Date(now()).toISOString() : null });
     if (cursor < steps.length) await sleep(pause);
   }
-  return { pages, seen, upserted, ranked, cursor, total: steps.length, done: cursor >= steps.length };
+  return { pages, seen, upserted, ranked, cursor, total: steps.length, done: cursor >= steps.length, ...(rejected ? { rejected, rejected_checks: rejectedChecks } : {}) };
 }
 
 // ── 運営が選んで足す本（ops_books の add・2026-11-17）─────────────────────────────
@@ -399,7 +416,7 @@ export const SUMMARY_SYSTEM =
   '- 材料が少なすぎて本の中身が分からないときは {"skip": true} だけを返す。\n' +
   '# 書くもの（日本語・です／ます調にしない短い文）\n' +
   '- summary: この本の概要。何について、どんな立場から書いた本か。2 文・120 字以内。\n' +
-  '- points: 学べること（小説・物語は味わえること）を 3 つ。各 30 字以内。\n' +
+  '- points: 学べること（小説・物語は味わえること）を 3 つ。読んだあとに何ができるようになるかが分かる形で。各 30 字以内。\n' +
   '- for_whom: この本が効く悩み・状況を 3 つ（「〜な人に」「〜とき」の形・各 30 字以内・具体的に）。\n' +
   '- reason: おすすめする理由を 1 文（60 字以内・この本ならではの点）。\n' +
   '- keywords: 書店でこの本に行き着く検索の言葉を 6〜10 個（各 2〜10 字の名詞句・悩みの言葉と考え方の名前を混ぜる・書名と著者名は入れない）。\n' +
@@ -497,7 +514,8 @@ export function parseSummary(text) {
 export function summaryRoutes(env = process.env) {
   const off = String(env.AI_ROUTING || '').toLowerCase() === 'off';
   const spec = !off && parseRouteSpec(env.AI_ROUTE_ADVISOR_BOOKS || '');
-  const first = spec || (!off ? { provider: 'gemini', model: 'gemini-3.1-flash-lite' } : null);
+  // 2026-11-18: 既定を Gemini Flash-Lite から Claude Haiku 5.5 に（単価が約半分・断った／混んでいるときは中継が Haiku 4.5 で 1 回やり直す）。
+  const first = spec || (!off ? { provider: 'anthropic', model: 'claude-haiku-5-5' } : null);
   const hasKey = (p) => (p === 'gemini' ? !!env.GEMINI_API_KEY : p === 'openai' ? !!env.OPENAI_API_KEY : !!env.ANTHROPIC_API_KEY);
   const routes = [];
   if (first && hasKey(first.provider)) routes.push(first);
@@ -538,7 +556,16 @@ async function extFor(db, isbns) {
   return out;
 }
 
+// 💳 概要をだれが書くか（2026-11-18 オーナー「2 でやろう」＝API の請求を出さない）。
+//   'session'（既定）: サーバーは AI を呼ばない。Claude のサブスクのスケジュールされたタスクが、ops_books の pending で
+//     材料を受け取って自分で書き、summaries で返す（pendingForSession / saveSessionSummaries）。
+//   'api': 前のとおりサーバーが API で書く（ADVISOR_BOOKS_SUMMARY=api）。
+export function summaryMode(env = process.env) {
+  return String(env.ADVISOR_BOOKS_SUMMARY || '').trim().toLowerCase() === 'api' ? 'api' : 'session';
+}
+
 export async function summarizeStep({ db, env = process.env, now = () => Date.now(), deadline, aiImpl = summarizeBook, limit, metaImpl = openbdMeta } = {}) {
+  if (summaryMode(env) !== 'api' && aiImpl === summarizeBook) return { skipped: 'session', done: 0 };
   if (summaryRoutes(env).length === 0) return { skipped: 'no_ai_key', done: 0 };
   const max = Math.max(0, Math.floor(num(limit ?? env.ADVISOR_BOOKS_AI_PER_RUN, 400)));
   const conc = Math.max(1, Math.min(12, Math.floor(num(env.ADVISOR_BOOKS_AI_CONCURRENCY, 8))));
@@ -596,6 +623,90 @@ export async function summarizeStep({ db, env = process.env, now = () => Date.no
   return { done, ready, thin, failed, mjpy };
 }
 
+// ── サブスクのセッションが書く（2026-11-18）──────────────────────────────
+export const SESSION_BATCH_MAX = 30;
+
+/**
+ * 整える前の本を limit 冊まで、書く材料つきで返す（材料が短い本はその場で thin にして返さない）。
+ *   { instructions: SUMMARY_SYSTEM, books: [{ isbn, material }], thin }。分類コードとページ数はここで保存する。
+ */
+export async function pendingForSession({ db, env = process.env, now = () => Date.now(), limit = 20, metaImpl = openbdMeta } = {}) {
+  const take = Math.max(1, Math.min(SESSION_BATCH_MAX, Math.floor(num(limit, 20))));
+  const { data: rows, error } = await db.from('advisor_books')
+    .select('isbn, title, subtitle, author, publisher, pub_date, description, attempts')
+    .eq('status', 'pending')
+    .order('curated', { ascending: false })
+    .order('sales_rank', { ascending: true, nullsFirst: false })
+    .limit(take);
+  if (error) throw Object.assign(new Error('select'), { code: error.code, message: error.message });
+  const list = rows || [];
+  const isbns = list.map((r) => r.isbn);
+  const ext = await extFor(db, isbns);
+  const meta = !isbns.length || String(env.ADVISOR_BOOKS_OPENBD || '').toLowerCase() === 'off' ? new Map() : await metaImpl(isbns);
+  const books = [];
+  let thin = 0;
+  const stamp = new Date(now()).toISOString();
+  for (const row of list) {
+    const e = ext.get(row.isbn) || null;
+    const m = meta.get(row.isbn) || {};
+    const b = { ...row, ext_summary: e?.summary || '', ext_endorsers: Array.isArray(e?.endorsers) ? e.endorsers.length : 0, c_code: m.c_code || '', pages: m.pages || null };
+    const metaPatch = { ...(m.c_code ? { c_code: m.c_code } : {}), ...(m.pages ? { pages: m.pages } : {}) };
+    if (String(b.description || '').length < MIN_DESCRIPTION && String(b.ext_summary).length < MIN_EXT_SUMMARY) {
+      // eslint-disable-next-line no-await-in-loop
+      await db.from('advisor_books').update({ status: 'thin', ...metaPatch, updated_at: stamp }).eq('isbn', row.isbn);
+      thin += 1;
+      continue;
+    }
+    if (Object.keys(metaPatch).length) {
+      // eslint-disable-next-line no-await-in-loop
+      const r = await db.from('advisor_books').update({ ...metaPatch, updated_at: stamp }).eq('isbn', row.isbn);
+      void r; // 列がまだ無くても続ける
+    }
+    books.push({ isbn: row.isbn, material: summaryUserText(b) });
+  }
+  return { instructions: SUMMARY_SYSTEM, books, thin };
+}
+
+/**
+ * セッションが書いた概要を確かめてから保存する。items: [{ isbn, summary: JSON の文字列か object }]。
+ *   読めた → ready・飛ばす（{"skip":true}）→ thin・読めない → attempts+1（3 回で failed）。整える前の本だけ書き換える。
+ *   { ready, thin, failed, invalid }
+ */
+export async function saveSessionSummaries({ db, items, now = () => Date.now() } = {}) {
+  const out = { ready: 0, thin: 0, failed: 0, invalid: 0 };
+  const list = (Array.isArray(items) ? items : []).slice(0, SESSION_BATCH_MAX);
+  const stamp = new Date(now()).toISOString();
+  for (const it of list) {
+    const isbn = String(it?.isbn || '').replace(/-/g, '');
+    if (!/^97[89]\d{10}$/.test(isbn)) { out.invalid += 1; continue; }
+    const raw = it?.summary;
+    const parsed = parseSummary(typeof raw === 'string' ? raw : JSON.stringify(raw ?? ''));
+    let patch;
+    if (parsed?.skip) patch = { status: 'thin', model: 'session' };
+    else if (parsed) patch = { ...parsed, status: 'ready', model: 'session', prompt_version: PROMPT_VERSION, summarized_at: stamp };
+    else {
+      // eslint-disable-next-line no-await-in-loop
+      const { data } = await db.from('advisor_books').select('attempts').eq('isbn', isbn).eq('status', 'pending').maybeSingle();
+      if (!data) { out.invalid += 1; continue; }
+      const attempts = (data.attempts || 0) + 1;
+      patch = { attempts, status: attempts >= 3 ? 'failed' : 'pending' };
+    }
+    // eslint-disable-next-line no-await-in-loop
+    let res = await db.from('advisor_books').update({ ...patch, updated_at: stamp }).eq('isbn', isbn).eq('status', 'pending').select('isbn');
+    if (res?.error && /42703|PGRST204|column/i.test(`${res.error.code || ''} ${res.error.message || ''}`)) {
+      const { difficulty: _d, prereq: _p, ...rest } = patch;
+      if ('prompt_version' in rest) rest.prompt_version = PROMPT_VERSION - 1;
+      // eslint-disable-next-line no-await-in-loop
+      res = await db.from('advisor_books').update({ ...rest, updated_at: stamp }).eq('isbn', isbn).eq('status', 'pending').select('isbn');
+    }
+    if (res?.error || !res?.data?.length) { out.invalid += 1; continue; }
+    if (patch.status === 'ready') out.ready += 1;
+    else if (patch.status === 'thin') out.thin += 1;
+    else out.failed += 1;
+  }
+  return out;
+}
+
 /**
  * 売れ方を決め直し、書名で入れた賞・年間ベストの印に ISBN を付ける（supabase_advisor_books_signals.sql）。
  *   { trends, linked }（それぞれ変えた数・関数が無ければ null）。失敗しても例外にしない。
@@ -629,7 +740,8 @@ export async function runAdvisorBooks({ db, env = process.env, now = () => Date.
     result.collect = await collectStep({ db, env, now, deadline: Math.min(deadline, started + collectShare), ...deps });
   } catch (e) {
     if (/relation .* does not exist|42P01|PGRST205|Could not find the table/i.test(`${e.code || ''} ${e.message || ''}`)) return { skipped: 'no_table' };
-    result.collect = { error: String(e.code || e.message || 'error').slice(0, 80) };
+    const chk = String(e.message || '').match(/constraint "([^"]{1,60})"/);
+    result.collect = { error: String(e.code || e.message || 'error').slice(0, 80), ...(chk ? { check: chk[1] } : {}) };
   }
   // 集め方が 1 回り終わって次の回りを待っている日は、集める時間を待ち行列に回す（2026-11-17）
   if (result.collect && result.collect.skipped === 'waiting_next_pass' && !(result.queue && (result.queue.skipped || result.queue.error))) {

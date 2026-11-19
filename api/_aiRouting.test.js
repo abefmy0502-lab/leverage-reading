@@ -7,25 +7,23 @@ const NOW = Date.parse('2026-10-01T00:00:00Z');
 const r = (purpose, env = KEYS, extra = {}) => resolveRoute({ purpose, requestedModel: 'claude-haiku-4-5', env, now: NOW, ...extra });
 
 describe('用途ごとの行き先（既定）', () => {
-  it('相談は Claude Haiku 4.5（無料プランも）', () => {
-    expect(r('consult')).toMatchObject({ provider: 'anthropic', model: 'claude-haiku-4-5' });
-    expect(r('consult', KEYS, { free: true })).toMatchObject({ provider: 'anthropic', model: 'claude-haiku-4-5', reason: 'free' });
+  it('相談は Claude Haiku 5.5（無料プランも・2026-11-18）', () => {
+    expect(r('consult')).toMatchObject({ provider: 'anthropic', model: 'claude-haiku-5-5' });
+    expect(r('consult', KEYS, { free: true })).toMatchObject({ provider: 'anthropic', model: 'claude-haiku-5-5', reason: 'free' });
   });
   it('AI 選書の推薦は Claude Sonnet 5.5（失敗したら Sonnet 5）', () => {
     expect(r('book_advisor')).toMatchObject({ provider: 'anthropic', model: 'claude-sonnet-5-5' });
   });
-  it('運営の相談は gpt-5-mini、失敗したら Haiku', () => {
-    expect(r('ops_advise')).toMatchObject({ provider: 'openai', model: 'gpt-5-mini', claudeModel: 'claude-haiku-4-5' });
-  });
-  it('凝縮・まとめ・写真の書き起こし・AI 選書の聞き返し・読書計画シートは gemini-3.1-flash-lite、失敗したら Haiku（2026-10-01）', () => {
-    for (const p of ['condense', 'cards_to_summary', 'ocr', 'advisor_interview', 'setup_sheet', 'setup_sheet_edit']) {
-      expect(r(p)).toMatchObject({ provider: 'gemini', model: 'gemini-3.1-flash-lite', claudeModel: 'claude-haiku-4-5' });
+  it('運営の相談・凝縮・まとめ・写真の書き起こし・AI 選書の聞き返し・読書計画シート・目標の深掘りは Haiku 5.5、失敗したら Haiku 4.5（2026-11-18）', () => {
+    for (const p of ['ops_advise', 'condense', 'cards_to_summary', 'ocr', 'advisor_interview', 'setup_sheet', 'setup_sheet_edit', 'goal_interview']) {
+      expect(r(p)).toMatchObject({ provider: 'anthropic', model: 'claude-haiku-5-5', claudeModel: 'claude-haiku-4-5', reason: 'route' });
+      // 鍵が Anthropic だけでも同じ
+      expect(r(p, { ANTHROPIC_API_KEY: 'a' })).toMatchObject({ provider: 'anthropic', model: 'claude-haiku-5-5' });
     }
   });
-  it('この本で学べること（book_brief）は読書計画シートと同じ Flash-Lite・無料プランでも Claude に固定しない（2026-10-08）', () => {
-    expect(r('book_brief')).toMatchObject({ provider: 'gemini', model: 'gemini-3.1-flash-lite', claudeModel: 'claude-haiku-4-5' });
-    expect(r('book_brief', KEYS, { free: true })).toMatchObject({ provider: 'gemini', model: 'gemini-3.1-flash-lite', reason: 'route' });
-    expect(r('book_brief', { ANTHROPIC_API_KEY: 'a' }, { free: true })).toMatchObject({ provider: 'anthropic', model: 'claude-haiku-4-5', reason: 'no_key' });
+  it('この本で学べること（book_brief）は読書計画シートと同じ Haiku 5.5・無料プランでも同じ行き先（freeRouted）', () => {
+    expect(r('book_brief')).toMatchObject({ provider: 'anthropic', model: 'claude-haiku-5-5', claudeModel: 'claude-haiku-4-5' });
+    expect(r('book_brief', KEYS, { free: true })).toMatchObject({ provider: 'anthropic', model: 'claude-haiku-5-5', reason: 'route' });
     expect(routeEnvName('book_brief')).toBe('AI_ROUTE_BOOK_BRIEF');
     // 無料プランのほかの用途は、今までどおり Claude（相談の行き先）
     expect(r('setup_sheet', KEYS, { free: true })).toMatchObject({ provider: 'anthropic', reason: 'free' });
@@ -47,17 +45,20 @@ describe('用途ごとの行き先（既定）', () => {
 });
 
 describe('鍵・提供終了・緊急スイッチ', () => {
-  it('鍵が無ければ Claude', () => {
-    expect(r('setup_sheet', { ANTHROPIC_API_KEY: 'a' })).toMatchObject({ provider: 'anthropic', model: 'claude-haiku-4-5', reason: 'no_key' });
-    expect(r('ocr', { ANTHROPIC_API_KEY: 'a', OPENAI_API_KEY: 'o' })).toMatchObject({ provider: 'anthropic', reason: 'no_key' });
+  it('env で Gemini・OpenAI を選んでも、鍵が無ければ Claude', () => {
+    expect(r('setup_sheet', { ANTHROPIC_API_KEY: 'a', AI_ROUTE_SETUP_SHEET: 'gemini:gemini-3.1-flash-lite' })).toMatchObject({ provider: 'anthropic', model: 'claude-haiku-4-5', reason: 'no_key' });
+    expect(r('ocr', { ANTHROPIC_API_KEY: 'a', OPENAI_API_KEY: 'o', AI_ROUTE_OCR: 'gemini:gemini-3.1-flash-lite' })).toMatchObject({ provider: 'anthropic', reason: 'no_key' });
+    expect(r('ocr', { ...KEYS, AI_ROUTE_OCR: 'gemini:gemini-3.1-flash-lite' })).toMatchObject({ provider: 'gemini', model: 'gemini-3.1-flash-lite', claudeModel: 'claude-haiku-4-5' });
   });
   it('gpt-5-mini は 2026-12-11（日本時間）から呼ばずに Claude', () => {
     expect(isRetired('gpt-5-mini', Date.parse('2026-12-10T14:59:00Z'))).toBe(false);
     expect(isRetired('gpt-5-mini', Date.parse('2026-12-10T15:00:00Z'))).toBe(true);
     // 終わったあとは後継（Gemini Flash-Lite）へ。Gemini の鍵が無ければ Claude。
     const after = Date.parse('2026-12-11T00:00:00Z');
-    expect(r('ops_advise', KEYS, { now: after })).toMatchObject({ provider: 'gemini', model: 'gemini-3.1-flash-lite', claudeModel: 'claude-haiku-4-5', reason: 'successor' });
-    expect(r('ops_advise', { ANTHROPIC_API_KEY: 'a', OPENAI_API_KEY: 'o' }, { now: after })).toMatchObject({ provider: 'anthropic', model: 'claude-haiku-4-5', reason: 'retired' });
+    const gpt = { AI_ROUTE_OPS_ADVISE: 'openai:gpt-5-mini' };
+    expect(r('ops_advise', { ...KEYS, ...gpt })).toMatchObject({ provider: 'openai', model: 'gpt-5-mini' });
+    expect(r('ops_advise', { ...KEYS, ...gpt }, { now: after })).toMatchObject({ provider: 'gemini', model: 'gemini-3.1-flash-lite', claudeModel: 'claude-haiku-4-5', reason: 'successor' });
+    expect(r('ops_advise', { ANTHROPIC_API_KEY: 'a', OPENAI_API_KEY: 'o', ...gpt }, { now: after })).toMatchObject({ provider: 'anthropic', model: 'claude-haiku-4-5', reason: 'retired' });
     expect(r('setup_sheet', { ...KEYS, AI_ROUTE_SETUP_SHEET: 'openai:gpt-5-mini' }, { now: after })).toMatchObject({ provider: 'gemini', reason: 'successor' });
     expect(isRetired('gemini-3.1-flash-lite', Date.parse('2030-01-01'))).toBe(false);
   });
@@ -87,7 +88,7 @@ describe('env での差し替え（AI_ROUTE_<用途>）', () => {
   });
   it('相談と AI 選書は Claude 以外に差し替えない', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    expect(r('consult', { ...KEYS, AI_ROUTE_CONSULT: 'gemini:gemini-3.1-flash-lite' })).toMatchObject({ provider: 'anthropic', model: 'claude-haiku-4-5' });
+    expect(r('consult', { ...KEYS, AI_ROUTE_CONSULT: 'gemini:gemini-3.1-flash-lite' })).toMatchObject({ provider: 'anthropic', model: 'claude-haiku-5-5' });
     expect(r('consult', { ...KEYS, AI_ROUTE_CONSULT: 'openai:gpt-5-mini' })).toMatchObject({ provider: 'anthropic' });
     expect(r('book_advisor', { ...KEYS, AI_ROUTE_BOOK_ADVISOR: 'openai:gpt-5-mini' })).toMatchObject({ provider: 'anthropic', model: 'claude-sonnet-5-5' });
     expect(r('book_advisor', { ...KEYS, AI_ROUTE_BOOK_ADVISOR: 'anthropic:claude-sonnet-5' })).toMatchObject({ provider: 'anthropic', model: 'claude-sonnet-5' });
@@ -96,13 +97,34 @@ describe('env での差し替え（AI_ROUTE_<用途>）', () => {
   });
   it('相談の AI_CONSULT_MODEL（Claude だけ）は今までどおり効く。無料プランには効かない', () => {
     expect(r('consult', { ...KEYS, AI_CONSULT_MODEL: 'claude-sonnet-5' })).toMatchObject({ provider: 'anthropic', model: 'claude-sonnet-5' });
-    expect(r('consult', { ...KEYS, AI_CONSULT_MODEL: 'gpt-5-mini' })).toMatchObject({ model: 'claude-haiku-4-5' });
-    expect(r('consult', { ...KEYS, AI_CONSULT_MODEL: 'claude-sonnet-5' }, { free: true }).model).toBe('claude-haiku-4-5');
+    expect(r('consult', { ...KEYS, AI_CONSULT_MODEL: 'gpt-5-mini' })).toMatchObject({ model: 'claude-haiku-5-5' });
+    expect(r('consult', { ...KEYS, AI_CONSULT_MODEL: 'claude-sonnet-5' }, { free: true }).model).toBe('claude-haiku-5-5');
   });
   it('おかしな値は無視して既定（ログには値を書かない）', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    expect(r('ocr', { ...KEYS, AI_ROUTE_OCR: 'openai:gpt-4o' })).toMatchObject({ provider: 'gemini', model: 'gemini-3.1-flash-lite' });
+    expect(r('ocr', { ...KEYS, AI_ROUTE_OCR: 'openai:gpt-4o' })).toMatchObject({ provider: 'anthropic', model: 'claude-haiku-5-5' });
     expect(String(warn.mock.calls[0]?.[0])).not.toContain('gpt-4o');
     warn.mockRestore();
+  });
+});
+
+describe('Haiku 5.5（2026-11-18・相談の既定・ほかの用途は env で選んだときだけ）', () => {
+  it('既定の相談は Haiku 5.5・やり直しは Haiku 4.5・アプリが Haiku 4.5 を指定しても', () => {
+    expect(r('consult')).toMatchObject({ model: 'claude-haiku-5-5', claudeModel: 'claude-haiku-4-5' });
+    expect(r('consult', KEYS, { free: true })).toMatchObject({ model: 'claude-haiku-5-5', claudeModel: 'claude-haiku-4-5' });
+  });
+  it('AI_CONSULT_MODEL=claude-haiku-4-5 で前のモデルに戻せる（無料プランも）', () => {
+    const env = { ...KEYS, AI_CONSULT_MODEL: 'claude-haiku-4-5' };
+    expect(r('consult', env).model).toBe('claude-haiku-4-5');
+    expect(r('consult', env, { free: true }).model).toBe('claude-haiku-4-5');
+  });
+  it('AI_CONSULT_MODEL=claude-haiku-5-5 で有料も無料プランも Haiku 5.5・やり直しは Haiku 4.5', () => {
+    const env = { ...KEYS, AI_CONSULT_MODEL: 'claude-haiku-5-5' };
+    expect(r('consult', env)).toMatchObject({ model: 'claude-haiku-5-5', claudeModel: 'claude-haiku-4-5' });
+    expect(r('consult', env, { free: true })).toMatchObject({ model: 'claude-haiku-5-5', claudeModel: 'claude-haiku-4-5', reason: 'free' });
+  });
+  it('ほかの用途も AI_ROUTE_<用途>=anthropic:claude-haiku-5-5 で', () => {
+    expect(r('setup_sheet', { ...KEYS, AI_ROUTE_SETUP_SHEET: 'anthropic:claude-haiku-5-5' })).toMatchObject({ provider: 'anthropic', model: 'claude-haiku-5-5', claudeModel: 'claude-haiku-4-5' });
+    expect(parseRouteSpec('anthropic:claude-haiku-5-5')).toEqual({ provider: 'anthropic', model: 'claude-haiku-5-5' });
   });
 });

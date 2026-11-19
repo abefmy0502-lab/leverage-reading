@@ -14,7 +14,7 @@ import { isLineGrounded } from './planChapters';
 import { BRIEF_HEADINGS } from './promptConstants';
 
 // 1 回に頼む出力の上限（400 字＋見出し＝日本語でおよそ 500〜600 トークン）。1 回 約 1〜2 トークン（lib/tokens.js の TOKEN_COSTS.bookBrief）。
-export const BRIEF_MAX_TOKENS = 700;
+export const BRIEF_MAX_TOKENS = 1300; // 700 字以内（2026-11-18 に 400 字・700 から）
 // 材料の下限: 紹介文が 40 字以上か、目次が 3 項目以上。どちらも無ければ作らない。
 export const BRIEF_MIN_ABOUT_CHARS = 40;
 export const BRIEF_MIN_TOC_LINES = 3;

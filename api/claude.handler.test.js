@@ -352,7 +352,8 @@ describe('用途ごとに会社とモデルを選ぶ（失敗したら Claude �
     expect(fetchMock.mock.calls[0][0]).toBe('https://api.anthropic.com/v1/messages');
   });
 
-  it('写真の書き起こし（ストリームでない）→ Gemini。答えは Anthropic の JSON', async () => {
+  it('写真の書き起こし（ストリームでない）→ AI_ROUTE_OCR で Gemini にしたとき。答えは Anthropic の JSON', async () => {
+    vi.stubEnv('AI_ROUTE_OCR', 'gemini:gemini-3.1-flash-lite');
     const fetchMock = vi.fn(async () => new Response(JSON.stringify({
       candidates: [{ content: { parts: [{ text: '書き起こした一節' }] }, finishReason: 'STOP' }],
       usageMetadata: { promptTokenCount: 2000, candidatesTokenCount: 350 },
@@ -367,6 +368,18 @@ describe('用途ごとに会社とモデルを選ぶ（失敗したら Claude �
     expect(String(fetchMock.mock.calls[0][0])).toContain('generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent');
     expect(res.body).toMatchObject({ content: [{ type: 'text', text: '書き起こした一節' }], stop_reason: 'end_turn' });
     expect(db.costTotal).toBe(cost.costFromUsage('gemini-3.1-flash-lite', { input_tokens: 2000, output_tokens: 350 }));
+    vi.unstubAllEnvs();
+  });
+
+  it('写真の書き起こしは既定で Claude Haiku 5.5（2026-11-18）', async () => {
+    const fetchMock = vi.fn(async () => anthropicJson());
+    vi.stubGlobal('fetch', fetchMock);
+    await handler(req({
+      model: 'claude-haiku-4-5', purpose: 'ocr', max_tokens: 1024,
+      messages: [{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: 'QUJD' } }, { type: 'text', text: '書き起こして' }] }],
+    }), mockRes());
+    expect(fetchMock.mock.calls[0][0]).toBe('https://api.anthropic.com/v1/messages');
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({ model: 'claude-haiku-5-5', thinking: { type: 'disabled' } });
   });
 
   it('相談は鍵があっても Claude だけ', async () => {
@@ -374,7 +387,7 @@ describe('用途ごとに会社とモデルを選ぶ（失敗したら Claude �
     vi.stubGlobal('fetch', fetchMock);
     await handler(consultReq(), mockRes());
     expect(fetchMock.mock.calls[0][0]).toBe('https://api.anthropic.com/v1/messages');
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body).model).toBe('claude-haiku-4-5');
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({ model: 'claude-haiku-5-5', thinking: { type: 'disabled' } });
   });
 
   it('AI 選書の推薦は Claude Sonnet 5.5（考えない設定は between_tools）', async () => {

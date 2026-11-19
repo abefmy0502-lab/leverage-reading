@@ -20,8 +20,8 @@ describe('相談の指示文のキャッシュを延ばす', () => {
     expect(isWarmableSystem([{ type: 'text', text: BRAIN_SYSTEM + ' ' }])).toBe(false);
     expect(isWarmableSystem(BRAIN_SYSTEM)).toBe(false);
   });
-  it('延ばすモデルは相談の行き先（既定は Haiku 4.5 だけ）', () => {
-    expect(warmModels({})).toEqual(['claude-haiku-4-5']);
+  it('延ばすモデルは相談の行き先（既定は Haiku 5.5 だけ）', () => {
+    expect(warmModels({})).toEqual(['claude-haiku-5-5']);
   });
   it('40〜57 分のときだけ取れたら呼ぶ', async () => {
     const admin = adminWith(true);
@@ -31,7 +31,7 @@ describe('相談の指示文のキャッシュを延ばす', () => {
     expect(admin.rpc).toHaveBeenCalledWith('claim_ai_cache_refresh', { p_key: 'consult', p_min_age: WARM_MIN_AGE_S, p_max_age: WARM_MAX_AGE_S });
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     const sent = JSON.parse(fetchImpl.mock.calls[0][1].body);
-    expect(sent.model).toBe('claude-haiku-4-5');
+    expect(sent.model).toBe('claude-haiku-5-5');
     expect(sent.system[0].text).toBe(BRAIN_SYSTEM);
   });
   it('冷えている・温まったばかり・表が無いときは呼ばない', async () => {

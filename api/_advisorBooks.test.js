@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { expandPlan, usableItem, rowFromRakuten, parseSummary, summaryUserText, collectStep, summarizeStep, runAdvisorBooks, PLAN_VERSION, REFRESH_DAYS, parseAddList, queueStep, QUEUE_ADD_MAX, SUMMARY_SYSTEM, cCodeLabel, parseOpenbdMeta, PROMPT_VERSION as PV, parseExtList, parseMarkList, MARK_ADD_MAX, refreshSignals, jstDay } from './_advisorBooks.js';
+import { pendingForSession, saveSessionSummaries, summaryMode, expandPlan, usableItem, rowFromRakuten, parseSummary, summaryUserText, collectStep, summarizeStep, runAdvisorBooks, PLAN_VERSION, REFRESH_DAYS, parseAddList, queueStep, QUEUE_ADD_MAX, SUMMARY_SYSTEM, cCodeLabel, parseOpenbdMeta, PROMPT_VERSION as PV, parseExtList, parseMarkList, MARK_ADD_MAX, refreshSignals, jstDay } from './_advisorBooks.js';
 
 // supabase の最小の偽物（使う形だけ）。
 function fakeDb({ state = null, books = [], noTable = false, noRanks = false } = {}) {
@@ -42,7 +42,7 @@ function fakeDb({ state = null, books = [], noTable = false, noRanks = false } =
   return db;
 }
 
-const env = { RAKUTEN_APPLICATION_ID: 'id', RAKUTEN_ACCESS_KEY: 'pk', RAKUTEN_APP_URL: 'https://x', GEMINI_API_KEY: 'g', ADVISOR_BOOKS_OPENBD: 'off' };
+const env = { RAKUTEN_APPLICATION_ID: 'id', RAKUTEN_ACCESS_KEY: 'pk', RAKUTEN_APP_URL: 'https://x', GEMINI_API_KEY: 'g', AI_ROUTE_ADVISOR_BOOKS: 'gemini:gemini-3.1-flash-lite', ADVISOR_BOOKS_OPENBD: 'off' };
 const item = (n, extra = {}) => ({ title: `本${n}`, subTitle: '', author: '稲盛和夫/見本花子', publisherName: '見本社', isbn: `97840000000${String(n).padStart(2, '0')}`, salesDate: '2024年05月10日', largeImageUrl: 'http://img/x.jpg?_ex=200x200', itemCaption: `【内容情報】${'この本は習慣の作り方を書いた本です。'.repeat(4)}【目次】第1章 はじめに`, reviewCount: 12, reviewAverage: '4.2', booksGenreId: '001006009', ...extra });
 const page = (items) => ({ status: 200, body: JSON.stringify({ Items: items.map((Item) => ({ Item })) }) });
 
@@ -112,6 +112,27 @@ describe('collectStep', () => {
     expect([...db.t.advisor_books.values()].some((b) => b.title === 'マンガでわかる')).toBe(false);
     expect(db.t.state).toMatchObject({ plan_version: PLAN_VERSION, cursor: r.pages });
   });
+  it('表の決まりに合わない本が 1 冊あっても、その一覧の残りは入れて先へ進む', async () => {
+    const base = fakeDb();
+    const bad = '9784000000002';
+    const db = {
+      t: base.t,
+      from(table) {
+        const api = base.from(table);
+        if (table !== 'advisor_books') return api;
+        const up = api.upsert.bind(api);
+        return { ...api, upsert(rows, o) { return rows.some((r) => r.isbn === bad) ? Promise.resolve({ error: { code: '23514', message: 'new row for relation "advisor_books" violates check constraint "advisor_books_title_check"' } }) : up(rows, o); } };
+      },
+    };
+    const now = clock();
+    const r = await collectStep({ db, env, now, deadline: now() + 3000 + 50, rakutenGetImpl: async () => page([item(1), item(2), item(3)]), pause: 0 });
+    expect(base.t.advisor_books.has('9784000000001')).toBe(true);
+    expect(base.t.advisor_books.has('9784000000003')).toBe(true);
+    expect(base.t.advisor_books.has(bad)).toBe(false);
+    expect(r.rejected).toBeGreaterThan(0);
+    expect(r.rejected_checks).toEqual(['advisor_books_title_check']);
+    expect(base.t.state.cursor).toBe(r.pages);
+  });
   it('1 回り終えたら 7 日待つ・7 日たったら最初から', async () => {
     const steps = expandPlan().length;
     const started = Date.parse('2026-11-10T18:00:00Z');
@@ -145,8 +166,12 @@ describe('summarizeStep', () => {
     expect(db.t.advisor_books.get('9784000000002').status).toBe('thin');
     expect(db.t.advisor_books.get('9784000000003').status).toBe('failed');
   });
-  it('AI の鍵が無ければ何もしない', async () => {
-    expect((await summarizeStep({ db: fakeDb(), env: {}, deadline: 1e9 })).skipped).toBe('no_ai_key');
+  it('既定はサブスクのセッションが書く＝サーバーは AI を呼ばない（2026-11-18）', async () => {
+    expect((await summarizeStep({ db: fakeDb(), env: {}, deadline: 1e9 })).skipped).toBe('session');
+    expect((await summarizeStep({ db: fakeDb(), env: { ANTHROPIC_API_KEY: 'a' }, deadline: 1e9 })).skipped).toBe('session');
+  });
+  it('ADVISOR_BOOKS_SUMMARY=api でも AI の鍵が無ければ何もしない', async () => {
+    expect((await summarizeStep({ db: fakeDb(), env: { ADVISOR_BOOKS_SUMMARY: 'api' }, deadline: 1e9 })).skipped).toBe('no_ai_key');
   });
 });
 
@@ -374,5 +399,68 @@ describe('賞・年間ベストの印（ops_books の mark・2026-11-18）', () 
     expect(parseMarkList([one, one]).marks).toHaveLength(1);
     const many = Array.from({ length: MARK_ADD_MAX + 5 }, (_, i) => ({ isbn: `97840000${String(i).padStart(5, '0')}`, source: '賞', year: 2025 }));
     expect(parseMarkList(many).marks.length).toBeLessThanOrEqual(MARK_ADD_MAX);
+  });
+});
+
+
+// サブスクのセッションが書く（2026-11-18）。update().eq().eq().select() をつなげられる小さな偽の DB。
+function sessionDb(books) {
+  const rows = new Map(books.map((b) => [b.isbn, { status: 'pending', attempts: 0, ...b }]));
+  const from = (table) => {
+    const q = { filters: [], patch: null, lim: null, single: false };
+    const match = () => [...rows.values()].filter((r) => q.filters.every(([k, v]) => r[k] === v));
+    const exec = () => {
+      if (table !== 'advisor_books') return { data: [], error: null };
+      if (q.patch) { const hit = match(); hit.forEach((r) => Object.assign(r, q.patch)); return { data: hit.map((r) => ({ isbn: r.isbn })), error: null }; }
+      let out = match();
+      if (q.lim) out = out.slice(0, q.lim);
+      return { data: q.single ? (out[0] || null) : out, error: null };
+    };
+    const api = {
+      select() { return api; }, order() { return api; },
+      eq(k, v) { q.filters.push([k, v]); return api; },
+      in() { return api; },
+      limit(n) { q.lim = n; return api; },
+      update(p) { q.patch = p; return api; },
+      maybeSingle() { q.single = true; return api; },
+      then(res, rej) { return Promise.resolve(exec()).then(res, rej); },
+    };
+    return api;
+  };
+  return { rows, from };
+}
+
+describe('サブスクのセッションが書く（pending / summaries）', () => {
+  const good = { summary: '営業の数字を読む本。', points: ['数字で話せる', '会議で使える', '提案が通る'], for_whom: ['数字が苦手な人に', '提案が通らないとき', '新しく管理職になったとき'], reason: '現場の例が多い', keywords: ['営業', '数字', '提案'], fields: ['営業・交渉'], level: '実践', difficulty: 2, prereq: '' };
+  it('既定は session・ADVISOR_BOOKS_SUMMARY=api で api', () => {
+    expect(summaryMode({})).toBe('session');
+    expect(summaryMode({ ADVISOR_BOOKS_SUMMARY: 'API' })).toBe('api');
+  });
+  it('pending は決まりと材料を返し、材料の短い本は thin にして返さない', async () => {
+    const db = sessionDb([
+      { isbn: '9784000000011', title: '長い紹介の本', description: 'あ'.repeat(200) },
+      { isbn: '9784000000028', title: '短い本', description: '短い' },
+    ]);
+    const r = await pendingForSession({ db, env: { ADVISOR_BOOKS_OPENBD: 'off' }, limit: 10 });
+    expect(r.instructions).toBe(SUMMARY_SYSTEM);
+    expect(r.books.map((b) => b.isbn)).toEqual(['9784000000011']);
+    expect(r.books[0].material).toContain('書名: 長い紹介の本');
+    expect(r.thin).toBe(1);
+    expect(db.rows.get('9784000000028').status).toBe('thin');
+  });
+  it('summaries は形を確かめてから ready・skip は thin・読めないものは attempts を足す', async () => {
+    const db = sessionDb([{ isbn: '9784000000011' }, { isbn: '9784000000028' }, { isbn: '9784000000035' }, { isbn: '9784000000042', status: 'ready' }]);
+    const r = await saveSessionSummaries({ db, now: () => 0, items: [
+      { isbn: '9784000000011', summary: good },
+      { isbn: '9784000000028', summary: '{"skip": true}' },
+      { isbn: '9784000000035', summary: '形の崩れた答え' },
+      { isbn: '9784000000042', summary: good },
+      { isbn: 'abc', summary: good },
+    ] });
+    expect(r).toEqual({ ready: 1, thin: 1, failed: 1, invalid: 2 });
+    expect(db.rows.get('9784000000011')).toMatchObject({ status: 'ready', model: 'session', prompt_version: PV, fields: ['営業・交渉'], difficulty: 2 });
+    expect(db.rows.get('9784000000028').status).toBe('thin');
+    expect(db.rows.get('9784000000035')).toMatchObject({ status: 'pending', attempts: 1 });
+    expect(db.rows.get('9784000000042').status).toBe('ready'); // 整える前の本だけ書き換える
   });
 });
