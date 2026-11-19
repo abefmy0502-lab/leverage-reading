@@ -31,6 +31,8 @@ import { verifyBookExists, checkImageExists } from '../lib/bookCover';
 import { normalizeAdvisorRecs, resolveMixedRec, focusText, emptyReasonOf } from '../lib/advisorRecs';
 import { gatherCandidates, candidatesBlock, matchCandidate, applyCandidate, cleanKeywords } from '../lib/advisorCandidates';
 import { readerLevel, levelBlock, levelNote, loadLevelPref, saveLevelPref, LEVEL_PREFS, LEVEL_PREF_LABELS } from '../lib/readerLevel';
+import { appNow } from '../lib/appNow';
+import { TASTE_PREFS, TASTE_LABELS, tasteNote, rankByTaste, tasteBlock } from '../lib/bookTaste';
 import { searchBooksFlat as searchBooksAPIFlat } from '../lib/bookSearch';
 import { STORE_DISCLOSURE_TEXT } from '../lib/rakutenLink';
 import AdvisorStoreLinks from './AdvisorStoreLinks';
@@ -195,12 +197,19 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   levelPrefRef.current = levelPref;
   const chooseLevel = (v) => { setLevelPref(v); saveLevelPref(v); };
   const currentLevel = () => readerLevel(books || [], levelPrefRef.current);
+  // 📚 本の選び方（2026-11-19・lib/bookTaste.js）: おまかせ／名著／新しい本／いま話題。その回だけ（端末に覚えない＝次の相談はおまかせから）。
+  //   候補の並びをこの選び方に合う本が先になるように並べ替え、推薦の AI にも 1 段で渡す。
+  const [tastePref, setTastePref] = useState('auto');
+  const tastePrefRef = useRef(tastePref);
+  tastePrefRef.current = tastePref;
+  const nowYear = () => appNow().getFullYear();
   const candidatesFor = (keywords) => {
     const words = cleanKeywords(keywords);
     if (words.length === 0) return Promise.resolve([]);
     const { level } = currentLevel();
     const key = `${words.join('|')}#${level}`;
     if (candidatesRef.current?.key === key) return candidatesRef.current.promise;
+    // 並べ替え（本の選び方）は使うときに（先に集め始めたあとで選び方を変えても、集め直さない）
     const promise = gatherCandidates(words, { shelf: books || [], level }).catch(() => []);
     candidatesRef.current = { key, promise };
     return promise;
@@ -788,8 +797,10 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     let cands = [];
     // 待つのは 6 秒まで（先に集め始めていれば、ほとんど待たない・間に合わなければ候補なしで選ぶ）。
     try { cands = await Promise.race([candsPromise, new Promise((r) => { setTimeout(() => r([]), 6000); })]); } catch { cands = []; }
+    cands = rankByTaste(cands, tastePrefRef.current, nowYear());
     const candText = candidatesBlock(cands);
     const lvText = levelBlock(currentLevel());
+    const tasteText = tasteBlock(tastePrefRef.current, nowYear());
 
     // 🕐 無通信ウォッチドッグ: SSE がストール（モバイル回線切替等）しても
     // 「選んでいます…」で無期限に固まらないよう、チャンク間 45 秒無通信で中断する。
@@ -816,7 +827,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       // 💴 読書傾向の塊に 5 分の印（2026-10-22）: 「追加」「もう一度」の続きの回で 0.1 倍で読む（Sonnet の最小 1,024 は指示文で超える）。
       // 本の候補は、この回の相談のすぐ後ろに足す（会話の記録には残さない＝次の回は、その回の候補を集め直す）。
       // 読書の慣れ（1 行）も、この回の相談のすぐ後ろに（会話の記録には残さない）。
-      const extra = [lvText, candText].filter(Boolean).join('\n\n');
+      const extra = [lvText, tasteText, candText].filter(Boolean).join('\n\n');
       const lastTurn = extra ? [...newHistory.slice(0, -1), { role: 'user', content: `${safeMsg}\n\n${extra}` }] : newHistory;
       const sendMessages = readerContext
         ? [{ role: 'user', content: [{ type: 'text', text: readerContext, cache_control: { type: 'ephemeral' } }] }, ...lastTurn]
@@ -974,6 +985,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     setConfirmed(null);
     setInterviewError(null);
     keywordsRef.current = []; // 前の相談の検索の言葉で、次の相談の候補を集めない
+    setTastePref('auto'); // 本の選び方はその回だけ（次の相談はおまかせから）
   };
 
   // 初回の相談を受けて、最初の問いを 1 つ考えてもらう。
@@ -1891,6 +1903,18 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
                 </div>
                 <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
                   {withPhraseBreaks(levelNote(readerLevel(books || [], levelPref)))}
+                </p>
+                {/* 本の選び方（2026-11-19）: 難しさと同じ形（見出し 15/600 → 8 → 溝と面 → 8 → 13/--text-2 の案内）。間は 16。 */}
+                <p id="advisor-taste-label" style={{ margin: 'var(--space-4) 0 0', fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)' }}>本の選び方</p>
+                <div role="radiogroup" aria-labelledby="advisor-taste-label" style={{ ...segTrack, display: 'grid', gridTemplateColumns: rootTextLarge() ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', marginTop: 'var(--space-2)' }}>
+                  {TASTE_PREFS.map((v) => (
+                    <button key={v} type="button" role="radio" aria-checked={tastePref === v} onClick={() => setTastePref(v)} style={segOption(tastePref === v)}>
+                      {TASTE_LABELS[v]}
+                    </button>
+                  ))}
+                </div>
+                <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+                  {withPhraseBreaks(tasteNote(tastePref))}
                 </p>
               </div>
             )}
