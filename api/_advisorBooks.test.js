@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { pendingForSession, saveSessionSummaries, summaryMode, expandPlan, usableItem, rowFromRakuten, parseSummary, summaryUserText, collectStep, summarizeStep, runAdvisorBooks, PLAN_VERSION, REFRESH_DAYS, parseAddList, queueStep, QUEUE_ADD_MAX, SUMMARY_SYSTEM, cCodeLabel, parseOpenbdMeta, PROMPT_VERSION as PV, parseExtList, parseMarkList, MARK_ADD_MAX, refreshSignals, jstDay } from './_advisorBooks.js';
+import { pendingForSession, saveSessionSummaries, summaryMode, expandPlan, usableItem, rowFromRakuten, parseSummary, summaryUserText, collectStep, summarizeStep, runAdvisorBooks, PLAN_VERSION, REFRESH_DAYS, parseAddList, queueStep, QUEUE_ADD_MAX, SUMMARY_SYSTEM, cCodeLabel, parseOpenbdMeta, PROMPT_VERSION as PV, parseExtList, parseMarkList, MARK_ADD_MAX, refreshSignals, jstDay, stripTitleQuotes } from './_advisorBooks.js';
 
 // supabase の最小の偽物（使う形だけ）。
 function fakeDb({ state = null, books = [], noTable = false, noRanks = false } = {}) {
@@ -462,5 +462,20 @@ describe('サブスクのセッションが書く（pending / summaries）', () 
     expect(db.rows.get('9784000000028').status).toBe('thin');
     expect(db.rows.get('9784000000035')).toMatchObject({ status: 'pending', attempts: 1 });
     expect(db.rows.get('9784000000042').status).toBe('ready'); // 整える前の本だけ書き換える
+  });
+});
+
+describe('書名の外側の括弧（2026-11-19）', () => {
+  it('両端がそろった 1 組だけ外す', () => {
+    expect(stripTitleQuotes('『億までの人 億からの人』')).toBe('億までの人 億からの人');
+    expect(stripTitleQuotes('「人の器」の磨き方')).toBe('「人の器」の磨き方');
+    expect(stripTitleQuotes('『「人の器」の磨き方』')).toBe('「人の器」の磨き方');
+    expect(stripTitleQuotes('「A」と「B」')).toBe('「A」と「B」');
+    expect(stripTitleQuotes('  考え方 ')).toBe('考え方');
+    expect(stripTitleQuotes(null)).toBe('');
+  });
+  it('「書名 / 著者」と印の書名でも先頭の括弧を残す', () => {
+    expect(parseAddList(['「人の器」の磨き方 / 加藤洋平']).rows[0].title).toBe('「人の器」の磨き方');
+    expect(parseMarkList([{ title: '「人の器」の磨き方', author: '加藤洋平', source: 'TOPPOINT 大賞', year: 2026 }]).marks[0].title).toBe('「人の器」の磨き方');
   });
 });

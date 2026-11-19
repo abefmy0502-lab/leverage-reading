@@ -223,6 +223,20 @@ export async function collectStep({ db, env = process.env, now = () => Date.now(
 }
 
 // ── 運営が選んで足す本（ops_books の add・2026-11-17）─────────────────────────────
+// 書名の外側の『』「」を外す（2026-11-19）。両端がそろった 1 組のときだけ（「人の器」の磨き方 や 「A」と「B」 は外さない）。
+const BOOK_QUOTES = { '『': '』', '「': '」' };
+export function stripTitleQuotes(raw) {
+  const t = String(raw ?? '').trim();
+  const close = BOOK_QUOTES[t[0]];
+  if (!close || t.length < 3 || t[t.length - 1] !== close) return t;
+  const inner = t.slice(1, -1);
+  let depth = 0;
+  for (const ch of inner) {
+    if (ch === t[0]) depth += 1;
+    else if (ch === close) { depth -= 1; if (depth < 0) return t; }
+  }
+  return depth === 0 ? inner.trim() : t;
+}
 export const QUEUE_ADD_MAX = 200;
 
 /**
@@ -249,7 +263,7 @@ export function parseAddList(list, note = '') {
       if (asIsbn && /^[0-9xX-\s]+$/.test(t)) isbn = asIsbn;
       else {
         const [a, ...b] = t.split(/\s*[/／]\s*/);
-        title = clip(a.replace(/^[『「]|[』」]$/g, ''), 300);
+        title = clip(stripTitleQuotes(a), 300);
         author = clip(b.join(' '), 200);
       }
     }
@@ -302,7 +316,7 @@ export function parseMarkList(list) {
   let invalid = 0;
   for (const raw of (Array.isArray(list) ? list : []).slice(0, MARK_ADD_MAX)) {
     if (!raw || typeof raw !== 'object') { invalid += 1; continue; }
-    const book = parseAddList([{ isbn: raw.isbn, title: String(raw.title ?? '').trim().replace(/^[『「]|[』」]$/g, ''), author: raw.author }]).rows[0];
+    const book = parseAddList([{ isbn: raw.isbn, title: stripTitleQuotes(raw.title), author: raw.author }]).rows[0];
     const source = clip(raw.source, 60);
     const year = Math.floor(Number(raw.year));
     if (!book || !source || !(year >= 1950 && year <= 2100)) { invalid += 1; continue; }
