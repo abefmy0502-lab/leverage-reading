@@ -159,7 +159,8 @@ export async function collectStep({ db, env = process.env, now = () => Date.now(
     cursor = 0;
     passStarted = new Date(now()).toISOString();
   }
-  let pages = 0; let seen = 0; let upserted = 0; let failures = 0; let ranked = 0;
+  let pages = 0; let seen = 0; let upserted = 0; let failures = 0; let ranked = 0; let rejected = 0;
+  const rejectedChecks = [];
   // 売上順の記録（advisor_book_ranks・supabase_advisor_books_signals.sql・2026-11-18）。表が無ければ記録しないだけ。
   let ranksOn = true;
   while (cursor < steps.length && now() < deadline - 3000) {
@@ -187,9 +188,24 @@ export async function collectStep({ db, env = process.env, now = () => Date.now(
       if (rows.length) {
         const stamp = new Date(now()).toISOString();
         // 前からある本の要約・状態は変えない（送る列だけが書き換わる）
-        const { error } = await db.from('advisor_books').upsert(rows.map((r) => ({ ...r, last_seen_at: stamp, updated_at: stamp })), { onConflict: 'isbn' });
-        if (error) throw Object.assign(new Error('upsert'), { code: error.code, message: error.message });
-        upserted += rows.length;
+        const stamped = rows.map((r) => ({ ...r, last_seen_at: stamp, updated_at: stamp }));
+        const { error } = await db.from('advisor_books').upsert(stamped, { onConflict: 'isbn' });
+        if (error && error.code === '23514') {
+          // 表の決まり（CHECK）に合わない本が 1 冊あるだけで、その一覧の残りまで止めない（2026-11-19・同じ頁で毎晩止まっていた）。
+          // 1 冊ずつ入れ直し、合わない本は飛ばして、どの決まりだったかを残す
+          for (const row of stamped) {
+            const { error: oneErr } = await db.from('advisor_books').upsert([row], { onConflict: 'isbn' });
+            if (!oneErr) { upserted += 1; continue; }
+            if (oneErr.code !== '23514') throw Object.assign(new Error('upsert'), { code: oneErr.code, message: oneErr.message });
+            rejected += 1;
+            const chk = String(oneErr.message || '').match(/constraint "([^"]{1,60})"/);
+            if (chk && !rejectedChecks.includes(chk[1]) && rejectedChecks.length < 3) rejectedChecks.push(chk[1]);
+          }
+        } else if (error) {
+          throw Object.assign(new Error('upsert'), { code: error.code, message: error.message });
+        } else {
+          upserted += rows.length;
+        }
         // その一覧で何位だったかを日付つきで残す（同じ日・同じ一覧の 2 回目は入れない）
         const ranks = rows.filter((r) => Number.isInteger(r.sales_rank) && r.sales_rank >= 1)
           .map((r) => ({ isbn: r.isbn, list: step.source, observed_on: jstDay(now()), rank: r.sales_rank }));
@@ -203,7 +219,7 @@ export async function collectStep({ db, env = process.env, now = () => Date.now(
     await writeState(db, { plan_version: PLAN_VERSION, cursor, pass_started_at: passStarted, pass_done_at: cursor >= steps.length ? new Date(now()).toISOString() : null });
     if (cursor < steps.length) await sleep(pause);
   }
-  return { pages, seen, upserted, ranked, cursor, total: steps.length, done: cursor >= steps.length };
+  return { pages, seen, upserted, ranked, cursor, total: steps.length, done: cursor >= steps.length, ...(rejected ? { rejected, rejected_checks: rejectedChecks } : {}) };
 }
 
 // ── 運営が選んで足す本（ops_books の add・2026-11-17）─────────────────────────────
@@ -724,7 +740,8 @@ export async function runAdvisorBooks({ db, env = process.env, now = () => Date.
     result.collect = await collectStep({ db, env, now, deadline: Math.min(deadline, started + collectShare), ...deps });
   } catch (e) {
     if (/relation .* does not exist|42P01|PGRST205|Could not find the table/i.test(`${e.code || ''} ${e.message || ''}`)) return { skipped: 'no_table' };
-    result.collect = { error: String(e.code || e.message || 'error').slice(0, 80) };
+    const chk = String(e.message || '').match(/constraint "([^"]{1,60})"/);
+    result.collect = { error: String(e.code || e.message || 'error').slice(0, 80), ...(chk ? { check: chk[1] } : {}) };
   }
   // 集め方が 1 回り終わって次の回りを待っている日は、集める時間を待ち行列に回す（2026-11-17）
   if (result.collect && result.collect.skipped === 'waiting_next_pass' && !(result.queue && (result.queue.skipped || result.queue.error))) {

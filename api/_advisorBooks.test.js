@@ -112,6 +112,27 @@ describe('collectStep', () => {
     expect([...db.t.advisor_books.values()].some((b) => b.title === 'マンガでわかる')).toBe(false);
     expect(db.t.state).toMatchObject({ plan_version: PLAN_VERSION, cursor: r.pages });
   });
+  it('表の決まりに合わない本が 1 冊あっても、その一覧の残りは入れて先へ進む', async () => {
+    const base = fakeDb();
+    const bad = '9784000000002';
+    const db = {
+      t: base.t,
+      from(table) {
+        const api = base.from(table);
+        if (table !== 'advisor_books') return api;
+        const up = api.upsert.bind(api);
+        return { ...api, upsert(rows, o) { return rows.some((r) => r.isbn === bad) ? Promise.resolve({ error: { code: '23514', message: 'new row for relation "advisor_books" violates check constraint "advisor_books_title_check"' } }) : up(rows, o); } };
+      },
+    };
+    const now = clock();
+    const r = await collectStep({ db, env, now, deadline: now() + 3000 + 50, rakutenGetImpl: async () => page([item(1), item(2), item(3)]), pause: 0 });
+    expect(base.t.advisor_books.has('9784000000001')).toBe(true);
+    expect(base.t.advisor_books.has('9784000000003')).toBe(true);
+    expect(base.t.advisor_books.has(bad)).toBe(false);
+    expect(r.rejected).toBeGreaterThan(0);
+    expect(r.rejected_checks).toEqual(['advisor_books_title_check']);
+    expect(base.t.state.cursor).toBe(r.pages);
+  });
   it('1 回り終えたら 7 日待つ・7 日たったら最初から', async () => {
     const steps = expandPlan().length;
     const started = Date.parse('2026-11-10T18:00:00Z');
