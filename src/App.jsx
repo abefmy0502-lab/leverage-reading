@@ -124,7 +124,7 @@ import { backfillCovers } from './lib/backfillCovers';
 import { enqueueCoverRetry, resolveCoverForBook, canReplaceCover, clearCoverNotFound } from './lib/coverAutoRetry';
 import { MODEL_SMART } from './lib/models';
 import { findDuplicateBook, findImportDuplicate, STATUS_LABEL, isUniqueViolation } from './lib/checkDuplicate';
-import { flatTitle } from '../api/_bookVerify.js';
+import { onShelfByTitle } from './lib/ownedTitle';
 import { saveStrategyHistory, popStrategyHistory, hasStrategyHistory, clearStrategyHistory } from './lib/strategyHistory';
 const CoverFixModal = lazy(() => import('./components/CoverFixModal'));
 // 📤 一文をシェア（この本の一文を 1 枚の画像に・SPEC §2-1）
@@ -1521,11 +1521,10 @@ function AuthedApp() {
   // 読書計画シートの関連書籍で、もう本棚にある本（同じ書名）は「追加済み」に（2026-11-17 本番の確かめで、
   //   本棚の本に「読みたいに追加」が出ていた。押しても重複の確かめで止まるが、先に分かるように）。
   const relatedOwnedTitles = useMemo(() => ({
-    // 書名は空白・記号を除いて比べる（本棚「戦略論USJ…」とカード「戦略論 USJ…」が別の本になっていた・2026-11-18 本番の確かめ）
+    // 書名は空白・記号を除いて比べ、書名と副題の順の入れ替えも同じ本とみなす（lib/ownedTitle.js・2026-11-18〜19 本番の確かめ）
     has: (t) => {
       if (addedRelatedTitles.has(t)) return true;
-      const want = flatTitle(t);
-      return !!want && (books || []).some((b) => b?.title && flatTitle(b.title) === want);
+      return onShelfByTitle(books, t);
     },
   }), [addedRelatedTitles, books]);
   // 非同期処理（表紙リトライ・行動トグル直列化など）が「実行時点の最新 books」を
