@@ -26,6 +26,8 @@ const errAbove = { ...errStyle, margin: '0 0 var(--space-2)' };
 
 // Apple のブランドの黒いボタン（ログインの画面と同じ例外の色）
 const appleBtn = { ...btnPrimary, width: '100%', background: 'var(--apple-btn-bg)', color: 'var(--apple-btn-ink)', opacity: 1, fontWeight: 600 };
+const PW_RULE = 'パスワードは 8\u00a0文字以上で、英字と数字を含めてください';
+const RESEND_WAIT_MS = 60000;
 const cardBody = { padding: 'var(--space-4) 0', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' };
 
 function AppleMark() {
@@ -50,6 +52,9 @@ export default function GuestAccountCard() {
   const [email, setEmail] = useState(pendingEmail);
   const [password, setPassword] = useState('');
   const [pwSkipped, setPwSkipped] = useState(false);
+  // もう一度送ったあと（カードの中に知らせを残す・60 秒は押せない＝送信の回数の上限に当たらないように・2026-11-19 ui-critic）
+  const [resent, setResent] = useState(false);
+  const [resendWait, setResendWait] = useState(false);
   const emailRef = useRef(null);
   const passwordRef = useRef(null);
   const showApple = isNativeApple || GUEST_START_AVAILABLE;
@@ -105,7 +110,8 @@ export default function GuestAccountCard() {
       emailRef.current?.focus(); return;
     }
     const pwProblem = validatePassword(password);
-    if (pwProblem) { showError(pwProblem, 'password'); passwordRef.current?.focus(); return; }
+    // 決まりの文の代わりに出すので、決まりの全体を言う（直したあとに「英字と数字」でもう一度止めない）。推測されやすいときだけその文
+    if (pwProblem) { showError(/推測/.test(pwProblem) ? pwProblem : `${PW_RULE}。`, 'password'); passwordRef.current?.focus(); return; }
     setBusy('email');
     try {
       await send(at, password);
@@ -140,12 +146,14 @@ export default function GuestAccountCard() {
 
   // 届かないときは、同じアドレスでもう一度（パスワードは最初の回で決めてあるので送らない）
   const resend = async () => {
-    if (busy) return;
+    if (busy || resendWait) return;
     clearError();
     setBusy('resend');
     try {
       await linkEmailToCurrentUser(email.trim());
-      toast.success('確認のメールを、もう一度送りました。');
+      setResent(true);
+      setResendWait(true);
+      setTimeout(() => setResendWait(false), RESEND_WAIT_MS);
     } catch (err) {
       showError(errorText(err));
     } finally {
@@ -166,9 +174,11 @@ export default function GuestAccountCard() {
         <button type="button" style={{ ...btnPrimary, width: '100%', opacity: 1, cursor: busy ? 'default' : 'pointer' }} onClick={checkLinked} disabled={Boolean(busy)}>
           {busy === 'check' ? '確かめています…' : 'リンクを開いたので、確かめる'}
         </button>
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <button type="button" style={{ ...btnLinkQuiet, width: '100%' }} onClick={resend} disabled={Boolean(busy)}>
-            {busy === 'resend' ? '送っています…' : 'メールが届かないときは、もう一度送る'}
+        {resent && <p role="status" style={infoStyle}>{withPhraseBreaks('もう一度送りました。迷惑メールのフォルダも見てください。')}</p>}
+        {/* 文字ボタンの間は 8（文字を大きくすると 1 つの塊に見える・AuthScreen と同じ） */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+          <button type="button" style={{ ...btnLinkQuiet, width: '100%', ...(resendWait ? { color: 'var(--text-3)', cursor: 'default' } : null) }} onClick={resend} disabled={Boolean(busy) || resendWait}>
+            {busy === 'resend' ? '送っています…' : resendWait ? '60 秒後に、もう一度送れます' : 'メールが届かないときは、もう一度送る'}
           </button>
           <button type="button" style={{ ...btnLinkQuiet, width: '100%' }} onClick={() => go('email')} disabled={Boolean(busy)}>
             メールアドレスを直す
@@ -234,8 +244,8 @@ export default function GuestAccountCard() {
             maxLength={LIMITS.password}
           />
           {/* パスワードのエラーは、決まりの文をそのままエラーの文と色に替える（同じことを 2 回言わない・2026-11-19 ui-critic） */}
-          <p id="guest-pw-rule" role={pwRuleIsError ? 'alert' : undefined} style={pwRuleIsError ? { ...hintStyle, color: 'var(--error)' } : hintStyle}>
-            {withPhraseBreaks(pwRuleIsError ? error : 'パスワードは 8 文字以上で、英字と数字を含めてください')}
+          <p id="guest-pw-rule" role={pwRuleIsError ? 'alert' : undefined} style={pwRuleIsError ? { ...hintStyle, fontSize: 'var(--text-sub)', color: 'var(--error)' } : hintStyle}>
+            {withPhraseBreaks(pwRuleIsError ? error : PW_RULE)}
           </p>
           {/* 送れなかったとき（通信など・欄のどちらの話でもない）は主ボタンのすぐ上に */}
           {errorAt === '' && alertP(errAbove)}
