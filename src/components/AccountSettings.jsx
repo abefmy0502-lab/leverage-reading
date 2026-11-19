@@ -55,6 +55,8 @@ import { withPhraseBreaks } from './TightBubble';
 import { track, EVENTS, isAnalyticsOptedOut, setAnalyticsOptOut } from '../lib/analytics';
 import { closeDelayMs, scrollBehavior } from '../lib/motion';
 import ToggleSwitch from './ToggleSwitch';
+import GuestAccountCard from './GuestAccountCard';
+import { isGuestUser } from '../lib/guestAuth';
 import { readAiConsent, requestAiConsent, isAiConsentCurrent, AI_CONSENT_CHANGED_EVENT } from '../lib/aiConsent';
 import {
   isPushSupported,
@@ -366,6 +368,7 @@ let demoPushOn = false;
 
 export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, onOpenHelp, focusDelete = false }) {
   const { user, signOut } = useAuth();
+  const guest = isGuestUser(user);
   // 有料プランの画面の「アカウントを削除」から開いたときは、削除の欄まで送る。
   const deleteRef = useRef(null);
   useEffect(() => {
@@ -991,11 +994,14 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
 
         <div style={bodyStyle}>
           {/* 上はメールアドレスだけ。ログアウトは下の「アカウント」の欄（削除の上）に置く。 */}
-          <Group ariaLabel="ログイン中のアカウント">
+          <Group ariaLabel={guest ? 'アカウントを作る' : 'ログイン中のアカウント'}>
+            {/* 登録せずに始めた人は、メールの代わりに「アカウントを作る」（2026-11-19・App 審査 5.1.1(v)） */}
+            {guest ? <GuestAccountCard /> : (
             <div style={{ padding: 'var(--space-3) 0' }}>
               <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: 0, lineHeight: 1.5 }}>ログイン中</p>
               <p style={{ fontSize: 'var(--text-body)', color: 'var(--text)', margin: 0, lineHeight: 1.5, overflowWrap: 'anywhere' }}>{user?.email ? user.email.split('@').map((p, i) => <Fragment key={i}>{i > 0 && <><wbr />@</>}{p}</Fragment>) : '(未取得)'}</p>
             </div>
+            )}
           </Group>
 
           {/* 🎯 Orime を入れた理由の行は 2026-11-16 にやめた（オーナー「不要」・目標は 振り返り › 行動 の 1 年後・3 年後・5 年後）。
@@ -1334,7 +1340,14 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
               style={{ ...rowButtonStyle, ...divider, fontSize: 'var(--text-body)' }}
               onClick={async () => {
                 // 押し間違いで出てしまわないように、ひと声かける（消す操作ではないので赤くしない・2026-09-29）。
-                const ok = await confirm({
+                // 登録せずに始めた人は、ログアウトすると同じアカウントに戻れない（2026-11-19）。
+                const ok = await confirm(guest ? {
+                  title: 'ログアウトしますか？',
+                  message: '登録していないアカウントなので、ログアウトすると、いまの本・メモ・プランには戻れなくなります。先に、設定のいちばん上から Apple かメールアドレスでアカウントを作っておくと安心です。',
+                  confirmLabel: 'ログアウトする',
+                  cancelLabel: 'キャンセル',
+                  danger: true,
+                } : {
                   title: 'ログアウトしますか？',
                   message: 'メモはアカウントに残ります',
                   confirmLabel: 'ログアウト',

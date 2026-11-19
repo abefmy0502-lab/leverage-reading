@@ -10,6 +10,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "postinstall": "node scripts/patch-apple-sign-in.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "icons": "node scripts/generate-icons.js",

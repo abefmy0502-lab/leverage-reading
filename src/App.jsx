@@ -7699,7 +7699,8 @@ function PaywallGate() {
     return () => window.removeEventListener(AI_USED_EVENT, onUsed);
   }, [refreshTokens]);
   // 🌱 無料プランのはじめの月（アカウントを作った日本時間の月）は 60（表示だけ・決めるのはサーバーの auth の created_at）。
-  const userCreatedAt = user?.created_at || null;
+  // 登録せずに始めた人は、はじめの月の多い量にしない（サーバーの api/claude.js と同じ・2026-11-19）
+  const userCreatedAt = user?.is_anonymous ? null : (user?.created_at || null);
   const tokenAllowance = allowanceForPlan(plan, { createdAt: userCreatedAt, now: appNow().getTime() });
   const freeFirstMonth = plan === 'free' && isFreeFirstMonth(userCreatedAt, appNow().getTime());
   // 来月 1 日に戻る量（はじめの月の人も来月は毎月の量）。

@@ -157,6 +157,8 @@ export const EVENTS = {
   FOCUS_DONE: 'focus_done', // 読む（集中モード）をおえた（props: mode（timer / count）/ minutes（区分）だけ・2026-10-10）
   RECALL_ANSWERED: 'recall_answered', // 思い出しカードに答えた（props: mastered（覚えた＝true）だけ・2026-10-10）
   SHARE_SOURCE: 'share_source', // 「写真で共有」の選ぶシートで選んだ背景（props: source（camera / album / none）だけ・2026-10-11）
+  GUEST_STARTED: 'guest_started', // 「登録せずに始める」で始めた（props なし・2026-11-19）
+  GUEST_LINKED: 'guest_linked', // 登録せずに始めた人がアカウントを作った（props: via（apple / email_sent）だけ・2026-11-19）
   SHARE_NUDGE: 'share_nudge', // ホームの「◯月の読書を、1 枚の画像に」の 1 行（props: kind（month / year）/ action（open / dismiss）だけ・2026-10-08）
 };
 

@@ -4,6 +4,9 @@ import { useAuth } from '../../hooks/useAuth';
 import { isSupabaseConfigured, supabaseConfigProblem } from '../../lib/supabase';
 import { LIMITS, validatePassword } from '../../lib/limits';
 import { signInWithApple, isNativeApple, isAppleSignInAvailable } from '../../lib/appleAuth';
+import { GUEST_START_AVAILABLE, startAsGuest } from '../../lib/guestAuth';
+import { useConfirm } from '../ConfirmDialog';
+import { track, EVENTS } from '../../lib/analytics';
 import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnLink as uiBtnLink, btnGhost as uiBtnGhost, input } from '../../styles/ui';
 import { isNative } from '../../lib/iap';
 import { MailCheck, Check } from 'lucide-react';
@@ -46,6 +49,8 @@ const errorText = { color: 'var(--error)', fontSize: 'var(--text-meta)', lineHei
 const jpWrap = { textWrap: 'pretty' };
 // 規約・プライバシーポリシーのリンク（文字ボタン＝btnLink の 15/600・高さ 44）。字下げで文字の頭に揃えるので左右の余白は 0。
 const legalLink = { ...uiBtnLink, padding: 0, textDecoration: 'none' };
+// 文の中のリンク（確かめるダイアログの規約・2026-11-19）
+const inlineLink = { color: 'var(--accent)', fontWeight: 600, textDecoration: 'underline', textUnderlineOffset: '0.2em' };
 // 同意のチェック（24 の丸・初日クイックスタートの選択と同じ見た目）。リンク行はチェック＋間隔ぶん字下げして文字の頭に揃える。
 const checkboxSize = 'var(--space-6)';
 const checkCircle = (on, focused) => ({
@@ -171,6 +176,8 @@ export default function AuthScreen() {
   const [confirmSentTo, setConfirmSentTo] = useState('');
   const [resending, setResending] = useState(false);
   const [appleBusy, setAppleBusy] = useState(false);
+  const [guestBusy, setGuestBusy] = useState(false);
+  const confirm = useConfirm();
 
   // 🍎 Apple でサインイン。iOS は常時表示（HIG 準拠）。Web は Apple/Supabase の
   // Web 設定が済むまで誤爆させないため、環境変数で明示的に有効化した時だけ表示。
@@ -195,10 +202,49 @@ export default function AuthScreen() {
         console.error('[auth] apple sign-in failed:', err);
         setError(err?.code === 'plugin_missing'
           ? 'この端末では Apple でサインインを使えません。メールアドレスで登録してください。'
-          : humanizeError(err));
+          : (err?.code === 'apple_authorize_timeout' || err?.code === 'apple_session_timeout')
+            ? 'Apple でのサインインが終わりませんでした。もう一度押すか、メールアドレスで続けてください。'
+            : humanizeError(err));
       }
     } finally {
       setAppleBusy(false);
+    }
+  };
+
+  // 👤 登録せずに始める（2026-11-19・App 審査 5.1.1(v)）。メール・名前は聞かない。あとで設定から Apple かメールにつなぐ。
+  const handleGuest = async () => {
+    if (guestBusy || appleBusy || loading) return;
+    setError('');
+    setInfo('');
+    const ok = await confirm({
+      title: '登録せずに始めますか？',
+      // 伝えることは 2 つ（どこに残るか・同意）。規約は開けるリンクにする（開けないものに同意させない・2026-11-19 ui-critic）。
+      message: (
+        <>
+          <span style={{ display: 'block' }}>{withPhraseBreaks('本とメモは、この端末に残ります。アプリを消す前に、設定からアカウントを作れます。')}</span>
+          <span style={{ display: 'block', marginTop: 'var(--space-2)' }}>
+            {withPhraseBreaks('始めると、')}
+            <a href={TERMS_URL} target="_blank" rel="noopener noreferrer" style={inlineLink}>利用規約</a>
+            {'と'}
+            <a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer" style={inlineLink}>プライバシーポリシー</a>
+            {withPhraseBreaks('に同意したことになります。')}
+          </span>
+        </>
+      ),
+      confirmLabel: '同意して始める',
+      cancelLabel: 'キャンセル',
+    });
+    if (!ok) return;
+    setGuestBusy(true);
+    try {
+      await startAsGuest();
+      track(EVENTS.GUEST_STARTED);
+      // 成功時は onAuthStateChange がセッションを拾い、上位が画面遷移する。
+    } catch (err) {
+      console.error('[auth] guest start failed:', err);
+      setError(humanizeError(err));
+    } finally {
+      setGuestBusy(false);
     }
   };
 
@@ -497,6 +543,12 @@ export default function AuthScreen() {
             <button type="button" onClick={() => switchMode('signup')} style={{ ...uiBtnGhost, width: '100%', marginBottom: 'var(--space-2)' }}>
               アカウントを作成
             </button>
+            {/* 登録は任意（App 審査 5.1.1(v)・2026-11-19）。アプリだけ。押すと確かめてから始める。 */}
+            {GUEST_START_AVAILABLE && (
+              <button type="button" onClick={handleGuest} disabled={guestBusy} style={{ ...btnLink, ...(guestBusy ? { cursor: 'default' } : null) }}>
+                {guestBusy ? '準備しています…' : '登録せずに始める'}
+              </button>
+            )}
             {/* 脇の文字ボタンは同じ控えめな色（栗色とグレーの 2 色が並んでいた・2026-11-18 ui-critic）。 */}
             <button type="button" onClick={() => switchMode('reset')} style={{ ...btnLink, color: 'var(--text-2)' }}>
               パスワードをお忘れの方

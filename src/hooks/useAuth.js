@@ -156,8 +156,9 @@ export function AuthProvider({ children }) {
       // ユーザーの別オブジェクトが届く。そのまま入れると [user] に依存する処理が全部
       // 走り直し、課金の確認→読み込み表示でアプリ全体が作り直されて書きかけが消える。
       // 同じ人（id とメールが同じ）なら前のオブジェクトを使い続ける。
+      // 登録せずに始めた人が Apple・メールにつないだとき（is_anonymous が変わる）は入れ替える（2026-11-19）。
       const next = session?.user ?? null;
-      setUser((prev) => (prev && next && prev.id === next.id && prev.email === next.email ? prev : next));
+      setUser((prev) => (prev && next && prev.id === next.id && prev.email === next.email && Boolean(prev.is_anonymous) === Boolean(next.is_anonymous) ? prev : next));
       setLoading(false);
       setAuthTimedOut(false);
     });

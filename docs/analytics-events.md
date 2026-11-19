@@ -215,3 +215,10 @@ where event = 'action_added' and created_at > now() - interval '30 days' group b
 - `checkout_started` / `checkout_completed` に `reason`（有料プランの画面を開いた入口: free_used・grown・first_answer・feature・free_ocr_used・none など）を足した。`checkout_completed` には `trial`（7 日間無料で始めたか）も。
 - `paywall_closed {reason}` を新設（有料プランの画面を買わずに閉じた）。`paywall_viewed` − `checkout_started` − `paywall_closed` で画面の中の離脱を見る。
 - `first_answer_trial` は実験の名前を `first_answer_trial_2026_11_v2` に改めた（出す場所を「はじめての相談の結論＋明日からできる一歩の答えの下」に変更）。前の組と混ぜて比べない。
+
+## 登録せずに始める（2026-11-19）
+
+| イベント | いつ | props |
+|---|---|---|
+| `guest_started` | ログインの画面の「登録せずに始める」で始めた | なし |
+| `guest_linked` | 登録せずに始めた人がアカウントを作った（Apple でつないだ・メールの確認を送った） | `via`（`apple` / `email_sent`） |

@@ -382,7 +382,7 @@ function useTokensBack(active) {
   const [closed, setClosed] = useState(false);
   useEffect(() => {
     if (!ready || decided !== undefined || !active) return;
-    setDecided(need && prevUsed !== undefined && shouldShowTokensBack({ prevUsedMjpy: prevUsed, createdAt: user?.created_at || null, now, remaining: tokensRemaining }));
+    setDecided(need && prevUsed !== undefined && shouldShowTokensBack({ prevUsedMjpy: prevUsed, createdAt: user?.is_anonymous ? null : (user?.created_at || null), now, remaining: tokensRemaining }));
   }, [ready, active]); // eslint-disable-line react-hooks/exhaustive-deps
   const close = (action) => {
     markTokensBackDone(user?.id, now);

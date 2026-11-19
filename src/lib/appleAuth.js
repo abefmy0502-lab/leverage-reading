@@ -50,6 +50,20 @@ async function sha256Hex(str) {
   return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+// 待ちの上限（2026-11-19・App 審査 2.1(a)「サインイン中… のまま」）。
+// Apple の画面ではパスワードを打つこともあるので長め。返ってきたあとの Supabase は短め。
+export const APPLE_AUTHORIZE_TIMEOUT_MS = 180000;
+export const APPLE_SESSION_TIMEOUT_MS = 30000;
+
+/** p が ms 以内に終わらなければ code つきのエラーで終える */
+export function withTimeout(p, ms, code) {
+  let timer;
+  const t = new Promise((_, reject) => {
+    timer = setTimeout(() => { const e = new Error(code); e.code = code; reject(e); }, ms);
+  });
+  return Promise.race([p, t]).finally(() => clearTimeout(timer));
+}
+
 let _plugin = null;
 async function loadPlugin() {
   if (!isNativeApple) return null;
@@ -71,6 +85,66 @@ export function isAppleSignInAvailable() {
   return isSupabaseConfigured;
 }
 
+// ネイティブの Apple の画面で idToken を受け取る（時間の上限つき）。キャンセルは e.canceled。
+async function authorizeNative(plugin) {
+  const rawNonce = randomNonce();
+  const hashedNonce = await sha256Hex(rawNonce);
+  let res;
+  try {
+    res = await withTimeout(plugin.authorize({
+      // Apple にはハッシュ化した nonce を渡す（Supabase 側で生 nonce と突合）。
+      nonce: hashedNonce,
+      scopes: 'name email',
+    }), APPLE_AUTHORIZE_TIMEOUT_MS, 'apple_authorize_timeout');
+  } catch (err) {
+    if (err?.code === 'apple_authorize_timeout') throw err;
+    // ユーザーキャンセル等は呼び出し側で静かに扱えるようフラグ化。
+    const e = new Error(err?.message || 'apple-authorize-failed');
+    e.canceled = /cancel/i.test(String(err?.message || '')) || err?.code === '1001';
+    throw e;
+  }
+  const idToken = res?.response?.identityToken;
+  if (!idToken) throw new Error('apple-no-identity-token');
+  const fullName = [res?.response?.givenName, res?.response?.familyName].filter(Boolean).join(' ').trim();
+  return { idToken, rawNonce, fullName };
+}
+
+// 初回のみ Apple が氏名を返す（2回目以降は null）。表示名が空なら埋める。
+// 待たない（ここで待つと、つながりにくいときにサインインが終わらない）。
+function fillDisplayName(user, fullName) {
+  if (!fullName || !user || user.user_metadata?.display_name) return;
+  supabase.auth.updateUser({ data: { display_name: fullName } }).catch(() => { /* 任意 */ });
+}
+
+// 登録せずに始めた人（匿名）のいまのアカウントに Apple ID をつなぐ（2026-11-19・App 審査 5.1.1(v)）。
+// 本・メモ・課金はそのまま引き継ぐ（利用者の id は変わらない）。Supabase の「手動でつなぐ」が有効なことが前提。
+export async function linkAppleToCurrentUser() {
+  if (!isSupabaseConfigured) throw new Error('Supabase is not configured');
+  if (isNativeApple) {
+    const plugin = await loadPlugin();
+    if (!plugin) {
+      const e = new Error('apple-plugin-missing');
+      e.code = 'plugin_missing';
+      throw e;
+    }
+    const { idToken, rawNonce, fullName } = await authorizeNative(plugin);
+    const { data, error } = await withTimeout(supabase.auth.linkIdentity({
+      provider: 'apple',
+      token: idToken,
+      nonce: rawNonce,
+    }), APPLE_SESSION_TIMEOUT_MS, 'apple_session_timeout');
+    if (error) throw error;
+    fillDisplayName(data?.user, fullName);
+    return data;
+  }
+  const { data, error } = await supabase.auth.linkIdentity({
+    provider: 'apple',
+    options: { redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined },
+  });
+  if (error) throw error;
+  return data;
+}
+
 // Apple でサインイン。成功で Supabase セッションが確立する（onAuthStateChange が発火）。
 // キャンセルは { canceled: true } を投げる想定で、呼び出し側はトーストを出さない。
 export async function signInWithApple() {
@@ -83,34 +157,14 @@ export async function signInWithApple() {
       e.code = 'plugin_missing';
       throw e;
     }
-    const rawNonce = randomNonce();
-    const hashedNonce = await sha256Hex(rawNonce);
-    let res;
-    try {
-      res = await plugin.authorize({
-        // Apple にはハッシュ化した nonce を渡す（Supabase 側で生 nonce と突合）。
-        nonce: hashedNonce,
-        scopes: 'name email',
-      });
-    } catch (err) {
-      // ユーザーキャンセル等は呼び出し側で静かに扱えるようフラグ化。
-      const e = new Error(err?.message || 'apple-authorize-failed');
-      e.canceled = /cancel/i.test(String(err?.message || '')) || err?.code === '1001';
-      throw e;
-    }
-    const idToken = res?.response?.identityToken;
-    if (!idToken) throw new Error('apple-no-identity-token');
-    const { data, error } = await supabase.auth.signInWithIdToken({
+    const { idToken, rawNonce, fullName } = await authorizeNative(plugin);
+    const { data, error } = await withTimeout(supabase.auth.signInWithIdToken({
       provider: 'apple',
       token: idToken,
       nonce: rawNonce,
-    });
+    }), APPLE_SESSION_TIMEOUT_MS, 'apple_session_timeout');
     if (error) throw error;
-    // 初回のみ Apple が氏名を返す（2回目以降は null）。表示名が空なら埋める。
-    const fullName = [res?.response?.givenName, res?.response?.familyName].filter(Boolean).join(' ').trim();
-    if (fullName && data?.user && !data.user.user_metadata?.display_name) {
-      try { await supabase.auth.updateUser({ data: { display_name: fullName } }); } catch { /* 任意 */ }
-    }
+    fillDisplayName(data?.user, fullName);
     return data;
   }
 

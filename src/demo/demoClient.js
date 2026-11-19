@@ -403,9 +403,11 @@ export function createDemoClient() {
   if (params.get('purpose') === '1') {
     for (const b of db.books || []) if (b.title === 'LIFE SHIFT') b.invest_purpose = '40 代からの働き方の選択肢を持ちたい';
   }
+  // &guest=1: 登録せずに始めた人（匿名・メールなし・設定の「アカウントを作る」の確認用・2026-11-19）
+  const guestUser = { ...demoUser, email: '', is_anonymous: true };
   const store = {
     db,
-    session: scenario === 'auth' ? null : makeSession(demoUser),
+    session: scenario === 'auth' ? null : makeSession(params.get('guest') === '1' ? guestUser : demoUser),
     files: new Map(),
     table(name) { if (!this.db[name]) this.db[name] = []; return this.db[name]; },
   };
@@ -456,6 +458,18 @@ export function createDemoClient() {
       resetPasswordForEmail: async () => ({ data: {}, error: null }),
       signInWithOAuth: async () => unsupported,
       signInWithIdToken: async () => unsupported,
+      // 登録せずに始める（匿名）・Apple をつなぐ（お試しモードは押すとつないだことにする）
+      signInAnonymously: async () => {
+        store.session = makeSession(guestUser);
+        setTimeout(() => emit('SIGNED_IN'), 0);
+        return { data: { user: store.session.user, session: store.session }, error: null };
+      },
+      linkIdentity: async () => {
+        if (!store.session) return unsupported;
+        store.session.user = { ...store.session.user, is_anonymous: false, email: 'apple-id@privaterelay.appleid.com' };
+        setTimeout(() => emit('USER_UPDATED'), 0);
+        return { data: { user: store.session.user, session: store.session }, error: null };
+      },
       refreshSession: async () => ({ data: { session: store.session }, error: null }),
     },
     from: (table) => new Query(store, table),

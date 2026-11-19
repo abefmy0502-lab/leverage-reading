@@ -398,6 +398,12 @@ const SCREENS = [
   { name: 'home-annual-jan', url: '/?demo=full&plan=monthly&today=2027-01-05', steps: [{ wait: 1500 }] },
   { name: 'settings-referral', url: '/?demo=full&referral=1&native=1', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { eval: () => { Array.from(document.querySelectorAll('button')).find((b) => b.textContent.includes('友だちに紹介する'))?.scrollIntoView?.({ block: 'center' }); } }] },
   { name: 'auth', url: '/?demo=auth&auth=signin' },
+  // 👤 登録せずに始める（2026-11-19・App 審査 5.1.1(v)）: アプリの見た目（&native=1）のログイン画面・確かめるダイアログ・設定の「アカウントを作る」・有料プランの画面の一言
+  { name: 'auth-native', url: '/?demo=auth&auth=signin&native=1' },
+  { name: 'auth-guest-confirm', url: '/?demo=auth&auth=signin&native=1', steps: [{ css: 'button:text-is("登録せずに始める")' }, { wait: 400 }] },
+  { name: 'settings-guest', url: '/?guest=1&native=1', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }] },
+  { name: 'settings-guest-email', url: '/?guest=1&native=1', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:text-is("メールアドレスで作る")' }] },
+  { name: 'paywall-guest', url: '/?demo=paywall&native=1&guest=1', steps: [{ eval: "window.dispatchEvent(new CustomEvent('orime:paywall', { detail: { reason: null } }))" }, { eval: () => { Array.from(document.querySelectorAll('p')).find((p) => p.textContent.includes('登録しなくても'))?.scrollIntoView?.({ block: 'center' }); } }] },
   { name: 'landing', url: '/?demo=auth' },
   // メールのリンクから戻ったとき（2026-10-04）: 期限切れのリンク／パスワードを決め直す画面（入れ直しのエラーつき）
   // アプリ全体のエラーの画面（?crash=1 は開発中だけ）と、新しい版の知らせ（Web の PWA だけ）

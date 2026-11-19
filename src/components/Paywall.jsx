@@ -41,6 +41,7 @@ import { recentConsultAsk } from '../lib/lastConsultAsk';
 import { Fragment, useEffect, useRef, useState, lazy, Suspense } from 'react';
 import { Check, X } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import { isGuestUser } from '../lib/guestAuth';
 import { useToast } from './Toast';
 import { withPhraseBreaks } from './TightBubble';
 import { PLAN_LABELS } from '../lib/billing';
@@ -164,7 +165,8 @@ const TOKEN_EXAMPLE_OCR = `写真から書き起こし 1\u00a0回 約\u00a0${TOK
 // trial: この人が使える無料期間（「7 日間無料」）。あればプランの行の名前に「（最初の 7 日間は無料）」。
 //   選んだプランに無料期間があるときは下に固定の欄（「最初の 7 日間は無料」＋主ボタン）が言うので渡さない（繰り返さない）。
 //   月額だけに無料期間があるとき（創業メンバー価格のあいだ）も渡さない（プランの行で月額にだけ出す・年額に無料期間があるように読ませない）。
-function PlanCompare({ onlyPlan = false, trial = '', example = TOKEN_EXAMPLE }) {
+// guest: 登録せずに始めた人（はじめの 2 か月の多い量は、アカウントを作ってから・2026-11-19）。
+function PlanCompare({ onlyPlan = false, trial = '', example = TOKEN_EXAMPLE, guest = false }) {
   const rows = onlyPlan ? PLAN_COMPARE.filter((r) => r.name === 'プラン') : PLAN_COMPARE;
   return (
     <section aria-label={onlyPlan ? 'プランでできること' : '無料プランとプランの違い'} style={{ ...card, padding: 0, marginTop: 'var(--space-6)' }}>
@@ -179,7 +181,7 @@ function PlanCompare({ onlyPlan = false, trial = '', example = TOKEN_EXAMPLE }) 
           <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5 }}>
             <span style={{ whiteSpace: 'nowrap' }}>{row.amount}</span>
             {/* はじめの 2 か月の量（130 トークン）と食い違わないよう、かっこで添える（細く・別の塊で折り返す・2026-11-18 ui-critic） */}
-            {row.amountNote && <span style={{ ...chunk, fontSize: 'var(--text-sub)', fontWeight: 400, color: 'var(--text-2)' }}>{row.amountNote}</span>}
+            {row.amountNote && <span style={{ ...chunk, fontSize: 'var(--text-sub)', fontWeight: 400, color: 'var(--text-2)' }}>{guest ? `（アカウントを作ると、始めた月と翌月は${noBreak(answerCountLabel(FREE_FIRST_MONTH_TOKENS))}）` : row.amountNote}</span>}
           </p>
           {/* 量の目安は、かっこで続けず次の行に（かっこが重なって読みにくかった・2026-10-16 ui-critic）。 */}
           {row.scope && <p style={{ margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(row.scope)}</p>}
@@ -821,7 +823,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
               </p>
             )}
 
-            <PlanCompare onlyPlan={(fromFree || fromGrown) && myBooks.length > 0} trial={showNative && !trial ? anyTrial : ''} example={fromFreeOcr ? TOKEN_EXAMPLE_OCR : TOKEN_EXAMPLE} />
+            <PlanCompare onlyPlan={(fromFree || fromGrown) && myBooks.length > 0} trial={showNative && !trial ? anyTrial : ''} example={fromFreeOcr ? TOKEN_EXAMPLE_OCR : TOKEN_EXAMPLE} guest={isGuestUser(user)} />
 
             {/* 大きな文字のとき（compactFooter）: 無料期間・創業メンバー価格の 1 行と、ボタンの下の注記は、スクロールする中身（欄のすぐ上）へ。
                 創業メンバー価格の「創業メンバー価格（◯月◯日まで）」は、ふだんから中身へ（下に固定の欄を 1 行減らし、月額の選択肢を
@@ -911,6 +913,12 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
                 .replace(/(\d) /g, '$1 ') /* 数と単位を離さない（「24／時間前」と割れない） */}</Phrases>
             </p>
 
+            {/* 登録せずに始めた人へ: 登録しなくても買える・作るとほかの端末でも使える（App 審査 5.1.1(v)・2026-11-19） */}
+            {isGuestUser(user) && (
+              <p style={{ ...metaText, ...phraseText, marginTop: 'var(--space-2)' }}>
+                <Phrases>{'登録しなくても買えます。設定でアカウントを作ると、ほかの端末でも使えます。'}</Phrases>
+              </p>
+            )}
             {/* 購入を復元・利用規約・プライバシーポリシー（3.1.2 必須） */}
             <div style={{ ...linkRow, marginTop: 'var(--space-2)' }}>
               <button type="button" onClick={handleRestore} disabled={restoring} style={{ ...linkStyle, opacity: 1 }}>
@@ -946,7 +954,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
               ))}
             </section>
 
-            <PlanCompare onlyPlan={(fromFree || fromGrown) && myBooks.length > 0} trial={showNative && !trial ? anyTrial : ''} example={fromFreeOcr ? TOKEN_EXAMPLE_OCR : TOKEN_EXAMPLE} />
+            <PlanCompare onlyPlan={(fromFree || fromGrown) && myBooks.length > 0} trial={showNative && !trial ? anyTrial : ''} example={fromFreeOcr ? TOKEN_EXAMPLE_OCR : TOKEN_EXAMPLE} guest={isGuestUser(user)} />
 
             {/* Web でも入手の主ボタンは画面の下に固定（ネイティブと同じ形）。 */}
             <div style={stickyFooter}>

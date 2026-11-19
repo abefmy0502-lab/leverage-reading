@@ -55,6 +55,7 @@ UI 文言・トースト・ヘルプ・LP・プロンプト出力で使う名前
 | 読書計画シート | セットアップシート / 読書戦略書 | `before` フェーズの AI シート |
 | 目標・ロードマップ・読書計画（カレンダー） | ゴール / 目標設定 / KPI / プラン（本の） / スケジュール | 目標＝1 年後・3 年後・5 年後の 3 つ（固定）。「達成するには？」＝深掘り。ロードマップ＝必要なこと・今の課題・道のり（区切り）・読む本。読書計画のカレンダー＝読む本を日付に割り振ったもの（本ごとの「読書計画シート」とは別）。「入れた理由」の入力は 2026-11-16 にやめた（前に書いた人の理由は目標の画面で目標へ移せる）。読書計画を作った人はホームに「読書計画　今日は『…』」の 1 行。%・あと N 冊・遅れは出さない（2026-11-15） |
 | 凝縮 | 3行に凝縮 / 要約 | メモの AI 凝縮ボタン |
+| 登録せずに始める／アカウントを作る | ゲスト / 匿名 / お試しアカウント / 仮登録 | 2026-11-19（App 審査 5.1.1(v)）。アプリのログインの画面の「登録せずに始める」＝メールも名前も聞かずに始める（Supabase の匿名のアカウント・`lib/guestAuth.js`）。あとで設定のいちばん上から Apple（「Appleで登録」）かメールアドレス（「メールアドレスで作る」）で**アカウントを作る**＝同じアカウントのまま引き継ぐ。登録は任意で押しつけない。登録せずに始めた人の無料の AI は毎月 30（はじめの 2 か月の多い量は、アカウントを作ってから）。Supabase の「Allow anonymous sign-ins」「Allow manual linking」が要る（`company/launch-2026-11/review-2026-11-19.md`） |
 | AI と連携（接続キー） | MCP 連携 / API キー / トークン（接続の） / 外部連携 | いつもの AI（Claude・ChatGPT・Claude Code）から自分の本・メモ・行動を呼べる仕組み（2026-11-07・`api/mcp.js`／`api/_mcp.js`／`src/lib/mcpTokens.js`／`McpConnectSheet.jsx`・`supabase_mcp_tokens.sql`・`docs/mcp.md`）。設定のグループ「AI と連携」・行「Claude・ChatGPT とつなぐ」・ボタン「接続キーを作る」「URL をコピー」「取り消す」。仕組みの名前（MCP）は説明の中でだけ。Orime のトークンは使わない・読めるのは本人のものだけ・書けるのはメモと行動を足すだけ |
 | AI への指示文 | プロンプト / テンプレート / 指示書 | 自分のメモから、ChatGPT・Claude に貼って使う文をつくる機能（2026-10-21・`PromptMakerSheet.jsx`／`lib/externalPrompt.js`・AI は使わない・トークンなし・無料プランは 1 冊まで）。ボタンは「AI への指示文」「指示文をつくる」「指示文をコピー」 |
 | AI 選書 | アドバイザー / 選書アドバイザー | ヘルプキーは `aiAdvisor` のまま |
@@ -465,6 +466,7 @@ want(読みたい) → before(積読) → reading(読書中) → done(読了)
 | `VITE_FOUNDING_PRICE_LABEL` | (任意) LP の値段の書き方（既定「1 年目 ¥9,800」）。金額の真実はストア |
 | `VITE_REFERRAL_CODE` | (任意) 🤝 App Store のオファーコード（オーナーが App Store Connect で作る）。入れたビルドだけ、設定の「コードを使う」の下に「友だちに紹介する」（コードつきの文を端末の共有シートへ・`src/lib/referral.js`・2026-10-22）。紹介した人への特典は作らない（有料 150 人からの検討＝`docs/goal-1000-elements.md` 9-3）。未設定なら行ごと出さない |
 | `VITE_TRIAL_NOTE` | (任意) 🎁 無料トライアルの LP 表記。**未設定なら正典どおり `7日間無料`**（`company/launch-plan-appstore-2026-07-27.md`・月額/年額とも 7 日間の Introductory Offer）。App Store 側の無料期間を変えたら合わせて設定し、無料期間をやめたら `off` を入れる（LP のボタンが「App Store でダウンロード」に戻り、無料の表記が一斉に消える）。アプリ内 Paywall は `iap.js` がストアの実プロダクトから無料期間を自動取得するため env 不要 |
+| `VITE_GUEST_WEB` | (任意) 👤 `'true'` のときだけ Web のログインの画面にも「登録せずに始める」を出す（既定はアプリだけ・`src/lib/guestAuth.js`）。Supabase の匿名のサインインが要る |
 | `VITE_APPLE_SIGNIN_WEB` | (任意) 🍎 Web で「Appleでサインイン」ボタンを出すフラグ。`'true'` の時だけ表示。iOS(ネイティブ)は常時表示なので不要。Apple Developer の Service ID と Supabase Auth の Apple プロバイダ（Web 経路）の設定が済むまでは未設定のままにし、Web での誤爆を防ぐ。認証実装は `src/lib/appleAuth.js`（要外部設定はファイル冒頭コメント参照） |
 | `APNS_KEY_ID` | 🔔📱 ネイティブ想起プッシュ(APNs)の認証キー Key ID（`api/push-cron.js`）。サーバー専用 |
 | `APNS_TEAM_ID` | Apple Developer の Team ID（APNs JWT の iss）。サーバー専用 |
