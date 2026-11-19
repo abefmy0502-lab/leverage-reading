@@ -214,6 +214,27 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   const tastePrefRef = useRef(tastePref);
   tastePrefRef.current = tastePref;
   const nowYear = () => appNow().getFullYear();
+  // 本の選び方の畳んだ 1 行（確かめのカードの主ボタンの前と、直している間の欄の下の 2 か所から呼ぶ・1 か所で直せるように）。
+  //   ふだんは畳む（多くの回はおまかせのまま押す＝主ボタンを悩みのまとめから離さない・ui-critic）。開いたら閉じるまで開いたまま。
+  const tastePicker = () => (
+              <details open={tasteOpen} onToggle={(e) => setTasteOpen(e.currentTarget.open)} style={{ marginTop: 'var(--space-4)' }}>
+                <summary style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minHeight: 'var(--tap-min)', cursor: 'pointer', listStyle: 'none', fontSize: 'var(--text-sub)' }}>
+                  <span id="advisor-taste-label" style={{ flex: 1, fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)' }}>本の選び方</span>
+                  <span style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', whiteSpace: 'nowrap' }}>{TASTE_LABELS[tastePref]}</span>
+                  <ChevronDown className="fold-chevron" size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+                </summary>
+                <div role="radiogroup" aria-labelledby="advisor-taste-label" aria-describedby="advisor-taste-note" style={{ ...segTrack, display: 'grid', gridTemplateColumns: segTwoRows() ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', marginTop: 0 }}>
+                  {TASTE_PREFS.map((v) => (
+                    <button key={v} type="button" role="radio" aria-checked={tastePref === v} onClick={() => setTastePref(v)} style={segOption(tastePref === v)}>
+                      {TASTE_LABELS[v]}
+                    </button>
+                  ))}
+                </div>
+                <p id="advisor-taste-note" style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+                  {withPhraseBreaks(tasteNote(tastePref))}
+                </p>
+              </details>
+  );
   const candidatesFor = (keywords) => {
     const words = cleanKeywords(keywords);
     if (words.length === 0) return Promise.resolve([]);
@@ -1923,25 +1944,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
 
             {/* 本の選び方（2026-11-19・lib/bookTaste.js）: ふだんは畳んだ 1 行（多くの回はおまかせのまま＝主ボタンを悩みのまとめから離さない・ui-critic）。
                 開くと難しさと同じ形（溝と面 → 8 → 13/--text-2 の案内）。おまかせ以外を選んだら開いたまま。直している間も選べる。 */}
-            {asking && !correcting && (
-              <details open={tasteOpen} onToggle={(e) => setTasteOpen(e.currentTarget.open)} style={{ marginTop: 'var(--space-4)' }}>
-                <summary style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minHeight: 'var(--tap-min)', cursor: 'pointer', listStyle: 'none' }}>
-                  <span id="advisor-taste-label" style={{ flex: 1, fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)' }}>本の選び方</span>
-                  <span style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', whiteSpace: 'nowrap' }}>{TASTE_LABELS[tastePref]}</span>
-                  <ChevronDown className="fold-chevron" size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
-                </summary>
-                <div role="radiogroup" aria-labelledby="advisor-taste-label" aria-describedby="advisor-taste-note" style={{ ...segTrack, display: 'grid', gridTemplateColumns: segTwoRows() ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', marginTop: 'var(--space-1)' }}>
-                  {TASTE_PREFS.map((v) => (
-                    <button key={v} type="button" role="radio" aria-checked={tastePref === v} onClick={() => setTastePref(v)} style={segOption(tastePref === v)}>
-                      {TASTE_LABELS[v]}
-                    </button>
-                  ))}
-                </div>
-                <p id="advisor-taste-note" style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-                  {withPhraseBreaks(tasteNote(tastePref))}
-                </p>
-              </details>
-            )}
+            {/* 本の選び方（2026-11-19・lib/bookTaste.js）: ふだんは畳んだ 1 行（tastePicker）。直している間は欄の下に出す。 */}
+            {asking && !correcting && tastePicker()}
             {asking && !correcting && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}>
                 {/* 決める段の前は 24（設定の段の中 16 より広く・DESIGN §1） */}
@@ -1982,25 +1986,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
             )}
             {/* 本の選び方（2026-11-19・lib/bookTaste.js）: ふだんは畳んだ 1 行（多くの回はおまかせのまま＝主ボタンを悩みのまとめから離さない・ui-critic）。
                 開くと難しさと同じ形（溝と面 → 8 → 13/--text-2 の案内）。おまかせ以外を選んだら開いたまま。直している間も選べる。 */}
-            {asking && correcting && (
-              <details open={tasteOpen} onToggle={(e) => setTasteOpen(e.currentTarget.open)} style={{ marginTop: 'var(--space-4)' }}>
-                <summary style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minHeight: 'var(--tap-min)', cursor: 'pointer', listStyle: 'none' }}>
-                  <span id="advisor-taste-label" style={{ flex: 1, fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)' }}>本の選び方</span>
-                  <span style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', whiteSpace: 'nowrap' }}>{TASTE_LABELS[tastePref]}</span>
-                  <ChevronDown className="fold-chevron" size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
-                </summary>
-                <div role="radiogroup" aria-labelledby="advisor-taste-label" aria-describedby="advisor-taste-note" style={{ ...segTrack, display: 'grid', gridTemplateColumns: segTwoRows() ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', marginTop: 'var(--space-1)' }}>
-                  {TASTE_PREFS.map((v) => (
-                    <button key={v} type="button" role="radio" aria-checked={tastePref === v} onClick={() => setTastePref(v)} style={segOption(tastePref === v)}>
-                      {TASTE_LABELS[v]}
-                    </button>
-                  ))}
-                </div>
-                <p id="advisor-taste-note" style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-                  {withPhraseBreaks(tasteNote(tastePref))}
-                </p>
-              </details>
-            )}
+            {asking && correcting && tastePicker()}
             {asking && (
               <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 'var(--space-2)', marginTop: 'var(--space-4)', marginLeft: 'calc(-1 * var(--space-1))' }}>
                 <button type="button" onClick={goBackQuestion} style={{ ...quietLink, gap: 'var(--space-1)' }}>
@@ -2170,15 +2156,15 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
                 {/* 直したときは本人の直しだけ（まとめは「少し違う」と言われたので並べない・本人の言葉が主役） */}
                 {withPhraseBreaks(confirmed.correction || confirmed.summary || '')}
               </p>
+              {/* 本の選び方を選んだ回は、何で選んだかを同じまとまりに 1 行（データの 1 行・13/--text-2・2026-11-19） */}
+              {recoTaste !== 'auto' && (
+                <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, margin: 'var(--space-1) 0 0' }}>{tasteResultLine(recoTaste)}</p>
+              )}
             </div>
           ) : spokenAnswers(interviewAnswers).length > 0 && (
             <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, margin: 0, overflowWrap: 'anywhere' }}>
               {spokenAnswers(interviewAnswers).map((x) => x.a).join('・')}
             </p>
-          )}
-          {/* 本の選び方を選んだ回は、何で選んだかを 1 行（データの 1 行・13/--text-2・2026-11-19） */}
-          {recoTaste !== 'auto' && (
-            <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, margin: 0 }}>{tasteResultLine(recoTaste)}</p>
           )}
           {recommendations.before && (() => {
             const intro = introTextOf(cleanProseTitles(recommendations.before));

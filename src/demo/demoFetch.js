@@ -798,9 +798,14 @@ function aiReply(store, payload, aiMode = '') {
     // 🗣 最近の相談（本番は先頭の参考ターンで渡す・ai.js の recentConsultsBlock・2026-10-11）。あれば、いちばん新しい相談を 1 か所だけ踏まえる。
     const allText = (payload.messages || []).map((m) => textOf(m.content)).join('\n');
     const recent = (allText.match(/【最近の相談[^】]*】\n・(.+?)の相談「([^」\n]+)」/) || []);
-    const intro = recent[2]
+    const baseIntro = recent[2]
       ? `${recent[1]}の相談「${recent[2]}」も踏まえて、時間の使い方と任せ方の両方に効く本を選びました。`
       : 'お話を伺って、時間の使い方と任せ方の両方に効く本を選びました。';
+    // &ai=tastefew: 本の選び方（名著・新しい本・いま話題）に合う本が少なかった回（前置きで一言・2026-11-19・lib/bookTaste.js）
+    const tasteAsked = (allText.match(/【本の選び方】本人は「([^」]+)」を選んだ/) || [])[1];
+    const intro = aiMode === 'tastefew' && tasteAsked
+      ? `${tasteAsked}に当たる本は少なかったので、悩みに合うことを優先して選びました。${baseIntro.replace(/^お話を伺って、/, '')}`
+      : baseIntro;
     return [
       '## 👋 はじめに', intro, '',
       '## 📚 おすすめの本', '', 'RECOMMENDATIONS_START', JSON.stringify(recs, null, 2), 'RECOMMENDATIONS_END', '',
