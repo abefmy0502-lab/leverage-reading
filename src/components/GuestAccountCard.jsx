@@ -145,6 +145,8 @@ export default function GuestAccountCard() {
       </div>
       {mode === 'choose' && (
         <>
+          {/* つなげなかったときは、押したボタンのすぐ上に（2026-11-19 ui-critic） */}
+          {error && <p role="alert" style={{ ...errStyle, marginBottom: 'calc(-1 * var(--space-1))' }}>{withPhraseBreaks(error)}</p>}
           {showApple && (
             <button type="button" style={{ ...appleBtn, cursor: busy ? 'default' : 'pointer' }} onClick={linkApple} disabled={Boolean(busy)}>
               <AppleMark />
@@ -199,7 +201,6 @@ export default function GuestAccountCard() {
           </button>
         </form>
       )}
-      {mode === 'choose' && error && <p role="alert" style={errStyle}>{withPhraseBreaks(error)}</p>}
     </div>
   );
 }

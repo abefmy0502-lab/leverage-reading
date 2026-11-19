@@ -28,7 +28,7 @@
 // Web は任意表示にできる。
 
 import { Capacitor } from '@capacitor/core';
-import { supabase, isSupabaseConfigured } from './supabase';
+import { supabase, isSupabaseConfigured, isDemo } from './supabase';
 
 // ネイティブ(Capacitor iOS)実行時のみ true。
 export const isNativeApple = Capacitor.isNativePlatform();
@@ -121,6 +121,9 @@ function fillDisplayName(user, fullName) {
 // 本・メモ・課金はそのまま引き継ぐ（利用者の id は変わらない）。Supabase の「手動でつなぐ」が有効なことが前提。
 export async function linkAppleToCurrentUser() {
   if (!isSupabaseConfigured) throw new Error('Supabase is not configured');
+  if (isDemo && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('linkfail') === 'apple') {
+    const e = new Error('Identity is already linked to another user'); e.code = 'identity_already_exists'; throw e; // 🧪
+  }
   if (isNativeApple) {
     const plugin = await loadPlugin();
     if (!plugin) {
@@ -150,6 +153,9 @@ export async function linkAppleToCurrentUser() {
 // キャンセルは { canceled: true } を投げる想定で、呼び出し側はトーストを出さない。
 export async function signInWithApple() {
   if (!isSupabaseConfigured) throw new Error('Supabase is not configured');
+  if (isDemo && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('apple') === 'wait') {
+    return new Promise(() => {}); // 🧪 お試しモード: Apple の画面が返ってこない
+  }
 
   if (isNativeApple) {
     const plugin = await loadPlugin();

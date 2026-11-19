@@ -4,11 +4,13 @@ import { useAuth } from '../../hooks/useAuth';
 import { isSupabaseConfigured, supabaseConfigProblem } from '../../lib/supabase';
 import { LIMITS, validatePassword } from '../../lib/limits';
 import { signInWithApple, isNativeApple, isAppleSignInAvailable } from '../../lib/appleAuth';
-import { GUEST_START_AVAILABLE, startAsGuest } from '../../lib/guestAuth';
+import { GUEST_START_AVAILABLE, startAsGuest, NATIVE_PREVIEW } from '../../lib/guestAuth';
 import { useConfirm } from '../ConfirmDialog';
 import { track, EVENTS } from '../../lib/analytics';
 import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnLink as uiBtnLink, btnGhost as uiBtnGhost, input } from '../../styles/ui';
-import { isNative } from '../../lib/iap';
+import { isNative as isNativeRuntime } from '../../lib/iap';
+// アプリと同じ並びか（お試しモードの &native=1 も・2026-11-19）
+const isNative = isNativeRuntime || NATIVE_PREVIEW;
 import { MailCheck, Check } from 'lucide-react';
 import ErrorMessage from '../ErrorMessage';
 import { withPhraseBreaks } from '../TightBubble';
@@ -50,7 +52,7 @@ const jpWrap = { textWrap: 'pretty' };
 // 規約・プライバシーポリシーのリンク（文字ボタン＝btnLink の 15/600・高さ 44）。字下げで文字の頭に揃えるので左右の余白は 0。
 const legalLink = { ...uiBtnLink, padding: 0, textDecoration: 'none' };
 // 文の中のリンク（確かめるダイアログの規約・2026-11-19）
-const inlineLink = { color: 'var(--accent)', fontWeight: 600, textDecoration: 'underline', textUnderlineOffset: '0.2em' };
+const inlineLink = { color: 'var(--accent)', fontWeight: 600, textDecoration: 'underline', textUnderlineOffset: '0.2em', whiteSpace: 'nowrap' };
 // 同意のチェック（24 の丸・初日クイックスタートの選択と同じ見た目）。リンク行はチェック＋間隔ぶん字下げして文字の頭に揃える。
 const checkboxSize = 'var(--space-6)';
 const checkCircle = (on, focused) => ({
@@ -183,7 +185,7 @@ export default function AuthScreen() {
 
   // 🍎 Apple でサインイン。iOS は常時表示（HIG 準拠）。Web は Apple/Supabase の
   // Web 設定が済むまで誤爆させないため、環境変数で明示的に有効化した時だけ表示。
-  const showAppleButton = isAppleSignInAvailable() && (isNativeApple || import.meta.env.VITE_APPLE_SIGNIN_WEB === 'true');
+  const showAppleButton = isAppleSignInAvailable() && (isNativeApple || NATIVE_PREVIEW || import.meta.env.VITE_APPLE_SIGNIN_WEB === 'true');
 
   const handleApple = async () => {
     if (appleBusy || guestBusy) return;

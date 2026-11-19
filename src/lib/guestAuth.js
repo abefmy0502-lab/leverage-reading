@@ -8,7 +8,14 @@
 import { supabase, isDemo } from './supabase';
 import { isNativeApple } from './appleAuth';
 
-const demoNative = isDemo && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('native') === '1';
+const demoParams = isDemo && typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+const demoNative = Boolean(demoParams && demoParams.get('native') === '1');
+// 🧪 お試しモードの &native=1: ログインの画面をアプリと同じ並びで撮る（Apple のボタンあり・Web だけの行なし）
+export const NATIVE_PREVIEW = demoNative;
+// 🧪 &apple=wait: Apple の画面が返ってこない（「サインイン中…」と「やめる」を撮る）
+export const DEMO_APPLE_WAIT = Boolean(demoParams && demoParams.get('apple') === 'wait');
+// 🧪 &linkfail=apple|email: つなぐときのエラー（もう使われている）を撮る
+export const DEMO_LINK_FAIL = demoParams ? demoParams.get('linkfail') || '' : '';
 
 // 入口を出すのは iPhone・iPad のアプリだけ（Web はアプリへの案内の画面なので出さない）。お試しモードは &native=1。
 export const GUEST_START_AVAILABLE = isNativeApple || demoNative || import.meta.env.VITE_GUEST_WEB === 'true';
@@ -27,6 +34,7 @@ export async function startAsGuest() {
 
 /** いまのアカウントにメールアドレスをつなぐ（確認のメールのリンクを開くとつながる）。パスワードは同時に決める。 */
 export async function linkEmailToCurrentUser(email, password) {
+  if (DEMO_LINK_FAIL === 'email') { const e = new Error('A user with this email address has already been registered'); e.code = 'email_exists'; throw e; } // 🧪
   const redirect = typeof window !== 'undefined' && !isNativeApple ? window.location.origin : undefined;
   const opts = redirect ? { emailRedirectTo: redirect } : undefined;
   const attrs = password ? { email, password } : { email };

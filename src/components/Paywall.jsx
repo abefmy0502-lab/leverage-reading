@@ -910,7 +910,8 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
               <Phrases>{`お支払いは ${noBreak('App Store')} を通じて行われます。${priceState === 'ready'
                 ? renewalSentence({ ...selected, trial })
                 : '期間が終わる 24 時間前までに解約しない限り、選んだプランの料金で自動更新されます。'}解約は ${noBreak('App Store')} のアカウント設定からいつでもでき、解約してもメモは残ります。`
-                .replace(/(\d) /g, '$1 ') /* 数と単位を離さない（「24／時間前」と割れない） */}</Phrases>
+                .replace(/(\d) /g, '$1 ') /* 数と単位を離さない（「24／時間前」と割れない） */
+                .replace(/）で/g, '）\u2060で') /* 「（税込）／で自動更新」と「で」から始まる行を作らない・2026-11-19 ui-critic */}</Phrases>
             </p>
 
             {/* 登録せずに始めた人へ: 登録しなくても買える・作るとほかの端末でも使える（App 審査 5.1.1(v)・2026-11-19） */}
