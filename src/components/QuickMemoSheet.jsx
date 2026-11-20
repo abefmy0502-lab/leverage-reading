@@ -394,6 +394,14 @@ export default function QuickMemoSheet({
     return () => window.removeEventListener('keydown', onKey);
   });
 
+  // ⚡ 保存を押したら、保存の終わりを待たずにシートを閉じ始める（2026-11-20 オーナー「メモのシートも進めて」）。
+  //   前は保存が終わるまで（通信 1 往復）シートが残っていた。保存している間は見えないまま残しておき、
+  //   保存できたら閉じきる（そのあとの知らせ・似たメモ・行動に追加は今までどおり呼び出し側）。
+  //   保存できなかったら、書いた文のままシートを戻し、理由を中に出す。
+  //   保存している間にシートが外されたら（ほかの画面へ移ったなど）、書いた文をコピーできる知らせを出す（文をなくさない）。
+  const mountedRef = useRef(true);
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
+  const [savingHidden, setSavingHidden] = useState(false);
   const handleSave = async () => {
     if (busy) return;
     const trimmed = text.trim();
@@ -404,6 +412,14 @@ export default function QuickMemoSheet({
     const parsed = pageUsed ? parseInt(pageNumber, 10) : NaN;
     setBusy(true);
     setErrorMsg('');
+    // キーボードを下ろして、滑って閉じ始める。動きを減らす設定では、すぐ見えなくする。
+    try { document.activeElement?.blur?.(); } catch { /* ignore */ }
+    const wait = closeDelayMs(220);
+    const startedAt = Date.now();
+    setClosing(true);
+    let hideTimer = null;
+    if (!wait) setSavingHidden(true);
+    else hideTimer = setTimeout(() => { if (mountedRef.current) setSavingHidden(true); }, wait);
     try {
       await onCreate({
         pageNumber: Number.isFinite(parsed) ? Math.min(Math.max(parsed, 0), 99999) : null,
@@ -412,11 +428,32 @@ export default function QuickMemoSheet({
         tags,
         fromPhoto: usedPhotoRef.current, // 保存には使わない（呼び出し側の計測だけ）
       });
-      animateClose(); // 保存後も滑って閉じる（出入りの所作を統一）
+      // 閉じる動きが終わってから外す（保存が先に終わっても、動きを途中で切らない）。
+      const left = Math.max(0, wait - (Date.now() - startedAt));
+      if (left) setTimeout(() => onClose?.(), left);
+      else onClose?.();
     } catch (e) {
-      setErrorMsg(toSaveMessage(e, 'メモを保存できませんでした。'));
+      if (hideTimer) clearTimeout(hideTimer);
+      const msg = toSaveMessage(e, 'メモを保存できませんでした。');
+      if (!mountedRef.current) {
+        // シートはもう無い: 書いた文をなくさないように、コピーできる知らせを出す。
+        toast.show({
+          type: 'error',
+          message: 'メモを保存できませんでした。',
+          duration: 15000,
+          action: {
+            label: '書いた文をコピー',
+            onClick: () => { try { navigator.clipboard?.writeText(trimmed); } catch { /* ignore */ } },
+          },
+        });
+        return;
+      }
+      // シートを戻す（書いた文はそのまま）。
+      setSavingHidden(false);
+      setClosing(false);
+      setErrorMsg(msg);
     } finally {
-      setBusy(false);
+      if (mountedRef.current) setBusy(false);
     }
   };
 
@@ -436,7 +473,7 @@ export default function QuickMemoSheet({
   const sheet = (
     <>
       <div
-        style={{ ...backdrop, ...(closing ? { opacity: 0, transition: 'opacity .18s ease' } : {}) }}
+        style={{ ...backdrop, ...(closing ? { opacity: 0, transition: 'opacity .18s ease', pointerEvents: 'none' } : {}) }}
         onClick={requestClose}
         aria-hidden="true"
       />
@@ -447,7 +484,11 @@ export default function QuickMemoSheet({
           animation: closing
             ? 'leverage-sheet-down .22s cubic-bezier(0.3,0,0.8,0.3) forwards'
             : sheetWrap.animation,
+          // 保存している間（閉じる動きのあと）は見えないまま残す。押せない。
+          ...(closing ? { pointerEvents: 'none' } : null),
+          ...(savingHidden ? { visibility: 'hidden' } : null),
         }}
+        aria-hidden={savingHidden ? 'true' : undefined}
         role="dialog"
         aria-modal="true"
         aria-label="メモを書く"
