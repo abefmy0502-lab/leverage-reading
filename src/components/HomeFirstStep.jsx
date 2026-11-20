@@ -22,6 +22,22 @@ export const MEMO_COUNT_WAIT_MS = 800;
 
 // 最後に分かったカード式のメモの件数（ログイン中の人ごと）。ホームに戻るたびにスケルトンを出し直さない。
 let lastKnown = { userId: null, count: null };
+// ⚡ 端末にも控える（2026-11-20）。アプリを開き直すたびに、数え終わるまでホームが骨組みのままだった。
+//   控えで先に描き、数え直した数で静かに直す。ログアウト・データの初期化で消す（useAuth・lib/deviceData.js）。
+export const MEMO_COUNT_CACHE_PREFIX = 'orime.memoCount.v1:';
+function readCachedCount(userId) {
+  if (!userId) return null;
+  try {
+    const v = localStorage.getItem(MEMO_COUNT_CACHE_PREFIX + userId);
+    if (v == null || v === '') return null;
+    const n = Number(v);
+    return Number.isFinite(n) && n >= 0 ? Math.floor(n) : null;
+  } catch { return null; }
+}
+function writeCachedCount(userId, n) {
+  if (!userId) return;
+  try { localStorage.setItem(MEMO_COUNT_CACHE_PREFIX + userId, String(n)); } catch { /* ignore */ }
+}
 
 // ホームの「メモがあるか」。{ known, hasMemos, count }。
 //   count: メモの件数（カード式＋学び＋「この本のまとめ」の入っている本＝相談と同じ数え方）。分からないときは null。
@@ -38,7 +54,8 @@ export function useHomeMemoState(books = []) {
   const initial = () => {
     if (lastKnown.userId === userId && lastKnown.count != null) return lastKnown.count;
     const rows = userId ? peekAllMemoRows(userId) : null;
-    return Array.isArray(rows) ? rows.length : null;
+    if (Array.isArray(rows)) return rows.length;
+    return readCachedCount(userId);
   };
   const [cardCount, setCardCount] = useState(initial);
   const [timedOut, setTimedOut] = useState(false);
@@ -56,6 +73,7 @@ export function useHomeMemoState(books = []) {
           .eq('user_id', userId);
         if (alive && !error) {
           lastKnown = { userId, count: count || 0 };
+          writeCachedCount(userId, count || 0);
           setCardCount(count || 0);
         }
       } catch { /* 数えられなければ下の打ち切りで「メモあり」 */ }

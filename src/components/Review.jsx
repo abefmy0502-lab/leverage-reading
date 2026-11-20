@@ -224,6 +224,8 @@ function MemoPhoto({ path }) {
         <img
           src={ensureHttps(url)}
           alt="メモの写真"
+          loading="lazy"
+          decoding="async"
           style={{ display: 'block', width: '100%', maxHeight: 240, objectFit: 'cover', borderRadius: 'var(--radius)', border: '1px solid var(--separator)' }}
         />
       </button>
@@ -413,6 +415,9 @@ const rememberReview = (userId, patch) => {
 // 🔎 ほかの画面から「この言葉でメモを探す」で開いたときの言葉（{ query, nonce }・App が渡す）。
 // 同じ nonce は 1 回だけ入れる（本を開いて戻ってきたときに、消した言葉が戻らないように）。
 let appliedSearchNonce = null;
+// ⚡ 開いている間のメモの控え（ログイン中の人ごと・2026-11-20）。振り返りのメモを開くたびに、全部を読み直して
+//   骨組みのまま待たせていた。控えがあればすぐ描き、裏で読み直して差し替える。
+let reviewMemoCache = { userId: null, memos: null };
 
 export default function Review({ books = [], onOpenBook, onAddAction, onAddNote, onGoToShelf, onQuickstart = null, onAskConsult, searchPreset = null }) {
   const { user } = useAuth();
@@ -444,11 +449,11 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
   // メモは読書中/読了の本にだけ付けられる。「＋ メモを追加」を出してよいのは
   // 付け先の本がある時だけ（無ければ本棚で本を追加/開始するのが先）。
   const hasMemoableBooks = (books || []).some((b) => b.status === 'reading' || b.status === 'done');
-  const [memos, setMemos] = useState([]);
+  const [memos, setMemos] = useState(() => (user && reviewMemoCache.userId === user.id && reviewMemoCache.memos) || []);
   const [memoMenu, setMemoMenu] = useState(null);
   // 一文をシェア（{ book, memoId }）。
   const [shareTarget, setShareTarget] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !(user && reviewMemoCache.userId === user.id && reviewMemoCache.memos));
   // 取得失敗（通信断など）。空状態と区別して「読み込みに失敗」+再試行を出す。
   const [fetchFailed, setFetchFailed] = useState(false);
   // seed=0 固定だと pool が同じ限り毎回同じメモが出て「偶然の再会」にならない。
@@ -527,9 +532,14 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
   }, [user]);
 
   useEffect(() => {
-    fetchMemos();
+    // 控えで描けているときは、読み直しの間も骨組みに戻さない（silent）。
+    fetchMemos({ silent: !!(user && reviewMemoCache.userId === user.id && reviewMemoCache.memos) });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+  // 一覧が変わったら（読み直し・削除・思い出しの記録）控えも合わせる。
+  useEffect(() => {
+    if (user && !loading && !fetchFailed) reviewMemoCache = { userId: user.id, memos };
+  }, [user, memos, loading, fetchFailed]);
 
   // Pull-to-refresh handler — refetch + re-roll random.
   const handleRefresh = useCallback(async () => {
@@ -899,7 +909,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
       if (recallDoneFocusTimerRef.current) clearTimeout(recallDoneFocusTimerRef.current);
       recallDoneFocusTimerRef.current = setTimeout(() => {
         try { recallDoneRef.current?.focus({ preventScroll: true }); } catch { /* ignore */ }
-      }, 650);
+      }, 360);
     }
     // 「元に戻す」つきの知らせは toast.undo にそろえる（中立の Undo2 の印・DESIGN §5 トースト・2026-09-29）。
     // 最後の 1 枚は、次に出る日を「ここまでです」のカードだけに書く（知らせのこのメモの日と、カードの
@@ -927,13 +937,13 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
     setFlipping(true);
     if (flipTimerRef.current) clearTimeout(flipTimerRef.current);
     if (flipEndTimerRef.current) clearTimeout(flipEndTimerRef.current);
-    // Swap at the midpoint of the 0.6s flip animation
+    // めくりの半ばで入れ替える（0.32 秒のめくり・2026-11-20 に 0.6 秒から縮めた＝答えるたびに押せない時間が長かった）
     flipTimerRef.current = setTimeout(() => {
       setRandomSeed((s) => s + 1);
-    }, 280);
+    }, 150);
     // Clear the flip class after the animation completes（両タイマーとも ref 管理し
     // アンマウント時/連続 reroll 時に確実に破棄＝unmount 後 setState を防ぐ）。
-    flipEndTimerRef.current = setTimeout(() => setFlipping(false), 620);
+    flipEndTimerRef.current = setTimeout(() => setFlipping(false), 340);
   };
 
   useEffect(() => () => {
@@ -1335,7 +1345,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
               // preserve-3d / backfaceVisibility はフリップ中だけ。安静時に残すと
               // iOS Safari で永続 3D レイヤーになり、長いノートの上方向スクロールが
               // 固まる（PullToRefresh の always-on translate3d と同じ原因）。
-              animation: flipping ? 'leverage-card-flip .6s ease-in-out both' : undefined,
+              animation: flipping ? 'leverage-card-flip .32s ease-in-out both' : undefined,
               transformStyle: flipping ? 'preserve-3d' : undefined,
               backfaceVisibility: flipping ? 'hidden' : undefined,
             }}

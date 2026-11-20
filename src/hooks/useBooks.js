@@ -134,6 +134,12 @@ export function writeBooksCache(uid, books, now = Date.now()) {
   }
 }
 
+// 分野・フォルダの 2 つの一覧が同じか（空き・重なり・順番は見ない）。
+export function sameTaxList(x, y) {
+  const norm = (arr) => [...new Set((arr || []).map((v) => String(v || '').trim()).filter(Boolean))].sort().join('\u0001');
+  return norm(x) === norm(y);
+}
+
 export function useBooks() {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -154,6 +160,13 @@ export function useBooks() {
     knownActionIdsRef.current.set(book.id, new Set((book.actions || []).map((a) => a?.id).filter(Boolean)));
   };
   const lastFetchAtRef = useRef(0);
+  // ⚡ 本ごとの「最後に確かめた分野・フォルダ」（読み込み・保存の結果）。保存で変わっていなければ書き直さない。
+  //   collections が null＝フォルダの表が無い DB で読んだ（いつも書く側に倒す）。
+  const persistedTaxRef = useRef(new Map());
+  const rememberTax = (b, hasCollections = true) => {
+    if (!b?.id) return;
+    persistedTaxRef.current.set(b.id, { tags: [...(b.tags || [])], collections: hasCollections ? [...(b.collections || [])] : null });
+  };
   // その人の最新の一覧を一度でも読めたか（控えを書くのは、読めたあとだけ）。
   const freshForRef = useRef(null);
 
@@ -166,6 +179,7 @@ export function useBooks() {
     const gen = ++fetchGenRef.current;
     setLoading(true);
     try {
+      let usedFull = true;
       let { data, error } = await supabase
         .from('books')
         .select(BOOK_SELECT_FULL)
@@ -173,6 +187,7 @@ export function useBooks() {
         .order('updated_at', { ascending: false });
       // フォルダ未適用 DB（book_collections なし）では base select に縮退。
       if (error && isMissingRelationError(error)) {
+        usedFull = false;
         ({ data, error } = await supabase
           .from('books')
           .select(BOOK_SELECT_BASE)
@@ -183,6 +198,8 @@ export function useBooks() {
       if (gen !== fetchGenRef.current) return; // stale fetch — 後着の旧応答は捨てる
       const list = (data || []).map(transformBook);
       list.forEach(rememberActionIds);
+      persistedTaxRef.current = new Map();
+      list.forEach((b) => rememberTax(b, usedFull));
       lastFetchAtRef.current = Date.now();
       freshForRef.current = user.id;
       setBooks(list);
@@ -378,144 +395,159 @@ export function useBooks() {
         savedBookId = data.id;
       }
 
-      // Tags: delete + re-insert (no stable client-side ids)
-      await supabase.from('book_tags').delete().eq('book_id', savedBookId);
-      if (book.tags && book.tags.length > 0) {
-        const tagInserts = book.tags.map((tag) => ({
-          book_id: savedBookId,
-          user_id: user.id,
-          tag_name: tag,
-        }));
-        const { error } = await supabase.from('book_tags').insert(tagInserts);
-        if (error) throw error;
-      }
+      // ⚡ 本の行を書いたあとの 3 つ（分野＝book_tags・フォルダ・行動）は互いに関係しないので、同時に送る
+      //   （2026-11-20 オーナー「初歩的な快適度の向上」＝前は 1 つずつ順に待ち、最大 7 往復していた）。
+      //   すでにある本で、分野・フォルダが「最後に保存・読み込みで確かめた中身」と同じなら書き直さない
+      //   （行動を 1 つ足しただけ・状態を進めただけの保存を軽く）。画面の一覧（楽観の更新が先に入る）とは比べない。
+      const persisted = isUUID ? persistedTaxRef.current.get(savedBookId) : null;
+      const tagsUnchanged = !!persisted && sameTaxList(persisted.tags, book.tags);
+      const collectionsUnchanged = !!persisted && Array.isArray(persisted.collections) && sameTaxList(persisted.collections, book.collections);
 
-      // Collections (フォルダ): タグと同じ delete + re-insert パターン。任意機能
-      // のため、テーブル未作成の DB では schema-error を握りつぶして保存を続行
-      // （フォルダ未適用でも本の保存は壊さない）。
-      if (book.collections !== undefined) {
-        try {
-          await supabase.from('book_collections').delete().eq('book_id', savedBookId);
-          const cols = (book.collections || []).map((c) => (c || '').trim()).filter(Boolean);
-          if (cols.length > 0) {
-            const colInserts = cols.map((name) => ({
-              book_id: savedBookId,
-              user_id: user.id,
-              collection_name: name,
-            }));
-            const { error } = await supabase.from('book_collections').insert(colInserts);
-            if (error && !isMissingRelationError(error)) throw error;
-          }
-        } catch (e) {
-          if (!isMissingRelationError(e)) throw e;
-        }
-      }
-
-      // Actions: upsert by id, then delete removed rows.
-      // 完全重複（同じ文言・期限・完了状態・繰り返し）を保存前に畳む。繰り返し
-      // タスクの多重 spawn などでできた重複行を、保存のたびに 1 件へ収束させて
-      // DB を掃除する（id を持つ行を優先的に残し、残りは下の DELETE で消える）。
-      const rawActions = (book.actions || []).filter((a) => a && typeof a.text === 'string' && a.text.trim());
-      const dedupMap = new Map();
-      let doneSeq = 0;
-      for (const a of rawActions) {
-        // ⚠️ 畳み込みは「未完了の増殖 spawn」対策に限定する。完了済み行は
-        //   完了時期・振り返りが違う正当な履歴（同じ習慣を複数回完了した等）
-        //   なので畳まない — 畳むと片方が差分 DELETE で静かに消える。
-        // 畳むのは「繰り返し」の行動だけ（増殖の原因はそこ）。繰り返しでない同じ文の行動は、
-        //   本人が 2 回入れたもの＝行動リストにも 2 件出ているので、黙って消さない。
-        const key = (a.done || !a.recurrence)
-          ? `keep#${a.id || `new-${doneSeq++}`}`
-          : `${a.text.trim()}|${a.deadline || ''}|0|${a.recurrence || ''}`;
-        const prev = dedupMap.get(key);
-        // id を持つ行（永続済み）を優先的に残す。
-        if (!prev || (!prev.id && a.id)) dedupMap.set(key, a);
-      }
-      const incoming = [...dedupMap.values()];
-      const existingIds = incoming
-        .map((a) => a.id)
-        .filter((id) => typeof id === 'string' && UUID_RE.test(id));
-
-      // 消すのは「この端末が知っていて、今回の一覧から外れた行動」だけ。
-      const keep = new Set(existingIds);
-      const toDelete = [...(knownActionIdsRef.current.get(savedBookId) || [])].filter((id) => !keep.has(id));
-      if (toDelete.length > 0) {
-        const { error: delErr } = await supabase
-          .from('actions')
-          .delete()
-          .eq('book_id', savedBookId)
-          .in('id', toDelete);
-        if (delErr) throw delErr;
-      }
-
-      if (incoming.length > 0) {
-        // supabase_actions_full.sql で追加した拡張列。マイグレーション未適用
-        // DB では UNDEFINED COLUMN エラーになるので、エラー時は基本列のみで
-        // 再試行する。
-        //
-        // id について: actions.id に DEFAULT gen_random_uuid() が無い環境では
-        // INSERT 時に NULL 制約違反になる。クライアント側で常に UUID を
-        // 生成しておく (DB の DEFAULT が無くても弾かれない)。生成した UUID
-        // は次回保存以降は UPDATE 経路に乗る。
-        const ensureId = (a) => {
-          if (a.id && UUID_RE.test(a.id)) return a.id;
-          try {
-            if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-              return crypto.randomUUID();
-            }
-          } catch { /* ignore */ }
-          return null;
-        };
-        const buildPayload = (a, includeExtras) => {
-          const base = {
+      const saveTags = async () => {
+        if (tagsUnchanged) return;
+        // Tags: delete + re-insert (no stable client-side ids)
+        await supabase.from('book_tags').delete().eq('book_id', savedBookId);
+        if (book.tags && book.tags.length > 0) {
+          const tagInserts = book.tags.map((tag) => ({
             book_id: savedBookId,
             user_id: user.id,
-            // 保存境界で clamp（本詳細インライン入力は maxLength を通らない経路があるため二重防御）。
-            text: clamp(a.text || '', LIMITS.actionText),
-            deadline: a.deadline || null,
-            done: a.done || false,
-          };
-          if (includeExtras) {
-            if ('priority' in a) base.priority = a.priority || 'medium';
-            if ('recurrence' in a) base.recurrence = a.recurrence || null;
-            // source_memo_id は UUID 列。振り返りの「まとめメモ/投資目的」等は
-            // 合成ノートで id が 'leverage_memo-<uuid>' 等の非 UUID なので、
-            // そのまま入れると DB が拒否し保存全体が失敗する。UUID 形式のときだけ入れる。
-            if ('sourceMemoId' in a) {
-              base.source_memo_id = isUuid(a.sourceMemoId) ? a.sourceMemoId : null;
+            tag_name: tag,
+          }));
+          const { error } = await supabase.from('book_tags').insert(tagInserts);
+          if (error) throw error;
+        }
+      };
+      const saveCollections = async () => {
+        if (collectionsUnchanged) return;
+        // Collections (フォルダ): タグと同じ delete + re-insert パターン。任意機能
+        // のため、テーブル未作成の DB では schema-error を握りつぶして保存を続行
+        // （フォルダ未適用でも本の保存は壊さない）。
+        if (book.collections !== undefined) {
+          try {
+            await supabase.from('book_collections').delete().eq('book_id', savedBookId);
+            const cols = (book.collections || []).map((c) => (c || '').trim()).filter(Boolean);
+            if (cols.length > 0) {
+              const colInserts = cols.map((name) => ({
+                book_id: savedBookId,
+                user_id: user.id,
+                collection_name: name,
+              }));
+              const { error } = await supabase.from('book_collections').insert(colInserts);
+              if (error && !isMissingRelationError(error)) throw error;
             }
-            if ('sourcePage' in a) base.source_page = a.sourcePage || null;
-            if ('reflection' in a) base.reflection = a.reflection || null;
-            if ('completedAt' in a) base.completed_at = a.completedAt || null;
-            if ('notifyAt' in a) base.notify_at = a.notifyAt || null;
-            if ('scheduledFor' in a) base.scheduled_for = a.scheduledFor || null;
-          }
-          const id = ensureId(a);
-          return id ? { id, ...base } : base;
-        };
-
-        const fullPayload = incoming.map((a) => buildPayload(a, true));
-        let res = await supabase.from('actions').upsert(fullPayload, { onConflict: 'id' });
-        if (res.error) {
-          const msg = String(res.error?.message || '').toLowerCase();
-          // 新カラムが無い → 基本列のみで再試行
-          if (
-            msg.includes('priority')
-            || msg.includes('recurrence')
-            || msg.includes('source_memo_id')
-            || msg.includes('source_page')
-            || msg.includes('reflection')
-            || msg.includes('completed_at')
-            || msg.includes('notify_at')
-            || msg.includes('scheduled_for')
-            || msg.includes('column')
-          ) {
-            const minPayload = incoming.map((a) => buildPayload(a, false));
-            res = await supabase.from('actions').upsert(minPayload, { onConflict: 'id' });
+          } catch (e) {
+            if (!isMissingRelationError(e)) throw e;
           }
         }
-        if (res.error) throw res.error;
-      }
+      };
+      const saveActions = async () => {
+        // Actions: upsert by id, then delete removed rows.
+        // 完全重複（同じ文言・期限・完了状態・繰り返し）を保存前に畳む。繰り返し
+        // タスクの多重 spawn などでできた重複行を、保存のたびに 1 件へ収束させて
+        // DB を掃除する（id を持つ行を優先的に残し、残りは下の DELETE で消える）。
+        const rawActions = (book.actions || []).filter((a) => a && typeof a.text === 'string' && a.text.trim());
+        const dedupMap = new Map();
+        let doneSeq = 0;
+        for (const a of rawActions) {
+          // ⚠️ 畳み込みは「未完了の増殖 spawn」対策に限定する。完了済み行は
+          //   完了時期・振り返りが違う正当な履歴（同じ習慣を複数回完了した等）
+          //   なので畳まない — 畳むと片方が差分 DELETE で静かに消える。
+          // 畳むのは「繰り返し」の行動だけ（増殖の原因はそこ）。繰り返しでない同じ文の行動は、
+          //   本人が 2 回入れたもの＝行動リストにも 2 件出ているので、黙って消さない。
+          const key = (a.done || !a.recurrence)
+            ? `keep#${a.id || `new-${doneSeq++}`}`
+            : `${a.text.trim()}|${a.deadline || ''}|0|${a.recurrence || ''}`;
+          const prev = dedupMap.get(key);
+          // id を持つ行（永続済み）を優先的に残す。
+          if (!prev || (!prev.id && a.id)) dedupMap.set(key, a);
+        }
+        const incoming = [...dedupMap.values()];
+        const existingIds = incoming
+          .map((a) => a.id)
+          .filter((id) => typeof id === 'string' && UUID_RE.test(id));
+
+        // 消すのは「この端末が知っていて、今回の一覧から外れた行動」だけ。
+        const keep = new Set(existingIds);
+        const toDelete = [...(knownActionIdsRef.current.get(savedBookId) || [])].filter((id) => !keep.has(id));
+        if (toDelete.length > 0) {
+          const { error: delErr } = await supabase
+            .from('actions')
+            .delete()
+            .eq('book_id', savedBookId)
+            .in('id', toDelete);
+          if (delErr) throw delErr;
+        }
+
+        if (incoming.length > 0) {
+          // supabase_actions_full.sql で追加した拡張列。マイグレーション未適用
+          // DB では UNDEFINED COLUMN エラーになるので、エラー時は基本列のみで
+          // 再試行する。
+          //
+          // id について: actions.id に DEFAULT gen_random_uuid() が無い環境では
+          // INSERT 時に NULL 制約違反になる。クライアント側で常に UUID を
+          // 生成しておく (DB の DEFAULT が無くても弾かれない)。生成した UUID
+          // は次回保存以降は UPDATE 経路に乗る。
+          const ensureId = (a) => {
+            if (a.id && UUID_RE.test(a.id)) return a.id;
+            try {
+              if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+                return crypto.randomUUID();
+              }
+            } catch { /* ignore */ }
+            return null;
+          };
+          const buildPayload = (a, includeExtras) => {
+            const base = {
+              book_id: savedBookId,
+              user_id: user.id,
+              // 保存境界で clamp（本詳細インライン入力は maxLength を通らない経路があるため二重防御）。
+              text: clamp(a.text || '', LIMITS.actionText),
+              deadline: a.deadline || null,
+              done: a.done || false,
+            };
+            if (includeExtras) {
+              if ('priority' in a) base.priority = a.priority || 'medium';
+              if ('recurrence' in a) base.recurrence = a.recurrence || null;
+              // source_memo_id は UUID 列。振り返りの「まとめメモ/投資目的」等は
+              // 合成ノートで id が 'leverage_memo-<uuid>' 等の非 UUID なので、
+              // そのまま入れると DB が拒否し保存全体が失敗する。UUID 形式のときだけ入れる。
+              if ('sourceMemoId' in a) {
+                base.source_memo_id = isUuid(a.sourceMemoId) ? a.sourceMemoId : null;
+              }
+              if ('sourcePage' in a) base.source_page = a.sourcePage || null;
+              if ('reflection' in a) base.reflection = a.reflection || null;
+              if ('completedAt' in a) base.completed_at = a.completedAt || null;
+              if ('notifyAt' in a) base.notify_at = a.notifyAt || null;
+              if ('scheduledFor' in a) base.scheduled_for = a.scheduledFor || null;
+            }
+            const id = ensureId(a);
+            return id ? { id, ...base } : base;
+          };
+
+          const fullPayload = incoming.map((a) => buildPayload(a, true));
+          let res = await supabase.from('actions').upsert(fullPayload, { onConflict: 'id' });
+          if (res.error) {
+            const msg = String(res.error?.message || '').toLowerCase();
+            // 新カラムが無い → 基本列のみで再試行
+            if (
+              msg.includes('priority')
+              || msg.includes('recurrence')
+              || msg.includes('source_memo_id')
+              || msg.includes('source_page')
+              || msg.includes('reflection')
+              || msg.includes('completed_at')
+              || msg.includes('notify_at')
+              || msg.includes('scheduled_for')
+              || msg.includes('column')
+            ) {
+              const minPayload = incoming.map((a) => buildPayload(a, false));
+              res = await supabase.from('actions').upsert(minPayload, { onConflict: 'id' });
+            }
+          }
+          if (res.error) throw res.error;
+        }
+      };
+      await Promise.all([saveTags(), saveCollections(), saveActions()]);
 
       // Fetch fresh row with relations to return（フォルダ未適用 DB では縮退）
       let { data: freshRow, error: freshErr } = await supabase
@@ -523,7 +555,9 @@ export function useBooks() {
         .select(BOOK_SELECT_FULL)
         .eq('id', savedBookId)
         .single();
+      let freshFull = true;
       if (freshErr && isMissingRelationError(freshErr)) {
+        freshFull = false;
         ({ data: freshRow, error: freshErr } = await supabase
           .from('books')
           .select(BOOK_SELECT_BASE)
@@ -534,6 +568,7 @@ export function useBooks() {
 
       const savedBook = transformBook(freshRow);
       rememberActionIds(savedBook);
+      rememberTax(savedBook, freshFull);
       // 全件再フェッチ（setBooks 全置換）はしない。保存した本だけを差し替える。
       // 全置換は (a) 余計な 1 往復、(b) 並行して楽観更新中の「別の本」の
       // チェック表示を一時的に巻き戻す（消えて→再点灯のちらつき）ため。
@@ -613,6 +648,7 @@ export function useBooks() {
   const restoreBookFromSnapshot = async (snapshot) => {
     if (!snapshot || !user || !isSupabaseConfigured) return { ok: false, failed: [] };
     const { book_tags = [], actions = [], book_memos = [], book_collections = [], reading_sessions = [], ...bookRow } = snapshot;
+    if (bookRow.id) persistedTaxRef.current.delete(bookRow.id); // 元に戻したあとの保存は、分野・フォルダを書き直す側に倒す
     // Reset updated_at so the restored row floats to the top of "更新順".
     const bookPayload = { ...bookRow, updated_at: new Date().toISOString() };
 
@@ -739,6 +775,8 @@ export function useBooks() {
   //   戻り値: { ok, foldersOk, tags, addedCollections }。foldersOk=false のときはフォルダに入れられなかった（表が無い・失敗）。
   const saveBookTaxonomy = async (bookId, { tags, base = null, addCollections = [] } = {}) => {
     if (!user || !isSupabaseConfigured || !UUID_RE.test(bookId || '')) return { ok: false, foldersOk: false };
+    // 分野・フォルダを直接書くので、覚えていた中身は捨てる（次の本の保存は書き直す側に倒す）。
+    persistedTaxRef.current.delete(bookId);
     const norm = (list) => [...new Set((list || []).map((t) => String(t || '').trim()).filter(Boolean))];
     const nextTags = norm(tags);
     const addCols = norm(addCollections);

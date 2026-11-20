@@ -40,3 +40,15 @@ describe('本の一覧の端末の控え（起動を速くする・2026-11-20）
     expect(readBooksCache('u1', 2000)).toEqual([{ id: 'b1' }]);
   });
 });
+
+describe('分野・フォルダが変わったか（本の保存を軽く・2026-11-20）', async () => {
+  const { sameTaxList } = await import('./useBooks');
+  it('順番・重なり・空きは見ない', () => {
+    expect(sameTaxList(['経営戦略', '思考法'], [' 思考法', '経営戦略', '経営戦略'])).toBe(true);
+    expect(sameTaxList([], undefined)).toBe(true);
+  });
+  it('1 つでも違えば書き直す', () => {
+    expect(sameTaxList(['経営戦略'], ['経営戦略', '思考法'])).toBe(false);
+    expect(sameTaxList(['A'], ['a'])).toBe(false);
+  });
+});

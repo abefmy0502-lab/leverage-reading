@@ -1842,9 +1842,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // chat view では clearedAt 以降のメッセージだけ表示する。history view は
   // 全件表示のままで OK (DB は削除していない)。
   const resumeIdSet = useMemo(() => new Set(resumeThread?.ids || []), [resumeThread]);
-  const visibleMessages = clearedAt
+  const visibleMessages = useMemo(() => (clearedAt
     ? messages.filter((m) => isLocalMsg(m) || (m.createdAt || '') > clearedAt || resumeIdSet.has(m.id))
-    : messages;
+    : messages), [clearedAt, messages, resumeIdSet]);
   // メモが答える相談の「AI に答えてもらう（プラン）」は、この会話でいちばん最初のメモの答えにだけ（毎回すすめない）。
   //   見つからなかった答えには出さない（AI もメモが無ければ答えられないので）。
   //   今月のトークンを使い切っている間は、いちばん新しい答えの下に 1 つだけ（続けて相談すると、上の答えの下に残ったまま
@@ -3313,7 +3313,19 @@ function PlainAnswer({ text, gap = 'var(--space-2)' }) {
 // 🎯 行動は会話で決める（2026-09-30）: 最初の答えは【あなたに聞きたいこと】（問い 1 文＋候補「・…」）で終わる。
 //   question＝問い（カードに出す）・replies＝候補（入力欄の上の返事のチップ）。前の形の答え（一歩つき）はこれまでどおり action。
 // 見出しが 1 つも取れなければ null（→ PlainAnswer）。
+// ⚡ 同じ答えを描き直すたびに組み替え直さない（入力の 1 文字ごと・答えの流れる 1 コマごとに全部の答えを
+//   組み替えていた・2026-11-20）。答えの文ごとに覚える（古いものから捨てる・流れている途中の文も入るので 300 件まで）。
+const parsedAnswerCache = new Map();
 export function parseAnswer(text) {
+  const key = String(text || '');
+  if (parsedAnswerCache.has(key)) return parsedAnswerCache.get(key);
+  const out = parseAnswerUncached(key);
+  parsedAnswerCache.set(key, out);
+  if (parsedAnswerCache.size > 300) parsedAnswerCache.delete(parsedAnswerCache.keys().next().value);
+  return out;
+}
+
+function parseAnswerUncached(text) {
   const src = String(text || '');
   const notes = [];
   const body = src

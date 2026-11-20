@@ -122,9 +122,31 @@ export function splitPoliteEnding(ph) {
   return [t];
 }
 
+// ⚡ 文節に分けた結果の控え（2026-11-20 オーナー「初歩的な快適度の向上」）。同じ文を描き直すたびに BudouX で
+//   分け直していた（本のカード・相談の答え・入力のたびの描き直しで何百回も）。文と scriptBreaks ごとに覚える。
+//   古いものから捨てる（PIECES_CACHE_MAX 件まで）。長すぎる文は覚えない。
+const PIECES_CACHE_MAX = 1500;
+const PIECES_CACHE_MAX_CHARS = 4000;
+const piecesCache = new Map();
 export function phrasePieces(text, { scriptBreaks = false } = {}) {
   const src = String(text ?? '');
   if (!src) return [];
+  if (src.length > PIECES_CACHE_MAX_CHARS) return computePhrasePieces(src, scriptBreaks);
+  const key = (scriptBreaks ? '1|' : '0|') + src;
+  const hit = piecesCache.get(key);
+  if (hit) {
+    // よく使う文を後ろへ（捨てられにくく）
+    piecesCache.delete(key);
+    piecesCache.set(key, hit);
+    return hit.slice();
+  }
+  const out = computePhrasePieces(src, scriptBreaks);
+  piecesCache.set(key, out);
+  if (piecesCache.size > PIECES_CACHE_MAX) piecesCache.delete(piecesCache.keys().next().value);
+  return out.slice();
+}
+
+function computePhrasePieces(src, scriptBreaks) {
   let p = null;
   try { p = getParser(); } catch { p = null; }
   const out = [];

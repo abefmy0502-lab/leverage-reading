@@ -105,7 +105,7 @@ async function signOut() {
     // 本人の id の付いた端末の控え（読書の時間・入れた理由・本の一覧＝起動を速くする控え）も共有端末では残さない。
     for (let i = ls.length - 1; i >= 0; i -= 1) {
       const k = ls.key(i) || '';
-      if (/^orime\.(readingSessions|appPurpose|booksCache)\.v\d+:/.test(k)) ls.removeItem(k);
+      if (/^orime\.(readingSessions|appPurpose|booksCache|memoCount)\.v\d+:/.test(k)) ls.removeItem(k);
     }
   } catch { /* ignore */ }
   // 初日の印（はじめての相談・10 件・選んだ道）と、ホームの前回のメモの件数（lib/firstDay.js・2026-10-02）。

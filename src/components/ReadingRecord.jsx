@@ -470,6 +470,9 @@ function TriedCard({ books, onOpenBook, onShowActions, onConsult = null }) {
   );
 }
 
+// 開いている間のメモの数の控え（ログイン中の人ごと）。
+let recordStatsCache = { userId: null, stats: null };
+
 export default function ReadingRecord({
   books,
   onConsultAction = null,
@@ -485,7 +488,8 @@ export default function ReadingRecord({
   const { user } = useAuth();
 
   // メモ統計（自己完結 fetch）。null = 取得中/未取得。
-  const [memoStats, setMemoStats] = useState(null);
+  // ⚡ 前に開いたときの数で先に描き、裏で数え直す（記録を開くたびに骨組みで待たせない・2026-11-20）。
+  const [memoStats, setMemoStats] = useState(() => (user?.id && recordStatsCache.userId === user.id ? recordStatsCache.stats : null));
   // ⏱ 読書の時間（集中モード・2026-10-10）。数える「いま」は開いたときに 1 回だけ決める（&today= の差し替えも効く）。
   const sessions = useReadingSessions();
   const [nowMs] = useState(() => appNow().getTime());
@@ -533,7 +537,8 @@ export default function ReadingRecord({
       if (!rows) {
         // 取得失敗（通信断など）。0 件と偽装すると「メモが消えた」ように見えるため、
         // failed を立ててメモ由来のセクションは出さず、控えめな注記だけ出す。
-        setMemoStats({ total: 0, createdDates: [], recalled: 0, mastered: 0, byBook: {}, recallSupported: false, failed: true });
+        // 前に数えた結果で描けているなら、それを残す（読み直しの失敗で記録を消さない）。
+        setMemoStats((cur) => (cur && !cur.failed ? cur : { total: 0, createdDates: [], recalled: 0, mastered: 0, byBook: {}, recallSupported: false, failed: true }));
         return;
       }
       let recalled = 0;
@@ -549,7 +554,9 @@ export default function ReadingRecord({
         if ((rec.recallCount || 0) > 0) mastered += 1;
         if (r.book_id) byBook[r.book_id] = (byBook[r.book_id] || 0) + 1;
       }
-      setMemoStats({ total: rows.length, createdDates, recalled, mastered, byBook, recallSupported });
+      const stats = { total: rows.length, createdDates, recalled, mastered, byBook, recallSupported };
+      recordStatsCache = { userId: user.id, stats };
+      setMemoStats(stats);
     })();
     return () => { active = false; };
   }, [user?.id]);

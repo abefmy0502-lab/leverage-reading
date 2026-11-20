@@ -457,10 +457,20 @@ export function ToastProvider({ children }) {
     if (!hasBar) { setBarAnim(false); return undefined; }
     const raf = requestAnimationFrame(() => setBarAnim(true));
     const recheck = () => setBarPos((cur) => { const next = barBottom(); return next === cur ? cur : next; });
-    const id = setInterval(recheck, 200);
+    // 見直しは 0.5 秒ごと（2026-11-20 に 0.2 秒から＝打っている・スクロールしている間に、画面の測り直しを
+    //   何度もさせていた）。画面の大きさ・キーボードの開閉はその場で見直す。
+    const id = setInterval(recheck, 500);
+    const vv = window.visualViewport;
     // 右下の「メモを書く」が出た・消えたときは、待たずにすぐ位置を見直す（MemoFab が知らせる・2026-09-30）。
     window.addEventListener('orime:fab', recheck);
-    return () => { cancelAnimationFrame(raf); clearInterval(id); window.removeEventListener('orime:fab', recheck); };
+    window.addEventListener('resize', recheck);
+    if (vv) vv.addEventListener('resize', recheck);
+    return () => {
+      cancelAnimationFrame(raf); clearInterval(id);
+      window.removeEventListener('orime:fab', recheck);
+      window.removeEventListener('resize', recheck);
+      if (vv) vv.removeEventListener('resize', recheck);
+    };
   }, [hasBar]);
 
   return (

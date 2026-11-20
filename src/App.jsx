@@ -2369,46 +2369,12 @@ function AuthedApp() {
         )
       );
 
-      // 表紙未確定の本については、ここで必ず resolveCoverForBook（サーバー → 端末）
-      // を通す。検索結果から渡ってきた未検証の URL や、async resolve が
-      // 完了する前にユーザーが保存したケースを救済する。
-      // 'manual' は手動アップロード済み / 'removed' はユーザーが意図的に
-      // 削除した印 → どちらも触らない（保存のたびに削除した表紙が復活
-      // してしまうため）。
-      let resolvedCover = form.cover;
-      let resolvedCoverIsbn = form.coverIsbn;
-      let resolvingToastId = null;
-      if (!resolvedCover && form.coverIsbn !== 'manual' && form.coverIsbn !== 'removed' && (form.title || form.isbn)) {
-        // 表紙解決は複数のネットワーク往復（最大数十秒）になり得る。無反応だと
-        // 保存失敗と誤認して離脱するため、その場でフィードバックを出す。
-        resolvingToastId = toast.show({ type: 'info', message: '保存しています…', duration: 30000 });
-        try {
-          // サーバー（楽天・NDL・openBD）→ 端末の順で探す（以前は端末だけで、NDL の CORS・
-          // Google の 429 で取りこぼしていた）。保存を長く待たせないよう 8 秒で打ち切り、
-          // 間に合わなければ保存のあと裏で探す（resolveCoverInBackground）。
-          const r = await Promise.race([
-            resolveCoverForBook({ title: form.title, author: form.author, isbn: form.isbn }),
-            new Promise((res) => { setTimeout(() => res({ url: '', outcome: 'transient' }), 8000); }),
-          ]);
-          if (r.url) {
-            resolvedCover = r.url;
-            resolvedCoverIsbn = r.coverIsbn || '';
-          } else {
-            resolvedCover = '';
-            resolvedCoverIsbn = '';
-            if (r.outcome === 'not_found') {
-              toast.show({
-                type: 'info',
-                message: '表紙が見つかりませんでした。写真をアップロードできます。',
-                duration: 4000,
-              });
-            }
-          }
-        } catch { /* 解決失敗時は元の form 値で保存続行 */ }
-        finally {
-          if (resolvingToastId) { try { toast.dismiss(resolvingToastId); } catch { /* ignore */ } }
-        }
-      }
+      // ⚡ 表紙が決まっていない本も、待たずに保存する（2026-11-20 オーナー「初歩的な快適度の向上」）。
+      //   前はここで表紙を探し（最大 8 秒）、そのあとで保存していた。表紙は保存のあと裏で探す
+      //   （resolveCoverInBackground＝本棚の自動の再取得と同じキュー・AI 選書から足すときと同じ）。
+      //   'manual'（手動で載せた）/ 'removed'（本人が消した）はそのまま。
+      const resolvedCover = form.cover;
+      const resolvedCoverIsbn = form.coverIsbn;
 
       // 「保存して読書を開始する」相当の自動遷移条件:
       //   既存本 + form.status='before' + 投資目的 が揃っている。

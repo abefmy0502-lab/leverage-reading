@@ -318,13 +318,31 @@ export function useBookMemos(bookId, { sortBy = 'page' } = {}) {
   const deleteMemo = async (memoId) => {
     if (!user || !isSupabaseConfigured) return;
     const target = rawMemosRef.current.find((m) => m.id === memoId);
-    const { error: delErr } = await supabase.from('book_memos').delete().eq('id', memoId);
-    if (delErr) throw delErr;
+    const index = rawMemosRef.current.findIndex((m) => m.id === memoId);
+    // ⚡ 先に一覧から外す（2026-11-20）。前は消し終わる（写真の削除も）まで残っていて、「削除しました」の知らせと
+    //   カードが同時に見えていた。消せなかったら元の位置に戻す。
+    writeBoth((prev) => prev.filter((m) => m.id !== memoId));
+    let delErr = null;
+    try {
+      ({ error: delErr } = await supabase.from('book_memos').delete().eq('id', memoId));
+    } catch (e) {
+      delErr = e;
+    }
+    if (delErr) {
+      if (target) {
+        writeBoth((prev) => {
+          if (prev.some((m) => m.id === memoId)) return prev;
+          const next = [...prev];
+          next.splice(Math.min(Math.max(index, 0), next.length), 0, target);
+          return next;
+        });
+      }
+      throw delErr;
+    }
     if (target?.photoPath) {
       await removePhoto(target.photoPath);
       cache.invalidatePhotoUrl(target.photoPath);
     }
-    writeBoth((prev) => prev.filter((m) => m.id !== memoId));
   };
 
   // Re-INSERT a previously-deleted memo from a snapshot (used by Undo).
