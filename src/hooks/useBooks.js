@@ -101,6 +101,39 @@ const transformBook = (book) => ({
   readTargetMin: cleanTarget(book.read_target_min) || readLocalTarget(book.id),
 });
 
+// ⚡ 本の一覧の端末の控え（2026-11-20 オーナー「起動してから画面表示されるまでが遅い」）。
+//   次に開いたときは、まずこの控えでホームを描き、裏で読み直して差し替える（loading は読み直すまで true のまま
+//   ＝自動で書く処理・案内は最新の一覧を待つ）。控えは本人の id ごと・ログアウトで消す（useAuth の signOut）。
+//   大きすぎる一覧（端末の保存の上限に近い）は控えない。30 日より古い控えは使わない。
+export const BOOKS_CACHE_PREFIX = 'orime.booksCache.v1:';
+const BOOKS_CACHE_MAX_CHARS = 2_000_000;
+const BOOKS_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+export function readBooksCache(uid, now = Date.now()) {
+  if (!uid || typeof localStorage === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(BOOKS_CACHE_PREFIX + uid);
+    if (!raw) return null;
+    const v = JSON.parse(raw);
+    if (!v || !Array.isArray(v.books) || v.books.length === 0) return null;
+    if (!(Number(v.at) > 0) || now - Number(v.at) > BOOKS_CACHE_TTL_MS) return null;
+    return v.books.filter((b) => b && typeof b === 'object' && b.id);
+  } catch {
+    return null;
+  }
+}
+export function writeBooksCache(uid, books, now = Date.now()) {
+  if (!uid || typeof localStorage === 'undefined') return;
+  const key = BOOKS_CACHE_PREFIX + uid;
+  try {
+    if (!Array.isArray(books) || books.length === 0) { localStorage.removeItem(key); return; }
+    const raw = JSON.stringify({ at: now, books });
+    if (raw.length > BOOKS_CACHE_MAX_CHARS) { localStorage.removeItem(key); return; }
+    localStorage.setItem(key, raw);
+  } catch {
+    try { localStorage.removeItem(key); } catch { /* ignore */ }
+  }
+}
+
 export function useBooks() {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -121,6 +154,8 @@ export function useBooks() {
     knownActionIdsRef.current.set(book.id, new Set((book.actions || []).map((a) => a?.id).filter(Boolean)));
   };
   const lastFetchAtRef = useRef(0);
+  // その人の最新の一覧を一度でも読めたか（控えを書くのは、読めたあとだけ）。
+  const freshForRef = useRef(null);
 
   const fetchBooks = useCallback(async () => {
     if (!user || !isSupabaseConfigured) {
@@ -149,6 +184,7 @@ export function useBooks() {
       const list = (data || []).map(transformBook);
       list.forEach(rememberActionIds);
       lastFetchAtRef.current = Date.now();
+      freshForRef.current = user.id;
       setBooks(list);
       setLoadError(false);
     } catch (error) {
@@ -163,12 +199,26 @@ export function useBooks() {
 
   useEffect(() => {
     if (user) {
+      // ⚡ まず端末の控えで描く（読み直すまで loading は true のまま）。
+      if (freshForRef.current !== user.id) {
+        const cached = readBooksCache(user.id);
+        setBooks(cached ? cached.map((b) => ({ ...b })) : []);
+      }
       fetchBooks();
     } else {
+      freshForRef.current = null;
       setBooks([]);
       setLoading(false);
     }
   }, [user, fetchBooks]);
+
+  // 一覧が変わったら（読み直し・保存・削除）、少し待って端末に控える。最新を読めたあとだけ。
+  const userId = user?.id || null;
+  useEffect(() => {
+    if (!userId || loading || freshForRef.current !== userId) return undefined;
+    const t = setTimeout(() => writeBooksCache(userId, books), 600);
+    return () => clearTimeout(t);
+  }, [userId, books, loading]);
 
   // アプリに戻ってきたとき（しばらく離れていたら）読み直す。ほかの端末での変更を取り込み、
   // 古い一覧のまま保存して上書きしないように。

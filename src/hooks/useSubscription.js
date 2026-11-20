@@ -115,7 +115,11 @@ export function useSubscription() {
     // アンロック/ロックされるのを防ぐ）。
     const forUserId = user.id;
     const isCurrent = () => userRef.current === forUserId;
-    if (loadedForRef.current !== forUserId) setLoading(true);
+    if (loadedForRef.current !== forUserId) {
+      setLoading(true);
+      // ⚡ 確かめている間も、端末に控えた「有料」を先に使う（iPhone のアプリは確認を待たずに開く・2026-11-20）。
+      setSubscription(readCachedEntitlement(forUserId));
+    }
     let dbActive = false;
     try {
       const { data, error: dbError } = await withTimeout(

@@ -1704,7 +1704,8 @@ function AuthedApp() {
   // intentionally NOT part of the predicate, so users who clear data or
   // re-install only see it again if they explicitly reset via the help button.
   // 本を読み込んだら、Web の飾りのスプラッシュをすぐ消す（決まった 1 秒を待たせない・2026-09-30）。
-  useEffect(() => { if (!booksLoading) markAppReady(); }, [booksLoading]);
+  //   端末に控えた本の一覧で先に描けたときも消す（2026-11-20）。
+  useEffect(() => { if (!booksLoading || rawBooks.length > 0) markAppReady(); }, [booksLoading, rawBooks.length]);
   useEffect(() => {
     if (booksLoading) return;
     if (onboardingTriggeredRef.current) return;
@@ -7662,6 +7663,10 @@ function PaywallGate() {
       ? (periodType === 'trial' ? 'trial' : 'paid')
       : 'free';
   const trialEndsAt = plan === 'trial' ? (subscription?.currentPeriodEnd || null) : null;
+  // ⚡ 契約・管理者の確認が終わったか（2026-11-20 オーナー「起動してから画面表示されるまでが遅い」）。
+  //    iPhone のアプリは確認を待たずにアプリを開く（下の読み込み表示は Web だけ）。終わるまでは無料プランと決めつけない
+  //    ＝プランの案内・有料プランの画面を出さない（freeMode は確認のあとだけ true・AI は止めるのがサーバー）。
+  const planKnown = !loading && adminChecked;
 
   // 🪙 残りのトークン（src/lib/tokens.js・表示だけ。止めるのはサーバー）。
   const [usedMjpy, setUsedMjpy] = useState(null); // null=未確認・読めない
@@ -7707,7 +7712,7 @@ function PaywallGate() {
   const tokenNextAllowance = nextMonthAllowanceFor(plan, { createdAt: userCreatedAt, now: appNow().getTime() });
   const tokensRemaining = usedMjpy == null || tokenAllowance == null ? null : remainingTokens(tokenAllowance, usedMjpy);
   const purchasedTokens = plan === 'admin' ? 0 : (lots?.balance || 0);
-  const freeMode = plan === 'free';
+  const freeMode = plan === 'free' && planKnown;
   // 買い足せるのはプランの人（有料・7 日間無料）だけ。
   const canBuyTokens = plan === 'paid' || plan === 'trial';
   const [tokenSheetOpen, setTokenSheetOpen] = useState(false);
@@ -7744,6 +7749,7 @@ function PaywallGate() {
     const openPaywall = (reason = null, feature = '') => setPaywall({ reason, feature });
     return {
       plan,
+      planKnown,
       freeMode,
       trialEndsAt,
       // 📅 契約の種類（'annual' | 'monthly' | ''）と次回更新（ISO）。ホームの年額の更新の前の 1 行・12〜1 月の年額の 1 行に使う（2026-10-22）。
@@ -7783,7 +7789,7 @@ function PaywallGate() {
         return false;
       },
     };
-  }, [plan, freeMode, trialEndsAt, tokenAllowance, freeFirstMonth, tokenNextAllowance, tokensRemaining, purchasedTokens, canBuyTokens, refreshTokens, refresh, subscription?.status, freeOcrUsed]);
+  }, [plan, planKnown, freeMode, trialEndsAt, tokenAllowance, freeFirstMonth, tokenNextAllowance, tokensRemaining, purchasedTokens, canBuyTokens, refreshTokens, refresh, subscription?.status, freeOcrUsed]);
 
   // Checkout 復帰処理: ?checkout=success なら webhook 反映ラグを吸収するため
   // refresh を数秒間隔で数回リトライ。?checkout=cancel は静かに URL を掃除。
@@ -7822,7 +7828,9 @@ function PaywallGate() {
   }, [refresh]);
 
   // 判定が確定するまで（課金 or 管理者）は読み込み表示（ホームの形のスケルトン）。
-  if (loading || !adminChecked) {
+  //   Web だけ（管理者でなければアプリへの案内の画面になるので、確かめてから出す）。iPhone のアプリは待たずに開く
+  //   （前は契約の確認 → RevenueCat → 本の読み込みの順に待っていて、起動が遅かった・2026-11-20）。
+  if (!isNative && !planKnown) {
     return (
       <Shell>
         <HomeLoadingSkeleton />

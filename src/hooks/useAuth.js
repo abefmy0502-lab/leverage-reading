@@ -102,10 +102,10 @@ async function signOut() {
     const ls = window.localStorage;
     ls.removeItem('bookSearchCache'); // 前の版のキー
     ls.removeItem('bookSearchCache:v2'); // lib/bookSearch.js の今のキー（2026-10-22 監査で名前のずれを直した）
-    // 本人の id の付いた端末の控え（読書の時間・入れた理由）も共有端末では残さない。
+    // 本人の id の付いた端末の控え（読書の時間・入れた理由・本の一覧＝起動を速くする控え）も共有端末では残さない。
     for (let i = ls.length - 1; i >= 0; i -= 1) {
       const k = ls.key(i) || '';
-      if (/^orime\.(readingSessions|appPurpose)\.v\d+:/.test(k)) ls.removeItem(k);
+      if (/^orime\.(readingSessions|appPurpose|booksCache)\.v\d+:/.test(k)) ls.removeItem(k);
     }
   } catch { /* ignore */ }
   // 初日の印（はじめての相談・10 件・選んだ道）と、ホームの前回のメモの件数（lib/firstDay.js・2026-10-02）。
