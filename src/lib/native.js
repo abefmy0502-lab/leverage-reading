@@ -46,13 +46,37 @@ export async function initNative() {
     /* Keyboard 未対応プラットフォームでは無視 */
   }
 
-  // SplashScreen — UI が出揃ってから隠す。
-  try {
-    const { SplashScreen } = await import('@capacitor/splash-screen');
-    await SplashScreen.hide();
-  } catch {
-    /* SplashScreen 未対応プラットフォームでは無視 */
-  }
+  // SplashScreen は、最初の画面を描いてから隠す（hideSplashWhenReady）。
+}
+
+// ⚡ 起動画面（端末の SplashScreen）を隠す時を決める（2026-11-20 オーナー「起動してから画面表示されるまでが遅い」）。
+//   前は React が何も描かないうちに隠していたので、起動画面のあとに何も無い地（暗い設定では明るい地）が一瞬見えた。
+//   最初の画面の用意ができた知らせ（lib/appReady）を待ち、描いた次のコマで隠す。来なくても 1 秒で隠す
+//   （起動画面の間は押せないので長く待たせない・capacitor.config の launchShowDuration 1500 が最後の保険）。
+export const SPLASH_MAX_WAIT_MS = 1000;
+export function hideSplashWhenReady({ isReady, readyEvent, maxWaitMs = SPLASH_MAX_WAIT_MS } = {}) {
+  if (!Capacitor.isNativePlatform() || typeof window === 'undefined') return;
+  let done = false;
+  const hide = () => {
+    if (done) return;
+    done = true;
+    window.removeEventListener(readyEvent, onReady);
+    clearTimeout(timer);
+    const raf = window.requestAnimationFrame || ((f) => setTimeout(f, 16));
+    // 描いたものが画面に出てから（2 コマ待つ）
+    raf(() => raf(async () => {
+      try {
+        const { SplashScreen } = await import('@capacitor/splash-screen');
+        await SplashScreen.hide({ fadeOutDuration: 150 });
+      } catch {
+        /* SplashScreen 未対応プラットフォームでは無視 */
+      }
+    }));
+  };
+  const onReady = () => hide();
+  const timer = setTimeout(hide, maxWaitMs);
+  if (readyEvent) window.addEventListener(readyEvent, onReady, { once: true });
+  if (isReady && isReady()) hide();
 }
 
 // iOS のキーボードの上の入力補助バー（∧ ∨ 完了）を出す／隠す（ネイティブのときだけ・Web では何もしない）。

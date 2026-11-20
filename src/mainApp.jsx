@@ -8,7 +8,8 @@ import { ConfirmProvider } from './components/ConfirmDialog';
 import { AppDataCacheProvider } from './state/AppDataCache';
 import { AuthProvider } from './hooks/useAuth';
 import { initSentry } from './lib/sentry';
-import { initNative } from './lib/native';
+import { initNative, hideSplashWhenReady } from './lib/native';
+import { APP_READY_EVENT, isAppReady } from './lib/appReady';
 import { installViewportFit } from './lib/viewportFit';
 import { Capacitor } from '@capacitor/core';
 import { prefetchAppParts } from './components/lazyParts';
@@ -29,6 +30,8 @@ export function mount(rootEl) {
   // ネイティブ (Capacitor / iOS) のみ StatusBar / Keyboard / SplashScreen を
   // 初期化する。Web / PWA では内部で即 return するので無害。
   initNative();
+  // 起動画面は、最初の画面（ホーム・ログインの画面）を描いてから隠す（1 秒まで・2026-11-20）。
+  hideSplashWhenReady({ isReady: isAppReady, readyEvent: APP_READY_EVENT });
   // キーボードを開いても、画面を見えている範囲に合わせる（Web だけ・2026-11-15）。
   installViewportFit({ native: Capacitor.isNativePlatform() });
 

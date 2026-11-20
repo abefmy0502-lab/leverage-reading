@@ -218,7 +218,11 @@ class Query {
     // &save=slow: 本の保存がなかなか終わらない（取り込み中の表示の確認用）。書き込みだけ遅らせる。
     const slowSave = (this.op !== 'select' && qs.get('save') === 'slow' && this.table === 'books')
       || (this.op === 'update' && qs.get('save') === 'slow-memo-update' && this.table === 'book_memos');
-    return new Promise((r) => setTimeout(r, slow || slowSave ? 60000 : 40)).then(() => this._exec()).then(resolve, reject);
+    // &latency=300: どの読み書きも 300ms かかる（つながりの遅さを真似て、待ちが直列になっている所を見つける・2026-11-20）。
+    //   &trace=1 で、読み書きごとに「始めた時刻・表・操作」を console に出す（scripts の計測が読む）。
+    const latency = Math.max(0, Math.min(5000, Number(qs.get('latency')) || 0));
+    if (qs.get('trace') === '1') { try { console.debug(`[demo-q] ${Math.round(performance.now())} ${this.op} ${this.table}`); } catch { /* ignore */ } }
+    return new Promise((r) => setTimeout(r, slow || slowSave ? 60000 : (latency || 40))).then(() => this._exec()).then(resolve, reject);
   }
 
   _rows() { return this.store.table(this.table); }
@@ -474,6 +478,10 @@ export function createDemoClient() {
     },
     from: (table) => new Query(store, table),
     rpc: async (name) => {
+      const q = new URLSearchParams(window.location.search);
+      if (q.get('trace') === '1') { try { console.debug(`[demo-q] ${Math.round(performance.now())} rpc ${name}`); } catch { /* ignore */ } }
+      const lat = Math.max(0, Math.min(5000, Number(q.get('latency')) || 0));
+      if (lat) await new Promise((r) => setTimeout(r, lat));
       // お試しモードは管理者ではない（is_app_admin も無い関数として false 側に倒れる）。
       return { data: null, error: { code: 'PGRST202', message: `Could not find the function public.${name}` } };
     },
