@@ -39,7 +39,7 @@ export default function LpWhy() {
       <RetentionChart />
       {/* 研究 3 つは 1 段に（2026-11-11 オーナー「ここまで細かくなくて良い」）: 3 つの言葉 → 1 文 → 出典 1 行 */}
       <div className="lp-why-keys">
-        <p className="lp-why-keys-row">{WHY.keys.map((k) => <span key={k}>{k}</span>)}</p>
+        <p className="lp-why-keys-row">{WHY.keys.map((k) => <span key={k}>{k.split(/(?<=・)/).map((c) => <span key={c} className="lp-nb">{c}</span>)}</span>)}</p>
         <p className="lp-why-summary">{WHY.summary}</p>
         <p className="lp-why-sources">{WHY.sources}</p>
       </div>
