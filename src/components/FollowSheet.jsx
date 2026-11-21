@@ -13,6 +13,7 @@ import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { btnPrimary, btnGhost, btnLink, btnLinkQuiet, btnRow, input as inputBase, groupTitle, segTrack, segOption } from '../styles/ui';
 import MiniCover from './MiniCover';
+import BookStoreLinks from './BookStoreLinks';
 import { SkeletonBlock } from './Skeleton';
 import { withPhraseBreaks } from './TightBubble';
 import {
@@ -296,6 +297,10 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
             </>
           );
         })()}
+        {/* 本屋で見る（本の詳細と同じ Amazon・楽天の 2 つ・開示の文つき）。 */}
+        <div style={{ marginTop: 'var(--space-4)' }}>
+          <BookStoreLinks book={book} variant="cta" />
+        </div>
         </div>
       </BottomSheet>,
       document.body,
