@@ -10,6 +10,7 @@ import { Chip } from './formPrimitives';
 import { withPhraseBreaks } from './TightBubble';
 import { input as uiInput } from '../styles/ui';
 import { APP_PURPOSE_STARTERS, APP_PURPOSE_MAX, APP_PURPOSE_MIN_REST, cleanPurposeText, purposeStarterOf, purposeRestLength } from '../lib/appPurpose';
+import { revealInScroller } from '../lib/motion';
 
 // チップを押したときの欄の文。空か書き出しだけなら置きかえ、続きが書いてあれば変えない。
 export function applyPurposeStarter(value, starter) {
@@ -48,7 +49,7 @@ export default function AppPurposeField({ value, onChange, id = 'app-purpose-inp
       try { el.focus({ preventScroll: true }); el.setSelectionRange(next.length, next.length); } catch { /* ignore */ }
     });
     // キーボードが出たあとも、欄の下の例が見えるところまで送る
-    setTimeout(() => { try { document.getElementById(`${id}-hint`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch { /* ignore */ } }, 350);
+    setTimeout(() => { revealInScroller(document.getElementById(`${id}-hint`)); }, 350);
   };
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>

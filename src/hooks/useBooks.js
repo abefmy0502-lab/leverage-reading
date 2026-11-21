@@ -584,6 +584,30 @@ export function useBooks() {
     }
   };
 
+  // 🗑 消すと決めた本を、通信を待たずに一覧から外す（2026-11-21）。戻す関数を返す（消せなかったとき・控えを取れなかったとき）。
+  //   前は控えを取る・消すの 2〜3 往復のあいだ、本が一覧に残ったままで、押せたのか分からなかった。
+  const hideBook = (bookId) => {
+    let removed = null;
+    let at = -1;
+    setBooks((prev) => {
+      const i = prev.findIndex((b) => b.id === bookId);
+      if (i < 0) return prev;
+      removed = prev[i];
+      at = i;
+      return prev.filter((b) => b.id !== bookId);
+    });
+    return () => {
+      if (!removed) return;
+      const row = removed;
+      setBooks((prev) => {
+        if (prev.some((b) => b.id === row.id)) return prev;
+        const next = prev.slice();
+        next.splice(Math.min(Math.max(at, 0), next.length), 0, row);
+        return next;
+      });
+    };
+  };
+
   const deleteBook = async (bookId) => {
     if (!user || !isSupabaseConfigured) return;
     invalidateKnowledgeCache();
@@ -835,6 +859,7 @@ export function useBooks() {
     loadError,
     saveBook,
     deleteBook,
+    hideBook,
     mutateBookLocal,
     saveBookBrief,
     saveReadTarget,

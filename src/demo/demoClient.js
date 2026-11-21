@@ -23,6 +23,7 @@
 //   - &purpose=1 : 積読の『LIFE SHIFT』に得たいことを入れる（読書計画シートは無いまま＝「読書を開始する」の確認用・2026-10-04）
 //   - &save=slow-memo-update : メモの書き直し（タグを付ける）がなかなか終わらない（保存中のチップの確認用）
 //   - &writefail=book_memos:update : メモの書き直しだけ失敗させる（新しいメモの保存は通る・表:操作）
+//   - &writefail=books:delete : 本の削除だけ失敗させる（削除は「表:delete」と書いたときだけ・2026-11-21）
 //   - &seen=2026-10-03 : 「新しくなったこと」をその版まで見た人（更新したあとのシートが、それより新しい版で出る）。
 //     付けなければ、いまの版を見たことにする（ほかの撮影にシートを重ねない）。新規の人のシナリオは付けても無視
 //   - &update=1 : 「アプリの新しい版があります」を出す（Web の新しい版の知らせ）。&bundle=2026-10-04 を足すと、
@@ -178,7 +179,7 @@ class Query {
     // &writefail=book_memos: 指定した表への書き込みを失敗させる（保存の失敗の表示の確認用）。
     //   &writefail=book_memos:update のように「表:操作」で、その操作だけを失敗させる。
     const writeFails = (qs.get('writefail') || '').split(',');
-    if ((qs.get('offline') === '1' && !demoBackOnline && this.op !== 'select') || (['insert', 'upsert', 'update'].includes(this.op) && (writeFails.includes(this.table) || writeFails.includes(`${this.table}:${this.op}`)))) {
+    if ((qs.get('offline') === '1' && !demoBackOnline && this.op !== 'select') || (['insert', 'upsert', 'update'].includes(this.op) && (writeFails.includes(this.table) || writeFails.includes(`${this.table}:${this.op}`))) || (this.op === 'delete' && writeFails.includes(`${this.table}:delete`))) {
       return new Promise((r) => setTimeout(r, 300))
         .then(() => ({ data: null, error: { message: 'network error', code: 'demo' }, count: null }))
         .then(resolve, reject);

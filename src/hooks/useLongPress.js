@@ -46,6 +46,8 @@ export function useLongPress({ onLongPress, duration = DEFAULT_DURATION, onCance
       clear();
       timerRef.current = setTimeout(() => {
         triggeredRef.current = true;
+        // iPhone で長押しした所の文字が選ばれ、拡大鏡やコピーの吹き出しがメニューに重なっていた（2026-11-21）。
+        try { window.getSelection?.()?.removeAllRanges(); } catch { /* ignore */ }
         try {
           onLongPress(originRef.current);
         } catch {
@@ -89,6 +91,8 @@ export function useLongPress({ onLongPress, duration = DEFAULT_DURATION, onCance
       onTouchEnd: end,
       onTouchCancel: cancel,
       onContextMenu: (e) => e.preventDefault(),
+      // components.css の [data-long-press]＝文字の選択と iOS の吹き出しを出さない（入力欄は除く）。
+      'data-long-press': '',
     },
   };
 }

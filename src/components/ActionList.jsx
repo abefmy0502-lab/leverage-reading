@@ -30,7 +30,7 @@ import SwipeableCard from './SwipeableCard';
 import { useToast } from './Toast';
 import { useLongPress } from '../hooks/useLongPress';
 import { MoreHorizontal, BookOpen, Trash2, Pencil, CheckCircle2, Circle, ListTodo, Plus, MessageCircle, ChevronDown, ChevronRight, X } from 'lucide-react';
-import { scrollBehavior } from '../lib/motion';
+import { scrollBehavior, revealInScroller } from '../lib/motion';
 import { completeWithRollback } from '../lib/actionComplete';
 
 // 余白は辺ごとに書く（padding の一括指定と paddingBottom を混ぜると、描き直しで下の余白が戻らないことがある・2026-09-30）。
@@ -391,7 +391,7 @@ function ReflectCard({ a, value, onChange, onSave, saving, onClose, onConsult = 
   //   高さが広がり終わってから（その前は、下の余白がまだ足りずに最後まで寄せられない）。
   useEffect(() => {
     const t = setTimeout(() => {
-      try { ref.current?.scrollIntoView({ block: 'nearest', behavior: reducedMotion() ? 'auto' : 'smooth' }); } catch { /* ignore */ }
+      revealInScroller(ref.current);
     }, fastMs() + 40);
     return () => clearTimeout(t);
   }, []);

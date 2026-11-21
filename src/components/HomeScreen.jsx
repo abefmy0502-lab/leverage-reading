@@ -242,7 +242,8 @@ const navDivider = <span aria-hidden="true" style={{ display: 'block', marginLef
 // 📅 読書計画の 1 行（2026-11-16 オーナー C 案「読書計画を作った人だけ、ホームに今日の本を 1 行」）。
 //   作っていない人には出さない（ホームで機能をすすめない）。押すと読書計画（GoalScreen の plan）。
 function usePlanToday(books, enabled) {
-  const { roadmaps, loaded } = useGoals();
+  const { roadmaps, loaded: goalsLoaded, seeded } = useGoals();
+  const loaded = goalsLoaded || seeded; // 端末の控えで先に描く（後から差し込まない・2026-11-21）
   const { rows: sessions } = useReadingSessions();
   return useMemo(() => {
     if (!enabled || !loaded) return null;
@@ -262,7 +263,8 @@ function usePlanToday(books, enabled) {
 const GOAL_NUDGE_KEY = 'orime.home.goalNudge.closed:';
 function readGoalNudgeClosed(uid) { try { return !!uid && localStorage.getItem(GOAL_NUDGE_KEY + uid) === '1'; } catch { return false; } }
 function useGoalNudge(enabled, uid) {
-  const { goals, loaded } = useGoals();
+  const { goals, loaded: goalsLoaded, seeded } = useGoals();
+  const loaded = goalsLoaded || seeded;
   const [closed, setClosed] = useState(() => readGoalNudgeClosed(uid));
   useEffect(() => { setClosed(readGoalNudgeClosed(uid)); }, [uid]);
   const show = enabled && loaded && !closed && !hasAnyGoal(goals);

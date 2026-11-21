@@ -56,7 +56,7 @@ export function useFocusTrap(active = true) {
     if (focusable.length === 0) {
       // フォーカス可能要素が無ければコンテナに留めて外へ抜けさせない。
       e.preventDefault();
-      try { container.focus(); } catch { /* ignore */ }
+      try { container.focus({ preventScroll: true }); } catch { /* ignore */ }
       return;
     }
 
@@ -115,7 +115,8 @@ export function useFocusTrap(active = true) {
       const prev = prevFocusRef.current;
       prevFocusRef.current = null;
       if (prev && typeof prev.focus === 'function' && document.contains(prev)) {
-        try { prev.focus(); } catch { /* ignore */ }
+        // 戻すときに画面を動かさない（閉じたあと、押した所へ一覧が跳ねていた・2026-11-21）。
+        try { prev.focus({ preventScroll: true }); } catch { /* ignore */ }
       }
     };
   }, [active, handleKeyDown]);

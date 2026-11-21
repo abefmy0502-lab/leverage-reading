@@ -242,6 +242,9 @@ export default function BookMemoEditor({
   const [existingPhotoPath, setExistingPhotoPath] = useState(initial?.photoPath || null);
   const [removePhotoFlag, setRemovePhotoFlag] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [savingHidden, setSavingHidden] = useState(false);
+  const mountedRef = useRef(true);
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
   // 「保存して次へ」のあと少しのあいだ、ボタンの文字を「保存しました」にする。
   //   続けて書くときは下の知らせ（トースト）を出さない＝入力欄（タグ）に重ならない・2026-09-29。
   const [justSaved, setJustSaved] = useState(false);
@@ -391,6 +394,12 @@ export default function BookMemoEditor({
     }
     setBusy(true);
     setErrorMsg('');
+    // ⚡ 閉じる保存は、終わりを待たずに画面を下げる（メモを書くシートと同じ・2026-11-21）。保存できなかったら書いた文のまま戻す。
+    const closeAfter = !(continueAfter && !isEdit);
+    if (closeAfter) {
+      try { document.activeElement?.blur?.(); } catch { /* ignore */ }
+      setSavingHidden(true);
+    }
     try {
       if (isEdit) {
         await onUpdate(initial.id, payload);
@@ -413,9 +422,23 @@ export default function BookMemoEditor({
       }
     } catch (e) {
       console.error('memo save error', e);
+      if (closeAfter && !mountedRef.current) {
+        // 画面はもう無い: 書いた文をなくさないように、コピーできる知らせを出す。
+        toast.show({
+          type: 'error',
+          message: 'メモを保存できませんでした。',
+          duration: 15000,
+          action: payload.text ? {
+            label: '書いた文をコピー',
+            onClick: () => { try { navigator.clipboard?.writeText(payload.text); } catch { /* ignore */ } },
+          } : undefined,
+        });
+        return;
+      }
+      setSavingHidden(false);
       setErrorMsg(toSaveMessage(e, 'メモを保存できませんでした。'));
     } finally {
-      setBusy(false);
+      if (mountedRef.current) setBusy(false);
     }
   };
 
@@ -510,7 +533,7 @@ export default function BookMemoEditor({
   // その中に置くと position: fixed が画面ではなく親基準になり、z-index も親の重なりに閉じ込め
   // られて、下のタブバーと「メモを書く」ボタンが保存ボタンの上に重なっていた。
   return createPortal(
-    <div ref={(el) => { overlayRef.current = el; trapRef.current = el; }} style={overlay} role="dialog" aria-modal="true" aria-label={isEdit ? 'メモを編集' : 'メモを書く'}>
+    <div ref={(el) => { overlayRef.current = el; trapRef.current = el; }} style={savingHidden ? { ...overlay, visibility: 'hidden' } : overlay} aria-hidden={savingHidden ? 'true' : undefined} role="dialog" aria-modal="true" aria-label={isEdit ? 'メモを編集' : 'メモを書く'}>
       {/* 押し込まれた画面の上の行（DESIGN §5）: 左に「キャンセル」・中央に題（その下に書名）・右は左と同じ幅の空き
           （見えない「キャンセル」を置いて幅をそろえる＝文字の大きさが変わっても題が真ん中に来る・2026-10-11）。 */}
       {/* 文字が大きいときも題は中央（「キャンセル」も --text-bar-max で止まるので、左右の空きで題が縮みすぎない・2026-10-11 第 3 回の採点）。 */}
