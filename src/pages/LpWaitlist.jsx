@@ -14,8 +14,24 @@ import { noBreak } from '../lib/foundingOffer';
 
 // 送る前に画面で確かめる形（サーバーでもう一度確かめる）。
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+// メールの形が違うとき、どこが違うかを言う（2026-11-21 ui-critic「何が違うかを言えるとなお良い」）。合っていれば ''。
+export function emailProblem(raw) {
+  const v = String(raw || '').trim();
+  if (!v) return 'メールアドレスを入れてください。';
+  if (/[＠．]/.test(v)) return '「＠」か「．」が全角です。半角で入れてください。';
+  if (/\s/.test(v)) return 'メールアドレスに空白が入っています。';
+  const at = (v.match(/@/g) || []).length;
+  if (at === 0) return '「@」が入っていません。例：you@example.com';
+  if (at > 1) return '「@」が 2 つ以上入っています。';
+  const [local, domain] = v.split('@');
+  if (!local) return '「@」の前が空いています。例：you@example.com';
+  if (!domain) return '「@」の後ろが空いています。例：you@example.com';
+  if (!/\.[^.]{2,}$/.test(domain)) return '「@」の後ろの「.com」などが足りません。';
+  if (!EMAIL_RE.test(v)) return 'メールアドレスの形が違います。例：you@example.com';
+  return '';
+}
 const ERRORS = {
-  invalid_email: 'メールアドレスが正しいか確認してください。',
+  invalid_email: 'メールアドレスの形が違います。例：you@example.com',
   rate_limited: '短い間に何度も送られました。少し待ってから、もう一度お試しください。',
   unavailable: 'いま受け付けられませんでした。少し時間をおいて、もう一度お試しください。',
   network: '送れませんでした。通信状況を確認して、もう一度お試しください。',
@@ -28,6 +44,7 @@ export default function LpWaitlist({ loc, done, onDone, launch, center = false }
   const [email, setEmail] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
+  const [invalid, setInvalid] = useState(false);
   const hpRef = useRef(null);
   const doneRef = useRef(null);
 
@@ -48,14 +65,16 @@ export default function LpWaitlist({ loc, done, onDone, launch, center = false }
     e.preventDefault();
     if (sending) return;
     const v = email.trim();
-    if (!EMAIL_RE.test(v)) { setError(ERRORS.invalid_email); return; }
+    const problem = emailProblem(v);
+    if (problem) { setError(problem); setInvalid(true); return; }
     setSending(true);
     setError('');
+    setInvalid(false);
     const r = await submitWaitlist({ email: v, website: hpRef.current?.value || '' });
     setSending(false);
     lpTrack('waitlist_submit', r.ok ? { ok: true, loc } : { ok: false, loc, error: r.error });
     if (r.ok) onDone?.();
-    else setError(ERRORS[r.error] || ERRORS.unavailable);
+    else { setError(ERRORS[r.error] || ERRORS.unavailable); setInvalid(r.error === 'invalid_email'); }
   };
 
   return (
@@ -75,9 +94,9 @@ export default function LpWaitlist({ loc, done, onDone, launch, center = false }
           maxLength={254}
           placeholder="you@example.com"
           value={email}
-          onChange={(e) => { setEmail(e.target.value); if (error) setError(''); }}
+          onChange={(e) => { setEmail(e.target.value); if (error) { setError(''); setInvalid(false); } }}
           onKeyDown={(e) => { if (e.key === 'Enter' && e.nativeEvent.isComposing) e.preventDefault(); }}
-          aria-invalid={error === ERRORS.invalid_email ? 'true' : undefined}
+          aria-invalid={invalid ? 'true' : undefined}
           aria-describedby={`${id}-note${error ? ` ${id}-err` : ''}`}
           required
         />
