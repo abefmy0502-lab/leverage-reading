@@ -545,6 +545,12 @@ async function uid() {
 
 export const ROADMAPS_CHANGED_EVENT = 'orime:roadmaps-changed';
 
+// 端末に控えたロードマップ（同期で読む・画面の最初の描画用＝目標の 1 行を後から差し込まない・2026-11-21）。
+export function localRoadmaps(userId) {
+  if (!userId) return {};
+  return readLocal(userId);
+}
+
 // { y1: record, y3: record, y5: record }（record＝{ goalText, goalAt, qa, summary, roadmap, plan, updatedAt }）
 export async function loadRoadmaps() {
   const id = await uid();

@@ -668,7 +668,8 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
   // （allNotes はスワイプ削除/PTR/books 更新のたびに再生成されるので、毎回 reset すると
   //  手動で開いた過去月が畳まれ「3ヶ月前を見返す」主目的を阻害していた。）
   const didInitExpand = useRef(false);
-  useEffect(() => {
+  // 描く前に決める（useEffect だと、畳んだ月が並んで見えたあとで開き、下の月が押し下げられていた・2026-11-21）。
+  useLayoutEffect(() => {
     // メモの読み込みが終わってから決める（本だけが先に並んだ時点の古い月を開かない）。
     if (didInitExpand.current || loading || allNotes.length === 0) return;
     didInitExpand.current = true;
