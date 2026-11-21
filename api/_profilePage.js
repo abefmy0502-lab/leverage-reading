@@ -16,6 +16,8 @@ import { takeIpSlot } from './_ipRate.js';
 import { checkCoverImageUrl } from './_coverImageUrl.js';
 import { paletteFor } from '../src/lib/coverPalette.js';
 import { profileTextIssue } from '../src/lib/profileFilter.js';
+import { getAmazonLink } from '../src/lib/amazonLink.js';
+import { getRakutenLink, STORE_DISCLOSURE_TEXT } from '../src/lib/rakutenLink.js';
 import { avatarById, avatarInitial } from '../src/lib/avatars.js';
 import { AVATAR_SVG } from '../src/lib/avatarSvg.js';
 
@@ -83,6 +85,7 @@ a{color:var(--accent)}
 .shelf{margin:32px 0 0}.shelf h2{margin:0;font-size:20px;font-weight:700}
 .counts{margin:8px 0 0;font-size:13px;color:var(--text-2)}
 .bka{display:flex;flex-direction:column;gap:4px;min-width:0;color:inherit;text-decoration:none}
+.stores{display:flex;flex-wrap:wrap;gap:12px;margin:12px 0 0}.stores a{flex:1 1 9em;margin:0}
 .cta2{display:flex;align-items:center;justify-content:center;margin:16px 0 0;min-height:48px;padding:12px 16px;border-radius:var(--radius);border:1px solid var(--border);color:var(--text);font-size:15px;font-weight:600;text-decoration:none}
 .sum{margin:0;font-family:var(--font-read);font-size:17px;line-height:1.8;white-space:pre-line;overflow-wrap:anywhere}
 .back{display:inline-flex;align-items:center;min-height:44px;font-size:15px;color:var(--accent);text-decoration:none}
@@ -259,6 +262,8 @@ export function renderBook(p, book, { publicId, showSummary = false }) {
 </div>
 <a class="cta" href="${esc(wantUrl({ ...book, cover }, site))}">読みたいに追加</a>
 <p class="note">Orime が開き、あなたの「読みたい」に入れる前に確かめます。</p>
+<div class="stores"><a class="cta2" href="${esc(getAmazonLink({ isbn: book.isbn, title, author: book.author }))}" target="_blank" rel="noopener noreferrer sponsored">Amazon で見る ↗</a><a class="cta2" href="${esc(getRakutenLink({ isbn: book.isbn, title, author: book.author }))}" target="_blank" rel="noopener noreferrer">楽天で見る ↗</a></div>
+<p class="note">${esc(STORE_DISCLOSURE_TEXT)}</p>
 <a class="cta2" href="${esc(site)}/?follow=${esc(publicId)}">Orime でフォローを申し込む</a>
 <p class="note">承認されると、本棚とまとめをアプリでいつでも見られます。</p>
 <details><summary>このページを通報する</summary>

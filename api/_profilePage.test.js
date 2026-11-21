@@ -173,6 +173,13 @@ describe('本のページ（まとめ・読みたいに追加・2026-11-21）', 
     expect(off).not.toContain('心を高める');
     expect(off).toContain('読みたいに追加');
   });
+  it('Amazon と楽天のリンク（アソシエイトの印と開示の文）', () => {
+    const html = renderBook({ nickname: 'ふみ' }, { ...book, isbn: '9784837926163' }, { publicId: 'abcdefgh23', showSummary: true }).html;
+    expect(html).toMatch(/href="https:\/\/www\.amazon\.co\.jp\/dp\/4837926169\?tag=[^"]+"/);
+    expect(html).toContain('rel="noopener noreferrer sponsored"');
+    expect(html).toContain('books.rakuten.co.jp');
+    expect(html).toContain('Amazon アソシエイト');
+  });
   it('公開に向かない言葉・連絡先のあるまとめは出さない', () => {
     expect(publicSummary('連絡は test@example.com')).toBe('');
     expect(publicSummary('ふつうのまとめ')).toBe('ふつうのまとめ');
