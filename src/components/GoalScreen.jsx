@@ -11,6 +11,7 @@
 // 見た目は goals.css（トークンだけ）。
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { autoGrowTextarea } from '../hooks/useComposerHeight';
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Plus, Search, X } from 'lucide-react';
 import './goals.css';
 import { AdvisorNavBar } from './AdvisorHistory';
@@ -220,7 +221,8 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
           onSave={async (text) => {
             const key = editing.key;
             const r = await saveGoal(key, text);
-            if (!r) { setEditing(null); toast.error?.('目標を保存できませんでした。通信状況を確認して、もう一度押してください。'); return; }
+            // 保存できなかったら、シートを開いたまま（書いた目標を消さない・2026-11-20）。
+            if (!r) { toast.error?.('目標を保存できませんでした。通信状況を確認して、もう一度押してください。'); return false; }
             // まだ書いていない次の目標があれば、そのままその欄へ（はじめての人が 3 回開き直さなくていい・2026-11-16）。
             const next = cleanGoalText(text) ? nextEmptyAfter(r.goals, key) : null;
             setEditing(next ? { key: next.key, text: '' } : null);
@@ -359,13 +361,13 @@ function nextEmptyAfter(goals, key) {
 }
 
 // 書きかけのシートを閉じる前に確かめる（行動の追加と同じ言葉・2026-11-17 点検）。
+// BottomSheet の beforeClose に渡す（閉じる前に確かめる＝「編集を続ける」でシートが見えないまま残らない・2026-11-20）。
 function useGuardedClose(dirty, onClose, { message = '消すと、元に戻せません。' } = {}) {
   const confirm = useConfirm();
   return useCallback(async () => {
-    if (!dirty) { onClose?.(); return; }
-    const ok = await confirm({ title: '保存していない変更があります', message, confirmLabel: '変更を破棄', cancelLabel: '編集を続ける', danger: true });
-    if (ok) onClose?.();
-  }, [dirty, onClose, confirm, message]);
+    if (!dirty) return true;
+    return !!(await confirm({ title: '保存していない変更があります', message, confirmLabel: '変更を破棄', cancelLabel: '編集を続ける', danger: true }));
+  }, [dirty, confirm, message]);
 }
 
 function GoalEditSheet({ horizonKey, initial, hasRoadmap, nextLabel, onClose, onSave }) {
@@ -379,13 +381,13 @@ function GoalEditSheet({ horizonKey, initial, hasRoadmap, nextLabel, onClose, on
   const save = async () => {
     if (saving || !dirty) return;
     setSaving(true);
-    await onSave(text);
-    setSaving(false);
+    try { await onSave(text); } catch { /* 呼び出し側が知らせる */ } finally { setSaving(false); }
   };
   return (
     <BottomSheet
       title={`${h.label}の目標`}
-      onClose={guardedClose}
+      onClose={onClose}
+      beforeClose={guardedClose}
       dismissLabel="キャンセル"
       footer={(
         <button type="button" style={dirty && !saving ? btnPrimary : btnPrimaryOff} disabled={!dirty || saving} onClick={save}>
@@ -548,10 +550,7 @@ function InterviewView({ goal, goals, roadmaps, books, sessions, onDone, onCance
 
   // 答えの欄は中身に合わせて伸ばす（候補をいくつも選ぶと 1 行に入らない・2026-11-15）。
   useEffect(() => {
-    const el = answerRef.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${el.scrollHeight + 2}px`;
+    autoGrowTextarea(answerRef.current);
   }, [answer, step]);
 
   const left = Math.max(0, GOAL_ASK_LIMIT - qa.length - 1);
@@ -982,10 +981,7 @@ function RoadmapView({ goal, record, books, sessions = [], onOpenBook, onAddActi
 function GrowTextarea(props) {
   const ref = useRef(null);
   useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${el.scrollHeight + 2}px`;
+    autoGrowTextarea(ref.current);
   }, [props.value]);
   return <textarea ref={ref} rows={1} {...props} />;
 }
@@ -1026,7 +1022,8 @@ function RoadmapEditSheet({ editing, roadmap, specs, onClose, onSave }) {
   return (
     <BottomSheet
       title={title}
-      onClose={guardedClose}
+      onClose={onClose}
+      beforeClose={guardedClose}
       dismissLabel="キャンセル"
       footer={<button type="button" style={dirty && !saving ? btnPrimary : btnPrimaryOff} disabled={!dirty || saving} onClick={save}>{saving ? '保存中…' : '保存'}</button>}
     >
@@ -1320,7 +1317,8 @@ function PlanOrderSheet({ books, initial, custom, onClose, onSave, onReset }) {
   return (
     <BottomSheet
       title="読む順番"
-      onClose={guardedClose}
+      onClose={onClose}
+      beforeClose={guardedClose}
       dismissLabel="キャンセル"
       footer={(
         <button type="button" style={dirty && order.length ? btnPrimary : btnPrimaryOff} disabled={!dirty || !order.length} onClick={() => onSave(order)}>保存</button>

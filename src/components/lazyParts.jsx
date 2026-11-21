@@ -173,6 +173,8 @@ export function prefetchAppParts() {
     () => import('./HomeQuickMemo'),
     () => import('./QuickMemoSheet'),
     () => import('./AddBookModal'),
+    () => import('./ActionEditModal'),
+    () => import('./CoverFixModal'),
     () => import('./ShareSheet'),
     () => import('./AccountSettings'),
     () => import('./TokenSheet'),

@@ -42,7 +42,9 @@ const sheetWrap = {
 // layer='dialog': ほかのシート・設定の上に重ねる（AI に送る前の同意のシート＝メモを書くシート・設定の上から開く・2026-10-01）。
 // subheader: 題の行のすぐ下に固定する 1 行（中身と一緒にスクロールしない・選べる数の補足など・2026-10-11）。
 // eyebrow: 題の上の小さな 1 行（書名など・メモを書くシートと同じ形・長ければ … で切る・2026-10-11）。
-export default function BottomSheet({ title, eyebrow = '', onClose, children, footer, subheader = null, dismissLabel = '完了', dismissible = true, layer = null }) {
+// beforeClose: 閉じる前に確かめる（書きかけの変更があるときの「破棄しますか？」など）。false を返したら閉じない。
+//   前は閉じる動きのあとに確かめていたので、「編集を続ける」を選ぶとシートが見えないまま残り、押せなくなっていた（2026-11-20）。
+export default function BottomSheet({ title, eyebrow = '', onClose, beforeClose = null, children, footer, subheader = null, dismissLabel = '完了', dismissible = true, layer = null }) {
   const onTop = layer === 'dialog';
   // 開いている間は左端スワイプで画面を戻さない（書きかけが確認なしに消えないように）
   useBlockEdgeSwipe(true);
@@ -53,8 +55,15 @@ export default function BottomSheet({ title, eyebrow = '', onClose, children, fo
   const draggingRef = useRef(false);
   // 閉じは slide-down を経由（入りだけ滑らかで出が瞬間消滅、の非対称を解消）。
   const [closing, setClosing] = useState(false);
-  const animateClose = () => {
-    if (closing || !dismissible) return;
+  const askingRef = useRef(false);
+  const animateClose = async () => {
+    if (closing || !dismissible || askingRef.current) return;
+    if (beforeClose) {
+      askingRef.current = true;
+      let ok = true;
+      try { ok = (await beforeClose()) !== false; } catch { ok = false; } finally { askingRef.current = false; }
+      if (!ok) return;
+    }
     // 動きを減らす設定では待たずに閉じる（2026-09-30）。
     const wait = closeDelayMs(DURATION_FAST_MS);
     if (!wait) { onClose?.(); return; }
@@ -62,12 +71,14 @@ export default function BottomSheet({ title, eyebrow = '', onClose, children, fo
     setTimeout(() => onClose?.(), wait);
   };
 
+  // Escape はいつも最新の animateClose を呼ぶ（前は開いたときの関数を掴み、書いたあとでも確かめずに閉じていた・2026-11-21）。
+  const animateCloseRef = useRef(animateClose);
+  animateCloseRef.current = animateClose;
   useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape' && !e.isComposing) animateClose(); };
+    const onKey = (e) => { if (e.key === 'Escape' && !e.isComposing) animateCloseRef.current(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onClose, closing, dismissible]);
+  }, []);
 
   // 掴んで下に振ると閉じる（iOS シートの標準所作。ハンドル/ヘッダー起点のみ）。
   const onDragStart = (e) => {
@@ -90,7 +101,13 @@ export default function BottomSheet({ title, eyebrow = '', onClose, children, fo
     const dy = Math.max(0, (e.changedTouches?.[0]?.clientY ?? startY) - startY);
     const el = sheetRef.current;
     el.style.transition = 'transform var(--duration-fast) var(--ease-out-quart)';
-    if (dy > 110) {
+    if (dy > 110 && dismissible) {
+      if (beforeClose) {
+        // 確かめてから閉じる。閉じないなら元の位置へ戻す。
+        el.style.transform = '';
+        animateClose();
+        return;
+      }
       el.style.transform = 'translateY(100%)';
       setTimeout(() => onClose?.(), DURATION_FAST_MS);
     } else {

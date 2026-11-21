@@ -6,6 +6,7 @@
 //   どこへ進むかを 1 行で言う＝App Store の解約を妨げない）。閉じたら何もしない（もとの画面のまま）。
 // どちらも設定の上に重ねる（layer='dialog'）。
 import { useState } from 'react';
+import { useConfirm } from './ConfirmDialog';
 import { useToast } from './Toast';
 import { createPortal } from 'react-dom';
 import BottomSheet from './BottomSheet';
@@ -29,15 +30,27 @@ export function AppPurposeEditSheet({ purpose, onClose }) {
   const save = async () => {
     if (!ok || busy) return;
     setBusy(true);
-    const res = await saveAppPurpose(text);
+    let res = null;
+    try {
+      res = await saveAppPurpose(text);
+    } catch {
+      setBusy(false);
+      toast.error('保存できませんでした。もう一度押してください。');
+      return;
+    }
     track('app_purpose_set', { where: 'settings' });
     if (res && !res.synced) toast.info('この端末には保存しました。つながってから、もう一度保存してください。');
     onClose();
   };
+  // 書きかえた文があるときは、閉じる前に確かめる（下へ振っても黙って消えない・2026-11-20）。
+  const confirm = useConfirm();
+  const changed = cleanPurposeText(text) !== cleanPurposeText(purpose?.text);
+  const beforeClose = async () => (!changed || !!(await confirm({ title: '保存していない変更があります', message: '入れた理由は元のまま残ります。', confirmLabel: '変更を破棄', cancelLabel: '編集を続ける', danger: true })));
   return createPortal(
     <BottomSheet
       title="Orime を入れた理由"
       onClose={onClose}
+      beforeClose={beforeClose}
       dismissLabel="キャンセル"
       layer="dialog"
       footer={<button type="button" onClick={save} disabled={!ok || busy} style={ok ? { ...btnPrimary, opacity: 1 } : btnPrimaryOff}>{busy ? '保存中…' : '保存'}</button>}
