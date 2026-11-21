@@ -2328,7 +2328,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     : threadActive && !isNoInfoAnswer(lastVisible) ? '続けて聞く' : messages.length > 0 ? (largeText ? '例：報告が遅い' : '例：報告がうまくいかない') : (largeText ? '例：報告が遅れる' : '例：上司への報告がうまくいかない');
   // 描く前に高さを合わせる（useEffect だと、送ったあとに「消えた文字の高さのまま 1 回描く → 縮む」で
   // 入力欄が 2 回動いていた）。文字の大きさが変わったときも測り直す（hooks/useComposerHeight.js・2026-10-08 ui-critic）。
-  useComposerHeight(inputRef, input, view === 'chat', composerPlaceholder);
+  useComposerHeight(inputRef, input, view === 'chat', composerPlaceholder, { scrollRef: chatScrollRef });
 
   return (
     <div style={{ ...wrap, '--answer-col': partnerRowStacked() ? '0px' : ANSWER_COLUMN_WIDE }}>
