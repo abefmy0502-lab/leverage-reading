@@ -61,7 +61,7 @@ function PersonRow({ person, children, onOpen, first = false }) {
   );
 }
 
-export default function FollowSheet({ onClose, initialId = '', onAddWant }) {
+export default function FollowSheet({ onClose, initialId = '', onAddWant, initialRequestCount = 0 }) {
   const toast = useToast();
   const { user } = useAuth();
   const { profile: me, loading: meLoading } = useProfile(user?.id || '');
@@ -399,6 +399,15 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant }) {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
           {/* 届いた申し込みは、いちばん上で答えられるように（設定の「申し込みが N 件」から来た人がすぐ答えられる）。 */}
+          {/* 一覧を読んでいる間は、設定の行が知っている件数ぶんの形を先に置く（読み終えて上に差し込まれ、下が押し下がらないように）。 */}
+          {!lists && initialRequestCount > 0 && (
+            <section aria-hidden="true">
+              <p style={{ ...groupTitle, margin: '0 0 var(--space-2)' }}>届いた申し込み（{initialRequestCount}）</p>
+              {Array.from({ length: Math.min(3, initialRequestCount) }, (_, i) => (
+                <SkeletonBlock key={i} height="var(--tap-min)" style={{ margin: 'var(--space-2) 0' }} />
+              ))}
+            </section>
+          )}
           {lists?.requests?.length > 0 && (
             <section aria-labelledby={`${inputId}-req`}>
               <p id={`${inputId}-req`} style={{ ...groupTitle, margin: '0 0 var(--space-2)' }}>届いた申し込み（{lists.requests.length}）</p>
@@ -446,8 +455,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant }) {
           </div>
 
           {/* 自分の ID（相手に渡すと申し込みが届く）。ニックネームが無いと申し込まれないので、先にプロフィールへ。 */}
-          {(
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
               <p style={{ ...groupTitle, margin: 0 }}>あなたの ID</p>
               {meLoading ? (
                 <SkeletonBlock height="var(--tap-min)" />
@@ -468,7 +476,6 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant }) {
                 </>
               )}
             </div>
-          )}
 
           <div>
             <div role="tablist" aria-label="フォローの一覧" style={segTrack}>

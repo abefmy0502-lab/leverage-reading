@@ -1564,7 +1564,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
       )}
       {followOpen && (
         <div onClick={(e) => e.stopPropagation()}>
-          <FollowSheet onClose={() => { setFollowOpen(false); countFollowRequests(); }} onAddWant={onAddWant} />
+          <FollowSheet initialRequestCount={followRequests} onClose={() => { setFollowOpen(false); countFollowRequests(); }} onAddWant={onAddWant} />
         </div>
       )}
           {purposeEditOpen && (
