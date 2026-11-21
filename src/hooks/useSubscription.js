@@ -148,7 +148,8 @@ export function useSubscription() {
       }
       setError(null);
     } catch (e) {
-      console.error('課金状態の取得エラー:', e);
+      // iPhone のアプリの記録では Error が {} に見えるので、文と code も添える（2026-11-21）。
+      console.error('課金状態の取得エラー:', e?.message || String(e), e?.code || '');
       // 詰み防止 / fail-open: ネットワーク等の一時的失敗で直前まで判明していた
       // 課金状態（active 等）を null に潰さない。潰すと、契約済みユーザーが
       // 一時的な通信エラー（タブ復帰・?checkout=success のリトライ等）の度に
