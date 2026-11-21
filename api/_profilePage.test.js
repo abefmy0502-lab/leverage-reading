@@ -104,6 +104,19 @@ describe('公開の本棚（2026-11-21）', async () => {
     expect(html).toContain('href="/u/abcdefgh23/b/00000000-0000-4000-8000-000000000001"');
     expect(html).toContain('/?follow=abcdefgh23');
   });
+  it('まとめも公開していれば「〈名前〉さんのまとめ」に出だしを並べる（公開に向かない言葉は出さない）', () => {
+    const withMemo = [
+      { id: '00000000-0000-4000-8000-0000000000a1', title: '考え方', author: '稲盛和夫', status: 'done', leverage_memo: '心を高める。\n熱意が大事。' },
+      { id: '00000000-0000-4000-8000-0000000000a2', title: '別の本', author: '', status: 'done', leverage_memo: '連絡は test@example.com' },
+    ];
+    const shelf = buildShelf(withMemo, [], { summaries: true });
+    expect(shelf.withSummary.map((b) => b.excerpt)).toEqual(['心を高める。熱意が大事。']);
+    const { html } = renderProfile({ nickname: 'ふみ', shelf_public: true }, { publicId: 'abcdefgh23', shelf, social: true });
+    expect(html).toContain('ふみさんのまとめ');
+    expect(html).not.toContain('test@example.com');
+    const off = buildShelf(withMemo, []);
+    expect(off.withSummary).toEqual([]);
+  });
   it('本棚を出さないときは本棚の節が無い', () => {
     const { html } = renderProfile({ nickname: 'ふみ' }, { publicId: 'abcdefgh23', shelf: null });
     expect(html).not.toContain('<h2>本棚</h2>');

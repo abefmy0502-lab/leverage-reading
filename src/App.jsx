@@ -3846,6 +3846,12 @@ function AuthedApp() {
   };
 
   // 👥 ほかの人の本棚の本を、自分の読みたいへ（2026-11-21 3 回目・フォローの本棚・公開のページの「読みたいに追加」）。
+  // 相手の本がもう自分の本棚にあるか（フォローの本棚で「本棚にあります」を出す）。
+  const hasBookFromOther = (book) => !!findDuplicateBook(booksRef.current, {
+    isbn: String(book?.isbn || '').replace(/[^0-9Xx]/g, '').slice(0, 13),
+    title: String(book?.title || '').trim().slice(0, 200),
+    author: String(book?.author || '').trim().slice(0, 200),
+  });
   const addWantFromOther = async (book) => {
     const title = String(book?.title || '').trim().slice(0, 200);
     if (!user?.id || !title) return 'error';
@@ -7097,12 +7103,13 @@ function AuthedApp() {
             onOpenHelp={() => { setSettingsOpen(false); setHelpModalOpen(true); }}
             onProfileSaved={addFavoriteFromProfile}
             onAddWant={addWantFromOther}
+            hasBook={hasBookFromOther}
           />
         </Suspense>
       )}
       {followSheet && !showOnboarding && (
         <Suspense fallback={<OverlayFallback />}>
-          <FollowSheet initialId={followSheet.initialId || ''} onClose={() => setFollowSheet(null)} onAddWant={addWantFromOther} />
+          <FollowSheet initialId={followSheet.initialId || ''} onClose={() => setFollowSheet(null)} onAddWant={addWantFromOther} hasBook={hasBookFromOther} />
         </Suspense>
       )}
 

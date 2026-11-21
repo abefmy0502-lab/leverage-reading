@@ -57,3 +57,13 @@ describe('myIdShareText', () => {
     expect(priv.text).toContain('フォローを申し込む');
   });
 });
+
+describe('summaryExcerpt', () => {
+  it('文の終わりの改行は詰め、途中の改行は空白 1 つ・長ければ …', async () => {
+    const { summaryExcerpt } = await import('./social');
+    expect(summaryExcerpt('心を高める。\n考え方 × 熱意')).toBe('心を高める。考え方 × 熱意');
+    expect(summaryExcerpt('影響の輪\n関心の輪')).toBe('影響の輪 関心の輪');
+    expect(summaryExcerpt('あ'.repeat(100)).endsWith('…')).toBe(true);
+    expect(summaryExcerpt('')).toBe('');
+  });
+});

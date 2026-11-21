@@ -143,3 +143,10 @@ export function myIdShareText(me) {
     : `Orime で、わたしの本棚をフォローしてください。\nID: ${me.publicId}\n（Orime の 設定 › フォロー の「フォローを申し込む」に入れてください）`;
   return { text, url };
 }
+
+/** まとめの出だし（一覧に 3 行で出す・api/_profilePage.js の summaryExcerpt と同じ決まり）。 */
+export function summaryExcerpt(text, max = 90) {
+  const segs = String(text || '').replace(/\r\n?/g, '\n').trim().split(/\s*\n+\s*/).filter(Boolean);
+  const one = segs.reduce((acc, seg) => (acc ? (/[。！？」』）]$/.test(acc) ? acc + seg : `${acc} ${seg}`) : seg), '');
+  return one.length > max ? `${one.slice(0, max)}…` : one;
+}
