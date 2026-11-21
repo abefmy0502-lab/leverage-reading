@@ -569,7 +569,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const [resumeThread, setResumeThread] = useState(() => (resumed?.resumeThread || null));
   const focusOnResumeRef = useRef(false);
   useEffect(() => { rememberSession(user?.id, { resumeThread }); }, [resumeThread, user?.id]);
-  const [input, setInput] = useState('');
+  // 書きかけの相談は、タブを移って戻っても残す（AI 選書と同じ・2026-11-20）。
+  const [input, setInput] = useState(() => (typeof resumed?.input === 'string' ? resumed.input : ''));
+  useEffect(() => { rememberSession(user?.id, { input }); }, [user?.id, input]);
   // 🧾 「…」の「AI への指示文をつくる」（2026-10-21・PromptMakerSheet）
   const [promptMaker, setPromptMaker] = useState(false);
   // 送れなかったときの 1 行（会話の場所のいちばん下に出す・入力欄に重なる赤い帯にしない・2026-10-10）。次に送るときに消す。

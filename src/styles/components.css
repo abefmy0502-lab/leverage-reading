@@ -150,9 +150,12 @@
   transition: transform var(--duration-base) var(--ease-spring),
     box-shadow var(--duration-base) var(--ease-out);
 }
-.card-interactive:hover {
-  transform: translateY(-2px) scale(1.01);
-  box-shadow: var(--shadow-3);
+/* ホバーはマウスのある端末だけ（iPhone では押したあとも :hover が残るため・2026-11-20） */
+@media (hover: hover) {
+  .card-interactive:hover {
+    transform: translateY(-2px) scale(1.01);
+    box-shadow: var(--shadow-3);
+  }
 }
 .card-interactive:active,
 .card-interactive[data-pressed] {
@@ -298,9 +301,11 @@ textarea[aria-invalid="true"]:not(.no-focus-ring):focus {
   z-index: -1;
   pointer-events: none;
 }
-.icon-btn:hover::before {
-  opacity: 0.6;
-  transform: scale(1);
+@media (hover: hover) {
+  .icon-btn:hover::before {
+    opacity: 0.6;
+    transform: scale(1);
+  }
 }
 .icon-btn:active,
 .icon-btn[data-pressed] {
@@ -1268,7 +1273,7 @@ textarea[aria-invalid="true"]:not(.no-focus-ring):focus {
   white-space: nowrap;
   transition: opacity var(--duration-fast) var(--ease-out);
 }
-.example-chip:hover { opacity: 0.8; }
+@media (hover: hover) { .example-chip:hover { opacity: 0.8; } }
 
 /* =========================================================================
  * Sub-tabs (used by 振り返り and AI parent-tabs to split into ノート/行動 や
@@ -1345,7 +1350,7 @@ textarea[aria-invalid="true"]:not(.no-focus-ring):focus {
   padding-top: var(--space-1);
   padding-bottom: var(--space-1);
 }
-.sub-tab:hover { color: var(--text); }
+@media (hover: hover) { .sub-tab:hover { color: var(--text); } }
 .sub-tab.active {
   /* 選んだ面は溝より明るく浮かせる（暗い設定では --surface が溝より暗く沈んでいた・2026-10-16 ui-critic 第 2 回） */
   background: var(--seg-on);

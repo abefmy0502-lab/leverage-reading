@@ -569,6 +569,22 @@ function Shell({ children }) {
 
 // メモを書くシートの保存のあとの知らせ: シートは onCreate が終わってから閉じ始める（data-closing）ので、
 // 次のフレームまで待ってから出す（知らせが開いたシートを避けて画面の下端に出て、すぐタブの上へ跳ねないように・2026-09-30）。
+// 本の詳細の行動の並び（まだ → 完了）を、その本を見ている間は固定する（index の並び）。
+//   行動の数が変わったら（足した・消した）並べ直す。ほかの本を開いたら並べ直す。
+let detailActionOrderMemo = { bookId: null, order: [] };
+function stableDetailActionOrder(book) {
+  const actions = Array.isArray(book?.actions) ? book.actions : [];
+  const visible = actions
+    .map((a, i) => ({ a, i }))
+    .filter(({ a }) => a && a.text?.trim() && !isScheduledLater(a));
+  const ids = visible.map(({ i }) => i);
+  const prev = detailActionOrderMemo;
+  if (prev.bookId === book?.id && prev.order.length === ids.length && prev.order.every((i) => ids.includes(i))) return prev.order;
+  const order = [...visible].sort((x, y) => Number(!!x.a.done) - Number(!!y.a.done)).map(({ i }) => i);
+  detailActionOrderMemo = { bookId: book?.id || null, order };
+  return order;
+}
+
 const afterSheetCloses = (fn) => {
   if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => fn());
   else fn();
@@ -2147,6 +2163,7 @@ function AuthedApp() {
   const advisorAddedToastRef = useRef(null);
   const dismissToast = toast.dismiss;
   const openDetail = useCallback((b, focusMemoId, opts) => {
+    detailActionOrderMemo = { bookId: null, order: [] }; // 開くたびに、まだの行動が先の並びに
     const book = typeof b === 'string' ? booksRef.current.find((x) => x.id === b) : b;
     if (!book || typeof book !== 'object' || !book.id) return;
     const added = advisorAddedToastRef.current;
@@ -5274,10 +5291,10 @@ function AuthedApp() {
               {/* その場で完了できる（読み取り専用だと行動タブへの往復を強制する）。
                   filter だと index がズレるので生 index を持ったまま並べる。まだの行動を先、完了は後。 */}
               {/* 繰り返しの「次回分」（scheduledFor が未来）は行動タブと同じく出さない＝先取り完了を防ぐ */}
-              {current.actions
-                .map((a, i) => ({ a, i }))
-                .filter(({ a }) => a.text?.trim() && !isScheduledLater(a))
-                .sort((x, y) => Number(!!x.a.done) - Number(!!y.a.done))
+              {/* ⚡ 並びは開いたときに決めて、その本を見ている間は変えない（2026-11-20）。完了にしたとたん下へ動くと、
+                  次の行が指の下に来て、続けて押すと別の行動を完了にしていた。開き直すと、まだの行動が先に並ぶ。 */}
+              {stableDetailActionOrder(current)
+                .map((i) => ({ a: current.actions[i], i }))
                 .map(({ a, i }) => (
                 <button
                   key={i}
@@ -5727,7 +5744,7 @@ function AuthedApp() {
             LIST view と共有 state なので二重描画されることはない (片方の
             view しか return されない)。 */}
         {coverFixForBook && (
-          <Suspense fallback={<Spinner />}>
+          <Suspense fallback={<OverlayFallback />}>
           <CoverFixModal
             book={coverFixForBook}
             onClose={() => setCoverFixForBook(null)}
@@ -5740,7 +5757,7 @@ function AuthedApp() {
         {/* 🎯 行動の「＋ 行動を追加」（本の詳細から・この本を選んだ状態）。一覧の画面の同じ mount とは
             片方の画面しか return されないので二重には出ない（CoverFixModal と同じ置き方）。 */}
         {addActionSheet?.step === 'edit' && addActionSheet.bookId && (
-          <Suspense fallback={<Spinner />}>
+          <Suspense fallback={<OverlayFallback />}>
             <ActionEditModal
               mode="create"
               action={addActionSheet.prefillText ? { text: addActionSheet.prefillText } : null}
@@ -6906,7 +6923,7 @@ function AuthedApp() {
           findIsbnCandidatesWithMetadata で別エディションの表紙候補を
           グリッド表示し、ユーザーが正しいものを選び直せる。 */}
       {coverFixForBook && (
-        <Suspense fallback={<Spinner />}>
+        <Suspense fallback={<OverlayFallback />}>
         <CoverFixModal
           book={coverFixForBook}
           onClose={() => setCoverFixForBook(null)}
@@ -6920,7 +6937,7 @@ function AuthedApp() {
           完了はタップ即時、reflection は ActionEditModal から編集可能。 */}
 
       {editingAction && (
-        <Suspense fallback={<Spinner />}>
+        <Suspense fallback={<OverlayFallback />}>
         <ActionEditModal
           // 「期限を見直す」で次の行動を開くときは作り直す（入力欄を次の行動の値にする）。
           key={editingAction.action?.id || `${editingAction.bookId}:${editingAction.actionIdx}`}
@@ -7087,7 +7104,7 @@ function AuthedApp() {
       {/* 🎯 行動タブ「＋追加」: ② 行動の内容を入力（ActionEditModal を create モードで再利用）。
           prefillText があれば行動文を初期表示（AI 回答からの行動化フォールバック）。 */}
       {addActionSheet?.step === 'edit' && addActionSheet.bookId && (
-        <Suspense fallback={<Spinner />}>
+        <Suspense fallback={<OverlayFallback />}>
           <ActionEditModal
             mode="create"
             bookTitle={books.find((b) => b.id === addActionSheet.bookId)?.title || ''}

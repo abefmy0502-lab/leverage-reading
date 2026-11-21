@@ -18,7 +18,7 @@ const MIRROR_PROPS = [
   'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth', 'borderTopStyle', 'borderBottomStyle',
   'boxSizing', 'whiteSpace', 'wordBreak', 'overflowWrap', 'lineBreak', 'tabSize', 'fontFeatureSettings',
 ];
-function measureWithMirror(el) {
+export function measureWithMirror(el) {
   if (typeof document === 'undefined') return null;
   let m = el.__orimeMirror;
   if (!m || !m.isConnected) {
@@ -45,6 +45,16 @@ function measureWithMirror(el) {
   m.placeholder = el.placeholder || '';
   m.value = el.value;
   return { scrollHeight: m.scrollHeight, min: parseFloat(cs.minHeight), max: parseFloat(cs.maxHeight) };
+}
+
+// 中身に合わせて伸びる入力欄（目標の答え・ロードマップを直す欄・仮説の欄など）の高さを合わせる。
+//   本物の欄を縮めずに写しで測り、変わるときだけ書く（iPhone で打つたびに画面がずれない・2026-11-20）。
+export function autoGrowTextarea(el) {
+  if (!el) return;
+  const r = measureWithMirror(el);
+  if (!r) return;
+  const next = `${r.scrollHeight + 2}px`;
+  if (el.style.height !== next) el.style.height = next;
 }
 
 // 会話の欄がいちばん下まで送ってあったか（入力欄が伸びても、いちばん下の答えを入力欄の下に隠さない）。

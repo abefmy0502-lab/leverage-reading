@@ -8,6 +8,7 @@
 // ⚠️ 挙動は抽出前と不変。識別子名・props も不変（App.jsx 側の呼び出しはそのまま）。
 
 import { useState, useRef, useEffect, useId, useLayoutEffect } from 'react';
+import { autoGrowTextarea } from '../hooks/useComposerHeight';
 import { todayLocal, fmtDateJa } from '../lib/dates';
 import { ensureHttps } from '../lib/url';
 import { toMessage } from '../lib/errors';
@@ -365,10 +366,7 @@ export function BeforePhase({
   // 仮説の欄は中身の高さまで伸ばす（「この本で学べること」の仮説の例を足すと 3 行を超え、欄の中で 1 行目が欠けていた・2026-10-08 ui-critic）。
   const hypothesisRef = useRef(null);
   useLayoutEffect(() => {
-    const el = hypothesisRef.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${el.scrollHeight + 2}px`; // 枠の上下 1px ずつ
+    autoGrowTextarea(hypothesisRef.current); // 枠の上下 1px ずつ足す・本物の欄を縮めずに測る（iPhone で打つたびにずれない）
   }, [form.hypothesis]);
 
   // 読書計画シートを作りはじめたら、下に出る形（スケルトン）を 1 回だけ画面に入れる
