@@ -44,3 +44,16 @@ describe('フォロー先の本棚の安全', () => {
     expect(r).toBe('not_ready');
   });
 });
+
+describe('myIdShareText', () => {
+  it('公開していればリンク・していなければ ID と入れる場所', async () => {
+    const { myIdShareText } = await import('./social');
+    expect(myIdShareText({})).toEqual({ text: '', url: '' });
+    const pub = myIdShareText({ publicId: 'abcde12345', isPublic: true });
+    expect(pub.url).toMatch(/\/u\/abcde12345$/);
+    const priv = myIdShareText({ publicId: 'abcde12345', isPublic: false });
+    expect(priv.url).toBe('');
+    expect(priv.text).toContain('ID: abcde12345');
+    expect(priv.text).toContain('フォローを申し込む');
+  });
+});

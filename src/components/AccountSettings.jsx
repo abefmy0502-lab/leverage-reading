@@ -20,7 +20,7 @@ import { readingSessions } from '../hooks/useReadingSessions';
 import { clearLocalProfile } from '../lib/profile';
 import { finishAccountDeletion } from '../lib/deleteAccount';
 import { TERMS_URL, PRIVACY_URL, SCT_URL } from '../lib/legalLinks';
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { supabase, isSupabaseConfigured, isDemo } from '../lib/supabase';
 import { SUPPORT_EMAIL } from '../lib/contact';
@@ -38,7 +38,7 @@ import { AppPurposeEditSheet, PurposeCheckSheet } from './AppPurposeSheets';
 import { useAppPurpose } from '../hooks/useAppPurpose';
 import ProfileSheet from './ProfileSheet';
 import FollowSheet from './FollowSheet';
-import { SOCIAL_ON } from '../lib/social';
+import { SOCIAL_ON, loadFollows } from '../lib/social';
 import { useProfile, resetProfileCache } from '../hooks/useProfile';
 import UserAvatar from './UserAvatar';
 import { hasProfile, addressName } from '../lib/profile';
@@ -57,7 +57,7 @@ import { PAID_TOKENS, FREE_TOKENS } from '../lib/tokens';
 import { FREE_OCR_PER_MONTH } from '../lib/tokenAmounts';
 import { nextResetLabelJa } from '../lib/freeTrial';
 import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff, btnDanger, btnLink, input as uiInput } from '../styles/ui';
-import { ChevronRight, Download as IcDownload, RefreshCw as IcRefresh } from 'lucide-react';
+import { ChevronRight, Download as IcDownload, RefreshCw as IcRefresh, Users as IcUsers } from 'lucide-react';
 import { SkeletonBlock } from './Skeleton';
 import { withPhraseBreaks } from './TightBubble';
 import { track, EVENTS, isAnalyticsOptedOut, setAnalyticsOptOut } from '../lib/analytics';
@@ -416,6 +416,13 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
   // 👤 プロフィール（2026-11-21）
   const [profileOpen, setProfileOpen] = useState(false);
   const [followOpen, setFollowOpen] = useState(false);
+  // 届いている申し込みの数（フォローの行の 2 行目に出す・シートを閉じたら数え直す）。
+  const [followRequests, setFollowRequests] = useState(0);
+  const countFollowRequests = useCallback(() => {
+    if (!SOCIAL_ON) return;
+    loadFollows().then((r) => { if (r.ok) setFollowRequests(r.lists.requests.length); }).catch(() => {});
+  }, []);
+  useEffect(() => { countFollowRequests(); }, [countFollowRequests]);
   const { profile: myProfile } = useProfile(user?.id || '');
   const [purposeCheck, setPurposeCheck] = useState(null); // { where, nextText, run }
   // 2026-11-17: 「Orime を入れた理由」は 2026-11-16 にやめたので、解約・退会の前にはさまない（審査 5.1.1(v)・すぐ次へ）。
@@ -1045,10 +1052,16 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
             </button>
             {/* 👥 フォロー（2026-11-21 3 回目・VITE_SOCIAL のビルドだけ）。 */}
             {SOCIAL_ON && (
-              <button type="button" onClick={() => setFollowOpen(true)} style={{ ...rowButtonStyle, gap: 'var(--space-3)' }}>
+              <button type="button" onClick={() => setFollowOpen(true)} style={{ ...rowButtonStyle, ...divider, gap: 'var(--space-3)' }}>
+                {/* 上のアバターの行と文字の左端をそろえる 40 の丸 */}
+                <span aria-hidden="true" style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--fill)', color: 'var(--text-2)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <IcUsers size="1.2em" />
+                </span>
                 <span style={{ flex: 1, minWidth: 0 }}>
                   <span style={{ ...rowTitleStyle, display: 'block', color: 'inherit' }}>フォロー</span>
-                  <span style={{ ...rowDescStyle, display: 'block' }}>フォロー中・フォロワー・申し込み</span>
+                  <span style={{ ...rowDescStyle, display: 'block', ...(followRequests ? { color: 'var(--accent)', fontWeight: 600 } : {}) }}>
+                    {followRequests ? `申し込みが ${followRequests} 件届いています` : 'フォロー中・フォロワー・申し込み'}
+                  </span>
                 </span>
                 <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
               </button>
@@ -1551,7 +1564,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
       )}
       {followOpen && (
         <div onClick={(e) => e.stopPropagation()}>
-          <FollowSheet onClose={() => setFollowOpen(false)} onAddWant={onAddWant} />
+          <FollowSheet initialRequestCount={followRequests} onClose={() => { setFollowOpen(false); countFollowRequests(); }} onAddWant={onAddWant} />
         </div>
       )}
           {purposeEditOpen && (

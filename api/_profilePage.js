@@ -255,10 +255,12 @@ export function renderBook(p, book, { publicId, showSummary = false }) {
   const body = `<a class="back" href="/u/${esc(publicId)}">‹ ${esc(who)}の本棚</a>
 <div class="card" style="margin-top:8px"><div class="bookhead"><div class="bcover">${cover ? `<img src="${esc(cover)}" alt="">` : coverPlaceholder(title)}</div>
 <div><h1 class="title" style="font-size:20px">『${esc(title)}』</h1>${book.author ? `<p class="author">${esc(book.author)}</p>` : ''}${meta ? `<p class="meta">${esc(meta)}</p>` : ''}</div></div>
-${summary ? `<p class="label">${esc(who)}の、この本のまとめ</p><p class="sum">${esc(summary)}</p>` : ''}
+<p class="label">${esc(who)}の、この本のまとめ</p>${summary ? `<p class="sum">${esc(summary)}</p>` : `<p class="note" style="margin:0">${showSummary ? 'まとめはまだありません。' : 'まとめは公開されていません。'}</p>`}
 </div>
 <a class="cta" href="${esc(wantUrl({ ...book, cover }, site))}">読みたいに追加</a>
 <p class="note">Orime が開き、あなたの「読みたい」に入れる前に確かめます。</p>
+<a class="cta2" href="${esc(site)}/?follow=${esc(publicId)}">Orime でフォローを申し込む</a>
+<p class="note">承認されると、本棚とまとめをアプリでいつでも見られます。</p>
 <details><summary>このページを通報する</summary>
 <form method="post" action="/api/profile-report"><input type="hidden" name="id" value="${esc(publicId)}">
 <label for="reason">理由（任意・500 字まで）</label><textarea id="reason" name="reason" maxlength="${REPORT_MAX}"></textarea>

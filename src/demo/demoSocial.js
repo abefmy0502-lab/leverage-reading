@@ -9,7 +9,7 @@ const people = {
 const empty = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('socialstate') === 'empty';
 const state = empty
   ? { following: [], followers: [], requests: [], sent: [], blocked: [] }
-  : { following: ['k7mna2pqrs'], followers: ['t3xbw9hjuv'], requests: ['q8rfz4mncd'], sent: [], blocked: ['w2ycd5kpne'] };
+  : { following: ['k7mna2pqrs'], followers: ['k7mna2pqrs', 't3xbw9hjuv'], requests: ['q8rfz4mncd'], sent: [], blocked: ['w2ycd5kpne'] };
 const shelves = {
   k7mna2pqrs: [
     { id: '7b1e0000-0000-4000-8000-000000000001', title: 'イシューからはじめよ', author: '安宅和人', status: 'reading', rating: 0, isbn: '9784862760852', summary: '' },
