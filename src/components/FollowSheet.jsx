@@ -52,7 +52,7 @@ const shownTitle = (t) => String(t || '').replace(/[０-９Ａ-Ｚａ-ｚ]/g, (c
 
 const who = (p) => (p?.nickname ? `${p.nickname}さん` : 'この人');
 
-const Cover = ({ book, width = 72 }) => <MiniCover title={book.title} cover={book.cover} width={width} />;
+const Cover = ({ book, width = 72 }) => <MiniCover title={shownTitle(book.title)} cover={book.cover} width={width} />;
 
 function PersonRow({ person, children, onOpen, first = false }) {
   const body = (
@@ -285,7 +285,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
       {books.map((b, i) => (
         <div role="listitem" key={b.id} style={{ borderTop: i === 0 ? 'none' : '1px solid var(--separator)' }}>
           <button type="button" onClick={() => setView({ name: 'book', person, book: b })} style={{ ...plainBtn, width: '100%', display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-start', padding: 'var(--space-4) 0' }}>
-            <MiniCover title={b.title} cover={b.cover} width={48} />
+            <MiniCover title={shownTitle(b.title)} cover={b.cover} width={48} />
             <span style={{ minWidth: 0, flex: 1 }}>
               <span style={{ display: 'block', fontSize: 'var(--text-sub)', fontWeight: 600, lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(shownTitle(b.title), { scriptBreaks: true })}</span>
               <span style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', marginTop: 'var(--space-1)', fontFamily: 'var(--font-read)', fontSize: 'var(--text-sub)', lineHeight: 1.7, color: 'var(--text)', lineBreak: 'strict', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(summaryExcerpt(b.summary))}</span>
@@ -399,7 +399,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
             <MiniCover title={p.favTitle} cover={p.favCover} width={40} />
             <span style={{ minWidth: 0 }}>
               <span style={{ display: 'block', ...note }}>好きな本</span>
-              <span style={{ display: 'block', fontSize: 'var(--text-sub)', fontWeight: 600, lineHeight: 1.5, overflowWrap: 'anywhere' }}>『{p.favTitle}』</span>
+              <span style={{ display: 'block', fontSize: 'var(--text-sub)', fontWeight: 600, lineHeight: 1.5, overflowWrap: 'anywhere' }}>『{shownTitle(p.favTitle)}』</span>
               {p.favAuthor && <span style={{ display: 'block', ...note, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.favAuthor}</span>}
             </span>
           </div>
@@ -433,6 +433,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
                           <Cover book={b} width="100%" />
                           {/* 表紙の無い本は代用表紙に書名が出るので、下の書名は出さない（読み上げは aria-label）。 */}
                           {b.cover && <span style={{ fontSize: 'var(--text-meta)', fontWeight: 600, lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'keep-all', overflowWrap: 'break-word' }}>{withPhraseBreaks(shownTitle(b.title), { scriptBreaks: true })}</span>}
+                          {b.author && <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-2)', lineHeight: 1.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.author}</span>}
                           <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-2)', lineHeight: 1.5 }}>
                             {STATUS_LABEL[b.status]}{b.rating ? <span style={{ color: 'var(--accent)' }}> {'★'.repeat(b.rating)}</span> : null}
                           </span>

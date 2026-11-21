@@ -63,7 +63,7 @@ export function isShowable(p) {
 const STYLE = `
 :root{--bg:#f7f5f1;--surface:#fffefb;--fill:#efece6;--text:#2b2825;--text-2:#5f5a53;--text-3:#6e6860;--separator:#dcd7ce;--border:#868076;--accent:#8a4b2a;--accent-ink:#fffefb;--radius:12px;
 --on-cover:#ffffff;--cover-1a:#7d4a2e;--cover-1b:#5d3a22;--cover-2a:#7a5080;--cover-2b:#5a3a60;--cover-3a:#4a6e8a;--cover-3b:#2c4d68;--cover-4a:#4f6e3f;--cover-4b:#3a5a30;--cover-5a:#8e4330;--cover-5b:#703528;--cover-6a:#7e6249;--cover-6b:#5e4836;
---font-ui:-apple-system,BlinkMacSystemFont,"SF Pro Text","Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;--font-read:"Hiragino Mincho ProN","YuMincho","Yu Mincho","Noto Serif CJK JP","Noto Serif JP",serif}
+--font-ui:-apple-system,BlinkMacSystemFont,"SF Pro Text","Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;--font-read:"Hiragino Mincho ProN","YuMincho","Yu Mincho","Noto Serif JP","Noto Serif CJK JP",serif}
 @media (prefers-color-scheme:dark){:root{--bg:#1b1a18;--surface:#252321;--fill:#2f2c29;--text:#f2efea;--text-2:#bdb7ae;--text-3:#9e978d;--separator:#3a3632;--border:#807a73;--accent:#e0a07a;--accent-ink:#1b1a18}}
 *{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font-ui);-webkit-text-size-adjust:100%}
 main{max-width:480px;margin:0 auto;padding:48px 16px 64px}
@@ -87,7 +87,7 @@ a{color:var(--accent)}
 .bka{display:flex;flex-direction:column;gap:4px;min-width:0;color:inherit;text-decoration:none}
 .stores{display:flex;flex-wrap:wrap;gap:12px;margin:12px 0 0}.stores a{flex:1 1 9em;margin:0}
 .cta2{display:flex;align-items:center;justify-content:center;margin:16px 0 0;min-height:48px;padding:12px 16px;border-radius:var(--radius);border:1px solid var(--border);color:var(--text);font-size:15px;font-weight:600;text-decoration:none}
-.sum{margin:0;font-family:var(--font-read);font-size:17px;line-height:1.8;white-space:pre-line;overflow-wrap:anywhere}
+.sum{margin:0;font-family:var(--font-read);font-size:18px;line-height:1.8;white-space:pre-line;overflow-wrap:anywhere}
 .back{display:inline-flex;align-items:center;min-height:44px;font-size:15px;color:var(--accent);text-decoration:none}
 .bookhead{display:flex;gap:16px;align-items:flex-start}.bookhead .bcover{width:96px;flex-shrink:0}
 .bookhead .bcover img,.bookhead .bcover .ph{width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:4px;border:1px solid var(--separator);display:flex;align-items:flex-end;padding:8px;font-size:13px;font-weight:600;color:var(--on-cover);overflow:hidden;line-break:strict;word-break:auto-phrase;overflow-wrap:anywhere}
@@ -308,14 +308,15 @@ export function renderBook(p, book, { publicId, showSummary = false, others = []
   const rating = book.status === 'done' ? Math.max(0, Math.min(5, Math.round(Number(book.rating) || 0))) : 0;
   const summary = showSummary ? publicSummary(book.summary) : '';
   const title = String(book.title || '').trim();
-  const meta = [STATUS_LABEL[book.status] || '', rating ? `評価 ${'★'.repeat(rating)}${'☆'.repeat(5 - rating)}` : ''].filter(Boolean).join('・');
+  const meta = STATUS_LABEL[book.status] || '';
+  const stars = rating ? `<span class="st" aria-label="評価 ${rating}">${'★'.repeat(rating)}</span>` : '';
   const body = `<a class="back" href="/u/${esc(publicId)}">‹ ${esc(who)}の本棚</a>
 <div style="margin-top:16px"><div class="bookhead"><div class="bcover">${cover ? `<img src="${esc(cover)}" alt="">` : coverPlaceholder(title)}</div>
-<div><h1 class="title" style="font-size:20px">『${esc(shownTitle(title))}』</h1>${book.author ? `<p class="author">${esc(book.author)}</p>` : ''}${meta ? `<p class="meta">${esc(meta)}</p>` : ''}</div></div></div>
+<div><h1 class="title" style="font-size:20px">『${esc(shownTitle(title))}』</h1>${book.author ? `<p class="author">${esc(book.author)}</p>` : ''}${meta ? `<p class="meta">${esc(meta)}${stars ? `　${stars}` : ''}</p>` : ''}</div></div></div>
 ${summary ? `<h2 class="h">${esc(who)}の、この本のまとめ</h2><p class="sum">${esc(summary)}</p>` : `<p class="note" style="text-align:left;margin-top:24px;font-size:15px">${showSummary ? 'まとめはまだありません。' : 'まとめは公開されていません。'}</p>`}
 <a class="cta" href="${esc(wantUrl({ ...book, cover }, site))}">読みたいに追加</a>
 <p class="note" style="text-align:left">Orime が開き、あなたの「読みたい」に入れる前に確かめます。</p>
-<div class="tl" style="margin-top:24px"><a href="${esc(getAmazonLink({ isbn: book.isbn, title, author: book.author }))}" target="_blank" rel="noopener noreferrer sponsored">Amazon ↗</a><a href="${esc(getRakutenLink({ isbn: book.isbn, title, author: book.author }))}" target="_blank" rel="noopener noreferrer">楽天ブックス ↗</a></div>
+<div class="tl" style="margin-top:24px"><a href="${esc(getAmazonLink({ isbn: book.isbn, title, author: book.author }))}" target="_blank" rel="noopener noreferrer sponsored">Amazon<svg width="1.1em" height="1.1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-left:4px"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></a><a href="${esc(getRakutenLink({ isbn: book.isbn, title, author: book.author }))}" target="_blank" rel="noopener noreferrer">楽天ブックス<svg width="1.1em" height="1.1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-left:4px"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></a></div>
 ${others.length ? `<p class="sh">${esc(who)}の、ほかのまとめ</p>${summaryRows(others, publicId)}` : ''}
 <a class="cta2" style="margin-top:32px" href="${esc(site)}/?follow=${esc(publicId)}">Orime でフォローを申し込む</a>
 <p class="note" style="text-align:left">承認されると、本棚とまとめをアプリでいつでも見られます。</p>
