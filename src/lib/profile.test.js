@@ -1,13 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeProfile, hasProfile, newPublicId, favoriteChanged, addressName, saveProfile, loadProfile } from './profile';
+import { normalizeProfile, hasProfile, newPublicId, favoriteChanged, addressName, saveProfile, loadProfile, PROFILE_LIMITS } from './profile';
 
 describe('プロフィール（2026-11-21）', () => {
   it('長さ・表紙・ISBN を整える', () => {
-    const p = normalizeProfile({ nickname: ' ふ\nみ ', favCover: 'http://x/a.jpg', favIsbn: '978-4-86276-085-2', favLine: 'あ'.repeat(100) });
+    const p = normalizeProfile({ nickname: ' ふ\nみ ', favCover: 'http://x/a.jpg', favIsbn: '978-4-86276-085-2', favLine: 'あ'.repeat(300) });
     expect(p.nickname).toBe('ふ み');
     expect(p.favCover).toBe('');
     expect(p.favIsbn).toBe('9784862760852');
-    expect([...p.favLine].length).toBe(80);
+    expect([...p.favLine].length).toBe(PROFILE_LIMITS.line);
   });
   it('中身の有無・呼び方', () => {
     expect(hasProfile({})).toBe(false);

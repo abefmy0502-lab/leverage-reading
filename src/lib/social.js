@@ -2,13 +2,18 @@
 //   相手を見つけるのは、相手のリンク（/u/<public_id>）か ID だけ（名前で探さない・オーナー裁定）。
 //   申し込み → 相手が承認 → 承認された人は相手の本棚と「この本のまとめ」をいつでも見られる（公開がオフでも）。
 //   ブロック・通報ができる（App 審査 1.2）。データベースは supabase_follows.sql（関数だけが書く）。
-//   アプリの画面は VITE_SOCIAL=on のビルドだけ（1.0.1 から・ビルド 7 には入れない＝オーナー裁定）。お試しモードは &social=1。
+//   Web は既定で出す。iPhone のアプリは VITE_SOCIAL=on のビルドだけ（1.0.1 から・ビルド 7 には入れない＝オーナー裁定）。
+import { Capacitor } from '@capacitor/core';
 import { supabase, isSupabaseConfigured, isDemo } from './supabase';
 import { profileTextIssue } from './profileFilter';
 import { SITE_URL } from './legalLinks';
 
+// 2026-11-21 オーナー「入れてください」: Web は既定で出す（VITE_SOCIAL=off で止める）。
+//   iPhone のアプリはビルドに VITE_SOCIAL=on を入れたときだけ（1.0.1 から・ビルド 7 には出さない）。
+const flag = String(import.meta.env?.VITE_SOCIAL || '').toLowerCase();
+const native = (() => { try { return Capacitor.isNativePlatform(); } catch { return false; } })();
 const demoOn = isDemo && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('social') === '1';
-export const SOCIAL_ON = import.meta.env.VITE_SOCIAL === 'on' || demoOn;
+export const SOCIAL_ON = flag === 'on' || (flag !== 'off' && !native) || demoOn;
 
 const PUBLIC_ID_RE = /^[a-z0-9]{10}$/;
 
