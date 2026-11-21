@@ -127,6 +127,22 @@ const rememberSession = (userId, patch) => {
   Object.assign(session, patch);
 };
 
+// 相談の上の「あなたのメモ N 件」の数の端末の控え（利用者ごと・2026-11-20）。
+export const CONSULT_STATS_PREFIX = 'orime.consultStats.v1:';
+function readCachedMemoStats(userId) {
+  if (!userId) return null;
+  try {
+    const v = JSON.parse(localStorage.getItem(CONSULT_STATS_PREFIX + userId) || 'null');
+    if (!v || typeof v !== 'object') return null;
+    const n = (k) => (Number.isFinite(Number(v[k])) && Number(v[k]) >= 0 ? Math.floor(Number(v[k])) : 0);
+    return { cards: n('cards'), personal: n('personal'), summaries: n('summaries'), summaryBooks: n('summaryBooks') };
+  } catch { return null; }
+}
+function writeCachedMemoStats(userId, stats) {
+  if (!userId || !stats) return;
+  try { localStorage.setItem(CONSULT_STATS_PREFIX + userId, JSON.stringify(stats)); } catch { /* ignore */ }
+}
+
 // AI tab の .ai-page-body (flex 1, overflow hidden) の中にぴったり
 // 収める flex column。chat 時は内側 .chat-scroll + .ai-input-area で
 // LINE 風レイアウト、それ以外 (learning/history/knowledge) は普通の
@@ -678,13 +694,19 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const [promptDismissed, setPromptDismissed] = useState(false);
   // 戻ってきたときは覚えていた会話をすぐ出す（読み直しは裏で行い、出ている会話は消さない）。
   const [historyLoaded, setHistoryLoaded] = useState(() => !!resumed);
+  // この起動ではじめて開いた（新しい会話から始まる＝過去の相談は境界より前で、会話には出ない）。
+  const freshStart = !resumed;
   const [historyError, setHistoryError] = useState(false);
   // learningOpen state は廃止 — view === 'learning' で表現する。
   // cards＝カード式 / personal＝学び / summaryBooks＝「この本のまとめ」の入っている本（1 冊 1 件）/
   // summaries＝根拠にできる情報の合計（読書準備なども含む・件数の表示には使わない）
   // 戻ってきたときは前に数えた件数をすぐ出す（上部の「あなたのメモ N 件から答えます」が数え直すまで空かないように）。
-  const [memoStats, setMemoStats] = useState(() => resumed?.memoStats || { cards: 0, summaries: 0, personal: 0, summaryBooks: 0 });
-  const [memoStatsLoaded, setMemoStatsLoaded] = useState(() => !!resumed?.memoStats);
+  // ⚡ アプリを開き直したあとも、前に数えた件数を端末の控えから先に出す（2026-11-20 オーナー「相談への立ち上げが遅い」）。
+  //   数え直した数で静かに直す。ログアウト・データの初期化で消す（useAuth・lib/deviceData.js）。
+  const [memoStats, setMemoStats] = useState(() => resumed?.memoStats || readCachedMemoStats(user?.id) || { cards: 0, summaries: 0, personal: 0, summaryBooks: 0 });
+  const [memoStatsLoaded, setMemoStatsLoaded] = useState(() => !!(resumed?.memoStats || readCachedMemoStats(user?.id)));
+  const memoStatsLoadedRef = useRef(memoStatsLoaded);
+  memoStatsLoadedRef.current = memoStatsLoaded;
   // メモの件数を数えられなかった（通信断など）。0 件と取り違えて「まだメモがありません」を出さない。
   const [memoStatsFailed, setMemoStatsFailed] = useState(false);
   // 自分のメモの件数（はじめての相談の計測 first_consult_sent に添える・数えている途中は -1）。
@@ -912,7 +934,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             ? supabase.from('books').select('leverage_memo, invest_purpose, current_challenge, hypothesis, ai_summary, roi_summary, ai_strategy').eq('user_id', user.id)
             : r)),
       ]);
-      if (cancelled) return;
+      // 読み直しが重なって古い方になっても、まだ 1 度も数え終わっていなければ使う（前は相談の履歴が届いたところで
+      //   数え直しになり、件数と相談例が 2 往復ぶん遅れて出ていた・2026-11-20）。
+      if (cancelled && memoStatsLoadedRef.current) return;
       // 埋まっている (非 null + 空文字でない) フィールドだけ数える
       const isFilled = (v) => typeof v === 'string' && v.trim().length > 0;
       const summariesCount = (booksFieldsRes.data || []).reduce((sum, b) => {
@@ -928,7 +952,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         return sum + n;
       }, 0);
       if (cardsRes.error || personalRes.error) {
-        setMemoStatsFailed(true);
+        // 控えで描けているなら、読み直しの失敗で「数えられませんでした」にしない。
+        if (!readCachedMemoStats(user.id)) setMemoStatsFailed(true);
         return;
       }
       setMemoStatsFailed(false);
@@ -940,12 +965,13 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       };
       setMemoStats(nextStats);
       rememberSession(user?.id, { memoStats: nextStats });
+      writeCachedMemoStats(user.id, nextStats);
      } catch (e) {
       console.warn('memo stats fetch error:', e?.message || e);
       if (!cancelled) setMemoStatsFailed(true);
      } finally {
       // 数え終わるまで空の画面（相談例 / 初日の入口）を出さない（出してから入れ替わるちらつきの防止）。
-      if (!cancelled) setMemoStatsLoaded(true);
+      if (!cancelled || !memoStatsLoadedRef.current) setMemoStatsLoaded(true);
      }
     })();
     return () => {
@@ -2494,7 +2520,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             aria-busy={busy}
           >
           {statusLine}
-          {isEmpty && historyLoaded && memoStatsLoaded && (
+          {/* ⚡ 新しい会話は空から始まるので、過去の相談を読み終える前に空の画面を出す（相談例だけは読み終えるまで形で待つ・2026-11-20）。 */}
+          {isEmpty && (historyLoaded || freshStart) && memoStatsLoaded && (
             scopeIds.length > 0 && scopeMemoCount === 0 ? (
               // 相談相手に絞った本にメモが無い（SPEC §3）: 空振りさせず、すべての本へ戻す道だけを出す。
               <section aria-labelledby="brain-scope-empty-title">
@@ -2551,7 +2578,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 <h2 id="brain-empty-title" style={{ ...headingStyle, marginBottom: 'var(--space-6)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('困っていることを、相談してください')}</h2>
                 <p style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>たとえば</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-                  {introExamples.map(({ text: q, kind }) => {
+                  {/* 相談例は過去の相談（「前に相談した…」）を使うので、読み終えるまでは同じ大きさの形で待つ。 */}
+                  {!historyLoaded && [0, 1, 2].map((i) => <SkeletonBlock key={`ex${i}`} width="100%" height={69} radius="var(--radius)" />)}
+                  {historyLoaded && introExamples.map(({ text: q, kind }) => {
                     const picked = !!firstDayDraft && q === input.trim();
                     return (
                     <button
@@ -2583,7 +2612,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           )}
 
           {/* 読み込み中は空の画面と同じ形（見出し → 「たとえば」 → 相談例のチップ 3 つ）で待つ（出来上がりで形が跳ねないように）。 */}
-          {(!historyLoaded || (isEmpty && !memoStatsLoaded && !!user && isSupabaseConfigured)) && (
+          {((!historyLoaded && !freshStart) || (isEmpty && !memoStatsLoaded && !!user && isSupabaseConfigured)) && (
             <div role="status" aria-label="読み込み中">
               <SkeletonBlock width="70%" height={26} radius="var(--radius)" style={{ marginBottom: 'var(--space-6)' }} />
               <SkeletonBlock width={64} height={18} radius="var(--radius)" style={{ marginBottom: 'var(--space-2)' }} />
