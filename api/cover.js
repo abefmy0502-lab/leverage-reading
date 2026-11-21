@@ -15,6 +15,7 @@
 // 出力: { cover, isbn, candidates }（cover が '' なら未発見）。認証なし・公開書誌の読み取り専用。
 //   verify=1 のときは加えて { verified: true|false|null, match }（判定は _bookVerify.js・2026-09-30）。
 
+import { handleProfileRequest } from './_profilePage.js';
 import { applyCors } from './_cors.js';
 import { findStrongMatch, strongTitleMatch, authorMatches } from './_bookVerify.js';
 import { rakutenGet, rakutenUpscale } from './_rakuten.js';
@@ -670,6 +671,11 @@ async function coverHealth() {
 }
 
 export default async function handler(req, res) {
+  // 👤 プロフィールの公開のページと通報（/u/<id>・/api/profile-report・api/_profilePage.js・2026-11-21）。
+  //    HTML を返す・通報は POST なので、表紙の GET だけの決まりより前に分ける（新しい関数を増やさない）。
+  if (req.query?.profile !== undefined || req.query?.op === 'profile_report') {
+    if (await handleProfileRequest(req, res)) return undefined;
+  }
   // iOS アプリ（capacitor://localhost）からの呼び出しを許可。
   if (applyCors(req, res, 'GET, OPTIONS')) return undefined;
   // 📕 中身は公開の書誌だけ（Cookie・認証なし）なので、CORS は全員に「*」を返す。
