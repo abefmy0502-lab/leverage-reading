@@ -20,6 +20,7 @@
   ],
   "rewrites": [
     { "source": "/mcp/:key", "destination": "/api/mcp?key=:key" },
+    { "source": "/u/:id/b/:book", "destination": "/api/cover?profile=:id&book=:book" },
     { "source": "/u/:id", "destination": "/api/cover?profile=:id" },
     { "source": "/api/profile-report", "destination": "/api/cover?op=profile_report" },
     { "source": "/api/stripe-checkout", "destination": "/api/stripe?op=checkout" },

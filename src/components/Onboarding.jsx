@@ -6,6 +6,7 @@ import { BookOpen, MessageCircle, X, ChevronLeft, ChevronDown } from 'lucide-rea
 import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnLink } from '../styles/ui';
 import { withPhraseBreaks } from './TightBubble';
 import ProfileForm from './ProfileForm';
+import { SOCIAL_ON } from '../lib/social';
 import { EMPTY_PROFILE, hasProfile } from '../lib/profile';
 import { profileIssues, profileIssueMessage } from '../lib/profileFilter';
 import { saveProfileShared } from '../hooks/useProfile';
@@ -33,8 +34,11 @@ const slides = [
     // 👤 プロフィール（2026-11-21 オーナー「アカウント作成ができるようになりたい」・登録直後・飛ばせる）。
     //   書いたら「次へ」で保存、「あとで」で飛ばす（設定の「プロフィール」からいつでも書ける）。
     id: 'profile',
-    title: 'あなたの好きな本は？',
-    body: 'ニックネームと好きな本を残せます。右上の自分のアイコンから、いつでも書き直せます。',
+    // VITE_SOCIAL のビルドは好きな本を本棚から選ぶので、はじめはニックネームとアイコンだけ（2026-11-21 3 回目）。
+    title: SOCIAL_ON ? 'あなたのニックネームは？' : 'あなたの好きな本は？',
+    body: SOCIAL_ON
+      ? 'ニックネームとアイコンを決められます。好きな本と好きな言葉は、本を入れたあと右上の自分のアイコンから選べます。'
+      : 'ニックネームと好きな本を残せます。右上の自分のアイコンから、いつでも書き直せます。',
   },
   {
     Icon: BookOpen,
@@ -380,7 +384,7 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
           </p>
           {slide.id === 'profile' && (
             <div style={{ paddingTop: 'var(--space-2)' }}>
-              <ProfileForm value={profile} onChange={setProfile} />
+              <ProfileForm value={profile} onChange={setProfile} showAvatar={SOCIAL_ON} showFavorite={!SOCIAL_ON} />
               {profileError && <p role="alert" style={{ margin: 'var(--space-3) 0 0', fontSize: 'var(--text-meta)', color: 'var(--error)' }}>{profileError}</p>}
             </div>
           )}

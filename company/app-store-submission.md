@@ -219,6 +219,21 @@ Review Notes に足す文:
 - 運営の対応は MCP の `ops_reports`（list → hide／show／dismiss）。`ops_dashboard` の最初の行に開いている通報の件数が出る
 - 審査の前に本番に `supabase_profiles.sql` を流しておく（流していないと「公開する」が押せず、2.1 で止まりうる）
 
+### 7-2. 1.0.1 でフォローを出すとき（2026-11-21・`VITE_SOCIAL=on`・ビルド 7 には入れていない）
+
+アプリの中でほかの人の本棚とまとめが見えるようになる＝利用者が作るコンテンツ（1.2）がアプリの中に入る。審査で求められる 4 つがそろっていることを Review Notes に書く:
+1. **絞り込み**: ニックネーム・自己紹介・好きな言葉・まとめの、公開に向かない言葉と連絡先は保存の前に止め、表示の前にも外す（`lib/profileFilter.js`・サーバーとアプリの両方）
+2. **通報**: 相手の本棚とフォロワーの行の「…」→「通報する」（公開のページと同じ窓口・運営は 24 時間以内）
+3. **ブロック**: 同じ「…」→「ブロックする」（お互いのフォローが外れ、申し込みも見ることもできなくなる）
+4. **連絡先**: 利用規約の第 10 条・サポートのメール
+
+Review Notes に足す文:
+> Users can follow each other only with the other person's profile link or ID (there is no search by name), and only after the other person approves. An approved follower can see that person's bookshelf and per-book summaries. Objectionable words and contact details are blocked before saving and filtered before display. Every person's shelf and every follower row has a "…" menu with Report and Block. Blocking removes the follow in both directions and prevents new requests. Reports reach us and are reviewed within 24 hours (Terms, Article 10).
+
+- 出す前に本番に `supabase_all_in_order.sql` を流す（`supabase_follows.sql`・`profiles.summary_public`）
+- Vercel にも `VITE_SOCIAL=on` を入れる（公開のページの本のページ・読みたいに追加・フォローを申し込む）
+- 審査用のデモアカウントに、フォロー中の人を 1 人（本棚とまとめのある、もう 1 つのテスト用アカウント）用意しておく
+
 ## 8. PrivacyInfo.xcprivacy（⬜ `ios/App/App/` に追加）
 
 2026-10-11 に §6 の表と同じ種類に揃えた（メール・名前・ユーザー ID・購入履歴・写真またはビデオ・その他のユーザーコンテンツ・カスタマーサポート・製品の操作、Sentry を入れたビルドだけクラッシュとパフォーマンス）。

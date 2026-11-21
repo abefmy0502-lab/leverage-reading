@@ -67,6 +67,16 @@ begin
   end if;
 end $$;
 
+-- 2026-11-21（3 回目・オーナー「本の画像を押したらその人のこの本のまとめを見られるように」「好きな言葉はメモから選べるように」）:
+--   本のまとめも公開する summary_public（既定 false・本棚も公開するのオンが前提）。前に「メモは見えません」と案内して
+--   本棚を公開した人のまとめを、本人が選ばないまま出さないための印。好きな言葉（fav_line）は 200 字まで（メモから選ぶため）。
+alter table public.profiles add column if not exists summary_public boolean not null default false;
+alter table public.profiles drop constraint if exists profiles_lengths_check;
+alter table public.profiles add constraint profiles_lengths_check check (
+  char_length(nickname) <= 20 and char_length(fav_title) <= 120 and char_length(fav_author) <= 80
+  and char_length(fav_isbn) <= 13 and char_length(fav_cover) <= 500 and char_length(fav_line) <= 200
+);
+
 create unique index if not exists profiles_public_id_uq on public.profiles (public_id);
 
 -- RLS: 本人の行だけ。hidden（運営が隠した印）は本人が外せない＝update で変えられない（下のトリガー）。
@@ -104,6 +114,7 @@ begin
   if coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) then
     new.is_public := false;
     new.shelf_public := false;
+    new.summary_public := false;
   end if;
   new.updated_at := now();
   return new;

@@ -72,13 +72,14 @@ describe('公開の本棚（2026-11-21）', async () => {
     { id: '00000000-0000-4000-8000-000000000003', title: 'イシューからはじめよ', status: 'reading', cover: 'https://evil.example/x.jpg', fields: ['思考法・問題解決'] },
     { id: '00000000-0000-4000-8000-000000000004', title: '<script>', status: 'want', fields: [] },
   ];
-  it('外した本を除き、状態の順に並べ、分野は決まった名前だけ数える', () => {
+  it('外した本を除き、状態の順に並べる（分野のまとまりは出さない）', () => {
     const s = buildShelf(books, ['00000000-0000-4000-8000-000000000002']);
     expect(s.total).toBe(3);
     expect(s.byStatus.map((g) => g.id)).toEqual(['reading', 'done', 'want']);
     expect(s.byStatus[1].books[0].rating).toBe(4);
     expect(s.byStatus[0].books[0].cover).toBe(''); // 許可していない表紙は出さない
-    expect(s.fields.flatMap((g) => g.items.map((i) => i.name))).toEqual(['経営・組織', '思考法・問題解決']);
+    expect(s.fields).toBeUndefined();
+    expect(s.byStatus[1].books[0].id).toBe('00000000-0000-4000-8000-000000000001');
   });
   it('本棚・自己紹介を描き、メモは描かない・文字はエスケープする', () => {
     const shelf = buildShelf(books, []);
@@ -89,6 +90,19 @@ describe('公開の本棚（2026-11-21）', async () => {
     expect(html).toContain('企画の仕事');
     expect(html).not.toContain('<script>');
     expect(html).toContain('&lt;script&gt;');
+  });
+  it('分野の名前は出さない・VITE_SOCIAL が無ければ本へのリンクもフォローも無い', () => {
+    const shelf = buildShelf(books, []);
+    const { html } = renderProfile({ nickname: 'ふみ', shelf_public: true }, { publicId: 'abcdefgh23', shelf, social: false });
+    expect(html).not.toContain('経営・組織');
+    expect(html).not.toContain('/b/');
+    expect(html).not.toContain('follow=');
+  });
+  it('VITE_SOCIAL のときは本を押すと本のページ・フォローを申し込む', () => {
+    const shelf = buildShelf(books, []);
+    const { html } = renderProfile({ nickname: 'ふみ', shelf_public: true }, { publicId: 'abcdefgh23', shelf, social: true });
+    expect(html).toContain('href="/u/abcdefgh23/b/00000000-0000-4000-8000-000000000001"');
+    expect(html).toContain('/?follow=abcdefgh23');
   });
   it('本棚を出さないときは本棚の節が無い', () => {
     const { html } = renderProfile({ nickname: 'ふみ' }, { publicId: 'abcdefgh23', shelf: null });
@@ -145,5 +159,32 @@ describe('自分のアイコン（公開のページ）', async () => {
     const html = r.html;
     expect(html.indexOf('class="av"')).toBeGreaterThan(-1);
     expect(html.indexOf('class="av"')).toBeLessThan(html.indexOf('class="name"'));
+  });
+});
+
+describe('本のページ（まとめ・読みたいに追加・2026-11-21）', async () => {
+  const { renderBook, publicSummary, wantUrl, socialOn } = await import('./_profilePage.js');
+  const book = { id: '00000000-0000-4000-8000-000000000001', title: '考え方', author: '稲盛和夫', status: 'done', rating: 5, isbn: '978-4-12', summary: '心を高める\n2 行目' };
+  it('まとめは本人が公開しているときだけ・エスケープする', () => {
+    const on = renderBook({ nickname: 'ふみ' }, book, { publicId: 'abcdefgh23', showSummary: true }).html;
+    expect(on).toContain('ふみさんの、この本のまとめ');
+    expect(on).toContain('心を高める');
+    const off = renderBook({ nickname: 'ふみ' }, book, { publicId: 'abcdefgh23', showSummary: false }).html;
+    expect(off).not.toContain('心を高める');
+    expect(off).toContain('読みたいに追加');
+  });
+  it('公開に向かない言葉・連絡先のあるまとめは出さない', () => {
+    expect(publicSummary('連絡は test@example.com')).toBe('');
+    expect(publicSummary('ふつうのまとめ')).toBe('ふつうのまとめ');
+  });
+  it('読みたいに追加の行き先に書名・著者・ISBN の数字だけ', () => {
+    const u = new URL(wantUrl(book, 'https://orime.vercel.app'));
+    expect(u.searchParams.get('want')).toBe('1');
+    expect(u.searchParams.get('title')).toBe('考え方');
+    expect(u.searchParams.get('isbn')).toBe('978412');
+  });
+  it('VITE_SOCIAL は on のときだけ', () => {
+    expect(socialOn({ VITE_SOCIAL: 'on' })).toBe(true);
+    expect(socialOn({})).toBe(false);
   });
 });
