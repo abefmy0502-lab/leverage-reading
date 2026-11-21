@@ -1844,7 +1844,7 @@ function AuthedApp() {
     setAddBookModalOpen(true);
   };
 
-  // 📷 本が 0 冊で「写真で共有」を押したとき（2026-10-09 ui-critic）: ホームの「読んだ本の一言をメモする」へ
+  // 📷 本が 0 冊で「写真で共有」を押したとき（2026-10-09 ui-critic）: ホームの「読んだ本の一文をメモする」へ
   //   目と指を送る（フォーカス＋画面の中ほどへ＋軽く弾ませる＋ハプティクス）。見つからなければ本を追加を開く。
   //   弾ませるだけでは押した理由が分からないので、アプリを開いている間に 1 回だけ理由を 1 行で知らせる（2026-10-10 第 9 回 総点検）。
   const firstStepToldRef = useRef(false);
@@ -2858,7 +2858,7 @@ function AuthedApp() {
     const pending = []; // { bookId, memos }
     const newBooks = [];
     const autoFieldTitles = new Set(); // 取り込んだタグが分野に結びつかず、書名から分野を選んだ本
-    const noReviewIds = new Set(); // 感想・レビューの無い新しい本（メモも無ければ「覚えている一言を足す」の候補）
+    const noReviewIds = new Set(); // 感想・レビューの無い新しい本（メモも無ければ「覚えている一文を足す」の候補）
     const srcDoneDate = new Map(); // もとからあった本 → 取り込み元の読了日
     for (let i = 0; i < items.length; i += 1) {
       const b = items[i];
@@ -2970,7 +2970,7 @@ function AuthedApp() {
     // 新しい本のレビューは「この本のまとめ」に入れたので、メモ（カード）とは分けて数えて伝える
     track('import_done', { source: result?.source || 'unknown', books: booksAdded, matched: booksMatched, memos: memosAdded, reviews: reviewsAdded });
     if (memosAdded + reviewsAdded > 0) markActivation('memo');
-    // メモも「この本のまとめ」も無い新しい本（完了画面の「覚えている一言を足す（N 冊）」で一言を足せる）。
+    // メモも「この本のまとめ」も無い新しい本（完了画面の「覚えている一文を足す（N 冊）」で一言を足せる）。
     const withRows = new Set(rows.map((r) => r.book_id));
     const bareBooks = newBooks.filter((bk) => noReviewIds.has(bk.id) && !withRows.has(bk.id));
     // 🌱 完了画面の「相談してみる」で入力欄に入れる相談の材料（メモか「この本のまとめ」が入った本・lib/firstDay.js）。
@@ -6158,7 +6158,7 @@ function AuthedApp() {
         }))}
         aria-label="写真で共有"
         // 文字は 15 から設定に合わせて大きくなるが、20 で止める（--text-bar-max・1 行に収める）。アイコンは右の ？・⚙️ と同じ 22。
-        // 本が 0 冊のときは栗色にしない（--text-2）＝主役は本文の「読んだ本の一言をメモする」（アクセントを 2 か所にしない・2026-10-11 第 2 回の採点）。
+        // 本が 0 冊のときは栗色にしない（--text-2）＝主役は本文の「読んだ本の一文をメモする」（アクセントを 2 か所にしない・2026-10-11 第 2 回の採点）。
         style={{ ...btnLink, color: 'var(--text-2)', fontWeight: 400, fontSize: 'min(var(--text-sub), var(--text-bar-max))', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', padding: '0 var(--space-2)', whiteSpace: 'nowrap' }}
       >
         <Camera size={22} strokeWidth={1.75} aria-hidden="true" />
@@ -6251,7 +6251,7 @@ function AuthedApp() {
               onOpenPlan={() => setSettingsOpen(true)}
               onOpenReadingPlan={(v = 'plan') => setGoalScreen({ view: v === 'roadmap' ? 'roadmap' : 'plan', horizon: 'all', from: 'home' })}
               onOpenGoals={() => setGoalScreen({ view: 'goals', from: 'home' })}
-              // 🌱 育つまでの一行の「一言をメモする」（2026-10-20）: メモの無い読了・読書中の本（最大 5 冊）を一言の段から。
+              // 🌱 育つまでの一行の「一文をメモする」（2026-10-20）: メモの無い読了・読書中の本（最大 5 冊）を一言の段から。
               //   どの本にメモがあるか分からないとき（全部のメモをまだ読んでいない）は、いつもの初日クイックスタート。
               onAddOneLines={async () => {
                 let rows = user?.id ? peekAllMemoRows(user.id) : null;
@@ -6621,11 +6621,11 @@ function AuthedApp() {
                     actions={[
                       { label: '本を追加', onClick: openAdd, variant: 'primary', icon: <IcPlus size="1.2em" aria-hidden="true" /> },
                     ]}
-                    // 脇の入口は「読んだ本の一言をメモする」（ホームの本 0 冊と同じ入口・無料で使える）。
+                    // 脇の入口は「読んだ本の一文をメモする」（ホームの本 0 冊と同じ入口・無料で使える）。
                     // AI 選書は有料プランだけなので、最初の一歩には出さない。
                     tip={(
                       <button type="button" onClick={() => setShowQuickstart(true)} style={btnLink}>
-                        読んだ本の一言をメモする
+                        読んだ本の一文をメモする
                       </button>
                     )}
                   />
