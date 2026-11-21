@@ -679,6 +679,7 @@ function AuthedApp() {
     loadError: booksLoadError,
     saveBook,
     deleteBook,
+    hideBook,
     mutateBookLocal,
     saveBookBrief,
     saveReadTarget,
@@ -2611,19 +2612,23 @@ function AuthedApp() {
   // the kebab "削除" button (with confirm) and the swipe-delete gesture
   // (which is already an explicit user intent, no confirm).
   const performBookDelete = async (book, { fromList = false, undo = true } = {}) => {
+    // 押した手応えを先に: 一覧から外して、詳細から戻る（通信は後ろで・できなかったら本を戻す・2026-11-21）。
+    const unhide = hideBook(book.id);
+    if (!fromList) goList();
+    haptic.medium();
     const snapshot = await captureBookSnapshot(book.id);
     if (!snapshot) {
+      unhide();
       toast.error('本の情報を読み込めず、削除できませんでした。');
       return;
     }
     dismissStatusUndo(book.id);
     // 同じ本の保存（行動の切り替え・表紙など）と同じ順番待ちに並べる（保存の途中で消して、消した本を書き戻さない）。
     const deletionPromise = enqueueBookMutation(book.id, () => deleteBook(book.id)).catch((error) => {
+      unhide();
       toast.error(toMessage(error, '削除できませんでした。'));
       throw error;
     });
-    if (!fromList) goList();
-    haptic.medium();
     // メモの写真ファイル（非公開の保存場所）も、戻せなくなった時点で消す（本を消しても写真が残る漏れの防止）。
     const photoPaths = (snapshot.book_memos || []).map((m) => m.photo_path).filter(Boolean);
     const removePhotos = () => {
