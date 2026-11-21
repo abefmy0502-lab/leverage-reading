@@ -21,10 +21,31 @@ export function reloadOnce(storage = (typeof window !== 'undefined' ? window.ses
   } catch { return false; }
 }
 
+// 1 回読み直しても部品が取れないとき（新しい版に切り替わる途中は、古い画面の元がしばらく返る・2026-11-21 Chrome の点検で約 1 分）、
+//   間をあけて自動で読み直す: 5・10・20・30 秒（合わせて約 1 分）。同じ URL で 5 分以内の続きだけ数える。尽きたら null＝ふつうのエラーの画面。
+export const CHUNK_RETRY_DELAYS_MS = [5000, 10000, 20000, 30000];
+const CHUNK_RETRY_KEY = 'orime.chunkRetry';
+export function nextChunkRetry(storage = (typeof window !== 'undefined' ? window.sessionStorage : null), href = (typeof window !== 'undefined' ? window.location.href : ''), now = Date.now()) {
+  try {
+    if (!storage) return null;
+    let rec = null;
+    try { rec = JSON.parse(storage.getItem(CHUNK_RETRY_KEY) || 'null'); } catch { rec = null; }
+    const fresh = rec && rec.href === href && now - (rec.at || 0) < 5 * 60 * 1000;
+    const n = fresh ? (rec.n || 0) : 0;
+    if (n >= CHUNK_RETRY_DELAYS_MS.length) return null;
+    storage.setItem(CHUNK_RETRY_KEY, JSON.stringify({ href, n: n + 1, at: now }));
+    return CHUNK_RETRY_DELAYS_MS[n];
+  } catch { return null; }
+}
+
 export default class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.state = { hasError: false, error: null, retrying: false };
+  }
+
+  componentWillUnmount() {
+    clearTimeout(this.retryTimer);
   }
 
   static getDerivedStateFromError(error) {
@@ -38,7 +59,14 @@ export default class ErrorBoundary extends React.Component {
     // 🔁 画面の部品（あとから読む JS）が読めなかっただけなら、1 回だけ読み込み直す（2026-10-22・LP で「予期せぬエラー」）。
     //   新しい版を出した直後に古い HTML が残っていたとき・通信が途中で切れたときに起きる。中身の誤りではないので
     //   利用者に見せず、同じ URL で 1 回だけ自動で読み直す（2 回目は見せる＝無限に読み直さない）。
-    if (isChunkLoadError(error) && reloadOnce()) window.location.reload();
+    if (isChunkLoadError(error)) {
+      if (reloadOnce()) { window.location.reload(); return; }
+      const wait = nextChunkRetry();
+      if (wait != null) {
+        this.setState({ retrying: true });
+        this.retryTimer = setTimeout(() => window.location.reload(), wait);
+      }
+    }
   }
 
   handleReload = () => {
@@ -62,6 +90,22 @@ export default class ErrorBoundary extends React.Component {
       // 見た目はトークンと ui.js の部品だけ（DESIGN §5 空・エラー・2026-10-04）。以前は 72px の絵文字・
       // 丸いピルのボタン・12〜14px の文字・説明の重ねがけ（「申し訳ありません」「ご不便を…」）が残っていた。
       // 題 1 つ＋次の操作の一言＋主ボタン 1 つ（ホームに戻る）・副ボタン（再読み込み）・文字ボタン（報告）。
+      // 新しい版に切り替わる途中: 謝らず・待てば開くことと、いま読み直す操作だけ（自動で読み直す）。
+      if (this.state.retrying) {
+        return (
+          <div role="status" style={{ minHeight: '100vh', boxSizing: 'border-box', padding: 'calc(var(--space-16) + env(safe-area-inset-top, 0px)) var(--space-4) var(--space-4)', fontFamily: 'var(--font-ui)', color: 'var(--text)', background: 'var(--bg)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <div style={{ width: '100%', maxWidth: 400, textAlign: 'center' }}>
+              <h1 style={{ fontSize: 'var(--text-heading)', fontWeight: 600, lineHeight: 1.3, color: 'var(--text)', margin: '0 0 var(--space-3)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+                {withPhraseBreaks('新しい版に切り替えています')}
+              </h1>
+              <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, margin: '0 0 var(--space-6)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+                {withPhraseBreaks('少し待つと、自動で開き直します。')}
+              </p>
+              <button type="button" onClick={this.handleReload} style={btnGhost}>いま読み込み直す</button>
+            </div>
+          </div>
+        );
+      }
       return (
         <div
           role="alert"
