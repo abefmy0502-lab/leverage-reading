@@ -133,3 +133,13 @@ export function followResultMessage(result) {
     not_ready: 'フォローはまだ使えません。少し時間をおいてお試しください。',
   })[result] || '申し込めませんでした。少し時間をおいてお試しください。';
 }
+
+/** 自分の ID を渡す文（公開していればページのリンクも・公開していなければ ID だけ＝/u/<id> は見つからないので）。 */
+export function myIdShareText(me) {
+  if (!me?.publicId) return { text: '', url: '' };
+  const url = me.isPublic ? `${SITE_URL}/u/${me.publicId}` : '';  // profile.js の profileUrl と同じ形（profile.js がこのファイルを読むので循環させない）
+  const text = url
+    ? 'Orime で、わたしの本棚をフォローしてください。'
+    : `Orime で、わたしの本棚をフォローしてください。\nID: ${me.publicId}\n（Orime の 設定 › フォロー の「フォローを申し込む」に入れてください）`;
+  return { text, url };
+}

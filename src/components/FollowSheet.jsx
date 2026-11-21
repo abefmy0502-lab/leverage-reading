@@ -3,9 +3,9 @@
 //   1 つのシートの中で 3 つの画面を行き来する: 一覧（申し込む・フォロー中・フォロワー・申し込み）→ 相手の本棚 → 本（まとめ・読みたいに追加）。
 //   相手を探す欄は「リンクか ID」だけ（名前で探さない）。承認の前に「本棚とこの本のまとめをいつでも見られます」と確かめる。
 //   ブロック・通報は相手の本棚の「…」とフォロワーの行の「…」から（App 審査 1.2）。
-import { useCallback, useEffect, useId, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { MoreHorizontal, ChevronLeft, ChevronRight, Check } from 'lucide-react';
+import { MoreHorizontal, ChevronLeft, ChevronRight, Check, Share } from 'lucide-react';
 import BottomSheet from './BottomSheet';
 import ContextMenu from './ContextMenu';
 import UserAvatar from './UserAvatar';
@@ -16,9 +16,14 @@ import MiniCover from './MiniCover';
 import { withPhraseBreaks } from './TightBubble';
 import {
   publicIdFrom, previewProfile, requestFollow, followResultMessage, loadFollows, respondFollow, removeFollow,
-  blockUser, unblockUser, reportProfile, loadFolloweeShelf, SHELF_ORDER,
+  blockUser, unblockUser, reportProfile, loadFolloweeShelf, SHELF_ORDER, myIdShareText,
 } from '../lib/social';
 import { track } from '../lib/analytics';
+import { useAuth } from '../hooks/useAuth';
+import { useProfile } from '../hooks/useProfile';
+
+// ニックネームが無いと申し込めない・申し込まれない（supabase_follows.sql の no_profile）ので、その場でプロフィールを開く。
+const ProfileSheet = lazy(() => import('./ProfileSheet'));
 
 const STATUS_LABEL = { reading: '読書中', done: '読了', before: '積読', want: '読みたい' };
 const note = { margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.6, lineBreak: 'strict', textWrap: 'pretty', wordBreak: 'keep-all', overflowWrap: 'anywhere' };
@@ -57,6 +62,10 @@ function PersonRow({ person, children, onOpen, first = false }) {
 
 export default function FollowSheet({ onClose, initialId = '', onAddWant }) {
   const toast = useToast();
+  const { user } = useAuth();
+  const { profile: me, loading: meLoading } = useProfile(user?.id || '');
+  const [profileOpen, setProfileOpen] = useState(false);
+  const meReady = !!(me?.publicId && me?.nickname);
   const confirm = useConfirm();
   const inputId = useId();
   const [lists, setLists] = useState(null); // null＝読み込み中
@@ -87,7 +96,13 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant }) {
     }
   }, [toast]);
   useEffect(() => { reload(); }, [reload]);
-  useEffect(() => { if (lists?.requests?.length && tab === 'following' && !lists.following.length) setTab('requests'); }, [lists]); // eslint-disable-line react-hooks/exhaustive-deps
+  // 申し込みが届いていれば、はじめに開いたときは「申し込み」から（設定の行の「申し込みが N 件」から来た人がすぐ答えられる）。
+  const firstTabRef = useRef(false);
+  useEffect(() => {
+    if (!lists || firstTabRef.current) return;
+    firstTabRef.current = true;
+    if (lists.requests.length) setTab('requests');
+  }, [lists]);
 
   const check = async (raw = text) => {
     const id = publicIdFrom(raw);
@@ -111,8 +126,12 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant }) {
       track('follow_request', { result });
       if (result === 'pending' || result === 'accepted') {
         toast.success(followResultMessage(result));
-        setPreview({ person: { ...person, relation: result } });
+        setPreview((pv) => (pv?.person?.publicId === person.publicId ? { person: { ...person, relation: result } } : pv));
+        if (result === 'pending') setTab('requests');
         reload();
+      } else if (result === 'no_profile') {
+        toast.error(followResultMessage(result));
+        setProfileOpen(true);
       } else {
         toast.error(followResultMessage(result));
       }
@@ -193,6 +212,29 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant }) {
     else toast.error('通報を送れませんでした。通信状況を確認してください。');
   };
 
+  const shareMyId = async () => {
+    const { text, url } = myIdShareText(me);
+    if (!text) return;
+    track('follow_share_id', { public: !!url });
+    try {
+      if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') { await navigator.share(url ? { text, url } : { text }); return; }
+      await navigator.clipboard.writeText(url ? `${text}\n${url}` : text);
+      toast.success(url ? 'リンクをコピーしました。' : 'ID をコピーしました。');
+    } catch (e) {
+      if (e?.name !== 'AbortError') toast.error('共有できませんでした。');
+    }
+  };
+
+  const unblock = async (person) => {
+    try {
+      await unblockUser(person.publicId);
+      toast.success(`${who(person)}のブロックを外しました。`);
+    } catch {
+      toast.error('できませんでした。通信状況を確認してください。');
+    }
+    reload();
+  };
+
   const openPerson = async (person) => {
     setView({ name: 'person', person });
     setShelf('loading');
@@ -208,6 +250,12 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant }) {
     const r = e.currentTarget.getBoundingClientRect();
     setMenu({ x: r.right, y: r.bottom, items });
   };
+
+  const profileSheet = profileOpen && (
+    <Suspense fallback={null}>
+      <ProfileSheet userId={user?.id || ''} onClose={() => setProfileOpen(false)} />
+    </Suspense>
+  );
 
   // ─── 相手の本（まとめ・読みたいに追加） ───
   if (view.name === 'book') {
@@ -340,7 +388,9 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant }) {
     { id: 'followers', label: 'フォロワー' },
     { id: 'requests', label: lists?.requests?.length ? `申し込み ${lists.requests.length}` : '申し込み' },
   ];
-  return createPortal(
+  const followingIds = new Set([...(lists?.following || []), ...(lists?.sent || [])].map((p) => p.publicId));
+  const mutual = new Set((lists?.following || []).map((p) => p.publicId));
+  return (<>{createPortal(
     <BottomSheet title="フォロー" onClose={onClose} layer="dialog">
         <div style={sheetBody}>
       {notReady ? (
@@ -365,7 +415,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant }) {
               />
               <button type="button" onClick={() => check()} disabled={!text.trim() || checking} aria-busy={checking || undefined} style={{ ...btnGhost, width: 'auto', flexShrink: 0 }}>{checking ? '確かめています…' : '確かめる'}</button>
             </div>
-            {!preview?.missing && <p style={note}>{withPhraseBreaks('相手のプロフィールのリンクを貼ってください。名前では探せません。')}</p>}
+            {!preview?.missing && <p style={note}>{withPhraseBreaks('相手のリンクか ID を入れてください。名前では探せません。')}</p>}
             {preview?.missing && <p role="alert" style={{ margin: 0, fontSize: 'var(--text-body)', color: 'var(--error)', lineHeight: 1.6 }}>{withPhraseBreaks(followResultMessage('not_found'))}</p>}
             {preview?.person && (
               <div role="status" style={{ ...row(true), borderBottom: '1px solid var(--separator)' }}>
@@ -380,6 +430,29 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant }) {
             )}
           </div>
 
+          {/* 自分の ID（相手に渡すと申し込みが届く）。ニックネームが無いと申し込まれないので、先にプロフィールへ。 */}
+          {!meLoading && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+              <p style={{ ...groupTitle, margin: 0 }}>あなたの ID</p>
+              {meReady ? (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+                    <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-body)', fontVariantNumeric: 'tabular-nums', letterSpacing: '0.04em', color: 'var(--text)', overflowWrap: 'anywhere', userSelect: 'all', WebkitUserSelect: 'all' }}>{me.publicId}</span>
+                    <button type="button" onClick={shareMyId} style={{ ...btnGhost, width: 'auto', flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                      <Share size="1em" aria-hidden="true" />{me.isPublic ? 'リンクを渡す' : 'ID を渡す'}
+                    </button>
+                  </div>
+                  <p style={note}>{withPhraseBreaks('相手がこの ID を「フォローを申し込む」に入れると、あなたに申し込みが届きます。')}</p>
+                </>
+              ) : (
+                <>
+                  <p style={note}>{withPhraseBreaks('フォローし合うには、先にプロフィールでニックネームを決めます。')}</p>
+                  <button type="button" onClick={() => setProfileOpen(true)} style={btnGhost}>ニックネームを決める</button>
+                </>
+              )}
+            </div>
+          )}
+
           <div>
             <div role="tablist" aria-label="フォローの一覧" style={segTrack}>
               {TABS.map((t) => (
@@ -393,12 +466,13 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant }) {
                   : <p style={note}>{withPhraseBreaks('フォロー中の人はいません。相手のリンクから申し込めます。')}</p>)}
                 {tab === 'followers' && (lists.followers.length
                   ? lists.followers.map((p, i) => (
-                    <PersonRow key={p.publicId} first={i === 0} person={p}>
+                    <PersonRow key={p.publicId} first={i === 0} person={p} onOpen={mutual.has(p.publicId) ? () => openPerson(p) : undefined}>
                       <button
                         type="button"
                         aria-label={`${who(p)}の操作`}
                         style={iconBtn}
                         onClick={(e) => openMenu(e, [
+                          ...(followingIds.has(p.publicId) ? [] : [{ label: 'フォローを申し込む', onClick: () => ask(p) }]),
                           { label: 'フォロワーから外す', onClick: () => remove(p, 'follower') },
                           { label: '通報する', onClick: () => report(p) },
                           { label: 'ブロックする', destructive: true, onClick: () => block(p) },
@@ -408,7 +482,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant }) {
                       </button>
                     </PersonRow>
                   ))
-                  : <p style={note}>{withPhraseBreaks('フォロワーはいません。あなたのリンクを渡すと、申し込みが届きます。')}</p>)}
+                  : <p style={note}>{withPhraseBreaks(meReady ? 'フォロワーはいません。上の「あなたの ID」を渡すと、申し込みが届きます。' : 'フォロワーはいません。')}</p>)}
                 {tab === 'requests' && (
                   <>
                     {lists.requests.length === 0 && lists.sent.length === 0 && <p style={note}>申し込みはありません。</p>}
@@ -434,7 +508,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant }) {
                 <div role="list">
                   {lists.blocked.map((p, i) => (
                     <PersonRow key={`b-${p.publicId}`} first={i === 0} person={p}>
-                      <button type="button" style={btnLinkQuiet} onClick={async () => { await unblockUser(p.publicId).catch(() => {}); reload(); }}>ブロックを外す</button>
+                      <button type="button" style={btnLinkQuiet} onClick={() => unblock(p)}>ブロックを外す</button>
                     </PersonRow>
                   ))}
                 </div>
@@ -447,5 +521,5 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant }) {
       </div>
     </BottomSheet>,
     document.body,
-  );
+  )}{profileSheet}</>);
 }

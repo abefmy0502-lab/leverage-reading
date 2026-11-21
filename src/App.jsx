@@ -674,6 +674,8 @@ function PushedTopBar({ scrollRef, children }) {
 // 設定から開いた「トークンを追加」を閉じたら、設定に戻る（PaywallGate → AuthedApp・2026-09-29）。
 const OPEN_SETTINGS_EVENT = 'orime:open-settings';
 
+const SOCIAL_LINK_KEY = 'orime.socialLink.v1';
+
 function AuthedApp() {
   const { signOut, user } = useAuth();
   // 👤 プロフィール（公開の本棚から外す本・2026-11-21）。
@@ -3791,12 +3793,15 @@ function AuthedApp() {
   // 👥 相手のリンクから（/?follow=<id>）フォローのシート・公開のページの「読みたいに追加」（/?want=1&title=…）。VITE_SOCIAL のビルドだけ。
   const [followSheet, setFollowSheet] = useState(null);
   const [wantLink, setWantLink] = useState(null);
+  //   ログインの前に開いた（メールの確認・Apple のサインインでページが読み直される）ときも消えないように、
+  //   リンクの中身はいったん sessionStorage に控え、ログインできてから開く（30 分まで）。
   useEffect(() => {
     if (!SOCIAL_ON || typeof window === 'undefined') return;
     const sp = new URLSearchParams(window.location.search);
     const follow = sp.get('follow');
     const want = sp.get('want') === '1' ? { title: sp.get('title') || '', author: sp.get('author') || '', isbn: sp.get('isbn') || '', cover: sp.get('cover') || '' } : null;
     if (!follow && !want) return;
+    try { window.sessionStorage.setItem(SOCIAL_LINK_KEY, JSON.stringify({ follow: follow || '', want: want?.title ? want : null, at: Date.now() })); } catch { /* 控えられなくても下で開く */ }
     if (follow) setFollowSheet({ initialId: follow });
     if (want?.title) setWantLink(want);
     try {
@@ -3806,7 +3811,15 @@ function AuthedApp() {
     } catch { /* ignore */ }
   }, []);
   useEffect(() => {
-    if (!wantLink || !user?.id || booksLoading) return;
+    if (!SOCIAL_ON || !user?.id || typeof window === 'undefined') return;
+    let saved = null;
+    try { saved = JSON.parse(window.sessionStorage.getItem(SOCIAL_LINK_KEY) || 'null'); window.sessionStorage.removeItem(SOCIAL_LINK_KEY); } catch { /* 無ければよい */ }
+    if (!saved || !(Date.now() - Number(saved.at) < 30 * 60 * 1000)) return;
+    if (saved.follow) setFollowSheet((cur) => cur || { initialId: String(saved.follow) });
+    if (saved.want?.title) setWantLink((cur) => cur || saved.want);
+  }, [user?.id]);
+  useEffect(() => {
+    if (!wantLink || !user?.id || booksLoading || showOnboarding) return;
     const book = wantLink;
     setWantLink(null);
     (async () => {
@@ -3818,7 +3831,7 @@ function AuthedApp() {
       });
       if (ok) addWantFromOther(book);
     })();
-  }, [wantLink, user?.id, booksLoading]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [wantLink, user?.id, booksLoading, showOnboarding]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 👤 公開の本棚から外す／戻す（2026-11-21・本の詳細の「…」）。プロフィールの shelf_hidden だけを変える。
   const toggleShelfHidden = async (book) => {
@@ -7087,7 +7100,7 @@ function AuthedApp() {
           />
         </Suspense>
       )}
-      {followSheet && (
+      {followSheet && !showOnboarding && (
         <Suspense fallback={<OverlayFallback />}>
           <FollowSheet initialId={followSheet.initialId || ''} onClose={() => setFollowSheet(null)} onAddWant={addWantFromOther} />
         </Suspense>
