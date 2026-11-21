@@ -9,7 +9,7 @@ import { withPhraseBreaks } from './TightBubble';
 import { btnLink } from '../styles/ui';
 
 // action: { label, onClick }（2026-10-20 オーナー「入れたばかり・1 週間の人の満足度を最大化」）— ホームでだけ、
-//   一行の右に次の一歩の文字ボタンを 1 つ（はじめての相談の前は「相談してみる」・そのあとはメモの無い本へ「一言をメモする」）。
+//   一行の右に次の一歩の文字ボタンを 1 つ（はじめての相談の前は「相談してみる」・そのあとはメモの無い本へ「一文をメモする」）。
 //   見た目は「相談相手が育ちました」（GrownLine）と同じ: 1 行に収まれば右、折り返したら文の頭にそろえる。
 export default function GrowthMeter({ memoCount, style, action = null }) {
   const text = growthMeterText(memoCount);
