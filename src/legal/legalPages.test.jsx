@@ -40,7 +40,12 @@ describe('利用規約', () => {
     expect(t).toContain('上限');
   });
   it('最終更新日', () => {
-    expect(t).toContain('最終更新日:2026年10月11日');
+    expect(t).toContain('最終更新日:2026年11月21日');
+  });
+  it('公開するプロフィールの禁止事項と通報の扱い（App 審査 1.2）', () => {
+    expect(t).toContain('一切容認しません');
+    expect(t).toContain('24時間以内');
+    expect(t).toContain('連絡先');
   });
 });
 

@@ -37,3 +37,23 @@ describe('プロフィール（2026-11-21）', () => {
     expect(l.profile.nickname).toBe('ふみ');
   });
 });
+
+describe('公開の本棚・自己紹介（2026-11-21）', async () => {
+  const { shelfShows, withShelfHidden } = await import('./profile');
+  const id = '00000000-0000-4000-8000-000000000001';
+  it('本棚も公開しているときだけ出し、外した本は出さない', () => {
+    expect(shelfShows({ isPublic: true, shelfPublic: false }, id)).toBe(false);
+    expect(shelfShows({ isPublic: false, shelfPublic: true }, id)).toBe(false);
+    const p = { isPublic: true, shelfPublic: true, shelfHidden: [] };
+    expect(shelfShows(p, id)).toBe(true);
+    const hidden = withShelfHidden(p, id, true);
+    expect(shelfShows(hidden, id)).toBe(false);
+    expect(shelfShows(withShelfHidden(hidden, id, false), id)).toBe(true);
+  });
+  it('自己紹介は 160 字・改行は 1 つずつ・id でないものは外す', () => {
+    const p = normalizeProfile({ bio: 'あ\n\n\nい' + 'う'.repeat(200), shelfHidden: ['x', id, id] });
+    expect(p.bio.startsWith('あ\nい')).toBe(true);
+    expect([...p.bio].length).toBe(160);
+    expect(p.shelfHidden).toEqual([id]);
+  });
+});

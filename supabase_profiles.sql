@@ -9,6 +9,9 @@
 --   - サーバー（service_role）: 公開のページを描く（public_profile）・通報を残す（profile_reports）・
 --     運営が隠す（hidden=true＝公開していても出さない）
 -- 退会はアプリが本人の行を消す（auth.users の削除でも ON DELETE CASCADE で消える）。
+-- 2026-11-21（2 回目・オーナー「本棚を公開するのも・自己紹介も・メモは公開しない」）:
+--   自己紹介 bio（160 字）・本棚も公開する shelf_public（既定 false）・公開の本棚から外した本 shelf_hidden（本の id・2000 冊まで）。
+--   公開のページは shelf_public のときだけ、本の書名・著者・表紙・状態・評価・分野を出す（メモは出さない）。
 -- 未適用でも壊れない: アプリは端末にだけ控え、公開のページは「見つかりません」になる。
 -- 冪等（何度流しても同じ）。Supabase の SQL Editor に貼って実行する。
 
@@ -44,6 +47,19 @@ begin
   end if;
 end $$;
 
+alter table public.profiles add column if not exists bio text not null default '';
+alter table public.profiles add column if not exists shelf_public boolean not null default false;
+alter table public.profiles add column if not exists shelf_hidden uuid[] not null default '{}';
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'profiles_shelf_check') then
+    alter table public.profiles add constraint profiles_shelf_check check (
+      char_length(bio) <= 160 and cardinality(shelf_hidden) <= 2000
+    );
+  end if;
+end $$;
+
 create unique index if not exists profiles_public_id_uq on public.profiles (public_id);
 
 -- RLS: 本人の行だけ。hidden（運営が隠した印）は本人が外せない＝update で変えられない（下のトリガー）。
@@ -66,15 +82,21 @@ create policy "profiles_delete_own" on public.profiles
   for delete to authenticated using (auth.uid() = user_id);
 
 -- 本人の update では hidden と public_id を変えさせない（service_role は変えられる）・updated_at を今に。
+-- 匿名のアカウントは insert・update とも公開をオフに戻す。
 create or replace function public.profiles_guard()
 returns trigger
 language plpgsql
 as $$
 begin
   -- 利用者（ログインした人）の更新のときだけ守る。service_role と SQL Editor（運営が隠すとき）は auth.uid() が無い。
-  if auth.uid() is not null then
+  if auth.uid() is not null and tg_op = 'UPDATE' then
     new.hidden := old.hidden;
     new.public_id := old.public_id;
+  end if;
+  -- 登録せずに始めた人（匿名のアカウント）は公開できない（何個でも作れて、隠しても作り直せるため・App 審査 1.2）。
+  if coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) then
+    new.is_public := false;
+    new.shelf_public := false;
   end if;
   new.updated_at := now();
   return new;
@@ -82,7 +104,7 @@ end;
 $$;
 
 drop trigger if exists profiles_guard on public.profiles;
-create trigger profiles_guard before update on public.profiles
+create trigger profiles_guard before insert or update on public.profiles
   for each row execute function public.profiles_guard();
 
 -- 通報（公開のページの「通報する」・api/_profilePage.js が service_role で入れる）。

@@ -1,12 +1,12 @@
 # Supabase の SQL — これを見れば全部できる手順書
 
-最終更新: 2026-10-24（前回 2026-10-11 の版を流した上に今の版を 2 回続けて流し、エラーなく通ることを Postgres 16 で確かめた）。対象: リポジトリにある `supabase_*.sql` すべて。
+最終更新: 2026-11-21（本番にある元の表（books・book_memos・actions・book_tags）と Supabase の auth・storage の形だけを用意した空の Postgres 16 に、今のまとめを 2 回続けて流してエラーなく通り、`supabase_verify_rls.sql` で権限が全部効いていることを確かめた。前回 2026-10-24）。対象: リポジトリにある `supabase_*.sql` すべて。
 
 しばらく流していなくても、どれを流したか分からなくても、下の「1 本でまとめて流す」だけで最新の状態になります。
 
 ## 1. いちばん簡単なやり方: 1 本でまとめて流す（おすすめ）
 
-1. **PC** で GitHub のリポジトリを開き、`supabase_all_in_order.sql` を開く（約 4,800 行・約 270KB あるので、スマホより PC が確実です。途中で切れると失敗します）
+1. **PC** で GitHub のリポジトリを開き、`supabase_all_in_order.sql` を開く（約 5,800 行・約 340KB あるので、スマホより PC が確実です。途中で切れると失敗します）
 2. 右上の「Raw」→ 全部選んでコピー（⌘A → ⌘C）
 3. Supabase → 左の「SQL Editor」→「New query」→ 貼り付け → 右下の「Run」
 4. 下に `Success. No rows returned` と出れば完了

@@ -56,6 +56,7 @@ import {
   BookOpen as IcBook, Map as IcMap, RefreshCw as IcRefresh, Bot as IcBot,
   CheckCircle2 as IcCheck,
   SlidersHorizontal as IcFilter, ArrowUpDown as IcSort, Star as IcStar, Folder as IcFolder, X as IcX,
+  Eye, EyeOff,
 } from 'lucide-react';
 
 
@@ -124,7 +125,8 @@ import { backfillCovers } from './lib/backfillCovers';
 import { enqueueCoverRetry, resolveCoverForBook, canReplaceCover, clearCoverNotFound } from './lib/coverAutoRetry';
 import { MODEL_SMART } from './lib/models';
 import { findDuplicateBook, findImportDuplicate, STATUS_LABEL, isUniqueViolation } from './lib/checkDuplicate';
-import { favoriteChanged } from './lib/profile';
+import { favoriteChanged, shelfShows, withShelfHidden } from './lib/profile';
+import { useProfile, saveProfileShared } from './hooks/useProfile';
 import { onShelfByTitle } from './lib/ownedTitle';
 import { saveStrategyHistory, popStrategyHistory, hasStrategyHistory, clearStrategyHistory } from './lib/strategyHistory';
 const CoverFixModal = lazy(() => import('./components/CoverFixModal'));
@@ -672,6 +674,8 @@ const OPEN_SETTINGS_EVENT = 'orime:open-settings';
 
 function AuthedApp() {
   const { signOut, user } = useAuth();
+  // 👤 プロフィール（公開の本棚から外す本・2026-11-21）。
+  const { profile: myProfile } = useProfile(user?.id || '');
   // 🌱 はじめの相談の下書き（2026-10-20）: 入れた理由があればそれを相談に（lib/appPurpose.js）・無ければメモから作る。
   const firstConsultQuestion = (args) => purposeConsultQuestion(appPurposeTextFor(user)) || firstConsultFromMemos(args);
   const appCache = useAppDataCache();
@@ -3782,6 +3786,18 @@ function AuthedApp() {
   // 👤 プロフィールの好きな本を本棚へ（2026-11-21 オーナー「好きな本を本棚に入れる」）。
   //   本棚に無ければ読了で足し、おすすめの 1 行をその本のメモに残す（同じ文のメモがあれば足さない）。
   //   好きな本・1 行が変わったときだけ（lib/profile.js の favoriteChanged）。失敗してもプロフィールの保存は終わっている。
+  // 👤 公開の本棚から外す／戻す（2026-11-21・本の詳細の「…」）。プロフィールの shelf_hidden だけを変える。
+  const toggleShelfHidden = async (book) => {
+    if (!user?.id || !book?.id) return;
+    const hide = shelfShows(myProfile, book.id);
+    try {
+      await saveProfileShared(user.id, withShelfHidden(myProfile, book.id, hide));
+      toast.success(hide ? '公開の本棚から外しました。' : '公開の本棚に戻しました。');
+    } catch (e) {
+      toast.error(toMessage(e, '変えられませんでした。通信状況を確認して、もう一度お試しください。'));
+    }
+  };
+
   const addFavoriteFromProfile = async ({ before, after }) => {
     if (!user?.id || !favoriteChanged(before, after)) return;
     try {
@@ -5801,6 +5817,12 @@ function AuthedApp() {
               ...(hasVisibleSections(current.aiAnalysis, { hideRelatedBooks: true })
                 ? [{ label: '以前の AI 解析を見る', icon: <ScrollText size="1.1em" aria-hidden="true" />, onClick: () => setAnalysisSheetOpen(true) }]
                 : []),
+              // 👤 公開の本棚から外す／戻す（本棚も公開している人だけ・2026-11-21）。
+              ...(myProfile?.isPublic && myProfile?.shelfPublic ? [{
+                label: shelfShows(myProfile, current.id) ? '公開の本棚から外す' : '公開の本棚に戻す',
+                icon: shelfShows(myProfile, current.id) ? <EyeOff size="1.1em" aria-hidden="true" /> : <Eye size="1.1em" aria-hidden="true" />,
+                onClick: () => toggleShelfHidden(current),
+              }] : []),
               // ヘルプは上の行に単独のボタンで置かず、この「…」の中（削除の直前・削除はいつも最後）に（2026-09-30）。
               { label: 'ヘルプ', icon: <HelpCircle size="1.1em" aria-hidden="true" />, onClick: openHelp },
               { label: '削除', icon: <Trash2 size="1.1em" aria-hidden="true" />, destructive: true, onClick: () => requestDeleteBook(current) },

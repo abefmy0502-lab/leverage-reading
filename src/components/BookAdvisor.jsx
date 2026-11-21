@@ -10,7 +10,6 @@ import {
   ArrowUp as IcSend,
   Check as IcCheck,
   ChevronLeft as IcBack,
-  ExternalLink as IcExternal,
   History as IcHistory,
   MessageSquarePlus as IcNewChat,
   Plus as IcPlus,
@@ -54,8 +53,9 @@ import { AdvisorNavBar, AdvisorHistoryList, AdvisorSessionDetail, formatDate as 
 import ErrorMessage from './ErrorMessage';
 import { SkeletonBlock } from './Skeleton';
 import TightBubble, { withPhraseBreaks, withBulletLines } from './TightBubble';
+import CareNote from './CareNote';
 import { displayUserText, concernOf, interviewPairsOf, confirmedOf, advisorSetupPayload } from '../lib/advisorText';
-import { MAX_INTERVIEW_QUESTIONS, OPT_UNSURE, OFF_PLACEHOLDER, parseInterviewStep, interviewChips, applyStarter, starterOf, toggleChoice, choiceSelected, buildPriorQA, buildRecoMessage, spokenAnswers, needsCareLine, CARE_LINE, CARE_LINK } from '../lib/advisorInterview';
+import { MAX_INTERVIEW_QUESTIONS, OPT_UNSURE, OFF_PLACEHOLDER, parseInterviewStep, interviewChips, applyStarter, starterOf, toggleChoice, choiceSelected, buildPriorQA, buildRecoMessage, spokenAnswers, needsCareLine } from '../lib/advisorInterview';
 import { usePaywall } from '../state/PaywallContext';
 import { findDuplicateBook } from '../lib/checkDuplicate';
 import { filterProseTitles, proseTitleLists } from '../lib/advisorProse';
@@ -1406,22 +1406,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   // 命に関わる言葉が本人の文にあれば、相談窓口を静かに示す（lib/advisorInterview.js の needsCareLine）。
   const showCare = needsCareLine([concern, ...interviewAnswers.map((x) => x?.a), confirmed?.correction, correcting ? correctionText : '']);
   // 相談窓口の案内（15/--text の 1 文＋高さ 44 の外部リンク・2026-10-08 ui-critic）。
-  const careNote = (
-    <div role="note" style={{ marginTop: 'var(--space-3)' }}>
-      <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.6, margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-        {withPhraseBreaks(CARE_LINE)}
-      </p>
-      <a
-        href={CARE_LINK.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label={`${CARE_LINK.label}を開く（外部リンク）`}
-        style={{ ...uiBtnLink, gap: 0, flexWrap: 'wrap', justifyContent: 'flex-start', textAlign: 'left', textDecoration: 'none', marginLeft: 'calc(-1 * var(--space-1))' }}
-      >
-        {CARE_LINK.name}<span style={{ whiteSpace: 'nowrap' }}>{CARE_LINK.org}<IcExternal size="1em" aria-hidden="true" style={{ marginLeft: 'var(--space-1)', verticalAlign: '-0.125em' }} /></span>
-      </a>
-    </div>
-  );
+  const careNote = <CareNote />;
   // はじめの画面（まだ何も話していない）だけ見出しを出す。
   const showStartHeading = showConcernInput && messages.length === 0 && !showErrorState;
   const chatScrollRef = useRef(null);

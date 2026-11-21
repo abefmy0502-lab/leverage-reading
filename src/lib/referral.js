@@ -14,7 +14,7 @@ export function referralMessage(code = REFERRAL_CODE, site = SITE_URL) {
   if (!code) return '';
   return [
     'Orime（読んだ本と会話する読書メモ）を使っています。',
-    `コード ${code} を、アプリの設定の「コードを使う」に入れると、プランの特典が受け取れます。`,
+    `コード ${code} を、アプリの設定の「コードを使う」に入れると、特典を受け取れます（内容はコードを入れる画面に表示されます）。`,
     site,
   ].join('\n');
 }

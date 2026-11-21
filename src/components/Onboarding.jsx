@@ -7,6 +7,7 @@ import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost 
 import { withPhraseBreaks } from './TightBubble';
 import ProfileForm from './ProfileForm';
 import { EMPTY_PROFILE, hasProfile } from '../lib/profile';
+import { profileIssues, profileIssueMessage } from '../lib/profileFilter';
 import { saveProfileShared } from '../hooks/useProfile';
 import { toMessage } from '../lib/errors';
 
@@ -237,6 +238,8 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
   });
   const saveProfileAndNext = async () => {
     if (!profileFilled) { track('profile_skip', { from: 'onboarding' }); goNext(); return; }
+    const issue = profileIssueMessage(profileIssues(profile));
+    if (issue) { setProfileError(issue); return; }
     setProfileSaving(true); setProfileError('');
     try {
       const { profile: saved } = await saveProfileShared(userId, profile);

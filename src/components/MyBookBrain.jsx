@@ -7,6 +7,8 @@
 // chat_messages live in Supabase; book_memos with source_type='personal'
 // are written for personal learnings and surface in the Review tab too.
 
+import CareNote from './CareNote';
+import { needsCareLine } from '../lib/advisorInterview';
 import { useChatImmersive } from '../hooks/useChatImmersive';
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -2071,6 +2073,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // 🧪 見せる組の人は、はじめての相談を送るまで ③ を出さない（当日の案内は答えのあとの 1 行だけ）。
   //   答えのあとの 1 行を出した画面でも出さない（同じ日に 2 つすすめない・lib/firstAnswerTrial.js）。
   const consultedEver = messages.some((m) => m.role === 'user' && !isLocalMsg(m));
+  const careShown = visibleMessages.some((m) => m.role === 'user' && needsCareLine(m.content));
   const nudgeWanted = view === 'chat' && historyLoaded && !busy && !firstTrialSeen
     && !holdGrownNudge({ group: trialAbGroup, consulted: consultedEver }) && shouldShowTrialNudge({
     plan,
@@ -2688,6 +2691,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             ))}
           </div>
 
+          {/* 🫶 命に関わる言葉が相談に書かれたら、答えの下に相談窓口（AI 選書と同じ・App 審査 1.4.1・2026-11-21）。 */}
+          {careShown && <CareNote style={{ marginTop: 'var(--space-6)', marginLeft: ANSWER_COLUMN }} />}
           {/* 無料プランで今月のトークンを使い切ったら、答えの下（まだ話していなければ例の下）で静かに案内
               （読み終えるまで画面を奪わない） */}
           {freeUsedUp && !busy && lastIsAssistant && !isEmpty && (!lastIsMemoAnswer || (!lastMemoFound && lastMemoAnswer?.status !== 'loading')) && (
