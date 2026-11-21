@@ -53,7 +53,9 @@ async function sha256Hex(str) {
 // 待ちの上限（2026-11-19・App 審査 2.1(a)「サインイン中… のまま」）。
 // 長すぎると、直しが効かない端末でまた止まって見える。パスワードを打つ人もいるので 60 秒（終わらなければもう一度押してもらう）。
 // ボタンの下の「やめる」でもすぐ戻せる（AuthScreen）。返ってきたあとの Supabase は短め。
-export const APPLE_AUTHORIZE_TIMEOUT_MS = 60000;
+// 2026-11-21: 止まりの本当の原因（部品を Promise で返していた）を直したので 3 分に。60 秒だと、Apple の画面でパスワードと
+//   2 段階の確認をしている途中にアプリが先にあきらめ、そのあとの答えを捨てていた（iPad のシミュレータで再現）。
+export const APPLE_AUTHORIZE_TIMEOUT_MS = 180000;
 export const APPLE_SESSION_TIMEOUT_MS = 30000;
 
 /** p が ms 以内に終わらなければ code つきのエラーで終える */
