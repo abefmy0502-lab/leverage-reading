@@ -13,6 +13,8 @@ import { checkCoverImageUrl } from './_coverImageUrl.js';
 import { BOOK_FIELD_GROUPS, isBookField } from './_bookFieldsCore.js';
 import { paletteFor } from '../src/lib/coverPalette.js';
 import { profileTextIssue } from '../src/lib/profileFilter.js';
+import { avatarById, avatarInitial } from '../src/lib/avatars.js';
+import { AVATAR_SVG } from '../src/lib/avatarSvg.js';
 
 export const PUBLIC_ID_RE = /^[a-z0-9]{10}$/;
 const SITE = () => String(process.env.VITE_SITE_URL || 'https://orime.vercel.app').replace(/\/+$/, '');
@@ -59,6 +61,7 @@ const STYLE = `
 main{max-width:480px;margin:0 auto;padding:48px 16px 64px}
 p,h1{line-break:strict;word-break:auto-phrase;text-wrap:pretty}
 .card{background:var(--surface);border:1px solid var(--separator);border-radius:var(--radius);padding:24px 16px}
+.av{display:flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:50%;margin:0 0 12px;color:#fff}.av-ini{background:var(--fill);color:var(--text-2);box-shadow:inset 0 0 0 1px var(--separator);font-size:24px;font-weight:600}
 .name{margin:0;font-size:24px;font-weight:700;line-height:1.4;overflow-wrap:anywhere}
 .label{margin:24px 0 8px;font-size:13px;font-weight:600;color:var(--text-2)}
 .book{display:flex;gap:16px;align-items:flex-start}.cover{width:72px;height:auto;border-radius:4px;flex-shrink:0;background:var(--fill)}
@@ -145,6 +148,18 @@ export function buildShelf(books = [], hidden = [], { supabaseUrl = '' } = {}) {
 }
 
 // 表紙の無い本はアプリと同じ代用表紙（書名から決まる色・白い書名・lib/coverPalette.js）。書名は表紙の上だけに見せ、下の書名は読み上げ用。
+// 自分のアイコン（アプリの UserAvatar と同じ形・色は --cover-* と同じ値）。選んでいなければニックネームの 1 字。
+const COVER_COLORS = { 1: ['#7d4a2e', '#5d3a22'], 2: ['#7a5080', '#5a3a60'], 3: ['#4a6e8a', '#2c4d68'], 4: ['#4f6e3f', '#3a5a30'], 5: ['#8e4330', '#703528'], 6: ['#7e6249', '#5e4836'] };
+export function renderAvatar(avatarId, nickname) {
+  const a = avatarById(avatarId);
+  if (a && AVATAR_SVG[a.id]) {
+    const [c1, c2] = COVER_COLORS[a.color] || COVER_COLORS[3];
+    return `<span class="av" aria-hidden="true" style="background:linear-gradient(160deg, ${c1}, ${c2})"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${AVATAR_SVG[a.id]}</svg></span>`;
+  }
+  const ch = avatarInitial(nickname);
+  return ch ? `<span class="av av-ini" aria-hidden="true">${esc(ch)}</span>` : '';
+}
+
 function coverPlaceholder(title) {
   const [a, b] = paletteFor(title);
   return `<span class="ph" aria-hidden="true" style="background:linear-gradient(160deg, ${a}, ${b})">${esc(title)}</span>`;
@@ -176,7 +191,7 @@ export function renderProfile(p, { publicId, shelf = null }) {
   const desc = line ? `「${line}」` : (title ? `${who}が好きな本は『${title}』` : (String(p.bio || '').trim().slice(0, 80)));
   const bio = String(p.bio || '').trim();
   const body = `<div class="card">
-<h1 class="name">${esc(who)}</h1>${bio ? `<p class="bio">${esc(bio)}</p>` : ''}
+${renderAvatar(p.avatar, nickname)}<h1 class="name">${esc(who)}</h1>${bio ? `<p class="bio">${esc(bio)}</p>` : ''}
 ${title ? `<p class="label">好きな本</p><div class="book">${cover.ok ? `<img class="cover" src="${esc(cover.url)}" alt="">` : ''}<div><p class="title">『${esc(title)}』</p>${author ? `<p class="author">${esc(author)}</p>` : ''}</div></div>` : ''}
 ${line ? `<p class="label">おすすめの 1 行</p><p class="line">「${esc(line)}」</p>` : ''}
 </div>${renderShelf(shelf)}
@@ -269,7 +284,9 @@ export async function handleProfileRequest(req, res, { dbImpl = db } = {}) {
   let row = null;
   if (c) {
     const base = 'public_id, nickname, fav_title, fav_author, fav_cover, fav_line, is_public, hidden';
-    let { data, error } = await c.from('profiles').select(`user_id, ${base}, bio, shelf_public, shelf_hidden`).eq('public_id', id).maybeSingle();
+    let { data, error } = await c.from('profiles').select(`user_id, ${base}, bio, shelf_public, shelf_hidden, avatar`).eq('public_id', id).maybeSingle();
+    // アイコンの列がまだ無い DB では、アイコン無しで読む。
+    if (error && (error.code === '42703' || /avatar/.test(String(error.message || '')))) ({ data, error } = await c.from('profiles').select(`user_id, ${base}, bio, shelf_public, shelf_hidden`).eq('public_id', id).maybeSingle());
     // 本棚の列がまだ無い DB（前の版の SQL）では、前の列だけで読む。
     if (error && (error.code === '42703' || /bio|shelf_/.test(String(error.message || '')))) ({ data, error } = await c.from('profiles').select(base).eq('public_id', id).maybeSingle());
     if (error) console.warn('[profile] read failed:', error.code || error.message);
