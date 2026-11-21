@@ -4,6 +4,7 @@
 //   法務（company/brand-messaging.md・seo-articles-batch1.md）: 「○倍になる」「○円損している」の断定は書かない。数字は引用した研究の結果で、
 //   Orime の効果を測ったものではないと添える。
 import { WHY } from './lpCopy';
+import Phrases from './LpPhrases';
 
 const S = { fill: 'none', strokeLinecap: 'round', strokeLinejoin: 'round', vectorEffect: 'non-scaling-stroke' };
 
@@ -26,7 +27,7 @@ function RetentionChart() {
       {/* 文字は SVG に入れない（スマホで縮むと 12 を切る・DESIGN §2）。軸と凡例は HTML で */}
       <p className="lp-why-axis" aria-hidden="true"><span>読んだ日</span><span>1 週間</span><span>1 か月</span></p>
       <p className="lp-why-legend" aria-hidden="true"><span className="is-talk">相談するたびに思い出す</span><span className="is-read">読むだけ</span></p>
-      <figcaption>{WHY.chartCaption}</figcaption>
+      <figcaption className="lp-wbr"><Phrases>{WHY.chartCaption}</Phrases></figcaption>
     </figure>
   );
 }

@@ -5,7 +5,7 @@ import { Book, LibraryBig } from 'lucide-react';
 
 export default function LpCostDiagram({ talks }) {
   return (
-    <figure className="lp-cost-diagram" aria-label={`本 1 冊とほぼ同じ値段で、Orime なら 1 か月、読んだ本すべてに毎月 ${talks}相談できる`}>
+    <figure className="lp-cost-diagram" aria-label={`本 1 冊とほぼ同じ値段で、Orime なら 1 か月、本棚ぜんぶに毎月 ${talks}相談できる`}>
       <div className="lp-cost-side">
         <Book className="lp-cost-icon" size="1em" strokeWidth={1.5} aria-hidden="true" />
         <p className="lp-cost-name">本 1 冊</p>
@@ -15,7 +15,7 @@ export default function LpCostDiagram({ talks }) {
       <div className="lp-cost-side is-orime">
         <LibraryBig className="lp-cost-icon" size="1em" strokeWidth={1.5} aria-hidden="true" />
         <p className="lp-cost-name">Orime の 1 か月</p>
-        <p className="lp-cost-what">読んだ本すべてに、<br />毎月 {talks}相談</p>
+        <p className="lp-cost-what"><span className="lp-nb">本棚ぜんぶに、</span><br /><span className="lp-nb">毎月 {talks}相談</span></p>
       </div>
     </figure>
   );

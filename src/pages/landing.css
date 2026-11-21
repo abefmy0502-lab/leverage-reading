@@ -211,7 +211,7 @@ body.lp-active {
 .lp-wl-row .lp-btn { flex: 0 0 auto; }
 .lp-wl-error { margin-top: var(--space-2) !important; color: var(--error); font-size: var(--text-sub); line-height: 1.5; }
 .lp-wl-note { margin-top: var(--space-2) !important; color: var(--text-2); font-size: var(--text-sub); line-height: 1.5; }
-.lp-wl-note a { margin-left: var(--space-1); }
+.lp-wl-note a { margin-left: var(--space-1); padding-block: var(--space-3); margin-block: calc(-1 * var(--space-3)); } /* 押せる高さを 44 に（行の高さは変えない） */
 .lp-wl-done { display: flex; align-items: center; gap: var(--space-2); min-height: var(--btn-h); color: var(--text); font-weight: 600; }
 .lp-wl-done svg { flex-shrink: 0; color: var(--success); }
 .lp-wl-done:focus { outline: none; }
@@ -1252,7 +1252,7 @@ body.lp-active {
 .lp-root .lp-chat-diff { margin: var(--space-6) 0 0; padding: var(--space-3) var(--space-4); border-radius: var(--radius); background: var(--accent-soft); color: var(--text); font-size: var(--text-sub); font-weight: 600; line-height: 1.5; max-width: 36em; word-break: normal; line-break: strict; text-wrap: pretty; }
 @media (min-width: 768px) { .lp-flow-sec.is-talk .lp-chat-diff { grid-column: 2; } }
 
-.lp-root .lp-plan-pick { margin: var(--space-2) 0 0; color: var(--text-2); font-size: var(--text-sub); text-align: center; }
+.lp-root .lp-plan-pick { margin: var(--space-2) 0 0; color: var(--text-2); font-size: var(--text-sub); text-align: left; }
 .lp-root .lp-plan-define { margin: 0 auto var(--space-6); max-width: 32em; text-align: left; line-height: 1.6; }
 
 
@@ -1360,3 +1360,5 @@ body.lp-active {
   .lp-root .lp-goal-diagram .lp-talk-diagram-label { flex-direction: row; flex-wrap: wrap; }
   .lp-goal-diagram .lp-talk-diagram-arrow { padding: 0; width: calc(var(--text-sub) * 1.75); display: flex; justify-content: center; transform: rotate(90deg); }
 }
+/* ヒーローの補足 2 段落は、まとまりの間を行の送りより広く（2026-11-21 ui-critic） */
+.lp-hero-grid.is-talk .lp-lead-lines > span + span { margin-top: var(--space-3); }

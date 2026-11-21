@@ -719,7 +719,10 @@ export default function Landing() {
               {/* 2026-11-15 オーナー「確かに考えたら安いか、となるように」: 段落をやめ、物差し 3 つ（1 日あたり・本 1 冊・読み返す時間）。比べる値段（他社・定価）は書かない */}
               {/* 2026-11-15 オーナー「安く感じるようなイラスト図を」: 「本 1 冊分」を絵に（その行は図に任せて外した） */}
               <LpCostDiagram talks={PAID_TALKS} />
-              <p className="lp-cost-note">{OFFER.active ? `1 日 約 ${FOUNDING_PER_DAY_TEXT} は創業メンバー価格の年額プラン（1 年目 ${OFFER.price}）のとき。` : `1 日 約 ${ANNUAL_PER_DAY_TEXT} は年額プラン（${ANNUAL_TEXT} を 1 年分前払い）のとき。`}月額 {MONTHLY_TEXT} なら 1 日 約 {PER_DAY_TEXT}。</p>
+              <p className="lp-cost-note lp-lead-lines lp-wbr">
+                <span><Phrases>{OFFER.active ? `1 日 約 ${FOUNDING_PER_DAY_TEXT} は創業メンバー価格の年額プラン（1 年目 ${OFFER.price}）のとき。` : `1 日 約 ${ANNUAL_PER_DAY_TEXT} は年額プラン（${ANNUAL_TEXT} を 1\u00a0年\u2060分\u2060前払い）のとき。`}</Phrases></span>
+                <span><Phrases>{`月額 ${MONTHLY_TEXT} なら 1 日 約 ${PER_DAY_TEXT}。`}</Phrases></span>
+              </p>
             </div>
 
             {/* 2 枚（無料プラン（ずっと無料）と、プラン）。広い画面では横に並べる */}
@@ -775,7 +778,7 @@ export default function Landing() {
                   </div>
                 </div>
                 {!PRELAUNCH && <StoreCta className="lp-btn lp-plan-cta" loc="pricing">{TRIAL_NOTE && !OFFER.active ? TRIAL_CTA_LABEL : PLAN_CTA_LABEL}</StoreCta>}
-                <p className="lp-plan-pick">月額か年額かは、App Store の画面で選べます。</p>
+                <p className="lp-plan-pick lp-wbr"><Phrases>月額か年額かは、App Store の画面で選べます。</Phrases></p>
                 {/* 自動更新・解約の説明は有料のボタンのすぐ下（App Store 3.1.2・2026-10-12） */}
                 <p className="lp-renew lp-wbr">{COPY.pricingNote.map((t) => <span key={t}><Sentences>{t}</Sentences></span>)}</p>
               </div>
