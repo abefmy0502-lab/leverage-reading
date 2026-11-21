@@ -397,6 +397,15 @@ export function splitMagazineQuote(text) {
   return { head, body: rest };
 }
 
+// 下の行の小さな文字（ニックネーム・日付）。どちらも無ければ ''。
+// 名前は 10 字まで（長いと左のロゴ・右の英字とぶつかる）。
+export const FOOTER_NAME_MAX = 10;
+export function footerStampText({ name = '', stamp = '' } = {}) {
+  const n = Array.from(String(name || '').trim());
+  const nm = n.length > FOOTER_NAME_MAX ? `${n.slice(0, FOOTER_NAME_MAX - 1).join('')}…` : n.join('');
+  return [nm, String(stamp || '').trim()].filter(Boolean).join('  ·  ');
+}
+
 // 雑誌の中身（本 1 冊・その本の心に残った一文＝自分の言葉のメモ）。メモが無い（quote が空）なら null＝選べない。
 // note は下の行の短い数の欄（今は使わない＝null。集中モードの読書時間を入れる予定・{ label, value }）。
 // 戻り値: { title, titleIsBook, sub, kicker, stats: [], date: null, quote: { head, body }, note }
@@ -714,7 +723,8 @@ export function placeStatsStack(frame, blockH, { phrase = false, coverCount = 0,
 
 // 表紙（2026-11-15 オーナー「本の表紙の画像を入れるかどうかを選択できるように」）: 記録の 1 冊の本だけ。
 //   紙・夜・表紙の色の地は 'cover'（今までどおり出す）、写真の地は 'photoCover'（既定は出さない＝写真が主役）。
-export const SHARE_ITEM_KEYS = ['status', 'title', 'author', 'cover', 'photoCover', 'date', 'books', 'memos', 'actions', 'reading', 'quote', 'stamp'];
+// 名前（2026-11-21）: プロフィールのニックネーム。下の行の日付の前に小さく（ニックネームがあるときだけ選べる・既定は出す）。
+export const SHARE_ITEM_KEYS = ['status', 'title', 'author', 'cover', 'photoCover', 'date', 'books', 'memos', 'actions', 'reading', 'quote', 'name', 'stamp'];
 export const SHARE_ITEMS_STORAGE_KEY = 'orime.share.hiddenItems';
 
 const STAT_ITEM_LABEL = { books: '読了の冊数', memos: 'メモの数', actions: '実行した行動', reading: '読書の時間' };
@@ -725,7 +735,7 @@ const STAT_ITEM_LABEL = { books: '読了の冊数', memos: 'メモの数', actio
 //   一文: 書名・著者（一文は主役なので隠せない）
 //   雑誌: 書名・著者・今日の日付（引用は主役なので隠せない）
 // ロゴは出さない（必ず入る・2026-10-05）。
-export function shareItemsFor({ record = null, variant = 'record', hasQuote = false, hasAuthor = false, coverKey = null } = {}) {
+export function shareItemsFor({ record = null, variant = 'record', hasQuote = false, hasAuthor = false, coverKey = null, hasName = false } = {}) {
   const out = [];
   const book = !!record?.titleIsBook;
   if ((variant === 'record' || variant === 'stats') && record) {
@@ -738,11 +748,13 @@ export function shareItemsFor({ record = null, variant = 'record', hasQuote = fa
       if (st?.key) out.push({ key: st.key, label: STAT_ITEM_LABEL[st.key] || st.label });
     }
     if (hasQuote && variant === 'record') out.push({ key: 'quote', label: '一文' });
+    if (hasName) out.push({ key: 'name', label: 'ニックネーム' });
     out.push({ key: 'stamp', label: '今日の日付' });
   } else if (variant === 'magazine') {
     // 雑誌: 引用（主役・隠せない）・書名・著者・今日の日付
     out.push({ key: 'title', label: '書名' });
     if (hasAuthor) out.push({ key: 'author', label: '著者' });
+    if (hasName) out.push({ key: 'name', label: 'ニックネーム' });
     out.push({ key: 'stamp', label: '今日の日付' });
   } else {
     out.push({ key: 'title', label: '書名' });
@@ -778,7 +790,7 @@ export function applyShareItems(record, hidden) {
 // 描く側が見るフラグ（記録以外の項目）。ロゴは必ず描くのでフラグは無い。
 export function shareVisibility(hidden) {
   const h = hiddenSet(hidden);
-  return { title: !h.has('title'), author: !h.has('author'), quote: !h.has('quote'), stamp: !h.has('stamp') };
+  return { title: !h.has('title'), author: !h.has('author'), quote: !h.has('quote'), stamp: !h.has('stamp'), name: !h.has('name') };
 }
 
 // 既定で隠す項目（本人がオンにしたときだけ出す）。日付は画像の主役にしない（2026-10-09）。

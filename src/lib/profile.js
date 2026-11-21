@@ -1,0 +1,143 @@
+// 👤 プロフィール（2026-11-21 オーナー「ニックネームと好きな本とその本のおすすめの 1 行」）。
+//   保存先は profiles（supabase_profiles.sql・本人だけ）。表がまだ無い・つながらないときは端末に控える
+//   （orime.profile.v1:<利用者>・ほかの端末には出ない・公開のページにも出ない）。
+//   公開のページは本人が「公開する」をオンにしたときだけ（SITE_URL/u/<public_id>・api/_profilePage.js）。
+//   public_id は本人が選ばない無作為の英小文字と数字 10 字（名前の取り合い・なりすましを防ぐ）。
+import { supabase, isSupabaseConfigured } from './supabase';
+import { SITE_URL } from './legalLinks';
+
+export const PROFILE_LIMITS = { nickname: 20, title: 120, author: 80, line: 80 };
+const KEY = (uid) => `orime.profile.v1:${uid || 'anon'}`;
+const ID_CHARS = 'abcdefghijkmnpqrstuvwxyz23456789'; // 見分けにくい l・o・0・1 を除く
+
+export const EMPTY_PROFILE = Object.freeze({
+  publicId: '', nickname: '', favTitle: '', favAuthor: '', favIsbn: '', favCover: '', favLine: '', isPublic: false, hidden: false,
+});
+
+const clean = (v, max) => String(v ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
+
+/** 画面の値を保存できる形に（長さ・改行・表紙は https だけ・ISBN は数字だけ）。 */
+export function normalizeProfile(p = {}) {
+  const cover = String(p.favCover || '').trim();
+  return {
+    publicId: /^[a-z0-9]{10}$/.test(String(p.publicId || '')) ? p.publicId : '',
+    nickname: clean(p.nickname, PROFILE_LIMITS.nickname),
+    favTitle: clean(p.favTitle, PROFILE_LIMITS.title),
+    favAuthor: clean(p.favAuthor, PROFILE_LIMITS.author),
+    favIsbn: String(p.favIsbn || '').replace(/[^0-9Xx]/g, '').slice(0, 13),
+    favCover: /^https:\/\//.test(cover) && cover.length <= 500 ? cover : '',
+    favLine: clean(p.favLine, PROFILE_LIMITS.line),
+    isPublic: !!p.isPublic,
+    hidden: !!p.hidden,
+  };
+}
+
+/** 中身があるか（ニックネームか好きな本）。 */
+export function hasProfile(p) {
+  return !!(p && (String(p.nickname || '').trim() || String(p.favTitle || '').trim()));
+}
+
+export function newPublicId(rand = () => {
+  const a = new Uint8Array(10);
+  (globalThis.crypto || {}).getRandomValues?.(a);
+  return a;
+}) {
+  const bytes = rand();
+  let s = '';
+  for (let i = 0; i < 10; i += 1) s += ID_CHARS[(bytes[i] ?? Math.floor(Math.random() * 256)) % ID_CHARS.length];
+  return s;
+}
+
+export function profileUrl(publicId) {
+  return publicId ? `${SITE_URL}/u/${publicId}` : '';
+}
+
+const fromRow = (r) => normalizeProfile({
+  publicId: r.public_id, nickname: r.nickname, favTitle: r.fav_title, favAuthor: r.fav_author, favIsbn: r.fav_isbn,
+  favCover: r.fav_cover, favLine: r.fav_line, isPublic: r.is_public, hidden: r.hidden,
+});
+const toRow = (p) => ({
+  public_id: p.publicId, nickname: p.nickname, fav_title: p.favTitle, fav_author: p.favAuthor, fav_isbn: p.favIsbn,
+  fav_cover: p.favCover, fav_line: p.favLine, is_public: p.isPublic,
+});
+
+const isMissingTable = (e) => !!e && (e.code === '42P01' || e.code === 'PGRST205' || /profiles/.test(String(e.message || '')) && /(does not exist|schema cache)/.test(String(e.message || '')));
+
+function readLocal(uid) {
+  try { const v = JSON.parse(globalThis.localStorage?.getItem(KEY(uid)) || 'null'); return v ? normalizeProfile(v) : null; } catch { return null; }
+}
+function writeLocal(uid, p) {
+  try { globalThis.localStorage?.setItem(KEY(uid), JSON.stringify(p)); } catch { /* 控えられないだけ */ }
+}
+export function clearLocalProfile(uid) {
+  try { globalThis.localStorage?.removeItem(KEY(uid)); } catch { /* 無ければよい */ }
+}
+
+/** 読む。{ profile, stored: 'server'|'local'|'none' } */
+export async function loadProfile(uid, { client = supabase } = {}) {
+  if (uid && isSupabaseConfigured && client) {
+    try {
+      const { data, error } = await client.from('profiles')
+        .select('public_id, nickname, fav_title, fav_author, fav_isbn, fav_cover, fav_line, is_public, hidden')
+        .eq('user_id', uid).maybeSingle();
+      if (!error && data) return { profile: fromRow(data), stored: 'server' };
+      if (!error && !data) {
+        const local = readLocal(uid);
+        return local ? { profile: local, stored: 'local' } : { profile: { ...EMPTY_PROFILE }, stored: 'none' };
+      }
+      if (!isMissingTable(error)) throw error;
+    } catch (e) {
+      if (!isMissingTable(e)) {
+        const local = readLocal(uid);
+        if (local) return { profile: local, stored: 'local' };
+        throw e;
+      }
+    }
+  }
+  const local = readLocal(uid);
+  return local ? { profile: local, stored: 'local' } : { profile: { ...EMPTY_PROFILE }, stored: 'none' };
+}
+
+/**
+ * 保存する（無ければ public_id を作る）。表が無ければ端末に控える＝公開はできない。
+ * 戻り値 { profile, stored: 'server'|'local' }。つながらないなど、それ以外の失敗は投げる。
+ */
+export async function saveProfile(uid, input, { client = supabase } = {}) {
+  const p = normalizeProfile(input);
+  if (!p.publicId) p.publicId = newPublicId();
+  if (uid && isSupabaseConfigured && client) {
+    const { data, error } = await client.from('profiles')
+      .upsert({ user_id: uid, ...toRow(p) }, { onConflict: 'user_id' })
+      .select('public_id, nickname, fav_title, fav_author, fav_isbn, fav_cover, fav_line, is_public, hidden').maybeSingle();
+    if (!error) {
+      const saved = data ? fromRow(data) : p;
+      writeLocal(uid, saved);
+      return { profile: saved, stored: 'server' };
+    }
+    if (!isMissingTable(error)) throw error;
+  }
+  const local = { ...p, isPublic: false };
+  writeLocal(uid, local);
+  return { profile: local, stored: 'local' };
+}
+
+/** 退会・初期化で消す。 */
+export async function deleteProfile(uid, { client = supabase } = {}) {
+  clearLocalProfile(uid);
+  if (!uid || !isSupabaseConfigured || !client) return;
+  const { error } = await client.from('profiles').delete().eq('user_id', uid);
+  if (error && !isMissingTable(error)) throw error;
+}
+
+/** 好きな本が変わったか（本棚に入れる・メモに残すのは変わったときだけ）。 */
+export function favoriteChanged(before, after) {
+  const k = (p) => `${String(p?.favIsbn || '')}|${String(p?.favTitle || '').trim()}|${String(p?.favLine || '').trim()}`;
+  return !!String(after?.favTitle || '').trim() && k(before) !== k(after);
+}
+
+/** 相談で呼びかけるときの名前（「ふみさん」）。無ければ ''。 */
+export function addressName(p) {
+  const n = String(p?.nickname || '').trim();
+  if (!n) return '';
+  return /(さん|様|さま|くん|ちゃん)$/.test(n) ? n : `${n}さん`;
+}

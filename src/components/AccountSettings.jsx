@@ -17,6 +17,7 @@
 
 import { clearDeviceData } from '../lib/deviceData';
 import { readingSessions } from '../hooks/useReadingSessions';
+import { clearLocalProfile } from '../lib/profile';
 import { TERMS_URL, PRIVACY_URL, SCT_URL } from '../lib/legalLinks';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
@@ -34,6 +35,9 @@ import TokenUsageSheet from './TokenUsageSheet';
 import McpConnectSheet from './McpConnectSheet';
 import { AppPurposeEditSheet, PurposeCheckSheet } from './AppPurposeSheets';
 import { useAppPurpose } from '../hooks/useAppPurpose';
+import ProfileSheet from './ProfileSheet';
+import { useProfile, resetProfileCache } from '../hooks/useProfile';
+import { hasProfile, addressName } from '../lib/profile';
 import { markReleaseSeen, releaseHeading, loadReleaseNotes, BUNDLED_RELEASE_ID } from '../lib/whatsNew';
 import { exportUserDataAsCSV, exportMemosAsMarkdown } from '../lib/exportData';
 import { forceUpdate as forceAppUpdate } from '../lib/swUpdate';
@@ -366,7 +370,7 @@ async function listAllUserPhotos(userId, bucket = 'book-memo-photos') {
 // 🧪 お試しモードの通知のオン・オフ（設定を閉じて開き直しても残す・再読み込みで初期化）。
 let demoPushOn = false;
 
-export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, onOpenHelp, focusDelete = false }) {
+export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, onOpenHelp, focusDelete = false, onProfileSaved }) {
   const { user, signOut } = useAuth();
   const guest = isGuestUser(user);
   // 有料プランの画面の「アカウントを削除」から開いたときは、削除の欄まで送る。
@@ -405,6 +409,9 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
   // 🎯 Orime を入れた理由（2026-10-18）: 設定で見返す・書き直す。解約（プランを管理）と退会の前に一度だけ見せる（止めない）。
   const { purpose: appPurpose } = useAppPurpose();
   const [purposeEditOpen, setPurposeEditOpen] = useState(false);
+  // 👤 プロフィール（2026-11-21）
+  const [profileOpen, setProfileOpen] = useState(false);
+  const { profile: myProfile } = useProfile(user?.id || '');
   const [purposeCheck, setPurposeCheck] = useState(null); // { where, nextText, run }
   // 2026-11-17: 「Orime を入れた理由」は 2026-11-16 にやめたので、解約・退会の前にはさまない（審査 5.1.1(v)・すぐ次へ）。
   const withPurposeCheck = (where, nextText, run) => { void where; void nextText; void appPurpose; run(); };
@@ -786,6 +793,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
       await deleteOwn('advisor_sessions');
       await deleteOwn('goal_roadmaps'); // 🧭 目標のロードマップ（未適用 DB はスキップ）
       await deleteOwn('reading_sessions'); // ⏱ 読書の時間（集中モード・未適用 DB はスキップ）
+      await deleteOwn('profiles'); // 👤 プロフィール（2026-11-21・未適用 DB はスキップ）
       await deleteOwn('push_subscriptions');
       await deleteOwn('books');
 
@@ -799,6 +807,8 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
       // 読書の時間の控え・途中の集中モード・この本で学べること・本の分野の印・写真で共有の選び方なども（lib/deviceData.js）。
       clearDeviceData();
       readingSessions.clearLocal();
+      clearLocalProfile(user.id);
+      resetProfileCache();
       toast.success('データを初期化しました。画面を読み込み直します。');
       // 全 state / キャッシュを確実に空へ戻すためリロード（初期化操作なので妥当）。
       // reload がブロックされた場合でもボタンが「初期化中…」で永久固定しないよう解除。
@@ -890,6 +900,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
       await deleteOwn('advisor_sessions');  // 🕒 AI 選書の会話履歴
       await deleteOwn('goal_roadmaps');     // 🧭 目標のロードマップ（2026-11-15）
       await deleteOwn('reading_sessions');  // ⏱ 読書の時間（集中モード・2026-10-09）
+      await deleteOwn('profiles');          // 👤 プロフィール（2026-11-21・公開のページもすぐ見えなくなる）
       await deleteOwn('push_subscriptions');// 🔔 想起プッシュ購読
       await deleteOwn('mcp_tokens');        // 🔌 AI と連携の接続キー（2026-11-07・つないだ AI もすぐ読めなくなる）
       await deleteOwn('books');             // 親（残った子に CASCADE）
@@ -935,6 +946,8 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
       // ⏱ 端末に控えた読書の時間・途中の集中モードも消す（表に入らなかった分）。
       clearDeviceData();
       readingSessions.clearLocal();
+      clearLocalProfile(user.id);
+      resetProfileCache();
       toast.success('すべてのデータを削除しました。ログアウトします。');
       // Sign out then bubble up to the parent
       try { await signOut(); } catch { /* ignore */ }
@@ -1002,6 +1015,21 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
               <p style={{ fontSize: 'var(--text-body)', color: 'var(--text)', margin: 0, lineHeight: 1.5, overflowWrap: 'anywhere' }}>{user?.email ? user.email.split('@').map((p, i) => <Fragment key={i}>{i > 0 && <><wbr />@</>}{p}</Fragment>) : '(未取得)'}</p>
             </div>
             )}
+          </Group>
+
+          {/* 👤 プロフィール（2026-11-21 オーナー「ニックネームと好きな本とおすすめの 1 行」）。押すとシート（ProfileSheet）。 */}
+          <Group label="プロフィール">
+            <button type="button" onClick={() => setProfileOpen(true)} style={rowButtonStyle}>
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ ...rowTitleStyle, display: 'block', color: 'inherit', overflowWrap: 'anywhere' }}>
+                  {hasProfile(myProfile) ? (addressName(myProfile) || 'ニックネームなし') : 'ニックネームと好きな本'}
+                </span>
+                <span style={{ ...rowDescStyle, display: 'block', overflowWrap: 'anywhere' }}>
+                  {myProfile.favTitle ? `好きな本『${myProfile.favTitle}』${myProfile.isPublic ? '・公開中' : ''}` : 'まだ書いていません'}
+                </span>
+              </span>
+              <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+            </button>
           </Group>
 
           {/* 🎯 Orime を入れた理由の行は 2026-11-16 にやめた（オーナー「不要」・目標は 振り返り › 行動 の 1 年後・3 年後・5 年後）。
@@ -1493,7 +1521,12 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
 
       {feedbackOpen && <FeedbackForm onClose={() => setFeedbackOpen(false)} />}
       {/* 入れた理由のシートも、中のタップを設定の背景に届けない（「保存」「まだ途中」で設定ごと閉じていた・2026-10-18） */}
-      {purposeEditOpen && (
+      {profileOpen && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <ProfileSheet userId={user?.id || ''} onClose={() => setProfileOpen(false)} onSaved={onProfileSaved} />
+        </div>
+      )}
+          {purposeEditOpen && (
         <div onClick={(e) => e.stopPropagation()}>
           <AppPurposeEditSheet purpose={appPurpose} onClose={() => setPurposeEditOpen(false)} />
         </div>

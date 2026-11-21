@@ -38,12 +38,13 @@ const STYLE = `
 @media (prefers-color-scheme:dark){:root{--bg:#1b1a18;--surface:#252321;--fill:#2f2c29;--text:#f2efea;--text-2:#bdb7ae;--text-3:#9e978d;--separator:#3a3632;--border:#807a73;--accent:#e0a07a;--accent-ink:#1b1a18}}
 *{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font-ui);-webkit-text-size-adjust:100%}
 main{max-width:480px;margin:0 auto;padding:48px 16px 64px}
+p,h1{line-break:strict;word-break:auto-phrase;text-wrap:pretty}
 .card{background:var(--surface);border:1px solid var(--separator);border-radius:var(--radius);padding:24px 16px}
-.who{margin:0;font-size:15px;color:var(--text-2)}.name{margin:4px 0 0;font-size:24px;font-weight:700;line-height:1.4;overflow-wrap:anywhere}
+.name{margin:0;font-size:24px;font-weight:700;line-height:1.4;overflow-wrap:anywhere}
 .label{margin:24px 0 8px;font-size:13px;font-weight:600;color:var(--text-2)}
 .book{display:flex;gap:16px;align-items:flex-start}.cover{width:72px;height:auto;border-radius:4px;flex-shrink:0;background:var(--fill)}
 .title{margin:0;font-size:17px;font-weight:600;line-height:1.5;overflow-wrap:anywhere}.author{margin:4px 0 0;font-size:15px;color:var(--text-2)}
-.line{margin:16px 0 0;font-family:var(--font-read);font-size:20px;line-height:1.7;overflow-wrap:anywhere}
+.line{margin:0;font-family:var(--font-read);font-size:20px;line-height:1.6;overflow-wrap:anywhere}
 .cta{display:block;margin:32px 0 0;min-height:48px;padding:12px 16px;border-radius:var(--radius);background:var(--accent);color:var(--accent-ink);font-size:15px;font-weight:600;text-align:center;text-decoration:none}
 .note{margin:12px 0 0;font-size:13px;color:var(--text-2);text-align:center;line-height:1.6}
 details{margin:32px 0 0;font-size:13px;color:var(--text-3)}summary{cursor:pointer;min-height:44px;display:flex;align-items:center}
@@ -78,12 +79,12 @@ export function renderProfile(p, { publicId }) {
   const pageTitle = title ? `${who}の好きな本『${title}』` : `${who}のプロフィール`;
   const desc = line ? `「${line}」` : (title ? `${who}が好きな本は『${title}』` : '');
   const body = `<div class="card">
-<p class="who">Orime の読者</p><h1 class="name">${esc(who)}</h1>
+<h1 class="name">${esc(who)}</h1>
 ${title ? `<p class="label">好きな本</p><div class="book">${cover.ok ? `<img class="cover" src="${esc(cover.url)}" alt="">` : ''}<div><p class="title">『${esc(title)}』</p>${author ? `<p class="author">${esc(author)}</p>` : ''}</div></div>` : ''}
 ${line ? `<p class="label">おすすめの 1 行</p><p class="line">「${esc(line)}」</p>` : ''}
 </div>
 <a class="cta" href="${esc(site)}/lp">Orime で読書メモをはじめる</a>
-<p class="note">読んだ本と、会話できる。答えのもとは、あなたが残したメモ。</p>
+<p class="note">読んだ本と、会話できる。<br>答えのもとは、あなたが残したメモ。</p>
 <details><summary>このページを通報する</summary>
 <form method="post" action="/api/profile-report"><input type="hidden" name="id" value="${esc(publicId)}">
 <label for="reason">理由（任意・500 字まで）</label><textarea id="reason" name="reason" maxlength="${REPORT_MAX}"></textarea>
