@@ -27,7 +27,8 @@ const REPORT_MAX = 500;
 // 開いている通報がこの数たまったら、運営が確かめるまで自動で隠す（App 審査 1.2・運営は 24 時間以内に確かめる）。
 export const AUTO_HIDE_REPORTS = 3;
 // 👥 フォロー・本のページ・読みたいに追加（2026-11-21 3 回目）は VITE_SOCIAL=on のときだけ出す（アプリの 1.0.1 と合わせて入れる）。
-export const socialOn = (env = process.env) => String(env.VITE_SOCIAL || '').toLowerCase() === 'on';
+// 2026-11-21 オーナー「入れてください」で既定で出す（VITE_SOCIAL=off で止める）。
+export const socialOn = (env = process.env) => String(env.VITE_SOCIAL || '').toLowerCase() !== 'off';
 const SUMMARY_MAX = 4000;
 const SUPPORT = () => String(process.env.VITE_SUPPORT_EMAIL || 'orime.support@gmail.com');
 

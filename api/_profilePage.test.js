@@ -205,6 +205,7 @@ describe('本のページ（まとめ・読みたいに追加・2026-11-21）', 
   });
   it('VITE_SOCIAL は on のときだけ', () => {
     expect(socialOn({ VITE_SOCIAL: 'on' })).toBe(true);
-    expect(socialOn({})).toBe(false);
+    expect(socialOn({})).toBe(true);
+    expect(socialOn({ VITE_SOCIAL: 'off' })).toBe(false);
   });
 });
