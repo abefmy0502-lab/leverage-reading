@@ -1160,6 +1160,9 @@ export function retrievalQuery(question, turns = []) {
 // skipQuestions: この会話のこれまでの相談の問い（THREAD・前の相談で渡すもの）。③ 過去の相談からは外す
 //   （同じやりとりを 2 回渡さない・深掘りの続きの材料を少しでも小さく・2026-10-01）。
 // 🧭 相談に渡す目標の文（lib/goals.js・lib/goalRoadmap.js）。無ければ ''。
+// 同意のシートの送るものに「名前」を足した日（lib/aiProcessors.js）。
+export const NAME_CONSENT_SINCE = '2026-11-21T00:00:00.000Z';
+
 async function goalsConsultText(userId) {
   const [{ readGoals }, { roadmapsFor, goalsConsultBlock }] = await Promise.all([import('./goals'), import('./goalRoadmap')]);
   const goals = await readGoals();
@@ -1188,7 +1191,12 @@ export async function buildGrowthBlock(userId, { scopeSet = null, info = null, s
   } catch { /* 目標が読めなくても相談は続ける */ }
 
   // 👤 プロフィールのニックネーム（2026-11-21・lib/profile.js）。呼びかけるときだけ使う（毎回は呼ばない）。
+  //   送るのは、送るものに「名前」を書いた日（NAME_CONSENT_SINCE）より後に AI への送信に同意した人だけ
+  //   （それより前の同意の人には送らない＝同意した内容を超えて送らない・App 審査 5.1.2(i)）。
   try {
+    const { readAiConsent } = await import('./aiConsent');
+    const consent = await readAiConsent();
+    if (!consent?.at || consent.at < NAME_CONSENT_SINCE) throw new Error('skip');
     const { loadProfile, addressName } = await import('./profile');
     const { profile } = await loadProfile(userId);
     const name = sanitizeForPrompt(addressName(profile));

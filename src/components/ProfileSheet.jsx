@@ -13,7 +13,10 @@ import { btnPrimary, btnPrimaryOff, btnGhost } from '../styles/ui';
 import { profileUrl, normalizeProfile } from '../lib/profile';
 import { saveProfileShared, useProfile } from '../hooks/useProfile';
 import { toMessage } from '../lib/errors';
+import { profileIssues, profileIssueMessage } from '../lib/profileFilter';
 import { track } from '../lib/analytics';
+import { useAuth } from '../hooks/useAuth';
+import { isGuestUser } from '../lib/guestAuth';
 
 const note = { margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.6, lineBreak: 'strict' };
 
@@ -28,12 +31,18 @@ export default function ProfileSheet({ userId, onClose, onSaved }) {
   const change = (next) => { setTouched(true); setDraft(next); };
   const dirty = JSON.stringify(normalizeProfile(draft)) !== JSON.stringify(normalizeProfile(profile));
   const url = profileUrl(profile.publicId);
-  const canPublish = stored !== 'local';
+  // 登録せずに始めた人は公開できない（データベースでも止める・App 審査 1.2）。
+  const { user } = useAuth();
+  const guest = isGuestUser(user);
+  const canPublish = stored !== 'local' && !guest;
   // 本棚の公開の列がまだ無い DB（前の版の SQL だけ）では本棚は公開できない（saveProfile が shelfReady: false を返す）。
   const [shelfUnready, setShelfUnready] = useState(false);
 
   const save = async () => {
     if (!dirty || busy) return;
+    // 公開に向かない言葉・連絡先は保存の前に止める（App 審査 1.2・lib/profileFilter.js）。
+    const issue = profileIssueMessage(profileIssues(draft));
+    if (issue) { setError(issue); return; }
     setBusy(true); setError('');
     try {
       const { profile: saved, stored: where, shelfReady } = await saveProfileShared(userId, draft);
@@ -83,7 +92,7 @@ export default function ProfileSheet({ userId, onClose, onSaved }) {
             <p style={note}>
               {canPublish
                 ? <>オンにすると、リンクを知っている人が<br />ニックネーム・自己紹介・好きな本を見られます。<br />メモは見えません。</>
-                : 'いまは公開できません。この端末にだけ保存されます。'}
+                : guest ? 'アカウントを作ると公開できます（設定のいちばん上から）。' : 'いまは公開できません。この端末にだけ保存されます。'}
             </p>
             {/* 本棚も公開する（2026-11-21・公開するがオンのときだけ押せる・メモは出さない）。 */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', marginTop: 'var(--space-2)' }}>

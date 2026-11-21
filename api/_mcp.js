@@ -289,6 +289,20 @@ export const TOOLS = [
     },
   },
   {
+    name: 'ops_reports',
+    description: '（運営者だけ）公開のプロフィールへの通報を読む・対応する（App 審査 1.2・24 時間以内に確かめる）。action=list（status=open が既定・ページの中身つき）/ hide（public_id のページを隠し、開いている通報を hidden に）/ show（隠したページを戻し、開いている通報を dismissed に）/ dismiss（通報だけ閉じる・id）。開いている通報が 3 件たまったページは自動で隠れている。Admin only.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['list', 'hide', 'show', 'dismiss'] },
+        status: { type: 'string', enum: ['open', 'hidden', 'dismissed'], description: 'list: 絞る状態（既定 open）' },
+        public_id: { type: 'string', description: 'hide・show: ページの id（10 字）' },
+        id: { type: 'integer', description: 'dismiss: 通報の id' },
+      },
+      required: ['action'],
+    },
+  },
+  {
     name: 'ops_books',
     description: '（運営者だけ）AI 選書の推薦用の本のデータ（毎日少しずつ集めて AI が概要・こんな悩みの人に・おすすめする理由を書いたもの）。action=stats（冊数と集め方の進み具合）/ new（直近 N 日に入った本・既定 7 日・50 冊まで）/ search（言葉で探す）/ hide・show（isbn の本を候補から外す・戻す）/ add（運営が選んだ本を足す: books に ISBN か「書名 / 著者」か {isbn,title,author} を 200 冊まで・毎晩の処理が楽天の書誌で確かめてから足し、概要を書く）/ queue（足した本の待ち行列: status=queued・done・notfound・failed）/ process（待ち行列と概要づくりを今すすめる・1 回 約 45 秒・毎晩を待たない）/ redo（概要を書き直す: isbn の 1 冊か、省くと分野が空の本を 200 冊まで・old=true で前の版の書き方の本）/ ext（書評サイトの推薦の事実と要約を保存: items に { isbn, url, points, endorsers:[{name,note}], tags, summary } を 50 冊まで）/ mark（賞・年間ベスト・選出の印を足す: marks に { isbn か title と author, source（例: 読者が選ぶビジネス書グランプリ）, year, label（例: 総合グランプリ・1位）, kind（award・annual・selection）, url } を 100 件まで・事実だけで選評の文は入れない・まだデータに無い本は待ち行列に入れて書誌を確かめる）/ marks（入れた印の一覧・unlinked=true で ISBN がまだ付いていない印だけ）/ pending（整える前の本を limit 冊（30 まで）、書く決まり instructions と本ごとの材料つきで受け取る）/ summaries（pending の決まりで書いた概要を保存: items に { isbn, summary: その本の JSON } を 30 冊まで・形を確かめてから入れる）。AI 選書は印のある本を少し上に出し、理由の材料にする。Admin only.',
     inputSchema: {
@@ -622,10 +636,56 @@ const handlers = {
       '（くわしい数字は structuredContent に: overview / revenue / growth / launch / goal / weekly / profit / profit_series / renewals / active_series / feedback / tickets / tasks / weekly_reviews / sales_metrics / launch_gates）',
     ];
     const gates = await launchGates(db);
-    return { text: text.join('\n'), structuredContent: { ...(data || {}), launch_gates: gates } };
+    // 🚩 公開のプロフィールへの開いている通報（24 時間以内に ops_reports で対応・表が無ければ null）。
+    let reportsOpen = null;
+    try {
+      const r = await db.from('profile_reports').select('id', { count: 'exact', head: true }).eq('status', 'open');
+      if (!r.error) reportsOpen = r.count || 0;
+    } catch { /* 表が無い */ }
+    if (reportsOpen) text.unshift(`⚠️ 公開のプロフィールへの通報が ${reportsOpen} 件あります（ops_reports で 24 時間以内に対応）`);
+    return { text: text.join('\n'), structuredContent: { ...(data || {}), launch_gates: gates, profile_reports_open: reportsOpen } };
   },
 
   // 📚 AI 選書の推薦用の本のデータ（運営者だけ・supabase_advisor_books.sql・2026-11-17）。
+  // 🚩 公開のプロフィールへの通報（2026-11-21・App 審査 1.2・supabase_profiles.sql）。
+  async ops_reports(args, { db, userId }) {
+    const { data: adm, error: admErr } = await db.from('app_admins').select('user_id').eq('user_id', userId).maybeSingle();
+    if (admErr || !adm) throw new ToolError('この道具は運営者だけが使えます');
+    const action = args?.action;
+    const pid = String(args?.public_id || '').trim().toLowerCase();
+    const missing = (e) => /relation .* does not exist|42P01|PGRST205|Could not find the table/i.test(`${e?.code || ''} ${e?.message || ''}`);
+    if (action === 'list') {
+      const status = ['open', 'hidden', 'dismissed'].includes(args?.status) ? args.status : 'open';
+      const { data, error } = await db.from('profile_reports').select('id, public_id, reason, status, created_at').eq('status', status).order('created_at', { ascending: false }).limit(100);
+      if (error) throw new ToolError(missing(error) ? '通報の表がまだありません（supabase_profiles.sql を流してください）' : '通報を読めませんでした');
+      const ids = [...new Set((data || []).map((r) => r.public_id))];
+      let pages = [];
+      if (ids.length) {
+        const r = await db.from('profiles').select('public_id, nickname, bio, fav_title, fav_line, is_public, shelf_public, hidden').in('public_id', ids);
+        pages = r.data || [];
+      }
+      const text = (data || []).length
+        ? (data || []).map((r) => `#${r.id} ${r.public_id}（${String(r.created_at).slice(0, 16)}）${r.reason ? `「${String(r.reason).slice(0, 80)}」` : ''}`).join('\n')
+        : `${status} の通報はありません`;
+      return { text, structuredContent: { reports: data || [], pages } };
+    }
+    if (action === 'hide' || action === 'show') {
+      if (!/^[a-z0-9]{10}$/.test(pid)) throw new ToolError('public_id（10 字）を入れてください');
+      const { error } = await db.from('profiles').update({ hidden: action === 'hide' }).eq('public_id', pid);
+      if (error) throw new ToolError('ページの表示を変えられませんでした');
+      await db.from('profile_reports').update({ status: action === 'hide' ? 'hidden' : 'dismissed' }).eq('public_id', pid).eq('status', 'open');
+      return { text: action === 'hide' ? `${pid} を隠しました（公開のページは 1 分ほどで消えます）` : `${pid} を戻しました`, structuredContent: { public_id: pid, hidden: action === 'hide' } };
+    }
+    if (action === 'dismiss') {
+      const id = Math.floor(Number(args?.id));
+      if (!Number.isFinite(id) || id <= 0) throw new ToolError('通報の id を入れてください');
+      const { error } = await db.from('profile_reports').update({ status: 'dismissed' }).eq('id', id);
+      if (error) throw new ToolError('通報を閉じられませんでした');
+      return { text: `#${id} を閉じました`, structuredContent: { id } };
+    }
+    throw new ToolError('action は list / hide / show / dismiss のどれかです');
+  },
+
   async ops_books(args, { db, userId }) {
     const { data: adm, error: admErr } = await db.from('app_admins').select('user_id').eq('user_id', userId).maybeSingle();
     if (admErr || !adm) throw new ToolError('この道具は運営者だけが使えます');

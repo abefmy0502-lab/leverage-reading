@@ -12,10 +12,14 @@ import { takeIpSlot } from './_ipRate.js';
 import { checkCoverImageUrl } from './_coverImageUrl.js';
 import { BOOK_FIELD_GROUPS, isBookField } from './_bookFieldsCore.js';
 import { paletteFor } from '../src/lib/coverPalette.js';
+import { profileTextIssue } from '../src/lib/profileFilter.js';
 
 export const PUBLIC_ID_RE = /^[a-z0-9]{10}$/;
 const SITE = () => String(process.env.VITE_SITE_URL || 'https://orime.vercel.app').replace(/\/+$/, '');
 const REPORT_MAX = 500;
+// 開いている通報がこの数たまったら、運営が確かめるまで自動で隠す（App 審査 1.2・運営は 24 時間以内に確かめる）。
+export const AUTO_HIDE_REPORTS = 3;
+const SUPPORT = () => String(process.env.VITE_SUPPORT_EMAIL || 'orime.support@gmail.com');
 
 let client = null;
 function db() {
@@ -29,6 +33,16 @@ function db() {
 
 export function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+/** 公開に向かない言葉・連絡先を含む欄を空にする（アプリでも保存の前に止めるが、古いアプリや直接の書き込みに備える）。 */
+export function cleanPublicRow(row) {
+  const out = { ...row };
+  for (const [k, kind] of [['nickname', 'own'], ['bio', 'own'], ['fav_line', 'own'], ['fav_title', 'book'], ['fav_author', 'book']]) {
+    if (out[k] && profileTextIssue(out[k], kind)) out[k] = '';
+  }
+  if (!out.fav_title) { out.fav_author = ''; out.fav_cover = ''; }
+  return out;
 }
 
 /** 見せてよい行か（公開・隠していない・ニックネームか好きな本がある）。 */
@@ -72,6 +86,7 @@ a{color:var(--accent)}
 .ba{margin:0;font-size:12px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .st{margin:0;font-size:12px;color:var(--accent);letter-spacing:1px}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.foot{margin:24px 0 0;font-size:13px;color:var(--text-2);line-height:1.8}
 .more{margin:12px 0 0;font-size:13px;color:var(--text-2)}
 `;
 
@@ -101,7 +116,9 @@ export const SHELF_PER_STATUS = 60;
 /** 公開の本棚に出す本を整える（外した本を除く・状態ごと・分野の数）。books は { id, title, author, cover, status, rating, fields } */
 export function buildShelf(books = [], hidden = [], { supabaseUrl = '' } = {}) {
   const hide = new Set((hidden || []).map(String));
-  const list = (Array.isArray(books) ? books : []).filter((b) => b && b.id && !hide.has(String(b.id)) && String(b.title || '').trim());
+  // 書名・著者に連絡先がある本は出さない（App 審査 1.2・lib/profileFilter.js）。
+  const list = (Array.isArray(books) ? books : []).filter((b) => b && b.id && !hide.has(String(b.id)) && String(b.title || '').trim()
+    && !profileTextIssue(b.title, 'book') && !profileTextIssue(b.author, 'book'));
   const byStatus = SHELF_STATUSES.map((st) => {
     const all = list.filter((b) => b.status === st.id);
     return {
@@ -168,7 +185,9 @@ ${line ? `<p class="label">おすすめの 1 行</p><p class="line">「${esc(lin
 <details><summary>このページを通報する</summary>
 <form method="post" action="/api/profile-report"><input type="hidden" name="id" value="${esc(publicId)}">
 <label for="reason">理由（任意・500 字まで）</label><textarea id="reason" name="reason" maxlength="${REPORT_MAX}"></textarea>
-<button type="submit">通報する</button></form></details>`;
+<button type="submit">通報する</button></form>
+<p class="note" style="text-align:left">通報は運営が 24 時間以内に確かめ、利用規約に反する内容は表示を止めます。</p></details>
+<p class="foot"><a href="${esc(site)}/legal/terms">利用規約</a>・<a href="${esc(site)}/legal/privacy">プライバシーポリシー</a>・お問い合わせ <a href="mailto:${esc(SUPPORT())}">${esc(SUPPORT())}</a></p>`;
   return page({ title: pageTitle, description: desc, image: cover.ok ? cover.url : '', url: `${site}/u/${publicId}`, body });
 }
 
@@ -189,7 +208,8 @@ async function loadShelf(c, userId, hidden) {
       .eq('user_id', userId).order('updated_at', { ascending: false }).limit(1000);
     if (error) { console.warn('[profile] shelf read failed:', error.code || error.message); return null; }
     const books = (data || []).map((b) => ({ ...b, fields: (b.book_tags || []).map((t) => t.tag_name) }));
-    return buildShelf(books, hidden, { supabaseUrl: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '' });
+    // 自分でアップロードした表紙（Supabase の置き場）は公開のページに出さない＝書店・図書館の表紙だけ（App 審査 1.2）。
+    return buildShelf(books, hidden);
   } catch (e) {
     console.warn('[profile] shelf read failed:', e?.message || e);
     return null;
@@ -214,13 +234,29 @@ export async function handleProfileRequest(req, res, { dbImpl = db } = {}) {
     const reason = String(body.reason || '').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').trim().slice(0, REPORT_MAX);
     if (!PUBLIC_ID_RE.test(id)) return send(res, renderNotFound()), true;
     const c = dbImpl();
+    let saved = false;
     if (c) {
       const { error } = await c.from('profile_reports').insert({ public_id: id, reason });
       if (error) console.warn('[profile] report failed:', error.code || error.message);
+      else {
+        saved = true;
+        // 開いている通報がたまったら自動で隠す（運営が確かめて戻すか決める）。
+        try {
+          const { count } = await c.from('profile_reports').select('id', { count: 'exact', head: true }).eq('public_id', id).eq('status', 'open');
+          if ((count || 0) >= AUTO_HIDE_REPORTS) await c.from('profiles').update({ hidden: true }).eq('public_id', id);
+        } catch (e) { console.warn('[profile] auto hide failed:', e?.message || e); }
+      }
+    }
+    if (!saved) {
+      return send(res, page({
+        title: '通報を受け付けられませんでした | Orime',
+        status: 503,
+        body: `<div class="card"><h1 class="name">通報を受け付けられませんでした</h1><p class="note" style="text-align:left">少し時間をおいて、もう一度お試しください。急ぎのときは ${esc(SUPPORT())} までご連絡ください。</p></div><p class="note"><a href="/u/${esc(id)}">ページに戻る</a></p>`,
+      })), true;
     }
     return send(res, page({
       title: '通報を受け付けました | Orime',
-      body: `<div class="card"><h1 class="name">通報を受け付けました</h1><p class="note" style="text-align:left">内容を確かめて、必要なら公開を止めます。ありがとうございました。</p></div><p class="note"><a href="/u/${esc(id)}">ページに戻る</a></p>`,
+      body: `<div class="card"><h1 class="name">通報を受け付けました</h1><p class="note" style="text-align:left">運営が 24 時間以内に確かめ、利用規約に反する内容は表示を止めます。ありがとうございました。</p></div><p class="note"><a href="/u/${esc(id)}">ページに戻る</a></p>`,
     })), true;
   }
   if (q.profile === undefined) return false;
@@ -239,6 +275,7 @@ export async function handleProfileRequest(req, res, { dbImpl = db } = {}) {
     if (error) console.warn('[profile] read failed:', error.code || error.message);
     row = data || null;
   }
+  row = row ? cleanPublicRow(row) : row;
   if (!isShowable(row)) return send(res, renderNotFound()), true;
   let shelf = null;
   if (row.shelf_public && row.user_id && c) shelf = await loadShelf(c, row.user_id, row.shelf_hidden);

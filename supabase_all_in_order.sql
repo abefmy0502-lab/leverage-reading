@@ -1060,15 +1060,21 @@ create policy "profiles_delete_own" on public.profiles
   for delete to authenticated using (auth.uid() = user_id);
 
 -- 本人の update では hidden と public_id を変えさせない（service_role は変えられる）・updated_at を今に。
+-- 匿名のアカウントは insert・update とも公開をオフに戻す。
 create or replace function public.profiles_guard()
 returns trigger
 language plpgsql
 as $$
 begin
   -- 利用者（ログインした人）の更新のときだけ守る。service_role と SQL Editor（運営が隠すとき）は auth.uid() が無い。
-  if auth.uid() is not null then
+  if auth.uid() is not null and tg_op = 'UPDATE' then
     new.hidden := old.hidden;
     new.public_id := old.public_id;
+  end if;
+  -- 登録せずに始めた人（匿名のアカウント）は公開できない（何個でも作れて、隠しても作り直せるため・App 審査 1.2）。
+  if coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) then
+    new.is_public := false;
+    new.shelf_public := false;
   end if;
   new.updated_at := now();
   return new;
@@ -1076,7 +1082,7 @@ end;
 $$;
 
 drop trigger if exists profiles_guard on public.profiles;
-create trigger profiles_guard before update on public.profiles
+create trigger profiles_guard before insert or update on public.profiles
   for each row execute function public.profiles_guard();
 
 -- 通報（公開のページの「通報する」・api/_profilePage.js が service_role で入れる）。

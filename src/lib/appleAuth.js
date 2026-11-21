@@ -110,6 +110,21 @@ async function authorizeNative(plugin) {
   return { idToken, rawNonce, fullName };
 }
 
+// 🗑 退会の直前に Apple の画面でもう一度確かめ、authorizationCode を受け取る（サーバーが Apple の許可を取り消すのに使う・
+//   api/_deleteAccount.js・App 審査 5.1.1(v)／Sign in with Apple の決まり）。iPhone のアプリで Apple の人だけ。
+//   受け取れなければ ''（キャンセルも ''・退会は続ける）。
+export async function appleCodeForDeletion() {
+  if (!isNativeApple) return '';
+  try {
+    const plugin = await loadPlugin();
+    if (!plugin) return '';
+    const res = await withTimeout(plugin.authorize({ scopes: 'email' }), APPLE_AUTHORIZE_TIMEOUT_MS, 'apple_authorize_timeout');
+    return String(res?.response?.authorizationCode || '');
+  } catch {
+    return '';
+  }
+}
+
 // 初回のみ Apple が氏名を返す（2回目以降は null）。表示名が空なら埋める。
 // 待たない（ここで待つと、つながりにくいときにサインインが終わらない）。
 function fillDisplayName(user, fullName) {

@@ -1,3 +1,4 @@
+import { handleDeleteAccount } from './_deleteAccount.js';
 import { stripBookSummaries } from './_consultMaterial.js';
 import { addBookRef } from './_bookRefRelay.js';
 import { createClient } from '@supabase/supabase-js';
@@ -688,6 +689,12 @@ export default async function handler(req, res) {
   //    登録せずに始めた人（匿名・is_anonymous）は、はじめの月の多い量にしない（いくつも作って無料の AI を集められないように・2026-11-19）。
   //    Apple かメールにつないだら、作った日からのはじめの月が効く。
   const userCreatedAt = userData.user.is_anonymous ? null : (userData.user.created_at || null);
+
+  // 🗑 退会をその場で終える（2026-11-21・api/_deleteAccount.js・App 審査 5.1.1(v)）。AI は使わない。
+  if (req.body?.op === 'delete_account') {
+    const out = await handleDeleteAccount({ admin: getServiceSupabase(), user: userData.user, body: req.body });
+    return res.status(out.status).json(out.body);
+  }
 
   // 🔥 アプリが開かれた知らせ（2026-10-21・api/_consultWarm.js）: 相談の指示文のキャッシュが温まっているあいだだけ延ばす。
   //    利用者のトークン・分間の上限は使わない。全インスタンスで 40 分に 1 回まで（DB で取る）。返事はいつも 200。

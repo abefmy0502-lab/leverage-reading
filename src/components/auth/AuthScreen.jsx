@@ -229,7 +229,7 @@ export default function AuthScreen() {
       // 伝えることは 2 つ（どこに残るか・同意）。規約は開けるリンクにする（開けないものに同意させない・2026-11-19 ui-critic）。
       message: (
         <>
-          <span style={{ display: 'block' }}>{withPhraseBreaks('本とメモは、この端末に残ります。アプリを消す前に、設定からアカウントを作れます。')}</span>
+          <span style={{ display: 'block' }}>{withPhraseBreaks('本とメモは、このアカウントに保存されます。アカウントを作らないままアプリを消すと戻せません。設定からいつでもアカウントを作れます。')}</span>
           <span style={{ display: 'block', marginTop: 'var(--space-2)' }}>{withPhraseBreaks('始めると、利用規約とプライバシーポリシーに同意したことになります。')}</span>
           {/* リンクは文の中に置かず、高さ 44 の文字ボタンで 1 行に（押しやすく・新規登録と同じ形・2026-11-19 ui-critic） */}
           <span style={{ display: 'flex', flexWrap: 'wrap', columnGap: 'var(--space-6)' }}>

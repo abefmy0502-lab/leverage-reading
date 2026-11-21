@@ -18,6 +18,7 @@
 import { clearDeviceData } from '../lib/deviceData';
 import { readingSessions } from '../hooks/useReadingSessions';
 import { clearLocalProfile } from '../lib/profile';
+import { finishAccountDeletion } from '../lib/deleteAccount';
 import { TERMS_URL, PRIVACY_URL, SCT_URL } from '../lib/legalLinks';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
@@ -632,6 +633,9 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
   const [upgrading, setUpgrading] = useState(false);
   const handleUpgradeAnnual = async () => {
     if (upgrading) return;
+    // iPhone のアプリは有料プランの画面（年額を選んだ状態）で買う＝ストアの価格・自動更新の文・規約とプライバシーの
+    //   リンク・購入の復元がそろった 1 か所だけで購入する（App 審査 3.1.2・2026-11-21）。
+    if (nativeView) { track('plan_upgrade', { to: 'annual', where: 'settings' }); openPaywall(null); return; }
     const ok = await confirm({
       title: '年額プランに変えますか？',
       message: `${PLAN_LABELS.annual.price.replace(/・月あたり[^）)]*/, '')}。1 年ごとに自動更新されます。${nativeView ? '切り替えの日と請求は App Store の決まりに従います。' : 'この先は、お支払いを管理するページで切り替えます。'}`,
@@ -794,6 +798,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
       await deleteOwn('goal_roadmaps'); // 🧭 目標のロードマップ（未適用 DB はスキップ）
       await deleteOwn('reading_sessions'); // ⏱ 読書の時間（集中モード・未適用 DB はスキップ）
       await deleteOwn('profiles'); // 👤 プロフィール（2026-11-21・未適用 DB はスキップ）
+      await deleteOwn('mcp_tokens'); // 🔌 AI と連携の接続キー（初期化でもつないだ AI から読めなくする）
       await deleteOwn('push_subscriptions');
       await deleteOwn('books');
 
@@ -834,7 +839,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
     const ok = retry || await confirm({
       title: '本当にすべて削除しますか？',
       message:
-        '本・メモ・写真・行動・読書の時間・相談の履歴・タグ・AI 選書の履歴など、すべてのデータを削除します。\n\nログイン情報は、運営が確認したあと、通常 7 日以内に削除します。この操作は取り消せません。',
+        '本・メモ・写真・行動・読書の時間・相談の履歴・タグ・AI 選書の履歴など、すべてのデータとアカウントを削除します。\n\nApple でサインインした方は、Apple の確認の画面が出ます。この操作は取り消せません。',
       confirmLabel: '削除する',
       cancelLabel: 'キャンセル',
       danger: true,
@@ -943,12 +948,15 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
         return;
       }
 
+      // 🗑 アカウント（ログインの情報）までサーバーで消す（Apple の人は Apple の許可も取り消す・2026-11-21・App 審査 5.1.1(v)）。
+      //    終えられなかったときは、依頼の行が残っているので運営が 7 日以内に終える（今までの約束）。
+      const finished = await finishAccountDeletion(user);
       // ⏱ 端末に控えた読書の時間・途中の集中モードも消す（表に入らなかった分）。
       clearDeviceData();
       readingSessions.clearLocal();
       clearLocalProfile(user.id);
       resetProfileCache();
-      toast.success('すべてのデータを削除しました。ログアウトします。');
+      toast.success(finished ? 'アカウントとすべてのデータを削除しました。' : 'すべてのデータを削除しました。アカウントは 7 日以内に削除します。ログアウトします。');
       // Sign out then bubble up to the parent
       try { await signOut(); } catch { /* ignore */ }
       onAfterDelete?.();
@@ -1079,7 +1087,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
                   <button type="button" onClick={handleUpgradeAnnual} disabled={upgrading} style={{ ...(upgrading ? rowButtonBusy : rowButtonStyle), ...divider }}>
                     <span style={{ flex: 1, minWidth: 0 }}>
                       <span style={{ ...rowTitleStyle, display: 'block', color: 'inherit' }}>{upgrading ? '手続き中…' : '年額プランに変える'}</span>
-                      <span style={{ ...rowDescStyle, display: 'block', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(ANNUAL_UPGRADE_NOTE)}</span>
+                      <span style={{ ...rowDescStyle, display: 'block', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(nativeView ? '有料プランの画面で、価格と更新の条件を確かめて選べます' : ANNUAL_UPGRADE_NOTE)}</span>
                     </span>
                     <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
                   </button>
@@ -1421,7 +1429,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
                   {/* 文節の切れ目でだけ折り返す（「くだ／さい」と語の途中で切らない・2026-10-04）。
                       文字は上の行の説明と同じ 13/--text-2（rowDescStyle）。「本・メモ・写真・相談の履歴が消えます」は上の行で言うので繰り返さない。 */}
                   <p style={{ ...rowDescStyle, margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-                    {withPhraseBreaks('ログイン情報は、運営が確認したあと、通常 7 日以内に削除します。この操作は取り消せません。')}
+                    {withPhraseBreaks('アカウントもその場で削除します。この操作は取り消せません。')}
                   </p>
                   <p style={{ ...rowDescStyle, margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
                     {deleteTarget.byWord

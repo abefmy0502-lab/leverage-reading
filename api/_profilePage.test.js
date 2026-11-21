@@ -95,3 +95,34 @@ describe('公開の本棚（2026-11-21）', async () => {
     expect(html).not.toContain('<h2>本棚</h2>');
   });
 });
+
+describe('公開のページの安全（App 審査 1.2・2026-11-21）', async () => {
+  const { cleanPublicRow, AUTO_HIDE_REPORTS } = await import('./_profilePage.js');
+  it('公開に向かない言葉・連絡先の欄は空にする', () => {
+    const r = cleanPublicRow({ ...row, nickname: 'ふみ', bio: 'LINE ID: fumi_123 で連絡ください', fav_line: '死ねと思った' });
+    expect(r.nickname).toBe('ふみ');
+    expect(r.bio).toBe('');
+    expect(r.fav_line).toBe('');
+  });
+  it('通報がたまったら隠す・保存できなければ 503', async () => {
+    const updates = [];
+    const db = () => ({ from: (t) => ({
+      insert: async () => ({ error: null }),
+      select: () => ({ eq: () => ({ eq: async () => ({ count: AUTO_HIDE_REPORTS }) }) }),
+      update: (v) => ({ eq: async () => { updates.push([t, v]); return { error: null }; } }),
+    }) });
+    const res = fakeRes();
+    await handleProfileRequest(req({ op: 'profile_report' }, { method: 'POST', body: { id: 'abcde12345', reason: '' } }), res, { dbImpl: db });
+    expect(res.statusCode).toBe(200);
+    expect(updates).toEqual([['profiles', { hidden: true }]]);
+    const bad = () => ({ from: () => ({ insert: async () => ({ error: { code: '42P01' } }) }) });
+    const res2 = fakeRes();
+    await handleProfileRequest(req({ op: 'profile_report' }, { method: 'POST', body: { id: 'abcde12345' } }), res2, { dbImpl: bad });
+    expect(res2.statusCode).toBe(503);
+  });
+  it('ページに利用規約と連絡先', () => {
+    const { html } = renderProfile(row, { publicId: 'abcde12345' });
+    expect(html).toContain('/legal/terms');
+    expect(html).toContain('mailto:');
+  });
+});
