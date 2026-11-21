@@ -13,12 +13,13 @@ import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { btnPrimary, btnGhost, btnLink, btnLinkQuiet, btnRow, input as inputBase, groupTitle, segTrack, segOption } from '../styles/ui';
 import MiniCover from './MiniCover';
-import BookStoreLinks from './BookStoreLinks';
+import AdvisorStoreLinks from './AdvisorStoreLinks';
+import { STORE_DISCLOSURE_TEXT } from '../lib/rakutenLink';
 import { SkeletonBlock } from './Skeleton';
 import { withPhraseBreaks } from './TightBubble';
 import {
   publicIdFrom, previewProfile, requestFollow, followResultMessage, loadFollows, respondFollow, removeFollow,
-  blockUser, unblockUser, reportProfile, loadFolloweeShelf, SHELF_ORDER, myIdShareText,
+  blockUser, unblockUser, reportProfile, loadFolloweeShelf, SHELF_ORDER, myIdShareText, summaryExcerpt,
 } from '../lib/social';
 import { track } from '../lib/analytics';
 import { useAuth } from '../hooks/useAuth';
@@ -40,9 +41,18 @@ const iconBtn = { ...plainBtn, width: 'var(--tap-min)', height: 'var(--tap-min)'
 // 3 つの画面を行き来してもシートの高さが跳ねないように、中身の高さの下限をそろえる。
 const sheetBody = { minHeight: 'min(64vh, 600px)' };
 
+// 自分の本棚にもある本の小さな印（塗らない・--text-2）。
+const OwnedMark = () => (
+  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', fontSize: 'var(--text-caption)', color: 'var(--text-2)', lineHeight: 1.5 }}>
+    <Check size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)' }} />本棚にあります
+  </span>
+);
+// 書名の頭の全角の英数字（「７つの習慣」）は、表示のときだけ半角に（左端が半字ずれないように）。
+const shownTitle = (t) => String(t || '').replace(/[０-９Ａ-Ｚａ-ｚ]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
+
 const who = (p) => (p?.nickname ? `${p.nickname}さん` : 'この人');
 
-const Cover = ({ book, width = 72 }) => <MiniCover title={book.title} cover={book.cover} width={width} />;
+const Cover = ({ book, width = 72 }) => <MiniCover title={shownTitle(book.title)} cover={book.cover} width={width} />;
 
 function PersonRow({ person, children, onOpen, first = false }) {
   const body = (
@@ -62,7 +72,7 @@ function PersonRow({ person, children, onOpen, first = false }) {
   );
 }
 
-export default function FollowSheet({ onClose, initialId = '', onAddWant, initialRequestCount = 0 }) {
+export default function FollowSheet({ onClose, initialId = '', onAddWant, initialRequestCount = 0, hasBook }) {
   const toast = useToast();
   const { user } = useAuth();
   const { profile: me, loading: meLoading } = useProfile(user?.id || '');
@@ -79,7 +89,17 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
   const [view, setView] = useState({ name: 'home' }); // home | person { person } | book { person, book }
   const [shelf, setShelf] = useState(null); // { profile, books } | 'loading' | 'none'
   const [menu, setMenu] = useState(null); // { x, y, items }
-  const [wantState, setWantState] = useState({}); // 本の id → 'busy' | 'added' | 'exists' | 'error'
+  const [wantState, setWantState] = useState({});
+  // 画面（一覧 → 本棚 → 本）を移ったら、シートの中をいちばん上へ（下の本を押して開いた本が途中から見えないように）。
+  const bodyRef = useRef(null);
+  const viewKey = view.name === 'book' ? `b:${view.book.id}` : view.name;
+  useEffect(() => {
+    let el = bodyRef.current?.parentElement;
+    while (el && el !== document.body) {
+      if (el.scrollHeight > el.clientHeight && /(auto|scroll)/.test(getComputedStyle(el).overflowY)) { el.scrollTop = 0; break; }
+      el = el.parentElement;
+    }
+  }, [viewKey]); // 本の id → 'busy' | 'added' | 'exists' | 'error'
   const addWant = async (book) => {
     if (!onAddWant || wantState[book.id] === 'busy') return;
     setWantState((m) => ({ ...m, [book.id]: 'busy' }));
@@ -259,62 +279,93 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
     </Suspense>
   );
 
-  // ─── 相手の本（まとめ・読みたいに追加） ───
+  // まとめの行（表紙・書名・まとめの出だし 3 行・押すと本へ）。相手の考えがいちばん伝わるので本棚の上に置く。
+  const SummaryRows = ({ person, books }) => (
+    <div role="list">
+      {books.map((b, i) => (
+        <div role="listitem" key={b.id} style={{ borderTop: i === 0 ? 'none' : '1px solid var(--separator)' }}>
+          <button type="button" onClick={() => setView({ name: 'book', person, book: b })} style={{ ...plainBtn, width: '100%', display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-start', padding: 'var(--space-4) 0' }}>
+            <MiniCover title={shownTitle(b.title)} cover={b.cover} width={48} />
+            <span style={{ minWidth: 0, flex: 1 }}>
+              <span style={{ display: 'block', fontSize: 'var(--text-sub)', fontWeight: 600, lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(shownTitle(b.title), { scriptBreaks: true })}</span>
+              <span style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', marginTop: 'var(--space-1)', fontFamily: 'var(--font-read)', fontSize: 'var(--text-sub)', lineHeight: 1.7, color: 'var(--text)', lineBreak: 'strict', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(summaryExcerpt(b.summary))}</span>
+            </span>
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+
+  // ─── 相手の本（まとめ・読みたいに追加・本屋で見る） ───
   if (view.name === 'book') {
     const { person, book } = view;
+    const st = wantState[book.id] || (hasBook?.(book) ? 'exists' : undefined);
+    const loaded = shelf && typeof shelf === 'object' ? shelf : null;
+    const others = (loaded?.books || []).filter((b) => b.summary && b.id !== book.id).slice(0, 3);
     return createPortal(
       <BottomSheet title="フォロー" onClose={onClose} layer="dialog">
-        <div style={sheetBody}>
+        <div ref={bodyRef} style={sheetBody}>
         <button type="button" onClick={() => setView({ name: 'person', person })} style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}>
           <ChevronLeft size="1.1em" aria-hidden="true" />{who(person)}の本棚
         </button>
         <div style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'flex-start', marginTop: 'var(--space-3)' }}>
           <Cover book={book} width={96} />
           <div style={{ minWidth: 0 }}>
-            <p style={{ margin: 0, fontSize: 'var(--text-heading)', fontWeight: 700, lineHeight: 1.4, wordBreak: 'keep-all', overflowWrap: 'break-word' }}>{withPhraseBreaks(book.title, { scriptBreaks: true })}</p>
+            <p style={{ margin: 0, fontSize: 'var(--text-heading)', fontWeight: 700, lineHeight: 1.4, wordBreak: 'keep-all', overflowWrap: 'break-word' }}>{withPhraseBreaks(shownTitle(book.title), { scriptBreaks: true })}</p>
             {book.author && <p style={{ ...note, marginTop: 'var(--space-1)', fontSize: 'var(--text-body)' }}>{book.author}</p>}
-            <p style={{ ...note, marginTop: 'var(--space-2)' }}>{STATUS_LABEL[book.status]}{book.rating ? `・評価 ${'★'.repeat(book.rating)}${'☆'.repeat(5 - book.rating)}` : ''}</p>
+            <p style={{ ...note, marginTop: 'var(--space-2)' }}>{STATUS_LABEL[book.status]}{book.rating ? <span style={{ color: 'var(--accent)' }}>{'　'}{'★'.repeat(book.rating)}</span> : null}</p>
+            {st === 'exists' && <p style={{ margin: 'var(--space-1) 0 0' }}><OwnedMark /></p>}
           </div>
         </div>
-        <p style={{ ...groupTitle, margin: 'var(--space-6) 0 var(--space-2)' }}>{who(person)}の、この本のまとめ</p>
-        {book.summary
-          ? <p style={{ margin: 0, fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.6, whiteSpace: 'pre-line', lineBreak: 'strict', textWrap: 'pretty' }}>{book.summary}</p>
-          : <p style={note}>まとめはまだありません。</p>}
-        {(() => {
-          const st = wantState[book.id];
-          const done = st === 'added' || st === 'exists';
-          return done ? (
-            <p role="status" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)', minHeight: 'var(--btn-h)', margin: 'var(--space-6) 0 0', fontSize: 'var(--text-body)', color: 'var(--text-2)' }}>
-              <Check size="1.1em" aria-hidden="true" style={{ color: 'var(--success)' }} />
-              {st === 'added' ? '読みたいに追加しました' : 'もう本棚にあります'}
-            </p>
-          ) : (
-            <>
-              <button type="button" onClick={() => addWant(book)} disabled={st === 'busy'} aria-busy={st === 'busy' || undefined} style={{ ...btnPrimary, marginTop: 'var(--space-6)' }}>
-                {st === 'busy' ? '入れています…' : '読みたいに追加'}
-              </button>
-              {st === 'error' && <p role="alert" style={{ ...note, marginTop: 'var(--space-2)', textAlign: 'center' }}>入れられませんでした。もう一度お試しください。</p>}
-            </>
-          );
-        })()}
-        {/* 本屋で見る（本の詳細と同じ Amazon・楽天の 2 つ・開示の文つき）。 */}
-        <div style={{ marginTop: 'var(--space-4)' }}>
-          <BookStoreLinks book={book} variant="cta" />
+        {/* 主役はこの人のまとめ。無ければ見出しを出さず 1 行だけ。 */}
+        {book.summary ? (
+          <section style={{ marginTop: 'var(--space-8)' }}>
+            <p style={{ margin: '0 0 var(--space-3)', fontSize: 'var(--text-heading)', fontWeight: 700, lineHeight: 1.4 }}>{who(person)}の、この本のまとめ</p>
+            <p style={{ margin: 0, fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.8, whiteSpace: 'pre-line', lineBreak: 'strict', textWrap: 'pretty' }}>{book.summary}</p>
+          </section>
+        ) : (
+          <p style={{ ...note, marginTop: 'var(--space-6)', fontSize: 'var(--text-sub)' }}>まとめはまだありません。</p>
+        )}
+        {st === 'added' ? (
+          <p role="status" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minHeight: 'var(--btn-h)', margin: 'var(--space-8) 0 0', fontSize: 'var(--text-sub)', color: 'var(--text-2)' }}>
+            <Check size="1.1em" aria-hidden="true" style={{ color: 'var(--success)' }} />読みたいに追加しました
+          </p>
+        ) : st !== 'exists' && (
+          <>
+            <button type="button" onClick={() => addWant(book)} disabled={st === 'busy'} aria-busy={st === 'busy' || undefined} style={{ ...btnPrimary, marginTop: 'var(--space-8)' }}>
+              {st === 'busy' ? '入れています…' : '読みたいに追加'}
+            </button>
+            {st === 'error' && <p role="alert" style={{ ...note, marginTop: 'var(--space-2)' }}>入れられませんでした。もう一度お試しください。</p>}
+          </>
+        )}
+        {/* 本屋で見る（AI 選書と同じ控えめな文字リンク・開示の文は下に 1 回）。 */}
+        <div style={{ marginTop: st === 'exists' ? 'var(--space-4)' : 'var(--space-3)' }}>
+          <AdvisorStoreLinks book={book} />
         </div>
+        {others.length > 0 && (
+          <section style={{ marginTop: 'var(--space-8)' }}>
+            <p style={{ ...groupTitle, margin: '0 0 var(--space-1)' }}>{who(person)}の、ほかのまとめ</p>
+            <SummaryRows person={person} books={others} />
+          </section>
+        )}
+        <p style={{ ...note, marginTop: 'var(--space-8)', color: 'var(--text-3)' }}>{withPhraseBreaks(STORE_DISCLOSURE_TEXT)}</p>
         </div>
       </BottomSheet>,
       document.body,
     );
   }
 
-  // ─── 相手の本棚 ───
+  // ─── 相手の本棚（言葉 → まとめ → 本棚） ───
   if (view.name === 'person') {
     const { person } = view;
     const loaded = shelf && typeof shelf === 'object' ? shelf : null;
     const p = loaded?.profile || person;
+    const withSummary = (loaded?.books || []).filter((b) => b.summary);
+    const ordered = loaded ? SHELF_ORDER.flatMap((st) => loaded.books.filter((b) => b.status === st)) : [];
+    const counts = loaded ? SHELF_ORDER.map((st) => [st, loaded.books.filter((b) => b.status === st).length]).filter(([, n]) => n) : [];
     return createPortal(
       <BottomSheet title="フォロー" onClose={onClose} layer="dialog">
-        <div style={sheetBody}>
+        <div ref={bodyRef} style={sheetBody}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <button type="button" onClick={() => setView({ name: 'home' })} style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}>
             <ChevronLeft size="1.1em" aria-hidden="true" />フォロー
@@ -332,54 +383,69 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
             <MoreHorizontal size="1.25em" aria-hidden="true" />
           </button>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginTop: 'var(--space-2)' }}>
+        <div style={{ marginTop: 'var(--space-2)' }}>
           <UserAvatar avatarId={p.avatar} nickname={p.nickname} size={56} />
-          <p style={{ margin: 0, fontSize: 'var(--text-heading)', fontWeight: 700, overflowWrap: 'anywhere' }}>{who(p)}</p>
+          <p style={{ margin: 'var(--space-3) 0 0', fontSize: 'var(--text-heading)', fontWeight: 700, overflowWrap: 'anywhere' }}>{who(p)}</p>
+          {p.bio && <p style={{ ...note, marginTop: 'var(--space-2)', fontSize: 'var(--text-body)', color: 'var(--text)', whiteSpace: 'pre-line' }}>{p.bio}</p>}
         </div>
-        {p.bio && <p style={{ ...note, marginTop: 'var(--space-3)', fontSize: 'var(--text-body)', color: 'var(--text)', whiteSpace: 'pre-line' }}>{p.bio}</p>}
-        {p.favTitle && (
-          <div style={{ marginTop: 'var(--space-6)' }}>
-            <p style={{ ...groupTitle, margin: '0 0 var(--space-2)' }}>好きな本</p>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-              <MiniCover title={p.favTitle} cover={p.favCover} width={40} />
-              <span style={{ minWidth: 0 }}>
-                <span style={{ display: 'block', fontSize: 'var(--text-body)', fontWeight: 600, lineHeight: 1.4 }}>{p.favTitle}</span>
-                {p.favAuthor && <span style={{ display: 'block', ...note }}>{p.favAuthor}</span>}
-              </span>
-            </div>
-          </div>
-        )}
+        {/* 主役はその人の言葉。好きな言葉を大きく、その下に好きな本。 */}
         {p.favLine && (
-          <div style={{ marginTop: 'var(--space-4)' }}>
-            <p style={{ ...groupTitle, margin: '0 0 var(--space-2)' }}>好きな言葉</p>
-            <p style={{ margin: 0, fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.6, lineBreak: 'strict', textWrap: 'pretty' }}>「{p.favLine}」</p>
+          <blockquote style={{ margin: 'var(--space-6) 0 0', padding: 'var(--space-1) 0 var(--space-1) var(--space-4)', borderLeft: '2px solid var(--accent)', fontFamily: 'var(--font-read)', fontSize: 'var(--text-heading)', lineHeight: 1.7, lineBreak: 'strict', textWrap: 'pretty', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+            {withPhraseBreaks(p.favLine)}
+          </blockquote>
+        )}
+        {p.favTitle && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
+            <MiniCover title={p.favTitle} cover={p.favCover} width={40} />
+            <span style={{ minWidth: 0 }}>
+              <span style={{ display: 'block', ...note }}>好きな本</span>
+              <span style={{ display: 'block', fontSize: 'var(--text-sub)', fontWeight: 600, lineHeight: 1.5, overflowWrap: 'anywhere' }}>『{shownTitle(p.favTitle)}』</span>
+              {p.favAuthor && <span style={{ display: 'block', ...note, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.favAuthor}</span>}
+            </span>
           </div>
         )}
-        {shelf === 'loading' && <p role="status" style={{ ...note, marginTop: 'var(--space-6)' }}>本棚を読んでいます…</p>}
-        {shelf === 'none' && <p style={{ ...note, marginTop: 'var(--space-6)' }}>本棚を見られませんでした。フォローが外れたか、通信がつながっていません。</p>}
-        {loaded && (loaded.books.length === 0
-          ? <p style={{ ...note, marginTop: 'var(--space-6)' }}>本棚にはまだ本がありません。</p>
-          : SHELF_ORDER.map((st) => {
-            const books = loaded.books.filter((b) => b.status === st);
-            if (!books.length) return null;
-            return (
-              <section key={st} style={{ marginTop: 'var(--space-6)' }}>
-                <p style={{ ...groupTitle, margin: '0 0 var(--space-3)' }}>{STATUS_LABEL[st]}（{books.length}）</p>
-                <div role="list" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 'var(--space-4) var(--space-3)' }}>
-                  {books.map((b) => (
-                    <div role="listitem" key={b.id}>
-                      <button type="button" onClick={() => setView({ name: 'book', person, book: b })} style={{ ...plainBtn, width: '100%', display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }} aria-label={`${b.title}${b.summary ? '（まとめあり）' : ''}`}>
-                        <Cover book={b} width="100%" />
-                        {/* 表紙の無い本は代用表紙に書名が出るので、下の書名は出さない（読み上げは aria-label）。 */}
-                        {b.cover && <span style={{ fontSize: 'var(--text-meta)', fontWeight: 600, lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'keep-all', overflowWrap: 'break-word' }}>{withPhraseBreaks(b.title, { scriptBreaks: true })}</span>}
-                        {b.summary && <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>まとめあり</span>}
-                      </button>
-                    </div>
-                  ))}
+        {shelf === 'loading' && (
+          <div role="status" aria-label="本棚を読んでいます" style={{ marginTop: 'var(--space-8)', display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 'var(--space-3)' }}>
+            {[0, 1, 2].map((i) => <SkeletonBlock key={i} height="auto" style={{ aspectRatio: '2 / 3' }} />)}
+          </div>
+        )}
+        {shelf === 'none' && <p style={{ ...note, marginTop: 'var(--space-8)' }}>{withPhraseBreaks('本棚を見られませんでした。フォローが外れたか、通信がつながっていません。')}</p>}
+        {loaded && withSummary.length > 0 && (
+          <section style={{ marginTop: 'var(--space-8)' }}>
+            <p style={{ margin: 0, fontSize: 'var(--text-heading)', fontWeight: 700 }}>{who(p)}のまとめ</p>
+            <p style={{ ...note, marginTop: 'var(--space-1)' }}>{withPhraseBreaks(`読んだ本について、${who(p)}が書いたこと`)}</p>
+            <div style={{ marginTop: 'var(--space-1)' }}><SummaryRows person={person} books={withSummary} /></div>
+          </section>
+        )}
+        {loaded && (
+          <section style={{ marginTop: 'var(--space-8)' }}>
+            <p style={{ margin: 0, fontSize: 'var(--text-heading)', fontWeight: 700 }}>本棚</p>
+            {ordered.length === 0
+              ? <p style={{ ...note, marginTop: 'var(--space-2)' }}>本棚にはまだ本がありません。</p>
+              : <>
+                <p style={{ ...note, marginTop: 'var(--space-1)' }}>{counts.map(([st, n]) => `${STATUS_LABEL[st]} ${n} 冊`).join('・')}</p>
+                <div role="list" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 'var(--space-6) var(--space-3)', marginTop: 'var(--space-4)' }}>
+                  {ordered.map((b) => {
+                    const owned = hasBook?.(b);
+                    return (
+                      <div role="listitem" key={b.id}>
+                        <button type="button" onClick={() => setView({ name: 'book', person, book: b })} style={{ ...plainBtn, width: '100%', display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }} aria-label={`${b.title}・${STATUS_LABEL[b.status]}${b.summary ? '・まとめあり' : ''}${owned ? '・あなたの本棚にあります' : ''}`}>
+                          <Cover book={b} width="100%" />
+                          {/* 表紙の無い本は代用表紙に書名が出るので、下の書名は出さない（読み上げは aria-label）。 */}
+                          {b.cover && <span style={{ fontSize: 'var(--text-meta)', fontWeight: 600, lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'keep-all', overflowWrap: 'break-word' }}>{withPhraseBreaks(shownTitle(b.title), { scriptBreaks: true })}</span>}
+                          {b.author && <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-2)', lineHeight: 1.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.author}</span>}
+                          <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-2)', lineHeight: 1.5 }}>
+                            {STATUS_LABEL[b.status]}{b.rating ? <span style={{ color: 'var(--accent)' }}> {'★'.repeat(b.rating)}</span> : null}
+                          </span>
+                          {owned && <OwnedMark />}
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
-              </section>
-            );
-          }))}
+              </>}
+          </section>
+        )}
         {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
         </div>
       </BottomSheet>,
@@ -398,7 +464,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
   const mutual = new Set((lists?.following || []).map((p) => p.publicId));
   return (<>{createPortal(
     <BottomSheet title="フォロー" onClose={onClose} layer="dialog">
-        <div style={sheetBody}>
+        <div ref={bodyRef} style={sheetBody}>
       {notReady ? (
         <p style={note}>フォローはまだ使えません。少し時間をおいてお試しください。</p>
       ) : (

@@ -63,7 +63,7 @@ export function isShowable(p) {
 const STYLE = `
 :root{--bg:#f7f5f1;--surface:#fffefb;--fill:#efece6;--text:#2b2825;--text-2:#5f5a53;--text-3:#6e6860;--separator:#dcd7ce;--border:#868076;--accent:#8a4b2a;--accent-ink:#fffefb;--radius:12px;
 --on-cover:#ffffff;--cover-1a:#7d4a2e;--cover-1b:#5d3a22;--cover-2a:#7a5080;--cover-2b:#5a3a60;--cover-3a:#4a6e8a;--cover-3b:#2c4d68;--cover-4a:#4f6e3f;--cover-4b:#3a5a30;--cover-5a:#8e4330;--cover-5b:#703528;--cover-6a:#7e6249;--cover-6b:#5e4836;
---font-ui:-apple-system,BlinkMacSystemFont,"SF Pro Text","Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;--font-read:"Hiragino Mincho ProN","YuMincho","Yu Mincho","Noto Serif JP",serif}
+--font-ui:-apple-system,BlinkMacSystemFont,"SF Pro Text","Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;--font-read:"Hiragino Mincho ProN","YuMincho","Yu Mincho","Noto Serif JP","Noto Serif CJK JP",serif}
 @media (prefers-color-scheme:dark){:root{--bg:#1b1a18;--surface:#252321;--fill:#2f2c29;--text:#f2efea;--text-2:#bdb7ae;--text-3:#9e978d;--separator:#3a3632;--border:#807a73;--accent:#e0a07a;--accent-ink:#1b1a18}}
 *{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font-ui);-webkit-text-size-adjust:100%}
 main{max-width:480px;margin:0 auto;padding:48px 16px 64px}
@@ -87,22 +87,38 @@ a{color:var(--accent)}
 .bka{display:flex;flex-direction:column;gap:4px;min-width:0;color:inherit;text-decoration:none}
 .stores{display:flex;flex-wrap:wrap;gap:12px;margin:12px 0 0}.stores a{flex:1 1 9em;margin:0}
 .cta2{display:flex;align-items:center;justify-content:center;margin:16px 0 0;min-height:48px;padding:12px 16px;border-radius:var(--radius);border:1px solid var(--border);color:var(--text);font-size:15px;font-weight:600;text-decoration:none}
-.sum{margin:0;font-family:var(--font-read);font-size:17px;line-height:1.8;white-space:pre-line;overflow-wrap:anywhere}
+.sum{margin:0;font-family:var(--font-read);font-size:18px;line-height:1.8;white-space:pre-line;overflow-wrap:anywhere}
 .back{display:inline-flex;align-items:center;min-height:44px;font-size:15px;color:var(--accent);text-decoration:none}
 .bookhead{display:flex;gap:16px;align-items:flex-start}.bookhead .bcover{width:96px;flex-shrink:0}
-.bookhead .bcover img,.bookhead .bcover .ph{width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:4px;border:1px solid var(--separator);display:flex;align-items:flex-end;padding:8px;font-size:13px;font-weight:600;color:var(--on-cover);overflow:hidden}
+.bookhead .bcover img,.bookhead .bcover .ph{width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:4px;border:1px solid var(--separator);display:flex;align-items:flex-end;padding:8px;font-size:13px;font-weight:600;color:var(--on-cover);overflow:hidden;line-break:strict;word-break:auto-phrase;overflow-wrap:anywhere}
 .meta{margin:8px 0 0;font-size:13px;color:var(--text-2)}
 .status{margin:32px 0 0}.status h3{margin:0;font-size:17px;font-weight:600}
-.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px 12px;margin:12px 0 0;padding:0;list-style:none}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px 12px;margin:16px 0 0;padding:0;list-style:none}
 .bk{display:flex;flex-direction:column;gap:4px;min-width:0}
 .bk img,.bk .ph{width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:4px;background:var(--fill);border:1px solid var(--separator)}
-.bk .ph{display:flex;align-items:flex-end;padding:8px;font-size:13px;font-weight:600;line-height:1.4;color:var(--on-cover);overflow:hidden;overflow-wrap:anywhere;border-color:transparent}
+.bk .ph{display:flex;align-items:flex-end;padding:8px;font-size:13px;font-weight:600;line-height:1.4;color:var(--on-cover);overflow:hidden;overflow-wrap:anywhere;line-break:strict;word-break:auto-phrase;border-color:transparent}
 .bt{margin:0;font-size:13px;font-weight:600;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
 .ba{margin:0;font-size:12px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .st{margin:0;font-size:12px;color:var(--accent);letter-spacing:1px}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .foot{margin:24px 0 0;font-size:13px;color:var(--text-2);line-height:1.8}
 .more{margin:12px 0 0;font-size:13px;color:var(--text-2)}
+.who .av{margin:0 0 16px}
+.quote{margin:32px 0 0;padding:4px 0 4px 16px;border-left:2px solid var(--accent)}
+.quote blockquote{word-break:auto-phrase;margin:0;font-family:var(--font-read);font-size:22px;line-height:1.7;overflow-wrap:anywhere;line-break:strict;text-wrap:pretty}
+.fav{display:flex;gap:12px;align-items:center;margin:16px 0 0}.fav p{margin:0}
+.fav .k{font-size:13px;color:var(--text-2)}.fav .t{font-size:15px;font-weight:600;line-height:1.5;overflow-wrap:anywhere}
+.mc{flex-shrink:0}.mc img,.mc .ph{display:block;width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:4px;border:1px solid var(--separator);background:var(--fill)}
+.mc .ph{border-color:transparent;font-size:0}
+.sec{margin:48px 0 0}.sec h2{margin:0;font-size:20px;font-weight:700;line-height:1.4}.sec .sub{margin:4px 0 0;font-size:13px;color:var(--text-2)}
+.srows{list-style:none;margin:8px 0 0;padding:0}.srows li+li{border-top:1px solid var(--separator)}
+.srow{display:flex;gap:12px;align-items:flex-start;padding:16px 0;color:inherit;text-decoration:none}
+.srow .mc{width:48px}.srow .t{margin:0;font-size:15px;font-weight:600;line-height:1.5;overflow-wrap:anywhere}
+.srow .ex{word-break:auto-phrase;margin:4px 0 0;font-family:var(--font-read);font-size:15px;line-height:1.7;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.shelf h2+.counts{margin-top:4px}
+.h{margin:32px 0 12px;font-size:20px;font-weight:700;line-height:1.4}
+.sh{margin:48px 0 0;font-size:13px;font-weight:600;color:var(--text-2)}
+.tl{display:flex;flex-wrap:wrap;gap:16px;margin:12px 0 0 -4px}.tl a{display:inline-flex;align-items:center;min-height:44px;padding:0 4px;font-size:15px;font-weight:600;color:var(--accent);text-decoration:none}
 `;
 
 function page({ title, description = '', image = '', url = '', body, status = 200 }) {
@@ -129,7 +145,7 @@ export const SHELF_STATUSES = [
 export const SHELF_PER_STATUS = 60;
 
 /** 公開の本棚に出す本を整える（外した本を除く・状態ごと）。books は { id, title, author, cover, status, rating } */
-export function buildShelf(books = [], hidden = [], { supabaseUrl = '' } = {}) {
+export function buildShelf(books = [], hidden = [], { supabaseUrl = '', summaries = false } = {}) {
   const hide = new Set((hidden || []).map(String));
   // 書名・著者に連絡先がある本は出さない（App 審査 1.2・lib/profileFilter.js）。
   const list = (Array.isArray(books) ? books : []).filter((b) => b && b.id && !hide.has(String(b.id)) && String(b.title || '').trim()
@@ -151,7 +167,24 @@ export function buildShelf(books = [], hidden = [], { supabaseUrl = '' } = {}) {
       }),
     };
   }).filter((g) => g.total > 0);
-  return { total: list.length, byStatus };
+  // まとめのある本（本人がまとめも公開しているときだけ）。いちばん上に、まとめの出だしと並べる（その人の考えがいちばん伝わる）。
+  const withSummary = summaries
+    ? list.map((b) => ({ b, ex: summaryExcerpt(b.leverage_memo) })).filter((x) => x.ex).slice(0, SUMMARY_LIST_MAX).map(({ b, ex }) => {
+      const c = b.cover ? checkCoverImageUrl(String(b.cover), { supabaseUrl }) : { ok: false };
+      return { id: String(b.id), title: String(b.title).trim().slice(0, 120), author: String(b.author || '').trim().slice(0, 80), cover: c.ok ? c.url : '', excerpt: ex };
+    })
+    : [];
+  return { total: list.length, byStatus, withSummary };
+}
+
+export const SUMMARY_LIST_MAX = 10;
+/** まとめの出だし（公開に向かない言葉があれば空・改行は空白に・90 字まで）。 */
+export function summaryExcerpt(text) {
+  const t = publicSummary(text);
+  if (!t) return '';
+  // 文の終わりの改行はそのまま詰め、途中の改行だけ空白 1 つに。
+  const one = t.split(/\s*\n+\s*/).filter(Boolean).reduce((acc, seg) => (acc ? (/[。！？」』）]$/.test(acc) ? acc + seg : `${acc} ${seg}`) : seg), '');
+  return one.length > 90 ? `${one.slice(0, 90)}…` : one;
 }
 
 // 表紙の無い本はアプリと同じ代用表紙（書名から決まる色・白い書名・lib/coverPalette.js）。書名は表紙の上だけに見せ、下の書名は読み上げ用。
@@ -169,24 +202,39 @@ export function renderAvatar(avatarId, nickname) {
 
 function coverPlaceholder(title) {
   const [a, b] = paletteFor(title);
-  return `<span class="ph" aria-hidden="true" style="background:linear-gradient(160deg, ${a}, ${b})">${esc(title)}</span>`;
+  return `<span class="ph" aria-hidden="true" style="background:linear-gradient(160deg, ${a}, ${b})">${esc(shownTitle(title))}</span>`;
+}
+
+// 書名の頭の全角の英数字は、表示のときだけ半角に（左端が半字ずれないように）。
+const shownTitle = (t) => String(t || '').replace(/[０-９Ａ-Ｚａ-ｚ]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
+
+function miniCover(title, cover, width) {
+  return `<span class="mc" style="width:${width}px" aria-hidden="true">${cover ? `<img src="${esc(cover)}" alt="" loading="lazy">` : coverPlaceholder(title)}</span>`;
+}
+
+/** まとめのある本の行（表紙・書名・まとめの出だし 3 行）。 */
+function summaryRows(list, publicId) {
+  return `<ul class="srows">${list.map((b) => `<li><a class="srow" href="/u/${esc(publicId)}/b/${esc(b.id)}">${miniCover(b.title, b.cover, 48)}<span style="min-width:0"><p class="t">${esc(shownTitle(b.title))}</p><p class="ex">${esc(b.excerpt)}</p></span></a></li>`).join('')}</ul>`;
 }
 
 function bookInner(b) {
   return `${b.cover ? `<img src="${esc(b.cover)}" alt="" loading="lazy">` : coverPlaceholder(b.title)}${
-    b.cover ? `<p class="bt">${esc(b.title)}</p>` : `<p class="bt sr">${esc(b.title)}</p>`}${b.author ? `<p class="ba">${esc(b.author)}</p>` : ''}${
-    b.rating ? `<p class="st" aria-label="評価 ${b.rating}">${'★'.repeat(b.rating)}${'☆'.repeat(5 - b.rating)}</p>` : ''}`;
+    b.cover ? `<p class="bt">${esc(shownTitle(b.title))}</p>` : `<p class="bt sr">${esc(b.title)}</p>`}${b.author ? `<p class="ba">${esc(b.author)}</p>` : ''}${
+    b.statusLabel ? `<p class="ba">${esc(b.statusLabel)}${b.rating ? ` <span class="st" aria-label="評価 ${b.rating}">${'★'.repeat(b.rating)}</span>` : ''}</p>` : (b.rating ? `<p class="st" aria-label="評価 ${b.rating}">${'★'.repeat(b.rating)}${'☆'.repeat(5 - b.rating)}</p>` : '')}`;
 }
 
 function renderShelf(shelf, { publicId = '', links = false } = {}) {
   if (!shelf || !shelf.total) return '';
   const counts = shelf.byStatus.map((g) => `${g.label} ${g.total} 冊`).join('・');
-  const sections = shelf.byStatus.map((g) => `<section class="status"><h3>${esc(g.label)}</h3><ul class="grid">${g.books.map((b) => (
+  // 1 つの並び（読書中 → 読了 → 積読 → 読みたい）に、状態は表紙の下の小さな 1 行で。状態ごとの見出しで縦に間延びさせない。
+  const items = shelf.byStatus.flatMap((g) => g.books.map((b) => ({ ...b, statusLabel: g.label })));
+  const hiddenCount = shelf.byStatus.reduce((n, g) => n + (g.total - g.books.length), 0);
+  const sections = `<ul class="grid">${items.map((b) => (
     links && b.id
       ? `<li class="bk"><a class="bka" href="/u/${esc(publicId)}/b/${esc(b.id)}">${bookInner(b)}</a></li>`
       : `<li class="bk">${bookInner(b)}</li>`
-  )).join('')}</ul>${g.total > g.books.length ? `<p class="more">ほか ${g.total - g.books.length} 冊</p>` : ''}</section>`).join('');
-  return `<section class="shelf"><h2>本棚</h2><p class="counts">${esc(counts)}</p>${sections}</section>`;
+  )).join('')}</ul>${hiddenCount > 0 ? `<p class="more">ほか ${hiddenCount} 冊</p>` : ''}`;
+  return `<section class="shelf sec"><h2>本棚</h2><p class="counts">${esc(counts)}</p>${sections}</section>`;
 }
 
 export function renderProfile(p, { publicId, shelf = null, social = socialOn() }) {
@@ -200,11 +248,17 @@ export function renderProfile(p, { publicId, shelf = null, social = socialOn() }
   const pageTitle = title ? `${who}の好きな本『${title}』` : `${who}のプロフィール`;
   const desc = line ? `「${line}」` : (title ? `${who}が好きな本は『${title}』` : (String(p.bio || '').trim().slice(0, 80)));
   const bio = String(p.bio || '').trim();
-  const body = `<div class="card">
+  // 主役はその人の言葉（好きな言葉 → まとめ）。カードで囲まず、名前・言葉・本棚の順に読ませる。
+  const fav = title ? `<div class="fav">${miniCover(title, cover.ok ? cover.url : '', 40)}<span style="min-width:0"><p class="k">好きな本</p><p class="t">『${esc(title)}』${author ? `<span class="k" style="font-weight:400"> ${esc(author)}</span>` : ''}</p></span></div>` : '';
+  const sums = social && shelf?.withSummary?.length
+    ? `<section class="sec"><h2>${esc(who)}のまとめ</h2><p class="sub">読んだ本について、${esc(who)}が書いたこと</p>${summaryRows(shelf.withSummary, publicId)}</section>`
+    : '';
+  const body = `<header class="who">
 ${renderAvatar(p.avatar, nickname)}<h1 class="name">${esc(who)}</h1>${bio ? `<p class="bio">${esc(bio)}</p>` : ''}
-${title ? `<p class="label">好きな本</p><div class="book">${cover.ok ? `<img class="cover" src="${esc(cover.url)}" alt="">` : ''}<div><p class="title">『${esc(title)}』</p>${author ? `<p class="author">${esc(author)}</p>` : ''}</div></div>` : ''}
-${line ? `<p class="label">おすすめの 1 行</p><p class="line">「${esc(line)}」</p>` : ''}
-</div>${social ? `<a class="cta2" href="${esc(site)}/?follow=${esc(publicId)}">Orime でフォローを申し込む</a>` : ''}${renderShelf(shelf, { publicId, links: social })}
+</header>
+${line ? `<figure class="quote" style="margin-left:0;margin-right:0"><blockquote>${esc(line)}</blockquote></figure>${fav}` : fav ? `<div style="margin-top:24px">${fav}</div>` : ''}
+${sums}${renderShelf(shelf, { publicId, links: social })}
+${social ? `<a class="cta2" style="margin-top:48px" href="${esc(site)}/?follow=${esc(publicId)}">Orime でフォローを申し込む</a><p class="note" style="text-align:left">承認されると、本棚とまとめをアプリでいつでも見られます。</p>` : ''}
 <a class="cta" href="${esc(site)}/lp">Orime で読書メモをはじめる</a>
 <p class="note">読んだ本と、会話できる。<br>答えのもとは、あなたが残したメモ。</p>
 <details><summary>このページを通報する</summary>
@@ -245,7 +299,7 @@ export function wantUrl(book, site = SITE()) {
 }
 
 /** 本のページ（/u/<id>/b/<本の id>）。 */
-export function renderBook(p, book, { publicId, showSummary = false }) {
+export function renderBook(p, book, { publicId, showSummary = false, others = [] }) {
   const site = SITE();
   const nickname = String(p.nickname || '').trim();
   const who = nickname ? `${nickname}さん` : 'Orime の読者';
@@ -254,23 +308,23 @@ export function renderBook(p, book, { publicId, showSummary = false }) {
   const rating = book.status === 'done' ? Math.max(0, Math.min(5, Math.round(Number(book.rating) || 0))) : 0;
   const summary = showSummary ? publicSummary(book.summary) : '';
   const title = String(book.title || '').trim();
-  const meta = [STATUS_LABEL[book.status] || '', rating ? `評価 ${'★'.repeat(rating)}${'☆'.repeat(5 - rating)}` : ''].filter(Boolean).join('・');
+  const meta = STATUS_LABEL[book.status] || '';
+  const stars = rating ? `<span class="st" aria-label="評価 ${rating}">${'★'.repeat(rating)}</span>` : '';
   const body = `<a class="back" href="/u/${esc(publicId)}">‹ ${esc(who)}の本棚</a>
-<div class="card" style="margin-top:8px"><div class="bookhead"><div class="bcover">${cover ? `<img src="${esc(cover)}" alt="">` : coverPlaceholder(title)}</div>
-<div><h1 class="title" style="font-size:20px">『${esc(title)}』</h1>${book.author ? `<p class="author">${esc(book.author)}</p>` : ''}${meta ? `<p class="meta">${esc(meta)}</p>` : ''}</div></div>
-<p class="label">${esc(who)}の、この本のまとめ</p>${summary ? `<p class="sum">${esc(summary)}</p>` : `<p class="note" style="margin:0">${showSummary ? 'まとめはまだありません。' : 'まとめは公開されていません。'}</p>`}
-</div>
+<div style="margin-top:16px"><div class="bookhead"><div class="bcover">${cover ? `<img src="${esc(cover)}" alt="">` : coverPlaceholder(title)}</div>
+<div><h1 class="title" style="font-size:20px">『${esc(shownTitle(title))}』</h1>${book.author ? `<p class="author">${esc(book.author)}</p>` : ''}${meta ? `<p class="meta">${esc(meta)}${stars ? `　${stars}` : ''}</p>` : ''}</div></div></div>
+${summary ? `<h2 class="h">${esc(who)}の、この本のまとめ</h2><p class="sum">${esc(summary)}</p>` : `<p class="note" style="text-align:left;margin-top:24px;font-size:15px">${showSummary ? 'まとめはまだありません。' : 'まとめは公開されていません。'}</p>`}
 <a class="cta" href="${esc(wantUrl({ ...book, cover }, site))}">読みたいに追加</a>
-<p class="note">Orime が開き、あなたの「読みたい」に入れる前に確かめます。</p>
-<div class="stores"><a class="cta2" href="${esc(getAmazonLink({ isbn: book.isbn, title, author: book.author }))}" target="_blank" rel="noopener noreferrer sponsored">Amazon で見る ↗</a><a class="cta2" href="${esc(getRakutenLink({ isbn: book.isbn, title, author: book.author }))}" target="_blank" rel="noopener noreferrer">楽天で見る ↗</a></div>
-<p class="note">${esc(STORE_DISCLOSURE_TEXT)}</p>
-<a class="cta2" href="${esc(site)}/?follow=${esc(publicId)}">Orime でフォローを申し込む</a>
-<p class="note">承認されると、本棚とまとめをアプリでいつでも見られます。</p>
+<p class="note" style="text-align:left">Orime が開き、あなたの「読みたい」に入れる前に確かめます。</p>
+<div class="tl" style="margin-top:24px"><a href="${esc(getAmazonLink({ isbn: book.isbn, title, author: book.author }))}" target="_blank" rel="noopener noreferrer sponsored">Amazon<svg width="1.1em" height="1.1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-left:4px"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></a><a href="${esc(getRakutenLink({ isbn: book.isbn, title, author: book.author }))}" target="_blank" rel="noopener noreferrer">楽天ブックス<svg width="1.1em" height="1.1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-left:4px"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></a></div>
+${others.length ? `<p class="sh">${esc(who)}の、ほかのまとめ</p>${summaryRows(others, publicId)}` : ''}
+<a class="cta2" style="margin-top:32px" href="${esc(site)}/?follow=${esc(publicId)}">Orime でフォローを申し込む</a>
+<p class="note" style="text-align:left">承認されると、本棚とまとめをアプリでいつでも見られます。</p>
 <details><summary>このページを通報する</summary>
 <form method="post" action="/api/profile-report"><input type="hidden" name="id" value="${esc(publicId)}">
 <label for="reason">理由（任意・500 字まで）</label><textarea id="reason" name="reason" maxlength="${REPORT_MAX}"></textarea>
 <button type="submit">通報する</button></form></details>
-<p class="foot"><a href="${esc(site)}/legal/terms">利用規約</a>・<a href="${esc(site)}/legal/privacy">プライバシーポリシー</a></p>`;
+<p class="foot">${esc(STORE_DISCLOSURE_TEXT)}<br><a href="${esc(site)}/legal/terms">利用規約</a>・<a href="${esc(site)}/legal/privacy">プライバシーポリシー</a></p>`;
   return page({
     title: `${who}の本棚『${title}』 | Orime`,
     description: summary ? summary.slice(0, 80) : `${who}の本棚の『${title}』`,
@@ -298,16 +352,16 @@ async function loadBook(c, row, bookId) {
   }
 }
 
-// 本棚を読む（書名・著者・表紙・状態・評価だけ。分野とメモは読まない）。読めなければ null＝本棚を出さない。
-async function loadShelf(c, userId, hidden) {
+// 本棚を読む（書名・著者・表紙・状態・評価だけ＋まとめも公開しているときは「この本のまとめ」。分野とメモは読まない）。読めなければ null＝本棚を出さない。
+async function loadShelf(c, userId, hidden, { summaries = false } = {}) {
   try {
     const { data, error } = await c.from('books')
-      .select('id, title, author, cover, status, rating, updated_at')
+      .select(`id, title, author, cover, status, rating, updated_at${summaries ? ', leverage_memo' : ''}`)
       .eq('user_id', userId).order('updated_at', { ascending: false }).limit(1000);
     if (error) { console.warn('[profile] shelf read failed:', error.code || error.message); return null; }
     const books = data || [];
     // 自分でアップロードした表紙（Supabase の置き場）は公開のページに出さない＝書店・図書館の表紙だけ（App 審査 1.2）。
-    return buildShelf(books, hidden);
+    return buildShelf(books, hidden, { summaries });
   } catch (e) {
     console.warn('[profile] shelf read failed:', e?.message || e);
     return null;
@@ -385,10 +439,12 @@ export async function handleProfileRequest(req, res, { dbImpl = db } = {}) {
     if (!socialOn() || !row.shelf_public || !row.user_id || !c) return send(res, renderNotFound()), true;
     const book = await loadBook(c, row, bookId);
     if (!book) return send(res, renderNotFound()), true;
-    return send(res, renderBook(row, book, { publicId: id, showSummary: !!row.summary_public }), 'public, max-age=0, s-maxage=60'), true;
+    const more = row.summary_public ? await loadShelf(c, row.user_id, row.shelf_hidden, { summaries: true }) : null;
+    const others = (more?.withSummary || []).filter((b) => b.id !== String(book.id)).slice(0, 3);
+    return send(res, renderBook(row, book, { publicId: id, showSummary: !!row.summary_public, others }), 'public, max-age=0, s-maxage=60'), true;
   }
   let shelf = null;
-  if (row.shelf_public && row.user_id && c) shelf = await loadShelf(c, row.user_id, row.shelf_hidden);
+  if (row.shelf_public && row.user_id && c) shelf = await loadShelf(c, row.user_id, row.shelf_hidden, { summaries: socialOn() && !!row.summary_public });
   // 公開をやめたらすぐ消えるように、CDN には短くだけ覚えさせる。
   return send(res, renderProfile(row, { publicId: id, shelf }), 'public, max-age=0, s-maxage=60'), true;
 }

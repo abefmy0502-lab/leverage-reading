@@ -374,7 +374,7 @@ async function listAllUserPhotos(userId, bucket = 'book-memo-photos') {
 // 🧪 お試しモードの通知のオン・オフ（設定を閉じて開き直しても残す・再読み込みで初期化）。
 let demoPushOn = false;
 
-export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, onOpenHelp, focusDelete = false, onProfileSaved, onAddWant }) {
+export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, onOpenHelp, focusDelete = false, onProfileSaved, onAddWant, hasBook }) {
   const { user, signOut } = useAuth();
   const guest = isGuestUser(user);
   // 有料プランの画面の「アカウントを削除」から開いたときは、削除の欄まで送る。
@@ -1564,7 +1564,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
       )}
       {followOpen && (
         <div onClick={(e) => e.stopPropagation()}>
-          <FollowSheet initialRequestCount={followRequests} onClose={() => { setFollowOpen(false); countFollowRequests(); }} onAddWant={onAddWant} />
+          <FollowSheet initialRequestCount={followRequests} onClose={() => { setFollowOpen(false); countFollowRequests(); }} onAddWant={onAddWant} hasBook={hasBook} />
         </div>
       )}
           {purposeEditOpen && (
