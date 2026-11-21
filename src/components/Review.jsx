@@ -1057,9 +1057,9 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
               ? [{ label: 'メモを書く', icon: <Plus size={18} aria-hidden="true" />, onClick: onAddNote, variant: 'secondary' }]
               // メモできる本がまだ無い（＝本が無い/全て読みたい積読）ときは行き止まりに
               // せず、本棚へ誘導する（そこで本を追加・読書中にできる）。
-              // 本が 0 冊なら空の本棚へ送らず、初日クイックスタート（読んだ本に一言ずつ残す）へ（2026-10-30 点検）
+              // 本が 0 冊なら空の本棚へ送らず、初日クイックスタート（読んだ本の一言をメモする）へ（2026-10-30 点検）
               : books.length === 0 && onQuickstart
-                ? [{ label: '読んだ本に一言ずつ残す', icon: <Plus size={18} aria-hidden="true" />, onClick: onQuickstart, variant: 'secondary' }]
+                ? [{ label: '読んだ本の一言をメモする', icon: <Plus size={18} aria-hidden="true" />, onClick: onQuickstart, variant: 'secondary' }]
               : onGoToShelf
                 ? [{ label: 'すべての本へ', icon: <BookOpen size={18} aria-hidden="true" />, onClick: onGoToShelf, variant: 'secondary' }]
                 : []

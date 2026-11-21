@@ -455,7 +455,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
       ref={trapRef}
       role="dialog"
       aria-modal="true"
-      aria-label="読んだ本に一言ずつ残す"
+      aria-label="読んだ本の一言をメモする"
       style={overlay}
       onScrollCapture={(e) => { const t = e.target; if (t && t.scrollTop != null) { const on = t.scrollTop > 0; setBodyScrolled((cur) => (cur === on ? cur : on)); } }}
     >

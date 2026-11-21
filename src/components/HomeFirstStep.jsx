@@ -112,7 +112,7 @@ export default function HomeFirstStep({ bookCount = 0, onQuickstart, onImport })
       {/* 本はもう本棚にあるので「これまで読んだ本から始める」ではなく、することを言う（2026-10-01 ui-critic・オーナー承認・SPEC §1）。
           開くのは同じ初日クイックスタート（題「相談相手をつくる」）。 */}
       <button type="button" onClick={onQuickstart} style={btnPrimary}>
-        読んだ本に一言ずつ残す
+        読んだ本の一言をメモする
       </button>
       {/* 取り込みは初回ガイドの主な道（2026-10-02 オーナー判断）なので、ここにも脇役の文字ボタンで（本 0 冊のカードと同じ形・
           文字ボタンの上下の余り（高さ 44）をカードの内側余白と相殺）。開くのは ImportSheet。 */}

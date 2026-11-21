@@ -1844,7 +1844,7 @@ function AuthedApp() {
     setAddBookModalOpen(true);
   };
 
-  // 📷 本が 0 冊で「写真で共有」を押したとき（2026-10-09 ui-critic）: ホームの「読んだ本に一言ずつ残す」へ
+  // 📷 本が 0 冊で「写真で共有」を押したとき（2026-10-09 ui-critic）: ホームの「読んだ本の一言をメモする」へ
   //   目と指を送る（フォーカス＋画面の中ほどへ＋軽く弾ませる＋ハプティクス）。見つからなければ本を追加を開く。
   //   弾ませるだけでは押した理由が分からないので、アプリを開いている間に 1 回だけ理由を 1 行で知らせる（2026-10-10 第 9 回 総点検）。
   const firstStepToldRef = useRef(false);
@@ -6158,7 +6158,7 @@ function AuthedApp() {
         }))}
         aria-label="写真で共有"
         // 文字は 15 から設定に合わせて大きくなるが、20 で止める（--text-bar-max・1 行に収める）。アイコンは右の ？・⚙️ と同じ 22。
-        // 本が 0 冊のときは栗色にしない（--text-2）＝主役は本文の「読んだ本に一言ずつ残す」（アクセントを 2 か所にしない・2026-10-11 第 2 回の採点）。
+        // 本が 0 冊のときは栗色にしない（--text-2）＝主役は本文の「読んだ本の一言をメモする」（アクセントを 2 か所にしない・2026-10-11 第 2 回の採点）。
         style={{ ...btnLink, color: 'var(--text-2)', fontWeight: 400, fontSize: 'min(var(--text-sub), var(--text-bar-max))', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', padding: '0 var(--space-2)', whiteSpace: 'nowrap' }}
       >
         <Camera size={22} strokeWidth={1.75} aria-hidden="true" />
@@ -6249,7 +6249,7 @@ function AuthedApp() {
               onOpenPlan={() => setSettingsOpen(true)}
               onOpenReadingPlan={(v = 'plan') => setGoalScreen({ view: v === 'roadmap' ? 'roadmap' : 'plan', horizon: 'all', from: 'home' })}
               onOpenGoals={() => setGoalScreen({ view: 'goals', from: 'home' })}
-              // 🌱 育つまでの一行の「一言ずつ残す」（2026-10-20）: メモの無い読了・読書中の本（最大 5 冊）を一言の段から。
+              // 🌱 育つまでの一行の「一言をメモする」（2026-10-20）: メモの無い読了・読書中の本（最大 5 冊）を一言の段から。
               //   どの本にメモがあるか分からないとき（全部のメモをまだ読んでいない）は、いつもの初日クイックスタート。
               onAddOneLines={async () => {
                 let rows = user?.id ? peekAllMemoRows(user.id) : null;
@@ -6619,11 +6619,11 @@ function AuthedApp() {
                     actions={[
                       { label: '本を追加', onClick: openAdd, variant: 'primary', icon: <IcPlus size="1.2em" aria-hidden="true" /> },
                     ]}
-                    // 脇の入口は「読んだ本に一言ずつ残す」（ホームの本 0 冊と同じ入口・無料で使える）。
+                    // 脇の入口は「読んだ本の一言をメモする」（ホームの本 0 冊と同じ入口・無料で使える）。
                     // AI 選書は有料プランだけなので、最初の一歩には出さない。
                     tip={(
                       <button type="button" onClick={() => setShowQuickstart(true)} style={btnLink}>
-                        読んだ本に一言ずつ残す
+                        読んだ本の一言をメモする
                       </button>
                     )}
                   />

@@ -59,7 +59,7 @@ props は数・真偽・32 字までの短い文字列だけ（本文・書名�
 | `profile_set` | プロフィールを保存した（2026-11-21） | `from`: `onboarding` / `settings`、`book` / `line` / `pub` / `shelf` / `bio`（好きな本・1 行・公開する・本棚も公開する・自己紹介） | `Onboarding.jsx`・`ProfileSheet.jsx` |
 | `profile_skip` | 初回ガイドのプロフィールで「あとで」 | なし | `Onboarding.jsx` |
 | `profile_link` | プロフィールの「リンクを共有」を押した | なし | `ProfileSheet.jsx` |
-| `home_growth_action` | ホームの「あと N 件で相談相手が育ちます」の右の文字ボタンを押した（2026-10-20） | `action`: `consult`（相談してみる）/ `one_line`（一言ずつ残す） | `HomeScreen.jsx` |
+| `home_growth_action` | ホームの「あと N 件で相談相手が育ちます」の右の文字ボタンを押した（2026-10-20） | `action`: `consult`（相談してみる）/ `one_line`（一言をメモする） | `HomeScreen.jsx` |
 | `tokens_back` | ホームの「今月の相談が戻りました」を押した／閉じた（2026-10-20） | `action`: `open` / `dismiss` | `HomeScreen.jsx` |
 | `reask_nudge` | ホームの「先月の相談『…』のあと、メモが N 件増えました」を押した／閉じた（2026-10-21） | `action`: `open` / `dismiss` | `HomeScreen.jsx` |
 | `renewal_review` | ホームの「年額プランの更新まで N 日。この 1 年で、…」を押した／閉じた（2026-10-22） | `action`: `open` / `dismiss` | `HomeScreen.jsx` |

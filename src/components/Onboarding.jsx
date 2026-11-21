@@ -17,7 +17,7 @@ const STORAGE_KEY = 'onboardingCompleted';
 //   ＝目標は 振り返り › 行動 の「1 年後・3 年後・5 年後の目標」で書く）:
 //   1. 約束 — 一番の価値「読むほど、自分だけの相談相手が育つ」（CLAUDE.md・2026-09-26 裁定）。
 //      メモ → 相談 → 行動 の流れを本文 1 文にまとめる（旧 2〜4 枚目の中身）。
-//   2. 最初の一歩 — 無料でできる始め方（2026-10-02: 取り込む／本のページを撮る／読んだ本に一言ずつ残す の順）。
+//   2. 最初の一歩 — 無料でできる始め方（2026-10-02: 取り込む／本のページを撮る／読んだ本の一言をメモする の順）。
 // 思い出しカード（旧「想起」）は手段なのでここでは触れない（振り返りで出会う）。
 // 文体注意: 引用符強調（"凝縮" 等）とダーシ（——）は翻訳調に見えるため使わない。
 // 本文は 2 行程度まで（DESIGN 原則 6: なくても伝わる補足は置かない）。
@@ -39,7 +39,7 @@ const slides = [
   {
     Icon: BookOpen,
     // 2026-10-02 オーナー承認: 最初の一歩は「取り込む」「ページを撮る」を先に（メモが早くたまる道）。
-    //   読んだ本に一言ずつ残す（初日クイックスタート）は 3 番目。どの道も、終えたら「相談してみる」（lib/firstDay.js）。
+    //   読んだ本の一言をメモする（初日クイックスタート）は 3 番目。どの道も、終えたら「相談してみる」（lib/firstDay.js）。
     title: 'まずはメモを入れましょう',
     body: 'ブクログ・読書メーター・Kindle の記録や、本のページの写真から始められます。',
   },
@@ -312,7 +312,7 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
     (onStartOcr || onStart)?.();
   };
 
-  // 📚 読んだ本に一言ずつ残す（初日クイックスタート・2026-10-02 に 3 番目へ）。未配線なら本追加へ。
+  // 📚 読んだ本の一言をメモする（初日クイックスタート・2026-10-02 に 3 番目へ）。未配線なら本追加へ。
   const startQuickstart = () => {
     markOnboardingCompleted();
     choosePath('quickstart');
@@ -396,7 +396,7 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
         {isLast ? (
           // 最後の画面は主役を 1 つに（DESIGN 原則 2・2026-10-02 オーナー承認の順）:
           //   主＝ほかのアプリから取り込む（記録のある人は 1 回でメモがそろう）／副＝本のページを撮る（写真から書き起こす）／
-          //   文字ボタン＝読んだ本に一言ずつ残す（初日クイックスタート）。「どこで知りましたか」は一番下へ。
+          //   文字ボタン＝読んだ本の一言をメモする（初日クイックスタート）。「どこで知りましたか」は一番下へ。
           //   どのアプリから取り込めるか（ブクログ・読書メーター・Kindle）は本文と、開いたシートで言う。
           <>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', flexShrink: 0 }}>
@@ -410,7 +410,7 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
                   ガイドはヘルプの「使い方を最初から見る」で見直せる。 */}
               <div style={{ display: 'flex', justifyContent: 'center' }}>
                 <button type="button" style={{ ...btnLink, textAlign: 'center' }} onClick={startQuickstart}>
-                  読んだ本に一言ずつ残す
+                  読んだ本の一言をメモする
                 </button>
               </div>
             </div>

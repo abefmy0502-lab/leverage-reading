@@ -1949,7 +1949,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     return () => cancelAnimationFrame(id);
   }, [lastActionAdded]);
   // 🌱 メモが 0 件の人の答えのあと（2026-10-09）: 見方・返事のチップや「ここで答えと行動を」を並べても、根拠のメモが無いので
-  //   続けても同じ答えにしかならない。代わりに主ボタン「読んだ本に一言ずつ残す」（初日クイックスタート）だけ。
+  //   続けても同じ答えにしかならない。代わりに主ボタン「読んだ本の一言をメモする」（初日クイックスタート）だけ。
   const noMemosYet = !!onQuickstart && memoStatsLoaded && !memoStatsFailed
     && (memoStats.cards + memoStats.personal + (memoStats.summaryBooks || 0)) === 0;
   const answerDone = answerReady && (lastLocalLookup || isCompletedAnswer(lastVisible));
@@ -2041,7 +2041,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   };
   // 空の画面の出し分けはメモ（カード式＋学び＋この本のまとめ）の件数で決める（SPEC §3）。メモ＝カード式＋まとめ式
   // （GLOSSARY）なので、読書メーター等の感想を「この本のまとめ」に取り込んだだけの人も相談できる（2026-09-29 オーナー裁定）。
-  // 読書計画だけの人は「読んだ本に一言ずつ残す」へ（相談例の「最近のメモから…」が空振りしないように）。
+  // 読書計画だけの人は「読んだ本の一言をメモする」へ（相談例の「最近のメモから…」が空振りしないように）。
   const ownMemoTotal = memoStats.cards + memoStats.personal + (memoStats.summaryBooks || 0);
   // 🌱 読んだ本の紹介の先取りは 2026-11-15 にやめた（相談の補足に使わない＝ai.js の EARLY_SHELF_ON）
   ownMemoTotalRef.current = memoStatsLoaded ? ownMemoTotal : -1;
@@ -2539,16 +2539,16 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 </button>
               </section>
             ) : ownMemoTotal === 0 && !memoStatsFailed ? (
-              // メモ（カード式＋学び）0 件: 質問させる前に「読んだ本に一言ずつ残す」（根拠が無いと空振りするため）。
+              // メモ（カード式＋学び）0 件: 質問させる前に「読んだ本の一言をメモする」（根拠が無いと空振りするため）。
               // 読書計画・まとめだけの人もここ（上の行の件数とは別に、メモの件数で決める・SPEC §3）。
               // 空の画面は共通の EmptyState（DESIGN §5 空・エラー・読み込み）。主ボタンはこの 1 つ。
               <EmptyState
                 icon={<PencilLine size={32} strokeWidth={1.5} aria-hidden="true" />}
                 title="まだメモがありません"
-                // 本がもう本棚にあるときは、ホームのはじめの一歩と同じ「読んだ本に一言ずつ残す」（することを言う・2026-10-01）。
+                // 本がもう本棚にあるときは、ホームのはじめの一歩と同じ「読んだ本の一言をメモする」（することを言う・2026-10-01）。
                 // 本 0 冊のときも同じ名前（初回ガイド・ホームとそろえる・2026-10-11。開くのはどちらも初日クイックスタート）。
                 actions={onQuickstart
-                  ? [{ label: '読んだ本に一言ずつ残す', variant: 'primary', onClick: onQuickstart }]
+                  ? [{ label: '読んだ本の一言をメモする', variant: 'primary', onClick: onQuickstart }]
                   : onGoBookshelf ? [{ label: '本を開いてメモを書く', variant: 'secondary', onClick: onGoBookshelf }] : []}
               />
             ) : (
@@ -2743,10 +2743,10 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               この相談からロードマップを見直す
             </button>
           )}
-          {/* 🌱 メモが 0 件の人: チップの代わりに「読んだ本に一言ずつ残す」を主ボタンで（2026-10-09） */}
+          {/* 🌱 メモが 0 件の人: チップの代わりに「読んだ本の一言をメモする」を主ボタンで（2026-10-09） */}
           {answerRowShown && !lastActionAdded && noMemosYet && !lastIsMemoAnswer && (
             <button type="button" onClick={onQuickstart} style={{ ...uiBtnPrimary, marginTop: 'var(--space-4)', marginLeft: ANSWER_COLUMN, width: `calc(100% - ${ANSWER_COLUMN})` }}>
-              読んだ本に一言ずつ残す
+              読んだ本の一言をメモする
             </button>
           )}
           {answerRowShown && !lastActionAdded && (
