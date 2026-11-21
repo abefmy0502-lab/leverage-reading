@@ -1187,6 +1187,14 @@ export async function buildGrowthBlock(userId, { scopeSet = null, info = null, s
     if (goalBlock) lines.push('■ あなたの目標', goalBlock, '');
   } catch { /* 目標が読めなくても相談は続ける */ }
 
+  // 👤 プロフィールのニックネーム（2026-11-21・lib/profile.js）。呼びかけるときだけ使う（毎回は呼ばない）。
+  try {
+    const { loadProfile, addressName } = await import('./profile');
+    const { profile } = await loadProfile(userId);
+    const name = sanitizeForPrompt(addressName(profile));
+    if (name) lines.push('■ 呼び方', `${name}（呼びかけるときはこの名前で。毎回は呼ばない）`, '');
+  } catch { /* 読めなければ呼ばない */ }
+
   // ① 読書の歩み
   const readBooks = books
     .filter((b) => inScope(b.id))

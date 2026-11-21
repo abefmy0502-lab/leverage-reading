@@ -51,7 +51,7 @@ const BASE_FEATURES = [
     // シートで 1 行に収める（390 幅で 13pt は約 25 字・2026-10-02 ui-critic: Jev を入れたときにシートが 85vh を超えた）。
     // 量（lib/ai.js の CONSULT_TOTAL_CHARS＝メモと読書準備で約 9,000 字）はプライバシーポリシー第 7 条に書く。
     // 量を書くときは CONSULT_TOTAL_CHARS と同じ数にする（aiProcessors.test.js）。
-    sends: '質問・メモ・読書準備・行動・目標・過去の相談',
+    sends: '質問・メモ・読書準備・行動・目標・過去の相談・名前',
     purposes: ['consult'],
   },
   {

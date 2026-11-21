@@ -333,7 +333,7 @@ describe('表示する項目（2026-10-01）', () => {
     expect(r.sub).toBe('');
     expect(r.title).toBe('イシューからはじめよ');
     expect(r.stats.map((s) => s.key)).toEqual(['memos', 'actions']);
-    expect(shareVisibility(['logo', 'stamp'])).toEqual({ title: true, author: true, quote: true, stamp: false });
+    expect(shareVisibility(['logo', 'stamp'])).toEqual({ title: true, author: true, quote: true, stamp: false, name: true });
     // 書名を隠したら共有の文にも入れない
     expect(buildRecordShareText({ record: applyShareItems(rec, ['title']) })).toBe('#Orime');
   });
@@ -674,5 +674,23 @@ describe('表示する項目の「表紙」（2026-11-15）', () => {
     const h = readHidden2(null);
     expect(h).toContain('photoCover');
     expect(h).not.toContain('cover');
+  });
+});
+
+describe('ニックネーム（下の行・2026-11-21）', async () => {
+  const { footerStampText, shareItemsFor, shareVisibility } = await import('./shareOverlay');
+  it('名前と日付を並べ、長い名前は 10 字で切る', () => {
+    expect(footerStampText({ name: 'ふみ', stamp: '2026.11.21' })).toBe('ふみ  ·  2026.11.21');
+    expect(footerStampText({ name: '', stamp: '2026.11.21' })).toBe('2026.11.21');
+    expect(footerStampText({ name: 'ふみ', stamp: '' })).toBe('ふみ');
+    expect(footerStampText({ name: 'あいうえおかきくけこさ' })).toBe('あいうえおかきくけ…');
+  });
+  it('ニックネームがあるときだけ選べ、既定は出す', () => {
+    const rec = { title: '考え方', titleIsBook: true, stats: [] };
+    expect(shareItemsFor({ record: rec, variant: 'record' }).some((i) => i.key === 'name')).toBe(false);
+    expect(shareItemsFor({ record: rec, variant: 'record', hasName: true }).some((i) => i.key === 'name')).toBe(true);
+    expect(shareItemsFor({ variant: 'magazine', hasName: true }).some((i) => i.key === 'name')).toBe(true);
+    expect(shareVisibility([]).name).toBe(true);
+    expect(shareVisibility(['name']).name).toBe(false);
   });
 });

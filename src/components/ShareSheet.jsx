@@ -52,6 +52,7 @@ import { useReadingSessions } from '../hooks/useReadingSessions';
 import { shareReadingNote, secondsWithin } from '../lib/readingTime';
 import { rangeSeconds, monthRange, yearRange } from '../lib/readingStats';
 import { useAuth } from '../hooks/useAuth';
+import { useProfile } from '../hooks/useProfile';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { toMessage } from '../lib/errors';
 import { checkSharePhoto, canUseNativePhoto, pickNativePhoto, photoPickErrorText, photoFailAction, PHOTO_FAIL_TOAST_MS } from '../lib/sharePhotoPick';
@@ -387,6 +388,10 @@ export default function ShareSheet({
   });
   // 端末の日付（お試しモードは &today= で差し替えられる＝lib/appNow.js）。
   const now = useMemo(() => appNow(), []);
+  // 👤 プロフィールのニックネーム（2026-11-21）。下の行の日付の前に小さく（表示する項目で外せる）。
+  const { user: me } = useAuth();
+  const { profile: myProfile } = useProfile(me?.id || '');
+  const signature = String(myProfile?.nickname || '').trim();
   // 「今年」は 12 月で、今年に読み終えた本が 1 冊以上あるときだけ（ホームなど本棚を渡された入口だけ）。
   const yearAllowed = !!books && yearChoiceAllowed(books, now);
 
@@ -658,7 +663,7 @@ export default function ShareSheet({
   const yearError = period === 'year' && !!yearM.error;
   const ready0 = !!assets && (coverReady || !needCover) && !memosLoading && !photoLoading && !yearError;
   const drawKey = ready0
-    ? JSON.stringify([variant, subjectKey, chosen?.id, lineText, chosen?.pageNumber, effStyle, format, photo?.id, view, record.kicker, record.date, record.title, record.sub, record.stats, lineBook?.title, lineBook?.author, retry, assets.ver, hidden, phrase, readingNoteKey])
+    ? JSON.stringify([variant, subjectKey, chosen?.id, lineText, chosen?.pageNumber, effStyle, format, photo?.id, view, record.kicker, record.date, record.title, record.sub, record.stats, lineBook?.title, lineBook?.author, retry, assets.ver, hidden, phrase, readingNoteKey, signature])
     : '';
 
   // 描く材料（書き出す 1 枚・動かしている間の 1 コマ・見本で共通）。
@@ -670,6 +675,7 @@ export default function ShareSheet({
       record,
       // 雑誌の日付は「2026.10.09 FRI」（小さく・主役にしない）。
       stamp: v === 'magazine' ? fmtMagazineStamp(now) : fmtStamp(now),
+      signature,
       line: q ? quoteText(q.text, v) : '',
       page: v === 'quote' && q && Number.isFinite(q.pageNumber) ? q.pageNumber : null,
       title: (v === 'quote' ? lb?.title : subjectBook?.title) || record.title || '',
@@ -777,7 +783,7 @@ export default function ShareSheet({
   const coverItemKey = variant === 'record' && !isPeriod && subjectBook && effStyle !== 'sticker'
     ? (effStyle === 'photo' || effStyle === 'film' ? 'photoCover' : 'cover')
     : null;
-  const items = shareItemsFor({ record, variant, hasQuote: !!chosen && variant === 'record', hasAuthor: !!String(lineBook?.author || '').trim(), coverKey: coverItemKey });
+  const items = shareItemsFor({ record, variant, hasQuote: !!chosen && variant === 'record', hasAuthor: !!String(lineBook?.author || '').trim(), coverKey: coverItemKey, hasName: !!signature });
   const getEditorOpts = useCallback(() => cardOpts(), [drawKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const openEditor = () => { if (status === 'ready') { haptic.light(); setEditorOpen(true); } };
 

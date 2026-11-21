@@ -32,7 +32,7 @@ import {
 import {
   RECORD_QUOTE_MAX, recordFrame, placeRecordBlock, statColumns, splitStatValue, recordBlockPlan, recordTitleScale, recordTitleMaxLines,
   applyShareItems, shareVisibility, recordCoverPlacement, logoBox, LOGO_RULES, statsStackPlan, placeStatsStack, statColumnsScale, mainTitle, pickSubVariant, formatAuthors,
-  magazineRecord, magazineLogoBox, magazineFooterItems,
+  magazineRecord, magazineLogoBox, magazineFooterItems, footerStampText,
   shownStats,
 } from './shareOverlay';
 import { phraseLayout, phraseMetrics, phraseColors, phraseDisplayText, stickerPhraseReserve, PHRASE_MAGAZINE_GAP } from './sharePhrase';
@@ -2013,10 +2013,10 @@ function visibleOpts(opts, layout, text) {
   if (layout === 'magazine') {
     // 雑誌: 引用は主役（隠せない）・書名・著者・今日の日付は隠せる。中身は書名・著者・一文から作る（数字は入れない）。
     const rec = magazineRecord({ title: opts.title, author: opts.author }, text, { note: opts.note || null });
-    return { ...opts, magazine: rec, record: null, text, stamp: vis.stamp ? (opts.stamp || '') : '', showTitle: vis.title, showAuthor: vis.author, hasFooter: true };
+    return { ...opts, magazine: rec, record: null, text, stamp: footerStampText({ name: vis.name ? opts.signature : '', stamp: vis.stamp ? opts.stamp : '' }), showTitle: vis.title, showAuthor: vis.author, hasFooter: true };
   }
   const isRecord = layout === 'record' || layout === 'stats';
-  const stamp = isRecord && vis.stamp ? (opts.stamp || '') : '';
+  const stamp = isRecord ? footerStampText({ name: vis.name ? opts.signature : '', stamp: vis.stamp ? opts.stamp : '' }) : '';
   return {
     ...opts,
     record: isRecord ? applyShareItems(opts.record, opts.hidden) : opts.record,
@@ -2160,7 +2160,7 @@ export function drawPhotoDragFrame(canvas, opts = {}, cache = {}, { targetWidth 
   const cw = Math.round(W * k);
   const ch = Math.round(H * k);
   const fonts = opts.fonts || fontStacks();
-  const key = JSON.stringify([text, fmt, opts.textPos, opts.title, opts.author, opts.page, opts.totalPages, opts.knownMaxPage, opts.seedKey, opts.photo.width, opts.photo.height, fonts.read, k, opts.layout, opts.record, opts.stamp, opts.hidden, opts.phrase, opts.note, !!opts.cover?.image]);
+  const key = JSON.stringify([text, fmt, opts.textPos, opts.title, opts.author, opts.page, opts.totalPages, opts.knownMaxPage, opts.seedKey, opts.photo.width, opts.photo.height, fonts.read, k, opts.layout, opts.record, opts.stamp, opts.signature, opts.hidden, opts.phrase, opts.note, !!opts.cover?.image]);
   if (cache.key !== key || !cache.layer || cache.photoRef !== opts.photo) {
     const theme = readShareTheme('photo', { tone: opts.cover?.tone, title: opts.title });
     const o = {

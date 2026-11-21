@@ -33,6 +33,7 @@ export const ORDER = [
   ['supabase_reading_sessions.sql', '読む（集中モード）の読書の時間'],
   ['supabase_book_field_cache.sql', '本の分野（本ごとに 1 回決めて全員で使う）'],
   ['supabase_mcp_tokens.sql', 'AI と連携（MCP）の接続キー'],
+  ['supabase_profiles.sql', 'プロフィール（ニックネーム・好きな本・おすすめの 1 行・公開のページ・通報）'],
   ['supabase_goal_roadmaps.sql', '目標のロードマップと読書計画'],
   ['supabase_advisor_books.sql', 'AI 選書の推薦用の本のデータ'],
   ['supabase_advisor_books_ext.sql', 'AI 選書の推薦用の本の難しさと書評のデータ'],

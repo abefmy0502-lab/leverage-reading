@@ -5,10 +5,14 @@ import { rememberOnboardPath } from '../lib/firstDay';
 import { BookOpen, MessageCircle, X, ChevronLeft, ChevronDown } from 'lucide-react';
 import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnLink } from '../styles/ui';
 import { withPhraseBreaks } from './TightBubble';
+import ProfileForm from './ProfileForm';
+import { EMPTY_PROFILE, hasProfile } from '../lib/profile';
+import { saveProfileShared } from '../hooks/useProfile';
+import { toMessage } from '../lib/errors';
 
 const STORAGE_KEY = 'onboardingCompleted';
 
-// スライドは 2 枚（2026-09-29 に 2 枚へ絞り、2026-10-18 に「入れた理由」を足し、2026-11-16 オーナー「入れた理由は不要」で外した
+// スライドは 3 枚（2026-11-21 に 2 枚目へプロフィールを足した＝登録直後・「あとで」で飛ばせる）。以前の経緯: 2 枚（2026-09-29 に 2 枚へ絞り、2026-10-18 に「入れた理由」を足し、2026-11-16 オーナー「入れた理由は不要」で外した
 //   ＝目標は 振り返り › 行動 の「1 年後・3 年後・5 年後の目標」で書く）:
 //   1. 約束 — 一番の価値「読むほど、自分だけの相談相手が育つ」（CLAUDE.md・2026-09-26 裁定）。
 //      メモ → 相談 → 行動 の流れを本文 1 文にまとめる（旧 2〜4 枚目の中身）。
@@ -23,6 +27,13 @@ const slides = [
     // 行動は会話で決める（2026-09-30）ので「一歩まで答える」とは約束しない。
     // 2026-10-12 ui-critic: 主語（何が答えるか）を出し、詰め込みを減らす。
     body: '心に残った一文をメモしておくと、困ったときに、そのメモから答えと明日からできる一歩が返ってきます。',
+  },
+  {
+    // 👤 プロフィール（2026-11-21 オーナー「アカウント作成ができるようになりたい」・登録直後・飛ばせる）。
+    //   書いたら「次へ」で保存、「あとで」で飛ばす（設定の「プロフィール」からいつでも書ける）。
+    id: 'profile',
+    title: 'あなたの好きな本は？',
+    body: 'ニックネームと好きな本を残せます。設定から、いつでも書き直せます。',
   },
   {
     Icon: BookOpen,
@@ -169,8 +180,13 @@ const chipFace = (selected) => ({
   fontWeight: selected ? 600 : 400,
 });
 
-export default function Onboarding({ onClose, onStart, onImport, onStartQuickstart, onStartOcr }) {
+export default function Onboarding({ onClose, onStart, onImport, onStartQuickstart, onStartOcr, userId = '', onProfileSaved }) {
   const [step, setStep] = useState(0);
+  // 👤 プロフィールの枚（2026-11-21）。
+  const [profile, setProfile] = useState(() => ({ ...EMPTY_PROFILE }));
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileError, setProfileError] = useState('');
+  const profileFilled = hasProfile(profile) || !!String(profile.favLine || '').trim();
   const slide = slides[step];
   const isLast = step === slides.length - 1;
   // 📊 onboard_step: どの画面まで見たか（2026-10-20・どこで離れるかを見る。閉じた画面は onboard_path の step）。
@@ -219,6 +235,20 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
       });
     } catch { /* 動かせない環境はそのまま */ }
   });
+  const saveProfileAndNext = async () => {
+    if (!profileFilled) { track('profile_skip', { from: 'onboarding' }); goNext(); return; }
+    setProfileSaving(true); setProfileError('');
+    try {
+      const { profile: saved } = await saveProfileShared(userId, profile);
+      track('profile_set', { from: 'onboarding', book: !!saved.favTitle, line: !!saved.favLine });
+      onProfileSaved?.({ before: EMPTY_PROFILE, after: saved });
+      goNext();
+    } catch (e) {
+      setProfileError(toMessage(e, '保存できませんでした。「あとで」で先へ進めます。'));
+    } finally {
+      setProfileSaving(false);
+    }
+  };
   const goPrev = () => setStep((s) => Math.max(0, s - 1));
   const goNext = () => {
     setStep((s) => Math.min(slides.length - 1, s + 1));
@@ -236,6 +266,8 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
     const dx = t.clientX - start.x;
     const dy = t.clientY - start.y;
     if (Math.abs(dx) < SWIPE_MIN_PX || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    // プロフィールの枚は横に振っても送らない（書きかけを保存せずに先へ進まないように・「次へ」「あとで」で進む）。
+    if (slides[step]?.id === 'profile') return;
     if (dx < 0) goNext(); else goPrev();
   };
   // 開いたときのフォーカスは × ではなく見出しへ（読み上げが「閉じる」から始まらないように）。
@@ -343,6 +375,12 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
           <p style={{ fontSize: 'var(--text-body)', color: 'var(--text-2)', lineHeight: 1.6, textAlign: 'left', margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere', textWrap: 'pretty' }}>
             {withPhraseBreaks(slide.body)}
           </p>
+          {slide.id === 'profile' && (
+            <div style={{ paddingTop: 'var(--space-2)' }}>
+              <ProfileForm value={profile} onChange={setProfile} />
+              {profileError && <p role="alert" style={{ margin: 'var(--space-3) 0 0', fontSize: 'var(--text-meta)', color: 'var(--error)' }}>{profileError}</p>}
+            </div>
+          )}
         </div>
 
         {/* 読み上げでは「1 / 4」と今の位置を伝える（点そのものは読ませない）。 */}
@@ -409,6 +447,18 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
               )}
             </div>
           </>
+        ) : slide.id === 'profile' ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', flexShrink: 0 }}>
+            <button type="button" style={{ ...btnPrimary, flex: 'none', width: '100%' }} onClick={saveProfileAndNext} disabled={profileSaving} aria-busy={profileSaving || undefined}>
+              {profileSaving ? '保存しています…' : profileFilled ? '保存して次へ' : '次へ'}
+            </button>
+            {/* 書いたときだけ「あとで」（空なら「次へ」がそのまま飛ばす＝主ボタンに 2 つの意味を持たせない）。高さは残す。 */}
+            <div style={{ display: 'flex', justifyContent: 'center', visibility: profileFilled ? 'visible' : 'hidden' }} aria-hidden={!profileFilled || undefined}>
+              <button type="button" tabIndex={profileFilled ? 0 : -1} style={{ ...btnLink, textAlign: 'center' }} onClick={() => { track('profile_skip', { from: 'onboarding' }); goNext(); }}>
+                あとで
+              </button>
+            </div>
+          </div>
         ) : (
           <div style={{ display: 'flex', gap: 'var(--space-3)', flexShrink: 0 }}>
             {/* 戻るは左上の ‹ だけ（最後の画面でも同じ場所にある・同じ操作を 2 か所に出さない）→「次へ」は常に全幅。 */}

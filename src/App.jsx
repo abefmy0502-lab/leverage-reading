@@ -124,6 +124,7 @@ import { backfillCovers } from './lib/backfillCovers';
 import { enqueueCoverRetry, resolveCoverForBook, canReplaceCover, clearCoverNotFound } from './lib/coverAutoRetry';
 import { MODEL_SMART } from './lib/models';
 import { findDuplicateBook, findImportDuplicate, STATUS_LABEL, isUniqueViolation } from './lib/checkDuplicate';
+import { favoriteChanged } from './lib/profile';
 import { onShelfByTitle } from './lib/ownedTitle';
 import { saveStrategyHistory, popStrategyHistory, hasStrategyHistory, clearStrategyHistory } from './lib/strategyHistory';
 const CoverFixModal = lazy(() => import('./components/CoverFixModal'));
@@ -3731,6 +3732,41 @@ function AuthedApp() {
   // 旧実装は handler 内で複数 await していたためボタンタップから 1.5〜4s
   // 何も起きない (toast も「追加済み」表示も出ない) 体験になっていた。
   // 新実装は fire-and-forget + 即時 UI 反映 + 診断ログで根治。
+  // 👤 プロフィールの好きな本を本棚へ（2026-11-21 オーナー「好きな本を本棚に入れる」）。
+  //   本棚に無ければ読了で足し、おすすめの 1 行をその本のメモに残す（同じ文のメモがあれば足さない）。
+  //   好きな本・1 行が変わったときだけ（lib/profile.js の favoriteChanged）。失敗してもプロフィールの保存は終わっている。
+  const addFavoriteFromProfile = async ({ before, after }) => {
+    if (!user?.id || !favoriteChanged(before, after)) return;
+    try {
+      const title = String(after.favTitle || '').trim();
+      const author = String(after.favAuthor || '').trim();
+      const isbn = String(after.favIsbn || '');
+      let bookId = findDuplicateBook(booksRef.current, { isbn, title, author })?.id || null;
+      if (!bookId) {
+        const saved = await saveBook({
+          ...emptyBook(), title, author, isbn, cover: after.favCover || '', coverIsbn: after.favCover ? isbn : '',
+          status: 'done', doneDate: todayLocal(), addedVia: after.favIsbn ? 'search' : 'manual',
+        });
+        bookId = saved?.id || null;
+        if (saved) { try { resolveCoverInBackground(saved); } catch { /* 表紙は後で */ } }
+      }
+      const line = String(after.favLine || '').trim();
+      if (bookId && line && supabaseClient) {
+        const { data: same } = await supabaseClient.from('book_memos').select('id').eq('book_id', bookId).eq('text', line).limit(1);
+        if (!same?.length) {
+          const { error } = await supabaseClient.from('book_memos').insert({ user_id: user.id, book_id: bookId, text: line, page_number: null, tags: [], photo_path: null });
+          if (error) throw error;
+          invalidateKnowledgeCache();
+          appCache?.notifyMemosChanged?.();
+        }
+      }
+      refreshBooks();
+      toast.success(`『${title}』を本棚に入れました。`);
+    } catch (e) {
+      toast.error(toMessage(e, '好きな本を本棚に入れられませんでした。本を追加から入れられます。'));
+    }
+  };
+
   const addRelatedBookFromAi = ({ title, author = '' }) => {
     if (!title || !title.trim()) return;
     const trimmedTitle = title.trim();
@@ -5625,7 +5661,7 @@ function AuthedApp() {
             otherwise tapping "アプリ全体の使い方を最初から見る" from the help
             modal here looks like nothing happens until the user navigates
             back to the bookshelf. */}
-        {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={() => openAdd('reading')} onImport={() => setShowImport(true)} onStartQuickstart={() => setShowQuickstart(true)} onStartOcr={startOcrPath} />}
+        {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={() => openAdd('reading')} onImport={() => setShowImport(true)} onStartQuickstart={() => setShowQuickstart(true)} onStartOcr={startOcrPath} userId={user?.id || ''} onProfileSaved={addFavoriteFromProfile} />}
         {quickstartOverlay}
         {importOverlay}
 
@@ -5957,7 +5993,7 @@ function AuthedApp() {
         )}
         {/* Same reason as in the detail view — keep onboarding reachable
             from the edit-screen help modal without requiring a tab switch. */}
-        {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={() => openAdd('reading')} onImport={() => setShowImport(true)} onStartQuickstart={() => setShowQuickstart(true)} onStartOcr={startOcrPath} />}
+        {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={() => openAdd('reading')} onImport={() => setShowImport(true)} onStartQuickstart={() => setShowQuickstart(true)} onStartOcr={startOcrPath} userId={user?.id || ''} onProfileSaved={addFavoriteFromProfile} />}
         {quickstartOverlay}
         {importOverlay}
         <BottomNav
@@ -6820,7 +6856,7 @@ function AuthedApp() {
         )}
       </div>
 
-      {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={() => openAdd('reading')} onImport={() => setShowImport(true)} onStartQuickstart={() => setShowQuickstart(true)} onStartOcr={startOcrPath} />}
+      {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={() => openAdd('reading')} onImport={() => setShowImport(true)} onStartQuickstart={() => setShowQuickstart(true)} onStartOcr={startOcrPath} userId={user?.id || ''} onProfileSaved={addFavoriteFromProfile} />}
         {quickstartOverlay}
         {importOverlay}
 
@@ -6915,6 +6951,7 @@ function AuthedApp() {
             onAfterDelete={() => setSettingsOpen(false)}
             onOpenImport={() => { setSettingsOpen(false); setShowImport(true); }}
             onOpenHelp={() => { setSettingsOpen(false); setHelpModalOpen(true); }}
+            onProfileSaved={addFavoriteFromProfile}
           />
         </Suspense>
       )}
