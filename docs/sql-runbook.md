@@ -6,7 +6,7 @@
 
 ## 1. いちばん簡単なやり方: 1 本でまとめて流す（おすすめ）
 
-1. **PC** で GitHub のリポジトリを開き、`supabase_all_in_order.sql` を開く（約 6,700 行・約 340KB あるので、スマホより PC が確実です。途中で切れると失敗します）
+1. **PC** で GitHub のリポジトリを開き、`supabase_all_in_order.sql` を開く（約 5,800 行・約 340KB あるので、スマホより PC が確実です。途中で切れると失敗します）
 2. 右上の「Raw」→ 全部選んでコピー（⌘A → ⌘C）
 3. Supabase → 左の「SQL Editor」→「New query」→ 貼り付け → 右下の「Run」
 4. 下に `Success. No rows returned` と出れば完了
