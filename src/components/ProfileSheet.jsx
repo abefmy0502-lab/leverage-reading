@@ -93,7 +93,7 @@ export default function ProfileSheet({ userId, onClose, onSaved }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', paddingTop: 'var(--space-4)', borderTop: '1px solid var(--separator)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
               <span style={{ fontSize: 'var(--text-body)', color: 'var(--text)' }}>公開する</span>
-              <ToggleSwitch checked={!!draft.isPublic} onChange={() => change({ ...draft, isPublic: !draft.isPublic })} disabled={!canPublish} ariaLabel="プロフィールを公開する" />
+              <ToggleSwitch checked={!!draft.isPublic} onChange={() => change({ ...draft, isPublic: !draft.isPublic, shelfPublic: draft.isPublic ? false : draft.shelfPublic })} disabled={!canPublish} ariaLabel="プロフィールを公開する" />
             </div>
             <p style={note}>
               {canPublish

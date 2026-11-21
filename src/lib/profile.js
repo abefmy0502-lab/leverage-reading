@@ -37,7 +37,8 @@ export function normalizeProfile(p = {}) {
     isPublic: !!p.isPublic,
     hidden: !!p.hidden,
     bio: cleanBio(p.bio),
-    shelfPublic: !!p.shelfPublic,
+    // 公開をやめたら本棚の公開も一緒にやめる（次に公開したとき、本棚まで黙って出さない・2026-11-21 確認で）。
+    shelfPublic: !!p.isPublic && !!p.shelfPublic,
     avatar: cleanAvatarId(p.avatar),
     shelfHidden: [...new Set((Array.isArray(p.shelfHidden) ? p.shelfHidden : []).map(String).filter((id) => UUID_RE.test(id)))].slice(0, PROFILE_LIMITS.hidden),
   };
