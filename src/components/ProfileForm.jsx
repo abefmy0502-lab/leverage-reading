@@ -7,6 +7,9 @@ import { input as inputBase, groupTitle, fieldNote, btnGhost, btnLink } from '..
 import { searchBooks } from '../lib/bookSearch';
 import { PROFILE_LIMITS } from '../lib/profile';
 import { AVATARS } from '../lib/avatars';
+
+// 先頭は「なし」（選ばない＝ニックネームの 1 字か人の形）。
+const AVATAR_CHOICES = [{ id: '', label: 'なし' }, ...AVATARS];
 import UserAvatar from './UserAvatar';
 
 const field = { display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' };
@@ -32,8 +35,18 @@ function BookLine({ title, author, cover }) {
 }
 
 export default function ProfileForm({ value, onChange, showBio = false, showAvatar = false }) {
-  const ids = { nick: useId(), book: useId(), line: useId(), bio: useId() };
+  const ids = { nick: useId(), book: useId(), line: useId(), bio: useId(), avatar: useId() };
   const set = (patch) => onChange({ ...value, ...patch });
+  // 矢印キーで選ぶアイコンを動かす（radiogroup の作法）。
+  const onAvatarKey = (e) => {
+    const d = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+    if (!d) return;
+    e.preventDefault();
+    const cur = Math.max(0, AVATAR_CHOICES.findIndex((a) => a.id === (value.avatar || '')));
+    const next = (cur + d + AVATAR_CHOICES.length) % AVATAR_CHOICES.length;
+    set({ avatar: AVATAR_CHOICES[next].id });
+    requestAnimationFrame(() => e.currentTarget?.querySelector?.(`[data-avatar-index="${next}"]`)?.focus());
+  };
   const [query, setQuery] = useState('');
   const [results, setResults] = useState(null); // null＝まだ探していない
   const [searching, setSearching] = useState(false);
@@ -74,26 +87,35 @@ export default function ProfileForm({ value, onChange, showBio = false, showAvat
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
       {showAvatar && (
-        <div style={field} role="group" aria-label="アイコン">
-          <span style={label}>アイコン</span>
-          {/* 10 個の決まったアイコンから 1 つ（2026-11-21・lib/avatars.js）。押した物を枠で示す・もう一度押すと外す。 */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 48px)', justifyContent: 'space-between', rowGap: 'var(--space-3)' }}>
-            {AVATARS.map((a) => {
-              const on = value.avatar === a.id;
+        <div style={field}>
+          <span id={ids.avatar} style={label}>アイコン<span style={fieldNote}>（任意）</span></span>
+          {/* 「なし」＋決まった 10 個から 1 つ（2026-11-21・lib/avatars.js）。1 つだけ選ぶ欄＝radiogroup（矢印キーで動かす）。
+              選んだ物は外側に --surface の空き＋--accent の輪。6 列を等分して真ん中に置く（列の間がそろう）。 */}
+          <div
+            role="radiogroup"
+            aria-labelledby={ids.avatar}
+            onKeyDown={onAvatarKey}
+            style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', justifyItems: 'center', rowGap: 'var(--space-3)' }}
+          >
+            {AVATAR_CHOICES.map((a, idx) => {
+              const on = (value.avatar || '') === a.id;
               return (
                 <button
-                  key={a.id}
+                  key={a.id || 'none'}
                   type="button"
-                  aria-pressed={on}
+                  role="radio"
+                  aria-checked={on}
                   aria-label={a.label}
-                  onClick={() => set({ avatar: on ? '' : a.id })}
+                  tabIndex={on || (!value.avatar && idx === 0) ? 0 : -1}
+                  data-avatar-index={idx}
+                  onClick={() => set({ avatar: a.id })}
                   style={{
                     width: 48, height: 48, padding: 0, border: 'none', borderRadius: '50%', background: 'none', cursor: 'pointer',
                     display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                     boxShadow: on ? '0 0 0 2px var(--surface), 0 0 0 4px var(--accent)' : 'none',
                   }}
                 >
-                  <UserAvatar avatarId={a.id} size={44} />
+                  <UserAvatar avatarId={a.id} nickname={a.id ? '' : value.nickname} size={44} />
                 </button>
               );
             })}

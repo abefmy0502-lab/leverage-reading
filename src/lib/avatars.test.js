@@ -8,6 +8,8 @@ describe('自分のアイコン（2026-11-21）', () => {
     expect(AVATARS).toHaveLength(10);
     expect(new Set(AVATARS.map((a) => a.id)).size).toBe(10);
     for (const a of AVATARS) expect(a.color >= 1 && a.color <= 6).toBe(true);
+    // 栗色のアクセントと紛れる茶色の組（1・5・6）は 1 つまで
+    expect(AVATARS.filter((a) => [1, 5, 6].includes(a.color)).length).toBeLessThanOrEqual(1);
   });
   it('SQL の CHECK と同じ一覧', () => {
     const sql = readFileSync(new URL('../../supabase_profiles.sql', import.meta.url), 'utf8');
@@ -24,6 +26,6 @@ describe('自分のアイコン（2026-11-21）', () => {
     expect(avatarInitial('fumi')).toBe('F');
     expect(avatarInitial('')).toBe('');
     expect(avatarBackground(null)).toBe('var(--fill)');
-    expect(avatarBackground(avatarById('book'))).toContain('--cover-1a');
+    expect(avatarBackground(avatarById('book'))).toContain('--cover-3a');
   });
 });
