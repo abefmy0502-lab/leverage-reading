@@ -1,6 +1,6 @@
 // 🧭 LP「1 年後の自分から、逆算して読む。」の図（2026-11-15 オーナー「目標・ロードマップ・読書計画カレンダーの内容も LP に入れたい」）。
 // 4 つの段（目標 → 達成するには？ → ロードマップ → 読書計画）を、LpTalkDiagram と同じ線の絵と短い言葉で 1 列に（同じ見た目＝landing.css の .lp-talk-diagram）。
-// 強調は最後のアイコンの線だけ栗色。AI で描いた絵は使わない（2026-10-16）。
+// 2026-11-21 から栗色は使わない（DESIGN §3-2）。AI で描いた絵は使わない（2026-10-16）。
 import { Flag, MessageCircleQuestion, Map as MapIcon, CalendarDays, ChevronRight } from 'lucide-react';
 
 const STEPS = [

@@ -1,6 +1,6 @@
 // 🗺 「Orime に相談すると、こうなる。」の下の図（2026-11-15 オーナー「わかりやすいイラスト図を入れたい」）。
 // 4 つの段（残した一行 → 本に聞く → 本が答える → 明日の一歩）を、線の絵（lucide・面なし・LP の FeatureTiles と同じ描き方）と短い言葉で 1 列に。
-// 強調は最後のアイコンの線だけ栗色（押せない飾りを主ボタンと同じ塗りにしない・ui-critic 2026-11-15）。
+// 2026-11-21 から栗色は使わない（DESIGN §3-2・押せない飾りに栗色を使わない）。
 // 下の会話の見本（LpTalkFlow）の流れと同じ順。AI で描いた絵は使わない（2026-10-16）。
 import { NotebookPen, MessageCircle, BookOpen, Target, ChevronRight } from 'lucide-react';
 

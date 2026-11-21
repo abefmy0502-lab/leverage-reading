@@ -82,7 +82,7 @@ export default function LpWaitlist({ loc, done, onDone, launch, center = false }
           required
         />
         {/* 押している間も薄くせず、文字だけ変える（DESIGN §5「押せないボタン」） */}
-        <button type="submit" className="lp-btn" aria-disabled={sending || undefined}>{sending ? '送っています…' : '送る'}</button>
+        <button type="submit" className="lp-btn" aria-disabled={sending || undefined}>{sending ? '送信中…' : '送る'}</button>
       </div>
       {/* 人には見えない欄（機械の送信よけ）。読み上げ・タブ移動からも外す */}
       <input ref={hpRef} className="lp-hp" type="text" name="website" tabIndex={-1} autoComplete="off" aria-hidden="true" />
