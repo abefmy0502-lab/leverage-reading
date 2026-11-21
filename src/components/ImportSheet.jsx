@@ -44,7 +44,7 @@ const SHELF_LABEL = { done: '読んだ本', reading: '読んでる本', before: 
 const IMPORT_STATUS_LABEL = { done: '読了', reading: '読書中', before: '積読', want: '読みたい' };
 
 // existingBooks: いまの本棚（確かめる画面で「本棚にあります」と数え方を取り込みと揃えるため）。
-// onAddOneLine(books): 完了画面の「覚えている一言を足す（N 冊）」— メモも感想も無い新しい本に、
+// onAddOneLine(books): 完了画面の「覚えている一文を足す（N 冊）」— メモも感想も無い新しい本に、
 //   初日クイックスタートの「一言」の段から一言を足す（App が PastBooksQuickstart を initialBooks で開く）。
 // loadMemoTexts(bookIds): 本棚の本にもうあるメモの本文（Map<id, Set<本文>>・読めなければ null）。確かめる画面で、
 //   同じ文のメモ（取り込みでも足さない）を数えないため（2026-09-29）。
@@ -387,7 +387,7 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
     // 閉じる入口は右上の「完了」1 つだけ（完了の画面ではいつも・2026-09-29）。下の主ボタンは次にすること:
     //   相談の材料が入った（メモ か「この本のまとめ」＝どちらもメモとして相談の根拠になる）→「相談してみる」
     //   （送らずに相談を開く＝入力欄と相談例から自分で選んで送る・勝手にトークンを使わない）／
-    //   本だけ入った（メモも感想も無い）→「覚えている一言を足す（N 冊）」／何も新しく入らなかった →「別のファイルを選ぶ」。
+    //   本だけ入った（メモも感想も無い）→「覚えている一文を足す（N 冊）」／何も新しく入らなかった →「別のファイルを選ぶ」。
     const canUndo = !!onUndoImport && ((outcome.createdBookIds?.length || 0) + (outcome.createdMemoIds?.length || 0) > 0);
     // メモも「この本のまとめ」も無い新しい本は、相談の根拠にならない。一言を足す入口（2026-09-29）。
     //   一度に開くのは初日クイックスタートと同じ最大 5 冊（数はボタンに出す冊数と同じ）。
@@ -400,14 +400,14 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
       // 取り込んだメモのある本から作った相談を、相談の入力欄に入れて開く（送らない・App の onAsk・2026-10-02）。
       primary = <button type="button" onClick={() => onAsk(outcome)} disabled={undoing} style={primaryStyle}>相談してみる</button>;
     } else if (canAddOneLine) {
-      primary = <button type="button" onClick={addOneLineClick} disabled={undoing} style={primaryStyle}>覚えている一言を足す（{bare.length}&nbsp;冊）</button>;
+      primary = <button type="button" onClick={addOneLineClick} disabled={undoing} style={primaryStyle}>覚えている一文を足す（{bare.length}&nbsp;冊）</button>;
     } else {
       primary = <button type="button" onClick={pickAnother} disabled={undoing} style={primaryStyle}>別のファイルを選ぶ</button>;
     }
     // 相談してみるが主のときだけ、一言を足すは脇役の文字ボタンで下に。
     const addOneLineLink = any && onAsk && canAddOneLine ? (
       <button type="button" onClick={addOneLineClick} disabled={undoing} style={{ ...btnLink, width: '100%' }}>
-        覚えている一言を足す（{bare.length}&nbsp;冊）
+        覚えている一文を足す（{bare.length}&nbsp;冊）
       </button>
     ) : null;
     // 残した本があるときは、同じファイルを選び直す入口（主ボタンが「別のファイルを選ぶ」のときと、

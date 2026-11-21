@@ -76,7 +76,7 @@ function StartCard({ onQuickstart, onAddBook, onAdvisor, onImport }) {
       </p>
       {/* data-first-step: 本が 0 冊で「写真で共有」を押したとき、ここへフォーカスを送る印（App.jsx の pointToFirstStep）。 */}
       {/* ボタンは横並びの箱なので、文節の切れ目つきの文字は span で 1 つにまとめる（切れ目ごとに別の項目に割れない）。 */}
-      <button type="button" data-first-step="" onClick={onQuickstart} style={btnPrimary}><span>{withPhraseBreaks('読んだ本の一言をメモする')}</span></button>
+      <button type="button" data-first-step="" onClick={onQuickstart} style={btnPrimary}><span>{withPhraseBreaks('読んだ本の一文をメモする')}</span></button>
       <button type="button" onClick={onAddBook} style={{ ...btnGhost, marginTop: 'var(--space-3)' }}><span>{withPhraseBreaks('いま読んでいる本を追加する')}</span></button>
       {/* 脇役の文字ボタンは 1 つだけ（2 つ並ぶとアクセント色が強すぎる）。AI 選書は「相談」タブから開ける。
           文字ボタンの上下の余り（高さ 44 のため）をカードの内側余白と相殺し、上下の見た目をそろえる。 */}
@@ -566,10 +566,10 @@ export default function HomeScreen({
 }) {
   const { user } = useAuth();
   // 🌱 育つまでの一行の右の次の一歩（2026-10-20）: はじめての相談の前は「相談してみる」（入れた理由かメモから下書き・送らない）、
-  //   相談したあとは「一言をメモする」（メモの無い読んだ本へ・初日クイックスタートの一言の段）。どちらか 1 つだけ。
+  //   相談したあとは「一文をメモする」（メモの無い読んだ本へ・初日クイックスタートの一言の段）。どちらか 1 つだけ。
   const growthAction = !onConsultDraft ? null : !firstConsultDone()
     ? { label: '相談してみる', onClick: () => { track('home_growth_action', { action: 'consult' }); onConsultDraft(purposeConsultQuestion(appPurposeTextFor(user)) || firstConsultQuestion({ books, memoCount: memoState.count }), 'growth'); } }
-    : onAddOneLines ? { label: '一言をメモする', onClick: () => { track('home_growth_action', { action: 'one_line' }); onAddOneLines(); } } : null;
+    : onAddOneLines ? { label: '一文をメモする', onClick: () => { track('home_growth_action', { action: 'one_line' }); onAddOneLines(); } } : null;
   // メモがあるか（はじめの一歩を出すか）。分かるまではスケルトン（カードを遅れて差し込まない・最大 800ms）。
   const memoState = useHomeMemoState(books);
   // 月末・12 月の 1 行（数えるのはメモの件数と同じ時点・決まるまでホームは形のまま＝あとから差し込まない）。

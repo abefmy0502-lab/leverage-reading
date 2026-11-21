@@ -194,7 +194,7 @@ function ResultsSkeleton() {
 
 // 押せない主ボタン。薄くすると「あと N 冊」が読めなくなるので、面と文字の色で押せないことを示す。
 
-// initialBooks: 取り込みの完了画面の「覚えている一言を足す（N 冊）」から開くときの本（もう本棚にある本・最大 MAX_BOOKS 冊）。
+// initialBooks: 取り込みの完了画面の「覚えている一文を足す（N 冊）」から開くときの本（もう本棚にある本・最大 MAX_BOOKS 冊）。
 //   渡されたら「本をえらぶ」を飛ばして、一言を書く段から始める（2026-09-29）。
 export default function PastBooksQuickstart({ books = [], initialBooks = null, onSaveBook, onAsk, onClose, onWriteMemo, onImport, onMarkRead, onMemosAdded }) {
   const { user } = useAuth();
@@ -268,7 +268,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
     if (seeded) {
       return confirm({
         title: '書いたことを消しますか？',
-        message: '本は本棚に入っています。書いた一言だけが消えます。',
+        message: '本は本棚に入っています。書いた一文だけが消えます。',
         confirmLabel: '書いたことを消す',
         cancelLabel: '続ける',
         danger: true,
@@ -455,7 +455,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
       ref={trapRef}
       role="dialog"
       aria-modal="true"
-      aria-label="読んだ本の一言をメモする"
+      aria-label="読んだ本の一文をメモする"
       style={overlay}
       onScrollCapture={(e) => { const t = e.target; if (t && t.scrollTop != null) { const on = t.scrollTop > 0; setBodyScrolled((cur) => (cur === on ? cur : on)); } }}
     >
@@ -470,7 +470,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
             {/* 括弧なしの短い 2 文（2026-10-12 ui-critic・句のまとまりで折り返す） */}
             {/* なぜ本を選ぶのか（＝一言が相談の根拠になる）を 1 文で（2026-10-21 ui-critic「冊数の話だけ」）。括弧なし・句のまとまりで折り返す */}
             <p style={sub}>
-              <span style={{ display: 'inline-block' }}>えらんだ本の一言が、相談の根拠になります。</span>
+              <span style={{ display: 'inline-block' }}>えらんだ本の一文が、相談の根拠になります。</span>
               <span style={{ display: 'inline-block' }}>{MIN_BOOKS}&nbsp;冊から始められます。</span>
             </p>
 
@@ -659,7 +659,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
               maxLength={LIMITS.memoText}
               // 例は本ごと（よく読まれている本はその本の一言・無い本は決まった一言・2026-09-30）。
               //   ほかの本を読んだ人に「やらないことを決める…」の例を出すと、書くことを迷わせていた。
-              placeholder={memoExampleForBook(current.book) ? `例：${memoExampleForBook(current.book)}` : '覚えている一言'}
+              placeholder={memoExampleForBook(current.book) ? `例：${memoExampleForBook(current.book)}` : '覚えている一文'}
               aria-label={`『${current.book.title}』でいちばん覚えていること`}
               style={{
                 ...inputStyle, display: 'block', marginTop: 'var(--space-4)', resize: 'none', minHeight: 128,
@@ -734,7 +734,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
               <>
                 {/* メモが無いと相談の根拠が無いので「相談相手ができた」とは言わない（正直に）。 */}
                 {/* 取り込みのあとから開いた本は、もう本棚にある（「入れました」とは言わない）。 */}
-                <h1 style={{ ...title, marginTop: 'var(--space-6)' }}>{withPhraseBreaks(seeded ? '一言は、あとからでも足せます' : `${summary.books.length} 冊を本棚に入れました`)}</h1>
+                <h1 style={{ ...title, marginTop: 'var(--space-6)' }}>{withPhraseBreaks(seeded ? '一文は、あとからでも足せます' : `${summary.books.length} 冊を本棚に入れました`)}</h1>
                 <p style={sub}>{withPhraseBreaks('まだメモがありません')}</p>
               </>
             )}
