@@ -1784,3 +1784,15 @@ body.chat-active.chat-scroll-down .bottom-nav {
   border-top: none !important;
   pointer-events: none !important;
 }
+
+/* 長押しでメニューを開く所（useLongPress）: iPhone で文字が選ばれたり、リンクの吹き出しが重ならないように（2026-11-21）。 */
+[data-long-press] {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+[data-long-press] input,
+[data-long-press] textarea {
+  -webkit-user-select: text;
+  user-select: text;
+}

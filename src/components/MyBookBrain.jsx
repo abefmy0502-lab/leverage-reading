@@ -86,6 +86,7 @@ import { unreadBooksInAnswer } from '../lib/unreadBooks';
 import { consultPartner, partnerFromScope, bookForRef, shelfBookForTitle, withVoice, decodeVoice, encodeVoice, perbookSummaryPartner, VOICE_PREFIX } from '../lib/consultPartner';
 import { fetchAllRows } from '../lib/fetchAllRows';
 import { nestQuotes } from '../lib/nestQuotes';
+import { revealInScroller } from '../lib/motion';
 
 // 相談を送るときのオフラインの文（上の行に「オフラインです。」が出ているので、次にすることだけ・2026-10-10）。
 const OFFLINE_SEND_MESSAGE = 'オフラインです。つながってから、もう一度送ってください。';
@@ -581,7 +582,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const [consentDeclined, setConsentDeclined] = useState(false);
   useEffect(() => {
     if (!sendNotice) return;
-    try { messagesEndRef.current?.scrollIntoView({ block: 'end' }); } catch { /* ignore */ }
+    revealInScroller(messagesEndRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sendNotice]);
   // 🎯 相談相手（2026-09-26）: [] = すべての本（＋学びログ）/ [id] = その 1 冊だけ /
@@ -3647,9 +3648,7 @@ function ActionAddedNote({ onOpenActions, deadline = null, focus = null, already
   const ref = useRef(null);
   useEffect(() => {
     if (already) return;
-    let reduce = false;
-    try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { /* ignore */ }
-    try { ref.current?.scrollIntoView({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' }); } catch { /* ignore */ }
+    revealInScroller(ref.current);
   }, []);
   return (
     <p ref={ref} role={already ? undefined : 'status'} style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-1)', minHeight: 'var(--tap-min)', boxSizing: 'border-box', paddingBlock: 'calc((var(--tap-min) - 1.5em) / 2)', margin: 'var(--space-3) 0 0', fontSize: 'var(--text-sub)', fontWeight: 600, lineHeight: 1.5, color: 'var(--success)' }}>

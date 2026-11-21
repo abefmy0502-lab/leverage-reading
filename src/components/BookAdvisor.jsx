@@ -3,7 +3,7 @@
 // 切り出した自己完結コンポーネント。props: onAddBook / sessionApi / books。
 
 import { useChatImmersive } from '../hooks/useChatImmersive';
-import { Fragment, useState, useEffect, useRef, lazy, Suspense } from 'react';
+import { Fragment, useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import TokenUsageSheet from './TokenUsageSheet';
 import {
@@ -373,6 +373,17 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   // explicitly excluded so re-mounting the component (sub-tab switch)
   // can't pull the viewport down.
   const messagesEndRef = useRef(null);
+  // 自動で送る先は 1 回に 1 つ（2026-11-21）。答えを送ると「いちばん下へ」「次の問いの先頭へ」「推薦の先頭へ」が
+  //   続けて走り、画面が下へ行ってから上へ戻っていた。同じ瞬間に重なったら、優先の高いほう（推薦 3 ＞ 問い 2 ＞ 下 1）だけ。
+  const scrollPlanRef = useRef({ t: null, prio: 0 });
+  const planScroll = useCallback((prio, fn, delay = 60) => {
+    const plan = scrollPlanRef.current;
+    if (plan.t && plan.prio > prio) return;
+    clearTimeout(plan.t);
+    plan.prio = prio;
+    plan.t = setTimeout(() => { plan.t = null; plan.prio = 0; try { fn(); } catch { /* ignore */ } }, delay);
+  }, []);
+  useEffect(() => () => clearTimeout(scrollPlanRef.current.t), []);
   const prevMsgCountRef = useRef(0);
   const seedHydratedRef = useRef(false);
   useEffect(() => {
@@ -385,8 +396,12 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     prevMsgCountRef.current = messages.length;
     if (prev <= 0) return;
     if (messages.length <= prev) return;
-    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: scrollBehavior(), block: 'end' }), 30);
-  }, [messages]);
+    planScroll(1, () => {
+      const box = chatScrollRef.current;
+      if (box) box.scrollTo({ top: box.scrollHeight, behavior: scrollBehavior() });
+      else messagesEndRef.current?.scrollIntoView({ behavior: scrollBehavior(), block: 'end' });
+    });
+  }, [messages]); // eslint-disable-line react-hooks/exhaustive-deps
   // 入力欄は書いた量に合わせて伸びる（空は 1 行 44・5 行を超えたら中を送る＝上限は CSS の max-height・相談と同じ）。
   const inputRef = useRef(null);
   // 文字の大きさが変わったときも測り直す（hooks/useComposerHeight.js・2026-10-08 ui-critic）。
@@ -1598,24 +1613,15 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     </Suspense>
   ) : null;
 
-  // 新メッセージ追加時に最下部へオートスクロール (LINE 挙動)。
-  useEffect(() => {
-    if (!chatScrollRef.current || messages.length === 0) return;
-    chatScrollRef.current.scrollTo({ top: chatScrollRef.current.scrollHeight, behavior: scrollBehavior() });
-  }, [messages.length]);
+  // 新メッセージ追加時に最下部へ送るのは、上の messages の効果（planScroll の 1）だけ（戻ってきたときは動かさない）。
   // 新しい問い・受け取ったまとめが出たら、そのカードの先頭まで送る（2026-10-08）。いちばん下へ送ると、
   //   文字を大きくしたときに問いの文が上へ流れて見えなくなった（ui-critic 第 3 回）。
   const stepCardRef = useRef(null);
   const stepKey = interview ? `q:${interviewTrail.length}:${interview.question}` : summaryStep ? 's' : '';
   useEffect(() => {
     if (!stepKey) return;
-    const t = setTimeout(() => {
-      let reduce = false;
-      try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { /* noop */ }
-      stepCardRef.current?.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
-    }, 60);
-    return () => clearTimeout(t);
-  }, [stepKey]);
+    planScroll(2, () => scrollInsideChat(stepCardRef.current));
+  }, [stepKey]); // eslint-disable-line react-hooks/exhaustive-deps
   // 推薦が出たときは、最下部ではなく推薦の先頭（前置き → 1 冊目のカードと「読みたいに追加」）へ。
   // 表紙の後追い（verifyAndEnrich）で items が差し替わっても、もう一度は動かさない（出た瞬間だけ）。
   const recoBlockRef = useRef(null);
@@ -1625,8 +1631,16 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     const appeared = has && !hadRecoRef.current;
     hadRecoRef.current = has;
     if (!appeared) return;
-    setTimeout(() => recoBlockRef.current?.scrollIntoView({ behavior: scrollBehavior(), block: 'start' }), 30);
-  }, [recommendations]);
+    planScroll(3, () => scrollInsideChat(recoBlockRef.current));
+  }, [recommendations]); // eslint-disable-line react-hooks/exhaustive-deps
+  // 会話の欄の中だけを送る（scrollIntoView はページや外の欄まで動かし、キーボードが出ているとずれた・2026-11-21）。
+  function scrollInsideChat(el) {
+    const box = chatScrollRef.current;
+    if (!el) return;
+    if (!box || !box.contains(el)) { el.scrollIntoView({ behavior: scrollBehavior(), block: 'start' }); return; }
+    const top = el.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop - 8;
+    box.scrollTo({ top: Math.max(0, top), behavior: scrollBehavior() });
+  }
 
   // 履歴サブビューでは入力欄を出さず、専用 UI に切り替える。
   if (view === 'history') {

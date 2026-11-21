@@ -89,7 +89,7 @@ export function ConfirmProvider({ children }) {
   useEffect(() => {
     if (!pending) return;
     const el = pending.options.danger ? cancelRef.current : confirmRef.current;
-    try { el?.focus(); } catch { /* ignore */ }
+    try { el?.focus({ preventScroll: true }); } catch { /* ignore */ }
   }, [pending]);
 
   const confirm = useCallback((options) => {

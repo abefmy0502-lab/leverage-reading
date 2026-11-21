@@ -222,6 +222,8 @@ export default function SwipeableCard({
           // Inherit so the card's own background continues to cover the drawer
           // when at rest.
           background: 'transparent',
+          // 横に振っている間は、ページの縦のスクロールと取り合わない（縦は今までどおりスクロール・2026-11-21）。
+          touchAction: 'pan-y',
         }}
       >
         {children}
