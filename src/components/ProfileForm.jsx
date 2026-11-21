@@ -29,8 +29,8 @@ function BookLine({ title, author, cover }) {
   );
 }
 
-export default function ProfileForm({ value, onChange }) {
-  const ids = { nick: useId(), book: useId(), line: useId() };
+export default function ProfileForm({ value, onChange, showBio = false }) {
+  const ids = { nick: useId(), book: useId(), line: useId(), bio: useId() };
   const set = (patch) => onChange({ ...value, ...patch });
   const [query, setQuery] = useState('');
   const [results, setResults] = useState(null); // null＝まだ探していない
@@ -75,6 +75,22 @@ export default function ProfileForm({ value, onChange }) {
         <label htmlFor={ids.nick} style={label}>ニックネーム<span style={fieldNote}>（任意）</span></label>
         <input id={ids.nick} value={value.nickname} onChange={(e) => set({ nickname: e.target.value })} maxLength={PROFILE_LIMITS.nickname} placeholder="例：ふみ" autoComplete="nickname" style={inputBase} />
       </div>
+
+      {showBio && (
+        <div style={field}>
+          <label htmlFor={ids.bio} style={label}>自己紹介<span style={fieldNote}>（任意）</span></label>
+          <textarea
+            id={ids.bio}
+            value={value.bio || ''}
+            onChange={(e) => set({ bio: e.target.value })}
+            maxLength={PROFILE_LIMITS.bio}
+            rows={3}
+            placeholder="例：メーカーで企画の仕事。チームづくりの本をよく読みます"
+            style={{ ...inputBase, minHeight: 'calc(3 * 1.5em + var(--space-6))', lineHeight: 1.5, resize: 'none' }}
+          />
+          <p style={{ ...hint, textAlign: 'right' }} aria-live="polite">{[...String(value.bio || '')].length} / {PROFILE_LIMITS.bio}</p>
+        </div>
+      )}
 
       <div style={field}>
         <label htmlFor={ids.book} style={label}>好きな本<span style={fieldNote}>（任意）</span></label>

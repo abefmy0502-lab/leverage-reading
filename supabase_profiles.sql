@@ -9,6 +9,9 @@
 --   - サーバー（service_role）: 公開のページを描く（public_profile）・通報を残す（profile_reports）・
 --     運営が隠す（hidden=true＝公開していても出さない）
 -- 退会はアプリが本人の行を消す（auth.users の削除でも ON DELETE CASCADE で消える）。
+-- 2026-11-21（2 回目・オーナー「本棚を公開するのも・自己紹介も・メモは公開しない」）:
+--   自己紹介 bio（160 字）・本棚も公開する shelf_public（既定 false）・公開の本棚から外した本 shelf_hidden（本の id・2000 冊まで）。
+--   公開のページは shelf_public のときだけ、本の書名・著者・表紙・状態・評価・分野を出す（メモは出さない）。
 -- 未適用でも壊れない: アプリは端末にだけ控え、公開のページは「見つかりません」になる。
 -- 冪等（何度流しても同じ）。Supabase の SQL Editor に貼って実行する。
 
@@ -41,6 +44,19 @@ begin
   if not exists (select 1 from pg_constraint where conname = 'profiles_cover_check') then
     -- 表紙は https の画像の URL だけ（空も可）。
     alter table public.profiles add constraint profiles_cover_check check (fav_cover = '' or fav_cover ~ '^https://');
+  end if;
+end $$;
+
+alter table public.profiles add column if not exists bio text not null default '';
+alter table public.profiles add column if not exists shelf_public boolean not null default false;
+alter table public.profiles add column if not exists shelf_hidden uuid[] not null default '{}';
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'profiles_shelf_check') then
+    alter table public.profiles add constraint profiles_shelf_check check (
+      char_length(bio) <= 160 and cardinality(shelf_hidden) <= 2000
+    );
   end if;
 end $$;
 

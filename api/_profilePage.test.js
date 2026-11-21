@@ -63,3 +63,35 @@ describe('プロフィールの公開のページ', () => {
     expect(await handleProfileRequest(req({ search: 'x' }), fakeRes())).toBe(false);
   });
 });
+
+describe('公開の本棚（2026-11-21）', async () => {
+  const { buildShelf, renderProfile } = await import('./_profilePage.js');
+  const books = [
+    { id: '00000000-0000-4000-8000-000000000001', title: '考え方', author: '稲盛和夫', cover: 'https://thumbnail.image.rakuten.co.jp/a.jpg', status: 'done', rating: 4, fields: ['経営・組織', 'メモのタグではない'] },
+    { id: '00000000-0000-4000-8000-000000000002', title: '隠した本', status: 'done', fields: [] },
+    { id: '00000000-0000-4000-8000-000000000003', title: 'イシューからはじめよ', status: 'reading', cover: 'https://evil.example/x.jpg', fields: ['思考法・問題解決'] },
+    { id: '00000000-0000-4000-8000-000000000004', title: '<script>', status: 'want', fields: [] },
+  ];
+  it('外した本を除き、状態の順に並べ、分野は決まった名前だけ数える', () => {
+    const s = buildShelf(books, ['00000000-0000-4000-8000-000000000002']);
+    expect(s.total).toBe(3);
+    expect(s.byStatus.map((g) => g.id)).toEqual(['reading', 'done', 'want']);
+    expect(s.byStatus[1].books[0].rating).toBe(4);
+    expect(s.byStatus[0].books[0].cover).toBe(''); // 許可していない表紙は出さない
+    expect(s.fields.flatMap((g) => g.items.map((i) => i.name))).toEqual(['経営・組織', '思考法・問題解決']);
+  });
+  it('本棚・自己紹介を描き、メモは描かない・文字はエスケープする', () => {
+    const shelf = buildShelf(books, []);
+    const { html } = renderProfile({ nickname: 'ふみ', bio: '企画の仕事\n2 行目', shelf_public: true }, { publicId: 'abcdefgh23', shelf });
+    expect(html).toContain('<h2>本棚</h2>');
+    expect(html).toContain('読書中 1 冊・読了 2 冊・読みたい 1 冊');
+    expect(html).toContain('aria-label="評価 4"');
+    expect(html).toContain('企画の仕事');
+    expect(html).not.toContain('<script>');
+    expect(html).toContain('&lt;script&gt;');
+  });
+  it('本棚を出さないときは本棚の節が無い', () => {
+    const { html } = renderProfile({ nickname: 'ふみ' }, { publicId: 'abcdefgh23', shelf: null });
+    expect(html).not.toContain('<h2>本棚</h2>');
+  });
+});
