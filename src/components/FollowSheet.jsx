@@ -21,7 +21,7 @@ import {
 import { track } from '../lib/analytics';
 
 const STATUS_LABEL = { reading: '読書中', done: '読了', before: '積読', want: '読みたい' };
-const note = { margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.6, lineBreak: 'strict', textWrap: 'pretty' };
+const note = { margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.6, lineBreak: 'strict', textWrap: 'pretty', wordBreak: 'keep-all', overflowWrap: 'anywhere' };
 // 一覧の行: 区切り線は 2 行目から（DESIGN §5 一覧の行）。
 const row = (first) => ({ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minHeight: 'var(--tap-min)', padding: 'var(--space-2) 0', borderTop: first ? 'none' : '1px solid var(--separator)' });
 const nameStyle = { flex: 1, minWidth: 0, fontSize: 'var(--text-body)', color: 'var(--text)', overflowWrap: 'anywhere' };
@@ -234,7 +234,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant }) {
           const st = wantState[book.id];
           const done = st === 'added' || st === 'exists';
           return done ? (
-            <p role="status" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)', minHeight: 48, margin: 'var(--space-6) 0 0', fontSize: 'var(--text-body)', color: 'var(--text-2)' }}>
+            <p role="status" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)', minHeight: 'var(--btn-h)', margin: 'var(--space-6) 0 0', fontSize: 'var(--text-body)', color: 'var(--text-2)' }}>
               <Check size="1.1em" aria-hidden="true" style={{ color: 'var(--success)' }} />
               {st === 'added' ? '読みたいに追加しました' : 'もう本棚にあります'}
             </p>
@@ -360,12 +360,13 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant }) {
                 autoCapitalize="off"
                 autoCorrect="off"
                 enterKeyHint="go"
-                style={{ ...inputBase, flex: 1, minWidth: 0 }}
+                style={{ ...inputBase, flex: 1, minWidth: 0, ...(preview?.missing ? { borderColor: 'var(--error)' } : {}) }}
+                aria-invalid={preview?.missing || undefined}
               />
               <button type="button" onClick={() => check()} disabled={!text.trim() || checking} aria-busy={checking || undefined} style={{ ...btnGhost, width: 'auto', flexShrink: 0 }}>{checking ? '確かめています…' : '確かめる'}</button>
             </div>
-            <p style={note}>相手のプロフィールのリンクを貼ってください。名前では探せません。</p>
-            {preview?.missing && <p role="status" style={{ ...note, color: 'var(--text)' }}>{followResultMessage('not_found')}</p>}
+            {!preview?.missing && <p style={note}>{withPhraseBreaks('相手のプロフィールのリンクを貼ってください。名前では探せません。')}</p>}
+            {preview?.missing && <p role="alert" style={{ margin: 0, fontSize: 'var(--text-body)', color: 'var(--error)', lineHeight: 1.6 }}>{withPhraseBreaks(followResultMessage('not_found'))}</p>}
             {preview?.person && (
               <div role="status" style={{ ...row(true), borderBottom: '1px solid var(--separator)' }}>
                 <UserAvatar avatarId={preview.person.avatar} nickname={preview.person.nickname} size={40} />
@@ -389,7 +390,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant }) {
               <div role="list" style={{ marginTop: 'var(--space-3)' }}>
                 {tab === 'following' && (lists.following.length
                   ? lists.following.map((p, i) => <PersonRow key={p.publicId} first={i === 0} person={p} onOpen={() => openPerson(p)} />)
-                  : <p style={note}>フォロー中の人はいません。相手のリンクから申し込めます。</p>)}
+                  : <p style={note}>{withPhraseBreaks('フォロー中の人はいません。相手のリンクから申し込めます。')}</p>)}
                 {tab === 'followers' && (lists.followers.length
                   ? lists.followers.map((p, i) => (
                     <PersonRow key={p.publicId} first={i === 0} person={p}>
@@ -407,7 +408,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant }) {
                       </button>
                     </PersonRow>
                   ))
-                  : <p style={note}>フォロワーはいません。あなたのリンクを渡すと、申し込みが届きます。</p>)}
+                  : <p style={note}>{withPhraseBreaks('フォロワーはいません。あなたのリンクを渡すと、申し込みが届きます。')}</p>)}
                 {tab === 'requests' && (
                   <>
                     {lists.requests.length === 0 && lists.sent.length === 0 && <p style={note}>申し込みはありません。</p>}
