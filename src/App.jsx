@@ -1947,6 +1947,12 @@ function AuthedApp() {
     const target = detailUploadTargetRef.current;
     detailUploadTargetRef.current = null;
     if (!file || !target) return;
+    // 選んだ写真をすぐ表紙に見せる（縮めて送り終えるまで数秒、何も変わらなかった・2026-11-21）。できなかったら元の表紙に戻す。
+    let preview = '';
+    try { preview = URL.createObjectURL(file); } catch { /* ignore */ }
+    const prevCover = { cover: target.cover, coverIsbn: target.coverIsbn };
+    if (preview) setCurrent((c) => (c && c.id === target.id ? { ...c, cover: preview, coverIsbn: 'manual' } : c));
+    const dropPreview = () => { if (preview) setTimeout(() => { try { URL.revokeObjectURL(preview); } catch { /* ignore */ } }, 30000); };
     try {
       const url = await uploadCover(file);
       if (!url) throw new Error('アップロード URL の取得に失敗しました');
@@ -1963,9 +1969,12 @@ function AuthedApp() {
         setCurrent((c) => (c && c.id === next.id ? next : c));
       });
       toast.success('表紙を更新しました。');
+      dropPreview();
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error('[manual-upload] failed:', err);
+      if (preview) setCurrent((c) => (c && c.id === target.id && c.cover === preview ? { ...c, ...prevCover } : c));
+      dropPreview();
       toast.error(toMessage(err, '表紙をアップロードできませんでした'));
     }
   };
@@ -2105,7 +2114,7 @@ function AuthedApp() {
 
   // CoverFixModal からの表紙差し替え（LIST / DETAIL 2 箇所の mount から共有）。
   // 楽観的 UI 更新 → チェーン + 実行時点 rebase で cover だけ差し替え（並行編集
-  // の巻き戻し防止）。saveBook 失敗時は次の fetchBooks で元に戻り整合する。
+  // の巻き戻し防止）。saveBook 失敗時は表紙を元に戻して知らせる。
   const handleCoverFixPick = async (book, { cover, coverIsbn }) => {
     if (!book) return;
     setCurrent((c) => (c && c.id === book.id ? { ...c, cover, coverIsbn } : c));
@@ -2122,6 +2131,8 @@ function AuthedApp() {
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error('[cover-modal] DB update failed:', error);
+      // 先に差し替えた表紙を元に戻す（前は読み直すまで、保存できなかった表紙が見えたままだった・2026-11-21）。
+      setCurrent((c) => (c && c.id === book.id && c.cover === cover ? { ...c, cover: book.cover, coverIsbn: book.coverIsbn } : c));
       toast.error(toMessage(error, '表紙を更新できませんでした。'));
     }
   };
