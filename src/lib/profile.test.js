@@ -57,3 +57,10 @@ describe('公開の本棚・自己紹介（2026-11-21）', async () => {
     expect(p.shelfHidden).toEqual([id]);
   });
 });
+
+describe('公開をやめたら本棚の公開もやめる', () => {
+  it('公開がオフなら本棚の公開もオフとして扱う', () => {
+    expect(normalizeProfile({ isPublic: false, shelfPublic: true }).shelfPublic).toBe(false);
+    expect(normalizeProfile({ isPublic: true, shelfPublic: true }).shelfPublic).toBe(true);
+  });
+});
