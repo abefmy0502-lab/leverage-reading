@@ -466,7 +466,10 @@ export default function Landing() {
       // 広い画面ではヘッダーが上に付いたままなので、その下から見えている範囲で数える。
       const top = Math.max(0, document.querySelector('.lp-header')?.getBoundingClientRect().bottom || 0);
       // 本文の中の同じボタン（初日から・料金・最後）が見えている間は、固定ボタン・ヘッダーのボタンを出さない。
-      const inlineCtaVisible = Array.from(document.querySelectorAll('.lp-btn')).some((b) => {
+      // 料金の節を読んでいる間も出さない（値段を比べている最中に下へ付いてくるボタンが邪魔・2026-11-21 LP の見直し）。
+      const pricing = document.querySelector('[data-lp-sec="pricing"]')?.getBoundingClientRect();
+      const inPricing = !!pricing && pricing.bottom > top && pricing.top < vh;
+      const inlineCtaVisible = inPricing || Array.from(document.querySelectorAll('.lp-btn')).some((b) => {
         if (b.closest('.lp-sticky, .lp-header') || el?.contains(b)) return false;
         const r = b.getBoundingClientRect();
         return r.bottom > top && r.top < vh;
@@ -553,8 +556,8 @@ export default function Landing() {
                 {heroVariant === 'talk' ? HERO_TALK.h1.map((t) => <span key={t}>{t}</span>) : <><span>読んだ本と、</span><span>会話しよう。</span></>}
               </h1>
               {/* 2026-10-17 指示書（見出しは同日オーナー裁定で「会話しよう。」のまま）: 補足は体験が思い浮かぶ 2 行（残す → 相談する） */}
-              <p className="lp-lead lp-lead-lines">
-                {heroVariant === 'talk' ? HERO_TALK.lead.map((t) => <span key={t}>{t}</span>) : <><span>心に残った一行を、本ごとにメモしておく。</span><span>迷ったとき、その本に相談できます。</span></>}
+              <p className="lp-lead lp-lead-lines lp-wbr">
+                {heroVariant === 'talk' ? HERO_TALK.lead.map((t) => <span key={t}>{t.split(/(?<=[」。])/).map((c) => <span key={c} className="lp-nb">{c}</span>)}</span>) : <><span>心に残った一行を、本ごとにメモしておく。</span><span>迷ったとき、その本に相談できます。</span></>}
               </p>
               <div className="lp-cta-block" ref={heroCtaRef}>
                 {/* QR は最後の案内だけ（ヒーローの主ボタンの横の黒い四角がいちばん重く見えた・2026-10-16 ui-critic） */}
@@ -608,7 +611,7 @@ export default function Landing() {
         {/* ============ 共感（黄金の流れの 2 番目・2026-11-11）: 読む人の困りごとを 2 行だけ。数字は使わない ============ */}
         <section className="lp-sec lp-problem-sec" aria-label="こんなことは、ありませんか" data-lp-sec="problem">
           <div className="lp-wrap lp-narrow">
-            <p className="lp-problem-lines">{PROBLEM_LINES.map((t) => <span key={t}>{t}</span>)}</p>
+            <p className="lp-problem-lines lp-wbr">{PROBLEM_LINES.map((t) => <span key={t}><Phrases>{t}</Phrases></span>)}</p>
             <p className="lp-problem-answer">その本に、そのとき聞けたら。<br />Orime なら、それができます。</p>
           </div>
         </section>
@@ -716,7 +719,7 @@ export default function Landing() {
               {/* 2026-11-15 オーナー「確かに考えたら安いか、となるように」: 段落をやめ、物差し 3 つ（1 日あたり・本 1 冊・読み返す時間）。比べる値段（他社・定価）は書かない */}
               {/* 2026-11-15 オーナー「安く感じるようなイラスト図を」: 「本 1 冊分」を絵に（その行は図に任せて外した） */}
               <LpCostDiagram talks={PAID_TALKS} />
-              <p className="lp-cost-note">{OFFER.active ? `1 日 約 ${FOUNDING_PER_DAY_TEXT} は創業メンバー価格の年額プラン（1 年目 ${OFFER.price}）のとき。` : `1 日 約 ${ANNUAL_PER_DAY_TEXT} は年額プラン（${ANNUAL_TEXT}）のとき。`}月額 {MONTHLY_TEXT} なら 1 日 約 {PER_DAY_TEXT}。</p>
+              <p className="lp-cost-note">{OFFER.active ? `1 日 約 ${FOUNDING_PER_DAY_TEXT} は創業メンバー価格の年額プラン（1 年目 ${OFFER.price}）のとき。` : `1 日 約 ${ANNUAL_PER_DAY_TEXT} は年額プラン（${ANNUAL_TEXT} を 1 年分前払い）のとき。`}月額 {MONTHLY_TEXT} なら 1 日 約 {PER_DAY_TEXT}。</p>
             </div>
 
             {/* 2 枚（無料プラン（ずっと無料）と、プラン）。広い画面では横に並べる */}
@@ -760,7 +763,8 @@ export default function Landing() {
                     ) : (
                       <>
                         <p className="lp-plan-price">{ANNUAL_TEXT}<span>/ 年（税込）</span></p>
-                        <p className="lp-plan-sub"><span className="lp-nb">月あたり約 {PER_MONTH_TEXT}</span>{SAVE && <> · <span className="lp-nb">{SAVE.replace('月額プランより', '月額より')}</span></>}</p>
+                        {/* 2026-11-21 ベンチマーク B4: 1 日あたり・月あたりの数の近くに、払い方（1 年分を前払い）を */}
+                        <p className="lp-plan-sub"><span className="lp-nb">1 年分を前払い。</span><span className="lp-nb">月あたり約 {PER_MONTH_TEXT}</span>{SAVE && <> · <span className="lp-nb">{SAVE.replace('月額プランより', '月額より')}</span></>}</p>
                       </>
                     )}
                   </div>

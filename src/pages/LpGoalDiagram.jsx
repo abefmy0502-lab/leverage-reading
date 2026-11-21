@@ -12,7 +12,7 @@ const STEPS = [
 
 export default function LpGoalDiagram() {
   return (
-    <ol className="lp-talk-diagram" aria-label="目標から読書計画まで: 1・3・5 年後の目標、達成するには？、ロードマップ、読む本のカレンダー">
+    <ol className="lp-talk-diagram lp-goal-diagram" aria-label="目標から読書計画まで: 1・3・5 年後の目標、達成するには？、ロードマップ、読む本のカレンダー">
       {STEPS.map(({ Icon, label }, i) => [
         i > 0 && <li key={`a${i}`} className="lp-talk-diagram-arrow" aria-hidden="true" role="presentation"><ChevronRight size="1em" /></li>,
         <li key={label.join('')} className={`lp-talk-diagram-node${i === STEPS.length - 1 ? ' is-last' : ''}`}>

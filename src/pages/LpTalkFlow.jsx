@@ -36,7 +36,7 @@ export default function LpTalkFlow() {
       <ol className="lp-chat" aria-label="相談の流れの見本">
         <Me meta="相談する本：稲盛和夫『考え方』">{ask.ask}</Me>
         <Book from={answer.from}>
-          <p className="lp-chat-text is-read">{answer.answer}</p>
+          <p className="lp-chat-text">{answer.answer}</p>
           <p className="lp-chat-evidence-line">{answer.evidenceLine}</p>
           <p className="lp-chat-label">あなたに聞きたいこと</p>
           <p className="lp-chat-text">{answer.question}</p>
@@ -44,7 +44,7 @@ export default function LpTalkFlow() {
         <Me>{T.reply}</Me>
         <Book from={T.replyFrom}>
           <p className="lp-chat-label"><Target size="1em" aria-hidden="true" /> 明日からできる一歩</p>
-          <p className="lp-chat-text is-read">{step.action}</p>
+          {[].concat(step.action).map((t) => <p key={t} className="lp-chat-text">{t}</p>)}
         </Book>
         {/* 2026-11-11 オーナー「行動に追加ボタンは初めて見た人だとわからない」: ボタンの絵をやめ、押したあとに起きること（明日の行動リストに入る）を見せる */}
         <li className="lp-chat-row is-result">
