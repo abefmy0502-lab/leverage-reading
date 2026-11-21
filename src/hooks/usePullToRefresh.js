@@ -35,11 +35,16 @@ export function usePullToRefresh({ onRefresh, threshold = DEFAULT_THRESHOLD } = 
   const [pullDistance, setPullDistance] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const startYRef = useRef(null);
+  const startXRef = useRef(null);
+  // 向きが決まったか（null＝まだ・'y'＝縦に引いている）。横に振った（メモを消すスワイプなど）ときは引っ張って更新にしない（2026-11-21）。
+  const lockRef = useRef(null);
   const activeRef = useRef(false);
   const targetRef = useRef(null);
 
   const reset = useCallback(() => {
     startYRef.current = null;
+    startXRef.current = null;
+    lockRef.current = null;
     activeRef.current = false;
     setPullDistance(0);
   }, []);
@@ -53,6 +58,8 @@ export function usePullToRefresh({ onRefresh, threshold = DEFAULT_THRESHOLD } = 
     const t = e.touches?.[0];
     if (!t) return;
     startYRef.current = t.clientY;
+    startXRef.current = t.clientX;
+    lockRef.current = null;
     targetRef.current = e.target;
     activeRef.current = true;
   }, [isRefreshing]);
@@ -68,6 +75,12 @@ export function usePullToRefresh({ onRefresh, threshold = DEFAULT_THRESHOLD } = 
         return;
       }
       const dy = t.clientY - startYRef.current;
+      if (!lockRef.current) {
+        const dx = Math.abs(t.clientX - (startXRef.current ?? t.clientX));
+        if (dx < 8 && Math.abs(dy) < 8) return; // まだ向きが分からない
+        if (dx >= Math.abs(dy)) { reset(); return; } // 横に振っている
+        lockRef.current = 'y';
+      }
       if (dy <= 0) {
         setPullDistance(0);
         return;

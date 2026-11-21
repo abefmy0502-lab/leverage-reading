@@ -573,6 +573,36 @@ function Shell({ children }) {
 // 本の詳細の行動の並び（まだ → 完了）を、その本を見ている間は固定する（index の並び）。
 //   行動の数が変わったら（足した・消した）並べ直す。ほかの本を開いたら並べ直す。
 let detailActionOrderMemo = { bookId: null, order: [] };
+// 控えたスクロールの位置へ、箱がその高さまで伸びるのを待って合わせる（最大 60 フレーム≈1 秒・2026-11-21）。
+//   待っている間に自分で動かしたら、合わせるのをやめる。片付けの関数を返す（useEffect の戻り値に）。
+function restoreScrollWhenReady(getEl, target) {
+  let raf = 0;
+  let tries = 0;
+  let cancelled = false;
+  const el0 = getEl();
+  const stop = () => { cancelled = true; };
+  el0?.addEventListener('touchstart', stop, { passive: true, once: true });
+  el0?.addEventListener('wheel', stop, { passive: true, once: true });
+  const step = () => {
+    if (cancelled) return;
+    const el = getEl();
+    if (el && el.scrollHeight - el.clientHeight >= target - 1) {
+      try { el.scrollTop = target; } catch { /* ignore */ }
+      return;
+    }
+    tries += 1;
+    if (tries < 60) raf = requestAnimationFrame(step);
+    else if (el) { try { el.scrollTop = target; } catch { /* ignore */ } }
+  };
+  raf = requestAnimationFrame(step);
+  return () => {
+    cancelled = true;
+    cancelAnimationFrame(raf);
+    el0?.removeEventListener('touchstart', stop);
+    el0?.removeEventListener('wheel', stop);
+  };
+}
+
 function stableDetailActionOrder(book) {
   const actions = Array.isArray(book?.actions) ? book.actions : [];
   const visible = actions
@@ -1618,15 +1648,14 @@ function AuthedApp() {
   // コンテナは key={tab} で毎回リマウントされ 0 に飛ぶが、iOS 純正アプリは
   // タブごとに位置を必ず保持する（App Store / 写真等）。savedShelfScroll は
   // 本棚滞在中の onScroll で常時更新済みなので、復元は常に正しい。
+  // 一覧（表紙・行）があとから伸びるので、控えた位置まで送れる高さになるまで待って合わせる（振り返りと同じ・最大 1 秒・2026-11-21）。
+  //   前は 1 回だけ合わせていて、本が多いと途中の高さで止まり、戻るたびに位置がずれていた。
   useEffect(() => {
     prevViewRef.current = view;
     if (view === 'list' && tab === 'books' && savedShelfScroll.current > 0) {
-      requestAnimationFrame(() => {
-        if (listScrollRef.current) {
-          try { listScrollRef.current.scrollTop = savedShelfScroll.current; } catch { /* ignore */ }
-        }
-      });
+      return restoreScrollWhenReady(() => listScrollRef.current, savedShelfScroll.current);
     }
+    return undefined;
   }, [view, tab]);
 
   // 振り返りのスクロール位置の復元（本棚は上の savedShelfScroll）。中身（行動の一覧など）は
@@ -1647,32 +1676,7 @@ function AuthedApp() {
     }
     const target = savedTabScroll.current[key] || 0;
     if (target <= 0) return undefined;
-    let raf = 0;
-    let tries = 0;
-    let cancelled = false;
-    const el0 = listScrollRef.current;
-    const stop = () => { cancelled = true; };
-    // 待っている間に自分で動かしたら、合わせるのをやめる。
-    el0?.addEventListener('touchstart', stop, { passive: true, once: true });
-    el0?.addEventListener('wheel', stop, { passive: true, once: true });
-    const step = () => {
-      if (cancelled) return;
-      const el = listScrollRef.current;
-      if (el && el.scrollHeight - el.clientHeight >= target - 1) {
-        try { el.scrollTop = target; } catch { /* ignore */ }
-        return;
-      }
-      tries += 1;
-      if (tries < 60) raf = requestAnimationFrame(step);
-      else if (el) { try { el.scrollTop = target; } catch { /* ignore */ } }
-    };
-    raf = requestAnimationFrame(step);
-    return () => {
-      cancelled = true;
-      cancelAnimationFrame(raf);
-      el0?.removeEventListener('touchstart', stop);
-      el0?.removeEventListener('wheel', stop);
-    };
+    return restoreScrollWhenReady(() => listScrollRef.current, target);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, tab, reviewSubTab]);
 

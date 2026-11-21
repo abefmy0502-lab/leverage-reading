@@ -12,7 +12,7 @@
 // 見た目は DESIGN.md に従う（2026-09-26 作り直し）: トークンだけ・主ボタンは各段階に 1 つ・
 // 説明の補足文は置かない（§0-6）・選択はアクセント色の丸いチェック（iOS の選択リストの作法）。
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { scrollBehavior } from '../lib/motion';
 import NotifyOptInCard from './NotifyOptInCard';
 import GrowthMeter from './GrowthMeter';
@@ -292,13 +292,17 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
   };
 
   useEffect(() => { track('quickstart_started'); }, []);
-  useEffect(() => { if (step === 'memo') memoRef.current?.focus(); }, [step, idx]);
   // 段階が変わったら、中身は先頭から見せる（前の段階の送った位置が残り、できあがりの表紙の上が隠れていた・2026-10-04 ui-critic）。
-  useEffect(() => {
+  //   描く前に戻してから欄にカーソルを置く（前は カーソルで送る → 先頭へ戻す の順で、画面が 2 回動いていた・2026-11-21）。
+  useLayoutEffect(() => {
     const root = trapRef.current;
     if (!root) return;
     root.querySelectorAll('div').forEach((el) => { if (el.scrollTop) el.scrollTop = 0; });
   }, [step, trapRef]);
+  useEffect(() => {
+    if (step !== 'memo') return;
+    try { memoRef.current?.focus({ preventScroll: true }); } catch { memoRef.current?.focus(); }
+  }, [step, idx]);
 
   // 本棚にすでにある読書中・読了の本（本はあるがメモ 0 件の人向け）。未検索のときだけ出す。
   const shelfBooks = books.filter((b) => b.status === 'done' || b.status === 'reading').slice(0, 8);
