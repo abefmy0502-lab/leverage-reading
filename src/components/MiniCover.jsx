@@ -16,7 +16,8 @@ export default function MiniCover({ title = '', cover = '', width = 72, showTitl
       style={{
         ...box, display: 'flex', alignItems: 'flex-end', padding: 'var(--space-2)', borderColor: 'transparent',
         background: `linear-gradient(160deg, ${a}, ${b})`, color: 'var(--on-cover)', fontSize: 'var(--text-meta)', fontWeight: 600,
-        lineHeight: 1.4, overflow: 'hidden', wordBreak: 'keep-all', overflowWrap: 'break-word',
+        // 文節で折り返し、それでも入らない長い 1 語だけ最後の手段で割る（横に切らない）。
+        lineHeight: 1.4, overflow: 'hidden', wordBreak: 'keep-all', overflowWrap: 'anywhere',
       }}
     >
       {/* 細い表紙（56 より細い）には書名を載せない（読めない大きさになる）。 */}
