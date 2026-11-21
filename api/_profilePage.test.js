@@ -126,3 +126,24 @@ describe('公開のページの安全（App 審査 1.2・2026-11-21）', async (
     expect(html).toContain('mailto:');
   });
 });
+
+describe('自分のアイコン（公開のページ）', async () => {
+  const { renderAvatar, renderProfile: rp } = await import('./_profilePage.js');
+  it('選んだアイコンは色の丸に白い線の絵', () => {
+    const h = renderAvatar('book', 'テスト');
+    expect(h).toContain('class="av"');
+    expect(h).toContain('<svg');
+    expect(h).toContain('#4a6e8a');
+  });
+  it('選んでいなければニックネームの 1 字・決まっていない id は使わない', () => {
+    expect(renderAvatar('', 'あべ')).toContain('>あ<');
+    expect(renderAvatar('<script>', 'あべ')).not.toContain('script');
+    expect(renderAvatar('', '')).toBe('');
+  });
+  it('プロフィールのページの名前の上に出る', () => {
+    const r = rp({ nickname: 'テスト', avatar: 'cat', is_public: true }, { publicId: 'abcdefghij' });
+    const html = r.html;
+    expect(html.indexOf('class="av"')).toBeGreaterThan(-1);
+    expect(html.indexOf('class="av"')).toBeLessThan(html.indexOf('class="name"'));
+  });
+});

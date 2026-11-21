@@ -77,7 +77,13 @@ export default function ProfileSheet({ userId, onClose, onSaved }) {
       onClose={onClose}
       dismissLabel="キャンセル"
       layer="dialog"
-      footer={<button type="button" onClick={save} disabled={!dirty || busy} aria-busy={busy || undefined} style={dirty ? btnPrimary : btnPrimaryOff}>{busy ? '保存しています…' : '保存'}</button>}
+      footer={(
+        // 保存できなかった理由は保存のボタンのすぐ上に（シートの下まで送らなくても見える・2026-11-21 確認で）。
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+          {error && <p role="alert" style={{ ...note, color: 'var(--error)' }}>{error}</p>}
+          <button type="button" onClick={save} disabled={!dirty || busy} aria-busy={busy || undefined} style={dirty ? btnPrimary : btnPrimaryOff}>{busy ? '保存しています…' : '保存'}</button>
+        </div>
+      )}
     >
       {loading ? (
         <p role="status" style={note}>読み込んでいます…</p>
@@ -110,7 +116,6 @@ export default function ProfileSheet({ userId, onClose, onSaved }) {
               </button>
             )}
           </div>
-          {error && <p role="alert" style={{ ...note, color: 'var(--error)' }}>{error}</p>}
         </div>
       )}
     </BottomSheet>,
