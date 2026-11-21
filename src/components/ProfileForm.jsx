@@ -6,6 +6,8 @@ import { Search } from 'lucide-react';
 import { input as inputBase, groupTitle, fieldNote, btnGhost, btnLink } from '../styles/ui';
 import { searchBooks } from '../lib/bookSearch';
 import { PROFILE_LIMITS } from '../lib/profile';
+import { AVATARS } from '../lib/avatars';
+import UserAvatar from './UserAvatar';
 
 const field = { display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' };
 const label = { ...groupTitle, margin: 0 };
@@ -29,7 +31,7 @@ function BookLine({ title, author, cover }) {
   );
 }
 
-export default function ProfileForm({ value, onChange, showBio = false }) {
+export default function ProfileForm({ value, onChange, showBio = false, showAvatar = false }) {
   const ids = { nick: useId(), book: useId(), line: useId(), bio: useId() };
   const set = (patch) => onChange({ ...value, ...patch });
   const [query, setQuery] = useState('');
@@ -71,6 +73,33 @@ export default function ProfileForm({ value, onChange, showBio = false }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
+      {showAvatar && (
+        <div style={field} role="group" aria-label="アイコン">
+          <span style={label}>アイコン</span>
+          {/* 10 個の決まったアイコンから 1 つ（2026-11-21・lib/avatars.js）。押した物を枠で示す・もう一度押すと外す。 */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 48px)', justifyContent: 'space-between', rowGap: 'var(--space-3)' }}>
+            {AVATARS.map((a) => {
+              const on = value.avatar === a.id;
+              return (
+                <button
+                  key={a.id}
+                  type="button"
+                  aria-pressed={on}
+                  aria-label={a.label}
+                  onClick={() => set({ avatar: on ? '' : a.id })}
+                  style={{
+                    width: 48, height: 48, padding: 0, border: 'none', borderRadius: '50%', background: 'none', cursor: 'pointer',
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    boxShadow: on ? '0 0 0 2px var(--surface), 0 0 0 4px var(--accent)' : 'none',
+                  }}
+                >
+                  <UserAvatar avatarId={a.id} size={44} />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
       <div style={field}>
         <label htmlFor={ids.nick} style={label}>ニックネーム<span style={fieldNote}>（任意）</span></label>
         <input id={ids.nick} value={value.nickname} onChange={(e) => set({ nickname: e.target.value })} maxLength={PROFILE_LIMITS.nickname} placeholder="例：ふみ" autoComplete="nickname" style={inputBase} />

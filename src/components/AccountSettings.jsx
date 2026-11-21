@@ -38,6 +38,7 @@ import { AppPurposeEditSheet, PurposeCheckSheet } from './AppPurposeSheets';
 import { useAppPurpose } from '../hooks/useAppPurpose';
 import ProfileSheet from './ProfileSheet';
 import { useProfile, resetProfileCache } from '../hooks/useProfile';
+import UserAvatar from './UserAvatar';
 import { hasProfile, addressName } from '../lib/profile';
 import { markReleaseSeen, releaseHeading, loadReleaseNotes, BUNDLED_RELEASE_ID } from '../lib/whatsNew';
 import { exportUserDataAsCSV, exportMemosAsMarkdown } from '../lib/exportData';
@@ -1027,7 +1028,8 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
 
           {/* 👤 プロフィール（2026-11-21 オーナー「ニックネームと好きな本とおすすめの 1 行」）。押すとシート（ProfileSheet）。 */}
           <Group label="プロフィール">
-            <button type="button" onClick={() => setProfileOpen(true)} style={rowButtonStyle}>
+            <button type="button" onClick={() => setProfileOpen(true)} style={{ ...rowButtonStyle, gap: 'var(--space-3)' }}>
+              <UserAvatar avatarId={myProfile.avatar} nickname={myProfile.nickname} size={40} />
               <span style={{ flex: 1, minWidth: 0 }}>
                 <span style={{ ...rowTitleStyle, display: 'block', color: 'inherit', overflowWrap: 'anywhere' }}>
                   {hasProfile(myProfile) ? (addressName(myProfile) || 'ニックネームなし') : 'ニックネームと好きな本'}

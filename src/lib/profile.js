@@ -5,6 +5,7 @@
 //   public_id は本人が選ばない無作為の英小文字と数字 10 字（名前の取り合い・なりすましを防ぐ）。
 import { supabase, isSupabaseConfigured } from './supabase';
 import { SITE_URL } from './legalLinks';
+import { cleanAvatarId } from './avatars';
 
 export const PROFILE_LIMITS = { nickname: 20, title: 120, author: 80, line: 80, bio: 160, hidden: 2000 };
 const KEY = (uid) => `orime.profile.v1:${uid || 'anon'}`;
@@ -12,7 +13,7 @@ const ID_CHARS = 'abcdefghijkmnpqrstuvwxyz23456789'; // 見分けにくい l・o
 
 export const EMPTY_PROFILE = Object.freeze({
   publicId: '', nickname: '', favTitle: '', favAuthor: '', favIsbn: '', favCover: '', favLine: '', isPublic: false, hidden: false,
-  bio: '', shelfPublic: false, shelfHidden: Object.freeze([]),
+  bio: '', shelfPublic: false, shelfHidden: Object.freeze([]), avatar: '',
 });
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -37,6 +38,7 @@ export function normalizeProfile(p = {}) {
     hidden: !!p.hidden,
     bio: cleanBio(p.bio),
     shelfPublic: !!p.shelfPublic,
+    avatar: cleanAvatarId(p.avatar),
     shelfHidden: [...new Set((Array.isArray(p.shelfHidden) ? p.shelfHidden : []).map(String).filter((id) => UUID_RE.test(id)))].slice(0, PROFILE_LIMITS.hidden),
   };
 }
@@ -64,18 +66,18 @@ export function profileUrl(publicId) {
 const fromRow = (r) => normalizeProfile({
   publicId: r.public_id, nickname: r.nickname, favTitle: r.fav_title, favAuthor: r.fav_author, favIsbn: r.fav_isbn,
   favCover: r.fav_cover, favLine: r.fav_line, isPublic: r.is_public, hidden: r.hidden,
-  bio: r.bio, shelfPublic: r.shelf_public, shelfHidden: r.shelf_hidden,
+  bio: r.bio, shelfPublic: r.shelf_public, shelfHidden: r.shelf_hidden, avatar: r.avatar,
 });
 const toRow = (p) => ({
   public_id: p.publicId, nickname: p.nickname, fav_title: p.favTitle, fav_author: p.favAuthor, fav_isbn: p.favIsbn,
   fav_cover: p.favCover, fav_line: p.favLine, is_public: p.isPublic,
-  bio: p.bio, shelf_public: p.shelfPublic, shelf_hidden: p.shelfHidden,
+  bio: p.bio, shelf_public: p.shelfPublic, shelf_hidden: p.shelfHidden, avatar: p.avatar,
 });
 // 本棚の公開の列（bio・shelf_*）がまだ無い DB（前の版の SQL だけ流した）では、その 3 つを外して読み書きする。
 const BASE_COLS = 'public_id, nickname, fav_title, fav_author, fav_isbn, fav_cover, fav_line, is_public, hidden';
-const FULL_COLS = `${BASE_COLS}, bio, shelf_public, shelf_hidden`;
-const isMissingColumn = (e) => !!e && (e.code === '42703' || e.code === 'PGRST204' || /(bio|shelf_public|shelf_hidden)/.test(String(e.message || '')));
-const baseRow = (row) => { const { bio, shelf_public, shelf_hidden, ...rest } = row; return rest; };
+const FULL_COLS = `${BASE_COLS}, bio, shelf_public, shelf_hidden, avatar`;
+const isMissingColumn = (e) => !!e && (e.code === '42703' || e.code === 'PGRST204' || /(bio|shelf_public|shelf_hidden|avatar)/.test(String(e.message || '')));
+const baseRow = (row) => { const { bio, shelf_public, shelf_hidden, avatar, ...rest } = row; return rest; };
 
 const isMissingTable = (e) => !!e && (e.code === '42P01' || e.code === 'PGRST205' || /profiles/.test(String(e.message || '')) && /(does not exist|schema cache)/.test(String(e.message || '')));
 
@@ -126,7 +128,7 @@ export async function saveProfile(uid, input, { client = supabase } = {}) {
     if (error && isMissingColumn(error)) {
       ({ data, error } = await client.from('profiles').upsert(baseRow(row), { onConflict: 'user_id' }).select(BASE_COLS).maybeSingle());
       if (!error) {
-        const saved = { ...(data ? fromRow(data) : p), bio: p.bio, shelfPublic: false, shelfHidden: p.shelfHidden };
+        const saved = { ...(data ? fromRow(data) : p), bio: p.bio, shelfPublic: false, shelfHidden: p.shelfHidden, avatar: p.avatar };
         writeLocal(uid, saved);
         return { profile: saved, stored: 'server', shelfReady: false };
       }

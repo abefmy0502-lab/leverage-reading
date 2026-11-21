@@ -127,6 +127,7 @@ import { MODEL_SMART } from './lib/models';
 import { findDuplicateBook, findImportDuplicate, STATUS_LABEL, isUniqueViolation } from './lib/checkDuplicate';
 import { favoriteChanged, shelfShows, withShelfHidden } from './lib/profile';
 import { useProfile, saveProfileShared } from './hooks/useProfile';
+import UserAvatar from './components/UserAvatar';
 import { onShelfByTitle } from './lib/ownedTitle';
 import { saveStrategyHistory, popStrategyHistory, hasStrategyHistory, clearStrategyHistory } from './lib/strategyHistory';
 const CoverFixModal = lazy(() => import('./components/CoverFixModal'));
@@ -226,7 +227,6 @@ import {
   RotateCcw,
   Brain,
   HelpCircle,
-  Settings as SettingsIcon,
   Target,
   MessageCircle,
   Smartphone,
@@ -6172,13 +6172,15 @@ function AuthedApp() {
       >
         <HelpCircle size={22} strokeWidth={1.75} aria-hidden="true" />
       </button>
+      {/* 🙂 右上は自分のアイコン（2026-11-21 オーナー「設定マークではなく自分のアイコンに」）。押すと今までどおり設定。
+          見た目 28（? の 22 と並ぶ大きさ）・押せる範囲 44。選んでいなければニックネームの 1 字か人の形（UserAvatar）。 */}
       <button
         onClick={() => setSettingsOpen(true)}
-        style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: "50%", color: "var(--text-2)", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
-        aria-label="アカウント設定を開く"
-        title="設定"
+        style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: "50%", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
+        aria-label="プロフィールと設定を開く"
+        title="プロフィールと設定"
       >
-        <SettingsIcon size={22} strokeWidth={1.75} aria-hidden="true" />
+        <UserAvatar avatarId={myProfile?.avatar} nickname={myProfile?.nickname} size={28} />
       </button>
     </div>
   </header>

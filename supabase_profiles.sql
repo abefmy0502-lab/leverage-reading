@@ -50,9 +50,16 @@ end $$;
 alter table public.profiles add column if not exists bio text not null default '';
 alter table public.profiles add column if not exists shelf_public boolean not null default false;
 alter table public.profiles add column if not exists shelf_hidden uuid[] not null default '{}';
+-- 自分のアイコン（2026-11-21・決まった 10 個の名前だけ・空は選んでいない・src/lib/avatars.js）。
+alter table public.profiles add column if not exists avatar text not null default '';
 
 do $$
 begin
+  if not exists (select 1 from pg_constraint where conname = 'profiles_avatar_check') then
+    alter table public.profiles add constraint profiles_avatar_check check (
+      avatar in ('', 'book', 'coffee', 'leaf', 'moon', 'sun', 'feather', 'mountain', 'waves', 'cat', 'bird')
+    );
+  end if;
   if not exists (select 1 from pg_constraint where conname = 'profiles_shelf_check') then
     alter table public.profiles add constraint profiles_shelf_check check (
       char_length(bio) <= 160 and cardinality(shelf_hidden) <= 2000

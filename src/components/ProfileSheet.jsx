@@ -83,7 +83,7 @@ export default function ProfileSheet({ userId, onClose, onSaved }) {
         <p role="status" style={note}>読み込んでいます…</p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
-          <ProfileForm value={draft} onChange={change} showBio />
+          <ProfileForm value={draft} onChange={change} showBio showAvatar />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', paddingTop: 'var(--space-4)', borderTop: '1px solid var(--separator)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
               <span style={{ fontSize: 'var(--text-body)', color: 'var(--text)' }}>公開する</span>
