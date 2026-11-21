@@ -6,14 +6,16 @@
 import { supabase, isSupabaseConfigured } from './supabase';
 import { SITE_URL } from './legalLinks';
 import { cleanAvatarId } from './avatars';
+import { SOCIAL_ON } from './social';
 
-export const PROFILE_LIMITS = { nickname: 20, title: 120, author: 80, line: 80, bio: 160, hidden: 2000 };
+// 好きな言葉は VITE_SOCIAL のビルドから 200 字（メモから選ぶため・supabase_profiles.sql の 3 回目）。前のビルドは 80 字のまま。
+export const PROFILE_LIMITS = { nickname: 20, title: 120, author: 80, line: SOCIAL_ON ? 200 : 80, bio: 160, hidden: 2000 };
 const KEY = (uid) => `orime.profile.v1:${uid || 'anon'}`;
 const ID_CHARS = 'abcdefghijkmnpqrstuvwxyz23456789'; // 見分けにくい l・o・0・1 を除く
 
 export const EMPTY_PROFILE = Object.freeze({
   publicId: '', nickname: '', favTitle: '', favAuthor: '', favIsbn: '', favCover: '', favLine: '', isPublic: false, hidden: false,
-  bio: '', shelfPublic: false, shelfHidden: Object.freeze([]), avatar: '',
+  bio: '', shelfPublic: false, shelfHidden: Object.freeze([]), avatar: '', summaryPublic: false,
 });
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -39,6 +41,8 @@ export function normalizeProfile(p = {}) {
     bio: cleanBio(p.bio),
     // 公開をやめたら本棚の公開も一緒にやめる（次に公開したとき、本棚まで黙って出さない・2026-11-21 確認で）。
     shelfPublic: !!p.isPublic && !!p.shelfPublic,
+    // 本のまとめの公開は、本棚の公開がオンのときだけ（2026-11-21 3 回目・既定オフ）。
+    summaryPublic: !!p.isPublic && !!p.shelfPublic && !!p.summaryPublic,
     avatar: cleanAvatarId(p.avatar),
     shelfHidden: [...new Set((Array.isArray(p.shelfHidden) ? p.shelfHidden : []).map(String).filter((id) => UUID_RE.test(id)))].slice(0, PROFILE_LIMITS.hidden),
   };
@@ -67,16 +71,20 @@ export function profileUrl(publicId) {
 const fromRow = (r) => normalizeProfile({
   publicId: r.public_id, nickname: r.nickname, favTitle: r.fav_title, favAuthor: r.fav_author, favIsbn: r.fav_isbn,
   favCover: r.fav_cover, favLine: r.fav_line, isPublic: r.is_public, hidden: r.hidden,
-  bio: r.bio, shelfPublic: r.shelf_public, shelfHidden: r.shelf_hidden, avatar: r.avatar,
+  bio: r.bio, shelfPublic: r.shelf_public, shelfHidden: r.shelf_hidden, avatar: r.avatar, summaryPublic: r.summary_public,
 });
 const toRow = (p) => ({
   public_id: p.publicId, nickname: p.nickname, fav_title: p.favTitle, fav_author: p.favAuthor, fav_isbn: p.favIsbn,
   fav_cover: p.favCover, fav_line: p.favLine, is_public: p.isPublic,
   bio: p.bio, shelf_public: p.shelfPublic, shelf_hidden: p.shelfHidden, avatar: p.avatar,
+  // まとめの公開の列は VITE_SOCIAL のビルドだけ書く（前のビルドは列を知らないまま）。
+  ...(SOCIAL_ON ? { summary_public: p.summaryPublic } : {}),
 });
 // 本棚の公開の列（bio・shelf_*）がまだ無い DB（前の版の SQL だけ流した）では、その 3 つを外して読み書きする。
 const BASE_COLS = 'public_id, nickname, fav_title, fav_author, fav_isbn, fav_cover, fav_line, is_public, hidden';
-const FULL_COLS = `${BASE_COLS}, bio, shelf_public, shelf_hidden, avatar`;
+const MID_COLS = `${BASE_COLS}, bio, shelf_public, shelf_hidden, avatar`;
+const FULL_COLS = SOCIAL_ON ? `${MID_COLS}, summary_public` : MID_COLS;
+const isMissingSummary = (e) => SOCIAL_ON && !!e && (e.code === '42703' || e.code === 'PGRST204') && /summary_public/.test(String(e.message || ''));
 const isMissingColumn = (e) => !!e && (e.code === '42703' || e.code === 'PGRST204' || /(bio|shelf_public|shelf_hidden|avatar)/.test(String(e.message || '')));
 const baseRow = (row) => { const { bio, shelf_public, shelf_hidden, avatar, ...rest } = row; return rest; };
 
@@ -97,6 +105,7 @@ export async function loadProfile(uid, { client = supabase } = {}) {
   if (uid && isSupabaseConfigured && client) {
     try {
       let { data, error } = await client.from('profiles').select(FULL_COLS).eq('user_id', uid).maybeSingle();
+      if (error && isMissingSummary(error)) ({ data, error } = await client.from('profiles').select(MID_COLS).eq('user_id', uid).maybeSingle());
       if (error && isMissingColumn(error)) ({ data, error } = await client.from('profiles').select(BASE_COLS).eq('user_id', uid).maybeSingle());
       if (!error && data) return { profile: fromRow(data), stored: 'server' };
       if (!error && !data) {
@@ -126,6 +135,15 @@ export async function saveProfile(uid, input, { client = supabase } = {}) {
   if (uid && isSupabaseConfigured && client) {
     const row = { user_id: uid, ...toRow(p) };
     let { data, error } = await client.from('profiles').upsert(row, { onConflict: 'user_id' }).select(FULL_COLS).maybeSingle();
+    if (error && isMissingSummary(error)) {
+      const { summary_public, ...rest } = row;
+      ({ data, error } = await client.from('profiles').upsert(rest, { onConflict: 'user_id' }).select(MID_COLS).maybeSingle());
+      if (!error) {
+        const saved = { ...(data ? fromRow(data) : p), summaryPublic: false };
+        writeLocal(uid, saved);
+        return { profile: saved, stored: 'server', shelfReady: true, summaryReady: false };
+      }
+    }
     if (error && isMissingColumn(error)) {
       ({ data, error } = await client.from('profiles').upsert(baseRow(row), { onConflict: 'user_id' }).select(BASE_COLS).maybeSingle());
       if (!error) {

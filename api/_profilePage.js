@@ -6,11 +6,14 @@
 //   ページはスクリプトを使わない（CSP の script-src 'self'）・色と文字はアプリと同じ値（src/styles/tokens.css の写し）。
 //   本棚も公開する（shelf_public・2026-11-21 2 回目）ときは、本の書名・著者・表紙・状態・評価・分野を状態ごとに。メモは読まない・出さない。
 //   本人が外した本（shelf_hidden）は出さない。自己紹介（bio）は名前の下に。
+//   2026-11-21（3 回目・オーナー「ビジネス・ものの見方などの分類はなくて OK」「本の画像を押したらその人のこの本のまとめを」）:
+//   分野のまとまりはやめた。VITE_SOCIAL=on のときは本を押すと本のページ（/u/<id>/b/<本の id>）＝書名・著者・状態・評価・
+//   本人が「本のまとめも公開する」をオンにしていれば「この本のまとめ」（公開に向かない言葉・連絡先があれば出さない）・
+//   「読みたいに追加」（Orime を開いて自分の読みたいに入れる＝/?want=1&title=…）。プロフィールに「フォローを申し込む」（/?follow=<id>）。
 //   テーブル: supabase_profiles.sql
 import { createClient } from '@supabase/supabase-js';
 import { takeIpSlot } from './_ipRate.js';
 import { checkCoverImageUrl } from './_coverImageUrl.js';
-import { BOOK_FIELD_GROUPS, isBookField } from './_bookFieldsCore.js';
 import { paletteFor } from '../src/lib/coverPalette.js';
 import { profileTextIssue } from '../src/lib/profileFilter.js';
 import { avatarById, avatarInitial } from '../src/lib/avatars.js';
@@ -21,6 +24,9 @@ const SITE = () => String(process.env.VITE_SITE_URL || 'https://orime.vercel.app
 const REPORT_MAX = 500;
 // 開いている通報がこの数たまったら、運営が確かめるまで自動で隠す（App 審査 1.2・運営は 24 時間以内に確かめる）。
 export const AUTO_HIDE_REPORTS = 3;
+// 👥 フォロー・本のページ・読みたいに追加（2026-11-21 3 回目）は VITE_SOCIAL=on のときだけ出す（アプリの 1.0.1 と合わせて入れる）。
+export const socialOn = (env = process.env) => String(env.VITE_SOCIAL || '').toLowerCase() === 'on';
+const SUMMARY_MAX = 4000;
 const SUPPORT = () => String(process.env.VITE_SUPPORT_EMAIL || 'orime.support@gmail.com');
 
 let client = null;
@@ -76,10 +82,13 @@ a{color:var(--accent)}
 .bio{margin:12px 0 0;font-size:15px;line-height:1.6;white-space:pre-line;overflow-wrap:anywhere}
 .shelf{margin:32px 0 0}.shelf h2{margin:0;font-size:20px;font-weight:700}
 .counts{margin:8px 0 0;font-size:13px;color:var(--text-2)}
-.fields{margin:16px 0 0;display:flex;flex-direction:column;gap:12px}
-.fgroup{margin:0;font-size:13px;font-weight:600;color:var(--text-2)}
-.chips{display:flex;flex-wrap:wrap;gap:4px 16px;margin:4px 0 0;padding:0;list-style:none}
-.chips li{font-size:15px;color:var(--text)}.chips b{font-weight:400;color:var(--text-2)}
+.bka{display:flex;flex-direction:column;gap:4px;min-width:0;color:inherit;text-decoration:none}
+.cta2{display:flex;align-items:center;justify-content:center;margin:16px 0 0;min-height:48px;padding:12px 16px;border-radius:var(--radius);border:1px solid var(--border);color:var(--text);font-size:15px;font-weight:600;text-decoration:none}
+.sum{margin:0;font-family:var(--font-read);font-size:17px;line-height:1.8;white-space:pre-line;overflow-wrap:anywhere}
+.back{display:inline-flex;align-items:center;min-height:44px;font-size:15px;color:var(--accent);text-decoration:none}
+.bookhead{display:flex;gap:16px;align-items:flex-start}.bookhead .bcover{width:96px;flex-shrink:0}
+.bookhead .bcover img,.bookhead .bcover .ph{width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:4px;border:1px solid var(--separator);display:flex;align-items:flex-end;padding:8px;font-size:13px;font-weight:600;color:var(--on-cover);overflow:hidden}
+.meta{margin:8px 0 0;font-size:13px;color:var(--text-2)}
 .status{margin:32px 0 0}.status h3{margin:0;font-size:17px;font-weight:600}
 .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px 12px;margin:12px 0 0;padding:0;list-style:none}
 .bk{display:flex;flex-direction:column;gap:4px;min-width:0}
@@ -116,7 +125,7 @@ export const SHELF_STATUSES = [
 ];
 export const SHELF_PER_STATUS = 60;
 
-/** 公開の本棚に出す本を整える（外した本を除く・状態ごと・分野の数）。books は { id, title, author, cover, status, rating, fields } */
+/** 公開の本棚に出す本を整える（外した本を除く・状態ごと）。books は { id, title, author, cover, status, rating } */
 export function buildShelf(books = [], hidden = [], { supabaseUrl = '' } = {}) {
   const hide = new Set((hidden || []).map(String));
   // 書名・著者に連絡先がある本は出さない（App 審査 1.2・lib/profileFilter.js）。
@@ -130,6 +139,7 @@ export function buildShelf(books = [], hidden = [], { supabaseUrl = '' } = {}) {
       books: all.slice(0, SHELF_PER_STATUS).map((b) => {
         const c = b.cover ? checkCoverImageUrl(String(b.cover), { supabaseUrl }) : { ok: false };
         return {
+          id: String(b.id),
           title: String(b.title).trim().slice(0, 120),
           author: String(b.author || '').trim().slice(0, 80),
           cover: c.ok ? c.url : '',
@@ -138,13 +148,7 @@ export function buildShelf(books = [], hidden = [], { supabaseUrl = '' } = {}) {
       }),
     };
   }).filter((g) => g.total > 0);
-  const count = new Map();
-  for (const b of list) for (const f of new Set((b.fields || []).filter(isBookField))) count.set(f, (count.get(f) || 0) + 1);
-  const fields = BOOK_FIELD_GROUPS.map((g) => ({
-    label: g.name || '',
-    items: g.fields.map((f) => ({ name: f.name, n: count.get(f.name) || 0 })).filter((x) => x.n > 0),
-  })).filter((g) => g.items.length > 0);
-  return { total: list.length, byStatus, fields };
+  return { total: list.length, byStatus };
 }
 
 // 表紙の無い本はアプリと同じ代用表紙（書名から決まる色・白い書名・lib/coverPalette.js）。書名は表紙の上だけに見せ、下の書名は読み上げ用。
@@ -165,21 +169,24 @@ function coverPlaceholder(title) {
   return `<span class="ph" aria-hidden="true" style="background:linear-gradient(160deg, ${a}, ${b})">${esc(title)}</span>`;
 }
 
-function renderShelf(shelf) {
-  if (!shelf || !shelf.total) return '';
-  const counts = shelf.byStatus.map((g) => `${g.label} ${g.total} 冊`).join('・');
-  const fields = shelf.fields.length
-    ? `<div class="fields">${shelf.fields.map((g) => `<div><p class="fgroup">${esc(g.label)}</p><ul class="chips">${g.items.map((f) => `<li>${esc(f.name)} <b>${f.n}</b></li>`).join('')}</ul></div>`).join('')}</div>`
-    : '';
-  const sections = shelf.byStatus.map((g) => `<section class="status"><h3>${esc(g.label)}</h3><ul class="grid">${g.books.map((b) => `<li class="bk">${
-    b.cover ? `<img src="${esc(b.cover)}" alt="" loading="lazy">` : coverPlaceholder(b.title)
-  }${b.cover ? `<p class="bt">${esc(b.title)}</p>` : `<p class="bt sr">${esc(b.title)}</p>`}${b.author ? `<p class="ba">${esc(b.author)}</p>` : ''}${
-    b.rating ? `<p class="st" aria-label="評価 ${b.rating}">${'★'.repeat(b.rating)}${'☆'.repeat(5 - b.rating)}</p>` : ''
-  }</li>`).join('')}</ul>${g.total > g.books.length ? `<p class="more">ほか ${g.total - g.books.length} 冊</p>` : ''}</section>`).join('');
-  return `<section class="shelf"><h2>本棚</h2><p class="counts">${esc(counts)}</p>${fields}${sections}</section>`;
+function bookInner(b) {
+  return `${b.cover ? `<img src="${esc(b.cover)}" alt="" loading="lazy">` : coverPlaceholder(b.title)}${
+    b.cover ? `<p class="bt">${esc(b.title)}</p>` : `<p class="bt sr">${esc(b.title)}</p>`}${b.author ? `<p class="ba">${esc(b.author)}</p>` : ''}${
+    b.rating ? `<p class="st" aria-label="評価 ${b.rating}">${'★'.repeat(b.rating)}${'☆'.repeat(5 - b.rating)}</p>` : ''}`;
 }
 
-export function renderProfile(p, { publicId, shelf = null }) {
+function renderShelf(shelf, { publicId = '', links = false } = {}) {
+  if (!shelf || !shelf.total) return '';
+  const counts = shelf.byStatus.map((g) => `${g.label} ${g.total} 冊`).join('・');
+  const sections = shelf.byStatus.map((g) => `<section class="status"><h3>${esc(g.label)}</h3><ul class="grid">${g.books.map((b) => (
+    links && b.id
+      ? `<li class="bk"><a class="bka" href="/u/${esc(publicId)}/b/${esc(b.id)}">${bookInner(b)}</a></li>`
+      : `<li class="bk">${bookInner(b)}</li>`
+  )).join('')}</ul>${g.total > g.books.length ? `<p class="more">ほか ${g.total - g.books.length} 冊</p>` : ''}</section>`).join('');
+  return `<section class="shelf"><h2>本棚</h2><p class="counts">${esc(counts)}</p>${sections}</section>`;
+}
+
+export function renderProfile(p, { publicId, shelf = null, social = socialOn() }) {
   const site = SITE();
   const nickname = String(p.nickname || '').trim();
   const title = String(p.fav_title || '').trim();
@@ -194,7 +201,7 @@ export function renderProfile(p, { publicId, shelf = null }) {
 ${renderAvatar(p.avatar, nickname)}<h1 class="name">${esc(who)}</h1>${bio ? `<p class="bio">${esc(bio)}</p>` : ''}
 ${title ? `<p class="label">好きな本</p><div class="book">${cover.ok ? `<img class="cover" src="${esc(cover.url)}" alt="">` : ''}<div><p class="title">『${esc(title)}』</p>${author ? `<p class="author">${esc(author)}</p>` : ''}</div></div>` : ''}
 ${line ? `<p class="label">おすすめの 1 行</p><p class="line">「${esc(line)}」</p>` : ''}
-</div>${renderShelf(shelf)}
+</div>${social ? `<a class="cta2" href="${esc(site)}/?follow=${esc(publicId)}">Orime でフォローを申し込む</a>` : ''}${renderShelf(shelf, { publicId, links: social })}
 <a class="cta" href="${esc(site)}/lp">Orime で読書メモをはじめる</a>
 <p class="note">読んだ本と、会話できる。<br>答えのもとは、あなたが残したメモ。</p>
 <details><summary>このページを通報する</summary>
@@ -215,14 +222,83 @@ export function renderNotFound() {
   });
 }
 
+const STATUS_LABEL = Object.fromEntries(SHELF_STATUSES.map((x) => [x.id, x.label]));
+
+/** 本のまとめを公開のページに出せる形に（公開に向かない言葉・連絡先があれば出さない・長さを切る）。 */
+export function publicSummary(text) {
+  const t = String(text || '').replace(/\r\n?/g, '\n').trim().slice(0, SUMMARY_MAX);
+  if (!t) return '';
+  return profileTextIssue(t, 'own') ? '' : t;
+}
+
+/** 読みたいに追加の行き先（Orime を開いて、自分の読みたいに入れる確認を出す）。 */
+export function wantUrl(book, site = SITE()) {
+  const q = new URLSearchParams({ want: '1', title: String(book.title || '').slice(0, 120) });
+  if (book.author) q.set('author', String(book.author).slice(0, 80));
+  const isbn = String(book.isbn || '').replace(/[^0-9Xx]/g, '');
+  if (isbn) q.set('isbn', isbn.slice(0, 13));
+  if (book.cover) q.set('cover', String(book.cover).slice(0, 500));
+  return `${site}/?${q.toString()}`;
+}
+
+/** 本のページ（/u/<id>/b/<本の id>）。 */
+export function renderBook(p, book, { publicId, showSummary = false }) {
+  const site = SITE();
+  const nickname = String(p.nickname || '').trim();
+  const who = nickname ? `${nickname}さん` : 'Orime の読者';
+  const c = book.cover ? checkCoverImageUrl(String(book.cover)) : { ok: false };
+  const cover = c.ok ? c.url : '';
+  const rating = book.status === 'done' ? Math.max(0, Math.min(5, Math.round(Number(book.rating) || 0))) : 0;
+  const summary = showSummary ? publicSummary(book.summary) : '';
+  const title = String(book.title || '').trim();
+  const meta = [STATUS_LABEL[book.status] || '', rating ? `評価 ${'★'.repeat(rating)}${'☆'.repeat(5 - rating)}` : ''].filter(Boolean).join('・');
+  const body = `<a class="back" href="/u/${esc(publicId)}">‹ ${esc(who)}の本棚</a>
+<div class="card" style="margin-top:8px"><div class="bookhead"><div class="bcover">${cover ? `<img src="${esc(cover)}" alt="">` : coverPlaceholder(title)}</div>
+<div><h1 class="title" style="font-size:20px">『${esc(title)}』</h1>${book.author ? `<p class="author">${esc(book.author)}</p>` : ''}${meta ? `<p class="meta">${esc(meta)}</p>` : ''}</div></div>
+${summary ? `<p class="label">${esc(who)}の、この本のまとめ</p><p class="sum">${esc(summary)}</p>` : ''}
+</div>
+<a class="cta" href="${esc(wantUrl({ ...book, cover }, site))}">読みたいに追加</a>
+<p class="note">Orime が開き、あなたの「読みたい」に入れる前に確かめます。</p>
+<details><summary>このページを通報する</summary>
+<form method="post" action="/api/profile-report"><input type="hidden" name="id" value="${esc(publicId)}">
+<label for="reason">理由（任意・500 字まで）</label><textarea id="reason" name="reason" maxlength="${REPORT_MAX}"></textarea>
+<button type="submit">通報する</button></form></details>
+<p class="foot"><a href="${esc(site)}/legal/terms">利用規約</a>・<a href="${esc(site)}/legal/privacy">プライバシーポリシー</a></p>`;
+  return page({
+    title: `${who}の本棚『${title}』 | Orime`,
+    description: summary ? summary.slice(0, 80) : `${who}の本棚の『${title}』`,
+    image: cover,
+    url: `${site}/u/${publicId}/b/${book.id}`,
+    body,
+  });
+}
+
+const BOOK_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// 本を 1 冊読む（本棚を公開していて、外していない本だけ）。まとめは本人が公開しているときだけ読む。
+async function loadBook(c, row, bookId) {
+  if (!BOOK_ID_RE.test(bookId) || (row.shelf_hidden || []).map(String).includes(bookId)) return null;
+  const cols = `id, title, author, cover, isbn, status, rating${row.summary_public ? ', leverage_memo' : ''}`;
+  try {
+    let { data, error } = await c.from('books').select(cols).eq('user_id', row.user_id).eq('id', bookId).maybeSingle();
+    if (error && /isbn/.test(String(error.message || ''))) ({ data, error } = await c.from('books').select(cols.replace(', isbn', '')).eq('user_id', row.user_id).eq('id', bookId).maybeSingle());
+    if (error || !data || !String(data.title || '').trim()) return null;
+    if (profileTextIssue(data.title, 'book') || profileTextIssue(data.author, 'book')) return null;
+    return { ...data, summary: data.leverage_memo || '' };
+  } catch (e) {
+    console.warn('[profile] book read failed:', e?.message || e);
+    return null;
+  }
+}
+
 // 本棚を読む（書名・著者・表紙・状態・評価・分野だけ。メモは読まない）。読めなければ null＝本棚を出さない。
 async function loadShelf(c, userId, hidden) {
   try {
     const { data, error } = await c.from('books')
-      .select('id, title, author, cover, status, rating, updated_at, book_tags(tag_name)')
+      .select('id, title, author, cover, status, rating, updated_at')
       .eq('user_id', userId).order('updated_at', { ascending: false }).limit(1000);
     if (error) { console.warn('[profile] shelf read failed:', error.code || error.message); return null; }
-    const books = (data || []).map((b) => ({ ...b, fields: (b.book_tags || []).map((t) => t.tag_name) }));
+    const books = data || [];
     // 自分でアップロードした表紙（Supabase の置き場）は公開のページに出さない＝書店・図書館の表紙だけ（App 審査 1.2）。
     return buildShelf(books, hidden);
   } catch (e) {
@@ -284,7 +360,9 @@ export async function handleProfileRequest(req, res, { dbImpl = db } = {}) {
   let row = null;
   if (c) {
     const base = 'public_id, nickname, fav_title, fav_author, fav_cover, fav_line, is_public, hidden';
-    let { data, error } = await c.from('profiles').select(`user_id, ${base}, bio, shelf_public, shelf_hidden, avatar`).eq('public_id', id).maybeSingle();
+    let { data, error } = await c.from('profiles').select(`user_id, ${base}, bio, shelf_public, shelf_hidden, avatar, summary_public`).eq('public_id', id).maybeSingle();
+    // まとめの公開の列がまだ無い DB では、まとめを出さずに読む。
+    if (error && (error.code === '42703' || /summary_public/.test(String(error.message || '')))) ({ data, error } = await c.from('profiles').select(`user_id, ${base}, bio, shelf_public, shelf_hidden, avatar`).eq('public_id', id).maybeSingle());
     // アイコンの列がまだ無い DB では、アイコン無しで読む。
     if (error && (error.code === '42703' || /avatar/.test(String(error.message || '')))) ({ data, error } = await c.from('profiles').select(`user_id, ${base}, bio, shelf_public, shelf_hidden`).eq('public_id', id).maybeSingle());
     // 本棚の列がまだ無い DB（前の版の SQL）では、前の列だけで読む。
@@ -294,6 +372,14 @@ export async function handleProfileRequest(req, res, { dbImpl = db } = {}) {
   }
   row = row ? cleanPublicRow(row) : row;
   if (!isShowable(row)) return send(res, renderNotFound()), true;
+  const bookId = String(Array.isArray(q.book) ? q.book[0] : q.book || '').trim().toLowerCase();
+  if (bookId) {
+    // 本のページは VITE_SOCIAL=on・本棚を公開しているときだけ。
+    if (!socialOn() || !row.shelf_public || !row.user_id || !c) return send(res, renderNotFound()), true;
+    const book = await loadBook(c, row, bookId);
+    if (!book) return send(res, renderNotFound()), true;
+    return send(res, renderBook(row, book, { publicId: id, showSummary: !!row.summary_public }), 'public, max-age=0, s-maxage=60'), true;
+  }
   let shelf = null;
   if (row.shelf_public && row.user_id && c) shelf = await loadShelf(c, row.user_id, row.shelf_hidden);
   // 公開をやめたらすぐ消えるように、CDN には短くだけ覚えさせる。

@@ -126,6 +126,7 @@ import { enqueueCoverRetry, resolveCoverForBook, canReplaceCover, clearCoverNotF
 import { MODEL_SMART } from './lib/models';
 import { findDuplicateBook, findImportDuplicate, STATUS_LABEL, isUniqueViolation } from './lib/checkDuplicate';
 import { favoriteChanged, shelfShows, withShelfHidden } from './lib/profile';
+import { SOCIAL_ON } from './lib/social';
 import { useProfile, saveProfileShared } from './hooks/useProfile';
 import UserAvatar from './components/UserAvatar';
 import { onShelfByTitle } from './lib/ownedTitle';
@@ -147,6 +148,7 @@ import { supabase as supabaseClient, isDemo, demoScenario } from './lib/supabase
 import { track, trackAppOpen, EVENTS } from './lib/analytics';
 import ShareSourceSheet from './components/ShareSourceSheet';
 const AccountSettings = lazy(() => import('./components/AccountSettings'));
+const FollowSheet = lazy(() => import('./components/FollowSheet'));
 import SplashScreen from './components/SplashScreen';
 import { markAppReady } from './lib/appReady';
 import Spinner from './components/Spinner';
@@ -3786,6 +3788,38 @@ function AuthedApp() {
   // 👤 プロフィールの好きな本を本棚へ（2026-11-21 オーナー「好きな本を本棚に入れる」）。
   //   本棚に無ければ読了で足し、おすすめの 1 行をその本のメモに残す（同じ文のメモがあれば足さない）。
   //   好きな本・1 行が変わったときだけ（lib/profile.js の favoriteChanged）。失敗してもプロフィールの保存は終わっている。
+  // 👥 相手のリンクから（/?follow=<id>）フォローのシート・公開のページの「読みたいに追加」（/?want=1&title=…）。VITE_SOCIAL のビルドだけ。
+  const [followSheet, setFollowSheet] = useState(null);
+  const [wantLink, setWantLink] = useState(null);
+  useEffect(() => {
+    if (!SOCIAL_ON || typeof window === 'undefined') return;
+    const sp = new URLSearchParams(window.location.search);
+    const follow = sp.get('follow');
+    const want = sp.get('want') === '1' ? { title: sp.get('title') || '', author: sp.get('author') || '', isbn: sp.get('isbn') || '', cover: sp.get('cover') || '' } : null;
+    if (!follow && !want) return;
+    if (follow) setFollowSheet({ initialId: follow });
+    if (want?.title) setWantLink(want);
+    try {
+      ['follow', 'want', 'title', 'author', 'isbn', 'cover'].forEach((k) => sp.delete(k));
+      const qs = sp.toString();
+      window.history.replaceState(null, '', window.location.pathname + (qs ? `?${qs}` : '') + window.location.hash);
+    } catch { /* ignore */ }
+  }, []);
+  useEffect(() => {
+    if (!wantLink || !user?.id || booksLoading) return;
+    const book = wantLink;
+    setWantLink(null);
+    (async () => {
+      const ok = await confirm({
+        title: `『${String(book.title).slice(0, 60)}』を読みたいに入れますか？`,
+        message: book.author ? `${String(book.author).slice(0, 60)}` : '',
+        confirmLabel: '読みたいに入れる',
+        cancelLabel: 'キャンセル',
+      });
+      if (ok) addWantFromOther(book);
+    })();
+  }, [wantLink, user?.id, booksLoading]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // 👤 公開の本棚から外す／戻す（2026-11-21・本の詳細の「…」）。プロフィールの shelf_hidden だけを変える。
   const toggleShelfHidden = async (book) => {
     if (!user?.id || !book?.id) return;
@@ -3798,7 +3832,33 @@ function AuthedApp() {
     }
   };
 
+  // 👥 ほかの人の本棚の本を、自分の読みたいへ（2026-11-21 3 回目・フォローの本棚・公開のページの「読みたいに追加」）。
+  const addWantFromOther = async (book) => {
+    const title = String(book?.title || '').trim().slice(0, 200);
+    if (!user?.id || !title) return 'error';
+    const author = String(book.author || '').trim().slice(0, 200);
+    const isbn = String(book.isbn || '').replace(/[^0-9Xx]/g, '').slice(0, 13);
+    const dup = findDuplicateBook(booksRef.current, { isbn, title, author });
+    if (dup) { toast.info(`『${title}』はもう本棚にあります。`); return 'exists'; }
+    try {
+      const saved = await saveBook({
+        ...emptyBook(), title, author, isbn,
+        cover: /^https:\/\//.test(String(book.cover || '')) ? book.cover : '', coverIsbn: book.cover && isbn ? isbn : '',
+        status: 'want', addedVia: isbn ? 'search' : 'manual',
+      });
+      if (saved) { try { resolveCoverInBackground(saved); } catch { /* 表紙は後で */ } }
+      track('want_from_other', { isbn: !!isbn });
+      toast.success(`『${title}』を読みたいに入れました。`);
+      return 'added';
+    } catch (e) {
+      toast.error(toMessage(e, '読みたいに入れられませんでした。通信状況を確認して、もう一度お試しください。'));
+      return 'error';
+    }
+  };
+
   const addFavoriteFromProfile = async ({ before, after }) => {
+    // VITE_SOCIAL のビルドは好きな本を本棚から選ぶ・好きな言葉はメモから選ぶか自由に書く＝本棚にもメモにも足さない（2026-11-21 3 回目）。
+    if (SOCIAL_ON) return;
     if (!user?.id || !favoriteChanged(before, after)) return;
     try {
       const title = String(after.favTitle || '').trim();
@@ -7023,7 +7083,13 @@ function AuthedApp() {
             onOpenImport={() => { setSettingsOpen(false); setShowImport(true); }}
             onOpenHelp={() => { setSettingsOpen(false); setHelpModalOpen(true); }}
             onProfileSaved={addFavoriteFromProfile}
+            onAddWant={addWantFromOther}
           />
+        </Suspense>
+      )}
+      {followSheet && (
+        <Suspense fallback={<OverlayFallback />}>
+          <FollowSheet initialId={followSheet.initialId || ''} onClose={() => setFollowSheet(null)} onAddWant={addWantFromOther} />
         </Suspense>
       )}
 

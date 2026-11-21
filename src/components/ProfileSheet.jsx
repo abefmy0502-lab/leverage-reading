@@ -17,6 +17,25 @@ import { profileIssues, profileIssueMessage } from '../lib/profileFilter';
 import { track } from '../lib/analytics';
 import { useAuth } from '../hooks/useAuth';
 import { isGuestUser } from '../lib/guestAuth';
+import { SOCIAL_ON } from '../lib/social';
+import { supabase } from '../lib/supabase';
+
+// 本棚の本（好きな本を選ぶ・VITE_SOCIAL）。読めなければ空。
+async function loadShelfBooks(userId) {
+  if (!userId || !supabase) return [];
+  try {
+    const { data, error } = await supabase.from('books').select('id, title, author, cover, isbn').eq('user_id', userId).order('updated_at', { ascending: false }).limit(2000);
+    if (error) return [];
+    return (data || []).filter((b) => String(b.title || '').trim());
+  } catch { return []; }
+}
+// その本のメモ（好きな言葉を選ぶ）。
+async function loadBookMemos(userId, book) {
+  if (!userId || !book?.id || !supabase) return [];
+  const { data, error } = await supabase.from('book_memos').select('id, text').eq('user_id', userId).eq('book_id', book.id).order('created_at', { ascending: false }).limit(50);
+  if (error) throw error;
+  return (data || []).filter((m) => String(m.text || '').trim());
+}
 
 const note = { margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.6, lineBreak: 'strict' };
 
@@ -37,6 +56,13 @@ export default function ProfileSheet({ userId, onClose, onSaved }) {
   const canPublish = stored !== 'local' && !guest;
   // 本棚の公開の列がまだ無い DB（前の版の SQL だけ）では本棚は公開できない（saveProfile が shelfReady: false を返す）。
   const [shelfUnready, setShelfUnready] = useState(false);
+  const [shelfBooks, setShelfBooks] = useState([]);
+  useEffect(() => {
+    if (!SOCIAL_ON) return undefined;
+    let alive = true;
+    loadShelfBooks(userId).then((list) => { if (alive) setShelfBooks(list); });
+    return () => { alive = false; };
+  }, [userId]);
 
   const save = async () => {
     if (!dirty || busy) return;
@@ -89,11 +115,11 @@ export default function ProfileSheet({ userId, onClose, onSaved }) {
         <p role="status" style={note}>読み込んでいます…</p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
-          <ProfileForm value={draft} onChange={change} showBio showAvatar />
+          <ProfileForm value={draft} onChange={change} showBio showAvatar fromShelf={SOCIAL_ON} shelfBooks={shelfBooks} loadMemos={(book) => loadBookMemos(userId, book)} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', paddingTop: 'var(--space-4)', borderTop: '1px solid var(--separator)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
               <span style={{ fontSize: 'var(--text-body)', color: 'var(--text)' }}>公開する</span>
-              <ToggleSwitch checked={!!draft.isPublic} onChange={() => change({ ...draft, isPublic: !draft.isPublic, shelfPublic: draft.isPublic ? false : draft.shelfPublic })} disabled={!canPublish} ariaLabel="プロフィールを公開する" />
+              <ToggleSwitch checked={!!draft.isPublic} onChange={() => change({ ...draft, isPublic: !draft.isPublic, shelfPublic: draft.isPublic ? false : draft.shelfPublic, summaryPublic: draft.isPublic ? false : draft.summaryPublic })} disabled={!canPublish} ariaLabel="プロフィールを公開する" />
             </div>
             <p style={note}>
               {canPublish
@@ -103,13 +129,23 @@ export default function ProfileSheet({ userId, onClose, onSaved }) {
             {/* 本棚も公開する（2026-11-21・公開するがオンのときだけ押せる・メモは出さない）。 */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', marginTop: 'var(--space-2)' }}>
               <span style={{ fontSize: 'var(--text-body)', color: draft.isPublic ? 'var(--text)' : 'var(--text-3)' }}>本棚も公開する</span>
-              <ToggleSwitch checked={!!draft.isPublic && !!draft.shelfPublic} onChange={() => change({ ...draft, shelfPublic: !draft.shelfPublic })} disabled={!canPublish || !draft.isPublic || shelfUnready} ariaLabel="本棚も公開する" />
+              <ToggleSwitch checked={!!draft.isPublic && !!draft.shelfPublic} onChange={() => change({ ...draft, shelfPublic: !draft.shelfPublic, summaryPublic: draft.shelfPublic ? false : draft.summaryPublic })} disabled={!canPublish || !draft.isPublic || shelfUnready} ariaLabel="本棚も公開する" />
             </div>
             <p style={note}>
               {shelfUnready
                 ? 'いまは本棚を公開できません。'
-                : <>本の書名・表紙・状態・評価・分野も見せます。<br />見せたくない本は、本の詳細の「…」から外せます。</>}
+                : <>本の書名・表紙・状態・評価も見せます。<br />見せたくない本は、本の詳細の「…」から外せます。</>}
             </p>
+            {SOCIAL_ON && (
+              <>
+                {/* 本のまとめも公開する（2026-11-21 3 回目・既定オフ・本棚も公開するのオンが前提）。 */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', marginTop: 'var(--space-2)' }}>
+                  <span style={{ fontSize: 'var(--text-body)', color: draft.isPublic && draft.shelfPublic ? 'var(--text)' : 'var(--text-3)' }}>本のまとめも公開する</span>
+                  <ToggleSwitch checked={!!draft.isPublic && !!draft.shelfPublic && !!draft.summaryPublic} onChange={() => change({ ...draft, summaryPublic: !draft.summaryPublic })} disabled={!canPublish || !draft.isPublic || !draft.shelfPublic || shelfUnready} ariaLabel="本のまとめも公開する" />
+                </div>
+                <p style={note}>本を押すと、あなたの「この本のまとめ」を読めます。<br />メモの一覧は見せません。</p>
+              </>
+            )}
             {profile.isPublic && url && !dirty && (
               <button type="button" onClick={shareLink} style={{ ...btnGhost, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)' }}>
                 <Link2 size="1em" aria-hidden="true" />リンクを共有

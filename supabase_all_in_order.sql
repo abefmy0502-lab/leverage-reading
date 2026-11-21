@@ -1045,6 +1045,16 @@ begin
   end if;
 end $$;
 
+-- 2026-11-21（3 回目・オーナー「本の画像を押したらその人のこの本のまとめを見られるように」「好きな言葉はメモから選べるように」）:
+--   本のまとめも公開する summary_public（既定 false・本棚も公開するのオンが前提）。前に「メモは見えません」と案内して
+--   本棚を公開した人のまとめを、本人が選ばないまま出さないための印。好きな言葉（fav_line）は 200 字まで（メモから選ぶため）。
+alter table public.profiles add column if not exists summary_public boolean not null default false;
+alter table public.profiles drop constraint if exists profiles_lengths_check;
+alter table public.profiles add constraint profiles_lengths_check check (
+  char_length(nickname) <= 20 and char_length(fav_title) <= 120 and char_length(fav_author) <= 80
+  and char_length(fav_isbn) <= 13 and char_length(fav_cover) <= 500 and char_length(fav_line) <= 200
+);
+
 create unique index if not exists profiles_public_id_uq on public.profiles (public_id);
 
 -- RLS: 本人の行だけ。hidden（運営が隠した印）は本人が外せない＝update で変えられない（下のトリガー）。
@@ -1082,6 +1092,7 @@ begin
   if coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) then
     new.is_public := false;
     new.shelf_public := false;
+    new.summary_public := false;
   end if;
   new.updated_at := now();
   return new;
@@ -1123,7 +1134,347 @@ alter table public.profile_reports enable row level security;
 
 
 -- ############################################################
--- 21. supabase_goal_roadmaps.sql — 目標のロードマップと読書計画
+-- 21. supabase_follows.sql — フォロー（申し込み・承認・ブロック・承認した人だけが見られる本棚とまとめ）
+-- ############################################################
+-- 👥 フォロー（2026-11-21 オーナー「その人をフォロー、フォロワーにすることができるようにして、フォロー認証をされたら常に見ることができるように」）
+--
+-- 決まり（オーナー裁定）:
+--   - 相手を見つけるのは、相手が渡したリンク（/u/<public_id>）か ID だけ。名前で探す機能は作らない。
+--   - フォローは申し込み → 相手が「承認」したときだけ成り立つ。承認された人は、相手の本棚と「この本のまとめ」を
+--     いつでも見られる（公開するがオフでも・本人が公開の本棚から外した本は出さない）。
+--   - ブロックすると、その人とのフォローは両方向とも消え、申し込みも見ることもできなくなる。
+--   - 登録せずに始めた人（匿名のアカウント）とニックネームの無い人は、申し込めない（なりすまし・使い捨てを防ぐ）。
+-- 読み書きはすべて下の関数（SECURITY DEFINER・ログインした人だけ）。表はクライアントから直接は書けない。
+-- 依存: supabase_profiles.sql（profiles・public_id）。books（書名・表紙・状態・評価・leverage_memo＝この本のまとめ）。
+-- 退会は auth.users の削除で ON DELETE CASCADE で消える。
+-- 未適用でも壊れない（アプリはフォローの画面で「まだ使えません」と出す）。冪等。
+
+create table if not exists public.follows (
+  follower_id uuid not null references auth.users(id) on delete cascade,
+  followee_id uuid not null references auth.users(id) on delete cascade,
+  status text not null default 'pending',
+  created_at timestamptz not null default now(),
+  accepted_at timestamptz,
+  primary key (follower_id, followee_id)
+);
+-- （まとめが自動で足した: 前からある表に足りない列を足す）
+ALTER TABLE public.follows ADD COLUMN IF NOT EXISTS follower_id uuid references auth.users(id) on delete cascade;
+ALTER TABLE public.follows ADD COLUMN IF NOT EXISTS followee_id uuid references auth.users(id) on delete cascade;
+ALTER TABLE public.follows ADD COLUMN IF NOT EXISTS status text not null default 'pending';
+ALTER TABLE public.follows ADD COLUMN IF NOT EXISTS created_at timestamptz not null default now();
+ALTER TABLE public.follows ADD COLUMN IF NOT EXISTS accepted_at timestamptz;
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'follows_check') then
+    alter table public.follows add constraint follows_check check (
+      status in ('pending', 'accepted') and follower_id <> followee_id
+    );
+  end if;
+end $$;
+
+create index if not exists follows_followee_idx on public.follows (followee_id, status);
+alter table public.follows enable row level security;
+drop policy if exists "follows_select_own" on public.follows;
+create policy "follows_select_own" on public.follows
+  for select to authenticated using (auth.uid() = follower_id or auth.uid() = followee_id);
+-- 書き込みのポリシーは無い＝関数だけが書く。
+
+create table if not exists public.user_blocks (
+  blocker_id uuid not null references auth.users(id) on delete cascade,
+  blocked_id uuid not null references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (blocker_id, blocked_id)
+);
+-- （まとめが自動で足した: 前からある表に足りない列を足す）
+ALTER TABLE public.user_blocks ADD COLUMN IF NOT EXISTS blocker_id uuid references auth.users(id) on delete cascade;
+ALTER TABLE public.user_blocks ADD COLUMN IF NOT EXISTS blocked_id uuid references auth.users(id) on delete cascade;
+ALTER TABLE public.user_blocks ADD COLUMN IF NOT EXISTS created_at timestamptz not null default now();
+alter table public.user_blocks enable row level security;
+drop policy if exists "user_blocks_select_own" on public.user_blocks;
+create policy "user_blocks_select_own" on public.user_blocks
+  for select to authenticated using (auth.uid() = blocker_id);
+
+-- ─── 小さな助け ───────────────────────────────────────────
+-- 呼んだ人（匿名でない・ログインしている）。
+create or replace function public._follow_me()
+returns uuid
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null then raise exception 'not_signed_in'; end if;
+  return auth.uid();
+end;
+$$;
+
+create or replace function public._is_anonymous()
+returns boolean
+language sql
+stable
+as $$ select coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) $$;
+
+-- public_id → user_id（運営が隠した人は見つからない）。
+create or replace function public._user_by_public_id(p_public_id text)
+returns uuid
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select user_id from public.profiles
+   where public_id = lower(trim(coalesce(p_public_id, ''))) and hidden = false
+   limit 1
+$$;
+
+create or replace function public._blocked_between(a uuid, b uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (select 1 from public.user_blocks
+                  where (blocker_id = a and blocked_id = b) or (blocker_id = b and blocked_id = a))
+$$;
+
+-- 人の短い見え方（一覧に出すもの）。
+create or replace function public._person(p_user uuid)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select jsonb_build_object('public_id', p.public_id, 'nickname', p.nickname, 'avatar', p.avatar)
+    from public.profiles p where p.user_id = p_user
+$$;
+
+-- ─── 申し込む・答える・やめる ─────────────────────────────
+-- 戻り値: 'pending'（申し込んだ）・'accepted'（もう承認されている）・'self'・'not_found'・'no_profile'・'anonymous'
+create or replace function public.follow_request(p_public_id text)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  me uuid := public._follow_me();
+  target uuid;
+  st text;
+begin
+  if public._is_anonymous() then return 'anonymous'; end if;
+  if not exists (select 1 from public.profiles where user_id = me and nickname <> '' and hidden = false) then
+    return 'no_profile';
+  end if;
+  target := public._user_by_public_id(p_public_id);
+  if target is null then return 'not_found'; end if;
+  if target = me then return 'self'; end if;
+  -- ブロックの有無は明かさない（見つからないのと同じ答え）。
+  if public._blocked_between(me, target) then return 'not_found'; end if;
+  -- 申し込みは 1 人 1 日 50 件まで（いたずらの大量の申し込みを止める）。
+  if (select count(*) from public.follows where follower_id = me and created_at > now() - interval '1 day') >= 50 then
+    return 'too_many';
+  end if;
+  insert into public.follows (follower_id, followee_id) values (me, target)
+    on conflict (follower_id, followee_id) do nothing;
+  select status into st from public.follows where follower_id = me and followee_id = target;
+  return st;
+end;
+$$;
+
+-- 自分あての申し込みに答える（承認／断る＝消す）。戻り値 'accepted'・'declined'・'not_found'
+create or replace function public.follow_respond(p_public_id text, p_accept boolean)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  me uuid := public._follow_me();
+  other uuid := public._user_by_public_id(p_public_id);
+begin
+  if other is null then return 'not_found'; end if;
+  if p_accept then
+    update public.follows set status = 'accepted', accepted_at = now()
+     where follower_id = other and followee_id = me and status = 'pending';
+    if found then return 'accepted'; end if;
+    return 'not_found';
+  end if;
+  delete from public.follows where follower_id = other and followee_id = me;
+  return 'declined';
+end;
+$$;
+
+-- やめる: p_as='following'＝自分がフォローをやめる（申し込みの取り消しも）／'follower'＝相手をフォロワーから外す。
+create or replace function public.follow_remove(p_public_id text, p_as text)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  me uuid := public._follow_me();
+  other uuid := public._user_by_public_id(p_public_id);
+begin
+  if other is null then return false; end if;
+  if p_as = 'follower' then
+    delete from public.follows where follower_id = other and followee_id = me;
+  else
+    delete from public.follows where follower_id = me and followee_id = other;
+  end if;
+  return found;
+end;
+$$;
+
+-- ブロック（フォローは両方向とも消す）・ブロックを外す。
+create or replace function public.block_user(p_public_id text)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  me uuid := public._follow_me();
+  other uuid := (select user_id from public.profiles where public_id = lower(trim(coalesce(p_public_id, ''))) limit 1);
+begin
+  if other is null or other = me then return false; end if;
+  insert into public.user_blocks (blocker_id, blocked_id) values (me, other) on conflict do nothing;
+  delete from public.follows where (follower_id = me and followee_id = other) or (follower_id = other and followee_id = me);
+  return true;
+end;
+$$;
+
+create or replace function public.unblock_user(p_public_id text)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  me uuid := public._follow_me();
+  other uuid := (select user_id from public.profiles where public_id = lower(trim(coalesce(p_public_id, ''))) limit 1);
+begin
+  if other is null then return false; end if;
+  delete from public.user_blocks where blocker_id = me and blocked_id = other;
+  return found;
+end;
+$$;
+
+-- ─── 読む ────────────────────────────────────────────────
+-- 自分のフォローの一覧（フォロー中・フォロワー・届いた申し込み・送った申し込み・ブロック中）。
+create or replace function public.my_follows()
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  me uuid := public._follow_me();
+begin
+  return jsonb_build_object(
+    'following', coalesce((select jsonb_agg(public._person(f.followee_id) || jsonb_build_object('since', f.accepted_at) order by f.accepted_at desc)
+                             from public.follows f join public.profiles p on p.user_id = f.followee_id and p.hidden = false
+                            where f.follower_id = me and f.status = 'accepted'), '[]'::jsonb),
+    'sent',      coalesce((select jsonb_agg(public._person(f.followee_id) || jsonb_build_object('since', f.created_at) order by f.created_at desc)
+                             from public.follows f join public.profiles p on p.user_id = f.followee_id and p.hidden = false
+                            where f.follower_id = me and f.status = 'pending'), '[]'::jsonb),
+    'followers', coalesce((select jsonb_agg(public._person(f.follower_id) || jsonb_build_object('since', f.accepted_at) order by f.accepted_at desc)
+                             from public.follows f join public.profiles p on p.user_id = f.follower_id and p.hidden = false
+                            where f.followee_id = me and f.status = 'accepted'), '[]'::jsonb),
+    'requests',  coalesce((select jsonb_agg(public._person(f.follower_id) || jsonb_build_object('since', f.created_at) order by f.created_at desc)
+                             from public.follows f join public.profiles p on p.user_id = f.follower_id and p.hidden = false
+                            where f.followee_id = me and f.status = 'pending'), '[]'::jsonb),
+    'blocked',   coalesce((select jsonb_agg(public._person(b.blocked_id) || jsonb_build_object('since', b.created_at) order by b.created_at desc)
+                             from public.user_blocks b where b.blocker_id = me), '[]'::jsonb)
+  );
+end;
+$$;
+
+-- 人の様子（リンクを開いたとき・申し込む前）。ニックネームとアイコンはいつも、自己紹介と好きな本は公開しているか承認済みのときだけ。
+-- relation: 'self'・'accepted'・'pending'・'none'
+create or replace function public.profile_preview(p_public_id text)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  me uuid := public._follow_me();
+  other uuid := public._user_by_public_id(p_public_id);
+  rel text;
+  p public.profiles%rowtype;
+begin
+  if other is null or public._blocked_between(me, other) then return null; end if;
+  select * into p from public.profiles where user_id = other;
+  if other = me then rel := 'self';
+  else rel := coalesce((select status from public.follows where follower_id = me and followee_id = other), 'none');
+  end if;
+  return jsonb_build_object('public_id', p.public_id, 'nickname', p.nickname, 'avatar', p.avatar, 'relation', rel)
+    || case when p.is_public or rel in ('accepted', 'self') then
+         jsonb_build_object('bio', p.bio, 'fav_title', p.fav_title, 'fav_author', p.fav_author, 'fav_cover', p.fav_cover, 'fav_line', p.fav_line)
+       else '{}'::jsonb end;
+end;
+$$;
+
+-- 承認されたフォロー先の本棚（本の書名・著者・表紙・状態・評価・この本のまとめ）。承認されていなければ null。
+-- 本人が公開の本棚から外した本（shelf_hidden）は出さない。まとめは 4,000 字まで。
+create or replace function public.followee_shelf(p_public_id text)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  me uuid := public._follow_me();
+  other uuid := public._user_by_public_id(p_public_id);
+  p public.profiles%rowtype;
+begin
+  if other is null or public._blocked_between(me, other) then return null; end if;
+  if not exists (select 1 from public.follows where follower_id = me and followee_id = other and status = 'accepted') then
+    return null;
+  end if;
+  select * into p from public.profiles where user_id = other;
+  return jsonb_build_object(
+    'profile', jsonb_build_object('public_id', p.public_id, 'nickname', p.nickname, 'avatar', p.avatar, 'bio', p.bio,
+                                  'fav_title', p.fav_title, 'fav_author', p.fav_author, 'fav_cover', p.fav_cover, 'fav_line', p.fav_line),
+    'books', coalesce((
+      select jsonb_agg(jsonb_build_object(
+               'id', b.id, 'title', b.title, 'author', coalesce(b.author, ''), 'cover', coalesce(b.cover, ''),
+               'isbn', coalesce(b.isbn, ''), 'status', b.status, 'rating', coalesce(b.rating, 0),
+               'summary', left(coalesce(b.leverage_memo, ''), 4000)
+             ) order by b.updated_at desc)
+        from (select * from public.books where user_id = other and not (id = any (coalesce(p.shelf_hidden, '{}')))
+               order by updated_at desc limit 1000) b
+    ), '[]'::jsonb)
+  );
+end;
+$$;
+
+-- 実行できるのはログインした人だけ（匿名のアカウントもログインはしているが、申し込みは関数の中で断る）。
+do $$
+declare f text;
+begin
+  foreach f in array array[
+    'follow_request(text)', 'follow_respond(text, boolean)', 'follow_remove(text, text)', 'block_user(text)',
+    'unblock_user(text)', 'my_follows()', 'profile_preview(text)', 'followee_shelf(text)'
+  ] loop
+    execute format('revoke all on function public.%s from public, anon', f);
+    execute format('grant execute on function public.%s to authenticated', f);
+  end loop;
+  foreach f in array array['_follow_me()', '_user_by_public_id(text)', '_blocked_between(uuid, uuid)', '_person(uuid)'] loop
+    execute format('revoke all on function public.%s from public, anon, authenticated', f);
+  end loop;
+end $$;
+
+
+-- ############################################################
+-- 22. supabase_goal_roadmaps.sql — 目標のロードマップと読書計画
 -- ############################################################
 -- 🧭 目標のロードマップと読書計画（2026-11-15 オーナー「1 年後・3 年後・5 年後の目標を、達成するには？で深掘りしてロードマップに・本棚の本で読書計画カレンダーに」）
 --
@@ -1194,7 +1545,7 @@ create policy "goal_roadmaps_delete_own" on public.goal_roadmaps
 
 
 -- ############################################################
--- 22. supabase_advisor_books.sql — AI 選書の推薦用の本のデータ
+-- 23. supabase_advisor_books.sql — AI 選書の推薦用の本のデータ
 -- ############################################################
 -- 📚 AI 選書の推薦用の本のデータ（2026-11-17 オーナー「推薦できる本を徹底的に集めて、概要やおすすめする理由をデータとして整えて」
 --    「1 週間に 1 回くらい新しい本のデータを出していきたい」）。
@@ -1335,7 +1686,7 @@ alter table public.advisor_books_queue enable row level security;
 
 
 -- ############################################################
--- 23. supabase_advisor_books_ext.sql — AI 選書の推薦用の本の難しさと書評のデータ
+-- 24. supabase_advisor_books_ext.sql — AI 選書の推薦用の本の難しさと書評のデータ
 -- ############################################################
 -- 📚➕ AI 選書の推薦を一段上げる：外部の書評データと本の難しさ（2026-11-17 オーナー「外部のデータをうまく使い高レベルな判断が
 --    できるようにしたい」「読書初心者に難しい本を進めても微妙だし。そこも調整できるようにしたい」）。
@@ -1397,7 +1748,7 @@ end $$;
 
 
 -- ############################################################
--- 24. supabase_advisor_books_signals.sql — AI 選書の推薦用の本の売れ方と賞・年間ベストの印（候補を引く関数もここ）
+-- 25. supabase_advisor_books_signals.sql — AI 選書の推薦用の本の売れ方と賞・年間ベストの印（候補を引く関数もここ）
 -- ############################################################
 -- 📈🏆 AI 選書の推薦の理由を厚くする：売れ方の時系列と、賞・年間ベストの印（2026-11-18 オーナー「3 の 2 つを進めて」・
 --    company/research/reports/ビジネス書 データ源 連携の可能性.md の案 A・B）。
@@ -1620,7 +1971,7 @@ grant execute on function public.search_advisor_books(text[], text[], integer, s
 
 
 -- ############################################################
--- 25. supabase_actions_full.sql — 行動の期限・繰り返し・ふりかえり
+-- 26. supabase_actions_full.sql — 行動の期限・繰り返し・ふりかえり
 -- ############################################################
 -- 🎯 行動タブをフル機能のタスク管理に進化させる
 --
@@ -1709,7 +2060,7 @@ END $$;
 
 
 -- ############################################################
--- 26. supabase_actions_id_default.sql — 行動の id
+-- 27. supabase_actions_id_default.sql — 行動の id
 -- ############################################################
 -- 🩹 actions.id に gen_random_uuid() の DEFAULT が設定されていない環境で、
 -- INSERT 時に「null value in column "id" of relation "actions" violates
@@ -1740,7 +2091,7 @@ END $$;
 
 
 -- ############################################################
--- 27. supabase_actions_completed_at_backfill.sql — 昔の完了日を埋める
+-- 28. supabase_actions_completed_at_backfill.sql — 昔の完了日を埋める
 -- ############################################################
 -- 行動 (actions) の completed_at バックフィル。
 --
@@ -1778,7 +2129,7 @@ UPDATE public.actions
 
 
 -- ############################################################
--- 28. supabase_actions_scheduled.sql — 繰り返しの次回分
+-- 29. supabase_actions_scheduled.sql — 繰り返しの次回分
 -- ############################################################
 -- 行動 (actions) の繰り返しタスク無限生成バグ対策。
 --
@@ -1825,7 +2176,7 @@ COMMENT ON COLUMN public.actions.scheduled_for IS
 
 
 -- ############################################################
--- 29. supabase_push_subscriptions.sql — 通知の登録
+-- 30. supabase_push_subscriptions.sql — 通知の登録
 -- ############################################################
 -- 🔔 Web Push 購読情報 + 通知設定（想起プッシュ通知）。
 --
@@ -1908,7 +2259,7 @@ CREATE POLICY "push_subs_delete_own" ON public.push_subscriptions
 
 
 -- ############################################################
--- 30. supabase_push_native.sql — iPhone の通知
+-- 31. supabase_push_native.sql — iPhone の通知
 -- ############################################################
 -- 🔔📱 想起プッシュ通知の「ネイティブ(iOS/APNs)対応」列追加。
 --
@@ -1949,7 +2300,7 @@ CREATE INDEX IF NOT EXISTS push_subscriptions_platform_idx
 
 
 -- ############################################################
--- 31. supabase_push_deadline.sql — 行動の期限の通知
+-- 32. supabase_push_deadline.sql — 行動の期限の通知
 -- ############################################################
 -- 🎯🔔 行動の期限の通知（2026-09-29 オーナー裁定）— 1 日 1 回のガード列。
 --
@@ -1982,7 +2333,7 @@ CREATE INDEX IF NOT EXISTS actions_user_deadline_idx
 
 
 -- ############################################################
--- 32. supabase_subscriptions.sql — 契約
+-- 33. supabase_subscriptions.sql — 契約
 -- ############################################################
 -- 💳 Stripe サブスクリプション状態テーブル
 --
@@ -2064,7 +2415,7 @@ CREATE POLICY "subscriptions_select_own" ON public.subscriptions
 
 
 -- ############################################################
--- 33. supabase_subscriptions_provider.sql — App Store の契約
+-- 34. supabase_subscriptions_provider.sql — App Store の契約
 -- ############################################################
 -- 💳 subscriptions に決済プロバイダ（Stripe / RevenueCat）を識別する列を追加
 --
@@ -2100,7 +2451,7 @@ CREATE INDEX IF NOT EXISTS subscriptions_rc_app_user_idx
 
 
 -- ############################################################
--- 34. supabase_subscriptions_provider_backfill.sql — 昔の契約の種類を埋める
+-- 35. supabase_subscriptions_provider_backfill.sql — 昔の契約の種類を埋める
 -- ############################################################
 -- 💳 subscriptions.provider のバックフィル（冪等・1 回実行）
 --
@@ -2117,7 +2468,7 @@ update public.subscriptions
 
 
 -- ############################################################
--- 35. supabase_subscriptions_canceled_at.sql — 解約した日
+-- 36. supabase_subscriptions_canceled_at.sql — 解約した日
 -- ############################################################
 -- 💳 解約時刻の記録 — チャーン率（月次解約÷月初active）の正確な算出に必須。
 -- これまで status='canceled' への遷移時刻が残らず、「いつ解約したか」を後から
@@ -2133,7 +2484,7 @@ comment on column public.subscriptions.canceled_at is
 
 
 -- ############################################################
--- 36. supabase_stripe_events.sql — Web の決済の二重処理を防ぐ
+-- 37. supabase_stripe_events.sql — Web の決済の二重処理を防ぐ
 -- ############################################################
 -- 💳 Stripe Webhook の冪等化（M1 是正）。
 -- Stripe は at-least-once 配信＝同じイベントが複数回／順序前後で届く。冪等性が
@@ -2162,7 +2513,7 @@ alter table public.stripe_events enable row level security;
 
 
 -- ############################################################
--- 37. supabase_revenuecat_events.sql — App Store の決済の二重処理を防ぐ
+-- 38. supabase_revenuecat_events.sql — App Store の決済の二重処理を防ぐ
 -- ############################################################
 -- 💳 RevenueCat Webhook の冪等化（stripe_events と同一パターン）。
 -- RevenueCat も at-least-once 配信＝同じイベントが複数回届きうる。TRANSFER
@@ -2194,7 +2545,7 @@ alter table public.revenuecat_events enable row level security;
 
 
 -- ############################################################
--- 38. supabase_subscription_events.sql — 契約の履歴（7 日間無料 → 有料）
+-- 39. supabase_subscription_events.sql — 契約の履歴（7 日間無料 → 有料）
 -- ############################################################
 -- 💳📜 契約の履歴（subscription_events）— 追記だけの記録（2026-10-02・ローンチの 4 つの数字）。
 --
@@ -2303,7 +2654,7 @@ end $$;
 
 
 -- ############################################################
--- 39. supabase_ai_usage.sql — AI の利用回数
+-- 40. supabase_ai_usage.sql — AI の利用回数
 -- ############################################################
 -- 🤖 AI 利用量メータリング（KGI 原価ガード）
 --
@@ -2396,7 +2747,7 @@ GRANT EXECUTE ON FUNCTION public.increment_ai_usage(uuid, text) TO service_role;
 
 
 -- ############################################################
--- 40. supabase_ai_usage_atomic.sql — AI の上限を同時に超えない
+-- 41. supabase_ai_usage_atomic.sql — AI の上限を同時に超えない
 -- ############################################################
 -- 🧮 AI 月次利用上限の「原子的な予約（check-and-increment）」RPC。
 --
@@ -2451,7 +2802,7 @@ revoke all on function public.reserve_ai_usage(uuid, text, int) from public, ano
 
 
 -- ############################################################
--- 41. supabase_ai_usage_release.sql — 答えられなかった回を返す
+-- 42. supabase_ai_usage_release.sql — 答えられなかった回を返す
 -- ############################################################
 -- 🧾 AI 月次利用量の払い戻し RPC + reserve の GRANT 補修（冪等）
 --
@@ -2497,7 +2848,7 @@ grant execute on function public.release_ai_usage(uuid, text) to service_role;
 
 
 -- ############################################################
--- 42. supabase_ai_rate_limit.sql — AI の連打を止める
+-- 43. supabase_ai_rate_limit.sql — AI の連打を止める
 -- ############################################################
 -- 🚦 AI 中継の「インスタンス横断」レート制限（H3 是正）。
 -- 旧実装は api/claude.js の in-memory Map で、Vercel の各 lambda インスタンス
@@ -2562,7 +2913,7 @@ grant execute on function public.check_ai_rate_limit(uuid, integer, integer) to 
 
 
 -- ############################################################
--- 43. supabase_ai_cost.sql — AI の原価をトークンで数える
+-- 44. supabase_ai_cost.sql — AI の原価をトークンで数える
 -- ############################################################
 -- 💴 AI の原価を「円」で数えて、1 人・1 か月の上限を守る（2026-09-27）
 --
@@ -2655,7 +3006,7 @@ grant execute on function public.adjust_ai_cost(uuid, text, bigint) to service_r
 
 
 -- ############################################################
--- 44. supabase_ai_token_credits.sql — トークンの買い足し
+-- 45. supabase_ai_token_credits.sql — トークンの買い足し
 -- ############################################################
 -- 🪙➕ 追加トークン（買い足し）— 2026-09-27 オーナー裁定
 --
@@ -2863,7 +3214,7 @@ grant execute on function public.settle_token_overflow(uuid, text, integer, inte
 
 
 -- ############################################################
--- 45. supabase_ai_usage_purpose.sql — トークンの使い道（用途ごとの内訳）
+-- 46. supabase_ai_usage_purpose.sql — トークンの使い道（用途ごとの内訳）
 -- ############################################################
 -- 🪙📊 トークンの使い道（用途ごとの内訳・2026-10-11 オーナー「現在のトークン利用料の可視化をしたい」）
 --
@@ -2948,7 +3299,7 @@ grant execute on function public.add_ai_purpose_cost(uuid, text, text, bigint) t
 
 
 -- ############################################################
--- 46. supabase_ai_cache_warm.sql — 相談の指示文のキャッシュを温め直す
+-- 47. supabase_ai_cache_warm.sql — 相談の指示文のキャッシュを温め直す
 -- ############################################################
 -- 🔥 相談の指示文のキャッシュを温め直す時刻（2026-10-21・docs/ai-routing.md §7・冪等）
 --
@@ -3008,7 +3359,7 @@ grant execute on function public.claim_ai_cache_refresh(text, integer, integer) 
 
 
 -- ############################################################
--- 47. supabase_analytics_events.sql — 利用状況の記録
+-- 48. supabase_analytics_events.sql — 利用状況の記録
 -- ############################################################
 -- 📊 利用状況の記録（製品改善のためのファーストパーティ計測）
 --
@@ -3070,7 +3421,7 @@ DROP POLICY IF EXISTS "analytics_events_delete_own" ON public.analytics_events;
 
 
 -- ############################################################
--- 48. supabase_feedback.sql — フィードバック
+-- 49. supabase_feedback.sql — フィードバック
 -- ############################################################
 -- 📩 ユーザーフィードバック・要望テーブル。
 --
@@ -3130,7 +3481,7 @@ create policy "feedback_select_own" on public.feedback
 
 
 -- ############################################################
--- 49. supabase_feedback_hardening.sql — フィードバックの守り
+-- 50. supabase_feedback_hardening.sql — フィードバックの守り
 -- ############################################################
 -- 🛡️ feedback テーブルの堅牢化（anon スパム封じ + 長さ CHECK）
 --
@@ -3232,7 +3583,7 @@ END $$;
 
 
 -- ############################################################
--- 50. supabase_account_deletion.sql — 退会の申し込み
+-- 51. supabase_account_deletion.sql — 退会の申し込み
 -- ############################################################
 -- =============================================================================
 -- 🛡️ アカウント削除リクエスト — Supabase migration
@@ -3294,7 +3645,7 @@ $$;
 
 
 -- ############################################################
--- 51. supabase_account_deletion_hardening.sql — 退会の申し込みの守り
+-- 52. supabase_account_deletion_hardening.sql — 退会の申し込みの守り
 -- ############################################################
 -- 🛡️ account_deletion_requests の堅牢化（メール偽装封じ + 二重リクエスト防止）
 --
@@ -3390,7 +3741,7 @@ END $$;
 
 
 -- ############################################################
--- 52. supabase_lp_events.sql — 紹介ページの記録
+-- 53. supabase_lp_events.sql — 紹介ページの記録
 -- ############################################################
 -- 📊 LP（紹介ページ）の閲覧状況の記録 — ダウンロードにつながる導線を数字で決めるため。
 --
@@ -3457,7 +3808,7 @@ alter table public.lp_events add constraint lp_events_event_check check (event i
 
 
 -- ############################################################
--- 53. supabase_lp_waitlist.sql — 公開のお知らせの登録
+-- 54. supabase_lp_waitlist.sql — 公開のお知らせの登録
 -- ############################################################
 -- ✉️ 公開のお知らせの登録（LP・2026-10-05）— App Store の URL が無い間、LP の入口は「公開の日にメールで知らせる」。
 --
@@ -3561,7 +3912,7 @@ grant execute on function public.take_lp_waitlist_slot(text, date, integer) to s
 
 
 -- ############################################################
--- 54. supabase_security_hardening.sql — 本・メモ・行動・写真の権限
+-- 55. supabase_security_hardening.sql — 本・メモ・行動・写真の権限
 -- ############################################################
 -- 🛡️ セキュリティ堅牢化マイグレーション（RLS 再保証 + Storage バケット防御）
 --
@@ -3812,7 +4163,7 @@ UPDATE storage.buckets
 
 
 -- ############################################################
--- 55. supabase_admin_metrics.sql — 運営ダッシュボード（管理者の登録つき）
+-- 56. supabase_admin_metrics.sql — 運営ダッシュボード（管理者の登録つき）
 -- ############################################################
 -- 🛰️ 運営ダッシュボード（KGI/KPI 管制塔）— 管理者だけが見る集計 RPC 群。
 --
@@ -4082,7 +4433,7 @@ on conflict (user_id) do nothing;
 
 
 -- ############################################################
--- 56. supabase_admin_ops.sql — 目標・チケット
+-- 57. supabase_admin_ops.sql — 目標・チケット
 -- ############################################################
 -- 🎛️ 運営オペレーション層（Founder Cockpit）— 目標 ＋ チケット。
 --
@@ -4257,7 +4608,7 @@ grant execute on function public.admin_ticket_from_feedback(uuid) to authenticat
 
 
 -- ############################################################
--- 57. supabase_admin_growth.sql — 継続率
+-- 58. supabase_admin_growth.sql — 継続率
 -- ############################################################
 -- 📈 運営ダッシュボード — 成長・継続率の集計（admin_metrics の上に乗る）。
 -- ※ 先に supabase_admin_metrics.sql を適用すること（_require_admin 依存）。
@@ -4330,7 +4681,7 @@ grant execute on function public.admin_growth() to authenticated;
 
 
 -- ############################################################
--- 58. supabase_admin_exclude_admins.sql — 自分の利用を数えない
+-- 59. supabase_admin_exclude_admins.sql — 自分の利用を数えない
 -- ############################################################
 -- 🧹 運営ダッシュボードの集計から「管理者（app_admins）」を除外する。
 --
@@ -4507,7 +4858,7 @@ grant execute on function public.admin_growth() to authenticated;
 
 
 -- ############################################################
--- 59. supabase_admin_members_tasks.sql — 会員の内訳・売上
+-- 60. supabase_admin_members_tasks.sql — 会員の内訳・売上
 -- ############################################################
 -- 🧩 操縦席の強化: ①会員内訳（有料/無料期間/解約の分離）②日次タスク。
 -- ※ 先に supabase_admin_metrics.sql / _ops / _growth / _exclude_admins を適用済みであること。
@@ -4592,7 +4943,7 @@ grant execute on function public.admin_revenue() to authenticated;
 
 
 -- ############################################################
--- 60. supabase_ops_advisor.sql — 参謀の会話
+-- 61. supabase_ops_advisor.sql — 参謀の会話
 -- ############################################################
 -- 🧠 AI 参謀（作戦会議）の会話履歴 — 運営ダッシュボードの対話相談役。
 --
@@ -4636,7 +4987,7 @@ create policy "ops_advisor_delete_own" on public.ops_advisor_messages
 
 
 -- ############################################################
--- 61. supabase_ops_floor.sql — 作戦司令室の報告
+-- 62. supabase_ops_floor.sql — 作戦司令室の報告
 -- ############################################################
 -- 🏢 作戦司令室（社員フロア）の報告ログ — AI 企業の「記憶」。
 -- 各社員（member_id）の報告と CEO室の統合ブリーフ（member_id='__integration__'）を
@@ -4685,7 +5036,7 @@ create index if not exists ops_floor_reports_user_member_idx
 
 
 -- ############################################################
--- 62. supabase_ops_sales_metrics.sql — 営業の週の数字
+-- 63. supabase_ops_sales_metrics.sql — 営業の週の数字
 -- ############################################################
 -- 📣 営業ウィークリー計測 — 営業戦略（company/sales-strategy-2026-2027.md §7）の
 -- 週次KPI（新規課金/インストール/LPクリック/note PV/Xプロフクリック）を記録する。
@@ -4736,7 +5087,7 @@ create index if not exists ops_sales_metrics_user_week_idx
 
 
 -- ############################################################
--- 63. supabase_admin_launch_kpis.sql — ローンチの 4 つの数字
+-- 64. supabase_admin_launch_kpis.sql — ローンチの 4 つの数字
 -- ############################################################
 -- 🚀 ローンチの 4 つの数字（2026-10-02 オーナー承認・2026 年 11 月ローンチ）— 運営ダッシュボード用の集計。
 --
@@ -4987,7 +5338,7 @@ grant execute on function public.admin_launch_kpis(int) to authenticated;
 
 
 -- ############################################################
--- 64. supabase_admin_goal.sql — 有料ユーザー 1,000 人の目標・毎週の見直し
+-- 65. supabase_admin_goal.sql — 有料ユーザー 1,000 人の目標・毎週の見直し
 -- ############################################################
 -- 🎯 2027 年中に有料ユーザー 1,000 人（2026-10-11 オーナー決定）— 運営ダッシュボードの「目標の進み具合」と毎週の見直し。
 --
@@ -5319,7 +5670,7 @@ grant execute on function public.admin_goal_weekly(int) to authenticated;
 
 
 -- ############################################################
--- 65. supabase_admin_profit.sql — 今月の売上と推定の粗利
+-- 66. supabase_admin_profit.sql — 今月の売上と推定の粗利
 -- ############################################################
 -- 💰 今月の売上と推定の粗利（2026-10-22 オーナー「現在の売り上げと推定の粗利がわかったりもしたい」「めっちゃいいものにガンガン進化させて」）
 --   運営ダッシュボードの概況（admin/ProfitCard.jsx・src/lib/adminProfit.js）。
@@ -5549,7 +5900,7 @@ grant execute on function public.admin_renewals(int) to authenticated;
 
 
 -- ############################################################
--- 66. supabase_admin_mcp.sql — 運営ダッシュボードを AI と連携から読む
+-- 67. supabase_admin_mcp.sql — 運営ダッシュボードを AI と連携から読む
 -- ############################################################
 -- 🛰️🔌 運営ダッシュボードを AI と連携（MCP）から 1 回で読む（2026-11-08 オーナー「運営ダッシュボードをアーティファクトにしたい」）
 --

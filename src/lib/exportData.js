@@ -14,6 +14,7 @@
 // that's null on row 1 but populated on row 5 still appears.
 
 import { supabase } from './supabase';
+import { SOCIAL_ON, loadFollows } from './social';
 
 export const EXPORT_TABLES = [
   'books',
@@ -152,6 +153,23 @@ export async function exportUserDataAsCSV(userId, { onProgress } = {}) {
     // 先頭の列「table」でどの表の行かを示す（1 つのファイルにまとめるため）。
     rows.forEach((r) => allRows.push({ table, ...r }));
     summary.push({ table, count: rows.length, filename, skipped: false });
+  }
+  // 👥 フォローの関係（2026-11-21・VITE_SOCIAL のビルド・表に user_id が無いので関数で読む・相手は ID とニックネームだけ）。
+  if (SOCIAL_ON) {
+    try {
+      const r = await loadFollows();
+      if (r.ok) {
+        const rows = [];
+        for (const [kind, list] of Object.entries(r.lists)) {
+          for (const p of list) rows.push({ table: 'follows', kind, public_id: p.publicId, nickname: p.nickname, since: p.since });
+        }
+        rows.forEach((x) => allRows.push(x));
+        summary.push({ table: 'follows', count: rows.length, filename, skipped: false });
+      }
+    } catch (e) {
+      console.warn('exportUserDataAsCSV: follows threw', e?.message || e);
+      summary.push({ table: 'follows', count: 0, skipped: true });
+    }
   }
   // 1 つの CSV にまとめてダウンロードする（2026-09-27）。以前は表ごとに 8 回ダウンロードが走り、
   // iPhone では 2 つ目以降が止められていた。ZIP は依存を増やすので使わない。

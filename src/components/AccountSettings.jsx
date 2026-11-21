@@ -37,6 +37,8 @@ import McpConnectSheet from './McpConnectSheet';
 import { AppPurposeEditSheet, PurposeCheckSheet } from './AppPurposeSheets';
 import { useAppPurpose } from '../hooks/useAppPurpose';
 import ProfileSheet from './ProfileSheet';
+import FollowSheet from './FollowSheet';
+import { SOCIAL_ON } from '../lib/social';
 import { useProfile, resetProfileCache } from '../hooks/useProfile';
 import UserAvatar from './UserAvatar';
 import { hasProfile, addressName } from '../lib/profile';
@@ -372,7 +374,7 @@ async function listAllUserPhotos(userId, bucket = 'book-memo-photos') {
 // 🧪 お試しモードの通知のオン・オフ（設定を閉じて開き直しても残す・再読み込みで初期化）。
 let demoPushOn = false;
 
-export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, onOpenHelp, focusDelete = false, onProfileSaved }) {
+export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, onOpenHelp, focusDelete = false, onProfileSaved, onAddWant }) {
   const { user, signOut } = useAuth();
   const guest = isGuestUser(user);
   // 有料プランの画面の「アカウントを削除」から開いたときは、削除の欄まで送る。
@@ -413,6 +415,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
   const [purposeEditOpen, setPurposeEditOpen] = useState(false);
   // 👤 プロフィール（2026-11-21）
   const [profileOpen, setProfileOpen] = useState(false);
+  const [followOpen, setFollowOpen] = useState(false);
   const { profile: myProfile } = useProfile(user?.id || '');
   const [purposeCheck, setPurposeCheck] = useState(null); // { where, nextText, run }
   // 2026-11-17: 「Orime を入れた理由」は 2026-11-16 にやめたので、解約・退会の前にはさまない（審査 5.1.1(v)・すぐ次へ）。
@@ -1040,6 +1043,16 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
               </span>
               <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
             </button>
+            {/* 👥 フォロー（2026-11-21 3 回目・VITE_SOCIAL のビルドだけ）。 */}
+            {SOCIAL_ON && (
+              <button type="button" onClick={() => setFollowOpen(true)} style={{ ...rowButtonStyle, gap: 'var(--space-3)' }}>
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ ...rowTitleStyle, display: 'block', color: 'inherit' }}>フォロー</span>
+                  <span style={{ ...rowDescStyle, display: 'block' }}>フォロー中・フォロワー・申し込み</span>
+                </span>
+                <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+              </button>
+            )}
           </Group>
 
           {/* 🎯 Orime を入れた理由の行は 2026-11-16 にやめた（オーナー「不要」・目標は 振り返り › 行動 の 1 年後・3 年後・5 年後）。
@@ -1534,6 +1547,11 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
       {profileOpen && (
         <div onClick={(e) => e.stopPropagation()}>
           <ProfileSheet userId={user?.id || ''} onClose={() => setProfileOpen(false)} onSaved={onProfileSaved} />
+        </div>
+      )}
+      {followOpen && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <FollowSheet onClose={() => setFollowOpen(false)} onAddWant={onAddWant} />
         </div>
       )}
           {purposeEditOpen && (

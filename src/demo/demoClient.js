@@ -40,6 +40,7 @@
 // （select/insert/update/upsert/delete、eq/neq/in/is/not/or/contains/order/
 // limit/range/single/maybeSingle、埋め込み select、count/head、auth、storage）。
 
+import { demoSocialRpc } from './demoSocial';
 import { buildSeed, DEMO_USER_ID, coverSvg } from './seed';
 import { applyGoalsDemo } from './demoGoals';
 import { appNow } from '../lib/appNow';
@@ -478,11 +479,16 @@ export function createDemoClient() {
       refreshSession: async () => ({ data: { session: store.session }, error: null }),
     },
     from: (table) => new Query(store, table),
-    rpc: async (name) => {
+    rpc: async (name, args) => {
       const q = new URLSearchParams(window.location.search);
       if (q.get('trace') === '1') { try { console.debug(`[demo-q] ${Math.round(performance.now())} rpc ${name}`); } catch { /* ignore */ } }
       const lat = Math.max(0, Math.min(5000, Number(q.get('latency')) || 0));
       if (lat) await new Promise((r) => setTimeout(r, lat));
+      // 👥 フォロー（&social=1 のときだけ・src/demo/demoSocial.js）。
+      if (q.get('social') === '1') {
+        const v = demoSocialRpc(name, args || {});
+        if (v !== undefined) return { data: v, error: null };
+      }
       // お試しモードは管理者ではない（is_app_admin も無い関数として false 側に倒れる）。
       return { data: null, error: { code: 'PGRST202', message: `Could not find the function public.${name}` } };
     },

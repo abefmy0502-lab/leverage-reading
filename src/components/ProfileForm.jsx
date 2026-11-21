@@ -1,6 +1,8 @@
 // 👤 プロフィールの欄（2026-11-21）。初回ガイドの 2 枚目と、設定の「プロフィール」のシートで同じものを使う。
 //   ニックネーム・好きな本（検索して選ぶ・見つからなければ書名をそのまま）・おすすめの 1 行。
 //   値は親が持つ（value / onChange）。保存は親（lib/profile.js）。
+//   fromShelf（VITE_SOCIAL のビルド・2026-11-21 3 回目・オーナー「好きな本は自分の本棚の本に」「好きな言葉はメモから選べるように・
+//   メモはなくても自由入力」）: 好きな本は本棚の本（shelfBooks）から選ぶ・好きな言葉はその本のメモ（loadMemos）から選ぶか自由に書く。
 import { useEffect, useId, useRef, useState } from 'react';
 import { Search } from 'lucide-react';
 import { input as inputBase, groupTitle, fieldNote, btnGhost, btnLink } from '../styles/ui';
@@ -11,11 +13,12 @@ import { AVATARS } from '../lib/avatars';
 // 先頭は「なし」（選ばない＝ニックネームの 1 字か人の形）。
 const AVATAR_CHOICES = [{ id: '', label: 'なし' }, ...AVATARS];
 import UserAvatar from './UserAvatar';
+import MiniCover from './MiniCover';
+import { withPhraseBreaks } from './TightBubble';
 
 const field = { display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' };
 const label = { ...groupTitle, margin: 0 };
 const hint = { margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.6, lineBreak: 'strict', textWrap: 'pretty' };
-const coverBox = { width: 40, height: 56, flexShrink: 0, borderRadius: 'var(--space-1)', background: 'var(--fill)', objectFit: 'cover' };
 const rowBtn = {
   display: 'flex', alignItems: 'center', gap: 'var(--space-3)', width: '100%', minHeight: 'var(--tap-min)',
   padding: 'var(--space-2) 0', background: 'none', border: 'none', borderTop: '1px solid var(--separator)',
@@ -25,7 +28,7 @@ const rowBtn = {
 function BookLine({ title, author, cover }) {
   return (
     <>
-      {cover ? <img src={cover} alt="" style={coverBox} /> : <span style={coverBox} aria-hidden="true" />}
+      <MiniCover title={title} cover={cover} width={40} />
       <span style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', minWidth: 0 }}>
         <span style={{ fontSize: 'var(--text-body)', fontWeight: 600, lineHeight: 1.4, overflowWrap: 'anywhere' }}>{title}</span>
         {author && <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>{author}</span>}
@@ -34,7 +37,7 @@ function BookLine({ title, author, cover }) {
   );
 }
 
-export default function ProfileForm({ value, onChange, showBio = false, showAvatar = false }) {
+export default function ProfileForm({ value, onChange, showBio = false, showAvatar = false, fromShelf = false, shelfBooks = [], loadMemos = null, showFavorite = true }) {
   const ids = { nick: useId(), book: useId(), line: useId(), bio: useId(), avatar: useId() };
   const set = (patch) => onChange({ ...value, ...patch });
   // 矢印キーで選ぶアイコンを動かす（radiogroup の作法）。
@@ -143,52 +146,134 @@ export default function ProfileForm({ value, onChange, showBio = false, showAvat
         </div>
       )}
 
+      {showFavorite && (fromShelf
+        ? <ShelfFavorite value={value} set={set} shelfBooks={shelfBooks} loadMemos={loadMemos} ids={ids} />
+        : (
+          <>
       <div style={field}>
-        <label htmlFor={ids.book} style={label}>好きな本<span style={fieldNote}>（任意）</span></label>
-        {chosen ? (
+            <label htmlFor={ids.book} style={label}>好きな本<span style={fieldNote}>（任意）</span></label>
+            {chosen ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flex: 1, minWidth: 0 }}>
+                  <BookLine title={value.favTitle} author={value.favAuthor} cover={value.favCover} />
+                </span>
+                <button type="button" style={{ ...btnLink, flexShrink: 0 }} onClick={() => { setChanging(true); setResults(null); setQuery(''); }}>変更</button>
+              </div>
+            ) : (
+              <>
+                <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                  <input
+                    id={ids.book}
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); runSearch(); } }}
+                    maxLength={PROFILE_LIMITS.title}
+                    placeholder="書名か著者で探す"
+                    enterKeyHint="search"
+                    style={{ ...inputBase, flex: 1, minWidth: 0 }}
+                  />
+                  <button type="button" onClick={runSearch} disabled={!query.trim() || searching} aria-busy={searching || undefined} style={{ ...btnGhost, width: 'auto', flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+                    <Search size="1em" aria-hidden="true" />{searching ? '探しています…' : '探す'}
+                  </button>
+                </div>
+                {results && (
+                  <div ref={listRef}>
+                    <p style={{ ...hint, display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 'var(--space-2)' }}>
+                      {failed ? 'いまは探せませんでした。' : results.length ? '' : '見つかりませんでした。'}
+                      <button type="button" style={{ ...btnLink, fontSize: 'var(--text-meta)', marginLeft: 'calc(-1 * var(--space-1))' }} onClick={useTyped}>「{query.trim()}」をそのまま使う</button>
+                    </p>
+                    {results.length > 0 && (
+                      <div role="list" aria-label="見つかった本" style={{ borderBottom: '1px solid var(--separator)' }}>
+                        {results.map((b) => (
+                          <div role="listitem" key={`${b.isbn}|${b.title}`}>
+                            <button type="button" style={rowBtn} onClick={() => pick(b)}><BookLine title={b.title} author={b.author} cover={b.cover} /></button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {changing && (
+                  <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+                    <button type="button" style={{ ...btnLink, fontSize: 'var(--text-meta)', marginLeft: 'calc(-1 * var(--space-1))' }} onClick={() => { setChanging(false); setResults(null); setQuery(''); }}>やめる（『{value.favTitle}』のまま）</button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+    
+          <div style={field}>
+            <label htmlFor={ids.line} style={label}>その本のおすすめの 1 行<span style={fieldNote}>（任意）</span></label>
+            <input id={ids.line} value={value.favLine} onChange={(e) => set({ favLine: e.target.value })} maxLength={PROFILE_LIMITS.line} placeholder="例：仕事の見え方が変わった一冊" style={inputBase} />
+            <p style={hint}>好きな本は読了として本棚に入ります。<br />この 1 行は、その本のメモに残ります。</p>
+          </div>
+          </>
+        ))}
+    </div>
+  );
+}
+
+// 好きな本＝本棚の本から選ぶ・好きな言葉＝その本のメモから選ぶか自由に書く（2026-11-21 3 回目・VITE_SOCIAL）。
+function ShelfFavorite({ value, set, shelfBooks, loadMemos, ids }) {
+  const [query, setQuery] = useState('');
+  const [picking, setPicking] = useState(false);
+  const [memos, setMemos] = useState(null); // null＝まだ読んでいない
+  const [memoOpen, setMemoOpen] = useState(false);
+  const hasBook = !!String(value.favTitle || '').trim();
+  const books = Array.isArray(shelfBooks) ? shelfBooks : [];
+  const current = hasBook ? books.find((b) => (value.favIsbn && b.isbn === value.favIsbn) || b.title === value.favTitle) || null : null;
+  const q = query.trim().toLowerCase();
+  const matches = (q ? books.filter((b) => `${b.title} ${b.author || ''}`.toLowerCase().includes(q)) : books).slice(0, 6);
+
+  const choose = (b) => {
+    set({ favTitle: b.title, favAuthor: b.author || '', favIsbn: b.isbn || '', favCover: /^https:\/\//.test(b.cover || '') ? b.cover : '' });
+    setPicking(false); setQuery(''); setMemos(null); setMemoOpen(false);
+  };
+  const openMemos = async () => {
+    setMemoOpen(true);
+    if (memos || !current || !loadMemos) return;
+    try { setMemos((await loadMemos(current)) || []); } catch { setMemos([]); }
+  };
+
+  return (
+    <>
+      <div style={field}>
+        <span id={ids.book} style={label}>好きな本<span style={fieldNote}>（任意）</span></span>
+        {hasBook && !picking ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flex: 1, minWidth: 0 }}>
               <BookLine title={value.favTitle} author={value.favAuthor} cover={value.favCover} />
             </span>
-            <button type="button" style={{ ...btnLink, flexShrink: 0 }} onClick={() => { setChanging(true); setResults(null); setQuery(''); }}>変更</button>
+            <button type="button" style={{ ...btnLink, flexShrink: 0 }} onClick={() => setPicking(true)}>変更</button>
           </div>
+        ) : books.length === 0 ? (
+          <p style={hint}>本棚に本を入れると、ここで選べます。</p>
         ) : (
           <>
-            <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-              <input
-                id={ids.book}
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); runSearch(); } }}
-                maxLength={PROFILE_LIMITS.title}
-                placeholder="書名か著者で探す"
-                enterKeyHint="search"
-                style={{ ...inputBase, flex: 1, minWidth: 0 }}
-              />
-              <button type="button" onClick={runSearch} disabled={!query.trim() || searching} aria-busy={searching || undefined} style={{ ...btnGhost, width: 'auto', flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }}>
-                <Search size="1em" aria-hidden="true" />{searching ? '探しています…' : '探す'}
-              </button>
-            </div>
-            {results && (
-              <div ref={listRef}>
-                <p style={{ ...hint, display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 'var(--space-2)' }}>
-                  {failed ? 'いまは探せませんでした。' : results.length ? '' : '見つかりませんでした。'}
-                  <button type="button" style={{ ...btnLink, fontSize: 'var(--text-meta)', marginLeft: 'calc(-1 * var(--space-1))' }} onClick={useTyped}>「{query.trim()}」をそのまま使う</button>
-                </p>
-                {results.length > 0 && (
-                  <div role="list" aria-label="見つかった本" style={{ borderBottom: '1px solid var(--separator)' }}>
-                    {results.map((b) => (
-                      <div role="listitem" key={`${b.isbn}|${b.title}`}>
-                        <button type="button" style={rowBtn} onClick={() => pick(b)}><BookLine title={b.title} author={b.author} cover={b.cover} /></button>
-                      </div>
-                    ))}
+            <input
+              aria-labelledby={ids.book}
+              // 欄に入ったら、欄をシートの上の方へ送って候補が下の保存の帯に隠れないように（2026-11-21 ui-critic）。
+              onFocus={(e) => { const el = e.currentTarget; setTimeout(() => el.scrollIntoView?.({ block: 'start', behavior: 'smooth' }), 60); }}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              maxLength={PROFILE_LIMITS.title}
+              placeholder="本棚の本から探す（書名・著者）"
+              enterKeyHint="search"
+              style={inputBase}
+            />
+            {matches.length > 0 ? (
+              <div role="list" aria-label="本棚の本" style={{ borderBottom: '1px solid var(--separator)' }}>
+                {matches.map((b) => (
+                  <div role="listitem" key={b.id}>
+                    <button type="button" style={rowBtn} onClick={() => choose(b)}><BookLine title={b.title} author={b.author} cover={b.cover} /></button>
                   </div>
-                )}
+                ))}
               </div>
-            )}
-            {changing && (
-              <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-                <button type="button" style={{ ...btnLink, fontSize: 'var(--text-meta)', marginLeft: 'calc(-1 * var(--space-1))' }} onClick={() => { setChanging(false); setResults(null); setQuery(''); }}>やめる（『{value.favTitle}』のまま）</button>
+            ) : <p style={hint}>本棚に見つかりませんでした。</p>}
+            {picking && hasBook && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 'var(--space-4)' }}>
+                <button type="button" style={{ ...btnLink, marginLeft: 'calc(-1 * var(--space-1))' }} onClick={() => { setPicking(false); setQuery(''); }}>やめる（『{value.favTitle}』のまま）</button>
+                <button type="button" style={btnLink} onClick={() => { set({ favTitle: '', favAuthor: '', favIsbn: '', favCover: '' }); setPicking(false); setQuery(''); }}>好きな本を外す</button>
               </div>
             )}
           </>
@@ -196,10 +281,49 @@ export default function ProfileForm({ value, onChange, showBio = false, showAvat
       </div>
 
       <div style={field}>
-        <label htmlFor={ids.line} style={label}>その本のおすすめの 1 行<span style={fieldNote}>（任意）</span></label>
-        <input id={ids.line} value={value.favLine} onChange={(e) => set({ favLine: e.target.value })} maxLength={PROFILE_LIMITS.line} placeholder="例：仕事の見え方が変わった一冊" style={inputBase} />
-        <p style={hint}>好きな本は読了として本棚に入ります。<br />この 1 行は、その本のメモに残ります。</p>
+        <label htmlFor={ids.line} style={label}>好きな言葉<span style={fieldNote}>（任意）</span></label>
+        <textarea
+          id={ids.line}
+          value={value.favLine}
+          onChange={(e) => set({ favLine: e.target.value })}
+          maxLength={PROFILE_LIMITS.line}
+          rows={2}
+          placeholder="例：心に残った一文を、そのまま"
+          style={{ ...inputBase, minHeight: 'calc(2 * 1.5em + var(--space-6))', lineHeight: 1.5, resize: 'none' }}
+        />
+        <p style={{ ...hint, textAlign: 'right' }} aria-live="polite">{[...String(value.favLine || '')].length} / {PROFILE_LIMITS.line}</p>
+        {current && loadMemos && !memoOpen && (
+          <div>
+            <button type="button" style={{ ...btnLink, marginLeft: 'calc(-1 * var(--space-1))' }} onClick={openMemos}>『{current.title}』のメモから選ぶ</button>
+          </div>
+        )}
+        {memoOpen && (
+          memos === null ? <p role="status" style={hint}>メモを読んでいます…</p>
+            : memos.length === 0 ? <p style={hint}>この本のメモはまだありません。自由に書けます。</p>
+              : (
+                <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
+                  <p style={{ ...label, margin: 0 }}>『{current.title}』のメモ</p>
+                  <button type="button" style={{ ...btnLink, flexShrink: 0 }} onClick={() => setMemoOpen(false)}>閉じる</button>
+                </div>
+                <p style={hint}>押すと、その文が好きな言葉に入ります。</p>
+                <div role="list" aria-label="この本のメモ" style={{ borderBottom: '1px solid var(--separator)' }}>
+                  {memos.slice(0, 20).map((m) => (
+                    <div role="listitem" key={m.id}>
+                      <button
+                        type="button"
+                        style={{ ...rowBtn, alignItems: 'flex-start' }}
+                        onClick={() => { set({ favLine: String(m.text || '').replace(/\s+/g, ' ').trim().slice(0, PROFILE_LIMITS.line) }); setMemoOpen(false); }}
+                      >
+                        <span style={{ fontSize: 'var(--text-body)', lineHeight: 1.6, wordBreak: 'keep-all', overflowWrap: 'break-word', lineBreak: 'strict', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{withPhraseBreaks(String(m.text || ''))}</span>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                </div>
+              )
+        )}
       </div>
-    </div>
+    </>
   );
 }
