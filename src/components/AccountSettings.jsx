@@ -57,7 +57,7 @@ import { PAID_TOKENS, FREE_TOKENS } from '../lib/tokens';
 import { FREE_OCR_PER_MONTH } from '../lib/tokenAmounts';
 import { nextResetLabelJa } from '../lib/freeTrial';
 import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff, btnDanger, btnLink, input as uiInput } from '../styles/ui';
-import { ChevronRight, Download as IcDownload, RefreshCw as IcRefresh } from 'lucide-react';
+import { ChevronRight, Download as IcDownload, RefreshCw as IcRefresh, Users as IcUsers } from 'lucide-react';
 import { SkeletonBlock } from './Skeleton';
 import { withPhraseBreaks } from './TightBubble';
 import { track, EVENTS, isAnalyticsOptedOut, setAnalyticsOptOut } from '../lib/analytics';
@@ -1052,7 +1052,11 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
             </button>
             {/* 👥 フォロー（2026-11-21 3 回目・VITE_SOCIAL のビルドだけ）。 */}
             {SOCIAL_ON && (
-              <button type="button" onClick={() => setFollowOpen(true)} style={{ ...rowButtonStyle, gap: 'var(--space-3)' }}>
+              <button type="button" onClick={() => setFollowOpen(true)} style={{ ...rowButtonStyle, ...divider, gap: 'var(--space-3)' }}>
+                {/* 上のアバターの行と文字の左端をそろえる 40 の丸 */}
+                <span aria-hidden="true" style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--fill)', color: 'var(--text-2)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <IcUsers size="1.2em" />
+                </span>
                 <span style={{ flex: 1, minWidth: 0 }}>
                   <span style={{ ...rowTitleStyle, display: 'block', color: 'inherit' }}>フォロー</span>
                   <span style={{ ...rowDescStyle, display: 'block', ...(followRequests ? { color: 'var(--accent)', fontWeight: 600 } : {}) }}>

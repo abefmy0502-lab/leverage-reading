@@ -13,6 +13,7 @@ import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { btnPrimary, btnGhost, btnLink, btnLinkQuiet, btnRow, input as inputBase, groupTitle, segTrack, segOption } from '../styles/ui';
 import MiniCover from './MiniCover';
+import { SkeletonBlock } from './Skeleton';
 import { withPhraseBreaks } from './TightBubble';
 import {
   publicIdFrom, previewProfile, requestFollow, followResultMessage, loadFollows, respondFollow, removeFollow,
@@ -33,7 +34,7 @@ const nameStyle = { flex: 1, minWidth: 0, fontSize: 'var(--text-body)', color: '
 const plainBtn = { background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', color: 'inherit', textAlign: 'left' };
 // 一覧の行の主ボタン（承認・申し込む）は btnRow の形に塗り（15/600・高さ 44）。
 const smallBtn = { ...btnRow, background: 'var(--accent)', color: 'var(--accent-ink)', border: 'none' };
-const iconBtn = { ...plainBtn, width: 44, height: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-2)', flexShrink: 0 };
+const iconBtn = { ...plainBtn, width: 'var(--tap-min)', height: 'var(--tap-min)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-2)', flexShrink: 0 };
 
 // 3 つの画面を行き来してもシートの高さが跳ねないように、中身の高さの下限をそろえる。
 const sheetBody = { minHeight: 'min(64vh, 600px)' };
@@ -96,12 +97,12 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant }) {
     }
   }, [toast]);
   useEffect(() => { reload(); }, [reload]);
-  // 申し込みが届いていれば、はじめに開いたときは「申し込み」から（設定の行の「申し込みが N 件」から来た人がすぐ答えられる）。
+  // フォロー中が無く、送った申し込みだけあるときは「申し込み中」から（届いた申し込みはタブの外のいちばん上）。
   const firstTabRef = useRef(false);
   useEffect(() => {
     if (!lists || firstTabRef.current) return;
     firstTabRef.current = true;
-    if (lists.requests.length) setTab('requests');
+    if (!lists.following.length && lists.sent.length) setTab('requests');
   }, [lists]);
 
   const check = async (raw = text) => {
@@ -386,7 +387,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant }) {
   const TABS = [
     { id: 'following', label: 'フォロー中' },
     { id: 'followers', label: 'フォロワー' },
-    { id: 'requests', label: lists?.requests?.length ? `申し込み ${lists.requests.length}` : '申し込み' },
+    { id: 'requests', label: '申し込み中' },
   ];
   const followingIds = new Set([...(lists?.following || []), ...(lists?.sent || [])].map((p) => p.publicId));
   const mutual = new Set((lists?.following || []).map((p) => p.publicId));
@@ -397,6 +398,20 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant }) {
         <p style={note}>フォローはまだ使えません。少し時間をおいてお試しください。</p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
+          {/* 届いた申し込みは、いちばん上で答えられるように（設定の「申し込みが N 件」から来た人がすぐ答えられる）。 */}
+          {lists?.requests?.length > 0 && (
+            <section aria-labelledby={`${inputId}-req`}>
+              <p id={`${inputId}-req`} style={{ ...groupTitle, margin: '0 0 var(--space-2)' }}>届いた申し込み（{lists.requests.length}）</p>
+              <div role="list">
+                {lists.requests.map((p, i) => (
+                  <PersonRow key={`r-${p.publicId}`} first={i === 0} person={p}>
+                    <button type="button" style={btnLinkQuiet} onClick={() => respond(p, false)}>断る</button>
+                    <button type="button" style={smallBtn} onClick={() => respond(p, true)}>承認</button>
+                  </PersonRow>
+                ))}
+              </div>
+            </section>
+          )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
             <label htmlFor={inputId} style={{ ...groupTitle, margin: 0 }}>フォローを申し込む</label>
             <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
@@ -431,14 +446,16 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant }) {
           </div>
 
           {/* 自分の ID（相手に渡すと申し込みが届く）。ニックネームが無いと申し込まれないので、先にプロフィールへ。 */}
-          {!meLoading && (
+          {(
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
               <p style={{ ...groupTitle, margin: 0 }}>あなたの ID</p>
-              {meReady ? (
+              {meLoading ? (
+                <SkeletonBlock height="var(--tap-min)" />
+              ) : meReady ? (
                 <>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
                     <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-body)', fontVariantNumeric: 'tabular-nums', letterSpacing: '0.04em', color: 'var(--text)', overflowWrap: 'anywhere', userSelect: 'all', WebkitUserSelect: 'all' }}>{me.publicId}</span>
-                    <button type="button" onClick={shareMyId} style={{ ...btnGhost, width: 'auto', flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                    <button type="button" onClick={shareMyId} style={{ ...btnRow, flexShrink: 0, gap: 'var(--space-2)' }}>
                       <Share size="1em" aria-hidden="true" />{me.isPublic ? 'リンクを渡す' : 'ID を渡す'}
                     </button>
                   </div>
@@ -447,7 +464,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant }) {
               ) : (
                 <>
                   <p style={note}>{withPhraseBreaks('フォローし合うには、先にプロフィールでニックネームを決めます。')}</p>
-                  <button type="button" onClick={() => setProfileOpen(true)} style={btnGhost}>ニックネームを決める</button>
+                  <button type="button" onClick={() => setProfileOpen(true)} style={{ ...btnLink, alignSelf: 'flex-start', marginLeft: 'calc(-1 * var(--space-1))' }}>ニックネームを決める</button>
                 </>
               )}
             </div>
@@ -485,14 +502,8 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant }) {
                   : <p style={note}>{withPhraseBreaks(meReady ? 'フォロワーはいません。上の「あなたの ID」を渡すと、申し込みが届きます。' : 'フォロワーはいません。')}</p>)}
                 {tab === 'requests' && (
                   <>
-                    {lists.requests.length === 0 && lists.sent.length === 0 && <p style={note}>申し込みはありません。</p>}
-                    {lists.requests.map((p, i) => (
-                      <PersonRow key={`r-${p.publicId}`} first={i === 0} person={p}>
-                        <button type="button" style={btnLinkQuiet} onClick={() => respond(p, false)}>断る</button>
-                        <button type="button" style={smallBtn} onClick={() => respond(p, true)}>承認</button>
-                      </PersonRow>
-                    ))}
-                    {lists.sent.length > 0 && <p style={{ ...groupTitle, margin: 'var(--space-6) 0 var(--space-2)' }}>承認を待っている申し込み</p>}
+                    {lists.sent.length === 0 && <p style={note}>{withPhraseBreaks(lists.requests.length ? '送った申し込みはありません。届いた申し込みは上にあります。' : '送った申し込みはありません。')}</p>}
+                    {lists.sent.length > 0 && <p style={{ ...note, margin: '0 0 var(--space-2)' }}>相手の承認を待っています。</p>}
                     {lists.sent.map((p, i) => (
                       <PersonRow key={`s-${p.publicId}`} first={i === 0} person={p}>
                         <button type="button" style={btnLinkQuiet} onClick={() => remove(p, 'following')}>取り消す</button>
