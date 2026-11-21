@@ -30,6 +30,7 @@ function safeStorage() {
 let sessionDone = { month: null, year: null };
 // 今年の 1 行は、アプリを開いて 1 回だけ数える（タブを行き来しても数えない）。
 let yearCountedThisSession = false;
+const monthCountCache = new Map();
 
 // active: 本を読み込み終えて、本が 1 冊以上あるとき。
 // 戻り値: { ready（出すかどうかが決まった）, nudge（{ kind, text } | null）, dismiss(action) }
@@ -42,11 +43,16 @@ export function useShareNudge(books, active) {
   });
   const need = active && needsMonthMemoCount({ now, books, state });
   const canCount = need && isSupabaseConfigured && !!user?.id;
-  const [count, setCount] = useState(null);
-  const [timedOut, setTimedOut] = useState(false);
   const since = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  // 今月のメモの件数は、アプリを開いている間 10 分覚える（ホームに戻るたびに読み直して待たせない・2026-11-21）。
+  const countKey = user?.id ? `${user.id}:${since}` : null;
+  const [count, setCount] = useState(() => {
+    const hit = countKey ? monthCountCache.get(countKey) : null;
+    return hit && Date.now() - hit.at < 10 * 60 * 1000 ? hit.n : null;
+  });
+  const [timedOut, setTimedOut] = useState(false);
   useEffect(() => {
-    if (!canCount) return undefined;
+    if (!canCount || count != null) return undefined;
     let alive = true;
     (async () => {
       try {
@@ -55,6 +61,7 @@ export function useShareNudge(books, active) {
           .select('id', { count: 'exact', head: true })
           .eq('user_id', user.id)
           .gte('created_at', since);
+        if (!error && countKey) monthCountCache.set(countKey, { n: n || 0, at: Date.now() });
         if (alive) { if (error) setTimedOut(true); else setCount(n || 0); }
       } catch { if (alive) setTimedOut(true); }
     })();

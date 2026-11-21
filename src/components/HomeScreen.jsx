@@ -362,6 +362,18 @@ function GrownLine({ onConsult, onDismiss, text = null, icon: Icon = Sprout, act
   );
 }
 
+// ホームの時期の案内が読んだ結果を、アプリを開いている間だけ覚える（10 分・2026-11-21）。
+//   前はホームに戻るたびに読み直し、その時期は毎回、形だけの表示で最大まで待っていた。値が null（出さない）でも覚える。
+const HOME_PEEK_TTL_MS = 10 * 60 * 1000;
+const homePeekCache = new Map();
+function readHomePeek(key) {
+  const hit = key ? homePeekCache.get(key) : null;
+  return hit && Date.now() - hit.at < HOME_PEEK_TTL_MS ? hit : null;
+}
+function writeHomePeek(key, value) {
+  if (key) homePeekCache.set(key, { value, at: Date.now() });
+}
+
 // 🔁 「今月の相談が戻りました」（lib/tokensBack.js・2026-10-20）。先月の使った量を読み終えるか MEMO_COUNT_WAIT_MS まで待って
 //   1 回だけ決める（あとから差し込んでホームを押し下げない）。戻り値: { ready, show, text, close(action) }。
 function useTokensBack(active) {
@@ -370,12 +382,13 @@ function useTokensBack(active) {
   const [now] = useState(() => appNow().getTime());
   const [doneMonth] = useState(() => readTokensBackDone(user?.id));
   const need = active && !!user?.id && tokensBackCandidate({ freeMode, now, doneMonth });
-  const [prevUsed, setPrevUsed] = useState(undefined); // undefined＝まだ・null＝読めない
+  const peekKey = user?.id ? `tokensBack:${user.id}:${prevMonthOf(now).key}` : null;
+  const [prevUsed, setPrevUsed] = useState(() => { const h = readHomePeek(peekKey); return h ? h.value : undefined; }); // undefined＝まだ・null＝読めない
   const [timedOut, setTimedOut] = useState(false);
   useEffect(() => {
-    if (!need) return undefined;
+    if (!need || prevUsed !== undefined) return undefined;
     let alive = true;
-    fetchUsedMjpy(user.id, `free-${prevMonthOf(now).key}`).then((v) => { if (alive) setPrevUsed(v); });
+    fetchUsedMjpy(user.id, `free-${prevMonthOf(now).key}`).then((v) => { writeHomePeek(peekKey, v); if (alive) setPrevUsed(v); });
     const t = setTimeout(() => { if (alive) setTimedOut(true); }, MEMO_COUNT_WAIT_MS);
     return () => { alive = false; clearTimeout(t); };
   }, [need, user?.id, now]);
@@ -400,10 +413,11 @@ function useReaskNudge(active) {
   const [now] = useState(() => appNow().getTime());
   const [doneMonth] = useState(() => readReaskDone(user?.id));
   const need = active && !!user?.id && reaskCandidate({ now, doneMonth });
-  const [picked, setPicked] = useState(undefined); // undefined＝まだ・null＝出さない
+  const peekKey = user?.id ? `reask:${user.id}` : null;
+  const [picked, setPicked] = useState(() => { const h = readHomePeek(peekKey); return h ? h.value : undefined; }); // undefined＝まだ・null＝出さない
   const [timedOut, setTimedOut] = useState(false);
   useEffect(() => {
-    if (!need) return undefined;
+    if (!need || picked !== undefined) return undefined;
     let alive = true;
     (async () => {
       try {
@@ -412,7 +426,9 @@ function useReaskNudge(active) {
           loadAllMemoRows(user.id),
         ]);
         const memoTimes = (memos?.rows || []).map((m) => Date.parse(m.created_at || '')).filter(Number.isFinite);
-        if (alive) setPicked(pickReask({ consults: data || [], memoTimes, now }));
+        const v = pickReask({ consults: data || [], memoTimes, now });
+        writeHomePeek(peekKey, v);
+        if (alive) setPicked(v);
       } catch { if (alive) setPicked(null); }
     })();
     const t = setTimeout(() => { if (alive) setTimedOut(true); }, MEMO_COUNT_WAIT_MS);
@@ -436,17 +452,20 @@ function useRenewalReview(active, books) {
   const [now] = useState(() => appNow().getTime());
   const [doneKey] = useState(() => readRenewalDone(user?.id));
   const need = active && !!user?.id && renewalCandidate({ plan, priceId: planPeriod, periodEnd, now, doneKey });
-  const [stats, setStats] = useState(undefined); // undefined＝まだ・null＝出さない
+  const peekKey = user?.id ? `renewal:${user.id}:${periodEnd || ''}` : null;
+  const [stats, setStats] = useState(() => { const h = readHomePeek(peekKey); return h ? h.value : undefined; }); // undefined＝まだ・null＝出さない
   const [timedOut, setTimedOut] = useState(false);
   useEffect(() => {
-    if (!need) return undefined;
+    if (!need || stats !== undefined) return undefined;
     let alive = true;
     (async () => {
       try {
         const [memos] = await Promise.all([loadAllMemoRows(user.id), readingSessions.load(user.id).catch(() => {})]);
         const memoTimes = (memos?.rows || []).map((m) => Date.parse(m.created_at || '')).filter(Number.isFinite);
         const st = yearReviewStats({ books, memoTimes, sessions: readingSessions.rows(), now });
-        if (alive) setStats(hasAnything(st) ? st : null);
+        const v = hasAnything(st) ? st : null;
+        writeHomePeek(peekKey, v);
+        if (alive) setStats(v);
       } catch { if (alive) setStats(null); }
     })();
     const t = setTimeout(() => { if (alive) setTimedOut(true); }, MEMO_COUNT_WAIT_MS);
