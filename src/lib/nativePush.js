@@ -33,15 +33,18 @@ export const NATIVE_PUSH_ON = import.meta.env?.VITE_NATIVE_PUSH === 'on';
 export const isNativePushCapable = Capacitor.isNativePlatform() && NATIVE_PUSH_ON;
 
 let _PN = null;
+// ⚠️ Capacitor の部品（registerPlugin の Proxy）は async 関数からそのまま返さない。どんな名前でも関数を返すので、Promise が
+//   「then」を持つ物とみなして proxy.then(…) を呼び、返事の来ない待ちに入る（2026-11-21・Apple でサインインが「サインイン中…」のまま・
+//   課金の値段が出ない、の原因）。箱 { plugin } に入れて返し、使う側で取り出す（capacitorPluginBox.test.js が確かめる）。
 async function loadPN() {
-  if (!isNativePushCapable) return null;
-  if (_PN) return _PN;
+  if (!isNativePushCapable) return { plugin: null };
+  if (_PN) return { plugin: _PN };
   try {
     const mod = await import('@capacitor/push-notifications');
     _PN = mod.PushNotifications;
-    return _PN;
+    return { plugin: _PN };
   } catch {
-    return null; // プラグイン未導入 = 機能無効（fail-safe）
+    return { plugin: null }; // プラグイン未導入 = 機能無効（fail-safe）
   }
 }
 
@@ -58,7 +61,7 @@ async function getUserId() {
 // 現在の通知許可状態を返す（'granted' | 'denied' | 'prompt' | 'unsupported'）。
 // Capacitor の checkPermissions().receive は 'granted'|'denied'|'prompt'|'prompt-with-rationale'。
 export async function getNativePushPermission() {
-  const PN = await loadPN();
+  const { plugin: PN } = await loadPN();
   if (!PN) return 'unsupported';
   try {
     const res = await PN.checkPermissions();
@@ -132,7 +135,7 @@ async function upsertNativeToken(token, { frequency = 'weekly' } = {}) {
 // フロー: 権限要求 → register()（APNs 登録）→ 'registration' イベントで device token を
 //        受け取り → DB へ upsert。register の結果はイベントで返るため Promise 化して待つ。
 export async function subscribeNativePush({ frequency = 'weekly', timeoutMs = 12000 } = {}) {
-  const PN = await loadPN();
+  const { plugin: PN } = await loadPN();
   if (!PN) return { ok: false, reason: 'unsupported' };
 
   try {
@@ -192,7 +195,7 @@ export async function unsubscribeNativePush() {
         } catch { /* ignore */ }
       }
     }
-    const PN = await loadPN();
+    const { plugin: PN } = await loadPN();
     if (PN) {
       try { await PN.unregister(); } catch { /* ignore */ }
     }
@@ -218,7 +221,7 @@ export function withPushKind(url, data = {}) {
 // アプリ起動時に1回だけ呼ぶ（native のみ）。onNavigate(url) が呼ばれる。
 // 戻り値: リスナー解除関数（呼ぶと remove。native/未導入では no-op 関数）。
 export async function initNativePushNav(onNavigate) {
-  const PN = await loadPN();
+  const { plugin: PN } = await loadPN();
   if (!PN) return () => {};
   try {
     const handle = await PN.addListener('pushNotificationActionPerformed', (action) => {

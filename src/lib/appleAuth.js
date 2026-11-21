@@ -65,16 +65,19 @@ export function withTimeout(p, ms, code) {
   return Promise.race([p, t]).finally(() => clearTimeout(timer));
 }
 
+// ⚠️ Capacitor の部品（registerPlugin の Proxy）は async 関数からそのまま返さない。どんな名前でも関数を返すので、Promise が
+//   「then」を持つ物とみなして proxy.then(…) を呼び、返事の来ない待ちに入る（2026-11-21・Apple でサインインが「サインイン中…」のまま・
+//   課金の値段が出ない、の原因）。箱 { plugin } に入れて返し、使う側で取り出す（capacitorPluginBox.test.js が確かめる）。
 let _plugin = null;
 async function loadPlugin() {
-  if (!isNativeApple) return null;
-  if (_plugin) return _plugin;
+  if (!isNativeApple) return { plugin: null };
+  if (_plugin) return { plugin: _plugin };
   try {
     const mod = await import('@capacitor-community/apple-sign-in');
     _plugin = mod.SignInWithApple;
-    return _plugin;
+    return { plugin: _plugin };
   } catch {
-    return null; // プラグイン未導入 = ネイティブ経路は使えない（fail-safe）
+    return { plugin: null }; // プラグイン未導入 = ネイティブ経路は使えない（fail-safe）
   }
 }
 
@@ -116,7 +119,7 @@ async function authorizeNative(plugin) {
 export async function appleCodeForDeletion() {
   if (!isNativeApple) return '';
   try {
-    const plugin = await loadPlugin();
+    const { plugin } = await loadPlugin();
     if (!plugin) return '';
     const res = await withTimeout(plugin.authorize({ scopes: 'email' }), APPLE_AUTHORIZE_TIMEOUT_MS, 'apple_authorize_timeout');
     return String(res?.response?.authorizationCode || '');
@@ -140,7 +143,7 @@ export async function linkAppleToCurrentUser() {
     const e = new Error('Identity is already linked to another user'); e.code = 'identity_already_exists'; throw e; // 🧪
   }
   if (isNativeApple) {
-    const plugin = await loadPlugin();
+    const { plugin } = await loadPlugin();
     if (!plugin) {
       const e = new Error('apple-plugin-missing');
       e.code = 'plugin_missing';
@@ -173,7 +176,7 @@ export async function signInWithApple() {
   }
 
   if (isNativeApple) {
-    const plugin = await loadPlugin();
+    const { plugin } = await loadPlugin();
     if (!plugin) {
       const e = new Error('apple-plugin-missing');
       e.code = 'plugin_missing';
