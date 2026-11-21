@@ -115,6 +115,16 @@ export default function BottomSheet({ title, eyebrow = '', onClose, beforeClose 
     }
   };
 
+  // 指の操作が打ち切られたら（通知・ほかの手の動き）元の位置へ戻す（途中の位置で止まったままだった・2026-11-21）。
+  const onDragCancel = () => {
+    dragStartYRef.current = null;
+    if (!draggingRef.current || !sheetRef.current) return;
+    draggingRef.current = false;
+    const el = sheetRef.current;
+    el.style.transition = 'transform var(--duration-fast) var(--ease-out-quart)';
+    el.style.transform = '';
+  };
+
   return (
     <>
       <div
@@ -137,7 +147,8 @@ export default function BottomSheet({ title, eyebrow = '', onClose, beforeClose 
         aria-modal="true"
         aria-label={title || 'シート'}
       >
-        <div onTouchStart={onDragStart} onTouchMove={onDragMove} onTouchEnd={onDragEnd}>
+        {/* 掴む所はページを動かさない（下に引いている間に、後ろの画面やシートの外が一緒に動いていた・2026-11-21）。 */}
+        <div onTouchStart={onDragStart} onTouchMove={onDragMove} onTouchEnd={onDragEnd} onTouchCancel={onDragCancel} style={{ touchAction: 'none' }}>
           {/* ハンドルは押す部品ではなく「掴んで下へ」の目印（押せる範囲が 44 に満たないボタンにしない）。
               閉じるのは右上の文字・背景・Esc・下スワイプ。 */}
           <div style={{ padding: 'var(--space-2) 0 var(--space-1)' }}>

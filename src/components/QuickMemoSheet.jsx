@@ -358,6 +358,13 @@ export default function QuickMemoSheet({
     sheetRef.current.style.transition = 'none';
     sheetRef.current.style.transform = `translateY(${dy}px)`;
   };
+  const onDragCancel = () => {
+    dragStartYRef.current = null;
+    if (!draggingRef.current || !sheetRef.current) return;
+    draggingRef.current = false;
+    sheetRef.current.style.transition = 'transform .22s cubic-bezier(0.2,0.9,0.3,1)';
+    sheetRef.current.style.transform = '';
+  };
   const onDragEnd = (e) => {
     const startY = dragStartYRef.current;
     dragStartYRef.current = null;
@@ -496,7 +503,8 @@ export default function QuickMemoSheet({
         data-closing={closing ? 'true' : undefined}
       >
         {/* ハンドル+ヘッダー = 掴んで下に振ると閉じる（iOS シートの標準所作） */}
-        <div onTouchStart={onDragStart} onTouchMove={onDragMove} onTouchEnd={onDragEnd}>
+        {/* 掴む所はページを動かさない・指の操作が打ち切られたら元の位置へ（2026-11-21・BottomSheet と同じ）。 */}
+        <div onTouchStart={onDragStart} onTouchMove={onDragMove} onTouchEnd={onDragEnd} onTouchCancel={onDragCancel} style={{ touchAction: 'none' }}>
         <div className="lvg-sheet-handle" aria-hidden="true" />
         <div style={headerStyle}>
           <div style={{ minWidth: 0, flex: 1 }}>

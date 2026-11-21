@@ -1196,6 +1196,13 @@ function AuthedApp() {
   // (例: 読書前で「読書を開始する」ボタン直前) のままだったため、新フェーズ
   // で画面が下から始まる症状があった。
   const detailScrollRef = useRef(null);
+  const detailReturnRef = useRef(null); // 編集から戻る先（rememberDetailReturn）
+  // 詳細の出方: 一覧から開いた＝右から（detail-enter）／編集から戻った＝左から（screen-pop・iOS の戻ると同じ向き）。
+  const detailAnimRef = useRef({ view, cls: 'detail-enter' });
+  if (detailAnimRef.current.view !== view) {
+    if (view === 'detail') detailAnimRef.current.cls = detailAnimRef.current.view === 'edit' && detailReturnRef.current ? 'screen-pop' : 'detail-enter';
+    detailAnimRef.current.view = view;
+  }
   // 本の編集・追加の画面のスクロールの箱（上部の行の線を出すため）。
   const editScrollRef = useRef(null);
   // 本棚のスクロール位置を本詳細から戻った時に復元する（「迷子にならない」動線）。
@@ -2281,6 +2288,18 @@ function AuthedApp() {
     prevDetailStatusRef.current = { view, id: current?.id, status: current?.status };
     if (view !== 'detail') return;
     if (prev.view === 'detail' && prev.id === current?.id && prev.status === 'reading' && current?.status === 'done') return;
+    // 編集から同じ本・同じ状態で戻ったら、編集へ進む前の位置へ（状態が変わったら形が違うので先頭へ）。
+    const back = detailReturnRef.current;
+    detailReturnRef.current = null; // 1 回だけ使う（あとで別の道で詳細を開いたときに残らない）
+    if (prev.view === 'edit' && back && back.id === current?.id && back.status === current?.status && back.top > 0) {
+      const el = detailScrollRef.current;
+      if (el) {
+        try { el.scrollTop = back.top; } catch { /* ignore */ }
+        // 中身（メモの一覧など）が後から伸びたときにもう 1 回だけ合わせる
+        requestAnimationFrame(() => { try { if (detailScrollRef.current && detailScrollRef.current.scrollTop < back.top) detailScrollRef.current.scrollTop = back.top; } catch { /* ignore */ } });
+      }
+      return;
+    }
     if (detailScrollRef.current) {
       try { detailScrollRef.current.scrollTo({ top: 0, behavior: 'auto' }); } catch { /* ignore */ }
     }
@@ -2299,10 +2318,18 @@ function AuthedApp() {
         ? b.investPurpose
         : (b.sourceQuery || ''),
   });
-  const openEdit = (b) => { setForm(buildFormFromBook(b)); setCurrent(b); setEditPhaseOverride(null); setView("edit"); };
+  // 本の詳細から編集へ進むときは、詳細の位置と状態を覚える（戻ったら同じ位置に「戻る」向きで出す・2026-11-21）。
+  //   前は編集から戻ると先頭へ飛び、押し込みと同じ右からの動きで出ていた。
+  const rememberDetailReturn = (b) => {
+    detailReturnRef.current = view === 'detail' && current?.id && b?.id === current.id && detailScrollRef.current
+      ? { id: b.id, status: b.status, top: detailScrollRef.current.scrollTop }
+      : null;
+  };
+  const openEdit = (b) => { rememberDetailReturn(b); setForm(buildFormFromBook(b)); setCurrent(b); setEditPhaseOverride(null); setView("edit"); };
   // 読書中 (or それ以降) の本で読書計画を完了させたい時用。phase を
   // 'before' にして読書計画 UI を呼び出すが、form.status は維持。
   const openSetup = (b) => {
+    rememberDetailReturn(b);
     setForm(buildFormFromBook(b));
     setCurrent(b);
     setEditPhaseOverride('before');
@@ -2311,7 +2338,7 @@ function AuthedApp() {
   // quickMemoOpen / fullEditorPrefill もリセットする — edge-swipe back や BottomNav
   // は QuickMemoSheet の onClose を経由しないため、開いたまま一覧へ戻ると次に
   // 開いた別の本の詳細でシートが勝手に開いてしまう。
-  const goList = () => { setJustDoneId(null); setView("list"); setCurrent(null); setEditPhaseOverride(null); setQuickMemoOpen(false); setQuickMemoPrompt(null); setFullEditorPrefill(null); setDetailKebab(null); setStoreSheetOpen(false); setAnalysisSheetOpen(false); setDetailFromSearchId(null); setDetailFromGoal(null); setJustMadePlanId(null); };
+  const goList = () => { detailReturnRef.current = null; setJustDoneId(null); setView("list"); setCurrent(null); setEditPhaseOverride(null); setQuickMemoOpen(false); setQuickMemoPrompt(null); setFullEditorPrefill(null); setDetailKebab(null); setStoreSheetOpen(false); setAnalysisSheetOpen(false); setDetailFromSearchId(null); setDetailFromGoal(null); setJustMadePlanId(null); };
   // 本の詳細から 1 段戻る: 検索結果の「追加済み」から開いた本なら、さっきの検索結果へ戻す（2026-09-29）。
   const leaveDetail = () => {
     const toSearch = !!detailFromSearchId && current?.id === detailFromSearchId;
@@ -5093,7 +5120,7 @@ function AuthedApp() {
         <OfflineNotice />
         <div
           ref={detailScrollRef}
-          className="detail-enter"
+          className={detailAnimRef.current.cls}
           style={{
             flex: 1,
             minHeight: 0,
