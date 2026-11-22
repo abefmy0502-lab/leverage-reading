@@ -85,7 +85,7 @@ blocks.channels = (() => {
   row('App Store の検索', (x) => x.ch.search); row('SNS', (x) => x.ch.sns); row('協業・note・プレス', (x) => x.ch.collab); row('利用者の共有', (x) => x.ch.share);
   row('**iPhone の自然な流入の合計**', (x) => x.organic); row('Android', (x) => x.android); row('広告（試し）', (x) => x.paidInstalls);
   let cumIos = 0; let cumAll = 0; for (const x of r) if (x.inPlan) { cumIos += x.organic; cumAll += x.installs; }
-  return `${lines.join('\n')}\n\n**市場に対して大きすぎないか**: 3 年で入れた人は のべ 約 ${n(cumAll / 1e4)} 万（iPhone の自然な流入 約 ${n(cumIos / 1e4)} 万）。TAM 約 726 万人の 約 ${(cumAll / 7.26e6 * 100).toFixed(0)}%、ねらう人（約 75 万人）に対して iPhone の分は 約 ${(cumIos / 7.5e5 * 100).toFixed(0)}%（入れた人には、ねらう人の外の人・入れ直しも含む）。`;
+  return `${lines.join('\n')}\n\n**市場に対して大きすぎないか**: 3 年で入れた人は のべ 約 ${n(cumAll / 1e4)} 万（iPhone の自然な流入 約 ${n(cumIos / 1e4)} 万）。TAM 約 726 万人の 約 ${(cumAll / 7.26e6 * 100).toFixed(0)}%、ねらう人（約 75 万人）に対して iPhone の分は 約 ${(cumIos / 7.5e5 * 100).toFixed(0)}%。ただし入れた人のうち、ねらう人（25〜44 歳の会社員でビジネス書を読む人）は約 5 割と置く（ほかは学生・ほかの年代・入れ直し）ので、ねらう人への入り込みは 約 ${(cumIos * 0.5 / 7.5e5 * 100).toFixed(0)}%。検索の数は 2027 年 1 月の実測までは控えめの線で読む。`;
 })();
 
 blocks.unit = (() => {

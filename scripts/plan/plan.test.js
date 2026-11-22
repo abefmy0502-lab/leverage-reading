@@ -101,6 +101,12 @@ describe('中期経営計画の計算', () => {
     const ai = sensitivity(BASE).find((x) => x.label.startsWith('汎用 AI が同じことを無料に'));
     expect(doc).toContain(`有料になる率が 3 割下がると 約 ${r100(ai.paidEnd)} 人`);
   });
+  it('始めの手元の最低額（文書の ¥71 万）は、網の目のいちばん少ない現金から逆算した額と同じ', () => {
+    const worst = Math.min(...stressGrid(BASE).map((x) => x.minCash));
+    const need = Math.round((BASE.startingCash - worst) / 1e4);
+    const doc = readFileSync(new URL('../../company/mid-term-plan-2027-2029.md', import.meta.url), 'utf8');
+    expect(doc).toContain(`最低でも ¥${need} 万が要る`);
+  });
   it('基本は 2027 年のうちに黒字の月が来る', () => {
     const be = breakEvenMonth(simulate(BASE));
     expect(be).toBeTruthy(); expect(be <= '2027-12').toBe(true);
