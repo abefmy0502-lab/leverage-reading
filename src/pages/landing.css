@@ -1210,7 +1210,7 @@ body.lp-active {
 .lp-root .lp-more-title { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); margin: 0; font-size: var(--text-body); font-weight: 600; color: var(--text); }
 .lp-more-plan { color: var(--text-2); font-size: var(--text-caption); font-weight: 600; }
 .lp-root .lp-more-body { margin: var(--space-1) 0 0; color: var(--text-2); font-size: var(--text-sub); line-height: 1.5; max-width: 36em; }
-.lp-root .lp-more-note { margin: var(--space-4) 0 0; color: var(--text-3); font-size: var(--text-meta); }
+.lp-root .lp-more-note { margin: var(--space-4) 0 0; color: var(--text-2); font-size: var(--text-meta); }
 @media (min-width: 768px) {
   .lp-more { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--space-16); }
   .lp-more > li:last-child { border-bottom: 0; }
@@ -1241,10 +1241,13 @@ body.lp-active {
 .lp-feat-svg { width: 48px; height: 48px; color: var(--text); }
 .lp-root .lp-feat-title { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin: 0; font-size: var(--text-body); font-weight: 600; color: var(--text); line-height: 1.4; }
 .lp-root .lp-feat-body { margin: var(--space-1) 0 0; color: var(--text-2); font-size: var(--text-sub); line-height: 1.5; max-width: 30em; word-break: normal; line-break: strict; text-wrap: pretty; }
-.lp-root .lp-feat-note { margin: var(--space-1) 0 0; color: var(--text-3); font-size: var(--text-meta); line-height: 1.5; }
-.lp-more-plan.is-new { color: var(--accent); }
+.lp-root .lp-feat-note { margin: var(--space-1) 0 0; color: var(--text-2); font-size: var(--text-meta); line-height: 1.5; }
 @media (min-width: 768px) {
   .lp-feat { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-8) var(--space-16); }
+}
+/* 広い画面は上の大きな 3 枚と同じ 3 列の格子に揃える（ui-critic 2026-11-22） */
+@media (min-width: 1024px) {
+  .lp-feat { grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: var(--space-8); }
 }
 
 /* 有料プランの 2 つはイメージの絵つきで上に（2026-11-12） */
