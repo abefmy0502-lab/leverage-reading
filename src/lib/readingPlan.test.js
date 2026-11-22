@@ -44,11 +44,14 @@ describe('日付の割り振り', () => {
     expect(slow[0].days).toBe(40);
     expect(fast[0].days).toBe(10);
   });
-  it('ロードマップの順に・読了と重複を外す・区切りの始まりを付ける', () => {
+  it('ロードマップの順に・読了と重複を外す・区切りの始まりは目安で待たない', () => {
     const books = [{ id: 'a', status: 'want' }, { id: 'b', status: 'done' }, { id: 'c', status: 'before' }];
     const roadmap = { phases: [{ books: [{ bookId: 'a' }, { bookId: 'b' }] }, { books: [{ bookId: 'a' }, { bookId: 'c' }, { bookId: 'x' }] }] };
     const items = planItemsFromRoadmap(roadmap, books, { phaseStarts: ['2026-11-01', '2027-02-01'] });
-    expect(items.map((i) => [i.bookId, i.phase, i.notBefore])).toEqual([['a', 0, '2026-11-01'], ['c', 1, '2027-02-01']]);
+    expect(items.map((i) => [i.bookId, i.phase, i.notBefore, i.phaseStart])).toEqual([['a', 0, null, '2026-11-01'], ['c', 1, null, '2027-02-01']]);
+    // 前の本が早く終わっても、次の区切りまで空けない
+    const s = scheduleBooks(items.map((i) => ({ ...i, minutes: 30 })), { minutesPerDay: 30, start: '2026-11-15' });
+    expect(s.map((x) => x.start)).toEqual(['2026-11-15', '2026-11-16']);
   });
 });
 

@@ -99,6 +99,8 @@ export function scheduleBooks(items, { minutesPerDay = PLAN_DEFAULT_MINUTES, sta
 
 // ロードマップの区切りの順に、まだ読み終えていない本を並べる（同じ本は最初の区切りだけ）。
 //   phaseStarts: 区切りが始まる日（'YYYY-MM-DD'・lib/goalRoadmap.js の phaseSpecs の startYm の 1 日）。
+//   2026-11-22 点検: 区切りの始まりまで待つと、前の本が早く終わったとき 7 週間ほど何も読まない日が続いた（毎日読む習慣が切れる）。
+//   区切りの始まりは目安にして待たない（notBefore は付けない）＝前の本を読み終えたら、次の区切りの本へそのまま進む。
 export function planItemsFromRoadmap(roadmap, books, { speed = 1, sessions = [], phaseStarts = [] } = {}) {
   const byId = new Map((Array.isArray(books) ? books : []).map((b) => [b.id, b]));
   const read = minutesByBook(sessions);
@@ -109,7 +111,7 @@ export function planItemsFromRoadmap(roadmap, books, { speed = 1, sessions = [],
       const b = byId.get(rb.bookId);
       if (!b || b.status === 'done' || seen.has(b.id)) continue;
       seen.add(b.id);
-      out.push({ bookId: b.id, phase, notBefore: phaseStarts[phase] || null, minutes: estimateBookMinutes(b, { speed, readMinutes: read.get(b.id) || 0 }) });
+      out.push({ bookId: b.id, phase, notBefore: null, phaseStart: phaseStarts[phase] || null, minutes: estimateBookMinutes(b, { speed, readMinutes: read.get(b.id) || 0 }) });
     }
   });
   return out;

@@ -4624,7 +4624,7 @@ function AuthedApp() {
     <>
       {focusStartBook && (
         <Suspense fallback={<OverlayFallback />}>
-          <FocusStartSheet book={books.find((x) => x.id === focusStartBook.id) || focusStartBook} onStart={startFocusRun} onClose={() => setFocusStartBook(null)} initialUntil={!!focusStartBook.focusUntil} />
+          <FocusStartSheet book={books.find((x) => x.id === focusStartBook.id) || focusStartBook} onStart={startFocusRun} onClose={() => setFocusStartBook(null)} initialUntil={!!focusStartBook.focusUntil} initialMinutes={focusStartBook.planMinutes || null} />
         </Suspense>
       )}
       {readTargetBook && (
@@ -7275,6 +7275,8 @@ function AuthedApp() {
               return { added, skipped };
             }}
             onFindBooks={(draft) => { setGoalScreen(null); openAdvisorWithDraft(draft); }}
+            // ⏱ 読書計画の「今日の本」→ 読む前のシート（その 1 日の分をタイマーに・目標の画面の上に開く）。
+            onRead={(b, minutes) => { haptic.light(); setFocusStartBook({ ...b, planMinutes: minutes }); }}
             onAddRecBook={(rec, payload) => addFromAdvisor(rec, payload)}
           />
         </Suspense>

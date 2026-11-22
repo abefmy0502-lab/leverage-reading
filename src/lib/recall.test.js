@@ -295,3 +295,20 @@ describe('AI が書いたものは思い出しカードに出さない', () => {
     expect(nextDueAt([youngAi], { now: NOW })).toBeNull();
   });
 });
+
+describe('1 日に出す数（2026-11-22）', () => {
+  it('今日思い出したメモが上限に届いたら、今日の分は終わり', async () => {
+    const { recalledTodayCount, dailyRecallDone, RECALL_DAILY_LIMIT } = await import('./recall.js');
+    const now = new Date('2026-11-22T15:00:00').getTime();
+    const today = new Date('2026-11-22T09:00:00').toISOString();
+    const yesterday = new Date('2026-11-21T09:00:00').toISOString();
+    const notes = [
+      ...Array.from({ length: RECALL_DAILY_LIMIT - 1 }, (_, i) => ({ id: `t${i}`, lastRecalledAt: today })),
+      { id: 'y', lastRecalledAt: yesterday },
+      { id: 'n' },
+    ];
+    expect(recalledTodayCount(notes, { now })).toBe(RECALL_DAILY_LIMIT - 1);
+    expect(dailyRecallDone(notes, { now })).toBe(false);
+    expect(dailyRecallDone([...notes, { id: 'z', lastRecalledAt: today }], { now })).toBe(true);
+  });
+});
