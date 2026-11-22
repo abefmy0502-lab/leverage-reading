@@ -1397,3 +1397,7 @@ body.lp-active {
   .lp-goal-shots { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 78%; overflow-x: auto; scroll-snap-type: x mandatory; max-width: none; padding-bottom: var(--space-2); }
   .lp-goal-shot { scroll-snap-align: start; }
 }
+
+/* 画面写真が読めなかったとき、暗い枠の上に代わりの文が薄く重なって読めなかった（2026-11-22 点検）。
+   見える文は隠し、読み上げには alt をそのまま渡す */
+.lp-root img.lp-shot { color: transparent; }
