@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { BASE, SCENARIOS, simulate, yearly, lifetimeValue, paidAcquisition, MONTHS, breakEvenMonth, stressGrid } from './model.mjs';
 import { ROLES, ROUTINES, ITEMS, HOLD_ITEMS, quarterOf, isMonth, TARGETS, TARGET_SPLIT, MILESTONES, OWNER_WEEKLY_HOURS, REV_SHARE_TARGETS, ownerHoursOfMonth } from './schedule.mjs';
 
-// 2026-11-22 オーナー「優秀なコンサルが何人読んでも納得する内容に」: 計画の数字は、この計算から出る（v3・点検 3 人の 2 回目を反映）
+// 2026-11-22 オーナー「優秀なコンサルが何人読んでも納得する内容に」: 計画の数字は、この計算から出る（v4・点検の 3 回目を反映）
 const ys = (A, o) => Object.fromEntries(yearly(simulate(A, o), A).map((x) => [x.year, x]));
 
 describe('中期経営計画の計算', () => {
@@ -100,9 +100,23 @@ describe('責任者と予定', () => {
   it('法人以外の責任者には、毎月の決まった仕事がある', () => {
     for (const r of ROLES) if (r.id !== 'b2b') expect(ROUTINES.some((x) => x.role === r.id), r.id).toBe(true);
   });
-  it('オーナーの時間は、兼業の間（2026-12〜2028-03）のどの月も、使える時間の 8 割（月 約 22.5 時間）に収まる', () => {
+  it('オーナーの時間は、兼業の間（2026-12〜2028-03）のどの月も、使える時間の 8 割（週 14 時間 × 4.33 × 0.8＝月 約 48.5 時間）に収まる', () => {
     for (const m of months.filter((x) => x <= '2028-03')) { const o = ownerHoursOfMonth(m); expect(o.total, m).toBeLessThanOrEqual(o.planLimit); }
     expect(ROUTINES.reduce((s, r) => s + r.owner, 0)).toBeLessThanOrEqual(OWNER_WEEKLY_HOURS);
+  });
+  it('専業の間（2028-04〜2029-12）も、役割の時間と採用・引き継ぎを足して、どの月も週 40 時間の 8 割（月 約 139 時間）に収まる', () => {
+    for (const m of MONTHS.filter((x) => x >= '2028-04' && x <= '2029-12')) { const o = ownerHoursOfMonth(m); expect(o.fulltime, m).toBe(true); expect(o.total, m).toBeLessThanOrEqual(o.planLimit); }
+  });
+  it('PdM の仕様は、開発が作る時期より前か同じ（つながり 1・Web の入口・年額の贈り物・AI と連携の有料化）', () => {
+    const start = (p) => (p.length === 4 ? `${p}-01` : p.includes('Q') ? `${p.slice(0, 4)}-${String((Number(p.slice(-1)) - 1) * 3 + 1).padStart(2, '0')}` : p);
+    for (const k of ['つながり 1', 'Web の入口', '年額の贈り物', 'AI と連携']) {
+      const first = (role) => ITEMS.filter((x) => x.role === role && x.period.length > 4 && x.title.includes(k)).map((x) => start(x.period)).sort()[0];
+      expect(first('pdm'), `PdM ${k}`).toBeTruthy(); expect(first('dev'), `開発 ${k}`).toBeTruthy();
+      expect(first('pdm') <= first('dev'), k).toBe(true);
+    }
+  });
+  it('法人化の手続きは、お金と決まりだけが持つ（ほかの役割に同じ成果物を置かない）', () => {
+    expect(ITEMS.filter((x) => /法人化の手続き|法人化・/.test(x.title)).every((x) => x.role === 'fin')).toBe(true);
   });
   it('2027 年末の関門に落ちて兼業のままの 2028 年も、どの月も 8 割に収まる', () => {
     for (const m of months.filter((x) => x.startsWith('2028-'))) { const o = ownerHoursOfMonth(m, { hold: true }); expect(o.total, m).toBeLessThanOrEqual(o.planLimit); }

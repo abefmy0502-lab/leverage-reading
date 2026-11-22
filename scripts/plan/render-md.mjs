@@ -3,7 +3,7 @@
 //   node scripts/plan/render-md.mjs   → company/mid-term-plan-2027-2029.md の <!-- plan:XXX --> 〜 <!-- /plan:XXX --> を差し替える
 import { readFileSync, writeFileSync } from 'node:fs';
 import { SCENARIOS, BASE, simulate, yearly, lifetimeValue, paidAcquisition, sensitivity, breakEvenMonth, stressGrid } from './model.mjs';
-import { ROLES, ROUTINES, ITEMS, HOLD_ITEMS, BUSY_PLAN, isMonth, OWNER_WEEKLY_HOURS, ownerHoursOfMonth } from './schedule.mjs';
+import { ROLES, ROUTINES, ITEMS, HOLD_ITEMS, BUSY_PLAN, isMonth, OWNER_WEEKLY_HOURS, ownerHoursOfMonth, FULLTIME_ROLE_HOURS, FULLTIME_WEEKLY_HOURS, fulltimeRoleHours } from './schedule.mjs';
 
 const DOC = 'company/mid-term-plan-2027-2029.md';
 const n = (v) => Math.round(v).toLocaleString('ja-JP');
@@ -138,6 +138,24 @@ blocks.owner = (() => {
     `| 決まった仕事 | ${o.map((x) => x.routine.toFixed(1)).join(' | ')} |`,
     `| その月の成果物 | ${o.map((x) => x.items.toFixed(1)).join(' | ')} |`,
     `| **合計（予定の上限 ${o[0].planLimit.toFixed(1)}・使える時間 ${o[0].limit.toFixed(1)}）** | ${o.map((x) => `**${x.total.toFixed(1)}**`).join(' | ')} |`,
+  ].join('\n');
+})();
+
+// 2028 年 4 月からの専業（週 40 時間）の内訳と、月ごとの時間
+blocks.fulltime = (() => {
+  const ms = []; for (let y = 2028; y <= 2029; y += 1) for (let m = 1; m <= 12; m += 1) { const ym = `${y}-${String(m).padStart(2, '0')}`; if (ym >= '2028-04') ms.push(ym); }
+  const roleRow = ROLES.map((r) => { const v = FULLTIME_ROLE_HOURS[r.id]; const txt = Array.isArray(v) ? v.map(([f, h]) => `${f.slice(2).replace('-', '/')}〜 ${h}`).join('・') : `${v}`; return `| ${roleShort(r.id)} | ${txt} 時間 |`; });
+  const o = ms.map((m) => ownerHoursOfMonth(m));
+  const wk = (ym) => ROLES.reduce((s, r) => s + fulltimeRoleHours(r.id, ym), 0);
+  return [
+    '| 責任者 | オーナーの時間（週） |', '|---|---|', ...roleRow,
+    `| **合計** | **${wk('2028-04')}〜${Math.max(...ms.map(wk))} 時間**（使える時間 ${FULLTIME_WEEKLY_HOURS} 時間・予定は 8 割の ${FULLTIME_WEEKLY_HOURS * 0.8} 時間まで） |`,
+    '',
+    `| 月 | ${ms.map((m) => m.slice(2).replace('-', '/')).join(' | ')} |`,
+    `|---|${ms.map(() => '---').join('|')}|`,
+    `| 役割の時間 | ${o.map((x) => x.routine.toFixed(1)).join(' | ')} |`,
+    `| 採用・引き継ぎ | ${o.map((x) => x.items.toFixed(1)).join(' | ')} |`,
+    `| **合計（予定の上限 ${o[0].planLimit.toFixed(1)}）** | ${o.map((x) => `**${x.total.toFixed(1)}**`).join(' | ')} |`,
   ].join('\n');
 })();
 

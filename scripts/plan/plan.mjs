@@ -18,6 +18,9 @@ for (const [key, A] of Object.entries(SCENARIOS)) {
     quarters: rows.filter((r) => r.inPlan && QE.includes(r.ym.slice(5))).map((r) => ({ ym: r.ym, paid: Math.round(r.paid), consumer: Math.round(r.consumerPaid), seats: r.seats, cashMan: M(r.cash), ch: r.ch, android: r.android, installs: r.installs })),
     cash: rows.filter((r) => r.inPlan).map((r) => ({ ym: r.ym, cashMan: M(r.cash), plan: r.plan })),
   };
+  // 2026-11-22 オーナー「ダウンロード数・アクティブ会員数（無料・有料）・アクティブ有料会員数・無料会員数・売上・粗利の目標と実数を出したい」
+  // 月ごとの目標（基本の見込みだけ）。売上は税抜・月割り。粗利＝売上 − ストアの手数料 − 返金 − AI の原価（固定費は入れない）
+  if (key === 'base') out.kpi = rows.filter((r) => r.inPlan).map((r) => ({ ym: r.ym, dl: Math.round(r.installs), active: Math.round(r.freeActive + r.paid), paid: Math.round(r.paid), free: Math.round(r.freeActive), revenue: Math.round(r.revenue), gross: Math.round(r.revenue - r.fee - r.refunds - r.ai) }));
   if (!process.argv.includes('--json')) {
     console.log(`\n■ ${A.name}`);
     console.log(`関門 ${JSON.stringify(rows.gates)}\nAndroid ${rows.androidOn}  法人化 ${rows.incorporatedAt}  社員 ${rows.hired.join('・') || 'なし'}  いちばん少ない現金 ${M(rows.minCash)} 万（${rows.minCashYm}）  黒字の月 ${breakEvenMonth(rows)}`);
