@@ -375,9 +375,8 @@ ${summary ? `<h2 class="h">${esc(who)}の、この本のまとめ</h2><p class="
 <p class="note" style="text-align:left">Orime が開き、あなたの「読みたい」に入れる前に確かめます。</p>
 <div class="tl" style="margin-top:24px"><a href="${esc(getAmazonLink({ isbn: book.isbn, title, author: book.author }))}" target="_blank" rel="noopener noreferrer sponsored">Amazon<svg width="1.1em" height="1.1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-left:4px"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></a><a href="${esc(getRakutenLink({ isbn: book.isbn, title, author: book.author }))}" target="_blank" rel="noopener noreferrer">楽天ブックス<svg width="1.1em" height="1.1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-left:4px"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></a></div>
 ${others.length ? `<p class="sh">${esc(who)}の、ほかのまとめ</p>${summaryRows(others, publicId)}` : ''}
-<a class="cta2" style="margin-top:32px" href="${esc(site)}/?follow=${esc(publicId)}">Orime でフォローを申し込む</a>
-<p class="note" style="text-align:left">承認されると、本棚とまとめをアプリでいつでも見られます。</p>
-<details><summary>このページを通報する</summary>
+<!-- 本のページにはフォローのボタンを置かない（フォローを決めるのはプロフィールのページ・2026-11-22 オーナー「ここにフォロー申し込みのボタンは不要」） -->
+<details style="margin-top:48px"><summary>このページを通報する</summary>
 <form method="post" action="/api/profile-report"><input type="hidden" name="id" value="${esc(publicId)}">
 <label for="reason">理由（任意・500 字まで）</label><textarea id="reason" name="reason" maxlength="${REPORT_MAX}"></textarea>
 <button type="submit">通報する</button></form></details>
