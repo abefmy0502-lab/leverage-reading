@@ -51,6 +51,10 @@ export function demoSocialRpc(name, args = {}) {
       const relation = state.following.includes(id) ? 'accepted' : state.sent.includes(id) ? 'pending' : 'none';
       return { ...people[id], relation };
     }
+    case 'report_profile':
+      // &report=fail で送れなかったときの画面
+      if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('report') === 'fail') throw Object.assign(new Error('demo report failed'), { code: '500' });
+      return people[id] ? 'ok' : 'not_found';
     case 'followee_shelf':
       if (!state.following.includes(id)) return null;
       return { profile: people[id], books: shelves[id] || [] };

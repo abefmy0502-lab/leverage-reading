@@ -106,7 +106,9 @@ language plpgsql
 as $$
 begin
   -- 利用者（ログインした人）の更新のときだけ守る。service_role と SQL Editor（運営が隠すとき）は auth.uid() が無い。
-  if auth.uid() is not null and tg_op = 'UPDATE' then
+  -- 通報がたまって隠す関数（supabase_follows.sql の report_profile・SECURITY DEFINER）は、関数の持ち主として動くので通す
+  -- （利用者が表を直接変えるときの current_user は authenticated）。
+  if auth.uid() is not null and tg_op = 'UPDATE' and current_user in ('authenticated', 'anon') then
     new.hidden := old.hidden;
     new.public_id := old.public_id;
   end if;

@@ -135,7 +135,8 @@ describe('公開のページの安全（App 審査 1.2・2026-11-21）', async (
     const updates = [];
     const db = () => ({ from: (t) => ({
       insert: async () => ({ error: null }),
-      select: () => ({ eq: () => ({ eq: async () => ({ count: AUTO_HIDE_REPORTS }) }) }),
+      // 数えるのはアプリから登録した人が送った通報だけ（.eq('counted', true)）
+      select: () => ({ eq: () => ({ eq: () => ({ eq: async (col, v) => ({ count: col === 'counted' && v === true ? AUTO_HIDE_REPORTS : 99 }) }) }) }),
       update: (v) => ({ eq: async () => { updates.push([t, v]); return { error: null }; } }),
     }) });
     const res = fakeRes();

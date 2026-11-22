@@ -394,9 +394,11 @@ export async function handleProfileRequest(req, res, { dbImpl = db } = {}) {
       else {
         saved = true;
         // 開いている通報がたまったら自動で隠す（運営が確かめて戻すか決める）。
+        // 数えるのは、アプリから登録した別々の人が送った通報だけ（counted・supabase_follows.sql の report_profile）。
+        // ログインなしのこの窓口の通報は数えない＝1 人がくり返し送って、だれでも隠せないように（2026-11-22）。
         try {
-          const { count } = await c.from('profile_reports').select('id', { count: 'exact', head: true }).eq('public_id', id).eq('status', 'open');
-          if ((count || 0) >= AUTO_HIDE_REPORTS) await c.from('profiles').update({ hidden: true }).eq('public_id', id);
+          const { count, error: countError } = await c.from('profile_reports').select('id', { count: 'exact', head: true }).eq('public_id', id).eq('status', 'open').eq('counted', true);
+          if (!countError && (count || 0) >= AUTO_HIDE_REPORTS) await c.from('profiles').update({ hidden: true }).eq('public_id', id);
         } catch (e) { console.warn('[profile] auto hide failed:', e?.message || e); }
       }
     }

@@ -459,6 +459,14 @@ export default function AuthScreen() {
                 やめる
               </button>
             )}
+            {/* Apple で始める人にも規約への同意を伝える（App 審査 1.2＝不快な内容を禁じる規約に同意してから使う・2026-11-22）。 */}
+            <p style={{ ...fieldHint, margin: 'var(--space-2) 0 0', textAlign: 'center', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+              {withPhraseBreaks('Apple で続けると、利用規約とプライバシーポリシーに同意したことになります。')}
+            </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', columnGap: 'var(--space-6)' }}>
+              <a href={TERMS_URL} target="_blank" rel="noopener noreferrer" style={legalLink}>利用規約</a>
+              <a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer" style={legalLink}>プライバシーポリシー</a>
+            </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', margin: 'var(--space-4) 0' }}>
               <span style={{ flex: 1, height: 1, background: 'var(--separator)' }} />
               <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-3)' }}>または</span>

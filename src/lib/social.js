@@ -7,6 +7,14 @@ import { Capacitor } from '@capacitor/core';
 import { supabase, isSupabaseConfigured, isDemo } from './supabase';
 import { profileTextIssue } from './profileFilter';
 import { SITE_URL } from './legalLinks';
+import { checkCoverImageUrl } from '../../api/_coverImageUrl.js';
+
+// ほかの人に見せる表紙は、書店・図書館などの配信元のものだけ（自分で上げた表紙＝Supabase の book-covers は出さない・
+// 公開のページ api/_profilePage.js と同じ決まり・App 審査 1.2＝利用者が上げた画像を確かめずに人に見せない）。
+export function sharedCoverUrl(raw) {
+  const c = raw ? checkCoverImageUrl(String(raw)) : { ok: false };
+  return c.ok ? c.url : '';
+}
 
 // 2026-11-21 オーナー「入れてください」: Web は既定で出す（VITE_SOCIAL=off で止める）。
 //   iPhone のアプリはビルドに VITE_SOCIAL=on を入れたときだけ（1.0.1 から・ビルド 7 には出さない）。
@@ -90,7 +98,7 @@ function cleanShared(d) {
   const book = (v) => (profileTextIssue(v, 'book') ? '' : String(v || ''));
   return {
     bio: own(d.bio), favTitle: book(d.fav_title), favAuthor: book(d.fav_author),
-    favCover: /^https:\/\//.test(String(d.fav_cover || '')) ? String(d.fav_cover) : '', favLine: own(d.fav_line),
+    favCover: sharedCoverUrl(d.fav_cover), favLine: own(d.fav_line),
   };
 }
 
@@ -105,7 +113,7 @@ export async function loadFolloweeShelf(publicId, opts) {
     .filter((b) => b && b.id && String(b.title || '').trim() && !profileTextIssue(b.title, 'book') && !profileTextIssue(b.author, 'book'))
     .map((b) => ({
       id: String(b.id), title: String(b.title).trim(), author: String(b.author || ''), isbn: String(b.isbn || ''),
-      cover: /^https:\/\//.test(String(b.cover || '')) ? String(b.cover) : '',
+      cover: sharedCoverUrl(b.cover),
       status: SHELF_ORDER.includes(b.status) ? b.status : 'want',
       rating: b.status === 'done' ? Math.max(0, Math.min(5, Math.round(Number(b.rating) || 0))) : 0,
       summary: profileTextIssue(b.summary, 'own') ? '' : String(b.summary || '').trim(),
@@ -113,15 +121,39 @@ export async function loadFolloweeShelf(publicId, opts) {
   return { profile: { ...cleanPerson(p), ...cleanShared(p) }, books };
 }
 
-/** 通報（公開のページと同じ窓口・理由の文だけ）。 */
-export async function reportProfile(publicId, reason = '', { fetchImpl = globalThis.fetch } = {}) {
+/** 通報の理由（えらぶ・書き足すのは任意）。 */
+export const REPORT_REASONS = [
+  { id: 'offensive', label: '攻撃的・差別的な内容' },
+  { id: 'sexual', label: '性的・暴力的な内容' },
+  { id: 'spam', label: '宣伝・なりすまし・迷惑な申し込み' },
+  { id: 'contact', label: '連絡先・個人情報が書かれている' },
+  { id: 'other', label: 'そのほか' },
+];
+export function reportReasonText(reasonId, detail = '') {
+  const label = REPORT_REASONS.find((r) => r.id === reasonId)?.label || 'そのほか';
+  const d = String(detail || '').replace(/\s+/g, ' ').trim();
+  return `アプリから：${label}${d ? `／${d}` : ''}`.slice(0, 500);
+}
+
+/**
+ * 通報。答え: 'ok'（受け付けた）・'failed'（送れなかった）。
+ * まずデータベースの関数（report_profile・届いたかが分かる）。関数がまだ無いときだけ公開のページと同じ窓口へ
+ * （アプリからは別のオリジンなので答えを読めない・送れたら受け付けたとみなす）。
+ */
+export async function reportProfile(publicId, reason = '', { fetchImpl = globalThis.fetch, client } = {}) {
+  const why = String(reason || '').slice(0, 500);
   try {
-    const body = new URLSearchParams({ id: publicId, reason: String(reason || '').slice(0, 500) });
-    // アプリ（capacitor://localhost）からは別のオリジンなので no-cors で送る（答えは読めない・届けば受け付けている）。
-    await fetchImpl(`${SITE_URL}/api/profile-report`, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString() });
-    return true;
+    const r = await call('report_profile', { p_public_id: publicId, p_reason: why }, client ? { client } : undefined);
+    if (r.ok) return r.data === 'ok' || r.data === 'self' ? 'ok' : 'failed';
   } catch {
-    return false;
+    return 'failed';
+  }
+  try {
+    const body = new URLSearchParams({ id: publicId, reason: why });
+    await fetchImpl(`${SITE_URL}/api/profile-report`, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString() });
+    return 'ok';
+  } catch {
+    return 'failed';
   }
 }
 

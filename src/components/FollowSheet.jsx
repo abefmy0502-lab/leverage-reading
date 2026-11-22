@@ -2,7 +2,8 @@
 //   設定の「フォロー」の行と、相手のリンク（/?follow=<id>）から開く。VITE_SOCIAL のビルドだけ（lib/social.js）。
 //   1 つのシートの中で 3 つの画面を行き来する: 一覧（申し込む・フォロー中・フォロワー・申し込み）→ 相手の本棚 → 本（まとめ・読みたいに追加）。
 //   相手を探す欄は「リンクか ID」だけ（名前で探さない）。承認の前に「本棚とこの本のまとめをいつでも見られます」と確かめる。
-//   ブロック・通報は相手の本棚の「…」とフォロワーの行の「…」から（App 審査 1.2）。
+//   ブロック・通報は相手の本棚・フォロワー・届いた申し込み・ID で見つけた人の行の「…」から（App 審査 1.2）。
+//   通報は理由をえらぶ画面で受け、届いたかを確かめて知らせる（あわせてブロックもできる・2026-11-22）。
 import { lazy, Suspense, useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { MoreHorizontal, ChevronLeft, ChevronRight, Check, Share } from 'lucide-react';
@@ -11,7 +12,8 @@ import ContextMenu from './ContextMenu';
 import UserAvatar from './UserAvatar';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
-import { btnPrimary, btnGhost, btnLink, btnLinkQuiet, btnRow, input as inputBase, groupTitle, segTrack, segOption } from '../styles/ui';
+import { btnPrimary, btnPrimaryOff, btnGhost, btnLink, btnLinkQuiet, btnRow, input as inputBase, groupTitle, segTrack, segOption } from '../styles/ui';
+import { Chip } from './formPrimitives';
 import MiniCover from './MiniCover';
 import AdvisorStoreLinks from './AdvisorStoreLinks';
 import { STORE_DISCLOSURE_TEXT } from '../lib/rakutenLink';
@@ -20,6 +22,7 @@ import { withPhraseBreaks } from './TightBubble';
 import {
   publicIdFrom, previewProfile, requestFollow, followResultMessage, loadFollows, respondFollow, removeFollow,
   blockUser, unblockUser, reportProfile, loadFolloweeShelf, SHELF_ORDER, myIdShareText, summaryExcerpt,
+  REPORT_REASONS, reportReasonText,
 } from '../lib/social';
 import { track } from '../lib/analytics';
 import { useAuth } from '../hooks/useAuth';
@@ -90,9 +93,10 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
   const [shelf, setShelf] = useState(null); // { profile, books } | 'loading' | 'none'
   const [menu, setMenu] = useState(null); // { x, y, items }
   const [wantState, setWantState] = useState({});
+  const [reportForm, setReportForm] = useState({ reason: '', detail: '', alsoBlock: false, busy: false, failed: false });
   // 画面（一覧 → 本棚 → 本）を移ったら、シートの中をいちばん上へ（下の本を押して開いた本が途中から見えないように）。
   const bodyRef = useRef(null);
-  const viewKey = view.name === 'book' ? `b:${view.book.id}` : view.name;
+  const viewKey = view.name === 'book' ? `b:${view.book.id}` : view.name === 'report' ? `r:${view.person.publicId}` : view.name;
   useEffect(() => {
     let el = bodyRef.current?.parentElement;
     while (el && el !== document.body) {
@@ -200,8 +204,8 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
     }
   };
 
-  const block = async (person) => {
-    const ok = await confirm({
+  const block = async (person, { quiet = false } = {}) => {
+    const ok = quiet || await confirm({
       title: `${who(person)}をブロックしますか？`,
       message: 'お互いのフォローが外れ、この人はあなたを見つけることも申し込むこともできなくなります。相手に知らせは届きません。',
       confirmLabel: 'ブロックする',
@@ -210,9 +214,10 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
     });
     if (!ok) return;
     try {
-      await blockUser(person.publicId);
+      const done = await blockUser(person.publicId);
+      if (!done) throw new Error('block failed');
       track('follow_block', {});
-      toast.success('ブロックしました。');
+      if (!quiet) toast.success('ブロックしました。');
       setView({ name: 'home' }); setPreview(null);
       reload();
     } catch {
@@ -220,18 +225,25 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
     }
   };
 
-  const report = async (person) => {
-    const ok = await confirm({
-      title: `${who(person)}を運営に通報しますか？`,
-      message: '運営が 24 時間以内に確かめ、利用規約に反する内容は表示を止めます。通報したことは相手に知らせません。',
-      confirmLabel: '通報する',
-      cancelLabel: 'キャンセル',
-    });
-    if (!ok) return;
-    const sent = await reportProfile(person.publicId, 'アプリのフォローの画面から');
-    track('follow_report', {});
-    if (sent) toast.success('通報を受け付けました。ありがとうございました。');
-    else toast.error('通報を送れませんでした。通信状況を確認してください。');
+  // 通報は理由をえらぶ画面へ（戻り先を覚えておく）。
+  const report = (person) => {
+    setReportForm({ reason: '', detail: '', alsoBlock: false, busy: false, failed: false });
+    setView((v) => ({ name: 'report', person, back: v }));
+  };
+  const sendReport = async () => {
+    if (view.name !== 'report' || !reportForm.reason || reportForm.busy) return;
+    const { person } = view;
+    setReportForm((f) => ({ ...f, busy: true, failed: false }));
+    const result = await reportProfile(person.publicId, reportReasonText(reportForm.reason, reportForm.detail));
+    track('follow_report', { reason: reportForm.reason, block: reportForm.alsoBlock });
+    if (result !== 'ok') { setReportForm((f) => ({ ...f, busy: false, failed: true })); return; }
+    if (reportForm.alsoBlock) {
+      await block(person, { quiet: true });
+      toast.success('通報して、ブロックしました。運営が 24 時間以内に確かめます。');
+      return;
+    }
+    toast.success('通報を受け付けました。運営が 24 時間以内に確かめます。');
+    setView(view.back && view.back.name !== 'report' ? view.back : { name: 'home' });
   };
 
   const shareMyId = async () => {
@@ -295,6 +307,51 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
       ))}
     </div>
   );
+
+  // ─── 通報（理由をえらぶ・任意で書き足す・あわせてブロック） ───
+  if (view.name === 'report') {
+    const { person, back } = view;
+    const f = reportForm;
+    return createPortal(
+      <BottomSheet title="通報" onClose={onClose} layer="dialog">
+        <div ref={bodyRef} style={sheetBody}>
+        <button type="button" onClick={() => setView(back && back.name !== 'report' ? back : { name: 'home' })} style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}>
+          <ChevronLeft size="1.1em" aria-hidden="true" />戻る
+        </button>
+        <p style={{ margin: 'var(--space-3) 0 0', fontSize: 'var(--text-heading)', fontWeight: 700, lineHeight: 1.4, overflowWrap: 'anywhere' }}>{who(person)}を通報する</p>
+        <p style={{ ...note, marginTop: 'var(--space-2)' }}>{withPhraseBreaks('運営が 24 時間以内に確かめ、利用規約に反する内容は表示を止めます。通報したことは相手に知らせません。')}</p>
+        <p id={`${inputId}-why`} style={{ ...groupTitle, margin: 'var(--space-6) 0 var(--space-2)' }}>理由</p>
+        <div role="radiogroup" aria-labelledby={`${inputId}-why`} style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+          {REPORT_REASONS.map((r) => (
+            <Chip key={r.id} size="select" role="radio" aria-checked={f.reason === r.id} active={f.reason === r.id} onClick={() => setReportForm((x) => ({ ...x, reason: r.id, failed: false }))}>
+              {r.label}
+            </Chip>
+          ))}
+        </div>
+        <label htmlFor={`${inputId}-detail`} style={{ ...groupTitle, display: 'block', margin: 'var(--space-6) 0 var(--space-2)' }}>くわしく（任意）</label>
+        <textarea
+          id={`${inputId}-detail`}
+          value={f.detail}
+          onChange={(e) => setReportForm((x) => ({ ...x, detail: e.target.value }))}
+          maxLength={400}
+          rows={3}
+          placeholder="例：自己紹介に、ほかのサービスへの誘いが書かれている"
+          style={{ ...inputBase, minHeight: 'calc(3 * 1.5em + var(--space-6))', lineHeight: 1.5, resize: 'none' }}
+        />
+        <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minHeight: 'var(--tap-min)', marginTop: 'var(--space-3)', fontSize: 'var(--text-body)', color: 'var(--text)', cursor: 'pointer' }}>
+          <input type="checkbox" checked={f.alsoBlock} onChange={(e) => setReportForm((x) => ({ ...x, alsoBlock: e.target.checked }))} style={{ width: '1.25em', height: '1.25em', accentColor: 'var(--accent)', flexShrink: 0 }} />
+          <span style={{ wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('あわせてブロックする（お互いのフォローが外れます）')}</span>
+        </label>
+        {f.failed && <p role="alert" style={{ margin: 'var(--space-3) 0 0', fontSize: 'var(--text-body)', color: 'var(--error)', lineHeight: 1.6 }}>{withPhraseBreaks('通報を送れませんでした。通信状況を確認して、もう一度お試しください。')}</p>}
+        <button type="button" onClick={sendReport} disabled={!f.reason || f.busy} aria-busy={f.busy || undefined} style={{ ...(f.reason ? btnPrimary : btnPrimaryOff), marginTop: 'var(--space-6)' }}>
+          {f.busy ? '送っています…' : '通報する'}
+        </button>
+        {!f.reason && <p style={{ ...note, marginTop: 'var(--space-2)', textAlign: 'center' }}>理由をえらんでください。</p>}
+        </div>
+      </BottomSheet>,
+      document.body,
+    );
+  }
 
   // ─── 相手の本（まとめ・読みたいに追加・本屋で見る） ───
   if (view.name === 'book') {
@@ -487,6 +544,17 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
                   <PersonRow key={`r-${p.publicId}`} first={i === 0} person={p}>
                     <button type="button" style={btnLinkQuiet} onClick={() => respond(p, false)}>断る</button>
                     <button type="button" style={smallBtn} onClick={() => respond(p, true)}>承認</button>
+                    <button
+                      type="button"
+                      aria-label={`${who(p)}の操作`}
+                      style={iconBtn}
+                      onClick={(e) => openMenu(e, [
+                        { label: '通報する', onClick: () => report(p) },
+                        { label: 'ブロックする', destructive: true, onClick: () => block(p) },
+                      ])}
+                    >
+                      <MoreHorizontal size="1.25em" aria-hidden="true" />
+                    </button>
                   </PersonRow>
                 ))}
               </div>
@@ -521,6 +589,19 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
                     : preview.person.relation === 'accepted'
                       ? <button type="button" style={btnLink} onClick={() => openPerson(preview.person)}>本棚を見る</button>
                       : <button type="button" style={smallBtn} onClick={() => ask(preview.person)}>申し込む</button>}
+                {preview.person.relation !== 'self' && (
+                  <button
+                    type="button"
+                    aria-label={`${who(preview.person)}の操作`}
+                    style={iconBtn}
+                    onClick={(e) => openMenu(e, [
+                      { label: '通報する', onClick: () => report(preview.person) },
+                      { label: 'ブロックする', destructive: true, onClick: () => block(preview.person) },
+                    ])}
+                  >
+                    <MoreHorizontal size="1.25em" aria-hidden="true" />
+                  </button>
+                )}
               </div>
             )}
           </div>

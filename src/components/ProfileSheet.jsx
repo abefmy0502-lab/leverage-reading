@@ -5,6 +5,7 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link2 } from 'lucide-react';
+import { withPhraseBreaks } from './TightBubble';
 import BottomSheet from './BottomSheet';
 import ProfileForm from './ProfileForm';
 import ToggleSwitch from './ToggleSwitch';
@@ -144,6 +145,8 @@ export default function ProfileSheet({ userId, onClose, onSaved }) {
                   <ToggleSwitch checked={!!draft.isPublic && !!draft.shelfPublic && !!draft.summaryPublic} onChange={() => change({ ...draft, summaryPublic: !draft.summaryPublic })} disabled={!canPublish || !draft.isPublic || !draft.shelfPublic || shelfUnready} ariaLabel="本のまとめも公開する" />
                 </div>
                 <p style={note}>本を押すと、あなたの「この本のまとめ」を読めます。<br />メモの一覧は見せません。</p>
+                {/* 公開の切り替えとは別に、承認したフォロワーには見えることを書いておく（App 審査 5.1.1・2026-11-22）。 */}
+                <p style={{ ...note, marginTop: 'var(--space-2)' }}>{withPhraseBreaks('フォローを承認した人は、公開の切り替えにかかわらず、本棚と「この本のまとめ」を見られます。')}</p>
               </>
             )}
             {profile.isPublic && url && !dirty && (
