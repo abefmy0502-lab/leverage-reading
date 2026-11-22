@@ -56,6 +56,7 @@ describe('フォロー先の本棚の安全', () => {
   it('通報: 関数が受け付けたら ok・関数が失敗したら failed・関数が無ければ窓口へ', async () => {
     const { reportProfile, reportReasonText } = await import('./social');
     expect(await reportProfile('k7mna2pqrs', 'x', { client: client('ok') })).toBe('ok');
+    expect(await reportProfile('k7mna2pqrs', 'x', { client: client('not_found') })).toBe('rejected');
     expect(await reportProfile('k7mna2pqrs', 'x', { client: client(null, { code: '500', message: 'boom' }) })).toBe('failed');
     const sent = [];
     const r = await reportProfile('k7mna2pqrs', 'x', {

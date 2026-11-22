@@ -9,6 +9,7 @@ import { createPortal } from 'react-dom';
 import { MoreHorizontal, ChevronLeft, ChevronRight, Check, Share } from 'lucide-react';
 import BottomSheet from './BottomSheet';
 import ContextMenu from './ContextMenu';
+import ToggleSwitch from './ToggleSwitch';
 import UserAvatar from './UserAvatar';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
@@ -39,6 +40,8 @@ const nameStyle = { flex: 1, minWidth: 0, fontSize: 'var(--text-body)', color: '
 const plainBtn = { background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', color: 'inherit', textAlign: 'left' };
 // 一覧の行の主ボタン（承認・申し込む）は btnRow の形に塗り（15/600・高さ 44）。
 const smallBtn = { ...btnRow, background: 'var(--accent)', color: 'var(--accent-ink)', border: 'none' };
+// 行の中の文字ボタン（断る・取り消す・ブロックを外す）は横も 44 以上。
+const rowLink = { ...btnLinkQuiet, minWidth: 'var(--tap-min)', padding: '0 var(--space-2)', justifyContent: 'center' };
 const iconBtn = { ...plainBtn, width: 'var(--tap-min)', height: 'var(--tap-min)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-2)', flexShrink: 0 };
 
 // 3 つの画面を行き来してもシートの高さが跳ねないように、中身の高さの下限をそろえる。
@@ -236,13 +239,13 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
     setReportForm((f) => ({ ...f, busy: true, failed: false }));
     const result = await reportProfile(person.publicId, reportReasonText(reportForm.reason, reportForm.detail));
     track('follow_report', { reason: reportForm.reason, block: reportForm.alsoBlock });
-    if (result !== 'ok') { setReportForm((f) => ({ ...f, busy: false, failed: true })); return; }
+    if (result !== 'ok') { setReportForm((f) => ({ ...f, busy: false, failed: result === 'rejected' ? 'rejected' : 'network' })); return; }
     if (reportForm.alsoBlock) {
       await block(person, { quiet: true });
-      toast.success('通報して、ブロックしました。運営が 24 時間以内に確かめます。');
+      toast.success('通報して、ブロックしました。');
       return;
     }
-    toast.success('通報を受け付けました。運営が 24 時間以内に確かめます。');
+    toast.success('通報を受け付けました。');
     setView(view.back && view.back.name !== 'report' ? view.back : { name: 'home' });
   };
 
@@ -309,16 +312,28 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
   );
 
   // ─── 通報（理由をえらぶ・任意で書き足す・あわせてブロック） ───
+  // 決める入口は下の「通報する」1 つ（右上は「キャンセル」）。送れた知らせはシートの上に出る（--z-toast）。
   if (view.name === 'report') {
     const { person, back } = view;
     const f = reportForm;
+    const errText = f.failed === 'rejected'
+      ? '通報を受け付けられませんでした。時間をおいて、もう一度送ってください。'
+      : '通報を送れませんでした。通信状況を確認して、もう一度お試しください。';
+    const footer = (
+      <>
+        {f.failed && <p role="alert" style={{ margin: '0 0 var(--space-2)', fontSize: 'var(--text-sub)', color: 'var(--error)', lineHeight: 1.6, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(errText)}</p>}
+        {!f.reason && !f.failed && <p style={{ ...note, margin: '0 0 var(--space-2)', textAlign: 'center' }}>理由をえらんでください。</p>}
+        <button type="button" onClick={sendReport} disabled={!f.reason || f.busy} aria-busy={f.busy || undefined} style={f.reason ? btnPrimary : btnPrimaryOff}>
+          {f.busy ? '送っています…' : '通報する'}
+        </button>
+      </>
+    );
     return createPortal(
-      <BottomSheet title="通報" onClose={onClose} layer="dialog">
+      <BottomSheet title={`${who(person)}を通報`} onClose={onClose} layer="dialog" dismissLabel="キャンセル" footer={footer}>
         <div ref={bodyRef} style={sheetBody}>
         <button type="button" onClick={() => setView(back && back.name !== 'report' ? back : { name: 'home' })} style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}>
           <ChevronLeft size="1.1em" aria-hidden="true" />戻る
         </button>
-        <p style={{ margin: 'var(--space-3) 0 0', fontSize: 'var(--text-heading)', fontWeight: 700, lineHeight: 1.4, overflowWrap: 'anywhere' }}>{who(person)}を通報する</p>
         <p style={{ ...note, marginTop: 'var(--space-2)' }}>{withPhraseBreaks('運営が 24 時間以内に確かめ、利用規約に反する内容は表示を止めます。通報したことは相手に知らせません。')}</p>
         <p id={`${inputId}-why`} style={{ ...groupTitle, margin: 'var(--space-6) 0 var(--space-2)' }}>理由</p>
         <div role="radiogroup" aria-labelledby={`${inputId}-why`} style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
@@ -335,18 +350,14 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
           onChange={(e) => setReportForm((x) => ({ ...x, detail: e.target.value }))}
           maxLength={400}
           rows={3}
-          placeholder="例：自己紹介に、ほかのサービスへの誘いが書かれている"
+          placeholder="例：自己紹介に、ほかのサービスへの誘いがある"
           style={{ ...inputBase, minHeight: 'calc(3 * 1.5em + var(--space-6))', lineHeight: 1.5, resize: 'none' }}
         />
-        <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minHeight: 'var(--tap-min)', marginTop: 'var(--space-3)', fontSize: 'var(--text-body)', color: 'var(--text)', cursor: 'pointer' }}>
-          <input type="checkbox" checked={f.alsoBlock} onChange={(e) => setReportForm((x) => ({ ...x, alsoBlock: e.target.checked }))} style={{ width: '1.25em', height: '1.25em', accentColor: 'var(--accent)', flexShrink: 0 }} />
-          <span style={{ wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('あわせてブロックする（お互いのフォローが外れます）')}</span>
-        </label>
-        {f.failed && <p role="alert" style={{ margin: 'var(--space-3) 0 0', fontSize: 'var(--text-body)', color: 'var(--error)', lineHeight: 1.6 }}>{withPhraseBreaks('通報を送れませんでした。通信状況を確認して、もう一度お試しください。')}</p>}
-        <button type="button" onClick={sendReport} disabled={!f.reason || f.busy} aria-busy={f.busy || undefined} style={{ ...(f.reason ? btnPrimary : btnPrimaryOff), marginTop: 'var(--space-6)' }}>
-          {f.busy ? '送っています…' : '通報する'}
-        </button>
-        {!f.reason && <p style={{ ...note, marginTop: 'var(--space-2)', textAlign: 'center' }}>理由をえらんでください。</p>}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
+          <span id={`${inputId}-blk`} style={{ fontSize: 'var(--text-body)', color: 'var(--text)', lineHeight: 1.5 }}>あわせてブロックする</span>
+          <ToggleSwitch checked={f.alsoBlock} onChange={() => setReportForm((x) => ({ ...x, alsoBlock: !x.alsoBlock }))} ariaLabel="あわせてブロックする" />
+        </div>
+        <p style={note}>{withPhraseBreaks('お互いのフォローが外れ、申し込みも届かなくなります。')}</p>
         </div>
       </BottomSheet>,
       document.body,
@@ -368,7 +379,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
         <div style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'flex-start', marginTop: 'var(--space-3)' }}>
           <Cover book={book} width={96} />
           <div style={{ minWidth: 0 }}>
-            <p style={{ margin: 0, fontSize: 'var(--text-heading)', fontWeight: 700, lineHeight: 1.4, wordBreak: 'keep-all', overflowWrap: 'break-word' }}>{withPhraseBreaks(shownTitle(book.title), { scriptBreaks: true })}</p>
+            <p style={{ margin: 0, fontSize: 'var(--text-heading)', fontWeight: 600, lineHeight: 1.4, wordBreak: 'keep-all', overflowWrap: 'break-word' }}>{withPhraseBreaks(shownTitle(book.title), { scriptBreaks: true })}</p>
             {book.author && <p style={{ ...note, marginTop: 'var(--space-1)', fontSize: 'var(--text-body)' }}>{book.author}</p>}
             <p style={{ ...note, marginTop: 'var(--space-2)' }}>{STATUS_LABEL[book.status]}{book.rating ? <span style={{ color: 'var(--accent)' }}>{'　'}{'★'.repeat(book.rating)}</span> : null}</p>
             {st === 'exists' && <p style={{ margin: 'var(--space-1) 0 0' }}><OwnedMark /></p>}
@@ -377,7 +388,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
         {/* 主役はこの人のまとめ。無ければ見出しを出さず 1 行だけ。 */}
         {book.summary ? (
           <section style={{ marginTop: 'var(--space-8)' }}>
-            <p style={{ margin: '0 0 var(--space-3)', fontSize: 'var(--text-heading)', fontWeight: 700, lineHeight: 1.4 }}>{who(person)}の、この本のまとめ</p>
+            <p style={{ margin: '0 0 var(--space-3)', fontSize: 'var(--text-heading)', fontWeight: 600, lineHeight: 1.4 }}>{who(person)}の、この本のまとめ</p>
             <p style={{ margin: 0, fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.8, whiteSpace: 'pre-line', lineBreak: 'strict', textWrap: 'pretty' }}>{book.summary}</p>
           </section>
         ) : (
@@ -442,7 +453,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
         </div>
         <div style={{ marginTop: 'var(--space-2)' }}>
           <UserAvatar avatarId={p.avatar} nickname={p.nickname} size={56} />
-          <p style={{ margin: 'var(--space-3) 0 0', fontSize: 'var(--text-heading)', fontWeight: 700, overflowWrap: 'anywhere' }}>{who(p)}</p>
+          <p style={{ margin: 'var(--space-3) 0 0', fontSize: 'var(--text-heading)', fontWeight: 600, overflowWrap: 'anywhere' }}>{who(p)}</p>
           {p.bio && <p style={{ ...note, marginTop: 'var(--space-2)', fontSize: 'var(--text-body)', color: 'var(--text)', whiteSpace: 'pre-line' }}>{p.bio}</p>}
         </div>
         {/* 主役はその人の言葉。好きな言葉を大きく、その下に好きな本。 */}
@@ -469,14 +480,14 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
         {shelf === 'none' && <p style={{ ...note, marginTop: 'var(--space-8)' }}>{withPhraseBreaks('本棚を見られませんでした。フォローが外れたか、通信がつながっていません。')}</p>}
         {loaded && withSummary.length > 0 && (
           <section style={{ marginTop: 'var(--space-8)' }}>
-            <p style={{ margin: 0, fontSize: 'var(--text-heading)', fontWeight: 700 }}>{who(p)}のまとめ</p>
+            <p style={{ margin: 0, fontSize: 'var(--text-heading)', fontWeight: 600 }}>{who(p)}のまとめ</p>
             <p style={{ ...note, marginTop: 'var(--space-1)' }}>{withPhraseBreaks(`読んだ本について、${who(p)}が書いたこと`)}</p>
             <div style={{ marginTop: 'var(--space-1)' }}><SummaryRows person={person} books={withSummary} /></div>
           </section>
         )}
         {loaded && (
           <section style={{ marginTop: 'var(--space-8)' }}>
-            <p style={{ margin: 0, fontSize: 'var(--text-heading)', fontWeight: 700 }}>本棚</p>
+            <p style={{ margin: 0, fontSize: 'var(--text-heading)', fontWeight: 600 }}>本棚</p>
             {ordered.length === 0
               ? <p style={{ ...note, marginTop: 'var(--space-2)' }}>本棚にはまだ本がありません。</p>
               : <>
@@ -542,7 +553,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
               <div role="list">
                 {lists.requests.map((p, i) => (
                   <PersonRow key={`r-${p.publicId}`} first={i === 0} person={p}>
-                    <button type="button" style={btnLinkQuiet} onClick={() => respond(p, false)}>断る</button>
+                    <button type="button" style={rowLink} onClick={() => respond(p, false)}>断る</button>
                     <button type="button" style={smallBtn} onClick={() => respond(p, true)}>承認</button>
                     <button
                       type="button"
@@ -579,7 +590,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
               <button type="button" onClick={() => check()} disabled={!text.trim() || checking} aria-busy={checking || undefined} style={{ ...btnGhost, width: 'auto', flexShrink: 0 }}>{checking ? '確かめています…' : '確かめる'}</button>
             </div>
             {!preview?.missing && <p style={note}>{withPhraseBreaks('相手のリンクか ID を入れてください。名前では探せません。')}</p>}
-            {preview?.missing && <p role="alert" style={{ margin: 0, fontSize: 'var(--text-body)', color: 'var(--error)', lineHeight: 1.6 }}>{withPhraseBreaks(followResultMessage('not_found'))}</p>}
+            {preview?.missing && <p role="alert" style={{ margin: 0, fontSize: 'var(--text-body)', color: 'var(--error)', lineHeight: 1.6, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(followResultMessage('not_found'))}</p>}
             {preview?.person && (
               <div role="status" style={{ ...row(true), borderBottom: '1px solid var(--separator)' }}>
                 <UserAvatar avatarId={preview.person.avatar} nickname={preview.person.nickname} size={40} />
@@ -665,7 +676,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
                     {lists.sent.length > 0 && <p style={{ ...note, margin: '0 0 var(--space-2)' }}>相手の承認を待っています。</p>}
                     {lists.sent.map((p, i) => (
                       <PersonRow key={`s-${p.publicId}`} first={i === 0} person={p}>
-                        <button type="button" style={btnLinkQuiet} onClick={() => remove(p, 'following')}>取り消す</button>
+                        <button type="button" style={rowLink} onClick={() => remove(p, 'following')}>取り消す</button>
                       </PersonRow>
                     ))}
                   </>
@@ -678,7 +689,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
                 <div role="list">
                   {lists.blocked.map((p, i) => (
                     <PersonRow key={`b-${p.publicId}`} first={i === 0} person={p}>
-                      <button type="button" style={btnLinkQuiet} onClick={() => unblock(p)}>ブロックを外す</button>
+                      <button type="button" style={rowLink} onClick={() => unblock(p)}>ブロックを外す</button>
                     </PersonRow>
                   ))}
                 </div>

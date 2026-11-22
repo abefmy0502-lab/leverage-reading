@@ -136,7 +136,7 @@ export function reportReasonText(reasonId, detail = '') {
 }
 
 /**
- * 通報。答え: 'ok'（受け付けた）・'failed'（送れなかった）。
+ * 通報。答え: 'ok'（受け付けた）・'rejected'（届いたが受け付けられなかった）・'failed'（送れなかった）。
  * まずデータベースの関数（report_profile・届いたかが分かる）。関数がまだ無いときだけ公開のページと同じ窓口へ
  * （アプリからは別のオリジンなので答えを読めない・送れたら受け付けたとみなす）。
  */
@@ -144,7 +144,7 @@ export async function reportProfile(publicId, reason = '', { fetchImpl = globalT
   const why = String(reason || '').slice(0, 500);
   try {
     const r = await call('report_profile', { p_public_id: publicId, p_reason: why }, client ? { client } : undefined);
-    if (r.ok) return r.data === 'ok' || r.data === 'self' ? 'ok' : 'failed';
+    if (r.ok) return r.data === 'ok' || r.data === 'self' ? 'ok' : 'rejected';
   } catch {
     return 'failed';
   }
