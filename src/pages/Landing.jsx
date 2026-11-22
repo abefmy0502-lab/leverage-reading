@@ -325,6 +325,7 @@ function Entry({ loc, wl, qr = false, badge = false, launch = false, center = fa
 export default function Landing() {
   const heroCtaRef = useRef(null);
   const [showSticky, setShowSticky] = useState(false);
+  const [stickyYield, setStickyYield] = useState(false); // 画面写真の説明が固定ボタンの裏にある間だけ下げる
   // ヒーローのボタンが見えている間は、ヘッダーのボタン（広い画面）を隠す＝主ボタンを 2 つ並べない。
   // 公開のお知らせ: 1 か所で送ったら、ほかの入口も「お知らせします」にする。
   const [wlDone, setWlDone] = useState(false);
@@ -475,6 +476,13 @@ export default function Landing() {
         return r.bottom > top && r.top < vh;
       });
       setShowSticky(!inlineCtaVisible && (el ? el.getBoundingClientRect().bottom < 0 : window.scrollY > 480));
+      // 画面写真の説明（figcaption）が下の固定ボタンの裏に入っている間は、固定ボタンだけ下げる（2026-11-22 ui-critic「説明を隠している」）。
+      const sticky = document.querySelector('.lp-sticky');
+      const barTop = vh - (sticky?.offsetHeight || 0);
+      setStickyYield(Array.from(document.querySelectorAll('.lp-root figcaption')).some((c) => {
+        const r = c.getBoundingClientRect();
+        return r.height > 0 && r.bottom > barTop && r.top < vh;
+      }));
     };
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
@@ -541,8 +549,8 @@ export default function Landing() {
 
       {/* 下の固定の帯（公開前の形では出さない・2026-10-05） */}
       {!PRELAUNCH && (
-        <div className={`lp-sticky${showSticky ? ' is-visible' : ''}`} aria-hidden={showSticky ? undefined : 'true'}>
-          <StoreCta className="lp-btn" loc="sticky" tabIndex={showSticky ? undefined : -1}>{CTA_LABEL}</StoreCta>
+        <div className={`lp-sticky${showSticky && !stickyYield ? ' is-visible' : ''}`} aria-hidden={showSticky && !stickyYield ? undefined : 'true'}>
+          <StoreCta className="lp-btn" loc="sticky" tabIndex={showSticky && !stickyYield ? undefined : -1}>{CTA_LABEL}</StoreCta>
         </div>
       )}
 

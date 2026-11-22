@@ -20,6 +20,7 @@ export function emailProblem(raw) {
   if (!v) return 'メールアドレスを入れてください。';
   if (/[＠．]/.test(v)) return '「＠」か「．」が全角です。半角で入れてください。';
   if (/\s/.test(v)) return 'メールアドレスに空白が入っています。';
+  if (/[^\x21-\x7e]/.test(v)) return '全角の文字が入っています。半角の英数字で入れてください。'; // 2026-11-22 点検: ＠・．以外の全角は通っていた
   const at = (v.match(/@/g) || []).length;
   if (at === 0) return '「@」が入っていません。例：you@example.com';
   if (at > 1) return '「@」が 2 つ以上入っています。';
@@ -27,6 +28,8 @@ export function emailProblem(raw) {
   if (!local) return '「@」の前が空いています。例：you@example.com';
   if (!domain) return '「@」の後ろが空いています。例：you@example.com';
   if (!/\.[^.]{2,}$/.test(domain)) return '「@」の後ろの「.com」などが足りません。';
+  // よくある打ち間違い（gmail.co など）は、届かないまま「登録しました」になるので聞き返す（2026-11-22 点検）
+  if (/^(gmail\.(co|cm|con|om)|gmial\.com|gmai\.com|gmal\.com)$/i.test(domain)) return '「gmail.com」ではありませんか？';
   if (!EMAIL_RE.test(v)) return 'メールアドレスの形が違います。例：you@example.com';
   return '';
 }
