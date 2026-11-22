@@ -7,7 +7,7 @@
 //   npm run mkt:voice -- <フォルダ> --engine say                           → Mac の声で試す（鍵なし・声は機械っぽい）
 // 読む文: そのフォルダの captions.srt（字幕と同じ文・同じ時刻）。画面の動画（mkt:record）は最初に題も読む（meta.json の title）。
 // 声の作り方（engine）:
-//   openai（既定・OPENAI_API_KEY があるとき）… gpt-4o-mini-tts・声 onyx（MKT_VOICE で替えられる・ash も落ち着いた男性）。
+//   openai（既定・OPENAI_API_KEY があるとき。Mac のキーチェーンに「orime-openai-tts」で入れておけば、そこから読む）… gpt-4o-mini-tts・声 onyx（MKT_VOICE で替えられる・ash も落ち着いた男性）。
 //                                              「落ち着いた男性の声で、ゆっくり、はっきり」と指示する（MKT_VOICE_STYLE で替えられる）。
 //   say（macOS）… 鍵が無いときの試し用（MKT_SAY_VOICE・既定 Reed）。
 //   tone … 声の代わりに小さな音（時刻と重ね方の確かめ用・どの端末でも）。
@@ -79,9 +79,11 @@ function synthTone(bin, text, file) {
   return file;
 }
 
+// 長さ（秒）。ffprobe が無い端末（npm の ffmpeg-static だけ）でも動くよう、ffmpeg の表示から読む。
 function duration(bin, file) {
-  const r = spawnSync(bin.replace(/ffmpeg$/, 'ffprobe'), ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', file], { encoding: 'utf8' });
-  return Number(r.stdout) || 0;
+  const r = spawnSync(bin, ['-hide_banner', '-i', file], { encoding: 'utf8' });
+  const m = String(r.stderr || '').match(/Duration: (\d+):(\d+):([\d.]+)/);
+  return m ? (+m[1]) * 3600 + (+m[2]) * 60 + (+m[3]) : 0;
 }
 
 async function voiceOne(dir, engine, bin) {
@@ -114,6 +116,11 @@ async function voiceOne(dir, engine, bin) {
 if (process.argv[1] && process.argv[1].endsWith('voice.mjs')) {
   const args = process.argv.slice(2);
   const ei = args.indexOf('--engine');
+  // 鍵: 環境変数か、Mac のキーチェーン（security add-generic-password -a orime -s orime-openai-tts -w で入れる・画面には出さない）
+  if (!process.env.OPENAI_API_KEY && process.platform === 'darwin') {
+    const k = spawnSync('security', ['find-generic-password', '-s', 'orime-openai-tts', '-w'], { encoding: 'utf8' });
+    if (k.status === 0 && k.stdout.trim()) process.env.OPENAI_API_KEY = k.stdout.trim();
+  }
   const engine = ei >= 0 ? args[ei + 1] : (process.env.OPENAI_API_KEY ? 'openai' : 'say');
   const target = args.find((a, i) => !a.startsWith('--') && args[i - 1] !== '--engine');
   if (!target) { console.error('使い方: npm run mkt:voice -- <動画のフォルダ か 日付のフォルダ> [--engine openai|say]'); process.exit(1); }
