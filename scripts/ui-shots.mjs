@@ -690,6 +690,9 @@ const SCREENS = [
   { name: 'consult-streaming', url: '/?ai=slow', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { wait: 1500 }] },
   { name: 'consult-error', url: '/?ai=fail', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { wait: 2500 }] },
   // 今月の 800 トークンを使い切った人（残りが 0 と分かっているので送信は押せない・「トークンを追加」）
+  { name: 'consult-freeused-first', url: '/?demo=freeused', steps: [{ css: nav('相談') }, { wait: 900 }] },
+  { name: 'consult-freeused-again', url: '/?demo=freeused', steps: [{ css: nav('相談') }, { wait: 900 }, { css: nav('ホーム') }, { wait: 500 }, { css: nav('相談') }, { wait: 900 }] },
+  { name: 'consult-limit-again', url: '/?demo=limit', steps: [{ css: nav('相談') }, { wait: 900 }, { css: nav('ホーム') }, { wait: 500 }, { css: nav('相談') }, { wait: 900 }] },
   { name: 'consult-limit', url: '/?demo=limit', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }] },
   { name: 'consult-answer-bottom', url: '/', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { wait: 6000 }, { scrollBottom: true }] },
   // 深掘りの会話（2026-09-30）: 返事 →「ここで答えと行動を」のあと、入力欄の上のチップ「ほかの本の視点で」で続けて聞いた答え（2026-10-11 に今のチップ名へ）。

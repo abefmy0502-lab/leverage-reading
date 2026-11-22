@@ -251,12 +251,12 @@ export function BookFieldsRecord({ record, onOpenField, onFindBooks }) {
             <span>{c.name}</span>
             {/* 本の合計は、その大分類の分野を 1 つでも持つ本の数（2 つの分野の本を二重に数えない）。分野が 1 つだけの大分類は、
                 すぐ下の行と同じ数になるので出さない（2026-11-17 ui-critic） */}
-            {c.fields.length > 0 && c.size > 1 && <span style={{ fontWeight: 400, fontSize: 'var(--text-meta)', letterSpacing: 0, color: 'var(--text-3)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{`本 ${c.books} 冊`}</span>}
+            {c.fields.length > 0 && c.size > 1 && <span style={{ fontWeight: 400, fontSize: 'var(--text-meta)', letterSpacing: 0, color: 'var(--text-3)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{`本棚 ${c.books} 冊`}</span>}
           </p>
           {c.fields.length > 0 && (
           <ul style={{ listStyle: 'none', margin: 'var(--space-1) 0 0', padding: 0 }}>
             {c.fields.map((f, i) => {
-              const parts = [`本 ${f.books} 冊`];
+              const parts = [`本棚 ${f.books} 冊`];
               if (f.memos > 0) parts.push(`メモ ${f.memos} 件`);
               // ★ 評価の平均（評価の付いた本が 2 冊以上のときだけ・小数 1 桁・押すと評価順で並ぶ・2026-10-11）
               const avg = Number.isFinite(f.avgRating) ? `★${f.avgRating.toFixed(1)}` : null;

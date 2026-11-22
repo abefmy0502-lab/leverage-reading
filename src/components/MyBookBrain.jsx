@@ -496,6 +496,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // 🪙➕ トークンを買い足したら、上限の状態を解く（送れるように戻す）。
   useEffect(() => { if (purchasedTokens > 0) setMonthLimitHit(false); }, [purchasedTokens]);
   const freeUsedUp = freeMode && tokensAvailable != null && tokensAvailable <= 0;
+  // 使い切った案内を、この月にもう見たか（開いた時点で決める＝見ている間に縮まない）。
+  const [outSeenBefore] = useState(readOutSeen);
   // 無料プランは、相談例を押しても送らず入力欄に入れる（2026-11-22 点検: 30 トークンのうち 10 を、試しに押しただけで使っていた）。
   //   プランの人も、残りが少ない（この相談が今月の最後）ときは入れるだけ（2026-10-21）。
   const examplesDraftOnly = freeMode || isLastAnswer({ freeMode, plan, tokensRemaining, purchasedTokens });
@@ -504,6 +506,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // （プランの人が使い切ったときは planOut の後ろで上書き）
   // プランの人（有料・無料期間）がトークンを使い切った（サーバーの 429 か、残りが 0）。
   const planOut = canBuyTokens && (monthLimitHit || (tokensAvailable != null && tokensAvailable <= 0));
+  useEffect(() => { if (freeUsedUp || planOut) markOutSeen(); }, [freeUsedUp, planOut]);
   const outOfTokens = monthLimitHit || planOut;
   const answerVerbNow = outOfTokens ? 'から探します' : answerVerb;
   // 会話が始まったあとの「相談相手と答え方」の入口のメニュー（入力欄の左の 44 のボタン・2026-10-11）。
@@ -2556,13 +2559,15 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               <section aria-labelledby={input.trim() ? undefined : 'brain-empty-title'}>
                 {/* 🎁 無料プランで今月のトークンを使い切った（2026-10-01）: 相談はメモから探して答える（メモが答える相談）ので、
                     行き止まりにせず、案内カード（プランは文字ボタン）の下に見出しと相談例をいつもどおり出す。 */}
-                {freeUsedUp && (
-                  <FreeUsedCard tokenAllowance={tokenNextAllowance ?? tokenAllowance} cta={freeUsedCta} trial={freeUsedOffer || ''} onOpen={() => openPaywall('free_used')} onUsage={() => setUsageOpen(true)} style={{ marginBottom: 'var(--space-6)' }} />
+                {freeUsedUp && (outSeenBefore
+                  ? <OutLine label={freeUsedCta} onOpen={() => openPaywall('free_used')} style={{ marginBottom: 'var(--space-6)' }} />
+                  : <FreeUsedCard tokenAllowance={tokenNextAllowance ?? tokenAllowance} cta={freeUsedCta} trial={freeUsedOffer || ''} onOpen={() => openPaywall('free_used')} onUsage={() => setUsageOpen(true)} style={{ marginBottom: 'var(--space-6)' }} />
                 )}
                 {/* 🪙➕ プランの人がトークンを使い切った（SPEC §3）: 案内カード（トークンを追加）を一番上に。
                     2026-10-20 から相談は止めず、無料プランと同じくメモから探して答える（払っている人ほど相談できない、を無くす）。 */}
-                {planOut && (
-                  <TokensOutCard plan={plan} trialEndLabel={trialEndLabel} cancelLine={trialCancelLine} tokenAllowance={tokenAllowance} memoNote onAdd={openTokenSheet} onUsage={() => setUsageOpen(true)} style={{ marginBottom: 'var(--space-6)' }} />
+                {planOut && (outSeenBefore
+                  ? <OutLine label="トークンを追加" onOpen={openTokenSheet} style={{ marginBottom: 'var(--space-6)' }} />
+                  : <TokensOutCard plan={plan} trialEndLabel={trialEndLabel} cancelLine={trialCancelLine} tokenAllowance={tokenAllowance} memoNote onAdd={openTokenSheet} onUsage={() => setUsageOpen(true)} style={{ marginBottom: 'var(--space-6)' }} />
                 )}
                 {showNudge && (
                   <TrialNudgeCard
@@ -3105,6 +3110,25 @@ function FirstAnswerTrialCard({ text, onOpen, onDismiss, onSeen = null, style = 
       >
         <X size="1.34em" aria-hidden="true" />
       </button>
+    </section>
+  );
+}
+
+// 📉 使い切った案内は、その月にはじめて見たときだけ全部を出し、次からは 1 行に縮める（2026-11-22 点検: 相談を開くたびに
+//   大きな案内が会話の場所の上を取っていた）。月は端末の日付。端末に書けなければ毎回全部（今までどおり）。
+const OUT_SEEN_KEY = 'orime.tokensOutSeen';
+function outMonthKey() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; }
+function readOutSeen() { try { return window.localStorage.getItem(OUT_SEEN_KEY) === outMonthKey(); } catch { return false; } }
+function markOutSeen() { try { window.localStorage.setItem(OUT_SEEN_KEY, outMonthKey()); } catch { /* ignore */ } }
+
+// 縮めた 1 行（「今月のトークンは、ここまで。メモから探して答えます。」＋文字ボタン）。
+function OutLine({ label, onOpen, style = null }) {
+  return (
+    <section aria-label="今月のトークンは、ここまで" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', ...style }}>
+      <p style={{ margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+        {withPhraseBreaks(`${nextResetLabelJa()}まで、メモから探して答えます。`)}
+      </p>
+      {onOpen && <button type="button" onClick={onOpen} style={{ ...uiBtnLinkQuiet, flexShrink: 0, marginRight: 'calc(-1 * var(--space-1))' }}>{label}</button>}
     </section>
   );
 }
