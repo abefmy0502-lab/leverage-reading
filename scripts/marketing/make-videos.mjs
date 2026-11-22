@@ -5,9 +5,8 @@
 //   npm run mkt:videos -- --say            → 鍵なしで Mac の声（Reed・日本語）の試し
 // 中で順に: ① 声を作り置き（mkt:voice --prepare・鍵は環境変数かキーチェーン「orime-openai-tts」）
 //          ② お試しモードを起動して画面の動画を撮る（声の長さで間を取る）③ 概念の動画を書き出す ④ 声を重ねる（final-voice.mp4）
-// 鍵が無ければ声なしで撮る（final.mp4 だけ）。ブラウザは PW_EXE → Google Chrome（Mac）の順。
+// 鍵が無ければ声なしで撮る（final.mp4 だけ）。
 import { spawn, spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 const SCREEN = ['shelf-scan', 'goal-roadmap', 'consult-answer', 'focus-mode'];
@@ -16,8 +15,8 @@ const names = process.argv.slice(2).filter((a) => !a.startsWith('--'));
 const screen = names.length ? SCREEN.filter((n) => names.includes(n)) : SCREEN;
 const concept = names.length ? CONCEPT.filter((n) => names.includes(n)) : CONCEPT;
 const env = { ...process.env };
-const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-if (!env.PW_EXE && existsSync(CHROME)) env.PW_EXE = CHROME;
+// ブラウザは record-demo が決める（PW_EXE → Playwright の Chromium → Google Chrome）。
+// Mac で初めてのときは: node node_modules/playwright-core/cli.js install chromium ffmpeg
 const sayVoice = process.argv.includes('--say'); // 鍵なしで Mac の声（Reed・日本語）で作る試し
 if (sayVoice) { env.MKT_VOICE_ENGINE = 'say'; env.MKT_SAY_VOICE = env.MKT_SAY_VOICE || 'Reed (日本語（日本）)'; }
 if (!sayVoice && !env.OPENAI_API_KEY && process.platform === 'darwin') {

@@ -57,6 +57,8 @@ if (!targets.length) {
 function browserOptions() {
   if (process.env.PW_EXE) return { executablePath: process.env.PW_EXE };
   if (existsSync('/opt/pw-browsers/chromium')) return { executablePath: '/opt/pw-browsers/chromium' };
+  // Playwright の Chromium があればそれで撮る（Mac の Google Chrome だと、台本によって録画が 0 バイトになった・2026-11-22）
+  try { if (existsSync(chromium.executablePath())) return {}; } catch { /* 入っていない */ }
   return { channel: 'chrome' };
 }
 
