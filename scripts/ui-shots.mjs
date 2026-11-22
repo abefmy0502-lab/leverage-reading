@@ -259,6 +259,8 @@ const SCREENS = [
   // すべての本の表紙の一覧: 文字サイズを大きくしたら 2 列（23px＝約 1.35 倍・2026-10-04）
   { name: 'library-large-text', url: '/', steps: [{ eval: () => { document.documentElement.style.fontSize = '23px'; } }, { wait: 300 }, { css: 'button:has-text("すべての本")' }] },
   { name: 'book-memo-sheet-xl-text', url: '/', steps: [{ eval: () => { document.documentElement.style.fontSize = '30px'; } }, { wait: 300 }, { css: 'button[aria-label$="にメモを書く"]' }, { css: 'button:has-text("ページ・写真")' }] },
+  { name: 'book-detail-actions', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { scrollTo: '#detail-action-title' }, { wait: 500 }] },
+  { name: 'book-detail-action-edit', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { scrollTo: '#detail-action-title' }, { css: 'button[aria-label$="を編集"] >> nth=0' }, { wait: 700 }] },
   { name: 'book-detail-done-bottom', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { scrollBottom: true }] },
   { name: 'book-store-sheet', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("この本を買う")' }] },
   { name: 'consult', url: '/', steps: [{ css: nav('相談') }] },

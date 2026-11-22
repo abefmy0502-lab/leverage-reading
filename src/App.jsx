@@ -4901,6 +4901,84 @@ function AuthedApp() {
         );
   })() : null;
 
+  // ✏️ 行動の編集（振り返り › 行動と本の詳細の両方で開く・2026-11-22 点検＝本の詳細の行の文を押したときにも）。
+  const actionEditModalEl = editingAction ? (
+      <Suspense fallback={<OverlayFallback />}>
+      <ActionEditModal
+        // 「期限を見直す」で次の行動を開くときは作り直す（入力欄を次の行動の値にする）。
+        key={editingAction.action?.id || `${editingAction.bookId}:${editingAction.actionIdx}`}
+        action={editingAction.action}
+        step={editingAction.total > 1 ? { index: editingAction.total - (editingAction.queue?.length || 0), total: editingAction.total } : null}
+        onClose={() => { const cur = editingAction; setEditingAction(null); finishReview(cur); }}
+        onSave={async (patch) => {
+          const cur = editingAction;
+          const { bookId, actionIdx, action: openedAction } = cur;
+          // 「期限を見直す」の途中（session あり）は、保存を待たずに次の行動をすぐ開く。保存は裏で進め、
+          // 失敗したらその行動を元に戻して知らせる。件数の知らせは最後にまとめて 1 回（finishReview・2026-09-30）。
+          const reviewing = !!cur.session;
+          // トグル/削除と同じ本ごとの直列化チェーンに乗せる（並行 saveBook との
+          // 競合で編集内容が stale 上書きで失われるのを防ぐ）。
+          // ⚠️ 対象の身元は「モーダルを開いた時点の action」を使う。保存時に
+          // actionIdx で再取得すると、モーダルを開いている間に配列が動いた場合
+          // （繰り返しスポーン / 別行削除）に別の行を掴んでしまう。resolveActionIndex は
+          // id 優先で解決するので、開いた時点の action オブジェクトを渡すのが正しい。
+          const editTarget = openedAction || (booksRef.current.find((b) => b.id === bookId)?.actions || [])[actionIdx] || null;
+          // 保存の結末で閉じ方を変える: 'saved'/'gone'（対象消失）は閉じる、
+          // 'failed'（保存失敗）はモーダルを開いたままにして入力（下書き）を守る。
+          // create モードが「成功時のみ閉じる」のと挙動を揃える（先に閉じると
+          // 保存失敗時に入力が全損する）。onSave は throw せず正常 resolve するので、
+          // ActionEditModal 側は finally で busy を解除して開いたまま待機できる。
+          let outcome = 'gone';
+          let failMessage = '';
+          const run = enqueueBookMutation(bookId, async (entry) => {
+            const book = entry.latest || booksRef.current.find((b) => b.id === bookId);
+            if (!book) return;
+            const acts = [...(book.actions || [])];
+            const idx = resolveActionIndex(acts, editTarget, actionIdx);
+            if (idx < 0 || idx >= acts.length) return;
+            acts[idx] = { ...acts[idx], ...patch };
+            const updated = { ...book, actions: acts };
+            mutateBookLocal(bookId, () => updated);
+            syncActionSnapshots(updated);
+            try {
+              const saved = await saveBook(updated);
+              entry.latest = saved || updated;
+              syncActionSnapshots(saved || updated);
+              outcome = 'saved';
+              // 「期限を見直す」の途中は、ここでは知らせない（最後に件数をまとめて知らせる）。
+              if (!reviewing) toast.success('行動を更新しました。');
+            } catch (error) {
+              mutateBookLocal(bookId, () => book);
+              entry.latest = book;
+              syncActionSnapshots(book);
+              outcome = 'failed';
+              failMessage = toSaveMessage(error, '保存できませんでした。');
+              // 「期限を見直す」の途中は次の行動に進んでいるので知らせで。ふだんはモーダルの中に出す（知らせはモーダルの下に隠れる）。
+              if (reviewing) toast.error(failMessage);
+            }
+          });
+          if (reviewing) {
+            cur.session.saves.push(Promise.resolve(run).then(() => outcome, () => 'failed'));
+            openNextReviewAction(cur);
+            return;
+          }
+          await run;
+          if (outcome === 'failed') return { error: failMessage };
+          openNextReviewAction(cur);
+        }}
+        // 「期限を見直す」の途中で、この行動は変えずに次へ（2026-09-30）。
+        onSkip={() => openNextReviewAction(editingAction)}
+        onDelete={async () => {
+          const { bookId, actionIdx, action } = editingAction;
+          setEditingAction(null);
+          finishReview(editingAction);
+          // モーダル側で確認済み → 二重確認を避ける。開いたときの行動を身元にする（並びがずれても別の行動を消さない）。
+          await deleteActionFromBook(bookId, actionIdx, { skipConfirm: true, target: action });
+        }}
+      />
+      </Suspense>
+  ) : null;
+
   if (view === "detail" && current) {
     const st = getSt(current.status);
     const nextStatus = { want: "before", before: "reading", reading: "done" };
@@ -5494,25 +5572,31 @@ function AuthedApp() {
               {stableDetailActionOrder(current)
                 .map((i) => ({ a: current.actions[i], i }))
                 .map(({ a, i }) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => toggleAction(current.id, i)}
-                  aria-label={a.done ? `「${a.text}」を未完了に戻す` : `「${a.text}」を完了にする`}
-                  style={{ display: "flex", gap: 'var(--space-3)', alignItems: "flex-start", padding: "var(--space-2) 0", width: "100%", background: "none", border: "none", textAlign: "left", cursor: "pointer", fontFamily: "inherit", minHeight: 48 }}
-                >
-                  {/* ○ は 1 行目にそろえる（iOS のリマインダーと同じ）。1 行目の高さの箱の上下中央に置く。 */}
-                  {/* 丸は文字と一緒に大きくなる（em・ふだん 24＝17×1.4）。 */}
-                  <span aria-hidden="true" style={{ fontSize: 'var(--text-body)', height: 'calc(var(--text-body) * 1.5)', display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}>
-                    {a.done
-                      ? <CheckCircle2 size="1.4em" style={{ color: 'var(--success)' }} />
-                      : <Circle size="1.4em" style={{ color: 'var(--border)' }} />}
-                  </span>
-                  <div style={{ minWidth: 0 }}>
+                // 左の ○ で完了、文を押すと編集（振り返り › 行動と同じ・2026-11-22 点検＝文を読もうと押して完了になっていた）。
+                <div key={i} style={{ display: "flex", gap: 'var(--space-1)', alignItems: "flex-start", width: "100%", minHeight: 48 }}>
+                  {/* ○ は 1 行目にそろえる（iOS のリマインダーと同じ）。押せる範囲は 44。丸は文字と一緒に大きくなる（em）。 */}
+                  <button
+                    type="button"
+                    onClick={() => toggleAction(current.id, i)}
+                    aria-label={a.done ? `「${a.text}」を未完了に戻す` : `「${a.text}」を完了にする`}
+                    style={{ flexShrink: 0, width: 44, minHeight: 44, margin: '0 0 0 calc(-1 * var(--space-2))', padding: 'var(--space-2) 0 0', display: 'flex', justifyContent: 'center', alignItems: 'flex-start', background: 'none', border: 'none', cursor: 'pointer', fontSize: 'var(--text-body)' }}
+                  >
+                    <span aria-hidden="true" style={{ height: 'calc(var(--text-body) * 1.5)', display: 'inline-flex', alignItems: 'center' }}>
+                      {a.done
+                        ? <CheckCircle2 size="1.4em" style={{ color: 'var(--success)' }} />
+                        : <Circle size="1.4em" style={{ color: 'var(--border)' }} />}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingAction({ bookId: current.id, actionIdx: i, action: { ...a, bookTitle: current.title }, queue: null, total: 0, session: null })}
+                    aria-label={`「${a.text}」を編集`}
+                    style={{ flex: 1, minWidth: 0, padding: "var(--space-2) 0", background: "none", border: "none", textAlign: "left", cursor: "pointer", fontFamily: "inherit", color: 'inherit' }}
+                  >
                     <p style={{ fontSize: 'var(--text-body)', color: a.done ? "var(--text-3)" : "var(--text)", textDecoration: a.done ? "line-through" : "none", margin: 0, wordBreak: "keep-all", overflowWrap: "anywhere", lineHeight: 1.5 }}>{withPhraseBreaks(a.text)}</p>
                     {a.deadline && <p style={{ fontSize: 'var(--text-meta)', color: "var(--text-3)", margin: 'var(--space-1) 0 0' }}>期限 {fmtDateJa(a.deadline)}</p>}
-                  </div>
-                </button>
+                  </button>
+                </div>
               ))}
               {/* この本の行動をその場で足す（行動タブの「＋ 追加」と同じ入力を、この本を選んだ状態で開く）。 */}
               <button
@@ -5780,6 +5864,7 @@ function AuthedApp() {
           </Suspense>
         )}
 
+        {actionEditModalEl}
         {fullEditorPrefill && (
           <BookMemoEditor
             bookTitle={current.title}
@@ -6755,7 +6840,7 @@ function AuthedApp() {
                       },
                       // 本棚に無い本を探していた人の次の一歩（2026-11-22 点検）: その言葉で本を追加を開く。
                       ...(libraryQuery && activeFilterCount === 0 && !folderFilter ? [{
-                        label: `『${libraryQuery.length > 12 ? `${libraryQuery.slice(0, 11)}…` : libraryQuery}』で本を追加`,
+                        label: `「${libraryQuery.length > 12 ? `${libraryQuery.slice(0, 11)}…` : libraryQuery}」で本を追加`,
                         onClick: () => { const q = libraryQuery; openAdd(); setAddFromSearchQuery(q); },
                         variant: 'secondary',
                       }] : []),
@@ -7180,82 +7265,7 @@ function AuthedApp() {
       {/* 旧「✅ 完了おめでとうございます!」振り返りモーダルは撤去。
           完了はタップ即時、reflection は ActionEditModal から編集可能。 */}
 
-      {editingAction && (
-        <Suspense fallback={<OverlayFallback />}>
-        <ActionEditModal
-          // 「期限を見直す」で次の行動を開くときは作り直す（入力欄を次の行動の値にする）。
-          key={editingAction.action?.id || `${editingAction.bookId}:${editingAction.actionIdx}`}
-          action={editingAction.action}
-          step={editingAction.total > 1 ? { index: editingAction.total - (editingAction.queue?.length || 0), total: editingAction.total } : null}
-          onClose={() => { const cur = editingAction; setEditingAction(null); finishReview(cur); }}
-          onSave={async (patch) => {
-            const cur = editingAction;
-            const { bookId, actionIdx, action: openedAction } = cur;
-            // 「期限を見直す」の途中（session あり）は、保存を待たずに次の行動をすぐ開く。保存は裏で進め、
-            // 失敗したらその行動を元に戻して知らせる。件数の知らせは最後にまとめて 1 回（finishReview・2026-09-30）。
-            const reviewing = !!cur.session;
-            // トグル/削除と同じ本ごとの直列化チェーンに乗せる（並行 saveBook との
-            // 競合で編集内容が stale 上書きで失われるのを防ぐ）。
-            // ⚠️ 対象の身元は「モーダルを開いた時点の action」を使う。保存時に
-            // actionIdx で再取得すると、モーダルを開いている間に配列が動いた場合
-            // （繰り返しスポーン / 別行削除）に別の行を掴んでしまう。resolveActionIndex は
-            // id 優先で解決するので、開いた時点の action オブジェクトを渡すのが正しい。
-            const editTarget = openedAction || (booksRef.current.find((b) => b.id === bookId)?.actions || [])[actionIdx] || null;
-            // 保存の結末で閉じ方を変える: 'saved'/'gone'（対象消失）は閉じる、
-            // 'failed'（保存失敗）はモーダルを開いたままにして入力（下書き）を守る。
-            // create モードが「成功時のみ閉じる」のと挙動を揃える（先に閉じると
-            // 保存失敗時に入力が全損する）。onSave は throw せず正常 resolve するので、
-            // ActionEditModal 側は finally で busy を解除して開いたまま待機できる。
-            let outcome = 'gone';
-            let failMessage = '';
-            const run = enqueueBookMutation(bookId, async (entry) => {
-              const book = entry.latest || booksRef.current.find((b) => b.id === bookId);
-              if (!book) return;
-              const acts = [...(book.actions || [])];
-              const idx = resolveActionIndex(acts, editTarget, actionIdx);
-              if (idx < 0 || idx >= acts.length) return;
-              acts[idx] = { ...acts[idx], ...patch };
-              const updated = { ...book, actions: acts };
-              mutateBookLocal(bookId, () => updated);
-              syncActionSnapshots(updated);
-              try {
-                const saved = await saveBook(updated);
-                entry.latest = saved || updated;
-                syncActionSnapshots(saved || updated);
-                outcome = 'saved';
-                // 「期限を見直す」の途中は、ここでは知らせない（最後に件数をまとめて知らせる）。
-                if (!reviewing) toast.success('行動を更新しました。');
-              } catch (error) {
-                mutateBookLocal(bookId, () => book);
-                entry.latest = book;
-                syncActionSnapshots(book);
-                outcome = 'failed';
-                failMessage = toSaveMessage(error, '保存できませんでした。');
-                // 「期限を見直す」の途中は次の行動に進んでいるので知らせで。ふだんはモーダルの中に出す（知らせはモーダルの下に隠れる）。
-                if (reviewing) toast.error(failMessage);
-              }
-            });
-            if (reviewing) {
-              cur.session.saves.push(Promise.resolve(run).then(() => outcome, () => 'failed'));
-              openNextReviewAction(cur);
-              return;
-            }
-            await run;
-            if (outcome === 'failed') return { error: failMessage };
-            openNextReviewAction(cur);
-          }}
-          // 「期限を見直す」の途中で、この行動は変えずに次へ（2026-09-30）。
-          onSkip={() => openNextReviewAction(editingAction)}
-          onDelete={async () => {
-            const { bookId, actionIdx, action } = editingAction;
-            setEditingAction(null);
-            finishReview(editingAction);
-            // モーダル側で確認済み → 二重確認を避ける。開いたときの行動を身元にする（並びがずれても別の行動を消さない）。
-            await deleteActionFromBook(bookId, actionIdx, { skipConfirm: true, target: action });
-          }}
-        />
-        </Suspense>
-      )}
+      {actionEditModalEl}
 
       {/* 🎯 行動タブ「＋追加」/ 🧠マイ読書脳の行動化フォールバック:
           ① どの本の行動かを選ぶ（読書中→読了→積読→読みたい順）。

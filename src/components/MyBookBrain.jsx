@@ -2809,7 +2809,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 <button
                   type="button"
                   onClick={() => { const q = input.trim(); setConsentDeclined(false); askFromMemos(q); }}
-                  style={{ ...uiBtnLink, display: 'flex', margin: 'calc(-1 * var(--space-1)) 0 calc(-1 * var(--space-2)) calc(-1 * var(--space-1))' }}
+                  style={{ ...uiBtnLinkQuiet, display: 'flex', margin: 'calc(-1 * var(--space-1)) 0 calc(-1 * var(--space-2)) calc(-1 * var(--space-1))' }}
                 >
                   AI を使わずに、メモから探す
                 </button>
