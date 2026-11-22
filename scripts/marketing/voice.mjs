@@ -55,7 +55,16 @@ async function synthOpenai(text, file) {
     headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ model: 'gpt-4o-mini-tts', voice: process.env.MKT_VOICE || 'onyx', input: text, instructions: process.env.MKT_VOICE_STYLE || DEFAULT_STYLE, response_format: 'mp3' }),
   });
-  if (!res.ok) throw new Error(`読み上げに失敗しました（${res.status}）`);
+  if (!res.ok) {
+    // 理由だけを出す（鍵の文字は出さない）
+    let code = ''; let msg = '';
+    try { const j = await res.json(); code = j?.error?.code || j?.error?.type || ''; msg = String(j?.error?.message || ''); } catch { /* 本文なし */ }
+    const hint = /insufficient permissions|Missing scopes/i.test(msg) ? '鍵の権限が足りません（OpenAI の API keys で、この鍵の Permissions を All にするか、Model capabilities を Request に）'
+      : res.status === 401 ? '鍵が違います（貼り間違い・取り消した鍵）。鍵を作り直して、キーチェーンに入れ直す'
+        : res.status === 429 ? '残高か上限に届きました（OpenAI の Billing・Limits を確かめる）'
+          : '';
+    throw new Error(`読み上げに失敗しました（${res.status}${code ? ` ${code}` : ''}）${hint ? `: ${hint}` : ''}${msg ? `\n  OpenAI の文: ${msg.replace(/sk-[\w-]+(\*+[\w-]*)?/g, '（鍵）')}` : ''}`);
+  }
   writeFileSync(file, Buffer.from(await res.arrayBuffer()));
 }
 
