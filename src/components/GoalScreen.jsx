@@ -273,7 +273,8 @@ function GoalsView({ goals, roadmaps, purpose, loaded, onEdit, onCarry, onInterv
   return (
     <>
       {/* 説明は、まだロードマップが 1 つも無いあいだだけ（はじめて開いた人に・DESIGN §0-6 補足文を常に置かない）。 */}
-      {!anyRoadmap && <p className="goal-lead">{withPhraseBreaks('1 年後の目標から書いてみましょう。「達成するには？」を一緒に考えて、道のりと読む本にします。3 年後・5 年後も書くと、その先までつなぎます。')}</p>}
+      {/* 目標をまだ 1 つも書いていない間だけ（書いたら下の注記と重なる・2026-11-22 ui-critic）。 */}
+      {!anyRoadmap && !anyGoal && <p className="goal-lead">{withPhraseBreaks('1 年後の目標から書いてみましょう。「達成するには？」を一緒に考えて、道のりと読む本にします。3 年後・5 年後も書くと、その先までつなぎます。')}</p>}
       {carryText && (
         <section className="goal-box" aria-label="はじめに書いた目標">
           <p className="goal-sec-title" style={{ margin: 0 }}>はじめに書いた目標</p>

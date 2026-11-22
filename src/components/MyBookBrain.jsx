@@ -3128,7 +3128,7 @@ function OutLine({ label, onOpen, style = null }) {
       <p style={{ margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
         {withPhraseBreaks(`${nextResetLabelJa()}まで、メモから探して答えます。`)}
       </p>
-      {onOpen && <button type="button" onClick={onOpen} style={{ ...uiBtnLinkQuiet, flexShrink: 0, marginRight: 'calc(-1 * var(--space-1))' }}>{label}</button>}
+      {onOpen && <button type="button" onClick={onOpen} style={{ ...uiBtnLink, flexShrink: 0, marginRight: 'calc(-1 * var(--space-1))' }}>{label}</button>}
     </section>
   );
 }
