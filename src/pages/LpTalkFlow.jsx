@@ -3,16 +3,17 @@
 //   本の吹き出しの中に、根拠のメモ（小さく・左に栗色の線）。最後の「明日からできる一歩」も本からの吹き出し＋塗りの「行動に追加」の形。
 //   文はオーナーの実際の相談そのまま（lpCopy.js の TALK）。色・余白・角丸はトークンだけ。
 //   2026-11-22 オーナー「LP の UI が悪い・特にこのチャットの場面」: 本の吹き出しをアイコンの列から外して全幅に（狭くて語の途中で割れていた）、
-//   アイコンと名前は吹き出しの上の 1 行に。「相談する本」は会話の上の 1 行へ。答え・根拠・問いを区切り、文は本の組みと同じく文字の単位で詰め、禁則は strict（文節で割ると吹き出しの右がでこぼこになる）。
+//   アイコンと名前は吹き出しの上の 1 行に。「相談する本」は会話の上の 1 行へ。答え・根拠・問いを区切り、文は文節でだけ折り返す（Phrases＋.lp-wbr・数と単位も割らない＝語の途中で割れるのがオーナーの不満の本体だった）。
 import { BookOpen, Target, Circle, NotebookPen } from 'lucide-react';
 import { TALK as T } from './lpCopy';
+import Phrases from './LpPhrases';
 import LpPartnerDiagram from './LpPartnerDiagram';
 
 function Me({ children }) {
   return (
     <li className="lp-chat-row is-me">
       <div className="lp-chat-bubble">
-        <p className="lp-chat-text">{children}</p>
+        <p className="lp-chat-text lp-wbr"><Phrases phrase>{children}</Phrases></p>
       </div>
     </li>
   );
@@ -23,7 +24,7 @@ function Book({ from, children }) {
     <li className="lp-chat-row is-book">
       <p className="lp-chat-from">
         <span className="lp-chat-avatar" aria-hidden="true"><BookOpen size={14} /></span>
-        {from}
+        {from || <span className="lp-sr">稲盛和夫『考え方』</span>}
       </p>
       <div className="lp-chat-bubble">{children}</div>
     </li>
@@ -40,19 +41,21 @@ export default function LpTalkFlow() {
       <ol className="lp-chat" aria-label="相談の流れの見本">
         <Me>{ask.ask}</Me>
         <Book from={answer.from}>
-          <p className="lp-chat-text is-read">{answer.answer}</p>
-          <p className="lp-chat-evidence-line"><NotebookPen size="1em" aria-hidden="true" />{answer.evidenceLine}</p>
+          <div className="lp-chat-answer">
+            <p className="lp-chat-text is-read lp-wbr"><Phrases phrase>{answer.answer}</Phrases></p>
+            <p className="lp-chat-evidence-line"><NotebookPen size="1.1em" aria-hidden="true" /><span className="lp-wbr">あなたのメモ<wbr /><b>{'\u00a03\u00a0件'}</b>から<wbr />答えています。</span></p>
+          </div>
           <div className="lp-chat-ask">
             <p className="lp-chat-label">あなたに聞きたいこと</p>
-            <p className="lp-chat-text">{answer.question}</p>
+            <p className="lp-chat-text is-read lp-wbr"><Phrases phrase>{answer.question}</Phrases></p>
           </div>
         </Book>
         <Me>{T.reply}</Me>
-        <Book from={T.replyFrom}>
-          <p className="lp-chat-text is-read">{stepLead}</p>
+        <Book>
+          <p className="lp-chat-text is-lead lp-wbr"><Phrases phrase>{stepLead}</Phrases></p>
           <div className="lp-chat-step">
-            <p className="lp-chat-label"><Target size="1em" aria-hidden="true" /> 明日からできる一歩</p>
-            <p className="lp-chat-text">{stepRest.join('')}</p>
+            <p className="lp-chat-label"><Target size="1.1em" aria-hidden="true" /> 明日からできる一歩</p>
+            <p className="lp-chat-text is-read lp-wbr"><Phrases phrase>{stepRest.join('')}</Phrases></p>
           </div>
         </Book>
         {/* 2026-11-11 オーナー「行動に追加ボタンは初めて見た人だとわからない」: ボタンの絵をやめ、押したあとに起きること（明日の行動リストに入る）を見せる */}
@@ -60,9 +63,9 @@ export default function LpTalkFlow() {
           <div className="lp-chat-result">
             <p className="lp-chat-result-lead">この一歩は、行動リストに入ります</p>
             <div className="lp-chat-todo" aria-label="行動リストに入った例">
-              <Circle size={20} aria-hidden="true" />
+              <Circle size={20} strokeWidth={1.5} aria-hidden="true" />
               <div>
-                <p className="lp-chat-todo-text">{T.todo.map((t) => <span key={t}>{t}</span>)}</p>
+                <p className="lp-chat-todo-text lp-wbr">{T.todo.map((t) => <span key={t}><Phrases phrase>{t}</Phrases></span>)}</p>
                 <p className="lp-chat-todo-meta">{T.todoMeta}</p>
               </div>
             </div>
