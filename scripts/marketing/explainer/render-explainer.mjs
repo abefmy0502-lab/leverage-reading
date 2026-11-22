@@ -21,6 +21,7 @@ import { pathToFileURL } from 'node:url';
 import { chromium } from 'playwright-core';
 import { REELS, END_LINE, END_STORE, reelTexts, reelDuration } from './reels.mjs';
 import { ART } from './art.mjs';
+import { SAFE, layoutProblems, glueSpaces, PHRASE_BREAK_CSS } from '../safeZone.mjs';
 import { checkCopy } from '../weekly-drafts.mjs';
 import { sceneLine, paceReel } from './lines.mjs';
 import { findFfmpeg } from '../finish-video.mjs';
@@ -55,7 +56,7 @@ if (args.includes('--check')) { console.log(`  ✓ ${targets.length} 本の文�
 // 画面に出る字（書体を先に読み込む用）
 const document_text = (reel) => [...reelTexts(reel), END_LINE, END_STORE, ...Object.values(ART).map((a) => a.svg.replace(/<[^>]+>/g, ''))].join('') + '0123456789';
 
-const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const esc = (s) => glueSpaces(String(s)).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 function itemHtml(it, i) {
   const at = it.at ?? 0;
@@ -93,6 +94,18 @@ function itemHtml(it, i) {
 
 // 時刻 t（秒）の絵にする。場面は切り替えの 0.18 秒で重ねる。
 const STAGE_JS = `
+// 横に収まらない字は、安全な範囲の右端に収まるまで小さくする（書き出しの前に 1 回・2026-11-22）
+window.fitAll = (right) => {
+  for (const sc of document.querySelectorAll('.scene')) {
+    const was = sc.style.display;
+    sc.style.display = 'block';
+    for (const el of sc.querySelectorAll('.box, .line, .end-line')) {
+      let fs = parseFloat(getComputedStyle(el).fontSize);
+      while (el.getBoundingClientRect().right > right && fs > 40) { fs -= 2; el.style.fontSize = fs + 'px'; }
+    }
+    sc.style.display = was;
+  }
+};
 const clamp = (v) => Math.max(0, Math.min(1, v));
 const out3 = (p) => 1 - Math.pow(1 - p, 3);
 const back = (p) => { const c = 1.6; return 1 + (c + 1) * Math.pow(p - 1, 3) + c * Math.pow(p - 1, 2); };
@@ -164,7 +177,8 @@ function stageHtml(reel, dark) {
   .box { position: absolute; background: var(--text); color: var(--surface); line-height: 1.15; padding: 18px 32px 22px;
          letter-spacing: 0.02em; white-space: nowrap; transform: rotate(-0.6deg); }
   .line { position: absolute; line-height: 1.2; white-space: nowrap; letter-spacing: 0.01em; }
-  .sub { position: absolute; left: 64px; right: 140px; font-size: 50px; line-height: 1.45; white-space: pre-line; color: var(--accent); font-weight: 700; }
+  .sub { position: absolute; left: 64px; right: ${1080 - SAFE.right}px; font-size: 50px; line-height: 1.45; white-space: pre-line; color: var(--accent); font-weight: 700; ${PHRASE_BREAK_CSS} }
+  .end-line, .end-store { ${PHRASE_BREAK_CSS} text-align: center; }
   .art { position: absolute; overflow: visible; }
   .art .d { fill: none; stroke: var(--text); stroke-width: var(--sw); stroke-linecap: round; stroke-linejoin: round;
             stroke-dasharray: 1 1; stroke-dashoffset: 1; }
@@ -233,6 +247,25 @@ try {
       } catch { return false; }
     }, [...new Set(document_text(reel))].join(''));
     if (!fontOk) console.warn('  ⚠ Noto Sans JP を読めませんでした（端末の書体で書き出します）');
+    await page.evaluate((right) => window.fitAll(right), SAFE.right);
+
+    // 字と絵が安全な範囲に収まり、重なっていないかを、場面ごとに動きが落ち着いた所で確かめる（だめなら書き出さない）
+    {
+      const problems = [];
+      let t0 = 0;
+      for (const [i, sc] of reel.scenes.entries()) {
+        await page.evaluate((t) => window.seek(t), t0 + sc.sec - 0.25);
+        const found = await page.evaluate(layoutProblems, { selector: '.box, .line, .sub, .art, .end-logo, .end-line, .end-store', safe: SAFE });
+        for (const f of found) problems.push(`場面 ${i + 1}: ${f}`);
+        t0 += sc.sec;
+      }
+      if (problems.length) {
+        console.error(`  ✗ ${reel.name}: 配置を直してください（安全な範囲 上 ${SAFE.top}・下 ${SAFE.bottom}・左 ${SAFE.left}・右 ${SAFE.right}）\n    ${problems.join('\n    ')}`);
+        process.exitCode = 1;
+        await page.close();
+        continue;
+      }
+    }
 
     if (still != null) {
       await page.evaluate((t) => window.seek(t), Number(still));

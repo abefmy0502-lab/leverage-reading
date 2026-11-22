@@ -22,7 +22,9 @@
 import { mkdirSync, renameSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { chromium } from 'playwright-core';
-import { SCENARIOS, redactPairs, AUTHOR_REDACT } from './scenarios.mjs';
+import { SCENARIOS, redactPairs, AUTHOR_REDACT, openingTitle } from './scenarios.mjs';
+import { ART } from './explainer/art.mjs';
+import { SAFE, layoutProblems, glueSpaces, PHRASE_BREAK_CSS } from './safeZone.mjs';
 import { SAMPLE_NOTE } from './notes.mjs';
 import { END_LINE, END_STORE } from './explainer/reels.mjs';
 import { voiceLength, readIndex } from './voiceCache.mjs';
@@ -32,7 +34,11 @@ import { finishVideo } from './finish-video.mjs';
 const BASE = (process.env.MKT_BASE_URL || process.env.UI_SHOTS_URL || 'http://localhost:5173').replace(/\/$/, '');
 const W = 1080;
 const H = 1920;
-const PHONE = { w: 390, h: 693, scale: 2.1, top: 330 };
+// 2026-11-22 オーナー「縦いっぱいに使いすぎ」: 字の帯と画面は安全な範囲（safeZone.mjs）の中だけ
+const BAND = { top: SAFE.top, h: 170 };
+const PHONE = { w: 390, h: 693, scale: 1.36, top: 440 };
+const SAMPLE_TOP = PHONE.top + PHONE.h * PHONE.scale + 10;
+const PROBLEM = { w: 680, top: 520 };
 const TITLE_SEC = 2;
 const END_SEC = 2.6; // 最後の Orime のロゴのカード（2026-11-22 オーナー「動画の最後には Orime のロゴも」・--plain でも出す）
 
@@ -71,26 +77,38 @@ function stageHtml(appUrl) {
 <link rel="stylesheet" href="/src/styles/tokens.css">
 <style>
   html, body { margin: 0; width: ${W}px; height: ${H}px; overflow: hidden; background: var(--bg); color: var(--text); font-family: var(--font-ui); }
-  #band { position: absolute; left: 64px; right: 64px; top: 48px; height: 250px; display: flex; align-items: center; justify-content: center; text-align: center; }
-  #cap, #title { margin: 0; white-space: pre-line; word-break: keep-all; line-break: strict; text-wrap: balance; transition: opacity 200ms; }
+  #band { position: absolute; left: ${SAFE.left}px; right: ${W - SAFE.right}px; top: ${BAND.top}px; height: ${BAND.h}px; display: flex; align-items: center; justify-content: center; text-align: center; }
+  #cap, #title { margin: 0; white-space: pre-line; ${PHRASE_BREAK_CSS} text-wrap: balance; transition: opacity 200ms; }
   #title { transition: opacity 700ms ease-out; }
   #cap { font-size: 56px; line-height: 1.4; font-weight: 700; }
-  #title { position: absolute; font-size: 68px; line-height: 1.32; font-weight: 700; color: var(--accent); opacity: 0; }
+  #title { position: absolute; font-size: 64px; line-height: 1.3; font-weight: 700; color: var(--accent); opacity: 0; }
+  #cap, #title { max-width: 100%; }
+  /* 冒頭の困っていることの 1 枚（線が描かれていく・2026-11-22） */
+  #problem { position: absolute; left: ${(W - PROBLEM.w) / 2}px; top: ${PROBLEM.top}px; width: ${PROBLEM.w}px; overflow: visible; opacity: 0; pointer-events: none; transition: opacity 500ms ease-out; }
+  body.show-problem #problem { opacity: 1; }
+  #problem .d { fill: none; stroke: var(--text); stroke-width: var(--sw); stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1 1; stroke-dashoffset: 1; }
+  #problem .d.card { fill: var(--bg); }
+  #problem .d.dash, #problem .d.faded { stroke: var(--text-3); }
+  #problem .f, #problem .t { opacity: 0; }
+  #problem .t { fill: var(--text); font-weight: 700; }
+  body.show-problem #problem .d { animation: draw var(--dur) ease-out var(--delay) forwards; }
+  body.show-problem #problem .f, body.show-problem #problem .t { animation: appear 400ms ease-out var(--after) forwards; }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+  @keyframes appear { to { opacity: 1; } }
   body.show-title #title { opacity: 1; }
+  body:not(.show-title) #title { transition-duration: 150ms; } /* 消えるときは早く（字幕と重ねない） */
   body.show-title #cap { opacity: 0; }
   #ph { position: absolute; left: ${left}px; top: ${PHONE.top}px; width: ${PHONE.w}px; height: ${PHONE.h}px; border: 0;
         transform: scale(${PHONE.scale}); transform-origin: 0 0; border-radius: var(--radius-md); box-shadow: var(--shadow-3);
         background: var(--bg); opacity: 0; transition: opacity 700ms ease-out; }
   body.ready #ph { opacity: 1; }
-  #logo { position: absolute; left: 0; right: 0; bottom: 64px; height: 64px; display: flex; justify-content: center; }
-  #logo img { height: 64px; }
   /* 画面は見本だと示す注記（景品表示法の優良誤認・2026-10-11）。最初から最後まで、--plain でも出す */
-  #sample { position: absolute; left: 48px; right: 48px; bottom: 16px; margin: 0; text-align: center; font-size: 30px; line-height: 1.3;
-            color: var(--text-2); word-break: keep-all; line-break: strict; }
+  #sample { position: absolute; left: ${SAFE.left}px; right: ${W - SAFE.right}px; top: ${SAMPLE_TOP}px; margin: 0; text-align: center; font-size: 26px; line-height: 1.3;
+            color: var(--text-2); ${PHRASE_BREAK_CSS} }
   .tap { position: absolute; width: 96px; height: 96px; margin: -48px 0 0 -48px; border-radius: 50%; background: var(--accent);
          opacity: 0.35; pointer-events: none; animation: tap 650ms ease-out forwards; }
   @keyframes tap { from { transform: scale(0.4); opacity: 0.45; } to { transform: scale(1.3); opacity: 0; } }
-  body.plain #band, body.plain #logo { display: none; }
+  body.plain #band { display: none; }
   #endcard { position: absolute; inset: 0; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center;
              gap: 40px; opacity: 0; transition: opacity 300ms; pointer-events: none; }
   #endcard img { height: 180px; }
@@ -101,7 +119,7 @@ function stageHtml(appUrl) {
 <body class="${plain ? 'plain' : ''}">
   <div id="band"><p id="cap"></p><p id="title"></p></div>
   <iframe id="ph" src="${escapeHtml(appUrl)}" title="Orime"></iframe>
-  <div id="logo"><img src="/logo-lockup.png" alt="Orime"></div>
+  <svg id="problem" aria-hidden="true"></svg>
   <p id="sample">${escapeHtml(SAMPLE_NOTE)}</p>
   <div id="endcard"><img src="/logo-lockup.png" alt="Orime"><div class="end-line">${escapeHtml(END_LINE)}</div><div class="end-store">${escapeHtml(END_STORE)}</div></div>
 </body></html>`;
@@ -232,7 +250,23 @@ async function recordOne(browser, s) {
     const vl = voiceLength(text, vIdx) || (text ? String(text).length * 0.1 : 0);
     if (vl) voiceUntil = now() + vl + 0.35;
     marks.push({ at: now(), text: text || null });
-    await page.evaluate((t) => { document.getElementById('cap').textContent = t || ''; }, text || '');
+    await page.evaluate((t) => { document.getElementById('cap').textContent = t || ''; }, glueSpaces(text));
+    await fitBand('cap');
+    if (text) { await page.waitForTimeout(250); await checkLayout(`「${String(text).slice(0, 12)}」`); }
+  };
+  // 字は帯の中に収まるまで小さくする（収まらない・重なる・はみ出すと、この動画は書き出さない）
+  const layoutIssues = [];
+  const fitBand = (id) => page.evaluate((elId) => {
+    const el = document.getElementById(elId);
+    const band = document.getElementById('band');
+    let fs = elId === 'title' ? 64 : 56;
+    el.style.fontSize = `${fs}px`;
+    while ((el.scrollHeight > band.clientHeight || el.scrollWidth > band.clientWidth) && fs > 32) { fs -= 2; el.style.fontSize = `${fs}px`; }
+  }, id);
+  const checkLayout = async (where) => {
+    if (plain) return;
+    const found = await page.evaluate(layoutProblems, { selector: '#cap, #title, #ph, #sample, #problem', safe: SAFE });
+    for (const f of found) layoutIssues.push(`${where}: ${f}`);
   };
   const tapMark = async (locator) => {
     const box = await locator.boundingBox().catch(() => null);
@@ -253,17 +287,46 @@ async function recordOne(browser, s) {
     await app.locator('[data-splash]').waitFor({ state: 'detached', timeout: 8000 }).catch(() => {});
     await page.waitForTimeout(600);
     // 急に始めない（2026-11-22 オーナー）: 地の色だけの所から、題がゆっくり出て、そのあと画面が出る。
-    await page.evaluate((title) => { document.getElementById('title').textContent = title; }, s.title || '');
+    // 困っていることの絵（s.problem）がある台本は、冒頭は題（困っていること）と大きな線の絵だけ。intro の段を読み終えてから画面を出す。
+    const title = openingTitle(s);
+    await page.evaluate((t) => { document.getElementById('title').textContent = t; }, glueSpaces(title));
+    await fitBand('title');
+    if (s.problem) {
+      const a = ART[s.problem];
+      if (!a) throw new Error(`絵が見つかりません: ${s.problem}`);
+      await page.evaluate(({ svg, viewBox, sw }) => {
+        const el = document.getElementById('problem');
+        el.setAttribute('viewBox', viewBox);
+        el.style.setProperty('--sw', sw);
+        el.innerHTML = svg;
+        const lines = [...el.querySelectorAll('.d')];
+        const dur = 1.8; const each = (dur / Math.max(1, lines.length)) * 1.6;
+        lines.forEach((ln, k) => {
+          ln.style.setProperty('--delay', `${0.4 + (dur - each) * (lines.length > 1 ? k / (lines.length - 1) : 0)}s`);
+          ln.style.setProperty('--dur', `${each}s`);
+        });
+        el.style.setProperty('--after', `${0.4 + dur * 0.85}s`);
+      }, { svg: a.svg, viewBox: a.viewBox, sw: ((7 * Number(a.viewBox.split(' ')[2])) / PROBLEM.w).toFixed(2) });
+    }
     await page.waitForTimeout(200);
     trimStart = Math.max(0, now() - 0.05);
-    await page.evaluate(() => document.body.classList.add('show-title'));
+    await page.evaluate((withProblem) => document.body.classList.add('show-title', ...(withProblem ? ['show-problem'] : [])), !!s.problem);
     await page.waitForTimeout(900);
-    await page.evaluate(() => document.body.classList.add('ready'));
+    if (!s.problem) await page.evaluate(() => document.body.classList.add('ready'));
+    await checkLayout('題');
     // 題の声（0.3 秒から読む）が終わるまで題を出しておく
-    await page.waitForTimeout(Math.max(TITLE_SEC, voiceLength(s.title, vIdx) - 0.3) * 1000);
+    await page.waitForTimeout(Math.max(TITLE_SEC + (s.problem ? 1.2 : 0), voiceLength(title, vIdx) - 0.3) * 1000);
     await page.evaluate(() => document.body.classList.remove('show-title'));
+    await page.waitForTimeout(250); // 題が消えきってから字幕
+    let shown = !s.problem;
 
     for (const [i, step] of (s.steps || []).entries()) {
+      if (!shown && !step.intro) {
+        await waitVoice();
+        await page.evaluate(() => { document.body.classList.remove('show-problem'); document.body.classList.add('ready'); });
+        await page.waitForTimeout(700);
+        shown = true;
+      }
       try {
         if ('say' in step) await say(step.say);
         if (step.goto) {
@@ -332,6 +395,7 @@ async function recordOne(browser, s) {
   } catch (e) {
     failed = e.message;
   }
+  if (!failed && layoutIssues.length) failed = `配置を直してください（安全な範囲 上 ${SAFE.top}・下 ${SAFE.bottom}）\n    ${[...new Set(layoutIssues)].join('\n    ')}`;
   const end = now();
   const video = page.video();
   await ctx.close();
@@ -339,7 +403,7 @@ async function recordOne(browser, s) {
   renameSync(await video.path(), raw);
   rmSync(videoDir, { recursive: true, force: true });
   const meta = {
-    name: s.name, title: s.title || '', titleSec: TITLE_SEC, url: s.url || '/', plain, theme: theme || s.theme || 'light',
+    name: s.name, title: openingTitle(s), titleSec: TITLE_SEC, url: s.url || '/', plain, theme: theme || s.theme || 'light',
     trimStart, duration: end, cues: marksToCues(marks, end), cuts, endAt, endLine: END_LINE,
     sampleNote: SAMPLE_NOTE, redacted: Object.keys(AUTHOR_REDACT).length,
     recordedAt: new Date().toISOString(), base: BASE, failed, pageErrors: errors.slice(0, 5),

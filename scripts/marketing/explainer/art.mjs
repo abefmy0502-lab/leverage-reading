@@ -189,4 +189,96 @@ const checklist = {
   ].join(''),
 };
 
-export const ART = { personThink, personBook, bookOpen, shelf, arrow, pageHighlight, memoEmpty, booksFaded, talk, memoStack, clock, phone, road, checklist };
+// ── 冒頭の「困っていること」の 1 枚（2026-11-22 オーナー「動画の冒頭は課題、困っていることをシンプルなイラストで」）。
+// どれも 600×600 で、1 枚で状況が分かる大きさに描く（画面の動画も概念の動画も冒頭で大きく出す）。
+// 胸から上の人（cx＝頭の中心・cy＝頭の高さ・mood: worry＝困り顔／down＝下を見る）
+const bust = (cx, cy, mood = 'worry') => [
+  C(cx, cy, 48),
+  P(`M${cx - 44} ${cy - 14} C ${cx - 38} ${cy - 54}, ${cx + 36} ${cy - 60}, ${cx + 46} ${cy - 18}`), // 髪
+  mood === 'down'
+    ? P(`M${cx - 20} ${cy + 10} L ${cx - 18} ${cy + 15} M ${cx + 14} ${cy + 10} L ${cx + 16} ${cy + 15}`) // 下を見る目
+    : P(`M${cx - 18} ${cy + 2} L ${cx - 17} ${cy + 9} M ${cx + 16} ${cy + 2} L ${cx + 17} ${cy + 9}`),
+  mood === 'down'
+    ? P(`M${cx - 10} ${cy + 32} L ${cx + 10} ${cy + 32}`)
+    : P(`M${cx - 26} ${cy - 10} L ${cx - 10} ${cy - 15} M ${cx + 26} ${cy - 10} L ${cx + 10} ${cy - 15}`), // 困った眉
+  mood === 'down' ? '' : P(`M${cx - 13} ${cy + 33} C ${cx - 6} ${cy + 26}, ${cx + 6} ${cy + 26}, ${cx + 13} ${cy + 33}`), // への字の口
+  P(`M${cx} ${cy + 48} L ${cx} ${cy + 64}`), // 首
+  P(`M${cx - 92} ${cy + 180} C ${cx - 86} ${cy + 80}, ${cx + 86} ${cy + 80}, ${cx + 92} ${cy + 180}`), // 肩
+].join('');
+
+// 読んだのに、出てこない（頭の中の本がぼやけて「？」・手元に閉じた本）
+const problemForget = {
+  viewBox: '0 0 600 600',
+  svg: [
+    bust(170, 400),
+    C(238, 318, 10), C(270, 280, 16),
+    P('M310 70 C 350 36, 430 36, 460 62 C 512 42, 572 78, 566 128 C 600 160, 580 238, 528 244 C 506 278, 424 284, 394 258 C 352 284, 284 270, 282 226 C 240 214, 244 144, 284 134 C 270 98, 286 74, 310 70 Z'),
+    P('M424 112 C 400 100, 364 100, 344 108 L 344 196 C 364 188, 400 188, 424 200 Z', 'd faded'),
+    P('M424 112 C 448 100, 484 100, 504 108 L 504 196 C 484 188, 448 188, 424 200', 'd faded'),
+    T(424, 186, '?', 104),
+    `<rect class="f" x="330" y="520" width="200" height="44" rx="6" fill="var(--accent-soft)" stroke="none"/>`,
+    P('M330 520 L 530 520 L 530 564 L 330 564 Z'),
+    P('M330 534 L 530 534'),
+  ].join(''),
+};
+
+// 何から読む？（頭から 3 方向の矢印の先に別々の本・「？」）
+const problemWhichBook = {
+  viewBox: '0 0 600 600',
+  svg: [
+    bust(300, 400),
+    P('M250 336 C 210 296, 170 262, 132 236'), P('M132 236 L 164 236 M 132 236 L 140 266'),
+    P('M300 318 L 300 214'), P('M300 214 L 282 240 M 300 214 L 318 240'),
+    P('M350 336 C 390 296, 430 262, 468 236'), P('M468 236 L 436 236 M 468 236 L 460 266'),
+    P('M60 220 L 60 116 L 112 116 L 112 220 Z'), P('M72 140 L 100 140'),
+    P('M272 196 L 272 86 L 328 86 L 328 196 Z'), P('M284 110 L 316 110'),
+    P('M488 220 L 488 116 L 540 116 L 540 220 Z'), P('M500 140 L 528 140'),
+    T(440, 420, '?', 96), T(158, 420, '?', 72),
+  ].join(''),
+};
+
+// スマホで 1 日が終わる（夜・スマホを見る人・横に積んだままの本）
+const problemPhone = {
+  viewBox: '0 0 600 600',
+  svg: [
+    P('M536 54 C 486 64, 476 144, 536 164 C 486 176, 444 130, 464 90 C 476 66, 506 52, 536 54 Z'), // 月
+    T(300, 120, '23:48', 64),
+    bust(200, 380, 'down'),
+    P('M226 430 L 316 430 L 316 584 L 226 584 Z', 'd card'), // スマホ
+    P('M244 466 L 298 466 M 244 492 L 290 492 M 244 518 L 298 518'),
+    P('M392 584 L 560 584 L 560 548 L 392 548 Z'),
+    P('M402 548 L 552 548 L 552 512 L 402 512 Z'),
+    P('M388 512 L 546 512 L 546 476 L 388 476 Z'),
+    P('M406 476 L 556 476 L 556 440 L 406 440 Z'),
+    P('M396 440 L 540 440 L 540 404 L 396 404 Z'),
+  ].join(''),
+};
+
+// 本棚の記録が 3 冊で止まる（本でいっぱいの棚と、3 冊だけのスマホ）
+const shelfRow = (y0, y1, seed) => {
+  const out = [];
+  let x = 58;
+  let k = seed;
+  while (x < 372) {
+    const w = 18 + (k % 3) * 6;
+    const top = y0 + 14 + (k % 4) * 10;
+    out.push(`M${x} ${y1} L ${x} ${top} L ${x + w} ${top} L ${x + w} ${y1}`);
+    x += w + 6;
+    k += 1;
+  }
+  return P(out.join(' '));
+};
+const problemShelf = {
+  viewBox: '0 0 600 600',
+  svg: [
+    P('M40 40 L 390 40 L 390 580 L 40 580 Z'),
+    P('M40 220 L 390 220 M 40 400 L 390 400'),
+    shelfRow(40, 220, 0), shelfRow(220, 400, 2), shelfRow(400, 580, 1),
+    P('M444 190 L 564 190 C 574 190, 580 196, 580 206 L 580 454 C 580 464, 574 470, 564 470 L 444 470 C 434 470, 428 464, 428 454 L 428 206 C 428 196, 434 190, 444 190 Z', 'd card'),
+    `<rect class="f" x="450" y="290" width="108" height="64" rx="8" fill="var(--accent-soft)" stroke="none"/>`,
+    T(504, 336, '3 冊', 40),
+    P('M452 398 L 556 398 M 452 424 L 530 424'),
+  ].join(''),
+};
+
+export const ART = { personThink, personBook, bookOpen, shelf, arrow, pageHighlight, memoEmpty, booksFaded, talk, memoStack, clock, phone, road, checklist, problemForget, problemWhichBook, problemPhone, problemShelf };

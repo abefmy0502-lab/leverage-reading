@@ -31,6 +31,15 @@ export const REELS = [
     ].join('\n'),
     hashtags: ['#読書', '#読書メモ', '#読書術', '#ビジネス書', '#Orime'],
     scenes: [
+      // 冒頭は困っていること（2026-11-22 オーナー）: 1 行と、大きな 1 枚のイラスト
+      {
+        sec: 4.8,
+        items: [
+          { type: 'box', text: '困ったときに', y: 290, size: 96, at: 0.1 },
+          { type: 'text', text: '読んだ本が、出てこない。', y: 440, size: 76, at: 0.5 },
+          { type: 'art', name: 'problemForget', x: 200, y: 600, w: 680, at: 0.8, dur: 1.8 },
+        ],
+      },
       {
         sec: 4.6,
         items: [
@@ -40,15 +49,6 @@ export const REELS = [
           { type: 'art', name: 'arrow', x: 435, y: 830, w: 150, at: 1.8, dur: 0.5 },
           { type: 'art', name: 'shelf', x: 610, y: 700, w: 320, at: 2.2, dur: 1.2 },
           { type: 'sub', text: '読み終えた日が、\nゴールになっていた。', y: 1220, at: 3.0 },
-        ],
-      },
-      {
-        sec: 4.4,
-        items: [
-          { type: 'box', text: '困ったときに', y: 420, size: 104, at: 0.1 },
-          { type: 'text', text: '1 行も出てこない。', y: 580, size: 84, at: 0.5 },
-          { type: 'art', name: 'personThink', x: 120, y: 740, w: 240, at: 0.9, dur: 1.4 },
-          { type: 'art', name: 'booksFaded', x: 460, y: 880, w: 420, at: 1.8, dur: 1.2 },
         ],
       },
       {
@@ -67,7 +67,7 @@ export const REELS = [
           { type: 'box', text: '① 読みながら一行メモ', y: 420, size: 88, at: 0.4 },
           { type: 'art', name: 'pageHighlight', x: 90, y: 600, w: 280, at: 0.9, dur: 1.0 },
           { type: 'box', text: '② 困った日に本に相談', y: 980, size: 88, at: 2.2 },
-          { type: 'art', name: 'talk', x: 500, y: 560, w: 380, at: 2.6, dur: 1.2 },
+          { type: 'art', name: 'talk', x: 500, y: 620, w: 380, at: 2.6, dur: 1.2 },
         ],
       },
       {
@@ -109,11 +109,9 @@ export const REELS = [
       {
         sec: 4.8,
         items: [
-          { type: 'text', text: '成長したい。でも', y: 300, size: 76, at: 0.1 },
-          { type: 'box', text: '何から読む？', y: 430, size: 112, at: 0.4 },
-          { type: 'art', name: 'personThink', x: 120, y: 720, w: 240, at: 0.9, dur: 1.4 },
-          { type: 'art', name: 'booksFaded', x: 460, y: 860, w: 420, at: 1.8, dur: 1.2 },
-          { type: 'sub', text: '本選びが、\n行き当たりばったり。', y: 1230, at: 3.0 },
+          { type: 'text', text: '成長したい。でも', y: 290, size: 72, at: 0.1 },
+          { type: 'box', text: '何から読む？', y: 400, size: 104, at: 0.4 },
+          { type: 'art', name: 'problemWhichBook', x: 200, y: 600, w: 680, at: 0.8, dur: 1.8 },
         ],
       },
       {
@@ -169,10 +167,9 @@ export const REELS = [
       {
         sec: 4.6,
         items: [
-          { type: 'text', text: '読まなきゃ、と思いながら', y: 300, size: 72, at: 0.1 },
-          { type: 'box', text: 'スマホで 1 日終了', y: 430, size: 100, at: 0.4 },
-          { type: 'art', name: 'phone', x: 400, y: 700, w: 260, at: 0.9, dur: 1.4 },
-          { type: 'sub', text: '積読が、また増える。', y: 1240, at: 2.8 },
+          { type: 'text', text: '読まなきゃ、と思いながら', y: 290, size: 68, at: 0.1 },
+          { type: 'box', text: 'スマホで 1 日終了', y: 400, size: 96, at: 0.4 },
+          { type: 'art', name: 'problemPhone', x: 200, y: 600, w: 680, at: 0.8, dur: 1.8 },
         ],
       },
       {
@@ -222,7 +219,7 @@ export const REELS = [
           { type: 'box', text: '本を読んでも', y: 330, size: 104, at: 0.1 },
           { type: 'text', text: '何も変わらない人の', y: 490, size: 92, at: 0.5 },
           { type: 'box', text: '特徴 3選', y: 620, size: 104, at: 0.9 },
-          { type: 'art', name: 'personBook', x: 330, y: 820, w: 400, at: 0.6, dur: 1.6 },
+          { type: 'art', name: 'personBook', x: 350, y: 820, w: 370, at: 0.6, dur: 1.6 },
         ],
       },
       {
@@ -231,7 +228,7 @@ export const REELS = [
           { type: 'tabs', label: '変わらない人の特徴 3選', active: 1 },
           { type: 'box', text: '読んで終わり', y: 400, size: 112, at: 0.15 },
           { type: 'text', text: 'になっている。', y: 560, size: 84, at: 0.6 },
-          { type: 'art', name: 'bookOpen', x: 50, y: 850, w: 360, at: 1.0, dur: 1.0 },
+          { type: 'art', name: 'bookOpen', x: 64, y: 850, w: 346, at: 1.0, dur: 1.0 },
           { type: 'art', name: 'arrow', x: 425, y: 920, w: 160, at: 1.9, dur: 0.6 },
           { type: 'art', name: 'shelf', x: 600, y: 800, w: 340, at: 2.4, dur: 1.2 },
           { type: 'sub', text: '読み終えた日が、\nゴールになっている。', y: 1230, at: 3.4 },

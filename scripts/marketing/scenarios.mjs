@@ -5,7 +5,8 @@
 //   title … 最初の 2 秒に大きく出す題（\n で改行）
 //   url   … お試しモードのシナリオ（例 '/'・'/?demo=fewmemos'）
 //   theme … 'light'（既定）か 'dark'
-//   steps … 上から順に。1 つの段に複数書いたときは say → goto → waitFor → tap → fill → type → upload → scroll → eval → hold の順
+//   problem … 冒頭に出す困っていることの絵（explainer/art.mjs の名前）。あれば冒頭は題の「↓」より前と絵だけ
+//   steps … 上から順に（intro: true の段は、冒頭の絵を出したまま字幕だけ。押す操作は入れない）。1 つの段に複数書いたときは say → goto → waitFor → tap → fill → type → upload → scroll → eval → hold の順
 //           （押してから待つときは段を分ける）。
 //
 // 段に書けること（セレクタはアプリの中＝iframe の中で探す・scripts/ui-shots.mjs と同じ書き方）:
@@ -91,16 +92,20 @@ const DECIDE = 'button:has-text("ここで答えと行動を") >> nth=-1'; // 20
 const ANSWER_DONE = '[aria-label="相談への答え"]:not([aria-busy]) button:has-text("行動に追加")';
 const EVIDENCE = 'summary:has-text("根拠を見る") >> nth=-1'; // いちばん新しい答えの根拠
 
+// 冒頭に出す題。困っていることの絵（problem）がある台本は、題の「↓」より前（困っていること）だけを出して読む（2026-11-22 オーナー「冒頭は課題を、シンプルなイラストで」）。
+export const openingTitle = (s) => String((s.problem ? String(s.title || '').split(/\n?↓\n?/)[0] : s.title) || '');
+
 export const SCENARIOS = [
   {
     name: 'consult-answer',
     pillar: '本と会話',
     title: '読んだのに、出てこない\n↓\n線を引いた一行が、\n答えの根拠に', // 2026-11-22 ビフォー → アフター（SNS 戦略 §3-2）
+    problem: 'problemForget',
     url: '/',
     steps: [
       // 2026-11-22 オーナー「この動画だけで何を伝えたいのか分かるように、丁寧に」: 悩み → Orime とは → 使い方 → 変化 → 無料で試せる
-      { say: 'はじめて部下ができて、報告がいつも遅い', hold: 900 },
-      { say: '読んだ本に、書いてあったはずなのに', hold: 900 },
+      { say: 'はじめて部下ができて、報告がいつも遅い', hold: 900, intro: true },
+      { say: '読んだ本に、書いてあったはずなのに', hold: 900, intro: true },
       { say: 'Orime は、読んだ本のメモから答える読書アプリ', hold: 1200 },
       { tap: nav('相談') },
       { say: 'まず、悩みをそのまま書いて送る', type: [ASK, '部下の報告がいつも遅くて、困っています'] },
@@ -169,9 +174,10 @@ export const SCENARIOS = [
     name: 'focus-mode',
     pillar: '習慣',
     title: 'スマホで 1 日が終わっていた\n↓\n1 日 15 分、\n本だけの画面で読む',
+    problem: 'problemPhone',
     url: '/',
     steps: [
-      { say: '読まなきゃ、と思いながらスマホを触っていた', hold: 900 },
+      { say: '読まなきゃ、と思いながらスマホを触っていた', hold: 900, intro: true },
       { say: '読書メモのアプリ Orime の「読む」で、時間を決めて読む', hold: 1200 },
       { tap: '.lvg-page button:has-text("読む") >> nth=1', hold: 700 }, // 『数値化の鬼』（後半の &focus=done と同じ本）
       { say: 'まず 15 分だけ、と決めて', tap: '[role=dialog] button[role=radio][aria-label="15 分"]', hold: 600 },
@@ -237,9 +243,10 @@ export const SCENARIOS = [
     name: 'shelf-scan',
     pillar: '本と会話',
     title: '本棚の記録、3 冊で止まっていた\n↓\n1 枚撮って、\nまとめて本棚へ',
+    problem: 'problemShelf',
     url: '/',
     steps: [
-      { say: '家の本棚、アプリに 1 冊ずつ入れるのは大変', hold: 900 },
+      { say: '家の本棚、アプリに 1 冊ずつ入れるのは大変', hold: 900, intro: true },
       { say: '読書メモのアプリ Orime なら、本棚を撮るだけ', tap: 'button:has-text("本を追加") >> nth=0', hold: 900 },
       { say: '「本棚の写真からまとめて追加」を選んで', tap: 'button:has-text("本棚の写真からまとめて追加")', hold: 900 },
       { upload: ['[role=dialog] input[type=file]', 'scripts/fixtures/share-photo.jpg'] },
@@ -255,9 +262,10 @@ export const SCENARIOS = [
     name: 'goal-roadmap',
     pillar: '成果',
     title: '何から読めばいいか、分からない\n↓\n1 年後から逆算した、\n読む順番',
+    problem: 'problemWhichBook',
     url: '/?goals=noroadmap',
     steps: [
-      { say: '成長したい。でも、何から読めばいい？', hold: 900 },
+      { say: '成長したい。でも、何から読めばいい？', hold: 900, intro: true },
       { say: '読書メモのアプリ Orime では、目標から考える', tap: nav('振り返り') },
       { tap: 'button[role=tab]:has-text("行動")', hold: 600 },
       { say: 'まず、1 年後・3 年後・5 年後の目標を書く', tap: 'button.goal-entry', hold: 1600 },

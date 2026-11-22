@@ -143,16 +143,26 @@ if (process.argv[1] && process.argv[1].endsWith('voice.mjs')) {
     if (engine !== 'openai' && engine !== 'say') { console.error('--prepare は OpenAI か Mac の say の声だけ。'); process.exit(1); }
     const bin = await findFfmpeg();
     const names = args.filter((a, i) => !a.startsWith('--') && args[i - 1] !== '--engine');
-    const { SCENARIOS } = await import('./scenarios.mjs');
+    const { SCENARIOS, openingTitle } = await import('./scenarios.mjs');
     const { REELS, END_LINE } = await import('./explainer/reels.mjs');
     const { explainerLines } = await import('./explainer/lines.mjs');
     const texts = new Set();
     for (const sc of SCENARIOS) if (!names.length || names.includes(sc.name)) {
-      if (sc.title) texts.add(sc.title);
+      if (sc.title) texts.add(openingTitle(sc));
       for (const st of sc.steps || []) if (st.say) texts.add(st.say);
       texts.add(END_LINE);
     }
     for (const r of REELS) if (!names.length || names.includes(r.name)) for (const l of explainerLines(r)) texts.add(l);
+    // 読みが決まっていない数字が 1 つでもあれば、声を作らない（readings.mjs に単位か言葉を足す）。読みの一覧は確かめ用に書き出す
+    const { unreadDigits } = await import('./readings.mjs');
+    const bad = [...texts].map((t) => [t, unreadDigits(spokenText(t))]).filter(([, d]) => d.length);
+    if (bad.length) {
+      console.error(`読みが決まっていない数字があります（scripts/marketing/readings.mjs の COUNTERS か WORDS に足す）:\n  ${bad.map(([t, d]) => `「${t.replace(/\n/g, '')}」→ ${d.join('・')}`).join('\n  ')}`);
+      process.exit(1);
+    }
+    mkdirSync(CACHE_DIR, { recursive: true });
+    writeFileSync(join(CACHE_DIR, 'readings.txt'), [...texts].map((t) => `${t.replace(/\n/g, ' ')}\n  → ${spokenText(t)}`).join('\n'));
+    console.log(`読みの一覧: ${join(CACHE_DIR, 'readings.txt')}（数・言葉の読みを確かめる）`);
     let n = 0;
     for (const t of texts) { const { len } = await synth(t, engine, bin); n += 1; console.log(`  ${len.toFixed(1)} 秒  ${spokenText(t)}`); }
     console.log(`✓ ${n} 文を作り置きしました（${CACHE_DIR}）。次に mkt:record・mkt:explainer で撮ると、声の長さで間を取ります。`);

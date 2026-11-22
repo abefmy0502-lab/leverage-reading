@@ -5,19 +5,18 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
+import { toReading } from './readings.mjs';
 
 export const CACHE_DIR = process.env.MKT_VOICE_CACHE || join('marketing-out', 'voice-cache');
 const INDEX = () => join(CACHE_DIR, 'index.json');
 
-// 読み上げ用に整える（字幕の改行・矢印・英字の名前）
+// 読み上げ用に整える（字幕の改行・矢印を文の区切りに → 読みがな＝readings.mjs）
 export function spokenText(text) {
-  return String(text || '')
+  return toReading(String(text || '')
     .replace(/\n?↓\n?/g, '。')
     .replace(/\n/g, '')
-    .replace(/Orime/g, 'オリメ')
-    .replace(/App Store/g, 'アップストア')
     .replace(/。+/g, '。')
-    .trim();
+    .trim());
 }
 
 // 声の種類ごとに作り置きを分ける（MKT_VOICE_ENGINE=say のときは Mac の say の声）
