@@ -608,8 +608,8 @@ export default function Landing() {
         {/* ============ 共感（黄金の流れの 2 番目・2026-11-11）: 読む人の困りごとを 2 行だけ。数字は使わない ============ */}
         <section className="lp-sec lp-problem-sec" aria-label="こんなことは、ありませんか" data-lp-sec="problem">
           <div className="lp-wrap lp-narrow">
-            <p className="lp-problem-lines">{PROBLEM_LINES.map((t) => <span key={t}>{t}</span>)}</p>
-            <p className="lp-problem-answer">その本に、そのとき聞けたら。<br />Orime なら、それができます。</p>
+            <p className="lp-problem-lines lp-wbr">{PROBLEM_LINES.map((t) => <span key={t}><Phrases phrase>{t}</Phrases></span>)}</p>
+            <p className="lp-problem-answer lp-wbr"><span><Phrases phrase>その本に、そのとき聞けたら。</Phrases></span><span><Phrases phrase>Orime なら、それができます。</Phrases></span></p>
           </div>
         </section>
 
@@ -638,7 +638,7 @@ export default function Landing() {
             {/* 2026-11-15 プロの目線「値段の帯から、なぜ効くの節へ」: 読書が回り続ける図 */}
             <div className="lp-narrow lp-cycle-block">
               <h3 className="lp-cycle-h">読むほど、効いてくる</h3>
-              <p className="lp-cycle-lead">読みっぱなしで終わらず、読書が回り始める。なりたい自分への、レバレッジに。</p>
+              <p className="lp-cycle-lead lp-wbr"><Phrases phrase>読みっぱなしで終わらず、読書が回り始める。</Phrases><wbr /><Phrases phrase>なりたい自分への、レバレッジに。</Phrases></p>
               <LpCycleDiagram />
             </div>
           </div>
@@ -771,7 +771,7 @@ export default function Landing() {
                   </div>
                 </div>
                 {!PRELAUNCH && <StoreCta className="lp-btn lp-plan-cta" loc="pricing">{TRIAL_NOTE && !OFFER.active ? TRIAL_CTA_LABEL : PLAN_CTA_LABEL}</StoreCta>}
-                <p className="lp-plan-pick">月額か年額かは、App Store の画面で選べます。</p>
+                <p className="lp-plan-pick">アプリを入れたあと、プランの画面で月額か年額かを選べます。</p>
                 {/* 自動更新・解約の説明は有料のボタンのすぐ下（App Store 3.1.2・2026-10-12） */}
                 <p className="lp-renew lp-wbr">{COPY.pricingNote.map((t) => <span key={t}><Sentences>{t}</Sentences></span>)}</p>
               </div>

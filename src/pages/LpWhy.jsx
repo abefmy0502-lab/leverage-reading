@@ -3,6 +3,7 @@
 //   研究 3 つは 3 つの言葉＋1 文＋出典 1 行（数字は出さない）→ 月 ¥1,480 の意味。
 //   法務（company/brand-messaging.md・seo-articles-batch1.md）: 「○倍になる」「○円損している」の断定は書かない。数字は引用した研究の結果で、
 //   Orime の効果を測ったものではないと添える。
+import Phrases from './LpPhrases';
 import { WHY } from './lpCopy';
 
 const S = { fill: 'none', strokeLinecap: 'round', strokeLinejoin: 'round', vectorEffect: 'non-scaling-stroke' };
@@ -38,7 +39,7 @@ export default function LpWhy() {
       <RetentionChart />
       {/* 研究 3 つは 1 段に（2026-11-11 オーナー「ここまで細かくなくて良い」）: 3 つの言葉 → 1 文 → 出典 1 行 */}
       <div className="lp-why-keys">
-        <p className="lp-why-keys-row">{WHY.keys.map((k) => <span key={k}>{k}</span>)}</p>
+        <p className="lp-why-keys-row lp-wbr">{WHY.keys.map((k) => <span key={k}><Phrases phrase>{k}</Phrases></span>)}</p>
         <p className="lp-why-summary">{WHY.summary}</p>
         <p className="lp-why-sources">{WHY.sources}</p>
       </div>
