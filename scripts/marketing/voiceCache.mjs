@@ -28,6 +28,11 @@ export const voiceId = () => (process.env.MKT_VOICE_ENGINE === 'say'
   : `${process.env.MKT_VOICE || 'onyx'}|${process.env.MKT_VOICE_STYLE || ''}`);
 export const keyOf = (text) => createHash('sha1').update(`${voiceId()}|${spokenText(text)}`).digest('hex').slice(0, 16);
 export const clipPath = (text) => join(CACHE_DIR, `${keyOf(text)}.mp3`);
+// 声の速さ（2026-11-22 オーナー「スピードが遅い・1.25 倍速くらいに」）。元の声は 1 倍で作り置きし、速くした声は別のファイルに
+// （速さを変えても OpenAI に頼み直さない・音の高さは変えない＝ffmpeg の atempo）。MKT_VOICE_SPEED で変えられる（0.5〜2）。
+export const voiceSpeed = () => { const v = Number(process.env.MKT_VOICE_SPEED || 1.25); return v >= 0.5 && v <= 2 ? v : 1.25; };
+export const speedKey = () => `len_x${voiceSpeed()}`;
+export const spedPath = (text) => (voiceSpeed() === 1 ? clipPath(text) : clipPath(text).replace(/\.mp3$/, `-x${voiceSpeed()}.mp3`));
 
 export function readIndex() {
   try { return JSON.parse(readFileSync(INDEX(), 'utf8')); } catch { return {}; }
@@ -40,5 +45,7 @@ export function writeIndex(idx) {
 export function voiceLength(text, idx = readIndex()) {
   if (!text) return 0;
   const k = keyOf(text);
-  return idx[k]?.len && existsSync(join(CACHE_DIR, `${k}.mp3`)) ? idx[k].len : 0;
+  const e = idx[k];
+  if (!e?.len || !existsSync(join(CACHE_DIR, `${k}.mp3`))) return 0;
+  return e[speedKey()] || e.len / voiceSpeed();
 }

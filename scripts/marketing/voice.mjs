@@ -18,7 +18,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSy
 import { join, basename } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { findFfmpeg } from './finish-video.mjs';
-import { spokenText, clipPath, keyOf, readIndex, writeIndex, CACHE_DIR, sayVoice } from './voiceCache.mjs';
+import { spokenText, clipPath, keyOf, readIndex, writeIndex, CACHE_DIR, sayVoice, voiceSpeed, speedKey, spedPath } from './voiceCache.mjs';
 
 export const DEFAULT_STYLE = '落ち着いた、低めの男性の声で。ゆっくり、はっきり、やさしく。宣伝っぽく盛り上げない。日本語の自然な抑揚で。';
 
@@ -104,9 +104,21 @@ export async function synth(text, engine, bin, fallbackFile) {
         if (r.status !== 0) throw new Error('say の声を mp3 にできませんでした');
       }
     }
-    const len = idx[keyOf(spoken)]?.len || duration(bin, file);
-    if (!idx[keyOf(spoken)]) { idx[keyOf(spoken)] = { text: spoken, len }; writeIndex(idx); }
-    return { file, len };
+    const k = keyOf(spoken);
+    const baseLen = idx[k]?.len || duration(bin, file);
+    if (!idx[k]) idx[k] = { text: spoken, len: baseLen };
+    let out = file; let len = baseLen;
+    if (voiceSpeed() !== 1) {
+      out = spedPath(spoken);
+      if (!existsSync(out)) {
+        const r = spawnSync(bin, ['-hide_banner', '-loglevel', 'error', '-y', '-i', file, '-filter:a', `atempo=${voiceSpeed()}`, '-c:a', 'libmp3lame', '-b:a', '128k', out], { encoding: 'utf8' });
+        if (r.status !== 0) throw new Error('声の速さを変えられませんでした');
+      }
+      len = idx[k][speedKey()] || duration(bin, out);
+      idx[k][speedKey()] = len;
+    }
+    writeIndex(idx);
+    return { file: out, len };
   }
   const file = engine === 'tone' ? synthTone(bin, spoken, fallbackFile) : synthSay(spoken, fallbackFile);
   return { file, len: duration(bin, file) };
@@ -183,7 +195,7 @@ if (process.argv[1] && process.argv[1].endsWith('voice.mjs')) {
   const bin = await findFfmpeg();
   if (!bin) { console.error('ffmpeg が見つかりません（mac は brew install ffmpeg）'); process.exit(1); }
   const dirs = existsSync(join(target, 'final.mp4')) ? [target] : readdirSync(target).map((n) => join(target, n)).filter((p) => statSync(p).isDirectory());
-  console.log(`声: ${engine === 'openai' ? `OpenAI（${process.env.MKT_VOICE || 'onyx'}）` : engine === 'tone' ? '確かめ用の音' : `Mac の say（${sayVoice()}）`}`);
+  console.log(`声: ${engine === 'openai' ? `OpenAI（${process.env.MKT_VOICE || 'onyx'}・${voiceSpeed()} 倍速）` : engine === 'tone' ? '確かめ用の音' : `Mac の say（${sayVoice()}）`}`);
   for (const d of dirs) {
     try { await voiceOne(d, engine, bin); } catch (e) { console.log(`  ✗ ${basename(d)}: ${e.message}`); }
   }

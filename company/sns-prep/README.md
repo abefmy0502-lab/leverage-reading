@@ -28,7 +28,7 @@
   2. `npm run demo` を別のターミナルで → `npm run mkt:record -- shelf-scan goal-roadmap consult-answer focus-mode` と `npm run mkt:explainer -- concept-consult concept-goal concept-focus`（声の長さに合わせて間を取る）
   3. `npm run mkt:voice -- marketing-out/videos/<日付>`（作り置きの声を重ねる）
   → 各フォルダに `final-voice.mp4`（映像はそのまま・字幕と同じ文を同じ時刻に読む・画面の動画は最初に題も読む）。
-- 声は OpenAI の読み上げ（`onyx`＝低く落ち着いた男性）。替えるなら `MKT_VOICE=ash`。話し方は `MKT_VOICE_STYLE` で指示できる。
+- 声は OpenAI の読み上げ（`onyx`＝低く落ち着いた男性）を **1.25 倍速**（2026-11-22 オーナー「遅い」・`MKT_VOICE_SPEED` で変えられる・元の声は作り置きのまま速さだけ変える＝頼み直さない）。替えるなら `MKT_VOICE=ash`。話し方は `MKT_VOICE_STYLE` で指示できる。
 - 鍵が無いときの試し: `npm run mkt:voice -- <フォルダ> --engine say`（Mac の声・機械っぽい）。
 - 声が次の字幕にかかると「⚠」が出る。そのときは台本の `hold` を足すか、字幕を短くする。
 - 費用の目安: 1 本 30 秒で 1 円未満。
