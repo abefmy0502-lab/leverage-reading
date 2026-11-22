@@ -169,13 +169,13 @@ export const SCENARIOS = [
     steps: [
       { say: 'いま読んでいる本の「読む」', hold: 500 },
       { tap: '.lvg-page button:has-text("読む") >> nth=1', hold: 700 }, // 『数値化の鬼』（後半の &focus=done と同じ本）
-      { say: '30 分だけ、と決めて', tap: '[role=dialog] button[role=radio][aria-label="30 分"]', hold: 600 },
+      { say: 'まず 15 分だけ、と決めて', tap: '[role=dialog] button[role=radio][aria-label="15 分"]', hold: 600 },
       { tap: '[role=dialog] button[data-focus-start]', hold: 1800 },
       { say: '画面には、本と時間だけ', hold: 1600 },
       { say: '気になった一行は、その場でメモ', tap: 'button[aria-label="メモ"]', hold: 400 },
       { type: ['textarea[aria-label="メモ本文"]', '数字にすると、言い訳がなくなる'] },
       { tap: '[role=dialog] button:text-is("保存")', hold: 1400 },
-      { say: '30 分後', fastForward: '30:00', waitFor: 'button:text-is("おわる")', hold: 1800 },
+      { say: '15 分後', fastForward: '15:00', waitFor: 'button:text-is("おわる")', hold: 1800 },
       { tap: 'button:text-is("おわる")', hold: 600 },
       { say: '読んだ時間は、記録に残る', hold: 2800 },
     ],
