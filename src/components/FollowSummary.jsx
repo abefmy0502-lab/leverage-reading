@@ -58,7 +58,12 @@ export default function FollowSummary({ lists, onOpen, onReport, onChanged }) {
     }
     setBusy(person.publicId);
     try {
-      await respondFollow(person.publicId, accept);
+      const r = await respondFollow(person.publicId, accept);
+      if (r !== 'accepted' && r !== 'declined') {
+        toast.error(r === 'not_found' ? 'この申し込みは取り消されたようです。' : 'できませんでした。通信状況を確認してください。');
+        onChanged?.();
+        return;
+      }
       track('follow_respond', { accept, from: 'settings' });
       toast.success(accept ? `${who(person)}を承認しました。` : '申し込みを断りました。');
       onChanged?.();

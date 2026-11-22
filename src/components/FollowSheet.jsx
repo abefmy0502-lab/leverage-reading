@@ -269,7 +269,13 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
       if (!ok) return;
     }
     try {
-      await respondFollow(person.publicId, accept);
+      const r = await respondFollow(person.publicId, accept);
+      // 答えを確かめてから知らせる（相手が取り消した・使えないときに「承認しました」と言わない・2026-11-22）
+      if (r !== 'accepted' && r !== 'declined') {
+        toast.error(r === 'not_found' ? 'この申し込みは取り消されたようです。' : 'できませんでした。通信状況を確認してください。');
+        reload();
+        return;
+      }
       track('follow_respond', { accept });
       toast.success(accept ? `${who(person)}を承認しました。` : '申し込みを断りました。');
       reload();
@@ -288,7 +294,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
     });
     if (!ok) return;
     try {
-      await removeFollow(person.publicId, as);
+      if (!(await removeFollow(person.publicId, as))) throw new Error('remove failed');
       if (view.name !== 'home' && view.name !== 'list') setView(personBackRef.current);
       reload();
     } catch {
@@ -324,22 +330,27 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
     setReportForm({ reason: '', detail: '', alsoBlock: false, busy: false, failed: false });
     setView((v) => ({ name: 'report', person, back: v }));
   };
+  // 設定の届いた申し込みの「…」から通報の画面だけを開いたときは、戻る・送ったあとはシートを閉じて設定へ（2026-11-22）。
+  const leaveReport = (back) => {
+    if (initialReport) { onClose(); return; }
+    setView(back && back.name !== 'report' ? back : { name: 'home' });
+  };
   const sendReport = async () => {
     if (view.name !== 'report' || !reportForm.reason || reportForm.busy) return;
-    const { person } = view;
+    const { person, back } = view;
     setReportForm((f) => ({ ...f, busy: true, failed: false }));
     const result = await reportProfile(person.publicId, reportReasonText(reportForm.reason, reportForm.detail));
     track('follow_report', { reason: reportForm.reason, block: reportForm.alsoBlock });
     if (result !== 'ok') { setReportForm((f) => ({ ...f, busy: false, failed: result === 'rejected' ? 'rejected' : 'network' })); return; }
     if (reportForm.alsoBlock) {
       // 通報は済んでいるので、ブロックだけできなかったときも画面を戻す（もう一度押して二重に通報しないように）。
-      if (await block(person, { quiet: true })) { toast.success('通報して、ブロックしました。'); return; }
+      if (await block(person, { quiet: true })) { toast.success('通報して、ブロックしました。'); if (initialReport) onClose(); return; }
       toast.error('通報は受け付けました。ブロックはできませんでした。');
-      setView(view.back && view.back.name !== 'report' ? view.back : { name: 'home' });
+      leaveReport(back);
       return;
     }
     toast.success('通報を受け付けました。');
-    setView(view.back && view.back.name !== 'report' ? view.back : { name: 'home' });
+    leaveReport(back);
   };
 
   const shareMyId = async () => {
@@ -357,7 +368,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
 
   const unblock = async (person) => {
     try {
-      await unblockUser(person.publicId);
+      if (!(await unblockUser(person.publicId))) throw new Error('unblock failed');
       toast.success(`${who(person)}のブロックを外しました。`);
     } catch {
       toast.error('できませんでした。通信状況を確認してください。');
@@ -367,16 +378,19 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
 
   // 人の本棚から戻る先（一覧だけの画面から開いたら、そこへ戻す）。
   const personBackRef = useRef({ name: 'home' });
+  const personReqRef = useRef(0);
   const openPerson = async (person) => {
+    const req = personReqRef.current + 1;
+    personReqRef.current = req;
     personBackRef.current = view.name === 'list' ? { name: 'list' } : { name: 'home' };
     setView({ name: 'person', person });
     setShelf('loading');
     setShelfFilter('');
     try {
       const s = await loadFolloweeShelf(person.publicId);
-      setShelf(s || 'none');
+      if (personReqRef.current === req) setShelf(s || 'none'); // 別の人を開き直していたら、古い答えは捨てる
     } catch {
-      setShelf('none');
+      if (personReqRef.current === req) setShelf('none');
     }
   };
 
@@ -428,7 +442,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
     return createPortal(
       <BottomSheet title={`${who(person)}を通報`} onClose={onClose} layer="dialog" dismissLabel="キャンセル" footer={footer}>
         <div ref={bodyRef} style={sheetBody}>
-        <button type="button" onClick={() => setView(back && back.name !== 'report' ? back : { name: 'home' })} style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}>
+        <button type="button" disabled={f.busy} onClick={() => leaveReport(back)} style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}>
           <ChevronLeft size="1.1em" aria-hidden="true" />戻る
         </button>
         <p style={{ ...note, marginTop: 'var(--space-2)' }}>{withPhraseBreaks('運営が 24 時間以内に確かめ、利用規約に反する内容は表示を止めます。通報したことは相手に知らせません。')}</p>

@@ -116,6 +116,25 @@ $$;
 revoke all on function public._auth_is_anonymous() from public, anon;
 grant execute on function public._auth_is_anonymous() to authenticated, service_role;
 
+-- 運営が隠した・通報がたまった public_id か（2026-11-22: 隠された人が行を消して同じ ID で作り直すと、表示が戻っていた）。
+-- profile_reports は利用者から読めないので SECURITY DEFINER。plpgsql＝表がまだ無くても作れる（無ければ false）。
+create or replace function public._public_id_held(p_public_id text)
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+begin
+  return exists (select 1 from public.profile_reports where public_id = p_public_id and status = 'hidden')
+      or (select count(*) from public.profile_reports where public_id = p_public_id and status = 'open') >= 3;
+exception when undefined_table then
+  return false;
+end;
+$$;
+revoke all on function public._public_id_held(text) from public, anon;
+grant execute on function public._public_id_held(text) to authenticated, service_role;
+
 -- 本人の update では hidden と public_id を変えさせない（service_role は変えられる）・updated_at を今に。
 -- 匿名のアカウントは insert・update とも公開をオフに戻す。
 create or replace function public.profiles_guard()
@@ -129,6 +148,10 @@ begin
   if auth.uid() is not null and tg_op = 'UPDATE' and current_user in ('authenticated', 'anon') then
     new.hidden := old.hidden;
     new.public_id := old.public_id;
+  end if;
+  -- 作り直し（INSERT）でも、隠された ID なら隠したまま（2026-11-22）。
+  if auth.uid() is not null and tg_op = 'INSERT' and current_user in ('authenticated', 'anon') and public._public_id_held(new.public_id) then
+    new.hidden := true;
   end if;
   -- 登録せずに始めた人（匿名のアカウント）は公開できない（何個でも作れて、隠しても作り直せるため・App 審査 1.2）。
   if public._auth_is_anonymous() then

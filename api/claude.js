@@ -58,6 +58,8 @@ const FREE_MODEL = 'claude-haiku-5-5';
 const FREE_OCR_MAX_TEXT_CHARS = 2000;
 const FREE_OCR_MAX_IMAGES = 1;
 const FREE_OCR_MAX_TOKENS = 1024;
+// 📚 本棚の写真から追加（shelf_scan）は 1 枚で 40 冊（1 冊 20〜45 トークン）を書くので、無料プランでも 2048 まで（2026-11-22）。
+const FREE_SHELF_SCAN_MAX_TOKENS = 2048;
 
 // system + messages に含まれる文字の総数（画像は数えない）。
 function countTextChars(body) {
@@ -953,7 +955,7 @@ export default async function handler(req, res) {
       : MAX_TOKENS_DEFAULT;
     const maxTokens = Math.min(
       requestedTokens,
-      freeOcrCall ? FREE_OCR_MAX_TOKENS : freeCall ? FREE_MAX_TOKENS : MAX_TOKENS_HARD_CAP,
+      freeOcrCall ? (req.body?.purpose === 'shelf_scan' ? FREE_SHELF_SCAN_MAX_TOKENS : FREE_OCR_MAX_TOKENS) : freeCall ? FREE_MAX_TOKENS : MAX_TOKENS_HARD_CAP,
     );
     const wantsStream = body.stream === true;
 

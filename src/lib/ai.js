@@ -275,7 +275,7 @@ export async function readShelfPhoto({ base64, mediaType = 'image/jpeg' }) {
       ],
     },
   ];
-  const result = await callClaude(messages, { system: SHELF_SCAN_SYSTEM, max_tokens: 1024, cacheSystem: true, model: MODEL_FAST, purpose: 'shelf_scan' });
+  const result = await callClaude(messages, { system: SHELF_SCAN_SYSTEM, max_tokens: 2048, cacheSystem: true, model: MODEL_FAST, purpose: 'shelf_scan' });
   if (typeof result !== 'string') throw new Error('読み取りに失敗しました。');
   if (isClaudeErrorString(result)) {
     const err = new Error(result);

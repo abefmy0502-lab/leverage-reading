@@ -34,7 +34,7 @@ const STATUS_CHOICES = [
   { id: 'before', label: '積読' },
   { id: 'want', label: '読みたい' },
 ];
-const STATUS_NOTE = { found: '', maybe: '近い本です。合っていれば選んでください', missing: '書店で見つかりませんでした。選ぶと、読んだ書名のまま入れます' };
+const STATUS_NOTE = { found: '', maybe: '近い本です。合っていれば選んでください', missing: '書店で見つかりませんでした。選ぶと、読んだ書名のまま入れます', unchecked: '確かめられませんでした。選ぶと、読んだ書名のまま入れます' };
 
 /**
  * existingBooks: 本棚の本（同じ本を見分ける）。onAdd(books, status) → { booksAdded, booksMatched, booksFailed, ... }（App の importLibrary）。
@@ -86,6 +86,7 @@ export default function ShelfScanSheet({ existingBooks = [], onAdd, onUndo, onCl
     try {
       const { base64, mediaType } = await downscaleImageForVision(file);
       const text = await readShelfPhoto({ base64, mediaType });
+      refreshTokens?.(); // 無料プランの「今月の残り N 回」を取り直す
       const guesses = parseShelfScan(text);
       track('shelf_scan_read', { books: guesses.length });
       if (!guesses.length) {
@@ -121,7 +122,7 @@ export default function ShelfScanSheet({ existingBooks = [], onAdd, onUndo, onCl
   };
 
   const toggle = (it) => {
-    if (it.owned) return;
+    if (it.owned || it.dup) return;
     setChecked((prev) => {
       const next = new Set(prev);
       if (next.has(it.id)) next.delete(it.id); else next.add(it.id);
@@ -129,7 +130,7 @@ export default function ShelfScanSheet({ existingBooks = [], onAdd, onUndo, onCl
     });
   };
 
-  const selectable = items.filter((x) => !x.owned);
+  const selectable = items.filter((x) => !x.owned && !x.dup);
   const count = selectable.filter((x) => checked.has(x.id)).length;
   const checkedDone = items.filter((x) => x.status !== 'checking').length;
 
@@ -147,7 +148,7 @@ export default function ShelfScanSheet({ existingBooks = [], onAdd, onUndo, onCl
         toast.undo({
           message: `${added} 冊を本棚に入れました`,
           onUndo: async () => {
-            try { await onUndo?.(outcome); toast.info('取り消しました。'); } catch { toast.error('取り消せませんでした。'); }
+            try { await onUndo?.(outcome); } catch { toast.error('取り消せませんでした。'); }
           },
         });
       } else {
@@ -176,15 +177,16 @@ export default function ShelfScanSheet({ existingBooks = [], onAdd, onUndo, onCl
 
   const list = useMemo(() => {
     // 選べる本（見つかった → 近い → 見つからない）を上に、本棚にある本はいちばん下にまとめる。
-    const order = { found: 0, maybe: 1, missing: 2, checking: 3 };
-    return [...items].sort((a, b) => (a.owned - b.owned) || (order[a.status] - order[b.status]));
+    const order = { found: 0, maybe: 1, unchecked: 2, missing: 3, checking: 4 };
+    const off = (x) => (x.owned || x.dup ? 1 : 0);
+    return [...items].sort((a, b) => (off(a) - off(b)) || (order[a.status] - order[b.status]));
   }, [items]);
 
   return createPortal(
     <BottomSheet
       title="本棚の写真から追加"
       onClose={onClose}
-      dismissLabel={step === 'review' ? 'キャンセル' : '閉じる'}
+      dismissLabel={step === 'reading' || step === 'checking' ? '閉じる' : 'キャンセル'}
       footer={footer}
       beforeClose={step === 'review' && count > 0 ? () => confirm({
         title: '読み取った本を入れずに閉じますか？',
@@ -193,12 +195,12 @@ export default function ShelfScanSheet({ existingBooks = [], onAdd, onUndo, onCl
         cancelLabel: '選び続ける',
       }) : null}
     >
-      <div style={{ minHeight: 'min(60vh, 560px)' }}>
+      <div style={step === 'pick' ? undefined : { minHeight: 'min(60vh, 560px)' }}>
         <input ref={inputRef} type="file" accept="image/*" onChange={onFile} style={{ display: 'none' }} />
         {step === 'pick' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-            <p style={{ margin: 0, fontSize: 'var(--text-body)', lineHeight: 1.7, color: 'var(--text)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-              {withPhraseBreaks('家の本棚を撮ると、背表紙から書名を読み取って、まとめて本棚に入れられます。')}
+            <p style={{ margin: 0, fontSize: 'var(--text-body)', lineHeight: 1.5, color: 'var(--text)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+              {withPhraseBreaks('背表紙から書名を読み取ります。')}
             </p>
             <ul style={{ margin: 0, paddingLeft: 'var(--space-6)', display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', ...note, fontSize: 'var(--text-sub)' }}>
               <li>{withPhraseBreaks('背表紙の文字が読めるくらいに近づいて、正面から')}</li>
@@ -246,14 +248,15 @@ export default function ShelfScanSheet({ existingBooks = [], onAdd, onUndo, onCl
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: 'var(--space-6) 0 var(--space-1)' }}>
               <p style={{ ...groupTitle, margin: 0 }}>読み取った本</p>
               {selectable.length > 1 && (
-                <button type="button" style={{ ...btnLink, fontSize: 'var(--text-sub)' }} onClick={() => setChecked(count === selectable.length ? new Set() : new Set(selectable.map((x) => x.id)))}>
+                <button type="button" style={{ ...btnLink, fontSize: 'var(--text-sub)', marginRight: 'calc(-1 * var(--space-1))' }} onClick={() => setChecked(count === selectable.length ? new Set() : new Set(selectable.map((x) => x.id)))}>
                   {count === selectable.length ? 'すべて外す' : 'すべて選ぶ'}
                 </button>
               )}
             </div>
             <div role="list">
               {list.map((it, i) => {
-                const on = checked.has(it.id) && !it.owned;
+                const on = checked.has(it.id) && !it.owned && !it.dup;
+                const off = it.owned || it.dup;
                 const b = it.book || it.guess;
                 return (
                   <div role="listitem" key={it.id} style={{ borderTop: i ? '1px solid var(--separator)' : 'none' }}>
@@ -261,19 +264,19 @@ export default function ShelfScanSheet({ existingBooks = [], onAdd, onUndo, onCl
                       type="button"
                       role="checkbox"
                       aria-checked={on}
-                      aria-disabled={it.owned || undefined}
+                      aria-disabled={off || undefined}
                       onClick={() => toggle(it)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', width: '100%', minHeight: 'var(--tap-min)', padding: 'var(--space-3) 0', background: 'none', border: 'none', textAlign: 'left', fontFamily: 'inherit', color: 'inherit', cursor: it.owned ? 'default' : 'pointer' }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', width: '100%', minHeight: 'var(--tap-min)', padding: 'var(--space-3) 0', background: 'none', border: 'none', textAlign: 'left', fontFamily: 'inherit', color: 'inherit', cursor: off ? 'default' : 'pointer' }}
                     >
-                      <span aria-hidden="true" style={{ width: '1.5em', height: '1.5em', borderRadius: '50%', flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 'var(--text-body)', background: on ? 'var(--accent)' : 'transparent', color: 'var(--accent-ink)', boxShadow: on ? 'none' : `inset 0 0 0 1.5px var(${it.owned ? '--separator' : '--border'})` }}>
+                      <span aria-hidden="true" style={{ width: '1.5em', height: '1.5em', borderRadius: '50%', flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 'var(--text-body)', background: on ? 'var(--accent)' : 'transparent', color: 'var(--accent-ink)', boxShadow: on ? 'none' : `inset 0 0 0 1.5px var(${off ? '--separator' : '--border'})` }}>
                         {on && <Check size="0.9em" strokeWidth={3} />}
                       </span>
                       <MiniCover title={b.title} cover={it.book?.cover || ''} width={40} showTitle={false} />
                       <span style={{ flex: 1, minWidth: 0 }}>
-                        <span style={{ display: 'block', fontSize: 'var(--text-body)', fontWeight: 600, lineHeight: 1.45, color: it.owned ? 'var(--text-2)' : 'var(--text)', overflowWrap: 'anywhere' }}>{b.title}</span>
+                        <span style={{ display: 'block', fontSize: 'var(--text-body)', fontWeight: 600, lineHeight: 1.5, color: off ? 'var(--text-2)' : 'var(--text)', overflowWrap: 'anywhere' }}>{b.title}</span>
                         {b.author && <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, overflowWrap: 'anywhere' }}>{b.author}</span>}
-                        {(it.owned || STATUS_NOTE[it.status]) && (
-                          <span style={{ display: 'block', marginTop: 'var(--space-1)', ...note }}>{it.owned ? 'もう本棚にあります' : withPhraseBreaks(STATUS_NOTE[it.status])}</span>
+                        {(off || STATUS_NOTE[it.status]) && (
+                          <span style={{ display: 'block', marginTop: 'var(--space-1)', ...note }}>{it.owned ? 'もう本棚にあります' : it.dup ? '上と同じ本です' : withPhraseBreaks(STATUS_NOTE[it.status])}</span>
                         )}
                       </span>
                     </button>
