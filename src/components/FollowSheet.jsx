@@ -484,9 +484,24 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
     return createPortal(
       <BottomSheet title={`${who(person)}の本棚`} onClose={onClose} layer="dialog">
         <div ref={bodyRef} style={sheetBody}>
-        <button type="button" onClick={() => setView({ name: 'person', person })} style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}>
-          <ChevronLeft size="1.1em" aria-hidden="true" />{who(person)}の本棚
-        </button>
+        {/* 相手の文（まとめ）を読む画面にも「…」（通報・ブロック・App 審査 1.2・2026-11-22） */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <button type="button" onClick={() => setView({ name: 'person', person })} style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}>
+            <ChevronLeft size="1.1em" aria-hidden="true" />{who(person)}の本棚
+          </button>
+          <button
+            type="button"
+            aria-label={`${who(person)}の操作`}
+            style={iconBtn}
+            onClick={(e) => openMenu(e, [
+              { label: 'フォローをやめる', onClick: () => remove(person, 'following') },
+              { label: '通報する', onClick: () => report(person) },
+              { label: 'ブロックする', destructive: true, onClick: () => block(person) },
+            ])}
+          >
+            <MoreHorizontal size="1.25em" aria-hidden="true" />
+          </button>
+        </div>
         <div style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'flex-start', marginTop: 'var(--space-3)' }}>
           <Cover book={book} width={96} />
           <div style={{ minWidth: 0 }}>

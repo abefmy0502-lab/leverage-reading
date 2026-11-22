@@ -207,7 +207,7 @@ export default function ShelfScanSheet({ existingBooks = [], onAdd, onUndo, onCl
               <li>{withPhraseBreaks('1 枚で 40 冊まで。多い棚は段ごとに')}</li>
               <li>{withPhraseBreaks('入れる前に、1 冊ずつ確かめられます')}</li>
             </ul>
-            <p style={{ ...note, color: 'var(--text-3)' }}>{withPhraseBreaks('写真は AI で書名を読むためだけに送り、保存しません。')}</p>
+            <p style={{ ...note, color: 'var(--text-3)' }}>{withPhraseBreaks('写真は書名を読むためだけに AI（Anthropic の Claude）へ送り、保存しません。')}</p>
             {failure && (
               <ErrorMessage title={failure.title} description={failure.message} actions={[{ label: '写真を選び直す', onClick: pick, variant: 'secondary' }]} />
             )}

@@ -177,7 +177,7 @@ export function myIdShareText(me) {
   const url = me.isPublic ? `${SITE_URL}/u/${me.publicId}` : '';  // profile.js の profileUrl と同じ形（profile.js がこのファイルを読むので循環させない）
   const text = url
     ? 'Orime で、わたしの本棚をフォローしてください。'
-    : `Orime で、わたしの本棚をフォローしてください。\nID: ${me.publicId}\n（Orime の 設定 › フォロー の「フォローを申し込む」に入れてください）`;
+    : `Orime で、わたしの本棚をフォローしてください。\nID: ${me.publicId}\n（Orime の右上の自分のアイコン › 「ID でフォローを申し込む」に入れてください）`;
   return { text, url };
 }
 

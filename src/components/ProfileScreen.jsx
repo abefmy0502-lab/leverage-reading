@@ -35,10 +35,12 @@ export default function ProfileScreen({ onClose, onOpenSettings, onProfileSaved,
   const guest = isGuestUser(user);
   const [editOpen, setEditOpen] = useState(false);
   const [followOpen, setFollowOpen] = useState(false); // false | { tab, report }
-  const [followLists, setFollowLists] = useState(null); // null＝読んでいる・'none'＝使えない
+  const [followLists, setFollowLists] = useState(null); // null＝読んでいる・'none'＝まだ使えない・'error'＝読めなかった
   const reloadFollows = useCallback(() => {
     if (!SOCIAL_ON) return;
-    loadFollows().then((r) => setFollowLists(r.ok ? r.lists : 'none')).catch(() => setFollowLists((prev) => prev || 'none'));
+    loadFollows()
+      .then((r) => setFollowLists((prev) => (r.ok ? r.lists : r.reason === 'not_ready' ? 'none' : (prev && typeof prev === 'object' ? prev : 'error'))))
+      .catch(() => setFollowLists((prev) => (prev && typeof prev === 'object' ? prev : 'error')));
   }, []);
   useEffect(() => { reloadFollows(); }, [reloadFollows]);
 
@@ -59,7 +61,8 @@ export default function ProfileScreen({ onClose, onOpenSettings, onProfileSaved,
   const status = guest ? '' : profile.isPublic
     ? (profile.shelfPublic ? (profile.summaryPublic ? '公開中・本棚と本のまとめも' : '公開中・本棚も') : '公開中')
     : '公開していません';
-  const requests = followLists && followLists !== 'none' ? followLists.requests.length : 0;
+  const followReady = followLists && typeof followLists === 'object';
+  const requests = followReady ? followLists.requests.length : 0;
 
   return (
     <>
@@ -105,7 +108,17 @@ export default function ProfileScreen({ onClose, onOpenSettings, onProfileSaved,
             )}
 
             {/* 👥 フォロー（VITE_SOCIAL のビルドだけ・使えない DB では出さない） */}
-            {SOCIAL_ON && !guest && followLists !== 'none' && (
+            {SOCIAL_ON && !guest && followLists === 'error' && (
+              <section aria-label="フォロー">
+                <p style={{ ...groupTitle, margin: '0 0 var(--space-2) var(--space-4)' }}>フォロー</p>
+                {/* 黙って消さない（2026-11-22 審査の点検）。つながらないときは理由ともう一度。 */}
+                <div role="alert" style={{ ...card, padding: 'var(--space-3) var(--space-4)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
+                  <p style={note}>{withPhraseBreaks('フォローを読み込めませんでした。')}</p>
+                  <button type="button" onClick={() => { setFollowLists(null); reloadFollows(); }} style={{ ...btnLink, flexShrink: 0 }}>もう一度</button>
+                </div>
+              </section>
+            )}
+            {SOCIAL_ON && !guest && followLists !== 'none' && followLists !== 'error' && (
               <section aria-label="フォロー">
                 <p style={{ ...groupTitle, margin: '0 0 var(--space-2) var(--space-4)' }}>フォロー</p>
                 <div style={card}>
