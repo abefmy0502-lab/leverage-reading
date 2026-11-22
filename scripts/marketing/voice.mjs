@@ -18,6 +18,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSy
 import { join, basename } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { findFfmpeg } from './finish-video.mjs';
+import { spokenText, clipPath, keyOf, readIndex, writeIndex, CACHE_DIR } from './voiceCache.mjs';
 
 export const DEFAULT_STYLE = '落ち着いた、低めの男性の声で。ゆっくり、はっきり、やさしく。宣伝っぽく盛り上げない。日本語の自然な抑揚で。';
 
@@ -33,16 +34,7 @@ export function parseSrt(src) {
   }).filter((c) => c && c.text.trim());
 }
 
-// 読み上げ用に整える（字幕の改行・矢印・英字の名前）
-export function spokenText(text) {
-  return String(text || '')
-    .replace(/\n?↓\n?/g, '。')
-    .replace(/\n/g, '')
-    .replace(/Orime/g, 'オリメ')
-    .replace(/App Store/g, 'アップストア')
-    .replace(/。+/g, '。')
-    .trim();
-}
+export { spokenText };
 
 // 読む順の文（題＋字幕）
 export function narrationCues(dir) {
@@ -51,6 +43,8 @@ export function narrationCues(dir) {
   if (existsSync(metaPath)) {
     const meta = JSON.parse(readFileSync(metaPath, 'utf8'));
     if (meta.title && !meta.plain) cues.unshift({ start: 0.3, end: Math.max(0.3, (cues[0]?.start ?? 3) - 0.1), text: spokenText(meta.title) });
+    // 終わりのカードの 1 行（録画の時刻 → 仕上げた動画の時刻＝頭の読み込み中を切った分を引く）
+    if (meta.endAt != null && meta.endLine) cues.push({ start: Math.max(0, meta.endAt - (meta.trimStart || 0) + 0.3), end: Infinity, text: spokenText(meta.endLine) });
   }
   return cues;
 }
@@ -86,6 +80,24 @@ function duration(bin, file) {
   return m ? (+m[1]) * 3600 + (+m[2]) * 60 + (+m[3]) : 0;
 }
 
+// 1 文の声。作り置き（voice-cache）があればそれを使い、無ければ作って作り置きにも入れる（openai のときだけ）。
+export async function synth(text, engine, bin, fallbackFile) {
+  const spoken = spokenText(text);
+  if (engine === 'openai') {
+    const file = clipPath(spoken);
+    const idx = readIndex();
+    if (!existsSync(file)) {
+      mkdirSync(CACHE_DIR, { recursive: true });
+      await synthOpenai(spoken, file);
+    }
+    const len = idx[keyOf(spoken)]?.len || duration(bin, file);
+    if (!idx[keyOf(spoken)]) { idx[keyOf(spoken)] = { text: spoken, len }; writeIndex(idx); }
+    return { file, len };
+  }
+  const file = engine === 'tone' ? synthTone(bin, spoken, fallbackFile) : synthSay(spoken, fallbackFile);
+  return { file, len: duration(bin, file) };
+}
+
 async function voiceOne(dir, engine, bin) {
   const video = join(dir, 'final.mp4');
   if (!existsSync(video) || !existsSync(join(dir, 'captions.srt'))) { console.log(`  – ${basename(dir)}: final.mp4 か captions.srt が無いので飛ばします`); return; }
@@ -94,11 +106,7 @@ async function voiceOne(dir, engine, bin) {
   mkdirSync(vdir, { recursive: true });
   const clips = [];
   for (const [i, c] of cues.entries()) {
-    let file = join(vdir, `${String(i + 1).padStart(2, '0')}.mp3`);
-    if (engine === 'openai') await synthOpenai(c.text, file);
-    else if (engine === 'tone') file = synthTone(bin, c.text, file); // 時刻の確かめ用（文の長さぶんの小さな音）
-    else file = synthSay(c.text, file);
-    const len = duration(bin, file);
+    const { file, len } = await synth(c.text, engine, bin, join(vdir, `${String(i + 1).padStart(2, '0')}.mp3`));
     const room = (cues[i + 1]?.start ?? Infinity) - c.start;
     if (len > room + 0.2) console.log(`  ⚠ ${basename(dir)} の ${i + 1} 番目「${c.text}」は ${len.toFixed(1)} 秒で、次の文まで ${room.toFixed(1)} 秒。台本の hold を足すか、文を短く。`);
     clips.push({ file, at: c.start });
@@ -122,6 +130,26 @@ if (process.argv[1] && process.argv[1].endsWith('voice.mjs')) {
     if (k.status === 0 && k.stdout.trim()) process.env.OPENAI_API_KEY = k.stdout.trim();
   }
   const engine = ei >= 0 ? args[ei + 1] : (process.env.OPENAI_API_KEY ? 'openai' : 'say');
+  if (args.includes('--prepare')) {
+    // 台本の文を先に声にする（撮る前に。撮るときに声の長さで間を取る）
+    if (engine !== 'openai') { console.error('--prepare は OpenAI の声だけ（鍵が要る）。'); process.exit(1); }
+    const bin = await findFfmpeg();
+    const names = args.filter((a, i) => !a.startsWith('--') && args[i - 1] !== '--engine');
+    const { SCENARIOS } = await import('./scenarios.mjs');
+    const { REELS, END_LINE } = await import('./explainer/reels.mjs');
+    const { explainerLines } = await import('./explainer/lines.mjs');
+    const texts = new Set();
+    for (const sc of SCENARIOS) if (!names.length || names.includes(sc.name)) {
+      if (sc.title) texts.add(sc.title);
+      for (const st of sc.steps || []) if (st.say) texts.add(st.say);
+      texts.add(END_LINE);
+    }
+    for (const r of REELS) if (!names.length || names.includes(r.name)) for (const l of explainerLines(r)) texts.add(l);
+    let n = 0;
+    for (const t of texts) { const { len } = await synth(t, engine, bin); n += 1; console.log(`  ${len.toFixed(1)} 秒  ${spokenText(t)}`); }
+    console.log(`✓ ${n} 文を作り置きしました（${CACHE_DIR}）。次に mkt:record・mkt:explainer で撮ると、声の長さで間を取ります。`);
+    process.exit(0);
+  }
   const target = args.find((a, i) => !a.startsWith('--') && args[i - 1] !== '--engine');
   if (!target) { console.error('使い方: npm run mkt:voice -- <動画のフォルダ か 日付のフォルダ> [--engine openai|say]'); process.exit(1); }
   if (engine === 'openai' && !process.env.OPENAI_API_KEY) { console.error('OPENAI_API_KEY がありません（シェルで渡す）。試すだけなら --engine say（Mac）。'); process.exit(1); }

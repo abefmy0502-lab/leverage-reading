@@ -20,11 +20,11 @@ export const REELS = [
     name: 'concept-consult',
     title: '読んだのに残らない → 読んだ本が相談相手に',
     caption: [
-      '読み終えた本を、閉じたら終わりにしていた。',
+      'これまでは、読み終えた本を閉じたら終わりにしていた。',
       '困った日は、ネットの一般論で迷っていた。',
       '',
-      '自分が残した一行に聞けるようにしたら、',
-      '困った日、まず自分のメモに聞くようになった。',
+      'これからは、自分が残した一行に聞ける。',
+      '困った日、まず自分のメモに聞けば、明日やることが 1 つ決まる。',
       '',
       '無料プラン（ずっと無料）で試せます。プロフィールのリンクから。',
     ].join('\n'),
@@ -33,7 +33,7 @@ export const REELS = [
       {
         sec: 4.6,
         items: [
-          { type: 'text', text: '前は', y: 300, size: 72, at: 0.1 },
+          { type: 'text', text: 'これまでは', y: 300, size: 72, at: 0.1 },
           { type: 'box', text: '閉じたら終わり', y: 420, size: 104, at: 0.4 },
           { type: 'art', name: 'bookOpen', x: 60, y: 760, w: 360, at: 0.9, dur: 1.0 },
           { type: 'art', name: 'arrow', x: 435, y: 830, w: 150, at: 1.8, dur: 0.5 },
@@ -53,7 +53,7 @@ export const REELS = [
       {
         sec: 5.4,
         items: [
-          { type: 'text', text: 'いまは', y: 300, size: 72, at: 0.1 },
+          { type: 'text', text: 'これからは', y: 300, size: 72, at: 0.1 },
           { type: 'box', text: '自分のメモに聞く', y: 420, size: 104, at: 0.4 },
           { type: 'art', name: 'memoStack', x: 60, y: 760, w: 320, at: 1.0, dur: 1.2 },
           { type: 'art', name: 'arrow', x: 395, y: 900, w: 110, at: 2.0, dur: 0.5 },
@@ -80,8 +80,8 @@ export const REELS = [
       '成長したい。でも、何から読めばいいか分からない。',
       '本選びが、行き当たりばったりになっていた。',
       '',
-      '1 年後の目標を書いて、そこから逆算した。',
-      '今月読む 1 冊が、決まっている。',
+      'これからは、1 年後の目標から逆算して読む。',
+      '今月読む 1 冊が、決まる。',
       '',
       '無料プラン（ずっと無料）で試せます。プロフィールのリンクから。',
     ].join('\n'),
@@ -100,7 +100,7 @@ export const REELS = [
       {
         sec: 5.6,
         items: [
-          { type: 'text', text: 'いまは', y: 300, size: 72, at: 0.1 },
+          { type: 'text', text: 'これからは', y: 300, size: 72, at: 0.1 },
           { type: 'box', text: '1 年後から逆算', y: 420, size: 104, at: 0.4 },
           { type: 'art', name: 'road', x: 90, y: 700, w: 760, at: 0.9, dur: 2.0 },
           { type: 'sub', text: '目標までの道のりに、\n読む本が並ぶ。', y: 1230, at: 3.0 },
@@ -124,7 +124,7 @@ export const REELS = [
     caption: [
       '読まなきゃ、と思いながら、スマホで 1 日が終わっていた。',
       '',
-      '15 分だけ、と決めて、表紙と時間だけの画面で読む。',
+      'これからは、15 分だけと決めて、表紙と時間だけの画面で読む。',
       '1 日 15 分で、1 か月に 7 時間半。',
       '',
       '無料プラン（ずっと無料）で試せます。プロフィールのリンクから。',
@@ -143,7 +143,7 @@ export const REELS = [
       {
         sec: 5.2,
         items: [
-          { type: 'text', text: 'いまは', y: 300, size: 72, at: 0.1 },
+          { type: 'text', text: 'これからは', y: 300, size: 72, at: 0.1 },
           { type: 'box', text: 'まず 15 分だけ', y: 420, size: 104, at: 0.4 },
           { type: 'art', name: 'clock', x: 90, y: 720, w: 330, at: 0.9, dur: 1.2 },
           { type: 'art', name: 'bookOpen', x: 500, y: 800, w: 380, at: 1.8, dur: 1.0 },

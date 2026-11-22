@@ -25,6 +25,7 @@ import { chromium } from 'playwright-core';
 import { SCENARIOS, redactPairs, AUTHOR_REDACT } from './scenarios.mjs';
 import { SAMPLE_NOTE } from './notes.mjs';
 import { END_LINE, END_STORE } from './explainer/reels.mjs';
+import { voiceLength, readIndex } from './voiceCache.mjs';
 import { marksToCues } from './srt.mjs';
 import { finishVideo } from './finish-video.mjs';
 
@@ -219,7 +220,14 @@ async function recordOne(browser, s) {
   const app = page.frameLocator('#ph');
   const marks = [];
   const cuts = []; // 仕上げで切る区間（いまは空。読み込みが重いと録画と時計がずれるので、待ち時間は切らずに fastForward などで作らない）
+  // 声の作り置き（mkt:voice -- --prepare）があれば、前の声が読み終わるまで次の字幕に進まない（声と字幕をそろえる）。
+  const vIdx = readIndex();
+  let voiceUntil = 0;
+  const waitVoice = async () => { const w = voiceUntil - now(); if (w > 0) await page.waitForTimeout(w * 1000); };
   const say = async (text) => {
+    await waitVoice();
+    const vl = voiceLength(text, vIdx);
+    if (vl) voiceUntil = now() + vl + 0.35;
     marks.push({ at: now(), text: text || null });
     await page.evaluate((t) => { document.getElementById('cap').textContent = t || ''; }, text || '');
   };
@@ -234,6 +242,7 @@ async function recordOne(browser, s) {
   };
 
   let trimStart = 0;
+  let endAt = null;
   let failed = null;
   try {
     await page.goto(`${BASE}/__mkt-stage`, { waitUntil: 'load' });
@@ -247,7 +256,8 @@ async function recordOne(browser, s) {
     await page.evaluate(() => document.body.classList.add('show-title'));
     await page.waitForTimeout(900);
     await page.evaluate(() => document.body.classList.add('ready'));
-    await page.waitForTimeout(TITLE_SEC * 1000);
+    // 題の声（0.3 秒から読む）が終わるまで題を出しておく
+    await page.waitForTimeout(Math.max(TITLE_SEC, voiceLength(s.title, vIdx) - 0.3) * 1000);
     await page.evaluate(() => document.body.classList.remove('show-title'));
 
     for (const [i, step] of (s.steps || []).entries()) {
@@ -311,9 +321,11 @@ async function recordOne(browser, s) {
       }
     }
     await page.waitForTimeout(400);
-    // 最後に Orime のロゴのカード（ロゴ・「読んだ本と、会話できる。」・App Store）。
+    // 最後に Orime のロゴのカード（ロゴ・「読んだ本と、会話できる。」・App Store）。声は「読んだ本と、会話できる。」を読む。
+    await waitVoice();
     await page.evaluate(() => document.body.classList.add('show-end'));
-    await page.waitForTimeout(END_SEC * 1000);
+    endAt = now();
+    await page.waitForTimeout(Math.max(END_SEC, voiceLength(END_LINE, vIdx) + 1.0) * 1000);
   } catch (e) {
     failed = e.message;
   }
@@ -325,7 +337,7 @@ async function recordOne(browser, s) {
   rmSync(videoDir, { recursive: true, force: true });
   const meta = {
     name: s.name, title: s.title || '', titleSec: TITLE_SEC, url: s.url || '/', plain, theme: theme || s.theme || 'light',
-    trimStart, duration: end, cues: marksToCues(marks, end), cuts,
+    trimStart, duration: end, cues: marksToCues(marks, end), cuts, endAt, endLine: END_LINE,
     sampleNote: SAMPLE_NOTE, redacted: Object.keys(AUTHOR_REDACT).length,
     recordedAt: new Date().toISOString(), base: BASE, failed, pageErrors: errors.slice(0, 5),
   };

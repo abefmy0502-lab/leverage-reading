@@ -22,6 +22,7 @@ import { chromium } from 'playwright-core';
 import { REELS, END_LINE, END_STORE, reelTexts, reelDuration } from './reels.mjs';
 import { ART } from './art.mjs';
 import { checkCopy } from '../weekly-drafts.mjs';
+import { sceneLine, paceReel } from './lines.mjs';
 import { findFfmpeg } from '../finish-video.mjs';
 
 const W = 1080;
@@ -194,20 +195,13 @@ function browserOptions() {
   return { channel: 'chrome', ...proxyOptions() };
 }
 
-// 文をつなぐ（「前は」+「閉じたら終わり」→「前は、閉じたら終わり。」）
-function joinSpoken(texts) {
-  return texts.map((t) => (/[。！？、]$/.test(t) ? t : /[はがにをもで]$/.test(t) ? `${t}、` : `${t}。`)).join('');
-}
-
 // 場面ごとの読み上げの文（SRT・声の仕組みが使う）
 export function explainerSrt(reel) {
   const ts = (sec) => { const ms = Math.round(sec * 1000); const h = Math.floor(ms / 3600000); const m = Math.floor(ms / 60000) % 60; const s = Math.floor(ms / 1000) % 60; return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')},${String(ms % 1000).padStart(3, '0')}`; };
   let t = 0; let n = 0; const out = [];
   for (const sc of reel.scenes) {
-    const isEnd = sc.items[0]?.type === 'end';
-    const texts = isEnd ? [END_LINE] : sc.items.filter((it) => ['box', 'text', 'sub'].includes(it.type) && it.text).map((it) => it.text.replace(/\n/g, ''));
-    const first = isEnd ? 0.3 : Math.min(...sc.items.filter((it) => it.at != null).map((it) => it.at), 0.3);
-    if (texts.length) { n += 1; out.push(`${n}\n${ts(t + first)} --> ${ts(t + sc.sec - 0.1)}\n${joinSpoken(texts)}\n`); }
+    const line = sceneLine(sc);
+    if (line) { n += 1; out.push(`${n}\n${ts(t + 0.3)} --> ${ts(t + sc.sec - 0.1)}\n${line}\n`); }
     t += sc.sec;
   }
   return out.join('\n');
@@ -223,7 +217,8 @@ if (!ffmpeg && still == null) {
 const browser = await chromium.launch(browserOptions());
 const context = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1, ignoreHTTPSErrors: !!process.env.UI_SHOTS_PROXY });
 try {
-  for (const reel of targets) {
+  for (const reel0 of targets) {
+    const reel = paceReel(reel0); // 声の作り置きがあれば、声の長さに場面を合わせる
     const dir = join(outRoot, reel.name);
     mkdirSync(dir, { recursive: true });
     const htmlPath = resolve(dir, 'stage.html');

@@ -19,8 +19,11 @@
 - 3 本: 読んだのに残らない → 読んだ本が相談相手に／何から読めばいいか分からない → 1 年後から逆算した読む順番／スマホで 1 日が終わる → 1 日 15 分、本だけの時間。最後は Orime のロゴのカード。
 
 ## 声（ナレーション）を入れる（2026-11-22 オーナー「落ち着いた男性の声で」）
-- 動画を作ったあと、Mac のターミナルで（鍵はその場のシェルで渡す・ファイルに書かない）:
-  `OPENAI_API_KEY=（鍵） npm run mkt:voice -- marketing-out/videos/<日付>`
+- 鍵は Mac のキーチェーンに 1 回だけ入れる（画面に出ない・ファイルに書かない）: `security add-generic-password -a orime -s orime-openai-tts -w`（聞かれたら鍵を貼る）。
+- 順番（声に合わせて間を取るため、**先に声を作ってから撮る**）:
+  1. `npm run mkt:voice -- --prepare`（台本の文を 1 つずつ声にして、長さを覚える・`marketing-out/voice-cache/`）
+  2. `npm run demo` を別のターミナルで → `npm run mkt:record -- shelf-scan goal-roadmap consult-answer focus-mode` と `npm run mkt:explainer -- concept-consult concept-goal concept-focus`（声の長さに合わせて間を取る）
+  3. `npm run mkt:voice -- marketing-out/videos/<日付>`（作り置きの声を重ねる）
   → 各フォルダに `final-voice.mp4`（映像はそのまま・字幕と同じ文を同じ時刻に読む・画面の動画は最初に題も読む）。
 - 声は OpenAI の読み上げ（`onyx`＝低く落ち着いた男性）。替えるなら `MKT_VOICE=ash`。話し方は `MKT_VOICE_STYLE` で指示できる。
 - 鍵が無いときの試し: `npm run mkt:voice -- <フォルダ> --engine say`（Mac の声・機械っぽい）。
