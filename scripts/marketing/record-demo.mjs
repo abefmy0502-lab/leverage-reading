@@ -226,7 +226,8 @@ async function recordOne(browser, s) {
   const waitVoice = async () => { const w = voiceUntil - now(); if (w > 0) await page.waitForTimeout(w * 1000); };
   const say = async (text) => {
     await waitVoice();
-    const vl = voiceLength(text, vIdx);
+    // 声が無いときも、字幕を読み切れるだけの間を取る（1 字 0.1 秒の目安）。
+    const vl = voiceLength(text, vIdx) || (text ? String(text).length * 0.1 : 0);
     if (vl) voiceUntil = now() + vl + 0.35;
     marks.push({ at: now(), text: text || null });
     await page.evaluate((t) => { document.getElementById('cap').textContent = t || ''; }, text || '');

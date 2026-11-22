@@ -20,7 +20,8 @@
 
 ## 声（ナレーション）を入れる（2026-11-22 オーナー「落ち着いた男性の声で」）
 - 鍵は Mac のキーチェーンに 1 回だけ入れる（画面に出ない・ファイルに書かない）: `security add-generic-password -a orime -s orime-openai-tts -w`（聞かれたら鍵を貼る）。
-- 順番（声に合わせて間を取るため、**先に声を作ってから撮る**）:
+- **いちばん簡単: `npm run mkt:videos`**（声を作る → お試しモードを起動して撮る → 概念の動画 → 声を重ねる、まで 1 回で。できあがりは `marketing-out/videos/<今日>/<名前>/final-voice.mp4`）。
+- 手で 1 つずつやるときの順番（声に合わせて間を取るため、**先に声を作ってから撮る**）:
   1. `npm run mkt:voice -- --prepare`（台本の文を 1 つずつ声にして、長さを覚える・`marketing-out/voice-cache/`）
   2. `npm run demo` を別のターミナルで → `npm run mkt:record -- shelf-scan goal-roadmap consult-answer focus-mode` と `npm run mkt:explainer -- concept-consult concept-goal concept-focus`（声の長さに合わせて間を取る）
   3. `npm run mkt:voice -- marketing-out/videos/<日付>`（作り置きの声を重ねる）
