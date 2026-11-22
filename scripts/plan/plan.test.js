@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { BASE, SCENARIOS, simulate, yearly, lifetimeValue, paidAcquisition, MONTHS, breakEvenMonth, stressGrid } from './model.mjs';
-import { ROLES, ROUTINES, ITEMS, HOLD_ITEMS, quarterOf, isMonth, TARGETS, TARGET_SPLIT, MILESTONES, OWNER_WEEKLY_HOURS, ownerHoursOfMonth } from './schedule.mjs';
+import { ROLES, ROUTINES, ITEMS, HOLD_ITEMS, quarterOf, isMonth, TARGETS, TARGET_SPLIT, MILESTONES, OWNER_WEEKLY_HOURS, REV_SHARE_TARGETS, ownerHoursOfMonth } from './schedule.mjs';
 
 // 2026-11-22 オーナー「優秀なコンサルが何人読んでも納得する内容に」: 計画の数字は、この計算から出る（v3・点検 3 人の 2 回目を反映）
 const ys = (A, o) => Object.fromEntries(yearly(simulate(A, o), A).map((x) => [x.year, x]));
@@ -27,6 +27,10 @@ describe('中期経営計画の計算', () => {
   it('四半期の道しるべも、基本の見込みの ±10% に入る', () => {
     const rows = simulate(BASE);
     for (const [ym, v] of Object.entries(MILESTONES)) expect(Math.abs(rows.find((x) => x.ym === ym).paid / v - 1), ym).toBeLessThan(0.1);
+  });
+  it('有料会員以外の売上の割合の目標（12 月の月の売上）は、計算の ±1.5 ポイントに入る', () => {
+    const rows = simulate(BASE);
+    for (const [y, v] of Object.entries(REV_SHARE_TARGETS)) { const d = rows.find((x) => x.ym === `${y}-12`); expect(Math.abs((d.b2bRevenue / d.revenue) * 100 - v), y).toBeLessThan(1.5); }
   });
   it('控えめ ＜ 基本 ＜ 強気 の順', () => {
     const [l, b, h] = ['low', 'base', 'high'].map((k) => ys(SCENARIOS[k])[2029].paidEnd);
