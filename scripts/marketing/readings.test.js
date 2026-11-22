@@ -14,6 +14,8 @@ describe('声の読みがな', () => {
     expect(toReading('3 冊')).toBe('さんさつ');
     expect(toReading('10 分')).toBe('じゅっぷん');
     expect(toReading('1 年後')).toBe('いちねんご');
+    expect(toReading('15 分後')).toBe('じゅうごふんご');
+    expect(toReading('3 日後')).toBe('みっかご');
     expect(toReading('1 つ')).toBe('ひとつ');
     expect(toReading('¥12,800')).toBe('いちまんにせんはっぴゃくえん');
     expect(numKana(3600)).toBe('さんぜんろっぴゃく');

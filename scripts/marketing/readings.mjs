@@ -98,7 +98,9 @@ export function toReading(text) {
   s = s.replace(/([①-⑩])\s*/g, (_, c) => `${ORDINALS[c.charCodeAt(0) - 0x2460]}、`);
   s = s.replace(/p\.\s?(\d+)/g, (_, n) => `${numKana(Number(n))}ページ`);
   s = s.replace(/[¥￥](\d[\d,]*)/g, (_, n) => `${numKana(Number(n.replace(/,/g, '')))}えん`);
+  // 「15 分後」の「後」は「ご」（「あと」と読ませない・2026-11-22）
   s = s.replace(COUNTER_RE, (_, n, c) => COUNTER_FN[c](Number(n.replace(/,/g, ''))));
+  s = s.replace(/(ふん|ぷん|びょう|じかん|にち|か|しゅうかん|かげつ|さつ|かい)後/g, '$1ご');
   return s;
 }
 
