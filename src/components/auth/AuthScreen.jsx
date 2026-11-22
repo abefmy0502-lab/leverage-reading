@@ -465,8 +465,8 @@ export default function AuthScreen() {
             </p>
             {/* 添え書きのリンクは主役（Apple のボタン）と張り合わないよう --text-2 に（DESIGN §5 同意の添え書き）。 */}
             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', columnGap: 'var(--space-6)' }}>
-              <a href={TERMS_URL} target="_blank" rel="noopener noreferrer" style={{ ...legalLink, color: 'var(--text-2)' }}>利用規約</a>
-              <a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer" style={{ ...legalLink, color: 'var(--text-2)' }}>プライバシーポリシー</a>
+              <a href={TERMS_URL} target="_blank" rel="noopener noreferrer" style={{ ...legalLink, color: 'var(--text-2)', textDecoration: 'underline', textUnderlineOffset: '0.2em' }}>利用規約</a>
+              <a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer" style={{ ...legalLink, color: 'var(--text-2)', textDecoration: 'underline', textUnderlineOffset: '0.2em' }}>プライバシーポリシー</a>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', margin: 'var(--space-4) 0' }}>
               <span style={{ flex: 1, height: 1, background: 'var(--separator)' }} />

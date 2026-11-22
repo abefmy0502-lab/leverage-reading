@@ -13,7 +13,7 @@ import ToggleSwitch from './ToggleSwitch';
 import UserAvatar from './UserAvatar';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
-import { btnPrimary, btnPrimaryOff, btnGhost, btnLink, btnLinkQuiet, btnRow, input as inputBase, groupTitle, segTrack, segOption } from '../styles/ui';
+import { btnPrimary, btnPrimaryOff, btnGhost, btnLink, btnLinkQuiet, btnRow, input as inputBase, groupTitle, segTrack, segOption, scrollFade } from '../styles/ui';
 import { Chip } from './formPrimitives';
 import MiniCover from './MiniCover';
 import AdvisorStoreLinks from './AdvisorStoreLinks';
@@ -78,6 +78,91 @@ function PersonRow({ person, children, onOpen, first = false }) {
   );
 }
 
+// 🗄 人の本棚（2026-11-22 オーナー「もう少し本棚感を出したい・絞り込みもつけたい」・公開のページ api/_profilePage.js と同じ形）。
+//   棚（--fill の面）に表紙を 4 冊ずつ下をそろえて立て、行ごとに棚板（--separator の 8 の線）。書名は表紙と読み上げに任せる。
+//   まとめのある本は上から少しはみ出す栞（--accent）、自分の本棚にもある本は左上に小さな印。上のチップで状態・まとめありに絞る。
+//   「すべて」は状態ごとの棚に 8 冊まで＋「〈状態〉をすべて見る」。
+const SHELF_ROW = 4;
+const SHELF_PREVIEW = 8;
+const shelfCase = { marginTop: 'var(--space-3)', paddingTop: 'var(--space-4)', background: 'var(--fill)', borderRadius: 'var(--radius)', overflow: 'hidden' };
+const shelfRow = (first) => ({ display: 'flex', alignItems: 'flex-end', gap: 'var(--space-2)', margin: first ? 0 : 'var(--space-4) 0 0', padding: '0 var(--space-3)', borderBottom: 'var(--space-2) solid var(--separator)' });
+
+function ShelfCase({ books, onOpen, hasBook }) {
+  const rows = [];
+  for (let i = 0; i < books.length; i += SHELF_ROW) rows.push(books.slice(i, i + SHELF_ROW));
+  return (
+    <div style={shelfCase}>
+      {rows.map((r, ri) => (
+        <div role="list" key={ri} style={shelfRow(ri === 0)}>
+          {r.map((b) => {
+            const owned = hasBook?.(b);
+            return (
+              <div role="listitem" key={b.id} style={{ position: 'relative', flex: '0 0 calc((100% - 3 * var(--space-2)) / 4)', minWidth: 0 }}>
+                <button
+                  type="button"
+                  onClick={() => onOpen(b)}
+                  style={{ ...plainBtn, display: 'block', width: '100%' }}
+                  aria-label={`${b.title}${b.author ? `・${b.author}` : ''}・${STATUS_LABEL[b.status]}${b.rating ? `・評価 ${b.rating}` : ''}${b.summary ? '・まとめあり' : ''}${owned ? '・あなたの本棚にあります' : ''}`}
+                >
+                  <MiniCover title={shownTitle(b.title)} cover={b.cover} width="100%" />
+                </button>
+                {b.summary && <span aria-hidden="true" style={{ position: 'absolute', top: 'calc(-1 * var(--space-2))', right: 'var(--space-2)', width: 'var(--space-2)', height: 'var(--space-6)', background: 'var(--accent)', clipPath: 'polygon(0 0, 100% 0, 100% 100%, 50% 75%, 0 100%)' }} />}
+                {owned && (
+                  <span aria-hidden="true" style={{ position: 'absolute', left: 'var(--space-1)', top: 'var(--space-1)', width: '1.5em', height: '1.5em', borderRadius: '50%', background: 'var(--surface)', boxShadow: 'inset 0 0 0 1px var(--separator)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-2)', fontSize: 'var(--text-meta)' }}>
+                    <Check size="1em" strokeWidth={2.5} />
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ShelfView({ books, filter, onFilter, onOpen, hasBook }) {
+  const groups = SHELF_ORDER.map((st) => ({ id: st, label: STATUS_LABEL[st], books: books.filter((b) => b.status === st) })).filter((g) => g.books.length);
+  const summaryCount = books.filter((b) => b.summary).length;
+  const chips = [
+    { id: '', label: 'すべて', n: books.length },
+    ...groups.map((g) => ({ id: g.id, label: g.label, n: g.books.length })),
+    ...(summaryCount ? [{ id: 'summary', label: 'まとめあり', n: summaryCount }] : []),
+  ];
+  const current = chips.some((c) => c.id === filter) ? filter : '';
+  const owned = books.some((b) => hasBook?.(b));
+  return (
+    <>
+      <div role="radiogroup" aria-label="本棚を絞る" style={{ display: 'flex', gap: 'var(--space-2)', overflowX: 'auto', margin: 'var(--space-3) calc(-1 * var(--space-4)) 0', padding: '0 var(--space-4)', scrollbarWidth: 'none', ...scrollFade }}>
+        {chips.map((c) => (
+          <Chip key={c.id || 'all'} size="select" role="radio" aria-checked={current === c.id} active={current === c.id} onClick={() => onFilter(c.id)}>
+            {c.label}<span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: current === c.id ? 'var(--accent)' : 'var(--text-2)', fontVariantNumeric: 'tabular-nums' }}>{c.n}</span>
+          </Chip>
+        ))}
+      </div>
+      {current === ''
+        ? groups.map((g) => (
+          <section key={g.id} style={{ marginTop: 'var(--space-6)' }}>
+            <p style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-2)', margin: 0, fontSize: 'var(--text-body)', fontWeight: 600 }}>
+              {g.label}<span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-2)' }}>{g.books.length} 冊</span>
+            </p>
+            <ShelfCase books={g.books.slice(0, SHELF_PREVIEW)} onOpen={onOpen} hasBook={hasBook} />
+            {g.books.length > SHELF_PREVIEW && (
+              <button type="button" onClick={() => onFilter(g.id)} style={{ ...btnLink, marginTop: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}>{g.label}をすべて見る（{g.books.length} 冊）</button>
+            )}
+          </section>
+        ))
+        : <ShelfCase books={current === 'summary' ? books.filter((b) => b.summary) : books.filter((b) => b.status === current)} onOpen={onOpen} hasBook={hasBook} />}
+      {(summaryCount > 0 || owned) && (
+        <p style={{ ...note, marginTop: 'var(--space-3)', display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 'var(--space-4)', rowGap: 'var(--space-1)' }}>
+          {summaryCount > 0 && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }}><span aria-hidden="true" style={{ width: 'var(--space-2)', height: 'var(--space-3)', background: 'var(--accent)', clipPath: 'polygon(0 0, 100% 0, 100% 100%, 50% 75%, 0 100%)' }} />まとめあり</span>}
+          {owned && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }}><Check size="1em" aria-hidden="true" />あなたの本棚にもある本</span>}
+        </p>
+      )}
+    </>
+  );
+}
+
 export default function FollowSheet({ onClose, initialId = '', onAddWant, initialRequestCount = 0, hasBook }) {
   const toast = useToast();
   const { user } = useAuth();
@@ -96,6 +181,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
   const [shelf, setShelf] = useState(null); // { profile, books } | 'loading' | 'none'
   const [menu, setMenu] = useState(null); // { x, y, items }
   const [wantState, setWantState] = useState({});
+  const [shelfFilter, setShelfFilter] = useState(''); // '' | 状態 | 'summary'
   const [reportForm, setReportForm] = useState({ reason: '', detail: '', alsoBlock: false, busy: false, failed: false });
   // 画面（一覧 → 本棚 → 本）を移ったら、シートの中をいちばん上へ（下の本を押して開いた本が途中から見えないように）。
   const bodyRef = useRef(null);
@@ -215,7 +301,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
       cancelLabel: 'キャンセル',
       danger: true,
     });
-    if (!ok) return;
+    if (!ok) return false;
     try {
       const done = await blockUser(person.publicId);
       if (!done) throw new Error('block failed');
@@ -223,8 +309,10 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
       if (!quiet) toast.success('ブロックしました。');
       setView({ name: 'home' }); setPreview(null);
       reload();
+      return true;
     } catch {
-      toast.error('ブロックできませんでした。通信状況を確認してください。');
+      if (!quiet) toast.error('ブロックできませんでした。通信状況を確認してください。');
+      return false;
     }
   };
 
@@ -241,8 +329,10 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
     track('follow_report', { reason: reportForm.reason, block: reportForm.alsoBlock });
     if (result !== 'ok') { setReportForm((f) => ({ ...f, busy: false, failed: result === 'rejected' ? 'rejected' : 'network' })); return; }
     if (reportForm.alsoBlock) {
-      await block(person, { quiet: true });
-      toast.success('通報して、ブロックしました。');
+      // 通報は済んでいるので、ブロックだけできなかったときも画面を戻す（もう一度押して二重に通報しないように）。
+      if (await block(person, { quiet: true })) { toast.success('通報して、ブロックしました。'); return; }
+      toast.error('通報は受け付けました。ブロックはできませんでした。');
+      setView(view.back && view.back.name !== 'report' ? view.back : { name: 'home' });
       return;
     }
     toast.success('通報を受け付けました。');
@@ -275,6 +365,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
   const openPerson = async (person) => {
     setView({ name: 'person', person });
     setShelf('loading');
+    setShelfFilter('');
     try {
       const s = await loadFolloweeShelf(person.publicId);
       setShelf(s || 'none');
@@ -353,7 +444,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
           placeholder="例：自己紹介に、ほかのサービスへの誘いがある"
           style={{ ...inputBase, minHeight: 'calc(3 * 1.5em + var(--space-6))', lineHeight: 1.5, resize: 'none' }}
         />
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}>
           <span id={`${inputId}-blk`} style={{ fontSize: 'var(--text-body)', color: 'var(--text)', lineHeight: 1.5 }}>あわせてブロックする</span>
           <ToggleSwitch checked={f.alsoBlock} onChange={() => setReportForm((x) => ({ ...x, alsoBlock: !x.alsoBlock }))} ariaLabel="あわせてブロックする" />
         </div>
@@ -430,7 +521,6 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
     const p = loaded?.profile || person;
     const withSummary = (loaded?.books || []).filter((b) => b.summary);
     const ordered = loaded ? SHELF_ORDER.flatMap((st) => loaded.books.filter((b) => b.status === st)) : [];
-    const counts = loaded ? SHELF_ORDER.map((st) => [st, loaded.books.filter((b) => b.status === st).length]).filter(([, n]) => n) : [];
     return createPortal(
       <BottomSheet title="フォロー" onClose={onClose} layer="dialog">
         <div ref={bodyRef} style={sheetBody}>
@@ -490,28 +580,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
             <p style={{ margin: 0, fontSize: 'var(--text-heading)', fontWeight: 600 }}>本棚</p>
             {ordered.length === 0
               ? <p style={{ ...note, marginTop: 'var(--space-2)' }}>本棚にはまだ本がありません。</p>
-              : <>
-                <p style={{ ...note, marginTop: 'var(--space-1)' }}>{counts.map(([st, n]) => `${STATUS_LABEL[st]} ${n} 冊`).join('・')}</p>
-                <div role="list" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 'var(--space-6) var(--space-3)', marginTop: 'var(--space-4)' }}>
-                  {ordered.map((b) => {
-                    const owned = hasBook?.(b);
-                    return (
-                      <div role="listitem" key={b.id}>
-                        <button type="button" onClick={() => setView({ name: 'book', person, book: b })} style={{ ...plainBtn, width: '100%', display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }} aria-label={`${b.title}・${STATUS_LABEL[b.status]}${b.summary ? '・まとめあり' : ''}${owned ? '・あなたの本棚にあります' : ''}`}>
-                          <Cover book={b} width="100%" />
-                          {/* 表紙の無い本は代用表紙に書名が出るので、下の書名は出さない（読み上げは aria-label）。 */}
-                          {b.cover && <span style={{ fontSize: 'var(--text-meta)', fontWeight: 600, lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'keep-all', overflowWrap: 'break-word' }}>{withPhraseBreaks(shownTitle(b.title), { scriptBreaks: true })}</span>}
-                          {b.author && <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-2)', lineHeight: 1.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.author}</span>}
-                          <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-2)', lineHeight: 1.5 }}>
-                            {STATUS_LABEL[b.status]}{b.rating ? <span style={{ color: 'var(--accent)' }}> {'★'.repeat(b.rating)}</span> : null}
-                          </span>
-                          {owned && <OwnedMark />}
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              </>}
+              : <ShelfView person={person} books={ordered} filter={shelfFilter} onFilter={setShelfFilter} onOpen={(b) => setView({ name: 'book', person, book: b })} hasBook={hasBook} />}
           </section>
         )}
         {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}

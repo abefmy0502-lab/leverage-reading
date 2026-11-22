@@ -85,8 +85,12 @@ describe('公開の本棚（2026-11-21）', async () => {
     const shelf = buildShelf(books, []);
     const { html } = renderProfile({ nickname: 'ふみ', bio: '企画の仕事\n2 行目', shelf_public: true }, { publicId: 'abcdefgh23', shelf });
     expect(html).toContain('<h2>本棚</h2>');
-    expect(html).toContain('読書中 1 冊・読了 2 冊・読みたい 1 冊');
-    expect(html).toContain('aria-label="評価 4"');
+    // 状態ごとの棚（読書中 → 読了 → 読みたい）と、絞り込みのチップ
+    expect(html.indexOf('<h3>読書中')).toBeLessThan(html.indexOf('<h3>読了'));
+    expect(html).toContain('<h3>読了<span class="n">2 冊</span></h3>');
+    expect(html).toContain('aria-label="本棚を絞る"');
+    expect(html).toMatch(/href="\/u\/abcdefgh23#shelf" aria-current="page">すべて<span class="n">4<\/span>/);
+    expect(html).toContain('考え方・稲盛和夫・読了・評価 4');
     expect(html).toContain('企画の仕事');
     expect(html).not.toContain('<script>');
     expect(html).toContain('&lt;script&gt;');
@@ -116,6 +120,28 @@ describe('公開の本棚（2026-11-21）', async () => {
     expect(html).not.toContain('test@example.com');
     const off = buildShelf(withMemo, []);
     expect(off.withSummary).toEqual([]);
+  });
+  it('絞り込み: 状態だけ・まとめありだけ・知らない値は「すべて」', () => {
+    const withMemo = [
+      ...books,
+      { id: '00000000-0000-4000-8000-0000000000a1', title: 'まとめの本', status: 'done', leverage_memo: '心を高める。' },
+    ];
+    const shelf = buildShelf(withMemo, ['00000000-0000-4000-8000-000000000002'], { summaries: true });
+    let { html } = renderProfile({ nickname: 'ふみ', shelf_public: true }, { publicId: 'abcdefgh23', shelf, social: true, filter: 'reading' });
+    expect(html).toContain('aria-current="page">読書中');
+    expect(html).toContain('イシューからはじめよ');
+    expect(html).not.toContain('aria-label="考え方');
+    ({ html } = renderProfile({ nickname: 'ふみ', shelf_public: true }, { publicId: 'abcdefgh23', shelf, social: true, filter: 'summary' }));
+    expect(html).toContain('aria-current="page">まとめあり<span class="n">1</span>');
+    expect(html).toContain('まとめの本・読了・まとめあり');
+    expect(html).toContain('class="rib"');
+    expect(html).not.toContain('aria-label="考え方');
+    ({ html } = renderProfile({ nickname: 'ふみ', shelf_public: true }, { publicId: 'abcdefgh23', shelf, social: true, filter: 'zzz' }));
+    expect(html).toContain('aria-current="page">すべて');
+  });
+  it('GET の ?shelf= は決まった値だけ', async () => {
+    const { SHELF_FILTERS } = await import('./_profilePage.js');
+    expect(SHELF_FILTERS).toEqual(['reading', 'done', 'before', 'want', 'summary']);
   });
   it('本棚を出さないときは本棚の節が無い', () => {
     const { html } = renderProfile({ nickname: 'ふみ' }, { publicId: 'abcdefgh23', shelf: null });
