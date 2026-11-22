@@ -15,6 +15,7 @@ const AVATAR_CHOICES = [{ id: '', label: 'なし' }, ...AVATARS];
 import UserAvatar from './UserAvatar';
 import MiniCover from './MiniCover';
 import { withPhraseBreaks } from './TightBubble';
+import { autoGrowTextarea } from '../hooks/useComposerHeight';
 
 const field = { display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' };
 const label = { ...groupTitle, margin: 0 };
@@ -215,6 +216,9 @@ export default function ProfileForm({ value, onChange, showBio = false, showAvat
 
 // 好きな本＝本棚の本から選ぶ・好きな言葉＝その本のメモから選ぶか自由に書く（2026-11-21 3 回目・VITE_SOCIAL）。
 function ShelfFavorite({ value, set, shelfBooks, loadMemos, ids }) {
+  // 好きな言葉の欄は中身に合わせて伸ばす（選んだメモが 2 行に隠れないように・2026-11-22）。
+  const lineRef = useRef(null);
+  useEffect(() => { autoGrowTextarea(lineRef.current); }, [value.favLine]);
   const [query, setQuery] = useState('');
   const [picking, setPicking] = useState(false);
   const [memos, setMemos] = useState(null); // null＝まだ読んでいない
@@ -283,6 +287,7 @@ function ShelfFavorite({ value, set, shelfBooks, loadMemos, ids }) {
       <div style={field}>
         <label htmlFor={ids.line} style={label}>好きな言葉<span style={fieldNote}>（任意）</span></label>
         <textarea
+          ref={lineRef}
           id={ids.line}
           value={value.favLine}
           onChange={(e) => set({ favLine: e.target.value })}
@@ -306,16 +311,22 @@ function ShelfFavorite({ value, set, shelfBooks, loadMemos, ids }) {
                   <p style={{ ...label, margin: 0 }}>『{current.title}』のメモ</p>
                   <button type="button" style={{ ...btnLink, flexShrink: 0 }} onClick={() => setMemoOpen(false)}>閉じる</button>
                 </div>
-                <p style={hint}>押すと、その文が好きな言葉に入ります。</p>
+                <p style={hint}>{withPhraseBreaks(`押すと、その文が好きな言葉に入ります（${PROFILE_LIMITS.line} 字まで）。`)}</p>
                 <div role="list" aria-label="この本のメモ" style={{ borderBottom: '1px solid var(--separator)' }}>
-                  {memos.slice(0, 20).map((m) => (
+                  {/* この本のメモは全部（2026-11-22 オーナー「メモ全て載っていない・全部選択できるように」）・本文も全部見せる。 */}
+                  {memos.map((m) => (
                     <div role="listitem" key={m.id}>
                       <button
                         type="button"
                         style={{ ...rowBtn, alignItems: 'flex-start' }}
                         onClick={() => { set({ favLine: String(m.text || '').replace(/\s+/g, ' ').trim().slice(0, PROFILE_LIMITS.line) }); setMemoOpen(false); }}
                       >
-                        <span style={{ fontSize: 'var(--text-body)', lineHeight: 1.6, wordBreak: 'keep-all', overflowWrap: 'break-word', lineBreak: 'strict', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{withPhraseBreaks(String(m.text || ''))}</span>
+                        <span style={{ display: 'block', minWidth: 0 }}>
+                          <span style={{ display: 'block', fontSize: 'var(--text-body)', lineHeight: 1.6, wordBreak: 'keep-all', overflowWrap: 'break-word', lineBreak: 'strict', whiteSpace: 'pre-line' }}>{withPhraseBreaks(String(m.text || '').trim())}</span>
+                          {[...String(m.text || '').replace(/\s+/g, ' ').trim()].length > PROFILE_LIMITS.line && (
+                            <span style={{ display: 'block', marginTop: 'var(--space-1)', ...hint }}>はじめの {PROFILE_LIMITS.line} 字が入ります</span>
+                          )}
+                        </span>
                       </button>
                     </div>
                   ))}

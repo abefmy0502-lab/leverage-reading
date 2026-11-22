@@ -33,7 +33,7 @@ async function loadShelfBooks(userId) {
 // その本のメモ（好きな言葉を選ぶ）。
 async function loadBookMemos(userId, book) {
   if (!userId || !book?.id || !supabase) return [];
-  const { data, error } = await supabase.from('book_memos').select('id, text').eq('user_id', userId).eq('book_id', book.id).order('created_at', { ascending: false }).limit(50);
+  const { data, error } = await supabase.from('book_memos').select('id, text').eq('user_id', userId).eq('book_id', book.id).order('created_at', { ascending: false }).limit(1000);
   if (error) throw error;
   return (data || []).filter((m) => String(m.text || '').trim());
 }
