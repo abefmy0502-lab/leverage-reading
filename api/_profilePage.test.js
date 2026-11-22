@@ -107,6 +107,9 @@ describe('公開の本棚（2026-11-21）', async () => {
     const { html } = renderProfile({ nickname: 'ふみ', shelf_public: true }, { publicId: 'abcdefgh23', shelf, social: true });
     expect(html).toContain('href="/u/abcdefgh23/b/00000000-0000-4000-8000-000000000001"');
     expect(html).toContain('/?follow=abcdefgh23');
+    // フォローを決めるのはこのページ: 名前のすぐ下（本棚より前）と、本棚のあとにもう一度
+    expect(html.indexOf('/?follow=abcdefgh23')).toBeLessThan(html.indexOf('<h2>本棚</h2>'));
+    expect(html.lastIndexOf('/?follow=abcdefgh23')).toBeGreaterThan(html.indexOf('<h2>本棚</h2>'));
   });
   it('まとめも公開していれば「〈名前〉さんのまとめ」に出だしを並べる（公開に向かない言葉は出さない）', () => {
     const withMemo = [

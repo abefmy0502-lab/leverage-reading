@@ -305,13 +305,17 @@ export function renderProfile(p, { publicId, shelf = null, social = socialOn(), 
   const sums = social && shelf?.withSummary?.length
     ? `<section class="sec"><h2>${esc(who)}のまとめ</h2><p class="sub">読んだ本について、${esc(who)}が書いたこと</p>${summaryRows(shelf.withSummary, publicId)}</section>`
     : '';
+  // フォローを決めるのはこのページ（2026-11-22 オーナー「フォローするかどうかはこの画面が 1 番じゃない？」）:
+  //   名前と自己紹介のすぐ下に主ボタン「フォローを申し込む」、本棚を見終えたところにもう一度。
+  const followUrl = `${site}/?follow=${esc(publicId)}`;
+  const followTop = social ? `<a class="cta" style="margin-top:16px" href="${followUrl}">フォローを申し込む</a><p class="note" style="text-align:left;margin-top:8px">承認されると、本棚とまとめを Orime のアプリでいつでも見られます。</p>` : '';
   const body = `<header class="who">
-${renderAvatar(p.avatar, nickname)}<h1 class="name">${esc(who)}</h1>${bio ? `<p class="bio">${esc(bio)}</p>` : ''}
+${renderAvatar(p.avatar, nickname)}<h1 class="name">${esc(who)}</h1>${bio ? `<p class="bio">${esc(bio)}</p>` : ''}${followTop}
 </header>
 ${line ? `<figure class="quote" style="margin-left:0;margin-right:0"><blockquote>${esc(line)}</blockquote></figure>${fav}` : fav ? `<div style="margin-top:24px">${fav}</div>` : ''}
 ${sums}${renderShelf(shelf, { publicId, links: social, filter })}
-${social ? `<a class="cta2" style="margin-top:48px" href="${esc(site)}/?follow=${esc(publicId)}">Orime でフォローを申し込む</a><p class="note" style="text-align:left">承認されると、本棚とまとめをアプリでいつでも見られます。</p>` : ''}
-<a class="cta" href="${esc(site)}/lp">Orime で読書メモをはじめる</a>
+${social ? `<a class="cta" style="margin-top:48px" href="${followUrl}">フォローを申し込む</a>` : ''}
+<a class="${social ? 'cta2' : 'cta'}" ${social ? 'style="margin-top:32px" ' : ''}href="${esc(site)}/lp">Orime で読書メモをはじめる</a>
 <p class="note">読んだ本と、会話できる。<br>答えのもとは、あなたが残したメモ。</p>
 <details><summary>このページを通報する</summary>
 <form method="post" action="/api/profile-report"><input type="hidden" name="id" value="${esc(publicId)}">
