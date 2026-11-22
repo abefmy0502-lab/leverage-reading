@@ -2,7 +2,7 @@
 
 > 2026-10-11 作り直し（コンテンツ責任者）。**訴求の正は `company/marketing-master-plan-2026-10.md`**（軸「読書を、受け身から会話へ」・5 つの柱・客・顔なし・0 円）。時間割とチャネルの基準は `company/marketing-strategy-2026-11.md`（食い違うところは master-plan が正）。
 > 前の版（はじめて人をまとめる立場に絞る・顔出し・投稿の宣伝 ¥3,000）は捨てた。
-> **2026-10-11 オーナー決定**：SNS は **Instagram・Threads・X・note の 4 つ**。縦の動画は Instagram のリールと X に出す。**TikTok と YouTube ショートは使わない**。動画に実在の書名をそのまま映してよい（そのかわり §7 の安全策を必ず守る）。
+> **2026-10-11 オーナー決定**：SNS は **Instagram・Threads・X・note の 4 つ**。縦の動画は Instagram のリールと X に出す。**TikTok と YouTube ショートは使わない**（→ **2026-11-22 オーナー「TikTok にも出す」で TikTok は使う**＝`company/sns-strategy-2026-11-22.md` §4。YouTube ショートは使わないまま）。動画に実在の書名をそのまま映してよい（そのかわり §7 の安全策を必ず守る）。
 > 言葉は CLAUDE.md の GLOSSARY・`company/brand-guardrails.md`。数字は `src/pages/lpCopy.js`・`src/lib/tokenAmounts.js` のとおり。公開日は **2026-11-17（火）**。
 > 中身の文：`x-posts.md`（X）・`short-video-scripts.md`（縦の動画 13 本）・`instagram-carousels.md`（カルーセル 7 本）・`note-drafts/04〜06`（note）。週ごとの予定は `calendar.md`。
 
