@@ -1,7 +1,8 @@
 // 🧭 お試しモードの目標とロードマップ（2026-11-15）。
 //   &goals=on        … 1 年後・3 年後・5 年後の目標＋3 つをつなぐロードマップ（本棚の本で道のりと読書計画）
 //   &goals=noroadmap … 3 つの目標だけ（ロードマップはまだ＝「ロードマップをつくる」）
-//   &goals=partial   … 1 年後・3 年後だけ（5 年後がまだ＝つくれない）
+//   &goals=partial   … 1 年後・3 年後だけ（5 年後がまだ＝2026-11-22 からつくれる）
+//   &goals=y1        … 1 年後だけ（3 年後・5 年後はまだ・ロードマップはまだ）
 //   &goalage=N   … 作ってから N 日たった状態・&goalread=1 … ロードマップの本を読み終えた・&goalread=old … 読み終えたのは 4 か月前（この 3 か月は読めなかった）
 //   &goals=purpose   … 目標は空・はじめに書いた目標（入れた理由）だけある（どの欄に入れるかのカード）
 //   付けなければ目標は空（行動の上は「1 年後・3 年後・5 年後の目標を書く」）。
@@ -26,11 +27,11 @@ export function applyGoalsDemo(db, user, params, { userId, now = new Date(), cov
     ...user.user_metadata,
     app_goals: {
       y1: { text: '1 年後に、チームの会議を自分で回し、メンバーの力を引き出せるようになりたい', at },
-      y3: { text: '3 年後に、10 人のチームを任されるリーダーになりたい', at },
-      y5: mode === 'partial' ? null : { text: '5 年後に、新しい事業を立ち上げて任せられる人になりたい', at },
+      y3: mode === 'y1' ? null : { text: '3 年後に、10 人のチームを任されるリーダーになりたい', at },
+      y5: mode === 'partial' || mode === 'y1' ? null : { text: '5 年後に、新しい事業を立ち上げて任せられる人になりたい', at },
     },
   };
-  if (mode === 'noroadmap' || mode === 'partial') return;
+  if (mode === 'noroadmap' || mode === 'partial' || mode === 'y1') return;
 
   // 本棚に、まだ読んでいない本を少し足す（読書計画のカレンダーが数か月にまたがるように）。
   const extraIds = EXTRA_BOOKS.map((_, i) => `00000000-0000-4000-8000-0000000b09${String(i).padStart(2, '0')}`);

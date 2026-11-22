@@ -81,9 +81,14 @@ export function focusBookCaps(caps, here = 0) {
 }
 
 // AI に渡す 3 つの目標（「1 年後（2027 年 11 月まで）: …」）。
+//   まだ書いていない目標は「（まだ決めていない）」と渡す（1 年後の目標だけでつくる人・2026-11-22）。
 export function goalsPromptText(goals) {
-  return GOAL_HORIZONS.filter((h) => goals?.[h.key]?.text)
-    .map((h) => `${h.label}（${fmtGoalDeadline(goals[h.key].at, h.years)}）: ${cut(goals[h.key].text, 120)}`)
+  const anySet = GOAL_HORIZONS.some((h) => goals?.[h.key]?.text);
+  return GOAL_HORIZONS
+    .filter((h) => goals?.[h.key]?.text || anySet)
+    .map((h) => (goals?.[h.key]?.text
+      ? `${h.label}（${fmtGoalDeadline(goals[h.key].at, h.years)}）: ${cut(goals[h.key].text, 120)}`
+      : `${h.label}: （まだ決めていない）`))
     .join('\n');
 }
 
@@ -390,6 +395,9 @@ export function overdueGoals(goals, now = new Date()) {
 export function isRoadmapStale(record, goals) {
   if (!record?.roadmap) return false;
   const textChanged = GOAL_HORIZONS.some((h) => record.goals?.[h.key]?.text && cleanText(record.goals[h.key].text) !== cleanText(goals?.[h.key]?.text || ''));
+  // つくったときに無かった目標を、あとから書いた（1 年後だけでつくった人が 3 年後・5 年後を書いた・2026-11-22）。
+  const added = GOAL_HORIZONS.some((h) => !record.goals?.[h.key]?.text && goals?.[h.key]?.text);
+  if (added) return true;
   // 期限を延ばしただけ（「この目標で続ける」＝文は同じ）は古くない（2026-11-17 点検: 続けると選んだ人に、つくり直しを主ボタンですすめていた）。
   return textChanged;
 }

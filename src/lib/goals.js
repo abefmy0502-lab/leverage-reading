@@ -49,17 +49,21 @@ export function normalizeGoals(raw) {
 export const hasAnyGoal = (goals) => GOAL_KEYS.some((k) => goals?.[k]?.text);
 export const allGoalsSet = (goals) => GOAL_KEYS.every((k) => goals?.[k]?.text);
 export const missingGoalCount = (goals) => GOAL_KEYS.filter((k) => !goals?.[k]?.text).length;
+// ロードマップをつくれるか（2026-11-22 オーナー承認: 1 年後の目標だけでもつくれる・3 年後・5 年後はあとから書ける）。
+//   前（2026-11-16）は 3 つとも書いたときだけ。1 年後しか見えていない人が、押せないボタンで止まっていた。
+export const canBuildRoadmap = (goals) => !!goals?.y1?.text;
 
 // 3 つの目標をまとめた 1 つ（ロードマップの起点は 1 年後の目標を書いた日＝1 年後の区切りがそこから始まる）。
 //   2026-11-17: 前は「いちばん早く書いた日」。1 年たって 1 年後の目標だけ書き直すと、起点が古いまま区切りが過去から始まっていた。
 //   text は「1 年後：…／3 年後：…／5 年後：…」（本を探す下書きなどに使う）。
+//   1 年後の目標だけでもつくれる（2026-11-22）。まだ書いていない目標は goals に null のまま・text には入れない。
 export function combinedGoal(goals) {
-  if (!allGoalsSet(goals)) return null;
+  if (!canBuildRoadmap(goals)) return null;
   return {
     key: ALL_GOALS_KEY,
     at: goals.y1.at,
-    text: GOAL_HORIZONS.map((h) => `${h.label}：${goals[h.key].text}`).join('／'),
-    goals: Object.fromEntries(GOAL_KEYS.map((k) => [k, goals[k]])),
+    text: GOAL_HORIZONS.filter((h) => goals[h.key]?.text).map((h) => `${h.label}：${goals[h.key].text}`).join('／'),
+    goals: Object.fromEntries(GOAL_KEYS.map((k) => [k, goals[k] || null])),
   };
 }
 

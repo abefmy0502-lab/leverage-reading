@@ -30,7 +30,7 @@ import { useGoals } from '../hooks/useGoals';
 import { ensureAiConsent } from '../lib/aiConsent';
 import { runGoalInterview, generateGoalRoadmap, chooseGoalPhaseBooks } from '../lib/ai';
 import { interviewChips, toggleChoice, choiceSelected, OPT_OFF, OPT_UNSURE, OFF_PLACEHOLDER } from '../lib/advisorInterview';
-import { GOAL_HORIZONS, GOAL_MAX, ALL_GOALS_KEY, horizonOf, fmtGoalDeadline, fmtGoalDeadlineNow, saveGoal, suggestHorizon, cleanGoalText, allGoalsSet, combinedGoal } from '../lib/goals';
+import { GOAL_HORIZONS, GOAL_MAX, ALL_GOALS_KEY, horizonOf, fmtGoalDeadline, fmtGoalDeadlineNow, saveGoal, suggestHorizon, cleanGoalText, allGoalsSet, canBuildRoadmap, combinedGoal } from '../lib/goals';
 import { advisorDraftFor, GOAL_ASK_LIMIT, ROADMAP_TOKENS_LABEL, PHASE_BOOKS_TOKENS_LABEL, phaseSpecs, currentPhaseIndex, saveRoadmap, pruneRoadmapBooks, phaseNeedsBooks, overdueGoals, isRoadmapStale, quarterPlanFor, historyText } from '../lib/goalRoadmap';
 import {
   PLAN_MINUTES, PLAN_DEFAULT_MINUTES, readingSpeedFactor, planItemsFromRoadmap, planItemsFromOrder, scheduleBooks, monthWeeks, weekBands,
@@ -99,9 +99,9 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
   // 本を開いて戻ってきたら、同じ目標の同じ画面へ（App が覚えておく）。
   const openBook = (b) => onOpenBook?.(b, { view, horizon });
 
-  // 3 つとも書いたときだけ（ロードマップは 1 本＝無料プランもこの 1 本を作れる・トークンの量で守る）。
+  // 1 年後の目標を書いたら（2026-11-22 オーナー承認・前は 3 つとも書いたときだけ）。ロードマップは 1 本＝無料プランもこの 1 本を作れる・トークンの量で守る。
   const startInterview = async () => {
-    if (!allGoalsSet(goals)) return;
+    if (!canBuildRoadmap(goals)) return;
     if (!(await ensureAiConsent('goal_interview'))) return;
     track('goal_interview_start', { horizon: ALL_GOALS_KEY });
     open(ALL_GOALS_KEY, 'interview');
@@ -227,7 +227,7 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
             // まだ書いていない次の目標があれば、そのままその欄へ（はじめての人が 3 回開き直さなくていい・2026-11-16）。
             const next = cleanGoalText(text) ? nextEmptyAfter(r.goals, key) : null;
             setEditing(next ? { key: next.key, text: '' } : null);
-            if (!next && allGoalsSet(r.goals) && !roadmaps[ALL_GOALS_KEY]?.roadmap) {
+            if (!next && canBuildRoadmap(r.goals) && !roadmaps[ALL_GOALS_KEY]?.roadmap) {
               setTimeout(() => { const el = scrollRef.current; if (el) el.scrollTo?.({ top: el.scrollHeight, behavior: 'smooth' }); }, 350);
             }
             track('goal_saved', { horizon: key, cleared: !cleanGoalText(text) });
@@ -236,6 +236,8 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
               toast.info?.('目標を書き直しました。ロードマップは「つくり直す」で新しい目標に合わせられます。');
             } else if (!rec?.roadmap && allGoalsSet(r.goals)) {
               toast.success?.('3 つの目標がそろいました。下の「ロードマップをつくる」から始められます。');
+            } else if (!rec?.roadmap && key === 'y1' && cleanGoalText(text) && !next) {
+              toast.success?.('下の「ロードマップをつくる」から始められます。');
             }
           }}
         />
@@ -253,6 +255,7 @@ function GoalsView({ goals, roadmaps, purpose, loaded, onEdit, onCarry, onInterv
   const rec = roadmaps[ALL_GOALS_KEY];
   const anyRoadmap = !!rec?.roadmap;
   const allSet = allGoalsSet(goals);
+  const canBuild = canBuildRoadmap(goals);
   const missing = GOAL_HORIZONS.filter((h) => !goals[h.key]?.text).map((h) => h.label);
   const needs = (rec?.roadmap?.needs || []).map((n) => n.name);
   const carryText = purpose?.text && !anyGoal ? purpose.text : '';
@@ -270,7 +273,7 @@ function GoalsView({ goals, roadmaps, purpose, loaded, onEdit, onCarry, onInterv
   return (
     <>
       {/* 説明は、まだロードマップが 1 つも無いあいだだけ（はじめて開いた人に・DESIGN §0-6 補足文を常に置かない）。 */}
-      {!anyRoadmap && <p className="goal-lead">{withPhraseBreaks('1 年後・3 年後・5 年後の目標を書くと、「達成するには？」を一緒に考えて、3 つをつなぐ道のりと読む本にします。')}</p>}
+      {!anyRoadmap && <p className="goal-lead">{withPhraseBreaks('1 年後の目標から書いてみましょう。「達成するには？」を一緒に考えて、道のりと読む本にします。3 年後・5 年後も書くと、その先までつなぎます。')}</p>}
       {carryText && (
         <section className="goal-box" aria-label="はじめに書いた目標">
           <p className="goal-sec-title" style={{ margin: 0 }}>はじめに書いた目標</p>
@@ -325,9 +328,9 @@ function GoalsView({ goals, roadmaps, purpose, loaded, onEdit, onCarry, onInterv
         })}
       </ol>
 
-      {/* 3 つとも書いたら、つなぐロードマップを 1 本（2026-11-16 オーナー「すべて入れたら AI を動かす」）。 */}
+      {/* 1 年後の目標を書いたら、つなぐロードマップを 1 本（2026-11-22 オーナー承認・前は 2026-11-16「すべて入れたら AI を動かす」）。 */}
       <section className="goal-cta" aria-label="ロードマップ">
-        {anyRoadmap && allSet && isRoadmapStale(rec, goals) ? (
+        {anyRoadmap && canBuild && isRoadmapStale(rec, goals) ? (
           <>
             <button type="button" style={btnPrimary} onClick={onInterview}>新しい目標でつくり直す</button>
             <p className="plan-summary">{withPhraseBreaks(`目標が新しくなりました。「達成するには？」を聞き直して、いまから 5 年の道のりをつくります（${ROADMAP_TOKENS_LABEL}）。`)}</p>
@@ -338,15 +341,17 @@ function GoalsView({ goals, roadmaps, purpose, loaded, onEdit, onCarry, onInterv
             {needs.length > 0 && <p className="goal-peek" style={{ marginTop: 0 }}>{withPhraseBreaks(`必要なこと：${needs.join('・')}`)}</p>}
             <button type="button" style={{ ...btnPrimary, marginTop: needs.length > 0 ? 'var(--space-3)' : 0 }} onClick={onRoadmap}>ロードマップを見る</button>
           </>
-        ) : allSet ? (
+        ) : canBuild ? (
           <>
             <button type="button" style={btnPrimary} onClick={onInterview}>ロードマップをつくる</button>
-            <p className="plan-summary">{withPhraseBreaks(`「達成するには？」を 2 つまで聞いてから、3 つの目標をつなぐ道のりと読む本の順番をつくります（${ROADMAP_TOKENS_LABEL}）。`)}</p>
+            <p className="plan-summary">{withPhraseBreaks(allSet
+              ? `「達成するには？」を 2 つまで聞いてから、3 つの目標をつなぐ道のりと読む本の順番をつくります（${ROADMAP_TOKENS_LABEL}）。`
+              : `「達成するには？」を 2 つまで聞いてから、1 年後の目標への道のりと読む本の順番をつくります（${ROADMAP_TOKENS_LABEL}）。${missing.join('・')}の目標は、あとから書けば道のりに足せます。`)}</p>
           </>
         ) : (
           <>
             <button type="button" style={btnPrimaryOff} disabled aria-describedby="goal-cta-note">ロードマップをつくる</button>
-            <p id="goal-cta-note" className="plan-summary">{withPhraseBreaks(`3 つの目標を書くと、つくれます。まだ書いていない目標：${missing.join('・')}`)}</p>
+            <p id="goal-cta-note" className="plan-summary">{withPhraseBreaks('1 年後の目標を書くと、つくれます。3 年後・5 年後は、あとからでもかまいません。')}</p>
           </>
         )}
       </section>

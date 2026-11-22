@@ -43,10 +43,11 @@ const slides = [
   },
   {
     Icon: BookOpen,
-    // 2026-10-02 オーナー承認: 最初の一歩は「取り込む」「ページを撮る」を先に（メモが早くたまる道）。
-    //   読んだ本の一文をメモする（初日クイックスタート）は 3 番目。どの道も、終えたら「相談してみる」（lib/firstDay.js）。
+    // 2026-11-22 オーナー承認（点検: 記録の無い人が取り込みで詰まっていた）: 最初の一歩は「読んだ本の一文をメモする」が主・
+    //   本のページを撮るが副・ほかのアプリから取り込むは文字ボタン（ホームのはじめの一歩と同じ順）。
+    //   どの道も、終えたら「相談してみる」（lib/firstDay.js）。（前は 2026-10-02 の 取り込む → 撮る → 一文 の順）
     title: 'まずはメモを入れましょう',
-    body: 'ブクログ・読書メーター・Kindle の記録や、本のページの写真から始められます。',
+    body: '読んだ本の、心に残った一文から始められます。ブクログ・読書メーター・Kindle の記録も取り込めます。',
   },
 ];
 
@@ -329,7 +330,7 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
     (onStartOcr || onStart)?.();
   };
 
-  // 📚 読んだ本の一文をメモする（初日クイックスタート・2026-10-02 に 3 番目へ）。未配線なら本追加へ。
+  // 📚 読んだ本の一文をメモする（初日クイックスタート・2026-11-22 に主ボタンへ）。未配線なら本追加へ。
   const startQuickstart = () => {
     markOnboardingCompleted();
     choosePath('quickstart');
@@ -411,14 +412,14 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
         </div>
 
         {isLast ? (
-          // 最後の画面は主役を 1 つに（DESIGN 原則 2・2026-10-02 オーナー承認の順）:
-          //   主＝ほかのアプリから取り込む（記録のある人は 1 回でメモがそろう）／副＝本のページを撮る（写真から書き起こす）／
-          //   文字ボタン＝読んだ本の一文をメモする（初日クイックスタート）。「どこで知りましたか」は一番下へ。
+          // 最後の画面は主役を 1 つに（DESIGN 原則 2・2026-11-22 オーナー承認の順）:
+          //   主＝読んだ本の一文をメモする（初日クイックスタート・記録が無くても 6 回ほど押せば相談の答えまで）／
+          //   副＝本のページを撮る（写真から書き起こす）／文字ボタン＝ほかのアプリから取り込む。「どこで知りましたか」は一番下へ。
           //   どのアプリから取り込めるか（ブクログ・読書メーター・Kindle）は本文と、開いたシートで言う。
           <>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', flexShrink: 0 }}>
-              <button type="button" style={{ ...btnPrimary, flex: 'none', width: '100%' }} onClick={startImport}>
-                ほかのアプリから取り込む
+              <button type="button" style={{ ...btnPrimary, flex: 'none', width: '100%' }} onClick={startQuickstart}>
+                読んだ本の一文をメモする
               </button>
               <button type="button" style={{ ...btnGhost, flex: 'none', width: '100%' }} onClick={startOcr}>
                 本のページを撮る
@@ -426,8 +427,8 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
               {/* 閉じるのは右上の × だけ（同じ操作を 2 か所に出さない・DESIGN §5）。
                   ガイドはヘルプの「使い方を最初から見る」で見直せる。 */}
               <div style={{ display: 'flex', justifyContent: 'center' }}>
-                <button type="button" style={{ ...btnLink, textAlign: 'center' }} onClick={startQuickstart}>
-                  読んだ本の一文をメモする
+                <button type="button" style={{ ...btnLink, textAlign: 'center' }} onClick={startImport}>
+                  ほかのアプリから取り込む
                 </button>
               </div>
             </div>

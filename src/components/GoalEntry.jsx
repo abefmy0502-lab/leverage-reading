@@ -3,7 +3,7 @@
 import { ChevronRight } from 'lucide-react';
 import './goals.css';
 import { useGoals } from '../hooks/useGoals';
-import { GOAL_HORIZONS, ALL_GOALS_KEY, fmtGoalDeadlineNow, allGoalsSet } from '../lib/goals';
+import { GOAL_HORIZONS, ALL_GOALS_KEY, fmtGoalDeadlineNow, canBuildRoadmap } from '../lib/goals';
 import { currentPhaseIndex, overdueGoals } from '../lib/goalRoadmap';
 import { appNow } from '../lib/appNow';
 import { withPhraseBreaks } from './TightBubble';
@@ -36,7 +36,7 @@ export default function GoalEntry({ onOpen }) {
     ? '期限が過ぎた目標があります。書き直しましょう'
     : rm
     ? (phase?.focus ? `いま：${phase.focus}` : 'ロードマップを見る')
-    : allGoalsSet(goals) ? 'ロードマップをつくる' : '3 つの目標を書くと、ロードマップをつくれます';
+    : canBuildRoadmap(goals) ? 'ロードマップをつくる' : '1 年後の目標を書くと、ロードマップをつくれます';
   return (
     <button type="button" className="goal-entry" onClick={() => onOpen?.({ view: rm && !overdue ? 'roadmap' : 'goals', horizon: rm && !overdue ? ALL_GOALS_KEY : null })}>
       <span className="goal-entry-body">

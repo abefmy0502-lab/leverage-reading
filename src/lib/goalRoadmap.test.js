@@ -313,3 +313,18 @@ describe('読むペース（2026-11-17）', async () => {
     expect(q.count).toBe(2);
   });
 });
+
+describe('1 年後の目標だけでつくる（2026-11-22）', () => {
+  it('まだ決めていない目標は「（まだ決めていない）」・あとから書いたら古い', async () => {
+    const { goalsPromptText: gpt, isRoadmapStale: stale } = await import('./goalRoadmap');
+    const { canBuildRoadmap, combinedGoal } = await import('./goals');
+    const g = { y1: { text: 'A', at: '2026-11-22T00:00:00Z' }, y3: null, y5: null };
+    expect(canBuildRoadmap(g)).toBe(true);
+    expect(canBuildRoadmap({ y1: null, y3: g.y1, y5: null })).toBe(false);
+    expect(combinedGoal(g).text).toBe('1 年後：A');
+    expect(gpt(g).split('\n')).toEqual(['1 年後（2027 年 11 月まで）: A', '3 年後: （まだ決めていない）', '5 年後: （まだ決めていない）']);
+    const rec = { roadmap: { phases: [] }, goals: g };
+    expect(stale(rec, g)).toBe(false);
+    expect(stale(rec, { ...g, y3: { text: 'B', at: g.y1.at } })).toBe(true);
+  });
+});
