@@ -100,19 +100,23 @@ describe('責任者と予定', () => {
   it('法人以外の責任者には、毎月の決まった仕事がある', () => {
     for (const r of ROLES) if (r.id !== 'b2b') expect(ROUTINES.some((x) => x.role === r.id), r.id).toBe(true);
   });
-  it('オーナーの時間は、兼業の間（2026-12〜2028-03）のどの月も、使える時間の 8 割（週 14 時間 × 4.33 × 0.8＝月 約 48.5 時間）に収まる', () => {
+  it('オーナーの時間は、兼業の間（2026-12〜2028-03）のどの月も、使える時間の 8 割（週 15 時間 × 4.33 × 0.8＝月 約 52 時間）に収まる', () => {
     for (const m of months.filter((x) => x <= '2028-03')) { const o = ownerHoursOfMonth(m); expect(o.total, m).toBeLessThanOrEqual(o.planLimit); }
     expect(ROUTINES.reduce((s, r) => s + r.owner, 0)).toBeLessThanOrEqual(OWNER_WEEKLY_HOURS);
   });
-  it('専業の間（2028-04〜2029-12）も、役割の時間と採用・引き継ぎを足して、どの月も週 40 時間の 8 割（月 約 139 時間）に収まる', () => {
+  it('専業の間（2028-04〜2029-12）の成果物には、すべてオーナーの時間（h）が書いてある（年の行は 0＝四半期の行に含む）', () => {
+    const inFt = (p) => p === '2028' || p === '2029' || (p.includes('Q') ? p >= '2028-Q2' : p >= '2028-04');
+    for (const x of ITEMS.filter((i) => inFt(i.period))) expect(typeof x.h, `${x.role} ${x.period} ${x.title}`).toBe('number');
+  });
+  it('専業の間（2028-04〜2029-12）も、決まった仕事と成果物（四半期 1/3・年 1/12）を足して、どの月も週 40 時間の 8 割（月 約 139 時間）に収まる', () => {
     for (const m of MONTHS.filter((x) => x >= '2028-04' && x <= '2029-12')) { const o = ownerHoursOfMonth(m); expect(o.fulltime, m).toBe(true); expect(o.total, m).toBeLessThanOrEqual(o.planLimit); }
   });
-  it('PdM の仕様は、開発が作る時期より前か同じ（つながり 1・Web の入口・年額の贈り物・AI と連携の有料化）', () => {
+  it('PdM の仕様は、開発が作る時期より前（つながり 1・3・Web の入口・年額の贈り物・AI と連携・学校・何年分のメモでも速い相談）', () => {
     const start = (p) => (p.length === 4 ? `${p}-01` : p.includes('Q') ? `${p.slice(0, 4)}-${String((Number(p.slice(-1)) - 1) * 3 + 1).padStart(2, '0')}` : p);
-    for (const k of ['つながり 1', 'Web の入口', '年額の贈り物', 'AI と連携']) {
+    for (const k of ['つながり 1', 'つながり 3', 'Web の入口', '年額の贈り物', 'AI と連携', '学校', '何年分']) {
       const first = (role) => ITEMS.filter((x) => x.role === role && x.period.length > 4 && x.title.includes(k)).map((x) => start(x.period)).sort()[0];
       expect(first('pdm'), `PdM ${k}`).toBeTruthy(); expect(first('dev'), `開発 ${k}`).toBeTruthy();
-      expect(first('pdm') <= first('dev'), k).toBe(true);
+      expect(first('pdm') < first('dev'), k).toBe(true);
     }
   });
   it('法人化の手続きは、お金と決まりだけが持つ（ほかの役割に同じ成果物を置かない）', () => {
