@@ -1174,11 +1174,13 @@ body.lp-active {
 .lp-root .lp-chat-todo-meta { margin: var(--space-1) 0 0; color: var(--text-2); font-size: var(--text-meta); }
 /* 広い画面: 見出しを左の列、会話を右の列に（会話だけ左に寄って右が空いていた・ui-critic 2026-11-11） */
 @media (min-width: 768px) {
-  .lp-flow-sec.is-talk .lp-wrap { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); column-gap: var(--space-16); align-items: start; }
+  /* 広い画面: 左の列に見出し・流れの図・相談する相手・通常の AI との違い・注記、右の列に会話（相談する本の行から行動リストまで）を上から（2026-11-22） */
+  .lp-flow-sec.is-talk .lp-wrap { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); column-gap: var(--space-16); align-items: start; grid-auto-flow: row dense; }
+  .lp-flow-sec.is-talk .lp-wrap > * { grid-column: 1; }
   .lp-flow-sec.is-talk .lp-sec-head { margin-bottom: 0; }
+  .lp-flow-sec.is-talk .lp-chat-wrap { grid-column: 2; grid-row: 1 / span 6; }
   .lp-flow-sec.is-talk .lp-chat { max-width: none; }
-  .lp-flow-sec.is-talk .lp-shot-note { grid-column: 2; }
-  .lp-flow-sec.is-talk .lp-chat-partner { grid-column: 2; }
+  .lp-flow-sec.is-talk .lp-partner, .lp-flow-sec.is-talk .lp-chat-diff { margin-top: var(--space-8); }
 }
 
 /* ============ 📖 読む前に、読み方が決まる（読書計画シート・2026-11-11） ============ */
@@ -1257,8 +1259,8 @@ body.lp-active {
 .lp-faq .lp-faq-a, .lp-faq details > div, .lp-faq details > p { max-width: 40em; }
 
 /* 2026-11-12 読み手テスト: ヒーローの事実の 1 行・答えの根拠の 1 行・ChatGPT との違い */
-.lp-root .lp-chat-diff { margin: var(--space-6) 0 0; padding: var(--space-3) var(--space-4); border-radius: var(--radius); background: var(--accent-soft); color: var(--text); font-size: var(--text-sub); font-weight: 600; line-height: 1.5; max-width: 36em; word-break: normal; line-break: strict; text-wrap: pretty; }
-@media (min-width: 768px) { .lp-flow-sec.is-talk .lp-chat-diff { grid-column: 2; } }
+.lp-root .lp-chat-diff { margin: var(--space-6) 0 0; padding: var(--space-3) var(--space-4); border-radius: var(--radius); background: var(--fill); color: var(--text); font-size: var(--text-sub); font-weight: 600; line-height: 1.5; max-width: 36em; word-break: normal; line-break: strict; text-wrap: pretty; }
+
 
 .lp-root .lp-plan-pick { margin: var(--space-2) 0 0; color: var(--text-2); font-size: var(--text-meta); text-align: center; }
 .lp-root .lp-plan-define { margin: 0 auto var(--space-6); max-width: 32em; text-align: left; line-height: 1.6; }
@@ -1305,7 +1307,7 @@ body.lp-active {
 .lp-root .lp-chat-diff-title { margin: 0 0 var(--space-1); font-weight: 700; }
 .lp-root .lp-chat-diff-body { margin: 0; font-weight: 400; }
 .lp-root .lp-chat-diff-body > span { display: block; }
-@media (min-width: 768px) { .lp-flow-sec.is-talk .lp-partner { grid-column: 2; } }
+
  /* 行動のカードの 1 行目（読点まで）が折り返さない幅 */
 .lp-root .lp-lines > span { display: block; }
 .lp-root .lp-final-sub { margin: var(--space-3) auto 0; max-width: none; color: var(--text-2); font-size: var(--text-body); text-align: center; }

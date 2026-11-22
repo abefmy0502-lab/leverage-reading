@@ -22,10 +22,13 @@ function Me({ children }) {
 function Book({ from, children }) {
   return (
     <li className="lp-chat-row is-book">
-      <p className="lp-chat-from">
-        <span className="lp-chat-avatar" aria-hidden="true"><BookOpen size={14} /></span>
-        {from || <span className="lp-sr">稲盛和夫『考え方』</span>}
-      </p>
+      {/* 同じ本の 2 回目からは名前の行を出さない（左寄せのカードで本だと分かる・読み上げには書名） */}
+      {from ? (
+        <p className="lp-chat-from">
+          <span className="lp-chat-avatar" aria-hidden="true"><BookOpen size={14} /></span>
+          {from}
+        </p>
+      ) : <span className="lp-sr">稲盛和夫『考え方』</span>}
       <div className="lp-chat-bubble">{children}</div>
     </li>
   );
@@ -37,6 +40,8 @@ export default function LpTalkFlow() {
   const [stepLead, ...stepRest] = String(step.action).split(/(?<=。)/);
   return (
     <>
+      {/* 広い画面では会話（相談する本の行＋会話）を右の列にまとめる（landing.css の .lp-chat-wrap） */}
+      <div className="lp-chat-wrap">
       <p className="lp-chat-partner"><BookOpen size="1.1em" aria-hidden="true" /><span>相談する本</span><b>稲盛和夫『考え方』</b></p>
       <ol className="lp-chat" aria-label="相談の流れの見本">
         <Me>{ask.ask}</Me>
@@ -72,6 +77,7 @@ export default function LpTalkFlow() {
           </div>
         </li>
       </ol>
+      </div>
       {/* 相談する相手（2026-11-15 オーナー「1 冊でも、本棚ぜんぶでも、をデザインで」・ui-critic: 節の頭の図は 1 つにし、見本の 1 冊の相談のあとに「ほかの相手も」として置く） */}
       <div className="lp-partner">
         <h3 className="lp-partner-h">相談する相手は、選べます。</h3>
