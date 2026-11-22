@@ -87,7 +87,7 @@ const nav = (name) => `nav button[aria-label="${name}"]`;
 const ASK = 'textarea[aria-label="相談したいこと"]';
 const SEND = 'button[aria-label="送信"]';
 const CHIPS = '[aria-label="続けて聞く"] button';
-const DECIDE = '[aria-label="続けて聞く"] button:has-text("ここで答えと行動を")';
+const DECIDE = 'button:has-text("ここで答えと行動を") >> nth=-1'; // 2026-11-22 から問いの箱の中の文字ボタン（チップの行には出ない）
 const ANSWER_DONE = '[aria-label="相談への答え"]:not([aria-busy]) button:has-text("行動に追加")';
 const EVIDENCE = 'summary:has-text("根拠を見る") >> nth=-1'; // いちばん新しい答えの根拠
 
@@ -224,6 +224,42 @@ export const SCENARIOS = [
       { say: '気になった本は、本棚へ', scrollTo: 'button:has-text("読みたいに追加") >> nth=0', block: 'center', hold: 500 },
       { tap: 'button:has-text("読みたいに追加") >> nth=0' },
       { waitFor: 'button:has-text("追加済み・開く")', timeout: 20000, hold: 2400 },
+    ],
+  },
+  {
+    // 📚 本棚の写真からまとめて追加（2026-11-22・SNS 戦略 §3-3 の 1 週目）: 本を追加 → 本棚を撮る → 読み取った本を確かめて → まとめて本棚へ。
+    name: 'shelf-scan',
+    pillar: '本と会話',
+    title: '本棚を撮ったら、\nまとめて入った',
+    url: '/',
+    steps: [
+      { say: '家の本棚、全部入れるのは大変', hold: 600 },
+      { tap: 'button:has-text("本を追加") >> nth=0', hold: 700 },
+      { say: '本棚の写真から、まとめて追加', tap: 'button:has-text("本棚の写真からまとめて追加")', hold: 900 },
+      { upload: ['[role=dialog] input[type=file]', 'scripts/fixtures/share-photo.jpg'] },
+      { say: '背表紙を読み取って、書店で確かめる', waitFor: 'button:has-text("冊を本棚に入れる")', timeout: 40000, hold: 2200 },
+      { scrollBy: 320, hold: 1600 },
+      { say: '選んだ本を、まとめて本棚へ', tap: 'button:has-text("冊を本棚に入れる")', hold: 2600 },
+    ],
+  },
+  {
+    // 🧭 目標とロードマップ（2026-11-22・SNS 戦略 §3-3 の 1 週目・入口 A「成長したい」）: 目標 → 「達成するには？」→ 道のり → 読む本。
+    name: 'goal-roadmap',
+    pillar: '成果',
+    title: '1 年後の自分から、\n逆算して読む',
+    url: '/?goals=noroadmap',
+    steps: [
+      { say: '1 年後、どうなっていたい？', hold: 500 },
+      { tap: nav('振り返り') },
+      { tap: 'button[role=tab]:has-text("行動")', hold: 600 },
+      { tap: 'button.goal-entry', hold: 1600 },
+      { say: '目標から、道のりをつくる', tap: '.goal-screen button:has-text("ロードマップをつくる") >> nth=0' },
+      { waitFor: 'button.goal-chip', timeout: 30000, hold: 900 },
+      { say: '「達成するには？」に答えて', tap: 'button.goal-chip >> nth=0', hold: 600 },
+      { tap: 'button:has-text("このくらいでつくる")' },
+      { say: '必要なことと、読む本の順番まで', waitFor: '#rm-road', timeout: 40000, hold: 2000 },
+      { scrollTo: '#rm-road', block: 'start', hold: 2400 },
+      { scrollBy: 420, hold: 2600 },
     ],
   },
   {
