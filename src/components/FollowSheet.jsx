@@ -85,7 +85,7 @@ function PersonRow({ person, children, onOpen, first = false }) {
 const SHELF_ROW = 4;
 const SHELF_PREVIEW = 8;
 const shelfCase = { marginTop: 'var(--space-3)', paddingTop: 'var(--space-4)', background: 'var(--fill)', borderRadius: 'var(--radius)', overflow: 'hidden' };
-const shelfRow = (first) => ({ display: 'flex', alignItems: 'flex-end', gap: 'var(--space-2)', margin: first ? 0 : 'var(--space-4) 0 0', padding: '0 var(--space-3)', borderBottom: 'var(--space-2) solid var(--separator)' });
+const shelfRow = (first) => ({ display: 'flex', alignItems: 'flex-end', gap: 'var(--space-2)', margin: first ? 0 : 'var(--space-4) 0 0', padding: '0 var(--space-3)', borderBottom: 'var(--space-2) solid var(--shelf-plank)' });
 
 function ShelfCase({ books, onOpen, hasBook }) {
   const rows = [];
@@ -163,7 +163,9 @@ function ShelfView({ books, filter, onFilter, onOpen, hasBook }) {
   );
 }
 
-export default function FollowSheet({ onClose, initialId = '', onAddWant, initialRequestCount = 0, hasBook }) {
+// initialTab: 'following' | 'followers' | 'requests'（設定のプロフィールの「フォロー中 N」「フォロワー N」から開く・2026-11-22）
+// initialReport: その人の通報の画面から開く（設定の届いた申し込みの「…」→「通報する」・戻ると一覧）
+export default function FollowSheet({ onClose, initialId = '', onAddWant, initialRequestCount = 0, hasBook, initialTab = '', initialReport = null }) {
   const toast = useToast();
   const { user } = useAuth();
   const { profile: me, loading: meLoading } = useProfile(user?.id || '');
@@ -173,11 +175,11 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
   const inputId = useId();
   const [lists, setLists] = useState(null); // null＝読み込み中
   const [notReady, setNotReady] = useState(false);
-  const [tab, setTab] = useState('following');
+  const [tab, setTab] = useState(initialTab || 'following');
   const [text, setText] = useState(initialId);
   const [preview, setPreview] = useState(null); // { person } | { missing: true }
   const [checking, setChecking] = useState(false);
-  const [view, setView] = useState({ name: 'home' }); // home | person { person } | book { person, book }
+  const [view, setView] = useState(initialReport ? { name: 'report', person: initialReport, back: { name: 'home' } } : initialTab ? { name: 'list' } : { name: 'home' }); // home | person { person } | book { person, book } | report
   const [shelf, setShelf] = useState(null); // { profile, books } | 'loading' | 'none'
   const [menu, setMenu] = useState(null); // { x, y, items }
   const [wantState, setWantState] = useState({});
@@ -216,6 +218,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
   useEffect(() => {
     if (!lists || firstTabRef.current) return;
     firstTabRef.current = true;
+    if (initialTab) return;
     if (!lists.following.length && lists.sent.length) setTab('requests');
   }, [lists]);
 
@@ -286,7 +289,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
     if (!ok) return;
     try {
       await removeFollow(person.publicId, as);
-      if (view.name !== 'home') setView({ name: 'home' });
+      if (view.name !== 'home' && view.name !== 'list') setView(personBackRef.current);
       reload();
     } catch {
       toast.error('できませんでした。通信状況を確認してください。');
@@ -362,7 +365,10 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
     reload();
   };
 
+  // 人の本棚から戻る先（一覧だけの画面から開いたら、そこへ戻す）。
+  const personBackRef = useRef({ name: 'home' });
   const openPerson = async (person) => {
+    personBackRef.current = view.name === 'list' ? { name: 'list' } : { name: 'home' };
     setView({ name: 'person', person });
     setShelf('loading');
     setShelfFilter('');
@@ -462,7 +468,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
     const loaded = shelf && typeof shelf === 'object' ? shelf : null;
     const others = (loaded?.books || []).filter((b) => b.summary && b.id !== book.id).slice(0, 3);
     return createPortal(
-      <BottomSheet title="フォロー" onClose={onClose} layer="dialog">
+      <BottomSheet title={`${who(person)}の本棚`} onClose={onClose} layer="dialog">
         <div ref={bodyRef} style={sheetBody}>
         <button type="button" onClick={() => setView({ name: 'person', person })} style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}>
           <ChevronLeft size="1.1em" aria-hidden="true" />{who(person)}の本棚
@@ -522,10 +528,10 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
     const withSummary = (loaded?.books || []).filter((b) => b.summary);
     const ordered = loaded ? SHELF_ORDER.flatMap((st) => loaded.books.filter((b) => b.status === st)) : [];
     return createPortal(
-      <BottomSheet title="フォロー" onClose={onClose} layer="dialog">
+      <BottomSheet title={`${who(person)}の本棚`} onClose={onClose} layer="dialog">
         <div ref={bodyRef} style={sheetBody}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <button type="button" onClick={() => setView({ name: 'home' })} style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}>
+          <button type="button" onClick={() => setView(personBackRef.current)} style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}>
             <ChevronLeft size="1.1em" aria-hidden="true" />フォロー
           </button>
           <button
@@ -599,6 +605,80 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
   ];
   const followingIds = new Set([...(lists?.following || []), ...(lists?.sent || [])].map((p) => p.publicId));
   const mutual = new Set((lists?.following || []).map((p) => p.publicId));
+  const listsBlock = (
+          <div>
+            <div role="tablist" aria-label="フォローの一覧" style={segTrack}>
+              {TABS.map((t) => (
+                <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)} style={segOption(tab === t.id)}>{t.label}</button>
+              ))}
+            </div>
+            {!lists ? <p role="status" style={{ ...note, marginTop: 'var(--space-4)' }}>読み込んでいます…</p> : (
+              <div role="list" style={{ marginTop: 'var(--space-3)' }}>
+                {tab === 'following' && (lists.following.length
+                  ? lists.following.map((p, i) => <PersonRow key={p.publicId} first={i === 0} person={p} onOpen={() => openPerson(p)} />)
+                  : <p style={note}>{withPhraseBreaks('フォロー中の人はいません。相手のリンクから申し込めます。')}</p>)}
+                {tab === 'followers' && (lists.followers.length
+                  ? lists.followers.map((p, i) => (
+                    <PersonRow key={p.publicId} first={i === 0} person={p} onOpen={mutual.has(p.publicId) ? () => openPerson(p) : undefined}>
+                      <button
+                        type="button"
+                        aria-label={`${who(p)}の操作`}
+                        style={iconBtn}
+                        onClick={(e) => openMenu(e, [
+                          ...(followingIds.has(p.publicId) ? [] : [{ label: 'フォローを申し込む', onClick: () => ask(p) }]),
+                          { label: 'フォロワーから外す', onClick: () => remove(p, 'follower') },
+                          { label: '通報する', onClick: () => report(p) },
+                          { label: 'ブロックする', destructive: true, onClick: () => block(p) },
+                        ])}
+                      >
+                        <MoreHorizontal size="1.25em" aria-hidden="true" />
+                      </button>
+                    </PersonRow>
+                  ))
+                  : <p style={note}>{withPhraseBreaks(meReady ? 'フォロワーはいません。「あなたの ID」を渡すと、申し込みが届きます。' : 'フォロワーはいません。')}</p>)}
+                {tab === 'requests' && (
+                  <>
+                    {lists.sent.length === 0 && <p style={note}>{withPhraseBreaks(lists.requests.length ? '送った申し込みはありません。届いた申し込みは上にあります。' : '送った申し込みはありません。')}</p>}
+                    {lists.sent.length > 0 && <p style={{ ...note, margin: '0 0 var(--space-2)' }}>相手の承認を待っています。</p>}
+                    {lists.sent.map((p, i) => (
+                      <PersonRow key={`s-${p.publicId}`} first={i === 0} person={p}>
+                        <button type="button" style={rowLink} onClick={() => remove(p, 'following')}>取り消す</button>
+                      </PersonRow>
+                    ))}
+                  </>
+                )}
+              </div>
+            )}
+            {counts && lists.blocked.length > 0 && (
+              <details style={{ marginTop: 'var(--space-6)' }}>
+                <summary style={{ ...note, minHeight: 'var(--tap-min)', display: 'flex', alignItems: 'center', cursor: 'pointer' }}>ブロック中（{lists.blocked.length}）</summary>
+                <div role="list">
+                  {lists.blocked.map((p, i) => (
+                    <PersonRow key={`b-${p.publicId}`} first={i === 0} person={p}>
+                      <button type="button" style={rowLink} onClick={() => unblock(p)}>ブロックを外す</button>
+                    </PersonRow>
+                  ))}
+                </div>
+              </details>
+            )}
+          </div>
+  );
+
+  // 設定の「フォロー中 N」「フォロワー N」から開いたとき＝一覧だけの画面（‹ フォロー で申し込む・あなたの ID の画面へ・2026-11-22）。
+  if (view.name === 'list' && !notReady) {
+    return (<>{createPortal(
+      <BottomSheet title="フォロー" onClose={onClose} layer="dialog">
+        <div ref={bodyRef} style={sheetBody}>
+          <button type="button" onClick={() => setView({ name: 'home' })} style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))', marginBottom: 'var(--space-3)' }}>
+            <ChevronLeft size="1.1em" aria-hidden="true" />申し込む・あなたの ID
+          </button>
+          {listsBlock}
+          {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
+        </div>
+      </BottomSheet>,
+      document.body,
+    )}{profileSheet}</>);
+  }
   return (<>{createPortal(
     <BottomSheet title="フォロー" onClose={onClose} layer="dialog">
         <div ref={bodyRef} style={sheetBody}>
@@ -709,62 +789,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
               )}
             </div>
 
-          <div>
-            <div role="tablist" aria-label="フォローの一覧" style={segTrack}>
-              {TABS.map((t) => (
-                <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)} style={segOption(tab === t.id)}>{t.label}</button>
-              ))}
-            </div>
-            {!lists ? <p role="status" style={{ ...note, marginTop: 'var(--space-4)' }}>読み込んでいます…</p> : (
-              <div role="list" style={{ marginTop: 'var(--space-3)' }}>
-                {tab === 'following' && (lists.following.length
-                  ? lists.following.map((p, i) => <PersonRow key={p.publicId} first={i === 0} person={p} onOpen={() => openPerson(p)} />)
-                  : <p style={note}>{withPhraseBreaks('フォロー中の人はいません。相手のリンクから申し込めます。')}</p>)}
-                {tab === 'followers' && (lists.followers.length
-                  ? lists.followers.map((p, i) => (
-                    <PersonRow key={p.publicId} first={i === 0} person={p} onOpen={mutual.has(p.publicId) ? () => openPerson(p) : undefined}>
-                      <button
-                        type="button"
-                        aria-label={`${who(p)}の操作`}
-                        style={iconBtn}
-                        onClick={(e) => openMenu(e, [
-                          ...(followingIds.has(p.publicId) ? [] : [{ label: 'フォローを申し込む', onClick: () => ask(p) }]),
-                          { label: 'フォロワーから外す', onClick: () => remove(p, 'follower') },
-                          { label: '通報する', onClick: () => report(p) },
-                          { label: 'ブロックする', destructive: true, onClick: () => block(p) },
-                        ])}
-                      >
-                        <MoreHorizontal size="1.25em" aria-hidden="true" />
-                      </button>
-                    </PersonRow>
-                  ))
-                  : <p style={note}>{withPhraseBreaks(meReady ? 'フォロワーはいません。上の「あなたの ID」を渡すと、申し込みが届きます。' : 'フォロワーはいません。')}</p>)}
-                {tab === 'requests' && (
-                  <>
-                    {lists.sent.length === 0 && <p style={note}>{withPhraseBreaks(lists.requests.length ? '送った申し込みはありません。届いた申し込みは上にあります。' : '送った申し込みはありません。')}</p>}
-                    {lists.sent.length > 0 && <p style={{ ...note, margin: '0 0 var(--space-2)' }}>相手の承認を待っています。</p>}
-                    {lists.sent.map((p, i) => (
-                      <PersonRow key={`s-${p.publicId}`} first={i === 0} person={p}>
-                        <button type="button" style={rowLink} onClick={() => remove(p, 'following')}>取り消す</button>
-                      </PersonRow>
-                    ))}
-                  </>
-                )}
-              </div>
-            )}
-            {counts && lists.blocked.length > 0 && (
-              <details style={{ marginTop: 'var(--space-6)' }}>
-                <summary style={{ ...note, minHeight: 'var(--tap-min)', display: 'flex', alignItems: 'center', cursor: 'pointer' }}>ブロック中（{lists.blocked.length}）</summary>
-                <div role="list">
-                  {lists.blocked.map((p, i) => (
-                    <PersonRow key={`b-${p.publicId}`} first={i === 0} person={p}>
-                      <button type="button" style={rowLink} onClick={() => unblock(p)}>ブロックを外す</button>
-                    </PersonRow>
-                  ))}
-                </div>
-              </details>
-            )}
-          </div>
+          {listsBlock}
         </div>
       )}
       {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}

@@ -38,6 +38,7 @@ import { AppPurposeEditSheet, PurposeCheckSheet } from './AppPurposeSheets';
 import { useAppPurpose } from '../hooks/useAppPurpose';
 import ProfileSheet from './ProfileSheet';
 import FollowSheet from './FollowSheet';
+import FollowSummary from './FollowSummary';
 import { SOCIAL_ON, loadFollows } from '../lib/social';
 import { useProfile, resetProfileCache } from '../hooks/useProfile';
 import UserAvatar from './UserAvatar';
@@ -415,12 +416,14 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
   const [purposeEditOpen, setPurposeEditOpen] = useState(false);
   // 👤 プロフィール（2026-11-21）
   const [profileOpen, setProfileOpen] = useState(false);
+  // followOpen: false か { tab, report }（プロフィールの下の「フォロー中 N」「フォロワー N」・申し込みの「…」から・2026-11-22）
   const [followOpen, setFollowOpen] = useState(false);
-  // 届いている申し込みの数（フォローの行の 2 行目に出す・シートを閉じたら数え直す）。
-  const [followRequests, setFollowRequests] = useState(0);
+  // フォロー中・フォロワー・届いた申し込み（プロフィールの下に出す・シートを閉じたら読み直す）。null＝読んでいる・'none'＝使えない
+  const [followLists, setFollowLists] = useState(null);
+  const followRequests = followLists && followLists !== 'none' ? followLists.requests.length : 0;
   const countFollowRequests = useCallback(() => {
     if (!SOCIAL_ON) return;
-    loadFollows().then((r) => { if (r.ok) setFollowRequests(r.lists.requests.length); }).catch(() => {});
+    loadFollows().then((r) => setFollowLists(r.ok ? r.lists : 'none')).catch(() => setFollowLists((prev) => prev || 'none'));
   }, []);
   useEffect(() => { countFollowRequests(); }, [countFollowRequests]);
   const { profile: myProfile } = useProfile(user?.id || '');
@@ -1050,19 +1053,22 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
               </span>
               <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
             </button>
-            {/* 👥 フォロー（2026-11-21 3 回目・VITE_SOCIAL のビルドだけ）。 */}
-            {SOCIAL_ON && (
-              <button type="button" onClick={() => setFollowOpen(true)} style={{ ...rowButtonStyle, ...divider, gap: 'var(--space-3)' }}>
-                {/* 上のアバターの行と文字の左端をそろえる 40 の丸 */}
+            {/* 👥 フォロー中 N・フォロワー N・届いた申し込み（その場で承認・断る）・ID で申し込む（2026-11-22・VITE_SOCIAL のビルドだけ）。
+                フォローを使えない（SQL が無い）ときは、前と同じ 1 行でシートへ（シートが「まだ使えません」と出す）。 */}
+            {SOCIAL_ON && followLists !== 'none' && (
+              <FollowSummary
+                lists={followLists}
+                onOpen={(tab) => setFollowOpen({ tab })}
+                onReport={(person) => setFollowOpen({ report: person })}
+                onChanged={countFollowRequests}
+              />
+            )}
+            {SOCIAL_ON && followLists === 'none' && (
+              <button type="button" onClick={() => setFollowOpen({})} style={{ ...rowButtonStyle, ...divider, gap: 'var(--space-3)' }}>
                 <span aria-hidden="true" style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--fill)', color: 'var(--text-2)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <IcUsers size="1.2em" />
                 </span>
-                <span style={{ flex: 1, minWidth: 0 }}>
-                  <span style={{ ...rowTitleStyle, display: 'block', color: 'inherit' }}>フォロー</span>
-                  <span style={{ ...rowDescStyle, display: 'block', ...(followRequests ? { color: 'var(--accent)', fontWeight: 600 } : {}) }}>
-                    {followRequests ? `申し込みが ${followRequests} 件届いています` : 'フォロー中・フォロワー・申し込み'}
-                  </span>
-                </span>
+                <span style={{ flex: 1, minWidth: 0, ...rowTitleStyle, color: 'inherit' }}>フォロー</span>
                 <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
               </button>
             )}
@@ -1564,7 +1570,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
       )}
       {followOpen && (
         <div onClick={(e) => e.stopPropagation()}>
-          <FollowSheet initialRequestCount={followRequests} onClose={() => { setFollowOpen(false); countFollowRequests(); }} onAddWant={onAddWant} hasBook={hasBook} />
+          <FollowSheet initialRequestCount={followRequests} initialTab={followOpen.tab || ''} initialReport={followOpen.report || null} onClose={() => { setFollowOpen(false); countFollowRequests(); }} onAddWant={onAddWant} hasBook={hasBook} />
         </div>
       )}
           {purposeEditOpen && (
