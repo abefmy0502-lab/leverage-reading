@@ -50,7 +50,7 @@ describe('normalizeEmail（メールの形）', () => {
   });
   it('形の違うものは null', () => {
     ['', 'abc', 'a@b', 'a b@example.com', 'a@@example.com', '.a@example.com', 'a..b@example.com',
-      'a@-example.com', 'a@example.c', `${'a'.repeat(65)}@example.com`, `a@${'b'.repeat(250)}.com`, null, 42]
+      'a@-example.com', 'a@example.c', 'ａｂｃ@example.com', `${'a'.repeat(65)}@example.com`, `a@${'b'.repeat(250)}.com`, null, 42]
       .forEach((v) => expect(normalizeEmail(v)).toBeNull());
   });
 });

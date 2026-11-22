@@ -52,6 +52,7 @@ export function normalizeEmail(v) {
   const m = s.match(/^([^\s@"'<>(),;:\\[\]]+)@([a-z0-9-]+(?:\.[a-z0-9-]+)+)$/);
   if (!m) return null;
   if (m[1].length > 64) return null;
+  if (/[^\x21-\x7e]/.test(m[1])) return null; // @ の前は半角だけ（全角の文字は届かないまま登録になっていた・2026-11-22 点検）
   if (/^\.|\.\.|\.$/.test(m[1])) return null;
   if (m[2].split('.').some((p) => !p || p.startsWith('-') || p.endsWith('-'))) return null;
   if (!/^[a-z]{2,}$/.test(m[2].split('.').pop())) return null;
