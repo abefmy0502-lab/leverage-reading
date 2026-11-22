@@ -417,3 +417,14 @@ describe('無料プランは聞き返し 1 回まで（2026-10-21）', () => {
   });
 });
 
+
+describe('challengeQuestion（2026-11-22）', () => {
+  it('受け取った悩みの「…」は中身だけ・長い文は出さない', async () => {
+    const { challengeQuestion } = await import('./consultHelpers.js');
+    expect(challengeQuestion('「仕事を抱えすぎて、いつも時間が足りない」ということが、いまいちばん気になっています。')).toBe('仕事を抱えすぎて、いつも時間が足りない。どう考えればいい？');
+    expect(challengeQuestion('部下が報告をくれない。困っている')).toBe('部下が報告をくれない。どう考えればいい？');
+    expect(challengeQuestion('チームの方針をどう決める？')).toBe('チームの方針をどう決める？');
+    expect(challengeQuestion('あ'.repeat(41))).toBe('');
+    expect(challengeQuestion('')).toBe('');
+  });
+});

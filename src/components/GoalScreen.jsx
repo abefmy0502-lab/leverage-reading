@@ -70,7 +70,7 @@ function gluedEnd(text) {
 // 文字の大きさの設定が大きいとき（ルート 22px 以上）。
 const largeRootText = () => { try { return parseFloat(getComputedStyle(document.documentElement).fontSize) >= 22; } catch { return false; } };
 
-export default function GoalScreen({ start = null, books = [], onClose, onOpenBook, onAddActionText, onAddReadingActions, onFindBooks, onAddRecBook }) {
+export default function GoalScreen({ start = null, books = [], onClose, onOpenBook, onAddActionText, onAddReadingActions, onFindBooks, onAddRecBook, onRead = null }) {
   const { goals, roadmaps, purpose, loaded } = useGoals();
   const toast = useToast();
   const { rows: sessions } = useReadingSessions();
@@ -204,6 +204,7 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
               sessions={sessions}
               onFindBooks={onFindBooks}
               onOpenBook={openBook}
+              onRead={onRead}
               onAddReadingActions={onAddReadingActions}
               onRoadmap={() => setView('roadmap')}
             />
@@ -1059,7 +1060,7 @@ function RoadmapEditSheet({ editing, roadmap, specs, onClose, onSave }) {
 // ---------------------------------------------------------------------------
 // 読書計画カレンダー
 // ---------------------------------------------------------------------------
-function PlanView({ goal, record, books, sessions, onFindBooks, onOpenBook, onAddReadingActions, onRoadmap }) {
+function PlanView({ goal, record, books, sessions, onFindBooks, onOpenBook, onRead = null, onAddReadingActions, onRoadmap }) {
   const toast = useToast();
   const today = toLocalYmd(appNow());
   const year = Number(today.slice(0, 4));
@@ -1068,7 +1069,7 @@ function PlanView({ goal, record, books, sessions, onFindBooks, onOpenBook, onAd
   const here = currentPhaseIndex(goal.key, record.goalAt || goal.at, appNow());
   const [minutes, setMinutes] = useState(record.plan?.minutesPerDay || PLAN_DEFAULT_MINUTES);
   const speed = useMemo(() => readingSpeedFactor(books, sessions), [books, sessions]);
-  // 区切りの本は、その区切りが始まる日から（ロードマップと同じ時期に読む）。
+  // 区切りの始まりは目安（待たない・2026-11-22 点検＝前の本を読み終えたら次の区切りの本へ）。
   const phaseStarts = useMemo(() => specs.map((x) => `${x.startYm}-01`), [specs]);
   // 本人が順番を決めていれば、その順に今日から（2026-11-16 オーナー「自由に本の順番も入れられるように」）。
   const customOrder = Array.isArray(record.plan?.order) && record.plan.order.length ? record.plan.order : null;
@@ -1187,6 +1188,12 @@ function PlanView({ goal, record, books, sessions, onFindBooks, onOpenBook, onAd
             <span className="plan-today-meta">{nowItem ? <><span style={{ whiteSpace: 'nowrap' }}>{`1 日 ${minutes} 分`}</span>{' · '}<span style={{ whiteSpace: 'nowrap' }}>{`${fmtMd(nowItem.end, year)} まで`}</span></> : withPhraseBreaks('今日は読む本の予定がありません')}</span>
           </span>
           <ChevronRight className="goal-entry-chev" size="1.1em" aria-hidden="true" style={{ marginRight: 'calc(-1 * var(--space-1))' }} />
+        </button>
+      )}
+      {/* ⏱ 今日の本をそのまま読む（1 日に読む時間をタイマーに入れて・2026-11-22 点検＝前は本の詳細へ寄り道が要った）。 */}
+      {todayBook && nowItem && onRead && (
+        <button type="button" onClick={() => onRead(todayBook, minutes)} style={{ ...btnGhost, marginTop: 'var(--space-2)' }}>
+          {`今日の ${minutes} 分を読む`}
         </button>
       )}
 

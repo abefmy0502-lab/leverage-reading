@@ -33,11 +33,13 @@ function fmtLen(min) {
 }
 
 // book: 読む本（題の上に書名を 1 行・読書中が 2 冊以上でもどの本か分かる＝メモを書くシートと同じ・2026-10-11）。
-export default function FocusStartSheet({ book = null, onStart, onClose, initialUntil = false }) {
+// initialMinutes: 読書計画の「今日の本」から開いたとき、その 1 日に読む時間（15・30・45・60）をタイマーに入れておく（2026-11-22 点検）。
+export default function FocusStartSheet({ book = null, onStart, onClose, initialUntil = false, initialMinutes = null }) {
   const [prefs] = useState(loadFocusPrefs);
-  const [mode, setMode] = useState(initialUntil ? 'timer' : prefs.mode);
-  const [minutes, setMinutes] = useState(prefs.minutes);
-  const [useUntil, setUseUntil] = useState(initialUntil || prefs.until);
+  const planMin = FOCUS_MINUTES.includes(Number(initialMinutes)) ? Number(initialMinutes) : null;
+  const [mode, setMode] = useState(initialUntil || planMin ? 'timer' : prefs.mode);
+  const [minutes, setMinutes] = useState(planMin || prefs.minutes);
+  const [useUntil, setUseUntil] = useState(planMin ? false : (initialUntil || prefs.until));
   const [untilText, setUntilText] = useState(() => defaultUntilTime());
   // 残りの分は時間とともに変わるので、開いている間は 15 秒ごとに出し直す。
   const [now, setNow] = useState(() => Date.now());

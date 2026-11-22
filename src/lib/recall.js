@@ -165,6 +165,25 @@ export function pickRecallMemo(notes, { now = Date.now(), minAgeDays = 14, seed 
   return (pool[idx] || pool[0]).note;
 }
 
+// 📏 1 日に出す思い出しカードの数（2026-11-22 点検: メモをたくさん取り込んだ人に、終わりの無い山を出していた）。
+//   今日（端末の日付）思い出したメモがこの数に届いたら、今日の分は終わり（「別のメモを見る」は残る）。
+export const RECALL_DAILY_LIMIT = 5;
+export function recalledTodayCount(notes, { now = Date.now() } = {}) {
+  if (!Array.isArray(notes)) return 0;
+  const d0 = new Date(now); d0.setHours(0, 0, 0, 0);
+  const start = d0.getTime();
+  const end = start + 86400000;
+  let c = 0;
+  for (const n of notes) {
+    const t = n?.lastRecalledAt ? new Date(n.lastRecalledAt).getTime() : NaN;
+    if (t >= start && t < end) c += 1;
+  }
+  return c;
+}
+export function dailyRecallDone(notes, { now = Date.now(), limit = RECALL_DAILY_LIMIT } = {}) {
+  return recalledTodayCount(notes, { now }) >= limit;
+}
+
 // 想起カードのフィードバックで DB に書く patch を返す純関数。
 //   - mastered=true（「覚えた」）: recall_count を +1（次の想起間隔が伸びる = 当面出さない）
 //   - mastered=false（「もう一度」）: recall_count を 0 に戻す（間隔[0]=1 日後に再登場）。

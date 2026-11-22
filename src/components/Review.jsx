@@ -25,7 +25,7 @@ import EmptyState from './EmptyState';
 import ErrorMessage from './ErrorMessage';
 import Spinner from './Spinner';
 import { SkeletonBlock } from './Skeleton';
-import { isAiWritten, relativeJa, recallFraming, pickRecallMemo, pickFallbackMemo, pickExtraMemo, nextDueAt, nextDueLabel, applyLocalRecall, recallPatch, dueGapDays } from '../lib/recall';
+import { isAiWritten, relativeJa, recallFraming, pickRecallMemo, pickFallbackMemo, pickExtraMemo, nextDueAt, nextDueLabel, applyLocalRecall, recallPatch, dueGapDays, dailyRecallDone } from '../lib/recall';
 import { loadRecallLocal, saveRecallLocal } from '../lib/recallLocal';
 import { markActivation } from '../lib/activation';
 import NotifyOptInCard from './NotifyOptInCard';
@@ -679,8 +679,10 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
     if (firstMonth) setExpanded(new Set([firstMonth]));
   }, [allNotes, loading]);
 
+  // 今日の分（RECALL_DAILY_LIMIT 枚）を答え終えたら、明日まで出さない（2026-11-22 点検）。
+  const todayDone = useMemo(() => dailyRecallDone(allNotes), [allNotes]);
   const randomMemo = useMemo(() => {
-    if (allNotes.length === 0) return null;
+    if (allNotes.length === 0 || todayDone) return null;
     // 「忘れた頃の」sweet spot(30〜183日優先・最低14日)で選ぶ＝push通知/HomeRecall と
     // 同じ想起ロジック。これにより「昨日書いたメモが出て"振り返り"感が無い」を解消。
     // 熟成メモがまだ無い新規ユーザーは従来のランダム1枚にフォールバック（空にしない）。
@@ -691,11 +693,11 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
     // （以前は全メモから選んでいて、覚えたメモに何度も「覚えた？」と聞いていた・2026-10-01）。
     // useMemo 内なので純粋に保つ（seed から決定的に）。
     return pickFallbackMemo(allNotes, { seed: randomSeed });
-  }, [allNotes, randomSeed]);
+  }, [allNotes, randomSeed, todayDone]);
   // 今日出すメモが残っていない（すべて次の間隔を待っている）→「今日の思い出しカードは、ここまでです」。
   const recallNextLabel = useMemo(
-    () => (randomMemo || allNotes.length === 0 ? '' : nextDueLabel(nextDueAt(allNotes))),
-    [randomMemo, allNotes],
+    () => (randomMemo || allNotes.length === 0 ? '' : todayDone ? '次は明日出します' : nextDueLabel(nextDueAt(allNotes))),
+    [randomMemo, allNotes, todayDone],
   );
   // 思い出しカードに出せるのは自分の言葉だけ（AI まとめは出さない・2026-10-04）。AI まとめしか無い人には
   // 「ここまでです」も出さない（思い出しカードの区画ごと出さない）。
@@ -901,7 +903,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
     const after = allNotes.map((n) => (n.id === memo.id
       ? { ...n, lastRecalledAt: patch.last_recalled_at, recallCount: patch.recall_count }
       : n));
-    const isLast = !pickRecallMemo(after) && !pickFallbackMemo(after);
+    const isLast = dailyRecallDone(after) || (!pickRecallMemo(after) && !pickFallbackMemo(after));
     recordRandomRecall(memo, mastered);
     track(EVENTS.RECALL_ANSWERED, { mastered: !!mastered });
     reroll();

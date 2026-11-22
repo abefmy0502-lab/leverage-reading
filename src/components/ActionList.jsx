@@ -565,6 +565,20 @@ export default function ActionList({ books, onOpenGoals = null, onToggleAction, 
     });
   };
 
+  // ✍️ 書きかけのふりかえりは、タブを替える・画面を離れるときに残す（2026-11-22 点検: 黙って消えていた）。
+  //   欄は同時に 1 つだけなので、いま開いている欄の行と文を覚えておき、外れるときに 1 回だけ保存する。
+  const pendingReflectRef = useRef(null);
+  pendingReflectRef.current = (() => {
+    const c = completing.find((x) => x.phase === 'reflect');
+    return c && reflection.trim() && !reflecting ? { c, text: reflection } : null;
+  })();
+  const onReflectRef = useRef(onReflect);
+  onReflectRef.current = onReflect;
+  useEffect(() => () => {
+    const p = pendingReflectRef.current;
+    if (p) Promise.resolve(onReflectRef.current?.(p.c.a.bookId, p.c.a.actionIdx, { ...p.c.a, done: true }, p.text)).catch(() => {});
+  }, []);
+
   // 返り値: 残せたら true（「この結果を相談する」は、残せなかったら相談へ移らない）。
   const saveReflection = async (c) => {
     if (!c || !reflection.trim() || reflecting) return false;
