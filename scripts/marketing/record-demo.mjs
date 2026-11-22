@@ -19,7 +19,7 @@
 //   Playwright の recordVideo で舞台ごと録り、finish-video.mjs が頭を切って mp4 にする。
 // 出力: marketing-out/videos/<日付>/<名前>/ に raw.webm・meta.json・final.mp4・captions.srt・cover.jpg（git 管理外）。
 
-import { mkdirSync, renameSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
+import { mkdirSync, renameSync, writeFileSync, readFileSync, existsSync, rmSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { chromium } from 'playwright-core';
 import { SCENARIOS, redactPairs, AUTHOR_REDACT, openingTitle } from './scenarios.mjs';
@@ -413,21 +413,39 @@ async function recordOne(browser, s) {
 }
 
 mkdirSync(outRoot, { recursive: true });
-const browser = await chromium.launch(browserOptions());
-let bad = 0;
+// 録画が空になる（Mac が眠った・ブラウザが詰まった）・途中で止まる、は 3 回まで撮り直す。
+// 配置の決まり（はみ出し・重なり）で止まったときは撮り直さない（台本を直すしかない）。
+const TRIES = 3;
+let browser = await chromium.launch(browserOptions());
+const badNames = [];
 for (const s of targets) {
-  const { dir, failed, errors } = await recordOne(browser, s);
-  if (failed) {
-    bad += 1;
-    console.error(`✗ ${s.name}: ${failed}（途中までの録画は ${join(dir, 'raw.webm')}）`);
-    continue;
+  let last = '';
+  for (let attempt = 1; attempt <= TRIES; attempt += 1) {
+    if (attempt > 1) {
+      console.log(`  ↻ ${s.name}: 撮り直します（${attempt}/${TRIES}）`);
+      await browser.close().catch(() => {});
+      browser = await chromium.launch(browserOptions());
+    }
+    const { dir, failed, errors } = await recordOne(browser, s);
+    if (failed) {
+      last = `${failed}（途中までの録画は ${join(dir, 'raw.webm')}）`;
+      if (/配置を直してください/.test(failed)) break;
+      continue;
+    }
+    const raw = join(dir, 'raw.webm');
+    if (!existsSync(raw) || statSync(raw).size < 20000) { last = '録画が空でした'; continue; }
+    if (flag('--no-finish')) { last = ''; console.log(`✓ ${s.name}  ${raw}`); break; }
+    let why = '';
+    const out = await finishVideo(dir).catch((e) => { why = e.message; return null; });
+    if (!out) { last = `仕上げに失敗しました: ${why}`; continue; }
+    last = '';
+    console.log(`✓ ${s.name}  → ${resolve(out)}${errors.length ? `  ⚠️ ${errors[0]}` : ''}`);
+    break;
   }
-  let note = '';
-  if (!flag('--no-finish')) {
-    const out = await finishVideo(dir).catch((e) => { note = `  ⚠️ ${e.message}`; return null; });
-    if (out) note = `  → ${resolve(out)}`;
-  }
-  console.log(`✓ ${s.name}  ${join(dir, 'raw.webm')}${note}${errors.length ? `  ⚠️ ${errors[0]}` : ''}`);
+  if (last) { badNames.push(s.name); console.error(`✗ ${s.name}: ${last}`); }
 }
 await browser.close();
-if (bad) process.exit(1);
+if (badNames.length) {
+  console.error(`\n✗ 撮れなかった動画: ${badNames.join('・')}`);
+  process.exit(1);
+}

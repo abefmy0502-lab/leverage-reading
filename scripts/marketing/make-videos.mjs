@@ -23,7 +23,12 @@ if (!sayVoice && !env.OPENAI_API_KEY && process.platform === 'darwin') {
   const k = spawnSync('security', ['find-generic-password', '-s', 'orime-openai-tts', '-w'], { encoding: 'utf8' });
   if (k.status === 0 && k.stdout.trim()) env.OPENAI_API_KEY = k.stdout.trim();
 }
+// 作っている間は Mac を眠らせない（2026-11-22 途中で眠って録画が空になった）。このプロセスが終わると自動で解ける。
+if (process.platform === 'darwin') { try { spawn('caffeinate', ['-i', '-w', String(process.pid)], { stdio: 'ignore', detached: true }).unref(); } catch { /* 無くても続ける */ } }
 const run = (args) => { const r = spawnSync('node', args, { stdio: 'inherit', env }); if (r.status !== 0) throw new Error(`${args[0]} が失敗しました`); };
+const failedSteps = [];
+// 撮影・書き出しは、1 本が失敗しても残りを作り、最後にまとめて知らせる
+const tryRun = (args, label) => { const r = spawnSync('node', args, { stdio: 'inherit', env }); if (r.status !== 0) failedSteps.push(label); };
 const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' });
 const out = join('marketing-out', 'videos', today);
 
@@ -41,9 +46,13 @@ if (screen.length) {
       try { up = (await fetch('http://localhost:5173/')).ok; } catch { up = false; }
     }
     if (!up) throw new Error('お試しモードが起動しませんでした（npm run demo を確かめる）');
-    run(['scripts/marketing/record-demo.mjs', ...screen]);
+    tryRun(['scripts/marketing/record-demo.mjs', ...screen], '画面の動画');
   } finally { demo.kill(); }
 }
-if (concept.length) run(['scripts/marketing/explainer/render-explainer.mjs', ...concept]);
+if (concept.length) tryRun(['scripts/marketing/explainer/render-explainer.mjs', ...concept], '概念の動画');
 if (withVoice) run(['scripts/marketing/voice.mjs', out, ...engineArgs]);
+if (failedSteps.length) {
+  console.error(`\n✗ 一部が作れませんでした（${failedSteps.join('・')}）。上の「✗ 名前」の動画だけ作り直す: caffeinate -i npm run mkt:videos -- <名前> <名前>`);
+  process.exit(1);
+}
 console.log(`✓ できあがり: ${out}/<名前>/${withVoice ? 'final-voice.mp4（声入り）' : 'final.mp4'}`);
