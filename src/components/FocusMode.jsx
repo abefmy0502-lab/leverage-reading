@@ -172,7 +172,7 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
   const [now, setNow] = useState(() => Date.now());
   const [phase, setPhase] = useState(() => initialPhase || (isTimerDone(initial) ? 'timerDone' : 'running'));
   const [summary, setSummary] = useState(null); // { todaySec, totalSec }
-  // 計測で 2 時間を超えた回は「止め忘れ」のことがあるので、おわったときに外せる（2026-11-22 点検）。{ id }
+  // 計測で 2 時間を超えた回は「止め忘れ」のことがあるので、おわったときに外せる（2026-11-22 点検・元に戻すつき）。{ id, row }
   const [longCount, setLongCount] = useState(null);
   const [removing, setRemoving] = useState(false);
   const [memoOpen, setMemoOpen] = useState(false); // 'running' | 'summary' | false
@@ -263,7 +263,7 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
       if (row) {
         const r = await sessions.save(row);
         if (r?.row) rows = [r.row, ...rows.filter((x) => x.id !== r.row.id)];
-        if (row.mode === 'count' && row.seconds >= LONG_COUNT_SEC) setLongCount({ id: r?.row?.id || row.id });
+        if (row.mode === 'count' && row.seconds >= LONG_COUNT_SEC) setLongCount({ id: r?.row?.id || row.id, row: r?.row || row });
       }
     } finally {
       saveFocusState(null);
@@ -401,15 +401,21 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
                   onClick={async () => {
                     if (removing) return;
                     setRemoving(true);
-                    const ok = await sessions.remove(longCount.id);
+                    const { id, row: kept } = longCount;
+                    const ok = await sessions.remove(id);
                     setRemoving(false);
-                    if (!ok) { toast.error('記録を外せませんでした。つながってから、もう一度お試しください。'); return; }
-                    toast.info('この回は記録しませんでした。');
+                    if (!ok) { toast.error('記録から外せませんでした。つながってから、もう一度お試しください。'); return; }
+                    // 消す操作は「元に戻す」で取り返せるように（同じ id で入れ直す・本の削除と同じ考え）。
+                    toast.undo({
+                      message: 'この回を記録から外しました。',
+                      onUndo: () => { sessions.save(kept).catch(() => {}); },
+                      destructive: true,
+                    });
                     onClose();
                   }}
-                  style={{ marginTop: 'var(--space-4)', minHeight: 'var(--tap-min)', padding: '0 var(--space-3)', background: 'none', border: 'none', color: 'var(--focus-ink-2)', fontSize: 'var(--text-sub)', textDecoration: 'underline', textUnderlineOffset: '0.2em', cursor: removing ? 'default' : 'pointer', fontFamily: 'inherit' }}
+                  style={{ marginTop: 'var(--space-3)', minHeight: 'var(--tap-min)', padding: '0 var(--space-3)', background: 'none', border: 'none', color: 'var(--focus-ink-2)', fontSize: 'var(--text-sub)', fontWeight: 600, wordBreak: 'keep-all', overflowWrap: 'anywhere', cursor: removing ? 'default' : 'pointer', fontFamily: 'inherit' }}
                 >
-                  {removing ? '外しています…' : '止め忘れていたら、この回を記録しない'}
+                  {removing ? '外しています…' : withPhraseBreaks('止め忘れていたら、この回を記録から外す')}
                 </button>
               )}
             </>

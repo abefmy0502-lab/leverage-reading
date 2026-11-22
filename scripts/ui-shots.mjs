@@ -1219,6 +1219,7 @@ const SCREENS = [
   { name: 'focus-tap-hint', url: '/?focus=timer', steps: [{ wait: 800 }, { css: '[data-focus-end]', settle: 300 }] },
   { name: 'focus-memo', url: '/?focus=timer', steps: [{ wait: 800 }, { css: 'button[aria-label="メモ"]' }, { wait: 600 }] },
   { name: 'focus-done', url: '/?focus=done', steps: [{ wait: 4000 }] },
+  { name: 'focus-forgot', url: '/?focus=forgot', steps: [{ wait: 1200 }, { press: ['[data-focus-end]', 1400] }, { wait: 1000 }] },
   { name: 'focus-summary', url: '/?focus=done', steps: [{ wait: 1200 }, { css: '[data-focus-mode="timerDone"] button:has-text("おわる")' }, { wait: 800 }] },
   { name: 'focus-summary-xxl', url: '/?focus=done', steps: [XXL, { wait: 1200 }, { css: '[data-focus-mode="timerDone"] button:has-text("おわる")' }, { wait: 800 }] },
   { name: 'focus-timer-xxl', url: '/?focus=timer', steps: [XXL, { wait: 1200 }] },

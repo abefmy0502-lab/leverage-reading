@@ -4599,6 +4599,7 @@ function AuthedApp() {
       const st = demoFocus === 'count'
         ? { ...startFocus({ bookId: b.id, mode: 'count' }, t - 32 * MIN - 20000) }
         : demoFocus === 'long' ? startFocus({ bookId: b.id, mode: 'count' }, t - 75 * MIN - 20000)
+        : demoFocus === 'forgot' ? startFocus({ bookId: b.id, mode: 'count' }, t - 150 * MIN - 20000)
         : demoFocus === 'fresh' ? startFocus({ bookId: b.id, mode: 'timer', minutes: 15 }, t - 10000)
         : demoFocus === 'done' ? startFocus({ bookId: b.id, mode: 'timer', minutes: 30 }, t - 30 * MIN - 5000)
           : demoFocus === 'paused' ? pauseFocus(startFocus({ bookId: b.id, mode: 'timer', minutes: 30 }, t - 12 * MIN), t)
