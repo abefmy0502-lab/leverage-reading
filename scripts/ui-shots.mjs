@@ -108,7 +108,7 @@ const REL10 = [
   ['r10-book-about', '/', [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { scrollBottom: true }, { waitFor: 'summary:has-text("この本について")' }, { scrollTo: 'summary:has-text("この本について")' }]],
   ['r10-book-about-before', '/', [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("LIFE SHIFT")' }, { waitFor: 'summary:has-text("この本について")' }, { scrollTo: 'summary:has-text("この本について")' }]],
   ['r10-memo-editor', '/', [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("数値化の鬼")' }, { css: 'button:has-text("メモを書く")' }, { css: 'button:has-text("ページ・写真")' }, { css: 'button:has-text("全画面で書く")' }, { wait: 800 }, { eval: () => { if (document.activeElement) document.activeElement.blur(); } }]],
-  ['r10-settings-delete', '/', [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:has-text("アカウントの削除を開始")' }, { wait: 400 }, { eval: () => { const el = [...document.querySelectorAll('span')].find((n) => n.textContent.includes('から解約してください')); if (el) el.scrollIntoView({ block: 'center' }); } }, { wait: 300 }]],
+  ['r10-settings-delete', '/', [{ css: 'button[aria-label="設定を開く"]' }, { css: 'button:has-text("アカウントの削除を開始")' }, { wait: 400 }, { eval: () => { const el = [...document.querySelectorAll('span')].find((n) => n.textContent.includes('から解約してください')); if (el) el.scrollIntoView({ block: 'center' }); } }, { wait: 300 }]],
   ['r10-share-edit-chips', '/', [...SHARE_CAMERA, ...SHARE_EDIT, ...EDIT_PHRASE, EDIT_BLUR, { wait: 800 }, EDIT_TOP]],
   ['r10-library-rows', '/', [{ css: 'button:has-text("すべての本")' }, { wait: 800 }, SCROLL_ROWS_END, { wait: 400 }]],
   ['r10-consult-chips', '/', [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { waitFor: '[aria-label="続けて聞く"] button' }, { css: '[aria-label="続けて聞く"] button >> nth=1' }, { waitFor: '[aria-label="続けて聞く"] button:has-text("ここで答えと行動を")' }, { wait: 800 }, SCROLL_ROWS_END, { wait: 400 }]],
@@ -122,7 +122,7 @@ const REL10B = [
   ['tokens-out', '/?demo=limit', [{ css: nav('相談') }, { wait: 800 }]],
   ['consult-answer', '/', [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { waitFor: '[aria-label="続けて聞く"] button' }, { wait: 800 }]],
   ['consult-decide', '/', [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { waitFor: '[aria-label="続けて聞く"] button' }, { css: '[aria-label="続けて聞く"] button:has-text("ここで答えと行動を")' }, { waitFor: '[aria-label="相談への答え"]:not([aria-busy]) button:has-text("行動に追加")' }, { wait: 600 }]],
-  ['settings-delete', '/', [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:has-text("アカウントの削除を開始")' }, { wait: 400 }, { eval: () => { const el = document.querySelector('[aria-label="確認用メールアドレス"], [aria-label="確認のための入力（削除）"]'); if (el) el.scrollIntoView({ block: 'center' }); } }, { wait: 300 }]],
+  ['settings-delete', '/', [{ css: 'button[aria-label="設定を開く"]' }, { css: 'button:has-text("アカウントの削除を開始")' }, { wait: 400 }, { eval: () => { const el = document.querySelector('[aria-label="確認用メールアドレス"], [aria-label="確認のための入力（削除）"]'); if (el) el.scrollIntoView({ block: 'center' }); } }, { wait: 300 }]],
   ['brief-made', '/?brief=made&demo=planempty', [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("LIFE SHIFT")' }, { wait: 800 }]],
   ['memo-sheet', '/', [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button:has-text("メモを書く")' }, { wait: 600 }]],
   ['advisor', '/', [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { waitFor: 'textarea[aria-label="AI 選書への相談内容"]' }, { wait: 800 }]],
@@ -192,7 +192,7 @@ const SCREENS = [
   { name: 'loop-action-consult', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=checkbox][aria-label$="を完了にする"] >> nth=0' }, { wait: 1200 }, { fill: ['#act-reflection', '話したら、相手も同じ本を読んでいた'] }, { css: 'button:has-text("この結果を相談する")' }, { wait: 1500 }] },
   { name: 'loop-recall-menu', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("メモ")' }, { css: 'button[aria-label="このメモの操作"] >> nth=0' }, { wait: 400 }] },
   { name: 'loop-recall-consult', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("メモ")' }, { css: 'button[aria-label="このメモの操作"] >> nth=0' }, { css: 'button:has-text("このメモで相談する")' }, { wait: 1500 }] },
-  { name: 'loop-import-notify', url: '/?notify=1', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:has-text("ほかのアプリから取り込む")' }, { upload: ['input[type=file]', 'scripts/fixtures/booklog.csv'] }, { wait: 1200 }, { css: '[role=dialog] button:has-text("取り込む")' }, { wait: 3000 }] },
+  { name: 'loop-import-notify', url: '/?notify=1', steps: [{ css: 'button[aria-label="設定を開く"]' }, { css: 'button:has-text("ほかのアプリから取り込む")' }, { upload: ['input[type=file]', 'scripts/fixtures/booklog.csv'] }, { wait: 1200 }, { css: '[role=dialog] button:has-text("取り込む")' }, { wait: 3000 }] },
   { name: 'home-new-user', url: '/?demo=new', steps: [{ css: 'button[aria-label="閉じる"]' }] },
   { name: 'library', url: '/', steps: [{ css: 'button:has-text("すべての本")' }] },
   { name: 'library-list', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label^="並び替え・絞り込み・表示"]' }, { css: 'button:has-text("リストで表示")' }] },
@@ -391,32 +391,36 @@ const SCREENS = [
       { name: 'before-edit-folders', url: '/', steps: [...LIB, { css: '.lvg-page button:has-text("LIFE SHIFT")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("編集")' }, { scrollBottom: true }] },
     ];
   })(),
-  { name: 'settings', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }] },
+  { name: 'settings', url: '/', steps: [{ css: 'button[aria-label="設定を開く"]' }] },
+  // 👤 プロフィールの画面（2026-11-22 に設定から分けた・右上の自分のアイコン）
+  { name: 'profile-screen', url: '/?social=1', steps: [{ css: 'button[aria-label="プロフィールを開く"]' }, { wait: 1200 }] },
   // 📅 年額の更新の前の 1 行（?demo=renewal・30 日以内）／12〜1 月の月額の人への年額の 1 行／設定の「友だちに紹介する」（2026-10-22）
   { name: 'home-renewal', url: '/?demo=renewal', steps: [{ wait: 1500 }] },
   { name: 'home-annual', url: '/?demo=full&plan=monthly&today=2026-12-05', steps: [{ eval: "localStorage.setItem('orime.share.nudges', JSON.stringify({ year: '2026' }))" }, { reload: true }, { wait: 1500 }] },
   { name: 'home-annual-jan', url: '/?demo=full&plan=monthly&today=2027-01-05', steps: [{ wait: 1500 }] },
-  { name: 'settings-referral', url: '/?demo=full&referral=1&native=1', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { eval: () => { Array.from(document.querySelectorAll('button')).find((b) => b.textContent.includes('友だちに紹介する'))?.scrollIntoView?.({ block: 'center' }); } }] },
+  { name: 'settings-referral', url: '/?demo=full&referral=1&native=1', steps: [{ css: 'button[aria-label="設定を開く"]' }, { eval: () => { Array.from(document.querySelectorAll('button')).find((b) => b.textContent.includes('友だちに紹介する'))?.scrollIntoView?.({ block: 'center' }); } }] },
   { name: 'auth', url: '/?demo=auth&auth=signin' },
   // 👤 登録せずに始める（2026-11-19・App 審査 5.1.1(v)）: アプリの見た目（&native=1）のログイン画面・確かめるダイアログ・設定の「アカウントを作る」の各状態・有料プランの画面・ログアウトの確かめ
   { name: 'auth-native', url: '/?demo=auth&auth=signin&native=1' },
+  // 📚 本棚の写真からまとめて追加（2026-11-22）: 本を追加の画面の入口と、撮る前のシート
+  { name: 'shelf-scan', url: '/', steps: [{ css: 'button:has-text("本を追加") >> nth=0' }, { css: 'button:has-text("本棚の写真からまとめて追加")' }, { wait: 900 }] },
   { name: 'auth-apple-wait', url: '/?demo=auth&auth=signin&native=1&apple=wait', steps: [{ css: 'button[aria-label="Appleでサインイン"]' }, { wait: 400 }] },
   { name: 'auth-guest-confirm', url: '/?demo=auth&auth=signin&native=1', steps: [{ css: 'button:text-is("登録せずに始める")' }, { wait: 400 }] },
   { name: 'auth-guest-confirm-xxl', url: '/?demo=auth&auth=signin&native=1', steps: [{ eval: () => { document.documentElement.style.fontSize = '28px'; } }, { wait: 800 }, { css: 'button:text-is("登録せずに始める")' }, { wait: 400 }] },
-  { name: 'settings-guest', url: '/?guest=1&native=1', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }] },
-  { name: 'settings-guest-free', url: '/?demo=free&guest=1&native=1', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }] },
-  { name: 'settings-guest-xxl', url: '/?demo=free&guest=1&native=1', steps: [{ eval: () => { document.documentElement.style.fontSize = '28px'; } }, { wait: 800 }, { css: 'button[aria-label="アカウント設定を開く"]' }] },
-  { name: 'settings-guest-email', url: '/?guest=1&native=1', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:text-is("メールアドレスで作る")' }] },
-  { name: 'settings-guest-email-error', url: '/?guest=1&native=1', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:text-is("メールアドレスで作る")' }, { fill: ['input[type=email]', 'reader@example.com'] }, { fill: ['input[type=password]', 'abc'] }, { css: 'button:text-is("確認のメールを送る")' }, { wait: 300 }] },
-  { name: 'settings-guest-email-taken', url: '/?guest=1&native=1&linkfail=email', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:text-is("メールアドレスで作る")' }, { fill: ['input[type=email]', 'reader@example.com'] }, { fill: ['input[type=password]', 'readbooks2026'] }, { css: 'button:text-is("確認のメールを送る")' }, { wait: 400 }] },
-  { name: 'settings-guest-sent', url: '/?guest=1&native=1', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:text-is("メールアドレスで作る")' }, { fill: ['input[type=email]', 'reader@example.com'] }, { fill: ['input[type=password]', 'readbooks2026'] }, { css: 'button:text-is("確認のメールを送る")' }, { wait: 600 }] },
-  { name: 'settings-guest-check-error', url: '/?guest=1&native=1', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:text-is("メールアドレスで作る")' }, { fill: ['input[type=email]', 'reader@example.com'] }, { fill: ['input[type=password]', 'readbooks2026'] }, { css: 'button:text-is("確認のメールを送る")' }, { wait: 600 }, { css: 'button:text-is("リンクを開いたので、確かめる")' }, { wait: 600 }] },
-  { name: 'settings-guest-apple-taken', url: '/?demo=free&guest=1&native=1&linkfail=apple', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:text-is("Appleで登録")' }, { wait: 600 }] },
+  { name: 'settings-guest', url: '/?guest=1&native=1', steps: [{ css: 'button[aria-label="設定を開く"]' }] },
+  { name: 'settings-guest-free', url: '/?demo=free&guest=1&native=1', steps: [{ css: 'button[aria-label="設定を開く"]' }] },
+  { name: 'settings-guest-xxl', url: '/?demo=free&guest=1&native=1', steps: [{ eval: () => { document.documentElement.style.fontSize = '28px'; } }, { wait: 800 }, { css: 'button[aria-label="設定を開く"]' }] },
+  { name: 'settings-guest-email', url: '/?guest=1&native=1', steps: [{ css: 'button[aria-label="設定を開く"]' }, { css: 'button:text-is("メールアドレスで作る")' }] },
+  { name: 'settings-guest-email-error', url: '/?guest=1&native=1', steps: [{ css: 'button[aria-label="設定を開く"]' }, { css: 'button:text-is("メールアドレスで作る")' }, { fill: ['input[type=email]', 'reader@example.com'] }, { fill: ['input[type=password]', 'abc'] }, { css: 'button:text-is("確認のメールを送る")' }, { wait: 300 }] },
+  { name: 'settings-guest-email-taken', url: '/?guest=1&native=1&linkfail=email', steps: [{ css: 'button[aria-label="設定を開く"]' }, { css: 'button:text-is("メールアドレスで作る")' }, { fill: ['input[type=email]', 'reader@example.com'] }, { fill: ['input[type=password]', 'readbooks2026'] }, { css: 'button:text-is("確認のメールを送る")' }, { wait: 400 }] },
+  { name: 'settings-guest-sent', url: '/?guest=1&native=1', steps: [{ css: 'button[aria-label="設定を開く"]' }, { css: 'button:text-is("メールアドレスで作る")' }, { fill: ['input[type=email]', 'reader@example.com'] }, { fill: ['input[type=password]', 'readbooks2026'] }, { css: 'button:text-is("確認のメールを送る")' }, { wait: 600 }] },
+  { name: 'settings-guest-check-error', url: '/?guest=1&native=1', steps: [{ css: 'button[aria-label="設定を開く"]' }, { css: 'button:text-is("メールアドレスで作る")' }, { fill: ['input[type=email]', 'reader@example.com'] }, { fill: ['input[type=password]', 'readbooks2026'] }, { css: 'button:text-is("確認のメールを送る")' }, { wait: 600 }, { css: 'button:text-is("リンクを開いたので、確かめる")' }, { wait: 600 }] },
+  { name: 'settings-guest-apple-taken', url: '/?demo=free&guest=1&native=1&linkfail=apple', steps: [{ css: 'button[aria-label="設定を開く"]' }, { css: 'button:text-is("Appleで登録")' }, { wait: 600 }] },
   { name: 'auth-native-xxl', url: '/?demo=auth&auth=signin&native=1', steps: [{ eval: () => { document.documentElement.style.fontSize = '28px'; } }, { wait: 800 }] },
-  { name: 'settings-guest-resend', url: '/?guest=1&native=1', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:text-is("メールアドレスで作る")' }, { fill: ['input[type=email]', 'reader@example.com'] }, { fill: ['input[type=password]', 'readbooks2026'] }, { css: 'button:text-is("確認のメールを送る")' }, { wait: 600 }, { css: 'button:text-is("メールが届かないときは、もう一度送る")' }, { wait: 500 }] },
-  { name: 'settings-guest-logout', url: '/?guest=1&native=1', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { eval: () => { Array.from(document.querySelectorAll('button')).find((b) => b.textContent.trim() === 'ログアウト')?.click(); } }, { wait: 500 }] },
-  { name: 'paywall-guest', url: '/?demo=free&guest=1&native=1', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:text-is("プランを見る")' }, { wait: 1200 }] },
-  { name: 'paywall-guest-bottom', url: '/?demo=free&guest=1&native=1', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:text-is("プランを見る")' }, { wait: 1200 }, { eval: () => { Array.from(document.querySelectorAll('p')).find((p) => p.textContent.includes('登録しなくても'))?.scrollIntoView?.({ block: 'center' }); } }, { wait: 400 }] },
+  { name: 'settings-guest-resend', url: '/?guest=1&native=1', steps: [{ css: 'button[aria-label="設定を開く"]' }, { css: 'button:text-is("メールアドレスで作る")' }, { fill: ['input[type=email]', 'reader@example.com'] }, { fill: ['input[type=password]', 'readbooks2026'] }, { css: 'button:text-is("確認のメールを送る")' }, { wait: 600 }, { css: 'button:text-is("メールが届かないときは、もう一度送る")' }, { wait: 500 }] },
+  { name: 'settings-guest-logout', url: '/?guest=1&native=1', steps: [{ css: 'button[aria-label="設定を開く"]' }, { eval: () => { Array.from(document.querySelectorAll('button')).find((b) => b.textContent.trim() === 'ログアウト')?.click(); } }, { wait: 500 }] },
+  { name: 'paywall-guest', url: '/?demo=free&guest=1&native=1', steps: [{ css: 'button[aria-label="設定を開く"]' }, { css: 'button:text-is("プランを見る")' }, { wait: 1200 }] },
+  { name: 'paywall-guest-bottom', url: '/?demo=free&guest=1&native=1', steps: [{ css: 'button[aria-label="設定を開く"]' }, { css: 'button:text-is("プランを見る")' }, { wait: 1200 }, { eval: () => { Array.from(document.querySelectorAll('p')).find((p) => p.textContent.includes('登録しなくても'))?.scrollIntoView?.({ block: 'center' }); } }, { wait: 400 }] },
   { name: 'landing', url: '/?demo=auth' },
   // メールのリンクから戻ったとき（2026-10-04）: 期限切れのリンク／パスワードを決め直す画面（入れ直しのエラーつき）
   // アプリ全体のエラーの画面（?crash=1 は開発中だけ）と、新しい版の知らせ（Web の PWA だけ）
@@ -590,7 +594,7 @@ const SCREENS = [
   { name: 'brief4-want-fable', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("チーズはどこへ消えた")' }, { css: 'button:has-text("この本で学べることを見る")' }, { waitFor: 'summary:has-text("概要・")', timeout: 20000 }, { scrollTo: 'summary:has-text("概要・")' }, { eval: () => { document.querySelectorAll('*').forEach((el) => { if (el.scrollTop > 0) el.scrollTop -= 60; }); } }] },
   { name: 'brief4-remake-confirm', url: '/?brief=made', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("LIFE SHIFT")' }, { css: 'summary:has-text("この本で学べること")' }, { css: 'button[aria-label$="を作り直す"]' }] },
   { name: 'book-edit-before', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("LIFE SHIFT")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("編集")' }] },
-  { name: 'import-sheet', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:has-text("ほかのアプリから取り込む")' }] },
+  { name: 'import-sheet', url: '/', steps: [{ css: 'button[aria-label="設定を開く"]' }, { css: 'button:has-text("ほかのアプリから取り込む")' }] },
 
   // ── 状態（空・読み込み中・エラー・上限など）。お試しモードの切り替え:
   //    ?demo=new / nomemo / overdue / limit / free / freeused / freenew / freegrown / trial / paywall、&ai=slow|fail|cut、&load=slow、&save=slow、&db=fail、&price=loading|fail
@@ -623,9 +627,9 @@ const SCREENS = [
   { name: 'onboarding-purpose', url: '/?demo=new', steps: [{ role: '次へ' }, { wait: 800 }] },
   { name: 'onboarding-purpose-starter', url: '/?demo=new', steps: [{ role: '次へ' }, { wait: 800 }, { css: '[role=dialog] button:has-text("いま悩んでいる、")' }, { wait: 300 }] },
   { name: 'onboarding-purpose-filled', url: '/?demo=new', steps: [{ role: '次へ' }, { wait: 800 }, { css: '[role=dialog] button:has-text("仕事で、")' }, { fill: ['#app-purpose-input', '仕事で、3 年後にはチームを任されるリーダーになりたい'] }, { wait: 300 }] },
-  { name: 'settings-purpose', url: '/?demo=new', steps: [{ role: '次へ' }, { css: '[role=dialog] button:has-text("仕事で、")' }, { fill: ['#app-purpose-input', '仕事で、3 年後にはチームを任されるリーダーになりたい'] }, { role: '次へ' }, { css: '[role=dialog] button[aria-label="閉じる"]' }, { wait: 400 }, { css: 'button[aria-label="アカウント設定を開く"]' }, { wait: 400 }] },
-  { name: 'settings-purpose-edit', url: '/?demo=new', steps: [{ role: '次へ' }, { css: '[role=dialog] button:has-text("仕事で、")' }, { fill: ['#app-purpose-input', '仕事で、3 年後にはチームを任されるリーダーになりたい'] }, { role: '次へ' }, { css: '[role=dialog] button[aria-label="閉じる"]' }, { wait: 400 }, { css: 'button[aria-label="アカウント設定を開く"]' }, { wait: 400 }, { css: 'button:has-text("Orime を入れた理由")' }, { wait: 400 }] },
-  { name: 'purpose-check-delete', url: '/?demo=new', steps: [{ role: '次へ' }, { css: '[role=dialog] button:has-text("仕事で、")' }, { fill: ['#app-purpose-input', '仕事で、3 年後にはチームを任されるリーダーになりたい'] }, { role: '次へ' }, { css: '[role=dialog] button[aria-label="閉じる"]' }, { wait: 400 }, { css: 'button[aria-label="アカウント設定を開く"]' }, { wait: 400 }, { css: 'button:has-text("アカウントの削除を開始")' }, { wait: 500 }] },
+  { name: 'settings-purpose', url: '/?demo=new', steps: [{ role: '次へ' }, { css: '[role=dialog] button:has-text("仕事で、")' }, { fill: ['#app-purpose-input', '仕事で、3 年後にはチームを任されるリーダーになりたい'] }, { role: '次へ' }, { css: '[role=dialog] button[aria-label="閉じる"]' }, { wait: 400 }, { css: 'button[aria-label="設定を開く"]' }, { wait: 400 }] },
+  { name: 'settings-purpose-edit', url: '/?demo=new', steps: [{ role: '次へ' }, { css: '[role=dialog] button:has-text("仕事で、")' }, { fill: ['#app-purpose-input', '仕事で、3 年後にはチームを任されるリーダーになりたい'] }, { role: '次へ' }, { css: '[role=dialog] button[aria-label="閉じる"]' }, { wait: 400 }, { css: 'button[aria-label="設定を開く"]' }, { wait: 400 }, { css: 'button:has-text("Orime を入れた理由")' }, { wait: 400 }] },
+  { name: 'purpose-check-delete', url: '/?demo=new', steps: [{ role: '次へ' }, { css: '[role=dialog] button:has-text("仕事で、")' }, { fill: ['#app-purpose-input', '仕事で、3 年後にはチームを任されるリーダーになりたい'] }, { role: '次へ' }, { css: '[role=dialog] button[aria-label="閉じる"]' }, { wait: 400 }, { css: 'button[aria-label="設定を開く"]' }, { wait: 400 }, { css: 'button:has-text("アカウントの削除を開始")' }, { wait: 500 }] },
   { name: 'onboarding-last', url: '/?demo=new', steps: [{ role: '次へ' }, { css: '[role=dialog] button:has-text("仕事で、")' }, { fill: ['#app-purpose-input', '仕事で、3 年後にはチームを任されるリーダーになりたい'] }, { role: '次へ' }] },
   { name: 'quickstart-results', url: '/?demo=new', steps: [{ role: '次へ' }, { css: '[role=dialog] button:has-text("読んだ本の一文をメモする")' }, { fill: ['input[aria-label="書名や著者名で探す"]', 'ファクト'] }, { css: '[role=dialog] button:has-text("検索")' }, { wait: 1500 }] },
   { name: 'quickstart-noresult', url: '/?demo=new', steps: [{ role: '次へ' }, { css: '[role=dialog] button:has-text("読んだ本の一文をメモする")' }, { fill: ['input[aria-label="書名や著者名で探す"]', 'ぞぞぞ'] }, { css: '[role=dialog] button:has-text("検索")' }, { wait: 1500 }] },
@@ -758,13 +762,13 @@ const SCREENS = [
   { name: 'action-edit-xxl-text', url: '/', steps: [{ css: nav('振り返り') }, { eval: () => { document.documentElement.style.fontSize = '40px'; } }, { wait: 400 }, { css: 'button[aria-label$="」の操作"]' }, { css: 'button:has-text("編集")' }, { wait: 400 }, { scrollBottom: true }] },
   // 文字を最大にしたシート（題と右上の「キャンセル」が割れずに並ぶか・2026-10-04 ui-critic）
   { name: 'sheet-xxl-text', url: '/', steps: [{ css: nav('振り返り') }, { eval: () => { document.documentElement.style.fontSize = '40px'; } }, { wait: 400 }, { css: 'button:has-text("追加")' }, { wait: 500 }] },
-  { name: 'import-xxl-text', url: '/', steps: [{ eval: () => { document.documentElement.style.fontSize = '40px'; } }, { wait: 300 }, { css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:has-text("ほかのアプリから取り込む")' }, { wait: 500 }] },
+  { name: 'import-xxl-text', url: '/', steps: [{ eval: () => { document.documentElement.style.fontSize = '40px'; } }, { wait: 300 }, { css: 'button[aria-label="設定を開く"]' }, { css: 'button:has-text("ほかのアプリから取り込む")' }, { wait: 500 }] },
   { name: 'action-add', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button:has-text("追加")' }, { css: '[role=dialog] button:has-text("1兆ドルコーチ")' }, { wait: 400 }] },
   { name: 'review-memo-menu', url: '/',steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("メモ")' }, { css: 'button[aria-label="このメモの操作"]' }] },
   { name: 'review-record-empty', url: '/?demo=nomemo', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }] },
   // 一部の区画だけ（読了が 1 冊も無い人＝「月別の読了」は出さない・2026-10-04）
   { name: 'review-record-partial', url: '/?demo=noreadingnone', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }] },
-  { name: 'settings-bottom', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { scrollBottom: true }] },
+  { name: 'settings-bottom', url: '/', steps: [{ css: 'button[aria-label="設定を開く"]' }, { scrollBottom: true }] },
   { name: 'advisor-loading', url: '/?ai=slow', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 800 }] },
   { name: 'advisor-error', url: '/?ai=fail', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }] },
   { name: 'advisor-limit', url: '/?demo=limit', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }] },
@@ -797,24 +801,24 @@ const SCREENS = [
   { name: 'add-book-manual', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を追加"]' }, { css: 'button:has-text("手動で入力する")' }] },
   // 書名が空のまま「保存」: 書名の欄が --error の枠＋「書名を入れてください」（SPEC 1-2）
   { name: 'add-book-manual-empty', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を追加"]' }, { css: 'button:has-text("手動で入力する")' }, { fill: ['input[aria-label="書名（必須）"]', ''] }, { css: 'button:text-is("保存")' }] },
-  { name: 'import-preview', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:has-text("ほかのアプリから取り込む")' }, { upload: ['input[type=file]', 'scripts/fixtures/booklog.csv'] }, { wait: 1200 }] },
+  { name: 'import-preview', url: '/', steps: [{ css: 'button[aria-label="設定を開く"]' }, { css: 'button:has-text("ほかのアプリから取り込む")' }, { upload: ['input[type=file]', 'scripts/fixtures/booklog.csv'] }, { wait: 1200 }] },
   // 読書メーター（2026-09-29）: 書き出しツールの CSV（感想・読了日・本棚つき）
-  { name: 'import-preview-bookmeter', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:has-text("ほかのアプリから取り込む")' }, { upload: ['input[type=file]', 'scripts/fixtures/bookmeter.csv'] }, { wait: 1200 }] },
-  { name: 'import-done', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:has-text("ほかのアプリから取り込む")' }, { upload: ['input[type=file]', 'scripts/fixtures/booklog.csv'] }, { wait: 1200 }, { css: '[role=dialog] button:has-text("取り込む")' }, { wait: 3000 }] },
+  { name: 'import-preview-bookmeter', url: '/', steps: [{ css: 'button[aria-label="設定を開く"]' }, { css: 'button:has-text("ほかのアプリから取り込む")' }, { upload: ['input[type=file]', 'scripts/fixtures/bookmeter.csv'] }, { wait: 1200 }] },
+  { name: 'import-done', url: '/', steps: [{ css: 'button[aria-label="設定を開く"]' }, { css: 'button:has-text("ほかのアプリから取り込む")' }, { upload: ['input[type=file]', 'scripts/fixtures/booklog.csv'] }, { wait: 1200 }, { css: '[role=dialog] button:has-text("取り込む")' }, { wait: 3000 }] },
   // 取り込みの残りの状態（2026-10-04 ui-critic・SPEC §1-1b）: 途中で止まった（&writefail=books）／一度に 300 冊まで（350 冊のファイル）
-  { name: 'import-midway-error', url: '/?writefail=books', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:has-text("ほかのアプリから取り込む")' }, { upload: ['input[type=file]', 'scripts/fixtures/booklog.csv'] }, { wait: 1200 }, { css: '[role=dialog] button:has-text("取り込む")' }, { wait: 3000 }] },
-  { name: 'import-cap-300', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:has-text("ほかのアプリから取り込む")' }, { upload: ['input[type=file]', 'scripts/fixtures/booklog-350.csv'] }, { wait: 1500 }] },
-  { name: 'import-error', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:has-text("ほかのアプリから取り込む")' }, { upload: ['input[type=file]', 'scripts/fixtures/broken.txt'] }, { wait: 1200 }] },
+  { name: 'import-midway-error', url: '/?writefail=books', steps: [{ css: 'button[aria-label="設定を開く"]' }, { css: 'button:has-text("ほかのアプリから取り込む")' }, { upload: ['input[type=file]', 'scripts/fixtures/booklog.csv'] }, { wait: 1200 }, { css: '[role=dialog] button:has-text("取り込む")' }, { wait: 3000 }] },
+  { name: 'import-cap-300', url: '/', steps: [{ css: 'button[aria-label="設定を開く"]' }, { css: 'button:has-text("ほかのアプリから取り込む")' }, { upload: ['input[type=file]', 'scripts/fixtures/booklog-350.csv'] }, { wait: 1500 }] },
+  { name: 'import-error', url: '/', steps: [{ css: 'button[aria-label="設定を開く"]' }, { css: 'button:has-text("ほかのアプリから取り込む")' }, { upload: ['input[type=file]', 'scripts/fixtures/broken.txt'] }, { wait: 1200 }] },
   // 取り込み中（&save=slow で本の保存が終わらない）／同じ CSV を 2 回取り込んだとき
-  { name: 'import-importing', url: '/?save=slow', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:has-text("ほかのアプリから取り込む")' }, { upload: ['input[type=file]', 'scripts/fixtures/booklog.csv'] }, { wait: 1200 }, { css: '[role=dialog] button:has-text("取り込む")' }, { wait: 800 }] },
-  { name: 'import-already', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:has-text("ほかのアプリから取り込む")' }, { upload: ['input[type=file]', 'scripts/fixtures/booklog.csv'] }, { wait: 1200 }, { css: '[role=dialog] button:has-text("取り込む")' }, { wait: 3000 }, { css: '[role=dialog] button:has-text("完了")' }, { wait: 600 }, { css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:has-text("ほかのアプリから取り込む")' }, { upload: ['input[type=file]', 'scripts/fixtures/booklog.csv'] }, { wait: 1200 }, { css: '[role=dialog] button:has-text("取り込む")' }, { wait: 3000 }] },
+  { name: 'import-importing', url: '/?save=slow', steps: [{ css: 'button[aria-label="設定を開く"]' }, { css: 'button:has-text("ほかのアプリから取り込む")' }, { upload: ['input[type=file]', 'scripts/fixtures/booklog.csv'] }, { wait: 1200 }, { css: '[role=dialog] button:has-text("取り込む")' }, { wait: 800 }] },
+  { name: 'import-already', url: '/', steps: [{ css: 'button[aria-label="設定を開く"]' }, { css: 'button:has-text("ほかのアプリから取り込む")' }, { upload: ['input[type=file]', 'scripts/fixtures/booklog.csv'] }, { wait: 1200 }, { css: '[role=dialog] button:has-text("取り込む")' }, { wait: 3000 }, { css: '[role=dialog] button:has-text("完了")' }, { wait: 600 }, { css: 'button[aria-label="設定を開く"]' }, { css: 'button:has-text("ほかのアプリから取り込む")' }, { upload: ['input[type=file]', 'scripts/fixtures/booklog.csv'] }, { wait: 1200 }, { css: '[role=dialog] button:has-text("取り込む")' }, { wait: 3000 }] },
   // 写真から書き起こす: 読み取り中（&ai=slow）／失敗（&ai=fail・シートの中に理由と「もう一度試す」）
   { name: 'book-memo-sheet-ocr-loading', url: '/?ai=slow', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button:has-text("メモを書く")' }, { css: 'button:has-text("ページ・写真")' }, { upload: ['[role=dialog] input[type=file][accept="image/*"]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 800 }] },
   { name: 'book-memo-sheet-ocr-error', url: '/?ai=fail', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button:has-text("メモを書く")' }, { css: 'button:has-text("ページ・写真")' }, { upload: ['[role=dialog] input[type=file][accept="image/*"]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 2000 }] },
   { name: 'book-memo-sheet-discard', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button:has-text("メモを書く")' }, { fill: ['textarea[aria-label="メモ本文"]', '書きかけのメモ'] }, { css: 'button:has-text("キャンセル")' }] },
   { name: 'review-memo-zero', url: '/?demo=new', steps: [{ css: 'button[aria-label="閉じる"]' }, { css: nav('振り返り') }, { css: 'button[role=tab]:has-text("メモ")' }] },
   { name: 'review-record-zero', url: '/?demo=new', steps: [{ css: 'button[aria-label="閉じる"]' }, { css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }] },
-  { name: 'settings-free', url: '/?demo=free', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { scrollTo: 'section[aria-label="プラン・お支払い"], h2:has-text("プラン・お支払い")' }] },
+  { name: 'settings-free', url: '/?demo=free', steps: [{ css: 'button[aria-label="設定を開く"]' }, { scrollTo: 'section[aria-label="プラン・お支払い"], h2:has-text("プラン・お支払い")' }] },
   { name: 'landing-sticky', url: '/?demo=auth', steps: [{ scrollTo: '#lp-flow' }, { waitFor: '.lp-sticky.is-visible' }, { wait: 400 }] },
   { name: 'paywall-trial', url: '/?demo=paywall&native=1&trial=7日間無料', steps: [{ eval: "window.dispatchEvent(new CustomEvent('orime:paywall', { detail: { reason: null } }))" }] },
   { name: 'paywall-free-covers', url: '/?demo=freeused&native=1', steps: [{ css: nav('相談') }, { css: 'section[aria-label="今月のトークンは、ここまで"] button' }] },
@@ -834,12 +838,12 @@ const SCREENS = [
   { name: 'free-grown-nudge-plan', url: '/?demo=freegrown&trial=off', steps: [{ css: nav('相談') }] },
   { name: 'free-grown-dismissed', url: '/?demo=freegrown', steps: [{ css: nav('相談') }, { css: 'section[aria-labelledby="brain-nudge-title"] button[aria-label="閉じる"]' }] },
   { name: 'paywall-grown', url: '/?demo=freegrown&native=1&trial=7日間無料', steps: [{ css: nav('相談') }, { css: 'section[aria-labelledby="brain-nudge-title"] button:has-text("で試す")' }] },
-  { name: 'settings-trial', url: '/?demo=trial', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { scrollTo: 'section[aria-label="プラン・お支払い"]' }] },
+  { name: 'settings-trial', url: '/?demo=trial', steps: [{ css: 'button[aria-label="設定を開く"]' }, { scrollTo: 'section[aria-label="プラン・お支払い"]' }] },
   // ── 追加トークン（買い足し）
   { name: 'consult-tokens-out', url: '/?demo=limit', steps: [{ css: nav('相談') }] },
   { name: 'tokens-sheet', url: '/?demo=limit', steps: [{ css: nav('相談') }, { css: 'button:has-text("トークンを追加")' }] },
   { name: 'consult-tokens-extra', url: '/?demo=tokens', steps: [{ css: nav('相談') }] },
-  { name: 'settings-tokens', url: '/?demo=tokens', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { scrollTo: 'section[aria-label="プラン・お支払い"]' }] },
+  { name: 'settings-tokens', url: '/?demo=tokens', steps: [{ css: 'button[aria-label="設定を開く"]' }, { scrollTo: 'section[aria-label="プラン・お支払い"]' }] },
   // 🧪 はじめての相談の答えのあとの 7 日間無料（2026-10-08・実験）: 見せる組（&trialab=on）／見せない組（off）／押したあとの有料プランの画面
   { name: 'consult-first-trial', url: '/?demo=fewmemos&trialab=on', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { waitFor: '[aria-label="続けて聞く"] button' }, { wait: 1200 }, { scrollBottom: true }] },
   { name: 'consult-first-trial-hold', url: '/?demo=fewmemos&trialab=off', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { waitFor: '[aria-label="続けて聞く"] button' }, { wait: 1200 }, { scrollBottom: true }] },
@@ -853,9 +857,9 @@ const SCREENS = [
   { name: 'paywall-first-answer-xxl-text', url: '/?demo=fewmemos&trialab=on&native=1&founding=on', steps: [...[{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { waitFor: '[aria-label="続けて聞く"] button' }, { wait: 1200 }], { css: 'section[aria-label="7 日間無料の案内"] button >> nth=0' }, { wait: 1500 }, { eval: () => { document.documentElement.style.fontSize = '40px'; } }, { wait: 800 }] },
   { name: 'paywall-first-answer-bottom', url: '/?demo=fewmemos&trialab=on&native=1&founding=on', steps: [...[{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { waitFor: '[aria-label="続けて聞く"] button' }, { wait: 1200 }], { css: 'section[aria-label="7 日間無料の案内"] button >> nth=0' }, { wait: 1500 }, { scrollBottom: true }] },
   // 🎟 設定の「コードを使う」（iPhone のアプリだけ・お試しは &native=1）
-  { name: 'settings-code', url: '/?demo=free&native=1', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { scrollTo: 'h2:has-text("プラン・お支払い"), p:text-is("プラン・お支払い"), :text-is("プラン・お支払い")' }] },
-  { name: 'settings-code-paid', url: '/?native=1', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { scrollTo: ':text-is("プラン・お支払い")' }] },
-  { name: 'settings-code-toast', url: '/?native=1', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { scrollTo: ':text-is("プラン・お支払い")' }, { css: 'button:has-text("コードを使う")' }, { wait: 600 }] },
+  { name: 'settings-code', url: '/?demo=free&native=1', steps: [{ css: 'button[aria-label="設定を開く"]' }, { scrollTo: 'h2:has-text("プラン・お支払い"), p:text-is("プラン・お支払い"), :text-is("プラン・お支払い")' }] },
+  { name: 'settings-code-paid', url: '/?native=1', steps: [{ css: 'button[aria-label="設定を開く"]' }, { scrollTo: ':text-is("プラン・お支払い")' }] },
+  { name: 'settings-code-toast', url: '/?native=1', steps: [{ css: 'button[aria-label="設定を開く"]' }, { scrollTo: ':text-is("プラン・お支払い")' }, { css: 'button:has-text("コードを使う")' }, { wait: 600 }] },
   // 長さの上限で途中まで（&ai=cut・本文は残し、下に 1 行の案内）
   // ── 一文をシェア（2026-09-27・SPEC §2-1）
   { name: 'share-line', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button:has-text("写真で共有") >> nth=-1' }, { css: '[role=dialog] button:has-text("写真なし（本の表紙）")' }, { wait: 1500 }] },
@@ -915,7 +919,7 @@ const SCREENS = [
   { name: 'review-recall-answered', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("メモ")' }, { css: 'button:has-text("まだ覚えていない")' }, { wait: 500 }] },
   { name: 'review-filter-menu', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("メモ")' }, { css: 'input[placeholder="メモを検索"]' }, { css: 'button[aria-label^="種類で絞り込む"]' }] },
   { name: 'free-advisor-tab', url: '/?demo=free', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }] },
-  { name: 'settings-support', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { scrollTo: 'button:has-text("ヘルプ・使い方")' }] },
+  { name: 'settings-support', url: '/', steps: [{ css: 'button[aria-label="設定を開く"]' }, { scrollTo: 'button:has-text("ヘルプ・使い方")' }] },
   { name: 'home-reading-add', url: '/', steps: [{ scrollTo: 'button:has-text("本を追加")' }] },
   // ── 写真で共有（2026-09-30・Strava のように写真の上に記録を重ねる）。カメラの入口は隠した input[data-share-camera] に
   //    見本の写真（scripts/fixtures/share-photo.jpg）を渡して撮る（ブラウザではカメラを開けないため）。
@@ -1031,15 +1035,15 @@ const SCREENS = [
   // 「同意して使う」のあと（そのまま相談が送られて答えが出る）
   { name: 'ai-consent-agreed', url: '/?consent=none', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { wait: 800 }, { css: '[role=dialog] button:has-text("同意して使う")' }, { wait: 6000 }] },
   // 設定の「AI へのデータ送信」（「10月1日に同意」／「まだ同意していません」）と、押して開くシート（同意済みなら「同意を取り消す」）
-  { name: 'settings-ai-consent', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { scrollTo: 'h3:has-text("プライバシー")' }] },
-  { name: 'settings-ai-consent-none', url: '/?consent=none', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { scrollTo: 'h3:has-text("プライバシー")' }] },
-  { name: 'settings-ai-consent-sheet', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { scrollTo: 'h3:has-text("プライバシー")' }, { css: 'button:has-text("AI へのデータ送信")' }, { wait: 600 }] },
+  { name: 'settings-ai-consent', url: '/', steps: [{ css: 'button[aria-label="設定を開く"]' }, { scrollTo: 'h3:has-text("プライバシー")' }] },
+  { name: 'settings-ai-consent-none', url: '/?consent=none', steps: [{ css: 'button[aria-label="設定を開く"]' }, { scrollTo: 'h3:has-text("プライバシー")' }] },
+  { name: 'settings-ai-consent-sheet', url: '/', steps: [{ css: 'button[aria-label="設定を開く"]' }, { scrollTo: 'h3:has-text("プライバシー")' }, { css: 'button:has-text("AI へのデータ送信")' }, { wait: 600 }] },
   // まだ同意していない人が設定から開いたシート（「今はやめる」｜「同意する」）
-  { name: 'settings-ai-consent-sheet-none', url: '/?consent=none', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { scrollTo: 'h3:has-text("プライバシー")' }, { css: 'button:has-text("AI へのデータ送信")' }, { wait: 600 }] },
+  { name: 'settings-ai-consent-sheet-none', url: '/?consent=none', steps: [{ css: 'button[aria-label="設定を開く"]' }, { scrollTo: 'h3:has-text("プライバシー")' }, { css: 'button:has-text("AI へのデータ送信")' }, { wait: 600 }] },
   // 「同意を取り消す」を押して保存を待っている間（&consent=slow）
-  { name: 'settings-ai-consent-withdrawing', url: '/?consent=slow', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { scrollTo: 'h3:has-text("プライバシー")' }, { css: 'button:has-text("AI へのデータ送信")' }, { wait: 600 }, { css: '[role=dialog] button:has-text("同意を取り消す")', settle: 400 }] },
+  { name: 'settings-ai-consent-withdrawing', url: '/?consent=slow', steps: [{ css: 'button[aria-label="設定を開く"]' }, { scrollTo: 'h3:has-text("プライバシー")' }, { css: 'button:has-text("AI へのデータ送信")' }, { wait: 600 }, { css: '[role=dialog] button:has-text("同意を取り消す")', settle: 400 }] },
   // 取り消したあと（行が「まだ同意していません」に・知らせ）
-  { name: 'settings-ai-consent-withdrawn', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { scrollTo: 'h3:has-text("プライバシー")' }, { css: 'button:has-text("AI へのデータ送信")' }, { wait: 600 }, { css: '[role=dialog] button:has-text("同意を取り消す")', settle: 300 }, { wait: 500 }] },
+  { name: 'settings-ai-consent-withdrawn', url: '/', steps: [{ css: 'button[aria-label="設定を開く"]' }, { scrollTo: 'h3:has-text("プライバシー")' }, { css: 'button:has-text("AI へのデータ送信")' }, { wait: 600 }, { css: '[role=dialog] button:has-text("同意を取り消す")', settle: 300 }, { wait: 500 }] },
   { name: 'share-edit-photo-zoomed', url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT, EDIT_ZOOM, EDIT_ZOOM, EDIT_PAN, { wait: 800 }] },
   { name: 'share-edit-photo-zoomed-story', url: '/', steps: [...SHARE_CAMERA, { css: '[role=radio][aria-label="ストーリー（9:16）"]' }, { wait: 1500 }, ...SHARE_EDIT, EDIT_ZOOM, EDIT_PAN, { wait: 800 }] },
   { name: 'share-edit-items', url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT, { scrollBottom: true }] },
@@ -1075,7 +1079,7 @@ const SCREENS = [
   { name: 'share-edit-phrase-with-quote', url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT, ...EDIT_PHRASE, EDIT_BLUR, { css: `${EDIT} [role=switch][aria-label="一文"]` }, { wait: 1500 }, EDIT_TOP] },
   // 編集画面で下の「表示する項目」まで送っても、画像が上に残る
   { name: 'share-edit-items-sticky', url: '/', steps: [...SHARE_CAMERA, { css: '[role=radio][aria-label="ストーリー（9:16）"]' }, { wait: 1500 }, ...SHARE_EDIT, { scrollBottom: true }, { wait: 600 }] },
-  { name: 'feedback-form', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button[aria-label="フィードバックを送る"]' }] },
+  { name: 'feedback-form', url: '/', steps: [{ css: 'button[aria-label="設定を開く"]' }, { css: 'button[aria-label="フィードバックを送る"]' }] },
   // ── ヘルプ（2026-09-30）: 画面ごとのヘルプ。?helpkey= は開発中だけ効く（ほかの画面のヘルプを直に開く）。
   { name: 'help-home', url: '/', steps: [{ css: 'button[aria-label="この画面のヘルプを開く"]' }] },
   { name: 'help-home-bottom', url: '/', steps: [{ css: 'button[aria-label="この画面のヘルプを開く"]' }, { scrollBottom: true }] },
@@ -1153,11 +1157,11 @@ const SCREENS = [
   // トークンを追加（アプリ版・下の安全域 34）
   { name: 'tokens-sheet-native-safe', url: '/?demo=limit&native=1', steps: [{ css: nav('相談') }, { css: 'button:text-is("トークンを追加")' }, SAFE_BOTTOM, { wait: 600 }] },
   // 設定: データの初期化の確かめ・アカウント削除を開いたところ
-  { name: 'settings-reset-confirm', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:has-text("データをすべて初期化する")' }] },
-  { name: 'settings-delete-open', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:has-text("アカウントの削除を開始")' }] },
+  { name: 'settings-reset-confirm', url: '/', steps: [{ css: 'button[aria-label="設定を開く"]' }, { css: 'button:has-text("データをすべて初期化する")' }] },
+  { name: 'settings-delete-open', url: '/', steps: [{ css: 'button[aria-label="設定を開く"]' }, { css: 'button:has-text("アカウントの削除を開始")' }] },
   // アカウント削除: 削除している途中（&save=slow で本の削除が終わらない）と、受け付けの失敗（その場に赤い 1 行・2026-10-04）
-  { name: 'settings-deleting', url: '/?save=slow', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:has-text("アカウントの削除を開始")' }, { fill: ['input[aria-label="確認用メールアドレス"]', 'demo@example.com'] }, { css: 'button[aria-label="アカウントを完全に削除"]' }, { css: '[role=dialog] button:has-text("削除する")' }, { wait: 1200 }, { eval: () => document.querySelector('button[aria-label="アカウントを完全に削除"]')?.scrollIntoView({ block: 'center' }) }, { wait: 300 }] },
-  { name: 'settings-delete-fail', url: '/?writefail=account_deletion_requests', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:has-text("アカウントの削除を開始")' }, { fill: ['input[aria-label="確認用メールアドレス"]', 'demo@example.com'] }, { css: 'button[aria-label="アカウントを完全に削除"]' }, { css: '[role=dialog] button:has-text("削除する")' }, { waitFor: '[role=alert]' }, { eval: () => [...document.querySelectorAll('[role=alert]')].pop()?.scrollIntoView({ block: 'end' }) }, { wait: 400 }] },
+  { name: 'settings-deleting', url: '/?save=slow', steps: [{ css: 'button[aria-label="設定を開く"]' }, { css: 'button:has-text("アカウントの削除を開始")' }, { fill: ['input[aria-label="確認用メールアドレス"]', 'demo@example.com'] }, { css: 'button[aria-label="アカウントを完全に削除"]' }, { css: '[role=dialog] button:has-text("削除する")' }, { wait: 1200 }, { eval: () => document.querySelector('button[aria-label="アカウントを完全に削除"]')?.scrollIntoView({ block: 'center' }) }, { wait: 300 }] },
+  { name: 'settings-delete-fail', url: '/?writefail=account_deletion_requests', steps: [{ css: 'button[aria-label="設定を開く"]' }, { css: 'button:has-text("アカウントの削除を開始")' }, { fill: ['input[aria-label="確認用メールアドレス"]', 'demo@example.com'] }, { css: 'button[aria-label="アカウントを完全に削除"]' }, { css: '[role=dialog] button:has-text("削除する")' }, { waitFor: '[role=alert]' }, { eval: () => [...document.querySelectorAll('[role=alert]')].pop()?.scrollIntoView({ block: 'end' }) }, { wait: 400 }] },
   // 相談: 書いている途中で止めた答え（「もう一度答えて」のチップ・2026-10-04）
   { name: 'consult-stopped', url: '/?ai=stall', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { waitFor: '[aria-label="相談への答え"][aria-busy] p' }, { wait: 600 }, { css: 'button[aria-label="回答を中止"]' }, { wait: 1200 }] },
   // 過去の AI 選書（押し込まれた画面の形・上の行 1 本）と、その中身
@@ -1170,15 +1174,15 @@ const SCREENS = [
   { name: 'whatsnew-after-scrolled', url: '/?seen=2026-10-03', steps: [{ waitFor: '[role=dialog][aria-label="新しくなったこと"]' }, { scrollBottom: true }, { wait: 400 }] },
   { name: 'whatsnew-after-older-open', url: '/?seen=2026-10-03', steps: [{ waitFor: '[role=dialog][aria-label="新しくなったこと"]' }, { css: '[role=dialog] summary:has-text("10月4日の更新")' }, { scrollTo: '[role=dialog] summary:has-text("10月4日の更新")' }, { wait: 400 }] },
   { name: 'whatsnew-after-xl-text', url: '/?seen=2026-10-04', steps: [{ eval: () => { document.documentElement.style.fontSize = '30px'; } }, { waitFor: '[role=dialog][aria-label="新しくなったこと"]' }, { wait: 600 }] },
-  { name: 'whatsnew-settings-row', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { scrollTo: 'button:has-text("ヘルプ・使い方")' }] },
-  { name: 'whatsnew-settings-sheet', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { scrollTo: 'button:has-text("ヘルプ・使い方")' }, { css: 'button:has-text("新しくなったこと")' }, { wait: 600 }] },
+  { name: 'whatsnew-settings-row', url: '/', steps: [{ css: 'button[aria-label="設定を開く"]' }, { scrollTo: 'button:has-text("ヘルプ・使い方")' }] },
+  { name: 'whatsnew-settings-sheet', url: '/', steps: [{ css: 'button[aria-label="設定を開く"]' }, { scrollTo: 'button:has-text("ヘルプ・使い方")' }, { css: 'button:has-text("新しくなったこと")' }, { wait: 600 }] },
   { name: 'whatsnew-update-banner', url: '/?update=1&bundle=2026-10-04', steps: [{ waitFor: 'button:has-text("何が変わった？")' }, { wait: 500 }] },
   { name: 'whatsnew-update-banner-plain', url: '/?update=1', steps: [{ waitFor: 'button:has-text("更新する")' }, { wait: 800 }] },
   { name: 'whatsnew-update-sheet', url: '/?update=1&bundle=2026-10-04', steps: [{ css: 'button:has-text("何が変わった？")' }, SAFE_BOTTOM, { wait: 800 }] },
   // 第 2 回（2026-10-05 ui-critic）: 上の 3 件＋「ほかに N 件」・設定の一覧の文字最大で前の版を開いた形・新しい版が 2 つのときの「何が変わった？」
   { name: 'whatsnew-after-rest', url: '/?seen=2026-10-03', steps: [{ waitFor: '[role=dialog][aria-label="新しくなったこと"]' }, { scrollTo: '[role=dialog] summary:has-text("ほかに")' }, { wait: 400 }] },
   { name: 'whatsnew-after-rest-open', url: '/?seen=2026-10-03', steps: [{ waitFor: '[role=dialog][aria-label="新しくなったこと"]' }, { css: '[role=dialog] summary:has-text("ほかに")' }, { scrollTo: '[role=dialog] summary:has-text("ほかに")' }, { wait: 400 }] },
-  { name: 'whatsnew-settings-xl-older-open', url: '/', steps: [{ eval: () => { document.documentElement.style.fontSize = '30px'; } }, { css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:has-text("新しくなったこと")' }, { wait: 600 }, { css: '[role=dialog] summary:has-text("10月4日の更新")' },
+  { name: 'whatsnew-settings-xl-older-open', url: '/', steps: [{ eval: () => { document.documentElement.style.fontSize = '30px'; } }, { css: 'button[aria-label="設定を開く"]' }, { css: 'button:has-text("新しくなったこと")' }, { wait: 600 }, { css: '[role=dialog] summary:has-text("10月4日の更新")' },
     // シートの中を押しても設定が閉じないこと（2026-10-05 に設定ごと閉じていた）: 両方のダイアログが残っていなければ撮影が失敗する
     { waitFor: '[role=dialog][aria-label="設定"]', timeout: 3000 }, { waitFor: '[role=dialog][aria-label="新しくなったこと"] details[open]', timeout: 3000 },
     { scrollTo: '[role=dialog] summary:has-text("10月4日の更新")' }, { wait: 400 }] },

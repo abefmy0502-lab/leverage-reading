@@ -18,7 +18,7 @@ export const USAGE_GROUPS = [
   { key: 'setup', label: '読書計画シート', purposes: ['setup_sheet', 'setup_sheet_edit'] },
   { key: 'brief', label: 'この本で学べること', purposes: ['book_brief'] },
   { key: 'goal', label: '目標のロードマップ', purposes: ['goal_interview', 'goal_roadmap'] },
-  { key: 'ocr', label: '写真から書き起こし', purposes: ['ocr'] },
+  { key: 'ocr', label: '写真の読み取り', purposes: ['ocr', 'shelf_scan'] },
   { key: 'condense', label: '凝縮', purposes: ['condense'] },
   { key: 'summary', label: 'この本のまとめ', purposes: ['cards_to_summary'] },
   { key: 'other', label: 'そのほか', purposes: ['ops_advise', 'other'] },

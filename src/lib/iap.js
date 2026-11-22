@@ -50,12 +50,15 @@ export { savingsLabel };
 let _Purchases = null;
 let _configured = false;
 
+// ⚠️ Capacitor の部品（registerPlugin の Proxy）は async 関数からそのまま返さない。どんな名前でも関数を返すので、Promise が
+//   「then」を持つ物とみなして proxy.then(…) を呼び、返事の来ない待ちに入る（2026-11-21・Apple でサインインが「サインイン中…」のまま・
+//   課金の値段が出ない、の原因）。箱 { plugin } に入れて返し、使う側で取り出す（capacitorPluginBox.test.js が確かめる）。
 async function loadPurchases() {
-  if (!isNative) return null;
-  if (_Purchases) return _Purchases;
+  if (!isNative) return { plugin: null };
+  if (_Purchases) return { plugin: _Purchases };
   const mod = await import('@revenuecat/purchases-capacitor');
   _Purchases = mod.Purchases;
-  return _Purchases;
+  return { plugin: _Purchases };
 }
 
 // SDK 設定 + ユーザー紐付け (冪等)。購入 / 復元 / 価格取得の前に必ず通す。
@@ -63,7 +66,7 @@ async function loadPurchases() {
 // (api/revenuecat-webhook.js) と突き合う。
 export async function ensureConfigured(userId) {
   if (!isNative || !RC_IOS_KEY) return false;
-  const Purchases = await loadPurchases();
+  const { plugin: Purchases } = await loadPurchases();
   if (!Purchases) return false;
   if (!_configured) {
     await Purchases.configure({ apiKey: RC_IOS_KEY });
@@ -89,7 +92,7 @@ export async function ensureConfigured(userId) {
 let _loggedInAs = null;
 
 async function getCurrentOffering() {
-  const Purchases = await loadPurchases();
+  const { plugin: Purchases } = await loadPurchases();
   if (!Purchases) return null;
   try {
     const offerings = await Purchases.getOfferings();
@@ -164,7 +167,7 @@ export async function getStoreLabels(userId) {
 // 判定できなかったときは出さない側に倒す（誤解を招く表示を避ける）。
 async function trialEligibility(products) {
   try {
-    const Purchases = await loadPurchases();
+    const { plugin: Purchases } = await loadPurchases();
     const ids = products.map((p) => p?.identifier).filter(Boolean);
     if (!Purchases || ids.length === 0) return () => false;
     const res = await Purchases.checkTrialOrIntroductoryPriceEligibility({ productIdentifiers: ids });
@@ -186,7 +189,7 @@ export async function purchasePlan(plan, userId) {
   if (userId && _loggedInAs !== userId) {
     throw new Error('購入の準備ができませんでした。通信の良い場所で、もう一度お試しください。');
   }
-  const Purchases = await loadPurchases();
+  const { plugin: Purchases } = await loadPurchases();
   const offering = await getCurrentOffering();
   const pkg = pickPackage(offering, plan);
   if (!pkg) throw new Error('購入可能なプランが見つかりませんでした。');
@@ -224,7 +227,7 @@ export async function purchasePlan(plan, userId) {
 export async function getTokenPackPrices(productIds, userId) {
   if (!(await ensureConfigured(userId))) return {};
   try {
-    const Purchases = await loadPurchases();
+    const { plugin: Purchases } = await loadPurchases();
     const res = await Purchases.getProducts({ productIdentifiers: productIds, type: 'NON_SUBSCRIPTION' });
     const out = {};
     for (const p of res?.products || []) {
@@ -244,7 +247,7 @@ export async function purchaseTokenPack(productId, userId) {
   if (userId && _loggedInAs !== userId) {
     throw new Error('購入の準備ができませんでした。通信の良い場所で、もう一度お試しください。');
   }
-  const Purchases = await loadPurchases();
+  const { plugin: Purchases } = await loadPurchases();
   let product = null;
   try {
     const res = await Purchases.getProducts({ productIdentifiers: [productId], type: 'NON_SUBSCRIPTION' });
@@ -268,7 +271,7 @@ export async function purchaseTokenPack(productId, userId) {
 // （Web では isNative=false で即 false。RevenueCat SDK もロードされない＝無害）
 export async function hasActiveEntitlement(userId) {
   if (!(await ensureConfigured(userId))) return false;
-  const Purchases = await loadPurchases();
+  const { plugin: Purchases } = await loadPurchases();
   if (!Purchases) return false;
   try {
     const res = await Purchases.getCustomerInfo();
@@ -290,7 +293,7 @@ export async function restorePurchases(userId) {
   if (userId && _loggedInAs !== userId) {
     throw new Error('復元の準備ができませんでした。通信の良い場所で、もう一度お試しください。');
   }
-  const Purchases = await loadPurchases();
+  const { plugin: Purchases } = await loadPurchases();
   const res = await Purchases.restorePurchases();
   const active = res?.customerInfo?.entitlements?.active || {};
   return Object.keys(active).length > 0;
@@ -309,7 +312,7 @@ export async function presentOfferCodeSheet(userId) {
   if (userId && _loggedInAs !== userId) {
     throw new Error('コードの入力画面の準備ができませんでした。通信の良い場所で、もう一度お試しください。');
   }
-  const Purchases = await loadPurchases();
+  const { plugin: Purchases } = await loadPurchases();
   if (!Purchases || typeof Purchases.presentCodeRedemptionSheet !== 'function') return false;
   await Purchases.presentCodeRedemptionSheet();
   return true;
@@ -335,7 +338,7 @@ export async function waitForCodeSheetClosed(maxMs = 180000) {
 
 // 端末の購読の状態（RevenueCat の customerInfo）を取り直させる。コードを使ったあとの読み直しの前に呼ぶ。
 export async function invalidateCustomerInfo() {
-  const Purchases = await loadPurchases();
+  const { plugin: Purchases } = await loadPurchases();
   if (!Purchases) return;
   try { await Purchases.invalidateCustomerInfoCache(); } catch { /* 読み直しは続ける */ }
 }

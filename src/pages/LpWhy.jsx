@@ -27,7 +27,7 @@ function RetentionChart() {
       {/* 文字は SVG に入れない（スマホで縮むと 12 を切る・DESIGN §2）。軸と凡例は HTML で */}
       <p className="lp-why-axis" aria-hidden="true"><span>読んだ日</span><span>1 週間</span><span>1 か月</span></p>
       <p className="lp-why-legend" aria-hidden="true"><span className="is-talk">相談するたびに思い出す</span><span className="is-read">読むだけ</span></p>
-      <figcaption>{WHY.chartCaption}</figcaption>
+      <figcaption className="lp-wbr"><Phrases>{WHY.chartCaption}</Phrases></figcaption>
     </figure>
   );
 }
@@ -39,7 +39,7 @@ export default function LpWhy() {
       <RetentionChart />
       {/* 研究 3 つは 1 段に（2026-11-11 オーナー「ここまで細かくなくて良い」）: 3 つの言葉 → 1 文 → 出典 1 行 */}
       <div className="lp-why-keys">
-        <p className="lp-why-keys-row lp-wbr">{WHY.keys.map((k) => <span key={k}><Phrases phrase>{k}</Phrases></span>)}</p>
+        <p className="lp-why-keys-row">{WHY.keys.map((k) => <span key={k}>{k.split(/(?<=・)/).map((c) => <span key={c} className="lp-nb">{c}</span>)}</span>)}</p>
         <p className="lp-why-summary">{WHY.summary}</p>
         <p className="lp-why-sources">{WHY.sources}</p>
       </div>

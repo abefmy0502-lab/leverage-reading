@@ -132,6 +132,11 @@ function humanizeError(err) {
   if (msg.includes('not configured')) {
     return NOT_CONFIGURED_ERROR;
   }
+  // サインインの方法がサーバーで止まっている（Supabase の Apple・匿名のサインインがオフ・2026-11-21 シミュレータで「400 provider_disabled」）。
+  //   待っても直らないので「時間をおいて」と言わない。別の方法へ案内する。
+  if (err?.code === 'provider_disabled' || err?.code === 'anonymous_provider_disabled' || msg.includes('provider is not enabled') || msg.includes('provider_disabled') || msg.includes('anonymous sign-ins are disabled')) {
+    return `この方法では、いまサインインできません。メールアドレスで登録・ログインしてください。${diagCode(err)}`;
+  }
   // サーバー側の停止・障害（Supabase の自動一時停止は 5xx や独自の 540 を返すことがある）。
   const status = Number(err?.status) || 0;
   if (status >= 500 || msg.includes('paused') || msg.includes('upstream') || msg.includes('service unavailable')) {
@@ -229,7 +234,7 @@ export default function AuthScreen() {
       // 伝えることは 2 つ（どこに残るか・同意）。規約は開けるリンクにする（開けないものに同意させない・2026-11-19 ui-critic）。
       message: (
         <>
-          <span style={{ display: 'block' }}>{withPhraseBreaks('本とメモは、このアカウントに保存されます。アカウントを作らないままアプリを消すと戻せません。設定からいつでもアカウントを作れます。')}</span>
+          <span style={{ display: 'block' }}>{withPhraseBreaks('登録しなくても、本とメモは保存されます。アカウントを作る前にアプリを消すと、戻せません。設定からいつでもアカウントを作れます。')}</span>
           <span style={{ display: 'block', marginTop: 'var(--space-2)' }}>{withPhraseBreaks('始めると、利用規約とプライバシーポリシーに同意したことになります。')}</span>
           {/* リンクは文の中に置かず、高さ 44 の文字ボタンで 1 行に（押しやすく・新規登録と同じ形・2026-11-19 ui-critic） */}
           <span style={{ display: 'flex', flexWrap: 'wrap', columnGap: 'var(--space-6)' }}>
@@ -454,6 +459,15 @@ export default function AuthScreen() {
                 やめる
               </button>
             )}
+            {/* Apple で始める人にも規約への同意を伝える（App 審査 1.2＝不快な内容を禁じる規約に同意してから使う・2026-11-22）。 */}
+            <p style={{ ...fieldHint, margin: 'var(--space-2) 0 0', textAlign: 'center', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+              {withPhraseBreaks('Appleで続けると、利用規約とプライバシーポリシーに同意したことになります。')}
+            </p>
+            {/* 添え書きのリンクは主役（Apple のボタン）と張り合わないよう --text-2 に（DESIGN §5 同意の添え書き）。 */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', columnGap: 'var(--space-6)' }}>
+              <a href={TERMS_URL} target="_blank" rel="noopener noreferrer" style={{ ...legalLink, color: 'var(--text-2)', textDecoration: 'underline', textUnderlineOffset: '0.2em' }}>利用規約</a>
+              <a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer" style={{ ...legalLink, color: 'var(--text-2)', textDecoration: 'underline', textUnderlineOffset: '0.2em' }}>プライバシーポリシー</a>
+            </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', margin: 'var(--space-4) 0' }}>
               <span style={{ flex: 1, height: 1, background: 'var(--separator)' }} />
               <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-3)' }}>または</span>
@@ -557,21 +571,27 @@ export default function AuthScreen() {
             ログインに戻る
           </button>
         )}
+        {/* 登録は任意（App 審査 5.1.1(v)・2026-11-19）。アプリだけ。押すと確かめてから始める。
+            はじめての人がいちばん迷わない入口なので、ログインの画面では枠の副ボタンに（メールの登録は文字ボタン・2026-11-22 点検）。
+            新規登録の画面にも出す（登録をやめたい人の行き止まりにしない）。 */}
+        {GUEST_START_AVAILABLE && guestError && mode !== 'reset' && (
+          <p role="alert" style={{ ...errorText, margin: 0, textAlign: 'center', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(guestError)}</p>
+        )}
+        {GUEST_START_AVAILABLE && mode !== 'reset' && (
+          <button type="button" onClick={handleGuest} disabled={guestBusy || appleBusy}
+            style={mode === 'signin'
+              ? { ...uiBtnGhost, width: '100%', marginBottom: 'var(--space-2)', ...(guestBusy || appleBusy ? { cursor: 'default' } : null) }
+              : { ...btnLink, ...(guestBusy || appleBusy ? { cursor: 'default' } : null) }}>
+            {guestBusy ? '準備しています…' : '登録せずに始める'}
+          </button>
+        )}
         {mode === 'signin' && (
           <>
-            {/* はじめての人がいちばん押すので、枠の副ボタン（パスワードの文字ボタンと同じ強さにしない・2026-11-18 ui-critic） */}
-            <button type="button" onClick={() => switchMode('signup')} style={{ ...uiBtnGhost, width: '100%', marginBottom: 'var(--space-2)' }}>
-              アカウントを作成
+            {/* はじめての人がいちばん押すので、枠の副ボタン（パスワードの文字ボタンと同じ強さにしない・2026-11-18 ui-critic）。
+                登録せずに始めるがあるアプリでは、そちらが枠のボタンで、こちらは文字ボタン。 */}
+            <button type="button" onClick={() => switchMode('signup')} style={GUEST_START_AVAILABLE ? btnLink : { ...uiBtnGhost, width: '100%', marginBottom: 'var(--space-2)' }}>
+              {GUEST_START_AVAILABLE ? 'メールアドレスでアカウントを作成' : 'アカウントを作成'}
             </button>
-            {/* 登録は任意（App 審査 5.1.1(v)・2026-11-19）。アプリだけ。押すと確かめてから始める。 */}
-            {GUEST_START_AVAILABLE && guestError && (
-              <p role="alert" style={{ ...errorText, margin: 0, textAlign: 'center', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(guestError)}</p>
-            )}
-            {GUEST_START_AVAILABLE && (
-              <button type="button" onClick={handleGuest} disabled={guestBusy || appleBusy} style={{ ...btnLink, ...(guestBusy || appleBusy ? { cursor: 'default' } : null) }}>
-                {guestBusy ? '準備しています…' : '登録せずに始める'}
-              </button>
-            )}
             {/* サービス紹介はログインの画面だけ（新規登録は「ログインに戻る」1 つにして、押すものを減らす・2026-09-29）。 */}
             {!isNative && (
               <a href="/lp" style={{ ...btnLink, color: 'var(--text-2)', textDecoration: 'none' }}>サービス紹介を見る</a>

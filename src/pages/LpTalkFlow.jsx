@@ -36,8 +36,8 @@ function Book({ from, children }) {
 
 export default function LpTalkFlow() {
   const [ask, answer, step] = T.steps;
-  // 一歩の最初の 1 文（考え方）と、そのあとの具体（やること）を分ける。
-  const [stepLead, ...stepRest] = String(step.action).split(/(?<=。)/);
+  // 一歩の最初の段落（考え方）と、そのあとの具体（やること）を分ける（lpCopy の action は段落の配列）。
+  const [stepLead, ...stepRestParas] = [].concat(step.action);
   return (
     <>
       {/* 広い画面では会話（相談する本の行＋会話）を右の列にまとめる（landing.css の .lp-chat-wrap） */}
@@ -60,7 +60,7 @@ export default function LpTalkFlow() {
           <p className="lp-chat-text is-lead lp-wbr"><Phrases phrase>{stepLead}</Phrases></p>
           <div className="lp-chat-step">
             <p className="lp-chat-label"><Target size="1.1em" aria-hidden="true" /> 明日からできる一歩</p>
-            <p className="lp-chat-text is-read lp-wbr"><Phrases phrase>{stepRest.join('')}</Phrases></p>
+            {stepRestParas.map((t) => <p key={t} className="lp-chat-text is-read lp-wbr"><Phrases phrase>{t}</Phrases></p>)}
           </div>
         </Book>
         {/* 2026-11-11 オーナー「行動に追加ボタンは初めて見た人だとわからない」: ボタンの絵をやめ、押したあとに起きること（明日の行動リストに入る）を見せる */}

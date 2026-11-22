@@ -78,9 +78,10 @@ const BASE_FEATURES = [
   // 凝縮・まとめ・写真から書き起こしは同じ送り先（2026-11-18 から Anthropic）なので 1 行に（シートの高さ・2026-10-02 ui-critic）。
   {
     id: 'memo',
-    name: '凝縮・まとめ・写真から書き起こし',
-    sends: 'そのメモの文・撮ったページの写真',
-    purposes: ['condense', 'cards_to_summary', 'ocr'],
+    // 2026-11-22: 📚 本棚の写真から追加（shelf_scan）も同じ行（送るのは撮った本棚の写真＝写真から書き起こしと同じ種類・同じ Anthropic）。
+    name: '凝縮・まとめ・写真の読み取り',
+    sends: 'そのメモの文・撮ったページや本棚の写真',
+    purposes: ['condense', 'cards_to_summary', 'ocr', 'shelf_scan'],
   },
 ];
 
@@ -100,6 +101,7 @@ const BASE_PURPOSE_PROVIDER = {
   condense: 'anthropic',
   cards_to_summary: 'anthropic',
   ocr: 'anthropic',
+  shelf_scan: 'anthropic',
 };
 
 // 🧭 Jev の用途 → どの機能の送り先に TypeSafe AI を足すか（api/_aiRouting.js の JEV_ROUTES.feature と同じ・テストで確かめる）。
@@ -161,6 +163,7 @@ export const CONSENT_COVERED_BY = {
   book_brief: 'setup_sheet',
   goal_interview: 'advisor_interview',
   goal_roadmap: 'book_advisor',
+  shelf_scan: 'ocr',
 };
 
 // 版を決める元（会社と用途の組み合わせ）。これが変わったら AI_CONSENT_VERSION を上げる（テストで確かめる）。

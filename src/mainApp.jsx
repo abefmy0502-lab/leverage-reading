@@ -17,8 +17,11 @@ import { installPressFeedback } from './lib/pressFeedback';
 import { installTextSizeCap } from './lib/textSizeCap';
 
 // 🧪 開発中だけ: ?crash=1 でエラーの画面（ErrorBoundary）を出す（撮影・確認用・本番では描かない）。
+//   ?crash=chunk は部品が取れなかったとき（1 回読み直したあと「新しい版に切り替えています」・2026-11-21）。
 function CrashProbe() {
-  if (new URLSearchParams(window.location.search).get('crash') === '1') throw new Error('crash probe (?crash=1)');
+  const crash = new URLSearchParams(window.location.search).get('crash');
+  if (crash === '1') throw new Error('crash probe (?crash=1)');
+  if (crash === 'chunk') throw new TypeError('Failed to fetch dynamically imported module: crash probe (?crash=chunk)');
   return null;
 }
 

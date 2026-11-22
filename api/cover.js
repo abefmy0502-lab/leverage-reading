@@ -540,10 +540,12 @@ async function coverFromIsbn(isbn, sink) {
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 30;
 const rateLimitStore = new Map();
-function checkRateLimit(key) {
+// 本の検索は結果を覚える（サーバー 30 分・CDN 1 時間）ので、別の数え方で多めに（本棚の写真から追加は 1 枚で 40 冊を確かめる・2026-11-22）。
+const SEARCH_RATE_LIMIT_MAX = 120;
+function checkRateLimit(key, max = RATE_LIMIT_MAX) {
   const now = Date.now();
   const arr = (rateLimitStore.get(key) || []).filter((ts) => now - ts < RATE_LIMIT_WINDOW_MS);
-  if (arr.length >= RATE_LIMIT_MAX) {
+  if (arr.length >= max) {
     const retryAfter = Math.max(1, Math.ceil((RATE_LIMIT_WINDOW_MS - (now - arr[0])) / 1000));
     return { ok: false, retryAfter };
   }
@@ -688,7 +690,9 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const rl = checkRateLimit(clientKey(req));
+  const rl = req.query?.search !== undefined
+    ? checkRateLimit(`search:${clientKey(req)}`, SEARCH_RATE_LIMIT_MAX)
+    : checkRateLimit(clientKey(req));
   if (!rl.ok) {
     res.setHeader('Retry-After', String(rl.retryAfter));
     return res.status(429).json({ error: 'Too Many Requests', retry_after: rl.retryAfter });

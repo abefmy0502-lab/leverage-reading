@@ -115,6 +115,8 @@ const GoalScreen = lazy(() => import('./components/GoalScreen'));
 const ReadingRecord = lazy(() => import('./components/ReadingRecord'));
 import BottomSheet from './components/BottomSheet';
 const AddBookModal = lazy(() => import('./components/AddBookModal'));
+const ShelfScanSheet = lazy(() => import('./components/ShelfScanSheet'));
+const ProfileScreen = lazy(() => import('./components/ProfileScreen'));
 import { useBookCover } from './hooks/useBookCover';
 import { searchBooksFlat as searchBooksAPIFlat } from './lib/bookSearch';
 import { tryCoverForIsbn, verifyBookExists } from './lib/bookCover';
@@ -229,6 +231,7 @@ import {
   RotateCcw,
   Brain,
   HelpCircle,
+  Settings as SettingsIcon,
   Target,
   MessageCircle,
   Smartphone,
@@ -1194,6 +1197,8 @@ function AuthedApp() {
   // The "+" button opens this first; from here the user picks the
   // search path (default) or jumps to manual entry.
   const [addBookModalOpen, setAddBookModalOpen] = useState(false);
+  // 📚 本棚の写真からまとめて追加（2026-11-22・本を追加の画面から）
+  const [shelfScanOpen, setShelfScanOpen] = useState(false);
   // 検索結果の「追加済み」から開いた本の id（詳細の ‹・戻るで検索結果へ戻すため）。
   const [detailFromSearchId, setDetailFromSearchId] = useState(null);
   // 🧭 目標の画面（ロードマップ・読書計画）から開いた本: { bookId, screen }。戻ると同じ目標の画面へ（2026-11-15 磨き）。
@@ -1263,6 +1268,8 @@ function AuthedApp() {
   // 編集フォームの「未保存変更」検知用ベースライン（編集に入った時点のスナップショット）。
   const editBaselineRef = useRef(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // 👤 プロフィールの画面（右上の自分のアイコン・2026-11-22 に設定から分けた）
+  const [profileScreenOpen, setProfileScreenOpen] = useState(false);
   // 本の詳細を開いたときに示すメモ（openDetail の 2 つ目の引数）。
   const [detailFocusMemoId, setDetailFocusMemoId] = useState(null);
   // 振り返りの月ごとのメモを押したとき: そのメモまで送ってから編集を開く（2026-09-30）。
@@ -1497,6 +1504,7 @@ function AuthedApp() {
   const [helpModalOpen, setHelpModalOpen] = useState(false);
   // 重ねて開くもの（「戻る」で一番上から閉じる・その間は左端スワイプで下の画面を戻さない）。
   useBackLayer(settingsOpen, () => setSettingsOpen(false));
+  useBackLayer(profileScreenOpen, () => setProfileScreenOpen(false));
   useEffect(() => {
     const reopen = () => setSettingsOpen(true);
     window.addEventListener(OPEN_SETTINGS_EVENT, reopen);
@@ -1504,6 +1512,7 @@ function AuthedApp() {
   }, []);
   useBackLayer(helpModalOpen, () => setHelpModalOpen(false));
   useBackLayer(addBookModalOpen, () => setAddBookModalOpen(false));
+  useBackLayer(shelfScanOpen, () => setShelfScanOpen(false));
   const [quickMemoOpen, setQuickMemoOpen] = useState(false);
   // 📗 読了の 3 つの問い（2026-10-11）: メモを書くシートの入力欄の上に出す問い（{ key, text }・無ければ null）と、
   //   問いの状態（端末に覚える）を読み直す印。
@@ -1856,7 +1865,7 @@ function AuthedApp() {
     try { haptic.light(); } catch { /* ignore */ }
     if (!firstStepToldRef.current) {
       firstStepToldRef.current = true;
-      toast.info('本を 1 冊入れると、画像を作れます。');
+      toast.info('写真で共有は、読んだ本を 1 枚の画像にします。本を 1 冊入れると使えます。');
     }
     if (tab !== 'books') navigateTab('books');
     if (view !== 'list') setView('list');
@@ -2887,6 +2896,8 @@ function AuthedApp() {
             author: String(b.author || '').slice(0, 200),
             isbn,
             asin: String(b.asin || '').slice(0, 20), // 読書メーター: Kindle 版など ISBN の無い本の Amazon リンク用
+            // 📚 本棚の写真から追加（2026-11-22）は、書店の検索で見つけた表紙をそのまま（https だけ）
+            ...(/^https:\/\//.test(String(b.cover || '')) ? { cover: String(b.cover).slice(0, 1000) } : {}),
             totalPages: Number(b.pages) || 0,
             status: ['want', 'before', 'reading', 'done'].includes(b.status) ? b.status : 'done',
             rating: Number(b.rating) || 0,
@@ -4756,6 +4767,15 @@ function AuthedApp() {
           setAiSubTab('brain');
           setTab('ai');
         }}
+        onAskDraft={(question) => {
+          setShowQuickstart(false);
+          setQuickstartSeed(null);
+          refreshBooks();
+          setAskPreset({ question, nonce: Date.now(), draft: true, focus: false });
+          setView('list');
+          setAiSubTab('brain');
+          setTab('ai');
+        }}
         onClose={() => { setShowQuickstart(false); setQuickstartSeed(null); refreshBooks(); }}
         onWriteMemo={(bookId) => {
           setShowQuickstart(false);
@@ -6216,7 +6236,8 @@ function AuthedApp() {
       </button>
     </div>
     {/* 右端は左のロゴの補正と対称に（アイコンの見た目の右余白を 16 に）。 */}
-    <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-1)', marginRight: 'calc(-1 * var(--space-3))' }}>
+    {/* 右端は自分のアイコン（見た目 28）なので、押せる範囲 44 との差の半分（8）だけ外へ出し、見た目の右余白を 16 にそろえる（2026-11-22 ui-critic）。 */}
+    <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-1)', marginRight: 'calc(-1 * var(--space-2))' }}>
       {/* 📷 写真で共有（2026-09-30 オーナー裁定: 共有は前面に出す主要な機能。2026-10-01「振り返りでも相談でも表示があってもいい」で
           ホーム・振り返り・相談の 3 つのタブで同じ場所・同じ形に）。押すとカメラで撮る・写真から選ぶ・写真なし（本の表紙）を選ぶシート（2026-10-11 オーナー裁定・旧「すぐカメラ」）。
           撮ったら、いま読んでいる本の記録を重ねたシートが開く（振り返り › 記録から開いて今月の読了があるときだけ「今月」を選んでおく）。 */}
@@ -6236,12 +6257,11 @@ function AuthedApp() {
             : {}),
         }))}
         aria-label="写真で共有"
-        // 文字は 15 から設定に合わせて大きくなるが、20 で止める（--text-bar-max・1 行に収める）。アイコンは右の ？・⚙️ と同じ 22。
-        // 本が 0 冊のときは栗色にしない（--text-2）＝主役は本文の「読んだ本の一文をメモする」（アクセントを 2 か所にしない・2026-10-11 第 2 回の採点）。
-        style={{ ...btnLink, color: 'var(--text-2)', fontWeight: 400, fontSize: 'min(var(--text-sub), var(--text-bar-max))', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', padding: '0 var(--space-2)', whiteSpace: 'nowrap' }}
+        title="写真で共有"
+        // 2026-11-22 オーナー「写真で共有の文字は削除して。カメラマークだけで伝わる」: 文字を外し、右の ？・歯車・アイコンと同じ 44 の丸に。
+        style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: "50%", color: "var(--text-2)", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
       >
         <Camera size={22} strokeWidth={1.75} aria-hidden="true" />
-        写真で共有
       </button>
       <button
         onClick={openHelp}
@@ -6251,13 +6271,21 @@ function AuthedApp() {
       >
         <HelpCircle size={22} strokeWidth={1.75} aria-hidden="true" />
       </button>
-      {/* 🙂 右上は自分のアイコン（2026-11-21 オーナー「設定マークではなく自分のアイコンに」）。押すと今までどおり設定。
-          見た目 28（? の 22 と並ぶ大きさ）・押せる範囲 44。選んでいなければニックネームの 1 字か人の形（UserAvatar）。 */}
+      {/* ⚙️ 設定（2026-11-22 オーナー「設定とプロフィールを二つに分けた方がいい」「アイコンと歯車を並べる」）。 */}
       <button
         onClick={() => setSettingsOpen(true)}
+        style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: "50%", color: "var(--text-2)", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
+        aria-label="設定を開く"
+        title="設定"
+      >
+        <SettingsIcon size={22} strokeWidth={1.75} aria-hidden="true" />
+      </button>
+      {/* 🙂 右上は自分のアイコン → プロフィール（フォロー・公開・編集）。見た目 28・押せる範囲 44。 */}
+      <button
+        onClick={() => setProfileScreenOpen(true)}
         style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: "50%", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
-        aria-label="プロフィールと設定を開く"
-        title="プロフィールと設定"
+        aria-label="プロフィールを開く"
+        title="プロフィール"
       >
         <UserAvatar avatarId={myProfile?.avatar} nickname={myProfile?.nickname} size={28} />
       </button>
@@ -7104,6 +7132,18 @@ function AuthedApp() {
             onProfileSaved={addFavoriteFromProfile}
             onAddWant={addWantFromOther}
             hasBook={hasBookFromOther}
+            onOpenProfile={() => { setSettingsOpen(false); setProfileScreenOpen(true); }}
+          />
+        </Suspense>
+      )}
+      {profileScreenOpen && (
+        <Suspense fallback={<OverlayFallback />}>
+          <ProfileScreen
+            onClose={() => setProfileScreenOpen(false)}
+            onOpenSettings={() => { setProfileScreenOpen(false); setSettingsOpen(true); }}
+            onProfileSaved={addFavoriteFromProfile}
+            onAddWant={addWantFromOther}
+            hasBook={hasBookFromOther}
           />
         </Suspense>
       )}
@@ -7496,6 +7536,7 @@ function AuthedApp() {
             initialQuery={addFromSearchQuery || ''}
             existingBooks={books}
             forPhoto={ocrIntentActive}
+            onShelfScan={() => { setAddBookModalOpen(false); setShelfScanOpen(true); }}
             onOpenExisting={(existing, query) => {
               setAddBookModalOpen(false);
               // 詳細の ‹ 検索・「戻る」で、さっきの言葉の検索結果へ戻れるように覚えておく。
@@ -7505,6 +7546,17 @@ function AuthedApp() {
               // 📷 本のページを撮る（初回ガイド）で本棚にある本を選んだら、そのままメモのシート（写真の形）を開く。
               if (ocrIntentActive && (existing.status === 'reading' || existing.status === 'done')) setQuickMemoOpen(true);
             }}
+          />
+        </Suspense>
+      )}
+
+      {shelfScanOpen && (
+        <Suspense fallback={<OverlayFallback />}>
+          <ShelfScanSheet
+            existingBooks={books}
+            onAdd={(list) => importLibrary({ books: list, source: 'shelf_photo' })}
+            onUndo={(outcome) => undoImport(outcome)}
+            onClose={() => setShelfScanOpen(false)}
           />
         </Suspense>
       )}

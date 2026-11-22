@@ -2,16 +2,19 @@
 //   設定の「フォロー」の行と、相手のリンク（/?follow=<id>）から開く。VITE_SOCIAL のビルドだけ（lib/social.js）。
 //   1 つのシートの中で 3 つの画面を行き来する: 一覧（申し込む・フォロー中・フォロワー・申し込み）→ 相手の本棚 → 本（まとめ・読みたいに追加）。
 //   相手を探す欄は「リンクか ID」だけ（名前で探さない）。承認の前に「本棚とこの本のまとめをいつでも見られます」と確かめる。
-//   ブロック・通報は相手の本棚の「…」とフォロワーの行の「…」から（App 審査 1.2）。
+//   ブロック・通報は相手の本棚・フォロワー・届いた申し込み・ID で見つけた人の行の「…」から（App 審査 1.2）。
+//   通報は理由をえらぶ画面で受け、届いたかを確かめて知らせる（あわせてブロックもできる・2026-11-22）。
 import { lazy, Suspense, useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { MoreHorizontal, ChevronLeft, ChevronRight, Check, Share } from 'lucide-react';
 import BottomSheet from './BottomSheet';
 import ContextMenu from './ContextMenu';
+import ToggleSwitch from './ToggleSwitch';
 import UserAvatar from './UserAvatar';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
-import { btnPrimary, btnGhost, btnLink, btnLinkQuiet, btnRow, input as inputBase, groupTitle, segTrack, segOption } from '../styles/ui';
+import { btnPrimary, btnPrimaryOff, btnGhost, btnLink, btnLinkQuiet, btnRow, input as inputBase, groupTitle, segTrack, segOption, scrollFade } from '../styles/ui';
+import { Chip } from './formPrimitives';
 import MiniCover from './MiniCover';
 import AdvisorStoreLinks from './AdvisorStoreLinks';
 import { STORE_DISCLOSURE_TEXT } from '../lib/rakutenLink';
@@ -20,6 +23,7 @@ import { withPhraseBreaks } from './TightBubble';
 import {
   publicIdFrom, previewProfile, requestFollow, followResultMessage, loadFollows, respondFollow, removeFollow,
   blockUser, unblockUser, reportProfile, loadFolloweeShelf, SHELF_ORDER, myIdShareText, summaryExcerpt,
+  REPORT_REASONS, reportReasonText,
 } from '../lib/social';
 import { track } from '../lib/analytics';
 import { useAuth } from '../hooks/useAuth';
@@ -36,6 +40,8 @@ const nameStyle = { flex: 1, minWidth: 0, fontSize: 'var(--text-body)', color: '
 const plainBtn = { background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', color: 'inherit', textAlign: 'left' };
 // 一覧の行の主ボタン（承認・申し込む）は btnRow の形に塗り（15/600・高さ 44）。
 const smallBtn = { ...btnRow, background: 'var(--accent)', color: 'var(--accent-ink)', border: 'none' };
+// 行の中の文字ボタン（断る・取り消す・ブロックを外す）は横も 44 以上。
+const rowLink = { ...btnLinkQuiet, minWidth: 'var(--tap-min)', padding: '0 var(--space-2)', justifyContent: 'center' };
 const iconBtn = { ...plainBtn, width: 'var(--tap-min)', height: 'var(--tap-min)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-2)', flexShrink: 0 };
 
 // 3 つの画面を行き来してもシートの高さが跳ねないように、中身の高さの下限をそろえる。
@@ -59,7 +65,7 @@ function PersonRow({ person, children, onOpen, first = false }) {
     <>
       <UserAvatar avatarId={person.avatar} nickname={person.nickname} size={40} />
       <span style={nameStyle}>{person.nickname || 'ニックネームなし'}</span>
-      {onOpen && <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />}
+      {onOpen && !children && <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />}
     </>
   );
   return (
@@ -72,7 +78,94 @@ function PersonRow({ person, children, onOpen, first = false }) {
   );
 }
 
-export default function FollowSheet({ onClose, initialId = '', onAddWant, initialRequestCount = 0, hasBook }) {
+// 🗄 人の本棚（2026-11-22 オーナー「もう少し本棚感を出したい・絞り込みもつけたい」・公開のページ api/_profilePage.js と同じ形）。
+//   棚（--fill の面）に表紙を 4 冊ずつ下をそろえて立て、行ごとに棚板（--separator の 8 の線）。書名は表紙と読み上げに任せる。
+//   まとめのある本は上から少しはみ出す栞（--accent）、自分の本棚にもある本は左上に小さな印。上のチップで状態・まとめありに絞る。
+//   「すべて」は状態ごとの棚に 8 冊まで＋「〈状態〉をすべて見る」。
+const SHELF_ROW = 4;
+const SHELF_PREVIEW = 8;
+const shelfCase = { marginTop: 'var(--space-3)', paddingTop: 'var(--space-4)', background: 'var(--fill)', borderRadius: 'var(--radius)', overflow: 'hidden' };
+const shelfRow = (first) => ({ display: 'flex', alignItems: 'flex-end', gap: 'var(--space-2)', margin: first ? 0 : 'var(--space-4) 0 0', padding: '0 var(--space-3)', borderBottom: 'var(--space-2) solid var(--shelf-plank)' });
+
+function ShelfCase({ books, onOpen, hasBook }) {
+  const rows = [];
+  for (let i = 0; i < books.length; i += SHELF_ROW) rows.push(books.slice(i, i + SHELF_ROW));
+  return (
+    <div style={shelfCase}>
+      {rows.map((r, ri) => (
+        <div role="list" key={ri} style={shelfRow(ri === 0)}>
+          {r.map((b) => {
+            const owned = hasBook?.(b);
+            return (
+              <div role="listitem" key={b.id} style={{ position: 'relative', flex: '0 0 calc((100% - 3 * var(--space-2)) / 4)', minWidth: 0 }}>
+                <button
+                  type="button"
+                  onClick={() => onOpen(b)}
+                  style={{ ...plainBtn, display: 'block', width: '100%' }}
+                  aria-label={`${b.title}${b.author ? `・${b.author}` : ''}・${STATUS_LABEL[b.status]}${b.rating ? `・評価 ${b.rating}` : ''}${b.summary ? '・まとめあり' : ''}${owned ? '・あなたの本棚にあります' : ''}`}
+                >
+                  <MiniCover title={shownTitle(b.title)} cover={b.cover} width="100%" />
+                </button>
+                {b.summary && <span aria-hidden="true" style={{ position: 'absolute', top: 'calc(-1 * var(--space-2))', right: 'var(--space-2)', width: 'var(--space-2)', height: 'var(--space-6)', background: 'var(--accent)', clipPath: 'polygon(0 0, 100% 0, 100% 100%, 50% 75%, 0 100%)' }} />}
+                {owned && (
+                  <span aria-hidden="true" style={{ position: 'absolute', left: 'var(--space-1)', top: 'var(--space-1)', width: '1.5em', height: '1.5em', borderRadius: '50%', background: 'var(--surface)', boxShadow: 'inset 0 0 0 1px var(--separator)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-2)', fontSize: 'var(--text-meta)' }}>
+                    <Check size="1em" strokeWidth={2.5} />
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ShelfView({ books, filter, onFilter, onOpen, hasBook }) {
+  const groups = SHELF_ORDER.map((st) => ({ id: st, label: STATUS_LABEL[st], books: books.filter((b) => b.status === st) })).filter((g) => g.books.length);
+  const summaryCount = books.filter((b) => b.summary).length;
+  const chips = [
+    { id: '', label: 'すべて', n: books.length },
+    ...groups.map((g) => ({ id: g.id, label: g.label, n: g.books.length })),
+    ...(summaryCount ? [{ id: 'summary', label: 'まとめあり', n: summaryCount }] : []),
+  ];
+  const current = chips.some((c) => c.id === filter) ? filter : '';
+  const owned = books.some((b) => hasBook?.(b));
+  return (
+    <>
+      <div role="radiogroup" aria-label="本棚を絞る" style={{ display: 'flex', gap: 'var(--space-2)', overflowX: 'auto', margin: 'var(--space-3) calc(-1 * var(--space-4)) 0', padding: '0 var(--space-4)', scrollbarWidth: 'none', ...scrollFade }}>
+        {chips.map((c) => (
+          <Chip key={c.id || 'all'} size="select" role="radio" aria-checked={current === c.id} active={current === c.id} onClick={() => onFilter(c.id)}>
+            {c.label}<span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: current === c.id ? 'var(--accent)' : 'var(--text-2)', fontVariantNumeric: 'tabular-nums' }}>{c.n}</span>
+          </Chip>
+        ))}
+      </div>
+      {current === ''
+        ? groups.map((g) => (
+          <section key={g.id} style={{ marginTop: 'var(--space-6)' }}>
+            <p style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-2)', margin: 0, fontSize: 'var(--text-body)', fontWeight: 600 }}>
+              {g.label}<span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-2)' }}>{g.books.length} 冊</span>
+            </p>
+            <ShelfCase books={g.books.slice(0, SHELF_PREVIEW)} onOpen={onOpen} hasBook={hasBook} />
+            {g.books.length > SHELF_PREVIEW && (
+              <button type="button" onClick={() => onFilter(g.id)} style={{ ...btnLink, marginTop: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}>{g.label}をすべて見る（{g.books.length} 冊）</button>
+            )}
+          </section>
+        ))
+        : <ShelfCase books={current === 'summary' ? books.filter((b) => b.summary) : books.filter((b) => b.status === current)} onOpen={onOpen} hasBook={hasBook} />}
+      {(summaryCount > 0 || owned) && (
+        <p style={{ ...note, marginTop: 'var(--space-3)', display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 'var(--space-4)', rowGap: 'var(--space-1)' }}>
+          {summaryCount > 0 && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }}><span aria-hidden="true" style={{ width: 'var(--space-2)', height: 'var(--space-3)', background: 'var(--accent)', clipPath: 'polygon(0 0, 100% 0, 100% 100%, 50% 75%, 0 100%)' }} />まとめあり</span>}
+          {owned && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }}><Check size="1em" aria-hidden="true" />あなたの本棚にもある本</span>}
+        </p>
+      )}
+    </>
+  );
+}
+
+// initialTab: 'following' | 'followers' | 'requests'（設定のプロフィールの「フォロー中 N」「フォロワー N」から開く・2026-11-22）
+// initialReport: その人の通報の画面から開く（設定の届いた申し込みの「…」→「通報する」・戻ると一覧）
+export default function FollowSheet({ onClose, initialId = '', onAddWant, initialRequestCount = 0, hasBook, initialTab = '', initialReport = null }) {
   const toast = useToast();
   const { user } = useAuth();
   const { profile: me, loading: meLoading } = useProfile(user?.id || '');
@@ -82,17 +175,19 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
   const inputId = useId();
   const [lists, setLists] = useState(null); // null＝読み込み中
   const [notReady, setNotReady] = useState(false);
-  const [tab, setTab] = useState('following');
+  const [tab, setTab] = useState(initialTab || 'following');
   const [text, setText] = useState(initialId);
   const [preview, setPreview] = useState(null); // { person } | { missing: true }
   const [checking, setChecking] = useState(false);
-  const [view, setView] = useState({ name: 'home' }); // home | person { person } | book { person, book }
+  const [view, setView] = useState(initialReport ? { name: 'report', person: initialReport, back: { name: 'home' } } : initialTab ? { name: 'list' } : { name: 'home' }); // home | person { person } | book { person, book } | report
   const [shelf, setShelf] = useState(null); // { profile, books } | 'loading' | 'none'
   const [menu, setMenu] = useState(null); // { x, y, items }
   const [wantState, setWantState] = useState({});
+  const [shelfFilter, setShelfFilter] = useState(''); // '' | 状態 | 'summary'
+  const [reportForm, setReportForm] = useState({ reason: '', detail: '', alsoBlock: false, busy: false, failed: false });
   // 画面（一覧 → 本棚 → 本）を移ったら、シートの中をいちばん上へ（下の本を押して開いた本が途中から見えないように）。
   const bodyRef = useRef(null);
-  const viewKey = view.name === 'book' ? `b:${view.book.id}` : view.name;
+  const viewKey = view.name === 'book' ? `b:${view.book.id}` : view.name === 'report' ? `r:${view.person.publicId}` : view.name;
   useEffect(() => {
     let el = bodyRef.current?.parentElement;
     while (el && el !== document.body) {
@@ -123,6 +218,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
   useEffect(() => {
     if (!lists || firstTabRef.current) return;
     firstTabRef.current = true;
+    if (initialTab) return;
     if (!lists.following.length && lists.sent.length) setTab('requests');
   }, [lists]);
 
@@ -173,7 +269,13 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
       if (!ok) return;
     }
     try {
-      await respondFollow(person.publicId, accept);
+      const r = await respondFollow(person.publicId, accept);
+      // 答えを確かめてから知らせる（相手が取り消した・使えないときに「承認しました」と言わない・2026-11-22）
+      if (r !== 'accepted' && r !== 'declined') {
+        toast.error(r === 'not_found' ? 'この申し込みは取り消されたようです。' : 'できませんでした。通信状況を確認してください。');
+        reload();
+        return;
+      }
       track('follow_respond', { accept });
       toast.success(accept ? `${who(person)}を承認しました。` : '申し込みを断りました。');
       reload();
@@ -192,46 +294,63 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
     });
     if (!ok) return;
     try {
-      await removeFollow(person.publicId, as);
-      if (view.name !== 'home') setView({ name: 'home' });
+      if (!(await removeFollow(person.publicId, as))) throw new Error('remove failed');
+      if (view.name !== 'home' && view.name !== 'list') setView(personBackRef.current);
       reload();
     } catch {
       toast.error('できませんでした。通信状況を確認してください。');
     }
   };
 
-  const block = async (person) => {
-    const ok = await confirm({
+  const block = async (person, { quiet = false } = {}) => {
+    const ok = quiet || await confirm({
       title: `${who(person)}をブロックしますか？`,
       message: 'お互いのフォローが外れ、この人はあなたを見つけることも申し込むこともできなくなります。相手に知らせは届きません。',
       confirmLabel: 'ブロックする',
       cancelLabel: 'キャンセル',
       danger: true,
     });
-    if (!ok) return;
+    if (!ok) return false;
     try {
-      await blockUser(person.publicId);
+      const done = await blockUser(person.publicId);
+      if (!done) throw new Error('block failed');
       track('follow_block', {});
-      toast.success('ブロックしました。');
+      if (!quiet) toast.success('ブロックしました。');
       setView({ name: 'home' }); setPreview(null);
       reload();
+      return true;
     } catch {
-      toast.error('ブロックできませんでした。通信状況を確認してください。');
+      if (!quiet) toast.error('ブロックできませんでした。通信状況を確認してください。');
+      return false;
     }
   };
 
-  const report = async (person) => {
-    const ok = await confirm({
-      title: `${who(person)}を運営に通報しますか？`,
-      message: '運営が 24 時間以内に確かめ、利用規約に反する内容は表示を止めます。通報したことは相手に知らせません。',
-      confirmLabel: '通報する',
-      cancelLabel: 'キャンセル',
-    });
-    if (!ok) return;
-    const sent = await reportProfile(person.publicId, 'アプリのフォローの画面から');
-    track('follow_report', {});
-    if (sent) toast.success('通報を受け付けました。ありがとうございました。');
-    else toast.error('通報を送れませんでした。通信状況を確認してください。');
+  // 通報は理由をえらぶ画面へ（戻り先を覚えておく）。
+  const report = (person) => {
+    setReportForm({ reason: '', detail: '', alsoBlock: false, busy: false, failed: false });
+    setView((v) => ({ name: 'report', person, back: v }));
+  };
+  // 設定の届いた申し込みの「…」から通報の画面だけを開いたときは、戻る・送ったあとはシートを閉じて設定へ（2026-11-22）。
+  const leaveReport = (back) => {
+    if (initialReport) { onClose(); return; }
+    setView(back && back.name !== 'report' ? back : { name: 'home' });
+  };
+  const sendReport = async () => {
+    if (view.name !== 'report' || !reportForm.reason || reportForm.busy) return;
+    const { person, back } = view;
+    setReportForm((f) => ({ ...f, busy: true, failed: false }));
+    const result = await reportProfile(person.publicId, reportReasonText(reportForm.reason, reportForm.detail));
+    track('follow_report', { reason: reportForm.reason, block: reportForm.alsoBlock });
+    if (result !== 'ok') { setReportForm((f) => ({ ...f, busy: false, failed: result === 'rejected' ? 'rejected' : 'network' })); return; }
+    if (reportForm.alsoBlock) {
+      // 通報は済んでいるので、ブロックだけできなかったときも画面を戻す（もう一度押して二重に通報しないように）。
+      if (await block(person, { quiet: true })) { toast.success('通報して、ブロックしました。'); if (initialReport) onClose(); return; }
+      toast.error('通報は受け付けました。ブロックはできませんでした。');
+      leaveReport(back);
+      return;
+    }
+    toast.success('通報を受け付けました。');
+    leaveReport(back);
   };
 
   const shareMyId = async () => {
@@ -249,7 +368,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
 
   const unblock = async (person) => {
     try {
-      await unblockUser(person.publicId);
+      if (!(await unblockUser(person.publicId))) throw new Error('unblock failed');
       toast.success(`${who(person)}のブロックを外しました。`);
     } catch {
       toast.error('できませんでした。通信状況を確認してください。');
@@ -257,14 +376,21 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
     reload();
   };
 
+  // 人の本棚から戻る先（一覧だけの画面から開いたら、そこへ戻す）。
+  const personBackRef = useRef({ name: 'home' });
+  const personReqRef = useRef(0);
   const openPerson = async (person) => {
+    const req = personReqRef.current + 1;
+    personReqRef.current = req;
+    personBackRef.current = view.name === 'list' ? { name: 'list' } : { name: 'home' };
     setView({ name: 'person', person });
     setShelf('loading');
+    setShelfFilter('');
     try {
       const s = await loadFolloweeShelf(person.publicId);
-      setShelf(s || 'none');
+      if (personReqRef.current === req) setShelf(s || 'none'); // 別の人を開き直していたら、古い答えは捨てる
     } catch {
-      setShelf('none');
+      if (personReqRef.current === req) setShelf('none');
     }
   };
 
@@ -296,6 +422,59 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
     </div>
   );
 
+  // ─── 通報（理由をえらぶ・任意で書き足す・あわせてブロック） ───
+  // 決める入口は下の「通報する」1 つ（右上は「キャンセル」）。送れた知らせはシートの上に出る（--z-toast）。
+  if (view.name === 'report') {
+    const { person, back } = view;
+    const f = reportForm;
+    const errText = f.failed === 'rejected'
+      ? '通報を受け付けられませんでした。時間をおいて、もう一度送ってください。'
+      : '通報を送れませんでした。通信状況を確認して、もう一度お試しください。';
+    const footer = (
+      <>
+        {f.failed && <p role="alert" style={{ margin: '0 0 var(--space-2)', fontSize: 'var(--text-sub)', color: 'var(--error)', lineHeight: 1.6, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(errText)}</p>}
+        {!f.reason && !f.failed && <p style={{ ...note, margin: '0 0 var(--space-2)', textAlign: 'center' }}>理由をえらんでください。</p>}
+        <button type="button" onClick={sendReport} disabled={!f.reason || f.busy} aria-busy={f.busy || undefined} style={f.reason ? btnPrimary : btnPrimaryOff}>
+          {f.busy ? '送っています…' : '通報する'}
+        </button>
+      </>
+    );
+    return createPortal(
+      <BottomSheet title={`${who(person)}を通報`} onClose={onClose} layer="dialog" dismissLabel="キャンセル" footer={footer}>
+        <div ref={bodyRef} style={sheetBody}>
+        <button type="button" disabled={f.busy} onClick={() => leaveReport(back)} style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}>
+          <ChevronLeft size="1.1em" aria-hidden="true" />戻る
+        </button>
+        <p style={{ ...note, marginTop: 'var(--space-2)' }}>{withPhraseBreaks('運営が 24 時間以内に確かめ、利用規約に反する内容は表示を止めます。通報したことは相手に知らせません。')}</p>
+        <p id={`${inputId}-why`} style={{ ...groupTitle, margin: 'var(--space-6) 0 var(--space-2)' }}>理由</p>
+        <div role="radiogroup" aria-labelledby={`${inputId}-why`} style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+          {REPORT_REASONS.map((r) => (
+            <Chip key={r.id} size="select" role="radio" aria-checked={f.reason === r.id} active={f.reason === r.id} onClick={() => setReportForm((x) => ({ ...x, reason: r.id, failed: false }))}>
+              {r.label}
+            </Chip>
+          ))}
+        </div>
+        <label htmlFor={`${inputId}-detail`} style={{ ...groupTitle, display: 'block', margin: 'var(--space-6) 0 var(--space-2)' }}>くわしく（任意）</label>
+        <textarea
+          id={`${inputId}-detail`}
+          value={f.detail}
+          onChange={(e) => setReportForm((x) => ({ ...x, detail: e.target.value }))}
+          maxLength={400}
+          rows={3}
+          placeholder="例：自己紹介に、ほかのサービスへの誘いがある"
+          style={{ ...inputBase, minHeight: 'calc(3 * 1.5em + var(--space-6))', lineHeight: 1.5, resize: 'none' }}
+        />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}>
+          <span id={`${inputId}-blk`} style={{ fontSize: 'var(--text-body)', color: 'var(--text)', lineHeight: 1.5 }}>あわせてブロックする</span>
+          <ToggleSwitch checked={f.alsoBlock} onChange={() => setReportForm((x) => ({ ...x, alsoBlock: !x.alsoBlock }))} ariaLabel="あわせてブロックする" />
+        </div>
+        <p style={note}>{withPhraseBreaks('お互いのフォローが外れ、申し込みも届かなくなります。')}</p>
+        </div>
+      </BottomSheet>,
+      document.body,
+    );
+  }
+
   // ─── 相手の本（まとめ・読みたいに追加・本屋で見る） ───
   if (view.name === 'book') {
     const { person, book } = view;
@@ -303,15 +482,30 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
     const loaded = shelf && typeof shelf === 'object' ? shelf : null;
     const others = (loaded?.books || []).filter((b) => b.summary && b.id !== book.id).slice(0, 3);
     return createPortal(
-      <BottomSheet title="フォロー" onClose={onClose} layer="dialog">
+      <BottomSheet title={`${who(person)}の本棚`} onClose={onClose} layer="dialog">
         <div ref={bodyRef} style={sheetBody}>
-        <button type="button" onClick={() => setView({ name: 'person', person })} style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}>
-          <ChevronLeft size="1.1em" aria-hidden="true" />{who(person)}の本棚
-        </button>
+        {/* 相手の文（まとめ）を読む画面にも「…」（通報・ブロック・App 審査 1.2・2026-11-22） */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <button type="button" onClick={() => setView({ name: 'person', person })} style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}>
+            <ChevronLeft size="1.1em" aria-hidden="true" />{who(person)}の本棚
+          </button>
+          <button
+            type="button"
+            aria-label={`${who(person)}の操作`}
+            style={iconBtn}
+            onClick={(e) => openMenu(e, [
+              { label: 'フォローをやめる', onClick: () => remove(person, 'following') },
+              { label: '通報する', onClick: () => report(person) },
+              { label: 'ブロックする', destructive: true, onClick: () => block(person) },
+            ])}
+          >
+            <MoreHorizontal size="1.25em" aria-hidden="true" />
+          </button>
+        </div>
         <div style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'flex-start', marginTop: 'var(--space-3)' }}>
           <Cover book={book} width={96} />
           <div style={{ minWidth: 0 }}>
-            <p style={{ margin: 0, fontSize: 'var(--text-heading)', fontWeight: 700, lineHeight: 1.4, wordBreak: 'keep-all', overflowWrap: 'break-word' }}>{withPhraseBreaks(shownTitle(book.title), { scriptBreaks: true })}</p>
+            <p style={{ margin: 0, fontSize: 'var(--text-heading)', fontWeight: 600, lineHeight: 1.4, wordBreak: 'keep-all', overflowWrap: 'break-word' }}>{withPhraseBreaks(shownTitle(book.title), { scriptBreaks: true })}</p>
             {book.author && <p style={{ ...note, marginTop: 'var(--space-1)', fontSize: 'var(--text-body)' }}>{book.author}</p>}
             <p style={{ ...note, marginTop: 'var(--space-2)' }}>{STATUS_LABEL[book.status]}{book.rating ? <span style={{ color: 'var(--accent)' }}>{'　'}{'★'.repeat(book.rating)}</span> : null}</p>
             {st === 'exists' && <p style={{ margin: 'var(--space-1) 0 0' }}><OwnedMark /></p>}
@@ -320,7 +514,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
         {/* 主役はこの人のまとめ。無ければ見出しを出さず 1 行だけ。 */}
         {book.summary ? (
           <section style={{ marginTop: 'var(--space-8)' }}>
-            <p style={{ margin: '0 0 var(--space-3)', fontSize: 'var(--text-heading)', fontWeight: 700, lineHeight: 1.4 }}>{who(person)}の、この本のまとめ</p>
+            <p style={{ margin: '0 0 var(--space-3)', fontSize: 'var(--text-heading)', fontWeight: 600, lineHeight: 1.4 }}>{who(person)}の、この本のまとめ</p>
             <p style={{ margin: 0, fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.8, whiteSpace: 'pre-line', lineBreak: 'strict', textWrap: 'pretty' }}>{book.summary}</p>
           </section>
         ) : (
@@ -362,12 +556,11 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
     const p = loaded?.profile || person;
     const withSummary = (loaded?.books || []).filter((b) => b.summary);
     const ordered = loaded ? SHELF_ORDER.flatMap((st) => loaded.books.filter((b) => b.status === st)) : [];
-    const counts = loaded ? SHELF_ORDER.map((st) => [st, loaded.books.filter((b) => b.status === st).length]).filter(([, n]) => n) : [];
     return createPortal(
-      <BottomSheet title="フォロー" onClose={onClose} layer="dialog">
+      <BottomSheet title={`${who(person)}の本棚`} onClose={onClose} layer="dialog">
         <div ref={bodyRef} style={sheetBody}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <button type="button" onClick={() => setView({ name: 'home' })} style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}>
+          <button type="button" onClick={() => setView(personBackRef.current)} style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}>
             <ChevronLeft size="1.1em" aria-hidden="true" />フォロー
           </button>
           <button
@@ -385,12 +578,12 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
         </div>
         <div style={{ marginTop: 'var(--space-2)' }}>
           <UserAvatar avatarId={p.avatar} nickname={p.nickname} size={56} />
-          <p style={{ margin: 'var(--space-3) 0 0', fontSize: 'var(--text-heading)', fontWeight: 700, overflowWrap: 'anywhere' }}>{who(p)}</p>
+          <p style={{ margin: 'var(--space-3) 0 0', fontSize: 'var(--text-heading)', fontWeight: 600, overflowWrap: 'anywhere' }}>{who(p)}</p>
           {p.bio && <p style={{ ...note, marginTop: 'var(--space-2)', fontSize: 'var(--text-body)', color: 'var(--text)', whiteSpace: 'pre-line' }}>{p.bio}</p>}
         </div>
         {/* 主役はその人の言葉。好きな言葉を大きく、その下に好きな本。 */}
         {p.favLine && (
-          <blockquote style={{ margin: 'var(--space-6) 0 0', padding: 'var(--space-1) 0 var(--space-1) var(--space-4)', borderLeft: '2px solid var(--accent)', fontFamily: 'var(--font-read)', fontSize: 'var(--text-heading)', lineHeight: 1.7, lineBreak: 'strict', textWrap: 'pretty', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+          <blockquote style={{ margin: 'var(--space-6) 0 0', padding: 'var(--space-1) 0 var(--space-1) var(--space-4)', borderLeft: '2px solid var(--accent)', fontFamily: 'var(--font-read)', fontSize: [...String(p.favLine)].length > 40 ? 'var(--text-read)' : 'var(--text-heading)', lineHeight: 1.7, lineBreak: 'strict', textWrap: 'pretty', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
             {withPhraseBreaks(p.favLine)}
           </blockquote>
         )}
@@ -412,38 +605,17 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
         {shelf === 'none' && <p style={{ ...note, marginTop: 'var(--space-8)' }}>{withPhraseBreaks('本棚を見られませんでした。フォローが外れたか、通信がつながっていません。')}</p>}
         {loaded && withSummary.length > 0 && (
           <section style={{ marginTop: 'var(--space-8)' }}>
-            <p style={{ margin: 0, fontSize: 'var(--text-heading)', fontWeight: 700 }}>{who(p)}のまとめ</p>
+            <p style={{ margin: 0, fontSize: 'var(--text-heading)', fontWeight: 600 }}>{who(p)}のまとめ</p>
             <p style={{ ...note, marginTop: 'var(--space-1)' }}>{withPhraseBreaks(`読んだ本について、${who(p)}が書いたこと`)}</p>
             <div style={{ marginTop: 'var(--space-1)' }}><SummaryRows person={person} books={withSummary} /></div>
           </section>
         )}
         {loaded && (
           <section style={{ marginTop: 'var(--space-8)' }}>
-            <p style={{ margin: 0, fontSize: 'var(--text-heading)', fontWeight: 700 }}>本棚</p>
+            <p style={{ margin: 0, fontSize: 'var(--text-heading)', fontWeight: 600 }}>本棚</p>
             {ordered.length === 0
               ? <p style={{ ...note, marginTop: 'var(--space-2)' }}>本棚にはまだ本がありません。</p>
-              : <>
-                <p style={{ ...note, marginTop: 'var(--space-1)' }}>{counts.map(([st, n]) => `${STATUS_LABEL[st]} ${n} 冊`).join('・')}</p>
-                <div role="list" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 'var(--space-6) var(--space-3)', marginTop: 'var(--space-4)' }}>
-                  {ordered.map((b) => {
-                    const owned = hasBook?.(b);
-                    return (
-                      <div role="listitem" key={b.id}>
-                        <button type="button" onClick={() => setView({ name: 'book', person, book: b })} style={{ ...plainBtn, width: '100%', display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }} aria-label={`${b.title}・${STATUS_LABEL[b.status]}${b.summary ? '・まとめあり' : ''}${owned ? '・あなたの本棚にあります' : ''}`}>
-                          <Cover book={b} width="100%" />
-                          {/* 表紙の無い本は代用表紙に書名が出るので、下の書名は出さない（読み上げは aria-label）。 */}
-                          {b.cover && <span style={{ fontSize: 'var(--text-meta)', fontWeight: 600, lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'keep-all', overflowWrap: 'break-word' }}>{withPhraseBreaks(shownTitle(b.title), { scriptBreaks: true })}</span>}
-                          {b.author && <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-2)', lineHeight: 1.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.author}</span>}
-                          <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-2)', lineHeight: 1.5 }}>
-                            {STATUS_LABEL[b.status]}{b.rating ? <span style={{ color: 'var(--accent)' }}> {'★'.repeat(b.rating)}</span> : null}
-                          </span>
-                          {owned && <OwnedMark />}
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              </>}
+              : <ShelfView person={person} books={ordered} filter={shelfFilter} onFilter={setShelfFilter} onOpen={(b) => setView({ name: 'book', person, book: b })} hasBook={hasBook} />}
           </section>
         )}
         {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
@@ -458,96 +630,11 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
   const TABS = [
     { id: 'following', label: 'フォロー中' },
     { id: 'followers', label: 'フォロワー' },
-    { id: 'requests', label: '申し込み中' },
+    { id: 'requests', label: '送った申し込み' },
   ];
   const followingIds = new Set([...(lists?.following || []), ...(lists?.sent || [])].map((p) => p.publicId));
   const mutual = new Set((lists?.following || []).map((p) => p.publicId));
-  return (<>{createPortal(
-    <BottomSheet title="フォロー" onClose={onClose} layer="dialog">
-        <div ref={bodyRef} style={sheetBody}>
-      {notReady ? (
-        <p style={note}>フォローはまだ使えません。少し時間をおいてお試しください。</p>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
-          {/* 届いた申し込みは、いちばん上で答えられるように（設定の「申し込みが N 件」から来た人がすぐ答えられる）。 */}
-          {/* 一覧を読んでいる間は、設定の行が知っている件数ぶんの形を先に置く（読み終えて上に差し込まれ、下が押し下がらないように）。 */}
-          {!lists && initialRequestCount > 0 && (
-            <section aria-hidden="true">
-              <p style={{ ...groupTitle, margin: '0 0 var(--space-2)' }}>届いた申し込み（{initialRequestCount}）</p>
-              {Array.from({ length: Math.min(3, initialRequestCount) }, (_, i) => (
-                <SkeletonBlock key={i} height="var(--tap-min)" style={{ margin: 'var(--space-2) 0' }} />
-              ))}
-            </section>
-          )}
-          {lists?.requests?.length > 0 && (
-            <section aria-labelledby={`${inputId}-req`}>
-              <p id={`${inputId}-req`} style={{ ...groupTitle, margin: '0 0 var(--space-2)' }}>届いた申し込み（{lists.requests.length}）</p>
-              <div role="list">
-                {lists.requests.map((p, i) => (
-                  <PersonRow key={`r-${p.publicId}`} first={i === 0} person={p}>
-                    <button type="button" style={btnLinkQuiet} onClick={() => respond(p, false)}>断る</button>
-                    <button type="button" style={smallBtn} onClick={() => respond(p, true)}>承認</button>
-                  </PersonRow>
-                ))}
-              </div>
-            </section>
-          )}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-            <label htmlFor={inputId} style={{ ...groupTitle, margin: 0 }}>フォローを申し込む</label>
-            <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-              <input
-                id={inputId}
-                value={text}
-                onChange={(e) => { setText(e.target.value); setPreview(null); }}
-                onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); check(); } }}
-                maxLength={200}
-                placeholder="相手のリンクか ID"
-                autoCapitalize="off"
-                autoCorrect="off"
-                enterKeyHint="go"
-                style={{ ...inputBase, flex: 1, minWidth: 0, ...(preview?.missing ? { borderColor: 'var(--error)' } : {}) }}
-                aria-invalid={preview?.missing || undefined}
-              />
-              <button type="button" onClick={() => check()} disabled={!text.trim() || checking} aria-busy={checking || undefined} style={{ ...btnGhost, width: 'auto', flexShrink: 0 }}>{checking ? '確かめています…' : '確かめる'}</button>
-            </div>
-            {!preview?.missing && <p style={note}>{withPhraseBreaks('相手のリンクか ID を入れてください。名前では探せません。')}</p>}
-            {preview?.missing && <p role="alert" style={{ margin: 0, fontSize: 'var(--text-body)', color: 'var(--error)', lineHeight: 1.6 }}>{withPhraseBreaks(followResultMessage('not_found'))}</p>}
-            {preview?.person && (
-              <div role="status" style={{ ...row(true), borderBottom: '1px solid var(--separator)' }}>
-                <UserAvatar avatarId={preview.person.avatar} nickname={preview.person.nickname} size={40} />
-                <span style={nameStyle}>{preview.person.nickname || 'ニックネームなし'}</span>
-                {preview.person.relation === 'self' ? <span style={note}>あなたです</span>
-                  : preview.person.relation === 'pending' ? <span style={note}>承認を待っています</span>
-                    : preview.person.relation === 'accepted'
-                      ? <button type="button" style={btnLink} onClick={() => openPerson(preview.person)}>本棚を見る</button>
-                      : <button type="button" style={smallBtn} onClick={() => ask(preview.person)}>申し込む</button>}
-              </div>
-            )}
-          </div>
-
-          {/* 自分の ID（相手に渡すと申し込みが届く）。ニックネームが無いと申し込まれないので、先にプロフィールへ。 */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-              <p style={{ ...groupTitle, margin: 0 }}>あなたの ID</p>
-              {meLoading ? (
-                <SkeletonBlock height="var(--tap-min)" />
-              ) : meReady ? (
-                <>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-                    <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-body)', fontVariantNumeric: 'tabular-nums', letterSpacing: '0.04em', color: 'var(--text)', overflowWrap: 'anywhere', userSelect: 'all', WebkitUserSelect: 'all' }}>{me.publicId}</span>
-                    <button type="button" onClick={shareMyId} style={{ ...btnRow, flexShrink: 0, gap: 'var(--space-2)' }}>
-                      <Share size="1em" aria-hidden="true" />{me.isPublic ? 'リンクを渡す' : 'ID を渡す'}
-                    </button>
-                  </div>
-                  <p style={note}>{withPhraseBreaks('相手がこの ID を「フォローを申し込む」に入れると、あなたに申し込みが届きます。')}</p>
-                </>
-              ) : (
-                <>
-                  <p style={note}>{withPhraseBreaks('フォローし合うには、先にプロフィールでニックネームを決めます。')}</p>
-                  <button type="button" onClick={() => setProfileOpen(true)} style={{ ...btnLink, alignSelf: 'flex-start', marginLeft: 'calc(-1 * var(--space-1))' }}>ニックネームを決める</button>
-                </>
-              )}
-            </div>
-
+  const listsBlock = (
           <div>
             <div role="tablist" aria-label="フォローの一覧" style={segTrack}>
               {TABS.map((t) => (
@@ -577,14 +664,14 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
                       </button>
                     </PersonRow>
                   ))
-                  : <p style={note}>{withPhraseBreaks(meReady ? 'フォロワーはいません。上の「あなたの ID」を渡すと、申し込みが届きます。' : 'フォロワーはいません。')}</p>)}
+                  : <p style={note}>{withPhraseBreaks(meReady ? 'フォロワーはいません。「あなたの ID」を渡すと、申し込みが届きます。' : 'フォロワーはいません。')}</p>)}
                 {tab === 'requests' && (
                   <>
-                    {lists.sent.length === 0 && <p style={note}>{withPhraseBreaks(lists.requests.length ? '送った申し込みはありません。届いた申し込みは上にあります。' : '送った申し込みはありません。')}</p>}
+                    {lists.sent.length === 0 && <p style={note}>{withPhraseBreaks(lists.requests.length && view.name !== 'list' ? '送った申し込みはありません。届いた申し込みは上にあります。' : '送った申し込みはありません。')}</p>}
                     {lists.sent.length > 0 && <p style={{ ...note, margin: '0 0 var(--space-2)' }}>相手の承認を待っています。</p>}
                     {lists.sent.map((p, i) => (
                       <PersonRow key={`s-${p.publicId}`} first={i === 0} person={p}>
-                        <button type="button" style={btnLinkQuiet} onClick={() => remove(p, 'following')}>取り消す</button>
+                        <button type="button" style={rowLink} onClick={() => remove(p, 'following')}>取り消す</button>
                       </PersonRow>
                     ))}
                   </>
@@ -597,13 +684,143 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
                 <div role="list">
                   {lists.blocked.map((p, i) => (
                     <PersonRow key={`b-${p.publicId}`} first={i === 0} person={p}>
-                      <button type="button" style={btnLinkQuiet} onClick={() => unblock(p)}>ブロックを外す</button>
+                      <button type="button" style={rowLink} onClick={() => unblock(p)}>ブロックを外す</button>
                     </PersonRow>
                   ))}
                 </div>
               </details>
             )}
           </div>
+  );
+
+  // 設定の「フォロー中 N」「フォロワー N」から開いたとき＝一覧だけの画面（‹ フォロー で申し込む・あなたの ID の画面へ・2026-11-22）。
+  if (view.name === 'list' && !notReady) {
+    return (<>{createPortal(
+      <BottomSheet title="フォロー" onClose={onClose} layer="dialog">
+        <div ref={bodyRef} style={sheetBody}>
+          {listsBlock}
+          {/* 申し込む・あなたの ID の画面へ（‹ は戻る専用の形なので使わない・設定のまとめの最後の行と同じ形・2026-11-22 ui-critic） */}
+          <button type="button" onClick={() => setView({ name: 'home' })} style={{ ...plainBtn, width: '100%', display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minHeight: 'var(--tap-min)', marginTop: 'var(--space-6)', padding: 'var(--space-3) 0', borderTop: '1px solid var(--separator)' }}>
+            <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-body)', color: 'var(--text)' }}>ID でフォローを申し込む</span>
+            <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+          </button>
+          {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
+        </div>
+      </BottomSheet>,
+      document.body,
+    )}{profileSheet}</>);
+  }
+  return (<>{createPortal(
+    <BottomSheet title="フォロー" onClose={onClose} layer="dialog">
+        <div ref={bodyRef} style={sheetBody}>
+      {notReady ? (
+        <p style={note}>フォローはまだ使えません。少し時間をおいてお試しください。</p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
+          {/* 届いた申し込みは、いちばん上で答えられるように（設定の「申し込みが N 件」から来た人がすぐ答えられる）。 */}
+          {/* 一覧を読んでいる間は、設定の行が知っている件数ぶんの形を先に置く（読み終えて上に差し込まれ、下が押し下がらないように）。 */}
+          {!lists && initialRequestCount > 0 && (
+            <section aria-hidden="true">
+              <p style={{ ...groupTitle, margin: '0 0 var(--space-2)' }}>届いた申し込み（{initialRequestCount}）</p>
+              {Array.from({ length: Math.min(3, initialRequestCount) }, (_, i) => (
+                <SkeletonBlock key={i} height="var(--tap-min)" style={{ margin: 'var(--space-2) 0' }} />
+              ))}
+            </section>
+          )}
+          {lists?.requests?.length > 0 && (
+            <section aria-labelledby={`${inputId}-req`}>
+              <p id={`${inputId}-req`} style={{ ...groupTitle, margin: '0 0 var(--space-2)' }}>届いた申し込み（{lists.requests.length}）</p>
+              <div role="list">
+                {lists.requests.map((p, i) => (
+                  <PersonRow key={`r-${p.publicId}`} first={i === 0} person={p}>
+                    <button type="button" style={rowLink} onClick={() => respond(p, false)}>断る</button>
+                    <button type="button" style={btnRow} onClick={() => respond(p, true)}>承認</button>
+                    <button
+                      type="button"
+                      aria-label={`${who(p)}の操作`}
+                      style={iconBtn}
+                      onClick={(e) => openMenu(e, [
+                        { label: '通報する', onClick: () => report(p) },
+                        { label: 'ブロックする', destructive: true, onClick: () => block(p) },
+                      ])}
+                    >
+                      <MoreHorizontal size="1.25em" aria-hidden="true" />
+                    </button>
+                  </PersonRow>
+                ))}
+              </div>
+            </section>
+          )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+            <label htmlFor={inputId} style={{ ...groupTitle, margin: 0 }}>フォローを申し込む</label>
+            <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+              <input
+                id={inputId}
+                value={text}
+                onChange={(e) => { setText(e.target.value); setPreview(null); }}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); check(); } }}
+                maxLength={200}
+                placeholder="相手のリンクか ID"
+                autoCapitalize="off"
+                autoCorrect="off"
+                enterKeyHint="go"
+                style={{ ...inputBase, flex: 1, minWidth: 0, ...(preview?.missing ? { borderColor: 'var(--error)' } : {}) }}
+                aria-invalid={preview?.missing || undefined}
+              />
+              <button type="button" onClick={() => check()} disabled={!text.trim() || checking} aria-busy={checking || undefined} style={{ ...btnGhost, width: 'auto', flexShrink: 0 }}>{checking ? '確かめています…' : '確かめる'}</button>
+            </div>
+            {!preview?.missing && <p style={note}>{withPhraseBreaks('相手のリンクか ID を入れてください。名前では探せません。')}</p>}
+            {preview?.missing && <p role="alert" style={{ margin: 0, fontSize: 'var(--text-body)', color: 'var(--error)', lineHeight: 1.6, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(followResultMessage('not_found'))}</p>}
+            {preview?.person && (
+              <div role="status" style={{ ...row(true), borderBottom: '1px solid var(--separator)' }}>
+                <UserAvatar avatarId={preview.person.avatar} nickname={preview.person.nickname} size={40} />
+                <span style={nameStyle}>{preview.person.nickname || 'ニックネームなし'}</span>
+                {preview.person.relation === 'self' ? <span style={note}>あなたです</span>
+                  : preview.person.relation === 'pending' ? <span style={note}>承認を待っています</span>
+                    : preview.person.relation === 'accepted'
+                      ? <button type="button" style={btnLink} onClick={() => openPerson(preview.person)}>本棚を見る</button>
+                      : <button type="button" style={smallBtn} onClick={() => ask(preview.person)}>申し込む</button>}
+                {preview.person.relation !== 'self' && (
+                  <button
+                    type="button"
+                    aria-label={`${who(preview.person)}の操作`}
+                    style={iconBtn}
+                    onClick={(e) => openMenu(e, [
+                      { label: '通報する', onClick: () => report(preview.person) },
+                      { label: 'ブロックする', destructive: true, onClick: () => block(preview.person) },
+                    ])}
+                  >
+                    <MoreHorizontal size="1.25em" aria-hidden="true" />
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* 自分の ID（相手に渡すと申し込みが届く）。ニックネームが無いと申し込まれないので、先にプロフィールへ。 */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+              <p style={{ ...groupTitle, margin: 0 }}>あなたの ID</p>
+              {meLoading ? (
+                <SkeletonBlock height="var(--tap-min)" />
+              ) : meReady ? (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+                    <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-body)', fontVariantNumeric: 'tabular-nums', letterSpacing: '0.04em', color: 'var(--text)', overflowWrap: 'anywhere', userSelect: 'all', WebkitUserSelect: 'all' }}>{me.publicId}</span>
+                    <button type="button" onClick={shareMyId} style={{ ...btnRow, flexShrink: 0, gap: 'var(--space-2)' }}>
+                      <Share size="1em" aria-hidden="true" />{me.isPublic ? 'リンクを渡す' : 'ID を渡す'}
+                    </button>
+                  </div>
+                  <p style={note}>{withPhraseBreaks('相手がこの ID を「フォローを申し込む」に入れると、あなたに申し込みが届きます。')}</p>
+                </>
+              ) : (
+                <>
+                  <p style={note}>{withPhraseBreaks('フォローし合うには、先にプロフィールでニックネームを決めます。')}</p>
+                  <button type="button" onClick={() => setProfileOpen(true)} style={{ ...btnLink, alignSelf: 'flex-start', marginLeft: 'calc(-1 * var(--space-1))' }}>ニックネームを決める</button>
+                </>
+              )}
+            </div>
+
+          {listsBlock}
         </div>
       )}
       {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}

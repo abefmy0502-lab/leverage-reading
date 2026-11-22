@@ -736,6 +736,12 @@ function aiReply(store, payload, aiMode = '') {
   // 📷 写真から書き起こし（本番と同じく、本文だけを返す）。
   //   &lpshot=1（LP・App Store の画像）は、実在の本の一節に見えない、自分で書いた付箋のような短い文にする（2026-10-08）。
   if (payload.purpose === 'ocr' && lpShotOn()) return '1on1 は、まず相手の話を最後まで聞く時間にする。自分が話すのは最後の 5 分だけ。';
+  // 📚 本棚の写真から本を追加（2026-11-22）: 読めた本の行（見つかる本・近い本・見つからない本・本棚にある本を混ぜる）。
+  //   &shelfscan=none は 1 冊も読めなかった。
+  if (payload.purpose === 'shelf_scan') {
+    if (new URLSearchParams(window.location.search).get('shelfscan') === 'none') return 'なし';
+    return ['イシューからはじめよ ／ 安宅和人', '考え方 ／ 稲盛和夫', 'エッセンシャル思考 ／ グレッグ・マキューン', '嫌われる勇気 ／ 岸見一郎', '確率思考の戦略論 ／ 森岡毅', '7つの習慣 ／ スティーブン・R・コヴィー', 'チームの名前が読めない本 ／'].join('\n');
+  }
   if (payload.purpose === 'ocr') return '成果を上げるには、まず自分の時間がどこに使われているかを知ることから始めなければならない。時間の記録をとり、ムダな仕事を捨て、まとまった時間をつくる。';
   const system = textOf(payload.system);
   // AI 選書: 聞き取り（1 回に問い 1 つ・前の言葉を引く・毎回まとめつき・2026-10-08）と、おすすめ（本番と同じ JSON ブロック）
@@ -960,7 +966,7 @@ export function installDemoFetch(store) {
         if (goalAi === 'fail') return json({ error: { message: 'upstream error' } }, 500);
       }
       // 📷 無料プランの写真から書き起こし: 相談のトークンとは別に、毎月 10 回（'freeocr-YYYY-MM' の calls・2026-10-02）。
-      if (tier === 'free' && payload.purpose === 'ocr') {
+      if (tier === 'free' && (payload.purpose === 'ocr' || payload.purpose === 'shelf_scan')) {
         const rows = store.table('ai_usage');
         let row = rows.find((r) => r.period_month === `freeocr-${month}`);
         if (!row) { row = { user_id: store.session?.user?.id, period_month: `freeocr-${month}`, calls: 0, cost_mjpy: 0 }; rows.push(row); }

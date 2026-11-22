@@ -8,7 +8,7 @@ describe('使い道の内訳（usageBreakdown）', () => {
     const p = { consult: 10000, book_advisor: 4000, advisor_interview: 1000, setup_sheet: 1500, setup_sheet_edit: 500, book_brief: 400, ocr: 900 };
     const cost = Object.values(p).reduce((a, b) => a + b, 0);
     const rows = usageBreakdown(p, cost);
-    expect(rows.map((r) => r.label)).toEqual(['相談', 'AI 選書', '読書計画シート', '写真から書き起こし', 'この本で学べること']);
+    expect(rows.map((r) => r.label)).toEqual(['相談', 'AI 選書', '読書計画シート', '写真の読み取り', 'この本で学べること']);
     expect(rows.reduce((n, r) => n + r.tokens, 0)).toBe(tokensFromMjpy(cost));
     expect(rows.find((r) => r.key === 'advisor').tokens).toBe(17); // 5000 / 300 = 16.7
   });

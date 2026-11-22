@@ -62,11 +62,12 @@ begin
 end;
 $$;
 
+-- 匿名のアカウントか（auth.users の今の値・supabase_profiles.sql の _auth_is_anonymous・2026-11-22）。
 create or replace function public._is_anonymous()
 returns boolean
 language sql
 stable
-as $$ select coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) $$;
+as $$ select public._auth_is_anonymous() $$;
 
 -- public_id → user_id（運営が隠した人は見つからない）。
 create or replace function public._user_by_public_id(p_public_id text)
@@ -308,13 +309,53 @@ begin
 end;
 $$;
 
+-- ─── 通報（アプリのフォローの画面から・2026-11-22 App 審査 1.2） ─────────
+-- アプリは別のオリジンなので公開のページの窓口（/api/profile-report）の答えを読めない。ここで受けて、届いたかを返す。
+-- 通報した人の id は残さない。同じ人が同じ相手を何度通報しても 1 つに数えるための目印（id と相手から作った
+-- 1 方向のハッシュ・reporter_key）だけを残す。
+-- 自動で隠すのは、登録した（匿名でない）・ニックネームのあるプロフィールを 3 日より前に作った、別々の 3 人から
+-- 開いている通報が届いたときだけ（counted・2026-11-22: 作ったばかりのアカウント 3 つで、だれでも隠せないように）。
+-- 公開のページの通報（ログインなし）は運営が確かめるだけで、自動では隠さない（1 人でだれでも隠せないように）。
+alter table public.profile_reports add column if not exists reporter_key text;
+alter table public.profile_reports add column if not exists counted boolean not null default false;
+create unique index if not exists profile_reports_reporter_uq
+  on public.profile_reports (public_id, reporter_key) where reporter_key is not null and status = 'open';
+
+-- 戻り値: 'ok'（受け付けた・もう受け付けていた）・'not_found'・'self'
+create or replace function public.report_profile(p_public_id text, p_reason text)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  me uuid := public._follow_me();
+  pid text := lower(trim(coalesce(p_public_id, '')));
+  other uuid := (select user_id from public.profiles where public_id = pid limit 1);
+  why text := left(regexp_replace(coalesce(p_reason, ''), '[\x00-\x08\x0b\x0c\x0e-\x1f]', '', 'g'), 500);
+  key text;
+  n integer;
+begin
+  if other is null then return 'not_found'; end if;
+  if other = me then return 'self'; end if;
+  key := encode(sha256(convert_to(me::text || ':' || pid, 'UTF8')), 'hex');
+  insert into public.profile_reports (public_id, reason, reporter_key, counted)
+    values (pid, trim(why), key, not public._is_anonymous() and exists (
+      select 1 from public.profiles where user_id = me and nickname <> '' and created_at < now() - interval '3 days'))
+    on conflict (public_id, reporter_key) where reporter_key is not null and status = 'open' do nothing;
+  select count(*) into n from public.profile_reports where public_id = pid and status = 'open' and counted;
+  if n >= 3 then update public.profiles set hidden = true where public_id = pid and hidden = false; end if;
+  return 'ok';
+end;
+$$;
+
 -- 実行できるのはログインした人だけ（匿名のアカウントもログインはしているが、申し込みは関数の中で断る）。
 do $$
 declare f text;
 begin
   foreach f in array array[
     'follow_request(text)', 'follow_respond(text, boolean)', 'follow_remove(text, text)', 'block_user(text)',
-    'unblock_user(text)', 'my_follows()', 'profile_preview(text)', 'followee_shelf(text)'
+    'unblock_user(text)', 'my_follows()', 'profile_preview(text)', 'followee_shelf(text)', 'report_profile(text, text)'
   ] loop
     execute format('revoke all on function public.%s from public, anon', f);
     execute format('grant execute on function public.%s to authenticated', f);

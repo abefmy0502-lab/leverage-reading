@@ -84,7 +84,10 @@ export function AiConsentDetails({ first = null }) {
         ))}
       </ul>
       <p style={noteStyle}>
-        {withPhraseBreaks(`ほかの会社で答えられないときは、${AI_PROVIDER_NAMES[AI_FALLBACK_PROVIDER]}${NB}が代わりに答えます。送った内容は、どの会社でも契約により AI${NB}の学習には使われません。`)}
+        {/* 送り先が代わりの会社（Anthropic）だけのときは「代わりに」を書かない（2026-11-22・古い言い回しで送り先が増えて見えないように）。 */}
+        {withPhraseBreaks(features.every((f) => providersFor(f).every((n) => n === AI_PROVIDER_NAMES[AI_FALLBACK_PROVIDER]))
+          ? `送った内容は、契約により AI${NB}の学習には使われません。`
+          : `ほかの会社で答えられないときは、${AI_PROVIDER_NAMES[AI_FALLBACK_PROVIDER]}${NB}が代わりに答えます。送った内容は、どの会社でも契約により AI${NB}の学習には使われません。`)}
       </p>
       <a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer" style={linkStyle}>
         プライバシーポリシー

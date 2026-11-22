@@ -5,6 +5,7 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link2 } from 'lucide-react';
+import { withPhraseBreaks } from './TightBubble';
 import BottomSheet from './BottomSheet';
 import ProfileForm from './ProfileForm';
 import ToggleSwitch from './ToggleSwitch';
@@ -32,7 +33,7 @@ async function loadShelfBooks(userId) {
 // その本のメモ（好きな言葉を選ぶ）。
 async function loadBookMemos(userId, book) {
   if (!userId || !book?.id || !supabase) return [];
-  const { data, error } = await supabase.from('book_memos').select('id, text').eq('user_id', userId).eq('book_id', book.id).order('created_at', { ascending: false }).limit(50);
+  const { data, error } = await supabase.from('book_memos').select('id, text').eq('user_id', userId).eq('book_id', book.id).order('created_at', { ascending: false }).limit(1000);
   if (error) throw error;
   return (data || []).filter((m) => String(m.text || '').trim());
 }
@@ -71,7 +72,23 @@ export default function ProfileSheet({ userId, onClose, onSaved }) {
     if (issue) { setError(issue); return; }
     setBusy(true); setError('');
     try {
-      const { profile: saved, stored: where, shelfReady } = await saveProfileShared(userId, draft);
+      let { profile: saved, stored: where, shelfReady, summaryReady } = await saveProfileShared(userId, draft);
+      // 公開をオンにしたのにオフで返ってきたとき（2026-11-22）: 登録せずに始めて、あとでアカウントを作った人は、
+      //   ログインの印が古いままだとデータベースが「匿名」とみなして公開を外す。印を取り直して 1 回だけ保存し直す。
+      if (where === 'server' && draft.isPublic && !saved.isPublic) {
+        try { await supabase?.auth?.refreshSession?.(); } catch { /* 取り直せなくても下で知らせる */ }
+        ({ profile: saved, stored: where, shelfReady, summaryReady } = await saveProfileShared(userId, draft));
+        if (!saved.isPublic) {
+          setTouched(false);
+          setError(saved.hidden
+            ? 'このプロフィールは、運営が確かめるまで公開を止めています。ほかの内容は保存しました。'
+            : '公開にできませんでした。アカウントを作ったあとなら、一度ログインし直してからお試しください。ほかの内容は保存しました。');
+          setBusy(false);
+          return;
+        }
+      }
+      // 本のまとめの公開の列がまだ無い DB（2026-11-22・黙ってオフに戻していた）: ほかは保存して、理由を出す。
+      if (summaryReady === false && draft.summaryPublic) { setTouched(false); setError('本のまとめの公開は、まだ準備ができていません。ほかの内容は保存しました。'); setBusy(false); return; }
       if (shelfReady === false && draft.shelfPublic) { setShelfUnready(true); setTouched(false); setError('本棚の公開は、まだ準備ができていません。ほかの内容は保存しました。'); setBusy(false); return; }
       track('profile_set', { from: 'settings', book: !!saved.favTitle, line: !!saved.favLine, pub: saved.isPublic, shelf: saved.isPublic && saved.shelfPublic, bio: !!saved.bio });
       onSaved?.({ before: profile, after: saved });
@@ -144,6 +161,8 @@ export default function ProfileSheet({ userId, onClose, onSaved }) {
                   <ToggleSwitch checked={!!draft.isPublic && !!draft.shelfPublic && !!draft.summaryPublic} onChange={() => change({ ...draft, summaryPublic: !draft.summaryPublic })} disabled={!canPublish || !draft.isPublic || !draft.shelfPublic || shelfUnready} ariaLabel="本のまとめも公開する" />
                 </div>
                 <p style={note}>本を押すと、あなたの「この本のまとめ」を読めます。<br />メモの一覧は見せません。</p>
+                {/* 公開の切り替えとは別に、承認したフォロワーには見えることを書いておく（App 審査 5.1.1・2026-11-22）。 */}
+                <p style={{ ...note, marginTop: 'var(--space-2)' }}>{withPhraseBreaks('フォローを承認した人は、公開の切り替えにかかわらず、本棚と「この本のまとめ」を見られます。')}</p>
               </>
             )}
             {profile.isPublic && url && !dirty && (

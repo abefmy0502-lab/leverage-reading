@@ -1076,6 +1076,43 @@ drop policy if exists "profiles_delete_own" on public.profiles;
 create policy "profiles_delete_own" on public.profiles
   for delete to authenticated using (auth.uid() = user_id);
 
+-- 登録せずに始めた（匿名の）アカウントか。ログインの印（JWT）の is_anonymous ではなく、auth.users の今の値で見る
+-- （2026-11-22: 登録せずに始めて、あとで Apple・メールでアカウントを作った人は、古い印が残っている間「匿名」に見え、
+--   公開するを保存しても黙ってオフに戻っていた）。auth.users が読めないときだけ印で見る。
+create or replace function public._auth_is_anonymous()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public, auth
+as $$
+  select coalesce(
+    (select u.is_anonymous from auth.users u where u.id = auth.uid()),
+    coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false)
+  )
+$$;
+revoke all on function public._auth_is_anonymous() from public, anon;
+grant execute on function public._auth_is_anonymous() to authenticated, service_role;
+
+-- 運営が隠した・通報がたまった public_id か（2026-11-22: 隠された人が行を消して同じ ID で作り直すと、表示が戻っていた）。
+-- profile_reports は利用者から読めないので SECURITY DEFINER。plpgsql＝表がまだ無くても作れる（無ければ false）。
+create or replace function public._public_id_held(p_public_id text)
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+begin
+  return exists (select 1 from public.profile_reports where public_id = p_public_id and status = 'hidden')
+      or (select count(*) from public.profile_reports where public_id = p_public_id and status = 'open') >= 3;
+exception when undefined_table then
+  return false;
+end;
+$$;
+revoke all on function public._public_id_held(text) from public, anon;
+grant execute on function public._public_id_held(text) to authenticated, service_role;
+
 -- 本人の update では hidden と public_id を変えさせない（service_role は変えられる）・updated_at を今に。
 -- 匿名のアカウントは insert・update とも公開をオフに戻す。
 create or replace function public.profiles_guard()
@@ -1084,12 +1121,18 @@ language plpgsql
 as $$
 begin
   -- 利用者（ログインした人）の更新のときだけ守る。service_role と SQL Editor（運営が隠すとき）は auth.uid() が無い。
-  if auth.uid() is not null and tg_op = 'UPDATE' then
+  -- 通報がたまって隠す関数（supabase_follows.sql の report_profile・SECURITY DEFINER）は、関数の持ち主として動くので通す
+  -- （利用者が表を直接変えるときの current_user は authenticated）。
+  if auth.uid() is not null and tg_op = 'UPDATE' and current_user in ('authenticated', 'anon') then
     new.hidden := old.hidden;
     new.public_id := old.public_id;
   end if;
+  -- 作り直し（INSERT）でも、隠された ID なら隠したまま（2026-11-22）。
+  if auth.uid() is not null and tg_op = 'INSERT' and current_user in ('authenticated', 'anon') and public._public_id_held(new.public_id) then
+    new.hidden := true;
+  end if;
   -- 登録せずに始めた人（匿名のアカウント）は公開できない（何個でも作れて、隠しても作り直せるため・App 審査 1.2）。
-  if coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) then
+  if public._auth_is_anonymous() then
     new.is_public := false;
     new.shelf_public := false;
     new.summary_public := false;
@@ -1210,11 +1253,12 @@ begin
 end;
 $$;
 
+-- 匿名のアカウントか（auth.users の今の値・supabase_profiles.sql の _auth_is_anonymous・2026-11-22）。
 create or replace function public._is_anonymous()
 returns boolean
 language sql
 stable
-as $$ select coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) $$;
+as $$ select public._auth_is_anonymous() $$;
 
 -- public_id → user_id（運営が隠した人は見つからない）。
 create or replace function public._user_by_public_id(p_public_id text)
@@ -1456,13 +1500,53 @@ begin
 end;
 $$;
 
+-- ─── 通報（アプリのフォローの画面から・2026-11-22 App 審査 1.2） ─────────
+-- アプリは別のオリジンなので公開のページの窓口（/api/profile-report）の答えを読めない。ここで受けて、届いたかを返す。
+-- 通報した人の id は残さない。同じ人が同じ相手を何度通報しても 1 つに数えるための目印（id と相手から作った
+-- 1 方向のハッシュ・reporter_key）だけを残す。
+-- 自動で隠すのは、登録した（匿名でない）・ニックネームのあるプロフィールを 3 日より前に作った、別々の 3 人から
+-- 開いている通報が届いたときだけ（counted・2026-11-22: 作ったばかりのアカウント 3 つで、だれでも隠せないように）。
+-- 公開のページの通報（ログインなし）は運営が確かめるだけで、自動では隠さない（1 人でだれでも隠せないように）。
+alter table public.profile_reports add column if not exists reporter_key text;
+alter table public.profile_reports add column if not exists counted boolean not null default false;
+create unique index if not exists profile_reports_reporter_uq
+  on public.profile_reports (public_id, reporter_key) where reporter_key is not null and status = 'open';
+
+-- 戻り値: 'ok'（受け付けた・もう受け付けていた）・'not_found'・'self'
+create or replace function public.report_profile(p_public_id text, p_reason text)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  me uuid := public._follow_me();
+  pid text := lower(trim(coalesce(p_public_id, '')));
+  other uuid := (select user_id from public.profiles where public_id = pid limit 1);
+  why text := left(regexp_replace(coalesce(p_reason, ''), '[\x00-\x08\x0b\x0c\x0e-\x1f]', '', 'g'), 500);
+  key text;
+  n integer;
+begin
+  if other is null then return 'not_found'; end if;
+  if other = me then return 'self'; end if;
+  key := encode(sha256(convert_to(me::text || ':' || pid, 'UTF8')), 'hex');
+  insert into public.profile_reports (public_id, reason, reporter_key, counted)
+    values (pid, trim(why), key, not public._is_anonymous() and exists (
+      select 1 from public.profiles where user_id = me and nickname <> '' and created_at < now() - interval '3 days'))
+    on conflict (public_id, reporter_key) where reporter_key is not null and status = 'open' do nothing;
+  select count(*) into n from public.profile_reports where public_id = pid and status = 'open' and counted;
+  if n >= 3 then update public.profiles set hidden = true where public_id = pid and hidden = false; end if;
+  return 'ok';
+end;
+$$;
+
 -- 実行できるのはログインした人だけ（匿名のアカウントもログインはしているが、申し込みは関数の中で断る）。
 do $$
 declare f text;
 begin
   foreach f in array array[
     'follow_request(text)', 'follow_respond(text, boolean)', 'follow_remove(text, text)', 'block_user(text)',
-    'unblock_user(text)', 'my_follows()', 'profile_preview(text)', 'followee_shelf(text)'
+    'unblock_user(text)', 'my_follows()', 'profile_preview(text)', 'followee_shelf(text)', 'report_profile(text, text)'
   ] loop
     execute format('revoke all on function public.%s from public, anon', f);
     execute format('grant execute on function public.%s to authenticated', f);

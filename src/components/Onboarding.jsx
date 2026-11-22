@@ -11,6 +11,7 @@ import { EMPTY_PROFILE, hasProfile } from '../lib/profile';
 import { profileIssues, profileIssueMessage } from '../lib/profileFilter';
 import { saveProfileShared } from '../hooks/useProfile';
 import { toMessage } from '../lib/errors';
+import { useConfirm } from './ConfirmDialog';
 
 const STORAGE_KEY = 'onboardingCompleted';
 
@@ -293,7 +294,19 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
     rememberOnboardPath(path);
     track('onboard_path', { path, step: step + 1 });
   };
-  const dismiss = () => {
+  const confirm = useConfirm();
+  const dismiss = async () => {
+    // プロフィールを書いたまま × を押したら、消える前に確かめる（2026-11-22 点検）。
+    if (slides[step]?.id === 'profile' && profileFilled && !profileSaving) {
+      const ok = await confirm({
+        title: '書いたプロフィールを消しますか？',
+        message: 'まだ保存していません。あとで、右上のアイコンからいつでも書けます。',
+        confirmLabel: '消して閉じる',
+        cancelLabel: '続ける',
+        danger: true,
+      });
+      if (!ok) return;
+    }
     markOnboardingCompleted();
     choosePath('skip');
     onClose?.();

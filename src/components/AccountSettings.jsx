@@ -20,7 +20,7 @@ import { readingSessions } from '../hooks/useReadingSessions';
 import { clearLocalProfile } from '../lib/profile';
 import { finishAccountDeletion } from '../lib/deleteAccount';
 import { TERMS_URL, PRIVACY_URL, SCT_URL } from '../lib/legalLinks';
-import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { supabase, isSupabaseConfigured, isDemo } from '../lib/supabase';
 import { SUPPORT_EMAIL } from '../lib/contact';
@@ -36,12 +36,7 @@ import TokenUsageSheet from './TokenUsageSheet';
 import McpConnectSheet from './McpConnectSheet';
 import { AppPurposeEditSheet, PurposeCheckSheet } from './AppPurposeSheets';
 import { useAppPurpose } from '../hooks/useAppPurpose';
-import ProfileSheet from './ProfileSheet';
-import FollowSheet from './FollowSheet';
-import { SOCIAL_ON, loadFollows } from '../lib/social';
-import { useProfile, resetProfileCache } from '../hooks/useProfile';
-import UserAvatar from './UserAvatar';
-import { hasProfile, addressName } from '../lib/profile';
+import { resetProfileCache } from '../hooks/useProfile';
 import { markReleaseSeen, releaseHeading, loadReleaseNotes, BUNDLED_RELEASE_ID } from '../lib/whatsNew';
 import { exportUserDataAsCSV, exportMemosAsMarkdown } from '../lib/exportData';
 import { forceUpdate as forceAppUpdate } from '../lib/swUpdate';
@@ -57,7 +52,7 @@ import { PAID_TOKENS, FREE_TOKENS } from '../lib/tokens';
 import { FREE_OCR_PER_MONTH } from '../lib/tokenAmounts';
 import { nextResetLabelJa } from '../lib/freeTrial';
 import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff, btnDanger, btnLink, input as uiInput } from '../styles/ui';
-import { ChevronRight, Download as IcDownload, RefreshCw as IcRefresh, Users as IcUsers } from 'lucide-react';
+import { ChevronRight, Download as IcDownload, RefreshCw as IcRefresh } from 'lucide-react';
 import { SkeletonBlock } from './Skeleton';
 import { withPhraseBreaks } from './TightBubble';
 import { track, EVENTS, isAnalyticsOptedOut, setAnalyticsOptOut } from '../lib/analytics';
@@ -374,7 +369,7 @@ async function listAllUserPhotos(userId, bucket = 'book-memo-photos') {
 // 🧪 お試しモードの通知のオン・オフ（設定を閉じて開き直しても残す・再読み込みで初期化）。
 let demoPushOn = false;
 
-export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, onOpenHelp, focusDelete = false, onProfileSaved, onAddWant, hasBook }) {
+export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, onOpenHelp, focusDelete = false, onProfileSaved, onAddWant, hasBook, onOpenProfile = null }) {
   const { user, signOut } = useAuth();
   const guest = isGuestUser(user);
   // 有料プランの画面の「アカウントを削除」から開いたときは、削除の欄まで送る。
@@ -413,17 +408,6 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
   // 🎯 Orime を入れた理由（2026-10-18）: 設定で見返す・書き直す。解約（プランを管理）と退会の前に一度だけ見せる（止めない）。
   const { purpose: appPurpose } = useAppPurpose();
   const [purposeEditOpen, setPurposeEditOpen] = useState(false);
-  // 👤 プロフィール（2026-11-21）
-  const [profileOpen, setProfileOpen] = useState(false);
-  const [followOpen, setFollowOpen] = useState(false);
-  // 届いている申し込みの数（フォローの行の 2 行目に出す・シートを閉じたら数え直す）。
-  const [followRequests, setFollowRequests] = useState(0);
-  const countFollowRequests = useCallback(() => {
-    if (!SOCIAL_ON) return;
-    loadFollows().then((r) => { if (r.ok) setFollowRequests(r.lists.requests.length); }).catch(() => {});
-  }, []);
-  useEffect(() => { countFollowRequests(); }, [countFollowRequests]);
-  const { profile: myProfile } = useProfile(user?.id || '');
   const [purposeCheck, setPurposeCheck] = useState(null); // { where, nextText, run }
   // 2026-11-17: 「Orime を入れた理由」は 2026-11-16 にやめたので、解約・退会の前にはさまない（審査 5.1.1(v)・すぐ次へ）。
   const withPurposeCheck = (where, nextText, run) => { void where; void nextText; void appPurpose; run(); };
@@ -1036,37 +1020,16 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
             )}
           </Group>
 
-          {/* 👤 プロフィール（2026-11-21 オーナー「ニックネームと好きな本とおすすめの 1 行」）。押すとシート（ProfileSheet）。 */}
-          <Group label="プロフィール">
-            <button type="button" onClick={() => setProfileOpen(true)} style={{ ...rowButtonStyle, gap: 'var(--space-3)' }}>
-              <UserAvatar avatarId={myProfile.avatar} nickname={myProfile.nickname} size={40} />
-              <span style={{ flex: 1, minWidth: 0 }}>
-                <span style={{ ...rowTitleStyle, display: 'block', color: 'inherit', overflowWrap: 'anywhere' }}>
-                  {hasProfile(myProfile) ? (addressName(myProfile) || 'ニックネームなし') : 'ニックネームと好きな本'}
-                </span>
-                <span style={{ ...rowDescStyle, display: 'block', overflowWrap: 'anywhere' }}>
-                  {myProfile.favTitle ? `好きな本『${myProfile.favTitle}』${myProfile.isPublic ? '・公開中' : ''}` : 'まだ書いていません'}
-                </span>
-              </span>
-              <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
-            </button>
-            {/* 👥 フォロー（2026-11-21 3 回目・VITE_SOCIAL のビルドだけ）。 */}
-            {SOCIAL_ON && (
-              <button type="button" onClick={() => setFollowOpen(true)} style={{ ...rowButtonStyle, ...divider, gap: 'var(--space-3)' }}>
-                {/* 上のアバターの行と文字の左端をそろえる 40 の丸 */}
-                <span aria-hidden="true" style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--fill)', color: 'var(--text-2)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <IcUsers size="1.2em" />
-                </span>
-                <span style={{ flex: 1, minWidth: 0 }}>
-                  <span style={{ ...rowTitleStyle, display: 'block', color: 'inherit' }}>フォロー</span>
-                  <span style={{ ...rowDescStyle, display: 'block', ...(followRequests ? { color: 'var(--accent)', fontWeight: 600 } : {}) }}>
-                    {followRequests ? `申し込みが ${followRequests} 件届いています` : 'フォロー中・フォロワー・申し込み'}
-                  </span>
-                </span>
+          {/* 👤 プロフィールとフォローは 2026-11-22 に設定から分けた（上の行の自分のアイコン → ProfileScreen）。
+              設定から探す人の道も 1 行だけ残す（iOS の設定のいちばん上の自分の行と同じ考え）。 */}
+          {onOpenProfile && (
+            <Group>
+              <button type="button" onClick={onOpenProfile} style={{ ...rowButtonStyle, gap: 'var(--space-3)' }}>
+                <span style={{ flex: 1, minWidth: 0, ...rowTitleStyle, color: 'inherit' }}>プロフィール・フォロー</span>
                 <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
               </button>
-            )}
-          </Group>
+            </Group>
+          )}
 
           {/* 🎯 Orime を入れた理由の行は 2026-11-16 にやめた（オーナー「不要」・目標は 振り返り › 行動 の 1 年後・3 年後・5 年後）。
               前に書いた人には、解約・退会の前の確かめ（PurposeCheckSheet）でだけ見せる。 */}
@@ -1557,16 +1520,6 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
 
       {feedbackOpen && <FeedbackForm onClose={() => setFeedbackOpen(false)} />}
       {/* 入れた理由のシートも、中のタップを設定の背景に届けない（「保存」「まだ途中」で設定ごと閉じていた・2026-10-18） */}
-      {profileOpen && (
-        <div onClick={(e) => e.stopPropagation()}>
-          <ProfileSheet userId={user?.id || ''} onClose={() => setProfileOpen(false)} onSaved={onProfileSaved} />
-        </div>
-      )}
-      {followOpen && (
-        <div onClick={(e) => e.stopPropagation()}>
-          <FollowSheet initialRequestCount={followRequests} onClose={() => { setFollowOpen(false); countFollowRequests(); }} onAddWant={onAddWant} hasBook={hasBook} />
-        </div>
-      )}
           {purposeEditOpen && (
         <div onClick={(e) => e.stopPropagation()}>
           <AppPurposeEditSheet purpose={appPurpose} onClose={() => setPurposeEditOpen(false)} />

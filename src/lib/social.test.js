@@ -39,6 +39,35 @@ describe('フォロー先の本棚の安全', () => {
     expect(s.books[1].rating).toBe(0); // 読了でなければ評価は出さない
     expect(s.books[1].cover).toBe(''); // https だけ
   });
+  it('表紙は書店などの配信元のものだけ（自分で上げた表紙は人に見せない・App 審査 1.2）', async () => {
+    const s = await loadFolloweeShelf('k7mna2pqrs', {
+      client: client({
+        profile: { public_id: 'k7mna2pqrs', nickname: 'さくら', fav_cover: 'https://tkrinnopfssdibgxuqzl.supabase.co/storage/v1/object/public/book-covers/u/x.jpg' },
+        books: [
+          { id: '1', title: '考え方', status: 'done', cover: 'https://thumbnail.image.rakuten.co.jp/a.jpg' },
+          { id: '2', title: 'イシュー', status: 'done', cover: 'https://tkrinnopfssdibgxuqzl.supabase.co/storage/v1/object/public/book-covers/u/y.jpg' },
+          { id: '3', title: '習慣', status: 'done', cover: 'https://evil.googleusercontent.com/z.jpg' },
+        ],
+      }),
+    });
+    expect(s.profile.favCover).toBe('');
+    expect(s.books.map((b) => b.cover)).toEqual(['https://thumbnail.image.rakuten.co.jp/a.jpg', '', '']);
+  });
+  it('通報: 関数が受け付けたら ok・関数が失敗したら failed・関数が無ければ窓口へ', async () => {
+    const { reportProfile, reportReasonText } = await import('./social');
+    expect(await reportProfile('k7mna2pqrs', 'x', { client: client('ok') })).toBe('ok');
+    expect(await reportProfile('k7mna2pqrs', 'x', { client: client('not_found') })).toBe('rejected');
+    expect(await reportProfile('k7mna2pqrs', 'x', { client: client(null, { code: '500', message: 'boom' }) })).toBe('failed');
+    const sent = [];
+    const r = await reportProfile('k7mna2pqrs', 'x', {
+      client: client(null, { code: 'PGRST202', message: 'Could not find the function' }),
+      fetchImpl: async (url, init) => { sent.push([url, init.body]); },
+    });
+    expect(r).toBe('ok');
+    expect(sent[0][0]).toMatch(/\/api\/profile-report$/);
+    expect(reportReasonText('sexual', '  画像が\n不快  ')).toBe('アプリから：性的・暴力的な内容／画像が 不快');
+    expect(reportReasonText('nope')).toBe('アプリから：そのほか');
+  });
   it('関数が無い DB では not_ready', async () => {
     const r = await requestFollow('k7mna2pqrs', { client: client(null, { code: 'PGRST202', message: 'Could not find the function' }) });
     expect(r).toBe('not_ready');

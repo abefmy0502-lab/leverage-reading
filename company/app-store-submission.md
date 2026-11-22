@@ -130,8 +130,8 @@ Xcode で:
 
    | キー | 文 |
    |---|---|
-   | `NSCameraUsageDescription` | 本のバーコードを読み取るとき、本のページを撮って文字に書き起こすとき、メモに写真を添えるとき、写真で共有の画像を撮るときに使います。 |
-   | `NSPhotoLibraryUsageDescription` | メモに添える写真や、写真で共有の背景にする写真をアルバムから選ぶときに使います。 |
+   | `NSCameraUsageDescription` | 本のバーコードを読み取るとき、本のページを撮って文字に書き起こすとき、本棚を撮って本をまとめて追加するとき、メモに写真を添えるとき、写真で共有の画像を撮るときに使います。 |
+   | `NSPhotoLibraryUsageDescription` | 本のページや本棚の写真から文字を読み取るとき、メモに添える写真や、写真で共有の背景にする写真をアルバムから選ぶときに使います。 |
    | `NSPhotoLibraryAddUsageDescription` | 写真で共有で作った画像を、写真に保存するときに使います。 |
 
    実機で「写真で共有」→「写真から選ぶ」を押し、iOS のメニューが二重に出ずにフォトライブラリが直接開くことを確かめる（2026-10-11）。
@@ -214,7 +214,7 @@ AI 機能ごとに、Anthropic（相談・AI 選書の推薦）／Google の Gem
 ### 7-1. 公開のプロフィール（1.2 利用者が作るコンテンツ・2026-11-21）
 
 Review Notes に足す文:
-> プロフィール（ニックネーム・自己紹介・好きな本・おすすめの 1 行・任意で本棚）は、既定では公開されません。本人が「公開する」をオンにしたときだけ、リンクを知っている人が Web のページで見られます（検索エンジンには載せません・アプリの中でほかの人のプロフィールを見る機能はありません・メモは公開されません）。公開は、アカウントを作った人だけができます。好ましくない言葉と連絡先（メール・電話番号・URL・SNS の ID）は保存の前に止め、公開のページでも外します。公開のページには通報の窓口と連絡先があり、運営は 24 時間以内に確かめて表示を止めます（同じページに通報が 3 件たまると、確かめるまで自動で表示を止めます）。利用規約の第 7 条・第 10 条に禁止事項と対応を定めています。
+> プロフィール（ニックネーム・自己紹介・好きな本・おすすめの 1 行・任意で本棚）は、既定では公開されません。本人が「公開する」をオンにしたときだけ、リンクを知っている人が Web のページで見られます（検索エンジンには載せません・メモは公開されません）。**フォローを入れたビルド（1.0.1・`VITE_SOCIAL=on`）では「アプリの中でほかの人のプロフィールを見る機能はありません」と書かない**（承認したフォロワーはアプリの中で本棚とまとめを見られる・2026-11-22 の点検。全文は `launch-2026-11/review-notes-build8-2026-11-22.md`）。公開は、アカウントを作った人だけができます。好ましくない言葉と連絡先（メール・電話番号・URL・SNS の ID）は保存の前に止め、公開のページでも外します。公開のページには通報の窓口と連絡先があり、運営は 24 時間以内に確かめて表示を止めます（同じページに通報が 3 件たまると、確かめるまで自動で表示を止めます）。利用規約の第 7 条・第 10 条に禁止事項と対応を定めています。
 
 - 運営の対応は MCP の `ops_reports`（list → hide／show／dismiss）。`ops_dashboard` の最初の行に開いている通報の件数が出る
 - 審査の前に本番に `supabase_profiles.sql` を流しておく（流していないと「公開する」が押せず、2.1 で止まりうる）
@@ -223,12 +223,12 @@ Review Notes に足す文:
 
 アプリの中でほかの人の本棚とまとめが見えるようになる＝利用者が作るコンテンツ（1.2）がアプリの中に入る。審査で求められる 4 つがそろっていることを Review Notes に書く:
 1. **絞り込み**: ニックネーム・自己紹介・好きな言葉・まとめの、公開に向かない言葉と連絡先は保存の前に止め、表示の前にも外す（`lib/profileFilter.js`・サーバーとアプリの両方）
-2. **通報**: 相手の本棚とフォロワーの行の「…」→「通報する」（公開のページと同じ窓口・運営は 24 時間以内）
+2. **通報**: 相手の本棚・フォロワー・届いた申し込み・ID で見つけた人の行の「…」→「通報する」→ 理由を選んで送る（`report_profile`・届いたかを返す・運営は 24 時間以内・登録した別々の 3 人の通報で自動で隠す・2026-11-22）
 3. **ブロック**: 同じ「…」→「ブロックする」（お互いのフォローが外れ、申し込みも見ることもできなくなる）
 4. **連絡先**: 利用規約の第 10 条・サポートのメール
 
 Review Notes に足す文:
-> Users can follow each other only with the other person's profile link or ID (there is no search by name), and only after the other person approves. An approved follower can see that person's bookshelf and per-book summaries. Objectionable words and contact details are blocked before saving and filtered before display. Every person's shelf and every follower row has a "…" menu with Report and Block. Blocking removes the follow in both directions and prevents new requests. Reports reach us and are reviewed within 24 hours (Terms, Article 10).
+> Users can follow each other only with the other person's profile link or ID (there is no search by name), and only after the other person approves. An approved follower can see that person's bookshelf and per-book summaries. Objectionable words and contact details are blocked before saving and filtered before display. Every person's shelf, every follower row, every incoming follow request and every person found by ID has a "…" menu with Report and Block. Blocking removes the follow in both directions and prevents new requests. Reports reach us and are reviewed within 24 hours (Terms, Article 10).
 
 - 出す前に本番に `supabase_all_in_order.sql` を流す（`supabase_follows.sql`・`profiles.summary_public`）
 - Vercel にも `VITE_SOCIAL=on` を入れる（公開のページの本のページ・読みたいに追加・フォローを申し込む）

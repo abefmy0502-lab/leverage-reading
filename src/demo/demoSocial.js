@@ -16,6 +16,11 @@ const shelves = {
     { id: '7b1e0000-0000-4000-8000-000000000002', title: '７つの習慣', author: 'スティーブン・R・コヴィー', status: 'done', rating: 5, isbn: '', summary: '影響の輪に集中する。\n反応する前に一拍おいて、自分で選ぶ。\nチームの 1on1 でも、相手の関心の輪ではなく影響の輪の話をするようにした。' },
     { id: '7b1e0000-0000-4000-8000-000000000003', title: '心理的安全性のつくりかた', author: '石井遼介', status: 'done', rating: 4, isbn: '', summary: '安全性は「ぬるさ」ではない。話しやすさ・助け合い・挑戦・新奇歓迎の 4 つ。' },
     { id: '7b1e0000-0000-4000-8000-000000000004', title: 'エッセンシャル思考', author: 'グレッグ・マキューン', status: 'want', rating: 0, isbn: '', summary: '' },
+    { id: '7b1e0000-0000-4000-8000-000000000005', title: 'リーダーの仮面', author: '安藤広大', status: 'done', rating: 3, isbn: '', summary: '' },
+    { id: '7b1e0000-0000-4000-8000-000000000006', title: '嫌われる勇気', author: '岸見一郎・古賀史健', status: 'done', rating: 5, isbn: '', summary: '課題の分離。他人の課題に踏み込まない。' },
+    { id: '7b1e0000-0000-4000-8000-000000000007', title: '考え方', author: '稲盛和夫', status: 'reading', rating: 0, isbn: '', summary: '' },
+    { id: '7b1e0000-0000-4000-8000-000000000008', title: '確率思考の戦略論', author: '森岡毅・今西聖貴', status: 'reading', rating: 0, isbn: '', summary: '' },
+    { id: '7b1e0000-0000-4000-8000-000000000009', title: 'チームが自然に生まれ変わる', author: '李英俊', status: 'before', rating: 0, isbn: '', summary: '' },
   ],
 };
 const person = (id) => ({ public_id: id, nickname: people[id]?.nickname || '', avatar: people[id]?.avatar || '', since: '2026-11-20T10:00:00Z' });
@@ -51,6 +56,10 @@ export function demoSocialRpc(name, args = {}) {
       const relation = state.following.includes(id) ? 'accepted' : state.sent.includes(id) ? 'pending' : 'none';
       return { ...people[id], relation };
     }
+    case 'report_profile':
+      // &report=fail で送れなかったときの画面
+      if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('report') === 'fail') throw Object.assign(new Error('demo report failed'), { code: '500' });
+      return people[id] ? 'ok' : 'not_found';
     case 'followee_shelf':
       if (!state.following.includes(id)) return null;
       return { profile: people[id], books: shelves[id] || [] };
