@@ -116,6 +116,7 @@ const ReadingRecord = lazy(() => import('./components/ReadingRecord'));
 import BottomSheet from './components/BottomSheet';
 const AddBookModal = lazy(() => import('./components/AddBookModal'));
 const ShelfScanSheet = lazy(() => import('./components/ShelfScanSheet'));
+const ProfileScreen = lazy(() => import('./components/ProfileScreen'));
 import { useBookCover } from './hooks/useBookCover';
 import { searchBooksFlat as searchBooksAPIFlat } from './lib/bookSearch';
 import { tryCoverForIsbn, verifyBookExists } from './lib/bookCover';
@@ -230,6 +231,7 @@ import {
   RotateCcw,
   Brain,
   HelpCircle,
+  Settings as SettingsIcon,
   Target,
   MessageCircle,
   Smartphone,
@@ -1266,6 +1268,8 @@ function AuthedApp() {
   // 編集フォームの「未保存変更」検知用ベースライン（編集に入った時点のスナップショット）。
   const editBaselineRef = useRef(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // 👤 プロフィールの画面（右上の自分のアイコン・2026-11-22 に設定から分けた）
+  const [profileScreenOpen, setProfileScreenOpen] = useState(false);
   // 本の詳細を開いたときに示すメモ（openDetail の 2 つ目の引数）。
   const [detailFocusMemoId, setDetailFocusMemoId] = useState(null);
   // 振り返りの月ごとのメモを押したとき: そのメモまで送ってから編集を開く（2026-09-30）。
@@ -1500,6 +1504,7 @@ function AuthedApp() {
   const [helpModalOpen, setHelpModalOpen] = useState(false);
   // 重ねて開くもの（「戻る」で一番上から閉じる・その間は左端スワイプで下の画面を戻さない）。
   useBackLayer(settingsOpen, () => setSettingsOpen(false));
+  useBackLayer(profileScreenOpen, () => setProfileScreenOpen(false));
   useEffect(() => {
     const reopen = () => setSettingsOpen(true);
     window.addEventListener(OPEN_SETTINGS_EVENT, reopen);
@@ -6242,12 +6247,11 @@ function AuthedApp() {
             : {}),
         }))}
         aria-label="写真で共有"
-        // 文字は 15 から設定に合わせて大きくなるが、20 で止める（--text-bar-max・1 行に収める）。アイコンは右の ？・⚙️ と同じ 22。
-        // 本が 0 冊のときは栗色にしない（--text-2）＝主役は本文の「読んだ本の一文をメモする」（アクセントを 2 か所にしない・2026-10-11 第 2 回の採点）。
-        style={{ ...btnLink, color: 'var(--text-2)', fontWeight: 400, fontSize: 'min(var(--text-sub), var(--text-bar-max))', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', padding: '0 var(--space-2)', whiteSpace: 'nowrap' }}
+        title="写真で共有"
+        // 2026-11-22 オーナー「写真で共有の文字は削除して。カメラマークだけで伝わる」: 文字を外し、右の ？・歯車・アイコンと同じ 44 の丸に。
+        style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: "50%", color: "var(--text-2)", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
       >
         <Camera size={22} strokeWidth={1.75} aria-hidden="true" />
-        写真で共有
       </button>
       <button
         onClick={openHelp}
@@ -6257,13 +6261,21 @@ function AuthedApp() {
       >
         <HelpCircle size={22} strokeWidth={1.75} aria-hidden="true" />
       </button>
-      {/* 🙂 右上は自分のアイコン（2026-11-21 オーナー「設定マークではなく自分のアイコンに」）。押すと今までどおり設定。
-          見た目 28（? の 22 と並ぶ大きさ）・押せる範囲 44。選んでいなければニックネームの 1 字か人の形（UserAvatar）。 */}
+      {/* ⚙️ 設定（2026-11-22 オーナー「設定とプロフィールを二つに分けた方がいい」「アイコンと歯車を並べる」）。 */}
       <button
         onClick={() => setSettingsOpen(true)}
+        style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: "50%", color: "var(--text-2)", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
+        aria-label="設定を開く"
+        title="設定"
+      >
+        <SettingsIcon size={22} strokeWidth={1.75} aria-hidden="true" />
+      </button>
+      {/* 🙂 右上は自分のアイコン → プロフィール（フォロー・公開・編集）。見た目 28・押せる範囲 44。 */}
+      <button
+        onClick={() => setProfileScreenOpen(true)}
         style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: "50%", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
-        aria-label="プロフィールと設定を開く"
-        title="プロフィールと設定"
+        aria-label="プロフィールを開く"
+        title="プロフィール"
       >
         <UserAvatar avatarId={myProfile?.avatar} nickname={myProfile?.nickname} size={28} />
       </button>
@@ -7107,6 +7119,17 @@ function AuthedApp() {
             onAfterDelete={() => setSettingsOpen(false)}
             onOpenImport={() => { setSettingsOpen(false); setShowImport(true); }}
             onOpenHelp={() => { setSettingsOpen(false); setHelpModalOpen(true); }}
+            onProfileSaved={addFavoriteFromProfile}
+            onAddWant={addWantFromOther}
+            hasBook={hasBookFromOther}
+          />
+        </Suspense>
+      )}
+      {profileScreenOpen && (
+        <Suspense fallback={<OverlayFallback />}>
+          <ProfileScreen
+            onClose={() => setProfileScreenOpen(false)}
+            onOpenSettings={() => { setProfileScreenOpen(false); setSettingsOpen(true); }}
             onProfileSaved={addFavoriteFromProfile}
             onAddWant={addWantFromOther}
             hasBook={hasBookFromOther}

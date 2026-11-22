@@ -9,7 +9,7 @@
 |---|---|---|---|
 | 1 | Chrome | 本番の Supabase に `supabase_all_in_order.sql` を流す（`follows`・`report_profile`・`summary_public` が入る） | SQL Editor で `select proname from pg_proc where proname in ('report_profile','follow_request','followee_shelf');` が 3 行 |
 | 2 | オーナー | 見本のアカウントを作る（Supabase → Authentication → Add user・Auto Confirm）。パスワードはオーナーだけが持つ | — |
-| 3 | Mac | `.env.production.local` に `VITE_SOCIAL=on`（ほかに `VITE_REVENUECAT_IOS_KEY`・`VITE_RELEASE_NOTES_SINCE` があること。`VITE_SENTRY_DSN` を入れるならプライバシーの申告にクラッシュと性能を足す）→ ビルド 8 | シミュレータで設定に「フォロー」が出る・プランの画面に値段が出る |
+| 3 | Mac | `.env.production.local` に `VITE_SOCIAL=on`（ほかに `VITE_REVENUECAT_IOS_KEY`・`VITE_RELEASE_NOTES_SINCE` があること。`VITE_SENTRY_DSN` を入れるならプライバシーの申告にクラッシュと性能を足す）→ ビルド 8 | シミュレータで右上の丸いアイコン（プロフィール）に「フォロー中・フォロワー」が出る・歯車（設定）のプランの画面に値段が出る |
 | 4 | シミュレータ | 見本のアカウント: ニックネーム・本 3 冊・まとめ 2 つ → デモのアカウント: ニックネーム → 見本の ID で申し込む → 見本で承認 → デモで本棚とまとめが見える・「…」に通報とブロック | 撮る |
 | 5 | Chrome | 月額・年額をすべての国で売る（`chrome-fix-iap-availability-2026-11-21.md` の作業 1） | 2 つとも 175 か所 |
 | 6 | Chrome | 審査メモを下の全文に差し替え・ビルド 8 を付ける | 字数と最後の行 |
@@ -26,18 +26,18 @@ Vercel の確かめ（名前だけ・値は見ない）: `APPLE_SIGNIN_KEY_ID`�
 審査用デモアカウントは「サインイン情報」にあります（プラン契約中・AI 選書・読書計画シートなどプランの機能を確かめられます）。
 登録は任意です。ログインの画面の「登録せずに始める」→「同意して始める」で、個人情報を入れずにすべての機能を使え、プランも買えます。
 
-契約しなくても、本・メモ・振り返り・写真で共有などはすべて使えます（無料プラン）。無料プランの AI は、相談とこの本で学べること（あわせて毎月 30 トークン・アカウントを作った月と翌月は 130）と、写真から書き起こし（毎月 10 回）です。プランは月額 ¥1,480・年額 ¥12,800 で、毎月 800 トークンとすべての AI 機能が使えます（公開から 30 日間は年額の 1 年目 ¥9,800）。追加トークン（300・1,000）は消耗型で、期限はありません。課金は App 内課金だけです。購入の復元・自動更新の条件・利用規約・プライバシーポリシーを有料プランの画面に示しています。アカウント削除はアプリ内（設定 → アカウント削除）でできます。
+契約しなくても、本・メモ・振り返り・写真で共有などはすべて使えます（無料プラン）。無料プランの AI は、相談とこの本で学べること（あわせて毎月 30 トークン・アカウントを作った月と翌月は 130）と、写真から書き起こし（毎月 10 回）です。プランは月額 ¥1,480・年額 ¥12,800 で、毎月 800 トークンとすべての AI 機能が使えます（公開から 30 日間は年額の 1 年目 ¥9,800）。追加トークン（300・1,000）は消耗型で、期限はありません。課金は App 内課金だけです。購入の復元・自動更新の条件・利用規約・プライバシーポリシーを有料プランの画面に示しています。アカウント削除はアプリ内（右上の歯車＝設定 → アカウント削除）でできます。
 
 AI 機能は、はじめて使うときに送る内容と送り先（Anthropic）を示して同意をいただき、同意のあと機能に必要な内容だけを Anthropic の API に送ります（学習には使われません）。同意は 設定 → プライバシー →「AI へのデータ送信」から取り消せます。
 
-フォロー（利用者が作る中身）: 相手のリンクか ID でだけフォローを申し込めます（名前では探せません・メッセージの機能はありません）。相手が承認したときだけ、その人の本棚と本のまとめをアプリの中で見られます。登録せずに始めた人とニックネームの無い人は申し込めません。好ましくない言葉と連絡先は保存の前に止め、表示の前にも外します。人の本棚・フォロワー・届いた申し込み・ID で見つけた人の「…」から「通報する」「ブロックする」が使えます。通報は理由を選んで送り、運営が 24 時間以内に確かめて表示を止めます。ブロックするとお互いのフォローが外れ、申し込みも見ることもできなくなります。利用規約（第 7 条・第 10 条）で好ましくない内容を一切認めないことを定め、どの始め方（メール・Apple・登録せずに始める）でも規約への同意を示しています。デモアカウントは、見本のアカウント（ID: ____）をフォロー済みです。設定 → フォロー → フォロー中 から本棚を開けます。
+フォロー（利用者が作る中身）: 相手のリンクか ID でだけフォローを申し込めます（名前では探せません・メッセージの機能はありません）。相手が承認したときだけ、その人の本棚と本のまとめをアプリの中で見られます。登録せずに始めた人とニックネームの無い人は申し込めません。好ましくない言葉と連絡先は保存の前に止め、表示の前にも外します。人の本棚・フォロワー・届いた申し込み・ID で見つけた人の「…」から「通報する」「ブロックする」が使えます。通報は理由を選んで送り、運営が 24 時間以内に確かめて表示を止めます。ブロックするとお互いのフォローが外れ、申し込みも見ることもできなくなります。利用規約（第 7 条・第 10 条）で好ましくない内容を一切認めないことを定め、どの始め方（メール・Apple・登録せずに始める）でも規約への同意を示しています。デモアカウントは、見本のアカウント（ID: ____）をフォロー済みです。右上の丸いアイコン（プロフィール）→「フォロー中」から本棚を開けます。
 
 [For App Review]
 - Registration is optional. On the sign-in screen, tap "登録せずに始める" (Start without an account), then "同意して始める". No personal information is required. Sign in with Apple and the demo account in Sign-In Information also work. Every sign-in path shows the Terms of Use and Privacy Policy.
-- Subscriptions (Orime 月額プラン / Orime 年額プラン): tap the round profile icon at the top right of the Home screen to open Settings, then "プラン・お支払い" (Plan & Payment) > "プランを見る" (See plans). The plan screen shows both plans with prices and a purchase button. Registration is not required to purchase.
+- Subscriptions (Orime 月額プラン / Orime 年額プラン): tap the gear icon at the top right of the Home screen to open Settings (設定), then "プラン・お支払い" (Plan & Payment) > "プランを見る" (See plans). The plan screen shows both plans with prices and a purchase button. Registration is not required to purchase.
 - Token packs (300 トークン / 1,000 トークン, consumable add-ons for subscribers): sign in with the demo account (it has an active plan), open Settings, then "プラン・お支払い" > "トークンを追加" (Add tokens).
 - All In-App Purchases are available in every storefront where the app is available.
-- Follow (user-generated content, Guideline 1.2): Settings > "フォロー" (Follow). Users can follow each other only with the other person's profile link or ID (there is no search by name and no messaging), and only after the other person approves. An approved follower can see that person's bookshelf and per-book summaries in the app. Guest users and users without a nickname cannot send requests. Objectionable words and contact details are blocked before saving and filtered before display; only book covers from bookstores and libraries are shown to others. Every person's shelf, every follower row, every incoming follow request and every person found by ID has a "…" menu with "通報する" (Report) and "ブロックする" (Block). A report asks for a reason, confirms delivery, and is reviewed within 24 hours (Terms, Articles 7 and 10). Blocking removes the follow in both directions and prevents new requests. The demo account already follows a sample account (ID: ____); open it from Settings > "フォロー" > "フォロー中" (Following).
+- Follow (user-generated content, Guideline 1.2): the round profile icon at the top right (プロフィール) > "フォロー中" / "フォロワー" (Following / Followers). Users can follow each other only with the other person's profile link or ID (there is no search by name and no messaging), and only after the other person approves. An approved follower can see that person's bookshelf and per-book summaries in the app. Guest users and users without a nickname cannot send requests. Objectionable words and contact details are blocked before saving and filtered before display; only book covers from bookstores and libraries are shown to others. Every person's shelf, every follower row, every incoming follow request and every person found by ID has a "…" menu with "通報する" (Report) and "ブロックする" (Block). A report asks for a reason, confirms delivery, and is reviewed within 24 hours (Terms, Articles 7 and 10). Blocking removes the follow in both directions and prevents new requests. The demo account already follows a sample account (ID: ____); open it from the round profile icon at the top right > "フォロー中" (Following).
 ```
 
 ## 3. 点検で「問題なし」と確かめたこと（要点）
