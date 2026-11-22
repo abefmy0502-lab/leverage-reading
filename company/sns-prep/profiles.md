@@ -10,7 +10,7 @@
 | 時期 | リンク |
 |---|---|
 | 承認まで | `https://orime.vercel.app/lp?utm_source=<場>&utm_medium=social&utm_campaign=<場>_profile`（`<場>`＝x・ig・th・note） |
-| 公開の朝から | `{APP_STORE_URL}` に `ct=<場>_profile` を付けたもの（`x_profile`・`ig_profile`・`th_profile`・`tt_profile`・`note_profile`）。`{APP_STORE_URL}` に `?pt=…` が入っていれば `&ct=…` で足す。Instagram は投稿した日にその投稿の機能の `ct=`（`ig_consult` など・`instagram-week1.md`）へ替えてもよい |
+| 公開の朝から | `{APP_STORE_URL}` に `ct=<場>_profile` を付けたもの（`x_profile`・`ig_profile`・`th_profile`・`tt_profile`・`note_profile`）。`{APP_STORE_URL}` に `?pt=…` が入っていれば `&ct=…` で足す。Instagram は 1 つのリンク（`ig_profile`）のまま替えない（2026-11-22 オーナー） |
 
 - 自己紹介の文の中にリンクを書かない（リンクの欄だけ）。
 - 固定の投稿・記事の中のリンクは、その投稿の `ct=`（例 `x_launch`・`note_why_orime`）。
