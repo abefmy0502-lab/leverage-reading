@@ -39,6 +39,8 @@
 // 画面の文字は「著者名」→「『書名』」（「著者名『書名』」の形は「『書名』」に）。表紙の絵・写真で共有の画像（canvas）の
 // 中の著者名は消す（書名と同じ文字が 2 回並ばないように）。お試しモードに本を足したらここにも足す
 // （notes.test.js が src/demo の著者を拾って、抜けを見つける）。
+import { DEFINITION } from './clarity.mjs';
+
 export const AUTHOR_REDACT = {
   '本田直之': 'レバレッジ・リーディング',
   '安宅和人': 'イシューからはじめよ',
@@ -105,18 +107,19 @@ export const SCENARIOS = [
     steps: [
       // 2026-11-22 オーナー「この動画だけで何を伝えたいのか分かるように、丁寧に」: 悩み → Orime とは → 使い方 → 変化 → 無料で試せる
       { say: 'はじめて部下ができて、報告がいつも遅い', hold: 900, intro: true },
-      { say: '読んだ本に、書いてあったはずなのに', hold: 900, intro: true },
-      { say: 'Orime は、読んだ本のメモから答える読書アプリ', hold: 1200 },
+      { say: '前に読んだ本に、ヒントがあったはずなのに', hold: 900, intro: true },
+      { say: DEFINITION, hold: 1400 },
+      { say: '読みながら、心に残った一文をメモしておく', hold: 1400 },
       { tap: nav('相談') },
-      { say: 'まず、悩みをそのまま書いて送る', type: [ASK, '部下の報告がいつも遅くて、困っています'] },
+      { say: '困ったら、悩みをそのまま書いて送る', type: [ASK, '部下の報告がいつも遅くて、困っています'] },
       { tap: SEND },
-      { say: '状況を 1 つ、聞き返してくれる', waitFor: CHIPS, timeout: 30000, hold: 1600 },
-      { say: 'ここで、答えと行動を頼む', tap: DECIDE },
-      { say: '答えのもとは、自分が残した読書メモ', waitFor: ANSWER_DONE, timeout: 40000, hold: 1200 },
+      { say: 'まず、状況を 1 つ聞き返してくれる', waitFor: CHIPS, timeout: 30000, hold: 1600 },
+      { say: '「ここで答えと行動を」を押すと', tap: DECIDE },
+      { say: '自分のメモをもとに、答えが返ってくる', waitFor: ANSWER_DONE, timeout: 40000, hold: 1200 },
       { scrollTo: EVIDENCE, block: 'center', hold: 800 },
-      { say: 'どの本の、どのページかも見られる', tap: EVIDENCE, hold: 600 },
+      { say: 'どの本の、どのメモから答えたかも見られる', tap: EVIDENCE, hold: 600 },
       { scrollBy: 260, hold: 2600 },
-      { say: '明日の一歩は、行動リストへ', scrollTo: 'button:has-text("行動に追加")', block: 'center', hold: 600 },
+      { say: '明日やることを 1 つ、「行動」に入れておける', scrollTo: 'button:has-text("行動に追加")', block: 'center', hold: 600 },
       { tap: 'button:has-text("行動に追加")', hold: 1200 },
       { say: 'これからは、困った日に、読んだ本に聞ける', hold: 2400 },
       { say: '無料プランで、今日から試せます', hold: 2200 }, // 入手への道（SNS 戦略 §3-2 の 4・2026-11-22 オーナー「目的はダウンロード」）
@@ -178,12 +181,12 @@ export const SCENARIOS = [
     url: '/',
     steps: [
       { say: '読まなきゃ、と思いながらスマホを触っていた', hold: 900, intro: true },
-      { say: '読書メモのアプリ Orime の「読む」で、時間を決めて読む', hold: 1200 },
-      { tap: '.lvg-page button:has-text("読む") >> nth=1', hold: 700 }, // 『数値化の鬼』（後半の &focus=done と同じ本）
-      { say: 'まず 15 分だけ、と決めて', tap: '[role=dialog] button[role=radio][aria-label="15 分"]', hold: 600 },
+      { say: DEFINITION, hold: 1400 },
+      { say: '「読む」を押して、読む時間を決める', tap: '.lvg-page button:has-text("読む") >> nth=1', hold: 700 }, // 『数値化の鬼』（後半の &focus=done と同じ本）
+      { say: 'まず 15 分だけ', tap: '[role=dialog] button[role=radio][aria-label="15 分"]', hold: 600 },
       { tap: '[role=dialog] button[data-focus-start]', hold: 1800 },
       { say: '画面には、本と残り時間だけ', hold: 1600 },
-      { say: '気になった一行は、その場でメモ', tap: 'button[aria-label="メモ"]', hold: 400 },
+      { say: '心に残った一文は、その場でメモ', tap: 'button[aria-label="メモ"]', hold: 400 },
       { type: ['textarea[aria-label="メモ本文"]', '数字にすると、言い訳がなくなる'] },
       { tap: '[role=dialog] button:text-is("保存")', hold: 1400 },
       { say: '15 分後', fastForward: '15:00', waitFor: 'button:text-is("おわる")', hold: 1800 },
@@ -247,13 +250,14 @@ export const SCENARIOS = [
     url: '/',
     steps: [
       { say: '家の本棚、アプリに 1 冊ずつ入れるのは大変', hold: 900, intro: true },
-      { say: '読書メモのアプリ Orime なら、本棚を撮るだけ', tap: 'button:has-text("本を追加") >> nth=0', hold: 900 },
+      { say: DEFINITION, hold: 1400 },
+      { say: 'まずは、家の本棚を写真で撮る', tap: 'button:has-text("本を追加") >> nth=0', hold: 900 },
       { say: '「本棚の写真からまとめて追加」を選んで', tap: 'button:has-text("本棚の写真からまとめて追加")', hold: 900 },
       { upload: ['[role=dialog] input[type=file]', 'scripts/fixtures/share-photo.jpg'] },
-      { say: 'AI が背表紙を読み取り、書店の情報で確かめる', waitFor: 'button:has-text("冊を本棚に入れる")', timeout: 40000, hold: 2200 },
+      { say: 'AI が写真から本を読み取って、確かめる', waitFor: 'button:has-text("冊を本棚に入れる")', timeout: 40000, hold: 2200 },
       { say: '入れる本を選んで', scrollBy: 320, hold: 1600 },
       { say: 'これからは、1 枚撮るだけで本棚がそろう', tap: 'button:has-text("冊を本棚に入れる")', hold: 2000 },
-      { say: 'そろった本に、いつでも相談できる', hold: 1600 },
+      { say: 'あとは、読みながらメモを残していくだけ', hold: 1600 },
       { say: '無料プランで、今日から試せます', hold: 2200 }, // 入手への道（SNS 戦略 §3-2 の 4・2026-11-22 オーナー「目的はダウンロード」）
     ],
   },
@@ -266,15 +270,16 @@ export const SCENARIOS = [
     url: '/?goals=noroadmap',
     steps: [
       { say: '成長したい。でも、何から読めばいい？', hold: 900, intro: true },
-      { say: '読書メモのアプリ Orime では、目標から考える', tap: nav('振り返り') },
+      { say: DEFINITION, hold: 1400 },
+      { say: '目標から、読む本を決めることもできる', tap: nav('振り返り') },
       { tap: 'button[role=tab]:has-text("行動")', hold: 600 },
-      { say: 'まず、1 年後・3 年後・5 年後の目標を書く', tap: 'button.goal-entry', hold: 1600 },
-      { say: '「ロードマップをつくる」を押して', tap: '.goal-screen button:has-text("ロードマップをつくる") >> nth=0' },
-      { say: '「達成するには？」の問いに答えると', waitFor: 'button.goal-chip', timeout: 30000, hold: 900 },
+      { say: 'まず、1 年後の目標を書く', tap: 'button.goal-entry', hold: 1600 },
+      { say: 'ボタンを押して', tap: '.goal-screen button:has-text("ロードマップをつくる") >> nth=0' },
+      { say: 'AI の質問に 1 つ答えると', waitFor: 'button.goal-chip', timeout: 30000, hold: 900 },
       { tap: 'button.goal-chip >> nth=0', hold: 600 },
       { tap: 'button:has-text("このくらいでつくる")' },
-      { say: '必要なこと、今の課題、区切りごとの道のりができる', waitFor: '#rm-road', timeout: 40000, hold: 2000 },
-      { say: '区切りごとに、読む本も並ぶ', scrollTo: '#rm-road', block: 'start', hold: 2400 },
+      { say: '1 年後までの道のりができる', waitFor: '#rm-road', timeout: 40000, hold: 2000 },
+      { say: '道のりに合わせて、読む本も並ぶ', scrollTo: '#rm-road', block: 'start', hold: 2400 },
       { say: 'これからは、今月読む 1 冊が決まっている', scrollBy: 420, hold: 2600 },
       { say: '無料プランで、今日から試せます', hold: 2200 }, // 入手への道（SNS 戦略 §3-2 の 4・2026-11-22 オーナー「目的はダウンロード」）
     ],

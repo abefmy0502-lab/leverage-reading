@@ -52,3 +52,19 @@ describe('冒頭の困っていることと改行', () => {
     expect(glueSpaces('1 日 15 分')).toBe('1\u00a0日\u00a015\u00a0分');
   });
 });
+
+// 2026-11-22 オーナー「動画は初めてアプリのことを知る人でも内容がわかるように」
+import { clarityProblems } from '../clarity.mjs';
+import { explainerLines } from './lines.mjs';
+describe('初めての人にも分かる順と言葉', () => {
+  it('概念の動画: 困っていること → Orime とは → 使い方 → これからは → 無料で試せる', () => {
+    for (const r of REELS.filter((x) => x.name.startsWith('concept-'))) {
+      expect(clarityProblems(explainerLines(r).slice(0, -1), { checkLength: false })).toEqual([]);
+    }
+  });
+  it('画面の動画（冒頭に困っていることの絵がある台本）も同じ決まり', () => {
+    for (const s of SCENARIOS.filter((x) => x.problem)) {
+      expect(clarityProblems([openingTitle(s), ...s.steps.filter((x) => x.say).map((x) => x.say)])).toEqual([]);
+    }
+  });
+});

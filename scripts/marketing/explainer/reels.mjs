@@ -14,6 +14,20 @@
 //   { type: 'end' }                               終わりのカード（ロゴ・「読んだ本と、会話しよう。」・App Store）
 // 座標は 1080×1920。Instagram の画面の上（〜240）・下（1400〜）・右端（940〜）は字や印が重なるので、大事なものを置かない。
 
+import { DEFINITION } from '../clarity.mjs';
+
+// Orime とは何か（どの動画も同じ一言・2026-11-22 オーナー「初めて知る人でも分かるように」）
+const DEFINE_SCENE = {
+  sec: 4.8,
+  say: `${DEFINITION}。`,
+  items: [
+    { type: 'text', text: 'Orime は', y: 300, size: 80, at: 0.1 },
+    { type: 'box', text: '読んだ本のメモから', y: 430, size: 96, at: 0.4 },
+    { type: 'text', text: '答えてくれる読書アプリ', y: 580, size: 84, at: 0.8 },
+    { type: 'art', name: 'personBook', x: 400, y: 760, w: 260, at: 1.2, dur: 1.4 },
+  ],
+};
+
 export const REELS = [
   // ── 2026-11-22 オーナー「実際の画面を映さなくても、概念的に Orime の効果を示せるものも」＝ビフォー → アフターの概念の動画（SNS 戦略 §3-2・§3-4）。
   {
@@ -51,15 +65,7 @@ export const REELS = [
           { type: 'sub', text: '読み終えた日が、\nゴールになっていた。', y: 1220, at: 3.0 },
         ],
       },
-      {
-        sec: 5.2,
-        items: [
-          { type: 'text', text: 'Orime は', y: 300, size: 80, at: 0.1 },
-          { type: 'box', text: '読んだ本のメモから', y: 430, size: 96, at: 0.4 },
-          { type: 'text', text: '答える読書アプリ', y: 580, size: 88, at: 0.8 },
-          { type: 'art', name: 'personBook', x: 400, y: 760, w: 260, at: 1.2, dur: 1.4 },
-        ],
-      },
+      DEFINE_SCENE,
       {
         sec: 5.6,
         items: [
@@ -78,7 +84,7 @@ export const REELS = [
           { type: 'art', name: 'memoStack', x: 60, y: 760, w: 320, at: 1.0, dur: 1.2 },
           { type: 'art', name: 'arrow', x: 395, y: 900, w: 110, at: 2.0, dur: 0.5 },
           { type: 'art', name: 'checklist', x: 540, y: 760, w: 340, at: 2.4, dur: 1.2 },
-          { type: 'sub', text: '線を引いた一行を根拠に、\n明日やることが 1 つ決まる。', y: 1220, at: 3.2 },
+          { type: 'sub', text: '線を引いた一行から、\n明日やることが 1 つ決まる。', y: 1220, at: 3.2 },
         ],
       },
       {
@@ -114,13 +120,13 @@ export const REELS = [
           { type: 'art', name: 'problemWhichBook', x: 200, y: 600, w: 680, at: 0.8, dur: 1.8 },
         ],
       },
+      DEFINE_SCENE,
       {
         sec: 5.2,
         items: [
-          { type: 'text', text: '読書メモのアプリ Orime では', y: 300, size: 64, at: 0.1 },
-          { type: 'box', text: '目標から逆算する', y: 430, size: 104, at: 0.4 },
-          { type: 'box', text: '① 1 年後の目標を書く', y: 640, size: 84, at: 1.2 },
-          { type: 'box', text: '②「達成するには？」に答える', y: 800, size: 76, at: 2.2 },
+          { type: 'text', text: '目標から、読む本も決められる', y: 300, size: 64, at: 0.1 },
+          { type: 'box', text: '① 1 年後の目標を書く', y: 430, size: 84, at: 0.6 },
+          { type: 'box', text: '② AI の質問に答える', y: 600, size: 84, at: 1.6 },
         ],
       },
       {
@@ -129,7 +135,7 @@ export const REELS = [
           { type: 'text', text: 'すると', y: 300, size: 72, at: 0.1 },
           { type: 'box', text: '道のりと読む本の順番', y: 420, size: 92, at: 0.4 },
           { type: 'art', name: 'road', x: 90, y: 680, w: 760, at: 0.9, dur: 2.0 },
-          { type: 'sub', text: '区切りごとに、\n読む本が並ぶ。', y: 1230, at: 3.0 },
+          { type: 'sub', text: '道のりに合わせて、\n読む本が並ぶ。', y: 1230, at: 3.0 },
         ],
       },
       {
@@ -172,10 +178,11 @@ export const REELS = [
           { type: 'art', name: 'problemPhone', x: 200, y: 600, w: 680, at: 0.8, dur: 1.8 },
         ],
       },
+      DEFINE_SCENE,
       {
         sec: 5.4,
         items: [
-          { type: 'text', text: '読書メモのアプリ Orime の', y: 300, size: 64, at: 0.1 },
+          { type: 'text', text: '本を読む時間も、つくれる', y: 300, size: 64, at: 0.1 },
           { type: 'box', text: '「読む」', y: 420, size: 104, at: 0.4 },
           { type: 'art', name: 'clock', x: 90, y: 700, w: 330, at: 0.9, dur: 1.2 },
           { type: 'art', name: 'bookOpen', x: 500, y: 780, w: 380, at: 1.8, dur: 1.0 },
