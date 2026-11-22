@@ -19,7 +19,7 @@
 - 3 本: 読んだのに残らない → 読んだ本が相談相手に／何から読めばいいか分からない → 1 年後から逆算した読む順番／スマホで 1 日が終わる → 1 日 15 分、本だけの時間。最後は Orime のロゴのカード。
 
 ## 声（ナレーション）を入れる（2026-11-22 オーナー「落ち着いた男性の声で」）
-- 鍵は Mac のキーチェーンに 1 回だけ入れる（画面に出ない・ファイルに書かない）: `security add-generic-password -a orime -s orime-openai-tts -w`（聞かれたら鍵を貼る）。
+- 鍵は Mac のキーチェーンに入れる: **`npm run mkt:key`**（1 回貼る → 空白や見えない文字を取り除く → OpenAI で通るか試す → 通ったときだけ保存・鍵の文字は出さない）。`security … -w` で 2 回貼る入れ方は、見えないまま間違えて 401 になった（2026-11-22）。
 - Mac で初めてのときだけ: `node node_modules/playwright-core/cli.js install chromium ffmpeg`（録画用のブラウザと部品。Google Chrome だと台本によって録画が空になった）。
 - 鍵なしで試すなら `npm run mkt:videos -- --say`（Mac の日本語の男性の声 Reed）。
 - **いちばん簡単: `npm run mkt:videos`**（声を作る → お試しモードを起動して撮る → 概念の動画 → 声を重ねる、まで 1 回で。できあがりは `marketing-out/videos/<今日>/<名前>/final-voice.mp4`）。

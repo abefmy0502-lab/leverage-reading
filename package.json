@@ -20,6 +20,7 @@
     "mkt:record": "node scripts/marketing/record-demo.mjs",
     "mkt:finish": "node scripts/marketing/finish-video.mjs",
     "mkt:voice": "node scripts/marketing/voice.mjs",
+    "mkt:key": "node scripts/marketing/set-key.mjs",
     "mkt:videos": "node scripts/marketing/make-videos.mjs",
     "mkt:drafts": "node scripts/marketing/weekly-drafts.mjs",
     "mkt:explainer": "node scripts/marketing/explainer/render-explainer.mjs",
