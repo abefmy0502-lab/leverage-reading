@@ -1241,6 +1241,8 @@ body.lp-active {
 .lp-feat-svg { width: 48px; height: 48px; color: var(--text); }
 .lp-root .lp-feat-title { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin: 0; font-size: var(--text-body); font-weight: 600; color: var(--text); line-height: 1.4; }
 .lp-root .lp-feat-body { margin: var(--space-1) 0 0; color: var(--text-2); font-size: var(--text-sub); line-height: 1.5; max-width: 30em; word-break: normal; line-break: strict; text-wrap: pretty; }
+.lp-root .lp-feat-note { margin: var(--space-1) 0 0; color: var(--text-3); font-size: var(--text-meta); line-height: 1.5; }
+.lp-more-plan.is-new { color: var(--accent); }
 @media (min-width: 768px) {
   .lp-feat { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-8) var(--space-16); }
 }
@@ -1253,6 +1255,8 @@ body.lp-active {
 @media (min-width: 768px) {
   .lp-feat-big { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-8); }
   .lp-feat-big-item { padding: var(--space-6); }
+  /* 3 つめ（本棚を見せ合う）が 2 列の下で片側だけ空くので、中くらいの幅では横いっぱいに（2026-11-22） */
+  .lp-feat-big-item:last-child:nth-child(odd) { grid-column: 1 / -1; }
 }
 
 /* よくある質問の答え: PC で 1 行 44 字を超えない（ui-critic 2026-11-12） */
@@ -1362,3 +1366,8 @@ body.lp-active {
 .lp-goal-shot figcaption { font-size: var(--text-sub); color: var(--text-2); line-height: 1.6; text-align: center; }
 .lp-goal-sec .lp-goal-grow { margin-top: var(--space-12); margin-bottom: 0; font-size: var(--text-body); line-height: 1.8; color: var(--text); }
 .lp-goal-sec .lp-shot-note { margin-top: var(--space-3); }
+/* 広い画面では大きな 3 つを横に並べる（2026-11-22・3 つめを足して 2 列の下が空いた） */
+@media (min-width: 1024px) {
+  .lp-feat-big { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-6); }
+  .lp-feat-big-item:last-child:nth-child(odd) { grid-column: auto; }
+}
