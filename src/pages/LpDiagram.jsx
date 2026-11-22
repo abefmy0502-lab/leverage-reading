@@ -183,6 +183,28 @@ const FEATURE_ART = {
       <path d="M158 106 H 184" opacity="0.5" />
     </g>
   ),
+  // 本棚を見せ合う（2026-11-22）: 2 人の本棚を、行き来する矢印（フォロー）でつなぐ。相手の 1 冊（栗色）が自分の本棚の空きへ（読みたいに追加）
+  shelf: (
+    <g {...S}>
+      <circle cx="52" cy="30" r="10" />
+      <path d="M20 112 H 84" />
+      <rect x="24" y="72" width="11" height="40" rx="1.5" opacity="0.5" />
+      <rect x="39" y="64" width="13" height="48" rx="1.5" opacity="0.5" />
+      <rect x="56" y="76" width="11" height="36" rx="1.5" opacity="0.5" />
+      <rect x="71" y="84" width="9" height="28" rx="1.5" stroke="var(--accent)" strokeDasharray="3 3" />
+      <circle cx="188" cy="30" r="10" />
+      <path d="M156 112 H 220" />
+      <rect x="160" y="68" width="12" height="44" rx="1.5" />
+      <rect x="176" y="60" width="13" height="52" rx="1.5" stroke="var(--accent)" strokeWidth="2.25" />
+      <rect x="193" y="72" width="11" height="40" rx="1.5" />
+      <rect x="208" y="78" width="9" height="34" rx="1.5" />
+      <path d="M100 30 H 140" />
+      <path d="M134 24 L 140 30 L 134 36" />
+      <path d="M106 24 L 100 30 L 106 36" />
+      <path d="M176 58 C 150 40, 110 46, 82 80" stroke="var(--accent)" strokeDasharray="4 4" />
+      <path d="M82 72 L 81 81 L 89 78" stroke="var(--accent)" />
+    </g>
+  ),
   // AI 選書: 本棚の列から 3 冊が選ばれて、人の前に並ぶ（1 冊目だけ栗色＝読む順番の最初）
   advisor: (
     <g {...S}>
@@ -214,6 +236,7 @@ export function FeatureTiles({ items }) {
             <svg className="lp-feat-art" viewBox="0 0 240 140" aria-hidden="true">{FEATURE_ART[it.key]}</svg>
             <h3 className="lp-feat-title">{it.title}{it.plan && <span className="lp-more-plan">有料プラン</span>}</h3>
             <p className="lp-feat-body lp-wbr"><Phrases>{it.body}</Phrases></p>
+            {it.note && <p className="lp-feat-note lp-wbr"><Phrases>{it.note}</Phrases></p>}
           </li>
         ))}
       </ul>

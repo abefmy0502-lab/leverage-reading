@@ -611,8 +611,8 @@ export default function Landing() {
         {/* ============ 共感（黄金の流れの 2 番目・2026-11-11）: 読む人の困りごとを 2 行だけ。数字は使わない ============ */}
         <section className="lp-sec lp-problem-sec" aria-label="こんなことは、ありませんか" data-lp-sec="problem">
           <div className="lp-wrap lp-narrow">
-            <p className="lp-problem-lines lp-wbr">{PROBLEM_LINES.map((t) => <span key={t}><Phrases>{t}</Phrases></span>)}</p>
-            <p className="lp-problem-answer">その本に、そのとき聞けたら。<br />Orime なら、それができます。</p>
+            <p className="lp-problem-lines lp-wbr">{PROBLEM_LINES.map((t) => <span key={t}><Phrases phrase>{t}</Phrases></span>)}</p>
+            <p className="lp-problem-answer lp-wbr"><span><Phrases phrase>その本に、そのとき聞けたら。</Phrases></span><span><Phrases phrase>Orime なら、それができます。</Phrases></span></p>
           </div>
         </section>
 
@@ -641,7 +641,7 @@ export default function Landing() {
             {/* 2026-11-15 プロの目線「値段の帯から、なぜ効くの節へ」: 読書が回り続ける図 */}
             <div className="lp-narrow lp-cycle-block">
               <h3 className="lp-cycle-h">読むほど、効いてくる</h3>
-              <p className="lp-cycle-lead">読みっぱなしで終わらず、読書が回り始める。なりたい自分への、レバレッジに。</p>
+              <p className="lp-cycle-lead lp-wbr"><Phrases phrase>読みっぱなしで終わらず、読書が回り始める。</Phrases><wbr /><Phrases phrase>なりたい自分への、レバレッジに。</Phrases></p>
               <LpCycleDiagram />
             </div>
           </div>
@@ -812,7 +812,7 @@ export default function Landing() {
             <h2 className="lp-h2" id="lp-faq">よくある質問</h2>
             <div className="lp-faq-list">
               {COPY.faq.map((f, i) => (
-                <details className="lp-faq-item" key={f.q} open={i === 0 || f.q.startsWith('通常の AI')} onToggle={(e) => { if (e.currentTarget.open) lpTrack('faq_open', { i, q: f.q.slice(0, 40) }); }}>
+                <details className="lp-faq-item" key={f.q} onToggle={(e) => { if (e.currentTarget.open) lpTrack('faq_open', { i, q: f.q.slice(0, 40) }); }}>
                   <summary>
                     <span className="lp-wbr"><Phrases>{f.q}</Phrases></span>
                     <ChevronDown size="1.25em" aria-hidden="true" className="lp-faq-mark" />

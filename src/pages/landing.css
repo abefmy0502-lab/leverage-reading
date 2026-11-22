@@ -1111,7 +1111,7 @@ body.lp-active {
 .lp-root .lp-why-keys-row { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); margin: 0; }
 .lp-root .lp-why-keys-row > span { font-family: var(--font-read); font-size: var(--text-heading); font-weight: 600; line-height: 1.4; color: var(--text); letter-spacing: 0.02em; } /* 塗りのチップは押せる物に見える（ui-critic 2026-11-11） */
 .lp-root .lp-why-summary { margin: var(--space-3) 0 0; font-size: var(--text-body); line-height: 1.7; color: var(--text); text-align: left; word-break: normal; line-break: strict; text-wrap: pretty; }
-.lp-root .lp-why-sources { margin: var(--space-3) 0 0; font-size: var(--text-sub); color: var(--text-3); text-align: left; }
+.lp-root .lp-why-sources { margin: var(--space-3) 0 0; font-size: var(--text-sub); color: var(--text-2); text-align: left; }
 .lp-why-cost { padding: var(--space-6); border-radius: var(--radius); background: var(--fill); }
 .lp-root .lp-why-cost-title { margin: 0; font-family: var(--font-read); font-size: var(--text-heading); font-weight: 600; line-height: 1.3; color: var(--text); } /* 見出しより弱く（ui-critic 2026-11-11） */
 .lp-root .lp-why-cost-body { margin: var(--space-3) 0 0; font-size: var(--text-body); line-height: 1.6; color: var(--text); word-break: normal; line-break: strict; text-wrap: pretty; }
@@ -1138,27 +1138,38 @@ body.lp-active {
 .lp-pricing-cost.is-top { margin: 0 0 var(--space-8); }
 
 /* ============ 💬 使い方＝実際の相談をチャットの形で（LpTalkFlow.jsx・2026-11-11） ============ */
-.lp-chat { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); max-width: 36em; } /* スマホの 1 画面に流れが入る間隔（2026-11-11） */
-.lp-chat-row { display: flex; align-items: flex-start; gap: var(--space-2); } /* アイコンは吹き出しの上にそろえる（LINE と同じ） */
-.lp-chat-row.is-me { justify-content: flex-end; }
-.lp-chat-row.is-book { justify-content: flex-start; }
-.lp-chat-col { display: grid; gap: var(--space-1); min-width: 0; max-width: 88%; }
-.lp-chat-avatar { flex-shrink: 0; margin-top: calc(var(--text-sub) * 1.5 + var(--space-1)); display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); }
-.lp-root .lp-chat-from { margin: 0 0 0 var(--space-2); color: var(--text-2); font-size: var(--text-sub); font-weight: 600; }
-.lp-chat-bubble { display: grid; gap: var(--space-1); padding: var(--space-2) var(--space-3); border-radius: var(--radius); }
-.is-me .lp-chat-bubble { max-width: 85%; background: var(--accent-soft); border-bottom-right-radius: var(--space-1); }
-.is-book .lp-chat-bubble { background: var(--surface); border: 1px solid var(--separator); border-bottom-left-radius: var(--space-1); }
-.lp-root .lp-chat-meta { margin: 0; color: var(--text-2); font-size: var(--text-sub); }
-.lp-root .lp-chat-text { margin: 0; font-size: var(--text-body); line-height: 1.6; color: var(--text); word-break: normal; line-break: strict; text-wrap: pretty; }
-/* 吹き出しの文はゴシック（明朝の吹き出しは長いと読みにくい・2026-11-21）。段落が続くときは 8 あける */
+.lp-chat { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-4); max-width: 36em; }
+/* 会話の上の 1 行: 誰に相談しているか（アプリの「相談相手」の行と同じ役目・2026-11-22） */
+.lp-root .lp-chat-partner { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-1) var(--space-2); margin: 0 0 var(--space-4); color: var(--text-2); font-size: var(--text-meta); max-width: 36em; }
+.lp-root .lp-chat-partner b { color: var(--text); font-weight: 600; }
+.lp-root .lp-chat-partner svg { color: var(--text-3); }
+.lp-chat-row { display: flex; flex-direction: column; gap: var(--space-1); }
+.lp-chat-row.is-me { align-items: flex-end; }
+.lp-chat-row.is-book { align-items: stretch; }
+/* 本の名前の行: 小さな丸いアイコン＋名前（吹き出しの上・吹き出しは全幅＝狭くて語の途中で割れていた・2026-11-22）。2 回目からは丸だけ */
+.lp-root .lp-chat-from { display: flex; align-items: center; gap: var(--space-2); margin: 0; color: var(--text-2); font-size: var(--text-caption); font-weight: 600; }
+.lp-chat-avatar { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: var(--fill); color: var(--text-2); }
+.lp-root .lp-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+/* 吹き出し: 角丸は 12 の 1 種類（尾は付けない＝左右の寄せと名前の行で話し手が分かる） */
+.lp-chat-bubble { display: grid; gap: var(--space-4); padding: var(--space-4); border-radius: var(--radius); }
+.is-me .lp-chat-bubble { max-width: 82%; padding: var(--space-2) var(--space-3); background: var(--accent-soft); }
+.is-book .lp-chat-bubble { background: var(--surface); border: 1px solid var(--separator); }
+/* 文は文節でだけ折り返す（.lp-wbr＝keep-all・Phrases の <wbr>）。行間 1.6 */
+.lp-root .lp-chat-text { margin: 0; font-size: var(--text-sub); line-height: 1.6; color: var(--text); }
+.lp-root .lp-chat-text.is-read { font-size: var(--text-body); line-height: 1.6; } /* 吹き出しの文はゴシック（明朝は長いと読みにくい・2026-11-21） */
 .lp-root .lp-chat-text + .lp-chat-text { margin-top: var(--space-2); }
-.lp-chat-evidence { margin: 0; padding: var(--space-1) 0 var(--space-1) var(--space-3); border-left: 2px solid var(--accent); }
-.lp-root .lp-chat-evidence-meta { margin: 0 0 var(--space-1); color: var(--text-2); font-size: var(--text-sub); }
-.lp-root .lp-chat-evidence-text { margin: 0; font-size: var(--text-sub); line-height: 1.5; color: var(--text-2); word-break: normal; line-break: strict; }
-.lp-root .lp-chat-label { display: flex; align-items: center; gap: var(--space-1); margin: 0; color: var(--text-2); font-size: var(--text-sub); font-weight: 600; }
+.lp-root .lp-chat-text.is-lead { color: var(--text-2); }
+.lp-root .lp-chat-label { display: flex; align-items: center; gap: var(--space-1); margin: 0 0 var(--space-1); color: var(--text-2); font-size: var(--text-caption); font-weight: 600; }
+/* 答えと根拠は 1 つのまとまり（間 4）。根拠＝訴求の軸なので本文の色で */
+.lp-chat-answer { display: grid; gap: var(--space-2); }
+.lp-root .lp-chat-evidence-line { display: flex; align-items: center; gap: var(--space-1); margin: 0; color: var(--text); font-size: var(--text-sub); line-height: 1.5; }
+.lp-root .lp-chat-evidence-line b { font-weight: 600; }
+.lp-root .lp-chat-evidence-line svg { color: var(--text-2); flex-shrink: 0; }
+/* 本からの問い・明日からできる一歩は、答えと区切った面（同じ --fill・角丸 12・外へはみ出さない） */
+.lp-chat-ask, .lp-chat-step { margin: 0; padding: var(--space-3); border-radius: var(--radius); background: var(--fill); }
 /* 会話の最後: 一歩が「明日の行動」になった結果（押せないボタンの絵の代わり・2026-11-11） */
 .lp-chat-row.is-result { justify-content: center; margin-top: var(--space-2); }
-.lp-chat-result { display: grid; gap: var(--space-2); width: calc(88% - 28px - var(--space-2)); margin-left: calc(28px + var(--space-2)); } /* 左端は本の吹き出しの列・右端も吹き出しとそろえる（ui-critic 2026-11-11） */
+.lp-chat-result { display: grid; gap: var(--space-2); width: 100%; } /* 左端は本の吹き出しの列・右端も吹き出しとそろえる（ui-critic 2026-11-11） */
 .lp-root .lp-chat-result-lead { margin: 0; color: var(--text-2); font-size: var(--text-sub); text-align: left; text-wrap: pretty; }
 .lp-chat-todo { display: flex; align-items: flex-start; gap: var(--space-3); padding: var(--space-3) var(--space-4); border-radius: var(--radius); background: var(--surface); border: 1px solid var(--separator); color: var(--text-3); }
 .lp-root .lp-chat-todo-text { margin: 0; color: var(--text); font-size: var(--text-sub); font-weight: 600; line-height: 1.5; }
@@ -1166,10 +1177,13 @@ body.lp-active {
 .lp-root .lp-chat-todo-meta { margin: var(--space-1) 0 0; color: var(--text-2); font-size: var(--text-sub); }
 /* 広い画面: 見出しを左の列、会話を右の列に（会話だけ左に寄って右が空いていた・ui-critic 2026-11-11） */
 @media (min-width: 768px) {
-  .lp-flow-sec.is-talk .lp-wrap { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); column-gap: var(--space-16); align-items: start; }
+  /* 広い画面: 左の列に見出し・流れの図・相談する相手・通常の AI との違い・注記、右の列に会話（相談する本の行から行動リストまで）を上から（2026-11-22） */
+  .lp-flow-sec.is-talk .lp-wrap { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); column-gap: var(--space-16); align-items: start; grid-auto-flow: row dense; }
+  .lp-flow-sec.is-talk .lp-wrap > * { grid-column: 1; }
   .lp-flow-sec.is-talk .lp-sec-head { margin-bottom: 0; }
+  .lp-flow-sec.is-talk .lp-chat-wrap { grid-column: 2; grid-row: 1 / span 6; }
   .lp-flow-sec.is-talk .lp-chat { max-width: none; }
-  .lp-flow-sec.is-talk .lp-shot-note { grid-column: 2; }
+  .lp-flow-sec.is-talk .lp-partner, .lp-flow-sec.is-talk .lp-chat-diff { margin-top: var(--space-8); }
 }
 
 /* ============ 📖 読む前に、読み方が決まる（読書計画シート・2026-11-11） ============ */
@@ -1188,9 +1202,9 @@ body.lp-active {
 
 /* ============ 共感の 2 行（黄金の流れの 2 番目・2026-11-11） ============ */
 .lp-problem-sec { padding-top: 0; }
-@media (min-width: 768px) { .lp-problem-sec { padding-top: var(--space-4); } }
+@media (min-width: 768px) { .lp-problem-sec { padding-top: 0; } } /* ヒーローとの間が約 190pt 空いていた（2026-11-22 ui-critic） */
 .lp-root .lp-problem-lines { display: grid; gap: var(--space-1); margin: 0; font-family: var(--font-read); font-size: var(--text-heading); line-height: 1.5; letter-spacing: 0.03em; color: var(--text-2); }
-.lp-root .lp-problem-answer { margin: var(--space-4) 0 0; font-size: var(--text-heading); font-weight: 600; color: var(--text); } /* 答え（解決）は問いより強く（ui-critic 2026-11-11） */
+.lp-root .lp-problem-answer { display: grid; margin: var(--space-4) 0 0; font-size: var(--text-heading); font-weight: 600; color: var(--text); } /* 答え（解決）は問いより強く（ui-critic 2026-11-11） */
 
 /* ============ ほかにできること＝短い一覧（2026-11-11・画面写真をやめた） ============ */
 .lp-more { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
@@ -1199,7 +1213,7 @@ body.lp-active {
 .lp-root .lp-more-title { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); margin: 0; font-size: var(--text-body); font-weight: 600; color: var(--text); }
 .lp-more-plan { color: var(--text-2); font-size: var(--text-sub); font-weight: 600; }
 .lp-root .lp-more-body { margin: var(--space-1) 0 0; color: var(--text-2); font-size: var(--text-sub); line-height: 1.5; max-width: 36em; }
-.lp-root .lp-more-note { margin: var(--space-4) 0 0; color: var(--text-3); font-size: var(--text-sub); }
+.lp-root .lp-more-note { margin: var(--space-4) 0 0; color: var(--text-2); font-size: var(--text-sub); }
 @media (min-width: 768px) {
   .lp-more { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--space-16); }
   .lp-more > li:last-child { border-bottom: 0; }
@@ -1230,8 +1244,13 @@ body.lp-active {
 .lp-feat-svg { width: 48px; height: 48px; color: var(--text); }
 .lp-root .lp-feat-title { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin: 0; font-size: var(--text-body); font-weight: 600; color: var(--text); line-height: 1.4; }
 .lp-root .lp-feat-body { margin: var(--space-1) 0 0; color: var(--text-2); font-size: var(--text-sub); line-height: 1.5; max-width: 30em; text-wrap: pretty; }
+.lp-root .lp-feat-note { margin: var(--space-1) 0 0; color: var(--text-2); font-size: var(--text-sub); line-height: 1.5; }
 @media (min-width: 768px) {
   .lp-feat { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-8) var(--space-16); }
+}
+/* 広い画面は上の大きな 3 枚と同じ 3 列の格子に揃える（ui-critic 2026-11-22） */
+@media (min-width: 1024px) {
+  .lp-feat { grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: var(--space-8); }
 }
 
 /* 有料プランの 2 つはイメージの絵つきで上に（2026-11-12） */
@@ -1242,15 +1261,16 @@ body.lp-active {
 @media (min-width: 768px) {
   .lp-feat-big { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-8); }
   .lp-feat-big-item { padding: var(--space-6); }
+  /* 3 つめ（本棚を見せ合う）が 2 列の下で片側だけ空くので、中くらいの幅では横いっぱいに（2026-11-22） */
+  .lp-feat-big-item:last-child:nth-child(odd) { grid-column: 1 / -1; }
 }
 
 /* よくある質問の答え: PC で 1 行 44 字を超えない（ui-critic 2026-11-12） */
 .lp-faq .lp-faq-a, .lp-faq details > div, .lp-faq details > p { max-width: 40em; }
 
 /* 2026-11-12 読み手テスト: ヒーローの事実の 1 行・答えの根拠の 1 行・ChatGPT との違い */
-.lp-root .lp-chat-evidence-line { margin: 0; padding-left: var(--space-3); border-left: 2px solid var(--accent); color: var(--text-2); font-size: var(--text-sub); line-height: 1.5; word-break: normal; line-break: strict; }
 .lp-root .lp-chat-diff { margin: var(--space-6) 0 0; padding: var(--space-3) var(--space-4); border-radius: var(--radius); background: var(--fill); color: var(--text); font-size: var(--text-sub); font-weight: 600; line-height: 1.5; max-width: 36em; word-break: normal; line-break: strict; text-wrap: pretty; }
-@media (min-width: 768px) { .lp-flow-sec.is-talk .lp-chat-diff { grid-column: 2; } }
+
 
 .lp-root .lp-plan-pick { margin: var(--space-2) 0 0; color: var(--text-2); font-size: var(--text-sub); text-align: left; }
 .lp-root .lp-plan-define { margin: 0 auto var(--space-6); max-width: 32em; text-align: left; line-height: 1.6; }
@@ -1297,20 +1317,20 @@ body.lp-active {
 .lp-root .lp-chat-diff-title { margin: 0 0 var(--space-1); font-weight: 700; }
 .lp-root .lp-chat-diff-body { margin: 0; font-weight: 400; }
 .lp-root .lp-chat-diff-body > span { display: block; }
-@media (min-width: 768px) { .lp-flow-sec.is-talk .lp-partner { grid-column: 2; } }
-@media (max-width: 767px) { .lp-chat-result { width: calc(100% - 28px - var(--space-2)); } } /* 行動のカードの 1 行目（読点まで）が折り返さない幅 */
+
+ /* 行動のカードの 1 行目（読点まで）が折り返さない幅 */
 .lp-root .lp-lines > span { display: block; }
 .lp-root .lp-final-sub { margin: var(--space-3) auto 0; max-width: none; color: var(--text-2); font-size: var(--text-body); text-align: center; }
 
 /* 💴 料金の帯の図（2026-11-15）: 本 1 冊 ≒ Orime の 1 か月。線の絵・面なし・強調は右の本棚の線だけ */
-.lp-cost-diagram { max-width: 30em; margin: var(--space-4) 0 0; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: var(--space-3); padding: var(--space-4) 0; border-top: 1px solid var(--separator); }
+.lp-cost-diagram { max-width: 40em; margin: var(--space-4) 0 0; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: var(--space-3); padding: var(--space-4) 0; border-top: 1px solid var(--separator); }
 .lp-cost-side { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--space-1); min-width: 0; }
 .lp-cost-icon { font-size: calc(var(--text-sub) * 2.4); color: var(--text-2); margin-bottom: var(--space-1); }
 .lp-cost-side.is-orime .lp-cost-icon { color: var(--text); }
 .lp-root .lp-cost-name { margin: 0; font-size: var(--text-body); font-weight: 600; color: var(--text); line-height: 1.4; word-break: keep-all; }
 .lp-root .lp-cost-what { margin: 0; font-size: var(--text-sub); color: var(--text-2); line-height: 1.5; word-break: keep-all; }
 .lp-root .lp-cost-eq { margin: 0; font-family: var(--font-read); font-size: var(--text-heading); color: var(--text-3); }
-.lp-root .lp-cost-note { margin: var(--space-3) 0 0; font-size: var(--text-sub); line-height: 1.5; color: var(--text-3); }
+.lp-root .lp-cost-note { margin: var(--space-3) 0 0; font-size: var(--text-sub); line-height: 1.5; color: var(--text-2); }
 
 /* 🔁 読書が回り続ける図（2026-11-15）: 栗色の輪と 4 つの矢印・上下左右に段・真ん中に一言。押せる形にしない */
 .lp-cost-rows > div.is-cycle { grid-template-columns: minmax(0, 1fr); }
@@ -1344,14 +1364,40 @@ body.lp-active {
   max-width: 560px;
   margin: var(--space-8) 0 0;
 }
-@media (min-width: 768px) {
-  .lp-root .lp-goal-shot figcaption.lp-lines > span { display: inline; }
-}
+
 .lp-goal-shot { margin: 0; display: flex; flex-direction: column; align-items: center; gap: var(--space-3); }
 .lp-goal-shot .lp-shot { width: 100%; }
 .lp-goal-shot figcaption { font-size: var(--text-sub); color: var(--text-2); line-height: 1.6; text-align: center; }
 .lp-goal-sec .lp-goal-grow { margin-top: var(--space-12); margin-bottom: 0; font-size: var(--text-body); line-height: 1.8; color: var(--text); }
 .lp-goal-sec .lp-shot-note { margin-top: var(--space-3); }
+/* 広い画面では大きな 3 つを横に並べる（2026-11-22・3 つめを足して 2 列の下が空いた） */
+@media (min-width: 1024px) {
+  .lp-feat-big { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-6); }
+  .lp-feat-big-item:last-child:nth-child(odd) { grid-column: auto; }
+}
+/* ============ PC で左に寄って右が空く節を 2 列に（2026-11-22 オーナー「スマホ、PC で見ても伝わりやすく」・ui-critic） ============ */
+@media (min-width: 1024px) {
+  /* なぜ効くのか: 左にグラフと研究、右に読書が回る図 */
+  .lp-why-sec .lp-wrap { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); column-gap: var(--space-16); align-items: center; }
+  .lp-why-sec .lp-sec-head { grid-column: 1 / -1; }
+  .lp-why-sec .lp-why { grid-column: 1; }
+  .lp-why-sec .lp-cycle-block { grid-column: 2; margin-top: 0; }
+  .lp-why-sec .lp-cycle-block > * { max-width: none; }
+  /* 目標から逆算: 左に説明と流れ、右に 2 台の画面 */
+  .lp-goal-sec .lp-wrap { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); column-gap: var(--space-16); align-items: start; }
+  .lp-goal-sec .lp-wrap > * { grid-column: 1; }
+  .lp-goal-sec .lp-goal-shots { grid-column: 2; grid-row: 1 / span 5; margin: 0; max-width: none; }
+  .lp-goal-sec .lp-goal-grow { margin-top: var(--space-8); }
+}
+/* 目標の 2 台の画面: スマホでは横に送る 1 台ずつ（2 台並べると中の文字が約 5pt で読めなかった） */
+@media (max-width: 599px) {
+  .lp-goal-shots { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 78%; overflow-x: auto; scroll-snap-type: x mandatory; max-width: none; padding-bottom: var(--space-2); }
+  .lp-goal-shot { scroll-snap-align: start; }
+}
+
+/* 画面写真が読めなかったとき、暗い枠の上に代わりの文が薄く重なって読めなかった（2026-11-22 点検）。
+   見える文は隠し、読み上げには alt をそのまま渡す */
+.lp-root img.lp-shot { color: transparent; }
 
 /* 2026-11-21 ui-critic（DESIGN §3-2）: 栗色は押せるもの・選んでいるもの・グラフの線（忘却曲線）と、アプリと同じ見本（自分の吹き出し・根拠の線）だけ。
    図の強調・帯の面・札は --text / --fill に戻した */
