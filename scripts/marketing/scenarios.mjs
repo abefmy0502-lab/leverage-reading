@@ -95,7 +95,7 @@ export const SCENARIOS = [
   {
     name: 'consult-answer',
     pillar: '本と会話',
-    title: 'その答え、\n前に読んだ本に\n書いてありました。',
+    title: '読んだのに、出てこない\n↓\n線を引いた一行が、\n答えの根拠に', // 2026-11-22 ビフォー → アフター（SNS 戦略 §3-2）
     url: '/',
     steps: [
       { say: 'はじめて部下ができて、困ったとき', hold: 600 },
@@ -110,7 +110,8 @@ export const SCENARIOS = [
       { say: '根拠は、自分が読んだ本とページ', tap: EVIDENCE, hold: 600 },
       { scrollBy: 260, hold: 2600 },
       { say: '明日の一歩は、行動リストへ', scrollTo: 'button:has-text("行動に追加")', block: 'center', hold: 600 },
-      { tap: 'button:has-text("行動に追加")', hold: 2200 },
+      { say: '明日やることが、1 つ決まった', tap: 'button:has-text("行動に追加")', hold: 2400 },
+      { say: '無料プランで、今日から試せます', hold: 2200 }, // 入手への道（SNS 戦略 §3-2 の 4・2026-11-22 オーナー「目的はダウンロード」）
     ],
   },
   {
@@ -164,9 +165,10 @@ export const SCENARIOS = [
     // 30 分はアプリの時計を進めて作る（fastForward・本物の 30 分は待てない）。
     name: 'focus-mode',
     pillar: '習慣',
-    title: '時間を決めて、\n集中して読む',
+    title: 'スマホで 1 日が終わっていた\n↓\n1 日 15 分、\n本だけの画面で読む',
     url: '/',
     steps: [
+      { say: '読まなきゃ、と思いながらスマホを触っていた', hold: 900 },
       { say: 'いま読んでいる本の「読む」', hold: 500 },
       { tap: '.lvg-page button:has-text("読む") >> nth=1', hold: 700 }, // 『数値化の鬼』（後半の &focus=done と同じ本）
       { say: 'まず 15 分だけ、と決めて', tap: '[role=dialog] button[role=radio][aria-label="15 分"]', hold: 600 },
@@ -177,7 +179,8 @@ export const SCENARIOS = [
       { tap: '[role=dialog] button:text-is("保存")', hold: 1400 },
       { say: '15 分後', fastForward: '15:00', waitFor: 'button:text-is("おわる")', hold: 1800 },
       { tap: 'button:text-is("おわる")', hold: 600 },
-      { say: '読んだ時間は、記録に残る', hold: 2800 },
+      { say: '今日は 15 分読めた。読んだ時間が残る', hold: 2800 },
+      { say: '無料プランで、今日から試せます', hold: 2200 }, // 入手への道（SNS 戦略 §3-2 の 4・2026-11-22 オーナー「目的はダウンロード」）
     ],
   },
   {
@@ -230,7 +233,7 @@ export const SCENARIOS = [
     // 📚 本棚の写真からまとめて追加（2026-11-22・SNS 戦略 §3-3 の 1 週目）: 本を追加 → 本棚を撮る → 読み取った本を確かめて → まとめて本棚へ。
     name: 'shelf-scan',
     pillar: '本と会話',
-    title: '本棚を撮ったら、\nまとめて入った',
+    title: '本棚の記録、3 冊で止まっていた\n↓\n1 枚撮って、\nまとめて本棚へ',
     url: '/',
     steps: [
       { say: '家の本棚、全部入れるのは大変', hold: 600 },
@@ -239,17 +242,18 @@ export const SCENARIOS = [
       { upload: ['[role=dialog] input[type=file]', 'scripts/fixtures/share-photo.jpg'] },
       { say: '背表紙を読み取って、書店で確かめる', waitFor: 'button:has-text("冊を本棚に入れる")', timeout: 40000, hold: 2200 },
       { scrollBy: 320, hold: 1600 },
-      { say: '選んだ本を、まとめて本棚へ', tap: 'button:has-text("冊を本棚に入れる")', hold: 2600 },
+      { say: '1 枚撮っただけで、本棚がそろった', tap: 'button:has-text("冊を本棚に入れる")', hold: 2600 },
+      { say: '無料プランで、今日から試せます', hold: 2200 }, // 入手への道（SNS 戦略 §3-2 の 4・2026-11-22 オーナー「目的はダウンロード」）
     ],
   },
   {
     // 🧭 目標とロードマップ（2026-11-22・SNS 戦略 §3-3 の 1 週目・入口 A「成長したい」）: 目標 → 「達成するには？」→ 道のり → 読む本。
     name: 'goal-roadmap',
     pillar: '成果',
-    title: '1 年後の自分から、\n逆算して読む',
+    title: '何から読めばいいか、分からない\n↓\n1 年後から逆算した、\n読む順番',
     url: '/?goals=noroadmap',
     steps: [
-      { say: '1 年後、どうなっていたい？', hold: 500 },
+      { say: '成長したい。でも、何から読む？', hold: 900 },
       { tap: nav('振り返り') },
       { tap: 'button[role=tab]:has-text("行動")', hold: 600 },
       { tap: 'button.goal-entry', hold: 1600 },
@@ -259,7 +263,8 @@ export const SCENARIOS = [
       { tap: 'button:has-text("このくらいでつくる")' },
       { say: '必要なことと、読む本の順番まで', waitFor: '#rm-road', timeout: 40000, hold: 2000 },
       { scrollTo: '#rm-road', block: 'start', hold: 2400 },
-      { scrollBy: 420, hold: 2600 },
+      { say: '今月読む 1 冊が、決まった', scrollBy: 420, hold: 2600 },
+      { say: '無料プランで、今日から試せます', hold: 2200 }, // 入手への道（SNS 戦略 §3-2 の 4・2026-11-22 オーナー「目的はダウンロード」）
     ],
   },
   {
