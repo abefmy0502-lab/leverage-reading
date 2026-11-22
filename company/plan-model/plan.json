@@ -533,7 +533,7 @@
      "ok": true,
      "paid": 2026,
      "revenue": 2226071,
-     "cash": 6717705
+     "cash": 6877705
     },
     "android": {
      "ok": true,
@@ -614,17 +614,17 @@
      "feeMan": 244,
      "refundsMan": 25,
      "aiMan": 178,
-     "peopleMan": 723,
+     "peopleMan": 707,
      "marketingMan": 300,
      "adMan": 120,
      "infraMan": 71,
      "otherMan": 138,
-     "profitMan": -7,
-     "taxMan": 7,
-     "afterTaxMan": -14,
-     "marketOwnerMan": -348,
-     "cashEndMan": 672,
-     "cashAfterTaxMan": 665,
+     "profitMan": 9,
+     "taxMan": 10,
+     "afterTaxMan": -1,
+     "marketOwnerMan": -332,
+     "cashEndMan": 688,
+     "cashAfterTaxMan": 678,
      "loanEndMan": 444
     },
     {
@@ -649,8 +649,8 @@
      "taxMan": 367,
      "afterTaxMan": 833,
      "marketOwnerMan": 946,
-     "cashEndMan": 1838,
-     "cashAfterTaxMan": 1471,
+     "cashEndMan": 1851,
+     "cashAfterTaxMan": 1484,
      "loanEndMan": 333
     }
    ],
@@ -750,7 +750,7 @@
      "paid": 1138,
      "consumer": 1138,
      "seats": 0,
-     "cashMan": 667,
+     "cashMan": 683,
      "ch": {
       "search": 2673,
       "sns": 1522,
@@ -765,7 +765,7 @@
      "paid": 1514,
      "consumer": 1469,
      "seats": 45,
-     "cashMan": 613,
+     "cashMan": 629,
      "ch": {
       "search": 3264,
       "sns": 2045,
@@ -780,7 +780,7 @@
      "paid": 2026,
      "consumer": 1951,
      "seats": 75,
-     "cashMan": 672,
+     "cashMan": 688,
      "ch": {
       "search": 4633,
       "sns": 3120,
@@ -795,7 +795,7 @@
      "paid": 2502,
      "consumer": 2427,
      "seats": 75,
-     "cashMan": 969,
+     "cashMan": 982,
      "ch": {
       "search": 3936,
       "sns": 2787,
@@ -810,7 +810,7 @@
      "paid": 3021,
      "consumer": 2876,
      "seats": 145,
-     "cashMan": 1343,
+     "cashMan": 1356,
      "ch": {
       "search": 3629,
       "sns": 2733,
@@ -825,7 +825,7 @@
      "paid": 3488,
      "consumer": 3311,
      "seats": 177,
-     "cashMan": 1422,
+     "cashMan": 1435,
      "ch": {
       "search": 4322,
       "sns": 3418,
@@ -840,7 +840,7 @@
      "paid": 4318,
      "consumer": 3898,
      "seats": 420,
-     "cashMan": 1838,
+     "cashMan": 1851,
      "ch": {
       "search": 6006,
       "sns": 4940,
@@ -944,97 +944,97 @@
     },
     {
      "ym": "2028-06",
-     "cashMan": 667,
+     "cashMan": 683,
      "plan": "pass"
     },
     {
      "ym": "2028-07",
-     "cashMan": 645,
+     "cashMan": 661,
      "plan": "pass"
     },
     {
      "ym": "2028-08",
-     "cashMan": 624,
+     "cashMan": 640,
      "plan": "pass"
     },
     {
      "ym": "2028-09",
-     "cashMan": 613,
+     "cashMan": 629,
      "plan": "pass"
     },
     {
      "ym": "2028-10",
-     "cashMan": 617,
+     "cashMan": 633,
      "plan": "pass"
     },
     {
      "ym": "2028-11",
-     "cashMan": 639,
+     "cashMan": 655,
      "plan": "pass"
     },
     {
      "ym": "2028-12",
-     "cashMan": 672,
+     "cashMan": 688,
      "plan": "pass"
     },
     {
      "ym": "2029-01",
-     "cashMan": 729,
+     "cashMan": 745,
      "plan": "pass"
     },
     {
      "ym": "2029-02",
-     "cashMan": 837,
+     "cashMan": 850,
      "plan": "pass"
     },
     {
      "ym": "2029-03",
-     "cashMan": 969,
+     "cashMan": 982,
      "plan": "pass"
     },
     {
      "ym": "2029-04",
-     "cashMan": 1065,
+     "cashMan": 1078,
      "plan": "pass"
     },
     {
      "ym": "2029-05",
-     "cashMan": 1183,
+     "cashMan": 1196,
      "plan": "pass"
     },
     {
      "ym": "2029-06",
-     "cashMan": 1343,
+     "cashMan": 1356,
      "plan": "pass"
     },
     {
      "ym": "2029-07",
-     "cashMan": 1248,
+     "cashMan": 1261,
      "plan": "pass"
     },
     {
      "ym": "2029-08",
-     "cashMan": 1329,
+     "cashMan": 1342,
      "plan": "pass"
     },
     {
      "ym": "2029-09",
-     "cashMan": 1422,
+     "cashMan": 1435,
      "plan": "pass"
     },
     {
      "ym": "2029-10",
-     "cashMan": 1537,
+     "cashMan": 1551,
      "plan": "pass"
     },
     {
      "ym": "2029-11",
-     "cashMan": 1678,
+     "cashMan": 1691,
      "plan": "pass"
     },
     {
      "ym": "2029-12",
-     "cashMan": 1838,
+     "cashMan": 1851,
      "plan": "pass"
     }
    ]
@@ -1052,7 +1052,7 @@
      "ok": true,
      "paid": 4549,
      "revenue": 5103398,
-     "cash": 17706349
+     "cash": 17866349
     },
     "android": {
      "ok": true,
@@ -1135,17 +1135,17 @@
      "feeMan": 540,
      "refundsMan": 55,
      "aiMan": 381,
-     "peopleMan": 723,
+     "peopleMan": 707,
      "marketingMan": 900,
      "adMan": 720,
      "infraMan": 111,
      "otherMan": 138,
-     "profitMan": 843,
-     "taxMan": 260,
-     "afterTaxMan": 583,
-     "marketOwnerMan": 502,
-     "cashEndMan": 1771,
-     "cashAfterTaxMan": 1525,
+     "profitMan": 859,
+     "taxMan": 265,
+     "afterTaxMan": 594,
+     "marketOwnerMan": 518,
+     "cashEndMan": 1787,
+     "cashAfterTaxMan": 1536,
      "loanEndMan": 444
     },
     {
@@ -1170,8 +1170,8 @@
      "taxMan": 937,
      "afterTaxMan": 2162,
      "marketOwnerMan": 2844,
-     "cashEndMan": 4705,
-     "cashAfterTaxMan": 3899,
+     "cashEndMan": 4714,
+     "cashAfterTaxMan": 3910,
      "loanEndMan": 333
     }
    ],
@@ -1271,7 +1271,7 @@
      "paid": 2476,
      "consumer": 2476,
      "seats": 0,
-     "cashMan": 1074,
+     "cashMan": 1090,
      "ch": {
       "search": 3609,
       "sns": 2054,
@@ -1286,7 +1286,7 @@
      "paid": 3362,
      "consumer": 3317,
      "seats": 45,
-     "cashMan": 1292,
+     "cashMan": 1308,
      "ch": {
       "search": 4406,
       "sns": 2761,
@@ -1301,7 +1301,7 @@
      "paid": 4549,
      "consumer": 4474,
      "seats": 75,
-     "cashMan": 1771,
+     "cashMan": 1787,
      "ch": {
       "search": 6255,
       "sns": 4212,
@@ -1316,7 +1316,7 @@
      "paid": 5801,
      "consumer": 5708,
      "seats": 93,
-     "cashMan": 2437,
+     "cashMan": 2449,
      "ch": {
       "search": 5314,
       "sns": 3763,
@@ -1331,7 +1331,7 @@
      "paid": 7244,
      "consumer": 7099,
      "seats": 145,
-     "cashMan": 3133,
+     "cashMan": 3144,
      "ch": {
       "search": 4899,
       "sns": 3689,
@@ -1346,7 +1346,7 @@
      "paid": 8899,
      "consumer": 8722,
      "seats": 177,
-     "cashMan": 3727,
+     "cashMan": 3736,
      "ch": {
       "search": 5835,
       "sns": 4615,
@@ -1361,7 +1361,7 @@
      "paid": 11536,
      "consumer": 10941,
      "seats": 595,
-     "cashMan": 4705,
+     "cashMan": 4714,
      "ch": {
       "search": 8716,
       "sns": 6669,
@@ -1465,97 +1465,97 @@
     },
     {
      "ym": "2028-06",
-     "cashMan": 1074,
+     "cashMan": 1090,
      "plan": "pass"
     },
     {
      "ym": "2028-07",
-     "cashMan": 1140,
+     "cashMan": 1156,
      "plan": "pass"
     },
     {
      "ym": "2028-08",
-     "cashMan": 1198,
+     "cashMan": 1214,
      "plan": "pass"
     },
     {
      "ym": "2028-09",
-     "cashMan": 1292,
+     "cashMan": 1308,
      "plan": "pass"
     },
     {
      "ym": "2028-10",
-     "cashMan": 1418,
+     "cashMan": 1434,
      "plan": "pass"
     },
     {
      "ym": "2028-11",
-     "cashMan": 1581,
+     "cashMan": 1597,
      "plan": "pass"
     },
     {
      "ym": "2028-12",
-     "cashMan": 1771,
+     "cashMan": 1787,
      "plan": "pass"
     },
     {
      "ym": "2029-01",
-     "cashMan": 1990,
+     "cashMan": 2006,
      "plan": "pass"
     },
     {
      "ym": "2029-02",
-     "cashMan": 2066,
+     "cashMan": 2077,
      "plan": "pass"
     },
     {
      "ym": "2029-03",
-     "cashMan": 2437,
+     "cashMan": 2449,
      "plan": "pass"
     },
     {
      "ym": "2029-04",
-     "cashMan": 2481,
+     "cashMan": 2493,
      "plan": "pass"
     },
     {
      "ym": "2029-05",
-     "cashMan": 2766,
+     "cashMan": 2777,
      "plan": "pass"
     },
     {
      "ym": "2029-06",
-     "cashMan": 3133,
+     "cashMan": 3144,
      "plan": "pass"
     },
     {
      "ym": "2029-07",
-     "cashMan": 3243,
+     "cashMan": 3254,
      "plan": "pass"
     },
     {
      "ym": "2029-08",
-     "cashMan": 3403,
+     "cashMan": 3412,
      "plan": "pass"
     },
     {
      "ym": "2029-09",
-     "cashMan": 3727,
+     "cashMan": 3736,
      "plan": "pass"
     },
     {
      "ym": "2029-10",
-     "cashMan": 3872,
+     "cashMan": 3881,
      "plan": "pass"
     },
     {
      "ym": "2029-11",
-     "cashMan": 4264,
+     "cashMan": 4273,
      "plan": "pass"
     },
     {
      "ym": "2029-12",
-     "cashMan": 4705,
+     "cashMan": 4714,
      "plan": "pass"
     }
    ]
@@ -2226,7 +2226,7 @@
    "mission": "外の SNS の役割と配分・言葉の統一・毎週の投稿キット・道ごとの入れた人（「どこで知りましたか」が正・ct= で補う）・止める SNS の判断。アプリの中のつながり（フォロー・フィード・読書会）の数字の責任者（作るのは開発）",
    "kpi": "SNS で知って入れた人（月）・保存と送信・つながりの割合（その月に使った人のうち、承認されたフォローが 1 人以上ある人）",
    "now": "AI（土曜の投稿キット）＋オーナーの最終確認",
-   "later": "2028 年 6 月から SNS と動画の外注 1 人"
+   "later": "2028 年 7 月から SNS と動画の外注 1 人"
   },
   {
    "id": "x",
@@ -2244,7 +2244,7 @@
    "mission": "週 3 本の縦動画（同じ動画を TikTok にも）とカルーセル",
    "kpi": "Instagram: 保存と送信・TikTok: 再生 → プロフィールの割合",
    "now": "AI（動画の自動づくり）＋オーナーが予約",
-   "later": "2028 年 6 月から SNS と動画の外注"
+   "later": "2028 年 7 月から SNS と動画の外注"
   },
   {
    "id": "th",
@@ -3600,7 +3600,7 @@
   {
    "role": "ceo",
    "period": "2028-Q2",
-   "title": "外注を 1 人ずつ（5 月 開発・6 月 SNS と動画）・6 月に有料 900 人未満か守りの数字が届かなければ、外注と広告の試しを止める（オーナーの報酬は残す）",
+   "title": "外注を 1 人ずつ（5 月 開発・7 月 SNS と動画＝6 月の逆の決まりを通ってから契約）・6 月に有料 900 人未満か守りの数字が届かなければ、外注と広告の試しを止める（オーナーの報酬は残す）",
    "done": "道しるべ 6 月末 1,150 人",
    "h": 6
   },
@@ -4570,8 +4570,8 @@
   },
   {
    "role": "sns",
-   "period": "2028-06",
-   "title": "SNS と動画の外注を受け入れる",
+   "period": "2028-07",
+   "title": "SNS と動画の外注を受け入れる（6 月の逆の決まりを通ったら契約）",
    "done": "SNS と動画の外注 1 人と契約（30 日前の知らせで解約できる）",
    "h": 4
   },

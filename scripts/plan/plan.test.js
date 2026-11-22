@@ -61,6 +61,18 @@ describe('中期経営計画の計算', () => {
     const r = simulate({ ...BASE, hireCashMonths: 1e6 });
     expect(r.hired).toEqual([]);
   });
+  it('兼業（hold）のまま 2028 年末の関門を通れば、2029 年は専業と外注に戻る。通らなければ兼業のまま', () => {
+    const back = simulate({ ...BASE, gates: { ...BASE.gates, 2027: { ...BASE.gates[2027], paid: 1e9 }, 2028: { ...BASE.gates[2028], paid: 0, profit3m: -1e9 } } });
+    expect(back.mode[2028]).toBe('hold'); expect(back.find((x) => x.ym === '2029-01').plan).toBe('pass');
+    expect(back.find((x) => x.ym === '2029-01').ownerPay).toBeGreaterThan(0);
+    const stay = simulate({ ...BASE, gates: { ...BASE.gates, 2027: { ...BASE.gates[2027], paid: 1e9 }, 2028: { ...BASE.gates[2028], paid: 1e9 } } });
+    expect(stay.mode[2029]).toBe('hold');
+  });
+  it('SNS と動画の外注は、2028 年 6 月の逆の決まりを判定したあと（7 月）に契約する', () => {
+    const c = ITEMS.find((x) => x.role === 'sns' && x.title.startsWith('SNS と動画の外注を受け入れる'));
+    expect(c.period > '2028-06').toBe(true);
+    const r = simulate(BASE); expect(r.find((x) => x.ym === '2028-06').people).toBeLessThan(r.find((x) => x.ym === '2028-07').people);
+  });
   it('借入は 2027 年末の関門を通ったときだけ', () => {
     expect(simulate(BASE).find((x) => x.ym === '2028-01').loanFlow).toBeGreaterThan(0);
     expect(simulate(SCENARIOS.low).find((x) => x.ym === '2028-01').loanFlow).toBe(0);
@@ -127,9 +139,9 @@ describe('責任者と予定', () => {
     for (const opt of [{ guard: true }, { freeze: true }, { guard: true, freeze: true }]) for (const m of MONTHS.filter((x) => x >= '2028-07' && x <= '2029-12')) { const o = ownerHoursOfMonth(m, opt); expect(o.total, `${JSON.stringify(opt)} ${m}`).toBeLessThanOrEqual(o.planLimit); }
     expect(GUARD_ITEMS.every((x) => typeof x.h === 'number') && FREEZE_ITEMS.every((x) => typeof x.h === 'number')).toBe(true);
   });
-  it('2027 年末の関門に落ちて兼業のままの 2028 年も、どの月も 8 割に収まる', () => {
-    for (const m of months.filter((x) => x.startsWith('2028-'))) { const o = ownerHoursOfMonth(m, { hold: true }); expect(o.total, m).toBeLessThanOrEqual(o.planLimit); }
-    for (const r of ROLES) expect(HOLD_ITEMS.some((x) => x.role === r.id && x.period === '2028'), r.id).toBe(true);
+  it('2027 年末の関門に落ちて兼業のままの 2028・2029 年も、どの月も 8 割に収まる', () => {
+    for (const m of months.filter((x) => x.startsWith('2028-') || x.startsWith('2029-'))) { const o = ownerHoursOfMonth(m, { hold: true }); expect(o.total, m).toBeLessThanOrEqual(o.planLimit); }
+    for (const r of ROLES) for (const y of ['2028', '2029']) expect(HOLD_ITEMS.some((x) => x.role === r.id && x.period === y), `${r.id} ${y}`).toBe(true);
   });
   it('兼業の間の成果物には、すべてオーナーの時間（h）が書いてある（0＝四半期の行に含むか AI だけ）', () => {
     const inWin = (p) => p === '2027' || p.startsWith('2027-') || p === '2026-12' || ['2028-01', '2028-02', '2028-03', '2028-Q1'].includes(p);

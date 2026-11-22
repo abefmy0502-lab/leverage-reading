@@ -89,8 +89,8 @@ export const BASE = {
   // ── 費用（pass＝お金を足す計画・hold＝止める計画）。円・月。'YYYY-MM' はその月から
   ownerPay: { pass: { 2027: 0, 2028: 0, '2028-04': 250_000, 2029: 250_000 }, hold: { 2027: 0, 2028: 0, 2029: 0 } },
   supportFromInstalls: 3300, supportYen: 60_000, // サポートと通報の外注は、月の入れた人が 3,300 人（問い合わせ 約 50 件）を超えた月から
-  outsource: { pass: { 2027: 0, 2028: 0, '2028-05': 300_000, '2028-06': 460_000, 2029: 460_000 }, hold: { 2027: 0, 2028: 0, 2029: 0 } },
-  // ↑ 2028 年 5 月 開発（月 ¥30 万）・6 月 SNS と動画（月 ¥16 万）。30 日前に知らせれば解約できる契約
+  outsource: { pass: { 2027: 0, 2028: 0, '2028-05': 300_000, '2028-07': 460_000, 2029: 460_000 }, hold: { 2027: 0, 2028: 0, 2029: 0 } },
+  // ↑ 2028 年 5 月 開発（月 ¥30 万）・7 月 SNS と動画（月 ¥16 万・6 月の逆の決まりを通ってから契約）。30 日前に知らせれば解約できる契約
   hires: [ // 2029 年の社員（2028 年末の関門・その月の現金が 6 か月分以上のときだけ。候補は 2028-Q3 から条件つきの内定で探す）
     { from: '2029-04', title: '開発', salaryYen: 550_000, lift: 'dev' },
     { from: '2029-07', title: '法人営業', salaryYen: 500_000, needsB2b: true, lift: 'b2b' }, // 法人の試しが通ったときだけ
@@ -337,7 +337,9 @@ export function simulate(A = BASE, opts = {}) {
       const last3 = rows.slice(-3);
       const ok = y === 2027 ? paid >= g.paid && revenue >= g.mrrYen && cash >= (g.cashYen ?? 0) : paid >= g.paid && last3.reduce((s, r) => s + r.profit, 0) / 3 >= g.profit3m;
       gateResult[y] = { ok, paid: Math.round(paid), revenue: Math.round(revenue), cash: Math.round(cash) };
-      mode[y + 1] = mode[y] === 'hold' ? 'hold' : !ok ? (frozen.owner > 0 ? 'freeze' : 'hold') : mode[y] === 'pass' ? 'pass' : 'freeze';
+      // 兼業（hold）のまま関門を通れば、次の年は専業と外注に戻す（借入はしない・社員は現金の決まりのまま）。通らなければ兼業のまま
+      mode[y + 1] = mode[y] === 'hold' ? (ok ? 'pass' : 'hold') : !ok ? (frozen.owner > 0 ? 'freeze' : 'hold') : mode[y] === 'pass' ? 'pass' : 'freeze';
+      if (mode[y] === 'hold' && ok) events.push({ ym, what: `${y} 年末の関門を兼業のまま通ったので、${y + 1} 年 1 月から専業と外注に戻す` });
     }
   }
   rows.gates = gateResult; rows.events = events; rows.minCash = minCash; rows.minCashYm = minCashYm; rows.androidOn = androidOn; rows.incorporatedAt = incorporatedAt;

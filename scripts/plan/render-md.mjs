@@ -197,7 +197,7 @@ blocks.hold = (() => {
   const order = ROLES.map((r) => r.id);
   const lines = ['| 時期 | 責任者 | やること | 終わりの基準 | オーナーの時間 |', '|---|---|---|---|---|'];
   for (const x of [...HOLD_ITEMS].sort((a, b) => a.period.localeCompare(b.period) || order.indexOf(a.role) - order.indexOf(b.role))) lines.push(`| ${x.period} | ${roleShort(x.role)} | ${x.title} | ${x.done} | ${x.h} 時間 |`);
-  const ms = Array.from({ length: 12 }, (_, i) => `2028-${String(i + 1).padStart(2, '0')}`).map((m) => ownerHoursOfMonth(m, { hold: true }).total);
+  const ms = ['2028', '2029'].flatMap((y) => Array.from({ length: 12 }, (_, i) => `${y}-${String(i + 1).padStart(2, '0')}`)).map((m) => ownerHoursOfMonth(m, { hold: true }).total);
   return `${lines.join('\n')}\n\nこのときのオーナーの時間は月 ${Math.min(...ms).toFixed(1)}〜${Math.max(...ms).toFixed(1)} 時間（予定の上限 ${ownerHoursOfMonth('2028-01').planLimit.toFixed(1)} 時間）。`;
 })();
 

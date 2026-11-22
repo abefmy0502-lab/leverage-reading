@@ -20,9 +20,9 @@ export const CHANNEL_SHARE_NOTE = 'App Store の検索は、ほかの道で知�
 
 export const ROLES = [
   { id: 'ceo', name: '全体の方針設計', short: '方針', mission: '方向・関門の判定・お金と人の配分。外注と採用の管理（選ぶ・契約・毎週の確かめ・30 日前の知らせで解約できる契約）。毎週月曜の見直し・月 2 つの試し。汎用 AI の合図は外の目が判定し、方針が打つ手を決める', kpi: '有料（個人・法人の席）・関門の率・現金（支出の何か月分）', now: 'オーナー（AI の参謀が数字と選択肢を用意）', later: 'ずっとオーナー' },
-  { id: 'sns', name: 'SNS 統括', short: 'SNS 統括', mission: '外の SNS の役割と配分・言葉の統一・毎週の投稿キット・道ごとの入れた人（「どこで知りましたか」が正・ct= で補う）・止める SNS の判断。アプリの中のつながり（フォロー・フィード・読書会）の数字の責任者（作るのは開発）', kpi: 'SNS で知って入れた人（月）・保存と送信・つながりの割合（その月に使った人のうち、承認されたフォローが 1 人以上ある人）', now: 'AI（土曜の投稿キット）＋オーナーの最終確認', later: '2028 年 6 月から SNS と動画の外注 1 人' },
+  { id: 'sns', name: 'SNS 統括', short: 'SNS 統括', mission: '外の SNS の役割と配分・言葉の統一・毎週の投稿キット・道ごとの入れた人（「どこで知りましたか」が正・ct= で補う）・止める SNS の判断。アプリの中のつながり（フォロー・フィード・読書会）の数字の責任者（作るのは開発）', kpi: 'SNS で知って入れた人（月）・保存と送信・つながりの割合（その月に使った人のうち、承認されたフォローが 1 人以上ある人）', now: 'AI（土曜の投稿キット）＋オーナーの最終確認', later: '2028 年 7 月から SNS と動画の外注 1 人' },
   { id: 'x', name: 'X', short: 'X', mission: '平日 1 本（機能と変化）・返信・月 1 のスレッド', kpi: 'プロフィールのリンクのクリック（月）', now: 'オーナー（自分の声で出す）・下書きは AI', later: 'オーナーのまま（声は外に出さない）' },
-  { id: 'ig', name: 'Instagram・TikTok', short: '縦動画', mission: '週 3 本の縦動画（同じ動画を TikTok にも）とカルーセル', kpi: 'Instagram: 保存と送信・TikTok: 再生 → プロフィールの割合', now: 'AI（動画の自動づくり）＋オーナーが予約', later: '2028 年 6 月から SNS と動画の外注' },
+  { id: 'ig', name: 'Instagram・TikTok', short: '縦動画', mission: '週 3 本の縦動画（同じ動画を TikTok にも）とカルーセル', kpi: 'Instagram: 保存と送信・TikTok: 再生 → プロフィールの割合', now: 'AI（動画の自動づくり）＋オーナーが予約', later: '2028 年 7 月から SNS と動画の外注' },
   { id: 'th', name: 'Threads', short: 'Threads', mission: '毎日 1 本の問いかけで会話を作る（下書きは AI・返信はオーナー）', kpi: '返信の数（月）', now: 'AI（下書き）＋オーナー（直して予約・返信）', later: 'SNS と動画の外注と分担' },
   { id: 'note', name: 'note・検索記事', short: 'note', mission: '毎週火曜の連載（1 本に 1 機能）・検索で読まれる記事', kpi: 'note からのクリック・検索の流入（月）', now: 'AI（下書き）＋オーナー（体験を足して公開）', later: '2029 年 10 月にマーケの社員が入れば渡す（基本の見込みでは入らず、オーナーのまま）' },
   { id: 'mkt', name: 'マーケ', short: 'マーケ', mission: 'App Store の検索（ASO）・LP・協業・季節の山場・プレス・紹介・広告の試し・組む相手（ブクログ・読書メーター・書店・研修会社）', kpi: 'App Store の検索の表示 → 入れる率・協業から入れた人・広告の回収月数', now: 'AI（案・素材）＋オーナー（申し込み・連絡）', later: '2029 年 10 月にマーケの社員 1 人（現金が 6 か月分あれば。基本の見込みでは入らず、オーナーと外注のまま）' },
@@ -239,7 +239,7 @@ export const ITEMS = [
 
   // ════ 2028 の四半期（前半の大きな仕事は 3 つ: Android・外注の受け入れ・法人の試しの準備）════
   { role: 'ceo', period: '2028-Q1', title: '借入（1 月）・Android の公開（3 月）・外注 2 人の候補（30 日前の知らせで解約できる契約）', done: '道しるべ 3 月末 850 人', h: 2 },
-  { role: 'ceo', period: '2028-Q2', title: '外注を 1 人ずつ（5 月 開発・6 月 SNS と動画）・6 月に有料 900 人未満か守りの数字が届かなければ、外注と広告の試しを止める（オーナーの報酬は残す）', done: '道しるべ 6 月末 1,150 人', h: 6 },
+  { role: 'ceo', period: '2028-Q2', title: '外注を 1 人ずつ（5 月 開発・7 月 SNS と動画＝6 月の逆の決まりを通ってから契約）・6 月に有料 900 人未満か守りの数字が届かなければ、外注と広告の試しを止める（オーナーの報酬は残す）', done: '道しるべ 6 月末 1,150 人', h: 6 },
   { role: 'ceo', period: '2028-Q3', title: '法人の試しと紹介を始める・2029 年の社員の候補を条件つきの内定で探す', done: '道しるべ 9 月末 1,500 人', h: 6 },
   { role: 'ceo', period: '2028-Q4', title: '2028 年末の関門の判定・社員を入れるか（現金が 6 か月分あるか）', done: '道しるべ 12 月末 2,000 人', h: 6 },
   { role: 'sns', period: '2028-Q1', title: 'Android の公開の宣伝・勝ち型の手順書', done: '手順書（文書）・SNS で知って入れた人 月 1,400', h: 0 },
@@ -381,7 +381,7 @@ export const ITEMS = [
   { role: 'dev', period: '2028-03', title: 'Android を公開', done: 'Google Play に公開', h: 2 },
   { role: 'ceo', period: '2028-04', title: 'オーナー専業（報酬 月 ¥25 万）', done: '専業の開始の記録・報酬 月 ¥25 万', decide: '専業になるか → 2027 年末の関門を通り、借入が入っていればなる', h: 1 },
   { role: 'dev', period: '2028-05', title: '開発の外注を受け入れる', done: '開発の外注 1 人と契約（30 日前の知らせで解約できる）', h: 6 },
-  { role: 'sns', period: '2028-06', title: 'SNS と動画の外注を受け入れる', done: 'SNS と動画の外注 1 人と契約（30 日前の知らせで解約できる）', h: 4 },
+  { role: 'sns', period: '2028-07', title: 'SNS と動画の外注を受け入れる（6 月の逆の決まりを通ったら契約）', done: 'SNS と動画の外注 1 人と契約（30 日前の知らせで解約できる）', h: 4 },
   { role: 'ceo', period: '2028-06', title: '逆の決まり: 有料 900 人未満か、守りの数字（4〜6 か月目の人で、メモ 50 件以上の解約がメモ 10〜49 件の 7 割以下・各組 100 人以上を累計で）が届かなければ、外注と広告の試しを止める（オーナーの報酬は残す）・上半期の振り返り', done: '続ける／止めるの記録・外注 2 人に 30 日前の知らせ（止めるとき）', decide: '外注を続けるか → 有料 900 人以上かつ守りの数字が届いていれば続ける', h: 3 },
   { role: 'b2b', period: '2028-07', title: '法人の試しを始める（5 社・6 か月）', done: '5 社で使い始める', h: 6 },
   { role: 'dev', period: '2028-07', title: '紹介のコードを出す', done: '紹介のコードの公開', h: 6 },
@@ -424,6 +424,25 @@ export const HOLD_ITEMS = [
   { role: 'fin', period: '2028', title: '帳簿と確定申告（借入なし・法人化は有料 400 人で）', done: '確定申告 1 回・月の締め 12 回', h: 2 },
   { role: 'rev', period: '2028', title: '2027 年に試した柱のうち、元が取れたものだけを続ける（新しい柱は試さない）', done: '続ける柱の記録 1 つ', h: 1 },
   { role: 'intel', period: '2028', title: '「外の動き」を続け、続ける／畳む／売るの判断の材料にする（買い手の候補の動きも）', done: '外の動き 12 枚', h: 0 },
+  // 2028 年末の関門にも落ちたときの 2029 年（兼業のまま・2028 年と同じ形）。関門を通れば 2029 年 1 月から基本の予定（専業と外注）に戻る
+  { role: 'ceo', period: '2029', title: '兼業で続ける。6 月と 12 月に「兼業で続ける／畳む／売る」を決める', done: '6 月と 12 月の決めた記録 2 つ', h: 6 },
+  { role: 'ceo', period: '2029-Q2', title: '6 月: 続けるかを決める（有料・率・現金・市場の報酬なら赤字か）', done: '続ける／やめるの記録', h: 2 },
+  { role: 'ceo', period: '2029-Q4', title: '12 月: 次の 3 年をどうするか（兼業で続ける／畳む／売る）', done: '3 つから選んだ記録', h: 3 },
+  { role: 'sns', period: '2029', title: 'X と Instagram だけを回す（Threads は止めたまま・note は月 1 本）', done: 'SNS で知って入れた人を 2028 年 12 月の 9 割以上に保つ', h: 0 },
+  { role: 'x', period: '2029', title: '平日 1 本を保つ', done: '月 20 本', h: 0 },
+  { role: 'ig', period: '2029', title: '週 2 本（AI の動画だけ）', done: '月 8 本', h: 0 },
+  { role: 'th', period: '2029', title: '止めたまま', done: '投稿 0 本', h: 0 },
+  { role: 'note', period: '2029', title: '月 1 本', done: '12 本', h: 0 },
+  { role: 'mkt', period: '2029', title: 'App Store の検索と協業だけ（広告なし）', done: '検索の入れる率 30% を保つ・協業 12 件', h: 4 },
+  { role: 'dev', period: '2029', title: 'いちばん弱い率を上げる改善だけ（新しい大きな機能は作らない）', done: '弱い率 1 つを 5 ポイント上げる', h: 6 },
+  { role: 'ops', period: '2029', title: '土台を保つ（問い合わせが月 50 件を超えたらサポートの外注）', done: '止まった時間 月 1 時間以下', h: 2 },
+  { role: 'b2b', period: '2029', title: '研修会社経由の 1〜2 社を続ける', done: '続ける会社 1〜2 社', h: 4 },
+  { role: 'pdm', period: '2029', title: 'いちばん弱い率を上げるものだけを選ぶ', done: '仕様 4 つ（文書）', h: 2 },
+  { role: 'qa', period: '2029', title: '点検を続ける（AI）', done: '利用者が見つけたバグ 月 3 件以下', h: 0 },
+  { role: 'cs', period: '2029', title: '返事と声の報告を続ける', done: '声の報告 12 枚', h: 0 },
+  { role: 'fin', period: '2029', title: '帳簿と確定申告（法人化は有料 400 人で）', done: '確定申告 1 回・月の締め 12 回', h: 2 },
+  { role: 'rev', period: '2029', title: '元が取れた柱だけを続ける', done: '続ける柱の記録 1 つ', h: 1 },
+  { role: 'intel', period: '2029', title: '「外の動き」を続け、続ける／畳む／売るの材料にする（買い手の候補の動きも）', done: '外の動き 12 枚', h: 0 },
 ];
 
 export const roleName = (id) => ROLES.find((r) => r.id === id)?.name || id;
@@ -431,12 +450,13 @@ export const quarterOf = (ym) => `${ym.slice(0, 4)}-Q${Math.floor((Number(ym.sli
 export const isMonth = (p) => /^\d{4}-\d{2}$/.test(p);
 export const isQuarter = (p) => /^\d{4}-Q[1-4]$/.test(p);
 
-// 2028 年 6 月の逆の決まりに届かず、7 月から外注 2 人（開発・SNS と動画）と広告を止めたとき（guard）。オーナーの報酬は残す（専業のまま）。
+// 2028 年 6 月の逆の決まりに届かず、7 月から開発の外注と広告を止め、SNS と動画の外注は契約しないとき（guard）。オーナーの報酬は残す（専業のまま）。
 // 止めた外注は戻さない。ここに書いた（責任者・期間）は、基本の行の代わりになる
 export const GUARD_FROM = '2028-07';
 export const GUARD_ROLE_HOURS = { dev: 5.5, sns: 1.5, ig: 1.0, th: 1.0, x: 0.75, note: 0.75, mkt: 2.0 }; // 開発と縦動画・Threads をオーナーが引き取り、X と note を減らす
 export const GUARD_ITEMS = [
-  { role: 'ceo', period: '2028-07', title: '外注 2 人の契約を終える（6 月末に 30 日前の知らせ）・引き継ぎを受ける', done: '引き継ぎの手順書 2 つ', h: 4 },
+  { role: 'ceo', period: '2028-07', title: '開発の外注の契約を終える（6 月末に 30 日前の知らせ）・引き継ぎを受ける。SNS と動画の外注は契約しない', done: '引き継ぎの手順書 1 つ', h: 4 },
+  { role: 'sns', period: '2028-07', title: 'SNS と動画の外注は契約せず、オーナーと AI で回す', done: '契約しない記録 1 件', h: 0 },
   { role: 'ceo', period: '2028-Q3', title: '外注を止めたあとの配分を決める（開発はオーナー・SNS は X と Instagram を主に）・年末の関門の見込みを毎月見る', done: '配分の記録・道しるべ 9 月末の記録', h: 6 },
   { role: 'ceo', period: '2028-Q4', title: '2028 年末の関門の判定（有料 1,600 人・直近 3 か月の黒字）。落ちたら 2029 年は今の契約のまま（止めた外注は戻さない）', done: '判定の記録', h: 6 },
   { role: 'dev', period: '2028-07', title: '紹介のコードを出す（外注が作りかけた分をオーナーが仕上げる）', done: '紹介のコードの公開', h: 2 },
@@ -444,7 +464,7 @@ export const GUARD_ITEMS = [
   { role: 'dev', period: '2028-Q4', title: 'iPhone と Android の直しだけ（法人の管理画面の設計は 2029 年に回す）', done: '利用者が見つけたバグ 月 3 件以下', h: 15 },
   { role: 'pdm', period: '2028-Q3', title: '弱い率を上げるものだけを選ぶ（新しい大きな機能は作らない）', done: '仕様 2 つ（文書）', h: 6 },
   { role: 'pdm', period: '2028-Q4', title: '2029 年に回すものの順番（法人の管理画面・学校の入口）', done: '順番の記録 1 つ', h: 4 },
-  { role: 'sns', period: '2028-Q3', title: 'SNS と動画の外注の分をオーナーに戻す: X と Instagram を主に、Threads は週 3 本、TikTok は止める', done: 'SNS で知って入れた人を 6 月の 9 割以上に保つ', h: 4 },
+  { role: 'sns', period: '2028-Q3', title: 'SNS と動画はオーナーと AI で回す: X と Instagram を主に、Threads は週 3 本、TikTok は止める', done: 'SNS で知って入れた人を 6 月の 9 割以上に保つ', h: 4 },
   { role: 'sns', period: '2028-Q4', title: '「今年の読書」と年 1 回の傾向の発表（読書会は無し）', done: '12 月の共有 1,000 枚', h: 4 },
   { role: 'mkt', period: '2028-Q3', title: '広告を止め、App Store の検索と協業だけにする', done: '検索の入れる率 30% を保つ・協業 15 件', h: 12 },
   { role: 'mkt', period: '2028-Q4', title: '年末の山場は検索と協業だけで受ける', done: '協業 15 件', h: 12 },
@@ -491,9 +511,10 @@ export function ownerHoursOfMonth(ym, { hold = false, busy = false, guard = fals
   const routineOf = (r) => (busy && BUSY_PLAN.routineCuts[r.role] != null ? BUSY_PLAN.routineCuts[r.role] : r.owner);
   const routine = ROUTINES.reduce((s, r) => s + routineOf(r), 0) * WEEKS_PER_MONTH;
   const y = ym.slice(0, 4); const q = quarterOf(ym);
-  const list = hold && y === '2028' ? [...ITEMS.filter((x) => !x.period.startsWith('2028')), ...HOLD_ITEMS] : ITEMS;
+  const list = hold && (y === '2028' || y === '2029') ? [...ITEMS.filter((x) => !x.period.startsWith('2028') && !x.period.startsWith('2029')), ...HOLD_ITEMS] : ITEMS;
   const hOf = (x) => (busy && x.flex ? 0 : busy && x.android ? (x.h || 0) * BUSY_PLAN.androidWeekly : (x.h || 0));
-  const items = list.reduce((s, x) => s + hOf(x) * (x.period === ym ? 1 : x.period === q ? 1 / 3 : x.period === y ? 1 / 12 : 0), 0);
+  // busy でも 12 月の「今年の読書」の投稿は減らさない（SNS の山場・別に 3 時間）
+  const items = list.reduce((s, x) => s + hOf(x) * (x.period === ym ? 1 : x.period === q ? 1 / 3 : x.period === y ? 1 / 12 : 0), 0) + (busy && ym.endsWith('-12') ? 3 : 0);
   const limit = OWNER_WEEKLY_HOURS * WEEKS_PER_MONTH;
   return { routine, items, total: routine + items, limit, planLimit: limit * PLAN_SHARE };
 }
