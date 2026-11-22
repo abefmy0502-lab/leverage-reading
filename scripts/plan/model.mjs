@@ -166,7 +166,7 @@ export function simulate(A = BASE, opts = {}) {
   const rows = [];
   const mCoh = []; const aCoh = [];
   // 費用の計画: pass＝足す・hold＝止める（兼業に戻す・外注なし）・freeze＝今の契約（オーナーの報酬・外注・社員）は残し、新しく足さない・guard＝現金の見張り（オーナーと社員は残し、外注と新しい費用を止める）
-  const mode = { 2027: 'pass', 2028: 'pass', 2029: 'pass' };
+  const mode = { 2027: 'pass', 2028: 'pass', 2029: 'pass' }; let recoverYear = null;
   const frozen = { owner: 0, outsource: 0 };
   const gateResult = {}; const events = [];
   const cashIn = {}; const addCash = (ym, v) => { cashIn[ym] = (cashIn[ym] || 0) + v; };
@@ -188,7 +188,8 @@ export function simulate(A = BASE, opts = {}) {
     const y = yearOf(ym); const mo = monthOf(ym); const season = SEASON[mo];
     const inPlan = ym <= PLAN_LAST;
     if (mo === 1) { prevYearAppRevenue = curYearAppRevenue; curYearAppRevenue = 0; }
-    const plan = noGates ? 'pass' : (mode[y] ?? 'pass');
+    // 兼業から戻る年は、退職の予告と外注を選ぶ期間をとって 4 月から専業と外注（1〜3 月は兼業のまま）
+    const plan = noGates ? 'pass' : recoverYear === y && mo < 4 ? 'hold' : (mode[y] ?? 'pass');
     const isPass = plan === 'pass';
     if (!isPass && !noGates && (!slowFrom || slowMode !== plan)) { if (!slowFrom) slowFrom = ym; slowMode = plan === 'hold' || slowMode === 'hold' ? 'hold' : plan === 'guard' || slowMode === 'guard' ? 'guard' : 'freeze'; }
     // ── 社員の効き目（入った月から 6 か月かけて）
@@ -339,7 +340,7 @@ export function simulate(A = BASE, opts = {}) {
       gateResult[y] = { ok, paid: Math.round(paid), revenue: Math.round(revenue), cash: Math.round(cash) };
       // 兼業（hold）のまま関門を通れば、次の年は専業と外注に戻す（借入はしない・社員は現金の決まりのまま）。通らなければ兼業のまま
       mode[y + 1] = mode[y] === 'hold' ? (ok ? 'pass' : 'hold') : !ok ? (frozen.owner > 0 ? 'freeze' : 'hold') : mode[y] === 'pass' ? 'pass' : 'freeze';
-      if (mode[y] === 'hold' && ok) events.push({ ym, what: `${y} 年末の関門を兼業のまま通ったので、${y + 1} 年 1 月から専業と外注に戻す` });
+      if (mode[y] === 'hold' && ok) { recoverYear = y + 1; events.push({ ym, what: `${y} 年末の関門を兼業のまま通ったので、${y + 1} 年 4 月から専業と外注に戻す（1〜3 月は退職の予告と外注選び）` }); }
     }
   }
   rows.gates = gateResult; rows.events = events; rows.minCash = minCash; rows.minCashYm = minCashYm; rows.androidOn = androidOn; rows.incorporatedAt = incorporatedAt;

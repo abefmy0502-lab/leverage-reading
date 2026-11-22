@@ -61,10 +61,11 @@ describe('中期経営計画の計算', () => {
     const r = simulate({ ...BASE, hireCashMonths: 1e6 });
     expect(r.hired).toEqual([]);
   });
-  it('兼業（hold）のまま 2028 年末の関門を通れば、2029 年は専業と外注に戻る。通らなければ兼業のまま', () => {
+  it('兼業（hold）のまま 2028 年末の関門を通れば、2029 年 4 月から専業と外注に戻る（1〜3 月は予告と外注選び）。通らなければ兼業のまま', () => {
     const back = simulate({ ...BASE, gates: { ...BASE.gates, 2027: { ...BASE.gates[2027], paid: 1e9 }, 2028: { ...BASE.gates[2028], paid: 0, profit3m: -1e9 } } });
-    expect(back.mode[2028]).toBe('hold'); expect(back.find((x) => x.ym === '2029-01').plan).toBe('pass');
-    expect(back.find((x) => x.ym === '2029-01').ownerPay).toBeGreaterThan(0);
+    expect(back.mode[2028]).toBe('hold'); expect(back.find((x) => x.ym === '2029-03').plan).toBe('hold'); expect(back.find((x) => x.ym === '2029-04').plan).toBe('pass');
+    expect(back.find((x) => x.ym === '2029-04').ownerPay).toBeGreaterThan(0);
+    for (const m of MONTHS.filter((x) => x >= '2028-01' && x <= '2029-12')) { const o = ownerHoursOfMonth(m, { recover: true }); expect(o.total, `戻る枝 ${m}`).toBeLessThanOrEqual(o.planLimit); }
     const stay = simulate({ ...BASE, gates: { ...BASE.gates, 2027: { ...BASE.gates[2027], paid: 1e9 }, 2028: { ...BASE.gates[2028], paid: 1e9 } } });
     expect(stay.mode[2029]).toBe('hold');
   });

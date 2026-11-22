@@ -109,7 +109,7 @@ export const ITEMS = [
   { role: 'pdm', period: '2027-Q2', title: '解約を減らす改善の順番・Web の入口の仕様（6 月・作るのは 7 月）', done: '仕様 2 つ（文書）', h: 3 },
   { role: 'pdm', period: '2027-Q3', title: '年額の贈り物の仕様（7 月・作るのは 8 月）・Android の仕様と受け入れの基準（9 月の外注の選定の前）', done: '仕様 2 つ（文書）', h: 3 },
   { role: 'pdm', period: '2027-Q4', title: 'Android の公開の範囲・外注に渡す仕様の型', done: '仕様 2 つ（文書）', h: 2 },
-  { role: 'pdm', period: '2028-Q1', title: '紹介のコードの仕様・法人の試しの機能の仕様（作るのは 7 月）', done: '仕様 2 つ（文書）', h: 0 },
+  { role: 'pdm', period: '2028-Q1', title: '紹介のコードの仕様・法人の試しの機能の仕様（作るのは 7 月）', done: '仕様 2 つ（文書）', h: 4 },
   { role: 'pdm', period: '2028-Q2', title: '読書会（つながり 2）の仕様（作るのは 7〜9 月・関門を通ったときだけ）・Android の直しの順番', done: '仕様 2 つ（文書）', h: 10 },
   { role: 'pdm', period: '2028-Q3', title: '法人の管理画面の仕様（設計は 10〜12 月・出すのは 2029 年 1〜3 月）・紹介と法人の試しが狙った率を動かしたかを測る', done: '仕様 1 つ（文書）・効いたかの記録 2 つ', h: 10 },
   { role: 'pdm', period: '2028-Q4', title: '読書会が狙った率を動かしたかを測る・2029 年の大きな仕様の順番', done: '効いたかの記録 1 つ・順番の記録 1 つ', h: 10 },
@@ -171,13 +171,13 @@ export const ITEMS = [
   { role: 'rev', period: '2027-Q3', title: '「AI と連携」の有料化（3 月に決めていれば）の売上を測る', done: 'AI と連携を使う有料の人の割合 1 つ', h: 0.5 },
   { role: 'rev', period: '2027-Q4', title: '年額の贈り物（12 月に本好きへ贈る）を試す（作るのは開発・知らせるのはマーケ）', done: '贈られた年額 30 件', h: 0 },
   { role: 'rev', period: '2028-Q1', title: '2027 年に試した柱の判定（続ける／やめる）', done: '判定の記録 3 つ', h: 1 },
-  { role: 'rev', period: '2028-Q2', title: '著者と読む読書会（有料の催し・著者の許しを得て）の設計', done: '設計（文書）・著者 1 人の内諾', h: 0 },
-  { role: 'rev', period: '2028-Q3', title: '読書会（有料の催し）を 1 回目', done: '参加 50 人', h: 0 },
-  { role: 'rev', period: '2028-Q4', title: '有料会員以外の売上の割合を見て、2029 年の柱を決める', done: '有料会員以外の売上 2%（12 月）', h: 0 },
-  { role: 'rev', period: '2029-Q1', title: '法人・学校の売上を柱として数える（法人と一緒に）', done: '法人と学校の売上 月 ¥7 万（12 月に 月 ¥40 万）', h: 0 },
-  { role: 'rev', period: '2029-Q2', title: '読書会の催しを毎四半期に', done: '催し 2 回・参加 100 人', h: 0 },
-  { role: 'rev', period: '2029-Q3', title: '3 本目の柱の候補を 2 つに絞る', done: '候補 2 つの比べ（文書）', h: 0 },
-  { role: 'rev', period: '2029-Q4', title: '次の中期計画に 3 本目の柱を入れる', done: '有料会員以外の売上 9%（12 月）', h: 0 },
+  { role: 'rev', period: '2028-Q2', title: '著者と読む読書会（有料の催し・著者の許しを得て）の設計', done: '設計（文書）・著者 1 人の内諾', h: 4 },
+  { role: 'rev', period: '2028-Q3', title: '読書会（有料の催し）を 1 回目', done: '参加 50 人', h: 4 },
+  { role: 'rev', period: '2028-Q4', title: '有料会員以外の売上の割合を見て、2029 年の柱を決める', done: '有料会員以外の売上 2%（12 月）', h: 3 },
+  { role: 'rev', period: '2029-Q1', title: '法人・学校の売上を柱として数える（法人と一緒に）', done: '法人と学校の売上 月 ¥7 万（12 月に 月 ¥40 万）', h: 3 },
+  { role: 'rev', period: '2029-Q2', title: '読書会の催しを毎四半期に', done: '催し 2 回・参加 100 人', h: 6 },
+  { role: 'rev', period: '2029-Q3', title: '3 本目の柱の候補を 2 つに絞る', done: '候補 2 つの比べ（文書）', h: 3 },
+  { role: 'rev', period: '2029-Q4', title: '次の中期計画に 3 本目の柱を入れる', done: '有料会員以外の売上 9%（12 月）', h: 3 },
   { role: 'intel', period: '2027', title: '毎月の「外の動き」を続け、計画に効いたものを数える（汎用 AI・読書アプリ・値段・規制）', done: '外の動き 12 枚・計画を直した件数の記録', h: 0 },
   { role: 'intel', period: '2028', title: '海外の読書・学びのアプリ（Readwise・StoryGraph・Fable・Strava の新しい機能）から、取り入れる 1 つを毎四半期に選ぶ', done: '外の動き 12 枚・取り入れた案 4 つ', h: 0 },
   { role: 'intel', period: '2029', title: '海外（英語）へ出るかを次の中期計画のために調べる', done: '外の動き 12 枚・海外の調べ（文書）', h: 0 },
@@ -243,7 +243,7 @@ export const ITEMS = [
   { role: 'ceo', period: '2028-Q3', title: '法人の試しと紹介を始める・2029 年の社員の候補を条件つきの内定で探す', done: '道しるべ 9 月末 1,500 人', h: 6 },
   { role: 'ceo', period: '2028-Q4', title: '2028 年末の関門の判定・社員を入れるか（現金が 6 か月分あるか）', done: '道しるべ 12 月末 2,000 人', h: 6 },
   { role: 'sns', period: '2028-Q1', title: 'Android の公開の宣伝・勝ち型の手順書', done: '手順書（文書）・SNS で知って入れた人 月 1,400', h: 0 },
-  { role: 'sns', period: '2028-Q2', title: 'SNS と動画の外注（6 月）を受け入れる', done: '外注で毎週のキット 4 回／月・月 1,700', h: 6 },
+  { role: 'sns', period: '2028-Q2', title: 'SNS と動画の外注の候補を 3 人まで選び、7 月の契約を準備する（契約は 6 月の逆の決まりのあと）', done: '候補 3 人の比べ（文書）・SNS で知って入れた人 月 1,700', h: 6 },
   { role: 'sns', period: '2028-Q3', title: '紹介を SNS で知らせる・夏の読書', done: '月 2,000', h: 6 },
   { role: 'sns', period: '2028-Q4', title: '傾向の発表（12 月）と「今年の読書」', done: '報道 1 件以上・月 2,400', h: 3 },
   { role: 'x', period: '2028-Q1', title: 'Android の公開のスレッド', done: 'プロフィールのクリック 月 750', h: 0 },
@@ -251,11 +251,11 @@ export const ITEMS = [
   { role: 'x', period: '2028-Q3', title: '紹介のコードの案内', done: 'クリック 月 1,050', h: 0 },
   { role: 'x', period: '2028-Q4', title: '傾向の発表のスレッド', done: 'クリック 月 1,200', h: 0 },
   { role: 'ig', period: '2028-Q1', title: 'Android の使い方の動画', done: '月の再生 45 万', h: 0 },
-  { role: 'ig', period: '2028-Q2', title: '動画の外注と週 3 本を保つ', done: '月の再生 60 万', h: 0 },
+  { role: 'ig', period: '2028-Q2', title: '週 3 本を保ち、7 月から外注に渡す動画の手順書を作る', done: '月の再生 60 万・手順書（文書）', h: 0 },
   { role: 'ig', period: '2028-Q3', title: '利用者の共有の画像を素材に', done: '月の再生 80 万', h: 0 },
   { role: 'ig', period: '2028-Q4', title: '「今年の読書」の動画', done: '月の再生 100 万', h: 0 },
   { role: 'th', period: '2028-Q1', title: 'Android の人への問いかけ', done: '返信 月 150', h: 0 },
-  { role: 'th', period: '2028-Q2', title: 'SNS と動画の外注と分担', done: '毎日 1 本・返信 月 200', h: 0 },
+  { role: 'th', period: '2028-Q2', title: '毎日 1 本を保ち、7 月から外注と分ける範囲を決める', done: '毎日 1 本・返信 月 200', h: 0 },
   { role: 'th', period: '2028-Q3', title: '紹介の問いかけ', done: '返信 月 250', h: 0 },
   { role: 'th', period: '2028-Q4', title: '年末の問いかけ', done: '返信 月 300', h: 0 },
   { role: 'note', period: '2028-Q1', title: 'Android の使い方の記事', done: '記事 3 本', h: 0 },
@@ -381,7 +381,7 @@ export const ITEMS = [
   { role: 'dev', period: '2028-03', title: 'Android を公開', done: 'Google Play に公開', h: 2 },
   { role: 'ceo', period: '2028-04', title: 'オーナー専業（報酬 月 ¥25 万）', done: '専業の開始の記録・報酬 月 ¥25 万', decide: '専業になるか → 2027 年末の関門を通り、借入が入っていればなる', h: 1 },
   { role: 'dev', period: '2028-05', title: '開発の外注を受け入れる', done: '開発の外注 1 人と契約（30 日前の知らせで解約できる）', h: 6 },
-  { role: 'sns', period: '2028-07', title: 'SNS と動画の外注を受け入れる（6 月の逆の決まりを通ったら契約）', done: 'SNS と動画の外注 1 人と契約（30 日前の知らせで解約できる）', h: 4 },
+  { role: 'sns', period: '2028-07', title: 'SNS と動画の外注を受け入れる（6 月の逆の決まりを通ったら契約）', done: 'SNS と動画の外注 1 人と契約（30 日前の知らせで解約できる）', h: 2 },
   { role: 'ceo', period: '2028-06', title: '逆の決まり: 有料 900 人未満か、守りの数字（4〜6 か月目の人で、メモ 50 件以上の解約がメモ 10〜49 件の 7 割以下・各組 100 人以上を累計で）が届かなければ、外注と広告の試しを止める（オーナーの報酬は残す）・上半期の振り返り', done: '続ける／止めるの記録・外注 2 人に 30 日前の知らせ（止めるとき）', decide: '外注を続けるか → 有料 900 人以上かつ守りの数字が届いていれば続ける', h: 3 },
   { role: 'b2b', period: '2028-07', title: '法人の試しを始める（5 社・6 か月）', done: '5 社で使い始める', h: 6 },
   { role: 'dev', period: '2028-07', title: '紹介のコードを出す', done: '紹介のコードの公開', h: 6 },
@@ -406,7 +406,7 @@ export const ITEMS = [
 export const HOLD_ITEMS = [
   { role: 'ceo', period: '2028', title: 'いちばん弱い率 1 つだけを直す。6 月と 12 月に「兼業で続ける／畳む／売る」を決める', done: '6 月と 12 月の決めた記録 2 つ', h: 6 },
   { role: 'ceo', period: '2028-Q2', title: '6 月: 続けるかを決める（有料・率・現金・市場の報酬なら赤字か）', done: '続ける／やめるの記録', h: 2 },
-  { role: 'ceo', period: '2028-Q4', title: '12 月: 2029 年をどうするか（兼業で続ける／畳む／売る）', done: '3 つから選んだ記録', h: 3 },
+  { role: 'ceo', period: '2028-Q4', title: '12 月: 2029 年をどうするか（専業に戻る／兼業で続ける／畳む／売る）。9 月末に有料 1,500 人以上なら、10 月から勤め先への予告の準備と外注の候補探しを始めておく', done: '4 つから選んだ記録', h: 3 },
   { role: 'sns', period: '2028', title: 'X と Instagram だけを回す（Threads は止める・note は月 1 本）', done: 'SNS で知って入れた人 月 1,100 → 1,700', h: 0 },
   { role: 'x', period: '2028', title: '平日 1 本を保つ', done: '月 20 本', h: 0 },
   { role: 'ig', period: '2028', title: '週 2 本に減らす（AI の動画だけ）', done: '月 8 本', h: 0 },
@@ -453,7 +453,7 @@ export const isQuarter = (p) => /^\d{4}-Q[1-4]$/.test(p);
 // 2028 年 6 月の逆の決まりに届かず、7 月から開発の外注と広告を止め、SNS と動画の外注は契約しないとき（guard）。オーナーの報酬は残す（専業のまま）。
 // 止めた外注は戻さない。ここに書いた（責任者・期間）は、基本の行の代わりになる
 export const GUARD_FROM = '2028-07';
-export const GUARD_ROLE_HOURS = { dev: 5.5, sns: 1.5, ig: 1.0, th: 1.0, x: 0.75, note: 0.75, mkt: 2.0 }; // 開発と縦動画・Threads をオーナーが引き取り、X と note を減らす
+export const GUARD_ROLE_HOURS = { dev: 5.5, sns: 1.5, ig: 1.0, th: 1.0, x: 0.75, note: 0.75, mkt: 2.0, rev: 0.25 }; // 収益の柱は新しい試しを止める // 開発と縦動画・Threads をオーナーが引き取り、X と note を減らす
 export const GUARD_ITEMS = [
   { role: 'ceo', period: '2028-07', title: '開発の外注の契約を終える（6 月末に 30 日前の知らせ）・引き継ぎを受ける。SNS と動画の外注は契約しない', done: '引き継ぎの手順書 1 つ', h: 4 },
   { role: 'sns', period: '2028-07', title: 'SNS と動画の外注は契約せず、オーナーと AI で回す', done: '契約しない記録 1 件', h: 0 },
@@ -495,7 +495,9 @@ export const FULLTIME_ROLE_HOURS = { // 決まった仕事（毎週）の時間�
 };
 export const fulltimeRoleHours = (role, ym) => { const v = FULLTIME_ROLE_HOURS[role]; if (!Array.isArray(v)) return v || 0; let h = 0; for (const [from, x] of v) if (ym >= from) h = x; return h; };
 
-export function ownerHoursOfMonth(ym, { hold = false, busy = false, guard = false, freeze = false } = {}) {
+export function ownerHoursOfMonth(ym, { hold = false, busy = false, guard = false, freeze = false, recover = false } = {}) {
+  // recover: 2027 年末に落ちて兼業のまま 2028 年末の関門を通った枝（2029 年 1〜3 月は兼業・4 月から専業）
+  if (recover && ym >= '2029-04') hold = false; else if (recover && ym >= '2028-01') hold = true;
   if (!hold && ym >= FULLTIME_FROM) {
     const y = ym.slice(0, 4); const q = quarterOf(ym);
     const guardOn = guard && ym >= GUARD_FROM && (y === '2028' || freeze); const freezeOn = freeze && y === '2029';
