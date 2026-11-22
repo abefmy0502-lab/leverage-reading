@@ -48,9 +48,10 @@ describe('中期経営計画の計算', () => {
     const base = simulate(BASE);
     expect(base.gates[2027].ok).toBe(true); expect(base.gates[2028].ok).toBe(true);
   });
-  it('2028 年 6 月の逆の決まり: 道しるべの 8 割に届かなければ、7 月から止める', () => {
+  it('2028 年 6 月の逆の決まり: 届かなければ 7 月から外注と広告を止め、オーナーの報酬は残す', () => {
     const r = simulate({ ...BASE, midChecks: [{ at: '2028-06', paid: 1e9 }] });
-    expect(r.find((x) => x.ym === '2028-07').plan).toBe('hold');
+    const jul = r.find((x) => x.ym === '2028-07');
+    expect(jul.plan).toBe('guard'); expect(jul.adSpend).toBe(0); expect(jul.ownerPay).toBeGreaterThan(0);
   });
   it('社員は、その月の現金が 6 か月分の決まった支出に届くときだけ入れる', () => {
     const r = simulate({ ...BASE, hireCashMonths: 1e6 });
@@ -110,9 +111,13 @@ describe('責任者と予定', () => {
   it('2027 年はどの月にも、決まった成果物がある', () => {
     for (const m of months.filter((x) => x <= '2027-12')) expect(ITEMS.some((x) => x.period === m), m).toBe(true);
   });
-  it('終わりの基準は、数か、見て分かる物（文書・URL・公開・登記・記録・申請・内諾・入金）で書く', () => {
-    const ok = /[0-9]|（文書）|URL|Google Play に公開|の公開|登記|手順書|の記録|申請|内諾|入金/;
-    for (const x of [...ITEMS, ...HOLD_ITEMS]) { expect(ROLES.some((r) => r.id === x.role)).toBe(true); expect(ok.test(x.done), `${x.period} ${x.role} ${x.done}`).toBe(true); }
+  it('終わりの基準は「・」で分けたどの項目も、数か、見て分かる物（文書・URL・公開・登記・記録・申請・内諾・入金・契約）で書く', () => {
+    const ok = /[0-9]|（文書）|URL|Google Play に公開|の公開|登記|手順書|の記録|申請|内諾|入金|契約/;
+    const pieces = (t) => { const out = []; let d = 0; let cur = ''; for (const c of t) { if (c === '（') d += 1; if (c === '）') d -= 1; if (c === '・' && d === 0) { out.push(cur); cur = ''; } else cur += c; } out.push(cur); return out; };
+    for (const x of [...ITEMS, ...HOLD_ITEMS]) { expect(ROLES.some((r) => r.id === x.role)).toBe(true); for (const p of pieces(x.done)) expect(ok.test(p), `${x.period} ${x.role}「${p}」`).toBe(true); }
+  });
+  it('Android の外注を見る時間が週 2 時間に増えても、決めておいた減らし方（SNS を減らす・flex の成果物を次へ回す）で 8 割に収まる', () => {
+    for (const m of ['2027-10', '2027-11', '2027-12', '2028-01', '2028-02']) { const o = ownerHoursOfMonth(m, { busy: true }); expect(o.total, m).toBeLessThanOrEqual(o.planLimit); }
   });
   it('方針の四半期の道しるべは、MILESTONES と同じ数', () => {
     for (const [ym, v] of Object.entries(MILESTONES)) {

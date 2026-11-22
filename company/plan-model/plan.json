@@ -131,7 +131,7 @@
      "afterTaxMan": 196,
      "marketOwnerMan": -311,
      "cashEndMan": 525,
-     "cashAfterTaxMan": 431,
+     "cashAfterTaxMan": 445,
      "loanEndMan": 0
     }
    ],
@@ -545,7 +545,7 @@
     },
     "mid2029": {
      "ok": true,
-     "paid": 3070
+     "paid": 3021
     }
    },
    "events": [
@@ -559,15 +559,15 @@
     },
     {
      "ym": "2029-07",
-     "what": "法人営業の社員: 現金が 6 か月分に届かないので入れない"
+     "what": "法人営業の社員を入れる"
     },
     {
      "ym": "2029-10",
-     "what": "マーケの社員を入れる"
+     "what": "マーケの社員: 現金が 6 か月分に届かないので入れない"
     }
    ],
    "hired": [
-    "マーケ"
+    "法人営業"
    ],
    "androidOn": true,
    "incorporatedAt": "2027-11",
@@ -630,27 +630,27 @@
     {
      "year": 2029,
      "plan": "pass",
-     "paidEnd": 4303,
-     "consumerEnd": 4023,
-     "seatsEnd": 280,
-     "companiesEnd": 8,
-     "installs": 172353,
-     "revenueMan": 4235,
-     "mrrEndMan": 478,
-     "feeMan": 584,
-     "refundsMan": 61,
-     "aiMan": 434,
-     "peopleMan": 1460,
-     "marketingMan": 480,
-     "adMan": 120,
-     "infraMan": 120,
+     "paidEnd": 4318,
+     "consumerEnd": 3898,
+     "seatsEnd": 420,
+     "companiesEnd": 12,
+     "installs": 167877,
+     "revenueMan": 4179,
+     "mrrEndMan": 477,
+     "feeMan": 574,
+     "refundsMan": 60,
+     "aiMan": 427,
+     "peopleMan": 1494,
+     "marketingMan": 60,
+     "adMan": 0,
+     "infraMan": 119,
      "otherMan": 224,
-     "profitMan": 873,
-     "taxMan": 269,
-     "afterTaxMan": 604,
-     "marketOwnerMan": 756,
-     "cashEndMan": 1568,
-     "cashAfterTaxMan": 1299,
+     "profitMan": 1222,
+     "taxMan": 374,
+     "afterTaxMan": 848,
+     "marketOwnerMan": 967,
+     "cashEndMan": 1894,
+     "cashAfterTaxMan": 1520,
      "loanEndMan": 333
     }
    ],
@@ -792,63 +792,63 @@
     },
     {
      "ym": "2029-03",
-     "paid": 2528,
-     "consumer": 2453,
+     "paid": 2502,
+     "consumer": 2427,
      "seats": 75,
-     "cashMan": 873,
+     "cashMan": 1009,
      "ch": {
       "search": 3936,
       "sns": 2787,
       "collab": 1145,
-      "share": 375
+      "share": 372
      },
-     "android": 4122,
-     "installs": 12615
+     "android": 4120,
+     "installs": 12360
     },
     {
      "ym": "2029-06",
-     "paid": 3070,
-     "consumer": 2925,
+     "paid": 3021,
+     "consumer": 2876,
      "seats": 145,
-     "cashMan": 1129,
+     "cashMan": 1388,
      "ch": {
       "search": 3629,
       "sns": 2733,
       "collab": 1105,
-      "share": 389
+      "share": 383
      },
-     "android": 3928,
-     "installs": 12034
+     "android": 3925,
+     "installs": 11775
     },
     {
      "ym": "2029-09",
-     "paid": 3590,
-     "consumer": 3383,
-     "seats": 207,
-     "cashMan": 1444,
+     "paid": 3488,
+     "consumer": 3311,
+     "seats": 177,
+     "cashMan": 1472,
      "ch": {
       "search": 4322,
       "sns": 3418,
       "collab": 1364,
-      "share": 494
+      "share": 484
      },
-     "android": 4799,
-     "installs": 14647
+     "android": 4794,
+     "installs": 14382
     },
     {
      "ym": "2029-12",
-     "paid": 4303,
-     "consumer": 4023,
-     "seats": 280,
-     "cashMan": 1568,
+     "paid": 4318,
+     "consumer": 3898,
+     "seats": 420,
+     "cashMan": 1894,
      "ch": {
-      "search": 6456,
+      "search": 6006,
       "sns": 4940,
-      "collab": 2096,
-      "share": 749
+      "collab": 1950,
+      "share": 730
      },
-     "android": 7121,
-     "installs": 21612
+     "android": 6813,
+     "installs": 20439
     }
    ],
    "cash": [
@@ -979,62 +979,62 @@
     },
     {
      "ym": "2029-01",
-     "cashMan": 723,
+     "cashMan": 770,
      "plan": "pass"
     },
     {
      "ym": "2029-02",
-     "cashMan": 781,
+     "cashMan": 875,
      "plan": "pass"
     },
     {
      "ym": "2029-03",
-     "cashMan": 873,
+     "cashMan": 1009,
      "plan": "pass"
     },
     {
      "ym": "2029-04",
-     "cashMan": 929,
+     "cashMan": 1106,
      "plan": "pass"
     },
     {
      "ym": "2029-05",
-     "cashMan": 1007,
+     "cashMan": 1226,
      "plan": "pass"
     },
     {
      "ym": "2029-06",
-     "cashMan": 1129,
+     "cashMan": 1388,
      "plan": "pass"
     },
     {
      "ym": "2029-07",
-     "cashMan": 1232,
+     "cashMan": 1294,
      "plan": "pass"
     },
     {
      "ym": "2029-08",
-     "cashMan": 1332,
+     "cashMan": 1377,
      "plan": "pass"
     },
     {
      "ym": "2029-09",
-     "cashMan": 1444,
+     "cashMan": 1472,
      "plan": "pass"
     },
     {
      "ym": "2029-10",
-     "cashMan": 1342,
+     "cashMan": 1589,
      "plan": "pass"
     },
     {
      "ym": "2029-11",
-     "cashMan": 1448,
+     "cashMan": 1732,
      "plan": "pass"
     },
     {
      "ym": "2029-12",
-     "cashMan": 1568,
+     "cashMan": 1894,
      "plan": "pass"
     }
    ]
@@ -1145,33 +1145,33 @@
      "afterTaxMan": 598,
      "marketOwnerMan": 523,
      "cashEndMan": 1808,
-     "cashAfterTaxMan": 1541,
+     "cashAfterTaxMan": 1556,
      "loanEndMan": 444
     },
     {
      "year": 2029,
      "plan": "pass",
-     "paidEnd": 12695,
-     "consumerEnd": 10945,
-     "seatsEnd": 1750,
-     "companiesEnd": 50,
-     "installs": 296163,
-     "revenueMan": 10875,
-     "mrrEndMan": 1410,
-     "feeMan": 1482,
+     "paidEnd": 11536,
+     "consumerEnd": 10941,
+     "seatsEnd": 595,
+     "companiesEnd": 17,
+     "installs": 296026,
+     "revenueMan": 10494,
+     "mrrEndMan": 1296,
+     "feeMan": 1468,
      "refundsMan": 154,
-     "aiMan": 1073,
-     "peopleMan": 2752,
-     "marketingMan": 1920,
+     "aiMan": 1054,
+     "peopleMan": 2614,
+     "marketingMan": 1620,
      "adMan": 1560,
-     "infraMan": 242,
+     "infraMan": 240,
      "otherMan": 224,
-     "profitMan": 3029,
-     "taxMan": 916,
-     "afterTaxMan": 2113,
-     "marketOwnerMan": 2912,
-     "cashEndMan": 4463,
-     "cashAfterTaxMan": 3548,
+     "profitMan": 3120,
+     "taxMan": 943,
+     "afterTaxMan": 2177,
+     "marketOwnerMan": 2865,
+     "cashEndMan": 4755,
+     "cashAfterTaxMan": 3945,
      "loanEndMan": 333
     }
    ],
@@ -1316,7 +1316,7 @@
      "paid": 5801,
      "consumer": 5708,
      "seats": 93,
-     "cashMan": 2365,
+     "cashMan": 2474,
      "ch": {
       "search": 5314,
       "sns": 3763,
@@ -1331,7 +1331,7 @@
      "paid": 7244,
      "consumer": 7099,
      "seats": 145,
-     "cashMan": 2956,
+     "cashMan": 3175,
      "ch": {
       "search": 4899,
       "sns": 3689,
@@ -1343,33 +1343,33 @@
     },
     {
      "ym": "2029-09",
-     "paid": 9521,
-     "consumer": 8723,
-     "seats": 798,
-     "cashMan": 3437,
+     "paid": 8899,
+     "consumer": 8722,
+     "seats": 177,
+     "cashMan": 3771,
      "ch": {
       "search": 5835,
       "sns": 4615,
       "collab": 1841,
-      "share": 1829
+      "share": 1818
      },
-     "android": 7060,
-     "installs": 26237
+     "android": 7055,
+     "installs": 26221
     },
     {
      "ym": "2029-12",
-     "paid": 12695,
-     "consumer": 10945,
-     "seats": 1750,
-     "cashMan": 4463,
+     "paid": 11536,
+     "consumer": 10941,
+     "seats": 595,
+     "cashMan": 4755,
      "ch": {
       "search": 8716,
       "sns": 6669,
       "collab": 2830,
-      "share": 2961
+      "share": 2923
      },
-     "android": 10588,
-     "installs": 38014
+     "android": 10569,
+     "installs": 37957
     }
    ],
    "cash": [
@@ -1500,62 +1500,62 @@
     },
     {
      "ym": "2029-01",
-     "cashMan": 1992,
+     "cashMan": 2029,
      "plan": "pass"
     },
     {
      "ym": "2029-02",
-     "cashMan": 2028,
+     "cashMan": 2101,
      "plan": "pass"
     },
     {
      "ym": "2029-03",
-     "cashMan": 2365,
+     "cashMan": 2474,
      "plan": "pass"
     },
     {
      "ym": "2029-04",
-     "cashMan": 2374,
+     "cashMan": 2520,
      "plan": "pass"
     },
     {
      "ym": "2029-05",
-     "cashMan": 2624,
+     "cashMan": 2806,
      "plan": "pass"
     },
     {
      "ym": "2029-06",
-     "cashMan": 2956,
+     "cashMan": 3175,
      "plan": "pass"
     },
     {
      "ym": "2029-07",
-     "cashMan": 3031,
+     "cashMan": 3287,
      "plan": "pass"
     },
     {
      "ym": "2029-08",
-     "cashMan": 3151,
+     "cashMan": 3445,
      "plan": "pass"
     },
     {
      "ym": "2029-09",
-     "cashMan": 3437,
+     "cashMan": 3771,
      "plan": "pass"
     },
     {
      "ym": "2029-10",
-     "cashMan": 3578,
+     "cashMan": 3918,
      "plan": "pass"
     },
     {
      "ym": "2029-11",
-     "cashMan": 3988,
+     "cashMan": 4311,
      "plan": "pass"
     },
     {
      "ym": "2029-12",
-     "cashMan": 4463,
+     "cashMan": 4755,
      "plan": "pass"
     }
    ]
@@ -1606,126 +1606,126 @@
   {
    "label": "入れた人 → 有料 −30%",
    "paidEnd": 1863,
-   "dPaid": -2440,
+   "dPaid": -2455,
    "profitMan": 1026,
-   "profitNoGatesMan": -1467,
+   "profitNoGatesMan": -1130,
    "minCashMan": 85,
    "marketOwnerMan": 426
   },
   {
    "label": "自然な流入 −30%",
    "paidEnd": 1880,
-   "dPaid": -2423,
+   "dPaid": -2438,
    "profitMan": 1043,
-   "profitNoGatesMan": -1412,
+   "profitNoGatesMan": -1091,
    "minCashMan": 85,
    "marketOwnerMan": 443
   },
   {
    "label": "自然な流入の伸びが 6 か月遅れる",
    "paidEnd": 2202,
-   "dPaid": -2100,
+   "dPaid": -2116,
    "profitMan": 1251,
-   "profitNoGatesMan": -1258,
+   "profitNoGatesMan": -937,
    "minCashMan": 74,
    "marketOwnerMan": 651
   },
   {
    "label": "汎用 AI が同じことを無料に（2027 年 7 月から有料になる率 −30%）",
-   "paidEnd": 2315,
-   "dPaid": -1988,
-   "profitMan": 1346,
-   "profitNoGatesMan": -1076,
+   "paidEnd": 2560,
+   "dPaid": -1758,
+   "profitMan": 628,
+   "profitNoGatesMan": -739,
    "minCashMan": 88,
-   "marketOwnerMan": 746
+   "marketOwnerMan": 373
   },
   {
    "label": "AI と連携を有料にしない（汎用 AI の中で使われ、2028 年から有料になる率 −15%）",
-   "paidEnd": 3671,
-   "dPaid": -632,
-   "profitMan": 795,
-   "profitNoGatesMan": -605,
+   "paidEnd": 3618,
+   "dPaid": -700,
+   "profitMan": 959,
+   "profitNoGatesMan": -276,
    "minCashMan": 88,
-   "marketOwnerMan": 678
+   "marketOwnerMan": 704
   },
   {
    "label": "Android を出さない",
-   "paidEnd": 2971,
-   "dPaid": -1331,
-   "profitMan": 762,
-   "profitNoGatesMan": -725,
+   "paidEnd": 3347,
+   "dPaid": -971,
+   "profitMan": 1185,
+   "profitNoGatesMan": -404,
    "minCashMan": 88,
-   "marketOwnerMan": 645
+   "marketOwnerMan": 930
   },
   {
    "label": "1 か月目の解約 ＋10 ポイント",
-   "paidEnd": 4078,
-   "dPaid": -225,
-   "profitMan": 1043,
-   "profitNoGatesMan": -351,
+   "paidEnd": 4129,
+   "dPaid": -189,
+   "profitMan": 1046,
+   "profitNoGatesMan": -27,
    "minCashMan": 88,
-   "marketOwnerMan": 926
+   "marketOwnerMan": 791
   },
   {
    "label": "月額の解約 ＋2 ポイント",
-   "paidEnd": 4093,
-   "dPaid": -209,
-   "profitMan": 1077,
-   "profitNoGatesMan": -316,
+   "paidEnd": 4142,
+   "dPaid": -176,
+   "profitMan": 1078,
+   "profitNoGatesMan": 6,
    "minCashMan": 88,
-   "marketOwnerMan": 960
+   "marketOwnerMan": 823
   },
   {
    "label": "年額の更新 −15 ポイント",
-   "paidEnd": 4074,
-   "dPaid": -228,
+   "paidEnd": 4121,
+   "dPaid": -197,
    "profitMan": 1123,
-   "profitNoGatesMan": -269,
+   "profitNoGatesMan": 52,
    "minCashMan": 88,
-   "marketOwnerMan": 1006
+   "marketOwnerMan": 868
   },
   {
    "label": "年額で始める割合 −15 ポイント",
-   "paidEnd": 3888,
-   "dPaid": -415,
-   "profitMan": 1107,
-   "profitNoGatesMan": -284,
+   "paidEnd": 3833,
+   "dPaid": -485,
+   "profitMan": 1265,
+   "profitNoGatesMan": 38,
    "minCashMan": 86,
-   "marketOwnerMan": 990
+   "marketOwnerMan": 1010
   },
   {
    "label": "値段を 10% 下げる（ほかは同じ）",
-   "paidEnd": 4272,
-   "dPaid": -31,
-   "profitMan": 880,
-   "profitNoGatesMan": -517,
+   "paidEnd": 4209,
+   "dPaid": -109,
+   "profitMan": 1043,
+   "profitNoGatesMan": -190,
    "minCashMan": 88,
-   "marketOwnerMan": 763
+   "marketOwnerMan": 788
   },
   {
    "label": "法人の試しが通らない（更新 2 社）",
-   "paidEnd": 4061,
-   "dPaid": -241,
-   "profitMan": 1111,
-   "profitNoGatesMan": 42,
+   "paidEnd": 3998,
+   "dPaid": -320,
+   "profitMan": 1268,
+   "profitNoGatesMan": 547,
    "minCashMan": 88,
-   "marketOwnerMan": 994
+   "marketOwnerMan": 1013
   },
   {
    "label": "無料の人の AI の原価 ×3",
-   "paidEnd": 4272,
-   "dPaid": -31,
-   "profitMan": 736,
-   "profitNoGatesMan": -663,
+   "paidEnd": 4209,
+   "dPaid": -109,
+   "profitMan": 901,
+   "profitNoGatesMan": -334,
    "minCashMan": 86,
-   "marketOwnerMan": 619
+   "marketOwnerMan": 646
   },
   {
    "label": "まとめて悪い（有料になる率 −30% と流入 −30%）",
    "paidEnd": 1388,
-   "dPaid": -2914,
+   "dPaid": -2930,
    "profitMan": 652,
-   "profitNoGatesMan": -1942,
+   "profitNoGatesMan": -1604,
    "minCashMan": 80,
    "marketOwnerMan": 52
   }
@@ -1741,91 +1741,128 @@
    "routine": 14.1,
    "items": 6.5,
    "total": 20.6,
-   "limit": 28.1
+   "limit": 22.5,
+   "available": 28.1
   },
   {
    "ym": "2027-01",
    "routine": 14.1,
    "items": 6.3,
    "total": 20.3,
-   "limit": 28.1
+   "limit": 22.5,
+   "available": 28.1
   },
   {
    "ym": "2027-02",
    "routine": 14.1,
    "items": 6.3,
    "total": 20.3,
-   "limit": 28.1
+   "limit": 22.5,
+   "available": 28.1
   },
   {
    "ym": "2027-03",
    "routine": 14.1,
    "items": 6.3,
    "total": 20.3,
-   "limit": 28.1
+   "limit": 22.5,
+   "available": 28.1
   },
   {
    "ym": "2027-04",
    "routine": 14.1,
    "items": 3.8,
    "total": 17.8,
-   "limit": 28.1
+   "limit": 22.5,
+   "available": 28.1
   },
   {
    "ym": "2027-05",
    "routine": 14.1,
    "items": 5.8,
    "total": 19.8,
-   "limit": 28.1
+   "limit": 22.5,
+   "available": 28.1
   },
   {
    "ym": "2027-06",
    "routine": 14.1,
    "items": 5.3,
    "total": 19.3,
-   "limit": 28.1
+   "limit": 22.5,
+   "available": 28.1
   },
   {
    "ym": "2027-07",
    "routine": 14.1,
    "items": 6.3,
    "total": 20.3,
-   "limit": 28.1
+   "limit": 22.5,
+   "available": 28.1
   },
   {
    "ym": "2027-08",
    "routine": 14.1,
    "items": 4.8,
    "total": 18.8,
-   "limit": 28.1
+   "limit": 22.5,
+   "available": 28.1
   },
   {
    "ym": "2027-09",
    "routine": 14.1,
    "items": 6.8,
    "total": 20.8,
-   "limit": 28.1
+   "limit": 22.5,
+   "available": 28.1
   },
   {
    "ym": "2027-10",
    "routine": 14.1,
    "items": 6.7,
    "total": 20.8,
-   "limit": 28.1
+   "limit": 22.5,
+   "available": 28.1
   },
   {
    "ym": "2027-11",
    "routine": 14.1,
    "items": 8.2,
    "total": 22.3,
-   "limit": 28.1
+   "limit": 22.5,
+   "available": 28.1
   },
   {
    "ym": "2027-12",
    "routine": 14.1,
    "items": 8.2,
    "total": 22.3,
-   "limit": 28.1
+   "limit": 22.5,
+   "available": 28.1
+  },
+  {
+   "ym": "2028-01",
+   "routine": 14.1,
+   "items": 7.5,
+   "total": 21.5,
+   "limit": 22.5,
+   "available": 28.1
+  },
+  {
+   "ym": "2028-02",
+   "routine": 14.1,
+   "items": 7,
+   "total": 21,
+   "limit": 22.5,
+   "available": 28.1
+  },
+  {
+   "ym": "2028-03",
+   "routine": 14.1,
+   "items": 4.7,
+   "total": 18.7,
+   "limit": 22.5,
+   "available": 28.1
   }
  ],
  "roles": [
@@ -1989,7 +2026,7 @@
   {
    "role": "ceo",
    "period": "2027",
-   "title": "証明する年: 率を立てる（7 日間無料 → 有料 30%・月額の解約 9% 以下・年額の更新 40%・メモ 50 件以上の人の解約が全体の半分以下）。有料 600 人",
+   "title": "証明する年: 率を立てる（7 日間無料 → 有料 30%・月額の解約 9% 以下・年額の更新 40%）。守りの数字（使い始めて 4〜6 か月目の人で、メモ 50 件以上とメモ 10〜49 件の解約を比べる）を数え始める。有料 600 人",
    "done": "2027 年末の関門（有料 450 人・12 月の売上 ¥50 万・現金 ¥100 万）の判定",
    "h": 3
   },
@@ -2002,7 +2039,7 @@
   {
    "role": "ceo",
    "period": "2029",
-   "title": "会社にする年: 社員は現金が 6 か月分あるときだけ 1 人ずつ。有料 4,300 人（個人 4,000・法人の席 300。法人営業を入れられたら席 約 1,000 の上振れ）",
+   "title": "会社にする年: 社員は現金が 6 か月分あるときだけ 1 人ずつ。有料 4,300 人（個人 4,000・法人の席 400。法人の席は法人営業を入れられるかで 280〜420 と揺れる）",
    "done": "2029 年 6 月の逆の決まり（2,600 人）と年末の判定（3,400 人）"
   },
   {
@@ -2098,7 +2135,7 @@
    "role": "note",
    "period": "2029",
    "title": "マーケの社員に連載を引き継ぐ手順",
-   "done": "手順書・連載が止まらない"
+   "done": "手順書（文書）・引き継ぎ後も隔週の連載 2 本／月"
   },
   {
    "role": "mkt",
@@ -2136,7 +2173,7 @@
    "role": "dev",
    "period": "2029",
    "title": "法人の管理画面（人数と行動の数だけ・メモは見せない）・何年分のメモでも速く安い相談",
-   "done": "法人の管理画面・AI の原価 1 人 ¥50 以下"
+   "done": "法人の管理画面の公開・AI の原価 1 人 ¥50 以下"
   },
   {
    "role": "ops",
@@ -2173,8 +2210,8 @@
   {
    "role": "b2b",
    "period": "2029",
-   "title": "研修会社経由で広げる（法人営業なしで 8 社・席 約 300・1 席 月 ¥980）。法人営業を入れられたら 30 社へ",
-   "done": "法人の契約 3 → 8 社（法人営業がいれば 30 社）"
+   "title": "研修会社経由で広げ、法人営業を入れられたら（7 月）商談を増やす。法人の売り方は時間がかかるので、30 社は 2030 年",
+   "done": "法人の契約 3 → 12 社（法人営業なしなら 8 社）・席 約 420"
   },
   {
    "role": "ceo",
@@ -2230,7 +2267,8 @@
    "period": "2027-Q4",
    "title": "年末の「今年の読書」を最大の山場に（利用者の共有を広げる）",
    "done": "SNS で知って入れた人 月 800 → 1,100・12 月の共有 500 枚",
-   "h": 1
+   "h": 1,
+   "flex": true
   },
   {
    "role": "x",
@@ -2342,7 +2380,8 @@
    "period": "2027-Q4",
    "title": "年末の山場・創業メンバーの更新（11〜12 月）",
    "done": "年額の更新率の初めての値（目標 40%）",
-   "h": 2
+   "h": 2,
+   "flex": true
   },
   {
    "role": "dev",
@@ -2398,7 +2437,8 @@
    "period": "2027-Q4",
    "title": "法人化の手続き（税理士）・年末の負荷に備える",
    "done": "法人の登記・12 月の止まった時間 0",
-   "h": 1
+   "h": 1,
+   "flex": true
   },
   {
    "role": "b2b",
@@ -2452,7 +2492,7 @@
   {
    "role": "ceo",
    "period": "2028-Q2",
-   "title": "外注を 1 人ずつ（5 月 開発・6 月 SNS と動画）・6 月に有料 900 人未満なら外注を止めて兼業に戻す",
+   "title": "外注を 1 人ずつ（5 月 開発・6 月 SNS と動画）・6 月に有料 900 人未満か守りの数字が届かなければ、外注と広告の試しを止める（オーナーの報酬は残す）",
    "done": "道しるべ 6 月末 1,150 人"
   },
   {
@@ -2478,7 +2518,7 @@
    "role": "sns",
    "period": "2028-Q2",
    "title": "SNS と動画の外注（6 月）を受け入れる",
-   "done": "外注で毎週回る・月 1,700"
+   "done": "外注で毎週のキット 4 回／月・月 1,700"
   },
   {
    "role": "sns",
@@ -2597,7 +2637,8 @@
    "period": "2028-Q1",
    "title": "App Store の検索広告の試し（月 ¥10 万）・Google Play のページ",
    "done": "広告の回収月数の実測値 2 つ・Google Play → 入れる率 25% 以上",
-   "h": 2
+   "h": 2,
+   "flex": true
   },
   {
    "role": "mkt",
@@ -2671,8 +2712,9 @@
    "role": "b2b",
    "period": "2028-Q1",
    "title": "試しの会社の候補 20 社・提案書・研修会社とフライヤーへの打診（2027-Q4 から回した）",
-   "done": "候補 20 社・提案書・打診 2 件",
-   "h": 3
+   "done": "候補 20 社・提案書（文書）・打診 2 件",
+   "h": 3,
+   "flex": true
   },
   {
    "role": "b2b",
@@ -2858,7 +2900,7 @@
    "role": "mkt",
    "period": "2029-Q4",
    "title": "マーケの社員の受け入れ（10 月・現金が 6 か月分あれば）・年末の山場",
-   "done": "受け入れか見送りの記録・12 月の入れた人"
+   "done": "受け入れか見送りの記録・12 月の入れた人 月 2.1 万（Android を含む）"
   },
   {
    "role": "dev",
@@ -2894,7 +2936,7 @@
    "role": "ops",
    "period": "2029-Q2",
    "title": "法人の契約の約束（止まらない時間・返事の時間）を決めて守る",
-   "done": "約束の文書・実績 99.5%"
+   "done": "約束（文書）・実績 99.5%"
   },
   {
    "role": "ops",
@@ -2924,19 +2966,19 @@
    "role": "b2b",
    "period": "2029-Q3",
    "title": "法人営業の受け入れ（7 月・試しが通り現金が 6 か月分あれば）・学校・ゼミの試し",
-   "done": "6 社（法人営業がいれば 15 社）・3 校"
+   "done": "6 社・3 校"
   },
   {
    "role": "b2b",
    "period": "2029-Q4",
-   "title": "8 社・席 約 300（法人営業がいれば 30 社・席 約 1,000）",
-   "done": "8 社（法人営業がいれば 30 社）"
+   "title": "法人営業の商談を契約に（2030 年に 30 社への道筋）",
+   "done": "12 社・席 約 420（法人営業なしなら 8 社）"
   },
   {
    "role": "ceo",
    "period": "2026-12",
    "title": "承認されたら平日の朝 7:30 に公開・公開の週から毎週の見直し",
-   "done": "公開・1 回目の見直しの記録",
+   "done": "App Store の公開・1 回目の見直しの記録",
    "h": 1
   },
   {
@@ -2985,7 +3027,7 @@
    "role": "mkt",
    "period": "2027-01",
    "title": "注目掲載の申請・カスタムプロダクトページ 3 つ・検索の言葉の人気度を調べる",
-   "done": "申請・ページ 3 つ・言葉の表",
+   "done": "申請 1 件・ページ 3 つ・言葉 20 個の表",
    "h": 0
   },
   {
@@ -2999,7 +3041,7 @@
    "role": "ops",
    "period": "2027-01",
    "title": "Supabase Pro に上げる・オーナーに 4 時間以内に届く知らせ",
-   "done": "Pro・知らせの試し 1 回",
+   "done": "Supabase Pro への移行 1 回・知らせの試し 1 回",
    "h": 0
   },
   {
@@ -3132,7 +3174,7 @@
    "role": "ceo",
    "period": "2027-08",
    "title": "値段の試しを始める（8〜10 月・設計どおり）",
-   "done": "始めた記録・2 週目の途中の数字 1 行",
+   "done": "始めた日の記録・2 週目の途中の数字 1 行",
    "h": 1
   },
   {
@@ -3175,7 +3217,8 @@
    "period": "2027-10",
    "title": "Android の外注を見る（仕様・受け取り・確かめ・週 1 時間）",
    "done": "週 1 回の確かめの記録 4 回",
-   "h": 4.3
+   "h": 4.3,
+   "android": true
   },
   {
    "role": "ops",
@@ -3189,21 +3232,24 @@
    "period": "2027-11",
    "title": "2028 年の予算と人の案・借入の申し込み",
    "done": "予算の案（文書）・借入の申請",
-   "h": 1
+   "h": 1,
+   "flex": true
   },
   {
    "role": "dev",
    "period": "2027-11",
    "title": "Android の外注を見る（週 1 時間）",
    "done": "確かめの記録 4 回",
-   "h": 4.3
+   "h": 4.3,
+   "android": true
   },
   {
    "role": "mkt",
    "period": "2027-11",
    "title": "創業メンバーの更新（年額の更新率の初めての値）",
    "done": "年額の更新率 1 つ（%・目標 40%）",
-   "h": 0.5
+   "h": 0.5,
+   "flex": true
   },
   {
    "role": "ceo",
@@ -3217,7 +3263,8 @@
    "period": "2027-12",
    "title": "Android の外注を見る（週 1 時間）・テスト版を受け取る",
    "done": "テスト版で受け入れの基準 3 項目（主な流れ・課金・メモの同期）が動く",
-   "h": 4.3
+   "h": 4.3,
+   "android": true
   },
   {
    "role": "sns",
@@ -3238,7 +3285,8 @@
    "period": "2028-01",
    "title": "借入（¥500 万・年 2%・6 か月すえ置き）",
    "done": "入金",
-   "h": 0.5
+   "h": 0.5,
+   "flex": true
   },
   {
    "role": "mkt",
@@ -3252,14 +3300,16 @@
    "period": "2028-01",
    "title": "Android の外注を見る（週 1 時間）",
    "done": "確かめの記録 4 回",
-   "h": 4.3
+   "h": 4.3,
+   "android": true
   },
   {
    "role": "dev",
    "period": "2028-02",
    "title": "Android の外注を見る（週 1 時間）・受け入れの基準で確かめる",
    "done": "受け入れの基準の 3 項目がすべて通る",
-   "h": 4.3
+   "h": 4.3,
+   "android": true
   },
   {
    "role": "dev",
@@ -3289,8 +3339,8 @@
   {
    "role": "ceo",
    "period": "2028-06",
-   "title": "有料 900 人未満なら外注を止めて兼業に戻す・上半期の振り返り",
-   "done": "続ける／止めるを決めて記録・外注に 30 日前の知らせ（止めるとき）"
+   "title": "逆の決まり: 有料 900 人未満か、守りの数字（4〜6 か月目の人で、メモ 50 件以上の解約がメモ 10〜49 件の 7 割以下・各組 100 人以上を累計で）が届かなければ、外注と広告の試しを止める（オーナーの報酬は残す）・上半期の振り返り",
+   "done": "続ける／止めるの記録・外注 2 人に 30 日前の知らせ（止めるとき）"
   },
   {
    "role": "b2b",
@@ -3338,7 +3388,7 @@
    "role": "ceo",
    "period": "2029-06",
    "title": "有料 2,600 人未満なら社員を足さない・次の中期計画を作り始める",
-   "done": "足す／足さないの記録・次の中期計画の骨組み"
+   "done": "足す／足さないの記録・次の中期計画の骨組み（文書）"
   },
   {
    "role": "b2b",

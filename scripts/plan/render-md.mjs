@@ -163,13 +163,13 @@ blocks.hold = (() => {
   return `${lines.join('\n')}\n\nこのときのオーナーの時間は月 ${Math.min(...ms).toFixed(1)}〜${Math.max(...ms).toFixed(1)} 時間（予定の上限 ${ownerHoursOfMonth('2028-01').planLimit.toFixed(1)} 時間）。`;
 })();
 
-// 2029 年に人とお金を足す値打ち（2028 年末の関門に落ちて「足さない」ときと比べる）
+// 2029 年に人とお金を足す値打ち（2028 年末の関門に落ちて「今の契約を残し、新しく足さない」ときと比べる）
 blocks.invest = (() => {
   const B = { ...BASE, gates: { ...BASE.gates, 2028: { ...BASE.gates[2028], paid: 1e9 } } };
   const f = Object.fromEntries(yearly(simulate(B), B).map((o) => [o.year, o]))[2029]; const b = S.base[2029];
-  const dPaid = b.paidEnd - f.paidEnd; const dProfit = f.profit - b.profit; const per = dProfit / Math.max(1, dPaid);
-  const ltv = lifetimeValue(BASE, 2029, { strict: true }).blended;
-  return `2029 年に人とお金を足す（基本）と、足さない（2028 年末の関門に落ちたとき）より、2029 年の利益は ${man(dProfit)} 少ないが、年末の有料が ${n(dPaid)} 人多い。増えた 1 人あたり ¥${n(per)} で、1 人の生涯の利益（きびしめ ¥${n(ltv)}）より小さいので、足すほうが得。`;
+  const dPaid = b.paidEnd - f.paidEnd; const dSeats = b.seatsEnd - f.seatsEnd; const dProfit = f.profit - b.profit;
+  const hired = runs.base.hired.join('・') || 'なし';
+  return `2029 年の基本は、2028 年の契約（オーナーの報酬・外注）のまま、元が取れると分かったものだけ足す。だから「足す」と「足さない（freeze）」の違いは社員だけ。基本で入るのは ${hired}で、2029 年の利益は ${man(dProfit)} 少なく、年末の有料は ${n(dPaid)} 人（うち法人の席 ${n(dSeats)}）多い。**社員は計画の期間の中では元が取れない、2030 年以降の伸び（法人 30 社への道筋）のための投資**として扱い、入れたあとの支出の 6 か月分の現金と 2029 年 6 月の逆の決まりで絞る。`;
 })();
 
 let doc = readFileSync(DOC, 'utf8');

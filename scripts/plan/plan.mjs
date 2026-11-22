@@ -29,7 +29,7 @@ for (const [key, A] of Object.entries(SCENARIOS)) {
 out.unit = [2027, 2028, 2029].map((y) => { const l = lifetimeValue(BASE, y); const ls = lifetimeValue(BASE, y, { strict: true }); const a = paidAcquisition(BASE, y); const as = paidAcquisition(BASE, y, { strict: true }); return { year: y, monthlyMonths: Math.round(l.monthlyMonths * 10) / 10, ltvMonthly: Math.round(l.ltvMonthly), ltvAnnual: Math.round(l.ltvAnnual), ltv: Math.round(l.blended), ltvStrict: Math.round(ls.blended), cac: Math.round(a.cac), cacStrict: Math.round(as.cac), ratio: Math.round(a.ratio * 10) / 10, paybackMonths: a.paybackMonths, paybackStrict: as.paybackMonths }; });
 out.sensitivity = sensitivity(BASE).map((s) => ({ label: s.label, paidEnd: Math.round(s.paidEnd), dPaid: Math.round(s.dPaid), profitMan: M(s.profit), profitNoGatesMan: M(s.profitNoGates), minCashMan: M(s.minCash), marketOwnerMan: M(s.profitMarketOwner) }));
 const grid = stressGrid(BASE); out.stress = { cases: grid.length, negative: grid.filter((x) => x.minCash < 0).length, worstMan: M(Math.min(...grid.map((x) => x.minCash))) };
-out.ownerHours = ['2026-12', ...Array.from({ length: 12 }, (_, i) => `2027-${String(i + 1).padStart(2, '0')}`)].map((ym) => { const o = ownerHoursOfMonth(ym); return { ym, routine: Math.round(o.routine * 10) / 10, items: Math.round(o.items * 10) / 10, total: Math.round(o.total * 10) / 10, limit: Math.round(o.limit * 10) / 10 }; });
+out.ownerHours = ['2026-12', ...Array.from({ length: 12 }, (_, i) => `2027-${String(i + 1).padStart(2, '0')}`), '2028-01', '2028-02', '2028-03'].map((ym) => { const o = ownerHoursOfMonth(ym); return { ym, routine: Math.round(o.routine * 10) / 10, items: Math.round(o.items * 10) / 10, total: Math.round(o.total * 10) / 10, limit: Math.round(o.planLimit * 10) / 10, available: Math.round(o.limit * 10) / 10 }; });
 out.roles = ROLES; out.routines = ROUTINES; out.items = ITEMS;
 if (process.argv.includes('--json')) {
   mkdirSync('company/plan-model', { recursive: true });
@@ -41,5 +41,5 @@ if (process.argv.includes('--json')) {
   console.log('\n■ 感度（基本から 1 つだけ動かす・2029 年）');
   for (const s of out.sensitivity) console.log(`${s.label}  年末の有料 ${n(s.paidEnd)}（${s.dPaid >= 0 ? '+' : ''}${n(s.dPaid)}）  利益 ${s.profitMan} 万（止めない ${s.profitNoGatesMan} 万）  いちばん少ない現金 ${s.minCashMan} 万`);
   console.log(`\n■ 網の目の点検 ${out.stress.cases} 通り: 現金がマイナス ${out.stress.negative} 通り・いちばん少ない現金 ${out.stress.worstMan} 万`);
-  console.log('\n■ オーナーの時間（月・時間）'); for (const o of out.ownerHours) console.log(`${o.ym}  決まった仕事 ${o.routine}＋成果物 ${o.items}＝${o.total}（上限 ${o.limit}）`);
+  console.log('\n■ オーナーの時間（月・時間）'); for (const o of out.ownerHours) console.log(`${o.ym}  決まった仕事 ${o.routine}＋成果物 ${o.items}＝${o.total}（予定の上限 ${o.limit}・使える時間 ${o.available}）`);
 }

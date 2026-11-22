@@ -87,7 +87,7 @@ export const BASE = {
   // ── AI の原価
   aiPerPaidYen: 50, freePerPaid: 6, aiPerFreeYen: 10,
   // ── 費用（pass＝お金を足す計画・hold＝止める計画）。円・月。'YYYY-MM' はその月から
-  ownerPay: { pass: { 2027: 0, 2028: 0, '2028-04': 250_000, 2029: 350_000 }, hold: { 2027: 0, 2028: 0, 2029: 0 } },
+  ownerPay: { pass: { 2027: 0, 2028: 0, '2028-04': 250_000, 2029: 250_000 }, hold: { 2027: 0, 2028: 0, 2029: 0 } },
   supportFromInstalls: 3300, supportYen: 60_000, // サポートと通報の外注は、月の入れた人が 3,300 人（問い合わせ 約 50 件）を超えた月から
   outsource: { pass: { 2027: 0, 2028: 0, '2028-05': 300_000, '2028-06': 460_000, 2029: 460_000 }, hold: { 2027: 0, 2028: 0, 2029: 0 } },
   // ↑ 2028 年 5 月 開発（月 ¥30 万）・6 月 SNS と動画（月 ¥16 万）。30 日前に知らせれば解約できる契約
@@ -97,7 +97,7 @@ export const BASE = {
     { from: '2029-10', title: 'マーケ', salaryYen: 500_000, lift: 'mkt' },
   ],
   socialRate: 0.15, hireFeeRate: 0.3, // 会社が払う社会保険・採用の費用（年収の 30%）
-  creative: { pass: { 2027: 30_000, 2028: 150_000, 2029: 300_000 }, hold: { 2027: 30_000, 2028: 30_000, 2029: 50_000 } },
+  creative: { pass: { 2027: 30_000, 2028: 150_000, 2029: 50_000 }, hold: { 2027: 30_000, 2028: 30_000, 2029: 50_000 } },
   infraBaseYen: 30_000, infraPerUserYen: 3,
   otherYen: { 2027: 20_000, 2028: 60_000, 2029: 150_000 }, incorporationYen: 250_000, accountantYen: 30_000, incorporateAtPaid: 400,
   personalTaxRate: 0.3, corpTaxRate: 0.3, corpTaxFixedYen: 70_000,
@@ -106,7 +106,7 @@ export const BASE = {
   cashGuardMonths: 3, hireCashMonths: 6,
   // ── 関門（計算の中で判定）。数は基本の見込みの 8 割前後
   gates: { 2027: { paid: 450, mrrYen: 500_000, cashYen: 1_000_000 }, 2028: { paid: 1600, profit3m: 0 } },
-  midChecks: [{ at: '2028-06', paid: 900 }, { at: '2029-06', paid: 2600 }], // 逆の決まり: 届かなければ翌月から止める計画
+  midChecks: [{ at: '2028-06', paid: 900 }, { at: '2029-06', paid: 2600 }], // 逆の決まり: 2028 年 6 月は外注と広告を止め（オーナーの報酬は残す）、2029 年 6 月は社員を足さない
 };
 
 export const SCENARIOS = {
@@ -123,7 +123,7 @@ const keepMonthlyStrict = (A) => keepMonthly(A) - A.monthlyYen * A.refundRate - 
 const keepAnnualStrict = (A) => keepAnnual(A) - A.annualYen * A.refundRate - 12 * (A.freePerPaid * A.aiPerFreeYen + A.infraPerUserYen * (1 + A.freePerPaid));
 
 // 1 人の生涯の利益（月額・年額）。strict＝きびしめ（返金・無料の人の AI・サーバーを引き、年 10% で割り引く）
-export function lifetimeValue(A = BASE, year = 2028, { strict = false } = {}) {
+export function lifetimeValue(A = BASE, year = 2028, { strict = false, fromMonth = 0 } = {}) {
   const steady = A.steadyChurn[year] ?? 0.08; const renew = A.renew[year] ?? 0.4;
   const monthlyMonths = 1 + (1 - A.firstMonthChurn) / steady;
   if (!strict) {
@@ -134,6 +134,7 @@ export function lifetimeValue(A = BASE, year = 2028, { strict = false } = {}) {
   for (let mo = 0; mo < 120; mo += 1) {
     if (mo === 1) aliveM *= 1 - A.firstMonthChurn; else if (mo > 1) aliveM *= 1 - steady;
     if (mo > 0 && mo % 12 === 0) aliveA *= renew;
+    if (mo < fromMonth) continue; // fromMonth: 入ってから何か月目より先の分だけ（その年の売上に入った分を除く）
     ltvMonthly += (aliveM * keepMonthlyStrict(A)) / d ** mo;
     if (mo % 12 === 0) ltvAnnual += (aliveA * keepAnnualStrict(A)) / d ** mo;
   }
@@ -172,7 +173,15 @@ export function simulate(A = BASE, opts = {}) {
   let androidOn = null; let incorporatedAt = null; let loanOut = 0; let loanTaken = false;
   const corpProfit = {}; const personalProfit = {}; const taxDue = {}; const interimPaid = {};
   const hired = []; let b2bPilotOk = null; let prevYearAppRevenue = 0; let curYearAppRevenue = 0;
-  const holdTables = { sns: holdOf(A.snsInstalls), collab: holdOf(A.collabInstalls), vis: holdOf(A.search.visibility), conv: holdOf(A.installToPaid) };
+  // 止める計画の伸び: 切り替えた月の水準から先だけ、伸びを半分にする（切り替えた月に段差を作らない）。
+  // freeze は外注（開発・SNS と動画）を残すので、SNS と有料になる率の伸びは続く。hold と guard は外注を止めるので全部半分。
+  let slowFrom = null; let slowMode = null;
+  const SLOW = { hold: ['sns', 'collab', 'vis', 'conv'], guard: ['sns', 'collab', 'vis', 'conv'], freeze: [] }; // freeze は 2029 年の pass と同じ費用（社員だけが違う）
+  const slow = (key, table, at) => {
+    const v = ramp(table, at);
+    if (!slowFrom || at < slowFrom || !SLOW[slowMode].includes(key)) return v;
+    const v0 = ramp(table, slowFrom); return v0 + (v - v0) * 0.5;
+  };
   let lastSpend = 0; let lastFixed = 0;
   for (const ym of MONTHS) {
     const y = yearOf(ym); const mo = monthOf(ym); const season = SEASON[mo];
@@ -180,7 +189,7 @@ export function simulate(A = BASE, opts = {}) {
     if (mo === 1) { prevYearAppRevenue = curYearAppRevenue; curYearAppRevenue = 0; }
     const plan = noGates ? 'pass' : (mode[y] ?? 'pass');
     const isPass = plan === 'pass';
-    const grow = (key, table) => ramp(isPass || y < 2028 ? table : holdTables[key], ym); // 2027 年までは同じ
+    if (!isPass && !noGates && (!slowFrom || slowMode !== plan)) { if (!slowFrom) slowFrom = ym; slowMode = plan === 'hold' || slowMode === 'hold' ? 'hold' : plan === 'guard' || slowMode === 'guard' ? 'guard' : 'freeze'; }
     // ── 社員の効き目（入った月から 6 か月かけて）
     const liftOf = (kind, amount) => { const h = hired.find((x) => x.lift === kind); return h ? amount * Math.min(1, (monthsBetween(h.from, ym) + 1) / 6) : 0; };
     // ── 入れる人（道ごと）
@@ -188,9 +197,9 @@ export function simulate(A = BASE, opts = {}) {
     const early = A.organicDelayMonths && oy < '2026-12' ? 0.5 : 1;
     const mk = 1 + liftOf('mkt', A.marketerLift);
     const ch = {
-      search: ramp(A.search.searches, oym) * ramp(isPass || y < 2028 ? A.search.visibility : holdTables.vis, oym) * A.search.installRate * mk,
-      sns: ramp(isPass || y < 2028 ? A.snsInstalls : holdTables.sns, oym),
-      collab: ramp(isPass || y < 2028 ? A.collabInstalls : holdTables.collab, oym) * mk,
+      search: ramp(A.search.searches, oym) * slow('vis', A.search.visibility, oym) * A.search.installRate * mk,
+      sns: slow('sns', A.snsInstalls, oym),
+      collab: slow('collab', A.collabInstalls, oym) * mk,
       share: rows.length ? (rows[rows.length - 1].paid + rows[rows.length - 1].freeActive) * A.shareInstallsPerActive : 0,
     };
     for (const k of ['search', 'sns', 'collab']) ch[k] *= A.organicMult * early;
@@ -199,10 +208,10 @@ export function simulate(A = BASE, opts = {}) {
     const andAge = androidOn ? monthsBetween(A.androidFrom, ym) : -1;
     const android = inPlan && andAge >= 0 ? Math.round(organic * A.androidShare * Math.min(1, (andAge + 1) / A.androidRampMonths)) : 0;
     const scaleOk = paidAcquisition(A, y).paybackMonths <= A.adPaybackMax;
-    const adSpend = inPlan && ym >= A.adFrom && isPass ? (scaleOk ? ramp(A.adScaleYen, ym) : A.adTestYen) : 0;
+    const adSpend = inPlan && ym >= A.adFrom && isPass ? (scaleOk ? ramp(A.adScaleYen, ym) : y === yearOf(A.adFrom) ? A.adTestYen : 0) : 0; // 試しは 2028 年の 1 年だけ
     const paidInstalls = Math.round(adSpend / A.cpi);
     const installs = organic + android + paidInstalls;
-    let conv = grow('conv', A.installToPaid) * (1 + liftOf('dev', A.devLift));
+    let conv = slow('conv', A.installToPaid, ym) * (1 + liftOf('dev', A.devLift));
     if (A.convShock && ym >= A.convShock.from) conv *= A.convShock.mult;
     const newPaid = inPlan ? organic * conv + android * conv * A.androidConvMult + paidInstalls * conv * A.adConvMult : 0;
     const web = ramp(A.webShare, ym);
@@ -234,8 +243,10 @@ export function simulate(A = BASE, opts = {}) {
         const renewed = Math.round(A.b2bPilot * A.b2bRenewRate);
         const sales = hired.find((h) => h.lift === 'b2b');
         const goal = !b2bPilotOk ? renewed : sales ? A.b2bCompaniesWithSales : A.b2bCompaniesWithoutSales;
-        const startYm = sales ? sales.from : `${y}-01`;
-        companies = Math.round(renewed + (goal - renewed) * Math.min(1, Math.max(0, (monthsBetween(startYm, ym) + 1) / Math.max(1, 13 - monthOf(startYm)))));
+        // 研修会社経由: 1 月から 12 か月かけて。法人営業: 入れてから 2 か月は商談だけ、そのあと 12 か月かけて（法人の売り方は時間がかかる）
+        const progress = sales ? (monthsBetween(sales.from, ym) - 2) / 12 : (monthsBetween(`${y}-01`, ym) + 1) / 12;
+        const base0 = sales ? Math.max(renewed, Math.round(renewed + (A.b2bCompaniesWithoutSales - renewed) * (monthsBetween(`${y}-01`, sales.from) + 1) / 12)) : renewed;
+        companies = Math.round(base0 + (goal - base0) * Math.min(1, Math.max(0, progress)));
       }
     }
     const seats = Math.round(companies * ramp(A.b2bSeats, ym));
@@ -318,7 +329,7 @@ export function simulate(A = BASE, opts = {}) {
     const receivable = (cashIn[addMonths(ym, 1)] || 0) + (cashIn[addMonths(ym, 2)] || 0); // 決まっている入金（App Store・法人の 2 か月分）
     if (mode[y] === 'pass' && cash + receivable < A.cashGuardMonths * (spend - hireFees - incorporation) && y >= 2028) { mode[y] = 'guard'; events.push({ ym, what: '現金の見張り: 3 か月分を下回ったので、年の残りは外注と新しい費用を止める' }); gateResult.guard = gateResult.guard || ym; }
     // ── 逆の決まり
-    for (const c of A.midChecks) if (ym === c.at) { const ok = paid >= c.paid; gateResult[`mid${y}`] = { ok, paid: Math.round(paid) }; if (!ok && mode[y] === 'pass') { mode[y] = y <= 2028 ? 'hold' : 'freeze'; events.push({ ym, what: `${ym} の逆の決まり: 有料 ${Math.round(paid)} 人 ＜ ${c.paid} 人なので${y <= 2028 ? '外注を止めて兼業に戻す' : '社員を足さない'}` }); } }
+    for (const c of A.midChecks) if (ym === c.at) { const ok = paid >= c.paid; gateResult[`mid${y}`] = { ok, paid: Math.round(paid) }; if (!ok && mode[y] === 'pass') { mode[y] = y <= 2028 ? 'guard' : 'freeze'; events.push({ ym, what: `${ym} の逆の決まり: 有料 ${Math.round(paid)} 人 ＜ ${c.paid} 人なので${y <= 2028 ? '外注と広告の試しを止める（オーナーの報酬は残す）' : '社員を足さない'}` }); } }
     // ── 年末の関門（次の年の費用の計画を決める）
     if (mo === 12 && A.gates[y]) {
       const g = A.gates[y];
@@ -329,7 +340,7 @@ export function simulate(A = BASE, opts = {}) {
     }
   }
   rows.gates = gateResult; rows.events = events; rows.minCash = minCash; rows.minCashYm = minCashYm; rows.androidOn = androidOn; rows.incorporatedAt = incorporatedAt;
-  rows.hired = hired.map((h) => h.title); rows.b2bPilotOk = b2bPilotOk; rows.taxDue = taxDue; rows.personalProfit = personalProfit; rows.mode = mode;
+  rows.hired = hired.map((h) => h.title); rows.b2bPilotOk = b2bPilotOk; rows.taxDue = taxDue; rows.personalProfit = personalProfit; rows.mode = mode; rows.interimPaid = interimPaid;
   return rows;
 }
 
@@ -349,7 +360,7 @@ export function yearly(rows, A = BASE) {
     o.taxForYear = ((rows.taxDue && rows.taxDue[o.year]) || 0) + Math.max(0, (rows.personalProfit && rows.personalProfit[o.year]) || 0) * A.personalTaxRate; // その年の利益にかかる税（法人は翌年 2 月・個人は翌年 3 月に払う）
     o.profitAfterTax = o.profit - o.taxForYear;
     o.profitMarketOwner = o.profit - (A.ownerMarketPayYen * 12 - o.ownerPay); // オーナーに市場の報酬を払っていたら
-    o.cashAfterTaxDue = o.cashEnd - o.taxForYear; // 年末の現金から、翌年に払う税を引いた額
+    o.cashAfterTaxDue = o.cashEnd - (o.taxForYear - ((rows.interimPaid && rows.interimPaid[o.year]) || 0)); // 年末の現金から、翌年に払う税（中間で払った分を除く）を引いた額
   }
   return Object.values(out);
 }
