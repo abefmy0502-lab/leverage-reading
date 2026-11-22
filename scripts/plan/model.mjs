@@ -163,7 +163,9 @@ export function simulate(A = BASE, opts = {}) {
   const { noGates = false } = opts; // noGates: 関門と現金の見張りで止めない＝感度の比べ用
   const rows = [];
   const mCoh = []; const aCoh = [];
-  const pass = { 2027: true, 2028: true, 2029: true }; // その年（の残り）の費用の計画
+  // 費用の計画: pass＝足す・hold＝止める（兼業に戻す・外注なし）・freeze＝今の契約（オーナーの報酬・外注・社員）は残し、新しく足さない・guard＝現金の見張り（オーナーと社員は残し、外注と新しい費用を止める）
+  const mode = { 2027: 'pass', 2028: 'pass', 2029: 'pass' };
+  const frozen = { owner: 0, outsource: 0 };
   const gateResult = {}; const events = [];
   const cashIn = {}; const addCash = (ym, v) => { cashIn[ym] = (cashIn[ym] || 0) + v; };
   let cash = A.startingCash; let minCash = cash; let minCashYm = MONTHS[0];
@@ -176,8 +178,8 @@ export function simulate(A = BASE, opts = {}) {
     const y = yearOf(ym); const mo = monthOf(ym); const season = SEASON[mo];
     const inPlan = ym <= PLAN_LAST;
     if (mo === 1) { prevYearAppRevenue = curYearAppRevenue; curYearAppRevenue = 0; }
-    const isPass = noGates || (pass[y] ?? true);
-    const plan = isPass ? 'pass' : 'hold';
+    const plan = noGates ? 'pass' : (mode[y] ?? 'pass');
+    const isPass = plan === 'pass';
     const grow = (key, table) => ramp(isPass || y < 2028 ? table : holdTables[key], ym); // 2027 年までは同じ
     // ── 社員の効き目（入った月から 6 か月かけて）
     const liftOf = (kind, amount) => { const h = hired.find((x) => x.lift === kind); return h ? amount * Math.min(1, (monthsBetween(h.from, ym) + 1) / 6) : 0; };
@@ -255,7 +257,8 @@ export function simulate(A = BASE, opts = {}) {
     const ai = paid * A.aiPerPaidYen + freeActive * A.aiPerFreeYen;
     const prevInstalls = rows.length ? rows[rows.length - 1].installs : 0;
     const support = inPlan && prevInstalls >= A.supportFromInstalls ? A.supportYen : 0;
-    const outsource = monthOrYear(A.outsource[plan], ym) + support;
+    const outsourceBase = plan === 'pass' ? monthOrYear(A.outsource.pass, ym) : plan === 'freeze' ? frozen.outsource : monthOrYear(A.outsource.hold, ym);
+    const outsource = outsourceBase + support;
     const androidBuild = androidOn && monthsBetween(A.androidBuild.from, ym) >= 0 && monthsBetween(A.androidBuild.from, ym) < A.androidBuild.months ? A.androidBuild.yenPerMonth : 0;
     // 社員: 関門（pass）・その月の現金が 6 か月分以上・法人営業は試しが通ったときだけ
     let hireFees = 0;
@@ -263,16 +266,17 @@ export function simulate(A = BASE, opts = {}) {
       for (const h of A.hires) {
         if (h.from !== ym || hired.includes(h)) continue;
         if (h.needsB2b && !(A.b2bRenewRate >= A.b2bPilotPassRate)) { events.push({ ym, what: `${h.title}の社員: 法人の試しが通らないので入れない` }); continue; }
-        if (cash < A.hireCashMonths * lastFixed) { events.push({ ym, what: `${h.title}の社員: 現金が 6 か月分に届かないので入れない` }); continue; }
+        if (cash < A.hireCashMonths * (lastFixed + h.salaryYen * (1 + A.socialRate)) + h.salaryYen * 12 * A.hireFeeRate) { events.push({ ym, what: `${h.title}の社員: 現金が 6 か月分に届かないので入れない` }); continue; }
         hired.push(h); hireFees += h.salaryYen * 12 * A.hireFeeRate; events.push({ ym, what: `${h.title}の社員を入れる` });
       } } else if (inPlan && noGates) {
       for (const h of A.hires) if (h.from === ym && !hired.includes(h) && (!h.needsB2b || A.b2bRenewRate >= A.b2bPilotPassRate)) { hired.push(h); hireFees += h.salaryYen * 12 * A.hireFeeRate; }
     }
     const salaries = hired.filter((h) => ym >= h.from).reduce((s, h) => s + h.salaryYen * (1 + A.socialRate), 0);
-    const ownerBase = monthOrYear(A.ownerPay[plan], ym);
+    const ownerBase = plan === 'pass' ? monthOrYear(A.ownerPay.pass, ym) : plan === 'hold' ? monthOrYear(A.ownerPay.hold, ym) : frozen.owner;
+    if (plan === 'pass') { frozen.owner = ownerBase; frozen.outsource = outsourceBase; }
     const ownerPay = ownerBase * (1 + (incorporatedAt && ym >= incorporatedAt ? A.socialRate : 0));
     const people = inPlan ? ownerPay + outsource + androidBuild + salaries + hireFees : 0;
-    const marketing = inPlan ? adSpend + (A.creative[plan][y] ?? 0) : 0;
+    const marketing = inPlan ? adSpend + ((isPass ? A.creative.pass : A.creative.hold)[y] ?? 0) : 0;
     const infra = inPlan ? A.infraBaseYen + (paid + freeActive) * A.infraPerUserYen : 0;
     // 法人化: 有料 400 人に届いた次の月（2027 年 10 月より前にはしない）
     let incorporation = 0;
@@ -312,20 +316,20 @@ export function simulate(A = BASE, opts = {}) {
     if (noGates) continue;
     // ── 現金の見張り: その月の支出の 3 か月分を下回ったら、その年の残りは止める
     const receivable = (cashIn[addMonths(ym, 1)] || 0) + (cashIn[addMonths(ym, 2)] || 0); // 決まっている入金（App Store・法人の 2 か月分）
-    if (pass[y] && cash + receivable < A.cashGuardMonths * (spend - hireFees - incorporation) && y >= 2028) { pass[y] = false; events.push({ ym, what: '現金の見張り: 3 か月分を下回ったので、年の残りは費用を止める' }); gateResult.guard = gateResult.guard || ym; }
+    if (mode[y] === 'pass' && cash + receivable < A.cashGuardMonths * (spend - hireFees - incorporation) && y >= 2028) { mode[y] = 'guard'; events.push({ ym, what: '現金の見張り: 3 か月分を下回ったので、年の残りは外注と新しい費用を止める' }); gateResult.guard = gateResult.guard || ym; }
     // ── 逆の決まり
-    for (const c of A.midChecks) if (ym === c.at) { const ok = paid >= c.paid; gateResult[`mid${y}`] = { ok, paid: Math.round(paid) }; if (!ok && pass[y]) { pass[y] = false; events.push({ ym, what: `${ym} の逆の決まり: 有料 ${Math.round(paid)} 人 ＜ ${c.paid} 人なので費用を止める` }); } }
+    for (const c of A.midChecks) if (ym === c.at) { const ok = paid >= c.paid; gateResult[`mid${y}`] = { ok, paid: Math.round(paid) }; if (!ok && mode[y] === 'pass') { mode[y] = y <= 2028 ? 'hold' : 'freeze'; events.push({ ym, what: `${ym} の逆の決まり: 有料 ${Math.round(paid)} 人 ＜ ${c.paid} 人なので${y <= 2028 ? '外注を止めて兼業に戻す' : '社員を足さない'}` }); } }
     // ── 年末の関門（次の年の費用の計画を決める）
     if (mo === 12 && A.gates[y]) {
       const g = A.gates[y];
       const last3 = rows.slice(-3);
       const ok = y === 2027 ? paid >= g.paid && revenue >= g.mrrYen && cash >= (g.cashYen ?? 0) : paid >= g.paid && last3.reduce((s, r) => s + r.profit, 0) / 3 >= g.profit3m;
       gateResult[y] = { ok, paid: Math.round(paid), revenue: Math.round(revenue), cash: Math.round(cash) };
-      pass[y + 1] = ok && pass[y];
+      mode[y + 1] = mode[y] === 'hold' ? 'hold' : !ok ? (frozen.owner > 0 ? 'freeze' : 'hold') : mode[y] === 'pass' ? 'pass' : 'freeze';
     }
   }
   rows.gates = gateResult; rows.events = events; rows.minCash = minCash; rows.minCashYm = minCashYm; rows.androidOn = androidOn; rows.incorporatedAt = incorporatedAt;
-  rows.hired = hired.map((h) => h.title); rows.b2bPilotOk = b2bPilotOk; rows.taxDue = taxDue;
+  rows.hired = hired.map((h) => h.title); rows.b2bPilotOk = b2bPilotOk; rows.taxDue = taxDue; rows.personalProfit = personalProfit; rows.mode = mode;
   return rows;
 }
 
@@ -342,7 +346,7 @@ export function yearly(rows, A = BASE) {
     Object.assign(o, { paidEnd: r.paid, consumerEnd: r.consumerPaid, seatsEnd: r.seats, companiesEnd: r.companies, mrrEnd: r.revenue, cashEnd: r.cash, loanEnd: r.loanOut, plan: r.plan });
   }
   for (const o of Object.values(out)) {
-    o.taxForYear = (rows.taxDue && rows.taxDue[o.year]) || 0; // その年の法人の利益にかかる税（翌年 2 月に払う）
+    o.taxForYear = ((rows.taxDue && rows.taxDue[o.year]) || 0) + Math.max(0, (rows.personalProfit && rows.personalProfit[o.year]) || 0) * A.personalTaxRate; // その年の利益にかかる税（法人は翌年 2 月・個人は翌年 3 月に払う）
     o.profitAfterTax = o.profit - o.taxForYear;
     o.profitMarketOwner = o.profit - (A.ownerMarketPayYen * 12 - o.ownerPay); // オーナーに市場の報酬を払っていたら
     o.cashAfterTaxDue = o.cashEnd - o.taxForYear; // 年末の現金から、翌年に払う税を引いた額
@@ -366,6 +370,7 @@ export function sensitivity(A = BASE) {
     ['自然な流入 −30%', { organicMult: A.organicMult * 0.7 }],
     ['自然な流入の伸びが 6 か月遅れる', { organicDelayMonths: 6 }],
     ['汎用 AI が同じことを無料に（2027 年 7 月から有料になる率 −30%）', { convShock: { from: '2027-07', mult: 0.7 } }],
+    ['AI と連携を有料にしない（汎用 AI の中で使われ、2028 年から有料になる率 −15%）', { convShock: { from: '2028-01', mult: 0.85 } }],
     ['Android を出さない', { androidGate: { ...A.androidGate, paid: 1e9 } }],
     ['1 か月目の解約 ＋10 ポイント', { firstMonthChurn: A.firstMonthChurn + 0.1 }],
     ['月額の解約 ＋2 ポイント', { steadyChurn: Object.fromEntries(Object.entries(A.steadyChurn).map(([k, v]) => [k, v + 0.02])) }],

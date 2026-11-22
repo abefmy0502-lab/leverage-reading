@@ -3,7 +3,7 @@
 //   node scripts/plan/render-md.mjs   → company/mid-term-plan-2027-2029.md の <!-- plan:XXX --> 〜 <!-- /plan:XXX --> を差し替える
 import { readFileSync, writeFileSync } from 'node:fs';
 import { SCENARIOS, BASE, simulate, yearly, lifetimeValue, paidAcquisition, sensitivity, breakEvenMonth, stressGrid } from './model.mjs';
-import { ROLES, ROUTINES, ITEMS, isMonth, OWNER_WEEKLY_HOURS, ownerHoursOfMonth } from './schedule.mjs';
+import { ROLES, ROUTINES, ITEMS, HOLD_ITEMS, isMonth, OWNER_WEEKLY_HOURS, ownerHoursOfMonth } from './schedule.mjs';
 
 const DOC = 'company/mid-term-plan-2027-2029.md';
 const n = (v) => Math.round(v).toLocaleString('ja-JP');
@@ -130,14 +130,14 @@ blocks.routines = (() => {
 })();
 
 blocks.owner = (() => {
-  const ms = ['2026-12', ...Array.from({ length: 12 }, (_, i) => `2027-${String(i + 1).padStart(2, '0')}`)];
+  const ms = ['2026-12', ...Array.from({ length: 12 }, (_, i) => `2027-${String(i + 1).padStart(2, '0')}`), '2028-01', '2028-02', '2028-03'];
   const o = ms.map((m) => ownerHoursOfMonth(m));
   return [
     `| 月 | ${ms.map((m) => m.slice(2).replace('-', '/')).join(' | ')} |`,
     `|---|${ms.map(() => '---').join('|')}|`,
     `| 決まった仕事 | ${o.map((x) => x.routine.toFixed(1)).join(' | ')} |`,
     `| その月の成果物 | ${o.map((x) => x.items.toFixed(1)).join(' | ')} |`,
-    `| **合計（上限 ${o[0].limit.toFixed(1)}）** | ${o.map((x) => `**${x.total.toFixed(1)}**`).join(' | ')} |`,
+    `| **合計（予定の上限 ${o[0].planLimit.toFixed(1)}・使える時間 ${o[0].limit.toFixed(1)}）** | ${o.map((x) => `**${x.total.toFixed(1)}**`).join(' | ')} |`,
   ].join('\n');
 })();
 
@@ -153,6 +153,24 @@ const table = (periods, label) => {
 blocks.years = table(['2027', '2028', '2029'], '年');
 blocks.quarters = table(['2027', '2028', '2029'].flatMap((y) => [1, 2, 3, 4].map((q) => `${y}-Q${q}`)), '四半期');
 blocks.months = table([...new Set(ITEMS.filter((x) => isMonth(x.period)).map((x) => x.period))].sort(), '月');
+
+// 2027 年末の関門に落ちたときの 2028 年（兼業のまま）
+blocks.hold = (() => {
+  const order = ROLES.map((r) => r.id);
+  const lines = ['| 時期 | 責任者 | やること | 終わりの基準 | オーナーの時間 |', '|---|---|---|---|---|'];
+  for (const x of [...HOLD_ITEMS].sort((a, b) => a.period.localeCompare(b.period) || order.indexOf(a.role) - order.indexOf(b.role))) lines.push(`| ${x.period} | ${roleShort(x.role)} | ${x.title} | ${x.done} | ${x.h} 時間 |`);
+  const ms = Array.from({ length: 12 }, (_, i) => `2028-${String(i + 1).padStart(2, '0')}`).map((m) => ownerHoursOfMonth(m, { hold: true }).total);
+  return `${lines.join('\n')}\n\nこのときのオーナーの時間は月 ${Math.min(...ms).toFixed(1)}〜${Math.max(...ms).toFixed(1)} 時間（予定の上限 ${ownerHoursOfMonth('2028-01').planLimit.toFixed(1)} 時間）。`;
+})();
+
+// 2029 年に人とお金を足す値打ち（2028 年末の関門に落ちて「足さない」ときと比べる）
+blocks.invest = (() => {
+  const B = { ...BASE, gates: { ...BASE.gates, 2028: { ...BASE.gates[2028], paid: 1e9 } } };
+  const f = Object.fromEntries(yearly(simulate(B), B).map((o) => [o.year, o]))[2029]; const b = S.base[2029];
+  const dPaid = b.paidEnd - f.paidEnd; const dProfit = f.profit - b.profit; const per = dProfit / Math.max(1, dPaid);
+  const ltv = lifetimeValue(BASE, 2029, { strict: true }).blended;
+  return `2029 年に人とお金を足す（基本）と、足さない（2028 年末の関門に落ちたとき）より、2029 年の利益は ${man(dProfit)} 少ないが、年末の有料が ${n(dPaid)} 人多い。増えた 1 人あたり ¥${n(per)} で、1 人の生涯の利益（きびしめ ¥${n(ltv)}）より小さいので、足すほうが得。`;
+})();
 
 let doc = readFileSync(DOC, 'utf8');
 for (const [k, body] of Object.entries(blocks)) {
