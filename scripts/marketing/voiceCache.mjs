@@ -21,8 +21,11 @@ export function spokenText(text) {
 }
 
 // 声の種類ごとに作り置きを分ける（MKT_VOICE_ENGINE=say のときは Mac の say の声）
+// Mac の say の既定は日本語の男性の声（「Reed」だけだと英語の Reed になる）
+export const SAY_VOICE_DEFAULT = 'Reed (日本語（日本）)';
+export const sayVoice = () => process.env.MKT_SAY_VOICE || SAY_VOICE_DEFAULT;
 export const voiceId = () => (process.env.MKT_VOICE_ENGINE === 'say'
-  ? `say|${process.env.MKT_SAY_VOICE || 'Reed'}`
+  ? `say|${sayVoice()}`
   : `${process.env.MKT_VOICE || 'onyx'}|${process.env.MKT_VOICE_STYLE || ''}`);
 export const keyOf = (text) => createHash('sha1').update(`${voiceId()}|${spokenText(text)}`).digest('hex').slice(0, 16);
 export const clipPath = (text) => join(CACHE_DIR, `${keyOf(text)}.mp3`);

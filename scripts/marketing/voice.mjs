@@ -9,7 +9,7 @@
 // 声の作り方（engine）:
 //   openai（既定・OPENAI_API_KEY があるとき。Mac のキーチェーンに「orime-openai-tts」で入れておけば、そこから読む）… gpt-4o-mini-tts・声 onyx（MKT_VOICE で替えられる・ash も落ち着いた男性）。
 //                                              「落ち着いた男性の声で、ゆっくり、はっきり」と指示する（MKT_VOICE_STYLE で替えられる）。
-//   say（macOS）… 鍵が無いときの試し用（MKT_SAY_VOICE・既定 Reed）。
+//   say（macOS）… 鍵が無いときの試し用（MKT_SAY_VOICE・既定 Reed の日本語）。
 //   tone … 声の代わりに小さな音（時刻と重ね方の確かめ用・どの端末でも）。
 // 出力: 同じフォルダに final-voice.mp4（映像はそのまま・声だけ重ねる）と voice/ の 1 文ずつの音。
 // 鍵はファイルに書かない（シェルの環境変数で渡す）。読みは「Orime」→「オリメ」に直してから送る。
@@ -18,7 +18,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSy
 import { join, basename } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { findFfmpeg } from './finish-video.mjs';
-import { spokenText, clipPath, keyOf, readIndex, writeIndex, CACHE_DIR } from './voiceCache.mjs';
+import { spokenText, clipPath, keyOf, readIndex, writeIndex, CACHE_DIR, sayVoice } from './voiceCache.mjs';
 
 export const DEFAULT_STYLE = '落ち着いた、低めの男性の声で。ゆっくり、はっきり、やさしく。宣伝っぽく盛り上げない。日本語の自然な抑揚で。';
 
@@ -61,7 +61,7 @@ async function synthOpenai(text, file) {
 
 function synthSay(text, file) {
   const aiff = file.replace(/\.mp3$/, '.aiff');
-  const r = spawnSync('say', ['-v', process.env.MKT_SAY_VOICE || 'Reed', '-r', '165', '-o', aiff, text], { encoding: 'utf8' });
+  const r = spawnSync('say', ['-v', sayVoice(), '-r', '165', '-o', aiff, text], { encoding: 'utf8' });
   if (r.status !== 0) throw new Error('say が使えません（macOS だけ）');
   return aiff;
 }
@@ -164,7 +164,7 @@ if (process.argv[1] && process.argv[1].endsWith('voice.mjs')) {
   const bin = await findFfmpeg();
   if (!bin) { console.error('ffmpeg が見つかりません（mac は brew install ffmpeg）'); process.exit(1); }
   const dirs = existsSync(join(target, 'final.mp4')) ? [target] : readdirSync(target).map((n) => join(target, n)).filter((p) => statSync(p).isDirectory());
-  console.log(`声: ${engine === 'openai' ? `OpenAI（${process.env.MKT_VOICE || 'onyx'}）` : engine === 'tone' ? '確かめ用の音' : `Mac の say（${process.env.MKT_SAY_VOICE || 'Reed'}）`}`);
+  console.log(`声: ${engine === 'openai' ? `OpenAI（${process.env.MKT_VOICE || 'onyx'}）` : engine === 'tone' ? '確かめ用の音' : `Mac の say（${sayVoice()}）`}`);
   for (const d of dirs) {
     try { await voiceOne(d, engine, bin); } catch (e) { console.log(`  ✗ ${basename(d)}: ${e.message}`); }
   }

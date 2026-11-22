@@ -18,7 +18,7 @@ const env = { ...process.env };
 // ブラウザは record-demo が決める（PW_EXE → Playwright の Chromium → Google Chrome）。
 // Mac で初めてのときは: node node_modules/playwright-core/cli.js install chromium ffmpeg
 const sayVoice = process.argv.includes('--say'); // 鍵なしで Mac の声（Reed・日本語）で作る試し
-if (sayVoice) { env.MKT_VOICE_ENGINE = 'say'; env.MKT_SAY_VOICE = env.MKT_SAY_VOICE || 'Reed (日本語（日本）)'; }
+if (sayVoice) env.MKT_VOICE_ENGINE = 'say';
 if (!sayVoice && !env.OPENAI_API_KEY && process.platform === 'darwin') {
   const k = spawnSync('security', ['find-generic-password', '-s', 'orime-openai-tts', '-w'], { encoding: 'utf8' });
   if (k.status === 0 && k.stdout.trim()) env.OPENAI_API_KEY = k.stdout.trim();

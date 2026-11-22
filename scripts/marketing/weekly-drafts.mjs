@@ -53,6 +53,8 @@ const HOOK_WEAK = [
 ];
 const SLOGANS = ['読んで終わりにしない', '読書を、受け身から会話へ', '読んだ本と、会話しよう', '読書が、受け身から会話に変わる'];
 // AI っぽい文の定型（company/research/sns-quality-research-2026-11.md §6）。3〜4 個重なると「AI っぽい」と感じるので 1 つでも指す
+// オーナーの決まり（2026-11-22）: 名前・「1 人で作った」の類（弱さを見せない）・「（オリメ）」の読みがなは書かない
+const OWNER_NG = /阿部|一人で(作|開発)|1 人で(作|開発)|ひとりで(作|開発)|個人開発|（オリメ）|\(オリメ\)/;
 const AI_TONE = [/することが重要です|が重要です。/, /いかがでしたか/, /ぜひ[^。]{0,12}てみてください/, /まず第一に|次に、|最後に、/, /探っていきましょう|見ていきましょう/, /と言われています/];
 const X_WEIGHT_LIMIT = 280;
 function xWeight(text) {
@@ -83,6 +85,7 @@ export function checkShape(text) {
     for (const [re, why] of HOOK_WEAK) { if (re.test(firstSentence) && isPost) { out.push({ line: blockStart, word: firstLine.slice(0, 24), why }); break; } }
     if (isX) { const w = xWeight(body); if (w > X_WEIGHT_LIMIT) out.push({ line: blockStart, word: `重み ${w}`, why: `X は重み ${X_WEIGHT_LIMIT} まで（日本語は 1 字で 2＝約 140 字）` }); }
     for (const sl of SLOGANS) if (body.includes(sl)) sloganCount.set(sl, (sloganCount.get(sl) || 0) + 1);
+    if (isPost) { const m = body.match(OWNER_NG); if (m) out.push({ line: blockStart, word: m[0], why: '名前・「1 人で作った」の類・「（オリメ）」は書かない（オーナーの決まり）' }); }
     if (isPost) for (const re of AI_TONE) { const m = body.match(re); if (m) { out.push({ line: blockStart, word: m[0], why: 'AI っぽい文の定型。具体（数字・固有名詞・起きたこと）に置き換える' }); break; } }
     if (isThreads) { threads += 1; const last = block.filter((l) => l.trim()).pop() || ''; if (/[？?]\s*$/.test(last)) threadsAsk += 1; }
   };
@@ -122,11 +125,12 @@ export function recentReleaseLines(releases, today, days = 7) {
 }
 
 export function buildPrompt({ today, releaseLines, scenarios, plan, guard, playbook, xSample, videoSample }) {
-  const system = `あなたは読書アプリ「Orime」の SNS 担当の下書き係です。オーナー（個人開発・顔と声は出さない）が直してから自分で投稿します。
+  const system = `あなたは読書アプリ「Orime」の SNS 担当の下書き係です。オーナー（顔と声は出さない）が直してから自分で投稿します。
 
 # 守ること（破った下書きは使えません）
 - 訴求の軸は「読書を、受け身から会話へ」。見出しは「読んだ本と、会話しよう。」。1 本の投稿で言う柱は 1 つだけ（本と会話・成果（行動）・習慣（集中モード）・発信（写真で共有）・客観視（記録の分野・AI 選書））。
 - 「著者と話せる」「著者が答える」とは書かない。書けるのは「本の語り口で（AI が）答える」「本と会話する」まで。
+- オーナーの名前・「1 人で作った」「個人開発」のような言い方・「Orime（オリメ）」の読みがなは書かない（Orime とだけ書く）。
 - 実在の人（著者・有名人・利用者）の名前・声・顔・発言を作らない。利用者の声や数字を作らない。立証できない数字・効果の言い切り（必ず・No.1・忘れない・9 割）を書かない。
 - 使う場は Instagram（リール・カルーセル）・Threads・X・note の 4 つだけ（TikTok・YouTube は使わない）。縦の動画はリールと X に出す。
 - 画面はお試しモードの見本。画面を見せる投稿には「${SAMPLE_NOTE}」（動画は焼き込み済み・画像 1 枚の投稿は本文に「画面は見本です。」）。
