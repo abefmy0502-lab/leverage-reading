@@ -106,7 +106,7 @@ blocks.unit = (() => {
 blocks.sensitivity = (() => {
   const base = S.base[2029];
   return [
-    '| 前提を 1 つだけ悪くすると（基本から） | 2029 年末の有料 | 2029 年の利益（関門で止める＝計画の動き方） | （比べ用）止めなかったら | いちばん少ない現金 |',
+    '| 前提を 1 つだけ動かすと（基本から） | 2029 年末の有料 | 2029 年の利益（関門で止める＝計画の動き方） | （比べ用）止めなかったら | いちばん少ない現金 |',
     '|---|---|---|---|---|',
     `| （基本） | ${n(base.paidEnd)} | ${man(base.profit)} | — | ${man(runs.base.minCash)} |`,
     ...sensitivity(BASE).sort((a, b) => a.dPaid - b.dPaid).map((s) => `| ${s.label} | ${n(s.paidEnd)}（${s.dPaid >= 0 ? '+' : '−'}${n(Math.abs(s.dPaid))}） | ${man(s.profit)} | ${man(s.profitNoGates)} | ${man(s.minCash)} |`),
