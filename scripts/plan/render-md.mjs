@@ -3,7 +3,7 @@
 //   node scripts/plan/render-md.mjs   → company/mid-term-plan-2027-2029.md の <!-- plan:XXX --> 〜 <!-- /plan:XXX --> を差し替える
 import { readFileSync, writeFileSync } from 'node:fs';
 import { SCENARIOS, BASE, simulate, yearly, lifetimeValue, paidAcquisition, sensitivity, breakEvenMonth, stressGrid } from './model.mjs';
-import { ROLES, ROUTINES, ITEMS, HOLD_ITEMS, isMonth, OWNER_WEEKLY_HOURS, ownerHoursOfMonth } from './schedule.mjs';
+import { ROLES, ROUTINES, ITEMS, HOLD_ITEMS, BUSY_PLAN, isMonth, OWNER_WEEKLY_HOURS, ownerHoursOfMonth } from './schedule.mjs';
 
 const DOC = 'company/mid-term-plan-2027-2029.md';
 const n = (v) => Math.round(v).toLocaleString('ja-JP');
@@ -153,6 +153,14 @@ const table = (periods, label) => {
 blocks.years = table(['2027', '2028', '2029'], '年');
 blocks.quarters = table(['2027', '2028', '2029'].flatMap((y) => [1, 2, 3, 4].map((q) => `${y}-Q${q}`)), '四半期');
 blocks.months = table([...new Set(ITEMS.filter((x) => isMonth(x.period)).map((x) => x.period))].sort(), '月');
+
+// Android の外注を見る時間が週 2 時間に増えたときの決まり
+blocks.busy = (() => {
+  const cuts = ROUTINES.filter((r) => BUSY_PLAN.routineCuts[r.role] != null).map((r) => `| ${roleShort(r.role)} | 週 ${r.owner} 時間 → **${BUSY_PLAN.routineCuts[r.role]} 時間** |`);
+  const flex = ITEMS.filter((x) => x.flex).map((x) => `| ${x.period} | ${roleShort(x.role)} | ${x.title} | ${x.h} 時間 |`);
+  const ms = ['2027-10', '2027-11', '2027-12', '2028-01', '2028-02'];
+  return [`**発動**: Android の外注を見る時間が 2 週続けて週 1.5 時間を超えたら（見込みは週 1 時間・この決まりは週 ${BUSY_PLAN.androidWeekly} 時間でも収まるように作った）。`, '', '| 決まった仕事 | 減らし方 |', '|---|---|', ...cuts, '', '| 後ろへ回す成果物（日付の決まっていない仕事だけ） | 責任者 | やること | 時間 |', '|---|---|---|---|', ...flex, '', `このときの月の時間: ${ms.map((m) => `${m.slice(2).replace('-', '/')} ${ownerHoursOfMonth(m, { busy: true }).total.toFixed(1)}`).join('・')}（予定の上限 ${ownerHoursOfMonth('2027-10').planLimit.toFixed(1)}）。借入・関門・「今年の読書」・創業メンバーの更新・法人化は回さない。`].join('\n');
+})();
 
 // 2027 年末の関門に落ちたときの 2028 年（兼業のまま）
 blocks.hold = (() => {

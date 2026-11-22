@@ -20,7 +20,7 @@ export const CHANNEL_SHARE_NOTE = 'App Store の検索は、ほかの道で知�
 
 export const ROLES = [
   { id: 'ceo', name: '全体の方針設計', short: '方針', mission: '方向・関門の判定・お金と人の配分。毎週月曜の見直し・月 2 つの試し・四半期ごとに汎用 AI の点検', kpi: '有料（個人・法人の席）・関門の率・現金（支出の何か月分）', now: 'オーナー（AI の参謀が数字と選択肢を用意）', later: 'ずっとオーナー' },
-  { id: 'sns', name: 'SNS 統括', short: 'SNS 統括', mission: 'SNS の役割と配分・言葉の統一・毎週の投稿キット・道ごとの入れた人（「どこで知りましたか」が正・ct= で補う）・止める SNS の判断', kpi: 'SNS で知って入れた人（月）・保存と送信', now: 'AI（土曜の投稿キット）＋オーナーの最終確認', later: '2028 年 6 月から SNS と動画の外注 1 人' },
+  { id: 'sns', name: 'SNS 統括', short: 'SNS 統括', mission: '外の SNS の役割と配分・言葉の統一・毎週の投稿キット・道ごとの入れた人（「どこで知りましたか」が正・ct= で補う）・止める SNS の判断。アプリの中のつながり（フォロー・フィード・読書会）の育て方も受け持つ', kpi: 'SNS で知って入れた人（月）・保存と送信・フォローが 1 人以上の人の割合', now: 'AI（土曜の投稿キット）＋オーナーの最終確認', later: '2028 年 6 月から SNS と動画の外注 1 人' },
   { id: 'x', name: 'X', short: 'X', mission: '平日 1 本（機能と変化）・返信・月 1 のスレッド', kpi: 'プロフィールのリンクのクリック（月）', now: 'オーナー（自分の声で出す）・下書きは AI', later: 'オーナーのまま（声は外に出さない）' },
   { id: 'ig', name: 'Instagram・TikTok', short: '縦動画', mission: '週 3 本の縦動画（同じ動画を TikTok にも）とカルーセル', kpi: 'Instagram: 保存と送信・TikTok: 再生 → プロフィールの割合', now: 'AI（動画の自動づくり）＋オーナーが予約', later: '2028 年 6 月から SNS と動画の外注' },
   { id: 'th', name: 'Threads', short: 'Threads', mission: '問いかけで会話を作る（2027 年は AI の下書きを予約・返信は週 15 分）', kpi: '返信の数（月）', now: 'AI（予約）＋オーナー（返信）', later: 'SNS と動画の外注と分担' },
@@ -49,7 +49,8 @@ export const WEEKS_PER_MONTH = 4.33;
 // Android の外注を見る時間が週 2 時間に増えたとき（見込みの倍）に、先に決めておく減らし方
 export const BUSY_PLAN = {
   androidWeekly: 2, // 週 1 時間 → 2 時間
-  routineCuts: { x: 0.25, ig: 0.1, th: 0, note: 0 }, // X は週 2〜3 本・Instagram は週 1 本・Threads と note は止める
+  routineCuts: { x: 0.1, ig: 0, th: 0, note: 0, sns: 0.1 }, // X は週 1 本・Instagram は AI の予約だけ（オーナーは見ない）・Threads と note は止める・投稿キットは 6 分だけ見る
+  // 後ろへ回してよい（flex）のは、日付の決まっていない仕事だけ（法人の候補探し・広告の試し・Google Play のページ）。借入・関門・今年の読書・創業メンバーの更新・法人化は回さない
   // 成果物のうち flex: true のものは、次の四半期に回す
 };
 
@@ -95,7 +96,7 @@ export const ITEMS = [
   { role: 'sns', period: '2027-Q1', title: '公開の 30 日の投稿を出し切る・道ごとの入れた人を見る（「どこで知りましたか」が正）', done: '道ごとの入れた人の表（4 つの道 × 3 か月）', h: 1 },
   { role: 'sns', period: '2027-Q2', title: '伸びた型に寄せる・新生活の山場。四半期の目標の 5 割に届かない SNS は止める', done: 'SNS で知って入れた人 月 200 → 500・止めた SNS の記録', h: 1 },
   { role: 'sns', period: '2027-Q3', title: '夏の読書・秋の読書週間（10/27〜）の準備', done: 'SNS で知って入れた人 月 500 → 800・山場の投稿 10 本', h: 1 },
-  { role: 'sns', period: '2027-Q4', title: '年末の「今年の読書」を最大の山場に（利用者の共有を広げる）', done: 'SNS で知って入れた人 月 800 → 1,100・12 月の共有 500 枚', h: 1, flex: true },
+  { role: 'sns', period: '2027-Q4', title: '年末の「今年の読書」を最大の山場に（利用者の共有を広げる）', done: 'SNS で知って入れた人 月 800 → 1,100・12 月の共有 500 枚', h: 1 },
   { role: 'x', period: '2027-Q1', title: '公開の固定のスレッド・平日の投稿の型', done: '固定 1 本・月 20 本', h: 0.5 },
   { role: 'x', period: '2027-Q2', title: '読まれた型 3 つに絞る', done: 'プロフィールのクリック 月 100 → 250', h: 0 },
   { role: 'x', period: '2027-Q3', title: '月 1 のスレッドで機能を深く', done: 'プロフィールのクリック 月 250 → 400', h: 0 },
@@ -111,15 +112,16 @@ export const ITEMS = [
   { role: 'mkt', period: '2027-Q1', title: '注目掲載の申請・カスタムプロダクトページ 3 つ・協業 6 件', done: '申請 1 件・ページ 3 つ・協業 6 件', h: 5 },
   { role: 'mkt', period: '2027-Q2', title: '検索の言葉を実測で入れ替え・新生活のキャンペーン', done: 'ストアのページ → 入れる率 25% → 30%', h: 2 },
   { role: 'mkt', period: '2027-Q3', title: 'ブクログ・読書メーターに取り込みの組みを打診・紹介の設計', done: '打診 2 件・紹介の設計（文書）', h: 3 },
-  { role: 'mkt', period: '2027-Q4', title: '年末の山場・創業メンバーの更新（11〜12 月）', done: '年額の更新率の初めての値（目標 40%）', h: 2, flex: true },
+  { role: 'mkt', period: '2027-Q4', title: '年末の山場・創業メンバーの更新（11〜12 月）', done: '年額の更新率の初めての値（目標 40%）', h: 2 },
   { role: 'dev', period: '2027-Q1', title: '最初の 7 日で払う理由（本棚の写真・読書計画・はじめての相談）・「どこで知りましたか」の 1 問・機能の切り替え', done: '7 日でメモ 10 件 20% → 30%', h: 2 },
+  { role: 'dev', period: '2027-Q2', title: 'つながり 1: フォローした人の読書のフィード（読了・公開した一文・この本のまとめ・「読みたいに追加」）。比べる数・順位は出さない', done: 'フォローが 1 人以上の人 5% → 15%', h: 1 },
   { role: 'dev', period: '2027-Q2', title: '解約を減らす（思い出しの通知・行動の期限・やめるときの 1 問）', done: '月額の解約 11% → 9%', h: 2 },
   { role: 'dev', period: '2027-Q3', title: 'Web の入口（Stripe・Android の人にも届く）・本が増えるほど相談が良くなる、を見せる', done: 'Web の申し込み 月 0 → 20 件・30 日後も使う 22% → 25%', h: 1 },
   { role: 'dev', period: '2027-Q4', title: 'Android を作る（10 月〜・外注・判定が通ったら）・年末の「今年の読書」の改良', done: 'Android のテスト版（12 月・社内で使える）', h: 0 },
   { role: 'ops', period: '2027-Q1', title: 'Supabase Pro・監視・バックアップ・障害の 3 段階の手順・オーナーに 4 時間以内に届く知らせ', done: '手順書（文書）・知らせの試し 1 回', h: 2 },
   { role: 'ops', period: '2027-Q2', title: '課金のずれの自動の点検・AI の原価の月の報告・自動の仕事が止まったら知らせる', done: '課金のずれ 0 件・止まった自動の仕事に 24 時間以内に気づく', h: 1 },
   { role: 'ops', period: '2027-Q3', title: '問い合わせが月 50 件を超えたらサポートと通報の外注（守秘の契約・見られる範囲・手順書）・個人情報の点検', done: '外注の始まりか、見送りの記録・点検の記録', h: 1 },
-  { role: 'ops', period: '2027-Q4', title: '法人化の手続き（税理士）・年末の負荷に備える', done: '法人の登記・12 月の止まった時間 0', h: 1, flex: true },
+  { role: 'ops', period: '2027-Q4', title: '法人化の手続き（税理士）・年末の負荷に備える', done: '法人の登記・12 月の止まった時間 0', h: 1 },
   { role: 'b2b', period: '2027-Q3', title: '「会社で使いたい」の声を集める窓口を LP に・買う人の仮説を 3 行で', done: '窓口（URL）・仮説 3 行', h: 1 },
   { role: 'b2b', period: '2027-Q4', title: '「会社で使いたい」の声を読み、候補の条件を 3 行に（候補探しは 2028-Q1 に回す）', done: '声 10 件・条件 3 行', h: 0 },
   { role: 'note', period: '2027-Q1', title: '連載 1〜6 本目（相談・本棚の写真・目標・読む）', done: '6 本', h: 0 },
@@ -158,6 +160,7 @@ export const ITEMS = [
   { role: 'mkt', period: '2028-Q4', title: '年末の山場・傾向の発表のプレス', done: '12 月の入れた人 月 1.2 万（季節の山込み）' },
   { role: 'dev', period: '2028-Q1', title: 'Android を公開（3 月）', done: 'Google Play に公開', h: 0 },
   { role: 'dev', period: '2028-Q2', title: 'Android の直し・開発の外注の受け入れ（5 月）', done: 'Android の評価 4.5 以上' },
+  { role: 'dev', period: '2028-Q3', title: 'つながり 2: 読書会（同じ本を読む 5〜20 人の集まり・招待のリンク・順位なし）', done: '読書会 50 個・フォローが 1 人以上の人 25%' },
   { role: 'dev', period: '2028-Q3', title: '紹介のコード・法人の試しの機能（課題図書の配布・人数と行動の数）', done: '紹介のコードで来た人 月 50・法人の試しの 5 社が使い始める' },
   { role: 'dev', period: '2028-Q4', title: '法人の管理画面の設計（メモは見せない）', done: '法人の管理画面の設計（文書）' },
   { role: 'ops', period: '2028-Q1', title: 'Android と Web と App の課金をそろえる', done: '課金のずれ 0 件', h: 1 },
@@ -199,6 +202,7 @@ export const ITEMS = [
   { role: 'mkt', period: '2029-Q3', title: '秋の読書週間・法人の事例を発信', done: '事例 3 つ' },
   { role: 'mkt', period: '2029-Q4', title: 'マーケの社員の受け入れ（10 月・現金が 6 か月分あれば）・年末の山場', done: '受け入れか見送りの記録・12 月の入れた人 月 2.1 万（Android を含む）' },
   { role: 'dev', period: '2029-Q1', title: '法人の管理画面を出す', done: '管理画面の公開' },
+  { role: 'dev', period: '2029-Q2', title: 'つながり 3: 「今年の読書」と読書会の振り返りをフォローの人と見せ合う（比べない）', done: 'フォローが 1 人以上の人 35%' },
   { role: 'dev', period: '2029-Q2', title: '開発の社員の受け入れ（4 月・現金が 6 か月分あれば）・学校・ゼミの入口', done: '受け入れか見送りの記録・学校の試し 3 つ' },
   { role: 'dev', period: '2029-Q3', title: '何年分のメモでも速く安い相談', done: 'AI の原価 1 人 ¥50 以下' },
   { role: 'dev', period: '2029-Q4', title: '次の計画の候補の機能を試す', done: '試し 2 つの結果' },
@@ -248,16 +252,16 @@ export const ITEMS = [
   { role: 'sns', period: '2027-10', title: '秋の読書週間（10/27〜11/9）', done: 'SNS で知って入れた人 月 900', h: 0 },
   { role: 'dev', period: '2027-10', title: 'Android の外注を見る（仕様・受け取り・確かめ・週 1 時間）', done: '週 1 回の確かめの記録 4 回', h: 4.3, android: true },
   { role: 'ops', period: '2027-10', title: '法人化の手続き（有料 400 人に届いたら・税理士）', done: '登記', h: 0 },
-  { role: 'ceo', period: '2027-11', title: '2028 年の予算と人の案・借入の申し込み', done: '予算の案（文書）・借入の申請', h: 1, flex: true },
+  { role: 'ceo', period: '2027-11', title: '2028 年の予算と人の案・借入の申し込み', done: '予算の案（文書）・借入の申請', h: 1 },
   { role: 'dev', period: '2027-11', title: 'Android の外注を見る（週 1 時間）', done: '確かめの記録 4 回', h: 4.3, android: true },
-  { role: 'mkt', period: '2027-11', title: '創業メンバーの更新（年額の更新率の初めての値）', done: '年額の更新率 1 つ（%・目標 40%）', h: 0.5, flex: true },
+  { role: 'mkt', period: '2027-11', title: '創業メンバーの更新（年額の更新率の初めての値）', done: '年額の更新率 1 つ（%・目標 40%）', h: 0.5 },
     { role: 'ceo', period: '2027-12', title: '2027 年末の関門の判定・2028 年に進むか・専業になるか', done: '判定の記録', h: 1.5 },
   { role: 'dev', period: '2027-12', title: 'Android の外注を見る（週 1 時間）・テスト版を受け取る', done: 'テスト版で受け入れの基準 3 項目（主な流れ・課金・メモの同期）が動く', h: 4.3, android: true },
   { role: 'sns', period: '2027-12', title: '「今年の読書」を 1 枚に（いちばんの山場）', done: '12 月の共有 500 枚', h: 0 },
   { role: 'ops', period: '2027-12', title: '年末の負荷に備える', done: '12 月の止まった時間 0', h: 0 },
 
   // ════ 月（2028〜2029 は主な節目）════
-  { role: 'ceo', period: '2028-01', title: '借入（¥500 万・年 2%・6 か月すえ置き）', done: '入金', h: 0.5, flex: true },
+  { role: 'ceo', period: '2028-01', title: '借入（¥500 万・年 2%・6 か月すえ置き）', done: '入金', h: 0.5 },
   { role: 'mkt', period: '2028-01', title: '広告の試しを始める（App Store の検索広告・月 ¥10 万）', done: '広告の試し 月 ¥10 万の開始の記録', h: 0 },
   { role: 'dev', period: '2028-01', title: 'Android の外注を見る（週 1 時間）', done: '確かめの記録 4 回', h: 4.3, android: true },
   { role: 'dev', period: '2028-02', title: 'Android の外注を見る（週 1 時間）・受け入れの基準で確かめる', done: '受け入れの基準の 3 項目がすべて通る', h: 4.3, android: true },

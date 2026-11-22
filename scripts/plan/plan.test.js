@@ -116,6 +116,13 @@ describe('責任者と予定', () => {
     const pieces = (t) => { const out = []; let d = 0; let cur = ''; for (const c of t) { if (c === '（') d += 1; if (c === '）') d -= 1; if (c === '・' && d === 0) { out.push(cur); cur = ''; } else cur += c; } out.push(cur); return out; };
     for (const x of [...ITEMS, ...HOLD_ITEMS]) { expect(ROLES.some((r) => r.id === x.role)).toBe(true); for (const p of pieces(x.done)) expect(ok.test(p), `${x.period} ${x.role}「${p}」`).toBe(true); }
   });
+  it('後ろへ回してよい（flex）のは、日付の決まっていない仕事だけ', () => {
+    for (const x of ITEMS.filter((i) => i.flex)) expect(/借入|関門|今年の読書|更新|法人化|登記|公開/.test(x.title), x.title).toBe(false);
+  });
+  it('2028 年 6 月に外注を止めたあと 2028 年末の関門にも落ちても、止めた外注は戻らない', () => {
+    const r = simulate({ ...BASE, midChecks: [{ at: '2028-06', paid: 1e9 }], gates: { ...BASE.gates, 2028: { ...BASE.gates[2028], paid: 1e9 } } });
+    expect(r.filter((x) => x.ym.startsWith('2029-')).every((x) => x.people - x.ownerPay <= BASE.supportYen + 1)).toBe(true);
+  });
   it('Android の外注を見る時間が週 2 時間に増えても、決めておいた減らし方（SNS を減らす・flex の成果物を次へ回す）で 8 割に収まる', () => {
     for (const m of ['2027-10', '2027-11', '2027-12', '2028-01', '2028-02']) { const o = ownerHoursOfMonth(m, { busy: true }); expect(o.total, m).toBeLessThanOrEqual(o.planLimit); }
   });

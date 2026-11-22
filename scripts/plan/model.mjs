@@ -284,7 +284,7 @@ export function simulate(A = BASE, opts = {}) {
     }
     const salaries = hired.filter((h) => ym >= h.from).reduce((s, h) => s + h.salaryYen * (1 + A.socialRate), 0);
     const ownerBase = plan === 'pass' ? monthOrYear(A.ownerPay.pass, ym) : plan === 'hold' ? monthOrYear(A.ownerPay.hold, ym) : frozen.owner;
-    if (plan === 'pass') { frozen.owner = ownerBase; frozen.outsource = outsourceBase; }
+    if (plan !== 'freeze') { frozen.owner = ownerBase; frozen.outsource = outsourceBase; } // 今の契約を控える（guard で止めた外注は 0 のまま）
     const ownerPay = ownerBase * (1 + (incorporatedAt && ym >= incorporatedAt ? A.socialRate : 0));
     const people = inPlan ? ownerPay + outsource + androidBuild + salaries + hireFees : 0;
     const marketing = inPlan ? adSpend + ((isPass ? A.creative.pass : A.creative.hold)[y] ?? 0) : 0;
@@ -327,9 +327,9 @@ export function simulate(A = BASE, opts = {}) {
     if (noGates) continue;
     // ── 現金の見張り: その月の支出の 3 か月分を下回ったら、その年の残りは止める
     const receivable = (cashIn[addMonths(ym, 1)] || 0) + (cashIn[addMonths(ym, 2)] || 0); // 決まっている入金（App Store・法人の 2 か月分）
-    if (mode[y] === 'pass' && cash + receivable < A.cashGuardMonths * (spend - hireFees - incorporation) && y >= 2028) { mode[y] = 'guard'; events.push({ ym, what: '現金の見張り: 3 か月分を下回ったので、年の残りは外注と新しい費用を止める' }); gateResult.guard = gateResult.guard || ym; }
+    if (mode[y] === 'pass' && cash + receivable < A.cashGuardMonths * (spend - hireFees - incorporation) && y >= 2028) { mode[y] = 'guard'; frozen.outsource = 0; events.push({ ym, what: '現金の見張り: 3 か月分を下回ったので、年の残りは外注と新しい費用を止める' }); gateResult.guard = gateResult.guard || ym; }
     // ── 逆の決まり
-    for (const c of A.midChecks) if (ym === c.at) { const ok = paid >= c.paid; gateResult[`mid${y}`] = { ok, paid: Math.round(paid) }; if (!ok && mode[y] === 'pass') { mode[y] = y <= 2028 ? 'guard' : 'freeze'; events.push({ ym, what: `${ym} の逆の決まり: 有料 ${Math.round(paid)} 人 ＜ ${c.paid} 人なので${y <= 2028 ? '外注と広告の試しを止める（オーナーの報酬は残す）' : '社員を足さない'}` }); } }
+    for (const c of A.midChecks) if (ym === c.at) { const ok = paid >= c.paid; gateResult[`mid${y}`] = { ok, paid: Math.round(paid) }; if (!ok && mode[y] === 'pass') { mode[y] = y <= 2028 ? 'guard' : 'freeze'; if (y <= 2028) frozen.outsource = 0; events.push({ ym, what: `${ym} の逆の決まり: 有料 ${Math.round(paid)} 人 ＜ ${c.paid} 人なので${y <= 2028 ? '外注と広告の試しを止める（オーナーの報酬は残す）' : '社員を足さない'}` }); } }
     // ── 年末の関門（次の年の費用の計画を決める）
     if (mo === 12 && A.gates[y]) {
       const g = A.gates[y];
@@ -390,6 +390,7 @@ export function sensitivity(A = BASE) {
     ['値段を 10% 下げる（ほかは同じ）', { monthlyYen: A.monthlyYen * 0.9, annualYen: A.annualYen * 0.9 }],
     ['法人の試しが通らない（更新 2 社）', { b2bRenewRate: 0.4 }],
     ['無料の人の AI の原価 ×3', { aiPerFreeYen: A.aiPerFreeYen * 3 }],
+    ['（上振れ）フォローとフィードが Strava のように効く（共有からの流入 ×2・月額の解約 −1 ポイント・2028 年から）', { shareInstallsPerActive: A.shareInstallsPerActive * 2, steadyChurn: { ...A.steadyChurn, 2028: A.steadyChurn[2028] - 0.01, 2029: A.steadyChurn[2029] - 0.01 } }],
     ['まとめて悪い（有料になる率 −30% と流入 −30%）', { installToPaid: scale(A.installToPaid, 0.7), organicMult: A.organicMult * 0.7 }],
   ];
   return cases.map(([label, patch]) => {
