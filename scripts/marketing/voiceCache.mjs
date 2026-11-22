@@ -20,7 +20,10 @@ export function spokenText(text) {
     .trim();
 }
 
-export const voiceId = () => `${process.env.MKT_VOICE || 'onyx'}|${process.env.MKT_VOICE_STYLE || ''}`;
+// 声の種類ごとに作り置きを分ける（MKT_VOICE_ENGINE=say のときは Mac の say の声）
+export const voiceId = () => (process.env.MKT_VOICE_ENGINE === 'say'
+  ? `say|${process.env.MKT_SAY_VOICE || 'Reed'}`
+  : `${process.env.MKT_VOICE || 'onyx'}|${process.env.MKT_VOICE_STYLE || ''}`);
 export const keyOf = (text) => createHash('sha1').update(`${voiceId()}|${spokenText(text)}`).digest('hex').slice(0, 16);
 export const clipPath = (text) => join(CACHE_DIR, `${keyOf(text)}.mp3`);
 

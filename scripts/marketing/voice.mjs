@@ -83,12 +83,17 @@ function duration(bin, file) {
 // 1 文の声。作り置き（voice-cache）があればそれを使い、無ければ作って作り置きにも入れる（openai のときだけ）。
 export async function synth(text, engine, bin, fallbackFile) {
   const spoken = spokenText(text);
-  if (engine === 'openai') {
+  if (engine === 'openai' || engine === 'say') {
     const file = clipPath(spoken);
     const idx = readIndex();
     if (!existsSync(file)) {
       mkdirSync(CACHE_DIR, { recursive: true });
-      await synthOpenai(spoken, file);
+      if (engine === 'openai') await synthOpenai(spoken, file);
+      else {
+        const aiff = synthSay(spoken, file);
+        const r = spawnSync(bin, ['-hide_banner', '-loglevel', 'error', '-y', '-i', aiff, '-c:a', 'libmp3lame', '-b:a', '128k', file], { encoding: 'utf8' });
+        if (r.status !== 0) throw new Error('say の声を mp3 にできませんでした');
+      }
     }
     const len = idx[keyOf(spoken)]?.len || duration(bin, file);
     if (!idx[keyOf(spoken)]) { idx[keyOf(spoken)] = { text: spoken, len }; writeIndex(idx); }
@@ -125,14 +130,17 @@ if (process.argv[1] && process.argv[1].endsWith('voice.mjs')) {
   const args = process.argv.slice(2);
   const ei = args.indexOf('--engine');
   // 鍵: 環境変数か、Mac のキーチェーン（security add-generic-password -a orime -s orime-openai-tts -w で入れる・画面には出さない）
-  if (!process.env.OPENAI_API_KEY && process.platform === 'darwin') {
+  // 声を --engine で say / tone に決めたときは、鍵を見に行かない
+  const asked = ei >= 0 ? args[ei + 1] : null;
+  if ((!asked || asked === 'openai') && !process.env.OPENAI_API_KEY && process.platform === 'darwin') {
     const k = spawnSync('security', ['find-generic-password', '-s', 'orime-openai-tts', '-w'], { encoding: 'utf8' });
     if (k.status === 0 && k.stdout.trim()) process.env.OPENAI_API_KEY = k.stdout.trim();
   }
-  const engine = ei >= 0 ? args[ei + 1] : (process.env.OPENAI_API_KEY ? 'openai' : 'say');
+  const engine = asked || (process.env.OPENAI_API_KEY ? 'openai' : 'say');
+  process.env.MKT_VOICE_ENGINE = engine === 'say' ? 'say' : (process.env.MKT_VOICE_ENGINE || '');
   if (args.includes('--prepare')) {
-    // 台本の文を先に声にする（撮る前に。撮るときに声の長さで間を取る）
-    if (engine !== 'openai') { console.error('--prepare は OpenAI の声だけ（鍵が要る）。'); process.exit(1); }
+    // 台本の文を先に声にする（撮る前に。撮るときに声の長さで間を取る）。撮るときも同じ MKT_VOICE_ENGINE を渡す
+    if (engine !== 'openai' && engine !== 'say') { console.error('--prepare は OpenAI か Mac の say の声だけ。'); process.exit(1); }
     const bin = await findFfmpeg();
     const names = args.filter((a, i) => !a.startsWith('--') && args[i - 1] !== '--engine');
     const { SCENARIOS } = await import('./scenarios.mjs');
