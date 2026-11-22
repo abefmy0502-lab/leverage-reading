@@ -284,8 +284,28 @@ export function createReadingSessionStore({ getClient = () => null, storage = de
     switchUser(null);
   }
 
+  // 1 回分を消す（計測を止め忘れた回を記録から外す・2026-11-22 点検）。表と端末の控えの両方から。
+  //   表から消せなかったら false（控えだけの行は控えから消せれば true）。
+  async function remove(userId, id) {
+    if (!id) return false;
+    const inServer = serverRows.some((r) => r.id === id);
+    if (inServer) {
+      const client = getClient();
+      if (!client || !userId) return false;
+      try {
+        const { error } = await client.from('reading_sessions').delete().eq('id', id).eq('user_id', userId);
+        if (error) return false;
+      } catch { return false; }
+      serverRows = serverRows.filter((r) => r.id !== id);
+    }
+    const local = readLocal(userId);
+    if (local.some((r) => r.id === id)) writeLocal(local.filter((r) => r.id !== id), userId);
+    notify();
+    return true;
+  }
+
   return {
-    load, save, rows, subscribe, clearLocal, syncLocal, flushBeforeSignOut,
+    load, save, remove, rows, subscribe, clearLocal, syncLocal, flushBeforeSignOut,
     hasLocal: () => readLocal().length > 0,
     isLoaded: (userId) => loadedFor === (userId || null) || triedFor === (userId || null),
   };

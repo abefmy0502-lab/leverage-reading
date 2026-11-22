@@ -13,7 +13,7 @@ export const readingSessions = createReadingSessionStore({
 //   端末の控えは利用者ごとの鍵なので、次にログインした別の人には数えない。
 registerBeforeSignOut((userId) => readingSessions.flushBeforeSignOut(userId));
 
-// 戻り値: { rows, loaded, save(row) }
+// 戻り値: { rows, loaded, save(row), remove(id) }
 export function useReadingSessions() {
   const { user } = useAuth();
   const userId = user?.id || null;
@@ -36,6 +36,7 @@ export function useReadingSessions() {
     rows: readingSessions.rows(),
     loaded: readingSessions.isLoaded(userId),
     save: (row) => readingSessions.save(userId, row),
+    remove: (id) => readingSessions.remove(userId, id),
   };
 }
 

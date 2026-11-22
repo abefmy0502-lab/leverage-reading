@@ -3291,13 +3291,13 @@ function AuthedApp() {
   // 📗 本棚から直接ステータス変更（長押し → ステータスを変える）。
   // 日付の補完ルールはクイック追加（WantPhase）と同じ:
   // 読書中/読了で startDate、読了で doneDate を未設定時のみ埋める。
-  const setBookStatusQuiet = (book, newStatus) => {
+  const setBookStatusQuiet = (book, newStatus, extra = null) => {
     if (!book || book.status === newStatus) return;
     const today = todayLocal();
-    const patch = { status: newStatus };
+    const patch = { status: newStatus, ...(extra || {}) };
     if ((newStatus === 'reading' || newStatus === 'done') && !book.startDate) patch.startDate = today;
     if (newStatus === 'done' && !book.doneDate) patch.doneDate = today;
-    applyBookPatchQuiet(book.id, patch, `「${getSt(newStatus).label}」に変更しました。`);
+    applyBookPatchQuiet(book.id, patch, `${getSt(newStatus).label}にしました。`);
     if (newStatus === 'before' || newStatus === 'reading' || newStatus === 'done') {
       track('status_changed', { to: newStatus });
     }
@@ -3458,8 +3458,8 @@ function AuthedApp() {
       if (!String(sheet || '').trim()) throw new Error('読書計画シートを作れませんでした。少し時間をおいて、もう一度お試しください。');
       const checked = await checkPlanBooks(sheet);
       if (checked !== sheet) setForm((f) => (f && f.id === targetId ? { ...f, aiStrategy: checked } : f));
-      // Fresh generation invalidates any prior 修正リクエスト history.
-      if (targetId) clearStrategyHistory(targetId);
+      // 作り直したときは、前のシートを「元に戻す」に積む（前はここで履歴を消し、ひと押しで前のシートが戻せなくなっていた・2026-11-22 点検）。
+      if (targetId && prevStrategy.trim()) { saveStrategyHistory(targetId, prevStrategy); setStrategyHistoryTick((t) => t + 1); }
       // できたシートはすぐ保存する（「保存」を押し忘れて閉じるとシートが消えていた・2026-09-29）。
       persistPlanSheet(targetId, checked, '読書計画シートを保存しました');
     } catch (error) {
@@ -3699,7 +3699,9 @@ function AuthedApp() {
       const raw = await streamSetupSheet(src, (fullText) => setPlanGen((g) => (g && g.bookId === bookId ? { ...g, text: fullText } : g)));
       if (!String(raw || '').trim()) throw new Error('読書計画シートを作れませんでした。少し時間をおいて、もう一度お試しください。');
       const sheet = await checkPlanBooks(raw);
-      clearStrategyHistory(bookId);
+      // 前のシートがあれば「元に戻す」に積む（編集画面の「作り直す」と同じ・2026-11-22）。
+      if (String(book.aiStrategy || '').trim()) saveStrategyHistory(bookId, book.aiStrategy);
+      else clearStrategyHistory(bookId);
       const fields = {
         investPurpose: src.investPurpose || '',
         currentChallenge: src.currentChallenge || '',
@@ -3721,11 +3723,12 @@ function AuthedApp() {
   // Refinement: take the current sheet + an instruction and ask the AI to
   // rewrite it. Saves a single-step history to localStorage so the user
   // can undo.
+  // 戻り値: 直して保存できたら true（そのときだけ「直したいところ」の欄を空にする・2026-11-22 点検）。
   const runStrategyEdit = async (instruction) => {
-    if (!form?.aiStrategy?.trim()) return;
-    if (!instruction?.trim()) return;
-    if (!requirePlan('読書計画シート')) return;
-    if (!(await ensureAiConsent('setup_sheet_edit'))) return; // 🤝 はじめて AI に送るときの同意（lib/aiConsent.js）
+    if (!form?.aiStrategy?.trim()) return false;
+    if (!instruction?.trim()) return false;
+    if (!requirePlan('読書計画シート')) return false;
+    if (!(await ensureAiConsent('setup_sheet_edit'))) return false; // 🤝 はじめて AI に送るときの同意（lib/aiConsent.js）
     const prev = form.aiStrategy;
     const targetId = form?.id;
     setAiLoading(true);
@@ -3772,11 +3775,13 @@ function AuthedApp() {
       const checked = await checkPlanBooks(grounded);
       if (checked !== lastText) setForm((f) => (f && f.id === targetId ? { ...f, aiStrategy: checked } : f));
       persistPlanSheet(targetId, checked, '読書計画シートを直して、保存しました');
+      return true;
     } catch (error) {
       // ストリーミング失敗時は元のシートを戻す (undo 履歴は触らない)。
       setForm((f) => (f && f.id === targetId ? { ...f, aiStrategy: prev } : f));
       if (error?.monthlyLimit) planTokensOutToast(error);
       else if (!error?.paywall) toast.error(toMessage(error, '読書計画シートを修正できませんでした。'));
+      return false;
     } finally {
       setAiLoading(false);
     }
@@ -3788,7 +3793,8 @@ function AuthedApp() {
     if (!prev) return;
     setForm((f) => ({ ...f, aiStrategy: prev }));
     setStrategyHistoryTick((t) => t + 1);
-    toast.info('ひとつ前の読書計画シートに戻しました。');
+    // 作る・直すと同じく、戻したシートもすぐ保存する（前は画面だけ戻り、「変更を破棄」で直したシートが残っていた・2026-11-22 点検）。
+    persistPlanSheet(form.id, prev, 'ひとつ前の読書計画シートに戻しました');
   };
 
   // Adds a recommended book (from reading plan sheet / 投資の効果 related-books
@@ -4604,7 +4610,8 @@ function AuthedApp() {
     // 12 時間より前に始めて置き忘れたものは再開しないが、読んだ時間は 1 回分として残す（タイマーは長さまで・計測は 6 時間まで）。
     const saved = loadFocusState(Date.now(), undefined, {
       // ログインしている人の本のときだけ（控えは利用者ごとの鍵・lib/readingSessions.js・2026-10-10）
-      onStale: (row) => { if (user?.id && books.some((x) => x.id === row.book_id)) readingSessions.save(user.id, row); },
+      // 計測（時間を決めずに読む）の置き忘れは、何分読んだか分からないので残さない（前は 6 時間として記録され、消せなかった・2026-11-22 点検）。
+      onStale: (row) => { if (row.mode !== 'count' && user?.id && books.some((x) => x.id === row.book_id)) readingSessions.save(user.id, row); },
     });
     if (!saved) return;
     const b = books.find((x) => x.id === saved.bookId);
@@ -6431,7 +6438,22 @@ function AuthedApp() {
               // ⏱ 読む（集中モード・読書中の本だけ・2026-10-09）
               onRead={openFocusStart}
               // 読書中が 0 冊のときの候補（積読）の「読書を開始する」: 本を開かずにその場で読書中へ（楽観的に変えて、失敗したら戻す）。
-              onStartReading={(b) => { haptic.light(); setBookStatusQuiet(b, 'reading'); }}
+              onStartReading={async (b) => {
+                haptic.light();
+                // 本の詳細の「読み始める」と同じ決まり: 得たいことが無ければ先に決める（ホームからは素通りしていた・2026-11-22 点検）。
+                const purposeDraft = (buildFormFromBook(b).investPurpose || '').trim();
+                if (!purposeDraft) {
+                  const ok = await confirm({
+                    title: '読む前に、この本から得たいことを決めましょう',
+                    message: '1 行で十分です。読み終えたあとに見返す手がかりになります。',
+                    confirmLabel: '得たいことを入力する',
+                    cancelLabel: '閉じる',
+                  });
+                  if (ok) openSetup(b);
+                  return;
+                }
+                setBookStatusQuiet(b, 'reading', (b.investPurpose || '').trim() ? null : { investPurpose: purposeDraft });
+              }}
               onOpenLibrary={() => startTransition(() => setShelfMode('library'))}
               onSeeAllReading={() => { setStatusFilter('reading'); setShelfMode('library'); }}
               onCoverRetry={triggerCoverAutoRetry}
@@ -7769,8 +7791,8 @@ function WebAppOnlyGate() {
     setExporting(true);
     try {
       const { exportMemosAsMarkdown } = await import('./lib/exportData');
-      const { memos } = await exportMemosAsMarkdown(user?.id);
-      toast.success(`メモ ${memos} 件を書き出しました。`);
+      const { memos, delivery } = await exportMemosAsMarkdown(user?.id);
+      if (delivery !== 'cancelled') toast.success(`メモ ${memos} 件を書き出しました。`);
     } catch (e) {
       toast.error(toMessage(e, 'メモを書き出せませんでした。'));
     } finally {

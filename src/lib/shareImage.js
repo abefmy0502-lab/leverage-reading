@@ -36,7 +36,7 @@ function blobToBase64(blob) {
   });
 }
 
-async function shareNative(blob, filename, text) {
+async function shareNative(blob, filename, text, dialogTitle = '画像をシェア') {
   const [{ Filesystem, Directory }, { Share }] = await Promise.all([
     import('@capacitor/filesystem'),
     import('@capacitor/share'),
@@ -44,13 +44,19 @@ async function shareNative(blob, filename, text) {
   const data = await blobToBase64(blob);
   const written = await Filesystem.writeFile({ path: filename, data, directory: Directory.Cache });
   try {
-    await Share.share({ files: [written.uri], ...(text ? { text } : {}), dialogTitle: '画像をシェア' });
+    await Share.share({ files: [written.uri], ...(text ? { text } : {}), dialogTitle });
   } catch (e) {
     // 共有シートを閉じただけ（iOS は「Share canceled」を投げる）は失敗にしない。
     if (/cancel/i.test(String(e?.message || e))) return 'cancelled';
     throw e;
   }
   return 'shared';
+}
+
+// 📥 画像以外のファイル（データの書き出し）を iPhone のアプリで渡す（2026-11-22・WebView は a[download] を無視するので、
+//   キャッシュに書いて共有シート＝「"ファイル"に保存」で残せる）。戻り値: 'shared' | 'cancelled'
+export function shareFileNative(blob, filename, dialogTitle = 'ファイルを保存') {
+  return shareNative(blob, filename, '', dialogTitle);
 }
 
 const isAbort = (e) => e?.name === 'AbortError' || /abort|cancel/i.test(String(e?.message || ''));

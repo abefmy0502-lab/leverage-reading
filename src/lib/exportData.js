@@ -15,6 +15,8 @@
 
 import { supabase } from './supabase';
 import { SOCIAL_ON, loadFollows } from './social';
+import { isNative } from './iap';
+import { shareFileNative } from './shareImage';
 
 export const EXPORT_TABLES = [
   'books',
@@ -81,7 +83,10 @@ function todayYMD() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function downloadBlob(filename, blob) {
+// 戻り値: 'saved'（ブラウザがダウンロード）| 'shared'（iPhone のアプリの共有シートで渡した）| 'cancelled'（共有シートを閉じた）。
+// iPhone のアプリの WebView は a[download] を無視する＝前は何も残らないのに「書き出しました」と出ていた（2026-11-22 点検）。
+async function downloadBlob(filename, blob) {
+  if (isNative) return shareFileNative(blob, filename, 'データを保存');
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -91,6 +96,7 @@ function downloadBlob(filename, blob) {
   document.body.removeChild(a);
   // 1s is plenty — Safari sometimes complains if revoked too early.
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+  return 'saved';
 }
 
 /**
@@ -174,7 +180,7 @@ export async function exportUserDataAsCSV(userId, { onProgress } = {}) {
   // 1 つの CSV にまとめてダウンロードする（2026-09-27）。以前は表ごとに 8 回ダウンロードが走り、
   // iPhone では 2 つ目以降が止められていた。ZIP は依存を増やすので使わない。
   const csv = arrayToCSV(allRows);
-  downloadBlob(filename, new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+  summary.delivery = await downloadBlob(filename, new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
   return summary;
 }
 
@@ -279,6 +285,6 @@ export async function exportMemosAsMarkdown(userId) {
 
   const md = lines.join('\n');
   const blob = new Blob([md], { type: 'text/markdown;charset=utf-8;' });
-  downloadBlob(`orime-memos-${date}.md`, blob);
-  return { books: bookCount, memos: memos.length };
+  const delivery = await downloadBlob(`orime-memos-${date}.md`, blob);
+  return { books: bookCount, memos: memos.length, delivery };
 }

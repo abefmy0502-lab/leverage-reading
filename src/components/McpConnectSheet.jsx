@@ -91,7 +91,7 @@ export default function McpConnectSheet({ onClose }) {
   };
 
   const remove = async (k) => {
-    const ok = await confirm({ title: `「${k.name || DEFAULT_NAME}」の接続を取り消しますか？`, message: 'この接続キーを使っている AI は、すぐに読み書きできなくなります。もう一度つなぐには、新しいキーを作ります。', confirmLabel: '取り消す', cancelLabel: 'キャンセル', destructive: true });
+    const ok = await confirm({ title: `「${k.name || DEFAULT_NAME}」の接続を取り消しますか？`, message: 'この接続キーを使っている AI は、すぐに読み書きできなくなります。もう一度つなぐには、新しいキーを作ります。', confirmLabel: '取り消す', cancelLabel: 'キャンセル', danger: true });
     if (!ok) return;
     const { error } = await deleteKey(supabase, k.id);
     if (error) { toast.error(toMessage(error, '取り消せませんでした。通信状況を確認して、もう一度お試しください。')); return; }
@@ -112,7 +112,18 @@ export default function McpConnectSheet({ onClose }) {
   );
 
   return (
-    <BottomSheet title="AI と連携" onClose={onClose} layer="dialog">
+    <BottomSheet
+      title="AI と連携"
+      onClose={onClose}
+      layer="dialog"
+      // 作ったキーの URL はこの画面にしか出ない。うっかり閉じて作り直しにならないよう、閉じる前に確かめる（2026-11-22 点検）。
+      beforeClose={fresh ? () => confirm({
+        title: 'URL をコピーしましたか？',
+        message: '閉じると、この接続キーの URL はもう表示されません。',
+        confirmLabel: '閉じる',
+        cancelLabel: '戻る',
+      }) : null}
+    >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)', padding: 'var(--space-2) 0 var(--space-6)' }}>
         {/* 導入は 1 行だけ（作ったあとは URL を上に）。守りの説明はヘルプ（billing）と、作った直後の補足に。 */}
         {!fresh && <p style={lead}>{withPhraseBreaks('いつもの Claude や ChatGPT が、あなたの本・メモ・行動を読めるようになります。')}</p>}

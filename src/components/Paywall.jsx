@@ -632,8 +632,8 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
     if (exporting) return;
     setExporting(true);
     try {
-      const { memos } = await exportMemosAsMarkdown(user?.id);
-      toast.success(`メモ ${memos} 件を書き出しました。`);
+      const { memos, delivery } = await exportMemosAsMarkdown(user?.id);
+      if (delivery !== 'cancelled') toast.success(`メモ ${memos} 件を書き出しました。`);
     } catch (e) {
       toast.error(toMessage(e, 'データを書き出せませんでした。'));
     } finally {

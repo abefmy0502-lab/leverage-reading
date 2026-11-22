@@ -716,6 +716,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
     setExporting(true);
     try {
       const summary = await exportUserDataAsCSV(user.id);
+      if (summary.delivery === 'cancelled') return; // 共有シートを閉じただけ（何も残していない）
       // 知らせは「行」ではなく本とメモの数で（何が入ったかが分かる・2026-09-30）。
       const countOf = (table) => summary.find((s) => s.table === table)?.count || 0;
       track(EVENTS.EXPORT_USED, { kind: 'csv' }); // 成功確定後のみ（fire-and-forget）
@@ -734,7 +735,8 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
     }
     setExportingMd(true);
     try {
-      const { memos } = await exportMemosAsMarkdown(user.id);
+      const { memos, delivery } = await exportMemosAsMarkdown(user.id);
+      if (delivery === 'cancelled') return;
       track(EVENTS.EXPORT_USED, { kind: 'markdown' }); // 成功確定後のみ（fire-and-forget）
       toast.success(`Markdown を書き出しました（メモ ${memos} 件）。`);
     } catch (e) {
@@ -803,6 +805,9 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
         setResetting(false);
         return;
       }
+      // 🧭 目標と入れた理由はログインの情報（user_metadata）にあるので、表とは別に空にする
+      //   （前は初期化のあと目標だけ戻り、ロードマップは消えていた・2026-11-22 点検）。空にできなくても初期化は止めない。
+      try { await supabase.auth.updateUser({ data: { app_goals: null, app_purpose: null } }); } catch { /* ignore */ }
       // 端末ローカルの一時状態（想起のクリア時刻・週次の問い等）も掃除して完全に空へ。
       // 読書の時間の控え・途中の集中モード・この本で学べること・本の分野の印・写真で共有の選び方なども（lib/deviceData.js）。
       clearDeviceData();

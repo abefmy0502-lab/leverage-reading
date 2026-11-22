@@ -345,7 +345,8 @@ export function BeforePhase({
   const submitEdit = () => {
     const v = editInstruction.trim();
     if (!v) return;
-    onRunStrategyEdit?.(v).then(() => setEditInstruction(''));
+    // 直して保存できたときだけ欄を空にする（プランの案内・同意をやめた・失敗では書いた言葉を残す）。
+    Promise.resolve(onRunStrategyEdit?.(v)).then((ok) => { if (ok) setEditInstruction(''); });
   };
 
   const planReady = !!form.investPurpose?.trim();

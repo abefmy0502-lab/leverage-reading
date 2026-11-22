@@ -30,9 +30,11 @@ import { track, EVENTS, minutesBucket } from '../lib/analytics';
 import {
   displayMinutes, timerProgress, isTimerDone, pauseFocus, resumeFocus, continueAsCount,
   sessionRow, saveFocusState, readFocusState, todaySeconds, totalSeconds, fmtDuration, fmtClock, lengthMinutes,
+  elapsedSeconds, MAX_SESSION_SEC,
 } from '../lib/readingTime';
 
 export const HOLD_MS = 1000;
+const LONG_COUNT_SEC = 2 * 3600; // 計測でこれより長い回は、おわったときに「記録しない」を出す
 const RING_R = 96;
 const HOLD_R = 31;
 // 輪の長さは pathLength="1" で 1 として数える（vector-effect="non-scaling-stroke" と画面の px で数えた長さを混ぜると、
@@ -170,6 +172,9 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
   const [now, setNow] = useState(() => Date.now());
   const [phase, setPhase] = useState(() => initialPhase || (isTimerDone(initial) ? 'timerDone' : 'running'));
   const [summary, setSummary] = useState(null); // { todaySec, totalSec }
+  // 計測で 2 時間を超えた回は「止め忘れ」のことがあるので、おわったときに外せる（2026-11-22 点検）。{ id }
+  const [longCount, setLongCount] = useState(null);
+  const [removing, setRemoving] = useState(false);
   const [memoOpen, setMemoOpen] = useState(false); // 'running' | 'summary' | false
   const [holding, setHolding] = useState(false);
   const [hint, setHint] = useState('');
@@ -180,7 +185,10 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
   const [memoCount, setMemoCount] = useState(0); // 読んでいる間に書いたメモの数（おわったときに「メモ N 件」）
   const paused = Number.isFinite(s?.pausedAt);
 
-  useKeepAwake(phase !== 'summary');
+  // 画面を明るいままにするのは読んでいる間だけ（一時停止中・タイマーが終わったあと・6 時間に届いたあとは端末の設定どおりに暗くする
+  //   ＝前は終わったまま寝てしまうと朝まで点いていた・2026-11-22 点検）。
+  const capped = s?.mode !== 'timer' && elapsedSeconds(s, now) >= MAX_SESSION_SEC;
+  useKeepAwake(phase === 'running' && !paused && !capped);
 
   // ブラウザ・Android の「戻る」で画面を離れない（消えると一時停止・「続けて読む」が失われる）。
   // おわったあとの画面だけは「戻る」で閉じる。
@@ -255,6 +263,7 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
       if (row) {
         const r = await sessions.save(row);
         if (r?.row) rows = [r.row, ...rows.filter((x) => x.id !== r.row.id)];
+        if (row.mode === 'count' && row.seconds >= LONG_COUNT_SEC) setLongCount({ id: r?.row?.id || row.id });
       }
     } finally {
       saveFocusState(null);
@@ -384,6 +393,24 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
                 <p style={{ margin: summary.totalSec > summary.todaySec ? 0 : 'var(--space-6) 0 0', fontSize: 'var(--text-meta)', color: 'var(--focus-ink-3)', fontVariantNumeric: 'tabular-nums' }}>
                   メモ {memoCount} 件
                 </p>
+              )}
+              {longCount && (
+                <button
+                  type="button"
+                  disabled={removing}
+                  onClick={async () => {
+                    if (removing) return;
+                    setRemoving(true);
+                    const ok = await sessions.remove(longCount.id);
+                    setRemoving(false);
+                    if (!ok) { toast.error('記録を外せませんでした。つながってから、もう一度お試しください。'); return; }
+                    toast.info('この回は記録しませんでした。');
+                    onClose();
+                  }}
+                  style={{ marginTop: 'var(--space-4)', minHeight: 'var(--tap-min)', padding: '0 var(--space-3)', background: 'none', border: 'none', color: 'var(--focus-ink-2)', fontSize: 'var(--text-sub)', textDecoration: 'underline', textUnderlineOffset: '0.2em', cursor: removing ? 'default' : 'pointer', fontFamily: 'inherit' }}
+                >
+                  {removing ? '外しています…' : '止め忘れていたら、この回を記録しない'}
+                </button>
               )}
             </>
           ) : null}
