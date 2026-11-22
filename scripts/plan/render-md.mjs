@@ -3,7 +3,7 @@
 //   node scripts/plan/render-md.mjs   → company/mid-term-plan-2027-2029.md の <!-- plan:XXX --> 〜 <!-- /plan:XXX --> を差し替える
 import { readFileSync, writeFileSync } from 'node:fs';
 import { SCENARIOS, BASE, simulate, yearly, lifetimeValue, paidAcquisition, sensitivity, breakEvenMonth, stressGrid } from './model.mjs';
-import { ROLES, ROUTINES, ITEMS, HOLD_ITEMS, BUSY_PLAN, isMonth, OWNER_WEEKLY_HOURS, ownerHoursOfMonth, FULLTIME_ROLE_HOURS, FULLTIME_WEEKLY_HOURS, fulltimeRoleHours } from './schedule.mjs';
+import { ROLES, ROUTINES, ITEMS, HOLD_ITEMS, GUARD_ITEMS, FREEZE_ITEMS, GUARD_ROLE_HOURS, FREEZE_ROLE_HOURS, BUSY_PLAN, isMonth, OWNER_WEEKLY_HOURS, ownerHoursOfMonth, FULLTIME_ROLE_HOURS, FULLTIME_WEEKLY_HOURS, fulltimeRoleHours } from './schedule.mjs';
 
 const DOC = 'company/mid-term-plan-2027-2029.md';
 const n = (v) => Math.round(v).toLocaleString('ja-JP');
@@ -60,7 +60,7 @@ blocks.pl = (() => {
     r('　うちオーナーの報酬', (o) => -o.ownerPay),
     r('広告・制作', (o) => -o.marketing),
     r('サーバー', (o) => -o.infra),
-    r('その他（Apple・税理士・法人化・道具・借入の利息）', (o) => -o.other),
+    r('その他（Claude Max・Apple・税理士・法人化・道具・借入の利息）', (o) => -o.other),
     r('税引き前の利益', (o) => o.profit, true),
     r('法人税など（その年の分・翌年 2 月に払う）', (o) => -o.taxForYear),
     r('税引き後の利益', (o) => o.profitAfterTax, true),
@@ -154,7 +154,7 @@ blocks.fulltime = (() => {
     `| 月 | ${ms.map((m) => m.slice(2).replace('-', '/')).join(' | ')} |`,
     `|---|${ms.map(() => '---').join('|')}|`,
     `| 役割の時間 | ${o.map((x) => x.routine.toFixed(1)).join(' | ')} |`,
-    `| 採用・引き継ぎ | ${o.map((x) => x.items.toFixed(1)).join(' | ')} |`,
+    `| 成果物（四半期 1/3・年 1/12・月） | ${o.map((x) => x.items.toFixed(1)).join(' | ')} |`,
     `| **合計（予定の上限 ${o[0].planLimit.toFixed(1)}）** | ${o.map((x) => `**${x.total.toFixed(1)}**`).join(' | ')} |`,
   ].join('\n');
 })();
@@ -181,6 +181,18 @@ blocks.busy = (() => {
 })();
 
 // 2027 年末の関門に落ちたときの 2028 年（兼業のまま）
+const altTable = (items, opt, from, to, roleHours, note) => {
+  const order = ROLES.map((r) => r.id);
+  const lines = ['| 時期 | 責任者 | やること | 終わりの基準 | オーナーの時間 |', '|---|---|---|---|---|'];
+  for (const x of [...items].sort((a, b) => a.period.localeCompare(b.period) || order.indexOf(a.role) - order.indexOf(b.role))) lines.push(`| ${x.period} | ${roleShort(x.role)} | ${x.title} | ${x.done} | ${x.h} 時間 |`);
+  const ms = []; for (let y = 2028; y <= 2029; y += 1) for (let m = 1; m <= 12; m += 1) { const ym = `${y}-${String(m).padStart(2, '0')}`; if (ym >= from && ym <= to) ms.push(ym); }
+  const t = ms.map((m) => ownerHoursOfMonth(m, opt).total);
+  const rh = Object.entries(roleHours).map(([k, v]) => `${roleShort(k)} 週 ${v} 時間`).join('・');
+  return `${lines.join('\n')}\n\n決まった仕事の時間を変える役割: ${rh}。${note}このときのオーナーの時間は月 ${Math.min(...t).toFixed(1)}〜${Math.max(...t).toFixed(1)} 時間（予定の上限 ${ownerHoursOfMonth(from, opt).planLimit.toFixed(1)} 時間・テストで確かめる）。`;
+};
+blocks.guard = altTable(GUARD_ITEMS, { guard: true }, '2028-07', '2028-12', GUARD_ROLE_HOURS, 'ここに無い責任者は基本の予定のまま。');
+blocks.freeze = altTable(FREEZE_ITEMS, { freeze: true }, '2029-01', '2029-12', FREEZE_ROLE_HOURS, '社員の募集・採用・引き継ぎの行はなくなり、ここに無い責任者は基本の予定のまま。外注を 2028 年 7 月に止めていた場合（両方）も、月 ' + (() => { const t = Array.from({ length: 12 }, (_, i) => ownerHoursOfMonth(`2029-${String(i + 1).padStart(2, '0')}`, { guard: true, freeze: true }).total); return `${Math.min(...t).toFixed(1)}〜${Math.max(...t).toFixed(1)} 時間に収まる。`; })());
+
 blocks.hold = (() => {
   const order = ROLES.map((r) => r.id);
   const lines = ['| 時期 | 責任者 | やること | 終わりの基準 | オーナーの時間 |', '|---|---|---|---|---|'];

@@ -99,6 +99,7 @@ export const BASE = {
   socialRate: 0.15, hireFeeRate: 0.3, // 会社が払う社会保険・採用の費用（年収の 30%）
   creative: { pass: { 2027: 30_000, 2028: 150_000, 2029: 50_000 }, hold: { 2027: 30_000, 2028: 30_000, 2029: 50_000 } },
   infraBaseYen: 30_000, infraPerUserYen: 3,
+  claudeMaxYen: 17_600, // 2026-11-22 オーナー「経費にクロードの Max プランも入れて」「$110.00 毎月この費用」: Claude Max 月 $110（税込）× 1 ドル 160 円。開発・運営の AI（Claude Code・スケジュールされたタスク）
   otherYen: { 2027: 20_000, 2028: 60_000, 2029: 150_000 }, incorporationYen: 250_000, accountantYen: 30_000, incorporateAtPaid: 400,
   personalTaxRate: 0.3, corpTaxRate: 0.3, corpTaxFixedYen: 70_000,
   loan: { yen: 5_000_000, at: '2028-01', rate: 0.02, graceMonths: 6, termMonths: 54 }, // 2027 年末の関門を通ったときだけ
@@ -294,7 +295,7 @@ export function simulate(A = BASE, opts = {}) {
     if (!incorporatedAt && inPlan && paid >= A.incorporateAtPaid && ym >= '2027-09') { incorporatedAt = addMonths(ym, 1); }
     if (incorporatedAt === ym) incorporation = A.incorporationYen;
     const interest = loanOut * (A.loan.rate / 12);
-    const other = inPlan ? (A.otherYen[y] ?? 0) + (incorporatedAt && ym >= incorporatedAt ? A.accountantYen : 0) + incorporation + interest : interest;
+    const other = inPlan ? (A.otherYen[y] ?? 0) + (A.claudeMaxYen ?? 0) + (incorporatedAt && ym >= incorporatedAt ? A.accountantYen : 0) + incorporation + interest : interest;
     const profit = revenue - fee - refunds - ai - people - marketing - infra - other;
     if (inPlan) {
       if (incorporatedAt && ym >= incorporatedAt) corpProfit[y] = (corpProfit[y] || 0) + profit;

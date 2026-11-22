@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { BASE, SCENARIOS, simulate, yearly, lifetimeValue, paidAcquisition, MONTHS, breakEvenMonth, stressGrid } from './model.mjs';
-import { ROLES, ROUTINES, ITEMS, HOLD_ITEMS, quarterOf, isMonth, TARGETS, TARGET_SPLIT, MILESTONES, OWNER_WEEKLY_HOURS, REV_SHARE_TARGETS, ownerHoursOfMonth } from './schedule.mjs';
+import { ROLES, ROUTINES, ITEMS, HOLD_ITEMS, GUARD_ITEMS, FREEZE_ITEMS, quarterOf, isMonth, TARGETS, TARGET_SPLIT, MILESTONES, OWNER_WEEKLY_HOURS, REV_SHARE_TARGETS, ownerHoursOfMonth } from './schedule.mjs';
 
-// 2026-11-22 オーナー「優秀なコンサルが何人読んでも納得する内容に」: 計画の数字は、この計算から出る（v4・点検の 3 回目を反映）
+// 2026-11-22 オーナー「優秀なコンサルが何人読んでも納得する内容に」: 計画の数字は、この計算から出る（文書 v10 と同じ版・点検の 4 回目を反映）
 const ys = (A, o) => Object.fromEntries(yearly(simulate(A, o), A).map((x) => [x.year, x]));
 
 describe('中期経営計画の計算', () => {
@@ -113,14 +113,19 @@ describe('責任者と予定', () => {
   });
   it('PdM の仕様は、開発が作る時期より前（つながり 1・3・Web の入口・年額の贈り物・AI と連携・学校・何年分のメモでも速い相談）', () => {
     const start = (p) => (p.length === 4 ? `${p}-01` : p.includes('Q') ? `${p.slice(0, 4)}-${String((Number(p.slice(-1)) - 1) * 3 + 1).padStart(2, '0')}` : p);
-    for (const k of ['つながり 1', 'つながり 3', 'Web の入口', '年額の贈り物', 'AI と連携', '学校', '何年分']) {
-      const first = (role) => ITEMS.filter((x) => x.role === role && x.period.length > 4 && x.title.includes(k)).map((x) => start(x.period)).sort()[0];
-      expect(first('pdm'), `PdM ${k}`).toBeTruthy(); expect(first('dev'), `開発 ${k}`).toBeTruthy();
-      expect(first('pdm') < first('dev'), k).toBe(true);
+    const pairs = [...['つながり 1', 'つながり 3', 'Web の入口', '年額の贈り物', 'AI と連携', '学校', '何年分', '紹介', '法人の管理画面'].map((k) => [k, k]), ['Android の仕様', 'Android の外注']];
+    for (const [pk, dk] of pairs) {
+      const first = (role, k) => ITEMS.filter((x) => x.role === role && x.period.length > 4 && x.title.includes(k)).map((x) => start(x.period)).sort()[0];
+      expect(first('pdm', pk), `PdM ${pk}`).toBeTruthy(); expect(first('dev', dk), `開発 ${dk}`).toBeTruthy();
+      expect(first('pdm', pk) < first('dev', dk), pk).toBe(true);
     }
   });
   it('法人化の手続きは、お金と決まりだけが持つ（ほかの役割に同じ成果物を置かない）', () => {
     expect(ITEMS.filter((x) => /法人化の手続き|法人化・/.test(x.title)).every((x) => x.role === 'fin')).toBe(true);
+  });
+  it('2028 年 6 月に外注を止めたとき（guard）・2028 年末の関門に落ちたとき（freeze）・その両方でも、オーナーが引き取った仕事を足して、どの月も 8 割に収まる', () => {
+    for (const opt of [{ guard: true }, { freeze: true }, { guard: true, freeze: true }]) for (const m of MONTHS.filter((x) => x >= '2028-07' && x <= '2029-12')) { const o = ownerHoursOfMonth(m, opt); expect(o.total, `${JSON.stringify(opt)} ${m}`).toBeLessThanOrEqual(o.planLimit); }
+    expect(GUARD_ITEMS.every((x) => typeof x.h === 'number') && FREEZE_ITEMS.every((x) => typeof x.h === 'number')).toBe(true);
   });
   it('2027 年末の関門に落ちて兼業のままの 2028 年も、どの月も 8 割に収まる', () => {
     for (const m of months.filter((x) => x.startsWith('2028-'))) { const o = ownerHoursOfMonth(m, { hold: true }); expect(o.total, m).toBeLessThanOrEqual(o.planLimit); }
