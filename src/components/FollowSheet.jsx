@@ -65,7 +65,7 @@ function PersonRow({ person, children, onOpen, first = false }) {
     <>
       <UserAvatar avatarId={person.avatar} nickname={person.nickname} size={40} />
       <span style={nameStyle}>{person.nickname || 'ニックネームなし'}</span>
-      {onOpen && <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />}
+      {onOpen && !children && <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />}
     </>
   );
   return (
@@ -601,7 +601,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
   const TABS = [
     { id: 'following', label: 'フォロー中' },
     { id: 'followers', label: 'フォロワー' },
-    { id: 'requests', label: '申し込み中' },
+    { id: 'requests', label: '送った申し込み' },
   ];
   const followingIds = new Set([...(lists?.following || []), ...(lists?.sent || [])].map((p) => p.publicId));
   const mutual = new Set((lists?.following || []).map((p) => p.publicId));
@@ -638,7 +638,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
                   : <p style={note}>{withPhraseBreaks(meReady ? 'フォロワーはいません。「あなたの ID」を渡すと、申し込みが届きます。' : 'フォロワーはいません。')}</p>)}
                 {tab === 'requests' && (
                   <>
-                    {lists.sent.length === 0 && <p style={note}>{withPhraseBreaks(lists.requests.length ? '送った申し込みはありません。届いた申し込みは上にあります。' : '送った申し込みはありません。')}</p>}
+                    {lists.sent.length === 0 && <p style={note}>{withPhraseBreaks(lists.requests.length && view.name !== 'list' ? '送った申し込みはありません。届いた申し込みは上にあります。' : '送った申し込みはありません。')}</p>}
                     {lists.sent.length > 0 && <p style={{ ...note, margin: '0 0 var(--space-2)' }}>相手の承認を待っています。</p>}
                     {lists.sent.map((p, i) => (
                       <PersonRow key={`s-${p.publicId}`} first={i === 0} person={p}>
@@ -669,10 +669,12 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
     return (<>{createPortal(
       <BottomSheet title="フォロー" onClose={onClose} layer="dialog">
         <div ref={bodyRef} style={sheetBody}>
-          <button type="button" onClick={() => setView({ name: 'home' })} style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))', marginBottom: 'var(--space-3)' }}>
-            <ChevronLeft size="1.1em" aria-hidden="true" />申し込む・あなたの ID
-          </button>
           {listsBlock}
+          {/* 申し込む・あなたの ID の画面へ（‹ は戻る専用の形なので使わない・設定のまとめの最後の行と同じ形・2026-11-22 ui-critic） */}
+          <button type="button" onClick={() => setView({ name: 'home' })} style={{ ...plainBtn, width: '100%', display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minHeight: 'var(--tap-min)', marginTop: 'var(--space-6)', padding: 'var(--space-3) 0', borderTop: '1px solid var(--separator)' }}>
+            <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-body)', color: 'var(--text)' }}>ID でフォローを申し込む</span>
+            <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+          </button>
           {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
         </div>
       </BottomSheet>,
@@ -703,7 +705,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
                 {lists.requests.map((p, i) => (
                   <PersonRow key={`r-${p.publicId}`} first={i === 0} person={p}>
                     <button type="button" style={rowLink} onClick={() => respond(p, false)}>断る</button>
-                    <button type="button" style={smallBtn} onClick={() => respond(p, true)}>承認</button>
+                    <button type="button" style={btnRow} onClick={() => respond(p, true)}>承認</button>
                     <button
                       type="button"
                       aria-label={`${who(p)}の操作`}

@@ -261,6 +261,31 @@ export async function extractTextFromImage({ base64, mediaType = 'image/jpeg' })
   return clamp(result.trim(), LIMITS.memoText);
 }
 
+// 📚 本棚の写真から本を読み取る（2026-11-22・lib/shelfScan.js）。答えは「書名 ／ 著者」の行（そのまま parseShelfScan へ）。
+//   purpose 'shelf_scan'＝写真から書き起こしと同じ行き先・無料プランは同じ月 10 回から。失敗は throw（写真から書き起こしと同じ）。
+export async function readShelfPhoto({ base64, mediaType = 'image/jpeg' }) {
+  if (!base64) throw new Error('画像を読み取れませんでした。');
+  const { SHELF_SCAN_SYSTEM, SHELF_SCAN_PROMPT } = await import('./shelfScan');
+  const messages = [
+    {
+      role: 'user',
+      content: [
+        { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
+        { type: 'text', text: SHELF_SCAN_PROMPT },
+      ],
+    },
+  ];
+  const result = await callClaude(messages, { system: SHELF_SCAN_SYSTEM, max_tokens: 1024, cacheSystem: true, model: MODEL_FAST, purpose: 'shelf_scan' });
+  if (typeof result !== 'string') throw new Error('読み取りに失敗しました。');
+  if (isClaudeErrorString(result)) {
+    const err = new Error(result);
+    if (isAiNoticeString(result)) err.notice = true;
+    throw err;
+  }
+  track('ai_used', { feature: 'shelf_scan' });
+  return result;
+}
+
 // ============================================================================
 // 🧠 マイ読書脳 (My Book Brain)
 // ============================================================================

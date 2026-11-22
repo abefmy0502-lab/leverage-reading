@@ -591,7 +591,7 @@ describe('無料プランの写真から書き起こし（月 AI_FREE_OCR_PER_MO
     await handler(ocrReq(), res);
     expect(res.statusCode).toBe(402);
     expect(res.body.error_code).toBe('free_ocr_limit_reached');
-    expect(res.body.error.message).toMatch(/^今月の写真から書き起こしは、ここまでです。/);
+    expect(res.body.error.message).toMatch(/^今月の写真から書き起こし（本棚の写真も含む）は、ここまでです。/);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

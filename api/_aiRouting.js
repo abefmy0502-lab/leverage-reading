@@ -56,6 +56,8 @@ export const ROUTES = {
   condense: { primary: `anthropic:${CONSULT_MODEL}`, claude: H },
   cards_to_summary: { primary: `anthropic:${CONSULT_MODEL}`, claude: H },
   ocr: { primary: `anthropic:${CONSULT_MODEL}`, claude: H },
+  // 📚 本棚の写真から本を追加（2026-11-22）: 背表紙の書名・著者を読む（写真から書き起こしと同じ行き先・無料プランは同じ月 10 回から）。
+  shelf_scan: { primary: `anthropic:${CONSULT_MODEL}`, claude: H },
 };
 export const PURPOSES = Object.keys(ROUTES);
 

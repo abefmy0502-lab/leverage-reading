@@ -22,7 +22,7 @@ export default function TermsPage() {
       title="利用規約"
       description="Orime の利用規約。無料プラン・有料プラン・7 日間無料・トークン・解約・禁止事項・免責事項・AI 機能の取扱いについて。"
     >
-      <p className="effective-date">最終更新日:2026年11月21日</p>
+      <p className="effective-date">最終更新日:2026年11月22日</p>
       <p className="effective-date">施行日:2026年5月3日</p>
 
       <p>

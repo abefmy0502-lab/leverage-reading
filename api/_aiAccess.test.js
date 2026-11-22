@@ -181,6 +181,10 @@ describe('decideAiAccess（フリーミアム）', () => {
 });
 
 describe('📷 無料プランの写真から書き起こし（月 10 回・2026-10-02）', () => {
+  it('本棚の写真（shelf_scan）も同じ月の回数から', () => {
+    expect(decideAiAccess({ entitlement: {}, purpose: 'shelf_scan', freeOcrLimit: 10, freeOcrUsed: 3 })).toEqual({ allow: true, tier: 'free_ocr' });
+    expect(decideAiAccess({ entitlement: {}, purpose: 'shelf_scan', freeOcrLimit: 10, freeOcrUsed: 10 }).errorCode).toBe('free_ocr_limit_reached');
+  });
   const free = { allowed: false };
   it('既定は月 10 回・AI_FREE_OCR_PER_MONTH で変えられる（0 でやめる・数字でなければ既定）', () => {
     expect(freeOcrPerMonth(ENV)).toBe(10);
@@ -225,7 +229,7 @@ describe('📷 無料プランの写真から書き起こし（月 10 回・2026
   });
   it('使い切りの案内（来月 1 日・途中で改行しない）', () => {
     const now = Date.parse('2026-10-02T03:00:00Z');
-    expect(freeOcrLimitMessage(10, now)).toBe('今月の写真から書き起こしは、ここまでです。11\u2060月\u20601\u2060日に 10 回に戻ります。');
+    expect(freeOcrLimitMessage(10, now)).toBe('今月の写真から書き起こし（本棚の写真も含む）は、ここまでです。11\u2060月\u20601\u2060日に 10 回に戻ります。');
   });
 });
 

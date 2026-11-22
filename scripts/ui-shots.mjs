@@ -400,6 +400,8 @@ const SCREENS = [
   { name: 'auth', url: '/?demo=auth&auth=signin' },
   // 👤 登録せずに始める（2026-11-19・App 審査 5.1.1(v)）: アプリの見た目（&native=1）のログイン画面・確かめるダイアログ・設定の「アカウントを作る」の各状態・有料プランの画面・ログアウトの確かめ
   { name: 'auth-native', url: '/?demo=auth&auth=signin&native=1' },
+  // 📚 本棚の写真からまとめて追加（2026-11-22）: 本を追加の画面の入口と、撮る前のシート
+  { name: 'shelf-scan', url: '/', steps: [{ css: 'button:has-text("本を追加") >> nth=0' }, { css: 'button:has-text("本棚の写真からまとめて追加")' }, { wait: 900 }] },
   { name: 'auth-apple-wait', url: '/?demo=auth&auth=signin&native=1&apple=wait', steps: [{ css: 'button[aria-label="Appleでサインイン"]' }, { wait: 400 }] },
   { name: 'auth-guest-confirm', url: '/?demo=auth&auth=signin&native=1', steps: [{ css: 'button:text-is("登録せずに始める")' }, { wait: 400 }] },
   { name: 'auth-guest-confirm-xxl', url: '/?demo=auth&auth=signin&native=1', steps: [{ eval: () => { document.documentElement.style.fontSize = '28px'; } }, { wait: 800 }, { css: 'button:text-is("登録せずに始める")' }, { wait: 400 }] },

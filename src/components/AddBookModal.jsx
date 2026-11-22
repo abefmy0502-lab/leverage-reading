@@ -11,7 +11,7 @@
 //   'error'     : 検索エラー（もう一度試す / 手動入力）
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ScanBarcode, Camera, X } from 'lucide-react';
+import { ScanBarcode, Camera, X, Library } from 'lucide-react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { withPhraseBreaks } from './TightBubble';
 import { findDuplicateBook, STATUS_LABEL } from '../lib/checkDuplicate';
@@ -380,7 +380,8 @@ function BarcodeScanner({ onDetect, onClose, onTypeIsbn }) {
 // ---------------------------------------------------------------------------
 
 // forPhoto: 初回ガイドの「本のページを撮る」から開いたとき（題を「本を選ぶ」・上に「まず本を選びます」の 1 行・2026-10-09）。
-export default function AddBookModal({ onClose, onSelect, onManual, existingBooks = [], onOpenExisting, initialQuery = '', forPhoto = false }) {
+// onShelfScan: 📚 本棚の写真からまとめて追加（2026-11-22）を開く。無ければボタンを出さない。
+export default function AddBookModal({ onClose, onSelect, onManual, existingBooks = [], onOpenExisting, initialQuery = '', forPhoto = false, onShelfScan = null }) {
   // 本の追加フォームの「‹ 検索」で戻ってきたときは、さっきの言葉と結果をそのまま出す。
   const [query, setQuery] = useState(initialQuery);
   const [scanning, setScanning] = useState(false);
@@ -523,6 +524,13 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
             <button type="button" onClick={() => setScanning(true)} style={btnGhost}>
               <ScanBarcode size="1.2em" aria-hidden="true" />
               バーコードで探す
+            </button>
+          )}
+          {/* 📚 家の本棚を撮って、まとめて入れる（検索を書き始めたら引っ込める・本のページを撮る道では出さない）。 */}
+          {onShelfScan && !forPhoto && !hasQuery && !isSearching && (
+            <button type="button" onClick={onShelfScan} style={btnGhost}>
+              <Library size="1.2em" aria-hidden="true" />
+              本棚の写真からまとめて追加
             </button>
           )}
         </div>

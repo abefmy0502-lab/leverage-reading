@@ -10,14 +10,15 @@ import ContextMenu from './ContextMenu';
 import { SkeletonBlock } from './Skeleton';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
-import { btnRow, btnLinkQuiet } from '../styles/ui';
+import { btnRow, btnLinkQuiet, groupTitle } from '../styles/ui';
 import { respondFollow, blockUser } from '../lib/social';
 import { track } from '../lib/analytics';
 
 const SHOWN_REQUESTS = 3;
 const who = (p) => (p?.nickname ? `${p.nickname}さん` : 'この人');
 const plain = { background: 'none', border: 'none', padding: 0, margin: 0, cursor: 'pointer', fontFamily: 'inherit', color: 'inherit', textAlign: 'left' };
-const smallBtn = { ...btnRow, background: 'var(--accent)', color: 'var(--accent-ink)', border: 'none' };
+// 行ごとの「承認」は枠のボタン（塗りの主ボタンは 1 画面に 1 つだけ・申し込みが何件あっても塗りを並べない・2026-11-22 ui-critic）。
+const smallBtn = btnRow;
 const quietBtn = { ...btnLinkQuiet, minWidth: 'var(--tap-min)', padding: '0 var(--space-2)', justifyContent: 'center' };
 const iconBtn = { ...plain, width: 'var(--tap-min)', height: 'var(--tap-min)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-2)', flexShrink: 0 };
 const divider = { borderTop: '1px solid var(--separator)' };
@@ -96,11 +97,12 @@ export default function FollowSummary({ lists, onOpen, onReport, onChanged }) {
       </div>
       {requests.length > 0 && (
         <section aria-label="届いた申し込み" style={{ ...divider, padding: 'var(--space-3) 0 var(--space-1)' }}>
-          <p style={{ margin: 0, fontSize: 'var(--text-meta)', fontWeight: 600, color: 'var(--accent)' }}>届いた申し込み（{requests.length}）</p>
+          <p style={{ ...groupTitle, margin: 0 }}>届いた申し込み（{requests.length}）</p>
           <div role="list">
             {requests.slice(0, SHOWN_REQUESTS).map((p, i) => (
               <div role="listitem" key={p.publicId} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minHeight: 'var(--tap-min)', padding: 'var(--space-2) 0', ...(i ? divider : null) }}>
-                <UserAvatar avatarId={p.avatar} nickname={p.nickname} size={32} />
+                {/* プロフィールの行（アバター 40＋間 12）と名前の左端をそろえる */}
+                <UserAvatar avatarId={p.avatar} nickname={p.nickname} size={40} />
                 <span style={{ flex: 1, minWidth: 0, marginLeft: 'var(--space-1)', fontSize: 'var(--text-body)', color: 'var(--text)', overflowWrap: 'anywhere' }}>{p.nickname || 'ニックネームなし'}</span>
                 <button type="button" style={quietBtn} disabled={!!busy} onClick={() => respond(p, false)}>断る</button>
                 <button type="button" style={smallBtn} disabled={!!busy} aria-busy={busy === p.publicId || undefined} onClick={() => respond(p, true)}>承認</button>

@@ -70,7 +70,7 @@ const STYLE = `
 main{max-width:480px;margin:0 auto;padding:48px 16px 64px}
 p,h1{line-break:strict;word-break:auto-phrase;text-wrap:pretty}
 .card{background:var(--surface);border:1px solid var(--separator);border-radius:var(--radius);padding:24px 16px}
-.av{display:flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:50%;margin:0 0 12px;color:#fff}.av-ini{background:var(--fill);color:var(--text-2);box-shadow:inset 0 0 0 1px var(--separator);font-size:24px;font-weight:600}
+.av{display:flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:50%;margin:0 0 12px;color:var(--on-cover)}.av-ini{background:var(--fill);color:var(--text-2);box-shadow:inset 0 0 0 1px var(--separator);font-size:24px;font-weight:600}
 .name{margin:0;font-size:24px;font-weight:700;line-height:1.4;overflow-wrap:anywhere}
 .label{margin:24px 0 8px;font-size:13px;font-weight:600;color:var(--text-2)}
 .book{display:flex;gap:16px;align-items:flex-start}.cover{width:72px;height:auto;border-radius:4px;flex-shrink:0;background:var(--fill)}
@@ -102,7 +102,7 @@ a{color:var(--accent)}
 .ba{margin:0;font-size:12px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .st{margin:0;font-size:12px;color:var(--accent);letter-spacing:1px}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-.foot{margin:24px 0 0;font-size:13px;color:var(--text-2);line-height:1.8}
+.foot{margin:24px 0 0;font-size:13px;color:var(--text-2);line-height:1.8}.foot a{display:inline-flex;align-items:center;min-height:44px}
 .more{margin:12px 0 0;font-size:13px;color:var(--text-2)}
 .who .av{margin:0 0 16px}
 .quote{margin:32px 0 0;padding:4px 0 4px 16px;border-left:2px solid var(--accent)}

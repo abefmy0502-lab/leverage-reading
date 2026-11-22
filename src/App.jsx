@@ -115,6 +115,7 @@ const GoalScreen = lazy(() => import('./components/GoalScreen'));
 const ReadingRecord = lazy(() => import('./components/ReadingRecord'));
 import BottomSheet from './components/BottomSheet';
 const AddBookModal = lazy(() => import('./components/AddBookModal'));
+const ShelfScanSheet = lazy(() => import('./components/ShelfScanSheet'));
 import { useBookCover } from './hooks/useBookCover';
 import { searchBooksFlat as searchBooksAPIFlat } from './lib/bookSearch';
 import { tryCoverForIsbn, verifyBookExists } from './lib/bookCover';
@@ -1194,6 +1195,8 @@ function AuthedApp() {
   // The "+" button opens this first; from here the user picks the
   // search path (default) or jumps to manual entry.
   const [addBookModalOpen, setAddBookModalOpen] = useState(false);
+  // 📚 本棚の写真からまとめて追加（2026-11-22・本を追加の画面から）
+  const [shelfScanOpen, setShelfScanOpen] = useState(false);
   // 検索結果の「追加済み」から開いた本の id（詳細の ‹・戻るで検索結果へ戻すため）。
   const [detailFromSearchId, setDetailFromSearchId] = useState(null);
   // 🧭 目標の画面（ロードマップ・読書計画）から開いた本: { bookId, screen }。戻ると同じ目標の画面へ（2026-11-15 磨き）。
@@ -1504,6 +1507,7 @@ function AuthedApp() {
   }, []);
   useBackLayer(helpModalOpen, () => setHelpModalOpen(false));
   useBackLayer(addBookModalOpen, () => setAddBookModalOpen(false));
+  useBackLayer(shelfScanOpen, () => setShelfScanOpen(false));
   const [quickMemoOpen, setQuickMemoOpen] = useState(false);
   // 📗 読了の 3 つの問い（2026-10-11）: メモを書くシートの入力欄の上に出す問い（{ key, text }・無ければ null）と、
   //   問いの状態（端末に覚える）を読み直す印。
@@ -2887,6 +2891,8 @@ function AuthedApp() {
             author: String(b.author || '').slice(0, 200),
             isbn,
             asin: String(b.asin || '').slice(0, 20), // 読書メーター: Kindle 版など ISBN の無い本の Amazon リンク用
+            // 📚 本棚の写真から追加（2026-11-22）は、書店の検索で見つけた表紙をそのまま（https だけ）
+            ...(/^https:\/\//.test(String(b.cover || '')) ? { cover: String(b.cover).slice(0, 1000) } : {}),
             totalPages: Number(b.pages) || 0,
             status: ['want', 'before', 'reading', 'done'].includes(b.status) ? b.status : 'done',
             rating: Number(b.rating) || 0,
@@ -7496,6 +7502,7 @@ function AuthedApp() {
             initialQuery={addFromSearchQuery || ''}
             existingBooks={books}
             forPhoto={ocrIntentActive}
+            onShelfScan={() => { setAddBookModalOpen(false); setShelfScanOpen(true); }}
             onOpenExisting={(existing, query) => {
               setAddBookModalOpen(false);
               // 詳細の ‹ 検索・「戻る」で、さっきの言葉の検索結果へ戻れるように覚えておく。
@@ -7505,6 +7512,17 @@ function AuthedApp() {
               // 📷 本のページを撮る（初回ガイド）で本棚にある本を選んだら、そのままメモのシート（写真の形）を開く。
               if (ocrIntentActive && (existing.status === 'reading' || existing.status === 'done')) setQuickMemoOpen(true);
             }}
+          />
+        </Suspense>
+      )}
+
+      {shelfScanOpen && (
+        <Suspense fallback={<OverlayFallback />}>
+          <ShelfScanSheet
+            existingBooks={books}
+            onAdd={(list) => importLibrary({ books: list, source: 'shelf_photo' })}
+            onUndo={(outcome) => undoImport(outcome)}
+            onClose={() => setShelfScanOpen(false)}
           />
         </Suspense>
       )}

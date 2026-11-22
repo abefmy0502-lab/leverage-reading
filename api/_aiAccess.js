@@ -43,7 +43,7 @@ export function isFreePurpose(purpose) {
 //   画面の名前（相談・AI 選書 …）にまとめるのはアプリ（src/lib/tokenUsage.js の USAGE_GROUPS）。
 export const USAGE_PURPOSES = new Set([
   'consult', 'book_advisor', 'advisor_interview', 'setup_sheet', 'setup_sheet_edit', 'book_brief',
-  'ops_advise', 'condense', 'cards_to_summary', 'ocr', 'goal_interview', 'goal_roadmap',
+  'ops_advise', 'condense', 'cards_to_summary', 'ocr', 'goal_interview', 'goal_roadmap', 'shelf_scan',
 ]);
 export function usagePurposeKey(purpose) {
   return typeof purpose === 'string' && USAGE_PURPOSES.has(purpose) ? purpose : 'other';
@@ -177,6 +177,8 @@ export function remainingTokens(allowanceTokens, usedMjpy, env = process.env) {
 //   - 有料・7 日間無料はいつもどおりトークンで、管理者は数えない
 // ───────────────────────────────────────────────────────────────────
 export const FREE_OCR_PURPOSE = 'ocr';
+// 📚 本棚の写真から本を追加（'shelf_scan'・2026-11-22）も同じ月の回数から（写真 1 枚・1 回と数える）。
+export const FREE_OCR_PURPOSES = new Set([FREE_OCR_PURPOSE, 'shelf_scan']);
 export function freeOcrPerMonth(env = process.env) {
   return Math.max(0, Math.floor(num(env.AI_FREE_OCR_PER_MONTH, 10)));
 }
@@ -185,7 +187,8 @@ export function freeOcrPeriodKey(monthKey) {
 }
 // 使い切ったときの案内（有料プランの画面の吹き出しにも使う）。
 export function freeOcrLimitMessage(limit, now = Date.now()) {
-  return `今月の写真から書き起こしは、ここまでです。${nextMonthFirstLabel(now, true)}に ${limit} 回に戻ります。`;
+  // 文の頭は「今月の写真から書き起こし」のまま（出し直す前のアプリが案内として見分ける・src/lib/ai.js の AI_NOTICE_RE）。
+  return `今月の写真から書き起こし（本棚の写真も含む）は、ここまでです。${nextMonthFirstLabel(now, true)}に ${limit} 回に戻ります。`;
 }
 // 無料の書き起こしの予約（reserve_ai_usage）の結果から、通すかを決める（fail-closed）。
 //   usage: reserveMonthlyUsage の結果 { reserved, allowed }
@@ -209,7 +212,7 @@ export function decideAiAccess({
 } = {}) {
   if (entitlement.admin) return { allow: true, tier: 'admin' };
   if (entitlement.allowed) return { allow: true, tier: entitlement.trial ? 'trial' : 'paid' };
-  if (purpose === FREE_OCR_PURPOSE) {
+  if (FREE_OCR_PURPOSES.has(purpose)) {
     const limit = freeOcrLimit === undefined ? freeOcrPerMonth(env) : Math.max(0, Math.floor(num(freeOcrLimit, 0)));
     if (!(limit > 0)) return { allow: false, status: 402, errorCode: 'plan_required' };
     if (freeOcrUsed !== undefined && Math.max(0, num(freeOcrUsed, 0)) >= limit) {
