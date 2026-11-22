@@ -13,6 +13,9 @@ describe('emailProblem（メールの形のどこが違うか）', () => {
     ['you@', '後ろが空いています'],
     ['you@example', '「.com」などが足りません'],
     ['you@example.c', '「.com」などが足りません'],
+    ['ｙｏｕ@example.com', '全角の文字'],
+    ['you@gmail.co', 'gmail.com'],
+    ['you@gmial.com', 'gmail.com'],
   ])('%s', (v, want) => expect(emailProblem(v)).toContain(want));
-  it.each(['you@example.com', ' a.b+c@mail.example.co.jp '])('正しい形は空: %s', (v) => expect(emailProblem(v)).toBe(''));
+  it.each(['you@example.com', ' a.b+c@mail.example.co.jp ', 'you@example.co'])('正しい形は空: %s', (v) => expect(emailProblem(v)).toBe(''));
 });
