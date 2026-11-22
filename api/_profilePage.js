@@ -106,7 +106,8 @@ a{color:var(--accent)}
 .more{margin:12px 0 0;font-size:13px;color:var(--text-2)}
 .who .av{margin:0 0 16px}
 .quote{margin:32px 0 0;padding:4px 0 4px 16px;border-left:2px solid var(--accent)}
-.quote blockquote{word-break:auto-phrase;margin:0;font-family:var(--font-read);font-size:22px;line-height:1.7;overflow-wrap:anywhere;line-break:strict;text-wrap:pretty}
+/* 好きな言葉は短ければ大きく、長ければ読む文の大きさ（2026-11-22 オーナー「メモが大きすぎる」） */
+.quote blockquote{word-break:auto-phrase;margin:0;font-family:var(--font-read);font-size:20px;line-height:1.7;overflow-wrap:anywhere;line-break:strict;text-wrap:pretty}
 .fav{display:flex;gap:12px;align-items:center;margin:16px 0 0}.fav p{margin:0}
 .fav .k{font-size:13px;color:var(--text-2)}.fav .t{font-size:15px;font-weight:600;line-height:1.5;overflow-wrap:anywhere}
 .mc{flex-shrink:0}.mc img,.mc .ph{display:block;width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:4px;border:1px solid var(--separator);background:var(--fill)}
@@ -312,10 +313,10 @@ export function renderProfile(p, { publicId, shelf = null, social = socialOn(), 
   const body = `<header class="who">
 ${renderAvatar(p.avatar, nickname)}<h1 class="name">${esc(who)}</h1>${bio ? `<p class="bio">${esc(bio)}</p>` : ''}${followTop}
 </header>
-${line ? `<figure class="quote" style="margin-left:0;margin-right:0"><blockquote>${esc(line)}</blockquote></figure>${fav}` : fav ? `<div style="margin-top:24px">${fav}</div>` : ''}
+${line ? `<figure class="quote" style="margin-left:0;margin-right:0"><blockquote${[...line].length > 40 ? ' style="font-size:17px;line-height:1.8"' : ''}>${esc(line)}</blockquote></figure>${fav}` : fav ? `<div style="margin-top:24px">${fav}</div>` : ''}
 ${sums}${renderShelf(shelf, { publicId, links: social, filter })}
-${social ? `<a class="cta" style="margin-top:48px" href="${followUrl}">フォローを申し込む</a>` : ''}
-<a class="${social ? 'cta2' : 'cta'}" ${social ? 'style="margin-top:32px" ' : ''}href="${esc(site)}/lp">Orime で読書メモをはじめる</a>
+${social && shelf?.total ? `<a class="cta" style="margin-top:48px" href="${followUrl}">フォローを申し込む</a>` : ''}
+<a class="${social ? 'cta2' : 'cta'}" ${social ? `style="margin-top:${shelf?.total ? 32 : 48}px" ` : ''}href="${esc(site)}/lp">Orime で読書メモをはじめる</a>
 <p class="note">読んだ本と、会話できる。<br>答えのもとは、あなたが残したメモ。</p>
 <details><summary>このページを通報する</summary>
 <form method="post" action="/api/profile-report"><input type="hidden" name="id" value="${esc(publicId)}">

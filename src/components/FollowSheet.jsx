@@ -568,7 +568,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
         </div>
         {/* 主役はその人の言葉。好きな言葉を大きく、その下に好きな本。 */}
         {p.favLine && (
-          <blockquote style={{ margin: 'var(--space-6) 0 0', padding: 'var(--space-1) 0 var(--space-1) var(--space-4)', borderLeft: '2px solid var(--accent)', fontFamily: 'var(--font-read)', fontSize: 'var(--text-heading)', lineHeight: 1.7, lineBreak: 'strict', textWrap: 'pretty', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+          <blockquote style={{ margin: 'var(--space-6) 0 0', padding: 'var(--space-1) 0 var(--space-1) var(--space-4)', borderLeft: '2px solid var(--accent)', fontFamily: 'var(--font-read)', fontSize: [...String(p.favLine)].length > 40 ? 'var(--text-body)' : 'var(--text-heading)', lineHeight: [...String(p.favLine)].length > 40 ? 1.8 : 1.7, lineBreak: 'strict', textWrap: 'pretty', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
             {withPhraseBreaks(p.favLine)}
           </blockquote>
         )}
