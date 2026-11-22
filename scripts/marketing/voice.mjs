@@ -121,7 +121,7 @@ if (process.argv[1] && process.argv[1].endsWith('voice.mjs')) {
   const bin = await findFfmpeg();
   if (!bin) { console.error('ffmpeg が見つかりません（mac は brew install ffmpeg）'); process.exit(1); }
   const dirs = existsSync(join(target, 'final.mp4')) ? [target] : readdirSync(target).map((n) => join(target, n)).filter((p) => statSync(p).isDirectory());
-  console.log(`声: ${engine === 'openai' ? `OpenAI（${process.env.MKT_VOICE || 'onyx'}）` : `Mac の say（${process.env.MKT_SAY_VOICE || 'Reed'}）`}`);
+  console.log(`声: ${engine === 'openai' ? `OpenAI（${process.env.MKT_VOICE || 'onyx'}）` : engine === 'tone' ? '確かめ用の音' : `Mac の say（${process.env.MKT_SAY_VOICE || 'Reed'}）`}`);
   for (const d of dirs) {
     try { await voiceOne(d, engine, bin); } catch (e) { console.log(`  ✗ ${basename(d)}: ${e.message}`); }
   }
