@@ -196,7 +196,7 @@ function ResultsSkeleton() {
 
 // initialBooks: 取り込みの完了画面の「覚えている一文を足す（N 冊）」から開くときの本（もう本棚にある本・最大 MAX_BOOKS 冊）。
 //   渡されたら「本をえらぶ」を飛ばして、一言を書く段から始める（2026-09-29）。
-export default function PastBooksQuickstart({ books = [], initialBooks = null, onSaveBook, onAsk, onClose, onWriteMemo, onImport, onMarkRead, onMemosAdded }) {
+export default function PastBooksQuickstart({ books = [], initialBooks = null, onSaveBook, onAsk, onAskDraft, onClose, onWriteMemo, onImport, onMarkRead, onMemosAdded }) {
   const { user } = useAuth();
   const toast = useToast();
   const { freeMode, freeRemaining, freeFirstMonth } = usePaywall();
@@ -283,9 +283,16 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
       danger: true,
     });
   };
+  // できあがりの画面で相談を書いたまま閉じたら、消さずに相談の入力欄へ下書きとして渡す（送らない・2026-11-22 点検）。
+  const finish = () => {
+    const q = askText.trim();
+    if (step === 'done' && q && q !== purposeAsk.trim() && onAskDraft) { onAskDraft(q); return; }
+    onClose?.();
+  };
   // 右上の ×: 選んだ本（と書いた一言）が残っていれば確かめてから閉じる。保存中は閉じない。
   const closeAll = async () => {
     if (step === 'saving') return;
+    if (step === 'done') { finish(); return; }
     const needsConfirm = seeded ? picked.some((p) => p.memo.trim()) : picked.length > 0;
     if ((step === 'pick' || step === 'memo') && needsConfirm && !(await confirmDiscard())) return;
     onClose?.();
@@ -616,13 +623,13 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
             {/* 1 冊から進めるが、3 冊ほどあると本をまたいだ答えになる（押せなくはしない・ヒントだけ） */}
             {picked.length > 0 && picked.length < RECOMMENDED_BOOKS && (
               <p style={{ margin: '0 0 var(--space-2)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, textAlign: 'center', fontVariantNumeric: 'tabular-nums' }}>
-                あと {RECOMMENDED_BOOKS - picked.length} 冊選ぶのがおすすめです
+                {RECOMMENDED_BOOKS} 冊ほどあると、本をまたいで答えます
               </p>
             )}
             <button type="button" style={picked.length >= MIN_BOOKS ? btnPrimary : btnPrimaryOff}
               disabled={picked.length < MIN_BOOKS}
               onClick={() => { setIdx(0); setStep('memo'); }}>
-              {picked.length >= MIN_BOOKS ? `次へ（${picked.length} 冊）` : `あと ${MIN_BOOKS - picked.length} 冊`}
+              {picked.length >= MIN_BOOKS ? `次へ（${picked.length} 冊）` : '本を選んでください'}
             </button>
           </div>
         </>
@@ -803,7 +810,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
             {/* 相談例がある時はそちらが主役なので、完了は副ボタン。
                 メモが 0 件なら行き止まりにせず「メモを書く」（1 冊目を開いてメモのシート）を主役に。 */}
             {summary.memos > 0 ? (
-              <button type="button" style={btnGhost} onClick={onClose}>完了</button>
+              <button type="button" style={btnGhost} onClick={finish}>完了</button>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
                 <button type="button" style={btnPrimary}

@@ -1865,7 +1865,7 @@ function AuthedApp() {
     try { haptic.light(); } catch { /* ignore */ }
     if (!firstStepToldRef.current) {
       firstStepToldRef.current = true;
-      toast.info('本を 1 冊入れると、画像を作れます。');
+      toast.info('写真で共有は、読んだ本を 1 枚の画像にします。本を 1 冊入れると使えます。');
     }
     if (tab !== 'books') navigateTab('books');
     if (view !== 'list') setView('list');
@@ -4763,6 +4763,15 @@ function AuthedApp() {
           setQuickstartSeed(null);
           refreshBooks();
           setAskPreset({ question, nonce: Date.now() });
+          setView('list');
+          setAiSubTab('brain');
+          setTab('ai');
+        }}
+        onAskDraft={(question) => {
+          setShowQuickstart(false);
+          setQuickstartSeed(null);
+          refreshBooks();
+          setAskPreset({ question, nonce: Date.now(), draft: true, focus: false });
           setView('list');
           setAiSubTab('brain');
           setTab('ai');
