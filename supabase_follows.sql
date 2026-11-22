@@ -62,11 +62,12 @@ begin
 end;
 $$;
 
+-- 匿名のアカウントか（auth.users の今の値・supabase_profiles.sql の _auth_is_anonymous・2026-11-22）。
 create or replace function public._is_anonymous()
 returns boolean
 language sql
 stable
-as $$ select coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) $$;
+as $$ select public._auth_is_anonymous() $$;
 
 -- public_id → user_id（運営が隠した人は見つからない）。
 create or replace function public._user_by_public_id(p_public_id text)

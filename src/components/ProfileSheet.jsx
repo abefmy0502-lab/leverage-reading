@@ -72,7 +72,21 @@ export default function ProfileSheet({ userId, onClose, onSaved }) {
     if (issue) { setError(issue); return; }
     setBusy(true); setError('');
     try {
-      const { profile: saved, stored: where, shelfReady } = await saveProfileShared(userId, draft);
+      let { profile: saved, stored: where, shelfReady } = await saveProfileShared(userId, draft);
+      // 公開をオンにしたのにオフで返ってきたとき（2026-11-22）: 登録せずに始めて、あとでアカウントを作った人は、
+      //   ログインの印が古いままだとデータベースが「匿名」とみなして公開を外す。印を取り直して 1 回だけ保存し直す。
+      if (where === 'server' && draft.isPublic && !saved.isPublic) {
+        try { await supabase?.auth?.refreshSession?.(); } catch { /* 取り直せなくても下で知らせる */ }
+        ({ profile: saved, stored: where, shelfReady } = await saveProfileShared(userId, draft));
+        if (!saved.isPublic) {
+          setTouched(false);
+          setError(saved.hidden
+            ? 'このプロフィールは、運営が確かめるまで公開を止めています。ほかの内容は保存しました。'
+            : '公開にできませんでした。アカウントを作ったあとなら、一度ログインし直してからお試しください。ほかの内容は保存しました。');
+          setBusy(false);
+          return;
+        }
+      }
       if (shelfReady === false && draft.shelfPublic) { setShelfUnready(true); setTouched(false); setError('本棚の公開は、まだ準備ができていません。ほかの内容は保存しました。'); setBusy(false); return; }
       track('profile_set', { from: 'settings', book: !!saved.favTitle, line: !!saved.favLine, pub: saved.isPublic, shelf: saved.isPublic && saved.shelfPublic, bio: !!saved.bio });
       onSaved?.({ before: profile, after: saved });

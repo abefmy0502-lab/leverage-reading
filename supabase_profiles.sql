@@ -98,6 +98,24 @@ drop policy if exists "profiles_delete_own" on public.profiles;
 create policy "profiles_delete_own" on public.profiles
   for delete to authenticated using (auth.uid() = user_id);
 
+-- 登録せずに始めた（匿名の）アカウントか。ログインの印（JWT）の is_anonymous ではなく、auth.users の今の値で見る
+-- （2026-11-22: 登録せずに始めて、あとで Apple・メールでアカウントを作った人は、古い印が残っている間「匿名」に見え、
+--   公開するを保存しても黙ってオフに戻っていた）。auth.users が読めないときだけ印で見る。
+create or replace function public._auth_is_anonymous()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public, auth
+as $$
+  select coalesce(
+    (select u.is_anonymous from auth.users u where u.id = auth.uid()),
+    coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false)
+  )
+$$;
+revoke all on function public._auth_is_anonymous() from public, anon;
+grant execute on function public._auth_is_anonymous() to authenticated, service_role;
+
 -- 本人の update では hidden と public_id を変えさせない（service_role は変えられる）・updated_at を今に。
 -- 匿名のアカウントは insert・update とも公開をオフに戻す。
 create or replace function public.profiles_guard()
@@ -113,7 +131,7 @@ begin
     new.public_id := old.public_id;
   end if;
   -- 登録せずに始めた人（匿名のアカウント）は公開できない（何個でも作れて、隠しても作り直せるため・App 審査 1.2）。
-  if coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) then
+  if public._auth_is_anonymous() then
     new.is_public := false;
     new.shelf_public := false;
     new.summary_public := false;
