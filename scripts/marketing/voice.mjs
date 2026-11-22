@@ -1,0 +1,128 @@
+#!/usr/bin/env node
+// 🎙 縦動画に声（ナレーション）を重ねる（2026-11-22 オーナー「音声も簡単に入るような仕組み・落ち着いた男性の声で」）。
+//
+// 使い方（動画を作ったあと）:
+//   npm run mkt:voice -- marketing-out/videos/2026-11-22/shelf-scan        → 1 本
+//   npm run mkt:voice -- marketing-out/videos/2026-11-22                   → その日の全部
+//   npm run mkt:voice -- <フォルダ> --engine say                           → Mac の声で試す（鍵なし・声は機械っぽい）
+// 読む文: そのフォルダの captions.srt（字幕と同じ文・同じ時刻）。画面の動画（mkt:record）は最初に題も読む（meta.json の title）。
+// 声の作り方（engine）:
+//   openai（既定・OPENAI_API_KEY があるとき）… gpt-4o-mini-tts・声 onyx（MKT_VOICE で替えられる・ash も落ち着いた男性）。
+//                                              「落ち着いた男性の声で、ゆっくり、はっきり」と指示する（MKT_VOICE_STYLE で替えられる）。
+//   say（macOS）… 鍵が無いときの試し用（MKT_SAY_VOICE・既定 Reed）。
+//   tone … 声の代わりに小さな音（時刻と重ね方の確かめ用・どの端末でも）。
+// 出力: 同じフォルダに final-voice.mp4（映像はそのまま・声だけ重ねる）と voice/ の 1 文ずつの音。
+// 鍵はファイルに書かない（シェルの環境変数で渡す）。読みは「Orime」→「オリメ」に直してから送る。
+
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
+import { join, basename } from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { findFfmpeg } from './finish-video.mjs';
+
+export const DEFAULT_STYLE = '落ち着いた、低めの男性の声で。ゆっくり、はっきり、やさしく。宣伝っぽく盛り上げない。日本語の自然な抑揚で。';
+
+// SRT → [{ start, end, text }]（秒）
+export function parseSrt(src) {
+  const toSec = (t) => { const [h, m, rest] = t.split(':'); const [s, ms] = rest.split(','); return (+h) * 3600 + (+m) * 60 + (+s) + (+ms) / 1000; };
+  return String(src || '').replace(/\r/g, '').split(/\n\n+/).map((block) => {
+    const lines = block.trim().split('\n');
+    const i = lines.findIndex((l) => l.includes('-->'));
+    if (i < 0) return null;
+    const [a, b] = lines[i].split('-->').map((x) => x.trim());
+    return { start: toSec(a), end: toSec(b), text: lines.slice(i + 1).join('') };
+  }).filter((c) => c && c.text.trim());
+}
+
+// 読み上げ用に整える（字幕の改行・矢印・英字の名前）
+export function spokenText(text) {
+  return String(text || '')
+    .replace(/\n?↓\n?/g, '。')
+    .replace(/\n/g, '')
+    .replace(/Orime/g, 'オリメ')
+    .replace(/App Store/g, 'アップストア')
+    .replace(/。+/g, '。')
+    .trim();
+}
+
+// 読む順の文（題＋字幕）
+export function narrationCues(dir) {
+  const cues = parseSrt(readFileSync(join(dir, 'captions.srt'), 'utf8')).map((c) => ({ ...c, text: spokenText(c.text) }));
+  const metaPath = join(dir, 'meta.json');
+  if (existsSync(metaPath)) {
+    const meta = JSON.parse(readFileSync(metaPath, 'utf8'));
+    if (meta.title && !meta.plain) cues.unshift({ start: 0.3, end: Math.max(0.3, (cues[0]?.start ?? 3) - 0.1), text: spokenText(meta.title) });
+  }
+  return cues;
+}
+
+async function synthOpenai(text, file) {
+  const res = await fetch('https://api.openai.com/v1/audio/speech', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: 'gpt-4o-mini-tts', voice: process.env.MKT_VOICE || 'onyx', input: text, instructions: process.env.MKT_VOICE_STYLE || DEFAULT_STYLE, response_format: 'mp3' }),
+  });
+  if (!res.ok) throw new Error(`読み上げに失敗しました（${res.status}）`);
+  writeFileSync(file, Buffer.from(await res.arrayBuffer()));
+}
+
+function synthSay(text, file) {
+  const aiff = file.replace(/\.mp3$/, '.aiff');
+  const r = spawnSync('say', ['-v', process.env.MKT_SAY_VOICE || 'Reed', '-r', '165', '-o', aiff, text], { encoding: 'utf8' });
+  if (r.status !== 0) throw new Error('say が使えません（macOS だけ）');
+  return aiff;
+}
+
+function synthTone(bin, text, file) {
+  const sec = Math.max(0.6, Math.min(4, text.length * 0.12));
+  const r = spawnSync(bin, ['-hide_banner', '-loglevel', 'error', '-y', '-f', 'lavfi', '-i', `sine=frequency=440:duration=${sec}`, '-af', 'volume=0.2', file], { encoding: 'utf8' });
+  if (r.status !== 0) throw new Error('ffmpeg で音を作れませんでした');
+  return file;
+}
+
+function duration(bin, file) {
+  const r = spawnSync(bin.replace(/ffmpeg$/, 'ffprobe'), ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', file], { encoding: 'utf8' });
+  return Number(r.stdout) || 0;
+}
+
+async function voiceOne(dir, engine, bin) {
+  const video = join(dir, 'final.mp4');
+  if (!existsSync(video) || !existsSync(join(dir, 'captions.srt'))) { console.log(`  – ${basename(dir)}: final.mp4 か captions.srt が無いので飛ばします`); return; }
+  const cues = narrationCues(dir);
+  const vdir = join(dir, 'voice');
+  mkdirSync(vdir, { recursive: true });
+  const clips = [];
+  for (const [i, c] of cues.entries()) {
+    let file = join(vdir, `${String(i + 1).padStart(2, '0')}.mp3`);
+    if (engine === 'openai') await synthOpenai(c.text, file);
+    else if (engine === 'tone') file = synthTone(bin, c.text, file); // 時刻の確かめ用（文の長さぶんの小さな音）
+    else file = synthSay(c.text, file);
+    const len = duration(bin, file);
+    const room = (cues[i + 1]?.start ?? Infinity) - c.start;
+    if (len > room + 0.2) console.log(`  ⚠ ${basename(dir)} の ${i + 1} 番目「${c.text}」は ${len.toFixed(1)} 秒で、次の文まで ${room.toFixed(1)} 秒。台本の hold を足すか、文を短く。`);
+    clips.push({ file, at: c.start });
+  }
+  const args = ['-hide_banner', '-loglevel', 'error', '-y', '-i', video];
+  for (const c of clips) args.push('-i', c.file);
+  const delays = clips.map((c, i) => `[${i + 1}:a]adelay=${Math.round(c.at * 1000)}|${Math.round(c.at * 1000)},aresample=44100[a${i}]`);
+  const filter = `${delays.join(';')};${clips.map((_, i) => `[a${i}]`).join('')}amix=inputs=${clips.length}:normalize=0,volume=1.0,apad[aout]`;
+  const out = join(dir, 'final-voice.mp4');
+  const r = spawnSync(bin, [...args, '-filter_complex', filter, '-map', '0:v', '-map', '[aout]', '-shortest', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '160k', '-movflags', '+faststart', out], { encoding: 'utf8' });
+  if (r.status !== 0) throw new Error(`ffmpeg が失敗しました: ${(r.stderr || '').split('\n').filter(Boolean).slice(-2).join(' / ')}`);
+  console.log(`  ✓ ${out}（文 ${clips.length}）`);
+}
+
+if (process.argv[1] && process.argv[1].endsWith('voice.mjs')) {
+  const args = process.argv.slice(2);
+  const ei = args.indexOf('--engine');
+  const engine = ei >= 0 ? args[ei + 1] : (process.env.OPENAI_API_KEY ? 'openai' : 'say');
+  const target = args.find((a, i) => !a.startsWith('--') && args[i - 1] !== '--engine');
+  if (!target) { console.error('使い方: npm run mkt:voice -- <動画のフォルダ か 日付のフォルダ> [--engine openai|say]'); process.exit(1); }
+  if (engine === 'openai' && !process.env.OPENAI_API_KEY) { console.error('OPENAI_API_KEY がありません（シェルで渡す）。試すだけなら --engine say（Mac）。'); process.exit(1); }
+  const bin = await findFfmpeg();
+  if (!bin) { console.error('ffmpeg が見つかりません（mac は brew install ffmpeg）'); process.exit(1); }
+  const dirs = existsSync(join(target, 'final.mp4')) ? [target] : readdirSync(target).map((n) => join(target, n)).filter((p) => statSync(p).isDirectory());
+  console.log(`声: ${engine === 'openai' ? `OpenAI（${process.env.MKT_VOICE || 'onyx'}）` : `Mac の say（${process.env.MKT_SAY_VOICE || 'Reed'}）`}`);
+  for (const d of dirs) {
+    try { await voiceOne(d, engine, bin); } catch (e) { console.log(`  ✗ ${basename(d)}: ${e.message}`); }
+  }
+}

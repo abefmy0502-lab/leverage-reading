@@ -138,4 +138,55 @@ const memoStack = {
   ].join(''),
 };
 
-export const ART = { personThink, personBook, bookOpen, shelf, arrow, pageHighlight, memoEmpty, booksFaded, talk, memoStack };
+
+// 時計（読む時間を決める・2026-11-22）
+const clock = {
+  viewBox: '0 0 240 240',
+  svg: [
+    C(120, 128, 92),
+    P('M120 128 L 120 70'), // 長い針
+    P('M120 128 L 160 150'), // 短い針
+    P('M98 22 L 142 22 M 120 22 L 120 36'), // 上のつまみ
+    C(120, 128, 6, 'f'),
+  ].join(''),
+};
+
+// スマホ（気づくと 1 日が終わっている・2026-11-22）
+const phone = {
+  viewBox: '0 0 180 300',
+  svg: [
+    P('M30 16 L 150 16 C 160 16, 166 22, 166 32 L 166 268 C 166 278, 160 284, 150 284 L 30 284 C 20 284, 14 278, 14 268 L 14 32 C 14 22, 20 16, 30 16 Z'),
+    P('M70 36 L 110 36'),
+    P('M40 76 L 140 76 M 40 112 L 128 112 M 40 148 L 140 148 M 40 184 L 116 184 M 40 220 L 136 220'),
+    C(90, 258, 10),
+  ].join(''),
+};
+
+// 道のり（1 年後の目標まで・区切りに本・2026-11-22）
+const road = {
+  viewBox: '0 0 420 300',
+  svg: [
+    P('M20 270 C 120 260, 120 190, 200 180 C 280 170, 300 100, 400 40'),
+    C(20, 270, 10, 'f'),
+    P('M96 222 L 128 218 L 128 246 L 96 250 Z'), // 本 1
+    P('M226 168 L 258 164 L 258 192 L 226 196 Z'), // 本 2
+    P('M330 96 L 362 92 L 362 120 L 330 124 Z'), // 本 3
+    P('M396 40 L 396 4 L 424 14 L 396 24'), // 旗
+  ].join(''),
+};
+
+// やることの一覧（明日の一歩に印・2026-11-22）
+const checklist = {
+  viewBox: '0 0 300 260',
+  svg: [
+    P('M30 20 L 270 20 L 270 240 L 30 240 Z'),
+    P('M60 76 L 76 94 L 104 58'), // 印
+    P('M128 78 L 240 78'),
+    P('M60 130 L 96 130 L 96 158 L 60 158 Z'),
+    P('M128 144 L 222 144'),
+    P('M60 194 L 96 194 L 96 222 L 60 222 Z'),
+    P('M128 208 L 232 208'),
+  ].join(''),
+};
+
+export const ART = { personThink, personBook, bookOpen, shelf, arrow, pageHighlight, memoEmpty, booksFaded, talk, memoStack, clock, phone, road, checklist };

@@ -15,6 +15,153 @@
 // 座標は 1080×1920。Instagram の画面の上（〜240）・下（1400〜）・右端（940〜）は字や印が重なるので、大事なものを置かない。
 
 export const REELS = [
+  // ── 2026-11-22 オーナー「実際の画面を映さなくても、概念的に Orime の効果を示せるものも」＝ビフォー → アフターの概念の動画（SNS 戦略 §3-2・§3-4）。
+  {
+    name: 'concept-consult',
+    title: '読んだのに残らない → 読んだ本が相談相手に',
+    caption: [
+      '読み終えた本を、閉じたら終わりにしていた。',
+      '困った日は、ネットの一般論で迷っていた。',
+      '',
+      '自分が残した一行に聞けるようにしたら、',
+      '困った日、まず自分のメモに聞くようになった。',
+      '',
+      '無料プラン（ずっと無料）で試せます。プロフィールのリンクから。',
+    ].join('\n'),
+    hashtags: ['#読書', '#読書メモ', '#読書術', '#ビジネス書', '#Orime'],
+    scenes: [
+      {
+        sec: 4.6,
+        items: [
+          { type: 'text', text: '前は', y: 300, size: 72, at: 0.1 },
+          { type: 'box', text: '閉じたら終わり', y: 420, size: 104, at: 0.4 },
+          { type: 'art', name: 'bookOpen', x: 60, y: 760, w: 360, at: 0.9, dur: 1.0 },
+          { type: 'art', name: 'arrow', x: 435, y: 830, w: 150, at: 1.8, dur: 0.5 },
+          { type: 'art', name: 'shelf', x: 610, y: 700, w: 320, at: 2.2, dur: 1.2 },
+          { type: 'sub', text: '読み終えた日が、\nゴールになっていた。', y: 1220, at: 3.0 },
+        ],
+      },
+      {
+        sec: 4.6,
+        items: [
+          { type: 'box', text: '困ったときに', y: 420, size: 104, at: 0.1 },
+          { type: 'text', text: '1 行も出てこない。', y: 580, size: 84, at: 0.5 },
+          { type: 'art', name: 'personThink', x: 120, y: 740, w: 240, at: 0.9, dur: 1.4 },
+          { type: 'art', name: 'booksFaded', x: 460, y: 880, w: 420, at: 1.8, dur: 1.2 },
+        ],
+      },
+      {
+        sec: 5.4,
+        items: [
+          { type: 'text', text: 'いまは', y: 300, size: 72, at: 0.1 },
+          { type: 'box', text: '自分のメモに聞く', y: 420, size: 104, at: 0.4 },
+          { type: 'art', name: 'memoStack', x: 60, y: 760, w: 320, at: 1.0, dur: 1.2 },
+          { type: 'art', name: 'arrow', x: 395, y: 900, w: 110, at: 2.0, dur: 0.5 },
+          { type: 'art', name: 'talk', x: 515, y: 780, w: 420, at: 2.4, dur: 1.2 },
+          { type: 'sub', text: '線を引いた一行が、\n答えの根拠になる。', y: 1220, at: 3.4 },
+        ],
+      },
+      {
+        sec: 4.4,
+        items: [
+          { type: 'box', text: '明日やることが', y: 420, size: 104, at: 0.1 },
+          { type: 'text', text: '1 つ決まる。', y: 580, size: 92, at: 0.5 },
+          { type: 'art', name: 'checklist', x: 330, y: 760, w: 420, at: 0.9, dur: 1.4 },
+          { type: 'sub', text: '無料プランで、今日から試せます。', y: 1260, at: 2.6 },
+        ],
+      },
+      { sec: 3.4, items: [{ type: 'end' }] },
+    ],
+  },
+  {
+    name: 'concept-goal',
+    title: '何から読めばいいか分からない → 1 年後から逆算した読む順番',
+    caption: [
+      '成長したい。でも、何から読めばいいか分からない。',
+      '本選びが、行き当たりばったりになっていた。',
+      '',
+      '1 年後の目標を書いて、そこから逆算した。',
+      '今月読む 1 冊が、決まっている。',
+      '',
+      '無料プラン（ずっと無料）で試せます。プロフィールのリンクから。',
+    ].join('\n'),
+    hashtags: ['#読書', '#目標設定', '#自己成長', '#ビジネス書', '#Orime'],
+    scenes: [
+      {
+        sec: 4.8,
+        items: [
+          { type: 'text', text: '成長したい。でも', y: 300, size: 76, at: 0.1 },
+          { type: 'box', text: '何から読む？', y: 430, size: 112, at: 0.4 },
+          { type: 'art', name: 'personThink', x: 120, y: 720, w: 240, at: 0.9, dur: 1.4 },
+          { type: 'art', name: 'booksFaded', x: 460, y: 860, w: 420, at: 1.8, dur: 1.2 },
+          { type: 'sub', text: '本選びが、\n行き当たりばったり。', y: 1230, at: 3.0 },
+        ],
+      },
+      {
+        sec: 5.6,
+        items: [
+          { type: 'text', text: 'いまは', y: 300, size: 72, at: 0.1 },
+          { type: 'box', text: '1 年後から逆算', y: 420, size: 104, at: 0.4 },
+          { type: 'art', name: 'road', x: 90, y: 700, w: 760, at: 0.9, dur: 2.0 },
+          { type: 'sub', text: '目標までの道のりに、\n読む本が並ぶ。', y: 1230, at: 3.0 },
+        ],
+      },
+      {
+        sec: 4.6,
+        items: [
+          { type: 'box', text: '今月読む 1 冊が', y: 420, size: 104, at: 0.1 },
+          { type: 'text', text: '決まっている。', y: 580, size: 92, at: 0.5 },
+          { type: 'art', name: 'personBook', x: 380, y: 720, w: 300, at: 0.9, dur: 1.4 },
+          { type: 'sub', text: '無料プランで、今日から試せます。', y: 1260, at: 2.8 },
+        ],
+      },
+      { sec: 3.4, items: [{ type: 'end' }] },
+    ],
+  },
+  {
+    name: 'concept-focus',
+    title: 'スマホで 1 日が終わる → 1 日 15 分、本だけの時間',
+    caption: [
+      '読まなきゃ、と思いながら、スマホで 1 日が終わっていた。',
+      '',
+      '15 分だけ、と決めて、表紙と時間だけの画面で読む。',
+      '1 日 15 分で、1 か月に 7 時間半。',
+      '',
+      '無料プラン（ずっと無料）で試せます。プロフィールのリンクから。',
+    ].join('\n'),
+    hashtags: ['#読書', '#読書習慣', '#積読', '#朝活', '#Orime'],
+    scenes: [
+      {
+        sec: 4.6,
+        items: [
+          { type: 'text', text: '読まなきゃ、と思いながら', y: 300, size: 72, at: 0.1 },
+          { type: 'box', text: 'スマホで 1 日終了', y: 430, size: 100, at: 0.4 },
+          { type: 'art', name: 'phone', x: 400, y: 700, w: 260, at: 0.9, dur: 1.4 },
+          { type: 'sub', text: '積読が、また増える。', y: 1240, at: 2.8 },
+        ],
+      },
+      {
+        sec: 5.2,
+        items: [
+          { type: 'text', text: 'いまは', y: 300, size: 72, at: 0.1 },
+          { type: 'box', text: 'まず 15 分だけ', y: 420, size: 104, at: 0.4 },
+          { type: 'art', name: 'clock', x: 90, y: 720, w: 330, at: 0.9, dur: 1.2 },
+          { type: 'art', name: 'bookOpen', x: 500, y: 800, w: 380, at: 1.8, dur: 1.0 },
+          { type: 'sub', text: '表紙と時間だけの画面で、\n本に向き合う。', y: 1230, at: 3.0 },
+        ],
+      },
+      {
+        sec: 4.6,
+        items: [
+          { type: 'box', text: '1 か月で', y: 420, size: 104, at: 0.1 },
+          { type: 'text', text: '7 時間半。', y: 580, size: 112, at: 0.5 },
+          { type: 'art', name: 'shelf', x: 360, y: 740, w: 340, at: 1.0, dur: 1.2 },
+          { type: 'sub', text: '無料プランで、今日から試せます。', y: 1260, at: 2.8 },
+        ],
+      },
+      { sec: 3.4, items: [{ type: 'end' }] },
+    ],
+  },
   {
     name: 'read-change-3',
     title: '読んでも変わらない人の特徴 3選',
@@ -86,7 +233,7 @@ export const REELS = [
   },
 ];
 
-export const END_LINE = '読んだ本と、会話しよう。';
+export const END_LINE = '読んだ本と、会話できる。'; // 2026-11-22 訴求の軸（lp-axis）に合わせた
 export const END_STORE = 'App Store で「Orime」';
 
 // 台本の中の、画面に出るすべての文（確かめる用）

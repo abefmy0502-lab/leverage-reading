@@ -24,6 +24,7 @@ import { join, resolve } from 'node:path';
 import { chromium } from 'playwright-core';
 import { SCENARIOS, redactPairs, AUTHOR_REDACT } from './scenarios.mjs';
 import { SAMPLE_NOTE } from './notes.mjs';
+import { END_LINE, END_STORE } from './explainer/reels.mjs';
 import { marksToCues } from './srt.mjs';
 import { finishVideo } from './finish-video.mjs';
 
@@ -32,6 +33,7 @@ const W = 1080;
 const H = 1920;
 const PHONE = { w: 390, h: 693, scale: 2.1, top: 330 };
 const TITLE_SEC = 2;
+const END_SEC = 2.6; // 最後の Orime のロゴのカード（2026-11-22 オーナー「動画の最後には Orime のロゴも」・--plain でも出す）
 
 const args = process.argv.slice(2);
 const flag = (name) => args.includes(name);
@@ -68,13 +70,14 @@ function stageHtml(appUrl) {
   html, body { margin: 0; width: ${W}px; height: ${H}px; overflow: hidden; background: var(--bg); color: var(--text); font-family: var(--font-ui); }
   #band { position: absolute; left: 64px; right: 64px; top: 48px; height: 250px; display: flex; align-items: center; justify-content: center; text-align: center; }
   #cap, #title { margin: 0; white-space: pre-line; word-break: keep-all; line-break: strict; text-wrap: balance; transition: opacity 200ms; }
+  #title { transition: opacity 700ms ease-out; }
   #cap { font-size: 56px; line-height: 1.4; font-weight: 700; }
   #title { position: absolute; font-size: 68px; line-height: 1.32; font-weight: 700; color: var(--accent); opacity: 0; }
   body.show-title #title { opacity: 1; }
   body.show-title #cap { opacity: 0; }
   #ph { position: absolute; left: ${left}px; top: ${PHONE.top}px; width: ${PHONE.w}px; height: ${PHONE.h}px; border: 0;
         transform: scale(${PHONE.scale}); transform-origin: 0 0; border-radius: var(--radius-md); box-shadow: var(--shadow-3);
-        background: var(--bg); opacity: 0; transition: opacity 300ms; }
+        background: var(--bg); opacity: 0; transition: opacity 700ms ease-out; }
   body.ready #ph { opacity: 1; }
   #logo { position: absolute; left: 0; right: 0; bottom: 64px; height: 64px; display: flex; justify-content: center; }
   #logo img { height: 64px; }
@@ -85,12 +88,19 @@ function stageHtml(appUrl) {
          opacity: 0.35; pointer-events: none; animation: tap 650ms ease-out forwards; }
   @keyframes tap { from { transform: scale(0.4); opacity: 0.45; } to { transform: scale(1.3); opacity: 0; } }
   body.plain #band, body.plain #logo { display: none; }
+  #endcard { position: absolute; inset: 0; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center;
+             gap: 40px; opacity: 0; transition: opacity 300ms; pointer-events: none; }
+  #endcard img { height: 180px; }
+  #endcard .end-line { font-size: 64px; font-weight: 700; color: var(--text); }
+  #endcard .end-store { font-size: 44px; font-weight: 600; color: var(--accent); }
+  body.show-end #endcard { opacity: 1; }
 </style></head>
 <body class="${plain ? 'plain' : ''}">
   <div id="band"><p id="cap"></p><p id="title"></p></div>
   <iframe id="ph" src="${escapeHtml(appUrl)}" title="Orime"></iframe>
   <div id="logo"><img src="/logo-lockup.png" alt="Orime"></div>
   <p id="sample">${escapeHtml(SAMPLE_NOTE)}</p>
+  <div id="endcard"><img src="/logo-lockup.png" alt="Orime"><div class="end-line">${escapeHtml(END_LINE)}</div><div class="end-store">${escapeHtml(END_STORE)}</div></div>
 </body></html>`;
 }
 
@@ -230,12 +240,13 @@ async function recordOne(browser, s) {
     await app.locator('nav').first().waitFor({ state: 'visible', timeout: 60000 });
     await app.locator('[data-splash]').waitFor({ state: 'detached', timeout: 8000 }).catch(() => {});
     await page.waitForTimeout(600);
-    await page.evaluate((title) => {
-      document.getElementById('title').textContent = title;
-      document.body.classList.add('ready', 'show-title');
-    }, s.title || '');
-    await page.waitForTimeout(350);
+    // 急に始めない（2026-11-22 オーナー）: 地の色だけの所から、題がゆっくり出て、そのあと画面が出る。
+    await page.evaluate((title) => { document.getElementById('title').textContent = title; }, s.title || '');
+    await page.waitForTimeout(200);
     trimStart = Math.max(0, now() - 0.05);
+    await page.evaluate(() => document.body.classList.add('show-title'));
+    await page.waitForTimeout(900);
+    await page.evaluate(() => document.body.classList.add('ready'));
     await page.waitForTimeout(TITLE_SEC * 1000);
     await page.evaluate(() => document.body.classList.remove('show-title'));
 
@@ -300,6 +311,9 @@ async function recordOne(browser, s) {
       }
     }
     await page.waitForTimeout(400);
+    // 最後に Orime のロゴのカード（ロゴ・「読んだ本と、会話できる。」・App Store）。
+    await page.evaluate(() => document.body.classList.add('show-end'));
+    await page.waitForTimeout(END_SEC * 1000);
   } catch (e) {
     failed = e.message;
   }

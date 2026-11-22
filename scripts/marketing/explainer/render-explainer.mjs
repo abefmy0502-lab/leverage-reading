@@ -194,6 +194,25 @@ function browserOptions() {
   return { channel: 'chrome', ...proxyOptions() };
 }
 
+// 文をつなぐ（「前は」+「閉じたら終わり」→「前は、閉じたら終わり。」）
+function joinSpoken(texts) {
+  return texts.map((t) => (/[。！？、]$/.test(t) ? t : /[はがにをもで]$/.test(t) ? `${t}、` : `${t}。`)).join('');
+}
+
+// 場面ごとの読み上げの文（SRT・声の仕組みが使う）
+export function explainerSrt(reel) {
+  const ts = (sec) => { const ms = Math.round(sec * 1000); const h = Math.floor(ms / 3600000); const m = Math.floor(ms / 60000) % 60; const s = Math.floor(ms / 1000) % 60; return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')},${String(ms % 1000).padStart(3, '0')}`; };
+  let t = 0; let n = 0; const out = [];
+  for (const sc of reel.scenes) {
+    const isEnd = sc.items[0]?.type === 'end';
+    const texts = isEnd ? [END_LINE] : sc.items.filter((it) => ['box', 'text', 'sub'].includes(it.type) && it.text).map((it) => it.text.replace(/\n/g, ''));
+    const first = isEnd ? 0.3 : Math.min(...sc.items.filter((it) => it.at != null).map((it) => it.at), 0.3);
+    if (texts.length) { n += 1; out.push(`${n}\n${ts(t + first)} --> ${ts(t + sc.sec - 0.1)}\n${joinSpoken(texts)}\n`); }
+    t += sc.sec;
+  }
+  return out.join('\n');
+}
+
 const ffmpeg = await findFfmpeg();
 const still = opt('--still');
 if (!ffmpeg && still == null) {
@@ -234,7 +253,7 @@ try {
     const ff = spawn(ffmpeg, ['-y', '-hide_banner', '-loglevel', 'error',
       '-f', 'image2pipe', '-framerate', String(FPS), '-c:v', 'mjpeg', '-i', '-',
       '-f', 'lavfi', '-i', 'anullsrc=channel_layout=stereo:sample_rate=44100',
-      '-shortest', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '18', '-preset', 'medium',
+      '-shortest', '-vf', 'fade=t=in:st=0:d=0.5:color=0xF7F5F1', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '18', '-preset', 'medium',
       '-c:a', 'aac', '-b:a', '96k', '-movflags', '+faststart', out], { stdio: ['pipe', 'inherit', 'inherit'] });
     const done = new Promise((ok, ng) => ff.on('close', (c) => (c === 0 ? ok() : ng(new Error(`ffmpeg が失敗しました（${c}）`)))));
     for (let i = 0; i < frames; i += 1) {
@@ -246,6 +265,8 @@ try {
     ff.stdin.end();
     await done;
     writeFileSync(join(dir, 'post.txt'), `${reel.caption}\n\n${reel.hashtags.join(' ')}\n`);
+    // 声（npm run mkt:voice）が読む文: 場面ごとに、出る文をつないだ 1 つ（終わりのカードは決まりの 2 行）。
+    writeFileSync(join(dir, 'captions.srt'), explainerSrt(reel));
     console.log(`  ✓ ${out}（${total.toFixed(1)} 秒）`);
     await page.close();
   }

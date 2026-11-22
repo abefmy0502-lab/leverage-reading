@@ -64,7 +64,8 @@ export async function finishVideo(dir) {
   // 最後の区間は録画の終わりまで（重い場面があると録画の時間が台本の時計より少し長くなり、終わりで切ると最後の場面が欠ける）。
   const parts = segments.map(([a, b], i) => `[0:v]trim=start=${a.toFixed(3)}${i === segments.length - 1 ? '' : `:end=${b.toFixed(3)}`},setpts=PTS-STARTPTS[v${i}]`);
   const joined = `${segments.map((_, i) => `[v${i}]`).join('')}concat=n=${segments.length}:v=1:a=0[vc]`;
-  const filter = `${parts.join(';')};${joined};[vc]scale=1080:1920:flags=lanczos,fps=30,format=yuv420p[v]`;
+  // 頭は地の色（--bg）から 0.4 秒でふわっと出す（急に始めない・2026-11-22 オーナー）。
+  const filter = `${parts.join(';')};${joined};[vc]scale=1080:1920:flags=lanczos,fps=30,fade=t=in:st=0:d=0.4:color=0xF7F5F1,format=yuv420p[v]`;
   run(bin, [
     '-hide_banner', '-loglevel', 'error', '-y',
     '-i', raw,

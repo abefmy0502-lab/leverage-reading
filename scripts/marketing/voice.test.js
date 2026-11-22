@@ -1,0 +1,16 @@
+import { describe, it, expect } from 'vitest';
+import { parseSrt, spokenText } from './voice.mjs';
+
+describe('声（ナレーション）', () => {
+  it('SRT を秒の時刻と文に分ける', () => {
+    const cues = parseSrt('1\n00:00:02,500 --> 00:00:04,000\n家の本棚、\n全部入れるのは大変\n\n2\n00:00:04,000 --> 00:00:06,250\n本棚の写真から\n');
+    expect(cues).toEqual([
+      { start: 2.5, end: 4, text: '家の本棚、全部入れるのは大変' },
+      { start: 4, end: 6.25, text: '本棚の写真から' },
+    ]);
+  });
+  it('読み上げ用に、矢印・改行・英字の名前を直す', () => {
+    expect(spokenText('本棚の記録、3 冊で止まっていた\n↓\n1 枚撮って、\nまとめて本棚へ')).toBe('本棚の記録、3 冊で止まっていた。1 枚撮って、まとめて本棚へ');
+    expect(spokenText('App Store で「Orime」')).toBe('アップストア で「オリメ」');
+  });
+});
