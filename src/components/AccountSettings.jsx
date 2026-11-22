@@ -369,7 +369,7 @@ async function listAllUserPhotos(userId, bucket = 'book-memo-photos') {
 // 🧪 お試しモードの通知のオン・オフ（設定を閉じて開き直しても残す・再読み込みで初期化）。
 let demoPushOn = false;
 
-export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, onOpenHelp, focusDelete = false, onProfileSaved, onAddWant, hasBook }) {
+export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, onOpenHelp, focusDelete = false, onProfileSaved, onAddWant, hasBook, onOpenProfile = null }) {
   const { user, signOut } = useAuth();
   const guest = isGuestUser(user);
   // 有料プランの画面の「アカウントを削除」から開いたときは、削除の欄まで送る。
@@ -1020,7 +1020,16 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
             )}
           </Group>
 
-          {/* 👤 プロフィールとフォローは 2026-11-22 に設定から分けた（上の行の自分のアイコン → ProfileScreen）。 */}
+          {/* 👤 プロフィールとフォローは 2026-11-22 に設定から分けた（上の行の自分のアイコン → ProfileScreen）。
+              設定から探す人の道も 1 行だけ残す（iOS の設定のいちばん上の自分の行と同じ考え）。 */}
+          {onOpenProfile && (
+            <Group>
+              <button type="button" onClick={onOpenProfile} style={{ ...rowButtonStyle, gap: 'var(--space-3)' }}>
+                <span style={{ flex: 1, minWidth: 0, ...rowTitleStyle, color: 'inherit' }}>プロフィール・フォロー</span>
+                <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+              </button>
+            </Group>
+          )}
 
           {/* 🎯 Orime を入れた理由の行は 2026-11-16 にやめた（オーナー「不要」・目標は 振り返り › 行動 の 1 年後・3 年後・5 年後）。
               前に書いた人には、解約・退会の前の確かめ（PurposeCheckSheet）でだけ見せる。 */}

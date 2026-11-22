@@ -6227,7 +6227,8 @@ function AuthedApp() {
       </button>
     </div>
     {/* 右端は左のロゴの補正と対称に（アイコンの見た目の右余白を 16 に）。 */}
-    <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-1)', marginRight: 'calc(-1 * var(--space-3))' }}>
+    {/* 右端は自分のアイコン（見た目 28）なので、押せる範囲 44 との差の半分（8）だけ外へ出し、見た目の右余白を 16 にそろえる（2026-11-22 ui-critic）。 */}
+    <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-1)', marginRight: 'calc(-1 * var(--space-2))' }}>
       {/* 📷 写真で共有（2026-09-30 オーナー裁定: 共有は前面に出す主要な機能。2026-10-01「振り返りでも相談でも表示があってもいい」で
           ホーム・振り返り・相談の 3 つのタブで同じ場所・同じ形に）。押すとカメラで撮る・写真から選ぶ・写真なし（本の表紙）を選ぶシート（2026-10-11 オーナー裁定・旧「すぐカメラ」）。
           撮ったら、いま読んでいる本の記録を重ねたシートが開く（振り返り › 記録から開いて今月の読了があるときだけ「今月」を選んでおく）。 */}
@@ -7122,6 +7123,7 @@ function AuthedApp() {
             onProfileSaved={addFavoriteFromProfile}
             onAddWant={addWantFromOther}
             hasBook={hasBookFromOther}
+            onOpenProfile={() => { setSettingsOpen(false); setProfileScreenOpen(true); }}
           />
         </Suspense>
       )}

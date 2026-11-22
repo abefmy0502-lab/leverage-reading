@@ -13,7 +13,7 @@ import FollowSummary from './FollowSummary';
 import { SkeletonBlock } from './Skeleton';
 import { useToast } from './Toast';
 import { withPhraseBreaks } from './TightBubble';
-import { btnGhost, btnLink, groupTitle } from '../styles/ui';
+import { btnGhost, btnPrimary, btnLink, groupTitle } from '../styles/ui';
 import { useAuth } from '../hooks/useAuth';
 import { useProfile } from '../hooks/useProfile';
 import { isGuestUser } from '../lib/guestAuth';
@@ -75,13 +75,16 @@ export default function ProfileScreen({ onClose, onOpenSettings, onProfileSaved,
               <section aria-label="あなたのプロフィール">
                 <div style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'center' }}>
                   <UserAvatar avatarId={profile.avatar} nickname={profile.nickname} size={64} />
-                  <div style={{ minWidth: 0 }}>
-                    <p style={{ margin: 0, fontSize: 'var(--text-heading)', fontWeight: 600, lineHeight: 1.4, color: hasProfile(profile) ? 'var(--text)' : 'var(--text-2)', overflowWrap: 'anywhere' }}>{name}</p>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    {/* ニックネームが無い人は、名前の代わりに主ボタン「ニックネームを決める」（申し込むにも申し込まれるにも要る・2026-11-22 ui-critic）。 */}
+                    {profile.nickname
+                      ? <p style={{ margin: 0, fontSize: 'var(--text-heading)', fontWeight: 600, lineHeight: 1.4, color: 'var(--text)', overflowWrap: 'anywhere' }}>{name}</p>
+                      : <button type="button" onClick={() => setEditOpen(true)} style={btnPrimary}>ニックネームを決める</button>}
                     {status && <p style={{ ...note, marginTop: 'var(--space-1)' }}>{status}</p>}
                   </div>
                 </div>
                 {profile.bio && <p style={{ margin: 'var(--space-3) 0 0', fontSize: 'var(--text-body)', lineHeight: 1.6, color: 'var(--text)', whiteSpace: 'pre-line', overflowWrap: 'anywhere' }}>{profile.bio}</p>}
-                <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-4)' }}>
+                {profile.nickname && <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-4)' }}>
                   <button type="button" onClick={() => setEditOpen(true)} style={{ ...btnGhost, flex: 1, gap: 'var(--space-2)' }}>
                     <Pencil size="1em" aria-hidden="true" />プロフィールを編集
                   </button>
@@ -90,7 +93,7 @@ export default function ProfileScreen({ onClose, onOpenSettings, onProfileSaved,
                       <Link2 size="1em" aria-hidden="true" />リンクを共有
                     </button>
                   )}
-                </div>
+                </div>}
               </section>
             )}
 
@@ -104,7 +107,7 @@ export default function ProfileScreen({ onClose, onOpenSettings, onProfileSaved,
             {/* 👥 フォロー（VITE_SOCIAL のビルドだけ・使えない DB では出さない） */}
             {SOCIAL_ON && !guest && followLists !== 'none' && (
               <section aria-label="フォロー">
-                <p style={{ ...groupTitle, margin: '0 0 var(--space-2)' }}>フォロー</p>
+                <p style={{ ...groupTitle, margin: '0 0 var(--space-2) var(--space-4)' }}>フォロー</p>
                 <div style={card}>
                   {/* FollowSummary は上に区切り線を持つので、カードの先頭は線を消す */}
                   <div style={{ marginTop: -1 }}>
@@ -122,7 +125,7 @@ export default function ProfileScreen({ onClose, onOpenSettings, onProfileSaved,
             {(profile.favLine || profile.favTitle) && (
               <section aria-label="好きな言葉と好きな本">
                 {profile.favLine && (
-                  <blockquote style={{ margin: 0, padding: 'var(--space-1) 0 var(--space-1) var(--space-4)', borderLeft: '2px solid var(--accent)', fontFamily: 'var(--font-read)', fontSize: [...String(profile.favLine)].length > 40 ? 'var(--text-body)' : 'var(--text-heading)', lineHeight: 1.75, lineBreak: 'strict', textWrap: 'pretty', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+                  <blockquote style={{ margin: 0, padding: 'var(--space-1) 0 var(--space-1) var(--space-4)', borderLeft: '2px solid var(--accent)', fontFamily: 'var(--font-read)', fontSize: [...String(profile.favLine)].length > 40 ? 'var(--text-read)' : 'var(--text-heading)', lineHeight: 1.7, lineBreak: 'strict', textWrap: 'pretty', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
                     {withPhraseBreaks(profile.favLine)}
                   </blockquote>
                 )}
