@@ -1,40 +1,45 @@
 #!/usr/bin/env node
 // 中期経営計画の数字を出す（node scripts/plan/plan.mjs）。--json で company/plan-model/plan.json に書き出す（ダッシュボードと文書が使う）。
 import { writeFileSync, mkdirSync } from 'node:fs';
-import { SCENARIOS, simulate, yearly, lifetimeValue, paidAcquisition, sensitivity, breakEvenMonth, BASE } from './model.mjs';
-import { ROLES, ROUTINES, ITEMS } from './schedule.mjs';
+import { SCENARIOS, simulate, yearly, lifetimeValue, paidAcquisition, sensitivity, breakEvenMonth, stressGrid, BASE } from './model.mjs';
+import { ROLES, ROUTINES, ITEMS, TARGETS, MILESTONES, ownerHoursOfMonth } from './schedule.mjs';
 
-const man = (v) => `${Math.round(v / 10000).toLocaleString('ja-JP')}`;
+const M = (v) => Math.round(v / 1e4);
 const n = (v) => Math.round(v).toLocaleString('ja-JP');
-const out = { generatedAt: new Date().toISOString().slice(0, 10), scenarios: {} };
+const out = { generatedAt: new Date().toISOString().slice(0, 10), targets: TARGETS, milestones: MILESTONES, scenarios: {} };
+const QE = ['03', '06', '09', '12'];
 
 for (const [key, A] of Object.entries(SCENARIOS)) {
-  const rows = simulate(A); const ys = yearly(rows);
+  const rows = simulate(A); const ys = yearly(rows, A);
   out.scenarios[key] = {
-    name: A.name,
-    gates: rows.gates, androidOn: rows.androidOn, minCashMan: Math.round(rows.minCash / 1e4), minCashYm: rows.minCashYm, breakEven: breakEvenMonth(rows),
-    years: ys.map((o) => ({ year: o.year, plan: o.plan, paidEnd: Math.round(o.paidEnd), consumerEnd: Math.round(o.consumerEnd), seatsEnd: o.seatsEnd, companiesEnd: o.companiesEnd, installs: Math.round(o.installs), newPaid: Math.round(o.newPaid), revenueMan: Math.round(o.revenue / 1e4), mrrEndMan: Math.round(o.mrrEnd / 1e4), feeMan: Math.round(o.fee / 1e4), refundsMan: Math.round(o.refunds / 1e4), aiMan: Math.round(o.ai / 1e4), peopleMan: Math.round(o.people / 1e4), marketingMan: Math.round(o.marketing / 1e4), adMan: Math.round(o.adSpend / 1e4), infraMan: Math.round(o.infra / 1e4), otherMan: Math.round(o.other / 1e4), profitMan: Math.round(o.profit / 1e4), taxMan: Math.round(o.corpTax / 1e4), afterTaxMan: Math.round(o.profitAfterTax / 1e4), ownerMarketMan: Math.round((o.profit - (o.year === 2027 ? BASE.ownerMarketPayYen * 12 : 0)) / 1e4), cashEndMan: Math.round(o.cashEnd / 1e4) })),
-    quarters: rows.filter((r) => r.inPlan && ['03', '06', '09', '12'].includes(r.ym.slice(5))).map((r) => ({ ym: r.ym, paid: Math.round(r.paid), consumer: Math.round(r.consumerPaid), seats: r.seats })),
-    cash: rows.filter((r) => r.inPlan).map((r) => ({ ym: r.ym, cashMan: Math.round(r.cash / 1e4) })),
+    name: A.name, gates: rows.gates, events: rows.events, hired: rows.hired, androidOn: rows.androidOn, incorporatedAt: rows.incorporatedAt,
+    minCashMan: M(rows.minCash), minCashYm: rows.minCashYm, breakEven: breakEvenMonth(rows),
+    years: ys.map((o) => ({ year: o.year, plan: o.plan, paidEnd: Math.round(o.paidEnd), consumerEnd: Math.round(o.consumerEnd), seatsEnd: o.seatsEnd, companiesEnd: o.companiesEnd, installs: Math.round(o.installs), revenueMan: M(o.revenue), mrrEndMan: M(o.mrrEnd), feeMan: M(o.fee), refundsMan: M(o.refunds), aiMan: M(o.ai), peopleMan: M(o.people), marketingMan: M(o.marketing), adMan: M(o.adSpend), infraMan: M(o.infra), otherMan: M(o.other), profitMan: M(o.profit), taxMan: M(o.taxForYear), afterTaxMan: M(o.profitAfterTax), marketOwnerMan: M(o.profitMarketOwner), cashEndMan: M(o.cashEnd), cashAfterTaxMan: M(o.cashAfterTaxDue), loanEndMan: M(o.loanEnd) })),
+    quarters: rows.filter((r) => r.inPlan && QE.includes(r.ym.slice(5))).map((r) => ({ ym: r.ym, paid: Math.round(r.paid), consumer: Math.round(r.consumerPaid), seats: r.seats, cashMan: M(r.cash), ch: r.ch, android: r.android, installs: r.installs })),
+    cash: rows.filter((r) => r.inPlan).map((r) => ({ ym: r.ym, cashMan: M(r.cash), plan: r.plan })),
   };
   if (!process.argv.includes('--json')) {
     console.log(`\n■ ${A.name}`);
-    console.log(`関門 ${JSON.stringify(rows.gates)}  Android ${rows.androidOn}  いちばん少ない現金 ${man(rows.minCash)} 万（${rows.minCashYm}）  黒字の月 ${breakEvenMonth(rows)}`);
-    console.log('年      年末の有料（個人＋席）  入れた人   売上(万)  利益(万)  税(万)  年末の現金(万)  費用の計画');
-    for (const o of ys) console.log(`${o.year}  ${n(o.paidEnd).padStart(6)}（${n(o.consumerEnd)}＋${n(o.seatsEnd)}）  ${n(o.installs).padStart(9)}  ${man(o.revenue).padStart(7)}  ${man(o.profit).padStart(7)}  ${man(o.corpTax).padStart(5)}  ${man(o.cashEnd).padStart(7)}  ${o.plan}`);
+    console.log(`関門 ${JSON.stringify(rows.gates)}\nAndroid ${rows.androidOn}  法人化 ${rows.incorporatedAt}  社員 ${rows.hired.join('・') || 'なし'}  いちばん少ない現金 ${M(rows.minCash)} 万（${rows.minCashYm}）  黒字の月 ${breakEvenMonth(rows)}`);
+    for (const e of rows.events) console.log(`  ${e.ym} ${e.what}`);
+    console.log('年      年末の有料（個人＋席）  入れた人   売上(万)  利益(万)  市場の報酬なら(万)  年末の現金(万)  借入の残り(万)  計画');
+    for (const o of ys) console.log(`${o.year}  ${n(o.paidEnd).padStart(6)}（${n(o.consumerEnd)}＋${n(o.seatsEnd)}）  ${n(o.installs).padStart(9)}  ${String(M(o.revenue)).padStart(7)}  ${String(M(o.profit)).padStart(7)}  ${String(M(o.profitMarketOwner)).padStart(9)}  ${String(M(o.cashEnd)).padStart(9)}  ${String(M(o.loanEnd)).padStart(6)}  ${o.plan}`);
   }
 }
-const ltv = [2027, 2028, 2029].map((y) => ({ year: y, ...lifetimeValue(BASE, y), ...paidAcquisition(BASE, y) }));
-out.unit = ltv.map((u) => ({ year: u.year, ltvMonthly: Math.round(u.ltvMonthly), ltvAnnual: Math.round(u.ltvAnnual), ltv: Math.round(u.blended), cac: Math.round(u.cac), ratio: Math.round(u.ratio * 10) / 10, paybackMonths: Math.round(u.paybackMonths * 10) / 10 }));
-out.sensitivity = sensitivity(BASE).map((s) => ({ label: s.label, paidEnd: Math.round(s.paidEnd), dPaid: Math.round(s.dPaid), profitMan: Math.round(s.profit / 1e4), profitNoGatesMan: Math.round(s.profitNoGates / 1e4) }));
+out.unit = [2027, 2028, 2029].map((y) => { const l = lifetimeValue(BASE, y); const ls = lifetimeValue(BASE, y, { strict: true }); const a = paidAcquisition(BASE, y); const as = paidAcquisition(BASE, y, { strict: true }); return { year: y, monthlyMonths: Math.round(l.monthlyMonths * 10) / 10, ltvMonthly: Math.round(l.ltvMonthly), ltvAnnual: Math.round(l.ltvAnnual), ltv: Math.round(l.blended), ltvStrict: Math.round(ls.blended), cac: Math.round(a.cac), cacStrict: Math.round(as.cac), ratio: Math.round(a.ratio * 10) / 10, paybackMonths: a.paybackMonths, paybackStrict: as.paybackMonths }; });
+out.sensitivity = sensitivity(BASE).map((s) => ({ label: s.label, paidEnd: Math.round(s.paidEnd), dPaid: Math.round(s.dPaid), profitMan: M(s.profit), profitNoGatesMan: M(s.profitNoGates), minCashMan: M(s.minCash), marketOwnerMan: M(s.profitMarketOwner) }));
+const grid = stressGrid(BASE); out.stress = { cases: grid.length, negative: grid.filter((x) => x.minCash < 0).length, worstMan: M(Math.min(...grid.map((x) => x.minCash))) };
+out.ownerHours = ['2026-12', ...Array.from({ length: 12 }, (_, i) => `2027-${String(i + 1).padStart(2, '0')}`)].map((ym) => { const o = ownerHoursOfMonth(ym); return { ym, routine: Math.round(o.routine * 10) / 10, items: Math.round(o.items * 10) / 10, total: Math.round(o.total * 10) / 10, limit: Math.round(o.limit * 10) / 10 }; });
 out.roles = ROLES; out.routines = ROUTINES; out.items = ITEMS;
 if (process.argv.includes('--json')) {
   mkdirSync('company/plan-model', { recursive: true });
   writeFileSync('company/plan-model/plan.json', `${JSON.stringify(out, null, 1)}\n`);
   console.log('✓ company/plan-model/plan.json');
 } else {
-  console.log('\n■ 1 人の生涯の利益と広告で取る費用（基本）');
-  for (const u of out.unit) console.log(`${u.year}  生涯の利益 ¥${n(u.ltv)}（月額 ¥${n(u.ltvMonthly)}・年額 ¥${n(u.ltvAnnual)}）  広告で 1 人 ¥${n(u.cac)}  比 ${u.ratio}  回収 ${u.paybackMonths} か月`);
+  console.log('\n■ 1 人の生涯の利益と広告で取る費用（基本・ふつう／きびしめ）');
+  for (const u of out.unit) console.log(`${u.year}  生涯の利益 ¥${n(u.ltv)}／¥${n(u.ltvStrict)}  広告で 1 人 ¥${n(u.cac)}／¥${n(u.cacStrict)}  回収 ${u.paybackMonths}／${u.paybackStrict} か月`);
   console.log('\n■ 感度（基本から 1 つだけ動かす・2029 年）');
-  for (const s of out.sensitivity) console.log(`${s.label}  年末の有料 ${n(s.paidEnd)}（${s.dPaid >= 0 ? '+' : ''}${n(s.dPaid)}）  利益（関門で止める）${n(s.profitMan)} 万・（止めない）${n(s.profitNoGatesMan)} 万`);
+  for (const s of out.sensitivity) console.log(`${s.label}  年末の有料 ${n(s.paidEnd)}（${s.dPaid >= 0 ? '+' : ''}${n(s.dPaid)}）  利益 ${s.profitMan} 万（止めない ${s.profitNoGatesMan} 万）  いちばん少ない現金 ${s.minCashMan} 万`);
+  console.log(`\n■ 網の目の点検 ${out.stress.cases} 通り: 現金がマイナス ${out.stress.negative} 通り・いちばん少ない現金 ${out.stress.worstMan} 万`);
+  console.log('\n■ オーナーの時間（月・時間）'); for (const o of out.ownerHours) console.log(`${o.ym}  決まった仕事 ${o.routine}＋成果物 ${o.items}＝${o.total}（上限 ${o.limit}）`);
 }
