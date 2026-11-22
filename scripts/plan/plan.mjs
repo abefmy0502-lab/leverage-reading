@@ -19,8 +19,10 @@ for (const [key, A] of Object.entries(SCENARIOS)) {
     cash: rows.filter((r) => r.inPlan).map((r) => ({ ym: r.ym, cashMan: M(r.cash), plan: r.plan })),
   };
   // 2026-11-22 オーナー「ダウンロード数・アクティブ会員数（無料・有料）・アクティブ有料会員数・無料会員数・売上・粗利の目標と実数を出したい」
-  // 月ごとの目標（基本の見込みだけ）。売上は税抜・月割り。粗利＝売上 − ストアの手数料 − 返金 − AI の原価（固定費は入れない）
-  if (key === 'base') out.kpi = rows.filter((r) => r.inPlan).map((r) => ({ ym: r.ym, dl: Math.round(r.installs), active: Math.round(r.freeActive + r.paid), paid: Math.round(r.paid), free: Math.round(r.freeActive), revenue: Math.round(r.revenue), gross: Math.round(r.revenue - r.fee - r.refunds - r.ai) }));
+  // 月ごとの目標（基本の見込みだけ）。ダッシュボードの「売上と粗利」と同じ数え方にそろえる:
+  // 売上＝税込・月あたり（年額は月割り）／粗利＝手取り（税抜 − ストアの手数料 − 返金）− AI の原価 − 固定費（Apple ¥1,082・Claude Max）
+  const FIXED = (A.claudeMaxYen ?? 0) + 1082;
+  if (key === 'base') out.kpi = rows.filter((r) => r.inPlan).map((r) => ({ ym: r.ym, dl: Math.round(r.installs), active: Math.round(r.freeActive + r.paid), paid: Math.round(r.paid), free: Math.round(r.freeActive), revenue: Math.round(r.revenue * 1.1), gross: Math.round(r.revenue - r.fee - r.refunds - r.ai - FIXED) }));
   if (!process.argv.includes('--json')) {
     console.log(`\n■ ${A.name}`);
     console.log(`関門 ${JSON.stringify(rows.gates)}\nAndroid ${rows.androidOn}  法人化 ${rows.incorporatedAt}  社員 ${rows.hired.join('・') || 'なし'}  いちばん少ない現金 ${M(rows.minCash)} 万（${rows.minCashYm}）  黒字の月 ${breakEvenMonth(rows)}`);

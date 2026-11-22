@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { BASE, SCENARIOS, simulate, yearly, lifetimeValue, paidAcquisition, MONTHS, breakEvenMonth, stressGrid } from './model.mjs';
+import { readFileSync } from 'node:fs';
+import { BASE, SCENARIOS, simulate, yearly, lifetimeValue, paidAcquisition, MONTHS, breakEvenMonth, stressGrid, sensitivity } from './model.mjs';
 import { ROLES, ROUTINES, ITEMS, HOLD_ITEMS, GUARD_ITEMS, FREEZE_ITEMS, quarterOf, isMonth, TARGETS, TARGET_SPLIT, MILESTONES, OWNER_WEEKLY_HOURS, REV_SHARE_TARGETS, ownerHoursOfMonth } from './schedule.mjs';
 
 // 2026-11-22 オーナー「優秀なコンサルが何人読んでも納得する内容に」: 計画の数字は、この計算から出る（文書 v10 と同じ版・点検の 4 回目を反映）
@@ -91,6 +92,14 @@ describe('中期経営計画の計算', () => {
   it('月額の 1 年後に残る割合は、日本の目安（26%）に近い', () => {
     const left = (1 - BASE.firstMonthChurn) * (1 - BASE.steadyChurn[2027]) ** 11;
     expect(left).toBeGreaterThan(0.2); expect(left).toBeLessThan(0.32);
+  });
+  it('文書の §0 に手で書いた数（強気の 2029 年・汎用 AI の場合・控えめ）は、計算を百の位で丸めた数と同じ', () => {
+    const doc = readFileSync(new URL('../../company/mid-term-plan-2027-2029.md', import.meta.url), 'utf8');
+    const r100 = (v) => (Math.round(v / 100) * 100).toLocaleString('en-US');
+    expect(doc).toContain(`${r100(ys(SCENARIOS.high)[2029].paidEnd)} 人（強気）`);
+    expect(doc).toContain(`約 ${(Math.round(ys(SCENARIOS.low)[2029].paidEnd / 50) * 50).toLocaleString('en-US')}（控えめ）`);
+    const ai = sensitivity(BASE).find((x) => x.label.startsWith('汎用 AI が同じことを無料に'));
+    expect(doc).toContain(`有料になる率が 3 割下がると 約 ${r100(ai.paidEnd)} 人`);
   });
   it('基本は 2027 年のうちに黒字の月が来る', () => {
     const be = breakEvenMonth(simulate(BASE));

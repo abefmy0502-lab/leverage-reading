@@ -383,6 +383,7 @@ export function sensitivity(A = BASE) {
   const cases = [
     ['入れた人 → 有料 −30%', { installToPaid: scale(A.installToPaid, 0.7) }],
     ['自然な流入 −30%', { organicMult: A.organicMult * 0.7 }],
+    ['App Store の検索だけ −50%（検索の数か、上位に出る割合が見込みの半分）', { search: { ...A.search, visibility: Object.fromEntries(Object.entries(A.search.visibility).map(([k, v]) => [k, v * 0.5])) } }],
     ['自然な流入の伸びが 6 か月遅れる', { organicDelayMonths: 6 }],
     ['汎用 AI が同じことを無料に（2027 年 7 月から有料になる率 −30%）', { convShock: { from: '2027-07', mult: 0.7 } }],
     ['AI と連携を有料にしない（汎用 AI の中で使われ、2028 年から有料になる率 −15%）', { convShock: { from: '2028-01', mult: 0.85 } }],
