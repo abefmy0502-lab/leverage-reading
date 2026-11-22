@@ -55,7 +55,7 @@ import { composerChrome, answerEndScrollTop, isTouchUi } from '../lib/composerVi
 import { useComposerHeight } from '../hooks/useComposerHeight';
 import { NATIVE_KEYBOARD_EVENT } from '../lib/native';
 import { encodeThreadRef, isThreadRef, threadRootOf, groupConsults, threadScopeOf, threadTitleOf, lastConsultThread } from '../lib/consultThreads';
-import { buildConsultExamples, standaloneAction, shortTitle, hasSummaryMemo, countSummaryMemos, fmtTokens, consultsLeft, memoSearchQuery, answerStepToAction, stripScenePrefix, selectThreadTurns, isCompletedAnswer, parseAskSection, nextStepChips, wantsAction, isBookLookup, lookupTerm, shouldDecide, isLastAnswer, countAsks, askProgressText, answerAsks, lensOf, usedLenses, isWorkConsult, LENS_NEXT_LINE, advisorDraftFromConsult, askLimitFor } from '../lib/consultHelpers';
+import { buildConsultExamples, standaloneAction, shortTitle, hasSummaryMemo, countSummaryMemos, fmtTokens, consultsLeft, memoSearchQuery, answerStepToAction, stripScenePrefix, selectThreadTurns, isCompletedAnswer, parseAskSection, nextStepChips, wantsAction, isBookLookup, lookupTerm, shouldDecide, isLastAnswer, countAsks, askProgressText, answerAsks, DECIDE_CHIP, DECIDE_REQUEST, lensOf, usedLenses, isWorkConsult, LENS_NEXT_LINE, advisorDraftFromConsult, askLimitFor } from '../lib/consultHelpers';
 import LibrarySearchHit from './LibrarySearchHit';
 import { buildSnippet, compileTerms, splitQuery } from '../lib/librarySearch';
 import { tomorrowLocal } from '../lib/dates';
@@ -496,8 +496,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // 🪙➕ トークンを買い足したら、上限の状態を解く（送れるように戻す）。
   useEffect(() => { if (purchasedTokens > 0) setMonthLimitHit(false); }, [purchasedTokens]);
   const freeUsedUp = freeMode && tokensAvailable != null && tokensAvailable <= 0;
-  // 無料プランで残りが少ない（この相談が今月の最後）ときは、相談例を押しても送らず入力欄に入れる（2026-10-21）。
-  const examplesDraftOnly = isLastAnswer({ freeMode, plan, tokensRemaining, purchasedTokens });
+  // 無料プランは、相談例を押しても送らず入力欄に入れる（2026-11-22 点検: 30 トークンのうち 10 を、試しに押しただけで使っていた）。
+  //   プランの人も、残りが少ない（この相談が今月の最後）ときは入れるだけ（2026-10-21）。
+  const examplesDraftOnly = freeMode || isLastAnswer({ freeMode, plan, tokensRemaining, purchasedTokens });
   // 上部の 1 行の言葉: 無料のトークンを使い切ったら AI ではなくメモから探す（メモが答える相談）ので「から探します」。
   const answerVerb = freeUsedUp ? 'から探します' : 'から答えます';
   // （プランの人が使い切ったときは planOut の後ろで上書き）
@@ -2673,6 +2674,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                   askBusy={busy}
                   onActionAdded={() => { onConsultActionAdded(m.id); setAddedActionIds((ids) => (ids.includes(m.id) ? ids : [...ids, m.id])); }}
                   askProgress={m.id === askProgressFor ? askProgress : ''}
+                  onDecide={m.id === askProgressFor && !busy ? () => { track('brain_followup', { kind: 'decide', from: 'ask_box' }); ask(DECIDE_REQUEST); } : null}
                   primaryAction={firstActionPending && i === visibleMessages.length - 1}
                   onOpenActions={onOpenActions}
                   memoBookIds={memoBookIds}
@@ -2802,6 +2804,16 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               >
                 AI に送る内容を見る
               </button>
+              {/* AI を使わない道も（メモが答える相談＝端末の中で自分のメモから探す・送らない・2026-11-22 点検＝行き止まりにしない）。 */}
+              {input.trim() && (
+                <button
+                  type="button"
+                  onClick={() => { const q = input.trim(); setConsentDeclined(false); askFromMemos(q); }}
+                  style={{ ...uiBtnLink, display: 'flex', margin: 'calc(-1 * var(--space-1)) 0 calc(-1 * var(--space-2)) calc(-1 * var(--space-1))' }}
+                >
+                  AI を使わずに、メモから探す
+                </button>
+              )}
             </div>
           )}
           {sendNotice && !busy && (
@@ -2835,7 +2847,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                   </button>
                 ))}
                 {/* 🎯「行動を決める」は決まった頼み方（DECIDE_REQUEST）で送る。行動の印（Target）つき。 */}
-                {followups.filter((c) => c.kind === 'decide').map((c) => (
+                {/* 問いの箱の中に「ここで答えと行動を」を出している間は、行には重ねて出さない（2026-11-22）。 */}
+                {followups.filter((c) => c.kind === 'decide' && !(askProgressFor && !busy)).map((c) => (
                   // 「ここで答えと行動を」は行の先頭に（横に送る行で切れて見えないことが無いように・2026-10-10 ui-critic）。
                   //   ただし問いに答える候補が出ている間は候補が先（答えやすさが主役・候補が画面の外に押し出されていた・2026-10-21 点検）。
                   <button key="decide" type="button" onClick={() => { track('brain_followup', { kind: 'decide' }); ask(c.send); }} style={{ ...decideChip, order: followups.some((x) => x.kind === 'reply') ? 0 : -1 }}>
@@ -3689,7 +3702,7 @@ function answerActionAddedBefore(message, question, actions) {
   return answerActionStatus({ answerId: message.id, actionText: text, actions }).added;
 }
 
-function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions = null, onAddAction, onAddActionPickBook, onRetry, onWriteLearning, showTime = false, question = '', onAskBook = null, askBusy = false, onActionAdded = null, onOpenActions = null, memoBookIds = null, onShowPartner = null, askProgress = '', primaryAction = false, quietAction = false }) {
+function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions = null, onAddAction, onAddActionPickBook, onRetry, onWriteLearning, showTime = false, question = '', onAskBook = null, askBusy = false, onActionAdded = null, onOpenActions = null, memoBookIds = null, onShowPartner = null, askProgress = '', onDecide = null, primaryAction = false, quietAction = false }) {
   const isUser = message.role === 'user';
   const isStreaming = !!message.streaming;
   const hasBody = typeof message.content === 'string' && message.content.length > 0;
@@ -3910,6 +3923,13 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
         <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
           {withPhraseBreaks(askProgress)}
         </p>
+      )}
+      {/* 🎯 聞き返しを待たずにまとめてもらう入口を、問いの箱の中にも（チップの行は返事の候補で埋まり、390 幅では
+          「ここで答えと行動を」が画面の外に出ていた・2026-11-22 点検）。 */}
+      {askProgress && !isStreaming && onDecide && (
+        <button type="button" onClick={onDecide} style={{ ...uiBtnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))', fontSize: 'var(--text-sub)' }}>
+          <Target size="1.05em" aria-hidden="true" style={{ flexShrink: 0 }} />{DECIDE_CHIP}
+        </button>
       )}
     </div>
   ) : null);

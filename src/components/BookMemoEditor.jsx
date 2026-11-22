@@ -170,6 +170,8 @@ export default function BookMemoEditor({
   defaultPageNumber = '',
   defaultText = '',
   defaultTags = [],
+  // メモを書くシートから「全画面で書く」で書いた文を受け取ったとき（その文は未保存の書きかけ）。
+  handedOver = false,
   allTags = [],
   onClose,
   onCreate,
@@ -489,8 +491,10 @@ export default function BookMemoEditor({
     // タグのいずれかが初期値から変わっている時だけ確認を挟む）。
     // ページ番号・写真を外したことも変更に数える（2026-09-29）。
     const initialPage = initial?.pageNumber != null ? String(initial.pageNumber) : (defaultPageNumber !== '' ? String(defaultPageNumber) : '');
+    // シートから受け取った文は、まだどこにも保存されていない書きかけ（初期値と同じでも捨てる前に確かめる・2026-11-22 点検）。
     const dirty =
-      text !== (initial?.text || defaultText || '')
+      (handedOver && !isEdit && !!text.trim())
+      || text !== (initial?.text || defaultText || '')
       || !!photoFile
       || removePhotoFlag
       || String(pageNumber ?? '').trim() !== initialPage.trim()

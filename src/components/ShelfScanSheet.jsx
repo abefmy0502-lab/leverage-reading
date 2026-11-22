@@ -38,9 +38,9 @@ const STATUS_NOTE = { found: '', maybe: '近い本です。合っていれば選
 
 /**
  * existingBooks: 本棚の本（同じ本を見分ける）。onAdd(books, status) → { booksAdded, booksMatched, booksFailed, ... }（App の importLibrary）。
- * onUndo(outcome): 入れた本を取り消す。onClose。
+ * onUndo(outcome): 入れた本を取り消す。onClose。onCancel: 入れずに閉じたとき（本を追加へ戻る・無ければ onClose）。
  */
-export default function ShelfScanSheet({ existingBooks = [], onAdd, onUndo, onClose }) {
+export default function ShelfScanSheet({ existingBooks = [], onAdd, onUndo, onClose, onCancel = null }) {
   const toast = useToast();
   const confirm = useConfirm();
   const haptic = useHaptic();
@@ -185,7 +185,7 @@ export default function ShelfScanSheet({ existingBooks = [], onAdd, onUndo, onCl
   return createPortal(
     <BottomSheet
       title="本棚の写真から追加"
-      onClose={onClose}
+      onClose={onCancel || onClose}
       dismissLabel={step === 'reading' || step === 'checking' ? '閉じる' : 'キャンセル'}
       footer={footer}
       beforeClose={step === 'review' && count > 0 ? () => confirm({

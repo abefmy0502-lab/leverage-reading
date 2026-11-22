@@ -5605,7 +5605,10 @@ function AuthedApp() {
                             '作っておくと、どこを重点的に読むかが分かります。作らずに読み始めることもできます。',
                           confirmLabel: 'このまま読み始める',
                           cancelLabel: '読書計画シートを作る',
+                          // 外を押して閉じたときは何もしない（読書計画の編集へ進めない・2026-11-22 点検）。
+                          dismissValue: null,
                         });
+                        if (ok === null) return;
                         if (!ok) {
                           openSetup(current);
                           return;
@@ -5785,6 +5788,7 @@ function AuthedApp() {
             initial={null}
             defaultPageNumber={fullEditorPrefill.pageNumber ?? ''}
             defaultText={fullEditorPrefill.text || ''}
+            handedOver
             defaultTags={Array.isArray(fullEditorPrefill.tags) ? fullEditorPrefill.tags : []}
             allTags={allTags}
             onClose={() => setFullEditorPrefill(null)}
@@ -6749,6 +6753,12 @@ function AuthedApp() {
                         onClick: () => { setSearch(''); setFolderFilter(null); clearAllFilters(); },
                         variant: 'primary',
                       },
+                      // 本棚に無い本を探していた人の次の一歩（2026-11-22 点検）: その言葉で本を追加を開く。
+                      ...(libraryQuery && activeFilterCount === 0 && !folderFilter ? [{
+                        label: `『${libraryQuery.length > 12 ? `${libraryQuery.slice(0, 11)}…` : libraryQuery}』で本を追加`,
+                        onClick: () => { const q = libraryQuery; openAdd(); setAddFromSearchQuery(q); },
+                        variant: 'secondary',
+                      }] : []),
                     ]}
                     // 見つからないときは、相談で探す（入力欄に問いを入れるだけ・送らない・2026-09-30）。
                     tip={libraryQuery ? <ConsultSearchLink center onClick={() => openConsultSearch(libraryQuery)} /> : undefined}
@@ -7559,6 +7569,8 @@ function AuthedApp() {
             onAdd={(list) => importLibrary({ books: list, source: 'shelf_photo' })}
             onUndo={(outcome) => undoImport(outcome)}
             onClose={() => setShelfScanOpen(false)}
+            // 入れずに閉じたら、来た「本を追加」へ戻る（アプリの外へ放り出さない・2026-11-22 点検）。
+            onCancel={() => { setShelfScanOpen(false); setAddBookModalOpen(true); }}
           />
         </Suspense>
       )}

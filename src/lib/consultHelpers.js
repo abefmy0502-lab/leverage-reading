@@ -244,12 +244,18 @@ export function questionGist(question, n = 20) {
 }
 
 // 本の「現在の課題」を相談の形に（「〜。どう考えればいい？」）。
-function challengeQuestion(challenge) {
-  const t = oneLine(challenge).replace(/[。．.]+$/, '');
-  if (!t) return '';
-  const clipped = t.length > 40 ? `${t.slice(0, 39)}…` : t;
-  if (/[？?]$/.test(clipped)) return clipped;
-  return `${clipped}。どう考えればいい？`;
+//   2026-11-22 点検: AI 選書の「受け取った悩み」（「「…」ということが、いまいちばん気になって…」）がそのまま入り、
+//   40 字で切れた文に「。どう考えればいい？」を足した崩れた例になっていた。
+//   → 先頭が「…」で包まれていればその中身だけ・それ以外は最初の 1 文だけ。40 字を超える文は途中で切らずに出さない。
+export function challengeQuestion(challenge) {
+  let t = oneLine(challenge);
+  const quoted = t.match(/^「([^「」]{4,})」/);
+  if (quoted) t = quoted[1];
+  else t = (t.match(/^[^。．！!？?]+[？?]?/) || [''])[0];
+  t = t.replace(/[。．.…、，,\s]+$/, '').trim();
+  if (!t || t.length > 40) return '';
+  if (/[？?]$/.test(t)) return t;
+  return `${t}。どう考えればいい？`;
 }
 
 // 📕 相談例に出す短い書名（2026-09-29）。読書メーターなどから取り込んだ本は副題まで書名に入っている
