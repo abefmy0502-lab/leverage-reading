@@ -408,7 +408,10 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
                     // 消す操作は「元に戻す」で取り返せるように（同じ id で入れ直す・本の削除と同じ考え）。
                     toast.undo({
                       message: 'この回を記録から外しました。',
-                      onUndo: () => { sessions.save(kept).catch(() => {}); },
+                      onUndo: async () => {
+                        const r = await sessions.save(kept).catch(() => null);
+                        if (!r?.ok && !r?.local) toast.error('記録を戻せませんでした。');
+                      },
                       destructive: true,
                     });
                     onClose();
