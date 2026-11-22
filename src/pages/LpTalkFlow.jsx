@@ -2,15 +2,16 @@
 //   右＝自分の吹き出し（--accent-soft）、左＝本の丸いアイコン＋吹き出し（--surface）。上から順に 1 本の会話。
 //   本の吹き出しの中に、根拠のメモ（小さく・左に栗色の線）。最後の「明日からできる一歩」も本からの吹き出し＋塗りの「行動に追加」の形。
 //   文はオーナーの実際の相談そのまま（lpCopy.js の TALK）。色・余白・角丸はトークンだけ。
-import { BookOpen, Target, Circle } from 'lucide-react';
+//   2026-11-22 オーナー「LP の UI が悪い・特にこのチャットの場面」: 本の吹き出しをアイコンの列から外して全幅に（狭くて語の途中で割れていた）、
+//   アイコンと名前は吹き出しの上の 1 行に。「相談する本」は会話の上の 1 行へ。答え・根拠・問いを区切り、文は本の組みと同じく文字の単位で詰め、禁則は strict（文節で割ると吹き出しの右がでこぼこになる）。
+import { BookOpen, Target, Circle, NotebookPen } from 'lucide-react';
 import { TALK as T } from './lpCopy';
 import LpPartnerDiagram from './LpPartnerDiagram';
 
-function Me({ meta, children }) {
+function Me({ children }) {
   return (
     <li className="lp-chat-row is-me">
       <div className="lp-chat-bubble">
-        {meta && <p className="lp-chat-meta">{meta}</p>}
         <p className="lp-chat-text">{children}</p>
       </div>
     </li>
@@ -20,31 +21,39 @@ function Me({ meta, children }) {
 function Book({ from, children }) {
   return (
     <li className="lp-chat-row is-book">
-      <span className="lp-chat-avatar" aria-hidden="true"><BookOpen size={16} /></span>
-      <div className="lp-chat-col">
-        {from && <p className="lp-chat-from">{from}</p>}
-        <div className="lp-chat-bubble">{children}</div>
-      </div>
+      <p className="lp-chat-from">
+        <span className="lp-chat-avatar" aria-hidden="true"><BookOpen size={14} /></span>
+        {from}
+      </p>
+      <div className="lp-chat-bubble">{children}</div>
     </li>
   );
 }
 
 export default function LpTalkFlow() {
   const [ask, answer, step] = T.steps;
+  // 一歩の最初の 1 文（考え方）と、そのあとの具体（やること）を分ける。
+  const [stepLead, ...stepRest] = String(step.action).split(/(?<=。)/);
   return (
     <>
+      <p className="lp-chat-partner"><BookOpen size="1.1em" aria-hidden="true" /><span>相談する本</span><b>稲盛和夫『考え方』</b></p>
       <ol className="lp-chat" aria-label="相談の流れの見本">
-        <Me meta="相談する本：稲盛和夫『考え方』">{ask.ask}</Me>
+        <Me>{ask.ask}</Me>
         <Book from={answer.from}>
           <p className="lp-chat-text is-read">{answer.answer}</p>
-          <p className="lp-chat-evidence-line">{answer.evidenceLine}</p>
-          <p className="lp-chat-label">あなたに聞きたいこと</p>
-          <p className="lp-chat-text">{answer.question}</p>
+          <p className="lp-chat-evidence-line"><NotebookPen size="1em" aria-hidden="true" />{answer.evidenceLine}</p>
+          <div className="lp-chat-ask">
+            <p className="lp-chat-label">あなたに聞きたいこと</p>
+            <p className="lp-chat-text">{answer.question}</p>
+          </div>
         </Book>
         <Me>{T.reply}</Me>
         <Book from={T.replyFrom}>
-          <p className="lp-chat-label"><Target size="1em" aria-hidden="true" /> 明日からできる一歩</p>
-          <p className="lp-chat-text is-read">{step.action}</p>
+          <p className="lp-chat-text is-read">{stepLead}</p>
+          <div className="lp-chat-step">
+            <p className="lp-chat-label"><Target size="1em" aria-hidden="true" /> 明日からできる一歩</p>
+            <p className="lp-chat-text">{stepRest.join('')}</p>
+          </div>
         </Book>
         {/* 2026-11-11 オーナー「行動に追加ボタンは初めて見た人だとわからない」: ボタンの絵をやめ、押したあとに起きること（明日の行動リストに入る）を見せる */}
         <li className="lp-chat-row is-result">
