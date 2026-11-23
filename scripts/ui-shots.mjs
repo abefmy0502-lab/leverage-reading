@@ -408,6 +408,12 @@ const SCREENS = [
       { name: 'follow-conn', url: '/?social=1', steps: [...SAKURA, { css: 'button[aria-label^="フォロー中"] >> nth=-1' }, { wait: 800 }] },
       { name: 'follow-conn-followers', url: '/?social=1', steps: [...SAKURA, { css: 'button[aria-label^="フォロワー"] >> nth=-1' }, { wait: 800 }] },
       { name: 'follow-conn-hidden', url: '/?social=1&socialstate=hiddenlists', steps: SAKURA },
+      { name: 'follow-conn-loading', url: '/?social=1&socialstate=connslow', steps: SAKURA },
+      { name: 'follow-conn-fail', url: '/?social=1&socialstate=connfail', steps: SAKURA },
+      { name: 'follow-conn-empty', url: '/?social=1&socialstate=connempty', steps: [...SAKURA, { css: 'button[aria-label^="フォロワー"] >> nth=-1' }, { wait: 800 }] },
+      { name: 'follow-peek', url: '/?social=1', steps: [...SAKURA, { css: 'button[aria-label^="フォロー中"] >> nth=-1' }, { wait: 800 }, { css: '[role=list] button:has-text("はるか")' }, { wait: 1000 }] },
+      { name: 'follow-peek-private', url: '/?social=1', steps: [...SAKURA, { css: 'button[aria-label^="フォロワー"] >> nth=-1' }, { wait: 800 }, { css: '[role=list] button:has-text("みなみ")' }, { wait: 1000 }] },
+      { name: 'follow-conn-xxl', url: '/?social=1', steps: [{ eval: () => { document.documentElement.style.fontSize = '28px'; } }, ...SAKURA, { css: 'button[aria-label^="フォロワー"] >> nth=-1' }, { wait: 800 }] },
       { name: 'follow-conn-pending', url: '/?social=1', steps: [...SAKURA, { css: 'button[aria-label^="フォロワー"] >> nth=-1' }, { wait: 800 }, { css: '[role=list] button:text-is("フォロー") >> nth=0' }, { wait: 1200 }] },
       { name: 'follow-lists-switch', url: '/?social=1', steps: [{ eval: "localStorage.setItem('orime.profile.v1:00000000-0000-4000-8000-00000000d3e0', JSON.stringify({ publicId: 'demo0me001', nickname: 'ふみ', avatar: 'leaf' }))" }, { reload: true }, { wait: 1500 }, { css: 'button[aria-label="プロフィールを開く"]' }, { wait: 800 }, { css: 'span:text-is("ID でフォロー")' }, { wait: 1000 }, { scrollBottom: true }] },
     ];

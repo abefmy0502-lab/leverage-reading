@@ -4,7 +4,7 @@ const people = {
   t3xbw9hjuv: { public_id: 't3xbw9hjuv', nickname: 'けんた', avatar: 'mountain' },
   q8rfz4mncd: { public_id: 'q8rfz4mncd', nickname: 'あおい', avatar: 'moon' },
   w2ycd5kpne: { public_id: 'w2ycd5kpne', nickname: 'ゆう', avatar: '' },
-  m5hqv8tzab: { public_id: 'm5hqv8tzab', nickname: 'はるか', avatar: 'sun' },
+  m5hqv8tzab: { public_id: 'm5hqv8tzab', nickname: 'はるか', avatar: 'sun', is_public: true, bio: 'マーケティングの仕事。週に 1 冊、仕事に効く本を読みます。', fav_title: 'ブランディングの科学', fav_author: 'バイロン・シャープ', fav_cover: '', fav_line: '買う人の頭の中で、思い出してもらえるかどうか。' },
   p4nrs6dwxe: { public_id: 'p4nrs6dwxe', nickname: 'なおき', avatar: 'book' },
   r9jkt3wfyc: { public_id: 'r9jkt3wfyc', nickname: 'みなみ', avatar: '' },
 };
@@ -48,6 +48,10 @@ export function demoSocialRpc(name, args = {}) {
     case 'followee_connections': {
       if (!state.following.includes(id)) return null;
       if (socialState === 'hiddenlists') return { visible: false };
+      // &socialstate=connslow（読んでいる間のまま）・connfail（読めない）・connempty（0 人）
+      if (socialState === 'connslow') return new Promise(() => {});
+      if (socialState === 'connfail') return null;
+      if (socialState === 'connempty') return { visible: true, following: [], followers: [] };
       const c = connections[id] || { following: [], followers: [] };
       const rel = (pid) => (pid === 'me' ? 'self' : state.following.includes(pid) ? 'accepted' : state.sent.includes(pid) ? 'pending' : 'none');
       const row = (pid) => (pid === 'me' ? { ...ME, since: '2026-11-20T10:00:00Z', relation: 'self' } : { ...person(pid), relation: rel(pid) });
@@ -76,7 +80,10 @@ export function demoSocialRpc(name, args = {}) {
     case 'profile_preview': {
       if (!people[id] || state.blocked.includes(id)) return null;
       const relation = state.following.includes(id) ? 'accepted' : state.sent.includes(id) ? 'pending' : 'none';
-      return { ...people[id], relation };
+      // 本物と同じ: 自己紹介と好きな本は、公開している人か承認済みのときだけ（supabase_follows.sql の profile_preview）。
+      const p = people[id];
+      if (!p.is_public && relation !== 'accepted' && id !== 'k7mna2pqrs') return { public_id: p.public_id, nickname: p.nickname, avatar: p.avatar, relation };
+      return { ...p, relation };
     }
     case 'report_profile':
       // &report=fail で送れなかったときの画面

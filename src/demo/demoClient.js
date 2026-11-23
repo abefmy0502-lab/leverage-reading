@@ -486,7 +486,7 @@ export function createDemoClient() {
       if (lat) await new Promise((r) => setTimeout(r, lat));
       // 👥 フォロー（&social=1 のときだけ・src/demo/demoSocial.js）。
       if (q.get('social') === '1') {
-        const v = demoSocialRpc(name, args || {});
+        const v = await demoSocialRpc(name, args || {});
         if (v !== undefined) return { data: v, error: null };
       }
       // お試しモードは管理者ではない（is_app_admin も無い関数として false 側に倒れる）。
