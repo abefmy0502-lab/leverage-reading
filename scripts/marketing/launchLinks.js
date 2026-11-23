@@ -32,8 +32,8 @@ export function resolveLaunchLinks(text, { url = '', pt = '' } = {}) {
     out = out.replace(BRACKET_RE, (m, ct) => make(ct) || m);
   }
   const left = [
-    // 説明の文の中の `{APP_STORE_URL}` だけ（? が続かない）は数えない。
-    ...(out.match(/\{APP_STORE_URL\}\?[^\s`）)]*/g) || []),
+    // 説明の文の中の `{APP_STORE_URL}` だけ（? が続かない）と、書き方の見本（`?ct=<名前>`）は数えない。
+    ...(out.match(/\{APP_STORE_URL\}\?(?!ct=<)[^\s`）)]*/g) || []),
     ...(out.match(BRACKET_RE) || []),
   ];
   return { text: out, links, left };

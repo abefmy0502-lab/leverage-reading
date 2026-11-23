@@ -26,6 +26,7 @@ describe('公開の朝のリンク', () => {
   });
   it('説明の文の中の置き場所は残りに数えない', () => {
     expect(resolveLaunchLinks('`{APP_STORE_URL}` に ct を付ける', { url: URL }).left).toEqual([]);
+    expect(resolveLaunchLinks('（`{APP_STORE_URL}?ct=<名前>`）', { url: URL }).left).toEqual([]);
   });
   it('キャンペーン名を重ねずに集める', () => {
     expect(campaignNamesIn('{APP_STORE_URL}?ct=x_a {APP_STORE_URL}?ct=x_a 【リンク（ct=email_b）】')).toEqual(['x_a', 'email_b']);
