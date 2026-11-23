@@ -40,14 +40,14 @@ const pages = {
 const OUT = path.resolve('public/lp');
 // スマホでも中の文字がほぼ実寸で読めるよう、狭い幅で上の大事な所だけ（2026-11-23 ui-critic round 7）
 const W = 320;
-const H = 660;
+const H0 = 660;
 // ブラウザの住所の行（リンクで開く Web のページだと分かるように・LP の部品に見せない）
 const URLS = { book: 'orime.vercel.app/u/misaki/b/…', shelf: 'orime.vercel.app/u/misaki' };
 const tmp = mkdtempSync(path.join(tmpdir(), 'lp-social-'));
 const browser = await chromium.launch();
 try {
   for (const scheme of ['light', 'dark']) {
-    const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 2, colorScheme: scheme });
+    const ctx = await browser.newContext({ viewport: { width: W, height: H0 }, deviceScaleFactor: 2, colorScheme: scheme });
     const p = await ctx.newPage();
     for (const [name, html] of Object.entries(pages)) {
       await p.setContent(html, { waitUntil: 'load' });
@@ -59,7 +59,15 @@ try {
         document.body.prepend(bar);
       }, URLS[name]);
       await p.waitForTimeout(200);
+      // 区切りの良い所で切る（下をふわっと消さない・札の 4 辺を閉じる・2026-11-23 ui-critic round 8）:
+      //   1 冊のページは Amazon／楽天ブックスの行の下 16、本棚のページは最初の段（読書中）の本の行の下 16
       const clipY = 0;
+      const cutH = await p.evaluate((n) => {
+        const el = n === 'book' ? document.querySelector('.tl') : document.querySelector('.shelfgrp');
+        return el ? Math.ceil(el.getBoundingClientRect().bottom + window.scrollY + 16) : 0;
+      }, name);
+      const H = cutH || H0;
+      console.log(name, scheme, 'height', H);
       const png = path.join(tmp, `${name}-${scheme}.png`);
       await p.screenshot({ path: png, clip: { x: 0, y: clipY, width: W, height: H }, fullPage: true });
       for (const [w, src] of [[390, 320], [780, 640]]) {

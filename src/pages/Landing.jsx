@@ -668,7 +668,7 @@ export default function Landing() {
               <ul className="lp-social-shots">
                 {SOCIAL.shots.map((s) => (
                   <li key={s.name}>
-                    <Shot name={s.name} alt={s.alt} ratio={[320, 660]} className="lp-web-shot" sizes="(min-width: 768px) 280px, 44vw" />
+                    <Shot name={s.name} alt={s.alt} ratio={[320, s.h]} className="lp-web-shot" sizes="(min-width: 768px) 300px, 80vw" />
                     <p className="lp-social-cap">{s.caption}</p>
                   </li>
                 ))}

@@ -1477,9 +1477,8 @@ body.lp-active {
 .lp-web-shot {
   display: block; width: 100%; height: auto; border-radius: var(--radius);
   border: 1px solid var(--separator); background: var(--bg);
-  -webkit-mask-image: linear-gradient(to bottom, black 88%, transparent); mask-image: linear-gradient(to bottom, black 88%, transparent);
 }
-.lp-root .lp-social-cap { margin: var(--space-2) 0 0; font-size: var(--text-sub); font-weight: 600; color: var(--text); text-align: center; }
+.lp-root .lp-social-cap { margin: var(--space-2) 0 0; font-size: var(--text-sub); font-weight: 600; color: var(--text); text-align: start; }
 .lp-social-text .lp-feat { grid-template-columns: minmax(0, 1fr); }
 /* スマホ: 2 枚を横に送る（文字がほぼ実寸で読める幅・2 枚目の頭が見えて送れると分かる） */
 @media (max-width: 767px) {
@@ -1493,5 +1492,8 @@ body.lp-active {
   .lp-social-shots > li { scroll-snap-align: start; }
 }
 @media (min-width: 1024px) {
-  .lp-social-body { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: var(--space-16); align-items: start; }
+  /* 画像 2 枚は実寸に近い幅（中の文字が 12 前後）・文の列は残り・3 つは画像の高さの中央に。題は右の列と同じなので出さない */
+  .lp-social-body { grid-template-columns: auto minmax(0, 1fr); gap: var(--space-12); align-items: center; }
+  .lp-social-shots { grid-template-columns: repeat(2, var(--lp-shot-w)); align-items: start; }
+  .lp-root .lp-social-cap { display: none; }
 }
