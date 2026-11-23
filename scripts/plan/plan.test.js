@@ -131,6 +131,9 @@ describe('責任者と予定', () => {
     const P = JSON.parse(readFileSync(new URL('../../company/plan-model/plan.json', import.meta.url), 'utf8'));
     for (const d of P.departments) for (const m of d.metrics) for (const y of [2027, 2028, 2029]) expect(typeof m.values[y], `${d.name} ${m.label} ${y}`).toBe('number');
   });
+  it('有料に効く率は、それぞれちょうど 1 つの部署の目標にある（入れた人 → 有料・月額の解約・年額の更新・7 日間無料 → 有料・売上）', () => {
+    for (const k of ['入れた人 → 有料', '月額の解約', '年額の更新', '7 日間無料 → 有料', '売上（12 月の月・税込）']) expect(DEPARTMENTS.filter((d) => d.metrics.some((m) => m.label.startsWith(k))).length, k).toBe(1);
+  });
   it('法人以外の責任者には、毎月の決まった仕事がある', () => {
     for (const r of ROLES) if (r.id !== 'b2b') expect(ROUTINES.some((x) => x.role === r.id), r.id).toBe(true);
   });
