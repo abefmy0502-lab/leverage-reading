@@ -24,6 +24,10 @@
 
 （言い切らない・あおらない・人数を書かない。`node scripts/marketing/weekly-drafts.mjs --check company/launch-2026-11/release-1.0.1.md` で言葉を確かめ済み）
 
+## 2-2. 説明文も貼り替える
+
+`company/app-store-listing.md` の「概要（説明文）」（2026-11-23 に今の芯へ直した・3,000 字ほど）を、1.0.1 の版の説明文に貼る（説明文は新しい版を出すときだけ直せる）。
+
 ## 3. Mac での作り方（`mac-build-prompt.md` の手順のまま・違うところだけ）
 
 1. `git pull`（main の最新）。
