@@ -689,7 +689,7 @@ export default function Landing() {
             </div>
             <FeatureTiles items={FEATURES} />
             {/* 印「有料プラン」と料金のカードの名前をつなぐ（SPEC 2026-11-12・ui-critic 2026-11-23） */}
-            <p className="lp-more-plan-note">「有料プラン」の印がある機能は、月額・年額プランで使えます。</p>
+            <p className="lp-more-plan-note lp-wbr"><Phrases phrase>「有料プラン」の印がある機能は、月額・年額プランで使えます。</Phrases></p>
           </div>
         </section>
 
@@ -738,8 +738,8 @@ export default function Landing() {
               <div className="lp-plan is-paid">
                 <p className="lp-plan-name"><span>月額・年額プラン</span>{TRIAL_NOTE && !OFFER.active && <span className="lp-plan-badge">{TRIAL_NOTE}</span>}</p>
                 <ul className="lp-included" aria-label="プランに含まれるもの">
-                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>AI の相談は<span className="lp-nb">毎月 {PAID_TALKS}</span></span></li>
-                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span className="lp-wbr"><Phrases>読む前に、AI が読み方を書く</Phrases></span></li>
+                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>AI の相談：<span className="lp-nb">毎月 {PAID_TALKS}</span></span></li>
+                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span className="lp-wbr"><Phrases>読む前に、AI が読み方を書いてくれる</Phrases></span></li>
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span className="lp-wbr"><Phrases>次に読む本を、相談して選べる</Phrases></span></li>
                   {TRIAL_NOTE && (
                     <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>最初の 7 日間は無料（そのあいだも <span className="lp-nb">AI の相談 {TRIAL_TALKS}</span>）</span></li>
