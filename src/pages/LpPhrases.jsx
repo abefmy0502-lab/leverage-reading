@@ -18,6 +18,8 @@ export function phrasesOf(text) {
     else if (prev && /\d+月$/.test(prev) && /^\d+日/.test(seg)) out[out.length - 1] = prev + seg;
     // 「…と／いう」で割れたら、前の塊につなぐ（「信じ切る」と／いう心の…・2026-11-23 ui-critic）。
     else if (prev && /と$/.test(prev) && /^(いう|いった|いわれ)/.test(seg)) out[out.length - 1] = prev + seg;
+    // 「〜て／いる」「〜で／いる」のような補助の動詞も前につなぐ（「揺らいで／いる」・2026-11-23 ui-critic）。
+    else if (prev && /[てで]$/.test(prev) && /^(いる|いた|います|いく|いき|おく|おき|しまう|みる|みて|ほしい)/.test(seg)) out[out.length - 1] = prev + seg;
     else if (prev && DATE.test(prev + seg) && /^\d+$/.test(prev)) out[out.length - 1] = prev + seg;
     else out.push(seg);
   }

@@ -1441,3 +1441,11 @@ body.lp-active {
 /* 料金の物差しの箱: 注記は全幅（PC で左の列に空きができていた） */
 .lp-pricing-cost { align-items: start; }
 .lp-pricing-cost .lp-cost-note { grid-column: 1 / -1; }
+/* 物差しの「≒」をアイコンと同じ大きさに（点にしか見えなかった）・広い画面では題と図が横に並ぶので区切り線を外す（2026-11-23 ui-critic） */
+.lp-root .lp-pricing-cost .lp-cost-eq { font-family: var(--font-ui); font-size: calc(var(--text-sub) * 2.4); color: var(--text-2); line-height: 1; }
+@media (min-width: 768px) {
+  .lp-pricing-cost .lp-cost-diagram { border-top: none; margin-top: 0; padding-top: 0; }
+  .lp-plan-cards { align-items: stretch; }
+}
+/* 吹き出しの行の長さをそろえる */
+.lp-root .lp-chat-bubble .lp-chat-text { text-wrap: pretty; }
