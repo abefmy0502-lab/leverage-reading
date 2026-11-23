@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { BASE, SCENARIOS, simulate, yearly, lifetimeValue, paidAcquisition, MONTHS, breakEvenMonth, stressGrid, sensitivity } from './model.mjs';
-import { ROLES, ROUTINES, ITEMS, HOLD_ITEMS, GUARD_ITEMS, FREEZE_ITEMS, quarterOf, isMonth, TARGETS, TARGET_SPLIT, MILESTONES, OWNER_WEEKLY_HOURS, REV_SHARE_TARGETS, ownerHoursOfMonth } from './schedule.mjs';
+import { DEPARTMENTS, ROLES, ROUTINES, ITEMS, HOLD_ITEMS, GUARD_ITEMS, FREEZE_ITEMS, quarterOf, isMonth, TARGETS, TARGET_SPLIT, MILESTONES, OWNER_WEEKLY_HOURS, REV_SHARE_TARGETS, ownerHoursOfMonth } from './schedule.mjs';
 
 // 2026-11-22 オーナー「優秀なコンサルが何人読んでも納得する内容に」: 計画の数字は、この計算から出る（文書 v10 と同じ版・点検の 4 回目を反映）
 const ys = (A, o) => Object.fromEntries(yearly(simulate(A, o), A).map((x) => [x.year, x]));
@@ -124,6 +124,12 @@ describe('責任者と予定', () => {
         if (!has) throw new Error(`${r.id} ${y}-Q${q} に成果物が無い`);
       }
     }
+  });
+  it('どの課（責任者）も、ちょうど 1 つの部署に入る。部署には 3 年ぶんの目標の数字がある', () => {
+    for (const r of ROLES) expect(DEPARTMENTS.filter((d) => d.roles.includes(r.id)).length, r.id).toBe(1);
+    for (const d of DEPARTMENTS) { expect(d.roles.every((id) => ROLES.some((r) => r.id === id)), d.id).toBe(true); expect(d.metrics.length, d.id).toBeGreaterThanOrEqual(3); }
+    const P = JSON.parse(readFileSync(new URL('../../company/plan-model/plan.json', import.meta.url), 'utf8'));
+    for (const d of P.departments) for (const m of d.metrics) for (const y of [2027, 2028, 2029]) expect(typeof m.values[y], `${d.name} ${m.label} ${y}`).toBe('number');
   });
   it('法人以外の責任者には、毎月の決まった仕事がある', () => {
     for (const r of ROLES) if (r.id !== 'b2b') expect(ROUTINES.some((x) => x.role === r.id), r.id).toBe(true);

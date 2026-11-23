@@ -2,7 +2,7 @@
 // 中期経営計画の数字を出す（node scripts/plan/plan.mjs）。--json で company/plan-model/plan.json に書き出す（ダッシュボードと文書が使う）。
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { SCENARIOS, simulate, yearly, lifetimeValue, paidAcquisition, sensitivity, breakEvenMonth, stressGrid, BASE } from './model.mjs';
-import { ROLES, ROUTINES, ITEMS, TARGETS, MILESTONES, ownerHoursOfMonth } from './schedule.mjs';
+import { ROLES, ROUTINES, ITEMS, TARGETS, MILESTONES, DEPARTMENTS, ownerHoursOfMonth } from './schedule.mjs';
 
 const M = (v) => Math.round(v / 1e4);
 const n = (v) => Math.round(v).toLocaleString('ja-JP');
@@ -36,6 +36,19 @@ out.sensitivity = sensitivity(BASE).map((s) => ({ label: s.label, paidEnd: Math.
 const grid = stressGrid(BASE); out.stress = { cases: grid.length, negative: grid.filter((x) => x.minCash < 0).length, worstMan: M(Math.min(...grid.map((x) => x.minCash))) };
 out.ownerHours = ['2026-12', ...Array.from({ length: 12 }, (_, i) => `2027-${String(i + 1).padStart(2, '0')}`), '2028-01', '2028-02', '2028-03'].map((ym) => { const o = ownerHoursOfMonth(ym); return { ym, routine: Math.round(o.routine * 10) / 10, items: Math.round(o.items * 10) / 10, total: Math.round(o.total * 10) / 10, limit: Math.round(o.planLimit * 10) / 10, available: Math.round(o.limit * 10) / 10 }; });
 out.roles = ROLES; out.routines = ROUTINES; out.items = ITEMS;
+// 部署の目標の数字（基本の見込みから年ごとに）
+{
+  const rows = simulate(BASE).filter((r) => r.inPlan); const ys2 = Object.fromEntries(yearly(simulate(BASE), BASE).map((o) => [o.year, o]));
+  const yr = (y) => rows.filter((r) => r.ym.startsWith(`${y}-`)); const dec = (y) => rows.find((r) => r.ym === `${y}-12`);
+  const sumCh = (y, k) => Math.round(yr(y).reduce((s2, r) => s2 + (r.ch?.[k] || 0), 0));
+  const FIXED = (BASE.claudeMaxYen ?? 0) + 1082;
+  const calc = {
+    paidEnd: (y) => TARGETS[y], grossDec: (y) => { const d = dec(y); return Math.round(d.revenue - d.fee - d.refunds - d.ai - FIXED); }, cashEnd: (y) => Math.round(ys2[y].cashEnd / 1e4),
+    installsYear: (y) => Math.round(yr(y).reduce((s2, r) => s2 + r.installs, 0)), dlDec: (y) => Math.round(dec(y).installs), chSearch: (y) => sumCh(y, 'search'), chSns: (y) => sumCh(y, 'sns'), chCollab: (y) => sumCh(y, 'collab'),
+    activeDec: (y) => Math.round(dec(y).freeActive + dec(y).paid), revShare: (y) => Math.round((dec(y).b2bRevenue / dec(y).revenue) * 1000) / 10, seatsEnd: (y) => dec(y).seats, companiesEnd: (y) => dec(y).companies,
+  };
+  out.departments = DEPARTMENTS.map((d) => ({ ...d, metrics: d.metrics.map((m) => ({ label: m.label, yen: !!m.yen, values: Object.fromEntries([2027, 2028, 2029].map((y) => [y, m.fixed ? m.fixed[y] : calc[m.kind](y)])) })) }));
+}
 if (process.argv.includes('--json')) {
   mkdirSync('company/plan-model', { recursive: true });
   writeFileSync('company/plan-model/plan.json', `${JSON.stringify(out, null, 1)}\n`);

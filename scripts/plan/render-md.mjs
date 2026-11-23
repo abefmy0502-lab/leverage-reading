@@ -3,7 +3,7 @@
 //   node scripts/plan/render-md.mjs   → company/mid-term-plan-2027-2029.md の <!-- plan:XXX --> 〜 <!-- /plan:XXX --> を差し替える
 import { readFileSync, writeFileSync } from 'node:fs';
 import { SCENARIOS, BASE, simulate, yearly, lifetimeValue, paidAcquisition, sensitivity, breakEvenMonth, stressGrid } from './model.mjs';
-import { ROLES, ROUTINES, ITEMS, HOLD_ITEMS, GUARD_ITEMS, FREEZE_ITEMS, GUARD_ROLE_HOURS, FREEZE_ROLE_HOURS, BUSY_PLAN, isMonth, OWNER_WEEKLY_HOURS, ownerHoursOfMonth, FULLTIME_ROLE_HOURS, FULLTIME_WEEKLY_HOURS, fulltimeRoleHours } from './schedule.mjs';
+import { DEPARTMENTS, ROLES, ROUTINES, ITEMS, HOLD_ITEMS, GUARD_ITEMS, FREEZE_ITEMS, GUARD_ROLE_HOURS, FREEZE_ROLE_HOURS, BUSY_PLAN, isMonth, OWNER_WEEKLY_HOURS, ownerHoursOfMonth, FULLTIME_ROLE_HOURS, FULLTIME_WEEKLY_HOURS, fulltimeRoleHours } from './schedule.mjs';
 
 const DOC = 'company/mid-term-plan-2027-2029.md';
 const n = (v) => Math.round(v).toLocaleString('ja-JP');
@@ -157,6 +157,15 @@ blocks.fulltime = (() => {
     `| 成果物（四半期 1/3・年 1/12・月） | ${o.map((x) => x.items.toFixed(1)).join(' | ')} |`,
     `| **合計（予定の上限 ${o[0].planLimit.toFixed(1)}）** | ${o.map((x) => `**${x.total.toFixed(1)}**`).join(' | ')} |`,
   ].join('\n');
+})();
+
+// 部署（課を束ねたもの）と目標の数字
+blocks.depts = (() => {
+  const P = JSON.parse(readFileSync('company/plan-model/plan.json', 'utf8'));
+  const out = ['| 部署 | 課 | 任務 | 部長 |', '|---|---|---|---|', ...DEPARTMENTS.map((d) => `| **${d.name}** | ${d.roles.map(roleShort).join('・')} | ${d.mission} | ${d.head} |`), ''];
+  out.push('| 部署 | 目標の数字 | 2027 | 2028 | 2029 |', '|---|---|---|---|---|');
+  for (const d of P.departments) d.metrics.forEach((m, i) => out.push(`| ${i === 0 ? `**${d.name}**` : ''} | ${m.label} | ${[2027, 2028, 2029].map((y) => (m.yen ? `¥${n(m.values[y])}` : n(m.values[y]))).join(' | ')} |`));
+  return out.join('\n');
 })();
 
 const table = (periods, label) => {
