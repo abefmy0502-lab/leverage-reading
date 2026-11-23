@@ -52,7 +52,7 @@ import LpPartnerDiagram from './LpPartnerDiagram';
 import LpIllust from './LpIllust';
 import LpArt, { hasArt } from './LpArt';
 import Phrases, { Sentences } from './LpPhrases';
-import { buildLpCopy, storeHrefOf, HERO_TALK, BASIS, ZERO, WHY, PLAN, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE, FEATURES } from './lpCopy';
+import { buildLpCopy, storeHrefOf, HERO_TALK, BASIS, SOCIAL, ZERO, WHY, PLAN, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE, FEATURES } from './lpCopy';
 import qrcode from 'qrcode-generator';
 import { lpTrack, lpVariant, storeUrlFor, isWidePointer } from '../lib/lpTrack';
 import { inject as injectVercelAnalytics } from '@vercel/analytics';
@@ -107,7 +107,7 @@ const LAUNCH_LINE = `${LAUNCH_LABEL}に、App Store で公開予定です。`;
 const CTA_LABEL = <span className="lp-btn-label"><span className="lp-nb">無料プランで</span><wbr /><span className="lp-nb">始める</span></span>;
 // ヒーロー（会話の型）の主ボタン＝使ったあとの体験（2026-11-23 オーナーの見直し）。無料のことはすぐ下の 1 行。
 const HERO_TALK_CTA = <span className="lp-btn-label">{HERO_TALK.cta.map((t, i) => <Fragment key={t}>{i > 0 && <wbr />}<span className="lp-nb">{t}</span></Fragment>)}</span>;
-// 2026-11-23 LP の仕上げ: 主ボタン（ヒーロー・下の固定の帯・最後）は同じ名前＝「読んだ本と話してみる」。ヘッダーは行き先が分かる「App Store で入手」・料金はプランの名前。
+// 2026-11-23 LP の仕上げ: 主ボタン（ヒーロー・下の固定の帯・料金・最後）は同じ名前＝「読んだ本と話してみる」。ヘッダーは行き先が分かる「App Store で入手」。
 const MAIN_CTA = HERO_TALK_CTA;
 const HEADER_CTA_LABEL = <span className="lp-btn-label"><span className="lp-nb">App Store で</span><wbr /><span className="lp-nb">入手</span></span>;
 // 料金の欄のボタン（有料のカードのすぐ下・2026-10-12）。押す先は同じ App Store（無料期間はアプリの中で始める）。
@@ -645,6 +645,31 @@ export default function Landing() {
           </div>
         </section>
 
+        {/* ============ すすめたい本は、リンク 1 つで。（2026-11-23 オーナー「本棚のシェアやフォローは拡散の重要な要素・LP に必ず入れる」）
+             画面は公開のページそのもの（api/_profilePage.js を見本の人の本で描いた・scripts/lp-social-shots.mjs） ============ */}
+        <section className="lp-sec lp-social-sec" aria-labelledby="lp-social" data-lp-sec="social">
+          <div className="lp-wrap">
+            <div className="lp-narrow lp-sec-head">
+              <h2 className="lp-h2" id="lp-social">{SOCIAL.h2.map((t) => <span key={t}>{t}</span>)}</h2>
+              <p className="lp-lead lp-sec-lead lp-lines lp-wbr">{SOCIAL.lead.map((t) => <span key={t}><Phrases phrase>{t}</Phrases></span>)}</p>
+            </div>
+            <div className="lp-social-body">
+              <ul className="lp-social-shots">
+                {SOCIAL.shots.map((s) => (
+                  <li key={s.name}>
+                    <Shot name={s.name} alt={s.alt} ratio={[390, 700]} className="lp-web-shot" sizes="(min-width: 768px) 280px, 44vw" />
+                    <p className="lp-social-cap">{s.caption}</p>
+                  </li>
+                ))}
+              </ul>
+              <div className="lp-social-text">
+                <StartList items={SOCIAL.items} />
+                <p className="lp-social-note lp-wbr"><Phrases phrase>{SOCIAL.note}</Phrases></p>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* ============ メモがゼロでも、今日から（2026-11-23 LP の仕上げ: 初めて来た人は全員メモ 0 件） ============ */}
         <section className="lp-sec lp-band lp-zero-sec" aria-labelledby="lp-zero" data-lp-sec="zero">
           <div className="lp-wrap">
@@ -703,7 +728,7 @@ export default function Landing() {
                 <p className="lp-plan-price">¥0<span>ずっと無料</span></p>
                 <ul className="lp-included" aria-label="無料プランに含まれるもの">
                   {/* li は flex（印と文を横に並べる）なので、文は 1 つの span に包む */}
-                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span className="lp-wbr"><Phrases>本とメモは何件でも。AI を使わない機能は、すべて無料。</Phrases></span></li>
+                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span className="lp-wbr"><Phrases>本とメモは何件でも。AI を使わない機能は、すべて無料</Phrases></span></li>
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>AI の相談：<span className="lp-nb">はじめの 2 か月は毎月 {FIRST_TALKS}、</span><wbr /><span className="lp-nb">そのあとは毎月 {FREE_TALKS}</span></span></li>
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span className="lp-wbr"><Phrases>使い切った月も、関係するメモを並べて見せます（AI なし）</Phrases></span></li>
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>ページの写真から文字に：<span className="lp-nb">毎月 {FREE_OCR_PER_MONTH} 回</span></span></li>

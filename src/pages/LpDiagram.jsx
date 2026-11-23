@@ -287,6 +287,30 @@ const START_ICONS = {
       <circle cx="32" cy="33" r="9" stroke="currentColor" />
     </g>
   ),
+  // すすめたい本は、リンク 1 つで。（2026-11-23）
+  book: (
+    <g {...S}>
+      <rect x="12" y="8" width="28" height="42" rx="3" />
+      <path d="M18 8 V 50" opacity="0.55" />
+      <path d="M40 36 C 46 36 50 32 54 28 M 48 26 L 55 27 L 54 34" stroke="currentColor" />
+    </g>
+  ),
+  shelf: (
+    <g {...S}>
+      <path d="M6 50 H 58" />
+      <rect x="10" y="16" width="9" height="34" rx="2" />
+      <rect x="21" y="22" width="9" height="28" rx="2" />
+      <rect x="32" y="12" width="9" height="38" rx="2" stroke="currentColor" />
+      <path d="M44 20 L 52 18 L 58 48 L 50 50 Z" />
+    </g>
+  ),
+  follow: (
+    <g {...S}>
+      <circle cx="26" cy="22" r="9" />
+      <path d="M10 50 C 10 40 18 35 26 35 C 34 35 42 40 42 50" />
+      <path d="M50 22 V 36 M 43 29 H 57" stroke="currentColor" />
+    </g>
+  ),
   stack: (
     <g {...S}>
       <rect x="10" y="40" width="44" height="10" rx="2" />
