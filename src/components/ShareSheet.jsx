@@ -199,9 +199,10 @@ const subjectChip = (on) => ({
   maxWidth: 'min(100%, 12em)',
   padding: 'var(--space-1) var(--space-3) var(--space-1) var(--space-1)',
   borderRadius: 'var(--radius)',
-  border: on ? '1px solid transparent' : '1px solid var(--separator)',
+  // 押せる枠は 3:1 の --border・選んだ本は枠もアクセント（DESIGN §3・2026-11-23 ui-critic）。
+  border: on ? '1px solid var(--accent)' : '1px solid var(--border)',
   background: on ? 'var(--accent-soft)' : 'transparent',
-  color: on ? 'var(--accent)' : 'var(--text-2)',
+  color: on ? 'var(--accent)' : 'var(--text)',
   fontFamily: 'inherit',
   fontSize: 'var(--text-sub)',
   fontWeight: on ? 600 : 400,

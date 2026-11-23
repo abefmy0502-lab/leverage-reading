@@ -126,6 +126,10 @@ export default function TokenUsageSheet({ onClose, onAdd, onPlans, from = 'consu
   const breakdown = breakdownRaw && !(breakdownRaw.length === 0 && detail.costMjpy > 0) ? breakdownRaw : null;
   const usageFailed = detail === null;
   const usedSome = tokensRemaining != null && tokenAllowance != null && tokensRemaining < tokenAllowance;
+  // 相談の答えの回数は、使い道の「相談」の行に添える（別の段に「相談の AI の答え 2 回」と並べると、
+  //   使い道の「相談 21 トークン」と同じことを 2 回言っていた・2026-11-23 ui-critic）。使い道に相談の行が無いときだけ下の段に。
+  const consultAnswers = value && value.consults > 0 && usedSome ? value.consults : 0;
+  const consultOnUsage = consultAnswers > 0 && !!breakdown?.some((b) => b.key === 'consult');
 
   // 次に戻る日（データだけ）。
   let resetLine = null;
@@ -250,10 +254,10 @@ export default function TokenUsageSheet({ onClose, onAdd, onPlans, from = 'consu
 
       {/* 🌿 この期間に相談から得たもの（数だけ・2026-10-20） */}
       {/* 答えの回数は、トークンを使っているときだけ（払い戻した回・メモが答えた回だけだと「まだ使っていません」と並んで矛盾して見えた・2026-10-30 点検） */}
-      {value && detail !== undefined && ((value.consults > 0 && usedSome) || value.done > 0) && (
+      {value && detail !== undefined && ((consultAnswers > 0 && !consultOnUsage) || value.done > 0) && (
         <section aria-label={`${periodName}の相談`} style={sectionGap}>
           <h3 style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>{periodName}の相談</h3>
-          {value.consults > 0 && usedSome && (
+          {consultAnswers > 0 && !consultOnUsage && (
             <div style={row}>
               <span style={rowLabel}>相談の AI の答え</span>
               <span style={rowValue}>{fmt(value.consults)} 回</span>
@@ -292,7 +296,13 @@ export default function TokenUsageSheet({ onClose, onAdd, onPlans, from = 'consu
           ) : breakdown.map((b) => (
             <div key={b.key} style={row}>
               <span style={rowLabel}>{withPhraseBreaks(b.label)}</span>
-              <span style={rowValue}>{fmt(b.tokens)} トークン</span>
+              {b.key === 'consult' && consultOnUsage
+                ? (
+                  <span style={{ ...rowValue, whiteSpace: 'normal', flexShrink: 1, textAlign: 'right' }}>
+                    <span style={nowrap}>{fmt(b.tokens)} トークン</span><span style={nowrap}>（AI の答え {fmt(consultAnswers)} 回）</span>
+                  </span>
+                )
+                : <span style={rowValue}>{fmt(b.tokens)} トークン</span>}
             </div>
           ))}
         </section>
@@ -318,7 +328,8 @@ export default function TokenUsageSheet({ onClose, onAdd, onPlans, from = 'consu
             </p>
           )}
           <p style={meta}>
-            {withPhraseBreaks('無料プランの AI は、相談・この本で学べること・写真から書き起こしの 3 つです。プランなら')}
+            {/* 機能の名前は語の途中で割らない（「写真から書き／起こし」と割れていた・2026-11-23） */}
+            {withPhraseBreaks('無料プランの AI は、相談・この本で学べること・')}<span style={nowrap}>写真から書き起こし</span>{withPhraseBreaks('の 3 つです。プランなら')}
             <span style={nowrap}>毎月 {fmt(PAID_TOKENS)} トークン</span>
             {withPhraseBreaks('で、すべての AI 機能を使えます。')}
           </p>

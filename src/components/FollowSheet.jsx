@@ -8,7 +8,7 @@
 //   2026-11-23）。自分の一覧を見せるかは一覧の下のスイッチ（オフ＝見せない・ほかの人の一覧にも出ない）。
 import { lazy, Suspense, useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { MoreHorizontal, ChevronLeft, ChevronRight, Check, Share } from 'lucide-react';
+import { MoreHorizontal, ChevronLeft, ChevronRight, ChevronDown, Check, Share } from 'lucide-react';
 import BottomSheet from './BottomSheet';
 import ContextMenu from './ContextMenu';
 import ToggleSwitch from './ToggleSwitch';
@@ -39,7 +39,8 @@ const STATUS_LABEL = { reading: '読書中', done: '読了', before: '積読', w
 const note = { margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.6, lineBreak: 'strict', textWrap: 'pretty', wordBreak: 'keep-all', overflowWrap: 'anywhere' };
 // 一覧の行: 区切り線は 2 行目から（DESIGN §5 一覧の行）。
 const row = (first) => ({ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--space-3)', minHeight: 'var(--tap-min)', padding: 'var(--space-2) 0', borderTop: first ? 'none' : '1px solid var(--separator)' });
-const nameStyle = { flex: '1 1 7em', minWidth: 0, fontSize: 'var(--text-body)', color: 'var(--text)', overflowWrap: 'anywhere' };
+// 名前は語の途中で割らない（文字がいちばん大きいとき「はる／か」と 1〜2 字ずつ並んでいた・2026-11-23 ui-critic）。
+const nameStyle = { flex: '1 1 7em', minWidth: 0, fontSize: 'var(--text-body)', color: 'var(--text)', wordBreak: 'keep-all', overflowWrap: 'anywhere' };
 const plainBtn = { background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', color: 'inherit', textAlign: 'left' };
 // 一覧の行の主ボタン（承認・申し込む）は btnRow の形に塗り（15/600・高さ 44）。
 const smallBtn = { ...btnRow, background: 'var(--accent)', color: 'var(--accent-ink)', border: 'none' };
@@ -66,7 +67,17 @@ const who = (p) => (p?.nickname ? `${p.nickname}さん` : 'この人');
 
 const Cover = ({ book, width = 72 }) => <MiniCover title={shownTitle(book.title)} cover={book.cover} width={width} />;
 
-function PersonRow({ person, children, onOpen, first = false, sub = '' }) {
+// 読了の冊数（数と「冊」を割らない）。
+const doneLabel = (n) => `読了\u00a0${n}\u00a0冊`;
+
+// 押す部分の幅の下限（12em）は本文の大きさで測る（ボタンの既定の文字で測ると、文字が大きいときに名前の欄が細く残り、
+//   右のボタンが次の行へ落ちずに名前が 1〜2 字ずつ縦に並んだ・2026-11-23 ui-critic）。
+//   ふつうの大きさ（17）で 9em＝153＝アイコン＋名前 6 字ほど。右の箱（フォロー・…）と並んで 1 行に収まる幅。
+const personHit = { flex: '1 1 9em', minWidth: 0, display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minHeight: 'var(--tap-min)', fontSize: 'var(--text-body)' };
+
+// chevron: 押せる行の名前の後ろの ›。右に関係の箱（フォロー・承認を待っています）が並ぶ行は false にして、
+//   › は行の右端の列に置く（名前のすぐ後ろ＝行の途中に浮いていた・2026-11-23 ui-critic）。
+function PersonRow({ person, children, onOpen, first = false, sub = '', chevron = true }) {
   const body = (
     <>
       <UserAvatar avatarId={person.avatar} nickname={person.nickname} size={40} />
@@ -79,14 +90,14 @@ function PersonRow({ person, children, onOpen, first = false, sub = '' }) {
         )
         : <span style={nameStyle}>{person.nickname || 'ニックネームなし'}</span>}
       {/* 押せる行はボタンが並んでいても › を残す（押すと何かが開くと分かるように・2026-11-23） */}
-      {onOpen && <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />}
+      {onOpen && chevron && <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />}
     </>
   );
   return (
     <div role="listitem" style={row(first)}>
       {onOpen
-        ? <button type="button" onClick={onOpen} style={{ ...plainBtn, flex: '1 1 12em', minWidth: 0, display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minHeight: 'var(--tap-min)' }}>{body}</button>
-        : <span style={{ flex: '1 1 12em', minWidth: 0, display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minHeight: 'var(--tap-min)' }}>{body}</span>}
+        ? <button type="button" onClick={onOpen} style={{ ...plainBtn, ...personHit }}>{body}</button>
+        : <span style={personHit}>{body}</span>}
       {children}
     </div>
   );
@@ -750,7 +761,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
           {/* 読書の積み重ね（本棚を公開している人か、承認済みのときだけ・profile_preview） */}
           {loaded && (loaded.doneCount > 0 || loaded.summaryCount > 0) && (
             <p style={{ ...note, marginTop: 'var(--space-2)', fontSize: 'var(--text-sub)' }}>
-              {[loaded.doneCount > 0 ? `読了 ${loaded.doneCount} 冊` : '', loaded.summaryCount > 0 ? `まとめ ${loaded.summaryCount} 冊` : ''].filter(Boolean).join('　')}
+              {[loaded.doneCount > 0 ? doneLabel(loaded.doneCount) : '', loaded.summaryCount > 0 ? `まとめ ${loaded.summaryCount} 冊` : ''].filter(Boolean).join('　')}
             </p>
           )}
         </div>
@@ -826,14 +837,14 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
         {loaded?.visible && (list.length === 0
           ? (
             <div style={{ marginTop: 'var(--space-4)' }}>
+              {/* 戻る先は上の「‹ 〈名前〉さんの本棚」だけ（同じ戻り先の文字ボタンを下にも置いていた・2026-11-23 ui-critic） */}
               <p style={note}>{ctab === 'followers' ? 'フォロワーはいません。' : 'フォロー中の人はいません。'}</p>
-              <button type="button" onClick={() => backFromConn(view)} style={{ ...btnLink, marginTop: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}>{who(person)}の本棚へ戻る</button>
             </div>
           )
           : (
             <div role="list" style={{ marginTop: 'var(--space-3)' }}>
               {list.map((p, i) => (
-                <PersonRow key={p.publicId} first={i === 0} person={p} sub={p.doneCount > 0 ? `読了 ${p.doneCount} 冊` : ''} onOpen={p.relation === 'accepted' ? () => openPerson(p) : p.relation === 'self' ? () => setProfileOpen(true) : () => openPeek(p)}>
+                <PersonRow key={p.publicId} first={i === 0} person={p} sub={p.doneCount > 0 ? doneLabel(p.doneCount) : ''} chevron={false} onOpen={p.relation === 'accepted' ? () => openPerson(p) : p.relation === 'self' ? () => setProfileOpen(true) : () => openPeek(p)}>
                   {/* 右の関係はいつも同じ幅の箱に入れて、› と「…」の列をそろえる（2026-11-23 ui-critic） */}
                   <span style={relBox}>
                   {p.relation === 'self' && <span style={note}>あなた</span>}
@@ -841,7 +852,12 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
                   {/* 行ごとに並ぶので塗りにせず面の副ボタン（DESIGN §0-2・§5 btnTonal・2026-11-23 ui-critic） */}
                   {p.relation === 'none' && <button type="button" style={btnTonal} disabled={!!askingId} aria-busy={askingId === p.publicId || undefined} onClick={() => ask(p)}>{askingId === p.publicId ? '送っています…' : 'フォロー'}</button>}
                   </span>
-                  {(p.relation === 'self' || p.relation === 'accepted') && <span aria-hidden="true" style={{ width: 'var(--tap-min)', flexShrink: 0 }} />}
+                  {/* 本棚・プロフィールへ進む行は、右端の列に ›（自分の一覧の › と同じ右端・行の押す部分と同じ先へ） */}
+                  {(p.relation === 'self' || p.relation === 'accepted') && (
+                    <button type="button" tabIndex={-1} aria-hidden="true" onClick={p.relation === 'self' ? () => setProfileOpen(true) : () => openPerson(p)} style={{ ...iconBtn, justifyContent: 'flex-end', color: 'var(--text-3)' }}>
+                      <ChevronRight size="1.1em" />
+                    </button>
+                  )}
                   {(p.relation === 'none' || p.relation === 'pending') && (
                     <button
                       type="button"
@@ -1006,7 +1022,11 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
             )}
             {counts && lists.blocked.length > 0 && (
               <details style={{ marginTop: 'var(--space-6)' }}>
-                <summary style={{ ...note, minHeight: 'var(--tap-min)', display: 'flex', alignItems: 'center', cursor: 'pointer' }}>ブロック中（{lists.blocked.length}）</summary>
+                {/* 畳む見出し（DESIGN §5）: 右端に ⌄（Safari の三角は components.css が消している） */}
+                <summary style={{ ...note, minHeight: 'var(--tap-min)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', cursor: 'pointer' }}>
+                  <span>ブロック中（{lists.blocked.length}）</span>
+                  <ChevronDown className="fold-chevron" size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+                </summary>
                 <div role="list">
                   {lists.blocked.map((p, i) => (
                     <PersonRow key={`b-${p.publicId}`} first={i === 0} person={p}>

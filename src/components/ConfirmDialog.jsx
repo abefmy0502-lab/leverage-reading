@@ -52,6 +52,12 @@ const rowStyle = {
   display: 'flex',
   gap: 'var(--space-3)',
 };
+// 横に並べる 2 つは、収まらなければ折り返して縦に（2026-11-23 ui-critic・文字がいちばん大きいと「キャン／セル」
+//   「共有す／る」と割れていた）。wrap-reverse なので、落ちたときは決める操作が上・やめるが下（縦に積むときと同じ順）。
+//   ボタンの中は 1 行（nowrap）＝自動の最小幅が文字の幅になり、並べて収まらないときだけ折り返す。
+//   flex-basis 0 で、並んでいるあいだは今までどおり半分ずつ。
+const rowFitStyle = { ...rowStyle, flexWrap: 'wrap-reverse' };
+const fitBtn = { flex: '1 1 0', whiteSpace: 'nowrap', fontSize: 'var(--text-body)' };
 
 const cancelBtnStyle = {
   flex: 1,
@@ -136,6 +142,7 @@ export function ConfirmProvider({ children }) {
     return () => window.removeEventListener('keydown', onKey, true);
   }, [pending, finish]);
 
+  const stacked = !!pending && Math.max(String(pending.options.confirmLabel).length, String(pending.options.cancelLabel).length) >= 7;
   return (
     <ConfirmContext.Provider value={{ confirm }}>
       {children}
@@ -148,11 +155,12 @@ export function ConfirmProvider({ children }) {
             {/* ボタンの文字が長い（8 字以上）ときは横に並べると語の途中で折り返すので、縦に積む
                 （決める操作を上・やめるを下・iOS のアラートと同じ・2026-09-29）。 */}
             {/* 横に並べたときのボタンの中は 1 行に 6 字ほど（390 幅）。7 字以上は縦に積む（「選んだ本を消／す」と割れていた・2026-10-04）。 */}
-            <div style={Math.max(String(pending.options.confirmLabel).length, String(pending.options.cancelLabel).length) >= 7 ? { ...rowStyle, flexDirection: 'column-reverse' } : rowStyle}>
+            {/* 6 字までは並べ、収まらないときだけ折り返す（rowFitStyle・2026-11-23）。 */}
+            <div style={stacked ? { ...rowStyle, flexDirection: 'column-reverse' } : rowFitStyle}>
               <button
                 ref={cancelRef}
                 type="button"
-                style={cancelBtnStyle}
+                style={stacked ? cancelBtnStyle : { ...cancelBtnStyle, ...fitBtn }}
                 onClick={() => finish(false)}
                 autoFocus={!!pending.options.danger}
               >
@@ -160,7 +168,7 @@ export function ConfirmProvider({ children }) {
               </button>
               <button
                 type="button"
-                style={confirmBtnStyle(pending.options.danger)}
+                style={stacked ? confirmBtnStyle(pending.options.danger) : { ...confirmBtnStyle(pending.options.danger), ...fitBtn }}
                 onClick={() => finish(true)}
                 ref={confirmRef}
                 autoFocus={!pending.options.danger}

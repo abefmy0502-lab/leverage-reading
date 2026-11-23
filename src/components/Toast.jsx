@@ -152,17 +152,23 @@ const actionBtnStyle = {
 const PUNCT_CLOSE = '」』）。、';
 const PUNCT_OPEN = '「『（';
 const tightStyle = { close: { marginRight: '-0.5em' }, open: { marginLeft: '-0.5em' } };
+// 閉じの約物を詰めるのは文の最後の 1 字だけ（文の途中の「。」を詰めると、書体によっては次の字に重なった
+//   ＝「フォローしました。相手の…」の「。」が「相」に食い込んだ・2026-11-23 ui-critic）。途中の約物は前の字とつなぐだけ。
 function tightenPunct(nodes) {
   const list = Array.isArray(nodes) ? nodes : [nodes];
+  let lastStr = -1;
+  list.forEach((node, ni) => { if (typeof node === 'string' && node) lastStr = ni; });
   let first = true;
   const out = [];
   list.forEach((node, ni) => {
     if (typeof node !== 'string') { out.push(node); return; }
     let buf = '';
-    Array.from(node).forEach((ch, ci) => {
+    const chars = Array.from(node);
+    chars.forEach((ch, ci) => {
       const kind = PUNCT_CLOSE.includes(ch) ? 'close' : (first && ci === 0 && PUNCT_OPEN.includes(ch) ? 'open' : null);
       if (!kind) { buf += ch; return; }
-      const mark = <span key={`p${ni}-${ci}`} style={tightStyle[kind]}>{ch}</span>;
+      const isEnd = ni === lastStr && ci === chars.length - 1;
+      const mark = <span key={`p${ni}-${ci}`} style={kind === 'open' || isEnd ? tightStyle[kind] : undefined}>{ch}</span>;
       if (kind === 'open') { if (buf) out.push(buf); buf = ''; out.push(mark); return; }
       // 閉じの約物は前の 1 字とつないで、行の頭に来させない（「開始できませんでした／。少し…」・2026-10-11 ui-critic）。
       //   文節の切れ目（<wbr>）が約物の直前に入っていたら外す。

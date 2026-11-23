@@ -142,7 +142,7 @@ const PLAN_COMPARE = [
   // 写真から書き起こしは無料プランでも毎月 10 回（トークンとは別・2026-10-02）。
   // 無料プランの AI は 相談・この本で学べること・写真から書き起こし（2026-10-11 リリース前点検で並べた）。
   // 払うのは「AI の答えの回数」（会話で行動まで届く量）なので回数を主に、トークンは脇（2026-10-21 ui-critic・GLOSSARY「量の目安は AI の答え 約 N 回」）。
-  { name: '無料プラン（ずっと無料）', amount: `AI の答え ${answerCountLabel(FREE_TOKENS)}`, amountNote: `（はじめの 2 か月は${noBreak(answerCountLabel(FREE_FIRST_MONTH_TOKENS))}）`, lead: 'AI：', items: ['相談', 'この本で学べること', `写真から書き起こし 毎月 ${FREE_OCR_PER_MONTH} 回`], more: ['メモ', '記録', '振り返り', '写真で共有'] },
+  { name: '無料プラン（ずっと無料）', amount: `AI の答え ${answerCountLabel(FREE_TOKENS)}`, amountNote: `（はじめの 2 か月は${noBreak(answerCountLabel(FREE_FIRST_MONTH_TOKENS))}）`, lead: 'AI：', items: ['相談', 'この本で学べること', `写真から書き起こし（毎月 ${FREE_OCR_PER_MONTH} 回）`], more: ['メモ', '記録', '振り返り', '写真で共有'] },
   // 機能名は語の途中で折り返さない（「写真から書き起こし」が割れないよう、名前ごとに nowrap で並べる）。
   // 量の数え方は「AI の答え 約 N 回」だけ（GLOSSARY・2026-10-21 に「相談 約 30 件」を足したが、数え方が 2 つになるのでやめた）。
   { name: 'プラン', amount: `AI の答え ${answerCountLabel(PAID_TOKENS)}`, scope: `毎月 ${PAID_TOKENS.toLocaleString()} トークン`, lead: 'すべての AI：', items: ['AI 選書', '読書計画シート', '写真から書き起こし（月 10 回の上限なし）'] },
@@ -188,7 +188,14 @@ function PlanCompare({ onlyPlan = false, trial = '', example = TOKEN_EXAMPLE, gu
           <p style={{ ...metaText, marginTop: 'var(--space-1)' }}>
             {row.lead && <span style={{ whiteSpace: 'nowrap' }}>{row.lead}</span>}
             {row.items
-              ? row.items.map((f, j) => <span key={f} style={{ whiteSpace: 'nowrap' }}>{f}{j < row.items.length - 1 && '・'}</span>)
+              // かっこの添え書き（「（毎月 10 回）」）は名前と別の塊に（文字が大きいときは かっこの前で折り返す・2026-11-23）。
+              ? row.items.map((f, j) => {
+                const k = f.indexOf('（');
+                const tail = j < row.items.length - 1 ? '・' : '';
+                return k > 0
+                  ? <span key={f}><span style={{ whiteSpace: 'nowrap' }}>{f.slice(0, k)}</span><wbr /><span style={{ whiteSpace: 'nowrap' }}>{f.slice(k)}{tail}</span></span>
+                  : <span key={f} style={{ whiteSpace: 'nowrap' }}>{f}{tail}</span>;
+              })
               : row.text}
           </p>
           {/* AI ではない機能は別の行に（「AI：…・メモ・記録」と並べると全部 AI に読めた・2026-10-12 ui-critic） */}
@@ -743,9 +750,10 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
               {myBooks.map((b) => <MiniCover key={b.id} book={b} width={60} />)}
             </div>
             <p style={{ fontSize: 'var(--text-body)', lineHeight: 1.6, margin: 'var(--space-4) 0 0', wordBreak: 'auto-phrase', textWrap: 'pretty' }}>
-              {/* 『 は半字ぶん左へ（行の頭ではぶら下げ、』『 と続くところは詰める・2026-10-10 ui-critic）。
+              {/* 『 は半字ぶん左へ（行の頭ではぶら下げ、』『 と続くところは詰める・2026-10-10 ui-critic）。文字が大きいときは 8 まで
+                  （画面の端に付かないように・2026-11-23）。
                   書名は 1 つの塊（長ければ … で切る・文字が大きいときに語の途中で割れた・MemoLinks と同じ）。 */}
-              {myBooks.slice(0, 2).map((b) => <span key={b.id} style={{ display: 'inline-block', maxWidth: 'calc(100% + 0.5em)', marginLeft: '-0.5em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', verticalAlign: 'bottom' }}>『{b.title}』</span>)}{myBooks.length > 2 ? 'など' : ''}のメモを根拠に答える、あなただけの相談相手です。
+              {myBooks.slice(0, 2).map((b) => <span key={b.id} style={{ display: 'inline-block', maxWidth: 'calc(100% + min(0.5em, var(--space-2)))', marginLeft: 'max(-0.5em, calc(-1 * var(--space-2)))', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', verticalAlign: 'bottom' }}>『{b.title}』</span>)}{myBooks.length > 2 ? 'など' : ''}のメモを根拠に答える、あなただけの相談相手です。
             </p>
             {/* さっきの相談（問いは 1 行・長ければ … ）。「その続き」を、ここで買えると分かるように。 */}
             {/* 問いは 22 字で切るので、ふつうは 2 行（骨組みも 2 行ぶん＝読み終わって跳ねない） */}
