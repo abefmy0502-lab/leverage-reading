@@ -164,7 +164,7 @@ blocks.depts = (() => {
   const P = JSON.parse(readFileSync('company/plan-model/plan.json', 'utf8'));
   const out = ['| 部署 | 課 | 任務 | 部長 |', '|---|---|---|---|', ...DEPARTMENTS.map((d) => `| **${d.name}** | ${d.roles.map(roleShort).join('・')} | ${d.mission} | ${d.head} |`), ''];
   out.push('| 部署 | 目標の数字 | 2027 | 2028 | 2029 |', '|---|---|---|---|---|');
-  for (const d of P.departments) d.metrics.forEach((m, i) => out.push(`| ${i === 0 ? `**${d.name}**` : ''} | ${m.label} | ${[2027, 2028, 2029].map((y) => (m.yen ? `¥${n(m.values[y])}` : n(m.values[y]))).join(' | ')} |`));
+  for (const d of P.departments) d.metrics.forEach((m, i) => out.push(`| ${i === 0 ? `**${d.name}**` : ''} | ${m.label} | ${[2027, 2028, 2029].map((y) => (m.yen ? `¥${n(m.values[y])}` : Number.isInteger(m.values[y]) ? n(m.values[y]) : m.values[y].toLocaleString('ja-JP', { maximumFractionDigits: 1 }))).join(' | ')} |`));
   return out.join('\n');
 })();
 
