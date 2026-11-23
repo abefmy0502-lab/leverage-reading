@@ -11,7 +11,8 @@
 //   - safe = true (本棚画面 + モーダル無し + 入力フォーカス無し) の時だけ
 //     画面上部に portal でバナーを表示する。
 //   - 「今すぐ更新」で applyUpdate() → SKIP_WAITING → activate → reload。
-//   - 「後で」で 30 秒間バナーを閉じる (再表示までクールダウン)。
+//   - 「あとで」で、このページを開いている間はもう出さない（前は 30 秒で戻ってきた・2026-11-23）。
+//   - 「更新する」を押したら「更新しています…」にして押せなくする（二度押し・押せたか分からないのを防ぐ・2026-11-23）。
 //   - 「何が変わった？」（2026-10-05）: 新しい版の「新しくなったこと」をサーバーの /release-notes.json から
 //     network-first で読み、アプリに入っている版より新しいものがあるときだけ出す。押すと版ごとの
 //     どこの・何が・これまで → これから・影響・意図 のシート（下に「更新する」）。読めなければ今までどおり。
@@ -34,6 +35,8 @@ let _updateAvailable = false;
 // 新しい版の「新しくなったこと」（読めた・新しいものがあったときだけ配列が入る）。
 let _upcoming = [];
 let _upcomingRequested = false;
+// 「あとで」を押した（このページを開いている間は出さない＝画面を切り替えても戻ってこない）。
+let _dismissed = false;
 const _listeners = new Set();
 function notifyListeners() { _listeners.forEach((fn) => { try { fn(); } catch { /* ignore */ } }); }
 
@@ -127,17 +130,17 @@ export default function UpdateBanner({ safe = false }) {
   const updateAvailable = _updateAvailable;
 
   const inputFocused = useInputFocused();
-  const [dismissed, setDismissed] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
+  const [applying, setApplying] = useState(false);
   const upcoming = _upcoming;
-
-  // 「後で」を押したら 30 秒は再表示しない。クールダウン後にまた
-  // safe state に戻った時に自然に再表示する。
+  const dismissed = _dismissed;
+  const dismiss = () => { _dismissed = true; notifyListeners(); };
+  // 15 秒たっても読み直らなければ（新しい版が取れなかったなど）、もう一度押せるように戻す。
   useEffect(() => {
-    if (!dismissed) return undefined;
-    const t = setTimeout(() => setDismissed(false), 30000);
+    if (!applying) return undefined;
+    const t = setTimeout(() => setApplying(false), 15000);
     return () => clearTimeout(t);
-  }, [dismissed]);
+  }, [applying]);
 
   // ネイティブ(App Store アプリ)では更新はストア経由＝SW 非登録でこの event は
   // そもそも発火しないが、多層防御として明示的にも封じる（誤案内防止）。
@@ -146,6 +149,8 @@ export default function UpdateBanner({ safe = false }) {
   if (typeof document === 'undefined') return null;
 
   const handleApply = () => {
+    if (applying) return;
+    setApplying(true);
     // 中身を読んでから更新したなら、更新したあとに同じ「新しくなったこと」をもう一度出さない。
     if (notesOpen && upcoming[0]?.id) markReleaseSeen(upcoming[0].id);
     try { applyUpdate(); } catch { /* swUpdate handles fallback */ }
@@ -161,7 +166,7 @@ export default function UpdateBanner({ safe = false }) {
   }
   if (!safe) return null;
   if (inputFocused) return null;
-  if (dismissed) return null;
+  if (dismissed && !applying) return null;
 
   // body に portal することで、AuthedApp 内のどこにマウントされていても
   // 画面上部に必ず固定表示される。view 切替で unmount される心配なし。
@@ -178,8 +183,10 @@ export default function UpdateBanner({ safe = false }) {
           )}
         </span>
         <div style={{ display: 'flex', flexShrink: 0, marginLeft: 'auto' }}>
-          <button type="button" style={dismissBtnStyle} onClick={() => setDismissed(true)}>後で</button>
-          <button type="button" style={applyBtnStyle} onClick={handleApply}>更新する</button>
+          {!applying && <button type="button" style={dismissBtnStyle} onClick={dismiss}>あとで</button>}
+          <button type="button" style={applying ? { ...applyBtnStyle, color: 'var(--text-2)', cursor: 'default', opacity: 1 } : applyBtnStyle} onClick={handleApply} disabled={applying} aria-busy={applying || undefined}>
+            {applying ? '更新しています…' : '更新する'}
+          </button>
         </div>
       </div>
     </>,

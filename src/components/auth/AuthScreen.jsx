@@ -14,6 +14,7 @@ const isNative = isNativeRuntime || NATIVE_PREVIEW;
 import { MailCheck, Check } from 'lucide-react';
 import ErrorMessage from '../ErrorMessage';
 import { withPhraseBreaks } from '../TightBubble';
+import { humanizeError, isSystemError, withTimeout } from './authErrors';
 
 // ボタン正典（styles/ui.js）に統一。初対面画面のボタンだけ radius/weight が
 // 微妙に別物だと第一印象で「寄せ集め感」が出るため。
@@ -69,16 +70,8 @@ const fieldHint = { fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHe
 
 const infoText = { color: 'var(--success)', fontSize: 'var(--text-meta)', lineHeight: 1.5, margin: '0 0 var(--space-3)' };
 
-// 通信やサーバー側の失敗（入力を直しても解決しない）。入力の誤りとは見せ方を分け、ErrorMessage の面で出す。
-const NETWORK_ERROR = 'つながりませんでした。通信状況を確認して、もう一度お試しください。';
-const RATE_LIMIT_ERROR = '短い間に何度も試されました。少し待ってから、もう一度お試しください。';
-const UNEXPECTED_ERROR = 'ログインできませんでした。時間をおいて、もう一度お試しください。';
-const NOT_CONFIGURED_ERROR = 'アプリの設定が未完了です。管理者にお問い合わせください。';
-// サーバー（Supabase）が止まっている・壊れている（5xx・一時停止）。入力を直しても解決しない。
-const SERVER_DOWN_ERROR = 'サーバーにつながりません。時間をおいて、もう一度お試しください。';
-const SYSTEM_ERRORS = new Set([NETWORK_ERROR, RATE_LIMIT_ERROR, UNEXPECTED_ERROR, NOT_CONFIGURED_ERROR]);
+// エラーの文（操作ごとの失敗・待つ長さの上限）は authErrors.js。
 const ERROR_ID = 'auth-error';
-const isSystemError = (e) => !!e && (SYSTEM_ERRORS.has(e) || e.startsWith(UNEXPECTED_ERROR) || e.startsWith(SERVER_DOWN_ERROR));
 
 // エラーの表示: 通信・サーバーの失敗は ErrorMessage（1 文目を見出し・残りを説明）、
 // 入力の誤りは入力欄の下の小さな --error の文（入力欄の aria-describedby で結ぶ）。
@@ -95,64 +88,6 @@ function AuthError({ error }) {
     );
   }
   return <p id={ERROR_ID} role="alert" style={errorText}>{error}</p>;
-}
-
-function humanizeError(err) {
-  const msg = (err?.message || '').toLowerCase();
-  // 通信そのものが失敗（オフライン・サーバー停止・DNS 解決不可など）。
-  // 以前はここが未分類で「予期せぬエラー」になり、原因の見当がつかなかった
-  // （実例: Supabase の自動一時停止でログイン不能 → 汎用文しか出なかった）。
-  if (
-    err?.name === 'AuthRetryableFetchError' ||
-    msg.includes('failed to fetch') ||
-    msg.includes('networkerror') ||
-    msg.includes('network request failed') ||
-    msg.includes('load failed')
-  ) {
-    return NETWORK_ERROR;
-  }
-  if (msg.includes('invalid login') || msg.includes('invalid credentials')) {
-    return 'メールアドレスまたはパスワードが正しくありません。';
-  }
-  if (msg.includes('user already registered')) {
-    return 'このメールアドレスは既に登録されています。';
-  }
-  if (msg.includes('password should be') || msg.includes('password length')) {
-    return 'パスワードは 8\u00a0文字以上で、英字と数字を含めてください。';
-  }
-  if (msg.includes('email') && (msg.includes('invalid') || msg.includes('format'))) {
-    return 'メールアドレスの形式が正しくありません。';
-  }
-  if (msg.includes('rate limit') || msg.includes('too many')) {
-    return RATE_LIMIT_ERROR;
-  }
-  if (msg.includes('email not confirmed')) {
-    return 'メールアドレスの確認が済んでいません。届いたメールのリンクを開いてください。';
-  }
-  if (msg.includes('not configured')) {
-    return NOT_CONFIGURED_ERROR;
-  }
-  // サインインの方法がサーバーで止まっている（Supabase の Apple・匿名のサインインがオフ・2026-11-21 シミュレータで「400 provider_disabled」）。
-  //   待っても直らないので「時間をおいて」と言わない。別の方法へ案内する。
-  if (err?.code === 'provider_disabled' || err?.code === 'anonymous_provider_disabled' || msg.includes('provider is not enabled') || msg.includes('provider_disabled') || msg.includes('anonymous sign-ins are disabled')) {
-    return `この方法では、いまサインインできません。メールアドレスで登録・ログインしてください。${diagCode(err)}`;
-  }
-  // サーバー側の停止・障害（Supabase の自動一時停止は 5xx や独自の 540 を返すことがある）。
-  const status = Number(err?.status) || 0;
-  if (status >= 500 || msg.includes('paused') || msg.includes('upstream') || msg.includes('service unavailable')) {
-    return `${SERVER_DOWN_ERROR}${diagCode(err)}`;
-  }
-  // 未マッチのエラーは生の Supabase メッセージ（英語の技術文字列・内部 ID など）を
-  // そのまま表示せず、安全な汎用文へ倒す（CLAUDE.md セキュリティ方針）。
-  // 原因を問い合わせで特定できるよう、状態番号と種類の名前（英数字だけ）を末尾に添える。
-  return `${UNEXPECTED_ERROR}${diagCode(err)}`;
-}
-
-// 問い合わせ用の手がかり（例: 「（コード: 500 unexpected_failure）」）。本文・内部 ID は出さない。
-function diagCode(err) {
-  const clean = (v) => String(v || '').replace(/[^A-Za-z0-9_]/g, '').slice(0, 40);
-  const parts = [clean(err?.status), clean(err?.code) || clean(err?.name)].filter(Boolean);
-  return parts.length ? `（コード: ${parts.join(' ')}）` : '';
 }
 
 // LP の「始める」CTA は /?auth=signup で着地する。初見の購入希望者を
@@ -177,14 +112,16 @@ export default function AuthScreen() {
   const [loading, setLoading] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [agreeFocus, setAgreeFocus] = useState(false);
-  // signup 成功後、確認メール待ちの全画面ステップへ切替える宛先（中断離脱の最大谷を緩和）。
+  // signup・パスワードの再設定の成功後、メール待ちの全画面ステップへ切替える宛先（中断離脱の最大谷を緩和）。
   const [confirmSentTo, setConfirmSentTo] = useState('');
+  // どのメールを送ったか（'signup'＝登録の確認／'reset'＝パスワードの再設定・2026-11-23）。
+  const [sentKind, setSentKind] = useState('signup');
   const [resending, setResending] = useState(false);
   const [appleBusy, setAppleBusy] = useState(false);
   const [guestBusy, setGuestBusy] = useState(false);
   const [guestError, setGuestError] = useState('');
-  // いまの Apple の回（「やめる」で戻したあとに、前の回の結果で画面を書きかえない・2026-11-19）
-  const appleAttempt = useRef(0);
+  // いまの回（「やめる」で戻したあとに、前の回の結果で画面を書きかえない・2026-11-19 Apple → 2026-11-23 メール・登録せずに始めるも）
+  const attemptRef = useRef(0);
   const confirm = useConfirm();
 
   // 🍎 Apple でサインイン。iOS は常時表示（HIG 準拠）。Web は Apple/Supabase の
@@ -196,13 +133,13 @@ export default function AuthScreen() {
     setError('');
     setInfo('');
     setAppleBusy(true);
-    const attempt = ++appleAttempt.current;
+    const attempt = ++attemptRef.current;
     try {
       await signInWithApple();
       // 成功時は onAuthStateChange がセッションを拾い、上位が画面遷移する
       // （Web はリダイレクトで離脱）。ここで明示的な遷移は不要。
     } catch (err) {
-      if (attempt !== appleAttempt.current) return; // 「やめる」で戻したあとの前の回
+      if (attempt !== attemptRef.current) return; // 「やめる」で戻したあとの前の回
       // ユーザーキャンセルはエラー表示しない（静かに戻す）。
       if (!err?.canceled) {
         // 画面には安全な汎用文のみ表示し、生のエラーはコンソールにだけ残す
@@ -214,14 +151,14 @@ export default function AuthScreen() {
           ? 'この端末では Apple でサインインを使えません。メールアドレスで登録してください。'
           : (err?.code === 'apple_authorize_timeout' || err?.code === 'apple_session_timeout')
             ? 'Apple でのサインインが終わりませんでした。もう一度押すか、メールアドレスで続けてください。'
-            : humanizeError(err));
+            : humanizeError(err, 'apple'));
       }
     } finally {
-      if (attempt === appleAttempt.current) setAppleBusy(false);
+      if (attempt === attemptRef.current) setAppleBusy(false);
     }
   };
-  // Apple の画面が出ない・終わらないときに、待たずに戻す
-  const cancelApple = () => { appleAttempt.current += 1; setAppleBusy(false); };
+  // Apple の画面が出ない・終わらないとき、メールのログイン・登録せずに始めるが終わらないときに、待たずに戻す
+  const cancelPending = () => { attemptRef.current += 1; setAppleBusy(false); setLoading(false); setGuestBusy(false); };
 
   // 👤 登録せずに始める（2026-11-19・App 審査 5.1.1(v)）。メール・名前は聞かない。あとで設定から Apple かメールにつなぐ。
   const handleGuest = async () => {
@@ -248,16 +185,20 @@ export default function AuthScreen() {
     });
     if (!ok) return;
     setGuestBusy(true);
+    const attempt = ++attemptRef.current;
     try {
-      await startAsGuest();
+      // 30 秒で打ち切る（終わらないまま「準備しています…」で止めない・「やめる」でも戻せる・2026-11-23）
+      await withTimeout(startAsGuest());
+      if (attempt !== attemptRef.current) return;
       track(EVENTS.GUEST_STARTED);
       // 成功時は onAuthStateChange がセッションを拾い、上位が画面遷移する。
     } catch (err) {
+      if (attempt !== attemptRef.current) return;
       console.error('[auth] guest start failed:', err);
       // 押した「登録せずに始める」のすぐ上に出す（フォームの上に出すと、どのボタンの話か分からない・2026-11-19 ui-critic）
-      setGuestError(humanizeError(err));
+      setGuestError(humanizeError(err, 'guest'));
     } finally {
-      setGuestBusy(false);
+      if (attempt === attemptRef.current) setGuestBusy(false);
     }
   };
 
@@ -286,11 +227,14 @@ export default function AuthScreen() {
     }
 
     setLoading(true);
+    const attempt = ++attemptRef.current;
     try {
+      // どの操作も 30 秒で打ち切る（「処理中…」のまま止めない・「やめる」でも戻せる・2026-11-23）
       if (mode === 'signin') {
-        await signInWithEmail(email.trim(), password);
+        await withTimeout(signInWithEmail(email.trim(), password));
       } else if (mode === 'signup') {
-        const data = await signUpWithEmail(email.trim(), password);
+        const data = await withTimeout(signUpWithEmail(email.trim(), password));
+        if (attempt !== attemptRef.current) return;
         // Supabase はメール確認有効時、既存メールへの signUp をエラーにせず
         // identities: [] の難読化された成功で返す（列挙攻撃対策の仕様）。
         // このとき確認メールは送られないので、「送りました」画面で永遠に
@@ -301,17 +245,22 @@ export default function AuthScreen() {
           return;
         }
         // 小さな緑文字でなく、全画面の「メール確認待ち」ステップに切替える。
+        setSentKind('signup');
         setConfirmSentTo(email.trim());
       } else if (mode === 'reset') {
-        await sendPasswordResetEmail(email.trim());
-        setInfo('パスワードリセット用のメールを送信しました。');
+        await withTimeout(sendPasswordResetEmail(email.trim()));
+        if (attempt !== attemptRef.current) return;
+        // 登録と同じ全画面の「メールを送りました」へ（前は入力欄の下の小さな緑の 1 行だった・2026-11-23）。
+        setSentKind('reset');
+        setConfirmSentTo(email.trim());
       }
     } catch (err) {
+      if (attempt !== attemptRef.current) return; // 「やめる」で戻したあとの前の回
       // 画面には安全な汎用文のみ、生のエラーはコンソールにだけ残す（原因切り分け用）。
       console.error(`[auth] ${mode} failed:`, err);
-      setError(humanizeError(err));
+      setError(humanizeError(err, mode));
     } finally {
-      setLoading(false);
+      if (attempt === attemptRef.current) setLoading(false);
     }
   };
 
@@ -327,11 +276,16 @@ export default function AuthScreen() {
     setError('');
     setInfo('');
     try {
-      await resendConfirmation(confirmSentTo);
-      setInfo('確認メールを再送しました。');
+      if (sentKind === 'reset') {
+        await sendPasswordResetEmail(confirmSentTo);
+        setInfo('メールをもう一度送りました。');
+      } else {
+        await resendConfirmation(confirmSentTo);
+        setInfo('確認メールを再送しました。');
+      }
     } catch (err) {
-      console.error('[auth] resend confirmation failed:', err);
-      setError(humanizeError(err));
+      console.error('[auth] resend failed:', err);
+      setError(humanizeError(err, 'resend'));
     } finally {
       setResending(false);
     }
@@ -347,13 +301,14 @@ export default function AuthScreen() {
   const fieldError = !!error && !isSystemError(error);
 
   // ログイン画面では見出しを出さない（主ボタン「ログイン」と重複するため）。新規登録・リセットだけ出す。
-  const title = mode === 'signup' ? '新規登録' : mode === 'reset' ? 'パスワードリセット' : '';
+  // 同じ操作は 1 つの名前（GLOSSARY「アカウントを作る」・前は「新規登録」「登録する」「アカウントを作成」・2026-11-23）。
+  const title = mode === 'signup' ? 'アカウントを作る' : mode === 'reset' ? 'パスワードリセット' : '';
   const submitLabel = loading
     ? '処理中…'
     : mode === 'signin'
     ? 'ログイン'
     : mode === 'signup'
-    ? '登録する'
+    ? 'アカウントを作る'
     : 'リセットメールを送信';
 
   if (!isSupabaseConfigured) {
@@ -373,14 +328,19 @@ export default function AuthScreen() {
   // だと多くの人がメール離脱後に迷子になり離脱（中断離脱の最大谷）。宛先・次の
   // 行動・迷惑メール案内・再送・ログイン戻りを明示して取りこぼしを減らす。
   if (confirmSentTo) {
+    const isReset = sentKind === 'reset';
+    const backToSignin = () => { setConfirmSentTo(''); setInfo(''); setError(''); switchMode('signin'); };
     return (
       <div style={screenStyle}>
         <div style={{ width: '100%', maxWidth: 400, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <MailCheck size={44} strokeWidth={1.5} color="var(--text-2)" aria-hidden="true" style={{ marginBottom: 'var(--space-3)' }} />
-          <h1 style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, margin: '0 0 var(--space-3)' }}>確認メールを送りました</h1>
+          <h1 style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, margin: '0 0 var(--space-3)' }}>{isReset ? '再設定のメールを送りました' : '確認メールを送りました'}</h1>
           <p style={{ ...jpWrap, fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5, margin: '0 0 var(--space-2)' }}>
             <strong style={{ fontWeight: 600, wordBreak: 'break-all' }}>{confirmSentTo}</strong> 宛<br />
-            {isNative
+            {isReset
+              // パスワードの再設定: リンクを開くと新しいパスワードを決める画面（AuthCallback）。
+              ? <>メール内のリンクを開いて、<br />新しいパスワードを決めてください。</>
+              : isNative
               // ネイティブでは確認リンクは Safari（Web）で開く — 「そのまま進める」と
               // 約束すると迷子になる。確認後にこのアプリへ戻る導線を正しく案内する。
               ? <>メール内のリンクで確認が済んだら、<br />このアプリに戻ってログインしてください。</>
@@ -394,10 +354,10 @@ export default function AuthScreen() {
           {info && <p role="status" style={infoText}>{info}</p>}
           <button
             type="button"
-            onClick={() => { setConfirmSentTo(''); setInfo(''); setError(''); switchMode('signin'); }}
+            onClick={backToSignin}
             style={btnPrimary}
           >
-            確認が済んだので、ログインする
+            {isReset ? 'ログインに戻る' : '確認が済んだので、ログインする'}
           </button>
           <button
             type="button"
@@ -405,7 +365,7 @@ export default function AuthScreen() {
             disabled={resending}
             style={{ ...btnLink, marginTop: 'var(--space-3)', ...(resending ? { color: 'var(--text-2)', opacity: 1 } : null) }}
           >
-            {resending ? '再送中…' : '確認メールを再送する'}
+            {resending ? '再送中…' : isReset ? 'メールをもう一度送る' : '確認メールを再送する'}
           </button>
         </div>
       </div>
@@ -455,13 +415,14 @@ export default function AuthScreen() {
             </button>
             {/* 待っている間だけ（Apple の画面が出ないとき・終わらないときに戻せる・2026-11-19 審査 2.1(a)） */}
             {appleBusy && (
-              <button type="button" onClick={cancelApple} style={{ ...btnLink, color: 'var(--text-2)', width: '100%', marginTop: 'var(--space-1)' }}>
+              <button type="button" onClick={cancelPending} style={{ ...btnLink, color: 'var(--text-2)', width: '100%', marginTop: 'var(--space-1)' }}>
                 やめる
               </button>
             )}
             {/* Apple で始める人にも規約への同意を伝える（App 審査 1.2＝不快な内容を禁じる規約に同意してから使う・2026-11-22）。 */}
             <p style={{ ...fieldHint, margin: 'var(--space-2) 0 0', textAlign: 'center', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-              {withPhraseBreaks('Appleで続けると、利用規約とプライバシーポリシーに同意したことになります。')}
+              {/* ボタンの名前（Appleでサインイン＝審査の手順にも書いた名前）とそろえる・2026-11-23 */}
+              {withPhraseBreaks('Appleでサインインすると、利用規約とプライバシーポリシーに同意したことになります。')}
             </p>
             {/* 添え書きのリンクは主役（Apple のボタン）と張り合わないよう --text-2 に（DESIGN §5 同意の添え書き）。 */}
             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', columnGap: 'var(--space-6)' }}>
@@ -470,7 +431,7 @@ export default function AuthScreen() {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', margin: 'var(--space-4) 0' }}>
               <span style={{ flex: 1, height: 1, background: 'var(--separator)' }} />
-              <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-3)' }}>または</span>
+              <span style={{ fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-3)' }}>または</span>
               <span style={{ flex: 1, height: 1, background: 'var(--separator)' }} />
             </div>
           </>
@@ -543,13 +504,22 @@ export default function AuthScreen() {
         <button
           type="submit"
           // 同意前は押せない見た目（btnPrimaryOff）。処理中は塗りのまま「処理中…」の文言で示す。
-          style={mode === 'signup' && !agreed ? btnPrimaryOff : { ...btnPrimary, opacity: 1, cursor: loading ? 'default' : 'pointer' }}
+          // Apple のボタン（黒の塗り）がある画面では、塗りを 1 つにするため「ログイン」は枠の副ボタン（2026-11-23）。
+          style={mode === 'signup' && !agreed
+            ? btnPrimaryOff
+            : { ...(mode === 'signin' && showAppleButton ? { ...uiBtnGhost, width: '100%' } : btnPrimary), opacity: 1, cursor: loading ? 'default' : 'pointer' }}
           disabled={loading || (mode === 'signup' && !agreed)}
         >
           {submitLabel}
         </button>
+        {/* 待っている間だけ（終わらないときに戻せる・Apple と同じ・2026-11-23） */}
+        {loading && (
+          <button type="button" onClick={cancelPending} style={{ ...btnLink, color: 'var(--text-2)', width: '100%', marginTop: 'var(--space-1)' }}>
+            やめる
+          </button>
+        )}
         {/* パスワードの欄とログインのすぐ下に（下の文字ボタンの並びから離れていた・2026-11-19 ui-critic） */}
-        {mode === 'signin' && (
+        {mode === 'signin' && !loading && (
           <button type="button" onClick={() => switchMode('reset')} style={{ ...btnLink, color: 'var(--text-2)', width: '100%', marginTop: 'var(--space-1)' }}>
             パスワードをお忘れの方
           </button>
@@ -558,7 +528,7 @@ export default function AuthScreen() {
           /* App-only 配信方針: Web で登録しても利用はアプリから。登録前に伝えて
              「登録したのに使えない」という期待外れ（最悪の初回体験）を防ぐ。
              入力欄の上に中央揃えで積まず、登録ボタンのすぐ下に補足の大きさ（13/--text-2）で（2026-09-29）。 */
-          <p style={{ ...jpWrap, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, margin: 'var(--space-3) 0 0', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+          <p style={{ ...jpWrap, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, margin: 'var(--space-3) 0 0', textAlign: 'center', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
             {/* 文節の切れ目でだけ折り返す（「ログイン／してください」の途中で割らない・2026-09-30）。 */}
             {withPhraseBreaks('Orime は iPhone / iPad のアプリです。登録後は、アプリからログインしてください。')}
           </p>
@@ -585,12 +555,17 @@ export default function AuthScreen() {
             {guestBusy ? '準備しています…' : '登録せずに始める'}
           </button>
         )}
+        {GUEST_START_AVAILABLE && guestBusy && mode !== 'reset' && (
+          <button type="button" onClick={cancelPending} style={{ ...btnLink, color: 'var(--text-2)' }}>
+            やめる
+          </button>
+        )}
         {mode === 'signin' && (
           <>
             {/* はじめての人がいちばん押すので、枠の副ボタン（パスワードの文字ボタンと同じ強さにしない・2026-11-18 ui-critic）。
                 登録せずに始めるがあるアプリでは、そちらが枠のボタンで、こちらは文字ボタン。 */}
             <button type="button" onClick={() => switchMode('signup')} style={GUEST_START_AVAILABLE ? btnLink : { ...uiBtnGhost, width: '100%', marginBottom: 'var(--space-2)' }}>
-              {GUEST_START_AVAILABLE ? 'メールアドレスでアカウントを作成' : 'アカウントを作成'}
+              {GUEST_START_AVAILABLE ? 'メールアドレスでアカウントを作る' : 'アカウントを作る'}
             </button>
             {/* サービス紹介はログインの画面だけ（新規登録は「ログインに戻る」1 つにして、押すものを減らす・2026-09-29）。 */}
             {!isNative && (

@@ -102,7 +102,7 @@ const sectionLabel = {
 };
 const oneLine = { display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
 
-// ---- 一覧（本をえらぶ） ----------------------------------------------------
+// ---- 一覧（本を選ぶ） ----------------------------------------------------
 const listGroup = { ...card, padding: 0, overflow: 'hidden', listStyle: 'none', margin: 0 };
 const rowBtn = (first) => ({
   width: '100%', display: 'flex', alignItems: 'center', gap: 'var(--space-3)', textAlign: 'left',
@@ -195,8 +195,8 @@ function ResultsSkeleton() {
 // 押せない主ボタン。薄くすると「あと N 冊」が読めなくなるので、面と文字の色で押せないことを示す。
 
 // initialBooks: 取り込みの完了画面の「覚えている一文を足す（N 冊）」から開くときの本（もう本棚にある本・最大 MAX_BOOKS 冊）。
-//   渡されたら「本をえらぶ」を飛ばして、一言を書く段から始める（2026-09-29）。
-export default function PastBooksQuickstart({ books = [], initialBooks = null, onSaveBook, onAsk, onAskDraft, onClose, onWriteMemo, onImport, onMarkRead, onMemosAdded }) {
+//   渡されたら「本を選ぶ」を飛ばして、一言を書く段から始める（2026-09-29）。
+export default function PastBooksQuickstart({ books = [], initialBooks = null, onSaveBook, onAsk, onAskDraft, onClose, onWriteMemo, onImport, onShelfScan = null, onMarkRead, onMemosAdded }) {
   const { user } = useAuth();
   const toast = useToast();
   const { freeMode, freeRemaining, freeFirstMonth } = usePaywall();
@@ -240,14 +240,14 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
   // 選んだ本・書いた一言がまだ保存されていない間は、ブラウザの「戻る」でアプリごと離れて消えないようにする。
   useBlockEdgeSwipe((seeded ? picked.some((p) => p.memo.trim()) : picked.length > 0) && (step === 'pick' || step === 'memo' || step === 'saving'));
   // ブラウザ / Android の「戻る」は、左上の ‹ と同じ 1 段だけ戻る（重ねた画面として 1 枚積む・2026-09-29）。
-  //   一言を書く → 前の本（1 冊目なら本をえらぶへ）／本をえらぶ → 閉じる（選んだ本があれば確かめてから）／
+  //   一言を書く → 前の本（1 冊目なら本を選ぶへ）／本を選ぶ → 閉じる（選んだ本があれば確かめてから）／
   //   保存中 → 動かない／できあがり → 閉じる。false を返すと App は履歴を積み直してその場に留まる。
   const confirm = useConfirm();
   const back = async () => {
     if (step === 'saving') return false;
     if (step === 'memo') {
       if (idx > 0) { setIdx(idx - 1); return true; }
-      // 取り込みのあとから開いたときは「本をえらぶ」に戻らず閉じる（本はもう本棚にある）。
+      // 取り込みのあとから開いたときは「本を選ぶ」に戻らず閉じる（本はもう本棚にある）。
       if (seeded) {
         if (picked.some((p) => p.memo.trim()) && !(await confirmDiscard())) return false;
         onClose?.();
@@ -267,18 +267,18 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
     // 本棚の本に一言を足しているとき（取り込みのあと）: 消えるのは書いた一言だけ。
     if (seeded) {
       return confirm({
-        title: '書いたことを消しますか？',
-        message: '本は本棚に入っています。書いた一文だけが消えます。',
-        confirmLabel: '書いたことを消す',
+        title: '書きかけの一文があります',
+        message: '本は本棚に残ります。破棄すると、元に戻せません。',
+        confirmLabel: '破棄する',
         cancelLabel: '続ける',
         danger: true,
       });
     }
     return confirm({
-      // 「破棄」は硬いので、何が消えるかをそのまま言う（2026-09-29）。
-      title: wrote ? '選んだ本と書いたことを消しますか？' : '選んだ本を消しますか？',
-      message: `選んだ ${picked.length} 冊は、まだ本棚に入っていません。`,
-      confirmLabel: wrote ? '書いたことを消す' : '選んだ本を消す',
+      // 題で何が残っていないかを言い、ボタンはほかの書きかけの確かめと同じ「破棄する」（2026-11-23 点検で統一）。
+      title: wrote ? `選んだ ${picked.length} 冊と書いた一文は、まだ本棚に入っていません` : `選んだ ${picked.length} 冊は、まだ本棚に入っていません`,
+      message: '破棄すると、元に戻せません。',
+      confirmLabel: '破棄する',
       cancelLabel: '続ける',
       danger: true,
     });
@@ -468,7 +468,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
     >
       {header}
 
-      {/* ===== 1 / 3 本をえらぶ ===== */}
+      {/* ===== 1 / 3 本を選ぶ ===== */}
       {step === 'pick' && (
         <>
           <div style={body}>
@@ -477,7 +477,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
             {/* 括弧なしの短い 2 文（2026-10-12 ui-critic・句のまとまりで折り返す） */}
             {/* なぜ本を選ぶのか（＝一言が相談の根拠になる）を 1 文で（2026-10-21 ui-critic「冊数の話だけ」）。括弧なし・句のまとまりで折り返す */}
             <p style={sub}>
-              <span style={{ display: 'inline-block' }}>えらんだ本の一文が、相談の根拠になります。</span>
+              <span style={{ display: 'inline-block' }}>選んだ本の一文が、相談の根拠になります。</span>
               <span style={{ display: 'inline-block' }}>{MIN_BOOKS}&nbsp;冊から始められます。</span>
             </p>
 
@@ -597,10 +597,20 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
                     })}
                   </div>
                   {/* 取り込みは脇道（初回ガイドで主ボタンとして一度見せている）。問い → 検索 → チップ の流れの後ろに控えめに（2026-10-21 ui-critic） */}
-                  {onImport && (
-                    <button type="button" onClick={onImport} style={{ ...btnLink, padding: 0, marginTop: 'var(--space-4)' }}>
-                      ほかのアプリから取り込む
-                    </button>
+                  {(onImport || onShelfScan) && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 'var(--space-6)', marginTop: 'var(--space-4)' }}>
+                      {onImport && (
+                        <button type="button" onClick={onImport} style={{ ...btnLink, padding: 0 }}>
+                          ほかのアプリから取り込む
+                        </button>
+                      )}
+                      {/* 紙の本が手元にある人の脇道（背表紙を撮ってまとめて本棚へ・2026-11-23 点検） */}
+                      {onShelfScan && (
+                        <button type="button" onClick={onShelfScan} style={{ ...btnLink, padding: 0 }}>
+                          本棚の写真から追加
+                        </button>
+                      )}
+                    </div>
                   )}
                 </section>
               )}
@@ -689,7 +699,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
 
       {/* ===== 保存中 ===== */}
       {step === 'saving' && (
-        // できあがりの画面と同じ形（えらんだ本の表紙＋見出し 2 行）の骨組みで待たせる（跳ねない）。
+        // できあがりの画面と同じ形（選んだ本の表紙＋見出し 2 行）の骨組みで待たせる（跳ねない）。
         <div style={body} role="status" aria-live="polite">
           <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-4)' }} aria-hidden="true">
             {picked.map((p) => <MiniCover key={bookKey(p.book)} book={p.book} width={56} />)}
@@ -723,7 +733,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
       {step === 'done' && summary.books.length > 0 && (
         <>
           <div style={body}>
-            {/* えらんだ本の表紙を並べる＝「この本たちが相談相手」をひと目で */}
+            {/* 選んだ本の表紙を並べる＝「この本たちが相談相手」をひと目で */}
             {/* 幅 104（2026-10-11 ui-critic に 88 から）: 3 冊で 104×3＋8×2＝328（390 幅の本文 358 に収まる）・
                 「FACTFULNESS」も 1 行。それより長い文節の本も、無地の板にせず書名を載せる（forceTitle・2026-10-10）。 */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', marginTop: 'var(--space-4)' }} aria-hidden="true">

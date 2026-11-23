@@ -29,10 +29,11 @@ import { parseShelfScan, verifyShelfGuesses, defaultChecked, shelfImportBooks } 
 import { track } from '../lib/analytics';
 
 const note = { margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.6, wordBreak: 'keep-all', overflowWrap: 'anywhere' };
+// 並びは本の状態の流れ（読みたい → 積読 → 読了）＝本を追加と同じ順。はじめに選んでおくのは読了（棚の本は読んだ本が多い）。
 const STATUS_CHOICES = [
-  { id: 'done', label: '読了' },
-  { id: 'before', label: '積読' },
   { id: 'want', label: '読みたい' },
+  { id: 'before', label: '積読' },
+  { id: 'done', label: '読了' },
 ];
 const STATUS_NOTE = { found: '', maybe: '近い本です。合っていれば選んでください', missing: '書店で見つかりませんでした。選ぶと、読んだ書名のまま入れます', unchecked: '確かめられませんでした。選ぶと、読んだ書名のまま入れます' };
 
@@ -193,6 +194,12 @@ export default function ShelfScanSheet({ existingBooks = [], onAdd, onUndo, onCl
         message: 'もう一度入れるには、写真を撮り直します。',
         confirmLabel: '閉じる',
         cancelLabel: '選び続ける',
+      }) : (step === 'reading' || step === 'checking') ? () => confirm({
+        // 読み取っている途中で閉じると、使った 1 回も読み取った本も戻らない（2026-11-23 点検）。
+        title: '読み取りをやめますか？',
+        message: '途中でやめると、読み取った本は残りません。',
+        confirmLabel: 'やめる',
+        cancelLabel: '続ける',
       }) : null}
     >
       <div style={step === 'pick' ? undefined : { minHeight: 'min(60vh, 560px)' }}>

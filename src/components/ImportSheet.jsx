@@ -30,7 +30,9 @@ const KEEP_DOT = '\u2060・\u2060';
 const halt = { fontFeatureSettings: '"halt"' };
 const haltOpen = (str) => (typeof str === 'string' && str.startsWith('（') ? <><span style={halt}>（</span>{str.slice(1)}</> : str);
 const howTitle = { fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)', margin: 0 };
-const list = { listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' };
+// 手順どうし（ブクログ・読書メーター・Kindle）の間は 24、見出しから本文は 4（まとまりの中 ＜ まとまりの間・2026-11-23 点検）。
+const list = { listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' };
+const howItem = { display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' };
 
 // 初日クイックスタートで一度に一言を書ける冊数（PastBooksQuickstart の MAX_BOOKS と同じ）。
 const QUICKSTART_MAX_BOOKS = 5;
@@ -173,22 +175,22 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
         {error && <ErrorMessage icon={null} title="取り込めませんでした" description={error} />}
         <ul style={list}>
-          <li>
+          <li style={howItem}>
             <p style={howTitle}>ブクログ</p>
             <p style={body}>Web のブクログで「設定」→「エクスポート」から CSV を保存して選びます。レビューと読書メモも取り込みます。</p>
           </li>
-          <li>
+          <li style={howItem}>
             {/* 読書メーターには公式の書き出しが無いので、パソコンで保存したページ（.html）を選ぶ。書き出しツールの CSV もそのまま読める（ヘルプ）。 */}
             <p style={howTitle}>読書メーター</p>
             <p style={body}>パソコンで「読んだ本」を「リスト」表示にして、ページを保存（.html）して選びます。感想も取り込みます。ページが分かれているときは、全部のページを保存してまとめて選べます。</p>
           </li>
-          <li>
+          <li style={howItem}>
             <p style={howTitle}>Kindle アプリ</p>
             {/* 初めての人がたどり着ける手順（2026-10-08 オーナー承認・ui-critic）。補足は手順の後ろに小さく。 */}
             <p style={{ ...body, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('Kindle アプリで本を開き、画面を押して上のノートブックのアイコン ')}<span style={nowrap}>→ エクスポート。</span>{withPhraseBreaks('届いた HTML ファイルを「ファイル」に保存して、ここで選びます。')}</p>
-            <p style={{ ...body, fontSize: 'var(--text-meta)', marginTop: 'var(--space-1)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('読んでいる途中でも取り込めます。同じメモは二重に入りません。何冊分かをまとめて選べます。')}</p>
+            <p style={{ ...body, fontSize: 'var(--text-meta)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('読んでいる途中でも取り込めます。同じメモは二重に入りません。何冊分かをまとめて選べます。')}</p>
           </li>
-          <li>
+          <li style={howItem}>
             <p style={howTitle}>Kindle 端末</p>
             <p style={body}>パソコンにつないで、documents にある「<span style={nowrap}>My Clippings.txt</span>」を選びます。</p>
           </li>

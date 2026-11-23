@@ -143,12 +143,7 @@ export default class ErrorBoundary extends React.Component {
             <a href={mailto} style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginTop: 'var(--space-3)', textDecoration: 'none' }}>
               このエラーを報告する
             </a>
-            {/* 何が起きたかの 1 行（スタックや内部の状態は出さない・報告のとき役に立つ・2026-10-22） */}
-            {!isDev && this.state.error && isChunkLoadError(this.state.error) && (
-              <p style={{ fontSize: 'var(--text-caption)', color: 'var(--text-3)', marginTop: 'var(--space-8)', wordBreak: 'break-word' }}>
-                {String(this.state.error?.message || this.state.error).slice(0, 160)}
-              </p>
-            )}
+            {/* 英語のエラーの文（URL つき）は画面に出さず、報告のメールの本文にだけ入れる（2026-11-23・前は 12/400 で画面の下に出ていた）。 */}
             {isDev && (
               <pre
                 style={{

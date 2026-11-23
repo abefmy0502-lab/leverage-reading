@@ -393,7 +393,7 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
             {withPhraseBreaks(slide.title)}
           </h2>
           {/* 文節の切れ目（BudouX の <wbr>）でだけ折り返す（「困った／ときに」のように語の途中で割らない・iOS の Safari は auto-phrase を知らない） */}
-          <p style={{ fontSize: 'var(--text-body)', color: 'var(--text-2)', lineHeight: 1.6, textAlign: 'left', margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere', textWrap: 'pretty' }}>
+          <p style={{ fontSize: 'var(--text-body)', color: 'var(--text-2)', lineHeight: 1.5, textAlign: 'left', margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere', textWrap: 'pretty' }}>
             {withPhraseBreaks(slide.body)}
           </p>
           {slide.id === 'profile' && (
