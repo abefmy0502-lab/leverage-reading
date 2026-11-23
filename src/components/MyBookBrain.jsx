@@ -1226,6 +1226,15 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     if (!firstDayDraft || examples.some((e) => e.text === firstDayDraft)) return examples;
     return [{ text: firstDayDraft, kind: 'draft' }, ...examples].slice(0, 3);
   }, [examples, firstDayDraft]);
+  // ⚡ 相談例は過去の相談の読み込みを待たずに出す（2026-11-23 オーナー「たとえばがあるせいで待ち時間がかかる」）。
+  //   最初に出した 3 つはそのまま固定し、あとから過去の相談が届いても入れ替えない（形が跳ねない）。
+  //   相談相手・初日の下書き・使い切りが変わったときだけ作り直す。
+  const examplesKey = `${scopeIds.join(',')}|${firstDayDraft || ''}|${freeUsedUp ? 1 : 0}`;
+  const shownExamplesRef = useRef({ key: null, list: null });
+  if (memoStatsLoaded && shownExamplesRef.current.key !== examplesKey) {
+    shownExamplesRef.current = { key: examplesKey, list: introExamples };
+  }
+  const shownExamples = shownExamplesRef.current.list || introExamples;
 
   // 💬 メモが答える相談（2026-10-01・lib/memoAnswer.js）: 画面の上だけに相談と答えを置き、自分のメモから一節を選ぶ。
   //   AI は使わない（/api/claude を呼ばない・トークンを使わない）。答えは id の行（memoAnswer）を入れ替える。
@@ -2608,9 +2617,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 <h2 id="brain-empty-title" style={{ ...headingStyle, marginBottom: 'var(--space-6)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('困っていることを、相談してください')}</h2>
                 <p style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>たとえば</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-                  {/* 相談例は過去の相談（「前に相談した…」）を使うので、読み終えるまでは同じ大きさの形で待つ。 */}
-                  {!historyLoaded && [0, 1, 2].map((i) => <SkeletonBlock key={`ex${i}`} width="100%" height={69} radius="var(--radius)" />)}
-                  {historyLoaded && introExamples.map(({ text: q, kind }) => {
+                  {/* 相談例は待たずに出す（過去の相談が読めていれば「前に相談した…」も入る・2026-11-23） */}
+                  {shownExamples.map(({ text: q, kind }) => {
                     const picked = !!firstDayDraft && q === input.trim();
                     return (
                     <button
