@@ -371,7 +371,7 @@ body.lp-active {
 .lp-narrow > picture:has(.lp-art-wide) { display: block; }
 @media (prefers-color-scheme: dark) {
   .lp-illust-img { border: 1px solid var(--separator); }
-  .lp-illust-img:not(.has-dark) { filter: brightness(0.78); } /* 主ボタンより目立たせない（2026-11-23 LP の仕上げ） */
+  .lp-illust-img:not(.has-dark) { filter: brightness(0.62) saturate(0.85); } /* 暗い地で明るい四角が浮かないように（2026-11-23 LP の仕上げ・暗い画面用の絵はまだ無い） */
 }
 .lp-ill-book rect { stroke: var(--border); stroke-width: 1.25; }
 .lp-ill-book-a rect { fill: var(--surface); }
@@ -1438,3 +1438,6 @@ body.lp-active {
   .lp-more-sec .lp-feat { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .lp-more-sec .lp-feat-big { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+/* 料金の物差しの箱: 注記は全幅（PC で左の列に空きができていた） */
+.lp-pricing-cost { align-items: start; }
+.lp-pricing-cost .lp-cost-note { grid-column: 1 / -1; }

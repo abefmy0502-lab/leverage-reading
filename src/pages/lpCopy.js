@@ -254,7 +254,8 @@ export function buildLpCopy({
   const active = Boolean(offer?.active);
   // 期限は年も（11 月に読む人に、どの年の 1 月か分かるように・2026-11-23 LP の仕上げ）
   const END_YEAR = /^\d{4}-/.test(String(offer?.end || '')) ? String(offer.end).slice(0, 4) : '';
-  const END = noBreak(offer?.endLabel ? (END_YEAR ? `${END_YEAR} 年 ${offer.endLabel}` : offer.endLabel) : '');
+  const END_LABEL = String(offer?.endLabel || '').replace(/(\d+)月(\d+)日/, '$1 月 $2 日'); // 「1 年目」「2 か月」と同じく数の前後を空ける
+  const END = noBreak(END_LABEL ? (END_YEAR ? `${END_YEAR} 年 ${END_LABEL}` : END_LABEL) : '');
   const FOUNDING_PRICE = offer?.price || '';
   const MONTHLY_TEXT = yen(MONTHLY);
   const ANNUAL_TEXT = yen(ANNUAL);

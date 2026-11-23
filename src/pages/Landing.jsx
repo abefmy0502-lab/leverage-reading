@@ -160,7 +160,7 @@ function HeroMini() {
 // 🧭 ページ内の案内（2026-10-13 オーナー「ハンバーガーメニュー等を適宜」）。広い画面はヘッダーに文字のリンク、
 //   スマホは 3 本線のボタン（ハンバーガーメニュー）で開く。行き先はページの中の見出し。
 const NAV_ITEMS = [
-  { href: '#lp-grow', label: '使い方' },
+  { href: '#lp-grow', label: '相談の見本' },
   { href: '#lp-pillars', label: 'できること' },
   { href: '#lp-pricing', label: '料金' },
   { href: '#lp-faq', label: 'よくある質問' },
@@ -479,7 +479,8 @@ export default function Landing() {
       // 画面写真の説明（figcaption）が下の固定ボタンの裏に入っている間は、固定ボタンだけ下げる（2026-11-22 ui-critic「説明を隠している」）。
       const sticky = document.querySelector('.lp-sticky');
       const barTop = vh - (sticky?.offsetHeight || 0);
-      setStickyYield(Array.from(document.querySelectorAll('.lp-root figcaption')).some((c) => {
+      // 会話の見本の中のメモの出典（.lp-chat-memo）は除く（一番説得したい場面で帯が消えていた・2026-11-23 ui-critic）
+      setStickyYield(Array.from(document.querySelectorAll('.lp-root figcaption:not(.lp-chat-memo figcaption)')).some((c) => {
         const r = c.getBoundingClientRect();
         return r.height > 0 && r.bottom > barTop && r.top < vh;
       }));
@@ -724,6 +725,7 @@ export default function Landing() {
                         <p className="lp-plan-price">{OFFER.priceLabel}<span>（税込）</span></p>
                         {/* 2026-11-23 LP の仕上げ: 「¥12,800 が 1 年目はこの価格に」は値引きに読める（二重価格）→ 更新のときの値段を言う形に */}
                         <p className="lp-plan-sub"><span className="lp-nb">1 年分を前払い。</span><span className="lp-nb">2 年目から年額 {ANNUAL_TEXT}（税込）</span><span className="lp-nb">で自動更新。</span></p>
+                        {!TRIAL_NOTE && <p className="lp-plan-sub"><span className="lp-nb">{COPY.END}まで。</span><span className="lp-nb">この期間は 7 日間無料はありません。</span></p>}
                       </>
                     ) : (
                       <>
@@ -743,12 +745,6 @@ export default function Landing() {
                 <p className="lp-renew lp-wbr">{COPY.pricingNote.map((t) => <span key={t}><Sentences>{t}</Sentences></span>)}</p>
               </div>
             </div>
-            {!PRELAUNCH && (
-              <div className="lp-cta-block lp-pricing-cta">
-                <StoreCta className="lp-btn lp-btn-large" loc="pricing">{CTA_LABEL}</StoreCta>
-              </div>
-            )}
-
             {/* 1 日あたりの物差し（カードのあと・条件はすぐ下の 1 行で） */}
             <div className="lp-why-cost lp-pricing-cost">
               <p className="lp-why-cost-title lp-wbr"><Phrases>{`1 日 約 ${OFFER.active ? FOUNDING_PER_DAY_TEXT : ANNUAL_PER_DAY_TEXT} から、${WHY.costTitleRest}`}</Phrases></p>
@@ -765,15 +761,21 @@ export default function Landing() {
                 <p className="lp-offer-title">{FOUNDING_NAME}<span>{COPY.END}（日本時間）まで</span></p>
                 <dl className="lp-offer-list">
                   <div><dt>対象</dt><dd className="lp-wbr"><Phrases>期間中に年額プランを始めた方</Phrases></dd></div>
-                  <div><dt>価格</dt><dd className="lp-wbr"><Phrases>{`1 年目 ${OFFER.price}（税込）。2 年目から年額 ${ANNUAL_TEXT}（税込）で自動更新`}</Phrases></dd></div>
                   <div><dt>特典</dt><dd className="lp-wbr"><Phrases>開発者に直接届く窓口と、次に作る機能への投票</Phrases></dd></div>
                   {TRIAL_NOTE
                     ? <div><dt>ご注意</dt><dd className="lp-wbr"><Phrases>年額の 1 年目 ¥9,800 を使うなら、最初から年額でお申し込みください。先に月額の 7 日間無料を使うと対象外になります（App Store の決まり）</Phrases></dd></div>
-                    : <div><dt>ご注意</dt><dd className="lp-wbr"><Phrases>この期間は、7 日間無料はありません。まずは無料プランでお試しください</Phrases></dd></div>}
+                    : null /* 7 日間無料が無いことは年額のカードの行に 1 回（同じことを 2 回書かない） */}
                 </dl>
               </div>
             )}
 
+            {/* ボタンは判断に要る情報（カード・1 日あたり・創業メンバー価格）を読み終えた所に 1 つ（2026-11-23 ui-critic）。名前は主ボタンと同じ */}
+            {!PRELAUNCH && (
+              <div className="lp-cta-block lp-pricing-cta">
+                <StoreCta className="lp-btn lp-btn-large" loc="pricing">{MAIN_CTA}</StoreCta>
+                <p className="lp-cta-note">無料プランで始められます（iPhone）</p>
+              </div>
+            )}
             {PRELAUNCH && (
               <div className="lp-cta-block">
                 <Entry loc="pricing" wl={wl} />

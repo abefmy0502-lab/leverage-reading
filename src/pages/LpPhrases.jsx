@@ -16,6 +16,8 @@ export function phrasesOf(text) {
     // 折り返さない印（WORD JOINER・折り返さない空白）の前後では分けない（noBreak の塊を割らない）。
     if (prev && (/[\u2060\u00a0]$/.test(prev) || /^[\u2060\u00a0]/.test(seg))) out[out.length - 1] = prev + seg;
     else if (prev && /\d+月$/.test(prev) && /^\d+日/.test(seg)) out[out.length - 1] = prev + seg;
+    // 「…と／いう」で割れたら、前の塊につなぐ（「信じ切る」と／いう心の…・2026-11-23 ui-critic）。
+    else if (prev && /と$/.test(prev) && /^(いう|いった|いわれ)/.test(seg)) out[out.length - 1] = prev + seg;
     else if (prev && DATE.test(prev + seg) && /^\d+$/.test(prev)) out[out.length - 1] = prev + seg;
     else out.push(seg);
   }

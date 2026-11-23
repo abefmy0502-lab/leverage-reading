@@ -223,9 +223,9 @@ const FEATURE_ART = {
       <rect x="156" y="40" width="16" height="48" rx="2" stroke="currentColor" strokeWidth="2.25" />
       <rect x="178" y="48" width="16" height="40" rx="2" />
       <rect x="200" y="56" width="16" height="32" rx="2" />
-      <text x="164" y="104" fontSize="10" textAnchor="middle" fill="currentColor" stroke="none" fontWeight="600">1</text>
-      <text x="186" y="104" fontSize="10" textAnchor="middle" fill="currentColor" stroke="none" opacity="0.6">2</text>
-      <text x="208" y="104" fontSize="10" textAnchor="middle" fill="currentColor" stroke="none" opacity="0.6">3</text>
+      <text x="164" y="104" fontSize="12" textAnchor="middle" fill="currentColor" stroke="none" fontWeight="600">1</text>
+      <text x="186" y="104" fontSize="12" textAnchor="middle" fill="currentColor" stroke="none" opacity="0.75">2</text>
+      <text x="208" y="104" fontSize="12" textAnchor="middle" fill="currentColor" stroke="none" opacity="0.75">3</text>
     </g>
   ),
 };
