@@ -144,7 +144,8 @@ const footerStyle = {
 };
 
 // 文字ボタン（DESIGN §5・ui.js btnLink＝高さ 44・15/600）。左端を本文の端にそろえる。
-const detailLink = { ...btnLink, padding: 0, gap: 'var(--space-1)' };
+// 行の高さは 1.5 に決める（上の詰め＝(44 − 15 × 1.5) ÷ 2 と合わせる）。
+const detailLink = { ...btnLink, padding: 0, gap: 'var(--space-1)', lineHeight: 1.5 };
 
 // 本文の下の小さな副ボタン（DESIGN §5 btnRow と同じ寸法: 高さ 44・15・600）。
 const rowBtn = {
@@ -586,8 +587,9 @@ export default function QuickMemoSheet({
 
           {/* ＋ ページ・写真 — 一度開いて欄を見たときだけページ番号を保存する（開かなければページなし）。
               欄には直前＋1 を入れておく（続けて書くときの手間を省く）。
-              高さ 44 の文字ボタンの上の余りを 12 だけ詰める（16 詰めると押せる範囲が本文欄に重なる）。 */}
-          <div style={{ marginTop: 'calc(-1 * var(--space-3))' }}>
+              高さ 44 の文字ボタンの上の余り（(44 − 行の高さ) ÷ 2）だけ詰め、本文欄と文字の間をいつも 12 にする。
+              文字を大きくすると余りが無くなるので詰めない（12 詰めたままだと本文欄に付いて見えた・2026-11-23 点検）。 */}
+          <div style={{ marginTop: 'calc(-1 * clamp(0px, (var(--tap-min) - var(--text-sub) * 1.5) / 2, var(--space-3)))' }}>
             <button
               type="button"
               // 押しても本文の欄からフォーカスを外さない（キーボードが閉じてシートが上下に 2 回動いていた・2026-09-29）。

@@ -119,13 +119,14 @@ function BigTime({ hours, minutes, dim }) {
 }
 
 // 丸いボタン（--focus-btn＝64・枠 --focus-line-strong＝押せる物なので 3:1）＋下に名前。
-function RoundButton({ label, icon, onClick, children, disabled = false, ...rest }) {
+// ariaLabel: 読み上げの名前を見える名前より詳しくするとき（「メモ」→「メモを書く」・おわったあとの「メモを書く」と同じ操作と分かる）。
+function RoundButton({ label, ariaLabel, icon, onClick, children, disabled = false, ...rest }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-2)', minWidth: 0, flex: '1 1 0' }}>
       <button
         type="button"
         onClick={onClick}
-        aria-label={label}
+        aria-label={ariaLabel || label}
         disabled={disabled}
         className="focus-round"
         // 押せないときも薄くしない（DESIGN §5「押せないボタン」）: 枠を淡い線に・アイコンを --focus-ink-3 に。
@@ -361,7 +362,10 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
         background: phase === 'running' ? 'var(--focus-bg)' : 'var(--focus-bg-done)',
         color: 'var(--focus-ink)', fontFamily: 'var(--font-ui)',
         display: 'flex', flexDirection: 'column', alignItems: 'center',
-        padding: 'calc(env(safe-area-inset-top, 0px) + var(--space-8)) var(--space-4) calc(env(safe-area-inset-bottom, 0px) + var(--space-6))',
+        // おわったときは下のボタンが 3 段になるので、下の余白は安全域かその 16 の大きいほう（2026-11-23 点検）。
+        padding: phase === 'summary'
+          ? 'calc(env(safe-area-inset-top, 0px) + var(--space-8)) var(--space-4) max(var(--space-4), env(safe-area-inset-bottom, 0px))'
+          : 'calc(env(safe-area-inset-top, 0px) + var(--space-8)) var(--space-4) calc(env(safe-area-inset-bottom, 0px) + var(--space-6))',
         overflowY: 'auto', overscrollBehavior: 'contain',
         userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none',
       }}
@@ -417,7 +421,9 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
                     });
                     onClose();
                   }}
-                  style={{ marginTop: 'var(--space-3)', minHeight: 'var(--tap-min)', padding: '0 var(--space-3)', background: 'none', border: 'none', color: 'var(--focus-ink-2)', fontSize: 'var(--text-sub)', fontWeight: 600, wordBreak: 'keep-all', overflowWrap: 'anywhere', cursor: removing ? 'default' : 'pointer', fontFamily: 'inherit', opacity: 1 }}
+                  // 押せる物と分かるように枠の副ボタン（暗い地の押せる物の枠＝--focus-line-strong・3:1・高さ 44 以上・2026-11-23 点検）。
+                  //   外している間は薄くせず、枠を淡い線・文字を --focus-ink-3 に（DESIGN §5「押せないボタン」）。
+                  style={{ marginTop: 'var(--space-4)', minHeight: 'var(--tap-min)', padding: 'var(--space-2) var(--space-4)', borderRadius: 'var(--radius)', background: 'transparent', border: `1px solid ${removing ? 'var(--focus-line)' : 'var(--focus-line-strong)'}`, color: removing ? 'var(--focus-ink-3)' : 'var(--focus-ink)', fontSize: 'var(--text-sub)', fontWeight: 600, lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere', cursor: removing ? 'default' : 'pointer', fontFamily: 'inherit', opacity: 1 }}
                 >
                   {removing ? '外しています…' : withPhraseBreaks('止め忘れていたら、この回を記録から外す')}
                 </button>
@@ -468,7 +474,7 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
               {holding ? 'そのまま押し続けると、おわります' : hint}
             </p>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--space-4)' }}>
-              <RoundButton label="メモ" icon={<PencilLine size={22} strokeWidth={1.5} aria-hidden="true" />} onClick={() => setMemoOpen('running')} disabled={busy} />
+              <RoundButton label="メモ" ariaLabel="メモを書く" icon={<PencilLine size={22} strokeWidth={1.5} aria-hidden="true" />} onClick={() => setMemoOpen('running')} disabled={busy} />
               <RoundButton
                 label={paused ? 'おわる' : 'おわる（長押し）'}
                 icon={<Square size={18} strokeWidth={1.5} aria-hidden="true" />}
@@ -523,11 +529,13 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
         ) : (
           <div key="summary-plain" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-3)' }}>
             <button type="button" onClick={() => setMemoOpen('summary')} style={footBtn(true)}>メモを書く</button>
+            {/* key: 前の画面（タイマーが終わったときの「続けて読む」など）で押していた形を残さない別の要素に。
+                押したときに縮める形（scale）もここでは付けない（幅が 6 狭く見えていた・2026-11-23 点検）。 */}
             {onShare
-              ? <button type="button" onClick={() => onShare(book)} style={footBtn(false)}>写真で共有</button>
-              : <button type="button" onClick={onClose} style={footBtn(false)}>閉じる</button>}
-            {/* 閉じる手段は残す（文字のボタン・文字ボタンの高さの余りは下の余白と相殺）。 */}
-            {onShare && <button type="button" onClick={onClose} style={{ ...footText, marginTop: 'calc(-1 * var(--space-2))', marginBottom: 'calc(-1 * var(--space-2))' }}>閉じる</button>}
+              ? <button key="summary-share" type="button" onClick={() => onShare(book)} style={{ ...footBtn(false), transform: 'none' }}>写真で共有</button>
+              : <button key="summary-close" type="button" onClick={onClose} style={footBtn(false)}>閉じる</button>}
+            {/* 閉じる手段は残す（文字のボタン・「写真で共有」との間は 12＝親の gap）。 */}
+            {onShare && <button key="summary-close-text" type="button" onClick={onClose} style={footText}>閉じる</button>}
           </div>
         ))}
       </footer>

@@ -157,6 +157,52 @@ const rootTextLarge = () => {
   try { return parseFloat(getComputedStyle(document.documentElement).fontSize) >= 22; } catch { return false; }
 };
 
+// 目安（AI が書く「2週間で読了、1ヶ月で実践」）を、数と助数詞の間に空きを入れた形に（「2 週間」「1 か月」・DESIGN §2・
+//   ヶ月・カ月は「か月」に・2026-11-23 点検）。空きは withPhraseBreaks が折り返さない空きにする。
+export function spaceDurationUnits(text) {
+  return String(text ?? '')
+    .replace(/(\d)\s*[ヶヵカケ]月/g, '$1か月')
+    .replace(/(\d)(週間|か月|日間|時間|分|冊|回)/g, '$1 $2');
+}
+
+// 受け取った悩み（確かめる一歩のカード）。文節の切れ目で折り返す（「でしょ／うか」と割れていた・2026-11-23 点検）。
+//   文字が大きいとき（rootTextLarge）は 4 行で切り、「全文を見る」で開く（長いまとめが「合っている／少し違う（直す）」を
+//   最初の画面の外へ押し出していた）。4 行に収まるときはボタンを出さない（目標の画面の「全文を見る」と同じ形）。
+const summaryClamp = { display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 4, overflow: 'hidden' };
+function SummaryText({ text }) {
+  const ref = useRef(null);
+  const [large] = useState(rootTextLarge);
+  const [open, setOpen] = useState(false);
+  const [cut, setCut] = useState(false);
+  // 行頭の開き括弧は字の幅を半分に（本のカードの書名の『 と同じ halt・相談の答えとも同じ・2026-11-23）。
+  const lead = /^[「『（]/.test(String(text || '')) ? String(text)[0] : '';
+  useEffect(() => {
+    const el = ref.current;
+    if (!large || open || !el) return undefined;
+    const measure = () => { if (el.clientHeight > 0) setCut(el.scrollHeight - el.clientHeight > 1); };
+    measure();
+    if (typeof ResizeObserver !== 'function') return undefined;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [large, open, text]);
+  return (
+    <>
+      <p ref={ref} style={{ ...questionText, fontWeight: 400, margin: 'var(--space-2) 0 0', wordBreak: 'keep-all', overflowWrap: 'anywhere', ...(large && !open ? summaryClamp : null) }}>{lead && <span style={{ fontFeatureSettings: '"halt"' }}>{lead}</span>}{withPhraseBreaks(String(text || '').slice(lead.length))}</p>
+      {large && (cut || open) && (
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={() => setOpen((v) => !v)}
+          style={{ ...uiBtnLinkQuiet, marginLeft: 'calc(-1 * var(--space-1))', marginBottom: 'calc(-1 * var(--space-2))', gap: 'var(--space-1)' }}
+        >
+          {open ? '閉じる' : '全文を見る'}<ChevronDown size="1em" aria-hidden="true" style={open ? { transform: 'rotate(180deg)' } : undefined} />
+        </button>
+      )}
+    </>
+  );
+}
+
 // 4 つの切り替え（難しさ・本の選び方）を 2 つずつ 2 段にする目安（ルートの文字 20px 以上・
 //   21px で「おまかせ」「いま話題」が面の端に触れた・2026-11-19 ui-critic）
 const segTwoRows = () => {
@@ -1850,7 +1896,18 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
           {/* 無料プランは「たとえば」の行の右に「プラン」（押す前にプランの機能と分かる・2026-10-09 ui-critic） */}
           <p className="example-chips-label" style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 'var(--space-2)' }}>
             たとえば
-            {freeMode && <span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-2)' }}>プラン</span>}
+            {/* 押すと有料プランの画面（2026-11-23 点検: 「プラン」が押せず、何ができるかを見る入口が無かった）。
+                押せる高さ 44 は上下の負の余白で取り、行の高さは変えない。 */}
+            {freeMode && (
+              <button
+                type="button"
+                onClick={() => requirePlan('AI 選書')}
+                aria-label="プランを見る（AI 選書はプランの機能です）"
+                style={{ display: 'inline-flex', alignItems: 'center', minHeight: 'var(--tap-min)', margin: 'calc((1.5em - var(--tap-min)) / 2) calc(-1 * var(--space-1)) calc((1.5em - var(--tap-min)) / 2) 0', padding: '0 var(--space-1)', background: 'transparent', border: 'none', fontFamily: 'inherit', cursor: 'pointer', fontSize: 'var(--text-meta)', fontWeight: 400, lineHeight: 1.5, color: 'var(--text-2)' }}
+              >
+                プラン<ChevronRight size="1.2em" aria-hidden="true" />
+              </button>
+            )}
           </p>
           {ADVISOR_EXAMPLES.map((ex) => (
             <button
@@ -2027,7 +2084,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
             <p style={{ ...fieldLabel, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('あなたの悩みを、こう受け取りました')}</p>
             {/* 受け取った悩みは、聞き取りの問いと同じ見た目（17/600・2026-10-10 ui-critic「確かめる一歩だけ明朝 18 で大きかった」）。 */}
             {/* 長い文なので太さは 400（全部 600 だと重く読みにくかった・2026-10-10 ui-critic）。 */}
-            <p style={{ ...questionText, fontWeight: 400, margin: 'var(--space-2) 0 0', wordBreak: 'normal', lineBreak: 'strict', textWrap: 'pretty' }}>{text}</p>
+            <SummaryText text={text} />
             {/* 命に関わる言葉があるときは、まとめのすぐ後に相談窓口（15/--text・外部リンク 44）。 */}
             {showCare && careNote}
             {/* 読む本の難しさ（2026-11-17・lib/readerLevel.js）: おまかせ＝読了の冊数から。選んだら端末に覚える。
@@ -2334,7 +2391,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
                 {rec.duration && (
                   <div style={{ marginTop: 'var(--space-3)' }}>
                     <p style={fieldLabel}>目安</p>
-                    <p style={{ ...fieldText, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(rec.duration)}</p>
+                    <p style={{ ...fieldText, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(spaceDurationUnits(rec.duration))}</p>
                   </div>
                 )}
                 <div ref={(el) => { if (el) addRowRefs.current[rec.title] = el; else delete addRowRefs.current[rec.title]; }} style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 'var(--space-2)', marginTop: 'var(--space-4)' }}>
@@ -2464,10 +2521,22 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
               </span>
             </button>
           )}
+          {/* 押すと有料プランの画面（2026-11-23 点検: 押せない 1 行で行き止まりだった）。言い方と形は上の残りの行と同じ（13・› つき）。 */}
           {freeMode && (
-            <p style={{ flexBasis: '100%', margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>
-              AI 選書はプランの機能です
-            </p>
+            <button
+              type="button"
+              onClick={() => requirePlan('AI 選書')}
+              style={{
+                flexBasis: '100%', display: 'block', textAlign: 'left',
+                background: 'transparent', border: 'none', fontFamily: 'inherit', cursor: 'pointer',
+                padding: 'var(--space-2) var(--space-2) var(--space-2) 0', margin: 'calc(-1 * var(--space-2)) 0',
+                minHeight: 'var(--tap-min)', fontSize: 'var(--text-meta)', lineHeight: 1.5, color: 'var(--text-2)',
+                wordBreak: 'keep-all', overflowWrap: 'anywhere',
+              }}
+            >
+              {withPhraseBreaks('AI 選書はプランの機能です。')}<wbr />
+              <span style={{ whiteSpace: 'nowrap', fontWeight: 600, color: 'var(--accent)' }}>プランを見る<ChevronRight size="1.2em" aria-hidden="true" style={{ verticalAlign: '-0.25em', marginLeft: '0.15em' }} /></span>
+            </button>
           )}
           <textarea
             ref={inputRef}

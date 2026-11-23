@@ -92,7 +92,7 @@ const EDIT_PHRASE_GROW = editWheel({ deltaY: -30, ctrlKey: true }, 0.14);
 const MEMO_SAVED = [
   { css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button:has-text("メモを書く")' },
   { fill: ['textarea[aria-label="メモ本文"]', 'よいマネージャーは部下に答えを渡さず、質問で考えてもらう。任せることで人は育つ。'] },
-  { css: '[role=dialog] button:text-is("保存")' }, { wait: 2500 }, { scrollTo: 'h2:has-text("メモ")' },
+  { css: '[role=dialog] button:text-is("保存")' }, { wait: 2500 },
 ];
 
 // iPhone の下の安全域（34pt・ホームインジケータ）をまねる: シートの決定ボタンの欄の下に 34 を足す（Chromium では env() を変えられないため）。

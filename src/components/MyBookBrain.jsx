@@ -10,7 +10,7 @@
 import CareNote from './CareNote';
 import { needsCareLine } from '../lib/advisorInterview';
 import { useChatImmersive } from '../hooks/useChatImmersive';
-import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, cloneElement, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { markActivation } from '../lib/activation';
 import { supabase, isSupabaseConfigured, isDemo, demoScenario } from '../lib/supabase';
@@ -25,7 +25,7 @@ import { ensureAiConsent } from '../lib/aiConsent';
 import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, btnText as uiBtnText, btnLink as uiBtnLink, btnLinkQuiet as uiBtnLinkQuiet, groupTitle, fieldNote, input as uiInput, scrollFade } from '../styles/ui';
 import { track, EVENTS } from '../lib/analytics';
 import { LIMITS } from '../lib/limits';
-import { answerActionStatus, rememberAnswerActionAdded } from '../lib/consultActionAdded';
+import { answerActionStatus, rememberAnswerActionAdded, forgetAnswerActionAdded } from '../lib/consultActionAdded';
 import KnowledgeManager from './KnowledgeManager';
 import PullToRefresh from './PullToRefresh';
 import EmptyState from './EmptyState';
@@ -470,7 +470,7 @@ function isOldConsult(group, now = Date.now()) {
   return Number.isFinite(t) && now - t >= REASK_AFTER_DAYS * 86400000;
 }
 
-export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBooksMutated, onAddActionPickBook, onGoBookshelf, onQuickstart, onAddBook, onOpenActions, askPreset, scopePreset, onPushedViewChange, onSearchMemos, onFindBooks = null, onOpenGoals = null, barSlot = null, onScrolledChange = null }) {
+export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBooksMutated, onAddActionPickBook, onGoBookshelf, onQuickstart, onAddBook, onOpenActions, askPreset, scopePreset, onPushedViewChange, onSearchMemos, onFindBooks = null, onOpenGoals = null, barSlot = null, onScrolledChange = null, onRemoveAction = null }) {
   const { user } = useAuth();
   // 文字の大きさの設定が大きいとき（ルートの文字 22px 以上・ImportSheet と同じ目安）。入力欄の案内を短くする。
   const [largeText] = useState(() => {
@@ -2254,8 +2254,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-1)', marginBottom: isEmpty ? 'var(--space-6)' : 'var(--space-4)' }}>
       {/* 💬 いまの相談相手のアイコン（24・1 行目の高さの中央・2026-09-30）。飾りなので読み上げない（文は右の 1 行）。 */}
       <PartnerAvatar partner={scopePartner} size={AVATAR_SIZE_SMALL} style={{ alignSelf: 'flex-start', marginTop: 'calc((var(--text-sub) * 1.5 - 24px) / 2)', marginRight: 'var(--space-1)' }} />
-      {/* 1 冊に絞ったとき（『書名』…）は 『 をぶら下げる。下の残りトークンの行には引き継がない。 */}
-      <p style={{ flex: 1, minWidth: 0, margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'auto-phrase', ...(scopeIds.length === 1 && scopeMemoCount != null ? { textIndent: '-0.5em' } : null) }}>
+      {/* 1 冊に絞ったとき（『書名』…）は 『 の字の幅を半分に（halt・答えの開き括弧と同じ・2026-11-23）。 */}
+      <p style={{ flex: 1, minWidth: 0, margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'auto-phrase' }}>
         {/* 件数が分かるまでは、同じ 1 行ぶんの高さに文の形の SkeletonBlock（何もない空きにしない・読み上げない。
             「読んだ本のメモを根拠に答えます」→「あなたのメモ N 件から答えます」と入れ替わって見えていた・2026-09-30） */}
         {headCountPending
@@ -2264,11 +2264,11 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           ? (scopeMemoCount === 0
             // メモが無いことは会話の場所で大きく伝えるので、上の行は相談相手の名前だけ（同じ文を 2 回出さない）。
             ? (scopeIds.length === 1
-              ? <>『{(books.find((b) => b.id === scopeIds[0]) || {}).title || 'この本'}』に相談します</>
+              ? <><span style={HALT}>『</span>{(books.find((b) => b.id === scopeIds[0]) || {}).title || 'この本'}』に相談します</>
               : <>選んだ <span style={{ whiteSpace: 'nowrap' }}>{scopeIds.length} 冊</span>に相談します</>)
             : scopeMemoCount != null
             ? (scopeIds.length === 1
-              ? <>『{(books.find((b) => b.id === scopeIds[0]) || {}).title || 'この本'}』の<span style={{ whiteSpace: 'nowrap' }}>メモ {scopeMemoCount} 件</span>{answerVerbNow}</>
+              ? <><span style={HALT}>『</span>{(books.find((b) => b.id === scopeIds[0]) || {}).title || 'この本'}』の<span style={{ whiteSpace: 'nowrap' }}>メモ {scopeMemoCount} 件</span>{answerVerbNow}</>
               : <>選んだ <span style={{ whiteSpace: 'nowrap' }}>{scopeIds.length} 冊</span>の<span style={{ whiteSpace: 'nowrap' }}>メモ {scopeMemoCount} 件</span>{answerVerbNow}</>)
             : `選んだ本のメモ${answerVerbNow}`)
           // 件数は「メモ N 件」＝自分のメモ（カード式＋学び＋この本のまとめ）。ホームの相談カード・初日クイックスタート・
@@ -2338,7 +2338,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     // 行動が決まったあとは、特定の続きを言わない汎用の文（2026-10-10 第 9 回 総点検）。
     : lastHasAction ? '続けて相談する'
     // 会話が始まると入力欄の左に 44 のボタンが入るので、短い例（16 字だと「うまくいか／ない」と割れて 2 行になった・2026-11-18 ui-critic）。
-    : threadActive && !isNoInfoAnswer(lastVisible) ? '続けて聞く' : newConsultExample;
+    // 会話の途中（答えを書いている間・答えられなかった画面も）は「続けて聞く」。最初の例に戻すのは、まだ何も送っていないときと
+    //   関係するメモが無かった答えのあとだけ（2026-11-23 点検: 書いている間・失敗の画面で「例：…」に戻っていた）。
+    : (threadActive || visibleMessages.some((m) => m.role === 'user')) && !isNoInfoAnswer(lastVisible) ? '続けて聞く' : newConsultExample;
   // 描く前に高さを合わせる（useEffect だと、送ったあとに「消えた文字の高さのまま 1 回描く → 縮む」で
   // 入力欄が 2 回動いていた）。文字の大きさが変わったときも測り直す（hooks/useComposerHeight.js・2026-10-08 ui-critic）。
   useComposerHeight(inputRef, input, view === 'chat', composerPlaceholder, { scrollRef: chatScrollRef });
@@ -2452,11 +2454,13 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 actions={[{ label: 'もう一度', variant: 'secondary', onClick: () => { setHistoryError(false); setHistoryLoaded(false); fetchHistory(); } }]}
               />
             )}
-            {/* 戻るは上の「‹ 相談」だけ（同じ操作のボタンを 2 か所に出さない）。 */}
+            {/* 行き止まりにしない: 「相談をはじめる」で会話の画面に戻り、入力欄にカーソル（2026-11-23 点検）。
+                上の「‹ 相談」は戻るだけ・こちらは次にすること（書きはじめる）。 */}
             {historyLoaded && !historyError && historyGroups.length === 0 && (
               <EmptyState
                 icon={<MessageCircle size={32} strokeWidth={1.5} aria-hidden="true" />}
                 title="まだ相談していません"
+                actions={[{ label: '相談をはじめる', onClick: () => { focusOnReAskRef.current = true; setView('chat'); } }]}
               />
             )}
             {/* 新しい相談から上に並べる（開いてすぐ最近の相談が見える）。相談とその答えは 1 組のまま。 */}
@@ -2614,9 +2618,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                       }}
                       disabled={busy}
                       aria-pressed={firstDayDraft ? picked : undefined}
-                      style={{ ...chipStyle, ...(picked ? chipPicked : null), ...(busy ? { color: 'var(--text-2)', opacity: 1, cursor: 'default' } : null), ...hangIndent(q) }}
+                      style={{ ...chipStyle, ...(picked ? chipPicked : null), ...(busy ? { color: 'var(--text-2)', opacity: 1, cursor: 'default' } : null) }}
                     >
-                      {withPhraseBreaks(q)}
+                      {haltLead(withPhraseBreaks(q))}
                     </button>
                     );
                   })}
@@ -2681,6 +2685,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                   onAskBook={askAboutBook}
                   askBusy={busy}
                   onActionAdded={() => { onConsultActionAdded(m.id); setAddedActionIds((ids) => (ids.includes(m.id) ? ids : [...ids, m.id])); }}
+                  onRemoveAction={onRemoveAction}
+                  onActionUndone={() => { setAddedActionIds((ids) => ids.filter((x) => x !== m.id)); setOptinAfterId((cur) => (cur === m.id ? null : cur)); }}
                   askProgress={m.id === askProgressFor ? askProgress : ''}
                   onDecide={m.id === askProgressFor && !busy ? () => { track('brain_followup', { kind: 'decide', from: 'ask_box' }); ask(DECIDE_REQUEST); } : null}
                   primaryAction={firstActionPending && i === visibleMessages.length - 1}
@@ -3170,9 +3176,13 @@ function FreeUsedCard({ tokenAllowance, onOpen, cta = 'プランを見る', tria
           {cta}
         </button>
       )}
-      {/* 使い切ると相談の上の行の残りの数が消えるので、トークンの使い方の入口をここにも（プランの人の案内と同じ・2026-11-17 点検）。 */}
+      {/* 使い切ると相談の上の行の残りの数が消えるので、トークンの使い方の入口をここにも（プランの人の案内と同じ・2026-11-17 点検）。
+          そろえ方は上のボタンに合わせる: 幅いっぱいの主ボタンの下は幅いっぱいの中央（プランの人の案内 TokensOutCard と同じ）、
+          文字ボタン「プランを見る」の下は左（2026-11-23 点検: 同じ文字ボタンが案内ごとに左・中央と食い違っていた）。 */}
       {onUsage && (
-        <button type="button" onClick={onUsage} style={{ ...uiBtnLinkQuiet, display: 'flex', width: 'fit-content', marginTop: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))', marginBottom: 'calc(-1 * var(--space-3))' }}>
+        <button type="button" onClick={onUsage} style={trial
+          ? { ...uiBtnLinkQuiet, width: '100%', marginTop: 'var(--space-2)', marginBottom: 'calc(-1 * var(--space-3))' }
+          : { ...uiBtnLinkQuiet, display: 'flex', width: 'fit-content', marginTop: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))', marginBottom: 'calc(-1 * var(--space-3))' }}>
           トークンの使い方を見る
         </button>
       )}
@@ -3355,11 +3365,28 @@ function renderBoldInline(raw) {
   return parts.length ? parts : text;
 }
 
-// 『「（ で始まる段落は、かっこをぶら下げる（1 行目だけ左へ 0.5em 出して、文字の端を揃える・PerBookCard の見出しと同じ）。
-// 先頭の **（太字の印）は見えないので飛ばして判定する。
-const HANG_RE = /^(\*\*)?[『「（]/;
-function hangIndent(text) {
-  return HANG_RE.test(String(text || '').trimStart()) ? { textIndent: '-0.5em' } : null;
+// 『「（ で始まる段落・チップは、行頭の開き括弧の字の幅を半分にする（halt・2026-11-23 点検「開き括弧が左にはみ出す」）。
+//   前は 1 行目を 0.5em 左へ出していた（textIndent）が、括弧の墨の位置は書体で違い、かなで始まる 2 行目より左に出て見えた。
+//   AI 選書の本のカードの書名（『 を halt・2026-11-18 ui-critic）と同じ決まりにそろえる。halt の無い書体では全角のまま（はみ出さない）。
+//   先頭の太字（<strong>）・Fragment の中の最初の文字も見る。
+const HALT = { fontFeatureSettings: '"halt"' };
+const LEAD_OPEN_RE = /^(\s*)([『「（])/;
+export function haltLead(node) {
+  if (typeof node === 'string') {
+    const m = node.match(LEAD_OPEN_RE);
+    if (!m) return node;
+    return <>{m[1]}<span style={HALT}>{m[2]}</span>{node.slice(m[0].length)}</>;
+  }
+  if (Array.isArray(node)) {
+    if (!node.length) return node;
+    const head = haltLead(node[0]);
+    return head === node[0] ? node : [<Fragment key="halt-lead">{head}</Fragment>, ...node.slice(1)];
+  }
+  if (node && typeof node === 'object' && node.props && node.props.children != null && (node.type === 'strong' || node.type === 'span' || node.type === Fragment)) {
+    const inner = haltLead(node.props.children);
+    return inner === node.props.children ? node : cloneElement(node, undefined, inner);
+  }
+  return node;
 }
 
 // 以前の答え（履歴）の末尾に付いていた内部向けの注記「（参照: 10/43 件、内訳: …）」。
@@ -3376,8 +3403,8 @@ function PlainAnswer({ text, gap = 'var(--space-2)' }) {
         // 「・」で始まる行はぶら下げ（折り返した 2 行目を「・」の後ろの文字の頭に揃える）。
         const bullet = /^\s*・/.test(shown);
         return (
-          <p key={idx} style={{ margin: idx ? `${gap} 0 0` : 0, ...(bullet ? { paddingLeft: '1em', textIndent: '-1em' } : hangIndent(shown)) }}>
-            {renderBoldInline(bullet ? shown.trimStart() : shown)}
+          <p key={idx} style={{ margin: idx ? `${gap} 0 0` : 0, ...(bullet ? { paddingLeft: '1em', textIndent: '-1em' } : null) }}>
+            {bullet ? renderBoldInline(shown.trimStart()) : haltLead(renderBoldInline(shown))}
           </p>
         );
       })}
@@ -3649,12 +3676,12 @@ function PerBookCard({ book, streaming, onAsk, askBusy, basisCheck = null, showT
       {/* 書名と著者は、カードの上の名前の行（「著者『書名』」・表紙のアイコンつき・PartnerRow）に出す（2026-09-30）。
           語り口の答えは名前の行が「著者名（本の語り口で・AI）」なので、書名をカードの 1 行目に（『 はぶら下げる）。 */}
       {showTitle && book.title && (
-        <p style={{ margin: '0 0 var(--space-2)', textIndent: '-0.5em', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>『{withPhraseBreaks(book.title)}』</p>
+        <p style={{ margin: '0 0 var(--space-2)', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}><span style={HALT}>『</span>{withPhraseBreaks(book.title)}』</p>
       )}
       {book.view && (
         <div style={readText}>
           {book.view.split('\n').filter((l) => l.trim()).map((l, i, arr) => (
-            <p key={i} style={{ margin: i ? 'var(--space-2) 0 0' : 0, ...hangIndent(l) }}>{renderBoldInline(l)}{!basis && i === arr.length - 1 && cursor}</p>
+            <p key={i} style={{ margin: i ? 'var(--space-2) 0 0' : 0 }}>{haltLead(renderBoldInline(l))}{!basis && i === arr.length - 1 && cursor}</p>
           ))}
         </div>
       )}
@@ -3685,7 +3712,8 @@ function PerBookCard({ book, streaming, onAsk, askBusy, basisCheck = null, showT
 // deadline: null = 明日（既定）。本を選んで追加するときに期限を変えたら、その期限（'' = 期限なし・2026-09-30）。
 // focus: 追加した行動（{ bookId, text }）。「見る」で行動の一覧のその行まで送る（2026-09-30）。
 // already: 前に（ほかの画面で）足した答えを開き直したとき＝「行動に追加済み」（期限は書かない・画面を送らない・2026-10-09）。
-function ActionAddedNote({ onOpenActions, deadline = null, focus = null, already = false }) {
+// onUndo: 「元に戻す」（いま足した行動を消す・控えめな文字ボタン＝次の一歩は「見る」・2026-11-23）。already のときは出さない。
+function ActionAddedNote({ onOpenActions, deadline = null, focus = null, already = false, onUndo = null, undoBusy = false }) {
   const deadlineText = already ? ''
     : deadline == null ? '（期限は明日）'
     : deadline ? `（期限は${Number(deadline.slice(5, 7))}月${Number(deadline.slice(8, 10))}日）` : '';
@@ -3701,7 +3729,8 @@ function ActionAddedNote({ onOpenActions, deadline = null, focus = null, already
         <Check size="1.1em" aria-hidden="true" />
       </span>
       <span style={{ minWidth: 0 }}>
-        {already ? '行動に追加済み' : '行動に追加しました'}
+        {/* 文字が大きいと「追加しまし／た」と割れていたので文節の切れ目で（2026-11-23） */}
+        {withPhraseBreaks(already ? '行動に追加済み' : '行動に追加しました')}
         {/* かっこは詰める（palt）: 行頭に来ても左が空いて見えず、「）」と「見る」の間も空きすぎない。 */}
         <span style={{ whiteSpace: 'nowrap' }}>
           {deadlineText && <span style={{ fontFeatureSettings: '"palt"' }}>{deadlineText}</span>}
@@ -3710,6 +3739,13 @@ function ActionAddedNote({ onOpenActions, deadline = null, focus = null, already
             <button type="button" onClick={() => onOpenActions(focus)} aria-label="追加した行動を見る" style={{ ...uiBtnLink, minWidth: 'var(--tap-min)', justifyContent: 'center', verticalAlign: 'middle', marginBlock: 'calc((1.5em - var(--tap-min)) / 2)' }}>見る</button>
           )}
         </span>
+        {/* 「見る」の後ろ（狭いときは「元に戻す」ごと次の行へ・割らない）。 */}
+        {!already && onUndo && (
+          <>
+            {' '}
+            <button type="button" onClick={onUndo} disabled={undoBusy} aria-label="追加した行動を取り消す" style={{ ...uiBtnLinkQuiet, display: 'inline-flex', whiteSpace: 'nowrap', minWidth: 'var(--tap-min)', justifyContent: 'center', verticalAlign: 'middle', marginBlock: 'calc((1.5em - var(--tap-min)) / 2)', ...(undoBusy ? { color: 'var(--text-3)', cursor: 'default' } : null) }}>元に戻す</button>
+          </>
+        )}
       </span>
     </p>
   );
@@ -3729,7 +3765,7 @@ function answerActionAddedBefore(message, question, actions) {
   return answerActionStatus({ answerId: message.id, actionText: text, actions }).added;
 }
 
-function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions = null, onAddAction, onAddActionPickBook, onRetry, onWriteLearning, showTime = false, question = '', onAskBook = null, askBusy = false, onActionAdded = null, onOpenActions = null, memoBookIds = null, onShowPartner = null, askProgress = '', onDecide = null, primaryAction = false, quietAction = false }) {
+function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions = null, onAddAction, onAddActionPickBook, onRetry, onWriteLearning, showTime = false, question = '', onAskBook = null, askBusy = false, onActionAdded = null, onOpenActions = null, memoBookIds = null, onShowPartner = null, askProgress = '', onDecide = null, primaryAction = false, quietAction = false, onRemoveAction = null, onActionUndone = null }) {
   const isUser = message.role === 'user';
   const isStreaming = !!message.streaming;
   const hasBody = typeof message.content === 'string' && message.content.length > 0;
@@ -3778,6 +3814,24 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
       }, { evidenceBookIds });
     }
   };
+
+  // ↶ 「行動に追加しました」の「元に戻す」（2026-11-23 点検: 押し間違えても、行動の一覧へ行って消すしかなかった）。
+  //   いま足した行動（addedFocus＝{ bookId, text }）だけを消す。消せたら「行動に追加」に戻す（もう一度足せる）。
+  //   消すのは App（onRemoveAction・本ごとの直列の保存）。渡されていなければ出さない。
+  const [undoBusy, setUndoBusy] = useState(false);
+  const handleUndoAdd = onRemoveAction && addedFocus ? async () => {
+    if (undoBusy) return;
+    setUndoBusy(true);
+    let ok = false;
+    try { ok = !!(await onRemoveAction(addedFocus)); } catch { ok = false; }
+    setUndoBusy(false);
+    if (!ok) return; // 消せなかった知らせは App が出す
+    forgetAnswerActionAdded(message.id);
+    setActionAdded(false);
+    setAddedFocus(null);
+    setAddedDeadline(null);
+    onActionUndone?.();
+  } : null;
 
   // 日時は相談（user）の吹き出しにだけ出す（答えの下に同じ時刻を重ねない）。
   const time = showTime && isUser && !isStreaming && message.createdAt ? (
@@ -3916,7 +3970,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
       )}
       {/* 書いている間は、書き始める前の形（3 行）と同じ高さを取っておく（一歩の 1 行目が出た瞬間に
           箱が 2 行ぶん縮み、書き進むとまた伸びて「行動に追加」が上下していた・2026-09-29）。 */}
-      <p style={{ ...readText, margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'keep-all', overflowWrap: 'break-word', ...hangIndent(p.action), ...(isStreaming ? { minHeight: STEP_SKELETON_HEIGHT } : null) }}>{renderBoldPhrased(p.action)}{tail === 'action' && cursor}</p>
+      <p style={{ ...readText, margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'keep-all', overflowWrap: 'break-word', ...(isStreaming ? { minHeight: STEP_SKELETON_HEIGHT } : null) }}>{haltLead(renderBoldPhrased(p.action))}{tail === 'action' && cursor}</p>
       {/* 書いている間は、押せない形で同じ場所に置く（書き終わったときに下が押し下がらないように） */}
       {isStreaming && (onAddAction || onAddActionPickBook) && (
         <button type="button" disabled aria-hidden="true" tabIndex={-1} style={(!quietAction && (primaryAction || isActionAnswer(p))) ? { ...uiBtnPrimaryOff, marginTop: 'var(--space-3)', gap: 'var(--space-2)' } : { ...rowBtn, ...rowBtnOffOnFill, marginTop: 'var(--space-3)' }}>
@@ -3925,7 +3979,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
       )}
       {canShowAction && (
         actionAdded ? (
-          <ActionAddedNote onOpenActions={onOpenActions} deadline={addedDeadline} focus={addedFocus} />
+          <ActionAddedNote onOpenActions={onOpenActions} deadline={addedDeadline} focus={addedFocus} onUndo={handleUndoAdd} undoBusy={undoBusy} />
         ) : priorAdded ? (
           <ActionAddedNote already onOpenActions={onOpenActions} focus={priorAdded.focus} />
         ) : (
@@ -3943,7 +3997,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
   const renderAsk = (p, marginTop) => (p.question ? (
     <div data-ask-box="" style={{ marginTop, ...nextStepBox, containerType: 'inline-size' }}>
       <p style={subLabel}>{ASK_LABEL}</p>
-      <p style={{ ...readText, ...askQuestionSize, margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'normal', lineBreak: 'strict', textWrap: 'pretty', overflowWrap: 'break-word', ...hangIndent(p.question), ...(isStreaming ? { minHeight: ASK_SKELETON_HEIGHT } : null) }}>{/* AI の文は文節で止めずに流す（DESIGN §2・右が空いていた・2026-11-18 ui-critic） */}{renderBoldInline(p.question)}{tail === 'ask' && cursor}</p>
+      <p style={{ ...readText, ...askQuestionSize, margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'normal', lineBreak: 'strict', textWrap: 'pretty', overflowWrap: 'break-word', ...(isStreaming ? { minHeight: ASK_SKELETON_HEIGHT } : null) }}>{/* AI の文は文節で止めずに流す（DESIGN §2・右が空いていた・2026-11-18 ui-critic） */}{haltLead(renderBoldInline(p.question))}{tail === 'ask' && cursor}</p>
       {/* 🏁 いまどこにいるか（2026-10-08）: 問いの下 8 に 13/--text-2 の 1 行（状態色・段階のバーは使わない）。
           送った直後の 1 画面（答えの上端＝問いの箱が見える位置）で読めるよう、答えの下ではなく箱の中に置く。 */}
       {askProgress && !isStreaming && (
@@ -4007,8 +4061,8 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
     const open = bookId && onOpenBook ? () => onOpenBook(bookId, spot.i || undefined) : null;
     const body = (
       <>
-        <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{/* 書名だけ別の塊・後ろの「p.N · いつ」は 1 つの塊（行の頭に「·」が来ない・「p.184 か月」と数字が続いて読めない・2026-10-21 ui-critic）。 */}{headTitle && <>{withPhraseBreaks(headTitle)}{' · '}</>}<span style={{ display: 'inline-block', whiteSpace: 'nowrap' }}>{headTail}</span></span>
-        <span style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 3, overflow: 'hidden', marginTop: 'var(--space-1)', fontFamily: 'var(--font-read)', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.6, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{spot.x}</span>
+        <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{/* 書名だけ別の塊・後ろの「p.N · いつ」は 1 つの塊（行の頭に「·」が来ない・「p.184 か月」と数字が続いて読めない・2026-10-21 ui-critic）。 */}{headTitle && <>{haltLead(withPhraseBreaks(headTitle))}{' · '}</>}<span style={{ display: 'inline-block', whiteSpace: 'nowrap' }}>{headTail}</span></span>
+        <span style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 3, overflow: 'hidden', marginTop: 'var(--space-1)', fontFamily: 'var(--font-read)', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.6, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{haltLead(spot.x)}</span>
       </>
     );
     const box = { position: 'relative', display: 'block', width: '100%', fontSize: 'var(--text-sub)', textAlign: 'left', marginTop: 'var(--space-3)', padding: `var(--space-3) ${open ? 'var(--space-6)' : '0'} var(--space-3) var(--space-3)`, borderLeft: '2px solid var(--border)', background: 'none', borderTop: 'none', borderRight: 'none', borderBottom: 'none', borderRadius: 0, fontFamily: 'inherit', cursor: open ? 'pointer' : 'default' };
@@ -4052,15 +4106,15 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
                     <>
                       {(c.t || c.p != null || c.u) && (
                         // 書名・メモは文節の切れ目でだけ折り返す（BudouX の <wbr>＋keep-all・2026-09-29）。
-                        <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere', ...(c.t ? { textIndent: '-0.5em' } : null) }}>
+                        <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
                           {/* 学び（本の無いメモ）は書名の代わりに「自分の学び（M月D日）」（2026-09-29） */}
-                          {withPhraseBreaks(c.t ? `『${c.t}』` : c.u ? `自分の学び${learningDateLabel(c.d)}` : '')}{c.p != null ? <span style={{ whiteSpace: 'nowrap' }}>p.{c.p}</span> : ''}
+                          {haltLead(withPhraseBreaks(c.t ? `『${c.t}』` : c.u ? `自分の学び${learningDateLabel(c.d)}` : ''))}{c.p != null ? <span style={{ whiteSpace: 'nowrap' }}>p.{c.p}</span> : ''}
                         </p>
                       )}
                       {c.s === 'ok' ? (
                         // 引いたメモの本文はそのまま流す（文節の区切りで止めると、長い一節の右端がぎざぎざに空く・2026-09-30）。
                         // 文節で折り返すのは上の書名の行だけ。
-                        <p style={{ ...subText, margin: 'var(--space-1) 0 0', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{c.x}</p>
+                        <p style={{ ...subText, margin: 'var(--space-1) 0 0', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{haltLead(c.x)}</p>
                       ) : (
                         <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
                           {withPhraseBreaks('メモと一致しない引用は表示していません')}
@@ -4173,7 +4227,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
           <div style={answerCard}>
             <div style={readText}>
               {perBook.conclusion.split('\n').filter((l) => l.trim()).map((l, i, arr) => (
-                <p key={i} style={{ margin: i ? 'var(--space-2) 0 0' : 0, ...hangIndent(l) }}>{renderBoldInline(l)}{perBookTail === 'conclusion' && i === arr.length - 1 && cursor}</p>
+                <p key={i} style={{ margin: i ? 'var(--space-2) 0 0' : 0 }}>{haltLead(renderBoldInline(l))}{perBookTail === 'conclusion' && i === arr.length - 1 && cursor}</p>
               ))}
             </div>
           </div>
@@ -4222,7 +4276,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
                 <p style={subLabel}>共通点と違い</p>
                 <div style={readText}>
                   {perBook.compare.split('\n').filter((l) => l.trim()).map((l, i, arr) => (
-                    <p key={i} style={{ margin: i ? 'var(--space-2) 0 0' : 0, ...hangIndent(l) }}>{renderBoldInline(l)}{perBookTail === 'compare' && i === arr.length - 1 && cursor}</p>
+                    <p key={i} style={{ margin: i ? 'var(--space-2) 0 0' : 0 }}>{haltLead(renderBoldInline(l))}{perBookTail === 'compare' && i === arr.length - 1 && cursor}</p>
                   ))}
                 </div>
               </>
@@ -4295,7 +4349,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
           {/* 1. 結論 → 2. 一歩（まだなら「答えを書いています…」を同じ場所に）→ 3. 根拠を見る（書き終わるまで押せない） */}
           <div style={readText}>
             {liveFused.conclusion.split('\n').filter((l) => l.trim()).map((l, i, arr) => (
-              <p key={i} style={{ margin: i ? 'var(--space-2) 0 0' : 0, ...hangIndent(l) }}>{renderBoldInline(l)}{tail === 'conclusion' && i === arr.length - 1 && cursor}</p>
+              <p key={i} style={{ margin: i ? 'var(--space-2) 0 0' : 0 }}>{haltLead(renderBoldInline(l))}{tail === 'conclusion' && i === arr.length - 1 && cursor}</p>
             ))}
           </div>
           {/* 一歩がまだの間は、一歩の箱と同じ形（面・1 行目に「答えを書いています…」・3 行・押せない「行動に追加」）で待つ
@@ -4373,7 +4427,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
           {/* 1. 結論（読む文章＝明朝 18・行間 1.6） */}
           <div style={readText}>
             {parsed.conclusion.split('\n').filter((l) => l.trim()).map((l, i) => (
-              <p key={i} style={{ margin: i ? 'var(--space-2) 0 0' : 0, ...hangIndent(l) }}>{renderBoldInline(l)}</p>
+              <p key={i} style={{ margin: i ? 'var(--space-2) 0 0' : 0 }}>{haltLead(renderBoldInline(l))}</p>
             ))}
           </div>
           {/* 📕 積読から答える（2026-10-11）: 答えに『書名』で出てきた、まだ読んでいない本（本棚の本と同じ確かめ方）。押すと本の詳細へ。
@@ -4408,7 +4462,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
       {/* 旧形式（見出しなし）でも行動化できるように */}
       {!parsed && canShowAction && !message.error && (
         actionAdded ? (
-          <ActionAddedNote onOpenActions={onOpenActions} deadline={addedDeadline} focus={addedFocus} />
+          <ActionAddedNote onOpenActions={onOpenActions} deadline={addedDeadline} focus={addedFocus} onUndo={handleUndoAdd} undoBusy={undoBusy} />
         ) : priorAdded ? (
           <ActionAddedNote already onOpenActions={onOpenActions} focus={priorAdded.focus} />
         ) : (

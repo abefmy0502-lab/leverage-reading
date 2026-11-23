@@ -4,6 +4,7 @@ import { useBooks } from './hooks/useBooks';
 import { sanitizeForPrompt, invalidateKnowledgeCache, generateBookBrief, loadPrompts, nudgeConsultCache } from './lib/ai';
 import { markActivation } from './lib/activation';
 import { OPEN_MEMO_EVENT } from './lib/openMemo';
+import { readLibraryShape, writeLibraryShape } from './lib/libraryShape';
 import { advisorDraftFor, classifyBook, fieldsOf, isBookField, splitLegacyTags, withFields, BOOK_FIELDS } from './lib/bookFields';
 import { ACCOUNT_FIELDS_USER_KEY, isAutoChosen, markFieldStage, readFieldStages } from './lib/bookFieldsAuto';
 import { fetchServerFields, sendFieldVotes } from './lib/bookFieldsServer';
@@ -186,7 +187,8 @@ import { useConfirm } from './components/ConfirmDialog';
 import { toMessage, toSaveMessage, fieldRequiredMessage, isSchemaError } from './lib/errors';
 import { LIMITS, clamp } from './lib/limits';
 import { ensureHttps } from './lib/url';
-import { PAYWALL_EVENT, AI_USED_EVENT } from './lib/freeTrial';
+import { PAYWALL_EVENT, AI_USED_EVENT, requestPaywall } from './lib/freeTrial';
+const HELP_OPEN_APP_TARGETS = ['profile', 'paywall', 'review:action', 'addBook', 'goals'];
 import { AiConsentGate } from './components/AiConsentSheet';
 import { ensureAiConsent } from './lib/aiConsent';
 import { periodKeyFor, fetchUsedMjpy, fetchLotBalance, remainingTokens, allowanceFor as allowanceForPlan, nextMonthAllowanceFor, isFreeFirstMonth, runCostLine, TOKEN_COSTS } from './lib/tokens';
@@ -414,11 +416,42 @@ function Card({ label, text, style }) {
 }
 // 積読の得たいこと・課題・仮説を 1 枚のカードに（小さな見出しのまとまりを間 16 で縦に・2026-10-08 ui-critic 第 3 回）。
 //   カードを 1 枚ずつ並べると枠と余白のぶん「読書を開始する」が 390×844 の最初の画面から押し出されていた。
-function PlanCard({ items, style }) {
+// onOpen: カード全体を押すと読書計画の編集へ（右上に ›・読書中の「この本から得たいこと」と同じ所作・2026-11-23 点検）。
+//   押せるカードの中にボタンは置けないので、長い文は 4 行で切るだけ（全文は押した先で読める）。
+function PlanCard({ items, style, onOpen = null }) {
+  if (!onOpen) {
+    return (
+      <div data-plan-card="" style={{ ...cardBoxStyle, display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', ...style }}>
+        {items.map((p) => <CardBody key={p.label} label={p.label} text={p.text} />)}
+      </div>
+    );
+  }
   return (
-    <div data-plan-card="" style={{ ...cardBoxStyle, display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', ...style }}>
-      {items.map((p) => <CardBody key={p.label} label={p.label} text={p.text} />)}
-    </div>
+    <button
+      type="button"
+      data-plan-card=""
+      onClick={onOpen}
+      aria-label={`${items.map((p) => `${p.label}：${p.text}`).join('。')}（押すと直せます）`}
+      style={{ ...cardBoxStyle, display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', width: '100%', textAlign: 'left', fontFamily: 'inherit', cursor: 'pointer', ...style }}
+    >
+      {items.map((p, i) => (
+        <span key={p.label} style={{ display: 'block', width: '100%' }}>
+          <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-2)', marginBottom: 'var(--space-2)' }}>
+            <span style={{ minWidth: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(p.label)}</span>
+            {i === 0 && <ChevronRight size="1.4em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />}
+          </span>
+          <span
+            style={{
+              display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+              fontSize: 'var(--text-body)', color: 'var(--text)', lineHeight: 1.5, whiteSpace: 'pre-wrap',
+              wordBreak: 'keep-all', overflowWrap: 'anywhere',
+            }}
+          >
+            {withPhraseBreaks(p.text)}
+          </span>
+        </span>
+      ))}
+    </button>
   );
 }
 
@@ -798,6 +831,9 @@ function AuthedApp() {
     try { localStorage.setItem('bookshelfViewLast', effectiveBookshelfView); } catch { /* ignore */ }
   }, [booksLoading, rawBooks.length, effectiveBookshelfView]);
   const skeletonBookshelfView = bookshelfViewMode === 'auto' ? lastBookshelfView : bookshelfViewMode;
+  // 「すべての本」の上の形（検索のボタン・状態のチップの行・フォルダのチップの行があったか）も覚えておき、
+  //   読み込み中の骨組みを同じ形にする（読み終えるとフォルダの行の分だけ一覧が下へ跳ね、右上のボタンも動いていた・2026-11-23 点検）。
+  const [lastLibraryShape] = useState(() => readLibraryShape());
   // 親タブ「振り返り」「相談」内のサブタブ。
   // 入口は常に固定（永続化しない）: 振り返り＝💭ノート / 相談＝🧠マイ読書脳。
   // 相談タブの入口をマイ読書脳にするのは、一番の価値「読むほど、自分だけの相談相手が
@@ -906,6 +942,15 @@ function AuthedApp() {
   // 取り込みの完了画面から開くとき: 一言を足す本（本棚に入っている本・一言の段から始める）。ふだんは null。
   const [quickstartSeed, setQuickstartSeed] = useState(null);
   const [showImport, setShowImport] = useState(false); // 📥 ほかのアプリから取り込む
+  // 取り込み・本棚の写真から追加を、初日クイックスタートから開いたか（2026-11-23 点検）。入れずに閉じたら
+  //   来たクイックスタートへ戻す（前は取り込みはそのまま閉じ、本棚の写真は「本を追加」へ戻っていた）。
+  //   { seed }＝開く前のクイックスタートの本（取り込みのあとの一言の段から来たとき）。null＝ほかの入口から。
+  const importFromQuickstartRef = useRef(null);
+  const shelfScanFromQuickstartRef = useRef(null);
+  // 取り込みを実際に行ったか（完了の画面の「完了」で閉じたときはクイックスタートへ戻さない）。
+  const importRanRef = useRef(false);
+  // 閉じたら（どの道で閉じても）忘れる＝次にほかの入口から開いたときにクイックスタートへ戻さない。
+  useEffect(() => { if (!showImport) importFromQuickstartRef.current = null; }, [showImport]);
   // クイックスタートをメモ 0 件で終えたとき「メモを書く」→ 本が読み込まれたらその本を開いてメモのシートを出す。
   const [pendingMemoBookId, setPendingMemoBookId] = useState(null);
   // 📷 初回ガイドの「本のページを撮る」（2026-10-02）: 本を選ぶ（追加する）→ メモのシートを「写真から書き起こす」が
@@ -1210,6 +1255,7 @@ function AuthedApp() {
   const [addBookModalOpen, setAddBookModalOpen] = useState(false);
   // 📚 本棚の写真からまとめて追加（2026-11-22・本を追加の画面から）
   const [shelfScanOpen, setShelfScanOpen] = useState(false);
+  useEffect(() => { if (!shelfScanOpen) shelfScanFromQuickstartRef.current = null; }, [shelfScanOpen]);
   // 検索結果の「追加済み」から開いた本の id（詳細の ‹・戻るで検索結果へ戻すため）。
   const [detailFromSearchId, setDetailFromSearchId] = useState(null);
   // 🧭 目標の画面（ロードマップ・読書計画）から開いた本: { bookId, screen }。戻ると同じ目標の画面へ（2026-11-15 磨き）。
@@ -1285,6 +1331,15 @@ function AuthedApp() {
   const [profileScreenOpen, setProfileScreenOpen] = useState(false);
   // どこから開いたか（'settings' なら、閉じたとき・「戻る」で設定に戻す＝トークンの追加と同じ・2026-11-23）。
   const profileFromRef = useRef(null);
+  // ヘルプの項目の「開く ›」（2026-11-23 ui-critic）。扱える行き先だけ HELP_OPEN_APP_TARGETS に入れる。
+  const openFromHelp = (t) => {
+    setHelpModalOpen(false);
+    if (t === 'profile') openProfileScreen();
+    else if (t === 'paywall') requestPaywall(null);
+    else if (t === 'review:action') { setActionShowDoneNonce(null); setReviewSubTab('action'); setView('list'); setTab('review'); }
+    else if (t === 'addBook') openAdd();
+    else if (t === 'goals') setGoalScreen({ view: 'goals' });
+  };
   const openProfileScreen = (from = null) => { profileFromRef.current = from === 'settings' ? 'settings' : null; setProfileScreenOpen(true); };
   const closeProfileScreen = () => {
     setProfileScreenOpen(false);
@@ -3059,6 +3114,23 @@ function AuthedApp() {
     toast.info('取り込みを取り消しました。');
   };
 
+  // AI 選書の「読みたいに追加」の取り消し（知らせの「元に戻す」・2026-11-23 点検）。追加した直後の本なので
+  //   メモも行動も無い＝本ごと消すだけ。先に一覧から外し（押した手応え）、消せなかったら戻して知らせる。
+  //   同じ本の保存（裏で探す表紙など）と同じ順番待ちに並べ、消した本を書き戻さない。
+  const undoAdvisorAdd = async (saved) => {
+    if (!saved?.id) return;
+    if (advisorAddedToastRef.current?.bookId === saved.id) advisorAddedToastRef.current = null;
+    const unhide = hideBook(saved.id);
+    if (current?.id === saved.id && view !== 'list') goList();
+    try {
+      await enqueueBookMutation(saved.id, () => deleteBook(saved.id));
+      toast.info('追加を取り消しました。');
+    } catch (error) {
+      unhide();
+      toast.error(toMessage(error, '取り消せませんでした。'));
+    }
+  };
+
   const addFromAdvisor = async (rec, payloadOrQuery = '') => {
     // 既に本棚にある本ならダイアログ → 既存本へジャンプ。null を返して
     // BookAdvisor 側に「追加されなかった」を伝える。
@@ -3126,11 +3198,12 @@ function AuthedApp() {
       // 追加直後に「本棚で探し直す」断絶を無くす — トーストの「開く」から 1 タップでその本の詳細（読みたい）へ。
       // 以前は読書計画の編集（積読の画面）を開いていたが、状態が「読みたい」のまま積読の画面になり食い違った。
       // 詳細の左上は「‹ AI 選書」で、戻るとさっきのおすすめのまま（BookAdvisor が状態を覚えている・2026-09-29）。
-      const addedToastId = toast.show({
-        type: 'success',
+      // 知らせは「元に戻す」（追加の取り消し・CLAUDE.md の Undo の決まり・2026-11-23 点検）。開くのはカードの「追加済み・開く」から。
+      const addedToastId = toast.undo({
         message: msg,
+        success: true,
         duration: 6000,
-        action: { label: '開く', onClick: () => openDetail(saved) },
+        onUndo: () => undoAdvisorAdd(saved),
       });
       // その本を開いたら消す（openDetail が見る・カードの「追加済み・開く」から開いても残らない）。
       if (saved?.id) advisorAddedToastRef.current = { bookId: saved.id, toastId: addedToastId };
@@ -4602,6 +4675,12 @@ function AuthedApp() {
   // フォルダのチップの行を出すか（フォルダが 1 つ以上・検索で 0 件のときは出さない）。allFolders はこの下で決まるので本から数える。
   const showFolderChips = books.some((b) => (b.collections || []).some((c) => (c || '').trim())) && !(filtered.length === 0 && libraryQuery && rawBooks.length > 0);
   const showStatusChips = (books.length >= 4 || !!folderFilter || minRating > 0 || tagFilter.length > 0) && !(filtered.length === 0 && libraryQuery && rawBooks.length > 0);
+  // 読み終えたら上の形を覚える（読み込み中の骨組みを同じ形に・lib/libraryShape.js）。絞り込み・検索に左右されない数え方で。
+  const libraryHasFolders = books.some((b) => (b.collections || []).some((c) => (c || '').trim()));
+  useEffect(() => {
+    if (booksLoading || booksLoadError) return;
+    writeLibraryShape({ search: books.length > 0, status: books.length >= 4, folders: libraryHasFolders });
+  }, [booksLoading, booksLoadError, books.length, libraryHasFolders]);
   const clearAllFilters = () => { setStatusFilter('all'); setMinRating(0); setTagFilter([]); setFolderFilter(null); };
 
 
@@ -4790,13 +4869,23 @@ function AuthedApp() {
   const importOverlay = showImport ? (
     <Suspense fallback={null}>
       <ImportSheet
-        onImport={importLibrary}
+        onImport={(...args) => { importRanRef.current = true; return importLibrary(...args); }}
         onUndoImport={undoImport}
         existingBooks={books}
         loadMemoTexts={loadImportMemoTexts}
-        onClose={() => setShowImport(false)}
+        onClose={() => {
+          setShowImport(false);
+          // クイックスタートから開いて、取り込まずに閉じたら、クイックスタートへ戻す（2026-11-23 点検）。
+          const from = importFromQuickstartRef.current;
+          importFromQuickstartRef.current = null;
+          if (from && !importRanRef.current) {
+            setQuickstartSeed(from.seed || null);
+            setShowQuickstart(true);
+          }
+        }}
         // メモも感想も無い新しい本に、初日クイックスタートの「一言」の段から一言を足す（2026-09-29）。
         onAddOneLine={(bare) => {
+          importFromQuickstartRef.current = null;
           setShowImport(false);
           setQuickstartSeed(bare);
           setShowQuickstart(true);
@@ -4804,6 +4893,7 @@ function AuthedApp() {
         // 送らずに相談を開く（勝手にトークンを使わない・2026-09-29）。入力欄には、取り込んだメモのある本から作った相談を
         //   入れておく（2026-10-02・lib/firstDay.js＝送るのは本人が送信を押したとき）。
         onAsk={(outcome) => {
+          importFromQuickstartRef.current = null;
           setShowImport(false);
           const consultBooks = Array.isArray(outcome?.consultBooks) ? outcome.consultBooks : [];
           openConsultDraft(firstConsultQuestion({ books: consultBooks, memoBookIds: new Set(outcome?.memoBookIds || []) }), 'import');
@@ -4814,9 +4904,11 @@ function AuthedApp() {
   const quickstartOverlay = showQuickstart ? (
     <Suspense fallback={null}>
       <PastBooksQuickstart
-        onImport={() => { setShowQuickstart(false); setQuickstartSeed(null); setShowImport(true); }}
+        // 入れずに閉じたら、このクイックスタートへ戻す（来た所へ戻る・2026-11-23 点検）。
+        //   ※選んだ本はまだ受け取れない（PastBooksQuickstart が onImport / onShelfScan に渡していない）ので、戻ると選び直し。
+        onImport={() => { importFromQuickstartRef.current = { seed: quickstartSeed }; importRanRef.current = false; setShowQuickstart(false); setQuickstartSeed(null); setShowImport(true); }}
         // 紙の本棚を撮ってまとめて入れる道（2026-11-23 ui-critic）
-        onShelfScan={() => { setShowQuickstart(false); setQuickstartSeed(null); setShelfScanOpen(true); }}
+        onShelfScan={() => { shelfScanFromQuickstartRef.current = { seed: quickstartSeed }; setShowQuickstart(false); setQuickstartSeed(null); setShelfScanOpen(true); }}
         books={books}
         initialBooks={quickstartSeed}
         onSaveBook={saveQuickstartBook}
@@ -5083,8 +5175,12 @@ function AuthedApp() {
       />
     ) : null;
     // 読書計画の中身（得たいこと・課題・仮説・シート）。読書中・読了では 1 つの「読書計画」に畳む。
+    // 積読は、得たいことが空でも AI 選書で書いた悩みを下書きとして見せる（「読み始める」でそのまま保存される＝見ていない文が
+    //   黙って保存されていた・2026-11-23 点検）。下書きのときは、どこから来た文かを見出しで言う。
+    const purposeShown = current.status === 'before' ? (buildFormFromBook(current).investPurpose || '').trim() : current.investPurpose;
+    const purposeIsDraft = current.status === 'before' && !!purposeShown && !(current.investPurpose || '').trim();
     const planItems = [
-      current.investPurpose && { label: 'この本から得たいこと', text: current.investPurpose },
+      purposeShown && { label: purposeIsDraft ? 'この本から得たいこと（AI 選書の悩みから）' : 'この本から得たいこと', text: purposeShown },
       current.currentChallenge && { label: '現在の課題', text: current.currentChallenge },
       current.hypothesis && { label: '仮説', text: current.hypothesis },
       // 読みたい本は、AI 選書で選んだ理由も見せる（編集の画面にしか無く、なぜ追加したか分からなくなっていた・2026-09-30）。
@@ -5311,7 +5407,7 @@ function AuthedApp() {
           // カードとカードの間は 24（「この本について」と読む準備は別の区画・2026-11-18 ui-critic）。
           <section style={{ marginTop: 'var(--space-6)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
           {current.status === 'before' && planItems.length > 0
-            ? <PlanCard items={planItems} style={{ marginTop: 0 }} />
+            ? <PlanCard items={planItems} style={{ marginTop: 0 }} onOpen={() => openSetup(current)} />
             : planItems.map((p) => <Card key={p.label} label={p.label} text={p.text} style={{ marginTop: 0 }} />)}
           {current.aiStrategy && (
             // その場で作り終えた直後は開いたまま（key を変えて、開いた状態で置き直す）。
@@ -5962,6 +6058,8 @@ function AuthedApp() {
             <HelpModal
               helpKey={getCurrentHelpKey()}
               onClose={() => setHelpModalOpen(false)}
+              openTargets={HELP_OPEN_APP_TARGETS}
+              onOpen={openFromHelp}
               onShowOnboarding={() => {
                 setHelpModalOpen(false);
                 clearOnboardingCompletion();
@@ -6303,6 +6401,8 @@ function AuthedApp() {
             <HelpModal
               helpKey={getCurrentHelpKey()}
               onClose={() => setHelpModalOpen(false)}
+              openTargets={HELP_OPEN_APP_TARGETS}
+              onOpen={openFromHelp}
               onShowOnboarding={() => {
                 setHelpModalOpen(false);
                 clearOnboardingCompletion();
@@ -6638,6 +6738,12 @@ function AuthedApp() {
                 </button>
                 <div style={{ display: 'flex', alignItems: 'center', marginRight: 'calc(-1 * var(--space-3))' }}>
                   {/* 本が 0 冊のときは探すものが無いので出さない（2026-11-18 ui-critic） */}
+                  {/* 読み込み中は、前回あった検索のボタンの場所を空けておく（読み終えて右上のボタンが横へ動かない・2026-11-23 点検） */}
+                  {books.length === 0 && booksLoading && rawBooks.length === 0 && lastLibraryShape.search && (
+                    <span aria-hidden="true" style={{ ...bookshelfIconBtn, visibility: 'hidden' }}>
+                      <IcSearch size={22} />
+                    </span>
+                  )}
                   {books.length > 0 && (
                   <button
                     type="button"
@@ -6857,12 +6963,15 @@ function AuthedApp() {
               {booksLoading && rawBooks.length === 0 ? (
                 <>
                   {/* 上のチップ行と同じ高さ・余白の仮の行（押せる範囲 44・見た目 32・下 16）。
-                      読み込み後にチップ行が出ても、一覧が 44 下へ跳ねないように。 */}
+                      読み込み後にチップ行が出ても、一覧が 44 下へ跳ねないように。
+                      前回フォルダの行・状態の行があったかを覚えておき、同じ行を同じ間で置く（lib/libraryShape.js・2026-11-23 点検）。 */}
+                  {lastLibraryShape.status && (
                   <div
                     aria-hidden="true"
                     style={{
                       display: 'flex', gap: 'var(--space-2)', alignItems: 'center', overflow: 'hidden',
-                      height: 'var(--tap-min)', margin: 'calc((var(--space-8) - var(--tap-min)) / 2) 0', paddingBottom: 'var(--space-4)',
+                      height: 'var(--tap-min)', margin: 'calc((var(--space-8) - var(--tap-min)) / 2) 0',
+                      paddingBottom: lastLibraryShape.folders ? 'calc(var(--space-3) - (var(--tap-min) - var(--space-8)) / 2)' : 'var(--space-4)',
                       boxSizing: 'content-box',
                     }}
                   >
@@ -6870,6 +6979,23 @@ function AuthedApp() {
                       <SkeletonBlock key={i} width={w} height="var(--space-8)" radius="var(--radius)" style={{ flexShrink: 0 }} />
                     ))}
                   </div>
+                  )}
+                  {lastLibraryShape.folders && (
+                    // フォルダのチップの行の仮（見出し「フォルダ」の場所＋チップ 2 つ・本物と同じ高さ 44・下 16）。
+                    <div
+                      aria-hidden="true"
+                      style={{
+                        display: 'flex', gap: 'var(--space-3)', alignItems: 'center', overflow: 'hidden',
+                        height: 'var(--tap-min)', margin: 'calc((var(--space-8) - var(--tap-min)) / 2) 0', paddingBottom: 'var(--space-4)',
+                        boxSizing: 'content-box',
+                      }}
+                    >
+                      <SkeletonBlock width="calc(var(--space-12) + var(--space-2))" height="var(--text-meta)" radius="var(--radius)" style={{ flexShrink: 0 }} />
+                      {['calc(var(--space-16) + var(--space-4))', 'var(--space-16)'].map((w, i) => (
+                        <SkeletonBlock key={i} width={w} height="var(--space-8)" radius="var(--radius)" style={{ flexShrink: 0 }} />
+                      ))}
+                    </div>
+                  )}
                   {skeletonBookshelfView === 'grid' ? (
                     <BookGridSkeleton count={6} />
                   ) : (
@@ -7644,7 +7770,7 @@ function AuthedApp() {
             initialQuery={addFromSearchQuery || ''}
             existingBooks={books}
             forPhoto={ocrIntentActive}
-            onShelfScan={() => { setAddBookModalOpen(false); setShelfScanOpen(true); }}
+            onShelfScan={() => { shelfScanFromQuickstartRef.current = null; setAddBookModalOpen(false); setShelfScanOpen(true); }}
             onOpenExisting={(existing, query) => {
               setAddBookModalOpen(false);
               // 詳細の ‹ 検索・「戻る」で、さっきの言葉の検索結果へ戻れるように覚えておく。
@@ -7692,9 +7818,15 @@ function AuthedApp() {
               if (shelfOneLineToastRef.current) { toast.dismiss(shelfOneLineToastRef.current, { skipExpire: true }); shelfOneLineToastRef.current = null; }
               return undoImport(outcome);
             }}
-            onClose={() => setShelfScanOpen(false)}
-            // 入れずに閉じたら、来た「本を追加」へ戻る（アプリの外へ放り出さない・2026-11-22 点検）。
-            onCancel={() => { setShelfScanOpen(false); setAddBookModalOpen(true); }}
+            onClose={() => { shelfScanFromQuickstartRef.current = null; setShelfScanOpen(false); }}
+            // 入れずに閉じたら、来た所へ戻る＝「本を追加」か初日クイックスタート（アプリの外へ放り出さない・2026-11-22 点検・
+            //   クイックスタートから来たときも「本を追加」へ戻していた・2026-11-23 点検）。
+            onCancel={() => {
+              const from = shelfScanFromQuickstartRef.current;
+              shelfScanFromQuickstartRef.current = null;
+              setShelfScanOpen(false);
+              if (from) { setQuickstartSeed(from.seed || null); setShowQuickstart(true); } else setAddBookModalOpen(true);
+            }}
           />
         </Suspense>
       )}
@@ -7704,6 +7836,8 @@ function AuthedApp() {
           <HelpModal
             helpKey={getCurrentHelpKey()}
             onClose={() => setHelpModalOpen(false)}
+            openTargets={HELP_OPEN_APP_TARGETS}
+            onOpen={openFromHelp}
             onShowOnboarding={() => {
               setHelpModalOpen(false);
               clearOnboardingCompletion();

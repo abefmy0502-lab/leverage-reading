@@ -55,6 +55,20 @@ const hintStyle = {
   color: 'var(--text-3)',
 };
 
+// 読み取り中の「やめる」（文字のボタン・高さ 44・15/600・控えめな色＝本文の作業を止める脇役）。
+const cancelStyle = {
+  minHeight: 'var(--tap-min)',
+  padding: '0 var(--space-2)',
+  border: 'none',
+  background: 'transparent',
+  color: 'var(--text-2)',
+  fontFamily: 'inherit',
+  fontSize: 'var(--text-sub)',
+  fontWeight: 600,
+  cursor: 'pointer',
+  flexShrink: 0,
+};
+
 export default function PhotoToTextButton({ onText, disabled = false, style }) {
   const inputRef = useRef(null);
   const [loading, setLoading] = useState(false);
@@ -71,6 +85,9 @@ export default function PhotoToTextButton({ onText, disabled = false, style }) {
     return () => URL.revokeObjectURL(url);
   }, [thumbFile]);
   const lastFileRef = useRef(null);
+  // 読み取りを「やめる」ための印（2026-11-23 点検）。やめたら送信を切り、あとから届いた答えは入れない。
+  const abortRef = useRef(null);
+  useEffect(() => () => { abortRef.current?.abort(); }, []);
   const toast = useToast();
   const haptic = useHaptic();
   // 無料プランは毎月 10 回（今月の分を使い切っていたら、撮る前に有料プランの画面を開く）。
@@ -112,9 +129,14 @@ export default function PhotoToTextButton({ onText, disabled = false, style }) {
     setThumbFile(file);
     setLoading(true);
     haptic.light();
+    const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    abortRef.current = ctrl;
+    const aborted = () => !!ctrl?.signal.aborted;
     try {
       const { base64, mediaType } = await downscaleImageForVision(file);
-      const text = await extractTextFromImage({ base64, mediaType });
+      if (aborted()) return;
+      const text = await extractTextFromImage({ base64, mediaType, signal: ctrl?.signal });
+      if (aborted()) return;
       if (!text) {
         // 同じ写真を送り直しても変わらないので、撮り直し（選び直し）を案内する。
         setFailure({ title: '文字を読み取れませんでした', message: '明るい場所で、ページをまっすぐ撮ってください。', retry: false });
@@ -126,6 +148,7 @@ export default function PhotoToTextButton({ onText, disabled = false, style }) {
       onText(text);
       toast.success('写真から書き起こしました。');
     } catch (e2) {
+      if (aborted()) return; // やめた回は何も出さない（知らせは cancel が出す）
       // トークンの上限は案内として。プランの案内・無料の回数の使い切り（402）は有料プランの画面が開くので重ねない。
       if (e2?.notice) {
         setThumbFile(null);
@@ -143,8 +166,23 @@ export default function PhotoToTextButton({ onText, disabled = false, style }) {
         : `つながらなかったか、AI が混んでいました。${freeMode ? '回数' : 'トークン'}は減っていません。`;
       setFailure({ title: '写真を読み取れませんでした', message, retry: true });
     } finally {
-      setLoading(false);
+      if (abortRef.current === ctrl) abortRef.current = null;
+      if (!aborted()) setLoading(false);
     }
+  };
+
+  // 読み取りをやめる: 送信を切る（答える前に切った回は、サーバーが回数とトークンを返す＝api/claude.js）。
+  const cancel = () => {
+    const ctrl = abortRef.current;
+    if (!ctrl) return;
+    ctrl.abort();
+    abortRef.current = null;
+    lastFileRef.current = null;
+    setThumbFile(null);
+    setLoading(false);
+    haptic.light();
+    toast.info(`読み取りをやめました。${freeMode ? '回数' : 'トークン'}は減っていません。`);
+    refreshTokens?.();
   };
 
   return (
@@ -164,7 +202,7 @@ export default function PhotoToTextButton({ onText, disabled = false, style }) {
         <span style={{ flex: '0 1 auto', textAlign: 'left', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(loading ? '読み取り中…' : '写真から書き起こす')}</span>
       </button>
       {/* 失敗したときも残りの回数は出したまま（「減っていない」ことが目で確かめられる・2026-11-23 点検）。 */}
-      {hint && !loading && (
+      {hint && (
         <p style={usedUp ? { ...hintStyle, color: 'var(--text-2)' } : hintStyle} aria-hidden="true">
           {hint.map((part) => <span key={part} style={{ whiteSpace: 'nowrap' }}>{part}</span>)}
         </p>
@@ -188,9 +226,13 @@ export default function PhotoToTextButton({ onText, disabled = false, style }) {
           )}
           <div style={{ flex: 1, minWidth: 0 }}>
           {loading ? (
-            <div className="ai-thinking" role="status" style={{ minHeight: 'var(--space-12)' }}>
-              <span className="ai-thinking-dot" aria-hidden="true" />
-              <span>写真を読み取っています</span>
+            // 「やめる」は読み取りの 1 行の右（文字のボタン・高さ 44）。文字が大きいときは下の行へ折り返す。
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 'var(--space-3)', minHeight: 'var(--space-12)' }}>
+              <div className="ai-thinking" role="status" style={{ flex: '1 1 auto', minWidth: 0 }}>
+                <span className="ai-thinking-dot" aria-hidden="true" />
+                <span>写真を読み取っています</span>
+              </div>
+              <button type="button" onClick={cancel} style={cancelStyle}>やめる</button>
             </div>
           ) : (
           <ErrorMessage

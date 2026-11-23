@@ -530,20 +530,50 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
   // 📍 保存した新しいメモを画面の中まで送る（ページ順ではページの無いメモは一覧の最後に入り、光っても画面の外だった・
   //   2026-10-04）。並びは変えずに送るだけ。シートが閉じ終わってから（約 250ms）、見えていなければ下の「保存しました。」の
   //   知らせと右下の「メモを書く」の上まで（scroll-margin）。もう見えていれば動かさない（block: 'nearest'）。
+  //   最初の送り（260ms）はシートが閉じきる前・知らせが出てくる途中のことがある（測った知らせの位置がまだ動いていて、
+  //   送ったあとに知らせとメモを書くの下に入っていた・2026-11-23 点検）。そこで送ったあとも 1.8 秒まで 100ms ごとに見て、
+  //   シートが閉じ・知らせが止まり・送りの動きも止まったところで、まだ隠れていればもう一度送る（多くても 2 回）。
+  //   指で触る・ホイールを回したらやめる（本人が動かした位置を奪わない）。新しい送りが始まったら前の見直しはやめる。
+  const revealSeqRef = useRef(0);
   const revealNewMemo = (id, delay = 260) => {
-    setTimeout(() => {
+    const seq = ++revealSeqRef.current;
+    let stopped = false;
+    const stop = () => { stopped = true; };
+    try {
+      window.addEventListener('touchstart', stop, { once: true, passive: true });
+      window.addEventListener('wheel', stop, { once: true, passive: true });
+    } catch { /* ignore */ }
+    const cleanup = () => {
+      try {
+        window.removeEventListener('touchstart', stop);
+        window.removeEventListener('wheel', stop);
+      } catch { /* ignore */ }
+    };
+    const findTarget = () => {
       const el = rootRef.current?.querySelector(`[data-memo-id="${typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(String(id)) : String(id)}"]`);
-      if (!el) return;
+      return el ? (el.closest('[data-memo-group]') || el) : null;
+    };
+    const scrollerOf = (target) => {
+      let sc = target.parentElement;
+      while (sc && !(sc.scrollHeight > sc.clientHeight && /auto|scroll/.test(getComputedStyle(sc).overflowY))) sc = sc.parentElement;
+      return sc;
+    };
+    // 今の位置で、知らせ・メモを書くの上 8 まで見えているか（上は送れる箱の上の端より下）。
+    const isClear = (target, sc) => {
+      const r = target.getBoundingClientRect();
+      const box = sc ? sc.getBoundingClientRect() : { top: 0, bottom: window.innerHeight };
+      const floor = Math.min(box.bottom, bottomCoverTop() - 8);
+      return r.top >= box.top - 1 && r.bottom <= floor + 1;
+    };
+    const place = (target) => {
       let reduce = false;
       try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { /* noop */ }
-      const target = el.closest('[data-memo-group]') || el;
       target.style.scrollMarginBottom = NEW_MEMO_SCROLL_MARGIN;
       // 'nearest' は、下の端が欄の中に入っていると下の空き（知らせ・メモを書く）を数えずに止まる（2026-10-12 点検）。
       //   下の空きまで入らないときは 'end'（空きを数える）で送る。上にはみ出しているときは今までどおり 'nearest'。
       let block = 'nearest';
       try {
-        let sc = target.parentElement;
-        while (sc && !(sc.scrollHeight > sc.clientHeight && /auto|scroll/.test(getComputedStyle(sc).overflowY))) sc = sc.parentElement;
+        const sc = scrollerOf(target);
         const bottom = sc ? sc.getBoundingClientRect().bottom : window.innerHeight;
         // 実際に下を覆っているもの（「保存しました。」の知らせ・右下の「メモを書く」）の上端を測り、決まった空きより
         //   高ければその上 8 まで空ける（知らせが 2 行になる・文字が大きいと、決まった空きでは知らせの下に隠れていた・2026-11-23 点検）。
@@ -558,6 +588,38 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
         if (r.bottom + margin > bottom && r.top >= 0) block = 'end';
       } catch { /* ignore */ }
       try { target.scrollIntoView({ block, behavior: reduce ? 'auto' : 'smooth' }); } catch { /* ignore */ }
+    };
+    setTimeout(() => {
+      if (seq !== revealSeqRef.current || stopped) { cleanup(); return; }
+      const first = findTarget();
+      if (!first) { cleanup(); return; }
+      place(first);
+      let last = null;
+      let tries = 0;
+      let again = 0;
+      const check = () => {
+        if (seq !== revealSeqRef.current || stopped || tries >= 18) { cleanup(); return; }
+        tries += 1;
+        const target = findTarget();
+        if (!target) { cleanup(); return; }
+        let snap = null;
+        try {
+          const sc = scrollerOf(target);
+          const sheetOpen = !!document.querySelector('[role="dialog"][aria-modal="true"]');
+          snap = { top: sc ? sc.scrollTop : window.scrollY, cover: Math.round(bottomCoverTop()), sheetOpen, clear: isClear(target, sc) };
+        } catch { /* ignore */ }
+        const settled = snap && last && !snap.sheetOpen && snap.top === last.top && snap.cover === last.cover;
+        last = snap;
+        if (settled) {
+          if (snap.clear) { cleanup(); return; }
+          if (again >= 2) { cleanup(); return; }
+          again += 1;
+          place(target);
+          last = null;
+        }
+        setTimeout(check, 100);
+      };
+      setTimeout(check, 100);
     }, delay);
   };
 

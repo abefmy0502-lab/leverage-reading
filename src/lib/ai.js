@@ -232,7 +232,7 @@ const OCR_SYSTEM =
 // `base64` is the raw base64 (no data: prefix); `mediaType` e.g. 'image/jpeg'.
 // Returns the transcribed text (clamped), or '' when nothing is readable.
 // Throws on transport / quota errors so the caller can humanize via toMessage.
-export async function extractTextFromImage({ base64, mediaType = 'image/jpeg' }) {
+export async function extractTextFromImage({ base64, mediaType = 'image/jpeg', signal } = {}) {
   if (!base64) throw new Error('画像を読み取れませんでした。');
   const messages = [
     {
@@ -244,7 +244,8 @@ export async function extractTextFromImage({ base64, mediaType = 'image/jpeg' })
     },
   ];
   // purpose 'ocr': サーバーが写真の書き起こしに向いた安いモデルへ送る（docs/ai-routing.md・失敗したら Claude）。
-  const result = await callClaude(messages, { system: OCR_SYSTEM, max_tokens: 1024, cacheSystem: true, model: MODEL_FAST, purpose: 'ocr' });
+  // 「やめる」で止めたら問い合わせも切る（サーバーは答える前に切れたら回数を戻す・2026-11-23）
+  const result = await callClaude(messages, { system: OCR_SYSTEM, max_tokens: 1024, cacheSystem: true, model: MODEL_FAST, purpose: 'ocr', signal });
   if (typeof result !== 'string') throw new Error('読み取りに失敗しました。');
   // postClaude は失敗時にも文字列（既知のエラー文言）を返すので throw に変換し、
   // 呼び出し側が toMessage で humanize できるようにする。判定は isClaudeErrorString

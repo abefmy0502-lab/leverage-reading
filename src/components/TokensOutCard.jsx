@@ -28,8 +28,9 @@ export default function TokensOutCard({ plan, trialEndLabel = '', cancelLine = '
       </p>
       {!trial ? (
         <p style={subStyle}>
-          {/* 「800 トークンに戻ります」は 1 つの塊（「に戻ります」だけが次の行に落ちない・2026-10-11 リリース前の採点）。 */}
-          <span style={nowrap}>{nextResetLabelJa()}</span>に <span style={nowrap}>{fmtTokens(allowance)} トークンに戻ります{memoNote ? '。' : ''}</span>
+          {/* 「800 トークンに戻ります。」は 1 つの塊（「に戻ります」だけが次の行に落ちない・2026-10-11 リリース前の採点）。
+              句点はいつも付ける（AI 選書の案内だけ「。」が無く、相談の案内と食い違っていた・2026-11-23 点検）。 */}
+          <span style={nowrap}>{nextResetLabelJa()}</span>に <span style={nowrap}>{fmtTokens(allowance)} トークンに戻ります。</span>
         </p>
       ) : trialEndLabel ? (
         <p style={subStyle}>
