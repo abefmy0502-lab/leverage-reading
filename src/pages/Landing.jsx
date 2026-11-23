@@ -689,7 +689,7 @@ export default function Landing() {
             </div>
             <FeatureTiles items={FEATURES} />
             {/* 印「有料プラン」と料金のカードの名前をつなぐ（SPEC 2026-11-12・ui-critic 2026-11-23） */}
-            <p className="lp-more-plan-note lp-wbr"><Phrases phrase>「有料プラン」の印がある機能は、月額・年額プランで使えます。</Phrases></p>
+            <p className="lp-more-plan-note lp-wbr"><Phrases phrase>「有料プラン」の印がある機能は、月額⁠・⁠年額⁠プランで使えます。</Phrases></p>
           </div>
         </section>
 
