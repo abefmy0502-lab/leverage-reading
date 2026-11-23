@@ -15,7 +15,7 @@ import ToggleSwitch from './ToggleSwitch';
 import UserAvatar from './UserAvatar';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
-import { btnPrimary, btnPrimaryOff, btnGhost, btnLink, btnLinkQuiet, btnRow, input as inputBase, groupTitle, segTrack, segOption, scrollFade } from '../styles/ui';
+import { btnPrimary, btnPrimaryOff, btnGhost, btnLink, btnLinkQuiet, btnRow, btnTonal, input as inputBase, groupTitle, segTrack, segOption, scrollFade } from '../styles/ui';
 import { Chip } from './formPrimitives';
 import MiniCover from './MiniCover';
 import AdvisorStoreLinks from './AdvisorStoreLinks';
@@ -91,7 +91,7 @@ function ConnCounts({ conn, onOpen }) {
     </button>
   );
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 'var(--space-6)', marginTop: 'var(--space-2)' }}>
+    <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 'var(--space-6)', marginTop: 'var(--space-1)', marginBottom: 'calc((1.5em - var(--tap-min)) / 2)' }}>
       {item('following', conn.following.length, 'フォロー中')}
       {item('followers', conn.followers.length, 'フォロワー')}
     </div>
@@ -660,9 +660,10 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
             <div role="list" style={{ marginTop: 'var(--space-3)' }}>
               {list.map((p, i) => (
                 <PersonRow key={p.publicId} first={i === 0} person={p} onOpen={p.relation === 'accepted' ? () => openPerson(p, view) : undefined}>
-                  {p.relation === 'self' && <span style={note}>あなた</span>}
+                  {p.relation === 'self' && <><span style={note}>あなた</span><span aria-hidden="true" style={{ width: 'var(--tap-min)', flexShrink: 0 }} /></>}
                   {p.relation === 'pending' && <span style={note}>承認を待っています</span>}
-                  {p.relation === 'none' && <button type="button" style={smallBtn} onClick={() => ask(p)}>フォロー</button>}
+                  {/* 行ごとに並ぶので塗りにせず面の副ボタン（DESIGN §0-2・§5 btnTonal・2026-11-23 ui-critic） */}
+                  {p.relation === 'none' && <button type="button" style={btnTonal} onClick={() => ask(p)}>フォロー</button>}
                   {(p.relation === 'none' || p.relation === 'pending') && (
                     <button
                       type="button"
@@ -841,7 +842,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
                 </div>
                 <p style={{ ...note, marginTop: 'var(--space-2)' }}>
                   {withPhraseBreaks(followsVisible
-                    ? 'あなたが承認した人は、あなたのフォロー中・フォロワーの一覧を見られます。オフにすると見せず、ほかの人の一覧にもあなたは出ません。'
+                    ? 'オフにすると、一覧を見せず、ほかの人の一覧にも出ません。'
                     : 'いまは、だれにも一覧を見せず、ほかの人の一覧にもあなたは出ません。')}
                 </p>
               </div>
