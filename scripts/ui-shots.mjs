@@ -644,6 +644,9 @@ const SCREENS = [
   { name: 'auth-error', url: '/?demo=auth&auth=signin&authfail=1', steps: [{ fill: ['input[aria-label="メールアドレス"]', 'demo@example.com'] }, { fill: ['input[aria-label="パスワード"]', 'password1'] }, { css: 'button[type=submit]' }, { wait: 800 }] },
   { name: 'landing-bottom', url: '/?demo=auth', steps: [{ scrollBottom: true }, { wait: 800 }] },
   { name: 'landing-pricing', url: '/?demo=auth', steps: [{ scrollTo: '#lp-pricing' }, { wait: 800 }] },
+  { name: 'landing-more', url: '/?demo=auth', steps: [{ scrollTo: '#lp-pillars' }, { wait: 800 }] },
+  { name: 'landing-more-list', url: '/?demo=auth', steps: [{ scrollTo: '.lp-feat' }, { wait: 800 }] },
+  { name: 'landing-desktop-more', url: '/?demo=auth', viewport: { width: 1280, height: 900 }, steps: [{ scrollTo: '.lp-feat' }, { wait: 800 }] },
   // LP の節（2026-10-02 作り直し）: 流れ・比較・シェア・学習に使わない・FAQ。&founding=on で創業メンバー価格の節と印。
   { name: 'landing-flow', url: '/?demo=auth', steps: [{ scrollTo: '#lp-flow' }, { wait: 1500 }] },
   { name: 'landing-flow-last', url: '/?demo=auth&motion=static', steps: [{ scrollTo: '#lp-flow' }, { css: '.lp-flow-steps button >> nth=3' }, { wait: 800 }] },

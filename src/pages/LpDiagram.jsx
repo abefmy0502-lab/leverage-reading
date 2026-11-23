@@ -158,6 +158,8 @@ const FEATURE_ICONS = {
   plan: (<g {...S}><rect x="14" y="8" width="36" height="48" rx="4" /><path d="M22 20 H 42" /><path d="M22 30 H 42" stroke="currentColor" strokeWidth="2.5" /><path d="M22 40 H 36" /></g>),
   // AI 選書: 並んだ本 3 冊、1 冊だけ栗色で少し前に
   advisor: (<g {...S}><rect x="10" y="20" width="12" height="36" rx="1.5" /><rect x="26" y="12" width="12" height="44" rx="1.5" stroke="currentColor" /><rect x="42" y="20" width="12" height="36" rx="1.5" /></g>),
+  // 本棚の写真（2026-11-23）: 撮る枠の 4 隅が主役（太く）、中の本の背は薄く（「読書記録の基本」の本棚と見分ける・ui-critic）
+  scan: (<g {...S}><g strokeWidth="2.5"><path d="M8 20 V 10 H 18" /><path d="M46 10 H 56 V 20" /><path d="M56 44 V 54 H 46" /><path d="M18 54 H 8 V 44" /></g><g opacity="0.55"><path d="M17 45 H 47" /><rect x="20" y="24" width="7" height="21" rx="1.5" /><rect x="30" y="20" width="8" height="25" rx="1.5" /><rect x="41" y="27" width="5" height="18" rx="1.5" /></g></g>),
   // 行動: チェックつきの丸と 2 本の行
   action: (<g {...S}><circle cx="18" cy="24" r="7" stroke="currentColor" /><path d="M15 24 L 17.5 26.5 L 21.5 21.5" stroke="currentColor" /><path d="M32 24 H 54" /><circle cx="18" cy="42" r="7" /><path d="M32 42 H 50" /></g>),
   // 集中モード: 輪と針
