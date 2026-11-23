@@ -31,7 +31,9 @@ describe('プロフィールの公開のページ', () => {
     expect(html).toContain('ふみさん');
     expect(html).toContain('『確率思考の戦略論』');
     expect(html).toContain('「売上は確率で決まる」');
-    expect(html).toContain('og:image" content="https://thumbnail.image.rakuten.co.jp/x.jpg');
+    // 共有したときの絵は好きな本の表紙ではなく Orime のロゴ（2026-11-23）
+    expect(html).toContain('og:image" content="https://orime.vercel.app/og-image.png');
+    expect(html).toContain('twitter:card" content="summary_large_image');
     expect(html).toContain('action="/api/profile-report"');
     expect(html).not.toContain('<script');
   });
@@ -239,5 +241,31 @@ describe('本のページ（まとめ・読みたいに追加・2026-11-21）', 
     expect(socialOn({ VITE_SOCIAL: 'on' })).toBe(true);
     expect(socialOn({})).toBe(true);
     expect(socialOn({ VITE_SOCIAL: 'off' })).toBe(false);
+  });
+});
+
+describe('1 冊だけ共有した本のページ（2026-11-23）', () => {
+  const BOOK = '11111111-2222-4333-8444-555555555555';
+  const chain = (data) => { const q = { eq: () => q, maybeSingle: async () => ({ data, error: null }) }; return q; };
+  const db = (profile, book) => () => ({ from: (t) => ({ select: () => chain(t === 'profiles' ? profile : book) }) });
+  const book = { id: BOOK, title: '考え方', author: '稲盛和夫', status: 'done', rating: 5, leverage_memo: '心を高める。' };
+  const priv = { user_id: 'u1', public_id: 'abcde12345', nickname: 'ふみ', is_public: false, hidden: false, shelf_public: false, summary_public: false, shared_books: [BOOK] };
+  it('プロフィールを公開していなくても、共有した本は見せる（まとめつき・本棚への戻りなし）', async () => {
+    const res = fakeRes();
+    await handleProfileRequest(req({ profile: 'abcde12345', book: BOOK }), res, { dbImpl: db(priv, book) });
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toContain('心を高める。');
+    expect(res.body).not.toContain('class="back"');
+    expect(res.body).toContain('og:image" content="https://orime.vercel.app/og-image.png');
+  });
+  it('共有していない本は見せない', async () => {
+    const res = fakeRes();
+    await handleProfileRequest(req({ profile: 'abcde12345', book: BOOK }), res, { dbImpl: db({ ...priv, shared_books: [] }, book) });
+    expect(res.statusCode).toBe(404);
+  });
+  it('運営が隠した人の共有した本も見せない', async () => {
+    const res = fakeRes();
+    await handleProfileRequest(req({ profile: 'abcde12345', book: BOOK }), res, { dbImpl: db({ ...priv, hidden: true }, book) });
+    expect(res.statusCode).toBe(404);
   });
 });

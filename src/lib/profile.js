@@ -16,6 +16,7 @@ const ID_CHARS = 'abcdefghijkmnpqrstuvwxyz23456789'; // 見分けにくい l・o
 export const EMPTY_PROFILE = Object.freeze({
   publicId: '', nickname: '', favTitle: '', favAuthor: '', favIsbn: '', favCover: '', favLine: '', isPublic: false, hidden: false,
   bio: '', shelfPublic: false, shelfHidden: Object.freeze([]), avatar: '', summaryPublic: false,
+  sharedBooks: Object.freeze([]),
 });
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -45,6 +46,8 @@ export function normalizeProfile(p = {}) {
     summaryPublic: !!p.isPublic && !!p.shelfPublic && !!p.summaryPublic,
     avatar: cleanAvatarId(p.avatar),
     shelfHidden: [...new Set((Array.isArray(p.shelfHidden) ? p.shelfHidden : []).map(String).filter((id) => UUID_RE.test(id)))].slice(0, PROFILE_LIMITS.hidden),
+    // 1 冊だけ共有した本（2026-11-23・500 冊まで）
+    sharedBooks: [...new Set((Array.isArray(p.sharedBooks) ? p.sharedBooks : []).map(String).filter((id) => UUID_RE.test(id)))].slice(0, 500),
   };
 }
 
@@ -72,18 +75,22 @@ const fromRow = (r) => normalizeProfile({
   publicId: r.public_id, nickname: r.nickname, favTitle: r.fav_title, favAuthor: r.fav_author, favIsbn: r.fav_isbn,
   favCover: r.fav_cover, favLine: r.fav_line, isPublic: r.is_public, hidden: r.hidden,
   bio: r.bio, shelfPublic: r.shelf_public, shelfHidden: r.shelf_hidden, avatar: r.avatar, summaryPublic: r.summary_public,
+  sharedBooks: r.shared_books,
 });
 const toRow = (p) => ({
   public_id: p.publicId, nickname: p.nickname, fav_title: p.favTitle, fav_author: p.favAuthor, fav_isbn: p.favIsbn,
   fav_cover: p.favCover, fav_line: p.favLine, is_public: p.isPublic,
   bio: p.bio, shelf_public: p.shelfPublic, shelf_hidden: p.shelfHidden, avatar: p.avatar,
   // まとめの公開の列は VITE_SOCIAL のビルドだけ書く（前のビルドは列を知らないまま）。
-  ...(SOCIAL_ON ? { summary_public: p.summaryPublic } : {}),
+  ...(SOCIAL_ON ? { summary_public: p.summaryPublic, shared_books: p.sharedBooks } : {}),
 });
 // 本棚の公開の列（bio・shelf_*）がまだ無い DB（前の版の SQL だけ流した）では、その 3 つを外して読み書きする。
 const BASE_COLS = 'public_id, nickname, fav_title, fav_author, fav_isbn, fav_cover, fav_line, is_public, hidden';
 const MID_COLS = `${BASE_COLS}, bio, shelf_public, shelf_hidden, avatar`;
-const FULL_COLS = SOCIAL_ON ? `${MID_COLS}, summary_public` : MID_COLS;
+const FULL_COLS = SOCIAL_ON ? `${MID_COLS}, summary_public, shared_books` : MID_COLS;
+const SUMMARY_COLS = `${MID_COLS}, summary_public`;
+// 1 冊だけ共有する列（shared_books）がまだ無い DB（2026-11-23 の SQL を流す前）。
+const isMissingShared = (e) => SOCIAL_ON && !!e && (e.code === '42703' || e.code === 'PGRST204') && /shared_books/.test(String(e.message || ''));
 const isMissingSummary = (e) => SOCIAL_ON && !!e && (e.code === '42703' || e.code === 'PGRST204') && /summary_public/.test(String(e.message || ''));
 const isMissingColumn = (e) => !!e && (e.code === '42703' || e.code === 'PGRST204' || /(bio|shelf_public|shelf_hidden|avatar)/.test(String(e.message || '')));
 const baseRow = (row) => { const { bio, shelf_public, shelf_hidden, avatar, ...rest } = row; return rest; };
@@ -105,6 +112,7 @@ export async function loadProfile(uid, { client = supabase } = {}) {
   if (uid && isSupabaseConfigured && client) {
     try {
       let { data, error } = await client.from('profiles').select(FULL_COLS).eq('user_id', uid).maybeSingle();
+      if (error && isMissingShared(error)) ({ data, error } = await client.from('profiles').select(SUMMARY_COLS).eq('user_id', uid).maybeSingle());
       if (error && isMissingSummary(error)) ({ data, error } = await client.from('profiles').select(MID_COLS).eq('user_id', uid).maybeSingle());
       if (error && isMissingColumn(error)) ({ data, error } = await client.from('profiles').select(BASE_COLS).eq('user_id', uid).maybeSingle());
       if (!error && data) return { profile: fromRow(data), stored: 'server' };
@@ -133,8 +141,18 @@ export async function saveProfile(uid, input, { client = supabase } = {}) {
   const p = normalizeProfile(input);
   if (!p.publicId) p.publicId = newPublicId();
   if (uid && isSupabaseConfigured && client) {
-    const row = { user_id: uid, ...toRow(p) };
+    let row = { user_id: uid, ...toRow(p) };
     let { data, error } = await client.from('profiles').upsert(row, { onConflict: 'user_id' }).select(FULL_COLS).maybeSingle();
+    if (error && isMissingShared(error)) {
+      const { shared_books, ...rest } = row; // eslint-disable-line no-unused-vars
+      row = rest;
+      ({ data, error } = await client.from('profiles').upsert(rest, { onConflict: 'user_id' }).select(SUMMARY_COLS).maybeSingle());
+      if (!error) {
+        const saved = { ...(data ? fromRow(data) : p), sharedBooks: [] };
+        writeLocal(uid, saved);
+        return { profile: saved, stored: 'server', shelfReady: true, sharedReady: false };
+      }
+    }
     if (error && isMissingSummary(error)) {
       const { summary_public, ...rest } = row;
       ({ data, error } = await client.from('profiles').upsert(rest, { onConflict: 'user_id' }).select(MID_COLS).maybeSingle());
@@ -195,4 +213,21 @@ export function withShelfHidden(profile, bookId, hide) {
   const id = String(bookId);
   const list = (profile?.shelfHidden || []).filter((x) => x !== id);
   return normalizeProfile({ ...profile, shelfHidden: hide ? [...list, id] : list });
+}
+
+/** その本を 1 冊だけ共有しているか（2026-11-23）。 */
+export function bookShared(profile, bookId) {
+  return (profile?.sharedBooks || []).includes(String(bookId));
+}
+
+/** その本の 1 冊だけの共有を始める／やめる（新しいプロフィールを返す）。 */
+export function withBookShared(profile, bookId, on) {
+  const id = String(bookId);
+  const list = (profile?.sharedBooks || []).filter((x) => x !== id);
+  return normalizeProfile({ ...profile, sharedBooks: on ? [...list, id] : list });
+}
+
+/** 1 冊の本のページのリンク。 */
+export function bookShareUrl(publicId, bookId) {
+  return publicId && bookId ? `${SITE_URL}/u/${publicId}/b/${bookId}` : '';
 }

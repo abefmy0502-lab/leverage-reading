@@ -139,14 +139,16 @@ a{color:var(--accent)}
 
 function page({ title, description = '', image = '', url = '', body, status = 200 }) {
   const site = SITE();
-  const og = image || `${site}/og-image.png`;
+  // 共有したときの絵はいつも Orime のロゴ（2026-11-23 オーナー「好きな本の表紙ではなく、Orime の文字が入ったロゴが見えるように」）。
+  void image;
+  const og = `${site}/og-image.png`;
   return {
     status,
     html: `<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(title)}</title><meta name="description" content="${esc(description)}">
 <meta property="og:type" content="profile"><meta property="og:site_name" content="Orime"><meta property="og:title" content="${esc(title)}">
-<meta property="og:description" content="${esc(description)}"><meta property="og:image" content="${esc(og)}">${url ? `<meta property="og:url" content="${esc(url)}">` : ''}
-<meta name="twitter:card" content="summary"><meta name="robots" content="${status === 200 ? 'noindex' : 'noindex,nofollow'}">
+<meta property="og:description" content="${esc(description)}"><meta property="og:image" content="${esc(og)}"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">${url ? `<meta property="og:url" content="${esc(url)}">` : ''}
+<meta name="twitter:card" content="summary_large_image"><meta name="robots" content="${status === 200 ? 'noindex' : 'noindex,nofollow'}">
 <link rel="icon" href="/favicon-32.png"><style>${STYLE}</style></head><body><main>${body}</main></body></html>`,
   };
 }
@@ -357,7 +359,7 @@ export function wantUrl(book, site = SITE()) {
 }
 
 /** 本のページ（/u/<id>/b/<本の id>）。 */
-export function renderBook(p, book, { publicId, showSummary = false, others = [] }) {
+export function renderBook(p, book, { publicId, showSummary = false, others = [], linkShelf = true }) {
   const site = SITE();
   const nickname = String(p.nickname || '').trim();
   const who = nickname ? `${nickname}さん` : 'Orime の読者';
@@ -368,8 +370,9 @@ export function renderBook(p, book, { publicId, showSummary = false, others = []
   const title = String(book.title || '').trim();
   const meta = STATUS_LABEL[book.status] || '';
   const stars = rating ? `<span class="st" aria-label="評価 ${rating}">${'★'.repeat(rating)}</span>` : '';
-  const body = `<a class="back" href="/u/${esc(publicId)}">‹ ${esc(who)}の本棚</a>
-<div style="margin-top:16px"><div class="bookhead"><div class="bcover">${cover ? `<img src="${esc(cover)}" alt="">` : coverPlaceholder(title)}</div>
+  // 1 冊だけ共有した本（プロフィールを公開していない人）は、本棚への戻りを出さない（2026-11-23）。
+  const body = `${linkShelf ? `<a class="back" href="/u/${esc(publicId)}">‹ ${esc(who)}の本棚</a>` : ''}
+<div style="margin-top:${linkShelf ? 16 : 0}px"><div class="bookhead"><div class="bcover">${cover ? `<img src="${esc(cover)}" alt="">` : coverPlaceholder(title)}</div>
 <div><h1 class="title" style="font-size:20px">『${esc(shownTitle(title))}』</h1>${book.author ? `<p class="author">${esc(book.author)}</p>` : ''}${meta ? `<p class="meta">${esc(meta)}${stars ? `　${stars}` : ''}</p>` : ''}</div></div></div>
 ${summary ? `<h2 class="h">${esc(who)}の、この本のまとめ</h2><p class="sum">${esc(summary)}</p>` : `<p class="note" style="text-align:left;margin-top:24px;font-size:15px">${showSummary ? 'まとめはまだありません。' : 'まとめは公開されていません。'}</p>`}
 <a class="cta" href="${esc(wantUrl({ ...book, cover }, site))}">読みたいに追加</a>
@@ -383,7 +386,7 @@ ${others.length ? `<p class="sh">${esc(who)}の、ほかのまとめ</p>${summar
 <button type="submit">通報する</button></form></details>
 <p class="foot">${esc(STORE_DISCLOSURE_TEXT)}<br><a href="${esc(site)}/legal/terms">利用規約</a>・<a href="${esc(site)}/legal/privacy">プライバシーポリシー</a></p>`;
   return page({
-    title: `${who}の本棚『${title}』 | Orime`,
+    title: `${who}の『${title}』 | Orime`,
     description: summary ? summary.slice(0, 80) : `${who}の本棚の『${title}』`,
     image: cover,
     url: `${site}/u/${publicId}/b/${book.id}`,
@@ -394,9 +397,10 @@ ${others.length ? `<p class="sh">${esc(who)}の、ほかのまとめ</p>${summar
 const BOOK_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // 本を 1 冊読む（本棚を公開していて、外していない本だけ）。まとめは本人が公開しているときだけ読む。
-async function loadBook(c, row, bookId) {
-  if (!BOOK_ID_RE.test(bookId) || (row.shelf_hidden || []).map(String).includes(bookId)) return null;
-  const cols = `id, title, author, cover, isbn, status, rating${row.summary_public ? ', leverage_memo' : ''}`;
+// 1 冊だけ共有した本（shared_books）は、公開の本棚から外していても出し、まとめも読む（2026-11-23）。
+async function loadBook(c, row, bookId, { shared = false, summary = !!row.summary_public } = {}) {
+  if (!BOOK_ID_RE.test(bookId) || (!shared && (row.shelf_hidden || []).map(String).includes(bookId))) return null;
+  const cols = `id, title, author, cover, isbn, status, rating${summary ? ', leverage_memo' : ''}`;
   try {
     let { data, error } = await c.from('books').select(cols).eq('user_id', row.user_id).eq('id', bookId).maybeSingle();
     if (error && /isbn/.test(String(error.message || ''))) ({ data, error } = await c.from('books').select(cols.replace(', isbn', '')).eq('user_id', row.user_id).eq('id', bookId).maybeSingle());
@@ -480,7 +484,9 @@ export async function handleProfileRequest(req, res, { dbImpl = db } = {}) {
   let row = null;
   if (c) {
     const base = 'public_id, nickname, fav_title, fav_author, fav_cover, fav_line, is_public, hidden';
-    let { data, error } = await c.from('profiles').select(`user_id, ${base}, bio, shelf_public, shelf_hidden, avatar, summary_public`).eq('public_id', id).maybeSingle();
+    let { data, error } = await c.from('profiles').select(`user_id, ${base}, bio, shelf_public, shelf_hidden, avatar, summary_public, shared_books`).eq('public_id', id).maybeSingle();
+    // 1 冊だけ共有する列がまだ無い DB では、その列を外して読む。
+    if (error && (error.code === '42703' || /shared_books/.test(String(error.message || '')))) ({ data, error } = await c.from('profiles').select(`user_id, ${base}, bio, shelf_public, shelf_hidden, avatar, summary_public`).eq('public_id', id).maybeSingle());
     // まとめの公開の列がまだ無い DB では、まとめを出さずに読む。
     if (error && (error.code === '42703' || /summary_public/.test(String(error.message || '')))) ({ data, error } = await c.from('profiles').select(`user_id, ${base}, bio, shelf_public, shelf_hidden, avatar`).eq('public_id', id).maybeSingle());
     // アイコンの列がまだ無い DB では、アイコン無しで読む。
@@ -491,17 +497,21 @@ export async function handleProfileRequest(req, res, { dbImpl = db } = {}) {
     row = data || null;
   }
   row = row ? cleanPublicRow(row) : row;
-  if (!isShowable(row)) return send(res, renderNotFound()), true;
   const bookId = String(Array.isArray(q.book) ? q.book[0] : q.book || '').trim().toLowerCase();
   if (bookId) {
-    // 本のページは VITE_SOCIAL=on・本棚を公開しているときだけ。
-    if (!socialOn() || !row.shelf_public || !row.user_id || !c) return send(res, renderNotFound()), true;
-    const book = await loadBook(c, row, bookId);
+    // 本のページは VITE_SOCIAL=on のとき。本棚を公開している（外していない本）か、その本を 1 冊だけ共有しているときだけ。
+    if (!socialOn() || !row || row.hidden || !row.user_id || !c) return send(res, renderNotFound()), true;
+    const shared = (row.shared_books || []).map(String).includes(bookId);
+    const shelfOpen = isShowable(row) && !!row.shelf_public;
+    if (!shared && !shelfOpen) return send(res, renderNotFound()), true;
+    const showSummary = shared || (shelfOpen && !!row.summary_public);
+    const book = await loadBook(c, row, bookId, { shared, summary: showSummary });
     if (!book) return send(res, renderNotFound()), true;
-    const more = row.summary_public ? await loadShelf(c, row.user_id, row.shelf_hidden, { summaries: true }) : null;
+    const more = shelfOpen && row.summary_public ? await loadShelf(c, row.user_id, row.shelf_hidden, { summaries: true }) : null;
     const others = (more?.withSummary || []).filter((b) => b.id !== String(book.id)).slice(0, 3);
-    return send(res, renderBook(row, book, { publicId: id, showSummary: !!row.summary_public, others }), 'public, max-age=0, s-maxage=60'), true;
+    return send(res, renderBook(row, book, { publicId: id, showSummary, others, linkShelf: isShowable(row) }), 'public, max-age=0, s-maxage=60'), true;
   }
+  if (!isShowable(row)) return send(res, renderNotFound()), true;
   let shelf = null;
   if (row.shelf_public && row.user_id && c) shelf = await loadShelf(c, row.user_id, row.shelf_hidden, { summaries: socialOn() && !!row.summary_public });
   // 公開をやめたらすぐ消えるように、CDN には短くだけ覚えさせる。

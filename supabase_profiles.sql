@@ -77,6 +77,17 @@ alter table public.profiles add constraint profiles_lengths_check check (
   and char_length(fav_isbn) <= 13 and char_length(fav_cover) <= 500 and char_length(fav_line) <= 200
 );
 
+-- 2026-11-23（オーナー「本棚ごとではなく、その本だけを共有できるようにしたい」）:
+--   1 冊だけ共有した本 shared_books（本の id・500 冊まで）。プロフィールや本棚を公開していなくても、
+--   その本のページ（/u/<id>/b/<本の id>）だけをリンクで見せる（書名・著者・表紙・状態・評価・この本のまとめ）。
+alter table public.profiles add column if not exists shared_books uuid[] not null default '{}';
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'profiles_shared_books_check') then
+    alter table public.profiles add constraint profiles_shared_books_check check (cardinality(shared_books) <= 500);
+  end if;
+end $$;
+
 create unique index if not exists profiles_public_id_uq on public.profiles (public_id);
 
 -- RLS: 本人の行だけ。hidden（運営が隠した印）は本人が外せない＝update で変えられない（下のトリガー）。
@@ -158,6 +169,7 @@ begin
     new.is_public := false;
     new.shelf_public := false;
     new.summary_public := false;
+    new.shared_books := '{}';
   end if;
   new.updated_at := now();
   return new;

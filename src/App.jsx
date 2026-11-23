@@ -57,7 +57,7 @@ import {
   BookOpen as IcBook, Map as IcMap, RefreshCw as IcRefresh, Bot as IcBot,
   CheckCircle2 as IcCheck,
   SlidersHorizontal as IcFilter, ArrowUpDown as IcSort, Star as IcStar, Folder as IcFolder, X as IcX,
-  Eye, EyeOff,
+  Eye, EyeOff, Link2, Link2Off,
 } from 'lucide-react';
 
 
@@ -128,7 +128,7 @@ import { backfillCovers } from './lib/backfillCovers';
 import { enqueueCoverRetry, resolveCoverForBook, canReplaceCover, clearCoverNotFound } from './lib/coverAutoRetry';
 import { MODEL_SMART } from './lib/models';
 import { findDuplicateBook, findImportDuplicate, STATUS_LABEL, isUniqueViolation } from './lib/checkDuplicate';
-import { favoriteChanged, shelfShows, withShelfHidden } from './lib/profile';
+import { favoriteChanged, shelfShows, withShelfHidden, bookShared, withBookShared, bookShareUrl } from './lib/profile';
 import { SOCIAL_ON } from './lib/social';
 import { useProfile, saveProfileShared } from './hooks/useProfile';
 import UserAvatar from './components/UserAvatar';
@@ -3993,6 +3993,58 @@ function AuthedApp() {
     }
   };
 
+  // 🔗 その本だけを共有する（2026-11-23 オーナー「本棚ごとではなく、その本だけを共有できるようにしたい」）。
+  //   リンク /u/<id>/b/<本> を知っている人が、書名・表紙・評価と「この本のまとめ」を見られる（メモは見せない）。
+  //   プロフィールの公開・本棚の公開とは別（shared_books に本の id を入れる）。
+  const shareSingleBook = async (book) => {
+    if (!user?.id || !book?.id) return;
+    let prof = myProfile;
+    if (!bookShared(prof, book.id)) {
+      const ok = await confirm({
+        title: 'この本を共有しますか？',
+        message: 'リンクを知っている人が、書名・表紙・評価と「この本のまとめ」を見られます。メモと、ほかの本は見られません。',
+        confirmLabel: '共有する',
+        cancelLabel: 'キャンセル',
+      });
+      if (!ok) return;
+      try {
+        const res = await saveProfileShared(user.id, withBookShared(prof, book.id, true));
+        if (res.stored !== 'server' || res.sharedReady === false || !bookShared(res.profile, book.id)) {
+          toast.error('この本の共有は、まだ使えません。');
+          return;
+        }
+        prof = res.profile;
+        track('book_share_link', { first: true });
+      } catch (e) {
+        toast.error(toMessage(e, '共有できませんでした。通信状況を確認して、もう一度お試しください。'));
+        return;
+      }
+    } else {
+      track('book_share_link', { first: false });
+    }
+    const url = bookShareUrl(prof.publicId, book.id);
+    if (!url) { toast.error('共有できませんでした。もう一度お試しください。'); return; }
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try { await navigator.share({ title: `『${String(book.title || '').slice(0, 60)}』`, url }); return; }
+      catch (e) { if (e?.name === 'AbortError') return; }
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success('この本のリンクをコピーしました。');
+    } catch {
+      prompt('この本のリンクをコピーしてください：', url);
+    }
+  };
+  const stopSharingBook = async (book) => {
+    if (!user?.id || !book?.id) return;
+    try {
+      await saveProfileShared(user.id, withBookShared(myProfile, book.id, false));
+      toast.success('この本の共有をやめました。リンクを開いても見られません。');
+    } catch (e) {
+      toast.error(toMessage(e, '変えられませんでした。通信状況を確認して、もう一度お試しください。'));
+    }
+  };
+
   // 👥 ほかの人の本棚の本を、自分の読みたいへ（2026-11-21 3 回目・フォローの本棚・公開のページの「読みたいに追加」）。
   // 相手の本がもう自分の本棚にあるか（フォローの本棚で「本棚にあります」を出す）。
   const hasBookFromOther = (book) => !!findDuplicateBook(booksRef.current, {
@@ -6166,6 +6218,11 @@ function AuthedApp() {
               ...(hasVisibleSections(current.aiAnalysis, { hideRelatedBooks: true })
                 ? [{ label: '以前の AI 解析を見る', icon: <ScrollText size="1.1em" aria-hidden="true" />, onClick: () => setAnalysisSheetOpen(true) }]
                 : []),
+              // 🔗 この本だけを共有（登録した人だけ・2026-11-23）。共有中は「この本の共有をやめる」も。
+              ...(SOCIAL_ON && user && !user.is_anonymous ? [
+                { label: bookShared(myProfile, current.id) ? 'この本のリンクを送る' : 'この本を共有', icon: <Link2 size="1.1em" aria-hidden="true" />, onClick: () => shareSingleBook(current) },
+                ...(bookShared(myProfile, current.id) ? [{ label: 'この本の共有をやめる', icon: <Link2Off size="1.1em" aria-hidden="true" />, onClick: () => stopSharingBook(current) }] : []),
+              ] : []),
               // 👤 公開の本棚から外す／戻す（本棚も公開している人だけ・2026-11-21）。
               ...(myProfile?.isPublic && myProfile?.shelfPublic ? [{
                 label: shelfShows(myProfile, current.id) ? '公開の本棚から外す' : '公開の本棚に戻す',
