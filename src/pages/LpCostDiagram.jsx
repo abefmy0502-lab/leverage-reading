@@ -11,7 +11,7 @@ export default function LpCostDiagram({ talks }) {
         <p className="lp-cost-name">本 1 冊</p>
         <p className="lp-cost-what">読めるのは、<br />その 1 冊</p>
       </div>
-      <p className="lp-cost-eq" aria-hidden="true">≒</p>
+      <p className="lp-cost-eq" aria-hidden="true">≒<span className="lp-cost-eq-label">ほぼ同じ値段</span></p>
       <div className="lp-cost-side is-orime">
         <LibraryBig className="lp-cost-icon" size="1em" strokeWidth={1.5} aria-hidden="true" />
         <p className="lp-cost-name">Orime の 1 か月</p>

@@ -688,7 +688,7 @@ export default function Landing() {
             </div>
             <FeatureTiles items={FEATURES} />
             {/* 印「有料プラン」と料金のカードの名前をつなぐ（SPEC 2026-11-12・ui-critic 2026-11-23） */}
-            <p className="lp-more-plan-note">「有料プラン」は、月額・年額プランで使えます。</p>
+            <p className="lp-more-plan-note">「有料プラン」の印がある機能は、月額・年額プランで使えます。</p>
           </div>
         </section>
 
@@ -728,17 +728,17 @@ export default function Landing() {
                 <p className="lp-plan-price">¥0<span>ずっと無料</span></p>
                 <ul className="lp-included" aria-label="無料プランに含まれるもの">
                   {/* li は flex（印と文を横に並べる）なので、文は 1 つの span に包む */}
-                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span className="lp-wbr"><Phrases>本とメモは何件でも。AI を使わない機能は、すべて無料</Phrases></span></li>
+                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span className="lp-wbr"><Phrases>本とメモは何件でも、AI を使わない機能はすべて無料</Phrases></span></li>
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>AI の相談：<span className="lp-nb">はじめの 2 か月は毎月 {FIRST_TALKS}、</span><wbr /><span className="lp-nb">そのあとは毎月 {FREE_TALKS}</span></span></li>
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span className="lp-wbr"><Phrases>使い切った月も、関係するメモを並べて見せます（AI なし）</Phrases></span></li>
-                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>ページの写真から文字に：<span className="lp-nb">毎月 {FREE_OCR_PER_MONTH} 回</span></span></li>
+                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>写真から文字にする：<span className="lp-nb">毎月 {FREE_OCR_PER_MONTH} 回</span></span></li>
                 </ul>
               </div>
               <div className="lp-plan is-paid">
                 <p className="lp-plan-name"><span>月額・年額プラン</span>{TRIAL_NOTE && !OFFER.active && <span className="lp-plan-badge">{TRIAL_NOTE}</span>}</p>
                 <ul className="lp-included" aria-label="プランに含まれるもの">
-                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>AI の相談は<span className="lp-nb">毎月 {PAID_TALKS}</span>。迷うたびに聞けます</span></li>
-                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span className="lp-wbr"><Phrases>読む前に、読み方を AI が書いてくれる</Phrases></span></li>
+                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>AI の相談は<span className="lp-nb">毎月 {PAID_TALKS}</span></span></li>
+                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span className="lp-wbr"><Phrases>読む前に、AI が読み方を書く</Phrases></span></li>
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span className="lp-wbr"><Phrases>次に読む本を、相談して選べる</Phrases></span></li>
                   {TRIAL_NOTE && (
                     <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>最初の 7 日間は無料（そのあいだも <span className="lp-nb">AI の相談 {TRIAL_TALKS}</span>）</span></li>
@@ -752,7 +752,7 @@ export default function Landing() {
                         <p className="lp-plan-price">{OFFER.priceLabel}<span>（税込）</span></p>
                         {/* 2026-11-23 LP の仕上げ: 「¥12,800 が 1 年目はこの価格に」は値引きに読める（二重価格）→ 更新のときの値段を言う形に */}
                         <p className="lp-plan-sub"><span className="lp-nb">1 年分を前払い。</span><span className="lp-nb">2 年目から年額 {ANNUAL_TEXT}（税込）</span><span className="lp-nb">で自動更新。</span></p>
-                        {!TRIAL_NOTE && <p className="lp-plan-sub"><span className="lp-nb">{COPY.END}まで。</span><span className="lp-nb">この期間は 7 日間無料はありません。</span></p>}
+                        {!TRIAL_NOTE && <p className="lp-plan-sub"><span className="lp-nb">{COPY.END}までに</span><span className="lp-nb">始めた方の価格です。</span><span className="lp-nb">この期間中は、</span><span className="lp-nb">7 日間無料がありません。</span></p>}
                       </>
                     ) : (
                       <>
@@ -767,9 +767,8 @@ export default function Landing() {
                     <p className="lp-plan-sub"><span className="lp-nb">毎月自動更新。</span>{OFFER.active && TRIAL_FIRST && <span className="lp-nb">{TRIAL_FIRST}。</span>}</p>
                   </div>
                 </div>
-                {/* App Store からは無料で入れて、プランはアプリの中で選ぶ（前の「App Store でプランを始める」は行き先が無料と同じだった） */}
-                <p className="lp-plan-pick lp-wbr"><Phrases>プランは、アプリの中で選べます。</Phrases></p>
-                <p className="lp-renew lp-wbr">{COPY.pricingNote.map((t) => <span key={t}><Sentences>{t}</Sentences></span>)}</p>
+                {/* 2026-11-23 国語の点検: 「プランは、アプリの中で選べます。」「解約後も、メモは残ります。」は断り書き＝出さない（解約はよくある質問） */}
+                {COPY.pricingNote.length > 0 && <p className="lp-renew lp-wbr">{COPY.pricingNote.map((t) => <span key={t}><Sentences>{t}</Sentences></span>)}</p>}
               </div>
             </div>
             {/* 1 日あたりの物差し（カードのあと・条件はすぐ下の 1 行で） */}
@@ -804,7 +803,7 @@ export default function Landing() {
                   <StoreCta className="lp-btn lp-btn-large" loc="pricing">{MAIN_CTA}</StoreCta>
                   <StoreQr />
                 </div>
-                <p className="lp-cta-note">無料プランで始められます（iPhone）</p>
+                <p className="lp-cta-note">{HERO_TALK.ctaNote}</p>
               </div>
             )}
             {PRELAUNCH && (

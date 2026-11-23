@@ -1497,3 +1497,6 @@ body.lp-active {
   .lp-social-shots { grid-template-columns: repeat(2, var(--lp-shot-w)); gap: var(--space-4); align-items: start; }
   .lp-root .lp-social-cap { display: none; }
 }
+/* 物差しの「≒」の下に「ほぼ同じ値段」（何が同じかを言葉で・2026-11-23 国語の点検） */
+.lp-root .lp-cost-eq { display: flex; flex-direction: column; align-items: center; gap: var(--space-1); }
+.lp-root .lp-cost-eq-label { font-family: var(--font-ui); font-size: var(--text-caption); line-height: 1.4; color: var(--text-2); white-space: nowrap; }
