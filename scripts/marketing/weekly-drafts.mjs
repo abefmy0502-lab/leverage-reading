@@ -75,6 +75,7 @@ export function checkShape(text) {
   const sloganCount = new Map();
   let threads = 0; let threadsAsk = 0;
   const channelCount = {};
+  const xClosings = new Map(); let xPosts = 0; let xAsk = 0;
   const flush = (endLine) => {
     const body = block.join('\n').trim();
     if (!body) return;
@@ -83,6 +84,7 @@ export function checkShape(text) {
     const isX = ch === 'x';
     const isThreads = ch === 'threads';
     const isPost = !!ch || /^(C\d|D\d|A\d)/.test(heading);
+    if (isX && !/返信|スレッド/.test(heading)) { xPosts += 1; const ls = block.map((l) => l.trim()).filter(Boolean); const last = ls[ls.length - 1] || ''; if (ls.some((l) => /[？?]$/.test(l))) xAsk += 1; xClosings.set(last, (xClosings.get(last) || 0) + 1); }
     if (ch) { channelCount[ch] = (channelCount[ch] || 0) + 1; for (const h of channelRules(ch, heading, body)) out.push({ line: blockStart, ...h }); }
     if (!isPost && !/^#{2,3}\s/.test('## ' + heading)) return;
     const firstSentence = firstLine.split('。')[0] + (firstLine.includes('。') ? '。' : '');
@@ -100,6 +102,8 @@ export function checkShape(text) {
   });
   for (const [sl, n] of sloganCount) if (n >= 3) out.push({ line: 0, word: sl, why: `同じ締めの決まり文句が ${n} 回。投稿ごとに違う一言で締める（連発すると広告に見える）` });
   if (threads >= 4 && threadsAsk * 2 < threads) out.push({ line: 0, word: `Threads ${threadsAsk}/${threads}`, why: 'Threads は問いで終わる投稿を半分以上に（返信をもらう場）' });
+  for (const [line, n] of xClosings) if (line && n >= 4) out.push({ line: 0, word: line.slice(0, 20), why: `X の締めの 1 行が ${n} 本で同じ。広告に見える＝2〜3 通りで回すか、問いで終えて入手の 1 行は返信へ` });
+  if (xPosts >= 6 && xAsk * 3 < xPosts) out.push({ line: 0, word: `X の問い ${xAsk}/${xPosts}`, why: 'X は 3 本に 1 本は開いた問いを（返信は いいね の約 7 倍に数えられる）' });
   Object.defineProperty(out, 'channels', { value: channelCount, enumerable: false });
   return out;
 }

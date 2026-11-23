@@ -124,3 +124,21 @@ describe('checkNote（note の下書き）', () => {
     expect(words).toEqual(expect.arrayContaining(['題 30 字', 'できないこと', 'ct=note_', '見出し画像']));
   });
 });
+
+describe('週ぜんたいの癖（2026-11-23・採点の指摘）', () => {
+  const kit = (posts) => posts.map(([h, body]) => `### ${h}\n\`\`\`\n${body}\n\`\`\``).join('\n\n');
+  const close = '無料プラン（ずっと無料）で試せます。リンクは返信に。';
+  it('X の締めが 4 本同じ・問いが 3 本に 1 本より少ないと指す', () => {
+    const posts = [1, 2, 3, 4, 5, 6].map((i) => [`X${i} 月`, `場面 ${i}。\n\n${close}`]);
+    const words = checkShape(kit(posts)).map((h) => h.word);
+    expect(words).toEqual(expect.arrayContaining([close.slice(0, 20), 'X の問い 0/6']));
+  });
+  it('締めが 3 本まで・問いが 2/6 なら出さない', () => {
+    const posts = [
+      ['X1 月', `場面 1。\n\n${close}`], ['X2 月', `場面 2。\n\n${close}`], ['X3 月', `場面 3。\n\n${close}`],
+      ['X4 月', '場面 4。\n\nあなたは何から読みますか？\nリンクは返信に。'], ['X5 月', '場面 5。\n\n最初の 1 行は何にしますか？\nリンクは返信に。'],
+      ['X6 月', '場面 6。\n\nApp Store で「Orime」。'],
+    ];
+    expect(checkShape(kit(posts)).filter((h) => h.line === 0)).toEqual([]);
+  });
+});
