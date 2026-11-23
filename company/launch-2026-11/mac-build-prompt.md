@@ -53,7 +53,7 @@ done
 grep -q '^VITE_REVENUECAT_IOS_KEY=appl_' .env.production.local && echo "RevenueCat の鍵は appl_ で始まる" || echo "RevenueCat の鍵が appl_ で始まらない"
 ```
    空や形の違いがあれば、どれかだけを言ってもう一度お願いする。
-4. 秘密でない値（公開日 `VITE_RELEASE_NOTES_SINCE=2026-11-17`・創業メンバー価格 `VITE_FOUNDING_OFFER=on`／`VITE_FOUNDING_OFFER_END=2026-12-16`・`VITE_SITE_URL`）は `.env.production` に入っている。`grep -E '^VITE_(RELEASE_NOTES_SINCE|FOUNDING_OFFER|FOUNDING_OFFER_END|SITE_URL)=' .env.production` を報告する。
+4. 秘密でない値（公開日 `VITE_RELEASE_NOTES_SINCE=2026-11-17`・創業メンバー価格 `VITE_FOUNDING_OFFER=on`／`VITE_FOUNDING_OFFER_END=2027-01-10`・`VITE_SITE_URL`）は `.env.production` に入っている。`grep -E '^VITE_(RELEASE_NOTES_SINCE|FOUNDING_OFFER|FOUNDING_OFFER_END|SITE_URL)=' .env.production` を報告する。
 5. iPhone の通知（`VITE_NATIVE_PUSH=on`）は**入れない**（APNs の鍵と Push Notifications の capability がそろうまで。1.0.1 で足す）。私が「通知も入れる」と言ったときだけ相談する。
 
 ## ステップ 4: 作る
