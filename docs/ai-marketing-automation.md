@@ -22,6 +22,10 @@
 | 動くイラストの縦の動画（新しい読書のあり方を伝える回・画面は映さない） | `npm run mkt:explainer`（台本は `scripts/marketing/explainer/reels.mjs`・線の絵は `art.mjs`・2026-10-16 オーナーの見本「太字の箱＋1 2 3＋線の絵が描かれていく」） | `marketing-out/videos/<日付>/<台本>/final.mp4`・`cover.jpg`・`post.txt`（説明欄の下書き） |
 | X・note・Threads に添える図（これまで→これから・流れ・一文・並べる・右下に必ず Orime のロゴ・2026-11-15） | `npm run mkt:figures`（中身は `scripts/marketing/figures/figures.mjs`・`-- <名前>` で一部だけ・`-- --check` で言葉だけ確かめる。人や物の絵は運営の道具 `ops_image` で文字なしに作り、図の `art` に入れる） | `marketing-out/figures/<名前>.png`（X 1600×900・note 1280×670・Instagram 1080×1080） |
 | 文（X・説明欄・ナレーション・note の構成） | `npm run mkt:drafts` → Claude Code | `marketing-out/drafts/<日付>/prompt.md`（＋鍵があれば `drafts.md`） |
+| 縦動画を声入りまで 1 回で作る（1 週目の 7 本＝画面 4・概念 3・2026-11-22） | `npm run mkt:videos`（`-- shelf-scan` で名前で絞る・`-- --say` で鍵なしの試し・中で mkt:voice → お試しモードの録画 → 声を重ねる） | `marketing-out/videos/<日付>/<台本>/final-voice.mp4`（鍵が無ければ `final.mp4`） |
+| 縦動画に声（ナレーション）を重ねる（落ち着いた男性の声・字幕と同じ文と時刻・2026-11-22） | `npm run mkt:voice -- <動画のフォルダ>`（`--engine say` で鍵なしの試し・説明欄に「ナレーションは合成音声です」） | 同じフォルダの `final-voice.mp4` |
+| 声の鍵（OpenAI）を Mac のキーチェーンに入れる（1 回だけ・画面にもファイルにも出さない） | `npm run mkt:key` | キーチェーンの `orime-openai-tts` |
+| 投稿の場ごとの点検（X・Threads・Instagram・TikTok・note・2026-11-23・`company/sns-playbooks-2026-11.md` §7） | `npm run mkt:drafts -- --check <文書.md>`（`note-*.md` は題・字数・見出し・できないこと・ct を見る） | 画面に ⚠️（言葉）と ℹ️（形） |
 | 画像（共有の 1 枚・アプリの画面） | `node scripts/share-images.mjs`・`npm run ui:shots`・`npm run lp:shots` | `ui-shots/…`・`public/lp/*.webp` |
 | カルーセル | Canva の無料プラン（任意） | `instagram-carousels.md` の文をのせた画像 |
 | 予約 | 各 SNS の公式の予約（Instagram＝Meta Business Suite・Threads＝アプリの予約・X＝Web の投稿欄） | — |

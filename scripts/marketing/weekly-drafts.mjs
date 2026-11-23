@@ -9,8 +9,8 @@
 //
 // 材料（読むだけ・どれも無ければ飛ばす）:
 //   - src/lib/releaseNotes.js（その週の「新しくなったこと」）
-//   - company/marketing-master-plan-2026-10.md（訴求の正）・company/brand-guardrails.md
-//   - company/launch-2026-11/ の sns-playbook.md・x-posts.md・short-video-scripts.md（書き方の見本）
+//   - company/sns-strategy-2026-11-22.md（SNS の正）・company/lp-axis-2026-11-15.md（芯）・company/sns-playbooks-2026-11.md（場ごとの勝ち筋）・company/brand-guardrails.md
+//   - company/sns-prep/ の x-threads-week1.md・instagram-week1.md（いまの型の見本＝ビフォー → きっかけ → アフター）
 //   - scripts/marketing/scenarios.mjs（今週録った動画の題と柱）
 //
 // ANTHROPIC_API_KEY があるときだけ Claude API を呼ぶ（安いモデル・1 回およそ数円）。無ければ prompt.md を書き出すので、
@@ -57,6 +57,7 @@ const SLOGANS = ['読んで終わりにしない', '読書を、受け身から�
 const OWNER_NG = /阿部|一人で(作|開発)|1 人で(作|開発)|ひとりで(作|開発)|個人開発|（オリメ）|\(オリメ\)/;
 const AI_TONE = [/することが重要です|が重要です。/, /いかがでしたか/, /ぜひ[^。]{0,12}てみてください/, /まず第一に|次に、|最後に、/, /探っていきましょう|見ていきましょう/, /と言われています/];
 const X_WEIGHT_LIMIT = 280;
+const CH_NAMES = { x: 'X', threads: 'Threads', instagram: 'Instagram', tiktok: 'TikTok' };
 function xWeight(text) {
   const urlRe = /https?:\/\/[^\s]+/g;
   const urls = (text.match(urlRe) || []).length;
@@ -73,13 +74,16 @@ export function checkShape(text) {
   let heading = ''; let inBlock = false; let block = []; let blockStart = 0;
   const sloganCount = new Map();
   let threads = 0; let threadsAsk = 0;
+  const channelCount = {};
   const flush = (endLine) => {
     const body = block.join('\n').trim();
     if (!body) return;
     const firstLine = block.find((l) => l.trim())?.trim() || '';
-    const isX = /^(X\d|P\d|スレッド|\d\/\d)/.test(heading) || /^X/.test(heading);
-    const isThreads = /^(T\d|Threads)/.test(heading);
-    const isPost = isX || isThreads || /^(IG|C\d|D\d|A\d)/.test(heading);
+    const ch = channelOf(heading);
+    const isX = ch === 'x';
+    const isThreads = ch === 'threads';
+    const isPost = !!ch || /^(C\d|D\d|A\d)/.test(heading);
+    if (ch) { channelCount[ch] = (channelCount[ch] || 0) + 1; for (const h of channelRules(ch, heading, body)) out.push({ line: blockStart, ...h }); }
     if (!isPost && !/^#{2,3}\s/.test('## ' + heading)) return;
     const firstSentence = firstLine.split('。')[0] + (firstLine.includes('。') ? '。' : '');
     for (const [re, why] of HOOK_WEAK) { if (re.test(firstSentence) && isPost) { out.push({ line: blockStart, word: firstLine.slice(0, 24), why }); break; } }
@@ -96,6 +100,77 @@ export function checkShape(text) {
   });
   for (const [sl, n] of sloganCount) if (n >= 3) out.push({ line: 0, word: sl, why: `同じ締めの決まり文句が ${n} 回。投稿ごとに違う一言で締める（連発すると広告に見える）` });
   if (threads >= 4 && threadsAsk * 2 < threads) out.push({ line: 0, word: `Threads ${threadsAsk}/${threads}`, why: 'Threads は問いで終わる投稿を半分以上に（返信をもらう場）' });
+  Object.defineProperty(out, 'channels', { value: channelCount, enumerable: false });
+  return out;
+}
+
+// 場ごとの決まり（2026-11-23・company/sns-playbooks-2026-11.md §1〜§5）。見出しから場を決める。
+//   x: 「X1 月」「X 承認前 1」「スレッド 1/5」「P02」／threads: 「T1」「Threads」／instagram: 「リール」「カルーセル」「IG」「Instagram」／tiktok: 「TikTok」「TT」
+export function channelOf(heading) {
+  const h = String(heading || '');
+  if (/^(T\d|Threads)/.test(h)) return 'threads';
+  if (/^(TikTok|TT\d)/i.test(h)) return 'tiktok';
+  if (/^(IG|Instagram|リール|カルーセル|ストーリーズ)/.test(h)) return 'instagram';
+  if (/^(X\d|X\s|X$|P\d|スレッド|\d\/\d)/.test(h)) return 'x';
+  return '';
+}
+const URL_RE = /https?:\/\/\S+|\{APP_STORE_URL\}/;
+const hashtags = (body) => (body.match(/(^|\s)#[^\s#]+/g) || []).length;
+const emojis = (body) => (body.match(/\p{Extended_Pictographic}/gu) || []).length;
+// 投稿の 1 本ごとの決まり。返す要素は { word, why }。
+export function channelRules(ch, heading, body) {
+  const out = [];
+  const lines = body.split('\n').map((l) => l.trim()).filter(Boolean);
+  const first = lines[0] || '';
+  const isReply = /返信/.test(heading);
+  const preLaunch = /承認前/.test(heading);
+  const ph = body.match(/◯◯|〇〇|【[^】]*】/);
+  if (ph) out.push({ word: ph[0], why: '伏せ字が残っている。実物（書名・一行・実数）に替えるまで予約しない' });
+  if (emojis(body) > 1) out.push({ word: `絵文字 ${emojis(body)}`, why: '絵文字は 1 本に 1 つまで' });
+  const bait = body.match(/いいねして|いいねお願い|RT\s?して|リポストして|拡散(して|希望|お願い)|フォローして|保存して(ね|ください)/);
+  if (bait) out.push({ word: bait[0], why: '反応を頼む言葉は使わない（釣りに見え、ミュートや「興味がない」で大きく損をする）' });
+  if (ch === 'x') {
+    if (!isReply && URL_RE.test(body)) out.push({ word: 'リンク', why: 'X は本文にリンクを入れない（返信の 1 本目へ・外部リンクは表示が減りやすい）' });
+    const tags = hashtags(body);
+    if (tags > 1) out.push({ word: `ハッシュタグ ${tags}`, why: 'X のハッシュタグは 0〜1（月末の「#◯月読了本」だけ）' });
+    if (xWeight(first) > 50) out.push({ word: first.slice(0, 14), why: '1 行目が長い（25 字まで）。最初の 1 行で止めてもらう' });
+    if (!isReply && !preLaunch && !/スレッド [1-4]\//.test(heading) && !/返信に|リンクは返信|App Store|プロフィール/.test(body)) out.push({ word: '入手への道', why: '入手への 1 行が無い（「無料プラン（ずっと無料）で試せます。リンクは返信に。」など・承認前の投稿は除く）' });
+  }
+  if (ch === 'threads') {
+    const n = [...body].length;
+    if (n > 500) out.push({ word: `${n} 字`, why: 'Threads は 500 字まで（短い 2〜5 段のほうが会話になる）' });
+    if (!isReply && URL_RE.test(body)) out.push({ word: 'リンク', why: 'Threads も本文にリンクを入れない（返信の 1 本目へ）' });
+    if (hashtags(body) > 1) out.push({ word: `タグ ${hashtags(body)}`, why: 'Threads のトピックは 1 つだけ付けられる。1 つに絞る' });
+  }
+  if (ch === 'instagram') {
+    const tags = hashtags(body);
+    if (tags > 5) out.push({ word: `ハッシュタグ ${tags}`, why: 'Instagram は 5 個まで（2025-12 から上限）。関係する 3〜5 個に' });
+    if (/^(Orime|オリメ)/.test(first)) out.push({ word: first.slice(0, 14), why: '説明欄・1 枚目は製品名から始めない（場面か結果から）' });
+    if (/リール/.test(heading) && !/秒/.test(heading + body)) out.push({ word: '長さ', why: 'リールの長さ（秒）を書く（15〜30 秒・字幕つき）' });
+  }
+  if (ch === 'tiktok') {
+    const tags = hashtags(body);
+    if (tags > 5) out.push({ word: `ハッシュタグ ${tags}`, why: 'TikTok の説明のハッシュタグは 3〜5 個' });
+    if (!/Orime/.test(body)) out.push({ word: '検索の言葉', why: 'リンクが使えないので「App Store で「Orime」と検索」を説明か最後の字幕に' });
+  }
+  return out;
+}
+
+// note の下書き（company/weekly/note-<日付>.md）の決まり（sns-strategy §4-1・playbooks §5）
+export function checkNote(text) {
+  const out = [];
+  const t = String(text || '').replace(/<!--[\s\S]*?-->/g, '');
+  const title = (t.match(/^#\s+(.+)$/m) || [])[1] || '';
+  const len = [...title].length;
+  if (!title) out.push({ word: '題', why: '題（# で始まる 1 行）が無い' });
+  else if (len > 25 || len < 12) out.push({ word: `題 ${len} 字`, why: '題は 15〜25 字くらい（検索と一覧で切れない長さ・体験か結果を入れる）' });
+  const bodyLen = [...t.replace(/^#.*$/gm, '').replace(/\s/g, '')].length;
+  if (bodyLen < 1800 || bodyLen > 4000) out.push({ word: `本文 ${bodyLen} 字`, why: '本文は 2,000〜3,500 字（1 記事 1 機能）' });
+  const heads = (t.match(/^##\s/gm) || []).length;
+  if (heads < 3 || heads > 6) out.push({ word: `見出し ${heads}`, why: '見出しは 3〜5 つ' });
+  if (!/できないこと|できない|苦手|気をつけ/.test(t)) out.push({ word: 'できないこと', why: '「できないこと・気をつけること」を書く（信頼のため・言い過ぎない）' });
+  if (!/ct=note_/.test(t)) out.push({ word: 'ct=note_', why: '最後のリンクに ct=note_<機能> を付ける（入手を測る）' });
+  if (!/見出し画像|見出しの画像/.test(t)) out.push({ word: '見出し画像', why: '見出し画像の指定を書く（有無で読まれ方が変わる・本文と関係のある画像）' });
   return out;
 }
 
@@ -128,12 +203,13 @@ export function buildPrompt({ today, releaseLines, scenarios, plan, guard, playb
   const system = `あなたは読書アプリ「Orime」の SNS 担当の下書き係です。オーナー（顔と声は出さない）が直してから自分で投稿します。
 
 # 守ること（破った下書きは使えません）
-- 訴求の軸は「読書を、受け身から会話へ」。見出しは「読んだ本と、会話しよう。」。1 本の投稿で言う柱は 1 つだけ（本と会話・成果（行動）・習慣（集中モード）・発信（写真で共有）・客観視（記録の分野・AI 選書））。
+- 芯は「読んだ本と、会話できる。答えのもとは、あなたが残したメモ。」（company/lp-axis-2026-11-15.md）。誰に＝とにかく成長したい人（入口 A 成長したい／B 読まなきゃ／C 読んでも残らない）。
+- 1 本の型（company/sns-strategy-2026-11-22.md §3-2）：前の状態（ビフォー・1 行目・25 字まで）→ きっかけ（機能 1 つ）→ 後の状態（アフター・言い切らない）→ 入手への道の 1 行。機能の名前から始めない。1 本に機能 1 つ・変化 1 つ。
 - 「著者と話せる」「著者が答える」とは書かない。書けるのは「本の語り口で（AI が）答える」「本と会話する」まで。
 - 動画の台本の候補は、初めて Orime を知る人にも分かる順にする: 困っていること → 「Orime は、読んだ本のメモから答えてくれる読書アプリ」→ 使い方（ふつうの言葉）→「これからは、…」→「無料プランで、今日から試せます」。行動リスト・根拠・ロードマップ・区切りのようなアプリの中の言葉は使わない。
 - オーナーの名前・「1 人で作った」「個人開発」のような言い方・「Orime（オリメ）」の読みがなは書かない（Orime とだけ書く）。
 - 実在の人（著者・有名人・利用者）の名前・声・顔・発言を作らない。利用者の声や数字を作らない。立証できない数字・効果の言い切り（必ず・No.1・忘れない・9 割）を書かない。
-- 使う場は Instagram（リール・カルーセル）・Threads・X・note の 4 つだけ（TikTok・YouTube は使わない）。縦の動画はリールと X に出す。
+- 使う場は X・Threads・Instagram（リール・カルーセル）・TikTok（リールと同じ動画）・note の 5 つ。場ごとの勝ち筋は company/sns-playbooks-2026-11.md（X は会話＝返信・引用・送信を起こす／Threads は問いと返信／Instagram は送信と保存／TikTok は 1 秒目のビフォー／note は 1 機能の深掘り）。
 - 画面はお試しモードの見本。画面を見せる投稿には「${SAMPLE_NOTE}」（動画は焼き込み済み・画像 1 枚の投稿は本文に「画面は見本です。」）。
 - 本の表紙の画像（出版社・Amazon・楽天の画像）や著者の写真を使う案を出さない（アプリの画面の録画とアプリが作る画像だけ）。書名は文中に出してよいが、変えない・もじらない。実在の書名を出す投稿の最後には「${BOOK_DISCLAIMER}」。
 - 著者の名前を主役にしない。「〇〇さんが答える」と書かない。本の文を長く写さない（1 投稿に 1 文・30 字くらいまで）。メモの例は自分の言葉の短いものだけ。
@@ -144,15 +220,15 @@ export function buildPrompt({ today, releaseLines, scenarios, plan, guard, playb
 - 下の材料（ユーザーデータではない社内資料）に書いてあることだけを使う。材料にない機能を作らない。
 
 # 書き方
-- 日本語・短く・煽らない・同じ目線。絵文字は 1 投稿 1 つまで。ハッシュタグは X は 0〜2、Instagram は 5〜8。
+- 日本語・短く・煽らない・同じ目線。絵文字は 1 投稿 1 つまで。ハッシュタグは X は 0〜1、Threads はトピック 1 つ、Instagram は 3〜5（上限 5）、TikTok は 3〜5。本文にリンクを入れない（返信の 1 本目・プロフィール）。「いいねして」「拡散希望」のような反応を頼む言葉は書かない。
 - 出力は Markdown。下の「出してほしいもの」の見出しをそのまま使う。`;
 
   const user = `今日は ${today}（日本時間）。この 1 週間の下書きを作ってください。
 
 ## 出してほしいもの
-1. **## X（5 本）** — 1 本 140 字以内。柱を【】で頭に。うち 1 本は開発の物語（今週変わったこと）、うち 1 本は相談の実例（材料にある例だけ）。宣伝は 1 本まで。
+1. **## X（5 本）** — 1 本 140 字以内。見出しに入口と機能を書く（本文の頭には書かない）。うち 1 本は開発の物語（今週変わったこと）、うち 1 本は相談の実例（材料にある例だけ）、うち 1 本は問いで終える。
 2. **## Threads（2 本）** — X の価値の投稿の書き直し。問いかけで終える。
-3. **## 縦の動画の説明欄** — 下の「今週の動画」1 本ごとに、Instagram リール（2〜3 行＋ハッシュタグ 5〜8）と X（本文 140 字以内・ハッシュタグ 0〜2）。説明の最後に「${BOOK_DISCLAIMER}」を入れる（X で入らなければ「返信の 1 本目に」と書く）。
+3. **## 縦の動画の説明欄** — 下の「今週の動画」1 本ごとに、Instagram リール（2〜3 行＋ハッシュタグ 3〜5）と X（本文 140 字以内・ハッシュタグ 0〜1）。説明の最後に「${BOOK_DISCLAIMER}」を入れる（X で入らなければ「返信の 1 本目に」と書く）。
 4. **## AI のナレーション（任意）** — 動画 1 本ごとに 15 秒で読める 1 段落（1 秒 6〜7 字）。人の声をまねない、ふつうの合成音声で読む前提。
 5. **## note（1 本の構成）** — 題の案 3 つ・見出し 5 つ・各見出しの要点 1 行。
 6. **## 確かめること** — 投稿の前にオーナーが画面と見比べるべき点を 3〜5 個（画面は見本の注記・著者・出版社とは関係ない旨・表紙・著者名・本文の長さを含める）。
@@ -163,19 +239,19 @@ ${scenarios.map((s) => `- ${s.name}（柱：${s.pillar || '—'}）題「${Strin
 ## この 1 週間に新しくなったこと（src/lib/releaseNotes.js）
 ${releaseLines.length ? releaseLines.join('\n') : '（この 1 週間はありません。開発の物語は前からある機能の作った理由で書く）'}
 
-## 材料 1：訴求の正（company/marketing-master-plan-2026-10.md）
+## 材料 1：SNS の正（company/sns-strategy-2026-11-22.md）と芯（company/lp-axis-2026-11-15.md）
 ${plan}
 
 ## 材料 2：ブランドの決まり（company/brand-guardrails.md）
 ${guard}
 
-## 材料 3：SNS の作戦（company/launch-2026-11/sns-playbook.md の頭）
+## 材料 3：場ごとの勝ち筋（company/sns-playbooks-2026-11.md の頭）
 ${playbook}
 
-## 材料 4：X の見本（company/launch-2026-11/x-posts.md の頭）
+## 材料 4：X・Threads の見本（company/sns-prep/x-threads-week1.md の頭）
 ${xSample}
 
-## 材料 5：動画の台本の見本（company/launch-2026-11/short-video-scripts.md の頭）
+## 材料 5：リール・カルーセルの見本（company/sns-prep/instagram-week1.md の頭）
 ${videoSample}`;
   return { system, user };
 }
@@ -208,7 +284,9 @@ function reportCheck(text, label) {
   if (!hits.length) console.log(`✓ ${label}: 言葉の決まりに引っかかる行はありません`);
   else { console.log(`⚠️ ${label}: 直してから使う行が ${hits.length} か所`); for (const h of hits) console.log(`  ${h.line} 行目「${h.word}」— ${h.why}`); }
   // 形（つかみ・X の重み・決まり文句の連発・Threads の問い）は注意として出す（止めない＝判断はオーナー）
-  const shape = checkShape(text);
+  const shape = /(^|\/)note-[^/]*\.md$/.test(label) ? checkNote(text) : checkShape(text);
+  const counted = Object.entries(shape.channels || {}).map(([k, v]) => `${CH_NAMES[k] || k} ${v} 本`).join('・');
+  if (counted) console.log(`  確かめた投稿: ${counted}`);
   if (shape.length) { console.log(`ℹ️ ${label}: 形で見直したい所が ${shape.length} か所（company/sns-quality-guide-2026-11.md）`); for (const h of shape) console.log(`  ${h.line ? h.line + ' 行目' : '全体'}「${h.word}」— ${h.why}`); }
   return hits;
 }
@@ -231,11 +309,11 @@ async function main() {
     today,
     releaseLines: recentReleaseLines(RELEASES, today, days),
     scenarios: SCENARIOS,
-    plan: read('company/marketing-master-plan-2026-10.md', 9000),
+    plan: `${read('company/sns-strategy-2026-11-22.md', 9000)}\n\n${read('company/lp-axis-2026-11-15.md', 3000)}`,
     guard: read('company/brand-guardrails.md', 3000),
-    playbook: read('company/launch-2026-11/sns-playbook.md', 3500),
-    xSample: read('company/launch-2026-11/x-posts.md', 3000),
-    videoSample: read('company/launch-2026-11/short-video-scripts.md', 3000),
+    playbook: read('company/sns-playbooks-2026-11.md', 6000),
+    xSample: read('company/sns-prep/x-threads-week1.md', 5000),
+    videoSample: read('company/sns-prep/instagram-week1.md', 4000),
   });
   const promptFile = join(outDir, 'prompt.md');
   writeFileSync(promptFile, `<!-- これを Claude Code か claude.ai に貼ると、drafts.md と同じ下書きができます -->\n\n# 指示\n\n${prompt.system}\n\n---\n\n${prompt.user}\n`);
