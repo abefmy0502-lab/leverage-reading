@@ -30,7 +30,7 @@
 | 7:00 | App Store Connect で「このバージョンをリリース」 | オ | 「App Store で配信中」（検索に出るまで最大 24 時間） |
 | 7:10 | アプリのページの URL（`https://apps.apple.com/jp/app/…/id…`）と、App 分析 → キャンペーンの `pt=` を控えて Claude に渡す | オ | iPhone で開いて「入手」 |
 | 7:15 | Vercel の env：`VITE_APP_STORE_URL`・`VITE_APP_STORE_PT` → 公開し直す | オ（Mac の Vercel のコマンドなら C も可） | LP のボタンが App Store のページへ |
-| 7:20 | 場ごとのキャンペーンリンクを作る：note は `VITE_APP_STORE_URL=… VITE_APP_STORE_PT=… node scripts/store-link.mjs note consult`。ほかは `<アプリの URL>?pt=<pt>&ct=<名前>&mt=8`（メール `email_launch`・X `x_launch` `x_consult` …・Threads `th_consult`＝`sns-prep/` の各返信に書いてある名前）。下書きの `{APP_STORE_URL}` を置き換える | C | `ct=` が場ごとに違う |
+| 7:20 | 場ごとのキャンペーンリンクを 1 回で：`VITE_APP_STORE_URL=<アプリの URL> VITE_APP_STORE_PT=<pt> node scripts/marketing/launch-links.mjs` → `marketing-out/launch/` に、リンクを入れた下書きの写し（SNS・メール・レビューのお願い）と一覧 `links.md`（プロフィール用の `*_profile` も）。承認の前の確かめは `--dry-run`（2026-11-23 に仮の URL で通しで確かめた＝置き換え残り 0） | C | 終わりに「置き換えられなかった所」が出ない |
 | 7:30 | 公開のメール（`launch-email.md`）を送る → 送った人に `lp_waitlist.notified_at` | オ | 自分にも届く |
 | 7:30 | X の公開日のスレッド 5 本（1 本目を固定・リンクは返信の 1 本目）・Threads 1 本（`sns-prep/x-threads-week1.md` §2） | オ（鍵があれば C が予約） | 固定に出ている |
 | 8:00 | TestFlight で試してくれた方へ（`review-request.md` (a)・「はい」と答えた人だけ） | オ | — |

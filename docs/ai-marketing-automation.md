@@ -24,6 +24,7 @@
 | 文（X・説明欄・ナレーション・note の構成） | `npm run mkt:drafts` → Claude Code | `marketing-out/drafts/<日付>/prompt.md`（＋鍵があれば `drafts.md`） |
 | 縦動画を声入りまで 1 回で作る（1 週目の 7 本＝画面 4・概念 3・2026-11-22） | `npm run mkt:videos`（`-- shelf-scan` で名前で絞る・`-- --say` で鍵なしの試し・中で mkt:voice → お試しモードの録画 → 声を重ねる） | `marketing-out/videos/<日付>/<台本>/final-voice.mp4`（鍵が無ければ `final.mp4`） |
 | 縦動画に声（ナレーション）を重ねる（落ち着いた男性の声・字幕と同じ文と時刻・2026-11-22） | `npm run mkt:voice -- <動画のフォルダ>`（`--engine say` で鍵なしの試し・説明欄に「ナレーションは合成音声です」） | 同じフォルダの `final-voice.mp4` |
+| 公開の朝に、下書きのリンクの置き場所を場ごとのキャンペーンリンク（ct=）にする（2026-11-23） | `VITE_APP_STORE_URL=… VITE_APP_STORE_PT=… node scripts/marketing/launch-links.mjs`（承認の前は `--dry-run`） | `marketing-out/launch/`（リンクを入れた下書きの写しと `links.md`） |
 | 声の鍵（OpenAI）を Mac のキーチェーンに入れる（1 回だけ・画面にもファイルにも出さない） | `npm run mkt:key` | キーチェーンの `orime-openai-tts` |
 | 投稿の場ごとの点検（X・Threads・Instagram・TikTok・note・2026-11-23・`company/sns-playbooks-2026-11.md` §7） | `npm run mkt:drafts -- --check <文書.md>`（`note-*.md` は題・字数・見出し・できないこと・ct を見る） | 画面に ⚠️（言葉）と ℹ️（形） |
 | 画像（共有の 1 枚・アプリの画面） | `node scripts/share-images.mjs`・`npm run ui:shots`・`npm run lp:shots` | `ui-shots/…`・`public/lp/*.webp` |
