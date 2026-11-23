@@ -1493,7 +1493,7 @@ body.lp-active {
 }
 @media (min-width: 1024px) {
   /* 画像 2 枚は実寸に近い幅（中の文字が 12 前後）・文の列は残り・3 つは画像の高さの中央に。題は右の列と同じなので出さない */
-  .lp-social-body { grid-template-columns: auto minmax(0, 1fr); gap: var(--space-12); align-items: center; }
-  .lp-social-shots { grid-template-columns: repeat(2, var(--lp-shot-w)); align-items: start; }
+  .lp-social-body { grid-template-columns: auto minmax(0, 1fr); gap: var(--space-8); align-items: center; }
+  .lp-social-shots { grid-template-columns: repeat(2, var(--lp-shot-w)); gap: var(--space-4); align-items: start; }
   .lp-root .lp-social-cap { display: none; }
 }
