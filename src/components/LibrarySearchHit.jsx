@@ -110,7 +110,7 @@ export function LibrarySearchHitSkeleton({ rows = 3 }) {
     <span style={{ display: 'flex', alignItems: 'center', height: h, ...style }}><SkeletonBlock width={w} height={12} /></span>
   );
   return (
-    <div role="status" aria-label="メモを検索しています" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+    <div role="status" aria-label="メモの中を探しています" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
       {Array.from({ length: rows }).map((_, i) => (
         <div key={i} style={{ background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-3) var(--space-4)' }}>
           <span style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
@@ -159,12 +159,12 @@ export function LibrarySearchResults({ books, hits, renderBookRow, onOpen, onAut
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-1)', marginTop: 'calc(-1 * var(--space-3))' }}>
           {/* メモを読んでいる間・読めなかったとき（書名・著者で見つかった本は先に出す）。 */}
           {/* 読み込み中もエラーも同じ高さの 1 行（--tap-min・文字は縦の中央）＝カードからの見た目の間は 24 で、切り替わっても「相談で探す」が動かない（2026-11-18 ui-critic）。 */}
-          {memoStatus === 'loading' && <p role="status" style={statusRow}>メモを検索しています…</p>}
+          {memoStatus === 'loading' && <p role="status" style={statusRow}>メモの中を探しています…</p>}
           {memoStatus === 'error' && (
             // 13 の文と 15 の「もう一度」は文字の下端（ベースライン）でそろえる（中央だと字の下端がずれた・2026-11-23 ui-critic）。
             //   ボタンは高さ 44 の中央に文字があるので、行の高さ 44 と文の位置は読み込み中の 1 行と同じ。
             <p role="status" style={{ ...statusRow, alignItems: 'baseline', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-              メモを検索できませんでした
+              メモの中は探せませんでした
               <button type="button" onClick={onRetry} style={{ ...btnLink, minHeight: 'var(--tap-min)' }}>もう一度</button>
             </p>
           )}

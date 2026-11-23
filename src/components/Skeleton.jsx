@@ -130,7 +130,7 @@ export function BookGridSkeleton({ count = 8 }) {
   const perRow = 4;
   const rows = Math.max(1, Math.ceil(count / perRow));
   return (
-    <div aria-hidden="true" style={{ marginTop: 'var(--space-3)' }}>
+    <div aria-hidden="true">
       <div style={{ height: 'calc(1.5 * var(--text-body))', display: 'flex', alignItems: 'center', marginBottom: 'var(--space-3)' }}>
         <SkeletonBlock width="6em" height="var(--text-body)" radius="var(--radius-full)" />
       </div>
@@ -138,7 +138,14 @@ export function BookGridSkeleton({ count = 8 }) {
         {Array.from({ length: rows }, (_, ri) => (
           <div key={ri} style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--space-2)', margin: ri === 0 ? 0 : 'var(--space-4) 0 0', padding: '0 var(--space-3)', borderBottom: 'var(--space-2) solid var(--shelf-plank)' }}>
             {Array.from({ length: perRow }, (_, i) => (
-              <span key={i} className="skeleton" style={{ display: 'block', flex: `0 0 calc((100% - ${perRow - 1} * var(--space-2)) / ${perRow})`, aspectRatio: '2 / 3', borderRadius: 'var(--radius-cover)', boxShadow: 'inset 0 0 0 1px var(--separator)' }} />
+              // 表紙＋書名 2 行ぶん（本物の BookCoverCard の shelf と同じ高さ＝読み終えても棚板が動かない）。
+              <span key={i} style={{ display: 'flex', flexDirection: 'column', flex: `0 0 calc((100% - ${perRow - 1} * var(--space-2)) / ${perRow})`, minWidth: 0 }}>
+                <span className="skeleton" style={{ display: 'block', width: '100%', aspectRatio: '2 / 3', borderRadius: 'var(--radius-cover)', boxShadow: 'inset 0 0 0 1px var(--separator)' }} />
+                <span style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 'var(--space-1)', height: 'calc(2 * 1.4 * var(--text-caption))', margin: 'var(--space-1) 0 var(--space-2)' }}>
+                  <SkeletonBlock width="90%" height="calc(0.8 * var(--text-caption))" radius="var(--radius-full)" />
+                  <SkeletonBlock width="60%" height="calc(0.8 * var(--text-caption))" radius="var(--radius-full)" />
+                </span>
+              </span>
             ))}
           </div>
         ))}

@@ -7162,16 +7162,16 @@ function AuthedApp() {
                     onAutoRetry={triggerCoverAutoRetry}
                   />
                 );
-                if (statusFilter !== 'all') return <div style={{ marginTop: 'var(--space-3)' }}><BookShelfCase books={shown} renderBook={renderShelfBook} /></div>;
+                if (statusFilter !== 'all') return <BookShelfCase books={shown} renderBook={renderShelfBook} />;
                 const total = (st) => filtered.filter((b) => b.status === st).length;
                 return ['reading', 'done', 'before', 'want']
                   .map((st) => ({ st, books: shown.filter((b) => b.status === st) }))
                   .filter((g) => g.books.length)
                   .map((g, gi) => (
-                    <section key={g.st} aria-label={`${getSt(g.st).label} ${total(g.st)} 冊`} style={{ marginTop: gi === 0 ? 'var(--space-3)' : 'var(--space-6)' }}>
-                      <p style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-2)', margin: '0 0 var(--space-3)', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>
+                    <section key={g.st} aria-label={`${getSt(g.st).label} ${total(g.st)} 冊`} style={{ marginTop: gi === 0 ? 0 : 'var(--space-6)' }}>
+                      <h3 style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-2)', margin: '0 0 var(--space-3)', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5 }}>
                         {getSt(g.st).label}<span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums' }}>{total(g.st)} 冊</span>
-                      </p>
+                      </h3>
                       <BookShelfCase books={g.books} renderBook={renderShelfBook} />
                     </section>
                   ));

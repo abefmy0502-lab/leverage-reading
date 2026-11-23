@@ -27,7 +27,8 @@ const nowrap = { whiteSpace: 'nowrap' };
 // 「10月8日」「2026年10月9日」「◯月1日」は途中で割らない（keepDateTogether・2026-10-09 ui-critic）。
 // かぎかっこの中の 8 字以下の画面の言葉（「日付を選ぶ」「見る」など）もひとまとまり（かっこごと割らない）。
 const DATE_RE = /((?:\d{4}年)?[\d◯]{1,2}月\d{1,2}日)/;
-const KEEP_RE = new RegExp(`(${DATE_RE.source.slice(1, -1)}|「[^「」]{1,8}」)`);
+// 閉じかっこの後ろの助詞・「だけ」・読点までひとまとまり（「「この本を共有」／で、」と割れていた・2026-11-23 ui-critic）。
+const KEEP_RE = new RegExp(`(${DATE_RE.source.slice(1, -1)}|「[^「」]{1,8}」(?:だけ)?[をにでとがはのへもや]?[、。]?)`);
 function phrased(text) {
   const t = String(text ?? '');
   if (KEEP_RE.test(t)) {

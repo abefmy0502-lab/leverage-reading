@@ -753,7 +753,8 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
               {/* 『 は半字ぶん左へ（行の頭ではぶら下げ、』『 と続くところは詰める・2026-10-10 ui-critic）。文字が大きいときは 8 まで
                   （画面の端に付かないように・2026-11-23）。
                   書名は 1 つの塊（長ければ … で切る・文字が大きいときに語の途中で割れた・MemoLinks と同じ）。 */}
-              {myBooks.slice(0, 2).map((b) => <span key={b.id} style={{ display: 'inline-block', maxWidth: 'calc(100% + min(0.5em, var(--space-2)))', marginLeft: 'max(-0.5em, calc(-1 * var(--space-2)))', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', verticalAlign: 'bottom' }}>『{b.title}』</span>)}{myBooks.length > 2 ? 'など' : ''}のメモを根拠に答える、あなただけの相談相手です。
+              {/* ブラウザの約物の詰め（text-spacing-trim）と重ねると『 が二重に寄って崩れた（2026-11-23 ui-critic）→ 詰めを止め、ぶら下げは 1 冊目だけ。 */}
+              {myBooks.slice(0, 2).map((b, i) => <span key={b.id} style={{ display: 'inline-block', textSpacingTrim: 'space-all', maxWidth: i === 0 ? 'calc(100% + min(0.5em, var(--space-2)))' : '100%', marginLeft: i === 0 ? 'max(-0.5em, calc(-1 * var(--space-2)))' : 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', verticalAlign: 'bottom' }}>『{b.title}』</span>)}{myBooks.length > 2 ? 'など' : ''}のメモを根拠に答える、あなただけの相談相手です。
             </p>
             {/* さっきの相談（問いは 1 行・長ければ … ）。「その続き」を、ここで買えると分かるように。 */}
             {/* 問いは 22 字で切るので、ふつうは 2 行（骨組みも 2 行ぶん＝読み終わって跳ねない） */}
