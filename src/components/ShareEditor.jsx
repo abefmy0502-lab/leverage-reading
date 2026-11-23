@@ -72,7 +72,8 @@ const rowStyle = (last) => ({
   alignItems: 'center',
   gap: 'var(--space-3)',
   minHeight: 'var(--btn-h)',
-  padding: '0 var(--space-3) 0 var(--space-4)',
+  // 左右とも 16（設定のカードの行と同じ・スイッチの右端を画面の右余白にそろえる）。
+  padding: '0 var(--space-4)',
   borderBottom: last ? 'none' : '1px solid var(--separator)',
 });
 

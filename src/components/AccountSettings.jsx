@@ -672,6 +672,16 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
     }
   };
 
+  // プランの管理の行き先（「プラン・お支払い」の行と同じ）。iPhone のアプリと Stripe の契約は handleManageBilling、
+  //   Web で見ている App Store の契約は App Store のサブスクリプションの画面。退会の欄の文字ボタンも同じものを使う。
+  const stripeOnWeb = !nativeView && !!subscription?.stripeCustomerId;
+  const planManageLabel = stripeOnWeb ? 'プランを管理する' : 'プランを管理（App\u00a0Store）';
+  const openPlanManage = () => withPurposeCheck(
+    'cancel',
+    stripeOnWeb ? 'どちらを選んでも、プランの管理のページを開きます。' : 'どちらを選んでも、App\u00a0Store のプランの管理を開きます。',
+    (nativeView || stripeOnWeb) ? handleManageBilling : () => openManageSubscriptions(),
+  );
+
   const handleForceUpdate = async () => {
     if (updating) return;
     // 確認ダイアログ必須 — 押した瞬間に reload するので、メモ書き / AI 会話の
@@ -1030,7 +1040,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
           {onOpenProfile && (
             <Group>
               <button type="button" onClick={onOpenProfile} style={{ ...rowButtonStyle, gap: 'var(--space-3)' }}>
-                <span style={{ flex: 1, minWidth: 0, ...rowTitleStyle, color: 'inherit' }}>プロフィール・フォロー</span>
+                <span style={{ flex: 1, minWidth: 0, ...rowTitleStyle, color: 'inherit' }}>プロフィール</span>
                 <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
               </button>
             </Group>
@@ -1411,9 +1421,20 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
                   赤は削除の 2 つのボタンだけにして、ここは補足の文字色の 1 文。 */}
               {isActive && (
                 // 文節の切れ目でだけ折り返す（文字最大で「止まりませ／ん」と割れていた・2026-10-11 リリース前の採点）。
-                <p style={{ ...rowDescStyle, margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-                  {withPhraseBreaks('退会しても、プランの支払いは止まりません。先に「プラン・お支払い」から解約してください。')}
-                </p>
+                // すぐ下に、上の「プラン・お支払い」の管理の行と同じ行き先の文字ボタン（探しに戻らなくてよい・2026-11-23）。
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                  <p style={{ ...rowDescStyle, margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+                    {withPhraseBreaks('退会しても、プランの支払いは止まりません。先に「プラン・お支払い」から解約してください。')}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={openPlanManage}
+                    disabled={billingBusy}
+                    style={{ ...btnLink, marginLeft: 'calc(-1 * var(--space-1))', opacity: 1, cursor: billingBusy ? 'default' : 'pointer' }}
+                  >
+                    {billingBusy ? '移動中…' : planManageLabel}
+                  </button>
+                </div>
               )}
               {!deleteOpen ? (
                 <button type="button" aria-label="アカウントの削除を開始" style={btnDestructiveGhost} onClick={() => withPurposeCheck('delete', 'どちらを選んでも、アカウント削除の手続きに進みます。', () => setDeleteOpen(true))}>
@@ -1545,7 +1566,15 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
           （畳んだ前の版を開こうとしたら設定ごと閉じていた・2026-10-05）。 */}
       {whatsNewOpen && allReleases && (
         <div onClick={(e) => e.stopPropagation()}>
-          <WhatsNewSheet releases={allReleases} mode="all" layer="dialog" onClose={() => setWhatsNewOpen(false)} />
+          <WhatsNewSheet
+            releases={allReleases}
+            mode="all"
+            layer="dialog"
+            onClose={() => setWhatsNewOpen(false)}
+            // 「開く ›」は設定から移れる画面だけ（いまはプロフィール・2026-11-23）。
+            openTargets={onOpenProfile ? ['profile'] : []}
+            onOpen={(target) => { if (target !== 'profile' || !onOpenProfile) return; setWhatsNewOpen(false); onOpenProfile(); }}
+          />
         </div>
       )}
       {/* 🪙📊 トークンの使い方（設定の上に重ねる）。「トークンを追加」は設定を閉じてから開く（閉じたら設定に戻る）。

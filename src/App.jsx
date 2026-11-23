@@ -7721,7 +7721,17 @@ function AuthedApp() {
 
       {whatsNew.open && (
         <Suspense fallback={null}>
-          <WhatsNewSheet releases={whatsNew.releases} onClose={whatsNew.close} />
+          <WhatsNewSheet
+            releases={whatsNew.releases}
+            onClose={whatsNew.close}
+            // 項目の「開く ›」からその画面へ（2026-11-23 ui-critic）
+            openTargets={['profile', 'review:action']}
+            onOpen={(t) => {
+              whatsNew.close();
+              if (t === 'profile') openProfileScreen();
+              else if (t === 'review:action') { setActionShowDoneNonce(null); setReviewSubTab('action'); setView('list'); setTab('review'); }
+            }}
+          />
         </Suspense>
       )}
 

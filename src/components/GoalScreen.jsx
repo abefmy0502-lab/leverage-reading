@@ -375,11 +375,11 @@ function nextEmptyAfter(goals, key) {
 
 // 書きかけのシートを閉じる前に確かめる（行動の追加と同じ言葉・2026-11-17 点検）。
 // BottomSheet の beforeClose に渡す（閉じる前に確かめる＝「編集を続ける」でシートが見えないまま残らない・2026-11-20）。
-function useGuardedClose(dirty, onClose, { message = '消すと、元に戻せません。' } = {}) {
+function useGuardedClose(dirty, onClose, { message = '破棄すると、元に戻せません。' } = {}) {
   const confirm = useConfirm();
   return useCallback(async () => {
     if (!dirty) return true;
-    return !!(await confirm({ title: '保存していない変更があります', message, confirmLabel: '変更を破棄', cancelLabel: '編集を続ける', danger: true }));
+    return !!(await confirm({ title: '保存していない変更があります', message, confirmLabel: '破棄する', cancelLabel: '編集を続ける', danger: true }));
   }, [dirty, confirm, message]);
 }
 
@@ -390,7 +390,7 @@ function GoalEditSheet({ horizonKey, initial, hasRoadmap, nextLabel, onClose, on
   const ref = useRef(null);
   useEffect(() => { const t = setTimeout(() => ref.current?.focus(), 250); return () => clearTimeout(t); }, []);
   const dirty = cleanGoalText(text) !== cleanGoalText(initial);
-  const guardedClose = useGuardedClose(dirty, onClose, { message: initial ? '目標は元のまま残ります。' : '消すと、元に戻せません。' });
+  const guardedClose = useGuardedClose(dirty, onClose, { message: initial ? '目標は元のまま残ります。' : '破棄すると、元に戻せません。' });
   const save = async () => {
     if (saving || !dirty) return;
     setSaving(true);

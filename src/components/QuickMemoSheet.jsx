@@ -313,9 +313,9 @@ export default function QuickMemoSheet({
     if (busy || condensing) return false;
     if (text.trim()) {
       const ok = await confirmDialog({
-        // 新しいメモの書きかけ（ボタンの「書いたことを消す」と同じ言葉で・2026-09-29）。
+        // 新しいメモの書きかけ（本文はボタンの「破棄する」と同じ言葉で・2026-11-23）。
         title: '書きかけのメモがあります',
-        message: '消すと、元に戻せません。',
+        message: '破棄すると、元に戻せません。',
         confirmLabel: '破棄する',
         cancelLabel: '編集を続ける',
         danger: true,
@@ -675,7 +675,7 @@ export default function QuickMemoSheet({
             {/* 写真を添える・新しいタグを作るは全画面で（写真から書き起こすは、どちらでも同じボタン）。 */}
             {moreMounted && onOpenFullEditor && (
               <button type="button" style={{ ...detailLink, marginTop: frequentTags.length > 0 ? 'var(--space-1)' : 0 }} onClick={handleDetailHandoff}>
-                写真を添える・新しいタグ（全画面で書く）<ChevronRight size={16} aria-hidden="true" />
+                全画面で書く（写真を添える・新しいタグ）<ChevronRight size={16} aria-hidden="true" />
               </button>
             )}
             </div>

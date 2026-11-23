@@ -164,7 +164,7 @@ const TOKEN_EXAMPLE_OCR = `写真から書き起こし 1\u00a0回 約\u00a0${TOK
 // onlyPlan: 無料のトークンを使い切ったあと（本人の本の表紙を出すとき）はプランの行だけ（主ボタンを近くに）。
 // trial: この人が使える無料期間（「7 日間無料」）。あればプランの行の名前に「（最初の 7 日間は無料）」。
 //   選んだプランに無料期間があるときは下に固定の欄（「最初の 7 日間は無料」＋主ボタン）が言うので渡さない（繰り返さない）。
-//   月額だけに無料期間があるとき（創業メンバー価格のあいだ）も渡さない（プランの行で月額にだけ出す・年額に無料期間があるように読ませない）。
+//   月額だけに無料期間があるときも渡さない（プランの行で月額にだけ出す・年額に無料期間があるように読ませない）。
 // guest: 登録せずに始めた人（はじめの 2 か月の多い量は、アカウントを作ってから・2026-11-19）。
 function PlanCompare({ onlyPlan = false, trial = '', example = TOKEN_EXAMPLE, guest = false }) {
   const rows = onlyPlan ? PLAN_COMPARE.filter((r) => r.name === 'プラン') : PLAN_COMPARE;
@@ -274,7 +274,7 @@ const planNote = { display: 'block', fontSize: 'var(--text-meta)', fontWeight: 4
 
 // placeholder: 価格の読み込み中。本物の行と同じ中身を見えなくして重ね、読み込み後に高さが跳ねないようにする。
 // tag: 名前の横の小さな表示（年額の「おすすめ」／創業メンバー価格のあいだは「創業メンバー価格」）。
-// trialNote: この行にだけ無料期間があるとき（「最初の 7 日間は無料」・創業メンバー価格のあいだの月額）。
+// trialNote: この行にだけ無料期間があるとき（「最初の 7 日間は無料」・ストアが片方にだけ返したとき）。
 function PlanOption({ label, selected, onSelect, placeholder = false, tag = '', trialNote = '' }) {
   const Tag = placeholder ? 'div' : 'button';
   return (
@@ -455,7 +455,12 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose, pending, settingsOpen]);
   // 表示ラベル: ネイティブ=App 既定 → ストア価格で上書き / Web=billing.js（env で上書き可）。
-  const [labels, setLabels] = useState(() => (
+  // 創業メンバー価格の期間中（2027-01-10 まで）は 7 日間無料を月額・年額とも付けない（2026-11-23 直し・GLOSSARY）。
+  //   ストアの設定もそうなっているが、ストアが無料期間を返しても画面には出さない（約束しない側に倒す）。
+  const dropTrial = (l) => (founding.active && l
+    ? { ...l, monthly: l.monthly && { ...l.monthly, trial: '' }, annual: l.annual && { ...l.annual, trial: '' } }
+    : l);
+  const [labels, setLabels] = useState(() => dropTrial(
     showNative
       ? {
         monthly: { ...APP_PLAN_LABELS.monthly, trial: isNative ? '' : preview.trial },
@@ -480,7 +485,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
     getStoreLabels(user?.id)
       .then((l) => {
         if (!alive) return;
-        if (l?.ok) { setLabels(l); setPriceState('ready'); } else setPriceState('failed');
+        if (l?.ok) { setLabels(dropTrial(l)); setPriceState('ready'); } else setPriceState('failed');
       })
       .catch(() => { if (alive) setPriceState('failed'); });
     return () => { alive = false; };
@@ -489,9 +494,9 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
   const selected = labels[plan] || labels.annual;
   const trial = normalizeTrialLabel(selected.trial || '');
   // 両方のプランに無料期間があれば、比較のプランの行に「（最初の 7 日間は無料）」を出す。
-  // 片方だけ（創業メンバー価格のあいだは月額だけ）のときは、その行にだけ「最初の 7 日間は無料」を出す（年額に無料期間があるように読ませない）。
+  // 片方だけ（ストアがそう返したとき・創業メンバー価格の期間中はどちらにも無い）のときは、その行にだけ「最初の 7 日間は無料」を出す（年額に無料期間があるように読ませない）。
   const trialPlan = priceState === 'ready' ? trialPlanOf(labels) : '';
-  // 「7 日間無料でもっと話す」から開いたのに、7 日間無料が月額だけ（創業メンバー価格のあいだ）なら月額を選んで開く
+  // 「7 日間無料でもっと話す」から開いたのに、7 日間無料が月額だけなら月額を選んで開く
   //   （年額が選ばれていて「7 日間無料」が見当たらない、を作らない）。選び直しは 1 回だけ（あとは本人の選択のまま）。
   const pickedForTrialRef = useRef(false);
   useEffect(() => {
@@ -502,7 +507,8 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
   }, [reason, trialPlan]);
   // 並び: 「7 日間無料でもっと話す」から開き、7 日間無料が月額だけのときは月額を上に（選んだ行が最初の画面に入るように）。
   //   読み込み中は、創業メンバー価格の期間なら月額を上に（読み込み後に並びが入れ替わって跳ねないように）。
-  const monthlyFirst = ['first_answer', 'free_used'].includes(reason) && (priceState === 'ready' ? trialPlan === 'monthly' : founding.active);
+  //   読み込み中は年額を上に（創業メンバー価格の期間中は無料期間が無い＝年額が上・2026-11-23）。
+  const monthlyFirst = ['first_answer', 'free_used'].includes(reason) && priceState === 'ready' && trialPlan === 'monthly';
   const planOrder = monthlyFirst ? ['monthly', 'annual'] : ['annual', 'monthly'];
   const anyTrial = trialPlan === 'both' ? normalizeTrialLabel(labels.annual?.trial || '') : '';
   const rowTrialNote = (id) => (trialPlan && trialPlan !== 'both' && labels[id]?.trial ? trialFirstPhrase(normalizeTrialLabel(labels[id].trial)) : '');
@@ -777,13 +783,13 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
               style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}
             >
               {priceState === 'loading' ? (
-                // 創業メンバー価格の期間中は、読み込み後と同じ行数の骨組み（年額＝初回価格の 2 行・月額＝無料期間の行つき）
+                // 創業メンバー価格の期間中は、読み込み後と同じ行数の骨組み（年額＝初回価格の 2 行・月額＝無料期間の行なし＝2026-11-23）
                 //   ＝読み込み後に下が跳ねない（2026-11-18 ui-critic・SPEC §1-3）。中身は隠すので文言は形だけ。
                 planOrder.map((id) => {
                   const shape = founding.active
                     ? (id === 'annual' ? { name: labels[id]?.name, intro: { head: '¥0', after: '¥0' } } : { name: labels[id]?.name, price: labels[id]?.price })
                     : labels[id];
-                  return <PlanOption key={id} label={shape} selected={false} trialNote={founding.active && id !== 'annual' ? '7 日間無料' : ''} placeholder />;
+                  return <PlanOption key={id} label={shape} selected={false} placeholder />;
                 })
               ) : (
                 planOrder.map((id) => (
@@ -810,13 +816,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
                 <Phrases>{`${noBreak(founding.endLabel)}までに年額プランを始めた方は創業メンバーです（開発者への直接の窓口・次に作る機能への投票）。`}</Phrases>
               </p>
             )}
-            {/* 読み込み中は、下の「どちらか一方」の注記の場所を骨組みで取っておく。 */}
-            {priceState === 'loading' && founding.active && (
-              <div aria-hidden="true" style={{ marginTop: 'var(--space-2)', minHeight: 'calc(var(--text-meta) * 1.6 * 2)', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 'calc(var(--text-meta) * 0.6)' }}>
-                <SkeletonBlock width="100%" height="var(--text-meta)" radius="var(--radius)" />
-                <SkeletonBlock width="60%" height="var(--text-meta)" radius="var(--radius)" />
-              </div>
-            )}
+            {/* 「どちらか一方」の注記は、創業メンバー価格の期間中は出ない（7 日間無料が無い・2026-11-23）ので、読み込み中も場所を取らない。 */}
             {priceState === 'ready' && labels.annual?.intro && labels.monthly?.trial && (
               <p style={{ ...metaText, ...phraseText, marginTop: founding.active ? 'var(--space-2)' : 'var(--space-3)' }}>
                 <Phrases>{`月額の ${noBreak(normalizeTrialLabel(labels.monthly.trial))}と年額の ${noBreak(labels.annual.intro.head)} は、どちらか一方だけ使えます（${noBreak('1 つ')}の ${noBreak('Apple ID')} に ${noBreak('1 回')}）。`}</Phrases>

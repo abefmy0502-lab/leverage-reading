@@ -55,6 +55,28 @@ const summaryTextarea = {
 // 保存した新しいメモを送るときの下の空き（右下の「メモを書く」48＋12＋16＋「保存しました。」の知らせ 64）。
 const NEW_MEMO_SCROLL_MARGIN = 'calc(var(--fab-live-h, var(--fab-h)) + var(--space-3) + var(--space-4) + var(--space-16))';
 
+// 画面の下を覆っているもの（下の知らせ・右下の「メモを書く」・data-toast-above の欄）のいちばん上の端（無ければ Infinity）。
+//   知らせは出てくる動き（中の transform）の途中でも、決まった位置にある入れ物（position: fixed）で測る。
+function bottomCoverTop() {
+  if (typeof document === 'undefined') return Infinity;
+  let top = Infinity;
+  const take = (node) => {
+    if (!node) return;
+    const r = node.getBoundingClientRect();
+    if (r.height > 0 && r.top < top) top = r.top;
+  };
+  document.querySelectorAll('.toast-enter').forEach((item) => {
+    let box = item.parentElement;
+    while (box && box !== document.body && getComputedStyle(box).position !== 'fixed') box = box.parentElement;
+    take(box && box !== document.body ? box : item);
+  });
+  document.querySelectorAll('[data-fab], [data-toast-above]').forEach((node) => {
+    if (node.closest('[role="dialog"]')) return;
+    take(node);
+  });
+  return top;
+}
+
 // 絞り込みのメニューの印（選んでいる行は ✓・ほかは同じ幅の空き）。
 const menuCheck = (on) => (on ? <Check size={16} aria-hidden="true" /> : <span aria-hidden="true" style={{ display: 'inline-block', width: 16 }} />);
 
@@ -523,6 +545,14 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
         let sc = target.parentElement;
         while (sc && !(sc.scrollHeight > sc.clientHeight && /auto|scroll/.test(getComputedStyle(sc).overflowY))) sc = sc.parentElement;
         const bottom = sc ? sc.getBoundingClientRect().bottom : window.innerHeight;
+        // 実際に下を覆っているもの（「保存しました。」の知らせ・右下の「メモを書く」）の上端を測り、決まった空きより
+        //   高ければその上 8 まで空ける（知らせが 2 行になる・文字が大きいと、決まった空きでは知らせの下に隠れていた・2026-11-23 点検）。
+        const coverTop = bottomCoverTop();
+        if (coverTop < bottom) {
+          const need = Math.ceil(bottom - coverTop + 8);
+          const now = parseFloat(getComputedStyle(target).scrollMarginBottom) || 0;
+          if (need > now) target.style.scrollMarginBottom = `${need}px`;
+        }
         const r = target.getBoundingClientRect();
         const margin = parseFloat(getComputedStyle(target).scrollMarginBottom) || 0;
         if (r.bottom + margin > bottom && r.top >= 0) block = 'end';

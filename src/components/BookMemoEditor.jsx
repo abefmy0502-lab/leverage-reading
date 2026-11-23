@@ -10,7 +10,7 @@ import { ensureAiConsent } from '../lib/aiConsent';
 import { usePaywall } from '../state/PaywallContext';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
-import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, input as uiInput, fieldNote } from '../styles/ui';
+import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, input as uiInput } from '../styles/ui';
 import { ensureHttps } from '../lib/url';
 import { Sparkles, Undo2, ImagePlus, X, Plus } from 'lucide-react';
 import { Chip } from './formPrimitives';
@@ -509,8 +509,9 @@ export default function BookMemoEditor({
         cancelLabel: '編集を続ける',
         danger: true,
       } : {
+        // 新しいメモの書きかけ（本文はボタンの「破棄する」と同じ言葉で・2026-11-23）。
         title: '書きかけのメモがあります',
-        message: '消すと、元に戻せません。',
+        message: '破棄すると、元に戻せません。',
         confirmLabel: '破棄する',
         cancelLabel: '編集を続ける',
         danger: true,
@@ -623,7 +624,7 @@ export default function BookMemoEditor({
         </div>
 
         <div>
-          <label htmlFor="memo-page" style={fieldLabel}>ページ番号<span style={fieldNote}>（任意）</span></label>
+          <label htmlFor="memo-page" style={fieldLabel}>ページ番号</label>
           <input
             id="memo-page"
             type="number"
@@ -641,7 +642,7 @@ export default function BookMemoEditor({
 
         <div>
           {/* 「写真から書き起こす」（本文に文字を入れる）と区別して、写真そのものをメモに残すのは「写真を添える」。 */}
-          <label style={fieldLabel}>写真を添える<span style={fieldNote}>（任意）</span></label>
+          <label style={fieldLabel}>写真を添える</label>
           {!shownPreview && (
             <>
               <button
@@ -702,7 +703,7 @@ export default function BookMemoEditor({
         </div>
 
         <div>
-          <label htmlFor="memo-tag" style={fieldLabel}>タグ<span style={fieldNote}>（任意）</span></label>
+          <label htmlFor="memo-tag" style={fieldLabel}>タグ</label>
           {/* 本の追加・編集画面のタグ（formPrimitives の TagInput）と同じ形（DESIGN §5「選ぶためのチップ」44・2026-10-04）:
               付けたもの＝選択中のチップ（--accent-soft・押すと外す）、候補＝「＋ タグ」のチップ（押すと付ける）。
               打ちかけのタグを保存に含めるため、入力欄の状態はこの画面で持つ（TagInput は使わない）。 */}

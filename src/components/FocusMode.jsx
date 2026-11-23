@@ -128,7 +128,8 @@ function RoundButton({ label, icon, onClick, children, disabled = false, ...rest
         aria-label={label}
         disabled={disabled}
         className="focus-round"
-        style={{ opacity: disabled ? 0.5 : 1, position: 'relative', width: 'var(--focus-btn)', height: 'var(--focus-btn)', borderRadius: '50%', border: '1px solid var(--focus-line-strong)', background: 'transparent', color: 'var(--focus-ink)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0, fontFamily: 'inherit', WebkitTapHighlightColor: 'transparent' }}
+        // 押せないときも薄くしない（DESIGN §5「押せないボタン」）: 枠を淡い線に・アイコンを --focus-ink-3 に。
+        style={{ opacity: 1, position: 'relative', width: 'var(--focus-btn)', height: 'var(--focus-btn)', borderRadius: '50%', border: `1px solid ${disabled ? 'var(--focus-line)' : 'var(--focus-line-strong)'}`, background: 'transparent', color: disabled ? 'var(--focus-ink-3)' : 'var(--focus-ink)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: disabled ? 'default' : 'pointer', padding: 0, fontFamily: 'inherit', WebkitTapHighlightColor: 'transparent' }}
         {...rest}
       >
         {icon}
@@ -416,7 +417,7 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
                     });
                     onClose();
                   }}
-                  style={{ marginTop: 'var(--space-3)', minHeight: 'var(--tap-min)', padding: '0 var(--space-3)', background: 'none', border: 'none', color: 'var(--focus-ink-2)', fontSize: 'var(--text-sub)', fontWeight: 600, wordBreak: 'keep-all', overflowWrap: 'anywhere', cursor: removing ? 'default' : 'pointer', fontFamily: 'inherit' }}
+                  style={{ marginTop: 'var(--space-3)', minHeight: 'var(--tap-min)', padding: '0 var(--space-3)', background: 'none', border: 'none', color: 'var(--focus-ink-2)', fontSize: 'var(--text-sub)', fontWeight: 600, wordBreak: 'keep-all', overflowWrap: 'anywhere', cursor: removing ? 'default' : 'pointer', fontFamily: 'inherit', opacity: 1 }}
                 >
                   {removing ? '外しています…' : withPhraseBreaks('止め忘れていたら、この回を記録から外す')}
                 </button>
@@ -503,8 +504,8 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
         {phase === 'timerDone' && (
           <div key="timer-done" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
             {/* 上＝主「おわる」・下＝副「続けて読む」（おわったときの「メモを書く」「閉じる」と同じ並び）。 */}
-            <button type="button" onClick={finish} disabled={busy} style={{ ...footBtn(true), opacity: busy ? 0.5 : 1 }}>おわる</button>
-            <button type="button" onClick={continueReading} disabled={busy} style={{ ...footBtn(false), opacity: busy ? 0.5 : 1 }}>続けて読む</button>
+            <button type="button" onClick={finish} disabled={busy} style={{ ...footBtn(true), opacity: 1, cursor: busy ? 'default' : 'pointer' }}>おわる</button>
+            <button type="button" onClick={continueReading} disabled={busy} style={{ ...footBtn(false), opacity: 1, cursor: busy ? 'default' : 'pointer' }}>続けて読む</button>
           </div>
         )}
         {/* おわったとき（2026-10-11 オーナー裁定）: 「メモを書く」と「写真で共有」の 2 つ＋閉じる。

@@ -133,9 +133,14 @@ export default function PhotoToTextButton({ onText, disabled = false, style }) {
         refreshTokens?.(); // 「今月の残り N 回」を取り直す
         return;
       }
-      // 理由のあとに次の一歩を短く（理由の文がすでに「お試しください」を含むときは重ねない・2026-09-29 に文を短く）。
+      // オフライン・画像の大きさ／形式は、その理由をそのまま（直し方が違う）。
+      //   それ以外（サーバー・通信・AI の混雑）は、何が起きたかと「減っていない」ことを言う（2026-11-23 点検）。
+      //   サーバーは答えられなかった回を数えない（api/claude.js が回数を返し、トークンの予約も戻す）。
       const reason = toMessage(e2, '');
-      const message = /お試しください/.test(reason) ? reason : `${reason}もう一度お試しください。`;
+      const own = /オフライン|画像|形式/.test(reason);
+      const message = own
+        ? (/お試しください|ください。$/.test(reason) ? reason : `${reason}もう一度お試しください。`)
+        : `つながらなかったか、AI が混んでいました。${freeMode ? '回数' : 'トークン'}は減っていません。`;
       setFailure({ title: '写真を読み取れませんでした', message, retry: true });
     } finally {
       setLoading(false);
@@ -158,7 +163,8 @@ export default function PhotoToTextButton({ onText, disabled = false, style }) {
             文字は自分の幅だけ取り（flex: 0 1 auto）、2 行になってもアイコンが離れて取り残されないように左寄せ。 */}
         <span style={{ flex: '0 1 auto', textAlign: 'left', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(loading ? '読み取り中…' : '写真から書き起こす')}</span>
       </button>
-      {hint && !loading && !failure && (
+      {/* 失敗したときも残りの回数は出したまま（「減っていない」ことが目で確かめられる・2026-11-23 点検）。 */}
+      {hint && !loading && (
         <p style={usedUp ? { ...hintStyle, color: 'var(--text-2)' } : hintStyle} aria-hidden="true">
           {hint.map((part) => <span key={part} style={{ whiteSpace: 'nowrap' }}>{part}</span>)}
         </p>

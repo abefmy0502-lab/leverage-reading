@@ -12,10 +12,10 @@
 // 残りは「ほかに N 件」で畳む（読む量を減らす・項目は大事な順・2026-10-05 ui-critic）。全部開くのは設定の一覧だけ。
 
 import { Fragment } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import BottomSheet from './BottomSheet';
 import { withPhraseBreaks } from './TightBubble';
-import { btnPrimary, groupTitle } from '../styles/ui';
+import { btnPrimary, btnLink, groupTitle } from '../styles/ui';
 import { releaseHeading, groupReleasesByDay } from '../lib/whatsNew';
 
 const wrapText = { wordBreak: 'keep-all', overflowWrap: 'anywhere', lineBreak: 'strict' };
@@ -161,7 +161,19 @@ const ROWS = [
   ['intent', '意図'],
 ];
 
-function ReleaseItem({ item }) {
+// 「開く ›」（2026-11-23）: 項目に open（その画面の決まった名前・releaseNotes.js の OPEN_TARGETS）があり、
+//   開いた場所がその画面へ移れる（openTargets に入っている）ときだけ、カードのいちばん下に文字ボタン。
+//   移れない場所（Web の新しい版の知らせなど）では出さない＝押しても何も起きないボタンを作らない。
+const openBtnStyle = {
+  ...btnLink,
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 'var(--space-1)',
+  margin: 'var(--space-1) 0 calc(-1 * var(--space-2)) calc(-1 * var(--space-1))',
+};
+
+function ReleaseItem({ item, opener }) {
+  const canOpen = !!(opener && typeof item.open === 'string' && opener.targets.includes(item.open));
   return (
     <li style={itemCardStyle}>
       <p style={whereStyle}>{withPhraseBreaks(item.where)}</p>
@@ -175,26 +187,32 @@ function ReleaseItem({ item }) {
           </div>
         ))}
       </dl>
+      {canOpen && (
+        <button type="button" style={openBtnStyle} onClick={() => opener.onOpen(item.open)} aria-label={`${item.where}を開く`}>
+          開く
+          <ChevronRight size="1em" aria-hidden="true" style={{ flexShrink: 0 }} />
+        </button>
+      )}
     </li>
   );
 }
 
-function ItemList({ items, keyPrefix }) {
+function ItemList({ items, keyPrefix, opener }) {
   return (
     <ul style={itemListStyle}>
-      {items.map((item, i) => <ReleaseItem key={`${keyPrefix}-${i}`} item={item} />)}
+      {items.map((item, i) => <ReleaseItem key={`${keyPrefix}-${i}`} item={item} opener={opener} />)}
     </ul>
   );
 }
 
 // open: 開いておく件数（null＝全部）。残りは「ほかに N 件」で畳む。
-function ReleaseItems({ release, open = null }) {
+function ReleaseItems({ release, open = null, opener = null }) {
   const items = release.items;
-  if (!open || items.length <= open) return <ItemList items={items} keyPrefix={release.id} />;
+  if (!open || items.length <= open) return <ItemList items={items} keyPrefix={release.id} opener={opener} />;
   const rest = items.slice(open);
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-      <ItemList items={items.slice(0, open)} keyPrefix={release.id} />
+      <ItemList items={items.slice(0, open)} keyPrefix={release.id} opener={opener} />
       <details>
         <summary style={restSummaryStyle}>
           <span style={restLabelWrap}>
@@ -205,7 +223,7 @@ function ReleaseItems({ release, open = null }) {
           <ChevronDown size="1.2em" aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
         </summary>
         <div style={{ marginTop: 'var(--space-3)' }}>
-          <ItemList items={rest} keyPrefix={`${release.id}-rest`} />
+          <ItemList items={rest} keyPrefix={`${release.id}-rest`} opener={opener} />
         </div>
       </details>
     </div>
@@ -217,7 +235,8 @@ const DAY_OPEN_ITEMS = 8;
 
 // releases: 新しい順の版の配列。2 つ目からは畳む（多いと最初の版が下に押し流されるため）。
 // openCount: いちばん新しい版で開いておく件数（null＝日ごとに上の 8 件・設定の一覧）。
-export function ReleaseNotesList({ releases, openCount = null }) {
+// opener: { targets: [...], onOpen(target) } — 「開く ›」で移れる画面（無ければ出さない）。
+export function ReleaseNotesList({ releases, openCount = null, opener = null }) {
   // 同じ日の版は 1 つの見出しにまとめる（「10月8日の更新」が 5 つ並ばないように・2026-10-09）。
   const list = groupReleasesByDay(Array.isArray(releases) ? releases : []).filter((r) => r && Array.isArray(r.items) && r.items.length);
   return (
@@ -225,7 +244,7 @@ export function ReleaseNotesList({ releases, openCount = null }) {
       {list.map((r, i) => (i === 0 ? (
         <section key={r.id} aria-label={releaseHeading(r)}>
           <h4 style={releaseHeadingStyle}>{withPhraseBreaks(releaseHeading(r))}</h4>
-          <ReleaseItems release={r} open={openCount ?? DAY_OPEN_ITEMS} />
+          <ReleaseItems release={r} open={openCount ?? DAY_OPEN_ITEMS} opener={opener} />
         </section>
       ) : (
         <details key={r.id}>
@@ -235,7 +254,7 @@ export function ReleaseNotesList({ releases, openCount = null }) {
             <ChevronDown size="1.2em" aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
           </summary>
           <div style={{ marginTop: 'var(--space-3)' }}>
-            <ReleaseItems release={r} open={DAY_OPEN_ITEMS} />
+            <ReleaseItems release={r} open={DAY_OPEN_ITEMS} opener={opener} />
           </div>
         </details>
       )))}
@@ -247,8 +266,11 @@ export function ReleaseNotesList({ releases, openCount = null }) {
 export const AUTO_OPEN_ITEMS = 3;
 
 // mode: 'after'（更新したあと・既定）／'all'（設定から）／'upcoming'（Web の新しい版の中身・下に「更新する」）
-export default function WhatsNewSheet({ releases, onClose, mode = 'after', onApply, layer = null }) {
+// onOpen(target) / openTargets: 項目の「開く ›」で移れる画面（releaseNotes.js の OPEN_TARGETS のうち、開いた場所が扱えるもの）。
+//   呼ぶ側がシートを閉じてから移る。新しい版の中身（upcoming）はまだ入っていない画面なので出さない。
+export default function WhatsNewSheet({ releases, onClose, mode = 'after', onApply, layer = null, onOpen = null, openTargets = [] }) {
   const upcoming = mode === 'upcoming';
+  const opener = !upcoming && onOpen && openTargets.length ? { targets: openTargets, onOpen } : null;
   return (
     <BottomSheet
       title={upcoming ? '新しい版で変わること' : '新しくなったこと'}
@@ -259,7 +281,7 @@ export default function WhatsNewSheet({ releases, onClose, mode = 'after', onApp
         <button type="button" style={{ ...btnPrimary, width: '100%' }} onClick={onApply}>更新する</button>
       ) : null}
     >
-      <ReleaseNotesList releases={releases} openCount={mode === 'all' ? null : AUTO_OPEN_ITEMS} />
+      <ReleaseNotesList releases={releases} openCount={mode === 'all' ? null : AUTO_OPEN_ITEMS} opener={opener} />
     </BottomSheet>
   );
 }

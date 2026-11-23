@@ -203,14 +203,14 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete, onS
     closingRef.current = true;
     const ok = await confirm(isCreate ? {
       title: '書きかけの行動があります',
-      message: '消すと、元に戻せません。',
+      message: '破棄すると、元に戻せません。',
       confirmLabel: '破棄する',
       cancelLabel: '編集を続ける',
       danger: true,
     } : {
       title: '保存していない変更があります',
       message: '行動は元のまま残ります。',
-      confirmLabel: '変更を破棄',
+      confirmLabel: '破棄する',
       cancelLabel: '編集を続ける',
       danger: true,
     });

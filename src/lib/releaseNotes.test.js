@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { RELEASES, RELEASE_RECORDS, visibleReleases, CURRENT_RELEASE_ID, WHERE_NAMES, releasesSince, RELEASE_NOTES_SINCE } from './releaseNotes';
+import { RELEASES, RELEASE_RECORDS, visibleReleases, CURRENT_RELEASE_ID, WHERE_NAMES, releasesSince, RELEASE_NOTES_SINCE, OPEN_TARGETS } from './releaseNotes';
 import {
   decideWhatsNew, releasesNewerThan, sanitizeReleases, compareReleaseId, releaseHeading, groupReleasesByDay,
 } from './whatsNew';
@@ -60,6 +60,13 @@ describe('RELEASES（新しくなったこと）', () => {
         expect(typeof it[f], `${it._where}.${f}`).toBe('string');
         expect(it[f].trim().length, `${it._where}.${f} が空`).toBeGreaterThan(0);
       }
+    }
+  });
+
+  it('開く（open）は決まった画面の名前だけ（任意）', () => {
+    for (const it of allItems()) {
+      if (it.open === undefined) continue;
+      expect(OPEN_TARGETS, `${it._where}.open「${it.open}」`).toContain(it.open);
     }
   });
 
