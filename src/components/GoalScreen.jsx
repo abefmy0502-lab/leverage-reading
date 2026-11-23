@@ -438,6 +438,34 @@ function GoalEditSheet({ horizonKey, initial, hasRoadmap, nextLabel, onClose, on
 // ---------------------------------------------------------------------------
 // 「達成するには？」の深掘り
 // ---------------------------------------------------------------------------
+// 目標 1 つだけのとき（「達成するには？」の上）。2 行で切れたら「全文を見る」で全文を読める（文字を大きくすると 1 年後の目標が … で読めなかった・2026-11-23 点検）。
+function GoalSingleClamp({ h, when, text }) {
+  const ref = useRef(null);
+  const [open, setOpen] = useState(false);
+  const [cut, setCut] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || open) return undefined;
+    const measure = () => { if (el.clientHeight > 0) setCut(el.scrollHeight - el.clientHeight > 1); };
+    measure();
+    if (typeof ResizeObserver !== 'function') return undefined;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [open, text]);
+  return (
+    <div className="goal-trio-single">
+      {when(h)}
+      <span ref={ref} className={`goal-text${open ? '' : ' goal-text-clamp'}`}>{withPhraseBreaks(text)}</span>
+      {(cut || open) && (
+        <button type="button" className="goal-single-more" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+          {open ? '閉じる' : '全文を見る'}<ChevronDown size="1em" aria-hidden="true" style={open ? { transform: 'rotate(180deg)' } : undefined} />
+        </button>
+      )}
+    </div>
+  );
+}
+
 // 3 つの目標の見出し（深掘り・ロードマップ・読書計画の上）。compact は 1 行ずつ小さく。
 // tight: 「達成するには？」の上（いちばん近い目標を 2 行まで・問いを最初の画面に・2026-11-23 ui-critic）。
 function GoalTrio({ goals, compact = false, fold = false, tight = false, onEdit = null }) {
@@ -449,13 +477,7 @@ function GoalTrio({ goals, compact = false, fold = false, tight = false, onEdit 
   // ロードマップの上では畳む（いちばん近い目標だけ・押すとほかの目標も・2026-11-17 ui-critic「いまの 3 か月を最初の画面に」）。
   //   期限が過ぎた目標があれば、その目標を見せる。
   if (fold && tight && set.length === 1) {
-    const only = set[0];
-    return (
-      <div className="goal-trio-single">
-        {when(only)}
-        <span className="goal-text goal-text-clamp">{withPhraseBreaks(goals[only.key].text)}</span>
-      </div>
-    );
+    return <GoalSingleClamp h={set[0]} when={when} text={goals[set[0].key].text} />;
   }
   if (fold && set.length > 1) {
     const first = set.find((h) => overdue.has(h.key)) || set[0];
@@ -465,7 +487,8 @@ function GoalTrio({ goals, compact = false, fold = false, tight = false, onEdit 
         <summary>
           <span className="goal-trio-first">
             {when(first)}
-            <span className="goal-text goal-text-clamp">{withPhraseBreaks(goals[first.key].text)}</span>
+            {/* 文字が大きいときは切らない（3 行では数語しか見えず、畳みを開いても全文が出ると分からなかった・2026-11-23 点検）。 */}
+            <span className={`goal-text${largeRootText() ? '' : ' goal-text-clamp'}`}>{withPhraseBreaks(goals[first.key].text)}</span>
           </span>
           <span className="goal-trio-more">{`${rest.map((h) => h.label).join('・')}の目標`}<ChevronDown className="fold-chevron" size="1em" aria-hidden="true" /></span>
         </summary>
@@ -636,14 +659,26 @@ function InterviewView({ goal, goals, roadmaps, books, sessions, onDone, onCance
             <button type="button" style={btnLinkQuiet} onClick={() => submit('（まだ言葉にできない）')}>{OPT_UNSURE}</button>
           </div>
           <p className="goal-q-progress">
-            {/* つくるときにトークンを使うことを、押す前に言う（2026-11-23 点検）。 */}
-            {withPhraseBreaks(left > 0 ? `あと 1 つ聞いたら、ロードマップをつくります（${ROADMAP_TOKENS_LABEL}）` : `次で、ロードマップをつくります（${ROADMAP_TOKENS_LABEL}）`)}
+            {withPhraseBreaks(left > 0 ? 'あと 1 つ聞いたら、ロードマップをつくります' : '次で、ロードマップをつくります')}
           </p>
-          <button type="button" style={{ ...btnLinkQuiet, marginTop: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }} onClick={finishNow}>{`このくらいでつくる（${ROADMAP_TOKENS_LABEL}）`}</button>
+          {/* つくるときにトークンを使うことは、押す前にこのボタンの 1 か所だけで言う（同じ箱に 2 回書かない・「トー／クン」と割らない・2026-11-23 点検）。 */}
+          <button type="button" style={{ ...btnLinkQuiet, marginTop: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))', justifyContent: 'flex-start', textAlign: 'left' }} onClick={finishNow}>
+            <span>このくらいでつくる<span style={{ whiteSpace: 'nowrap' }}>{`（${ROADMAP_TOKENS_LABEL}）`}</span></span>
+          </button>
         </div>
       )}
     </>
   );
+}
+
+// いまの区切りの見出し（「いまの 3 か月（11月〜1月）」・3 か月の区切りのときだけ実際の月を添える・数と「か月」は割らない）。
+export function nowQuarterTitle(spec) {
+  const base = 'いまの 3\u00a0か月';
+  const m = /^(\d{4})-(\d{2})$/.exec(String(spec?.startYm || ''));
+  if (!m || spec?.months !== 3) return base;
+  const a = Number(m[2]);
+  const b = ((a - 1 + 2) % 12) + 1;
+  return `${base}（${a}月〜${b}月）`;
 }
 
 // 相談に入れる下書き（送らない）。「1 年後の目標は「…」です。」＋いまの 3 か月に取り組むこと＋問い。
@@ -794,7 +829,8 @@ function RoadmapView({ goal, record, books, sessions = [], onOpenBook, onAddActi
 
       {/* いまの 3 か月（はじめての人が最初の画面で「次に何をするか」が分かるように・2026-11-16）。 */}
       <section className="goal-box rm-now" aria-labelledby="rm-now">
-        <p id="rm-now" className="goal-sec-title" style={{ margin: 0 }}>{`いまの 3 か月 · ${specs[here]?.label || ''}`}</p>
+        {/* 「いまの 3 か月 · 1〜3 か月目」は同じことを 2 回言っていた＝実際の月だけ添える（2026-11-23 点検）。 */}
+        <p id="rm-now" className="goal-sec-title" style={{ margin: 0 }}>{withPhraseBreaks(nowQuarterTitle(specs[here]))}</p>
         {roadmap.phases[here]?.focus && <p className="rm-phase-focus" style={{ marginTop: 'var(--space-1)' }}>{withPhraseBreaks(roadmap.phases[here].focus)}</p>}
         {needBooks && onChooseBooks ? (
           <>
@@ -853,8 +889,9 @@ function RoadmapView({ goal, record, books, sessions = [], onOpenBook, onAddActi
         )}
         {/* 💬 この 3 か月に取り組むことを相談へ（下書きを入れるだけ・送るまでトークンは使わない・2026-11-23 点検）。 */}
         {onConsult && roadmap.phases[here]?.focus && !choosing && (
-          <button type="button" className="rm-link" style={{ ...linkStyle, ...quietColor }} onClick={() => onConsult(consultDraftFor(goal.goals, roadmap.phases[here].focus))}>
-            この 3 か月のことを相談する
+          // 記録の「この結果を相談する」と同じ栗色の文字ボタン・左にそろえる（文字が大きいときも「3 か月」を割らない・2026-11-23 点検）。
+          <button type="button" className="rm-link" style={{ ...linkStyle, justifyContent: 'flex-start', textAlign: 'left', wordBreak: 'keep-all', overflowWrap: 'anywhere' }} onClick={() => onConsult(consultDraftFor(goal.goals, roadmap.phases[here].focus))}>
+            <span>{withPhraseBreaks('この 3\u00a0か月のことを相談する')}</span>
           </button>
         )}
       </section>

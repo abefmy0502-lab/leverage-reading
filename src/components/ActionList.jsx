@@ -770,7 +770,7 @@ export default function ActionList({ books, onOpenGoals = null, onToggleAction, 
         {canAdd && (
           // 文が行を埋めて右端に。文字を大きくして次の行へ回ったときは左にそろえる（2026-10-10 ui-critic）。
           // 枠のボタンにせず、見出しの行の文字ボタン（右端の文字をカードの右端にそろえる・2026-10-16 ui-critic）。
-          <button type="button" onClick={onAddAction} style={{ ...btnLink, gap: 'var(--space-1)', marginRight: 'calc(-1 * var(--space-1))', ...(weekLine.total > 0 || open.length > 0 ? (largeRoot() ? { marginLeft: 'calc(-1 * var(--space-2))' } : null) : { marginLeft: 'auto' }) }}>
+          <button type="button" onClick={onAddAction} style={{ ...btnLink, fontSize: 'var(--text-meta)', gap: 'var(--space-1)', marginRight: 'calc(-1 * var(--space-1))', ...(weekLine.total > 0 || open.length > 0 ? (largeRoot() ? { marginLeft: 'calc(-1 * var(--space-2))' } : null) : { marginLeft: 'auto' }) }}>
             <Plus size="1.2em" aria-hidden="true" />追加
           </button>
         )}
@@ -820,7 +820,7 @@ export default function ActionList({ books, onOpenGoals = null, onToggleAction, 
                     const a = list[0];
                     if (a) onEditAction(a.bookId, a.actionIdx, a, { queue: list.slice(1), total: list.length });
                   }}
-                  style={{ ...btnLink, whiteSpace: 'nowrap', marginRight: 'calc(-1 * var(--space-1))', ...(largeRoot() ? { marginLeft: 'calc(-1 * var(--space-1))' } : null) }}
+                  style={{ ...btnLink, fontSize: 'var(--text-meta)', whiteSpace: 'nowrap', marginRight: 'calc(-1 * var(--space-1))', ...(largeRoot() ? { marginLeft: 'calc(-1 * var(--space-1))' } : null) }}
                 >
                   期限を見直す
                 </button>

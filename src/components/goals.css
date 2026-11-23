@@ -198,7 +198,7 @@
   font-family: var(--font-read);
   /* 受け取ったまとめは読む文章（明朝 18・--text・2026-11-18 ui-critic「SPEC と違う」） */
   font-size: var(--text-read);
-  line-height: 1.7;
+  line-height: 1.6;
   color: var(--text);
   word-break: normal;
   line-break: strict;
@@ -516,3 +516,9 @@
 /* 見た目は詰めて（行の間 45 は空きすぎ・2026-11-18 ui-critic）、押せる範囲は ::after で上下 44 */
 .plan-week-note-btn { position: relative; min-height: 0; padding: var(--space-1) 0; background: none; border: none; font-family: inherit; font-size: var(--text-meta); line-height: 1.5; color: var(--text-2); text-align: left; cursor: pointer; overflow-wrap: anywhere; }
 .plan-week-note-btn::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: var(--tap-min); transform: translateY(-50%); }
+/* 目標 1 つだけのときの「全文を見る」（2 行で切れたときだけ・押すと全文・2026-11-23 点検） */
+.goal-single-more {
+  display: inline-flex; align-items: center; gap: var(--space-1);
+  min-height: var(--tap-min); margin-left: calc(-1 * var(--space-1)); padding: 0 var(--space-1);
+  background: none; border: none; font-family: inherit; font-size: var(--text-meta); font-weight: 600; color: var(--accent); cursor: pointer;
+}
