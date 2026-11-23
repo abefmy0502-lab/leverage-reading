@@ -17,6 +17,21 @@
 | [ ] | LINE オープンチャット（創業メンバーの部屋）を作り、まだ公開しない（`line-openchat.md`） | オ | — |
 | [ ] | 自分のテスト用のアカウントを `app_admins` に入れる（運営の数字から外す・SQL は `sql-exclude-own-accounts.md`） | オ | 運営ダッシュボードの有料が 0 |
 
+### 0-1. 公開の準備（運営ダッシュボードの `launch_gates`・2026-11-23 06:37 に読んだ）
+
+- **SQL**：19 個すべて ✓（流し直しは要らない）。
+- **鍵・設定で ✓ のもの**：Supabase・Anthropic・Gemini・RevenueCat（Webhook と Secret）・Cron・楽天・Google Books・創業メンバー価格。
+- **まだのもの**（どれもオーナーの鍵か Vercel の設定＝Claude は触らない）:
+
+| 名前 | 公開に要るか | いつ・どこ |
+|---|---|---|
+| `VITE_APP_STORE_URL`・`VITE_APP_STORE_PT` | **要る** | 公開の朝 7:15（§2） |
+| `VITE_RELEASE_NOTES_SINCE` | **要る**（Vercel にも。無いと公開前の「新しくなったこと」が全部出る） | 公開の朝に公開の日付で（`.env.production` は 2026-11-17 のまま＝iOS は届いている） |
+| `X_*`・`THREADS_*`・`IG_*`・`OPENAI_API_KEY` | 自動で投稿・画像を作るなら要る（無ければ手で投稿） | 承認までに（やることの一覧・期日 11/24） |
+| `APNS_*`・`VITE_NATIVE_PUSH` | 要らない（通知は 1.0.1 以降） | 公開のあと |
+| `VAPID_*`・`LP_IP_SALT`・`SENTRY`・`VITE_REFERRAL_CODE` | 要らない（任意） | 公開のあと |
+| Stripe | 要らない（iPhone のアプリだけで売る） | — |
+
 ## 1. 承認の知らせが来たら（その日のうちに・5 分）
 
 - [ ] 公開する朝を決める：**次の平日の朝 7:30**（金曜の夜に来たら月曜）。カレンダーに入れる。**オ**
