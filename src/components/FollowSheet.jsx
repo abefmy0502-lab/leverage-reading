@@ -4,6 +4,8 @@
 //   相手を探す欄は「リンクか ID」だけ（名前で探さない）。承認の前に「本棚とこの本のまとめをいつでも見られます」と確かめる。
 //   ブロック・通報は相手の本棚・フォロワー・届いた申し込み・ID で見つけた人の行の「…」から（App 審査 1.2）。
 //   通報は理由をえらぶ画面で受け、届いたかを確かめて知らせる（あわせてブロックもできる・2026-11-22）。
+//   相手の本棚の上の「フォロー中 N」「フォロワー N」→ その人のつながりの画面（その場でフォロー・承認済みならその人の本棚へ・
+//   2026-11-23）。自分の一覧を見せるかは一覧の下のスイッチ（オフ＝見せない・ほかの人の一覧にも出ない）。
 import { lazy, Suspense, useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { MoreHorizontal, ChevronLeft, ChevronRight, Check, Share } from 'lucide-react';
@@ -23,7 +25,7 @@ import { withPhraseBreaks } from './TightBubble';
 import {
   publicIdFrom, previewProfile, requestFollow, followResultMessage, loadFollows, respondFollow, removeFollow,
   blockUser, unblockUser, reportProfile, loadFolloweeShelf, SHELF_ORDER, myIdShareText, summaryExcerpt,
-  REPORT_REASONS, reportReasonText,
+  REPORT_REASONS, reportReasonText, loadFolloweeConnections, withRelation, setFollowsVisible,
 } from '../lib/social';
 import { track } from '../lib/analytics';
 import { useAuth } from '../hooks/useAuth';
@@ -74,6 +76,24 @@ function PersonRow({ person, children, onOpen, first = false }) {
         ? <button type="button" onClick={onOpen} style={{ ...plainBtn, flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minHeight: 'var(--tap-min)' }}>{body}</button>
         : <span style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>{body}</span>}
       {children}
+    </div>
+  );
+}
+
+// 相手のフォロー中・フォロワーの数（押すとその一覧・2026-11-23）。読んでいる間は同じ高さの形、隠している・見られないときは出さない。
+function ConnCounts({ conn, onOpen }) {
+  if (conn === 'loading') return <SkeletonBlock height="var(--tap-min)" style={{ width: '60%', marginTop: 'var(--space-2)' }} />;
+  if (!conn || typeof conn !== 'object' || !conn.visible) return null;
+  const item = (tab, n, label) => (
+    <button type="button" onClick={() => onOpen(tab)} aria-label={`${label} ${n} 人を見る`} style={{ ...plainBtn, display: 'inline-flex', alignItems: 'baseline', gap: 'var(--space-1)', minHeight: 'var(--tap-min)' }}>
+      <span style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>{n}</span>
+      <span style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)' }}>{label}</span>
+    </button>
+  );
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 'var(--space-6)', marginTop: 'var(--space-2)' }}>
+      {item('following', conn.following.length, 'フォロー中')}
+      {item('followers', conn.followers.length, 'フォロワー')}
     </div>
   );
 }
@@ -179,15 +199,20 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
   const [text, setText] = useState(initialId);
   const [preview, setPreview] = useState(null); // { person } | { missing: true }
   const [checking, setChecking] = useState(false);
-  const [view, setView] = useState(initialReport ? { name: 'report', person: initialReport, back: { name: 'home' } } : initialTab ? { name: 'list' } : { name: 'home' }); // home | person { person } | book { person, book } | report
+  const [view, setView] = useState(initialReport ? { name: 'report', person: initialReport, back: { name: 'home' } } : initialTab ? { name: 'list' } : { name: 'home' }); // home | list | person { person, back } | conn { person, tab, back } | book { person, book, back } | report
   const [shelf, setShelf] = useState(null); // { profile, books } | 'loading' | 'none'
   const [menu, setMenu] = useState(null); // { x, y, items }
   const [wantState, setWantState] = useState({});
   const [shelfFilter, setShelfFilter] = useState(''); // '' | 状態 | 'summary'
   const [reportForm, setReportForm] = useState({ reason: '', detail: '', alsoBlock: false, busy: false, failed: false });
+  // 相手のフォロー中・フォロワー（public_id → { visible, following, followers } | 'loading' | 'none'）と、自分の一覧を見せるか。
+  const [conns, setConns] = useState({});
+  const [followsVisible, setFollowsVisibleState] = useState(true);
+  const [visibleBusy, setVisibleBusy] = useState(false);
   // 画面（一覧 → 本棚 → 本）を移ったら、シートの中をいちばん上へ（下の本を押して開いた本が途中から見えないように）。
   const bodyRef = useRef(null);
-  const viewKey = view.name === 'book' ? `b:${view.book.id}` : view.name === 'report' ? `r:${view.person.publicId}` : view.name;
+  const viewKey = view.name === 'book' ? `b:${view.book.id}` : view.name === 'report' ? `r:${view.person.publicId}`
+    : view.name === 'person' || view.name === 'conn' ? `${view.name}:${view.person.publicId}` : view.name;
   useEffect(() => {
     let el = bodyRef.current?.parentElement;
     while (el && el !== document.body) {
@@ -207,6 +232,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
       const r = await loadFollows();
       if (!r.ok) { setNotReady(true); setLists({ following: [], followers: [], requests: [], sent: [], blocked: [] }); return; }
       setLists(r.lists);
+      setFollowsVisibleState(r.followsVisible);
     } catch {
       setLists((prev) => prev || { following: [], followers: [], requests: [], sent: [], blocked: [] });
       toast.error('フォローの一覧を読めませんでした。通信状況を確認してください。');
@@ -245,6 +271,8 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
       if (result === 'pending' || result === 'accepted') {
         toast.success(followResultMessage(result));
         setPreview((pv) => (pv?.person?.publicId === person.publicId ? { person: { ...person, relation: result } } : pv));
+        // 相手のつながりの画面でフォローしたときも、その行をすぐ「承認を待っています」に。
+        setConns((m) => Object.fromEntries(Object.entries(m).map(([k, c]) => [k, withRelation(c, person.publicId, result)])));
         if (result === 'pending') setTab('requests');
         reload();
       } else if (result === 'no_profile') {
@@ -262,7 +290,9 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
     if (accept) {
       const ok = await confirm({
         title: `${who(person)}のフォローを承認しますか？`,
-        message: '承認すると、この人はあなたの本棚と「この本のまとめ」を、いつでも見られます。あとでフォロワーから外せます。',
+        message: followsVisible
+          ? '承認すると、この人はあなたの本棚と「この本のまとめ」、フォロー中・フォロワーの一覧を、いつでも見られます。あとでフォロワーから外せます。'
+          : '承認すると、この人はあなたの本棚と「この本のまとめ」を、いつでも見られます。あとでフォロワーから外せます。',
         confirmLabel: '承認する',
         cancelLabel: 'キャンセル',
       });
@@ -295,7 +325,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
     if (!ok) return;
     try {
       if (!(await removeFollow(person.publicId, as))) throw new Error('remove failed');
-      if (view.name !== 'home' && view.name !== 'list') setView(personBackRef.current);
+      if (view.name !== 'home' && view.name !== 'list') setView(rootOf(view));
       reload();
     } catch {
       toast.error('できませんでした。通信状況を確認してください。');
@@ -376,21 +406,64 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
     reload();
   };
 
-  // 人の本棚から戻る先（一覧だけの画面から開いたら、そこへ戻す）。
-  const personBackRef = useRef({ name: 'home' });
+  // 人の本棚から戻る先は、開いた画面（一覧・相手のつながり）。いちばん元（一覧かはじめの画面）は rootOf。
+  const rootOf = (v) => {
+    let cur = v;
+    while (cur && cur.name !== 'home' && cur.name !== 'list') cur = cur.back;
+    return cur || { name: 'home' };
+  };
   const personReqRef = useRef(0);
-  const openPerson = async (person) => {
+  const shelfCacheRef = useRef(new Map());
+  const loadConns = async (person, { force = false } = {}) => {
+    const id = person.publicId;
+    if (!force && conns[id] && conns[id] !== 'none') return;
+    setConns((m) => ({ ...m, [id]: m[id] && m[id] !== 'none' ? m[id] : 'loading' }));
+    try {
+      const c = await loadFolloweeConnections(id);
+      setConns((m) => ({ ...m, [id]: c || 'none' }));
+    } catch {
+      setConns((m) => ({ ...m, [id]: 'none' }));
+    }
+  };
+  const openPerson = async (person, back = view) => {
     const req = personReqRef.current + 1;
     personReqRef.current = req;
-    personBackRef.current = view.name === 'list' ? { name: 'list' } : { name: 'home' };
-    setView({ name: 'person', person });
-    setShelf('loading');
+    const from = back && (back.name === 'list' || back.name === 'conn' || back.name === 'home') ? back : { name: 'home' };
+    setView({ name: 'person', person, back: from });
     setShelfFilter('');
+    loadConns(person);
+    const cached = shelfCacheRef.current.get(person.publicId);
+    setShelf(cached || 'loading');
     try {
       const s = await loadFolloweeShelf(person.publicId);
+      if (s) shelfCacheRef.current.set(person.publicId, s);
       if (personReqRef.current === req) setShelf(s || 'none'); // 別の人を開き直していたら、古い答えは捨てる
     } catch {
-      if (personReqRef.current === req) setShelf('none');
+      if (personReqRef.current === req && !cached) setShelf('none');
+    }
+  };
+  // 相手のつながりから戻るときは、その人の本棚を開き直す（間に別の人の本棚を見ていても、元の人の本棚に戻る）。
+  const backFromConn = (v) => openPerson(v.person, v.back?.back || { name: 'home' });
+
+  // 自分の一覧を見せるか（すぐ切り替え・できなければ戻す）。
+  const toggleVisible = async () => {
+    if (visibleBusy) return;
+    const next = !followsVisible;
+    setFollowsVisibleState(next);
+    setVisibleBusy(true);
+    try {
+      const r = await setFollowsVisible(next);
+      if (r !== 'ok') {
+        setFollowsVisibleState(!next);
+        toast.error(r === 'no_profile' ? '先にプロフィールでニックネームを決めてください。' : '切り替えられませんでした。少し時間をおいてお試しください。');
+      } else {
+        track('follow_lists_visible', { on: next });
+      }
+    } catch {
+      setFollowsVisibleState(!next);
+      toast.error('切り替えられませんでした。通信状況を確認してください。');
+    } finally {
+      setVisibleBusy(false);
     }
   };
 
@@ -410,7 +483,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
     <div role="list">
       {books.map((b, i) => (
         <div role="listitem" key={b.id} style={{ borderTop: i === 0 ? 'none' : '1px solid var(--separator)' }}>
-          <button type="button" onClick={() => setView({ name: 'book', person, book: b })} style={{ ...plainBtn, width: '100%', display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-start', padding: 'var(--space-4) 0' }}>
+          <button type="button" onClick={() => setView((v) => ({ name: 'book', person, book: b, back: v.name === 'book' ? v.back : v }))} style={{ ...plainBtn, width: '100%', display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-start', padding: 'var(--space-4) 0' }}>
             <MiniCover title={shownTitle(b.title)} cover={b.cover} width={48} />
             <span style={{ minWidth: 0, flex: 1 }}>
               <span style={{ display: 'block', fontSize: 'var(--text-sub)', fontWeight: 600, lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(shownTitle(b.title), { scriptBreaks: true })}</span>
@@ -486,7 +559,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
         <div ref={bodyRef} style={sheetBody}>
         {/* 相手の文（まとめ）を読む画面にも「…」（通報・ブロック・App 審査 1.2・2026-11-22） */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <button type="button" onClick={() => setView({ name: 'person', person })} style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}>
+          <button type="button" onClick={() => setView(view.back?.name === 'person' ? view.back : { name: 'person', person, back: { name: 'home' } })} style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}>
             <ChevronLeft size="1.1em" aria-hidden="true" />{who(person)}の本棚
           </button>
           <button
@@ -549,6 +622,74 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
     );
   }
 
+  // ─── 相手のフォロー中・フォロワー（その場でフォロー・承認済みの人は本棚へ・2026-11-23） ───
+  if (view.name === 'conn') {
+    const { person, tab: ctab } = view;
+    const c = conns[person.publicId];
+    const loaded = c && typeof c === 'object' ? c : null;
+    const list = loaded?.visible ? (ctab === 'followers' ? loaded.followers : loaded.following) : [];
+    const CTABS = [{ id: 'following', label: 'フォロー中' }, { id: 'followers', label: 'フォロワー' }];
+    return createPortal(
+      <BottomSheet title={who(person)} onClose={onClose} layer="dialog">
+        <div ref={bodyRef} style={sheetBody}>
+        <button type="button" onClick={() => backFromConn(view)} style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}>
+          <ChevronLeft size="1.1em" aria-hidden="true" />{who(person)}の本棚
+        </button>
+        <div role="tablist" aria-label={`${who(person)}のフォロー中とフォロワー`} style={{ ...segTrack, marginTop: 'var(--space-3)' }}>
+          {CTABS.map((t) => (
+            <button key={t.id} type="button" role="tab" aria-selected={ctab === t.id} onClick={() => setView({ ...view, tab: t.id })} style={segOption(ctab === t.id)}>
+              {t.label}{loaded?.visible ? ` ${(t.id === 'followers' ? loaded.followers : loaded.following).length}` : ''}
+            </button>
+          ))}
+        </div>
+        {c === 'loading' && (
+          <div role="status" aria-label="一覧を読んでいます" style={{ marginTop: 'var(--space-3)' }}>
+            {[0, 1, 2].map((i) => <SkeletonBlock key={i} height="var(--tap-min)" style={{ margin: 'var(--space-2) 0' }} />)}
+          </div>
+        )}
+        {c === 'none' && (
+          <div style={{ marginTop: 'var(--space-4)' }}>
+            <p style={note}>{withPhraseBreaks('一覧を読めませんでした。フォローが外れたか、通信がつながっていません。')}</p>
+            <button type="button" onClick={() => loadConns(person, { force: true })} style={{ ...btnLink, marginTop: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}>もう一度読む</button>
+          </div>
+        )}
+        {loaded && !loaded.visible && <p style={{ ...note, marginTop: 'var(--space-4)' }}>{withPhraseBreaks(`${who(person)}は、フォロー中・フォロワーの一覧を見せていません。`)}</p>}
+        {loaded?.visible && (list.length === 0
+          ? <p style={{ ...note, marginTop: 'var(--space-4)' }}>{ctab === 'followers' ? 'フォロワーはいません。' : 'フォロー中の人はいません。'}</p>
+          : (
+            <div role="list" style={{ marginTop: 'var(--space-3)' }}>
+              {list.map((p, i) => (
+                <PersonRow key={p.publicId} first={i === 0} person={p} onOpen={p.relation === 'accepted' ? () => openPerson(p, view) : undefined}>
+                  {p.relation === 'self' && <span style={note}>あなた</span>}
+                  {p.relation === 'pending' && <span style={note}>承認を待っています</span>}
+                  {p.relation === 'none' && <button type="button" style={smallBtn} onClick={() => ask(p)}>フォロー</button>}
+                  {(p.relation === 'none' || p.relation === 'pending') && (
+                    <button
+                      type="button"
+                      aria-label={`${who(p)}の操作`}
+                      style={iconBtn}
+                      onClick={(e) => openMenu(e, [
+                        { label: '通報する', onClick: () => report(p) },
+                        { label: 'ブロックする', destructive: true, onClick: () => block(p) },
+                      ])}
+                    >
+                      <MoreHorizontal size="1.25em" aria-hidden="true" />
+                    </button>
+                  )}
+                </PersonRow>
+              ))}
+            </div>
+          ))}
+        {loaded?.visible && list.some((p) => p.relation === 'none') && (
+          <p style={{ ...note, marginTop: 'var(--space-4)' }}>{withPhraseBreaks('フォローすると、相手が承認したときに本棚を見られます。')}</p>
+        )}
+        {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
+        </div>
+      </BottomSheet>,
+      document.body,
+    );
+  }
+
   // ─── 相手の本棚（言葉 → まとめ → 本棚） ───
   if (view.name === 'person') {
     const { person } = view;
@@ -560,8 +701,8 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
       <BottomSheet title={`${who(person)}の本棚`} onClose={onClose} layer="dialog">
         <div ref={bodyRef} style={sheetBody}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <button type="button" onClick={() => setView(personBackRef.current)} style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}>
-            <ChevronLeft size="1.1em" aria-hidden="true" />フォロー
+          <button type="button" onClick={() => setView(view.back || { name: 'home' })} style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))', minWidth: 0 }}>
+            <ChevronLeft size="1.1em" aria-hidden="true" />{view.back?.name === 'conn' ? `${who(view.back.person)}の${view.back.tab === 'followers' ? 'フォロワー' : 'フォロー中'}` : 'フォロー'}
           </button>
           <button
             type="button"
@@ -580,6 +721,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
           <UserAvatar avatarId={p.avatar} nickname={p.nickname} size={56} />
           <p style={{ margin: 'var(--space-3) 0 0', fontSize: 'var(--text-heading)', fontWeight: 600, overflowWrap: 'anywhere' }}>{who(p)}</p>
           {p.bio && <p style={{ ...note, marginTop: 'var(--space-2)', fontSize: 'var(--text-body)', color: 'var(--text)', whiteSpace: 'pre-line' }}>{p.bio}</p>}
+          <ConnCounts conn={conns[person.publicId]} onOpen={(tab) => setView({ name: 'conn', person, tab, back: view })} />
         </div>
         {/* 主役はその人の言葉。好きな言葉を大きく、その下に好きな本。 */}
         {p.favLine && (
@@ -615,7 +757,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
             <p style={{ margin: 0, fontSize: 'var(--text-heading)', fontWeight: 600 }}>本棚</p>
             {ordered.length === 0
               ? <p style={{ ...note, marginTop: 'var(--space-2)' }}>本棚にはまだ本がありません。</p>
-              : <ShelfView person={person} books={ordered} filter={shelfFilter} onFilter={setShelfFilter} onOpen={(b) => setView({ name: 'book', person, book: b })} hasBook={hasBook} />}
+              : <ShelfView person={person} books={ordered} filter={shelfFilter} onFilter={setShelfFilter} onOpen={(b) => setView((v) => ({ name: 'book', person, book: b, back: v }))} hasBook={hasBook} />}
           </section>
         )}
         {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
@@ -689,6 +831,20 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
                   ))}
                 </div>
               </details>
+            )}
+            {/* 自分のフォロー中・フォロワーを見せるか（2026-11-23・既定は見せる＝オーナー裁定・承認した人にだけ） */}
+            {lists && !notReady && meReady && (
+              <div style={{ marginTop: 'var(--space-6)', paddingTop: 'var(--space-4)', borderTop: '1px solid var(--separator)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
+                  <span style={{ fontSize: 'var(--text-body)', color: 'var(--text)' }}>フォロー中・フォロワーを見せる</span>
+                  <ToggleSwitch checked={followsVisible} onChange={toggleVisible} disabled={visibleBusy} ariaLabel="フォロー中・フォロワーを見せる" />
+                </div>
+                <p style={{ ...note, marginTop: 'var(--space-2)' }}>
+                  {withPhraseBreaks(followsVisible
+                    ? 'あなたが承認した人は、あなたのフォロー中・フォロワーの一覧を見られます。オフにすると見せず、ほかの人の一覧にもあなたは出ません。'
+                    : 'いまは、だれにも一覧を見せず、ほかの人の一覧にもあなたは出ません。')}
+                </p>
+              </div>
             )}
           </div>
   );

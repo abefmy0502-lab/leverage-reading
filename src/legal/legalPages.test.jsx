@@ -70,6 +70,11 @@ describe('特定商取引法に基づく表記', () => {
 
 describe('プライバシーポリシー', () => {
   const t = text(<PrivacyPage />);
+  it('承認した相手はフォロー中・フォロワーの一覧も見られ、本人が見せないこともできる（2026-11-23）', () => {
+    expect(t).toContain('フォロー中・フォロワーの一覧(ニックネームとアイコン)を見ることができます');
+    expect(t).toContain('「フォロー中・フォロワーを見せる」をオフにすると');
+    expect(t).toContain('最終更新日:2026年11月23日');
+  });
   it('AI 選書の送るものに、同意のシートと同じく「メモの一部」がある', () => {
     expect(featureForPurpose('book_advisor').sends).toContain('メモの一部');
     expect(t).toMatch(/AI選書:[^→]*メモの一部/);

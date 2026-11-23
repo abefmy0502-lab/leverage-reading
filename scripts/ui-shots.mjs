@@ -400,6 +400,17 @@ const SCREENS = [
   { name: 'settings', url: '/', steps: [{ css: 'button[aria-label="設定を開く"]' }] },
   // 👤 プロフィールの画面（2026-11-22 に設定から分けた・右上の自分のアイコン）
   { name: 'profile-screen', url: '/?social=1', steps: [{ css: 'button[aria-label="プロフィールを開く"]' }, { wait: 1200 }] },
+  // 👥 相手のフォロー中・フォロワー（2026-11-23）: さくらさんの本棚の上の数 → 一覧（その場でフォロー）・隠している人・自分の一覧を見せるスイッチ
+  ...(() => {
+    const SAKURA = [{ css: 'button[aria-label="プロフィールを開く"]' }, { wait: 800 }, { css: 'span:text-is("ID でフォロー")' }, { wait: 800 }, { css: 'button:has-text("さくら") >> nth=-1' }, { wait: 1200 }];
+    return [
+      { name: 'follow-person-counts', url: '/?social=1', steps: SAKURA },
+      { name: 'follow-conn', url: '/?social=1', steps: [...SAKURA, { css: 'button[aria-label^="フォロー中"] >> nth=-1' }, { wait: 800 }] },
+      { name: 'follow-conn-followers', url: '/?social=1', steps: [...SAKURA, { css: 'button[aria-label^="フォロワー"] >> nth=-1' }, { wait: 800 }] },
+      { name: 'follow-conn-hidden', url: '/?social=1&socialstate=hiddenlists', steps: SAKURA },
+      { name: 'follow-lists-switch', url: '/?social=1', steps: [{ eval: "localStorage.setItem('orime.profile.v1:00000000-0000-4000-8000-00000000d3e0', JSON.stringify({ publicId: 'demo0me001', nickname: 'ふみ', avatar: 'leaf' }))" }, { reload: true }, { wait: 1500 }, { css: 'button[aria-label="プロフィールを開く"]' }, { wait: 800 }, { css: 'span:text-is("ID でフォロー")' }, { wait: 1000 }, { scrollBottom: true }] },
+    ];
+  })(),
   // 📅 年額の更新の前の 1 行（?demo=renewal・30 日以内）／12〜1 月の月額の人への年額の 1 行／設定の「友だちに紹介する」（2026-10-22）
   { name: 'home-renewal', url: '/?demo=renewal', steps: [{ wait: 1500 }] },
   { name: 'home-annual', url: '/?demo=full&plan=monthly&today=2026-12-05', steps: [{ eval: "localStorage.setItem('orime.share.nudges', JSON.stringify({ year: '2026' }))" }, { reload: true }, { wait: 1500 }] },

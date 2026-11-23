@@ -2,6 +2,7 @@
 //   相手を見つけるのは、相手のリンク（/u/<public_id>）か ID だけ（名前で探さない・オーナー裁定）。
 //   申し込み → 相手が承認 → 承認された人は相手の本棚と「この本のまとめ」をいつでも見られる（公開がオフでも）。
 //   ブロック・通報ができる（App 審査 1.2）。データベースは supabase_follows.sql（関数だけが書く）。
+//   承認された人は相手のフォロー中・フォロワーも見られ、その場でフォローできる（本人は隠せる・2026-11-23）。
 //   Web は既定で出す。iPhone のアプリは VITE_SOCIAL=on のビルドだけ（1.0.1 から・ビルド 7 には入れない＝オーナー裁定）。
 import { Capacitor } from '@capacitor/core';
 import { supabase, isSupabaseConfigured, isDemo } from './supabase';
@@ -58,7 +59,42 @@ export async function loadFollows(opts) {
   if (!r.ok) return r;
   const d = r.data || {};
   const pick = (k) => (Array.isArray(d[k]) ? d[k] : []).map(cleanPerson).filter((p) => p.publicId);
-  return { ok: true, lists: { following: pick('following'), followers: pick('followers'), requests: pick('requests'), sent: pick('sent'), blocked: pick('blocked') } };
+  return {
+    ok: true,
+    lists: { following: pick('following'), followers: pick('followers'), requests: pick('requests'), sent: pick('sent'), blocked: pick('blocked') },
+    // 自分のフォロー中・フォロワーをほかの人に見せるか（2026-11-23・SQL が古いと無い＝見せている扱い）
+    followsVisible: d.me?.follows_visible !== false,
+  };
+}
+
+const RELATIONS = ['self', 'accepted', 'pending', 'none'];
+/**
+ * 承認されたフォロー先（か自分）のフォロー中・フォロワー（2026-11-23 オーナー「相手のフォローしている人、フォロワーの中身を見れて
+ * その人とも繋がれるようにしたい」）。答え: null（見られない・まだ使えない）／{ visible: false }（本人が隠している）／
+ * { visible: true, following, followers }（人ごとに見る人から見た relation: self・accepted・pending・none）。
+ */
+export async function loadFolloweeConnections(publicId, opts) {
+  const r = await call('followee_connections', { p_public_id: publicId }, opts);
+  if (!r.ok || !r.data) return null;
+  if (r.data.visible === false) return { visible: false, following: [], followers: [] };
+  const pick = (k) => (Array.isArray(r.data[k]) ? r.data[k] : [])
+    .map((p) => ({ ...cleanPerson(p), relation: RELATIONS.includes(p?.relation) ? p.relation : 'none' }))
+    .filter((p) => p.publicId && p.nickname);
+  return { visible: true, following: pick('following'), followers: pick('followers') };
+}
+
+/** 一覧の人の関係を書きかえる（その場でフォローしたとき・すべての一覧で同じ人を）。 */
+export function withRelation(conn, publicId, relation) {
+  if (!conn || typeof conn !== 'object' || !conn.visible) return conn;
+  const fix = (list) => list.map((p) => (p.publicId === publicId && p.relation !== 'self' ? { ...p, relation } : p));
+  return { ...conn, following: fix(conn.following), followers: fix(conn.followers) };
+}
+
+/** 自分のフォロー中・フォロワーを見せるか。答え: 'ok'・'no_profile'（プロフィールがまだ無い）・'not_ready' */
+export async function setFollowsVisible(visible, opts) {
+  const r = await call('set_follows_visible', { p_visible: !!visible }, opts);
+  if (!r.ok) return r.reason;
+  return r.data ? 'ok' : 'no_profile';
 }
 
 /** 申し込む。答え: pending・accepted・self・not_found・no_profile・anonymous・too_many・not_ready */

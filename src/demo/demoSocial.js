@@ -4,9 +4,20 @@ const people = {
   t3xbw9hjuv: { public_id: 't3xbw9hjuv', nickname: 'けんた', avatar: 'mountain' },
   q8rfz4mncd: { public_id: 'q8rfz4mncd', nickname: 'あおい', avatar: 'moon' },
   w2ycd5kpne: { public_id: 'w2ycd5kpne', nickname: 'ゆう', avatar: '' },
+  m5hqv8tzab: { public_id: 'm5hqv8tzab', nickname: 'はるか', avatar: 'sun' },
+  p4nrs6dwxe: { public_id: 'p4nrs6dwxe', nickname: 'なおき', avatar: 'book' },
+  r9jkt3wfyc: { public_id: 'r9jkt3wfyc', nickname: 'みなみ', avatar: '' },
 };
+// 相手のフォロー中・フォロワー（2026-11-23・さくらさんだけ）。'me' はお試しの自分（フォロワーの中の「あなた」）。
+// &socialstate=hiddenlists でさくらさんが一覧を隠している。
+const connections = {
+  k7mna2pqrs: { following: ['m5hqv8tzab', 't3xbw9hjuv', 'p4nrs6dwxe'], followers: ['me', 'r9jkt3wfyc', 'm5hqv8tzab'] },
+};
+const ME = { public_id: 'demo0me001', nickname: 'ふみ', avatar: 'leaf' };
+let followsVisible = true;
 // &socialstate=empty で 0 件の画面（フォロー中・フォロワー・申し込みが無い）。
-const empty = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('socialstate') === 'empty';
+const socialState = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('socialstate') : '';
+const empty = socialState === 'empty';
 const state = empty
   ? { following: [], followers: [], requests: [], sent: [], blocked: [] }
   : { following: ['k7mna2pqrs'], followers: ['k7mna2pqrs', 't3xbw9hjuv'], requests: ['q8rfz4mncd'], sent: [], blocked: ['w2ycd5kpne'] };
@@ -30,7 +41,18 @@ export function demoSocialRpc(name, args = {}) {
   const id = String(args.p_public_id || '');
   switch (name) {
     case 'my_follows':
-      return Object.fromEntries(Object.entries(state).map(([k, ids]) => [k, ids.map(person)]));
+      return { ...Object.fromEntries(Object.entries(state).map(([k, ids]) => [k, ids.map(person)])), me: { follows_visible: followsVisible } };
+    case 'set_follows_visible':
+      followsVisible = !!args.p_visible;
+      return true;
+    case 'followee_connections': {
+      if (!state.following.includes(id)) return null;
+      if (socialState === 'hiddenlists') return { visible: false };
+      const c = connections[id] || { following: [], followers: [] };
+      const rel = (pid) => (pid === 'me' ? 'self' : state.following.includes(pid) ? 'accepted' : state.sent.includes(pid) ? 'pending' : 'none');
+      const row = (pid) => (pid === 'me' ? { ...ME, since: '2026-11-20T10:00:00Z', relation: 'self' } : { ...person(pid), relation: rel(pid) });
+      return { visible: true, following: c.following.filter((p) => !state.blocked.includes(p)).map(row), followers: c.followers.filter((p) => !state.blocked.includes(p)).map(row) };
+    }
     case 'follow_request':
       if (!people[id] || state.blocked.includes(id)) return 'not_found';
       if (state.following.includes(id)) return 'accepted';

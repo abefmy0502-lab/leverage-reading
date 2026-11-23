@@ -218,6 +218,7 @@ $$;
 
 -- ─── 読む ────────────────────────────────────────────────
 -- 自分のフォローの一覧（フォロー中・フォロワー・届いた申し込み・送った申し込み・ブロック中）。
+-- （2026-11-23 に 'me'＝自分の設定を足した版が下の「相手のフォロー中・フォロワー」の節にある・後勝ち）
 create or replace function public.my_follows()
 returns jsonb
 language plpgsql
@@ -309,6 +310,116 @@ begin
 end;
 $$;
 
+-- ─── 相手のフォロー中・フォロワー（2026-11-23 オーナー「相手のフォローしている人、フォロワーの中身を見れて
+--     その人とも繋がれるようにしたい」） ───────────────────────────────────────
+-- 決まり（同日オーナー裁定）:
+--   - 見られるのは、その人に承認された人（本棚と同じ）と本人だけ。
+--   - profiles.follows_visible（既定 true）を本人がオフにすると、その人の一覧を見せず、ほかの人の一覧にもその人を出さない。
+--   - 一覧に出すのは、運営が隠していない・ニックネームのある・一覧を見せている人だけ。見る人とブロックし合っている人は出さない。
+--   - 一覧の人それぞれに、見る人から見た関係（self・accepted・pending・none）を添える＝その場でフォローできる。
+alter table public.profiles add column if not exists follows_visible boolean not null default true;
+
+-- 1 人ぶんの一覧の行（見る人 me から見た関係つき）。
+create or replace function public._conn_person(p_user uuid, p_me uuid, p_since timestamptz)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public._person(p_user) || jsonb_build_object(
+    'since', p_since,
+    'relation', case when p_user = p_me then 'self'
+                     else coalesce((select status from public.follows where follower_id = p_me and followee_id = p_user), 'none') end)
+$$;
+
+-- 戻り値: null（見られない）・{ visible: false }（本人が隠している）・{ visible: true, following: [...], followers: [...] }（各 500 人まで）
+create or replace function public.followee_connections(p_public_id text)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  me uuid := public._follow_me();
+  other uuid := public._user_by_public_id(p_public_id);
+begin
+  if other is null or public._blocked_between(me, other) then return null; end if;
+  if other <> me and not exists (select 1 from public.follows where follower_id = me and followee_id = other and status = 'accepted') then
+    return null;
+  end if;
+  if not coalesce((select follows_visible from public.profiles where user_id = other), true) then
+    return jsonb_build_object('visible', false);
+  end if;
+  return jsonb_build_object(
+    'visible', true,
+    'following', coalesce((
+      select jsonb_agg(public._conn_person(x.uid, me, x.since) order by x.since desc nulls last)
+        from (select f.followee_id as uid, f.accepted_at as since
+                from public.follows f join public.profiles p on p.user_id = f.followee_id
+               where f.follower_id = other and f.status = 'accepted'
+                 and p.hidden = false and p.nickname <> '' and p.follows_visible
+                 and not public._blocked_between(me, f.followee_id)
+               order by f.accepted_at desc nulls last limit 500) x), '[]'::jsonb),
+    'followers', coalesce((
+      select jsonb_agg(public._conn_person(x.uid, me, x.since) order by x.since desc nulls last)
+        from (select f.follower_id as uid, f.accepted_at as since
+                from public.follows f join public.profiles p on p.user_id = f.follower_id
+               where f.followee_id = other and f.status = 'accepted'
+                 and p.hidden = false and p.nickname <> '' and p.follows_visible
+                 and not public._blocked_between(me, f.follower_id)
+               order by f.accepted_at desc nulls last limit 500) x), '[]'::jsonb)
+  );
+end;
+$$;
+
+-- 自分の一覧を見せるか（プロフィールの行が無ければ false＝まだ決められない）。
+create or replace function public.set_follows_visible(p_visible boolean)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  me uuid := public._follow_me();
+begin
+  update public.profiles set follows_visible = coalesce(p_visible, true) where user_id = me;
+  return found;
+end;
+$$;
+
+-- my_follows に自分の設定も添える（同じ形のまま 'me' を足す）。
+create or replace function public.my_follows()
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  me uuid := public._follow_me();
+begin
+  return jsonb_build_object(
+    'following', coalesce((select jsonb_agg(public._person(f.followee_id) || jsonb_build_object('since', f.accepted_at) order by f.accepted_at desc)
+                             from public.follows f join public.profiles p on p.user_id = f.followee_id and p.hidden = false
+                            where f.follower_id = me and f.status = 'accepted'), '[]'::jsonb),
+    'sent',      coalesce((select jsonb_agg(public._person(f.followee_id) || jsonb_build_object('since', f.created_at) order by f.created_at desc)
+                             from public.follows f join public.profiles p on p.user_id = f.followee_id and p.hidden = false
+                            where f.follower_id = me and f.status = 'pending'), '[]'::jsonb),
+    'followers', coalesce((select jsonb_agg(public._person(f.follower_id) || jsonb_build_object('since', f.accepted_at) order by f.accepted_at desc)
+                             from public.follows f join public.profiles p on p.user_id = f.follower_id and p.hidden = false
+                            where f.followee_id = me and f.status = 'accepted'), '[]'::jsonb),
+    'requests',  coalesce((select jsonb_agg(public._person(f.follower_id) || jsonb_build_object('since', f.created_at) order by f.created_at desc)
+                             from public.follows f join public.profiles p on p.user_id = f.follower_id and p.hidden = false
+                            where f.followee_id = me and f.status = 'pending'), '[]'::jsonb),
+    'blocked',   coalesce((select jsonb_agg(public._person(b.blocked_id) || jsonb_build_object('since', b.created_at) order by b.created_at desc)
+                             from public.user_blocks b where b.blocker_id = me), '[]'::jsonb),
+    'me', jsonb_build_object('follows_visible', coalesce((select follows_visible from public.profiles where user_id = me), true))
+  );
+end;
+$$;
+
 -- ─── 通報（アプリのフォローの画面から・2026-11-22 App 審査 1.2） ─────────
 -- アプリは別のオリジンなので公開のページの窓口（/api/profile-report）の答えを読めない。ここで受けて、届いたかを返す。
 -- 通報した人の id は残さない。同じ人が同じ相手を何度通報しても 1 つに数えるための目印（id と相手から作った
@@ -355,12 +466,13 @@ declare f text;
 begin
   foreach f in array array[
     'follow_request(text)', 'follow_respond(text, boolean)', 'follow_remove(text, text)', 'block_user(text)',
-    'unblock_user(text)', 'my_follows()', 'profile_preview(text)', 'followee_shelf(text)', 'report_profile(text, text)'
+    'unblock_user(text)', 'my_follows()', 'profile_preview(text)', 'followee_shelf(text)', 'report_profile(text, text)',
+    'followee_connections(text)', 'set_follows_visible(boolean)'
   ] loop
     execute format('revoke all on function public.%s from public, anon', f);
     execute format('grant execute on function public.%s to authenticated', f);
   end loop;
-  foreach f in array array['_follow_me()', '_user_by_public_id(text)', '_blocked_between(uuid, uuid)', '_person(uuid)'] loop
+  foreach f in array array['_follow_me()', '_user_by_public_id(text)', '_blocked_between(uuid, uuid)', '_person(uuid)', '_conn_person(uuid, uuid, timestamptz)'] loop
     execute format('revoke all on function public.%s from public, anon, authenticated', f);
   end loop;
 end $$;

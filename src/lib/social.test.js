@@ -96,3 +96,39 @@ describe('summaryExcerpt', () => {
     expect(summaryExcerpt('')).toBe('');
   });
 });
+
+describe('相手のフォロー中・フォロワー（2026-11-23）', () => {
+  const client = (data, error = null) => ({ rpc: async () => ({ data, error }) });
+  it('見られない・隠している・見えるの 3 つ。ニックネームの無い人と知らない関係は直す', async () => {
+    const { loadFolloweeConnections } = await import('./social');
+    expect(await loadFolloweeConnections('k7mna2pqrs', { client: client(null) })).toBe(null);
+    expect(await loadFolloweeConnections('k7mna2pqrs', { client: client(null, { code: 'PGRST202', message: 'Could not find the function' }) })).toBe(null);
+    expect(await loadFolloweeConnections('k7mna2pqrs', { client: client({ visible: false }) })).toEqual({ visible: false, following: [], followers: [] });
+    const c = await loadFolloweeConnections('k7mna2pqrs', {
+      client: client({
+        visible: true,
+        following: [{ public_id: 't3xbw9hjuv', nickname: 'けんた', relation: 'none' }, { public_id: 'w2ycd5kpne', nickname: '' }],
+        followers: [{ public_id: 'q8rfz4mncd', nickname: 'あおい', relation: 'weird' }, { public_id: 'demo0me001', nickname: 'ふみ', relation: 'self' }],
+      }),
+    });
+    expect(c.following.map((p) => p.publicId)).toEqual(['t3xbw9hjuv']);
+    expect(c.followers.map((p) => p.relation)).toEqual(['none', 'self']);
+  });
+  it('その場でフォローしたら、両方の一覧で同じ人の関係を変える（自分の行は変えない）', async () => {
+    const { withRelation } = await import('./social');
+    const conn = { visible: true, following: [{ publicId: 'a', relation: 'none' }], followers: [{ publicId: 'a', relation: 'none' }, { publicId: 'b', relation: 'self' }] };
+    const next = withRelation(conn, 'a', 'pending');
+    expect(next.following[0].relation).toBe('pending');
+    expect(next.followers[0].relation).toBe('pending');
+    expect(withRelation(conn, 'b', 'pending').followers[1].relation).toBe('self');
+    expect(withRelation('loading', 'a', 'pending')).toBe('loading');
+  });
+  it('一覧を見せるかの切り替え: できた・プロフィールが無い・まだ使えない', async () => {
+    const { setFollowsVisible, loadFollows } = await import('./social');
+    expect(await setFollowsVisible(false, { client: client(true) })).toBe('ok');
+    expect(await setFollowsVisible(false, { client: client(false) })).toBe('no_profile');
+    expect(await setFollowsVisible(false, { client: client(null, { code: '42883', message: 'does not exist' }) })).toBe('not_ready');
+    expect((await loadFollows({ client: client({ me: { follows_visible: false } }) })).followsVisible).toBe(false);
+    expect((await loadFollows({ client: client({}) })).followsVisible).toBe(true); // 古い SQL は見せている扱い
+  });
+});
