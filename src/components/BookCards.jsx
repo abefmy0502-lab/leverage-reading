@@ -16,6 +16,7 @@ import { Stars } from './formPrimitives';
 import { searchMarkStyle } from '../styles/searchMark';
 import { getSt } from '../lib/status';
 import { withPhraseBreaks, phrasePieces } from './TightBubble';
+import { isLargeText } from '../lib/largeText';
 
 // 状態の表示用ラベル（押せない）。DESIGN §5「表示用ラベル」: 面を付けず、アイコン＋--text-2 13 の文字。
 // 本の一覧の行（著者の横）と本の詳細の見出しで共有する。
@@ -225,6 +226,8 @@ export const SwipeableBookCard = memo(function SwipeableBookCard({ book, index, 
   const longPress = useLongPress({
     onLongPress: ({ clientX, clientY }) => onLongPress?.({ x: clientX, y: clientY, book }),
   });
+  // 文字が大きいとき（lib/largeText）は著者を状態・★の下の行へ回す（1 行に押し込むと「エリッ…」と名前が切れた・2026-11-23 点検）。
+  const [large] = useState(isLargeText);
   // 表紙の読込・失敗検知・裏での再解決（onAutoRetry）は MiniCover が受け持つ。
   return (
     <SwipeableCard onDelete={() => onSwipeDelete?.(book)}>
@@ -262,14 +265,26 @@ export const SwipeableBookCard = memo(function SwipeableBookCard({ book, index, 
           {/* 表紙は共通の MiniCover（読込フェード・失敗検知・代用表紙つき・角丸 4）。 */}
           <MiniCover book={book} width={44} onAutoRetry={onAutoRetry} />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><Marked segments={highlight?.title} text={highlight?.title ? book.title : displayTitle(book.title)} /></div>
+            {/* 書名は 2 行まで（SPEC §1・1 行で切ると文字が大きいとき「スタンフォード…」しか読めなかった・2026-11-23 点検）。
+                文節で折り返す（本の詳細の見出しと同じ）。検索の印があるときは印の切れ目を優先してそのまま。 */}
+            <div style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: "var(--text)", lineHeight: 1.4, display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2, overflow: "hidden", whiteSpace: 'normal', wordBreak: 'keep-all', overflowWrap: 'anywhere', lineBreak: 'strict' }}>
+              {highlight?.title ? <Marked segments={highlight.title} text={book.title} /> : withPhraseBreaks(displayTitle(book.title), { scriptBreaks: true })}
+            </div>
             {/* 状態 → 評価 · 著者 を 1 行に（行を短く）。長さが変わる著者を最後に置き、
                 省略されても区切りの位置が本ごとにずれないようにする。状態は押せないラベル＝面なし。 */}
-            <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-2)', marginTop: 'var(--space-1)', minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", flexWrap: large ? 'wrap' : 'nowrap', columnGap: 'var(--space-2)', rowGap: 'var(--space-1)', marginTop: 'var(--space-1)', minWidth: 0 }}>
               {showStatus && <StatusLabel status={book.status} />}
               {book.rating > 0 && <span style={{ flexShrink: 0, display: 'inline-flex' }}><Stars r={book.rating} size="calc(12rem / 17)" /></span>}
-              {book.author && (showStatus || book.rating > 0) && <span aria-hidden="true" style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', flexShrink: 0 }}>·</span>}
-              {book.author && <span style={{ flex: 1, fontSize: 'var(--text-meta)', color: "var(--text-2)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><Marked segments={highlight?.author} text={book.author} /></span>}
+              {/* 文字が大きいときは著者が次の行に回るので、行末に残る「·」は出さない */}
+              {!large && book.author && (showStatus || book.rating > 0) && <span aria-hidden="true" style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', flexShrink: 0 }}>·</span>}
+              {book.author && (large ? (
+                // 著者だけの行（2 行まで・「・」「、」の後ろで折り返す）
+                <span style={{ flex: '1 1 100%', fontSize: 'var(--text-meta)', color: "var(--text-2)", minWidth: 0, lineHeight: 1.4, display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2, overflow: 'hidden', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+                  {highlight?.author ? <Marked segments={highlight.author} text={book.author} /> : authorBreaks(book.author)}
+                </span>
+              ) : (
+                <span style={{ flex: 1, fontSize: 'var(--text-meta)', color: "var(--text-2)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><Marked segments={highlight?.author} text={book.author} /></span>
+              ))}
             </div>
             {/* タグで見つかったときだけ、そのタグを 1 行（行の中にタグを並べないので、見つかった理由が分かるように）。 */}
             {highlight?.tag && (

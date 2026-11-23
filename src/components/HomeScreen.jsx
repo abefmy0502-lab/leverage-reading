@@ -49,12 +49,16 @@ import { MiniCover } from './BookCards';
 import { phrasePieces, withPhraseBreaks } from './TightBubble';
 import { SkeletonBlock } from './Skeleton';
 import ErrorMessage from './ErrorMessage';
+import { useToast } from './Toast';
 import { btnPrimary, btnGhost, btnLink, btnLinkQuiet, btnTonal, card } from '../styles/ui';
 
 // DESIGN §5「行の中の小さい副ボタン」（ui.js の btnRow・高さ 44・文字 15・600）。折り返した行では幅いっぱいに伸びる。
 const btnRow = btnTonal;
 // 行の表紙の幅（MiniCover）。「読む」はこの幅＋間 12 だけ右から始めて、書名の列にそろえる。
 const ROW_COVER_W = 40;
+
+// 見出しの行の高さ（文字 × 行の高さ 1.3）と押せる高さ 44 の差の半分だけ、ボタンの上下を打ち消す（文字が大きく見出しの方が高いときは 0）。
+const ADD_BTN_TRIM = 'min(0px, calc((1.3 * var(--text-heading) - var(--tap-min)) / 2))';
 
 const sectionTitle = {
   fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', margin: '0 0 var(--space-3)', lineHeight: 1.3,
@@ -182,10 +186,12 @@ function ReadingNow({ books, onOpenBook, onWriteMemo, onStartReading, onAddBook,
     <section aria-labelledby="home-reading-title">
       {/* 見出しの右に「本を追加」（見出しの行の操作・2026-10-16 ui-critic「本を追加が段の間に浮いている」）。
           文字ボタンの右の 4 を打ち消して、文字の右端をカードの右端にそろえる。 */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', columnGap: 'var(--space-3)', flexWrap: 'wrap', margin: '0 calc(-1 * var(--space-1)) var(--space-2) 0' }}>
+      {/* 押せる高さ 44 の「本を追加」が行を見出しより高くし、見出し → カードの空きがカードとカードの間（24）と同じに見えていた
+          （2026-11-23 点検）。ボタンの上下を見出しの行の高さまで打ち消して（押せる 44 はそのまま）、見出し → カードを 12 に。 */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', columnGap: 'var(--space-3)', flexWrap: 'wrap', margin: '0 calc(-1 * var(--space-1)) var(--space-3) 0' }}>
         <h2 id="home-reading-title" style={{ ...sectionTitle, margin: 0 }}>{heading}</h2>
         {/* 見出しの下に折り返したときも左端を見出しにそろえる（＋ の内側の空きと文字ボタンの左の余白のぶん左へ・文字最大の点検 2026-11-18） */}
-        <button type="button" onClick={onAddBook} style={{ ...btnLink, gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-2))' }}>
+        <button type="button" onClick={onAddBook} style={{ ...btnLink, gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-2))', marginTop: ADD_BTN_TRIM, marginBottom: ADD_BTN_TRIM }}>
           <Plus size="1.2em" aria-hidden="true" />本を追加
         </button>
       </div>
@@ -269,7 +275,9 @@ function useGoalNudge(enabled, uid) {
   useEffect(() => { setClosed(readGoalNudgeClosed(uid)); }, [uid]);
   const show = enabled && loaded && !closed && !hasAnyGoal(goals);
   const close = () => { setClosed(true); try { if (uid) localStorage.setItem(GOAL_NUDGE_KEY + uid, '1'); } catch { /* ignore */ } };
-  return { show, close };
+  // 閉じた直後の「元に戻す」（2026-11-23 点検・× 1 回で知らせなしに二度と出なかった）。
+  const reopen = () => { try { if (uid) localStorage.removeItem(GOAL_NUDGE_KEY + uid); } catch { /* ignore */ } setClosed(false); };
+  return { show, close, reopen };
 }
 
 function HomeGoalRow({ onOpen, onClose }) {
@@ -564,6 +572,7 @@ export default function HomeScreen({
   onOpenRecord = null, onOpenPlan = null, onOpenReadingPlan = null, onOpenGoals = null,
 }) {
   const { user } = useAuth();
+  const toast = useToast();
   // 🌱 育つまでの一行の右の次の一歩（2026-10-20）: はじめての相談の前は「相談してみる」（入れた理由かメモから下書き・送らない）、
   //   相談したあとは「一文をメモする」（メモの無い読んだ本へ・初日クイックスタートの一言の段）。どちらか 1 つだけ。
   const growthAction = !onConsultDraft ? null : !firstConsultDone()
@@ -726,7 +735,15 @@ export default function HomeScreen({
           {goalNudge.show && (
             <HomeGoalRow
               onOpen={() => { track('home_goal_row', { action: 'open' }); onOpenGoals(); }}
-              onClose={() => { track('home_goal_row', { action: 'close' }); goalNudge.close(); }}
+              onClose={() => {
+                track('home_goal_row', { action: 'close' });
+                goalNudge.close();
+                // 閉じたあとにどこから書けるかを言い、5 秒は元に戻せる（2026-11-23 点検）。
+                toast.undo({
+                  message: '目標は 振り返り › 行動 から書けます。',
+                  onUndo: () => { track('home_goal_row', { action: 'undo' }); goalNudge.reopen(); },
+                });
+              }}
             />
           )}
         </>
