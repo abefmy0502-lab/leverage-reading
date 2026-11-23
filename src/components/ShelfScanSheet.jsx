@@ -16,6 +16,17 @@ import { useConfirm } from './ConfirmDialog';
 import { useHaptic } from '../hooks/useHaptic';
 import { usePaywall } from '../state/PaywallContext';
 import { withPhraseBreaks } from './TightBubble';
+
+// アイコン＋言葉を 1 つのまとまりに（文字を大きくして 2 行になっても、アイコンは 1 行目の頭に付いたまま・
+// 言葉は文節で折り返す＝「本棚の写真からま／とめて」と割らない・2026-11-23 点検）。
+function IconLabel({ icon: Icon, size = '1.2em', children }) {
+  // アイコンと言葉のあいだは U+2060（折り返さない印）でつなぐ＝アイコンだけが 1 行目に残らない。
+  return (
+    <span style={{ minWidth: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+      <Icon size={size} aria-hidden="true" style={{ verticalAlign: '-0.2em', marginRight: 'var(--space-2)' }} />{'\u2060'}{withPhraseBreaks(children)}
+    </span>
+  );
+}
 import { btnPrimary, btnPrimaryOff, btnLink, groupTitle, segTrack, segOption } from '../styles/ui';
 import { validateImageFile } from '../lib/limits';
 import { downscaleImageForVision } from '../lib/image';
@@ -169,8 +180,8 @@ export default function ShelfScanSheet({ existingBooks = [], onAdd, onUndo, onCl
     </button>
   ) : step === 'pick' ? (
     <>
-      <button type="button" onClick={pick} style={{ ...btnPrimary, gap: 'var(--space-2)' }}>
-        <Camera size="1.1em" aria-hidden="true" />本棚を撮る・写真を選ぶ
+      <button type="button" onClick={pick} style={btnPrimary}>
+        <IconLabel icon={Camera} size="1.1em">本棚を撮る・写真を選ぶ</IconLabel>
       </button>
       {hint && <p style={{ ...note, marginTop: 'var(--space-2)', textAlign: 'center', ...(usedUp ? {} : { color: 'var(--text-3)' }) }}>{hint.join('')}</p>}
     </>
@@ -198,8 +209,9 @@ export default function ShelfScanSheet({ existingBooks = [], onAdd, onUndo, onCl
         // 読み取っている途中で閉じると、使った 1 回も読み取った本も戻らない（2026-11-23 点検）。
         title: '読み取りをやめますか？',
         message: '途中でやめると、読み取った本は残りません。',
-        confirmLabel: 'やめる',
+        confirmLabel: '破棄する',
         cancelLabel: '続ける',
+        danger: true,
       }) : null}
     >
       <div style={step === 'pick' ? undefined : { minHeight: 'min(60vh, 560px)' }}>

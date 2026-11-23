@@ -14,6 +14,17 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ScanBarcode, Camera, X, Library } from 'lucide-react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { withPhraseBreaks } from './TightBubble';
+
+// アイコン＋言葉を 1 つのまとまりに（文字を大きくして 2 行になっても、アイコンは 1 行目の頭に付いたまま・
+// 言葉は文節で折り返す＝「本棚の写真からま／とめて」と割らない・2026-11-23 点検）。
+function IconLabel({ icon: Icon, size = '1.2em', children }) {
+  // アイコンと言葉のあいだは U+2060（折り返さない印）でつなぐ＝アイコンだけが 1 行目に残らない。
+  return (
+    <span style={{ minWidth: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+      <Icon size={size} aria-hidden="true" style={{ verticalAlign: '-0.2em', marginRight: 'var(--space-2)' }} />{'\u2060'}{withPhraseBreaks(children)}
+    </span>
+  );
+}
 import { findDuplicateBook, STATUS_LABEL } from '../lib/checkDuplicate';
 import { btnPrimary, btnGhost, btnLink } from '../styles/ui';
 import {
@@ -380,7 +391,7 @@ function BarcodeScanner({ onDetect, onClose, onTypeIsbn }) {
 // ---------------------------------------------------------------------------
 
 // forPhoto: 初回ガイドの「本のページを撮る」から開いたとき（題を「本を選ぶ」・上に「まず本を選びます」の 1 行・2026-10-09）。
-// onShelfScan: 📚 本棚の写真からまとめて追加（2026-11-22）を開く。無ければボタンを出さない。
+// onShelfScan: 📚 本棚の写真から追加（2026-11-22・ボタンの名前は 2026-11-23 にシートの題とそろえた）を開く。無ければボタンを出さない。
 export default function AddBookModal({ onClose, onSelect, onManual, existingBooks = [], onOpenExisting, initialQuery = '', forPhoto = false, onShelfScan = null }) {
   // 本の追加フォームの「‹ 検索」で戻ってきたときは、さっきの言葉と結果をそのまま出す。
   const [query, setQuery] = useState(initialQuery);
@@ -522,15 +533,13 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
           {/* カメラが使える環境だけ（使えない環境ではボタン自体を出さない）。 */}
           {BARCODE_SUPPORTED && (
             <button type="button" onClick={() => setScanning(true)} style={btnGhost}>
-              <ScanBarcode size="1.2em" aria-hidden="true" />
-              バーコードで探す
+              <IconLabel icon={ScanBarcode}>バーコードで探す</IconLabel>
             </button>
           )}
           {/* 📚 家の本棚を撮って、まとめて入れる（検索を書き始めたら引っ込める・本のページを撮る道では出さない）。 */}
           {onShelfScan && !forPhoto && !hasQuery && !isSearching && (
             <button type="button" onClick={onShelfScan} style={btnGhost}>
-              <Library size="1.2em" aria-hidden="true" />
-              本棚の写真からまとめて追加
+              <IconLabel icon={Library}>本棚の写真から追加</IconLabel>
             </button>
           )}
         </div>

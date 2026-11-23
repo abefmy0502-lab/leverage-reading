@@ -217,6 +217,8 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
     : [])); // [{ book, memo, onShelf? }]
   const [idx, setIdx] = useState(0);
   const [summary, setSummary] = useState({ books: [], memos: 0, totalMemos: 0, totalBooks: 0, memoBookIds: [] });
+  // 1 冊も入れられなかった画面（「本を追加できませんでした」）。選んだ本と書いた一文はまだ手元に残っている（2026-11-23 点検）。
+  const saveFailed = step === 'done' && summary.books.length === 0;
   // できあがりの画面の「いま困っていること」（そのまま相談へ送る）
   // 🌱 入れた理由があれば、はじめから入力欄に（押すだけで、自分の目的への答えが返る・2026-10-20）。
   const purposeAsk = purposeConsultQuestion(appPurposeTextFor(user));
@@ -238,7 +240,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
     if (r.top > window.innerHeight * 0.55) el.scrollIntoView({ block: 'start', behavior: scrollBehavior() });
   }, [searching, results, searchError]);
   // 選んだ本・書いた一言がまだ保存されていない間は、ブラウザの「戻る」でアプリごと離れて消えないようにする。
-  useBlockEdgeSwipe((seeded ? picked.some((p) => p.memo.trim()) : picked.length > 0) && (step === 'pick' || step === 'memo' || step === 'saving'));
+  useBlockEdgeSwipe((seeded ? picked.some((p) => p.memo.trim()) : picked.length > 0) && (step === 'pick' || step === 'memo' || step === 'saving' || saveFailed));
   // ブラウザ / Android の「戻る」は、左上の ‹ と同じ 1 段だけ戻る（重ねた画面として 1 枚積む・2026-09-29）。
   //   一言を書く → 前の本（1 冊目なら本を選ぶへ）／本を選ぶ → 閉じる（選んだ本があれば確かめてから）／
   //   保存中 → 動かない／できあがり → 閉じる。false を返すと App は履歴を積み直してその場に留まる。
@@ -257,11 +259,14 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
       return true;
     }
     if (step === 'pick' && picked.length > 0 && !(await confirmDiscard())) return false;
+    // 入れられなかった画面も、選んだ本と書いた一文が残っているので確かめてから閉じる（× と同じ）。
+    if (saveFailed && hasUnsaved() && !(await confirmDiscard())) return false;
     onClose?.();
     return true;
   };
   useBackLayer(true, back, { overBlock: true });
   // 選んだ本・書いた一言は保存するまで本棚に入っていないので、閉じる前に確かめる（‹ / 戻る / × で同じ・2026-09-29）。
+  function hasUnsaved() { return seeded ? picked.some((p) => p.memo.trim()) : picked.length > 0; }
   const confirmDiscard = () => {
     const wrote = picked.some((p) => p.memo.trim());
     // 本棚の本に一言を足しているとき（取り込みのあと）: 消えるのは書いた一言だけ。
@@ -292,9 +297,9 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
   // 右上の ×: 選んだ本（と書いた一言）が残っていれば確かめてから閉じる。保存中は閉じない。
   const closeAll = async () => {
     if (step === 'saving') return;
-    if (step === 'done') { finish(); return; }
-    const needsConfirm = seeded ? picked.some((p) => p.memo.trim()) : picked.length > 0;
-    if ((step === 'pick' || step === 'memo') && needsConfirm && !(await confirmDiscard())) return;
+    if (step === 'done' && !saveFailed) { finish(); return; }
+    // 「本を追加できませんでした」の画面も、選んだ本と書いた一文を黙って捨てない（2026-11-23 点検）。
+    if ((step === 'pick' || step === 'memo' || saveFailed) && hasUnsaved() && !(await confirmDiscard())) return;
     onClose?.();
   };
 
@@ -441,7 +446,8 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
       {/* 題名で「相談相手をつくっている」ことを 3 ステップの間ずっと見せる（補足文ではなく題名で伝える）。 */}
       <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1.3 }}>
         {/* できあがりは見出しが「できました」を言うので、題名は出さない（同じ言葉を二度言わない）。 */}
-        {step !== 'done' && <span style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>相談相手をつくる</span>}
+        {/* 入れられなかった画面は「できました」と言わないので、題名を残す（2026-11-23 点検）。 */}
+        {(step !== 'done' || saveFailed) && <span style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>相談相手をつくる</span>}
         {stepLabel && (
           <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums' }}>{stepLabel}</span>
         )}
@@ -701,8 +707,9 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
       {step === 'saving' && (
         // できあがりの画面と同じ形（選んだ本の表紙＋見出し 2 行）の骨組みで待たせる（跳ねない）。
         <div style={body} role="status" aria-live="polite">
-          <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-4)' }} aria-hidden="true">
-            {picked.map((p) => <MiniCover key={bookKey(p.book)} book={p.book} width={56} />)}
+          {/* 表紙はできあがりと同じ幅 104・同じ折り返し（56 から 104 へ跳ねていた・2026-11-23 点検）。 */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', marginTop: 'var(--space-4)' }} aria-hidden="true">
+            {picked.map((p) => <MiniCover key={bookKey(p.book)} book={p.book} width={104} forceTitle />)}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginTop: 'var(--space-6)' }}>
             <SkeletonBlock width="70%" height="var(--text-title)" radius="var(--radius)" />
@@ -722,7 +729,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
           <div style={{ ...body, paddingTop: 'var(--space-8)' }}>
             <ErrorMessage
               title="本を追加できませんでした"
-              description="通信状況を確認して、もう一度お試しください。"
+              description={`通信状況を確認して、もう一度お試しください。${picked.some((p) => p.memo.trim()) ? '選んだ本と書いた一文は残っています。' : '選んだ本は残っています。'}`}
               actions={[{ label: 'もう一度', onClick: () => saveAll(picked) }]}
             />
           </div>

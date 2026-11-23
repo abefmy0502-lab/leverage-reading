@@ -242,7 +242,7 @@ export const SCENARIOS = [
     ],
   },
   {
-    // 📚 本棚の写真からまとめて追加（2026-11-22・SNS 戦略 §3-3 の 1 週目）: 本を追加 → 本棚を撮る → 読み取った本を確かめて → まとめて本棚へ。
+    // 📚 本棚の写真から追加（2026-11-22・SNS 戦略 §3-3 の 1 週目）: 本を追加 → 本棚を撮る → 読み取った本を確かめて → まとめて本棚へ。
     name: 'shelf-scan',
     pillar: '本と会話',
     title: '本棚の記録、3 冊で止まっていた\n↓\n1 枚撮って、\nまとめて本棚へ',
@@ -252,7 +252,7 @@ export const SCENARIOS = [
       { say: '家の本棚、アプリに 1 冊ずつ入れるのは大変', hold: 900, intro: true },
       { say: DEFINITION, hold: 1400 },
       { say: 'まずは、家の本棚を写真で撮る', tap: 'button:has-text("本を追加") >> nth=0', hold: 900 },
-      { say: '「本棚の写真からまとめて追加」を選んで', tap: 'button:has-text("本棚の写真からまとめて追加")', hold: 900 },
+      { say: '「本棚の写真から追加」を選んで', tap: 'button:has-text("本棚の写真から追加")', hold: 900 },
       { upload: ['[role=dialog] input[type=file]', 'scripts/fixtures/share-photo.jpg'] },
       { say: 'AI が写真から本を読み取って、確かめる', waitFor: 'button:has-text("冊を本棚に入れる")', timeout: 40000, hold: 2200 },
       { say: '入れる本を選んで', scrollBy: 320, hold: 1600 },
