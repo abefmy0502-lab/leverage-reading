@@ -791,7 +791,7 @@ export default function Landing() {
                   <div><dt>特典</dt><dd className="lp-wbr"><Phrases>開発者に直接届く窓口と、次に作る機能への投票</Phrases></dd></div>
                   {TRIAL_NOTE
                     ? <div><dt>ご注意</dt><dd className="lp-wbr"><Phrases>年額の 1 年目 ¥9,800 を使うなら、最初から年額でお申し込みください。先に月額の 7 日間無料を使うと対象外になります（App Store の決まり）</Phrases></dd></div>
-                    : <div><dt>ご注意</dt><dd className="lp-wbr"><Phrases>期間中は、7 日間無料を付けていません</Phrases></dd></div>}
+                    : <div><dt>ご注意</dt><dd className="lp-wbr"><Phrases>期間中は 7 日間無料なし</Phrases></dd></div>}
                 </dl>
               </div>
             )}
