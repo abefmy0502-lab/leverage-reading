@@ -7310,6 +7310,14 @@ function AuthedApp() {
               ) : (
                 <Suspense fallback={<TabPanelSkeleton />}>
                   <MyBookBrain
+                    // 相談の答えから足した行動の「元に戻す」（2026-11-23 ui-critic）
+                    onRemoveAction={async ({ bookId, text }) => {
+                      const acts = booksRef.current.find((b) => b.id === bookId)?.actions || [];
+                      const idx = acts.findIndex((a) => !a.done && a.text === text);
+                      if (idx < 0) return false;
+                      await deleteActionFromBook(bookId, idx, { skipConfirm: true, target: acts[idx] });
+                      return true;
+                    }}
                     // 🔁 相談からロードマップを見直したあと「ロードマップを見る」（2026-11-15）
                     onOpenGoals={(s) => setGoalScreen(s || { view: 'goals' })}
                     // 本を探す問いの答えのメモの行は、その本のそのメモまで開く（2026-09-30）。
