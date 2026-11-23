@@ -48,7 +48,7 @@ import { isNative, openManageSubscriptions, canRedeemOfferCode, presentOfferCode
 import { REFERRAL_ON, REFERRAL_CODE, referralMessage, shareReferral } from '../lib/referral';
 import { usePaywall } from '../state/PaywallContext';
 import { planNameFor, planPeriodOf, trialRenewalLine, trialCancelNote, trialCancelByTime } from '../lib/trialNudge';
-import { PAID_TOKENS, FREE_TOKENS } from '../lib/tokens';
+import { FREE_TOKENS } from '../lib/tokens';
 import { FREE_OCR_PER_MONTH } from '../lib/tokenAmounts';
 import { nextResetLabelJa } from '../lib/freeTrial';
 import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff, btnDanger, btnLink, input as uiInput } from '../styles/ui';
@@ -1204,9 +1204,9 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
                 {lotRow}
                 <div style={{ ...blockStyle, ...divider }}>
                   <p style={{ ...noteStyle, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-                    {/* 2 文に分ける（2026-10-11 ui-critic）。トークンの目安（AI の答え 約 N 回）はトークンの使い方のシートに。 */}
-                    <span style={{ display: 'block' }}>{withPhraseBreaks('無料プランはずっと無料です。AI は、相談・この本で学べること・写真から書き起こし（')}<span style={{ whiteSpace: 'nowrap' }}>毎月 {FREE_OCR_PER_MONTH} 回</span>）に使えます。</span>
-                    <span style={{ display: 'block', marginTop: 'var(--space-1)' }}>{withPhraseBreaks(`プランは毎月 ${PAID_TOKENS.toLocaleString()} トークンで、すべての AI 機能を使えます。`)}</span>
+                    {/* 1 文だけ（2026-11-23 点検・プランの中身は「プランを見る」の先で言う＝ボタンを目立たせる）。
+                        トークンの目安（AI の答え 約 N 回）はトークンの使い方のシートに。 */}
+                    {withPhraseBreaks('無料プランはずっと無料です。AI は、相談・この本で学べること・写真から書き起こし（')}<span style={{ whiteSpace: 'nowrap' }}>毎月 {FREE_OCR_PER_MONTH} 回</span>）に使えます。
                   </p>
                   <button
                     type="button"
@@ -1366,8 +1366,9 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
               <button
                 type="button"
                 // 読み上げの名前は見えている文字と同じ（aria-label で別の名前にしない・2026-09-30）。
-                // 枠の赤いボタンにしない（ログアウトより目立っていた・2026-10-21 点検）。消す操作なので文字だけ --error・押すと確かめる。
-                style={{ ...btnLink, alignSelf: 'flex-start', marginLeft: 'calc(-1 * var(--space-1))', color: resetting ? 'var(--text-3)' : 'var(--error)' }}
+                // 同じカードの退会（アカウントの削除を開始）と同じ形＝枠線＋エラー色の文字（2026-11-23 点検・
+                //   片方が文字だけ、片方が枠のボタンで、同じ重さの消す操作が別の物に見えていた）。押すと確かめる。
+                style={resetting ? btnGhostOff : btnDestructiveGhost}
                 aria-busy={resetting || undefined}
                 disabled={resetting}
                 onClick={handleResetData}
@@ -1424,7 +1425,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
                 // すぐ下に、上の「プラン・お支払い」の管理の行と同じ行き先の文字ボタン（探しに戻らなくてよい・2026-11-23）。
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
                   <p style={{ ...rowDescStyle, margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-                    {withPhraseBreaks('退会しても、プランの支払いは止まりません。先に「プラン・お支払い」から解約してください。')}
+                    {withPhraseBreaks(`退会しても、プランの支払いは止まりません。下の「${planManageLabel}」から解約してください。`)}
                   </p>
                   <button
                     type="button"

@@ -3,6 +3,8 @@
 //   上から: アイコン・名前・自己紹介 → 公開の状態の 1 行 → 「プロフィールを編集」「リンクを共有」 →（フォロー）フォロー中 N｜フォロワー N・
 //   届いた申し込み（その場で承認・断る）・ID でフォロー → 好きな言葉・好きな本（公開のページと同じ見え方）。
 //   登録せずに始めた人には「アカウントを作ると、公開とフォローができます。」と設定への入口。
+//   2026-11-23 点検: 読めなかったときは ErrorMessage＋「もう一度」（前は空のプロフィールを出して「ニックネームを決める」を
+//   すすめていた＝決めてあった人に誤って見えた）。フォローを読めなかったときも同じ ErrorMessage。
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link2, Pencil } from 'lucide-react';
@@ -11,13 +13,14 @@ import UserAvatar from './UserAvatar';
 import MiniCover from './MiniCover';
 import FollowSummary from './FollowSummary';
 import { SkeletonBlock } from './Skeleton';
+import ErrorMessage from './ErrorMessage';
 import { useToast } from './Toast';
 import { withPhraseBreaks } from './TightBubble';
 import { btnGhost, btnPrimary, btnLink, groupTitle } from '../styles/ui';
 import { useAuth } from '../hooks/useAuth';
-import { useProfile } from '../hooks/useProfile';
+import { useProfile, setProfileCache } from '../hooks/useProfile';
 import { isGuestUser } from '../lib/guestAuth';
-import { hasProfile, addressName, profileUrl } from '../lib/profile';
+import { hasProfile, addressName, profileUrl, loadProfile } from '../lib/profile';
 import { SOCIAL_ON, loadFollows } from '../lib/social';
 import { track } from '../lib/analytics';
 
@@ -31,7 +34,18 @@ const card = { background: 'var(--surface)', border: '1px solid var(--separator)
 export default function ProfileScreen({ onClose, onOpenSettings, onProfileSaved, onAddWant, hasBook }) {
   const toast = useToast();
   const { user } = useAuth();
-  const { profile, loading } = useProfile(user?.id || '');
+  const uid = user?.id || '';
+  const { profile, loading, error: profileError } = useProfile(uid);
+  // 読めなかったプロフィールを読み直す（useProfile は覚えた値を配るので、読めたら setProfileCache で全画面へ）。
+  const [retrying, setRetrying] = useState(false);
+  const retryProfile = () => {
+    if (!uid || retrying) return;
+    setRetrying(true);
+    loadProfile(uid)
+      .then((r) => setProfileCache(uid, r.profile, r.stored))
+      .catch(() => toast.error('プロフィールを読み込めませんでした。'))
+      .finally(() => setRetrying(false));
+  };
   const guest = isGuestUser(user);
   const [editOpen, setEditOpen] = useState(false);
   const [followOpen, setFollowOpen] = useState(false); // false | { tab, report }
@@ -69,11 +83,17 @@ export default function ProfileScreen({ onClose, onOpenSettings, onProfileSaved,
       {createPortal(
         <BottomSheet title="プロフィール" onClose={onClose}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
-            {loading ? (
-              <div style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'center' }}>
+            {loading || retrying ? (
+              <div aria-busy="true" aria-label="プロフィールを読み込み中" style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'center' }}>
                 <SkeletonBlock width="64px" height="64px" radius="50%" />
                 <SkeletonBlock width="40%" height="1.4em" />
               </div>
+            ) : profileError ? (
+              <ErrorMessage
+                title="プロフィールを読み込めませんでした"
+                description="通信状況を確認して、もう一度お試しください。"
+                actions={[{ label: 'もう一度', onClick: retryProfile }]}
+              />
             ) : (
               <section aria-label="あなたのプロフィール">
                 <div style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'center' }}>
@@ -111,11 +131,12 @@ export default function ProfileScreen({ onClose, onOpenSettings, onProfileSaved,
             {SOCIAL_ON && !guest && followLists === 'error' && (
               <section aria-label="フォロー">
                 <p style={{ ...groupTitle, margin: '0 0 var(--space-2) var(--space-4)' }}>フォロー</p>
-                {/* 黙って消さない（2026-11-22 審査の点検）。つながらないときは理由ともう一度。 */}
-                <div role="alert" style={{ ...card, padding: 'var(--space-3) var(--space-4)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
-                  <p style={note}>{withPhraseBreaks('フォローを読み込めませんでした。')}</p>
-                  <button type="button" onClick={() => { setFollowLists(null); reloadFollows(); }} style={{ ...btnLink, flexShrink: 0 }}>もう一度</button>
-                </div>
+                {/* 黙って消さない（2026-11-22 審査の点検）。つながらないときは理由ともう一度（ほかの画面と同じ ErrorMessage・2026-11-23）。 */}
+                <ErrorMessage
+                  title="フォローを読み込めませんでした"
+                  description="通信状況を確認して、もう一度お試しください。"
+                  actions={[{ label: 'もう一度', onClick: () => { setFollowLists(null); reloadFollows(); } }]}
+                />
               </section>
             )}
             {SOCIAL_ON && !guest && followLists !== 'none' && followLists !== 'error' && (

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { HELP_CONTENT, HELP_FAQ, HELP_SCREEN_ORDER, getHelp } from './helpContent';
+import { HELP_CONTENT, HELP_FAQ, HELP_SCREEN_ORDER, HELP_OPEN_TARGETS, getHelp } from './helpContent';
 
 // ヘルプは「10 秒で分かる」長さに保つ（2026-09-30 オーナー要望「ヘルプの説明が長すぎてわかりにくい」）。
 // 字数は太字の ** を除いて数える（空白は数える）。手順は 17pt・行は 15pt で、幅 460 の中の 1 行に収まる字数
@@ -109,5 +109,15 @@ describe('HELP_FAQ と HELP_SCREEN_ORDER', () => {
   it('ほかの画面の一覧は、あるキーだけ', () => {
     for (const k of HELP_SCREEN_ORDER) expect(HELP_CONTENT[k], k).toBeTruthy();
     expect(HELP_SCREEN_ORDER).toContain('billing');
+  });
+});
+
+// 「開く ›」（2026-11-23）: 項目の open は決まった画面の名前だけ（App が扱える名前と食い違うと黙って出なくなる）。
+describe('HELP の open', () => {
+  it('open は HELP_OPEN_TARGETS のどれか', () => {
+    const topics = [...Object.values(HELP_CONTENT).flatMap((e) => e.topics || []), ...HELP_FAQ];
+    const withOpen = topics.filter((t) => t.open != null);
+    expect(withOpen.length).toBeGreaterThan(0);
+    for (const t of withOpen) expect(HELP_OPEN_TARGETS, `「${t.title}」の open「${t.open}」`).toContain(t.open);
   });
 });

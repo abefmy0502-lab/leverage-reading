@@ -9,6 +9,9 @@
 //      切り替えたあとは上の行の左に「‹ もとの画面」
 // 2026-10-14 オーナー「項目が多すぎる・いい感じの UI に」: いちばん上に「ヘルプを探す」（すべての画面の項目とよくある質問から、
 //   見出しと中身の言葉で探す・AI は使わない）。くわしくは大事な 5 つだけ見せ、残りは「ほかの N 項目」で開く。よくある質問は 4 つ。
+// 2026-11-23: 画面を指す項目（プロフィール・年額プランの案内・行動の一覧など＝helpContent の open）は、開くといちばん下に
+//   「開く ›」（新しくなったことの「開く ›」と同じ形）。押すとヘルプを閉じてその画面へ（onOpen）。開いた場所が扱える画面
+//   （openTargets）だけ出す＝渡されなければ今までどおり出さない。
 // 文言は src/lib/helpContent.js（**語** は太字）。見た目は DESIGN §5「ヘルプ」。
 
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
@@ -168,6 +171,15 @@ const topicLineStyle = {
   color: 'var(--text-2)',
 };
 const lineMarkStyle = { color: 'var(--text-3)', flexShrink: 0 };
+// 「開く ›」（WhatsNewSheet の openBtnStyle と同じ文字ボタン）。行の並びの左端にそろえる。
+const openRowStyle = { padding: '0 var(--space-4) var(--space-2)' };
+const openBtnStyle = {
+  ...btnLink,
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 'var(--space-1)',
+  marginLeft: 'calc(-1 * var(--space-1))',
+};
 // 探した結果の、どの画面のヘルプか（見出しの下に 13/--text-2）
 // 中身の 1 行で見つかったときは、その行を見出しの下に（なぜ見つかったか分かるように・1 行で …）
 const hitStyle = { display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-2)', marginTop: 'var(--space-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
@@ -215,10 +227,12 @@ const FAQ_SHOWN = 4;
 
 // 押すと開く項目の一覧。一覧そのものが目次になる（見出しだけ並べ、中身は 1〜3 行）。
 // limit を渡すと、はじめはその数だけ見せ、最後の行「ほかの N 項目」で残りを開く。where は探したときの画面の名前。
-function TopicList({ items, limit = 0, moreLabel = '項目' }) {
+// opener: { targets, onOpen } — 項目の open がその中にあるときだけ「開く ›」を出す。
+function TopicList({ items, limit = 0, moreLabel = '項目', opener = null }) {
   const [all, setAll] = useState(false);
   const shown = limit && !all ? items.slice(0, limit) : items;
   const rest = items.length - shown.length;
+  const canOpen = (t) => !!(opener && typeof t.open === 'string' && opener.targets.includes(t.open));
   return (
     <div style={listCardStyle}>
       {shown.map((t, i) => (
@@ -231,7 +245,7 @@ function TopicList({ items, limit = 0, moreLabel = '項目' }) {
             </span>
             <ChevronDown size={20} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
           </summary>
-          <ul style={topicLinesStyle}>
+          <ul style={canOpen(t) ? { ...topicLinesStyle, paddingBottom: 0 } : topicLinesStyle}>
             {t.lines.map((line) => (
               <li key={line} style={topicLineStyle}>
                 <span aria-hidden="true" style={lineMarkStyle}>・</span>
@@ -239,6 +253,14 @@ function TopicList({ items, limit = 0, moreLabel = '項目' }) {
               </li>
             ))}
           </ul>
+          {canOpen(t) && (
+            <div style={openRowStyle}>
+              <button type="button" style={openBtnStyle} onClick={() => opener.onOpen(t.open)} aria-label={`${t.title}を開く`}>
+                開く
+                <ChevronRight size="1em" aria-hidden="true" style={{ flexShrink: 0 }} />
+              </button>
+            </div>
+          )}
         </details>
       ))}
       {rest > 0 && (
@@ -287,7 +309,8 @@ function devHelpKey() {
   try { return new URLSearchParams(window.location.search).get('helpkey'); } catch { return null; }
 }
 
-export default function HelpModal({ helpKey, onClose, onShowOnboarding }) {
+// openTargets / onOpen: 項目の「開く ›」で移れる画面（helpContent の HELP_OPEN_TARGETS のうち、開いた場所が扱えるもの）。
+export default function HelpModal({ helpKey, onClose, onShowOnboarding, openTargets = [], onOpen = null }) {
   const [startKey] = useState(() => (devHelpKey() && getHelp(devHelpKey()) ? devHelpKey() : helpKey));
   const [key, setKey] = useState(startKey);
   const entry = getHelp(key);
@@ -327,6 +350,8 @@ export default function HelpModal({ helpKey, onClose, onShowOnboarding }) {
   }, [requestClose]);
 
   const otherScreens = HELP_SCREEN_ORDER.filter((k) => k !== key && getHelp(k));
+  // 「開く ›」は閉じる動きを待たずに移る（移った先の画面が見えるように・ヘルプは onOpen の中で閉じてもらう）。
+  const opener = onOpen && openTargets.length ? { targets: openTargets, onOpen } : null;
 
   return (
     <div className={closing ? 'modal-backdrop-exit' : 'modal-backdrop'} style={overlayStyle} role="dialog" aria-modal="true" aria-labelledby="help-modal-title" onClick={requestClose}>
@@ -378,7 +403,7 @@ export default function HelpModal({ helpKey, onClose, onShowOnboarding }) {
                 ? <h4 id="help-results" style={groupTitleStyle}>{`見つかった項目（${results.length}）`}</h4>
                 : <h4 id="help-results" style={{ fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)', margin: '0 0 var(--space-1)' }}>見つかりませんでした</h4>}
               {results.length > 0
-                ? <TopicList items={results} />
+                ? <TopicList items={results} opener={opener} />
                 : <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 0, lineHeight: 1.6 }}>{phrased('別の言葉で探すか、下の「ほかの画面の使い方」をご覧ください。')}</p>}
             </section>
           ) : entry ? (
@@ -404,7 +429,7 @@ export default function HelpModal({ helpKey, onClose, onShowOnboarding }) {
               {entry.topics?.length > 0 && (
                 <section aria-labelledby="help-topics">
                   <h4 id="help-topics" style={groupTitleStyle}>くわしく</h4>
-                  <TopicList items={entry.topics} limit={TOPICS_SHOWN} moreLabel="項目" />
+                  <TopicList items={entry.topics} limit={TOPICS_SHOWN} moreLabel="項目" opener={opener} />
                 </section>
               )}
             </>
@@ -417,7 +442,7 @@ export default function HelpModal({ helpKey, onClose, onShowOnboarding }) {
           {!searching && (
             <section aria-labelledby="help-faq">
               <h4 id="help-faq" style={groupTitleStyle}>よくある質問</h4>
-              <TopicList items={HELP_FAQ} limit={FAQ_SHOWN} moreLabel="質問" />
+              <TopicList items={HELP_FAQ} limit={FAQ_SHOWN} moreLabel="質問" opener={opener} />
             </section>
           )}
 

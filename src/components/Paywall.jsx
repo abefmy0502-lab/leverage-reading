@@ -371,7 +371,10 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
     return () => { alive = false; };
   }, [reason, user?.id]);
   useEffect(() => {
-    if (!['free_used', 'grown', 'first_answer'].includes(reason) || !user?.id || !isSupabaseConfigured) return undefined;
+    // どこから開いても（設定の「プランを見る」・機能を押した・写真から書き起こし）、メモのある本が 1 冊でもあれば
+    //   「『…』などのメモを根拠に答える、あなただけの相談相手です」を添える（2026-11-23 点検・前は無料のトークンを
+    //   使い切った・メモが育った・はじめての相談のあとだけ＝設定から開いた人には何を買うのかが抽象的だった）。
+    if (!user?.id || !isSupabaseConfigured) return undefined;
     let alive = true;
     (async () => {
       try {
@@ -734,7 +737,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
           </p>
         )}
 
-        {(fromFree || fromGrown) && myBooks.length > 0 && (
+        {myBooks.length > 0 && (
           <>
             <div aria-hidden="true" style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}>
               {myBooks.map((b) => <MiniCover key={b.id} book={b} width={60} />)}
