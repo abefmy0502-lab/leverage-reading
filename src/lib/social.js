@@ -126,7 +126,8 @@ export async function previewProfile(publicId, opts) {
   if (!r.ok) return r.reason === 'not_ready' ? { notReady: true } : null;
   const d = r.data;
   if (!d) return null;
-  return { ...cleanPerson(d), relation: String(d.relation || 'none'), ...cleanShared(d) };
+  const count = (v) => Math.max(0, Math.min(100000, Math.round(Number(v) || 0)));
+  return { ...cleanPerson(d), relation: String(d.relation || 'none'), ...cleanShared(d), doneCount: count(d.done_count), summaryCount: count(d.summary_count) };
 }
 
 function cleanShared(d) {
@@ -196,7 +197,7 @@ export async function reportProfile(publicId, reason = '', { fetchImpl = globalT
 /** 申し込みの答えを画面の 1 文に。 */
 export function followResultMessage(result) {
   return ({
-    pending: 'フォローしました。相手が承認すると、本棚を見られます。',
+    pending: 'フォローしました。相手の承認を待っています。',
     accepted: 'もうフォローしています。',
     self: '自分はフォローできません。',
     not_found: 'その人は見つかりませんでした。リンクか ID を確かめてください。',

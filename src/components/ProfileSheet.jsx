@@ -18,7 +18,7 @@ import { profileIssues, profileIssueMessage } from '../lib/profileFilter';
 import { track } from '../lib/analytics';
 import { useAuth } from '../hooks/useAuth';
 import { isGuestUser } from '../lib/guestAuth';
-import { SOCIAL_ON } from '../lib/social';
+import { SOCIAL_ON, loadFollows, setFollowsVisible } from '../lib/social';
 import { supabase } from '../lib/supabase';
 
 // 本棚の本（好きな本を選ぶ・VITE_SOCIAL）。読めなければ空。
@@ -58,6 +58,32 @@ export default function ProfileSheet({ userId, onClose, onSaved }) {
   // 本棚の公開の列がまだ無い DB（前の版の SQL だけ）では本棚は公開できない（saveProfile が shelfReady: false を返す）。
   const [shelfUnready, setShelfUnready] = useState(false);
   const [shelfBooks, setShelfBooks] = useState([]);
+  // フォロー中・フォロワーを見せるか（フォローの画面の下と同じ・すぐ切り替わる＝保存のボタンを待たない・2026-11-23）
+  const [listsVisible, setListsVisible] = useState(null); // null＝読めていない（出さない）
+  const [listsBusy, setListsBusy] = useState(false);
+  useEffect(() => {
+    if (!SOCIAL_ON) return undefined;
+    let alive = true;
+    loadFollows().then((r) => { if (alive && r?.ok) setListsVisible(r.followsVisible); }).catch(() => {});
+    return () => { alive = false; };
+  }, [userId]);
+  const toggleLists = async () => {
+    if (listsBusy || listsVisible === null) return;
+    const next = !listsVisible;
+    setListsVisible(next); setListsBusy(true);
+    try {
+      const r = await setFollowsVisible(next);
+      if (r !== 'ok') {
+        setListsVisible(!next);
+        toast.error(r === 'no_profile' ? '先にニックネームを決めて保存してください。' : '切り替えられませんでした。少し時間をおいてお試しください。');
+      }
+    } catch {
+      setListsVisible(!next);
+      toast.error('切り替えられませんでした。通信状況を確認してください。');
+    } finally {
+      setListsBusy(false);
+    }
+  };
   useEffect(() => {
     if (!SOCIAL_ON) return undefined;
     let alive = true;
@@ -163,6 +189,15 @@ export default function ProfileSheet({ userId, onClose, onSaved }) {
                 <p style={note}>本を押すと、あなたの「この本のまとめ」を読めます。<br />メモの一覧は見せません。</p>
                 {/* 公開の切り替えとは別に、承認したフォロワーには見えることを書いておく（App 審査 5.1.1・2026-11-22）。 */}
                 <p style={{ ...note, marginTop: 'var(--space-2)' }}>{withPhraseBreaks('フォローを承認した人は、公開の切り替えにかかわらず、本棚と「この本のまとめ」を見られます。')}</p>
+                {listsVisible !== null && (
+                  <>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', marginTop: 'var(--space-2)' }}>
+                      <span style={{ fontSize: 'var(--text-body)', color: 'var(--text)' }}>フォロー中・フォロワーを見せる</span>
+                      <ToggleSwitch checked={listsVisible} onChange={toggleLists} disabled={listsBusy} ariaLabel="フォロー中・フォロワーを見せる" />
+                    </div>
+                    <p style={note}>{withPhraseBreaks('承認した人にだけ見せます。オフにすると、ほかの人の一覧にも出ません。すぐに切り替わります。')}</p>
+                  </>
+                )}
               </>
             )}
             {profile.isPublic && url && !dirty && (

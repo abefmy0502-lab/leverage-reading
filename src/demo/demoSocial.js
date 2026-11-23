@@ -83,7 +83,7 @@ export function demoSocialRpc(name, args = {}) {
       // 本物と同じ: 自己紹介と好きな本は、公開している人か承認済みのときだけ（supabase_follows.sql の profile_preview）。
       const p = people[id];
       if (!p.is_public && relation !== 'accepted' && id !== 'k7mna2pqrs') return { public_id: p.public_id, nickname: p.nickname, avatar: p.avatar, relation };
-      return { ...p, relation };
+      return { ...p, relation, ...(p.is_public ? { done_count: 18, summary_count: 6 } : {}) };
     }
     case 'report_profile':
       // &report=fail で送れなかったときの画面

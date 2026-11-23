@@ -271,6 +271,18 @@ begin
   return jsonb_build_object('public_id', p.public_id, 'nickname', p.nickname, 'avatar', p.avatar, 'relation', rel)
     || case when p.is_public or rel in ('accepted', 'self') then
          jsonb_build_object('bio', p.bio, 'fav_title', p.fav_title, 'fav_author', p.fav_author, 'fav_cover', p.fav_cover, 'fav_line', p.fav_line)
+       else '{}'::jsonb end
+    -- 読書の積み重ね（2026-11-23）: 読了の冊数は本棚を見せている人（公開の本棚・承認済み）だけ、まとめのある本の数は
+    --   まとめも見せている人だけ。本人が公開の本棚から外した本は数えない。
+    || case when rel in ('accepted', 'self') or (p.is_public and p.shelf_public) then
+         jsonb_build_object('done_count', (select count(*) from public.books b
+                                            where b.user_id = other and b.status = 'done'
+                                              and not (b.id = any (coalesce(p.shelf_hidden, '{}')))))
+       else '{}'::jsonb end
+    || case when rel in ('accepted', 'self') or (p.is_public and p.shelf_public and p.summary_public) then
+         jsonb_build_object('summary_count', (select count(*) from public.books b
+                                               where b.user_id = other and coalesce(trim(b.leverage_memo), '') <> ''
+                                                 and not (b.id = any (coalesce(p.shelf_hidden, '{}')))))
        else '{}'::jsonb end;
 end;
 $$;
