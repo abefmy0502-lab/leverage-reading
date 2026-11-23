@@ -10,6 +10,7 @@
 |---|---|---|---|
 | [x] | App Store Connect：年額 ¥9,800 を 2026-12-17〜2027-01-11 で足してつないだ・月額の 7 日間無料は 2027-01-11 開始に作り直した（`chrome-founding-0110-2026-11-22.md` 結果 その 3） | オ | 2026-11-22 済み |
 | [x] | Vercel の `VITE_FOUNDING_OFFER_END=2027-01-10` で本番を公開し直した（本番の部品に 2027-01-10・2026-12-16 なしを確かめた） | オ | 2026-11-22 済み |
+| [ ] | Vercel の `VITE_FOUNDING_OFFER_END` を **Type＝Config（Secret でない）で作り直す**。Secret で作ると GitHub からの本番の出し直しが止まっていた（11/22〜11/23・Claude が `.env.production` の値で埋めて出せるようにしたので急がないが、値を変えるときに食い違う） | オ | GitHub の Actions「Deploy to Vercel」に Secret の注意が出なくなる |
 | [x] | `.env.production` を `2027-01-10` に（次の iOS のビルド 1.0.1 から反映） | C | 2026-11-23 済み |
 | [ ] | 公開のメール（`launch-email.md`）を自分宛てに試し送り。【住所】を埋める（特定電子メール法） | オ | 届いた文 |
 | [ ] | `company/sns-prep/` の伏せ字（自分の体験・実数）を埋める。動画は `marketing-out/videos/` | オ | `node scripts/marketing/weekly-drafts.mjs --check company/sns-prep/*.md` が ✓ |
