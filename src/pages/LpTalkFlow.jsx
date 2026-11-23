@@ -9,7 +9,7 @@ import { TALK as T } from './lpCopy';
 import Phrases from './LpPhrases';
 import LpPartnerDiagram from './LpPartnerDiagram';
 
-function Me({ children }) {
+export function Me({ children }) {
   return (
     <li className="lp-chat-row is-me">
       <div className="lp-chat-bubble">
@@ -19,7 +19,7 @@ function Me({ children }) {
   );
 }
 
-function Book({ from, children }) {
+export function Book({ from, children }) {
   return (
     <li className="lp-chat-row is-book">
       {/* 同じ本の 2 回目からは名前の行を出さない（左寄せのカードで本だと分かる・読み上げには書名） */}

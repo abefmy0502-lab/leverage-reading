@@ -44,7 +44,7 @@ import { normalizeTrialLabel } from '../lib/trialLabel';
 import { readFoundingOffer, noBreak, FOUNDING_NAME, FOUNDING_PRICE_YEN } from '../lib/foundingOffer';
 import Shot from './LpShot';
 import LpFlow from './LpFlow';
-import LpTalkFlow from './LpTalkFlow';
+import LpTalkFlow, { Me as ChatMe, Book as ChatBook } from './LpTalkFlow';
 import LpTalkDiagram from './LpTalkDiagram';
 import LpCostDiagram from './LpCostDiagram';
 import LpCycleDiagram from './LpCycleDiagram';
@@ -55,7 +55,7 @@ import LpIllust from './LpIllust';
 import LpWhy from './LpWhy';
 import LpArt, { hasArt } from './LpArt';
 import Phrases, { Sentences } from './LpPhrases';
-import { buildLpCopy, storeHrefOf, HERO_TALK, ASK, WHY, PLAN, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE, PROBLEM_LINES, FEATURES, GOAL_SEC } from './lpCopy';
+import { buildLpCopy, storeHrefOf, HERO_TALK, SCENE, ASK, WHY, PLAN, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE, PROBLEM_LINES, FEATURES, GOAL_SEC } from './lpCopy';
 import qrcode from 'qrcode-generator';
 import { lpTrack, lpVariant, storeUrlFor, isWidePointer } from '../lib/lpTrack';
 import { inject as injectVercelAnalytics } from '@vercel/analytics';
@@ -108,6 +108,8 @@ const LAUNCH_LINE = `${LAUNCH_LABEL}に、App Store で公開予定です。`;
 // 狭い幅・最大の文字で割れても「無料プランで／始める」になるよう、2 つの塊に包む（.lp-btn は keep-all）。
 //   .lp-btn は inline-flex なので、外側を 1 つの span にして 2 つの塊を同じ行の中に置く（2 列に割れていた・2026-10-11 ui-critic）。
 const CTA_LABEL = <span className="lp-btn-label"><span className="lp-nb">無料プランで</span><wbr /><span className="lp-nb">始める</span></span>;
+// ヒーロー（会話の型）の主ボタン＝使ったあとの体験（2026-11-23 オーナーの見直し）。無料のことはすぐ下の 1 行。
+const HERO_TALK_CTA = <span className="lp-btn-label">{HERO_TALK.cta.map((t, i) => <Fragment key={t}>{i > 0 && <wbr />}<span className="lp-nb">{t}</span></Fragment>)}</span>;
 // 料金の欄のボタン（有料のカードのすぐ下・2026-10-12）。押す先は同じ App Store（無料期間はアプリの中で始める）。
 // 期間中（創業メンバー価格）の有料のボタン: 7 日間無料は月額だけなので、ボタンでは言わない（ui-critic 2026-11-11）
 const PLAN_CTA_LABEL = <span className="lp-btn-label"><span className="lp-nb">App Store で</span><wbr /><span className="lp-nb">プランを始める</span></span>;
@@ -565,11 +567,12 @@ export default function Landing() {
               </h1>
               {/* 2026-10-17 指示書（見出しは同日オーナー裁定で「会話しよう。」のまま）: 補足は体験が思い浮かぶ 2 行（残す → 相談する） */}
               <p className="lp-lead lp-lead-lines lp-wbr">
-                {heroVariant === 'talk' ? HERO_TALK.lead.map((t) => <span key={t}>{t.split(/(?<=[」。])/).map((c) => <span key={c} className="lp-nb">{c}</span>)}</span>) : <><span>心に残った一行を、本ごとにメモしておく。</span><span>迷ったとき、その本に相談できます。</span></>}
+                {heroVariant === 'talk' ? HERO_TALK.lead.map((t) => <span key={t}>{t.split(/(?<=[」。、])/).map((c) => <span key={c} className="lp-nb">{c}</span>)}</span>) : <><span>心に残った一行を、本ごとにメモしておく。</span><span>迷ったとき、その本に相談できます。</span></>}
               </p>
               <div className="lp-cta-block" ref={heroCtaRef}>
                 {/* QR は最後の案内だけ（ヒーローの主ボタンの横の黒い四角がいちばん重く見えた・2026-10-16 ui-critic） */}
-                <Entry loc="hero" wl={wl} badge launch />
+                <Entry loc="hero" wl={wl} badge launch label={heroVariant === 'talk' ? HERO_TALK_CTA : CTA_LABEL} />
+                {heroVariant === 'talk' && !PRELAUNCH && <p className="lp-cta-note">{HERO_TALK.ctaNote}</p>}
                 <div className="lp-hero-links">
                   <a className="lp-textlink" href="#lp-grow" onClick={() => lpTrack('hero_secondary', {})}>
                     <span>使い方を見る</span><ChevronDown size="1.1em" aria-hidden="true" />
@@ -615,6 +618,27 @@ export default function Landing() {
             )}
           </div>
         </section>
+
+        {/* ============ 会話のイメージ（2026-11-23 オーナー「ファーストビューの次に必ず具体的な利用シーンを」）: 1 往復だけ ============ */}
+        {heroVariant === 'talk' && (
+          <section className="lp-sec lp-scene-sec" aria-labelledby="lp-scene" data-lp-sec="scene">
+            <div className="lp-wrap lp-narrow">
+              <h2 className="lp-h2" id="lp-scene">{SCENE.h2}</h2>
+              <ol className="lp-chat lp-scene-chat" aria-label="相談のイメージ">
+                <ChatMe>{SCENE.ask}</ChatMe>
+                <ChatBook from={SCENE.from}>
+                  <p className="lp-chat-text is-read lp-wbr"><Phrases phrase>{SCENE.lead}</Phrases></p>
+                  <figure className="lp-scene-memo">
+                    <blockquote className="lp-wbr"><Phrases phrase>{`「${SCENE.memo}」`}</Phrases></blockquote>
+                    <figcaption>{SCENE.memoMeta}</figcaption>
+                  </figure>
+                  <p className="lp-chat-text is-read lp-wbr"><Phrases phrase>{SCENE.answer}</Phrases></p>
+                </ChatBook>
+              </ol>
+              <p className="lp-scene-note lp-wbr"><Phrases phrase>{SCENE.note}</Phrases></p>
+            </div>
+          </section>
+        )}
 
         {/* ============ 共感（黄金の流れの 2 番目・2026-11-11）: 読む人の困りごとを 2 行だけ。数字は使わない ============ */}
         <section className="lp-sec lp-problem-sec" aria-label="こんなことは、ありませんか" data-lp-sec="problem">

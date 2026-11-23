@@ -1410,3 +1410,12 @@ body.lp-active {
 }
 /* ヒーローの補足 2 段落は、まとまりの間を行の送りより広く（2026-11-21 ui-critic） */
 .lp-hero-grid.is-talk .lp-lead-lines > span + span { margin-top: var(--space-3); }
+
+/* 💬 会話のイメージ（2026-11-23・ヒーローのすぐ下・1 往復） */
+.lp-scene-sec { padding-top: 0; }
+.lp-scene-chat { margin-top: var(--space-6); }
+.lp-root .lp-scene-memo { margin: 0; padding: var(--space-1) 0 var(--space-1) var(--space-3); border-left: 2px solid var(--accent); }
+.lp-root .lp-scene-memo blockquote { margin: 0; font-family: var(--font-read); font-size: var(--text-body); font-weight: 600; line-height: 1.6; color: var(--text); word-break: keep-all; overflow-wrap: anywhere; }
+.lp-root .lp-scene-memo figcaption { margin-top: var(--space-1); font-size: var(--text-caption); color: var(--text-2); line-height: 1.5; }
+.lp-root .lp-scene-note { margin: var(--space-3) 0 0; font-size: var(--text-caption); color: var(--text-2); line-height: 1.5; }
+.lp-root .lp-cta-note { margin: var(--space-2) 0 0; font-size: var(--text-caption); color: var(--text-2); line-height: 1.5; }
