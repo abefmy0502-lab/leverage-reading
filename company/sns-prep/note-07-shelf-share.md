@@ -2,7 +2,7 @@
 note 連載「Orime の機能を、作った人が深掘りする」第 7 回：本棚を見せ合う（プロフィール・フォロー・公開の本棚）（2026-11-23 下書き）
 - 正：company/sns-strategy-2026-11-22.md §2・§3-2・§3-4・§4-1・§9（使った人の本棚は許可を得たものだけ・公開の本棚のメモは公開されないと添える）／言葉は company/lp-axis-2026-11-15.md と CLAUDE.md の GLOSSARY（プロフィール／ニックネーム／公開する・フォロー／フォロワー／申し込み／承認／ブロック）／形は company/sns-quality-guide-2026-11.md §2 note
 - 公開：承認のあと（その週の火曜 7:00）。**承認されるまで出さない**
-- **iPhone のアプリでフォローが使えるのは VITE_SOCIAL=on のビルド（1.0.1 から）だけ**。公開の日にどのビルドが出ているかで本文の【】を直す。日付は約束しない
+- **iPhone のアプリのフォローは 1.0.0（ビルド 8・9 は `VITE_SOCIAL=on` で作った＝`launch-2026-11/review-notes-build8-2026-11-22.md`）から使える**（2026-11-23 に確かめて本文を直した）。日付は約束しない
 - 事実を確かめた所：src/lib/profile.js・src/lib/social.js・src/components/FollowSheet.jsx・src/components/ProfileSheet.jsx・src/components/ProfileForm.jsx・api/_profilePage.js・supabase_follows.sql（followee_shelf）・src/lib/helpContent.js（bookList の「プロフィール」）・src/App.jsx（公開の本棚から外す）
 
 題の候補（25 字以内）
@@ -110,7 +110,7 @@ note 連載「Orime の機能を、作った人が深掘りする」第 7 回：
 
 **ブロックと通報ができます。** 相手の本棚とフォロワーの行の「…」からです。通報は運営が 24 時間以内に確かめます。通報したことは相手に知らせません。
 
-**iPhone のアプリでは、フォローは【次の更新から／いまのアプリから】使えます。** 【公開の日のビルドに合わせて直す】
+**iPhone のアプリでも、フォローは最初の版から使えます。**
 
 **いいねや順位はありません。** 冊数を競う場所にはしたくなかったからです。
 

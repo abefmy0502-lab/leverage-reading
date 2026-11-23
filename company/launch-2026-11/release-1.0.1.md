@@ -38,7 +38,7 @@
    npm version 1.0.1 --no-git-tag-version
    ```
    （1.0.0 の差し戻しでビルド番号を 10 以上に上げていたら、それより 1 つ大きい番号に）
-3. `.env.production.local`（Mac・鍵の入ったほう）の `VITE_FOUNDING_OFFER_END` を **`2027-01-10`** に（Claude は中身に触らない）。`.env.production` はリポジトリで直してある。
+3. `.env.production.local`（Mac・鍵の入ったほう）の `VITE_FOUNDING_OFFER_END` を **`2027-01-10`** に、`VITE_SOCIAL=on` が残っていることも確かめる（ビルド 8・9 はフォローありで出した・Claude は中身に触らない）。`.env.production` はリポジトリで直してある（`VITE_SOCIAL=on` も入れた）。
 4. `npm ci && npm run build && npx cap sync ios` → Xcode で Archive → App Store Connect へ上げる。
 5. 上げたビルドを iPhone（TestFlight）で確かめる：
    - 有料プランの画面に「1 月 10 日まで」が出る（12/16 ではない）
