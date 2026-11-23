@@ -24,6 +24,11 @@ describe('authErrors: 失敗の文は操作ごと（2026-11-23）', () => {
   it('打ち切りの文は操作の名前と「応答がありませんでした」', () => {
     expect(humanizeError({ code: 'auth_timeout' }, 'guest')).toBe('始められませんでした。応答がありませんでした。通信状況を確認して、もう一度お試しください。');
   });
+  it('止まっている方法の文は「ログイン」だけ（「サインイン」と混ぜない・2026-11-23）', () => {
+    const text = humanizeError({ code: 'provider_disabled', status: 400 }, 'guest');
+    expect(text).toMatch(/^この方法は、いま使えません。/);
+    expect(text).not.toMatch(/サインイン/);
+  });
 });
 
 describe('withTimeout', () => {

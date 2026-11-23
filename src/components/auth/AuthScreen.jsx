@@ -424,10 +424,10 @@ export default function AuthScreen() {
               {/* ボタンの名前（Appleでサインイン＝審査の手順にも書いた名前）とそろえる・2026-11-23 */}
               {withPhraseBreaks('Appleでサインインすると、利用規約とプライバシーポリシーに同意したことになります。')}
             </p>
-            {/* 添え書きのリンクは主役（Apple のボタン）と張り合わないよう --text-2 に（DESIGN §5 同意の添え書き）。 */}
+            {/* 規約のリンクはこの画面のほかの 2 か所（新規登録・登録せずに始める）と同じ形（栗色・下線なし・2026-11-23）。 */}
             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', columnGap: 'var(--space-6)' }}>
-              <a href={TERMS_URL} target="_blank" rel="noopener noreferrer" style={{ ...legalLink, color: 'var(--text-2)', textDecoration: 'underline', textUnderlineOffset: '0.2em' }}>利用規約</a>
-              <a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer" style={{ ...legalLink, color: 'var(--text-2)', textDecoration: 'underline', textUnderlineOffset: '0.2em' }}>プライバシーポリシー</a>
+              <a href={TERMS_URL} target="_blank" rel="noopener noreferrer" style={legalLink}>利用規約</a>
+              <a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer" style={legalLink}>プライバシーポリシー</a>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', margin: 'var(--space-4) 0' }}>
               <span style={{ flex: 1, height: 1, background: 'var(--separator)' }} />

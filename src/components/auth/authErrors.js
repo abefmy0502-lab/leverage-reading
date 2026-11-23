@@ -85,7 +85,7 @@ export function humanizeError(err, op = 'signin') {
   // サインインの方法がサーバーで止まっている（Supabase の Apple・匿名のサインインがオフ・2026-11-21 シミュレータで「400 provider_disabled」）。
   //   待っても直らないので「時間をおいて」と言わない。別の方法へ案内する。
   if (err?.code === 'provider_disabled' || err?.code === 'anonymous_provider_disabled' || msg.includes('provider is not enabled') || msg.includes('provider_disabled') || msg.includes('anonymous sign-ins are disabled')) {
-    return `この方法では、いまサインインできません。メールアドレスで登録・ログインしてください。${diagCode(err)}`;
+    return `この方法は、いま使えません。メールアドレスで登録・ログインしてください。${diagCode(err)}`;
   }
   // サーバー側の停止・障害（Supabase の自動一時停止は 5xx や独自の 540 を返すことがある）。
   const status = Number(err?.status) || 0;

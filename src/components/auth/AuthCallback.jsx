@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react';
 import { supabase, isSupabaseConfigured, isDemo } from '../../lib/supabase';
 
-// 🧪 お試しモード（開発専用）: &cb=wait＝認証しています…のまま／&cb=timeout＝確かめられなかった画面／
+// 🧪 お試しモード（開発専用）: &cb=wait＝確かめています…のまま／&cb=timeout＝確かめられなかった画面／
 //   &cb=slow＝パスワードの更新が 8 秒かかる（更新しています…）。本番では isDemo が false なので何もしない。
 const demoCb = () => {
   if (!isDemo || typeof window === 'undefined') return '';
   try { return new URLSearchParams(window.location.search).get('cb') || ''; } catch { return ''; }
 };
 import { LIMITS, validatePassword } from '../../lib/limits';
-import { btnPrimary, btnPrimaryOff, input } from '../../styles/ui';
+import { btnPrimary, btnPrimaryOff, btnLinkQuiet, input } from '../../styles/ui';
 import { withPhraseBreaks } from '../TightBubble';
 
 function parseHashParams() {
@@ -55,6 +55,8 @@ const bodyStyle = { fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHei
 const hintStyle = { fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, margin: 'var(--space-1) 0 var(--space-3)', textAlign: 'left' };
 const errorStyle = { fontSize: 'var(--text-meta)', color: 'var(--error)', lineHeight: 1.5, margin: '0 0 var(--space-3)', textAlign: 'left' };
 const btn = { ...btnPrimary, width: '100%' };
+// 主ボタンの下の文字ボタン（行き止まりにしない・補足の強さ＝--text-2・2026-11-23）
+const backLink = { ...btnLinkQuiet, width: '100%', marginTop: 'var(--space-1)' };
 
 export default function AuthCallback({ onDone }) {
   const [initial] = useState(parseHashParams);
@@ -183,9 +185,16 @@ export default function AuthCallback({ onDone }) {
             {pwError && <p id="cb-pw-error" role="alert" style={errorStyle}>{pwError}</p>}
             {/* 処理中も薄くせず、文言で示す（DESIGN §5 押せないボタン）。 */}
             <button type="submit" disabled={pwBusy} aria-busy={pwBusy || undefined} style={pwBusy ? { ...btnPrimaryOff, width: '100%' } : btn}>
-              {pwBusy ? '更新しています…' : 'パスワードを更新してはじめる'}
+              {/* 「はじめる」は集中モードの言葉なので使わない（GLOSSARY・2026-11-23） */}
+              {pwBusy ? '更新しています…' : 'パスワードを更新する'}
             </button>
           </form>
+          {/* 行き止まりにしない: 更新をやめてログインの画面へ戻れる（2026-11-23） */}
+          {!pwBusy && (
+            <button type="button" onClick={handleBackToLogin} style={backLink}>
+              ログイン画面に戻る
+            </button>
+          )}
         </div>
       </div>
     );
@@ -196,7 +205,7 @@ export default function AuthCallback({ onDone }) {
     return (
       <div style={wrap}>
         <div style={inner}>
-          <h1 style={titleStyle}>認証リンクが利用できません</h1>
+          <h1 style={titleStyle}>リンクを開けませんでした</h1>
           <p style={bodyStyle}>{withPhraseBreaks(message)}</p>
           <button type="button" onClick={handleBackToLogin} style={btn}>
             ログイン画面に戻る
@@ -210,7 +219,7 @@ export default function AuthCallback({ onDone }) {
     return (
       <div style={wrap} role="status" aria-live="polite">
         <div style={inner}>
-          <h1 style={titleStyle}>認証しています…</h1>
+          <h1 style={titleStyle}>確かめています…</h1>
           <p style={bodyStyle}>{withPhraseBreaks('少しお待ちください。')}</p>
         </div>
       </div>
@@ -220,7 +229,7 @@ export default function AuthCallback({ onDone }) {
   return (
     <div style={wrap}>
       <div style={inner}>
-        <h1 style={titleStyle}>認証を確認できませんでした</h1>
+        <h1 style={titleStyle}>確かめられませんでした</h1>
         <p style={bodyStyle}>{withPhraseBreaks('時間がかかっています。ログイン画面からやり直してください。')}</p>
         <button type="button" onClick={handleBackToLogin} style={btn}>
           ログイン画面に戻る
