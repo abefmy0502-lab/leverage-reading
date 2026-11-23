@@ -45,9 +45,9 @@ out.roles = ROLES; out.routines = ROUTINES; out.items = ITEMS;
   const calc = {
     paidEnd: (y) => TARGETS[y], grossDec: (y) => { const d = dec(y); return Math.round(d.revenue - d.fee - d.refunds - d.ai - FIXED); }, cashEnd: (y) => Math.round(ys2[y].cashEnd / 1e4),
     installsYear: (y) => Math.round(yr(y).reduce((s2, r) => s2 + r.installs, 0)), dlDec: (y) => Math.round(dec(y).installs), chSearch: (y) => sumCh(y, 'search'), chSns: (y) => sumCh(y, 'sns'), chCollab: (y) => sumCh(y, 'collab'),
-    activeDec: (y) => Math.round(dec(y).freeActive + dec(y).paid), revShare: (y) => Math.round((dec(y).b2bRevenue / dec(y).revenue) * 1000) / 10, seatsEnd: (y) => dec(y).seats, companiesEnd: (y) => dec(y).companies,
+    activeDec: (y) => Math.round(dec(y).freeActive + dec(y).paid), revenueDec: (y) => Math.round(dec(y).revenue * 1.1), revShare: (y) => Math.round((dec(y).b2bRevenue / dec(y).revenue) * 1000) / 10, seatsEnd: (y) => dec(y).seats, companiesEnd: (y) => dec(y).companies,
   };
-  out.departments = DEPARTMENTS.map((d) => ({ ...d, metrics: d.metrics.map((m) => ({ label: m.label, yen: !!m.yen, values: Object.fromEntries([2027, 2028, 2029].map((y) => [y, m.fixed ? m.fixed[y] : calc[m.kind](y)])) })) }));
+  out.departments = DEPARTMENTS.map((d) => ({ ...d, metrics: d.metrics.map((m) => ({ label: m.label, yen: !!m.yen, kpi: m.kpi || null, values: Object.fromEntries([2027, 2028, 2029].map((y) => [y, m.fixed ? m.fixed[y] : calc[m.kind](y)])) })) }));
 }
 if (process.argv.includes('--json')) {
   mkdirSync('company/plan-model', { recursive: true });

@@ -42,15 +42,15 @@ export const ROLES = [
 // metrics: 部の目標の数字。kind で計算から出す（plan.mjs が年ごとの値を入れる）か、fixed で決まった値を置く
 export const DEPARTMENTS = [
   { id: 'hq', name: '経営企画部', roles: ['ceo', 'intel', 'fin'], mission: '向きと関門を決め、お金と決まりを守り、外の動きを読む。全部の部署の目標を 1 つにそろえる', head: 'オーナー', kpiKeys: ['paid', 'gross'],
-    metrics: [{ label: '有料（12 月末・個人＋法人の席）', kind: 'paidEnd' }, { label: '粗利（12 月の月）', kind: 'grossDec', yen: true }, { label: '年末の手元の現金（万円）', kind: 'cashEnd' }, { label: '関門（12 月末の有料の下限）', fixed: { 2027: 450, 2028: 1600, 2029: 3400 } }] },
+    metrics: [{ label: '有料（12 月末・個人＋法人の席）', kind: 'paidEnd', kpi: 'paid' }, { label: '粗利（12 月の月）', kind: 'grossDec', yen: true, kpi: 'gross' }, { label: '年末の手元の現金（万円）', kind: 'cashEnd' }, { label: '関門（12 月末の有料の下限）', fixed: { 2027: 450, 2028: 1600, 2029: 3400 } }] },
   { id: 'mkt', name: 'マーケティング部', roles: ['sns', 'x', 'ig', 'th', 'note', 'mkt'], mission: '知ってもらい、入れてもらう（検索・SNS・協業と note・共有・広告の試し）。どの道が効いたかを数で示す', head: 'オーナー（2029 年 10 月にマーケの社員が入ればその人）', kpiKeys: ['dl'],
-    metrics: [{ label: '入れた人（年の合計・iPhone と Android）', kind: 'installsYear' }, { label: '入れた人（12 月の月）', kind: 'dlDec' }, { label: 'App Store の検索から（年）', kind: 'chSearch' }, { label: 'SNS から（年）', kind: 'chSns' }, { label: '協業と note から（年）', kind: 'chCollab' }] },
+    metrics: [{ label: '入れた人（年の合計・iPhone と Android）', kind: 'installsYear' }, { label: '入れた人（12 月の月）', kind: 'dlDec', kpi: 'dl' }, { label: 'App Store の検索から（年）', kind: 'chSearch' }, { label: 'SNS から（年）', kind: 'chSns' }, { label: '協業と note から（年）', kind: 'chCollab' }] },
   { id: 'product', name: 'プロダクト部', roles: ['pdm', 'dev', 'qa'], mission: '入れた人が最初の 7 日で「自分のメモが相談相手になる」に出会い、使い続けるものを作る。出す前にバグを止める', head: 'オーナー', kpiKeys: ['active', 'free'],
-    metrics: [{ label: 'アクティブ会員（12 月・この 30 日に使った人）', kind: 'activeDec' }, { label: '7 日でメモ 10 件（%）', fixed: { 2027: 30, 2028: 33, 2029: 35 } }, { label: '30 日後も使う（%）', fixed: { 2027: 25, 2028: 27, 2029: 30 } }, { label: '7 日間無料 → 有料（%）', fixed: { 2027: 30, 2028: 32, 2029: 34 } }, { label: '利用者が見つけたバグ（月・以下）', fixed: { 2027: 3, 2028: 3, 2029: 3 } }] },
-  { id: 'cx', name: 'お客さま・運用部', roles: ['ops', 'cs'], mission: '止まらない・守る・答える。声を集めてプロダクト部へ渡す。AI の原価を守る', head: 'オーナー（問い合わせが月 50 件を超えたら外注）', kpiKeys: ['gross'],
+    metrics: [{ label: 'アクティブ会員（12 月・この 30 日に使った人）', kind: 'activeDec', kpi: 'active' }, { label: '7 日でメモ 10 件（%）', fixed: { 2027: 30, 2028: 33, 2029: 35 } }, { label: '30 日後も使う（%）', fixed: { 2027: 25, 2028: 27, 2029: 30 } }, { label: '7 日間無料 → 有料（%）', fixed: { 2027: 30, 2028: 32, 2029: 34 } }, { label: '利用者が見つけたバグ（月・以下）', fixed: { 2027: 3, 2028: 3, 2029: 3 } }] },
+  { id: 'cx', name: 'お客さま・運用部', roles: ['ops', 'cs'], mission: '止まらない・守る・答える。声を集めてプロダクト部へ渡す。AI の原価を守る', head: 'オーナー（問い合わせが月 50 件を超えたら外注）', kpiKeys: [],
     metrics: [{ label: 'AI の原価（有料 1 人・月・円以下）', fixed: { 2027: 50, 2028: 50, 2029: 50 } }, { label: '止まった時間（月・時間以下）', fixed: { 2027: 1, 2028: 1, 2029: 1 } }, { label: '問い合わせに 48 時間以内に返す（%）', fixed: { 2027: 95, 2028: 95, 2029: 95 } }, { label: '通報の確認（時間以内）', fixed: { 2027: 24, 2028: 24, 2029: 24 } }] },
   { id: 'biz', name: '事業開発部', roles: ['rev', 'b2b'], mission: '有料会員の次の柱を作る（法人・学校・年額の贈り物・AI と連携・読書会）。バリューに合うものだけ、小さく試して数で決める', head: 'オーナー（2029 年 7 月に法人営業が入ればその人）', kpiKeys: ['revenue'],
-    metrics: [{ label: '有料会員以外の売上の割合（12 月・%）', kind: 'revShare' }, { label: '法人の席（12 月末）', kind: 'seatsEnd' }, { label: '法人の会社（12 月末）', kind: 'companiesEnd' }] },
+    metrics: [{ label: '売上（12 月の月・税込）', kind: 'revenueDec', yen: true, kpi: 'revenue' }, { label: '有料会員以外の売上の割合（12 月・%）', kind: 'revShare' }, { label: '法人の席（12 月末）', kind: 'seatsEnd' }, { label: '法人の会社（12 月末）', kind: 'companiesEnd' }] },
 ];
 
 // 毎月の決まった仕事。owner＝オーナーが使う時間（時間／週）。AI が受け持つ分は ai に書く
