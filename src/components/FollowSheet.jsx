@@ -38,15 +38,16 @@ const ProfileSheet = lazy(() => import('./ProfileSheet'));
 const STATUS_LABEL = { reading: '読書中', done: '読了', before: '積読', want: '読みたい' };
 const note = { margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.6, lineBreak: 'strict', textWrap: 'pretty', wordBreak: 'keep-all', overflowWrap: 'anywhere' };
 // 一覧の行: 区切り線は 2 行目から（DESIGN §5 一覧の行）。
-const row = (first) => ({ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minHeight: 'var(--tap-min)', padding: 'var(--space-2) 0', borderTop: first ? 'none' : '1px solid var(--separator)' });
-const nameStyle = { flex: 1, minWidth: 0, fontSize: 'var(--text-body)', color: 'var(--text)', overflowWrap: 'anywhere' };
+const row = (first) => ({ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--space-3)', minHeight: 'var(--tap-min)', padding: 'var(--space-2) 0', borderTop: first ? 'none' : '1px solid var(--separator)' });
+const nameStyle = { flex: '1 1 7em', minWidth: 0, fontSize: 'var(--text-body)', color: 'var(--text)', overflowWrap: 'anywhere' };
 const plainBtn = { background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', color: 'inherit', textAlign: 'left' };
 // 一覧の行の主ボタン（承認・申し込む）は btnRow の形に塗り（15/600・高さ 44）。
 const smallBtn = { ...btnRow, background: 'var(--accent)', color: 'var(--accent-ink)', border: 'none' };
 // 行の中の文字ボタン（断る・取り消す・ブロックを外す）は横も 44 以上。
 const rowLink = { ...btnLinkQuiet, minWidth: 'var(--tap-min)', padding: '0 var(--space-2)', justifyContent: 'center' };
 // 一覧の行の右の関係（フォロー／承認を待っています／あなた）を入れる箱。いちばん長い「承認を待っています」が収まる幅。
-const relBox = { display: 'inline-flex', justifyContent: 'flex-end', alignItems: 'center', minWidth: 'calc(9 * var(--text-meta) + var(--space-2))', flexShrink: 0 };
+// 文字が大きいときは箱が行の 3 分の 1 を超えず、収まらなければ次の行へ落ちる（名前が 1 字ずつ縦に並ばないように）。
+const relBox = { display: 'inline-flex', justifyContent: 'flex-end', alignItems: 'center', minWidth: 'min(calc(9 * var(--text-meta) + var(--space-2)), 32%)', flexShrink: 0, marginLeft: 'auto' };
 const iconBtn = { ...plainBtn, width: 'var(--tap-min)', height: 'var(--tap-min)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-2)', flexShrink: 0 };
 
 // 3 つの画面を行き来してもシートの高さが跳ねないように、中身の高さの下限をそろえる。
@@ -84,8 +85,8 @@ function PersonRow({ person, children, onOpen, first = false, sub = '' }) {
   return (
     <div role="listitem" style={row(first)}>
       {onOpen
-        ? <button type="button" onClick={onOpen} style={{ ...plainBtn, flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minHeight: 'var(--tap-min)' }}>{body}</button>
-        : <span style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minHeight: 'var(--tap-min)' }}>{body}</span>}
+        ? <button type="button" onClick={onOpen} style={{ ...plainBtn, flex: '1 1 12em', minWidth: 0, display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minHeight: 'var(--tap-min)' }}>{body}</button>
+        : <span style={{ flex: '1 1 12em', minWidth: 0, display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minHeight: 'var(--tap-min)' }}>{body}</span>}
       {children}
     </div>
   );
@@ -726,8 +727,8 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
       <BottomSheet title={who(person)} onClose={onClose} layer="dialog" footer={footer}>
         <div ref={bodyRef} style={sheetBody}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <button type="button" onClick={() => setView(back || { name: 'home' })} style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))', minWidth: 0 }}>
-            <ChevronLeft size="1.1em" aria-hidden="true" />{backLabel}
+          <button type="button" onClick={() => setView(back || { name: 'home' })} style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-start', textAlign: 'left', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))', minWidth: 0 }}>
+            <ChevronLeft size="1.1em" aria-hidden="true" style={{ flexShrink: 0 }} /><span>{withPhraseBreaks(backLabel)}</span>
           </button>
           <button
             type="button"
@@ -744,8 +745,8 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
         </div>
         <div style={{ marginTop: 'var(--space-2)' }}>
           <UserAvatar avatarId={p.avatar} nickname={p.nickname} size={56} />
-          <p style={{ margin: 'var(--space-3) 0 0', fontSize: 'var(--text-heading)', fontWeight: 600, overflowWrap: 'anywhere' }}>{who(p)}</p>
-          {loaded?.bio && <p style={{ ...note, marginTop: 'var(--space-2)', fontSize: 'var(--text-body)', color: 'var(--text)', whiteSpace: 'pre-line' }}>{loaded.bio}</p>}
+          {/* 名前はシートの題に出ているので、本文では繰り返さない（2026-11-23 ui-critic） */}
+          {loaded?.bio && <p style={{ ...note, marginTop: 'var(--space-2)', fontSize: 'var(--text-body)', color: 'var(--text)', whiteSpace: 'pre-line', overflowWrap: 'break-word' }}>{withPhraseBreaks(loaded.bio)}</p>}
           {/* 読書の積み重ね（本棚を公開している人か、承認済みのときだけ・profile_preview） */}
           {loaded && (loaded.doneCount > 0 || loaded.summaryCount > 0) && (
             <p style={{ ...note, marginTop: 'var(--space-2)', fontSize: 'var(--text-sub)' }}>
@@ -777,7 +778,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
         {loaded && (
           <p style={{ ...note, marginTop: 'var(--space-8)' }}>
             {withPhraseBreaks(rel === 'pending'
-              ? '承認を待っています。承認されると、本棚と「この本のまとめ」を見られます。'
+              ? '承認を待っています。承認されると、本棚と「この本のまとめ」を見られます。取り消すときは右上の「…」から。'
               : rel === 'accepted'
                 ? 'フォローしています。'
                 : `${shared ? '' : 'この人はプロフィールを公開していません。'}承認されると、本棚と「この本のまとめ」を見られ${followsVisible ? `、${who(p)}のフォロワーの一覧にもあなたが出ます` : 'ます'}。`)}
@@ -823,11 +824,16 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
         )}
         {loaded && !loaded.visible && <p style={{ ...note, marginTop: 'var(--space-4)' }}>{withPhraseBreaks(`${who(person)}は、フォロー中・フォロワーの一覧を見せていません。`)}</p>}
         {loaded?.visible && (list.length === 0
-          ? <p style={{ ...note, marginTop: 'var(--space-4)' }}>{ctab === 'followers' ? 'フォロワーはいません。' : 'フォロー中の人はいません。'}</p>
+          ? (
+            <div style={{ marginTop: 'var(--space-4)' }}>
+              <p style={note}>{ctab === 'followers' ? 'フォロワーはいません。' : 'フォロー中の人はいません。'}</p>
+              <button type="button" onClick={() => backFromConn(view)} style={{ ...btnLink, marginTop: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}>{who(person)}の本棚へ戻る</button>
+            </div>
+          )
           : (
             <div role="list" style={{ marginTop: 'var(--space-3)' }}>
               {list.map((p, i) => (
-                <PersonRow key={p.publicId} first={i === 0} person={p} sub={p.doneCount > 0 ? `読了 ${p.doneCount} 冊` : ''} onOpen={p.relation === 'accepted' ? () => openPerson(p) : p.relation === 'self' ? undefined : () => openPeek(p)}>
+                <PersonRow key={p.publicId} first={i === 0} person={p} sub={p.doneCount > 0 ? `読了 ${p.doneCount} 冊` : ''} onOpen={p.relation === 'accepted' ? () => openPerson(p) : p.relation === 'self' ? () => setProfileOpen(true) : () => openPeek(p)}>
                   {/* 右の関係はいつも同じ幅の箱に入れて、› と「…」の列をそろえる（2026-11-23 ui-critic） */}
                   <span style={relBox}>
                   {p.relation === 'self' && <span style={note}>あなた</span>}
@@ -875,7 +881,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
       <BottomSheet title={`${who(person)}の本棚`} onClose={onClose} layer="dialog">
         <div ref={bodyRef} style={sheetBody}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <button type="button" onClick={() => setView(view.back || { name: 'home' })} style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))', minWidth: 0 }}>
+          <button type="button" onClick={() => setView(view.back || { name: 'home' })} style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-start', textAlign: 'left', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))', minWidth: 0 }}>
             <ChevronLeft size="1.1em" aria-hidden="true" />{view.back?.name === 'conn' ? `${who(view.back.person)}の${view.back.tab === 'followers' ? 'フォロワー' : 'フォロー中'}` : 'フォロー'}
           </button>
           <button
@@ -894,7 +900,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
         <div style={{ marginTop: 'var(--space-2)' }}>
           <UserAvatar avatarId={p.avatar} nickname={p.nickname} size={56} />
           <p style={{ margin: 'var(--space-3) 0 0', fontSize: 'var(--text-heading)', fontWeight: 600, overflowWrap: 'anywhere' }}>{who(p)}</p>
-          {p.bio && <p style={{ ...note, marginTop: 'var(--space-2)', fontSize: 'var(--text-body)', color: 'var(--text)', whiteSpace: 'pre-line' }}>{p.bio}</p>}
+          {p.bio && <p style={{ ...note, marginTop: 'var(--space-2)', fontSize: 'var(--text-body)', color: 'var(--text)', whiteSpace: 'pre-line', overflowWrap: 'break-word' }}>{withPhraseBreaks(p.bio)}</p>}
           <ConnCounts conn={conns[person.publicId]} onOpen={(tab) => setView({ name: 'conn', person, tab, back: here() })} onRetry={() => loadConns(person, { force: true })} />
         </div>
         {/* 主役はその人の言葉。好きな言葉を大きく、その下に好きな本。 */}
