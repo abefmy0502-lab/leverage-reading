@@ -728,9 +728,9 @@ export default function Landing() {
                 <p className="lp-plan-price">¥0<span>ずっと無料</span></p>
                 <ul className="lp-included" aria-label="無料プランに含まれるもの">
                   {/* li は flex（印と文を横に並べる）なので、文は 1 つの span に包む */}
-                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span className="lp-wbr"><Phrases>本とメモは何件でも、AI を使わない機能はすべて無料</Phrases></span></li>
+                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span className="lp-wbr"><Phrases>本とメモは何件でも残せて、AI を使わない機能はすべて無料</Phrases></span></li>
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>AI の相談：<span className="lp-nb">はじめの 2 か月は毎月 {FIRST_TALKS}、</span><wbr /><span className="lp-nb">そのあとは毎月 {FREE_TALKS}</span></span></li>
-                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span className="lp-wbr"><Phrases>使い切った月も、関係するメモを並べて見せます（AI なし）</Phrases></span></li>
+                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span className="lp-wbr"><Phrases>使い切った月も、関係するメモを並べて表示（AI なし）</Phrases></span></li>
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>写真から文字にする：<span className="lp-nb">毎月 {FREE_OCR_PER_MONTH} 回</span></span></li>
                 </ul>
               </div>
@@ -752,7 +752,7 @@ export default function Landing() {
                         <p className="lp-plan-price">{OFFER.priceLabel}<span>（税込）</span></p>
                         {/* 2026-11-23 LP の仕上げ: 「¥12,800 が 1 年目はこの価格に」は値引きに読める（二重価格）→ 更新のときの値段を言う形に */}
                         <p className="lp-plan-sub"><span className="lp-nb">1 年分を前払い。</span><span className="lp-nb">2 年目から年額 {ANNUAL_TEXT}（税込）</span><span className="lp-nb">で自動更新。</span></p>
-                        {!TRIAL_NOTE && <p className="lp-plan-sub"><span className="lp-nb">{COPY.END}までに</span><span className="lp-nb">始めた方の価格です。</span><span className="lp-nb">この期間中は、</span><span className="lp-nb">7 日間無料がありません。</span></p>}
+                        {!TRIAL_NOTE && <p className="lp-plan-sub"><span className="lp-nb">{COPY.END}まで。</span><span className="lp-nb">この期間中は 7 日間無料なし。</span></p>}
                       </>
                     ) : (
                       <>

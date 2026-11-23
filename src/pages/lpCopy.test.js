@@ -137,8 +137,8 @@ describe('「毎月 N 回」を割らない（2026-10-05 第 3 回）', () => {
     expect(t).not.toMatch(/毎月 /);
     expect(t).toMatch(/毎\u2060月\u2060\u00a0/);
   });
-  it('AI の送り先の答えは「を Anthropic 社」（空白あり）', () => {
-    expect(buildLpCopy({}).faq.find((f) => f.q.includes('学習')).a).toContain('を Anthropic 社');
+  it('AI の送り先の答えは「を Anthropic 社」か「を、Anthropic 社」（英字に詰めない）', () => {
+    expect(buildLpCopy({}).faq.find((f) => f.q.includes('学習')).a).toMatch(/を(、| )Anthropic 社/);
   });
 
 });
