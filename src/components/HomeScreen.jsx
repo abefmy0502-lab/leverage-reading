@@ -277,11 +277,10 @@ function HomeGoalRow({ onOpen, onClose }) {
   //   進む › と閉じる × を横に離す（右上に重ねると › と近すぎた／› を下にそろえると行ごとに位置が違った・2026-11-18 ui-critic 3 回）。
   return (
     <div data-home-goal="" style={{ ...card, padding: 0, display: 'flex', alignItems: 'stretch', overflow: 'hidden' }}>
-      <button type="button" onClick={onOpen} aria-label="目標を書く。目標から、読む本と読む順番を決めます" style={{ ...navRow, flex: 1, minWidth: 0, width: 'auto', paddingRight: 'var(--space-1)' }}>
+      <button type="button" onClick={onOpen} aria-label="目標を書く" style={{ ...navRow, flex: 1, minWidth: 0, width: 'auto', paddingRight: 'var(--space-1)' }}>
         <Compass size="1.2em" aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
         <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
           <span style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('目標を書く')}</span>
-          <span style={{ marginTop: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('目標から、読む本と読む順番を決めます')}</span>
         </span>
         <ChevronRight size="1.2em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
       </button>
@@ -686,7 +685,7 @@ export default function HomeScreen({
         // この画面の主役は「もう一度」（ErrorMessage の主の操作は、どの画面でも枠の同じ形・2026-10-10）。
         <ErrorMessage
           title="本を読み込めませんでした"
-          description="通信状況を確認して、もう一度お試しください。"
+          description="本とメモは消えていません。通信状況を確認して、もう一度お試しください。"
           actions={onRetry ? [{ label: 'もう一度', onClick: onRetry, variant: 'primary' }] : []}
         />
       ) : books.length === 0 ? (

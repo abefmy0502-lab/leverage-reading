@@ -639,25 +639,41 @@ export function ReadingPhase({ form, setForm, onSave, onSaveSummary, onMakeActio
 }
 
 // Phase 4: 読了（投資回収）
-export function DonePhase({ form, setForm, onSave, allFolders }) {
+// focusField: 'roiSummary' なら開いたときに「一番の収穫」の欄を画面の真ん中へ送ってカーソルを置く
+//   （本の詳細の「一番の収穫を 1 行だけ残す」→「1 行を書く」から来たとき・欄が画面の下で見つからなかった・2026-11-23）。
+export function DonePhase({ form, setForm, onSave, allFolders, focusField = null }) {
+  const roiRef = useRef(null);
+  useEffect(() => {
+    if (focusField !== 'roiSummary') return undefined;
+    const raf = requestAnimationFrame(() => {
+      const el = roiRef.current;
+      if (!el) return;
+      let reduce = false;
+      try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { /* noop */ }
+      try { el.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' }); } catch { /* ignore */ }
+      try { el.focus({ preventScroll: true }); } catch { /* ignore */ }
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [focusField]);
   return (
     <div>
-      <Field label="読書完了日">
-        <DateInput value={form.doneDate || ""} onChange={(e) => setForm({ ...form, doneDate: e.target.value })} style={dateInp(form.doneDate)} aria-label="読書完了日" />
+      <Field label="読了日">
+        <DateInput value={form.doneDate || ""} onChange={(e) => setForm({ ...form, doneDate: e.target.value })} style={dateInp(form.doneDate)} aria-label="読了日" />
       </Field>
 
       <Field label="評価（読んでよかった度）">
         {/* 星の押せる範囲（44）の中央に星があるので、左へ寄せて星の左端を他の欄の左端（16）にそろえる。
-            上下も押せる範囲の余りぶん詰め、見出し・次の欄との間を他の欄とそろえる。 */}
-        <div style={{ margin: 'calc(-1 * var(--space-2)) 0 calc(-1 * var(--space-2)) calc(-1 * var(--space-2))' }}>
-          <Stars r={form.rating} onChange={(r) => setForm({ ...form, rating: r })} size={28} />
+            上下も押せる範囲の余りぶん詰め、見出し・次の欄との間を他の欄とそろえる。
+            星は文字の大きさの設定に合わせて育つ（rem・本の詳細の★と同じ考え）。左の余りは「押せる幅 − 星」の半分（2026-11-23）。 */}
+        <div style={{ margin: 'calc(-1 * var(--space-2)) 0 calc(-1 * var(--space-2)) min(0px, (calc(28rem / 17) - var(--tap-min)) / 2)' }}>
+          <Stars r={form.rating} onChange={(r) => setForm({ ...form, rating: r })} size="calc(28rem / 17)" />
         </div>
       </Field>
 
       {/* 「この本の学びを分析」は 2026-09-27 に廃止（本詳細の「この本に相談する」と重なる）。
-          以前に保存した分析は「この本のAI まとめ」に残り、編集できる。 */}
+          以前に保存した分析は「以前の AI まとめ」に残り、編集できる。 */}
       {form.aiSummary?.trim() && (
-        <Field label="AI まとめ（以前の）">
+        <Field label="以前の AI まとめ">
           <textarea value={form.aiSummary} onChange={(e) => setForm({ ...form, aiSummary: e.target.value })} rows={3} style={ta} maxLength={LIMITS.memoText} />
         </Field>
       )}
@@ -666,6 +682,7 @@ export function DonePhase({ form, setForm, onSave, allFolders }) {
 
       <Field label="一番の収穫">
         <textarea
+          ref={roiRef}
           value={form.roiSummary || ""}
           onChange={(e) => setForm({ ...form, roiSummary: e.target.value })}
           placeholder="1 行で（例：意思決定が速くなる思考法を獲得）"

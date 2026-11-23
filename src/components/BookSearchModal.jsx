@@ -463,7 +463,8 @@ export function BookSearchStatus({ search, onRetry, onManual, onPick, getExistin
       {status === 'error' && (
         <ErrorMessage
           title="検索できませんでした"
-          description={error}
+          // 題と同じ「検索できませんでした。」で始まる文は、その頭を外して二重にしない（2026-11-23 ui-critic）
+          description={String(error || '').replace(/^検索できませんでした。/, '')}
           // やり直しは上の「検索」、手動入力は下の「手動で入力する」で 1 か所ずつ（同じ操作を 2 か所に出さない）。
           actions={onManual ? [] : [{ label: 'もう一度', onClick: onRetry, variant: 'secondary' }]}
         />

@@ -580,6 +580,17 @@ function Shell({ children }) {
 // 本の詳細の行動の並び（まだ → 完了）を、その本を見ている間は固定する（index の並び）。
 //   行動の数が変わったら（足した・消した）並べ直す。ほかの本を開いたら並べ直す。
 let detailActionOrderMemo = { bookId: null, order: [] };
+// すべての本のリスト: 1 枚のカードの中の行（BookCards の SwipeableBookCard）。行の枠・角丸を外し、
+//   2 冊目から上に区切り線（表紙 44＋間 12 のあと＝書名の列から右へ・ホームの BookRow の divider と同じ・2026-11-23）。
+const LIBRARY_LIST_CSS = `
+.library-list > div { border-radius: 0 !important; }
+.library-list [data-swipe-fg] > [role="button"] { border: 0 !important; border-radius: 0 !important; position: relative; }
+.library-list > div + div [data-swipe-fg] > [role="button"]::before {
+  content: ""; position: absolute; top: 0; right: 0;
+  left: calc(var(--space-4) + 44px + var(--space-3));
+  border-top: 1px solid var(--separator); pointer-events: none;
+}
+`;
 // 控えたスクロールの位置へ、箱がその高さまで伸びるのを待って合わせる（最大 60 フレーム≈1 秒・2026-11-21）。
 //   待っている間に自分で動かしたら、合わせるのをやめる。片付けの関数を返す（useEffect の戻り値に）。
 function restoreScrollWhenReady(getEl, target) {
@@ -1221,6 +1232,8 @@ function AuthedApp() {
   // 本ごとの「ステータスを元に戻す」トーストの id。同じ本のステータスがまた変わった・本を消したときに
   // 古いトーストを閉じる（古い「元に戻す」で別の段階へ巻き戻したり、消した本を保存しようとしてエラーになるのを防ぐ）。
   const statusUndoToastRef = useRef(new Map());
+  // 本棚の写真から入れたあとの「覚えている一文を足す」の知らせの id（取り消したら下げる・2026-11-23）。
+  const shelfOneLineToastRef = useRef(null);
   // 「積読に積んで、読書計画シートを作っています」の知らせ（{ bookId, id }）。シートを保存したら下げる（2026-09-30）。
   const planProgressToastRef = useRef(null);
   const dismissPlanProgress = (bookId) => {
@@ -1270,6 +1283,15 @@ function AuthedApp() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   // 👤 プロフィールの画面（右上の自分のアイコン・2026-11-22 に設定から分けた）
   const [profileScreenOpen, setProfileScreenOpen] = useState(false);
+  // どこから開いたか（'settings' なら、閉じたとき・「戻る」で設定に戻す＝トークンの追加と同じ・2026-11-23）。
+  const profileFromRef = useRef(null);
+  const openProfileScreen = (from = null) => { profileFromRef.current = from === 'settings' ? 'settings' : null; setProfileScreenOpen(true); };
+  const closeProfileScreen = () => {
+    setProfileScreenOpen(false);
+    const from = profileFromRef.current;
+    profileFromRef.current = null;
+    if (from === 'settings') setSettingsOpen(true);
+  };
   // 本の詳細を開いたときに示すメモ（openDetail の 2 つ目の引数）。
   const [detailFocusMemoId, setDetailFocusMemoId] = useState(null);
   // 振り返りの月ごとのメモを押したとき: そのメモまで送ってから編集を開く（2026-09-30）。
@@ -1306,6 +1328,21 @@ function AuthedApp() {
   // 読了にした直後だけ、その本の下に「読了を写真で共有」を 1 つ出す（押した指の下に現れないよう少し待つ・本を離れたら消す）。
   const [justDoneId, setJustDoneId] = useState(null);
   const justDoneTimerRef = useRef(null);
+  // 下の「読了を写真で共有」: 出たとき（評価済み）と、評価を付けたときに画面の中まで送る（2026-11-23）。
+  //   評価が 0 の間は送らない（送り先は見出しの「この本の評価は？」）。
+  const justDoneShareRef = useRef(null);
+  const justDoneRating = current && justDoneId === current.id ? (current.rating || 0) : 0;
+  useEffect(() => {
+    if (!justDoneId || justDoneRating <= 0) return undefined;
+    const raf = requestAnimationFrame(() => {
+      const el = justDoneShareRef.current;
+      if (!el) return;
+      let reduce = false;
+      try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { /* noop */ }
+      try { el.scrollIntoView({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' }); } catch { /* ignore */ }
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [justDoneId, justDoneRating]);
   // 📷 写真で共有の入口（2026-10-11 オーナー裁定で「押すとすぐカメラ」をやめた）: 押すと「写真で共有」の選ぶシート
   // （ShareSourceSheet）＝カメラで撮る／写真から選ぶ／写真なし（本の表紙）。毎回聞く（覚えない）。
   // iPhone のアプリに Camera のプラグインがあれば、それでカメラ／フォトライブラリを直接開く（input だと iOS が
@@ -1504,7 +1541,7 @@ function AuthedApp() {
   const [helpModalOpen, setHelpModalOpen] = useState(false);
   // 重ねて開くもの（「戻る」で一番上から閉じる・その間は左端スワイプで下の画面を戻さない）。
   useBackLayer(settingsOpen, () => setSettingsOpen(false));
-  useBackLayer(profileScreenOpen, () => setProfileScreenOpen(false));
+  useBackLayer(profileScreenOpen, () => closeProfileScreen());
   useEffect(() => {
     const reopen = () => setSettingsOpen(true);
     window.addEventListener(OPEN_SETTINGS_EVENT, reopen);
@@ -2346,7 +2383,9 @@ function AuthedApp() {
       ? { id: b.id, status: b.status, top: detailScrollRef.current.scrollTop }
       : null;
   };
-  const openEdit = (b) => { rememberDetailReturn(b); setForm(buildFormFromBook(b)); setCurrent(b); setEditPhaseOverride(null); setView("edit"); };
+  // opts.focus: 編集画面を開いたときにカーソルを置く欄（'roiSummary'＝一番の収穫・本の詳細の「1 行を書く」から・2026-11-23）。
+  const [editFocusField, setEditFocusField] = useState(null);
+  const openEdit = (b, opts = null) => { rememberDetailReturn(b); setForm(buildFormFromBook(b)); setCurrent(b); setEditPhaseOverride(null); setEditFocusField(opts?.focus || null); setView("edit"); };
   // 読書中 (or それ以降) の本で読書計画を完了させたい時用。phase を
   // 'before' にして読書計画 UI を呼び出すが、form.status は維持。
   const openSetup = (b) => {
@@ -3273,6 +3312,7 @@ function AuthedApp() {
         mutateBookLocal(bookId, (b) => ({ ...b, ...prev }));
         setCurrent((c) => (c && c.id === bookId ? { ...c, ...prev } : c));
         entry.latest = null;
+        if ('status' in patch) dismissStatusUndo(bookId); // 戻ったので「元に戻す」は下げる
         toast.error(toMessage(error, '変更できませんでした。'));
       }
     });
@@ -3297,7 +3337,25 @@ function AuthedApp() {
     const patch = { status: newStatus, ...(extra || {}) };
     if ((newStatus === 'reading' || newStatus === 'done') && !book.startDate) patch.startDate = today;
     if (newStatus === 'done' && !book.doneDate) patch.doneDate = today;
-    applyBookPatchQuiet(book.id, patch, `${getSt(newStatus).label}にしました。`);
+    applyBookPatchQuiet(book.id, patch, null);
+    // 押した直後に「元に戻す」つきの知らせ（本の状態を進めたときの知らせと同じ・ホームの「読み始める」・長押しの「状態を変える」・2026-11-23）。
+    //   戻すのは状態と、この操作で埋めた日付だけ（得たいことの下書きはそのまま）。
+    const prevStatus = { status: book.status };
+    if ('startDate' in patch) prevStatus.startDate = book.startDate || '';
+    if ('doneDate' in patch) prevStatus.doneDate = book.doneDate || '';
+    const shortMsg = { before: '積読に積みました。', reading: '読書中にしました。', done: '読了にしました。' };
+    dismissStatusUndo(book.id);
+    statusUndoToastRef.current.set(book.id, toast.undo({
+      message: shortMsg[newStatus] || `${getSt(newStatus).label}にしました。`,
+      destructive: false,
+      success: newStatus === 'done',
+      onUndo: () => {
+        statusUndoToastRef.current.delete(book.id);
+        const now = booksRef.current.find((b) => b.id === book.id);
+        if (!now || now.status !== newStatus) return; // 保存に失敗して戻った・ほかで変えたときは何もしない
+        applyBookPatchQuiet(book.id, prevStatus, null);
+      },
+    }));
     if (newStatus === 'before' || newStatus === 'reading' || newStatus === 'done') {
       track('status_changed', { to: newStatus });
     }
@@ -4757,6 +4815,8 @@ function AuthedApp() {
     <Suspense fallback={null}>
       <PastBooksQuickstart
         onImport={() => { setShowQuickstart(false); setQuickstartSeed(null); setShowImport(true); }}
+        // 紙の本棚を撮ってまとめて入れる道（2026-11-23 ui-critic）
+        onShelfScan={() => { setShowQuickstart(false); setQuickstartSeed(null); setShelfScanOpen(true); }}
         books={books}
         initialBooks={quickstartSeed}
         onSaveBook={saveQuickstartBook}
@@ -5298,8 +5358,9 @@ function AuthedApp() {
             </button>
             <div style={{ display: "flex", gap: 'var(--space-1)', marginRight: 'calc(-1 * var(--space-3))' }}>
               {/* 📷 写真で共有（読書中・読了・SPEC §2-1）: ホームと同じ文字つき（アイコンだけだと「写真から書き起こす」と
-                  見分けにくい）。押すとカメラ・写真から選ぶ・写真なしを選ぶシート（2026-10-11）。読了にした直後は下の「読了を写真で共有」があるので出さない（入口を二重にしない）。 */}
-              {isMemoPhase && justDoneId !== current.id && (
+                  見分けにくい）。押すとカメラ・写真から選ぶ・写真なしを選ぶシート（2026-10-11）。
+                  読了にした直後もいつも出す（隠すと上の行の形が変わり、どこから共有するのか迷った・2026-11-23）。 */}
+              {isMemoPhase && (
                 <button
                   type="button"
                   onClick={() => openShareChooser({ book: current, from: 'detail' })}
@@ -5628,7 +5689,7 @@ function AuthedApp() {
             // 上の行動の区画は下の余りを負の余白で詰めているので、ほかの区画の間（24）より広く 32 を取って区切る（2026-10-11 第 2 回の採点）。
             <div style={{ ...cardStyle, marginTop: 'var(--space-8)' }}>
               <p style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('一番の収穫を 1 行だけ残す')}</p>
-              <button type="button" onClick={() => openEdit(current)} style={textBtnInCard}>
+              <button type="button" onClick={() => openEdit(current, { focus: 'roiSummary' })} style={textBtnInCard}>
                 1 行を書く
               </button>
             </div>
@@ -5647,14 +5708,8 @@ function AuthedApp() {
                 // 出たら画面の中まで送る（上に「一番の収穫」のカードが入って押し下げられても、下の「読了にしました。」の
                 // 知らせと右下の「メモを書く」に重ならないように・下の余白は JUST_DONE_CLEARANCE）。
                 //   評価が 0 のときは送らない（送り先は見出しの「この本の評価は？」・2026-10-11 ui-critic）。
-                ref={(el) => {
-                  if (!el || el.dataset.revealed) return;
-                  el.dataset.revealed = '1';
-                  if (!(current.rating > 0)) return;
-                  let reduce = false;
-                  try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { /* noop */ }
-                  requestAnimationFrame(() => { try { el.scrollIntoView({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' }); } catch { /* ignore */ } });
-                }}
+                //   評価を付けたときも送る（★を押してもボタンが画面の外のままだった・justDoneShareRef の useEffect・2026-11-23）。
+                ref={justDoneShareRef}
                 onClick={() => { setJustDoneId(null); openShareChooser({ book: current, from: 'done' }); }}
                 style={{ ...btnGhost, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)', scrollMarginBottom: JUST_DONE_CLEARANCE }}
               >
@@ -6214,7 +6269,7 @@ function AuthedApp() {
                   <ReadingPhase form={form} setForm={setForm} onSave={handleSave} onSaveSummary={handleSaveSummaryFromForm} onMakeAction={addActionFromMemo} allFolders={folderNames} />
                 )}
                 {effectivePhase === "done" && current && (
-                  <DonePhase form={form} setForm={setForm} onSave={handleSave} allFolders={folderNames} />
+                  <DonePhase form={form} setForm={setForm} onSave={handleSave} allFolders={folderNames} focusField={editFocusField} />
                 )}
               </>
             );
@@ -6379,7 +6434,7 @@ function AuthedApp() {
       </button>
       {/* 🙂 右上は自分のアイコン → プロフィール（フォロー・公開・編集）。見た目 28・押せる範囲 44。 */}
       <button
-        onClick={() => setProfileScreenOpen(true)}
+        onClick={() => openProfileScreen()}
         style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: "50%", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
         aria-label="プロフィールを開く"
         title="プロフィール"
@@ -6681,7 +6736,7 @@ function AuthedApp() {
                     ? { label: 'リストで表示', icon: <IcList size="1.1em" aria-hidden="true" />, onClick: () => setBookshelfViewMode('list') }
                     : { label: '表紙で表示', icon: <IcGrid size="1.1em" aria-hidden="true" />, onClick: () => setBookshelfViewMode('grid') },
                   // ブクログ・Kindle の記録を本棚に取り込む（設定の奥だけだったので、本の一覧からも・2026-09-29）。
-                  { label: '取り込む', icon: <Upload size="1.1em" aria-hidden="true" />, onClick: () => setShowImport(true) },
+                  { label: 'ほかのアプリから取り込む', icon: <Upload size="1.1em" aria-hidden="true" />, onClick: () => setShowImport(true) },
                   // 押し込まれた画面では全体ヘッダー（？）を出さないので、ヘルプはここから。
                   { label: 'ヘルプ', icon: <HelpCircle size="1.1em" aria-hidden="true" />, onClick: openHelp },
                 ]}
@@ -6826,7 +6881,7 @@ function AuthedApp() {
                 // アイコン・言い方はホーム・本の検索のエラーとそろえる（既定の AlertCircle）。
                 <ErrorMessage
                   title="本を読み込めませんでした"
-                  description="通信状況を確認して、もう一度お試しください。"
+                  description="本とメモは消えていません。通信状況を確認して、もう一度お試しください。"
                   actions={[{ label: 'もう一度', onClick: () => refreshBooks(), variant: 'primary' }]}
                 />
               ) : filtered.length === 0 && libraryQuery && librarySearch.memoStatus === 'loading' ? (
@@ -6918,7 +6973,10 @@ function AuthedApp() {
                   ))}
                 </div>
               ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 'var(--space-3)' }}>
+                // 1 枚のカードの中に行を並べる（枠つきのカードの連打をやめた・2 冊目から書名の列から右へ区切り線＝ホームの行と同じ考え・2026-11-23）。
+                //   行の枠・角丸は BookCards の行が持つので、この一覧の中だけ外す（LIBRARY_LIST_CSS）。
+                <div className="library-list" style={{ display: "flex", flexDirection: "column", background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
+                  <style>{LIBRARY_LIST_CSS}</style>
                   {(libraryRenderAll ? filtered : filtered.slice(0, LIBRARY_FIRST)).map((b, i) => (
                     <SwipeableBookCard
                       key={b.id}
@@ -6999,7 +7057,7 @@ function AuthedApp() {
               <div style={{ padding: 'var(--space-4)' }}>
                 <ErrorMessage
                   title="本を読み込めませんでした"
-                  description="通信状況を確認して、もう一度お試しください。"
+                  description="本とメモは消えていません。通信状況を確認して、もう一度お試しください。"
                   actions={[{ label: 'もう一度', onClick: () => refreshBooks(), variant: 'primary' }]}
                 />
               </div>
@@ -7250,15 +7308,15 @@ function AuthedApp() {
             onProfileSaved={addFavoriteFromProfile}
             onAddWant={addWantFromOther}
             hasBook={hasBookFromOther}
-            onOpenProfile={() => { setSettingsOpen(false); setProfileScreenOpen(true); }}
+            onOpenProfile={() => { setSettingsOpen(false); openProfileScreen('settings'); }}
           />
         </Suspense>
       )}
       {profileScreenOpen && (
         <Suspense fallback={<OverlayFallback />}>
           <ProfileScreen
-            onClose={() => setProfileScreenOpen(false)}
-            onOpenSettings={() => { setProfileScreenOpen(false); setSettingsOpen(true); }}
+            onClose={closeProfileScreen}
+            onOpenSettings={() => { profileFromRef.current = null; setProfileScreenOpen(false); setSettingsOpen(true); }}
             onProfileSaved={addFavoriteFromProfile}
             onAddWant={addWantFromOther}
             hasBook={hasBookFromOther}
@@ -7599,8 +7657,36 @@ function AuthedApp() {
         <Suspense fallback={<OverlayFallback />}>
           <ShelfScanSheet
             existingBooks={books}
-            onAdd={(list) => importLibrary({ books: list, source: 'shelf_photo' })}
-            onUndo={(outcome) => undoImport(outcome)}
+            onAdd={async (list, status) => {
+              const outcome = await importLibrary({ books: list, source: 'shelf_photo' });
+              // 読了で入れた本のうちメモの無い本（最大 5 冊）に、覚えている一文を足す道（取り込みの完了画面の
+              //   「覚えている一文を足す」と同じ＝初日クイックスタートの一言の段・2026-11-23）。
+              //   積読・読みたいで入れた本は出さない（一言の段は本を読了にするため）。
+              const bare = status === 'done' && Array.isArray(outcome?.bareBooks) ? outcome.bareBooks.slice(0, 5) : [];
+              if (bare.length > 0) {
+                // 本棚に入れた知らせ（元に戻すつき・シートが出す）のあとに並べる。
+                setTimeout(() => {
+                  shelfOneLineToastRef.current = toast.show({
+                    type: 'info',
+                    message: '入れた本に、覚えている一文を足せます。',
+                    duration: 9000,
+                    action: {
+                      label: '一文を足す',
+                      onClick: () => {
+                        shelfOneLineToastRef.current = null;
+                        setQuickstartSeed(bare);
+                        setShowQuickstart(true);
+                      },
+                    },
+                  });
+                }, 0);
+              }
+              return outcome;
+            }}
+            onUndo={(outcome) => {
+              if (shelfOneLineToastRef.current) { toast.dismiss(shelfOneLineToastRef.current, { skipExpire: true }); shelfOneLineToastRef.current = null; }
+              return undoImport(outcome);
+            }}
             onClose={() => setShelfScanOpen(false)}
             // 入れずに閉じたら、来た「本を追加」へ戻る（アプリの外へ放り出さない・2026-11-22 点検）。
             onCancel={() => { setShelfScanOpen(false); setAddBookModalOpen(true); }}
