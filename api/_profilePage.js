@@ -324,7 +324,8 @@ ${social && shelf?.total ? `<a class="cta" style="margin-top:48px" href="${follo
 <label for="reason">理由（任意・500 字まで）</label><textarea id="reason" name="reason" maxlength="${REPORT_MAX}"></textarea>
 <button type="submit">通報する</button></form>
 <p class="note" style="text-align:left">通報は運営が 24 時間以内に確かめ、利用規約に反する内容は表示を止めます。</p></details>
-<p class="foot"><a href="${esc(site)}/legal/terms">利用規約</a>・<a href="${esc(site)}/legal/privacy">プライバシーポリシー</a>・お問い合わせ <a href="mailto:${esc(SUPPORT())}">${esc(SUPPORT())}</a></p>`;
+<p class="foot"><a href="${esc(site)}/legal/terms">利用規約</a>・<a href="${esc(site)}/legal/privacy">プライバシーポリシー</a></p>`;
+  // 問い合わせのメールは置かない（2026-11-23 オーナー「ここにお問い合わせのアドレス貼るの不要」・本のページと同じ 2 つだけ・連絡先は利用規約とプライバシーポリシーに）。
   return page({ title: pageTitle, description: desc, image: cover.ok ? cover.url : '', url: `${site}/u/${publicId}`, body });
 }
 

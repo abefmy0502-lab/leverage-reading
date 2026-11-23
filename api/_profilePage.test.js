@@ -181,10 +181,11 @@ describe('公開のページの安全（App 審査 1.2・2026-11-21）', async (
     await handleProfileRequest(req({ op: 'profile_report' }, { method: 'POST', body: { id: 'abcde12345' } }), res2, { dbImpl: bad });
     expect(res2.statusCode).toBe(503);
   });
-  it('ページに利用規約と連絡先', () => {
+  it('ページに利用規約とプライバシーポリシー（問い合わせのメールは置かない・2026-11-23）', () => {
     const { html } = renderProfile(row, { publicId: 'abcde12345' });
     expect(html).toContain('/legal/terms');
-    expect(html).toContain('mailto:');
+    expect(html).toContain('/legal/privacy');
+    expect(html).not.toContain('mailto:');
   });
 });
 
