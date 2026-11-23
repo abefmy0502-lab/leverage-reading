@@ -63,7 +63,8 @@ describe('特定商取引法に基づく表記', () => {
     expect(t).not.toContain('180');
     expect(t).toContain('追加トークンの払い戻しは、AppleAppStoreの返金ポリシー');
     expect(t).toContain('サブスクリプション');
-    expect(t).toContain('最終更新日:2026年10月11日');
+    expect(t).toContain('最終更新日:2026年11月23日');
+    expect(t).toContain('以前に本サービスの有料プランの初回特典');
   });
 });
 

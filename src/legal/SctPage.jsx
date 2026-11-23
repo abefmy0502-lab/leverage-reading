@@ -21,7 +21,7 @@ export default function SctPage() {
       title="特定商取引法に基づく表記"
       description="Orime の特定商取引法に基づく表記。販売事業者・販売価格・初回特典・追加トークン・支払方法・解約条件など。"
     >
-      <p className="effective-date">最終更新日:2026年10月11日</p>
+      <p className="effective-date">最終更新日:2026年11月23日</p>
 
       <table className="sct-table">
         <tbody>
@@ -75,7 +75,7 @@ export default function SctPage() {
               {founding.active && founding.endLabel
                 ? `いま(${founding.endLabel}(日本時間)まで)`
                 : '当方が定める期間(本サービスの公開から 2027 年 1 月 10 日まで。終わる日は、本サービス内と App Store の購入画面に表示します)'}
-              に年額プランを始めた方は、1 年目が {FOUNDING_YEN}円(税込)です。お申し込み時に 1 年分を一括でお支払いいただき、2 年目からは、解約しない限り年額 12,800円(税込)で自動更新されます。月額プランの 7 日間無料をすでに使った Apple ID には適用されません。期間中は、月額プラン・年額プランとも 7 日間無料は付きません。
+              に年額プランを始めた方は、1 年目が {FOUNDING_YEN}円(税込)です。お申し込み時に 1 年分を一括でお支払いいただき、2 年目からは、解約しない限り年額 12,800円(税込)で自動更新されます。以前に本サービスの有料プランの初回特典(7 日間無料を含みます)を使った Apple ID には適用されません。期間中は、月額プラン・年額プランとも 7 日間無料は付きません。
             </td>
           </tr>
           <tr>

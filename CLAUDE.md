@@ -391,7 +391,7 @@ want(読みたい) → before(積読) → reading(読書中) → done(読了)
 - [ ] **Storage bucket policies**: `book-memo-photos` は private、user-folder ベースのポリシーが効いていることを確認
 
 ### データプライバシー
-- [ ] **エクスポート**: ユーザーが自分のデータを JSON でダウンロード可能（AccountSettings → 📥 データをダウンロード）
+- [ ] **エクスポート**: ユーザーが自分のデータを CSV（メモは Markdown でも）でダウンロード可能（AccountSettings → 📥 データをダウンロード・`src/lib/exportData.js`）
 - [ ] **削除リクエスト**: ユーザーがすべての関連データ削除を要求可能（AccountSettings → ⚠️ アカウント削除）
 - [ ] **退会はその場で終わる**（2026-11-21・アプリがデータを消し、`/api/claude` の `op: 'delete_account'`＝`api/_deleteAccount.js` が残りの行と auth.users を消し、Apple の人は許可を取り消す・`src/lib/deleteAccount.js`）。サーバーで終えられなかったときだけ次の手作業
 - [ ] **管理者の作業**: 削除リクエストが入ったら、`account_deletion_requests` を確認 → Supabase Dashboard で auth.users を削除（Apple でサインインの人は、その前に Apple のトークンを取り消す＝`appleid.apple.com/auth/revoke`・手順は `company/app-store-submission.md` §11・2026-10-11）。退会の確認の入力は、Apple でサインイン・メールを非公開の人は「削除」（`src/lib/deleteConfirm.js`）
