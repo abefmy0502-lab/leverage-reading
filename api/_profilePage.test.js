@@ -121,7 +121,7 @@ describe('公開の本棚（2026-11-21）', async () => {
     const shelf = buildShelf(withMemo, [], { summaries: true });
     expect(shelf.withSummary.map((b) => b.excerpt)).toEqual(['心を高める。熱意が大事。']);
     const { html } = renderProfile({ nickname: 'ふみ', shelf_public: true }, { publicId: 'abcdefgh23', shelf, social: true });
-    expect(html).toContain('心を高める。熱意が大事。');
+    expect(html).not.toContain('心を高める。熱意が大事。'); // まとめの行は本棚の上に並べない（2026-11-23）
     expect(html).not.toContain('<h2>ふみさんのまとめ</h2>');
     expect(html).not.toContain('が書いたこと');
     expect(html).not.toContain('test@example.com');

@@ -305,10 +305,8 @@ export function renderProfile(p, { publicId, shelf = null, social = socialOn(), 
   const bio = String(p.bio || '').trim();
   // 主役はその人の言葉（好きな言葉 → まとめ）。カードで囲まず、名前・言葉・本棚の順に読ませる。
   const fav = title ? `<div class="fav">${miniCover(title, cover.ok ? cover.url : '', 40)}<span style="min-width:0"><p class="k">好きな本</p><p class="t">『${esc(title)}』${author ? `<span class="k" style="font-weight:400"> ${esc(author)}</span>` : ''}</p></span></div>` : '';
-  const sums = social && shelf?.withSummary?.length
-    // 見出し「〈名前〉さんのまとめ」と説明の行は出さない（2026-11-23 オーナー「これは不要」）。行そのものが表紙・書名・まとめで分かる。
-    ? `<section class="sec" aria-label="${esc(who)}のまとめ">${summaryRows(shelf.withSummary, publicId)}</section>`
-    : '';
+  // まとめのある本を本棚の上に並べる行はやめた（2026-11-23 オーナー「まとめありのこの二つの表示不要」）。
+  //   まとめは本棚の本を押した先（本のページ）で読む。
   // フォローを決めるのはこのページ（2026-11-22 オーナー「フォローするかどうかはこの画面が 1 番じゃない？」）:
   //   名前と自己紹介のすぐ下に主ボタン「フォロー」、本棚を見終えたところにもう一度。
   const followUrl = `${site}/?follow=${esc(publicId)}`;
@@ -317,7 +315,7 @@ export function renderProfile(p, { publicId, shelf = null, social = socialOn(), 
 ${renderAvatar(p.avatar, nickname)}<h1 class="name">${esc(who)}</h1>${bio ? `<p class="bio">${esc(bio)}</p>` : ''}${followTop}
 </header>
 ${line ? `<figure class="quote" style="margin-left:0;margin-right:0"><blockquote${[...line].length > 40 ? ' style="font-size:17px;line-height:1.8"' : ''}>${esc(line)}</blockquote></figure>${fav}` : fav ? `<div style="margin-top:24px">${fav}</div>` : ''}
-${sums}${renderShelf(shelf, { publicId, links: social, filter })}
+${renderShelf(shelf, { publicId, links: social, filter })}
 ${social && shelf?.total ? `<a class="cta" style="margin-top:48px" href="${followUrl}">フォロー</a>` : ''}
 <a class="${social ? 'cta2' : 'cta'}" ${social ? `style="margin-top:${shelf?.total ? 32 : 48}px" ` : ''}href="${esc(site)}/lp">Orime で読書メモをはじめる</a>
 <p class="note">読んだ本と、会話できる。<br>答えのもとは、あなたが残したメモ。</p>

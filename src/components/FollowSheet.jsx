@@ -875,7 +875,6 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
     const { person } = view;
     const loaded = shelf && typeof shelf === 'object' ? shelf : null;
     const p = loaded?.profile || person;
-    const withSummary = (loaded?.books || []).filter((b) => b.summary);
     const ordered = loaded ? SHELF_ORDER.flatMap((st) => loaded.books.filter((b) => b.status === st)) : [];
     return createPortal(
       <BottomSheet title={`${who(person)}の本棚`} onClose={onClose} layer="dialog">
@@ -935,12 +934,8 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
             <ErrorMessage title="本棚を読めませんでした" description="通信状況を確認してください。" actions={[{ label: 'もう一度', onClick: () => openPerson(person, view.back, { scrollTop: 0 }) }]} />
           </div>
         )}
-        {loaded && withSummary.length > 0 && (
-          // 見出し「〈名前〉さんのまとめ」と説明の行は出さない（2026-11-23 オーナー「これは不要」・公開のページと同じ）。
-          <section aria-label={`${who(p)}のまとめ`} style={{ marginTop: 'var(--space-6)' }}>
-            <SummaryRows person={person} books={withSummary} />
-          </section>
-        )}
+        {/* まとめのある本を本棚の上に並べる行はやめた（2026-11-23 オーナー「まとめありのこの二つの表示不要」・公開のページと同じ）。
+            まとめは本棚の本（栞の印・「まとめあり」で絞れる）を押した先で読む。 */}
         {loaded && (
           <section style={{ marginTop: 'var(--space-8)' }}>
             <p style={{ margin: 0, fontSize: 'var(--text-heading)', fontWeight: 600 }}>本棚</p>
