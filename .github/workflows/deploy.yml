@@ -52,12 +52,23 @@ jobs:
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
 
       # VITE_ で始まる変数はビルドでアプリに書き込む値。Vercel で Secret にすると `vercel pull` が取り出せず
-      # "[SENSITIVE]" という文字が入り、アプリが起動できない（2026-10-24 に本番が真っ暗になった原因）。名前だけ出して止める。
+      # "[SENSITIVE]" という文字が入り、アプリが起動できない（2026-10-24 に本番が真っ暗になった原因）。
+      # 2026-11-23: リポジトリの .env.production（秘密でない値だけ）に同じ名前があれば、その値でビルドする
+      # （11/22 に VITE_FOUNDING_OFFER_END が Secret で作られ、それから本番に出せなくなっていた）。無いものだけ名前を出して止める。
       - name: Check VITE_ variables are not Secret
         run: |
-          bad=$(grep -oE '^VITE_[A-Z0-9_]+="?\[SENSITIVE\]' .vercel/.env.production.local | cut -d= -f1 || true)
+          bad=""
+          for name in $(grep -oE '^VITE_[A-Z0-9_]+="?\[SENSITIVE\]' .vercel/.env.production.local | cut -d= -f1 || true); do
+            committed=$(grep -E "^${name}=" .env.production | head -1 | cut -d= -f2- || true)
+            if [ -n "$committed" ]; then
+              sed -i "s|^${name}=.*|${name}=\"${committed}\"|" .vercel/.env.production.local
+              echo "::warning::${name} は Vercel で Secret になっています。.env.production の値でビルドします（Vercel で Type を Config にして作り直すと、この注意は消えます）"
+            else
+              bad="$bad $name"
+            fi
+          done
           if [ -n "$bad" ]; then
-            echo "::error::Vercel で Secret になっている VITE_ の変数があります。Type を Config にして作り直してください: $(echo $bad | tr '\n' ' ')"
+            echo "::error::Vercel で Secret になっている VITE_ の変数があります。Type を Config にして作り直してください:$bad"
             exit 1
           fi
 
