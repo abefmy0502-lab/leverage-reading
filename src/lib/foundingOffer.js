@@ -22,7 +22,8 @@ export const FOUNDING_PRICE_TEXT = `¥${FOUNDING_PRICE_YEN.toLocaleString('ja-JP
 export const FOUNDING_DEFAULT_PRICE_LABEL = `1 年目 ${FOUNDING_PRICE_TEXT}`;
 export const FOUNDING_NAME = '創業メンバー価格';
 // 開発中のプレビューで env の終わる日が無いときに使う日（公開 11 月中旬＋30 日の目安）。
-const DEV_DEFAULT_END = '2027-01-10'; // 2026-11-22 オーナー「1 月 10 日までに。年始に一念発起する人に合わせる」
+export const FOUNDING_PLAN_END = '2027-01-10'; // 決めた終わる日（運営の「公開の準備」が本番の値と比べる＝api/_launchHealthKeys.js）
+const DEV_DEFAULT_END = FOUNDING_PLAN_END; // 2026-11-22 オーナー「1 月 10 日までに。年始に一念発起する人に合わせる」
 
 const JST_MS = 9 * 3600 * 1000;
 

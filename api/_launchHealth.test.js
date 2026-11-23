@@ -53,5 +53,12 @@ describe('envHealth', () => {
     expect(h.founding_offer).toBe(true);
     expect(h.native_push_flag).toBe(false);
     expect(envHealth({ ...env, VITE_FOUNDING_OFFER_END: '12/16' }).founding_offer).toBe(false);
+    expect(h.founding_offer_plan_end).toBe(false);
+    expect(envHealth({ ...env, VITE_FOUNDING_OFFER_END: '2027-01-10' }).founding_offer_plan_end).toBe(true);
+  });
+  it('決めた終わる日は、アプリの既定と同じ', async () => {
+    const { FOUNDING_PLAN_END } = await import('./_launchHealthKeys.js');
+    const app = await import('../src/lib/foundingOffer.js');
+    expect(FOUNDING_PLAN_END).toBe(app.FOUNDING_PLAN_END);
   });
 });

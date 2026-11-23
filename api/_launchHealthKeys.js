@@ -25,10 +25,15 @@ export const HEALTH_ENV = {
   referral_code: ['VITE_REFERRAL_CODE'],
   lp_ip_salt: ['LP_IP_SALT'],
 };
+// 創業メンバー価格の、決めた終わる日（2026-11-22 オーナー「1 月 10 日まで」・src/lib/foundingOffer.js の FOUNDING_PLAN_END と一致をテスト）。
+export const FOUNDING_PLAN_END = '2027-01-10';
+
 // 値が決まった形のときだけ true にするもの（空でない、だけでは足りない）。
 export const HEALTH_ENV_FLAGS = {
   native_push_flag: (env = process.env) => env.VITE_NATIVE_PUSH === 'on',
   founding_offer: (env = process.env) => env.VITE_FOUNDING_OFFER === 'on' && /^\d{4}-\d{2}-\d{2}$/.test(env.VITE_FOUNDING_OFFER_END || ''),
+  // 本番の終わる日が、決めた日と同じか（2026-11-23・日付そのものは返さない）。
+  founding_offer_plan_end: (env = process.env) => String(env.VITE_FOUNDING_OFFER_END || '').trim() === FOUNDING_PLAN_END,
 };
 export const HEALTH_ENV_KEYS = [...Object.keys(HEALTH_ENV), ...Object.keys(HEALTH_ENV_FLAGS)];
 
