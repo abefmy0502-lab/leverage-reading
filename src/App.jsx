@@ -443,7 +443,8 @@ function PlanCard({ items, style, onOpen = null }) {
           <span
             style={{
               display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-              fontSize: 'var(--text-body)', color: 'var(--text)', lineHeight: 1.5, whiteSpace: 'pre-wrap',
+              // 自分の言葉は読む文章＝明朝（読書中の「この本から得たいこと」と同じ・DESIGN §2・2026-11-23 ui-critic）。
+              fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', color: 'var(--text)', lineHeight: 1.6, whiteSpace: 'pre-wrap',
               wordBreak: 'keep-all', overflowWrap: 'anywhere',
             }}
           >

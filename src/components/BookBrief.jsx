@@ -92,7 +92,7 @@ export function BriefMakeButton({ material, making, waiting = false, costLine, o
         // 主張しない副ボタン（行の中の副ボタンと同じ 44・15・DESIGN §5）。押せない間は薄くせず btnGhostOff。
         style={{ ...(off ? btnGhostOff : btnGhost), minHeight: 'var(--tap-min)', fontSize: 'var(--text-sub)' }}
       >
-        {making ? '作成中…' : error ? 'もう一度作る' : BRIEF_MAKE_LABEL}
+        {making ? 'この本で学べることを作成中…' : error ? 'もう一度作る' : BRIEF_MAKE_LABEL}
       </button>
       {!off && error && <p role="alert" style={errorStyle}>{withPhraseBreaks(error)}</p>}
       {!off && costLine && <p style={{ ...metaStyle, marginTop: 'var(--space-2)' }}>{withPhraseBreaks(costLine)}</p>}
@@ -135,7 +135,7 @@ export function BriefMakeRow({ material, making, waiting = false, costShort = ''
         {/* その場で作る行なので、› は付けない（ほかの画面へは移らない）。 */}
         {/* 押せる行だと分かるよう、文字は栗色（見出し「この本について」と同じ形に見えていた・2026-10-16 第 4 回） */}
         <span style={{ flex: '1 1 auto', minWidth: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere', ...(off ? null : { color: 'var(--accent)' }) }}>
-          {withPhraseBreaks(making ? '作成中…' : error ? 'もう一度作る' : BRIEF_MAKE_LABEL)}
+          {withPhraseBreaks(making ? 'この本で学べることを作成中…' : error ? 'もう一度作る' : BRIEF_MAKE_LABEL)}
         </span>
         {!off && costShort && <span style={{ flex: '0 0 auto', fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', lineHeight: 1.5 }}>{costShort}</span>}
       </button>
@@ -294,7 +294,8 @@ export default function BookBrief({
       </div>
     );
   }
-  const right = has ? labels.short : infoLoading ? '' : 'まだありません';
+  // 作れる本は目安（「1 回 約 2 トークン」）を出す（「まだありません」だと行き止まりに見えた・2026-11-23 ui-critic）。
+  const right = has ? labels.short : infoLoading ? '' : material ? (costShort || String(costLine || '').split('・')[0] || 'まだありません') : 'まだありません';
   return (
     <details key={defaultOpen ? 'open' : 'closed'} open={defaultOpen || undefined} style={{ ...foldStyle, ...style }}>
       <summary style={foldSummary}>
