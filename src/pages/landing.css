@@ -371,7 +371,7 @@ body.lp-active {
 .lp-narrow > picture:has(.lp-art-wide) { display: block; }
 @media (prefers-color-scheme: dark) {
   .lp-illust-img { border: 1px solid var(--separator); }
-  .lp-illust-img:not(.has-dark) { filter: brightness(0.62) saturate(0.85); } /* 暗い画面用の版が無い絵だけ（ヒーローは 2026-11-23 に hero-illust-dark-*.webp＝壁を夜の色にした版を置いた） */
+  .lp-illust-img:not(.has-dark) { filter: brightness(0.62) saturate(0.85); } /* 暗い画面用の版が無い絵だけ（ヒーローは 2026-11-23 にオーナーの暗い版 hero-illust-dark-*.webp を置いた） */
 }
 .lp-ill-book rect { stroke: var(--border); stroke-width: 1.25; }
 .lp-ill-book-a rect { fill: var(--surface); }
