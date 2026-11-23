@@ -45,17 +45,14 @@ import { readFoundingOffer, noBreak, FOUNDING_NAME, FOUNDING_PRICE_YEN } from '.
 import Shot from './LpShot';
 import LpFlow from './LpFlow';
 import LpTalkFlow, { Me as ChatMe, Book as ChatBook } from './LpTalkFlow';
-import LpTalkDiagram from './LpTalkDiagram';
 import LpCostDiagram from './LpCostDiagram';
-import LpCycleDiagram from './LpCycleDiagram';
-import LpGoalDiagram from './LpGoalDiagram';
-import { FeatureTiles } from './LpDiagram';
+import { FeatureTiles, StartList } from './LpDiagram';
 import LpWaitlist from './LpWaitlist';
+import LpPartnerDiagram from './LpPartnerDiagram';
 import LpIllust from './LpIllust';
-import LpWhy from './LpWhy';
 import LpArt, { hasArt } from './LpArt';
 import Phrases, { Sentences } from './LpPhrases';
-import { buildLpCopy, storeHrefOf, HERO_TALK, SCENE, ASK, WHY, PLAN, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE, PROBLEM_LINES, FEATURES, GOAL_SEC } from './lpCopy';
+import { buildLpCopy, storeHrefOf, HERO_TALK, BASIS, ZERO, WHY, PLAN, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE, FEATURES } from './lpCopy';
 import qrcode from 'qrcode-generator';
 import { lpTrack, lpVariant, storeUrlFor, isWidePointer } from '../lib/lpTrack';
 import { inject as injectVercelAnalytics } from '@vercel/analytics';
@@ -110,10 +107,11 @@ const LAUNCH_LINE = `${LAUNCH_LABEL}に、App Store で公開予定です。`;
 const CTA_LABEL = <span className="lp-btn-label"><span className="lp-nb">無料プランで</span><wbr /><span className="lp-nb">始める</span></span>;
 // ヒーロー（会話の型）の主ボタン＝使ったあとの体験（2026-11-23 オーナーの見直し）。無料のことはすぐ下の 1 行。
 const HERO_TALK_CTA = <span className="lp-btn-label">{HERO_TALK.cta.map((t, i) => <Fragment key={t}>{i > 0 && <wbr />}<span className="lp-nb">{t}</span></Fragment>)}</span>;
+// 2026-11-23 LP の仕上げ: 主ボタン（ヒーロー・下の固定の帯・最後）は同じ名前＝「読んだ本と話してみる」。ヘッダーは行き先が分かる「App Store で入手」・料金はプランの名前。
+const MAIN_CTA = HERO_TALK_CTA;
+const HEADER_CTA_LABEL = <span className="lp-btn-label"><span className="lp-nb">App Store で</span><wbr /><span className="lp-nb">入手</span></span>;
 // 料金の欄のボタン（有料のカードのすぐ下・2026-10-12）。押す先は同じ App Store（無料期間はアプリの中で始める）。
 // 期間中（創業メンバー価格）の有料のボタン: 7 日間無料は月額だけなので、ボタンでは言わない（ui-critic 2026-11-11）
-const PLAN_CTA_LABEL = <span className="lp-btn-label"><span className="lp-nb">App Store で</span><wbr /><span className="lp-nb">プランを始める</span></span>;
-const TRIAL_CTA_LABEL = <span className="lp-btn-label"><span className="lp-nb">7 日間無料で</span><wbr /><span className="lp-nb">試す</span></span>;
 
 // 🗣 お客様の声。実在ユーザーの許可を得た本物の声だけを入れる（捏造・盛りは絶対 NG・本物が届くまで出さない）。
 // 形式: { quote, who: '30代・営業', how: '部下との 1on1 の前に相談している' }。空なら節ごと出ない。
@@ -539,7 +537,7 @@ export default function Landing() {
                 className="lp-btn lp-btn-small lp-btn-ghost lp-header-cta"
                 loc="header"
               >
-                {CTA_LABEL}
+                {HEADER_CTA_LABEL}
               </StoreCta>
             )}
             {/* 「ログイン」は置かない（2026-10-11 オーナー「アプリでしか使わない想定なので、App Store へ流すボタンに」）。
@@ -552,7 +550,7 @@ export default function Landing() {
       {/* 下の固定の帯（公開前の形では出さない・2026-10-05） */}
       {!PRELAUNCH && (
         <div className={`lp-sticky${showSticky && !stickyYield ? ' is-visible' : ''}`} aria-hidden={showSticky && !stickyYield ? undefined : 'true'}>
-          <StoreCta className="lp-btn" loc="sticky" tabIndex={showSticky && !stickyYield ? undefined : -1}>{CTA_LABEL}</StoreCta>
+          <StoreCta className="lp-btn" loc="sticky" tabIndex={showSticky && !stickyYield ? undefined : -1}>{MAIN_CTA}</StoreCta>
         </div>
       )}
 
@@ -571,11 +569,11 @@ export default function Landing() {
               </p>
               <div className="lp-cta-block" ref={heroCtaRef}>
                 {/* QR は最後の案内だけ（ヒーローの主ボタンの横の黒い四角がいちばん重く見えた・2026-10-16 ui-critic） */}
-                <Entry loc="hero" wl={wl} badge launch label={heroVariant === 'talk' ? HERO_TALK_CTA : CTA_LABEL} />
+                <Entry loc="hero" wl={wl} badge launch label={MAIN_CTA} />
                 {heroVariant === 'talk' && !PRELAUNCH && <p className="lp-cta-note">{HERO_TALK.ctaNote}</p>}
                 <div className="lp-hero-links">
                   <a className="lp-textlink" href="#lp-grow" onClick={() => lpTrack('hero_secondary', {})}>
-                    <span>使い方を見る</span><ChevronDown size="1.1em" aria-hidden="true" />
+                    <span>相談の見本を見る</span><ChevronDown size="1.1em" aria-hidden="true" />
                   </a>
                 </div>
                 {/* 2026-11-12 読み手テスト「対応端末と初日の価値が見えない」「創業メンバー価格が分からない」: リンクをやめ、事実を 1 行に */}
@@ -619,95 +617,50 @@ export default function Landing() {
           </div>
         </section>
 
-        {/* ============ 会話のイメージ（2026-11-23 オーナー「ファーストビューの次に必ず具体的な利用シーンを」）: 1 往復だけ ============ */}
-        {heroVariant === 'talk' && (
-          <section className="lp-sec lp-scene-sec" aria-labelledby="lp-scene" data-lp-sec="scene">
-            <div className="lp-wrap lp-narrow">
-              <h2 className="lp-h2" id="lp-scene">{SCENE.h2}</h2>
-              <ol className="lp-chat lp-scene-chat" aria-label="相談のイメージ">
-                <ChatMe>{SCENE.ask}</ChatMe>
-                <ChatBook from={SCENE.from}>
-                  <p className="lp-chat-text is-read lp-wbr"><Phrases phrase>{SCENE.lead}</Phrases></p>
-                  <figure className="lp-scene-memo">
-                    <blockquote className="lp-wbr"><Phrases phrase>{`「${SCENE.memo}」`}</Phrases></blockquote>
-                    <figcaption>{SCENE.memoMeta}</figcaption>
-                  </figure>
-                  <p className="lp-chat-text is-read lp-wbr"><Phrases phrase>{SCENE.answer}</Phrases></p>
-                </ChatBook>
-              </ol>
-              <p className="lp-scene-note lp-wbr"><Phrases phrase>{SCENE.note}</Phrases></p>
-            </div>
-          </section>
-        )}
-
-        {/* ============ 共感（黄金の流れの 2 番目・2026-11-11）: 読む人の困りごとを 2 行だけ。数字は使わない ============ */}
-        <section className="lp-sec lp-problem-sec" aria-label="こんなことは、ありませんか" data-lp-sec="problem">
-          <div className="lp-wrap lp-narrow">
-            <p className="lp-problem-lines lp-wbr">{PROBLEM_LINES.map((t) => <span key={t}><Phrases phrase>{t}</Phrases></span>)}</p>
-            <p className="lp-problem-answer lp-wbr"><span><Phrases phrase>その本に、そのとき聞けたら。</Phrases></span><span><Phrases phrase>Orime なら、それができます。</Phrases></span></p>
-          </div>
-        </section>
-
         {/* ============ ② 使い方は 3 つ（2026-11-11 オーナー「初めての読み手でもすぐに理解できる構成に」: 読む順＝何ができる（ヒーロー）→ どう使う（ここ）→ 誰に聞ける → なぜ残る → ほかに → 値段） ============ */}
         <section className={`lp-sec lp-flow-sec${heroVariant === 'talk' ? ' is-talk' : ''}`} aria-labelledby="lp-grow" data-lp-sec="flow">
           <div className="lp-wrap">
             <div className="lp-narrow lp-sec-head">
-              <h2 className="lp-h2" id="lp-grow">{heroVariant === 'talk' ? <><span>Orime に相談すると、</span><span>こうなる。</span></> : <><span>使い方は、</span><span>3 つだけ。</span></>}</h2>
-              {/* 2026-11-15 オーナー「相談する相手は…をわかりやすくデザインで」: 文を短くし、3 つの相手を図で */}
-              {heroVariant === 'talk' && <LpTalkDiagram />}
+              {/* 2026-11-23 LP の仕上げ: ヒーローのすぐ下に会話の見本を 1 本だけ（前は「たとえば、こんな相談。」と 2 本続いていた・4 段の図は会話と同じ流れなのでやめた） */}
+              <h2 className="lp-h2" id="lp-grow">{heroVariant === 'talk' ? 'たとえば、こんな相談。' : <><span>使い方は、</span><span>3 つだけ。</span></>}</h2>
             </div>
             {/* 2026-11-11 オーナー「スマホ画面を再現しなくてもいい」: 画面写真 3 枚（LpFlow）の代わりに、実際の相談を会話として組む */}
             {heroVariant === 'talk' ? <LpTalkFlow /> : <LpFlow onEvent={lpTrack} note={false} />}
           </div>
         </section>
 
-        {/* ============ なぜ会話すると残るのか（2026-11-11 オーナー「直感的に本と会話できる感じを図で・効果を論理的に・¥1,480 が安く感じるように」） ============ */}
-        <section className="lp-sec lp-why-sec" aria-labelledby="lp-why" data-lp-sec="why">
+        {/* ============ 答えのもとは、あなたのメモ（2026-11-23 LP の仕上げ: 訴求の軸の 2 文目。忘却曲線・研究の名前・読書の輪の図はやめた＝効果をほのめかさない） ============ */}
+        <section className="lp-sec lp-basis-sec" aria-labelledby="lp-basis" data-lp-sec="basis">
           <div className="lp-wrap">
             <div className="lp-narrow lp-sec-head">
-              <h2 className="lp-h2" id="lp-why"><span>読むだけだと、</span><span>記憶は薄れていく。</span></h2>
-              {/* 2026-11-15 オーナー「記憶が定着し行動が変わる、を短くいい感じに」（「行動が変わる」の言い切りは使わない＝ガードレール） */}
-              <p className="lp-lead lp-sec-lead lp-lines"><span>相談するたびに思い出すから、記憶に残り、</span><span>行動につながる。</span></p>
+              <h2 className="lp-h2" id="lp-basis">{BASIS.h2.map((t) => <span key={t}>{t}</span>)}</h2>
+              <p className="lp-lead lp-sec-lead lp-lines lp-wbr">{BASIS.lead.map((t) => <span key={t}><Phrases phrase>{t}</Phrases></span>)}</p>
             </div>
-            <LpWhy />
-            {/* 2026-11-15 プロの目線「値段の帯から、なぜ効くの節へ」: 読書が回り続ける図 */}
-            <div className="lp-narrow lp-cycle-block">
-              <h3 className="lp-cycle-h">読むほど、効いてくる</h3>
-              <p className="lp-cycle-lead lp-wbr"><Phrases phrase>読みっぱなしで終わらず、読書が回り始める。</Phrases><wbr /><Phrases phrase>なりたい自分への、レバレッジに。</Phrases></p>
-              <LpCycleDiagram />
+            <div className="lp-narrow lp-partner">
+              <h3 className="lp-partner-h">{BASIS.modesTitle}</h3>
+              <LpPartnerDiagram />
             </div>
+            <p className="lp-narrow lp-basis-recall lp-wbr"><Phrases phrase>{BASIS.recall}</Phrases></p>
           </div>
         </section>
 
-        {/* ============ 目標から逆算して読む（2026-11-15 オーナー「目標・ロードマップ・読書計画カレンダーの内容も LP に入れたい」） ============ */}
-        <section className="lp-sec lp-goal-sec" aria-labelledby="lp-goal" data-lp-sec="goal">
+        {/* ============ メモがゼロでも、今日から（2026-11-23 LP の仕上げ: 初めて来た人は全員メモ 0 件） ============ */}
+        <section className="lp-sec lp-band lp-zero-sec" aria-labelledby="lp-zero" data-lp-sec="zero">
           <div className="lp-wrap">
             <div className="lp-narrow lp-sec-head">
-              <h2 className="lp-h2" id="lp-goal">{GOAL_SEC.title.map((t) => <span key={t}>{t}</span>)}</h2>
-              <p className="lp-lead lp-sec-lead lp-lines lp-wbr">{GOAL_SEC.lead.map((t) => <span key={t}><Phrases>{t}</Phrases></span>)}</p>
+              <h2 className="lp-h2" id="lp-zero">{ZERO.h2.map((t) => <span key={t}>{t}</span>)}</h2>
             </div>
-            <div className="lp-narrow"><LpGoalDiagram /></div>
-            <div className="lp-goal-shots">
-              {GOAL_SEC.shots.map((s) => (
-                <figure key={s.name} className="lp-goal-shot">
-                  <Shot name={s.name} alt={s.alt} className="lp-shot" sizes="(min-width: 768px) 240px, 44vw" />
-                  <figcaption className="lp-lines">{s.caption.map((t) => <span key={t}>{t}</span>)}</figcaption>
-                </figure>
-              ))}
-            </div>
-            <p className="lp-narrow lp-goal-grow lp-lines lp-wbr">{GOAL_SEC.grow.map((t) => <span key={t}><Phrases>{t}</Phrases></span>)}</p>
-            <p className="lp-narrow lp-shot-note lp-wbr"><Phrases>{GOAL_SEC.note}</Phrases></p>
+            <StartList items={ZERO.items} />
           </div>
         </section>
 
         {/* ============ ほかにできること（2026-11-12 オーナー「わかりにくすぎる・実際の画面を使わずに抽象化」: 6 つを線の絵＋題＋1 行の同じ形で） ============ */}
-        <section className="lp-sec lp-band lp-more-sec" id="lp-pillars" aria-labelledby="lp-more" data-lp-sec="more">
+        <section className="lp-sec lp-more-sec" id="lp-pillars" aria-labelledby="lp-more" data-lp-sec="more">
           <div className="lp-wrap">
             <div className="lp-narrow lp-sec-head">
               <h2 className="lp-h2" id="lp-more">ほかにできること</h2>
             </div>
             <FeatureTiles items={FEATURES} />
-            <p className="lp-more-note">「有料プラン」は、月額・年額プランで使えます。</p>
           </div>
         </section>
 
@@ -728,32 +681,15 @@ export default function Landing() {
           </section>
         )}
 
-        {/* ============ ⑤ 料金（無料プランを前に） ============ */}
+        {/* ============ ⑤ 料金（無料プランを前に・2026-11-23 LP の仕上げ: カードを先に、1 日あたりの額はあとに・ボタンは 1 つ） ============ */}
         <section className="lp-sec lp-pricing" aria-labelledby="lp-pricing" data-lp-sec="pricing">
           <div className="lp-wrap">
             <div className="lp-narrow lp-sec-head">
-              <h2 className="lp-h2" id="lp-pricing">
-                {/* 価値の言い換え（2026-10-11 オーナー「¥1,480 を安く感じさせる」）。比べる値段（通常・定価・他社）は書かない。
-                    見出しに金額を置かない（月あたりの額を請求額より大きく見せない） */}
-                料金
-              </h2>
-              {/* 2026-10-17 オーナー「1480 円の説明が雑」: 無料で続けられることを先に、プランは「もっと相談したくなったら」 */}
-            {/* 「月 ¥1,480 は、本 1 冊分。」の帯は「なぜ残る」の節から料金の頭へ（ui-critic 2026-11-11: 無料プランしか知らない位置で値段を出さない） */}
+              {/* 見出しに金額を置かない（月あたりの額を請求額より大きく見せない）。比べる値段（通常・定価・他社）は書かない */}
+              <h2 className="lp-h2" id="lp-pricing">料金</h2>
               <p className="lp-lead lp-lead-lines lp-pricing-lead">
-                {/* 2026-11-11 オーナー「プランへ がわかりにくい」: 何が無料で、何が有料かを言い切る */}
                 <span>本とメモの記録は、ずっと無料。</span>
-                <span>AI への相談をたくさん使うなら、<span className="lp-nb">有料プランへ。</span></span>
-              </p>
-            </div>
-            {/* 値段の物差しの帯は値段を見る前に（ui-critic 2026-11-12: 物差しを先に渡す。料金の節の中なので「無料しか知らない位置」には当たらない） */}
-            <div className="lp-why-cost lp-pricing-cost is-top">
-              <p className="lp-why-cost-title lp-wbr"><Phrases>{`1 日 約 ${OFFER.active ? FOUNDING_PER_DAY_TEXT : ANNUAL_PER_DAY_TEXT} から、${WHY.costTitleRest}`}</Phrases></p>
-              {/* 2026-11-15 オーナー「確かに考えたら安いか、となるように」: 段落をやめ、物差し 3 つ（1 日あたり・本 1 冊・読み返す時間）。比べる値段（他社・定価）は書かない */}
-              {/* 2026-11-15 オーナー「安く感じるようなイラスト図を」: 「本 1 冊分」を絵に（その行は図に任せて外した） */}
-              <LpCostDiagram talks={PAID_TALKS} />
-              <p className="lp-cost-note lp-lead-lines lp-wbr">
-                <span><Phrases>{OFFER.active ? `1 日 約 ${FOUNDING_PER_DAY_TEXT} は創業メンバー価格の年額プラン（1 年目 ${OFFER.price}）のとき。` : `1 日 約 ${ANNUAL_PER_DAY_TEXT} は年額プラン（${ANNUAL_TEXT} を 1\u00a0年\u2060分\u2060前払い）のとき。`}</Phrases></span>
-                <span><Phrases>{`月額 ${MONTHLY_TEXT} なら 1 日 約 ${PER_DAY_TEXT}。`}</Phrases></span>
+                <span>AI にたくさん相談するなら、<span className="lp-nb">月額・年額プランへ。</span></span>
               </p>
             </div>
 
@@ -764,18 +700,15 @@ export default function Landing() {
                 <p className="lp-plan-price">¥0<span>ずっと無料</span></p>
                 <ul className="lp-included" aria-label="無料プランに含まれるもの">
                   {/* li は flex（印と文を横に並べる）なので、文は 1 つの span に包む */}
-                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span className="lp-wbr"><Phrases>本とメモは何件でも。AI 以外の機能はすべて使えます。</Phrases></span></li>
-                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>{/* 2026-11-15 プロの目線「約 1 件は弱く見える」: はじめの 2 か月を先に */}AI の相談：<span className="lp-nb">はじめの 2 か月は毎月 {FIRST_TALKS}</span><br /><span className="lp-nb" style={{ color: "var(--text-2)" }}>（そのあとは毎月 {FREE_TALKS}）</span></span></li>
-                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>写真から書き起こし <span className="lp-nb">毎月 {FREE_OCR_PER_MONTH} 回</span></span></li>
+                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span className="lp-wbr"><Phrases>本とメモは何件でも。AI を使わない機能は、すべて無料。</Phrases></span></li>
+                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>AI の相談：<span className="lp-nb">はじめの 2 か月は毎月 {FIRST_TALKS}、</span><wbr /><span className="lp-nb">そのあとは毎月 {FREE_TALKS}</span></span></li>
+                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span className="lp-wbr"><Phrases>使い切った月も、相談に関係するあなたのメモを、AI なしで並べて見せます</Phrases></span></li>
+                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>ページの写真から文字に：<span className="lp-nb">毎月 {FREE_OCR_PER_MONTH} 回</span></span></li>
                 </ul>
-                {!PRELAUNCH && <StoreCta className="lp-btn lp-btn-ghost lp-plan-cta" loc="pricing_free">{CTA_LABEL}</StoreCta>}
               </div>
               <div className="lp-plan is-paid">
                 <p className="lp-plan-name"><span>月額・年額プラン</span>{TRIAL_NOTE && !OFFER.active && <span className="lp-plan-badge">{TRIAL_NOTE}</span>}</p>
-                {/* プランで手に入るもの（数は lib/tokenAmounts.js のとおり）。量は大きな数字にせず、無料プランと同じ箇条書きの 1 行目に
-                    （値段より大きな数字が先に来ていた・2026-10-16 ui-critic）。 */}
                 <ul className="lp-included" aria-label="プランに含まれるもの">
-                  {/* 量の前に「できること」（ui-critic 2026-11-12: 有料に価値を感じる段がここしか無い） */}
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>AI の相談は<span className="lp-nb">毎月 {PAID_TALKS}</span>。迷うたびに聞けます</span></li>
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span className="lp-wbr"><Phrases>読む前に、読み方を AI が書いてくれる</Phrases></span></li>
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span className="lp-wbr"><Phrases>次に読む本を、相談して選べる</Phrases></span></li>
@@ -783,22 +716,18 @@ export default function Landing() {
                     <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>最初の 7 日間は無料（そのあいだも <span className="lp-nb">AI の相談 {TRIAL_TALKS}</span>）</span></li>
                   )}
                 </ul>
-                {/* 量の目安（用語の正典: LP の注記に 1 回・2026-10-09） */}
-                
                 <div className={`lp-plan-rows${OFFER.active ? ' is-founding' : ''}`}>
                   <div className="lp-plan-row">
                     <p className="lp-plan-label">年額プラン<span className="lp-plan-tag">{OFFER.active ? FOUNDING_NAME : 'おすすめ'}</span></p>
                     {OFFER.active ? (
                       <>
                         <p className="lp-plan-price">{OFFER.priceLabel}<span>（税込）</span></p>
-                        {/* 条件（誰の・いつの価格か・まとめ払い）は下の帯の 対象・価格・ご注意 に 1 回だけ（ui-critic 2026-11-11: 同じ事実を 3 回書いていた） */}
-                        {/* 2026-11-15 オーナー「年額 ¥12,800。12/16 までの登録で ¥9,800 と書いて」（二重価格表示の決まりで、比べる言葉は使わない） */}
-                        <p className="lp-plan-sub"><span className="lp-nb">{OFFER.endLabel}までの登録で、</span><span className="lp-nb">年額 {ANNUAL_TEXT}（税込）が</span><span className="lp-nb">1 年目はこの価格に。</span></p>
+                        {/* 2026-11-23 LP の仕上げ: 「¥12,800 が 1 年目はこの価格に」は値引きに読める（二重価格）→ 更新のときの値段を言う形に */}
+                        <p className="lp-plan-sub"><span className="lp-nb">1 年分を前払い。</span><span className="lp-nb">2 年目から年額 {ANNUAL_TEXT}（税込）</span><span className="lp-nb">で自動更新。</span></p>
                       </>
                     ) : (
                       <>
                         <p className="lp-plan-price">{ANNUAL_TEXT}<span>/ 年（税込）</span></p>
-                        {/* 2026-11-21 ベンチマーク B4: 1 日あたり・月あたりの数の近くに、払い方（1 年分を前払い）を */}
                         <p className="lp-plan-sub"><span className="lp-nb">1 年分を前払い。</span><span className="lp-nb">月あたり約 {PER_MONTH_TEXT}</span>{SAVE && <> · <span className="lp-nb">{SAVE.replace('月額プランより', '月額より')}</span></>}</p>
                       </>
                     )}
@@ -809,23 +738,38 @@ export default function Landing() {
                     <p className="lp-plan-sub"><span className="lp-nb">毎月自動更新。</span>{OFFER.active && TRIAL_FIRST && <span className="lp-nb">{TRIAL_FIRST}。</span>}</p>
                   </div>
                 </div>
-                {!PRELAUNCH && <StoreCta className="lp-btn lp-plan-cta" loc="pricing">{TRIAL_NOTE && !OFFER.active ? TRIAL_CTA_LABEL : PLAN_CTA_LABEL}</StoreCta>}
-                <p className="lp-plan-pick lp-wbr"><Phrases>月額か年額かは、App Store の画面で選べます。</Phrases></p>
-                {/* 自動更新・解約の説明は有料のボタンのすぐ下（App Store 3.1.2・2026-10-12） */}
+                {/* App Store からは無料で入れて、プランはアプリの中で選ぶ（前の「App Store でプランを始める」は行き先が無料と同じだった） */}
+                <p className="lp-plan-pick lp-wbr"><Phrases>プランは、アプリの中で選べます。</Phrases></p>
                 <p className="lp-renew lp-wbr">{COPY.pricingNote.map((t) => <span key={t}><Sentences>{t}</Sentences></span>)}</p>
               </div>
             </div>
-            {/* 創業メンバー価格（期間中だけ・料金の中の帯 1 枚）。2026-10-17 ui-critic: 2 枚のカードの後ろ＝条件の確認として。「先着」「通常価格」と書かない・差額を書かない */}
+            {!PRELAUNCH && (
+              <div className="lp-cta-block lp-pricing-cta">
+                <StoreCta className="lp-btn lp-btn-large" loc="pricing">{CTA_LABEL}</StoreCta>
+              </div>
+            )}
+
+            {/* 1 日あたりの物差し（カードのあと・条件はすぐ下の 1 行で） */}
+            <div className="lp-why-cost lp-pricing-cost">
+              <p className="lp-why-cost-title lp-wbr"><Phrases>{`1 日 約 ${OFFER.active ? FOUNDING_PER_DAY_TEXT : ANNUAL_PER_DAY_TEXT} から、${WHY.costTitleRest}`}</Phrases></p>
+              <LpCostDiagram talks={PAID_TALKS} />
+              <p className="lp-cost-note lp-lead-lines lp-wbr">
+                <span><Phrases>{OFFER.active ? `1 日 約 ${FOUNDING_PER_DAY_TEXT} は、創業メンバー価格の年額プラン（1 年目 ${OFFER.price}）のとき。` : `1 日 約 ${ANNUAL_PER_DAY_TEXT} は、年額プラン（${ANNUAL_TEXT} を 1 年⁠分⁠前払い）のとき。`}</Phrases></span>
+                <span><Phrases>{`月額 ${MONTHLY_TEXT} なら 1 日 約 ${PER_DAY_TEXT}。`}</Phrases></span>
+              </p>
+            </div>
+
+            {/* 創業メンバー価格（期間中だけ）。「先着」「通常価格」と書かない・差額を書かない */}
             {OFFER.active && (
               <div className="lp-offer" id="lp-offer" data-lp-sec="offer">
-                <p className="lp-offer-title">{FOUNDING_NAME}<span>{OFFER.endLabel}（日本時間）まで</span></p>
-                {/* 2026-10-17 オーナー「読みにくい」: 段落をやめ、対象・特典・価格・注意の 4 行に */}
+                <p className="lp-offer-title">{FOUNDING_NAME}<span>{COPY.END}（日本時間）まで</span></p>
                 <dl className="lp-offer-list">
-                  {/* 2026-11-15 オーナー「年間払いのみに絞りたい」: 創業メンバーは年額プランだけ（アプリの画面は 1.0.1 で合わせる・それまでに月額で始めた方も約束どおり創業メンバー） */}
                   <div><dt>対象</dt><dd className="lp-wbr"><Phrases>期間中に年額プランを始めた方</Phrases></dd></div>
-                  <div><dt>特典</dt><dd className="lp-wbr"><Phrases>開発者への直接の窓口と、次に作る機能への投票</Phrases></dd></div>
-                  {/* 「ご注意」は 7 日間無料があるときだけ（2026-11-12: 創業メンバーのあいだは 7 日間無料をやめた＝罠が無い） */}
-                  {TRIAL_NOTE && <div><dt>ご注意</dt><dd className="lp-wbr"><Phrases>年額の 1 年目 ¥9,800 を使うなら、最初から年額でお申し込みください。先に月額の 7 日間無料を使うと対象外になります（App Store の決まり）</Phrases></dd></div>}
+                  <div><dt>価格</dt><dd className="lp-wbr"><Phrases>{`1 年目 ${OFFER.price}（税込）。2 年目から年額 ${ANNUAL_TEXT}（税込）で自動更新`}</Phrases></dd></div>
+                  <div><dt>特典</dt><dd className="lp-wbr"><Phrases>開発者に直接届く窓口と、次に作る機能への投票</Phrases></dd></div>
+                  {TRIAL_NOTE
+                    ? <div><dt>ご注意</dt><dd className="lp-wbr"><Phrases>年額の 1 年目 ¥9,800 を使うなら、最初から年額でお申し込みください。先に月額の 7 日間無料を使うと対象外になります（App Store の決まり）</Phrases></dd></div>
+                    : <div><dt>ご注意</dt><dd className="lp-wbr"><Phrases>この期間は、7 日間無料はありません。まずは無料プランでお試しください</Phrases></dd></div>}
                 </dl>
               </div>
             )}
@@ -870,7 +814,7 @@ export default function Landing() {
             </h2>
             <p className="lp-final-sub">まずは、読んだ本の一行から。</p>
             <div className="lp-cta-block">
-              <Entry loc="final" wl={wl} qr badge launch center />
+              <Entry loc="final" wl={wl} qr badge launch center label={MAIN_CTA} />
               {/* 2 句目（プランの無料期間）は料金の区画へ戻る文字のリンク（2026-10-12） */}
               <p className="lp-cta-note lp-wbr">
                 <span><Phrases>{COPY.priceLine[0]}</Phrases></span>

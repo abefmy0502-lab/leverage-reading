@@ -5,9 +5,8 @@
 //   2026-11-22 オーナー「LP の UI が悪い・特にこのチャットの場面」: 本の吹き出しをアイコンの列から外して全幅に（狭くて語の途中で割れていた）、
 //   アイコンと名前は吹き出しの上の 1 行に。「相談する本」は会話の上の 1 行へ。答え・根拠・問いを区切り、文は文節でだけ折り返す（Phrases＋.lp-wbr・数と単位も割らない＝語の途中で割れるのがオーナーの不満の本体だった）。
 import { BookOpen, Target, Circle, NotebookPen } from 'lucide-react';
-import { TALK as T } from './lpCopy';
+import { TALK as T, TALK_NOTE } from './lpCopy';
 import Phrases from './LpPhrases';
-import LpPartnerDiagram from './LpPartnerDiagram';
 
 export function Me({ children }) {
   return (
@@ -48,7 +47,14 @@ export default function LpTalkFlow() {
         <Book from={answer.from}>
           <div className="lp-chat-answer">
             <p className="lp-chat-text is-read lp-wbr"><Phrases phrase>{answer.answer}</Phrases></p>
-            <p className="lp-chat-evidence-line"><NotebookPen size="1.1em" aria-hidden="true" /><span className="lp-wbr">あなたのメモ<wbr /><b>{'\u00a03\u00a0件'}</b>から<wbr />答えています。</span></p>
+            {/* 答えのもとのメモ（2026-11-23 LP の仕上げ: 自分のメモが答えになることを、引用で一目に） */}
+            {answer.memo && (
+              <figure className="lp-chat-memo">
+                <blockquote className="lp-wbr"><Phrases phrase>{answer.memo}</Phrases></blockquote>
+                <figcaption>{answer.memoMeta}</figcaption>
+              </figure>
+            )}
+            {!answer.memo && <p className="lp-chat-evidence-line"><NotebookPen size="1.1em" aria-hidden="true" /><span className="lp-wbr">あなたのメモ<wbr /><b>{'\u00a03\u00a0件'}</b>から<wbr />答えています。</span></p>}
           </div>
           <div className="lp-chat-ask">
             <p className="lp-chat-label">あなたに聞きたいこと</p>
@@ -78,19 +84,8 @@ export default function LpTalkFlow() {
         </li>
       </ol>
       </div>
-      {/* 相談する相手（2026-11-15 オーナー「1 冊でも、本棚ぜんぶでも、をデザインで」・ui-critic: 節の頭の図は 1 つにし、見本の 1 冊の相談のあとに「ほかの相手も」として置く） */}
-      <div className="lp-partner">
-        <h3 className="lp-partner-h">相談する相手は、選べます。</h3>
-        <LpPartnerDiagram />
-      </div>
-      {/* 通常の AI との違いを、実例のすぐ下で 1 文（読み手テスト 2026-11-12・2026-11-15 に ChatGPT から言い換え） */}
-      {/* 2026-11-15 オーナー「見やすく」: 題の行と 2 文を分ける */}
-      <div className="lp-chat-diff">
-        <p className="lp-chat-diff-title">通常の AI との違い</p>
-        <p className="lp-chat-diff-body"><span>答えの根拠は、ネットの一般論ではなく、</span><span>あなたが残したメモです。</span><span>本を一から説明する必要もありません。</span></p>
-      </div>
-      {/* 2026-11-15 オーナー「改行を自然に」: 1 文ずつ改行（一度消したが戻した） */}
-      <p className="lp-shot-note lp-shot-note--lines"><span>画面は見本です。</span><span>答えは AI によるもので、著者本人の言葉ではありません。</span><span>あなたのメモで、答えは変わります。</span></p>
+      {/* 注記は 1 か所だけ（2026-11-23 LP の仕上げ・相談する相手と通常の AI との違いは次の節「答えのもとは、あなたのメモ。」へ） */}
+      <p className="lp-shot-note lp-shot-note--lines">{TALK_NOTE.map((t) => <span key={t}>{t}</span>)}</p>
     </>
   );
 }

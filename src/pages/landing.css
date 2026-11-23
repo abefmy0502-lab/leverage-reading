@@ -371,7 +371,7 @@ body.lp-active {
 .lp-narrow > picture:has(.lp-art-wide) { display: block; }
 @media (prefers-color-scheme: dark) {
   .lp-illust-img { border: 1px solid var(--separator); }
-  .lp-illust-img:not(.has-dark) { filter: brightness(0.88); }
+  .lp-illust-img:not(.has-dark) { filter: brightness(0.78); } /* 主ボタンより目立たせない（2026-11-23 LP の仕上げ） */
 }
 .lp-ill-book rect { stroke: var(--border); stroke-width: 1.25; }
 .lp-ill-book-a rect { fill: var(--surface); }
@@ -1411,11 +1411,30 @@ body.lp-active {
 /* ヒーローの補足 2 段落は、まとまりの間を行の送りより広く（2026-11-21 ui-critic） */
 .lp-hero-grid.is-talk .lp-lead-lines > span + span { margin-top: var(--space-3); }
 
-/* 💬 会話のイメージ（2026-11-23・ヒーローのすぐ下・1 往復） */
-.lp-scene-sec { padding-top: 0; }
-.lp-scene-chat { margin-top: var(--space-6); }
-.lp-root .lp-scene-memo { margin: 0; padding: var(--space-1) 0 var(--space-1) var(--space-3); border-left: 2px solid var(--accent); }
-.lp-root .lp-scene-memo blockquote { margin: 0; font-family: var(--font-read); font-size: var(--text-body); font-weight: 600; line-height: 1.6; color: var(--text); word-break: keep-all; overflow-wrap: anywhere; }
-.lp-root .lp-scene-memo figcaption { margin-top: var(--space-1); font-size: var(--text-caption); color: var(--text-2); line-height: 1.5; }
-.lp-root .lp-scene-note { margin: var(--space-3) 0 0; font-size: var(--text-caption); color: var(--text-2); line-height: 1.5; }
-.lp-root .lp-cta-note { margin: var(--space-2) 0 0; font-size: var(--text-caption); color: var(--text-2); line-height: 1.5; }
+.lp-root .lp-cta-note { margin: var(--space-2) 0 0; font-size: var(--text-sub); color: var(--text-2); line-height: 1.5; }
+
+/* ============ 2026-11-23 LP の仕上げ ============ */
+/* 会話の見本の中の、答えのもとのメモ（左に栗色の線・明朝） */
+.lp-root .lp-chat-memo { margin: 0; padding: var(--space-1) 0 var(--space-1) var(--space-3); border-left: 2px solid var(--accent); }
+.lp-root .lp-chat-memo blockquote { margin: 0; font-family: var(--font-read); font-size: var(--text-body); font-weight: 600; line-height: 1.6; color: var(--text); }
+.lp-root .lp-chat-memo figcaption { margin-top: var(--space-1); font-size: var(--text-caption); color: var(--text-2); line-height: 1.5; }
+/* 答えのもとは、あなたのメモ: 聞く相手の図 → 思い出す 1 行 */
+.lp-basis-sec .lp-partner { margin-top: var(--space-8); }
+.lp-root .lp-basis-recall { margin: var(--space-8) 0 0; font-size: var(--text-body); font-weight: 600; line-height: 1.6; color: var(--text); }
+/* 料金: カードのすぐ下にボタン 1 つ → 1 日あたりの物差し → 創業メンバー価格 */
+.lp-pricing-cta { margin-top: var(--space-6); }
+.lp-pricing-cta .lp-btn { width: 100%; }
+@media (min-width: 768px) { .lp-pricing-cta .lp-btn { width: auto; min-width: 20em; } }
+/* 料金の物差しの題も UI の書体（見出しの書体をそろえる・ui-critic） */
+.lp-root .lp-pricing-cost .lp-why-cost-title { font-family: var(--font-ui); }
+.lp-pricing-cost { margin-top: var(--space-12); }
+.lp-pricing-cost .lp-cost-diagram { max-width: none; }
+/* 同じ地の節が続くところは、上の余白を半分に（間が 256 空いていた・ui-critic） */
+.lp-more-sec + .lp-pricing { padding-top: calc(var(--lp-sec) / 2); }
+/* 広い画面: 会話の見本の見出しは 2 列にまたがる（狭い列で 3 行に割れていた） */
+@media (min-width: 1024px) {
+  /* 左の列＝見出しと注記・右の列＝会話（見出しは短くなったので左の列に収まる）。読み進める間、見出しは上に残す */
+  .lp-flow-sec.is-talk .lp-sec-head { position: sticky; top: calc(var(--space-16) + var(--space-8)); }
+  .lp-more-sec .lp-feat { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lp-more-sec .lp-feat-big { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

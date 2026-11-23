@@ -166,6 +166,8 @@ const FEATURE_ICONS = {
   focus: (<g {...S}><circle cx="32" cy="34" r="20" /><path d="M32 34 V 18" stroke="currentColor" /><path d="M32 34 L 42 40" /><path d="M26 8 H 38" /></g>),
   // 一文を画像で: 写真の枠と引用の線
   share: (<g {...S}><rect x="10" y="12" width="44" height="40" rx="4" /><path d="M10 44 L 24 32 L 34 40 L 42 34 L 54 44" /><path d="M20 20 H 40" stroke="currentColor" /></g>),
+  // 目標から逆算（2026-11-23）: 旗と、そこへ続く道
+  goal: (<g {...S}><path d="M40 10 V 30" stroke="currentColor" /><path d="M40 10 H 54 L 50 15 L 54 20 H 40" /><path d="M10 54 C 20 44, 26 50, 32 40 S 38 32, 40 30" strokeDasharray="3 4" /><circle cx="10" cy="54" r="3" /></g>),
   // 記録の基本: 本棚
   library: (<g {...S}><path d="M8 56 H 56" /><rect x="12" y="24" width="10" height="32" rx="1.5" /><rect x="26" y="16" width="12" height="40" rx="1.5" /><rect x="42" y="28" width="10" height="28" rx="1.5" stroke="currentColor" /></g>),
 };
@@ -237,8 +239,8 @@ export function FeatureTiles({ items }) {
           <li key={it.key} className="lp-feat-big-item">
             <svg className="lp-feat-art" viewBox="0 0 240 140" aria-hidden="true">{FEATURE_ART[it.key]}</svg>
             <h3 className="lp-feat-title">{it.title}{it.plan && <span className="lp-more-plan">有料プラン</span>}</h3>
-            <p className="lp-feat-body lp-wbr"><Phrases>{it.body}</Phrases></p>
-            {it.note && <p className="lp-feat-note lp-wbr"><Phrases>{it.note}</Phrases></p>}
+            <p className="lp-feat-body lp-wbr"><Phrases phrase>{it.body}</Phrases></p>
+            {it.note && <p className="lp-feat-note lp-wbr"><Phrases phrase>{it.note}</Phrases></p>}
           </li>
         ))}
       </ul>
@@ -254,7 +256,7 @@ function FeatureList({ items }) {
           <svg className="lp-feat-svg" viewBox="0 0 64 64" aria-hidden="true">{FEATURE_ICONS[it.key]}</svg>
           <div className="lp-feat-text">
             <h3 className="lp-feat-title">{it.title}{it.plan && <span className="lp-more-plan">有料プラン</span>}</h3>
-            <p className="lp-feat-body lp-wbr"><Phrases>{it.body}</Phrases></p>
+            <p className="lp-feat-body lp-wbr"><Phrases phrase>{it.body}</Phrases></p>
           </div>
         </li>
       ))}
@@ -293,6 +295,23 @@ const START_ICONS = {
     </g>
   ),
 };
+
+// 🌱 メモがゼロでも、今日から（2026-11-23 LP の仕上げ）: ほかにできることの一覧と同じ形（線の絵＋題＋1 行）で 3 つ。
+export function StartList({ items }) {
+  return (
+    <ul className="lp-feat lp-start-list">
+      {items.map((it) => (
+        <li key={it.icon} className="lp-feat-item">
+          <svg className="lp-feat-svg" viewBox="0 0 64 60" aria-hidden="true">{START_ICONS[it.icon]}</svg>
+          <div className="lp-feat-text">
+            <h3 className="lp-feat-title">{it.title}</h3>
+            <p className="lp-feat-body lp-wbr"><Phrases phrase>{it.body}</Phrases></p>
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 export function StartTiles({ items }) {
   return (
