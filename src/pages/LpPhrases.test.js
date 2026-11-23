@@ -32,7 +32,14 @@ describe('phrasesOf と半角の空白', () => {
   it('塊の頭に空白を置かない（前の塊の終わりへ）・つなげると元の文', () => {
     const text = '相談も、無料プランで毎月 約 3 回まで AI が答えます。無料期間が終わる 24 時間前までに。';
     const parts = phrasesOf(text);
-    expect(parts.join('')).toBe(text);
+    expect(parts.join('').replace(/\u00a0/g, ' ')).toBe(text); // 数と助数詞の間は折り返さない空白（2026-11-23）
     parts.slice(1).forEach((p) => expect(p.startsWith(' ')).toBe(false));
+  });
+
+  it('数と助数詞の間で割らない・「気に／なった」をつなぐ（2026-11-23）', () => {
+    const parts = phrasesOf('見せたくない本は 1 冊ずつ外せます。気になった本を入れられます。');
+    expect(parts.some((p) => /^冊/.test(p))).toBe(false);
+    expect(parts.some((p) => /^なっ/.test(p))).toBe(false);
+    expect(parts.join('')).toBe('見せたくない本は 1\u00a0冊ずつ外せます。気になった本を入れられます。');
   });
 });

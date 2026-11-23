@@ -12,7 +12,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { renderBook, renderProfile, buildShelf } from '../api/_profilePage.js';
 
-const SUMMARY = '結果は「考え方×熱意×能力」。能力より先に、考え方の向きを整える。\n\nチームの朝会では、まず「どうすればできるか」から話すことにした。できない理由を並べる時間が減った。';
+const SUMMARY = '能力より先に、考え方の向きを整える。朝会では、まず「どうすればできるか」から話すことにした。';
 const BOOKS = [
   { id: '11111111-1111-4111-8111-111111111111', title: '考え方', author: '稲盛和夫', status: 'done', rating: 5, leverage_memo: SUMMARY },
   { id: '22222222-2222-4222-8222-222222222222', title: 'イシューからはじめよ', author: '安宅和人', status: 'done', rating: 5, leverage_memo: '解く前に、解くべき問いを選ぶ。' },
@@ -25,7 +25,7 @@ const BOOKS = [
 ];
 const PROFILE = {
   nickname: 'みさき',
-  bio: 'メーカーで営業 10 年目。チームの後輩に、読んで効いた本をすすめています。',
+  bio: '営業 10 年目。後輩に、効いた本をすすめています。',
   // 好きな本・好きな言葉は入れない（名前・フォロー・本棚が 1 枚に入るように）
   avatar: '',
 };
@@ -33,29 +33,37 @@ const PUBLIC_ID = 'sample0001';
 
 const book = { ...BOOKS[0], summary: SUMMARY };
 const pages = {
-  book: renderBook(PROFILE, book, { publicId: PUBLIC_ID, showSummary: true, linkShelf: true }).html,
+  book: renderBook(PROFILE, book, { publicId: PUBLIC_ID, showSummary: true, linkShelf: false }).html,
   shelf: renderProfile(PROFILE, { publicId: PUBLIC_ID, shelf: buildShelf(BOOKS, [], { summaries: true }), social: true }).html,
 };
 
 const OUT = path.resolve('public/lp');
+// スマホでも中の文字がほぼ実寸で読めるよう、狭い幅で上の大事な所だけ（2026-11-23 ui-critic round 7）
+const W = 320;
+const H = 660;
+// ブラウザの住所の行（リンクで開く Web のページだと分かるように・LP の部品に見せない）
+const URLS = { book: 'orime.vercel.app/u/misaki/b/…', shelf: 'orime.vercel.app/u/misaki' };
 const tmp = mkdtempSync(path.join(tmpdir(), 'lp-social-'));
 const browser = await chromium.launch();
 try {
   for (const scheme of ['light', 'dark']) {
-    const ctx = await browser.newContext({ viewport: { width: 390, height: 700 }, deviceScaleFactor: 2, colorScheme: scheme });
+    const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 2, colorScheme: scheme });
     const p = await ctx.newPage();
     for (const [name, html] of Object.entries(pages)) {
       await p.setContent(html, { waitUntil: 'load' });
+      await p.evaluate((u) => {
+        document.querySelector('main').style.paddingTop = '16px';
+        const bar = document.createElement('div');
+        bar.textContent = u;
+        bar.setAttribute('style', 'position:sticky;top:0;z-index:9;height:28px;display:flex;align-items:center;justify-content:center;background:var(--fill);color:var(--text-3);font:13px/1 -apple-system,system-ui,sans-serif;border-bottom:1px solid var(--separator)');
+        document.body.prepend(bar);
+      }, URLS[name]);
       await p.waitForTimeout(200);
-      // 上の余白（ページの頭の 48）を詰めて、名前・フォロー・本棚の頭が 1 枚に入るように
-      const clipY = await p.evaluate(() => {
-        const el = document.querySelector('main > *');
-        return el ? Math.max(0, el.getBoundingClientRect().top + window.scrollY - 24) : 0;
-      });
+      const clipY = 0;
       const png = path.join(tmp, `${name}-${scheme}.png`);
-      await p.screenshot({ path: png, clip: { x: 0, y: clipY, width: 390, height: 700 }, fullPage: true });
-      for (const w of [390, 780]) {
-        execFileSync('convert', [png, '-resize', `${w}x`, '-quality', '82', '-define', 'webp:method=6', path.join(OUT, `social-${name}-${scheme}-${w}.webp`)]);
+      await p.screenshot({ path: png, clip: { x: 0, y: clipY, width: W, height: H }, fullPage: true });
+      for (const [w, src] of [[390, 320], [780, 640]]) {
+        execFileSync('convert', [png, '-resize', `${src}x`, '-quality', '82', '-define', 'webp:method=6', path.join(OUT, `social-${name}-${scheme}-${w}.webp`)]);
       }
     }
     await ctx.close();

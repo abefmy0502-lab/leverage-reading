@@ -645,31 +645,6 @@ export default function Landing() {
           </div>
         </section>
 
-        {/* ============ すすめたい本は、リンク 1 つで。（2026-11-23 オーナー「本棚のシェアやフォローは拡散の重要な要素・LP に必ず入れる」）
-             画面は公開のページそのもの（api/_profilePage.js を見本の人の本で描いた・scripts/lp-social-shots.mjs） ============ */}
-        <section className="lp-sec lp-social-sec" aria-labelledby="lp-social" data-lp-sec="social">
-          <div className="lp-wrap">
-            <div className="lp-narrow lp-sec-head">
-              <h2 className="lp-h2" id="lp-social">{SOCIAL.h2.map((t) => <span key={t}>{t}</span>)}</h2>
-              <p className="lp-lead lp-sec-lead lp-lines lp-wbr">{SOCIAL.lead.map((t) => <span key={t}><Phrases phrase>{t}</Phrases></span>)}</p>
-            </div>
-            <div className="lp-social-body">
-              <ul className="lp-social-shots">
-                {SOCIAL.shots.map((s) => (
-                  <li key={s.name}>
-                    <Shot name={s.name} alt={s.alt} ratio={[390, 700]} className="lp-web-shot" sizes="(min-width: 768px) 280px, 44vw" />
-                    <p className="lp-social-cap">{s.caption}</p>
-                  </li>
-                ))}
-              </ul>
-              <div className="lp-social-text">
-                <StartList items={SOCIAL.items} />
-                <p className="lp-social-note lp-wbr"><Phrases phrase>{SOCIAL.note}</Phrases></p>
-              </div>
-            </div>
-          </div>
-        </section>
-
         {/* ============ メモがゼロでも、今日から（2026-11-23 LP の仕上げ: 初めて来た人は全員メモ 0 件） ============ */}
         <section className="lp-sec lp-band lp-zero-sec" aria-labelledby="lp-zero" data-lp-sec="zero">
           <div className="lp-wrap">
@@ -677,6 +652,31 @@ export default function Landing() {
               <h2 className="lp-h2" id="lp-zero">{ZERO.h2.map((t) => <span key={t}>{t}</span>)}</h2>
             </div>
             <StartList items={ZERO.items} />
+          </div>
+        </section>
+
+        {/* ============ 薦めたい本は、リンク 1 つで。（2026-11-23 オーナー「本棚のシェアやフォローは拡散の重要な要素・LP に必ず入れる」）
+             画面は公開のページそのもの（api/_profilePage.js を見本の人の本で描いた・scripts/lp-social-shots.mjs） ============ */}
+        <section className="lp-sec lp-band lp-social-sec" aria-labelledby="lp-social" data-lp-sec="social">
+          <div className="lp-wrap">
+            <div className="lp-narrow lp-sec-head">
+              <p className="lp-soon">{SOCIAL.soon}</p>
+              <h2 className="lp-h2" id="lp-social">{SOCIAL.h2.map((t) => <span key={t}>{t}</span>)}</h2>
+              <p className="lp-lead lp-sec-lead lp-lines lp-wbr">{SOCIAL.lead.map((t) => <span key={t}><Phrases phrase>{t}</Phrases></span>)}</p>
+            </div>
+            <div className="lp-social-body">
+              <ul className="lp-social-shots">
+                {SOCIAL.shots.map((s) => (
+                  <li key={s.name}>
+                    <Shot name={s.name} alt={s.alt} ratio={[320, 660]} className="lp-web-shot" sizes="(min-width: 768px) 280px, 44vw" />
+                    <p className="lp-social-cap">{s.caption}</p>
+                  </li>
+                ))}
+              </ul>
+              <div className="lp-social-text">
+                <StartList items={SOCIAL.items} />
+              </div>
+            </div>
           </div>
         </section>
 

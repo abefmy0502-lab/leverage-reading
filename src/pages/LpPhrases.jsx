@@ -10,12 +10,16 @@ const DATE = /^\d+月\d+日/;
 export function phrasesOf(text) {
   if (!parser) parser = loadDefaultJapaneseParser();
   const out = [];
-  for (const seg of parser.parse(String(text || ''))) {
+  // 数と助数詞（「1 冊」「30 件」）の間の空白は折り返さない空白に（BudouX が「1 ／冊ずつ」と割っても、印で前につなぐ・2026-11-23 ui-critic）
+  const glued = String(text || '').replace(/(\d) (?=(?:トークン|ページ|[回件冊行つ日週分秒時年人度個枚か章歳位点倍円]))/g, '$1\u00a0');
+  for (const seg of parser.parse(glued)) {
     // 「12月」「15日…」のように日付が割れたら、前の塊につなぐ。
     const prev = out[out.length - 1];
     // 折り返さない印（WORD JOINER・折り返さない空白）の前後では分けない（noBreak の塊を割らない）。
     if (prev && (/[\u2060\u00a0]$/.test(prev) || /^[\u2060\u00a0]/.test(seg))) out[out.length - 1] = prev + seg;
     else if (prev && /\d+月$/.test(prev) && /^\d+日/.test(seg)) out[out.length - 1] = prev + seg;
+    // 「気に／なった」も前につなぐ
+    else if (prev && /気に$/.test(prev) && /^なっ/.test(seg)) out[out.length - 1] = prev + seg;
     // 「…と／いう」で割れたら、前の塊につなぐ（「信じ切る」と／いう心の…・2026-11-23 ui-critic）。
     else if (prev && /と$/.test(prev) && /^(いう|いった|いわれ)/.test(seg)) out[out.length - 1] = prev + seg;
     // 「〜て／いる」「〜で／いる」のような補助の動詞も前につなぐ（「揺らいで／いる」・2026-11-23 ui-critic）。

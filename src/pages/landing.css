@@ -1468,19 +1468,29 @@ body.lp-active {
   .lp-pricing-cost .lp-cost-side { align-items: flex-start; text-align: left; }
 }
 
-/* 🔗 すすめたい本は、リンク 1 つで。（2026-11-23）: 公開のページの画面写真 2 枚（ブラウザで開くページなので、端末の枠ではなく角丸 12 の札）＋3 つの箇条 */
+/* 🔗 薦めたい本は、リンク 1 つで。（2026-11-23）: 公開のページの画面写真 2 枚（ブラウザで開くページなので、端末の枠ではなく角丸 12 の札＋住所の行）＋3 つ。
+   帯（--surface）で、上の「メモがゼロでも」の帯とは 1 本の線で分ける。見出しの上に「まもなく使えます」の印（出たら消す） */
+.lp-band + .lp-band { border-top: none; }
+.lp-root .lp-soon { display: inline-block; margin: 0 0 var(--space-3); padding: var(--space-1) var(--space-3); border-radius: var(--radius); background: var(--accent-soft); color: var(--accent); font-size: var(--text-sub); font-weight: 600; line-height: 1.5; }
 .lp-social-body { display: grid; gap: var(--space-8); margin-top: var(--space-8); }
-.lp-social-shots { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+.lp-social-shots { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-6); }
 .lp-web-shot {
   display: block; width: 100%; height: auto; border-radius: var(--radius);
   border: 1px solid var(--separator); background: var(--bg);
-  -webkit-mask-image: linear-gradient(to bottom, black 86%, transparent); mask-image: linear-gradient(to bottom, black 86%, transparent);
+  -webkit-mask-image: linear-gradient(to bottom, black 88%, transparent); mask-image: linear-gradient(to bottom, black 88%, transparent);
 }
 .lp-root .lp-social-cap { margin: var(--space-2) 0 0; font-size: var(--text-sub); font-weight: 600; color: var(--text); text-align: center; }
-.lp-root .lp-social-note { margin: var(--space-6) 0 0; font-size: var(--text-sub); line-height: 1.6; color: var(--text-2); max-width: 36em; }
 .lp-social-text .lp-feat { grid-template-columns: minmax(0, 1fr); }
-@media (min-width: 768px) {
-  .lp-social-shots { gap: var(--space-6); }
+/* スマホ: 2 枚を横に送る（文字がほぼ実寸で読める幅・2 枚目の頭が見えて送れると分かる） */
+@media (max-width: 767px) {
+  .lp-social-shots {
+    grid-auto-flow: column; grid-template-columns: none; grid-auto-columns: min(80vw, 320px);
+    overflow-x: auto; scroll-snap-type: x mandatory; gap: var(--space-3);
+    margin-inline: calc(-1 * var(--space-4)); padding-inline: var(--space-4); scroll-padding-inline: var(--space-4);
+    scrollbar-width: none;
+  }
+  .lp-social-shots::-webkit-scrollbar { display: none; }
+  .lp-social-shots > li { scroll-snap-align: start; }
 }
 @media (min-width: 1024px) {
   .lp-social-body { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: var(--space-16); align-items: start; }
