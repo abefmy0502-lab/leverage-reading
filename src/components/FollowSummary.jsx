@@ -2,7 +2,7 @@
 //   「ここにフォロー、フォロワーが何人か見ることができて、押したら誰をフォローしているか・誰にフォローされているかがわかる。
 //    フォローリクエストも表示されて yes・no 押せる感じ」）。VITE_SOCIAL のビルドだけ（AccountSettings から）。
 //   数を押すとフォローのシートをそのタブで開く。届いた申し込みはその場で 承認（確かめる）・断る・「…」（通報・ブロック）。
-//   いちばん下の 1 行「ID でフォローを申し込む」はシートの最初の画面（申し込む・あなたの ID）。
+//   いちばん下の 1 行「ID でフォロー」はシートの最初の画面（申し込む・あなたの ID）。
 import { useState } from 'react';
 import { MoreHorizontal, ChevronRight } from 'lucide-react';
 import UserAvatar from './UserAvatar';
@@ -77,7 +77,7 @@ export default function FollowSummary({ lists, onOpen, onReport, onChanged }) {
   const block = async (person) => {
     const ok = await confirm({
       title: `${who(person)}をブロックしますか？`,
-      message: 'お互いのフォローが外れ、この人はあなたを見つけることも申し込むこともできなくなります。相手に知らせは届きません。',
+      message: 'お互いのフォローが外れ、この人はあなたを見つけることもフォローすることもできなくなります。相手に知らせは届きません。',
       confirmLabel: 'ブロックする',
       cancelLabel: 'キャンセル',
       danger: true,
@@ -136,7 +136,7 @@ export default function FollowSummary({ lists, onOpen, onReport, onChanged }) {
         </section>
       )}
       <button type="button" onClick={() => onOpen('')} style={{ ...plain, ...divider, width: '100%', display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minHeight: 'var(--tap-min)', padding: 'var(--space-3) 0' }}>
-        <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-body)', color: 'var(--text)' }}>ID でフォローを申し込む</span>
+        <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-body)', color: 'var(--text)' }}>ID でフォロー</span>
         <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
       </button>
       {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}

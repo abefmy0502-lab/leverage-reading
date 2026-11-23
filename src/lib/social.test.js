@@ -83,7 +83,7 @@ describe('myIdShareText', () => {
     const priv = myIdShareText({ publicId: 'abcde12345', isPublic: false });
     expect(priv.url).toBe('');
     expect(priv.text).toContain('ID: abcde12345');
-    expect(priv.text).toContain('フォローを申し込む');
+    expect(priv.text).toContain('ID でフォロー');
   });
 });
 

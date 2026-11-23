@@ -9,7 +9,7 @@
 //   2026-11-21（3 回目・オーナー「ビジネス・ものの見方などの分類はなくて OK」「本の画像を押したらその人のこの本のまとめを」）:
 //   分野のまとまりはやめた。VITE_SOCIAL=on のときは本を押すと本のページ（/u/<id>/b/<本の id>）＝書名・著者・状態・評価・
 //   本人が「本のまとめも公開する」をオンにしていれば「この本のまとめ」（公開に向かない言葉・連絡先があれば出さない）・
-//   「読みたいに追加」（Orime を開いて自分の読みたいに入れる＝/?want=1&title=…）。プロフィールに「フォローを申し込む」（/?follow=<id>）。
+//   「読みたいに追加」（Orime を開いて自分の読みたいに入れる＝/?want=1&title=…）。プロフィールに「フォロー」（/?follow=<id>）。
 //   テーブル: supabase_profiles.sql
 import { createClient } from '@supabase/supabase-js';
 import { takeIpSlot } from './_ipRate.js';
@@ -307,15 +307,15 @@ export function renderProfile(p, { publicId, shelf = null, social = socialOn(), 
     ? `<section class="sec"><h2>${esc(who)}のまとめ</h2><p class="sub">読んだ本について、${esc(who)}が書いたこと</p>${summaryRows(shelf.withSummary, publicId)}</section>`
     : '';
   // フォローを決めるのはこのページ（2026-11-22 オーナー「フォローするかどうかはこの画面が 1 番じゃない？」）:
-  //   名前と自己紹介のすぐ下に主ボタン「フォローを申し込む」、本棚を見終えたところにもう一度。
+  //   名前と自己紹介のすぐ下に主ボタン「フォロー」、本棚を見終えたところにもう一度。
   const followUrl = `${site}/?follow=${esc(publicId)}`;
-  const followTop = social ? `<a class="cta" style="margin-top:16px" href="${followUrl}">フォローを申し込む</a><p class="note" style="text-align:left;margin-top:8px">承認されると、本棚とまとめを Orime のアプリでいつでも見られます。</p>` : '';
+  const followTop = social ? `<a class="cta" style="margin-top:16px" href="${followUrl}">フォロー</a><p class="note" style="text-align:left;margin-top:8px">承認されると、本棚とまとめを Orime のアプリでいつでも見られます。</p>` : '';
   const body = `<header class="who">
 ${renderAvatar(p.avatar, nickname)}<h1 class="name">${esc(who)}</h1>${bio ? `<p class="bio">${esc(bio)}</p>` : ''}${followTop}
 </header>
 ${line ? `<figure class="quote" style="margin-left:0;margin-right:0"><blockquote${[...line].length > 40 ? ' style="font-size:17px;line-height:1.8"' : ''}>${esc(line)}</blockquote></figure>${fav}` : fav ? `<div style="margin-top:24px">${fav}</div>` : ''}
 ${sums}${renderShelf(shelf, { publicId, links: social, filter })}
-${social && shelf?.total ? `<a class="cta" style="margin-top:48px" href="${followUrl}">フォローを申し込む</a>` : ''}
+${social && shelf?.total ? `<a class="cta" style="margin-top:48px" href="${followUrl}">フォロー</a>` : ''}
 <a class="${social ? 'cta2' : 'cta'}" ${social ? `style="margin-top:${shelf?.total ? 32 : 48}px" ` : ''}href="${esc(site)}/lp">Orime で読書メモをはじめる</a>
 <p class="note">読んだ本と、会話できる。<br>答えのもとは、あなたが残したメモ。</p>
 <details><summary>このページを通報する</summary>

@@ -160,15 +160,15 @@ export async function reportProfile(publicId, reason = '', { fetchImpl = globalT
 /** 申し込みの答えを画面の 1 文に。 */
 export function followResultMessage(result) {
   return ({
-    pending: '申し込みました。相手が承認すると、本棚を見られます。',
+    pending: 'フォローしました。相手が承認すると、本棚を見られます。',
     accepted: 'もうフォローしています。',
     self: '自分はフォローできません。',
     not_found: 'その人は見つかりませんでした。リンクか ID を確かめてください。',
-    no_profile: 'フォローを申し込むには、先にプロフィールでニックネームを決めてください。',
-    anonymous: 'フォローを申し込むには、アカウントを作ってください（設定のいちばん上から）。',
-    too_many: '今日はこれ以上申し込めません。明日もう一度お試しください。',
+    no_profile: 'フォローするには、先にプロフィールでニックネームを決めてください。',
+    anonymous: 'フォローするには、アカウントを作ってください（設定のいちばん上から）。',
+    too_many: '今日はこれ以上フォローできません。明日もう一度お試しください。',
     not_ready: 'フォローはまだ使えません。少し時間をおいてお試しください。',
-  })[result] || '申し込めませんでした。少し時間をおいてお試しください。';
+  })[result] || 'フォローできませんでした。少し時間をおいてお試しください。';
 }
 
 /** 自分の ID を渡す文（公開していればページのリンクも・公開していなければ ID だけ＝/u/<id> は見つからないので）。 */
@@ -177,7 +177,7 @@ export function myIdShareText(me) {
   const url = me.isPublic ? `${SITE_URL}/u/${me.publicId}` : '';  // profile.js の profileUrl と同じ形（profile.js がこのファイルを読むので循環させない）
   const text = url
     ? 'Orime で、わたしの本棚をフォローしてください。'
-    : `Orime で、わたしの本棚をフォローしてください。\nID: ${me.publicId}\n（Orime の右上の自分のアイコン › 「ID でフォローを申し込む」に入れてください）`;
+    : `Orime で、わたしの本棚をフォローしてください。\nID: ${me.publicId}\n（Orime の右上の自分のアイコン › 「ID でフォロー」に入れてください）`;
   return { text, url };
 }
 

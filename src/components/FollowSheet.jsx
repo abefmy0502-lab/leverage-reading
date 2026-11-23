@@ -305,7 +305,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
   const block = async (person, { quiet = false } = {}) => {
     const ok = quiet || await confirm({
       title: `${who(person)}をブロックしますか？`,
-      message: 'お互いのフォローが外れ、この人はあなたを見つけることも申し込むこともできなくなります。相手に知らせは届きません。',
+      message: 'お互いのフォローが外れ、この人はあなたを見つけることもフォローすることもできなくなります。相手に知らせは届きません。',
       confirmLabel: 'ブロックする',
       cancelLabel: 'キャンセル',
       danger: true,
@@ -645,7 +645,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
               <div role="list" style={{ marginTop: 'var(--space-3)' }}>
                 {tab === 'following' && (lists.following.length
                   ? lists.following.map((p, i) => <PersonRow key={p.publicId} first={i === 0} person={p} onOpen={() => openPerson(p)} />)
-                  : <p style={note}>{withPhraseBreaks('フォロー中の人はいません。相手のリンクから申し込めます。')}</p>)}
+                  : <p style={note}>{withPhraseBreaks('フォロー中の人はいません。相手のリンクからフォローできます。')}</p>)}
                 {tab === 'followers' && (lists.followers.length
                   ? lists.followers.map((p, i) => (
                     <PersonRow key={p.publicId} first={i === 0} person={p} onOpen={mutual.has(p.publicId) ? () => openPerson(p) : undefined}>
@@ -654,7 +654,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
                         aria-label={`${who(p)}の操作`}
                         style={iconBtn}
                         onClick={(e) => openMenu(e, [
-                          ...(followingIds.has(p.publicId) ? [] : [{ label: 'フォローを申し込む', onClick: () => ask(p) }]),
+                          ...(followingIds.has(p.publicId) ? [] : [{ label: 'フォロー', onClick: () => ask(p) }]),
                           { label: 'フォロワーから外す', onClick: () => remove(p, 'follower') },
                           { label: '通報する', onClick: () => report(p) },
                           { label: 'ブロックする', destructive: true, onClick: () => block(p) },
@@ -701,7 +701,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
           {listsBlock}
           {/* 申し込む・あなたの ID の画面へ（‹ は戻る専用の形なので使わない・設定のまとめの最後の行と同じ形・2026-11-22 ui-critic） */}
           <button type="button" onClick={() => setView({ name: 'home' })} style={{ ...plainBtn, width: '100%', display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minHeight: 'var(--tap-min)', marginTop: 'var(--space-6)', padding: 'var(--space-3) 0', borderTop: '1px solid var(--separator)' }}>
-            <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-body)', color: 'var(--text)' }}>ID でフォローを申し込む</span>
+            <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-body)', color: 'var(--text)' }}>ID でフォロー</span>
             <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
           </button>
           {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
@@ -752,7 +752,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
             </section>
           )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-            <label htmlFor={inputId} style={{ ...groupTitle, margin: 0 }}>フォローを申し込む</label>
+            <label htmlFor={inputId} style={{ ...groupTitle, margin: 0 }}>ID でフォロー</label>
             <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
               <input
                 id={inputId}
@@ -779,7 +779,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
                   : preview.person.relation === 'pending' ? <span style={note}>承認を待っています</span>
                     : preview.person.relation === 'accepted'
                       ? <button type="button" style={btnLink} onClick={() => openPerson(preview.person)}>本棚を見る</button>
-                      : <button type="button" style={smallBtn} onClick={() => ask(preview.person)}>申し込む</button>}
+                      : <button type="button" style={smallBtn} onClick={() => ask(preview.person)}>フォロー</button>}
                 {preview.person.relation !== 'self' && (
                   <button
                     type="button"
@@ -810,7 +810,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
                       <Share size="1em" aria-hidden="true" />{me.isPublic ? 'リンクを渡す' : 'ID を渡す'}
                     </button>
                   </div>
-                  <p style={note}>{withPhraseBreaks('相手がこの ID を「フォローを申し込む」に入れると、あなたに申し込みが届きます。')}</p>
+                  <p style={note}>{withPhraseBreaks('相手がこの ID を「ID でフォロー」に入れると、あなたに申し込みが届きます。')}</p>
                 </>
               ) : (
                 <>
