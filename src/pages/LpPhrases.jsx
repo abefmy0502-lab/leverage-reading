@@ -20,6 +20,8 @@ export function phrasesOf(text) {
     else if (prev && /と$/.test(prev) && /^(いう|いった|いわれ)/.test(seg)) out[out.length - 1] = prev + seg;
     // 「〜て／いる」「〜で／いる」のような補助の動詞も前につなぐ（「揺らいで／いる」・2026-11-23 ui-critic）。
     else if (prev && /[てで]$/.test(prev) && /^(いる|いた|います|いく|いき|おく|おき|しまう|みる|みて|ほしい)/.test(seg)) out[out.length - 1] = prev + seg;
+    // 動詞の後ろの「ほど・まで・くらい・だけ」も前につなぐ（「増える／ほど」・2026-11-23 ui-critic）。
+    else if (prev && /[るうくすつぬむぶぐただ]$/.test(prev) && /^(ほど|まで|くらい|ぐらい|だけ)/.test(seg)) out[out.length - 1] = prev + seg;
     else if (prev && DATE.test(prev + seg) && /^\d+$/.test(prev)) out[out.length - 1] = prev + seg;
     else out.push(seg);
   }

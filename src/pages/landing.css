@@ -1449,3 +1449,5 @@ body.lp-active {
 }
 /* 吹き出しの行の長さをそろえる */
 .lp-root .lp-chat-bubble .lp-chat-text { text-wrap: pretty; }
+/* リードの最後の行が数文字だけにならないように */
+.lp-root .lp-sec-lead { text-wrap: pretty; }
