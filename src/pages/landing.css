@@ -1478,7 +1478,7 @@ body.lp-active {
   display: block; width: 100%; height: auto; border-radius: var(--radius);
   border: 1px solid var(--separator); background: var(--bg);
 }
-.lp-root .lp-social-cap { margin: var(--space-2) 0 0; font-size: var(--text-sub); font-weight: 600; color: var(--text); text-align: start; }
+.lp-root .lp-social-cap { margin: 0 0 var(--space-2); font-size: var(--text-sub); font-weight: 600; color: var(--text); text-align: start; }
 .lp-social-text .lp-feat { grid-template-columns: minmax(0, 1fr); }
 /* スマホ: 2 枚を横に送る（文字がほぼ実寸で読める幅・2 枚目の頭が見えて送れると分かる） */
 @media (max-width: 767px) {
@@ -1500,3 +1500,6 @@ body.lp-active {
 /* 物差しの下に「どちらも、ほぼ同じ値段です。」（何が同じかを言葉で・2026-11-23 国語の点検） */
 .lp-root .lp-cost-cap { grid-column: 1 / -1; margin: 0; font-size: var(--text-sub); line-height: 1.5; color: var(--text-2); text-align: center; }
 @media (min-width: 768px) { .lp-root .lp-pricing-cost .lp-cost-cap { text-align: start; } }
+/* 物差しの右・左の説明の塊は中で割らない（「、」が行頭に落ちる・数と助数詞が割れる・2026-11-23 ui-critic round 9） */
+.lp-root .lp-cost-what .lp-nb { white-space: nowrap; }
+@media (max-width: 767px) { .lp-cost-diagram { gap: var(--space-2); } }

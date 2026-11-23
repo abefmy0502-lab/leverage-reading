@@ -668,8 +668,9 @@ export default function Landing() {
               <ul className="lp-social-shots">
                 {SOCIAL.shots.map((s) => (
                   <li key={s.name}>
-                    <Shot name={s.name} alt={s.alt} ratio={[320, s.h]} className="lp-web-shot" sizes="(min-width: 768px) 300px, 80vw" />
+                    {/* 題は札の上（2 枚の高さが違っても題がそろう・2026-11-23 ui-critic round 9） */}
                     <p className="lp-social-cap">{s.caption}</p>
+                    <Shot name={s.name} alt={s.alt} ratio={[320, s.h]} className="lp-web-shot" sizes="(min-width: 768px) 300px, 80vw" />
                   </li>
                 ))}
               </ul>
@@ -731,7 +732,7 @@ export default function Landing() {
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span className="lp-wbr"><Phrases>本とメモは何件でも残せて、AI を使わない機能はすべて無料</Phrases></span></li>
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>AI の相談：<span className="lp-nb">はじめの 2 か月は毎月 {FIRST_TALKS}、</span><wbr /><span className="lp-nb">そのあとは毎月 {FREE_TALKS}</span></span></li>
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span className="lp-wbr"><Phrases>使い切った月も、関係するメモを並べて表示（AI なし）</Phrases></span></li>
-                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>写真から文字にする：<span className="lp-nb">毎月 {FREE_OCR_PER_MONTH} 回</span></span></li>
+                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>写真から書き起こす：<span className="lp-nb">毎月 {FREE_OCR_PER_MONTH} 回</span></span></li>
                 </ul>
               </div>
               <div className="lp-plan is-paid">
@@ -752,7 +753,7 @@ export default function Landing() {
                         <p className="lp-plan-price">{OFFER.priceLabel}<span>（税込）</span></p>
                         {/* 2026-11-23 LP の仕上げ: 「¥12,800 が 1 年目はこの価格に」は値引きに読める（二重価格）→ 更新のときの値段を言う形に */}
                         <p className="lp-plan-sub"><span className="lp-nb">1 年分を前払い。</span><span className="lp-nb">2 年目から年額 {ANNUAL_TEXT}（税込）</span><span className="lp-nb">で自動更新。</span></p>
-                        {!TRIAL_NOTE && <p className="lp-plan-sub"><span className="lp-nb">{COPY.END}まで。</span><span className="lp-nb">この期間中は 7 日間無料なし。</span></p>}
+                        {/* 期限と 7 日間無料が無いことは、すぐ下の創業メンバー価格の表に 1 回（2026-11-23 ui-critic round 9） */}
                       </>
                     ) : (
                       <>
@@ -790,7 +791,7 @@ export default function Landing() {
                   <div><dt>特典</dt><dd className="lp-wbr"><Phrases>開発者に直接届く窓口と、次に作る機能への投票</Phrases></dd></div>
                   {TRIAL_NOTE
                     ? <div><dt>ご注意</dt><dd className="lp-wbr"><Phrases>年額の 1 年目 ¥9,800 を使うなら、最初から年額でお申し込みください。先に月額の 7 日間無料を使うと対象外になります（App Store の決まり）</Phrases></dd></div>
-                    : null /* 7 日間無料が無いことは年額のカードの行に 1 回（同じことを 2 回書かない） */}
+                    : <div><dt>ご注意</dt><dd className="lp-wbr"><Phrases>期間中は、7 日間無料を付けていません</Phrases></dd></div>}
                 </dl>
               </div>
             )}

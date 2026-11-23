@@ -15,7 +15,7 @@ export default function LpCostDiagram({ talks }) {
       <div className="lp-cost-side is-orime">
         <LibraryBig className="lp-cost-icon" size="1em" strokeWidth={1.5} aria-hidden="true" />
         <p className="lp-cost-name">Orime の 1 か月</p>
-        <p className="lp-cost-what"><span className="lp-nb">本棚ぜんぶに、</span><br /><span className="lp-nb">毎月 {talks}相談</span></p>
+        <p className="lp-cost-what"><span className="lp-nb">本棚ぜんぶに、</span><br /><span className="lp-nb">約 {String(talks).replace(/^約\s*/, '')}の相談</span></p>
       </div>
       {/* 何が同じかを言葉で（2026-11-23 国語の点検・真ん中に置くと右の列が狭くなって割れた） */}
       <figcaption className="lp-cost-cap">どちらも、ほぼ同じ値段です。</figcaption>
