@@ -747,10 +747,9 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
         )}
         {shelf === 'none' && <p style={{ ...note, marginTop: 'var(--space-8)' }}>{withPhraseBreaks('本棚を見られませんでした。フォローが外れたか、通信がつながっていません。')}</p>}
         {loaded && withSummary.length > 0 && (
-          <section style={{ marginTop: 'var(--space-8)' }}>
-            <p style={{ margin: 0, fontSize: 'var(--text-heading)', fontWeight: 600 }}>{who(p)}のまとめ</p>
-            <p style={{ ...note, marginTop: 'var(--space-1)' }}>{withPhraseBreaks(`読んだ本について、${who(p)}が書いたこと`)}</p>
-            <div style={{ marginTop: 'var(--space-1)' }}><SummaryRows person={person} books={withSummary} /></div>
+          // 見出し「〈名前〉さんのまとめ」と説明の行は出さない（2026-11-23 オーナー「これは不要」・公開のページと同じ）。
+          <section aria-label={`${who(p)}のまとめ`} style={{ marginTop: 'var(--space-6)' }}>
+            <SummaryRows person={person} books={withSummary} />
           </section>
         )}
         {loaded && (

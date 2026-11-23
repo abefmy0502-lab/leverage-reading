@@ -304,7 +304,8 @@ export function renderProfile(p, { publicId, shelf = null, social = socialOn(), 
   // 主役はその人の言葉（好きな言葉 → まとめ）。カードで囲まず、名前・言葉・本棚の順に読ませる。
   const fav = title ? `<div class="fav">${miniCover(title, cover.ok ? cover.url : '', 40)}<span style="min-width:0"><p class="k">好きな本</p><p class="t">『${esc(title)}』${author ? `<span class="k" style="font-weight:400"> ${esc(author)}</span>` : ''}</p></span></div>` : '';
   const sums = social && shelf?.withSummary?.length
-    ? `<section class="sec"><h2>${esc(who)}のまとめ</h2><p class="sub">読んだ本について、${esc(who)}が書いたこと</p>${summaryRows(shelf.withSummary, publicId)}</section>`
+    // 見出し「〈名前〉さんのまとめ」と説明の行は出さない（2026-11-23 オーナー「これは不要」）。行そのものが表紙・書名・まとめで分かる。
+    ? `<section class="sec" aria-label="${esc(who)}のまとめ">${summaryRows(shelf.withSummary, publicId)}</section>`
     : '';
   // フォローを決めるのはこのページ（2026-11-22 オーナー「フォローするかどうかはこの画面が 1 番じゃない？」）:
   //   名前と自己紹介のすぐ下に主ボタン「フォロー」、本棚を見終えたところにもう一度。

@@ -111,7 +111,7 @@ describe('公開の本棚（2026-11-21）', async () => {
     expect(html.indexOf('/?follow=abcdefgh23')).toBeLessThan(html.indexOf('<h2>本棚</h2>'));
     expect(html.lastIndexOf('/?follow=abcdefgh23')).toBeGreaterThan(html.indexOf('<h2>本棚</h2>'));
   });
-  it('まとめも公開していれば「〈名前〉さんのまとめ」に出だしを並べる（公開に向かない言葉は出さない）', () => {
+  it('まとめも公開していれば出だしを並べる（見出しは出さない・公開に向かない言葉は出さない）', () => {
     const withMemo = [
       { id: '00000000-0000-4000-8000-0000000000a1', title: '考え方', author: '稲盛和夫', status: 'done', leverage_memo: '心を高める。\n熱意が大事。' },
       { id: '00000000-0000-4000-8000-0000000000a2', title: '別の本', author: '', status: 'done', leverage_memo: '連絡は test@example.com' },
@@ -119,7 +119,9 @@ describe('公開の本棚（2026-11-21）', async () => {
     const shelf = buildShelf(withMemo, [], { summaries: true });
     expect(shelf.withSummary.map((b) => b.excerpt)).toEqual(['心を高める。熱意が大事。']);
     const { html } = renderProfile({ nickname: 'ふみ', shelf_public: true }, { publicId: 'abcdefgh23', shelf, social: true });
-    expect(html).toContain('ふみさんのまとめ');
+    expect(html).toContain('心を高める。熱意が大事。');
+    expect(html).not.toContain('<h2>ふみさんのまとめ</h2>');
+    expect(html).not.toContain('が書いたこと');
     expect(html).not.toContain('test@example.com');
     const off = buildShelf(withMemo, []);
     expect(off.withSummary).toEqual([]);
