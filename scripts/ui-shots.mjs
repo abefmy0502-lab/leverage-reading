@@ -264,6 +264,9 @@ const SCREENS = [
   { name: 'book-detail-action-edit', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { scrollTo: '#detail-action-title' }, { css: 'button[aria-label$="を編集"] >> nth=0' }, { wait: 700 }] },
   { name: 'book-detail-done-bottom', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { scrollBottom: true }] },
   { name: 'book-store-sheet', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("この本を買う")' }] },
+  // 🔗 1 冊だけを共有（2026-11-23）: 確かめる → 共有した後の「…」
+  { name: 'book-share-confirm', url: '/?social=1', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("この本を共有")' }, { wait: 500 }] },
+  { name: 'book-share-menu-shared', url: '/?social=1', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("この本を共有")' }, { css: '[role=dialog] button:has-text("共有する")' }, { wait: 1500 }, { css: 'button[aria-label="その他の操作"]' }, { wait: 500 }] },
   { name: 'consult', url: '/', steps: [{ css: nav('相談') }] },
   // ── 📕📗 積読から答える・読了の 3 つの問い・読む前と読んだ後（2026-10-11・ui-shots/article-before/ と article-after/）
   ...(() => {
@@ -1242,7 +1245,7 @@ const SCREENS = [
   { name: 'focus-paused', url: '/?focus=paused', steps: [{ wait: 800 }] },
   { name: 'focus-hold', url: '/?focus=timer', steps: [{ wait: 800 }, { press: ['[data-focus-end]', 550] }] },
   { name: 'focus-tap-hint', url: '/?focus=timer', steps: [{ wait: 800 }, { css: '[data-focus-end]', settle: 300 }] },
-  { name: 'focus-memo', url: '/?focus=timer', steps: [{ wait: 800 }, { css: 'button[aria-label="メモ"]' }, { wait: 600 }] },
+  { name: 'focus-memo', url: '/?focus=timer', steps: [{ wait: 800 }, { css: 'button[aria-label="メモを書く"]' }, { wait: 600 }] },
   { name: 'focus-done', url: '/?focus=done', steps: [{ wait: 4000 }] },
   { name: 'focus-forgot', url: '/?focus=forgot', steps: [{ wait: 1200 }, { press: ['[data-focus-end]', 1400] }, { wait: 1000 }] },
   { name: 'focus-summary', url: '/?focus=done', steps: [{ wait: 1200 }, { css: '[data-focus-mode="timerDone"] button:has-text("おわる")' }, { wait: 800 }] },
@@ -1251,7 +1254,7 @@ const SCREENS = [
   // ── 2026-10-10 の直し（ui-shots/fix1010-*）: 始めたばかりの輪（満ちている）・30 秒未満でおわる（知らせ）・読んでいる間にメモを書いておわる
   { name: 'focus-fresh', url: '/?focus=fresh', steps: [{ wait: 1500 }] },
   { name: 'focus-under30-toast', url: '/?focus=fresh', steps: [{ wait: 800 }, { press: ['[data-focus-end]', 1400] }, { wait: 400 }] },
-  { name: 'focus-summary-memo', url: '/?focus=done', steps: [{ wait: 1200 }, { css: '[data-focus-mode="timerDone"] button:has-text("続けて読む")' }, { wait: 400 }, { css: 'button[aria-label="メモ"]' }, { wait: 600 }, { fill: ['textarea', '読んでいる間に書いたメモ'] }, { css: '[role=dialog] button:has-text("保存")' }, { wait: 1200 }, { press: ['[data-focus-end]', 1400] }, { wait: 1000 }] },
+  { name: 'focus-summary-memo', url: '/?focus=done', steps: [{ wait: 1200 }, { css: '[data-focus-mode="timerDone"] button:has-text("続けて読む")' }, { wait: 400 }, { css: 'button[aria-label="メモを書く"]' }, { wait: 600 }, { fill: ['textarea', '読んでいる間に書いたメモ'] }, { css: '[role=dialog] button:has-text("保存")' }, { wait: 1200 }, { press: ['[data-focus-end]', 1400] }, { wait: 1000 }] },
   { name: 'consult-offline-send', url: '/?offline=1', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { wait: 800 }] },
   { name: 'free-used-followup', url: '/?demo=freeused', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下に質問で考えてもらいたいが、つい答えを言ってしまう'] }, { css: 'button[aria-label="送信"]' }, { wait: 1500 }, { fill: ['textarea[aria-label="相談したいこと"]', '会議のとき'] }, { css: 'button[aria-label="送信"]' }, { wait: 1500 }, { scrollBottom: true }] },
   { name: 'free-used-followup-trialoff', url: '/?demo=freeused&trial=off', steps: [{ css: nav('相談') }] },
@@ -1267,7 +1270,7 @@ const SCREENS = [
   { name: 'focus2-start-count', url: '/?focus=start', steps: [{ css: '[role=radiogroup][aria-label="時間の測り方"] [role=radio]:has-text("計測")' }] },
   { name: 'focus2-under30-closed', url: '/?focus=fresh', steps: [{ wait: 800 }, { press: ['[data-focus-end]', 1400] }] },
   { name: 'focus2-reduced-hold', url: '/?focus=timer', steps: [{ reducedMotion: true }, { wait: 800 }, { press: ['[data-focus-end]', 550] }] },
-  { name: 'focus2-memo', url: '/?focus=timer', steps: [{ wait: 800 }, { css: 'button[aria-label="メモ"]' }, { wait: 800 }] },
+  { name: 'focus2-memo', url: '/?focus=timer', steps: [{ wait: 800 }, { css: 'button[aria-label="メモを書く"]' }, { wait: 800 }] },
   { name: 'focus2-paused', url: '/?focus=paused', steps: [{ wait: 800 }] },
   // ── ⏱ 集中モードの仕上げ（2026-10-09 ui-critic 第 2 回・ui-shots/focus3/）: 計測でも切り替えの位置が跳ねない・一時停止の淡い輪
   { name: 'focus3-start-timer', url: '/?focus=start', steps: [{ wait: 600 }] },
@@ -1307,7 +1310,7 @@ const SCREENS = [
   { name: 'r9d-home-memo-saved', url: '/?demo=fewmemos', steps: [{ css: 'button[aria-label$="にメモを書く"]' }, { fill: ['textarea[aria-label="メモ本文"]', '問いを立ててから読むと、残る量が変わる。'] }, { css: '[role=dialog] button:text-is("保存")' }, { wait: 2000 }] },
   // ── ⏱📷 第 9 回の追加（C1〜C4・2026-10-11）: 集中モードのおわったとき・記録の分野・今月の画像の読書の時間
   { name: 'r9c-focus-done', url: '/?focus=done', steps: [{ wait: 1200 }, { css: '[data-focus-mode="timerDone"] button:has-text("おわる")' }, { wait: 900 }] },
-  { name: 'r9c-focus-done-memo', url: '/?focus=done', steps: [{ wait: 1200 }, { css: '[data-focus-mode="timerDone"] button:has-text("続けて読む")' }, { wait: 400 }, { css: 'button[aria-label="メモ"]' }, { wait: 600 }, { fill: ['textarea', '読んでいる間に書いたメモ'] }, { css: '[role=dialog] button:has-text("保存")' }, { wait: 1200 }, { press: ['[data-focus-end]', 1400] }, { wait: 1000 }] },
+  { name: 'r9c-focus-done-memo', url: '/?focus=done', steps: [{ wait: 1200 }, { css: '[data-focus-mode="timerDone"] button:has-text("続けて読む")' }, { wait: 400 }, { css: 'button[aria-label="メモを書く"]' }, { wait: 600 }, { fill: ['textarea', '読んでいる間に書いたメモ'] }, { css: '[role=dialog] button:has-text("保存")' }, { wait: 1200 }, { press: ['[data-focus-end]', 1400] }, { wait: 1000 }] },
   { name: 'r9c-focus-share', url: '/?focus=done', steps: [{ wait: 1200 }, { css: '[data-focus-mode="timerDone"] button:has-text("おわる")' }, { wait: 900 }, { css: '[data-focus-mode] footer button:has-text("写真で共有")' }, { wait: 900 }] },
   { name: 'r9c-fields-record', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }, { wait: 1500 }, { scrollTo: 'h3:has-text("分野")' }, { wait: 400 }] },
   { name: 'r9c-share-month', url: '/?share=chooser', steps: [{ wait: 800 }, { css: '[role=dialog] button:has-text("写真なし")' }, { wait: 1500 }, { css: '[role=radiogroup][aria-label="どの本を共有するか"] [role=radio]:has-text("今月")' }, { wait: 2500 }] },
