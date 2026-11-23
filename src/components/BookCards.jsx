@@ -99,7 +99,13 @@ export const BookCoverCard = memo(function BookCoverCard({ book, isJustDone, onO
           />
         )}
       </div>
-      {/* 本棚の形（BookShelfCase）では表紙だけ（書名・著者・状態は読み上げの名前に）。 */}
+      {/* 本棚の形（BookShelfCase）では表紙の下に書名だけ（2 行まで・同じ段は同じ高さ＝棚板がそろう）。
+          著者・状態は読み上げの名前に（2026-11-23 オーナー「表紙で直感的にわかるのもいいが、書名は欲しいかも」）。 */}
+      {shelf && (
+        <p aria-hidden="true" className="book-cover-title" style={{ marginTop: 'var(--space-1)', marginBottom: 'var(--space-2)', fontSize: 'var(--text-caption)', fontWeight: 400, color: 'var(--text-2)', height: 'calc(2 * 1.4em)', textAlign: 'left', width: '100%' }}>
+          {withPhraseBreaks(displayTitle(book.title), { scriptBreaks: true })}
+        </p>
+      )}
       {!shelf && <>
       {/* 文節の切れ目でだけ折り返す（「チーズはどこへ消／えた？」と語の途中で割れていた・2026-10-04）。 */}
       <p className="book-cover-title">{withPhraseBreaks(displayTitle(book.title), { scriptBreaks: true })}</p>
@@ -120,7 +126,7 @@ export const BookCoverCard = memo(function BookCoverCard({ book, isJustDone, onO
 
 // 🗄 本棚の形（2026-11-23 オーナー「自分の本棚も本当の本棚仕様にしてほしい」・人の本棚＝FollowSheet の ShelfCase と同じ見た目）。
 //   棚（--fill の面）に表紙だけを下をそろえて立て、行ごとに棚板（--shelf-plank の 8 の線）。1 段に並ぶ数は幅で決める
-//   （スマホ 4 冊・広い画面は 1 冊あたり 112 を目安に 8 冊まで）。書名・著者・状態は読み上げの名前と長押しのメニューに任せる。
+//   （スマホ 4 冊・広い画面は 1 冊あたり 112 を目安に 8 冊まで）。表紙の下に書名を 2 行まで（2026-11-23）。著者・状態は読み上げの名前と長押しのメニューに。
 const SHELF_MIN_COVER = 112;
 export function BookShelfCase({ books, renderBook }) {
   const ref = useRef(null);
