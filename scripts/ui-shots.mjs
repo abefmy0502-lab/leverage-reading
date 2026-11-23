@@ -921,6 +921,10 @@ const SCREENS = [
   // 本ごとにを選んでも、メモのある本が 1 冊だけ → 「まとめて」で答える。
   { name: 'perbook-fallback', url: '/?demo=onebook', steps: [{ css: nav('相談') }, { css: 'button:has-text("答え方：")' }, { css: '[role=dialog] [role=radio]:has-text("本ごとに")' }, { fill: ['textarea[aria-label="相談したいこと"]', '営業の成果が落ちて焦っています。人の評価も気になるし、全部を抱えてしまう。どう考えればいい？'] }, { css: 'button[aria-label="送信"]' }, { waitFor: '[aria-label="相談への答え"]:not([aria-busy])' }, { wait: 400 }] },
   { name: 'trial-consult-out', url: '/?demo=trialout', steps: [{ css: nav('相談') }] },
+  // 🪙 トークンの使い方のシート（相談の上の行の残りの数から・2026-11-23 撮り足し）
+  { name: 'tokens-usage', url: '/', steps: [{ css: nav('相談') }, { wait: 800 }, { css: 'button[aria-label^="トークンの使い方を開く"]' }, { wait: 900 }] },
+  { name: 'tokens-usage-loading', url: '/?load=usage', steps: [{ css: nav('相談') }, { wait: 800 }, { css: 'button[aria-label^="トークンの使い方を開く"]' }, { wait: 500 }] },
+  { name: 'tokens-usage-free', url: '/?demo=freelow', steps: [{ css: nav('相談') }, { wait: 800 }, { css: 'button[aria-label^="トークンの使い方を開く"]' }, { wait: 900 }] },
   { name: 'tokens-sheet-loading', url: '/?demo=limit&native=1&price=loading', steps: [{ css: nav('相談') }, { css: 'button:has-text("トークンを追加")' }] },
   { name: 'tokens-sheet-error', url: '/?demo=limit&native=1&price=fail', steps: [{ css: nav('相談') }, { css: 'button:has-text("トークンを追加")' }] },
   // ── 相談と初日の体験（2026-09-29）: 書いている途中の形・続きの相談・初日のできあがり・通知の案内
