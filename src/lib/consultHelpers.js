@@ -394,11 +394,13 @@ export function buildConsultExamples({ books = [], memoBookIds = null, lastConsu
   }
 
   WORRY_EXAMPLES.forEach((w) => push(w, 'worry'));
-  // 📕 積読から答える（2026-10-11）: 積読が 1 冊以上あれば「まだ読んでいない本から、今の悩みに合う本は？」を必ず 1 つ。
+  // 📕 積読から答える（2026-10-11）: 積読が 1 冊以上あれば「積読の『書名』は、今の悩みにどう効く？」を必ず 1 つ
+  //   （2026-11-23: 前の「まだ読んでいない本から、今の悩みに合う本は？」は AI 選書の仕事と重なったので、本棚の 1 冊を名指しにした）。
   //   空きがあれば足し、無ければ入れ替える。入れ替えるのは よくある困りごと → 本 → 課題 → 本の困りごと の順に最後のもの
   //   （やってみた行動の次・前の相談の続きは押しのけない）。
-  if (count > 0 && hasTsundoku(list) && !out.some((e) => e.text === UNREAD_EXAMPLE)) {
-    const item = { text: UNREAD_EXAMPLE, kind: 'tsundoku' };
+  const unreadText = count > 0 ? unreadExample(list) : '';
+  if (unreadText && !out.some((e) => e.text === unreadText)) {
+    const item = { text: unreadText, kind: 'tsundoku' };
     if (out.length < count) out.push(item);
     else {
       const lastOf = (pred) => out.reduce((at, e, i) => (pred(e) ? i : at), -1);
@@ -414,8 +416,18 @@ export function buildConsultExamples({ books = [], memoBookIds = null, lastConsu
   return out;
 }
 
-/** 相談例「まだ読んでいない本から、今の悩みに合う本は？」（積読が 1 冊以上あるときだけ・lib/unreadBooks.js）。 */
-export const UNREAD_EXAMPLE = 'まだ読んでいない本から、今の悩みに合う本は？';
+/**
+ * 相談例「積読の『書名』は、今の悩みにどう効く？」（積読が 1 冊以上あるときだけ・lib/unreadBooks.js）。
+ * 書名は いちばん最近さわった積読の 1 冊。積読が無ければ ''（例を出さない）。
+ */
+export function unreadExample(books) {
+  const tsundoku = (Array.isArray(books) ? books : [])
+    .filter((b) => b && b.status === 'before' && String(b.title || '').trim())
+    .sort((a, b) => String(b.updatedAt || b.updated_at || '').localeCompare(String(a.updatedAt || a.updated_at || '')));
+  return tsundoku[0] ? `積読の『${shortTitle(tsundoku[0].title)}』は、今の悩みにどう効く？` : '';
+}
+// 前の名前（lib/unreadBooks.js が同じ名前で出している）。今は書名を入れる関数そのもの。
+export const UNREAD_EXAMPLE = unreadExample;
 export function hasTsundoku(books) {
   return (Array.isArray(books) ? books : []).some((b) => b && b.status === 'before' && String(b.title || '').trim());
 }

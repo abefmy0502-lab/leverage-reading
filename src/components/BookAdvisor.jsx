@@ -31,13 +31,16 @@ import { normalizeAdvisorRecs, resolveMixedRec, focusText, emptyReasonOf } from 
 import { gatherCandidates, candidatesBlock, matchCandidate, applyCandidate, cleanKeywords } from '../lib/advisorCandidates';
 import { readerLevel, levelBlock, levelNote, loadLevelPref, saveLevelPref, LEVEL_PREFS, LEVEL_PREF_LABELS } from '../lib/readerLevel';
 import { appNow } from '../lib/appNow';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { TASTE_PREFS, TASTE_LABELS, tasteNote, tasteResultLine, rankByTaste, tasteBlock } from '../lib/bookTaste';
 import { searchBooksFlat as searchBooksAPIFlat } from '../lib/bookSearch';
 import { STORE_DISCLOSURE_TEXT } from '../lib/rakutenLink';
 import AdvisorStoreLinks from './AdvisorStoreLinks';
 import { nextResetLabelJa, requestPaywall } from '../lib/freeTrial';
-import { TOKEN_COSTS, runCostLine, monthDayLabelJa } from '../lib/tokens';
+import { monthDayLabelJa, remainingAnswersLabel } from '../lib/tokens';
+import { showFreeTokenCount } from '../lib/tokenAmounts';
+import { isLowTokens } from '../lib/tokenUsage';
+import { fmtTokens } from '../lib/consultHelpers';
 import { trialCancelShortLine } from '../lib/trialNudge';
 import TokensOutCard from './TokensOutCard';
 import { groupTitle, btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, btnLink as uiBtnLink, btnLinkQuiet as uiBtnLinkQuiet, card as uiCard, segTrack, segOption } from '../styles/ui';
@@ -184,8 +187,12 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   const { requirePlan, canBuyTokens, openTokenSheet, plan, freeMode, tokensRemaining, purchasedTokens, trialEndsAt, tokenAllowance } = usePaywall();
   // 🪙📊 トークンの使い方（使い切ったときの案内カードから開く・2026-10-11）。
   const [usageOpen, setUsageOpen] = useState(false);
-  // 送るボタンのそばに 1 回の目安と残り（相談と同じ言い方・無料プランはプランの機能なので出さない・2026-09-29）。
-  const costLine = freeMode ? '' : runCostLine({ plan, remaining: tokensRemaining, purchased: purchasedTokens, cost: TOKEN_COSTS.advisor });
+  // 送るボタンのそばに残り（相談の上の行と同じ言い方「AI の答えは今月あと約 N 回 ›」・無料プランはプランの機能なので出さない・2026-09-29）。
+  //   2026-11-23 ui-critic: 前は「1 回 約 25 トークン・今月の残り 800 トークン」で、相談のタブと量の言い方が違っていた。
+  //   トークンの数は残りが少ないとき（showFreeTokenCount）と、押して開く「トークンの使い方」のシートで。
+  const tokenTotal = tokensRemaining != null && Number.isFinite(Number(tokensRemaining)) ? Number(tokensRemaining) + (purchasedTokens || 0) : null;
+  const showCostLine = !freeMode && tokenTotal != null && tokenTotal > 0;
+  const tokensLow = isLowTokens(tokensRemaining, tokenAllowance, purchasedTokens);
   // 生成中にアンマウントされたら進行中のストリームを中断する（コスト・二重セッション対策）。
   const activeControllerRef = useRef(null);
   const unmountedRef = useRef(false);
@@ -355,6 +362,14 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   // いまの問い（「まだ言葉にできない」のあと、新しい問いへ読み上げの位置を移す）。
   const questionRef = useRef(null);
   const [recoLoading, setRecoLoading] = useState(false); // 推薦生成中
+  // ⏹ 待っている間の「やめる」（2026-11-23 ui-critic: 問いを考えている間・本を選んでいる間は止められなかった）。
+  //   interviewCtlRef＝いま聞いている問いの止め具（推薦は activeControllerRef）。waitBackRef＝やめたときに戻す画面
+  //   （送る前の状態の控え）。この画面で始めた待ちのときだけ控える＝離れて戻ってきた待ちは止めない（止め具は前の画面にある）。
+  const interviewCtlRef = useRef(null);
+  const waitBackRef = useRef(null);
+  const userStoppedRef = useRef(null);
+  // 8 秒たっても何も来ないとき「時間がかかっています。もう少しお待ちください。」（相談と同じ・形の下に足す）。
+  const [slowWait, setSlowWait] = useState(false);
   const [recoStream, setRecoStream] = useState(''); // 推薦生成中のライブ前置き文（体感速度）
   const [recoError, setRecoError] = useState(() => memo0.recoError || null);
   // 月の上限・プラン案内は「失敗」ではないので、再試行ボタンのない案内として出す（相談と同じ）。
@@ -554,7 +569,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   //   返り値: { done, question, options, summary }（lib/advisorInterview.js の parseInterviewStep）/
   //   { stop }（トークンの上限・プランの案内）/ null（生成・解釈の失敗 → 呼び出し側で推薦へ）。
   //   round＝次の問いの番号。上限（MAX_INTERVIEW_QUESTIONS）を超えたら AI は必ず done とまとめだけを返す。
-  const runInterviewRound = async (c, priorAnswers, round) => {
+  const runInterviewRound = async (c, priorAnswers, round, signal = null) => {
     // c / x.a は呼び出し元で既に sanitizeForPrompt+clamp 済みだが、AI に渡す直前でも二重にかける
     // （呼び出し元の前提が将来崩れても壊れない防御的境界）。問いは AI の文だが、同じく通す。
     const safeConcern = clamp(sanitizeForPrompt(c || ''), LIMITS.aiQuestion);
@@ -572,11 +587,13 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         // 問い 1 つ＋選択肢＋まとめの短い JSON。事実想起や横断推論を伴わないので安いモデルで足りる。
         // ※ 最終的な「本の推薦」は捏造リスク＆横断推論があるため別関数で SMART 維持。
         // purpose: サーバーが用途ごとに安いモデルへ送る（docs/ai-routing.md・失敗したら Claude）。
-        { max_tokens: 700, cacheSystem: true, model: MODEL_FAST, purpose: 'advisor_interview' },
+        { max_tokens: 700, cacheSystem: true, model: MODEL_FAST, purpose: 'advisor_interview', signal },
       );
     } catch {
-      return null;
+      return signal?.aborted ? { aborted: true } : null;
     }
+    // 「やめる」を押した（答えが届いていても使わない＝画面はもう送る前に戻っている）。
+    if (signal?.aborted) return { aborted: true };
     // トークンの上限・プランの案内なら、推薦にも進まず案内だけ出す（もう一度 AI を呼んでも同じ結果なので呼ばない）。
     if (isAiNoticeString(text)) return { stop: text };
     const step = parseInterviewStep(text);
@@ -613,6 +630,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   // 集めた答え（と確かめた悩み）を束ねて推薦生成へ。conf＝{ summary, correction } | null。
   const proceedToRecommend = (answers, conf = null) => {
     const msg = buildRecoMessage({ concern, answers, summary: conf?.summary || '', correction: conf?.correction || '' });
+    // 「やめる」で戻る画面（問い・確かめのカード・問いを用意できなかったカード）を控える。
+    waitBackRef.current = { kind: 'reco', interview, summaryStep, interviewError, correcting, correctionText, confirmed };
     setConfirmed(conf);
     setRecoTaste(tastePrefRef.current);
     setInterview(null);
@@ -823,6 +842,19 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     setRecoError(null);
     setRecoStream('');
     setRecoLoading(true);
+    // 止め具は最初に作る（読書傾向・本の候補を待っている間も「やめる」で止められるように）。
+    const controller = new AbortController();
+    activeControllerRef.current = controller;
+    // 送る前の画面の控え（聞き取りから続いたとき以外＝最初の相談だけで探したときは、最初の入力に戻す）。
+    if (!waitBackRef.current || waitBackRef.current.kind !== 'reco') waitBackRef.current = { kind: 'reco', toConcern: true };
+    const stoppedByUser = () => userStoppedRef.current === controller;
+    // 「やめる」のあと: 画面は stopWaiting がもう戻している。答えの無い相談を履歴に残さず、控えの待ちを終えるだけ。
+    const endStopped = () => {
+      // やめたあとに次の相談を始めていたら、その会話の記録には触らない。
+      if (activeControllerRef.current === controller) setChatHistory(historyBefore);
+      remember({ chatHistory: historyBefore });
+      settlePending();
+    };
     // userMsg は複数の呼び出し元（proceedToRecommend /
     // startInterview の fallback）から来るテンプレート済み文字列。個々の
     // ユーザー入力片は呼び出し元で既に sanitize 済みだが、AI に渡す直前の
@@ -845,6 +877,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     let cands = [];
     // 待つのは 6 秒まで（先に集め始めていれば、ほとんど待たない・間に合わなければ候補なしで選ぶ）。
     try { cands = await Promise.race([candsPromise, new Promise((r) => { setTimeout(() => r([]), 6000); })]); } catch { cands = []; }
+    if (stoppedByUser()) { endStopped(); return; }
     cands = rankByTaste(cands, tastePrefRef.current, nowYear());
     const candText = candidatesBlock(cands);
     const lvText = levelBlock(currentLevel());
@@ -853,9 +886,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     // 🕐 無通信ウォッチドッグ: SSE がストール（モバイル回線切替等）しても
     // 「選んでいます…」で無期限に固まらないよう、チャンク間 45 秒無通信で中断する。
     // streamClaude は abort 時に部分テキストで正常 resolve するため、途中まで
-    // 生成済みの推薦は下の salvage パースで拾える。
-    const controller = new AbortController();
-    activeControllerRef.current = controller;
+    // 生成済みの推薦は下の salvage パースで拾える（「やめる」で止めたときは拾わない）。
     let watchdog = null;
     const armWatchdog = () => {
       if (watchdog) clearTimeout(watchdog);
@@ -909,6 +940,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         },
       });
     } catch (e) {
+      if (stoppedByUser()) { endStopped(); return; }
       const expected = !!(e?.monthlyLimit || e?.paywall || e?.consentDeclined);
       const errText = expected ? e.message : toMessage(e, '本を探せませんでした。通信状況を確認して、もう一度お試しください。');
       setRecoNotice(expected);
@@ -923,6 +955,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       if (watchdog) clearTimeout(watchdog);
     }
 
+    if (stoppedByUser()) { endStopped(); return; }
     if (controller.signal.aborted && !finalText.trim()) {
       // ストール中断かつ 1 文字も生成されていない → エラーとして再試行を促す。
       setRecoNotice(false);
@@ -934,6 +967,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       return;
     }
 
+    waitBackRef.current = null;
     // 計測は「応答を最後まで受け取れた」時のみ（ストール中断の部分応答は除外し、
     // 運営ダッシュボードの AI 利用集計を歪めない）。
     if (!controller.signal.aborted) track('ai_used', { feature: 'advisor' });
@@ -1020,6 +1054,56 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     settlePending();
   };
 
+  // ⏹ 「やめる」（問いを考えている間・本を選んでいる間）: 聞いている AI を止め、送る前の画面に戻す（2026-11-23）。
+  //   最初の相談を送ったところで止めたら、最初の入力に相談の言葉を戻す。答えを送ったところなら、その問いと書いた答えに戻す。
+  //   本を選んでいる途中なら、確かめのカード（か、その前の問い）に戻す。止めた回の答えは使わない。
+  const stopWaiting = () => {
+    const back = waitBackRef.current;
+    if (!back) return;
+    waitBackRef.current = null;
+    try { advisorHaptic.light(); } catch { /* non-critical */ }
+    if (back.kind === 'reco') {
+      const ctl = activeControllerRef.current;
+      userStoppedRef.current = ctl;
+      try { ctl?.abort(); } catch { /* noop */ }
+      setRecoLoading(false);
+      setRecoStream('');
+      if (back.toConcern || !(back.interview || back.summaryStep || back.interviewError)) {
+        clearInterview();
+        setInput(concern || '');
+        return;
+      }
+      setInterview(back.interview || null);
+      setSummaryStep(back.summaryStep || null);
+      setInterviewError(back.interviewError || null);
+      setCorrecting(!!back.correcting);
+      setCorrectionText(back.correctionText || '');
+      setConfirmed(back.confirmed || null);
+      return;
+    }
+    try { interviewCtlRef.current?.abort(); } catch { /* noop */ }
+    setInterviewLoading(false);
+    askingRef.current = false;
+    if (back.toConcern) {
+      clearInterview();
+      setInput(back.concern || concern || '');
+      return;
+    }
+    if (back.interviewError) { setInterviewError(back.interviewError); return; }
+    setInterview(back.interview || null);
+    setInterviewAnswers(back.interviewAnswers || []);
+    setInterviewTrail(back.interviewTrail || []);
+    setAnswerText(back.answerText || '');
+    setAnswerOff(!!back.answerOff);
+  };
+  // 待ちの間 8 秒たっても何も来ない（本を選んでいる間は前置きの文が届くまで）とき、ひとこと添える。
+  const waitingSilently = interviewLoading || (recoLoading && !recoStream);
+  useEffect(() => {
+    if (!waitingSilently) { setSlowWait(false); return undefined; }
+    const t = setTimeout(() => setSlowWait(true), 8000);
+    return () => clearTimeout(t);
+  }, [waitingSilently]);
+
   // 聞き取りの途中の状態をすべて空にする（最初の相談・別の条件で探す・新しい会話）。
   const clearInterview = () => {
     setInterview(null);
@@ -1056,10 +1140,15 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       setConcern(c);
       setInput('');
       clearInterview();
+      waitBackRef.current = { kind: 'interview', toConcern: true, concern: c };
+      const ctl = new AbortController();
+      interviewCtlRef.current = ctl;
       setInterviewLoading(true);
       // 離れても止めない（問いも覚えておく・2026-10-04）。
       const { remember, settle } = beginJob('interview');
-      const step = await runInterviewRound(c, [], 1);
+      const step = await runInterviewRound(c, [], 1, ctl.signal);
+      if (step?.aborted) { settle(); return; } // 「やめる」: 画面は stopWaiting が最初の入力に戻している
+      waitBackRef.current = null;
       setInterviewLoading(false);
       if (step?.stop) { showLimitNotice(step.stop); remember({ recoNotice: true, recoError: step.stop }); settle(); return; }
       if (!step) {
@@ -1101,13 +1190,19 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     setInterview(null);
     setAnswerText('');
     setAnswerOff(false);
+    // 「やめる」で戻る画面＝この問いと、書いた答え（送る前）。
+    waitBackRef.current = { kind: 'interview', interview, interviewAnswers, interviewTrail, answerText: unsure ? '' : a, answerOff: !!entry.off };
+    const ctl = new AbortController();
+    interviewCtlRef.current = ctl;
     setInterviewLoading(true);
     // 離れても止めない（次の問いも覚えておく・2026-10-04）。
     const { remember, settle } = beginJob('interview');
     (async () => {
       try {
         const round = finish ? MAX_INTERVIEW_QUESTIONS + 1 : nextTrail.length + 1;
-        const step = await runInterviewRound(concern, nextAnswers, round);
+        const step = await runInterviewRound(concern, nextAnswers, round, ctl.signal);
+        if (step?.aborted) { settle(); return; }
+        waitBackRef.current = null;
         setInterviewLoading(false);
         if (step?.stop) {
           // トークンの上限などで止まった: 問いと書いた答えを入力欄に戻す（書いた言葉を失わない・2026-10-10）。
@@ -1145,11 +1240,16 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     if (!err || interviewLoading || askingRef.current) return;
     askingRef.current = true;
     setInterviewError(null);
+    waitBackRef.current = { kind: 'interview', interviewError: err };
+    const ctl = new AbortController();
+    interviewCtlRef.current = ctl;
     setInterviewLoading(true);
     const { remember, settle } = beginJob('interview');
     (async () => {
       try {
-        const step = await runInterviewRound(concern, err.answers, err.round);
+        const step = await runInterviewRound(concern, err.answers, err.round, ctl.signal);
+        if (step?.aborted) { settle(); return; }
+        waitBackRef.current = null;
         setInterviewLoading(false);
         if (step?.stop) {
           // トークンの上限などで止まった: 問いと書いた答えを入力欄に戻す（書いた言葉を失わない・2026-10-10）。
@@ -1693,9 +1793,23 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     );
   }
 
-  // 上の操作（履歴・新規）。App のサブタブの行の右端へ出す（barSlot）。
+  // 上の操作（新規・履歴）。App のサブタブの行の右端へ出す（barSlot）。
+  //   🕒 をいつも右端（余白 16 の線）に置き、新規はその左に出し入れする（2026-11-23 ui-critic: 新規が無い間の見えない 44 の場所が
+  //   右上に穴をあけ、🕒 が右の余白の線から 44 ずれていた）。出し入れしても 🕒 は動かない。
   const barButtons = (
     <>
+    {/* 推薦が出ている間は、やり直しの入口を下の「別の条件で探す」1 つにする（同じ操作を 2 か所に出さない）。 */}
+    {messages.length > 0 && !recommendations && (
+      <button
+        type="button"
+        onClick={startNewSession}
+        aria-label="新しい会話を始める"
+        title="新規"
+        style={iconBtn}
+      >
+        <IcNewChat size={22} strokeWidth={1.75} aria-hidden="true" />
+      </button>
+    )}
     {sessionApi?.available && (
       <button
         type="button"
@@ -1707,21 +1821,6 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         <IcHistory size={22} strokeWidth={1.75} aria-hidden="true" />
       </button>
     )}
-    {/* 推薦が出ている間は、やり直しの入口を下の「別の条件で探す」1 つにする（同じ操作を 2 か所に出さない）。 */}
-    {messages.length > 0 && !recommendations ? (
-      <button
-        type="button"
-        onClick={startNewSession}
-        aria-label="新しい会話を始める"
-        title="新規"
-        style={iconBtn}
-      >
-        <IcNewChat size={22} strokeWidth={1.75} aria-hidden="true" />
-      </button>
-    ) : sessionApi?.available && barSlot ? (
-      // 新規が無い間も同じ幅の場所を取る＝履歴（🕒）の位置を相談（🕒・…）とそろえ、タブを切り替えても跳ねない（2026-10-09）。
-      <span aria-hidden="true" style={{ ...iconBtn, visibility: 'hidden' }} />
-    ) : null}
     </>
   );
 
@@ -1808,7 +1907,17 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
             <div className="ai-skeleton-line" style={{ width: '82%' }} />
             <div className="ai-skeleton-line" style={{ width: '64%' }} />
           </div>
+          {slowWait && (
+            // 形の下に足す（骨組みは動かさない）。文ごとのまとまりで折り返す（相談と同じ）。
+            <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+              <span style={{ display: 'inline-block' }}>時間がかかっています。</span><span style={{ display: 'inline-block' }}>もう少しお待ちください。</span>
+            </p>
+          )}
         </div>
+      )}
+      {/* ⏹ やめる（カードの下の控えめな文字ボタン・送る前の画面に戻す）。離れて戻ってきた待ちには出さない（止め具が無い）。 */}
+      {interviewLoading && waitBackRef.current?.kind === 'interview' && (
+        <button type="button" onClick={stopWaiting} style={{ ...uiBtnLinkQuiet, alignSelf: 'flex-start', marginTop: 'calc(-1 * var(--space-2))', marginLeft: 'calc(-1 * var(--space-1))' }}>やめる</button>
       )}
 
       {/* 問いを用意できなかった（以前は黙って推薦へ進んでいた・2026-10-08 ui-critic）。
@@ -2033,7 +2142,17 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
               <div className="ai-skeleton-line" style={{ width: '58%' }} />
             </div>
           )}
+          {slowWait && !recoStream && (
+            // 形の下に足す（骨組みは動かさない）。文ごとのまとまりで折り返す（相談と同じ）。
+            <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+              <span style={{ display: 'inline-block' }}>時間がかかっています。</span><span style={{ display: 'inline-block' }}>もう少しお待ちください。</span>
+            </p>
+          )}
         </div>
+      )}
+      {/* ⏹ やめる（カードの下の控えめな文字ボタン・送る前の画面に戻す）。離れて戻ってきた待ちには出さない（止め具が無い）。 */}
+      {recoLoading && waitBackRef.current?.kind === 'reco' && (
+        <button type="button" onClick={stopWaiting} style={{ ...uiBtnLinkQuiet, alignSelf: 'flex-start', marginTop: 'calc(-1 * var(--space-2))', marginLeft: 'calc(-1 * var(--space-1))' }}>やめる</button>
       )}
 
       {/* 推薦生成エラー（リトライ可能） */}
@@ -2181,7 +2300,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
                       alt=""
                       width="52"
                       loading="lazy"
-                      style={{ width: 52, height: 74, objectFit: 'cover', borderRadius: 4, flexShrink: 0, background: 'var(--fill)' }}
+                      style={{ width: 52, height: 74, objectFit: 'cover', borderRadius: 'var(--radius-cover)', flexShrink: 0, background: 'var(--fill)' }}
                       onError={(e) => { e.currentTarget.style.display = 'none'; }}
                     />
                   )}
@@ -2320,12 +2439,30 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         // 1 回の目安と残りは、入力欄と送るボタンの上の行に（折り返して全幅・相談と同じ位置）。
         // 無料プランは、書く前に「プランの機能」だと分かるように 1 行（書いて送ってから断らない・2026-09-30）。
         //   7 日間無料はここではすすめない（押したときの有料プランの画面で案内する＝GLOSSARY）。
-        <div className="ai-input-area" style={(costLine && !tokensOut) || freeMode ? { flexWrap: 'wrap' } : undefined}>
-          {/* 目安の行は入力欄の上（相談のチップの上の 1 行と同じ位置・13/--text-2・2026-10-09 ui-critic） */}
-          {costLine && !tokensOut && (
-            <p style={{ flexBasis: '100%', margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, fontVariantNumeric: 'tabular-nums', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-              {withPhraseBreaks(costLine)}
-            </p>
+        <div className="ai-input-area" style={(showCostLine && !tokensOut) || freeMode ? { flexWrap: 'wrap' } : undefined}>
+          {/* 残りの行は入力欄の上（相談のチップの上の 1 行と同じ位置・13・2026-10-09 ui-critic）。
+              言い方は相談の上の行と同じ（2026-11-23）。押すと「トークンの使い方」（残りが枠の 20% 以下は --warning）。 */}
+          {showCostLine && !tokensOut && (
+            <button
+              type="button"
+              onClick={() => setUsageOpen(true)}
+              aria-label={`トークンの使い方を開く（${plan === 'trial' ? '無料期間' : '今月'}の残り ${fmtTokens(tokensRemaining)} トークン）`}
+              style={{
+                flexBasis: '100%', display: 'block', textAlign: 'left',
+                background: 'transparent', border: 'none', fontFamily: 'inherit', cursor: 'pointer',
+                padding: 'var(--space-2) var(--space-2) var(--space-2) 0', margin: 'calc(-1 * var(--space-2)) 0',
+                minHeight: 'var(--tap-min)', fontSize: 'var(--text-meta)', lineHeight: 1.5, fontVariantNumeric: 'tabular-nums',
+                color: tokensLow ? 'var(--warning)' : 'var(--text-2)',
+              }}
+            >
+              {showFreeTokenCount(tokenTotal) && (
+                <span style={{ display: 'block', whiteSpace: 'nowrap' }}>{plan === 'trial' ? '無料期間' : '今月'}の残り {fmtTokens(tokensRemaining)}{purchasedTokens > 0 ? <> ＋追加 {fmtTokens(purchasedTokens)}</> : null} トークン</span>
+              )}
+              <span style={{ display: 'block' }}>
+                <span style={{ whiteSpace: 'nowrap' }}>{`AI の答えは${plan !== 'trial' && !showFreeTokenCount(tokenTotal) ? '今月' : ''}`}</span><wbr />
+                <span style={{ whiteSpace: 'nowrap' }}>{`あと${remainingAnswersLabel(tokenTotal)}`}<ChevronRight size="1.2em" aria-hidden="true" style={{ verticalAlign: '-0.25em', marginLeft: '0.15em' }} /></span>
+              </span>
+            </button>
           )}
           {freeMode && (
             <p style={{ flexBasis: '100%', margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>

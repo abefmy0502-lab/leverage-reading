@@ -52,6 +52,8 @@
   <style>
     /* Pre-Vite paint: avoid white flash before the bundled CSS arrives. */
     body { margin: 0; background: #f5f0e8; }
+    /* 暗い設定の端末は、読み込みの前から暗い地（tokens.css の暗い --bg と同じ値・2026-11-23）。 */
+    @media (prefers-color-scheme: dark) { body { background: #1b1a18; } }
   </style>
 </head>
 <body>

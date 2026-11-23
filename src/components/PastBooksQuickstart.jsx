@@ -780,7 +780,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
                   rows={purposeAsk ? Math.min(6, Math.max(3, askText.split('\n').reduce((n, l) => n + Math.ceil((l.length || 1) / 20), 0))) : 2}
                   maxLength={LIMITS.aiQuestion}
                   // 空のときは押せない理由が分かるように（「相談する」は書いてから押せる・2026-10-09）。
-                  placeholder="例：上司への報告がうまくいかない"
+                  placeholder="例：報告がうまくいかない"
                   aria-labelledby="qs-ask"
                   style={{ ...inputStyle, display: 'block', resize: 'none', lineHeight: 1.5, hangingPunctuation: 'first', lineBreak: 'strict' }}
                 />

@@ -42,8 +42,8 @@ import { useConfirm } from './ConfirmDialog';
 
 // 見た目は DESIGN.md のトークンのみ（2026-09-26・SPEC §4 でメモのサブタブを整理）。
 const wrap = { padding: 'var(--space-3) var(--space-4) var(--space-8)', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' };
-// 小さな見出し（ui.js groupTitle）と中身の間は 8（DESIGN §1 グループ内）。
-const sectionTitle = { ...groupTitle, margin: '0 0 var(--space-2)' };
+// 区画の見出し（15/600/--text・右の文字ボタン「＋ メモを書く」13 より強く・2026-11-23 ui-critic）と中身の間は 8（DESIGN §1 グループ内）。
+const sectionTitle = { ...groupTitle, fontSize: 'var(--text-sub)', color: 'var(--text)', letterSpacing: 0, lineHeight: 1.5, margin: '0 0 var(--space-2)' };
 // カード（ui.js card・内側 16）。
 const cardBase = { ...uiCard, padding: 'var(--space-4)' };
 // 絞り込みのメニューを開く文字ボタン（メモ一覧の「ページ順 ▾」と同じ: --accent・15/600・高さ 44）。
@@ -1474,7 +1474,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
             <button
               type="button"
               onClick={onAddNote}
-              style={{ ...btnLink, gap: 'var(--space-1)', whiteSpace: 'nowrap', ...(showMonthly ? { paddingRight: 0 } : { paddingLeft: 0 }) }}
+              style={{ ...btnLink, gap: 'var(--space-1)', whiteSpace: 'nowrap', ...(showMonthly ? { paddingRight: 0, fontSize: 'var(--text-meta)' } : { paddingLeft: 0 }) }}
             >
               <Plus size="1.1em" strokeWidth={2} aria-hidden="true" />
               メモを書く

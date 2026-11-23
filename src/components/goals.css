@@ -29,12 +29,13 @@
   word-break: keep-all;
   overflow-wrap: anywhere;
 }
+/* 区画の見出しは 15/600/--text（右の文字ボタン「直す」「順番を変える」13 より強く・2026-11-23 ui-critic「見出しが右のボタンに負けている」） */
 .goal-sec-title {
   margin: 0 0 var(--space-2);
-  font-size: var(--text-caption);
+  font-size: var(--text-sub);
   font-weight: 600;
-  color: var(--text-2);
-  letter-spacing: 0.02em;
+  color: var(--text);
+  line-height: 1.5;
 }
 .goal-sec { margin-top: var(--space-8); }
 
@@ -190,6 +191,8 @@
 }
 .goal-chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent-soft); color: var(--accent); font-weight: 600; }
 .goal-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-3); }
+/* うまく答えられないとき（答えの候補のチップと形を分ける＝控えめな文字ボタンの 1 行・2026-11-23 ui-critic） */
+.goal-q-alt { display: flex; flex-wrap: wrap; column-gap: var(--space-4); margin-top: var(--space-2); margin-left: calc(-1 * var(--space-1)); }
 .goal-summary {
   margin: 0 0 var(--space-8);
   font-family: var(--font-read);
@@ -267,8 +270,8 @@
   border: none;
   color: var(--accent);
   font-family: inherit;
-  /* 「順番を変える」と同じ大きさ（2026-11-18 ui-critic「13 と 17 で揃っていない・小さくて押しにくい」） */
-  font-size: var(--text-sub);
+  /* 「順番を変える」と同じ大きさ。見出し（15）より一段小さく（2026-11-23 ui-critic・押せる高さは 44 のまま） */
+  font-size: var(--text-meta);
   font-weight: 600;
   cursor: pointer;
 }
@@ -484,6 +487,10 @@
 .goal-trio-first { display: block; }
 .goal-trio-first .goal-text { display: block; font-size: var(--text-body); }
 .goal-text-clamp { display: -webkit-box !important; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
+/* 「達成するには？」の上は 2 行まで（問いを最初の画面に・2026-11-23 ui-critic） */
+.goal-trio-fold.is-tight .goal-text-clamp,
+.goal-trio-single .goal-text-clamp { -webkit-line-clamp: 2; }
+.goal-trio-single .goal-text { display: block; font-size: var(--text-body); }
 .goal-trio-fold[open] .goal-text-clamp { -webkit-line-clamp: unset; }
 .goal-trio-more {
   display: inline-flex; align-items: center; gap: var(--space-1);

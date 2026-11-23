@@ -522,8 +522,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const isPushed = view !== 'chat';
   useEffect(() => { pushedCbRef.current?.(isPushed); }, [isPushed]);
   useEffect(() => () => { pushedCbRef.current?.(false); }, []);
-  // 学びを書く画面の書きかけ（LearningInline が知らせる）。離れる前に「編集を続ける／書いたことを消す」を確かめる
-  // （「‹ 相談」・ブラウザの戻る・左端スワイプのどれでも黙って消さない・2026-09-30）。
+  // 学びを書く画面の書きかけ（LearningInline が知らせる）。離れる前に「編集を続ける／破棄する」を確かめる
+  // （「‹ 相談」・ブラウザの戻る・左端スワイプのどれでも黙って消さない・2026-09-30・2026-11-23 にアプリ全体の「破棄する」へ）。
   const learningDirtyRef = useRef(false);
   const viewRef = useRef(view);
   useEffect(() => { viewRef.current = view; }, [view]);
@@ -531,8 +531,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     if (viewRef.current !== 'learning' || !learningDirtyRef.current) return true;
     const ok = await confirm({
       title: '書きかけの学びがあります',
-      message: '消すと、元に戻せません。',
-      confirmLabel: '書いたことを消す',
+      message: '破棄すると、元に戻せません。',
+      confirmLabel: '破棄する',
       cancelLabel: '編集を続ける',
       danger: true,
     });
@@ -2321,11 +2321,14 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   //   送れない間は文字が大きいと「相談でき／ます」と割れたので、短い「◯月◯日から再開」に（2026-10-11 リリース前の採点）。
   // メモが答える相談（AI を使わない）: 送れることと、何から答えるかを 1 行で（390 幅で 1 行に収まる長さ）。
   //   プランの人が使い切ったときも同じ（2026-10-20・送れる）。
+  // 新しい相談の例（会話が始まると入力欄の左に 44 のボタンが入るので、どの状態でも 1 行に収まる短い形 1 つだけ・
+  //   文字が大きいときはさらに短く・2026-11-18 ui-critic → 2026-11-23 に 1 つへ）。
+  const newConsultExample = largeText ? '例：報告が遅い' : '例：報告がうまくいかない';
   const composerPlaceholder = (freeUsedUp || outOfTokens) ? 'メモから探します'
     : carry && !carry.used ? 'この相談の続きを書く'
     // メモが 0 件の人は続けても同じ答えなので、最初の画面と同じ新しい相談の例（2026-10-09 ui-critic）。
-    : noMemosYet ? '例：上司への報告がうまくいかない'
-    // 390 幅の入力欄に 1 行で収まる長さ（「例：上司への報告がうまくいかない」と同じ 16 字）。
+    //   例の文は 1 つにそろえる（2026-11-23: 0 件・会話の途中・最初の画面で「上司への…」と「報告が…」が混ざっていた）。
+    : noMemosYet ? newConsultExample
     // AI が状況を聞き返しているときは、答えを書くか続けて聞く（候補のチップのほかに自分の言葉でも）。
     // 文字が大きいときは 1 行に収まる短い形（2026-10-10 ui-critic）。
     : lastAsksBack ? (largeText ? '返事を書く' : '返事を書く・続けて相談する')
@@ -2335,7 +2338,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     // 行動が決まったあとは、特定の続きを言わない汎用の文（2026-10-10 第 9 回 総点検）。
     : lastHasAction ? '続けて相談する'
     // 会話が始まると入力欄の左に 44 のボタンが入るので、短い例（16 字だと「うまくいか／ない」と割れて 2 行になった・2026-11-18 ui-critic）。
-    : threadActive && !isNoInfoAnswer(lastVisible) ? '続けて聞く' : messages.length > 0 ? (largeText ? '例：報告が遅い' : '例：報告がうまくいかない') : (largeText ? '例：報告が遅れる' : '例：上司への報告がうまくいかない');
+    : threadActive && !isNoInfoAnswer(lastVisible) ? '続けて聞く' : newConsultExample;
   // 描く前に高さを合わせる（useEffect だと、送ったあとに「消えた文字の高さのまま 1 回描く → 縮む」で
   // 入力欄が 2 回動いていた）。文字の大きさが変わったときも測り直す（hooks/useComposerHeight.js・2026-10-08 ui-critic）。
   useComposerHeight(inputRef, input, view === 'chat', composerPlaceholder, { scrollRef: chatScrollRef });

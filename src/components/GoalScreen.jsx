@@ -70,7 +70,7 @@ function gluedEnd(text) {
 // 文字の大きさの設定が大きいとき（ルート 22px 以上）。
 const largeRootText = () => { try { return parseFloat(getComputedStyle(document.documentElement).fontSize) >= 22; } catch { return false; } };
 
-export default function GoalScreen({ start = null, books = [], onClose, onOpenBook, onAddActionText, onAddReadingActions, onFindBooks, onAddRecBook, onRead = null }) {
+export default function GoalScreen({ start = null, books = [], onClose, onOpenBook, onAddActionText, onAddReadingActions, onFindBooks, onAddRecBook, onRead = null, onConsult = null }) {
   const { goals, roadmaps, purpose, loaded } = useGoals();
   const toast = useToast();
   const { rows: sessions } = useReadingSessions();
@@ -84,20 +84,25 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
   const goal = horizon === ALL_GOALS_KEY ? combinedGoal(goals) : null;
   const record = goal ? roadmaps[ALL_GOALS_KEY] : null;
 
-  // ホームから開いた画面は、1 回の戻るでホームへ（読書計画 → ロードマップ → 目標 → と 3 回戻っていた・2026-11-17 点検）。
-  const fromHome = start?.from === 'home' && view === (start?.view || 'goals');
+  // 開いた元（ホーム／振り返り › 行動）から直接開いた画面は、1 回の戻るで元へ（読書計画 → ロードマップ → 目標 → と 3 回戻っていた・2026-11-17 点検）。
+  //   行動のいちばん上の 1 行からロードマップを開いたときも「‹ 行動」（前は「‹ 目標」で 2 回戻る・2026-11-23 点検）。
+  //   本を開いて戻ってきたときも、最初に開いた画面（base）を覚えておく（openBook が App に渡す）。
+  const baseView = start?.base || start?.view || 'goals';
+  const fromHome = start?.from === 'home';
+  const originLabel = fromHome ? 'ホーム' : '行動';
+  const direct = view === baseView;
   const back = useCallback(() => {
-    if (fromHome) { onClose?.(); return; }
+    if (direct) { onClose?.(); return; }
     if (view === 'plan') { setView('roadmap'); return; }
     if (view === 'roadmap' || view === 'interview') { setView('goals'); return; }
     onClose?.();
-  }, [view, onClose, fromHome]);
+  }, [view, onClose, direct]);
   useEdgeSwipeBack({ onBack: back, enabled: !editing });
   useEffect(() => { scrollRef.current?.scrollTo?.({ top: 0 }); setScrolled(false); }, [view, horizon]);
 
   const open = (key, v) => { setHorizon(key); setView(v); };
   // 本を開いて戻ってきたら、同じ目標の同じ画面へ（App が覚えておく）。
-  const openBook = (b) => onOpenBook?.(b, { view, horizon });
+  const openBook = (b) => onOpenBook?.(b, { view, horizon, base: baseView, ...(start?.from ? { from: start.from } : null) });
 
   // 1 年後の目標を書いたら（2026-11-22 オーナー承認・前は 3 つとも書いたときだけ）。ロードマップは 1 本＝無料プランもこの 1 本を作れる・トークンの量で守る。
   const startInterview = async () => {
@@ -107,7 +112,7 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
     open(ALL_GOALS_KEY, 'interview');
   };
 
-  const backLabel = fromHome ? 'ホーム' : view === 'goals' ? '行動' : view === 'plan' ? 'ロードマップ' : '目標';
+  const backLabel = direct || view === 'goals' ? originLabel : view === 'plan' ? 'ロードマップ' : '目標';
   return (
     <div className="goal-screen" role="dialog" aria-modal="true" aria-label={NAV_TITLE[view]}>
       <AdvisorNavBar backLabel={backLabel} title={NAV_TITLE[view]} onBack={back} pushed scrolled={scrolled} />
@@ -155,6 +160,7 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
               onAddActionText={onAddActionText}
               onFindBooks={onFindBooks}
               onPlan={() => setView('plan')}
+              onConsult={onConsult}
               onRebuild={startInterview}
               onEditGoals={() => setView('goals')}
               onExtend={async (keys) => {
@@ -433,7 +439,8 @@ function GoalEditSheet({ horizonKey, initial, hasRoadmap, nextLabel, onClose, on
 // 「達成するには？」の深掘り
 // ---------------------------------------------------------------------------
 // 3 つの目標の見出し（深掘り・ロードマップ・読書計画の上）。compact は 1 行ずつ小さく。
-function GoalTrio({ goals, compact = false, fold = false, onEdit = null }) {
+// tight: 「達成するには？」の上（いちばん近い目標を 2 行まで・問いを最初の画面に・2026-11-23 ui-critic）。
+function GoalTrio({ goals, compact = false, fold = false, tight = false, onEdit = null }) {
   const overdue = new Set(overdueGoals(goals, appNow()).map((o) => o.key));
   const set = GOAL_HORIZONS.filter((h) => goals?.[h.key]?.text);
   const when = (h) => (
@@ -441,11 +448,20 @@ function GoalTrio({ goals, compact = false, fold = false, onEdit = null }) {
   );
   // ロードマップの上では畳む（いちばん近い目標だけ・押すとほかの目標も・2026-11-17 ui-critic「いまの 3 か月を最初の画面に」）。
   //   期限が過ぎた目標があれば、その目標を見せる。
+  if (fold && tight && set.length === 1) {
+    const only = set[0];
+    return (
+      <div className="goal-trio-single">
+        {when(only)}
+        <span className="goal-text goal-text-clamp">{withPhraseBreaks(goals[only.key].text)}</span>
+      </div>
+    );
+  }
   if (fold && set.length > 1) {
     const first = set.find((h) => overdue.has(h.key)) || set[0];
     const rest = set.filter((h) => h.key !== first.key);
     return (
-      <details className="goal-trio-fold">
+      <details className={`goal-trio-fold${tight ? ' is-tight' : ''}`}>
         <summary>
           <span className="goal-trio-first">
             {when(first)}
@@ -568,16 +584,16 @@ function InterviewView({ goal, goals, roadmaps, books, sessions, onDone, onCance
   return (
     <>
       <header className="goal-head">
-        <GoalTrio goals={goals} compact />
+        <GoalTrio goals={goals} compact fold tight />
       </header>
 
       {error && (
         <ErrorMessage
           title={error.notice ? 'AI のトークンについて' : (error.stage === 'build' ? 'ロードマップを作れませんでした' : '問いを用意できませんでした')}
           description={error.message}
+          // 戻るは上の「‹ 目標」1 つ（同じ行き先のボタンを 2 つ並べない・2026-11-23 点検）。トークンを使い切ったときだけ「目標に戻る」。
           actions={error.notice ? [{ label: '目標に戻る', onClick: onCancel }] : [
             { label: 'もう一度', variant: 'primary', onClick: () => (error.stage === 'build' ? build(qa) : ask(error.qa || qa)) },
-            { label: '目標に戻る', onClick: onCancel },
           ]}
         />
       )}
@@ -614,18 +630,31 @@ function InterviewView({ goal, goals, roadmaps, books, sessions, onDone, onCance
               ))}
             </div>
           )}
-          <div className="goal-chips" role="group" aria-label="うまく答えられないとき">
-            <button type="button" className="goal-chip" aria-pressed={off} onClick={() => { setOff((v) => !v); answerRef.current?.focus?.(); }}>{OPT_OFF}</button>
-            <button type="button" className="goal-chip" onClick={() => submit('（まだ言葉にできない）')}>{OPT_UNSURE}</button>
+          {/* 答えの候補（枠のチップ）と形を分けて、控えめな文字ボタンの 1 行に（2026-11-23 点検「候補の 1 つに見える」）。 */}
+          <div className="goal-q-alt" role="group" aria-label="うまく答えられないとき">
+            <button type="button" aria-pressed={off} style={{ ...btnLinkQuiet, ...(off ? { color: 'var(--accent)' } : null) }} onClick={() => { setOff((v) => !v); answerRef.current?.focus?.(); }}>{OPT_OFF}</button>
+            <button type="button" style={btnLinkQuiet} onClick={() => submit('（まだ言葉にできない）')}>{OPT_UNSURE}</button>
           </div>
           <p className="goal-q-progress">
-            {left > 0 ? 'あと 1 つ聞いたら、ロードマップをつくります' : '次で、ロードマップをつくります'}
+            {/* つくるときにトークンを使うことを、押す前に言う（2026-11-23 点検）。 */}
+            {withPhraseBreaks(left > 0 ? `あと 1 つ聞いたら、ロードマップをつくります（${ROADMAP_TOKENS_LABEL}）` : `次で、ロードマップをつくります（${ROADMAP_TOKENS_LABEL}）`)}
           </p>
-          <button type="button" style={{ ...btnLinkQuiet, marginTop: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }} onClick={finishNow}>このくらいでつくる</button>
+          <button type="button" style={{ ...btnLinkQuiet, marginTop: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }} onClick={finishNow}>{`このくらいでつくる（${ROADMAP_TOKENS_LABEL}）`}</button>
         </div>
       )}
     </>
   );
+}
+
+// 相談に入れる下書き（送らない）。「1 年後の目標は「…」です。」＋いまの 3 か月に取り組むこと＋問い。
+function consultDraftFor(goals, focus) {
+  const g = String(goals?.y1?.text || '').replace(/[。．.\s]+$/u, '').replace(/。\s*/g, '、');
+  const f = String(focus || '').replace(/[。．.\s]+$/u, '');
+  const parts = [];
+  if (g) parts.push(`1 年後の目標は「${g}」です。`);
+  if (f) parts.push(`この 3 か月は「${f}」に取り組みます。`);
+  parts.push('何から始めるとよいですか？');
+  return parts.join('');
 }
 
 function clampAnswer(t) {
@@ -665,7 +694,7 @@ function Building({ building }) {
 // ---------------------------------------------------------------------------
 // ロードマップ
 // ---------------------------------------------------------------------------
-function RoadmapView({ goal, record, books, sessions = [], onOpenBook, onAddActionText, onFindBooks, onPlan, onRebuild, onUndoUpdate, onEditGoals, onSaveRoadmap, onAddRec, onChooseBooks, onExtend }) {
+function RoadmapView({ goal, record, books, sessions = [], onOpenBook, onAddActionText, onFindBooks, onPlan, onConsult = null, onRebuild, onUndoUpdate, onEditGoals, onSaveRoadmap, onAddRec, onChooseBooks, onExtend }) {
   // この 3 か月の本を選ぶ（区切りが進んで本が無くなったとき・2026-11-17）。
   const [choosing, setChoosing] = useState(false);
   const [chooseError, setChooseError] = useState(null);
@@ -821,6 +850,12 @@ function RoadmapView({ goal, record, books, sessions = [], onOpenBook, onAddActi
               <button type="button" className="rm-link" style={linkStyle} onClick={onPlan}>本棚の本から選んで読書計画にする</button>
             )}
           </>
+        )}
+        {/* 💬 この 3 か月に取り組むことを相談へ（下書きを入れるだけ・送るまでトークンは使わない・2026-11-23 点検）。 */}
+        {onConsult && roadmap.phases[here]?.focus && !choosing && (
+          <button type="button" className="rm-link" style={{ ...linkStyle, ...quietColor }} onClick={() => onConsult(consultDraftFor(goal.goals, roadmap.phases[here].focus))}>
+            この 3 か月のことを相談する
+          </button>
         )}
       </section>
 
@@ -1174,7 +1209,7 @@ function PlanView({ goal, record, books, sessions, onFindBooks, onOpenBook, onRe
     <>
       <header className="goal-head" style={{ marginBottom: 'var(--space-4)' }}>
         {roadmap.phases[here]?.focus && (
-          <p className="goal-peek">{withPhraseBreaks(`いまの区切り（${specs[here]?.label}）：${roadmap.phases[here].focus}`)}</p>
+          <p className="goal-peek">{withPhraseBreaks(`いまの 3 か月：${roadmap.phases[here].focus}`)}</p>
         )}
       </header>
 
@@ -1274,7 +1309,7 @@ function PlanView({ goal, record, books, sessions, onFindBooks, onOpenBook, onRe
       <section className="goal-sec" aria-labelledby="plan-order">
         <div className="plan-order-head">
           <h3 id="plan-order" className="goal-sec-title" style={{ margin: 0 }}>{customOrder ? '読む順番（自分で決めた順）' : '読む順番'}</h3>
-          <button type="button" style={{ ...btnLink, paddingRight: 0 }} onClick={() => setOrdering(true)}>順番を変える</button>
+          <button type="button" style={{ ...btnLink, fontSize: 'var(--text-meta)', paddingRight: 0 }} onClick={() => setOrdering(true)}>順番を変える</button>
         </div>
         {groups.map((g) => (
           <div key={g.phase} className="plan-group" style={g === groups[0] ? { marginTop: 0 } : undefined}>

@@ -7065,6 +7065,9 @@ function AuthedApp() {
               <Suspense fallback={<TabPanelSkeleton />}>
                 <ReadingRecord
                   books={books}
+                  // メモ 0 件のときの次の一歩（2026-11-23 ui-critic）
+                  onWriteMemo={() => setAddNoteSheet('pick')}
+                  onQuickstart={() => { setQuickstartSeed(null); setShowQuickstart(true); }}
                   // やってみたことの「この結果を相談する」（行動の完了のその場と同じ下書き・相談相手はその本・2026-10-21）
                   onConsultAction={(a) => openConsultWith(actionResultQuestion(a.text, a.reflection), { bookIds: a.bookId ? [a.bookId] : null })}
                   onGoToShelf={() => { navigateTab('books'); goList(); setShelfMode('library'); }}
@@ -7359,6 +7362,8 @@ function AuthedApp() {
             start={goalScreen}
             books={books}
             onClose={() => setGoalScreen(null)}
+            // 「この 3 か月のことを相談する」＝相談に下書きして開く（送らない・2026-11-23 ui-critic）
+            onConsult={(draft) => { setGoalScreen(null); openConsultWith(draft); }}
             onOpenBook={(b, screen) => { setGoalScreen(null); setDetailFromGoal(screen ? { bookId: b.id, screen } : null); openDetail(b); }}
             // ロードマップの「やること」→ 今の「行動を追加」のシート（本を選ぶ → 書いた文が入る）。
             onAddActionText={(text) => { setAddActionSheet({ step: 'pick', prefillText: text }); return false; }}

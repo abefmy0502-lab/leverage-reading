@@ -484,6 +484,11 @@ export default function ReadingRecord({
   onSearchAuthor,
   onGoToShelf,
   onFindBooksForTag,
+  // メモが 0 件のときの次の一歩（2026-11-23 点検「0 メモが押せず、次にすることが無い」）。
+  //   onWriteMemo: 読書中・読了の本にメモを書く（振り返り › メモの「メモを書く」と同じシート）。
+  //   onQuickstart: メモできる本がまだ無いとき（読んだ本の一文をメモする＝初日クイックスタート）。
+  onWriteMemo = null,
+  onQuickstart = null,
 }) {
   const { user } = useAuth();
 
@@ -584,6 +589,8 @@ export default function ReadingRecord({
     return [...m.values()].sort((a, b) => b.year - a.year);
   }, [bookStats.doneDates, memoStats]);
   const hasAnything = (books?.length || 0) > 0 || memoTotal > 0;
+  // メモを書ける本（読書中・読了）があるか（振り返り › メモの空の案内と同じ分け方）。
+  const memoable = (books || []).some((b) => b.status === 'reading' || b.status === 'done');
   // 🏷 分野（2026-10-11）: 本の分野ごとの本・メモ。メモを読めなかったときはメモの数を 0 と偽装しない（数えない）。
   //   分野ごとの読書の時間は「読書の時間」カードの「分野ごと」に一本化した（同じ数を 2 か所に出さない・2026-10-11 オーナー裁定）。
   const fieldRecord = useMemo(
@@ -631,7 +638,8 @@ export default function ReadingRecord({
             { value: bookStats.doneTotal, label: '読んだ本', color: 'var(--text)', onClick: onShowBooks && bookStats.doneTotal > 0 ? () => onShowBooks('done') : undefined },
             // メモ統計の取得に失敗した時は 0 と偽装しない（「メモが消えた」ように見えるため）。
             // 「メモ」＝自分のメモ（カード式＋学び＋この本のまとめ）。ホーム・相談・初日クイックスタートの「メモ N 件」と同じ数・同じ言葉（2026-09-29）。
-            { value: memoStats?.failed ? '—' : memoTotal, label: 'メモ', color: 'var(--text)', onClick: onShowMemos && memoTotal > 0 ? onShowMemos : undefined },
+            //   0 件でも押せる（振り返り › メモの空の案内に「メモを書く」がある＝行き止まりにしない・2026-11-23）。
+            { value: memoStats?.failed ? '—' : memoTotal, label: 'メモ', color: 'var(--text)', onClick: onShowMemos && !memoStats?.failed ? onShowMemos : undefined },
             { value: bookStats.actionsDone, label: '実行した行動', color: 'var(--text)', onClick: onShowActions && bookStats.actionsDone > 0 ? onShowActions : undefined },
           ]}
         />
@@ -639,6 +647,12 @@ export default function ReadingRecord({
           <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 'var(--space-3) 0 0', lineHeight: 1.5 }}>
             メモの数を読み込めませんでした。通信状況を確認して、開き直してください。
           </p>
+        )}
+        {/* メモが 0 件なら、ここから書ける（積み重ね＝相談の質の最初の 1 件・2026-11-23）。 */}
+        {!memoStats?.failed && memoTotal === 0 && (memoable ? onWriteMemo : onQuickstart) && (
+          <button type="button" onClick={memoable ? onWriteMemo : onQuickstart} style={{ ...btnLink, marginTop: 'var(--space-2)', marginLeft: 'calc(-1 * var(--space-1))', marginBottom: 'calc(-1 * var(--space-3))' }}>
+            {memoable ? 'メモを書く' : '読んだ本の一文をメモする'}
+          </button>
         )}
       </section>
 

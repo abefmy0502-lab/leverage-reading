@@ -71,13 +71,22 @@ describe('unreadBooksInAnswer', () => {
   });
 });
 
-describe('相談例「まだ読んでいない本から、今の悩みに合う本は？」', () => {
-  it('積読が 1 冊以上あるときだけ、3 つのうち最後に', () => {
+describe('相談例「積読の『書名』は、今の悩みにどう効く？」', () => {
+  it('積読が 1 冊以上あるときだけ、3 つのうち最後に・書名を名指しする', () => {
     const withT = buildConsultExamples({ books: [book('a', 'before', '本A')], memoBookIds: new Set(), count: 3 });
     expect(withT).toHaveLength(3);
-    expect(withT[2]).toEqual({ text: UNREAD_EXAMPLE, kind: 'tsundoku' });
+    expect(withT[2]).toEqual({ text: '積読の『本A』は、今の悩みにどう効く？', kind: 'tsundoku' });
+    expect(UNREAD_EXAMPLE([book('a', 'before', '本A')])).toBe('積読の『本A』は、今の悩みにどう効く？');
     const without = buildConsultExamples({ books: [book('a', 'want', '本A')], memoBookIds: new Set(), count: 3 });
-    expect(without.some((e) => e.text === UNREAD_EXAMPLE)).toBe(false);
+    expect(without.some((e) => e.kind === 'tsundoku')).toBe(false);
+    expect(UNREAD_EXAMPLE([book('a', 'want', '本A')])).toBe('');
     expect(hasTsundoku([book('a', 'want', '本A')])).toBe(false);
+  });
+  it('積読が何冊もあるときは、いちばん最近さわった 1 冊', () => {
+    const shelf = [
+      { ...book('a', 'before', '古い積読'), updatedAt: '2026-09-01' },
+      { ...book('b', 'before', '新しい積読'), updatedAt: '2026-11-01' },
+    ];
+    expect(UNREAD_EXAMPLE(shelf)).toBe('積読の『新しい積読』は、今の悩みにどう効く？');
   });
 });
