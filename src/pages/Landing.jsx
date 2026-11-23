@@ -662,6 +662,8 @@ export default function Landing() {
               <h2 className="lp-h2" id="lp-more">ほかにできること</h2>
             </div>
             <FeatureTiles items={FEATURES} />
+            {/* 印「有料プラン」と料金のカードの名前をつなぐ（SPEC 2026-11-12・ui-critic 2026-11-23） */}
+            <p className="lp-more-plan-note">「有料プラン」は、月額・年額プランで使えます。</p>
           </div>
         </section>
 
@@ -703,7 +705,7 @@ export default function Landing() {
                   {/* li は flex（印と文を横に並べる）なので、文は 1 つの span に包む */}
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span className="lp-wbr"><Phrases>本とメモは何件でも。AI を使わない機能は、すべて無料。</Phrases></span></li>
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>AI の相談：<span className="lp-nb">はじめの 2 か月は毎月 {FIRST_TALKS}、</span><wbr /><span className="lp-nb">そのあとは毎月 {FREE_TALKS}</span></span></li>
-                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span className="lp-wbr"><Phrases>使い切った月も、相談に関係するあなたのメモを、AI なしで並べて見せます</Phrases></span></li>
+                  <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span className="lp-wbr"><Phrases>使い切った月も、関係するメモを並べて見せます（AI なし）</Phrases></span></li>
                   <li><Check size="1.1em" strokeWidth={2.4} aria-hidden="true" /><span>ページの写真から文字に：<span className="lp-nb">毎月 {FREE_OCR_PER_MONTH} 回</span></span></li>
                 </ul>
               </div>
@@ -772,7 +774,11 @@ export default function Landing() {
             {/* ボタンは判断に要る情報（カード・1 日あたり・創業メンバー価格）を読み終えた所に 1 つ（2026-11-23 ui-critic）。名前は主ボタンと同じ */}
             {!PRELAUNCH && (
               <div className="lp-cta-block lp-pricing-cta">
-                <StoreCta className="lp-btn lp-btn-large" loc="pricing">{MAIN_CTA}</StoreCta>
+                {/* PC で決める瞬間にも手段を（2026-11-23 ui-critic）: ボタンの右に QR（タッチの端末では出さない） */}
+                <div className="lp-cta-row">
+                  <StoreCta className="lp-btn lp-btn-large" loc="pricing">{MAIN_CTA}</StoreCta>
+                  <StoreQr />
+                </div>
                 <p className="lp-cta-note">無料プランで始められます（iPhone）</p>
               </div>
             )}

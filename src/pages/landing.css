@@ -1299,7 +1299,7 @@ body.lp-active {
 .lp-root .lp-shot-note--lines span { display: block; word-break: keep-all; overflow-wrap: anywhere; }
 
 /* 📚 相談する相手の図（2026-11-15）: 線の絵 3 つ・間に細い線・押せる形にしない */
-.lp-partner-diagram { list-style: none; margin: var(--space-4) 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 30em; }
+.lp-partner-diagram { list-style: none; margin: var(--space-4) 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 36em; }
 .lp-partner-item { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-1); padding: 0 var(--space-3); border-left: 1px solid var(--separator); min-width: 0; }
 .lp-partner-item:first-child { padding-left: 0; border-left: none; }
 .lp-partner-icon { font-size: calc(var(--text-sub) * 1.75); color: var(--text); margin-bottom: var(--space-1); }
@@ -1445,9 +1445,22 @@ body.lp-active {
 .lp-root .lp-pricing-cost .lp-cost-eq { font-family: var(--font-ui); font-size: calc(var(--text-sub) * 2.4); color: var(--text-2); line-height: 1; }
 @media (min-width: 768px) {
   .lp-pricing-cost .lp-cost-diagram { border-top: none; margin-top: 0; padding-top: 0; }
-  .lp-plan-cards { align-items: stretch; }
 }
 /* 吹き出しの行の長さをそろえる */
 .lp-root .lp-chat-bubble .lp-chat-text { text-wrap: pretty; }
 /* リードの最後の行が数文字だけにならないように */
 .lp-root .lp-sec-lead { text-wrap: pretty; }
+
+/* 2026-11-23 ui-critic round 5 */
+/* 料金の物差し: 広い画面は 1 列（題 → 図 → 注記）にして、図と注記の間の空きをなくす */
+@media (min-width: 768px) {
+  .lp-pricing-cost { display: block; }
+  .lp-pricing-cost .lp-cost-diagram { margin-top: var(--space-6); max-width: 40em; }
+  .lp-pricing-cost .lp-cost-note { margin-top: var(--space-6); }
+}
+/* 料金のボタンの行（PC は右に QR） */
+.lp-pricing-cta .lp-cta-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-6); }
+.lp-pricing-cta .lp-cta-row .lp-btn { flex: 1 1 auto; }
+@media (min-width: 768px) { .lp-pricing-cta .lp-cta-row .lp-btn { flex: 0 0 auto; } }
+/* 「有料プラン」の印の説明 */
+.lp-root .lp-more-plan-note { margin: var(--space-6) 0 0; font-size: var(--text-sub); line-height: 1.5; color: var(--text-2); }
