@@ -170,7 +170,7 @@ export function checkNote(text) {
   if (heads < 3 || heads > 6) out.push({ word: `見出し ${heads}`, why: '見出しは 3〜5 つ' });
   if (!/できないこと|できない|苦手|気をつけ/.test(t)) out.push({ word: 'できないこと', why: '「できないこと・気をつけること」を書く（信頼のため・言い過ぎない）' });
   if (!/ct=note_/.test(t)) out.push({ word: 'ct=note_', why: '最後のリンクに ct=note_<機能> を付ける（入手を測る）' });
-  if (!/見出し画像|見出しの画像/.test(t)) out.push({ word: '見出し画像', why: '見出し画像の指定を書く（有無で読まれ方が変わる・本文と関係のある画像）' });
+  if (!/見出し画像|見出しの画像/.test(String(text || ''))) out.push({ word: '見出し画像', why: '見出し画像の指定を書く（有無で読まれ方が変わる・本文と関係のある画像）' });
   return out;
 }
 
