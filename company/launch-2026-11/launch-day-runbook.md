@@ -15,7 +15,7 @@
 | [ ] | `company/sns-prep/` の伏せ字（自分の体験・実数）を埋める。動画は `marketing-out/videos/` | オ | `node scripts/marketing/weekly-drafts.mjs --check company/sns-prep/*.md` が ✓ |
 | [ ] | note の連載 1 本目（`sns-prep/note-01-consult.md`）を note の下書きに入れておく | オ | note の下書き |
 | [ ] | LINE オープンチャット（創業メンバーの部屋）を作り、まだ公開しない（`line-openchat.md`） | オ | — |
-| [ ] | 自分のテスト用のアカウントを `app_admins` に入れる（運営の数字から外す・`docs/launch-kpis.md`） | オ | 運営ダッシュボードの有料が 0 |
+| [ ] | 自分のテスト用のアカウントを `app_admins` に入れる（運営の数字から外す・SQL は `sql-exclude-own-accounts.md`） | オ | 運営ダッシュボードの有料が 0 |
 
 ## 1. 承認の知らせが来たら（その日のうちに・5 分）
 

@@ -75,14 +75,14 @@ select f.user_id, u.email, f.started_at, s.status, s.price_id, s.period_type
 from first_start f
 join auth.users u on u.id = f.user_id
 left join subscriptions s on s.user_id = f.user_id
-where f.started_at >= '2026-11-16 15:00+00' and f.started_at < '2026-12-16 15:00+00'  -- 11/17 0:00〜12/17 0:00（日本時間）
+where f.started_at < '2027-01-10 15:00+00'  -- 〜2027-01-11 0:00（日本時間）。公開の前の行は自分と審査用（app_admins で外す）
   and f.user_id not in (select user_id from app_admins)
 order by f.started_at;
 
 -- ② 履歴の表が無いとき: subscriptions の行を作った時刻（1 人 1 行・最初の契約で作られる）で代わりに見る
 select s.user_id, u.email, s.created_at, s.status, s.price_id, s.period_type
 from subscriptions s join auth.users u on u.id = s.user_id
-where s.created_at >= '2026-11-16 15:00+00' and s.created_at < '2026-12-16 15:00+00'
+where s.created_at < '2027-01-10 15:00+00'
   and s.user_id not in (select user_id from app_admins)
 order by s.created_at;
 ```

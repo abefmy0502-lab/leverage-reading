@@ -40,7 +40,8 @@ describe('利用規約', () => {
     expect(t).toContain('上限');
   });
   it('最終更新日', () => {
-    expect(t).toContain('最終更新日:2026年11月22日');
+    expect(t).toContain('最終更新日:2026年11月23日');
+    expect(t).toContain('公開から2027年1月10日(日本時間)まで');
   });
   it('公開するプロフィールの禁止事項と通報の扱い（App 審査 1.2）', () => {
     expect(t).toContain('一切容認しません');
