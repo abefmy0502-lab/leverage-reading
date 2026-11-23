@@ -78,7 +78,7 @@ export async function loadFolloweeConnections(publicId, opts) {
   if (!r.ok || !r.data) return null;
   if (r.data.visible === false) return { visible: false, following: [], followers: [] };
   const pick = (k) => (Array.isArray(r.data[k]) ? r.data[k] : [])
-    .map((p) => ({ ...cleanPerson(p), relation: RELATIONS.includes(p?.relation) ? p.relation : 'none' }))
+    .map((p) => ({ ...cleanPerson(p), relation: RELATIONS.includes(p?.relation) ? p.relation : 'none', doneCount: Math.max(0, Math.min(100000, Math.round(Number(p?.done_count) || 0))) }))
     .filter((p) => p.publicId && p.nickname);
   return { visible: true, following: pick('following'), followers: pick('followers') };
 }

@@ -45,6 +45,8 @@ const plainBtn = { background: 'none', border: 'none', padding: 0, cursor: 'poin
 const smallBtn = { ...btnRow, background: 'var(--accent)', color: 'var(--accent-ink)', border: 'none' };
 // 行の中の文字ボタン（断る・取り消す・ブロックを外す）は横も 44 以上。
 const rowLink = { ...btnLinkQuiet, minWidth: 'var(--tap-min)', padding: '0 var(--space-2)', justifyContent: 'center' };
+// 一覧の行の右の関係（フォロー／承認を待っています／あなた）を入れる箱。いちばん長い「承認を待っています」が収まる幅。
+const relBox = { display: 'inline-flex', justifyContent: 'flex-end', alignItems: 'center', minWidth: 'calc(9 * var(--text-meta) + var(--space-2))', flexShrink: 0 };
 const iconBtn = { ...plainBtn, width: 'var(--tap-min)', height: 'var(--tap-min)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-2)', flexShrink: 0 };
 
 // 3 つの画面を行き来してもシートの高さが跳ねないように、中身の高さの下限をそろえる。
@@ -63,11 +65,18 @@ const who = (p) => (p?.nickname ? `${p.nickname}さん` : 'この人');
 
 const Cover = ({ book, width = 72 }) => <MiniCover title={shownTitle(book.title)} cover={book.cover} width={width} />;
 
-function PersonRow({ person, children, onOpen, first = false }) {
+function PersonRow({ person, children, onOpen, first = false, sub = '' }) {
   const body = (
     <>
       <UserAvatar avatarId={person.avatar} nickname={person.nickname} size={40} />
-      <span style={nameStyle}>{person.nickname || 'ニックネームなし'}</span>
+      {sub
+        ? (
+          <span style={{ ...nameStyle, display: 'flex', flexDirection: 'column' }}>
+            <span>{person.nickname || 'ニックネームなし'}</span>
+            <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>{sub}</span>
+          </span>
+        )
+        : <span style={nameStyle}>{person.nickname || 'ニックネームなし'}</span>}
       {/* 押せる行はボタンが並んでいても › を残す（押すと何かが開くと分かるように・2026-11-23） */}
       {onOpen && <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />}
     </>
@@ -89,7 +98,7 @@ function ConnCounts({ conn, onOpen, onRetry }) {
   // 読めなかったときは黙らずに 1 行（見せていない人とは分ける＝見せていない人は { visible: false } で何も出さない）。
   if (conn === 'none') {
     return (
-      <p style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 'var(--space-2)', margin: 'var(--space-1) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.6 }}>
+      <p style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 'var(--space-2)', margin: `calc(var(--space-2) + ${COUNT_PULL}) 0 ${COUNT_PULL}`, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>
         フォロー中・フォロワーを読めませんでした。
         <button type="button" onClick={onRetry} style={{ ...btnLink, minHeight: 'var(--tap-min)' }}>もう一度</button>
       </p>
@@ -503,7 +512,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
       if (s) shelfCacheRef.current.set(person.publicId, s);
       if (personReqRef.current === req) setShelf(s || 'none'); // 別の人を開き直していたら、古い答えは捨てる
     } catch {
-      if (personReqRef.current === req && !cached) setShelf('none');
+      if (personReqRef.current === req && !cached) setShelf('error');
     }
   };
   // 相手のつながりから戻るときは、その人の本棚を開き直す（間に別の人の本棚を見ていても、元の人の本棚に戻る）。
@@ -771,13 +780,8 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
               ? '承認を待っています。承認されると、本棚と「この本のまとめ」を見られます。'
               : rel === 'accepted'
                 ? 'フォローしています。'
-                : shared
-                  ? 'フォローして承認されると、本棚と「この本のまとめ」を見られます。'
-                  : 'この人はプロフィールを公開していません。フォローして承認されると、本棚と「この本のまとめ」を見られます。')}
+                : `${shared ? '' : 'この人はプロフィールを公開していません。'}承認されると、本棚と「この本のまとめ」を見られ${followsVisible ? `、${who(p)}のフォロワーの一覧にもあなたが出ます` : 'ます'}。`)}
           </p>
-        )}
-        {loaded && rel === 'none' && followsVisible && (
-          <p style={{ ...note, marginTop: 'var(--space-2)' }}>{withPhraseBreaks(`承認されると、${who(p)}のフォロワーの一覧に、あなたも出ます（フォローの画面の下で隠せます）。`)}</p>
         )}
         {rel === 'accepted' && <button type="button" onClick={() => openPerson(p, back)} style={{ ...btnGhost, marginTop: 'var(--space-3)' }}>本棚を見る</button>}
         {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
@@ -795,7 +799,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
     const list = loaded?.visible ? (ctab === 'followers' ? loaded.followers : loaded.following) : [];
     const CTABS = [{ id: 'following', label: 'フォロー中' }, { id: 'followers', label: 'フォロワー' }];
     return createPortal(
-      <BottomSheet title="フォロー中・フォロワー" onClose={onClose} layer="dialog">
+      <BottomSheet title={`${who(person)}のフォロー中・フォロワー`} onClose={onClose} layer="dialog">
         <div ref={bodyRef} style={sheetBody}>
         <button type="button" onClick={() => backFromConn(view)} style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}>
           <ChevronLeft size="1.1em" aria-hidden="true" />{who(person)}の本棚
@@ -813,9 +817,8 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
           </div>
         )}
         {c === 'none' && (
-          <div style={{ marginTop: 'var(--space-4)' }}>
-            <p style={note}>{withPhraseBreaks('フォロー中・フォロワーを読めませんでした。通信状況を確認してください。')}</p>
-            <button type="button" onClick={() => loadConns(person, { force: true })} style={{ ...btnLink, marginTop: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}>もう一度</button>
+          <div style={{ marginTop: 'var(--space-6)' }}>
+            <ErrorMessage title="フォロー中・フォロワーを読めませんでした" description="通信状況を確認してください。" actions={[{ label: 'もう一度', onClick: () => loadConns(person, { force: true }) }]} />
           </div>
         )}
         {loaded && !loaded.visible && <p style={{ ...note, marginTop: 'var(--space-4)' }}>{withPhraseBreaks(`${who(person)}は、フォロー中・フォロワーの一覧を見せていません。`)}</p>}
@@ -824,11 +827,15 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
           : (
             <div role="list" style={{ marginTop: 'var(--space-3)' }}>
               {list.map((p, i) => (
-                <PersonRow key={p.publicId} first={i === 0} person={p} onOpen={p.relation === 'accepted' ? () => openPerson(p) : p.relation === 'self' ? undefined : () => openPeek(p)}>
-                  {p.relation === 'self' && <><span style={note}>あなた</span><span aria-hidden="true" style={{ width: 'var(--tap-min)', flexShrink: 0 }} /></>}
+                <PersonRow key={p.publicId} first={i === 0} person={p} sub={p.doneCount > 0 ? `読了 ${p.doneCount} 冊` : ''} onOpen={p.relation === 'accepted' ? () => openPerson(p) : p.relation === 'self' ? undefined : () => openPeek(p)}>
+                  {/* 右の関係はいつも同じ幅の箱に入れて、› と「…」の列をそろえる（2026-11-23 ui-critic） */}
+                  <span style={relBox}>
+                  {p.relation === 'self' && <span style={note}>あなた</span>}
                   {p.relation === 'pending' && <span style={note}>承認を待っています</span>}
                   {/* 行ごとに並ぶので塗りにせず面の副ボタン（DESIGN §0-2・§5 btnTonal・2026-11-23 ui-critic） */}
                   {p.relation === 'none' && <button type="button" style={btnTonal} disabled={!!askingId} aria-busy={askingId === p.publicId || undefined} onClick={() => ask(p)}>{askingId === p.publicId ? '送っています…' : 'フォロー'}</button>}
+                  </span>
+                  {(p.relation === 'self' || p.relation === 'accepted') && <span aria-hidden="true" style={{ width: 'var(--tap-min)', flexShrink: 0 }} />}
                   {(p.relation === 'none' || p.relation === 'pending') && (
                     <button
                       type="button"
@@ -911,7 +918,17 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
             {[0, 1, 2].map((i) => <SkeletonBlock key={i} height="auto" style={{ aspectRatio: '2 / 3' }} />)}
           </div>
         )}
-        {shelf === 'none' && <p style={{ ...note, marginTop: 'var(--space-8)' }}>{withPhraseBreaks('本棚を見られませんでした。フォローが外れたか、通信がつながっていません。')}</p>}
+        {/* 見られない理由は 2 つに分ける: フォローが外れた（答えが空）／つながらない（失敗）。どちらも行き止まりにしない。 */}
+        {shelf === 'none' && (
+          <div style={{ marginTop: 'var(--space-8)' }}>
+            <ErrorMessage title="この本棚は、いまは見られません" description="フォローが外れたようです。もう一度フォローして承認されると、また見られます。" actions={[{ label: 'フォローの一覧へ', onClick: () => setView(rootOf(view)) }]} />
+          </div>
+        )}
+        {shelf === 'error' && (
+          <div style={{ marginTop: 'var(--space-8)' }}>
+            <ErrorMessage title="本棚を読めませんでした" description="通信状況を確認してください。" actions={[{ label: 'もう一度', onClick: () => openPerson(person, view.back, { scrollTop: 0 }) }]} />
+          </div>
+        )}
         {loaded && withSummary.length > 0 && (
           // 見出し「〈名前〉さんのまとめ」と説明の行は出さない（2026-11-23 オーナー「これは不要」・公開のページと同じ）。
           <section aria-label={`${who(p)}のまとめ`} style={{ marginTop: 'var(--space-6)' }}>

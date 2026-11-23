@@ -191,11 +191,11 @@ export default function ProfileSheet({ userId, onClose, onSaved }) {
                 <p style={{ ...note, marginTop: 'var(--space-2)' }}>{withPhraseBreaks('フォローを承認した人は、公開の切り替えにかかわらず、本棚と「この本のまとめ」を見られます。')}</p>
                 {listsVisible !== null && (
                   <>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', marginTop: 'var(--space-2)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}>
                       <span style={{ fontSize: 'var(--text-body)', color: 'var(--text)' }}>フォロー中・フォロワーを見せる</span>
                       <ToggleSwitch checked={listsVisible} onChange={toggleLists} disabled={listsBusy} ariaLabel="フォロー中・フォロワーを見せる" />
                     </div>
-                    <p style={note}>{withPhraseBreaks('承認した人にだけ見せます。オフにすると、ほかの人の一覧にも出ません。すぐに切り替わります。')}</p>
+                    <p style={note}>{withPhraseBreaks('オフにすると、一覧を見せず、ほかの人の一覧にも出ません。')}</p>
                   </>
                 )}
               </>

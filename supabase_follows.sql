@@ -339,10 +339,18 @@ stable
 security definer
 set search_path = public
 as $$
-  select public._person(p_user) || jsonb_build_object(
-    'since', p_since,
-    'relation', case when p_user = p_me then 'self'
-                     else coalesce((select status from public.follows where follower_id = p_me and followee_id = p_user), 'none') end)
+  with r as (
+    select case when p_user = p_me then 'self'
+                else coalesce((select status from public.follows where follower_id = p_me and followee_id = p_user), 'none') end as rel
+  )
+  select public._person(p_user) || jsonb_build_object('since', p_since, 'relation', r.rel)
+    -- 一覧の 2 行目の手がかり（2026-11-23）: 読了の冊数は、本棚を見せている人（公開の本棚）か、見る人が承認済みのときだけ。
+    || case when r.rel in ('accepted', 'self') or exists (select 1 from public.profiles p where p.user_id = p_user and p.is_public and p.shelf_public)
+            then jsonb_build_object('done_count', (select count(*) from public.books b join public.profiles p on p.user_id = b.user_id
+                                                     where b.user_id = p_user and b.status = 'done'
+                                                       and not (b.id = any (coalesce(p.shelf_hidden, '{}')))))
+            else '{}'::jsonb end
+    from r
 $$;
 
 -- 戻り値: null（見られない）・{ visible: false }（本人が隠している）・{ visible: true, following: [...], followers: [...] }（各 500 人まで）

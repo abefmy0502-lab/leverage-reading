@@ -54,7 +54,8 @@ export function demoSocialRpc(name, args = {}) {
       if (socialState === 'connempty') return { visible: true, following: [], followers: [] };
       const c = connections[id] || { following: [], followers: [] };
       const rel = (pid) => (pid === 'me' ? 'self' : state.following.includes(pid) ? 'accepted' : state.sent.includes(pid) ? 'pending' : 'none');
-      const row = (pid) => (pid === 'me' ? { ...ME, since: '2026-11-20T10:00:00Z', relation: 'self' } : { ...person(pid), relation: rel(pid) });
+      const DONE = { m5hqv8tzab: 18, t3xbw9hjuv: 7 };
+      const row = (pid) => (pid === 'me' ? { ...ME, since: '2026-11-20T10:00:00Z', relation: 'self' } : { ...person(pid), relation: rel(pid), ...(DONE[pid] ? { done_count: DONE[pid] } : {}) });
       return { visible: true, following: c.following.filter((p) => !state.blocked.includes(p)).map(row), followers: c.followers.filter((p) => !state.blocked.includes(p)).map(row) };
     }
     case 'follow_request':
