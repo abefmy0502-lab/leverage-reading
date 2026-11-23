@@ -139,11 +139,14 @@ const askChip = {
 // 選ぶためのチップ（DESIGN §5: 高さ 44・15px・余白 8/12・選択中は --accent-soft 面＋--accent 文字＋✓）。
 // 選んでも幅を変えない（2026-09-29）: 太さは変えず（400）、先頭のアイコンの場所はいつも取っておく
 // （選ぶ前は ＋・選んだら ✓ に入れ替わるだけ）。以前は選ぶと ✓ と太字で幅が伸び、うしろのチップが次の行へ押し出されていた。
+// 内側 1px の枠＝選んでいない --border／選んだ --accent（面の差だけでは見分けにくい・formPrimitives の Chip と同じ・2026-11-23 ui-critic）。
+//   outline（offset -1）なので高さ・幅は変わらない。
 const pickChip = (on) => ({
-  display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, padding: 'var(--space-2) var(--space-3) var(--space-2) var(--space-2)',
+  display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 'var(--tap-min)', padding: 'var(--space-2) var(--space-3) var(--space-2) var(--space-2)',
   borderRadius: 'var(--radius)', border: 'none', cursor: 'pointer', fontFamily: 'inherit', lineHeight: 1.3, textAlign: 'left',
   background: on ? 'var(--accent-soft)' : 'var(--fill)', color: on ? 'var(--accent)' : 'var(--text)',
   fontSize: 'var(--text-sub)', fontWeight: 400,
+  outline: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`, outlineOffset: -1,
 });
 
 const bookKey = (b) => (b.isbn ? `isbn:${b.isbn}` : `t:${b.title}|${b.author || ''}`);
@@ -448,7 +451,8 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, i
       <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1.3 }}>
         {/* できあがりは見出しが「できました」を言うので、題名は出さない（同じ言葉を二度言わない）。 */}
         {/* 入れられなかった画面は「できました」と言わないので、題名を残す（2026-11-23 点検）。 */}
-        {(step !== 'done' || saveFailed) && <span style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>相談相手をつくる</span>}
+        {/* 保存中も出さない（保存中だけ題名があり、できあがりで消えて見出しが跳ねていた・2026-11-23 ui-critic）。 */}
+        {(step === 'pick' || step === 'memo' || saveFailed) && <span style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>相談相手をつくる</span>}
         {stepLabel && (
           <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums' }}>{stepLabel}</span>
         )}

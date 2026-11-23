@@ -1916,17 +1916,10 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
           {/* 無料プランは「たとえば」の行の右に「プラン」（押す前にプランの機能と分かる・2026-10-09 ui-critic） */}
           <p className="example-chips-label" style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 'var(--space-2)' }}>
             たとえば
-            {/* 押すと有料プランの画面（2026-11-23 点検: 「プラン」が押せず、何ができるかを見る入口が無かった）。
-                押せる高さ 44 は上下の負の余白で取り、行の高さは変えない。 */}
+            {/* 押せる入口は入力欄の上の「AI 選書はプランの機能です。プランを見る ›」の 1 つだけ（2026-11-23 ui-critic 第 3 回:
+                ここも押せると入口が 2 つになった）。ここは押す前にプランの機能と分かる小さな印だけ。 */}
             {freeMode && (
-              <button
-                type="button"
-                onClick={() => requirePlan('AI 選書')}
-                aria-label="プランを見る（AI 選書はプランの機能です）"
-                style={{ display: 'inline-flex', alignItems: 'center', minHeight: 'var(--tap-min)', margin: 'calc((1.5em - var(--tap-min)) / 2) calc(-1 * var(--space-1)) calc((1.5em - var(--tap-min)) / 2) 0', padding: '0 var(--space-1)', background: 'transparent', border: 'none', fontFamily: 'inherit', cursor: 'pointer', fontSize: 'var(--text-meta)', fontWeight: 400, lineHeight: 1.5, color: 'var(--text-2)' }}
-              >
-                プラン<ChevronRight size="1.2em" aria-hidden="true" />
-              </button>
+              <span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, lineHeight: 1.5, color: 'var(--text-2)', whiteSpace: 'nowrap' }}>（プラン）</span>
             )}
           </p>
           {ADVISOR_EXAMPLES.map((ex) => (
@@ -2013,7 +2006,10 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       )}
       {/* 3 つめの道（最初の入力に戻る）はカードの外の控えめな文字ボタンに（カードの中の操作は 2 つまで・2026-10-16 第 5 回） */}
       {interviewError && !interviewLoading && !recoLoading && (interviewError.answers || []).length === 0 && (
-        <button type="button" onClick={() => { clearInterview(); setInput(concern); }} style={{ ...uiBtnLinkQuiet, alignSelf: 'flex-start', marginTop: 'calc(-1 * var(--space-2))', marginLeft: 'calc(-1 * var(--space-1))' }}>最初の入力に戻る</button>
+        <button type="button" onClick={() => { clearInterview(); setInput(concern); }} style={{ ...uiBtnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', alignSelf: 'flex-start', marginTop: 'calc(-1 * var(--space-2))', marginLeft: 'calc(-1 * var(--space-1))' }}>
+          <IcBack size="1em" aria-hidden="true" style={{ flexShrink: 0 }} />
+          最初の入力に戻る
+        </button>
       )}
 
       {/* いまの問い（1 つだけ・2026-10-08）。自分の言葉が主役: 問いのすぐ下に「自分の言葉で答える」。

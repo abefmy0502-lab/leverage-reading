@@ -6,7 +6,7 @@
 // 見た目は DESIGN §5「オフラインの一行」: --fill の帯・lucide WifiOff 16・13/--text-2・左右 16。
 // 出入りは高さを grid-template-rows（0fr ⇄ 1fr）で --duration-fast かけて動かす（下が一度に跳ねない・
 // DESIGN §5「開いて出す欄」と同じ）。畳んでいる間は visibility: hidden（読み上げない）。
-// 出るときに知らせ（トースト）は出さない。5 秒以上つながっていなかったあとに戻ったら、一度だけ「つながりました」。
+// 出るときに知らせ（トースト）は出さない。5 秒以上つながっていなかったあとに戻ったら、一度だけ「つながりました」（下の知らせ）。
 //
 // style: 置き場所に合わせた外側の余白（すべての本は「‹ ホーム」の行の下・左右いっぱい・畳んでいる間は行の間の空きを打ち消す）。
 
@@ -36,7 +36,8 @@ export default function OfflineNotice({ style }) {
     } else if (!prevOnline.current && offlineSince != null) {
       const away = Date.now() - offlineSince;
       offlineSince = null;
-      if (away >= RECONNECT_TOAST_MIN_MS) toast.success('つながりました。');
+      // 下の知らせ（info）。中央の ✓ は画面の中身にかぶった（2026-11-23 ui-critic 第 3 回）
+      if (away >= RECONNECT_TOAST_MIN_MS) toast.info('つながりました。');
     } else if (online) {
       offlineSince = null;
     }

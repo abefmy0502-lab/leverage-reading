@@ -163,7 +163,7 @@ const RECURRENCES = [
 export default function ActionEditModal({ action, onSave, onClose, onDelete, onSkip, mode = 'edit', step = null, bookTitle = null }) {
   const shownBookTitle = bookTitle || action?.bookTitle || '';
   const isCreate = mode === 'create';
-  // 「期限を見直す」の途中（期限を決め直すのが目的なので、期限の欄にカーソルを置き、ボタンは短い言葉に）。
+  // 「期限を見直す」の途中（期限を決め直すのが目的。行動の欄にはカーソルを置かない・ボタンは「保存して次へ」）。
   const reviewing = !!step;
   const hasNext = !!(step && step.index < step.total);
   const [text, setText] = useState(action?.text || '');
@@ -307,7 +307,8 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete, onS
               value={deadline}
               onChange={(e) => setDeadline(e.target.value)}
               style={inpStyle}
-              autoFocus={reviewing}
+              // 見直しの途中でも期限の欄に自動でカーソルを置かない（置くと端末の「11/20/2026」の形と青い選択で開いて、
+              //   日本語の日付が見えなかった・2026-11-23 ui-critic）。すぐ下の「明日」「来週」などで 1 回で決められる。
             />
             {/* よく使う期限は 1 回で（2026-09-30）。見直しの途中は、同じ行の右に「この行動は飛ばす」。 */}
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
@@ -407,7 +408,7 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete, onS
             disabled={busy || !text.trim()}
             style={{ ...(busy || !text.trim() ? btnPrimaryOff : btnPrimary), flex: 1, width: 'auto', whiteSpace: 'nowrap' }}
           >
-            {busy ? '保存中…' : (isCreate ? '追加' : hasNext ? '次へ' : '保存')}
+            {busy ? '保存中…' : (isCreate ? '追加' : hasNext ? '保存して次へ' : '保存')}
           </button>
         </div>
       </div>

@@ -161,7 +161,9 @@ export function LibrarySearchResults({ books, hits, renderBookRow, onOpen, onAut
           {/* 読み込み中もエラーも同じ高さの 1 行（--tap-min・文字は縦の中央）＝カードからの見た目の間は 24 で、切り替わっても「相談で探す」が動かない（2026-11-18 ui-critic）。 */}
           {memoStatus === 'loading' && <p role="status" style={statusRow}>メモを検索しています…</p>}
           {memoStatus === 'error' && (
-            <p role="status" style={{ ...statusRow, gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+            // 13 の文と 15 の「もう一度」は文字の下端（ベースライン）でそろえる（中央だと字の下端がずれた・2026-11-23 ui-critic）。
+            //   ボタンは高さ 44 の中央に文字があるので、行の高さ 44 と文の位置は読み込み中の 1 行と同じ。
+            <p role="status" style={{ ...statusRow, alignItems: 'baseline', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
               メモを検索できませんでした
               <button type="button" onClick={onRetry} style={{ ...btnLink, minHeight: 'var(--tap-min)' }}>もう一度</button>
             </p>

@@ -123,52 +123,26 @@ export function BookMemoListFallback({ afterList = null, withSummary = false }) 
   );
 }
 
-// Mirrors a single .book-cover-card: 2:3 cover block + title/author/status lines.
-// 本物のカード（BookCards.jsx の BookCoverCard）と同じ高さにそろえる（2026-09-29: 状態の行が無く 28pt 跳ねていた）:
-//   表紙（2:3・角丸 4・内枠 --separator）→ 8 → 書名 2 行ぶん（.book-cover-title の min-height）→ 4 →
-//   著者 1 行（13 の行の高さ）→ 4 → 状態のラベル 1 行（StatusLabel と同じ 13 の行）。
-// 明るい画面で背景に溶けないよう、表紙は本物と同じ内枠 --separator を付ける。
-const coverLine = { height: 'calc(1.4 * var(--text-meta))', display: 'flex', alignItems: 'center' };
-function BookCoverSkeleton() {
-  return (
-    <div
-      style={{ display: 'flex', flexDirection: 'column' }}
-      aria-hidden="true"
-    >
-      <span
-        className="skeleton"
-        style={{
-          display: 'block',
-          width: '100%',
-          aspectRatio: '2 / 3',
-          borderRadius: 4, // 本物の表紙（.book-cover-image-wrap）と同じ 4
-          marginBottom: 'var(--space-2)',
-          boxShadow: 'inset 0 0 0 1px var(--separator)',
-        }}
-      />
-      {/* 書名は本物と同じ 2 行ぶんの高さ（.book-cover-title の min-height）。 */}
-      <div style={{ height: 'calc(2 * 1.4 * var(--text-meta))', marginBottom: 'var(--space-1)', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 'var(--space-1)' }}>
-        <SkeletonBlock width="90%" height="var(--text-caption)" radius="var(--radius-full)" />
-        <SkeletonBlock width="70%" height="var(--text-caption)" radius="var(--radius-full)" />
-      </div>
-      <div style={coverLine}>
-        <SkeletonBlock width="55%" height="var(--text-caption)" radius="var(--radius-full)" />
-      </div>
-      <div style={{ ...coverLine, marginTop: 'var(--space-1)' }}>
-        <SkeletonBlock width="40%" height="var(--text-caption)" radius="var(--radius-full)" />
-      </div>
-    </div>
-  );
-}
-
 // Grid skeleton for the bookshelf cover view (📚 本棚 → 表紙グリッド).
 // Wrap in .bookshelf-grid so the columns/gap match the real layout exactly.
-export function BookGridSkeleton({ count = 6 }) {
+// 2026-11-23 から表紙の一覧は本棚の形（BookCards.jsx の BookShelfCase）: 見出し 1 行 → 棚（--fill の面）に表紙 4 冊 × 段・段ごとに棚板。
+export function BookGridSkeleton({ count = 8 }) {
+  const perRow = 4;
+  const rows = Math.max(1, Math.ceil(count / perRow));
   return (
-    <div className="bookshelf-grid" aria-hidden="true">
-      {Array.from({ length: count }, (_, i) => (
-        <BookCoverSkeleton key={i} />
-      ))}
+    <div aria-hidden="true" style={{ marginTop: 'var(--space-3)' }}>
+      <div style={{ height: 'calc(1.5 * var(--text-body))', display: 'flex', alignItems: 'center', marginBottom: 'var(--space-3)' }}>
+        <SkeletonBlock width="6em" height="var(--text-body)" radius="var(--radius-full)" />
+      </div>
+      <div style={{ paddingTop: 'var(--space-4)', background: 'var(--fill)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
+        {Array.from({ length: rows }, (_, ri) => (
+          <div key={ri} style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--space-2)', margin: ri === 0 ? 0 : 'var(--space-4) 0 0', padding: '0 var(--space-3)', borderBottom: 'var(--space-2) solid var(--shelf-plank)' }}>
+            {Array.from({ length: perRow }, (_, i) => (
+              <span key={i} className="skeleton" style={{ display: 'block', flex: `0 0 calc((100% - ${perRow - 1} * var(--space-2)) / ${perRow})`, aspectRatio: '2 / 3', borderRadius: 'var(--radius-cover)', boxShadow: 'inset 0 0 0 1px var(--separator)' }} />
+            ))}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

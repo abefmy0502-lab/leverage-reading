@@ -117,7 +117,7 @@ export default function MemoAnswer({ planLabel = '', message, onOpen, onOpenLear
       <div style={{ marginLeft: column }}>
         <ErrorMessage
           title="メモを読み込めませんでした"
-          description="通信状況を確認してください。"
+          description="通信の状態を確かめてください。"
           actions={onRetry ? [{ label: 'もう一度', onClick: onRetry }] : []}
         />
       </div>

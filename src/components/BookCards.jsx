@@ -4,7 +4,7 @@
 // トップレベル定義なので per-card hooks（useLongPress）が Rules of Hooks に従う。
 // 表紙プレースホルダ色は src/lib/coverPalette.js（paletteFor）を参照。
 
-import { memo, useState, useEffect } from 'react';
+import { memo, useState, useEffect, useRef } from 'react';
 import { useLongPress } from '../hooks/useLongPress';
 import { paletteFor } from '../lib/coverPalette';
 import { displayTitle } from '../lib/bookTitle';
@@ -35,7 +35,7 @@ export function StatusLabel({ status, style }) {
 // タイトルベースの色付きプレースホルダにフォールバック。
 // showStatus: 状態で絞り込んでいるときは全部同じ状態なので、表紙の上の状態を出さない（App が「すべて」のときだけ true）。
 // showRating: 評価順に並べているときだけ、状態の下に★（評価の付いた本だけ・並びの理由が見えるように・2026-10-11）。
-export const BookCoverCard = memo(function BookCoverCard({ book, isJustDone, onOpen, onLongPress, onAutoRetry, showStatus = true, showRating = false }) {
+export const BookCoverCard = memo(function BookCoverCard({ book, isJustDone, onOpen, onLongPress, onAutoRetry, showStatus = true, showRating = false, shelf = false }) {
   const longPress = useLongPress({
     onLongPress: ({ clientX, clientY }) => onLongPress?.({ x: clientX, y: clientY, book }),
   });
@@ -99,17 +99,64 @@ export const BookCoverCard = memo(function BookCoverCard({ book, isJustDone, onO
           />
         )}
       </div>
+      {/* 本棚の形（BookShelfCase）では表紙だけ（書名・著者・状態は読み上げの名前に）。 */}
+      {!shelf && <>
       {/* 文節の切れ目でだけ折り返す（「チーズはどこへ消／えた？」と語の途中で割れていた・2026-10-04）。 */}
       <p className="book-cover-title">{withPhraseBreaks(displayTitle(book.title), { scriptBreaks: true })}</p>
-      {/* 著者が無い本も 1 行ぶん空けて、状態の行をとなりのカードとそろえる。 */}
-      <p className="book-cover-author" aria-hidden={book.author ? undefined : true}>{book.author ? authorBreaks(book.author) : '\u00a0'}</p>
-      {/* 状態は表紙に重ねず、著者の下に面なしのラベルで（DESIGN §5「表示用ラベル」）。
-          状態で絞り込んでいるときは全部同じなので出さない（showStatus=false）。 */}
-      {showStatus && book.status && <StatusLabel status={book.status} style={{ marginTop: 'var(--space-1)', maxWidth: '100%' }} />}
-      {showRating && book.rating > 0 && <span style={{ display: 'flex', marginTop: 'var(--space-1)' }}><Stars r={book.rating} size="calc(12rem / 17)" /></span>}
+      {/* 著者・状態・★はひとまとめにしてカードの下端へ寄せる（同じ段のカードは格子で同じ高さ＝
+          書名が 1 行の本と 2 行の本で、著者・状態の行がジグザグにならない・2026-11-23 ui-critic）。
+          著者が無い本も 1 行ぶん空けて、状態の行をとなりのカードとそろえる。 */}
+      <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', minWidth: 0, width: '100%' }}>
+        <p className="book-cover-author" aria-hidden={book.author ? undefined : true}>{book.author ? authorBreaks(book.author) : '\u00a0'}</p>
+        {/* 状態は表紙に重ねず、著者の下に面なしのラベルで（DESIGN §5「表示用ラベル」）。
+            状態で絞り込んでいるときは全部同じなので出さない（showStatus=false）。 */}
+        {showStatus && book.status && <StatusLabel status={book.status} style={{ marginTop: 'var(--space-1)', maxWidth: '100%' }} />}
+        {showRating && book.rating > 0 && <span style={{ display: 'flex', marginTop: 'var(--space-1)' }}><Stars r={book.rating} size="calc(12rem / 17)" /></span>}
+      </div>
+      </>}
     </button>
   );
 });
+
+// 🗄 本棚の形（2026-11-23 オーナー「自分の本棚も本当の本棚仕様にしてほしい」・人の本棚＝FollowSheet の ShelfCase と同じ見た目）。
+//   棚（--fill の面）に表紙だけを下をそろえて立て、行ごとに棚板（--shelf-plank の 8 の線）。1 段に並ぶ数は幅で決める
+//   （スマホ 4 冊・広い画面は 1 冊あたり 112 を目安に 8 冊まで）。書名・著者・状態は読み上げの名前と長押しのメニューに任せる。
+const SHELF_MIN_COVER = 112;
+export function BookShelfCase({ books, renderBook }) {
+  const ref = useRef(null);
+  const [perRow, setPerRow] = useState(4);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === 'undefined') return undefined;
+    const measure = () => {
+      const w = el.clientWidth || 0;
+      setPerRow(Math.max(4, Math.min(8, Math.floor(w / SHELF_MIN_COVER) || 4)));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const rows = [];
+  for (let i = 0; i < books.length; i += perRow) rows.push(books.slice(i, i + perRow));
+  return (
+    <div ref={ref} style={{ paddingTop: 'var(--space-4)', background: 'var(--fill)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
+      {rows.map((r, ri) => (
+        <div
+          role="list"
+          key={ri}
+          style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--space-2)', margin: ri === 0 ? 0 : 'var(--space-4) 0 0', padding: '0 var(--space-3)', borderBottom: 'var(--space-2) solid var(--shelf-plank)' }}
+        >
+          {r.map((b) => (
+            <div role="listitem" key={b.id} style={{ position: 'relative', flex: `0 0 calc((100% - ${perRow - 1} * var(--space-2)) / ${perRow})`, minWidth: 0 }}>
+              {renderBook(b)}
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 // 🖼 小さな表紙サムネ（縦長比率固定）。「続きから」等のミニカード用。
 // BookCoverCard と同じ流儀 — タイトル入りの色付きプレースホルダを常に下敷きにし、

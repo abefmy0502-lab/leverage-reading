@@ -7,7 +7,7 @@ import { signInWithApple, isNativeApple, isAppleSignInAvailable } from '../../li
 import { GUEST_START_AVAILABLE, startAsGuest, NATIVE_PREVIEW } from '../../lib/guestAuth';
 import { useConfirm } from '../ConfirmDialog';
 import { track, EVENTS } from '../../lib/analytics';
-import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnLink as uiBtnLink, btnGhost as uiBtnGhost, input } from '../../styles/ui';
+import { btnPrimary as uiBtnPrimary, btnLink as uiBtnLink, btnGhost as uiBtnGhost, input } from '../../styles/ui';
 import { isNative as isNativeRuntime } from '../../lib/iap';
 // アプリと同じ並びか（お試しモードの &native=1 も・2026-11-19）
 const isNative = isNativeRuntime || NATIVE_PREVIEW;
@@ -19,8 +19,8 @@ import { humanizeError, isSystemError, withTimeout } from './authErrors';
 // ボタン正典（styles/ui.js）に統一。初対面画面のボタンだけ radius/weight が
 // 微妙に別物だと第一印象で「寄せ集め感」が出るため。
 const btnPrimary = { ...uiBtnPrimary, width: '100%' };
-// 押せない主ボタン（同意前など）。薄くせず、面と文字の色で示す（DESIGN §5）。
-const btnPrimaryOff = { ...uiBtnPrimaryOff, width: '100%' };
+// 同意の前に押したときの理由（同意したら消す）
+const CONSENT_REQUIRED = '利用規約とプライバシーポリシーへの同意が必要です。';
 
 // 文字ボタン（DESIGN §5「文字」＝ui.js の btnLink・--accent・15/600・高さ 44）。
 const btnLink = uiBtnLink;
@@ -216,7 +216,7 @@ export default function AuthScreen() {
     // Signup: enforce policy + ToS agreement client-side.
     if (mode === 'signup') {
       if (!agreed) {
-        setError('利用規約とプライバシーポリシーへの同意が必要です。');
+        setError(CONSENT_REQUIRED);
         return;
       }
       const pwErr = validatePassword(password);
@@ -298,7 +298,8 @@ export default function AuthScreen() {
   };
 
   // 入力の誤り（通信・サーバーの失敗以外）のときだけ、入力欄とエラー文を結ぶ。
-  const fieldError = !!error && !isSystemError(error);
+  // 同意の不足はメールとパスワードの欄の誤りではない（欄を赤くしない）
+  const fieldError = !!error && !isSystemError(error) && error !== CONSENT_REQUIRED;
 
   // ログイン画面では見出しを出さない（主ボタン「ログイン」と重複するため）。新規登録・リセットだけ出す。
   // 同じ操作は 1 つの名前（GLOSSARY「アカウントを作る」・前は「新規登録」「登録する」「アカウントを作成」・2026-11-23）。
@@ -482,7 +483,9 @@ export default function AuthScreen() {
                 <input
                   type="checkbox"
                   checked={agreed}
-                  onChange={(e) => setAgreed(e.target.checked)}
+                  aria-invalid={error === CONSENT_REQUIRED || undefined}
+                  aria-describedby={error === CONSENT_REQUIRED ? ERROR_ID : undefined}
+                  onChange={(e) => { setAgreed(e.target.checked); if (e.target.checked && error === CONSENT_REQUIRED) setError(''); }}
                   onFocus={(e) => { let v = true; try { v = e.target.matches(':focus-visible'); } catch { /* ignore */ } setAgreeFocus(v); }}
                   onBlur={() => setAgreeFocus(false)}
                   style={checkboxNative}
@@ -503,12 +506,12 @@ export default function AuthScreen() {
         {info && <p role="status" style={infoText}>{info}</p>}
         <button
           type="submit"
-          // 同意前は押せない見た目（btnPrimaryOff）。処理中は塗りのまま「処理中…」の文言で示す。
+          // 同意の前でも押せる（押すと上に「利用規約とプライバシーポリシーへの同意が必要です。」＝理由が分かる・
+          // 押せない見た目だけでは何が足りないか分からなかった・2026-11-23 ui-critic 第 3 回）。押せないのは処理中だけ。
+          // 処理中は塗りのまま「処理中…」の文言で示す。
           // Apple のボタン（黒の塗り）がある画面では、塗りを 1 つにするため「ログイン」は枠の副ボタン（2026-11-23）。
-          style={mode === 'signup' && !agreed
-            ? btnPrimaryOff
-            : { ...(mode === 'signin' && showAppleButton ? { ...uiBtnGhost, width: '100%' } : btnPrimary), opacity: 1, cursor: loading ? 'default' : 'pointer' }}
-          disabled={loading || (mode === 'signup' && !agreed)}
+          style={{ ...(mode === 'signin' && showAppleButton ? { ...uiBtnGhost, width: '100%' } : btnPrimary), opacity: 1, cursor: loading ? 'default' : 'pointer' }}
+          disabled={loading}
         >
           {submitLabel}
         </button>

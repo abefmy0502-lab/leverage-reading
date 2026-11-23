@@ -15,7 +15,7 @@ import { useAppDataCache } from './state/AppDataCache';
 import { streamClaude } from './lib/streamClaude';
 // ⚡ 最初の画面に要らない重い部品は、使うときに読む（Suspense 付きの薄い包み・components/lazyParts.jsx）。
 import { AuthScreen, AuthCallback, BookMemoList, BookSearchModal, BookMemoEditor, ActionList, MarkdownSections, AuthorThankYou, OverlayFallback, BookAbout, BookBrief } from './components/lazyParts';
-import { BookCoverCard, SwipeableBookCard, MiniCover, StatusLabel } from './components/BookCards';
+import { BookCoverCard, BookShelfCase, SwipeableBookCard, MiniCover, StatusLabel } from './components/BookCards';
 import { displayTitle } from './lib/bookTitle';
 import { STATUSES, getSt } from './lib/status';
 import { onTabListKeyDown, tabIndexFor } from './lib/tabKeys';
@@ -91,8 +91,10 @@ function ShelfChip({ active, onClick, children, ariaLabel }) {
   );
 }
 // すべての本から開くシート（絞り込み・並び替え・状態・フォルダ・本を選ぶ）の共通スタイル。
-const sheetLabel = { fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-2)', margin: '0 0 var(--space-1)' };
-const sheetChips = { display: 'flex', flexWrap: 'wrap', columnGap: 'var(--space-2)', marginBottom: 'var(--space-4)' };
+// 絞り込みのチップは DESIGN §5「選ぶためのチップ」（見た目も 44・15px・Chip size="select"・2026-11-23 ui-critic）。
+//   見出し → チップは 8（Field と同じ）・チップの行の間 8・まとまりの間 24。
+const sheetLabel = { fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-2)', margin: '0 0 var(--space-2)' };
+const sheetChips = { display: 'flex', flexWrap: 'wrap', columnGap: 'var(--space-2)', rowGap: 'var(--space-2)', marginBottom: 'var(--space-6)' };
 const sheetSubtitle = { fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: '0 0 var(--space-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
 const sheetOption = (active) => ({
   display: 'flex', alignItems: 'center', gap: 'var(--space-3)', width: '100%', minHeight: 'var(--btn-h)',
@@ -199,7 +201,7 @@ import { PaywallContext, usePaywall } from './state/PaywallContext';
 import { todayLocal, tomorrowLocal, fmtDateJa, isScheduledLater } from './lib/dates';
 import { completedActionMessage } from './lib/actionMessages';
 // 🧩 #9 App.jsx 分割: 本フォーム共通プリミティブと Phase エディタは別ファイルへ抽出。
-import { Stars, inp, btnS } from './components/formPrimitives';
+import { Stars, Chip, inp, btnS } from './components/formPrimitives';
 import { btnGhost, btnGhostOff, btnText, btnPrimary, btnPrimaryOff, btnLink, btnLinkQuiet, btnRow, btnTonal, groupTitle, SCROLL_FADE_MASK, SCROLL_FADE_MASK_BOTH } from './styles/ui';
 import { WantPhase, BeforePhase, ReadingPhase, DonePhase, EditSaveBar } from './components/lazyParts';
 import { getAmazonLink } from './lib/amazonLink';
@@ -7060,7 +7062,7 @@ function AuthedApp() {
                     </div>
                   )}
                   {skeletonBookshelfView === 'grid' ? (
-                    <BookGridSkeleton count={6} />
+                    <BookGridSkeleton count={8} />
                   ) : (
                     <BookListSkeleton rows={4} />
                   )}
@@ -7146,22 +7148,34 @@ function AuthedApp() {
                     );
                   }}
                 />
-              ) : effectiveBookshelfView === 'grid' ? (
-                <div className="bookshelf-grid">
-                  {(libraryRenderAll ? filtered : filtered.slice(0, LIBRARY_FIRST)).map((b) => (
-                    <BookCoverCard
-                      key={b.id}
-                      book={b}
-                      isJustDone={recentlyDoneId === b.id}
-                      onOpen={openDetail}
-                      onLongPress={handleBookLongPress}
-                      onAutoRetry={triggerCoverAutoRetry}
-                      showStatus={statusFilter === 'all'}
-                      showRating={sortBy === 'rating' && !libraryHits}
-                    />
-                  ))}
-                </div>
-              ) : (
+              ) : effectiveBookshelfView === 'grid' ? (() => {
+                // 🗄 本棚の形（2026-11-23 オーナー「自分の本棚も本当の本棚仕様にしてほしい」）: 表紙だけを棚に立てる。
+                //   「すべて」は状態ごとの棚（読書中 → 読了 → 積読 → 読みたい・並びは選んだ並び順のまま）。状態で絞ったら 1 つの棚。
+                const shown = libraryRenderAll ? filtered : filtered.slice(0, LIBRARY_FIRST);
+                const renderShelfBook = (b) => (
+                  <BookCoverCard
+                    book={b}
+                    shelf
+                    isJustDone={recentlyDoneId === b.id}
+                    onOpen={openDetail}
+                    onLongPress={handleBookLongPress}
+                    onAutoRetry={triggerCoverAutoRetry}
+                  />
+                );
+                if (statusFilter !== 'all') return <div style={{ marginTop: 'var(--space-3)' }}><BookShelfCase books={shown} renderBook={renderShelfBook} /></div>;
+                const total = (st) => filtered.filter((b) => b.status === st).length;
+                return ['reading', 'done', 'before', 'want']
+                  .map((st) => ({ st, books: shown.filter((b) => b.status === st) }))
+                  .filter((g) => g.books.length)
+                  .map((g, gi) => (
+                    <section key={g.st} aria-label={`${getSt(g.st).label} ${total(g.st)} 冊`} style={{ marginTop: gi === 0 ? 'var(--space-3)' : 'var(--space-6)' }}>
+                      <p style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-2)', margin: '0 0 var(--space-3)', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>
+                        {getSt(g.st).label}<span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums' }}>{total(g.st)} 冊</span>
+                      </p>
+                      <BookShelfCase books={g.books} renderBook={renderShelfBook} />
+                    </section>
+                  ));
+              })() : (
                 // 1 枚のカードの中に行を並べる（枠つきのカードの連打をやめた・2 冊目から書名の列から右へ区切り線＝ホームの行と同じ考え・2026-11-23）。
                 //   行の枠・角丸は BookCards の行が持つので、この一覧の中だけ外す（LIBRARY_LIST_CSS）。
                 <div className="library-list" style={{ display: "flex", flexDirection: "column", background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
@@ -7751,9 +7765,9 @@ function AuthedApp() {
           <p style={sheetLabel}>状態</p>
           <div style={sheetChips}>
             {[{ key: 'all', label: 'すべて', count: stats.total }, ...SHELF_CHIP_ORDER.map((k) => STATUSES.find((st) => st.key === k)).filter(Boolean).map((s) => ({ key: s.key, label: s.label, count: stats[s.key] || 0 }))].map((s) => (
-              <ShelfChip key={s.key} active={statusFilter === s.key} onClick={() => setStatusFilter(s.key)}>
+              <Chip key={s.key} size="select" active={statusFilter === s.key} aria-pressed={statusFilter === s.key} onClick={() => setStatusFilter(s.key)}>
                 {s.label}<span style={{ color: 'var(--text-2)', fontWeight: 400 }}>{s.count}</span>
-              </ShelfChip>
+              </Chip>
             ))}
           </div>
 
@@ -7763,10 +7777,10 @@ function AuthedApp() {
               <p style={sheetLabel}>フォルダ</p>
               <div style={sheetChips}>
                 {allFolders.map((f) => (
-                  <ShelfChip key={f.name} active={folderFilter === f.name} onClick={() => setFolderFilter(folderFilter === f.name ? null : f.name)}>
-                    <IcFolder size={14} aria-hidden="true" />
+                  <Chip key={f.name} size="select" active={folderFilter === f.name} aria-pressed={folderFilter === f.name} onClick={() => setFolderFilter(folderFilter === f.name ? null : f.name)}>
+                    <IcFolder size="1em" aria-hidden="true" />
                     {f.name}<span style={{ color: 'var(--text-2)', fontWeight: 400 }}>{f.count}</span>
-                  </ShelfChip>
+                  </Chip>
                 ))}
               </div>
             </>
@@ -7775,16 +7789,18 @@ function AuthedApp() {
           <p style={sheetLabel}>評価（その星以上）</p>
           <div style={sheetChips}>
             {[1, 2, 3, 4, 5].map((n) => (
-              <ShelfChip
+              <Chip
                 key={n}
+                size="select"
                 active={minRating === n}
+                aria-pressed={minRating === n}
                 // 同じ星をもう一度押すと解除（指定なしに戻す）。
                 onClick={() => setMinRating((cur) => (cur === n ? 0 : n))}
-                ariaLabel={`★${n} 以上で絞り込む`}
+                aria-label={`★${n} 以上で絞り込む`}
               >
-                <IcStar size={13} aria-hidden="true" />
+                <IcStar size="0.95em" aria-hidden="true" />
                 {n}{n < 5 ? '+' : ''}
-              </ShelfChip>
+              </Chip>
             ))}
           </div>
 
@@ -7794,9 +7810,9 @@ function AuthedApp() {
               {availableTags.map(({ name: t, count }) => {
                 const active = tagFilter.includes(t);
                 return (
-                  <ShelfChip key={t} active={active} onClick={() => setTagFilter((arr) => (active ? arr.filter((x) => x !== t) : [...arr, t]))}>
+                  <Chip key={t} size="select" active={active} aria-pressed={active} onClick={() => setTagFilter((arr) => (active ? arr.filter((x) => x !== t) : [...arr, t]))}>
                     {t}<span style={{ color: 'var(--text-2)', fontWeight: 400 }}>{count}</span>
-                  </ShelfChip>
+                  </Chip>
                 );
               })}
             </div>

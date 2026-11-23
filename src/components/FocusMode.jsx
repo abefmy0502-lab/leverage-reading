@@ -421,9 +421,9 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
                     });
                     onClose();
                   }}
-                  // 押せる物と分かるように枠の副ボタン（暗い地の押せる物の枠＝--focus-line-strong・3:1・高さ 44 以上・2026-11-23 点検）。
-                  //   外している間は薄くせず、枠を淡い線・文字を --focus-ink-3 に（DESIGN §5「押せないボタン」）。
-                  style={{ marginTop: 'var(--space-4)', minHeight: 'var(--tap-min)', padding: 'var(--space-2) var(--space-4)', borderRadius: 'var(--radius)', background: 'transparent', border: `1px solid ${removing ? 'var(--focus-line)' : 'var(--focus-line-strong)'}`, color: removing ? 'var(--focus-ink-3)' : 'var(--focus-ink)', fontSize: 'var(--text-sub)', fontWeight: 600, lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere', cursor: removing ? 'default' : 'pointer', fontFamily: 'inherit', opacity: 1 }}
+                  // 控えめな文字のボタン（SPEC §2-2・枠なし・--focus-ink-2・高さ 44 以上・2026-11-23 ui-critic）。
+                  //   外している間は薄くせず、文字を --focus-ink-3 に（DESIGN §5「押せないボタン」）。
+                  style={{ marginTop: 'var(--space-4)', minHeight: 'var(--tap-min)', padding: 'var(--space-2) var(--space-4)', background: 'transparent', border: 'none', color: removing ? 'var(--focus-ink-3)' : 'var(--focus-ink-2)', fontSize: 'var(--text-sub)', fontWeight: 600, lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere', cursor: removing ? 'default' : 'pointer', fontFamily: 'inherit', opacity: 1 }}
                 >
                   {removing ? '外しています…' : withPhraseBreaks('止め忘れていたら、この回を記録から外す')}
                 </button>
@@ -520,7 +520,9 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
           // 読んでいる間にメモを書いたなら、主は「閉じる」・「写真で共有」「メモを書く」は文字のボタン（2026-10-10）。
           // key: メモを書く前の組と別の要素にする（同じ button を使い回すと、押した形・フォーカスが「閉じる」に残って縮んで見えた・2026-10-10 ui-critic）。
           <div key="summary-memo" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-2)' }}>
-            <button type="button" onClick={onClose} style={footBtn(true)}>閉じる</button>
+            {/* 押した形（縮む・薄くなる）を付けない: 長押しで「おわる」を押したまま、この画面に替わると
+                指（マウス）の下に来た「閉じる」が押したままの形で残っていた（2026-11-23 ui-critic）。 */}
+            <button key="summary-memo-close" type="button" onClick={onClose} style={{ ...footBtn(true), transform: 'none', opacity: 1 }}>閉じる</button>
             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', columnGap: 'var(--space-4)' }}>
               {onShare && <button type="button" onClick={() => onShare(book)} style={footText}>写真で共有</button>}
               <button type="button" onClick={() => setMemoOpen('summary')} style={footText}>メモを書く</button>

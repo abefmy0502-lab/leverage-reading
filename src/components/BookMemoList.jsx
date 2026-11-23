@@ -356,6 +356,9 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
     setOptimisticTags({ id: savedRow.id, tags: next });
     setTagBusy(tag);
     haptic.light();
+    // 付けるとメモのカードにタグの行が増えて背が伸び、合いそうなタグの下が知らせ・メモを書くの下に入っていた
+    //   （2026-11-23 ui-critic）。伸びたあとに、保存したときと同じ送りでもう一度画面の中へ（見えていれば動かさない）。
+    if (!has) revealNewMemo(savedRow.id, 120);
     try {
       await updateMemo(savedRow.id, { pageNumber: savedRow.pageNumber, text: savedRow.text, photoFile: null, tags: next, removePhotoFlag: false });
       if (!has) track('tag_suggest_added', { source: tagSource || 'local' });

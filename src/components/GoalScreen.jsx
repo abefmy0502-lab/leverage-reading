@@ -78,6 +78,8 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
   const [horizon, setHorizon] = useState(start?.horizon || null);
   const [editing, setEditing] = useState(null); // { key, text }
   const [scrolled, setScrolled] = useState(false);
+  // 「達成するには？」を終えてロードマップをつくっている間は、題も「ロードマップ」（2026-11-23 ui-critic）。
+  const [interviewBuilding, setInterviewBuilding] = useState(false);
   const scrollRef = useRef(null);
 
   // ロードマップは 3 つの目標をつなぐ 1 本だけ（'all'）。
@@ -113,9 +115,10 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
   };
 
   const backLabel = direct || view === 'goals' ? originLabel : view === 'plan' ? 'ロードマップ' : '目標';
+  const navTitle = view === 'interview' && interviewBuilding ? NAV_TITLE.roadmap : NAV_TITLE[view];
   return (
-    <div className="goal-screen" role="dialog" aria-modal="true" aria-label={NAV_TITLE[view]}>
-      <AdvisorNavBar backLabel={backLabel} title={NAV_TITLE[view]} onBack={back} pushed scrolled={scrolled} />
+    <div className="goal-screen" role="dialog" aria-modal="true" aria-label={navTitle}>
+      <AdvisorNavBar backLabel={backLabel} title={navTitle} onBack={back} pushed scrolled={scrolled} />
       <div className="goal-scroll" ref={scrollRef} onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 4)}>
         <div className="goal-inner">
           {view === 'goals' && (
@@ -146,8 +149,9 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
               roadmaps={roadmaps}
               books={books}
               sessions={sessions}
-              onDone={() => setView('roadmap')}
-              onCancel={() => setView('goals')}
+              onDone={() => { setInterviewBuilding(false); setView('roadmap'); }}
+              onCancel={() => { setInterviewBuilding(false); setView('goals'); }}
+              onBuildingChange={setInterviewBuilding}
             />
           )}
           {view === 'roadmap' && goal && record?.roadmap && (
@@ -516,7 +520,7 @@ function GoalTrio({ goals, compact = false, fold = false, tight = false, onEdit 
   );
 }
 
-function InterviewView({ goal, goals, roadmaps, books, sessions, onDone, onCancel }) {
+function InterviewView({ goal, goals, roadmaps, books, sessions, onDone, onCancel, onBuildingChange = null }) {
   // つくり直すときは、これまでの道のり（前のまとめ・課題・作ってから読み終えた本）を AI に渡す（何年使っても積み上がる・2026-11-17）。
   const prevRec = roadmaps?.[ALL_GOALS_KEY] || null;
   const history = useMemo(() => historyText(prevRec, books), [prevRec, books]);
@@ -530,6 +534,10 @@ function InterviewView({ goal, goals, roadmaps, books, sessions, onDone, onCance
   const busyRef = useRef(false);
   const answerRef = useRef(null);
   const summaryRef = useRef('');
+  // つくっている間（と、つくれなかったとき）は親の題を「ロードマップ」に。離れたら戻す。
+  const buildStage = building || error?.stage === 'build';
+  useEffect(() => { onBuildingChange?.(buildStage); }, [buildStage, onBuildingChange]);
+  useEffect(() => () => onBuildingChange?.(false), [onBuildingChange]);
 
   const build = useCallback(async (finalQa) => {
     setBuilding(true);
@@ -615,8 +623,15 @@ function InterviewView({ goal, goals, roadmaps, books, sessions, onDone, onCance
           title={error.notice ? 'AI のトークンについて' : (error.stage === 'build' ? 'ロードマップを作れませんでした' : '問いを用意できませんでした')}
           description={error.message}
           // 戻るは上の「‹ 目標」1 つ（同じ行き先のボタンを 2 つ並べない・2026-11-23 点検）。トークンを使い切ったときだけ「目標に戻る」。
+          //   問いを用意できなかったときは、問いなしでもつくれる（「このくらいでつくる」と同じ・2026-11-23 ui-critic）。
           actions={error.notice ? [{ label: '目標に戻る', onClick: onCancel }] : [
             { label: 'もう一度', variant: 'primary', onClick: () => (error.stage === 'build' ? build(qa) : ask(error.qa || qa)) },
+            ...(error.stage !== 'build' ? [{
+              label: <>問いなしでつくる<span style={{ whiteSpace: 'nowrap' }}>{`（${ROADMAP_TOKENS_LABEL}）`}</span></>,
+              ariaLabel: `問いなしでつくる（${ROADMAP_TOKENS_LABEL}）`,
+              variant: 'ghost',
+              onClick: finishNow,
+            }] : []),
           ]}
         />
       )}
@@ -679,6 +694,13 @@ export function nowQuarterTitle(spec) {
   const a = Number(m[2]);
   const b = ((a - 1 + 2) % 12) + 1;
   return `${base}（${a}月〜${b}月）`;
+}
+
+// 見出しの「（11月〜1月）」は 1 つの塊のまま（いちばん大きな文字で「（11月〜／1月）」と割れていた・2026-11-23 ui-critic）。
+function quarterTitleNode(title) {
+  const i = title.indexOf('（');
+  if (i < 0) return withPhraseBreaks(title);
+  return <>{withPhraseBreaks(title.slice(0, i))}<span style={{ whiteSpace: 'nowrap' }}>{title.slice(i)}</span></>;
 }
 
 // 相談に入れる下書き（送らない）。「1 年後の目標は「…」です。」＋いまの 3 か月に取り組むこと＋問い。
@@ -830,7 +852,7 @@ function RoadmapView({ goal, record, books, sessions = [], onOpenBook, onAddActi
       {/* いまの 3 か月（はじめての人が最初の画面で「次に何をするか」が分かるように・2026-11-16）。 */}
       <section className="goal-box rm-now" aria-labelledby="rm-now">
         {/* 「いまの 3 か月 · 1〜3 か月目」は同じことを 2 回言っていた＝実際の月だけ添える（2026-11-23 点検）。 */}
-        <p id="rm-now" className="goal-sec-title" style={{ margin: 0 }}>{withPhraseBreaks(nowQuarterTitle(specs[here]))}</p>
+        <p id="rm-now" className="goal-sec-title" style={{ margin: 0 }}>{quarterTitleNode(nowQuarterTitle(specs[here]))}</p>
         {roadmap.phases[here]?.focus && <p className="rm-phase-focus" style={{ marginTop: 'var(--space-1)' }}>{withPhraseBreaks(roadmap.phases[here].focus)}</p>}
         {needBooks && onChooseBooks ? (
           <>

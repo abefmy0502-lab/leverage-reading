@@ -781,7 +781,8 @@ export default function ActionList({ books, onOpenGoals = null, onToggleAction, 
         <EmptyState
           icon={<CheckCircle2 size={32} strokeWidth={1.5} aria-hidden="true" />}
           title="やることはすべて完了しています"
-          actions={onGoConsult ? [{ label: '相談する', onClick: onGoConsult, variant: 'primary' }] : []}
+          // 行動 0 件の案内と同じ「相談する」（印も同じ・2026-11-23 ui-critic）。
+          actions={onGoConsult ? [{ label: '相談する', icon: <MessageCircle size="1.1em" aria-hidden="true" />, onClick: onGoConsult, variant: 'primary' }] : []}
         />
       )}
 

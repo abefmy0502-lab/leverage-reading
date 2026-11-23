@@ -113,7 +113,9 @@
   font-weight: 600;
   line-height: 1.55;
   color: var(--text);
-  word-break: keep-all;
+  /* 目標の文は本人の文章＝文節で止めずに流す（keep-all だと大きな文字で最後の 1 字だけが行に残った・2026-11-23 ui-critic）。 */
+  word-break: normal;
+  line-break: strict;
   overflow-wrap: anywhere;
   text-wrap: pretty;
 }

@@ -521,25 +521,36 @@ export function HomeBlocksSkeleton() {
   // 本物と同じ形: 見出しの行（右に「本を追加」）→ 2 冊の行のまとまり → 下の行のまとまり（2026-10-16）。
   return (
     <>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-        {/* 大きさは文字に比例（文字最大でも本物と同じ形・見出しの下に「本を追加」が回るのも同じ・2026-11-18） */}
-        <div style={{ minHeight: 'var(--tap-min)', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', rowGap: 'var(--space-2)', fontSize: 'var(--text-heading)' }}>
+      {/* 見出し → カードは本物と同じ 12（本物は「本を追加」の上下を見出しの行の高さまで打ち消している・2026-11-23）。 */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+        {/* 大きさは文字に比例（文字最大でも本物と同じ形・見出しの下に「本を追加」が回るのも同じ・2026-11-18）。
+            行の高さは見出し 1 行ぶん（文字 × 1.3）＝本物の見出しの行と同じ（44 にしていて、読み込んだあと約 13 跳ねた・2026-11-23 ui-critic）。 */}
+        <div style={{ minHeight: 'calc(1.3 * var(--text-heading))', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', rowGap: 'var(--space-2)', fontSize: 'var(--text-heading)' }}>
           <SkeletonBlock width="7.5em" height="1.2em" radius="var(--radius)" style={{ maxWidth: '100%' }} />
           <SkeletonBlock width="4em" height="1em" radius="var(--radius)" style={{ fontSize: 'var(--text-sub)' }} />
         </div>
         {/* いま読んでいる本の行カードの形（表紙・書名と著者の 2 行・「メモを書く」の面）を 2 冊ぶん。高さも本物にそろえて、
             読み込んだあとに下が跳ばないように（2026-11-18 ui-critic）。区切り線は本物と同じ書名の列から。 */}
-        <div style={{ ...skeletonCard, background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+        {/* 行の組み立ては本物の BookRow と同じ（上下 12・左右 16 → 表紙 40×57 と書名・著者 → 12 → 44 の操作の行・2 行目は上に書名の列からの区切り線）。
+            前は余白 16・行の間 16 の別の組み立てで、読み込んだあとにカードが約 7 伸びた（2026-11-23）。 */}
+        <div style={{ ...skeletonCard, background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
           {[0, 1].map((i) => (
-            <div key={i} style={{ display: 'flex', gap: 'var(--space-3)' }}>
-              <SkeletonBlock width={40} height={57} radius="var(--radius-sm, 4px)" style={{ marginTop: i ? 'calc(var(--space-4) + 1px)' : 0 }} />
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', paddingTop: i ? 'var(--space-4)' : 0, borderTop: i ? '1px solid var(--separator)' : 'none' }}>
-                <SkeletonBlock width="70%" height="calc(var(--text-body) * 1.2)" radius="var(--radius)" />
-                <SkeletonBlock width="45%" height="var(--text-meta)" radius="var(--radius)" />
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', marginTop: 'var(--space-2)', fontSize: 'var(--text-sub)' }}>
-                  <SkeletonBlock width="7em" height="var(--tap-min)" radius="var(--radius)" style={{ maxWidth: '100%', minHeight: 'calc(1.5em + var(--space-4))' }} />
-                  <SkeletonBlock width="3.5em" height="var(--tap-min)" radius="var(--radius)" />
+            <div key={i} style={{ position: 'relative', padding: 'var(--space-3) var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+              {i > 0 && <span aria-hidden="true" style={{ position: 'absolute', top: 0, right: 0, left: `calc(var(--space-4) + ${ROW_COVER_W}px + var(--space-3))`, borderTop: '1px solid var(--separator)' }} />}
+              <div style={{ minHeight: 'var(--tap-min)', display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+                <SkeletonBlock width={ROW_COVER_W} height={57} radius="var(--radius-sm, 4px)" style={{ flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+                  <div style={{ height: 'calc(var(--text-body) * 1.4)', display: 'flex', alignItems: 'center' }}>
+                    <SkeletonBlock width="70%" height="calc(var(--text-body) * 1.2)" radius="var(--radius)" />
+                  </div>
+                  <div style={{ height: 'calc(var(--text-meta) * 1.4)', display: 'flex', alignItems: 'center' }}>
+                    <SkeletonBlock width="45%" height="var(--text-meta)" radius="var(--radius)" />
+                  </div>
                 </div>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', paddingLeft: `calc(${ROW_COVER_W}px + var(--space-3))`, fontSize: 'var(--text-sub)' }}>
+                <SkeletonBlock width="7em" height="var(--tap-min)" radius="var(--radius)" style={{ maxWidth: '100%', minHeight: 'calc(1.5em + var(--space-4))' }} />
+                <SkeletonBlock width="3.5em" height="var(--tap-min)" radius="var(--radius)" />
               </div>
             </div>
           ))}

@@ -441,7 +441,7 @@ textarea[aria-invalid="true"]:not(.no-focus-ring):focus {
 
 /* Skeleton primitives sized like real book-card pieces. */
 /* 表紙は本物（MiniCover・.book-cover-image-wrap）と同じ 44×62・角丸 4。 */
-.skeleton-cover  { width: 44px; height: 62px; border-radius: 4px; flex-shrink: 0; }
+.skeleton-cover  { width: 44px; height: 62px; border-radius: var(--radius-cover); flex-shrink: 0; }
 .skeleton-line   { height: 12px; border-radius: var(--radius-full); }
 .skeleton-line-lg { height: 16px; border-radius: var(--radius-full); }
 .skeleton-pill   { width: 56px; height: 18px; border-radius: var(--radius-full); }
@@ -958,9 +958,9 @@ textarea[aria-invalid="true"]:not(.no-focus-ring):focus {
 .book-cover-image-wrap {
   position: relative;
   aspect-ratio: 2 / 3;
-  background: var(--color-bg-secondary);
-  /* 本の表紙は「本の形」として角丸 4（DESIGN §4 の例外）。影は使わず細い内枠で輪郭だけ。 */
-  border-radius: 4px;
+  background: var(--fill);
+  /* 本の表紙は「本の形」として角丸 --radius-cover（DESIGN §4 の例外）。影は使わず細い内枠で輪郭だけ。 */
+  border-radius: var(--radius-cover);
   overflow: hidden;
   margin-bottom: var(--space-2);
   box-shadow: inset 0 0 0 1px var(--separator);
@@ -1723,6 +1723,20 @@ details[open] > summary .fold-chevron { transform: rotate(180deg); }
 .time-field .date-field__input::-webkit-datetime-edit-ampm-field,
 .time-field .date-field__input::-webkit-datetime-edit-ampm-field:focus { background-color: transparent !important; color: transparent !important; }
 .time-field .date-field__text { font-variant-numeric: tabular-nums; }
+/* 指で使う端末は、日付の欄も押している間に日本の書き方（「2026年11月20日」）を出したまま（端末の「11/20/2026」と
+   青い選択を見せない・日付は端末の選び方で決めるので欄の中の数字を打たない・2026-11-23 ui-critic）。
+   キーボードで欄の数字を打つ端末（マウスの PC）は今までどおり、押している間は端末の表示に戻す（打った数字が見えるように）。 */
+@media (hover: none) and (pointer: coarse) {
+  .date-field:not(.time-field):focus-within .date-field__text { display: flex; }
+  .date-field:not(.time-field) .date-field__input,
+  .date-field:not(.time-field) .date-field__input::-webkit-datetime-edit { color: transparent !important; }
+  .date-field:not(.time-field) .date-field__input::-webkit-datetime-edit-month-field,
+  .date-field:not(.time-field) .date-field__input::-webkit-datetime-edit-month-field:focus { background-color: transparent !important; color: transparent !important; }
+  .date-field:not(.time-field) .date-field__input::-webkit-datetime-edit-day-field,
+  .date-field:not(.time-field) .date-field__input::-webkit-datetime-edit-day-field:focus { background-color: transparent !important; color: transparent !important; }
+  .date-field:not(.time-field) .date-field__input::-webkit-datetime-edit-year-field,
+  .date-field:not(.time-field) .date-field__input::-webkit-datetime-edit-year-field:focus { background-color: transparent !important; color: transparent !important; }
+}
 .time-field .date-field__icon { font-size: max(16px, var(--text-body)); }
 .date-field__icon {
   position: absolute;

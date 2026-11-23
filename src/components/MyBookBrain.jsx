@@ -1947,7 +1947,18 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       const btn = findBooksBtnRef.current || newConsultBtnRef.current;
       if (!el || !btn) return;
       const gap = parseFloat(getComputedStyle(el).getPropertyValue('--space-4')) || 16;
-      const over = btn.getBoundingClientRect().bottom + gap - el.getBoundingClientRect().bottom;
+      const c = el.getBoundingClientRect();
+      let over = btn.getBoundingClientRect().bottom + gap - c.bottom;
+      if (over <= 0) return;
+      // 送ると答えの名前の行（data-turn の上端）が欄の上で半分切れるときは、名前の行の上端までで止める。
+      // そこで主ボタン「新しい相談をはじめる」が見えていれば十分（下の文字ボタンは少し送れば見える・2026-11-23 ui-critic 第 3 回）。
+      const turns = el.querySelectorAll('[data-turn]');
+      const turn = turns[turns.length - 1];
+      const primary = newConsultBtnRef.current;
+      if (turn && primary) {
+        const toTurn = turn.getBoundingClientRect().top - c.top - gap;
+        if (toTurn >= 0 && toTurn < over && primary.getBoundingClientRect().bottom - toTurn + gap <= c.bottom) over = toTurn;
+      }
       if (over > 0) el.scrollTo({ top: el.scrollTop + over, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
     });
     return () => cancelAnimationFrame(id);
@@ -2449,7 +2460,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               <ErrorMessage
                 title="過去の相談を読み込めませんでした"
                 // 下のボタン（もう一度）と同じ言葉を重ねない。
-                description="通信状況を確認してください。"
+                description="通信の状態を確かめてください。"
                 // ほかの画面の「もう一度」と同じ枠線のボタン（variant: 'secondary'・2026-10-04）。
                 actions={[{ label: 'もう一度', variant: 'secondary', onClick: () => { setHistoryError(false); setHistoryLoaded(false); fetchHistory(); } }]}
               />
@@ -2697,8 +2708,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 )}
                 </div>
                 {/* 🔔 はじめて「行動に追加」した直後に 1 回だけ、思い出しの通知の案内（lib/notifyOptIn.js）。
+                    主ボタンは「新しい相談をはじめる」なので、案内のボタンは副ボタン（塗りを 2 つ並べない・2026-11-23 ui-critic 第 3 回）。
                     最後の答えのときは、答えの下の文字ボタンの行（別の角度で答えて…）の後ろに出す（答えと操作を離さない・2026-09-29） */}
-                {optinAfterId === m.id && !(answerRowShown && i === visibleMessages.length - 1) && <NotifyOptInCard where="action" />}
+                {optinAfterId === m.id && !(answerRowShown && i === visibleMessages.length - 1) && <NotifyOptInCard where="action" primary={false} />}
                 {/* 🧪 はじめての相談の答えのあとの 7 日間無料（続けて相談したあとも、その答えの下に残す）。 */}
                 {/* 続けて相談して答えを書いている間は、見えなくするだけで場所は残す（消して戻すと会話が跳ねる）。 */}
                 {firstTrialId === m.id && !(answerRowShown && i === visibleMessages.length - 1)
@@ -2795,7 +2807,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             </div>
           )}
           {answerRowShown && optinAfterId && optinAfterId === visibleMessages[visibleMessages.length - 1]?.id && (
-            <NotifyOptInCard where="action" style={{ marginTop: 'var(--space-6)', marginLeft: ANSWER_COLUMN }} />
+            <NotifyOptInCard where="action" primary={false} style={{ marginTop: 'var(--space-6)', marginLeft: ANSWER_COLUMN }} />
           )}
 
           {reflectSource && (

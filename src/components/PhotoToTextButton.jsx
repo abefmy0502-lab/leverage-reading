@@ -161,9 +161,19 @@ export default function PhotoToTextButton({ onText, disabled = false, style }) {
       //   サーバーは答えられなかった回を数えない（api/claude.js が回数を返し、トークンの予約も戻す）。
       const reason = toMessage(e2, '');
       const own = /オフライン|画像|形式/.test(reason);
+      // 原因が分かるときは 1 つだけ言う（2026-11-23 ui-critic「2 つの原因を並べていた」）:
+      //   届かなかった（'通信エラー'・時間切れ）＝通信 / サーバーが断った・混んでいた（429・5xx＝'リクエストが多すぎます'・'エラー…'）＝混雑。
+      const raw = String(e2?.message || '');
+      const network = raw === '通信エラー' || /^(つながりませんでした|時間がかかりすぎました)/.test(reason);
+      const busy = !network && (raw.startsWith('リクエストが多すぎます') || raw.startsWith('エラー') || raw === 'レスポンス解析エラー');
+      const cause = network
+        ? 'つながりませんでした。通信の状態を確かめてください。'
+        : busy
+          ? 'AI が混んでいました。少し待ってから、もう一度お試しください。'
+          : 'つながらなかったか、AI が混んでいました。';
       const message = own
         ? (/お試しください|ください。$/.test(reason) ? reason : `${reason}もう一度お試しください。`)
-        : `つながらなかったか、AI が混んでいました。${freeMode ? '回数' : 'トークン'}は減っていません。`;
+        : `${cause}${freeMode ? '回数' : 'トークン'}は減っていません。`;
       setFailure({ title: '写真を読み取れませんでした', message, retry: true });
     } finally {
       if (abortRef.current === ctrl) abortRef.current = null;
