@@ -199,6 +199,14 @@ const SHOTS = {
     await p.locator('button.goal-entry').click(); await p.waitForTimeout(1000);
     await p.locator('button:has-text("読書計画をカレンダーにする")').first().click(); await p.waitForTimeout(1200);
   },
+  // 📚 本棚の写真からまとめて追加（2026-11-23・読み取って確かめた本の一覧＝「N 冊を本棚に入れる」の手前）
+  'shelf-scan': async (p) => {
+    await p.locator('button:has-text("本を追加")').first().click(); await p.waitForTimeout(900);
+    await p.locator('button:has-text("本棚の写真からまとめて追加")').click(); await p.waitForTimeout(900);
+    await p.locator('[role=dialog] input[type=file]').first().setInputFiles('scripts/fixtures/share-photo.jpg');
+    await p.locator('button:has-text("冊を本棚に入れる")').waitFor({ timeout: 40000 }); await p.waitForTimeout(1200);
+    await hideDemoNote(p);
+  },
   // 振り返り › 記録の「読書の時間」
   readtime: async (p) => {
     await p.locator(nav('振り返り')).click(); await p.waitForTimeout(800);

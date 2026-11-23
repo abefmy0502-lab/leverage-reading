@@ -28,6 +28,10 @@
 
 `company/app-store-listing.md` の「概要（説明文）」（2026-11-23 に今の芯へ直した・3,000 字ほど）を、1.0.1 の版の説明文に貼る（説明文は新しい版を出すときだけ直せる）。
 
+## 2-3. 画像を 1 枚入れ替える（任意）
+
+`company/launch-2026-11/screenshots/base-11-shelf-*.png`（本棚の写真からまとめて追加）を、9 枚目（取り込み）と入れ替える（App Store の画像は 10 枚まで）。作り直しは `npm run demo` → `node scripts/appstore-shots.mjs raw shelf-scan` → `node scripts/appstore-shots.mjs compose base-11-shelf`。
+
 ## 3. Mac での作り方（`mac-build-prompt.md` の手順のまま・違うところだけ）
 
 1. `git pull`（main の最新）。

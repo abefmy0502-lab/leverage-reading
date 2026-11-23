@@ -740,6 +740,8 @@ function aiReply(store, payload, aiMode = '') {
   //   &shelfscan=none は 1 冊も読めなかった。
   if (payload.purpose === 'shelf_scan') {
     if (new URLSearchParams(window.location.search).get('shelfscan') === 'none') return 'なし';
+    // &lpshot=1（LP・App Store の画像・2026-11-23）: 書店で見つかる本だけ（「見つかりませんでした」を宣伝の画像に写さない）
+    if (lpShotOn()) return ['考え方 ／ 稲盛和夫', '7つの習慣 ／ スティーブン・R・コヴィー', '影響力の武器 ／ ロバート・B・チャルディーニ', 'ファクトフルネス ／ ハンス・ロスリング', '伝え方が9割 ／ 佐々木圭一', '思考の整理学 ／ 外山滋比古', 'メモの魔力 ／ 前田裕二'].join('\n');
     return ['イシューからはじめよ ／ 安宅和人', '考え方 ／ 稲盛和夫', 'エッセンシャル思考 ／ グレッグ・マキューン', '嫌われる勇気 ／ 岸見一郎', '確率思考の戦略論 ／ 森岡毅', '7つの習慣 ／ スティーブン・R・コヴィー', 'チームの名前が読めない本 ／'].join('\n');
   }
   if (payload.purpose === 'ocr') return '成果を上げるには、まず自分の時間がどこに使われているかを知ることから始めなければならない。時間の記録をとり、ムダな仕事を捨て、まとまった時間をつくる。';
