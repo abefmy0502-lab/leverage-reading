@@ -130,6 +130,7 @@ a{color:var(--accent)}
 .sb{position:relative;z-index:0;flex:0 0 calc((100% - 24px) / 4);min-width:0}.sb a{display:block;color:inherit;text-decoration:none}
 .sb img,.sb .ph{display:block;width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:4px;box-shadow:inset 0 0 0 1px var(--separator)}
 .sb img{background:var(--surface);border:1px solid var(--separator)}
+.sbt{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;height:calc(2 * 1.4em);margin:4px 0 8px;font-size:12px;line-height:1.4;color:var(--text-2);word-break:auto-phrase;overflow-wrap:anywhere;line-break:strict}
 .sb .ph{aspect-ratio:2/3;display:flex;align-items:flex-end;padding:8px;font-size:12px;font-weight:600;line-height:1.35;color:var(--on-cover);overflow:hidden;overflow-wrap:anywhere;line-break:strict;word-break:auto-phrase}
 .rib{position:absolute;z-index:1;top:-8px;right:8px;width:8px;height:24px;background:var(--accent);clip-path:polygon(0 0,100% 0,100% 100%,50% 75%,0 100%)}
 .legend{display:flex;flex-wrap:wrap;align-items:center;gap:4px 16px;margin:12px 0 0;font-size:13px;color:var(--text-2)}.legend i{display:inline-block;width:8px;height:12px;margin-right:4px;background:var(--accent);clip-path:polygon(0 0,100% 0,100% 100%,50% 75%,0 100%)}
@@ -252,7 +253,8 @@ const SHELF_PREVIEW = 8;
 
 function shelfBook(b, { publicId, links }) {
   const label = `${shownTitle(b.title)}${b.author ? `・${b.author}` : ''}${b.statusLabel ? `・${b.statusLabel}` : ''}${b.rating ? `・評価 ${b.rating}` : ''}${b.hasSummary ? '・まとめあり' : ''}`;
-  const face = `${b.cover ? `<img src="${esc(b.cover)}" alt="" loading="lazy">` : coverPlaceholder(b.title)}${b.hasSummary ? '<span class="rib" aria-hidden="true"></span>' : ''}`;
+  // 表紙の下に書名を 2 行まで（2026-11-23 オーナー「共有する本棚も同様に書籍名を記載してね」・アプリの本棚と同じ）。
+  const face = `${b.cover ? `<img src="${esc(b.cover)}" alt="" loading="lazy">` : coverPlaceholder(b.title)}${b.hasSummary ? '<span class="rib" aria-hidden="true"></span>' : ''}<span class="sbt" aria-hidden="true">${esc(shownTitle(b.title))}</span>`;
   return links && b.id
     ? `<li class="sb"><a href="/u/${esc(publicId)}/b/${esc(b.id)}" aria-label="${esc(label)}">${face}</a></li>`
     : `<li class="sb" aria-label="${esc(label)}">${face}</li>`;

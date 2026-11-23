@@ -408,6 +408,8 @@ const SCREENS = [
     const SAKURA = [{ css: 'button[aria-label="プロフィールを開く"]' }, { wait: 800 }, { css: 'span:text-is("ID でフォロー")' }, { wait: 800 }, { css: 'button:has-text("さくら") >> nth=-1' }, { wait: 1200 }];
     return [
       { name: 'follow-person-counts', url: '/?social=1', steps: SAKURA },
+      // 本棚の表紙の下の書名（2026-11-23）
+      { name: 'follow-person-shelf', url: '/?social=1', steps: [...SAKURA, { scrollTo: 'text=読書中' }, { wait: 400 }] },
       { name: 'follow-conn', url: '/?social=1', steps: [...SAKURA, { css: 'button[aria-label^="フォロー中"] >> nth=-1' }, { wait: 800 }] },
       { name: 'follow-conn-followers', url: '/?social=1', steps: [...SAKURA, { css: 'button[aria-label^="フォロワー"] >> nth=-1' }, { wait: 800 }] },
       { name: 'follow-conn-hidden', url: '/?social=1&socialstate=hiddenlists', steps: SAKURA },

@@ -160,6 +160,8 @@ function ShelfCase({ books, onOpen, hasBook }) {
                   aria-label={`${b.title}${b.author ? `・${b.author}` : ''}・${STATUS_LABEL[b.status]}${b.rating ? `・評価 ${b.rating}` : ''}${b.summary ? '・まとめあり' : ''}${owned ? '・あなたの本棚にあります' : ''}`}
                 >
                   <MiniCover title={shownTitle(b.title)} cover={b.cover} width="100%" />
+                  {/* 表紙の下に書名を 2 行まで（2026-11-23 オーナー・自分の本棚と同じ・同じ段は同じ高さ） */}
+                  <span aria-hidden="true" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', height: 'calc(2 * 1.4em)', margin: 'var(--space-1) 0 var(--space-2)', fontSize: 'var(--text-caption)', lineHeight: 1.4, color: 'var(--text-2)', textAlign: 'left', wordBreak: 'keep-all', overflowWrap: 'anywhere', lineBreak: 'strict' }}>{withPhraseBreaks(shownTitle(b.title), { scriptBreaks: true })}</span>
                 </button>
                 {b.summary && <span aria-hidden="true" style={{ position: 'absolute', top: 'calc(-1 * var(--space-2))', right: 'var(--space-2)', width: 'var(--space-2)', height: 'var(--space-6)', background: 'var(--accent)', clipPath: 'polygon(0 0, 100% 0, 100% 100%, 50% 75%, 0 100%)' }} />}
                 {owned && (
