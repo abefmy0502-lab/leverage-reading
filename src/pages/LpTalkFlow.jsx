@@ -83,9 +83,9 @@ export default function LpTalkFlow() {
           </div>
         </li>
       </ol>
-      </div>
-      {/* 注記は 1 か所だけ（2026-11-23 LP の仕上げ・相談する相手と通常の AI との違いは次の節「答えのもとは、あなたのメモ。」へ） */}
+      {/* 注記は 1 か所だけ・会話の真下（広い画面でも右の列＝見出しと重ならない・2026-11-23） */}
       <p className="lp-shot-note lp-shot-note--lines">{TALK_NOTE.map((t) => <span key={t}>{t}</span>)}</p>
+      </div>
     </>
   );
 }
