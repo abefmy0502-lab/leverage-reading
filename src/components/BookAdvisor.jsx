@@ -339,6 +339,24 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   // 5〜15 秒かかっていた。新実装はクリック時 UI を即更新、すべての I/O は
   // .then() で fire-and-forget。失敗時のみ rollback。
   const [addedTitles, setAddedTitles] = useState(() => new Set(memo0.addedTitles || []));
+  // 追加した本の id（書名 → id）。知らせの「元に戻す」などで本棚から消えたら「追加済み」を外す（2026-11-23 点検）。
+  const addedIdsRef = useRef(new Map());
+  const addedSeenRef = useRef(new Set());
+  useEffect(() => {
+    const ids = addedIdsRef.current;
+    if (!ids.size || !Array.isArray(books)) return;
+    // 一度本棚に見えた本だけを見張る（保存の直後で一覧にまだ載っていない間に外さない）。
+    const seen = addedSeenRef.current;
+    for (const [t, id] of ids) if (books.some((b) => b?.id === id)) seen.add(t);
+    const gone = [...ids.entries()].filter(([t, id]) => seen.has(t) && !books.some((b) => b?.id === id)).map(([t]) => t);
+    if (!gone.length) return;
+    gone.forEach((t) => { ids.delete(t); seen.delete(t); });
+    setAddedTitles((prev) => {
+      const next = new Set(prev);
+      gone.forEach((t) => next.delete(t));
+      return next;
+    });
+  }, [books]);
   // 「読みたいに追加」を押して、同じ本かを確かめている間の本（まだ追加していない＝「追加済み」にしない）。
   const [checkingTitles, setCheckingTitles] = useState(() => new Set());
   // 「読みたいに追加」押下後に search の strict match 結果を確認させる
@@ -1634,6 +1652,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
           });
           return; // トーストは addFromAdvisor 側が出している（二重表示しない）
         }
+        // 保存できた＝本棚に入った。以後、一覧から消えたら（元に戻す・削除）「追加済み」を外す。
+        if (saved?.id) { addedIdsRef.current.set(verifiedRec.title, saved.id); addedSeenRef.current.add(verifiedRec.title); }
         if (saved?.id && currentSessionId && sessionApi?.available) {
           try { await sessionApi.addBookToSession(currentSessionId, saved.id); } catch { /* non-critical */ }
         }

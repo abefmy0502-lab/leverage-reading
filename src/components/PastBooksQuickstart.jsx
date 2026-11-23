@@ -196,7 +196,7 @@ function ResultsSkeleton() {
 
 // initialBooks: 取り込みの完了画面の「覚えている一文を足す（N 冊）」から開くときの本（もう本棚にある本・最大 MAX_BOOKS 冊）。
 //   渡されたら「本を選ぶ」を飛ばして、一言を書く段から始める（2026-09-29）。
-export default function PastBooksQuickstart({ books = [], initialBooks = null, onSaveBook, onAsk, onAskDraft, onClose, onWriteMemo, onImport, onShelfScan = null, onMarkRead, onMemosAdded }) {
+export default function PastBooksQuickstart({ books = [], initialBooks = null, initialPicked = null, onSaveBook, onAsk, onAskDraft, onClose, onWriteMemo, onImport, onShelfScan = null, onMarkRead, onMemosAdded }) {
   const { user } = useAuth();
   const toast = useToast();
   const { freeMode, freeRemaining, freeFirstMonth } = usePaywall();
@@ -214,7 +214,8 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
   const [searchError, setSearchError] = useState(false);
   const [picked, setPicked] = useState(() => (seeded
     ? initialBooks.slice(0, MAX_BOOKS).map((b) => ({ book: b, memo: '', onShelf: true }))
-    : [])); // [{ book, memo, onShelf? }]
+    // 取り込み・本棚の写真へ寄り道して入れずに戻ったときは、選んでいた本を残す（2026-11-23 点検）。
+    : (Array.isArray(initialPicked) ? initialPicked.slice(0, MAX_BOOKS).map((b) => ({ book: b, memo: '' })) : []))); // [{ book, memo, onShelf? }]
   const [idx, setIdx] = useState(0);
   const [summary, setSummary] = useState({ books: [], memos: 0, totalMemos: 0, totalBooks: 0, memoBookIds: [] });
   // 1 冊も入れられなかった画面（「本を追加できませんでした」）。選んだ本と書いた一文はまだ手元に残っている（2026-11-23 点検）。
@@ -606,13 +607,13 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
                   {(onImport || onShelfScan) && (
                     <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 'var(--space-6)', marginTop: 'var(--space-4)' }}>
                       {onImport && (
-                        <button type="button" onClick={onImport} style={{ ...btnLink, padding: 0 }}>
+                        <button type="button" onClick={() => onImport(picked.map((p) => p.book))} style={{ ...btnLink, padding: 0 }}>
                           ほかのアプリから取り込む
                         </button>
                       )}
                       {/* 紙の本が手元にある人の脇道（背表紙を撮ってまとめて本棚へ・2026-11-23 点検） */}
                       {onShelfScan && (
-                        <button type="button" onClick={onShelfScan} style={{ ...btnLink, padding: 0 }}>
+                        <button type="button" onClick={() => onShelfScan(picked.map((p) => p.book))} style={{ ...btnLink, padding: 0 }}>
                           本棚の写真から追加
                         </button>
                       )}

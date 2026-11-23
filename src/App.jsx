@@ -941,6 +941,8 @@ function AuthedApp() {
   const [showQuickstart, setShowQuickstart] = useState(false);
   // 取り込みの完了画面から開くとき: 一言を足す本（本棚に入っている本・一言の段から始める）。ふだんは null。
   const [quickstartSeed, setQuickstartSeed] = useState(null);
+  // 初日クイックスタートで選んでいた本（寄り道して入れずに戻ったときに選び直さない・2026-11-23）。
+  const [quickstartPicked, setQuickstartPicked] = useState(null);
   const [showImport, setShowImport] = useState(false); // 📥 ほかのアプリから取り込む
   // 取り込み・本棚の写真から追加を、初日クイックスタートから開いたか（2026-11-23 点検）。入れずに閉じたら
   //   来たクイックスタートへ戻す（前は取り込みはそのまま閉じ、本棚の写真は「本を追加」へ戻っていた）。
@@ -1256,6 +1258,7 @@ function AuthedApp() {
   // 📚 本棚の写真からまとめて追加（2026-11-22・本を追加の画面から）
   const [shelfScanOpen, setShelfScanOpen] = useState(false);
   useEffect(() => { if (!shelfScanOpen) shelfScanFromQuickstartRef.current = null; }, [shelfScanOpen]);
+  useEffect(() => { if (!showQuickstart) setQuickstartPicked(null); }, [showQuickstart]);
   // 検索結果の「追加済み」から開いた本の id（詳細の ‹・戻るで検索結果へ戻すため）。
   const [detailFromSearchId, setDetailFromSearchId] = useState(null);
   // 🧭 目標の画面（ロードマップ・読書計画）から開いた本: { bookId, screen }。戻ると同じ目標の画面へ（2026-11-15 磨き）。
@@ -4932,6 +4935,7 @@ function AuthedApp() {
           importFromQuickstartRef.current = null;
           if (from && !importRanRef.current) {
             setQuickstartSeed(from.seed || null);
+            setQuickstartPicked(from.seed ? null : (from.picked || null));
             setShowQuickstart(true);
           }
         }}
@@ -4957,12 +4961,13 @@ function AuthedApp() {
     <Suspense fallback={null}>
       <PastBooksQuickstart
         // 入れずに閉じたら、このクイックスタートへ戻す（来た所へ戻る・2026-11-23 点検）。
-        //   ※選んだ本はまだ受け取れない（PastBooksQuickstart が onImport / onShelfScan に渡していない）ので、戻ると選び直し。
-        onImport={() => { importFromQuickstartRef.current = { seed: quickstartSeed }; importRanRef.current = false; setShowQuickstart(false); setQuickstartSeed(null); setShowImport(true); }}
+        //   選んでいた本も一緒に預かり、戻ったら選んだままにする（2026-11-23）。
+        onImport={(picked) => { importFromQuickstartRef.current = { seed: quickstartSeed, picked }; importRanRef.current = false; setShowQuickstart(false); setQuickstartSeed(null); setQuickstartPicked(null); setShowImport(true); }}
         // 紙の本棚を撮ってまとめて入れる道（2026-11-23 ui-critic）
-        onShelfScan={() => { shelfScanFromQuickstartRef.current = { seed: quickstartSeed }; setShowQuickstart(false); setQuickstartSeed(null); setShelfScanOpen(true); }}
+        onShelfScan={(picked) => { shelfScanFromQuickstartRef.current = { seed: quickstartSeed, picked }; setShowQuickstart(false); setQuickstartSeed(null); setQuickstartPicked(null); setShelfScanOpen(true); }}
         books={books}
         initialBooks={quickstartSeed}
+        initialPicked={quickstartPicked}
         onSaveBook={saveQuickstartBook}
         // 一言を書いた本が「読みたい・積読」のままだと、本の詳細にメモが出ない → 読了にする
         onMarkRead={(bookId) => applyBookPatchQuiet(bookId, { status: 'done' })}
@@ -7890,7 +7895,7 @@ function AuthedApp() {
               const from = shelfScanFromQuickstartRef.current;
               shelfScanFromQuickstartRef.current = null;
               setShelfScanOpen(false);
-              if (from) { setQuickstartSeed(from.seed || null); setShowQuickstart(true); } else setAddBookModalOpen(true);
+              if (from) { setQuickstartSeed(from.seed || null); setQuickstartPicked(from.seed ? null : (from.picked || null)); setShowQuickstart(true); } else setAddBookModalOpen(true);
             }}
           />
         </Suspense>
