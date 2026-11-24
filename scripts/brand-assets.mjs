@@ -37,6 +37,8 @@ const MARK = { x: 416, y: 264, w: 705, h: 472 }; // orime-mark-source.svg の中
 const WORD = { x: 749, y: 326, w: 729, h: 194 }; // orime-logo-source.svg の中
 // 横組みの並び（3 枚目の画像の比＝記号の高さ 263 に文字の高さ 194・文字は上から 18・間 62）
 const LOCK = { markH: 263, wordTop: 18, gap: 62 };
+// 縦組みの並び（2026-11-24 の 5 枚目＝縦組みの画像の比: 文字の幅＝記号の幅の 1.1 倍・間＝記号の幅の 8%）
+const STACK = { word: 1.1, gap: 0.08 };
 
 const recolor = (s, map) => Object.entries(map).reduce((t, [a, b]) => t.split(`fill="${a}"`).join(`fill="${b}"`), s);
 const wordColor = (c) => Object.fromEntries(WORD_SRC.map((k) => [k, c]));
@@ -93,14 +95,16 @@ async function main() {
 
   // 縦組み（上に記号・下に文字・地は透明）＝写真で共有の画像のロゴ（lib/shareCard.js が透明な行で上下を切り分ける）
   {
-    const W = 600;
-    const mark = await png(markSvg(), 300);
-    const word = await png(wordSvg(), 520);
+    const mw = 520;
+    const ww = Math.round(mw * STACK.word);
+    const W = ww;
+    const mark = await png(markSvg(), mw);
+    const word = await png(wordSvg(), ww);
     const mh = (await sharp(mark).metadata()).height;
     const wh = (await sharp(word).metadata()).height;
-    const gap = 56;
+    const gap = Math.round(mw * STACK.gap);
     await sharp({ create: { width: W, height: mh + gap + wh, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
-      .composite([{ input: mark, left: (W - 300) / 2, top: 0 }, { input: word, left: (W - 520) / 2, top: mh + gap }])
+      .composite([{ input: mark, left: Math.round((W - mw) / 2), top: 0 }, { input: word, left: 0, top: mh + gap }])
       .png().toFile(P('public/logo-lockup.png'));
   }
 
@@ -117,14 +121,16 @@ async function main() {
     ['splash-2732x2732.png', APP_BG_LIGHT, {}, DARK],
     ['splash-2732x2732-dark.png', APP_BG_DARK, ON_DARK, WORD_ON_DARK],
   ]) {
-    const mark = await png(markSvg(map), 520);
-    const word = await png(wordSvg(wmap), 640);
+    const mw = 560;
+    const ww = Math.round(mw * STACK.word);
+    const mark = await png(markSvg(map), mw);
+    const word = await png(wordSvg(wmap), ww);
     const mh = (await sharp(mark).metadata()).height;
     const wh = (await sharp(word).metadata()).height;
-    const gap = 120;
+    const gap = Math.round(mw * STACK.gap);
     const top = Math.round((2732 - (mh + gap + wh)) / 2);
     const out = await sharp({ create: { width: 2732, height: 2732, channels: 3, background: bg } })
-      .composite([{ input: mark, left: (2732 - 520) / 2, top }, { input: word, left: (2732 - 640) / 2, top: top + mh + gap }])
+      .composite([{ input: mark, left: Math.round((2732 - mw) / 2), top }, { input: word, left: Math.round((2732 - ww) / 2), top: top + mh + gap }])
       .png().toBuffer();
     const dir = 'ios/App/App/Assets.xcassets/Splash.imageset';
     writeFileSync(P(dir, f), out);
