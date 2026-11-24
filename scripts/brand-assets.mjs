@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// 🎨 orime のロゴの素材を 1 つの SVG から全部つくる（2026-11-24 オーナー「ロゴを変えたい」＝重なる 2 本の曲線・まん中のひし形の余白・浮かぶ点・小文字の orime）。
+// 🎨 orime のロゴの素材を 1 つの SVG から全部つくる（2026-11-24 オーナー「ロゴを変えたい」＝折り重なる 2 本の帯・まん中のひし形の余白・小文字の orime。同日 3 案目で点をなくした）。
 //
 //   元: public/brand/orime-logo-source.svg（オーナーの画像を色ごとに描き起こした形・viewBox 1774×887・id="light"＝明るい茶／id="dark"＝濃い茶）
 //   node scripts/brand-assets.mjs  → 下の一覧を書き直す（コミットする）
@@ -10,7 +10,7 @@
 //   ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png・Splash.imageset（明るい・暗い）
 //
 //   決まり: サービス名はロゴ・アプリ名・文中のすべてで小文字の「orime」（2026-11-24 オーナー「全部小文字に統一したい」）。
-//   暗い地では 明るい茶→#c27a4e・濃い茶→#a0613b・文字→#efe6da（暗い地の上で 3:1 以上）。
+//   暗い地では 明るい茶→#c98a5c・濃い茶→#9a5a35・文字→#efe6da（暗い地の上で 3:1 以上）。
 import sharp from 'sharp';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
@@ -20,17 +20,17 @@ const P = (...a) => path.join(ROOT, ...a);
 const src = readFileSync(P('public/brand/orime-logo-source.svg'), 'utf8');
 const paths = [...src.matchAll(/<path [^>]*\/>/g)].map((m) => m[0]);
 
-const LIGHT = '#9f582e';
-const DARK = '#753a19';
+const LIGHT = '#a6643b';
+const DARK = '#744023';
 const BG = '#fcf8ef'; // ロゴの地（オーナーの画像の地）
 const APP_BG_LIGHT = '#f7f5f1'; // アプリの明るい地（起動画面）
 const APP_BG_DARK = '#1b1a18'; // アプリの暗い地
-const ON_DARK = { [LIGHT]: '#c27a4e', [DARK]: '#a0613b' };
+const ON_DARK = { [LIGHT]: '#c98a5c', [DARK]: '#9a5a35' };
 const WORD_ON_DARK = '#efe6da';
 
 // 描き起こした形の中の、記号と文字の範囲（scripts で測った値・余白なし）
-const MARK = { x: 338, y: 316, w: 299, h: 250 };
-const WORD = { x: 718, y: 349, w: 717, h: 183 };
+const MARK = { x: 312, y: 308, w: 375, h: 263 };
+const WORD = { x: 749, y: 326, w: 729, h: 194 };
 
 const recolor = (s, map) => Object.entries(map).reduce((t, [a, b]) => t.split(`fill="${a}"`).join(`fill="${b}"`), s);
 const svgOf = (box, { pad = 0, map = {} } = {}) => {
@@ -69,8 +69,8 @@ async function main() {
   writeFileSync(P('public/brand/orime-lockup.svg'), lockupSvg());
   writeFileSync(P('public/brand/orime-lockup-dark.svg'), lockupDarkSvg());
 
-  // アプリのアイコン（地はロゴの地・記号は幅の 56%・透明なし）
-  const icon = await (await onSquare(1024, 572, BG)).png().toBuffer();
+  // アプリのアイコン（地はロゴの地・記号は幅の 59%・透明なし）
+  const icon = await (await onSquare(1024, 600, BG)).png().toBuffer();
   const flat = (b) => sharp(b).flatten({ background: BG }).removeAlpha();
   await flat(icon).toFile(P('public/icons/icon-1024.png'));
   await flat(icon).toFile(P('public/icons/icon-1024-appstore.png'));
