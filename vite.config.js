@@ -70,13 +70,18 @@ function siteUrlInHtml() {
 
 // 📱 iPhone の Safari で LP を開いた人に、画面上部の「App Store で入手」バナー（Smart App Banner）を出す。
 // VITE_APP_STORE_URL（…/id1234567890）が入っているときだけ、その ID で <meta name="apple-itunes-app"> を足す。
+//   値は Vercel の環境変数か .env.production（Vite が読む config.env）のどちらでも効く（2026-11-24 公開）。
 function smartAppBanner() {
-  const m = /id(\d{6,})/.exec(process.env.VITE_APP_STORE_URL || '');
+  let appId = null;
   return {
     name: 'smart-app-banner',
+    configResolved(config) {
+      const m = /id(\d{6,})/.exec(process.env.VITE_APP_STORE_URL || config.env?.VITE_APP_STORE_URL || '');
+      appId = m ? m[1] : null;
+    },
     transformIndexHtml(html) {
-      if (!m) return html;
-      return html.replace('</head>', `  <meta name="apple-itunes-app" content="app-id=${m[1]}" />\n</head>`);
+      if (!appId) return html;
+      return html.replace('</head>', `  <meta name="apple-itunes-app" content="app-id=${appId}" />\n</head>`);
     },
   };
 }
