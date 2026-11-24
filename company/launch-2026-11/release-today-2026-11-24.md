@@ -85,3 +85,14 @@
 
 - 投稿の翌日以降は `launch-schedule-2026-11-25.md` の表を **1 日前に倒して**使う（11/25 水 21:00 に X2・11/26 木 7:30 に X3・11/30 月から 1 週目）。
 - 作業 4 が上限のエラーで止まったら、LP は昨日の版のまま（ボタンは App Store の検索へ）。アプリの公開と投稿は先に進めてよい。上限が戻ったらもう一度 Redeploy して、確認用のセッション「LP の本番確認（Redeploy のあと）」に「Redeploy したので確かめて」。
+
+---
+
+## 結果（2026-11-24・Chrome の Claude の報告）
+
+- 作業 1：有料アプリ契約は「有効」（2026-10-23〜2027-06-23）。
+- 作業 2：オーナーが「このバージョンをリリース」を押した → 「1.0 配信準備完了」。
+  - 同じ画面に、中国本土の App Store で配信するにはセキュリティアセスメントと AIGC の申告が要るという注意（既存のアプリの期限 2027-01-31）。日本だけで配信するなら関係しない＝配信国を確かめるのは公開のあと。
+- 作業 3：pt=129074512（キャンペーン名 lp のリンク `https://apps.apple.com/app/apple-store/id6821277760?pt=129074512&ct=lp&mt=8`）。Vercel に `VITE_APP_STORE_URL`・`VITE_RELEASE_NOTES_SINCE` は無かった。`VITE_APP_STORE_PT=129074512`（Production・Config）を足した。
+- 作業 4：いちばん上の本番（dc4107e）は「Prebuilt deployments can't be redeployed from the dashboard」で Redeploy できなかった → この記録を main に push して、Git から新しい本番を作る（足した pt がこのビルドで入る）。
+- 作業 5：新しい本番が Ready になってから。
