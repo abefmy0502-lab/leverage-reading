@@ -14,6 +14,7 @@ import { demoServerSearch, demoNdlXml } from './demoBookSearch';
 import { lensOf } from '../lib/consultHelpers';
 import { addDemoPurposeCost } from './demoTokenUsage';
 import { quotable } from '../lib/nestQuotes';
+import { TALK } from '../pages/lpCopy';
 
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
@@ -152,7 +153,53 @@ function lpShotAnswer(store, question, thread, decide) {
   ].join('\n');
 }
 
+// 📸 LP の「たとえば、こんな相談。」の実際の画面（&lpshot=1&talk=1・2026-11-24）: 1 冊『考え方』への相談。
+//   文は LP の会話と同じ（src/pages/lpCopy.js の TALK＝オーナーの実際の相談）。メモは demoClient.js が足す 3 件。
+export const LP_TALK_MEMOS = [
+  TALK.steps[1].memo,
+  '毎日、少しでも工夫を加える。昨日と同じやり方で一日を終わらせない。',
+  '朝、仕事を始める前に、今日いちばん考えることを 1 つ決める。',
+];
+const lpTalkOn = () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('talk') === '1';
+function lpTalkAnswer(store, question, thread) {
+  const topic = `${question} ${thread?.firstQuestion || ''}`;
+  if (!/自信/.test(topic)) return null;
+  const memos = store.table('book_memos').filter((m) => LP_TALK_MEMOS.includes(m.text));
+  if (memos.length < 3) return null;
+  const quotes = memos.map((m) => `- 『考え方』 のメモ：「${m.text}」`).join('\n');
+  const refs = memos.map(() => '- 📚 稲盛和夫『考え方』').slice(0, 1).join('\n');
+  const tail = ['', 'REFS_START', refs, 'REFS_END'];
+  const [lead, todo, ...rest] = [].concat(TALK.steps[2].action);
+  if (thread && thread.lastAsked) {
+    return [
+      '【結論】', lead,
+      '',
+      '【参照した本のメモ】', quotes,
+      '',
+      '【あなたの状況に合わせた解釈】', rest.join(''),
+      '',
+      '【明日からできる 1 つの行動】', `${TALK.todo.join('')}。`,
+      ...tail,
+    ].join('\n');
+  }
+  return [
+    '【結論】', TALK.steps[1].answer.replace(/\u2060/g, ''),
+    '',
+    '【参照した本のメモ】', quotes,
+    '',
+    '【あなたの状況に合わせた解釈】', todo,
+    '',
+    '【あなたに聞きたいこと】', TALK.steps[1].question,
+    '・営業の数字が伸びないとき', '・会議で発言するとき',
+    ...tail,
+  ].join('\n');
+}
+
 function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null, voice = null, decide = false, lookup = false, relatedBlock = '', askMore = false, lens = null) {
+  if (lpShotOn() && lpTalkOn()) {
+    const talk = lpTalkAnswer(store, question, thread);
+    if (talk) return talk;
+  }
   if (lpShotOn()) {
     const shot = lpShotAnswer(store, question, thread, decide);
     if (shot) return shot;

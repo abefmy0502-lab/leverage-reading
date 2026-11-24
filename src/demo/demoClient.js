@@ -45,7 +45,7 @@ import { buildSeed, DEMO_USER_ID, coverSvg } from './seed';
 import { applyGoalsDemo } from './demoGoals';
 import { appNow } from '../lib/appNow';
 import { applyTokenUsageDemo } from './demoTokenUsage';
-import { installDemoFetch, LP_SHOT_MEMO } from './demoFetch';
+import { installDemoFetch, LP_SHOT_MEMO, LP_TALK_MEMOS } from './demoFetch';
 import { AI_CONSENT_VERSION } from '../lib/aiProcessors';
 
 // &offline=1: つながっていない間は書き込みがすべて失敗する（本物の端末と同じ・オフラインで保存したときの表示の確認用）。
@@ -405,6 +405,31 @@ export function createDemoClient() {
       page_number: null, text: LP_SHOT_MEMO, photo_path: null, tags: ['マネジメント'],
       last_recalled_at: null, recall_count: 0, created_at: at, updated_at: at,
     });
+  }
+  // &lpshot=1&talk=1: LP の「たとえば、こんな相談。」の実際の画面（2026-11-24 オーナー「LP も実際の画面のスクショを」）。
+  //   LP の会話（src/pages/lpCopy.js の TALK）と同じ 1 冊『考え方』と、答えのもとになる 3 件のメモ（信じ切る・小さな工夫・朝に考えること）。
+  //   表紙はお試しモードの描いた板（実在の本の表紙を宣伝の画像に写さない）。答えは demoFetch.js の lpTalkAnswer。
+  if (params.get('lpshot') === '1' && params.get('talk') === '1') {
+    const bookId = '00000000-0000-4000-8000-0000000c9100';
+    const day = (n) => new Date(Date.now() - n * 86400000).toISOString();
+    db.books = [{
+      id: bookId, user_id: DEMO_USER_ID, title: '考え方', author: '稲盛和夫', isbn: '', asin: '',
+      cover: coverSvg('考え方', '稲盛和夫', 3), cover_isbn: 'manual', added_via: 'search', status: 'done', rating: 5,
+      start_date: day(40).slice(0, 10), done_date: day(21).slice(0, 10),
+      invest_purpose: '', current_challenge: '', hypothesis: '', book_reason: '',
+      ai_analysis: '', ai_strategy: '', leverage_memo: '', ai_summary: '', roi_summary: '',
+      source_query: '', current_page: null, total_pages: 240, created_at: day(40), updated_at: day(3),
+    }, ...(db.books || [])];
+    const memo = (i, text, d) => ({
+      id: `00000000-0000-4000-8000-0000000c910${i}`, user_id: DEMO_USER_ID, book_id: bookId, source_type: 'card',
+      page_number: null, text, photo_path: null, tags: [], last_recalled_at: null, recall_count: 0, created_at: day(d), updated_at: day(d),
+    });
+    db.book_memos = [
+      memo(1, LP_TALK_MEMOS[0], 21),
+      memo(2, LP_TALK_MEMOS[1], 24),
+      memo(3, LP_TALK_MEMOS[2], 27),
+      ...(db.book_memos || []),
+    ];
   }
   if (params.get('purpose') === '1') {
     for (const b of db.books || []) if (b.title === 'LIFE SHIFT') b.invest_purpose = '40 代からの働き方の選択肢を持ちたい';
