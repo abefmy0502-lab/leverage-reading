@@ -9,7 +9,7 @@
 
 ---ここから---
 
-あなたは Orime（読書メモのアプリ）の公開作業を手伝います。オーナーの了承のもと、App Store の審査に「ビルド 9」で出し直します。順番どおりに進め、各作業の結果を最後にまとめて報告してください。
+あなたは orime（読書メモのアプリ）の公開作業を手伝います。オーナーの了承のもと、App Store の審査に「ビルド 9」で出し直します。順番どおりに進め、各作業の結果を最後にまとめて報告してください。
 
 ## 守ること
 - パスワード・2 段階認証のコード・鍵（.p8、sk_ で始まる値など）は扱わない・読まない。ログインを求められたら止めて私に頼む。
@@ -18,7 +18,7 @@
 - 画面が手順と違う・迷うときは、止めて画面の文をそのまま報告する。
 
 ## 作業 1：デモアカウントのメールアドレスを読む（App Store Connect・読むだけ）
-1. https://appstoreconnect.apple.com → アプリ → Orime → iOS App のバージョン 1.0 →「App Review に関する情報」の「サインイン情報」の**ユーザー名**（メールアドレス）を控える。パスワードの欄は読まない。
+1. https://appstoreconnect.apple.com → アプリ → orime → iOS App のバージョン 1.0 →「App Review に関する情報」の「サインイン情報」の**ユーザー名**（メールアドレス）を控える。パスワードの欄は読まない。
 
 ## 作業 2：デモアカウントの AI の同意の記録を外す（Supabase・1 文の SQL）
 審査官が「AI に送る内容について」の画面を見られるようにするためです（アプリの 設定 → プライバシー →「AI へのデータ送信」を取り消すのと同じ）。
@@ -37,7 +37,7 @@ from auth.users where lower(email) = lower('DEMO_EMAIL');
 ## 作業 3：前回の提出をキャンセルする（App Store Connect）
 1. 左の「App Review」→ ステータス「未解決の問題」の提出（2026-11-18 22:20・6 件）を開く。
 2. 「提出をキャンセル」を押す。確認の文を報告し、「提出を取り消す（項目は残る）」意味なら確定する。「削除」「アプリを消す」意味なら止める。
-3. キャンセルのあと、バージョン 1.0 と課金 5 件（月額・年額・Orime プラン・トークン 300・トークン 1000）の状態を報告する。
+3. キャンセルのあと、バージョン 1.0 と課金 5 件（月額・年額・orime プラン・トークン 300・トークン 1000）の状態を報告する。
 
 ## 作業 4：ビルド 9 を付けて、審査メモを差し替える
 1. iOS App → バージョン 1.0 のページ。「ビルド」の欄でビルド 7 を外し（− か「ビルドを選択」）、**1.0.0 (9)** を選んで「完了」。
@@ -57,7 +57,7 @@ AI 機能は、はじめて使うときに送る内容と送り先（Anthropic�
 
 [For App Review]
 - Registration is optional. On the sign-in screen, tap "登録せずに始める" (Start without an account), then "同意して始める". No personal information is required. Sign in with Apple and the demo account in Sign-In Information also work. Every sign-in path shows the Terms of Use and Privacy Policy.
-- Subscriptions (Orime 月額プラン / Orime 年額プラン): start with "登録せずに始める" (the demo account already has an active plan, so it shows "プランを管理" instead). Tap the gear icon at the top right of the Home screen (second from the right; the round icon at the far right is the profile) to open Settings (設定), then "プラン・お支払い" (Plan & Payment) > "プランを見る" (See plans). The plan screen shows both plans with prices and a purchase button. Registration is not required to purchase.
+- Subscriptions (orime 月額プラン / orime 年額プラン): start with "登録せずに始める" (the demo account already has an active plan, so it shows "プランを管理" instead). Tap the gear icon at the top right of the Home screen (second from the right; the round icon at the far right is the profile) to open Settings (設定), then "プラン・お支払い" (Plan & Payment) > "プランを見る" (See plans). The plan screen shows both plans with prices and a purchase button. Registration is not required to purchase.
 - Token packs (300 トークン / 1,000 トークン, consumable add-ons for subscribers): sign in with the demo account (it has an active plan), open Settings, then "プラン・お支払い" > "トークンを追加" (Add tokens).
 - All In-App Purchases are available in every storefront where the app is available.
 - Follow (user-generated content, Guideline 1.2): the round profile icon at the top right (プロフィール) > "フォロー中" / "フォロワー" (Following / Followers). Users can follow each other only with the other person's profile link or ID (there is no search by name and no messaging), and only after the other person approves. An approved follower can see that person's bookshelf and per-book summaries in the app. Guest users and users without a nickname cannot send requests. Objectionable words and contact details are blocked before saving and filtered before display; only book covers from bookstores and libraries are shown to others. Every person's shelf, every book page with that person's summary, every follower row, every incoming follow request and every person found by ID has a "…" menu with "通報する" (Report) and "ブロックする" (Block). A report asks for a reason, confirms delivery, and is reviewed within 24 hours (Terms, Articles 7 and 10). Blocking removes the follow in both directions and prevents new requests. To try it, a second account can send a follow request with the demo account's ID (shown on the profile screen).
@@ -66,7 +66,7 @@ AI 機能は、はじめて使うときに送る内容と送り先（Anthropic�
 3. ページ右上の「保存」。
 
 ## 作業 5：アプリと課金 5 件を 1 つの提出にまとめて出す
-1. バージョン 1.0 のページの「アプリ内課金とサブスクリプション」の欄で、5 件（月額・年額・Orime プラン の 2 つのサブスクリプション、トークン 300・トークン 1000）を選んで「完了」。
+1. バージョン 1.0 のページの「アプリ内課金とサブスクリプション」の欄で、5 件（月額・年額・orime プラン の 2 つのサブスクリプション、トークン 300・トークン 1000）を選んで「完了」。
 2. 右上の「審査用に追加」（Add for Review）→ 提出の下書きに **6 件**（iOS アプリ 1.0 = 1.0.0 (9) と課金 5 件）が入っていることを確かめて報告。
 3. 6 件そろっていたら「審査へ提出」（Submit for Review）。確認が出たら文を報告し、提出の意味なら確定する。足りなければ押さずに止めて報告。
 
@@ -100,11 +100,11 @@ AI 機能は、はじめて使うときに送る内容と送り先（Anthropic�
 
 ## 手順
 1. iOS App → バージョン 1.0（ビルド 9）のページ右上の「審査用に追加」を押し、提出の下書きを作る。下書きの画面が開いたら、項目（いまは 1 件のはず）を報告メモに控える。
-2. 「サブスクリプション」→「Orime プラン」（サブスクリプショングループ）の画面で「審査用に追加」。月額・年額が別々に追加を求めるなら、それぞれの画面でも「審査用に追加」。
+2. 「サブスクリプション」→「orime プラン」（サブスクリプショングループ）の画面で「審査用に追加」。月額・年額が別々に追加を求めるなら、それぞれの画面でも「審査用に追加」。
 3. 「アプリ内課金」→「トークン 300」「トークン 1000」の画面で、それぞれ「審査用に追加」。
-4. 「App Review」で下書きの提出を開き、**6 件**（iOS アプリ 1.0 = 1.0.0 (9)・月額・年額・Orime プラン・トークン 300・トークン 1000）がそろっていることを確かめる。
+4. 「App Review」で下書きの提出を開き、**6 件**（iOS アプリ 1.0 = 1.0.0 (9)・月額・年額・orime プラン・トークン 300・トークン 1000）がそろっていることを確かめる。
    - 途中で「審査用のスクリーンショットが足りない」「メタデータが足りない」などが出たら、何も足さずに止めて文をそのまま報告。
-   - 「Orime プラン」がグループとして項目にならない・件数が 5 件になる、など数が違うときも、押さずに止めて報告。
+   - 「orime プラン」がグループとして項目にならない・件数が 5 件になる、など数が違うときも、押さずに止めて報告。
 5. 6 件そろっていたら「審査へ提出」。確認が出たら文を報告し、提出の意味なら確定する。
 
 ## 報告
@@ -116,7 +116,7 @@ AI 機能は、はじめて使うときに送る内容と送り先（Anthropic�
 
 ## 結果 その 2（2026-11-22 19:07・Chrome）
 - **審査に出した。ステータス「審査待ち」**（iOS 1.0・6 件）。完了の画面「6 項目が提出されました　審査には最大 48 時間かかります。」
-- 6 件: iOS アプリ 1.0（1.0.0 (9)）・Orime プラン（サブスクリプショングループ）・年額プラン・月額プラン・トークン 300・トークン 1000。
+- 6 件: iOS アプリ 1.0（1.0.0 (9)）・orime プラン（サブスクリプショングループ）・年額プラン・月額プラン・トークン 300・トークン 1000。
 - 途中で「新しいサブスクリプショングループは、そのグループに属する自動更新サブスクリプションとともに提出する必要があります。」の注意 → 月額・年額を足して消えた。
 - 「審査へ提出」は確認の画面なしでそのまま送られた。前回の提出（11-18 22:20）は「削除済み」として一覧に残る。
 - 次: Apple のメールを待つ。差し戻しなら Resolution Center の文をそのまま Claude へ。通ったら LP・お知らせの準備（`docs/revenue-gates.md` の公開の日）。

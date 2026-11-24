@@ -29,7 +29,7 @@
 - [ ] SQL を流し直す: `supabase_all_in_order.sql` → `supabase_verify_rls.sql`（LP の記録の CHECK・追加トークンの期限なし）。`docs/sql-runbook.md`
 - [ ] 公開のメール（`launch-email.md`）を自分宛てにもう一度試し送り。送信者名・連絡先・配信停止の方法が入っているか（特定電子メール法）
 - [ ] X の P17・固定ポストの差し替え文・スレッド 8 本を予約（`x-posts.md`・`calendar.md`）
-- [ ] note 06「Orime を作った理由」を予約（9:00）
+- [ ] note 06「orime を作った理由」を予約（9:00）
 
 ## 2. 公開の朝（11/17・火）— この順で
 

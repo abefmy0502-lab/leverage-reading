@@ -12,7 +12,7 @@
 //   - splitStatValue     … 「9月28日」の数字を大きく、単位を小さく描くための分け方
 //   - recordFrame / placeRecordBlock / recordBlockPlan … 4:5・9:16 の、SNS で切られない範囲（安全な枠）と置き方・組み
 //   - statsStackPlan / placeStatsStack … 「数字」の重ね方（Strava の大きな数字を真ん中に縦に積む・2026-10-05）
-//   - logoBox / LOGO_RULES … Orime のロゴの場所・大きさ・空き（ロゴは必ず入る・2026-10-05）
+//   - logoBox / LOGO_RULES … orime のロゴの場所・大きさ・空き（ロゴは必ず入る・2026-10-05）
 //   - shareItemsFor / applyShareItems / readHiddenItems … 表示する項目（出す・隠す・前の選択を覚える。ロゴは項目に無い）
 //   - readSharePrefs / writeSharePrefs / stepVariant … 選んだ重ね方・形を端末に覚える・左右のスワイプで次の重ね方へ
 //   - buildRecordShareText … 共有の文（画像に入れたものだけ）
@@ -358,7 +358,7 @@ export function defaultVariant({ fromMemo = false, hasQuote = false, preferred =
 // ---------------------------------------------------------------- 雑誌（2026-10-09 オーナーの見本）
 //
 // 雑誌の 1 ページのような組み（中身はこれだけ・2026-10-09 オーナー「読書の記録の帯は不要」）:
-//   右上 … Orime のロゴ（必ず入る・小さく）。その下の英字のひとこと「READ. NOTE. GROW.」は 2026-10-09 にやめた（オーナー「不要」）＝空きを詰める
+//   右上 … orime のロゴ（必ず入る・小さく）。その下の英字のひとこと「READ. NOTE. GROW.」は 2026-10-09 にやめた（オーナー「不要」）＝空きを詰める
 //   左上 … 大きな引用＝心に残った一文の最初の文（「」で包む・細い明朝・字間を広く・3 行まで）
 //          その下に、続きの文を小さく 3 行まで（無ければ出さない）
 //   右   … 本のカード（表紙・書名・著者。説明の文は入れない＝AI の文も出版社の文も使わない）
@@ -447,9 +447,9 @@ const FRAMES = {
 
 // ---------------------------------------------------------------- ロゴ（必ず入る・2026-10-05 オーナー裁定）
 //
-// 「Orime のロゴはマストで入るようにしてください」。どの重ね方・地・形でも、左下にロゴを必ず描く（隠す項目に無い）。
+// 「orime のロゴはマストで入るようにしてください」。どの重ね方・地・形でも、左下にロゴを必ず描く（隠す項目に無い）。
 // 決まり（幅 1080 の画像の座標）:
-//   - 大きさ … 「Orime」の文字の高さ 30 以上（スマホで縮めて見ても 11pt ほど・2026-10-08 に 36 → 30＝必須だが主張しない
+//   - 大きさ … 「orime」の文字の高さ 30 以上（スマホで縮めて見ても 11pt ほど・2026-10-08 に 36 → 30＝必須だが主張しない
 //               オーナー「おしゃれな意識高い人間が使いたくなるように」）。本の印はその 1.28 倍
 //   - 余白   … 左は 72 以上（SNS の一覧で切られる左右 34 より内側）・基線は安全な枠の下端より上
 //   - 空き   … ロゴの上 24 には何も置かない（自分で入れる言葉も、この線より下には動かせない＝言葉でロゴを隠せない）
@@ -718,7 +718,7 @@ export function placeStatsStack(frame, blockH, { phrase = false, coverCount = 0,
 // オーナー要望「人によって読み始めのタイミングを書かなくても良かったり、著者は不要だったり、
 // タイトルだけが良かったりするだろうから調整できるようにしたい」。画像に入れる項目ごとに出す・隠すを選ぶ。
 // 覚えるのは「隠した項目」の名前だけ（新しい項目が増えても最初は出る）。端末の中（localStorage）に。
-// ロゴは項目に無い＝隠せない（2026-10-05 オーナー裁定「Orime のロゴはマストで入るように」）。以前に隠した人の
+// ロゴは項目に無い＝隠せない（2026-10-05 オーナー裁定「orime のロゴはマストで入るように」）。以前に隠した人の
 // 端末に残る 'logo' は、読むときに捨てる（readHiddenItems が SHARE_ITEM_KEYS に無い名前を落とす）。
 
 // 表紙（2026-11-15 オーナー「本の表紙の画像を入れるかどうかを選択できるように」）: 記録の 1 冊の本だけ。
@@ -880,7 +880,7 @@ export function shareHashtags(kind, now = new Date(), { finishedCount = 0 } = {}
   return [];
 }
 
-// 画像に入れたものだけ（記録の見出し・書名・一文）＋ハッシュタグ（tags・#Orime の前）＋ #Orime ＋ URL。
+// 画像に入れたものだけ（記録の見出し・書名・一文）＋ハッシュタグ（tags・#orime の前）＋ #orime ＋ URL。
 export function buildRecordShareText({ record, quote = '', siteUrl = '', tags = [] }) {
   const parts = [];
   // 書名を隠した（表示する項目）ときは文にも入れない（画像に入れたものだけ）。
@@ -889,7 +889,7 @@ export function buildRecordShareText({ record, quote = '', siteUrl = '', tags = 
   }
   const q = String(quote || '').trim();
   if (q) parts.push(q);
-  const tagLine = [...(Array.isArray(tags) ? tags : []).filter(Boolean), '#Orime'].join(' ');
+  const tagLine = [...(Array.isArray(tags) ? tags : []).filter(Boolean), '#orime'].join(' ');
   parts.push(tagLine);
   const url = String(siteUrl || '').trim();
   if (url) parts.push(url);

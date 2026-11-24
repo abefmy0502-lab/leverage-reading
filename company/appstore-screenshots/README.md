@@ -1,4 +1,4 @@
-# App Store の画像の作り方（Orime）
+# App Store の画像の作り方（orime）
 
 App Store に並ぶ画像（背景＋見出し＋端末の枠＋アプリの画面）を作る道具です。`index.html` が見た目のテンプレートと文言（`SETS`）。
 

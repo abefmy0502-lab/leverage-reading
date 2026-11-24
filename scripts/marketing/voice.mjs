@@ -12,7 +12,7 @@
 //   say（macOS）… 鍵が無いときの試し用（MKT_SAY_VOICE・既定 Reed の日本語）。
 //   tone … 声の代わりに小さな音（時刻と重ね方の確かめ用・どの端末でも）。
 // 出力: 同じフォルダに final-voice.mp4（映像はそのまま・声だけ重ねる）と voice/ の 1 文ずつの音。
-// 鍵はファイルに書かない（シェルの環境変数で渡す）。読みは「Orime」→「オリメ」に直してから送る。
+// 鍵はファイルに書かない（シェルの環境変数で渡す）。読みは「orime」→「オリメ」に直してから送る。
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
 import { join, basename } from 'node:path';

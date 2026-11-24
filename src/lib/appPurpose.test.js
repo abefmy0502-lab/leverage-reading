@@ -1,4 +1,4 @@
-// 🎯 Orime を入れた理由（lib/appPurpose.js）の決まり。
+// 🎯 orime を入れた理由（lib/appPurpose.js）の決まり。
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const session = { access_token: 't', user: { id: 'u1', user_metadata: {} } };

@@ -1,6 +1,6 @@
 // 🖼 X・note・Threads に添える「図」の中身（2026-11-15 オーナー「文字だけだと伝わりにくい・図やイラストを」）。
 //
-// 図は AI に描かせず、決まった型（HTML）に文字を流し込んで撮る＝日本語が崩れない・毎回同じ見た目・必ず Orime のロゴ。
+// 図は AI に描かせず、決まった型（HTML）に文字を流し込んで撮る＝日本語が崩れない・毎回同じ見た目・必ず orime のロゴ。
 // イラスト（人や物の絵）が要るときだけ、運営の道具 ops_image（gpt-image-1）で「文字なし」の絵を作り、図の `art` に URL を入れる。
 // 言葉は CLAUDE.md の GLOSSARY と company/brand-guardrails.md（figures.test.js が使わない言葉を確かめる）。
 //
@@ -28,7 +28,7 @@ export const FIGURES = [
     name: 'launch-flow',
     size: 'x',
     type: 'flow',
-    title: 'Orime でできること',
+    title: 'orime でできること',
     steps: [
       { head: '一言残す', text: '心に響いた一行を、メモに' },
       { head: '相談する', text: '困ったら、自分のメモから答えが返る' },
@@ -39,7 +39,7 @@ export const FIGURES = [
     name: 'note06-header',
     size: 'note',
     type: 'quote',
-    text: 'Orime を作った理由',
+    text: 'orime を作った理由',
     sub: '読書を、受け身から会話へ。',
   },
   {
@@ -55,7 +55,7 @@ export const FIGURES = [
     size: 'note',
     type: 'quote',
     text: '読書を、受け身から会話へ。',
-    sub: '読書アプリ「Orime」を作っている人の記録',
+    sub: '読書アプリ「orime」を作っている人の記録',
   },
   {
     name: 'note04-header',
@@ -76,7 +76,7 @@ export const FIGURES = [
     size: 'noteprofile',
     type: 'brand',
     text: '読書を、受け身から会話へ。',
-    sub: '読書アプリ「Orime」を作っている人の記録',
+    sub: '読書アプリ「orime」を作っている人の記録',
   },
   {
     name: 'free-plan-points',

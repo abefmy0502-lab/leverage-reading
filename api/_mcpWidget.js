@@ -72,5 +72,5 @@ const JS = `
 `;
 
 export function widgetHtml() {
-  return `<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Orime</title><style>${CSS}</style></head><body><div id="root"></div><script>${JS}</script></body></html>`;
+  return `<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>orime</title><style>${CSS}</style></head><body><div id="root"></div><script>${JS}</script></body></html>`;
 }

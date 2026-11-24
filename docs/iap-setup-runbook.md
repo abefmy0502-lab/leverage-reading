@@ -24,20 +24,20 @@
 1. **アプリ** → 左上の **＋** → **新規 App**
 2. 入れる値
    - プラットフォーム: **iOS**
-   - 名前: **Orime - 読んだ本と会話する読書メモ**（2026-10-11 オーナー決定・`company/app-store-listing.md` と同じ・前の値「Orime - 読んだ本が相談相手に」から変えた・`company/app-store-listing.md`。もう作ってあれば「App 情報」の名前を差し替える。ホーム画面のアイコンの下の名前はアプリの設定で Orime のまま）
+   - 名前: **orime - 読んだ本と会話する読書メモ**（2026-10-11 オーナー決定・`company/app-store-listing.md` と同じ・前の値「orime - 読んだ本が相談相手に」から変えた・`company/app-store-listing.md`。もう作ってあれば「App 情報」の名前を差し替える。ホーム画面のアイコンの下の名前はアプリの設定で orime のまま）
    - 主言語: **日本語**
    - バンドル ID: **jp.orime.app**（一覧に無ければ Apple Developer の Identifiers で同じ ID を作り、**In-App Purchase** にチェック）
    - SKU: **orime-ios-001**
    - バンドル ID は 2026-10-10 に `com.leveragereading.app` から **`jp.orime.app`** に変えた（旧名を外に出さない）。Mac の iOS の作業では Xcode → App のターゲット → Signing & Capabilities の **Bundle Identifier** も `jp.orime.app` に（`capacitor.config.json` は変更済み）。通知の鍵を入れるときの `APNS_BUNDLE_ID` も `jp.orime.app`
-   - 暗号化の書類は出さない（Orime の暗号化は HTTPS だけ＝免除）。かわりに Mac で Xcode の Info.plist に `ITSAppUsesNonExemptEncryption` = `NO`（Boolean）を足す（毎回のビルドで聞かれなくなる）。App 情報の「デジタルサービス法」は非トレーダーのまま・「ベトナムゲームライセンス」「規制対象の医療用デバイス」は該当しない
+   - 暗号化の書類は出さない（orime の暗号化は HTTPS だけ＝免除）。かわりに Mac で Xcode の Info.plist に `ITSAppUsesNonExemptEncryption` = `NO`（Boolean）を足す（毎回のビルドで聞かれなくなる）。App 情報の「デジタルサービス法」は非トレーダーのまま・「ベトナムゲームライセンス」「規制対象の医療用デバイス」は該当しない
    - ユーザアクセス: フルアクセス
 3. **作成**
 
 ## C. プラン 2 つ（自動更新サブスクリプション・15 分）
 
-1. 作った Orime → 左の **収益化 → サブスクリプション** → **サブスクリプショングループを作成**
-   - 参照名: **Orime プラン**
-   - グループのローカリゼーション（日本語）: 表示名 **Orime プラン**
+1. 作った orime → 左の **収益化 → サブスクリプション** → **サブスクリプショングループを作成**
+   - 参照名: **orime プラン**
+   - グループのローカリゼーション（日本語）: 表示名 **orime プラン**
 2. グループの中で **＋（作成）** を 2 回
 
 | | 月額 | 年額 |
@@ -89,12 +89,12 @@ RevenueCat が「誰が何を買ったか」を Apple に確かめるための�
 
 ## F. RevenueCat（20 分）
 
-1. https://app.revenuecat.com にログイン（はじめてなら Apple か Google でアカウントを作る）→ **Create project** → 名前 **Orime**
+1. https://app.revenuecat.com にログイン（はじめてなら Apple か Google でアカウントを作る）→ **Create project** → 名前 **orime**
 2. **Apps & providers（アプリ）→ ＋ App Store**
-   - App name: Orime／Bundle ID: **jp.orime.app**
+   - App name: orime／Bundle ID: **jp.orime.app**
    - **In-App Purchase Key**: E の .p8 を上げ、キー ID と発行者 ID を入れる
    - 保存すると、**App Store Server Notifications の URL** が表示される → それをコピー
-3. App Store Connect に戻る: Orime → **アプリ情報 → App Store サーバ通知** → 本番とサンドボックスの両方に、コピーした URL を貼って保存（RevenueCat が購入・解約をすぐ知るため）
+3. App Store Connect に戻る: orime → **アプリ情報 → App Store サーバ通知** → 本番とサンドボックスの両方に、コピーした URL を貼って保存（RevenueCat が購入・解約をすぐ知るため）
 4. RevenueCat → **Product catalog → Products → ＋ / Import**: C と D の 4 つ（orime_monthly・orime_annual・orime_tokens_300・orime_tokens_1000）を取り込む（取り込めないときは A の契約がまだ有効でない）
 5. **Entitlements → ＋**: 識別子 **premium**（名前は自由）→ **orime_monthly と orime_annual だけ**を付ける。**トークンの 2 つは付けない**（付けると、トークンを買っただけで「プラン契約中」になってしまう）
 6. **Offerings → ＋**: 識別子 **default** → 「Current（いま使う）」にする → **Packages**:
@@ -103,7 +103,7 @@ RevenueCat が「誰が何を買ったか」を Apple に確かめるための�
    - トークンの 2 つは Offering に入れなくてよい（アプリが製品 ID で直接読む）
 7. **API keys**（Project settings の中）:
    - **Public app-specific API key**（`appl_…`）をコピー → G の `VITE_REVENUECAT_IOS_KEY`
-   - **Secret API keys → ＋ New**: 名前「Orime Vercel」・**V1**・読み取り → `sk_…` をコピー → G の `REVENUECAT_SECRET_API_KEY`（この画面でしか全部見えない）
+   - **Secret API keys → ＋ New**: 名前「orime Vercel」・**V1**・読み取り → `sk_…` をコピー → G の `REVENUECAT_SECRET_API_KEY`（この画面でしか全部見えない）
 8. **Integrations → Webhooks → ＋**:
    - URL: **https://orime.vercel.app/api/revenuecat-webhook**
    - Authorization header: 自分で作った長い文字列（Mac のターミナルで `openssl rand -hex 32`）→ 同じ文字列を G の `REVENUECAT_WEBHOOK_AUTH` に
@@ -130,7 +130,7 @@ Settings → Environment Variables（Production）:
 
 1. App Store Connect → **ユーザとアクセス → Sandbox（サンドボックス）→ テスター → ＋**: ふだん使っていないメール（例 `自分+sandbox1@gmail.com`）・国は日本
 2. iPhone の **設定 → App Store → サンドボックスアカウント** でそのアカウントにサインイン
-3. TestFlight の Orime で「7 日間無料で試す」→ 購入の画面に **[Sandbox]** と出ればテストの購入（お金はかからない）
+3. TestFlight の orime で「7 日間無料で試す」→ 購入の画面に **[Sandbox]** と出ればテストの購入（お金はかからない）
 4. 買ったあとすぐに相談や読書計画シートが使えれば、課金はつながっている
 
 ---

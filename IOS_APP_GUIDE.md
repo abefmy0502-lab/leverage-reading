@@ -1,4 +1,4 @@
-# 📱 Orime iOS アプリ ビルド & 申請ガイド（Mac作業用）
+# 📱 orime iOS アプリ ビルド & 申請ガイド（Mac作業用）
 
 > ⚠️ 2026-10-24: このガイドは古い部分があります。**申請の手順は `company/app-store-submission.md`（全体）と `docs/iap-setup-runbook.md`（課金）を正**とし、こちらと食い違ったらそちらに従ってください（Xcode 26 が要る・`npx cap add ios` は最初の 1 回・App 名・Review Notes など）。
 
@@ -29,7 +29,7 @@ npx cap sync ios            # dist + プラグインを iOS へ同期（毎回�
 npx cap open ios            # Xcode が開く
 ```
 
-- `capacitor.config.json`：appId `jp.orime.app` / appName **Orime** / webDir `dist`
+- `capacitor.config.json`：appId `jp.orime.app` / appName **orime** / webDir `dist`
 - Xcode で **Signing & Capabilities** → Team を選択、Bundle ID を `jp.orime.app` に一致
 - **In-App Purchase** capability を追加
 
@@ -48,7 +48,7 @@ npx cap open ios            # Xcode が開く
 
 ## 4. App Store Connect 商品登録
 
-- [ ] サブスクリプショングループを作成（例: `Orime Pro`）
+- [ ] サブスクリプショングループを作成（例: `orime Pro`）
 - [ ] `orime_monthly`（¥1,480）/ `orime_annual`（¥12,800）を作成・**価格・自動更新・無料トライアルなし**
 - [ ] 審査用スクショ・説明（自動更新の条件 = **Apple 3.1.2 必須開示**。アプリ内ペイウォールにも明記済み）
 - [ ] カテゴリ：仕事効率化（プライマリ）/ ブック（セカンダリ）

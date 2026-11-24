@@ -20,7 +20,7 @@
 
 ## 2. snapshotから「持ってくる」iOS土台（価格変更は除外）
 `main-ios-snapshot-20260620` の `145e6ce` から、以下**だけ**を現main上に再導入（¥990差分は取り込まない）：
-- [ ] `capacitor.config.json`（appId `jp.orime.app`・webDir `dist`・iOS contentInset/Keyboard/SplashScreen）。**appName等は要ブランド確認（Orime表記）**。
+- [ ] `capacitor.config.json`（appId `jp.orime.app`・webDir `dist`・iOS contentInset/Keyboard/SplashScreen）。**appName等は要ブランド確認（orime表記）**。
 - [ ] `src/lib/native.js`（Capacitor検出・ネイティブ初期化のユーティリティ・44行）
 - [ ] `src/main.jsx` のネイティブ初期化呼び出し（5行）— 現mainのmain.jsxへマージ
 - [ ] `src/hooks/useHaptic.js` のネイティブ・ハプティクス分岐（現main版と差分マージ。Web挙動は壊さない）
@@ -44,7 +44,7 @@
 - [ ] **Apple Developer Program**（申込済・アクティベート確認）／App Store Connectで税・口座・**Small Business Program(15%)申請**。
 - [ ] **RevenueCatアカウント**＋App Store連携＋商品（¥1,480/¥12,800）＋Webhook（`/api/revenuecat-webhook`・`REVENUECAT_WEBHOOK_AUTH`強固な値）。
 - [ ] **ネイティブビルド環境**（Mac＋Xcode）＝この実行環境では不可。実機/Xcodeが要る工程（`npx cap add ios` / `cap sync` / 署名 / TestFlight / 審査提出）はオーナー環境で。
-- [ ] アイコン・スプラッシュ・App名（**Orime**）・スクショ（`company/aso-store-listing.md`に素材あり）。
+- [ ] アイコン・スプラッシュ・App名（**orime**）・スクショ（`company/aso-store-listing.md`に素材あり）。
 
 ## 6. 推奨順序
 1. **Web版を実販売軌道に乗せる**（env/Stripe/SQL＝`launch-readiness-runbook.md`）。← 最優先・収益直結

@@ -7,7 +7,7 @@
 //                        文の切れ目・次の文のぶら下がり・短い最後の行）がいちばん小さいものを選ぶ
 //   - fitQuote         … 決められた枠に収まる文字サイズを選ぶ（組み方が悪ければ 70% まで小さくしてみる）
 //   - orderLineCandidates … 「どの一文にする？」の並び（ページつき → 新しい順）
-//   - buildShareText   … 共有の文（『書名』より＋一文＋#Orime＋URL。画像に入れた文だけ）
+//   - buildShareText   … 共有の文（『書名』より＋一文＋#orime＋URL。画像に入れた文だけ）
 //   - coverTone        … 表紙の画素から、白い文字が読める落ち着いた地の色を作る
 //   - photoPlacement / panView / zoomView … 写真を枠いっぱいに敷く位置（ずらす・拡大しても枠からはみ出さない）
 //   - scrimAlpha       … 写真の明るさから、白い文字が読める暗さの幕（黒の透明度）を決める
@@ -353,8 +353,8 @@ export function buildShareText({ title, line, siteUrl, tags = [] }) {
   if (t) parts.push(`『${t}』より`);
   const l = String(line || '').trim();
   if (l) parts.push(l);
-  // 今月・今年の一文は「#10月読了本」などを #Orime の前に（画像には入れない・2026-10-08）。
-  parts.push([...(Array.isArray(tags) ? tags : []).filter(Boolean), '#Orime'].join(' '));
+  // 今月・今年の一文は「#10月読了本」などを #orime の前に（画像には入れない・2026-10-08）。
+  parts.push([...(Array.isArray(tags) ? tags : []).filter(Boolean), '#orime'].join(' '));
   const url = String(siteUrl || '').trim();
   if (url) parts.push(url);
   return parts.join('\n');

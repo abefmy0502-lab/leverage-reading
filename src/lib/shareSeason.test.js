@@ -212,14 +212,14 @@ describe('共有の文に添えるハッシュタグ（画像には入れない�
     expect(shareHashtags('year', d(2026, 12, 3))).toEqual(['#2026年の読書']);
     expect(shareHashtags(null)).toEqual([]);
   });
-  it('#Orime の前に同じ行で入る', () => {
+  it('#orime の前に同じ行で入る', () => {
     const rec = { title: '11月の読書', titleIsBook: false, kicker: '2026' };
     expect(buildRecordShareText({ record: rec, siteUrl: 'https://orime.vercel.app', tags: ['#11月読了本'] }))
-      .toBe('11月の読書\n#11月読了本 #Orime\nhttps://orime.vercel.app');
+      .toBe('11月の読書\n#11月読了本 #orime\nhttps://orime.vercel.app');
     expect(buildShareText({ title: 'イシューからはじめよ', line: '問い', tags: ['#2026年の読書'] }))
-      .toBe('『イシューからはじめよ』より\n問い\n#2026年の読書 #Orime');
+      .toBe('『イシューからはじめよ』より\n問い\n#2026年の読書 #orime');
     // 渡さなければ今までどおり
-    expect(buildRecordShareText({ record: rec })).toBe('11月の読書\n#Orime');
+    expect(buildRecordShareText({ record: rec })).toBe('11月の読書\n#orime');
   });
 });
 

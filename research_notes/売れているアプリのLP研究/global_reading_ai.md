@@ -51,9 +51,9 @@ AI-native tools (Granola, Mem) are the exception. They put a category noun in th
 - **Two headline families.**
   - Reading and consumption apps (Readwise, Blinkist, Headway, StoryGraph) promise an outcome or identity: get more out of reading, become interesting, never waste time on the wrong book.
   - AI-knowledge tools (Granola, Mem, Glasp, NotebookLM) name a new category, then differentiate.
-  - Orime sits between the two families. "Your own advisor that grows the more you read" is closest to the Readwise pattern: an outcome headline with the mechanism in the sub-line.
+  - orime sits between the two families. "Your own advisor that grows the more you read" is closest to the Readwise pattern: an outcome headline with the mechanism in the sub-line.
 - **Short and concrete beats clever.** The strongest examples contain either a number ("15 minutes"), a persona ("people in back-to-back meetings", "power readers"), or a vivid situation ("the most interesting person in the room").
-- **Defining by absence works.** Granola's "Without a meeting bot" turns a privacy or awkwardness objection into the headline. Orime could do the same, for example "答えはあなたのメモから — ネットの一般論ではなく" ("Answers come from your notes, not generic advice from the internet").
+- **Defining by absence works.** Granola's "Without a meeting bot" turns a privacy or awkwardness objection into the headline. orime could do the same, for example "答えはあなたのメモから — ネットの一般論ではなく" ("Answers come from your notes, not generic advice from the internet").
 
 ### Gaps
 - Exact current (2026) hero and sub-copy for blinkist.com, makeheadway.com (main domain), shortform.com, speechify.com, mem.ai, notebooklm.google and rosebud.app. Live pages could not be fetched.
@@ -82,7 +82,7 @@ Placement and stickiness could not be observed.
 - **Two CTA strategies.**
   - Low-commitment value first: Shortform's free guide, Readwise's 30 days with no card.
   - A quiz funnel: Headway uses a personalization quiz to build investment before showing the price. This is the dominant pattern for mobile subscription web funnels.
-- For Orime (iOS-first), Blinkist's "Open the app to start your free days" mirrors the constraint that trials must happen in-app. The LP CTA should send users to the App Store with the free framing ("無料プランで始める", start on the free plan).
+- For orime (iOS-first), Blinkist's "Open the app to start your free days" mirrors the constraint that trials must happen in-app. The LP CTA should send users to the App Store with the free framing ("無料プランで始める", start on the free plan).
 
 ### Gaps
 - Whether any of these pages uses a sticky header or bottom CTA, and how many CTAs per page. Not observable without fetching the live pages.
@@ -110,11 +110,11 @@ AI tools rely more on credible-persona testimonials and investor or press names.
 - **Rosebud.** Claims it was "built with therapists", drawing on CBT, ACT and IFS, and that therapists increasingly recommend it. It uses funding news ("Raises $6M") as credibility — [Rosebud therapy page](https://www.rosebud.app/therapy-and-coaching); [Rosebud blog](https://www.rosebud.app/blog/rosebud-raises-6m-to-expand-the-worlds-leading-ai-journal).
 
 ### Inferences
-- **Large numbers are a scale-stage tactic.** A newly launched app such as Orime cannot use them honestly. The available substitutes, with a precedent for each:
+- **Large numbers are a scale-stage tactic.** A newly launched app such as orime cannot use them honestly. The available substitutes, with a precedent for each:
   - Expert or creator endorsements (Granola's referral variants).
   - A domain-authority story (Rosebud's "built with therapists", Shortform's "PhDs").
   - The App Store rating once it exists.
-- **Numbers conflict across a single brand's own pages** (Speechify 4.7 vs 4.8, Blinkist 35M, 40M and 44M). Any number Orime shows should come from one source and be updated.
+- **Numbers conflict across a single brand's own pages** (Speechify 4.7 vs 4.8, Blinkist 35M, 40M and 44M). Any number orime shows should come from one source and be updated.
 
 ### Gaps
 - Specific named testimonials (person plus quote) on any of these LPs. None surfaced in search snippets.
@@ -153,7 +153,7 @@ Price lives on a separate pricing page or in the in-app paywall. Readwise and Sh
   - The hero states the free part ("30 days, no card" or "free guide").
   - The pricing page shows annual as a per-month equivalent next to monthly.
   - Reminder and cancellation transparency is used as a trust lever.
-- **Orime fit.** Orime already has a "forever free plan" and a 7-day free trial, and Japanese law forbids fake reference prices (二重価格). Two adaptations follow:
+- **orime fit.** orime already has a "forever free plan" and a 7-day free trial, and Japanese law forbids fake reference prices (二重価格). Two adaptations follow:
   - Show monthly ¥1,480 and annual ¥12,800 with "月あたり約¥1,066" (about ¥1,066 per month).
   - Mirror the Blinkist timeline: "今日：すべて使える → 5日目：お知らせ → 8日目から課金" (today: full access, day 5: reminder, charged from day 8). Before adopting it, check whether App Store trials allow a reliable day-5 reminder (local notification).
 - **The evidence on the timeline is mixed.** Treat it as a hypothesis to A/B test, not a guaranteed win.
@@ -174,7 +174,7 @@ Little direct evidence was available. The confirmed points: StoryGraph uses a wa
 - **Headway.** A design agency (Ozero) published a case study of a web revamp for Headway (not read in detail) — [Ozero design: Headway](https://www.ozero.design/works/headway).
 
 ### Inferences
-- Book apps use real book covers as instant category recognition, which gives visual credibility at zero cost. Orime's LP can show the user's own covers inside a consult answer.
+- Book apps use real book covers as instant category recognition, which gives visual credibility at zero cost. orime's LP can show the user's own covers inside a consult answer.
 
 ### Gaps
 - Whether Blinkist, Headway, Granola, Mem or NotebookLM use video in the hero. Not verifiable here.
@@ -193,7 +193,7 @@ Only fragments were found:
 - **Blinkist.** Publishes "Blinkist: Your Questions Answered" as a long-form FAQ article — [Blinkist Magazine](https://www.blinkist.com/magazine/posts/blinkist-questions-answered).
 
 ### Inferences
-- Subscription apps move objection-handling (legitimacy, cancelling, cost) into dedicated SEO pages and FAQs. Orime's FAQ should cover cancellation, what is free forever and data handling.
+- Subscription apps move objection-handling (legitimacy, cancelling, cost) into dedicated SEO pages and FAQs. orime's FAQ should cover cancellation, what is free forever and data handling.
 
 ### Gaps
 - Full section order and length for each LP. Not observable without page access.
@@ -220,12 +220,12 @@ Rosebud uses an explicit statement set: encrypted in transit and at rest, anonym
 - **Reflect.** Trust through openness: "open-source", "local Markdown files" — [reflect.app](https://reflect.app/).
 
 ### Inferences
-- Orime's memos are personal reflections, which makes them closer to a journal than to summaries. A compact Rosebud-style trust block fits Orime's actual implementation:
+- orime's memos are personal reflections, which makes them closer to a journal than to summaries. A compact Rosebud-style trust block fits orime's actual implementation:
   - Not used to train AI.
   - Only sent when you ask.
   - Export and delete anytime.
   - Photos stay on the device for sharing.
-- Before copying any claim, verify it against Orime's privacy policy and AI processors list.
+- Before copying any claim, verify it against orime's privacy policy and AI processors list.
 
 ### Gaps
 - Privacy and AI statements on Readwise, Mem and NotebookLM LPs. Not retrieved.
@@ -252,8 +252,8 @@ There is a clear split:
 - **Reflect** went from "Think better with Reflect" (headline) to "AI native" (positioning copy), keeping AI in the sub-copy — [Reflect blog](https://reflect.app/blog).
 
 ### Inferences
-- **Orime's closest analogues are Glasp ("AI clone from your highlights") and Mem ("thought partner").** Both describe "AI that answers from your own notes".
-- **Recommendation for Orime:** lead with the outcome in human terms, e.g. "読むほど、あなただけの相談相手が育つ" ("the more you read, the more your own advisor grows"). Introduce "AI" in the sub-line together with the differentiator: "あなたのメモを根拠に答える" ("answers based on your notes"), and "ネットの一般論ではなく" ("not generic advice from the internet"). This follows NotebookLM and Readwise, which avoid generic "AI" headlines that blend into a crowded category, while keeping Granola's "defined by absence" sharpness.
+- **orime's closest analogues are Glasp ("AI clone from your highlights") and Mem ("thought partner").** Both describe "AI that answers from your own notes".
+- **Recommendation for orime:** lead with the outcome in human terms, e.g. "読むほど、あなただけの相談相手が育つ" ("the more you read, the more your own advisor grows"). Introduce "AI" in the sub-line together with the differentiator: "あなたのメモを根拠に答える" ("answers based on your notes"), and "ネットの一般論ではなく" ("not generic advice from the internet"). This follows NotebookLM and Readwise, which avoid generic "AI" headlines that blend into a crowded category, while keeping Granola's "defined by absence" sharpness.
 
 ### Gaps
 - Live 2026 hero copy for Mem and NotebookLM web LPs, and whether Readwise now advertises its "Chat with highlights" AI features on the homepage. Unverified.

@@ -153,25 +153,25 @@ export default function McpConnectSheet({ onClose }) {
               {howTo === 'claude' && (
                 <ol style={steps}>
                   <li>{withPhraseBreaks('Claude の設定の「コネクタ」で、いちばん下の「カスタムコネクタを追加」を押す')}</li>
-                  <li>{withPhraseBreaks('名前に「Orime」、URL に上の URL を貼る')}</li>
+                  <li>{withPhraseBreaks('名前に「orime」、URL に上の URL を貼る')}</li>
                   <li>{withPhraseBreaks('「認証」は「サインインなし」を選ぶ。ほかの欄はそのまま')}</li>
-                  <li>{withPhraseBreaks('「追加」のあと、Orime の「連携させる」を押す')}</li>
-                  <li>{withPhraseBreaks('新しい会話で Orime をオンにして「最近のメモを見せて」と聞く。本やメモはカードで出ます')}</li>
+                  <li>{withPhraseBreaks('「追加」のあと、orime の「連携させる」を押す')}</li>
+                  <li>{withPhraseBreaks('新しい会話で orime をオンにして「最近のメモを見せて」と聞く。本やメモはカードで出ます')}</li>
                 </ol>
               )}
               {howTo === 'chatgpt' && (
                 <ol style={steps}>
                   <li>{withPhraseBreaks('ChatGPT の設定の「アプリとコネクタ」の「詳細設定」で、「開発者モード」をオンにする')}</li>
-                  <li>{withPhraseBreaks('「コネクタ」の「作成」で、名前に「Orime」、MCP サーバーの URL に上の URL を貼る')}</li>
+                  <li>{withPhraseBreaks('「コネクタ」の「作成」で、名前に「orime」、MCP サーバーの URL に上の URL を貼る')}</li>
                   <li>{withPhraseBreaks('「認証」は「認証なし」を選んで「作成」')}</li>
-                  <li>{withPhraseBreaks('新しい会話で「＋」から Orime を選んで「読了した本を一覧して」と聞く。本やメモはカードで出ます')}</li>
+                  <li>{withPhraseBreaks('新しい会話で「＋」から orime を選んで「読了した本を一覧して」と聞く。本やメモはカードで出ます')}</li>
                 </ol>
               )}
               {howTo === 'code' && (
                 <>
                   <ol style={steps}>
                     <li>{withPhraseBreaks('ターミナル（Claude Code を起動する前の画面）に上のコマンドを貼って Enter')}</li>
-                    <li>{withPhraseBreaks('「Added HTTP MCP server orime」と出たら、Claude Code を起動して「Orime の最近のメモを見せて」')}</li>
+                    <li>{withPhraseBreaks('「Added HTTP MCP server orime」と出たら、Claude Code を起動して「orime の最近のメモを見せて」')}</li>
                   </ol>
                   <details>
                     {/* 畳む見出し（DESIGN §5）: 高さ 48・15/600・右端に ChevronDown */}

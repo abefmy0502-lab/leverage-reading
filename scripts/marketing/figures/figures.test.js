@@ -10,7 +10,7 @@ describe('figures', () => {
     const names = FIGURES.map((f) => f.name);
     expect(new Set(names).size).toBe(names.length);
   });
-  it('どの図にも Orime のロゴが入る', () => {
+  it('どの図にも orime のロゴが入る', () => {
     for (const f of FIGURES) {
       const h = html(f);
       expect(h).toContain('class="brand"');

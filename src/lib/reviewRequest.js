@@ -1,7 +1,7 @@
 // ⭐️ App Store レビュー依頼 — 発火点は「相談の答えから行動を追加した直後」（はじめての 1 回だけ・2026-10-08・
 // マーケ戦略 §6-5。呼ぶのは MyBookBrain.jsx の onConsultActionAdded）。
 //
-// なぜこの瞬間か: Orime のいちばんの価値（自分のメモが相談相手になり、やることが決まる）を体感した直後だから。
+// なぜこの瞬間か: orime のいちばんの価値（自分のメモが相談相手になり、やることが決まる）を体感した直後だから。
 // 以前（2026-07-19〜10-07）は思い出しカードの「覚えた」の直後だったが、思い出しカードは手段で主役ではない
 // （CLAUDE.md「一番の価値」）。初回起動時・作業の途中・エラー直後に聞くのは体験を壊すだけでレビューも荒れる。
 // レビューの見返り（トークンなど）は付けない（App Store の規約）。
@@ -77,7 +77,7 @@ export function getWriteReviewUrl() {
 export function askReviewToast() {
   return {
     type: 'info',
-    message: '⭐️ Orime は役に立ちそうですか？よければ App Store のレビューで教えてください。',
+    message: '⭐️ orime は役に立ちそうですか？よければ App Store のレビューで教えてください。',
     duration: 9000,
     action: {
       label: 'レビューを書く',

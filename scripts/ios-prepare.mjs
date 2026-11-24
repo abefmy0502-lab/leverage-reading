@@ -149,7 +149,7 @@ export function patchPlist(plist) {
     out = out.replace(/\n?[ \t]*<key>UIMainStoryboardFile<\/key>\s*<string>[^<]*<\/string>/, '');
     todo.push('UIMainStoryboardFile を外す');
   }
-  // 言語: en → ja（App Store の「主言語」と同じ・ホーム画面の名前 Orime は変えない）
+  // 言語: en → ja（App Store の「主言語」と同じ・ホーム画面の名前 orime は変えない）
   if (/<key>CFBundleDevelopmentRegion<\/key>\s*<string>en<\/string>/.test(out)) {
     out = out.replace(/(<key>CFBundleDevelopmentRegion<\/key>\s*<string>)en(<\/string>)/, '$1ja$2');
     todo.push('CFBundleDevelopmentRegion=ja');

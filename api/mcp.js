@@ -48,7 +48,7 @@ export function tokenOf(req) {
 
 function unauthorized(res) {
   res.setHeader('WWW-Authenticate', 'Bearer realm="orime", error="invalid_token"');
-  return res.status(401).json({ jsonrpc: '2.0', id: null, error: { code: -32001, message: '接続キーが無いか、取り消されています。Orime の設定 →「AI と連携」でキーを作り直してください。' } });
+  return res.status(401).json({ jsonrpc: '2.0', id: null, error: { code: -32001, message: '接続キーが無いか、取り消されています。orime の設定 →「AI と連携」でキーを作り直してください。' } });
 }
 
 export default async function handler(req, res) {

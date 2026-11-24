@@ -9,7 +9,7 @@ build 5 で直したこと（返事の文の根拠）:
 
 ---ここから---
 
-あなたは Orime（読書メモの iPhone アプリ）の公開作業を手伝います。私の Chrome の App Store Connect で、次の作業を順に進めてください。
+あなたは orime（読書メモの iPhone アプリ）の公開作業を手伝います。私の Chrome の App Store Connect で、次の作業を順に進めてください。
 
 ## 守ること（いちばん大事）
 - パスワード・2 段階認証のコード・API キー・秘密鍵は、入力も表示もしないでください。ログインや確認コードを求められたら、そこで止めて私に頼んでください。
@@ -20,7 +20,7 @@ build 5 で直したこと（返事の文の根拠）:
 - 作業ごとに、何をしたか・最後の画面の状態を 1〜3 行で報告してください。
 
 ## 作業 1：build 5 を版 1.0.0 に付ける
-1. https://appstoreconnect.apple.com →「アプリ」→「Orime」→ 左の「iOS アプリ」の **1.0.0** を開きます。
+1. https://appstoreconnect.apple.com →「アプリ」→「orime」→ 左の「iOS アプリ」の **1.0.0** を開きます。
 2. 下のほうの「ビルド」の欄を見ます。
    - いまのビルドが **1.0.0 (5)** なら、何もせず作業 2 へ。
    - **1.0.0 (4)** なら、その横の「−」（削除）で外し、「ビルドを追加」（＋）から **1.0.0 (5)** を選んで「完了」を押します。
@@ -45,7 +45,7 @@ Thank you for your review and the crash logs. Build 1.0.0 (5) fixes the issues:
 The same demo account provided in the App Review Information can be used to sign in.
 
 Best regards,
-Orime
+orime
 ```
 
 ## 作業 3：再提出の直前まで進める

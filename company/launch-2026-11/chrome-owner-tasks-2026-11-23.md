@@ -6,7 +6,7 @@
 
 ---ここから---
 
-あなたは Orime（読書メモのアプリ）の公開作業を手伝います。今日やることは 3 つです。順番に進めて、最後にまとめて報告してください。
+あなたは orime（読書メモのアプリ）の公開作業を手伝います。今日やることは 3 つです。順番に進めて、最後にまとめて報告してください。
 
 ## 守ること
 - パスワード・API キー・秘密鍵・確認コードは、入力も表示もしないでください。ログインや 2 段階の確認を求められたら、止めて私に頼んでください。
@@ -52,7 +52,7 @@ on conflict do nothing;
 
 ## 作業 3：Vercel の VITE_FOUNDING_OFFER_END を、Secret でない形で作り直す（約 3 分）
 理由: この値が Secret（Sensitive）になっていると、GitHub からの本番の出し直しで値が読めず、食い違いのもとになる。値は日付で、秘密ではない。
-1. https://vercel.com → Orime のプロジェクト（orime）→ Settings → Environment Variables を開きます。
+1. https://vercel.com → orime のプロジェクト（orime）→ Settings → Environment Variables を開きます。
 2. `VITE_FOUNDING_OFFER_END` を探し、今の設定（Sensitive かどうか・どの環境に入っているか）を控えます。
 3. Sensitive でなく、値が `2027-01-10` なら、何もせずに作業 3 は終わりです。
 4. Sensitive なら：同じ名前の変数を削除し、Add New で作り直します。

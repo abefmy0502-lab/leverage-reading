@@ -1,6 +1,6 @@
 {
   "appId": "jp.orime.app",
-  "appName": "Orime",
+  "appName": "orime",
   "webDir": "dist",
   "ios": {
     "contentInset": "never"

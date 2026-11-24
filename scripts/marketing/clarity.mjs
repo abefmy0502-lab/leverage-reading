@@ -1,14 +1,14 @@
-// 🧭 初めて Orime を知る人にも分かる動画の決まり（2026-11-22 オーナー「動画は初めてアプリのことを知る人でも内容がわかるように」）。
+// 🧭 初めて orime を知る人にも分かる動画の決まり（2026-11-22 オーナー「動画は初めてアプリのことを知る人でも内容がわかるように」）。
 //
 // どの動画も、この順で伝える（テストと声づくりの前に clarityProblems で確かめる）:
-//   1. 困っていること（冒頭・Orime の名前から始めない）
-//   2. Orime とは何か（どの動画も同じ一言＝DEFINITION を入れる）
+//   1. 困っていること（冒頭・orime の名前から始めない）
+//   2. orime とは何か（どの動画も同じ一言＝DEFINITION を入れる）
 //   3. 使い方（押す・書くを、ふつうの言葉で）
 //   4. 「これからは、…」（どう変わるか）
 //   5. 「無料プランで、今日から試せます」（いちばん最後の文）
 // アプリの中でしか通じない言葉（JARGON）は使わない。使いたいときは、ふつうの言葉に言い換える。
 
-export const DEFINITION = 'Orime は、読んだ本のメモから答えてくれる読書アプリ';
+export const DEFINITION = 'orime は、読んだ本のメモから答えてくれる読書アプリ';
 
 // 初めての人に通じない言葉 → 言い換えの例
 export const JARGON = {
@@ -38,10 +38,10 @@ export function clarityProblems(lines, { checkLength = true } = {}) {
   const out = [];
   const flat = lines.map((l) => String(l || '').replace(/\n/g, '')).filter(Boolean);
   if (!flat.length) return ['文がありません'];
-  if (/^(読書メモのアプリ\s*)?Orime/.test(flat[0])) out.push('最初の文は困っていることから（Orime の名前から始めない）');
+  if (/^(読書メモのアプリ\s*)?orime/.test(flat[0])) out.push('最初の文は困っていることから（orime の名前から始めない）');
   const defAt = flat.findIndex((l) => l.includes(DEFINITION) || l.replace(/、/g, '').includes(DEFINITION.replace(/、/g, '')));
-  if (defAt < 0) out.push(`「${DEFINITION}」が無い（Orime とは何かを、どの動画も同じ一言で）`);
-  else if (defAt > 3) out.push('Orime とは何かは、困っていることのすぐ後（4 つめの文まで）に');
+  if (defAt < 0) out.push(`「${DEFINITION}」が無い（orime とは何かを、どの動画も同じ一言で）`);
+  else if (defAt > 3) out.push('orime とは何かは、困っていることのすぐ後（4 つめの文まで）に');
   const nextAt = flat.findIndex((l) => l.startsWith('これからは'));
   if (nextAt < 0) out.push('「これからは、…」（どう変わるか）が無い');
   else if (defAt >= 0 && nextAt < defAt) out.push('「これからは」は使い方の後に');

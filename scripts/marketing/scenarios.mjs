@@ -105,7 +105,7 @@ export const SCENARIOS = [
     problem: 'problemForget',
     url: '/',
     steps: [
-      // 2026-11-22 オーナー「この動画だけで何を伝えたいのか分かるように、丁寧に」: 悩み → Orime とは → 使い方 → 変化 → 無料で試せる
+      // 2026-11-22 オーナー「この動画だけで何を伝えたいのか分かるように、丁寧に」: 悩み → orime とは → 使い方 → 変化 → 無料で試せる
       { say: 'はじめて部下ができて、報告がいつも遅い', hold: 900, intro: true },
       { say: '前に読んだ本に、ヒントがあったはずなのに', hold: 900, intro: true },
       { say: DEFINITION, hold: 1400 },

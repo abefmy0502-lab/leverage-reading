@@ -50,9 +50,9 @@ export function deniedWhich(source, err) {
 //   設定を開けるとき   … 短い文（nativePhotoDeniedShort）＋「設定を開く」
 export function nativePhotoDeniedMessage(source, err) {
   const which = deniedWhich(source, err);
-  if (which === 'camera') return 'カメラを使えません。設定 → Orime で、カメラをオンにしてください。';
-  if (which === 'album') return '写真を使えません。設定 → Orime で、写真へのアクセスを許可してください。';
-  return 'カメラか写真を使えません。設定 → Orime で許可してください。';
+  if (which === 'camera') return 'カメラを使えません。設定 → orime で、カメラをオンにしてください。';
+  if (which === 'album') return '写真を使えません。設定 → orime で、写真へのアクセスを許可してください。';
+  return 'カメラか写真を使えません。設定 → orime で許可してください。';
 }
 export function nativePhotoDeniedShort(which) {
   if (which === 'camera') return 'カメラの使用が許可されていません。';

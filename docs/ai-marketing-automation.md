@@ -20,7 +20,7 @@
 | 縦の動画（15〜40 秒） | `npm run mkt:record`（Playwright＋ffmpeg） | `marketing-out/videos/<日付>/<台本>/final.mp4`・`captions.srt`・`cover.jpg` |
 | 録画を mp4 に仕上げ直す（`--no-finish` で録ったとき・`meta.cuts` で途中を切ったとき） | `npm run mkt:finish -- marketing-out/videos/<日付>/<台本>` | 同じフォルダの `final.mp4`・`captions.srt`・`cover.jpg` を作り直す |
 | 動くイラストの縦の動画（新しい読書のあり方を伝える回・画面は映さない） | `npm run mkt:explainer`（台本は `scripts/marketing/explainer/reels.mjs`・線の絵は `art.mjs`・2026-10-16 オーナーの見本「太字の箱＋1 2 3＋線の絵が描かれていく」） | `marketing-out/videos/<日付>/<台本>/final.mp4`・`cover.jpg`・`post.txt`（説明欄の下書き） |
-| X・note・Threads に添える図（これまで→これから・流れ・一文・並べる・右下に必ず Orime のロゴ・2026-11-15） | `npm run mkt:figures`（中身は `scripts/marketing/figures/figures.mjs`・`-- <名前>` で一部だけ・`-- --check` で言葉だけ確かめる。人や物の絵は運営の道具 `ops_image` で文字なしに作り、図の `art` に入れる） | `marketing-out/figures/<名前>.png`（X 1600×900・note 1280×670・Instagram 1080×1080） |
+| X・note・Threads に添える図（これまで→これから・流れ・一文・並べる・右下に必ず orime のロゴ・2026-11-15） | `npm run mkt:figures`（中身は `scripts/marketing/figures/figures.mjs`・`-- <名前>` で一部だけ・`-- --check` で言葉だけ確かめる。人や物の絵は運営の道具 `ops_image` で文字なしに作り、図の `art` に入れる） | `marketing-out/figures/<名前>.png`（X 1600×900・note 1280×670・Instagram 1080×1080） |
 | 文（X・説明欄・ナレーション・note の構成） | `npm run mkt:drafts` → Claude Code | `marketing-out/drafts/<日付>/prompt.md`（＋鍵があれば `drafts.md`） |
 | 縦動画を声入りまで 1 回で作る（1 週目の 7 本＝画面 4・概念 3・2026-11-22） | `npm run mkt:videos`（`-- shelf-scan` で名前で絞る・`-- --say` で鍵なしの試し・中で mkt:voice → お試しモードの録画 → 声を重ねる） | `marketing-out/videos/<日付>/<台本>/final-voice.mp4`（鍵が無ければ `final.mp4`） |
 | 縦動画に声（ナレーション）を重ねる（落ち着いた男性の声・字幕と同じ文と時刻・2026-11-22） | `npm run mkt:voice -- <動画のフォルダ>`（`--engine say` で鍵なしの試し・説明欄に「ナレーションは合成音声です」） | 同じフォルダの `final-voice.mp4` |
@@ -65,7 +65,7 @@
 
 ### 1-5. ステマ規制（景品表示法・2023-10-01 から）
 - 事業者が関わった表示なのに、広告と分からないものは違反（令和 5 年内閣府告示第 19 号）。[解説（data-max）](https://data-max.co.jp/article/62920) / 原文は消費者庁のページで**確かめてから**。
-- Orime のアカウントの投稿は運営者の投稿だと分かるように（プロフィールに「Orime の開発者（個人）」）。
+- orime のアカウントの投稿は運営者の投稿だと分かるように（プロフィールに「orime の開発者（個人）」）。
 - **協業・オファーコードを渡した相手**には、投稿の最初に「PR」を書いてもらう（「#提供」を足してもよい）（brand-guardrails 2・`partner-outreach.md`）。知り合いに頼んで印なしで紹介してもらうのもだめ。
 
 ### 1-6. 自動で投稿しない
@@ -165,7 +165,7 @@ npm run mkt:record -- --file my-scenarios.json  # JSON の台本を足す
 - 足したら 1 回録って、`cover.jpg` と mp4 を見る。`npx vitest run scripts/marketing` が台本の形と言い方を確かめる。
 
 ### 4-4. 仕組み（直すとき）
-- 1080×1920 の「舞台」のページの中に、iPhone の幅（390×693）のアプリを置いて 2.1 倍にする（文字がくっきり・見た目は本物と同じ）。上の帯に字幕、最初の 2 秒は題、下に Orime のロゴ。色と書体は `src/styles/tokens.css`。
+- 1080×1920 の「舞台」のページの中に、iPhone の幅（390×693）のアプリを置いて 2.1 倍にする（文字がくっきり・見た目は本物と同じ）。上の帯に字幕、最初の 2 秒は題、下に orime のロゴ。色と書体は `src/styles/tokens.css`。
 - 録画の間だけ、アプリの中の「（お試しモードの応答です…）」を隠し、著者名（`AUTHOR_REDACT`・全部の台本）と台本の `redact` の文字を置きかえる（アプリのコードは変えない）。置きかえは画面の文字・表紙の絵（SVG）・写真で共有の画像（canvas の文字）の全部に効く。
 - 画面の下にはいつも小さく「画面は見本です。実際の答えは、あなたのメモによって変わります。」（`notes.mjs` の `SAMPLE_NOTE`・`--plain` のときは入らない）。
 - 時間の経過は `fastForward`（アプリの時計を進める）で作る。集中モードの 30 分は一瞬で終わる。`goto`（別のお試しの場面に切り替え）は裏で読み込んでから差し替えるので白い画面は映らないが、読み込みの間は前の画面のまま待つ。

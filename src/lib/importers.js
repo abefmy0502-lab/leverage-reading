@@ -77,7 +77,7 @@ const toIsoTimestamp = (v) => {
   return t ? `${d}T${t[1].padStart(2, '0')}:${t[2]}:${t[3] || '00'}+09:00` : `${d}T12:00:00+09:00`;
 };
 
-// ブクログの読書状況 → Orime の状態
+// ブクログの読書状況 → orime の状態
 export function mapStatus(v) {
   const s = String(v || '');
   if (/読み終|読了|読んだ|finished|read$/i.test(s)) return 'done';
@@ -252,7 +252,7 @@ export function asinToIsbn13(v) {
   return core + ((10 - (sum % 10)) % 10);
 }
 
-// 読書メーターの棚（URL・ページの題・ファイル名）→ Orime の状態。分からなければ ''。
+// 読書メーターの棚（URL・ページの題・ファイル名）→ orime の状態。分からなければ ''。
 export function bookmeterStatusHint(v) {
   const t = String(v || '').toLowerCase();
   if (/積読|stacked|reading-list/.test(t)) return 'before';

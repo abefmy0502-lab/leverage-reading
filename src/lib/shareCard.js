@@ -5,10 +5,10 @@
 //   写真（photo）  … 自分の写真を枠いっぱいに敷き、白い文字（Strava の写真の上の白い文字のように）
 //   紙 / 夜 / 表紙の色（paper / night / cover）… 雑誌の引用ページのような組版＋小さな表紙
 //   透明（sticker）… 地の無い白い文字（ストーリーの自分の写真の上に貼る用）
-// 下には Orime のロゴだけ（public/logo-lockup.png から、本の印と文字を切り出して横に並べる。
+// 下には orime のロゴだけ（public/logo-lockup.png から、本の印と文字を切り出して横に並べる。
 // 暗い地・写真・透明では白に変え、i の点の橙だけ残す）。サイトの URL は画像に入れない
 // （2026-10-01 オーナー裁定「orime.vercel.app の文字は確実に不要。ロゴのみでOK」・URL は共有の文にだけ）。
-// ロゴは必ず描く（2026-10-05 オーナー裁定「Orime のロゴはマストで入るように」・隠す項目に無い）。場所・大きさ・空きの
+// ロゴは必ず描く（2026-10-05 オーナー裁定「orime のロゴはマストで入るように」・隠す項目に無い）。場所・大きさ・空きの
 // 決まりは shareOverlay.js の LOGO_RULES / logoBox。写真の上はロゴの下の明るさから幕を決める（drawLogoScrim）。
 // 重ね方は 4 つ: 記録（record）／数字（stats・大きな数字を真ん中に縦に積む）／一文（quote）／雑誌（magazine・2026-10-09・
 // 大きな引用＋続きの文＋右の本のカード＋右上のロゴ＋下の小さな日付）。
@@ -113,7 +113,7 @@ export async function prepareFonts(sample = '') {
   const fonts = fontStacks();
   try {
     if (typeof document !== 'undefined' && document.fonts) {
-      const text = `${sample}“『』Orime`.slice(0, 2000);
+      const text = `${sample}“『』orime`.slice(0, 2000);
       await Promise.all([
         document.fonts.load(`400 64px ${fonts.read}`, text),
         document.fonts.load(`600 36px ${fonts.read}`, text),
@@ -327,8 +327,8 @@ function drawLogo(ctx, logo, variant, { x: x0, baseline, wordH: h0, fonts, ink }
     const size = Math.round(wordH * 1.25);
     ctx.font = `700 ${size}px ${fonts.ui}`;
     ctx.fillStyle = ink;
-    ctx.fillText('Orime', x, baseline);
-    return ctx.measureText('Orime').width;
+    ctx.fillText('orime', x, baseline);
+    return ctx.measureText('orime').width;
   }
   const { mark, word } = set;
   const wordW = (word.width / word.height) * wordH;
@@ -352,7 +352,7 @@ function logoWidth(ctx, logo, variant, { wordH: h0, fonts }) {
   if (!set) {
     ctx.font = `700 ${Math.round(wordH * 1.25)}px ${fonts.ui}`;
     if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
-    return ctx.measureText('Orime').width;
+    return ctx.measureText('orime').width;
   }
   const { mark, word } = set;
   return (mark.width / mark.height) * wordH * 1.28 + wordH * 0.32 + (word.width / word.height) * wordH;
@@ -975,7 +975,7 @@ function drawSticker(ctx, o, size) {
 //   ─────────
 //   読了      メモ    実行した行動   … 数字は大きく・単位は小さく（3 つまで・0 は出さない）
 //   9月28日   24件    5件
-//   Orime のロゴ                        2026.9.30
+//   orime のロゴ                        2026.9.30
 // 文字は SNS で切られない範囲（recordFrame の安全な枠）の中だけ。写真でない地では、空いた上に表紙を置く。
 
 // 書名の下の行（著者・今月／今年は読み終えた本）。著者は文節の切れ目で 2 行まで折り返す（… で切らない・2026-10-08
@@ -1328,7 +1328,7 @@ function drawRecordSticker(ctx, o, size) {
 //   メモ                    … 名前は小さく（UI 400・字間 0.08・ink-2）
 //   24件                    … 数字は大きく・3 つの大きさは同じ（いちばん長いものに合わせて縮める）
 //   実行した行動 / 3件 …   … 大きく出すのは積み重ねの数だけ（日付は大きな数字にしない・2026-10-09）
-//   Orime のロゴ                        2026.10.5   … 記録と同じ下の行
+//   orime のロゴ                        2026.10.5   … 記録と同じ下の行
 // 写真でない地では、真ん中に表紙（今月は 4 冊まで）を積み方の上に置く。言葉を入れたら積み方を下に寄せる。
 
 function layoutStats(ctx, fonts, o, F) {
@@ -1469,7 +1469,7 @@ function drawStatsSticker(ctx, o, size) {
 
 // ---------------------------------------------------------------- 雑誌（2026-10-09 オーナーの見本）
 //
-//                                           [本の印] Orime   … 右上・必ず入る（決まり LOGO_RULES の大きさ）
+//                                           [本の印] orime   … 右上・必ず入る（決まり LOGO_RULES の大きさ）
 //                                        （ロゴの下の英字のひとことは 2026-10-09 にやめた＝空きを詰める）
 //   「正解を探すんじゃなくて、                              … 大きな引用（細い明朝 400・字間 0.14em・3 行まで・
 //     自分の問いを持ち続けること。」                            開き括弧は左へぶら下げる）

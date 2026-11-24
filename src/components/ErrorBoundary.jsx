@@ -109,7 +109,7 @@ export default class ErrorBoundary extends React.Component {
       // セキュリティ上もリスク)。開発時のみ詳細を出す。
       const isDev = typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.DEV;
       const errorTextForReport = encodeURIComponent(String(this.state.error || '').slice(0, 500));
-      const mailto = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('【Orime】エラー報告')}&body=${encodeURIComponent('発生した操作: ＿＿＿＿＿＿\n\n参考エラー (任意):\n')}${errorTextForReport}`;
+      const mailto = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('【orime】エラー報告')}&body=${encodeURIComponent('発生した操作: ＿＿＿＿＿＿\n\n参考エラー (任意):\n')}${errorTextForReport}`;
 
       // 見た目はトークンと ui.js の部品だけ（DESIGN §5 空・エラー・2026-10-04）。以前は 72px の絵文字・
       // 丸いピルのボタン・12〜14px の文字・説明の重ねがけ（「申し訳ありません」「ご不便を…」）が残っていた。

@@ -1,4 +1,4 @@
-// 🌱 Landing Page — Orime（2026-10-02 作り直し → 2026-10-05 → 2026-10-11 公開している前提・新しい訴求で作り直し）
+// 🌱 Landing Page — orime（2026-10-02 作り直し → 2026-10-05 → 2026-10-11 公開している前提・新しい訴求で作り直し）
 //
 // 訴求の正は company/marketing-master-plan-2026-10.md（§0）: 読書を、受け身から会話へ。見出しは「読んだ本と、会話しよう。」
 //   心に響いた一行から、AI が本の語り口で答える（要約ではなく、あなたのメモから・本とページを添えて）→ 成果へ。
@@ -16,7 +16,7 @@
 //
 // 入口（2026-10-11）: 既定は公開済みの形＝「無料プランで始める」（下の固定の帯・ヘッダーのボタン・PC の QR も）。
 //   App Store の URL（VITE_APP_STORE_URL）があればアプリのページ（＋キャンペーン ct=・lpTrack の storeUrlFor）、
-//   無いビルドでは日本の App Store での「Orime」の検索（lpCopy.js の APP_STORE_SEARCH_URL）。
+//   無いビルドでは日本の App Store での「orime」の検索（lpCopy.js の APP_STORE_SEARCH_URL）。
 //   公開前の形（メールでお知らせ・公開予定の行・公開前の FAQ）は VITE_LP_PRELAUNCH=on のときだけ（LpWaitlist.jsx）。
 //
 // 創業メンバー価格（lib/foundingOffer.js）: VITE_FOUNDING_OFFER=on かつ VITE_FOUNDING_OFFER_END（日本時間）の前だけ、
@@ -270,7 +270,7 @@ const DESCRIPTION = LP_DESCRIPTION;
 const OG_DESCRIPTION = LP_OG_DESCRIPTION;
 
 // 📱 App Store へ。loc = 押した場所（header / sticky / hero / start / pricing / final / qr）。
-// URL（VITE_APP_STORE_URL）が無いビルドでは、日本の App Store での「Orime」の検索へ（lpCopy.js）。
+// URL（VITE_APP_STORE_URL）が無いビルドでは、日本の App Store での「orime」の検索へ（lpCopy.js）。
 const storeHref = (loc) => storeHrefOf({ live: isAppStoreLive, url: storeUrlFor(loc) });
 
 function StoreCta({ className, children, tabIndex, hidden = false, loc = 'other' }) {
@@ -377,7 +377,7 @@ export default function Landing() {
       {
         '@context': 'https://schema.org',
         '@type': 'SoftwareApplication',
-        name: 'Orime',
+        name: 'orime',
         operatingSystem: 'iOS',
         // ストアの第 1 カテゴリ（仕事効率化）に近いもの
         applicationCategory: 'BusinessApplication',
@@ -523,7 +523,7 @@ export default function Landing() {
 
       <header className="lp-header">
         <div className="lp-wrap lp-header-inner">
-          <a href="/" className="lp-brand" aria-label="Orime トップ">
+          <a href="/" className="lp-brand" aria-label="orime トップ">
             <BrandLogo kind="lockup" height={26} alt="" />
           </a>
           <nav className="lp-header-nav" aria-label="ヘッダー">
@@ -866,7 +866,7 @@ export default function Landing() {
             <a href="/legal/sct" onClick={footerLink('sct')}>特定商取引法に基づく表記</a>
             <a href={`mailto:${SUPPORT_EMAIL}`} onClick={footerLink('mail')}>お問い合わせ</a>
           </nav>
-          <p className="lp-footer-copy">© 2026 Orime</p>
+          <p className="lp-footer-copy">© 2026 orime</p>
           {/* 🏷️ ビルド識別子。訪問者には見せない（URL に ?rev を付けたときだけ・フッターの data-build でも確認できる） */}
           {SHOW_BUILD && <p className="lp-footer-build">{BUILD_LABEL}</p>}
         </div>

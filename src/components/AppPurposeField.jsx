@@ -1,4 +1,4 @@
-// 🎯 「Orime を入れた理由」の入力（初回ガイドの 2 枚目と、設定の書き直しのシートで共通・2026-10-18）。
+// 🎯 「orime を入れた理由」の入力（初回ガイドの 2 枚目と、設定の書き直しのシートで共通・2026-10-18）。
 //
 // 書き出しのチップ（「仕事で、」など・lib/appPurpose.js の APP_PURPOSE_STARTERS）→ 自分の言葉の欄（2 行・80 字まで）。
 // 「具体的であればあるほど良い」（オーナー）ので、チップは答えではなく書き出し: 押すと欄に入り、カーソルを末尾に置く
@@ -71,7 +71,7 @@ export default function AppPurposeField({ value, onChange, id = 'app-purpose-inp
         rows={2}
         maxLength={APP_PURPOSE_MAX}
         placeholder="自分の言葉で書く"
-        aria-label="Orime を入れた理由"
+        aria-label="orime を入れた理由"
         aria-describedby={`${id}-hint`}
         style={fieldStyle}
       />

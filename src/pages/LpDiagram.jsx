@@ -3,7 +3,7 @@
 // 文の代わりに、線の絵で伝える。細い幾何の線（太さ 1.75・画面の大きさで変わらない）で、細部まで整える。色はトークンだけ（線 --text・面 --fill。2026-11-21 から栗色は使わない）。
 // 絵の中に文字は入れない（スマホで縮むと読めない）。名前は絵の下の HTML の文字。
 //
-//   DialogueDiagram … これまで（本 → 自分の線が途中で消える）／Orime（本と自分を 1 つの輪でつなぐ）
+//   DialogueDiagram … これまで（本 → 自分の線が途中で消える）／orime（本と自分を 1 つの輪でつなぐ）
 //   StartTiles      … メモがまだなくても始められる 4 つの道（一言・取り込む・撮る・積読）
 
 import Phrases from './LpPhrases';
@@ -32,10 +32,10 @@ function Person({ cx, y }) {
 }
 
 // これまで: 本 → 自分 の 1 本の線が、自分に届く前に消える（読んで終わり）。
-// Orime: 本と自分を 1 つの閉じた輪でつなぐ（問いと答えが回り続ける）。輪の上の 2 つの点＝行き来する言葉。
+// orime: 本と自分を 1 つの閉じた輪でつなぐ（問いと答えが回り続ける）。輪の上の 2 つの点＝行き来する言葉。
 export function DialogueDiagram() {
   return (
-    <div className="lp-dia" role="img" aria-label="これまでの読書は、本から自分への線が途中で消える一方通行。Orime では、本と自分が 1 つの輪でつながり、問いと答えが行き来する。">
+    <div className="lp-dia" role="img" aria-label="これまでの読書は、本から自分への線が途中で消える一方通行。orime では、本と自分が 1 つの輪でつながり、問いと答えが行き来する。">
       <figure className="lp-dia-card">
         <svg viewBox="0 0 240 120" aria-hidden="true" className="lp-dia-svg is-before">
           <Book x={24} y={84} w={72} />
@@ -60,13 +60,13 @@ export function DialogueDiagram() {
           <circle cx="143" cy="24" r="4" fill="currentColor" />
           <circle cx="142" cy="111" r="4" fill="currentColor" />
         </svg>
-        <figcaption><span className="lp-dia-tag is-accent">Orime</span>会話が、続く</figcaption>
+        <figcaption><span className="lp-dia-tag is-accent">orime</span>会話が、続く</figcaption>
       </figure>
     </div>
   );
 }
 
-// 本と自分の輪だけ（2026-11-11・LpWhy の図 1）。これまで／Orime の 2 枚はやめ、会話できる感じを 1 枚で。
+// 本と自分の輪だけ（2026-11-11・LpWhy の図 1）。これまで／orime の 2 枚はやめ、会話できる感じを 1 枚で。
 export function DialogueLoop() {
   return (
     <figure className="lp-dia-card is-after lp-why-loop">
@@ -88,7 +88,7 @@ export function DialogueLoop() {
   );
 }
 
-// 📚 3 つの聞き方（2026-11-11 オーナー「著者と会話するのは難しいが、Orime なら…複数の著者の考えを比べて、混ぜて相談できる」）。
+// 📚 3 つの聞き方（2026-11-11 オーナー「著者と会話するのは難しいが、orime なら…複数の著者の考えを比べて、混ぜて相談できる」）。
 //   1 冊に聞く（本 1 冊 ⇄ 自分）／何冊かを比べる（本 2 冊から自分へ 2 本の線）／本棚ぜんぶに聞く（並んだ本の列から自分へ 1 本の太い流れ）。
 //   「著者と話せる」とは書かない（法務）＝絵も人ではなく本。
 const ARROW = (id) => (

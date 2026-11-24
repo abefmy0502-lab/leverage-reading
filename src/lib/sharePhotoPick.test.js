@@ -33,8 +33,8 @@ describe('ネイティブの写真', () => {
     expect(classifyNativePhotoError(new Error('boom'))).toBe('error');
   });
   it('許可の場所を案内する', () => {
-    expect(nativePhotoDeniedMessage('camera')).toContain('設定 → Orime で、カメラをオンに');
-    expect(nativePhotoDeniedMessage('album')).toContain('設定 → Orime で、写真へのアクセスを許可');
+    expect(nativePhotoDeniedMessage('camera')).toContain('設定 → orime で、カメラをオンに');
+    expect(nativePhotoDeniedMessage('album')).toContain('設定 → orime で、写真へのアクセスを許可');
   });
 });
 
@@ -52,14 +52,14 @@ describe('写真で共有の言い方（2026-10-11）', () => {
     expect(classifyNativePhotoError(new Error('PERMISSION missing'))).toBe('denied');
   });
   it('どちらか聞いたときは、拒まれた方で分ける', () => {
-    expect(nativePhotoDeniedMessage('prompt', new Error('User denied access to camera'))).toContain('設定 → Orime で、カメラをオンに');
-    expect(nativePhotoDeniedMessage('prompt', new Error('User denied access to photos'))).toContain('設定 → Orime で、写真へのアクセスを許可');
-    expect(nativePhotoDeniedMessage('prompt', new Error('denied'))).toBe('カメラか写真を使えません。設定 → Orime で許可してください。');
+    expect(nativePhotoDeniedMessage('prompt', new Error('User denied access to camera'))).toContain('設定 → orime で、カメラをオンに');
+    expect(nativePhotoDeniedMessage('prompt', new Error('User denied access to photos'))).toContain('設定 → orime で、写真へのアクセスを許可');
+    expect(nativePhotoDeniedMessage('prompt', new Error('denied'))).toBe('カメラか写真を使えません。設定 → orime で許可してください。');
   });
   it('受け取れなかった失敗の文はそのまま（オフラインの文にすり替えない）', () => {
     const e = new Error(nativePhotoDeniedMessage('camera'));
     e.kind = 'denied';
-    expect(photoPickErrorText(e)).toBe('カメラを使えません。設定 → Orime で、カメラをオンにしてください。');
+    expect(photoPickErrorText(e)).toBe('カメラを使えません。設定 → orime で、カメラをオンにしてください。');
     expect(photoPickErrorText(new Error('Failed to fetch'))).toBe(null);
     expect(photoPickErrorText(null)).toBe(null);
   });
@@ -100,7 +100,7 @@ describe('許可なしの知らせ（2026-10-11 の 5 回目）', () => {
     const a = photoFailAction(denied('camera'), () => {}, { canSettings: false });
     expect(a.label).toBe(null);
     expect(a.onClick).toBe(null);
-    expect(a.message).toBe('カメラを使えません。設定 → Orime で、カメラをオンにしてください。');
+    expect(a.message).toBe('カメラを使えません。設定 → orime で、カメラをオンにしてください。');
   });
   it('ほかの失敗は文を差し替えず「選び直す」', () => {
     const a = photoFailAction({ kind: 'error', message: 'x' }, () => {}, { canSettings: true });

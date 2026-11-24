@@ -31,7 +31,7 @@ describe('プロフィールの公開のページ', () => {
     expect(html).toContain('ふみさん');
     expect(html).toContain('『確率思考の戦略論』');
     expect(html).toContain('「売上は確率で決まる」');
-    // 共有したときの絵は好きな本の表紙ではなく Orime のロゴ（2026-11-23）
+    // 共有したときの絵は好きな本の表紙ではなく orime のロゴ（2026-11-23）
     expect(html).toContain('og:image" content="https://orime.vercel.app/og-image.png');
     expect(html).toContain('twitter:card" content="summary_large_image');
     expect(html).toContain('action="/api/profile-report"');

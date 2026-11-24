@@ -25,7 +25,7 @@ describe('声の読みがな', () => {
     expect(toReading('① 1 年後の目標を書く')).toBe('ひとつめ、いちねんごの目標を書く');
     expect(toReading('②「達成するには？」に答える')).toBe('ふたつめ、「達成するには？」に答える');
     expect(toReading('何から読む')).toBe('なにから読む');
-    expect(toReading('アプリ Orime')).toBe('アプリ オリメ');
+    expect(toReading('アプリ orime')).toBe('アプリ オリメ');
   });
   it('台本の声の文に、読みが決まっていない数字が無い', () => {
     const texts = new Set([END_LINE, END_STORE]);

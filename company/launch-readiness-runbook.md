@@ -1,4 +1,4 @@
-# 🚀 Orime Webローンチ Go-Live Runbook（push解放の瞬間に売り始める手順書）
+# 🚀 orime Webローンチ Go-Live Runbook（push解放の瞬間に売り始める手順書）
 
 > ⚠️ 2026-07-12 更新: 本書は Web(Stripe) 先行ローンチ前提の旧手順書。**7/27 の正式リリースは App Store 一本であり、正典は `launch-plan-appstore-2026-07-27.md`**。本書の §2 SQL 適用順・§3 環境変数は引き続き有効な参照。
 
@@ -97,7 +97,7 @@
 ---
 
 ## 4. 💳 Stripe 設定
-- [ ] 商品「Orime」を作成 → **2つのPrice（recurring）**：月額¥1,480 / 年額¥12,800。各 **Price ID** を env へ。
+- [ ] 商品「orime」を作成 → **2つのPrice（recurring）**：月額¥1,480 / 年額¥12,800。各 **Price ID** を env へ。
 - [ ] **Webhook エンドポイント**：`https://<本番ドメイン>/api/stripe-webhook`
   - 送信イベント（コードが処理する4つ）：`checkout.session.completed` / `customer.subscription.updated` / `customer.subscription.deleted` / `invoice.payment_failed`
   - 署名シークレット（`whsec_...`）→ `STRIPE_WEBHOOK_SECRET` へ。

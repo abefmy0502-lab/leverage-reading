@@ -179,7 +179,7 @@ self.addEventListener('push', (event) => {
     catch { payload = {}; }
   }
 
-  const title = (payload && payload.title) || 'Orime';
+  const title = (payload && payload.title) || 'orime';
   const body = (payload && payload.body) || '過去のあなたのメモが戻ってきました。';
   const url = (payload && payload.url) || '/';
   const tag = (payload && payload.tag) || 'orime-recall';

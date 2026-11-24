@@ -10,7 +10,7 @@ export function joinSpoken(texts) {
 // 場面ごとの文（終わりのカードは決まりの 1 行）。文の無い場面は null。
 export function sceneLine(scene) {
   if (scene.items[0]?.type === 'end') return END_LINE;
-  if (scene.say) return scene.say; // 画面の字と読み上げを分けたいとき（Orime とは何かの一言など）
+  if (scene.say) return scene.say; // 画面の字と読み上げを分けたいとき（orime とは何かの一言など）
   const texts = scene.items.filter((it) => ['box', 'text', 'sub'].includes(it.type) && it.text).map((it) => it.text.replace(/\n/g, ''));
   return texts.length ? joinSpoken(texts) : null;
 }

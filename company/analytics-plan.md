@@ -1,4 +1,4 @@
-# 📊 Orime 利用状況の記録（ファーストパーティ計測）プラン
+# 📊 orime 利用状況の記録（ファーストパーティ計測）プラン
 
 > 目的：ローンチ後の「磨きの優先順位」を**実データ**で決めるための、最小限・プライバシー最優先の計測基盤。
 > 関連：`supabase_analytics_events.sql`（テーブル/RLS）・`src/lib/analytics.js`（`track`）・`src/components/AccountSettings.jsx`（オプトアウト）。

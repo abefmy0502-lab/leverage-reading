@@ -61,10 +61,10 @@ describe('公開後（既定）と公開前（VITE_LP_PRELAUNCH=on）', () => {
 });
 
 describe('App Store へのボタンの行き先', () => {
-  it('URL があればそのページ、無ければ日本の App Store の「Orime」の検索', () => {
+  it('URL があればそのページ、無ければ日本の App Store の「orime」の検索', () => {
     expect(storeHrefOf({ live: true, url: 'https://apps.apple.com/jp/app/orime/id123?pt=1&ct=lp_hero_photo' })).toContain('/id123');
     expect(storeHrefOf({ live: false, url: 'https://apps.apple.com/jp/app/orime' })).toBe(APP_STORE_SEARCH_URL);
-    expect(APP_STORE_SEARCH_URL).toMatch(/^https:\/\/apps\.apple\.com\/jp\/.*term=Orime/);
+    expect(APP_STORE_SEARCH_URL).toMatch(/^https:\/\/apps\.apple\.com\/jp\/.*term=orime/);
   });
 });
 

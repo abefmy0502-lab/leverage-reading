@@ -1,5 +1,5 @@
 -- ============================================================
--- Orime: Supabase に流す SQL をすべて、流す順に 1 本にまとめたもの（自動で作る・手で直さない）
+-- orime: Supabase に流す SQL をすべて、流す順に 1 本にまとめたもの（自動で作る・手で直さない）
 -- 作り方: node scripts/sql-bundle.mjs ／ 手順と注意: docs/sql-runbook.md
 -- 何度流しても壊れない（前に流したものが混ざっていてもよい）。
 -- Supabase → SQL Editor に全部貼って Run。途中で失敗したら、そこまでの変更も入らない。
@@ -479,7 +479,7 @@ $$;
 -- 🔄 想起（recall）の間隔反復（spaced repetition）用カラム
 --
 -- 狙い:
---   Orime の看板価値は「読んだ本のメモを"忘れた頃"に呼び戻す」こと。従来の
+--   orime の看板価値は「読んだ本のメモを"忘れた頃"に呼び戻す」こと。従来の
 --   pickRecallMemo は記憶モデルの無いシード付き純ランダムだったため、忘却曲線に
 --   沿った再想起（Readwise / Glasp 的な spaced repetition）ができていなかった。
 --   本マイグレーションで book_memos に「いつ最後に想起したか」「何回定着したか」を
@@ -896,7 +896,7 @@ grant execute on function public.reserve_book_field_ai(date, integer) to service
 -- 🔌 AI と連携（MCP）の接続キー（2026-11-07 オーナー「アプリと AI が繋がるようにしたい」）
 --
 -- 利用者が Claude・ChatGPT・Claude Code などの AI から、自分の本・メモ・行動を呼べるようにする
--- Orime の MCP サーバー（api/mcp.js）の鍵。キーそのものは保存せず、SHA-256 のハッシュだけを持つ
+-- orime の MCP サーバー（api/mcp.js）の鍵。キーそのものは保存せず、SHA-256 のハッシュだけを持つ
 -- （キーは作ったその場で 1 回だけ見せる・なくしたら作り直す）。
 --
 -- 書き手:
@@ -4046,7 +4046,7 @@ alter table public.lp_events add constraint lp_events_event_check check (event i
 --
 -- 使い道は「公開のお知らせ」だけ（LP の欄の下とプライバシーポリシーに書く）。宣伝のメールには使わない。
 -- 頼まれたら消す・公開から 3 か月以内に全部消す（プライバシーポリシーと同じ約束）。
--- ⚠️ 送るメール（特定電子メール法）: 本文に送信者の名前（Orime・運営 阿部文哉）と連絡先（問い合わせのメールアドレス）、
+-- ⚠️ 送るメール（特定電子メール法）: 本文に送信者の名前（orime・運営 阿部文哉）と連絡先（問い合わせのメールアドレス）、
 --   「このアドレスは LP で公開のお知らせを希望された方に送っています」と配信停止の方法（返信で登録を消す等）を必ず書く。
 --   送るのは公開の日の 1 通だけ（確認の一覧は docs/lp-measurement.md §④）。
 -- 同じメールは 1 行（UNIQUE・api は on conflict do nothing＝2 回目は何もしない）。IP は持たない。
@@ -6132,7 +6132,7 @@ grant execute on function public.admin_renewals(int) to authenticated;
 -- ############################################################
 -- 🛰️🔌 運営ダッシュボードを AI と連携（MCP）から 1 回で読む（2026-11-08 オーナー「運営ダッシュボードをアーティファクトにしたい」）
 --
--- Claude の会話の中のダッシュボード（アーティファクト）は、「Orime」コネクタの道具 ops_dashboard を 1 回呼んで数字を描く。
+-- Claude の会話の中のダッシュボード（アーティファクト）は、「orime」コネクタの道具 ops_dashboard を 1 回呼んで数字を描く。
 -- 道具の中身は api/_mcp.js → この関数。既存の集計関数（admin_overview / admin_revenue / admin_growth / admin_launch_kpis /
 -- admin_goal_plan / admin_goal_weekly / admin_profit / admin_profit_series / admin_renewals）は auth.uid() で管理者を確かめるので、
 -- service_role から呼ぶときは、このラッパーが「その利用者としての JWT の claims」を同じトランザクションの中だけ置いてから呼ぶ。
@@ -6281,7 +6281,7 @@ revoke all on function public.admin_snapshot_for(uuid) from authenticated;
 grant execute on function public.admin_snapshot_for(uuid) to service_role;
 
 -- ── 指示を受ける（2026-11-08 オーナー「このダッシュボードから様々な指示を出せれば最高」）────────────────
--- Claude の会話から「Orime」コネクタの道具（ops_feedback / ops_tickets / ops_tasks / ops_goal / ops_week）で呼ぶ。
+-- Claude の会話から「orime」コネクタの道具（ops_feedback / ops_tickets / ops_tasks / ops_goal / ops_week）で呼ぶ。
 -- 決まった動作だけ（p_action の一覧）。中身は既存の admin_* 関数と ops_* の表。本人として動く（上と同じ claims の置き方）。
 create or replace function public.admin_act_for(p_user_id uuid, p_action text, p_args jsonb default '{}'::jsonb)
 returns jsonb

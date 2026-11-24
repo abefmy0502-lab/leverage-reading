@@ -82,7 +82,7 @@ export async function shareImage({ blob, filename, text = '' }) {
   return 'saved';
 }
 
-// iPhone・iPad のブラウザ（ホーム画面に置いた Orime も）。iPadOS は Mac と名乗るので触れる点で見分ける。
+// iPhone・iPad のブラウザ（ホーム画面に置いた orime も）。iPadOS は Mac と名乗るので触れる点で見分ける。
 export function isAppleTouchWeb(nav = typeof navigator !== 'undefined' ? navigator : null) {
   if (!nav) return false;
   const ua = String(nav.userAgent || '');
@@ -116,7 +116,7 @@ export async function saveImage({ blob, filename, nav = typeof navigator !== 'un
       return 'photos';
     } catch (e) {
       if (isPhotoDenied(e)) {
-        throw new Error('写真への保存が許可されていません。設定アプリの「Orime」→「写真」で許可してください。');
+        throw new Error('写真への保存が許可されていません。設定アプリの「orime」→「写真」で許可してください。');
       }
       // プラグインが入っていないビルド・保存に失敗したとき: 共有シートから保存できるようにする。
       return shareImage({ blob, filename });

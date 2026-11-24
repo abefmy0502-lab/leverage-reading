@@ -7,7 +7,7 @@
 
 ---
 
-あなたは私（iPhone アプリ「Orime」の運営者）の代わりに、RevenueCat（https://app.revenuecat.com）と App Store Connect（https://appstoreconnect.apple.com）の画面で、アプリ内課金をつなぐ設定を進めます。私は横で見ています。
+あなたは私（iPhone アプリ「orime」の運営者）の代わりに、RevenueCat（https://app.revenuecat.com）と App Store Connect（https://appstoreconnect.apple.com）の画面で、アプリ内課金をつなぐ設定を進めます。私は横で見ています。
 
 ## 守ること
 - **秘密の値を読まない・書き写さない・チャットに出さない**: App Store Connect の App 内課金の鍵（.p8）の中身、RevenueCat の **Secret API key（`sk_` で始まる）**、Webhook の Authorization の合言葉。この 3 つが出る場面では、画面を私に渡して止まり、私の「できた」を待つ。
@@ -19,9 +19,9 @@
 - 画面が説明と違う・迷う・エラーが出たら、勝手に決めずに画面の状態を伝えて聞く。各ステップが終わるたびに 1〜2 行で報告する。
 
 ## ステップ 0: 今の状態を見る（まだ何も変えない）
-1. App Store Connect → アプリ → Orime → 「収益化」で、4 つの商品（`orime_monthly`・`orime_annual`・`orime_tokens_300`・`orime_tokens_1000`）があるか、それぞれの状態を報告する。
+1. App Store Connect → アプリ → orime → 「収益化」で、4 つの商品（`orime_monthly`・`orime_annual`・`orime_tokens_300`・`orime_tokens_1000`）があるか、それぞれの状態を報告する。
 2. App Store Connect →「ビジネス」で、有料 App の契約が「有効」かを報告する。
-3. RevenueCat にログインしているか、**Orime** というプロジェクトがあるかを報告する。ログインしていなければ止まる（私がログインする）。
+3. RevenueCat にログインしているか、**orime** というプロジェクトがあるかを報告する。ログインしていなければ止まる（私がログインする）。
 
 ## ステップ 1: App Store Connect の App 内課金の鍵（私が受け取る）
 1. App Store Connect →「ユーザとアクセス」→「統合」（Integrations）→「App 内課金」（In-App Purchase）を開く。
@@ -30,18 +30,18 @@
 4. **ここで止まる**。私にこう伝える: 「.p8 をダウンロードしてください（1 回しかダウンロードできません）。画面のキー ID と、上のほうの発行者 ID（Issuer ID）も、あとで RevenueCat に入れます」。キー ID と発行者 ID は秘密ではないので、報告に書いてよい。
 
 ## ステップ 2: RevenueCat のプロジェクトとアプリ
-1. プロジェクトが無ければ「Create project」→ 名前 `Orime`。
+1. プロジェクトが無ければ「Create project」→ 名前 `orime`。
 2. 「Apps & providers」（アプリ）→「＋」→ **App Store**:
-   - App name: `Orime`
+   - App name: `orime`
    - Bundle ID: `jp.orime.app`
    - **In-App Purchase Key**: .p8 のアップロードは**私がやる**。キー ID と発行者 ID の欄は、ステップ 1 の値を入れてよい。
    - 保存のあと、画面の「App Store Server Notifications」の **URL** を報告する（秘密ではない）。
-3. App Store Connect に戻る: Orime →「App 情報」（一般）→「App Store サーバ通知」→ **本番** と **サンドボックス** の両方に、その URL を貼って保存する。バージョンは「バージョン 2」を選ぶ（選べるとき）。
+3. App Store Connect に戻る: orime →「App 情報」（一般）→「App Store サーバ通知」→ **本番** と **サンドボックス** の両方に、その URL を貼って保存する。バージョンは「バージョン 2」を選ぶ（選べるとき）。
 
 ## ステップ 3: 商品・Entitlement・Offering
 1. RevenueCat →「Product catalog」→「Products」→「＋」か「Import」で、4 つを取り込む: `orime_monthly`・`orime_annual`・`orime_tokens_300`・`orime_tokens_1000`。取り込めなければ、出た文を報告する（たいていは App Store Connect の契約が有効でない）。
-2. 「Entitlements」→「＋」: 識別子 `premium`・表示名 `Orime プラン`。付ける商品は **`orime_monthly` と `orime_annual` の 2 つだけ**。**トークンの 2 つは絶対に付けない**（付けると、トークンを買っただけで「プラン契約中」になる）。
-3. 「Offerings」→「＋」: 識別子 `default`・表示名 `Orime プラン` → **Current（いま使う）にする**。Packages:
+2. 「Entitlements」→「＋」: 識別子 `premium`・表示名 `orime プラン`。付ける商品は **`orime_monthly` と `orime_annual` の 2 つだけ**。**トークンの 2 つは絶対に付けない**（付けると、トークンを買っただけで「プラン契約中」になる）。
+3. 「Offerings」→「＋」: 識別子 `default`・表示名 `orime プラン` → **Current（いま使う）にする**。Packages:
    - **Monthly**（`$rc_monthly`）に `orime_monthly`
    - **Annual**（`$rc_annual`）に `orime_annual`
    - トークンの 2 つは Offering に入れない
@@ -50,11 +50,11 @@
 ## ステップ 4: 鍵
 1. 「Project settings」→「API keys」を開く。
 2. **Public app-specific API key**（App Store のアプリの、`appl_` で始まるもの）を報告する。これは Mac の作業で使う（秘密ではない）。
-3. **Secret API key は作らない・開かない**。ここで止まり、私にこう伝える: 「Secret API keys →＋New → 名前 `Orime Vercel`・**V1**・読み取り で作り、`sk_` の値を Vercel の `REVENUECAT_SECRET_API_KEY` に、ご自分で貼ってください（この画面でしか全部見えません）」。私の「できた」を待つ。
+3. **Secret API key は作らない・開かない**。ここで止まり、私にこう伝える: 「Secret API keys →＋New → 名前 `orime Vercel`・**V1**・読み取り で作り、`sk_` の値を Vercel の `REVENUECAT_SECRET_API_KEY` に、ご自分で貼ってください（この画面でしか全部見えません）」。私の「できた」を待つ。
 
 ## ステップ 5: Webhook（合言葉は私が入れる）
 1. 「Integrations」→「Webhooks」→「＋」:
-   - 名前: `Orime Supabase`
+   - 名前: `orime Supabase`
    - Webhook URL: `https://orime.vercel.app/api/revenuecat-webhook`
    - 環境: **Production と Sandbox の両方**
    - イベント: すべて

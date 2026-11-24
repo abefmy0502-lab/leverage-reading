@@ -1,4 +1,4 @@
-# 🚀 Orime App Store 正式リリース計画 — 2026-07-27（月）
+# 🚀 orime App Store 正式リリース計画 — 2026-07-27（月）
 
 > ⚠️ 2026-10-05: マーケ・営業・ローンチの方針と数字は **`company/marketing-strategy-2026-11.md` が正**。この文書は前提（公開日・価格・主役・無料プラン）が古い。投稿文・記事などの素材は使ってよい。
 
@@ -42,13 +42,13 @@ D0 Apple Developer登録 → D2 ASCアプリ作成+ios/生成+初ビルド → D
 - 🟢🤖 LP の App Store 対応差分・審査リスク修正の残り
 
 ### D2 7/14（火）
-- 🔴👤 （Developer 承認済み前提）**App Store Connect でアプリ作成**：名前「Orime」/ Bundle ID `jp.orime.app` / SKU `orime-ios`
+- 🔴👤 （Developer 承認済み前提）**App Store Connect でアプリ作成**：名前「orime」/ Bundle ID `jp.orime.app` / SKU `orime-ios`
 - 🔴👤 Xcode：Push Notifications capability + Background Modes(Remote notifications) を追加、実機ビルドで全機能スモーク（ログイン→本追加→メモ→想起→AI選書）
 - 🟡👤 APNs 認証キー(.p8) を Developer Portal で発行 → Vercel に `APNS_KEY_ID / APNS_TEAM_ID / APNS_PRIVATE_KEY / APNS_BUNDLE_ID` 設定（`APNS_PRODUCTION` は TestFlight 中 false）
 
 ### D3 7/15（水）
 - 🔴👤 **ASC でサブスクリプション商品を作成**：
-  - サブスクリプショングループ「Orime プレミアム」
+  - サブスクリプショングループ「orime プレミアム」
   - `orime_monthly` 月額 ¥1,480 ＋ **無料トライアル7日**（Introductory Offer）
   - `orime_annual` 年額 ¥12,800 ＋ 無料トライアル7日
   - 各商品にローカライズ表示名・説明・**審査用スクショ**（ペイウォール画面のスクショでよい）
@@ -132,7 +132,7 @@ npx cap sync ios       # 以後 JS を変えるたびに build→sync
 npx cap open ios       # Xcode が開く
 ```
 Xcode 側の一度きり設定：
-1. TARGETS > Orime > Signing & Capabilities → Team 選択・Automatically manage signing
+1. TARGETS > orime > Signing & Capabilities → Team 選択・Automatically manage signing
 2. **+ Capability → Push Notifications**、**+ Capability → Background Modes → Remote notifications** にチェック
 3. General → Deployment Info → **iPhone のみにチェック**（iPad を外す＝iPad スクショ不要・QA 範囲半減。iPad ユーザーは互換モードで利用可）
 4. App Icons：`public/icons/icon-1024-appstore.png`（アルファ除去済み・本日生成）を AppIcon にセット
@@ -179,7 +179,7 @@ on conflict (user_id) do update set status='active', current_period_end=now()+in
 ```
 4. ASC の審査メモ（英語推奨・要旨）：
 > Demo account: <email> / <password> (already subscribed for your convenience).
-> Orime is a reading-notes app with AI features (book recommendation Q&A, notes-grounded chat). AI responses are generated server-side via Anthropic Claude; user notes are treated as data, not instructions. Subscriptions: monthly ¥1,480 / annual ¥12,800, both with 7-day free trial, managed via App Store IAP (RevenueCat). Account deletion is available in-app: Settings → アカウント削除.
+> orime is a reading-notes app with AI features (book recommendation Q&A, notes-grounded chat). AI responses are generated server-side via Anthropic Claude; user notes are treated as data, not instructions. Subscriptions: monthly ¥1,480 / annual ¥12,800, both with 7-day free trial, managed via App Store IAP (RevenueCat). Account deletion is available in-app: Settings → アカウント削除.
 > Barcode scanning uses the camera to add books by ISBN. Push notifications are opt-in reminders of the user's own notes (spaced repetition).
 
 ### 3.6 既知の審査リスクと対処（監査結果は §9 で更新）

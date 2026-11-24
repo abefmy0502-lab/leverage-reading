@@ -40,7 +40,7 @@ const PHONE = { w: 390, h: 693, scale: 1.36, top: 440 };
 const SAMPLE_TOP = PHONE.top + PHONE.h * PHONE.scale + 10;
 const PROBLEM = { w: 680, top: 520 };
 const TITLE_SEC = 2;
-const END_SEC = 2.6; // 最後の Orime のロゴのカード（2026-11-22 オーナー「動画の最後には Orime のロゴも」・--plain でも出す）
+const END_SEC = 2.6; // 最後の orime のロゴのカード（2026-11-22 オーナー「動画の最後には orime のロゴも」・--plain でも出す）
 
 const args = process.argv.slice(2);
 const flag = (name) => args.includes(name);
@@ -118,10 +118,10 @@ function stageHtml(appUrl) {
 </style></head>
 <body class="${plain ? 'plain' : ''}">
   <div id="band"><p id="cap"></p><p id="title"></p></div>
-  <iframe id="ph" src="${escapeHtml(appUrl)}" title="Orime"></iframe>
+  <iframe id="ph" src="${escapeHtml(appUrl)}" title="orime"></iframe>
   <svg id="problem" aria-hidden="true"></svg>
   <p id="sample">${escapeHtml(SAMPLE_NOTE)}</p>
-  <div id="endcard"><img src="/logo-lockup.png" alt="Orime"><div class="end-line">${escapeHtml(END_LINE)}</div><div class="end-store">${escapeHtml(END_STORE)}</div></div>
+  <div id="endcard"><img src="/logo-lockup.png" alt="orime"><div class="end-line">${escapeHtml(END_LINE)}</div><div class="end-store">${escapeHtml(END_STORE)}</div></div>
 </body></html>`;
 }
 
@@ -387,7 +387,7 @@ async function recordOne(browser, s) {
       }
     }
     await page.waitForTimeout(400);
-    // 最後に Orime のロゴのカード（ロゴ・「読んだ本と、会話できる。」・App Store）。声は「読んだ本と、会話できる。」を読む。
+    // 最後に orime のロゴのカード（ロゴ・「読んだ本と、会話できる。」・App Store）。声は「読んだ本と、会話できる。」を読む。
     await waitVoice();
     await page.evaluate(() => document.body.classList.add('show-end'));
     endAt = now();

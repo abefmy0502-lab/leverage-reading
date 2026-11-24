@@ -212,12 +212,12 @@ describe('ロゴは必ず入る（どの組み合わせでも）', () => {
     }
   });
 
-  it('ロゴの画像が読めないときは、文字の「Orime」で代わりに描く', () => {
+  it('ロゴの画像が読めないときは、文字の「orime」で代わりに描く', () => {
     for (const layout of layouts) {
       for (const style of styles) {
         const canvas = fakeCanvas();
         drawShareCard(canvas, opts({ layout, style, logo: null, hidden: [...SHARE_ITEM_KEYS, 'logo'] }));
-        const t = canvas.calls.find((c) => c.op === 'fillText' && c.args[0] === 'Orime');
+        const t = canvas.calls.find((c) => c.op === 'fillText' && c.args[0] === 'orime');
         expect(t, `${layout} ${style}`).toBeTruthy();
         const size = parseFloat(/(\d+)px/.exec(t.font)[1]);
         expect(size).toBeGreaterThanOrEqual(LOGO_RULES.minWordH);

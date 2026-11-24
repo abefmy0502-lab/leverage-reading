@@ -40,7 +40,7 @@ describe('splitSubtitle', () => {
   it('「：」「 : 」「 — 」で書名と副題に分ける', () => {
     expect(splitSubtitle('考え方 : 人生・仕事の結果が変わる')).toEqual({ title: '考え方', subtitle: '人生・仕事の結果が変わる' });
     expect(splitSubtitle('アートディレクターの流儀：考え方・つくり方')).toEqual({ title: 'アートディレクターの流儀', subtitle: '考え方・つくり方' });
-    expect(splitSubtitle('Orime — 読書のメモ')).toEqual({ title: 'Orime', subtitle: '読書のメモ' });
+    expect(splitSubtitle('orime — 読書のメモ')).toEqual({ title: 'orime', subtitle: '読書のメモ' });
   });
   it('区切りが無い・片方が空なら分けない', () => {
     expect(splitSubtitle('考え方')).toEqual({ title: '考え方', subtitle: '' });

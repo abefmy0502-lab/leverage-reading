@@ -438,7 +438,7 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-1)', flexShrink: 0, borderTop: '1px solid var(--separator)', paddingTop: 'var(--space-1)' }}>
               {srcOpen ? (
                 <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: 'var(--space-2) 0 0', textAlign: 'left' }} aria-live="polite">
-                  {srcPicked ? 'ありがとうございます' : 'Orime をどこで知りましたか？（任意）'}
+                  {srcPicked ? 'ありがとうございます' : 'orime をどこで知りましたか？（任意）'}
                 </p>
               ) : (
                 <button
@@ -447,7 +447,7 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
                   aria-expanded={false}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 'var(--tap-min)', padding: 0, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}
                 >
-                  Orime をどこで知りましたか？（任意）
+                  orime をどこで知りましたか？（任意）
                   <ChevronDown size="1em" aria-hidden="true" />
                 </button>
               )}

@@ -8432,7 +8432,7 @@ function PaywallGate() {
     );
   }
 
-  // ①C: Web(ブラウザ)は管理者のみ利用可。Orime は App Store の iOS アプリでのみ
+  // ①C: Web(ブラウザ)は管理者のみ利用可。orime は App Store の iOS アプリでのみ
   //    提供する方針のため、管理者でないブラウザ利用者は（課金の有無・スキーマ状態に
   //    関わらず）アプリへ誘導する。管理者(adminBypass)は検証のためブラウザ利用を許可。
   //    ネイティブ(isNative)は当然すべて通常フロー。

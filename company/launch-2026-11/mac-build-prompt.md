@@ -7,7 +7,7 @@
 
 ---
 
-あなたは私の Mac で、iPhone アプリ「Orime」（React + Vite を Capacitor で包んだアプリ・リポジトリ `abefmy0502-lab/leverage-reading`）のバージョン 1.0.0 を作り、App Store Connect に上げます。審査への提出は私がブラウザでやるので、あなたは**ビルドを上げるところまで**です。
+あなたは私の Mac で、iPhone アプリ「orime」（React + Vite を Capacitor で包んだアプリ・リポジトリ `abefmy0502-lab/leverage-reading`）のバージョン 1.0.0 を作り、App Store Connect に上げます。審査への提出は私がブラウザでやるので、あなたは**ビルドを上げるところまで**です。
 
 ## 守ること
 - **鍵の値をチャットに出さない・聞かない**。鍵はファイルに私が書く。確かめるときも「入っている／空」だけを言い、値は表示しない（`cat` しない・`echo` しない）。
@@ -81,7 +81,7 @@ grep -rlE "appl_[A-Za-z0-9]" ios/App/App/public >/dev/null && echo "RevenueCat �
    - **Sign in with Apple** が一覧にあること（無ければ「＋ Capability」で足す）
    - 「＋ Capability」→ **In-App Purchase** を足す
    - 赤いエラー（Provisioning など）が無いこと。出たら、その文を私が読み上げるので、直し方を言う
-3. **General** → Version **1.0.0**・Build **1**・Display Name **Orime** になっていること（見るだけ）
+3. **General** → Version **1.0.0**・Build **1**・Display Name **orime** になっていること（見るだけ）
 4. Xcode を閉じなくてよい
 
 「できた」のあと、チーム ID を読む: `grep -m1 "DEVELOPMENT_TEAM" ios/App/App.xcodeproj/project.pbxproj`（10 文字の英数字。これは秘密ではないので表示してよい）。
@@ -116,13 +116,13 @@ sed -i '' "s/TEAM_ID_HERE/<チーム ID>/" build/ExportOptions.plist
 2. アーカイブ（10 分ほど）:
 ```bash
 xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release \
-  -destination 'generic/platform=iOS' -archivePath build/Orime.xcarchive \
+  -destination 'generic/platform=iOS' -archivePath build/orime.xcarchive \
   -allowProvisioningUpdates archive
 ```
    最後に `** ARCHIVE SUCCEEDED **` が出ること。
 3. 上げる:
 ```bash
-xcodebuild -exportArchive -archivePath build/Orime.xcarchive \
+xcodebuild -exportArchive -archivePath build/orime.xcarchive \
   -exportOptionsPlist build/ExportOptions.plist -exportPath build/export \
   -allowProvisioningUpdates
 ```
@@ -130,7 +130,7 @@ xcodebuild -exportArchive -archivePath build/Orime.xcarchive \
 4. うまくいかないとき:
    - 署名のエラー → ステップ 5 の Team・Capability をもう一度
    - 「このビルド番号は使われている」→ `cd ios/App && xcrun agvtool new-version -all 2 && cd ../..` でビルド番号を 1 つ上げて、2 からやり直す
-   - コマンドで上げられない → Xcode の **Window → Organizer** に `Orime` のアーカイブが出ているので、私に「**Distribute App → App Store Connect → Upload**」を押すよう案内する
+   - コマンドで上げられない → Xcode の **Window → Organizer** に `orime` のアーカイブが出ているので、私に「**Distribute App → App Store Connect → Upload**」を押すよう案内する
 
 ## ステップ 8: 最後の報告
 次を一覧にして報告して終わる:

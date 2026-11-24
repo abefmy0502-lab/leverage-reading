@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// 🤖 自動のセッションから Orime の MCP（運営の道具）を呼ぶ（2026-11-08・docs/mcp.md §7）。
+// 🤖 自動のセッションから orime の MCP（運営の道具）を呼ぶ（2026-11-08・docs/mcp.md §7）。
 //
 //   node scripts/ops-mcp.mjs <道具の名前> '<JSON の引数>'
 //   例: node scripts/ops-mcp.mjs ops_tasks '{"action":"claim"}'

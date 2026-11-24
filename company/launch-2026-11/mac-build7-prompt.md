@@ -5,7 +5,7 @@
 
 ---
 
-あなたは私の Mac で、iPhone アプリ「Orime」（React + Vite を Capacitor で包んだアプリ・リポジトリ `abefmy0502-lab/leverage-reading`）の **バージョン 1.0.0・ビルド 7** を作り、App Store Connect に上げます。前のビルド 6 は審査で差し戻されました。審査への提出は私がブラウザでやるので、あなたは**ビルドを上げるところまで**です。
+あなたは私の Mac で、iPhone アプリ「orime」（React + Vite を Capacitor で包んだアプリ・リポジトリ `abefmy0502-lab/leverage-reading`）の **バージョン 1.0.0・ビルド 7** を作り、App Store Connect に上げます。前のビルド 6 は審査で差し戻されました。審査への提出は私がブラウザでやるので、あなたは**ビルドを上げるところまで**です。
 
 ## 守ること
 - **鍵の値をチャットに出さない・聞かない**。確かめるときは「入っている／空」だけを言い、値は表示しない（`cat` しない・`echo` しない）。
@@ -61,7 +61,7 @@ grep -rlE "appl_[A-Za-z0-9]" ios/App/App/public >/dev/null && echo "RevenueCat �
 
 ## ステップ 5: Xcode の署名を確かめる（私がやる）
 `npx cap open ios` で Xcode を開き、次を 1 つずつ案内して「できた」を待つ:
-1. 左の **App** → TARGETS の **App** → **General**: Version **1.0.0**・Build **7**・Display Name **Orime**（見るだけ）
+1. 左の **App** → TARGETS の **App** → **General**: Version **1.0.0**・Build **7**・Display Name **orime**（見るだけ）
 2. **Signing & Capabilities**: Automatically manage signing にチェック・Team が選ばれている・Bundle Identifier が `jp.orime.app`・**Sign in with Apple** と **In-App Purchase** がある・赤いエラーが無い（出たら私が文を読み上げるので直し方を言う）
 
 「できた」のあと、チーム ID を読む: `grep -m1 "DEVELOPMENT_TEAM" ios/App/App.xcodeproj/project.pbxproj`（`85Q7Q562A4` のはず・秘密ではない）。
@@ -96,14 +96,14 @@ cat > build/ExportOptions.plist <<'PLIST'
 </dict>
 </plist>
 PLIST
-rm -rf build/Orime.xcarchive build/export
+rm -rf build/orime.xcarchive build/export
 xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release \
-  -destination 'generic/platform=iOS' -archivePath build/Orime.xcarchive \
+  -destination 'generic/platform=iOS' -archivePath build/orime.xcarchive \
   -allowProvisioningUpdates archive
 ```
 `** ARCHIVE SUCCEEDED **` を確かめてから:
 ```bash
-xcodebuild -exportArchive -archivePath build/Orime.xcarchive \
+xcodebuild -exportArchive -archivePath build/orime.xcarchive \
   -exportOptionsPlist build/ExportOptions.plist -exportPath build/export \
   -allowProvisioningUpdates
 ```
@@ -112,7 +112,7 @@ xcodebuild -exportArchive -archivePath build/Orime.xcarchive \
 うまくいかないとき:
 - 署名のエラー → ステップ 5 をもう一度
 - 「このビルド番号は使われている」→ 止まって私に聞く（7 が使われているなら 8 にする: `cd ios/App && xcrun agvtool new-version -all 8 && cd ../..` のあと、ステップ 4 の `npm run build && npx cap sync ios` からやり直す）
-- コマンドで上げられない → Xcode の **Window → Organizer** に Orime のアーカイブがあるので、私に「**Distribute App → App Store Connect → Upload**」を押すよう案内する
+- コマンドで上げられない → Xcode の **Window → Organizer** に orime のアーカイブがあるので、私に「**Distribute App → App Store Connect → Upload**」を押すよう案内する
 
 ## ステップ 8: 最後の報告
 1. 上げたビルド（1.0.0 の何番か）

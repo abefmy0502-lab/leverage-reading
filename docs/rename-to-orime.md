@@ -14,32 +14,32 @@
 ---
 
 ## 手順 1. `orime.vercel.app` を取る（5 分・0 円）✅ 2026-09-26 完了
-1. Vercel にログインし、Orime のプロジェクトを開く。
+1. Vercel にログインし、orime のプロジェクトを開く。
 2. 上のメニューの **Settings** → 左の **Domains** を開く。
 3. **Add**（または Add Domain）を押し、`orime.vercel.app` と入力して追加する。
    - **追加できた** → そのまま使える。DNS の設定も HTTPS の設定も要らない。
    - **「使われています」と出た** → `orime-app.vercel.app` → `orimeapp.vercel.app` の順に試す。取れたアドレスを Claude に伝える。
-4. ブラウザで `https://orime.vercel.app` を開き、Orime の画面が出れば完了。
+4. ブラウザで `https://orime.vercel.app` を開き、orime の画面が出れば完了。
    - 旧アドレス `leverage-reading.vercel.app` も、そのまま動き続ける。古いリンクは切れない。
    - プロジェクト名（Settings → General → Project Name）も `orime` に変えておくと、管理画面で迷わない。変えなくても動く。
 
 ## 手順 2. 問い合わせ用の Gmail を作る（10 分・0 円）✅ 2026-09-26 完了（orime.support@gmail.com・コードの既定値にも設定済み）
 1. Google アカウントの作成画面で、新しいアカウントを作る。
-   - 名前は「Orime」など。
-   - アドレスは `orime.support@gmail.com` などを試す。使われていたら `orime.app.support` など、Orime が入った名前で探す。
+   - 名前は「orime」など。
+   - アドレスは `orime.support@gmail.com` などを試す。使われていたら `orime.app.support` など、orime が入った名前で探す。
 2. 作ったアドレスで、送信と受信ができることを確かめる（普段のアドレスとの間で 1 通ずつ送り合う）。
-3. このアドレスは、利用者と App Store の審査担当者が見る。プロフィール名を「Orime サポート」にしておくと、返信を受け取った人に分かりやすい。
+3. このアドレスは、利用者と App Store の審査担当者が見る。プロフィール名を「orime サポート」にしておくと、返信を受け取った人に分かりやすい。
 4. 普段のスマホの Gmail アプリにこのアカウントも追加しておくと、問い合わせを見逃さない。
 
 ## 手順 3. Supabase の設定（5 分・**Supabase にログインできるようになってから**）
 アプリで新規登録したとき、確認メールのリンクはここで設定したアドレスに飛ぶ。
 
-1. Supabase にログインし、Orime のプロジェクトを開く。
+1. Supabase にログインし、orime のプロジェクトを開く。
 2. 左の **Authentication** → **URL Configuration** を開く。
 3. **Site URL** を `https://orime.vercel.app` にして **Save**。
 4. すぐ下の **Redirect URLs** で **Add URL** を押し、`https://orime.vercel.app/**` を追加する。
    - 旧アドレス（`https://leverage-reading.vercel.app/**`）は、しばらく消さずに残す。
-5. 同じ Authentication の **Email Templates** で、確認メールの本文を開く。旧名（レバレッジ など）が直接書かれていれば、Orime に直す。
+5. 同じ Authentication の **Email Templates** で、確認メールの本文を開く。旧名（レバレッジ など）が直接書かれていれば、orime に直す。
 
 ## 手順 4. 環境変数を入れる（10 分）— 楽天の 3 つは ✅ 2026-09-26 完了
 環境変数は「アプリに渡す設定値」。コードを書き換えずに、値だけ差し替えられる。
@@ -56,12 +56,12 @@
 
    - URL の末尾に `/` を付けない。
    - `RAKUTEN_APP_URL` がすでにある場合は、⋯ → Edit で値を書き換える。
-3. ✅ **楽天ウェブサービス**：2026-09-26 に新しいアプリ「Orime」（許可サイト orime.vercel.app・楽天ブックスAPIのみ・**有効期限 2027-09-27、期限前に「有効期限延長」**）を作り、Vercel の `RAKUTEN_APPLICATION_ID` / `RAKUTEN_ACCESS_KEY` / `RAKUTEN_APP_URL` を差し替え済み。旧アプリ（leverage-reading.vercel.app・期限 2027-07-06）は、本番で表紙が出るのを確かめてから削除する。
+3. ✅ **楽天ウェブサービス**：2026-09-26 に新しいアプリ「orime」（許可サイト orime.vercel.app・楽天ブックスAPIのみ・**有効期限 2027-09-27、期限前に「有効期限延長」**）を作り、Vercel の `RAKUTEN_APPLICATION_ID` / `RAKUTEN_ACCESS_KEY` / `RAKUTEN_APP_URL` を差し替え済み。旧アプリ（leverage-reading.vercel.app・期限 2027-07-06）は、本番で表紙が出るのを確かめてから削除する。
 4. 反映させるには出し直す：GitHub の Actions →「Deploy to Vercel (Production)」→「Run workflow」（Vercel の Redeploy はこのプロジェクトでは使えない＝GitHub から作った版は Vercel で作り直せない・2026-10-24）。
    - 作業ブランチを main に取り込むときも自動で再デプロイされるので、そのタイミングでもよい。
 
 ## ついでにやること（0 円）
-- **Amazon アソシエイト**：アソシエイト・セントラル →「トラッキング ID の管理」で Orime 名の ID（例 `orime-22`）を追加し、環境変数 `VITE_AMAZON_TAG` に入れる。同じアカウント内の追加なので無料。
+- **Amazon アソシエイト**：アソシエイト・セントラル →「トラッキング ID の管理」で orime 名の ID（例 `orime-22`）を追加し、環境変数 `VITE_AMAZON_TAG` に入れる。同じアカウント内の追加なので無料。
 - **App Store Connect**（審査の前に）
   - プライバシーポリシー URL：`https://orime.vercel.app/legal/privacy`
   - サポート URL：`https://orime.vercel.app/legal/sct`

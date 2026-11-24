@@ -2,7 +2,7 @@
 //   図: 思い出せる量の時間の線（読むだけ＝薄れていく／会話する＝相談のたびに戻る）＝忘却曲線と分散学習のイメージ（参考）
 //   研究 3 つは 3 つの言葉＋1 文＋出典 1 行（数字は出さない）→ 月 ¥1,480 の意味。
 //   法務（company/brand-messaging.md・seo-articles-batch1.md）: 「○倍になる」「○円損している」の断定は書かない。数字は引用した研究の結果で、
-//   Orime の効果を測ったものではないと添える。
+//   orime の効果を測ったものではないと添える。
 import Phrases from './LpPhrases';
 import { WHY } from './lpCopy';
 

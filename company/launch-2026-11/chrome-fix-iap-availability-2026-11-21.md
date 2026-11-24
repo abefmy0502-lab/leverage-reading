@@ -15,7 +15,7 @@
 
 ## 作業 1：月額・年額プランを、すべての国と地域で売る
 1. まず、アプリ本体の「価格および配信状況」（配信 → 左の「価格および配信状況」）で、アプリが何か所の国・地域で配信されているかを読んで報告してください（変えない）。
-2. 「サブスクリプション」→「Orime プラン」→「月額プラン」→「配信可否」（Availability）を開きます。いま選ばれている 1 か所がどこかを報告してから、**アプリと同じすべての国・地域**を選んで保存します。
+2. 「サブスクリプション」→「orime プラン」→「月額プラン」→「配信可否」（Availability）を開きます。いま選ばれている 1 か所がどこかを報告してから、**アプリと同じすべての国・地域**を選んで保存します。
 3. 「年額プラン」も同じようにします。
 4. 2 つとも「175か所」（またはアプリと同じ数）が選ばれたことを報告してください。値段（価格スケジュール）は変えないでください。
 
@@ -26,7 +26,7 @@
 ```
 [For App Review]
 - Registration is optional. On the sign-in screen, tap "登録せずに始める" (Start without an account), then "同意して始める". No personal information is required. Sign in with Apple and the demo account in Sign-In Information also work.
-- Subscriptions (Orime 月額プラン / Orime 年額プラン): tap the round profile icon at the top right of the Home screen to open Settings, then "プラン・お支払い" (Plan & Payment) > "プランを見る" (See plans). The plan screen shows both plans with prices and a purchase button. Registration is not required to purchase.
+- Subscriptions (orime 月額プラン / orime 年額プラン): tap the round profile icon at the top right of the Home screen to open Settings, then "プラン・お支払い" (Plan & Payment) > "プランを見る" (See plans). The plan screen shows both plans with prices and a purchase button. Registration is not required to purchase.
 - Token packs (300 トークン / 1,000 トークン, consumable add-ons for subscribers): sign in with the demo account (it has an active plan), open Settings, then "プラン・お支払い" > "トークンを追加" (Add tokens).
 - All In-App Purchases are available in every storefront where the app is available.
 ```

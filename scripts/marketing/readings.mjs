@@ -66,7 +66,7 @@ const COUNTER_FN = Object.fromEntries(COUNTERS);
 // 読み違えやすい言葉（長いものから当てる）。字幕は変えない。
 const WORDS = [
   ['1on1', 'ワンオンワン'],
-  ['Orime', 'オリメ'],
+  ['orime', 'オリメ'],
   ['App Store', 'アップストア'],
   ['AI', 'エーアイ'],
   ['積読', 'つんどく'],
@@ -91,7 +91,7 @@ const COUNTER_RE = new RegExp(`[¥￥]?(\\d[\\d,]*)\\s*(${COUNTERS.map(([c]) => 
 
 // 字幕の文 → 声に渡す かな まじりの文
 export function toReading(text) {
-  // 数の前後の半角の空きは読まない（「1 日」→「1日」）。言葉と言葉の間の空き（「アプリ Orime」）は区切りとして残す
+  // 数の前後の半角の空きは読まない（「1 日」→「1日」）。言葉と言葉の間の空き（「アプリ orime」）は区切りとして残す
   let s = String(text || '').replace(/(?<=\d) (?=[^\x00-\x7F])/g, '').replace(/(?<=[^\x00-\x7F]) (?=[\d¥￥])/g, '');
   for (const [w, r] of WORDS) s = s.split(w).join(r);
   // ①②…は「ひとつめ、」（そのまま渡すと「① 1 年後」が「じゅういちねんご」と読まれた）

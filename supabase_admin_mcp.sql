@@ -1,6 +1,6 @@
 -- 🛰️🔌 運営ダッシュボードを AI と連携（MCP）から 1 回で読む（2026-11-08 オーナー「運営ダッシュボードをアーティファクトにしたい」）
 --
--- Claude の会話の中のダッシュボード（アーティファクト）は、「Orime」コネクタの道具 ops_dashboard を 1 回呼んで数字を描く。
+-- Claude の会話の中のダッシュボード（アーティファクト）は、「orime」コネクタの道具 ops_dashboard を 1 回呼んで数字を描く。
 -- 道具の中身は api/_mcp.js → この関数。既存の集計関数（admin_overview / admin_revenue / admin_growth / admin_launch_kpis /
 -- admin_goal_plan / admin_goal_weekly / admin_profit / admin_profit_series / admin_renewals）は auth.uid() で管理者を確かめるので、
 -- service_role から呼ぶときは、このラッパーが「その利用者としての JWT の claims」を同じトランザクションの中だけ置いてから呼ぶ。
@@ -135,7 +135,7 @@ revoke all on function public.admin_snapshot_for(uuid) from authenticated;
 grant execute on function public.admin_snapshot_for(uuid) to service_role;
 
 -- ── 指示を受ける（2026-11-08 オーナー「このダッシュボードから様々な指示を出せれば最高」）────────────────
--- Claude の会話から「Orime」コネクタの道具（ops_feedback / ops_tickets / ops_tasks / ops_goal / ops_week）で呼ぶ。
+-- Claude の会話から「orime」コネクタの道具（ops_feedback / ops_tickets / ops_tasks / ops_goal / ops_week）で呼ぶ。
 -- 決まった動作だけ（p_action の一覧）。中身は既存の admin_* 関数と ops_* の表。本人として動く（上と同じ claims の置き方）。
 create or replace function public.admin_act_for(p_user_id uuid, p_action text, p_args jsonb default '{}'::jsonb)
 returns jsonb

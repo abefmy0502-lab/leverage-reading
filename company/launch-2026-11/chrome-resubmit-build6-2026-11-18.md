@@ -10,7 +10,7 @@ build 6 に入っているもの（返事の文の根拠）:
 
 ---ここから---
 
-あなたは Orime（読書メモの iPhone アプリ）の公開作業を手伝います。私の Chrome の App Store Connect で、次の作業を順に進めてください。
+あなたは orime（読書メモの iPhone アプリ）の公開作業を手伝います。私の Chrome の App Store Connect で、次の作業を順に進めてください。
 
 ## 守ること（いちばん大事）
 - パスワード・2 段階認証のコード・API キー・秘密鍵は、入力も表示もしないでください。ログインや確認コードを求められたら、そこで止めて私に頼んでください。
@@ -21,7 +21,7 @@ build 6 に入っているもの（返事の文の根拠）:
 - 作業ごとに、何をしたか・最後の画面の状態を 1〜3 行で報告してください。
 
 ## 作業 0：build 6 の処理が終わったか確かめる
-1. https://appstoreconnect.apple.com →「アプリ」→「Orime」→ 上の「TestFlight」を開きます。
+1. https://appstoreconnect.apple.com →「アプリ」→「orime」→ 上の「TestFlight」を開きます。
 2. 「iOS ビルド」の 1.0.0 の中に **6** があり、状態が「処理中」でないことを確かめます。
    - まだ「処理中」・6 が見当たらないときは、何もせずに「build 6 はまだ処理中です」と報告して止まってください。
    - 「輸出コンプライアンスの情報がありません」などの警告が付いていたら、止めて画面を見せてください（答えは私が決めます）。
@@ -53,7 +53,7 @@ This build also lets users save the images they create in "Share as photo" direc
 The same demo account provided in the App Review Information can be used to sign in.
 
 Best regards,
-Orime
+orime
 ```
 
 ## 作業 3：再提出の直前まで進める

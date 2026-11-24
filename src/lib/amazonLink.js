@@ -5,7 +5,7 @@
 // AMAZON_TAG in sync with the merchant account on Amazon Associates JP.
 
 // VITE_AMAZON_TAG で差し替え可（アソシエイト・セントラルの「トラッキング ID の管理」で
-// Orime 名の ID を追加して設定する。URL に出るので旧名を見せないため）。
+// orime 名の ID を追加して設定する。URL に出るので旧名を見せないため）。
 export const AMAZON_TAG = import.meta.env?.VITE_AMAZON_TAG || (typeof process !== 'undefined' && process.env?.VITE_AMAZON_TAG) || 'leveragereading-22'; // サーバー（公開の本のページ）からも読む
 
 const AMAZON_BASE = 'https://www.amazon.co.jp';

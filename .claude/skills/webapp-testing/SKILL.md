@@ -1,11 +1,11 @@
 ---
 name: webapp-testing
-description: Orime のお試しモード（npm run demo・http://localhost:5173）を Playwright で動かして、画面を確かめる・撮る・押せるものを調べる型（anthropics/skills の webapp-testing を Orime 向けに写した・2026-10-31）。「画面を確かめて」「この操作で何が出る？」「スクショを撮って」「動かして確認して」「点検して」と言われたら使う。撮る前に押せるものの名前を調べる（偵察 → 操作）。
+description: orime のお試しモード（npm run demo・http://localhost:5173）を Playwright で動かして、画面を確かめる・撮る・押せるものを調べる型（anthropics/skills の webapp-testing を orime 向けに写した・2026-10-31）。「画面を確かめて」「この操作で何が出る？」「スクショを撮って」「動かして確認して」「点検して」と言われたら使う。撮る前に押せるものの名前を調べる（偵察 → 操作）。
 ---
 
 # /webapp-testing — 画面を動かして確かめる型（2026-10-31）
 
-元: anthropics/skills の `webapp-testing`。Orime は Node の `playwright-core`＋入っている Chromium で動かす（Python は使わない）。
+元: anthropics/skills の `webapp-testing`。orime は Node の `playwright-core`＋入っている Chromium で動かす（Python は使わない）。
 
 ## 0. 道具
 | 用途 | 使うもの |

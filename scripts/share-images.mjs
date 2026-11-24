@@ -166,7 +166,7 @@ const results = await page.evaluate(async ({ photos, only }) => {
   for (const layout of ['record', 'stats', 'quote']) {
     jobs.push({ name: `edge-sticker-phrase-${layout}`, opts: { ...base, layout, format: 'story', style: 'sticker', phrase, line: layout === 'record' ? ov.quoteText(base.line, 'record') : base.line } });
   }
-  // ロゴの画像が読めず、文字の「Orime」で代わりに描いたとき
+  // ロゴの画像が読めず、文字の「orime」で代わりに描いたとき
   for (const [gName, g] of [['photo-bright', { style: 'photo', photo: photo.bright }], ['paper', { style: 'paper' }], ['night', { style: 'night' }], ['sticker', { style: 'sticker' }]]) {
     jobs.push({ name: `edge-logo-text-${gName}`, opts: { ...base, layout: 'record', format: 'post', ...g, logo: null, line: ov.quoteText(base.line, 'record') } });
   }

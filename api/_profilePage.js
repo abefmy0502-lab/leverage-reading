@@ -9,7 +9,7 @@
 //   2026-11-21（3 回目・オーナー「ビジネス・ものの見方などの分類はなくて OK」「本の画像を押したらその人のこの本のまとめを」）:
 //   分野のまとまりはやめた。VITE_SOCIAL=on のときは本を押すと本のページ（/u/<id>/b/<本の id>）＝書名・著者・状態・評価・
 //   本人が「本のまとめも公開する」をオンにしていれば「この本のまとめ」（公開に向かない言葉・連絡先があれば出さない）・
-//   「読みたいに追加」（Orime を開いて自分の読みたいに入れる＝/?want=1&title=…）。プロフィールに「フォロー」（/?follow=<id>）。
+//   「読みたいに追加」（orime を開いて自分の読みたいに入れる＝/?want=1&title=…）。プロフィールに「フォロー」（/?follow=<id>）。
 //   テーブル: supabase_profiles.sql
 import { createClient } from '@supabase/supabase-js';
 import { takeIpSlot } from './_ipRate.js';
@@ -140,14 +140,14 @@ a{color:var(--accent)}
 
 function page({ title, description = '', image = '', url = '', body, status = 200 }) {
   const site = SITE();
-  // 共有したときの絵はいつも Orime のロゴ（2026-11-23 オーナー「好きな本の表紙ではなく、Orime の文字が入ったロゴが見えるように」）。
+  // 共有したときの絵はいつも orime のロゴ（2026-11-23 オーナー「好きな本の表紙ではなく、orime の文字が入ったロゴが見えるように」）。
   void image;
   const og = `${site}/og-image.png`;
   return {
     status,
     html: `<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(title)}</title><meta name="description" content="${esc(description)}">
-<meta property="og:type" content="profile"><meta property="og:site_name" content="Orime"><meta property="og:title" content="${esc(title)}">
+<meta property="og:type" content="profile"><meta property="og:site_name" content="orime"><meta property="og:title" content="${esc(title)}">
 <meta property="og:description" content="${esc(description)}"><meta property="og:image" content="${esc(og)}"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">${url ? `<meta property="og:url" content="${esc(url)}">` : ''}
 <meta name="twitter:card" content="summary_large_image"><meta name="robots" content="${status === 200 ? 'noindex' : 'noindex,nofollow'}">
 <link rel="icon" href="/favicon-32.png"><style>${STYLE}</style></head><body><main>${body}</main></body></html>`,
@@ -301,7 +301,7 @@ export function renderProfile(p, { publicId, shelf = null, social = socialOn(), 
   const author = String(p.fav_author || '').trim();
   const line = String(p.fav_line || '').trim();
   const cover = p.fav_cover ? checkCoverImageUrl(String(p.fav_cover)) : { ok: false };
-  const who = nickname ? `${nickname}さん` : 'Orime の読者';
+  const who = nickname ? `${nickname}さん` : 'orime の読者';
   const pageTitle = title ? `${who}の好きな本『${title}』` : `${who}のプロフィール`;
   const desc = line ? `「${line}」` : (title ? `${who}が好きな本は『${title}』` : (String(p.bio || '').trim().slice(0, 80)));
   const bio = String(p.bio || '').trim();
@@ -312,14 +312,14 @@ export function renderProfile(p, { publicId, shelf = null, social = socialOn(), 
   // フォローを決めるのはこのページ（2026-11-22 オーナー「フォローするかどうかはこの画面が 1 番じゃない？」）:
   //   名前と自己紹介のすぐ下に主ボタン「フォロー」、本棚を見終えたところにもう一度。
   const followUrl = `${site}/?follow=${esc(publicId)}`;
-  const followTop = social ? `<a class="cta" style="margin-top:16px" href="${followUrl}">フォロー</a><p class="note" style="text-align:left;margin-top:8px">承認されると、本棚とまとめを Orime のアプリでいつでも見られます。</p>` : '';
+  const followTop = social ? `<a class="cta" style="margin-top:16px" href="${followUrl}">フォロー</a><p class="note" style="text-align:left;margin-top:8px">承認されると、本棚とまとめを orime のアプリでいつでも見られます。</p>` : '';
   const body = `<header class="who">
 ${renderAvatar(p.avatar, nickname)}<h1 class="name">${esc(who)}</h1>${bio ? `<p class="bio">${esc(bio)}</p>` : ''}${followTop}
 </header>
 ${line ? `<figure class="quote" style="margin-left:0;margin-right:0"><blockquote${[...line].length > 40 ? ' style="font-size:17px;line-height:1.8"' : ''}>${esc(line)}</blockquote></figure>${fav}` : fav ? `<div style="margin-top:24px">${fav}</div>` : ''}
 ${renderShelf(shelf, { publicId, links: social, filter })}
 ${social && shelf?.total ? `<a class="cta" style="margin-top:48px" href="${followUrl}">フォロー</a>` : ''}
-<a class="${social ? 'cta2' : 'cta'}" ${social ? `style="margin-top:${shelf?.total ? 32 : 48}px" ` : ''}href="${esc(site)}/lp">Orime で読書メモをはじめる</a>
+<a class="${social ? 'cta2' : 'cta'}" ${social ? `style="margin-top:${shelf?.total ? 32 : 48}px" ` : ''}href="${esc(site)}/lp">orime で読書メモをはじめる</a>
 <p class="note">読んだ本と、会話できる。<br>答えのもとは、あなたが残したメモ。</p>
 <details><summary>このページを通報する</summary>
 <form method="post" action="/api/profile-report"><input type="hidden" name="id" value="${esc(publicId)}">
@@ -333,10 +333,10 @@ ${social && shelf?.total ? `<a class="cta" style="margin-top:48px" href="${follo
 
 export function renderNotFound() {
   return page({
-    title: 'ページが見つかりません | Orime',
+    title: 'ページが見つかりません | orime',
     status: 404,
     body: `<div class="card"><h1 class="name">ページが見つかりません</h1><p class="note" style="text-align:left">公開をやめたか、リンクが違うようです。</p></div>
-<a class="cta" href="${esc(SITE())}/lp">Orime について見る</a>`,
+<a class="cta" href="${esc(SITE())}/lp">orime について見る</a>`,
   });
 }
 
@@ -349,7 +349,7 @@ export function publicSummary(text) {
   return profileTextIssue(t, 'own') ? '' : t;
 }
 
-/** 読みたいに追加の行き先（Orime を開いて、自分の読みたいに入れる確認を出す）。 */
+/** 読みたいに追加の行き先（orime を開いて、自分の読みたいに入れる確認を出す）。 */
 export function wantUrl(book, site = SITE()) {
   const q = new URLSearchParams({ want: '1', title: String(book.title || '').slice(0, 120) });
   if (book.author) q.set('author', String(book.author).slice(0, 80));
@@ -363,7 +363,7 @@ export function wantUrl(book, site = SITE()) {
 export function renderBook(p, book, { publicId, showSummary = false, others = [], linkShelf = true }) {
   const site = SITE();
   const nickname = String(p.nickname || '').trim();
-  const who = nickname ? `${nickname}さん` : 'Orime の読者';
+  const who = nickname ? `${nickname}さん` : 'orime の読者';
   const c = book.cover ? checkCoverImageUrl(String(book.cover)) : { ok: false };
   const cover = c.ok ? c.url : '';
   const rating = book.status === 'done' ? Math.max(0, Math.min(5, Math.round(Number(book.rating) || 0))) : 0;
@@ -377,7 +377,7 @@ export function renderBook(p, book, { publicId, showSummary = false, others = []
 <div><h1 class="title" style="font-size:20px">『${esc(shownTitle(title))}』</h1>${book.author ? `<p class="author">${esc(book.author)}</p>` : ''}${meta ? `<p class="meta">${esc(meta)}${stars ? `　${stars}` : ''}</p>` : ''}</div></div></div>
 ${summary ? `<h2 class="h">${esc(who)}の、この本のまとめ</h2><p class="sum">${esc(summary)}</p>` : `<p class="note" style="text-align:left;margin-top:24px;font-size:15px">${showSummary ? 'まとめはまだありません。' : 'まとめは公開されていません。'}</p>`}
 <a class="cta" href="${esc(wantUrl({ ...book, cover }, site))}">読みたいに追加</a>
-<p class="note" style="text-align:left">Orime が開き、あなたの「読みたい」に入れる前に確かめます。</p>
+<p class="note" style="text-align:left">orime が開き、あなたの「読みたい」に入れる前に確かめます。</p>
 <div class="tl" style="margin-top:24px"><a href="${esc(getAmazonLink({ isbn: book.isbn, title, author: book.author }))}" target="_blank" rel="noopener noreferrer sponsored">Amazon<svg width="1.1em" height="1.1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-left:4px"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></a><a href="${esc(getRakutenLink({ isbn: book.isbn, title, author: book.author }))}" target="_blank" rel="noopener noreferrer">楽天ブックス<svg width="1.1em" height="1.1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-left:4px"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></a></div>
 ${others.length ? `<p class="sh">${esc(who)}の、ほかのまとめ</p>${summaryRows(others, publicId)}` : ''}
 <!-- 本のページにはフォローのボタンを置かない（フォローを決めるのはプロフィールのページ・2026-11-22 オーナー「ここにフォロー申し込みのボタンは不要」） -->
@@ -387,7 +387,7 @@ ${others.length ? `<p class="sh">${esc(who)}の、ほかのまとめ</p>${summar
 <button type="submit">通報する</button></form></details>
 <p class="foot">${esc(STORE_DISCLOSURE_TEXT)}<br><a href="${esc(site)}/legal/terms">利用規約</a>・<a href="${esc(site)}/legal/privacy">プライバシーポリシー</a></p>`;
   return page({
-    title: `${who}の『${title}』 | Orime`,
+    title: `${who}の『${title}』 | orime`,
     description: summary ? summary.slice(0, 80) : `${who}の本棚の『${title}』`,
     image: cover,
     url: `${site}/u/${publicId}/b/${book.id}`,
@@ -442,7 +442,7 @@ export async function handleProfileRequest(req, res, { dbImpl = db } = {}) {
   if (q.op === 'profile_report') {
     if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); return res.status(405).send('Method not allowed'), true; }
     const slot = takeIpSlot(req, { max: 5, bucket: 'profile_report' });
-    if (!slot.ok) return send(res, page({ title: '少し時間をおいてください | Orime', status: 429, body: '<div class="card"><h1 class="name">少し時間をおいてから、もう一度お試しください</h1></div>' })), true;
+    if (!slot.ok) return send(res, page({ title: '少し時間をおいてください | orime', status: 429, body: '<div class="card"><h1 class="name">少し時間をおいてから、もう一度お試しください</h1></div>' })), true;
     const body = req.body && typeof req.body === 'object' ? req.body : {};
     const id = String(body.id || '').trim();
     const reason = String(body.reason || '').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').trim().slice(0, REPORT_MAX);
@@ -465,13 +465,13 @@ export async function handleProfileRequest(req, res, { dbImpl = db } = {}) {
     }
     if (!saved) {
       return send(res, page({
-        title: '通報を受け付けられませんでした | Orime',
+        title: '通報を受け付けられませんでした | orime',
         status: 503,
         body: `<div class="card"><h1 class="name">通報を受け付けられませんでした</h1><p class="note" style="text-align:left">少し時間をおいて、もう一度お試しください。急ぎのときは ${esc(SUPPORT())} までご連絡ください。</p></div><p class="note"><a href="/u/${esc(id)}">ページに戻る</a></p>`,
       })), true;
     }
     return send(res, page({
-      title: '通報を受け付けました | Orime',
+      title: '通報を受け付けました | orime',
       body: `<div class="card"><h1 class="name">通報を受け付けました</h1><p class="note" style="text-align:left">運営が 24 時間以内に確かめ、利用規約に反する内容は表示を止めます。ありがとうございました。</p></div><p class="note"><a href="/u/${esc(id)}">ページに戻る</a></p>`,
     })), true;
   }

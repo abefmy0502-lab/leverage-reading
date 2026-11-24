@@ -380,7 +380,7 @@ export default function AuthScreen() {
       <h1 style={{ margin: '0 0 var(--space-3)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-3)' }}>
         {/* アプリアイコン画像は iOS のアイコン形状（DESIGN §4 の例外＝中身の形）。 */}
         <img src="/icons/icon-192.png" alt="" width={72} height={72} style={{ width: 'var(--app-icon-size)', height: 'var(--app-icon-size)', borderRadius: 'var(--radius-app-icon)', display: 'block' }} />
-        {/* ロゴの文字（小文字の orime・2026-11-24）。読み上げは Orime */}
+        {/* ロゴの文字（小文字の orime・2026-11-24）。読み上げは orime */}
         <BrandLogo kind="wordmark" height={26} />
       </h1>
       {/* タグラインはログインの画面だけ（新規登録は題名「新規登録」と入力欄に集中させる・2026-09-29）。 */}
@@ -535,7 +535,7 @@ export default function AuthScreen() {
              入力欄の上に中央揃えで積まず、登録ボタンのすぐ下に補足の大きさ（13/--text-2）で（2026-09-29）。 */
           <p style={{ ...jpWrap, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, margin: 'var(--space-3) 0 0', textAlign: 'center', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
             {/* 文節の切れ目でだけ折り返す（「ログイン／してください」の途中で割らない・2026-09-30）。 */}
-            {withPhraseBreaks('Orime は iPhone / iPad のアプリです。登録後は、アプリからログインしてください。')}
+            {withPhraseBreaks('orime は iPhone / iPad のアプリです。登録後は、アプリからログインしてください。')}
           </p>
         )}
       </form>

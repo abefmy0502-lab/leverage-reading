@@ -13,7 +13,7 @@ export const REFERRAL_ON = REFERRAL_CODE.length > 0;
 export function referralMessage(code = REFERRAL_CODE, site = SITE_URL) {
   if (!code) return '';
   return [
-    'Orime（読んだ本と会話する読書メモ）を使っています。',
+    'orime（読んだ本と会話する読書メモ）を使っています。',
     `コード ${code} を、アプリの設定の「コードを使う」に入れると、特典を受け取れます（内容はコードを入れる画面に表示されます）。`,
     site,
   ].join('\n');

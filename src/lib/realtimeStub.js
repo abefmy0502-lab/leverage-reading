@@ -1,6 +1,6 @@
 // ⚡ Supabase Realtime の代わりの空の部品（vite.config.js の resolve.alias で差し替え・2026-09-29）。
 //
-// Orime は Realtime（supabase.channel() / 変更の購読 / Presence）を使っていない。
+// orime は Realtime（supabase.channel() / 変更の購読 / Presence）を使っていない。
 // それでも supabase-js は起動時に RealtimeClient を必ず作るため、使わない WebSocket の部品
 // （@supabase/realtime-js + @supabase/phoenix・約 14KB gzip）が全員の起動時に読まれていた。
 // supabase-js が起動時に呼ぶのは constructor と setAuth だけ（どちらも通信しない）なので、同じ形の空の部品で置き換える。

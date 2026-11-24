@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// 🎨 Orime のロゴの素材を 1 つの SVG から全部つくる（2026-11-24 オーナー「ロゴを変えたい」＝重なる 2 本の曲線・まん中のひし形の余白・浮かぶ点・小文字の orime）。
+// 🎨 orime のロゴの素材を 1 つの SVG から全部つくる（2026-11-24 オーナー「ロゴを変えたい」＝重なる 2 本の曲線・まん中のひし形の余白・浮かぶ点・小文字の orime）。
 //
 //   元: public/brand/orime-logo-source.svg（オーナーの画像を色ごとに描き起こした形・viewBox 1774×887・id="light"＝明るい茶／id="dark"＝濃い茶）
 //   node scripts/brand-assets.mjs  → 下の一覧を書き直す（コミットする）
@@ -9,7 +9,7 @@
 //   public/apple-touch-icon.png・favicon-32.png・favicon-16.png・logo-lockup.png（縦組み・地は透明＝写真で共有の画像のロゴ）・og-image.png
 //   ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png・Splash.imageset（明るい・暗い）
 //
-//   決まり: ロゴの文字は小文字の「orime」、アプリ名・文中は「Orime」（2026-11-24）。
+//   決まり: サービス名はロゴ・アプリ名・文中のすべてで小文字の「orime」（2026-11-24 オーナー「全部小文字に統一したい」）。
 //   暗い地では 明るい茶→#c27a4e・濃い茶→#a0613b・文字→#efe6da（暗い地の上で 3:1 以上）。
 import sharp from 'sharp';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';

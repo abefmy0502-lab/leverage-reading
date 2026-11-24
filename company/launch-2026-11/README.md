@@ -5,7 +5,7 @@
 
 > **訴求の正は `company/marketing-master-plan-2026-10.md`**（2026-10-11 オーナー確定）：軸「**読書を、受け身から会話へ**」・見出し「**読んだ本と、会話しよう。**」・5 つの柱（①本と会話する ②成果につなげる ③習慣にする ④発信して、続ける ⑤自分の読書を客観的に見る）・客は読書の成果を最大にしたい人全体（社会人・大学生）・**顔は出さない**・**お金はかけない**（有料の宣伝なし・協業はオファーコードだけ）・チーム・会社向けは書かない。時間割の基準は `company/marketing-strategy-2026-11.md`。
 > 公開日 **2026-11-17（火）**・創業メンバー期間 **11/17〜12/16**・創業メンバーの部屋は LINE オープンチャット・7 日間無料ははじめての相談の答えのあとに半分の人だけ（実験）。
-> **2026-10-11 オーナー決定**：App 名は `Orime - 読んだ本と会話する読書メモ`（ホーム画面の名前は Orime のまま）。**SNS は Instagram・Threads・X・note の 4 つ**（動画はリールと X・TikTok と YouTube ショートは使わない）。動画に実在の書名を映してよい。そのかわり**法律上の安全策**（画面は見本の字幕「画面は見本です。実際の答えは、あなたのメモによって変わります。」・実在の書名には「本の著者・出版社とは関係ありません」・出版社の表紙の画像を使わない・著者を主役にしない・本文を長く写さない・書名をもじらない・AI のナレーションは AI と分かるように・協業は「PR」）を必ず守る（`sns-playbook.md` §7）。10-08 の「X で顔と名前を出す」は 10-11 に「顔は出さない（名前は出してよい）」に変わった。
+> **2026-10-11 オーナー決定**：App 名は `orime - 読んだ本と会話する読書メモ`（ホーム画面の名前は orime のまま）。**SNS は Instagram・Threads・X・note の 4 つ**（動画はリールと X・TikTok と YouTube ショートは使わない）。動画に実在の書名を映してよい。そのかわり**法律上の安全策**（画面は見本の字幕「画面は見本です。実際の答えは、あなたのメモによって変わります。」・実在の書名には「本の著者・出版社とは関係ありません」・出版社の表紙の画像を使わない・著者を主役にしない・本文を長く写さない・書名をもじらない・AI のナレーションは AI と分かるように・協業は「PR」）を必ず守る（`sns-playbook.md` §7）。10-08 の「X で顔と名前を出す」は 10-11 に「顔は出さない（名前は出してよい）」に変わった。
 > 用語は CLAUDE.md の GLOSSARY・`company/brand-guardrails.md`。全部が下書き：投稿・メール・DM は、オーナーが自分の言葉と事実に直してから出す。【 】は本人しか書けない事実（埋められなければ消す）。
 
 ## 一覧と使う日
@@ -17,8 +17,8 @@
 | [`chrome-revenuecat-prompt.md`](chrome-revenuecat-prompt.md) | RevenueCat の設定を Claude in Chrome に任せる指示文（秘密の鍵はオーナーが扱う） | 11/15 |
 | [`chrome-supabase-demo-prompt.md`](chrome-supabase-demo-prompt.md) | SQL を最新に・審査用のデモアカウントを作って課金済みに・審査の欄に入れる（Claude in Chrome） | 11/15 |
 | [`chrome-day-before-prompt.md`](chrome-day-before-prompt.md) | 公開の前日（11/16）: SQL・公開のメールの試し送り・P17 の予約・note 06 の下書き（Claude in Chrome） | 11/16 |
-| [`chrome-x-setup-prompt.md`](chrome-x-setup-prompt.md) | X を Orime のアカウントに整える（プロフィール・ロゴ・ヘッダー・プライバシー・図つきの固定ポスト）。画像は `x-assets/` | 11/15〜16 |
-| [`chrome-note-setup-prompt.md`](chrome-note-setup-prompt.md) | note を Orime のアカウントに整え、04・06 を下書きに（マガジン「Orime を作る記録」）。画像は `note-assets/` | 11/15〜16 |
+| [`chrome-x-setup-prompt.md`](chrome-x-setup-prompt.md) | X を orime のアカウントに整える（プロフィール・ロゴ・ヘッダー・プライバシー・図つきの固定ポスト）。画像は `x-assets/` | 11/15〜16 |
+| [`chrome-note-setup-prompt.md`](chrome-note-setup-prompt.md) | note を orime のアカウントに整え、04・06 を下書きに（マガジン「orime を作る記録」）。画像は `note-assets/` | 11/15〜16 |
 | [`mac-build-prompt.md`](mac-build-prompt.md) | Mac の Claude Code に、iOS 1.0.0 を作って App Store Connect へ上げてもらう指示文（鍵はチャットに出さない） | 11/15 |
 | [`calendar.md`](calendar.md) | 10/11〜2/15 の**週ごと**の予定（オーナー／発信／Claude）と毎週の数字の表 | 毎週月曜 |
 | [`sns-playbook.md`](sns-playbook.md) | X・Instagram（リール・カルーセル）・Threads・note の役割・週の本数・型・ハッシュタグ・時刻・判断の数字（0 円）・**守ること（法律上の安全策）** | 投稿の前に |
@@ -65,5 +65,5 @@ UI_SHOTS_URL=http://localhost:5198 node scripts/appstore-shots.mjs   # 撮る �
 ## オーナーがやること・Claude がやること
 
 週ごとの表は `calendar.md`（2026-10-11 版）が正。10-08 版の日ごとの表（顔と名前・公開日からの名前の検索広告・note 01/02 の日付）は古い。
-- 名前の検索広告は**入れない**（ほかのアプリが「Orime」で広告を出してきたときだけ・オーナーが決める）。
+- 名前の検索広告は**入れない**（ほかのアプリが「orime」で広告を出してきたときだけ・オーナーが決める）。
 - note の順：04（10/20）→ 05（10/27）→ 01（11/3）→ 03（11/10）→ 06（11/17）→ 02（11/24）→ 新しい記事（12/1〜）。

@@ -1,5 +1,5 @@
 /* ===========================================================================
- * 🌱 Landing Page CSS — Orime（2026-09-26 作り直し → 2026-10-02 構成 → 2026-10-05 マーケの報告で作り直し → 2026-10-11 受け身から会話へ）
+ * 🌱 Landing Page CSS — orime（2026-09-26 作り直し → 2026-10-02 構成 → 2026-10-05 マーケの報告で作り直し → 2026-10-11 受け身から会話へ）
  *
  * アプリと同じトークン（src/styles/tokens.css）で書く。明暗は端末に従う（アプリと同じ）。
  *   - 色: 背景 --bg / 面 --surface / 文字 --text・--text-2 / 線 --separator
@@ -465,8 +465,8 @@ body.lp-active {
 /* 4 つ並べる（④ 0 日目の始め方・PC は 4 列・タブレットは 2 列） */
 .lp-quad { grid-template-columns: repeat(auto-fit, minmax(min(100%, 12em), 1fr)); }
 
-/* ② これまで／Orime の 2 行（見出しのすぐ下）。押せないので色は文字のニュートラル、これからの行だけ太く */
-/* ② これまでの読書 / Orime の読書（2 枚・スマホは縦に、広い画面は横に） */
+/* ② これまで／orime の 2 行（見出しのすぐ下）。押せないので色は文字のニュートラル、これからの行だけ太く */
+/* ② これまでの読書 / orime の読書（2 枚・スマホは縦に、広い画面は横に） */
 .lp-ba { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-8); }
 /* これまで → これから（2026-10-16 ui-critic「灰色のカードと栗色の枠のカードを並べるのは SaaS の型」）:
    カード・図・矢印をやめ、文の大きさだけで見せる。これまでは小さく --text-2、これからは大きく --text。 */
@@ -962,7 +962,7 @@ body.lp-active {
 .lp-wl-note a { text-decoration: underline; text-underline-offset: 0.2em; }
 
 /* ============ 2026-10-16 図で伝える（LpDiagram.jsx・第 2 版） ============ */
-/* これまで ／ Orime。これまでは枠も面もなく淡く、Orime は淡い栗色の面＝目が後者に止まる。絵は中央、名前は下 */
+/* これまで ／ orime。これまでは枠も面もなく淡く、orime は淡い栗色の面＝目が後者に止まる。絵は中央、名前は下 */
 .lp-dia { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-3); margin-top: var(--space-8); }
 .lp-dia-card { margin: 0; padding: var(--space-6) var(--space-4) var(--space-4); border-radius: var(--radius); text-align: center; }
 .lp-dia-card:not(.is-after) { border: 1px solid var(--separator); }
@@ -1051,7 +1051,7 @@ body.lp-active {
   .lp-change > li:nth-last-child(2) { border-bottom: 1px solid var(--separator); }
 }
 
-/* ほかのアプリとの違い: 3 列の表（スマホは 1 行ずつ縦に）。Orime の列だけ文字を濃く・左に細い栗色の線 */
+/* ほかのアプリとの違い: 3 列の表（スマホは 1 行ずつ縦に）。orime の列だけ文字を濃く・左に細い栗色の線 */
 .lp-diff { margin-top: var(--space-8); border-top: 1px solid var(--separator); }
 .lp-diff-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-2); padding: var(--space-6) 0; border-bottom: 1px solid var(--separator); }
 .lp-diff-head { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
@@ -1285,7 +1285,7 @@ body.lp-active {
   .lp-day1-step { padding-top: var(--space-4); border-top: 1px solid var(--separator); }
 }
 
-/* 🗺 「Orime に相談すると、こうなる。」の下の図（2026-11-15）: 線の絵だけ・左端は見出しにそろえ、段の間は等しく */
+/* 🗺 「orime に相談すると、こうなる。」の下の図（2026-11-15）: 線の絵だけ・左端は見出しにそろえ、段の間は等しく */
 .lp-talk-diagram { list-style: none; margin: var(--space-6) 0 0; padding: 0; display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-2); max-width: 30em; }
 .lp-talk-diagram-node { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-1); min-width: 0; }
 .lp-talk-diagram-icon { font-size: calc(var(--text-sub) * 1.75); color: var(--text); }
@@ -1318,7 +1318,7 @@ body.lp-active {
 .lp-root .lp-lines > span { display: block; }
 .lp-root .lp-final-sub { margin: var(--space-3) auto 0; max-width: none; color: var(--text-2); font-size: var(--text-body); text-align: center; }
 
-/* 💴 料金の帯の図（2026-11-15）: 本 1 冊 ≒ Orime の 1 か月。線の絵・面なし・強調は右の本棚の線だけ */
+/* 💴 料金の帯の図（2026-11-15）: 本 1 冊 ≒ orime の 1 か月。線の絵・面なし・強調は右の本棚の線だけ */
 .lp-cost-diagram { max-width: 40em; margin: var(--space-4) 0 0; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: var(--space-3); padding: var(--space-4) 0; border-top: 1px solid var(--separator); }
 .lp-cost-side { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--space-1); min-width: 0; }
 .lp-cost-icon { font-size: calc(var(--text-sub) * 2.4); color: var(--text-2); margin-bottom: var(--space-1); }

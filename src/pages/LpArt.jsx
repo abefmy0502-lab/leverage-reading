@@ -7,7 +7,7 @@
 // 置き場所と書き出し方は docs/lp-measurement.md。
 //
 //   name                比     置く場所
-//   illust-dialogue     4:3    ②「読んで、終わりにしない。」の頭（これまで → Orime の下）
+//   illust-dialogue     4:3    ②「読んで、終わりにしない。」の頭（これまで → orime の下）
 //   illust-action       1:1    ③ 柱「成果につなげる」（明日の一歩）
 //   illust-focus        1:1    ③ 柱「習慣にする」（集中モード）
 //   illust-share        1:1    ③ 柱「発信して、続ける」（写真で共有）

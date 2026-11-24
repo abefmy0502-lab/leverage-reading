@@ -234,9 +234,9 @@ export async function exportMemosAsMarkdown(userId) {
   }
 
   const lines = [];
-  lines.push(`# Orime 読書メモ（${date}）`, '');
+  lines.push(`# orime 読書メモ（${date}）`, '');
   lines.push(
-    '> Orime からの書き出しです。Markdown 形式なので、NotebookLM や Obsidian などにそのまま取り込んで活用できます。',
+    '> orime からの書き出しです。Markdown 形式なので、NotebookLM や Obsidian などにそのまま取り込んで活用できます。',
     '',
   );
 

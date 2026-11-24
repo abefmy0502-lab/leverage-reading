@@ -78,7 +78,7 @@
 | 📊 データ分析・グロース | KPI設計済（NSM=週次想起WAU / 11イベント / PostHog推奨） | 計測実装は待機（法務前提待ち） |
 | ⚖️ 法務・コンプラ | 規約/プライバシー/特商法ドラフト作成済（`legal/`） | 特商法2フィールドはオーナー情報待ち |
 | 💻 エンジニア | 課金基盤実装済 / **¥1,280反映** / saveBook堅牢化・ログ撤去 完了 / Node固定+ビルドスタンプ / **iOS両チャネル実装（Capacitor再合流+iap.js+Paywall/設定のnative分岐+復元+反ステアリング）** | ✅ main最新・build通過。残=Mac実機ビルド/審査(オーナー) |
-| 🎨 ブランディング（アイコン・アプリ名） | アプリ名**「Orime」**＋**ロゴ確定（案A=折り目スウッシュ）** | ✅ アイコン一式生成・splash/auth/favicon/PWA/iOS(1024)へ反映済 |
+| 🎨 ブランディング（アイコン・アプリ名） | アプリ名**「orime」**＋**ロゴ確定（案A=折り目スウッシュ）** | ✅ アイコン一式生成・splash/auth/favicon/PWA/iOS(1024)へ反映済 |
 | 📄 LP | **¥1,280に統一済**（Landing/Terms/SCT・コード確認済）。「無料期間なし」で課金モデルと整合 | ⚠️ライブ未反映（Vercel配線・B6） |
 | 📣 マーケ・営業 | X/Note事前種まきプレイブックv1策定（`marketing-playbook.md`）・競合リサーチ中 | 🔄 種まき起動準備 |
 | 💰 経理 | 990円での必要課金者数・AI原価上限を算定 | ✅ 完了（2026KGI=約130人 / AI上限≤144円/人） |
@@ -110,10 +110,10 @@
 | ✅完了 | ~~価格 ¥1,000→¥990 反映~~ | エンジニア | Landing/Terms/SCT/checkout コメント（本コミット） |
 | 🔴P0 | 特商法2フィールド記入 | 法務＋オーナー | `SctPage.jsx`。他項目記入済・¥990反映済 |
 | ✅完了 | ~~App決済基盤（B5非依存）~~：revenuecat-webhook＋subscriptions provider列＋法務文言(IAP/ストア解約) | エンジニア | レビュー承認・コミット。Stripe流儀＆既存entitlement基盤を再利用 |
-| ✅完了(コード) | ~~**ネイティブ化**（Capacitor土台）~~ | エンジニア | capacitor.config(Orime)/native.js/initNative/useHaptic native分岐/@capacitor依存をmainへ再合流。¥990は持込まず。build/npm ci通過。残=Mac実機ビルド |
+| ✅完了(コード) | ~~**ネイティブ化**（Capacitor土台）~~ | エンジニア | capacitor.config(orime)/native.js/initNative/useHaptic native分岐/@capacitor依存をmainへ再合流。¥990は持込まず。build/npm ci通過。残=Mac実機ビルド |
 | ✅完了(コード) | ~~ペイウォール＋AccountSettings(復元/管理リンク)＋IAP購入シート~~ | エンジニア | `iap.js`(RevenueCatラッパ・Web無害)+Paywall/設定をisNativePlatform分岐+購入/復元/store価格/管理。残=実機での購入疎通検証(TestFlight) |
 | ⏸B5依存 | 実機IAP疎通／ストア商品(¥990)登録／署名ビルド申請／RevenueCat-ストアAPI連携 | エンジニア＋元帥 | B5（O1 D-U-N-S・O5 税/口座）解消後 |
-| ✅完了 | ~~プロダクト名リブランド（→Orime）＋LP法務de-risk~~ | エンジニア | 表示文言のみ置換(コード識別子不変・破壊なし検証済)。LP誇大表現を景表法/Apple審査準拠に緩和。commit ee57862 |
+| ✅完了 | ~~プロダクト名リブランド（→orime）＋LP法務de-risk~~ | エンジニア | 表示文言のみ置換(コード識別子不変・破壊なし検証済)。LP誇大表現を景表法/Apple審査準拠に緩和。commit ee57862 |
 | ✅完了 | ~~プライバシーポリシーのIAP整合~~ | 法務 | Apple/Google/RevenueCat委託先・越境移転追記。commit済 |
 | ⏸保留 | ~~Stripe課金基盤の本番化~~ | — | App決済確定によりWebフォールバックとして温存（8dcd810） |
 | ✅完了 | ~~`saveBook`/restore の堅牢化~~ | エンジニア | `restoreBookFromSnapshot` が `{ok, failed[]}` を返し復元失敗を呼び出し側へ明示。握り潰し解消済 |
@@ -186,7 +186,7 @@
   - **[Critical] 購入キャンセル誤判定**（iap.js）：v13 の `error.code` は `'PURCHASE_CANCELLED_ERROR'`（数値'1'でない）。キャンセルの度に赤エラートーストが出ていた → コード/userCancelled/メッセージの冗長判定に修正。
   - **[Critical] 購入後ロック罠**（iap/useSubscription/Paywall/AccountSettings/App）：`setTimeout(reload)` で webhook 反映を待つ設計だと、反映が遅い/restoreで未発火のとき「払ったのにロック」。→ **端末ローカルの RevenueCat entitlement を真実に追加**（`hasActiveEntitlement`）。useSubscription が native でローカル権利を見て即 `isActive`。Paywall/設定は reload を廃し `onPurchased=refresh` で即アンロック（webhook は DB を裏で durable 同期）。
   - **[反ステアリング] AccountSettings の特商法リンク**（Web価格¥1,280を表示）を native で非表示に。native のアップグレード表示ラベルを `APP_PLAN_LABELS`(¥1,480) に。
-  - **[a11y/UX] AuthScreen** に h1 見出し復活（ロゴを h1 化・alt=Orime）、クリーム上の低コントラスト文字 `#8a7e6b`→`#6b5f4d`(WCAG AA)、ロゴ画像に aspectRatio で CLS 防止。Splash も LCP 優先読込＋CLS 防止。native の待機ラベルを「購入手続き中…」に。計測キーを `EVENTS.CHECKOUT_STARTED` に統一。
+  - **[a11y/UX] AuthScreen** に h1 見出し復活（ロゴを h1 化・alt=orime）、クリーム上の低コントラスト文字 `#8a7e6b`→`#6b5f4d`(WCAG AA)、ロゴ画像に aspectRatio で CLS 防止。Splash も LCP 優先読込＋CLS 防止。native の待機ラベルを「購入手続き中…」に。計測キーを `EVENTS.CHECKOUT_STARTED` に統一。
   - **[デプロイ] SW_VERSION v53→v54**：新アイコン/ロゴが旧キャッシュで出ないように。
   - 回帰チーム結論：P1/P2 ゼロ（IMEガード全数OK・optimistic rollback健全・console.log 0・web無害化確認）。`npm run build`/`npm ci` 成功。Web挙動は不変。
 - **2026-06-23 — 🎨 ロゴ確定（案A）＋アイコン一式を全面展開**
@@ -196,7 +196,7 @@
   - 残：極小favicon用のモノクロ簡略版は任意の後続（現状は高コントラストで実用域）。iOS は Xcode の AppIcon に `public/icons/icon-1024.png` を設定。
 - **2026-06-22（午後2）— 📱 iOS両チャネル化を実装（Mac不要部分を先行・7月両売り体制）**
   - 元帥指示「Web/iOSどちらも7月中に売る」＋「Macあり・審査提出可」を受け、**Macが要らないコードを全実装**。残作業をオーナーの「ビルド→審査提出」だけに圧縮。
-  - **Capacitor土台を main へ再合流**（`8717a0c` からファイル単位で取得。capacitor.config=appName Orime / native.js / main.jsx initNative / useHaptic native分岐 / @capacitor依存）。**¥990差分は一切持ち込まず**¥1,280維持。
+  - **Capacitor土台を main へ再合流**（`8717a0c` からファイル単位で取得。capacitor.config=appName orime / native.js / main.jsx initNative / useHaptic native分岐 / @capacitor依存）。**¥990差分は一切持ち込まず**¥1,280維持。
   - **新規 `src/lib/iap.js`**（RevenueCatラッパ）：SDKは dynamic import + `isNative` ガードで **Webバンドルから除外＝Web完全無害**（遅延チャンク `web-*.js` に分離・index不変を確認）。store価格取得/購入/復元/App Store管理。
   - **Paywall + AccountSettings を `Capacitor.isNativePlatform()` で分岐**：native=App Store購入シート＋ストア価格(¥1,480)表示＋**「購入を復元」(Apple必須)**＋**自動更新条件の開示(審査要件3.1.2)**＋管理はApp Store設定へ。**反ステアリング順守**で特商法/サービス紹介LP(安いWeb価格)を native では非表示。Web=従来Stripe(¥1,280)不変。
   - **価格はコード非依存**（Stripe Price ID / App Store商品設定が真実）。entitlementは `subscriptions`(status=active)で両チャネル共通。
@@ -204,7 +204,7 @@
   - 🔴 **唯一の残ボトルネック**：Mac/Xcodeでの実機ビルド＋App Store審査（オーナー）＋RevenueCat/ストア商品(¥1,480)設定（§5要対応）。コード側は完了。
 - **2026-06-22（午後）— 🏛 全社会議：認識統一＋ローンチ最終関門の特定**
   - 元帥指示で全責任者の認識をSSOT＋実コードで突合。**5件のズレを是正**：①価格＝一部資料が旧¥990→**正:Web¥1,280/App¥1,480**（コード全面¥1,280確認）②**最大の現在関門＝Vercel本番がmainをデプロイしていない**（旧Vercelは別アカウント作成＝配線切れ。ライブ=旧版6/20・¥990表示）→新**B6** ③`saveBook`/restore堅牢化=**完了**（`{ok,failed}`返却）④本番デバッグログ撤去=**完了**（console.log 0件）⑤push403(B2)=**解決済**。
-  - **CEO結論**：コード・ビルド・push は新版で健全（main=3de47b7・build通過・¥1,280・Orime）。**ユーザーに届いていない唯一の原因はVercel配線（B6）**。元帥のVercel再Import（`abefmy0502-lab`でログイン→Import→Deploy）で解消すれば即ローンチ態勢。続く最終作業＝env/Stripe/SQL（runbook §1-5）。
+  - **CEO結論**：コード・ビルド・push は新版で健全（main=3de47b7・build通過・¥1,280・orime）。**ユーザーに届いていない唯一の原因はVercel配線（B6）**。元帥のVercel再Import（`abefmy0502-lab`でログイン→Import→Deploy）で解消すれば即ローンチ態勢。続く最終作業＝env/Stripe/SQL（runbook §1-5）。
   - デプロイ堅牢化を実装：**Node 22.x固定**（engines+.nvmrc）＋**ビルドスタンプ**（commit SHA/日付をLP最下部に＝新旧即判定）。commit 3de47b7・build/`npm ci`検証済。
 - **2026-06-22 — 🚀 push解放＋mainを本セッション線で置換＝Web先行デプロイ起動**
   - **push 403 の根本原因が判明・解消**：GitHub の多重アカウント自動制限（`abefmy0502-lab`/`ccvw65jfbd-cyber`/`fab-ux`）。サポート審査で解放。**保持＝`abefmy0502-lab`**（leverage-reading オーナー）。元帥は余分2アカの統合/削除でサポート対応を完了させること。
@@ -256,13 +256,13 @@
   - 統合結論：**「7日トライアル＋年額プラン」が中心戦略**。グロース＝ハードペイウォールは正しい・#1レバー年額／ASO＝無料無しは発見性の最大ハンディ・トライアル導入推奨、の相違を「トライアルで発見性を取り、フリーミアムはせず経済性を守る」で統合。トライアル中AI原価はメータリングで防御。
   - ファネル逆算：継続150人には 数十万リーチ→3万訪問→7千install→350課金→150継続。月次マイルストーン（7月25→12月150=KGI）と要判断を整理。
   - 🎯 要・元帥判断：①7日トライアル導入可否（以前"無し"FIX→外部数字で再判断）②年額プラン(¥7,800〜8,800)③ストア カテゴリ＝仕事効率化。
-  - ✅ Orimeリブランド＋LP de-risk 完了（commit ee57862）。全社の声がOrimeで統一。
-- **2026-06-21（深夜3）— Orimeリブランド着手＆全社メッセージ統一**
-  - ✅ Orime由来＝**折り目**・英字表記で確定（元帥）。リブランドは**今すぐ着手**指示。
+  - ✅ orimeリブランド＋LP de-risk 完了（commit ee57862）。全社の声がorimeで統一。
+- **2026-06-21（深夜3）— orimeリブランド着手＆全社メッセージ統一**
+  - ✅ orime由来＝**折り目**・英字表記で確定（元帥）。リブランドは**今すぐ着手**指示。
   - 📐 **ブランド・メッセージング基準を策定**（`company/brand-messaging.md`）：名称/核メッセージ「読みっぱなしを、やめる。」/3つの価値/トーン/**法務ガードレール（景表法・Apple審査：成果保証・倍率・損失額の断定を排す）**/媒体別適用。マーケ〜LP〜プロダクト〜営業の唯一の声。
-  - 🔄 エンジニアにリブランド実行を起票：(A)「レバレッジ読書ログ」→「Orime」を表示文言のみ置換（コード識別子/localStorage/DB列/バケット/CSS接頭辞は不変＝安全線）(B)LPの誇大表現（「年収10万円に変える」「10倍」「¥4,702捨てている」）を誠実コピーへde-risk。**法務リスク最小×訴求最大**を同時達成。
+  - 🔄 エンジニアにリブランド実行を起票：(A)「レバレッジ読書ログ」→「orime」を表示文言のみ置換（コード識別子/localStorage/DB列/バケット/CSS接頭辞は不変＝安全線）(B)LPの誇大表現（「年収10万円に変える」「10倍」「¥4,702捨てている」）を誠実コピーへde-risk。**法務リスク最小×訴求最大**を同時達成。
 - **2026-06-21（深夜2）— 元帥決定3件（アプリ名・運営者名・CTA）**
-  - 🆕 **アプリ名を「Orime」に決定**（アイコン・アプリ名部署と確定）。「レバレッジ読書ログ」からのリブランド。**「レバレッジ」商標懸念は名称変更で解消**。→ 新P1「プロダクト名リブランド（コード/LP/法務/manifest/CLAUDE等の置換）」を起票。要確認：表記（Orime/オリメ）・日本語タグライン有無・ドメイン。
+  - 🆕 **アプリ名を「orime」に決定**（アイコン・アプリ名部署と確定）。「レバレッジ読書ログ」からのリブランド。**「レバレッジ」商標懸念は名称変更で解消**。→ 新P1「プロダクト名リブランド（コード/LP/法務/manifest/CLAUDE等の置換）」を起票。要確認：表記（orime/オリメ）・日本語タグライン有無・ドメイン。
   - 🆕 **X運営の顔＝「fumiya」**（実名フルでなくfumiya基調・半匿名）。
   - 🆕 **ローンチ前CTA：ウェイトリスト/先行モニターは"やらない"**。種まきは純粋にフォロワー・信頼構築＋ローンチ告知待ち（"近日公開"のtease）に振る。
 - **2026-06-21（深夜）— マーケ事前種まき起動＆B5前進＆指示書**

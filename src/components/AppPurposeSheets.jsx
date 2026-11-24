@@ -1,6 +1,6 @@
-// 🎯 Orime を入れた理由のシート 2 つ（2026-10-18 オーナー）。
+// 🎯 orime を入れた理由のシート 2 つ（2026-10-18 オーナー）。
 //
-// AppPurposeEditSheet: 設定の「Orime を入れた理由」から書き直す（チップ＋欄・下に「保存」）。
+// AppPurposeEditSheet: 設定の「orime を入れた理由」から書き直す（チップ＋欄・下に「保存」）。
 // PurposeCheckSheet:   解約（プランを管理）と退会の前に一度だけ「目的は達成できましたか？」。
 //   入れた理由を見せて、「まだ途中」「達成できた」のどちらを押しても先へ進む（止めない・同じ重さの 2 つ・
 //   どこへ進むかを 1 行で言う＝App Store の解約を妨げない）。閉じたら何もしない（もとの画面のまま）。
@@ -48,7 +48,7 @@ export function AppPurposeEditSheet({ purpose, onClose }) {
   const beforeClose = async () => (!changed || !!(await confirm({ title: '保存していない変更があります', message: '入れた理由は元のまま残ります。', confirmLabel: '変更を破棄', cancelLabel: '編集を続ける', danger: true })));
   return createPortal(
     <BottomSheet
-      title="Orime を入れた理由"
+      title="orime を入れた理由"
       onClose={onClose}
       beforeClose={beforeClose}
       dismissLabel="キャンセル"
@@ -93,7 +93,7 @@ export function PurposeCheckSheet({ purpose, where, nextText, onContinue, onClos
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
         <div style={quoteBox}>
-          <span style={{ ...groupTitle, display: 'block' }}>{purpose?.at ? `${fmtDateJa(purpose.at)} に書いた、Orime を入れた理由` : 'Orime を入れた理由'}</span>
+          <span style={{ ...groupTitle, display: 'block' }}>{purpose?.at ? `${fmtDateJa(purpose.at)} に書いた、orime を入れた理由` : 'orime を入れた理由'}</span>
           <p style={quoteText}>{withPhraseBreaks(purpose?.text || '')}</p>
         </div>
         {/* 解約の前: やめても続けられることを先に（2026-10-20 オーナー「課金している人・していない人それぞれの満足度」・止めない） */}

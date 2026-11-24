@@ -146,9 +146,9 @@ describe('orderLineCandidates', () => {
 });
 
 describe('buildShareText / shareFilename', () => {
-  it('『書名』より＋一文＋#Orime＋URL（数字・日付は入れない）', () => {
+  it('『書名』より＋一文＋#orime＋URL（数字・日付は入れない）', () => {
     expect(buildShareText({ title: 'イシューからはじめよ', line: '問いを確かめる。', siteUrl: 'https://orime.vercel.app' }))
-      .toBe('『イシューからはじめよ』より\n問いを確かめる。\n#Orime\nhttps://orime.vercel.app');
+      .toBe('『イシューからはじめよ』より\n問いを確かめる。\n#orime\nhttps://orime.vercel.app');
   });
   it('ファイル名に書名を入れない', () => {
     const name = shareFilename({ format: 'post', style: 'night', now: new Date(2026, 8, 27, 9, 5) });

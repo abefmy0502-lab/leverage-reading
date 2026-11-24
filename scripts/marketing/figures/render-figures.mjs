@@ -2,7 +2,7 @@
 //   一部だけ: `npm run mkt:figures -- launch-flow note06-header`
 //   確かめるだけ: `npm run mkt:figures -- --check`
 // 中身は figures.mjs。色は src/styles/tokens.css の明るい画面の値、文字は Noto Sans JP / Noto Serif JP（Google Fonts＝Mac でもクラウドでも同じ形）。
-// 右下に必ず Orime のロゴ（public/icons/icon-512.png）と「Orime」。
+// 右下に必ず orime のロゴ（public/icons/icon-512.png）と「orime」。
 
 import { readFileSync, mkdirSync, writeFileSync, existsSync } from 'node:fs';
 import { dirname, join, resolve, isAbsolute } from 'node:path';
@@ -101,7 +101,7 @@ body{background:${C.bg};color:${C.text};font-family:"Noto Sans JP",sans-serif;pa
 ${header ? `body{padding:0 ${px(150)} 0 ${px(520)};align-items:flex-end;justify-content:center;gap:0}.quote{border-left:none;padding-left:0;align-items:flex-end;text-align:right;gap:${px(20)}}.qt{font-size:${px(84)};white-space:nowrap}.qs{font-size:${px(40)};white-space:nowrap}.foot{display:none}` : ''}
 ${fig.size === 'noteprofile' ? `body{padding:0;align-items:center;justify-content:center}.foot{display:none}.brandrow{display:flex;align-items:center;gap:${px(48)}}.lockup{height:${px(212)};mix-blend-mode:multiply}.brandtext{display:flex;flex-direction:column;gap:${px(10)};padding-left:${px(32)};border-left:${px(2)} solid ${C.line}}.qt{font-family:"Noto Serif JP",serif;font-weight:600;font-size:${px(45)};line-height:1.35;white-space:nowrap}.qs{font-size:${px(30)};color:${C.text2};white-space:nowrap}` : fig.type === 'brand' ? `body{padding:0;align-items:center;justify-content:center}.foot{display:none}.brandrow{display:flex;align-items:center;gap:${px(64)};${header ? `margin-left:${px(250)}` : ''}}.lockup{height:${px(header ? 270 : 400)};mix-blend-mode:multiply}.brandtext{display:flex;flex-direction:column;gap:${px(18)};padding-left:${px(56)};border-left:${px(4)} solid ${C.line}}.qt{font-family:"Noto Serif JP",serif;font-weight:600;font-size:${px(header ? 60 : 64)};line-height:1.35;white-space:nowrap}.qs{font-size:${px(header ? 30 : 32)};color:${C.text2};white-space:nowrap}` : ''}</style></head><body>
 ${body(fig, s)}
-<div class="foot"><span>${esc(footer)}</span><span class="brand"><img src="${LOGO}" alt="">Orime</span></div>
+<div class="foot"><span>${esc(footer)}</span><span class="brand"><img src="${LOGO}" alt="">orime</span></div>
 </body></html>`;
 }
 

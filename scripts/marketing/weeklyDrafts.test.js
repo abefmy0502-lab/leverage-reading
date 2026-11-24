@@ -41,12 +41,12 @@ describe('checkShape（投稿の形・2026-11-10）', () => {
   const kit = (posts) => posts.map(([h, body]) => `### ${h}\n\`\`\`\n${body}\n\`\`\``).join('\n\n');
   it('1 行目が製品名・機能の知らせから始まる投稿に注意を出す（読む人の話から始まれば通す）', () => {
     const hits = checkShape(kit([
-      ['X01 月', 'Orime の答えの材料は、自分の一行だけ。\n\n読んだ本と話す。'],
+      ['X01 月', 'orime の答えの材料は、自分の一行だけ。\n\n読んだ本と話す。'],
       ['X02 火', '記録に「分野」を入れました。\n\n仕事の本ばかりでした。'],
       ['X03 水', '「読書メモなんて残してない」が普通だと思う。だから入口を 4 つ作りました。\n\nその日から相談できます。'],
       ['X04 木', '記録の「分野」を見たら、仕事の本が 8 割でした。\n\n歴史は 0 冊。'],
     ]));
-    expect(hits.filter((h) => /製品名から|機能の知らせ/.test(h.why)).map((h) => h.word.slice(0, 6))).toEqual(['Orime ', '記録に「分野']);
+    expect(hits.filter((h) => /製品名から|機能の知らせ/.test(h.why)).map((h) => h.word.slice(0, 6))).toEqual(['orime ', '記録に「分野']);
   });
   it('X は重み 280 まで（日本語 141 字で超える）・Threads は問いで終わるものが半分未満だと注意', () => {
     const long = 'あ'.repeat(141);
@@ -102,9 +102,9 @@ describe('場ごとの決まり（2026-11-23・sns-playbooks）', () => {
     expect(ig.map((h) => h.word)).toContain('ハッシュタグ 6');
     expect(checkShape(kit([['カルーセル 保存版', '読む前に決める 3 つ。\n#a #b #c']]))).toEqual([]);
   });
-  it('TikTok: 検索の言葉（Orime）が無いと指す', () => {
+  it('TikTok: 検索の言葉（orime）が無いと指す', () => {
     expect(checkShape(kit([['TikTok 1', '本棚を撮ったら、20 冊が入った。']])).map((h) => h.word)).toContain('検索の言葉');
-    expect(checkShape(kit([['TikTok 1', '本棚を撮ったら、20 冊が入った。\nApp Store で「Orime」と検索']]))).toEqual([]);
+    expect(checkShape(kit([['TikTok 1', '本棚を撮ったら、20 冊が入った。\nApp Store で「orime」と検索']]))).toEqual([]);
   });
   it('数えた本数を場ごとに返す', () => {
     const r = checkShape(kit([['X1 月', 'a。\nリンクは返信に。'], ['T1 月', 'b？'], ['リール 1（15 秒）', 'c']]));
@@ -137,7 +137,7 @@ describe('週ぜんたいの癖（2026-11-23・採点の指摘）', () => {
     const posts = [
       ['X1 月', `場面 1。\n\n${close}`], ['X2 月', `場面 2。\n\n${close}`], ['X3 月', `場面 3。\n\n${close}`],
       ['X4 月', '場面 4。\n\nあなたは何から読みますか？\nリンクは返信に。'], ['X5 月', '場面 5。\n\n最初の 1 行は何にしますか？\nリンクは返信に。'],
-      ['X6 月', '場面 6。\n\nApp Store で「Orime」。'],
+      ['X6 月', '場面 6。\n\nApp Store で「orime」。'],
     ];
     expect(checkShape(kit(posts)).filter((h) => h.line === 0)).toEqual([]);
   });

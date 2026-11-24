@@ -11,6 +11,6 @@ describe('声（ナレーション）', () => {
   });
   it('読み上げ用に、矢印・改行を区切りに・数と言葉を読みがなに', () => {
     expect(spokenText('本棚の記録、3 冊で止まっていた\n↓\n1 枚撮って、\nまとめて本棚へ')).toBe('ほんだなの記録、さんさつで止まっていた。いちまい撮って、まとめてほんだなへ');
-    expect(spokenText('App Store で「Orime」')).toBe('アップストア で「オリメ」');
+    expect(spokenText('App Store で「orime」')).toBe('アップストア で「オリメ」');
   });
 });

@@ -20,27 +20,27 @@
 5. 赤いエラーが出たら、そのエラーの文だけを私に見せて止まる。
 ```
 
-## 2. Orime の接続キーを、自動セッションの環境に入れる
+## 2. orime の接続キーを、自動セッションの環境に入れる
 
 ```
 1. https://orime.vercel.app を開いてログインし、右上の設定（歯車）→「Claude・ChatGPT とつなぐ」→ 上の切り替えで「Claude Code」を選び「Claude Code 用の接続キーを作る」。出てきたキー（orime_mcp_ で始まる）をコピーする（1 回しか見えない。チャットには書かない）。
 2. 新しいタブで https://claude.ai を開き、設定 → Claude Code → 環境（Environments）→「leverage-reading」を開く。
-3. 「ネットワークのシークレット」（Network secrets）で追加: ホスト orime.vercel.app、ヘッダー Authorization、種類 Bearer、値にさっきのキーを貼る。名前は「Orime 接続キー」。保存。
-4. 保存できたら、Orime の設定の画面で「登録しました（閉じる）」を押す。
+3. 「ネットワークのシークレット」（Network secrets）で追加: ホスト orime.vercel.app、ヘッダー Authorization、種類 Bearer、値にさっきのキーを貼る。名前は「orime 接続キー」。保存。
+4. 保存できたら、orime の設定の画面で「登録しました（閉じる）」を押す。
 ```
 
-## 3. ダッシュボードで Orime のコネクタをつなぐ
+## 3. ダッシュボードで orime のコネクタをつなぐ
 
 ```
 1. https://claude.ai/artifact/RmXcpzbgaNftAjZrJi6FDX を開く。
-2. 右上の「Sources」（元データ）を開き、Orime のコネクタが「接続」「有効」になっているか見る。なっていなければ押してつなぐ。
+2. 右上の「Sources」（元データ）を開き、orime のコネクタが「接続」「有効」になっているか見る。なっていなければ押してつなぐ。
 3. ページを再読み込みして、「概況」の数字が「—」でなく出ているかを確かめ、出ていない区画の名前を私に教える。
 ```
 
 ## 4-a. X の鍵を作って Vercel に入れる
 
 ```
-1. https://developer.x.com/en/portal/dashboard を開く（Orime 用の X アカウントでログイン）。無料プランでよい。プロジェクトとアプリを 1 つ作る（名前 Orime）。
+1. https://developer.x.com/en/portal/dashboard を開く（orime 用の X アカウントでログイン）。無料プランでよい。プロジェクトとアプリを 1 つ作る（名前 orime）。
 2. アプリの「User authentication settings」→ Set up: App permissions は「Read and Write」、Type of App は「Web App, Automated App or Bot」、Callback URI と Website URL は https://orime.vercel.app 。保存。
 3. 「Keys and tokens」で、API Key と API Key Secret を（必要なら Regenerate して）表示し、Access Token と Access Token Secret を「Read and Write」で Generate する。4 つの値はこのタブに置いたまま。
 4. 新しいタブで https://vercel.com を開き、プロジェクト orime → Settings → Environment Variables。Production にチェックして 4 つ追加する: X_API_KEY（API Key）、X_API_SECRET（API Key Secret）、X_ACCESS_TOKEN（Access Token）、X_ACCESS_SECRET（Access Token Secret）。値は X のタブからコピーして直接貼る。
@@ -50,7 +50,7 @@
 ## 4-b. Threads の鍵を作って Vercel に入れる
 
 ```
-1. https://developers.facebook.com/apps を開き、「アプリを作成」→ ユースケースは「Threads API にアクセス」（Access the Threads API）。名前 Orime。
+1. https://developers.facebook.com/apps を開き、「アプリを作成」→ ユースケースは「Threads API にアクセス」（Access the Threads API）。名前 orime。
 2. 左の「ユースケース」→ Threads API → 「設定」で threads_basic と threads_content_publish を追加。「ロール」→「Threads テスター」に投稿に使う Threads アカウントを追加し、Threads アプリ（スマホ）側の 設定 → アカウント → ウェブサイトのアクセス許可 で招待を承認する（承認は私がやるので、そこまで来たら止まって教える）。
 3. 承認のあと、同じ画面の「Threads API」の「ユーザートークンを生成」でトークンを作る（短期）。
 4. 長期トークンにする: 新しいタブで次の URL を開く（<短期トークン> と <アプリシークレット> は値を直接埋める・チャットに書かない）:

@@ -213,8 +213,8 @@ export function myIdShareText(me) {
   if (!me?.publicId) return { text: '', url: '' };
   const url = me.isPublic ? `${SITE_URL}/u/${me.publicId}` : '';  // profile.js の profileUrl と同じ形（profile.js がこのファイルを読むので循環させない）
   const text = url
-    ? 'Orime で、わたしの本棚をフォローしてください。'
-    : `Orime で、わたしの本棚をフォローしてください。\nID: ${me.publicId}\n（Orime の右上の自分のアイコン › 「ID でフォロー」に入れてください）`;
+    ? 'orime で、わたしの本棚をフォローしてください。'
+    : `orime で、わたしの本棚をフォローしてください。\nID: ${me.publicId}\n（orime の右上の自分のアイコン › 「ID でフォロー」に入れてください）`;
   return { text, url };
 }
 

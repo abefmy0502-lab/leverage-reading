@@ -5,7 +5,7 @@ Mac の作業（git pull・ビルド・Xcode で build 5 を Archive してア�
 
 ---ここから---
 
-あなたは Orime（読書メモの iPhone アプリ）の公開作業を手伝います。私の Chrome で、次の作業を順に進めてください（作業 6 だけを頼むこともあります）。
+あなたは orime（読書メモの iPhone アプリ）の公開作業を手伝います。私の Chrome で、次の作業を順に進めてください（作業 6 だけを頼むこともあります）。
 
 ## 守ること（いちばん大事）
 - パスワード・2 段階認証のコード・API キー・秘密鍵は、入力も表示もしないでください。ログインや確認コードを求められたら、そこで止めて私に頼んでください。
@@ -22,7 +22,7 @@ Mac の作業（git pull・ビルド・Xcode で build 5 を Archive してア�
 4. 「Success」と出たら完了です。エラーが出たら、エラーの文をそのまま私に報告してください（直そうとしないでください）。
 
 ## 作業 2：App Store Connect のスクリーンショットを差し替える
-1. https://appstoreconnect.apple.com →「アプリ」→「Orime」→ 提出する版（1.0）のページを開きます。
+1. https://appstoreconnect.apple.com →「アプリ」→「orime」→ 提出する版（1.0）のページを開きます。
 2. 「iPhone 6.9 インチ ディスプレイ」のスクリーンショットを、いまの画像を全部消してから、次の 6 枚をこの順で入れます（ファイルは私の Mac の `leverage-reading/company/launch-2026-11/screenshots/` にあります）。
    1. base-1-consult-6.9in-1320x2868.png
    2. base-2-evidence-6.9in-1320x2868.png
@@ -55,14 +55,14 @@ We tested build 5 on the iPad Air 11-inch (M3) simulator with iPadOS 27 and on i
 The same demo account as before can be used for review.
 
 Best regards,
-Orime
+orime
 ```
 
 3. 版のページの右上の「審査用に追加」（または「審査に提出」）の直前まで進め、ボタンを押す前に画面全体を見せて私の「OK」を待ってください。OK をもらったら、返事の「送信」と、提出のボタンを押してください。
 4. 提出のあとに表示された状態（「審査待ち」など）を報告してください。
 
 ## 作業 5：年額プランの初回特典「無料・1 週間」を予約する（11/17 以降ならいつでも）
-1. App Store Connect →「Orime」→「サブスクリプション」→ 年額プラン（orime_annual）→「サブスクリプションの価格」の「初回特典」を開きます。
+1. App Store Connect →「orime」→「サブスクリプション」→ 年額プラン（orime_annual）→「サブスクリプションの価格」の「初回特典」を開きます。
 2. いま日本で「¥9,800（11/17〜12/17）」の初回特典が動いていることを確かめます。
 3. 新しい初回特典として「無料・1 週間」を、175 の国と地域・開始 2026-12-18・終了日なしで予約します。保存の前に画面を見せて私の「OK」を待ってください（お金の設定なので、私が確かめます）。
 4. 月額プラン（orime_monthly）にも、12/17 からの「無料・1 週間」の初回特典が残っているかを確かめ、結果だけ報告してください（変えないでください）。
@@ -75,7 +75,7 @@ Orime
 4. 同じ SQL Editor で、次の 1 文を新しいクエリとして Run し、結果（表）を報告してください（読むだけの文です）。
    `select status, count(*) from advisor_books group by status;`
    （流した直後は 0 行で正常です）
-5. 新しいタブで https://vercel.com を開き、Orime のプロジェクト →「Settings」→「Cron Jobs」を開きます。`/api/keepalive` の行の「Run」を 1 回押します（集める処理をその場で 1 回動かすだけで、設定は変わりません）。設定を変えるボタン（Disable・Edit など）は押さないでください。
+5. 新しいタブで https://vercel.com を開き、orime のプロジェクト →「Settings」→「Cron Jobs」を開きます。`/api/keepalive` の行の「Run」を 1 回押します（集める処理をその場で 1 回動かすだけで、設定は変わりません）。設定を変えるボタン（Disable・Edit など）は押さないでください。
 6. 5 分ほど待ってから、手順 4 の文をもう一度 Run し、結果を報告してください。`pending` や `ready` の行が出ていれば動いています。0 行のままなら、その旨と、Vercel の「Logs」で `/api/keepalive` の最後の行に出ている文（`[advisor-books]` で始まる行）を報告してください。
 
 ---ここまで---

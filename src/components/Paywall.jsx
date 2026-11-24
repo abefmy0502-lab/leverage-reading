@@ -704,7 +704,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
       <div style={{ maxWidth: '36em', margin: '0 auto', display: 'flex', flexDirection: 'column', paddingBottom: 'calc(var(--space-8) + env(safe-area-inset-bottom, 0px))' }}>
         {/* 見出し。無料のトークンを使い切ったあとは「自分の相談相手」、機能から開いたときは機能の名前 */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', minHeight: 44 }}>
-          {/* 見出しの上の「Orime」は要らない小さなラベル（eyebrow）なのでやめた（2026-11-18 ui-critic）。閉じるは右に。 */}
+          {/* 見出しの上の「orime」は要らない小さなラベル（eyebrow）なのでやめた（2026-11-18 ui-critic）。閉じるは右に。 */}
           <span aria-hidden="true" />
           {onClose && (
             <button

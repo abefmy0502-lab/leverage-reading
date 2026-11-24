@@ -187,7 +187,7 @@ export function withColumnBackfill(sql) {
 export function buildBundle(read = (f) => readFileSync(join(ROOT, f), 'utf8')) {
   const head = [
     '-- ============================================================',
-    '-- Orime: Supabase に流す SQL をすべて、流す順に 1 本にまとめたもの（自動で作る・手で直さない）',
+    '-- orime: Supabase に流す SQL をすべて、流す順に 1 本にまとめたもの（自動で作る・手で直さない）',
     '-- 作り方: node scripts/sql-bundle.mjs ／ 手順と注意: docs/sql-runbook.md',
     '-- 何度流しても壊れない（前に流したものが混ざっていてもよい）。',
     '-- Supabase → SQL Editor に全部貼って Run。途中で失敗したら、そこまでの変更も入らない。',

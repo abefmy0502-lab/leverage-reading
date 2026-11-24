@@ -23,7 +23,7 @@ const setMeta = (name, content, attr = 'name') => {
 export default function LegalLayout({ title, description, children }) {
   useEffect(() => {
     const prevTitle = document.title;
-    document.title = `${title} | Orime`;
+    document.title = `${title} | orime`;
     const tags = description ? [setMeta('description', description)] : [];
 
     const root = document.getElementById('root');
@@ -75,7 +75,7 @@ export default function LegalLayout({ title, description, children }) {
           {/* パンくずリスト（2026-10-13）: いまの場所を示し、押すとトップへ戻れる */}
           <nav aria-label="パンくずリスト" className="legal-crumbs">
             <ol>
-              <li><a href="/lp">Orime</a></li>
+              <li><a href="/lp">orime</a></li>
               <li aria-current="page">{title}</li>
             </ol>
           </nav>
@@ -93,7 +93,7 @@ export default function LegalLayout({ title, description, children }) {
             <a href="/legal/sct">特定商取引法に基づく表記</a>
             <a href={`mailto:${SUPPORT_EMAIL}`}>お問い合わせ</a>
           </div>
-          <p className="legal-copyright">© 2026 Orime</p>
+          <p className="legal-copyright">© 2026 orime</p>
         </footer>
       </div>
     </div>

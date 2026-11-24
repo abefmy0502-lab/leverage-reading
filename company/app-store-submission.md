@@ -1,6 +1,6 @@
-# 📱 Orime — App Store 提出 完全手順書（v1.0.0）
+# 📱 orime — App Store 提出 完全手順書（v1.0.0）
 
-> 対象: iOS / Capacitor + RevenueCat(IAP)。Bundle ID `jp.orime.app`、表示名 `Orime`。
+> 対象: iOS / Capacitor + RevenueCat(IAP)。Bundle ID `jp.orime.app`、表示名 `orime`。
 > このドキュメントは「コード側は提出可能水準」を前提に、**Apple 側でやる作業**を順に網羅する。
 > ✅=実装/準備済み、⬜=あなた（Mac/Apple アカウント）が行う作業。
 > **最終更新 2026-11-15**（**iPad にも対応**＝`TARGETED_DEVICE_FAMILY = "1,2"`・iPad 13 インチのスクリーンショット（2064×2752）が要る＝`node scripts/appstore-shots.mjs ipad`・写真で共有の 1 枚は実際に作った画像 `company/appstore-screenshots/share-story.jpg`・ビルド 2 から。無料プランのはじめの 2 か月は 130・創業メンバー期間は 7 日間無料なし。公開日の順番は `company/launch-2026-11/release-day-checklist.md`）。課金の画面の操作は `docs/iap-setup-runbook.md` が正（このファイルと食い違ったらそちら）。
@@ -13,8 +13,8 @@
 | iOS のプロジェクト | `npx cap sync ios` から | リポジトリに `ios/` がまだ無い。**最初の 1 回だけ `npx cap add ios`**（§5） |
 | Apple でサインインの部品 | 指定なし | `@capacitor-community/apple-sign-in` は 7.1.0 が最新で、`npx cap add ios` に「Capacitor 7 向け」の黄色い warn が出る（2026-10-29 時点・8 向けはまだ無い）。そのまま使える見込みだが、**iPhone で最初に動かすときに「Apple でサインイン」を 1 回試す**。ビルドで止まったら、その画面を送る（最悪はメールのログインだけで出し、1.0.1 で戻す） |
 | 通知の部品 | `npm i @capacitor/push-notifications` | **もう package.json に入っている**。`npm install` だけでよい（§12） |
-| App 名 | Orime | **`Orime - 読んだ本と会話する読書メモ`**（2026-10-11 オーナー決定・`company/app-store-listing.md`）。ホーム画面の名前は Orime のまま |
-| サブスクのグループ名 | Orime Premium | **Orime プラン**（`docs/iap-setup-runbook.md` C） |
+| App 名 | orime | **`orime - 読んだ本と会話する読書メモ`**（2026-10-11 オーナー決定・`company/app-store-listing.md`）。ホーム画面の名前は orime のまま |
+| サブスクのグループ名 | orime Premium | **orime プラン**（`docs/iap-setup-runbook.md` C） |
 | RevenueCat → Supabase の Webhook | 未実装なら別途 | **実装済み**（`api/revenuecat-webhook.js`）。F-8 で URL と合言葉を入れるだけ |
 | 無料プランの AI | 毎月 30 トークン | **毎月 30・はじめの 2 か月は 130**（2026-10-21 に 2 か月・2026-11-12 に 60 → 130）。Review Notes を直した（§7） |
 | 年齢レーティング | 4+ と書くだけ | **新しい質問票**（4+／9+／13+／16+／18+）に答える。答え方は §7 |
@@ -54,8 +54,8 @@
 ## 2. App Store Connect でアプリ作成（⬜）
 
 1. [App Store Connect](https://appstoreconnect.apple.com) → My Apps → ＋ → New App。
-   - Platform: iOS / Name: **Orime - 読んだ本と会話する読書メモ**（ホーム画面の名前は Orime のまま）/ Primary Language: 日本語 / Bundle ID: `jp.orime.app` / SKU: `orime-ios-001`。
-2. **サブスク商品（Auto-Renewable Subscription）を2つ**登録（App内課金 → サブスクリプショングループ「Orime プラン」を作りその中に・画面の操作は `docs/iap-setup-runbook.md` C）:
+   - Platform: iOS / Name: **orime - 読んだ本と会話する読書メモ**（ホーム画面の名前は orime のまま）/ Primary Language: 日本語 / Bundle ID: `jp.orime.app` / SKU: `orime-ios-001`。
+2. **サブスク商品（Auto-Renewable Subscription）を2つ**登録（App内課金 → サブスクリプショングループ「orime プラン」を作りその中に・画面の操作は `docs/iap-setup-runbook.md` C）:
    - 月額: Product ID `orime_monthly` / ¥1,480 / 期間1ヶ月
    - 年額: Product ID `orime_annual` / ¥12,800 / 期間1年
    - ローカリゼーション（表示名・説明）を各商品に記入。**審査用に最低1商品をアプリのバイナリと一緒に提出**。
@@ -115,15 +115,15 @@ npx cap sync ios   # ios/ は 2026-11-09 にリポジトリへ入れた（Swift 
 npx cap open ios   # Xcode が開く
 ```
 
-`ios/` に入れてあるもの（2026-11-09）: Info.plist（説明文 3 つ・暗号化の免除・ja・縦だけ）・`PrivacyInfo.xcprivacy`（§8・登録済み）・`App.entitlements`（Apple でサインイン）・Version **1.0.0** / Build **1**・Bundle ID `jp.orime.app`・Display Name `Orime`・App アイコン（`public/icons/icon-1024-appstore.png`）・起動画面（Orime の色とマーク）。`npm run ios:prepare -- --check` で確かめられる。
+`ios/` に入れてあるもの（2026-11-09）: Info.plist（説明文 3 つ・暗号化の免除・ja・縦だけ）・`PrivacyInfo.xcprivacy`（§8・登録済み）・`App.entitlements`（Apple でサインイン）・Version **1.0.0** / Build **1**・Bundle ID `jp.orime.app`・Display Name `orime`・App アイコン（`public/icons/icon-1024-appstore.png`）・起動画面（orime の色とマーク）。`npm run ios:prepare -- --check` で確かめられる。
 
 `npm run ios:prepare`（`scripts/ios-prepare.mjs`）が入れるもの: Info.plist の 3 つの説明文（カメラ・写真・写真の保存）・`ITSAppUsesNonExemptEncryption=NO`・`CFBundleDevelopmentRegion=ja`・iPhone は縦だけ、`PrivacyInfo.xcprivacy`（§8 と同じ・`VITE_SENTRY_DSN` があるときだけクラッシュとパフォーマンスを足す）と Xcode のプロジェクトへの登録。手で直した説明文は上書きしない。`npm run ios:prepare -- --check` で足りないものだけ見られる。Signing と Capability は Xcode で（下の 1）。
 
 - `npx cap add ios` で作った `ios/` は、Info.plist と PrivacyInfo を入れたあとでリポジトリにコミットする（次から作り直さないため・Pods とビルドの中身は .gitignore 済み）
 Xcode で:
 1. Signing & Capabilities → **Team を選択**。**Sign in with Apple** は `App.entitlements` に入っているので Team を選ぶと付く（一覧に無ければ「+ Capability」で足す）。**In-App Purchase** の capability を足す（**Push Notifications** と Background Modes の Remote notifications は `VITE_NATIVE_PUSH=on` で出すビルドだけ）。
-2. General → Version 1.0.0 / Build 1・Display Name `Orime` は入れてある（見るだけ）。
-3. App アイコンは入れてある（`icon-1024-appstore.png`・透過なし）。起動画面は Orime の背景色にマーク 1 つ（`Assets.xcassets/Splash`）。
+2. General → Version 1.0.0 / Build 1・Display Name `orime` は入れてある（見るだけ）。
+3. App アイコンは入れてある（`icon-1024-appstore.png`・透過なし）。起動画面は orime の背景色にマーク 1 つ（`Assets.xcassets/Splash`）。
 4. **PrivacyInfo.xcprivacy** は `npm run ios:prepare` が置いて登録する（中身は下記 §8）。Xcode の左の一覧の App の中に `PrivacyInfo.xcprivacy` があるか見るだけでよい。
 5. 実機（あなたの iPhone）で一度ビルド＆起動して、**課金（Sandbox）と復元**が動くか確認。
 6. **Info.plist** の `ITSAppUsesNonExemptEncryption` = `NO`（Boolean・暗号化は HTTPS だけ）と、次の 3 つの説明文は `npm run ios:prepare` が入れる（入っているかを見る）（`@capacitor/camera` は package.json に入っているので `npm install && npx cap sync ios` で入る・無いと開いた瞬間に落ちる・2026-10-11 に文を決めた）:
@@ -204,7 +204,7 @@ AI 機能ごとに、Anthropic（相談・AI 選書の推薦）／Google の Gem
 > 課金は App 内課金（RevenueCat 経由）です。購入の復元・自動更新の条件・利用規約・プライバシーポリシーを有料プランの画面に示しています。アカウント削除はアプリ内（設定 → アカウント削除）でできます。
 > AI 機能は、はじめて使うときに送る内容と送り先（Anthropic）を示して同意をいただき、同意のあと機能に必要な内容だけを Anthropic の API に送ります（API の規約で学習には使われません）。写真を送るのは「写真から書き起こし」だけです。同意は 設定 → プライバシー →「AI へのデータ送信」から取り消せます。
 - **サポートURL** / **マーケティングURL** / **プライバシーポリシーURL**（`/legal/privacy`）/ **利用規約(EULA)URL**（`/legal/terms`）を登録。
-- 年齢レーティング: **新しい質問票**（2025-07 に変わった・結果は 4+／9+／13+／16+／18+）に答える。Apple は「AI のアシスタントやチャットの機能も含めて、出てくる内容の頻度で答える」としている。Orime の答え方の目安:
+- 年齢レーティング: **新しい質問票**（2025-07 に変わった・結果は 4+／9+／13+／16+／18+）に答える。Apple は「AI のアシスタントやチャットの機能も含めて、出てくる内容の頻度で答える」としている。orime の答え方の目安:
   - 暴力・性的な内容・ギャンブル・薬物など: **なし**（相談は本人のメモと本に沿って答え、AI 選書は本を推す）
   - 医療・健康の情報: 健康の本を推すことはあるが、診断・治療はしない（答えの補足で「医師や専門家にも相談を」と添える）→ **ほとんど無い／まれ** のどちらかを選ぶ
   - ほかの人とのやりとり（メッセージ・投稿の公開）: **プロフィールの公開がある**（2026-11-21）＝本人がオンにしたときだけ、リンクを知っている人が Web で見られる（アプリの中でほかの人は見えない・メッセージは無い）。質問票で「ユーザーが作ったコンテンツ」を聞かれたら「はい」にして、絞り込み・通報・非表示の仕組みがあると答える（§7-1）。**2026-11-21 オーナー決定：「ユーザ生成コンテンツ」は「はい」・「位置情報を共有」は「いいえ」・ソーシャルメディア・メッセージとチャットほかは「いいえ」のまま**。保存した結果は **9+**（172 か国・地域。12+＝ベトナム・ブラジル、大韓民国は「すべて」・OS 26 未満は 4+）。新しい質問「出会い系と恋愛系」は「いいえ」
@@ -392,7 +392,7 @@ Review Notes に足す文:
    - 必要なもの: Apple Developer の **Sign in with Apple の鍵（.p8）**・キー ID・Team ID・クライアント ID（iOS は Bundle ID `jp.orime.app`、Web は Service ID）
    - client_secret（ES256 の JWT・iss=Team ID・sub=クライアント ID・aud=`https://appleid.apple.com`・有効 6 か月まで）を作り、
      `POST https://appleid.apple.com/auth/revoke`（`Content-Type: application/x-www-form-urlencoded`）に `client_id`・`client_secret`・`token`（その人のリフレッシュトークン、無ければアクセストークン）・`token_type_hint`（`refresh_token` / `access_token`）を送る。200 なら取り消し済み
-   - トークンは Supabase の `auth.identities` の `identity_data` や、ログインの時に受け取ったものに入っていることがある。**見つからないときは**、本人に iPhone の 設定 → Apple ID → 「Apple でサインイン」→ Orime →「Apple ID の使用を停止」を案内する（返信のメールに 1 行）
+   - トークンは Supabase の `auth.identities` の `identity_data` や、ログインの時に受け取ったものに入っていることがある。**見つからないときは**、本人に iPhone の 設定 → Apple ID → 「Apple でサインイン」→ orime →「Apple ID の使用を停止」を案内する（返信のメールに 1 行）
 3. Supabase の Authentication → Users でその人を消す（user_id で探す・メールでは探さない）
 4. `account_deletion_requests` の行に済みの印（メモ）を残す
 

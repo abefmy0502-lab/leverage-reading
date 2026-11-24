@@ -27,7 +27,7 @@
 
 | 欄 | 入れるもの |
 |---|---|
-| Name | `Orime launch — Nov 17, 2026 (Japan)` |
+| Name | `orime launch — Nov 17, 2026 (Japan)` |
 | Nomination Type | `App Launch` |
 | Publish Date | Day：**2026-11-17**（予約注文を開いたら、そのまま） |
 | Platforms | `iOS (iPhone)` |
@@ -43,11 +43,11 @@
 ## 2. Description（英語・提出用）— 977 字（上限 1,000）
 
 ```
-Orime is a Japanese reading-notes app that turns the books you have read into a personal advisor. You save short notes while reading, or import the records you already keep in other reading apps (CSV/HTML exports and Kindle highlights). When you are stuck at work or in life, you describe the problem. Orime answers only from your own notes, shows which book and page each point came from, asks one question back about your situation, and then helps you decide a single next step that goes into your action list with a due date. If none of your notes are relevant, it says so instead of guessing.
+orime is a Japanese reading-notes app that turns the books you have read into a personal advisor. You save short notes while reading, or import the records you already keep in other reading apps (CSV/HTML exports and Kindle highlights). When you are stuck at work or in life, you describe the problem. orime answers only from your own notes, shows which book and page each point came from, asks one question back about your situation, and then helps you decide a single next step that goes into your action list with a due date. If none of your notes are relevant, it says so instead of guessing.
 
-What is new: most reading apps stop at recording, and AI summary services answer from other people's summaries. Orime answers from the lines you chose to keep, so the more you read and write, the closer the advice gets to you.
+What is new: most reading apps stop at recording, and AI summary services answer from other people's summaries. orime answers from the lines you chose to keep, so the more you read and write, the closer the advice gets to you.
 
-Paper books work too: photograph a page and Orime transcribes it into a note.
+Paper books work too: photograph a page and orime transcribes it into a note.
 
 Built by one independent developer in Japan, in Japanese from the start.
 ```
@@ -65,11 +65,11 @@ Free plan forever: books, notes, review cards, actions and sharing, plus monthly
 ### 説明 — 452 字
 
 ```
-Orime（オリメ）は、読んだ本を「自分だけの相談相手」に変える日本語の読書メモアプリです。読みながら一行メモを残すか、ほかの読書アプリの書き出しファイルや Kindle のハイライトを取り込むと、それが相談の材料になります。仕事や暮らしで困ったときに「相談」に書くと、Orime はあなたのメモだけを根拠に答え、どの本の何ページから来た考えかを示し、状況を一つ聞き返してから、明日やることを一つ一緒に決めます。決めた行動は期限つきで行動リストに入ります。関係するメモが無いときは、推測で答えず「無い」と伝えます。
+orime（オリメ）は、読んだ本を「自分だけの相談相手」に変える日本語の読書メモアプリです。読みながら一行メモを残すか、ほかの読書アプリの書き出しファイルや Kindle のハイライトを取り込むと、それが相談の材料になります。仕事や暮らしで困ったときに「相談」に書くと、orime はあなたのメモだけを根拠に答え、どの本の何ページから来た考えかを示し、状況を一つ聞き返してから、明日やることを一つ一緒に決めます。決めた行動は期限つきで行動リストに入ります。関係するメモが無いときは、推測で答えず「無い」と伝えます。
 
-新しさ：読書アプリの多くは記録で止まり、AI の要約サービスは他人の要約から答えます。Orime はあなたが選んで残した一行から答えるので、読むほど、書くほど、答えがあなたに近づきます。
+新しさ：読書アプリの多くは記録で止まり、AI の要約サービスは他人の要約から答えます。orime はあなたが選んで残した一行から答えるので、読むほど、書くほど、答えがあなたに近づきます。
 
-紙の本は、ページを撮れば書き起こしてメモにできます。読み終えた本は、写真に書名と心に残った一文を重ねて共有できます（Orime のロゴ入り）。
+紙の本は、ページを撮れば書き起こしてメモにできます。読み終えた本は、写真に書名と心に残った一文を重ねて共有できます（orime のロゴ入り）。
 
 日本の個人開発者が、はじめから日本語で作りました。
 ```

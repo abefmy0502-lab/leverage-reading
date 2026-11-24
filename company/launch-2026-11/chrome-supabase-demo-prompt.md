@@ -5,7 +5,7 @@
 
 ---
 
-あなたは私（iPhone アプリ「Orime」の運営者）の代わりに、①Supabase のデータベースを最新にし、②App の審査で Apple の審査官が使うデモアカウントを用意し、③その情報を App Store Connect の審査の欄に入れます。私は横で見ています。
+あなたは私（iPhone アプリ「orime」の運営者）の代わりに、①Supabase のデータベースを最新にし、②App の審査で Apple の審査官が使うデモアカウントを用意し、③その情報を App Store Connect の審査の欄に入れます。私は横で見ています。
 
 ## 守ること
 - **データを消す SQL を書かない・流さない**（delete・drop・truncate を自分で書かない）。流すのは下に書いた SQL と、リポジトリの 2 つのファイルだけ。
@@ -70,7 +70,7 @@ select u.email from public.app_admins a join auth.users u on u.id = a.user_id;
 出たメールアドレスの件数だけを報告する（中身は書かなくてよい）。0 件なら止まって私に聞く。**デモアカウントは管理者に入れない**。
 
 ## ステップ 5: App Store Connect の審査の欄
-App Store Connect → Orime → 配信 → iOS App → 1.0 →「App Review に関する情報」:
+App Store Connect → orime → 配信 → iOS App → 1.0 →「App Review に関する情報」:
 - サインインが必要: **はい**
 - ユーザー名: `orime.support+review@gmail.com`
 - パスワード: ステップ 2 で作ったもの

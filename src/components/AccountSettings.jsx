@@ -405,11 +405,11 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
     if (deleteError) deleteErrorRef.current?.scrollIntoView?.({ block: 'nearest', behavior: scrollBehavior() });
   }, [deleteError]);
   const [deleteOpen, setDeleteOpen] = useState(false);
-  // 🎯 Orime を入れた理由（2026-10-18）: 設定で見返す・書き直す。解約（プランを管理）と退会の前に一度だけ見せる（止めない）。
+  // 🎯 orime を入れた理由（2026-10-18）: 設定で見返す・書き直す。解約（プランを管理）と退会の前に一度だけ見せる（止めない）。
   const { purpose: appPurpose } = useAppPurpose();
   const [purposeEditOpen, setPurposeEditOpen] = useState(false);
   const [purposeCheck, setPurposeCheck] = useState(null); // { where, nextText, run }
-  // 2026-11-17: 「Orime を入れた理由」は 2026-11-16 にやめたので、解約・退会の前にはさまない（審査 5.1.1(v)・すぐ次へ）。
+  // 2026-11-17: 「orime を入れた理由」は 2026-11-16 にやめたので、解約・退会の前にはさまない（審査 5.1.1(v)・すぐ次へ）。
   const withPurposeCheck = (where, nextText, run) => { void where; void nextText; void appPurpose; run(); };
   const [resetting, setResetting] = useState(false);
   const [confirmText, setConfirmText] = useState('');
@@ -996,7 +996,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
     'この端末・ブラウザでは通知に対応していません。'
   ) : pushDenied && !pushOn ? (
     // OS で拒否済み = 自前ダイアログは出せない。設定からの手動許可を案内。
-    '通知がオフになっています。端末の「設定 → 通知」から Orime の通知を許可すると受け取れます。'
+    '通知がオフになっています。端末の「設定 → 通知」から orime の通知を許可すると受け取れます。'
   ) : null;
 
   // 規約・お問い合わせは文字ボタン（DESIGN §5 の btnLink。脇役でも色は変えず、並びと位置で控えめに）。
@@ -1046,7 +1046,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
             </Group>
           )}
 
-          {/* 🎯 Orime を入れた理由の行は 2026-11-16 にやめた（オーナー「不要」・目標は 振り返り › 行動 の 1 年後・3 年後・5 年後）。
+          {/* 🎯 orime を入れた理由の行は 2026-11-16 にやめた（オーナー「不要」・目標は 振り返り › 行動 の 1 年後・3 年後・5 年後）。
               前に書いた人には、解約・退会の前の確かめ（PurposeCheckSheet）でだけ見せる。 */}
           {/* ── プラン・お支払い ── */}
           <Group label="プラン・お支払い">

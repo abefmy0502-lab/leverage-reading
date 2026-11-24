@@ -281,9 +281,9 @@ describe('共有の文', () => {
   it('画像に入れたものだけ', () => {
     const record = bookRecord({ title: 'イシューからはじめよ', status: 'done', doneDate: '2026-09-28' }, [], NOW);
     expect(buildRecordShareText({ record, quote: '問いを見極める', siteUrl: 'https://orime.vercel.app' }))
-      .toBe('読了『イシューからはじめよ』\n問いを見極める\n#Orime\nhttps://orime.vercel.app');
+      .toBe('読了『イシューからはじめよ』\n問いを見極める\n#orime\nhttps://orime.vercel.app');
     const month = monthRecord([], [], NOW);
-    expect(buildRecordShareText({ record: month })).toBe('9月の読書\n#Orime');
+    expect(buildRecordShareText({ record: month })).toBe('9月の読書\n#orime');
   });
   it('日付の刻印', () => {
     expect(fmtStamp(NOW)).toBe('2026.9.30');
@@ -335,7 +335,7 @@ describe('表示する項目（2026-10-01）', () => {
     expect(r.stats.map((s) => s.key)).toEqual(['memos', 'actions']);
     expect(shareVisibility(['logo', 'stamp'])).toEqual({ title: true, author: true, quote: true, stamp: false, name: true });
     // 書名を隠したら共有の文にも入れない
-    expect(buildRecordShareText({ record: applyShareItems(rec, ['title']) })).toBe('#Orime');
+    expect(buildRecordShareText({ record: applyShareItems(rec, ['title']) })).toBe('#orime');
   });
   it('前の選択を覚える（壊れた値・知らない名前・読めない保存先でも落ちない）', () => {
     const mem = new Map();

@@ -1,13 +1,13 @@
-# Reader-generated data about Japanese business books (ビジネス書): sources, signals, terms, and Orime's own data (as of 2026-11-17)
+# Reader-generated data about Japanese business books (ビジネス書): sources, signals, terms, and orime's own data (as of 2026-11-17)
 
 > Method note (2026-11-17): this session's network blocked direct fetches of bookmeter.com, booklog.jp, honzuki.jp, honto.jp, note.com, goodreads.com, b.hatena.ne.jp (robots.txt via curl → proxy 403), webservice.rakuten.co.jp and www.bunka.go.jp (WebFetch → host not allowed). So **no robots.txt file was actually read**, and terms were only seen as search snippets. Everything marked "(unverified)" comes from training knowledge (cutoff June 2026) or third-party pages and must be checked before any build decision. To verify, allow those hosts in the session's network settings and re-run.
 >
-> Repo fact: Orime already requests `reviewCount,reviewAverage,booksGenreId` from Rakuten (`api/_bookSearch.js:25`, `api/_advisorBooks.js:34`), stores `review_count` / `review_avg` in `advisor_books` (`api/_advisorBooks.test.js:67`), and uses reviewCount as a popularity tiebreak in ranking (`api/_bookRank.js:215`).
+> Repo fact: orime already requests `reviewCount,reviewAverage,booksGenreId` from Rakuten (`api/_bookSearch.js:25`, `api/_advisorBooks.js:34`), stores `review_count` / `review_avg` in `advisor_books` (`api/_advisorBooks.test.js:67`), and uses reviewCount as a popularity tiebreak in ranking (`api/_bookRank.js:215`).
 
 ## Q1. Japanese reader-review / reading-log services (読書メーター, ブクログ, 本が好き!, honto, 楽天, Amazon, Kindle, Google Books)
 
 ### Takeaway
-None of the big Japanese reading-log communities (読書メーター, ブクログ) offers a public data API found in this search. The only reader signal that is officially and legally easy to get is Rakuten's review count and average, which Orime already uses. Amazon review data is not available through Amazon's affiliate API, and Kindle Popular Highlights have no official API. In practice, the outside sources only give popularity numbers ("how many people read or rated this"), not "who it suits" or "how hard it is".
+None of the big Japanese reading-log communities (読書メーター, ブクログ) offers a public data API found in this search. The only reader signal that is officially and legally easy to get is Rakuten's review count and average, which orime already uses. Amazon review data is not available through Amazon's affiliate API, and Kindle Popular Highlights have no official API. In practice, the outside sources only give popularity numbers ("how many people read or rated this"), not "who it suits" or "how hard it is".
 
 ### Cited Findings
 - 読書メーター's terms define 「当社」 as 株式会社ドワンゴ (the site is branded KADOKAWA Group), and the service as 「読書メーター」. No API or scraping clause appeared in the search snippets. — [読書メーター 利用規約](https://bookmeter.com/terms)
@@ -15,7 +15,7 @@ None of the big Japanese reading-log communities (読書メーター, ブクロ�
 - 読書メーター's help/about pages describe the service as a reading log with 感想 posts. — [読書メーター about](https://bookmeter.com/help/introduction/about)
 - No official ブクログ API or export terms were found. Search results only showed ブクログ reviews syndicated on other stores (e.g. BookLive pages showing reviews). — [BookLive review page](https://booklive.jp/review/author-list/a_id/273128)
 - Rakuten Books total-search API officially supports `sort=reviewCount` (most reviews first) and `sort=reviewAverage` (highest rating first). — [楽天ブックス総合検索API](https://webservice.rakuten.co.jp/documentation/books-total-search)
-- Orime already pulls `reviewCount` and `reviewAverage` from Rakuten's Books search (repo: `api/_bookSearch.js`, `api/_advisorBooks.js`). Rakuten's API returns no review text, reviewer level or "suits whom" fields: the fields Orime requests contain only the count and the average. Rakuten's API docs could not be fetched to confirm that no other review fields exist.
+- orime already pulls `reviewCount` and `reviewAverage` from Rakuten's Books search (repo: `api/_bookSearch.js`, `api/_advisorBooks.js`). Rakuten's API returns no review text, reviewer level or "suits whom" fields: the fields orime requests contain only the count and the average. Rakuten's API docs could not be fetched to confirm that no other review fields exist.
 - Amazon PA-API 5 is deprecated and replaced by the Creators API. Old calls now return 403. — [Amazon Creators API: PA-API v5 deprecation](https://affiliate-program.amazon.com/creatorsapi/docs/en-us/paapiv5-deprecation)
 - Sources disagree on the PA-API cutoff date: one says April 30, 2026 (deprecation) and May 15, 2026 (endpoint retired); a vendor says May 15, 2026. — [DEV Community](https://dev.to/th3nate/amazon-pa-api-v5-is-shutting-down-april-30-2026-here-is-what-changes-at-the-auth-layer-22ek); [affiliate-toolkit](https://www.affiliate-toolkit.com/affiliate-toolkit-3-8-5-amazon-creators-api-support-why-you-need-to-migrate-before-may-15-2026/)
 - Creators API access needs new credentials, an approved account, and reportedly at least 10 qualifying sales in the last 30 days. Access is paused if sales lapse. — [keywordrush blog](https://www.keywordrush.com/blog/?p=245) (third-party)
@@ -27,7 +27,7 @@ None of the big Japanese reading-log communities (読書メーター, ブクロ�
 
 ### Inferences
 - 読書メーター and ブクログ have the most valuable Japanese signals: 読んだ / 読みたい / 積読 counts, ratings, 感想 text, and a co-reading graph via user shelves. Neither has an official API that turned up. Scraping them would be a terms risk (unverified) and a reputational risk. The realistic route is a business partnership: ドワンゴ/KADOKAWA for 読書メーター, or ブクログ's operator (training knowledge: 株式会社ブクログ, a 株式会社paperboy&co. lineage; unverified).
-- A permitted, low-effort import is a **user-initiated import of the user's own shelf**. Orime already has an "取り込み" flow (CLAUDE.md, 初日の体験). That gives co-reading data only from Orime's own consenting users.
+- A permitted, low-effort import is a **user-initiated import of the user's own shelf**. orime already has an "取り込み" flow (CLAUDE.md, 初日の体験). That gives co-reading data only from orime's own consenting users.
 - For "difficulty" and "who it suits", none of these APIs returns structured fields. They would have to be derived from review text, which runs into the copyright and terms issues in Q4.
 
 ### Gaps
@@ -55,7 +55,7 @@ X now charges per call and has no free tier for new developers (since 2026-02). 
 - The はてブ count for a book's Amazon/Rakuten/publisher URL, or for a note review article, is a cheap proxy for "how much a book was discussed". It says nothing about difficulty.
 - YouTube 本要約チャンネル (e.g. well-known business-book summary channels) show which business books get *summarized*. Video titles and view counts are legal to read via the API. Comment text, though, belongs to individual users (privacy and copyright apply).
 - At $0.005 per read, a keyword sample of 100k posts costs about $500 (inference from the cited rates). Feasible for a one-off study, but X posts about books are mostly marketing or affiliate posts, so the signal is noisy.
-- note articles tagged #ビジネス書 / #読書記録 are the richest Japanese long-form "what I applied" text. But there is no read API, and scraping them for display is not appropriate. At most, Orime could manually curate *links* to them.
+- note articles tagged #ビジネス書 / #読書記録 are the richest Japanese long-form "what I applied" text. But there is no read API, and scraping them for display is not appropriate. At most, orime could manually curate *links* to them.
 
 ### Gaps
 - The text of note's terms on scraping and AI training (note added AI-training opt-out settings in 2023–24 per training knowledge; unverified).
@@ -97,7 +97,7 @@ Japanese copyright law broadly allows **analysis that doesn't "enjoy" the work**
 
 ### Inferences
 - (a) **Deriving signals.** Counting reviews that mention 「難しい」「初心者」「入門」, building aggregate "difficulty" scores, or computing co-occurrence across public reviews is the textbook case of 30-4 non-enjoyment analysis. It is copyright-permissible *if access is lawful*. The binding constraint is the site's terms and robots.txt (contract law, plus possible 業務妨害 if load is heavy), not copyright.
-- (b) **Storing or displaying text.** Quoting review sentences in the app, or having the AI paraphrase reviews into answers, needs either 47-5-compliant minor snippets with the source shown, or permission. Orime's existing rule ("AI に書評の言い回しを写さない", the bookvinegar ext table per CLAUDE.md) matches this. But even *storing full summary text* from a third party is a contract and terms question, not only a copyright one.
+- (b) **Storing or displaying text.** Quoting review sentences in the app, or having the AI paraphrase reviews into answers, needs either 47-5-compliant minor snippets with the source shown, or permission. orime's existing rule ("AI に書評の言い回しを写さない", the bookvinegar ext table per CLAUDE.md) matches this. But even *storing full summary text* from a third party is a contract and terms question, not only a copyright one.
 - Reviewer handles and profile links are personal information. Store none. Aggregate to book-level numbers before saving.
 - **Recommendation:** derive difficulty or "who it suits" for public reviews only through a licensed partnership or the user's own-data import. Use public stats such as Rakuten counts and はてブ counts for popularity only.
 
@@ -106,17 +106,17 @@ Japanese copyright law broadly allows **analysis that doesn't "enjoy" the work**
 - The exact PPC wording on 統計情報 was not retrieved.
 - Whether the 読書メーター or ブクログ terms prohibit AI analysis or scraping: unknown.
 
-## Q5. Orime's own first-party data as a "Orime 読者の声" dataset
+## Q5. orime's own first-party data as a "orime 読者の声" dataset
 
 ### Takeaway
-Orime's own logs already hold signals that outside sources can't provide: how many memos people wrote, "覚えた" counts, the share of books turned into 行動, completion, reading time, the difficulty setting, and which books were noted together. If these are aggregated per book with a minimum group size (k ≥ 10–20 readers), and the user data and terms are updated, this can become a better source than any outside one for "beginners find this hard" and "readers actually applied this". App Store 5.1.2 and the APPI mainly require disclosure and purpose-limitation. They do not ban using aggregated statistics.
+orime's own logs already hold signals that outside sources can't provide: how many memos people wrote, "覚えた" counts, the share of books turned into 行動, completion, reading time, the difficulty setting, and which books were noted together. If these are aggregated per book with a minimum group size (k ≥ 10–20 readers), and the user data and terms are updated, this can become a better source than any outside one for "beginners find this hard" and "readers actually applied this". App Store 5.1.2 and the APPI mainly require disclosure and purpose-limitation. They do not ban using aggregated statistics.
 
 ### Cited Findings
 - Statistics creation is outside the 仮名加工 / 匿名加工 creation duties (PPC FAQ above). — [PPC FAQ](https://www.ppc.go.jp/all_faq_index/faq4-q010)
 - App Store 5.1.2(i): apps may use, transmit or share personal data only after disclosure and permission. An Apple rejection quotes the rule: "does not clearly explain what data is sent, identify who the data is sent to, and ask the user's permission". — [Apple Developer Forums 815109](https://developer.apple.com/forums/thread/815109)
 - 5.1.2(i) was expanded (reported date 2025-11-13) to name "third-party AI" explicitly, requiring disclosure and opt-in. — [iGeeksBlog](https://www.igeeksblog.com/apple-app-store-ai-data-disclosure-guidelines/) (secondary)
 - Apple's user-privacy page: functionality cannot be gated on agreeing to tracking (5.1.2(i)). — [Apple: User privacy and data use](https://developer.apple.com/app-store/user-privacy-and-data-use/)
-- Repo facts (CLAUDE.md, 2026-11-17): Orime already records `book_memos` (with `recall_count`, i.e. the 覚えた count), `actions` (with `source_memo_id`, `completed_at`), `reading_sessions` (seconds per book), book `status` / `rating`, `analytics_events` (opt-out, PII-free props), and `book_field_cache`. The last of these is already a shared, cross-user per-book table keyed by ISBN.
+- Repo facts (CLAUDE.md, 2026-11-17): orime already records `book_memos` (with `recall_count`, i.e. the 覚えた count), `actions` (with `source_memo_id`, `completed_at`), `reading_sessions` (seconds per book), book `status` / `rating`, `analytics_events` (opt-out, PII-free props), and `book_field_cache`. The last of these is already a shared, cross-user per-book table keyed by ISBN.
 
 ### Inferences
 Candidate per-book aggregates (all computed server-side, only for books with ≥ k distinct readers):
@@ -134,7 +134,7 @@ Thresholds and safeguards (inference, based on common practice; no Japanese offi
 - Never show "N 人" for very small N on niche books, since a friend could identify the reader.
 - Consent: aggregate statistics that cannot identify individuals are generally outside the APPI's third-party provision rules (PPC position, training knowledge). Still, **update the privacy policy's purpose of use** to say "本ごとの集計（個人を特定しない）を、おすすめの改善と画面の表示に使う". Offer an opt-out, extending the existing 利用状況の記録 opt-out. App Store: list "Product Interaction / Other User Content" usage under App Privacy "Analytics / App Functionality". No ATT is needed (no cross-app tracking).
 - If any aggregate is sent to a third-party AI (e.g. as recommendation context), it is not personal data. Even so, keep the AI-consent sheet's description accurate. Raising `AI_CONSENT_VERSION` is needed only if the destination changes.
-- Coverage: early on, few books will reach k ≥ 10. Use Rakuten review counts and Open Library counts as the fallback. Show the Orime signal only when n is enough, e.g. 「Orime で読んだ人の多くが、行動に移しています」 without percentages. That fits the anti-gamification rule (no %, rankings or badges).
+- Coverage: early on, few books will reach k ≥ 10. Use Rakuten review counts and Open Library counts as the fallback. Show the orime signal only when n is enough, e.g. 「orime で読んだ人の多くが、行動に移しています」 without percentages. That fits the anti-gamification rule (no %, rankings or badges).
 
 ### Gaps
 - No Japanese official guidance gives a numeric k threshold. The values above are a judgment call and should be decided by the owner, ideally with legal review.

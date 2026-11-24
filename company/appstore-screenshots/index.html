@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Orime ストア画像</title>
+<title>orime ストア画像</title>
 <!-- 手で PNG 保存するときだけ使う（node scripts/appstore-shots.mjs で書き出すときは読み込まない） -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
-  /* ====== Orime ブランド（tokens.css と同系統の暖色） ====== */
+  /* ====== orime ブランド（tokens.css と同系統の暖色） ====== */
   :root{
     --ink:#3d362c; --ink2:#5a4f3e; --brand:#8b4a2b; --accent:#8a7040;
     --w:1320px; --h:2868px;   /* 6.9 インチ。?size=65 で 1284×2778 */
@@ -86,7 +86,7 @@
 </head>
 <body>
   <div class="ui">
-    <h1>Orime — App Store の画像</h1>
+    <h1>orime — App Store の画像</h1>
     <p class="lead">
       ふつうは <code>node scripts/appstore-shots.mjs</code> で、お試しモードの画面を撮ってから 6.9 インチと 6.5 インチの PNG を書き出す（<code>company/launch-2026-11/README.md</code>）。<br>
       このページを手で開くときは <code>?shots=撮った画面のフォルダ/</code>（既定は <code>../../ui-shots/appstore-raw/</code>）・<code>?set=base|cpp-import|cpp-photo|cpp-ask|all</code>・<code>?size=69|65</code>。見出しはクリックで書き換えられる（「PNG 保存」は html2canvas が読めるときだけ動く）。

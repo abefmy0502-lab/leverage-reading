@@ -57,7 +57,7 @@ describe('冒頭の困っていることと改行', () => {
 import { clarityProblems } from '../clarity.mjs';
 import { explainerLines } from './lines.mjs';
 describe('初めての人にも分かる順と言葉', () => {
-  it('概念の動画: 困っていること → Orime とは → 使い方 → これからは → 無料で試せる', () => {
+  it('概念の動画: 困っていること → orime とは → 使い方 → これからは → 無料で試せる', () => {
     for (const r of REELS.filter((x) => x.name.startsWith('concept-'))) {
       expect(clarityProblems(explainerLines(r).slice(0, -1), { checkLength: false })).toEqual([]);
     }

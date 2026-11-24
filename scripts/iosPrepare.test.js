@@ -8,7 +8,7 @@ const PLIST = `<?xml version="1.0" encoding="UTF-8"?>
 \t<key>CFBundleDevelopmentRegion</key>
 \t<string>en</string>
 \t<key>CFBundleDisplayName</key>
-\t<string>Orime</string>
+\t<string>orime</string>
 \t<key>UISupportedInterfaceOrientations</key>
 \t<array>
 \t\t<string>UIInterfaceOrientationPortrait</string>

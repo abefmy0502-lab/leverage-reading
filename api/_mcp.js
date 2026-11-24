@@ -1,13 +1,13 @@
 // 🔌 AI と連携（MCP）の本体（2026-11-07 オーナー「アプリと AI が繋がるようにしたい」「痒いところに手が届くレベルで」）。
 //
-// Orime を MCP（Model Context Protocol）のサーバーにして、利用者が Claude・ChatGPT・Claude Code などの AI から
+// orime を MCP（Model Context Protocol）のサーバーにして、利用者が Claude・ChatGPT・Claude Code などの AI から
 // 自分の本・メモ・行動を呼べるようにする。HTTP の入口は api/mcp.js。ここは HTTP に依存しない純粋な部分
 //（JSON-RPC の振り分け・道具・プロンプト・資料・会話の中に描く画面）で、テスト（api/_mcp.test.js）は偽の DB で動かす。
 //
 // 決まり:
 //   - 読めるのは本人のものだけ（接続キーで本人を決め、すべての問い合わせに user_id を付ける・service_role で読む）。
 //   - 書けるのは 足す（メモ・行動・本）・直す（メモ）・完了にする（行動）まで。消す・本の状態を変えるはアプリで。
-//   - 相談（AI の答え）はここから呼ばない＝Orime のトークンは使わない。AI 側が材料として読むだけ。
+//   - 相談（AI の答え）はここから呼ばない＝orime のトークンは使わない。AI 側が材料として読むだけ。
 //   - 文字は制御文字を除き、長さを切る（src/lib/limits.js と同じ上限）。
 //   - 返すのは 文字（Markdown 風・AI が読む）＋ structuredContent（会話の中に描く画面＝api/_mcpWidget.js が読む）。
 //     利用者 id は返さない。本・メモ・行動の id は返す（次の道具で使う）。
@@ -61,7 +61,7 @@ const isDate = (s) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && 
 class ToolError extends Error {}
 
 // ---------- 道具の一覧（AI に見せる説明は日本語＋英語の 1 行） ----------
-const uiMeta = { ui: { resourceUri: WIDGET_URI_MCP }, 'openai/outputTemplate': WIDGET_URI_OPENAI, 'openai/widgetAccessible': false, 'openai/toolInvocation/invoking': 'Orime を読んでいます', 'openai/toolInvocation/invoked': 'Orime から取りました' };
+const uiMeta = { ui: { resourceUri: WIDGET_URI_MCP }, 'openai/outputTemplate': WIDGET_URI_OPENAI, 'openai/widgetAccessible': false, 'openai/toolInvocation/invoking': 'orime を読んでいます', 'openai/toolInvocation/invoked': 'orime から取りました' };
 const pageProps = (dflt) => ({ limit: { type: 'integer', minimum: 1, maximum: LIMIT_MAX, default: dflt }, offset: { type: 'integer', minimum: 0, default: 0, description: '続きを取るときの開始位置' } });
 
 export const TOOLS = [
@@ -172,7 +172,7 @@ export const TOOLS = [
   },
   {
     name: 'ops_dashboard',
-    description: '（運営者だけ）Orime の運営の数字をまとめて読む: 利用者数・会員・売上と粗利の材料・ローンチの 4 つの数字・目標・週ごとの数字・更新の見込み・開いているフィードバックとチケット・やること・公開の準備。Admin only: one snapshot of operations metrics.',
+    description: '（運営者だけ）orime の運営の数字をまとめて読む: 利用者数・会員・売上と粗利の材料・ローンチの 4 つの数字・目標・週ごとの数字・更新の見込み・開いているフィードバックとチケット・やること・公開の準備。Admin only: one snapshot of operations metrics.',
     inputSchema: { type: 'object', properties: {} },
   },
   {
@@ -343,11 +343,11 @@ export const TOOLS = [
 
 // ---------- プロンプト（AI の会話に入れる決まった型） ----------
 export const PROMPTS = [
-  { name: 'consult', title: '自分のメモに相談する', description: 'Orime のメモを根拠に、いまの悩みに答えてもらう', arguments: [{ name: 'question', description: '相談したいこと', required: true }] },
+  { name: 'consult', title: '自分のメモに相談する', description: 'orime のメモを根拠に、いまの悩みに答えてもらう', arguments: [{ name: 'question', description: '相談したいこと', required: true }] },
   { name: 'book_review', title: '1 冊を振り返る', description: '1 冊のメモから、いちばん効いた主張・明日から変えること・反論を整理する', arguments: [{ name: 'book_title', description: '書名（一部でよい）', required: true }] },
   { name: 'weekly_actions', title: '今週の行動を決める', description: 'まだの行動と最近のメモから、今週やる 3 つを決める', arguments: [] },
   { name: 'reading_report', title: '読書の記録をまとめる', description: '読書の時間・メモ・行動の数から、最近の読書を短くまとめる', arguments: [] },
-  { name: 'save_conversation', title: 'この会話を Orime に残す', description: 'いまの会話の結論・根拠にした本・次の一歩を、Orime のメモと行動に残す（本人が頼んだときだけ書く）', arguments: [{ name: 'note', description: '添えたい一言（任意）', required: false }] },
+  { name: 'save_conversation', title: 'この会話を orime に残す', description: 'いまの会話の結論・根拠にした本・次の一歩を、orime のメモと行動に残す（本人が頼んだときだけ書く）', arguments: [{ name: 'note', description: '添えたい一言（任意）', required: false }] },
 ];
 
 function promptText(name, args = {}) {
@@ -355,14 +355,14 @@ function promptText(name, args = {}) {
   const t = clean(args.book_title, TITLE_MAX);
   switch (name) {
     case 'consult':
-      return `Orime の search_memos と recent_memos で、次の相談に関係する自分のメモを探してから答えてください。答えは「結論」→「根拠にしたメモ（『書名』p.N と本文の引用・言い換えない）」→「明日からできる一歩を 1 つ」の順に。メモに無いことは「メモにはありません」と言ってください。\n\n相談: ${q || '（ここに相談を書く）'}`;
+      return `orime の search_memos と recent_memos で、次の相談に関係する自分のメモを探してから答えてください。答えは「結論」→「根拠にしたメモ（『書名』p.N と本文の引用・言い換えない）」→「明日からできる一歩を 1 つ」の順に。メモに無いことは「メモにはありません」と言ってください。\n\n相談: ${q || '（ここに相談を書く）'}`;
     case 'book_review':
-      return `Orime の list_books で『${t || '（書名）'}』を探し、get_book でメモと読書準備を読んでください。そのうえで「いちばん効いた主張」「明日から何を変えるか」「あえて反論するなら」を、メモの引用を根拠に 1 つずつ書いてください。最後に、行動にするなら add_action で足せることを伝えてください。`;
+      return `orime の list_books で『${t || '（書名）'}』を探し、get_book でメモと読書準備を読んでください。そのうえで「いちばん効いた主張」「明日から何を変えるか」「あえて反論するなら」を、メモの引用を根拠に 1 つずつ書いてください。最後に、行動にするなら add_action で足せることを伝えてください。`;
     case 'weekly_actions':
-      return 'Orime の list_actions（まだの行動）と recent_memos（最近 14 日）を読んで、今週やる行動を 3 つに絞ってください。期限が近いもの・メモで何度も触れていることを優先し、それぞれ「なぜ今週か」を 1 行で。決まったら add_action か complete_action で反映してよいか聞いてください。';
+      return 'orime の list_actions（まだの行動）と recent_memos（最近 14 日）を読んで、今週やる行動を 3 つに絞ってください。期限が近いもの・メモで何度も触れていることを優先し、それぞれ「なぜ今週か」を 1 行で。決まったら add_action か complete_action で反映してよいか聞いてください。';
     case 'save_conversation': {
       const extra = clean(args.note, 500);
-      return `この会話の中身を Orime に残してください。手順:
+      return `この会話の中身を orime に残してください。手順:
 1. 会話を読み返し、「結論（3 行まで・本人の言葉を活かす）」「根拠にした本と一節（『書名』p.N があれば）」「次の一歩（1 つ・できれば期限）」を書き出し、保存する前に本人に見せて確かめる。
 2. 本が特定できれば list_books でその book_id を探し、add_memo に book_id を付けて結論と根拠を 1 件のメモとして足す（本文の頭に「Claude との相談：」）。本が無ければ book_id なしで足す（本なしの学び）。
 3. 次の一歩があり、本人がよいと言えば add_action で足す（本の id は 2 と同じ・期限は YYYY-MM-DD）。
@@ -372,7 +372,7 @@ function promptText(name, args = {}) {
 本人の一言: ${extra}` : ''}`;
     }
     case 'reading_report':
-      return 'Orime の reading_stats と recent_memos（最近 30 日）を読んで、最近の読書を 5 行でまとめてください。数字は reading_stats のものだけを使い、順位やバッジのような言い方はしないでください。最後に、いちばん心に残っていそうなメモを 1 つ引用してください。';
+      return 'orime の reading_stats と recent_memos（最近 30 日）を読んで、最近の読書を 5 行でまとめてください。数字は reading_stats のものだけを使い、順位やバッジのような言い方はしないでください。最後に、いちばん心に残っていそうなメモを 1 つ引用してください。';
     default:
       return null;
   }
@@ -383,8 +383,8 @@ export const RESOURCES = [
   { uri: 'orime://books', name: '本棚', title: '本棚の一覧', description: '本棚の本（状態・評価・分野）', mimeType: 'text/markdown' },
   { uri: 'orime://memos/recent', name: '最近のメモ', title: '最近のメモ 30 件', description: '新しい順のメモ', mimeType: 'text/markdown' },
   { uri: 'orime://actions', name: '行動', title: 'まだの行動', description: '未完了の行動', mimeType: 'text/markdown' },
-  { uri: WIDGET_URI_MCP, name: 'orime-cards', title: 'Orime のカード', description: '会話の中に描く本・メモ・行動のカード（MCP Apps）', mimeType: WIDGET_MIME_MCP },
-  { uri: WIDGET_URI_OPENAI, name: 'orime-cards-openai', title: 'Orime のカード', description: '会話の中に描く本・メモ・行動のカード（ChatGPT）', mimeType: WIDGET_MIME_OPENAI },
+  { uri: WIDGET_URI_MCP, name: 'orime-cards', title: 'orime のカード', description: '会話の中に描く本・メモ・行動のカード（MCP Apps）', mimeType: WIDGET_MIME_MCP },
+  { uri: WIDGET_URI_OPENAI, name: 'orime-cards-openai', title: 'orime のカード', description: '会話の中に描く本・メモ・行動のカード（ChatGPT）', mimeType: WIDGET_MIME_OPENAI },
 ];
 export const RESOURCE_TEMPLATES = [
   { uriTemplate: 'orime://books/{book_id}', name: '1 冊の本', description: '本の詳細（メモ・読書準備・行動）', mimeType: 'text/markdown' },
@@ -618,7 +618,7 @@ const handlers = {
     return { text: `「${rows[0].text}」を完了にしました。`, structuredContent: { message: `「${rows[0].text}」を完了にしました`, action_id } };
   },
 
-  // 運営ダッシュボード（アーティファクト）が「Orime」コネクタで 1 回呼ぶ。管理者だけ（supabase_admin_mcp.sql の admin_snapshot_for）。
+  // 運営ダッシュボード（アーティファクト）が「orime」コネクタで 1 回呼ぶ。管理者だけ（supabase_admin_mcp.sql の admin_snapshot_for）。
   async ops_dashboard(_args, { db, userId }) {
     const { data, error } = await db.rpc('admin_snapshot_for', { p_user_id: userId });
     if (error) {
@@ -1039,7 +1039,7 @@ export async function handleRpc(msg, ctx) {
         protocolVersion: PROTOCOL_VERSION,
         capabilities: { tools: { listChanged: false }, resources: { subscribe: false, listChanged: false }, prompts: { listChanged: false } },
         serverInfo: SERVER_INFO,
-        instructions: 'Orime（読書メモのアプリ）に残した、この利用者の本・メモ・行動を読み書きします。答えるときは、どの本のどのメモを根拠にしたかを添えてください。メモは本人の言葉なので、言い換えずに引用してください。順位・バッジ・連続日数のような言い方はしません。書き込む道具（add_memo / update_memo / add_action / complete_action / add_book）は、本人が頼んだときだけ使ってください。',
+        instructions: 'orime（読書メモのアプリ）に残した、この利用者の本・メモ・行動を読み書きします。答えるときは、どの本のどのメモを根拠にしたかを添えてください。メモは本人の言葉なので、言い換えずに引用してください。順位・バッジ・連続日数のような言い方はしません。書き込む道具（add_memo / update_memo / add_action / complete_action / add_book）は、本人が頼んだときだけ使ってください。',
       }));
     case 'ping':
       return respond(rpcResult(id, {}));
