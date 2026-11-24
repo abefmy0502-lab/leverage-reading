@@ -51,9 +51,11 @@
   -->
   <style>
     /* Pre-Vite paint: avoid white flash before the bundled CSS arrives. */
-    body { margin: 0; background: #f5f0e8; }
+    /* html にも同じ地を塗る＝iPhone のアプリで画面の端（状態バーの下・ホームバーの横・引っ張ったときの外側）も同じ色に（2026-11-24）。 */
+    html, body { background: #f5f0e8; }
+    body { margin: 0; }
     /* 暗い設定の端末は、読み込みの前から暗い地（tokens.css の暗い --bg と同じ値・2026-11-23）。 */
-    @media (prefers-color-scheme: dark) { body { background: #1b1a18; } }
+    @media (prefers-color-scheme: dark) { html, body { background: #1b1a18; } }
   </style>
 </head>
 <body>

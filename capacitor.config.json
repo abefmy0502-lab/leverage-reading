@@ -3,8 +3,7 @@
   "appName": "Orime",
   "webDir": "dist",
   "ios": {
-    "contentInset": "always",
-    "backgroundColor": "#f7f5f1"
+    "contentInset": "never"
   },
   "plugins": {
     "SplashScreen": {

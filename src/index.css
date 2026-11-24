@@ -131,6 +131,8 @@ html {
   /* 1rem = 17px（iOS の本文サイズ）。iOS では下の @supports で「文字サイズ」設定
      （Dynamic Type）に追従する。--text-* トークンは rem なので一緒に拡大・縮小する。 */
   font-size: 17px;
+  /* 画面の端（状態バーの下・ホームバーの横・引っ張ったときの外側）も本文と同じ地に（2026-11-24・iPhone のアプリの白い帯）。 */
+  background: var(--color-bg-primary);
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
   text-rendering: optimizeLegibility;
