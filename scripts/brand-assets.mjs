@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // 🎨 orime のロゴの素材を 1 つの SVG から全部つくる（2026-11-24 オーナー「ロゴを変えたい」＝折り重なる 2 本の帯・まん中のひし形の余白・小文字の orime。同日 3 案目で点をなくした）。
 //
-//   元: public/brand/orime-logo-source.svg（オーナーの画像を色ごとに描き起こした形・viewBox 1774×887・id="light"＝明るい茶／id="dark"＝濃い茶）
+//   元: public/brand/orime-mark-source.svg（記号だけの画像を色ごとに描き起こした形・viewBox 1536×1024・4 枚目＝記号の正）と
+//       public/brand/orime-logo-source.svg（記号＋文字の画像・ここからは文字だけを使い、色は記号の濃い茶にそろえる）
 //   node scripts/brand-assets.mjs  → 下の一覧を書き直す（コミットする）
 //
 //   public/brand/orime-mark.svg・orime-wordmark.svg・orime-lockup.svg（横組み）・*-dark.svg（暗い地の色）＝画面は src/components/BrandLogo.jsx
@@ -17,11 +18,14 @@ import path from 'node:path';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const P = (...a) => path.join(ROOT, ...a);
-const src = readFileSync(P('public/brand/orime-logo-source.svg'), 'utf8');
-const paths = [...src.matchAll(/<path [^>]*\/>/g)].map((m) => m[0]);
+const pathsOf = (file) => [...readFileSync(P(file), 'utf8').matchAll(/<path [^>]*\/>/g)].map((m) => m[0]);
+// 記号は記号だけの画像（4 枚目）から、文字は記号＋文字の画像（3 枚目）から（2026-11-24）
+const markPaths = pathsOf('public/brand/orime-mark-source.svg');
+const wordPaths = pathsOf('public/brand/orime-logo-source.svg');
 
-const LIGHT = '#a6643b';
-const DARK = '#744023';
+const LIGHT = '#a35f38';
+const DARK = '#663a21';
+const WORD_SRC = ['#a6643b', '#744023']; // 文字の元の色（どちらも DARK にそろえる）
 const BG = '#fcf8ef'; // ロゴの地（オーナーの画像の地）
 const APP_BG_LIGHT = '#f7f5f1'; // アプリの明るい地（起動画面）
 const APP_BG_DARK = '#1b1a18'; // アプリの暗い地
@@ -29,27 +33,25 @@ const ON_DARK = { [LIGHT]: '#c98a5c', [DARK]: '#9a5a35' };
 const WORD_ON_DARK = '#efe6da';
 
 // 描き起こした形の中の、記号と文字の範囲（scripts で測った値・余白なし）
-const MARK = { x: 312, y: 308, w: 375, h: 263 };
-const WORD = { x: 749, y: 326, w: 729, h: 194 };
+const MARK = { x: 416, y: 264, w: 705, h: 472 }; // orime-mark-source.svg の中
+const WORD = { x: 749, y: 326, w: 729, h: 194 }; // orime-logo-source.svg の中
+// 横組みの並び（3 枚目の画像の比＝記号の高さ 263 に文字の高さ 194・文字は上から 18・間 62）
+const LOCK = { markH: 263, wordTop: 18, gap: 62 };
 
 const recolor = (s, map) => Object.entries(map).reduce((t, [a, b]) => t.split(`fill="${a}"`).join(`fill="${b}"`), s);
-const svgOf = (box, { pad = 0, map = {} } = {}) => {
-  const vb = `${box.x - pad} ${box.y - pad} ${box.w + pad * 2} ${box.h + pad * 2}`;
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb}">${recolor(paths.join(''), map)}</svg>`;
+const wordColor = (c) => Object.fromEntries(WORD_SRC.map((k) => [k, c]));
+const inner = (paths, box, map) => `viewBox="${box.x} ${box.y} ${box.w} ${box.h}">${recolor(paths.join(''), map)}`;
+const markSvg = (map = {}) => `<svg xmlns="http://www.w3.org/2000/svg" ${inner(markPaths, MARK, map)}</svg>`;
+const wordSvg = (color = DARK) => `<svg xmlns="http://www.w3.org/2000/svg" ${inner(wordPaths, WORD, wordColor(color))}</svg>`;
+const lockupSvg = (markMap = {}, wcolor = DARK) => {
+  const mw = (MARK.w * LOCK.markH) / MARK.h;
+  const wx = mw + LOCK.gap;
+  const W = Math.ceil(wx + WORD.w);
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${LOCK.markH}">`
+    + `<svg x="0" y="0" width="${mw.toFixed(1)}" height="${LOCK.markH}" ${inner(markPaths, MARK, markMap)}</svg>`
+    + `<svg x="${wx.toFixed(1)}" y="${LOCK.wordTop}" width="${WORD.w}" height="${WORD.h}" ${inner(wordPaths, WORD, wordColor(wcolor))}</svg></svg>`;
 };
-// 記号の SVG は記号の範囲だけ（文字の形は viewBox の外）。文字の SVG は文字の範囲だけ。
-const markSvg = (map) => svgOf(MARK, { map });
-const wordSvg = (map) => svgOf(WORD, { map });
-const lockupSvg = (map) => svgOf({ x: MARK.x, y: MARK.y, w: WORD.x + WORD.w - MARK.x, h: MARK.h }, { map });
-// 暗い地の横組み: 記号と文字は同じ濃い茶の形に入っているので、範囲で切り分けて別の色にする
-const lockupDarkSvg = () => {
-  const box = { x: MARK.x, y: MARK.y, w: WORD.x + WORD.w - MARK.x, h: MARK.h };
-  const cut = (WORD.x + MARK.x + MARK.w) / 2;
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${box.x} ${box.y} ${box.w} ${box.h}">`
-    + `<defs><clipPath id="m"><rect x="0" y="0" width="${cut}" height="887"/></clipPath><clipPath id="w"><rect x="${cut}" y="0" width="1774" height="887"/></clipPath></defs>`
-    + `<g clip-path="url(#m)">${recolor(paths.join(''), ON_DARK)}</g>`
-    + `<g clip-path="url(#w)">${recolor(paths.join(''), { [LIGHT]: WORD_ON_DARK, [DARK]: WORD_ON_DARK })}</g></svg>`;
-};
+const lockupDarkSvg = () => lockupSvg(ON_DARK, WORD_ON_DARK);
 
 const png = (svg, width) => sharp(Buffer.from(svg), { density: 600 }).resize({ width }).png().toBuffer();
 
@@ -65,7 +67,7 @@ async function main() {
   writeFileSync(P('public/brand/orime-mark.svg'), markSvg());
   writeFileSync(P('public/brand/orime-mark-dark.svg'), markSvg(ON_DARK));
   writeFileSync(P('public/brand/orime-wordmark.svg'), wordSvg());
-  writeFileSync(P('public/brand/orime-wordmark-dark.svg'), wordSvg({ [LIGHT]: WORD_ON_DARK, [DARK]: WORD_ON_DARK }));
+  writeFileSync(P('public/brand/orime-wordmark-dark.svg'), wordSvg(WORD_ON_DARK));
   writeFileSync(P('public/brand/orime-lockup.svg'), lockupSvg());
   writeFileSync(P('public/brand/orime-lockup-dark.svg'), lockupDarkSvg());
 
@@ -112,8 +114,8 @@ async function main() {
 
   // iPhone の起動画面（2732 四方・縦の画面では左右が切れるので幅 900 の中に収める）
   for (const [f, bg, map, wmap] of [
-    ['splash-2732x2732.png', APP_BG_LIGHT, {}, {}],
-    ['splash-2732x2732-dark.png', APP_BG_DARK, ON_DARK, { [LIGHT]: WORD_ON_DARK, [DARK]: WORD_ON_DARK }],
+    ['splash-2732x2732.png', APP_BG_LIGHT, {}, DARK],
+    ['splash-2732x2732-dark.png', APP_BG_DARK, ON_DARK, WORD_ON_DARK],
   ]) {
     const mark = await png(markSvg(map), 520);
     const word = await png(wordSvg(wmap), 640);
