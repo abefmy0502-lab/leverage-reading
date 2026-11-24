@@ -1,3 +1,4 @@
+import BrandLogo from '../BrandLogo';
 import { useState, useEffect, useRef } from 'react';
 import { TERMS_URL, PRIVACY_URL } from '../../lib/legalLinks';
 import { useAuth } from '../../hooks/useAuth';
@@ -379,7 +380,8 @@ export default function AuthScreen() {
       <h1 style={{ margin: '0 0 var(--space-3)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-3)' }}>
         {/* アプリアイコン画像は iOS のアイコン形状（DESIGN §4 の例外＝中身の形）。 */}
         <img src="/icons/icon-192.png" alt="" width={72} height={72} style={{ width: 'var(--app-icon-size)', height: 'var(--app-icon-size)', borderRadius: 'var(--radius-app-icon)', display: 'block' }} />
-        <span style={{ fontSize: 'var(--text-title)', fontWeight: 700, color: 'var(--text)', letterSpacing: '0.02em' }}>Orime</span>
+        {/* ロゴの文字（小文字の orime・2026-11-24）。読み上げは Orime */}
+        <BrandLogo kind="wordmark" height={26} />
       </h1>
       {/* タグラインはログインの画面だけ（新規登録は題名「新規登録」と入力欄に集中させる・2026-09-29）。 */}
       {mode === 'signin' ? (

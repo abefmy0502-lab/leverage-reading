@@ -10,6 +10,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { APP_READY_EVENT, isAppReady } from '../lib/appReady';
+import BrandLogo from './BrandLogo';
 
 const KEYFRAMES_ID = '__leverage-splash-keyframes';
 function ensureKeyframes() {
@@ -113,9 +114,8 @@ export default function SplashScreen({ onDismiss, minMs = 400, maxMs = 1000 }) {
           // ログイン画面のアイコンと同じ大きさ・形（--app-icon-size / --radius-app-icon・DESIGN §4）
           style={{ width: 'var(--app-icon-size)', height: 'var(--app-icon-size)', borderRadius: 'var(--radius-app-icon)', display: 'block' }}
         />
-        <p style={{ fontSize: 'var(--text-title)', fontWeight: 700, color: 'var(--text)', margin: 0, letterSpacing: '0.02em' }}>
-          Orime
-        </p>
+        {/* ロゴの文字（小文字の orime・2026-11-24） */}
+        <BrandLogo kind="wordmark" height={26} />
       </div>
     </div>
   );

@@ -1,3 +1,4 @@
+import BrandLogo from './components/BrandLogo';
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense, memo } from "react";
 import { useAuth } from './hooks/useAuth';
 import { useBooks } from './hooks/useBooks';
@@ -6543,13 +6544,8 @@ function AuthedApp() {
         }}
       >
         {/* ロゴは本の形のマークだけ（地が透明・2026-10-10 ui-critic「アプリアイコンのクリーム色の四角が、明暗どちらでも浮いていた」）。 */}
-        <img
-          src="/icons/mark-96.png"
-          alt="Orime"
-          width={28}
-          height={28}
-          style={{ display: "block" }}
-        />
+        {/* 2026-11-24 新しいロゴの記号（暗い画面は暗い地の色・BrandLogo） */}
+        <BrandLogo kind="mark" height={24} />
       </button>
     </div>
     {/* 右端は左のロゴの補正と対称に（アイコンの見た目の右余白を 16 に）。 */}

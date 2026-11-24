@@ -240,8 +240,6 @@ body.lp-active {
   font-weight: 600;
   letter-spacing: 0.01em;
 }
-/* アプリアイコン画像は iOS のアイコン形状（DESIGN §4 の例外＝中身の形）。UI の角丸ではない */
-.lp-brand img { border-radius: var(--radius-app-icon); }
 .lp-header-nav { display: flex; align-items: center; gap: var(--space-4); }
 .lp-header-cta { display: none; }
 /* 🧭 ページの中の案内（2026-10-13）。ヘッダーはスマホでも上に付けたまま（長いページのどこからでも開ける） */

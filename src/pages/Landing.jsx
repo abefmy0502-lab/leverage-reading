@@ -33,6 +33,7 @@
 //   - SEO: SPA のためランタイムで meta/canonical/JSON-LD を注入し、unmount で戻す（静的な og:* は index.html）
 //   - CTA は <a href>（長押し・中クリック等のネイティブ挙動を尊重）
 
+import BrandLogo from '../components/BrandLogo';
 import { Fragment, lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { Check, ChevronDown, Menu, X } from 'lucide-react';
 import { BUILD_LABEL } from '../lib/buildInfo';
@@ -523,8 +524,7 @@ export default function Landing() {
       <header className="lp-header">
         <div className="lp-wrap lp-header-inner">
           <a href="/" className="lp-brand" aria-label="Orime トップ">
-            <img src="/icons/icon-192.png" alt="" width="28" height="28" />
-            <span>Orime</span>
+            <BrandLogo kind="lockup" height={26} alt="" />
           </a>
           <nav className="lp-header-nav" aria-label="ヘッダー">
             {/* 広い画面だけ: ページの中の案内（スマホは右の 3 本線のボタンから） */}
@@ -859,7 +859,7 @@ export default function Landing() {
 
       <footer className="lp-footer" data-build={BUILD_LABEL}>
         <div className="lp-wrap">
-          <p className="lp-footer-brand">Orime</p>
+          <p className="lp-footer-brand"><BrandLogo kind="lockup" height={24} /></p>
           <nav className="lp-footer-links" aria-label="フッター">
             <a href="/legal/terms" onClick={footerLink('terms')}>利用規約</a>
             <a href="/legal/privacy" onClick={footerLink('privacy')}>プライバシーポリシー</a>

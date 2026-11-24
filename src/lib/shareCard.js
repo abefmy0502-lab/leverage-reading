@@ -242,7 +242,7 @@ export function filmPhoto(photo) {
 
 let logoPromise = null;
 
-// public/logo-lockup.png（縦組み: 上に本の印・下に「Orime」）から、印と文字を切り出す。
+// public/logo-lockup.png（縦組み: 上に記号・下に小文字の「orime」・2026-11-24 から新しいロゴ）から、記号と文字を切り出す。
 // 白の版: 焦げ茶の線は白に、クリーム色の面は透明に（なめらかな縁は残す）。i の点の橙はそのまま。
 function processLogo(img) {
   const W = img.naturalWidth;
