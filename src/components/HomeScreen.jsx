@@ -185,8 +185,11 @@ function ReadingNow({ books, onOpenBook, onWriteMemo, onStartReading, onAddBook,
   //   候補も無ければ（読みたいの本だけなど）、見出し「いま読んでいる本」＋「読書中の本はありません」の 1 行。
   const stacked = shown.length === 0 ? books.filter((b) => b.status === 'before').sort(byUpdated).slice(0, 3) : [];
   const finished = shown.length === 0 && stacked.length === 0 ? books.filter((b) => b.status === 'done').sort(byDone).slice(0, 3) : [];
-  const candidates = stacked.length ? stacked : finished;
-  const heading = stacked.length ? '次に読む本' : finished.length ? '最近読み終えた本' : 'いま読んでいる本';
+  // 🌱 読みたいの本だけの人（最初の 1 冊を AI 選書で見つけた人など・2026-11-25 オーナー方針「読書を始める人にも」）:
+  //   「読書中の本はありません」で行き止まりにせず、読みたいの本（新しく触った順・3 冊）に「読み始める」。
+  const wanted = shown.length === 0 && stacked.length === 0 && finished.length === 0 ? books.filter((b) => b.status === 'want').sort(byUpdated).slice(0, 3) : [];
+  const candidates = stacked.length ? stacked : finished.length ? finished : wanted;
+  const heading = stacked.length ? '次に読む本' : finished.length ? '最近読み終えた本' : wanted.length ? '読みたい本' : 'いま読んでいる本';
   const memoBtn = (b) => (
     <button type="button" onClick={() => onWriteMemo(b)} aria-label={`『${b.title}』にメモを書く`} style={btnRow}>
       <PencilLine size="1.1em" aria-hidden="true" style={{ flexShrink: 0 }} />メモを書く
@@ -224,7 +227,7 @@ function ReadingNow({ books, onOpenBook, onWriteMemo, onStartReading, onAddBook,
               sub={b.author}
               onOpenBook={onOpenBook}
               onCoverRetry={onCoverRetry}
-              action={b.status === 'before' && onStartReading ? (
+              action={(b.status === 'before' || b.status === 'want') && onStartReading ? (
                 <button type="button" onClick={() => onStartReading(b)} aria-label={`『${b.title}』を読み始める`} style={btnRow}>
                   {/* 見える名前は短い「読み始める」（「読書を開始する」だとボタンが折り返してカードが伸び、「すべての本」が 1 画面目から消えた・
                       2026-10-11 ui-critic）。読み上げは本の詳細と同じ「読書を開始する」。 */}

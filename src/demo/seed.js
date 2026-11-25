@@ -399,7 +399,7 @@ export function buildSeed(scenario) {
     db.books.forEach((b) => { if (b.status === 'reading') b.status = 'before'; });
   }
   // ?demo=noreadingdone: 読書中も積読も無い人（「最近読み終えた本」の確認用）。
-  // ?demo=noreadingnone: 読みたいの本しか無い人（「いま読んでいる本」＋「読書中の本はありません」の確認用）。
+  // ?demo=noreadingnone: 読みたいの本しか無い人（2026-11-25 から「読みたい本」＋「読み始める」の確認用）。
   if (scenario === 'noreadingdone') {
     db.books.forEach((b) => { if (b.status === 'reading' || b.status === 'before') b.status = 'want'; });
   }
