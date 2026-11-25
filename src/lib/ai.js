@@ -584,6 +584,12 @@ async function fetchBooksStaged(userId) {
 //   - books.invest_purpose / current_challenge / hypothesis (読書計画シート)
 //   - books.ai_summary / roi_summary / ai_strategy (AI 生成フィールド)
 // すべて同じ memo shape に整形し、既存の ranking/format パイプラインで処理。
+// AI 選書が選書理由に入れた「この本の核心: …」の行を外す（相談の材料にしない・lib/advisorText.js の advisorSetupPayload）。
+export function stripAiCoreLine(text) {
+  if (typeof text !== 'string' || !text) return text;
+  return text.split('\n').filter((l) => !/^\s*この本の核心\s*[:：]/.test(l)).join('\n').trim();
+}
+
 async function gatherKnowledge(userId) {
   // Supabase は 1 回の取得が最大 1000 行。メモが 1000 件を超える人でも古いメモが
   // 相談の材料から黙って落ちないよう、1000 件ずつ続けて読む（上限 5000 件）。
@@ -634,7 +640,8 @@ async function gatherKnowledge(userId) {
       synthFromBook(b, 'invest_purpose', b.invest_purpose),
       synthFromBook(b, 'current_challenge', b.current_challenge),
       synthFromBook(b, 'hypothesis', b.hypothesis),
-      synthFromBook(b, 'book_reason', b.book_reason),
+      // 選書理由のうち AI 選書が書いた「この本の核心: …」の行（本の概要）は外す（あなたの記録ではない・2026-11-25 点検）。
+      synthFromBook(b, 'book_reason', stripAiCoreLine(b.book_reason)),
       // AI が作った本のまとめ（ai_summary）は相談の材料にしない（2026-11-15 オーナー「本の概要を根拠にされるのは微妙」）
       synthFromBook(b, 'roi_summary', b.roi_summary),
       // 読書計画シート（ai_strategy）も相談の材料にしない（AI が書いた「この本の概要」が「参照したメモ」に出ていた・2026-11-15）

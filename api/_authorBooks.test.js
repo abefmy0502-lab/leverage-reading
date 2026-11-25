@@ -38,3 +38,37 @@ describe('お気に入りの著者の本（2026-11-25）', () => {
     expect(r.ok).toBe(false);
   });
 });
+
+describe('本番の結果から（2026-11-25・稲盛和夫）', () => {
+  const it0 = (o) => ({ subtitle: '', publisher: 'P', cover: '', ...o });
+  const items = [
+    it0({ title: '稲盛和夫研究 第5号', author: '稲盛和夫研究会', pubdate: '2026年08月20日頃', isbn: '9784814006649' }),
+    it0({ title: '稲盛和夫「生き方」「心。」人生哲学の集大成 2冊セット', author: '稲盛和夫', pubdate: '2026年06月中旬', isbn: '2100015033661' }),
+    it0({ title: '経営のこころ 会社を伸ばすリーダーシップ', author: '稲盛和夫、稲盛ライブラリー', pubdate: '2026年06月03日頃', isbn: '9784569905778' }),
+    it0({ title: '新版 生き方', author: '稲盛和夫', pubdate: '2026年03月11日頃', isbn: '9784763142894' }),
+    it0({ title: '稲盛和夫の実学 新装版', author: '稲盛和夫', pubdate: '2025年10月03日頃', isbn: '9784296125715' }),
+    it0({ title: '経営', author: '稲盛ライブラリー+ダイヤモンド社「稲盛和夫経営講演選集」共同チーム', pubdate: '2023年11月09日頃', isbn: '9784478118474' }),
+    it0({ title: '経営のこころ 会社を伸ばすリーダーシップ', author: '稲盛和夫、稲盛ライブラリー', pubdate: '2021年12月20日頃', isbn: '9784569851075' }),
+    it0({ title: '誰にも負けない努力', author: '稲盛和夫、稲盛ライブラリー', pubdate: '2024年06月05日頃', isbn: '9784569904153' }),
+  ];
+  const out = pickAuthorBooks('稲盛和夫', items);
+  const by = (isbn) => out.find((b) => b.isbn === isbn);
+  it('別の著者（研究会・共同チーム）とセット商品は出さない', () => {
+    expect(by('9784814006649')).toBeUndefined();
+    expect(by('9784478118474')).toBeUndefined();
+    expect(by('2100015033661')).toBeUndefined();
+  });
+  it('新版・新装版・前の版がある本は新しい作品ではない', () => {
+    expect(by('9784763142894').reissue).toBe(true);
+    expect(by('9784296125715').reissue).toBe(true);
+    expect(by('9784569905778').reissue).toBe(true);
+    expect(by('9784569904153').reissue).toBe(false);
+  });
+  it('号の違う本は前の号があっても新しい本', () => {
+    const r = pickAuthorBooks('稲盛和夫研究会', [
+      it0({ title: '稲盛和夫研究 第5号', author: '稲盛和夫研究会', pubdate: '2026年08月20日頃', isbn: '9784814006649' }),
+      it0({ title: '稲盛和夫研究 第4号', author: '稲盛和夫研究会', pubdate: '2025年06月05日頃', isbn: '9784814006083' }),
+    ]);
+    expect(r.every((b) => !b.reissue)).toBe(true);
+  });
+});

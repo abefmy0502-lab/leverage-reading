@@ -2,6 +2,7 @@
 //   ① 読んだ本の公開の紹介・目次（EARLY_SHELF の塊・メモが 10 件未満の人に補足で付けていた・src/lib/earlyShelf.js）
 //   ② AI が作った本のまとめ（books.ai_summary＝「種別: AI 解析（著者の意図・主な主張）」の行・src/lib/ai.js の SYNTH_LABEL）
 //   ③ 読書計画シート（books.ai_strategy＝「種別: 読書計画シート」の行・AI が書いた「この本の概要」から始まる・同日オーナーのスクショで「参照したメモ」に出ていた）
+//   ④ 選書理由の中の「この本の核心: …」の行（AI 選書が書いた本の概要）
 // アプリ（1.0.0）はまだ付けて送ってくるので、中継で外す（アプリの出し直しを待たずに効く）。1.0.1 からはアプリも付けない。
 // 積読の本の紹介（UNREAD_BOOKS）は「この本が合いそう」と提案するためだけに使うので残す。
 
@@ -9,8 +10,11 @@ const EARLY_SHELF_RE = /={3,} EARLY_SHELF_START ={3,}[\s\S]*?={3,} EARLY_SHELF_E
 // 【本: … / 種別: AI 解析（著者の意図・主な主張）】本文 … を、次の「\n【」か「\n=====」か終わりまで
 const AI_SUMMARY_RE = /【[^【】\n]*種別: (?:AI 解析（著者の意図・主な主張）|読書計画シート)】[\s\S]*?(?=\n【|\n={3,}|$)\n?/g;
 
+// ④ 選書理由の中の「この本の核心: …」の行（AI 選書が書いた本の概要・2026-11-25 点検）
+const AI_CORE_LINE_RE = /^[ \t]*この本の核心[:：][^\n]*\n?/gm;
+
 export function stripBookSummaries(text) {
   if (typeof text !== 'string' || !text) return text;
-  if (!text.includes('EARLY_SHELF_START') && !text.includes('AI 解析（著者の意図・主な主張）') && !text.includes('種別: 読書計画シート')) return text;
-  return text.replace(EARLY_SHELF_RE, '').replace(AI_SUMMARY_RE, '');
+  if (!text.includes('EARLY_SHELF_START') && !text.includes('AI 解析（著者の意図・主な主張）') && !text.includes('種別: 読書計画シート') && !text.includes('この本の核心')) return text;
+  return text.replace(EARLY_SHELF_RE, '').replace(AI_SUMMARY_RE, '').replace(AI_CORE_LINE_RE, '');
 }

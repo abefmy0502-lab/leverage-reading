@@ -24,3 +24,13 @@ describe('stripBookSummaries', () => {
     expect(stripBookSummaries('ふつうの相談')).toBe('ふつうの相談');
   });
 });
+
+describe('選書理由の中の AI の「この本の核心」', () => {
+  it('その行だけを外し、本人の理由は残す', () => {
+    const t = '【本: 考え方 / 種別: 選書理由】チームの迷いを減らしたい\nこの本の核心: 人生の結果は考え方で決まる\n【本: 考え方 / 種別: 仮説】決める基準を1つにする';
+    const out = stripBookSummaries(t);
+    expect(out).not.toContain('この本の核心');
+    expect(out).toContain('チームの迷いを減らしたい');
+    expect(out).toContain('決める基準を1つにする');
+  });
+});

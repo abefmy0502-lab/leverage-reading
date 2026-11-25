@@ -31,21 +31,48 @@ export function releaseDateOf(salesDate) {
   return `${y}-${String(mo).padStart(2, '0')}-${String(Math.min(d, 31)).padStart(2, '0')}`;
 }
 
-/** 楽天の応答 → 著者の本（新しい順・はっきり合う著者だけ・同じ作品の前の版があれば reissue）。 */
+// 著者の欄（「稲盛和夫、稲盛ライブラリー」「稲盛 和夫 著」）を人ごとに分けて、比べる形にする（空白・役割を外す）。
+function authorNamesOf(raw) {
+  return String(raw || '').normalize('NFKC')
+    .split(/[、,，/／;；|]|\s+[+＋]\s*|[+＋]/)
+    .map((n) => n.replace(/[（(][^)）]*[)）]/g, '').replace(/\s+/g, '').replace(/(編著|監修|著|編|訳|述|作|文|画)$/, ''))
+    .filter(Boolean);
+}
+// その人の名前が、著者の欄の誰か 1 人とそのまま一致するか（「稲盛和夫研究会」「〜共同チーム」は別の著者・2026-11-25 本番の結果）。
+export function isSameAuthor(author, raw) {
+  const want = String(author || '').normalize('NFKC').replace(/\s+/g, '');
+  if (!want) return false;
+  return authorNamesOf(raw).some((n) => n === want);
+}
+// 新しい作品ではない版（新版・新装版・文庫化・改訂・完全版 …）の印。
+const REISSUE_WORD = /(新版|新装版|新装改訂版|改訂版|改訂新版|増補|完全版|愛蔵版|復刻|文庫版|新書版|普及版|決定版)/;
+// 号・巻のある本（雑誌・研究誌・シリーズ）は、号が違えば別の本（書名の芯で同じ作品とみなさない）。
+const ISSUE_NO = /(第\s*\d+\s*[号巻集]|\d+\s*[号巻]|vol\.?\s*\d+|no\.?\s*\d+)/i;
+// ISBN（978・979）の本だけ（2100… はセット商品の番号）。「〜冊セット」も外す。
+const isBookIsbn = (isbn) => /^97[89]\d{10}$/.test(String(isbn || ''));
+const isSet = (b) => /セット|全\s*\d+\s*冊/.test(String(b.title || '').normalize('NFKC'));
+
+/** 楽天の応答 → 著者の本（新しい順・その著者の本だけ・同じ作品の前の版があるか版の言葉があれば reissue）。 */
 export function pickAuthorBooks(author, items) {
   const list = (items || [])
-    .filter((b) => b && b.title && /^\d{13}$/.test(String(b.isbn || '')))
-    .filter((b) => authorMatches(author, String(b.author || '')))
+    .filter((b) => b && b.title && isBookIsbn(b.isbn) && !isSet(b))
+    .filter((b) => authorMatches(author, String(b.author || '')) && isSameAuthor(author, b.author))
     .map((b) => ({ ...b, release: releaseDateOf(b.pubdate) }))
     .sort((a, b) => (b.release || '').localeCompare(a.release || ''));
+  const keyOf = (b) => {
+    const t = String(b.title || '').normalize('NFKC');
+    return ISSUE_NO.test(t) ? normText(t) : normText(coreTitleOf(t.replace(REISSUE_WORD, ' ')));
+  };
   const seenIsbn = new Set();
   const out = [];
   for (const b of list) {
     if (seenIsbn.has(b.isbn)) continue;
     seenIsbn.add(b.isbn);
-    const core = normText(coreTitleOf(b.title));
-    // 同じ作品で、もっと前に出た版（単行本 → 文庫）がある＝新しい作品ではない。
-    const reissue = !!core && list.some((o) => o !== b && o.release && b.release && o.release < b.release && normText(coreTitleOf(o.title)) === core);
+    const key = keyOf(b);
+    const words = `${b.title || ''} ${b.subtitle || ''}`.normalize('NFKC');
+    // 同じ作品で、もっと前に出た版（単行本 → 文庫）がある・書名に版の言葉がある＝新しい作品ではない。
+    const reissue = REISSUE_WORD.test(words)
+      || (!!key && list.some((o) => o !== b && o.release && b.release && o.release < b.release && keyOf(o) === key));
     out.push({
       title: b.title,
       subtitle: b.subtitle || '',
