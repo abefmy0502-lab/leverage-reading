@@ -13,6 +13,12 @@ describe('voicePersona（どの答えを著者の語り口にするか・2026-09
   it('すべての本でも、材料がちょうど 1 冊の本だけなら、その本の著者', () => {
     expect(voicePersona({ scopeIds: [], rows: [row(issue), row(issue)] })?.bookId).toBe('b1');
   });
+  it('選んだ数冊がみな同じ著者なら、その著者の語り口（2026-11-25 著者と話す）', () => {
+    const issue2 = { id: 'b3', title: 'シン・ニホン', author: '安宅和人' };
+    const p = voicePersona({ scopeIds: ['b1', 'b3'], rows: [row(issue), row(issue2), row(issue2)] });
+    expect(p).toEqual({ bookId: 'b3', title: 'シン・ニホン', author: '安宅和人' });
+    expect(voicePersona({ scopeIds: ['b1', 'b3'], rows: [row(issue), row(null, { source_type: 'personal' })] })).toBeNull();
+  });
   it('数冊の本から答えるときは語り口にしない（相談役の口調）', () => {
     expect(voicePersona({ scopeIds: [], rows: [row(issue), row(coach)] })).toBeNull();
     expect(voicePersona({ scopeIds: ['b1', 'b2'], rows: [row(issue), row(coach)] })).toBeNull();

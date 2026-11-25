@@ -77,7 +77,7 @@ export function scopeHeading(sk) {
 /** 話し相手の下の 1 行（答えのもとと、AI であること）。 */
 export function scopeNote(sk) {
   if (sk.kind === 'book') return '答えのもとは、この本のあなたのメモです。AI が本の語り口をまねて答えます（著者本人の言葉ではありません）。';
-  if (sk.kind === 'author') return '答えのもとは、この著者の本のあなたのメモです。答えは AI の解釈で、著者本人の言葉ではありません。';
+  if (sk.kind === 'author') return '答えのもとは、この著者の本のあなたのメモです。AI が著者の語り口をまねて答えます（著者本人の言葉ではありません）。';
   if (sk.kind === 'multi') return '答えのもとは、選んだ本のあなたのメモです。本ごとの見方を並べ、ぶつかるところも見せます。';
   return '';
 }

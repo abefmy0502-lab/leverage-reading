@@ -1589,7 +1589,19 @@ export function voicePersona({ scopeIds = [], rows = [] } = {}) {
   const ids = Array.isArray(scopeIds) ? scopeIds.filter(Boolean) : [];
   let id = null;
   if (ids.length === 1) id = ids[0];
-  else {
+  else if (ids.length > 1) {
+    // 🌐 著者と話す（2026-11-25）: 選んだ本がみな同じ著者（最初の人）の本で、自分の学びが入らないなら、その著者の語り口。
+    if (list.some((m) => !bookOf(m))) return null;
+    const firstAuthor = (b) => String(b?.author || '').split(/[,、，/／]/)[0].trim();
+    const seen = new Map();
+    for (const m of list) if (m.book && ids.includes(bookOf(m))) seen.set(bookOf(m), m.book);
+    const authors = [...new Set([...seen.values()].map(firstAuthor))];
+    if (seen.size === 0 || authors.length !== 1 || !authors[0]) return null;
+    // いちばんメモの多い本を名前の本に（アイコンと語り口の書名）。
+    const count = new Map();
+    for (const m of list) if (seen.has(bookOf(m))) count.set(bookOf(m), (count.get(bookOf(m)) || 0) + 1);
+    [id] = [...count.entries()].sort((a, b) => b[1] - a[1])[0];
+  } else {
     if (list.some((m) => !bookOf(m))) return null; // 自分の学びがある
     const distinct = [...new Set(list.map(bookOf))];
     if (distinct.length !== 1) return null;
