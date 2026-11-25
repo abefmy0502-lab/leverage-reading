@@ -332,7 +332,8 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, i
     try {
       const r = await searchBooks(q);
       if (!r.ok) setSearchError(true);
-      setResults(r.ok ? r.results.slice(0, 8) : []);
+      // 本を追加の検索と同じく 20 冊まで（8 冊で切っていて、探している本が候補に出ないことがあった・2026-11-25 オーナー「候補の本が少ない」）。
+      setResults(r.ok ? r.results.slice(0, 20) : []);
     } catch {
       setSearchError(true);
       setResults([]);
