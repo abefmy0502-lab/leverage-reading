@@ -270,3 +270,21 @@ describe('1 冊だけ共有した本のページ（2026-11-23）', () => {
     expect(res.statusCode).toBe(404);
   });
 });
+
+describe('本人が開いた公開のページ（?me=1・2026-11-25）', () => {
+  const shelf = { total: 1, byStatus: [{ id: 'done', label: '読了', total: 1, books: [{ id: 'b1', title: '考え方', author: '稲盛和夫', cover: '' }] }], withSummary: [] };
+  it('通報とフォローのボタンを出さず、中のリンクにも印を付ける', () => {
+    const { html } = renderProfile({ nickname: 'ふみ', shelf_public: true }, { publicId: 'abcdefgh23', shelf, social: true, self: true });
+    expect(html).not.toContain('このページを通報する');
+    expect(html).not.toContain('?follow=');
+    expect(html).toContain('あなたの公開のページです');
+    expect(html).toContain('/u/abcdefgh23/b/b1?me=1');
+    expect(html).toContain('/u/abcdefgh23?shelf=done&me=1#shelf');
+  });
+  it('ふつうに開いたときは、今までどおり通報とフォロー', () => {
+    const { html } = renderProfile({ nickname: 'ふみ', shelf_public: true }, { publicId: 'abcdefgh23', shelf, social: true });
+    expect(html).toContain('このページを通報する');
+    expect(html).toContain('?follow=');
+    expect(html).not.toContain('me=1');
+  });
+});

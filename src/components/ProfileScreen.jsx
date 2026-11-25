@@ -175,8 +175,9 @@ export default function ProfileScreen({ onClose, onOpenSettings, onProfileSaved,
                 )}
               </section>
             )}
+            {/* 本人が開いたときは ?me=1＝通報とフォローのボタンを出さない（api/_profilePage.js の SELF_Q・2026-11-25） */}
             {url && (
-              <a href={url} target="_blank" rel="noopener noreferrer" style={{ ...btnLink, alignSelf: 'flex-start', marginLeft: 'calc(-1 * var(--space-1))' }}>公開のページを見る</a>
+              <a href={`${url}?me=1`} target="_blank" rel="noopener noreferrer" style={{ ...btnLink, alignSelf: 'flex-start', marginLeft: 'calc(-1 * var(--space-1))' }}>公開のページを見る</a>
             )}
           </div>
         </BottomSheet>,

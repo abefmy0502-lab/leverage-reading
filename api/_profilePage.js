@@ -228,13 +228,15 @@ function coverPlaceholder(title) {
 // 書名の頭の全角の英数字は、表示のときだけ半角に（左端が半字ずれないように）。
 const shownTitle = (t) => String(t || '').replace(/[０-９Ａ-Ｚａ-ｚ]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
 
+const SELF_NOTE = '<p class="note" style="text-align:left;margin:0 0 24px">あなたの公開のページです。フォローと通報のボタンは、ほかの人にだけ出ます。</p>';
+
 function miniCover(title, cover, width) {
   return `<span class="mc" style="width:${width}px" aria-hidden="true">${cover ? `<img src="${esc(cover)}" alt="" loading="lazy">` : coverPlaceholder(title)}</span>`;
 }
 
 /** まとめのある本の行（表紙・書名・まとめの出だし 3 行）。 */
-function summaryRows(list, publicId) {
-  return `<ul class="srows">${list.map((b) => `<li><a class="srow" href="/u/${esc(publicId)}/b/${esc(b.id)}">${miniCover(b.title, b.cover, 48)}<span style="min-width:0"><p class="t">${esc(shownTitle(b.title))}</p><p class="ex">${esc(b.excerpt)}</p></span></a></li>`).join('')}</ul>`;
+function summaryRows(list, publicId, self = false) {
+  return `<ul class="srows">${list.map((b) => `<li><a class="srow" href="/u/${esc(publicId)}/b/${esc(b.id)}${self ? SELF_Q : ''}">${miniCover(b.title, b.cover, 48)}<span style="min-width:0"><p class="t">${esc(shownTitle(b.title))}</p><p class="ex">${esc(b.excerpt)}</p></span></a></li>`).join('')}</ul>`;
 }
 
 function bookInner(b) {
@@ -248,15 +250,20 @@ function bookInner(b) {
 //   まとめのある本は表紙の上から少しはみ出す栞（--accent の細い帯）。上のチップで絞る（?shelf=状態・summary＝まとめあり・スクリプトなし＝リンク）。
 //   「すべて」は状態ごとの棚に 8 冊まで＋「〈状態〉をすべて見る」。
 export const SHELF_FILTERS = ['reading', 'done', 'before', 'want', 'summary'];
+// 本人がアプリの「公開のページを見る」から開いた印（?me=1・2026-11-25 オーナー「自分の公開ページにも通報ボタンがあるのか」）。
+//   ページはログインを知らないので、この印のときだけ通報とフォローのボタンを出さず、上に「ほかの人にはこう見えます」。
+//   だれかが自分で付けても、その人の画面からボタンが消えるだけ（ほかの人には影響しない）。ページの中のリンクにも付けて回る。
+export const SELF_Q = '?me=1';
+const withSelf = (href, self) => (self ? `${href}${href.includes('?') ? '&' : '?'}me=1` : href);
 const SHELF_ROW = 4;
 const SHELF_PREVIEW = 8;
 
-function shelfBook(b, { publicId, links }) {
+function shelfBook(b, { publicId, links, self = false }) {
   const label = `${shownTitle(b.title)}${b.author ? `・${b.author}` : ''}${b.statusLabel ? `・${b.statusLabel}` : ''}${b.rating ? `・評価 ${b.rating}` : ''}${b.hasSummary ? '・まとめあり' : ''}`;
   // 表紙の下に書名を 2 行まで（2026-11-23 オーナー「共有する本棚も同様に書籍名を記載してね」・アプリの本棚と同じ）。
   const face = `${b.cover ? `<img src="${esc(b.cover)}" alt="" loading="lazy">` : coverPlaceholder(b.title)}${b.hasSummary ? '<span class="rib" aria-hidden="true"></span>' : ''}<span class="sbt" aria-hidden="true">${esc(shownTitle(b.title))}</span>`;
   return links && b.id
-    ? `<li class="sb"><a href="/u/${esc(publicId)}/b/${esc(b.id)}" aria-label="${esc(label)}">${face}</a></li>`
+    ? `<li class="sb"><a href="/u/${esc(publicId)}/b/${esc(b.id)}${self ? SELF_Q : ''}" aria-label="${esc(label)}">${face}</a></li>`
     : `<li class="sb" aria-label="${esc(label)}">${face}</li>`;
 }
 
@@ -266,7 +273,7 @@ function shelfCase(books, opts) {
   return `<div class="case">${rows.map((r) => `<ul class="srow2">${r.map((b) => shelfBook(b, opts)).join('')}</ul>`).join('')}</div>`;
 }
 
-function renderShelf(shelf, { publicId = '', links = false, filter = '' } = {}) {
+function renderShelf(shelf, { publicId = '', links = false, filter = '', self = false } = {}) {
   if (!shelf || !shelf.total) return '';
   const groups = shelf.byStatus.map((g) => ({ ...g, books: g.books.map((b) => ({ ...b, statusLabel: g.label })) }));
   const all = groups.flatMap((g) => g.books);
@@ -278,12 +285,12 @@ function renderShelf(shelf, { publicId = '', links = false, filter = '' } = {}) 
     ...(summaryCount ? [{ id: 'summary', label: 'まとめあり', n: summaryCount }] : []),
   ];
   const current = chips.some((c) => c.id === filter) ? filter : '';
-  const nav = `<nav class="filters" aria-label="本棚を絞る">${chips.map((c) => `<a class="chip" href="${c.id ? `${base}?shelf=${c.id}` : base}#shelf"${c.id === current ? ' aria-current="page"' : ''}>${esc(c.label)}<span class="n">${c.n}</span></a>`).join('')}</nav>`;
-  const opts = { publicId, links };
+  const nav = `<nav class="filters" aria-label="本棚を絞る">${chips.map((c) => `<a class="chip" href="${withSelf(c.id ? `${base}?shelf=${c.id}` : base, self)}#shelf"${c.id === current ? ' aria-current="page"' : ''}>${esc(c.label)}<span class="n">${c.n}</span></a>`).join('')}</nav>`;
+  const opts = { publicId, links, self };
   let body;
   if (!current) {
     body = groups.map((g) => `<section class="shelfgrp"><h3>${esc(g.label)}<span class="n">${g.total} 冊</span></h3>${shelfCase(g.books.slice(0, SHELF_PREVIEW), opts)}${
-      g.total > SHELF_PREVIEW ? `<a class="seeall" href="${base}?shelf=${g.id}#shelf">${esc(g.label)}をすべて見る（${g.total} 冊）</a>` : ''}</section>`).join('');
+      g.total > SHELF_PREVIEW ? `<a class="seeall" href="${withSelf(`${base}?shelf=${g.id}`, self)}#shelf">${esc(g.label)}をすべて見る（${g.total} 冊）</a>` : ''}</section>`).join('');
   } else if (current === 'summary') {
     body = shelfCase(all.filter((b) => b.hasSummary), opts);
   } else {
@@ -294,7 +301,7 @@ function renderShelf(shelf, { publicId = '', links = false, filter = '' } = {}) 
   return `<section class="shelf sec" id="shelf"><h2>本棚</h2>${nav}${body}${legend}</section>`;
 }
 
-export function renderProfile(p, { publicId, shelf = null, social = socialOn(), filter = '' }) {
+export function renderProfile(p, { publicId, shelf = null, social = socialOn(), filter = '', self = false }) {
   const site = SITE();
   const nickname = String(p.nickname || '').trim();
   const title = String(p.fav_title || '').trim();
@@ -312,20 +319,20 @@ export function renderProfile(p, { publicId, shelf = null, social = socialOn(), 
   // フォローを決めるのはこのページ（2026-11-22 オーナー「フォローするかどうかはこの画面が 1 番じゃない？」）:
   //   名前と自己紹介のすぐ下に主ボタン「フォロー」、本棚を見終えたところにもう一度。
   const followUrl = `${site}/?follow=${esc(publicId)}`;
-  const followTop = social ? `<a class="cta" style="margin-top:16px" href="${followUrl}">フォロー</a><p class="note" style="text-align:left;margin-top:8px">承認されると、本棚とまとめを orime のアプリでいつでも見られます。</p>` : '';
-  const body = `<header class="who">
+  const followTop = social && !self ? `<a class="cta" style="margin-top:16px" href="${followUrl}">フォロー</a><p class="note" style="text-align:left;margin-top:8px">承認されると、本棚とまとめを orime のアプリでいつでも見られます。</p>` : '';
+  const body = `${self ? SELF_NOTE : ''}<header class="who">
 ${renderAvatar(p.avatar, nickname)}<h1 class="name">${esc(who)}</h1>${bio ? `<p class="bio">${esc(bio)}</p>` : ''}${followTop}
 </header>
 ${line ? `<figure class="quote" style="margin-left:0;margin-right:0"><blockquote${[...line].length > 40 ? ' style="font-size:17px;line-height:1.8"' : ''}>${esc(line)}</blockquote></figure>${fav}` : fav ? `<div style="margin-top:24px">${fav}</div>` : ''}
-${renderShelf(shelf, { publicId, links: social, filter })}
-${social && shelf?.total ? `<a class="cta" style="margin-top:48px" href="${followUrl}">フォロー</a>` : ''}
+${renderShelf(shelf, { publicId, links: social, filter, self })}
+${social && !self && shelf?.total ? `<a class="cta" style="margin-top:48px" href="${followUrl}">フォロー</a>` : ''}
 <a class="${social ? 'cta2' : 'cta'}" ${social ? `style="margin-top:${shelf?.total ? 32 : 48}px" ` : ''}href="${esc(site)}/lp">orime で読書メモをはじめる</a>
 <p class="note">読んだ本と、会話できる。<br>答えのもとは、あなたが残したメモ。</p>
-<details><summary>このページを通報する</summary>
+${self ? '' : `<details><summary>このページを通報する</summary>
 <form method="post" action="/api/profile-report"><input type="hidden" name="id" value="${esc(publicId)}">
 <label for="reason">理由（任意・500 字まで）</label><textarea id="reason" name="reason" maxlength="${REPORT_MAX}"></textarea>
 <button type="submit">通報する</button></form>
-<p class="note" style="text-align:left">通報は運営が 24 時間以内に確かめ、利用規約に反する内容は表示を止めます。</p></details>
+<p class="note" style="text-align:left">通報は運営が 24 時間以内に確かめ、利用規約に反する内容は表示を止めます。</p></details>`}
 <p class="foot"><a href="${esc(site)}/legal/terms">利用規約</a>・<a href="${esc(site)}/legal/privacy">プライバシーポリシー</a></p>`;
   // 問い合わせのメールは置かない（2026-11-23 オーナー「ここにお問い合わせのアドレス貼るの不要」・本のページと同じ 2 つだけ・連絡先は利用規約とプライバシーポリシーに）。
   return page({ title: pageTitle, description: desc, image: cover.ok ? cover.url : '', url: `${site}/u/${publicId}`, body });
@@ -360,7 +367,7 @@ export function wantUrl(book, site = SITE()) {
 }
 
 /** 本のページ（/u/<id>/b/<本の id>）。 */
-export function renderBook(p, book, { publicId, showSummary = false, others = [], linkShelf = true }) {
+export function renderBook(p, book, { publicId, showSummary = false, others = [], linkShelf = true, self = false }) {
   const site = SITE();
   const nickname = String(p.nickname || '').trim();
   const who = nickname ? `${nickname}さん` : 'orime の読者';
@@ -372,19 +379,19 @@ export function renderBook(p, book, { publicId, showSummary = false, others = []
   const meta = STATUS_LABEL[book.status] || '';
   const stars = rating ? `<span class="st" aria-label="評価 ${rating}">${'★'.repeat(rating)}</span>` : '';
   // 1 冊だけ共有した本（プロフィールを公開していない人）は、本棚への戻りを出さない（2026-11-23）。
-  const body = `${linkShelf ? `<a class="back" href="/u/${esc(publicId)}">‹ ${esc(who)}の本棚</a>` : ''}
+  const body = `${self ? SELF_NOTE : ''}${linkShelf ? `<a class="back" href="/u/${esc(publicId)}${self ? SELF_Q : ''}">‹ ${esc(who)}の本棚</a>` : ''}
 <div style="margin-top:${linkShelf ? 16 : 0}px"><div class="bookhead"><div class="bcover">${cover ? `<img src="${esc(cover)}" alt="">` : coverPlaceholder(title)}</div>
 <div><h1 class="title" style="font-size:20px">『${esc(shownTitle(title))}』</h1>${book.author ? `<p class="author">${esc(book.author)}</p>` : ''}${meta ? `<p class="meta">${esc(meta)}${stars ? `　${stars}` : ''}</p>` : ''}</div></div></div>
 ${summary ? `<h2 class="h">${esc(who)}の、この本のまとめ</h2><p class="sum">${esc(summary)}</p>` : `<p class="note" style="text-align:left;margin-top:24px;font-size:15px">${showSummary ? 'まとめはまだありません。' : 'まとめは公開されていません。'}</p>`}
 <a class="cta" href="${esc(wantUrl({ ...book, cover }, site))}">読みたいに追加</a>
 <p class="note" style="text-align:left">orime が開き、あなたの「読みたい」に入れる前に確かめます。</p>
 <div class="tl" style="margin-top:24px"><a href="${esc(getAmazonLink({ isbn: book.isbn, title, author: book.author }))}" target="_blank" rel="noopener noreferrer sponsored">Amazon<svg width="1.1em" height="1.1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-left:4px"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></a><a href="${esc(getRakutenLink({ isbn: book.isbn, title, author: book.author }))}" target="_blank" rel="noopener noreferrer">楽天ブックス<svg width="1.1em" height="1.1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-left:4px"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></a></div>
-${others.length ? `<p class="sh">${esc(who)}の、ほかのまとめ</p>${summaryRows(others, publicId)}` : ''}
+${others.length ? `<p class="sh">${esc(who)}の、ほかのまとめ</p>${summaryRows(others, publicId, self)}` : ''}
 <!-- 本のページにはフォローのボタンを置かない（フォローを決めるのはプロフィールのページ・2026-11-22 オーナー「ここにフォロー申し込みのボタンは不要」） -->
-<details style="margin-top:48px"><summary>このページを通報する</summary>
+${self ? '' : `<details style="margin-top:48px"><summary>このページを通報する</summary>
 <form method="post" action="/api/profile-report"><input type="hidden" name="id" value="${esc(publicId)}">
 <label for="reason">理由（任意・500 字まで）</label><textarea id="reason" name="reason" maxlength="${REPORT_MAX}"></textarea>
-<button type="submit">通報する</button></form></details>
+<button type="submit">通報する</button></form></details>`}
 <p class="foot">${esc(STORE_DISCLOSURE_TEXT)}<br><a href="${esc(site)}/legal/terms">利用規約</a>・<a href="${esc(site)}/legal/privacy">プライバシーポリシー</a></p>`;
   return page({
     title: `${who}の『${title}』 | orime`,
@@ -499,6 +506,7 @@ export async function handleProfileRequest(req, res, { dbImpl = db } = {}) {
   }
   row = row ? cleanPublicRow(row) : row;
   const bookId = String(Array.isArray(q.book) ? q.book[0] : q.book || '').trim().toLowerCase();
+  const self = String(Array.isArray(q.me) ? q.me[0] : q.me || '') === '1';
   if (bookId) {
     // 本のページは VITE_SOCIAL=on のとき。本棚を公開している（外していない本）か、その本を 1 冊だけ共有しているときだけ。
     if (!socialOn() || !row || row.hidden || !row.user_id || !c) return send(res, renderNotFound()), true;
@@ -510,7 +518,7 @@ export async function handleProfileRequest(req, res, { dbImpl = db } = {}) {
     if (!book) return send(res, renderNotFound()), true;
     const more = shelfOpen && row.summary_public ? await loadShelf(c, row.user_id, row.shelf_hidden, { summaries: true }) : null;
     const others = (more?.withSummary || []).filter((b) => b.id !== String(book.id)).slice(0, 3);
-    return send(res, renderBook(row, book, { publicId: id, showSummary, others, linkShelf: isShowable(row) }), 'public, max-age=0, s-maxage=60'), true;
+    return send(res, renderBook(row, book, { publicId: id, showSummary, others, linkShelf: isShowable(row), self }), 'public, max-age=0, s-maxage=60'), true;
   }
   if (!isShowable(row)) return send(res, renderNotFound()), true;
   let shelf = null;
@@ -518,5 +526,5 @@ export async function handleProfileRequest(req, res, { dbImpl = db } = {}) {
   // 公開をやめたらすぐ消えるように、CDN には短くだけ覚えさせる。
   const rawFilter = String(Array.isArray(q.shelf) ? q.shelf[0] : q.shelf || '').trim().toLowerCase();
   const filter = SHELF_FILTERS.includes(rawFilter) ? rawFilter : '';
-  return send(res, renderProfile(row, { publicId: id, shelf, filter }), 'public, max-age=0, s-maxage=60'), true;
+  return send(res, renderProfile(row, { publicId: id, shelf, filter, self }), 'public, max-age=0, s-maxage=60'), true;
 }
