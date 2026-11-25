@@ -53,7 +53,7 @@ import LpPartnerDiagram from './LpPartnerDiagram';
 import LpIllust from './LpIllust';
 import LpArt, { hasArt } from './LpArt';
 import Phrases, { Sentences } from './LpPhrases';
-import { buildLpCopy, storeHrefOf, HERO_TALK, BASIS, SOCIAL, ZERO, WHY, PLAN, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE, FEATURES } from './lpCopy';
+import { buildLpCopy, storeHrefOf, HERO_TALK, BASIS, SOCIAL, ZERO, WHY, PLAN, CONSULT_ANSWERS_NOTE, MONTHLY, ANNUAL, DEFAULT_LAUNCH_LABEL, LP_TITLE, LP_DESCRIPTION, LP_OG_DESCRIPTION, VOICE_NOTE, SAMPLE_NOTE, FEATURES, BRAND_LINE } from './lpCopy';
 import qrcode from 'qrcode-generator';
 import { lpTrack, lpVariant, storeUrlFor, isWidePointer } from '../lib/lpTrack';
 import { inject as injectVercelAnalytics } from '@vercel/analytics';
@@ -853,6 +853,11 @@ export default function Landing() {
                 <span><Phrases>{COPY.priceLine[0]}</Phrases></span>
               </p>
             </div>
+            {/* 2026-11-24 オーナー「LP の下の方にロゴと 1 行」: ブランドの芯（company/brand-concept-2026-11-24.md）を署名のように最後に静かに置く */}
+            <figure className="lp-brand-sign">
+              <BrandLogo kind="mark" height={40} alt="" />
+              <figcaption>{BRAND_LINE}</figcaption>
+            </figure>
           </div>
         </section>
       </main>

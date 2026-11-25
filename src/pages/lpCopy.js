@@ -401,3 +401,6 @@ export function buildLpCopy({
     faqLd: faq.filter((f) => f.ld).map((f) => ({ q: plainText(f.q), a: plainText(f.a) })),
   };
 }
+
+// 🎨 ブランドの芯（2026-11-24・company/brand-concept-2026-11-24.md）＝LP の最後にロゴと並べる 1 行
+export const BRAND_LINE = '知識が重なり、答えが生まれる。';
