@@ -1185,6 +1185,7 @@ function AuthedApp() {
     return () => { cancelled = true; try { removeListener?.(); } catch { /* ignore */ } };
   }, [handleRecallDeepLink]);
   const [view, setView] = useState("list"); // list | detail | edit
+  const [titleOpenId, setTitleOpenId] = useState(null); // 本の詳細で書名を全文で出している本（押すと開く・2026-11-25）
   // 🔗 ホームを離れたら、ホームで保存したメモの似たメモの 1 行は消す（homeSavedMemo・2026-10-10）。
   useEffect(() => { if (tab !== 'books' || view !== 'list') setHomeSavedMemo(null); }, [tab, view]);
   // 実行時点の最新 view を読むための ref（handleSave の長い await 後に「ユーザーが
@@ -5590,7 +5591,8 @@ function AuthedApp() {
             <MiniCover book={current} width={72} />
             <div style={{ flex: '1 1 12rem', minWidth: 0 }}>
               {/* 書名＝この画面の主題（28・700）。見出し「メモ」「行動」（20・600）と差をつける。 */}
-              <h1 style={{ fontSize: "var(--text-title)", fontWeight: 700, color: "var(--text)", lineHeight: 1.25, margin: 0, overflowWrap: "anywhere", wordBreak: "keep-all", lineBreak: "strict", textWrap: "balance", display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{titleWithPhraseBreaks(current.title)}</h1>
+              {/* 長い書名は 3 行で切り、押すと全文を出す（最後まで読めなかった・2026-11-25 点検）。読み上げは全文を読む。 */}
+              <h1 onClick={() => setTitleOpenId((id) => (id === current.id ? null : current.id))} style={{ fontSize: "var(--text-title)", fontWeight: 700, color: "var(--text)", lineHeight: 1.25, margin: 0, overflowWrap: "anywhere", wordBreak: "keep-all", lineBreak: "strict", textWrap: "balance", ...(titleOpenId === current.id ? null : { display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', cursor: 'pointer' }) }}>{titleWithPhraseBreaks(current.title)}</h1>
               {current.author && <p style={{ fontSize: 'var(--text-sub)', color: "var(--text-2)", margin: "var(--space-1) 0 0", wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(current.author, { scriptBreaks: true })}</p>}
               {/* 状態と日付は 1 行に「·」でつなぐ（縦に段を積むと見出しが重かった・2026-10-16 ui-critic）。 */}
               <div style={{ display: "flex", alignItems: "center", columnGap: 'var(--space-2)', rowGap: 'var(--space-1)', marginTop: "var(--space-2)", flexWrap: "wrap", fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>

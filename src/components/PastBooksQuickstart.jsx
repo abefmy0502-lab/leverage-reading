@@ -749,7 +749,8 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, i
             {/* 幅 104（2026-10-11 ui-critic に 88 から）: 3 冊で 104×3＋8×2＝328（390 幅の本文 358 に収まる）・
                 「FACTFULNESS」も 1 行。それより長い文節の本も、無地の板にせず書名を載せる（forceTitle・2026-10-10）。 */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', marginTop: 'var(--space-4)' }} aria-hidden="true">
-              {summary.books.map((b) => <MiniCover key={b.id || bookKey(b)} book={b} width={104} forceTitle />)}
+              {/* 1〜2 冊のときは小さく（1 冊で画面の上半分を使い、いちばん大事な「相談する」が下に隠れていた・2026-11-25 点検） */}
+              {summary.books.map((b) => <MiniCover key={b.id || bookKey(b)} book={b} width={summary.books.length >= 3 ? 104 : 72} forceTitle />)}
             </div>
             {summary.memos > 0 ? (
               <>
