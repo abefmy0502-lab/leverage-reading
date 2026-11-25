@@ -159,7 +159,7 @@ export default function OverlapSheet({ source, targetId = null, books = [], onCl
           <section aria-labelledby="overlap-choose-h" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
             <h3 id="overlap-choose-h" style={label}>重ねる相手を選ぶ</h3>
             <input
-              type="search" value={query} onChange={(e) => setQuery(e.target.value)} maxLength={60}
+              type="text" inputMode="search" enterKeyHint="search" value={query} onChange={(e) => setQuery(e.target.value)} maxLength={60}
               placeholder="言葉や書名で探す" aria-label="重ねる相手を、言葉や書名で探す" style={uiInput}
             />
             {chooseList.length === 0 ? (
