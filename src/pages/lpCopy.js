@@ -12,11 +12,11 @@
 import { noBreak, FOUNDING_NAME } from '../lib/foundingOffer';
 import { trialFirstPhrase, trialPeriodOf } from '../lib/trialLabel';
 import { savingsLabel } from '../lib/planOffers';
-import { FREE_TOKENS, FREE_FIRST_MONTH_TOKENS, PAID_TOKENS, TRIAL_TOKENS, FREE_OCR_PER_MONTH, answerCountLabel, CONSULT_ANSWERS_NOTE } from '../lib/tokenAmounts';
+import { FREE_TOKENS, FREE_FIRST_MONTH_TOKENS, PAID_TOKENS, TRIAL_TOKENS, FREE_OCR_PER_MONTH, answerCountLabel, CONSULT_ANSWERS_NOTE, ANSWER_TOKENS } from '../lib/tokenAmounts';
 
 export const MONTHLY = 1480;
 export const ANNUAL = 12800;
-// 量の目安は「AI の答え 約 N 回」（1 回 約 10 トークン・lib/tokenAmounts.js の ANSWER_TOKENS・2026-10-09）。
+// 量の目安は「AI の答え 約 N 回」（1 回 約 3 トークン＝2026-11-25 に 10 から・lib/tokenAmounts.js の ANSWER_TOKENS）。
 // 相談 1 つが何回の答えか（CONSULT_ANSWERS_NOTE）は、料金の注記（Landing.jsx）で 1 回だけ言う。
 export { CONSULT_ANSWERS_NOTE };
 // 関係するメモが無かった相談を払い戻す回数（api の AI_NO_INFO_REFUND_LIMIT の既定）。
@@ -296,7 +296,7 @@ export function buildLpCopy({
   const FIRST_MONTH = `はじめの 2 か月は ${noBreak(`${FREE_FIRST_MONTH_TOKENS} トークン`)}（${FIRST_CONSULTS}）`;
   const PAID_CONSULTS = consultsOf(PAID_TOKENS);
   // 2026-11-12 読み手テスト「答え・相談・トークンが混ざって分からない」: LP は「相談 何件」にそろえる（相談 1 件＝聞き返しを含めて答え 2〜3 回）
-  const talksOf = (tokens) => { const n = tokens / 10 / 2.5; const v = n >= 10 ? Math.round(n / 5) * 5 : Math.max(1, Math.round(n)); return `約 ${v} 件`; };
+  const talksOf = (tokens) => { const n = tokens / ANSWER_TOKENS / 2.5; const v = n >= 10 ? Math.round(n / 5) * 5 : Math.max(1, Math.round(n)); return `約 ${v} 件`; };
   const FREE_TALKS = talksOf(FREE_TOKENS);
   const FIRST_TALKS = talksOf(FREE_FIRST_MONTH_TOKENS);
   const PAID_TALKS = talksOf(PAID_TOKENS);
@@ -364,7 +364,7 @@ export function buildLpCopy({
     },
     {
       q: '無料プランで、何ができますか？',
-      a: `本とメモは何件でも残せて、AI を使わない機能はすべて使えます。AI の相談は${noBreak(`毎月 ${FREE_TALKS}`)}（はじめの 2 か月は ${FIRST_TALKS}）。写真から書き起こす機能は${noBreak(`毎月 ${FREE_OCR_PER_MONTH} 回`)}です。使い切った月も、AI を使わずに、相談に関係するあなたのメモを並べて見せます。「はじめの 2 か月」は、アカウントを作った月とその翌月です（登録せずに始めた場合は、アカウントを作った月から数えます）。`,
+      a: `本とメモは何件でも残せて、AI を使わない機能はすべて使えます。AI の相談は${noBreak(`毎月 ${FREE_TALKS}`)}（はじめの 2 か月は ${FIRST_TALKS}）。次に読む本を探す AI 選書も、同じ量から使えます。写真から書き起こす機能は${noBreak(`毎月 ${FREE_OCR_PER_MONTH} 回`)}です。使い切った月も、AI を使わずに、相談に関係するあなたのメモを並べて見せます。「はじめの 2 か月」は、アカウントを作った月とその翌月です（登録せずに始めた場合は、アカウントを作った月から数えます）。`,
     },
     // 2026-11-23 LP の仕上げ: 創業メンバー価格の期間は 7 日間無料が無いことを先に言う（ld: false＝期間もの）
     ...(active && !TRIAL ? [{

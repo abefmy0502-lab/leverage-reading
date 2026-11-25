@@ -209,8 +209,13 @@ describe('📷 無料プランの写真から書き起こし（月 10 回・2026
     expect(decideAiAccess({ entitlement: free, purpose: 'ocr', env: { AI_FREE_OCR_PER_MONTH: '0' } }).errorCode).toBe('plan_required');
   });
   it('ほかの用途（相談以外）は今までどおり plan_required', () => {
-    for (const purpose of ['condense', 'cards_to_summary', 'setup_sheet', 'book_advisor', 'advisor_interview', 'OCR', undefined]) {
+    for (const purpose of ['condense', 'cards_to_summary', 'setup_sheet', 'OCR', undefined]) {
       expect(decideAiAccess({ entitlement: free, purpose, freeOcrLimit: 10, env: ENV }).errorCode).toBe('plan_required');
+    }
+  });
+  it('AI 選書（聞き取り・推薦）は無料のトークンから（2026-11-25）', () => {
+    for (const purpose of ['book_advisor', 'advisor_interview']) {
+      expect(decideAiAccess({ entitlement: free, purpose, freeOcrLimit: 10, env: ENV }).errorCode).toBeUndefined();
     }
   });
   it('有料・無料期間・管理者は変わらない（トークン／数えない）', () => {

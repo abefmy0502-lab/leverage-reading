@@ -47,7 +47,8 @@ export function shouldShowTrialNudge({ plan, memoCount, done, freeUsedUp = false
 // 件数は文に入れない（相談の上部の「メモ・学びなど N 件」と数え方が違い、並ぶと食い違って見えるため）。
 // （呼び出し側が memoCount を渡しても使わない。）
 // 本文はプランで増える相談の量から（2026-10-20 オーナー「満足度と売り上げを最大化」・育った相談相手に、もっと相談できる）。
-const PLAN_AMOUNT = `相談は毎月 AI の答え ${answerCountLabel(PAID_TOKENS)}、AI 選書も使えます。`;
+// AI 選書は 2026-11-25 から無料プランも使えるので、プランの良さは量と読書計画シート（深める道具）で言う。
+const PLAN_AMOUNT = `相談は毎月 AI の答え ${answerCountLabel(PAID_TOKENS)}、読書計画シートも使えます。`;
 const PLAN_VALUE = `プランなら${PLAN_AMOUNT}`;
 export function trialNudgeCopy({ offer = '', offerPlan = 'both' } = {}) {
   const title = '相談相手が育ってきました';

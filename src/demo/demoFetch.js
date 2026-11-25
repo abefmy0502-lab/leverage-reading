@@ -1035,7 +1035,7 @@ export function installDemoFetch(store) {
         return json({ content: [{ type: 'text', text: aiReply(store, payload, aiMode) }], stop_reason: 'end_turn' });
       }
       // 📖 この本で学べること（book_brief）も無料プランで使える（相談と同じ無料のトークンから・2026-10-08）。
-      if (tier === 'free' && !['consult', 'book_brief', 'goal_interview', 'goal_roadmap', 'overlap'].includes(payload.purpose)) {
+      if (tier === 'free' && !['consult', 'book_brief', 'goal_interview', 'goal_roadmap', 'overlap', 'advisor_interview', 'book_advisor'].includes(payload.purpose)) {
         return json({ error: { message: 'この AI 機能は、プランでご利用いただけます。' }, error_code: 'plan_required' }, 402);
       }
       const trialEnd = sub?.current_period_end ? new Date(Date.parse(sub.current_period_end) + 9 * 3600 * 1000) : null;

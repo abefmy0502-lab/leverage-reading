@@ -228,16 +228,16 @@ let appliedAdvisorDraft = null;
 // onPushedViewChange(level): 過去の AI 選書（1）・その中身（2）を開いている間は、親が全体の見出しとサブタブを隠す
 //   （押し込まれた画面は「‹ 戻り先」の行 1 本だけ＝相談の過去の相談と同じ・2026-10-04）。0 で戻す。
 export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook, onManualBook, onOpenBook, barSlot = null, onPushedViewChange = null, draftPreset = null, onOpenGoals = null }) {
-  // 🎁 AI 選書はプランの機能（フリーミアム・2026-09-27）。無料プランの人が送ったら、有料プランの画面を
-  //    重ねて開く（入力は残す・画面はそのまま見せる）。サーバーも 402 plan_required で止める。
-  const { requirePlan, canBuyTokens, openTokenSheet, plan, freeMode, tokensRemaining, purchasedTokens, trialEndsAt, tokenAllowance } = usePaywall();
+  // 🎁 AI 選書は 2026-11-25 から無料プランも使える（相談と同じ無料のトークンから・オーナー方針「最初の 1 年は会員数」
+  //    「何を読めばよいか分からない人にも」）。使い切ったら、相談と同じく有料プランの画面が 1 回だけ重なる（streamClaude）。
+  const { canBuyTokens, openTokenSheet, plan, tokensRemaining, purchasedTokens, trialEndsAt, tokenAllowance } = usePaywall();
   // 🪙📊 トークンの使い方（使い切ったときの案内カードから開く・2026-10-11）。
   const [usageOpen, setUsageOpen] = useState(false);
   // 送るボタンのそばに残り（相談の上の行と同じ言い方「AI の答えは今月あと約 N 回 ›」・無料プランはプランの機能なので出さない・2026-09-29）。
   //   2026-11-23 ui-critic: 前は「1 回 約 25 トークン・今月の残り 800 トークン」で、相談のタブと量の言い方が違っていた。
   //   トークンの数は残りが少ないとき（showFreeTokenCount）と、押して開く「トークンの使い方」のシートで。
   const tokenTotal = tokensRemaining != null && Number.isFinite(Number(tokensRemaining)) ? Number(tokensRemaining) + (purchasedTokens || 0) : null;
-  const showCostLine = !freeMode && tokenTotal != null && tokenTotal > 0;
+  const showCostLine = tokenTotal != null && tokenTotal > 0;
   const tokensLow = isLowTokens(tokensRemaining, tokenAllowance, purchasedTokens);
   // 生成中にアンマウントされたら進行中のストリームを中断する（コスト・二重セッション対策）。
   const activeControllerRef = useRef(null);
@@ -1192,7 +1192,6 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     if (interviewLoading || recoLoading || askingRef.current) return;
     const c = clamp(sanitizeForPrompt(rawConcern || ''), LIMITS.aiQuestion);
     if (!c) return;
-    if (!requirePlan('AI 選書')) return; // 無料プラン: 有料プランの画面を開く（入力は残す）
     askingRef.current = true;
     try {
       // 🤝 はじめて AI に送るときの同意（lib/aiConsent.js）。やめたら送らない（入力は残す）。
@@ -1913,15 +1912,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
           無料プランで有料プランの画面が開いたときは、入力欄に残す。 */}
       {showConcernInput && !showErrorState && (
         <div className="example-chips example-chips--stack" style={{ marginTop: showStartHeading ? 'var(--space-6)' : 'var(--space-2)' }}>
-          {/* 無料プランは「たとえば」の行の右に「プラン」（押す前にプランの機能と分かる・2026-10-09 ui-critic） */}
-          <p className="example-chips-label" style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 'var(--space-2)' }}>
-            たとえば
-            {/* 押せる入口は入力欄の上の「AI 選書はプランの機能です。プランを見る ›」の 1 つだけ（2026-11-23 ui-critic 第 3 回:
-                ここも押せると入口が 2 つになった）。ここは押す前にプランの機能と分かる小さな印だけ。 */}
-            {freeMode && (
-              <span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, lineHeight: 1.5, color: 'var(--text-2)', whiteSpace: 'nowrap' }}>（プラン）</span>
-            )}
-          </p>
+          <p className="example-chips-label">たとえば</p>
           {ADVISOR_EXAMPLES.map((ex) => (
             <button
               type="button"
@@ -2513,7 +2504,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         // 1 回の目安と残りは、入力欄と送るボタンの上の行に（折り返して全幅・相談と同じ位置）。
         // 無料プランは、書く前に「プランの機能」だと分かるように 1 行（書いて送ってから断らない・2026-09-30）。
         //   7 日間無料はここではすすめない（押したときの有料プランの画面で案内する＝GLOSSARY）。
-        <div className="ai-input-area" style={(showCostLine && !tokensOut) || freeMode ? { flexWrap: 'wrap' } : undefined}>
+        <div className="ai-input-area" style={showCostLine && !tokensOut ? { flexWrap: 'wrap' } : undefined}>
           {/* 残りの行は入力欄の上（相談のチップの上の 1 行と同じ位置・13・2026-10-09 ui-critic）。
               言い方は相談の上の行と同じ（2026-11-23）。押すと「トークンの使い方」（残りが枠の 20% 以下は --warning）。 */}
           {showCostLine && !tokensOut && (
@@ -2536,23 +2527,6 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
                 <span style={{ whiteSpace: 'nowrap' }}>{`AI の答えは${plan !== 'trial' && !showFreeTokenCount(tokenTotal) ? '今月' : ''}`}</span><wbr />
                 <span style={{ whiteSpace: 'nowrap' }}>{`あと${remainingAnswersLabel(tokenTotal)}`}<ChevronRight size="1.2em" aria-hidden="true" style={{ verticalAlign: '-0.25em', marginLeft: '0.15em' }} /></span>
               </span>
-            </button>
-          )}
-          {/* 押すと有料プランの画面（2026-11-23 点検: 押せない 1 行で行き止まりだった）。言い方と形は上の残りの行と同じ（13・› つき）。 */}
-          {freeMode && (
-            <button
-              type="button"
-              onClick={() => requirePlan('AI 選書')}
-              style={{
-                flexBasis: '100%', display: 'block', textAlign: 'left',
-                background: 'transparent', border: 'none', fontFamily: 'inherit', cursor: 'pointer',
-                padding: 'var(--space-2) var(--space-2) var(--space-2) 0', margin: 'calc(-1 * var(--space-2)) 0',
-                minHeight: 'var(--tap-min)', fontSize: 'var(--text-meta)', lineHeight: 1.5, color: 'var(--text-2)',
-                wordBreak: 'keep-all', overflowWrap: 'anywhere',
-              }}
-            >
-              {withPhraseBreaks('AI 選書はプランの機能です。')}<wbr />
-              <span style={{ whiteSpace: 'nowrap', fontWeight: 600, color: 'var(--accent)' }}>プランを見る<ChevronRight size="1.2em" aria-hidden="true" style={{ verticalAlign: '-0.25em', marginLeft: '0.15em' }} /></span>
             </button>
           )}
           <textarea

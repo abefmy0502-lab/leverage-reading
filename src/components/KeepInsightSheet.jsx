@@ -72,10 +72,10 @@ export default function KeepInsightSheet({ question = '', onClose }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
         {question && <p style={{ ...meta, color: 'var(--text-3)' }}>{withPhraseBreaks(`相談：${question}`)}</p>}
         <textarea
-          ref={ref} value={text} autoFocus maxLength={INSIGHT_MAX} rows={4} aria-label="気づき"
+          ref={ref} value={text} autoFocus maxLength={INSIGHT_MAX} rows={4} aria-label="気づき" data-font-lg=""
           onChange={(e) => { setText(e.target.value); autoGrowTextarea(e.target); }}
           placeholder="話してみて気づいたことを、自分の言葉で"
-          style={{ ...uiInput, fontSize: 'max(16px, var(--text-read))', resize: 'none', overflowY: 'hidden', minHeight: 'calc(var(--text-read) * 1.6 * 4 + var(--space-6))', fontFamily: 'var(--font-read)', lineHeight: 1.6 }}
+          style={{ ...uiInput, resize: 'none', overflowY: 'hidden', minHeight: 'calc(var(--text-read) * 1.6 * 4 + var(--space-6))', fontFamily: 'var(--font-read)', lineHeight: 1.6 }}
         />
         <p style={{ ...meta, color: 'var(--text-3)' }}>{withPhraseBreaks('AI の答えではなく、あなたの言葉が学びとして残り、次の相談の材料になります。')}</p>
       </div>

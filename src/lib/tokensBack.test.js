@@ -24,24 +24,24 @@ describe('今月の相談が戻りました', () => {
     const now = at('2026-11-02T09:00:00+09:00');
     const createdAt = '2026-08-01T00:00:00Z';
     expect(shouldShowTokensBack({ prevUsedMjpy: 30 * T, createdAt, now, remaining: 30 })).toBe(true);
-    expect(shouldShowTokensBack({ prevUsedMjpy: 25 * T, createdAt, now, remaining: 30 })).toBe(true);
-    expect(shouldShowTokensBack({ prevUsedMjpy: 20 * T, createdAt, now, remaining: 30 })).toBe(false);
+    expect(shouldShowTokensBack({ prevUsedMjpy: 28 * T, createdAt, now, remaining: 30 })).toBe(true);
+    expect(shouldShowTokensBack({ prevUsedMjpy: 25 * T, createdAt, now, remaining: 30 })).toBe(false);
     expect(shouldShowTokensBack({ prevUsedMjpy: 0, createdAt, now, remaining: 30 })).toBe(false);
     expect(shouldShowTokensBack({ prevUsedMjpy: null, createdAt, now, remaining: 30 })).toBe(false);
     // 今月がもう少ない
-    expect(shouldShowTokensBack({ prevUsedMjpy: 30 * T, createdAt, now, remaining: 5 })).toBe(false);
+    expect(shouldShowTokensBack({ prevUsedMjpy: 30 * T, createdAt, now, remaining: 2 })).toBe(false);
   });
 
   it('先月がはじめの月（130）なら 130 を使い切ったときだけ・先月にアカウントが無ければ出さない', () => {
     const now = at('2026-11-02T09:00:00+09:00');
     const createdAt = '2026-10-10T00:00:00+09:00';
     expect(shouldShowTokensBack({ prevUsedMjpy: 30 * T, createdAt, now, remaining: 30 })).toBe(false);
-    expect(shouldShowTokensBack({ prevUsedMjpy: 125 * T, createdAt, now, remaining: 30 })).toBe(true);
+    expect(shouldShowTokensBack({ prevUsedMjpy: 128 * T, createdAt, now, remaining: 30 })).toBe(true);
     expect(shouldShowTokensBack({ prevUsedMjpy: 30 * T, createdAt: '2026-11-01T10:00:00+09:00', now, remaining: 30 })).toBe(false);
   });
 
   it('文は答えの回数で', () => {
     const t = tokensBackText(30);
-    expect(t.lead + t.count).toBe('今月の相談が戻りました。AI の答え 約 3 回');
+    expect(t.lead + t.count).toBe('今月の相談が戻りました。AI の答え 約 10 回');
   });
 });

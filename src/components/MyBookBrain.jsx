@@ -1235,6 +1235,12 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   } : null;
   // 🌐 いまの話し相手（すべての本・1 冊・著者・選んだ本）。見出し・問いかけ・注記に使う。
   const scopedKind = useMemo(() => scopeKind(scopeIds, books, scopeAuthor), [scopeIds, books, scopeAuthor]);
+  // 🌐 選んだ数冊（著者がばらばら）と話しはじめるときは、答え方を「本ごとに」で開く（SPEC §3-0・本ごとの見方とぶつかるところ・
+  //    下の行の「答え方」と問いかけの答え方を食い違わせない・2026-11-25 ui-critic）。端末の好みは書き換えない。
+  const multiScope = scopedKind.kind === 'multi';
+  useEffect(() => {
+    if (multiScope && messages.length === 0) setAnswerMode('perbook');
+  }, [multiScope]); // eslint-disable-line react-hooks/exhaustive-deps
   const examples = useMemo(() => {
     if (scopeIds.length > 0) {
       // 🌐 対話の世界（2026-11-25）: 話し相手（1 冊・著者・選んだ本）ごとの問いかけ（lib/dialogueWorld.js）。

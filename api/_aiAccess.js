@@ -33,7 +33,9 @@ const num = (v, d) => {
 // 無料で使える用途（purpose）。相談の本ごとの答え方も purpose は 'consult'。
 // 📖 この本で学べること（'book_brief'・2026-10-08）も、相談と同じ無料のトークンから（1 回 約 1〜2 トークン・Flash-Lite）。
 // 🧭 目標の深掘り・ロードマップ（'goal_interview' / 'goal_roadmap'・2026-11-15 オーナー決定「無料プランは目標 1 つまで」）も同じ無料のトークンから。
-export const FREE_PURPOSES = new Set(['consult', 'book_brief', 'goal_interview', 'goal_roadmap', 'overlap']);
+// 🔍 AI 選書（聞き取り 'advisor_interview'・推薦 'book_advisor'）も同じ無料のトークンから（2026-11-25 オーナー方針
+//   「最初の 1 年は会員数」「何を読めばよいか分からない人にも」・1 回の推薦 約 15 トークン＝無料の量で守る・Sonnet のまま）。
+export const FREE_PURPOSES = new Set(['consult', 'book_brief', 'goal_interview', 'goal_roadmap', 'overlap', 'advisor_interview', 'book_advisor']);
 export function isFreePurpose(purpose) {
   return typeof purpose === 'string' && FREE_PURPOSES.has(purpose);
 }

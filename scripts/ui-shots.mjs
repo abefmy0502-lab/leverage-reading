@@ -518,6 +518,8 @@ const SCREENS = [
   { name: 'consult-trial-nudge-off', url: '/?demo=freegrown&trial=off', steps: [{ css: nav('相談') }] },
   { name: 'webgate', url: '/?demo=webgate' },
   // 2026-09-27 追加: 生成後・状態別・編集・取り込み
+  { name: 'advisor-free', url: '/?demo=free', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { wait: 1200 }] },
+  { name: 'advisor-free-interview', url: '/?demo=free', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '本を読む習慣をつけたい。最初の 1 冊は？'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }] },
   { name: 'advisor-interview', url: '/', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }] },
   // 聞き取りの作り直し（2026-10-08）: どれも少し違う／まだ言葉にできない／このくらいで探して／受け取ったまとめ／少し違う（直す）
   { name: 'advisor-interview-off', url: '/', steps: [...ADVISOR_START, ADVISOR_ESCAPE('どれも少し違う'), { fill: ['textarea[aria-label="どこが違いますか？"]', 'じつは仕事より、家に帰ってからも休めないのがつらい'] }] },

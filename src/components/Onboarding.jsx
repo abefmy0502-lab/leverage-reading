@@ -188,7 +188,7 @@ const chipFace = (selected) => ({
   fontWeight: selected ? 600 : 400,
 });
 
-export default function Onboarding({ onClose, onStart, onImport, onStartQuickstart, onStartOcr, userId = '', onProfileSaved }) {
+export default function Onboarding({ onClose, onStart, onImport, onStartQuickstart, onStartOcr, onAdvisor = null, userId = '', onProfileSaved }) {
   const [step, setStep] = useState(0);
   // 👤 プロフィールの枚（2026-11-21）。
   const [profile, setProfile] = useState(() => ({ ...EMPTY_PROFILE }));
@@ -323,6 +323,14 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
     (onImport || onStart)?.();
   };
 
+  // 🌱 最初の 1 冊を探す（2026-11-25 オーナー方針「これから読書を始める人にも」）: AI 選書に下書きを入れて開く（送らない）。
+  const startAdvisor = () => {
+    markOnboardingCompleted();
+    choosePath('advisor');
+    onClose?.();
+    onAdvisor?.();
+  };
+
   // 📷 本のページを撮る（2026-10-02）: 本を選ぶ（追加する）→ メモのシートを「写真から書き起こす」が見える形で開く。
   //   最初のメモを保存したら「相談してみる」（App.jsx）。未配線なら本追加へ。
   const startOcr = () => {
@@ -429,7 +437,13 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
               </button>
               {/* 閉じるのは右上の × だけ（同じ操作を 2 か所に出さない・DESIGN §5）。
                   ガイドはヘルプの「使い方を最初から見る」で見直せる。 */}
-              <div style={{ display: 'flex', justifyContent: 'center' }}>
+              {/* まだ読んだ本が無い人の入口（最初の 1 冊を探す）と、ほかのアプリの記録がある人の入口を 1 行に並べる（2026-11-25）。 */}
+              <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', columnGap: 'var(--space-4)' }}>
+                {onAdvisor && (
+                  <button type="button" style={{ ...btnLink, textAlign: 'center' }} onClick={startAdvisor}>
+                    最初の 1 冊を探す
+                  </button>
+                )}
                 <button type="button" style={{ ...btnLink, textAlign: 'center' }} onClick={startImport}>
                   ほかのアプリから取り込む
                 </button>

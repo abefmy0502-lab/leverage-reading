@@ -32,7 +32,7 @@ const FLASH_LITE = 'gemini-3.1-flash-lite';
 // 用途 → { primary: '会社:モデル', claude: 失敗したときの Claude, claudeOnly: Claude 以外に差し替えない }
 export const ROUTES = {
   consult: { primary: `anthropic:${CONSULT_MODEL}`, claude: H, claudeOnly: true },
-  book_advisor: { primary: 'anthropic:claude-sonnet-5-5', claude: 'claude-sonnet-5', claudeOnly: true },
+  book_advisor: { primary: 'anthropic:claude-sonnet-5-5', claude: 'claude-sonnet-5', claudeOnly: true, freeRouted: true },
   // 2026-10-01（2 回目）: AI 選書の聞き返し・読書計画シートは Gemini Flash-Lite に（gpt-5-mini は 12/11 で終わるので、
   // いまから長く使える行き先にそろえる・いちばん安い）。読書計画シートの「関連書籍」は、アプリが書誌で実在を
   // 確かめ、見つからない本を消してから保存する（lib/planRelatedBooks.js）。戻すときは AI_ROUTE_SETUP_SHEET=openai:gpt-5-mini など。
@@ -40,7 +40,7 @@ export const ROUTES = {
   //   トークナイザーの 1.3 倍を入れても約半分の原価で、送り先も Anthropic の 1 社にそろう（失敗したら Haiku 4.5 で 1 回）。
   //   Gemini に戻すときは AI_ROUTE_<用途>=gemini:gemini-3.1-flash-lite（同意のシートの送り先は Anthropic のままなので、
   //   戻すなら src/lib/aiProcessors.js と同意の版も合わせる）。読書計画シートの関連書籍は今までどおり書誌で確かめる。
-  advisor_interview: { primary: `anthropic:${CONSULT_MODEL}`, claude: H },
+  advisor_interview: { primary: `anthropic:${CONSULT_MODEL}`, claude: H, freeRouted: true },
   setup_sheet: { primary: `anthropic:${CONSULT_MODEL}`, claude: H },
   setup_sheet_edit: { primary: `anthropic:${CONSULT_MODEL}`, claude: H },
   // 📖 この本で学べること（2026-10-08）: 公開の紹介文と目次から、概要・学べること・仮説の例（読書計画シートと同じ行き先）。

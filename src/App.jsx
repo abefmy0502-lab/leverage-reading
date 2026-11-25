@@ -6214,7 +6214,7 @@ function AuthedApp() {
             otherwise tapping "アプリ全体の使い方を最初から見る" from the help
             modal here looks like nothing happens until the user navigates
             back to the bookshelf. */}
-        {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={() => openAdd('reading')} onImport={() => setShowImport(true)} onStartQuickstart={() => setShowQuickstart(true)} onStartOcr={startOcrPath} userId={user?.id || ''} onProfileSaved={addFavoriteFromProfile} />}
+        {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={() => openAdd('reading')} onImport={() => setShowImport(true)} onStartQuickstart={() => setShowQuickstart(true)} onStartOcr={startOcrPath} onAdvisor={() => openAdvisorWithDraft('本を読む習慣をつけたい。最初の 1 冊におすすめの本は？')} userId={user?.id || ''} onProfileSaved={addFavoriteFromProfile} />}
         {quickstartOverlay}
         {importOverlay}
 
@@ -6561,7 +6561,7 @@ function AuthedApp() {
         )}
         {/* Same reason as in the detail view — keep onboarding reachable
             from the edit-screen help modal without requiring a tab switch. */}
-        {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={() => openAdd('reading')} onImport={() => setShowImport(true)} onStartQuickstart={() => setShowQuickstart(true)} onStartOcr={startOcrPath} userId={user?.id || ''} onProfileSaved={addFavoriteFromProfile} />}
+        {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={() => openAdd('reading')} onImport={() => setShowImport(true)} onStartQuickstart={() => setShowQuickstart(true)} onStartOcr={startOcrPath} onAdvisor={() => openAdvisorWithDraft('本を読む習慣をつけたい。最初の 1 冊におすすめの本は？')} userId={user?.id || ''} onProfileSaved={addFavoriteFromProfile} />}
         {quickstartOverlay}
         {importOverlay}
         <BottomNav
@@ -6718,7 +6718,8 @@ function AuthedApp() {
               // 「いま読んでいる本を追加する」（本 0 冊のカード）だけは読書中で開く。
               onAddBook={() => openAdd()}
               onAddReadingBook={() => openAdd('reading')}
-              onAdvisor={() => { setAiSubTab('advisor'); setTab('ai'); }}
+              // 🌱 まだ読んだ本が無い人の「最初の 1 冊を探す」（2026-11-25 オーナー方針「読書を始める人にも」・AI 選書は無料プランも）。
+              onAdvisor={() => openAdvisorWithDraft('本を読む習慣をつけたい。最初の 1 冊におすすめの本は？')}
               onOpenBook={(b) => openDetail(b)}
               onWriteMemo={(b) => setHomeMemoBook(b)}
               // ⏱ 読む（集中モード・読書中の本だけ・2026-10-09）
@@ -7417,12 +7418,10 @@ function AuthedApp() {
                 aria-controls="ai-panel"
                 tabIndex={tabIndexFor(aiSubTab === 'advisor')}
                 aria-selected={aiSubTab === 'advisor'}
-                aria-label={paywallPlan === 'free' ? 'AI 選書（プランの機能）' : undefined}
                 className={`sub-tab ${aiSubTab === 'advisor' ? 'active' : ''}`}
                 onClick={() => setAiSubTab('advisor')}
               >
-                {/* 無料プランの人には、タブの 2 行目の「プラン」は出さない（入力欄の下の「AI 選書はプランの機能です」と
-                    読み上げ名で足りる・タブの高さが 2 行になって重く見えた・2026-09-30 ui-critic）。 */}
+                {/* AI 選書は 2026-11-25 から無料プランも（相談と同じ無料のトークンから）。 */}
                 AI 選書
               </button>
             </div>
@@ -7489,7 +7488,7 @@ function AuthedApp() {
         )}
       </div>
 
-      {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={() => openAdd('reading')} onImport={() => setShowImport(true)} onStartQuickstart={() => setShowQuickstart(true)} onStartOcr={startOcrPath} userId={user?.id || ''} onProfileSaved={addFavoriteFromProfile} />}
+      {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={() => openAdd('reading')} onImport={() => setShowImport(true)} onStartQuickstart={() => setShowQuickstart(true)} onStartOcr={startOcrPath} onAdvisor={() => openAdvisorWithDraft('本を読む習慣をつけたい。最初の 1 冊におすすめの本は？')} userId={user?.id || ''} onProfileSaved={addFavoriteFromProfile} />}
         {quickstartOverlay}
         {importOverlay}
 

@@ -41,31 +41,31 @@ describe('プランと残り', () => {
 });
 
 describe('1 回の目安（TOKEN_COSTS）は、ふつうの大きさの実際の原価と大きくずれない', () => {
-  // 目安 ÷ 実際 が 0.6〜1.6 倍に収まる（表示用の丸めの範囲）。
+  // 目安 ÷ 実際 が 0.6〜1.6 倍に収まる（表示用の丸めの範囲）。1 トークンに満たない小さな用途は、差が 1 トークン以内なら良い。
+  // 2026-11-25: 相談などは Haiku 5.5（トークナイザーで 1.3 倍・答えを長めにした大きさ・キャッシュが冷えた回）で測り直した。
   const toTokens = (mjpy) => mjpy / 1000 / AI_TOKEN_JPY;
-  const H = 'claude-haiku-4-5';
-  const S = 'claude-sonnet-5';
+  const H = 'claude-haiku-5-5';
+  const S = 'claude-sonnet-5-5';
+  const near = (est, actual) => {
+    const ratio = est / actual;
+    return (ratio > 0.6 && ratio < 1.6) || Math.abs(est - actual) <= 1;
+  };
   const cases = [
-    ['consult', H, { input_tokens: 11500, cache_read_input_tokens: 1800, output_tokens: 800 }],
-    ['consultPerBook', H, { input_tokens: 12500, cache_read_input_tokens: 2200, output_tokens: 1300 }],
-    // 2026-10-02: 本の紹介と目次（最大 約 1,400 トークン）を足した大きさ。
-    ['setupSheet', H, { input_tokens: 4900, output_tokens: 1300 }],
-    ['photoToText', H, { input_tokens: 2000, cache_read_input_tokens: 300, output_tokens: 350 }],
-    ['cardsToSummary', H, { input_tokens: 2500, cache_read_input_tokens: 300, output_tokens: 500 }],
+    ['consult', H, { input_tokens: 3000, cache_creation_input_tokens: 22000, output_tokens: 2100 }],
+    ['consultPerBook', H, { input_tokens: 3000, cache_creation_input_tokens: 23000, output_tokens: 2800 }],
+    ['setupSheet', H, { input_tokens: 6500, output_tokens: 3200 }],
+    ['photoToText', H, { input_tokens: 2600, cache_read_input_tokens: 400, output_tokens: 450 }],
+    ['cardsToSummary', H, { input_tokens: 3200, cache_read_input_tokens: 400, output_tokens: 1300 }],
   ];
   for (const [key, model, usage] of cases) {
     it(key, () => {
-      const ratio = TOKEN_COSTS[key] / toTokens(costFromUsage(model, usage));
-      expect(ratio).toBeGreaterThan(0.6);
-      expect(ratio).toBeLessThan(1.6);
+      expect(near(TOKEN_COSTS[key], toTokens(costFromUsage(model, usage)))).toBe(true);
     });
   }
   it('advisor（聞き返し 2 回＋おすすめ）', () => {
     const t = toTokens(costFromUsage(S, { input_tokens: 5000, cache_read_input_tokens: 2000, output_tokens: 2200 }))
-      + 2 * toTokens(costFromUsage(H, { input_tokens: 2500, cache_read_input_tokens: 1200, output_tokens: 400 }));
-    const ratio = TOKEN_COSTS.advisor / t;
-    expect(ratio).toBeGreaterThan(0.6);
-    expect(ratio).toBeLessThan(1.6);
+      + 2 * toTokens(costFromUsage(H, { input_tokens: 3200, cache_read_input_tokens: 1500, output_tokens: 500 }));
+    expect(near(TOKEN_COSTS.advisor, t)).toBe(true);
   });
 });
 
@@ -108,20 +108,20 @@ describe('🌱 無料プランのはじめの月（画面の写しはサーバ�
   });
 });
 
-describe('量の目安（単位は AI の答え・1 回 約 10 トークン）', () => {
-  it('無料 約 3 回・はじめの月 約 13 回・7 日間無料 約 15 回・プラン 約 80 回・追加 約 30／100 回分', async () => {
+describe('量の目安（単位は AI の答え・1 回 約 3 トークン・2026-11-25 に 10 から）', () => {
+  it('無料 約 10 回・はじめの月 約 43 回・7 日間無料 約 50 回・プラン 約 267 回・追加 約 100／333 回分', async () => {
     const { answerCountLabel, ANSWER_TOKENS, FREE_FIRST_MONTH_TOKENS, TOKEN_PACKS } = await import('./tokens.js');
     expect(ANSWER_TOKENS).toBe(TOKEN_COSTS.consult);
-    expect(answerCountLabel(FREE_TOKENS)).toBe('約 3 回');
-    expect(answerCountLabel(FREE_FIRST_MONTH_TOKENS)).toBe('約 13 回');
-    expect(answerCountLabel(TRIAL_TOKENS)).toBe('約 15 回');
-    expect(answerCountLabel(PAID_TOKENS)).toBe('約 80 回');
-    expect(TOKEN_PACKS.map((p) => p.consults)).toEqual(['約 30 回', '約 100 回']);
+    expect(answerCountLabel(FREE_TOKENS)).toBe('約 10 回');
+    expect(answerCountLabel(FREE_FIRST_MONTH_TOKENS)).toBe('約 43 回');
+    expect(answerCountLabel(TRIAL_TOKENS)).toBe('約 50 回');
+    expect(answerCountLabel(PAID_TOKENS)).toBe('約 267 回');
+    expect(TOKEN_PACKS.map((p) => p.consults)).toEqual(['約 100 回', '約 333 回']);
   });
   it('残りの目安は切り捨て（言い過ぎない）・残りがあれば 1', async () => {
     const { remainingAnswersLabel } = await import('./tokens.js');
-    expect(remainingAnswersLabel(60)).toBe('約 6 回');
-    expect(remainingAnswersLabel(58)).toBe('約 5 回');
+    expect(remainingAnswersLabel(60)).toBe('約 20 回');
+    expect(remainingAnswersLabel(58)).toBe('約 19 回');
     expect(remainingAnswersLabel(5)).toBe('約 1 回');
     expect(remainingAnswersLabel(0)).toBe('約 0 回');
   });

@@ -97,7 +97,6 @@ export default function DialogueWorld({ books = [], memoBookIds = null, userId =
               </button>
             ))}
           </div>
-          <p style={{ ...meta, color: 'var(--text-3)' }}>{withPhraseBreaks('答えは AI の解釈です。著者本人の言葉ではありません。')}</p>
         </section>
       )}
     </div>
