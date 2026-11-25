@@ -8,6 +8,7 @@ import BottomSheet from './BottomSheet';
 import ErrorMessage from './ErrorMessage';
 import EmptyState from './EmptyState';
 import MiniCover from './MiniCover';
+import { Chip } from './formPrimitives';
 import { SkeletonBlock } from './Skeleton';
 import { withPhraseBreaks } from './TightBubble';
 import { useToast } from './Toast';
@@ -141,10 +142,7 @@ export default function AuthorSheet({ names = [], fav, onAddWant, hasBook, onClo
         {names.length > 1 && (
           <div role="tablist" aria-label="著者" style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
             {names.map((n) => (
-              <button key={n} type="button" role="tab" aria-selected={n === current} onClick={() => openAuthor(n)}
-                style={{ minHeight: 'var(--tap-min)', padding: '0 var(--space-3)', borderRadius: 'var(--radius-full)', fontSize: 'var(--text-sub)', cursor: 'pointer', border: `1px solid ${n === current ? 'var(--accent)' : 'var(--border)'}`, background: n === current ? 'var(--accent-soft)' : 'transparent', color: n === current ? 'var(--accent)' : 'var(--text)', fontWeight: n === current ? 600 : 400 }}>
-                {n}
-              </button>
+              <Chip key={n} size="select" role="tab" aria-selected={n === current} active={n === current} onClick={() => openAuthor(n)}>{n}</Chip>
             ))}
           </div>
         )}
@@ -156,7 +154,7 @@ export default function AuthorSheet({ names = [], fav, onAddWant, hasBook, onClo
               <Star size="1.2em" aria-hidden="true" fill="currentColor" style={{ color: 'var(--accent)', flexShrink: 0, marginTop: '0.15em' }} />
               <span>お気に入りの著者です</span>
             </p>
-            <button type="button" onClick={toggleFavorite} disabled={busy} style={{ ...btnLinkQuiet, minWidth: 'var(--tap-min)', marginRight: 'calc(-1 * var(--space-1))' }}>外す</button>
+            <button type="button" onClick={toggleFavorite} disabled={busy} style={{ ...btnLinkQuiet, minWidth: 'var(--tap-min)', justifyContent: 'flex-end', marginRight: 'calc(-1 * var(--space-1))' }}>外す</button>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
