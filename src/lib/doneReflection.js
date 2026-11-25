@@ -57,6 +57,13 @@ export function dismissDoneQuestions(bookId, storage = globalThis.localStorage) 
   return next;
 }
 
+// × で閉じたのを元に戻す（知らせの「元に戻す」・2026-11-25 点検＝誤って押すと 14 日間の問いが戻らなかった）。
+export function undismissDoneQuestions(bookId, storage = globalThis.localStorage) {
+  const next = { ...readDoneQuestionState(bookId, storage), dismissed: false };
+  if (bookId) writeState(bookId, next, storage);
+  return next;
+}
+
 // 読了日（'YYYY-MM-DD'）の 0 時（端末の時刻）。読めなければ NaN。
 function localDayStart(ymd) {
   const m = String(ymd || '').match(/^(\d{4})-(\d{2})-(\d{2})/);

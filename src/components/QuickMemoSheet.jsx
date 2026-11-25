@@ -675,9 +675,10 @@ export default function QuickMemoSheet({
               </div>
             )}
             {/* 写真を添える・新しいタグを作るは全画面で（写真から書き起こすは、どちらでも同じボタン）。 */}
-            {moreMounted && onOpenFullEditor && (
+            {/* 読了の問いに答えているときは出さない（全画面に移ると問いが消え、「問い：…」も付かなかった・2026-11-25 点検）。 */}
+            {moreMounted && onOpenFullEditor && !prompt && (
               <button type="button" style={{ ...detailLink, marginTop: frequentTags.length > 0 ? 'var(--space-1)' : 0 }} onClick={handleDetailHandoff}>
-                全画面で書く（写真を添える・新しいタグ）<ChevronRight size={16} aria-hidden="true" />
+                写真・新しいタグは全画面で<ChevronRight size="1em" aria-hidden="true" />
               </button>
             )}
             </div>

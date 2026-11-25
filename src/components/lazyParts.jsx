@@ -21,7 +21,6 @@ const loaders = {
   authScreen: () => import('./auth/AuthScreen'),
   authCallback: () => import('./auth/AuthCallback'),
   markdownSections: () => import('./MarkdownSections'),
-  authorThankYou: () => import('./AuthorThankYou'),
   bookPhases: () => import('./BookPhases'),
   // 本の詳細だけの部品（この本について・この本で学べること・2026-10-11）。
   bookAbout: () => import('./BookAbout'),
@@ -88,7 +87,6 @@ export const ActionList = withSuspense(loaders.actionList, <TabPanelSkeleton />)
 export const AuthScreen = withSuspense(loaders.authScreen, null);
 export const AuthCallback = withSuspense(loaders.authCallback, <Spinner />);
 // ロゴ長押しのお礼（隠し機能）。
-export const AuthorThankYou = withSuspense(loaders.authorThankYou, null);
 // AI の読書計画・解析などの Markdown 表示（本の詳細）。元が memo なので包みも memo のまま。
 // 待つ間は文の行の骨組み 3 行（何も出さずに後から押し下げない）。
 const markdownFallback = (

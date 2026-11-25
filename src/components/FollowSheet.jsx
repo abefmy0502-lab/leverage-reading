@@ -247,6 +247,8 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
   // 一覧の人の様子（フォローする前に、どんな人かを見る・2026-11-23）: { person } | 'loading' | 'none'
   const [peek, setPeek] = useState(null);
   const [askingId, setAskingId] = useState(''); // フォローを送っている人（二重に送らない・押した手応え）
+  const respondingRef = useRef(''); // 承認・断るを送っている人（2 回押して「断りました」と「取り消されたようです」が両方出ていた・2026-11-25 点検）
+  const [respondingId, setRespondingId] = useState('');
   const [followsVisible, setFollowsVisibleState] = useState(true);
   const [visibleBusy, setVisibleBusy] = useState(false);
   // 画面（一覧 → 本棚 → 本）を移ったら、シートの中をいちばん上へ（下の本を押して開いた本が途中から見えないように）。
@@ -358,6 +360,12 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
   };
 
   const respond = async (person, accept) => {
+    if (respondingRef.current) return;
+    respondingRef.current = person.publicId;
+    setRespondingId(person.publicId);
+    try { await respondOnce(person, accept); } finally { respondingRef.current = ''; setRespondingId(''); }
+  };
+  const respondOnce = async (person, accept) => {
     if (accept) {
       const ok = await confirm({
         title: `${who(person)}のフォローを承認しますか？`,
@@ -1095,8 +1103,8 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
               <div role="list">
                 {lists.requests.map((p, i) => (
                   <PersonRow key={`r-${p.publicId}`} first={i === 0} person={p}>
-                    <button type="button" style={rowLink} onClick={() => respond(p, false)}>断る</button>
-                    <button type="button" style={btnRow} onClick={() => respond(p, true)}>承認</button>
+                    <button type="button" style={rowLink} disabled={respondingId === p.publicId} onClick={() => respond(p, false)}>断る</button>
+                    <button type="button" style={btnRow} disabled={respondingId === p.publicId} onClick={() => respond(p, true)}>承認</button>
                     <button
                       type="button"
                       aria-label={`${who(p)}の操作`}
@@ -1131,7 +1139,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
               />
               <button type="button" onClick={() => check()} disabled={!text.trim() || checking} aria-busy={checking || undefined} style={{ ...btnGhost, width: 'auto', flexShrink: 0 }}>{checking ? '確かめています…' : '確かめる'}</button>
             </div>
-            {!preview?.missing && <p style={note}>{withPhraseBreaks('相手のリンクか ID を入れてください。名前では探せません。')}</p>}
+            {!preview?.missing && <p style={note}>{withPhraseBreaks('名前では探せません。')}</p>}
             {preview?.missing && <p role="alert" style={{ margin: 0, fontSize: 'var(--text-body)', color: 'var(--error)', lineHeight: 1.6, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(followResultMessage('not_found'))}</p>}
             {preview?.person && (
               <div role="status" style={{ ...row(true), borderBottom: '1px solid var(--separator)' }}>
@@ -1176,7 +1184,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
                 </>
               ) : (
                 <>
-                  <p style={note}>{withPhraseBreaks('フォローし合うには、先にプロフィールでニックネームを決めます。')}</p>
+                  <p style={note}>{withPhraseBreaks('フォローするには、先にプロフィールでニックネームを決めてください。')}</p>
                   <button type="button" onClick={() => setProfileOpen(true)} style={{ ...btnLink, alignSelf: 'flex-start', marginLeft: 'calc(-1 * var(--space-1))' }}>ニックネームを決める</button>
                 </>
               )}

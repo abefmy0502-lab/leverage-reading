@@ -257,7 +257,7 @@ export function readFocusState(store = storage()) {
 }
 
 // 途中の状態を読む（壊れている・古すぎるものは捨てる）。
-// 古すぎる（12 時間より前に始めた）ものは、捨てる前に 1 回分として onStale(row) に渡す
+// 古すぎる（12 時間より前に始めた）ものは、捨てる前に 1 回分として onStale(row, { paused }) に渡す（paused＝一時停止したまま＝読んだ時間が分かる）
 // （タイマーは長さまで・計測は 6 時間まで＝sessionRow の決まりどおり）。消してから渡すので 1 回だけ。
 export function loadFocusState(now = Date.now(), store = storage(), { onStale } = {}) {
   try {
@@ -271,7 +271,7 @@ export function loadFocusState(now = Date.now(), store = storage(), { onStale } 
       store.removeItem(STATE_KEY);
       const row = sessionRow(s, now);
       if (row && typeof onStale === 'function') {
-        try { onStale(row); } catch { /* 残せなくても再開はしない */ }
+        try { onStale(row, { paused: Number.isFinite(s.pausedAt) }); } catch { /* 残せなくても再開はしない */ }
       }
       return null;
     }

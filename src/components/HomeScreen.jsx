@@ -631,8 +631,10 @@ export default function HomeScreen({
       {/* 題と、メモが 1〜9 件の間だけ題の下 8 に出す一行（10 件で消える・カードにせず点数・バッジにしない・2026-10-02）。
           一行が無いときは題だけ（間 8 は一行があるときだけ）。件数を数えている間は、前回 1〜9 件だった人にだけ同じ高さの形
           （端末に覚えた前回の件数・はじめて開いたときと 0 件・10 件以上の人には出さない＝出してから縮んで跳ねないように）。 */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-        <h1 style={{ fontSize: 'var(--text-title)', fontWeight: 700, color: 'var(--text)', margin: 0, lineHeight: 1.3 }}>ホーム</h1>
+      {/* 題「ホーム」は 2026-11-25 にやめた（下のタブで分かる・オーナー「左上のホームという表記とロゴは消していい」）。読み上げには見えない題を残す。
+          題の下に並べていた一行（育つまでの一行など）の箱は、中身が無いときは出さない（.home-notes:empty＝空の箱が間 24 を取って上が空いていた）。 */}
+      <h1 style={{ position: 'absolute', width: 1, height: 1, margin: -1, padding: 0, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0 }}>ホーム</h1>
+      <div className="home-notes">
         {books.length > 0 && !homeKnown ? (showGrowthPlaceholder(lastCount) && (
           <span aria-hidden="true" style={{ display: 'flex', alignItems: 'center', height: 'calc(var(--text-meta) * 1.5)' }}>
             <SkeletonBlock width="56%" height={14} radius="var(--radius-full)" />

@@ -93,6 +93,8 @@ function writeSummaryDraft(bookId, text) { try { if (!bookId) return; if (text =
 function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSummary }) {
   const [text, setTextRaw] = useState(() => { const d = readSummaryDraft(bookId); return d != null && d !== (summaryText || '') ? d : (summaryText || ''); });
   const setText = (v) => { setTextRaw(v); writeSummaryDraft(bookId, v === (summaryText || '') ? null : v); };
+  // 前に書きかけて閉じた文を戻したときだけ、そのことを言う（1 文字打つたびに出ていた・2026-11-25 点検）。
+  const [restored, setRestored] = useState(() => { const d = readSummaryDraft(bookId); return d != null && d !== (summaryText || ''); });
   // 保存してある内容（変えていないときは「保存」を押せない見た目にする・2026-09-29）。
   const [savedText, setSavedText] = useState(summaryText || '');
   const dirty = text !== savedText;
@@ -154,6 +156,7 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
   useEffect(() => {
     const d = readSummaryDraft(bookId);
     setTextRaw(d != null && d !== (summaryText || '') ? d : (summaryText || ''));
+    setRestored(d != null && d !== (summaryText || ''));
     setSavedText(summaryText || '');
     setErrorMsg('');
     setSavedFlash(false);
@@ -216,7 +219,7 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
         maxLength={LIMITS.summaryMemo}
         aria-label="この本のまとめ"
       />
-      {dirty && !saving && <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>保存していない書きかけです。この端末に残しています。</p>}
+      {restored && dirty && !saving && <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>前の書きかけを戻しました。まだ保存していません。</p>}
       {errorMsg && (
         // 題（何が起きたか）＋説明（どうすればいいか）。アイコンは付けない（DESIGN §5）。
         <ErrorMessage
@@ -245,6 +248,8 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
 // savedMemo: いま保存したメモ { id, bookId, text, nonce }（メモを書くシート・全画面の入力で保存したとき・App が渡す）。
 //   ほかの本で似たことを書いていれば、一覧の上に「いま書いたメモと似たメモ」を 1 枚（次に保存するか、本を離れるまで）。
 export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summaryText = '', onSaveSummary, onMakeAction, onShareMemo, afterList = null, focusMemoId = null, editFocusedMemo = false, onEditFocusedOpened, onWriteMemo, books = [], savedMemo = null, heading = null, purposeText = '' }) {
+  // 書きかけのまとめがあるときだけ、はじめから開く。最初に 1 回だけ決める（保存して控えが消えると欄が勝手に畳まれていた・2026-11-25 点検）。
+  const [summaryOpenInit] = useState(() => { const d = readSummaryDraft(bookId); return d != null && d !== (summaryText || ''); });
   const [sortBy, setSortBy] = useState('page');
   const [sortMenu, setSortMenu] = useState(null); // { x, y } | null
   // 📖 メモを通して読む（2026-10-18・MemoReadThrough）
@@ -897,7 +902,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
         // 畳みの箱を相対の箱で包み、コピーはその右上（シェブロンの左）に重ねる。summary はその幅を右に空ける。
         <div style={{ position: 'relative' }}>
         {/* 保存していない書きかけがあれば開いておく（2026-11-17）。 */}
-        <details open={readSummaryDraft(bookId) != null && readSummaryDraft(bookId) !== (summaryText || '') ? true : undefined} style={{ background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: '0 var(--space-4)' }}>
+        <details open={summaryOpenInit || undefined} style={{ background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: '0 var(--space-4)' }}>
           <summary style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', minHeight: 'var(--btn-h)', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', cursor: 'pointer', listStyle: 'none' }}>
             {/* 題は割らない・右の一言は残りの幅で … に切る（文字最大で「この本のま／とめ」と割れていた・2026-10-11 点検）。 */}
             <span style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>この本のまとめ</span>

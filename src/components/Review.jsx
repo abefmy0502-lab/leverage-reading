@@ -550,8 +550,19 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
   // Swipe-driven delete (no confirm — gesture is intent). DB DELETE fires
   // immediately + Undo toast can re-INSERT from snapshot (photo lost).
   const handleSwipeDelete = useCallback(
-    (memo) => {
+    async (memo) => {
       if (!user || !isSupabaseConfigured) return;
+      // 写真つきだけは確かめる（元に戻しても写真は戻らない・本の詳細と同じ・2026-11-25 点検）。
+      if (memo.photoPath) {
+        const ok = await confirm({
+          title: 'このメモを削除しますか？',
+          message: '写真もいっしょに削除されます。元に戻しても、写真は戻りません。',
+          confirmLabel: '削除する',
+          cancelLabel: 'キャンセル',
+          danger: true,
+        });
+        if (!ok) return;
+      }
       const snapshot = { ...memo };
       // Optimistic: remove from list now
       setMemos((arr) => arr.filter((m) => m.id !== snapshot.id));
@@ -570,7 +581,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
           } catch { /* ignore */ }
         }
       })().catch((e) => {
-        toast.error(toMessage(e, 'メモの削除に失敗しました。'));
+        toast.error(toMessage(e, 'メモを削除できませんでした。'));
         // Restore in UI on failure
         deleteFailed = true;
         setMemos((arr) => [snapshot, ...arr]);
@@ -612,12 +623,12 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
             toast.info('削除を取り消しました。');
             fetchMemos();
           } catch (e) {
-            toast.error(toMessage(e, '復元に失敗しました。'));
+            toast.error(toMessage(e, '元に戻せませんでした。'));
           }
         },
       });
     },
-    [user, fetchMemos, toast]
+    [user, fetchMemos, toast, confirm]
   );
 
   const booksById = useMemo(() => {
@@ -838,7 +849,8 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
           ? { ...m, lastRecalledAt: patch.last_recalled_at, recallCount: patch.recall_count }
           : m)));
       }
-    }, 280);
+    // めくりの入れ替え（150ms）と同じ時に変える（280ms だとカードが 2 回入れ替わっていた・2026-11-25 点検）。
+    }, 150);
     if (memo.synth) return; // DB 書き込みは実メモのみ
     const write = recallWriteRef.current.then(async () => {
       // 失敗（列が無い＝supabase_recall_memory.sql 未適用・通信断など）は端末に残す。
@@ -1175,7 +1187,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
               } }]
               : []),
             ...(memoMenu.book && !memoMenu.memo?.synth && (memoMenu.memo?.text || '').trim()
-              ? [{ label: '一文を写真で共有', icon: <Share size="1.1em" aria-hidden="true" />, onClick: () => { haptic.light(); setShareTarget({ book: memoMenu.book, memoId: memoMenu.memo.id }); } }]
+              ? [{ label: 'この一文を写真で共有', icon: <Share size="1.1em" aria-hidden="true" />, onClick: () => { haptic.light(); setShareTarget({ book: memoMenu.book, memoId: memoMenu.memo.id }); } }]
               : []),
             // 思い出しカードの「…」だけ: 別の 1 枚へ（SPEC §4: 覚えた／もう一度 ＋ …）。
             ...(memoMenu.recall
@@ -1195,7 +1207,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                 const ok = await confirm({
                   title: 'このメモを削除しますか？',
                   message: m?.photoPath
-                    ? '写真も削除されます。「元に戻す」を押しても、写真は戻りません。'
+                    ? '写真もいっしょに削除されます。元に戻しても、写真は戻りません。'
                     : '削除したあと、少しの間は「元に戻す」で戻せます。',
                   confirmLabel: '削除する',
                   cancelLabel: 'キャンセル',

@@ -31,9 +31,11 @@ export default function GoalEntry({ onOpen }) {
   const rm = rec?.roadmap;
   const now = appNow();
   const phase = rm ? rm.phases?.[currentPhaseIndex(ALL_GOALS_KEY, rec.goalAt || g.at, now)] : null;
-  const overdue = overdueGoals(goals, now).length > 0;
+  const overdueList = overdueGoals(goals, now);
+  const overdue = overdueList.length > 0;
+  // どの目標の期限かを言う（上に見えている目標と違うと、どれのことか分からなかった・2026-11-25 点検）。
   const next = overdue
-    ? '期限が過ぎた目標があります。書き直しましょう'
+    ? `${overdueList.map((o) => o.label).join('・')}の目標の期限が過ぎました`
     : rm
     ? (phase?.focus ? `いま：${phase.focus}` : 'ロードマップを見る')
     : canBuildRoadmap(goals) ? 'ロードマップをつくる' : '1 年後の目標を書くと、ロードマップをつくれます';

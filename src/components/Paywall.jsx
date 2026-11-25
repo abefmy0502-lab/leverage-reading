@@ -145,7 +145,7 @@ const PLAN_COMPARE = [
   { name: '無料プラン（ずっと無料）', amount: `AI の答え ${answerCountLabel(FREE_TOKENS)}`, amountNote: `（はじめの 2 か月は${noBreak(answerCountLabel(FREE_FIRST_MONTH_TOKENS))}）`, lead: 'AI：', items: ['相談', 'この本で学べること', `写真から書き起こし（毎月 ${FREE_OCR_PER_MONTH} 回）`], more: ['メモ', '記録', '振り返り', '写真で共有'] },
   // 機能名は語の途中で折り返さない（「写真から書き起こし」が割れないよう、名前ごとに nowrap で並べる）。
   // 量の数え方は「AI の答え 約 N 回」だけ（GLOSSARY・2026-10-21 に「相談 約 30 件」を足したが、数え方が 2 つになるのでやめた）。
-  { name: 'プラン', amount: `AI の答え ${answerCountLabel(PAID_TOKENS)}`, scope: `毎月 ${PAID_TOKENS.toLocaleString()} トークン`, lead: 'すべての AI：', items: ['AI 選書', '読書計画シート', '写真から書き起こし（月 10 回の上限なし）'] },
+  { name: 'プラン', amount: `AI の答え ${answerCountLabel(PAID_TOKENS)}`, scope: `毎月 ${PAID_TOKENS.toLocaleString()} トークン`, lead: 'すべての AI：', items: ['AI 選書', '読書計画シート', '写真から書き起こし（回数の上限なし）'] },
 ];
 // 7 日間無料で使えるトークン（期間まるごと・2026-09-29 オーナー裁定で下の固定の欄に出す）。
 // SPEC §1-3 の書き方「最初の 7 日間は無料（150 トークン・AI の答え 約 15 回）」。かっこの中は 1 かたまり

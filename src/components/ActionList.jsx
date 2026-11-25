@@ -16,7 +16,7 @@
 
 import { startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { LIMITS } from '../lib/limits';
-import { input as uiInput, btnLink, btnGhostOff, groupTitle as uiGroupTitle } from '../styles/ui';
+import { input as uiInput, btnLink, btnLinkQuiet, btnGhostOff, groupTitle as uiGroupTitle } from '../styles/ui';
 import { useAllActions } from '../hooks/useAllActions';
 import { stripInlineMd } from '../lib/text';
 import { completedActionMessage } from '../lib/actionMessages';
@@ -385,7 +385,7 @@ function ActionRow({ a, completing, swipeable, onCheck, onOpenMenu, onSwipeDelet
 }
 
 // 完了した行の、その場の「やってみて、どうでしたか？」（1 行・任意）。
-function ReflectCard({ a, value, onChange, onSave, saving, onClose, onConsult = null }) {
+function ReflectCard({ a, value, onChange, onSave, saving, onClose, onConsult = null, onUndo = null }) {
   const ref = useRef(null);
   // 欄が開いたら、下の知らせ（元に戻す）とタブバーに隠れない所まで寄せる（2026-09-29）。
   //   高さが広がり終わってから（その前は、下の余白がまだ足りずに最後まで寄せられない）。
@@ -454,6 +454,12 @@ function ReflectCard({ a, value, onChange, onSave, saving, onClose, onConsult = 
           </button>
         )}
       </div>
+      {/* 完了の取り消しは欄の中に（下の知らせが欄の「この結果を相談する」に重なり、押すと完了が戻っていた・2026-11-25 点検） */}
+      {onUndo && (
+        <button type="button" onClick={onUndo} disabled={saving} style={{ ...btnLinkQuiet, marginTop: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}>
+          完了を取り消す
+        </button>
+      )}
     </section>
   );
 }
@@ -484,6 +490,10 @@ export default function ActionList({ books, onOpenGoals = null, onToggleAction, 
   const [completing, setCompleting] = useState([]);
   const [reflection, setReflection] = useState('');
   const [reflecting, setReflecting] = useState(false);
+  const reflectionRef = useRef('');
+  reflectionRef.current = reflection;
+  const completingRef = useRef([]);
+  completingRef.current = completing;
   const timersRef = useRef(new Map());
   const lastToastRef = useRef(null);
   // ふりかえりを残したあとの知らせ（「完了を取り消す」つき）。振り返りのタブを離れたら消す
@@ -491,6 +501,8 @@ export default function ActionList({ books, onOpenGoals = null, onToggleAction, 
   const reflectToastRef = useRef(null);
   useEffect(() => () => {
     if (reflectToastRef.current) toast.dismiss?.(reflectToastRef.current, { skipExpire: true });
+    // 完了の「元に戻す」も、ほかのタブに移ったら消す（見えないところで完了が戻っていた・2026-11-25 点検）。
+    if (lastToastRef.current) toast.dismiss?.(lastToastRef.current, { skipExpire: true });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useEffect(() => {
@@ -535,7 +547,11 @@ export default function ActionList({ books, onOpenGoals = null, onToggleAction, 
       { key, a, phase: 'check' },
     ]);
     clearTimeout(timersRef.current.get(key));
-    timersRef.current.set(key, setTimeout(() => setPhase(key, onReflect ? 'reflect' : 'collapse'), CHECK_HOLD_MS));
+    timersRef.current.set(key, setTimeout(() => {
+      setPhase(key, onReflect ? 'reflect' : 'collapse');
+      // ふりかえりの欄が出たら、下の「元に戻す」の知らせは閉じる（欄に重なる・取り消しは欄の中の「完了を取り消す」で）。
+      if (onReflect && lastToastRef.current) { toast.dismiss?.(lastToastRef.current, { skipExpire: true }); lastToastRef.current = null; }
+    }, CHECK_HOLD_MS));
     // 取り消しは下のトーストで（スクロールしていても見える・トーストはタブの上に浮く）。
     if (lastToastRef.current) toast.dismiss?.(lastToastRef.current, { skipExpire: true });
     // 完了の知らせは保存できたあとだけ。保存できなければ ✓ を外して未完了の行に戻す
@@ -550,9 +566,21 @@ export default function ActionList({ books, onOpenGoals = null, onToggleAction, 
           timersRef.current.delete(key);
           return list.filter((c) => c.key !== key);
         });
+        // 書きかけのふりかえりは捨てない: コピーできる知らせを出す（黙って消えていた・2026-11-25 点検）。
+        const text = reflectionRef.current.trim();
+        if (text) {
+          toast.show?.({
+            type: 'error',
+            message: '完了を保存できませんでした。',
+            duration: 15000,
+            action: { label: '書いた文をコピー', onClick: () => { try { navigator.clipboard?.writeText(text); } catch { /* ignore */ } } },
+          });
+        }
         setReflection('');
       },
       onSaved: () => {
+        // ふりかえりの欄がもう出ていたら、知らせは出さない（取り消しは欄の中・欄に重ねない）。
+        if (onReflect && completingRef.current.some((c) => c.key === key && c.phase === 'reflect')) return;
         // 「元に戻す」つきは toast.undo にそろえる（完了なので印は ✓・DESIGN §5 トースト・2026-09-30）。
         lastToastRef.current = toast.undo({
           message: completedActionMessage(a),
@@ -728,6 +756,7 @@ export default function ActionList({ books, onOpenGoals = null, onToggleAction, 
             onSave={() => saveReflection(c)}
             onClose={() => setPhase(key, 'collapse')}
             onConsult={onConsultResult ? () => consultResult(c) : null}
+            onUndo={() => undoComplete(c.a)}
           />
         ) : (
           <ActionRow
@@ -817,7 +846,8 @@ export default function ActionList({ books, onOpenGoals = null, onToggleAction, 
                   type="button"
                   onClick={() => {
                     // 期限を過ぎた行動を古い順に 1 つずつ開く（保存したら次・キャンセルで終わる・2026-09-30）。
-                    const list = open.filter((x) => groupOf(x) === 'overdue');
+                    // しばらく前の期限（60 日より前）も先に入れる（いちばん放置された行動が見直しから漏れていた・2026-11-25 点検）。
+                    const list = [...open.filter((x) => groupOf(x) === 'stale'), ...open.filter((x) => groupOf(x) === 'overdue')];
                     const a = list[0];
                     if (a) onEditAction(a.bookId, a.actionIdx, a, { queue: list.slice(1), total: list.length });
                   }}

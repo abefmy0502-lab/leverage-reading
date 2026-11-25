@@ -197,6 +197,8 @@ export default function BookMemoEditor({
   // ✨ 凝縮（本田流レバレッジメモ化）— 元テキストを保持して「↩ 元に戻す」可能に。
   const [condensing, setCondensing] = useState(false);
   const [condensedFrom, setCondensedFrom] = useState(null);
+  // 「保存して次へ」のあとの初期値（ページは前＋1・タグは空）。これと違うときだけ「書きかけ」とみなす（2026-11-25 点検）。
+  const [nextBase, setNextBase] = useState(null);
   const toast = useToast();
   const confirmDialog = useConfirm();
   // 凝縮はプランの機能（フリーミアム）。無料プランなら有料プランの画面を開く（書きかけは残る）。
@@ -347,6 +349,9 @@ export default function BookMemoEditor({
 
   const resetForNext = (lastPage) => {
     setText('');
+    // 前のメモの「元に戻す」（凝縮の前の文）を残さない（新しいメモで押すと前の文が入っていた・2026-11-25 点検）。
+    setCondensedFrom(null);
+    setNextBase({ page: Number.isFinite(lastPage) ? String(lastPage + 1) : '' });
     setTags([]);
     setTagInput('');
     setPhotoFile(null);
@@ -492,13 +497,16 @@ export default function BookMemoEditor({
     // ページ番号・写真を外したことも変更に数える（2026-09-29）。
     const initialPage = initial?.pageNumber != null ? String(initial.pageNumber) : (defaultPageNumber !== '' ? String(defaultPageNumber) : '');
     // シートから受け取った文は、まだどこにも保存されていない書きかけ（初期値と同じでも捨てる前に確かめる・2026-11-22 点検）。
-    const dirty =
+    const dirty = nextBase ? (
+      !!text.trim() || !!photoFile || String(pageNumber ?? '').trim() !== nextBase.page || tags.length > 0
+    ) : (
       (handedOver && !isEdit && !!text.trim())
       || text !== (initial?.text || defaultText || '')
       || !!photoFile
       || removePhotoFlag
       || String(pageNumber ?? '').trim() !== initialPage.trim()
-      || JSON.stringify(tags) !== JSON.stringify(initial?.tags || defaultTags || []);
+      || JSON.stringify(tags) !== JSON.stringify(initial?.tags || defaultTags || [])
+    );
     if (dirty) {
       // 保存済みのメモを直しているときは、捨てても元のメモは残る（「書いたことを消す」だと
       // メモごと消えるように読める・2026-09-29）。

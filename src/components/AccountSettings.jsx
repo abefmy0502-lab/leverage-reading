@@ -707,7 +707,9 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
       // フィードバックシートが開いている間は、Escape はシート側に任せる
       // （ここで拾うと設定モーダルごと閉じ、送信中の入力が失われる）。
       // IME 変換中の Esc はガード（変換キャンセルで設定ごと閉じない）。
-      if (e.key === 'Escape' && !feedbackOpen && !whatsNewOpen && !usageOpen && !purposeEditOpen && !purposeCheck && !e.isComposing && !e.nativeEvent?.isComposing) animateClose();
+      // 入力欄に書いている間（退会の確認のメール欄など）の Escape では閉じない（書いた文字が消えていた・2026-11-25 点検）。
+      const typing = /^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName || '') && !!document.activeElement?.value;
+      if (e.key === 'Escape' && !typing && !feedbackOpen && !whatsNewOpen && !usageOpen && !purposeEditOpen && !purposeCheck && !e.isComposing && !e.nativeEvent?.isComposing) animateClose();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -767,7 +769,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
     const ok = await confirm({
       title: 'データを初期化しますか？',
       message:
-        '本・メモ・写真・行動・読書の時間・相談の履歴・タグなど、すべてのデータを消去します。\n\nアカウントは残ります。この操作は取り消せません。',
+        '本・メモ・写真・行動・読書の時間・相談の履歴・目標・プロフィールなど、すべてのデータを消去します。AI と連携の接続キーも取り消します。\n\nアカウントと通知の設定は残ります。この操作は取り消せません。',
       confirmLabel: '初期化する',
       cancelLabel: 'キャンセル',
       danger: true,
@@ -806,7 +808,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
       await deleteOwn('reading_sessions'); // ⏱ 読書の時間（集中モード・未適用 DB はスキップ）
       await deleteOwn('profiles'); // 👤 プロフィール（2026-11-21・未適用 DB はスキップ）
       await deleteOwn('mcp_tokens'); // 🔌 AI と連携の接続キー（初期化でもつないだ AI から読めなくする）
-      await deleteOwn('push_subscriptions');
+      // 通知の登録（push_subscriptions）は消さない＝端末の設定でデータではない（消すとスイッチは「オン」のまま、二度と届かなくなっていた・2026-11-25 点検）。
       await deleteOwn('books');
 
       if (dbErrors.length > 0) {
@@ -1129,14 +1131,14 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
                   {/* 7 日間無料のときだけ、いつまでに解約すれば料金がかからないかを日付で（App Store は終わる 24 時間前まで）。 */}
                   {plan === 'trial' && (
                     <p style={{ ...noteStyle, color: 'var(--text)', marginBottom: 'var(--space-2)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-                      {withPhraseBreaks(trialCancelNote(dateLabelJa(trialCancelByTime(subscription?.currentPeriodEnd)) || ''))}
+                      {withPhraseBreaks(`${trialCancelNote(dateLabelJa(trialCancelByTime(subscription?.currentPeriodEnd)) || '')}。`)}
                     </p>
                   )}
                   {/* 解約したらどうなるか（無料プランで続けられる・メモは消えない）を、解約の案内のすぐ下に（2026-09-29）。 */}
                   {plan === 'trial' && (
                     <p style={{ ...noteStyle, marginBottom: 'var(--space-2)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-                      {/* 「毎月 30 トークン」は 1 かたまり（「毎月 30／トークン」と割らない・2026-10-04）。 */}
-                      {withPhraseBreaks('解約しても無料プラン（ずっと無料・相談は')}<span style={{ whiteSpace: 'nowrap' }}>毎月 {fmtTokens(FREE_TOKENS)} トークン</span>{withPhraseBreaks('）で使い続けられます。メモは残ります。')}
+                      {/* 量は書かない（この本で学べることも同じトークンから・長く「・」で割れていた・2026-11-25 点検）。 */}
+                      {withPhraseBreaks('解約しても、無料プラン（ずっと無料）で使い続けられます。メモは残ります。')}
                     </p>
                   )}
                   {/* 文節の切れ目でだけ折り返す（「でき／ます」と語の途中で切らない・2026-10-04）。 */}
@@ -1231,7 +1233,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
             {/* 1 つのスイッチで 2 種類（思い出しの通知・行動の期限）をまとめてオン/オフする。 */}
             <SettingRow
               title="思い出しと行動の通知"
-              desc="思い出しの通知（週 1 回まで）と、行動の期限の日の朝 8 時ごろの通知です。"
+              desc="思い出し（週 1 回まで）と、行動の期限の日の朝 8 時ごろに届きます。"
               extra={pushNote}
               control={canTogglePush ? (
                 <ToggleSwitch
@@ -1361,7 +1363,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
             <div style={blockStyle} role="group" aria-label="データを初期化">
               <div>
                 <p style={{ ...rowTitleStyle, fontWeight: 600 }}>データを初期化（ログインは残す）</p>
-                <p style={rowDescStyle}>本・メモ・行動をすべて消します。</p>
+                <p style={rowDescStyle}>本・メモ・行動・目標・プロフィールを消します。</p>
               </div>
               <button
                 type="button"

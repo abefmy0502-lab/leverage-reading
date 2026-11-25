@@ -1,4 +1,3 @@
-import BrandLogo from './components/BrandLogo';
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense, memo } from "react";
 import { useAuth } from './hooks/useAuth';
 import { useBooks } from './hooks/useBooks';
@@ -15,7 +14,7 @@ import { BookFieldLinks, BookFieldsSheet, BookFolderLinks } from './components/B
 import { useAppDataCache } from './state/AppDataCache';
 import { streamClaude } from './lib/streamClaude';
 // ⚡ 最初の画面に要らない重い部品は、使うときに読む（Suspense 付きの薄い包み・components/lazyParts.jsx）。
-import { AuthScreen, AuthCallback, BookMemoList, BookSearchModal, BookMemoEditor, ActionList, MarkdownSections, AuthorThankYou, OverlayFallback, BookAbout, BookBrief } from './components/lazyParts';
+import { AuthScreen, AuthCallback, BookMemoList, BookSearchModal, BookMemoEditor, ActionList, MarkdownSections, OverlayFallback, BookAbout, BookBrief } from './components/lazyParts';
 import { BookCoverCard, BookShelfCase, SwipeableBookCard, MiniCover, StatusLabel } from './components/BookCards';
 import { displayTitle } from './lib/bookTitle';
 import { STATUSES, getSt } from './lib/status';
@@ -46,7 +45,7 @@ import { BookReadingTime } from './components/ReadingTimeCard';
 import SegThumb from './components/SegThumb';
 // 📗 読了の 3 つの問い・読む前と読んだ後（2026-10-11・AI なし）
 import { DoneQuestions, BeforeAfter } from './components/DoneReflection';
-import { visibleDoneQuestions, readDoneQuestionState, markDoneQuestionAnswered, dismissDoneQuestions, visibleBeforeItems, foundAnswerDraft, promptedMemoText } from './lib/doneReflection';
+import { visibleDoneQuestions, readDoneQuestionState, markDoneQuestionAnswered, dismissDoneQuestions, undismissDoneQuestions, visibleBeforeItems, foundAnswerDraft, promptedMemoText } from './lib/doneReflection';
 import { readingSessions } from './hooks/useReadingSessions';
 import { filterLibraryBooks, folderCounts, matchesLibraryFilters } from './lib/libraryFilter';
 import Onboarding, { isOnboardingCompleted, clearOnboardingCompletion } from './components/Onboarding';
@@ -178,7 +177,6 @@ import ContextMenu from './components/ContextMenu';
 import PullToRefresh from './components/PullToRefresh';
 import { useHaptic } from './hooks/useHaptic';
 import { useMemoLinkFinder } from './hooks/useMemoLinkFinder';
-import { useLongPress } from './hooks/useLongPress';
 import { useEdgeSwipeBack, isBackBlocked, useBackBlocked } from './hooks/useEdgeSwipeBack';
 import { useHistoryBack, useBackLayer, useBackLayerCount, topBackLayer } from './hooks/useHistoryBack';
 import { useKeyboardOpen } from './hooks/useKeyboardOpen';
@@ -1722,14 +1720,6 @@ function AuthedApp() {
     if (recentlyDoneTimerRef.current) clearTimeout(recentlyDoneTimerRef.current);
   }, []);
 
-  // Easter egg: long-press the bookshelf logo (📚) to reveal a thank-you.
-  const [thanksOpen, setThanksOpen] = useState(false);
-  const logoLongPress = useLongPress({
-    onLongPress: () => {
-      try { haptic.medium(); } catch { /* non-critical */ }
-      setThanksOpen(true);
-    },
-  });
 
   // Scroll to top on every top-level tab/view change so the new content
   // always starts at the top of the screen instead of inheriting the previous
@@ -4600,7 +4590,7 @@ function AuthedApp() {
     if (!skipConfirm) {
       const ok = await confirm({
         title: '行動を削除しますか？',
-        message: 'この行動を、期限とふりかえりも含めて削除します。元に戻せません。',
+        message: '削除した行動は元に戻せません。',
         confirmLabel: '削除する',
         cancelLabel: 'キャンセル',
         danger: true,
@@ -4808,7 +4798,18 @@ function AuthedApp() {
     const saved = loadFocusState(Date.now(), undefined, {
       // ログインしている人の本のときだけ（控えは利用者ごとの鍵・lib/readingSessions.js・2026-10-10）
       // 計測（時間を決めずに読む）の置き忘れは、何分読んだか分からないので残さない（前は 6 時間として記録され、消せなかった・2026-11-22 点検）。
-      onStale: (row) => { if (row.mode !== 'count' && user?.id && books.some((x) => x.id === row.book_id)) readingSessions.save(user.id, row); },
+      // ただし一時停止したままの計測は、止めた時刻までの時間が分かるので残す（何も言わずに消えていた・2026-11-25 点検）。
+      // どちらも 1 行で知らせる（黙って消えない・黙って足さない）。
+      onStale: (row, { paused } = {}) => {
+        if (!user?.id || !books.some((x) => x.id === row.book_id)) return;
+        const min = Math.max(1, Math.round(row.seconds / 60));
+        if (row.mode !== 'count' || paused) {
+          readingSessions.save(user.id, row);
+          toast.info(`前回の読書（${min} 分）を記録しました。`);
+        } else {
+          toast.info('前回、時間を決めずに読んだ回は、止め忘れていたので記録しませんでした。');
+        }
+      },
     });
     if (!saved) return;
     const b = books.find((x) => x.id === saved.bookId);
@@ -4903,7 +4904,6 @@ function AuthedApp() {
     && !settingsOpen
     && !helpModalOpen
     && !quickMemoOpen
-    && !thanksOpen
     && !fullEditorPrefill
     && !editingAction
     && !searchOpen
@@ -5225,7 +5225,7 @@ function AuthedApp() {
       <DoneQuestions
         questions={doneQuestionsNow}
         onPick={(q) => { dismissStatusUndo(current.id); track('done_question', { q: q.key }); setQuickMemoPrompt(q); setQuickMemoOpen(true); }}
-        onDismiss={() => { dismissDoneQuestions(current.id); setDoneQTick((n) => n + 1); }}
+        onDismiss={() => { const id = current.id; dismissDoneQuestions(id); setDoneQTick((n) => n + 1); toast.undo?.({ message: '問いを閉じました。', onUndo: () => { undismissDoneQuestions(id); setDoneQTick((n) => n + 1); } }); }}
       />
     ) : null;
     // 読む前に書いたこと（振り返りの 2 枚目・問いのすぐ下＝この本のまとめより上・SPEC §2）。
@@ -6526,27 +6526,7 @@ function AuthedApp() {
      }}
    >
     <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-2)', minWidth: 0, flex: 1 }}>
-      <button
-        type="button"
-        {...logoLongPress.bind}
-        aria-label="ロゴ（長押しで開発者からのメッセージ）"
-        style={{
-          lineHeight: 0,
-          // 押せる範囲 44×44（DESIGN §6）。見た目の左端は余白 16 に揃えるため左へ 8 戻す。
-          padding: 'var(--space-2)',
-          margin: '0 0 0 calc(-1 * var(--space-2))',
-          background: "none",
-          border: "none",
-          cursor: "pointer",
-          fontFamily: "inherit",
-          display: "flex",
-          alignItems: "center",
-        }}
-      >
-        {/* ロゴは本の形のマークだけ（地が透明・2026-10-10 ui-critic「アプリアイコンのクリーム色の四角が、明暗どちらでも浮いていた」）。 */}
-        {/* 2026-11-24 新しいロゴの記号（暗い画面は暗い地の色・BrandLogo） */}
-        <BrandLogo kind="mark" height={24} />
-      </button>
+      {/* 左上のロゴは 2026-11-25 にやめた（オーナー「左上のホームという表記とロゴは消していい」）。右のボタンの位置を保つための空き。 */}
     </div>
     {/* 右端は左のロゴの補正と対称に（アイコンの見た目の右余白を 16 に）。 */}
     {/* 右端は自分のアイコン（見た目 28）なので、押せる範囲 44 との差の半分（8）だけ外へ出し、見た目の右余白を 16 にそろえる（2026-11-22 ui-critic）。 */}
@@ -7930,9 +7910,6 @@ function AuthedApp() {
         </Suspense>
       )}
 
-      {/* 🙇 Easter egg: long-press the bookshelf logo. 季節演出 / マイル
-          ストーン演出は「鬱陶しい」フィードバックにより撤去済み。 */}
-      {thanksOpen && <AuthorThankYou onClose={() => setThanksOpen(false)} />}
 
       <UpdateBanner safe={safeForUpdate && !whatsNew.open} />
 

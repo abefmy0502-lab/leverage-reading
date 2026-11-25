@@ -10,6 +10,7 @@ import BottomSheet from './BottomSheet';
 import ProfileForm from './ProfileForm';
 import ToggleSwitch from './ToggleSwitch';
 import { useToast } from './Toast';
+import { useConfirm } from './ConfirmDialog';
 import { btnPrimary, btnPrimaryOff, btnGhost } from '../styles/ui';
 import { profileUrl, normalizeProfile } from '../lib/profile';
 import { saveProfileShared, useProfile } from '../hooks/useProfile';
@@ -47,9 +48,10 @@ export default function ProfileSheet({ userId, onClose, onSaved }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const toast = useToast();
+  const confirm = useConfirm();
   useEffect(() => { if (!touched) setDraft(profile); }, [profile, touched]);
   const change = (next) => { setTouched(true); setDraft(next); };
-  const dirty = JSON.stringify(normalizeProfile(draft)) !== JSON.stringify(normalizeProfile(profile));
+  const profileDirty = JSON.stringify(normalizeProfile(draft)) !== JSON.stringify(normalizeProfile(profile));
   const url = profileUrl(profile.publicId);
   // 登録せずに始めた人は公開できない（データベースでも止める・App 審査 1.2）。
   const { user } = useAuth();
@@ -58,32 +60,23 @@ export default function ProfileSheet({ userId, onClose, onSaved }) {
   // 本棚の公開の列がまだ無い DB（前の版の SQL だけ）では本棚は公開できない（saveProfile が shelfReady: false を返す）。
   const [shelfUnready, setShelfUnready] = useState(false);
   const [shelfBooks, setShelfBooks] = useState([]);
-  // フォロー中・フォロワーを見せるか（フォローの画面の下と同じ・すぐ切り替わる＝保存のボタンを待たない・2026-11-23）
+  // フォロー中・フォロワーを見せるか（フォローの画面の下と同じ・2026-11-23。2026-11-25 から「保存」で一緒に送る）
   const [listsVisible, setListsVisible] = useState(null); // null＝読めていない（出さない）
   const [listsBusy, setListsBusy] = useState(false);
   useEffect(() => {
     if (!SOCIAL_ON) return undefined;
     let alive = true;
-    loadFollows().then((r) => { if (alive && r?.ok) setListsVisible(r.followsVisible); }).catch(() => {});
+    loadFollows().then((r) => { if (alive && r?.ok) { setListsVisible(r.followsVisible); setListsOrig(r.followsVisible); } }).catch(() => {});
     return () => { alive = false; };
   }, [userId]);
-  const toggleLists = async () => {
+  // 切り替えは下書きにだけ入れ、「保存」でほかの欄と一緒に送る（押した瞬間に保存され、キャンセルで戻らなかった・2026-11-25 点検）。
+  const [listsOrig, setListsOrig] = useState(null);
+  const toggleLists = () => {
     if (listsBusy || listsVisible === null) return;
-    const next = !listsVisible;
-    setListsVisible(next); setListsBusy(true);
-    try {
-      const r = await setFollowsVisible(next);
-      if (r !== 'ok') {
-        setListsVisible(!next);
-        toast.error(r === 'no_profile' ? '先にニックネームを決めて保存してください。' : '切り替えられませんでした。少し時間をおいてお試しください。');
-      }
-    } catch {
-      setListsVisible(!next);
-      toast.error('切り替えられませんでした。通信状況を確認してください。');
-    } finally {
-      setListsBusy(false);
-    }
+    setListsVisible((v) => !v);
   };
+  const listsChanged = listsOrig !== null && listsVisible !== null && listsVisible !== listsOrig;
+  const dirty = profileDirty || listsChanged;
   useEffect(() => {
     if (!SOCIAL_ON) return undefined;
     let alive = true;
@@ -97,6 +90,19 @@ export default function ProfileSheet({ userId, onClose, onSaved }) {
     const issue = profileIssueMessage(profileIssues(draft));
     if (issue) { setError(issue); return; }
     setBusy(true); setError('');
+    if (listsChanged) {
+      setListsBusy(true);
+      let r = '';
+      try { r = await setFollowsVisible(listsVisible); } catch { r = 'error'; }
+      setListsBusy(false);
+      if (r !== 'ok') {
+        setError(r === 'no_profile' ? '先にニックネームを決めて保存してください。' : 'フォロー中・フォロワーの見せ方を保存できませんでした。通信状況を確認してください。');
+        setBusy(false);
+        return;
+      }
+      setListsOrig(listsVisible);
+      if (!profileDirty) { setBusy(false); onClose(); return; }
+    }
     try {
       let { profile: saved, stored: where, shelfReady, summaryReady } = await saveProfileShared(userId, draft);
       // 公開をオンにしたのにオフで返ってきたとき（2026-11-22）: 登録せずに始めて、あとでアカウントを作った人は、
@@ -144,6 +150,8 @@ export default function ProfileSheet({ userId, onClose, onSaved }) {
     <BottomSheet
       title="プロフィール"
       onClose={onClose}
+      // 書きかけのまま閉じるときは確かめる（ほかの編集のシートと同じ・2026-11-25 点検）
+      beforeClose={async () => (!dirty || busy) || !!(await confirm({ title: '保存していない変更があります', message: '閉じると、書いた内容は消えます。', confirmLabel: '破棄する', cancelLabel: '編集を続ける', danger: true }))}
       dismissLabel="キャンセル"
       layer="dialog"
       footer={(

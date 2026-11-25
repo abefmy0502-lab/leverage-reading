@@ -84,6 +84,15 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
 
   // ロードマップは 3 つの目標をつなぐ 1 本だけ（'all'）。
   const goal = horizon === ALL_GOALS_KEY ? combinedGoal(goals) : null;
+  const confirmGoal = useConfirm();
+  // 「この目標で続ける」で 1 年後の期限を延ばしたら、ロードマップの起点も新しい期限に合わせる
+  //   （起点が古いままで、いまの区切りが 1 年後の目標を過ぎた扱いになっていた・2026-11-25 点検）。
+  const realignRoadmap = async (nextGoals) => {
+    const rec = roadmaps[ALL_GOALS_KEY];
+    const at = combinedGoal(nextGoals)?.at;
+    if (!rec?.roadmap || !at || at === rec.goalAt) return;
+    try { await saveRoadmap(ALL_GOALS_KEY, { ...rec, goalAt: at, goals: { y1: nextGoals.y1, y3: nextGoals.y3, y5: nextGoals.y5 } }); } catch { /* 起点が合わなくても目標は保存してある */ }
+  };
   const record = goal ? roadmaps[ALL_GOALS_KEY] : null;
 
   // 開いた元（ホーム／振り返り › 行動）から直接開いた画面は、1 回の戻るで元へ（読書計画 → ロードマップ → 目標 → と 3 回戻っていた・2026-11-17 点検）。
@@ -137,7 +146,8 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
               onExtend={async (key) => {
                 const r = await saveGoal(key, goals[key]?.text || '');
                 if (!r) { toast.error?.('目標を保存できませんでした。通信状況を確認して、もう一度押してください。'); return; }
-                toast.success?.(`${horizonOf(key).label}の目標の期限を、${fmtGoalDeadline(r.goals[key].at, horizonOf(key).years)}に延ばしました。`);
+                await realignRoadmap(r.goals);
+                toast.success?.(`${horizonOf(key).label}の目標の期限を、${fmtGoalDeadline(r.goals[key].at, horizonOf(key).years)}延ばしました。`);
                 track('goal_extended', { horizon: key });
               }}
             />
@@ -175,6 +185,7 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
                   if (!r) break;
                 }
                 if (!r) { toast.error?.('目標を保存できませんでした。通信状況を確認して、もう一度押してください。'); return; }
+                await realignRoadmap(r.goals);
                 toast.success?.('この目標で続けます。期限を延ばしました。');
                 track('goal_extended', { horizon: keys.join('+') });
               }}
@@ -202,6 +213,10 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
                 toast.info?.('ロードマップを、見直す前に戻しました。');
               }}
             />
+          )}
+          {/* 1 年後の目標を消したあと（ロードマップはあっても、はじまりの目標が無い）＝真っ白にしない（2026-11-25 点検）。 */}
+          {(view === 'roadmap' || view === 'plan') && !goal && (
+            <ErrorMessage title="1 年後の目標がありません" description="ロードマップは 1 年後の目標から始まります。書くと、また見られます。" actions={[{ label: '1 年後の目標を書く', variant: 'primary', onClick: () => { setView('goals'); setEditing({ key: 'y1', text: '' }); } }]} />
           )}
           {view === 'roadmap' && goal && !record?.roadmap && (
             <ErrorMessage title="ロードマップがまだありません" description="「達成するには？」に答えると、ロードマップができます。" actions={[{ label: 'ロードマップをつくる', variant: 'primary', onClick: startInterview }]} />
@@ -231,19 +246,34 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
           onClose={() => setEditing(null)}
           onSave={async (text) => {
             const key = editing.key;
+            // 書いてあった目標を消すときは確かめる（1 年後を消すとロードマップも見られなくなる・2026-11-25 点検）。
+            if (!cleanGoalText(text) && cleanGoalText(editing.text)) {
+              const ok = await confirmGoal({
+                title: `${horizonOf(key).label}の目標を消しますか？`,
+                message: key === 'y1' && roadmaps[ALL_GOALS_KEY]?.roadmap ? '1 年後の目標が無いあいだは、ロードマップを見られません。' : '消した目標は元に戻せません。',
+                confirmLabel: '消す',
+                cancelLabel: 'キャンセル',
+                danger: true,
+              });
+              if (!ok) return false;
+            }
             const r = await saveGoal(key, text);
             // 保存できなかったら、シートを開いたまま（書いた目標を消さない・2026-11-20）。
             if (!r) { toast.error?.('目標を保存できませんでした。通信状況を確認して、もう一度押してください。'); return false; }
             // まだ書いていない次の目標があれば、そのままその欄へ（はじめての人が 3 回開き直さなくていい・2026-11-16）。
             const next = cleanGoalText(text) ? nextEmptyAfter(r.goals, key) : null;
             setEditing(next ? { key: next.key, text: '' } : null);
+            // つながっていなくて、この端末にだけ残ったとき（開き直すと前の目標に戻ることがある・2026-11-25 点検）。
+            if (r.synced === false) toast.info?.('この端末には保存しました。つながったら、もう一度保存してください。');
+            // 次の目標の欄へ進むときも、保存できたことは言う（キャンセルしたときに分からなかった・2026-11-25 点検）。
+            else if (next) toast.success?.(`${horizonOf(key).label}の目標を保存しました。`);
             if (!next && canBuildRoadmap(r.goals) && !roadmaps[ALL_GOALS_KEY]?.roadmap) {
               setTimeout(() => { const el = scrollRef.current; if (el) el.scrollTo?.({ top: el.scrollHeight, behavior: 'smooth' }); }, 350);
             }
             track('goal_saved', { horizon: key, cleared: !cleanGoalText(text) });
             const rec = roadmaps[ALL_GOALS_KEY];
-            if (cleanGoalText(text) && rec?.roadmap && cleanGoalText(text) !== cleanGoalText(rec.goals?.[key]?.text || '')) {
-              toast.info?.('目標を書き直しました。ロードマップは「つくり直す」で新しい目標に合わせられます。');
+            if (r.synced === false || next) { /* 上で知らせた */ } else if (cleanGoalText(text) && rec?.roadmap && cleanGoalText(text) !== cleanGoalText(rec.goals?.[key]?.text || '')) {
+              toast.success?.('目標を保存しました。');
             } else if (!rec?.roadmap && allGoalsSet(r.goals)) {
               toast.success?.('3 つの目標がそろいました。下の「ロードマップをつくる」から始められます。');
             } else if (!rec?.roadmap && key === 'y1' && cleanGoalText(text) && !next) {
@@ -531,6 +561,8 @@ function InterviewView({ goal, goals, roadmaps, books, sessions, onDone, onCance
   const [answer, setAnswer] = useState('');
   const [off, setOff] = useState(false);
   const busyRef = useRef(false);
+  const aliveRef = useRef(true);
+  useEffect(() => { aliveRef.current = true; return () => { aliveRef.current = false; }; }, []);
   const answerRef = useRef(null);
   const summaryRef = useRef('');
   // つくっている間（と、つくれなかったとき）は親の題を「ロードマップ」に。離れたら戻す。
@@ -557,7 +589,8 @@ function InterviewView({ goal, goals, roadmaps, books, sessions, onDone, onCance
         plan: prev?.plan || null,
       });
       track('goal_roadmap_built', { horizon: goal.key, asks: finalQa.length });
-      onDone();
+      // つくっている間に「‹ 目標」で戻っていたら、画面を勝手にロードマップへ切り替えない（保存はしてある・2026-11-25 点検）。
+      if (aliveRef.current) onDone();
     } catch (e) {
       setError({ message: e?.message || 'ロードマップをつくれませんでした。', notice: !!e?.notice, stage: 'build' });
       setBuilding(false);
@@ -805,7 +838,7 @@ function RoadmapView({ goal, record, books, sessions = [], onOpenBook, onAddActi
       : { ...linkStyle, ...(quiet && !primary ? quietColor : null), ...extra };
     return (
       <button type="button" className={link ? 'rm-link' : undefined} disabled={choosing} aria-busy={choosing || undefined} style={style} onClick={() => choose(count)}>
-        {choosing ? '本を選んでいます…' : `${chooseError ? 'もう一度選ぶ' : label}（${PHASE_BOOKS_TOKENS_LABEL}）`}
+        {choosing ? '本を選んでいます…' : <>{chooseError ? 'もう一度選ぶ' : label}<span style={{ whiteSpace: 'nowrap' }}>{`（${PHASE_BOOKS_TOKENS_LABEL}）`}</span></>}
       </button>
     );
   };
@@ -966,7 +999,6 @@ function RoadmapView({ goal, record, books, sessions = [], onOpenBook, onAddActi
 
       <section className="goal-sec" aria-labelledby="rm-road">
         <h3 id="rm-road" className="goal-sec-title">道のり</h3>
-        <p className="plan-summary" style={{ marginTop: 0, marginBottom: 'var(--space-4)' }}>{withPhraseBreaks('本は、この先 3 か月に読む分だけをすすめています。')}</p>
         <ol className="goal-road">
           {roadmap.phases.map((p, i) => {
             const spec = specs[i] || { label: `${i + 1}`, range: '' };
@@ -1061,7 +1093,7 @@ function RoadmapView({ goal, record, books, sessions = [], onOpenBook, onAddActi
           <button type="button" style={btnGhost} onClick={onPlan}><span style={{ wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('読書計画をカレンダーにする')}</span></button>
         )}
         <button type="button" style={{ ...btnLinkQuiet, marginTop: 'var(--space-2)', marginLeft: 'calc(-1 * var(--space-1))' }} onClick={onRebuild}>{`つくり直す（${ROADMAP_TOKENS_LABEL}）`}</button>
-        <p className="rm-footnote">{withPhraseBreaks('AI があなたの目標と答えからつくった道のりです。合わないところは「直す」で書き換えられます（トークンは使いません）。')}</p>
+        <p className="rm-footnote">{withPhraseBreaks('AI があなたの目標と答えからつくった道のりです。合わないところは「直す」で書き換えられます。')}</p>
       </div>
       {editing && (
         <RoadmapEditSheet
@@ -1150,7 +1182,7 @@ function RoadmapEditSheet({ editing, roadmap, specs, onClose, onSave }) {
           <Plus size="1em" aria-hidden="true" />{`${lim.title}を足す`}
         </button>
       )}
-      <p className="plan-summary">{withPhraseBreaks(`${lim.max > 1 ? `${lim.max} つまで書けます。` : ''}トークンは使いません。`)}</p>
+      {lim.max > 1 && <p className="plan-summary">{withPhraseBreaks(`${lim.max} つまで書けます。`)}</p>}
     </BottomSheet>
   );
 }

@@ -329,9 +329,8 @@ export default function TokenUsageSheet({ onClose, onAdd, onPlans, from = 'consu
           )}
           <p style={meta}>
             {/* 機能の名前は語の途中で割らない（「写真から書き／起こし」と割れていた・2026-11-23） */}
-            {withPhraseBreaks('無料プランの AI は、相談・この本で学べること・')}<span style={nowrap}>写真から書き起こし</span>{withPhraseBreaks('の 3 つです。プランなら')}
-            <span style={nowrap}>毎月 {fmt(PAID_TOKENS)} トークン</span>
-            {withPhraseBreaks('で、すべての AI 機能を使えます。')}
+            {/* 無料の AI の並べ方は下の「プランを見る」の先で言うので、ここは 1 文だけ（2026-11-25 点検） */}
+            {withPhraseBreaks('プランなら')}<span style={nowrap}>毎月 {fmt(PAID_TOKENS)} トークン</span>{withPhraseBreaks('で、すべての AI 機能を使えます。')}
           </p>
         </div>
       )}
