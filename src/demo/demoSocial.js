@@ -1,6 +1,6 @@
 // 🧪 お試しモードのフォロー（&social=1・2026-11-21）。supabase_follows.sql の関数と同じ形で答える（メモリだけ）。
 const people = {
-  k7mna2pqrs: { public_id: 'k7mna2pqrs', nickname: 'さくら', avatar: 'leaf', bio: '人事の仕事。組織づくりと習慣の本が好きです。', fav_title: '７つの習慣', fav_author: 'スティーブン・R・コヴィー', fav_cover: '', fav_line: '主体的であれ。反応を選ぶ自由は自分にある。' },
+  k7mna2pqrs: { public_id: 'k7mna2pqrs', nickname: 'さくら', avatar: 'leaf', bio: '人事の仕事。組織づくりと習慣の本が好きです。', fav_title: '7つの習慣', fav_author: 'スティーブン・R・コヴィー', fav_cover: '', fav_line: '主体的であれ。反応を選ぶ自由は自分にある。' },
   t3xbw9hjuv: { public_id: 't3xbw9hjuv', nickname: 'けんた', avatar: 'mountain' },
   q8rfz4mncd: { public_id: 'q8rfz4mncd', nickname: 'あおい', avatar: 'moon' },
   w2ycd5kpne: { public_id: 'w2ycd5kpne', nickname: 'ゆう', avatar: '' },
@@ -24,7 +24,7 @@ const state = empty
 const shelves = {
   k7mna2pqrs: [
     { id: '7b1e0000-0000-4000-8000-000000000001', title: 'イシューからはじめよ', author: '安宅和人', status: 'reading', rating: 0, isbn: '9784862760852', summary: '' },
-    { id: '7b1e0000-0000-4000-8000-000000000002', title: '７つの習慣', author: 'スティーブン・R・コヴィー', status: 'done', rating: 5, isbn: '', summary: '影響の輪に集中する。\n反応する前に一拍おいて、自分で選ぶ。\nチームの 1on1 でも、相手の関心の輪ではなく影響の輪の話をするようにした。' },
+    { id: '7b1e0000-0000-4000-8000-000000000002', title: '7つの習慣', author: 'スティーブン・R・コヴィー', status: 'done', rating: 5, isbn: '', summary: '影響の輪に集中する。\n反応する前に一拍おいて、自分で選ぶ。\nチームの 1on1 でも、相手の関心の輪ではなく影響の輪の話をするようにした。' },
     { id: '7b1e0000-0000-4000-8000-000000000003', title: '心理的安全性のつくりかた', author: '石井遼介', status: 'done', rating: 4, isbn: '', summary: '安全性は「ぬるさ」ではない。話しやすさ・助け合い・挑戦・新奇歓迎の 4 つ。' },
     { id: '7b1e0000-0000-4000-8000-000000000004', title: 'エッセンシャル思考', author: 'グレッグ・マキューン', status: 'want', rating: 0, isbn: '', summary: '' },
     { id: '7b1e0000-0000-4000-8000-000000000005', title: 'リーダーの仮面', author: '安藤広大', status: 'done', rating: 3, isbn: '', summary: '' },

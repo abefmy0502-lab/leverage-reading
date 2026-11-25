@@ -33,12 +33,14 @@ export function normalizeSearchQuery(raw) {
 
 // ─── 楽天 ─────────────────────────────────────────────────────────────
 // 楽天の 1 件を共通の形に（rank = 売上順の位置・0 始まり）。
+const halfAlnum = (t) => (typeof t === 'string' ? t.replace(/[０-９Ａ-Ｚａ-ｚ]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)) : t);
 export function fromRakutenItem(it, rank) {
   const isbn = toIsbn13(it.isbn) || (/^97[89]\d{10}$/.test(String(it.jan || '')) ? String(it.jan) : '');
   const cover = rakutenUpscale(rakutenRealImage(it.largeImageUrl) || rakutenRealImage(it.mediumImageUrl) || '');
   return {
-    title: clip(it.title),
-    subtitle: clip(it.subTitle),
+    // 書名・副題の全角の英数字は半角に（「７つの習慣」→「7つの習慣」・2026-11-25 オーナー「全角数字を使わないで」）
+    title: halfAlnum(clip(it.title)),
+    subtitle: halfAlnum(clip(it.subTitle)),
     titleKana: clip(it.titleKana),
     author: formatAuthors(clip(it.author, 300)),
     authorKana: clip(it.authorKana),

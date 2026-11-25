@@ -8,6 +8,7 @@ import { readLocalTarget, writeLocalTarget, cleanTarget } from '../lib/readTarge
 import { writeLocalBrief, readLocalBrief } from '../lib/bookBrief';
 import { captureBookReadingSessions, restoreBookReadingSessions } from '../lib/readingSessions';
 import { planTaxonomyChange } from '../lib/bookFieldsAuto';
+import { toHalfWidthAlnum } from '../lib/halfWidth';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -59,6 +60,9 @@ const isUuid = (v) => typeof v === 'string' && UUID_RE.test(v);
 
 const transformBook = (book) => ({
   ...book,
+  // 🔢 書名・著者の全角の英数字は半角で見せる（「７つの習慣」→「7つの習慣」・次に保存したときに半角で残る・2026-11-25）。
+  title: toHalfWidthAlnum(book.title),
+  author: toHalfWidthAlnum(book.author),
   cover: toHttps(book.cover),
   tags: (book.book_tags || []).map((t) => t.tag_name),
   collections: (book.book_collections || []).map((c) => c.collection_name),
@@ -260,8 +264,8 @@ export function useBooks() {
         user_id: user.id,
         // 保存境界で長さを clamp（AI 自動追加経路は maxLength を通らないため、
         // ここで防御的に上限をかける）。
-        title: clamp((book.title || '').trim(), LIMITS.bookTitle),
-        author: book.author ? clamp(String(book.author).trim(), LIMITS.bookAuthor) : null,
+        title: clamp(toHalfWidthAlnum((book.title || '').trim()), LIMITS.bookTitle),
+        author: book.author ? clamp(toHalfWidthAlnum(String(book.author).trim()), LIMITS.bookAuthor) : null,
         cover: toHttps(book.cover) || null,
         status: book.status,
         rating: book.rating || 0,
