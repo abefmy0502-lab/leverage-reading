@@ -673,8 +673,8 @@ export function useBooks() {
     if (!snapshot || !user || !isSupabaseConfigured) return { ok: false, failed: [] };
     const { book_tags = [], actions = [], book_memos = [], book_collections = [], reading_sessions = [], ...bookRow } = snapshot;
     if (bookRow.id) persistedTaxRef.current.delete(bookRow.id); // 元に戻したあとの保存は、分野・フォルダを書き直す側に倒す
-    // Reset updated_at so the restored row floats to the top of "更新順".
-    const bookPayload = { ...bookRow, updated_at: new Date().toISOString() };
+    // 元の更新日時のまま戻す（元に戻したら、すべての本の並びも元どおり・2026-11-25 点検＝前は先頭へ動いていた）。
+    const bookPayload = { ...bookRow, updated_at: bookRow.updated_at || new Date().toISOString() };
 
     const { error: bErr } = await supabase.from('books').insert([bookPayload]);
     if (bErr) throw bErr;

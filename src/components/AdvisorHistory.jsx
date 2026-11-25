@@ -285,7 +285,7 @@ function RecommendationCard({ book, index = 0, isAdded, isChecking, onAdd }) {
       {book.why && (
         <div style={{ marginTop: 'var(--space-3)' }}>
           <p style={fieldLabel}>なぜあなたに</p>
-          <p style={{ ...readText, margin: 'var(--space-1) 0 0', wordBreak: 'normal', lineBreak: 'strict', textWrap: 'pretty', overflowWrap: 'anywhere' }}>{book.why}</p>
+          <p style={{ ...readText, margin: 'var(--space-1) 0 0', wordBreak: 'keep-all', lineBreak: 'strict', textWrap: 'pretty', overflowWrap: 'anywhere' }}>{withPhraseBreaks(book.why)}</p>
         </div>
       )}
       {book.core && <RecField label="この本の核心" text={book.core} />}

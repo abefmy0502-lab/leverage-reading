@@ -2388,7 +2388,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
                 {rec.why && (
                   <div style={{ marginTop: 'var(--space-3)' }}>
                     <p style={fieldLabel}>なぜあなたに</p>
-                    <p style={{ ...readText, margin: 'var(--space-1) 0 0', wordBreak: 'normal', lineBreak: 'strict', textWrap: 'pretty', overflowWrap: 'anywhere' }}>{rec.why}</p>
+                    {/* 短い段落なので文節で折り返す（「とあ／りました」と語の途中で割れていた・2026-11-25 点検） */}
+                    <p style={{ ...readText, margin: 'var(--space-1) 0 0', wordBreak: 'keep-all', lineBreak: 'strict', textWrap: 'pretty', overflowWrap: 'anywhere' }}>{withPhraseBreaks(rec.why)}</p>
                   </div>
                 )}
                 {rec.core && (

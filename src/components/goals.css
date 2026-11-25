@@ -87,7 +87,9 @@
 /* 目標の画面の下のボタン（3 つとも書くとつくれる） */
 .plan-order-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); margin-bottom: var(--space-3); }
 .plan-sort { list-style: none; margin: var(--space-3) 0 0; padding: 0; }
-.plan-sort-row { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) 0; border-bottom: 1px solid var(--separator); }
+.plan-sort-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); padding: var(--space-2) 0; border-bottom: 1px solid var(--separator); }
+/* 読む順番の押す 4 つ（いちばん上へ・上へ・下へ・外す）は書名の下の右に（2026-11-25） */
+.plan-sort-btns { display: flex; justify-content: flex-end; gap: var(--space-1); flex-basis: 100%; margin-top: calc(-1 * var(--space-3)); }
 .plan-sort-row:last-child { border-bottom: none; }
 .plan-sort-title { flex: 1; min-width: 0; font-size: var(--text-sub); font-weight: 600; color: var(--text); line-height: 1.5; word-break: keep-all; overflow-wrap: anywhere; }
 .plan-sort-meta { display: block; font-size: var(--text-meta); font-weight: 400; color: var(--text-2); }

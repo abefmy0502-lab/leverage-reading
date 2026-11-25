@@ -4039,11 +4039,20 @@ function AuthedApp() {
         toast.error(toMessage(e, '共有できませんでした。通信状況を確認して、もう一度お試しください。'));
         return;
       }
+      // はじめて共有したときは、確かめる画面と保存を待つ間に「押した」扱いが切れ、iPhone の Safari では共有の画面が
+      //   開かなかった（2026-11-25 点検）。知らせの「リンクを送る」をもう一度押してもらう（押した直後に共有の画面を開く）。
+      const firstUrl = bookShareUrl(prof.publicId, book.id);
+      if (!firstUrl) { toast.error('共有できませんでした。もう一度お試しください。'); return; }
+      toast.show({ type: 'info', message: 'この本を共有しました。', duration: 12000, action: { label: 'リンクを送る', onClick: () => { sendBookLink(book, firstUrl); } } });
+      return;
     } else {
       track('book_share_link', { first: false });
     }
     const url = bookShareUrl(prof.publicId, book.id);
     if (!url) { toast.error('共有できませんでした。もう一度お試しください。'); return; }
+    sendBookLink(book, url);
+  };
+  const sendBookLink = async (book, url) => {
     if (typeof navigator !== 'undefined' && navigator.share) {
       try { await navigator.share({ title: `『${String(book.title || '').slice(0, 60)}』`, url }); return; }
       catch (e) { if (e?.name === 'AbortError') return; }
@@ -4263,6 +4272,9 @@ function AuthedApp() {
   };
   // 🎯 行動タブの「＋追加」フロー — null | 'pick'（本選択シート） | { bookId }（入力モーダル）
   const [addActionSheet, setAddActionSheet] = useState(null);
+  // 行動の本を選ぶシートの絞り込み（本の多い人が探しにくかった・2026-11-25 点検）。シートを開き直したら空に。
+  const [actionPickQuery, setActionPickQuery] = useState('');
+  useEffect(() => { if (addActionSheet?.step !== 'pick') setActionPickQuery(''); }, [addActionSheet?.step]);
   // 🧭 目標とロードマップ・読書計画の全画面（振り返り › 行動 の上の 1 行から・2026-11-15）。{ view, horizon } か null。
   const [goalScreen, setGoalScreen] = useState(null);
   // 🧭 目標の全画面も端末の戻るで閉じる（中の画面の戻りは GoalScreen の ‹ と左端スワイプ）。
@@ -7610,7 +7622,9 @@ function AuthedApp() {
         // 相談の答えから来たら、その答えの根拠になった本を先に「この答えの根拠」としてまとめる（2026-09-30）。
         const evidenceIds = addActionSheet.evidenceIds || [];
         const evidence = evidenceIds.map((id) => books.find((b) => b.id === id)).filter(Boolean);
-        const rest = evidence.length ? sorted.filter((b) => !evidenceIds.includes(b.id)) : sorted;
+        const q = actionPickQuery.trim().toLowerCase();
+        const match = (b) => !q || `${b.title || ''} ${b.author || ''}`.toLowerCase().includes(q);
+        const rest = (evidence.length ? sorted.filter((b) => !evidenceIds.includes(b.id)) : sorted).filter(match);
         const pick = (b) => setAddActionSheet({ ...addActionSheet, step: 'edit', bookId: b.id, prefillText: addActionSheet.prefillText || '' });
         const row = (b) => (
           <button
@@ -7635,6 +7649,21 @@ function AuthedApp() {
               <p style={{ margin: '0 0 var(--space-4)', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2, overflow: 'hidden', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
                 {withPhraseBreaks(actionGist(addActionSheet.prefillText, 44))}
               </p>
+            )}
+            {books.length > 8 && (
+              <input
+                type="search"
+                value={actionPickQuery}
+                onChange={(e) => setActionPickQuery(e.target.value)}
+                placeholder="書名・著者で絞り込む"
+                aria-label="書名・著者で絞り込む"
+                maxLength={LIMITS.bookTitle}
+                enterKeyHint="search"
+                style={{ ...inp, marginBottom: 'var(--space-4)' }}
+              />
+            )}
+            {q && rest.length === 0 && evidence.length === 0 && (
+              <p style={{ margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)' }}>{withPhraseBreaks('見つかりませんでした。別の言葉で探してください。')}</p>
             )}
             {evidence.length > 0 ? (
               <>
@@ -7881,6 +7910,21 @@ function AuthedApp() {
               //   「覚えている一文を足す」と同じ＝初日クイックスタートの一言の段・2026-11-23）。
               //   積読・読みたいで入れた本は出さない（一言の段は本を読了にするため）。
               const bare = status === 'done' && Array.isArray(outcome?.bareBooks) ? outcome.bareBooks.slice(0, 5) : [];
+              // 初日クイックスタートから来たときは、入れたあとクイックスタートへ戻る（ホームに放り出され、
+              //   先に選んでいた本も消えていた・2026-11-25 点検）。選んでいた本があればそのまま、無ければ入れた本（読了）で一言の段へ。
+              const fromQuick = shelfScanFromQuickstartRef.current;
+              if (fromQuick && outcome) {
+                shelfScanFromQuickstartRef.current = null;
+                const picked = Array.isArray(fromQuick.picked) ? fromQuick.picked : [];
+                setTimeout(() => {
+                  setShelfScanOpen(false);
+                  if (fromQuick.seed) { setQuickstartSeed(fromQuick.seed); setQuickstartPicked(null); }
+                  else if (picked.length > 0 || bare.length === 0) { setQuickstartSeed(null); setQuickstartPicked(picked); }
+                  else { setQuickstartSeed(bare); setQuickstartPicked(null); }
+                  setShowQuickstart(true);
+                }, 0);
+                return outcome;
+              }
               if (bare.length > 0) {
                 // 本棚に入れた知らせ（元に戻すつき・シートが出す）のあとに並べる。
                 setTimeout(() => {

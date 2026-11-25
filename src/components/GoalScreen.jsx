@@ -12,7 +12,7 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { autoGrowTextarea } from '../hooks/useComposerHeight';
-import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Plus, Search, X } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ChevronsUp, Plus, Search, X } from 'lucide-react';
 import './goals.css';
 import { AdvisorNavBar } from './AdvisorHistory';
 import BottomSheet from './BottomSheet';
@@ -1470,9 +1470,14 @@ function PlanOrderSheet({ books, initial, custom, onClose, onSave, onReset }) {
             <li key={id} className="plan-sort-row">
               <MiniCover book={b} width={32} />
               <span className="plan-sort-title">{withPhraseBreaks(`『${b.title}』`)}</span>
-              <button type="button" className="rm-icon-btn" onClick={() => move(i, -1)} disabled={i === 0} aria-label={`『${b.title}』を上へ`}><ChevronUp size={20} aria-hidden="true" /></button>
-              <button type="button" className="rm-icon-btn" onClick={() => move(i, 1)} disabled={i === order.length - 1} aria-label={`『${b.title}』を下へ`}><ChevronDown size={20} aria-hidden="true" /></button>
-              <button type="button" className="rm-icon-btn" onClick={() => setOrder((o) => o.filter((x) => x !== id))} aria-label={`『${b.title}』を外す`}><X size={20} aria-hidden="true" /></button>
+              {/* 押す 4 つは書名の下の右にまとめる（横に並べると書名が「ファシリテータ／ー」と割れていた・2026-11-25）。 */}
+              <span className="plan-sort-btns">
+                {/* いちばん上へ 1 回で（6 冊目を先頭にするのに ↑ を 5 回押していた・2026-11-25 点検）。2 冊目までは ↑ で足りるので場所だけ取る。 */}
+                <button type="button" className="rm-icon-btn" onClick={() => setOrder((o) => [id, ...o.filter((x) => x !== id)])} disabled={i < 2} style={i < 2 ? { visibility: 'hidden' } : undefined} aria-hidden={i < 2 || undefined} tabIndex={i < 2 ? -1 : undefined} aria-label={`『${b.title}』をいちばん上へ`}><ChevronsUp size={20} aria-hidden="true" /></button>
+                <button type="button" className="rm-icon-btn" onClick={() => move(i, -1)} disabled={i === 0} aria-label={`『${b.title}』を上へ`}><ChevronUp size={20} aria-hidden="true" /></button>
+                <button type="button" className="rm-icon-btn" onClick={() => move(i, 1)} disabled={i === order.length - 1} aria-label={`『${b.title}』を下へ`}><ChevronDown size={20} aria-hidden="true" /></button>
+                <button type="button" className="rm-icon-btn" onClick={() => setOrder((o) => o.filter((x) => x !== id))} aria-label={`『${b.title}』を外す`}><X size={20} aria-hidden="true" /></button>
+              </span>
             </li>
           );
         })}
