@@ -15,6 +15,7 @@
 import { createHash } from 'node:crypto';
 import { WIDGET_URI_MCP, WIDGET_URI_OPENAI, WIDGET_MIME_MCP, WIDGET_MIME_OPENAI, widgetHtml } from './_mcpWidget.js';
 import { launchGates } from './_launchHealth.js';
+import { readFreePool } from './_freePool.js';
 import { textLength } from './_social.js';
 import { advisorBooksStats, parseAddList, QUEUE_ADD_MAX, queueStep, summarizeStep, pendingForSession, saveSessionSummaries, SESSION_BATCH_MAX, PROMPT_VERSION as BOOKS_PROMPT_VERSION, parseExtList, EXT_ADD_MAX, parseMarkList, MARK_ADD_MAX, MARK_KINDS, refreshSignals } from './_advisorBooks.js';
 
@@ -633,7 +634,7 @@ const handlers = {
       `契約: 月額 ${p.monthly ?? '?'}・年額 ${p.annual ?? '?'}・創業メンバー ${p.founding ?? '?'}・無料期間 ${p.trial ?? '?'}`,
       `本 ${o.books_total ?? '?'} 冊・メモ ${o.memos_total ?? '?'} 件・行動 ${o.actions_total ?? '?'}（完了 ${o.actions_done ?? '?'}）・未対応のフィードバック ${o.feedback_open ?? '?'}`,
       `開いているフィードバック ${Array.isArray(data?.feedback) ? data.feedback.length : '?'} 件・開いているチケット ${Array.isArray(data?.tickets) ? data.tickets.length : '?'} 件・やること ${Array.isArray(data?.tasks) ? data.tasks.filter((t) => !t.done).length : '?'} 件`,
-      '（くわしい数字は structuredContent に: overview / revenue / growth / launch / goal / weekly / profit / profit_series / renewals / active_series / feedback / tickets / tasks / weekly_reviews / sales_metrics / launch_gates）',
+      '（くわしい数字は structuredContent に: overview / revenue / growth / launch / goal / weekly / profit / profit_series / renewals / active_series / feedback / tickets / tasks / weekly_reviews / sales_metrics / launch_gates / free_pool）',
     ];
     const gates = await launchGates(db);
     // 🚩 公開のプロフィールへの開いている通報（24 時間以内に ops_reports で対応・表が無ければ null）。
@@ -643,7 +644,10 @@ const handlers = {
       if (!r.error) reportsOpen = r.count || 0;
     } catch { /* 表が無い */ }
     if (reportsOpen) text.unshift(`⚠️ 公開のプロフィールへの通報が ${reportsOpen} 件あります（ops_reports で 24 時間以内に対応）`);
-    return { text: text.join('\n'), structuredContent: { ...(data || {}), launch_gates: gates, profile_reports_open: reportsOpen } };
+    // 🧯 無料プランの AI の全体の予算（今月・日本時間・api/_freePool.js）。表が無ければ null。
+    const freePool = await readFreePool(db, { periodMonth: new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 7) });
+    if (freePool) text.push(`無料の AI の予算（今月）: ¥${freePool.used_jpy.toLocaleString('ja-JP')} ／ ¥${freePool.budget_jpy.toLocaleString('ja-JP')}（${freePool.level}）`);
+    return { text: text.join('\n'), structuredContent: { ...(data || {}), launch_gates: gates, profile_reports_open: reportsOpen, free_pool: freePool } };
   },
 
   // 📚 AI 選書の推薦用の本のデータ（運営者だけ・supabase_advisor_books.sql・2026-11-17）。

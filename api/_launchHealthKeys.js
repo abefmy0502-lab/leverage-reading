@@ -50,6 +50,7 @@ export const HEALTH_SQL = {
   lp_events: { table: 'lp_events' },
   book_field_cache: { table: 'book_field_cache' },
   ai_cache_warm: { table: 'ai_cache_warm' },
+  ai_free_pool: { table: 'ai_free_pool' },
   app_admins: { table: 'app_admins' },
   // user_id を null にすると not-null で止まる＝行を書かずに関数の有無だけ分かる。
   reserve_ai_cost: { rpc: 'reserve_ai_cost', args: { p_user_id: null, p_period_month: 'probe', p_amount: 0, p_budget: 0 } },

@@ -16,6 +16,7 @@ import { resolveRoute, isJevPurpose } from './_aiRouting.js';
 import { handleJevRelay } from './_jevRelay.js';
 import { openRoute, ProviderError } from './_providers.js';
 import { refreshConsultWarm, touchConsultWarm, isWarmableSystem } from './_consultWarm.js';
+import { freePoolOn, freePoolBudgetMjpy, freePoolLevel, paidMemberCount, reserveFreePool, adjustFreePool } from './_freePool.js';
 
 // 画像として通す種類（2026-10-11）。ほかの種類は落とす（AI の会社が受け付ける画像だけ・アプリは JPEG に縮めて送る）。
 export const IMAGE_MEDIA_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
@@ -882,9 +883,16 @@ export default async function handler(req, res) {
   const track = (p) => { if (p) pending.push(p); return p; };
   const flush = () => flushPending(pending);
   let costSettled = false;
+  // 🧯 無料プランの AI の全体の予算（api/_freePool.js）。予約した額と、精算したか。
+  let poolReserved = 0;
+  let poolSettled = false;
   // refund=true: 関係するメモが無かった相談の払い戻し。予約をまるごと戻し（この 1 回は 0 円として数える）、
   // 追加分（買い足したトークン）からも差し引かない（settle_token_overflow を呼ばない）。
   const settleCost = (actualMjpy, { refund = false } = {}) => {
+    if (poolReserved && !poolSettled) {
+      poolSettled = true;
+      track(adjustFreePool(getServiceSupabase(), { periodMonth: monthKey, deltaMjpy: (actualMjpy == null || refund ? 0 : actualMjpy) - poolReserved }));
+    }
     if (!costMetered || costSettled) return;
     costSettled = true;
     const adjusting = adjustCost(userId, periodKey, (actualMjpy == null || refund ? 0 : actualMjpy) - costReserved);
@@ -934,6 +942,37 @@ export default async function handler(req, res) {
     settleCost(null); // 回数の上限で止めたので、原価の予約も戻す
     await flush();
     return limitResponse('monthly_limit_exceeded');
+  }
+  // 🧯 無料プランの AI の全体の予算（2026-11-25・api/_freePool.js・supabase_ai_free_pool.sql）。
+  //   無料の相談・選書・書き起こし・本棚の写真のどれも、この 1 回の最大の原価を全体の予算から先に予約する。
+  //   尽きたら呼ばない（402 free_limit_reached＋free_pool）。相談はアプリが AI を使わずにメモから答える。翌月 1 日に戻る。
+  if ((freeCall || freeOcrCall) && freePoolOn()) {
+    const b = req.body || {};
+    const poolEst = costReserved > 0 ? costReserved : [route.model, route.claudeModel]
+      .map((m) => estimateCost(m, {
+        textChars: countTextChars(b), images: countImages(b),
+        maxTokens: Math.min(Number.isFinite(b.max_tokens) ? Math.max(1, Math.floor(b.max_tokens)) : MAX_TOKENS_DEFAULT, freeOcrCall ? (b.purpose === 'shelf_scan' ? FREE_SHELF_SCAN_MAX_TOKENS : FREE_OCR_MAX_TOKENS) : FREE_MAX_TOKENS),
+        segments: cacheSegments(b, { systemTtl: '5m' }),
+      }).total)
+      .reduce((a, v) => Math.max(a, v), 0);
+    const sb = getServiceSupabase();
+    const budget = freePoolBudgetMjpy({ paidCount: await paidMemberCount(sb) });
+    const pool = await reserveFreePool(sb, { periodMonth: monthKey, amountMjpy: poolEst, budgetMjpy: budget });
+    if (pool.metered && !pool.allowed) {
+      console.warn('[ai-free-pool] out of budget for', monthKey);
+      settleCost(null);
+      if (usage.reserved && usage.allowed) track(releaseMonthlyUsage(userId, periodKey));
+      await flush();
+      return res.status(402).json({
+        error: { message: `今月の無料の AI は、使う方がとても多く、ここまでになりました。${nextResetLabel()}に戻ります。あなたのメモから探す答えは、いつでも使えます。` },
+        error_code: 'free_limit_reached', free_pool: true, reset_label: nextResetLabel(),
+      });
+    }
+    if (pool.metered) {
+      poolReserved = poolEst;
+      const lv = freePoolLevel(pool.total, budget);
+      if (lv !== 'ok') console.warn(`[ai-free-pool] ${lv} ${Math.round(pool.total / 1000)}/${Math.round(budget / 1000)} JPY (${monthKey})`);
+    }
   }
   const usageReserved = usage.reserved;
 
