@@ -75,7 +75,8 @@ const FIELDS = ['where', 'what', 'before', 'after', 'impact', 'intent'];
 export function sanitizeReleases(data) {
   const raw = Array.isArray(data?.releases) ? data.releases : [];
   const out = [];
-  for (const r of raw.slice(0, 50)) {
+  // 版の数の上限（2026-11-25 に 50 を超えたので 100 に）
+  for (const r of raw.slice(0, 100)) {
     if (!r || typeof r.id !== 'string' || !/^\d{4}-\d{2}-\d{2}[a-z]?$/.test(r.id)) continue;
     const items = (Array.isArray(r.items) ? r.items : [])
       .filter((it) => it && FIELDS.every((f) => typeof it[f] === 'string' && it[f].trim()))

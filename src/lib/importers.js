@@ -34,6 +34,10 @@ export const IMPORT_MAX_MEMOS = 2000;
 // UTF-8 として読めればそれ、壊れていれば Shift_JIS（ブクログの既定）で読み直す。
 export function decodeImportBytes(buf) {
   const bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+  // UTF-16（Excel の「Unicode テキスト」など・2026-11-25）: 先頭の BOM で見分ける。
+  if (bytes.length >= 2 && ((bytes[0] === 0xFF && bytes[1] === 0xFE) || (bytes[0] === 0xFE && bytes[1] === 0xFF))) {
+    try { return new TextDecoder(bytes[0] === 0xFF ? 'utf-16le' : 'utf-16be').decode(bytes).replace(/^\uFEFF/, ''); } catch { /* 下へ */ }
+  }
   try {
     return new TextDecoder('utf-8', { fatal: true }).decode(bytes).replace(/^﻿/, '');
   } catch {
@@ -42,7 +46,14 @@ export function decodeImportBytes(buf) {
 }
 
 // ── CSV（引用符・改行入りのセルに対応）───────────────────────────────
-export function parseCsv(text) {
+// 区切り: 最初の行にタブがあり、カンマより多ければタブ区切り（Excel・Numbers の書き出し・2026-11-25）。
+export function detectDelimiter(text) {
+  const first = String(text || '').replace(/^\uFEFF/, '').split(/\r?\n/, 1)[0] || '';
+  const tabs = (first.match(/\t/g) || []).length;
+  const commas = (first.match(/,/g) || []).length;
+  return tabs > 0 && tabs >= commas ? '\t' : ',';
+}
+export function parseCsv(text, delim = detectDelimiter(text)) {
   const rows = [];
   let row = [];
   let cell = '';
@@ -55,7 +66,7 @@ export function parseCsv(text) {
         if (s[i + 1] === '"') { cell += '"'; i += 1; } else q = false;
       } else cell += c;
     } else if (c === '"') q = true;
-    else if (c === ',') { row.push(cell); cell = ''; }
+    else if (c === delim) { row.push(cell); cell = ''; }
     else if (c === '\n' || c === '\r') {
       if (c === '\r' && s[i + 1] === '\n') i += 1;
       row.push(cell); rows.push(row); row = []; cell = '';
@@ -79,17 +90,26 @@ const toIsoTimestamp = (v) => {
   return t ? `${d}T${t[1].padStart(2, '0')}:${t[2]}:${t[3] || '00'}+09:00` : `${d}T12:00:00+09:00`;
 };
 
-// ブクログの読書状況 → orime の状態
+// 取り込み元の読書状況 → orime の状態。分からなければ ''（2026-11-25: 前は分からない値をすべて「読了」にしていた＝
+//   「未読」「読中」「to-read」「before」・空欄まで読了になり、月別の読了がふくらんでいた）。
 export function mapStatus(v) {
-  const s = String(v || '');
-  if (/読み終|読了|読んだ|finished|read$/i.test(s)) return 'done';
-  if (/いま読|読んでる|読書中|reading/i.test(s)) return 'reading';
-  if (/積読|積ん/.test(s)) return 'before';
-  if (/読みたい|want/i.test(s)) return 'want';
-  return 'done';
+  const s = String(v || '').trim().toLowerCase();
+  if (!s) return '';
+  if (/^(want|want-to-read|to-read|wish|読みたい)/.test(s) || /読みたい/.test(s)) return 'want';
+  if (/currently-reading|^reading$|paused|いま読|読んでる|読書中|^読中|読みかけ/.test(s)) return 'reading';
+  if (/積読|積ん|未読|^before$|stacked|owned/.test(s)) return 'before';
+  if (/読み終|読了|読んだ|既読|finished|^read$|^done$|did-not-finish/.test(s)) return 'done';
+  return '';
+}
+// 状態が分からない本の決め方: 読了日・感想・評価があれば読了、無ければ積読（手元にあって、これから読む本）。
+//   guessed＝決めつけた印（確かめる画面で「状態が分からない本 N 冊」をまとめて直せる）。
+export function decideStatus(raw, { doneDate = '', review = '', rating = 0 } = {}) {
+  const st = mapStatus(raw);
+  if (st) return { status: st, guessed: false };
+  return { status: doneDate || String(review || '').trim() || Number(rating) > 0 ? 'done' : 'before', guessed: true };
 }
 
-const BOOKLOG_ORDER = ['service', 'itemId', 'isbn', 'category', 'rating', 'status', 'review', 'tags', 'memo', 'addedAt', 'doneDate', 'title', 'author'];
+const BOOKLOG_ORDER = ['service', 'itemId', 'isbn', 'category', 'rating', 'status', 'review', 'tags', 'memo', 'addedAt', 'doneDate', 'title', 'author', 'publisher', 'year', 'genre', 'pages'];
 const HEADER_ALIASES = {
   title: ['タイトル', '書名', 'title', '本のタイトル'],
   author: ['作者名', '著者', '著者名', 'author', '作者'],
@@ -101,6 +121,8 @@ const HEADER_ALIASES = {
   memo: ['読書メモ(非公開)', '読書メモ', '非公開メモ', 'メモ', 'memo', 'note', 'notes'],
   addedAt: ['登録日時', '登録日', 'added', 'created'],
   doneDate: ['読了日', '読み終わった日', 'finished', 'date read'],
+  category: ['カテゴリ', 'カテゴリー', 'category', '本棚', 'フォルダ'],
+  pages: ['ページ数', 'pages', 'number of pages'],
 };
 
 export function parseBooklogCsv(text) {
@@ -121,30 +143,41 @@ export function parseBooklogCsv(text) {
   }
   const get = (r, k) => (map[k] == null ? '' : r[map[k]]);
   const books = [];
+  let skipped = 0;
+  let skippedExample = '';
   for (const r of rows) {
     const title = clean(get(r, 'title'), 200);
     // 13桁ISBN が空でも、アイテムID（Amazon の ASIN＝紙の本なら ISBN-10）から ISBN-13 を作る
     // （読書メーター → ブクログ形式の移行ツールは 13桁ISBN と書名を空で書く）。
     const isbn = clean(get(r, 'isbn'), 20).replace(/[^0-9Xx]/g, '') || asinToIsbn13(get(r, 'itemId'));
-    if (!title && !isbn) continue;
+    if (!title && !isbn) { skipped += 1; if (!skippedExample) skippedExample = clean(r.join(' '), 60); continue; }
     const memos = [];
     const memo = clean(get(r, 'memo'), 4000);
     const addedAt = toIsoTimestamp(get(r, 'addedAt'));
     if (memo) memos.push({ text: memo, page: null, createdAt: addedAt });
     const rating = Math.max(0, Math.min(5, Math.round(Number(get(r, 'rating')) || 0)));
+    const doneDate = isoDate(get(r, 'doneDate'));
+    const review = clean(get(r, 'review'), 8000);
+    const st = decideStatus(get(r, 'status'), { doneDate, review, rating });
+    // カテゴリ（ブクログで本人が作った分け方）はそのままフォルダに（2026-11-25・前は捨てていた）。
+    const category = clean(get(r, 'category'), 40);
     books.push({
       title: title || `ISBN ${isbn}`,
       author: clean(get(r, 'author'), 100),
       isbn,
-      status: mapStatus(get(r, 'status')),
+      status: st.status,
+      statusGuessed: st.guessed,
       rating,
-      doneDate: isoDate(get(r, 'doneDate')),
-      tags: clean(get(r, 'tags'), 300).split(/[,、\s]+/).map((t) => t.trim()).filter(Boolean).slice(0, 10),
-      review: clean(get(r, 'review'), 8000),
+      doneDate,
+      // タグはカンマ・読点で分ける（空白で割ると「ビジネス 書」が 2 つになっていた・2026-11-25）。
+      tags: clean(get(r, 'tags'), 300).split(/[,、，\n]+/).map((t) => t.trim()).filter(Boolean).slice(0, 10),
+      folders: category && !/^(未設定|なし|-)$/.test(category) ? [category] : [],
+      pages: Math.max(0, Math.min(99999, Math.round(Number(String(get(r, 'pages')).replace(/[^0-9]/g, '')) || 0))),
+      review,
       memos,
     });
   }
-  return { source: 'booklog', books: books.slice(0, IMPORT_MAX_PARSE_BOOKS) };
+  return { source: 'booklog', books: books.slice(0, IMPORT_MAX_PARSE_BOOKS), skipped, skippedExample };
 }
 
 // ── Kindle: My Clippings.txt ─────────────────────────────────────────
@@ -180,13 +213,22 @@ export function parseKindleClippings(text) {
     if (!title || !body) continue;
     const page = Number((meta.match(/(\d+)\s*ページ/) || meta.match(/page\s+(\d+)/i) || [])[1]) || null;
     const key = `${title}\u0000${author}`;
-    if (!byKey.has(key)) byKey.set(key, { title, author, isbn: '', status: 'done', rating: 0, doneDate: '', tags: [], review: '', memos: [] });
+    if (!byKey.has(key)) byKey.set(key, { title, author, isbn: '', status: 'done', statusGuessed: true, rating: 0, doneDate: '', tags: [], review: '', memos: [] });
     const book = byKey.get(key);
-    // 同じ箇所を引き直したハイライトは、最後のものだけ残す（Kindle は上書きしても両方残る）
-    if (book.memos.some((m) => m.text === body)) continue;
+    // 同じ箇所を引き直したハイライトは、最後のものだけ残す（Kindle は上書きしても両方残る）。
+    // ハイライトを伸ばした（片方がもう片方を含む）ときは長いほうだけ（2026-11-25）。
+    if (book.memos.some((m) => m.text === body || m.text.includes(body))) continue;
+    const shorter = book.memos.findIndex((m) => body.includes(m.text));
+    if (shorter >= 0) { book.memos[shorter] = { text: body, page, createdAt: clippingDate(meta) }; continue; }
     book.memos.push({ text: body, page, createdAt: clippingDate(meta) });
     count += 1;
     if (count >= IMPORT_MAX_MEMOS) break;
+  }
+  // いちばん新しいハイライトが 30 日以内の本は「読書中」（読み終えたかは分からないので、確かめる画面で直せる・2026-11-25）。
+  const now = Date.now();
+  for (const b of byKey.values()) {
+    const last = Math.max(0, ...b.memos.map((m) => Date.parse(m.createdAt || '') || 0));
+    if (last && now - last < 30 * 86400000) b.status = 'reading';
   }
   return { source: 'kindle', books: [...byKey.values()].slice(0, IMPORT_MAX_PARSE_BOOKS) };
 }
@@ -222,7 +264,7 @@ export function parseKindleNotebookHtml(html) {
     const page = Number((heading.match(/(?:ページ|Page)\s*(\d+)/i) || [])[1]) || null;
     memos.push({ text, page, createdAt: null });
   }
-  return { source: 'kindle', books: [{ title, author, isbn: '', status: 'done', rating: 0, doneDate: '', tags: [], review: '', memos }] };
+  return { source: 'kindle', books: [{ title, author, isbn: '', status: 'done', statusGuessed: true, rating: 0, doneDate: '', tags: [], review: '', memos }] };
 }
 
 // ── 読書メーター（2026-09-29）────────────────────────────────────────
@@ -308,7 +350,8 @@ function bookmeterBook(rec, statusHint) {
     author: clean(get('author'), 100),
     isbn,
     asin,
-    status: statusRaw ? mapStatus(statusRaw) : (statusHint || 'done'),
+    status: mapStatus(statusRaw) || statusHint || 'done',
+    statusGuessed: !mapStatus(statusRaw) && !statusHint,
     rating: 0,
     doneDate,
     tags: String(tags || '').split(/[,、]+/).map((t) => clean(t, 40)).filter(Boolean).slice(0, 10),
@@ -577,6 +620,79 @@ export function parseStorygraphCsv(text) {
   return { source: 'storygraph', books: books.slice(0, IMPORT_MAX_PARSE_BOOKS) };
 }
 
+// ── 1 行 1 冊の一覧・貼り付け（2026-11-25）───────────────────────────────
+// メモ帳・スプレッドシートから貼った書名の一覧、バーコードの読み取りアプリの ISBN の羅列。
+//   ISBN（10 桁・13 桁・ハイフン可）の行は ISBN、ほかは書名（「書名 / 著者」「書名　著者」は分ける）。
+//   日付だけ・数だけ・「◯ページ」だけの行は飛ばす。状態は分からない（確かめる画面でまとめて決める）。
+const ISBN_LINE = /^(?:ISBN[:：\s]*)?((?:97[89][-\s]?)?\d{1,5}[-\s]?\d{1,7}[-\s]?\d{1,7}[-\s]?[\dXx])$/i;
+export function looksLikePlainList(text) {
+  const lines = String(text || '').replace(/^﻿/, '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (lines.length === 0) return false;
+  // 1 行目が見出し（タイトル・書名・ISBN など）なら表として読む（ブクログの経路が見出しで読む）
+  const firstCell = lines[0].split(/[,\t]/)[0].trim().toLowerCase();
+  if ([...HEADER_ALIASES.title, ...HEADER_ALIASES.isbn].includes(firstCell)) return false;
+  // 表らしい（タブがある・カンマが 2 つ以上）ものは一覧ではない
+  const sep = lines.slice(0, 5).filter((l) => /\t/.test(l) || (l.match(/,/g) || []).length >= 2).length;
+  return sep === 0;
+}
+export function parsePlainList(text) {
+  const lines = String(text || '').replace(/^﻿/, '').split(/\r?\n/).map((l) => clean(l, 300).replace(/^[・•\-*]\s*|^\d+[.)．]\s+/, '')).filter(Boolean);
+  const books = [];
+  let skipped = 0;
+  const seen = new Set();
+  for (const line of lines) {
+    // 日付だけ・数だけ（9 桁まで＝ISBN ではない）・「◯ページ」だけの行は本ではない
+    if (/^\d{4}[-/年.]\d{1,2}([-/月.]\d{1,2})?日?$/.test(line) || /^\d{1,9}\s*(ページ|p|冊)?$/i.test(line)) { skipped += 1; continue; }
+    const m = line.match(ISBN_LINE);
+    const digits = m ? m[1].replace(/[^0-9Xx]/g, '') : '';
+    let book;
+    if (digits && (digits.length === 13 || digits.length === 10)) {
+      const isbn = digits.length === 13 ? digits : asinToIsbn13(digits);
+      if (!isbn) { skipped += 1; continue; }
+      book = { title: `ISBN ${isbn}`, author: '', isbn, needsLookup: true };
+    } else {
+      const parts = line.split(/\s+[/／|｜]\s+|\s*[／｜]\s*|\t|　{1,}/).map((x) => x.trim()).filter(Boolean);
+      book = { title: clean(parts[0], 200), author: clean(parts[1] || '', 100), isbn: '', needsLookup: true };
+    }
+    const key = book.isbn || book.title;
+    if (!book.title || seen.has(key)) continue;
+    seen.add(key);
+    books.push({ ...book, status: 'before', statusGuessed: true, rating: 0, doneDate: '', tags: [], review: '', memos: [] });
+  }
+  return { source: 'list', books: books.slice(0, IMPORT_MAX_PARSE_BOOKS), skipped };
+}
+
+// ── orime 自身の書き出し（設定 → データをダウンロード・1 つの CSV・先頭の列 table）を読み戻す（2026-11-25）──
+export function looksLikeOrimeExport(text) {
+  const first = String(text || '').replace(/^﻿/, '').split(/\r?\n/, 1)[0];
+  return /^"?table"?,/.test(first) && /leverage_memo|book_id/.test(first);
+}
+export function parseOrimeExport(text) {
+  const rows = parseCsv(String(text || '').replace(/^﻿/, ''), ',');
+  if (rows.length < 2) return { source: 'orime', books: [] };
+  const head = rows[0];
+  const recs = rows.slice(1).map((r) => Object.fromEntries(head.map((h, i) => [h, r[i] ?? ''])));
+  const byId = new Map();
+  for (const r of recs.filter((x) => x.table === 'books')) {
+    const title = clean(r.title, 200);
+    if (!title) continue;
+    byId.set(r.id, {
+      title, author: clean(r.author, 100), isbn: clean(r.isbn, 20).replace(/[^0-9Xx]/g, ''), asin: clean(r.asin, 20),
+      status: mapStatus(r.status) || 'done', rating: Math.max(0, Math.min(5, Math.round(Number(r.rating) || 0))),
+      doneDate: isoDate(r.done_date), pages: Number(r.total_pages) || 0,
+      tags: [], folders: [], review: clean(r.leverage_memo, 8000), memos: [],
+    });
+  }
+  for (const r of recs.filter((x) => x.table === 'book_tags')) { const b = byId.get(r.book_id); if (b && r.tag_name) b.tags.push(clean(r.tag_name, 40)); }
+  for (const r of recs.filter((x) => x.table === 'book_collections')) { const b = byId.get(r.book_id); if (b && r.collection_name) b.folders.push(clean(r.collection_name, 40)); }
+  for (const r of recs.filter((x) => x.table === 'book_memos')) {
+    const b = byId.get(r.book_id);
+    const t = clean(r.text, 4000);
+    if (b && t) b.memos.push({ text: t, page: Number(r.page_number) || null, createdAt: r.created_at || null });
+  }
+  return { source: 'orime', books: [...byId.values()].slice(0, IMPORT_MAX_PARSE_BOOKS) };
+}
+
 // ── 入口: ファイル名と中身から形式を当てる ─────────────────────────────
 export function parseImportText(fileName, text) {
   const name = String(fileName || '').toLowerCase();
@@ -585,10 +701,14 @@ export function parseImportText(fileName, text) {
     return isBookmeterHtml(t) ? parseBookmeterHtml(t, fileName) : parseKindleNotebookHtml(t);
   }
   if (name.endsWith('.json') || /^\s*[[{]/.test(t.replace(/^﻿/, ''))) return parseBookmeterJson(t, fileName);
-  if (name.endsWith('.txt') || /^={5,}\s*$/m.test(t)) return parseKindleClippings(t);
+  if (/^={5,}\s*$/m.test(t)) return parseKindleClippings(t);
+  if (name.endsWith('.txt') && !looksLikePlainList(t)) return parseKindleClippings(t);
+  if (looksLikeOrimeExport(t)) return parseOrimeExport(t);
   if (looksLikeGoodreadsCsv(t)) return parseGoodreadsCsv(t);
   if (looksLikeStorygraphCsv(t)) return parseStorygraphCsv(t);
   if (looksLikeBookmeterCsv(fileName, t)) return parseBookmeterCsv(t, fileName);
+  // 1 行 1 冊（書名か ISBN）の一覧・貼り付け（区切りの無いテキスト）
+  if ((name.endsWith('.txt') || name.endsWith('.csv') || !name) && looksLikePlainList(t)) return parsePlainList(t);
   return parseBooklogCsv(t);
 }
 
@@ -653,11 +773,15 @@ export function mergeImportResults(results) {
   list.forEach((r) => { if (r.total > 0) totals.set(r.shelf || '', Math.max(totals.get(r.shelf || '') || 0, r.total)); });
   const total = [...totals.values()].reduce((n, v) => n + v, 0);
   const shelf = totals.size === 1 ? [...totals.keys()][0] : '';
+  // 読めなかった行の数（2026-11-25・黙って飛ばさない）
+  const skipped = list.reduce((n, r) => n + (Number(r.skipped) || 0), 0);
+  const skippedExample = (list.find((r) => r.skippedExample) || {}).skippedExample || '';
   return {
     source: sources.length === 1 ? sources[0] : 'mixed',
     books: [...new Set(byKey.values())],
     // found: 棚の全冊数と比べる冊数（読書メーターのページから読めた本だけ）。
     ...(total ? { total, shelf, found: shelfBooks.size } : null),
+    ...(skipped ? { skipped, skippedExample } : null),
   };
 }
 

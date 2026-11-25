@@ -183,3 +183,14 @@ describe('searchBooksServer', () => {
     expect(r.results[0].title).toBe('考え方');
   });
 });
+
+describe('ISBN だけの問い（2026-11-25 引越し）', () => {
+  it('ISBN-13・ハイフン・ISBN-10 を ISBN-13 に・楽天は isbn で引く', async () => {
+    const { isbnQuery, rakutenPlan } = await import('./_bookSearch.js');
+    expect(isbnQuery('9784763141712')).toBe('9784763141712');
+    expect(isbnQuery('978-4-7631-4171-2')).toBe('9784763141712');
+    expect(isbnQuery('4763141716')).toBe('9784763141712');
+    expect(isbnQuery('考え方')).toBe('');
+    expect(rakutenPlan('9784763141712')).toEqual([expect.objectContaining({ api: 'BooksBook/Search', params: expect.objectContaining({ isbn: '9784763141712' }) })]);
+  });
+});

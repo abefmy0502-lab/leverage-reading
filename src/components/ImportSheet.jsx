@@ -4,14 +4,18 @@
 // 流れ: ファイルを選ぶ → 見つかった本とメモを確かめる → 取り込む → 相談してみる。
 // 読み取りは端末の中だけ（AI も外部送信も使わない）。保存は App の onImport（重複は既存の本に足す）。
 // 見た目は DESIGN.md のトークンのみ。主ボタンは各段で 1 つ。
-import { useMemo, useRef, useState } from 'react';
-import { FileUp, BookOpen } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { FileUp, BookOpen, ClipboardPaste } from 'lucide-react';
 import BottomSheet from './BottomSheet';
 import { useConfirm } from './ConfirmDialog';
 import ErrorMessage from './ErrorMessage';
 import NotifyOptInCard from './NotifyOptInCard';
 import { withPhraseBreaks } from './TightBubble';
 import { btnPrimary, btnPrimaryOff, btnLink } from '../styles/ui';
+import { resolveListBooks, setGuessedStatus } from '../lib/importLookup';
+import { searchBooksOnServer } from '../lib/bookSearch';
+import { input as uiInput } from '../styles/ui';
+import { autoGrowTextarea } from '../hooks/useComposerHeight';
 import { decodeImportBytes, parseImportText, summarizeImport, mergeImportResults, importShortfall, planImport, IMPORT_MAX_BYTES, IMPORT_MAX_BOOKS } from '../lib/importers';
 import { track } from '../lib/analytics';
 
@@ -39,7 +43,9 @@ const QUICKSTART_MAX_BOOKS = 5;
 // 冊数は 3 桁ごとに区切る（1,000）。
 const fmt = (n) => Number(n || 0).toLocaleString('ja-JP');
 
-const SOURCE_LABEL = { booklog: 'ブクログ', bookmeter: '読書メーター', kindle: 'Kindle', goodreads: 'Goodreads', storygraph: 'StoryGraph' };
+const SOURCE_LABEL = { booklog: 'ブクログ', bookmeter: '読書メーター', kindle: 'Kindle', goodreads: 'Goodreads', storygraph: 'StoryGraph', orime: 'orime の書き出し', list: '一覧' };
+// 状態をまとめて決める選択肢（状態が分からない本・2026-11-25）。
+const GUESS_CHOICES = [['before', '積読'], ['reading', '読書中'], ['done', '読了'], ['want', '読みたい']];
 // 読書メーターの棚の名前（保存したページの棚。残りのページの案内に使う）。
 const SHELF_LABEL = { done: '読んだ本', reading: '読んでる本', before: '積読本', want: '読みたい本' };
 // 確かめる画面の各行に出す、取り込んだあとの本の状態（アプリの 4 つの状態の名前）。
@@ -57,7 +63,12 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
   const [largeText] = useState(() => {
     try { return parseFloat(getComputedStyle(document.documentElement).fontSize) >= 22; } catch { return false; }
   });
-  const [step, setStep] = useState('pick'); // pick | preview | importing | done
+  const [step, setStep] = useState('pick'); // pick | paste | checking | preview | importing | done
+  // 貼り付けた一覧（2026-11-25）。
+  const [pasteText, setPasteText] = useState('');
+  // 書店で確かめている間の止め（シートを閉じたら止める）。
+  const lookupRef = useRef(null);
+  useEffect(() => () => lookupRef.current?.abort(), []);
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
@@ -99,21 +110,57 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
         setError('読み取れる本がありませんでした。下のどれかのファイルを選んでください。');
         return;
       }
-      // 本棚にある本のメモの本文を先に読む（確かめる画面の数が、出てから減って見えないように）。
-      let texts = null;
-      if (loadMemoTexts) {
-        const ids = planImport(r, existingBooks).matchedIds;
-        if (ids.length) {
-          try { texts = await loadMemoTexts(ids); } catch { texts = null; }
-        }
-      }
-      setMemoTexts(texts);
-      setError(''); // 前に選んだファイルの「取り込めませんでした」を残さない
-      setResult(r);
-      setStep('preview');
-      track('import_previewed', { source: r.source, ...summarizeImport(r) });
+      await prepare(r);
     } catch {
       setError('ファイルを読み取れませんでした。ファイルの形式を確認して、もう一度お試しください。');
+    }
+  };
+
+  // 読めた結果を確かめる画面へ。1 行 1 冊の一覧は、先に書店の検索で本を確かめる（2026-11-25・lib/importLookup.js）。
+  const prepare = async (r0) => {
+    let r = r0;
+    const needs = r.books.filter((b) => b.needsLookup).length;
+    if (needs) {
+      lookupRef.current?.abort();
+      const ctrl = new AbortController();
+      lookupRef.current = ctrl;
+      setError('');
+      setProgress({ done: 0, total: needs });
+      setStep('checking');
+      const res = await resolveListBooks(r.books, {
+        search: (q) => searchBooksOnServer(q, { signal: ctrl.signal }),
+        onEach: (done, total) => setProgress({ done, total }),
+        signal: ctrl.signal,
+      });
+      if (ctrl.signal.aborted) return;
+      r = { ...r, books: res.books, lookup: { found: Math.max(0, res.found - (res.merged || 0)), loose: res.loose, missing: res.missing } };
+    }
+    // 本棚にある本のメモの本文を先に読む（確かめる画面の数が、出てから減って見えないように）。
+    let texts = null;
+    if (loadMemoTexts) {
+      const ids = planImport(r, existingBooks).matchedIds;
+      if (ids.length) {
+        try { texts = await loadMemoTexts(ids); } catch { texts = null; }
+      }
+    }
+    setMemoTexts(texts);
+    setError(''); // 前に選んだファイルの「取り込めませんでした」を残さない
+    setResult(r);
+    setStep('preview');
+    track('import_previewed', { source: r.source, ...summarizeImport(r) });
+  };
+
+  // 📋 一覧を貼り付ける（2026-11-25）: 書名か ISBN を 1 行に 1 冊。読書メーターの「テキストのみ」のコピーや、
+  //   スプレッドシートの列のコピーもそのまま（書名に見えない行は書店で確かめて外せる）。
+  const readPasted = async () => {
+    const text = pasteText.trim();
+    if (!text) return;
+    try {
+      const one = parseImportText('pasted.txt', text);
+      if (!one?.books?.length) { setError('本として読める行がありませんでした。書名か ISBN を 1 行に 1 冊ずつ書いてください。'); return; }
+      await prepare({ ...mergeImportResults([one]), fileCount: 1, unreadFiles: [] });
+    } catch {
+      setError('読み取れませんでした。書名か ISBN を 1 行に 1 冊ずつ書いてください。');
     }
   };
 
@@ -178,7 +225,8 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
         <ul style={list}>
           <li style={howItem}>
             <p style={howTitle}>ブクログ</p>
-            <p style={body}>Web のブクログで「設定」→「エクスポート」から CSV を保存して選びます。レビューと読書メモも取り込みます。</p>
+            {/* 公式ヘルプの手順（パソコンの Web 版だけ・本棚マーク → スパナ → エクスポート・2026-11-25 調査）。 */}
+            <p style={body}>パソコンの Web 版のブクログで、本棚の本棚マーク → スパナのマーク →「エクスポート」で CSV を保存して選びます。スマホのアプリからは書き出せません。レビュー・読書メモ・カテゴリ（フォルダになります）も取り込みます。</p>
           </li>
           <li style={howItem}>
             {/* 読書メーターには公式の書き出しが無いので、パソコンで保存したページ（.html）を選ぶ。書き出しツールの CSV もそのまま読める（ヘルプ）。 */}
@@ -210,6 +258,48 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
         <button type="button" onClick={pickFile} style={btnPrimary}>
           <FileUp size="1.1em" aria-hidden="true" style={{ flexShrink: 0 }} /><span style={{ wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('ファイルを選ぶ')}</span>
         </button>
+        {/* ファイルが無い人の入口（書名か ISBN の一覧を貼る・2026-11-25）。 */}
+        <button type="button" onClick={() => { setError(''); setStep('paste'); }} style={{ ...btnLink, width: '100%' }}>
+          <ClipboardPaste size="1.1em" aria-hidden="true" style={{ flexShrink: 0 }} />書名の一覧を貼り付ける
+        </button>
+      </div>
+    );
+  } else if (step === 'paste') {
+    content = (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+        {error && <ErrorMessage icon={null} title="読み取れませんでした" description={error} />}
+        <p style={body}>{withPhraseBreaks('書名か ISBN を 1 行に 1 冊ずつ。著者は「書名 / 著者」のように書けます。書店で本を確かめてから、取り込む前に一覧で見られます。')}</p>
+        <textarea
+          value={pasteText}
+          autoFocus
+          maxLength={200000}
+          rows={8}
+          aria-label="書名の一覧"
+          placeholder={'考え方 / 稲盛和夫\n9784763141712\n7つの習慣'}
+          onChange={(e) => { setPasteText(e.target.value); autoGrowTextarea(e.target); }}
+          style={{ ...uiInput, resize: 'none', overflowY: 'auto', minHeight: 'calc(var(--text-body) * 1.6 * 8 + var(--space-6))', maxHeight: '50vh', lineHeight: 1.6 }}
+        />
+      </div>
+    );
+    footer = (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+        <button type="button" onClick={readPasted} disabled={!pasteText.trim()} style={pasteText.trim() ? btnPrimary : btnPrimaryOff}>読み取る</button>
+        <button type="button" onClick={() => { setError(''); setStep('pick'); }} style={{ ...btnLink, width: '100%' }}>ファイルを選ぶに戻る</button>
+      </div>
+    );
+  } else if (step === 'checking') {
+    content = (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+        <p style={heading}>書店で本を確かめています</p>
+        <p style={body}>{withPhraseBreaks('書名と ISBN から、書名・著者・表紙を合わせています。見つからない本も、書いた書名のまま入ります。')}</p>
+      </div>
+    );
+    footer = (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+        <button type="button" disabled aria-disabled="true" style={{ ...btnPrimaryOff, fontVariantNumeric: 'tabular-nums' }}>
+          <span role="status" aria-live="polite">{progress.total > 0 ? `確かめています（${Math.min(progress.done, progress.total)} / ${progress.total} 冊）` : '確かめています…'}</span>
+        </button>
+        <button type="button" onClick={() => { lookupRef.current?.abort(); setStep(pasteText.trim() ? 'paste' : 'pick'); }} style={{ ...btnLink, width: '100%' }}>やめる</button>
       </div>
     );
   } else if ((step === 'preview' || step === 'importing') && result) {
@@ -221,6 +311,10 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
     const plan = importing && planSnap ? planSnap : livePlan;
     // 一覧は新しい本を先に（最大 20 冊）。本棚にある本は 1 行にまとめる（「本棚にある本 N 冊（新しいメモ M 件を足す）」・2026-09-29）。
     const newRows = plan.rows.filter((r) => !r.existing);
+    const guessedRows = newRows.filter((r) => r.book.statusGuessed);
+    const guessedCount = guessedRows.length;
+    // いま選んでいる状態（決めつけた本がみな同じ状態なら、その状態を選んだ形に）
+    const guessedStatus = guessedCount && guessedRows.every((r) => r.book.status === guessedRows[0].book.status) ? guessedRows[0].book.status : '';
     const shown = newRows.slice(0, 20);
     // 数と単位は離さない（改行しない空白）。改行してよいのは「ブクログ：」のあとと「（まとめ…）」の前だけ
     // （keep-all なので「・」の前後では切れない＝「・」で終わる行ができない）。
@@ -247,6 +341,39 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
             {files - unread.length > 1 ? '選んだファイル' : 'ファイル'}には<span style={nowrap}> {fmt(plan.fileBooks)} 冊</span>あります。一度に取り込めるのは<span style={nowrap}> {fmt(IMPORT_MAX_BOOKS)} 冊</span>まで。取り込んだあと同じファイルをもう一度選ぶと、<span style={nowrap}>残りの {fmt(plan.remainingBooks)} 冊を</span>取り込めます。
           </p>
         )}
+        {/* 🧭 状態が分からない本（取り込み元に状態が無い・分からない値・Kindle のハイライト・一覧）をまとめて決める（2026-11-25）。
+            前は分からない本をすべて「読了」にしていた。 */}
+        {!importing && guessedCount > 0 && (
+          <div role="group" aria-labelledby="import-guess-h" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+            <p id="import-guess-h" style={{ ...body, color: 'var(--text)' }}>
+              <span style={nowrap}>状態が分からない本 {fmt(guessedCount)} 冊</span>{withPhraseBreaks('は、この状態で入れます')}
+            </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+              {GUESS_CHOICES.map(([v, label]) => {
+                const on = guessedStatus === v;
+                return (
+                  <button
+                    key={v}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => setResult((cur) => setGuessedStatus(cur, v))}
+                    style={{ minHeight: 'var(--tap-min)', padding: '0 var(--space-4)', borderRadius: 'var(--radius)', border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`, background: on ? 'var(--accent-soft)' : 'transparent', color: on ? 'var(--accent)' : 'var(--text)', fontSize: 'var(--text-sub)', fontWeight: on ? 600 : 400, fontFamily: 'inherit', cursor: 'pointer' }}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        {/* 書店で確かめた結果（一覧・貼り付け）。見つからない本も書いた書名のまま入る（消さない）。 */}
+        {result.lookup && (
+          <p role="note" style={body}>
+            {withPhraseBreaks(`書店で確かめた本 ${fmt(result.lookup.found)} 冊`)}
+            {result.lookup.loose > 0 && <>{KEEP_DOT}{withPhraseBreaks(`近い書名に合わせた本 ${fmt(result.lookup.loose)} 冊`)}</>}
+            {result.lookup.missing > 0 && <>{KEEP_DOT}{withPhraseBreaks(`見つからなかった本 ${fmt(result.lookup.missing)} 冊（書いた書名のまま入ります）`)}</>}
+          </p>
+        )}
         <ul style={{ ...list, gap: 0 }}>
           {shown.map(({ book: b, memos: n, summary }, i) => (
             <li key={`${b.title}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minHeight: 44, padding: IMPORT_STATUS_LABEL[b.status] ? 'var(--space-2) 0' : 0, borderTop: i ? '1px solid var(--separator)' : 'none' }}>
@@ -254,7 +381,13 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
               <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
                 <span style={{ fontSize: 'var(--text-sub)', color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</span>
                 {/* 新しい本は、どの状態で入るかを小さく（読了／読書中など・2026-09-29）。 */}
-                {IMPORT_STATUS_LABEL[b.status] && <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>{IMPORT_STATUS_LABEL[b.status]}</span>}
+                {IMPORT_STATUS_LABEL[b.status] && (
+                  <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {IMPORT_STATUS_LABEL[b.status]}
+                    {b.matchedLoosely && b.typedTitle ? `・「${b.typedTitle}」から近い本に` : ''}
+                    {b.unverified ? '・書店で見つかりませんでした' : ''}
+                  </span>
+                )}
               </span>
               {n > 0 ? (
                 // まとめも入る本は「メモ n・まとめ」（各行を足すと見出しの「メモ M 件（まとめ K 件を含む）」になるように）。
@@ -295,6 +428,12 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
             {SHELF_LABEL[shortfall.shelf] || '本棚の本'}は<span style={nowrap}>全 {shortfall.total} 冊</span>です。{files > 1 ? '保存したページ' : 'このファイル'}には <span style={nowrap}>{shortfall.found} 冊</span>。残りのページも保存して選んでください。
           </p>
         )}
+        {/* 読めなかった行（書名も ISBN も無い行・2026-11-25 黙って飛ばさない）。 */}
+        {result.skipped > 0 && (
+          <p role="note" style={{ ...body, overflowWrap: 'anywhere' }}>
+            {withPhraseBreaks(`${fmt(result.skipped)} 行は本として読めませんでした`)}{result.skippedExample ? `（例: ${result.skippedExample}）` : ''}。
+          </p>
+        )}
         {/* 本が 1 冊も読めなかったファイル（いくつか選んだうちの 1 つが別の形式など）。 */}
         {unread.length > 0 && (
           <p role="note" style={{ ...body, overflowWrap: 'anywhere' }}>読み取れなかったファイル: {unread.join('、')}</p>
@@ -304,7 +443,7 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
     );
     // 取り込み中: 主ボタンを押せない形にして進み具合を出す。「別のファイルを選ぶ」は場所だけ残して隠す（高さを変えない）。
     const progressLabel = progress.total > 0
-      ? `取り込んでいます（${Math.min(progress.done + 1, progress.total)} / ${progress.total} 冊）`
+      ? `取り込んでいます（${Math.min(progress.done, progress.total)} / ${progress.total} 冊）`
       : '取り込んでいます…';
     footer = (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
@@ -318,7 +457,7 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
         {/* 50 冊以上の取り込み中は、「別のファイルを選ぶ」の場所に待ち時間の案内（閉じて途中で止めないように・2026-09-29）。 */}
         {importing && (plan.books?.length || 0) >= 50 ? (
           <p style={{ ...body, fontSize: 'var(--text-meta)', textAlign: 'center', minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-            <span>1 分ほどかかることがあります。<wbr />画面を開いたままお待ちください</span>
+            <span>{(plan.books?.length || 0) >= 500 ? '数分かかることがあります。' : '1 分ほどかかることがあります。'}<wbr />画面を開いたままお待ちください</span>
           </p>
         ) : (
           <button

@@ -3017,7 +3017,9 @@ function AuthedApp() {
             ...(() => {
               const { fields, folders } = splitLegacyTags(Array.isArray(b.tags) ? b.tags : []);
               if (!fields.length) autoFieldTitles.add(String(b.title || ''));
-              return { tags: fields.length ? fields : classifyBook({ title: b.title }), collections: folders };
+              // 取り込み元のカテゴリ・本棚（ブクログのカテゴリ・orime の書き出しのフォルダ）もフォルダへ（2026-11-25）
+              const extra = Array.isArray(b.folders) ? b.folders.map((f) => String(f || '').slice(0, 40)).filter(Boolean) : [];
+              return { tags: fields.length ? fields : classifyBook({ title: b.title }), collections: [...new Set([...folders, ...extra])].slice(0, 20) };
             })(),
             leverageMemo: b.review || '',
             addedVia: isbn ? 'search' : 'manual',

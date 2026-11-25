@@ -863,6 +863,10 @@ const SCREENS = [
   { name: 'add-book-manual', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を追加"]' }, { css: 'button:has-text("手動で入力する")' }] },
   // 書名が空のまま「保存」: 書名の欄が --error の枠＋「書名を入れてください」（SPEC 1-2）
   { name: 'add-book-manual-empty', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を追加"]' }, { css: 'button:has-text("手動で入力する")' }, { fill: ['input[aria-label="書名（必須）"]', ''] }, { css: 'button:text-is("保存")' }] },
+  // 🚚 引越し（2026-11-25）: 一覧を貼り付ける → 書店で確かめる → 状態が分からない本をまとめて決める
+  { name: 'import-paste', url: '/', steps: [{ css: 'button[aria-label="設定を開く"]' }, { css: 'button:has-text("ほかのアプリから取り込む")' }, { css: 'button:has-text("書名の一覧を貼り付ける")' }, { fill: ['textarea[aria-label="書名の一覧"]', '考え方 / 稲盛和夫\n9784479795735\n7つの習慣\nぜったいに無い本のなまえ'] }, { wait: 300 }] },
+  { name: 'import-paste-preview', url: '/', steps: [{ css: 'button[aria-label="設定を開く"]' }, { css: 'button:has-text("ほかのアプリから取り込む")' }, { css: 'button:has-text("書名の一覧を貼り付ける")' }, { fill: ['textarea[aria-label="書名の一覧"]', '考え方 / 稲盛和夫\n9784479795735\n7つの習慣\nぜったいに無い本のなまえ'] }, { css: 'button:has-text("読み取る")' }, { wait: 4000 }] },
+  { name: 'import-kindle-guess', url: '/', steps: [{ css: 'button[aria-label="設定を開く"]' }, { css: 'button:has-text("ほかのアプリから取り込む")' }, { upload: ['input[type=file]', 'scripts/fixtures/kindle-clippings.txt'] }, { wait: 1500 }] },
   { name: 'import-preview', url: '/', steps: [{ css: 'button[aria-label="設定を開く"]' }, { css: 'button:has-text("ほかのアプリから取り込む")' }, { upload: ['input[type=file]', 'scripts/fixtures/booklog.csv'] }, { wait: 1200 }] },
   // 読書メーター（2026-09-29）: 書き出しツールの CSV（感想・読了日・本棚つき）
   { name: 'import-preview-bookmeter', url: '/', steps: [{ css: 'button[aria-label="設定を開く"]' }, { css: 'button:has-text("ほかのアプリから取り込む")' }, { upload: ['input[type=file]', 'scripts/fixtures/bookmeter.csv'] }, { wait: 1200 }] },

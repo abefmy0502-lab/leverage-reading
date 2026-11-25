@@ -53,7 +53,11 @@ function catalog() {
 export function demoServerSearch(q) {
   const words = String(q || '').normalize('NFKC').trim().split(/\s+/).filter(Boolean);
   if (!words.length) return { results: [] };
-  const hits = catalog().filter((b) => words.every((w) => isRelated(w, b)));
+  // ISBN だけの問い（引越しの一覧・2026-11-25）は同じ ISBN の本（本番の楽天は isbn で引く）
+  const digits = String(q || '').replace(/[-\s]/g, '');
+  const hits = /^97[89]\d{10}$/.test(digits)
+    ? catalog().filter((b) => b.isbn === digits)
+    : catalog().filter((b) => words.every((w) => isRelated(w, b)));
   const seen = new Set();
   const results = rankBooks(q, hits)
     .filter((b) => (seen.has(b.isbn) ? false : seen.add(b.isbn)))

@@ -71,6 +71,9 @@ export function parseRakutenSearch(body) {
 export function rakutenPlan(q) {
   const words = q.split(' ').filter(Boolean);
   const common = { hits: String(RAKUTEN_HITS), sort: 'sales', outOfStockFlag: '1', elements: RAKUTEN_ELEMENTS };
+  // ISBN だけの問い（引越しの一覧・バーコードの羅列・2026-11-25）は ISBN で引く（書名・キーワードでは当たらない）。
+  const isbn = isbnQuery(q);
+  if (isbn) return [{ api: 'BooksBook/Search', params: { ...common, isbn } }];
   const keyword = { api: 'BooksTotal/Search', params: { ...common, keyword: q, booksGenreId: '001' } };
   if (words.length <= 1) {
     // 書名がまるごと一致する本が売上順の 30 冊に入らなかったら、関係の深い順でもう一度書名を引く
@@ -128,12 +131,24 @@ export function fromGoogleVolume(v, rank) {
   };
 }
 
+// 「9784763141712」「978-4-7631-4171-2」「4763141716」→ ISBN-13（でなければ ''）。
+export function isbnQuery(q) {
+  const d = String(q || '').replace(/^isbn[:：\s]*/i, '').replace(/[-\s]/g, '');
+  if (/^97[89]\d{10}$/.test(d)) return d;
+  if (/^\d{9}[\dXx]$/.test(d)) {
+    const core = `978${d.slice(0, 9)}`;
+    const sum = [...core].reduce((acc, c, i) => acc + Number(c) * (i % 2 ? 3 : 1), 0);
+    return `${core}${(10 - (sum % 10)) % 10}`;
+  }
+  return '';
+}
+
 async function searchGoogle(q, { env, fetchImpl }) {
   const key = (env.GOOGLE_BOOKS_API_KEY || '').trim();
   if (!key) return { state: 'off', status: 0, items: [] };
   try {
     const r = await fetchImpl(
-      `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=20&country=JP&printType=books&key=${encodeURIComponent(key)}`,
+      `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(isbnQuery(q) ? `isbn:${isbnQuery(q)}` : q)}&maxResults=20&country=JP&printType=books&key=${encodeURIComponent(key)}`,
       { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) },
     );
     if (!r.ok) return { state: 'error', status: r.status, items: [] };
@@ -251,7 +266,10 @@ export async function searchBooksServer(rawQuery, {
   }
   const tried = [rk, gg, nd].filter((s) => s.state === 'ok' || s.state === 'error');
   const ok = tried.some((s) => s.state === 'ok');
-  const results = rankBooks(q, merged).slice(0, SEARCH_MAX_RESULTS).map(toClientBook);
+  // ISBN の問いは、同じ ISBN の本を先頭に（書名の近さでは並べない）。
+  const iq = isbnQuery(q);
+  const ranked = iq ? [...merged.filter((b) => b.isbn === iq), ...merged.filter((b) => b.isbn !== iq)] : rankBooks(q, merged);
+  const results = ranked.slice(0, SEARCH_MAX_RESULTS).map(toClientBook);
   return {
     ok,
     results,

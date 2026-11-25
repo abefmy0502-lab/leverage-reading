@@ -338,3 +338,63 @@ describe('Goodreads・StoryGraph の書き出し（2026-11-25）', () => {
     expect(r.books[1]).toMatchObject({ status: 'done', rating: 2, doneDate: '2024-10-20', review: 'meh' });
   });
 });
+
+describe('引越しの精度（2026-11-25 調査 company/research/tsundokuka-and-migration-2026-11.md の A 群）', () => {
+  it('分からない状態を読了にしない（未読＝積読・読中＝読書中・to-read＝読みたい・空欄は手がかりで）', async () => {
+    const { mapStatus, decideStatus } = await import('./importers');
+    expect(mapStatus('未読')).toBe('before');
+    expect(mapStatus('読中')).toBe('reading');
+    expect(mapStatus('to-read')).toBe('want');
+    expect(mapStatus('currently-reading')).toBe('reading');
+    expect(mapStatus('before')).toBe('before');
+    expect(mapStatus('読み終わった')).toBe('done');
+    expect(mapStatus('???')).toBe('');
+    expect(decideStatus('', {})).toEqual({ status: 'before', guessed: true });
+    expect(decideStatus('', { doneDate: '2024-01-01' })).toEqual({ status: 'done', guessed: true });
+    expect(decideStatus('積読', {})).toEqual({ status: 'before', guessed: false });
+  });
+  it('ブクログ: 見出しなしの 17 列（ページ数・カテゴリ → フォルダ）・空白を含むタグを割らない・読めない行を数える', async () => {
+    const { parseBooklogCsv } = await import('./importers');
+    const row = '1,4763141716,9784763141712,仕事,4,積読,,"ビジネス 書,習慣",,2024-01-02 10:00:00,,迷わない心のつくり方,稲盛和夫,サンマーク出版,2024,ビジネス,192';
+    const r = parseBooklogCsv(`${row}\n1,,,,,,,,,,,,,,,,`);
+    expect(r.books[0]).toMatchObject({ status: 'before', statusGuessed: false, pages: 192, folders: ['仕事'], tags: ['ビジネス 書', '習慣'] });
+    expect(r.skipped).toBe(1);
+  });
+  it('Kindle: ハイライトを伸ばしたら長いほうだけ・最近のハイライトの本は読書中', async () => {
+    const { parseKindleClippings } = await import('./importers');
+    const now = new Date();
+    const d = `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 10:00:00`;
+    const clip = (t) => `本 (著者)\n- 1ページのハイライト |作成日: ${d}\n\n${t}\n==========\n`;
+    const r = parseKindleClippings(clip('考え方が大事') + clip('人生の結果は考え方が大事'));
+    expect(r.books[0].memos.map((m) => m.text)).toEqual(['人生の結果は考え方が大事']);
+    expect(r.books[0].status).toBe('reading');
+  });
+  it('1 行 1 冊の一覧（書名・ISBN・「書名 / 著者」・日付や数だけの行は飛ばす）', async () => {
+    const { parseImportText } = await import('./importers');
+    const r = parseImportText('list.txt', '考え方 / 稲盛和夫\n9784763141712\n2024/01/01\n・7つの習慣\n考え方 / 稲盛和夫\n320ページ');
+    expect(r.source).toBe('list');
+    expect(r.books.map((b) => [b.title, b.author, b.isbn])).toEqual([['考え方', '稲盛和夫', ''], ['ISBN 9784763141712', '', '9784763141712'], ['7つの習慣', '', '']]);
+    expect(r.books.every((b) => b.statusGuessed && b.needsLookup)).toBe(true);
+    expect(r.skipped).toBe(2);
+  });
+  it('タブ区切り・UTF-16 も読める', async () => {
+    const { parseImportText, decodeImportBytes } = await import('./importers');
+    expect(parseImportText('x.csv', 'タイトル\t著者\n考え方\t稲盛和夫').books[0]).toMatchObject({ title: '考え方', author: '稲盛和夫' });
+    const s = '﻿タイトル';
+    const buf = new Uint8Array(s.length * 2);
+    for (let i = 0; i < s.length; i += 1) { buf[i * 2] = s.charCodeAt(i) & 0xff; buf[i * 2 + 1] = s.charCodeAt(i) >> 8; }
+    expect(decodeImportBytes(buf)).toBe('タイトル');
+  });
+  it('orime 自身の書き出しを読み戻す（本・分野・フォルダ・メモ・まとめ）', async () => {
+    const { parseImportText } = await import('./importers');
+    const csv = 'table,id,title,author,status,rating,done_date,leverage_memo,isbn,book_id,tag_name,collection_name,text,page_number,created_at\n'
+      + 'books,b1,考え方,稲盛和夫,before,0,,まとめ,9784837927645,,,,,,\n'
+      + 'book_tags,t1,,,,,,,,b1,経営・組織,,,,\n'
+      + 'book_collections,c1,,,,,,,,b1,,会社の課題図書,,,\n'
+      + 'book_memos,m1,,,,,,,,b1,,,心に残った一文,12,2024-01-01T00:00:00Z\n';
+    const r = parseImportText('orime-export.csv', csv);
+    expect(r.source).toBe('orime');
+    expect(r.books[0]).toMatchObject({ title: '考え方', status: 'before', review: 'まとめ', tags: ['経営・組織'], folders: ['会社の課題図書'] });
+    expect(r.books[0].memos[0]).toMatchObject({ text: '心に残った一文', page: 12 });
+  });
+});
