@@ -51,7 +51,7 @@ import { planNameFor, planPeriodOf, trialRenewalLine, trialCancelNote, trialCanc
 import { FREE_TOKENS } from '../lib/tokens';
 import { FREE_OCR_PER_MONTH } from '../lib/tokenAmounts';
 import { nextResetLabelJa } from '../lib/freeTrial';
-import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff, btnDanger, btnLink, input as uiInput } from '../styles/ui';
+import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff, btnDanger, btnLink, input as uiInput, srOnly } from '../styles/ui';
 import { ChevronRight, Download as IcDownload, ExternalLink, RefreshCw as IcRefresh } from 'lucide-react';
 import { useNoteLinks } from '../hooks/useNoteLinks';
 import { SkeletonBlock } from './Skeleton';
@@ -1350,6 +1350,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
                 <span style={{ flex: 1, minWidth: 0 }}>
                   <span style={{ ...rowTitleStyle, display: 'block' }}>くわしい使い方（note）</span>
                   <span style={{ ...rowDescStyle, display: 'block' }}>機能ごとの説明書</span>
+                  <span style={srOnly}>（ブラウザで開きます）</span>
                 </span>
                 <ExternalLink size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
               </a>

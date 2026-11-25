@@ -20,7 +20,7 @@ import { useNoteLinks } from '../hooks/useNoteLinks';
 import { noteGuideUrl } from '../lib/noteLinks';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { getHelp, HELP_FAQ, HELP_SCREEN_ORDER } from '../lib/helpContent';
-import { btnLink, card, groupTitle, input as uiInput } from '../styles/ui';
+import { btnLink, card, groupTitle, input as uiInput, srOnly } from '../styles/ui';
 import { withPhraseBreaks } from './TightBubble';
 
 const overlayStyle = {
@@ -477,6 +477,7 @@ export default function HelpModal({ helpKey, onClose, onShowOnboarding, openTarg
                   style={{ ...btnLink, marginLeft: 'calc(-1 * var(--space-1))', textDecoration: 'none' }}
                 >
                   {noteGuides[key] ? 'この画面をくわしく読む（note）' : 'くわしい使い方を読む（note）'}
+                  <span style={srOnly}>（ブラウザで開きます）</span>
                   <ExternalLink size="0.9em" aria-hidden="true" style={{ flexShrink: 0 }} />
                 </a>
               )}

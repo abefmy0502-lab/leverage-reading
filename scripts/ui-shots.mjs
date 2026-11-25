@@ -869,6 +869,7 @@ const SCREENS = [
   { name: 'import-kindle-want', url: '/', steps: [{ css: 'button[aria-label="設定を開く"]' }, { css: 'button:has-text("ほかのアプリから取り込む")' }, { upload: ['input[type=file]', 'scripts/fixtures/kindle-clippings.txt'] }, { wait: 1500 }, { css: 'button[role="radio"]:has-text("積読")' }, { wait: 300 }] },
   { name: 'import-mixed-guess', url: '/', steps: [{ css: 'button[aria-label="設定を開く"]' }, { css: 'button:has-text("ほかのアプリから取り込む")' }, { upload: ['input[type=file]', ['scripts/fixtures/kindle-clippings.txt', 'scripts/fixtures/plain-list.txt']] }, { wait: 4000 }] },
   { name: 'import-checking', url: '/?search=slow', steps: [{ css: 'button[aria-label="設定を開く"]' }, { css: 'button:has-text("ほかのアプリから取り込む")' }, { css: 'button:has-text("書名の一覧を貼り付ける")' }, { fill: ['textarea[aria-label="書名の一覧"]', '考え方 / 稲盛和夫\n9784479795735\n7つの習慣'] }, { css: 'button:has-text("書店で確かめる")' }, { wait: 800 }] },
+  { name: 'import-mixed-guess-reading', url: '/', steps: [{ css: 'button[aria-label="設定を開く"]' }, { css: 'button:has-text("ほかのアプリから取り込む")' }, { upload: ['input[type=file]', ['scripts/fixtures/kindle-clippings.txt', 'scripts/fixtures/plain-list.txt']] }, { wait: 4000 }, { css: 'button[role="radio"]:has-text("読書中")' }, { wait: 300 }] },
   { name: 'import-kindle-guess', url: '/', steps: [{ css: 'button[aria-label="設定を開く"]' }, { css: 'button:has-text("ほかのアプリから取り込む")' }, { upload: ['input[type=file]', 'scripts/fixtures/kindle-clippings.txt'] }, { wait: 1500 }] },
   { name: 'import-preview', url: '/', steps: [{ css: 'button[aria-label="設定を開く"]' }, { css: 'button:has-text("ほかのアプリから取り込む")' }, { upload: ['input[type=file]', 'scripts/fixtures/booklog.csv'] }, { wait: 1200 }] },
   // 読書メーター（2026-09-29）: 書き出しツールの CSV（感想・読了日・本棚つき）
@@ -1164,7 +1165,8 @@ const SCREENS = [
   { name: 'help-book-reading', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("ヘルプ")' }] },
   { name: 'help-consult', url: '/', steps: [{ css: nav('相談') }, { css: 'button[aria-label="この画面のヘルプを開く"]' }] },
   { name: 'help-consult-note', url: '/?note=1', steps: [{ css: nav('相談') }, { css: 'button[aria-label="この画面のヘルプを開く"]' }, { scrollBottom: true }] },
-  { name: 'settings-note', url: '/?note=1', steps: [{ css: 'button[aria-label="設定を開く"]' }, { scrollTo: 'button:has-text("ヘルプ・使い方")' }] },
+  { name: 'settings-note', url: '/?note=1', steps: [{ css: 'button[aria-label="設定を開く"]' }, { scrollTo: 'text=アプリ・サポート' }] },
+  { name: 'help-home-note', url: '/?note=1', steps: [{ css: 'button[aria-label="この画面のヘルプを開く"]' }, { scrollBottom: true }] },
   { name: 'help-consult-bottom', url: '/', steps: [{ css: nav('相談') }, { css: 'button[aria-label="この画面のヘルプを開く"]' }, { scrollBottom: true }] },
   { name: 'help-action', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[aria-label="この画面のヘルプを開く"]' }] },
   { name: 'help-billing', url: '/?helpkey=billing', steps: [{ css: 'button[aria-label="この画面のヘルプを開く"]' }] },

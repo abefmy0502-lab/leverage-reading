@@ -120,7 +120,7 @@ describe('読書メーター', () => {
     expect(r.source).toBe('bookmeter');
     expect(r.books).toHaveLength(4);
     expect(r.books[0]).toMatchObject({
-      title: 'イシューからはじめよ 知的生産の「シンプルな本質」', author: '安宅 和人', isbn: '9784862760852', asin: '4862760856',
+      title: 'イシューからはじめよ 知的生産の「シンプルな本質」', author: '安宅和人', isbn: '9784862760852', asin: '4862760856',
       status: 'done', doneDate: '2025-03-10', tags: ['ビジネス', '思考'], pages: 242, reviewAt: '2025-03-10T12:00:00+09:00',
     });
     expect(r.books[0].review).toContain('解く価値のある問い');
@@ -164,7 +164,7 @@ describe('読書メーター', () => {
 
   it('bookmeterjson の JSON（review.text・review.read_at・bookcases）', () => {
     const json = JSON.stringify([
-      { book_id: 1, asin: '4862760856', title: 'イシューからはじめよ', author: '安宅 和人', pages: 242, date: '2025/03/10', review: { text: '問いを見極める', read_at: '2025-03-10', is_draft: false }, bookcases: ['ビジネス'] },
+      { book_id: 1, asin: '4862760856', title: 'イシューからはじめよ', author: '安宅和人', pages: 242, date: '2025/03/10', review: { text: '問いを見極める', read_at: '2025-03-10', is_draft: false }, bookcases: ['ビジネス'] },
       { book_id: 2, asin: null, title: '手で登録した本', author: '', pages: 0 },
     ]);
     const r = parseImportText('123456-stacked-2026-09-29.json', json);
@@ -184,12 +184,12 @@ describe('読書メーター', () => {
     expect(r.books).toHaveLength(3);
     // 一覧の書名は途中で切れているので、JSON の書名を使う
     expect(r.books[0]).toMatchObject({
-      title: 'イシューからはじめよ 知的生産の「シンプルな本質」', author: '安宅 和人', isbn: '9784862760852', status: 'done',
+      title: 'イシューからはじめよ 知的生産の「シンプルな本質」', author: '安宅和人', isbn: '9784862760852', status: 'done',
       doneDate: '2025-03-10', tags: ['ビジネス', '思考'], pages: 242,
     });
     expect(r.books[0].review).toBe('答えを出す前に、問いを見極める。\n解く価値のある問いは、思っているより少ない & 大事。');
     // 「日付不明」・下書き（感想なし）・著者が 2 人
-    expect(r.books[1]).toMatchObject({ doneDate: '', review: '', author: 'ジェームズ・クリアー、牛原 眞弓', status: 'done' });
+    expect(r.books[1]).toMatchObject({ doneDate: '', review: '', author: 'ジェームズ・クリアー、牛原眞弓', status: 'done' });
     // data-modal が無い本: 表紙の alt と Amazon のリンクから
     expect(r.books[2]).toMatchObject({ title: '完訳 7つの習慣 人格主義の回復', asin: 'B07K6VY5T8', isbn: '', doneDate: '2025-08-15' });
     expect(summarizeImport(r)).toEqual({ books: 3, memos: 1 });
@@ -396,5 +396,15 @@ describe('引越しの精度（2026-11-25 調査 company/research/tsundokuka-and
     expect(r.source).toBe('orime');
     expect(r.books[0]).toMatchObject({ title: '考え方', status: 'before', review: 'まとめ', tags: ['経営・組織'], folders: ['会社の課題図書'] });
     expect(r.books[0].memos[0]).toMatchObject({ text: '心に残った一文', page: 12 });
+  });
+});
+
+describe('著者の名前の空白（日本語どうし）', () => {
+  it('「稲盛 和夫」は「稲盛和夫」・英字の名前の空白は残す', async () => {
+    const { tightenCjkName } = await import('./importers');
+    expect(tightenCjkName('稲盛 和夫')).toBe('稲盛和夫');
+    expect(tightenCjkName('稲盛　和夫')).toBe('稲盛和夫');
+    expect(tightenCjkName('Stephen R. Covey')).toBe('Stephen R. Covey');
+    expect(tightenCjkName('スティーブン・R・コヴィー')).toBe('スティーブン・R・コヴィー');
   });
 });

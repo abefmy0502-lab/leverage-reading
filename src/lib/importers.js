@@ -694,7 +694,16 @@ export function parseOrimeExport(text) {
 }
 
 // ── 入口: ファイル名と中身から形式を当てる ─────────────────────────────
+// 著者の名前の、日本語どうしの間の空白を詰める（Kindle の「稲盛 和夫」→「稲盛和夫」＝書店の表記・本棚の本とそろえる・2026-11-25 ui-critic）。
+const CJK = '\\u3040-\\u30ff\\u3400-\\u9fff\\uf900-\\ufaff';
+const CJK_GAP_RE = new RegExp(`([${CJK}])[\\s\\u3000]+(?=[${CJK}])`, 'g');
+export const tightenCjkName = (s) => String(s || '').replace(CJK_GAP_RE, '$1');
 export function parseImportText(fileName, text) {
+  const r = parseImportTextRaw(fileName, text);
+  if (r && Array.isArray(r.books)) r.books = r.books.map((b) => (b && b.author ? { ...b, author: tightenCjkName(b.author) } : b));
+  return r;
+}
+function parseImportTextRaw(fileName, text) {
   const name = String(fileName || '').toLowerCase();
   const t = String(text || '');
   if (name.endsWith('.html') || name.endsWith('.htm') || /class=["']noteText["']/.test(t) || isBookmeterHtml(t)) {

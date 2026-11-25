@@ -242,3 +242,9 @@ export const segOption = (on) => ({
   fontVariantNumeric: 'tabular-nums',
   cursor: 'pointer',
 });
+
+// 読み上げだけに届く文字（画面には出さない・「（ブラウザで開きます）」など・2026-11-25）。
+export const srOnly = {
+  position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden',
+  clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0,
+};

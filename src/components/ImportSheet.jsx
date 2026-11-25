@@ -4,7 +4,7 @@
 // 流れ: ファイルを選ぶ → 見つかった本とメモを確かめる → 取り込む → 相談してみる。
 // 読み取りは端末の中だけ（AI も外部送信も使わない）。保存は App の onImport（重複は既存の本に足す）。
 // 見た目は DESIGN.md のトークンのみ。主ボタンは各段で 1 つ。
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { FileUp, BookOpen, ClipboardPaste } from 'lucide-react';
 import MiniCover from './MiniCover';
 import { Chip } from './formPrimitives';
@@ -136,6 +136,18 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
         signal: ctrl.signal,
       });
       if (ctrl.signal.aborted) return;
+      // ファイルから読んだ一覧で、書店に 1 冊も見つからなかったら、本の一覧ではないファイル（メモ書き・ほかの形式）とみなす
+      //   （「これは読めないファイルです」が本 2 冊として入っていた・2026-11-25 ui-critic）。貼り付けた一覧は本人が書いたので入れる。
+      if (!r.fromPaste && res.found === 0 && res.loose === 0) {
+        const others = res.books.filter((b) => !b.unverified);
+        if (!others.length) {
+          setStep('pick');
+          setError('読み取れる本がありませんでした。下のどれかのファイルを選んでください。');
+          return;
+        }
+        res.books = others;
+        res.missing = 0;
+      }
       r = { ...r, books: res.books, lookup: { found: Math.max(0, res.found - (res.merged || 0)), loose: res.loose, missing: res.missing, merged: res.merged || 0, mergedBooks: res.mergedBooks || 0, mergedLines: res.mergedLines || 0 } };
     }
     // 本棚にある本のメモの本文を先に読む（確かめる画面の数が、出てから減って見えないように）。
@@ -318,7 +330,6 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
     content = (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
         <p style={heading}>書店で本を確かめています</p>
-        <p style={body}>{withPhraseBreaks('書名と ISBN から、書名・著者・表紙を合わせています。見つからない本も、書いた書名のまま入ります。')}</p>
         {progress.total >= 50 && (
           <p style={body}>{withPhraseBreaks(progress.total >= 500 ? '数分かかることがあります。画面を開いたままお待ちください。' : '1 分ほどかかることがあります。画面を開いたままお待ちください。')}</p>
         )}
@@ -369,8 +380,9 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
     // 状態が分からない本が全部メモ（感想）つき（Kindle はいつも）なら、効く 2 つ（読書中・読了）だけを出す＝押しても変わらない選択を置かない。
     const notesOnly = guessedCount > 0 && guessedWithNotes === guessedCount;
     const choices = notesOnly ? GUESS_CHOICES.filter(([v]) => v === 'reading' || v === 'done') : GUESS_CHOICES;
-    // メモの有る本と無い本が混ざるときは、選んだ状態が効く「メモの無い本」の数で言う。
-    const mixedNotes = guessedWithNotes > 0 && !notesOnly;
+    // メモの有る本と無い本が混ざり、読みたい・積読を選んでいる（メモのある本だけ読了になる）ときは、
+    //   選んだ状態が効く「メモの無い本」の数で言う。読書中・読了なら全部その状態になるので「この N 冊は」。
+    const mixedNotes = guessedWithNotes > 0 && !notesOnly && (guessedStatus === 'want' || guessedStatus === 'before');
     const choiceCount = mixedNotes ? guessedCount - guessedWithNotes : guessedCount;
     content = (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
@@ -383,10 +395,13 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
           {/* 書店で確かめた結果（一覧・貼り付け）。見つからない本も書いた書名のまま入る（消さない）。 */}
           {result.lookup && (
             <p role="note" style={body}>
-              {withPhraseBreaks(`書店で確かめた本 ${fmt(result.lookup.found)} 冊`)}
-              {result.lookup.loose > 0 && <>{KEEP_DOT}{withPhraseBreaks(`近い書名に合わせた本 ${fmt(result.lookup.loose)} 冊`)}</>}
-              {result.lookup.missing > 0 && <>{KEEP_DOT}{withPhraseBreaks(`見つからなかった本 ${fmt(result.lookup.missing)} 冊（書いた書名のまま入ります）`)}</>}
-              {result.lookup.mergedBooks > 0 && <>{KEEP_DOT}{withPhraseBreaks(`同じ本の行 ${fmt(result.lookup.mergedLines)} つを ${fmt(result.lookup.mergedBooks)} 冊に`)}</>}
+              {/* 0 の項目は出さない。区切りの「・」は 2 つ目から。 */}
+              {[
+                result.lookup.found > 0 && `書店で確かめた本 ${fmt(result.lookup.found)} 冊`,
+                result.lookup.loose > 0 && `近い書名に合わせた本 ${fmt(result.lookup.loose)} 冊`,
+                result.lookup.missing > 0 && `見つからなかった本 ${fmt(result.lookup.missing)} 冊`,
+                result.lookup.mergedBooks > 0 && `同じ本の行 ${fmt(result.lookup.mergedLines)} つを ${fmt(result.lookup.mergedBooks)} 冊に`,
+              ].filter(Boolean).map((t, i) => <Fragment key={t}>{i ? KEEP_DOT : null}{withPhraseBreaks(t)}</Fragment>)}
             </p>
           )}
           {/* 新しい本は一度に 2,000 冊まで（本棚にある本は数えない）。残りは取り込んだあと同じファイルをもう一度選ぶ（2026-09-29）。
