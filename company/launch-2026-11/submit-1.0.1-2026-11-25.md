@@ -64,9 +64,15 @@ cd ~/leverage-reading && git pull && pbcopy < supabase_all_in_order.sql
 
 ## A. Mac の Claude Code に貼る指示文（作って上げる）
 
+> **2026-11-25 にやってみて分かったこと（次の版も同じ）**
+> - ビルドするフォルダは **`~/Documents/leverage-reading`**（`.env.production.local` があるのはここだけ。`~/leverage-reading` と `~/Downloads/leverage-reading` は古い写し）。
+> - 署名の鍵は Mac の保管庫 **orime-build**（2026-11-25 にオーナーが作った・パスワードはオーナーが控えている）に入れた。「ログイン」の保管庫はパスワードが合わず、11/15 の orime-signing はパスワードが分からないため、どちらも署名には使わない（orime-signing には Chrome などのパスワードも入っているので、探す一覧から外さない・消さない）。
+> - ターミナルの xcodebuild で `errSecInternalComponent` が出たら、保管庫の鍵がかかっている。`security unlock-keychain ~/Library/Keychains/orime-build.keychain-db` のあとにやり直すか、Xcode の Product → Archive で（窓が出たら orime-build のパスワード →「常に許可」）。
+> - 1.0.1 (10) は Xcode の Organizer から上げた（Uploaded to Apple）。
+
 ---ここから---
 
-orime の iOS 1.0.1（ビルド 10）を作って App Store Connect に上げます。リポジトリは Mac の leverage-reading のフォルダです。手順の正は `company/launch-2026-11/release-1.0.1.md` の §3 です。
+orime の iOS 1.0.1（ビルド 10）を作って App Store Connect に上げます。リポジトリは Mac の `~/Documents/leverage-reading` です（`~/leverage-reading` と `~/Downloads/leverage-reading` は古い写しなので使わない）。手順の正は `company/launch-2026-11/release-1.0.1.md` の §3 です。
 
 守ること：
 - `.env.production.local` の中身は表示しないでください。確かめるのは下の 2 行があるかだけです。
