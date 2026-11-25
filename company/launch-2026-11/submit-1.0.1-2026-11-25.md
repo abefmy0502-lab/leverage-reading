@@ -17,6 +17,49 @@
    ```
    承認されたら、また `status = 'canceled'` に戻す（有料の数を汚さない）。
 
+### 0 を Chrome の Claude に頼むときの指示文
+
+先に Mac のターミナルで、流す SQL をクリップボードに入れておく（Chrome の Claude はリポジトリを読めないため）：
+
+```
+cd ~/leverage-reading && git pull && pbcopy < supabase_all_in_order.sql
+```
+
+````
+あなたは orime（読書メモのアプリ）の申請の前の準備を手伝います。Supabase の SQL Editor で、データベースの決まりを流し直し、確かめます。
+
+守ること：
+- パスワード・確認コードは入力も表示もしないでください。ログインを求められたら止めて私に頼んでください。
+- 書いてある SQL 以外は流さないでください。表や行を消す操作はしないでください。
+- エラーが出たら続けず、エラーの文をそのまま報告してください。
+
+作業 1：SQL を流し直す
+1. supabase.com のダッシュボードで orime のプロジェクトを開き、左の「SQL Editor」→ 新しいクエリを開きます。
+2. 入力欄を押して、クリップボードの中身を貼り付けます（⌘V）。私が先に入れてあります（約 37 万字・先頭は「--」で始まるコメント）。貼り付けられていなければ、止めて私に伝えてください。
+3. 「Run」を押します。時間がかかることがあります。終わったら「Success」か、エラーの文かを控えます。
+   - 「destructive operation」などの確認が出たら、押す前に止めて私に聞いてください。
+
+作業 2：確かめる
+1. 新しいクエリを開き、下の SQL を貼って Run します。
+   select c.relname as table_name, c.relrowsecurity as rls_enabled
+   from pg_class c join pg_namespace n on n.oid = c.relnamespace
+   where n.nspname = 'public' and c.relkind = 'r'
+   order by c.relrowsecurity, c.relname;
+2. rls_enabled が f の行があれば、その表の名前を全部控えます（全部 t なら「全部 t」）。
+
+作業 3：審査用のアカウントの契約を見る（読むだけ）
+1. 新しいクエリで、下の SQL を貼って Run します（<審査用のメール> は私が書き換えます）。
+   select s.status, s.current_period_end, s.period_type
+   from public.subscriptions s join auth.users u on u.id = s.user_id
+   where u.email = '<審査用のメール>';
+2. status が active なら何もしません。canceled か、行が無ければ、下の SQL を流す前に「流してよいですか？」と聞いてください。私が「はい」と答えたら流します。
+   update public.subscriptions set status = 'active', current_period_end = now() + interval '30 days'
+   where user_id = (select id from auth.users where email = '<審査用のメール>');
+   （行が無いときは update では直らないので、流さずに「行がありません」と報告してください）
+
+報告：作業 1 の結果（Success かエラーの文）／作業 2 の f の表（無ければ「全部 t」）／作業 3 の status と、流したかどうか。
+````
+
 ---
 
 ## A. Mac の Claude Code に貼る指示文（作って上げる）
