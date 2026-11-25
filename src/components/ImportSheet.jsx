@@ -365,17 +365,13 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
   } else if (step === 'checkFailed' && checkFail) {
     // 書店の検索がつながらなかった（通信・サーバー）。もう一度確かめるか、貼った一覧はそのまま入れる（書いた書名のまま）。
     content = (
-      <ErrorMessage icon={null} title="書店で確かめられませんでした" description="通信状況を確認して、もう一度お試しください。" />
+      <ErrorMessage icon={null} title="書店で確かめられませんでした" description="通信状況を確認して、もう一度お試しください。書いた書名のまま進むこともできます。" />
     );
-    const fromPaste = !!checkFail.r0.fromPaste;
     footer = (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
         <button type="button" onClick={() => prepare(checkFail.r0)} style={btnPrimary}>もう一度確かめる</button>
-        {fromPaste ? (
-          <button type="button" onClick={() => { const r = checkFail.asIs; setCheckFail(null); toPreview(r); }} style={{ ...btnLink, width: '100%' }}>このまま取り込む</button>
-        ) : (
-          <button type="button" onClick={() => { setCheckFail(null); setStep('pick'); }} style={{ ...btnLink, width: '100%' }}>ファイルを選び直す</button>
-        )}
+        {/* 原因は通信なので、ファイルの一覧も同じく書いた書名のまま確かめる画面へ進める（行き止まりにしない）。 */}
+        <button type="button" onClick={() => { const r = checkFail.asIs; setCheckFail(null); toPreview(r); }} style={{ ...btnLink, width: '100%' }}>書いた書名のまま進む</button>
       </div>
     );
   } else if ((step === 'preview' || step === 'importing') && result) {
@@ -570,7 +566,7 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
         {/* 50 冊以上の取り込み中は、「別のファイルを選ぶ」の場所に待ち時間の案内（閉じて途中で止めないように・2026-09-29）。 */}
         {importing && (plan.books?.length || 0) >= 50 ? (
           <p style={{ ...body, fontSize: 'var(--text-meta)', textAlign: 'center', minHeight: 'var(--tap-min)', display: 'flex', alignItems: 'center', justifyContent: 'center', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-            <span>{(plan.books?.length || 0) >= 500 ? '数分かかることがあります。' : '1 分ほどかかることがあります。'}<wbr />画面を開いたままお待ちください</span>
+            <span>{(plan.books?.length || 0) >= 500 ? '数分かかることがあります。' : '1 分ほどかかることがあります。'}<wbr />画面を開いたままお待ちください。</span>
           </p>
         ) : (
           <button
