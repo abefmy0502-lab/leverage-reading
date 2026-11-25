@@ -3,7 +3,7 @@ import { useFocusTrap } from '../hooks/useFocusTrap';
 import { track } from '../lib/analytics';
 import { rememberOnboardPath } from '../lib/firstDay';
 import { BookOpen, MessageCircle, X, ChevronLeft, ChevronDown } from 'lucide-react';
-import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnLink } from '../styles/ui';
+import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnLink, btnLinkQuiet } from '../styles/ui';
 import { withPhraseBreaks } from './TightBubble';
 import ProfileForm from './ProfileForm';
 import { SOCIAL_ON } from '../lib/social';
@@ -48,7 +48,7 @@ const slides = [
     //   本のページを撮るが副・ほかのアプリから取り込むは文字ボタン（ホームのはじめの一歩と同じ順）。
     //   どの道も、終えたら「相談してみる」（lib/firstDay.js）。（前は 2026-10-02 の 取り込む → 撮る → 一文 の順）
     title: 'まずはメモを入れましょう',
-    body: '読んだ本の、心に残った一文から始められます。ブクログ・読書メーター・Kindle の記録も取り込めます。',
+    body: '読んだ本の、心に残った一文から始められます。まだ読んだ本がなければ、最初の 1 冊から探せます。',
   },
 ];
 
@@ -444,7 +444,7 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
                     最初の 1 冊を探す
                   </button>
                 )}
-                <button type="button" style={{ ...btnLink, textAlign: 'center' }} onClick={startImport}>
+                <button type="button" style={{ ...btnLinkQuiet, textAlign: 'center' }} onClick={startImport}>
                   ほかのアプリから取り込む
                 </button>
               </div>

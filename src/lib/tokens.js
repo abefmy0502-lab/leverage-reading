@@ -15,6 +15,7 @@ import { supabase, isSupabaseConfigured } from './supabase';
 import {
   AI_TOKEN_JPY, FREE_TOKENS, FREE_FIRST_MONTH_TOKENS, TRIAL_TOKENS, PAID_TOKENS,
   ANSWER_TOKENS, CONSULT_ANSWERS_NOTE, answersOf, answerCountLabel, remainingAnswersLabel, isFreeFirstMonth, freeTokensFor, nextJstMonthStart, FREE_FIRST_MONTHS,
+  ADVISOR_TOKENS,
 } from './tokenAmounts';
 
 export {
@@ -27,7 +28,7 @@ export {
 export const TOKEN_COSTS = {
   consult: 3, // 相談（まとめて）の AI の答え 1 回（量の目安の単位＝ANSWER_TOKENS と同じ・2026-11-25 Haiku 5.5 で 10 → 3）
   consultPerBook: 3, // 相談（本ごとに）
-  advisor: 20, // AI 選書（聞き返し＝Haiku 5.5＋おすすめ＝Sonnet 5.5）
+  advisor: ADVISOR_TOKENS, // AI 選書（聞き返し＝Haiku 5.5＋おすすめ＝Sonnet 5.5・約 20）
   setupSheet: 2, // 読書計画シート（Haiku 5.5）
   goalRoadmap: 25, // 目標のロードマップ（深掘り 2 回＝Flash-Lite＋ロードマップ 1 回＝Sonnet・2026-11-15）
   bookBrief: 2, // この本で学べること（Flash-Lite・入力 約 3,000・出力 約 600 で ¥0.3〜0.5＝1〜2 トークン・2026-10-08）

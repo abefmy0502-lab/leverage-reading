@@ -37,8 +37,8 @@ import { searchBooksFlat as searchBooksAPIFlat } from '../lib/bookSearch';
 import { STORE_DISCLOSURE_TEXT } from '../lib/rakutenLink';
 import AdvisorStoreLinks from './AdvisorStoreLinks';
 import { nextResetLabelJa, requestPaywall } from '../lib/freeTrial';
-import { monthDayLabelJa, remainingAnswersLabel } from '../lib/tokens';
-import { showFreeTokenCount } from '../lib/tokenAmounts';
+import { monthDayLabelJa } from '../lib/tokens';
+import { showFreeTokenCount, remainingAdvisorLabel } from '../lib/tokenAmounts';
 import { isLowTokens } from '../lib/tokenUsage';
 import { fmtTokens } from '../lib/consultHelpers';
 import { trialCancelShortLine } from '../lib/trialNudge';
@@ -2524,8 +2524,9 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
                 <span style={{ display: 'block', whiteSpace: 'nowrap' }}>{plan === 'trial' ? '無料期間' : '今月'}の残り {fmtTokens(tokensRemaining)}{purchasedTokens > 0 ? <> ＋追加 {fmtTokens(purchasedTokens)}</> : null} トークン</span>
               )}
               <span style={{ display: 'block' }}>
-                <span style={{ whiteSpace: 'nowrap' }}>{`AI の答えは${plan !== 'trial' && !showFreeTokenCount(tokenTotal) ? '今月' : ''}`}</span><wbr />
-                <span style={{ whiteSpace: 'nowrap' }}>{`あと${remainingAnswersLabel(tokenTotal)}`}<ChevronRight size="1.2em" aria-hidden="true" style={{ verticalAlign: '-0.25em', marginLeft: '0.15em' }} /></span>
+                {/* 選書は 1 回 約 20 トークン（相談の答えの約 7 倍）なので、相談の「AI の答え」ではなく選書の回数で言う（2026-11-25 ui-critic）。 */}
+                <span style={{ whiteSpace: 'nowrap' }}>{`本を探すのは${plan !== 'trial' && !showFreeTokenCount(tokenTotal) ? '今月' : ''}`}</span><wbr />
+                <span style={{ whiteSpace: 'nowrap' }}>{`あと${remainingAdvisorLabel(tokenTotal)}`}<ChevronRight size="1.2em" aria-hidden="true" style={{ verticalAlign: '-0.25em', marginLeft: '0.15em' }} /></span>
               </span>
             </button>
           )}

@@ -28,6 +28,14 @@ export function answersOf(tokens) {
 export function answerCountLabel(tokens) {
   return `約 ${answersOf(tokens).toLocaleString('ja-JP')} 回`;
 }
+// 🔍 AI 選書（聞き取り＋推薦）1 回の目安（tokens.js の TOKEN_COSTS.advisor と同じ・2026-11-25）。
+export const ADVISOR_TOKENS = 20;
+// 残りのトークンで、あと何回本を探せるか（切り捨て・残りがあれば 1＝最後の 1 回は始められる）。「約 1 回」。
+export function remainingAdvisorLabel(tokens) {
+  const t = Math.max(0, Math.floor(Number(tokens) || 0));
+  const n = t <= 0 ? 0 : Math.max(1, Math.floor(t / ADVISOR_TOKENS));
+  return `約 ${n.toLocaleString('ja-JP')} 回`;
+}
 // 残りのトークンで、あと AI の答え何回（切り捨て＝言い過ぎない・残りがあれば 1）。「約 5 回」。
 export function remainingAnswersLabel(tokens) {
   const t = Math.max(0, Math.floor(Number(tokens) || 0));

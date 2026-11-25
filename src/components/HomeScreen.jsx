@@ -100,8 +100,8 @@ function StartCard({ onQuickstart, onAddBook, onAdvisor, onImport, onShelfScan =
       {/* 🌱 まだ読んだ本が無い人の入口（2026-11-25 オーナー方針「これから読書を始める人にも」）。AI 選書（無料プランも）に下書きを入れて開く。
           区切りの線の下に 1 行（本がある人の入口と混ぜない）。 */}
       {onAdvisor && (
-        <div style={{ borderTop: '1px solid var(--separator)', margin: 'var(--space-3) 0 calc(-1 * var(--space-2))', paddingTop: 'var(--space-1)', display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'center', columnGap: 'var(--space-1)' }}>
-          <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>まだ読んだ本がなければ</span>
+        <div style={{ borderTop: '1px solid var(--separator)', margin: 'var(--space-4) 0 calc(-1 * var(--space-2))', paddingTop: 'var(--space-1)', display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 'var(--space-1)' }}>
+          <span style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)' }}>これから読書を始めるなら</span>
           <button type="button" onClick={onAdvisor} style={textRow}>最初の 1 冊を探す</button>
         </div>
       )}
