@@ -1165,6 +1165,12 @@ textarea[aria-invalid="true"]:not(.no-focus-ring):focus {
   gap: var(--space-2);
   align-items: flex-end;
 }
+/* 下のタブが出ている間は、下の安全域はタブが持つ（.bottom-nav の padding）。入力欄でも足すと、入力欄とタブの間に
+   約 34 の空きができていた（2026-11-25 オーナー「タブと入力欄の間が謎に隙間ある」）。タブを畳んだ間（会話を下へ読み進めた・
+   キーボード）と、タブの無い画面では今までどおり入力欄が安全域を持つ。 */
+body:has(.bottom-nav:not(.is-hidden)):not(.chat-scroll-down) .ai-input-area {
+  padding-bottom: var(--space-2);
+}
 .ai-input-area textarea {
   flex: 1;
   /* 空のときは 1 行ぶん（下限 44）。文字を大きくしても 1 行目が下で切れない（2026-10-08 ui-critic）。 */
