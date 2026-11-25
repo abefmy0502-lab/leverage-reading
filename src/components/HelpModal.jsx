@@ -15,7 +15,9 @@
 // 文言は src/lib/helpContent.js（**語** は太字）。見た目は DESIGN §5「ヘルプ」。
 
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
-import { ChevronDown, ChevronRight, Search, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, ExternalLink, Search, X } from 'lucide-react';
+import { useNoteLinks } from '../hooks/useNoteLinks';
+import { noteGuideUrl } from '../lib/noteLinks';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { getHelp, HELP_FAQ, HELP_SCREEN_ORDER } from '../lib/helpContent';
 import { btnLink, card, groupTitle, input as uiInput } from '../styles/ui';
@@ -319,6 +321,9 @@ export default function HelpModal({ helpKey, onClose, onShowOnboarding, openTarg
   const [query, setQuery] = useState('');
   const results = searchHelp(query, key);
   const searching = norm(query).length > 0;
+  const noteLinks = useNoteLinks();
+  const noteGuides = noteLinks.guides || {};
+  const noteUrl = noteGuideUrl(noteLinks, key);
 
   // ほかの画面のヘルプへ切り替える（閉じずに・いちばん上から読めるように送る）。
   const showKey = useCallback((k) => {
@@ -460,10 +465,27 @@ export default function HelpModal({ helpKey, onClose, onShowOnboarding, openTarg
             </section>
           )}
 
-          {onShowOnboarding && (
-            <button type="button" style={{ ...btnLink, alignSelf: 'flex-start', marginLeft: 'calc(-1 * var(--space-1))' }} onClick={() => onShowOnboarding()}>
-              初回ガイドをもう一度見る
-            </button>
+          {/* 📘 くわしい説明書（note・2026-11-25）と初回ガイド。文字ボタン 2 つは 1 つのまとまり（間を空けない）。
+              note はその画面の記事があればそれ、無ければ note のトップ。URL が無ければ出さない。 */}
+          {(noteUrl || onShowOnboarding) && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+              {noteUrl && (
+                <a
+                  href={noteUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ ...btnLink, marginLeft: 'calc(-1 * var(--space-1))', textDecoration: 'none' }}
+                >
+                  {noteGuides[key] ? 'この画面をくわしく読む（note）' : 'くわしい使い方を読む（note）'}
+                  <ExternalLink size="0.9em" aria-hidden="true" style={{ flexShrink: 0 }} />
+                </a>
+              )}
+              {onShowOnboarding && (
+                <button type="button" style={{ ...btnLink, marginLeft: 'calc(-1 * var(--space-1))' }} onClick={() => onShowOnboarding()}>
+                  初回ガイドをもう一度見る
+                </button>
+              )}
+            </div>
           )}
 
           {entry?.lastUpdated && <p style={updatedStyle}>{entry.lastUpdated} 更新</p>}

@@ -40,3 +40,26 @@ describe('同じ本に行き着いた行は 1 冊に', () => {
     expect(r.merged).toBe(1);
   });
 });
+
+describe('メモのある本は積読・読みたいでも読了で', () => {
+  it('ハイライトを見えなくしない', () => {
+    const r = setGuessedStatus({ books: [{ status: 'done', statusGuessed: true, memos: [{ text: 'x' }] }, { status: 'done', statusGuessed: true, memos: [] }] }, 'before');
+    expect(r.books.map((b) => b.status)).toEqual(['done', 'before']);
+    expect(r.guessChoice).toBe('before');
+  });
+});
+
+describe('同じ本の行のまとめの数', () => {
+  it('2 行が 1 冊にまとまると「2 つを 1 冊に」', async () => {
+    const { resolveListBooks } = await import('./importLookup');
+    const books = [
+      { title: '考え方', author: '', needsLookup: true },
+      { title: '9784479795735', isbn: '9784479795735', needsLookup: true },
+    ];
+    const hit = { title: '考え方', author: '稲盛和夫', isbn: '9784479795735' };
+    const res = await resolveListBooks(books, { search: async () => ({ ok: true, results: [hit] }) });
+    expect(res.books).toHaveLength(1);
+    expect(res.mergedBooks).toBe(1);
+    expect(res.mergedLines).toBe(2);
+  });
+});

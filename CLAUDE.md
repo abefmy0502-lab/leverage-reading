@@ -127,6 +127,7 @@ UI 文言・トースト・ヘルプ・LP・プロンプト出力で使う名前
 ├── api/mcp.js                          # 🔌 AI と連携（MCP）の入口（Streamable HTTP・接続キー）。本体は api/_mcp.js・会話の中のカードは api/_mcpWidget.js・docs/mcp.md・2026-11-07
 ├── .mcp.json                           # アプリを作るための MCP（orime 自身＝ORIME_MCP_TOKEN・supabase 読むだけ＝SUPABASE_ACCESS_TOKEN・vercel・sentry・playwright・context7・ios-simulator）。鍵は環境変数で・docs/mcp.md §6
 ├── public/                             # 静的アセット (manifest.json, icons/, sw.js)
+├── public/note-links.json               # 📘 note の説明書の URL（home＋ヘルプのキーごとの記事・空なら出さない）。アプリのヘルプの下・設定・LP のフッターと JSON-LD sameAs・/llms.txt（scripts/llmsTxt.mjs がビルドで書き出す）に出る。iPhone も本番サイトのこの JSON を読む＝出し直し不要（lib/noteLinks.js・連載の対応表は company/note/manual-series.md・2026-11-25）
 ├── scripts/generate-icons.js           # PWA アイコン生成 (`npm run icons`)
 ├── scripts/ui-shots.mjs                # 📸 主要画面の明暗スクショ（`npm run ui:shots -- <ラベル> [画面名…]`）
 ├── scripts/ui-probe.mjs                # 🔍 画面の偵察（URL を開いて押せるもの・見出し・入力欄の今の文言を並べる・`--click`・`--shot`・2026-10-31・/webapp-testing）

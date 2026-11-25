@@ -52,7 +52,8 @@ import { FREE_TOKENS } from '../lib/tokens';
 import { FREE_OCR_PER_MONTH } from '../lib/tokenAmounts';
 import { nextResetLabelJa } from '../lib/freeTrial';
 import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff, btnDanger, btnLink, input as uiInput } from '../styles/ui';
-import { ChevronRight, Download as IcDownload, RefreshCw as IcRefresh } from 'lucide-react';
+import { ChevronRight, Download as IcDownload, ExternalLink, RefreshCw as IcRefresh } from 'lucide-react';
+import { useNoteLinks } from '../hooks/useNoteLinks';
 import { SkeletonBlock } from './Skeleton';
 import { withPhraseBreaks } from './TightBubble';
 import { track, EVENTS, isAnalyticsOptedOut, setAnalyticsOptOut } from '../lib/analytics';
@@ -428,6 +429,8 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
   const [usageOpen, setUsageOpen] = useState(false);
   const [mcpOpen, setMcpOpen] = useState(false); // 🔌 AI と連携（接続キー・2026-11-07）
   const [updating, setUpdating] = useState(false);
+  // 📘 くわしい使い方（note・2026-11-25）。URL が無ければ行ごと出さない。
+  const noteHome = useNoteLinks().home;
   // フィードバック（入れ子モーダル）を開いている間は、そちらのトラップに譲るため無効化。
   const trapRef = useFocusTrap(!feedbackOpen);
   // 💳 課金状態。subscriptions 未適用なら subscription=null / isActive=false で
@@ -1336,11 +1339,26 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
                 <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
               </button>
             )}
+            {/* くわしい説明書（note）。アプリの外（ブラウザ）で開くので、右は外へ出る印。 */}
+            {noteHome && (
+              <a
+                href={noteHome}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ ...rowButtonStyle, ...(onOpenHelp ? divider : null), textDecoration: 'none' }}
+              >
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ ...rowTitleStyle, display: 'block' }}>くわしい使い方（note）</span>
+                  <span style={{ ...rowDescStyle, display: 'block' }}>機能ごとの説明書</span>
+                </span>
+                <ExternalLink size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+              </a>
+            )}
             {/* 新しくなったこと（2026-10-05）: 版ごとの どこの・何が・これまで → これから・影響・意図。下はいちばん新しい版の日付。 */}
             {!!BUNDLED_RELEASE_ID && (
               <button
                 type="button"
-                style={{ ...rowButtonStyle, ...(onOpenHelp ? divider : null) }}
+                style={{ ...rowButtonStyle, ...(onOpenHelp || noteHome ? divider : null) }}
                 onClick={openWhatsNew}
               >
                 <span style={{ flex: 1, minWidth: 0 }}>
@@ -1355,7 +1373,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
             <button
               type="button"
               aria-label="読み込み直す"
-              style={{ ...(updating ? rowButtonBusy : rowButtonStyle), ...(onOpenHelp || BUNDLED_RELEASE_ID ? divider : null) }}
+              style={{ ...(updating ? rowButtonBusy : rowButtonStyle), ...(onOpenHelp || noteHome || BUNDLED_RELEASE_ID ? divider : null) }}
               aria-busy={updating || undefined}
               disabled={updating}
               onClick={handleForceUpdate}

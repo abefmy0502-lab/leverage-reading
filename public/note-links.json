@@ -1,0 +1,5 @@
+{
+  "_readme": "orime の説明書（note）。home に note のトップ（https://note.com/<ID>）、guides にヘルプのキーごとの記事の URL を入れる。空ならアプリにもサイトにも出ない。対応表は company/note/manual-series.md。",
+  "home": "",
+  "guides": {}
+}

@@ -57,18 +57,32 @@ export async function resolveListBooks(books, { search, concurrency = 3, onEach,
   };
   await Promise.all(Array.from({ length: Math.min(concurrency, targets.length) }, worker));
   // 書名の行と ISBN の行が同じ本に行き着いたら 1 冊に（先に書いた行を残す）。
+  const keyOf = (b) => b.isbn || `${String(b.title).replace(/\s+/g, '')}\u0000${String(b.author || '').replace(/\s+/g, '')}`;
+  const counts = new Map();
+  out.forEach((b) => { const k = keyOf(b); counts.set(k, (counts.get(k) || 0) + 1); });
   const seen = new Set();
   const unique = out.filter((b) => {
-    const key = b.isbn || `${String(b.title).replace(/\s+/g, '')}\u0000${String(b.author || '').replace(/\s+/g, '')}`;
+    const key = keyOf(b);
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   });
-  return { books: unique, found, loose, missing, merged: out.length - unique.length };
+  // まとめた冊数（mergedBooks）と、その元の行の数（mergedLines）＝「同じ本の行 2 つを 1 冊に」。
+  const dup = [...counts.values()].filter((n) => n > 1);
+  return {
+    books: unique, found, loose, missing,
+    merged: out.length - unique.length,
+    mergedBooks: dup.length,
+    mergedLines: dup.reduce((a, n) => a + n, 0),
+  };
 }
 
 /** 状態を決めつけた本（取り込み元に状態が無い・分からない値）をまとめて直す。 */
+//   メモか感想のある本は、積読・読みたいを選んでも読了で入れる（本の詳細は読書中・読了でしかメモを出さない＝
+//   持ってきたハイライトが見えなくなる・2026-11-25 ui-critic）。
+export const hasNotes = (b) => (Array.isArray(b?.memos) && b.memos.length > 0) || !!String(b?.review || '').trim();
 export function setGuessedStatus(result, status) {
   if (!result || !['want', 'before', 'reading', 'done'].includes(status)) return result;
-  return { ...result, books: (result.books || []).map((b) => (b.statusGuessed ? { ...b, status } : b)) };
+  const keepDone = status === 'want' || status === 'before';
+  return { ...result, guessChoice: status, books: (result.books || []).map((b) => (b.statusGuessed ? { ...b, status: keepDone && hasNotes(b) ? 'done' : status } : b)) };
 }

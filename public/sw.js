@@ -36,7 +36,7 @@ const ASSET_RE = /\.(png|jpe?g|gif|svg|webp|ico|woff2?|ttf|otf)$/i;
 const HASHED_RE = /^\/assets\//;
 // 新しくなったことの中身（Web の新しい版の知らせ）。アプリが毎回 network-first で読む（?t=… つき・no-store）ので、
 // SW は触らない（キャッシュに入れると ?t= ごとに溜まる・lib/whatsNew.js の fetchUpcomingReleases）。
-const PASS_THROUGH = new Set(['/release-notes.json']);
+const PASS_THROUGH = new Set(['/release-notes.json', '/note-links.json']);
 
 function isAsset(url) {
   return ASSET_RE.test(url.pathname);

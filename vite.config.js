@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { RELEASES } from './src/lib/releaseNotes.js';
 import { cspForMeta } from './scripts/cspMeta.mjs';
+import { buildLlmsTxt, readNoteLinks } from './scripts/llmsTxt.mjs';
 
 // 本番の sourcemap は出さない（build.sourcemap のコメント・2026-10-11）。
 
@@ -138,6 +139,28 @@ function releaseNotesJson() {
   };
 }
 
+// 📘 note の説明書（public/note-links.json）を読む（無い・壊れていれば空）。
+function noteLinksFile() {
+  try { return JSON.parse(fs.readFileSync(path.resolve('public/note-links.json'), 'utf8')); } catch { return null; }
+}
+
+// 🤖 /llms.txt（AI の検索・回答エンジン向けの orime の説明・2026-11-25）。note の記事があれば出典として並べる。
+function llmsTxt() {
+  const site = (process.env.VITE_SITE_URL || 'https://orime.vercel.app').replace(/\/+$/, '');
+  return {
+    name: 'llms-txt',
+    configureServer(server) {
+      server.middlewares.use('/llms.txt', (_req, res) => {
+        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        res.end(buildLlmsTxt({ site, note: noteLinksFile() }));
+      });
+    },
+    generateBundle() {
+      this.emitFile({ type: 'asset', fileName: 'llms.txt', source: buildLlmsTxt({ site, note: noteLinksFile() }) });
+    },
+  };
+}
+
 // 🖼 LP のイラスト（public/lp/<名前>-<light|dark>-<390|780|1560>.webp）のうち、3 つの幅がそろっているものの一覧を
 // ビルドのときに焼き込む（2026-10-11・開いた画面で画像を探しに行かない＝無い絵の 404 を出さない）。
 // 値は '<名前>-<light|dark>' の配列（例 'hero-illust-light'）。絵を置いたら公開し直せば替わる（src/pages/LpArt.jsx）。
@@ -153,7 +176,7 @@ function lpArtList() {
 }
 
 export default defineConfig({
-  plugins: [react(), stampServiceWorkerVersion(), siteUrlInHtml(), smartAppBanner(), releaseNotesJson(), cspMeta()],
+  plugins: [react(), stampServiceWorkerVersion(), siteUrlInHtml(), smartAppBanner(), releaseNotesJson(), llmsTxt(), cspMeta()],
   resolve: {
     alias: [
       // ⚡ Realtime は使っていないので、supabase-js が起動時に作る RealtimeClient を空の部品に替える
@@ -167,6 +190,8 @@ export default defineConfig({
     // 🆕 いまの版の id だけを焼き込む（新しくなったことの本体＝releaseNotes.js は必要なときに読む・2026-10-11）。
     __CURRENT_RELEASE_ID__: JSON.stringify(RELEASES[0]?.id || ''),
     __LP_ART__: JSON.stringify(lpArtList()),
+    // 📘 LP のフッターと JSON-LD（sameAs）に出す note の説明書（クローラーが JS なしでも読めるよう焼き込む）。
+    __NOTE_LINKS__: JSON.stringify(readNoteLinks(noteLinksFile())),
   },
   build: {
     // 本番は .map を作らない（2026-10-11 リリース前点検 中2）。dist は Vercel の公開と iOS（cap sync）の

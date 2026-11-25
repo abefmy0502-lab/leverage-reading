@@ -63,6 +63,9 @@ import './landing.css';
 const Hero3D = lazy(() => import('./Hero3D'));
 
 // 🏷️ フッターにビルド識別子を出すのは URL に ?rev があるときだけ（訪問者には見せない）。
+// 📘 note の説明書のトップ（ビルドのときに public/note-links.json から焼き込む・空なら出さない）。
+const NOTE_HOME = (typeof __NOTE_LINKS__ !== 'undefined' && __NOTE_LINKS__?.home) || '';
+
 const SHOW_BUILD = (() => {
   try { return typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('rev'); } catch { return false; }
 })();
@@ -388,6 +391,8 @@ export default function Landing() {
           { '@type': 'Offer', name: '年額プラン', price: String(ANNUAL), priceCurrency: 'JPY' },
         ],
         url: `${window.location.origin}/`,
+        // 📘 note の説明書（AI の回答エンジンが orime の説明の出典として結びつけられるように・2026-11-25）
+        ...(NOTE_HOME ? { sameAs: [NOTE_HOME] } : {}),
       },
       {
         '@context': 'https://schema.org',
@@ -869,6 +874,7 @@ export default function Landing() {
             <a href="/legal/terms" onClick={footerLink('terms')}>利用規約</a>
             <a href="/legal/privacy" onClick={footerLink('privacy')}>プライバシーポリシー</a>
             <a href="/legal/sct" onClick={footerLink('sct')}>特定商取引法に基づく表記</a>
+            {NOTE_HOME && <a href={NOTE_HOME} target="_blank" rel="noopener noreferrer" onClick={footerLink('note')}>使い方（note）</a>}
             <a href={`mailto:${SUPPORT_EMAIL}`} onClick={footerLink('mail')}>お問い合わせ</a>
           </nav>
           <p className="lp-footer-copy">© 2026 orime</p>
