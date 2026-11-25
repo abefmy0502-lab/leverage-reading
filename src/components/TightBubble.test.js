@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { glueInnerSpaces } from './TightBubble';
+import { glueInnerSpaces, glueClosers } from './TightBubble';
 
 describe('glueInnerSpaces（文節の中の空きで折り返さない）', () => {
   it('数と助数詞の間の空きを折り返さない空きにする', () => {
@@ -16,4 +16,12 @@ describe('glueInnerSpaces（文節の中の空きで折り返さない）', () =
     expect(glueInnerSpaces('結論から')).toBe('結論から');
     expect(glueInnerSpaces('')).toBe('');
   });
+});
+
+import { glueClosers } from './TightBubble.jsx';
+import { test as t2, expect as e2 } from 'vitest';
+t2('閉じかっこを ？・。の後ろから離さない（行頭に置かない・2026-11-25）', () => {
+  e2(glueClosers('「達成するには？」を')).toBe('「達成するには？⁠」を');
+  e2(glueClosers('「保存しました。」')).toBe('「保存しました。⁠」');
+  e2(glueClosers('「会議」を')).toBe('「会議」を');
 });

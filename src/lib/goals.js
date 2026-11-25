@@ -16,9 +16,9 @@ const LOCAL_KEY = 'orime.goals.v1';
 
 // 並びは近い順（画面は上から いま → 1 年後 → 3 年後 → 5 年後）。
 export const GOAL_HORIZONS = [
-  { key: 'y1', years: 1, label: '1 年後', example: '1 年後に、チームの会議を自分で回せるようになりたい' },
-  { key: 'y3', years: 3, label: '3 年後', example: '3 年後に、チームを任されるリーダーになりたい' },
-  { key: 'y5', years: 5, label: '5 年後', example: '5 年後に、自分の名前で仕事をしたい' },
+  { key: 'y1', years: 1, label: '1 年後', example: 'チームの会議を自分で回せるようになりたい' },
+  { key: 'y3', years: 3, label: '3 年後', example: 'チームを任されるリーダーになりたい' },
+  { key: 'y5', years: 5, label: '5 年後', example: '自分の名前で仕事をしたい' },
 ];
 export const GOAL_KEYS = GOAL_HORIZONS.map((h) => h.key);
 // 3 つの目標をつなぐ 1 本のロードマップ（2026-11-16 オーナー「1 年後・3 年後・5 年後の目標をすべて入れたら AI を動かす」）。

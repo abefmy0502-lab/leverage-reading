@@ -247,7 +247,7 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
             } else if (!rec?.roadmap && allGoalsSet(r.goals)) {
               toast.success?.('3 つの目標がそろいました。下の「ロードマップをつくる」から始められます。');
             } else if (!rec?.roadmap && key === 'y1' && cleanGoalText(text) && !next) {
-              toast.success?.('下の「ロードマップをつくる」から始められます。');
+              toast.success?.('目標を保存しました。下の「ロードマップをつくる」から始められます。');
             }
           }}
         />
@@ -266,7 +266,6 @@ function GoalsView({ goals, roadmaps, purpose, loaded, onEdit, onCarry, onInterv
   const anyRoadmap = !!rec?.roadmap;
   const allSet = allGoalsSet(goals);
   const canBuild = canBuildRoadmap(goals);
-  const missing = GOAL_HORIZONS.filter((h) => !goals[h.key]?.text).map((h) => h.label);
   const needs = (rec?.roadmap?.needs || []).map((n) => n.name);
   const carryText = purpose?.text && !anyGoal ? purpose.text : '';
   const [carryKey, setCarryKey] = useState(() => suggestHorizon(carryText));
@@ -284,7 +283,7 @@ function GoalsView({ goals, roadmaps, purpose, loaded, onEdit, onCarry, onInterv
     <>
       {/* 説明は、まだロードマップが 1 つも無いあいだだけ（はじめて開いた人に・DESIGN §0-6 補足文を常に置かない）。 */}
       {/* 目標をまだ 1 つも書いていない間だけ（書いたら下の注記と重なる・2026-11-22 ui-critic）。 */}
-      {!anyRoadmap && !anyGoal && <p className="goal-lead">{withPhraseBreaks('1 年後の目標から書いてみましょう。「達成するには？」を一緒に考えて、道のりと読む本にします。3 年後・5 年後も書くと、その先までつなぎます。')}</p>}
+      {!anyRoadmap && !anyGoal && <p className="goal-lead">{withPhraseBreaks('「達成するには？」を一緒に考えて、目標までの道のりと読む本を決めます。')}</p>}
       {carryText && (
         <section className="goal-box" aria-label="はじめに書いた目標">
           <p className="goal-sec-title" style={{ margin: 0 }}>はじめに書いた目標</p>
@@ -344,7 +343,7 @@ function GoalsView({ goals, roadmaps, purpose, loaded, onEdit, onCarry, onInterv
         {anyRoadmap && canBuild && isRoadmapStale(rec, goals) ? (
           <>
             <button type="button" style={btnPrimary} onClick={onInterview}>新しい目標でつくり直す</button>
-            <p className="plan-summary">{withPhraseBreaks(`目標が新しくなりました。「達成するには？」を聞き直して、いまから 5 年の道のりをつくります（${ROADMAP_TOKENS_LABEL}）。`)}</p>
+            <p className="plan-summary">{withPhraseBreaks(`目標が変わりました。「達成するには？」をもう一度聞いて、道のりをつくり直します（${ROADMAP_TOKENS_LABEL}）。`)}</p>
             <button type="button" style={{ ...btnLink, marginLeft: 'calc(-1 * var(--space-1))' }} onClick={onRoadmap}>いまのロードマップを見る</button>
           </>
         ) : anyRoadmap ? (
@@ -356,13 +355,13 @@ function GoalsView({ goals, roadmaps, purpose, loaded, onEdit, onCarry, onInterv
           <>
             <button type="button" style={btnPrimary} onClick={onInterview}>ロードマップをつくる</button>
             <p className="plan-summary">{withPhraseBreaks(allSet
-              ? `「達成するには？」を 2 つまで聞いてから、3 つの目標をつなぐ道のりと読む本の順番をつくります（${ROADMAP_TOKENS_LABEL}）。`
-              : `「達成するには？」を 2 つまで聞いてから、1 年後の目標への道のりと読む本の順番をつくります（${ROADMAP_TOKENS_LABEL}）。${missing.join('・')}の目標は、あとから書けば道のりに足せます。`)}</p>
+              ? `「達成するには？」の問いに 2 つまで答えると、3 つの目標をつなぐ道のりと読む本の順番をつくります（${ROADMAP_TOKENS_LABEL}）。`
+              : `「達成するには？」の問いに 2 つまで答えると、1 年後の目標までの道のりと読む本の順番をつくります（${ROADMAP_TOKENS_LABEL}）。`)}</p>
           </>
         ) : (
           <>
             <button type="button" style={btnPrimaryOff} disabled aria-describedby="goal-cta-note">ロードマップをつくる</button>
-            <p id="goal-cta-note" className="plan-summary">{withPhraseBreaks('1 年後の目標を書くと、つくれます。3 年後・5 年後は、あとからでもかまいません。')}</p>
+            <p id="goal-cta-note" className="plan-summary">{withPhraseBreaks('1 年後の目標を書くと、つくれます。')}</p>
           </>
         )}
       </section>
@@ -413,7 +412,7 @@ function GoalEditSheet({ horizonKey, initial, hasRoadmap, nextLabel, onClose, on
       )}
     >
       <p style={{ margin: '0 0 var(--space-3)', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.6 }}>
-        {withPhraseBreaks(`${h.label}に、どうなっていたいですか。何を・どんな場面で、まで書くと、ロードマップが具体的になります。`)}
+        {withPhraseBreaks(`${h.label}に、どうなっていたいですか。どんな場面で何ができるようになりたいかまで書くと、道のりが具体的になります。`)}
       </p>
       <textarea
         ref={ref}
@@ -560,7 +559,7 @@ function InterviewView({ goal, goals, roadmaps, books, sessions, onDone, onCance
       track('goal_roadmap_built', { horizon: goal.key, asks: finalQa.length });
       onDone();
     } catch (e) {
-      setError({ message: e?.message || 'ロードマップを作れませんでした。', notice: !!e?.notice, stage: 'build' });
+      setError({ message: e?.message || 'ロードマップをつくれませんでした。', notice: !!e?.notice, stage: 'build' });
       setBuilding(false);
     }
   }, [goal, goals, roadmaps, books, sessions, history, onDone, onCancel]);
@@ -620,7 +619,7 @@ function InterviewView({ goal, goals, roadmaps, books, sessions, onDone, onCance
 
       {error && (
         <ErrorMessage
-          title={error.notice ? 'AI のトークンについて' : (error.stage === 'build' ? 'ロードマップを作れませんでした' : '問いを用意できませんでした')}
+          title={error.notice ? 'AI のトークンについて' : (error.stage === 'build' ? 'ロードマップをつくれませんでした' : '問いを用意できませんでした')}
           description={error.message}
           // 戻るは上の「‹ 目標」1 つ（同じ行き先のボタンを 2 つ並べない・2026-11-23 点検）。トークンを使い切ったときだけ「目標に戻る」。
           //   問いを用意できなかったときは、問いなしでもつくれる（「このくらいでつくる」と同じ・2026-11-23 ui-critic）。
@@ -821,7 +820,7 @@ function RoadmapView({ goal, record, books, sessions = [], onOpenBook, onAddActi
   const paceLine = leftN > 0 && quarter.count === 0
     ? `前の区切りの『${displayTitle(quarter.leftover[0].title)}』${leftN > 1 ? `ほか ${leftN - 1} 冊` : ''}が残っています。この 3 か月は、まずその本から。`
     : quarter.mode === 'rest'
-      ? 'ゆっくりの 3 か月でした。次は、読みやすい本を 1 冊から選びます。'
+      ? 'この 3 か月は、読みやすい本を 1 冊選びます。'
       : quarter.mode === 'pace'
         ? (quarter.base > quarter.pace.doneCount
           ? `前の 3 か月より 1 冊だけ多い、${quarter.base} 冊を選びます${leftN > 0 ? `（残っている ${leftN} 冊と合わせて）` : ''}。`
@@ -834,15 +833,14 @@ function RoadmapView({ goal, record, books, sessions = [], onOpenBook, onAddActi
         {/* 目標は畳む（押すとほかの目標と「目標を書き直す」）。期限が過ぎたときは下の枠に主ボタン。 */}
         <GoalTrio goals={goal.goals} compact fold onEdit={onEditGoals && !(overdue.length > 0 && !stale) ? onEditGoals : null} />
         {stale && (
-          <p className="goal-peek">{withPhraseBreaks('このロードマップは、前の目標で作りました。新しい目標に合わせるときは、下の「つくり直す」から。')}</p>
+          <p className="goal-peek">{withPhraseBreaks('このロードマップは、前の目標でつくりました。新しい目標に合わせるときは、下の「つくり直す」から。')}</p>
         )}
       </header>
 
       {overdue.length > 0 && !stale && (
         <section className="goal-box rm-overdue" aria-labelledby="rm-overdue">
           <h3 id="rm-overdue" className="rm-overdue-title">{withPhraseBreaks(`${overdue.map((o) => o.label).join('・')}の目標の期限が過ぎました`)}</h3>
-          <p className="rm-now-note">{withPhraseBreaks('書き直すか、この目標で続けるかを選べます。')}</p>
-          {onEditGoals && <button type="button" style={{ ...btnPrimary, marginTop: 'var(--space-3)' }} onClick={onEditGoals}>目標を書き直す</button>}
+                    {onEditGoals && <button type="button" style={{ ...btnPrimary, marginTop: 'var(--space-3)' }} onClick={onEditGoals}>目標を書き直す</button>}
           {onExtend && (
             <button type="button" className="rm-link" style={{ ...linkStyle, ...quietColor }} onClick={() => onExtend(overdue.map((o) => o.key))}>この目標で続ける</button>
           )}
@@ -895,7 +893,7 @@ function RoadmapView({ goal, record, books, sessions = [], onOpenBook, onAddActi
         ) : (
           <>
             {recsNow > 0 ? (
-              <p className="plan-summary">{withPhraseBreaks(`この 3 か月に読む本を ${recsNow} 冊すすめています。下の「本棚に入れる」で入れると、読書計画のカレンダーになります。`)}</p>
+              <p className="plan-summary">{withPhraseBreaks(`この 3 か月に読む本を ${recsNow} 冊すすめています。本棚に入れると、読書計画のカレンダーに並べられます。`)}</p>
             ) : (
               <>
                 <p className="plan-summary">{withPhraseBreaks('この 3 か月に読む本は、まだ決まっていません。AI 選書で探しましょう。')}</p>
@@ -968,7 +966,7 @@ function RoadmapView({ goal, record, books, sessions = [], onOpenBook, onAddActi
 
       <section className="goal-sec" aria-labelledby="rm-road">
         <h3 id="rm-road" className="goal-sec-title">道のり</h3>
-        <p className="plan-summary" style={{ marginTop: 0, marginBottom: 'var(--space-4)' }}>{withPhraseBreaks('本は、この先 3 か月に読む分をすすめています。行動は、読んでメモした言葉から、相談しながら決めます。')}</p>
+        <p className="plan-summary" style={{ marginTop: 0, marginBottom: 'var(--space-4)' }}>{withPhraseBreaks('本は、この先 3 か月に読む分だけをすすめています。')}</p>
         <ol className="goal-road">
           {roadmap.phases.map((p, i) => {
             const spec = specs[i] || { label: `${i + 1}`, range: '' };
@@ -1063,7 +1061,7 @@ function RoadmapView({ goal, record, books, sessions = [], onOpenBook, onAddActi
           <button type="button" style={btnGhost} onClick={onPlan}><span style={{ wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('読書計画をカレンダーにする')}</span></button>
         )}
         <button type="button" style={{ ...btnLinkQuiet, marginTop: 'var(--space-2)', marginLeft: 'calc(-1 * var(--space-1))' }} onClick={onRebuild}>{`つくり直す（${ROADMAP_TOKENS_LABEL}）`}</button>
-        <p className="rm-footnote">{withPhraseBreaks('AI があなたの目標と答えから作った道のりです。合わないところは「直す」で自分の言葉に直せます（トークンは使いません）。')}</p>
+        <p className="rm-footnote">{withPhraseBreaks('AI があなたの目標と答えからつくった道のりです。合わないところは「直す」で書き換えられます（トークンは使いません）。')}</p>
       </div>
       {editing && (
         <RoadmapEditSheet
@@ -1152,7 +1150,7 @@ function RoadmapEditSheet({ editing, roadmap, specs, onClose, onSave }) {
           <Plus size="1em" aria-hidden="true" />{`${lim.title}を足す`}
         </button>
       )}
-      <p className="plan-summary">{withPhraseBreaks(`${lim.max > 1 ? `${lim.max} つまで。` : ''}AI は使わないので、トークンは減りません。`)}</p>
+      <p className="plan-summary">{withPhraseBreaks(`${lim.max > 1 ? `${lim.max} つまで書けます。` : ''}トークンは使いません。`)}</p>
     </BottomSheet>
   );
 }
@@ -1431,7 +1429,7 @@ function PlanOrderSheet({ books, initial, custom, onClose, onSave, onReset }) {
         <button type="button" style={dirty && order.length ? btnPrimary : btnPrimaryOff} disabled={!dirty || !order.length} onClick={() => onSave(order)}>保存</button>
       )}
     >
-      <p className="plan-summary" style={{ marginTop: 0 }}>{withPhraseBreaks('上から順に、今日から読みます。この先 3 か月に読む本を中心に並べてください。')}</p>
+      <p className="plan-summary" style={{ marginTop: 0 }}>{withPhraseBreaks('上から順に、今日から読みます。')}</p>
       <ol className="plan-sort" aria-label="読む順番">
         {order.map((id, i) => {
           const b = byId.get(id);

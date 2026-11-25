@@ -23,6 +23,9 @@ const getParser = () => {
 // 内側の空きだけを、折り返さない空き（U+00A0）にする（文節の頭と終わりの空き・英文だけの文節はそのまま）。
 const CJK = /[぀-ヿ㐀-鿿＀-￯]/;
 const MAX_GLUED_PHRASE = 20;
+// 句読点・？！の直後の閉じかっこの前に語をつなぐ印（U+2060）を入れる（閉じかっこを行頭に置かない・2026-11-25）。
+export const glueClosers = (s) => String(s ?? '').replace(/([？！?!。、…])(?=[」』）)】〉》])/g, '$1\u2060');
+
 export function glueInnerSpaces(phrase) {
   const s = String(phrase ?? '');
   if (!s.includes(' ') || !CJK.test(s)) return s;
@@ -194,7 +197,9 @@ export function withPhraseBreaks(text, { scriptBreaks = false } = {}) {
     const glued = prev.endsWith('\u00a0') || pc.startsWith('\u00a0') || isGluedPhrase(prev, pc);
     if (!lineStart && !glued) out.push(<wbr key={`w${k++}`} />);
     // 文節の中の半角の空きは折り返さない空きに（数と助数詞を割らない・glueInnerSpaces）。
-    out.push(glueInnerSpaces(pc));
+    // 「？」「！」「。」「、」のすぐ後ろの閉じかっこは前の字につなぐ（iPhone の Safari が「達成するには？／」を一緒に」と
+    //   閉じかっこを行頭に送っていた・2026-11-25 オーナー点検＝glueClosers）。
+    out.push(glueClosers(glueInnerSpaces(pc)));
     lineStart = false;
     prev = pc;
   });
