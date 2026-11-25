@@ -194,7 +194,8 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
   const [profile, setProfile] = useState(() => ({ ...EMPTY_PROFILE }));
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileError, setProfileError] = useState('');
-  const profileFilled = hasProfile(profile) || !!String(profile.favLine || '').trim();
+  // アイコンだけ選んだときも保存する（「次へ」で黙って捨てていた・2026-11-25 点検）。
+  const profileFilled = hasProfile(profile) || !!String(profile.favLine || '').trim() || !!profile.avatar;
   const slide = slides[step];
   const isLast = step === slides.length - 1;
   // 📊 onboard_step: どの画面まで見たか（2026-10-20・どこで離れるかを見る。閉じた画面は onboard_path の step）。
@@ -420,7 +421,8 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
           <>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', flexShrink: 0 }}>
               <button type="button" style={{ ...btnPrimary, flex: 'none', width: '100%' }} onClick={startQuickstart}>
-                読んだ本の一文をメモする
+                {/* 文字が大きいと「…メモす／る」と 1 字だけ落ちていた（2026-11-25 点検） */}
+                <span style={{ wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('読んだ本の一文をメモする')}</span>
               </button>
               <button type="button" style={{ ...btnGhost, flex: 'none', width: '100%' }} onClick={startOcr}>
                 本のページを撮る

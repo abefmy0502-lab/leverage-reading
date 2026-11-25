@@ -18,10 +18,13 @@ describe('glueInnerSpaces（文節の中の空きで折り返さない）', () =
   });
 });
 
-import { glueClosers } from './TightBubble.jsx';
-import { test as t2, expect as e2 } from 'vitest';
-t2('閉じかっこを ？・。の後ろから離さない（行頭に置かない・2026-11-25）', () => {
-  e2(glueClosers('「達成するには？」を')).toBe('「達成するには？⁠」を');
-  e2(glueClosers('「保存しました。」')).toBe('「保存しました。⁠」');
-  e2(glueClosers('「会議」を')).toBe('「会議」を');
+describe('glueClosers（閉じかっこ・その後ろの助詞を行頭に置かない・2026-11-25）', () => {
+  it('？・。の直後の閉じかっこと、閉じかっこの直後の助詞を前につなぐ', () => {
+    const J = '\u2060';
+    expect(glueClosers('「達成するには？」を')).toBe(`「達成するには？${J}」${J}を`);
+    expect(glueClosers('「保存しました。」')).toBe(`「保存しました。${J}」`);
+    expect(glueClosers('「会議」を')).toBe(`「会議」${J}を`);
+    expect(glueClosers('『考え方』は')).toBe(`『考え方』${J}は`);
+    expect(glueClosers('「会議」、')).toBe('「会議」、');
+  });
 });

@@ -1293,11 +1293,20 @@ function AuthedApp() {
     planProgressToastRef.current = null;
     toast.dismiss(cur.id, { skipExpire: true });
   };
+  // 状態を進めた本と時刻（二度押しの受け止め・advanceStatus）。
+  const statusChangedRef = useRef({ id: null, at: 0 });
   const dismissStatusUndo = (bookId) => {
     const id = statusUndoToastRef.current.get(bookId);
     if (id) toast.dismiss(id);
     statusUndoToastRef.current.delete(bookId);
   };
+  // 編集の画面へ移ったら、状態の「元に戻す」の知らせは閉じる（下に固定の「保存」に重なって押せなかった・2026-11-25 点検）。
+  useEffect(() => {
+    if (view !== 'edit') return;
+    statusUndoToastRef.current.forEach((id) => toast.dismiss(id));
+    statusUndoToastRef.current.clear();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view]);
   // 本詳細のスクロール可能コンテナへの ref。フェーズ遷移 (status 変化) の
   // たびにスクロールトップへ戻すために使う — 旧実装は前フェーズの最下部
   // (例: 読書前で「読書を開始する」ボタン直前) のままだったため、新フェーズ
@@ -3236,6 +3245,9 @@ function AuthedApp() {
   // opts.message: 「元に戻す」の知らせの代わりに出す文（読書計画シートを作りに積読に積んだとき等・2026-09-29）。
   const advanceStatus = (book, newStatus, opts = {}) => {
     if (!book) return;
+    // 二度押しで、状態を進めた直後に同じ場所に出たボタン（次の状態へ・読書計画シートを作る）を押させない（2026-11-25 点検）。
+    if (statusChangedRef.current.id === book.id && Date.now() - statusChangedRef.current.at < STATUS_TAP_LOCK_MS) return;
+    statusChangedRef.current = { id: book.id, at: Date.now() };
     // 呼び出し元のスナップショット（current 等）は古い可能性がある。saveBook は
     // 「渡した actions に無い行を DELETE」する差分同期なので、stale なまま保存すると
     // 直前に追加した行動などが静かに消える。必ず books state の最新行に rebase する。
@@ -3250,6 +3262,13 @@ function AuthedApp() {
     // 開始日は「読み始めた日」＝読書中・読了に進めたとき（積読に積んだ日ではない）。
     if ((newStatus === "reading" || newStatus === "done") && !fresh.startDate) patch.startDate = todayLocal();
     if (newStatus === "done" && !fresh.doneDate) patch.doneDate = todayLocal();
+    // 前の状態へ戻すときは、その先の日付を空にする（読書中に戻しても「読了 10/11」が残り、もう一度読了にしても古い日付のままだった・2026-11-25 点検）。
+    //   取り消し（元に戻す）は prev に元の日付を持っているので戻せる。評価（★）は残す。
+    const ORDER = { want: 0, before: 1, reading: 2, done: 3 };
+    if (ORDER[newStatus] < ORDER[fresh.status]) {
+      if (newStatus !== 'done') patch.doneDate = '';
+      if (newStatus === 'want' || newStatus === 'before') patch.startDate = '';
+    }
     const updated = { ...fresh, ...patch };
 
     // Optimistic update。ステータスを 1 つ進めるタップは、どの遷移でも本詳細に
@@ -3279,6 +3298,9 @@ function AuthedApp() {
           track('status_changed', { to: newStatus });
         }
       } catch (error) {
+        // 成功の「…にしました。元に戻す」を残さない（失敗の知らせと重なっていた・2026-11-25 点検）。
+        dismissStatusUndo(book.id);
+        clearTimeout(justDoneTimerRef.current);
         toast.error(toMessage(error, '状態を変えられませんでした。'));
         // rollback は status 系フィールドのみ（他の並行変更は保持）。画面遷移は
         // ユーザーがこの本を開いたままの時だけ行う（別の本の編集画面を乗っ取らない）。
@@ -3999,7 +4021,7 @@ function AuthedApp() {
     if (!bookShared(prof, book.id)) {
       const ok = await confirm({
         title: 'この本を共有しますか？',
-        message: 'リンクを知っている人が、書名・表紙・評価と「この本のまとめ」を見られます。メモと、ほかの本は見られません。',
+        message: (book.status === 'done' || book.status === 'reading' ? 'リンクを知っている人が、書名・表紙・評価と「この本のまとめ」を見られます。メモやほかの本は見られません。' : 'リンクを知っている人が、書名と表紙を見られます。メモやほかの本は見られません。'),
         confirmLabel: '共有する',
         cancelLabel: 'キャンセル',
       });
@@ -5037,9 +5059,9 @@ function AuthedApp() {
     const liveBook = books.find((b) => b.id === coverMenuBook.id) || coverMenuBook;
     const close = () => setCoverMenuBook(null);
     const options = [
-      { label: '表紙を選び直す', icon: ImagePlus, onClick: () => { close(); setCoverFixForBook(liveBook); } },
-      { label: '表紙を取り直す', icon: IcRefresh, onClick: () => { close(); refreshCoverFor(liveBook); } },
-      { label: '表紙を手動でアップロード', icon: Upload, onClick: () => { close(); triggerManualCoverUpload(liveBook); } },
+      { label: '候補から選ぶ', icon: ImagePlus, onClick: () => { close(); setCoverFixForBook(liveBook); } },
+      { label: '自動でもう一度探す', icon: IcRefresh, onClick: () => { close(); refreshCoverFor(liveBook); } },
+      { label: '写真をアップロード', icon: Upload, onClick: () => { close(); triggerManualCoverUpload(liveBook); } },
       // 消す操作はいつも最後・エラー色（DESIGN §5）
       ...(liveBook.cover ? [{ label: '表紙を削除', icon: ImageOff, destructive: true, onClick: () => { close(); removeCoverFor(liveBook); } }] : []),
     ];
@@ -5317,7 +5339,7 @@ function AuthedApp() {
                 return (
                   <div style={{ marginTop: hasPlanFold ? 'var(--space-3)' : 'var(--space-6)' }}>
                     {/* 枠の大きなボタンにせず、カードの 1 行（15/600・右に 1 回の目安・高さ 48）。主役は下の「読書を開始する」1 つ（2026-10-16 ui-critic 第 2 回）。 */}
-                    <button type="button" onClick={() => runStrategyInPlace(current)} disabled={!!planGen}
+                    <button type="button" onClick={() => { if (statusChangedRef.current.id === current.id && Date.now() - statusChangedRef.current.at < STATUS_TAP_LOCK_MS) return; runStrategyInPlace(current); }} disabled={!!planGen}
                       aria-busy={genHere || undefined}
                       style={{ width: '100%', minHeight: 'var(--btn-h)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', padding: 'var(--space-3) var(--space-4)', background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', fontFamily: 'inherit', textAlign: 'left', cursor: planGen ? 'default' : 'pointer', color: planGen ? 'var(--text-3)' : 'var(--text)' }}>
                       {/* 無料プランには押す前に有料と分かる印（「AI に答えてもらう（プラン）」と同じ作法・2026-10-09） */}
@@ -5847,7 +5869,7 @@ function AuthedApp() {
             <div style={{ ...cardStyle, marginTop: 'var(--space-8)' }}>
               <p style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('一番の収穫を 1 行だけ残す')}</p>
               <button type="button" onClick={() => openEdit(current, { focus: 'roiSummary' })} style={textBtnInCard}>
-                1 行を書く
+                書く
               </button>
             </div>
           )}
@@ -6203,7 +6225,7 @@ function AuthedApp() {
                   onClick: async () => {
                     const ok = await confirm({
                       title: `「${prevLabel}」に戻しますか？`,
-                      message: `メモや行動はそのまま残ります。`,
+                      message: current.status === 'done' ? 'メモ・行動・評価はそのまま残ります。読了日は消えます。' : current.status === 'reading' ? 'メモや行動はそのまま残ります。開始日は消えます。' : 'メモや行動はそのまま残ります。',
                       confirmLabel: '戻す',
                       cancelLabel: 'キャンセル',
                     });
@@ -6220,7 +6242,7 @@ function AuthedApp() {
                 : []),
               // 読みたい・積読は書名とお店のリンクの文を共有。読書中・読了の「写真で共有」は上の行のカメラ 1 つ
               //（同じ操作を 2 か所に出さない＝DESIGN §5・2026-10-30 ui-critic。前は「…」にもあり、選ぶシートを飛ばしていた）。
-              ...(isMemoPhase ? [] : [{ label: '共有', icon: <Share size="1.1em" aria-hidden="true" />, onClick: () => shareBook(current) }]),
+              ...(isMemoPhase ? [] : [{ label: '書名とお店のリンクを送る', icon: <Share size="1.1em" aria-hidden="true" />, onClick: () => shareBook(current) }]),
               // 🧾 AI への指示文（メモのある読書中・読了の本だけ・2026-10-21）。
               ...(isMemoPhase ? [{ label: 'AI への指示文をつくる', icon: <FileText size="1.1em" aria-hidden="true" />, onClick: () => setPromptMakerBookId(current.id) }] : []),
               // 以前の AI 解析は、保存済みのものがある本だけ（本の詳細の畳む見出しから移した・共有の下・ヘルプの上・2026-10-09）。
@@ -8514,6 +8536,9 @@ function useLpRoute() {
   }, []);
   return route;
 }
+
+// 状態を進めた直後の二度押しを受け止める時間（2026-11-25 点検）。
+const STATUS_TAP_LOCK_MS = 450;
 
 export default function App() {
   const [authCallbackActive, setAuthCallbackActive] = useState(hashHasAuthParams);

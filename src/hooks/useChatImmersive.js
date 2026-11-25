@@ -42,6 +42,8 @@ export function useChatImmersive(active) {
     };
   }, [active]);
   const settleUntil = useRef(0);
+  const recheckRef = useRef(null);
+  useEffect(() => () => clearTimeout(recheckRef.current), []);
   // 会話のスクロールの箱の onScroll から、箱そのもの（e.currentTarget）か scrollTop の数を渡す。
   return useCallback((target) => {
     if (!active || typeof document === 'undefined') return;
@@ -57,6 +59,20 @@ export function useChatImmersive(active) {
       settleUntil.current = now + SETTLE_MS;
       document.body.classList.toggle(CHAT_SCROLL_DOWN_CLASS, next);
       setNavInert(next);
+      // 畳んだあと、箱が伸びて先頭へ戻った・もう送れる長さが無い、なら畳んだままにしない
+      //   （そのあとスクロールが起きず、下のタブが消えたまま戻れなかった・2026-11-25 点検）。
+      if (next && el) {
+        clearTimeout(recheckRef.current);
+        recheckRef.current = setTimeout(() => {
+          if (!down.current) return;
+          const stuck = el.scrollTop <= 48 || el.scrollHeight <= el.clientHeight + 48;
+          if (!stuck) return;
+          down.current = false;
+          lastTop.current = el.scrollTop;
+          document.body.classList.remove(CHAT_SCROLL_DOWN_CLASS);
+          setNavInert(false);
+        }, SETTLE_MS + 50);
+      }
     }
   }, [active]);
 }

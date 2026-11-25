@@ -24,7 +24,10 @@ const getParser = () => {
 const CJK = /[぀-ヿ㐀-鿿＀-￯]/;
 const MAX_GLUED_PHRASE = 20;
 // 句読点・？！の直後の閉じかっこの前に語をつなぐ印（U+2060）を入れる（閉じかっこを行頭に置かない・2026-11-25）。
-export const glueClosers = (s) => String(s ?? '').replace(/([？！?!。、…])(?=[」』）)】〉》])/g, '$1\u2060');
+// 閉じかっこの直後の助詞（「…」を・『…』は）も前につなぐ（「を」だけが行頭に来ていた・2026-11-25 点検）。
+export const glueClosers = (s) => String(s ?? '')
+  .replace(/([？！?!。、…])(?=[」』）)】〉》])/g, '$1\u2060')
+  .replace(/([」』）】〉》])(?=[をはがにとでもへの])/g, '$1\u2060');
 
 export function glueInnerSpaces(phrase) {
   const s = String(phrase ?? '');

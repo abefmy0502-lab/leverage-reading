@@ -69,8 +69,8 @@ describe('shouldDecide / turnHint（聞き返しは最大 2 回）', () => {
 describe('askProgressText（いまどこにいるかの 1 行）', () => {
   it('1 回目の聞き返しは「あと 1 つ」・2 回目からは「次で」', () => {
     expect(askProgressText(1)).toBe('あと 1 つ聞いたら、答えと行動をまとめます');
-    expect(askProgressText(2)).toBe('次で答えと行動をまとめます');
-    expect(askProgressText(3)).toBe('次で答えと行動をまとめます');
+    expect(askProgressText(2)).toBe('次の返事で、答えと行動をまとめます');
+    expect(askProgressText(3)).toBe('次の返事で、答えと行動をまとめます');
   });
   it('聞き返していなければ出さない', () => {
     expect(askProgressText(0)).toBe('');

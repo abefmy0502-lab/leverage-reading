@@ -304,14 +304,14 @@ export default function AuthScreen() {
 
   // ログイン画面では見出しを出さない（主ボタン「ログイン」と重複するため）。新規登録・リセットだけ出す。
   // 同じ操作は 1 つの名前（GLOSSARY「アカウントを作る」・前は「新規登録」「登録する」「アカウントを作成」・2026-11-23）。
-  const title = mode === 'signup' ? 'アカウントを作る' : mode === 'reset' ? 'パスワードリセット' : '';
+  const title = mode === 'signup' ? 'アカウントを作る' : mode === 'reset' ? 'パスワードの再設定' : '';
   const submitLabel = loading
     ? '処理中…'
     : mode === 'signin'
     ? 'ログイン'
     : mode === 'signup'
     ? 'アカウントを作る'
-    : 'リセットメールを送信';
+    : '再設定のメールを送る';
 
   if (!isSupabaseConfigured) {
     return (
@@ -346,7 +346,7 @@ export default function AuthScreen() {
               // ネイティブでは確認リンクは Safari（Web）で開く — 「そのまま進める」と
               // 約束すると迷子になる。確認後にこのアプリへ戻る導線を正しく案内する。
               ? <>メール内のリンクで確認が済んだら、<br />このアプリに戻ってログインしてください。</>
-              : <>メール内のリンクをタップすると<br />登録が完了し、そのままアプリに進めます。</>}
+              : <>メール内のリンクで登録が終わります。<br />そのあと iPhone のアプリからログインしてください。</>}
           </p>
           <p style={{ ...jpWrap, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, margin: '0 0 var(--space-6)' }}>
             数分待っても届かないときは、<br />
@@ -446,7 +446,8 @@ export default function AuthScreen() {
           placeholder="メールアドレス"
           aria-label="メールアドレス"
           aria-describedby={fieldError ? ERROR_ID : undefined}
-          aria-invalid={fieldError || undefined}
+          // パスワードだけの誤りでは、メールの欄を赤くしない（2026-11-25 点検）
+          aria-invalid={(fieldError && !/パスワード/.test(String(error))) || undefined}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           onKeyDown={blockEnterWhileComposing}

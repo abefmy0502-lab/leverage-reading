@@ -1996,7 +1996,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         <ErrorMessage
           icon={null}
           title="問いを用意できませんでした"
-          description="通信の状態を確かめてください。"
+          description="少し時間をおいて、もう一度お試しください。"
           actions={[
             { label: 'もう一度', onClick: retryInterview, variant: 'secondary' },
             // 答えがまだ無い（最初の問いで失敗）ときは、最初の言葉だけで探す・最初の入力に戻る も選べる

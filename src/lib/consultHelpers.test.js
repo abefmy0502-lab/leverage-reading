@@ -412,7 +412,7 @@ describe('無料プランは聞き返し 1 回まで（2026-10-21）', () => {
     expect(askLimitFor({ freeMode: false })).toBe(2);
     expect(shouldDecide({ followUp: true, question: '会議の前', asked: 1, askLimit: 1 })).toBe(true);
     expect(shouldDecide({ followUp: true, question: '会議の前', asked: 1, askLimit: 2 })).toBe(false);
-    expect(askProgressText(1, 1)).toBe('次で答えと行動をまとめます');
+    expect(askProgressText(1, 1)).toBe('次の返事で、答えと行動をまとめます');
     expect(askProgressText(1, 2)).toBe('あと 1 つ聞いたら、答えと行動をまとめます');
   });
 });

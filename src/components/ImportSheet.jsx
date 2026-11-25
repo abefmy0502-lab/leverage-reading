@@ -146,6 +146,7 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
     if (!result || !livePlan) return;
     const snap = livePlan;
     setPlanSnap(snap);
+    setError(''); // 前の回の失敗の文を残さない（やり直して成功しても赤い文が出ていた・2026-11-25 点検）
     setStep('importing');
     setProgress({ done: 0, total: snap.books.length });
     try {
@@ -154,7 +155,7 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
       setOutcome(o);
       setStep('done');
     } catch {
-      setError('取り込みが途中で止まりました。通信状況を確認して、もう一度お試しください。取り込めた分は残っていて、同じファイルを選び直してもメモは重複しません。');
+      setError('取り込みが途中で止まりました。通信状況を確認して、もう一度「取り込む」を押してください。入った分は二重になりません。');
       setPlanSnap(null); // 確かめる画面に戻ったら、いまの本棚で数え直す
       setStep('preview');
       // 途中まで足したメモは、次の取り込みで足さない。数え直せるように本文を読み直す（読めなければ前のまま）。
@@ -295,9 +296,6 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
           <p role="note" style={{ ...body, overflowWrap: 'anywhere' }}>読み取れなかったファイル: {unread.join('、')}</p>
         )}
         {/* 「同じ本には足す・同じメモは二重にならない」はヘルプ（bookList の取り込み）だけに書く（説明の補足文を置かない・DESIGN §0-6）。 */}
-        {result.source === 'kindle' && (
-          <p style={{ ...body, fontSize: 'var(--text-meta)' }}>本は「読了」で追加されます。あとで変更できます。</p>
-        )}
       </div>
     );
     // 取り込み中: 主ボタンを押せない形にして進み具合を出す。「別のファイルを選ぶ」は場所だけ残して隠す（高さを変えない）。

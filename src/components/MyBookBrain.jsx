@@ -872,10 +872,25 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         // まだ作っている途中なら、終わるまで「作っています」を出し、終わったら履歴を読み直す。
         const waitId = `bg-wait-${Date.now()}`;
         setBusy(true);
+        if (bg.controller) abortRef.current = bg.controller;
         setMessages((arr) => [...arr, { id: waitId, role: 'assistant', content: '', refs: [], createdAt: new Date().toISOString(), streaming: true }]);
         bg.promise.then(async () => {
-          setMessages((arr) => arr.filter((m) => m.id !== waitId));
-          await fetchHistory();
+          if (abortRef.current === bg.controller) abortRef.current = null;
+          setAborting(false);
+          if (bg.failed || bg.aborted) {
+            // 失敗・中止は「もう一度」つきの吹き出しで（答えの無い質問だけを残さない）。
+            setMessages((arr) => arr.map((m) => (m.id === waitId ? {
+              id: `err-${Date.now()}`,
+              role: 'assistant',
+              content: bg.aborted ? '回答を中止しました。' : `${ANSWER_FAILED_TITLE}。${bg.failed?.notCharged ? 'トークンは使っていません。' : ''}${ANSWER_FAILED_DESC}`,
+              refs: [],
+              createdAt: new Date().toISOString(),
+              error: !bg.aborted,
+            } : m)));
+          } else {
+            setMessages((arr) => arr.filter((m) => m.id !== waitId));
+            await fetchHistory();
+          }
           setBusy(false);
         });
       }
@@ -1450,7 +1465,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
 
     let finishBackground = () => {};
     const bgPromise = new Promise((resolve) => { finishBackground = resolve; });
-    backgroundAsk = { questionAt, done: false, finishedAt: 0, leftWhileRunning: false, promise: bgPromise };
+    // controller: 離れて戻った画面の「中止」からも止められるように（戻ると中止が効かなかった・2026-11-25 点検）。
+    backgroundAsk = { questionAt, done: false, finishedAt: 0, leftWhileRunning: false, promise: bgPromise, controller, failed: false, aborted: false };
     const myBackground = backgroundAsk;
 
     // ★ 送信後すぐに assistant 吹き出しを optimistically 追加。空文字 +
@@ -1663,6 +1679,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           : m
       ));
       setPromptDismissed(false);
+      // 離れている間に失敗・中止したことを、戻った画面に伝える（質問だけが残っていた・2026-11-25 点検）。
+      if (controller.signal.aborted) myBackground.aborted = true;
+      else if (!e?.paywall && !e?.monthlyLimit) myBackground.failed = { notCharged: !!e?.notCharged };
     } finally {
       // この run の controller が現役なら掃除する (新しい送信が始まっていれば
       // 上書きしない)。
@@ -1766,7 +1785,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   };
   const handleResolveAndClear = () => {
     clearConversation();
-    toast.success('新しい相談をはじめます。前の相談は右上の時計から見られます。');
+    toast.success('前の相談は、右上の時計から見られます。');
   };
 
   // 🧵 過去の相談の「この続きを相談する」（2026-10-08）: その会話（相談と答え・相談相手）を今の会話として並べ、
@@ -1865,7 +1884,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const clearHistory = async () => {
     const ok = await confirm({
       title: 'これまでの相談をすべて削除しますか？',
-      message: 'これまでの相談をすべて削除します。元に戻せません。',
+      message: '元に戻せません。',
       confirmLabel: '削除する',
       cancelLabel: 'キャンセル',
       danger: true,
@@ -2026,7 +2045,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   //   見方を変えた答え（🔭 lensOf）の「続けますか？」は聞き返しではないので出さない。
   const askProgress = answerDone && !noMemosYet && !lastLookup && !lensOf(lastAsked) && answerAsks(lastVisible.content)
     // 残りが答え 1 回ぶんなら、次は聞き返さずにまとめる（shouldDecide の lastAnswer と同じ判断）。
-    ? (isLastAnswer({ freeMode, plan, tokensRemaining, purchasedTokens }) ? '次で答えと行動をまとめます' : askProgressText(countAsks(selectThreadTurns(visibleMessages, { max: 3, carry })), askLimitFor({ freeMode })))
+    ? (isLastAnswer({ freeMode, plan, tokensRemaining, purchasedTokens }) ? '次の返事で、答えと行動をまとめます' : askProgressText(countAsks(selectThreadTurns(visibleMessages, { max: 3, carry })), askLimitFor({ freeMode })))
     : '';
   // 「別の角度で答えて」は見方を変える 3 つのチップ（🔭 lensChips）に置き換えた（2026-10-08）。止めた・途中までの答えの「もう一度答えて」だけ残す。
   const regenLabel = !chipRowBase || isBookLookup(lastAsked) || !stoppedAnswer ? '' : 'もう一度答えて';
@@ -2328,7 +2347,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             {/* 数える単位は「AI の答え」（1 回 約 10 トークン・2026-10-09）。 */}
             {/* 🌱 無料プランのはじめの月は「（はじめの月）」を添える（数は言わない＝60 を 2 回言わない・2026-10-11）。 */}
             {/* 無料プランでトークンの数を出さないときは「AI の答えは今月あと約 N 回 ›」（何の数かを言う・2026-10-11 ui-critic・2026-10-13 に言い回しを直した＝「今月の残り AI の答え」は読みにくかった）。 */}
-            {tokensRemaining != null && tokensRemaining + (purchasedTokens || 0) > 0 && <span style={{ display: 'block' }}>{/* 「AI の答えは今月」と「あと約 N 回 ›」の 2 つの塊（文字最大でも右へはみ出さず、› は数のすぐ後ろ・2026-11-18） */}<span style={{ whiteSpace: 'nowrap' }}>{`AI の答えは${plan !== 'trial' && !showFreeTokenCount(tokensRemaining + (purchasedTokens || 0)) ? '今月' : ''}`}</span><wbr /><span style={{ whiteSpace: 'nowrap' }}>{`あと${remainingAnswersLabel(tokensRemaining + (purchasedTokens || 0))}`}{!(freeMode && freeFirstMonth) && tokenChevron}</span>{freeMode && freeFirstMonth && <span style={{ whiteSpace: 'nowrap' }}>（はじめの 2 か月）{tokenChevron}</span>}</span>}
+            {tokensRemaining != null && tokensRemaining + (purchasedTokens || 0) > 0 && <span style={{ display: 'block' }}>{/* 「AI の答えは今月」と「あと約 N 回 ›」の 2 つの塊（文字最大でも右へはみ出さず、› は数のすぐ後ろ・2026-11-18） */}<span style={{ whiteSpace: 'nowrap' }}>{`AI の答えは${plan !== 'trial' && !showFreeTokenCount(tokensRemaining + (purchasedTokens || 0)) ? '今月' : ''}`}</span><wbr /><span style={{ whiteSpace: 'nowrap' }}>{`あと${remainingAnswersLabel(tokensRemaining + (purchasedTokens || 0))}`}{!(freeMode && freeFirstMonth) && tokenChevron}</span>{freeMode && freeFirstMonth && <span style={{ whiteSpace: 'nowrap' }}>（はじめの 2 か月は多め）{tokenChevron}</span>}</span>}
           </span>
           </button>
         )}
@@ -2522,7 +2541,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                   )}
                   {canContinue && isOldConsult(g) && (
                     <p style={{ margin: 'calc(-1 * var(--space-2)) 0 0', marginLeft: ANSWER_COLUMN, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-                      {withPhraseBreaks(memosSince(g) > 0 ? `このあと、メモが ${memosSince(g)}\u00a0件増えました。前の答えは使わず、そのメモも根拠に答え直します` : '前の答えは使わず、そのあとのメモも根拠に答え直します')}
+                      {withPhraseBreaks(memosSince(g) > 0 ? `このあと、メモが ${memosSince(g)}\u00a0件増えました。増えたメモも使って答え直します` : 'そのあとのメモも使って答え直します')}
                     </p>
                   )}
                 </div>

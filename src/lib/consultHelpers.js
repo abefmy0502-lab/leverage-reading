@@ -728,7 +728,7 @@ export function shouldDecide({ followUp = false, question = '', asked = 0, lastA
 // 聞き返しの答えの下の 1 行（いまどこにいるか・13/--text-2）。k＝この答えまでの聞き返しの回数（countAsks）。
 export function askProgressText(k, limit = ASK_LIMIT) {
   if (!Number.isFinite(k) || k < 1) return '';
-  return k < limit ? 'あと 1 つ聞いたら、答えと行動をまとめます' : '次で答えと行動をまとめます';
+  return k < limit ? 'あと 1 つ聞いたら、答えと行動をまとめます' : '次の返事で、答えと行動をまとめます';
 }
 // 候補の行の頭の印（指示は「・」。- * • → や「1.」も受ける）。
 const ASK_REPLY_RE = /^\s*(?:[・•\-*→＞>]|[0-9０-９]+\s*[.．)）、])\s*(.+?)\s*$/;

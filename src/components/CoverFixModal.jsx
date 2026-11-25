@@ -7,7 +7,7 @@
 //   1. findIsbnCandidatesWithMetadata でタイトル/著者厳格マッチの候補を取得
 //   2. 各候補 ISBN について tryCoverForIsbn で実在検証された URL を並列取得
 //   3. 表紙が取れた候補だけをグリッド表示。タップで book を更新
-//   4. 該当無しなら「📷 自分でアップロードする」ボタンへ誘導
+//   4. 該当無しなら「📷 写真をアップロード」ボタンへ誘導
 
 import { useEffect, useId, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -157,7 +157,7 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
         </div>
 
         <div style={bodyStyle}>
-          <p style={{ fontSize: 12, color: 'var(--c-ink-soft)', margin: 0, lineHeight: 1.7 }}>
+          <p style={{ fontSize: 'var(--text-meta)', color: 'var(--c-ink-soft)', margin: 0, lineHeight: 1.7 }}>
             見つかった表紙から、『{book.title}』の正しいものを選んでください。
           </p>
 
@@ -174,7 +174,7 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
                   animation: 'lvg-ptr-spin 0.8s linear infinite',
                 }}
               />
-              <span style={{ fontSize: 12 }}>表紙を探しています…</span>
+              <span style={{ fontSize: 'var(--text-meta)' }}>表紙を探しています…</span>
             </div>
           ) : fetchFailed ? (
             <div
@@ -183,7 +183,7 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
                 background: 'var(--c-soft)',
                 border: '1px solid var(--c-hairline)',
                 borderRadius: 10,
-                fontSize: 13,
+                fontSize: 'var(--text-meta)',
                 color: 'var(--c-brand)',
                 lineHeight: 1.7,
                 textAlign: 'center',
@@ -193,7 +193,7 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
               <button
                 type="button"
                 onClick={() => setRetryNonce((n) => n + 1)}
-                style={{ display: 'block', margin: '10px auto 0', minHeight: 44, padding: '10px 18px', borderRadius: 'var(--radius-md)', border: '1px solid var(--c-hairline-strong)', background: 'var(--c-card)', color: 'var(--c-brand)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+                style={{ display: 'block', margin: '10px auto 0', minHeight: 44, padding: '10px 18px', borderRadius: 'var(--radius-md)', border: '1px solid var(--c-hairline-strong)', background: 'var(--c-card)', color: 'var(--c-brand)', fontSize: 'var(--text-meta)', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
               >
                 もう一度探す
               </button>
@@ -205,14 +205,14 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
                 background: 'var(--c-soft)',
                 border: '1px solid var(--c-hairline)',
                 borderRadius: 10,
-                fontSize: 13,
+                fontSize: 'var(--text-meta)',
                 color: 'var(--c-brand)',
                 lineHeight: 1.7,
                 textAlign: 'center',
               }}
             >
               表紙が見つかりませんでした。<br />
-              下の「自分でアップロードする」から設定できます。
+              下の「写真をアップロード」から設定できます。
             </div>
           ) : (
             <div
@@ -260,9 +260,9 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
                       border: '1px solid var(--c-hairline)',
                     }}
                   />
-                  <div style={{ fontSize: 10, color: 'var(--c-ink-2)', textAlign: 'center', lineHeight: 1.4 }}>
+                  <div style={{ fontSize: 'var(--text-meta)', color: 'var(--c-ink-2)', textAlign: 'center', lineHeight: 1.4 }}>
                     {c.isCurrent && (
-                      <div style={{ fontSize: 10, color: 'var(--color-accent)', fontWeight: 600, marginBottom: 2 }}>
+                      <div style={{ fontSize: 'var(--text-meta)', color: 'var(--color-accent)', fontWeight: 600, marginBottom: 2 }}>
                         <Check size={11} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />現在の表紙
                       </div>
                     )}
@@ -280,7 +280,7 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
 
           <hr style={{ border: 'none', borderTop: '1px solid var(--c-hairline)', margin: '4px 0' }} />
 
-          <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: 0, lineHeight: 1.7 }}>
+          <p style={{ fontSize: 'var(--text-meta)', color: 'var(--c-ink-2)', margin: 0, lineHeight: 1.7 }}>
             合う表紙がないときや、自分で撮った写真を使うときは
           </p>
           <button
@@ -295,14 +295,14 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
               border: '1px solid var(--c-hairline-strong)',
               background: 'var(--surface)',
               color: 'var(--c-brand)',
-              fontSize: 13,
+              fontSize: 'var(--text-meta)',
               fontFamily: 'inherit',
               fontWeight: 600,
               cursor: 'pointer',
               minHeight: 44,
             }}
           >
-            <Camera size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />自分でアップロードする
+            <Camera size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />写真をアップロード
           </button>
         </div>
       </div>
