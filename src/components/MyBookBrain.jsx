@@ -894,6 +894,18 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           setBusy(false);
         });
       }
+      // 離れている間に失敗・中止まで済んでいたら、質問の下に「もう一度」つきの吹き出しを出す
+      //   （送った直後に離れて早く失敗すると、質問だけが残っていた・2026-11-25 点検）。
+      if (bg.done && (bg.failed || bg.aborted)) {
+        setMessages((arr) => [...arr, {
+          id: `err-${Date.now()}`,
+          role: 'assistant',
+          content: bg.aborted ? '回答を中止しました。' : `${ANSWER_FAILED_TITLE}。${bg.failed?.notCharged ? 'トークンは使っていません。' : ''}${ANSWER_FAILED_DESC}`,
+          refs: [],
+          createdAt: new Date().toISOString(),
+          error: !bg.aborted,
+        }]);
+      }
       // 一度出したら忘れる（次に開いたときは、いつもどおり新しい会話から）。
       if (bg.done) backgroundAsk = null;
       else bg.leftWhileRunning = false;

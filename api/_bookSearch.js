@@ -14,7 +14,7 @@
 
 import { rakutenCreds, rakutenGet, rakutenUrl, rakutenItems, rakutenUpscale, rakutenRealImage } from './_rakuten.js';
 import { toIsbn13, extractIsbnsFromXml } from './_coverSources.js';
-import { formatAuthors, yearOf, rankBooks, dedupeBooks, isRelated, splitSubtitle } from './_bookRank.js';
+import { formatAuthors, yearOf, rankBooks, dedupeBooks, isRelated, splitSubtitle, normText, coreTitleOf } from './_bookRank.js';
 import { parseGenreIds } from './_rakutenGenre.js';
 
 export const SEARCH_MAX_RESULTS = 30;
@@ -71,7 +71,9 @@ export function rakutenPlan(q) {
   const common = { hits: String(RAKUTEN_HITS), sort: 'sales', outOfStockFlag: '1', elements: RAKUTEN_ELEMENTS };
   const keyword = { api: 'BooksTotal/Search', params: { ...common, keyword: q, booksGenreId: '001' } };
   if (words.length <= 1) {
-    return [{ api: 'BooksBook/Search', params: { ...common, title: q } }, keyword];
+    // 書名がまるごと一致する本が売上順の 30 冊に入らなかったら、関係の深い順でもう一度書名を引く
+    //   （「考え方」で稲盛和夫『考え方』が出なかった＝短い語は書名に含む本が多すぎる・2026-11-25 オーナー）。
+    return [{ api: 'BooksBook/Search', params: { ...common, title: q } }, keyword, { api: 'BooksBook/Search', params: { ...common, title: q, sort: 'standard' }, onlyIfNoExact: true }];
   }
   const longest = [...words].sort((a, b) => b.length - a.length)[0];
   return [keyword, { api: 'BooksBook/Search', params: { ...common, title: longest }, onlyIfFew: true }];
@@ -86,6 +88,7 @@ async function searchRakuten(q, { env, rakutenGetImpl, hasTime }) {
   for (const step of rakutenPlan(q)) {
     if (!hasTime()) break;
     if (step.onlyIfFew && items.filter((b) => isRelated(q, b)).length >= NDL_MIN_RESULTS) break;
+    if (step.onlyIfNoExact && items.some((b) => normText(coreTitleOf(b.title)) === normText(q))) continue;
     try {
       // eslint-disable-next-line no-await-in-loop
       const resp = await rakutenGetImpl(

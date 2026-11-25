@@ -87,11 +87,23 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
   const confirmGoal = useConfirm();
   // 「この目標で続ける」で 1 年後の期限を延ばしたら、ロードマップの起点も新しい期限に合わせる
   //   （起点が古いままで、いまの区切りが 1 年後の目標を過ぎた扱いになっていた・2026-11-25 点検）。
+  //   区切りは 1 本の起点から並ぶので、3 年後・5 年後の期限も同じ起点にそろえる（1 年後だけ延ばすと「3 年後の目標」の印が
+  //   区切りの日付とずれた・2026-11-25 点検）。そろえたら true（知らせで言う）。
   const realignRoadmap = async (nextGoals) => {
     const rec = roadmaps[ALL_GOALS_KEY];
     const at = combinedGoal(nextGoals)?.at;
-    if (!rec?.roadmap || !at || at === rec.goalAt) return;
-    try { await saveRoadmap(ALL_GOALS_KEY, { ...rec, goalAt: at, goals: { y1: nextGoals.y1, y3: nextGoals.y3, y5: nextGoals.y5 } }); } catch { /* 起点が合わなくても目標は保存してある */ }
+    if (!rec?.roadmap || !at || at === rec.goalAt) return false;
+    let goalsNow = nextGoals;
+    let moved = false;
+    for (const k of ['y3', 'y5']) {
+      const g = goalsNow[k];
+      if (!g?.text || !g.at || Date.parse(g.at) >= Date.parse(at)) continue;
+      // eslint-disable-next-line no-await-in-loop
+      const r = await saveGoal(k, g.text);
+      if (r) { goalsNow = r.goals; moved = true; }
+    }
+    try { await saveRoadmap(ALL_GOALS_KEY, { ...rec, goalAt: at, goals: { y1: goalsNow.y1, y3: goalsNow.y3, y5: goalsNow.y5 } }); } catch { /* 起点が合わなくても目標は保存してある */ }
+    return moved;
   };
   const record = goal ? roadmaps[ALL_GOALS_KEY] : null;
 
@@ -146,8 +158,8 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
               onExtend={async (key) => {
                 const r = await saveGoal(key, goals[key]?.text || '');
                 if (!r) { toast.error?.('目標を保存できませんでした。通信状況を確認して、もう一度押してください。'); return; }
-                await realignRoadmap(r.goals);
-                toast.success?.(`${horizonOf(key).label}の目標の期限を、${fmtGoalDeadline(r.goals[key].at, horizonOf(key).years)}延ばしました。`);
+                const moved = await realignRoadmap(r.goals);
+                toast.success?.(`${horizonOf(key).label}の目標の期限を、${fmtGoalDeadline(r.goals[key].at, horizonOf(key).years)}延ばしました。${moved ? '3 年後・5 年後の期限も、同じだけ延ばしました。' : ''}`);
                 track('goal_extended', { horizon: key });
               }}
             />
@@ -185,8 +197,8 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
                   if (!r) break;
                 }
                 if (!r) { toast.error?.('目標を保存できませんでした。通信状況を確認して、もう一度押してください。'); return; }
-                await realignRoadmap(r.goals);
-                toast.success?.('この目標で続けます。期限を延ばしました。');
+                const moved = await realignRoadmap(r.goals);
+                toast.success?.(`この目標で続けます。期限を延ばしました。${moved ? '3 年後・5 年後の期限も、同じだけ延ばしました。' : ''}`);
                 track('goal_extended', { horizon: keys.join('+') });
               }}
               onChooseBooks={async ({ count, recentDone } = {}) => {

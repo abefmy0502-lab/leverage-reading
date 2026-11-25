@@ -107,6 +107,8 @@ describe('rakutenPlan（楽天の引き方）', () => {
     const p = rakutenPlan('考え方');
     expect(p[0]).toMatchObject({ api: 'BooksBook/Search', params: { title: '考え方', sort: 'sales', hits: '30' } });
     expect(p[1]).toMatchObject({ api: 'BooksTotal/Search', params: { keyword: '考え方', booksGenreId: '001', sort: 'sales' } });
+    // 書名がまるごと一致する本が無いときだけ、関係の深い順で書名をもう一度（2026-11-25）
+    expect(p[2]).toMatchObject({ api: 'BooksBook/Search', params: { title: '考え方', sort: 'standard' }, onlyIfNoExact: true });
   });
   it('語が 2 つ以上: キーワード（AND）→ 少なければ長い語で書名検索', () => {
     const p = rakutenPlan('考え方 稲盛');
