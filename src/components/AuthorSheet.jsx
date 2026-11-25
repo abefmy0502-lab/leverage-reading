@@ -172,7 +172,7 @@ export default function AuthorSheet({ names = [], fav, onAddWant, hasBook, onClo
         )}
 
         {onTalk && talkIds.length > 0 && (
-          <button type="button" onClick={() => { track('dialogue_pick', { kind: 'author_sheet', books: talkIds.length }); onTalk(talkIds); }} style={{ ...btnGhost, gap: 'var(--space-2)' }}>
+          <button type="button" onClick={() => { track('dialogue_pick', { kind: 'author_sheet', books: talkIds.length }); onTalk(talkIds, names[0] || null); }} style={{ ...btnGhost, gap: 'var(--space-2)' }}>
             <MessageCircle size="1.1em" aria-hidden="true" />{talkIds.length > 1 ? `この著者の本と話す（${talkIds.length} 冊）` : 'この著者の本と話す'}
           </button>
         )}

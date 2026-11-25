@@ -597,6 +597,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // 🎯 相談相手（2026-09-26）: [] = すべての本（＋学びログ）/ [id] = その 1 冊だけ /
   //   [id, id, …] = 選んだ数冊だけ。質問ごとに streamMyBookBrain へ bookIds で渡す。
   const [scopeIds, setScopeIds] = useState(() => (resumed ? resumed.scopeIds : []));
+  // 著者の名前から開いたときの印（本が 1 冊でも「〈著者〉さんの本と話す」にする）。範囲を替えると scopeKind が外す。
+  const [scopeAuthor, setScopeAuthor] = useState(null);
   useEffect(() => { rememberSession(user?.id, { scopeIds }); }, [scopeIds, user?.id]);
   const [scopeSheetOpen, setScopeSheetOpen] = useState(false);
   const [insightFor, setInsightFor] = useState(null); // ✍️ 気づきを書き残すの相談の文（null＝閉じている）
@@ -630,6 +632,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // 本詳細の「この本に相談する」から来たら、相談相手をその本に絞って質問画面へ。
   useEffect(() => {
     if (!scopePreset?.bookIds || !consumePreset('scope', scopePreset.nonce)) return;
+    setScopeAuthor(scopePreset.author || null);
     setScopeIds(scopePreset.bookIds);
     setView('chat');
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1231,11 +1234,11 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     onSearchMemos(memoSearchQuery(q));
   } : null;
   // 🌐 いまの話し相手（すべての本・1 冊・著者・選んだ本）。見出し・問いかけ・注記に使う。
-  const scopedKind = useMemo(() => scopeKind(scopeIds, books), [scopeIds, books]);
+  const scopedKind = useMemo(() => scopeKind(scopeIds, books, scopeAuthor), [scopeIds, books, scopeAuthor]);
   const examples = useMemo(() => {
     if (scopeIds.length > 0) {
       // 🌐 対話の世界（2026-11-25）: 話し相手（1 冊・著者・選んだ本）ごとの問いかけ（lib/dialogueWorld.js）。
-      const qs = scopeQuestions(scopeKind(scopeIds, books));
+      const qs = scopeQuestions(scopedKind);
       if (qs.length) return qs;
       const first = (books || []).find((b) => scopeIds.includes(b.id));
       const t = first?.title ? shortTitle(first.title) : '';
@@ -1245,7 +1248,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     const memoCount = memoStatsLoaded ? memoStats.cards + memoStats.personal + (memoStats.summaryBooks || 0) : null;
     // この 7 日でふりかえりを書いて完了した行動があれば、1 つ目の例を「やってみた「…」、次はどうする？」に。
     return buildConsultExamples({ books, memoBookIds, lastConsult, count: 3, memoCount, actions: allActions, freeUsedUp });
-  }, [books, scopeIds, memoBookIds, lastConsult, memoStatsLoaded, memoStats, allActions, freeUsedUp]);
+  }, [books, scopeIds, scopedKind, memoBookIds, lastConsult, memoStatsLoaded, memoStats, allActions, freeUsedUp]);
 
   // 初日の下書き: 入れた相談が相談例に無ければ先頭に足す（選んだ状態で見せるため・3 つまで）。
   const introExamples = useMemo(() => {
@@ -2656,7 +2659,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 <p style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>{scopedKind.kind === 'all' ? 'たとえば' : '話しかけてみる'}</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
                   {/* 相談例は待たずに出す（過去の相談が読めていれば「前に相談した…」も入る・2026-11-23） */}
-                  {shownExamples.map(({ text: q, kind }) => {
+                  {shownExamples.map(({ text: q, label, kind }) => {
                     const picked = !!firstDayDraft && q === input.trim();
                     return (
                     <button
@@ -2679,7 +2682,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                       aria-pressed={firstDayDraft ? picked : undefined}
                       style={{ ...chipStyle, ...(picked ? chipPicked : null), ...(busy ? { color: 'var(--text-2)', opacity: 1, cursor: 'default' } : null) }}
                     >
-                      {haltLead(withPhraseBreaks(q))}
+                      {haltLead(withPhraseBreaks(label || q))}
                     </button>
                     );
                   })}
@@ -2689,9 +2692,10 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                     books={books}
                     memoBookIds={memoBookIds}
                     userId={user?.id || null}
-                    onPickBooks={(ids) => { setScopeIds(ids); try { chatScrollRef.current?.scrollTo?.({ top: 0 }); } catch { /* ignore */ } }}
+                    onPickBooks={(ids, author = null) => { setScopeAuthor(author); setScopeIds(ids); try { chatScrollRef.current?.scrollTo?.({ top: 0 }); } catch { /* ignore */ } }}
                     onPickSeveral={() => setScopeSheetOpen(true)}
                     onDraft={(q, ids) => {
+                      setScopeAuthor(null);
                       setScopeIds(ids || []);
                       setInput(q);
                       requestAnimationFrame(() => { try { inputRef.current?.focus({ preventScroll: true }); } catch { /* ignore */ } });

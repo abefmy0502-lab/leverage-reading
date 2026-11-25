@@ -194,9 +194,9 @@ const SCREENS = [
   { name: 'author-list-empty', url: '/', steps: [{ wait: 1500 }, { css: 'button[aria-label="設定を開く"]' }, { wait: 800 }, { scrollTo: 'button:has-text("お気に入りの著者")' }, { css: 'button:has-text("お気に入りの著者")' }, { wait: 1000 }] },
   // 🔗 重なり（2026-11-25）: 相手を選ぶ・AI の答え・AI の失敗。
   // 🌐 対話の世界（2026-11-25）: 相談の最初の画面の 3 区画・1 冊／著者／2 冊を話し相手にしたとき・気づきを書き残す。
-  { name: 'dialogue-world', url: '/', steps: [{ css: 'nav button[aria-label="相談"]' }, { wait: 2500 }, { scrollTo: '[data-dialogue-world]' }, { wait: 600 }] },
+  { name: 'dialogue-world', url: '/?authors=on', steps: [{ css: 'nav button[aria-label="相談"]' }, { wait: 2500 }, { scrollTo: '[data-dialogue-world]' }, { wait: 600 }] },
   { name: 'dialogue-book', url: '/', steps: [{ css: 'nav button[aria-label="相談"]' }, { wait: 2500 }, { css: '[data-dialogue-world] button[aria-label$="と話す"] >> nth=0' }, { wait: 1200 }] },
-  { name: 'dialogue-author', url: '/', steps: [{ css: 'nav button[aria-label="相談"]' }, { wait: 2500 }, { css: '[data-dialogue-world] section[aria-labelledby="dw-authors-h"] button >> nth=0' }, { wait: 1200 }] },
+  { name: 'dialogue-author', url: '/?authors=on', steps: [{ css: 'nav button[aria-label="相談"]' }, { wait: 2500 }, { css: '[data-dialogue-world] section[aria-labelledby="dw-authors-h"] button >> nth=0' }, { wait: 1200 }] },
   { name: 'dialogue-multi', url: '/', steps: [{ css: 'nav button[aria-label="相談"]' }, { wait: 2500 }, { css: '[data-dialogue-world] button:has-text("2 冊を選んで")' }, { wait: 600 }, { css: '[role=dialog] button[aria-pressed] >> nth=1' }, { css: '[role=dialog] button[aria-pressed] >> nth=3' }, { css: '[role=dialog] button:has-text("冊に相談する")' }, { wait: 1200 }] },
   { name: 'dialogue-insight', url: '/', steps: [{ css: 'nav button[aria-label="相談"]' }, { wait: 2500 }, { css: '[data-dialogue-world] button[aria-label$="と話す"] >> nth=0' }, { wait: 1000 }, { css: 'button:has-text("いちばん大事な考え")' }, { wait: 9000 }, { css: 'button:has-text("気づきを書き残す")' }, { wait: 800 }, { fill: ['[role=dialog] textarea', '答えを渡すより、問いで任せるほうが人は動く。'] }, { wait: 300 }] },
   { name: 'overlap-found', url: '/?overlap=on', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { wait: 1200 }, { css: 'button[aria-label^="よいマネージャーは"]' }, { css: '[role=menuitem]:has-text("重ねて考える")' }, { wait: 1500 }] },

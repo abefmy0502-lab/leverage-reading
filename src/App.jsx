@@ -5125,7 +5125,7 @@ function AuthedApp() {
     <Suspense fallback={<OverlayFallback />}>
       <AuthorSheet names={authorSheet.names} reason={authorSheet.reason} fav={favAuthors} onAddWant={addWantFromOther} hasBook={hasBookFromOther} onClose={() => setAuthorSheet(null)}
         books={books}
-        onTalk={(ids) => { setAuthorSheet(null); setScopePreset({ bookIds: ids, nonce: Date.now() }); setView('list'); setAiSubTab('brain'); setTab('ai'); }} />
+        onTalk={(ids, author = null) => { setAuthorSheet(null); setScopePreset({ bookIds: ids, author, nonce: Date.now() }); setView('list'); setAiSubTab('brain'); setTab('ai'); }} />
     </Suspense>
   ) : null;
   const folderPickerSheet = folderPickerBook ? (() => {

@@ -6,7 +6,7 @@
 //     読んできた本から … 話しかけてくる 1 枚（再会・つながり・前の自分）。日ごとに 1 枚・AI なし
 //   ここではトークンを使わない（話し相手を選ぶ・下書きを入れる・重ねるまで）。送るのは本人。
 import { useMemo } from 'react';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, UserRound } from 'lucide-react';
 import MiniCover from './MiniCover';
 import { withPhraseBreaks } from './TightBubble';
 import { useAllMemoRows } from '../hooks/useAllMemoRows';
@@ -23,10 +23,11 @@ const meta = { margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', 
 export default function DialogueWorld({ books = [], memoBookIds = null, userId = null, onPickBooks, onPickSeveral, onDraft }) {
   const list = useMemo(() => talkBooks(books, memoBookIds), [books, memoBookIds]);
   const authors = useMemo(() => talkAuthors(books, memoBookIds, localFavoriteAuthors(userId)), [books, memoBookIds, userId]);
-  const { rows } = useAllMemoRows({ userId, books, active: list.length > 0 });
+  const { rows, status } = useAllMemoRows({ userId, books, active: list.length > 0 });
   const card = useMemo(() => (rows ? rediscoverCard({ rows, books }) : null), [rows, books]);
 
-  if (!list.length) return null;
+  // メモを読み終えてから一度に出す（「読んできた本から」があとから差し込まれて、表紙の列が押し下げられないように・2026-11-25 ui-critic）。
+  if (!list.length || status === 'loading') return null;
 
   const openCard = () => {
     if (!card) return;
@@ -65,7 +66,7 @@ export default function DialogueWorld({ books = [], memoBookIds = null, userId =
               >
                 <MiniCover title={b.title} cover={b.cover} width={COVER_W} />
                 <span aria-hidden="true" style={{ fontSize: 'var(--text-caption)', color: 'var(--text-2)', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-                  {withPhraseBreaks(shortBookTitle(b.title, 16))}
+                  {withPhraseBreaks(shortBookTitle(b.title, 16), { scriptBreaks: true })}
                 </span>
               </button>
             </li>
@@ -86,9 +87,12 @@ export default function DialogueWorld({ books = [], memoBookIds = null, userId =
               <button
                 key={a.key}
                 type="button"
-                onClick={() => { track('dialogue_pick', { kind: 'author', books: a.bookIds.length }); onPickBooks?.(a.bookIds); }}
-                style={{ minHeight: 'var(--tap-min)', padding: '0 var(--space-3)', border: 'none', borderRadius: 'var(--radius)', background: 'var(--fill)', color: 'var(--text)', fontSize: 'var(--text-sub)', cursor: 'pointer', fontFamily: 'inherit' }}
+                onClick={() => { track('dialogue_pick', { kind: 'author', books: a.bookIds.length }); onPickBooks?.(a.bookIds, a.name); }}
+                aria-label={`${a.name}さんの本と話す`}
+                // 話し相手を選ぶ部品（枠のチップ・人の印）。押すと送る「たとえば」の相談例（塗りの面）と見分ける（2026-11-25 ui-critic）。
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 'var(--tap-min)', padding: '0 var(--space-3)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'transparent', color: 'var(--text)', fontSize: 'var(--text-sub)', cursor: 'pointer', fontFamily: 'inherit' }}
               >
+                <UserRound size="1em" aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
                 {a.name}{a.bookIds.length > 1 && <span style={{ color: 'var(--text-3)', marginLeft: 'var(--space-1)' }}>{a.bookIds.length}&nbsp;冊</span>}
               </button>
             ))}

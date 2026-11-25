@@ -31,7 +31,7 @@ export function talkBooks(books, memoBookIds, max = 10) {
 }
 
 /**
- * 話せる著者（メモのある本の著者・最初の人）。お気に入りの著者 → 本の多い順。6 人まで（画面を静かに）。
+ * 話せる著者（メモのある本の著者・最初の人・本が 2 冊以上かお気に入り）。お気に入りの著者 → 本の多い順。6 人まで（画面を静かに）。
  *   [{ name, key, bookIds }]
  */
 export function talkAuthors(books, memoBookIds, favorites = [], max = 6) {
@@ -45,7 +45,9 @@ export function talkAuthors(books, memoBookIds, favorites = [], max = 6) {
     if (!map.has(key)) map.set(key, { name, key, bookIds: [] });
     map.get(key).bookIds.push(b.id);
   }
+  // 本が 1 冊だけの著者は「本と話す」と同じになるので出さない（お気に入りの著者だけは出す・2026-11-25 ui-critic）。
   return [...map.values()]
+    .filter((a) => a.bookIds.length >= 2 || favKeys.has(a.key))
     .sort((a, b) => favKeys.has(b.key) - favKeys.has(a.key) || b.bookIds.length - a.bookIds.length)
     .slice(0, max);
 }
@@ -54,12 +56,16 @@ export function talkAuthors(books, memoBookIds, favorites = [], max = 6) {
  * いまの話し相手の種類。
  *   { kind: 'all' } / { kind: 'book', book } / { kind: 'author', author, books } / { kind: 'multi', books }
  */
-export function scopeKind(scopeIds, books) {
+export function scopeKind(scopeIds, books, authorHint = null) {
   const ids = Array.isArray(scopeIds) ? scopeIds : [];
   if (!ids.length) return { kind: 'all' };
   const picked = (books || []).filter((b) => ids.includes(b.id));
-  if (picked.length === 1) return { kind: 'book', book: picked[0] };
   const names = picked.map((b) => splitAuthorNames(b.author)[0] || '');
+  // 著者の名前から開いたときは、本が 1 冊でも著者として話す（押したものと見出しを合わせる）。
+  if (authorHint && picked.length && names.every((n) => n && authorKey(n) === authorKey(authorHint))) {
+    return { kind: 'author', author: names[0], books: picked };
+  }
+  if (picked.length === 1) return { kind: 'book', book: picked[0] };
   if (picked.length > 1 && names[0] && names.every((n) => authorKey(n) === authorKey(names[0]))) {
     return { kind: 'author', author: names[0], books: picked };
   }
@@ -74,34 +80,35 @@ export function scopeHeading(sk) {
   return null;
 }
 
-/** 話し相手の下の 1 行（答えのもとと、AI であること）。 */
+/** 話し相手の下の 1 行（AI の解釈であること）。 */
 export function scopeNote(sk) {
-  if (sk.kind === 'book') return '答えのもとは、この本のあなたのメモです。AI が本の語り口をまねて答えます（著者本人の言葉ではありません）。';
-  if (sk.kind === 'author') return '答えのもとは、この著者の本のあなたのメモです。AI が著者の語り口をまねて答えます（著者本人の言葉ではありません）。';
-  if (sk.kind === 'multi') return '答えのもとは、選んだ本のあなたのメモです。本ごとの見方を並べ、ぶつかるところも見せます。';
+  // 答えのもと（メモ N 件）は上の行が言うので、ここは AI の解釈であることだけ（2026-11-25 ui-critic）。
+  if (sk.kind === 'book') return 'AI が本の語り口をまねて答えます。著者本人の言葉ではありません。';
+  if (sk.kind === 'author') return 'AI が著者の語り口をまねて答えます。著者本人の言葉ではありません。';
+  if (sk.kind === 'multi') return '本ごとの見方を並べ、ぶつかるところも見せます。AI の解釈で、著者本人の言葉ではありません。';
   return '';
 }
 
 /**
  * 話し相手ごとの問いかけ（押すとそのまま送る・mode 'perbook' は本ごとに答える）。3〜4 個。
- *   [{ text, kind, mode? }]
+ *   [{ text, label, kind, mode? }]  label＝画面に見せる文（見出しにある書名・著者名をくり返さない）・text＝送る文
  */
 export function scopeQuestions(sk) {
   if (sk.kind === 'book') {
     const t = shortBookTitle(sk.book.title);
     return [
-      { text: `『${t}』でいちばん大事な考えは？ 私のメモから教えて`, kind: 'book' },
-      { text: `『${t}』を読んだとき、私は何を感じていた？`, kind: 'book' },
-      { text: `いまの私の悩みに、『${t}』はどんな見方をくれる？`, kind: 'book' },
-      { text: `『${t}』の考えを、仕事や毎日でどう試せる？`, kind: 'book' },
+      { text: `『${t}』でいちばん大事な考えは？ 私のメモから教えて`, label: 'いちばん大事な考えは？ 私のメモから教えて', kind: 'book' },
+      { text: `『${t}』を読んだとき、私は何を感じていた？`, label: '読んだとき、私は何を感じていた？', kind: 'book' },
+      { text: `いまの私の悩みに、『${t}』はどんな見方をくれる？`, label: 'いまの私の悩みに、どんな見方をくれる？', kind: 'book' },
+      { text: `『${t}』の考えを、仕事や毎日でどう試せる？`, label: 'この本の考えを、仕事や毎日でどう試せる？', kind: 'book' },
     ];
   }
   if (sk.kind === 'author') {
     const a = sk.author;
     return [
-      { text: `${a}さんの本に共通する考えは？ 私のメモから教えて`, kind: 'author' },
-      { text: `${a}さんの考えなら、いまの私の悩みをどう見る？`, kind: 'author' },
-      { text: `${a}さんの考えに、あえて反論するとしたら？`, kind: 'author' },
+      { text: `${a}さんの本に共通する考えは？ 私のメモから教えて`, label: sk.books?.length > 1 ? '本に共通する考えは？ 私のメモから教えて' : 'いちばん大事な考えは？ 私のメモから教えて', kind: 'author' },
+      { text: `${a}さんの考えなら、いまの私の悩みをどう見る？`, label: 'この考え方なら、いまの私の悩みをどう見る？', kind: 'author' },
+      { text: `${a}さんの考えに、あえて反論するとしたら？`, label: 'あえて反論するとしたら？', kind: 'author' },
     ];
   }
   if (sk.kind === 'multi') {

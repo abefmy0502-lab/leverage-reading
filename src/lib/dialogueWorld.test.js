@@ -1,5 +1,6 @@
+import { authorKey } from './favoriteAuthors';
 import { describe, it, expect } from 'vitest';
-import { talkBooks, talkAuthors, scopeKind, scopeHeading, scopeQuestions, rediscoverCard, agoLabel, shortBookTitle } from './dialogueWorld';
+import { talkBooks, talkAuthors, scopeKind, scopeHeading, scopeNote, scopeQuestions, rediscoverCard, agoLabel, shortBookTitle } from './dialogueWorld';
 
 const books = [
   { id: 'a', title: '考え方 人生・仕事の結果が変わる', author: '稲盛和夫', status: 'done', rating: 5, doneDate: '2026-03-01' },
@@ -15,9 +16,10 @@ describe('対話の世界（2026-11-25）', () => {
     expect(talkBooks(books, memoIds).map((b) => b.id)).toEqual(['c', 'a', 'b', 'd']);
     expect(talkBooks(books, new Set(['d'])).map((b) => b.id)).toEqual(['d']);
   });
-  it('話せる著者は、本の多い順（お気に入りが先）', () => {
-    expect(talkAuthors(books, memoIds).map((a) => a.name)).toEqual(['稲盛和夫', 'エリック・シュミット', 'D・カーネギー']);
-    expect(talkAuthors(books, memoIds, [{ key: 'd・カーネギー'.replace(/・/g, '') }])[0].name).toBe('D・カーネギー');
+  it('話せる著者は、本が 2 冊以上かお気に入り（お気に入りが先・本の多い順）', () => {
+    expect(talkAuthors(books, memoIds).map((a) => a.name)).toEqual(['稲盛和夫']);
+    const fav = talkAuthors(books, memoIds, [{ key: authorKey('D・カーネギー') }]);
+    expect(fav.map((a) => a.name)).toEqual(['D・カーネギー', '稲盛和夫']);
     expect(talkAuthors(books, memoIds)[0].bookIds).toEqual(['a', 'b']);
   });
   it('話し相手の種類と見出し', () => {
@@ -27,6 +29,15 @@ describe('対話の世界（2026-11-25）', () => {
     expect(scopeHeading(scopeKind(['a', 'c'], books))).toBe('選んだ 2 冊と話す');
     expect(scopeQuestions(scopeKind(['a', 'c'], books))[0].mode).toBe('perbook');
     expect(scopeQuestions(scopeKind(['a', 'b'], books)).some((q) => /反論/.test(q.text))).toBe(true);
+  });
+  it('著者の名前から開いたときは、本が 1 冊でも著者として話す（見せる文に名前をくり返さない）', () => {
+    const sk = scopeKind(['d'], books, 'D・カーネギー');
+    expect(scopeHeading(sk)).toBe('D・カーネギーさんの本と話す');
+    expect(scopeKind(['a', 'c'], books, '稲盛和夫').kind).toBe('multi');
+    const qs = scopeQuestions(sk);
+    expect(qs[0].text).toContain('D・カーネギーさん');
+    expect(qs.every((q) => !q.label.includes('カーネギー'))).toBe(true);
+    expect(scopeNote(scopeKind(['a', 'c'], books))).toContain('著者本人の言葉ではありません');
   });
   it('書名は副題を落として短く', () => {
     expect(shortBookTitle('考え方 人生・仕事の結果が変わる')).toBe('考え方');
