@@ -15,7 +15,7 @@
 // 上の行の「写真で共有」は App.jsx の全体ヘッダー（ホーム・振り返り・相談で同じ場所）。
 // 見た目は DESIGN.md のトークンのみ。
 import { useEffect, useMemo, useState } from 'react';
-import { Library, ChevronRight, PencilLine, Plus, BookOpen, Timer, Target, Sprout, X, MessageCircle, CalendarCheck, CalendarDays, Compass } from 'lucide-react';
+import { Library, ChevronRight, PencilLine, Plus, BookOpen, Timer, Target, Sprout, X, MessageCircle, CalendarCheck, CalendarDays, Compass, Camera } from 'lucide-react';
 import HomeFirstStep, { useHomeMemoState, MEMO_COUNT_WAIT_MS } from './HomeFirstStep';
 import GrowthMeter from './GrowthMeter';
 import ShareNudge, { useShareNudge } from './ShareNudge';
@@ -67,28 +67,33 @@ const sectionTitle = {
 // 文字ボタン（DESIGN §5: btnLink＝高さ 44・15/600・栗色）。
 const textRow = btnLink;
 
-function StartCard({ onQuickstart, onAddBook, onAdvisor, onImport }) {
+function StartCard({ onQuickstart, onAddBook, onAdvisor, onImport, onShelfScan = null }) {
   // 「いま読んでいる本を追加する」なので、この入口だけ状態を読書中にして開く（onAddBook＝読書中のプリセット）。
+  // 2026-11-25 オーナー「まずは自分の本棚にある本を追加するみたいなものが欲しい」: 副ボタンを「本棚の写真からまとめて追加」に。
+  //   1 冊ずつの追加と取り込みは、下の文字ボタンの行に並べる（控えめな色・アクセントが強すぎないように）。
   return (
     <section aria-labelledby="home-start-title" style={card}>
       {/* 「読むほど、自分だけの相談相手が育つ」はログインと初回ガイドで伝え済み。ここは行動だけを示す（同じことを二度言わない）。 */}
       {/* 題名で目的を伝える（初日クイックスタートの題名「相談相手をつくる」とそろえる・SPEC §1-1）。 */}
       <h2 id="home-start-title" style={{ ...sectionTitle, margin: 0 }}>相談相手をつくる</h2>
-      {/* 題の下に 1 行だけ、積み重ねが相談の質になることを言う（2026-10-10 第 9 回 総点検・ボタンの名前と順番は変えない）。 */}
+      {/* 題の下に 1 行だけ、積み重ねが相談の質になることを言う（2026-10-10 第 9 回 総点検）。 */}
       <p style={{ margin: 'var(--space-1) 0 var(--space-4)', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
         {withPhraseBreaks('メモがたまるほど、相談の答えが深くなります')}
       </p>
       {/* data-first-step: 本が 0 冊で「写真で共有」を押したとき、ここへフォーカスを送る印（App.jsx の pointToFirstStep）。 */}
       {/* ボタンは横並びの箱なので、文節の切れ目つきの文字は span で 1 つにまとめる（切れ目ごとに別の項目に割れない）。 */}
       <button type="button" data-first-step="" onClick={onQuickstart} style={btnPrimary}><span>{withPhraseBreaks('読んだ本の一文をメモする')}</span></button>
-      <button type="button" onClick={onAddBook} style={{ ...btnGhost, marginTop: 'var(--space-3)' }}><span>{withPhraseBreaks('いま読んでいる本を追加する')}</span></button>
-      {/* 脇役の文字ボタンは 1 つだけ（2 つ並ぶとアクセント色が強すぎる）。AI 選書は「相談」タブから開ける。
-          文字ボタンの上下の余り（高さ 44 のため）をカードの内側余白と相殺し、上下の見た目をそろえる。 */}
-      {onImport ? (
-        <div style={{ display: 'flex', justifyContent: 'center', margin: 'var(--space-3) 0 calc(-1 * var(--space-2))' }}>
-          {/* 1 行に収まる短い名前（「読書メー／ター」「取り／込む」のように語の途中で割れていた・2026-09-29）。
-              どのアプリから取り込めるかは、開いたシートの題名の下で言う。設定の「ほかのアプリから取り込む」と同じ名前。 */}
-          <button type="button" onClick={onImport} style={textRow}><span style={{ wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('ほかのアプリから取り込む')}</span></button>
+      {onShelfScan ? (
+        <button type="button" onClick={onShelfScan} style={{ ...btnGhost, marginTop: 'var(--space-3)', gap: 'var(--space-2)' }}><Camera size="1.1em" aria-hidden="true" style={{ flexShrink: 0 }} /><span>{withPhraseBreaks('本棚の写真からまとめて追加')}</span></button>
+      ) : (
+        <button type="button" onClick={onAddBook} style={{ ...btnGhost, marginTop: 'var(--space-3)' }}><span>{withPhraseBreaks('いま読んでいる本を追加する')}</span></button>
+      )}
+      {/* 文字ボタンの上下の余り（高さ 44 のため）をカードの内側余白と相殺し、上下の見た目をそろえる。 */}
+      {(onImport || onShelfScan) ? (
+        <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', columnGap: 'var(--space-4)', margin: 'var(--space-3) 0 calc(-1 * var(--space-2))' }}>
+          {onShelfScan && <button type="button" onClick={onAddBook} style={btnLinkQuiet}><span style={{ wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('1 冊ずつ追加する')}</span></button>}
+          {/* どのアプリから取り込めるかは、開いたシートの題名の下で言う。設定の「ほかのアプリから取り込む」と同じ名前。 */}
+          {onImport && <button type="button" onClick={onImport} style={onShelfScan ? btnLinkQuiet : textRow}><span style={{ wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('ほかのアプリから取り込む')}</span></button>}
         </div>
       ) : onAdvisor ? (
         <div style={{ display: 'flex', justifyContent: 'center', margin: 'var(--space-3) 0 calc(-1 * var(--space-2))' }}>
@@ -577,7 +582,7 @@ export function HomeBlocksSkeleton() {
 
 export default function HomeScreen({
   books = [], loading = false, loadError = null, onRetry,
-  onQuickstart, onAddBook, onAddReadingBook, onAdvisor, onImport,
+  onQuickstart, onAddBook, onAddReadingBook, onAdvisor, onImport, onShelfScan = null,
   onOpenBook, onWriteMemo, onStartReading, onOpenLibrary, onSeeAllReading, onCoverRetry, onShareNudge, onRead,
   onOpenActions, onConsultDraft, savedMemo = null, onDismissSavedMemo, onOpenMemo, onAddOneLines = null, onOpenConsult = null,
   onOpenRecord = null, onOpenPlan = null, onOpenReadingPlan = null, onOpenGoals = null,
@@ -711,7 +716,7 @@ export default function HomeScreen({
           actions={onRetry ? [{ label: 'もう一度', onClick: onRetry, variant: 'primary' }] : []}
         />
       ) : books.length === 0 ? (
-        <StartCard onQuickstart={onQuickstart} onAddBook={onAddReadingBook || onAddBook} onAdvisor={onAdvisor} onImport={onImport} />
+        <StartCard onQuickstart={onQuickstart} onAddBook={onAddReadingBook || onAddBook} onAdvisor={onAdvisor} onImport={onImport} onShelfScan={onShelfScan} />
       ) : !homeKnown ? (
         <div role="status" aria-busy="true" aria-label="読み込み中" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
           <HomeBlocksSkeleton />

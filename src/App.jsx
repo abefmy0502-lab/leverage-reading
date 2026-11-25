@@ -951,6 +951,7 @@ function AuthedApp() {
   //   { seed }＝開く前のクイックスタートの本（取り込みのあとの一言の段から来たとき）。null＝ほかの入口から。
   const importFromQuickstartRef = useRef(null);
   const shelfScanFromQuickstartRef = useRef(null);
+  const shelfScanFromHomeRef = useRef(false); // ホームの本 0 冊のカードから開いた（やめたらホームのまま・本を追加を開かない）
   // 取り込みを実際に行ったか（完了の画面の「完了」で閉じたときはクイックスタートへ戻さない）。
   const importRanRef = useRef(false);
   // 閉じたら（どの道で閉じても）忘れる＝次にほかの入口から開いたときにクイックスタートへ戻さない。
@@ -6661,6 +6662,8 @@ function AuthedApp() {
               onRetry={() => refreshBooks()}
               onQuickstart={() => setShowQuickstart(true)}
               onImport={() => setShowImport(true)}
+              // 📚 本棚の写真からまとめて追加（本 0 冊のカード・2026-11-25 オーナー「まずは自分の本棚にある本を追加する」）
+              onShelfScan={() => { shelfScanFromQuickstartRef.current = null; shelfScanFromHomeRef.current = true; setShelfScanOpen(true); }}
               // 「＋ 本を追加」の状態は既定の「読みたい」（2026-10-04 オーナー「読みたいがデフォルトでいいのでは？」）。
               // 「いま読んでいる本を追加する」（本 0 冊のカード）だけは読書中で開く。
               onAddBook={() => openAdd()}
@@ -7886,7 +7889,7 @@ function AuthedApp() {
             initialQuery={addFromSearchQuery || ''}
             existingBooks={books}
             forPhoto={ocrIntentActive}
-            onShelfScan={() => { shelfScanFromQuickstartRef.current = null; setAddBookModalOpen(false); setShelfScanOpen(true); }}
+            onShelfScan={() => { shelfScanFromQuickstartRef.current = null; shelfScanFromHomeRef.current = false; setAddBookModalOpen(false); setShelfScanOpen(true); }}
             onOpenExisting={(existing, query) => {
               setAddBookModalOpen(false);
               // 詳細の ‹ 検索・「戻る」で、さっきの言葉の検索結果へ戻れるように覚えておく。
@@ -7949,13 +7952,16 @@ function AuthedApp() {
               if (shelfOneLineToastRef.current) { toast.dismiss(shelfOneLineToastRef.current, { skipExpire: true }); shelfOneLineToastRef.current = null; }
               return undoImport(outcome);
             }}
-            onClose={() => { shelfScanFromQuickstartRef.current = null; setShelfScanOpen(false); }}
+            onClose={() => { shelfScanFromQuickstartRef.current = null; shelfScanFromHomeRef.current = false; setShelfScanOpen(false); }}
             // 入れずに閉じたら、来た所へ戻る＝「本を追加」か初日クイックスタート（アプリの外へ放り出さない・2026-11-22 点検・
             //   クイックスタートから来たときも「本を追加」へ戻していた・2026-11-23 点検）。
             onCancel={() => {
               const from = shelfScanFromQuickstartRef.current;
+              const fromHome = shelfScanFromHomeRef.current;
               shelfScanFromQuickstartRef.current = null;
+              shelfScanFromHomeRef.current = false;
               setShelfScanOpen(false);
+              if (fromHome) return;
               if (from) { setQuickstartSeed(from.seed || null); setQuickstartPicked(from.seed ? null : (from.picked || null)); setShowQuickstart(true); } else setAddBookModalOpen(true);
             }}
           />
