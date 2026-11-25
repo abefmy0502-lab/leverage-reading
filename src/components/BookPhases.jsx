@@ -38,6 +38,32 @@ import {
 //   form.fieldsTouched: 本人が分野を選んだ（保存のあと自動で付け直さない）/ form.fieldsAuto: アプリが選んだまま。
 //   form.fieldsPending / fieldsFailed: サーバーが本の分野を見立てている間／見立てられなかった（検索で選んだ本・App.jsx）。
 //   quietFail: 自動で選べなかったことを言わない（写真の道で本を追加するとき＝ページを撮るのが目的・2026-10-10 第 9 回 総点検）。
+// ✏️ 書名・著者を直す（読みたい以外の編集・ふだんは畳む）。前は読みたいの本でしか直せず、手で入れた誤字や
+//   違う版を選んだ本を、読み始めたあとに直せなかった（2026-11-25 点検）。保存は下の「保存」で一緒に（書名は必須）。
+function TitleAuthorFold({ form, setForm }) {
+  const titleId = useId();
+  const authorId = useId();
+  const empty = !String(form.title || '').trim();
+  return (
+    <details open={empty || undefined} style={{ ...softBox, padding: '0 var(--space-4)', marginTop: 'var(--space-6)', marginBottom: 'var(--space-6)' }}>
+      <summary style={foldSummary}>
+        書名・著者を直す
+        <IcChevron size={20} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+      </summary>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', paddingBottom: 'var(--space-4)' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+          <label htmlFor={titleId} style={groupTitle}>書名<span style={fieldNote}>（必須）</span></label>
+          <input id={titleId} value={form.title || ''} onChange={(e) => setForm({ ...form, title: e.target.value })} aria-invalid={empty || undefined} style={empty ? { ...inp, borderColor: 'var(--error)' } : inp} maxLength={LIMITS.bookTitle} />
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+          <label htmlFor={authorId} style={groupTitle}>著者<span style={fieldNote}>（任意）</span></label>
+          <input id={authorId} value={form.author || ''} onChange={(e) => setForm({ ...form, author: e.target.value })} style={inp} maxLength={LIMITS.bookAuthor} />
+        </div>
+      </div>
+    </details>
+  );
+}
+
 function FieldsAndFolders({ form, setForm, allFolders, quietFail = false }) {
   return (
     <>
@@ -564,7 +590,8 @@ export function BeforePhase({
 
       {/* 🏷🗂 分野とフォルダ（ほかの状態の編集と同じ・2026-10-11 オーナー「この画面でもフォルダ分けできるように」） */}
       <div style={{ marginTop: 'var(--space-6)' }}>
-        <FieldsAndFolders form={form} setForm={setForm} allFolders={allFolders} />
+        <TitleAuthorFold form={form} setForm={setForm} />
+      <FieldsAndFolders form={form} setForm={setForm} allFolders={allFolders} />
       </div>
 
       {/* 保存は画面の下に固定（App.jsx の編集画面の footer・EditSaveBar）。
@@ -633,6 +660,7 @@ export function ReadingPhase({ form, setForm, onSave, onSaveSummary, onMakeActio
 
       <ActionsEditor form={form} setForm={setForm} title="この本から決めた行動" placeholder="例：明日の朝、学んだ手法を 1 つ試す" />
 
+      <TitleAuthorFold form={form} setForm={setForm} />
       <FieldsAndFolders form={form} setForm={setForm} allFolders={allFolders} />
     </div>
   );
@@ -692,6 +720,7 @@ export function DonePhase({ form, setForm, onSave, allFolders, focusField = null
         />
       </Field>
 
+      <TitleAuthorFold form={form} setForm={setForm} />
       <FieldsAndFolders form={form} setForm={setForm} allFolders={allFolders} />
     </div>
   );
