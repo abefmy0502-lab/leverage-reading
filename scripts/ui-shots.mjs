@@ -107,7 +107,7 @@ const REL10 = [
   ['r10-tokens-out', '/?demo=limit', [{ css: nav('相談') }, { wait: 600 }]],
   ['r10-book-about', '/', [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { scrollBottom: true }, { waitFor: 'summary:has-text("この本について")' }, { scrollTo: 'summary:has-text("この本について")' }]],
   ['r10-book-about-before', '/', [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("LIFE SHIFT")' }, { waitFor: 'summary:has-text("この本について")' }, { scrollTo: 'summary:has-text("この本について")' }]],
-  ['r10-memo-editor', '/', [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("数値化の鬼")' }, { css: 'button:has-text("メモを書く")' }, { css: 'button:has-text("ページ・写真")' }, { css: 'button:has-text("全画面で書く")' }, { wait: 800 }, { eval: () => { if (document.activeElement) document.activeElement.blur(); } }]],
+  ['r10-memo-editor', '/', [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("数値化の鬼")' }, { css: 'button:has-text("メモを書く")' }, { css: 'button:has-text("ページ・写真")' }, { css: 'button:has-text("全画面で")' }, { wait: 800 }, { eval: () => { if (document.activeElement) document.activeElement.blur(); } }]],
   ['r10-settings-delete', '/', [{ css: 'button[aria-label="設定を開く"]' }, { css: 'button:has-text("アカウントの削除を開始")' }, { wait: 400 }, { eval: () => { const el = [...document.querySelectorAll('span')].find((n) => n.textContent.includes('から解約してください')); if (el) el.scrollIntoView({ block: 'center' }); } }, { wait: 300 }]],
   ['r10-share-edit-chips', '/', [...SHARE_CAMERA, ...SHARE_EDIT, ...EDIT_PHRASE, EDIT_BLUR, { wait: 800 }, EDIT_TOP]],
   ['r10-library-rows', '/', [{ css: 'button:has-text("すべての本")' }, { wait: 800 }, SCROLL_ROWS_END, { wait: 400 }]],
@@ -134,7 +134,7 @@ const REL10B = [
 ].flatMap(([name, url, steps]) => [{ name, url, steps }, { name: `${name}-xxl`, url, steps: [XXL, ...steps] }]);
 // リリース前の最終採点の直し（2026-10-11・release10-after2・担当 A）: 明暗＋文字最大（-xxl）。
 const REL10A = [
-  ['a-memo-editor', '/', [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("数値化の鬼")' }, { css: 'button:has-text("メモを書く")' }, { css: 'button:has-text("ページ・写真")' }, { css: 'button:has-text("全画面で書く")' }, { wait: 800 }, { eval: () => { if (document.activeElement) document.activeElement.blur(); } }]],
+  ['a-memo-editor', '/', [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("数値化の鬼")' }, { css: 'button:has-text("メモを書く")' }, { css: 'button:has-text("ページ・写真")' }, { css: 'button:has-text("全画面で")' }, { wait: 800 }, { eval: () => { if (document.activeElement) document.activeElement.blur(); } }]],
   ['a-library', '/', [{ css: 'button:has-text("すべての本")' }, { wait: 800 }]],
   ['a-library-end', '/', [{ css: 'button:has-text("すべての本")' }, { wait: 800 }, SCROLL_ROWS_END, { wait: 400 }]],
   ['a-detail-done', '/', [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("サピエンス全史")' }, { wait: 800 }]],
@@ -145,7 +145,7 @@ const REL10A = [
 ].flatMap(([name, url, steps]) => [{ name, url, steps }, { name: `${name}-xxl`, url, steps: [XXL, ...steps] }]);
 // リリース前の最終採点 第 2 回の直し（2026-10-11・release10-after4・担当 A）: 明暗＋文字最大（-xxl）。
 const HHMM = (ms) => { const d = new Date(Date.now() + ms); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
-const OPEN_EDITOR = [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("数値化の鬼")' }, { css: 'button:has-text("メモを書く")' }, { css: 'button:has-text("ページ・写真")' }, { css: 'button:has-text("全画面で書く")' }, { wait: 800 }];
+const OPEN_EDITOR = [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("数値化の鬼")' }, { css: 'button:has-text("メモを書く")' }, { css: 'button:has-text("ページ・写真")' }, { css: 'button:has-text("全画面で")' }, { wait: 800 }];
 const REL10A4 = [
   ['memo-editor', '/', [...OPEN_EDITOR, { eval: () => { if (document.activeElement) document.activeElement.blur(); } }]],
   ['memo-editor-offline', '/?offline=1', [...OPEN_EDITOR, { fill: ['textarea#memo-body', '数字で考えると、言い訳が消える。'] }, { css: '[role=dialog] button:text-is("保存")' }, { wait: 1500 }, { eval: () => { if (document.activeElement) document.activeElement.blur(); } }]],
@@ -215,9 +215,9 @@ const SCREENS = [
   { name: 'free-ocr-error', url: '/?demo=free&ai=fail', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button:has-text("メモを書く")' }, { css: 'button:has-text("ページ・写真")' }, { wait: 600 }, { upload: ['input[data-ocr-input]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 2000 }] },
   { name: 'free-ocr-zero', url: '/?demo=free&ocr=used', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button:has-text("メモを書く")' }, { css: 'button:has-text("ページ・写真")' }, { wait: 600 }] },
   { name: 'free-ocr-paywall', url: '/?demo=free&ocr=used&native=1', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button:has-text("メモを書く")' }, { css: 'button:has-text("ページ・写真")' }, { wait: 600 }, { css: 'button:has-text("写真から書き起こす")' }, { wait: 1200 }] },
-  { name: 'free-ocr-editor', url: '/?demo=free', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button:has-text("メモを書く")' }, { css: 'button:has-text("ページ・写真")' }, { css: 'button:has-text("全画面で書く")' }, { wait: 800 }] },
+  { name: 'free-ocr-editor', url: '/?demo=free', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button:has-text("メモを書く")' }, { css: 'button:has-text("ページ・写真")' }, { css: 'button:has-text("全画面で")' }, { wait: 800 }] },
   // 全画面のメモで書き起こしたあと（「凝縮」が並ぶ・残りの回数は書き起こすボタンのすぐ下）
-  { name: 'free-ocr-editor-done', url: '/?demo=free', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button:has-text("メモを書く")' }, { css: 'button:has-text("ページ・写真")' }, { css: 'button:has-text("全画面で書く")' }, { wait: 800 }, { upload: ['input[data-ocr-input]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 3000 }] },
+  { name: 'free-ocr-editor-done', url: '/?demo=free', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button:has-text("メモを書く")' }, { css: 'button:has-text("ページ・写真")' }, { css: 'button:has-text("全画面で")' }, { wait: 800 }, { upload: ['input[data-ocr-input]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 3000 }] },
   // 🏷 合いそうなタグ（2026-10-02）: メモを書いて保存したあと、一覧の上の「いま書いたメモに合いそうなタグ」（端末の中だけで決める）。
   { name: 'book-memo-saved', url: '/', steps: MEMO_SAVED },
   // 保存した直後のまま（一覧の上へ戻さない＝保存したメモと合いそうなタグが画面の中に来るか・2026-10-12 点検）
@@ -1154,7 +1154,7 @@ const SCREENS = [
   { name: 'memo-focus-link', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を検索"]' }, { fill: ['input[aria-label^="本を検索（"]', '命令'] }, { wait: 800 }, { css: 'button:has-text("命令ではなく") >> nth=0', settle: 600 }] },
   // つながるメモの行を押す → その本のそのメモを開いて示す（開いた先のカードにも逆向きのつながるメモ）
   { name: 'memo-link-open', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を検索"]' }, { fill: ['input[aria-label^="本を検索（"]', '命令'] }, { wait: 800 }, { css: 'button:has-text("命令ではなく") >> nth=0', settle: 1600 }, { css: 'section[aria-label="つながるメモ"] button', settle: 600 }] },
-  { name: 'memo-editor-next-link', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("数値化の鬼")' }, { css: 'button:has-text("メモを書く")' }, { css: 'button:has-text("ページ・写真")' }, { css: 'button:has-text("全画面で書く")' }, { fill: ['textarea#memo-body', '頼まれごとはその場で引き受けず、一度持ち帰ってから数字で判断する。'] }, { css: 'button:has-text("保存して次へ")', settle: 1200 }] },
+  { name: 'memo-editor-next-link', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("数値化の鬼")' }, { css: 'button:has-text("メモを書く")' }, { css: 'button:has-text("ページ・写真")' }, { css: 'button:has-text("全画面で")' }, { fill: ['textarea#memo-body', '頼まれごとはその場で引き受けず、一度持ち帰ってから数字で判断する。'] }, { css: 'button:has-text("保存して次へ")', settle: 1200 }] },
 
   // ── 初日の体験（2026-10-02・lib/firstDay.js）: 初回ガイドの 3 つの道 → 終えたら「相談してみる」→ 相談の入力欄に下書き。
   //    メモ 3 件のホーム・相談（「あと N 件で相談相手が育ちます」）、はじめての相談の答え（「あなたのメモ N 件から答えました」）。
