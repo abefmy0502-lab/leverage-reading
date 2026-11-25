@@ -401,6 +401,16 @@ export function createDemoClient() {
     const LONG = 'マネジメント（部下・チーム・1on1・任せ方・評価・育成のことをまとめておくタグ）'.slice(0, 50);
     for (const m of db.book_memos || []) if (Array.isArray(m.tags)) m.tags = m.tags.map((t) => (t === 'マネジメント' ? LONG : t));
   }
+  // 🔗 &overlap=on: 本のメモ（『1兆ドルコーチ』の「答えを与えない…質問で考えさせる」）と似た学びを 1 件足す
+  //   （重なりのシートが、似た記録を相手にして開く形・2026-11-25）。
+  if (params.get('overlap') === 'on' && Array.isArray(db.book_memos)) {
+    const at = new Date(Date.now() - 12 * 86400000).toISOString();
+    db.book_memos.push({
+      id: '00000000-0000-4000-8000-0000000c9002', user_id: DEMO_USER_ID, book_id: null, source_type: 'personal',
+      page_number: null, text: '部下に答えを与えず、「どうすればうまくいくと思う？」と質問で考えさせたら、会議で自分から案を出すようになった。', photo_path: null, tags: ['@仕事'],
+      last_recalled_at: null, recall_count: 0, created_at: at, updated_at: at,
+    });
+  }
   // &lpshot=1: LP の写真用（scripts/lp-shots.mjs）。「部下が報告をくれない」の答えの根拠になる自分の学びを 1 件足す
   //   （答えは demoFetch.js の lpShotAnswer・2026-10-05）。
   if (params.get('lpshot') === '1' && Array.isArray(db.book_memos) && db.book_memos.length) {

@@ -2009,7 +2009,7 @@ export async function generateOverlap({ a, b }) {
     throw err;
   }
   const parsed = isSuspiciousOutput(result) ? null : parseOverlap(result);
-  if (!parsed) throw new Error('2 つの記録から、うまく見つけられませんでした。自分の言葉で書いてみてください。');
+  if (!parsed) throw new Error('AI の答えを読み取れませんでした。もう一度は約 1 トークンです。自分の言葉だけでも残せます。');
   track('ai_used', { feature: 'overlap' });
   return parsed;
 }

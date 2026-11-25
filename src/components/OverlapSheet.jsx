@@ -20,7 +20,7 @@ import {
 import { ensureAiConsent } from '../lib/aiConsent';
 import { generateOverlap, invalidateKnowledgeCache } from '../lib/ai';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import { toSaveMessage } from '../lib/errors';
+import { toSaveMessage, toMessage } from '../lib/errors';
 import { track } from '../lib/analytics';
 
 const meta = { margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5 };
@@ -28,11 +28,11 @@ const label = { margin: 0, fontSize: 'var(--text-sub)', fontWeight: 600, color: 
 const readText = { margin: 0, fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.6, color: 'var(--text)', wordBreak: 'normal', lineBreak: 'strict', overflowWrap: 'anywhere', whiteSpace: 'pre-wrap' };
 
 // ロゴの 2 本の帯のように、2 枚目を少し右下へずらして重ねる（重なった所が「余白＝自分の答え」の入口）。
-function RecordCard({ where, text, second = false, action = null }) {
+function RecordCard({ where, text, second = false, band = true, action = null }) {
   return (
     <div style={{
       position: 'relative', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
-      padding: 'var(--space-3) var(--space-4)', marginLeft: second ? 'var(--space-6)' : 0, marginRight: second ? 0 : 'var(--space-6)',
+      padding: 'var(--space-3) var(--space-4)', marginLeft: second ? 'var(--space-6)' : 0, marginRight: second || !band ? 0 : 'var(--space-6)',
       marginTop: second ? 'calc(-1 * var(--space-3))' : 0, zIndex: second ? 1 : 0,
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-1)' }}>
@@ -91,7 +91,7 @@ export default function OverlapSheet({ source, targetId = null, books = [], onCl
       setAi({ status: 'ready', result, error: '' });
       track('overlap_ai', { personal: isPersonal(target) });
     } catch (e) {
-      setAi({ status: 'error', result: null, error: e?.message || '重なりを見られませんでした。' });
+      setAi({ status: 'error', result: null, error: e?.notice ? e.message : toMessage(e, '少し時間をおいて、もう一度お試しください。自分の言葉だけでも残せます。') });
     }
   };
 
@@ -131,6 +131,8 @@ export default function OverlapSheet({ source, targetId = null, books = [], onCl
   return (
     <BottomSheet
       title="重なり"
+      dismissLabel="キャンセル"
+      subheader={<p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>2 つの記録を重ねて、自分の答えを書きます</p>}
       onClose={onClose}
       beforeClose={async () => !dirty || saving || !!(await confirm({ title: '書いた答えを残していません', message: '閉じると、書いた答えは消えます。', confirmLabel: '破棄する', cancelLabel: '書き続ける', danger: true }))}
       footer={choosing ? null : (
@@ -145,14 +147,15 @@ export default function OverlapSheet({ source, targetId = null, books = [], onCl
         )}
         {!rows && status !== 'error' && (
           <div aria-label="読み込み中" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-            <SkeletonBlock height={96} radius="var(--radius)" />
-            <SkeletonBlock height={96} radius="var(--radius)" />
+            <SkeletonBlock height="calc(var(--text-read) * 1.6 * 3 + var(--space-6))" radius="var(--radius)" />
+            <SkeletonBlock height="calc(var(--text-read) * 1.6 * 3 + var(--space-6))" radius="var(--radius)" />
           </div>
         )}
 
         {rows && choosing && (
-          <section aria-labelledby="overlap-choose-h" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-            <RecordCard where={aWhere} text={source.text} />
+          <>
+          <RecordCard where={aWhere} text={source.text} band={false} />
+          <section aria-labelledby="overlap-choose-h" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
             <h3 id="overlap-choose-h" style={label}>重ねる相手を選ぶ</h3>
             <input
               type="search" value={query} onChange={(e) => setQuery(e.target.value)} maxLength={60}
@@ -175,6 +178,7 @@ export default function OverlapSheet({ source, targetId = null, books = [], onCl
             )}
             {target && <button type="button" onClick={() => setChoosing(false)} style={{ ...btnLinkQuiet, alignSelf: 'flex-start' }}>選び直さずに戻る</button>}
           </section>
+          </>
         )}
 
         {rows && !choosing && target && (
@@ -196,7 +200,7 @@ export default function OverlapSheet({ source, targetId = null, books = [], onCl
               )}
               {ai.status === 'loading' && (
                 <div aria-label="考えています" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-                  <SkeletonBlock width="90%" height={14} /><SkeletonBlock width="80%" height={14} /><SkeletonBlock width="70%" height={14} />
+                  <SkeletonBlock width="90%" height="var(--text-body)" /><SkeletonBlock width="80%" height="var(--text-body)" /><SkeletonBlock width="70%" height="var(--text-body)" />
                 </div>
               )}
               {ai.status === 'error' && (
@@ -207,7 +211,7 @@ export default function OverlapSheet({ source, targetId = null, books = [], onCl
                   {[['共通していること', ai.result.common], ['違うところ', ai.result.diff], ['考えてみたい問い', ai.result.question]].filter(([, v]) => v).map(([k, v]) => (
                     <div key={k}>
                       <dt style={meta}>{k}</dt>
-                      <dd style={{ ...readText, margin: 'var(--space-1) 0 0' }}>{withPhraseBreaks(v)}</dd>
+                      <dd style={{ ...readText, fontSize: 'var(--text-body)', color: 'var(--text-2)', margin: 'var(--space-1) 0 0' }}>{withPhraseBreaks(v)}</dd>
                     </div>
                   ))}
                 </dl>
@@ -217,11 +221,11 @@ export default function OverlapSheet({ source, targetId = null, books = [], onCl
             <section aria-labelledby="overlap-answer-h" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
               <h3 id="overlap-answer-h" style={label}>自分の答え</h3>
               {/* AI の問いは上の「考えてみたい問い」に出ているので、ここでは繰り返さない（無いときだけ決まった問い）。 */}
-              {!ai.result?.question && <p style={{ ...meta, color: 'var(--text-2)' }}>{withPhraseBreaks(question)}</p>}
+              {!ai.result?.question && <p style={{ ...readText, fontSize: 'var(--text-body)', color: 'var(--text-2)' }}>{withPhraseBreaks(question)}</p>}
               <textarea
                 ref={answerRef} value={answer} onChange={(e) => setAnswer(e.target.value)} maxLength={OVERLAP_ANSWER_MAX} rows={4}
                 aria-label="自分の答え" placeholder="いま思うことを、自分の言葉で"
-                style={{ ...uiInput, resize: 'vertical', minHeight: 120, fontFamily: 'var(--font-read)', lineHeight: 1.6 }}
+                style={{ ...uiInput, resize: 'vertical', minHeight: 'calc(var(--text-read) * 1.6 * 4 + var(--space-6))', fontFamily: 'var(--font-read)', lineHeight: 1.6 }}
               />
               <p style={meta}>{withPhraseBreaks('学びとして残り、相談の材料になります。')}</p>
             </section>

@@ -875,7 +875,7 @@ function aiReply(store, payload, aiMode = '') {
   // 🔗 重なり（2026-11-25）: 本番は 2 つの記録だけから「共通・違い・問い」の 3 行。&overlap=fail は読めない答え。
   if (payload.purpose === 'overlap') {
     if (new URLSearchParams(window.location.search).get('overlap') === 'fail') return 'うまく書けませんでした。';
-    return '共通: 相手に先に何かを渡すと、関係が前に進むという見方\n違い: 本は人の心の動きとして、あなたの記録は商談の場面として書いている\n問い: 次の打ち合わせで、先に渡せるものは何だろう？';
+    return '共通: 答えを渡すより、問いで相手に考えてもらうと人が動くという見方\n違い: 片方は考え方として、もう片方は実際にやってみた場面として書いている\n問い: 次の 1on1 で、答えを言う前に何を聞いてみる？';
   }
   // 🧭 目標の深掘り・ロードマップ（2026-11-15・demoGoals.js）
   if (payload.purpose === 'goal_interview') return goalInterviewAnswer(userText);

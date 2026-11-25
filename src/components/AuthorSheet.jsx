@@ -111,11 +111,11 @@ export default function AuthorSheet({ names = [], fav, onAddWant, hasBook, onClo
           />
         ) : (
           <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-            {fav.favs.map((f) => {
+            {fav.favs.map((f, i) => {
               const hit = cachedAuthorBooks(f.name);
               const n = hit ? newBooksFor(f, hit.books, { isOwned: (b) => !!hasBook?.(b) }).length : 0;
               return (
-                <li key={f.key} style={{ borderBottom: '1px solid var(--separator)' }}>
+                <li key={f.key} style={{ borderBottom: i < fav.favs.length - 1 ? '1px solid var(--separator)' : 'none' }}>
                   <button type="button" onClick={() => openAuthor(f.name)} style={{ width: '100%', minHeight: 'calc(var(--btn-h) + var(--space-2))', display: 'flex', alignItems: 'center', gap: 'var(--space-3)', background: 'none', border: 'none', padding: 'var(--space-2) 0', cursor: 'pointer', textAlign: 'left', color: 'var(--text)' }}>
                     <span style={{ flex: 1, minWidth: 0 }}>
                       <span style={{ display: 'block', fontSize: 'var(--text-body)', fontWeight: 600 }}>{f.name}</span>
