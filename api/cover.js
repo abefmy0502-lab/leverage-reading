@@ -21,6 +21,7 @@ import { findStrongMatch, strongTitleMatch, authorMatches } from './_bookVerify.
 import { rakutenGet, rakutenUpscale } from './_rakuten.js';
 import { searchBooksServer, cachedSearch, rememberSearch, normalizeSearchQuery } from './_bookSearch.js';
 import { getBookInfoCached, bookInfoResponse } from './_bookInfo.js';
+import { authorBooksServer, cachedAuthorBooks, rememberAuthorBooks, normalizeAuthorQuery } from './_authorBooks.js';
 import { createClient } from '@supabase/supabase-js';
 import { classifyBookServer, recordFieldVotes, takeUserSlot } from './_bookFields.js';
 
@@ -731,6 +732,24 @@ export default async function handler(req, res) {
       ? 'public, max-age=300, s-maxage=3600'
       : 'public, max-age=0, s-maxage=300');
     return res.status(200).json({ results: data.results });
+  }
+
+  // ✍️ お気に入りの著者の本: /api/cover?author_books=稲盛和夫 → { books: [...] }（発売日の新しい順・これから出る本も・
+  //    api/_authorBooks.js・2026-11-25）。楽天が答えなければ 502（端末は前に覚えた本のまま）。
+  if (req.query?.author_books !== undefined) {
+    const a = normalizeAuthorQuery(Array.isArray(req.query.author_books) ? req.query.author_books[0] : req.query.author_books);
+    if (!a) return res.status(400).json({ error: 'author_books required' });
+    let data = cachedAuthorBooks(a);
+    if (!data) {
+      data = await authorBooksServer(a);
+      rememberAuthorBooks(a, data);
+    }
+    if (!data.ok) {
+      res.setHeader('Cache-Control', 'no-store');
+      return res.status(502).json({ error: 'unavailable', books: [] });
+    }
+    res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=21600');
+    return res.status(200).json({ books: data.books });
   }
 
   const title = clean(req.query?.title);

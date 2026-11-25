@@ -111,6 +111,8 @@ const HelpModal = lazy(() => import('./components/HelpModal'));
 const Review = lazy(() => import('./components/Review'));
 const MyBookBrain = lazy(() => import('./components/MyBookBrain'));
 import { useAdvisorSessions } from './hooks/useAdvisorSessions';
+import { useFavoriteAuthors } from './hooks/useFavoriteAuthors';
+import { splitAuthorNames } from './lib/favoriteAuthors';
 const ActionEditModal = lazy(() => import('./components/ActionEditModal'));
 const GoalScreen = lazy(() => import('./components/GoalScreen'));
 // 📊 記録サブタブ（読了/メモ/行動の累計・月別推移・成果/定着のつながり・タグ分布）。
@@ -154,6 +156,7 @@ import { track, trackAppOpen, EVENTS } from './lib/analytics';
 import ShareSourceSheet from './components/ShareSourceSheet';
 const AccountSettings = lazy(() => import('./components/AccountSettings'));
 const FollowSheet = lazy(() => import('./components/FollowSheet'));
+const AuthorSheet = lazy(() => import('./components/AuthorSheet'));
 import SplashScreen from './components/SplashScreen';
 import { markAppReady } from './lib/appReady';
 import Spinner from './components/Spinner';
@@ -4082,6 +4085,16 @@ function AuthedApp() {
     title: String(book?.title || '').trim().slice(0, 200),
     author: String(book?.author || '').trim().slice(0, 200),
   });
+  // ✍️ お気に入りの著者（2026-11-25）。新しい本はホームの 1 行で知らせる（hooks/useFavoriteAuthors.js）。
+  const favAuthors = useFavoriteAuthors(user?.id || null, { isOwned: hasBookFromOther });
+  const [authorSheet, setAuthorSheet] = useState(null); // { names: [], reason }
+  const openAuthorSheet = (book) => {
+    const names = splitAuthorNames(book?.author);
+    if (!names.length) return;
+    const r = Number(book?.rating) || 0;
+    setAuthorSheet({ names, reason: book?.status === 'done' && r >= 4 ? `『${String(book.title || '').slice(0, 40)}』に ★${r} を付けています。` : null });
+    track('fav_author_sheet', { from: 'book' });
+  };
   const addWantFromOther = async (book) => {
     const title = String(book?.title || '').trim().slice(0, 200);
     if (!user?.id || !title) return 'error';
@@ -5093,6 +5106,12 @@ function AuthedApp() {
       </BottomSheet>
     );
   })() : null;
+  // ✍️ 著者のシート（ホームの 1 行・設定・本の詳細の著者の名前から・2026-11-25）。本の詳細は別の描き分けなので両方に置く。
+  const authorSheetLayer = authorSheet ? (
+    <Suspense fallback={<OverlayFallback />}>
+      <AuthorSheet names={authorSheet.names} reason={authorSheet.reason} fav={favAuthors} onAddWant={addWantFromOther} hasBook={hasBookFromOther} onClose={() => setAuthorSheet(null)} />
+    </Suspense>
+  ) : null;
   const folderPickerSheet = folderPickerBook ? (() => {
         const liveBook = books.find((b) => b.id === folderPickerBook.id) || folderPickerBook;
         const cols = liveBook.collections || [];
@@ -5606,7 +5625,15 @@ function AuthedApp() {
               {/* 書名＝この画面の主題（28・700）。見出し「メモ」「行動」（20・600）と差をつける。 */}
               {/* 長い書名は 3 行で切り、押すと全文を出す（最後まで読めなかった・2026-11-25 点検）。読み上げは全文を読む。 */}
               <h1 onClick={() => setTitleOpenId((id) => (id === current.id ? null : current.id))} style={{ fontSize: "var(--text-title)", fontWeight: 700, color: "var(--text)", lineHeight: 1.25, margin: 0, overflowWrap: "anywhere", wordBreak: "keep-all", lineBreak: "strict", textWrap: "balance", ...(titleOpenId === current.id ? null : { display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', cursor: 'pointer' }) }}>{titleWithPhraseBreaks(current.title)}</h1>
-              {current.author && <p style={{ fontSize: 'var(--text-sub)', color: "var(--text-2)", margin: "var(--space-1) 0 0", wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(current.author, { scriptBreaks: true })}</p>}
+              {/* 著者の名前を押すと、その著者の本とお気に入り（AuthorSheet・2026-11-25）。見た目は今までの文のまま（下線なし・› で押せると分かる）。 */}
+              {current.author && (splitAuthorNames(current.author).length ? (
+                (() => { const favOn = favAuthors.favs.length > 0 && splitAuthorNames(current.author).some((n) => favAuthors.isFavorite(n)); return (
+                <button type="button" onClick={() => openAuthorSheet(current)} aria-label={`${current.author}${favOn ? '・お気に入りの著者' : ''}・この著者の本`} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 'var(--tap-min)', background: 'none', border: 'none', padding: 0, margin: "calc(var(--space-1) - (var(--tap-min) - 1.5em) / 2) 0 calc(-1 * (var(--tap-min) - 1.5em) / 2)", cursor: 'pointer', textAlign: 'left', fontSize: 'var(--text-sub)', lineHeight: 1.5, color: "var(--text-2)", wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+                  <span>{withPhraseBreaks(current.author, { scriptBreaks: true })}{favOn && <IcStar size="0.9em" aria-hidden="true" fill="currentColor" style={{ color: 'var(--accent)', marginLeft: 'var(--space-1)', verticalAlign: '-0.05em' }} />}</span>
+                  <ChevronRight size="1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+                </button>
+                ); })()
+              ) : <p style={{ fontSize: 'var(--text-sub)', color: "var(--text-2)", margin: "var(--space-1) 0 0", wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(current.author, { scriptBreaks: true })}</p>)}
               {/* 状態と日付は 1 行に「·」でつなぐ（縦に段を積むと見出しが重かった・2026-10-16 ui-critic）。 */}
               <div style={{ display: "flex", alignItems: "center", columnGap: 'var(--space-2)', rowGap: 'var(--space-1)', marginTop: "var(--space-2)", flexWrap: "wrap", fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>
                 {/* 状態は押せない表示なので面を付けない（DESIGN §5「表示用ラベル」）。 */}
@@ -6192,6 +6219,7 @@ function AuthedApp() {
         {/* 🗂 フォルダに入れる（本の詳細の「変更」／「フォルダに入れる」・2026-10-11） */}
         {folderPickerSheet}
         {fieldsPickerSheet}
+        {authorSheetLayer}
         {coverMenuSheet}
         {storeSheetOpen && (
           <BottomSheet title="この本を買う" onClose={() => setStoreSheetOpen(false)}>
@@ -6656,6 +6684,11 @@ function AuthedApp() {
         {tab === "books" && shelfMode === 'home' && (
           <PullToRefresh onRefresh={async () => { await refreshBooks(); haptic.light(); }}>
             <HomeScreen
+              authorNews={favAuthors.news ? {
+                news: favAuthors.news,
+                onOpen: () => { setAuthorSheet({ names: [favAuthors.news.fav.name], reason: null }); track('fav_author_news', { action: 'open' }); },
+                onDismiss: () => { favAuthors.dismissNews(); track('fav_author_news', { action: 'dismiss' }); },
+              } : null}
               books={books}
               loading={booksLoading}
               loadError={booksLoadError}
@@ -7538,6 +7571,8 @@ function AuthedApp() {
             onAddWant={addWantFromOther}
             hasBook={hasBookFromOther}
             onOpenProfile={() => { setSettingsOpen(false); openProfileScreen('settings'); }}
+            onOpenFavAuthors={() => { setSettingsOpen(false); setAuthorSheet({ names: [], reason: null }); }}
+            favAuthorsCount={favAuthors.favs.length}
           />
         </Suspense>
       )}
@@ -7552,6 +7587,7 @@ function AuthedApp() {
           />
         </Suspense>
       )}
+      {authorSheetLayer}
       {followSheet && !showOnboarding && (
         <Suspense fallback={<OverlayFallback />}>
           <FollowSheet initialId={followSheet.initialId || ''} onClose={() => setFollowSheet(null)} onAddWant={addWantFromOther} hasBook={hasBookFromOther} />

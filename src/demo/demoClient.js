@@ -380,6 +380,11 @@ export function createDemoClient() {
   applyTokenUsageDemo(db, scenario, params, DEMO_USER_ID);
   // 🧭 &goals=on|noroadmap|purpose: 目標とロードマップ（2026-11-15・demoGoals.js）。
   applyGoalsDemo(db, demoUser, params, { userId: DEMO_USER_ID, now: appNow(), coverSvg });
+  // ✍️ &authors=on: お気に入りの著者（安藤広大さん・60 日前に入れた）＝ホームに新しい本の 1 行（2026-11-25）。
+  //   著者の本は demoFetch.js の /api/cover?author_books=（&authors=fail は読めない・&authors=slow は読み込み中のまま）。
+  if (params.get('authors')) {
+    db.favorite_authors = [{ user_id: DEMO_USER_ID, name_key: '安藤広大', name: '安藤広大', dismissed_isbns: [], created_at: new Date(appNow().getTime() - 60 * 86400000).toISOString() }];
+  }
   // &fields=none: 本の分野と前の版のタグを全部外す（開くと書名から分野が自動で付く・2026-10-11）。
   if (params.get('fields') === 'none') db.book_tags = [];
   // &fields=zero: 分野の付いた本が 1 冊も無い人（記録の「分野」が出ない形・自動でも付けない＝本人が選んだ印を付ける・2026-10-11）。

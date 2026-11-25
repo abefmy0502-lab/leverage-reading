@@ -4,7 +4,8 @@
 // 本番と同じ書式（【結論】…REFS_START/END）で答えるので、画面の流れを確かめられる。
 
 import { goalInterviewAnswer, goalRoadmapAnswer, goalRoadmapUpdateAnswer, goalPhaseBooksAnswer } from './demoGoals';
-import { SEARCH_CATALOG, DEMO_BOOK_INFO, DEMO_GENRES, DEMO_AI_FIELDS, DEMO_MESSY_RELATED } from './seed';
+import { SEARCH_CATALOG, DEMO_BOOK_INFO, DEMO_GENRES, DEMO_AI_FIELDS, DEMO_MESSY_RELATED, DEMO_BOOKS, coverSvg } from './seed';
+import { appNow } from '../lib/appNow';
 import { classifyBookDetailed } from '../../api/_bookFieldsCore.js';
 
 const fakeChapterMode = () => { const a = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('ai') : ''; return a === 'fakechapter' || a === 'fakechapteronly' ? a : ''; };
@@ -1093,6 +1094,21 @@ export function installDemoFetch(store) {
         return sseResponse(text, stopReason, stallAt, noInfo ? { type: 'orime_token_refund', reason: 'no_info', tokens: 9 } : null, signal);
       }
       return json({ content: [{ type: 'text', text }], stop_reason: stopReason });
+    }
+    if (url.includes('/api/cover') && /[?&]author_books=/.test(url)) {
+      // ✍️ 著者の本（2026-11-25・本番は楽天の著者検索・発売日の新しい順）。お試しは「これから出る本」「最近の本」と見本の本。
+      const mode = new URLSearchParams(window.location.search).get('authors');
+      await wait(mode === 'slow' ? 60000 : 400, signal);
+      if (mode === 'fail') return json({ error: 'unavailable', books: [] }, 502);
+      const name = (() => { try { return new URL(url, window.location.origin).searchParams.get('author_books') || ''; } catch { return ''; } })();
+      const day = (n) => { const d = new Date(appNow().getTime() + n * 86400000); return { iso: d.toISOString().slice(0, 10), ja: `${d.getFullYear()}年${String(d.getMonth() + 1).padStart(2, '0')}月${String(d.getDate()).padStart(2, '0')}日` }; };
+      const up = day(24); const recent = day(-20);
+      const seedBooks = DEMO_BOOKS.filter((b) => String(b[1] || '').includes(name)).map((b, i) => ({ title: b[0], author: b[1], isbn: b[2], pubdate: '2022年03月', release: '2022-03-31', cover: coverSvg(b[0], b[1], i), reissue: false }));
+      return json({ books: [
+        { title: `${name}の、これから出る本（お試し）`, author: name, isbn: '9784000990001', pubdate: up.ja, release: up.iso, cover: '', reissue: false },
+        { title: `${name}の、最近の本（お試し）`, author: name, isbn: '9784000990002', pubdate: recent.ja, release: recent.iso, cover: '', reissue: false },
+        ...seedBooks,
+      ] });
     }
     if (url.includes('/api/cover') && /[?&]search=/.test(url)) {
       // 本の検索（2026-10-02・本番は楽天の売上順 → Google → NDL）。&search=fail は失敗（端末の検索に切り替わる）・

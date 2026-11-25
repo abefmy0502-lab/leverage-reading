@@ -369,7 +369,7 @@ async function listAllUserPhotos(userId, bucket = 'book-memo-photos') {
 // 🧪 お試しモードの通知のオン・オフ（設定を閉じて開き直しても残す・再読み込みで初期化）。
 let demoPushOn = false;
 
-export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, onOpenHelp, focusDelete = false, onProfileSaved, onAddWant, hasBook, onOpenProfile = null }) {
+export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, onOpenHelp, focusDelete = false, onProfileSaved, onAddWant, hasBook, onOpenProfile = null, onOpenFavAuthors = null, favAuthorsCount = 0 }) {
   const { user, signOut } = useAuth();
   const guest = isGuestUser(user);
   // 有料プランの画面の「アカウントを削除」から開いたときは、削除の欄まで送る。
@@ -805,6 +805,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
       await deleteOwn('theme_reports');
       await deleteOwn('advisor_sessions');
       await deleteOwn('goal_roadmaps'); // 🧭 目標のロードマップ（未適用 DB はスキップ）
+      await deleteOwn('favorite_authors'); // ✍️ お気に入りの著者（2026-11-25・未適用 DB はスキップ）
       await deleteOwn('reading_sessions'); // ⏱ 読書の時間（集中モード・未適用 DB はスキップ）
       await deleteOwn('profiles'); // 👤 プロフィール（2026-11-21・未適用 DB はスキップ）
       await deleteOwn('mcp_tokens'); // 🔌 AI と連携の接続キー（初期化でもつないだ AI から読めなくする）
@@ -916,6 +917,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
       await deleteOwn('theme_reports');     // 📊 テーマまとめの履歴（機能は 2026-09-30 に廃止・過去の行は消す）
       await deleteOwn('advisor_sessions');  // 🕒 AI 選書の会話履歴
       await deleteOwn('goal_roadmaps');     // 🧭 目標のロードマップ（2026-11-15）
+      await deleteOwn('favorite_authors');  // ✍️ お気に入りの著者（2026-11-25）
       await deleteOwn('reading_sessions');  // ⏱ 読書の時間（集中モード・2026-10-09）
       await deleteOwn('profiles');          // 👤 プロフィール（2026-11-21・公開のページもすぐ見えなくなる）
       await deleteOwn('push_subscriptions');// 🔔 想起プッシュ購読
@@ -1254,6 +1256,19 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
                 <span style={{ flex: 1, minWidth: 0 }}>
                   <span style={{ ...rowTitleStyle, display: 'block' }}>ほかのアプリから取り込む</span>
                   <span style={{ ...rowDescStyle, display: 'block' }}>ブクログ・読書メーター・Kindle</span>
+                </span>
+                <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+              </button>
+            </Group>
+          )}
+
+          {/* ── ✍️ お気に入りの著者（2026-11-25）: 新しい本が出たらホームで知らせる著者の一覧 ── */}
+          {onOpenFavAuthors && (
+            <Group label="著者">
+              <button type="button" style={rowButtonStyle} onClick={onOpenFavAuthors}>
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ ...rowTitleStyle, display: 'block' }}>お気に入りの著者{favAuthorsCount > 0 ? `（${favAuthorsCount}）` : ''}</span>
+                  <span style={{ ...rowDescStyle, display: 'block' }}>新しい本が出たら、ホームでお知らせします</span>
                 </span>
                 <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
               </button>

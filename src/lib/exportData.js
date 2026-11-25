@@ -31,6 +31,7 @@ export const EXPORT_TABLES = [
   'advisor_sessions',   // 🕒 AI 選書の会話履歴
   'book_collections',   // 🗂 本棚フォルダの割当
   'goal_roadmaps',      // 🧭 目標のロードマップと読書計画（2026-11-15・表がまだ無い DB は skipped）
+  'favorite_authors',   // ✍️ お気に入りの著者（2026-11-25・表がまだ無い DB は skipped）
   'profiles',           // 👤 プロフィール（2026-11-21・表がまだ無い DB は skipped）
   'reading_sessions',   // ⏱ 読書の時間（集中モード・2026-10-09・表がまだ無い DB は skipped。端末だけの控えは入らない）
 ];

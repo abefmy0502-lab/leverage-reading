@@ -36,6 +36,7 @@ export const ORDER = [
   ['supabase_profiles.sql', 'プロフィール（ニックネーム・好きな本・おすすめの 1 行・公開のページ・通報）'],
   ['supabase_follows.sql', 'フォロー（申し込み・承認・ブロック・承認した人だけが見られる本棚とまとめ）'],
   ['supabase_goal_roadmaps.sql', '目標のロードマップと読書計画'],
+  ['supabase_favorite_authors.sql', 'お気に入りの著者（新しい本の知らせ）'],
   ['supabase_advisor_books.sql', 'AI 選書の推薦用の本のデータ'],
   ['supabase_advisor_books_ext.sql', 'AI 選書の推薦用の本の難しさと書評のデータ'],
   ['supabase_advisor_books_signals.sql', 'AI 選書の推薦用の本の売れ方と賞・年間ベストの印（候補を引く関数もここ）'],

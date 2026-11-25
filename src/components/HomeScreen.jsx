@@ -15,6 +15,7 @@
 // 上の行の「写真で共有」は App.jsx の全体ヘッダー（ホーム・振り返り・相談で同じ場所）。
 // 見た目は DESIGN.md のトークンのみ。
 import { useEffect, useMemo, useState } from 'react';
+import { isUpcoming, shortPubdate } from '../lib/favoriteAuthors';
 import { Library, ChevronRight, PencilLine, Plus, BookOpen, Timer, Target, Sprout, X, MessageCircle, CalendarCheck, CalendarDays, Compass, Camera } from 'lucide-react';
 import HomeFirstStep, { useHomeMemoState, MEMO_COUNT_WAIT_MS } from './HomeFirstStep';
 import GrowthMeter from './GrowthMeter';
@@ -349,6 +350,23 @@ function HomeActionsRow({ summary, onOpen }) {
 //   見た目は育つまでの一行（芽 1.2em・--text-3＋13/--text-2）＋右に文字ボタン「相談してみる」と ×。押しても閉じても二度と出さない。
 //   7 日間無料はここではすすめない（ホームではすすめない・相談の画面の案内 ③ はそのまま）。
 // stack: 文が長い 1 行（更新の前・年額）は文を全幅にし、ボタンと × を次の行の右へ（1 行 14 字に縮めない・2026-10-22 ui-critic）。
+// 「稲盛和夫さんの新しい本『…』が出ました」／発売前は「…が、2026年12月中旬に出ます」（ほかにもあれば「ほか N 冊」）。
+//   書名は文節で割らない（『…（』で行が終わっていた・2026-11-25 ui-critic）＝書名の中は keep-all・はみ出すときだけ割る。
+export function authorNewsText({ fav, book, more = 0 }) {
+  const t = String(book?.title || '');
+  const title = t.length > 24 ? `${t.slice(0, 23)}…` : t;
+  const when = shortPubdate(book?.pubdate);
+  const upcoming = isUpcoming(book);
+  return (
+    <>
+      {withPhraseBreaks(`${fav.name}さんの新しい本`)}
+      <span style={{ wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>『{title}』</span>
+      {withPhraseBreaks(upcoming ? `が、${when}に出ます` : 'が出ました')}
+      {more > 0 && <span style={{ whiteSpace: 'nowrap' }}>（ほか {more}&nbsp;冊）</span>}
+    </>
+  );
+}
+
 function GrownLine({ onConsult, onDismiss, text = null, icon: Icon = Sprout, actionLabel = '相談してみる', mark = 'grown', stack = false }) {
   return (
     <div data-grown-line={mark} style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 'var(--space-2)', margin: '0 calc(-1 * var(--space-3)) 0 0' }}>
@@ -582,7 +600,7 @@ export function HomeBlocksSkeleton() {
 
 export default function HomeScreen({
   books = [], loading = false, loadError = null, onRetry,
-  onQuickstart, onAddBook, onAddReadingBook, onAdvisor, onImport, onShelfScan = null,
+  onQuickstart, onAddBook, onAddReadingBook, onAdvisor, onImport, onShelfScan = null, authorNews = null,
   onOpenBook, onWriteMemo, onStartReading, onOpenLibrary, onSeeAllReading, onCoverRetry, onShareNudge, onRead,
   onOpenActions, onConsultDraft, savedMemo = null, onDismissSavedMemo, onOpenMemo, onAddOneLines = null, onOpenConsult = null,
   onOpenRecord = null, onOpenPlan = null, onOpenReadingPlan = null, onOpenGoals = null,
@@ -696,6 +714,18 @@ export default function HomeScreen({
             actionLabel={reask.text.action}
             onConsult={() => { reask.close('open'); onConsultDraft(reask.question, 'reask'); }}
             onDismiss={() => reask.close('dismiss')}
+          />
+        )}
+        {/* ✍️ お気に入りの著者の新しい本（2026-11-25・hooks/useFavoriteAuthors.js）。押すと著者のシート・× でその本はもう知らせない。 */}
+        {homeKnown && authorNews?.news && !(books.length > 0 && growthMeterText(memoState.count)) && !tokensBack.show && !showGrown && !renewal.show && !annual.show && !reask.show && !shareNudge.nudge && (
+          <GrownLine
+            mark="author-news"
+            stack
+            icon={BookOpen}
+            text={authorNewsText(authorNews.news)}
+            actionLabel="見る"
+            onConsult={authorNews.onOpen}
+            onDismiss={authorNews.onDismiss}
           />
         )}
         {/* 月末・12 月の 1 行（本を読み込んで、ホームの中身を出すときに一緒に出す＝あとから差し込んで押し下げない）。 */}

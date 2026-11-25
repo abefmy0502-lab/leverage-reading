@@ -1,0 +1,220 @@
+// ✍️ 著者のシート（2026-11-25 オーナー「著者をお気に入り登録できるようにして・新作が出たらおすすめする」）。
+//   本の詳細の著者の名前を押す → この著者の本（書店の新しい順・これから出る本も）と「お気に入りに入れる」。
+//   お気に入りに入れると、新しい本が出たらホームの 1 行で知らせる（hooks/useFavoriteAuthors.js）。
+//   設定の「お気に入りの著者」からは一覧（list）→ 押すとその著者。AI は使わない。
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Star, ChevronRight } from 'lucide-react';
+import BottomSheet from './BottomSheet';
+import ErrorMessage from './ErrorMessage';
+import EmptyState from './EmptyState';
+import MiniCover from './MiniCover';
+import { SkeletonBlock } from './Skeleton';
+import { withPhraseBreaks } from './TightBubble';
+import { useToast } from './Toast';
+import { btnGhost, btnLinkQuiet, btnTonal } from '../styles/ui';
+import {
+  fetchAuthorBooks, cachedAuthorBooks, isRecentBook, isUpcoming, releaseLabel, newBooksFor, authorKey,
+} from '../lib/favoriteAuthors';
+import { track } from '../lib/analytics';
+import { toSaveMessage } from '../lib/errors';
+import { useOnline } from '../hooks/useOnline';
+
+const note = { margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' };
+
+/**
+ * props:
+ *   names      … 著者の名前の配列（本の著者の欄から・1〜5 人）。空なら一覧（お気に入りの著者）から始める
+ *   fav        … useFavoriteAuthors の戻り値（favs・isFavorite・add・remove・dismiss）
+ *   onAddWant  … (book) => 'added' | 'exists' | 'error'（App.jsx の addWantFromOther）
+ *   hasBook    … (book) => 本棚にあるか
+ *   reason     … 本の詳細から開いたときの、その本（『考え方』★5 など・なぜこの著者か）
+ */
+export default function AuthorSheet({ names = [], fav, onAddWant, hasBook, onClose, reason = null }) {
+  const toast = useToast();
+  const online = useOnline();
+  const [current, setCurrent] = useState(names[0] || '');
+  const [state, setState] = useState({ status: 'idle', books: [] });
+  const [busy, setBusy] = useState(false);
+  const [added, setAdded] = useState(() => new Set());
+  const bodyRef = useRef(null);
+
+  const load = (name, { force = false } = {}) => {
+    if (!name) return () => {};
+    const hit = cachedAuthorBooks(name);
+    // 覚えている本があれば先に出し、6 時間より古ければ裏で読み直す。
+    if (hit && !force) setState({ status: 'ready', books: hit.books });
+    else setState({ status: 'loading', books: [] });
+    if (hit && !force && Date.now() - hit.at < 6 * 60 * 60 * 1000) return () => {};
+    const ctrl = new AbortController();
+    fetchAuthorBooks(name, { signal: ctrl.signal }).then((r) => {
+      if (ctrl.signal.aborted) return;
+      if (r.ok) setState({ status: 'ready', books: r.books });
+      else if (!hit) setState({ status: 'error', books: [] });
+    }).catch(() => {});
+    return () => ctrl.abort();
+  };
+
+  useEffect(() => load(current), [current]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const favorite = current ? fav.isFavorite(current) : false;
+  const favRec = fav.favs.find((f) => f.key === authorKey(current));
+  const newIsbns = useMemo(
+    () => new Set(favRec ? newBooksFor(favRec, state.books, { isOwned: (b) => !!hasBook?.(b) }).map((b) => b.isbn) : []),
+    [favRec, state.books, hasBook],
+  );
+
+  const toggleFavorite = async () => {
+    if (busy || !current) return;
+    setBusy(true);
+    try {
+      if (favorite) {
+        await fav.remove(current);
+        track('fav_author_remove', {});
+        toast.info(`${current}さんを、お気に入りから外しました。`);
+      } else {
+        await fav.add(current);
+        track('fav_author_add', { from: reason ? 'book' : 'list' });
+        toast.success(`${current}さんを、お気に入りに入れました。`);
+      }
+    } catch (e) {
+      toast.error(toSaveMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const addWant = async (book) => {
+    const r = await onAddWant?.(book);
+    if (r === 'added' || r === 'exists') {
+      setAdded((s) => new Set(s).add(book.isbn));
+      // 読みたいに入れた本は、もう新しい本として知らせない。
+      if (favRec) fav.dismiss(favRec.key, [book.isbn]);
+      track('fav_author_want', { fresh: newIsbns.has(book.isbn) });
+    }
+  };
+
+  const openAuthor = (name) => {
+    setCurrent(name);
+    bodyRef.current?.closest('[data-sheet-scroll]')?.scrollTo?.({ top: 0 });
+  };
+
+  // ---- お気に入りの著者の一覧（設定から開いたとき） ----
+  if (!current) {
+    return (
+      <BottomSheet title="お気に入りの著者" onClose={onClose}>
+        {fav.favs.length === 0 ? (
+          <EmptyState
+            icon={<Star size={28} />}
+            title="お気に入りの著者は、まだいません"
+            description="本の詳細で著者の名前を押すと、お気に入りに入れられます。新しい本が出たら、ホームでお知らせします。"
+          />
+        ) : (
+          <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+            {fav.favs.map((f) => {
+              const hit = cachedAuthorBooks(f.name);
+              const n = hit ? newBooksFor(f, hit.books, { isOwned: (b) => !!hasBook?.(b) }).length : 0;
+              return (
+                <li key={f.key} style={{ borderBottom: '1px solid var(--separator)' }}>
+                  <button type="button" onClick={() => openAuthor(f.name)} style={{ width: '100%', minHeight: 'calc(var(--btn-h) + var(--space-2))', display: 'flex', alignItems: 'center', gap: 'var(--space-3)', background: 'none', border: 'none', padding: 'var(--space-2) 0', cursor: 'pointer', textAlign: 'left', color: 'var(--text)' }}>
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ display: 'block', fontSize: 'var(--text-body)', fontWeight: 600 }}>{f.name}</span>
+                      {n > 0 && <span style={{ display: 'block', fontSize: 'var(--text-meta)', fontWeight: 600, color: 'var(--text-2)' }}>新しい本 {n}&nbsp;冊</span>}
+                    </span>
+                    <ChevronRight size="1.2em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </BottomSheet>
+    );
+  }
+
+  const fromList = names.length === 0;
+  return (
+    <BottomSheet title={`${current}`} onClose={onClose}>
+      <div ref={bodyRef} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+        {fromList && (
+          <button type="button" onClick={() => setCurrent('')} style={{ ...btnLinkQuiet, alignSelf: 'flex-start' }}>‹ お気に入りの著者</button>
+        )}
+        {names.length > 1 && (
+          <div role="tablist" aria-label="著者" style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+            {names.map((n) => (
+              <button key={n} type="button" role="tab" aria-selected={n === current} onClick={() => openAuthor(n)}
+                style={{ minHeight: 'var(--tap-min)', padding: '0 var(--space-3)', borderRadius: 'var(--radius-full)', fontSize: 'var(--text-sub)', cursor: 'pointer', border: `1px solid ${n === current ? 'var(--accent)' : 'var(--border)'}`, background: n === current ? 'var(--accent-soft)' : 'transparent', color: n === current ? 'var(--accent)' : 'var(--text)', fontWeight: n === current ? 600 : 400 }}>
+                {n}
+              </button>
+            ))}
+          </div>
+        )}
+        {reason && <p style={note}>{withPhraseBreaks(reason)}</p>}
+
+        {favorite ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+            <p style={{ ...note, flex: '1 1 12em', display: 'flex', gap: 'var(--space-1)', alignItems: 'flex-start', color: 'var(--text)' }}>
+              <Star size="1.2em" aria-hidden="true" fill="currentColor" style={{ color: 'var(--accent)', flexShrink: 0, marginTop: '0.15em' }} />
+              <span>お気に入りの著者です</span>
+            </p>
+            <button type="button" onClick={toggleFavorite} disabled={busy} style={{ ...btnLinkQuiet, minWidth: 'var(--tap-min)', marginRight: 'calc(-1 * var(--space-1))' }}>外す</button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+            <button type="button" onClick={toggleFavorite} disabled={busy} style={{ ...btnGhost, gap: 'var(--space-2)' }}>
+              <Star size="1.1em" aria-hidden="true" />お気に入りに入れる
+            </button>
+            <p style={{ ...note, color: 'var(--text-3)' }}>{withPhraseBreaks('新しい本が出たら、ホームでお知らせします。')}</p>
+          </div>
+        )}
+
+        <section aria-labelledby="author-books-h" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
+        <h3 id="author-books-h" style={{ margin: 0, fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text-2)' }}>この著者の本（新しい順）</h3>
+        {state.status === 'loading' && (
+          <div aria-label="読み込み中" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+            {[0, 1, 2].map((i) => (
+              <div key={i} style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
+                <SkeletonBlock width={44} height={66} radius="var(--radius-cover)" />
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                  <SkeletonBlock width="70%" height={14} />
+                  <SkeletonBlock width="40%" height={12} />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        {state.status === 'error' && (
+          <ErrorMessage title="この著者の本を読めませんでした" description={online ? '書店から本の一覧を受け取れませんでした。少し時間をおいて、もう一度お試しください。' : 'オフラインです。つながってから、もう一度お試しください。'} actions={[{ label: 'もう一度', onClick: () => load(current, { force: true }) }]} />
+        )}
+        {state.status === 'ready' && state.books.length === 0 && (
+          <p style={note}>{withPhraseBreaks('書店で、この著者の本が見つかりませんでした。')}</p>
+        )}
+        {state.status === 'ready' && state.books.length > 0 && (
+          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column' }}>
+            {state.books.map((b) => {
+              const owned = added.has(b.isbn) || !!hasBook?.(b);
+              const fresh = newIsbns.has(b.isbn) || (isRecentBook(b) && !owned);
+              return (
+                <li key={b.isbn} style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center', padding: 'var(--space-3) 0', ...(b === state.books[0] ? { paddingTop: 0 } : null), borderBottom: '1px solid var(--separator)' }}>
+                  <MiniCover title={b.title} cover={b.cover} width={44} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ margin: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(b.title)}</p>
+                    <p style={{ ...note, color: 'var(--text-3)', marginTop: 'var(--space-1)', display: 'flex', flexWrap: 'wrap', columnGap: 'var(--space-2)' }}>
+                      {fresh && <span style={{ color: 'var(--text-2)', fontWeight: 600, whiteSpace: 'nowrap' }}>{isUpcoming(b) ? 'これから出る本' : '新しい本'}</span>}
+                      <span style={{ whiteSpace: 'nowrap' }}>{releaseLabel(b)}</span>
+                    </p>
+                  </div>
+                  {owned ? (
+                    <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', whiteSpace: 'nowrap' }}>本棚にあります</span>
+                  ) : (
+                    <button type="button" onClick={() => addWant(b)} style={{ ...btnTonal, minHeight: 'var(--tap-min)', padding: '0 var(--space-3)', fontSize: 'var(--text-sub)', whiteSpace: 'nowrap', flexShrink: 0 }}>読みたいに追加</button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        </section>
+      </div>
+    </BottomSheet>
+  );
+}
