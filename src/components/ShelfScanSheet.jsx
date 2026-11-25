@@ -36,7 +36,8 @@ import { toMessage } from '../lib/errors';
 import { searchBooksOnServer } from '../lib/bookSearch';
 import { findImportDuplicate } from '../lib/checkDuplicate';
 import { freeOcrHintParts, freeOcrTapAction } from '../lib/freeOcr';
-import { parseShelfScan, verifyShelfGuesses, defaultChecked, shelfImportBooks } from '../lib/shelfScan';
+import { parseShelfScan, verifyShelfGuesses, defaultChecked, shelfImportBooks, SHELF_SCAN_MAX_PHOTOS, SHELF_SCAN_MAX_TOTAL } from '../lib/shelfScan';
+import { flatTitle } from '../../api/_bookVerify.js';
 import { track } from '../lib/analytics';
 
 const note = { margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.6, wordBreak: 'keep-all', overflowWrap: 'anywhere' };
@@ -65,6 +66,7 @@ export default function ShelfScanSheet({ existingBooks = [], onAdd, onUndo, onCl
   const [checked, setChecked] = useState(() => new Set());
   const [status, setStatus] = useState('done');
   const [failure, setFailure] = useState(null); // { title, message }
+  const [readingNote, setReadingNote] = useState(''); // 何枚目を読んでいるか（2 枚以上のとき）
   const hint = freeOcrHintParts({ freeMode, remaining: freeOcrRemaining });
   const usedUp = freeOcrTapAction({ freeMode, remaining: freeOcrRemaining }) === 'paywall';
 
@@ -80,11 +82,20 @@ export default function ShelfScanSheet({ existingBooks = [], onAdd, onUndo, onCl
   };
 
   const onFile = async (e) => {
-    const file = e.target.files?.[0];
+    // 写真は一度に 3 枚まで（段ごとに撮って、まとめて最大 120 冊・2026-11-25）。無料プランは今月の残りの回数まで。
+    let files = Array.from(e.target.files || []);
     e.target.value = '';
-    if (!file) return;
-    const err = validateImageFile(file);
-    if (err) { toast.error(err); return; }
+    if (!files.length) return;
+    const cap = freeMode && Number.isFinite(freeOcrRemaining) ? Math.max(1, Math.min(SHELF_SCAN_MAX_PHOTOS, freeOcrRemaining)) : SHELF_SCAN_MAX_PHOTOS;
+    if (files.length > cap) {
+      toast.info(cap < SHELF_SCAN_MAX_PHOTOS ? `今月の残りに合わせて、はじめの ${cap} 枚を読みます。` : `一度に読めるのは ${SHELF_SCAN_MAX_PHOTOS} 枚までです。はじめの ${SHELF_SCAN_MAX_PHOTOS} 枚を読みます。`);
+      files = files.slice(0, cap);
+    }
+    for (const f of files) {
+      const err = validateImageFile(f);
+      if (err) { toast.error(err); return; }
+    }
+    const file = files[0];
     // 🤝 はじめて AI に送るときは、送るもの（この写真だけ）と送り先を見せて同意をもらう（写真を選んだあと・送る前）。
     if (!(await ensureAiConsent('shelf_scan'))) return;
     setFailure(null);
@@ -96,10 +107,33 @@ export default function ShelfScanSheet({ existingBooks = [], onAdd, onUndo, onCl
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     try {
-      const { base64, mediaType } = await downscaleImageForVision(file);
-      const text = await readShelfPhoto({ base64, mediaType });
+      // 1 枚ずつ読んで、同じ本は 1 回だけにまとめる（読めなかった写真があっても、読めた分で進める）。
+      const guesses = [];
+      const seenTitles = new Set();
+      let readErr = null;
+      for (let n = 0; n < files.length; n += 1) {
+        if (ctrl.signal.aborted) return;
+        if (files.length > 1) setReadingNote(`写真 ${n + 1} / ${files.length} 枚を読んでいます`);
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          const { base64, mediaType } = await downscaleImageForVision(files[n]);
+          // eslint-disable-next-line no-await-in-loop
+          const text = await readShelfPhoto({ base64, mediaType });
+          for (const g of parseShelfScan(text)) {
+            const key = flatTitle(g.title) || g.title;
+            if (seenTitles.has(key) || guesses.length >= SHELF_SCAN_MAX_TOTAL) continue;
+            seenTitles.add(key);
+            guesses.push(g);
+          }
+        } catch (err1) {
+          if (err1?.name === 'AbortError') return;
+          readErr = readErr || err1;
+          if (err1?.notice) break; // 今月の回数を使い切った等は、残りの写真も読めない
+        }
+      }
+      setReadingNote('');
       refreshTokens?.(); // 無料プランの「今月の残り N 回」を取り直す
-      const guesses = parseShelfScan(text);
+      if (!guesses.length && readErr) throw readErr;
       track('shelf_scan_read', { books: guesses.length });
       if (!guesses.length) {
         setFailure({ title: '本を読み取れませんでした', message: '背表紙の文字が読めるくらいに近づいて、正面から撮ってください。' });
@@ -215,7 +249,7 @@ export default function ShelfScanSheet({ existingBooks = [], onAdd, onUndo, onCl
       }) : null}
     >
       <div style={step === 'pick' ? undefined : { minHeight: 'min(60vh, 560px)' }}>
-        <input ref={inputRef} type="file" accept="image/*" onChange={onFile} style={{ display: 'none' }} />
+        <input ref={inputRef} type="file" accept="image/*" multiple onChange={onFile} style={{ display: 'none' }} />
         {step === 'pick' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
             <p style={{ margin: 0, fontSize: 'var(--text-body)', lineHeight: 1.5, color: 'var(--text)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
@@ -223,7 +257,7 @@ export default function ShelfScanSheet({ existingBooks = [], onAdd, onUndo, onCl
             </p>
             <ul style={{ margin: 0, paddingLeft: 'var(--space-6)', display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', ...note, fontSize: 'var(--text-sub)' }}>
               <li>{withPhraseBreaks('背表紙の文字が読めるくらいに近づいて、正面から')}</li>
-              <li>{withPhraseBreaks('1 枚で 40 冊まで。多い棚は段ごとに')}</li>
+              <li>{withPhraseBreaks('1 枚で 40 冊まで。写真は 3 枚まで一度に選べます')}</li>
               <li>{withPhraseBreaks('入れる前に、1 冊ずつ確かめられます')}</li>
             </ul>
             <p style={{ ...note, color: 'var(--text-3)' }}>{withPhraseBreaks('写真は書名を読むためだけに AI（Anthropic の Claude）へ送り、保存しません。')}</p>
@@ -239,7 +273,7 @@ export default function ShelfScanSheet({ existingBooks = [], onAdd, onUndo, onCl
               {photoUrl && <img src={photoUrl} alt="読み取っている本棚の写真" style={{ width: 'var(--space-16)', height: 'var(--space-16)', objectFit: 'cover', borderRadius: 'var(--radius)', border: '1px solid var(--separator)', flexShrink: 0 }} />}
               <div className="ai-thinking" role="status" style={{ flex: 1 }}>
                 <span className="ai-thinking-dot" aria-hidden="true" />
-                <span>{step === 'reading' ? '本を読み取っています' : `書店で確かめています（${checkedDone}/${items.length}）`}</span>
+                <span>{step === 'reading' ? (readingNote || '本を読み取っています') : `書店で確かめています（${checkedDone}/${items.length}）`}</span>
               </div>
             </div>
             {step === 'checking' && items.map((it) => (
