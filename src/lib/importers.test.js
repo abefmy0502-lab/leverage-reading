@@ -263,17 +263,19 @@ describe('読書メーター', () => {
     for (let i = 0; i < 350; i += 1) rows.push(`本${i},著者${i}`);
     const result = parseBooklogCsv(rows.join('\n'));
     expect(result.books).toHaveLength(350);
-    const first = planImport(result, []);
+    // 決まりそのものは上限 300 で確かめる（2026-11-25 から既定は 2,000）
+    expect(planImport(result, []).newBooks).toBe(350);
+    const first = planImport(result, [], 300);
     expect(first).toMatchObject({ fileBooks: 350, newBooks: 300, existingBooks: 0, remainingBooks: 50 });
     expect(first.books).toHaveLength(300);
     expect(first.books[299].title).toBe('本299');
     // 取り込んだあと同じファイルをもう一度: 300 冊は本棚の本になり、残りの 50 冊が新しい本
     const shelf = first.books.map((b, i) => ({ id: `s${i}`, title: b.title, author: b.author }));
-    const second = planImport(result, shelf);
+    const second = planImport(result, shelf, 300);
     expect(second).toMatchObject({ fileBooks: 350, newBooks: 50, existingBooks: 300, remainingBooks: 0 });
     expect(second.books).toHaveLength(350);
     // 本棚にある本が先頭に並んでいても、新しい本の 300 冊には数えない
-    const mixed = planImport(result, shelf.slice(0, 100));
+    const mixed = planImport(result, shelf.slice(0, 100), 300);
     expect(mixed).toMatchObject({ existingBooks: 100, newBooks: 250, remainingBooks: 0 });
     // ファイルから読む本は 5,000 冊まで（端末のメモリを守る安全弁）
     const big = ['タイトル,著者'];
@@ -310,5 +312,29 @@ describe('読書メーター', () => {
     expect(mapStatus('読んでる本')).toBe('reading');
     expect(mapStatus('積読本')).toBe('before');
     expect(mapStatus('読みたい本')).toBe('want');
+  });
+});
+
+describe('Goodreads・StoryGraph の書き出し（2026-11-25）', () => {
+  it('Goodreads: 棚・星・読了日・レビュー・本棚・非公開メモ・ISBN の ="…"', async () => {
+    const { parseImportText } = await import('./importers');
+    const csv = 'Book Id,Title,Author,Author l-f,Additional Authors,ISBN,ISBN13,My Rating,Average Rating,Publisher,Binding,Number of Pages,Year Published,Original Publication Year,Date Read,Date Added,Bookshelves,Bookshelves with positions,Exclusive Shelf,My Review,Spoiler,Private Notes,Read Count,Owned Copies\n'
+      + '1,Atomic Habits,James Clear,"Clear, James",,="0735211299",="9780735211292",5,4.3,Avery,Hardcover,320,2018,2018,2024/05/12,2024/04/01,"habits, read","habits (#1), read (#3)",read,Great<br/>book,,Try 2 min rule,1,0\n'
+      + '2,Deep Work,Cal Newport,"Newport, Cal",,="",="",0,4.2,GCP,Paperback,296,2016,2016,,2024/06/01,to-read,to-read (#1),to-read,,,,0,0\n';
+    const r = parseImportText('goodreads_library_export.csv', csv);
+    expect(r.source).toBe('goodreads');
+    expect(r.books[0]).toMatchObject({ title: 'Atomic Habits', author: 'James Clear', isbn: '9780735211292', status: 'done', rating: 5, doneDate: '2024-05-12', pages: 320, tags: ['habits'], review: 'Great\nbook' });
+    expect(r.books[0].memos[0].text).toBe('Try 2 min rule');
+    expect(r.books[1]).toMatchObject({ title: 'Deep Work', status: 'want', rating: 0, isbn: '' });
+  });
+  it('StoryGraph: 読書の状態・0.25 刻みの星・タグ', async () => {
+    const { parseImportText } = await import('./importers');
+    const csv = 'Title,Authors,Contributors,ISBN/UID,Format,Read Status,Date Added,Last Date Read,Dates Read,Read Count,Moods,Pace,Character- or Plot-Driven?,Strong Character Development?,Loveable Characters?,Diverse Characters?,Flawed Characters?,Star Rating,Review,Content Warnings,Content Warning Description,Tags,Owned?\n'
+      + 'The Book,Jane Doe,,9784763141712,paperback,currently-reading,2024/10/01,,,0,,,,,,,,4.5,,,,"work, self",No\n'
+      + 'Other,John,,,ebook,did-not-finish,2024/10/02,2024/10/20,,1,,,,,,,,2.25,meh,,,,No\n';
+    const r = parseImportText('storygraph.csv', csv);
+    expect(r.source).toBe('storygraph');
+    expect(r.books[0]).toMatchObject({ title: 'The Book', isbn: '9784763141712', status: 'reading', rating: 5, tags: ['work', 'self'] });
+    expect(r.books[1]).toMatchObject({ status: 'done', rating: 2, doneDate: '2024-10-20', review: 'meh' });
   });
 });

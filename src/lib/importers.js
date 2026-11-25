@@ -7,6 +7,7 @@
 //       見出し行がある CSV（タイトル / 著者 / ISBN などの列名）もそのまま読める。
 //   - Kindle 端末: 「My Clippings.txt」（ハイライトとメモ）。日本語・英語の端末どちらも。
 //   - Kindle アプリ: ノートブックの「エクスポート」で届く HTML（ハイライトとメモ）。
+//   - Goodreads・StoryGraph（2026-11-25）: 公式の書き出しの CSV（見出しで見分ける・棚 → 状態・星・読了日・レビュー・本棚 → タグ）。
 //   - 読書メーター（2026-09-29）: 保存した「読んだ本」などのページ（HTML）・書き出しツールの CSV / JSON・
 //       自分で作った表（タイトル・著者・読了日・感想 など）。詳しくは下の「読書メーター」の節。
 //
@@ -23,7 +24,8 @@ export const IMPORT_MAX_BYTES = 5 * 1024 * 1024;
 // 一度に取り込める新しい本の数（本棚にもうある本は数えない）。ファイルを読むときには切らず、
 // 確かめる画面（planImport）で本棚の本を除いてから、新しい本をここまでにする（2026-09-29）。
 // 残りは、取り込んだあと同じファイルをもう一度選ぶと取り込める（取り込んだ本は本棚の本になるので）。
-export const IMPORT_MAX_BOOKS = 300;
+// 2026-11-25: 300 → 2,000（保存を 4 冊ずつ並べて速くした・本棚ひとつ分を 1 回で引越せるように）。
+export const IMPORT_MAX_BOOKS = 2000;
 // ファイルから読む本の上限（端末のメモリと速さを守るための安全弁。ふつうの本棚はここまで届かない）。
 export const IMPORT_MAX_PARSE_BOOKS = 5000;
 export const IMPORT_MAX_MEMOS = 2000;
@@ -495,6 +497,86 @@ export function importShortfall(result) {
   return { total, found, shelf: result.shelf || '' };
 }
 
+// ── Goodreads・StoryGraph（2026-11-25 オーナー「引越し機能をどのアプリよりもレベル高く」）────────────
+// どちらも公式の書き出し（CSV・UTF-8・見出しつき）。見出しで見分ける。
+//   Goodreads: Book Id, Title, Author, Additional Authors, ISBN（="…"）, ISBN13（="…"）, My Rating（0〜5）,
+//              Number of Pages, Date Read（2024/05/12）, Date Added, Bookshelves, Exclusive Shelf（read / currently-reading / to-read）,
+//              My Review, Private Notes
+//   StoryGraph: Title, Authors, ISBN/UID, Read Status（read / currently-reading / to-read / did-not-finish / paused）,
+//              Date Added, Last Date Read, Star Rating（4.25 など）, Review, Tags
+const csvRecords = (text) => {
+  const rows = parseCsv(String(text || '').replace(/^﻿/, ''));
+  if (rows.length < 1) return { head: [], recs: [] };
+  const head = rows[0].map((h) => clean(h, 60));
+  const recs = rows.slice(1).map((r) => Object.fromEntries(head.map((h, i) => [h, r[i] ?? ''])));
+  return { head, recs };
+};
+const isbnCell = (v) => String(v || '').replace(/^="?|"$/g, '').replace(/[^0-9Xx]/g, '');
+const toIsbn13Any = (v) => {
+  const d = isbnCell(v);
+  if (/^97[89]\d{10}$/.test(d)) return d;
+  if (/^\d{9}[\dXx]$/.test(d)) return asinToIsbn13(d);
+  return '';
+};
+const SHELF_STATUS = { read: 'done', 'currently-reading': 'reading', 'to-read': 'want', 'did-not-finish': 'done', paused: 'reading', 'want-to-read': 'want' };
+export function looksLikeGoodreadsCsv(text) {
+  const first = String(text || '').replace(/^﻿/, '').split(/\r?\n/, 1)[0];
+  return /(^|,)Book Id(,|$)/.test(first) && /Exclusive Shelf/.test(first);
+}
+export function looksLikeStorygraphCsv(text) {
+  const first = String(text || '').replace(/^﻿/, '').split(/\r?\n/, 1)[0];
+  return /(^|,)Read Status(,|$)/.test(first) && /ISBN\/UID|Star Rating/.test(first);
+}
+export function parseGoodreadsCsv(text) {
+  const { recs } = csvRecords(text);
+  const books = [];
+  for (const r of recs) {
+    const title = clean(r.Title, 200);
+    const isbn = toIsbn13Any(r.ISBN13) || toIsbn13Any(r.ISBN);
+    if (!title && !isbn) continue;
+    const memos = [];
+    const note = clean(r['Private Notes'], 4000);
+    if (note) memos.push({ text: note, page: null, createdAt: toIsoTimestamp(r['Date Added']) });
+    const shelves = clean(r.Bookshelves, 300).split(/,\s*/).map((t) => t.trim())
+      .filter((t) => t && !['read', 'currently-reading', 'to-read'].includes(t)).slice(0, 10);
+    books.push({
+      title: title || `ISBN ${isbn}`,
+      author: clean([r.Author, r['Additional Authors']].filter((x) => clean(x)).join(', '), 100),
+      isbn,
+      status: SHELF_STATUS[clean(r['Exclusive Shelf'], 40).toLowerCase()] || 'done',
+      rating: Math.max(0, Math.min(5, Math.round(Number(r['My Rating']) || 0))),
+      doneDate: isoDate(r['Date Read']),
+      pages: Number(r['Number of Pages']) || 0,
+      tags: shelves,
+      review: clean(String(r['My Review'] || '').replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, ''), 8000),
+      memos,
+    });
+  }
+  return { source: 'goodreads', books: books.slice(0, IMPORT_MAX_PARSE_BOOKS) };
+}
+export function parseStorygraphCsv(text) {
+  const { recs } = csvRecords(text);
+  const books = [];
+  for (const r of recs) {
+    const title = clean(r.Title, 200);
+    const isbn = toIsbn13Any(r['ISBN/UID']);
+    if (!title && !isbn) continue;
+    books.push({
+      title: title || `ISBN ${isbn}`,
+      author: clean(r.Authors, 100),
+      isbn,
+      status: SHELF_STATUS[clean(r['Read Status'], 40).toLowerCase()] || 'done',
+      // 0.25 刻みの星は四捨五入（4.25 → 4・4.5 → 5）。
+      rating: Math.max(0, Math.min(5, Math.round(Number(r['Star Rating']) || 0))),
+      doneDate: isoDate(r['Last Date Read']),
+      tags: clean(r.Tags, 300).split(/,\s*/).map((t) => t.trim()).filter(Boolean).slice(0, 10),
+      review: clean(r.Review, 8000),
+      memos: [],
+    });
+  }
+  return { source: 'storygraph', books: books.slice(0, IMPORT_MAX_PARSE_BOOKS) };
+}
+
 // ── 入口: ファイル名と中身から形式を当てる ─────────────────────────────
 export function parseImportText(fileName, text) {
   const name = String(fileName || '').toLowerCase();
@@ -504,6 +586,8 @@ export function parseImportText(fileName, text) {
   }
   if (name.endsWith('.json') || /^\s*[[{]/.test(t.replace(/^﻿/, ''))) return parseBookmeterJson(t, fileName);
   if (name.endsWith('.txt') || /^={5,}\s*$/m.test(t)) return parseKindleClippings(t);
+  if (looksLikeGoodreadsCsv(t)) return parseGoodreadsCsv(t);
+  if (looksLikeStorygraphCsv(t)) return parseStorygraphCsv(t);
   if (looksLikeBookmeterCsv(fileName, t)) return parseBookmeterCsv(t, fileName);
   return parseBooklogCsv(t);
 }
@@ -512,7 +596,7 @@ export function parseImportText(fileName, text) {
 //   同じ本（ISBN・書名＋著者・本棚と同じゆるい判定＝副題や訳者、「完訳」などの版の違い）は 1 冊にまとめ（書名は長いほう）、
 //   同じ文のメモは 1 つだけ残す。取り込み元がそろっていればその名前、
 //   混ざっていれば 'mixed'（見出しに取り込み元を出さない）。読む上限（5,000 冊・メモ 2,000 件）はまとめたあとにも守る
-//   （一度に取り込む 300 冊は planImport で本棚の本を除いてから決める）。
+//   （一度に取り込む 2,000 冊は planImport で本棚の本を除いてから決める）。
 export function mergeImportResults(results) {
   const list = (Array.isArray(results) ? results : []).filter((r) => r && Array.isArray(r.books));
   if (list.length === 1) return list[0];
@@ -581,8 +665,8 @@ export function mergeImportResults(results) {
 //   - 同じ本（findImportDuplicate: ISBN、または書名＋著者・副題や訳者の違いはゆるく）が本棚にあれば、その本にメモとして足す（レビュー・感想もメモに。
 //     ただし本棚の本の「この本のまとめ」と同じ文なら足さない）
 //   - 新しい本のレビュー・感想は「この本のまとめ」に入る＝メモ 1 件として数える（ホームの「メモ N 件」と同じ）
-//   - 新しい本は一度に IMPORT_MAX_BOOKS（300）冊まで。本棚にもうある本は数えずに先に除き、残りの新しい本を
-//     ファイルの順に 300 冊まで取り込む。超えた分（remainingBooks）は、取り込んだあと同じファイルをもう一度選ぶと取り込める。
+//   - 新しい本は一度に IMPORT_MAX_BOOKS（2,000）冊まで。本棚にもうある本は数えずに先に除き、残りの新しい本を
+//     ファイルの順に 2,000 冊まで取り込む。超えた分（remainingBooks）は、取り込んだあと同じファイルをもう一度選ぶと取り込める。
 //   - 本棚の本に足すメモは、その本にもう同じ文のメモがあれば数えない（取り込みも book_id＋本文で足さない・2026-09-29）。
 //     existingMemoTexts: Map<本の id, Set<本文（前後の空白を除く）>>（App が本棚の本のメモを読んで渡す）。
 //     無い（読めなかった）本は、足すメモを全部数える。

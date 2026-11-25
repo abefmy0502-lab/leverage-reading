@@ -2980,9 +2980,13 @@ function AuthedApp() {
     const autoFieldTitles = new Set(); // 取り込んだタグが分野に結びつかず、書名から分野を選んだ本
     const noReviewIds = new Set(); // 感想・レビューの無い新しい本（メモも無ければ「覚えている一文を足す」の候補）
     const srcDoneDate = new Map(); // もとからあった本 → 取り込み元の読了日
-    for (let i = 0; i < items.length; i += 1) {
-      const b = items[i];
-      onProgress?.(i, items.length);
+    // 🚚 4 冊ずつ並べて保存する（2026-11-25 オーナー「引越し機能をどのアプリよりもレベル高く・ストレスなく」・前は 1 冊ずつで
+    //   300 冊に数分かかり、一度に 300 冊までにしていた）。同じファイルの中の同じ本は mergeImportResults で 1 冊にしてある。
+    //   並べても、メモは本ごとに pending に集めて最後にまとめて足すので、順番は変わらない。
+    let doneCount = 0;
+    const CONCURRENCY = 4;
+    let next = 0;
+    const handle = async (b) => {
       const isbn = String(b.isbn || '').replace(/[^0-9Xx]/g, '');
       // 副題の有無・訳者の並びの違いでも同じ本とみなす（取り込みだけ・確かめる画面の planImport と同じ）。
       let target = findImportDuplicate(booksRef.current, { title: b.title, author: b.author, isbn });
@@ -2996,7 +3000,6 @@ function AuthedApp() {
         }
       } else {
         try {
-          // eslint-disable-next-line no-await-in-loop
           target = await saveBook({
             ...emptyBook(),
             title: String(b.title || '').slice(0, LIMITS.bookTitle || 200),
@@ -3029,7 +3032,19 @@ function AuthedApp() {
         }
       }
       if (target?.id && memos.length) pending.push({ bookId: target.id, memos });
-    }
+      doneCount += 1;
+      onProgress?.(doneCount, items.length);
+    };
+    const worker = async () => {
+      while (next < items.length) {
+        const b = items[next];
+        next += 1;
+        // eslint-disable-next-line no-await-in-loop
+        await handle(b);
+      }
+    };
+    onProgress?.(0, items.length);
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, items.length) }, worker));
     onProgress?.(items.length, items.length);
 
     // 既にあるメモの本文（同じ本の同じ文は足さない）

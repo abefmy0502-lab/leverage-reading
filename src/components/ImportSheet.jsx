@@ -39,7 +39,7 @@ const QUICKSTART_MAX_BOOKS = 5;
 // 冊数は 3 桁ごとに区切る（1,000）。
 const fmt = (n) => Number(n || 0).toLocaleString('ja-JP');
 
-const SOURCE_LABEL = { booklog: 'ブクログ', bookmeter: '読書メーター', kindle: 'Kindle' };
+const SOURCE_LABEL = { booklog: 'ブクログ', bookmeter: '読書メーター', kindle: 'Kindle', goodreads: 'Goodreads', storygraph: 'StoryGraph' };
 // 読書メーターの棚の名前（保存したページの棚。残りのページの案内に使う）。
 const SHELF_LABEL = { done: '読んだ本', reading: '読んでる本', before: '積読本', want: '読みたい本' };
 // 確かめる画面の各行に出す、取り込んだあとの本の状態（アプリの 4 つの状態の名前）。
@@ -150,7 +150,7 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
     setStep('importing');
     setProgress({ done: 0, total: snap.books.length });
     try {
-      // 取り込むのは、本棚にある本と、新しい本 300 冊まで（残りは同じファイルをもう一度選ぶと取り込める）。
+      // 取り込むのは、本棚にある本と、新しい本 2,000 冊まで（残りは同じファイルをもう一度選ぶと取り込める）。
       const o = await onImport({ ...result, books: snap.books }, (done, total) => setProgress({ done, total }));
       setOutcome(o);
       setStep('done');
@@ -190,6 +190,10 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
             {/* 初めての人がたどり着ける手順（2026-10-08 オーナー承認・ui-critic）。補足は手順の後ろに小さく。 */}
             <p style={{ ...body, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('Kindle アプリで本を開き、画面を押して上のノートブックのアイコン ')}<span style={nowrap}>→ エクスポート。</span>{withPhraseBreaks('届いた HTML ファイルを「ファイル」に保存して、ここで選びます。')}</p>
             <p style={{ ...body, fontSize: 'var(--text-meta)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('読んでいる途中でも取り込めます。同じメモは二重に入りません。何冊分かをまとめて選べます。')}</p>
+          </li>
+          <li style={howItem}>
+            <p style={howTitle}>Goodreads・StoryGraph</p>
+            <p style={body}>{withPhraseBreaks('書き出した CSV をそのまま選びます。棚・星・読了日・レビューも取り込みます。')}</p>
           </li>
           <li style={howItem}>
             <p style={howTitle}>Kindle 端末</p>
@@ -236,7 +240,7 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
           {source ? <>{source}：<wbr /></> : null}{countParts.join(KEEP_DOT)}
           {plan.memos > 0 && plan.summaries > 0 && plan.summaries < plan.memos && <><wbr />{haltOpen(`（まとめ\u00a0${plan.summaries}\u00a0件を含む）`)}</>}
         </p>
-        {/* 新しい本は一度に 300 冊まで（本棚にある本は数えない）。残りは取り込んだあと同じファイルをもう一度選ぶ（2026-09-29）。
+        {/* 新しい本は一度に 2,000 冊まで（本棚にある本は数えない）。残りは取り込んだあと同じファイルをもう一度選ぶ（2026-09-29）。
             一覧より先に読むよう、見出しのすぐ下に置く（一覧の下だと見落とす・2026-10-04）。 */}
         {plan.remainingBooks > 0 && (
           <p role="note" style={body}>
@@ -346,7 +350,7 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
     const headLead = summaryNote ? headParts.join(KEEP_DOT) : headParts.slice(0, -1).map((part) => part + KEEP_DOT).join('');
     const headTail = `${summaryNote || headParts[headParts.length - 1] || ''}を`;
     const nothingNew = headParts.length === 0;
-    // 取り込まずに残した新しい本（一度に 300 冊まで）と、読書メーターの保存していないページの本（2026-09-29）。
+    // 取り込まずに残した新しい本（一度に 2,000 冊まで）と、読書メーターの保存していないページの本（2026-09-29）。
     const remaining = planSnap?.remainingBooks || 0;
     const doneShortfall = result ? importShortfall(result) : null;
     // 別のファイルを選ぶ: 選ぶ画面に戻してからファイルを選ぶ（選ばずに戻っても、選ぶ画面にいる）。
