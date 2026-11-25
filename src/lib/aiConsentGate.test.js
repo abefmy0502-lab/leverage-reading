@@ -162,6 +162,7 @@ describe('AI に送る道は関所の 2 か所だけ', () => {
       'components/BookMemoList.jsx': ['cards_to_summary'],
       'components/PhotoToTextButton.jsx': ['ocr'],
       'components/ShelfScanSheet.jsx': ['shelf_scan'], // 📚 本棚の写真から追加（2026-11-22）
+      'components/OverlapSheet.jsx': ['overlap'], // 🔗 重なり（2026-11-25）
       'components/GoalScreen.jsx': ['goal_interview', 'goal_roadmap'], // 🧭 目標の深掘り・ロードマップ（2026-11-15）
     };
     for (const [p, purposes] of Object.entries(entries)) {

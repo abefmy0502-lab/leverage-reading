@@ -1990,6 +1990,30 @@ export async function generateBookBrief({ book, info }) {
   return text;
 }
 
+// 🔗 重なり（2026-11-25・lib/overlap.js・OverlapSheet.jsx）: 本人の 2 つの記録だけを材料に「共通・違い・問い」の 3 行。
+//   答えは本人が書く（AI は結論を出さない）。無料プランも相談と同じ無料のトークンから（1 回 約 1 トークン）。
+//   a / b: { text, where }（where＝「『考え方』のメモ」「あなたの学び」）。戻り値 { common, diff, question }。
+export async function generateOverlap({ a, b }) {
+  const PROMPTS = await loadPrompts();
+  const { parseOverlap } = await import('./overlap');
+  const side = (x) => ({ where: clamp(sanitizeForPrompt(x?.where || ''), 60), text: clamp(sanitizeForPrompt(x?.text || ''), 1200) });
+  const result = await callClaude(
+    PROMPTS.overlap.system,
+    PROMPTS.overlap.user({ a: side(a), b: side(b) }),
+    { max_tokens: 400, cacheSystem: true, model: MODEL_FAST, purpose: 'overlap' },
+  );
+  if (typeof result !== 'string') throw new Error('重なりを見られませんでした。');
+  if (isClaudeErrorString(result)) {
+    const err = new Error(isAiNoticeString(result) ? result : '重なりを見られませんでした。少し時間をおいて、もう一度お試しください。');
+    if (isAiNoticeString(result)) err.notice = true;
+    throw err;
+  }
+  const parsed = isSuspiciousOutput(result) ? null : parseOverlap(result);
+  if (!parsed) throw new Error('2 つの記録から、うまく見つけられませんでした。自分の言葉で書いてみてください。');
+  track('ai_used', { feature: 'overlap' });
+  return parsed;
+}
+
 // 🧭 目標の深掘り・ロードマップ（2026-11-15・lib/goalRoadmap.js）。
 //   2026-11-16 オーナー「1 年後・3 年後・5 年後の目標をすべて入れたら AI を動かす」: 3 つの目標をつなぐ 1 本だけを作る
 //   （goals＝{ y1, y3, y5 }・3 つとも書いてあるときだけ画面が呼ぶ）。qa＝[{ q, a }]。

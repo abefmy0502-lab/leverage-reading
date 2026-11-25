@@ -79,9 +79,10 @@ const BASE_FEATURES = [
   {
     id: 'memo',
     // 2026-11-22: 📚 本棚の写真から追加（shelf_scan）も同じ行（送るのは撮った本棚の写真＝写真から書き起こしと同じ種類・同じ Anthropic）。
-    name: '凝縮・まとめ・写真の読み取り',
+    // 2026-11-25: 🔗 重なり（overlap）も同じ行（送るのは重ねる 2 つのメモの文＝「そのメモの文」と同じ種類・同じ Anthropic）。
+    name: '凝縮・まとめ・写真の読み取り・重なり',
     sends: 'そのメモの文・撮ったページや本棚の写真',
-    purposes: ['condense', 'cards_to_summary', 'ocr', 'shelf_scan'],
+    purposes: ['condense', 'cards_to_summary', 'ocr', 'shelf_scan', 'overlap'],
   },
 ];
 
@@ -102,6 +103,7 @@ const BASE_PURPOSE_PROVIDER = {
   cards_to_summary: 'anthropic',
   ocr: 'anthropic',
   shelf_scan: 'anthropic',
+  overlap: 'anthropic',
 };
 
 // 🧭 Jev の用途 → どの機能の送り先に TypeSafe AI を足すか（api/_aiRouting.js の JEV_ROUTES.feature と同じ・テストで確かめる）。
@@ -163,6 +165,7 @@ export const CONSENT_COVERED_BY = {
   book_brief: 'setup_sheet',
   goal_interview: 'advisor_interview',
   goal_roadmap: 'book_advisor',
+  overlap: 'condense', // 🔗 重なり（2026-11-25・同じ行・同じ Anthropic）
   shelf_scan: 'ocr',
 };
 

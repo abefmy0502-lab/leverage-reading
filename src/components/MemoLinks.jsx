@@ -6,10 +6,10 @@
 //   variant 'compact': 「保存して次へ」のあと、書く画面のいちばん上に 1 行（書き続けるのを邪魔しない・×）
 //   variant 'line':    ホームのメモを書くで保存したあと、題の下 8 に静かな 1 行（面を付けない・13/--text-2・
 //                      育つまでの一行・相談相手が育ちましたと同じ場所と組み方・知らせの読み上げはしない・2026-10-10）
-import { ChevronRight, Link2, X } from 'lucide-react';
+import { ChevronRight, Link2, X, Blend } from 'lucide-react';
 import LibrarySearchHit from './LibrarySearchHit';
 import { withPhraseBreaks } from './TightBubble';
-import { groupTitle } from '../styles/ui';
+import { groupTitle, btnLink } from '../styles/ui';
 
 export const SAVED_LINKS_TITLE = 'いま書いたメモと似たメモ';
 export const CARD_LINKS_TITLE = 'つながるメモ';
@@ -26,7 +26,7 @@ const closeBtn = {
   background: 'none', border: 'none', borderRadius: 999, padding: 0, cursor: 'pointer', color: 'var(--text-3)',
 };
 
-export default function MemoLinks({ links, onOpen, onDismiss = null, variant = 'card', style = null }) {
+export default function MemoLinks({ links, onOpen, onDismiss = null, variant = 'card', style = null, onOverlap = null }) {
   if (!Array.isArray(links) || links.length === 0) return null;
   const rows = links.map((l, i) => (
     <LibrarySearchHit key={l.key} inline divider={i > 0} showStatus={false} showRating={false} size="small" result={{ book: l.book, hit: l.hit }} onOpen={onOpen} />
@@ -115,6 +115,14 @@ export default function MemoLinks({ links, onOpen, onDismiss = null, variant = '
           )}
         </div>
         <div style={{ marginTop: 'calc(-1 * var(--space-2))' }}>{rows}</div>
+        {/* 🔗 重なり（2026-11-25）: いま書いたメモと似たメモ（や学び）を重ねて、自分の答えを残す。 */}
+        {onOverlap && (
+          <div style={{ borderTop: '1px solid var(--separator)', display: 'flex', justifyContent: 'flex-start' }}>
+            <button type="button" onClick={onOverlap} style={{ ...btnLink, minHeight: 'var(--tap-min)', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}>
+              <Blend size="1.1em" aria-hidden="true" />重ねて考える
+            </button>
+          </div>
+        )}
       </section>
     );
   }

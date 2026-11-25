@@ -113,6 +113,7 @@ const MyBookBrain = lazy(() => import('./components/MyBookBrain'));
 import { useAdvisorSessions } from './hooks/useAdvisorSessions';
 import { useFavoriteAuthors } from './hooks/useFavoriteAuthors';
 import { splitAuthorNames } from './lib/favoriteAuthors';
+import { OVERLAP_OPEN_EVENT } from './lib/overlap';
 const ActionEditModal = lazy(() => import('./components/ActionEditModal'));
 const GoalScreen = lazy(() => import('./components/GoalScreen'));
 // 📊 記録サブタブ（読了/メモ/行動の累計・月別推移・成果/定着のつながり・タグ分布）。
@@ -157,6 +158,7 @@ import ShareSourceSheet from './components/ShareSourceSheet';
 const AccountSettings = lazy(() => import('./components/AccountSettings'));
 const FollowSheet = lazy(() => import('./components/FollowSheet'));
 const AuthorSheet = lazy(() => import('./components/AuthorSheet'));
+const OverlapSheet = lazy(() => import('./components/OverlapSheet'));
 import SplashScreen from './components/SplashScreen';
 import { markAppReady } from './lib/appReady';
 import Spinner from './components/Spinner';
@@ -4088,6 +4090,12 @@ function AuthedApp() {
   // ✍️ お気に入りの著者（2026-11-25）。新しい本はホームの 1 行で知らせる（hooks/useFavoriteAuthors.js）。
   const favAuthors = useFavoriteAuthors(user?.id || null, { isOwned: hasBookFromOther });
   const [authorSheet, setAuthorSheet] = useState(null); // { names: [], reason }
+  const [overlapReq, setOverlapReq] = useState(null); // 🔗 { source, targetId }
+  useEffect(() => {
+    const on = (e) => { if (e?.detail?.source) { setOverlapReq(e.detail); track('overlap_open', { target: !!e.detail.targetId }); } };
+    window.addEventListener(OVERLAP_OPEN_EVENT, on);
+    return () => window.removeEventListener(OVERLAP_OPEN_EVENT, on);
+  }, []);
   const openAuthorSheet = (book) => {
     const names = splitAuthorNames(book?.author);
     if (!names.length) return;
@@ -5106,6 +5114,12 @@ function AuthedApp() {
       </BottomSheet>
     );
   })() : null;
+  // 🔗 重なり（2026-11-25・OverlapSheet）。メモの「…」・保存したあとの似たメモから lib/overlap.js の openOverlap で開く。
+  const overlapLayer = overlapReq ? (
+    <Suspense fallback={<OverlayFallback />}>
+      <OverlapSheet key={`${overlapReq.source.id}:${overlapReq.targetId || ''}`} source={overlapReq.source} targetId={overlapReq.targetId} books={books} onClose={() => setOverlapReq(null)} />
+    </Suspense>
+  ) : null;
   // ✍️ 著者のシート（ホームの 1 行・設定・本の詳細の著者の名前から・2026-11-25）。本の詳細は別の描き分けなので両方に置く。
   const authorSheetLayer = authorSheet ? (
     <Suspense fallback={<OverlayFallback />}>
@@ -6220,6 +6234,7 @@ function AuthedApp() {
         {folderPickerSheet}
         {fieldsPickerSheet}
         {authorSheetLayer}
+      {overlapLayer}
         {coverMenuSheet}
         {storeSheetOpen && (
           <BottomSheet title="この本を買う" onClose={() => setStoreSheetOpen(false)}>
@@ -7588,6 +7603,7 @@ function AuthedApp() {
         </Suspense>
       )}
       {authorSheetLayer}
+      {overlapLayer}
       {followSheet && !showOnboarding && (
         <Suspense fallback={<OverlayFallback />}>
           <FollowSheet initialId={followSheet.initialId || ''} onClose={() => setFollowSheet(null)} onAddWant={addWantFromOther} hasBook={hasBookFromOther} />

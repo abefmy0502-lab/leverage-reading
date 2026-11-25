@@ -60,6 +60,8 @@ export const ROUTES = {
   // 📚 本棚の写真（2026-11-25 オーナー「精度も上げたい」で Sonnet 5.5 に・細い背表紙の縦書きを読む力の差が大きい・
   //   1 人が使うのは本棚を入れるときの数回なので、1 回 約 ¥4 でも全体の原価はわずか）。
   shelf_scan: { primary: 'anthropic:claude-sonnet-5-5', claude: 'claude-sonnet-5', claudeOnly: true },
+  // 🔗 重なり（2026-11-25）: 本人の 2 つの記録から「共通・違い・問い」の 3 行（出力 400 まで）。無料プランも相談と同じ無料のトークンから。
+  overlap: { primary: `anthropic:${CONSULT_MODEL}`, claude: H, freeRouted: true },
 };
 export const PURPOSES = Object.keys(ROUTES);
 

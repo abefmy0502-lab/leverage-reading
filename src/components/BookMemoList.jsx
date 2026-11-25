@@ -17,9 +17,10 @@ import BookMemoCard from './BookMemoCard';
 import BookMemoEditor from './BookMemoEditor';
 import MemoReadThrough from './MemoReadThrough';
 import { OverlayFallback } from './lazyParts';
-import { BookOpen, BookOpenText, PencilLine, Pencil, Copy, Share, Trash2, Sparkles, Target, ChevronDown, Check } from 'lucide-react';
+import { BookOpen, BookOpenText, PencilLine, Pencil, Copy, Share, Trash2, Sparkles, Target, ChevronDown, Check, Blend } from 'lucide-react';
 import { btnGhost, btnGhostOff, btnLink, btnLinkQuiet } from '../styles/ui';
 import MemoLinks from './MemoLinks';
+import { openOverlap } from '../lib/overlap';
 import NotifyOptInCard from './NotifyOptInCard';
 import { useMemoLinkFinder } from '../hooks/useMemoLinkFinder';
 import TagSuggest from './TagSuggest';
@@ -397,7 +398,8 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
           />
         )}
         {savedLinks.length > 0 && (!top || visibleMemos.length > 0) && (
-          <MemoLinks variant="saved" links={savedLinks} onOpen={openLink} onDismiss={() => setDismissedSaved(saved.nonce)} style={mb} />
+          <MemoLinks variant="saved" links={savedLinks} onOpen={openLink} onDismiss={() => setDismissedSaved(saved.nonce)} style={mb}
+            onOverlap={() => openOverlap({ id: saved.id, text: saved.text, bookId }, savedLinks[0]?.hit?.memoId || null)} />
         )}
         {saved?.fromPhoto && <NotifyOptInCard where="ocr" primary={false} style={mb} />}
       </>
@@ -959,6 +961,10 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
             { label: 'コピー', icon: <Copy size="1.1em" aria-hidden="true" />, onClick: () => handleCopy(memoMenu.memo) },
             ...(onMakeAction && (memoMenu.memo?.text || '').trim()
               ? [{ label: '行動に追加', icon: <Target size="1.1em" aria-hidden="true" />, onClick: () => handleMakeAction(memoMenu.memo) }]
+              : []),
+            // 🔗 重なり（2026-11-25）: このメモに、ほかの本のメモや学びを重ねて、自分の答えを残す。
+            ...((memoMenu.memo?.text || '').trim()
+              ? [{ label: '重ねて考える', icon: <Blend size="1.1em" aria-hidden="true" />, onClick: () => { const m = memoMenu.memo; openOverlap({ id: m.id, text: m.text, bookId }); } }]
               : []),
             ...((memoMenu.memo?.text || '').trim()
               ? [{ label: 'この一文を写真で共有', icon: <Share size="1.1em" aria-hidden="true" />, onClick: () => handleShare(memoMenu.memo) }]

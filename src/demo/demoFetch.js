@@ -872,6 +872,11 @@ function aiReply(store, payload, aiMode = '') {
   }
   // 📖 この本で学べること（2026-10-08）
   if (payload.purpose === 'book_brief') return bookBriefAnswer(userText);
+  // 🔗 重なり（2026-11-25）: 本番は 2 つの記録だけから「共通・違い・問い」の 3 行。&overlap=fail は読めない答え。
+  if (payload.purpose === 'overlap') {
+    if (new URLSearchParams(window.location.search).get('overlap') === 'fail') return 'うまく書けませんでした。';
+    return '共通: 相手に先に何かを渡すと、関係が前に進むという見方\n違い: 本は人の心の動きとして、あなたの記録は商談の場面として書いている\n問い: 次の打ち合わせで、先に渡せるものは何だろう？';
+  }
   // 🧭 目標の深掘り・ロードマップ（2026-11-15・demoGoals.js）
   if (payload.purpose === 'goal_interview') return goalInterviewAnswer(userText);
   if (payload.purpose === 'goal_roadmap' && userText.includes('【最近のメモ')) return goalPhaseBooksAnswer();
@@ -1028,7 +1033,7 @@ export function installDemoFetch(store) {
         return json({ content: [{ type: 'text', text: aiReply(store, payload, aiMode) }], stop_reason: 'end_turn' });
       }
       // 📖 この本で学べること（book_brief）も無料プランで使える（相談と同じ無料のトークンから・2026-10-08）。
-      if (tier === 'free' && !['consult', 'book_brief', 'goal_interview', 'goal_roadmap'].includes(payload.purpose)) {
+      if (tier === 'free' && !['consult', 'book_brief', 'goal_interview', 'goal_roadmap', 'overlap'].includes(payload.purpose)) {
         return json({ error: { message: 'この AI 機能は、プランでご利用いただけます。' }, error_code: 'plan_required' }, 402);
       }
       const trialEnd = sub?.current_period_end ? new Date(Date.parse(sub.current_period_end) + 9 * 3600 * 1000) : null;
