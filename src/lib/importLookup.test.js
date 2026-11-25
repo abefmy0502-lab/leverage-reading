@@ -63,3 +63,15 @@ describe('同じ本の行のまとめの数', () => {
     expect(res.mergedLines).toBe(2);
   });
 });
+
+describe('書店の検索の失敗', () => {
+  it('検索が失敗した本は「見つからない」と分けて数える', async () => {
+    const { resolveListBooks } = await import('./importLookup');
+    const res = await resolveListBooks([{ title: '考え方', needsLookup: true }, { title: '7つの習慣', needsLookup: true }], {
+      search: async (q) => (q.startsWith('考え方') ? { ok: false, results: [] } : (() => { throw new Error('offline'); })()),
+    });
+    expect(res.failed).toBe(2);
+    expect(res.missing).toBe(0);
+    expect(res.books.every((b) => b.checkFailed)).toBe(true);
+  });
+});

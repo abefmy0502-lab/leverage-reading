@@ -6,13 +6,14 @@ import { matchShelfGuess } from './shelfScan';
 /**
  * books: parsePlainList の本（needsLookup: true のものだけ確かめる）
  * search(query) → { ok, results }（lib/bookSearch.js の searchBooksOnServer と同じ形）
- * 戻り値: { books, found, loose, missing }
+ * 戻り値: { books, found, loose, missing, failed, merged, mergedBooks, mergedLines }
+ *   failed＝書店の検索が失敗した本（通信など・打った書名のまま・checkFailed）
  *   found＝確かめた本・loose＝近い書名で当てた本（確かめる画面に「近い本に合わせました」）・missing＝見つからなかった本（打った書名のまま）
  */
 export async function resolveListBooks(books, { search, concurrency = 3, onEach, signal } = {}) {
   const out = books.map((b) => ({ ...b }));
   const targets = out.map((b, i) => (b.needsLookup ? i : -1)).filter((i) => i >= 0);
-  let found = 0; let loose = 0; let missing = 0; let doneCount = 0;
+  let found = 0; let loose = 0; let missing = 0; let failed = 0; let doneCount = 0;
   let next = 0;
   const worker = async () => {
     while (next < targets.length) {
@@ -20,11 +21,15 @@ export async function resolveListBooks(books, { search, concurrency = 3, onEach,
       const i = targets[next]; next += 1;
       const b = out[i];
       let res = { ok: false, results: [] };
+      // 書店の検索そのものが失敗した（通信・サーバー）のは「見つからない」と分ける（2026-11-25 ui-critic）。
+      let reqFailed = false;
       try {
         // eslint-disable-next-line no-await-in-loop
         res = await search(b.isbn || `${b.title} ${b.author || ''}`.trim());
+        if (!res?.ok) reqFailed = true;
       } catch (e) {
         if (e?.name === 'AbortError') return;
+        reqFailed = true;
       }
       const results = res?.ok && Array.isArray(res.results) ? res.results : [];
       let hit = null; let isLoose = false;
@@ -47,6 +52,9 @@ export async function resolveListBooks(books, { search, concurrency = 3, onEach,
           ...(isLoose ? { matchedLoosely: true, typedTitle: b.title } : {}),
         };
         if (isLoose) loose += 1; else found += 1;
+      } else if (reqFailed) {
+        out[i] = { ...b, needsLookup: false, unverified: true, checkFailed: true };
+        failed += 1;
       } else {
         out[i] = { ...b, needsLookup: false, unverified: true };
         missing += 1;
@@ -70,7 +78,7 @@ export async function resolveListBooks(books, { search, concurrency = 3, onEach,
   // まとめた冊数（mergedBooks）と、その元の行の数（mergedLines）＝「同じ本の行 2 つを 1 冊に」。
   const dup = [...counts.values()].filter((n) => n > 1);
   return {
-    books: unique, found, loose, missing,
+    books: unique, found, loose, missing, failed,
     merged: out.length - unique.length,
     mergedBooks: dup.length,
     mergedLines: dup.reduce((a, n) => a + n, 0),

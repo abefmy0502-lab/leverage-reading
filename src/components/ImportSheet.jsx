@@ -71,6 +71,10 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
   const [pasteText, setPasteText] = useState('');
   // 書店で確かめている間の止め（シートを閉じたら止める）。
   const lookupRef = useRef(null);
+  // 書店の検索がつながらなかったとき（もう一度確かめる・このまま取り込む）。
+  const [checkFail, setCheckFail] = useState(null);
+  // 確かめている本の出どころ（貼り付け／ファイル）＝確かめている途中の出口の言葉。
+  const [checkFromPaste, setCheckFromPaste] = useState(false);
   useEffect(() => () => lookupRef.current?.abort(), []);
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
@@ -121,6 +125,7 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
 
   // 読めた結果を確かめる画面へ。1 行 1 冊の一覧は、先に書店の検索で本を確かめる（2026-11-25・lib/importLookup.js）。
   const prepare = async (r0) => {
+    setCheckFail(null);
     let r = r0;
     const needs = r.books.filter((b) => b.needsLookup).length;
     if (needs) {
@@ -129,6 +134,7 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
       lookupRef.current = ctrl;
       setError('');
       setProgress({ done: 0, total: needs });
+      setCheckFromPaste(!!r.fromPaste);
       setStep('checking');
       const res = await resolveListBooks(r.books, {
         search: (q) => searchBooksOnServer(q, { signal: ctrl.signal }),
@@ -136,9 +142,16 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
         signal: ctrl.signal,
       });
       if (ctrl.signal.aborted) return;
+      const lookupOf = (x) => ({ found: Math.max(0, x.found - (x.merged || 0)), loose: x.loose, missing: x.missing, failed: x.failed || 0, merged: x.merged || 0, mergedBooks: x.mergedBooks || 0, mergedLines: x.mergedLines || 0 });
+      // 書店の検索がつながらず、1 冊も確かめられなかった（通信・サーバー）。ファイルのせいにしない（2026-11-25 ui-critic）。
+      if (res.failed > 0 && res.found === 0 && res.loose === 0) {
+        setCheckFail({ r0, asIs: { ...r, books: res.books, lookup: lookupOf(res) } });
+        setStep('checkFailed');
+        return;
+      }
       // ファイルから読んだ一覧で、書店に 1 冊も見つからなかったら、本の一覧ではないファイル（メモ書き・ほかの形式）とみなす
       //   （「これは読めないファイルです」が本 2 冊として入っていた・2026-11-25 ui-critic）。貼り付けた一覧は本人が書いたので入れる。
-      if (!r.fromPaste && res.found === 0 && res.loose === 0) {
+      if (!r.fromPaste && res.found === 0 && res.loose === 0 && !res.failed) {
         const others = res.books.filter((b) => !b.unverified);
         if (!others.length) {
           setStep('pick');
@@ -148,9 +161,13 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
         res.books = others;
         res.missing = 0;
       }
-      r = { ...r, books: res.books, lookup: { found: Math.max(0, res.found - (res.merged || 0)), loose: res.loose, missing: res.missing, merged: res.merged || 0, mergedBooks: res.mergedBooks || 0, mergedLines: res.mergedLines || 0 } };
+      r = { ...r, books: res.books, lookup: lookupOf(res) };
     }
-    // 本棚にある本のメモの本文を先に読む（確かめる画面の数が、出てから減って見えないように）。
+    await toPreview(r);
+  };
+
+  // 確かめる画面へ（本棚にある本のメモの本文を先に読む＝確かめる画面の数が、出てから減って見えないように）。
+  const toPreview = async (r) => {
     let texts = null;
     if (loadMemoTexts) {
       const ids = planImport(r, existingBooks).matchedIds;
@@ -329,7 +346,10 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
   } else if (step === 'checking') {
     content = (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-        <p style={heading}>書店で本を確かめています</p>
+        {/* 進み具合は見出しに（押せない灰色のボタンで同じ言葉を繰り返さない・2026-11-25 ui-critic）。 */}
+        <p role="status" aria-live="polite" style={{ ...heading, fontVariantNumeric: 'tabular-nums' }}>
+          書店で本を確かめています{progress.total > 0 && <><wbr /><span style={nowrap}>（{Math.min(progress.done, progress.total)} / {progress.total} 冊）</span></>}
+        </p>
         {progress.total >= 50 && (
           <p style={body}>{withPhraseBreaks(progress.total >= 500 ? '数分かかることがあります。画面を開いたままお待ちください。' : '1 分ほどかかることがあります。画面を開いたままお待ちください。')}</p>
         )}
@@ -337,10 +357,25 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
     );
     footer = (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-        <button type="button" disabled aria-disabled="true" style={{ ...btnPrimaryOff, fontVariantNumeric: 'tabular-nums' }}>
-          <span role="status" aria-live="polite">{progress.total > 0 ? `確かめています（${Math.min(progress.done, progress.total)} / ${progress.total} 冊）` : '確かめています…'}</span>
+        <button type="button" onClick={() => { lookupRef.current?.abort(); setStep(checkFromPaste ? 'paste' : 'pick'); }} style={{ ...btnLink, width: '100%' }}>
+          {checkFromPaste ? '一覧を直す' : 'ファイルを選び直す'}
         </button>
-        <button type="button" onClick={() => { lookupRef.current?.abort(); setStep(pasteText.trim() ? 'paste' : 'pick'); }} style={{ ...btnLink, width: '100%' }}>やめる</button>
+      </div>
+    );
+  } else if (step === 'checkFailed' && checkFail) {
+    // 書店の検索がつながらなかった（通信・サーバー）。もう一度確かめるか、貼った一覧はそのまま入れる（書いた書名のまま）。
+    content = (
+      <ErrorMessage icon={null} title="書店で確かめられませんでした" description="通信状況を確認して、もう一度お試しください。" />
+    );
+    const fromPaste = !!checkFail.r0.fromPaste;
+    footer = (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+        <button type="button" onClick={() => prepare(checkFail.r0)} style={btnPrimary}>もう一度確かめる</button>
+        {fromPaste ? (
+          <button type="button" onClick={() => { const r = checkFail.asIs; setCheckFail(null); toPreview(r); }} style={{ ...btnLink, width: '100%' }}>このまま取り込む</button>
+        ) : (
+          <button type="button" onClick={() => { setCheckFail(null); setStep('pick'); }} style={{ ...btnLink, width: '100%' }}>ファイルを選び直す</button>
+        )}
       </div>
     );
   } else if ((step === 'preview' || step === 'importing') && result) {
@@ -394,14 +429,15 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
           </p>
           {/* 書店で確かめた結果（一覧・貼り付け）。見つからない本も書いた書名のまま入る（消さない）。 */}
           {result.lookup && (
-            <p role="note" style={body}>
-              {/* 0 の項目は出さない。区切りの「・」は 2 つ目から。 */}
+            <p role="note" style={{ ...body, textWrap: 'wrap' }}>
+              {/* 0 の項目は出さない。項目の途中では割らず、改行は「・」のあとだけ（2026-11-25 ui-critic）。 */}
               {[
                 result.lookup.found > 0 && `書店で確かめた本 ${fmt(result.lookup.found)} 冊`,
                 result.lookup.loose > 0 && `近い書名に合わせた本 ${fmt(result.lookup.loose)} 冊`,
                 result.lookup.missing > 0 && `見つからなかった本 ${fmt(result.lookup.missing)} 冊`,
+                result.lookup.failed > 0 && `確かめられなかった本 ${fmt(result.lookup.failed)} 冊`,
                 result.lookup.mergedBooks > 0 && `同じ本の行 ${fmt(result.lookup.mergedLines)} つを ${fmt(result.lookup.mergedBooks)} 冊に`,
-              ].filter(Boolean).map((t, i) => <Fragment key={t}>{i ? KEEP_DOT : null}{withPhraseBreaks(t)}</Fragment>)}
+              ].filter(Boolean).map((t, i, arr) => <Fragment key={t}><span style={nowrap}>{t}{i < arr.length - 1 ? '・' : ''}</span>{i < arr.length - 1 ? <wbr /> : null}</Fragment>)}
             </p>
           )}
           {/* 新しい本は一度に 2,000 冊まで（本棚にある本は数えない）。残りは取り込んだあと同じファイルをもう一度選ぶ（2026-09-29）。
@@ -418,10 +454,10 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
           <div role="radiogroup" aria-labelledby="import-guess-h" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
             <p id="import-guess-h" style={{ ...body, color: 'var(--text)', fontWeight: 600 }}>
               {mixedNotes
-                ? <><span style={nowrap}>メモの無い本 {fmt(choiceCount)} 冊</span>{withPhraseBreaks('は、この状態で入れます')}</>
+                ? <><span style={nowrap}>メモの無い本 {fmt(choiceCount)} 冊</span>{withPhraseBreaks('を入れる状態')}</>
                 : allGuessed
-                  ? <><span style={nowrap}>この {fmt(guessedCount)} 冊</span>{withPhraseBreaks('は、この状態で入れます')}</>
-                  : <><span style={nowrap}>状態が分からない本 {fmt(guessedCount)} 冊</span>{withPhraseBreaks('は、この状態で入れます')}</>}
+                  ? <><span style={nowrap}>この {fmt(guessedCount)} 冊</span>{withPhraseBreaks('を入れる状態')}</>
+                  : <><span style={nowrap}>状態が分からない本 {fmt(guessedCount)} 冊</span>{withPhraseBreaks('を入れる状態')}</>}
               {!guessedStatus && guessedMix.length > 1 && (
                 <span style={{ fontWeight: 400, color: 'var(--text-2)' }}><wbr />{haltOpen(`（いまは ${guessedMix.map(([l, n]) => `${l}\u00a0${n}`).join('・')}）`)}</span>
               )}
@@ -442,7 +478,7 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
               ))}
             </div>
             {mixedNotes && (
-              <p style={{ ...body, fontSize: 'var(--text-meta)' }}>{withPhraseBreaks(`メモのある本 ${fmt(guessedWithNotes)} 冊は、読了で入ります。`)}</p>
+              <p style={{ ...body, fontSize: 'var(--text-meta)' }}>{withPhraseBreaks(`メモのある本 ${fmt(guessedWithNotes)} 冊は、読了で入ります`)}</p>
             )}
           </div>
         )}
@@ -459,7 +495,7 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
                     {IMPORT_STATUS_LABEL[b.status]}
                     {b.author ? `・${b.author}` : ''}
                     {b.matchedLoosely && b.typedTitle ? `・「${b.typedTitle}」から近い本に` : ''}
-                    {b.unverified ? '・書店で見つかりませんでした' : ''}
+                    {b.checkFailed ? '・書店で確かめられませんでした' : b.unverified ? '・書店で見つかりませんでした' : ''}
                   </span>
                 )}
               </span>
