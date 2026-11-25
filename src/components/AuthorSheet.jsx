@@ -3,7 +3,7 @@
 //   お気に入りに入れると、新しい本が出たらホームの 1 行で知らせる（hooks/useFavoriteAuthors.js）。
 //   設定の「お気に入りの著者」からは一覧（list）→ 押すとその著者。AI は使わない。
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Star, ChevronRight } from 'lucide-react';
+import { Star, ChevronRight, MessageCircle } from 'lucide-react';
 import BottomSheet from './BottomSheet';
 import ErrorMessage from './ErrorMessage';
 import EmptyState from './EmptyState';
@@ -14,7 +14,7 @@ import { withPhraseBreaks } from './TightBubble';
 import { useToast } from './Toast';
 import { btnGhost, btnLinkQuiet, btnTonal } from '../styles/ui';
 import {
-  fetchAuthorBooks, cachedAuthorBooks, isRecentBook, isUpcoming, releaseLabel, newBooksFor, authorKey,
+  fetchAuthorBooks, cachedAuthorBooks, isRecentBook, isUpcoming, releaseLabel, newBooksFor, authorKey, splitAuthorNames,
 } from '../lib/favoriteAuthors';
 import { track } from '../lib/analytics';
 import { toSaveMessage } from '../lib/errors';
@@ -30,7 +30,7 @@ const note = { margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', 
  *   hasBook    … (book) => 本棚にあるか
  *   reason     … 本の詳細から開いたときの、その本（『考え方』★5 など・なぜこの著者か）
  */
-export default function AuthorSheet({ names = [], fav, onAddWant, hasBook, onClose, reason = null }) {
+export default function AuthorSheet({ names = [], fav, onAddWant, hasBook, onClose, reason = null, books = [], onTalk = null }) {
   const toast = useToast();
   const online = useOnline();
   const [current, setCurrent] = useState(names[0] || '');
@@ -58,6 +58,12 @@ export default function AuthorSheet({ names = [], fav, onAddWant, hasBook, onClo
   useEffect(() => load(current), [current]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const favorite = current ? fav.isFavorite(current) : false;
+  // 🌐 この著者の本と話す（2026-11-25・対話の世界）: 本棚の読書中・読了の本（この著者が書いた本）を話し相手に相談を開く。
+  const talkIds = useMemo(() => {
+    const k = authorKey(current);
+    if (!k) return [];
+    return (books || []).filter((b) => (b.status === 'reading' || b.status === 'done') && splitAuthorNames(b.author).some((n) => authorKey(n) === k)).map((b) => b.id);
+  }, [books, current]);
   const favRec = fav.favs.find((f) => f.key === authorKey(current));
   const newIsbns = useMemo(
     () => new Set(favRec ? newBooksFor(favRec, state.books, { isOwned: (b) => !!hasBook?.(b) }).map((b) => b.isbn) : []),
@@ -165,6 +171,11 @@ export default function AuthorSheet({ names = [], fav, onAddWant, hasBook, onClo
           </div>
         )}
 
+        {onTalk && talkIds.length > 0 && (
+          <button type="button" onClick={() => { track('dialogue_pick', { kind: 'author_sheet', books: talkIds.length }); onTalk(talkIds); }} style={{ ...btnGhost, gap: 'var(--space-2)' }}>
+            <MessageCircle size="1.1em" aria-hidden="true" />{talkIds.length > 1 ? `この著者の本と話す（${talkIds.length} 冊）` : 'この著者の本と話す'}
+          </button>
+        )}
         <section aria-labelledby="author-books-h" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
         <h3 id="author-books-h" style={{ margin: 0, fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text-2)' }}>この著者の本（新しい順）</h3>
         {state.status === 'loading' && (

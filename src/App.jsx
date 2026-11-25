@@ -5123,7 +5123,9 @@ function AuthedApp() {
   // ✍️ 著者のシート（ホームの 1 行・設定・本の詳細の著者の名前から・2026-11-25）。本の詳細は別の描き分けなので両方に置く。
   const authorSheetLayer = authorSheet ? (
     <Suspense fallback={<OverlayFallback />}>
-      <AuthorSheet names={authorSheet.names} reason={authorSheet.reason} fav={favAuthors} onAddWant={addWantFromOther} hasBook={hasBookFromOther} onClose={() => setAuthorSheet(null)} />
+      <AuthorSheet names={authorSheet.names} reason={authorSheet.reason} fav={favAuthors} onAddWant={addWantFromOther} hasBook={hasBookFromOther} onClose={() => setAuthorSheet(null)}
+        books={books}
+        onTalk={(ids) => { setAuthorSheet(null); setScopePreset({ bookIds: ids, nonce: Date.now() }); setView('list'); setAiSubTab('brain'); setTab('ai'); }} />
     </Suspense>
   ) : null;
   const folderPickerSheet = folderPickerBook ? (() => {

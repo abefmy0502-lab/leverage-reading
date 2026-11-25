@@ -29,6 +29,8 @@ import { answerActionStatus, rememberAnswerActionAdded, forgetAnswerActionAdded 
 import KnowledgeManager from './KnowledgeManager';
 import PullToRefresh from './PullToRefresh';
 import EmptyState from './EmptyState';
+import DialogueWorld from './DialogueWorld';
+import KeepInsightSheet from './KeepInsightSheet';
 import ErrorMessage from './ErrorMessage';
 import TightBubble, { withPhraseBreaks } from './TightBubble';
 import { createSendGuard } from '../lib/sendGuard';
@@ -55,6 +57,7 @@ import { composerChrome, answerEndScrollTop, isTouchUi } from '../lib/composerVi
 import { useComposerHeight } from '../hooks/useComposerHeight';
 import { NATIVE_KEYBOARD_EVENT } from '../lib/native';
 import { encodeThreadRef, isThreadRef, threadRootOf, groupConsults, threadScopeOf, threadTitleOf, lastConsultThread } from '../lib/consultThreads';
+import { scopeKind, scopeHeading, scopeNote, scopeQuestions } from '../lib/dialogueWorld';
 import { buildConsultExamples, standaloneAction, shortTitle, hasSummaryMemo, countSummaryMemos, fmtTokens, consultsLeft, memoSearchQuery, answerStepToAction, stripScenePrefix, selectThreadTurns, isCompletedAnswer, parseAskSection, nextStepChips, wantsAction, isBookLookup, lookupTerm, shouldDecide, isLastAnswer, countAsks, askProgressText, answerAsks, DECIDE_CHIP, DECIDE_REQUEST, lensOf, usedLenses, isWorkConsult, LENS_NEXT_LINE, advisorDraftFromConsult, askLimitFor } from '../lib/consultHelpers';
 import LibrarySearchHit from './LibrarySearchHit';
 import { buildSnippet, compileTerms, splitQuery } from '../lib/librarySearch';
@@ -596,6 +599,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const [scopeIds, setScopeIds] = useState(() => (resumed ? resumed.scopeIds : []));
   useEffect(() => { rememberSession(user?.id, { scopeIds }); }, [scopeIds, user?.id]);
   const [scopeSheetOpen, setScopeSheetOpen] = useState(false);
+  const [insightFor, setInsightFor] = useState(null); // ✍️ 気づきを書き残すの相談の文（null＝閉じている）
   // 📚 答え方（まとめて / 本ごとに）。相談相手が 1 冊のときは「まとめて」で答える（並べる本が無い）。
   const [answerMode, setAnswerMode] = useState(() => (resumed?.answerMode === 'perbook' || resumed?.answerMode === 'fused' ? resumed.answerMode : loadAnswerMode()));
   useEffect(() => {
@@ -1226,21 +1230,16 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     track('brain_search_memos', { typed: !!input.trim() });
     onSearchMemos(memoSearchQuery(q));
   } : null;
+  // 🌐 いまの話し相手（すべての本・1 冊・著者・選んだ本）。見出し・問いかけ・注記に使う。
+  const scopedKind = useMemo(() => scopeKind(scopeIds, books), [scopeIds, books]);
   const examples = useMemo(() => {
     if (scopeIds.length > 0) {
-      const qs = [];
-      const picked = (books || []).filter((b) => scopeIds.includes(b.id));
-      const first = picked[0];
-      if (first?.title) {
-        // 副題まで入った書名（読書メーターなど）は短くする（lib/consultHelpers.js の shortTitle）。
-        const t = shortTitle(first.title);
-        qs.push(`『${t}』の学びで、明日から使えるものは？`);
-        qs.push(`『${t}』でいちばん大事なことを、私のメモから教えて`);
-      }
-      if (picked.length > 1) qs.push('選んだ本に共通する考え方は？');
-      // 行動は会話で決める（2026-09-30）ので、最初から「一歩を提案して」とは頼まない例にする。
-      qs.push('この本の考え方を、いまの仕事に当てはめたい');
-      return qs.slice(0, 3).map((text) => ({ text, kind: 'book' }));
+      // 🌐 対話の世界（2026-11-25）: 話し相手（1 冊・著者・選んだ本）ごとの問いかけ（lib/dialogueWorld.js）。
+      const qs = scopeQuestions(scopeKind(scopeIds, books));
+      if (qs.length) return qs;
+      const first = (books || []).find((b) => scopeIds.includes(b.id));
+      const t = first?.title ? shortTitle(first.title) : '';
+      return [t ? { text: `『${t}』でいちばん大事なことを、私のメモから教えて`, kind: 'book' } : null, { text: 'この本の考え方を、いまの仕事に当てはめたい', kind: 'book' }].filter(Boolean);
     }
     // メモの件数は下の ownMemoTotal と同じ数え方（ここより後で定義しているので、ここで数える）。
     const memoCount = memoStatsLoaded ? memoStats.cards + memoStats.personal + (memoStats.summaryBooks || 0) : null;
@@ -2380,6 +2379,10 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     // メモが 0 件の人は続けても同じ答えなので、最初の画面と同じ新しい相談の例（2026-10-09 ui-critic）。
     //   例の文は 1 つにそろえる（2026-11-23: 0 件・会話の途中・最初の画面で「上司への…」と「報告が…」が混ざっていた）。
     : noMemosYet ? newConsultExample
+    // 🌐 話し相手を選んで、まだ何も送っていないとき（2026-11-25）: 誰に話しかけるかを入力欄でも見せる。
+    : isEmpty && scopedKind.kind === 'book' ? '話しかける・聞いてみたいこと'
+    : isEmpty && scopedKind.kind === 'author' ? `${scopedKind.author}さんの本に聞く`
+    : isEmpty && scopedKind.kind === 'multi' ? '選んだ本に聞く'
     // AI が状況を聞き返しているときは、答えを書くか続けて聞く（候補のチップのほかに自分の言葉でも）。
     // 文字が大きいときは 1 行に収まる短い形（2026-10-10 ui-critic）。
     : lastAsksBack ? (largeText ? '返事を書く' : '返事を書く・続けて相談する')
@@ -2645,8 +2648,12 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                   </div>
                 )}
                 {(!input.trim() || firstDayDraft) && <>
-                <h2 id="brain-empty-title" style={{ ...headingStyle, marginBottom: 'var(--space-6)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('困っていることを、相談してください')}</h2>
-                <p style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>たとえば</p>
+                <h2 id="brain-empty-title" style={{ ...headingStyle, marginBottom: scopedKind.kind === 'all' ? 'var(--space-6)' : 'var(--space-2)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(scopeHeading(scopedKind) || '困っていることを、相談してください')}</h2>
+                {/* 🌐 話し相手を選んだときは、答えのもとと「AI の解釈（著者本人の言葉ではない）」を 1 行（2026-11-25）。 */}
+                {scopedKind.kind !== 'all' && (
+                  <p style={{ margin: '0 0 var(--space-6)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(scopeNote(scopedKind))}</p>
+                )}
+                <p style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>{scopedKind.kind === 'all' ? 'たとえば' : '話しかけてみる'}</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
                   {/* 相談例は待たずに出す（過去の相談が読めていれば「前に相談した…」も入る・2026-11-23） */}
                   {shownExamples.map(({ text: q, kind }) => {
@@ -2664,7 +2671,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                         if (firstDayDraft || examplesDraftOnly) { setInput(q); requestAnimationFrame(() => { try { inputRef.current?.focus({ preventScroll: true }); } catch { /* ignore */ } }); return; }
                         // 「前に相談した…」は、その会話の全体を開いて続きとして送る（この続きを相談すると同じ・2026-10-08 ui-critic）。
                         if (kind === 'continue' && lastConsult) { continueThread(lastConsult.group, { send: q }); return; }
-                        ask(q);
+                        // 🌐 「選んだ本の考えを、ぶつけてみて」などは本ごとに答える（本ごとの見方と、ぶつかるところ）。
+                        const mode = shownExamples.find((e) => e.text === q)?.mode;
+                        ask(q, mode ? { mode } : {});
                       }}
                       disabled={busy}
                       aria-pressed={firstDayDraft ? picked : undefined}
@@ -2675,6 +2684,20 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                     );
                   })}
                 </div>
+                {scopedKind.kind === 'all' && !firstDayDraft && (
+                  <DialogueWorld
+                    books={books}
+                    memoBookIds={memoBookIds}
+                    userId={user?.id || null}
+                    onPickBooks={(ids) => { setScopeIds(ids); try { chatScrollRef.current?.scrollTo?.({ top: 0 }); } catch { /* ignore */ } }}
+                    onPickSeveral={() => setScopeSheetOpen(true)}
+                    onDraft={(q, ids) => {
+                      setScopeIds(ids || []);
+                      setInput(q);
+                      requestAnimationFrame(() => { try { inputRef.current?.focus({ preventScroll: true }); } catch { /* ignore */ } });
+                    }}
+                  />
+                )}
                 </>}
               </section>
             )
@@ -2760,6 +2783,13 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
 
           {/* 🫶 命に関わる言葉が相談に書かれたら、答えの下に相談窓口（AI 選書と同じ・App 審査 1.4.1・2026-11-21）。 */}
           {careShown && <CareNote style={{ marginTop: 'var(--space-6)', marginLeft: ANSWER_COLUMN }} />}
+          {/* ✍️ 気づきを書き残す（2026-11-25 対話の世界）: 答えが出きったら、自分の言葉で気づきを学びとして残す（AI なし）。 */}
+          {answerDone && lastIsAssistant && !busy && !lastIsMemoAnswer && !isNoInfoAnswer(lastVisible) && (
+            <button type="button" onClick={() => { track('dialogue_insight_open', {}); setInsightFor(lastAsked || ''); }} style={{ ...uiBtnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 'var(--tap-min)', marginTop: 'var(--space-2)', marginLeft: `calc(${typeof ANSWER_COLUMN === 'number' ? `${ANSWER_COLUMN}px` : ANSWER_COLUMN} - var(--space-1))` }}>
+              <PencilLine size="1em" aria-hidden="true" />気づきを書き残す
+            </button>
+          )}
+          {insightFor != null && <KeepInsightSheet question={insightFor} onClose={() => setInsightFor(null)} />}
           {/* 無料プランで今月のトークンを使い切ったら、答えの下（まだ話していなければ例の下）で静かに案内
               （読み終えるまで画面を奪わない） */}
           {freeUsedUp && !busy && lastIsAssistant && !isEmpty && (!lastIsMemoAnswer || (!lastMemoFound && lastMemoAnswer?.status !== 'loading')) && (
