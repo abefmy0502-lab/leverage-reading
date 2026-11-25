@@ -189,6 +189,9 @@ const SCREENS = [
   { name: 'author-sheet', url: '/?authors=on', steps: [{ wait: 7000 }, { css: '[data-grown-line="author-news"] button:has-text("見る")' }, { wait: 1200 }] },
   { name: 'author-sheet-new', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { wait: 800 }, { css: 'button[aria-label*="この著者の本"]' }, { wait: 1500 }] },
   { name: 'author-sheet-fail', url: '/?authors=fail', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { wait: 800 }, { css: 'button[aria-label*="この著者の本"]' }, { wait: 1500 }] },
+  { name: 'author-sheet-loading', url: '/?authors=slow', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { wait: 800 }, { css: 'button[aria-label*="この著者の本"]' }, { wait: 1200 }] },
+  { name: 'author-list', url: '/?authors=on', steps: [{ wait: 1500 }, { css: 'button[aria-label="設定を開く"]' }, { wait: 800 }, { scrollTo: 'button:has-text("お気に入りの著者")' }, { css: 'button:has-text("お気に入りの著者")' }, { wait: 1000 }] },
+  { name: 'author-list-empty', url: '/', steps: [{ wait: 1500 }, { css: 'button[aria-label="設定を開く"]' }, { wait: 800 }, { scrollTo: 'button:has-text("お気に入りの著者")' }, { css: 'button:has-text("お気に入りの著者")' }, { wait: 1000 }] },
   { name: 'author-detail', url: '/?authors=on', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("数値化の鬼")' }, { wait: 1000 }] },
   // 🔁 毎日の輪（2026-10-10）: ホームの今日の行動・相談相手が育ちました・ホームで保存したメモの似たメモ・行動の結果を相談・思い出しカードから相談
   { name: 'loop-home-grown', url: '/', steps: [{ eval: "localStorage.setItem('orime-memos-grown-line', '1')" }, { reload: true }, { wait: 1200 }] },
