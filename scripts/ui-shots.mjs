@@ -407,7 +407,7 @@ const SCREENS = [
       { name: 'folder-detail-some', url: '/', steps: [...LIB, { css: '.lvg-page button:has-text("人を動かす")' }, { wait: 800 }] },
       { name: 'folder-sheet-none', url: '/?folders=none', steps: [...LIB, { css: '.lvg-page button:has-text("アウトプット大全")' }, { wait: 800 }, { css: 'button[aria-label="フォルダに入れる"]' }, { wait: 600 }] },
       { name: 'folder-detail-none', url: '/?folders=none', steps: [...LIB, { css: '.lvg-page button:has-text("アウトプット大全")' }, { wait: 800 }] },
-      { name: 'folder-empty', url: '/', steps: [...LIB, { css: '[data-folder-chips] button:has-text("読み返したい")' }, { wait: 400 }, { css: 'button[aria-pressed]:has-text("読書中")' }, { wait: 600 }] },
+      // folder-empty は外した（2026-11-25）: フォルダで絞ると、本が 0 冊になる状態のチップを出さない（行き止まりを作らない）ので、その空の画面には行けない。
       // folder-field-empty は外した（2026-11-25）: 分野で絞ったあとは、本が 0 冊のフォルダのチップを出さなくなったので、その空の画面には行けない。
       { name: 'fields-record-open', url: '/', steps: [...REC, { css: '[data-book-fields-record] li button >> nth=0' }, { wait: 800 }] },
       { name: 'book-detail-just-done-rating', url: '/', steps: [...LIB, { css: '.lvg-page button:has-text("数値化の鬼")' }, { scrollBottom: true }, { css: 'button:has-text("読了にする")' }, { wait: 1200 }, { scrollTo: '[data-detail-rating]' }, { wait: 500 }] },

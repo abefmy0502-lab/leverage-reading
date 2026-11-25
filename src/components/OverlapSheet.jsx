@@ -12,6 +12,7 @@ import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { useAuth } from '../hooks/useAuth';
 import { useAllMemoRows } from '../hooks/useAllMemoRows';
+import { autoGrowTextarea } from '../hooks/useComposerHeight';
 import { btnPrimary, btnPrimaryOff, btnGhost, btnLinkQuiet, input as uiInput } from '../styles/ui';
 import {
   overlapCandidates, searchOverlapRows, whereOf, isPersonal, overlapMemoText, markOverlapDone,
@@ -23,7 +24,7 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { toSaveMessage, toMessage } from '../lib/errors';
 import { track } from '../lib/analytics';
 
-const meta = { margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5 };
+const meta = { margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' };
 const label = { margin: 0, fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text-2)' };
 const readText = { margin: 0, fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.6, color: 'var(--text)', wordBreak: 'normal', lineBreak: 'strict', overflowWrap: 'anywhere', whiteSpace: 'pre-wrap' };
 
@@ -132,7 +133,7 @@ export default function OverlapSheet({ source, targetId = null, books = [], onCl
     <BottomSheet
       title="重なり"
       dismissLabel="キャンセル"
-      subheader={<p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>2 つの記録を重ねて、自分の答えを書きます</p>}
+      subheader={<p style={{ ...meta, color: 'var(--text-2)' }}>{withPhraseBreaks('2 つの記録を重ねて、自分の答えを書きます')}</p>}
       onClose={onClose}
       beforeClose={async () => !dirty || saving || !!(await confirm({ title: '書いた答えを残していません', message: '閉じると、書いた答えは消えます。', confirmLabel: '破棄する', cancelLabel: '書き続ける', danger: true }))}
       footer={choosing ? null : (
@@ -223,9 +224,9 @@ export default function OverlapSheet({ source, targetId = null, books = [], onCl
               {/* AI の問いは上の「考えてみたい問い」に出ているので、ここでは繰り返さない（無いときだけ決まった問い）。 */}
               {!ai.result?.question && <p style={{ ...readText, fontSize: 'var(--text-body)', color: 'var(--text-2)' }}>{withPhraseBreaks(question)}</p>}
               <textarea
-                ref={answerRef} value={answer} onChange={(e) => setAnswer(e.target.value)} maxLength={OVERLAP_ANSWER_MAX} rows={4}
+                ref={answerRef} value={answer} onChange={(e) => { setAnswer(e.target.value); autoGrowTextarea(e.target); }} maxLength={OVERLAP_ANSWER_MAX} rows={4}
                 aria-label="自分の答え" placeholder="いま思うことを、自分の言葉で"
-                style={{ ...uiInput, resize: 'vertical', minHeight: 'calc(var(--text-read) * 1.6 * 4 + var(--space-6))', fontFamily: 'var(--font-read)', lineHeight: 1.6 }}
+                style={{ ...uiInput, resize: 'none', overflowY: 'hidden', minHeight: 'calc(var(--text-read) * 1.6 * 4 + var(--space-6))', fontFamily: 'var(--font-read)', lineHeight: 1.6 }}
               />
               <p style={meta}>{withPhraseBreaks('学びとして残り、相談の材料になります。')}</p>
             </section>
