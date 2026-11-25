@@ -57,3 +57,31 @@ describe('AI の断り・説明の行は本として並べない（2026-11-25）
     expect(parseShelfScan('注文をまちがえる料理店 ／ 小国士朗\nできないことはやらない ／').map((b) => b.title)).toEqual(['注文をまちがえる料理店', 'できないことはやらない']);
   });
 });
+
+describe('読み違えた書名の候補（2026-11-25）', () => {
+  it('1 字違いでも、著者が合えば「たぶん」に', () => {
+    const m = matchShelfGuess({ title: 'サピエンス全吏', author: 'ユヴァル・ノア・ハラリ' }, [
+      { title: 'サピエンス全史 上', author: 'ユヴァル・ノア・ハラリ', isbn: '9784309226712' },
+    ]);
+    expect(m.status).toBe('maybe');
+    expect(m.book.isbn).toBe('9784309226712');
+  });
+  it('著者が違う本は、書名が近くても候補にしない', () => {
+    const m = matchShelfGuess({ title: 'サピエンス全吏', author: '山田太郎' }, [
+      { title: 'サピエンス全史 上', author: 'ユヴァル・ノア・ハラリ' },
+    ]);
+    expect(m.status).toBe('missing');
+  });
+  it('書名で見つからなければ、著者の名前で探し直す', async () => {
+    const calls = [];
+    const search = async (q) => {
+      calls.push(q);
+      if (q === '稲盛和夫') return { ok: true, results: [{ title: '生き方', author: '稲盛和夫' }, { title: '考え方', author: '稲盛和夫', isbn: '9784478028346' }] };
+      return { ok: true, results: [] };
+    };
+    const [it1] = await verifyShelfGuesses([{ title: '考え万', author: '稲盛和夫' }], { search });
+    expect(calls).toEqual(['考え万 稲盛和夫', '考え万', '稲盛和夫']);
+    expect(it1.status).toBe('maybe');
+    expect(it1.book.title).toBe('考え方');
+  });
+});

@@ -60,6 +60,8 @@ const FREE_OCR_MAX_IMAGES = 1;
 const FREE_OCR_MAX_TOKENS = 1024;
 // 📚 本棚の写真から追加（shelf_scan）は 1 枚で 40 冊（1 冊 20〜45 トークン）を書くので、無料プランでも 2048 まで（2026-11-22）。
 const FREE_SHELF_SCAN_MAX_TOKENS = 2048;
+// 本棚の写真は 1 枚を縦に 2〜3 つに分けて細部まで読ませる（src/lib/image.js の visionTiles・2026-11-25）ので、画像 3 つまで。
+const FREE_SHELF_SCAN_MAX_IMAGES = 3;
 
 // system + messages に含まれる文字の総数（画像は数えない）。
 function countTextChars(body) {
@@ -820,7 +822,7 @@ export default async function handler(req, res) {
     //    守るため。改ざんしたアプリから大きな文章を送って原価を膨らませるのを防ぐ）。
     const textCap = freeOcrCall ? FREE_OCR_MAX_TEXT_CHARS : freeCall ? FREE_MAX_TEXT_CHARS : MAX_TEXT_CHARS;
     // 📷 無料の書き起こしは写真 1 枚まで。
-    const tooManyImages = freeOcrCall && countImages(body) > FREE_OCR_MAX_IMAGES;
+    const tooManyImages = freeOcrCall && countImages(body) > (req.body?.purpose === 'shelf_scan' ? FREE_SHELF_SCAN_MAX_IMAGES : FREE_OCR_MAX_IMAGES);
     if (bodyBytes > MAX_BODY_BYTES || countTextChars(body) > textCap || tooManyImages) {
       return res.status(413).json({
         error: { message: 'リクエストが大きすぎます。画像のサイズを小さくして再度お試しください。' },

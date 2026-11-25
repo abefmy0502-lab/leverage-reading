@@ -264,15 +264,17 @@ export async function extractTextFromImage({ base64, mediaType = 'image/jpeg', s
 
 // 📚 本棚の写真から本を読み取る（2026-11-22・lib/shelfScan.js）。答えは「書名 ／ 著者」の行（そのまま parseShelfScan へ）。
 //   purpose 'shelf_scan'＝写真から書き起こしと同じ行き先・無料プランは同じ月 10 回から。失敗は throw（写真から書き起こしと同じ）。
-export async function readShelfPhoto({ base64, mediaType = 'image/jpeg' }) {
-  if (!base64) throw new Error('画像を読み取れませんでした。');
-  const { SHELF_SCAN_SYSTEM, SHELF_SCAN_PROMPT } = await import('./shelfScan');
+// images: [{ base64, mediaType }]（1 枚の写真を縦に切った 1〜3 枚・lib/image.js の visionTiles）。
+export async function readShelfPhoto({ base64, mediaType = 'image/jpeg', images } = {}) {
+  const list = (Array.isArray(images) && images.length ? images : [{ base64, mediaType }]).filter((t) => t?.base64).slice(0, 3);
+  if (!list.length) throw new Error('画像を読み取れませんでした。');
+  const { SHELF_SCAN_SYSTEM, SHELF_SCAN_PROMPT, SHELF_SCAN_PROMPT_TILES } = await import('./shelfScan');
   const messages = [
     {
       role: 'user',
       content: [
-        { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
-        { type: 'text', text: SHELF_SCAN_PROMPT },
+        ...list.map((t) => ({ type: 'image', source: { type: 'base64', media_type: t.mediaType || 'image/jpeg', data: t.base64 } })),
+        { type: 'text', text: list.length > 1 ? SHELF_SCAN_PROMPT_TILES(list.length) : SHELF_SCAN_PROMPT },
       ],
     },
   ];

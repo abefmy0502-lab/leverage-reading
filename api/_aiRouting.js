@@ -57,7 +57,9 @@ export const ROUTES = {
   cards_to_summary: { primary: `anthropic:${CONSULT_MODEL}`, claude: H },
   ocr: { primary: `anthropic:${CONSULT_MODEL}`, claude: H },
   // 📚 本棚の写真から本を追加（2026-11-22）: 背表紙の書名・著者を読む（写真から書き起こしと同じ行き先・無料プランは同じ月 10 回から）。
-  shelf_scan: { primary: `anthropic:${CONSULT_MODEL}`, claude: H },
+  // 📚 本棚の写真（2026-11-25 オーナー「精度も上げたい」で Sonnet 5.5 に・細い背表紙の縦書きを読む力の差が大きい・
+  //   1 人が使うのは本棚を入れるときの数回なので、1 回 約 ¥4 でも全体の原価はわずか）。
+  shelf_scan: { primary: 'anthropic:claude-sonnet-5-5', claude: 'claude-sonnet-5', claudeOnly: true },
 };
 export const PURPOSES = Object.keys(ROUTES);
 

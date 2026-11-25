@@ -29,7 +29,7 @@ function IconLabel({ icon: Icon, size = '1.2em', children }) {
 }
 import { btnPrimary, btnPrimaryOff, btnLink, groupTitle, segTrack, segOption } from '../styles/ui';
 import { validateImageFile } from '../lib/limits';
-import { downscaleImageForVision } from '../lib/image';
+import { visionTiles } from '../lib/image';
 import { readShelfPhoto } from '../lib/ai';
 import { ensureAiConsent } from '../lib/aiConsent';
 import { toMessage } from '../lib/errors';
@@ -116,9 +116,9 @@ export default function ShelfScanSheet({ existingBooks = [], onAdd, onUndo, onCl
         if (files.length > 1) setReadingNote(`写真 ${n + 1} / ${files.length} 枚を読んでいます`);
         try {
           // eslint-disable-next-line no-await-in-loop
-          const { base64, mediaType } = await downscaleImageForVision(files[n]);
+          const images = await visionTiles(files[n]);
           // eslint-disable-next-line no-await-in-loop
-          const text = await readShelfPhoto({ base64, mediaType });
+          const text = await readShelfPhoto({ images });
           for (const g of parseShelfScan(text)) {
             const key = flatTitle(g.title) || g.title;
             if (seenTitles.has(key) || guesses.length >= SHELF_SCAN_MAX_TOTAL) continue;
@@ -136,7 +136,7 @@ export default function ShelfScanSheet({ existingBooks = [], onAdd, onUndo, onCl
       if (!guesses.length && readErr) throw readErr;
       track('shelf_scan_read', { books: guesses.length });
       if (!guesses.length) {
-        setFailure({ title: '本を読み取れませんでした', message: '背表紙の文字が読めるくらいに近づいて、正面から撮ってください。' });
+        setFailure({ title: '本を読み取れませんでした', message: '横向きに持って、1 段ずつ近づいて撮ってください。' });
         setStep('pick');
         return;
       }
@@ -256,7 +256,7 @@ export default function ShelfScanSheet({ existingBooks = [], onAdd, onUndo, onCl
               {withPhraseBreaks('背表紙から書名を読み取ります。')}
             </p>
             <ul style={{ margin: 0, paddingLeft: 'var(--space-6)', display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', ...note, fontSize: 'var(--text-sub)' }}>
-              <li>{withPhraseBreaks('背表紙の文字が読めるくらいに近づいて、正面から')}</li>
+              <li>{withPhraseBreaks('横向きに持って、1 段ずつ正面から撮ると、よく読めます')}</li>
               <li>{withPhraseBreaks('1 枚で 40 冊まで。写真は 3 枚まで一度に選べます')}</li>
               <li>{withPhraseBreaks('入れる前に、1 冊ずつ確かめられます')}</li>
             </ul>

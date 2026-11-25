@@ -371,3 +371,9 @@
 - 費用: API の請求は 0。使うのはオーナーの Claude のサブスクの使える量（開発の作業と同じ枠）。1 時間 2 回まで × 20 冊
 - 前に戻すとき: Vercel に `ADVISOR_BOOKS_SUMMARY=api`（サーバーが Claude Haiku 5.5 の API で書く・1 冊 約 ¥0.1〜0.2）
 - 本の分野（`api/_bookFields.js`）は本を足したその場で決めるので、今までどおり API（1 冊 約 ¥0.1・本ごとに 1 回）
+
+## 12. 本棚の写真は Sonnet 5.5（2026-11-25・オーナー「精度も上げたい」）
+
+- `shelf_scan` だけ Claude Sonnet 5.5（`api/_aiRouting.js`）。細い背表紙の縦書きを読む力の差が大きく、1 人が使うのは本棚を入れるときの数回なので、1 回 約 ¥4（画像 2〜3 つ＝入力 約 5,000・出力 約 1,500）でも全体の原価はわずか。無料プランも同じ（月 10 回まで・最悪 1 人 約 ¥40）。
+- 写真は端末で縦に 2〜3 つに分けて送る（`src/lib/image.js` の `visionTiles`）。中継は無料プランの `shelf_scan` だけ画像 3 つまで通す（`FREE_SHELF_SCAN_MAX_IMAGES`）。前のアプリ（1 枚）もそのまま動く。
+- 戻すときは `AI_ROUTE_SHELF_SCAN=anthropic:claude-haiku-5-5`。
