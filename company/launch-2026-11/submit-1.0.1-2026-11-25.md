@@ -13,7 +13,7 @@
 2. **審査用のデモアカウントを、審査のあいだだけ有料に戻す**（公開の日に `canceled` にした場合だけ。審査の人がプランの機能を確かめられるように）：
    ```sql
    update public.subscriptions set status = 'active', current_period_end = now() + interval '30 days'
-   where user_id = (select id from auth.users where email = '<審査用のメール>');
+   where user_id = (select id from auth.users where email = 'orime.support+review@gmail.com');
    ```
    承認されたら、また `status = 'canceled'` に戻す（有料の数を汚さない）。
 
@@ -48,13 +48,13 @@ cd ~/leverage-reading && git pull && pbcopy < supabase_all_in_order.sql
 2. rls_enabled が f の行があれば、その表の名前を全部控えます（全部 t なら「全部 t」）。
 
 作業 3：審査用のアカウントの契約を見る（読むだけ）
-1. 新しいクエリで、下の SQL を貼って Run します（<審査用のメール> は私が書き換えます）。
+1. 新しいクエリで、下の SQL を貼って Run します（orime.support+review@gmail.com は私が書き換えます）。
    select s.status, s.current_period_end, s.period_type
    from public.subscriptions s join auth.users u on u.id = s.user_id
-   where u.email = '<審査用のメール>';
+   where u.email = 'orime.support+review@gmail.com';
 2. status が active なら何もしません。canceled か、行が無ければ、下の SQL を流す前に「流してよいですか？」と聞いてください。私が「はい」と答えたら流します。
    update public.subscriptions set status = 'active', current_period_end = now() + interval '30 days'
-   where user_id = (select id from auth.users where email = '<審査用のメール>');
+   where user_id = (select id from auth.users where email = 'orime.support+review@gmail.com');
    （行が無いときは update では直らないので、流さずに「行がありません」と報告してください）
 
 報告：作業 1 の結果（Success かエラーの文）／作業 2 の f の表（無ければ「全部 t」）／作業 3 の status と、流したかどうか。
