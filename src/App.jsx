@@ -3306,9 +3306,9 @@ function AuthedApp() {
     setArchived(book.id, on);
     setCurrent((c) => (c && c.id === book.id ? { ...c, archivedAt: on ? new Date().toISOString() : null } : c));
     track('book_archive', { on: !!on, status: book.status });
+    // 書名は入れない（ボタンと並ぶ 1 行で「『数…』」まで切れていた・その本の画面か長押しの場所で出るので本は分かる）
     toast.undo({
-      quote: book.title,
-      message: on ? 'をアーカイブしました。' : 'をアーカイブから戻しました。',
+      message: on ? 'アーカイブしました。' : 'アーカイブから戻しました。',
       onUndo: () => {
         setArchived(book.id, !on);
         setCurrent((c) => (c && c.id === book.id ? { ...c, archivedAt: on ? null : new Date().toISOString() } : c));
@@ -4976,6 +4976,16 @@ function AuthedApp() {
               saveProgress(progressBook.id, p);
               setCurrent((c) => (c && c.id === progressBook.id ? { ...c, currentPage: p.current, totalPages: p.unit === 'page' ? p.total : c.totalPages, progressUnit: p.unit } : c));
             }}
+            onClear={() => {
+              const b = books.find((x) => x.id === progressBook.id) || progressBook;
+              const prev = { unit: b.progressUnit || 'page', current: b.currentPage ?? null, total: b.totalPages ?? null };
+              const apply = (p) => {
+                saveProgress(b.id, p);
+                setCurrent((c) => (c && c.id === b.id ? { ...c, currentPage: p.current, totalPages: p.total, progressUnit: p.unit } : c));
+              };
+              apply({ unit: prev.unit, current: null, total: prev.total });
+              toast.undo({ message: '読んだところを消しました。', onUndo: () => apply(prev) });
+            }}
             onClose={() => setProgressBook(null)}
           />
         </Suspense>
@@ -5751,7 +5761,9 @@ function AuthedApp() {
                 {current.startDate && <><span aria-hidden="true">·</span><span style={{ whiteSpace: 'nowrap' }}>開始 {fmtDateJa(current.startDate)}</span></>}
                 {current.doneDate && <><span aria-hidden="true">·</span><span style={{ whiteSpace: 'nowrap' }}>読了 {fmtDateJa(current.doneDate)}</span></>}
                 {/* 🗄 アーカイブ中（2026-11-26・戻すのは「…」の「アーカイブから戻す」か、状態を変えたとき） */}
-                {current.archivedAt && <><span aria-hidden="true">·</span><span style={{ whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }}><Archive size="1em" aria-hidden="true" />アーカイブ中</span></>}
+                {current.archivedAt && <><span aria-hidden="true">·</span><span style={{ whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }}><Archive size="1em" aria-hidden="true" />アーカイブ中</span>
+                  {/* その場で 1 回で戻せる（「…」の奥だけだと戻し方が分からない・2026-11-26 ui-critic） */}
+                  <button type="button" onClick={() => toggleArchive(current, false)} aria-label="アーカイブから戻す" style={{ ...btnLink, minHeight: 'var(--tap-min)', margin: 'calc((var(--tap-min) - 1.5em) / -2) 0', padding: '0 var(--space-1)', fontSize: 'inherit' }}>戻す</button></>}
               </div>
               {/* 読書の時間は次の行に（「·」で続けると折り返した行の頭に「·」が来た） */}
               {(current.status === 'reading' || current.status === 'done') && (
@@ -7991,12 +8003,15 @@ function AuthedApp() {
       {filterSheetOpen && (
         <BottomSheet
           title="絞り込み"
+          // 閉じる言葉で、いま何冊に絞れているかを言う（閉じるまで結果が分からなかった・2026-11-26 全体の UX 監査）
+          dismissLabel={`${filtered.length} 冊を見る`}
           onClose={() => setFilterSheetOpen(false)}
           footer={activeFilterCount > 0 && (
+            // 条件を外すのは壊す操作ではないので赤くしない（2026-11-26）
             <button
               type="button"
               onClick={clearAllFilters}
-              style={{ ...btnGhost, color: 'var(--error)' }}
+              style={{ ...btnLinkQuiet, alignSelf: 'center' }}
             >
               条件をクリア（{activeFilterCount}）
             </button>

@@ -2963,8 +2963,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           )}
           <div ref={messagesEndRef} />
           {/* AI 免責注記（App Store 審査ガイドライン対応 + 誠実な期待値設定）。固定表示にすると
-              会話の面積を削るので、会話の流れの最後（空の画面・答えの下）に置く。 */}
-          {historyLoaded && !busy && (isEmpty ? ((!input.trim() || firstDayDraft) && memoStatsLoaded && (ownMemoTotal > 0 || memoStatsFailed) && !planOut && !memoOnly && !(scopeIds.length > 0 && scopeMemoCount === 0)) : (lastIsAssistant && !lastIsMemoAnswer && !visibleMessages[visibleMessages.length - 1]?.notice && !visibleMessages[visibleMessages.length - 1]?.error)) && (
+              会話の面積を削るので、会話の流れの最後（空の画面・答えの下）に置く。
+              話し相手（本・著者・数冊）を選んだ空の画面は、見出しの下の 1 行（scopeNote）に誤りの注意もまとめたので出さない（2026-11-26）。 */}
+          {historyLoaded && !busy && (isEmpty ? ((!input.trim() || firstDayDraft) && scopedKind.kind === 'all' && memoStatsLoaded && (ownMemoTotal > 0 || memoStatsFailed) && !planOut && !memoOnly && !(scopeIds.length > 0 && scopeMemoCount === 0)) : (lastIsAssistant && !lastIsMemoAnswer && !visibleMessages[visibleMessages.length - 1]?.notice && !visibleMessages[visibleMessages.length - 1]?.error)) && (
             <p style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', marginTop: 'var(--space-6)', marginRight: 0, marginBottom: 0, marginLeft: isEmpty ? 0 : ANSWER_COLUMN, lineHeight: 1.5 }}>
               AI の答えには誤りが含まれることがあります
             </p>

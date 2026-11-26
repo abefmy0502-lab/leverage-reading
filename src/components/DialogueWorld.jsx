@@ -7,11 +7,11 @@
 //   ここではトークンを使わない（話し相手を選ぶ・下書きを入れる・重ねるまで）。送るのは本人。
 import { appNow } from '../lib/appNow';
 import { useMemo } from 'react';
-import { ChevronRight, UserRound } from 'lucide-react';
+import { BookCopy, ChevronRight, UserRound } from 'lucide-react';
 import MiniCover from './MiniCover';
 import { withPhraseBreaks } from './TightBubble';
 import { useAllMemoRows } from '../hooks/useAllMemoRows';
-import { btnLink, btnLinkQuiet, groupTitle, scrollFade } from '../styles/ui';
+import { btnLink, groupTitle, scrollFade } from '../styles/ui';
 import { talkBooks, talkAuthors, rediscoverCard, shortBookTitle } from '../lib/dialogueWorld';
 import { localFavoriteAuthors } from '../lib/favoriteAuthors';
 import { openOverlap } from '../lib/overlap';
@@ -74,7 +74,9 @@ export default function DialogueWorld({ books = [], memoBookIds = null, userId =
           ))}
         </ul>
         {list.length >= 2 && (
-          <button type="button" onClick={() => { track('dialogue_pick', { kind: 'several' }); onPickSeveral?.(); }} style={{ ...btnLinkQuiet, alignSelf: 'flex-start', minHeight: 'var(--tap-min)', marginLeft: 'calc(-1 * var(--space-1))' }}>
+          // 著者のチップと同じ枠のチップ（灰の文字だと節の見出しに見えた・2026-11-26 全体の UX 監査）
+          <button type="button" onClick={() => { track('dialogue_pick', { kind: 'several' }); onPickSeveral?.(); }} style={{ display: 'inline-flex', alignItems: 'center', alignSelf: 'flex-start', gap: 'var(--space-1)', minHeight: 'var(--tap-min)', padding: '0 var(--space-3)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'transparent', color: 'var(--text)', fontSize: 'var(--text-sub)', cursor: 'pointer', fontFamily: 'inherit' }}>
+            <BookCopy size="1em" aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
             2 冊を選んで、考えをぶつける
           </button>
         )}

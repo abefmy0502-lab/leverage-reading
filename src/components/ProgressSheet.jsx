@@ -14,7 +14,7 @@ const numInput = { ...inputStyle, fontVariantNumeric: 'tabular-nums' };
 const digits = (v) => String(v || '').replace(/[^\d０-９]/g, '').replace(/[０-９]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0xFEE0)).slice(0, 5);
 
 // book: 本（currentPage / totalPages / progressUnit）・infoPages: 本の情報の総ページ（無ければ 0）
-export default function ProgressSheet({ book, infoPages = 0, onSave, onClose }) {
+export default function ProgressSheet({ book, infoPages = 0, onSave, onClear, onClose }) {
   const [unit, setUnit] = useState(book?.progressUnit === 'percent' ? 'percent' : 'page');
   const [current, setCurrent] = useState(book?.currentPage != null ? String(book.currentPage) : '');
   const [total, setTotal] = useState(book?.totalPages ? String(book.totalPages) : infoPages ? String(infoPages) : '');
@@ -22,8 +22,11 @@ export default function ProgressSheet({ book, infoPages = 0, onSave, onClose }) 
   const v = cleanProgress({ unit, current, total });
   const canSave = v.current != null;
   const over = unit === 'page' && v.total != null && Number(current) > v.total;
-  const save = () => { if (!canSave) return; onSave(v); onClose(); };
-  const clear = () => { onSave({ unit, current: null, total: unit === 'page' ? v.total : null }); onClose(); };
+  const overPct = unit === 'percent' && Number(current) > 100;
+  // ％で保存しても、本の総ページの記録は残す（2026-11-26 ui-critic）
+  const save = () => { if (!canSave) return; onSave(unit === 'percent' ? { ...v, total: book?.totalPages ?? null } : v); onClose(); };
+  // 消すのは親（元に戻すつきの知らせ）に任せる
+  const clear = () => { onClear?.(); onClose(); };
   const onKey = (e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); save(); } };
   return (
     <BottomSheet
@@ -39,7 +42,8 @@ export default function ProgressSheet({ book, infoPages = 0, onSave, onClose }) 
         {/* 単位（ページ｜％）。電子書籍は画面の大きさでページが変わるので％で */}
         <div role="radiogroup" aria-label="記録の単位" style={segTrack}>
           {[{ v: 'page', l: 'ページ' }, { v: 'percent', l: '％（電子書籍）' }].map((o) => (
-            <button key={o.v} type="button" role="radio" aria-checked={unit === o.v} onClick={() => setUnit(o.v)} style={segOption(unit === o.v)}>
+            // 単位を替えたら数を空にする（ページの 120 が％の 100 として保存されないように・2026-11-26 ui-critic）
+            <button key={o.v} type="button" role="radio" aria-checked={unit === o.v} onClick={() => { if (unit !== o.v) setCurrent(''); setUnit(o.v); }} style={segOption(unit === o.v)}>
               {o.l}
             </button>
           ))}
@@ -59,10 +63,11 @@ export default function ProgressSheet({ book, infoPages = 0, onSave, onClose }) 
         ) : (
           <label>
             <span style={label}>読んだところ（％）</span>
-            <input type="text" inputMode="numeric" autoFocus value={current} onChange={(e) => setCurrent(digits(e.target.value).slice(0, 3))} onKeyDown={onKey} maxLength={3} placeholder="例：45" style={{ ...numInput, maxWidth: 160 }} />
+            <input type="text" inputMode="numeric" autoFocus value={current} onChange={(e) => setCurrent(digits(e.target.value).slice(0, 3))} onKeyDown={onKey} maxLength={3} placeholder="例：45" style={{ ...numInput, width: 'calc(50% - var(--space-2))' }} />
           </label>
         )}
         {over && <p role="status" style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>総ページより先なので、{v.total} ページとして保存します。</p>}
+        {overPct && <p role="status" style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>100％ として保存します。</p>}
         {book?.currentPage != null && (
           <button type="button" onClick={clear} style={{ ...btnLinkQuiet, alignSelf: 'flex-start', marginLeft: 'calc(-1 * var(--space-1))' }}>記録を消す</button>
         )}

@@ -83,9 +83,10 @@ export function scopeHeading(sk) {
 /** 話し相手の下の 1 行（AI の解釈であること）。 */
 export function scopeNote(sk) {
   // 答えのもと（メモ N 件）は上の行が言うので、ここは AI の解釈であることだけ（2026-11-25 ui-critic）。
-  if (sk.kind === 'book') return 'AI が本の語り口をまねて答えます。著者本人の言葉ではありません。';
-  if (sk.kind === 'author') return 'AI が著者の語り口をまねて答えます。著者本人の言葉ではありません。';
-  if (sk.kind === 'multi') return '本ごとの見方を並べ、ぶつかるところも見せます。AI の解釈で、著者本人の言葉ではありません。';
+  // 誤りの注意もここに 1 行でまとめる（下の「AI の答えには誤りが…」と 2 か所に分かれていた・2026-11-26 全体の UX 監査）。
+  if (sk.kind === 'book') return 'AI が本の語り口をまねた答えです。著者本人の言葉ではありません。誤りも含まれます。';
+  if (sk.kind === 'author') return 'AI が著者の語り口をまねた答えです。著者本人の言葉ではありません。誤りも含まれます。';
+  if (sk.kind === 'multi') return '本ごとの見方を並べ、ぶつかるところも見せます。AI の解釈で、著者本人の言葉ではありません。誤りも含まれます。';
   return '';
 }
 

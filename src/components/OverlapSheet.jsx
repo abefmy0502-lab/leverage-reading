@@ -150,7 +150,6 @@ export default function OverlapSheet({ source, targetId = null, books = [], onCl
     <BottomSheet
       title="重なり"
       dismissLabel="キャンセル"
-      subheader={<p style={{ ...meta, color: 'var(--text-2)' }}>{withPhraseBreaks('2 つの記録を重ねて、自分の答えを書きます')}</p>}
       onClose={onClose}
       beforeClose={async () => !dirty || saving || !!(await confirm({ title: '書いた答えを残していません', message: '閉じると、書いた答えは消えます。', confirmLabel: '破棄する', cancelLabel: '書き続ける', danger: true }))}
       footer={choosing ? null : (
@@ -215,8 +214,8 @@ export default function OverlapSheet({ source, targetId = null, books = [], onCl
               )}
               {!aiPaused && ai.status === 'idle' && (
                 <>
-                  <button type="button" onClick={askAi} style={btnGhost}>AI に見てもらう</button>
-                  <p style={meta}>{withPhraseBreaks('2 つのメモの文だけを材料に、共通点・違い・問いを 1 つずつ。答えは書きません。1 回 約 1 トークン。')}</p>
+                  {/* 説明の 2 行はやめ、量だけボタンに（自分の答えの欄を最初の画面に入れる・2026-11-26 全体の UX 監査） */}
+                  <button type="button" onClick={askAi} style={btnGhost}>AI に見てもらう<span style={{ fontWeight: 400, color: 'var(--text-2)', marginLeft: 'var(--space-2)' }}>約 1 トークン</span></button>
                 </>
               )}
               {ai.status === 'loading' && (

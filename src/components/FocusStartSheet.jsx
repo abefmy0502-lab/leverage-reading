@@ -127,9 +127,7 @@ export default function FocusStartSheet({ book = null, onStart, onClose, initial
             </p>
           </div>
         )}
-        <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-          {withPhraseBreaks('おわるときは「おわる」を長く押します。')}
-        </p>
+        {/* 「おわるときは長く押す」の説明はやめた（集中モードで 1 回押すと知らせで分かる・DESIGN §0・2026-11-26 全体の UX 監査） */}
       </div>
     </BottomSheet>
   );
