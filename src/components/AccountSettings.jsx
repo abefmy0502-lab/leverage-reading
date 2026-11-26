@@ -49,7 +49,7 @@ import { REFERRAL_ON, REFERRAL_CODE, referralMessage, shareReferral } from '../l
 import { usePaywall } from '../state/PaywallContext';
 import { planNameFor, planPeriodOf, trialRenewalLine, trialCancelNote, trialCancelByTime } from '../lib/trialNudge';
 import { FREE_TOKENS } from '../lib/tokens';
-import { FREE_OCR_PER_MONTH } from '../lib/tokenAmounts';
+import { FREE_OCR_PER_MONTH, remainingAnswersLabel } from '../lib/tokenAmounts';
 import { nextResetLabelJa } from '../lib/freeTrial';
 import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff, btnDanger, btnLink, input as uiInput, srOnly } from '../styles/ui';
 import { ChevronRight, Download as IcDownload, ExternalLink, RefreshCw as IcRefresh } from 'lucide-react';
@@ -1113,7 +1113,8 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
                     onClick={() => setUsageOpen(true)}
                     ariaLabel={`トークンの使い方を開く（${plan === 'trial' ? '無料期間' : '今月'}の残り ${fmtTokens(tokensRemaining)} / ${fmtTokens(tokenAllowance)} トークン）`}
                     // まだ使っていない（残り＝その月の分）ときは「戻ります」を出さない（戻るものが無い・2026-09-30）。
-                    sub={plan === 'trial' || tokensRemaining >= tokenAllowance ? null : <><span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}に</span> <span style={{ whiteSpace: 'nowrap' }}>{fmtTokens(tokenAllowance)} トークンに戻ります</span></>}
+                    // 1 行目の下に「AI の答え 約 N 回」（相談の上の行と同じ物差し＝トークンだけだと何回使えるか分からない・2026-11-26 全体の UX 監査）。
+                    sub={<><span style={{ display: 'block' }}><span style={{ whiteSpace: 'nowrap' }}>{`AI の答え ${remainingAnswersLabel(tokensRemaining)}`}</span></span>{plan === 'trial' || tokensRemaining >= tokenAllowance ? null : <><span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}に</span> <span style={{ whiteSpace: 'nowrap' }}>{fmtTokens(tokenAllowance)} トークンに戻ります</span></>}</>}
                     style={divider}
                   />
                 ) : tokensLoading ? (
@@ -1197,12 +1198,13 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
                     ariaLabel={`トークンの使い方を開く（今月の残り ${fmtTokens(tokensRemaining)} / ${fmtTokens(tokenAllowance)} トークン）`}
                     // まだ使っていない（残り＝その月の分）ときは「戻ります」を出さない（2026-09-30）。
                     // 🌱 はじめの月（アカウントを作った月）は、今月だけ多いことと来月からの量を（2026-10-09）。
-                    sub={freeFirstMonth && (tokenNextAllowance ?? FREE_TOKENS) === tokenAllowance
+                    // 1 行目の下に「AI の答え 約 N 回」（相談の上の行と同じ物差し・2026-11-26 全体の UX 監査）。
+                    sub={<><span style={{ display: 'block' }}><span style={{ whiteSpace: 'nowrap' }}>{`AI の答え ${remainingAnswersLabel(tokensRemaining)}`}</span></span>{(freeFirstMonth && (tokenNextAllowance ?? FREE_TOKENS) === tokenAllowance
                       // 来月も同じ量なら、同じ数を 2 回言わない（2026-10-30 点検）
                       ? <><span style={{ whiteSpace: 'nowrap' }}>はじめの 2 か月は</span> <span style={{ whiteSpace: 'nowrap' }}>{fmtTokens(tokenAllowance)} トークン</span><span style={{ whiteSpace: 'nowrap' }}>使えます</span></>
                       : freeFirstMonth
                       ? <><span style={{ whiteSpace: 'nowrap' }}>はじめの 2 か月は {fmtTokens(tokenAllowance)} トークン。</span><span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}に</span> <span style={{ whiteSpace: 'nowrap' }}>{fmtTokens(tokenNextAllowance ?? FREE_TOKENS)} トークンに戻ります</span></>
-                      : tokensRemaining >= tokenAllowance ? null : <><span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}に</span> <span style={{ whiteSpace: 'nowrap' }}>{fmtTokens(tokenNextAllowance ?? tokenAllowance)} トークンに戻ります</span></>}
+                      : tokensRemaining >= tokenAllowance ? null : <><span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}に</span> <span style={{ whiteSpace: 'nowrap' }}>{fmtTokens(tokenNextAllowance ?? tokenAllowance)} トークンに戻ります</span></>)}</>}
                     style={divider}
                   />
                 ) : tokensLoading ? (
