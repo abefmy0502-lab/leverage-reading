@@ -5436,11 +5436,12 @@ function AuthedApp() {
                 // ボタンが「作成中…」になり、その下にシートの形の骨組み → 書かれていくシートを出す。
                 const genHere = planGen && planGen.bookId === current.id;
                 return (
-                  <div style={{ marginTop: hasPlanFold ? 'var(--space-3)' : 'var(--space-6)' }}>
-                    {/* 枠の大きなボタンにせず、カードの 1 行（15/600・右に 1 回の目安・高さ 48）。主役は下の「読書を開始する」1 つ（2026-10-16 ui-critic 第 2 回）。 */}
+                  <div style={{ marginTop: hasPlanFold ? 'var(--space-2)' : 'var(--space-4)' }}>
+                    {/* 枠の大きなボタンにせず、カードの 1 行（15/600・右に 1 回の目安・高さ 48）。主役は下の「読書を開始する」1 つ（2026-10-16 ui-critic 第 2 回）。
+                        2026-11-26 全体の UX 監査: 枠も面も外した文字の 1 行（高さ 44）に＝主ボタン「読み始める」を 390×844 の最初の画面に収める。 */}
                     <button type="button" onClick={() => { if (statusChangedRef.current.id === current.id && Date.now() - statusChangedRef.current.at < STATUS_TAP_LOCK_MS) return; runStrategyInPlace(current); }} disabled={!!planGen}
                       aria-busy={genHere || undefined}
-                      style={{ width: '100%', minHeight: 'var(--btn-h)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', padding: 'var(--space-3) var(--space-4)', background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', fontFamily: 'inherit', textAlign: 'left', cursor: planGen ? 'default' : 'pointer', color: planGen ? 'var(--text-3)' : 'var(--text)' }}>
+                      style={{ width: '100%', minHeight: 'var(--tap-min)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', padding: 0, background: 'none', border: 'none', borderRadius: 0, fontFamily: 'inherit', textAlign: 'left', cursor: planGen ? 'default' : 'pointer', color: planGen ? 'var(--text-3)' : 'var(--text)' }}>
                       {/* 無料プランには押す前に有料と分かる印（「AI に答えてもらう（プラン）」と同じ作法・2026-10-09） */}
                       <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-sub)', fontWeight: 600, ...(planGen ? null : { color: 'var(--accent)' }) }}>{genHere ? '作成中…' : paywallFree ? '読書計画シートを作る（プラン）' : '読書計画シートを作る'}</span>
                       {!genHere && !paywallFree && planCostLine && planTokensOutId !== current.id && (
@@ -5996,7 +5997,7 @@ function AuthedApp() {
 
           {/* Action buttons */}
           {/* 読みたい・積読は上のカードとの間を 24 に（主ボタンを 390×844 の最初の画面に収める・2026-10-09 ui-critic）。 */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 'var(--space-6)', marginTop: isMemoPhase ? 'var(--space-8)' : 'var(--space-6)' }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 'var(--space-6)', marginTop: isMemoPhase ? 'var(--space-8)' : current.status === 'before' ? 'var(--space-4)' : 'var(--space-6)' }}>
             {/* 📷 読了にした直後だけ（控えめな副ボタン 1 つ・本を離れたら消える・SPEC §2-1）。 */}
             {current.status === 'done' && justDoneId === current.id && (
               <button
