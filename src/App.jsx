@@ -184,6 +184,7 @@ import ContextMenu from './components/ContextMenu';
 import PullToRefresh from './components/PullToRefresh';
 import { useHaptic } from './hooks/useHaptic';
 import { useMemoLinkFinder } from './hooks/useMemoLinkFinder';
+import { useOverlapDiscovery } from './hooks/useOverlapDiscovery';
 import { useEdgeSwipeBack, isBackBlocked, useBackBlocked } from './hooks/useEdgeSwipeBack';
 import { useHistoryBack, useBackLayer, useBackLayerCount, topBackLayer } from './hooks/useHistoryBack';
 import { useKeyboardOpen } from './hooks/useKeyboardOpen';
@@ -1715,6 +1716,8 @@ function AuthedApp() {
   });
   // 🔗 ホームのメモを書くを開いたら、似たメモを探す準備をしておく（保存したときに似たメモがあれば、知らせを「保存しました。」だけに＝次の一歩を 1 つに・2026-10-10）。
   const homeLinkFinder = useMemoLinkFinder({ books, enabled: !!homeMemoBook || !!homeSavedMemo });
+  // 💡 重なりの発見: メモを保存したその場で、ほかの本と強く重なっていたら「『○○』と重なりました」＋「重ねて考える」（2026-11-26）
+  const overlapDiscovery = useOverlapDiscovery({ books });
   // 読書計画シートの関連書籍で、もう本棚にある本（同じ書名）は「追加済み」に（2026-11-17 本番の確かめで、
   //   本棚の本に「読みたいに追加」が出ていた。押しても重複の確かめで止まるが、先に分かるように）。
   const relatedOwnedTitles = useMemo(() => ({
@@ -6008,6 +6011,7 @@ function AuthedApp() {
               )}
               <section aria-labelledby="detail-memo-title" style={{ scrollMarginTop: 'var(--space-4)' }}>
                 <BookMemoList
+                  onMemoCreated={overlapDiscovery.announce}
                   heading={{ id: 'detail-memo-title', label: 'メモ', style: detailH2Style }}
                   bookId={current.id}
                   bookTitle={current.title}
@@ -6296,6 +6300,7 @@ function AuthedApp() {
                 }
                 // 保存確定の手応え（カード式エディタ経由と体験を揃える）。
                 haptic.success();
+                if (result?.id && current?.id) overlapDiscovery.announce({ id: result.id, bookId: current.id, text: result.text ?? payload?.text ?? '' });
                 // 🔗 ほかの本で似たことを書いていたら、メモの一覧の上に出す（BookMemoList の savedMemo）。
                 //   写真から書き起こしたメモなら、その下に通知の案内も 1 回だけ（まだ決めていない人だけ・NotifyOptInCard・2026-10-10）。
                 if (result?.id && current?.id) setDetailSavedMemo({ id: result.id, bookId: current.id, text: result.text ?? payload?.text ?? '', nonce: Date.now(), fromPhoto: !!payload?.fromPhoto });
@@ -6369,6 +6374,7 @@ function AuthedApp() {
               haptic.success();
               // 🔗 ほかの本で似たことを書いていたら、閉じたあとのメモの一覧の上に出す（「保存して次へ」は書く画面の 1 行でも）。
               if (result?.id) setDetailSavedMemo({ id: result.id, bookId: current.id, text: result.text ?? payload?.text ?? '', nonce: Date.now() });
+              if (result?.id) overlapDiscovery.announce({ id: result.id, bookId: current.id, text: result.text ?? payload?.text ?? '' });
               // 「保存して次へ」は書く画面の「保存しました」で伝える（知らせが入力欄に重ならない）
               if (!opts.quiet) toast.success('メモを保存しました。');
               return result;
@@ -6984,6 +6990,7 @@ function AuthedApp() {
                 const b = homeMemoBook;
                 const actionText = (result?.text ?? payload?.text ?? '').trim();
                 if (result?.id && b?.id && actionText) setHomeSavedMemo({ id: result.id, bookId: b.id, text: actionText, nonce: Date.now() });
+                if (result?.id && b?.id && actionText) overlapDiscovery.announce({ id: result.id, bookId: b.id, text: actionText });
                 // シートが閉じ始めてから知らせを出す（本の詳細のメモを書くと同じ・2026-09-30）。
                 // ほかの本の似たメモをホームに出すときは、知らせに「行動に追加」を付けない（次の一歩は似たメモの 1 行だけ）。
                 const hasLinks = !!(result?.id && b?.id && actionText) && homeLinkFinder.find({ text: actionText, bookId: b.id, memoId: result.id }).length > 0;

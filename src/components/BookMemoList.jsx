@@ -262,7 +262,7 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
 // books: 本棚の本（本と本がつながる＝ほかの本の書名・表紙に使う）。
 // savedMemo: いま保存したメモ { id, bookId, text, nonce }（メモを書くシート・全画面の入力で保存したとき・App が渡す）。
 //   ほかの本で似たことを書いていれば、一覧の上に「いま書いたメモと似たメモ」を 1 枚（次に保存するか、本を離れるまで）。
-export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summaryText = '', onSaveSummary, onMakeAction, onShareMemo, afterList = null, focusMemoId = null, editFocusedMemo = false, onEditFocusedOpened, onWriteMemo, books = [], savedMemo = null, heading = null, purposeText = '' }) {
+export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summaryText = '', onSaveSummary, onMakeAction, onShareMemo, afterList = null, focusMemoId = null, editFocusedMemo = false, onEditFocusedOpened, onWriteMemo, books = [], savedMemo = null, heading = null, purposeText = '', onMemoCreated = null }) {
   // 書きかけのまとめがあるときだけ、はじめから開く。最初に 1 回だけ決める（保存して控えが消えると欄が勝手に畳まれていた・2026-11-25 点検）。
   const [summaryOpenInit] = useState(() => { const d = readSummaryDraft(bookId); return d != null && d !== (summaryText || ''); });
   // 並び順は端末に覚える（本を開くたびに「ページ順」に戻っていた・2026-11-26）。
@@ -515,6 +515,8 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
     const result = await createMemo(payload);
     haptic.success();
     if (result?.id) setLocalSaved({ id: result.id, bookId, text: result.text ?? payload?.text ?? '', nonce: Date.now() });
+    // 💡 重なりの発見（App の useOverlapDiscovery・2026-11-26）
+    if (result?.id) onMemoCreated?.({ id: result.id, bookId, text: result.text ?? payload?.text ?? '' });
     if (opts.quiet) {
       if (result?.id) {
         setJustAddedId(result.id);
