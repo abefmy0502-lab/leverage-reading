@@ -29,7 +29,9 @@ const slides = [
     title: '読むほど、自分だけの相談相手が育つ',
     // 行動は会話で決める（2026-09-30）ので「一歩まで答える」とは約束しない。
     // 2026-10-12 ui-critic: 主語（何が答えるか）を出し、詰め込みを減らす。
-    body: '心に残った一文をメモしておくと、困ったときに、そのメモから答えと明日からできる一歩が返ってきます。',
+    body: '心に残った一文をメモしておくと、困ったときに、そのメモから答えが返ってきます。',
+    // 文だけでなく、答えの姿を小さく見せる（メモ → 相談 → 答えの根拠になる・2026-11-26 全体の UX 監査「感動の芯が見えない」）。
+    sample: true,
   },
   {
     // 👤 プロフィール（2026-11-21 オーナー「アカウント作成ができるようになりたい」・登録直後・飛ばせる）。
@@ -51,6 +53,28 @@ const slides = [
     body: '読んだ本の、心に残った一文から始められます。まだ読んだ本がなければ、最初の 1 冊から探せます。',
   },
 ];
+
+// 1 枚目の見本: 「3 か月前のメモ」→「相談」→「答え」（本物の相談の答えと同じ部品の形・引用は左に線・明朝）。
+//   中身はサンプル（読み上げでは 1 つの例として読む）。動かない・押せない。
+const sampleLabel = { margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.4 };
+function OnboardSample() {
+  return (
+    <figure aria-label="例: 3 か月前のメモが、相談の答えのもとになる" style={{ margin: 'var(--space-2) 0 0', padding: 'var(--space-4)', background: 'var(--fill)', borderRadius: 'var(--radius)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+      <div>
+        <p style={sampleLabel}>『1兆ドルコーチ』 · 3 か月前のあなた</p>
+        <p style={{ margin: 'var(--space-1) 0 0', paddingLeft: 'var(--space-3)', borderLeft: '2px solid var(--accent)', fontFamily: 'var(--font-read)', fontSize: 'var(--text-sub)', lineHeight: 1.6, color: 'var(--text)' }}>
+          {withPhraseBreaks('命令ではなく、質問で考えさせる。')}
+        </p>
+      </div>
+      <div>
+        <p style={sampleLabel}>相談「部下が自分から動かない」</p>
+        <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-sub)', lineHeight: 1.6, color: 'var(--text)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+          {withPhraseBreaks('指示を出す前に「どうすればうまくいくと思う？」と聞いてみましょう。')}
+        </p>
+      </div>
+    </figure>
+  );
+}
 
 // 「どこで知りましたか」の選択肢（analytics の sanitizer 適合＝≤32字の固定スラッグ）。
 const SOURCES = [['note', 'note'], ['x', 'X (Twitter)'], ['appstore', 'App Store検索'], ['friend', '知人'], ['other', 'その他']];
@@ -406,6 +430,7 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
           <p style={{ fontSize: 'var(--text-body)', color: 'var(--text-2)', lineHeight: 1.5, textAlign: 'left', margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere', textWrap: 'pretty' }}>
             {withPhraseBreaks(slide.body)}
           </p>
+          {slide.sample && <OnboardSample />}
           {slide.id === 'profile' && (
             <div style={{ paddingTop: 'var(--space-2)' }}>
               <ProfileForm value={profile} onChange={setProfile} showAvatar={SOCIAL_ON} showFavorite={!SOCIAL_ON} />

@@ -353,6 +353,23 @@ function HomeActionsRow({ summary, onOpen }) {
   );
 }
 
+// 💬 相談の 1 行（2026-11-26 全体の UX 監査「ホームに一番の価値＝積み重ねた相談相手が見えない」）。
+//   メモが 1 件以上あるときだけ、行動とすべての本の間に。2 行目は「あなたのメモ N 件から答えます」（相談の上の行と同じ言葉）。
+//   会話の欄ではない（ホームに相談のチャットは置かない＝2026-10-01 のまま）。押すと相談タブ。
+function HomeConsultRow({ count, onOpen }) {
+  const sub = count > 0 ? `あなたのメモ ${count}\u00a0件から答えます` : '';
+  return (
+    <button type="button" data-home-consult="" onClick={onOpen} aria-label={`相談。${sub}。相談を開く`} style={navRow}>
+      <MessageCircle size="1.2em" aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
+      <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+        <span style={{ whiteSpace: 'nowrap', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>相談</span>
+        {sub && <span style={{ marginTop: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{sub}</span>}
+      </span>
+      <ChevronRight size="1.2em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+    </button>
+  );
+}
+
 // 🌱 相談相手が育ちました（2026-10-10）: メモが 10 件になったのを見たあと 1 回だけ、題の下（育つまでの一行と同じ場所）に。
 //   見た目は育つまでの一行（芽 1.2em・--text-3＋13/--text-2）＋右に文字ボタン「相談してみる」と ×。押しても閉じても二度と出さない。
 //   7 日間無料はここではすすめない（ホームではすすめない・相談の画面の案内 ③ はそのまま）。
@@ -782,6 +799,12 @@ export default function HomeScreen({
                 summary={actionsSummary}
                 onOpen={(sm) => { track('home_actions_row', { kind: sm.kind, count: sm.count }); onOpenActions(); }}
               />
+              {navDivider}
+            </>
+          )}
+          {onOpenConsult && memoState.hasMemos && memoState.count > 0 && (
+            <>
+              <HomeConsultRow count={memoState.count} onOpen={() => { track('home_consult_row', {}); onOpenConsult(); }} />
               {navDivider}
             </>
           )}

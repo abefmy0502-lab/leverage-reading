@@ -2694,7 +2694,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 <p style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>{scopedKind.kind === 'all' ? 'たとえば' : '話しかけてみる'}</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
                   {/* 相談例は待たずに出す（過去の相談が読めていれば「前に相談した…」も入る・2026-11-23） */}
-                  {shownExamples.map(({ text: q, label, kind }) => {
+                  {/* すべての本に相談するとき（下に「読んできた本から」「本と話す」がある）は 2 つまで（2026-11-26 全体の UX 監査「同じ重さの要素が多すぎる」）。 */}
+                  {(scopedKind.kind === 'all' && !firstDayDraft ? shownExamples.slice(0, 2) : shownExamples).map(({ text: q, label, kind }) => {
                     const picked = !!firstDayDraft && q === input.trim();
                     return (
                     <button
@@ -2748,7 +2749,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               <SkeletonBlock width="70%" height={26} radius="var(--radius)" style={{ marginBottom: 'var(--space-6)' }} />
               <SkeletonBlock width={64} height={18} radius="var(--radius)" style={{ marginBottom: 'var(--space-2)' }} />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-                {[0, 1, 2].map((i) => <SkeletonBlock key={i} width="100%" height={69} radius="var(--radius)" />)}
+                {[0, 1].map((i) => <SkeletonBlock key={i} width="100%" height={69} radius="var(--radius)" />)}
               </div>
             </div>
           )}

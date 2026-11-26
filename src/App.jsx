@@ -5841,8 +5841,37 @@ function AuthedApp() {
 
           {(current.status === "reading" || current.status === "done") ? (
             <div style={{ marginTop: 'var(--space-6)', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
-              {/* SPEC §2 の並び: メモ一覧 → この本に相談する → この本のまとめ → 行動（→ 計画・AI 解析は下）。
-                  「この本に相談する」は BookMemoList の afterList で一覧のすぐ下（まとめの上）に置く。 */}
+              {/* SPEC §2 の並び: この本に相談する → メモ一覧 → （読了の問い）→ この本のまとめ → 行動（→ 計画・AI 解析は下）。
+                  2026-11-26 に「この本に相談する」をメモ一覧の上へ（メモが 30 件あると一覧の下に沈んでいた）。 */}
+              {/* 💬 この本に相談する（メモが 1 件以上のとき・メモ一覧の上＝メモが増えても遠くならない・2026-11-26 全体の UX 監査）。 */}
+              {(currentMemoOps.memos || []).length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    // 本のページを撮る（初回ガイド）から来た本は、「相談してみる」と同じ（自分のメモから作った相談を入れて開く）。
+                    if (ocrBridgeActiveFor(current.id)) { openOcrConsult(current, { scoped: true }); return; }
+                    setScopePreset({ bookIds: [current.id], nonce: Date.now() });
+                    setView('list');
+                    setAiSubTab('brain');
+                    setTab('ai');
+                  }}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', gap: 'var(--space-3)', textAlign: 'left',
+                    padding: 'var(--space-3) var(--space-4)', minHeight: 'calc(var(--space-12) + var(--space-2))', cursor: 'pointer', fontFamily: 'inherit',
+                    background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)',
+                    // em のアイコンを文字に合わせる（ボタンの既定の文字の大きさだと、文字最大でアイコンだけ育たなかった）。
+                    fontSize: 'var(--text-body)',
+                  }}
+                >
+                  <MessageCircle size="1.2em" aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
+                  <span style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ display: 'block', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>この本に相談する</span>
+                    {/* 何を根拠に答えるか（相談の上の行と同じ言い方・2026-11-26） */}
+                    <span style={{ display: 'block', marginTop: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>{`この本のメモ ${(currentMemoOps.memos || []).length}\u00a0件から答えます`}</span>
+                  </span>
+                  <ChevronRight size="1.2em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+                </button>
+              )}
               <section aria-labelledby="detail-memo-title" style={{ scrollMarginTop: 'var(--space-4)' }}>
                 <BookMemoList
                   heading={{ id: 'detail-memo-title', label: 'メモ', style: detailH2Style }}
@@ -5860,38 +5889,13 @@ function AuthedApp() {
                   onWriteMemo={() => setQuickMemoOpen(true)}
                   books={books}
                   savedMemo={detailSavedMemo}
-                  afterList={
-                    // 📗 読了の 3 つの問いが出ている間は「この本に相談する」→ 問いのカード（間 12・「この本のまとめ」より上＝SPEC §2）。
+                  afterList={current.status !== 'done' || detailMemoEmpty ? null : (
+                    // 📗 読了の 3 つの問い（メモ一覧のすぐ下・「この本のまとめ」より上＝SPEC §2）。
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-                    {/* 💬 この本だけを相談相手にする（相談相手の絞り込み・2026-09-26）。 */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        // 本のページを撮る（初回ガイド）から来た本は、「相談してみる」と同じ（自分のメモから作った相談を入れて開く）。
-                        if (ocrBridgeActiveFor(current.id)) { openOcrConsult(current, { scoped: true }); return; }
-                        setScopePreset({ bookIds: [current.id], nonce: Date.now() });
-                        setView('list');
-                        setAiSubTab('brain');
-                        setTab('ai');
-                      }}
-                      style={{
-                        width: '100%', display: 'flex', alignItems: 'center', gap: 'var(--space-3)', textAlign: 'left',
-                        padding: 'var(--space-3) var(--space-4)', minHeight: 'calc(var(--space-12) + var(--space-2))', cursor: 'pointer', fontFamily: 'inherit',
-                        background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)',
-                        // em のアイコンを文字に合わせる（ボタンの既定の文字の大きさだと、文字最大でアイコンだけ育たなかった）。
-                        fontSize: 'var(--text-body)',
-                      }}
-                    >
-                      <MessageCircle size="1.2em" aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
-                      <span style={{ flex: 1, minWidth: 0 }}>
-                        <span style={{ display: 'block', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>この本に相談する</span>
-                      </span>
-                      <ChevronRight size="1.2em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
-                    </button>
                     {current.status === 'done' && !detailMemoEmpty && doneQuestionBlock}
                     {current.status === 'done' && !detailMemoEmpty && beforeAfterBlock}
                     </div>
-                  }
+                  )}
                 />
               </section>
               {/* 📗 読了の 3 つの問い → 読む前に書いたこと（2026-10-11・SPEC §2・AI なし・lib/doneReflection.js） */}
