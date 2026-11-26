@@ -2523,7 +2523,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
                     </button>
                   )}
                   {/* Amazon + 楽天 の両方（統一）は控えめな文字リンク。開示は推薦の最後にまとめて 1 回 */}
-                  <AdvisorStoreLinks book={rec} />
+                  <AdvisorStoreLinks book={rec} share />
                 </div>
               </div>
             );

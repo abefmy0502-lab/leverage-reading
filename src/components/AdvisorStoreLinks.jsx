@@ -2,15 +2,34 @@
 // 主役は「読みたいに追加」なので、ストアは控えめな文字リンク（btnLink: --accent・15/600・高さ 44・枠なし・↗）。
 // 会話中のカード（BookAdvisor）と過去の AI 選書の中身（AdvisorHistory）で同じ部品を使う（2026-10-04 に BookAdvisor から切り出し）。
 // 紹介料の開示はカード群の下にまとめて 1 回（ここでは出さない）。
-import { ExternalLink as IcExternal } from 'lucide-react';
+import { ExternalLink as IcExternal, Share as IcShare } from 'lucide-react';
 import { getRakutenLink, RAKUTEN_LINK_REL } from '../lib/rakutenLink';
 import { getAmazonLink, handleAmazonClick, AMAZON_LINK_REL } from '../lib/amazonLink';
 import { btnLink } from '../styles/ui';
+import { advisorShareMessage, shareReferral } from '../lib/referral';
+import { isAppStoreLive, storeLinkFor } from '../lib/appStore';
+import { SITE_URL } from '../lib/legalLinks';
+import { track } from '../lib/analytics';
+import { useToast } from './Toast';
 
 const storeLink = { ...btnLink, gap: 'var(--space-1)', textDecoration: 'none', whiteSpace: 'nowrap', boxSizing: 'border-box' };
 
-export default function AdvisorStoreLinks({ book }) {
+// share: 「共有」も出す（AI 選書で見つけた本を人に教える・本と核心の 1 文と orime の入手先だけ・悩みは入れない・2026-11-26）。
+export default function AdvisorStoreLinks({ book, share = false }) {
   const title = book?.title || '';
+  const toast = useToast();
+  const onShare = async (e) => {
+    e.stopPropagation();
+    track('advisor_share', { action: 'open' });
+    const msg = advisorShareMessage(book, isAppStoreLive ? storeLinkFor('share_advisor') : `${SITE_URL}/lp`);
+    if (!msg || await shareReferral(msg)) return;
+    try {
+      await navigator.clipboard?.writeText(msg);
+      toast.success('本を教える文をコピーしました。');
+    } catch {
+      toast.error('コピーできませんでした。もう一度押してください。');
+    }
+  };
   const amazon = getAmazonLink(book);
   const rakuten = getRakutenLink(book);
   return (
@@ -33,6 +52,11 @@ export default function AdvisorStoreLinks({ book }) {
       >
         楽天ブックス<IcExternal size="1.1em" aria-hidden="true" />
       </a>
+      {share && (
+        <button type="button" onClick={onShare} aria-label={`『${title}』を共有（人に教える）`} style={{ ...storeLink, background: 'none', border: 'none', cursor: 'pointer', marginLeft: 'auto', marginRight: 'calc(-1 * var(--space-1))' }}>
+          共有<IcShare size="1.1em" aria-hidden="true" />
+        </button>
+      )}
     </div>
   );
 }

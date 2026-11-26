@@ -319,7 +319,7 @@ function RecommendationCard({ book, index = 0, isAdded, isChecking, onAdd }) {
           </button>
         )}
         {/* Amazon + 楽天 の両方（会話中のカードと同じ文字リンク）。開示はカード群の下にまとめて出す。 */}
-        <AdvisorStoreLinks book={book} />
+        <AdvisorStoreLinks book={book} share />
       </div>
     </div>
   );

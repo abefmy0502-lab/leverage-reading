@@ -83,6 +83,7 @@ begin
       'dismiss', (select count(*) from public.analytics_events where event = 'return_moment' and props->>'action' = 'dismiss')
     ),
     'invite', (select count(*) from public.analytics_events where event = 'invite_share'),
+    'advisor_share', (select count(*) from public.analytics_events where event = 'advisor_share'),
     'review_link', (select count(*) from public.analytics_events where event = 'review_link')
   ) into result;
   return result;

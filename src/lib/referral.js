@@ -30,6 +30,23 @@ export function inviteMessage(url) {
   ].filter(Boolean).join('\n');
 }
 
+// 📚 AI 選書で見つけた本を人に教える文（2026-11-26 継続の点検・体験した人の声「人に話したくなる成果が無い・AI 選書の結果を共有できない」）。
+//   入れるのは本（書名・著者）と、AI が書いたこの本の核心の 1 文だけ。本人の悩み・聞き取りの答え・メモは入れない（その人の事情）。
+//   最後に orime の入手先。誇らない・特典なし。
+export function advisorShareMessage(book, url) {
+  const title = String(book?.title || '').trim();
+  if (!title) return '';
+  const author = String(book?.author || '').trim();
+  const core = String(book?.core || '').replace(/\s+/g, ' ').trim();
+  const coreLine = core ? (core.length > 80 ? `${core.slice(0, 79)}…` : core) : '';
+  return [
+    `『${title}』${author ? `（${author}）` : ''}`,
+    coreLine,
+    'orime の AI 選書で、いまの悩みに合う 1 冊として見つけました。',
+    url,
+  ].filter(Boolean).join('\n');
+}
+
 // 端末の共有シートで渡す。渡せなければ false（呼び手がコピーに切り替える）。
 export async function shareReferral(message) {
   if (!message) return false;

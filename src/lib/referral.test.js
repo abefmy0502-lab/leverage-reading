@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { referralMessage, shareReferral, inviteMessage } from './referral';
+import { referralMessage, shareReferral, inviteMessage, advisorShareMessage } from './referral';
 
 describe('友だちに紹介する（2026-10-22）', () => {
   it('コードが無ければ文は空・あればコードと使い方とサイトの URL', () => {
@@ -24,5 +24,18 @@ describe('orime を友だちに教える（2026-11-26）', () => {
     expect(m.endsWith('https://apps.apple.com/jp/app/orime/id1')).toBe(true);
     expect(m).not.toMatch(/コード/);
     expect(m).not.toMatch(/Orime|ORIME/);
+  });
+});
+
+describe('AI 選書の本を教える（2026-11-26）', () => {
+  it('書名・著者・核心の 1 文と URL だけ（悩みは入れない・長い核心は切る）', () => {
+    const m = advisorShareMessage({ title: '考え方', author: '稲盛和夫', core: 'あ'.repeat(100), concern: '上司とうまくいかない' }, 'https://x.example');
+    expect(m.startsWith('『考え方』（稲盛和夫）')).toBe(true);
+    expect(m).toContain(`${'あ'.repeat(79)}…`);
+    expect(m).not.toContain('上司');
+    expect(m).toContain('orime の AI 選書');
+    expect(m.endsWith('https://x.example')).toBe(true);
+    expect(advisorShareMessage({ title: '' }, 'u')).toBe('');
+    expect(advisorShareMessage({ title: 'A' }, 'u')).toBe('『A』\norime の AI 選書で、いまの悩みに合う 1 冊として見つけました。\nu');
   });
 });
