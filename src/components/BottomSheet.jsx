@@ -37,6 +37,7 @@ const sheetWrap = {
   fontFamily: 'var(--font-ui)',
 };
 
+// dismissAccent: 右上の言葉を「完了」と同じ栗色・600 にする（「N 冊を見る」のように決める言葉のとき・既定は「完了」だけ）。
 // dismissLabel=null で右上の閉じるボタンを出さない。dismissible=false のあいだは
 // 背景タップ・Esc・下スワイプ・ハンドルでも閉じない（取り込み中など、途中で閉じると困るとき）。
 // layer='dialog': ほかのシート・設定の上に重ねる（AI に送る前の同意のシート＝メモを書くシート・設定の上から開く・2026-10-01）。
@@ -44,7 +45,7 @@ const sheetWrap = {
 // eyebrow: 題の上の小さな 1 行（書名など・メモを書くシートと同じ形・長ければ … で切る・2026-10-11）。
 // beforeClose: 閉じる前に確かめる（書きかけの変更があるときの「破棄しますか？」など）。false を返したら閉じない。
 //   前は閉じる動きのあとに確かめていたので、「編集を続ける」を選ぶとシートが見えないまま残り、押せなくなっていた（2026-11-20）。
-export default function BottomSheet({ title, eyebrow = '', onClose, beforeClose = null, children, footer, subheader = null, dismissLabel = '完了', dismissible = true, layer = null }) {
+export default function BottomSheet({ title, eyebrow = '', onClose, beforeClose = null, children, footer, subheader = null, dismissLabel = '完了', dismissible = true, layer = null, dismissAccent = null }) {
   const onTop = layer === 'dialog';
   // 開いている間は左端スワイプで画面を戻さない（書きかけが確認なしに消えないように）
   useBlockEdgeSwipe(true);
@@ -181,7 +182,7 @@ export default function BottomSheet({ title, eyebrow = '', onClose, beforeClose 
                   aria-hidden={!dismissible || undefined}
                   tabIndex={dismissible ? undefined : -1}
                   // 押せる範囲は 44 のまま、文字の右端を画面の余白 16 にそろえる（右寄せ）。
-                  style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', background: 'none', border: 'none', color: dismissLabel === '完了' ? 'var(--accent)' : 'var(--text-2)', fontSize: 'var(--text-body)', fontWeight: dismissLabel === '完了' ? 600 : 400, cursor: 'pointer', fontFamily: 'inherit', minHeight: 44, minWidth: 44, padding: 0, flexShrink: 0, marginLeft: 'auto', whiteSpace: 'nowrap', visibility: dismissible ? 'visible' : 'hidden' }}
+                  style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', background: 'none', border: 'none', color: (dismissAccent ?? dismissLabel === '完了') ? 'var(--accent)' : 'var(--text-2)', fontSize: 'var(--text-body)', fontWeight: (dismissAccent ?? dismissLabel === '完了') ? 600 : 400, cursor: 'pointer', fontFamily: 'inherit', minHeight: 44, minWidth: 44, padding: 0, flexShrink: 0, marginLeft: 'auto', whiteSpace: 'nowrap', visibility: dismissible ? 'visible' : 'hidden' }}
                 >
                   {dismissLabel}
                 </button>

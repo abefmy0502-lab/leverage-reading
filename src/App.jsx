@@ -5761,9 +5761,11 @@ function AuthedApp() {
                 {current.startDate && <><span aria-hidden="true">·</span><span style={{ whiteSpace: 'nowrap' }}>開始 {fmtDateJa(current.startDate)}</span></>}
                 {current.doneDate && <><span aria-hidden="true">·</span><span style={{ whiteSpace: 'nowrap' }}>読了 {fmtDateJa(current.doneDate)}</span></>}
                 {/* 🗄 アーカイブ中（2026-11-26・戻すのは「…」の「アーカイブから戻す」か、状態を変えたとき） */}
-                {current.archivedAt && <><span aria-hidden="true">·</span><span style={{ whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }}><Archive size="1em" aria-hidden="true" />アーカイブ中</span>
+                {current.archivedAt && <><span aria-hidden="true">·</span>
+                  {/* 「アーカイブ中 戻す」は 1 つの塊（折り返すとき「戻す」だけ次の行に落ちない・2026-11-26 ui-critic） */}
+                  <span style={{ whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }}><Archive size="1em" aria-hidden="true" />アーカイブ中
                   {/* その場で 1 回で戻せる（「…」の奥だけだと戻し方が分からない・2026-11-26 ui-critic） */}
-                  <button type="button" onClick={() => toggleArchive(current, false)} aria-label="アーカイブから戻す" style={{ ...btnLink, minHeight: 'var(--tap-min)', margin: 'calc((var(--tap-min) - 1.5em) / -2) 0', padding: '0 var(--space-1)', fontSize: 'inherit' }}>戻す</button></>}
+                  <button type="button" onClick={() => toggleArchive(current, false)} aria-label="アーカイブから戻す" style={{ ...btnLink, minHeight: 'var(--tap-min)', margin: 'calc((var(--tap-min) - 1.5em) / -2) 0 calc((var(--tap-min) - 1.5em) / -2) var(--space-1)', padding: '0 var(--space-1)', fontSize: 'inherit' }}>戻す</button></span></>}
               </div>
               {/* 読書の時間は次の行に（「·」で続けると折り返した行の頭に「·」が来た） */}
               {(current.status === 'reading' || current.status === 'done') && (
@@ -8005,6 +8007,7 @@ function AuthedApp() {
           title="絞り込み"
           // 閉じる言葉で、いま何冊に絞れているかを言う（閉じるまで結果が分からなかった・2026-11-26 全体の UX 監査）
           dismissLabel={`${filtered.length} 冊を見る`}
+          dismissAccent
           onClose={() => setFilterSheetOpen(false)}
           footer={activeFilterCount > 0 && (
             // 条件を外すのは壊す操作ではないので赤くしない（2026-11-26）
@@ -8019,7 +8022,8 @@ function AuthedApp() {
         >
           <p style={sheetLabel}>状態</p>
           <div style={sheetChips}>
-            {[{ key: 'all', label: 'すべて', count: stats.total }, ...SHELF_CHIP_ORDER.map((k) => STATUSES.find((st) => st.key === k)).filter(Boolean).map((s) => ({ key: s.key, label: s.label, count: stats[s.key] || 0 }))].map((s) => (
+            {/* 数はすべての本のチップの行と同じ（アーカイブを除く）・アーカイブがあればその チップも（2026-11-26 ui-critic） */}
+            {[{ key: 'all', label: 'すべて', count: chipStats.total }, ...SHELF_CHIP_ORDER.map((k) => STATUSES.find((st) => st.key === k)).filter(Boolean).map((s) => ({ key: s.key, label: s.label, count: chipStats[s.key] || 0 })), ...(chipStats.archived > 0 || statusFilter === STATUS_ARCHIVED ? [{ key: STATUS_ARCHIVED, label: ARCHIVED_LABEL, count: chipStats.archived || 0 }] : [])].map((s) => (
               <Chip key={s.key} size="select" active={statusFilter === s.key} aria-pressed={statusFilter === s.key} onClick={() => setStatusFilter(s.key)}>
                 {s.label}<span style={{ color: 'var(--text-2)', fontWeight: 400 }}>{s.count}</span>
               </Chip>

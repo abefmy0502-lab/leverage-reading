@@ -52,7 +52,7 @@ export default function ProgressSheet({ book, infoPages = 0, onSave, onClear, on
           <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-start' }}>
             <label style={{ flex: 1, minWidth: 0 }}>
               <span style={label}>いまのページ</span>
-              <input type="text" inputMode="numeric" autoFocus value={current} onChange={(e) => setCurrent(digits(e.target.value))} onKeyDown={onKey} maxLength={5} placeholder="例：120" aria-invalid={over || undefined} style={numInput} />
+              <input type="text" inputMode="numeric" autoFocus value={current} onChange={(e) => setCurrent(digits(e.target.value))} onKeyDown={onKey} maxLength={5} placeholder="例：120" style={numInput} />
             </label>
             <label style={{ flex: 1, minWidth: 0 }}>
               <span style={label}>総ページ</span>
