@@ -586,6 +586,8 @@ export default function ReadingRecord({
   //   onWriteMemo: 読書中・読了の本にメモを書く（振り返り › メモの「メモを書く」と同じシート）。
   //   onQuickstart: メモできる本がまだ無いとき（読んだ本の一文をメモする＝初日クイックスタート）。
   onWriteMemo = null,
+  // onWriteBookMemo(book): その本でメモを書くシート（知識の地図のメモの無い本）
+  onWriteBookMemo = null,
   onQuickstart = null,
 }) {
   const { user } = useAuth();
@@ -805,7 +807,7 @@ export default function ReadingRecord({
       )}
 
       {/* 🗺 知識の地図（2026-11-26・読書中・読了の本があればいつも・つながりが無くても分野の星座・components/KnowledgeMapCard.jsx）。 */}
-      <KnowledgeMapCard books={books} likely={(books || []).some((b) => b.status === 'reading' || b.status === 'done')} />
+      <KnowledgeMapCard books={books} onWriteMemo={onWriteBookMemo} likely={(books || []).some((b) => b.status === 'reading' || b.status === 'done')} />
 
       {/* 🏷 分野（分野の付いた本があるときだけ・押すと、すべての本をその分野で絞る）。 */}
       {fieldRecord.any && (

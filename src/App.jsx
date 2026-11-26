@@ -7390,6 +7390,7 @@ function AuthedApp() {
                   books={books}
                   // メモ 0 件のときの次の一歩（2026-11-23 ui-critic）
                   onWriteMemo={() => setAddNoteSheet('pick')}
+                  onWriteBookMemo={(b) => setHomeMemoBook(b)}
                   onQuickstart={() => { setQuickstartSeed(null); setShowQuickstart(true); }}
                   // やってみたことの「この結果を相談する」（行動の完了のその場と同じ下書き・相談相手はその本・2026-10-21）
                   onConsultAction={(a) => openConsultWith(actionResultQuestion(a.text, a.reflection), { bookIds: a.bookId ? [a.bookId] : null })}

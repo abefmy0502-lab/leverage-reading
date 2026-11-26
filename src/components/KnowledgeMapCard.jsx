@@ -19,6 +19,8 @@ import { btnLink, card } from '../styles/ui';
 const COVER_W = 36; // 点の表紙の幅（押せる範囲は外側のボタンで 44 以上）
 const FAINT = 0.6; // メモの無い本の表紙の濃さ（ほかにメモのある本があるときだけ）
 const titleOf = (b) => String(b?.title || '').trim();
+// 「・」を行の頭に出さない（記録の分野の行と同じ決まり）
+const glueMiddot = (t) => String(t || '').replace(/(.)・/g, '$1\u2060・');
 const quote = {
   margin: 0, fontFamily: 'var(--font-read)', fontSize: 'var(--text-sub)', lineHeight: 1.6, color: 'var(--text)',
   display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2, overflow: 'hidden',
@@ -42,13 +44,15 @@ function DotSample() {
 function LineSample({ dashed }) {
   return (
     <svg width="20" height="8" viewBox="0 0 20 8" aria-hidden="true" style={{ flexShrink: 0 }}>
-      <line x1="1" y1="4" x2="19" y2="4" stroke={dashed ? 'var(--text-3)' : 'var(--accent)'} strokeWidth={dashed ? 1.5 : 2} strokeDasharray={dashed ? '3 3' : undefined} strokeLinecap="round" />
+      {/* 見本は地図の選んでいない線と同じ色（栗色は選んだ本の線だけ・2026-11-26 ui-critic） */}
+      <line x1="1" y1="4" x2="19" y2="4" stroke={dashed ? 'var(--text-3)' : 'var(--border)'} strokeWidth={dashed ? 1.5 : 2} strokeDasharray={dashed ? '3 3' : undefined} strokeLinecap="round" />
     </svg>
   );
 }
 
 // likely: 地図が出そうか（読書中・読了の本が 1 冊以上）。メモを読み込んでいる間だけ形を出すかどうかに使う。
-export default function KnowledgeMapCard({ books = [], likely = false }) {
+// onWriteMemo(book): メモの無い本を選んだときの「この本のメモを書く」（メモを書くシートをその本で）
+export default function KnowledgeMapCard({ books = [], likely = false, onWriteMemo = null }) {
   const { user } = useAuth();
   const { rows, status } = useAllMemoRows({ userId: user?.id || null, books, active: !!user?.id });
   const map = useMemo(() => (status === 'ready' && rows ? buildKnowledgeMap({ rows, books }) : null), [status, rows, books]);
@@ -96,7 +100,7 @@ export default function KnowledgeMapCard({ books = [], likely = false }) {
     <section ref={sectionRef} data-knowledge-map="" aria-labelledby="knowledge-map-title" style={{ ...card, padding: 'var(--space-4)' }}>
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'space-between', columnGap: 'var(--space-3)' }}>
         <h3 id="knowledge-map-title" style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', margin: 0 }}>知識の地図</h3>
-        <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{`${map.nodes.length} 冊`}</span>
+        <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{`本 ${map.nodes.length} 冊`}</span>
       </div>
 
       {/* 地図: 線は SVG（読み上げには出さない＝下の一覧が同じ中身）・点は表紙のボタン */}
@@ -142,22 +146,26 @@ export default function KnowledgeMapCard({ books = [], likely = false }) {
             );
           })}
         </svg>
-        {/* 分野の名前（点のすぐ下・12/--text-2・選んだ本の分野は --text）。押せない（下の「同じ分野」から本を選ぶ） */}
+        {/* 分野の名前（点のすぐ下・12/--text 600）。押せない（下の「同じ分野」から本を選ぶ） */}
+        {/* 名前は選んだ本の分野だけ（ほかの分野は点だけ＝名前どうしが重ならない・2026-11-26） */}
         {map.hubs.map((h, hi) => {
           const p = hubAt[hi];
           const on = h.bookIds.includes(selected);
+          if (!on) return null;
           return (
             <span
               key={`hl-${h.name}`}
               aria-hidden="true"
               style={{
-                position: 'absolute', left: `${p.x * 100}%`, top: `${p.y * 100}%`, transform: 'translate(-50%, 6px)',
+                // 下半分の点は名前を点の上に（下の表紙に触れない）
+                position: 'absolute', left: `${p.x * 100}%`, top: `${p.y * 100}%`, transform: p.y > 0.5 ? 'translate(-50%, calc(-100% - 6px))' : 'translate(-50%, 6px)',
                 maxWidth: '26%', textAlign: 'center', fontSize: 'var(--text-caption)', lineHeight: 1.3,
                 color: on ? 'var(--text)' : 'var(--text-2)', fontWeight: on ? 600 : 400,
-                background: 'var(--surface)', padding: '0 var(--space-1)', wordBreak: 'keep-all', overflowWrap: 'anywhere', pointerEvents: 'none',
+                // 板にせず文字の縁取りで線から浮かせる（板は線を途中で切って見せた・2026-11-26 ui-critic）
+                textShadow: '0 0 2px var(--surface), 0 0 2px var(--surface), 0 0 4px var(--surface)', wordBreak: 'keep-all', overflowWrap: 'anywhere', pointerEvents: 'none',
               }}
             >
-              {withPhraseBreaks(h.name)}
+              {withPhraseBreaks(glueMiddot(h.name), { scriptBreaks: true })}
             </span>
           );
         })}
@@ -180,8 +188,11 @@ export default function KnowledgeMapCard({ books = [], likely = false }) {
               }}
             >
               <span style={{ display: 'block', borderRadius: 4, boxShadow: on ? '0 0 0 2px var(--surface), 0 0 0 4px var(--accent)' : 'none', transition: 'box-shadow var(--duration-fast) var(--ease-out)' }}>
+                {/* 淡い表紙の下に面を敷く（線が表紙に透けない） */}
+                <span style={{ display: 'block', borderRadius: 'var(--radius-cover)', background: 'var(--surface)' }}>
                 <span style={{ display: 'block', opacity: n.memoCount || on || !anyMemo ? 1 : FAINT, transition: 'opacity var(--duration-fast) var(--ease-out)' }}>
                   <MiniCover book={n.book} width={COVER_W} />
+                </span>
                 </span>
               </span>
             </button>
@@ -189,16 +200,11 @@ export default function KnowledgeMapCard({ books = [], likely = false }) {
         })}
       </div>
 
-      {/* 線の見方（ある線だけ）。重なりがまだ無いときは、線が増える道すじを 1 行（数や「あと N」は出さない） */}
+      {/* 線の見方（ある線だけ・説明の文は置かない＝DESIGN §0 原則 6） */}
       {(map.edges.length > 0 || map.hubs.length > 0) && (
         <p style={{ ...meta, display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 'var(--space-4)', rowGap: 'var(--space-1)', marginTop: 'var(--space-3)' }}>
           {map.edges.length > 0 && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}><LineSample />似たメモ・同じタグ</span>}
           {map.hubs.length > 0 && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}><DotSample />分野</span>}
-        </p>
-      )}
-      {map.edges.length === 0 && (
-        <p style={{ ...note, marginTop: map.hubs.length ? 'var(--space-1)' : 'var(--space-3)' }}>
-          {withPhraseBreaks(map.nodes.length > 1 ? '似たことを書いたメモがあると、本と本が線で結ばれます。' : '本を読み、メモを残すと、ここに本が増え、線で結ばれていきます。')}
         </p>
       )}
 
@@ -223,7 +229,18 @@ export default function KnowledgeMapCard({ books = [], likely = false }) {
             </button>
           </div>
         ) : (
-          <p style={{ ...note, marginTop: 'var(--space-2)' }}>{withPhraseBreaks('この本のメモは、まだありません。メモを書くと、似たことを書いた本と線で結ばれます。')}</p>
+          <div style={{ marginTop: 'var(--space-2)' }}>
+            <p style={note}>{withPhraseBreaks('この本のメモは、まだありません。')}</p>
+            {onWriteMemo && (
+              <button
+                type="button"
+                onClick={() => { track('knowledge_map_write', {}); onWriteMemo(selBook); }}
+                style={{ ...btnLink, marginTop: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))', marginBottom: 'calc(-1 * var(--space-2))' }}
+              >
+                この本のメモを書く
+              </button>
+            )}
+          </div>
         )
       )}
       <ul style={{ listStyle: 'none', margin: mine.length ? 'var(--space-2) 0 0' : 0, padding: 0 }}>
