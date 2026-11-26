@@ -211,7 +211,7 @@ export default function OverlapSheet({ source, targetId = null, books = [], onCl
             <section aria-labelledby="overlap-ai-h" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
               <h3 id="overlap-ai-h" style={label}>重なって見えること</h3>
               {aiPaused && ai.status !== 'ready' && (
-                <p style={meta}>{withPhraseBreaks('今月の無料の AI は、ここまでです。')}<span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}</span>{withPhraseBreaks('に戻ります。自分の答えは、そのまま書いて残せます。')}</p>
+                <p style={{ ...meta, color: 'var(--text-2)' }}>{withPhraseBreaks('今月の無料の AI は、ここまでです。')}<span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}</span>{withPhraseBreaks('に戻ります。自分の答えは、そのまま書いて残せます。')}</p>
               )}
               {!aiPaused && ai.status === 'idle' && (
                 <>

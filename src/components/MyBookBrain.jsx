@@ -2298,7 +2298,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   useEffect(() => { onScrolledChange?.(view === 'chat' && scrolled); }, [view, scrolled, onScrolledChange]);
   useEffect(() => () => onScrolledChange?.(false), [onScrolledChange]);
   // 会話が始まったら画面を広く使う（上の行を畳み、読み進めている間は下のタブも隠す・2026-11-15）。
-  const onImmersiveScroll = useChatImmersive(view === 'chat' && messages.length > 0);
+  //   数えるのは画面に出ている会話だけ（過去の相談は読み込んでも「新しい相談」の画面では隠れている＝相談例だけの短い画面で
+  //   上の行と下のタブが畳まれ、勢いよく送ると箱の高さが変わってガタついていた・2026-11-26 オーナー）。
+  const onImmersiveScroll = useChatImmersive(view === 'chat' && visibleMessages.length > 0);
   const onBodyScroll = (e) => {
     const top = e.currentTarget.scrollTop;
     onImmersiveScroll(e.currentTarget);
