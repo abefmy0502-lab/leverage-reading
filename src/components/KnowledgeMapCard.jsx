@@ -174,6 +174,8 @@ export default function KnowledgeMapCard({ books = [], likely = false, onWriteMe
   };
   const edgeOn = (e) => !replaying && (pair ? pairKey(e) === pairKey(pair) : e.a === selId || e.b === selId);
 
+  // 表紙の大きさに差があるときだけ大きさで分ける（どの本もメモが同じくらい＝ぜんぶ小さく見えるより、そろえて見やすく・凡例も出さない）
+  const sizeVaries = new Set(map.nodes.map((n) => nodeCoverWidth(n.memoCount))).size > 1;
   const pos = ringPositions(map.nodes.length);
   const at = new Map(map.nodes.map((n, i) => [String(n.book.id), pos[i]]));
   const hubAt = hubPositions(map.hubs, at);
@@ -349,7 +351,7 @@ export default function KnowledgeMapCard({ books = [], likely = false, onWriteMe
             const on = id === selId || (pair && (id === pair.a || id === pair.b));
             const show = isVisible(id);
             const justIn = replaying && id === lastShownId;
-            const w = nodeCoverWidth(n.memoCount);
+            const w = sizeVaries ? nodeCoverWidth(n.memoCount) : 36;
             return (
               <button
                 key={id}
@@ -411,7 +413,7 @@ export default function KnowledgeMapCard({ books = [], likely = false, onWriteMe
         <p style={{ ...meta, display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 'var(--space-4)', rowGap: 'var(--space-1)', marginTop: 'var(--space-1)', color: 'var(--text-3)' }}>
           {map.edges.length > 0 && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}><LineSample />似たメモ・同じタグ</span>}
           {map.hubs.length > 0 && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}><DotSample />分野</span>}
-          <span>大きい表紙＝メモが多い本</span>
+          {sizeVaries && <span>大きい表紙＝メモが多い本</span>}
         </p>
       )}
 
