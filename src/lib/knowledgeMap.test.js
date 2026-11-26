@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildKnowledgeMap, orderAroundRing, ringPositions, edgeWidth } from './knowledgeMap';
+import { buildKnowledgeMap, orderAroundRing, orderByField, ringPositions, hubPositions, edgeWidth } from './knowledgeMap';
 
 const books = [
   { id: 'b1', title: '1兆ドルコーチ' },
@@ -29,10 +29,43 @@ describe('知識の地図（2026-11-26）', () => {
       expect(e.count).toBeGreaterThan(0);
     }
   });
-  it('つながる本が 3 冊に満たなければ出さない', () => {
-    const map = buildKnowledgeMap({ rows: rows.slice(0, 2), books });
-    expect(map.nodes).toEqual([]);
+  it('つながりが無くても、読書中・読了の本は点にする（同じ分野は隣どうし・内側に分野の点・メモの数といちばん新しいメモ）', () => {
+    const shelf = [
+      { id: 'r1', title: 'A', status: 'done', tags: ['経営戦略'], doneDate: '2026-10-01' },
+      { id: 'r2', title: 'B', status: 'reading', tags: ['思考法・問題解決'], startDate: '2026-11-01' },
+      { id: 'r3', title: 'C', status: 'done', tags: ['経営戦略'], doneDate: '2026-09-01' },
+      { id: 'w1', title: '読みたい', status: 'want', tags: ['経営戦略'] },
+    ];
+    const memoRows = [m('n1', 'r1', '朝の時間を使って本を読む。'), m('n0', 'r1', 'もっと古いメモ')];
+    const map = buildKnowledgeMap({ rows: memoRows, books: shelf });
     expect(map.edges).toEqual([]);
+    expect(map.nodes.map((n) => n.book.id)).not.toContain('w1');
+    expect(map.nodes).toHaveLength(3);
+    // 同じ分野（経営戦略）の 2 冊が隣り合い、点線で結ばれる
+    const ids = map.nodes.map((n) => n.book.id);
+    expect(Math.abs(ids.indexOf('r1') - ids.indexOf('r3'))).toBe(1);
+    // 2 冊以上の分野だけが内側の点になる
+    expect(map.hubs).toEqual([{ name: '経営戦略', bookIds: expect.arrayContaining(['r1', 'r3']) }]);
+    // 分野の点は、その分野の本の方向の内側
+    const pos = new Map([['r1', { x: 0.5, y: 0.1 }], ['r3', { x: 0.9, y: 0.5 }]]);
+    const [h] = hubPositions([{ name: '経営戦略', bookIds: ['r1', 'r3'] }], pos);
+    expect(h.x).toBeGreaterThan(0.5);
+    expect(h.y).toBeLessThan(0.5);
+    expect(Math.hypot(h.x - 0.5, h.y - 0.5)).toBeCloseTo(0.17);
+    const r1 = map.nodes.find((n) => n.book.id === 'r1');
+    expect(r1.memoCount).toBe(2);
+    expect(r1.latest.id).toBe('n1');
+    expect(map.nodes.find((n) => n.book.id === 'r2').latest).toBeNull();
+  });
+  it('1 冊だけでも出す（真ん中に）・本が無ければ空', () => {
+    const one = buildKnowledgeMap({ rows: [], books: [{ id: 'x', status: 'reading' }] });
+    expect(one.nodes).toHaveLength(1);
+    expect(ringPositions(1)[0]).toEqual({ x: 0.5, y: 0.5 });
+    expect(buildKnowledgeMap({ rows: [], books: [] }).nodes).toEqual([]);
+  });
+  it('分野ごとのまとまり（多い分野から・分野の無い本は最後）', () => {
+    const f = { a: ['X'], b: ['Y'], c: ['X'], d: [] };
+    expect(orderByField(['a', 'b', 'c', 'd'], [], (id) => f[id])).toEqual(['a', 'c', 'b', 'd']);
   });
   it('AI が書いたメモ・本棚に無い本のメモ・学び（本なし）は使わない', () => {
     const extra = [

@@ -804,8 +804,8 @@ export default function ReadingRecord({
       </section>
       )}
 
-      {/* 🗺 知識の地図（2026-11-26・似たメモでつながる本が 3 冊以上のときだけ・components/KnowledgeMapCard.jsx）。 */}
-      <KnowledgeMapCard books={books} likely={(books || []).filter((b) => b.status === 'reading' || b.status === 'done').length >= 3} />
+      {/* 🗺 知識の地図（2026-11-26・読書中・読了の本があればいつも・つながりが無くても分野の星座・components/KnowledgeMapCard.jsx）。 */}
+      <KnowledgeMapCard books={books} likely={(books || []).some((b) => b.status === 'reading' || b.status === 'done')} />
 
       {/* 🏷 分野（分野の付いた本があるときだけ・押すと、すべての本をその分野で絞る）。 */}
       {fieldRecord.any && (

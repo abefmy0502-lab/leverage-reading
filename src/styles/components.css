@@ -1827,3 +1827,8 @@ body.chat-active.chat-scroll-down .bottom-nav {
 /* ホームの題の下の一行の箱（育つまでの一行・季節の共有など）。どれも出ないときは箱ごと消して、上に間を残さない（2026-11-25 題「ホーム」をやめた）。 */
 .home-notes { display: flex; flex-direction: column; gap: var(--space-2); }
 .home-notes:empty { display: none; }
+
+/* 🗺 知識の地図の線（KnowledgeMapCard・2026-11-26）: 開いたときに 1 回だけ、線が順に浮かぶ。
+   動きを減らす設定は index.css の global で抑える。 */
+@keyframes kmap-line-in { from { opacity: 0; } to { opacity: 1; } }
+.kmap-line { animation: kmap-line-in var(--duration-base) var(--ease-out) both; }
