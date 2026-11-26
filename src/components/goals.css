@@ -303,6 +303,8 @@
   cursor: pointer;
 }
 .rm-icon-btn:disabled { color: var(--text-3); cursor: default; opacity: 1; }
+/* いまの 3 か月の本は書名を 400 に（取り組むこと＝600 を一覧の上に立たせる・2026-11-26 ui-critic） */
+.rm-now-books .rm-book-title { font-weight: 400; }
 .rm-books { display: flex; flex-direction: column; margin-top: var(--space-1); }
 .rm-book {
   display: flex;

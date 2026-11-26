@@ -38,6 +38,7 @@ import {
 } from '../lib/readingPlan';
 import { appNow } from '../lib/appNow';
 import { displayTitle } from '../lib/bookTitle';
+import { STATUS_LABEL } from '../lib/checkDuplicate';
 import { toLocalYmd } from '../lib/dates';
 import { sanitizeForPrompt } from '../lib/ai';
 import { track } from '../lib/analytics';
@@ -824,7 +825,18 @@ function RoadmapView({ goal, record, books, sessions = [], onOpenBook, onAddActi
   // 本棚に読んでいない本があれば、ロードマップに本が無くても読書計画は自分で選んでつくれる（2026-11-16 オーナー「本棚の本がほぼない状態だとどうなる？」）。
   const hasUnread = books.some((b) => b.status !== 'done');
   const recsNow = (roadmap.phases[here]?.books || []).filter((b) => !b.bookId).length;
+  // この 3 か月に読む本（読み終えていない本棚の本 → すすめた本・3 冊まで）を、いまの枠の中にも並べる
+  //   （2026-11-26 点検「いまの 3 か月で、次に何を読むかが下の道のりまで行かないと分からない」）。
+  const nowRank = (x) => (x.book ? ({ reading: 0, before: 1, want: 2 }[x.book.status] ?? 2) : 3);
+  // 4 冊までは全部並べ、5 冊からは 3 冊＋「ほか N 冊を道のりで見る」（1 冊を隠すために 1 行を使わない）。
+  const nowShownOf = (n) => (n <= 4 ? n : 3);
+  const nowBooks = (roadmap.phases[here]?.books || []).map((rb) => {
+    if (!rb.bookId) return { key: `t:${rb.title}`, rec: rb };
+    const b = byId.get(rb.bookId);
+    return b && b.status !== 'done' ? { key: b.id, book: b } : null;
+  }).filter(Boolean).sort((a, b) => nowRank(a) - nowRank(b));
   // この 3 か月に読む本を AI 選書で探す下書き（送らない）。
+  const nowShown = nowShownOf(nowBooks.length);
   const findDraft = advisorDraftFor(goal.goals, { focus: roadmap.phases[here]?.focus || '' });
   // 作ったときの目標の文と、いまの文が違えば（書き直した）。
   const stale = isRoadmapStale(record, goal.goals);
@@ -897,6 +909,35 @@ function RoadmapView({ goal, record, books, sessions = [], onOpenBook, onAddActi
         {/* 「いまの 3 か月 · 1〜3 か月目」は同じことを 2 回言っていた＝実際の月だけ添える（2026-11-23 点検）。 */}
         <p id="rm-now" className="goal-sec-title" style={{ margin: 0 }}>{quarterTitleNode(nowQuarterTitle(specs[here]))}</p>
         {roadmap.phases[here]?.focus && <p className="rm-phase-focus" style={{ marginTop: 'var(--space-1)' }}>{withPhraseBreaks(roadmap.phases[here].focus)}</p>}
+        {!(needBooks && onChooseBooks) && nowBooks.length > 0 && (
+          <div className="rm-books rm-now-books" aria-label="この 3 か月に読む本">
+            {nowBooks.slice(0, nowShown).map(({ key, book, rec }) => (book ? (
+              <button key={key} type="button" className="rm-book" onClick={() => onOpenBook?.(book)}>
+                <MiniCover book={book} width={32} />
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span className="rm-book-title">{withPhraseBreaks(`『${displayTitle(book.title)}』`)}</span>
+                  <span className="rm-book-author">{STATUS_LABEL[book.status] || ''}</span>
+                </span>
+                <ChevronRight size="1em" aria-hidden="true" style={{ alignSelf: 'center', color: 'var(--text-3)', flexShrink: 0 }} />
+              </button>
+            ) : (
+              <div key={key} className="rm-book rm-book-rec">
+                <MiniCover book={{ id: `rec:${rec.title}`, title: rec.title, cover: rec.cover || '' }} width={32} />
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span className="rm-book-title">{withPhraseBreaks(`『${displayTitle(rec.title)}』`)}</span>
+                  <span className="rm-book-author">すすめた本（下の道のりから本棚に入れられます）</span>
+                </span>
+              </div>
+            )))}
+            {nowBooks.length > nowShown && (
+              // 残りは道のりの節へ送る（押せる文字ボタン・残りが 1 冊ならその本も並べる＝2026-11-26 ui-critic）。
+              <button type="button" style={{ ...btnLinkQuiet, alignSelf: 'flex-start', marginLeft: 'calc(-1 * var(--space-1))' }}
+                onClick={() => document.getElementById('rm-road')?.scrollIntoView({ block: 'start', behavior: 'smooth' })}>
+                {`ほか ${nowBooks.length - nowShown} 冊を道のりで見る`}<ChevronRight size="1em" aria-hidden="true" />
+              </button>
+            )}
+          </div>
+        )}
         {needBooks && onChooseBooks ? (
           <>
             {/* 前の 3 か月（ふりかえり・記録があるときだけ）→ 次の 3 か月の決め方 → 選ぶ */}
