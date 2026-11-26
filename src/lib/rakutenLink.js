@@ -48,6 +48,8 @@ export function getRakutenLink(book) {
 
 export const RAKUTEN_LINK_REL = 'noopener noreferrer';
 
-// Amazon / 楽天 の両方を出す画面で使う共通の開示文（両プログラムをカバー）。
-export const STORE_DISCLOSURE_TEXT =
-  '※当アプリは Amazon アソシエイト・プログラム／楽天アフィリエイトの参加者です。リンク経由の購入により紹介料が発生する場合があります（追加費用はかかりません）。';
+// Amazon / 楽天 の両方を出す画面で使う開示文。
+//   2026-11-26 オーナー「これは記載しないといけない？」→ Amazon アソシエイトの運営規約が求める決まった文だけに短くした。
+//   楽天のリンクはアフィリエイトの ID を付けていない（ふつうの検索のリンク）ので、楽天アフィリエイトの文は外した
+//   （参加していないのに書くと事実と違う）。楽天のアフィリエイトを始めたら、ここに足す。
+export { AMAZON_DISCLOSURE_TEXT as STORE_DISCLOSURE_TEXT } from './amazonLink';

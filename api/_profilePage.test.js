@@ -226,7 +226,8 @@ describe('本のページ（まとめ・読みたいに追加・2026-11-21）', 
     expect(html).toMatch(/href="https:\/\/www\.amazon\.co\.jp\/dp\/4837926169\?tag=[^"]+"/);
     expect(html).toContain('rel="noopener noreferrer sponsored"');
     expect(html).toContain('books.rakuten.co.jp');
-    expect(html).toContain('Amazon アソシエイト');
+    expect(html).toContain('Amazon のアソシエイトとして'); // 運営規約の決まった文（2026-11-26 に短く）
+    expect(html).not.toContain('楽天アフィリエイト'); // 楽天は ID を付けていないので書かない
   });
   it('公開に向かない言葉・連絡先のあるまとめは出さない', () => {
     expect(publicSummary('連絡は test@example.com')).toBe('');

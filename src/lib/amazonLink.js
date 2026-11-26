@@ -176,7 +176,7 @@ export function handleAmazonClick(e, httpsUrl) {
  * The disclosure copy required by Amazon Associates JP — every page that
  * surfaces an affiliate link must show this near the link.
  */
-export const AMAZON_DISCLOSURE_TEXT =
-  '※当アプリは Amazon アソシエイト・プログラムの参加者です。リンク経由の購入により紹介料が発生する場合があります（追加費用はかかりません）。';
+//   Amazon アソシエイト・プログラム運営規約が求める決まった文（2026-11-26 に短く・アプリの名前は orime）。
+export const AMAZON_DISCLOSURE_TEXT = 'Amazon のアソシエイトとして、orime は適格販売により収入を得ています。';
 
 export const AMAZON_LINK_REL = 'noopener noreferrer sponsored';
