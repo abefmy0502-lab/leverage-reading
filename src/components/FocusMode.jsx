@@ -352,6 +352,7 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
         // おわったあとのメモだけ知らせる。読んでいる途中は振動だけ（知らせで集中を切らない・2026-10-09 ui-critic）。
         if (memoOpen === 'summary') { toast.success('メモを保存しました。'); onClose(); }
       }}
+      firstPrompt={memoOpen === 'summary' ? 'いま読んだところで、心に残った 1 行は？' : ''}
       onOpenFullEditor={memoOpen === 'summary' && onOpenFullEditor ? (prefill) => { setMemoOpen(false); onOpenFullEditor(prefill); } : undefined}
     />
   );

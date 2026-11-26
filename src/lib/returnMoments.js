@@ -12,12 +12,13 @@
 //
 // 出さないもの: 連続日数・「N 日ぶり」の数・目標・バッジ・責める言葉（「しばらく開いていません」など）。
 //   空けた日数は数字にしない。はじめて N は、3 か月からは「いまの考えと比べる」（相談の下書き）。
-//   メモが無く読み始めていない人には、本棚で待っている本を 1 冊（15 分だけ読む＝集中モード 15 分）。
+//   メモが無い人には、読みかけの本（続きを 15 分）か本棚で待っている本（15 分だけ読む）・読みたいの本は本の詳細へ（本を見る）。
 //
 // ⚠️ 純関数だけ（I/O なし）。端末に覚えるのは hooks/useReturnMoment.js。
 
 import { pickRecallMemo, pickFallbackMemo, recallFraming, memoExcerpt, isAiWritten } from './recall';
 import { daysUntilDeadline } from './homeActions';
+import { fmtDuration } from './readingTime';
 
 const DAY_MS = 86400000;
 
@@ -69,29 +70,47 @@ function ownBookMemos(memos, bookIds) {
     && String(m.text || '').trim() && !isAiWritten(m) && Number.isFinite(new Date(m.createdAt).getTime()));
 }
 
-// メモがまだ無く、まだ読み始めていない人に見せる本（アーカイブは除く）。
-//   - 読書中・読了の本があれば、ホームの「相談相手をつくる」（はじめの一歩）が一文のメモをもう誘っているので出さない（2 度言わない）。
-//   - ホームの一覧（積読があれば積読、無ければ読みたいの、新しく触った順の上から 3 冊）に出ていない本があれば、いちばん長く待っている本。
-//     無ければ一覧の 1 冊目（1〜3 冊しか入れていない人＝読書の習慣がない人に多い・2026-11-26 体験した人の声で「何も出ない」を直した）。
-//   - 行き先は「15 分だけ読む」＝集中モードを 15 分で始める（一覧の「読み始める」とは違う、いちばん小さな一歩）。
+// メモがまだ無い人に見せる本（アーカイブは除く）。{ book, mode: 'reading'|'waiting'|'want' } か null。
+//   - 読書中の本があれば、いちばん新しく触った読書中の本＝「続きを 15 分」（1 日目に読み始めて、戻ってきても何も出ていなかった・
+//     2026-11-26 体験した人の声 2 回目）。同じ本を続けて出してよい（読みかけの本は 1 冊を読み切るのが一歩）。
+//   - 読了だけの人（読書中も積読・読みたいも無い）は出さない（ホームの「相談相手をつくる」が一文のメモを誘う）。
+//   - 積読を先に（手元にある本）。読みたいの本はまだ手元に無いかもしれないので「本を見る」＝本の詳細（書店・積読に積む）。
+//   - ホームの一覧（新しく触った順の上から 3 冊）に出ていない本があれば、いちばん長く待っている本。無ければ一覧の 1 冊目。
+//   - 前の 1 行で見せた本（done の 'b:<id>'）は、ほかに候補があれば選ばない。全部見せていたら seenAll（はじめて N で 1 冊探す）。
 const byUpdatedDesc = (a, b) => String(b.updated_at || '').localeCompare(String(a.updated_at || ''));
-function fallbackBook(books) {
+const byUpdatedAsc = (a, b) => String(a.updated_at || '').localeCompare(String(b.updated_at || ''));
+function fallbackBook(books, done = new Set()) {
   const list = (Array.isArray(books) ? books : []).filter((b) => b && b.id && b.title && !b.archivedAt);
-  if (list.some((b) => b.status === 'reading' || b.status === 'done')) return null;
-  const before = list.filter((b) => b.status === 'before').sort(byUpdatedDesc);
-  const want = list.filter((b) => b.status === 'want').sort(byUpdatedDesc);
-  const shown = (before.length ? before : want).slice(0, 3);
-  const onHome = new Set(shown.map((b) => b.id));
-  const rest = [...before, ...want].filter((b) => !onHome.has(b.id));
-  if (rest.length) return rest.sort((a, b) => String(a.updated_at || '').localeCompare(String(b.updated_at || '')))[0];
-  return shown[0] || null;
+  const reading = list.filter((b) => b.status === 'reading').sort(byUpdatedDesc);
+  if (reading.length) return { book: reading[0], mode: 'reading' };
+  const pickFrom = (group) => {
+    if (!group.length) return null;
+    const sorted = [...group].sort(byUpdatedDesc);
+    const onHome = new Set(sorted.slice(0, 3).map((b) => b.id));
+    const order = [...sorted.filter((b) => !onHome.has(b.id)).sort(byUpdatedAsc), ...sorted.filter((b) => onHome.has(b.id))];
+    return order.find((b) => !done.has(`b:${b.id}`)) || null;
+  };
+  const before = list.filter((b) => b.status === 'before');
+  const want = list.filter((b) => b.status === 'want');
+  const b = pickFrom(before);
+  if (b) return { book: b, mode: 'waiting' };
+  const w = pickFrom(want);
+  if (w) return { book: w, mode: 'want' };
+  if (before.length || want.length) return { book: null, mode: 'seenAll', first: [...before, ...want].sort(byUpdatedDesc)[0] };
+  return null;
 }
-function waitingBookMoment({ kind, key, label = null, lead, book }) {
-  return { kind, key, label, book, action: 'focus', actionLabel: '15 分だけ読む', lead, quote: `『${book.title}』` };
+// 本の 1 行。readLine は「これまで 45 分 読みました」（はじめて N で、読んだ時間があるときだけ）。
+function bookMoment({ kind, key, label = null, prefix = '', pick, readLine = '' }) {
+  const { book, mode } = pick;
+  const name = mode === 'reading' ? '読みかけの本' : mode === 'want' ? '読みたい本' : '本棚で待っている本';
+  const lead = readLine ? `${prefix}${readLine}` : `${prefix}${name}`;
+  if (mode === 'want') return { kind, key, label, book, action: 'open', actionLabel: '本を見る', lead, quote: `『${book.title}』` };
+  return { kind, key, label, book, action: 'focus', actionLabel: mode === 'reading' ? '続きを 15 分' : '15 分だけ読む', lead, quote: `『${book.title}』` };
 }
 
 // 今日出す 1 行を決める。出さないなら null。
-//   戻り値: { kind: 'anniv'|'back', key, lead, quote, memo?, book?, action: 'read'|'compare'|'focus'|'actions', actionLabel, question? }
+//   戻り値: { kind: 'anniv'|'back'|'action', key, lead, quote, memo?, book?, action: 'read'|'compare'|'focus'|'open'|'advisor'|'actions', actionLabel, question? }
+//   readSeconds: これまで読んだ時間の合計（集中モード・秒）
 //   memos: [{ id, bookId, text, createdAt, lastRecalledAt?, recallCount?, sourceType? }]
 //   prevDay: 前に開いた日（'YYYY-MM-DD'・はじめてなら null）
 //   done: もう出した印の集まり（Set）。'anniv:90'・'back:2026-11-26' など
@@ -112,7 +131,7 @@ export function dueActionOf(books, now) {
   return list[0] || null;
 }
 
-export function pickReturnMoment({ now, createdAt = null, prevDay = null, memos = [], bookIds = null, books = null, done = new Set() } = {}) {
+export function pickReturnMoment({ now, createdAt = null, prevDay = null, memos = [], bookIds = null, books = null, done = new Set(), readSeconds = 0 } = {}) {
   const today = jstDay(now);
   const own = ownBookMemos(memos, bookIds);
   const ann = anniversaryOf(createdAt, now);
@@ -138,10 +157,17 @@ export function pickReturnMoment({ now, createdAt = null, prevDay = null, memos 
       }
       return { kind: 'anniv', key: ann.key, label: ann.label, memo: first, action: 'read', actionLabel: '読み返す', lead: `orime をはじめて ${ann.label}。${memoLabel}`, quote: momentQuote(first) };
     }
-    // メモがまだ無く、まだ読み始めていない人（読書の習慣がない人に多い）: 本棚で待っている本 → 15 分だけ読む。
-    const b = fallbackBook(books);
-    if (b) return waitingBookMoment({ kind: 'anniv', key: ann.key, label: ann.label, lead: `orime をはじめて ${ann.label}。本棚で待っている本`, book: b });
-    return null;
+    // メモがまだ無い人（読書の習慣がない人に多い）: 読みかけの本の続き・本棚で待っている本。
+    //   読んだ時間があれば「これまで 45 分 読みました」（節目ごとに同じ文にしない・2026-11-26 体験した人の声 2 回目）。
+    //   待っている本をもう全部見せていたら（同じ本を何度もすすめない）、いまの悩みで 1 冊探し直す＝AI 選書。
+    const pick = fallbackBook(books, done);
+    if (!pick) return null;
+    const prefix = `orime をはじめて ${ann.label}。`;
+    const readLine = readSeconds >= 60 ? `これまで ${fmtDuration(readSeconds)} 読みました` : '';
+    if (pick.mode === 'seenAll') {
+      return { kind: 'anniv', key: ann.key, label: ann.label, action: 'advisor', actionLabel: '1 冊探す', lead: `${prefix}${readLine || 'いまの悩みに合う本'}`, quote: '' };
+    }
+    return bookMoment({ kind: 'anniv', key: ann.key, label: ann.label, prefix, pick, readLine });
   }
   // 期限が来た行動（はじめて N の次に大事・1 日 1 回）
   const actKey = `act:${today}`;
@@ -157,8 +183,10 @@ export function pickReturnMoment({ now, createdAt = null, prevDay = null, memos 
   if (!own.length) {
     // メモが無く読み始めていない人が 2 日以上あけて開いた日も、本棚で待っている本を 1 冊（3〜7 日目に何も無かった）。
     if (gap == null || gap < BACK_AFTER_DAYS || done.has(backKey)) return null;
-    const b = fallbackBook(books);
-    return b ? waitingBookMoment({ kind: 'back', key: backKey, lead: gap >= WELCOME_AFTER_DAYS ? 'おかえりなさい。本棚で待っている本' : '本棚で待っている本', book: b }) : null;
+    // 3〜7 日目は全部見せていても、いちばん上の本（同じ週のうちは同じ 1 冊でよい・読み始めるきっかけ）。
+    let pick = fallbackBook(books, done);
+    if (pick?.mode === 'seenAll') pick = { book: pick.first, mode: pick.first.status === 'want' ? 'want' : 'waiting' };
+    return pick ? bookMoment({ kind: 'back', key: backKey, prefix: gap >= WELCOME_AFTER_DAYS ? 'おかえりなさい。' : '', pick }) : null;
   }
   if (gap != null && gap >= BACK_AFTER_DAYS && !done.has(backKey)) {
     const seed = Number(today.replace(/-/g, '')) || 0;

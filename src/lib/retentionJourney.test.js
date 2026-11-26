@@ -40,7 +40,7 @@ function walk(persona) {
   for (const day of VISITS) {
     const { books, memos } = PERSONAS[persona](day);
     const m = pickReturnMoment({ now: at(day), createdAt: new Date(START).toISOString(), prevDay: prev, memos, bookIds: new Set(books.map((b) => b.id)), books, done });
-    if (m) { done.add(m.key); if (m.memo?.id) done.add(`m:${m.memo.id}`); }
+    if (m) { done.add(m.key); if (m.memo?.id) done.add(`m:${m.memo.id}`); if (m.book?.id && m.book.status !== 'reading') done.add(`b:${m.book.id}`); }
     if (m) shown[day] = m.memo?.id || m.book?.id || null;
     out[day] = m ? `${m.kind}:${m.action}` : null;
     prev = jstDay(at(day));
@@ -59,15 +59,18 @@ describe('3 つの型 × 8 つの日（ホームの また開いたときの 1 �
       for (const d of [90, 180, 365]) expect(r[d]).toBe('anniv:compare');
     }
   });
-  it('読書の習慣がない人（読みたいの本 1 冊・メモ 0 件）にも、3 日目から毎回「本棚で待っている本＋15 分だけ読む」', () => {
+  it('読書の習慣がない人（読みたいの本 1 冊・メモ 0 件）にも、3 日目から毎回なにかが出て、節目に同じ本をくり返さない', () => {
     const r = walk('none');
     expect(r[1]).toBe(null);
-    for (const d of [3, 5, 7]) expect(r[d]).toBe('back:focus');
-    for (const d of [30, 90, 180, 365]) expect(r[d]).toBe('anniv:focus');
+    // 読みたいの本は手元に無いかもしれない＝本の詳細へ
+    for (const d of [3, 5, 7]) expect(r[d]).toBe('back:open');
+    // 3〜7 日目にもう見せた本は節目ですすめ直さず、いまの悩みで 1 冊探す
+    for (const d of [30, 90, 180, 365]) expect(r[d]).toBe('anniv:advisor');
   });
-  it('読み始めたがメモが無い人には出さない（ホームの「相談相手をつくる」が一文のメモを誘う）', () => {
+  it('読み始めたがメモが無い人には、毎回「続きを 15 分」', () => {
     const m = pickReturnMoment({ now: at(30), createdAt: new Date(START).toISOString(), prevDay: null, memos: [], books: [{ id: 'x', title: 'A', status: 'reading' }] });
-    expect(m).toBe(null);
+    expect(m.action).toBe('focus');
+    expect(m.actionLabel).toBe('続きを 15 分');
   });
 
   it('続けて開いても同じメモを繰り返さない（3・5・7 日目・半年・1 年）', () => {

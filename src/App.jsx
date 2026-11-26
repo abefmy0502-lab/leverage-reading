@@ -6945,7 +6945,8 @@ function AuthedApp() {
               onAddBook={() => openAdd()}
               onAddReadingBook={() => openAdd('reading')}
               // 🌱 まだ読んだ本が無い人の「最初の 1 冊を探す」（2026-11-25 オーナー方針「読書を始める人にも」・AI 選書は無料プランも）。
-              onAdvisor={() => openAdvisorWithDraft('本を読む習慣をつけたい。最初の 1 冊におすすめの本は？')}
+              // 🌙 また開いたときの 1 行の「1 冊探す」は、待っている本を全部すすめたあと（同じ本を何度もすすめない）＝下書きを替える
+              onAdvisor={(draft) => openAdvisorWithDraft(typeof draft === 'string' ? draft : '本を読む習慣をつけたい。最初の 1 冊におすすめの本は？')}
               onOpenBook={(b) => openDetail(b)}
               onWriteMemo={(b) => setHomeMemoBook(b)}
               // ⏱ 読む（集中モード・読書中の本だけ・2026-10-09）
@@ -6953,6 +6954,8 @@ function AuthedApp() {
               // 読書中が 0 冊のときの候補（積読）の「読書を開始する」: 本を開かずにその場で読書中へ（楽観的に変えて、失敗したら戻す）。
               // 🌙 本棚で待っている本の「15 分だけ読む」（ホームの また開いたときの 1 行・2026-11-26）: 読み始めて、集中モードを 15 分で開く。
               onReadFirst={async (b) => {
+                // 読みかけの本の「続きを 15 分」はそのまま集中モードへ（得たいことの確かめは読み始めるときだけ）
+                if (b.status === 'reading') { setFocusStartBook({ ...b, planMinutes: 15 }); return; }
                 const started = await startReadingFromHome(b);
                 if (started) setFocusStartBook({ ...b, status: 'reading', planMinutes: 15 });
               }}

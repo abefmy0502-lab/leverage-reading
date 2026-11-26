@@ -15,6 +15,7 @@ import { appNow } from '../lib/appNow';
 import { isDemo } from '../lib/supabase';
 import { anniversaryOf, pickReturnMoment, jstDay, dayDiff, BACK_AFTER_DAYS, dueActionOf } from '../lib/returnMoments';
 import { track } from '../lib/analytics';
+import { useReadingSessions } from './useReadingSessions';
 
 const VISIT_KEY = 'orime.lastVisit.v1:';
 const DONE_KEY = 'orime.returnMoment.v1:';
@@ -62,6 +63,7 @@ export function useReturnMoment(active, books, waitMs) {
   // 読みに行く必要があるか（はじめて N の 14 日のうち・3 日以上あけた日だけ）。
   const need = active && !!userId && ((ann && !done.has(ann.key)) || (gap != null && gap >= BACK_AFTER_DAYS && !done.has(`back:${today}`))
     || (!done.has(`act:${today}`) && !!dueActionOf(books, now)));
+  const { rows: sessions } = useReadingSessions();
   const [rows, setRows] = useState(() => (userId ? peekAllMemoRows(userId) : null));
   const [timedOut, setTimedOut] = useState(false);
   useEffect(() => {
@@ -78,13 +80,17 @@ export function useReturnMoment(active, books, waitMs) {
     if (!ready || decided !== undefined || !active) return;
     if (!need || !rows) { setDecided(null); return; }
     const bookIds = new Set((books || []).map((b) => b.id));
-    const m = pickReturnMoment({ now, createdAt, prevDay: prev, memos: rows.map(toMemo), bookIds, books, done });
+    const readSeconds = (sessions || []).reduce((sum, r) => sum + (Number(r?.seconds) || 0), 0);
+    const m = pickReturnMoment({ now, createdAt, prevDay: prev, memos: rows.map(toMemo), bookIds, books, done, readSeconds });
     setDecided(m);
     if (m) {
       // 「おかえりなさい」は出した時点で今日の分を済ませる（同じ日にもう出さない）。はじめて N は閉じるか押すまで。
       if (m.kind === 'back' || m.kind === 'action') markDone(userId, m.key);
       // 見せたメモを覚える（次の 1 行で同じメモを繰り返さない）
       if (m.memo?.id) markDone(userId, `m:${m.memo.id}`);
+      // 見せた本も覚える（はじめて N のたびに同じ本をすすめない・読みかけの本は続けて出してよい）
+      if (m.book?.id && m.action !== 'focus') markDone(userId, `b:${m.book.id}`);
+      if (m.book?.id && m.action === 'focus' && m.book.status !== 'reading') markDone(userId, `b:${m.book.id}`);
       track('return_moment', { kind: m.kind, action: 'shown', to: m.action, ...(m.kind === 'anniv' ? { days: Number(m.key.split(':')[1]) || 0 } : { gap: gap || 0 }) });
     }
   }, [ready, active]); // eslint-disable-line react-hooks/exhaustive-deps

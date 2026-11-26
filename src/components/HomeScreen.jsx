@@ -632,7 +632,10 @@ export default function HomeScreen({
   // 押した先（読み返す＝メモを開く・いまの考えと比べる＝相談の下書き・読み始める＝一覧の「読み始める」と同じ）。押す先が用意されていなければ出さない。
   // 期限が来た行動は、月末の共有の 1 行より先（使う目的が「仕事で使う」人に、共有の案内が行動を押しのけていた・2026-11-26 体験した人の声）。
   //   その日は共有の 1 行を出さない（題の下は 1 行）。
-  const momentGo = !moment || !momentBook ? null
+  const momentGo = !moment ? null
+    : moment.action === 'advisor' ? (onAdvisor ? () => onAdvisor('本棚の本は、いまの気分に合わないみたい。いまの悩みに合う本を 1 冊探したい。') : null)
+    : !momentBook ? null
+    : moment.action === 'open' ? () => onOpenBook(momentBook)
     : moment.action === 'compare' ? (onConsultDraft ? () => onConsultDraft(moment.question, 'moment') : null)
     : moment.action === 'focus' ? (onReadFirst ? () => onReadFirst(momentBook) : null)
     : moment.action === 'actions' ? (onOpenActions ? () => onOpenActions() : null)
@@ -746,10 +749,10 @@ export default function HomeScreen({
             mark={`moment-${moment.kind}`}
             stack
             icon={moment.kind === 'anniv' ? Sprout : moment.kind === 'action' ? CalendarCheck : History}
-            text={<>{withPhraseBreaks(moment.lead)}<span style={{ display: 'block', marginTop: 'var(--space-1)', fontFamily: 'var(--font-read)', fontSize: 'var(--text-sub)', lineHeight: 1.6, color: 'var(--text)' }}>{withPhraseBreaks(moment.quote)}</span></>}
+            text={<>{withPhraseBreaks(moment.lead)}{moment.quote ? <span style={{ display: 'block', marginTop: 'var(--space-1)', fontFamily: 'var(--font-read)', fontSize: 'var(--text-sub)', lineHeight: 1.6, color: 'var(--text)' }}>{withPhraseBreaks(moment.quote)}</span> : null}</>}
             actionLabel={moment.actionLabel}
             // 読み上げは本の名前つき（同じ画面の一覧の「『書名』を読み始める」と見分ける・ui-critic）
-            actionAria={moment.action === 'focus' ? `『${momentBook.title}』を 15 分だけ読む` : moment.action === 'read' ? `『${momentBook.title}』のメモを読み返す` : null}
+            actionAria={!momentBook ? (moment.action === 'advisor' ? 'いまの悩みに合う本を AI 選書で 1 冊探す' : null) : moment.action === 'focus' ? `『${momentBook.title}』を${moment.actionLabel === '続きを 15 分' ? '続きから' : ''} 15 分だけ読む` : moment.action === 'open' ? `『${momentBook.title}』を開く` : moment.action === 'read' ? `『${momentBook.title}』のメモを読み返す` : null}
             onConsult={() => { returnMoment.close('open'); momentGo(); }}
             onDismiss={() => returnMoment.close('dismiss')}
           />
