@@ -5018,8 +5018,9 @@ function AuthedApp() {
     if (!b) { saveFocusState(null); return; }
     setFocusRun({ book: b, state: saved, phase: null });
   }, [booksLoading, books]);
-  const startFocusRun = ({ mode, minutes, untilMs }) => {
-    const b = focusStartBook;
+  // book: 始める前のシートを通さずに始めるとき（ホームの「続きを 15 分」・2026-11-26 体験した人の声＝もう 1 回押させていた）
+  const startFocusRun = ({ mode, minutes, untilMs, book = null }) => {
+    const b = book || focusStartBook;
     if (!b) return;
     const st = startFocus({ bookId: b.id, mode, minutes, untilMs });
     saveFocusState(st);
@@ -6954,8 +6955,8 @@ function AuthedApp() {
               // 読書中が 0 冊のときの候補（積読）の「読書を開始する」: 本を開かずにその場で読書中へ（楽観的に変えて、失敗したら戻す）。
               // 🌙 本棚で待っている本の「15 分だけ読む」（ホームの また開いたときの 1 行・2026-11-26）: 読み始めて、集中モードを 15 分で開く。
               onReadFirst={async (b) => {
-                // 読みかけの本の「続きを 15 分」はそのまま集中モードへ（得たいことの確かめは読み始めるときだけ）
-                if (b.status === 'reading') { setFocusStartBook({ ...b, planMinutes: 15 }); return; }
+                // 読みかけの本の「続きを 15 分」はシートを出さずに 15 分のタイマーで始める（得たいことの確かめは読み始めるときだけ）
+                if (b.status === 'reading') { haptic.light(); startFocusRun({ mode: 'timer', minutes: 15, book: b }); return; }
                 const started = await startReadingFromHome(b);
                 if (started) setFocusStartBook({ ...b, status: 'reading', planMinutes: 15 });
               }}

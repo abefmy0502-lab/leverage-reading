@@ -23,7 +23,7 @@ const rowBtn = {
   background: 'none', border: 'none', borderTop: '1px solid var(--separator)', borderRadius: 0, padding: 'var(--space-3) 0',
 };
 const snippet = {
-  display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+  display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden',
   fontFamily: 'var(--font-read)', fontSize: 'var(--text-sub)', lineHeight: 1.6, color: 'var(--text)', wordBreak: 'keep-all', overflowWrap: 'anywhere',
 };
 

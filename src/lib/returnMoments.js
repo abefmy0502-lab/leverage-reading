@@ -103,7 +103,8 @@ function fallbackBook(books, done = new Set()) {
 function bookMoment({ kind, key, label = null, prefix = '', pick, readLine = '' }) {
   const { book, mode } = pick;
   const name = mode === 'reading' ? '読みかけの本' : mode === 'want' ? '読みたい本' : '本棚で待っている本';
-  const lead = readLine ? `${prefix}${readLine}` : `${prefix}${name}`;
+  // 読んだ時間と本の種類は分けて書く（その本を 15 時間読んだように見えない・2026-11-26 体験した人の声 3 回目）
+  const lead = readLine ? `${prefix}${readLine}。${name}` : `${prefix}${name}`;
   if (mode === 'want') return { kind, key, label, book, action: 'open', actionLabel: '本を見る', lead, quote: `『${book.title}』` };
   return { kind, key, label, book, action: 'focus', actionLabel: mode === 'reading' ? '続きを 15 分' : '15 分だけ読む', lead, quote: `『${book.title}』` };
 }
@@ -135,6 +136,16 @@ export function pickReturnMoment({ now, createdAt = null, prevDay = null, memos 
   const today = jstDay(now);
   const own = ownBookMemos(memos, bookIds);
   const ann = anniversaryOf(createdAt, now);
+  // 期限が来た行動（いちばん先・1 日 1 回）。はじめて N より先（節目の日に期限を過ぎた行動が隠れていた・2026-11-26 体験した人の声 3 回目）。
+  //   はじめて N は印を付けずに残すので、14 日のうちの次に開いた日に出る。
+  const actKey = `act:${today}`;
+  const due = done.has(actKey) ? null : dueActionOf(books, now);
+  if (due) {
+    return {
+      kind: 'action', key: actKey, action: 'actions', actionLabel: '行動を開く', bookId: due.bookId,
+      lead: due._n === 0 ? '今日が期限の行動' : '期限が来ている行動', quote: `「${memoExcerpt(due.text, 40)}」`,
+    };
+  }
   // 前に 1 行で見せたメモ（done の 'm:<id>'）は、ほかに候補があれば選ばない（3 日目と 7 日目に同じメモを出さない・2026-11-26 体験した人の声）。
   const seen = (m) => done.has(`m:${m.id}`);
   if (ann && !done.has(ann.key)) {
@@ -164,19 +175,14 @@ export function pickReturnMoment({ now, createdAt = null, prevDay = null, memos 
     if (!pick) return null;
     const prefix = `orime をはじめて ${ann.label}。`;
     const readLine = readSeconds >= 60 ? `これまで ${fmtDuration(readSeconds)} 読みました` : '';
+    // 前の節目でも同じ読みかけの本を出していたら（done の 'r:<id>'）、続きを迫らず、ほかの本に替えてもよいと伝えて 1 冊探す。
+    if (pick.mode === 'reading' && done.has(`r:${pick.book.id}`)) {
+      return { kind: 'anniv', key: ann.key, label: ann.label, book: pick.book, action: 'advisor', actionLabel: '1 冊探す', lead: `${prefix}${readLine ? `${readLine}。` : ''}合う本に替えてもかまいません`, quote: `『${pick.book.title}』` };
+    }
     if (pick.mode === 'seenAll') {
       return { kind: 'anniv', key: ann.key, label: ann.label, action: 'advisor', actionLabel: '1 冊探す', lead: `${prefix}${readLine || 'いまの悩みに合う本'}`, quote: '' };
     }
     return bookMoment({ kind: 'anniv', key: ann.key, label: ann.label, prefix, pick, readLine });
-  }
-  // 期限が来た行動（はじめて N の次に大事・1 日 1 回）
-  const actKey = `act:${today}`;
-  const due = done.has(actKey) ? null : dueActionOf(books, now);
-  if (due) {
-    return {
-      kind: 'action', key: actKey, action: 'actions', actionLabel: '行動を開く', bookId: due.bookId,
-      lead: due._n === 0 ? '今日が期限の行動' : '期限が来ている行動', quote: `「${memoExcerpt(due.text, 40)}」`,
-    };
   }
   const gap = dayDiff(prevDay, today);
   const backKey = `back:${today}`;

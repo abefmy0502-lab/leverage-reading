@@ -13,6 +13,7 @@
 import { normalizeSearch, compileTerms, matchTerm, matchRanges, buildSnippet, PREP_FIELDS } from './librarySearch';
 
 export const MEMO_ANSWER_MAX_BOOKS = 3;
+export const MEMO_ANSWER_SNIPPET_CHARS = 160;
 export const MEMO_ANSWER_PER_BOOK = 2;
 const MAX_TERMS = 8;
 
@@ -248,7 +249,8 @@ export function answerFromMemos({ question, books = [], memos = [], scopeIds = [
           label: s.e.label || null,
           text: s.e.text,
           score: Math.round(s.score * 100) / 100,
-          segments: buildSnippet(s.e.text, [], { ranges: snippetRanges(s.e.text, s.hitTerms) }),
+          // 一節は長めに（160 字・画面は 4 行まで）＝読み返すための答えなので、文の途中の … で切りすぎない（2026-11-26 体験した人の声）
+          segments: buildSnippet(s.e.text, [], { ranges: snippetRanges(s.e.text, s.hitTerms), chars: MEMO_ANSWER_SNIPPET_CHARS }),
         })),
       };
     }),

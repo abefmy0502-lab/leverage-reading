@@ -92,7 +92,11 @@ describe('pickReturnMoment', () => {
     expect(m.lead).toBe('読みかけの本');
     // 読んだ時間があれば、節目に「これまで … 読みました」
     const a = pickReturnMoment({ now: NOW, createdAt: ago(91), memos: [], books, readSeconds: 45 * 60 });
-    expect(a.lead).toBe('orime をはじめて 3 か月。これまで 45 分 読みました');
+    expect(a.lead).toBe('orime をはじめて 3 か月。これまで 45 分 読みました。読みかけの本');
+    // 前の節目でも同じ読みかけの本なら、ほかの本に替えてもよいと伝えて 1 冊探す
+    const again = pickReturnMoment({ now: NOW, createdAt: ago(91), memos: [], books, readSeconds: 45 * 60, done: new Set(['r:r']) });
+    expect(again.action).toBe('advisor');
+    expect(again.lead).toBe('orime をはじめて 3 か月。これまで 45 分 読みました。合う本に替えてもかまいません');
     expect(a.quote).toBe('『R』');
   });
   it('待っている本を全部すすめたあとの節目は、同じ本をすすめず「1 冊探す」（AI 選書）', () => {
@@ -142,3 +146,16 @@ describe('期限が来た行動（2026-11-26）', () => {
     expect(pickReturnMoment({ now: NOW, createdAt: ago(10), prevDay: '2026-11-25', memos: [], books: doneA })).toBe(null);
   });
 });
+
+describe('期限が来た行動は節目より先（2026-11-26 3 回目）', () => {
+  it('はじめて 3 か月の日でも期限の行動を先に・節目は次に開いた日', () => {
+    const day0 = new Date(NOW).toISOString().slice(0, 10);
+    const books = [{ id: 'b', title: 'A', actions: [{ text: '朝 15 分', done: false, deadline: day0 }] }];
+    const memos = [memo('a', 40)];
+    const m = pickReturnMoment({ now: NOW, createdAt: ago(91), prevDay: '2026-11-25', memos, books });
+    expect(m.kind).toBe('action');
+    const next = pickReturnMoment({ now: NOW, createdAt: ago(91), prevDay: '2026-11-25', memos, books, done: new Set([m.key]) });
+    expect(next.kind).toBe('anniv');
+  });
+});
+

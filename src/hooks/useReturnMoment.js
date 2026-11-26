@@ -91,6 +91,8 @@ export function useReturnMoment(active, books, waitMs) {
       // 見せた本も覚える（はじめて N のたびに同じ本をすすめない・読みかけの本は続けて出してよい）
       if (m.book?.id && m.action !== 'focus') markDone(userId, `b:${m.book.id}`);
       if (m.book?.id && m.action === 'focus' && m.book.status !== 'reading') markDone(userId, `b:${m.book.id}`);
+      // 節目で見せた読みかけの本（次の節目でも同じ本なら、ほかの本に替えてもよいと伝える）
+      if (m.kind === 'anniv' && m.book?.id && m.book.status === 'reading') markDone(userId, `r:${m.book.id}`);
       track('return_moment', { kind: m.kind, action: 'shown', to: m.action, ...(m.kind === 'anniv' ? { days: Number(m.key.split(':')[1]) || 0 } : { gap: gap || 0 }) });
     }
   }, [ready, active]); // eslint-disable-line react-hooks/exhaustive-deps

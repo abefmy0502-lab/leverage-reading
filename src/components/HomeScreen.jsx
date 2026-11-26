@@ -663,9 +663,13 @@ export default function HomeScreen({
     }
   }, [loading, loadError, memoState.known, memoState.count]);
   const showGrown = grown && !!onConsultDraft && memoState.known && (memoState.count == null || memoState.count >= GROWTH_GOAL);
-  // 期限が来た行動は「相談相手が育ちました」（閉じるまで残る）と月末の共有の 1 行より先（その日はそれらを出さない・題の下は 1 行）。
+  // 期限が来た行動は「相談相手が育ちました」と月末の共有の 1 行より先（その日はそれらを出さない・題の下は 1 行）。
   const actionFirst = moment?.kind === 'action';
   const momentShown = homeKnown && !!momentGo && !tokensBack.show && !renewal.show && !annual.show && !reask.show && (actionFirst || (!showGrown && !shareNudge.nudge));
+  // 出したその回だけ（閉じるまで残し続けると、ほかの日の 1 行＝前のメモとの再会を何日も押しのけていた・2026-11-26 体験した人の声）。
+  //   出した時点で済みにし、この回のうちは閉じるまで出したまま（次に開いたときは出さない）。
+  const grownVisible = showGrown && homeKnown && books.length > 0 && !(momentShown && actionFirst);
+  useEffect(() => { if (grownVisible) markGrownLineDone(); }, [grownVisible]);
   const closeGrown = (action) => {
     markGrownLineDone();
     setGrown(false);
