@@ -278,6 +278,8 @@ describe('本人が開いた公開のページ（?me=1・2026-11-25）', () => {
     expect(html).not.toContain('このページを通報する');
     expect(html).not.toContain('?follow=');
     expect(html).not.toContain('あなたの公開のページです'); // 説明の 1 行は 2026-11-26 にやめた
+    expect(html).not.toContain('orime で読書メモをはじめる'); // 自分のページには、はじめるボタンを出さない（2026-11-26）
+    expect(html).not.toContain('読んだ本と、会話できる');
     expect(html).toContain('/u/abcdefgh23/b/b1?me=1');
     expect(html).toContain('/u/abcdefgh23?shelf=done&me=1#shelf');
   });

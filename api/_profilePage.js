@@ -229,6 +229,7 @@ function coverPlaceholder(title) {
 const shownTitle = (t) => String(t || '').replace(/[０-９Ａ-Ｚａ-ｚ]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
 
 // 自分のページの上の説明の 1 行は 2026-11-26 オーナー「この文章は削除」でやめた（フォローと通報のボタンを出さないのは同じ）。
+//   同日「自分のページだったら、はじめるボタンと『読んだ本と、会話できる。…』は不要」＝自分で開いたときは、はじめるボタン・その下の 2 行・本のページの「読みたいに追加」も出さない。
 const SELF_NOTE = '';
 
 function miniCover(title, cover, width) {
@@ -327,8 +328,8 @@ ${renderAvatar(p.avatar, nickname)}<h1 class="name">${esc(who)}</h1>${bio ? `<p 
 ${line ? `<figure class="quote" style="margin-left:0;margin-right:0"><blockquote${[...line].length > 40 ? ' style="font-size:17px;line-height:1.8"' : ''}>${esc(line)}</blockquote></figure>${fav}` : fav ? `<div style="margin-top:24px">${fav}</div>` : ''}
 ${renderShelf(shelf, { publicId, links: social, filter, self })}
 ${social && !self && shelf?.total ? `<a class="cta" style="margin-top:48px" href="${followUrl}">フォロー</a>` : ''}
-<a class="${social ? 'cta2' : 'cta'}" ${social ? `style="margin-top:${shelf?.total ? 32 : 48}px" ` : ''}href="${esc(site)}/lp">orime で読書メモをはじめる</a>
-<p class="note">読んだ本と、会話できる。<br>答えのもとは、あなたが残したメモ。</p>
+${self ? '' : `<a class="${social ? 'cta2' : 'cta'}" ${social ? `style="margin-top:${shelf?.total ? 32 : 48}px" ` : ''}href="${esc(site)}/lp">orime で読書メモをはじめる</a>
+<p class="note">読んだ本と、会話できる。<br>答えのもとは、あなたが残したメモ。</p>`}
 ${self ? '' : `<details><summary>このページを通報する</summary>
 <form method="post" action="/api/profile-report"><input type="hidden" name="id" value="${esc(publicId)}">
 <label for="reason">理由（任意・500 字まで）</label><textarea id="reason" name="reason" maxlength="${REPORT_MAX}"></textarea>
@@ -384,8 +385,8 @@ export function renderBook(p, book, { publicId, showSummary = false, others = []
 <div style="margin-top:${linkShelf ? 16 : 0}px"><div class="bookhead"><div class="bcover">${cover ? `<img src="${esc(cover)}" alt="">` : coverPlaceholder(title)}</div>
 <div><h1 class="title" style="font-size:20px">『${esc(shownTitle(title))}』</h1>${book.author ? `<p class="author">${esc(book.author)}</p>` : ''}${meta ? `<p class="meta">${esc(meta)}${stars ? `　${stars}` : ''}</p>` : ''}</div></div></div>
 ${summary ? `<h2 class="h">${esc(who)}の、この本のまとめ</h2><p class="sum">${esc(summary)}</p>` : `<p class="note" style="text-align:left;margin-top:24px;font-size:15px">${showSummary ? 'まとめはまだありません。' : 'まとめは公開されていません。'}</p>`}
-<a class="cta" href="${esc(wantUrl({ ...book, cover }, site))}">読みたいに追加</a>
-<p class="note" style="text-align:left">orime が開き、あなたの「読みたい」に入れる前に確かめます。</p>
+${self ? '' : `<a class="cta" href="${esc(wantUrl({ ...book, cover }, site))}">読みたいに追加</a>
+<p class="note" style="text-align:left">orime が開き、あなたの「読みたい」に入れる前に確かめます。</p>`}
 <div class="tl" style="margin-top:24px"><a href="${esc(getAmazonLink({ isbn: book.isbn, title, author: book.author }))}" target="_blank" rel="noopener noreferrer sponsored">Amazon<svg width="1.1em" height="1.1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-left:4px"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></a><a href="${esc(getRakutenLink({ isbn: book.isbn, title, author: book.author }))}" target="_blank" rel="noopener noreferrer">楽天ブックス<svg width="1.1em" height="1.1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-left:4px"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></a></div>
 ${others.length ? `<p class="sh">${esc(who)}の、ほかのまとめ</p>${summaryRows(others, publicId, self)}` : ''}
 <!-- 本のページにはフォローのボタンを置かない（フォローを決めるのはプロフィールのページ・2026-11-22 オーナー「ここにフォロー申し込みのボタンは不要」） -->
