@@ -1076,7 +1076,9 @@ export default function ShareSheet({
                 aria-expanded={!!bgMenu}
                 onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setBgMenu({ x: r.right - 8, y: r.top - 8 }); }}
                 // 控えめな文字ボタン（栗色は「一文を選ぶ」「編集」と主ボタンに残す・2026-10-10 ui-critic）。
-                style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', whiteSpace: 'nowrap', marginRight: 'calc(-1 * var(--space-1))' }}
+                // 幅はいちばん長い名前（「背景：表紙の色」「背景：フィルム」＝約 6.5 字＝「：」は約物の詰めで半分＋▾）でそろえ、右に寄せる＝背景を替えても
+                //   左の「投稿｜ストーリー」が横に動かない（2026-11-26 ui-critic）。
+                style={{ ...btnLinkQuiet, display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 'var(--space-1)', whiteSpace: 'nowrap', minWidth: 'calc(6.5em + 1.1em + var(--space-3))', marginRight: 'calc(-1 * var(--space-1))' }}
               >
                 {`背景：${STYLE_LABELS[effStyle]}`}
                 <ChevronDown size="1.1em" aria-hidden="true" />
