@@ -373,8 +373,10 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   // .then() で fire-and-forget。失敗時のみ rollback。
   const [addedTitles, setAddedTitles] = useState(() => new Set(memo0.addedTitles || []));
   // 追加した本の id（書名 → id）。知らせの「元に戻す」などで本棚から消えたら「追加済み」を外す（2026-11-23 点検）。
-  const addedIdsRef = useRef(new Map());
-  const addedSeenRef = useRef(new Set());
+  //   書名 → id の控えも、画面を離れて戻ったときに引き継ぐ（追加済みの印だけが戻り、元に戻したあとも「✓ 追加済み」のまま
+  //   残っていた・2026-11-26）。同じ Map・Set を advisorMemory に持たせる（保存が離れたあとに終わっても、ここへ書かれる）。
+  const addedIdsRef = useRef(memo0.addedIds instanceof Map ? memo0.addedIds : new Map());
+  const addedSeenRef = useRef(memo0.addedSeen instanceof Set ? memo0.addedSeen : new Set());
   useEffect(() => {
     const ids = addedIdsRef.current;
     if (!ids.size || !Array.isArray(books)) return;
@@ -461,7 +463,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   const [recoLoading, setRecoLoading] = useState(false); // 推薦生成中
   // ⏹ 待っている間の「やめる」（2026-11-23 ui-critic: 問いを考えている間・本を選んでいる間は止められなかった）。
   //   interviewCtlRef＝いま聞いている問いの止め具（推薦は activeControllerRef）。waitBackRef＝やめたときに戻す画面
-  //   （送る前の状態の控え）。この画面で始めた待ちのときだけ控える＝離れて戻ってきた待ちは止めない（止め具は前の画面にある）。
+  //   （送る前の状態の控え）。止め具と戻す画面は advisorPendingJob にも持たせ、離れて戻ってきた画面でも「やめる」を出す
+  //   （2026-11-26・前は止め具が前の画面にあり、戻ると止められなかった）。
   const interviewCtlRef = useRef(null);
   const waitBackRef = useRef(null);
   const userStoppedRef = useRef(null);
@@ -484,6 +487,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     advisorMemory.uid = advisorUser?.id || null;
     advisorMemory.state = {
       messages, input, recommendations, chatHistory, lastUserQuery, addedTitles: [...addedTitles],
+      addedIds: addedIdsRef.current, addedSeen: addedSeenRef.current,
       currentSessionId, concern, interview, interviewTrail, interviewAnswers,
       answerText, answerOff, summaryStep, correcting, correctionText, confirmed, interviewError, recoError, recoNotice,
     };
@@ -886,10 +890,17 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     const waitJob = () => {
       const p = advisorPendingJob;
       if (!p || p.done || p.uid !== (advisorUser?.id || null)) return;
+      // 止め具と戻す画面を引き継ぐ（「やめる」を出す・相談の backgroundAsk の controller と同じ・2026-11-26）。
+      if (p.waitBack) waitBackRef.current = p.waitBack;
+      if (p.controller) {
+        if (p.kind === 'reco') activeControllerRef.current = p.controller;
+        else interviewCtlRef.current = p.controller;
+      }
       if (p.kind === 'reco') setRecoLoading(true);
       else setInterviewLoading(true);
       p.promise.then(() => {
         if (unmountedRef.current) return;
+        if (p.waitBack && waitBackRef.current === p.waitBack) waitBackRef.current = null;
         const st = advisorMemory.uid === p.uid ? (advisorMemory.state || {}) : {};
         if (st.interview !== undefined) setInterview(st.interview && !Array.isArray(st.interview) ? st.interview : null);
         if (Array.isArray(st.interviewTrail)) setInterviewTrail(st.interviewTrail);
@@ -919,7 +930,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   // settle で戻ってきた画面へ知らせる（上の advisorPendingJob・2026-10-04）。
   const beginJob = (kind) => {
     let finish = () => {};
-    const job = { kind, uid: advisorUser?.id || null, done: false, promise: new Promise((r) => { finish = r; }) };
+    // controller / waitBack: 離れて戻った画面の「やめる」用（呼び出し元が入れる）。userStopped: 戻った画面で「やめる」を押した。
+    const job = { kind, uid: advisorUser?.id || null, done: false, controller: null, waitBack: null, userStopped: false, promise: new Promise((r) => { finish = r; }) };
     advisorPendingJob = job;
     const remember = (patch) => {
       if (!unmountedRef.current || advisorMemory.uid !== job.uid) return;
@@ -930,7 +942,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       if (advisorPendingJob === job) advisorPendingJob = null;
       finish();
     };
-    return { remember, settle };
+    return { remember, settle, job };
   };
 
   // 推薦生成 — ヒアリング完了後（または fallback の直接相談）に bookAdvisor を
@@ -943,7 +955,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     const historyBefore = chatHistory;
     // 離れても止めない（上の advisorPendingJob）。最初の await より前に控える（ヒアリングから続けて呼ばれたとき、
     // 戻ってきた画面が「ヒアリングが終わった」だけを見て待つのをやめないように）。
-    const { remember, settle: settlePending } = beginJob('reco');
+    const { remember, settle: settlePending, job: recoJob } = beginJob('reco');
     setRecoError(null);
     setRecoStream('');
     setRecoLoading(true);
@@ -952,7 +964,10 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     activeControllerRef.current = controller;
     // 送る前の画面の控え（聞き取りから続いたとき以外＝最初の相談だけで探したときは、最初の入力に戻す）。
     if (!waitBackRef.current || waitBackRef.current.kind !== 'reco') waitBackRef.current = { kind: 'reco', toConcern: true };
-    const stoppedByUser = () => userStoppedRef.current === controller;
+    recoJob.controller = controller;
+    recoJob.waitBack = waitBackRef.current;
+    // 戻ってきた画面で「やめる」を押したときは、その画面の印ではなく控え（recoJob.userStopped）で分かる。
+    const stoppedByUser = () => userStoppedRef.current === controller || recoJob.userStopped;
     // 「やめる」のあと: 画面は stopWaiting がもう戻している。答えの無い相談を履歴に残さず、控えの待ちを終えるだけ。
     const endStopped = () => {
       // やめたあとに次の相談を始めていたら、その会話の記録には触らない。
@@ -1170,6 +1185,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     if (back.kind === 'reco') {
       const ctl = activeControllerRef.current;
       userStoppedRef.current = ctl;
+      // 離れて戻った画面から止めたときも、作っている側（前の画面の処理）が「やめた」と分かるように。
+      if (advisorPendingJob && ctl && advisorPendingJob.controller === ctl) advisorPendingJob.userStopped = true;
       try { ctl?.abort(); } catch { /* noop */ }
       setRecoLoading(false);
       setRecoStream('');
@@ -1257,7 +1274,9 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       interviewCtlRef.current = ctl;
       setInterviewLoading(true);
       // 離れても止めない（問いも覚えておく・2026-10-04）。
-      const { remember, settle } = beginJob('interview');
+      const { remember, settle, job } = beginJob('interview');
+      job.controller = ctl;
+      job.waitBack = waitBackRef.current;
       const step = await runInterviewRound(c, [], 1, ctl.signal);
       if (step?.aborted) { settle(); return; } // 「やめる」: 画面は stopWaiting が最初の入力に戻している
       waitBackRef.current = null;
@@ -1308,7 +1327,9 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     interviewCtlRef.current = ctl;
     setInterviewLoading(true);
     // 離れても止めない（次の問いも覚えておく・2026-10-04）。
-    const { remember, settle } = beginJob('interview');
+    const { remember, settle, job } = beginJob('interview');
+    job.controller = ctl;
+    job.waitBack = waitBackRef.current;
     (async () => {
       try {
         const round = finish ? MAX_INTERVIEW_QUESTIONS + 1 : nextTrail.length + 1;
@@ -1356,7 +1377,9 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     const ctl = new AbortController();
     interviewCtlRef.current = ctl;
     setInterviewLoading(true);
-    const { remember, settle } = beginJob('interview');
+    const { remember, settle, job } = beginJob('interview');
+    job.controller = ctl;
+    job.waitBack = waitBackRef.current;
     (async () => {
       try {
         const step = await runInterviewRound(concern, err.answers, err.round, ctl.signal);
@@ -2026,7 +2049,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
           )}
         </div>
       )}
-      {/* ⏹ やめる（カードの下の控えめな文字ボタン・送る前の画面に戻す）。離れて戻ってきた待ちには出さない（止め具が無い）。 */}
+      {/* ⏹ やめる（カードの下の控えめな文字ボタン・送る前の画面に戻す）。離れて戻ってきた待ちにも出す（止め具は advisorPendingJob から・2026-11-26）。 */}
       {interviewLoading && waitBackRef.current?.kind === 'interview' && (
         <button type="button" onClick={stopWaiting} style={{ ...uiBtnLinkQuiet, alignSelf: 'flex-start', marginTop: 'calc(-1 * var(--space-2))', marginLeft: 'calc(-1 * var(--space-1))' }}>やめる</button>
       )}
@@ -2264,7 +2287,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
           )}
         </div>
       )}
-      {/* ⏹ やめる（カードの下の控えめな文字ボタン・送る前の画面に戻す）。離れて戻ってきた待ちには出さない（止め具が無い）。 */}
+      {/* ⏹ やめる（カードの下の控えめな文字ボタン・送る前の画面に戻す）。離れて戻ってきた待ちにも出す（止め具は advisorPendingJob から・2026-11-26）。 */}
       {recoLoading && waitBackRef.current?.kind === 'reco' && (
         <button type="button" onClick={stopWaiting} style={{ ...uiBtnLinkQuiet, alignSelf: 'flex-start', marginTop: 'calc(-1 * var(--space-2))', marginLeft: 'calc(-1 * var(--space-1))' }}>やめる</button>
       )}

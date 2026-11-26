@@ -50,8 +50,10 @@ export function threadRootOf(messages, fallbackId = null) {
  * 過去の相談の一覧の組み立て。messages（古い順）→ 相談（会話）ごとの配列（中は古い順）を、新しく話した相談から。
  * 相談と答えの 1 組の答えに目印があれば、目印の会話にまとめる（会話の位置は、いちばん新しいやりとりの位置）。
  * 画面の上だけのやりとり（メモが答える相談）は入れない（skip で渡す）。
+ * answeredOnly: 答え（失敗の吹き出し・書いている途中を含む）が 1 つも無い会話は入れない（2026-11-26・答えられずに
+ *   送り直さなかった相談が、相談だけで過去の相談に残っていた）。
  */
-export function groupConsults(messages, { skip = () => false } = {}) {
+export function groupConsults(messages, { skip = () => false, answeredOnly = false } = {}) {
   const pairs = [];
   (Array.isArray(messages) ? messages : []).forEach((m) => {
     if (!m || skip(m)) return;
@@ -68,7 +70,9 @@ export function groupConsults(messages, { skip = () => false } = {}) {
     byRoot.get(root).push(...p);
   });
   const last = (g) => g.reduce((a, m) => (String(m.createdAt || '') > a ? String(m.createdAt || '') : a), '');
-  return order.map((r) => byRoot.get(r)).sort((a, b) => last(b).localeCompare(last(a)));
+  const groups = order.map((r) => byRoot.get(r));
+  return (answeredOnly ? groups.filter((g) => g.some((m) => m.role === 'assistant')) : groups)
+    .sort((a, b) => last(b).localeCompare(last(a)));
 }
 
 /** その会話の相談相手（いちばん新しい答えの目印から）。分からなければ []（すべての本）。 */

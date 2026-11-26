@@ -99,6 +99,8 @@ const OFFLINE_SEND_MESSAGE = 'オフラインです。つながってから、�
 
 // 1 文字も出る前に「止める」を押したときの答え（履歴にもこの文で残る）。
 const STOPPED_EMPTY = '回答を中止しました。';
+// 送った直後の「中止」を数えない時間（送るボタンの 2 度押しで答えを止めない・2026-11-26）。
+const STOP_GRACE_MS = 700;
 // 💬 メモが答える相談（AI を使わない答え・2026-10-01）のやりとりは、画面の上だけに置く（local: true・id は memo-）。
 //   chat_messages には保存しない＝過去の相談・続きの相談の文脈（threadBlock）・相談例の「前に相談した…」に入れない。
 //   「新しい相談をはじめる」で消える（アプリを開いている間は、ほかのタブへ移って戻っても残る）。
@@ -107,7 +109,8 @@ const isLocalMsg = (m) => !!(m && (m.local || /^memo-/.test(String(m.id))));
 // 答えを作っている途中で相談の画面を離れても、答えは最後まで作って履歴に残す
 // （以前は離れた瞬間に止めていたため、原価だけかかって答えは途中で切れていた）。
 // 戻ってきたら、その質問と答えを会話に出す。画面を作り直しても消えない場所に覚えておく。
-let backgroundAsk = null; // { questionAt, done, finishedAt, leftWhileRunning, promise }
+// text: 書けたところまでの答え（戻った画面の待ちの吹き出しに出す）・onText: 戻った画面が続きを受け取る（2026-11-26）。
+let backgroundAsk = null; // { questionAt, done, finishedAt, leftWhileRunning, promise, controller, text, onText }
 
 // 相談の画面を離れて（下のタブ・上のサブタブを切り替えて）戻ってきたときは、同じ会話と
 // 同じ相談相手のまま続ける。新しい会話になるのは、アプリを開き直したとき（再読み込み）と
@@ -287,10 +290,12 @@ function transformMessage(row) {
 // あった。タブ画面なのでモーダルにする必然性も薄く、インライン展開に
 // 変更。
 // onDirtyChange: 書きかけ（本文かタグがある）かどうかを親に知らせる（「‹ 相談」・戻るで黙って消さない・2026-09-30）。
-function LearningInline({ onSaved, onDirtyChange, initialTags = null }) {
+// initialDraft / onDraftChange: 書きかけの控え（下のタブを移って戻っても残す＝相談の session に置く・2026-11-26）。
+function LearningInline({ onSaved, onDirtyChange, initialTags = null, initialDraft = null, onDraftChange = null }) {
   const { user } = useAuth();
   const toast = useToast();
-  const [text, setText] = useState('');
+  const d0 = initialDraft && typeof initialDraft === 'object' ? initialDraft : null;
+  const [text, setText] = useState(() => (typeof d0?.text === 'string' ? d0.text : ''));
   const textRef = useRef(null);
   // 開いたらすぐ書けるように、本文の欄にカーソルを置く（描き終えた次のフレームで・画面は動かさない）。
   useEffect(() => {
@@ -298,11 +303,18 @@ function LearningInline({ onSaved, onDirtyChange, initialTags = null }) {
     return () => cancelAnimationFrame(raf);
   }, []);
   // ＋ 分類・タグ（最初は閉じる＝本文と保存だけを見せる。QuickMemoSheet の「＋ 詳しく」と同じ）。
-  const [moreOpen, setMoreOpen] = useState(() => !!initialTags?.length);
-  const [category, setCategory] = useState(CATEGORIES[0]);
-  const [tagInput, setTagInput] = useState('');
-  const [tags, setTags] = useState(() => (Array.isArray(initialTags) ? initialTags.filter(Boolean) : []));
+  const [moreOpen, setMoreOpen] = useState(() => (d0 ? !!d0.moreOpen : !!initialTags?.length));
+  const [category, setCategory] = useState(() => (CATEGORIES.includes(d0?.category) ? d0.category : CATEGORIES[0]));
+  const [tagInput, setTagInput] = useState(() => (typeof d0?.tagInput === 'string' ? d0.tagInput : ''));
+  const [tags, setTags] = useState(() => (Array.isArray(d0?.tags)
+    ? d0.tags.filter(Boolean)
+    : (Array.isArray(initialTags) ? initialTags.filter(Boolean) : [])));
   const [busy, setBusy] = useState(false);
+  const draftCbRef = useRef(onDraftChange);
+  useEffect(() => { draftCbRef.current = onDraftChange; });
+  useEffect(() => {
+    draftCbRef.current?.({ text, category, tags, tagInput, moreOpen });
+  }, [text, category, tags, tagInput, moreOpen]);
   const dirty = text.trim().length > 0 || tagInput.trim().length > 0;
   const dirtyCbRef = useRef(onDirtyChange);
   useEffect(() => { dirtyCbRef.current = onDirtyChange; });
@@ -529,7 +541,12 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // 無料期間が終わる日（「◯月◯日から、毎月 800 トークン使えます」）。分からなければ空。
   const trialEndLabel = plan === 'trial' ? monthDayLabelJa(trialEndsAt) : '';
   const trialCancelLine = plan === 'trial' ? trialCancelShortLine(trialEndsAt) : '';
-  const [view, setView] = useState('chat'); // 'chat' | 'learning' | 'history' | 'knowledge'
+  // 学びを書く画面を開いたまま下のタブを移ったときは、戻ったときもその画面から（書きかけは session の learningDraft・2026-11-26）。
+  const [view, setView] = useState(() => (sessionFor(user?.id)?.view === 'learning' ? 'learning' : 'chat')); // 'chat' | 'learning' | 'history' | 'knowledge'
+  // 学びを書く画面を離れたら（保存・破棄・ほかの画面へ）書きかけの控えを捨てる。タブを移る（この画面ごと消える）ときは残す。
+  useEffect(() => {
+    rememberSession(user?.id, view === 'learning' ? { view } : { view, learningDraft: null });
+  }, [view, user?.id]);
   // 押し込まれた画面（過去の相談・学びを書く・根拠にできる情報）のあいだは、親がサブタブを隠せるように知らせる
   // （見出しが 3 段に重ならないように）。離れるときは必ず false に戻す。
   const pushedCbRef = useRef(onPushedViewChange);
@@ -614,6 +631,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // 話し相手を変えるのはここだけ（著者を渡さない変更では著者を外す＝前の著者の見出しが残らない・2026-11-26 点検）。
   const setScope = useCallback((ids, author = null) => { setScopeAuthor(author); setScopeIds(ids); }, []);
   useEffect(() => { rememberSession(user?.id, { scopeIds }); }, [scopeIds, user?.id]);
+  // false＝閉じている / true＝誰に相談しますか？ / 'pair'＝「2 冊を選んで、考えをぶつける」の 2 冊を選ぶ（2026-11-26）
   const [scopeSheetOpen, setScopeSheetOpen] = useState(false);
   const [insightFor, setInsightFor] = useState(null); // ✍️ 気づきを書き残すの相談の文（null＝閉じている）
   // 📚 答え方（まとめて / 本ごとに）。相談相手が 1 冊のときは「まとめて」で答える（並べる本が無い）。
@@ -862,7 +880,10 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // 別のタブへ移っても（この画面が消えても）答えは止めない。原価はもう払っているので
   // 最後まで作って履歴に残し、戻ったときに会話へ出す（上の backgroundAsk）。
   useEffect(() => () => {
-    if (backgroundAsk && !backgroundAsk.done) backgroundAsk.leftWhileRunning = true;
+    if (backgroundAsk && !backgroundAsk.done) {
+      backgroundAsk.leftWhileRunning = true;
+      backgroundAsk.onText = null; // 消えた画面へは送らない（次に開いた画面がつなぎ直す）
+    }
   }, []);
 
   // アプリを開いて最初に相談を開いたときは「新しい会話」から始める（過去のやりとりは
@@ -896,8 +917,11 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         const waitId = `bg-wait-${Date.now()}`;
         setBusy(true);
         if (bg.controller) abortRef.current = bg.controller;
-        setMessages((arr) => [...arr, { id: waitId, role: 'assistant', content: '', refs: [], createdAt: new Date().toISOString(), streaming: true }]);
+        // 書けたところまでを出し、続きもここで受け取る（前は「答えを準備しています…」に戻っていた・2026-11-26）。
+        setMessages((arr) => [...arr, { id: waitId, role: 'assistant', content: bg.text || '', refs: [], createdAt: new Date().toISOString(), streaming: true, ...(bg.row || null) }]);
+        bg.onText = (t) => setMessages((arr) => arr.map((m) => (m.id === waitId ? { ...m, content: t } : m)));
         bg.promise.then(async () => {
+          bg.onText = null;
           if (abortRef.current === bg.controller) abortRef.current = null;
           setAborting(false);
           if (bg.notice?.text && !bg.failed && !bg.aborted) {
@@ -1574,6 +1598,10 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           // 本ごとには、書いている間も最後のカードの下に「答えを書いています…」を残す（本のカードが順に増えるので、続きがあると分かるように）。
           if (liveMode !== 'perbook') setStage(null);
           lastVisible = visibleText;
+          // 画面を離れて戻ったときに、書けたところから見せる（上の backgroundAsk）。
+          myBackground.text = visibleText;
+          myBackground.row = { scopeIds: askBookIds, mode: liveMode, ...(liveVoice ? { voice: liveVoice } : null) };
+          myBackground.onText?.(visibleText);
           if (visibleText && !gotTextRef.current) { gotTextRef.current = true; setSlowWait(false); }
           setMessages((arr) => arr.map((m) =>
             m.id === streamingId
@@ -1797,6 +1825,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const stopStreaming = () => {
     const controller = abortRef.current;
     if (!controller || controller.signal.aborted) return;
+    // 送るボタンをすばやく 2 回押すと、2 回目が同じ場所に出た「中止」に当たって答えを止めていた（2026-11-26）。
+    //   送った直後（約 0.7 秒）の押下は数えない。
+    if (Date.now() - sentAtRef.current < STOP_GRACE_MS) return;
     setAborting(true);
     setStage(null);
     try { controller.abort(); } catch { /* ignore */ }
@@ -1846,8 +1877,11 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       ids.push(m.id, a.id);
     });
     if (ids.length === 0) return;
+    // 続きをやめた（×）ときに戻す相談相手（続きを開く前の相談相手・続きから続きを開いたときは最初の前のまま・2026-11-26）。
+    const prevScope = resumeThread && Array.isArray(resumeThread.prevScope) ? resumeThread.prevScope : scopeIds;
+    const prevAuthor = resumeThread ? (resumeThread.prevAuthor || null) : scopeAuthor;
     clearConversation();
-    setResumeThread({ ids, title: threadTitleOf(group) });
+    setResumeThread({ ids, title: threadTitleOf(group), prevScope, prevAuthor });
     setScope(threadScopeOf(group));
     setView('chat');
     track('brain_continue', { turns: ids.length / 2 });
@@ -1910,6 +1944,19 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         return;
       }
     }
+  };
+
+  // 過去の相談の「もう一度」: 会話の画面に移ってから答え直す（過去の相談の画面のまま、入力欄の無いところへ答えを書いていた・2026-11-26）。
+  const retryFromHistory = () => {
+    // 答え直す相談が会話の境界より前（「新しい相談をはじめる」の前に失敗した相談）なら、その相談から会話に出す。
+    const lastQ = [...messages].reverse().find((m) => m.role === 'user' && !isLocalMsg(m));
+    if (lastQ?.createdAt && clearedAt && lastQ.createdAt <= clearedAt) {
+      const cut = new Date(Date.parse(lastQ.createdAt) - 1).toISOString();
+      setClearedAt(cut);
+      rememberSession(user?.id, { clearedAt: cut });
+    }
+    setView('chat');
+    regenerate();
   };
 
   // 📚 本ごとの答えの「この本にくわしく聞く」: 相談相手をその 1 冊に絞り、同じ相談を
@@ -2101,8 +2148,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // 過去の相談: 相談（user）とそれに続く答えを 1 組にして、新しい組から並べる。
   //   🧵 続きを相談した会話は 1 つにまとめる（答えの目印＝lib/consultThreads.js・2026-10-08）。新しく話した相談から。
   const historyGroups = useMemo(
-    // メモが答える相談は過去の相談に入れない（AI の答えではないので）
-    () => groupConsults(messages, { skip: isLocalMsg }),
+    // メモが答える相談は過去の相談に入れない（AI の答えではないので）。答えの無い相談（失敗して送り直さなかった）も出さない。
+    () => groupConsults(messages, { skip: isLocalMsg, answeredOnly: true }),
     [messages],
   );
   // 🌿 過去の相談のあとに増えた自分のメモの数（「いまのメモで、もう一度相談する」に添える・2026-10-21）。
@@ -2516,6 +2563,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       {view === 'learning' && (
         <div style={viewScroll} onScroll={onBodyScroll}>
           <LearningInline
+            initialDraft={sessionFor(user?.id)?.learningDraft || null}
+            onDraftChange={(d) => rememberSession(user?.id, { learningDraft: d })}
             onDirtyChange={(d) => { learningDirtyRef.current = d; }}
             onCancel={() => setView('chat')}
             onSaved={() => { setView('chat'); setStatsTick((t) => t + 1); }}
@@ -2561,7 +2610,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 <div key={g[0].id} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginBottom: 'calc(var(--space-8) - var(--space-3))' }}>
                   {/* 過去の相談では「行動に追加」を行の副ボタンに（主ボタンは「この続きを相談する」1 つ・2026-10-16 第 4 回） */}
                   {g.map((m) => (
-                    <ChatMessage key={m.id} message={m} showTime quietAction onOpenBook={onOpenBook} books={books} actions={allActions} onAddAction={handleAnswerToAction} onAddActionPickBook={onAddActionPickBook} onRetry={busy ? null : regenerate} question={g[0].role === 'user' ? g[0].content : ''} onAskBook={askAboutBook} askBusy={busy} memoBookIds={memoBookIds} onShowPartner={setPartnerSheet} onOpenActions={onOpenActions} />
+                    <ChatMessage key={m.id} message={m} showTime quietAction onOpenBook={onOpenBook} books={books} actions={allActions} onAddAction={handleAnswerToAction} onAddActionPickBook={onAddActionPickBook} onRetry={busy ? null : retryFromHistory} question={g[0].role === 'user' ? g[0].content : ''} onAskBook={askAboutBook} askBusy={busy} memoBookIds={memoBookIds} onShowPartner={setPartnerSheet} onOpenActions={onOpenActions} />
                   ))}
                   {/* 🧵 この続きを相談する（2026-10-08）: その相談の下に 1 つ。いちばん新しい相談は主ボタン、それより前は文字ボタン
                       （主ボタンを画面に何本も並べない）。押すと相談の画面で、この会話の続きから。 */}
@@ -2729,7 +2778,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                     memoBookIds={memoBookIds}
                     userId={user?.id || null}
                     onPickBooks={(ids, author = null) => { setScope(ids, author); try { chatScrollRef.current?.scrollTo?.({ top: 0 }); } catch { /* ignore */ } }}
-                    onPickSeveral={() => setScopeSheetOpen(true)}
+                    onPickSeveral={() => setScopeSheetOpen('pair')}
                     onDraft={(q, ids) => {
                       setScopeAuthor(null);
                       setScope(ids || []);
@@ -3038,7 +3087,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             <ScopeSheet
               books={books}
               userId={user?.id}
-              initial={scopeIds}
+              pickTwo={scopeSheetOpen === 'pair'}
+              initial={scopeSheetOpen === 'pair' ? [] : scopeIds}
               onClose={() => setScopeSheetOpen(false)}
               onApply={(ids) => { setScope(ids); setScopeSheetOpen(false); track('brain_scope_set', { count: ids.length }); }}
             />
@@ -3052,7 +3102,13 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               </p>
               <button
                 type="button"
-                onClick={() => { clearConversation(); track('brain_continue', { action: 'cancel' }); }}
+                onClick={() => {
+                  // 続きの会話の相談相手を残さず、続きを開く前の相談相手に戻す（2026-11-26）。
+                  const prev = resumeThread;
+                  clearConversation();
+                  if (Array.isArray(prev?.prevScope)) setScope(prev.prevScope, prev.prevAuthor || null);
+                  track('brain_continue', { action: 'cancel' });
+                }}
                 onMouseDown={(e) => { if (document.activeElement === inputRef.current) e.preventDefault(); }}
                 disabled={busy}
                 aria-label="続きをやめて、新しい相談にする"
@@ -4710,8 +4766,11 @@ function AnswerModeSheet({ value, onClose, onSelect }) {
 // 本ごとのメモ件数を、同じアプリの起動中は覚えておく（2 回目からは開いた瞬間に一覧を出す＝
 // 骨組みの短いシートが出てから高さが伸びる、をなくす・数え直しは裏で・2026-09-29）。
 const scopeCountsMemory = { uid: null, counts: null };
-function ScopeSheet({ books = [], userId, initial = [], onClose, onApply }) {
-  const [mode, setMode] = useState(initial.length ? 'pick' : 'all');
+// pickTwo: 「2 冊を選んで、考えをぶつける」から開いたとき（2026-11-26）。題は「ぶつける 2 冊を選ぶ」・はじめは何も選ばない・
+//   「すべての本」の行は出さない・2 冊まで・ちょうど 2 冊のときだけ「2 冊でぶつける」。
+const PAIR_MAX = 2;
+function ScopeSheet({ books = [], userId, initial = [], onClose, onApply, pickTwo = false }) {
+  const [mode, setMode] = useState(pickTwo || initial.length ? 'pick' : 'all');
   const [picked, setPicked] = useState(new Set(initial));
   const [counts, setCounts] = useState(() => (scopeCountsMemory.uid === userId ? scopeCountsMemory.counts : null)); // Map<bookId, メモ件数>
 
@@ -4749,11 +4808,14 @@ function ScopeSheet({ books = [], userId, initial = [], onClose, onApply }) {
     setMode('pick');
     setPicked((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
+      if (next.has(id)) next.delete(id);
+      else if (pickTwo && next.size >= PAIR_MAX) return prev; // 2 冊まで（外してから選び直す）
+      else next.add(id);
       return next;
     });
   };
-  const canApply = mode === 'all' || picked.size > 0;
+  const pairFull = pickTwo && picked.size >= PAIR_MAX;
+  const canApply = pickTwo ? picked.size === PAIR_MAX : (mode === 'all' || picked.size > 0);
   const apply = () => onApply(mode === 'all' ? [] : [...picked]);
 
   // iOS の一覧の形: 選んだ行は右端のチェックだけで示す（丸いラジオ風の印や色の面は使わない）。
@@ -4770,20 +4832,22 @@ function ScopeSheet({ books = [], userId, initial = [], onClose, onApply }) {
 
   return (
     <BottomSheet
-      title="誰に相談しますか？"
+      title={pickTwo ? 'ぶつける 2 冊を選ぶ' : '誰に相談しますか？'}
       onClose={onClose}
       dismissLabel="キャンセル"
       footer={(
         <button type="button" onClick={apply} disabled={!canApply} style={canApply ? uiBtnPrimary : uiBtnPrimaryOff}>
-          {mode === 'all' ? 'すべての本に相談する' : picked.size === 1 ? 'この本に相談する' : `${picked.size} 冊に相談する`}
+          {pickTwo ? '2 冊でぶつける' : mode === 'all' ? 'すべての本に相談する' : picked.size === 1 ? 'この本に相談する' : `${picked.size} 冊に相談する`}
         </button>
       )}
     >
-      <button type="button" onClick={() => { setMode('all'); setPicked(new Set()); }} aria-pressed={mode === 'all'} style={{ ...rowStyle, marginBottom: 'var(--space-6)' }}>
-        <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>すべての本（おすすめ）</span>
-        {mark(mode === 'all')}
-      </button>
-      <p style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>{(countsLoading || pickable.length > 1) ? '本に絞る（複数選べます）' : '本に絞る'}</p>
+      {!pickTwo && (
+        <button type="button" onClick={() => { setMode('all'); setPicked(new Set()); }} aria-pressed={mode === 'all'} style={{ ...rowStyle, marginBottom: 'var(--space-6)' }}>
+          <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>すべての本（おすすめ）</span>
+          {mark(mode === 'all')}
+        </button>
+      )}
+      <p style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>{pickTwo ? `本を選ぶ（${picked.size} / ${PAIR_MAX} 冊）` : (countsLoading || pickable.length > 1) ? '本に絞る（複数選べます）' : '本に絞る'}</p>
       {/* 件数を数え終わるまでは行の形だけ（あとで並び替わって跳ねないように）。行の数は、読書中・読了の本の数
           （＝出てくる行のおよその数・最大 6）にして、シートの高さが数え終わってから伸びないようにする（2026-09-29）。
           形の高さは本の行と同じ 72（表紙・書名・メモの件数の 2 行・2026-09-30）。 */}
@@ -4802,10 +4866,12 @@ function ScopeSheet({ books = [], userId, initial = [], onClose, onApply }) {
             {pickable.map((b) => {
               const on = mode === 'pick' && picked.has(b.id);
               const n = counts?.get(b.id) || 0;
+              // 2 冊を選び終えたら、ほかの行は押せない形（文字色を落とす・薄くはしない）。
+              const locked = pairFull && !on;
               return (
-                <button key={b.id} type="button" onClick={() => toggle(b.id)} aria-pressed={on} style={rowStyle}>
+                <button key={b.id} type="button" onClick={() => toggle(b.id)} aria-pressed={on} aria-disabled={locked || undefined} style={locked ? { ...rowStyle, cursor: 'default' } : rowStyle}>
                   <span style={{ flex: 1, minWidth: 0 }}>
-                    <span style={{ display: 'block', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</span>
+                    <span style={{ display: 'block', fontSize: 'var(--text-body)', fontWeight: 600, color: locked ? 'var(--text-3)' : 'var(--text)', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</span>
                     {counts != null && (
                       <span style={{ display: 'block', marginTop: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>{n > 0 ? `メモ ${n} 件` : 'この本のまとめあり'}</span>
                     )}

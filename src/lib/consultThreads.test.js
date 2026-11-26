@@ -61,6 +61,14 @@ describe('groupConsults（過去の相談の一覧）', () => {
   });
 });
 
+describe('groupConsults の answeredOnly（2026-11-26）', () => {
+  it('答えの無い相談（失敗して送り直さなかった）は入れない・失敗の吹き出しがあれば入れる', () => {
+    const msgs = [U('u1', '1'), A('a1', '2'), U('u2', '3'), U('u3', '4'), { id: 'err-1', role: 'assistant', content: 'x', createdAt: '5', error: true, refs: [] }];
+    expect(groupConsults(msgs).map((g) => g[0].id)).toEqual(['u3', 'u2', 'u1']);
+    expect(groupConsults(msgs, { answeredOnly: true }).map((g) => g[0].id)).toEqual(['u3', 'u1']);
+  });
+});
+
 describe('threadScopeOf / threadTitleOf', () => {
   it('相談相手は、いちばん新しい答えの目印から', () => {
     expect(threadScopeOf([U('u1', '1'), A('a1', '2', ['🧵 u1|b1']), U('u2', '3'), A('a2', '4', ['🧵 u1|b1,b2'])])).toEqual(['b1', 'b2']);
