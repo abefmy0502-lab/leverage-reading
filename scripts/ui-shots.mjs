@@ -851,6 +851,8 @@ const SCREENS = [
   { name: 'knowledge-map-nomemo', url: '/?memos=none', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }, { wait: 2500 }, { eval: RT_SCROLL('[data-knowledge-map]') }, { wait: 600 }] },
   { name: 'knowledge-map', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }, { wait: 2500 }, { eval: RT_SCROLL('[data-knowledge-map]') }, { wait: 400 }] },
   { name: 'knowledge-map-pick', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }, { wait: 2500 }, { css: '[data-knowledge-map] button[aria-label*="数値化の鬼"] >> nth=0' }, { wait: 400 }, { eval: RT_SCROLL('[data-knowledge-map]') }, { wait: 300 }] },
+  // 育った順に見る（途中＝本が 4 冊浮かんだところ・2026-11-26 作り直し）
+  { name: 'knowledge-map-replay', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }, { wait: 2500 }, { eval: RT_SCROLL('[data-knowledge-map]') }, { wait: 800 }, { css: '[data-knowledge-map] button:has-text("育った順に見る")' }, { wait: 2300 }] },
   { name: 'knowledge-map-list', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }, { wait: 2500 }, { eval: RT_SCROLL('[data-knowledge-map] h4') }, { wait: 400 }] },
   { name: 'review-record-fields', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }, { wait: 1200 }, { scrollTo: '[data-book-fields-record]' }, { wait: 400 }] },
   // 分野を読了・積読・読書中で切り替え（2026-11-26 オーナー）

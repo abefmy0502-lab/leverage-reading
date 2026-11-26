@@ -422,14 +422,14 @@ export function buildConsultExamples({ books = [], memoBookIds = null, lastConsu
  */
 export function unreadExample(books) {
   const tsundoku = (Array.isArray(books) ? books : [])
-    .filter((b) => b && b.status === 'before' && String(b.title || '').trim())
+    .filter((b) => b && !b.archivedAt && b.status === 'before' && String(b.title || '').trim())
     .sort((a, b) => String(b.updatedAt || b.updated_at || '').localeCompare(String(a.updatedAt || a.updated_at || '')));
   return tsundoku[0] ? `積読の『${shortTitle(tsundoku[0].title)}』は、今の悩みにどう効く？` : '';
 }
 // 前の名前（lib/unreadBooks.js が同じ名前で出している）。今は書名を入れる関数そのもの。
 export const UNREAD_EXAMPLE = unreadExample;
 export function hasTsundoku(books) {
-  return (Array.isArray(books) ? books : []).some((b) => b && b.status === 'before' && String(b.title || '').trim());
+  return (Array.isArray(books) ? books : []).some((b) => b && !b.archivedAt && b.status === 'before' && String(b.title || '').trim());
 }
 
 // 🌱 初日の「相談してみる」（2026-10-02・lib/firstDay.js）: 取り込み・ページを撮る・読んだ本の一文をメモする を

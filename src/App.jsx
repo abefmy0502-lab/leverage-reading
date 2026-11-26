@@ -2588,6 +2588,10 @@ function AuthedApp() {
         && current.status === 'before'
         && form.status === 'before'
         && !!(form.investPurpose && form.investPurpose.trim());
+      // 状態が変わる保存（保存して読み始める・編集の状態のチップ）は、アーカイブから戻す（2026-11-26 点検）
+      if (current?.id && current.archivedAt && (isSetupCompletion || (form.status && form.status !== current.status))) {
+        setArchived(current.id, false);
+      }
 
       // 保存直前に「実行時点の最新 form」を読む（表紙解決の長い await 中に
       // →行動にする / 行動トグルが syncActionSnapshots で form を進めていても
@@ -3303,23 +3307,28 @@ function AuthedApp() {
   const toggleArchive = (book, on) => {
     if (!book) return;
     haptic.light();
-    setArchived(book.id, on);
-    setCurrent((c) => (c && c.id === book.id ? { ...c, archivedAt: on ? new Date().toISOString() : null } : c));
+    // 保存できなかったら画面を戻して言う（成功の知らせは下げる・2026-11-26 点検）
+    const apply = (to, onFail) => {
+      setCurrent((c) => (c && c.id === book.id ? { ...c, archivedAt: to ? new Date().toISOString() : null } : c));
+      setArchived(book.id, to).then((r) => {
+        if (r?.ok !== false) return;
+        setCurrent((c) => (c && c.id === book.id ? { ...c, archivedAt: to ? null : (book.archivedAt || new Date().toISOString()) } : c));
+        onFail?.();
+        toast.error(toSaveMessage(r.error, to ? 'アーカイブできませんでした。' : 'アーカイブから戻せませんでした。'));
+      });
+    };
     track('book_archive', { on: !!on, status: book.status });
     // 書名は入れない（ボタンと並ぶ 1 行で「『数…』」まで切れていた・その本の画面か長押しの場所で出るので本は分かる）
-    toast.undo({
+    let undoId = null;
+    apply(on, () => { if (undoId != null) toast.dismiss(undoId, { skipExpire: true }); });
+    undoId = toast.undo({
       message: on ? 'アーカイブしました。' : 'アーカイブから戻しました。',
-      onUndo: () => {
-        setArchived(book.id, !on);
-        setCurrent((c) => (c && c.id === book.id ? { ...c, archivedAt: on ? null : new Date().toISOString() } : c));
-      },
+      onUndo: () => apply(!on),
     });
   };
 
   const advanceStatus = (book, newStatus, opts = {}) => {
     if (!book) return;
-    // アーカイブした本の状態を変えたら、アーカイブから戻す（読み始めたのに一覧に出ない、を防ぐ・2026-11-26）
-    if (book.archivedAt || books.find((b) => b.id === book.id)?.archivedAt) setArchived(book.id, false);
     // 二度押しで、状態を進めた直後に同じ場所に出たボタン（次の状態へ・読書計画シートを作る）を押させない（2026-11-25 点検）。
     if (statusChangedRef.current.id === book.id && Date.now() - statusChangedRef.current.at < STATUS_TAP_LOCK_MS) return;
     statusChangedRef.current = { id: book.id, at: Date.now() };
@@ -3327,13 +3336,18 @@ function AuthedApp() {
     // 「渡した actions に無い行を DELETE」する差分同期なので、stale なまま保存すると
     // 直前に追加した行動などが静かに消える。必ず books state の最新行に rebase する。
     const fresh = books.find((b) => b.id === book.id) || book;
+    // アーカイブした本の状態を変えたら、アーカイブから戻す（読み始めたのに一覧に出ない、を防ぐ・2026-11-26）。
+    //   画面の本もすぐ戻し（「アーカイブ中」を残さない）、元に戻す・失敗のときはアーカイブに戻す（2026-11-26 点検）。
+    const wasArchived = fresh.archivedAt || book.archivedAt || null;
+    if (wasArchived) setArchived(book.id, false);
     const prev = {
       status: fresh.status,
       startDate: fresh.startDate,
       doneDate: fresh.doneDate,
+      ...(wasArchived ? { archivedAt: wasArchived } : null),
     };
     // opts.extra: 状態と一緒に残す欄（積読の「読書を開始する」で、下書きの得たいことを本に残す・2026-10-09）。
-    const patch = { status: newStatus, ...(opts.extra || {}) };
+    const patch = { status: newStatus, ...(wasArchived ? { archivedAt: null } : null), ...(opts.extra || {}) };
     // 開始日は「読み始めた日」＝読書中・読了に進めたとき（積読に積んだ日ではない）。
     if ((newStatus === "reading" || newStatus === "done") && !fresh.startDate) patch.startDate = todayLocal();
     if (newStatus === "done" && !fresh.doneDate) patch.doneDate = todayLocal();
@@ -3380,6 +3394,7 @@ function AuthedApp() {
         // rollback は status 系フィールドのみ（他の並行変更は保持）。画面遷移は
         // ユーザーがこの本を開いたままの時だけ行う（別の本の編集画面を乗っ取らない）。
         mutateBookLocal(book.id, (b) => ({ ...b, ...prev }));
+        if (wasArchived) setArchived(book.id, true);
         entry.latest = null;
         setCurrent((c) => (c && c.id === book.id ? { ...c, ...prev } : c));
         setForm((f) => (f && f.id === book.id ? { ...f, ...prev } : f));
@@ -3408,6 +3423,7 @@ function AuthedApp() {
         // 取り消しは「元の状態の本の詳細」に戻すだけ（編集フォームに飛ばさない）。
         if (currentRef.current?.id === book.id) setView('detail');
         mutateBookLocal(book.id, (b) => ({ ...b, ...prev }));
+        if (wasArchived) setArchived(book.id, true);
         try {
           const saved = await saveBook(reverted);
           entry.latest = saved || reverted;
@@ -3514,6 +3530,12 @@ function AuthedApp() {
     // 押した直後に「元に戻す」つきの知らせ（本の状態を進めたときの知らせと同じ・ホームの「読み始める」・長押しの「状態を変える」・2026-11-23）。
     //   戻すのは状態と、この操作で埋めた日付だけ（得たいことの下書きはそのまま）。
     const prevStatus = { status: book.status };
+    // アーカイブした本の状態を変えたら、アーカイブから戻す（元に戻すでアーカイブにも戻す・2026-11-26 点検）
+    const wasArchived = (booksRef.current.find((b) => b.id === book.id) || book).archivedAt || null;
+    if (wasArchived) {
+      setArchived(book.id, false);
+      setCurrent((c) => (c && c.id === book.id ? { ...c, archivedAt: null } : c));
+    }
     if ('startDate' in patch) prevStatus.startDate = book.startDate || '';
     if ('doneDate' in patch) prevStatus.doneDate = book.doneDate || '';
     const shortMsg = { before: '積読に積みました。', reading: '読書中にしました。', done: '読了にしました。' };
@@ -3527,6 +3549,10 @@ function AuthedApp() {
         const now = booksRef.current.find((b) => b.id === book.id);
         if (!now || now.status !== newStatus) return; // 保存に失敗して戻った・ほかで変えたときは何もしない
         applyBookPatchQuiet(book.id, prevStatus, null);
+        if (wasArchived) {
+          setArchived(book.id, true);
+          setCurrent((c) => (c && c.id === book.id ? { ...c, archivedAt: wasArchived } : c));
+        }
       },
     }));
     if (newStatus === 'before' || newStatus === 'reading' || newStatus === 'done') {
@@ -4834,11 +4860,17 @@ function AuthedApp() {
   }, [libraryQuery, libraryHits, filtered]);
 
   // 絞り込みシート用: 本に付いている分野（一覧の順・冊数つき・2026-10-11）。
+  //   冊数は、分野のほかの絞り込み（状態・フォルダ・評価・検索）を効かせた数＝選んだときに並ぶ数と合わせる（アーカイブは数えない・2026-11-26 点検）。
   const availableTags = useMemo(() => {
     const counts = new Map();
-    for (const b of books) for (const f of fieldsOf(b)) counts.set(f, (counts.get(f) || 0) + 1);
+    for (const b of books) {
+      if (!matchesLibraryFilters(b, { statusFilter, folderFilter, minRating, hits: libraryHits })) continue;
+      for (const f of fieldsOf(b)) counts.set(f, (counts.get(f) || 0) + 1);
+    }
+    // 選んでいる分野は 0 冊でも出す（外せるように）
+    for (const t of tagFilter) if (!counts.has(t)) counts.set(t, 0);
     return BOOK_FIELDS.filter((f) => counts.has(f)).map((f) => ({ name: f, count: counts.get(f) }));
-  }, [books]);
+  }, [books, statusFilter, folderFilter, minRating, libraryHits, tagFilter]);
 
   // アクティブな絞り込み数（ツールバーのバッジ表示用）。
   const activeFilterCount = (statusFilter !== 'all' ? 1 : 0) + (minRating > 0 ? 1 : 0) + tagFilter.length + (folderFilter ? 1 : 0);
@@ -4881,6 +4913,10 @@ function AuthedApp() {
     live.forEach((b) => { out[b.status] = (out[b.status] || 0) + 1; });
     return out;
   }, [books, libraryHits, minRating, tagFilter, folderFilter]);
+  // アーカイブを見ていて最後の 1 冊を戻したら「すべて」に戻す（0 冊の空の一覧に残さない・2026-11-26 点検）
+  useEffect(() => {
+    if (statusFilter === STATUS_ARCHIVED && !libraryHits && chipStats.archived === 0 && !booksLoading) setStatusFilter('all');
+  }, [statusFilter, libraryHits, chipStats.archived, booksLoading]);
   const stats = useMemo(() => ({ total: books.length, want: books.filter((b) => b.status === "want").length, before: books.filter((b) => b.status === "before").length, reading: books.filter((b) => b.status === "reading").length, done: books.filter((b) => b.status === "done").length }), [books]);
   const actionCount = useMemo(() => books.reduce((s, b) => s + (b.actions || []).filter((a) => a.text?.trim()).length, 0), [books]);
   const actionDone = useMemo(() => books.reduce((s, b) => s + (b.actions || []).filter((a) => a.done).length, 0), [books]);
@@ -4973,15 +5009,27 @@ function AuthedApp() {
             book={books.find((x) => x.id === progressBook.id) || progressBook}
             infoPages={current?.id === progressBook.id ? (bookAbout.info?.pages || 0) : 0}
             onSave={(p) => {
-              saveProgress(progressBook.id, p);
-              setCurrent((c) => (c && c.id === progressBook.id ? { ...c, currentPage: p.current, totalPages: p.unit === 'page' ? p.total : c.totalPages, progressUnit: p.unit } : c));
+              const id = progressBook.id;
+              const b0 = books.find((x) => x.id === id) || progressBook;
+              const before = { currentPage: b0.currentPage ?? null, totalPages: b0.totalPages ?? null, progressUnit: b0.progressUnit || 'page' };
+              setCurrent((c) => (c && c.id === id ? { ...c, currentPage: p.current, totalPages: p.unit === 'page' ? p.total : c.totalPages, progressUnit: p.unit } : c));
+              // 保存できなかったら画面を戻して言う（成功と見せて、開き直すと消えていた・2026-11-26 点検）
+              saveProgress(id, p).then((r) => {
+                if (r?.ok !== false) return;
+                setCurrent((c) => (c && c.id === id ? { ...c, ...before } : c));
+                toast.error(toSaveMessage(r.error, '読んだところを保存できませんでした。'));
+              });
             }}
             onClear={() => {
               const b = books.find((x) => x.id === progressBook.id) || progressBook;
               const prev = { unit: b.progressUnit || 'page', current: b.currentPage ?? null, total: b.totalPages ?? null };
               const apply = (p) => {
-                saveProgress(b.id, p);
                 setCurrent((c) => (c && c.id === b.id ? { ...c, currentPage: p.current, totalPages: p.total, progressUnit: p.unit } : c));
+                saveProgress(b.id, p).then((r) => {
+                  if (r?.ok !== false) return;
+                  setCurrent((c) => (c && c.id === b.id ? { ...c, currentPage: b.currentPage ?? null, totalPages: b.totalPages ?? null, progressUnit: b.progressUnit || 'page' } : c));
+                  toast.error(toSaveMessage(r.error, '読んだところを保存できませんでした。'));
+                });
               };
               apply({ unit: prev.unit, current: null, total: prev.total });
               toast.undo({ message: '読んだところを消しました。', onUndo: () => apply(prev) });
@@ -5132,7 +5180,7 @@ function AuthedApp() {
         initialPicked={quickstartPicked}
         onSaveBook={saveQuickstartBook}
         // 一言を書いた本が「読みたい・積読」のままだと、本の詳細にメモが出ない → 読了にする
-        onMarkRead={(bookId) => applyBookPatchQuiet(bookId, { status: 'done' })}
+        onMarkRead={(bookId) => { if (booksRef.current.find((b) => b.id === bookId)?.archivedAt) setArchived(bookId, false); applyBookPatchQuiet(bookId, { status: 'done' }); }}
         onMemosAdded={() => {
           appCache?.notifyMemosChanged?.();
           if (takeOnboardPathDone('quickstart')) track('onboard_path_done', { path: 'quickstart' });
@@ -7326,14 +7374,20 @@ function AuthedApp() {
                     // 検索のときは、メモの中まで探したことを言う（書名だけを探したと思われないように・2026-09-30）。
                     description={libraryQuery ? '書名・著者・メモの中を探しました' : undefined}
                     actions={[
+                      // アーカイブにだけ見つかったときは、そこへ（見つからないと思わせない・2026-11-26 点検）
+                      ...(statusFilter !== STATUS_ARCHIVED && chipStats.archived > 0 ? [{
+                        label: `アーカイブの ${chipStats.archived} 冊を見る`,
+                        onClick: () => setStatusFilter(STATUS_ARCHIVED),
+                        variant: 'primary',
+                      }] : []),
                       {
                         // 検索語だけで絞っているときは「検索をクリア」、状態・フォルダ等もあれば「条件をクリア」。
                         label: search.trim() && activeFilterCount === 0 ? '検索をクリア' : '条件をクリア',
                         onClick: () => { setSearch(''); setFolderFilter(null); clearAllFilters(); },
-                        variant: 'primary',
+                        variant: statusFilter !== STATUS_ARCHIVED && chipStats.archived > 0 ? 'secondary' : 'primary',
                       },
                       // 本棚に無い本を探していた人の次の一歩（2026-11-22 点検）: その言葉で本を追加を開く。
-                      ...(libraryQuery && activeFilterCount === 0 && !folderFilter ? [{
+                      ...(libraryQuery && activeFilterCount === 0 && !folderFilter && !(statusFilter !== STATUS_ARCHIVED && chipStats.archived > 0) ? [{
                         label: `「${libraryQuery.length > 12 ? `${libraryQuery.slice(0, 11)}…` : libraryQuery}」で本を追加`,
                         onClick: () => { const q = libraryQuery; openAdd(); setAddFromSearchQuery(q); },
                         variant: 'secondary',
@@ -7496,6 +7550,7 @@ function AuthedApp() {
                   // メモ 0 件のときの次の一歩（2026-11-23 ui-critic）
                   onWriteMemo={() => setAddNoteSheet('pick')}
                   onWriteBookMemo={(b) => setHomeMemoBook(b)}
+                  onConsultBooks={(q, ids) => openConsultWith(q, { bookIds: ids })}
                   onQuickstart={() => { setQuickstartSeed(null); setShowQuickstart(true); }}
                   // やってみたことの「この結果を相談する」（行動の完了のその場と同じ下書き・相談相手はその本・2026-10-21）
                   onConsultAction={(a) => openConsultWith(actionResultQuestion(a.text, a.reflection), { bookIds: a.bookId ? [a.bookId] : null })}
@@ -7975,7 +8030,7 @@ function AuthedApp() {
         <BottomSheet title="どの本のメモにしますか？" onClose={() => setAddNoteSheet(null)} dismissLabel="キャンセル">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
             {[...books]
-              .filter((b) => b.status === 'reading' || b.status === 'done')
+              .filter((b) => !b.archivedAt && (b.status === 'reading' || b.status === 'done'))
               .sort((a, b) => {
                 const rank = { reading: 0, done: 1 };
                 const ra = rank[a.status] ?? 4;

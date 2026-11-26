@@ -38,7 +38,8 @@ const onMap = (b) => !b?.archivedAt && (b?.status === 'reading' || b?.status ===
  * 返り値: { nodes: [{ book, weight, memoCount, latest, fields }], edges: [{ a, b, count, tags, weight, best: { from, to } }], hubs: [{ name, bookIds }] }
  */
 export function buildKnowledgeMap({ rows = [], books = [], maxMemos = MAP_MAX_MEMOS, maxBooks = MAP_MAX_BOOKS, maxEdges = MAP_MAX_EDGES } = {}) {
-  const bookById = new Map((books || []).map((b) => [String(b.id), b]));
+  // アーカイブした本は、点にも線（メモのつながり）にも入れない（2026-11-26 点検）
+  const bookById = new Map((books || []).filter((b) => !b?.archivedAt).map((b) => [String(b.id), b]));
   const memos = [];
   const memoCount = new Map();
   const latest = new Map(); // 本 → いちばん新しい自分のメモ（rows は新しい順）
@@ -129,6 +130,7 @@ export function buildKnowledgeMap({ rows = [], books = [], maxMemos = MAP_MAX_ME
     memoCount: memoCount.get(id) || 0,
     latest: latest.has(id) ? memoOf(latest.get(id)) : null,
     fields: fieldsOf(bookById.get(id)),
+    at: timeOf(bookById.get(id)), // 読み始めた・読み終えた日（育った順に見るの並び）
   }));
   // 分野の集まり（地図の内側の点＝分野・そこから本へ細い線）。2 冊以上の本がある分野だけ・多い順に 6 つまで。
   const byField = new Map();
@@ -193,3 +195,48 @@ export function ringPositions(n, { radius = 0.38, cx = 0.5, cy = 0.5 } = {}) {
 
 /** 線の太さ（px）: 似たメモの組と同じタグの数で 1.5〜4。 */
 export const edgeWidth = (count, tags = 0) => Math.min(4, 1.5 + 0.6 * Math.max(0, (count || 0) + (tags || 0) - 1));
+
+// ─── 2026-11-26 作り直し（オーナー「知識の地図の UI/UX のレベルを圧倒的に上げて・感動的に面白く・実用的に」） ───
+
+/** 表紙の幅（px）: メモの多い本ほど大きく（数は出さない・メモの無い本がいちばん小さい 24・6 件から 44）。 */
+export const nodeCoverWidth = (memoCount) => 24 + Math.min(Math.max(0, memoCount || 0), 5) * 4;
+
+/** 育った順（読み始め・読み終えた日の古い順・日付の無い本は最後）。返り値は本の id の並び。 */
+export function growthOrder(nodes = []) {
+  return [...nodes]
+    .map((n, i) => ({ id: String(n.book.id), at: n.at || 0, i }))
+    .sort((x, y) => (x.at === 0) - (y.at === 0) || x.at - y.at || x.i - y.i)
+    .map((x) => x.id);
+}
+
+/** いちばん強い重なり（重みの大きい線・無ければ null）。 */
+export function strongestEdge(edges = []) {
+  return edges.length ? [...edges].sort((x, y) => y.weight - x.weight)[0] : null;
+}
+
+/** 選んだ本と線でつながる本の id（Set）。 */
+export function linkedIds(edges = [], id) {
+  const out = new Set();
+  for (const e of edges) { if (e.a === id) out.add(e.b); else if (e.b === id) out.add(e.a); }
+  return out;
+}
+
+/** 夜空の星（飾りの小さな点・毎回同じ位置＝種から作る）。x・y は 0〜100、r は 0.2〜0.55、o は濃さ。 */
+export function starField(n = 26, seed = 7) {
+  let h = seed >>> 0;
+  const rnd = () => { h = (h * 1664525 + 1013904223) >>> 0; return h / 4294967296; };
+  return Array.from({ length: n }, () => ({ x: 3 + rnd() * 94, y: 3 + rnd() * 94, r: 0.2 + rnd() * 0.35, o: 0.18 + rnd() * 0.4 }));
+}
+
+/** 育った順に見るときの、その時点の日付の書き方（「2025.10」・日付の無い本は空）。 */
+export function growthLabel(at) {
+  if (!at) return '';
+  const d = new Date(at);
+  return `${d.getFullYear()}.${d.getMonth() + 1}`;
+}
+
+/** 2 冊に相談する下書き（送らない）。 */
+export function pairConsultQuestion(a, b) {
+  const t = (x) => String(x?.title || '').trim();
+  return `『${t(a)}』と『${t(b)}』のメモを重ねると、いまの自分にどんなことが言えますか？`;
+}

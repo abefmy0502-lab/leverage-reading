@@ -46,7 +46,8 @@ export const timeOf = (v) => {
 
 // ---------------------------------------------------------------- どの本？
 
-const isShareable = (b) => !!b && (b.status === 'reading' || b.status === 'done') && String(b.title || '').trim();
+// アーカイブした本は最初に選ばない（2026-11-26 点検）
+const isShareable = (b) => !!b && !b.archivedAt && (b.status === 'reading' || b.status === 'done') && String(b.title || '').trim();
 // 最近さわった順（読書中は読み始め・更新、読了は読了日・更新の新しいほう）。
 const recency = (b) => Math.max(timeOf(b.updatedAt || b.updated_at), timeOf(b.doneDate), timeOf(b.startDate), timeOf(b.createdAt || b.created_at));
 
@@ -78,7 +79,8 @@ export function subjectChoices(books, { selectedId = null, max = 8, includeYear 
   const done = list.filter((b) => b.status === 'done').sort((a, b) => recency(b) - recency(a));
   let picked = [...reading, ...done].slice(0, max);
   if (selectedId && !picked.some((b) => b.id === selectedId)) {
-    const sel = list.find((b) => b.id === selectedId);
+    // 選んでいる本はアーカイブ中でも並べる（本の詳細から開いたとき）
+    const sel = list.find((b) => b.id === selectedId) || (Array.isArray(books) ? books : []).find((b) => b?.id === selectedId && (b.status === 'reading' || b.status === 'done') && String(b.title || '').trim());
     if (sel) picked = [sel, ...picked.slice(0, max - 1)];
   }
   return [{ kind: 'month' }, ...(includeYear ? [{ kind: 'year' }] : []), ...picked.map((b) => ({ kind: 'book', bookId: b.id, book: b }))];

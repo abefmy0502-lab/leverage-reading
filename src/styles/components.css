@@ -1832,3 +1832,13 @@ body.chat-active.chat-scroll-down .bottom-nav {
    動きを減らす設定は index.css の global で抑える。 */
 @keyframes kmap-line-in { from { opacity: 0; } to { opacity: 1; } }
 .kmap-line { animation: kmap-line-in var(--duration-base) var(--ease-out) both; }
+/* 2026-11-26 作り直し: 夜空に、表紙が育った順に浮かぶ（1 回）・いくつかの星がゆっくり瞬く・押した本は淡く光る。 */
+@keyframes kmap-pop { from { opacity: 0; transform: translate(-50%, -50%) scale(0.6); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+.kmap-node { animation: kmap-pop var(--duration-slow) var(--ease-spring) both; }
+@keyframes kmap-twinkle { from { opacity: 0.15; } to { opacity: 0.7; } }
+.kmap-twinkle { animation: kmap-twinkle 3.6s ease-in-out infinite alternate; }
+.kmap-stage { background: var(--kmap-bg); }
+.kmap-stage button:focus-visible { outline: 2px solid var(--kmap-line-on); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  .kmap-node, .kmap-twinkle, .kmap-line { animation: none; }
+}

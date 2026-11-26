@@ -16,7 +16,10 @@ const digits = (v) => String(v || '').replace(/[^\d０-９]/g, '').replace(/[０
 // book: 本（currentPage / totalPages / progressUnit）・infoPages: 本の情報の総ページ（無ければ 0）
 export default function ProgressSheet({ book, infoPages = 0, onSave, onClear, onClose }) {
   const [unit, setUnit] = useState(book?.progressUnit === 'percent' ? 'percent' : 'page');
-  const [current, setCurrent] = useState(book?.currentPage != null ? String(book.currentPage) : '');
+  // 単位ごとの下書き（％ → ページ → ％ と替えても、打った数が消えない・2026-11-26 点検）
+  const [drafts, setDrafts] = useState(() => ({ [book?.progressUnit === 'percent' ? 'percent' : 'page']: book?.currentPage != null ? String(book.currentPage) : '' }));
+  const current = drafts[unit] ?? '';
+  const setCurrent = (v) => setDrafts((d) => ({ ...d, [unit]: v }));
   const [total, setTotal] = useState(book?.totalPages ? String(book.totalPages) : infoPages ? String(infoPages) : '');
   const fromInfo = !book?.totalPages && !!infoPages && total === String(infoPages);
   const v = cleanProgress({ unit, current, total });
@@ -42,8 +45,8 @@ export default function ProgressSheet({ book, infoPages = 0, onSave, onClear, on
         {/* 単位（ページ｜％）。電子書籍は画面の大きさでページが変わるので％で */}
         <div role="radiogroup" aria-label="記録の単位" style={segTrack}>
           {[{ v: 'page', l: 'ページ' }, { v: 'percent', l: '％（電子書籍）' }].map((o) => (
-            // 単位を替えたら数を空にする（ページの 120 が％の 100 として保存されないように・2026-11-26 ui-critic）
-            <button key={o.v} type="button" role="radio" aria-checked={unit === o.v} onClick={() => { if (unit !== o.v) setCurrent(''); setUnit(o.v); }} style={segOption(unit === o.v)}>
+            // 単位ごとに別の下書き（ページの 120 が％の 100 として保存されない・戻すと元の数が出る）
+            <button key={o.v} type="button" role="radio" aria-checked={unit === o.v} onClick={() => setUnit(o.v)} style={segOption(unit === o.v)}>
               {o.l}
             </button>
           ))}
@@ -66,7 +69,14 @@ export default function ProgressSheet({ book, infoPages = 0, onSave, onClear, on
             <input type="text" inputMode="numeric" autoFocus value={current} onChange={(e) => setCurrent(digits(e.target.value).slice(0, 3))} onKeyDown={onKey} maxLength={3} placeholder="例：45" style={{ ...numInput, width: 'calc(50% - var(--space-2))' }} />
           </label>
         )}
-        {over && <p role="status" style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>総ページより先なので、{v.total} ページとして保存します。</p>}
+        {over && (
+          // 総ページが版違いのこともあるので、総ページを直す道も（2026-11-26 点検）
+          <div role="status" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 'var(--space-3)' }}>
+            <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>総ページより先なので、{v.total} ページとして保存します。</p>
+            <button type="button" onClick={() => setTotal(String(Number(current)))} style={{ ...btnLinkQuiet, marginLeft: 'calc(-1 * var(--space-1))' }}>{`総ページを ${Number(current)} にする`}</button>
+          </div>
+        )}
+        {unit === 'page' && current !== '' && !canSave && <p role="status" style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>1 から 20000 までのページを入れてください。</p>}
         {overPct && <p role="status" style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>100％ として保存します。</p>}
         {book?.currentPage != null && (
           <button type="button" onClick={clear} style={{ ...btnLinkQuiet, alignSelf: 'flex-start', marginLeft: 'calc(-1 * var(--space-1))' }}>記録を消す</button>

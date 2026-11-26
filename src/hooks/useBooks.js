@@ -330,6 +330,9 @@ export function useBooks() {
 
       let savedBookId;
       const isUUID = UUID_RE.test(book.id || '');
+      // どこまで読んだかを書くのは saveProgress だけ（前からある本の保存で、古い写しのページを書き戻さない・2026-11-26 点検）。
+      //   新しく入れる本だけ、検索から入った総ページを入れる。
+      if (isUUID) { delete bookData.current_page; delete bookData.total_pages; }
 
       // schema-error フォールバック付きヘルパー: 任意カラム群を順に剥がして
       // 再試行する。エラーメッセージに当該列名 or 'column' が含まれたら
@@ -796,7 +799,12 @@ export function useBooks() {
   // 📖 どこまで読んだか（現在・総ページ・単位）だけを書く（2026-11-26・本の保存は通さない）。列が無い DB では端末に控える。
   const saveProgress = async (bookId, p) => {
     const v = cleanProgress(p);
-    setBooks((prev) => prev.map((b) => (b.id === bookId ? { ...b, currentPage: v.current, totalPages: v.total ?? (v.unit === 'percent' ? b.totalPages : null), progressUnit: v.unit } : b)));
+    let before = null;
+    setBooks((prev) => prev.map((b) => {
+      if (b.id !== bookId) return b;
+      before = { currentPage: b.currentPage, totalPages: b.totalPages, progressUnit: b.progressUnit };
+      return { ...b, currentPage: v.current, totalPages: v.total ?? (v.unit === 'percent' ? b.totalPages : null), progressUnit: v.unit };
+    }));
     if (!user || !isSupabaseConfigured || !UUID_RE.test(bookId || '')) { writeLocalProgress(bookId, v); return { ok: true, local: true }; }
     const row = { current_page: v.current, progress_unit: v.unit };
     if (v.unit === 'page') row.total_pages = v.total;
@@ -811,7 +819,12 @@ export function useBooks() {
       error = e || new Error('save failed');
     }
     if (error) {
-      if (!isSchemaError(error)) console.warn('どこまで読んだかを本に保存できず端末に控えます:', error?.message || error);
+      // 列が無い DB だけ端末に控える。つながらない・断られたときは戻して失敗を返す
+      //   （控えると、次に開いたとき本の値が勝って黙って消えていた・保存は端末にためて後で送らない＝2026-11-26 点検）。
+      if (!isSchemaError(error) && !/progress_unit|current_page|total_pages/.test(String(error.message || ''))) {
+        if (before) setBooks((prev) => prev.map((b) => (b.id === bookId ? { ...b, ...before } : b)));
+        return { ok: false, error };
+      }
       writeLocalProgress(bookId, v);
       return { ok: true, local: true };
     }
@@ -822,7 +835,12 @@ export function useBooks() {
   // 🗄 アーカイブにする／戻す（archived_at だけ・状態は変えない・2026-11-26）。列が無い DB では端末に控える。
   const setArchived = async (bookId, on) => {
     const iso = on ? new Date().toISOString() : null;
-    setBooks((prev) => prev.map((b) => (b.id === bookId ? { ...b, archivedAt: iso } : b)));
+    let before;
+    setBooks((prev) => prev.map((b) => {
+      if (b.id !== bookId) return b;
+      before = b.archivedAt ?? null;
+      return { ...b, archivedAt: iso };
+    }));
     if (!user || !isSupabaseConfigured || !UUID_RE.test(bookId || '')) { writeLocalArchived(bookId, iso); return { ok: true, local: true }; }
     let error = null;
     try {
@@ -831,8 +849,10 @@ export function useBooks() {
       error = e || new Error('save failed');
     }
     if (error) {
+      // 列が無い DB だけ端末に控える。つながらない・断られたときは戻して失敗を返す（2026-11-26 点検）。
       if (!isSchemaError(error) && !String(error.message || '').includes('archived_at')) {
-        console.warn('アーカイブを本に保存できず端末に控えます:', error?.message || error);
+        setBooks((prev) => prev.map((b) => (b.id === bookId ? { ...b, archivedAt: before ?? null } : b)));
+        return { ok: false, error };
       }
       writeLocalArchived(bookId, iso);
       return { ok: true, local: true };

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildKnowledgeMap, orderAroundRing, orderByField, ringPositions, hubPositions, edgeWidth } from './knowledgeMap';
+import { nodeCoverWidth, growthOrder, strongestEdge, linkedIds, starField, growthLabel, pairConsultQuestion } from './knowledgeMap';
 
 const books = [
   { id: 'b1', title: '1兆ドルコーチ' },
@@ -102,5 +103,33 @@ describe('知識の地図（2026-11-26）', () => {
     expect(edgeWidth(1)).toBe(1.5);
     expect(edgeWidth(20)).toBe(4);
     expect(edgeWidth(0, 1)).toBe(1.5);
+  });
+});
+
+describe('知識の地図の作り直し（2026-11-26）', () => {
+  const node = (id, at, memoCount = 0) => ({ book: { id, title: `本${id}` }, at, memoCount });
+  it('表紙はメモの多い本ほど少し大きい（上限あり）', () => {
+    expect(nodeCoverWidth(0)).toBe(24);
+    expect(nodeCoverWidth(3)).toBe(36);
+    expect(nodeCoverWidth(100)).toBe(44);
+  });
+  it('育った順は日付の古い順・日付の無い本は最後', () => {
+    expect(growthOrder([node('a', 300), node('b', 0), node('c', 100)])).toEqual(['c', 'a', 'b']);
+  });
+  it('いちばん強い重なりとつながる本', () => {
+    const edges = [{ a: 'a', b: 'b', weight: 1 }, { a: 'b', b: 'c', weight: 3 }];
+    expect(strongestEdge(edges)).toEqual(edges[1]);
+    expect(strongestEdge([])).toBeNull();
+    expect([...linkedIds(edges, 'b')].sort()).toEqual(['a', 'c']);
+  });
+  it('星は毎回同じ位置・地図の中', () => {
+    const s = starField(10, 3);
+    expect(starField(10, 3)).toEqual(s);
+    expect(s.every((p) => p.x > 0 && p.x < 100 && p.y > 0 && p.y < 100)).toBe(true);
+  });
+  it('日付の書き方と 2 冊の相談の下書き', () => {
+    expect(growthLabel(0)).toBe('');
+    expect(growthLabel(new Date(2025, 9, 3).getTime())).toBe('2025.10');
+    expect(pairConsultQuestion({ title: 'A' }, { title: 'B' })).toBe('『A』と『B』のメモを重ねると、いまの自分にどんなことが言えますか？');
   });
 });

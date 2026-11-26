@@ -118,6 +118,17 @@
   --focus-time: min(calc(1rem * 88 / 17), 22vw);
   --focus-ring-size: min(72vw, 300px, 42vh);
 
+  /* 🗺 知識の地図の夜空（2026-11-26 作り直し）。集中モードと同じ暗く温かい地を、明暗で変えずに使う＝読んできた本の星座。
+     線は淡い紙の白・選んだつながりはタイマーの輪と同じ金茶・光の粒は少し明るい色。文字は --focus-ink の系統（地の上 7.5:1 以上）。 */
+  --kmap-bg: radial-gradient(120% 100% at 50% 40%, #2a251f 0%, #1d1a16 62%, #17140f 100%);
+  --kmap-line: rgba(230, 221, 207, 0.22);
+  --kmap-line-on: var(--focus-ring);
+  --kmap-hub: rgba(230, 221, 207, 0.5);
+  --kmap-spark: #f6e3c4;
+  --kmap-glow: rgba(205, 176, 140, 0.5);
+  --kmap-star: #e6ddcf;
+  --kmap-shadow: rgba(0, 0, 0, 0.35); /* 表紙の下の淡い影（夜空の地の上だけ） */
+
   /* 一文カード（シェア画像・lib/shareCard.js が canvas に描くときに getComputedStyle で読む）。
      画像は外に出る「形そのもの」なので、明暗で変えない（暗い画面の設定の人も同じ画像を作る）。
      3 つの地: 紙 / 夜 / 表紙の色（表紙から作った地の上に白い文字）。本文は明朝。
